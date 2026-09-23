@@ -1,0 +1,18 @@
+{
+  "check-coverage": true,
+  "statements": 100,
+  "functions": 100,
+  "branches": 100,
+  "lines": 100,
+  "include": [
+    "src/presentation-common/**/*",
+    "lib/esm/presentation-common/**/*"
+  ],
+  "temp-dir": "./lib/test/coverage/.nyc_output",
+  "report-dir": "./lib/test/coverage",
+  "reporter": [
+    "text-summary",
+    "lcov",
+    "cobertura"
+  ]
+}

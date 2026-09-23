@@ -1,0 +1,92 @@
+# iTwin.js Core Integration Validation Build
+#
+# This integration test job currently runs on all supported operating systems and node versions of iTwin.js.
+# Runs against master on a weekly schedule, in the future this should be a required check before bumping versions.
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 0 * * Sun"
+    displayName: Weekly Sunday build
+    branches:
+      include:
+        - master
+
+variables:
+  - group: iTwin.js non-secret config variables
+  - group: iTwin.js Integration Test Users
+  - name: ITWIN_INCLUDE_SCHEMASYNC_EXTENDED_TESTS
+    value: "1"
+
+jobs:
+  - job: Integration_Tests_Full
+    strategy:
+      matrix:
+        Linux_node_20_x:
+          imageName: ubuntu-latest
+          poolName:
+          nodeVersion: 20.x
+        Windows_node_20_x:
+          imageName: windows-latest
+          poolName:
+          nodeVersion: 20.x
+        MacOS_node_20_x:
+          imageName: macos-latest
+          poolName: "iModelTechMacArm"
+          nodeVersion: 20.x
+        Linux_node_22_x:
+          imageName: ubuntu-latest
+          poolName:
+          nodeVersion: 22.x
+        Windows_node_22_x:
+          imageName: windows-latest
+          poolName:
+          nodeVersion: 22.x
+        MacOS_node_22_x:
+          imageName: macos-latest
+          poolName: "iModelTechMacArm"
+          nodeVersion: 22.x
+        LinuxARM64_node_22_x:
+          poolName: "Platform-Debian12-ARM"
+          nodeVersion: 22.x
+        LinuxX64_node_24_x:
+          imageName: ubuntu-latest
+          poolName:
+          nodeVersion: 24.x
+        Windows_node_24_x:
+          imageName: windows-latest
+          poolName:
+          nodeVersion: 24.x
+        MacOS_node_24_x:
+          imageName: macos-latest
+          poolName: "iModelTechMacArm"
+          nodeVersion: 24.x
+        LinuxARM64_node_24_x:
+          poolName: "Platform-Debian12-ARM"
+          nodeVersion: 24.x
+    pool:
+      name: $(poolName)
+      vmImage: $(imageName)
+    steps:
+      - checkout: self
+        clean: true
+        fetchDepth: 1
+
+      - template: templates/integration-test-steps.yaml
+        parameters:
+          nodeVersion: $(nodeVersion)
+
+      - script: npm test
+        workingDirectory: "core/backend"
+        env:
+          ITWIN_INCLUDE_SEMANTIC_REBASE_EXTENDED_TESTS: "1"
+        displayName: "Run Core Backend Tests"
+        condition: succeededOrFailed()
+
+      - task: PublishTestResults@2
+        displayName: "Publish Core Backend Test Results"
+        inputs:
+          testResultsFiles: "core/backend/lib/test/junit_results.xml"
+          testRunTitle: "Core Backend - Tests - $(nodeVersion)"
+        condition: succeededOrFailed()

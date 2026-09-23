@@ -1,0 +1,77 @@
+# dependencies
+node_modules
+package-lock.json
+# Exception: pins Rush's bootstrap install
+!/.github/workflows/automation-scripts/rush-lockfile/package-lock.json
+
+# build output
+.nyc_output
+lib
+build
+/**/test/output
+/generated-docs
+/staging-docs
+/out
+**/DevBuild.txt
+coverage
+full_stack_test_results
+integration_test_results
+ecschema-rpcinterface-tests-result
+imjs_plugins
+imjs_extensions
+!tools/build
+.vite-inspect/
+.static-assets/
+stats.html
+
+# rush-specific
+/common/temp
+package-deps.json
+/**/.rush
+*.build.log
+*.build.error.log
+common/autoinstallers/*/.npmrc
+
+# pnpm
+.pnpm-debug.log
+
+# docs
+/public
+
+# trash
+*.bak
+*.orig
+.node-xmlhttprequest-sync*
+
+# xcode
+/**/xcuserdata
+
+# Output of 'npm pack'
+*.tgz
+
+# Mac specfic
+.DS_Store
+
+.env
+.env.local
+.env.*.local
+
+# Claude Code - personal/local overrides (do not commit)
+CLAUDE.local.md
+**/CLAUDE.local.md
+.claude/settings.local.json
+.claude/*.local.md
+
+# GitHub Copilot CLI - personal/local overrides (do not commit)
+COPILOT.local.md
+**/COPILOT.local.md
+AGENTS.local.md
+**/AGENTS.local.md
+.copilot/settings.local.json
+.copilot/*.local.md
+
+common/api/summary/summary.exports.csv
+
+*.log
+*.error.log
+**/tsconfig.tsbuildinfo

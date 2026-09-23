@@ -1,0 +1,177 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Elements
+ */
+
+import { DbResult, Id64String, IModelStatus } from "@itwin/core-bentley";
+import { ChannelControlError, ChannelRootAspectProps, IModel, IModelError, QueryBinder } from "@itwin/core-common";
+import { ChannelControl, ChannelKey, ChannelUpgradeContext, ChannelUpgradeOptions } from "../ChannelControl";
+import { Subject } from "../Element";
+import { IModelDb } from "../IModelDb";
+import { IModelHost } from "../IModelHost";
+import { ElementOwnsChannelRootAspect } from "../NavigationRelationship";
+import { EditTxn } from "../EditTxn";
+import { _implementationProhibited, _implicitTxn, _nativeDb, _verifyChannel } from "./Symbols";
+import * as semver from "semver";
+
+class ChannelAdmin implements ChannelControl {
+  public static readonly channelClassName = "bis:ChannelRootAspect";
+
+  public readonly [_implementationProhibited] = undefined;
+  private _allowedChannels = new Set<ChannelKey>();
+  private _allowedModels = new Set<Id64String>();
+  private _deniedModels = new Map<Id64String, ChannelKey>();
+
+  public constructor(private _iModel: IModelDb) {
+    // for backwards compatibility, allow the shared channel unless explicitly turned off in IModelHostOptions.
+    if (IModelHost.configuration?.allowSharedChannel !== false)
+      this._allowedChannels.add(ChannelControl.sharedChannelName);
+  }
+
+  public addAllowedChannel(channelKey: ChannelKey) {
+    this._allowedChannels.add(channelKey);
+    this._deniedModels.clear();
+  }
+
+  public removeAllowedChannel(channelKey: ChannelKey) {
+    this._allowedChannels.delete(channelKey);
+    this._allowedModels.clear();
+  }
+
+  public getChannelKey(elementId: Id64String): ChannelKey {
+    if (elementId === IModel.rootSubjectId)
+      return ChannelControl.sharedChannelName;
+
+    try {
+      const channel = this._iModel.withQueryReader(`SELECT Owner FROM ${ChannelAdmin.channelClassName} WHERE Element.Id=?`, (reader) => {
+        return reader.step() ? reader.current[0] : undefined;
+      }, new QueryBinder().bindId(1, elementId));
+
+      if (channel !== undefined)
+        return channel;
+    } catch {
+      // Exception happens if the iModel is too old: ChannelRootAspect class not present in the BisCore schema (older than v1.0.10).
+      // In that case all data in such iModel is assumed to be in the shared channel.
+      return ChannelControl.sharedChannelName;
+    }
+
+    const parentId = this._iModel.withPreparedSqliteStatement("SELECT ParentId,ModelId FROM bis_Element WHERE id=?", (stmt) => {
+      stmt.bindId(1, elementId);
+      if (DbResult.BE_SQLITE_ROW !== stmt.step())
+        throw new IModelError(IModelStatus.NotFound, "Element does not exist");
+      return stmt.getValueId(0) ?? stmt.getValueId(1); // if parent is undefined, use modelId
+    });
+
+    return this.getChannelKey(parentId);
+  }
+
+  public [_verifyChannel](modelId: Id64String): void {
+    // Note: indirect changes are permitted to change any channel
+    if (this._allowedModels.has(modelId) || this._iModel[_nativeDb].getTxnMode() === "indirect")
+      return;
+
+    const deniedChannel = this._deniedModels.get(modelId);
+    if (undefined !== deniedChannel)
+      ChannelControlError.throwError("not-allowed", `Channel ${deniedChannel} is not allowed`, deniedChannel);
+
+    const channel = this.getChannelKey(modelId);
+    if (this._allowedChannels.has(channel)) {
+      this._allowedModels.add(modelId);
+      return;
+    }
+
+    this._deniedModels.set(modelId, channel);
+    return this[_verifyChannel](modelId);
+  }
+
+  public makeChannelRoot(args: { elementId: Id64String, channelKey: ChannelKey, txn: EditTxn }): void;
+  /** @deprecated in 5.9.0 - will not be removed until after 2027-05-04. Use makeChannelRoot and supply `txn`. */
+  public makeChannelRoot(args: { elementId: Id64String, channelKey: ChannelKey }): void;
+  public makeChannelRoot(args: { elementId: Id64String, channelKey: ChannelKey, txn?: EditTxn }): void {
+    const txn = args.txn ?? this._iModel[_implicitTxn];
+    const channelKey = this.getChannelKey(args.elementId);
+    if (ChannelControl.sharedChannelName !== channelKey)
+      ChannelControlError.throwError("may-not-nest", `Channel ${channelKey} may not nest`, channelKey);
+
+    if (this.queryChannelRoot(args.channelKey) !== undefined)
+      ChannelControlError.throwError("root-exists", `Channel ${args.channelKey} root already exist`, channelKey);
+
+    const props: ChannelRootAspectProps = {
+      classFullName: ChannelAdmin.channelClassName,
+      element: {
+        id: args.elementId,
+        relClassName: ElementOwnsChannelRootAspect.classFullName,
+      },
+      owner: args.channelKey,
+    };
+    txn.insertAspect(props);
+  }
+
+  public insertChannelSubject(args: { subjectName: string, channelKey: ChannelKey, parentSubjectId?: Id64String, description?: string, txn: EditTxn }): Id64String;
+  /** @deprecated in 5.9.0 - will not be removed until after 2027-05-04. Use insertChannelSubject and supply `txn`. */
+  public insertChannelSubject(args: { subjectName: string, channelKey: ChannelKey, parentSubjectId?: Id64String, description?: string }): Id64String;
+  public insertChannelSubject(args: { subjectName: string, channelKey: ChannelKey, parentSubjectId?: Id64String, description?: string, txn?: EditTxn }): Id64String {
+    const txn = args.txn ?? this._iModel[_implicitTxn];
+    // Check if channelKey already exists before inserting Subject.
+    // makeChannelRoot will check that again, but at that point the new Subject is already inserted.
+    // Prefer to check twice instead of deleting the Subject in the latter option.
+    if (this.queryChannelRoot(args.channelKey) !== undefined)
+      ChannelControlError.throwError("root-exists", `Channel ${args.channelKey} root already exist`, args.channelKey);
+
+    const elementId = Subject.insert(txn, args.parentSubjectId ?? IModel.rootSubjectId, args.subjectName, args.description);
+    this.makeChannelRoot({ elementId, channelKey: args.channelKey, txn });
+    return elementId;
+  }
+
+  public queryChannelRoot(channelKey: ChannelKey): Id64String | undefined {
+    if (channelKey === ChannelControl.sharedChannelName)
+      // RootSubject acts as the ChannelRoot element of the shared channel
+      return IModel.rootSubjectId;
+
+    try {
+      const channelRoot = this._iModel.withQueryReader(`SELECT Element.Id FROM ${ChannelAdmin.channelClassName} WHERE Owner=?`, (reader) => {
+        return reader.step() ? reader.current[0] : undefined;
+      }, new QueryBinder().bindString(1, channelKey));
+
+      return channelRoot;
+    } catch {
+      // Exception happens if the iModel is too old: ChannelRootAspect class not present in the BisCore schema (older than v1.0.10).
+      // In that case all data in such iModel is assumed to be in the shared channel.
+      return undefined;
+    }
+
+  }
+
+  public async upgradeChannel(options: ChannelUpgradeOptions, iModel: IModelDb, data?: any): Promise<void> {
+    // Validations
+    if (!this._allowedChannels.has(options.channelKey))
+      ChannelControlError.throwError("not-allowed", `Channel ${options.channelKey} is not allowed`, options.channelKey);
+
+    if (semver.gte(options.fromVersion, options.toVersion))
+      ChannelControlError.throwError("not-allowed", `Upgrading channel ${options.channelKey} from ${options.fromVersion} to ${options.toVersion} is not allowed`, options.channelKey);
+
+    if (!this.queryChannelRoot(options.channelKey) && options.channelKey !== ChannelControl.sharedChannelName)
+      ChannelControlError.throwError("not-allowed", `Channel ${options.channelKey} not found`, options.channelKey);
+
+    const context: ChannelUpgradeContext = {
+      iModel,
+      channelKey: options.channelKey,
+      fromVersion: options.fromVersion,
+      toVersion: options.toVersion,
+      data,
+    };
+
+    try {
+      await options.callback(context);
+    } catch (error: any) {
+      ChannelControlError.throwError(error, "channel-upgrade-failed", `Channel ${options.channelKey} upgrade failed: ${error.message}`);
+    }
+  }
+}
+
+export function createChannelControl(iModel: IModelDb): ChannelAdmin {
+  return new ChannelAdmin(iModel);
+}

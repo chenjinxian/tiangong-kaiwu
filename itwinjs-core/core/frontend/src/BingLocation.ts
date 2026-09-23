@@ -1,0 +1,59 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Tiles
+ */
+
+import { Cartographic } from "@itwin/core-common";
+import { request } from "./request/Request";
+import { IModelApp } from "./IModelApp";
+import { GlobalLocation } from "./ViewGlobalLocation";
+
+/** Provides an interface to the [Bing Maps location services](https://docs.microsoft.com/en-us/bingmaps/rest-services/locations/).
+ * Use of this service requires an API key to be supplied via [[MapLayerOptions.BingMaps]] in the [[IModelAppOptions.mapLayerOptions]] passed to [[IModelApp.startup]].
+ * @public
+ * @extensions
+ * @deprecated in 5.11.0 - will not be removed until after 2027-07-03. Provide a [[LocationProvider]] implementation via [[IModelAppOptions.geospatialProviders]].
+ * @note This class structurally satisfies [[LocationProvider]] but does not use an explicit `implements` clause
+ * because api-extractor forbids `@public` classes from referencing `@beta` interfaces (ae-incompatible-release-tags).
+ */
+export class BingLocationProvider {
+  private _locationRequestTemplate: string;
+
+  constructor() {
+    let bingKey = "";
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- this deprecated class reads from the deprecated BingMaps key by design
+    if (IModelApp.mapLayerFormatRegistry.configOptions.BingMaps) {
+      bingKey = IModelApp.mapLayerFormatRegistry.configOptions.BingMaps.value; // eslint-disable-line @typescript-eslint/no-deprecated
+    }
+    this._locationRequestTemplate = `https://dev.virtualearth.net/REST/v1/Locations?query={query}&key=${bingKey}`;
+  }
+  /** Return the location of a query (or undefined if not found). The strings "Space Needle" (a landmark) and "1 Microsoft Way Redmond WA" (an address) are examples of query strings with location information.
+   * These strings can be specified as a structured URL parameter or as a query parameter value.  See [Bing Location Services documentation](https://docs.microsoft.com/en-us/bingmaps/rest-services/locations/find-a-location-by-query) for additional
+   * information on queries.
+   * @public
+   */
+  public async getLocation(query: string): Promise<GlobalLocation | undefined> {
+    const requestUrl = this._locationRequestTemplate.replace("{query}", query);
+    try {
+      const locationResponse = await request(requestUrl, "json");
+      const point = locationResponse.resourceSets[0].resources[0].point;
+      const bbox = locationResponse.resourceSets[0].resources[0].bbox;
+      const southLatitude = bbox[0];
+      const westLongitude = bbox[1];
+      const northLatitude = bbox[2];
+      const eastLongitude = bbox[3];
+      return {
+        center: Cartographic.fromDegrees({ longitude: point.coordinates[1], latitude: point.coordinates[0] }),
+        area: {
+          southwest: Cartographic.fromDegrees({ longitude: westLongitude, latitude: southLatitude }),
+          northeast: Cartographic.fromDegrees({ longitude: eastLongitude, latitude: northLatitude }),
+        },
+      };
+    } catch {
+      return undefined;
+    }
+  }
+}

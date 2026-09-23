@@ -1,0 +1,29 @@
+{
+  "$schema": "./Base.Schema.json",
+  "description": "settings for geocoordinate services",
+  "schemaPrefix": "itwin/core/gcs",
+  "title": "Geocoordinate Services",
+  "settingDefs": {
+    "default/databases": {
+      "type": "array",
+      "description": "array of GCS WorkspaceDbs",
+      "items": {
+        "type": "object",
+        "extends": "itwin/core/workspace/workspaceDb",
+        "description": "Properties of a WorkspaceDb holding GCS data.",
+        "properties": {
+          "priority": {
+            "type": "number",
+            "description": "Priority value for GCS database, higher values are searched first",
+            "default": 500
+          }
+        }
+      }
+    },
+    "disableWorkspaces": {
+      "type": "boolean",
+      "description": "If true, do not load any GCS workspaces",
+      "default": false
+    }
+  }
+}

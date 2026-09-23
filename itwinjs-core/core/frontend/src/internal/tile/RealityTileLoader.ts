@@ -1,0 +1,373 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Tiles
+ */
+
+import { assert, ByteStream } from "@itwin/core-bentley";
+import { Point2d, Point3d, Transform } from "@itwin/core-geometry";
+import { BatchType, CompositeTileHeader, isKnownTileFormat, TileFormat, ViewFlagOverrides } from "@itwin/core-common";
+import { IModelApp } from "../../IModelApp";
+import { GraphicBranch } from "../../render/GraphicBranch";
+import { RenderSystem } from "../../render/RenderSystem";
+import { ScreenViewport, Viewport } from "../../Viewport";
+import { GltfWrapMode } from "../../common/gltf/GltfSchema";
+import {
+  B3dmReader, BatchedTileIdMap, createDefaultViewFlagOverrides, GltfGraphicsReader, GltfReader, GltfReaderProps, I3dmReader, ImdlReader, ProduceGeometryOption, readPointCloudTileContent,
+  RealityTile, RealityTileContent, Tile, TileContent, TileDrawArgs, TileLoadPriority, TileRequest, TileRequestChannel, TileUser,
+} from "../../tile/internal";
+import { LayerTileData } from "../render/webgl/MapLayerParams";
+
+const defaultViewFlagOverrides = createDefaultViewFlagOverrides({});
+
+const scratchTileCenterWorld = new Point3d();
+const scratchTileCenterView = new Point3d();
+
+/** Serves as a "handler" for a specific type of [[TileTree]]. Its primary responsibilities involve loading tile content.
+ * @internal
+ */
+export abstract class RealityTileLoader {
+  private _containsPointClouds = false;
+  public readonly preloadRealityParentDepth: number;
+  public readonly preloadRealityParentSkip: number;
+
+  public constructor(private _produceGeometry?: ProduceGeometryOption) {
+    this.preloadRealityParentDepth = IModelApp.tileAdmin.contextPreloadParentDepth;
+    this.preloadRealityParentSkip = IModelApp.tileAdmin.contextPreloadParentSkip;
+  }
+
+  public computeTilePriority(tile: Tile, viewports: Iterable<Viewport>, _users: Iterable<TileUser>): number {
+    // ###TODO: Handle case where tile tree reference(s) have a transform different from tree's (background map with ground bias).
+    return RealityTileLoader.computeTileLocationPriority(tile, viewports, tile.tree.iModelTransform);
+  }
+
+  public abstract loadChildren(tile: RealityTile): Promise<Tile[] | undefined>;
+  public abstract getRequestChannel(tile: Tile): TileRequestChannel;
+  public abstract requestTileContent(tile: Tile, isCanceled: () => boolean): Promise<TileRequest.Response>;
+  public get wantDeduplicatedVertices(): boolean { return false; }
+  public abstract get maxDepth(): number;
+  public abstract get minDepth(): number;
+  public abstract get priority(): TileLoadPriority;
+  protected get _batchType(): BatchType { return BatchType.Primary; }
+  protected get _loadEdges(): boolean { return true; }
+  public getBatchIdMap(): BatchedTileIdMap | undefined { return undefined; }
+  public get isContentUnbounded(): boolean { return false; }
+  public get containsPointClouds(): boolean { return this._containsPointClouds; }
+  public get parentsAndChildrenExclusive(): boolean { return true; }
+  public forceTileLoad(_tile: Tile): boolean { return false; }
+  public get maximumScreenSpaceError(): number | undefined { return undefined; }
+
+  public processSelectedTiles(selected: Tile[], _args: TileDrawArgs): Tile[] { return selected; }
+
+  // NB: The isCanceled arg is chiefly for tests...in usual case it just returns false if the tile is no longer in 'loading' state.
+  public async loadTileContent(tile: Tile, data: TileRequest.ResponseData, system: RenderSystem, isCanceled?: () => boolean): Promise<RealityTileContent> {
+    assert(data instanceof Uint8Array);
+    const blob = data;
+    const streamBuffer = ByteStream.fromUint8Array(blob);
+    const realityTile = tile as RealityTile;
+    return (this._produceGeometry && this._produceGeometry !== "no") ? this.loadGeometryFromStream(realityTile, streamBuffer, system) : this.loadGraphicsFromStream(realityTile, streamBuffer, system, isCanceled);
+  }
+
+  private _getFormat(streamBuffer: ByteStream) {
+    const position = streamBuffer.curPos;
+    const format = streamBuffer.readUint32();
+    streamBuffer.curPos = position;
+    return format;
+
+  }
+
+  /** Reality tile content is identified by the first 4 bytes of the stream. Binary formats (b3dm, glb, pnts, etc.) use a
+   * recognizable magic number, but a tileset may also reference glTF content as a plain-text JSON `.gltf` file, which
+   * begins with a `{` character instead of a magic number and therefore matches no known format.
+   * JSON content is identified the same way the rest of the reality tile pipeline identifies content types: by the
+   * content URL's extension (see `expandSubTree` in RealityModelTileTree.ts, which uses `RealityDataSource.getTileContentType`
+   * to peel off external `tileset.json` content during tree construction), rather than by sniffing the bytes.
+   * A `.gltf` content URL is normalized to [[TileFormat.Gltf]] so it is routed to the glTF reader, which accepts both
+   * binary and JSON glTF. (External `tileset.json` content is resolved by `expandSubTree` before it reaches this point.)
+   */
+  private _normalizeFormat(format: number, tile: RealityTile): number {
+    if (isKnownTileFormat(format))
+      return format;
+
+    if (this._hasGltfExtension(tile.contentUrl))
+      return TileFormat.Gltf;
+
+    return format;
+  }
+
+  /** Returns whether the given content URL identifies a JSON glTF (`.gltf`) resource, ignoring any query string or
+   * fragment (e.g. `8/130/85.gltf?token=abc`).
+   */
+  private _hasGltfExtension(contentUrl: string | undefined): boolean {
+    if (undefined === contentUrl)
+      return false;
+
+    const path = contentUrl.split(/[?#]/, 1)[0];
+    return path.toLowerCase().endsWith(".gltf");
+  }
+
+  /** The base URL the glTF reader should resolve relatively-referenced resources (e.g. external images) against.
+   * Prefer the tile's own content URL so that images referenced relative to the content (typical of JSON `.gltf` tiles)
+   * resolve correctly, rather than against the tileset root. The tileset's query/authentication parameters (e.g.
+   * `?sig=abc`) are preserved on the returned URL: the data source appends them to every tile request, and the glTF
+   * reader re-applies the base URL's query string to each relatively-referenced resource (see `GltfReader.resolveUrl`),
+   * so external resources must be fetched with the same parameters.
+   */
+  private _getReaderBaseUrl(tile: RealityTile): string | undefined {
+    const treeBaseUrl = tile.tree.baseUrl;
+    if (undefined !== tile.contentUrl) {
+      if (undefined === treeBaseUrl)
+        return tile.contentUrl;
+
+      try {
+        const resolved = new URL(tile.contentUrl, treeBaseUrl);
+        if ("" === resolved.search)
+          resolved.search = new URL(treeBaseUrl).search;
+        return resolved.toString();
+      } catch {
+        // treeBaseUrl is not a valid absolute base against which to resolve contentUrl; fall back to the tree base URL.
+      }
+    }
+
+    return treeBaseUrl;
+  }
+
+  public async loadGeometryFromStream(tile: RealityTile, streamBuffer: ByteStream, system: RenderSystem): Promise<RealityTileContent> {
+    const format = this._normalizeFormat(this._getFormat(streamBuffer), tile);
+    if (format !== TileFormat.B3dm && format !== TileFormat.Gltf) {
+      return {};
+    }
+
+    const { is3d, yAxisUp, iModel, modelId } = tile.realityRoot;
+    let reader: GltfReader | undefined;
+
+    // Create final transform from tree's iModelTransform and transformToRoot
+    let transform = tile.tree.iModelTransform;
+    if (tile.transformToRoot) {
+      transform = transform.multiplyTransformTransform(tile.transformToRoot);
+    }
+
+    switch (format) {
+      case TileFormat.Gltf:
+        const props = createReaderPropsWithBaseUrl(streamBuffer, yAxisUp, this._getReaderBaseUrl(tile));
+
+        if (props) {
+          reader = new GltfGraphicsReader(props, {
+            iModel,
+            gltf: props.glTF,
+            contentRange: tile.contentRange,
+            transform: tile.transformToRoot,
+            hasChildren: !tile.isLeaf,
+            pickableOptions: { id: modelId },
+            idMap: this.getBatchIdMap()
+          });
+        }
+        break;
+      case TileFormat.B3dm:
+        reader = B3dmReader.create(streamBuffer, iModel, modelId, is3d, tile.contentRange, system, yAxisUp, tile.isLeaf, tile.center, tile.transformToRoot, undefined, this.getBatchIdMap());
+        if (reader)
+          reader.defaultWrapMode = GltfWrapMode.ClampToEdge;
+        break;
+    }
+    const geom = await reader?.readGltfAndCreateGeometry(transform);
+
+    // See RealityTileTree.reprojectAndResolveChildren for how reprojectionTransform is calculated
+    // xForm is defined in root tile CRS, while geom is defined in iModel CRS
+    const xForm = tile.reprojectionTransform;
+
+    if (tile.tree.reprojectGeometry && geom?.polyfaces?.length && xForm) {
+      // Transform from iModel/Db CRS -> root tile CRS
+      const dbToRoot = tile.tree.iModelTransform.inverse();
+
+      if (dbToRoot) {
+        // Conjugate xForm to apply it to polyfaces in iModel CRS:
+        // dbToRoot converts to root tile CRS, xForm applies reprojection, iModelTransform converts back
+        const polyfaceReprojectionTransform = tile.tree.iModelTransform.multiplyTransformTransform(xForm).multiplyTransformTransform(dbToRoot);
+        const polyfaces = geom.polyfaces.map((pf) => pf.cloneTransformed(polyfaceReprojectionTransform));
+        return { geometry: { polyfaces } };
+      }
+    }
+    return { geometry: geom };
+  }
+
+  private async loadGraphicsFromStream(tile: RealityTile, streamBuffer: ByteStream, system: RenderSystem, isCanceled?: () => boolean): Promise<TileContent> {
+    const format = this._normalizeFormat(this._getFormat(streamBuffer), tile);
+    if (undefined === isCanceled)
+      isCanceled = () => !tile.isLoading;
+
+    const { is3d, yAxisUp, iModel, modelId } = tile.realityRoot;
+    let reader: GltfReader | ImdlReader | undefined;
+
+    const ecefTransform = tile.tree.iModel.isGeoLocated ? tile.tree.iModel.getEcefTransform() : Transform.createIdentity();
+    const tileData: LayerTileData = {
+      ecefTransform,
+      range: tile.range,
+      layerClassifiers: tile.tree.layerHandler?.layerClassifiers,
+    };
+
+    switch (format) {
+      case TileFormat.IModel:
+        reader = ImdlReader.create({
+          stream: streamBuffer,
+          iModel,
+          modelId,
+          is3d,
+          system,
+          isCanceled,
+        });
+        break;
+      case TileFormat.Pnts:
+        this._containsPointClouds = true;
+        const res = await readPointCloudTileContent(streamBuffer, iModel, modelId, is3d, tile, system);
+        let graphic = res.graphic;
+        const rtcCenter = res.rtcCenter;
+        if (graphic && (rtcCenter || tile.transformToRoot && !tile.transformToRoot.isIdentity)) {
+          const transformBranch = new GraphicBranch(true);
+          transformBranch.add(graphic);
+          let xform: Transform;
+          if (!tile.transformToRoot && rtcCenter)
+            xform = Transform.createTranslation(rtcCenter);
+          else {
+            if (undefined === tile.transformToRoot) {
+              throw new Error("RealityTileLoader.loadGraphicsFromStream: tile.transformToRoot is undefined");
+            }
+            if (rtcCenter)
+              xform = Transform.createOriginAndMatrix(rtcCenter.plus(tile.transformToRoot.origin), tile.transformToRoot.matrix);
+            else
+              xform = tile.transformToRoot;
+          }
+          graphic = system.createBranch(transformBranch, xform);
+        }
+
+        return { graphic };
+      case TileFormat.B3dm:
+        reader = B3dmReader.create(streamBuffer, iModel, modelId, is3d, tile.contentRange, system, yAxisUp, tile.isLeaf, tile.center, tile.transformToRoot, isCanceled, this.getBatchIdMap(), this.wantDeduplicatedVertices, tileData);
+        if (reader) {
+          // glTF spec defaults wrap mode to "repeat" but many reality tiles omit the wrap mode and should not repeat.
+          // The render system also currently only produces mip-maps for repeating textures, and we don't want mip-maps for reality tile textures.
+          assert(reader instanceof GltfReader);
+          reader.defaultWrapMode = GltfWrapMode.ClampToEdge;
+        }
+
+        break;
+      case TileFormat.I3dm:
+        reader = I3dmReader.create(streamBuffer, iModel, modelId, is3d, tile.contentRange, system, yAxisUp, tile.isLeaf, isCanceled, undefined, this.wantDeduplicatedVertices, tileData);
+        break;
+      case TileFormat.Gltf:
+        const baseUrl = this._getReaderBaseUrl(tile);
+        const props = createReaderPropsWithBaseUrl(streamBuffer, yAxisUp, baseUrl);
+        if (props) {
+          reader = new GltfGraphicsReader(props, {
+            iModel,
+            gltf: props.glTF,
+            contentRange: tile.contentRange,
+            transform: tile.transformToRoot,
+            hasChildren: !tile.isLeaf,
+            pickableOptions: { id: modelId },
+            idMap: this.getBatchIdMap(),
+            tileData
+          });
+        }
+        break;
+      case TileFormat.Cmpt:
+        const header = new CompositeTileHeader(streamBuffer);
+        if (!header.isValid)
+          return {};
+
+        const branch = new GraphicBranch(true);
+        for (let i = 0; i < header.tileCount; i++) {
+          const tilePosition = streamBuffer.curPos;
+          streamBuffer.advance(8);    // Skip magic and version.
+          const tileBytes = streamBuffer.readUint32();
+          streamBuffer.curPos = tilePosition;
+          const result = await this.loadGraphicsFromStream(tile, streamBuffer, system, isCanceled);
+          if (result.graphic)
+            branch.add(result.graphic);
+          streamBuffer.curPos = tilePosition + tileBytes;
+        }
+        return { graphic: branch.isEmpty ? undefined : system.createBranch(branch, Transform.createIdentity()), isLeaf: tile.isLeaf };
+
+      default:
+        assert(false, `unknown tile format ${format}`);
+        break;
+    }
+
+    let content: TileContent = {};
+    if (undefined !== reader) {
+      try {
+        content = await reader.read();
+        if (content.containsPointCloud)
+          this._containsPointClouds = true;
+      } catch {
+        // Failure to load should prevent us from trying to load children
+        content.isLeaf = true;
+      }
+    }
+
+    return content;
+  }
+
+  public get viewFlagOverrides(): ViewFlagOverrides { return defaultViewFlagOverrides; }
+
+  public static computeTileLocationPriority(tile: Tile, viewports: Iterable<Viewport>, location: Transform): number {
+    // Compute a priority value for tiles that are:
+    // * Closer to the eye;
+    // * Closer to the center of attention (center of the screen or zoom target).
+    // This way, we can load in priority tiles that are more likely to be important.
+    let center: Point3d | undefined;
+    let minDistance = 1.0;
+
+    const currentInputState = IModelApp.toolAdmin.currentInputState;
+    const now = Date.now();
+    const wheelEventRelevanceTimeout = 1000; // Wheel events older than this value will not be considered
+
+    for (const viewport of viewports) {
+      center = center ?? location.multiplyPoint3d(tile.center, scratchTileCenterWorld);
+      const npc = viewport.worldToNpc(center, scratchTileCenterView);
+
+      let focusPoint = new Point2d(0.5, 0.5);
+
+      if (currentInputState.viewport === viewport && viewport instanceof ScreenViewport) {
+        // Try to get a better target point from the last zoom target
+        const { lastWheelEvent } = currentInputState;
+
+        if (lastWheelEvent !== undefined && now - lastWheelEvent.time < wheelEventRelevanceTimeout) {
+          const focusPointCandidate = Point2d.fromJSON(viewport.worldToNpc(lastWheelEvent.point));
+
+          if (focusPointCandidate.x > 0 && focusPointCandidate.x < 1 && focusPointCandidate.y > 0 && focusPointCandidate.y < 1)
+            focusPoint = focusPointCandidate;
+        }
+      }
+
+      // NB: In NPC coords, 0 = far plane, 1 = near plane.
+      const distanceToEye = 1.0 - npc.z;
+      const distanceToCenter = Math.min(npc.distanceXY(focusPoint) / 0.707, 1.0); // Math.sqrt(0.5) = 0.707
+
+      // Distance is a mix of the two previously computed values, still in range [0; 1]
+      // We use this factor to determine how much the distance to the center of attention is important compared to distance to the eye
+      const distanceToCenterWeight = 0.3;
+      const distance = distanceToEye * (1.0 - distanceToCenterWeight) + distanceToCenter * distanceToCenterWeight;
+
+      minDistance = Math.min(distance, minDistance);
+    }
+
+    return minDistance;
+  }
+}
+
+/** Exposed strictly for testing purposes.
+* @internal
+*/
+export function createReaderPropsWithBaseUrl(streamBuffer: ByteStream, yAxisUp: boolean, baseUrl?: string): GltfReaderProps | undefined {
+  let url: URL | undefined;
+  if (baseUrl) {
+    try {
+      url = new URL(baseUrl);
+    } catch {
+      url = undefined;
+    }
+  }
+  return GltfReaderProps.create(streamBuffer.nextBytes(streamBuffer.arrayBuffer.byteLength), yAxisUp, url);
+}

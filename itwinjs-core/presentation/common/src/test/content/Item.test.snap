@@ -1,0 +1,249 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Item constructor creates valid item with label definition 1`] = `
+Object {
+  "displayValue": "test display value",
+  "rawValue": "test raw value",
+  "typeName": "string",
+}
+`;
+
+exports[`Item constructor creates valid item with label string 1`] = `
+Object {
+  "displayValue": "test",
+  "rawValue": "test raw value",
+  "typeName": "string",
+}
+`;
+
+exports[`Item fromJSON creates valid Item from valid JSON 1`] = `
+Object {
+  "classInfo": Object {
+    "id": "0x1",
+    "label": "Class Label",
+    "name": "SchemaName:ClassName",
+  },
+  "displayValues": Object {
+    "key1": "123",
+    "key2": "456",
+  },
+  "label": Object {
+    "displayValue": "test display value",
+    "rawValue": "test raw value",
+    "typeName": "string",
+  },
+  "labelDefinition": Object {
+    "displayValue": "test display value",
+    "rawValue": "test raw value",
+    "typeName": "string",
+  },
+  "mergedFieldNames": Array [
+    "key1",
+  ],
+  "primaryKeys": Array [],
+  "values": Object {
+    "key1": 123,
+    "key2": "456",
+  },
+}
+`;
+
+exports[`Item fromJSON creates valid Item from valid serialized JSON 1`] = `
+Object {
+  "classInfo": Object {
+    "id": "0x1",
+    "label": "Class Label",
+    "name": "SchemaName:ClassName",
+  },
+  "displayValues": Object {
+    "key1": "123",
+    "key2": "456",
+  },
+  "label": Object {
+    "displayValue": "test display value",
+    "rawValue": "test raw value",
+    "typeName": "string",
+  },
+  "labelDefinition": Object {
+    "displayValue": "test display value",
+    "rawValue": "test raw value",
+    "typeName": "string",
+  },
+  "mergedFieldNames": Array [
+    "key1",
+  ],
+  "primaryKeys": Array [],
+  "values": Object {
+    "key1": 123,
+    "key2": "456",
+  },
+}
+`;
+
+exports[`Item fromJSON creates valid Item with nested content values 1`] = `
+Object {
+  "classInfo": Object {
+    "id": "0x1",
+    "label": "Class Label",
+    "name": "SchemaName:ClassName",
+  },
+  "displayValues": Object {
+    "key1": undefined,
+  },
+  "label": Object {
+    "displayValue": "test display value",
+    "rawValue": "test raw value",
+    "typeName": "string",
+  },
+  "labelDefinition": Object {
+    "displayValue": "test display value",
+    "rawValue": "test raw value",
+    "typeName": "string",
+  },
+  "mergedFieldNames": Array [
+    "key1",
+  ],
+  "primaryKeys": Array [],
+  "values": Object {
+    "key1": Array [
+      Object {
+        "displayValues": Object {
+          "nested": "",
+        },
+        "mergedFieldNames": Array [
+          "test-field",
+        ],
+        "primaryKeys": Array [
+          Object {
+            "className": "SchemaName:ClassName",
+            "id": "0x1",
+          },
+        ],
+        "values": Object {
+          "nested": undefined,
+        },
+      },
+    ],
+  },
+}
+`;
+
+exports[`Item fromJSON creates valid Item with undefined values 1`] = `
+Object {
+  "classInfo": Object {
+    "id": "0x1",
+    "label": "Class Label",
+    "name": "SchemaName:ClassName",
+  },
+  "displayValues": Object {
+    "key1": undefined,
+  },
+  "label": Object {
+    "displayValue": "test display value",
+    "rawValue": "test raw value",
+    "typeName": "string",
+  },
+  "labelDefinition": Object {
+    "displayValue": "test display value",
+    "rawValue": "test raw value",
+    "typeName": "string",
+  },
+  "mergedFieldNames": Array [
+    "key1",
+  ],
+  "primaryKeys": Array [],
+  "values": Object {
+    "key1": undefined,
+  },
+}
+`;
+
+exports[`Item listFromJSON parses items from JSON 1`] = `
+Array [
+  Object {
+    "displayValues": Object {
+      "a": "B",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "a": "b",
+    },
+  },
+  Object {
+    "displayValues": Object {
+      "c": "D",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "c": "d",
+    },
+  },
+]
+`;
+
+exports[`Item listFromJSON parses items from serialized JSON string 1`] = `
+Array [
+  Object {
+    "displayValues": Object {
+      "a": "B",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "a": "b",
+    },
+  },
+  Object {
+    "displayValues": Object {
+      "c": "D",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "c": "d",
+    },
+  },
+]
+`;

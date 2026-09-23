@@ -1,0 +1,1276 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`PresentationManager addon results conversion to Presentation objects getContent returns content 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {
+        "test field": "test display value",
+      },
+      "label": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test field": "test value",
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [
+      Object {
+        "description": "Test category description",
+        "expand": false,
+        "label": "Test Category",
+        "name": "test-category",
+        "priority": 0,
+      },
+    ],
+    "classesMap": Object {
+      "0x1": Object {
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+    },
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "",
+    "fields": Array [
+      Object {
+        "category": "test-category",
+        "isReadonly": false,
+        "label": "Simple Field",
+        "name": "test field",
+        "priority": 0,
+        "type": Object {
+          "typeName": "string",
+          "valueFormat": "Primitive",
+        },
+      },
+    ],
+    "inputKeysHash": "",
+    "selectClasses": Array [
+      Object {
+        "isSelectPolymorphic": false,
+        "selectClassInfo": "0x1",
+      },
+    ],
+  },
+}
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContent returns content for BisCore:Element instances when concrete key is found 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {
+        "test field name": "test display value",
+      },
+      "label": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test field name": "test value",
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [
+      Object {
+        "description": "Test category description",
+        "expand": false,
+        "label": "Test Category",
+        "name": "test-category",
+        "priority": 0,
+      },
+    ],
+    "classesMap": Object {
+      "0x1": Object {
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+    },
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "",
+    "fields": Array [
+      Object {
+        "category": "test-category",
+        "isReadonly": false,
+        "label": "Simple Field",
+        "name": "test field name",
+        "priority": 0,
+        "type": Object {
+          "typeName": "string",
+          "valueFormat": "Primitive",
+        },
+      },
+    ],
+    "inputKeysHash": "",
+    "selectClasses": Array [
+      Object {
+        "isSelectPolymorphic": false,
+        "selectClassInfo": "0x1",
+      },
+    ],
+  },
+}
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContent returns content for BisCore:Element instances when concrete key is not found 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {
+        "test field name": "test display value",
+      },
+      "label": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test field name": "test value",
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [
+      Object {
+        "description": "Test category description",
+        "expand": false,
+        "label": "Test Category",
+        "name": "test-category",
+        "priority": 0,
+      },
+    ],
+    "classesMap": Object {
+      "0x1": Object {
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+    },
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "",
+    "fields": Array [
+      Object {
+        "category": "test-category",
+        "isReadonly": false,
+        "label": "Simple Field",
+        "name": "test field name",
+        "priority": 0,
+        "type": Object {
+          "typeName": "string",
+          "valueFormat": "Primitive",
+        },
+      },
+    ],
+    "inputKeysHash": "",
+    "selectClasses": Array [
+      Object {
+        "isSelectPolymorphic": false,
+        "selectClassInfo": "0x1",
+      },
+    ],
+  },
+}
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContent returns content when descriptor overrides are passed instead of descriptor 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {
+        "test field name": "test display value",
+      },
+      "label": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test field name": "test value",
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [
+      Object {
+        "description": "Test category description",
+        "expand": false,
+        "label": "Test Category",
+        "name": "test-category",
+        "priority": 0,
+      },
+    ],
+    "classesMap": Object {
+      "0x1": Object {
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+    },
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "test",
+    "fields": Array [],
+    "inputKeysHash": "",
+    "selectClasses": Array [
+      Object {
+        "isSelectPolymorphic": false,
+        "selectClassInfo": "0x1",
+      },
+    ],
+  },
+}
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContent returns content without formatting 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {},
+      "label": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test field name": 1.234,
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [
+      Object {
+        "description": "Test category description",
+        "expand": false,
+        "label": "Test Category",
+        "name": "test-category",
+        "priority": 0,
+      },
+    ],
+    "classesMap": Object {
+      "0x1": Object {
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+    },
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "test",
+    "fields": Array [
+      Object {
+        "category": "test-category",
+        "isReadonly": false,
+        "label": "Properties Field",
+        "name": "test field name",
+        "priority": 0,
+        "properties": Array [
+          Object {
+            "property": Object {
+              "classInfo": "0x1",
+              "name": "PropertyName",
+              "type": "string",
+            },
+          },
+        ],
+        "type": Object {
+          "typeName": "double",
+          "valueFormat": "Primitive",
+        },
+      },
+    ],
+    "inputKeysHash": "",
+    "selectClasses": Array [
+      Object {
+        "isSelectPolymorphic": false,
+        "selectClassInfo": "0x1",
+      },
+    ],
+  },
+}
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContent returns formatted content 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {
+        "test field name": "1.23",
+      },
+      "label": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test field name": 1.234,
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [
+      Object {
+        "description": "Test category description",
+        "expand": false,
+        "label": "Test Category",
+        "name": "test-category",
+        "priority": 0,
+      },
+    ],
+    "classesMap": Object {
+      "0x1": Object {
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+    },
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "test",
+    "fields": Array [
+      Object {
+        "category": "test-category",
+        "isReadonly": false,
+        "label": "Properties Field",
+        "name": "test field name",
+        "priority": 0,
+        "properties": Array [
+          Object {
+            "property": Object {
+              "classInfo": "0x1",
+              "name": "PropertyName",
+              "type": "string",
+            },
+          },
+        ],
+        "type": Object {
+          "typeName": "double",
+          "valueFormat": "Primitive",
+        },
+      },
+    ],
+    "inputKeysHash": "",
+    "selectClasses": Array [
+      Object {
+        "isSelectPolymorphic": false,
+        "selectClassInfo": "0x1",
+      },
+    ],
+  },
+}
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContent returns localized content 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {
+        "test field name": "Not specified",
+      },
+      "label": Object {
+        "displayValue": "Not specified",
+        "rawValue": "Not specified",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "Not specified",
+        "rawValue": "Not specified",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test field name": "Not specified",
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [
+      Object {
+        "description": "Test category description",
+        "expand": false,
+        "label": "Not specified",
+        "name": "test-category",
+        "priority": 0,
+      },
+    ],
+    "classesMap": Object {
+      "0x1": Object {
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+    },
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "",
+    "fields": Array [
+      Object {
+        "category": "test-category",
+        "isReadonly": false,
+        "label": "Not specified",
+        "name": "test field name",
+        "priority": 0,
+        "type": Object {
+          "typeName": "string",
+          "valueFormat": "Primitive",
+        },
+      },
+    ],
+    "inputKeysHash": "",
+    "selectClasses": Array [
+      Object {
+        "isSelectPolymorphic": false,
+        "selectClassInfo": "0x1",
+      },
+    ],
+  },
+}
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContentDescriptor returns content descriptor 1`] = `
+Object {
+  "categories": Array [
+    Object {
+      "description": "Test category description",
+      "expand": false,
+      "label": "Test Category",
+      "name": "test-category",
+      "priority": 0,
+    },
+  ],
+  "classesMap": Object {
+    "0x1": Object {
+      "label": "Source",
+      "name": "source:class",
+    },
+    "0x2": Object {
+      "label": "Target",
+      "name": "target:class",
+    },
+    "0x3": Object {
+      "label": "Relationship",
+      "name": "relationship:class",
+    },
+  },
+  "connectionId": "test-connection-id",
+  "contentFlags": 0,
+  "displayType": "test-display-type",
+  "fields": Array [
+    Object {
+      "category": "test-category",
+      "editor": Object {
+        "name": "test-editor",
+        "params": Object {
+          "some_param": 789,
+        },
+      },
+      "isReadonly": true,
+      "label": "Test field with editor",
+      "name": "Primitive property field with editor",
+      "priority": 999,
+      "properties": Array [
+        Object {
+          "property": Object {
+            "classInfo": "0x1",
+            "enumerationInfo": Object {
+              "choices": Array [
+                Object {
+                  "label": "choice1",
+                  "value": "Choice 1",
+                },
+                Object {
+                  "label": "choice2",
+                  "value": "Choice 2",
+                },
+              ],
+              "isStrict": true,
+            },
+            "name": "Test property",
+            "type": "string",
+          },
+        },
+      ],
+      "type": Object {
+        "typeName": "string",
+        "valueFormat": "Primitive",
+      },
+    },
+    Object {
+      "category": "test-category",
+      "isReadonly": false,
+      "label": "Test array of structs field",
+      "name": "Complex array of structs property field",
+      "priority": 888,
+      "properties": Array [
+        Object {
+          "property": Object {
+            "classInfo": "0x1",
+            "kindOfQuantity": Object {
+              "label": "Test koq",
+              "name": "TestKoq",
+              "persistenceUnit": "m",
+            },
+            "name": "TestProperty",
+            "type": "double",
+          },
+        },
+      ],
+      "type": Object {
+        "memberType": Object {
+          "members": Array [
+            Object {
+              "label": "Member 1",
+              "name": "member1",
+              "type": Object {
+                "typeName": "string",
+                "valueFormat": "Primitive",
+              },
+            },
+            Object {
+              "label": "Member 2",
+              "name": "member2",
+              "type": Object {
+                "memberType": Object {
+                  "typeName": "string",
+                  "valueFormat": "Primitive",
+                },
+                "typeName": "string[]",
+                "valueFormat": "Array",
+              },
+            },
+          ],
+          "typeName": "SomeClass",
+          "valueFormat": "Struct",
+        },
+        "typeName": "string[]",
+        "valueFormat": "Array",
+      },
+    },
+    Object {
+      "actualPrimaryClassIds": Array [],
+      "autoExpand": true,
+      "category": "test-category",
+      "contentClassInfo": "0x1",
+      "isReadonly": false,
+      "label": "Nested content field",
+      "name": "Nested content field",
+      "nestedFields": Array [
+        Object {
+          "category": "test-category",
+          "isReadonly": false,
+          "label": "Test simple field",
+          "name": "Simple property field",
+          "priority": 777,
+          "type": Object {
+            "typeName": "string",
+            "valueFormat": "Primitive",
+          },
+        },
+      ],
+      "pathToPrimaryClass": Array [
+        Object {
+          "isForwardRelationship": false,
+          "isPolymorphicRelationship": false,
+          "isPolymorphicTargetClass": false,
+          "relationshipInfo": "0x3",
+          "sourceClassInfo": "0x1",
+          "targetClassInfo": "0x2",
+        },
+      ],
+      "priority": 777,
+      "relationshipMeaning": "RelatedInstance",
+      "type": Object {
+        "members": Array [
+          Object {
+            "label": "Member 1",
+            "name": "member1",
+            "type": Object {
+              "typeName": "string",
+              "valueFormat": "Primitive",
+            },
+          },
+        ],
+        "typeName": "Field type",
+        "valueFormat": "Struct",
+      },
+    },
+  ],
+  "inputKeysHash": "input-hash",
+  "selectClasses": Array [
+    Object {
+      "isSelectPolymorphic": false,
+      "navigationPropertyClasses": Array [
+        Object {
+          "isForwardRelationship": false,
+          "isPolymorphicRelationship": false,
+          "isPolymorphicTargetClass": false,
+          "relationshipInfo": "0x3",
+          "sourceClassInfo": "0x1",
+          "targetClassInfo": "0x2",
+        },
+      ],
+      "pathFromInputToSelectClass": Array [
+        Object {
+          "isForwardRelationship": false,
+          "isPolymorphicRelationship": false,
+          "isPolymorphicTargetClass": false,
+          "relationshipInfo": "0x3",
+          "sourceClassInfo": "0x1",
+          "targetClassInfo": "0x2",
+        },
+      ],
+      "relatedInstancePaths": Array [
+        Array [
+          Object {
+            "isForwardRelationship": false,
+            "isPolymorphicRelationship": false,
+            "isPolymorphicTargetClass": false,
+            "relationshipInfo": "0x3",
+            "sourceClassInfo": "0x1",
+            "targetClassInfo": "0x2",
+          },
+        ],
+      ],
+      "relatedPropertyPaths": Array [
+        Array [
+          Object {
+            "isForwardRelationship": false,
+            "isPolymorphicRelationship": false,
+            "isPolymorphicTargetClass": false,
+            "relationshipInfo": "0x3",
+            "sourceClassInfo": "0x1",
+            "targetClassInfo": "0x2",
+          },
+        ],
+      ],
+      "selectClassInfo": "0x1",
+    },
+  ],
+}
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContentSet returns content set 1`] = `
+Array [
+  Object {
+    "classInfo": Object {
+      "id": "0x1",
+      "label": "Class Label",
+      "name": "SchemaName:ClassName",
+    },
+    "displayValues": Object {
+      "test field": "test display value",
+    },
+    "label": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "test field": "test value",
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContentSet returns content set for BisCore:Element instances when concrete key is found 1`] = `
+Array [
+  Object {
+    "classInfo": Object {
+      "id": "0x1",
+      "label": "Class Label",
+      "name": "SchemaName:ClassName",
+    },
+    "displayValues": Object {
+      "test field": "test display value",
+    },
+    "label": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "test field": "test value",
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContentSet returns content set for BisCore:Element instances when concrete key is not found 1`] = `
+Array [
+  Object {
+    "classInfo": Object {
+      "id": "0x1",
+      "label": "Class Label",
+      "name": "SchemaName:ClassName",
+    },
+    "displayValues": Object {
+      "test field": "test display value",
+    },
+    "label": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "test field": "test value",
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContentSet returns content without formatting 1`] = `
+Array [
+  Object {
+    "classInfo": Object {
+      "id": "0x1",
+      "label": "Class Label",
+      "name": "SchemaName:ClassName",
+    },
+    "displayValues": Object {},
+    "label": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "test field": 1.234,
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContentSet returns formatted content set 1`] = `
+Array [
+  Object {
+    "classInfo": Object {
+      "id": "0x1",
+      "label": "Class Label",
+      "name": "SchemaName:ClassName",
+    },
+    "displayValues": Object {
+      "test field": "1.23",
+    },
+    "label": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "labelDefinition": Object {
+      "displayValue": "test display value",
+      "rawValue": "test raw value",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "test field": 1.234,
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContentSet returns localized content set 1`] = `
+Array [
+  Object {
+    "classInfo": Object {
+      "id": "0x1",
+      "label": "Class Label",
+      "name": "SchemaName:ClassName",
+    },
+    "displayValues": Object {
+      "test field": "Not specified",
+    },
+    "label": Object {
+      "displayValue": "Not specified",
+      "rawValue": "Not specified",
+      "typeName": "string",
+    },
+    "labelDefinition": Object {
+      "displayValue": "Not specified",
+      "rawValue": "Not specified",
+      "typeName": "string",
+    },
+    "mergedFieldNames": Array [],
+    "primaryKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x1",
+      },
+    ],
+    "values": Object {
+      "test field": "Not specified",
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getContentSources returns content sources 1`] = `
+Array [
+  Object {
+    "isSelectPolymorphic": true,
+    "navigationPropertyClasses": Array [
+      Object {
+        "isForwardRelationship": true,
+        "relationshipInfo": Object {
+          "id": "0x456",
+          "label": "Class Two",
+          "name": "class2",
+        },
+        "sourceClassInfo": Object {
+          "id": "0x123",
+          "label": "Class One",
+          "name": "class1",
+        },
+        "targetClassInfo": Object {
+          "id": "0x789",
+          "label": "Class Three",
+          "name": "class3",
+        },
+      },
+    ],
+    "pathFromInputToSelectClass": Array [
+      Object {
+        "isForwardRelationship": true,
+        "relationshipInfo": Object {
+          "id": "0x456",
+          "label": "Class Two",
+          "name": "class2",
+        },
+        "sourceClassInfo": Object {
+          "id": "0x123",
+          "label": "Class One",
+          "name": "class1",
+        },
+        "targetClassInfo": Object {
+          "id": "0x789",
+          "label": "Class Three",
+          "name": "class3",
+        },
+      },
+    ],
+    "relatedInstancePaths": Array [
+      Array [
+        Object {
+          "isForwardRelationship": true,
+          "relationshipInfo": Object {
+            "id": "0x456",
+            "label": "Class Two",
+            "name": "class2",
+          },
+          "sourceClassInfo": Object {
+            "id": "0x123",
+            "label": "Class One",
+            "name": "class1",
+          },
+          "targetClassInfo": Object {
+            "id": "0x789",
+            "label": "Class Three",
+            "name": "class3",
+          },
+        },
+      ],
+    ],
+    "relatedPropertyPaths": Array [
+      Array [
+        Object {
+          "isForwardRelationship": true,
+          "relationshipInfo": Object {
+            "id": "0x456",
+            "label": "Class Two",
+            "name": "class2",
+          },
+          "sourceClassInfo": Object {
+            "id": "0x123",
+            "label": "Class One",
+            "name": "class1",
+          },
+          "targetClassInfo": Object {
+            "id": "0x789",
+            "label": "Class Three",
+            "name": "class3",
+          },
+        },
+      ],
+    ],
+    "selectClassInfo": Object {
+      "id": "0x123",
+      "label": "Class One",
+      "name": "class1",
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getFilteredNodePaths returns filtered node paths 1`] = `
+Array [
+  Object {
+    "children": Array [],
+    "index": 0,
+    "node": Object {
+      "key": Object {
+        "pathFromRoot": Array [],
+        "type": "test-node",
+        "version": 0,
+      },
+      "label": Object {
+        "displayValue": "test label",
+        "rawValue": "test label",
+        "typeName": "string",
+      },
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getNodePaths returns node paths 1`] = `
+Array [
+  Object {
+    "children": Array [],
+    "index": 0,
+    "node": Object {
+      "key": Object {
+        "pathFromRoot": Array [],
+        "type": "test-node",
+        "version": 0,
+      },
+      "label": Object {
+        "displayValue": "test label",
+        "rawValue": "test label",
+        "typeName": "string",
+      },
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getNodes returns child nodes 1`] = `
+Array [
+  Object {
+    "key": Object {
+      "instanceKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "pathFromRoot": Array [
+        "p1",
+      ],
+      "type": "ECInstancesNode",
+      "version": 0,
+    },
+    "label": Object {
+      "displayValue": "test2",
+      "rawValue": "test2",
+      "typeName": "string",
+    },
+  },
+  Object {
+    "key": Object {
+      "pathFromRoot": Array [
+        "p1",
+        "p3",
+      ],
+      "type": "type 2",
+      "version": 0,
+    },
+    "label": Object {
+      "displayValue": "test3",
+      "rawValue": "test3",
+      "typeName": "string",
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getNodes returns localized nodes 1`] = `
+Array [
+  Object {
+    "description": "description1",
+    "hasChildren": true,
+    "isEditable": true,
+    "isExpanded": true,
+    "isSelectionDisabled": true,
+    "key": Object {
+      "pathFromRoot": Array [
+        "p1",
+        "p2",
+        "p3",
+      ],
+      "type": "type1",
+      "version": 0,
+    },
+    "label": Object {
+      "displayValue": "Not specified",
+      "rawValue": "Not specified",
+      "typeName": "string",
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getNodes returns root nodes 1`] = `
+Array [
+  Object {
+    "description": "description1",
+    "hasChildren": true,
+    "isEditable": true,
+    "isExpanded": true,
+    "isSelectionDisabled": true,
+    "key": Object {
+      "pathFromRoot": Array [
+        "p1",
+        "p2",
+        "p3",
+      ],
+      "type": "type1",
+      "version": 0,
+    },
+    "label": Object {
+      "displayValue": "test1",
+      "rawValue": "test1",
+      "typeName": "string",
+    },
+  },
+  Object {
+    "description": "description2",
+    "hasChildren": false,
+    "isEditable": false,
+    "isExpanded": false,
+    "isSelectionDisabled": false,
+    "key": Object {
+      "instanceKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "pathFromRoot": Array [
+        "p1",
+      ],
+      "type": "ECInstancesNode",
+      "version": 0,
+    },
+    "label": Object {
+      "displayValue": "test2",
+      "rawValue": "test2",
+      "typeName": "string",
+    },
+  },
+  Object {
+    "key": Object {
+      "pathFromRoot": Array [
+        "p1",
+        "p3",
+      ],
+      "type": "some node",
+      "version": 0,
+    },
+    "label": Object {
+      "displayValue": "test2",
+      "rawValue": "test2",
+      "typeName": "string",
+    },
+  },
+]
+`;
+
+exports[`PresentationManager addon results conversion to Presentation objects getNodesDescriptor returns hierarchy level descriptor 1`] = `
+Object {
+  "categories": Array [
+    Object {
+      "description": "Test category description",
+      "expand": false,
+      "label": "Test Category",
+      "name": "test-category",
+      "priority": 0,
+    },
+  ],
+  "classesMap": Object {
+    "0x1": Object {
+      "label": "Class Label",
+      "name": "SchemaName:ClassName",
+    },
+  },
+  "connectionId": "",
+  "contentFlags": 0,
+  "displayType": "",
+  "fields": Array [],
+  "inputKeysHash": "",
+  "selectClasses": Array [
+    Object {
+      "isSelectPolymorphic": false,
+      "selectClassInfo": "0x1",
+    },
+  ],
+}
+`;

@@ -1,0 +1,162 @@
+# This CODEOWNERS file follows the format of Github's CODEOWNERS
+#   Documentation for reference, https://help.github.com/en/github/creating-cloning-and-archiving-repositories/about-code-owners
+
+# This is a comment.
+# Each line is a file pattern followed by one or more owners.
+
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# @global-owner1 and @global-owner2 will be requested for
+# review when someone opens a pull request.
+
+* @iTwin/itwinjs-core-admins
+
+.github/workflows                                 @aruniverse @ben-polinsky @DanRod1999
+.github/CODEOWNERS                                @iTwin/itwinjs-core-admins
+.github/agents                                    @aruniverse @ben-polinsky @hl662
+.gitattributes                                    @iTwin/itwinjs-core-admins
+.gitignore                                        @iTwin/itwinjs-core-admins
+rush.json                                         @iTwin/itwinjs-core-admins
+
+# The syntax used below tries to cover both files and folders in the common folder that operate per=package
+# Due to syntax requirements, both can't be covered in a single line
+#
+# The three main folder patterns that covered are:
+#   1. /common/api/{packageName}.api.md
+#   1. /common/api/summary/{packageName}.exports.csv
+#   1. /common/changes/@itwin/{packageName}/*.json
+
+/common/**/analytical-backend.*                   @diegoalexdiaz
+/common/**/analytical-backend/                    @diegoalexdiaz
+/common/**/core-bentley.*                         @iTwin/itwinjs-core-admins
+/common/**/core-bentley/                          @iTwin/itwinjs-core-admins
+/common/**/build-tools/                           @aruniverse @ben-polinsky @wgoehrig
+/common/**/certa/                                 @aruniverse @wgoehrig
+
+/common/**/*-extension/                           @aruniverse @ben-polinsky
+
+/common/**/ecsql-*/                               @iTwin/itwinjs-core-admins @khanaffan
+/common/**/ecschema-*.*                           @rschili @RohitPtnkr1996
+/common/**/ecschema-*/                            @rschili @RohitPtnkr1996
+/common/**/ecschema2ts.*                          @naveedkhan8067
+/common/**/ecschema2ts/                           @naveedkhan8067
+/common/**/core-electron.*                        @wgoehrig @GytisCepk @ben-polinsky
+/common/**/core-electron/                         @wgoehrig @GytisCepk @ben-polinsky
+/common/**/express-server.*                       @GytisCepk @wgoehrig
+/common/**/express-server/                        @GytisCepk @wgoehrig
+/common/**/frontend-devtools.*                    @iTwin/itwinjs-core-display
+/common/**/frontend-devtools/                     @iTwin/itwinjs-core-display
+/common/**/frontend-tiles.*                       @iTwin/itwinjs-core-display @danieliborra
+/common/**/frontend-tiles/                        @iTwin/itwinjs-core-display @danieliborra
+/common/**/core-geometry.*                        @bbastings @dassaf4 @saeeedtorabi
+/common/**/core-geometry/                         @bbastings @dassaf4 @saeeedtorabi
+/common/**/hypermodeling-frontend.*               @iTwin/itwinjs-core-display @bbastings
+/common/**/hypermodeling-frontend/                @iTwin/itwinjs-core-display @bbastings
+/common/**/core-backend.*                         @iTwin/itwinjs-core-admins
+/common/**/core-backend/                          @iTwin/itwinjs-core-admins
+/common/**/core-common.*                          @iTwin/itwinjs-core-admins @iTwin/itwinjs-core-display
+/common/**/core-common/                           @iTwin/itwinjs-core-admins @iTwin/itwinjs-core-display
+/common/**/editor-*.*                             @bbastings @pmconne
+/common/**/editor-*/                              @bbastings @pmconne
+/common/**/core-extension.*                       @wgoehrig @aruniverse @ben-polinsky
+/common/**/core-extension/                        @wgoehrig @aruniverse @ben-polinsky
+/common/**/core-frontend.*                        @bbastings @iTwin/itwinjs-core-display @aruniverse @ben-polinsky
+/common/**/core-frontend/                         @bbastings @iTwin/itwinjs-core-display @aruniverse @ben-polinsky
+/common/**/core-i18n.*                            @aruniverse @MichaelSwigerAtBentley
+/common/**/core-i18n/                             @aruniverse @MichaelSwigerAtBentley
+/common/**/core-markup.*                          @pmconne @bbastings
+/common/**/core-markup/                           @pmconne @bbastings
+/common/**/core-quantity.*                        @hl662 @rschili @RohitPtnkr1996
+/common/**/core-quantity/                         @hl662 @rschili @RohitPtnkr1996
+/common/**/linear-referencing-backend.*           @diegoalexdiaz
+/common/**/linear-referencing-backend/            @diegoalexdiaz
+/common/**/linear-referencing-common.*            @diegoalexdiaz
+/common/**/linear-referencing-common/             @diegoalexdiaz
+/common/**/core-orbitgt.*                         @iTwin/itwinjs-core-display
+/common/**/core-orbitgt/                          @iTwin/itwinjs-core-display
+/common/**/perf-tools.*                           @aruniverse @wgoehrig
+/common/**/perf-tools/                            @aruniverse @wgoehrig
+/common/**/physical-material-backend.*            @bbastings @diegoalexdiaz
+/common/**/physical-material-backend/             @bbastings @diegoalexdiaz
+/common/**/presentation-*.*                       @iTwin/itwinjs-core-presentation
+/common/**/presentation-*/                        @iTwin/itwinjs-core-presentation
+/common/**/rpcinterface-full-stack-tests/         @aruniverse @GytisCepk @wgoehrig
+/common/**/appui-*.*                              @iTwin/itwinjs-core-ui @ben-polinsky
+/common/**/appui-*/                               @iTwin/itwinjs-core-ui @ben-polinsky
+/common/**/webgl-compatibility.*                  @iTwin/itwinjs-core-display
+/common/**/webgl-compatibility/                   @iTwin/itwinjs-core-display
+
+/common/config/azure-pipelines                    @aruniverse @wgoehrig @DanRod1999
+
+/core/backend                                     @iTwin/itwinjs-core-admins
+/core/bentley                                     @iTwin/itwinjs-core-admins
+/core/common                                      @iTwin/itwinjs-core-admins @iTwin/itwinjs-core-display
+/core/common/src/rpc/IModelTileRpcInterface.ts    @pmconne
+/core/ecschema-*                                  @rschili @RohitPtnkr1996
+/core/ecsql                                       @iTwin/itwinjs-core-admins @khanaffan
+/core/electron                                    @wgoehrig @GytisCepk @ben-polinsky
+/core/express-server                              @GytisCepk @wgoehrig
+/core/extension                                   @wgoehrig @aruniverse @ben-polinsky
+/core/frontend                                    @bbastings @iTwin/itwinjs-core-display @aruniverse @ben-polinsky
+/core/frontend/src/extension                      @wgoehrig @aruniverse @ben-polinsky
+/core/frontend-devtools                           @iTwin/itwinjs-core-display
+/core/geometry                                    @bbastings @dassaf4 @saeeedtorabi
+/core/hypermodeling                               @bbastings @iTwin/itwinjs-core-display
+/core/i18n                                        @wgoehrig @aruniverse
+/core/markup                                      @pmconne @bbastings
+/core/mobile                                      @iTwin/itwinjs-core-admins @iTwin/mobilesdkadmins
+/core/orbitgt                                     @iTwin/itwinjs-core-display
+/core/quantity                                    @hl662 @rschili @RohitPtnkr1996
+/core/webgl-compatibility                         @iTwin/itwinjs-core-display
+
+/docs                                             @iTwin/itwinjs-core
+/docs/bis                                         @diegoalexdiaz @MichaelSwigerAtBentley
+/docs/config                                      @iTwin/itwinjs-core-admins @ben-polinsky
+/docs/presentation                                @iTwin/itwinjs-core-presentation
+
+# These domains should be split up a bit more
+/domains                                          @iTwin/itwinjs-core-admins
+/domains/analytical                               @diegoalexdiaz
+/domains/linear-referencing                       @diegoalexdiaz
+/domains/physical-material                        @bbastings @diegoalexdiaz
+
+/editor                                           @bbastings @pmconne
+
+/example-code                                     @iTwin/itwinjs-core-admins
+
+/extensions                                       @aruniverse
+/extensions/frontend-tiles                        @iTwin/itwinjs-core-display @danieliborra
+/extensions/test-extension                        @aruniverse @wgoehrig
+/extensions/map-layers-*                          @aruniverse @mdastous-bentley @eringram
+/extensions/cesium-renderer                       @iTwin/itwinjs-core-display
+
+/full-stack-tests/core                            @iTwin/itwinjs-core-admins
+/full-stack-tests/ecschema-rpc-interface          @wgoehrig
+/full-stack-tests/presentation                    @iTwin/itwinjs-core-presentation
+/full-stack-tests/rpc                             @wgoehrig @swbsi @GytisCepk
+/full-stack-tests/rpc-interface                   @aruniverse @GytisCepk @wgoehrig
+
+/presentation                                     @iTwin/itwinjs-core-presentation
+/presentation/common/src/presentation-common/PresentationRpcInterface.ts @grigasp
+
+/test-apps/display-performance-test-app           @iTwin/itwinjs-core-display
+/test-apps/display-test-app                       @bbastings @iTwin/itwinjs-core-display
+/test-apps/display-test-app/ios                   @iTwin/mobilesdkadmins
+/test-apps/display-test-app/android               @iTwin/mobilesdkadmins
+/test-apps/export-gltf                            @iTwin/itwinjs-core-display
+/test-apps/imjs-importer                          @bbastings @dassaf4 @saeeedtorabi
+/test-apps/imodel-from-geojson                    @iTwin/itwinjs-core-display
+/test-apps/imodel-from-orbitgt                    @iTwin/itwinjs-core-display
+/test-apps/imodel-from-reality-model              @iTwin/itwinjs-core-display
+
+/tools                                            @aruniverse @wgoehrig
+/tools/ecschema2ts                                @naveedkhan8067
+
+# These are at the end to override all previous reviews
+
+## Updates to the package.json should avoid requesting review by everyone
+/common/changes/**/*.json
+/**/package.json                                  @iTwin/itwinjs-core
+/**/CHANGELOG.json                                @iTwin/itwinjs-core
+/**/CHANGELOG.md                                  @iTwin/itwinjs-core
+/**/LICENSE.md                                    @iTwin/itwinjs-core-admins

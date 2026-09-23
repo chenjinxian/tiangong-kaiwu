@@ -1,0 +1,72 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`KeySet [get] instanceKeys returns map with multiple entries for each class name when keys have different class names 1`] = `
+Map {
+  "aaa" => Set {
+    "0x123",
+  },
+  "bbb" => Set {
+    "0x123",
+  },
+}
+`;
+
+exports[`KeySet [get] instanceKeys returns map with one entry when all keys have same class name 1`] = `
+Map {
+  "aaa" => Set {
+    "0x123",
+    "0x456",
+  },
+}
+`;
+
+exports[`KeySet [get] nodeKeys returns set with node keys 1`] = `
+Set {
+  Object {
+    "instanceKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x111",
+      },
+    ],
+    "pathFromRoot": Array [],
+    "type": "ECInstancesNode",
+    "version": 0,
+  },
+  Object {
+    "instanceKeys": Array [
+      Object {
+        "className": "SchemaName:ClassName",
+        "id": "0x222",
+      },
+    ],
+    "pathFromRoot": Array [],
+    "type": "ECInstancesNode",
+    "version": 0,
+  },
+}
+`;
+
+exports[`KeySet serialization roundtrip 1`] = `
+Object {
+  "instanceKeys": Array [
+    Array [
+      "SchemaName:ClassName",
+      "+123+333*2",
+    ],
+  ],
+  "nodeKeys": Array [
+    Object {
+      "instanceKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x999",
+        },
+      ],
+      "pathFromRoot": Array [],
+      "type": "ECInstancesNode",
+      "version": 0,
+    },
+  ],
+}
+`;

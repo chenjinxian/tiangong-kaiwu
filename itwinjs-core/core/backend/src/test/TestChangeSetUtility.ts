@@ -1,0 +1,84 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+
+import { AccessToken, GuidString } from "@itwin/core-bentley";
+import { ColorDef, IModel, SubCategoryAppearance } from "@itwin/core-common";
+import { BriefcaseDb, ChannelControl, SpatialCategory } from "../core-backend";
+import { HubMock } from "../internal/HubMock";
+import { HubWrappers, IModelTestUtils } from "./IModelTestUtils";
+import { withEditTxn } from "../EditTxn";
+
+/** Test utility to push an iModel and ChangeSets */
+export class TestChangeSetUtility {
+  private readonly _iModelName: string;
+
+  public iTwinId!: GuidString;
+  public iModelId!: GuidString;
+  private _iModel!: BriefcaseDb;
+  private _accessToken: AccessToken;
+
+  private _modelId!: string;
+  private _categoryId!: string;
+
+  constructor(accessToken: AccessToken, iModelName: string) {
+    this._accessToken = accessToken;
+    this._iModelName = IModelTestUtils.generateUniqueName(iModelName); // Generate a unique name for the iModel (so that this test can be run simultaneously by multiple users+hosts simultaneously)
+  }
+
+  private async addTestModel(): Promise<void> {
+    withEditTxn(this._iModel, "Added test model", (txn) => {
+      [, this._modelId] = IModelTestUtils.createAndInsertPhysicalPartitionAndModel(txn, IModelTestUtils.getUniqueModelCode(txn.iModel, "TestPhysicalModel"), true);
+    });
+  }
+
+  private async addTestCategory(): Promise<void> {
+    withEditTxn(this._iModel, "Added test category", (txn) => {
+      this._categoryId = SpatialCategory.insert(txn, IModel.dictionaryId, "TestSpatialCategory", new SubCategoryAppearance({ color: ColorDef.fromString("rgb(255,0,0)").toJSON() }));
+    });
+  }
+
+  private async addTestElements(): Promise<void> {
+    withEditTxn(this._iModel, "Added test elements", (txn) => {
+      txn.insertElement(IModelTestUtils.createPhysicalObject(txn.iModel, this._modelId, this._categoryId).toJSON());
+      txn.insertElement(IModelTestUtils.createPhysicalObject(txn.iModel, this._modelId, this._categoryId).toJSON());
+    });
+  }
+
+  /** Create a new iModel, populate it, push the changes and returns the opened db.
+   * Uses the iTwinId from HubMock.
+   */
+  public async createTestIModel(): Promise<BriefcaseDb> {
+    this.iTwinId = HubMock.iTwinId;
+
+    // Re-create iModel on iModelHub
+    this.iModelId = await HubWrappers.recreateIModel({ accessToken: this._accessToken, iTwinId: this.iTwinId, iModelName: this._iModelName, noLocks: true });
+
+    this._iModel = await HubWrappers.downloadAndOpenBriefcase({ accessToken: this._accessToken, iTwinId: this.iTwinId, iModelId: this.iModelId });
+    this._iModel.channels.addAllowedChannel(ChannelControl.sharedChannelName);
+
+    // Populate sample data
+    await this.addTestModel();
+    await this.addTestCategory();
+    await this.addTestElements();
+
+    // Push changes to the hub
+    await this._iModel.pushChanges({ accessToken: this._accessToken, description: "Setup test model" });
+    return this._iModel;
+  }
+
+  public async pushTestChangeSet() {
+    if (!this._iModel)
+      throw new Error("Must first call createTestIModel");
+    await this.addTestElements();
+    await this._iModel.pushChanges({ accessToken: this._accessToken, description: "Added test elements" });
+  }
+
+  public async deleteTestIModel(): Promise<void> {
+    if (!this._iModel)
+      throw new Error("Must first call createTestIModel");
+    await HubWrappers.closeAndDeleteBriefcaseDb(this._accessToken, this._iModel);
+    await HubMock.deleteIModel({ accessToken: this._accessToken, iTwinId: this.iTwinId, iModelId: this.iModelId });
+  }
+}

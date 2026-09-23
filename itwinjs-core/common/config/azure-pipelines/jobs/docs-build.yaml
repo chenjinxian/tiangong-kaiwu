@@ -1,0 +1,182 @@
+# The template defines the primary steps for creating the TypeDoc API files, gathering other md files,
+# and running a step to combine everything.
+
+parameters:
+  - name: checkout
+    type: string
+    default: self
+  - name: workingDir
+    type: string
+    default: $(Pipeline.Workspace)/itwinjs-core
+  - name: stagingDir
+    type: string
+    default: $(System.ArtifactsDirectory)/staging
+  - name: outputDir
+    type: string
+    default: $(Pipeline.Workspace)/tempDocsBuild
+  - name: useCoreDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentAppUIDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentBisDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentPresentationDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentTransformerDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentAuthClientsDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentConnectorFrameworkDocsArtifact
+    type: boolean
+    default: false
+  - name: shouldPublish
+    type: boolean
+    default: false
+  - name: isExternalBuild
+    type: boolean
+    default: false
+
+jobs:
+  - job: DocsBuild
+    displayName: Docs Build
+    workspace:
+      clean: all
+    pool:
+      name: iModelTechMacArm
+      demands: Agent.OS -equals Darwin
+    steps:
+      - checkout: ${{ parameters.checkout }}
+        path: itwinjs-core
+        clean: true
+      - task: UseNode@1
+        displayName: Use Node 24.x
+        inputs:
+          version: 24.x
+          checkLatest: false
+      - script: |
+          git config --local user.email imodeljs-admin@users.noreply.github.com
+          git config --local user.name imodeljs-admin
+        displayName: Setup git config
+
+      # Only install and build the docs if not using the core artifact
+      - script: node common/scripts/install-run-rush.js install
+        displayName: rush install
+        workingDirectory: ${{ parameters.workingDir }}
+        condition: and(succeeded(), eq('${{ parameters.useCoreDocsArtifact }}', false))
+
+      - script: node common/scripts/install-run-rush.js build --to-version-policy prerelease-monorepo-lockStep
+        displayName: rush build
+        workingDirectory: ${{ parameters.workingDir }}
+        env:
+          RUSH_BUILD_CACHE_CREDENTIAL: $(RushBuildCacheSAS)
+          RUSH_BUILD_CACHE_ENABLED: 1
+        condition: and(succeeded(), eq('${{ parameters.useCoreDocsArtifact }}', false))
+
+      - script: node common/scripts/install-run-rush.js docs
+        displayName: rush docs
+        workingDirectory: ${{ parameters.workingDir }}
+        condition: and(succeeded(), eq('${{ parameters.useCoreDocsArtifact }}', false))
+
+      - bash: |
+          branchName="$(Build.SourceBranch)"
+          archiveTag=""
+
+          # Add conditions here for branches that should produce archives
+          # For example, 'refs/heads/release/5.10.x' should be archived as 'v5':
+          # if [[ $branchName == "refs/heads/release/5.10.x" ]]; then
+          #   archiveTag="v5"
+          # fi
+
+          if [[ -n "$archiveTag" ]]; then
+            echo "Adding output variable $archiveTag"
+            echo "##vso[task.setvariable variable=archiveTag;]$archiveTag"
+          fi
+        displayName: Set archive vars if necessary
+        condition: and(succeeded(), eq('${{ parameters.shouldPublish }}', true))
+
+      # if using the core artifact, download the Core Generated Docs artifact it to the workingDir using downloadPipelineArtifact task
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Core Generated Docs Artifact
+        inputs:
+          source: "specific"
+          project: 2c48216e-e72f-48b4-a4eb-40ff1c04e8e4
+          pipeline: 7436 # iTwin.js Docs (docs-ci.yaml)
+          artifact: Core Generated Docs
+          path: ${{ parameters.workingDir }}/generated-docs
+        condition: and(succeeded(), eq('${{ parameters.useCoreDocsArtifact }}', true))
+
+      # Gather all the pieces to run BeMetalsmith
+      - template: ../templates/gather-docs.yaml
+        parameters:
+          workingDir: ${{ parameters.workingDir }}
+          stagingDir: ${{ parameters.stagingDir }}
+          useCurrentAppUIDocsArtifact: ${{ parameters.useCurrentAppUIDocsArtifact }}
+          useCurrentBisDocsArtifact: ${{ parameters.useCurrentBisDocsArtifact }}
+          useCurrentPresentationDocsArtifact: ${{ parameters.useCurrentPresentationDocsArtifact }}
+          useCurrentTransformerDocsArtifact: ${{ parameters.useCurrentTransformerDocsArtifact }}
+          useCurrentAuthClientsDocsArtifact: ${{ parameters.useCurrentAuthClientsDocsArtifact }}
+          useCurrentConnectorFrameworkDocsArtifact: ${{ parameters.useCurrentConnectorFrameworkDocsArtifact }}
+
+      # Currently BeMetalsmith is an internal only tool
+      - script: npm install @bentley/bemetalsmith@6.x
+        displayName: Install BeMetalsmith
+        workingDirectory: ${{ parameters.workingDir }}
+
+      # Update the bmsBuild step to include --siteRoot flag when archiveTag is defined.
+      - script: |
+          siteRootFlag=""
+          if [ -n "$(archiveTag)" ]; then
+            siteRootFlag="--siteRoot $(archiveTag)"
+          fi
+          ./node_modules/.bin/bmsBuild --strictLinkChecking --topicsMustHaveDesc --source ${{ parameters.stagingDir }} --destination ${{ parameters.outputDir }}/public_build --siteTitle iTwin.js $siteRootFlag
+        displayName: Run bmsBuild
+        workingDirectory: ${{ parameters.workingDir }}
+
+      # if publishing and not using the core artifact, publish the new core artifact
+      - publish: ${{ parameters.workingDir }}/generated-docs
+        artifact: Core Generated Docs
+        displayName: Publish Core Generated Docs Artifact
+        condition: and(succeeded(), eq('${{ parameters.shouldPublish }}', true), eq('${{ parameters.useCoreDocsArtifact }}', false))
+
+      - publish: ${{ parameters.stagingDir }}/config/.updated.json
+        artifact: .updated.json
+        displayName: Publish Pipeline Artifact - .updated.json
+        condition: and(succeeded(), eq('${{ parameters.shouldPublish }}', true))
+
+      - publish: ${{ parameters.outputDir }}
+        artifact: DocsBuild
+        displayName: Publish Pipeline Artifact - DocsBuild
+
+      # Tag the build for version archival (e.g., "v4") if building a specific release branch
+      - bash: |
+          if [[ -n "$(archiveTag)" ]]; then
+            echo "Tagging build with $(archiveTag) for archival purposes."
+            echo "##vso[build.addbuildtag]$(archiveTag)"
+          fi
+        displayName: Tag build for version archival (e.g., v4)
+        condition: and(succeeded(), eq('${{ parameters.shouldPublish }}', true), ne(variables['archiveTag'], ''))
+
+      # tag the build to trigger the release pipeline
+      - bash: |
+          commitMsg="${BUILD_SOURCEVERSIONMESSAGE}"
+          if [[ $commitMsg =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-dev\.[0-9]+)?$ ]]; then
+            echo "'$commitMsg' is a version bump"
+            echo '##vso[build.addbuildtag]iTwinJsDocsRelease'
+          else
+            echo "'$commitMsg' is not a version bump"
+          fi
+        displayName: Tag release if version bump
+        condition: and(succeeded(), eq('${{ parameters.shouldPublish }}', true), eq('${{ parameters.isExternalBuild }}', false))
+
+      - task: tagBuildOrRelease@0
+        displayName: Tag release if externally triggered
+        inputs:
+          type: "Build"
+          tags: "iTwinJsDocsRelease"
+        condition: and(succeeded(), ${{ parameters.shouldPublish }}, eq('${{ parameters.isExternalBuild }}', true))

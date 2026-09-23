@@ -1,0 +1,621 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+import { assert, expect } from "chai";
+import * as sinon from "sinon";
+import { Id64, Id64String } from "@itwin/core-bentley";
+import { ElementAspectProps, ExternalSourceAspectProps, IModel, SubCategoryAppearance } from "@itwin/core-common";
+import { EditTxn, withEditTxn } from "../../EditTxn";
+import {
+  Element, ElementAspect, ElementMultiAspect, ElementUniqueAspect, ExternalSourceAspect, PhysicalElement, SnapshotDb, SpatialCategory, Subject,
+} from "../../core-backend";
+import { IModelTestUtils } from "../IModelTestUtils";
+
+describe("ElementAspect", () => {
+
+  let iModel: SnapshotDb;
+
+  before(() => {
+    // NOTE: see ElementAspectTests.PresentationRuleScenarios in DgnPlatform\Tests\DgnProject\NonPublished\ElementAspect_Test.cpp for how ElementAspectTest.bim was created
+    const seedFileName = IModelTestUtils.resolveAssetFile("ElementAspectTest.bim");
+    const testFileName = IModelTestUtils.prepareOutputFile("ElementAspect", "ElementAspectTest.bim");
+    iModel = IModelTestUtils.createSnapshotFromSeed(testFileName, seedFileName);
+  });
+
+  after(() => {
+    iModel.close();
+  });
+
+  it("should be able to get aspects from test file", () => {
+    const element = iModel.elements.getElement("0x17");
+    assert.exists(element);
+    assert.isTrue(element instanceof PhysicalElement);
+
+    const aspect1: ElementAspect = iModel.elements.getAspects(element.id, "DgnPlatformTest:TestUniqueAspectNoHandler")[0];
+    assert.exists(aspect1);
+    assert.isTrue(aspect1 instanceof ElementUniqueAspect);
+    assert.equal(aspect1.classFullName, "DgnPlatformTest:TestUniqueAspectNoHandler");
+    assert.equal(aspect1.asAny.testUniqueAspectProperty, "Aspect1-Updated");
+    assert.equal(aspect1.asAny.length, 1);
+    assert.equal(JSON.stringify(aspect1), `{"classFullName":"DgnPlatformTest:TestUniqueAspectNoHandler","id":"0x6","testUniqueAspectProperty":"Aspect1-Updated","length":1,"element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}`);
+
+    // Test getAspects with dot separator
+    const aspect1DotSeparator: ElementAspect = iModel.elements.getAspects(element.id, "DgnPlatformTest.TestUniqueAspectNoHandler")[0];
+    assert.exists(aspect1DotSeparator);
+    assert.isTrue(aspect1DotSeparator instanceof ElementUniqueAspect);
+    assert.equal(aspect1DotSeparator.classFullName, "DgnPlatformTest:TestUniqueAspectNoHandler");
+    assert.equal(aspect1DotSeparator.asAny.testUniqueAspectProperty, "Aspect1-Updated");
+    assert.equal(aspect1DotSeparator.asAny.length, 1);
+    assert.equal(JSON.stringify(aspect1DotSeparator), `{"classFullName":"DgnPlatformTest:TestUniqueAspectNoHandler","id":"0x6","testUniqueAspectProperty":"Aspect1-Updated","length":1,"element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}`);
+
+    // cross-check getAspects against getAspect
+    const aspect1X: ElementAspect = iModel.elements.getAspect(aspect1.id);
+    assert.exists(aspect1X);
+    assert.isTrue(aspect1X instanceof ElementUniqueAspect);
+    assert.equal(aspect1X.classFullName, "DgnPlatformTest:TestUniqueAspectNoHandler");
+    assert.equal(aspect1X.asAny.testUniqueAspectProperty, "Aspect1-Updated");
+    assert.equal(aspect1X.asAny.length, 1);
+    assert.equal(JSON.stringify(aspect1X), `{"classFullName":"DgnPlatformTest:TestUniqueAspectNoHandler","id":"0x6","testUniqueAspectProperty":"Aspect1-Updated","length":1,"element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}`);
+
+    const aspect2: ElementAspect = iModel.elements.getAspects(element.id, "DgnPlatformTest:TestUniqueAspect")[0];
+    assert.exists(aspect2);
+    assert.isTrue(aspect2 instanceof ElementUniqueAspect);
+    assert.equal(aspect2.classFullName, "DgnPlatformTest:TestUniqueAspect");
+    assert.equal(aspect2.asAny.testUniqueAspectProperty, "Aspect2-Updated");
+    assert.isUndefined(aspect2.asAny.length);
+    assert.equal(JSON.stringify(aspect2), `{"classFullName":"DgnPlatformTest:TestUniqueAspect","id":"0x1","testUniqueAspectProperty":"Aspect2-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}`);
+
+    // Test getAspects with dot separator
+    const aspect2DotSeparator: ElementAspect = iModel.elements.getAspects(element.id, "DgnPlatformTest.TestUniqueAspect")[0];
+    assert.exists(aspect2DotSeparator);
+    assert.isTrue(aspect2DotSeparator instanceof ElementUniqueAspect);
+    assert.equal(aspect2DotSeparator.classFullName, "DgnPlatformTest:TestUniqueAspect");
+    assert.equal(aspect2DotSeparator.asAny.testUniqueAspectProperty, "Aspect2-Updated");
+    assert.isUndefined(aspect2DotSeparator.asAny.length);
+    assert.equal(JSON.stringify(aspect2DotSeparator), `{"classFullName":"DgnPlatformTest:TestUniqueAspect","id":"0x1","testUniqueAspectProperty":"Aspect2-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}`);
+
+    // cross-check getAspects against getAspect
+    const aspect2X: ElementAspect = iModel.elements.getAspect(aspect2.id);
+    assert.exists(aspect2X);
+    assert.isTrue(aspect2X instanceof ElementUniqueAspect);
+    assert.equal(aspect2X.classFullName, "DgnPlatformTest:TestUniqueAspect");
+    assert.equal(aspect2X.asAny.testUniqueAspectProperty, "Aspect2-Updated");
+    assert.isUndefined(aspect2X.asAny.length);
+    assert.equal(JSON.stringify(aspect2X), `{"classFullName":"DgnPlatformTest:TestUniqueAspect","id":"0x1","testUniqueAspectProperty":"Aspect2-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}`);
+
+    const uniqueAspects: ElementUniqueAspect[] = iModel.elements.getAspects(element.id, ElementUniqueAspect.classFullName);
+    assert.equal(uniqueAspects.length, 2);
+    uniqueAspects.forEach((aspect) => {
+      assert.isTrue(aspect.classFullName === aspect1.classFullName || aspect.classFullName === aspect2.classFullName);
+      // cross-check against getting the aspects individually
+      const aspectX: ElementAspect = iModel.elements.getAspect(aspect.id);
+      assert.exists(aspectX);
+      assert.equal(aspectX.schemaName, aspect.schemaName);
+      assert.equal(aspectX.className, aspect.className);
+    });
+    assert.equal(JSON.stringify(uniqueAspects), `[{"classFullName":"DgnPlatformTest:TestUniqueAspect","id":"0x1","testUniqueAspectProperty":"Aspect2-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}},
+    {"classFullName":"DgnPlatformTest:TestUniqueAspectNoHandler","id":"0x6","testUniqueAspectProperty":"Aspect1-Updated","length":1,"element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}]`.replace(/\s+/g, ""));
+
+    const multiAspectsA: ElementAspect[] = iModel.elements.getAspects(element.id, "DgnPlatformTest:TestMultiAspectNoHandler");
+    assert.exists(multiAspectsA);
+    assert.isArray(multiAspectsA);
+    assert.equal(multiAspectsA.length, 2);
+    multiAspectsA.forEach((aspect) => {
+      assert.isTrue(aspect instanceof ElementMultiAspect);
+      assert.equal(aspect.schemaName, "DgnPlatformTest");
+      assert.equal(aspect.className, "TestMultiAspectNoHandler");
+      assert.exists(aspect.asAny.testMultiAspectProperty);
+      // cross-check against getting the aspects individually
+      const aspectX: ElementAspect = iModel.elements.getAspect(aspect.id);
+      assert.exists(aspectX);
+      assert.equal(aspectX.schemaName, aspect.schemaName);
+      assert.equal(aspectX.className, aspect.className);
+      assert.exists(aspectX.asAny.testMultiAspectProperty);
+      assert.equal(aspectX.asAny.testMultiAspectProperty, aspect.asAny.testMultiAspectProperty);
+    });
+    assert.equal(JSON.stringify(multiAspectsA), `[{"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x4","testMultiAspectProperty":"Aspect3-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x5","testMultiAspectProperty":"Aspect4-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}}]`.replace(/\s+/g, ""));
+
+    // Test getAspects with dot separator
+    const multiAspectsADotSeparator: ElementAspect[] = iModel.elements.getAspects(element.id, "DgnPlatformTest.TestMultiAspectNoHandler");
+    assert.exists(multiAspectsADotSeparator);
+    assert.isArray(multiAspectsADotSeparator);
+    assert.equal(multiAspectsADotSeparator.length, 2);
+    multiAspectsADotSeparator.forEach((aspect) => {
+      assert.isTrue(aspect instanceof ElementMultiAspect);
+      assert.equal(aspect.schemaName, "DgnPlatformTest");
+      assert.equal(aspect.className, "TestMultiAspectNoHandler");
+      assert.exists(aspect.asAny.testMultiAspectProperty);
+      // cross-check against getting the aspects individually
+      const aspectX: ElementAspect = iModel.elements.getAspect(aspect.id);
+      assert.exists(aspectX);
+      assert.equal(aspectX.schemaName, aspect.schemaName);
+      assert.equal(aspectX.className, aspect.className);
+      assert.exists(aspectX.asAny.testMultiAspectProperty);
+      assert.equal(aspectX.asAny.testMultiAspectProperty, aspect.asAny.testMultiAspectProperty);
+    });
+    assert.equal(JSON.stringify(multiAspectsADotSeparator), `[{"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x4","testMultiAspectProperty":"Aspect3-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x5","testMultiAspectProperty":"Aspect4-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}}]`.replace(/\s+/g, ""));
+
+    const multiAspectsB: ElementAspect[] = iModel.elements.getAspects(element.id, "DgnPlatformTest:TestMultiAspect");
+    assert.exists(multiAspectsB);
+    assert.isArray(multiAspectsB);
+    assert.equal(multiAspectsB.length, 2);
+    multiAspectsB.forEach((aspect) => {
+      assert.isTrue(aspect instanceof ElementMultiAspect);
+      assert.equal(aspect.schemaName, "DgnPlatformTest");
+      assert.equal(aspect.className, "TestMultiAspect");
+      assert.exists(aspect.asAny.testMultiAspectProperty);
+      // cross-check against getting the aspects individually
+      const aspectX: ElementAspect = iModel.elements.getAspect(aspect.id);
+      assert.isTrue(aspectX instanceof ElementMultiAspect);
+      assert.equal(aspectX.schemaName, "DgnPlatformTest");
+      assert.equal(aspectX.className, "TestMultiAspect");
+      assert.exists(aspectX.asAny.testMultiAspectProperty);
+    });
+    assert.equal(JSON.stringify(multiAspectsB), `[{"classFullName":"DgnPlatformTest:TestMultiAspect","id":"0x2","testMultiAspectProperty":"Aspect5-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspect","id":"0x3","testMultiAspectProperty":"Aspect6-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsMultiAspects"}}]`.replace(/\s+/g, ""));
+
+    const multiAspects: ElementAspect[] = iModel.elements.getAspects(element.id, ElementMultiAspect.classFullName);
+    assert.equal(multiAspects.length, 4);
+    multiAspects.forEach((aspect) => {
+      assert.isTrue(aspect.classFullName === multiAspectsA[0].classFullName || aspect.classFullName === multiAspectsB[0].classFullName);
+      // cross-check against getting the aspects individually
+      const aspectX: ElementAspect = iModel.elements.getAspect(aspect.id);
+      assert.exists(aspectX);
+      assert.equal(aspectX.schemaName, aspect.schemaName);
+      assert.equal(aspectX.className, aspect.className);
+    });
+    assert.equal(JSON.stringify(multiAspects), `[{"classFullName":"DgnPlatformTest:TestMultiAspect","id":"0x2","testMultiAspectProperty":"Aspect5-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspect","id":"0x3","testMultiAspectProperty":"Aspect6-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x4","testMultiAspectProperty":"Aspect3-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x5","testMultiAspectProperty":"Aspect4-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}}]`.replace(/\s+/g, ""));
+
+    const rootSubject = iModel.elements.getRootSubject();
+    assert.equal(0, iModel.elements.getAspects(rootSubject.id, "DgnPlatformTest:TestUniqueAspect").length, "Don't expect DgnPlatformTest:TestUniqueAspect aspects on the root Subject");
+    assert.equal(0, iModel.elements.getAspects(rootSubject.id, "DgnPlatformTest:TestMultiAspect").length, "Don't expect DgnPlatformTest:TestMultiAspect aspects on the root Subject");
+    assert.equal(0, iModel.elements.getAspects(rootSubject.id).length, "Don't expect any aspects on the root Subject");
+
+    // The 'Element' property is introduced by ElementUniqueAspect and ElementMultiAspect, but is not available at the ElementAspect base class.
+    // Since we're now using instance queries to query ElementUniqueAspect and ElementMultiAspect directly in getAspects(), we can provide ElementAspect to the function as well.
+    const aspectList = `[{"classFullName":"DgnPlatformTest:TestMultiAspect","id":"0x2","testMultiAspectProperty":"Aspect5-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspect","id":"0x3","testMultiAspectProperty":"Aspect6-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x4","testMultiAspectProperty":"Aspect3-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x5","testMultiAspectProperty":"Aspect4-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestUniqueAspect","id":"0x1","testUniqueAspectProperty":"Aspect2-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}},
+    {"classFullName":"DgnPlatformTest:TestUniqueAspectNoHandler","id":"0x6","testUniqueAspectProperty":"Aspect1-Updated","length":1,"element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}]`.replace(/\s+/g, "");
+
+    const aspects: ElementAspect[] = iModel.elements.getAspects(element.id, ElementAspect.classFullName);
+    assert.equal(aspects.length, 6);
+    assert.equal(JSON.stringify(aspects), aspectList);
+
+    const allAspects: ElementAspect[] = iModel.elements.getAspects(element.id);
+    assert.equal(allAspects.length, 6);
+    assert.equal(JSON.stringify(allAspects), aspectList);
+  });
+
+  it("should use the aspect owner indexes", async () => {
+    const getPlanDetails = async (filtered: boolean, grouped: boolean): Promise<string[]> => {
+      const createQueryReader = sinon.spy(iModel, "createQueryReader");
+      try {
+        for await (const _aspect of iModel.elements.queryAspects({
+          elementIds: "0x17",
+          aspectClassFullName: filtered ? ElementAspect.classFullName : undefined,
+          groupByOwner: grouped,
+        })) { }
+      } finally {
+        createQueryReader.restore();
+      }
+
+      assert.equal(createQueryReader.callCount, 1);
+      const query = String(createQueryReader.firstCall.args[0])
+        .replace("IdSet(:elementIds)", `IdSet('["0x17"]')`)
+        .replace(":aspectClassFullName", `'${ElementAspect.classFullName}'`);
+      const pragma = `PRAGMA explain_query('${query.replaceAll("'", "''")}')`;
+      return iModel.withQueryReader(pragma, (reader) => {
+        const details: string[] = [];
+        for (const row of reader)
+          details.push(row.toRow().detail as string);
+        return details;
+      });
+    };
+
+    for (const filtered of [false, true]) {
+      for (const grouped of [false, true]) {
+        const plan = await getPlanDetails(filtered, grouped);
+        assert.isTrue(plan.some((detail) => /^SCAN (?:owners|IdSet) VIRTUAL TABLE INDEX/.test(detail)), plan.join("\n"));
+        for (const aspectClass of ["ElementMultiAspect", "ElementUniqueAspect"])
+          assert.isTrue(plan.some((detail) => new RegExp(`^SEARCH main\\.bis_${aspectClass} USING .*INDEX .*_target \\(ElementId=\\?\\)$`).test(detail)), plan.join("\n"));
+        if (!grouped)
+          assert.isFalse(plan.some((detail) => detail.startsWith("USE TEMP B-TREE FOR ORDER BY")), plan.join("\n"));
+      }
+    }
+  });
+
+  it("should query aspects for multiple elements", async () => {
+    const seedFileName = IModelTestUtils.resolveAssetFile("ElementAspectTest.bim");
+    const testFileName = IModelTestUtils.prepareOutputFile("ElementAspect", "QueryAspects.bim");
+    const testDb = IModelTestUtils.createSnapshotFromSeed(testFileName, seedFileName);
+
+    try {
+      const secondOwnerId = withEditTxn(testDb, (txn) => {
+        const ownerId = Subject.insert(txn, IModel.rootSubjectId, "Second aspect owner");
+        txn.insertAspect({
+          classFullName: "DgnPlatformTest:TestUniqueAspectNoHandler",
+          element: { id: ownerId },
+          testUniqueAspectProperty: "Second owner unique aspect",
+        } as ElementAspectProps);
+        txn.insertAspect({
+          classFullName: "DgnPlatformTest:TestMultiAspectNoHandler",
+          element: { id: ownerId },
+          testMultiAspectProperty: "Second owner multi-aspect",
+        } as ElementAspectProps);
+        return ownerId;
+      });
+
+      const collect = async (aspects: AsyncIterable<ElementAspect>): Promise<ElementAspect[]> => {
+        const result: ElementAspect[] = [];
+        for await (const aspect of aspects)
+          result.push(aspect);
+        return result;
+      };
+
+      const allAspects = await collect(testDb.elements.queryAspects({
+        elementIds: [secondOwnerId, "0x17", secondOwnerId, IModel.rootSubjectId],
+        groupByOwner: true,
+        usePrimaryConn: true,
+      }));
+      assert.equal(allAspects.length, 8);
+      assert.deepEqual([...new Set(allAspects.map((aspect) => aspect.element.id))], ["0x17", secondOwnerId]);
+      const ownerRuns = allAspects.reduce<string[]>((runs, aspect) => {
+        if (runs.at(-1) !== aspect.element.id)
+          runs.push(aspect.element.id);
+        return runs;
+      }, []);
+      assert.deepEqual(ownerRuns, ["0x17", secondOwnerId]);
+      const firstOwnerAspects = allAspects.filter((aspect) => aspect.element.id === "0x17");
+      assert.equal(firstOwnerAspects.length, 6);
+      assert.equal(allAspects.filter((aspect) => aspect.element.id === secondOwnerId).length, 2);
+      assert.isTrue(allAspects.every((aspect) => aspect instanceof ElementAspect));
+      assert.equal(JSON.stringify(firstOwnerAspects), JSON.stringify(testDb.elements.getAspects("0x17")));
+
+      const multiAspects = await collect(testDb.elements.queryAspects({
+        elementIds: ["0x17", secondOwnerId],
+        aspectClassFullName: ElementMultiAspect.classFullName,
+      }));
+      assert.equal(multiAspects.length, 5);
+      assert.isTrue(multiAspects.every((aspect) => aspect instanceof ElementMultiAspect));
+
+      const uniqueAspects = await collect(testDb.elements.queryAspects({
+        elementIds: ["0x17", secondOwnerId],
+        aspectClassFullName: ElementUniqueAspect.classFullName,
+      }));
+      assert.equal(uniqueAspects.length, 3);
+      assert.isTrue(uniqueAspects.every((aspect) => aspect instanceof ElementUniqueAspect));
+
+      const noHandlerMultiAspects = await collect(testDb.elements.queryAspects({
+        elementIds: new Set(["0x17", secondOwnerId]),
+        aspectClassFullName: "DgnPlatformTest.TestMultiAspectNoHandler",
+      }));
+      assert.equal(noHandlerMultiAspects.length, 3);
+      assert.isTrue(noHandlerMultiAspects.every((aspect) => aspect.classFullName === "DgnPlatformTest:TestMultiAspectNoHandler"));
+
+      const withoutNoHandlerMultiAspects = await collect(testDb.elements.queryAspects({
+        elementIds: ["0x17", secondOwnerId],
+        excludedAspectClassFullNames: new Set(["DgnPlatformTest:TestMultiAspectNoHandler"]),
+      }));
+      assert.equal(withoutNoHandlerMultiAspects.length, 5);
+      assert.isFalse(withoutNoHandlerMultiAspects.some((aspect) => aspect.classFullName === "DgnPlatformTest:TestMultiAspectNoHandler"));
+
+      const withUnknownExclusion = await collect(testDb.elements.queryAspects({
+        elementIds: ["0x17", secondOwnerId],
+        excludedAspectClassFullNames: new Set(["UnknownSchema:UnknownAspect"]),
+      }));
+      assert.equal(withUnknownExclusion.length, 8);
+
+      const includedMultiWithoutNoHandler = await collect(testDb.elements.queryAspects({
+        elementIds: ["0x17", secondOwnerId],
+        aspectClassFullName: ElementMultiAspect.classFullName,
+        excludedAspectClassFullNames: new Set(["DgnPlatformTest:TestMultiAspectNoHandler"]),
+      }));
+      assert.equal(includedMultiWithoutNoHandler.length, 2);
+      assert.isTrue(includedMultiWithoutNoHandler.every((aspect) => aspect.classFullName === "DgnPlatformTest:TestMultiAspect"));
+
+      const withMultipleExclusions = await collect(testDb.elements.queryAspects({
+        elementIds: ["0x17", secondOwnerId],
+        excludedAspectClassFullNames: new Set([
+          "DgnPlatformTest:TestMultiAspectNoHandler",
+          "DgnPlatformTest:TestUniqueAspectNoHandler",
+          "UnknownSchema:UnknownAspect",
+        ]),
+      }));
+      assert.equal(withMultipleExclusions.length, 3);
+      assert.isFalse(withMultipleExclusions.some((aspect) => aspect.classFullName.endsWith("NoHandler")));
+
+      const noAspects = await collect(testDb.elements.queryAspects({ elementIds: [] }));
+      assert.deepEqual(noAspects, []);
+
+      const unsavedEditTxn = new EditTxn(testDb, "query unsaved aspect");
+      unsavedEditTxn.start();
+      try {
+        const unsavedAspectId = unsavedEditTxn.insertAspect({
+          classFullName: "DgnPlatformTest:TestMultiAspectNoHandler",
+          element: { id: secondOwnerId },
+          testMultiAspectProperty: "Unsaved multi-aspect",
+        } as ElementAspectProps);
+        const primaryConnectionAspects = await collect(testDb.elements.queryAspects({
+          elementIds: secondOwnerId,
+          usePrimaryConn: true,
+        }));
+        assert.isTrue(primaryConnectionAspects.some((aspect) => aspect.id === unsavedAspectId));
+
+        const concurrentQueryAspects = await collect(testDb.elements.queryAspects({ elementIds: secondOwnerId }));
+        assert.isFalse(concurrentQueryAspects.some((aspect) => aspect.id === unsavedAspectId));
+      } finally {
+        unsavedEditTxn.end("abandon");
+      }
+    } finally {
+      testDb.close();
+    }
+  });
+
+  it("should be able to insert, update, and delete MultiAspects", () => {
+    const element: Element = iModel.elements.getElement("0x17");
+    assert.exists(element);
+    assert.isTrue(element instanceof PhysicalElement);
+
+    interface Props extends ElementAspectProps { testMultiAspectProperty: string }
+    const aspectProps: Props = {
+      classFullName: "DgnPlatformTest:TestMultiAspectNoHandler",
+      element: { id: element.id },
+      testMultiAspectProperty: "MultiAspectInsertTest1",
+    };
+    withEditTxn(iModel, (txn) => txn.insertAspect(aspectProps));
+    let aspects: ElementAspect[] = iModel.elements.getAspects(element.id, aspectProps.classFullName);
+    assert.isAtLeast(aspects.length, 1);
+    assert.equal(JSON.stringify(aspects), `[{"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x4","testMultiAspectProperty":"Aspect3-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x5","testMultiAspectProperty":"Aspect4-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x21","testMultiAspectProperty":"MultiAspectInsertTest1","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsMultiAspects"}}]`.replace(/\s+/g, ""));
+    const numAspects = aspects.length;
+
+    let found: boolean = false;
+    let foundIndex: number = -1;
+    for (const aspect of aspects) {
+      foundIndex++;
+      if (aspect.asAny.testMultiAspectProperty === aspectProps.testMultiAspectProperty) {
+        found = true;
+        break;
+      }
+    }
+    assert.isTrue(found);
+
+    aspects[foundIndex].asAny.testMultiAspectProperty = "MultiAspectInsertTest1-Updated";
+    withEditTxn(iModel, (txn) => txn.updateAspect(aspects[foundIndex].toJSON()));
+
+    const aspectsUpdated: ElementAspect[] = iModel.elements.getAspects(element.id, aspectProps.classFullName);
+    assert.equal(aspectsUpdated.length, aspects.length);
+    assert.equal(aspectsUpdated[foundIndex].asAny.testMultiAspectProperty, "MultiAspectInsertTest1-Updated");
+    // Check if aspect was updated
+    assert.equal(JSON.stringify(aspectsUpdated), `[{"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x4","testMultiAspectProperty":"Aspect3-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x5","testMultiAspectProperty":"Aspect4-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x21","testMultiAspectProperty":"MultiAspectInsertTest1-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsMultiAspects"}}]`.replace(/\s+/g, ""));
+
+    withEditTxn(iModel, (txn) => txn.deleteAspect(aspects[foundIndex].id));
+    aspects = iModel.elements.getAspects(element.id, aspectProps.classFullName);
+    assert.equal(numAspects, aspects.length + 1);
+    // Check if aspect was deleted
+    assert.equal(JSON.stringify(aspects), `[{"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x4","testMultiAspectProperty":"Aspect3-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}},
+    {"classFullName":"DgnPlatformTest:TestMultiAspectNoHandler","id":"0x5","testMultiAspectProperty":"Aspect4-Updated","element":{"id":"0x17","relClassName":"DgnPlatformTest.TestElement"}}]`.replace(/\s+/g, ""));
+  });
+
+  it("should be able to insert, update, and delete UniqueAspects", () => {
+    const element: Element = iModel.elements.getElement("0x17");
+    assert.exists(element);
+    assert.isTrue(element instanceof PhysicalElement);
+
+    const aspectProps = {
+      classFullName: "DgnPlatformTest:TestUniqueAspectNoHandler",
+      element: { id: element.id },
+      testUniqueAspectProperty: "UniqueAspectInsertTest1",
+    };
+    withEditTxn(iModel, (txn) => txn.insertAspect(aspectProps));
+    const aspects: ElementAspect[] = iModel.elements.getAspects(element.id, aspectProps.classFullName);
+    assert.isTrue(aspects.length === 1);
+    assert.equal(aspects[0].asAny.testUniqueAspectProperty, aspectProps.testUniqueAspectProperty);
+    assert.equal(JSON.stringify(aspects), `[{"classFullName":"DgnPlatformTest:TestUniqueAspectNoHandler","id":"0x6","testUniqueAspectProperty":"UniqueAspectInsertTest1","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}]`);
+
+    aspects[0].asAny.testUniqueAspectProperty = "UniqueAspectInsertTest1-Updated";
+    withEditTxn(iModel, (txn) => txn.updateAspect(aspects[0].toJSON()));
+    const aspectsUpdated: ElementAspect[] = iModel.elements.getAspects(element.id, aspectProps.classFullName);
+    assert.equal(aspectsUpdated.length, 1);
+    assert.equal(aspectsUpdated[0].asAny.testUniqueAspectProperty, "UniqueAspectInsertTest1-Updated");
+    assert.equal(JSON.stringify(aspectsUpdated), `[{"classFullName":"DgnPlatformTest:TestUniqueAspectNoHandler","id":"0x6","testUniqueAspectProperty":"UniqueAspectInsertTest1-Updated","element":{"id":"0x17","relClassName":"BisCore.ElementOwnsUniqueAspect"}}]`);
+
+    withEditTxn(iModel, (txn) => txn.deleteAspect(aspects[0].id));
+    try {
+      const noAspects = iModel.elements.getAspects(element.id, aspectProps.classFullName);
+      assert.equal(noAspects.length, 0);
+      assert.isTrue(false, "Expected this line to be skipped");
+    } catch (error) {
+      assert.isTrue(error instanceof Error);
+    }
+  });
+
+  it("should be able to insert ExternalSourceAspects", () => {
+    const fileName = IModelTestUtils.prepareOutputFile("ElementAspect", "ExternalSourceAspect.bim");
+    let iModelDb = SnapshotDb.createEmpty(fileName, { rootSubject: { name: "ExternalSourceAspect" } });
+    let elementId!: Id64String;
+    let aspectProps!: ExternalSourceAspectProps;
+    const aspectJson = withEditTxn(iModelDb, (txn) => {
+      elementId = SpatialCategory.insert(txn, IModel.dictionaryId, "Category", new SubCategoryAppearance());
+      assert.isTrue(Id64.isValidId64(elementId));
+
+      aspectProps = {
+        classFullName: ExternalSourceAspect.classFullName,
+        element: { id: elementId },
+        scope: { id: IModel.rootSubjectId },
+        identifier: "A",
+        kind: "Letter",
+        checksum: "1",
+        version: "1.0",
+      };
+      const aspect = new ExternalSourceAspect(aspectProps, iModelDb);
+      expect(aspect).to.deep.subsetEqual(aspectProps, { normalizeClassNameProps: true });
+      txn.insertAspect(aspectProps);
+      return aspect.toJSON();
+    });
+    iModelDb.close();
+    iModelDb = SnapshotDb.openFile(fileName);
+
+    const aspects: ElementAspect[] = iModelDb.elements.getAspects(elementId, aspectProps.classFullName);
+    assert.equal(aspects.length, 1);
+    assert.equal(JSON.stringify(aspects), `[{"classFullName":"BisCore:ExternalSourceAspect","id":"0x21","scope":{"id":"0x1","relClassName":"BisCore.ElementScopesExternalSourceIdentifier"},"identifier":"A","kind":"Letter","version":"1.0","checksum":"1","element":{"id":"0x11","relClassName":"BisCore.ElementOwnsMultiAspects"}}]`);
+    expect(aspects[0]).to.deep.subsetEqual(aspectProps, { normalizeClassNameProps: true });
+
+    expect(aspectJson).to.deep.subsetEqual(aspectProps, { normalizeClassNameProps: true });
+
+    assert(aspectProps.scope !== undefined);
+    const foundAspects = ExternalSourceAspect.findAllBySource(iModelDb, aspectProps.scope.id, aspectProps.kind, aspectProps.identifier);
+    assert.equal(foundAspects.length, 1);
+    const foundAspect = foundAspects[0];
+    assert.equal(foundAspect.aspectId, aspects[0].id);
+    assert.equal(foundAspect.elementId, aspectProps.element.id);
+  });
+
+  it("should be able to insert multiple ExternalSourceAspects", () => {
+    const fileName = IModelTestUtils.prepareOutputFile("MultipleElementAspects", "ExternalSourceAspect.bim");
+    let iModelDb = SnapshotDb.createEmpty(fileName, { rootSubject: { name: "MultipleExternalSourceAspects" } });
+    let e1!: Id64String;
+    let e2!: Id64String;
+
+    const scopeId1 = IModel.rootSubjectId;
+    const kind = "Letter";
+    const kind2 = "Kind2";
+    const { e1AspectProps, e2AspectProps } = withEditTxn(iModelDb, (txn) => {
+      e1 = SpatialCategory.insert(txn, IModel.dictionaryId, "Category1", new SubCategoryAppearance());
+      e2 = SpatialCategory.insert(txn, IModel.dictionaryId, "Category2", new SubCategoryAppearance());
+      const scopeId2 = e1;
+      const aspectProps: ExternalSourceAspectProps = {
+        classFullName: ExternalSourceAspect.classFullName,
+        element: { id: "" },
+        scope: { id: "" },
+        identifier: "",
+        kind,
+      };
+      const a: ExternalSourceAspectProps = { ...aspectProps, identifier: "A", scope: { id: scopeId1 } };
+      const a2: ExternalSourceAspectProps = { ...aspectProps, identifier: "A", scope: { id: scopeId2 } };
+      const b: ExternalSourceAspectProps = { ...aspectProps, identifier: "B", scope: { id: scopeId1 } };
+      const c: ExternalSourceAspectProps = { ...aspectProps, identifier: "C", scope: { id: scopeId1 } };
+      const ck2: ExternalSourceAspectProps = { ...aspectProps, identifier: "C", scope: { id: scopeId1 }, kind: kind2 };
+
+      const e1Props: Array<ExternalSourceAspectProps> = [
+        { ...a, element: { id: e1 } },
+        { ...a, element: { id: e1 } }, // add a second aspect "A" in scope1
+        { ...a2, element: { id: e1 } }, // add "A" in scope2
+        { ...b, element: { id: e1 } },
+        { ...ck2, element: { id: e1 } },
+      ];
+      const e2Props: Array<ExternalSourceAspectProps> = [
+        { ...a, element: { id: e2 } }, // element2 also has an "A" in scope1
+        { ...c, element: { id: e2 } },
+      ];
+      e1Props.forEach((aspect) => txn.insertAspect(aspect));
+      e2Props.forEach((aspect) => txn.insertAspect(aspect));
+      return { e1AspectProps: e1Props, e2AspectProps: e2Props };
+    });
+    iModelDb.close();
+    iModelDb = SnapshotDb.openFile(fileName);
+
+    const equalProps = (aspect: ElementAspect, wantProps: ExternalSourceAspectProps): boolean => {
+      return (aspect.element.id === wantProps.element.id)
+        && (aspect.asAny.scope.id === wantProps.scope.id)
+        && (aspect.asAny.scope.relClassName.endsWith("ElementScopesExternalSourceIdentifier"))
+        && (aspect.asAny.identifier === wantProps.identifier)
+        && (aspect.asAny.kind === wantProps.kind)
+        && (aspect.asAny.checksum === wantProps.checksum)
+        && (aspect.asAny.version === wantProps.version);
+    };
+    const findInProps = (have: ElementAspect, wantArray: Array<ExternalSourceAspectProps>): boolean => {
+      return wantArray.find((want) => equalProps(have, want)) !== undefined;
+    };
+
+    const e1Aspects: ElementAspect[] = iModelDb.elements.getAspects(e1, ExternalSourceAspect.classFullName);
+    assert.equal(e1Aspects.length, e1AspectProps.length);
+    e1Aspects.forEach((x) => {
+      assert.isTrue(findInProps(x, e1AspectProps));
+    });
+    assert.equal(JSON.stringify(e1Aspects), `[{"classFullName":"BisCore:ExternalSourceAspect","id":"0x21","scope":{"id":"0x1","relClassName":"BisCore.ElementScopesExternalSourceIdentifier"},"identifier":"A","kind":"Letter","element":{"id":"0x11","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"BisCore:ExternalSourceAspect","id":"0x22","scope":{"id":"0x1","relClassName":"BisCore.ElementScopesExternalSourceIdentifier"},"identifier":"A","kind":"Letter","element":{"id":"0x11","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"BisCore:ExternalSourceAspect","id":"0x23","scope":{"id":"0x11","relClassName":"BisCore.ElementScopesExternalSourceIdentifier"},"identifier":"A","kind":"Letter","element":{"id":"0x11","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"BisCore:ExternalSourceAspect","id":"0x24","scope":{"id":"0x1","relClassName":"BisCore.ElementScopesExternalSourceIdentifier"},"identifier":"B","kind":"Letter","element":{"id":"0x11","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"BisCore:ExternalSourceAspect","id":"0x25","scope":{"id":"0x1","relClassName":"BisCore.ElementScopesExternalSourceIdentifier"},"identifier":"C","kind":"Kind2","element":{"id":"0x11","relClassName":"BisCore.ElementOwnsMultiAspects"}}]`.replace(/\s+/g, ""));
+
+    const e2Aspects: ElementAspect[] = iModelDb.elements.getAspects(e2, ExternalSourceAspect.classFullName);
+    assert.equal(e2Aspects.length, e2AspectProps.length);
+    e2Aspects.forEach((x) => {
+      assert.isTrue(findInProps(x, e2AspectProps));
+    });
+    assert.equal(JSON.stringify(e2Aspects), `[{"classFullName":"BisCore:ExternalSourceAspect","id":"0x26","scope":{"id":"0x1","relClassName":"BisCore.ElementScopesExternalSourceIdentifier"},"identifier":"A","kind":"Letter","element":{"id":"0x13","relClassName":"BisCore.ElementOwnsMultiAspects"}},
+    {"classFullName":"BisCore:ExternalSourceAspect","id":"0x27","scope":{"id":"0x1","relClassName":"BisCore.ElementScopesExternalSourceIdentifier"},"identifier":"C","kind":"Letter","element":{"id":"0x13","relClassName":"BisCore.ElementOwnsMultiAspects"}}]`.replace(/\s+/g, ""));
+
+    const allA = ExternalSourceAspect.findAllBySource(iModelDb, scopeId1, kind, "A");
+    assert.equal(allA.filter((x) => x.elementId === e1).length, 2, "there are two A's in scope 1 on e1");
+    assert.equal(allA.filter((x) => x.elementId === e2).length, 1, "there is one A in scope 1 on e2");
+    assert.equal(allA.length, 3);
+
+    const allA2 = ExternalSourceAspect.findAllBySource(iModelDb, e1, kind, "A");
+    assert.equal(allA2.length, 1);
+    assert.equal(allA2[0].elementId, e1, "there is one A in scope 2 on e1");
+
+    const allB = ExternalSourceAspect.findAllBySource(iModelDb, scopeId1, kind, "B");
+    assert.equal(allB.length, 1);
+    assert.equal(allB[0].elementId, e1, "there is one B on e1");
+
+    const allC = ExternalSourceAspect.findAllBySource(iModelDb, scopeId1, kind, "C");
+    assert.equal(allC.length, 1);
+    assert.equal(allC[0].elementId, e2, "there is one C of kind1 on e2");
+
+    const allCK2 = ExternalSourceAspect.findAllBySource(iModelDb, scopeId1, kind2, "C");
+    assert.equal(allCK2.length, 1);
+    assert.equal(allCK2[0].elementId, e1, "there is one C of kind 2 on e1");
+
+    assert.equal(ExternalSourceAspect.findAllBySource(iModelDb, scopeId1, kind, "<notfound>").length, 0);
+  });
+
+  it("should create ChannelRootAspect with correct relationship class", async () => {
+    const iModelDb = SnapshotDb.createEmpty(IModelTestUtils.prepareOutputFile("ElementAspect", "ChannelRootAspectTest.bim"), { rootSubject: { name: "ChannelRootAspectTest" } });
+
+    const testChannelKey = "test-channel";
+
+    // Enable the test channel
+    iModelDb.channels.addAllowedChannel(testChannelKey);
+
+    // Create a channel subject using insertChannelSubject with explicit txn
+    const subjectId = withEditTxn(iModelDb, (txn) => iModelDb.channels.insertChannelSubject({
+      subjectName: "Test Channel Subject",
+      channelKey: testChannelKey,
+      txn,
+    }));
+    assert.isTrue(Id64.isValidId64(subjectId), "Subject Id should be valid");
+
+    // Get the ChannelRootAspect
+    const aspects = iModelDb.elements.getAspects(subjectId, "BisCore:ChannelRootAspect");
+    assert.equal(aspects.length, 1, "Should be exactly one as it's a unique aspect");
+
+    const aspect = aspects[0];
+    assert.exists(aspect);
+    assert.equal(aspect.classFullName, "BisCore:ChannelRootAspect", "Aspect class should be ChannelRootAspect");
+
+    // Verify the relationship class
+    expect(aspect.element.relClassName).to.equal("BisCore.ElementOwnsChannelRootAspect");
+    assert.equal((aspect as any).owner, testChannelKey, "Channel owner should match the channel key");
+
+    // Query the db to confirm the relationship class
+    const reader = iModelDb.createQueryReader("select ec_classname(Element.RelECClassId) as relClassName from BisCore.ChannelRootAspect");
+    expect(await reader.step()).to.be.true;
+    expect(reader.current.relClassName).to.equal("BisCore:ElementOwnsChannelRootAspect");
+
+    iModelDb.close();
+  });
+});

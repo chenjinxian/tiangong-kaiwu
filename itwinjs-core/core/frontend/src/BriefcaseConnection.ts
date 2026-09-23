@@ -1,0 +1,525 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module IModelConnection
+ */
+
+import { assert, BeEvent, CompressedId64Set, Guid, GuidString, Id64Set, Id64String, IModelStatus, OpenMode } from "@itwin/core-bentley";
+import {
+  BriefcaseConnectionProps, ChangesetIndex, ChangesetIndexAndId, getPullChangesIpcChannel, getPushChangesIpcChannel, IModelError,
+  PullChangesOptions as IpcAppPullChangesOptions, PushChangesOptions as IpcAppPushChangesOptions, LockState, OpenBriefcaseProps, StandaloneOpenOptions,
+} from "@itwin/core-common";
+import { BriefcaseTxns } from "./BriefcaseTxns";
+import { GraphicalEditingScope } from "./GraphicalEditingScope";
+import { IModelApp } from "./IModelApp";
+import { IModelConnection } from "./IModelConnection";
+import { IpcApp } from "./IpcApp";
+import { disposeTileTreesForGeometricModels } from "./tile/internal";
+import { Viewport } from "./Viewport";
+
+/**
+ * Download progress information.
+ * @public
+ */
+export interface DownloadProgressInfo {
+  /** Bytes downloaded. */
+  loaded: number;
+  /** Total size of the download in bytes. */
+  total: number;
+}
+
+/**
+ * Called to show progress during a download.
+ * @public
+ */
+export type OnDownloadProgress = (progress: DownloadProgressInfo) => void;
+
+/**
+ * Partial interface of AbortSignal.
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal
+ * @beta
+ */
+export interface GenericAbortSignal {
+  /** Add Listener for abort signal. */
+  addEventListener: (type: "abort", listener: (this: GenericAbortSignal, ev: any) => any) => void;
+  /** Remove Listener for abort signal. */
+  removeEventListener: (type: "abort", listener: (this: GenericAbortSignal, ev: any) => any) => void;
+}
+
+/**
+ * Options for pulling iModel changes.
+ * @public
+ */
+export interface PullChangesOptions {
+  /** Function called regularly to report progress of changes download. */
+  downloadProgressCallback?: OnDownloadProgress;
+  /** Interval for calling progress callback (in milliseconds). */
+  progressInterval?: number;
+  /** Signal for cancelling the download.
+   * @beta
+   */
+  abortSignal?: GenericAbortSignal;
+}
+
+/**
+ * Options for pushing iModel changes.
+ * @beta
+ */
+export interface PushChangesOptions {
+  /** Function called regularly to report progress of the download of the changes that must be merged before pushing. */
+  downloadProgressCallback?: OnDownloadProgress;
+  /** Interval for calling [[downloadProgressCallback]] (in milliseconds). */
+  downloadProgressInterval?: number;
+  /** Signal for cancelling the push.
+   * @note Currently this only cancels the download of the changes that must be merged before pushing - it has no effect once the local
+   * changeset is being uploaded.
+   */
+  abortSignal?: GenericAbortSignal;
+}
+
+/** Keeps track of changes to models, buffering them until synchronization points.
+ * While a GraphicalEditingScope is open, the changes are buffered until the scope exits, at which point they are processed.
+ * Otherwise, the buffered changes are processed after undo/redo, commit, or pull+merge changes.
+ */
+class ModelChangeMonitor {
+  private _editingScope?: GraphicalEditingScope;
+  private readonly _briefcase: BriefcaseConnection;
+  private readonly _deletedModels = new Set<string>();
+  private readonly _modelIdToGuid = new Map<string, string>();
+  private readonly _removals: VoidFunction[] = [];
+
+  public constructor(briefcase: BriefcaseConnection) {
+    this._briefcase = briefcase;
+
+    // Buffer updated geometry guids.
+    this._removals.push(briefcase.txns.onModelGeometryChanged.addListener((changes) => {
+      for (const change of changes) {
+        this._deletedModels.delete(change.id);
+        this._modelIdToGuid.set(change.id, change.guid);
+      }
+    }));
+
+    // Buffer deletions of models.
+    this._removals.push(briefcase.txns.onModelsChanged.addListener((changes) => {
+      if (changes.deleted) {
+        for (const id of CompressedId64Set.iterable(changes.deleted)) {
+          this._modelIdToGuid.delete(id);
+          this._deletedModels.add(id);
+        }
+      }
+    }));
+
+    // Outside of an editing scope, we want to update viewport contents after commit, undo/redo, or merging changes.
+    const maybeProcess = async () => {
+      if (this.editingScope)
+        return;
+
+      const modelIds = Array.from(this._modelIdToGuid.keys());
+      if (modelIds.length > 0)
+        await IModelApp.tileAdmin.purgeTileTrees(this._briefcase, modelIds);
+
+      this.processBuffered();
+    };
+
+    this._removals.push(briefcase.txns.onCommitted.addListener(maybeProcess));
+    this._removals.push(briefcase.txns.onReplayedExternalTxns.addListener(maybeProcess));
+    this._removals.push(briefcase.txns.onAfterUndoRedo.addListener(maybeProcess));
+    this._removals.push(briefcase.txns.onChangesPulled.addListener(maybeProcess));
+  }
+
+  public async close(): Promise<void> {
+    for (const removal of this._removals)
+      removal();
+
+    this._removals.length = 0;
+
+    if (this._editingScope) {
+      await this._editingScope.exit();
+      this._editingScope = undefined;
+    }
+  }
+
+  public get editingScope(): GraphicalEditingScope | undefined {
+    return this._editingScope;
+  }
+
+  public async enterEditingScope(): Promise<GraphicalEditingScope> {
+    if (this._editingScope)
+      throw new Error("Cannot create an editing scope for an iModel that already has one");
+
+    this._editingScope = await GraphicalEditingScope.enter(this._briefcase);
+
+    const removeGeomListener = this._editingScope.onGeometryChanges.addListener((changes) => {
+      const modelIds = [];
+      for (const change of changes)
+        modelIds.push(change.id);
+
+      this.invalidateScenes(modelIds);
+    });
+
+    this._editingScope.onExited.addOnce((scope) => {
+      assert(scope === this._editingScope);
+      this._editingScope = undefined;
+      removeGeomListener();
+      this.processBuffered();
+    });
+
+    return this._editingScope;
+  }
+
+  private processBuffered(): void {
+    const models = this._briefcase.models;
+    for (const [id, guid] of this._modelIdToGuid) {
+      const model = models.getLoaded(id)?.asGeometricModel;
+      if (model)
+        model.geometryGuid = guid;
+    }
+
+    const modelIds = new Set<string>(this._modelIdToGuid.keys());
+    for (const deleted of this._deletedModels) {
+      modelIds.add(deleted);
+      models.unload(deleted);
+    }
+
+    this.invalidateScenes(modelIds);
+    disposeTileTreesForGeometricModels(modelIds, this._briefcase);
+
+    this._briefcase.onBufferedModelChanges.raiseEvent(modelIds);
+
+    this._modelIdToGuid.clear();
+    this._deletedModels.clear();
+  }
+
+  private invalidateScenes(changedModels: Iterable<Id64String>): void {
+    for (const user of IModelApp.tileAdmin.tileUsers) {
+      if (user instanceof Viewport && user.iModel === this._briefcase) {
+        for (const modelId of changedModels) {
+          if (user.view.viewsModel(modelId)) {
+            user.invalidateScene();
+            user.setFeatureOverrideProviderChanged();
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Provides access to lock information in the iModel.
+ * @see [[BriefcaseConnection.locks]]
+ * @alpha
+ */
+export interface LockService {
+  /** Get all elements with exclusive locks owned by other briefcases. */
+  getExclusiveForeignLocks(): Promise<Id64Set>;
+  /** Get all elements with shared locks owned by other briefcases. */
+  getSharedForeignLocks(): Promise<Id64Set>;
+  /** Check whether it's possible to acquire a lock for the element. */
+  checkElementLockAvailability(elementId: Id64String, lock: LockState): Promise<boolean>;
+}
+
+/** Function for creating a [[LockService]] for a [[BriefcaseConnection]].
+ * @alpha
+ */
+export type LockServiceFactory = (iModel: BriefcaseConnection) => Promise<LockService>;
+
+/** Settings that can be used to control the behavior of [[Tool]]s that modify a [[BriefcaseConnection]].
+ * For example, tools that want to create new elements can consult the briefcase's editor tool settings to
+ * determine into which model and category to insert the elements.
+ * Specialized tools are free to ignore these settings.
+ * @see [[BriefcaseConnection.editorToolSettings]] to query or modify the current settings for a briefcase.
+ * @see [CreateElementTool]($editor-frontend) for an example of a tool that uses these settings.
+ * @beta
+ */
+export class BriefcaseEditorToolSettings {
+  private _category?: Id64String;
+  private _model?: Id64String;
+
+  /** An event raised just after the default [[category]] is changed. */
+  public readonly onCategoryChanged = new BeEvent<(previousCategory: Id64String | undefined) => void>();
+
+  /** An event raised just after the default [[model]] is changed. */
+  public readonly onModelChanged = new BeEvent<(previousModel: Id64String | undefined) => void>();
+
+  /** The [Category]($backend) into which new elements should be inserted by default.
+   * Specialized tools are free to ignore this setting and instead use their own logic to select an appropriate category.
+   * @see [[onCategoryChanged]] to be notified when this property is modified.
+   * @see [CreateElementTool.targetCategory]($editor-frontend) for an example of a tool that uses this setting.
+   */
+  public get category(): Id64String | undefined {
+    return this._category;
+  }
+  public set category(category: Id64String | undefined) {
+    const previousCategory = this.category;
+    if (category !== this.category) {
+      this._category = category;
+      this.onCategoryChanged.raiseEvent(previousCategory);
+    }
+  }
+
+  /** The [Model]($backend) into which new elements should be inserted by default.
+   * Specialized tools are free to ignore this setting and instead use their own logic to select an appropriate model.
+   * @see [[onModelChanged]] to be notified when this property is modified.
+   * @see [CreateElementTool.targetModelId]($editor-frontend) for an example of a tool that uses this setting.
+   */
+  public get model(): Id64String | undefined {
+    return this._model;
+  }
+  public set model(model: Id64String | undefined) {
+    const previousModel = this.model;
+    if (model !== this.model) {
+      this._model = model;
+      this.onModelChanged.raiseEvent(previousModel);
+    }
+  }
+}
+
+/** A connection to an editable briefcase on the backend. This class uses [Ipc]($docs/learning/IpcInterface.md) to communicate
+ * to the backend and may only be used by [[IpcApp]]s.
+ * @public
+ */
+export class BriefcaseConnection extends IModelConnection {
+  protected _isClosed?: boolean;
+  private readonly _modelsMonitor: ModelChangeMonitor;
+  private _locks?: LockService;
+
+  /** The ID of the briefcase.
+   * @beta
+   */
+  public readonly briefcaseId?: number;
+
+  /** Default settings that can be used to control the behavior of [[Tool]]s that modify this briefcase.
+   * @beta
+   */
+  public readonly editorToolSettings = new BriefcaseEditorToolSettings();
+
+  /** Manages local changes to the briefcase via [Txns]($docs/learning/InteractiveEditing.md). */
+  public readonly txns: BriefcaseTxns;
+
+  /** Information about locks held on this iModel.
+   * @note This is intended to be used by tools and other UI elements, to provide information about the current lock state. Implementations are expected to cache lock information and so may not reflect changes to locks immediately.
+   * @alpha
+   */
+  public get locks(): LockService | undefined { return this._locks; }
+
+  public override isBriefcaseConnection(): this is BriefcaseConnection { return true; }
+
+  /** The Guid that identifies the iTwin that owns this iModel. */
+  public override get iTwinId(): GuidString { return super.iTwinId ?? Guid.empty; } // GuidString | undefined for IModelConnection, but required for BriefcaseConnection
+
+  /** The Guid that identifies this iModel. */
+  public override get iModelId(): GuidString { return super.iModelId ?? Guid.empty; } // GuidString | undefined for IModelConnection, but required for BriefcaseConnection
+
+  protected constructor(props: BriefcaseConnectionProps, openMode: OpenMode) {
+    super(props);
+    this._openMode = openMode;
+    this.briefcaseId = props.briefcaseId;
+    this.txns = new BriefcaseTxns(this);
+    this._modelsMonitor = new ModelChangeMonitor(this);
+    if (OpenMode.ReadWrite === this._openMode)
+      this.txns.onAfterUndoRedo.addListener(async () => { await IModelApp.toolAdmin.restartPrimitiveTool(); });
+
+    this.categories.cache.attachToBriefcase(this);
+  }
+
+  /** Open a BriefcaseConnection to a [BriefcaseDb]($backend). */
+  public static async openFile(briefcaseProps: OpenBriefcaseProps): Promise<BriefcaseConnection>;
+
+  /** Open a BriefcaseConnection to a [BriefcaseDb]($backend).
+   * @alpha
+   */
+  public static async openFile(briefcaseProps: OpenBriefcaseProps, lockServiceFactory?: LockServiceFactory): Promise<BriefcaseConnection>
+
+  public static async openFile(briefcaseProps: OpenBriefcaseProps, lockServiceFactory?: LockServiceFactory): Promise<BriefcaseConnection> {
+    const iModelProps = await IpcApp.appFunctionIpc.openBriefcase(briefcaseProps);
+    const connection = new this({ ...briefcaseProps, ...iModelProps }, briefcaseProps.readonly ? OpenMode.Readonly : OpenMode.ReadWrite);
+    if (lockServiceFactory)
+      connection._locks = await lockServiceFactory(connection);
+
+    IModelConnection.onOpen.raiseEvent(connection);
+    return connection;
+  }
+
+  /** Open a BriefcaseConnection to a [StandaloneDb]($backend)
+   * @note StandaloneDbs, by definition, may not push or pull changes. Attempting to do so will throw exceptions.
+   */
+  public static async openStandalone(filePath: string, openMode: OpenMode = OpenMode.ReadWrite, opts?: StandaloneOpenOptions): Promise<BriefcaseConnection> {
+    const openResponse = await IpcApp.appFunctionIpc.openStandalone(filePath, openMode, opts);
+    const connection = new this(openResponse, openMode);
+    IModelConnection.onOpen.raiseEvent(connection);
+    return connection;
+  }
+
+  /** Returns `true` if [[close]] has already been called. */
+  public get isClosed(): boolean { return this._isClosed === true; }
+
+  /**
+   * Close this BriefcaseConnection.
+   * @note make sure to call [[saveChanges]] before calling this method. Unsaved local changes are abandoned.
+   */
+  public async close(): Promise<void> {
+    if (this.isClosed)
+      return;
+
+    await this._modelsMonitor.close();
+
+    this.beforeClose();
+    this.txns[Symbol.dispose]();
+
+    this._isClosed = true;
+    await IpcApp.appFunctionIpc.closeIModel(this._fileKey);
+  }
+
+  protected requireTimeline() {
+    if (this.iTwinId === Guid.empty)
+      throw new IModelError(IModelStatus.WrongIModel, "iModel has no timeline");
+  }
+
+  /** Query if there are any pending Txns in this briefcase that are waiting to be pushed. */
+  public async hasPendingTxns(): Promise<boolean> { // eslint-disable-line @itwin/prefer-get
+    return this.txns.hasPendingTxns();
+  }
+
+  /** Commit pending changes to this briefcase.
+   * @param description Optional description of the changes.
+   * @deprecated in 5.9.0 - will not be removed until after 2027-05-04. Use methods on EditCommand instead.
+   */
+  public async saveChanges(description?: string): Promise<void> {
+    await IpcApp.appFunctionIpc.saveChanges(this.key, description); // eslint-disable-line @typescript-eslint/no-deprecated
+  }
+
+  /** Abandon pending changes to this briefcase.
+   * @deprecated in 5.9.0 - will not be removed until after 2027-05-04. Use methods on EditCommand instead.
+   */
+  public async abandonChanges(): Promise<void> {
+    await IpcApp.appFunctionIpc.abandonChanges(this.key); // eslint-disable-line @typescript-eslint/no-deprecated
+  }
+
+  /** Subscribes to changeset download progress events on `channel` and wires `abortSignal` to `cancel`.
+   * @returns a function that removes every listener that was added.
+   */
+  private listenForChangesetDownloadProgress(args: {
+    channel: string,
+    cancel: () => Promise<void>,
+    downloadProgressCallback?: OnDownloadProgress,
+    abortSignal?: GenericAbortSignal,
+  }): VoidFunction {
+    const { channel, cancel, downloadProgressCallback, abortSignal } = args;
+    const removeListeners: VoidFunction[] = [];
+
+    if (downloadProgressCallback) {
+      const handleProgress = (_evt: Event, data: DownloadProgressInfo) => downloadProgressCallback(data);
+      removeListeners.push(IpcApp.addListener(channel, handleProgress));
+    }
+
+    if (abortSignal) {
+      const abort = () => void cancel();
+      abortSignal.addEventListener("abort", abort);
+      removeListeners.push(() => abortSignal.removeEventListener("abort", abort));
+    }
+
+    return () => removeListeners.forEach((remove) => remove());
+  }
+
+  /** Pull (and potentially merge if there are local changes) up to a specified changeset from iModelHub into this briefcase
+   * @param toIndex The changeset index to pull changes to. If `undefined`, pull all changes.
+   * @param options Options for pulling changes.
+   * @see [[BriefcaseTxns.onChangesPulled]] for the event dispatched after changes are pulled.
+   */
+  public async pullChanges(toIndex?: ChangesetIndex, options?: PullChangesOptions): Promise<void> {
+    this.requireTimeline();
+
+    const removeListeners = this.listenForChangesetDownloadProgress({
+      channel: getPullChangesIpcChannel(this.key),
+      cancel: async () => IpcApp.appFunctionIpc.cancelPullChangesRequest(this.key),
+      downloadProgressCallback: options?.downloadProgressCallback,
+      abortSignal: options?.abortSignal,
+    });
+
+    const ipcAppOptions: IpcAppPullChangesOptions = {
+      reportProgress: !!options?.downloadProgressCallback,
+      progressInterval: options?.progressInterval,
+      enableCancellation: !!options?.abortSignal,
+    };
+    try {
+      this.changeset = await IpcApp.appFunctionIpc.pullChanges(this.key, toIndex, ipcAppOptions);
+    } finally {
+      removeListeners();
+    }
+    await this.invalidateSchemaViewIfChanged();
+  }
+
+  /** Create a changeset from local Txns and push to iModelHub. On success, clear Txn table.
+   * @param description The description for the changeset
+   * @returns the changesetId of the pushed changes
+   * @note Any changes made by other users are first pulled, applied, and merged with the local Txns. Only then is the resulting changeset
+   * uploaded.
+   * @see [[BriefcaseTxns.onChangesPushed]] for the event dispatched after changes are pushed.
+   * @public
+   */
+  public pushChanges(description: string): Promise<ChangesetIndexAndId>;
+  /** Create a changeset from local Txns and push to iModelHub. On success, clear Txn table.
+   * @param description The description for the changeset
+   * @param options Options reporting the progress of - and optionally cancelling - the download of the changes that are pulled before pushing.
+   * @returns the changesetId of the pushed changes
+   * @note Any changes made by other users are first pulled, applied, and merged with the local Txns. Only then is the resulting changeset
+   * uploaded.
+   * @see [[BriefcaseTxns.onChangesPushed]] for the event dispatched after changes are pushed.
+   * @beta
+   */
+  public pushChanges(description: string, options?: PushChangesOptions): Promise<ChangesetIndexAndId>;
+  public async pushChanges(description: string, options?: PushChangesOptions): Promise<ChangesetIndexAndId> {
+    this.requireTimeline();
+
+    const removeListeners = this.listenForChangesetDownloadProgress({
+      channel: getPushChangesIpcChannel(this.key),
+      cancel: async () => IpcApp.appFunctionIpc.cancelPushChangesRequest(this.key),
+      downloadProgressCallback: options?.downloadProgressCallback,
+      abortSignal: options?.abortSignal,
+    });
+
+    const ipcAppOptions: IpcAppPushChangesOptions = {
+      reportDownloadProgress: !!options?.downloadProgressCallback,
+      downloadProgressInterval: options?.downloadProgressInterval,
+      enableCancellation: !!options?.abortSignal,
+    };
+    try {
+      return this.changeset = await IpcApp.appFunctionIpc.pushChanges(this.key, description, ipcAppOptions);
+    } finally {
+      removeListeners();
+    }
+  }
+
+  /** The current graphical editing scope, if one is in progress.
+   * @see [[enterEditingScope]] to begin graphical editing.
+   */
+  public get editingScope(): GraphicalEditingScope | undefined {
+    return this._modelsMonitor.editingScope;
+  }
+
+  /** Return whether graphical editing is supported for this briefcase. It is not supported if the briefcase is read-only, or the briefcase contains a version of
+   * the BisCore ECSchema older than v0.1.11.
+   * @see [[enterEditingScope]] to enable graphical editing.
+   */
+  public async supportsGraphicalEditing(): Promise<boolean> {
+    return IpcApp.appFunctionIpc.isGraphicalEditingSupported(this.key);
+  }
+
+  /** Begin a new graphical editing scope.
+   * @throws Error if an editing scope already exists or one could not be created.
+   * @see [[GraphicalEditingScope.exit]] to exit the scope.
+   * @see [[supportsGraphicalEditing]] to determine whether this method should be expected to succeed.
+   * @see [[editingScope]] to obtain the current editing scope, if one is in progress.
+   */
+  public async enterEditingScope(): Promise<GraphicalEditingScope> {
+    return this._modelsMonitor.enterEditingScope();
+  }
+
+  /** Strictly for tests - dispatched from ModelChangeMonitor.processBuffered.
+   * @internal
+   */
+  public readonly onBufferedModelChanges = new BeEvent<(changedModelIds: Set<string>) => void>();
+}

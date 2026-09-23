@@ -1,0 +1,117 @@
+# This template handles gathering all of the raw docs artifacts into a single staging directory
+# to allow them to be processed for publication.
+
+parameters:
+  - name: workingDir
+    type: string
+    default: $(Pipeline.Workspace)/itwinjs-core
+  - name: stagingDir
+    type: string
+    default: $(System.ArtifactsDirectory)/staging/
+  - name: useCurrentAppUIDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentBisDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentPresentationDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentTransformerDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentAuthClientsDocsArtifact
+    type: boolean
+    default: false
+  - name: useCurrentConnectorFrameworkDocsArtifact
+    type: boolean
+    default: false
+
+steps:
+  # Call the copying script
+  - script: node common/scripts/copyReferenceFilesToStaging.js ${{ parameters.stagingDir }}
+    displayName: Copy Reference files to Staging
+    workingDirectory: ${{ parameters.workingDir }}
+
+  # AppUI
+  - template: ./copy-docs-artifact.yaml
+    parameters:
+      workingDir: ${{ parameters.workingDir }}
+      stagingDir: ${{ parameters.stagingDir }}
+      pipelineId: 8594 # iTwin AppUI/AppUI Docs CI
+      artifactName: AppUI Docs
+      buildTag: hasDocs
+      useCurrentDocsArtifact: ${{ parameters.useCurrentAppUIDocsArtifact }}
+
+  # BIS
+  - template: ./copy-docs-artifact.yaml
+    parameters:
+      workingDir: ${{ parameters.workingDir }}
+      stagingDir: ${{ parameters.stagingDir }}
+      pipelineId: 6075 # BIS/Generate-Schema-Markdown-(GitHub)
+      artifactName: Bis Docs
+      useCurrentDocsArtifact: ${{ parameters.useCurrentBisDocsArtifact }}
+      stagingSteps:
+        - task: CopyFiles@2
+          displayName: Copy Bis Docs to staging
+          inputs:
+            SourceFolder: $(Pipeline.Workspace)/Bis Docs
+            TargetFolder: ${{ parameters.stagingDir }}/bis/domains/
+
+  # Presentation
+  - template: ./copy-docs-artifact.yaml
+    parameters:
+      workingDir: ${{ parameters.workingDir }}
+      stagingDir: ${{ parameters.stagingDir }}
+      pipelineId: 8602 # iTwin Presentation/iTwin Presentation Docs
+      artifactName: Presentation Docs
+      buildTag: hasDocs
+      useCurrentDocsArtifact: ${{ parameters.useCurrentPresentationDocsArtifact }}
+
+  # Transformer
+  - template: ./copy-docs-artifact.yaml
+    parameters:
+      workingDir: ${{ parameters.workingDir }}
+      stagingDir: ${{ parameters.stagingDir }}
+      pipelineId: 9056 # iTwin Transformer/Transformer Generate Docs
+      artifactName: Transformer Docs
+      buildTag: hasDocs
+      useCurrentDocsArtifact: ${{ parameters.useCurrentTransformerDocsArtifact }}
+
+  # Auth Clients
+  - template: ./copy-docs-artifact.yaml
+    parameters:
+      workingDir: ${{ parameters.workingDir }}
+      stagingDir: ${{ parameters.stagingDir }}
+      pipelineId: 9108 # iTwin.js/clients/iTwin.auth-clients.docs build
+      artifactName: iTwin-Auth-Clients Docs
+      buildTag: hasDocs
+      useCurrentDocsArtifact: ${{ parameters.useCurrentAuthClientsDocsArtifact }}
+      stagingSteps:
+        - task: CopyFiles@2
+          displayName: Copy Auth Clients Docs to staging
+          inputs:
+            SourceFolder: $(Pipeline.Workspace)/iTwin-Auth-Clients Docs
+            TargetFolder: ${{ parameters.stagingDir }}/reference/
+
+  # Connector Frameworks
+  - template: ./copy-docs-artifact.yaml
+    parameters:
+      workingDir: ${{ parameters.workingDir }}
+      stagingDir: ${{ parameters.stagingDir }}
+      pipelineId: 5669 # iTwin.js/iTwin Connector Frameworks/iTwin.connector-framework
+      artifactName: Connector-Framework Docs
+      buildTag: hasDocs
+      useCurrentDocsArtifact: ${{ parameters.useCurrentConnectorFrameworkDocsArtifact }}
+
+  # The .updated.json is cached to track when the docs were last updated
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Pipeline Artifact - .updated.json
+    inputs:
+      buildType: specific
+      project: 2c48216e-e72f-48b4-a4eb-40ff1c04e8e4
+      pipeline: 7436 # iTwin.js/Docs/iTwin.js Docs - YAML
+      buildVersionToDownload: latestFromBranch
+      branchName: refs/heads/master
+      artifactName: .updated.json
+      targetPath: ${{ parameters.stagingDir }}/config/

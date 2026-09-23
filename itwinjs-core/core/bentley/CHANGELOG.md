@@ -1,0 +1,2253 @@
+# Change Log - @itwin/core-bentley
+
+This log was last generated on Tue, 22 Sep 2026 22:39:30 GMT and should not be manually modified.
+
+## 5.13.5
+Tue, 22 Sep 2026 22:38:08 GMT
+
+_Version update only_
+
+## 5.13.4
+Fri, 18 Sep 2026 15:11:19 GMT
+
+_Version update only_
+
+## 5.13.3
+Tue, 15 Sep 2026 20:25:28 GMT
+
+_Version update only_
+
+## 5.13.2
+Mon, 14 Sep 2026 20:22:20 GMT
+
+_Version update only_
+
+## 5.13.1
+Tue, 08 Sep 2026 18:43:29 GMT
+
+_Version update only_
+
+## 5.13.0
+Thu, 03 Sep 2026 18:49:55 GMT
+
+_Version update only_
+
+## 5.12.5
+Tue, 25 Aug 2026 21:22:08 GMT
+
+_Version update only_
+
+## 5.12.4
+Tue, 18 Aug 2026 15:45:35 GMT
+
+_Version update only_
+
+## 5.12.3
+Mon, 17 Aug 2026 11:29:39 GMT
+
+_Version update only_
+
+## 5.12.2
+Mon, 10 Aug 2026 20:38:45 GMT
+
+_Version update only_
+
+## 5.12.1
+Mon, 10 Aug 2026 19:07:26 GMT
+
+_Version update only_
+
+## 5.12.0
+Mon, 03 Aug 2026 12:25:49 GMT
+
+_Version update only_
+
+## 5.11.4
+Tue, 25 Aug 2026 19:54:22 GMT
+
+_Version update only_
+
+## 5.11.3
+Wed, 15 Jul 2026 19:40:44 GMT
+
+_Version update only_
+
+## 5.11.2
+Fri, 10 Jul 2026 12:20:31 GMT
+
+_Version update only_
+
+## 5.11.1
+Wed, 08 Jul 2026 19:03:45 GMT
+
+_Version update only_
+
+## 5.11.0
+Fri, 03 Jul 2026 13:05:21 GMT
+
+### Updates
+
+- Added `CompressedId64Set.isValid` type guard to test whether a value is a valid `CompressedId64Set`.
+
+## 5.10.3
+Tue, 16 Jun 2026 12:58:32 GMT
+
+_Version update only_
+
+## 5.10.2
+Thu, 11 Jun 2026 21:09:38 GMT
+
+_Version update only_
+
+## 5.10.1
+Mon, 08 Jun 2026 18:45:58 GMT
+
+_Version update only_
+
+## 5.10.0
+Wed, 03 Jun 2026 20:19:46 GMT
+
+_Version update only_
+
+## 5.9.5
+Mon, 01 Jun 2026 17:34:00 GMT
+
+_Version update only_
+
+## 5.9.4
+Tue, 19 May 2026 19:45:27 GMT
+
+_Version update only_
+
+## 5.9.3
+Fri, 15 May 2026 11:25:54 GMT
+
+_Version update only_
+
+## 5.9.2
+Fri, 08 May 2026 20:36:41 GMT
+
+_Version update only_
+
+## 5.9.1
+Tue, 05 May 2026 17:43:30 GMT
+
+_Version update only_
+
+## 5.9.0
+Mon, 04 May 2026 16:32:08 GMT
+
+### Minor changes
+
+- Add BeUnorderedEvent and BeUnorderedUiEvent — Set-backed event classes with safe concurrent modification during emit.
+
+### Updates
+
+- Improved `Id64.iterable` performance >10x.
+- Added wrapTimerCallback utility function.
+
+## 5.8.5
+Thu, 14 May 2026 19:12:21 GMT
+
+_Version update only_
+
+## 5.8.4
+Thu, 23 Apr 2026 18:05:13 GMT
+
+_Version update only_
+
+## 5.8.3
+Thu, 23 Apr 2026 14:52:42 GMT
+
+### Updates
+
+- Added wrapTimerCallback utility function.
+
+## 5.8.2
+Thu, 16 Apr 2026 11:05:01 GMT
+
+_Version update only_
+
+## 5.8.1
+Fri, 10 Apr 2026 13:02:00 GMT
+
+_Version update only_
+
+## 5.8.0
+Thu, 02 Apr 2026 18:19:33 GMT
+
+_Version update only_
+
+## 5.7.3
+Tue, 24 Mar 2026 14:29:17 GMT
+
+_Version update only_
+
+## 5.7.2
+Thu, 12 Mar 2026 14:12:44 GMT
+
+_Version update only_
+
+## 5.7.1
+Mon, 09 Mar 2026 14:41:48 GMT
+
+_Version update only_
+
+## 5.7.0
+Tue, 03 Mar 2026 18:21:20 GMT
+
+### Updates
+
+- Fix oneAtATimeAction so it doesn't start a new request until the old one finishes
+- Adds new logError overload that takes in Errors as parameters
+- Add addAll, deleteAll, onBatchAdded, onBatchDeleted to ObservableSet
+
+## 5.6.3
+Mon, 09 Mar 2026 22:09:11 GMT
+
+_Version update only_
+
+## 5.6.2
+Thu, 26 Feb 2026 22:14:46 GMT
+
+_Version update only_
+
+## 5.6.1
+Fri, 13 Feb 2026 17:11:47 GMT
+
+_Version update only_
+
+## 5.6.0
+Thu, 05 Feb 2026 16:12:37 GMT
+
+_Version update only_
+
+## 5.5.2
+Thu, 22 Jan 2026 16:16:54 GMT
+
+_Version update only_
+
+## 5.5.1
+Wed, 14 Jan 2026 17:52:53 GMT
+
+_Version update only_
+
+## 5.5.0
+Mon, 05 Jan 2026 17:05:53 GMT
+
+_Version update only_
+
+## 5.4.2
+Fri, 12 Dec 2025 14:40:14 GMT
+
+_Version update only_
+
+## 5.4.1
+Thu, 11 Dec 2025 21:29:31 GMT
+
+_Version update only_
+
+## 5.4.0
+Tue, 02 Dec 2025 21:22:25 GMT
+
+_Version update only_
+
+## 5.3.4
+Fri, 12 Dec 2025 20:11:41 GMT
+
+_Version update only_
+
+## 5.3.3
+Thu, 20 Nov 2025 22:30:37 GMT
+
+_Version update only_
+
+## 5.3.2
+Thu, 13 Nov 2025 23:23:23 GMT
+
+_Version update only_
+
+## 5.3.1
+Thu, 06 Nov 2025 20:29:06 GMT
+
+_Version update only_
+
+## 5.3.0
+Mon, 03 Nov 2025 19:02:35 GMT
+
+### Updates
+
+- Update Guid.createValue() to use crypto.randomUUID(). This change reduces the time it takes to create a guid by ~40%.
+- Fix crash when their is a cycle in EDE.
+
+## 5.2.6
+Thu, 13 Nov 2025 21:13:51 GMT
+
+_Version update only_
+
+## 5.2.5
+Thu, 13 Nov 2025 07:45:14 GMT
+
+_Version update only_
+
+## 5.2.4
+Fri, 24 Oct 2025 16:20:38 GMT
+
+_Version update only_
+
+## 5.2.3
+Thu, 16 Oct 2025 23:00:31 GMT
+
+_Version update only_
+
+## 5.2.2
+Fri, 10 Oct 2025 14:49:15 GMT
+
+_Version update only_
+
+## 5.2.1
+Thu, 09 Oct 2025 17:10:26 GMT
+
+_Version update only_
+
+## 5.2.0
+Wed, 01 Oct 2025 20:22:54 GMT
+
+### Updates
+
+- Add method ProcessDetector.isIEBrowswer to detect IE and old Edge browsers.
+
+## 5.1.9
+Wed, 24 Sep 2025 17:38:08 GMT
+
+_Version update only_
+
+## 5.1.8
+Wed, 17 Sep 2025 17:17:16 GMT
+
+_Version update only_
+
+## 5.1.7
+Tue, 09 Sep 2025 19:28:04 GMT
+
+_Version update only_
+
+## 5.1.6
+Mon, 08 Sep 2025 13:53:47 GMT
+
+_Version update only_
+
+## 5.1.5
+Thu, 04 Sep 2025 13:51:08 GMT
+
+_Version update only_
+
+## 5.1.4
+Fri, 22 Aug 2025 14:22:33 GMT
+
+_Version update only_
+
+## 5.1.3
+Wed, 20 Aug 2025 13:57:10 GMT
+
+_Version update only_
+
+## 5.1.2
+Thu, 14 Aug 2025 19:38:08 GMT
+
+_Version update only_
+
+## 5.1.1
+Fri, 08 Aug 2025 18:06:10 GMT
+
+_Version update only_
+
+## 5.1.0
+Fri, 08 Aug 2025 12:51:53 GMT
+
+### Updates
+
+- Add TypeScript utility types `DeepReadonlyObject` and `DeepRequiredObject`.
+- Add compareArrays for ordered comparison of arrays.
+- Updated deprecation comments to new template
+
+## 5.0.5
+Wed, 06 Aug 2025 15:34:15 GMT
+
+_Version update only_
+
+## 5.0.4
+Wed, 16 Jul 2025 14:59:59 GMT
+
+_Version update only_
+
+## 5.0.3
+Fri, 11 Jul 2025 00:56:56 GMT
+
+_Version update only_
+
+## 5.0.2
+Thu, 26 Jun 2025 22:16:01 GMT
+
+_Version update only_
+
+## 5.0.1
+Tue, 17 Jun 2025 18:33:51 GMT
+
+_Version update only_
+
+## 5.0.0
+Fri, 13 Jun 2025 20:25:38 GMT
+
+### Updates
+
+- Add `compareSimpleTypes` and `compareSimpleArrays` to compare simple data.
+- Add rebase method for merging changes
+- Fix `Uint32Set.delete` leaving artifacts in internal map, causing `isEmpty` to return incorrect value.
+- Upgrade compile target to ES2023 and module to ES2022
+- Introduce ITwinError
+- Deprecated `GeoServiceStatus.Pending`
+- Removed 3.x deprecated APIs from core-bentley
+- Add compareArrays for ordered comparison of arrays.
+- Add Logger.staticMetaData.
+- Deprecated IDisposable interface (along with related isIDisposable and using utilities) in favor of TypeScript's built-in `Disposable` type and `using` declarations. 
+
+## 4.11.7
+Thu, 13 Nov 2025 20:49:32 GMT
+
+_Version update only_
+
+## 4.11.6
+Mon, 16 Jun 2025 15:00:15 GMT
+
+_Version update only_
+
+## 4.11.5
+Fri, 06 Jun 2025 13:41:18 GMT
+
+_Version update only_
+
+## 4.11.4
+Tue, 03 Jun 2025 16:15:19 GMT
+
+_Version update only_
+
+## 4.11.3
+Wed, 28 May 2025 13:56:22 GMT
+
+_Version update only_
+
+## 4.11.2
+Tue, 20 May 2025 20:14:45 GMT
+
+_Version update only_
+
+## 4.11.1
+Wed, 30 Apr 2025 13:13:21 GMT
+
+_Version update only_
+
+## 4.11.0
+Wed, 16 Apr 2025 15:50:28 GMT
+
+_Version update only_
+
+## 4.10.13
+Thu, 10 Apr 2025 17:47:21 GMT
+
+_Version update only_
+
+## 4.10.12
+Wed, 02 Apr 2025 19:35:47 GMT
+
+_Version update only_
+
+## 4.10.11
+Wed, 19 Mar 2025 15:30:39 GMT
+
+_Version update only_
+
+## 4.10.10
+Tue, 11 Mar 2025 15:25:11 GMT
+
+_Version update only_
+
+## 4.10.9
+Tue, 11 Mar 2025 05:17:33 GMT
+
+_Version update only_
+
+## 4.10.8
+Thu, 06 Mar 2025 14:13:37 GMT
+
+_Version update only_
+
+## 4.10.7
+Tue, 18 Feb 2025 17:27:03 GMT
+
+_Version update only_
+
+## 4.10.6
+Fri, 24 Jan 2025 08:02:40 GMT
+
+_Version update only_
+
+## 4.10.5
+Tue, 21 Jan 2025 21:56:45 GMT
+
+_Version update only_
+
+## 4.10.4
+Mon, 13 Jan 2025 14:06:43 GMT
+
+_Version update only_
+
+## 4.10.3
+Mon, 06 Jan 2025 14:00:13 GMT
+
+_Version update only_
+
+## 4.10.2
+Thu, 21 Nov 2024 15:22:20 GMT
+
+_Version update only_
+
+## 4.10.1
+Thu, 14 Nov 2024 18:11:00 GMT
+
+_Version update only_
+
+## 4.10.0
+Wed, 13 Nov 2024 15:23:38 GMT
+
+### Updates
+
+- Add MaybePromise utility type.
+- Add Id64.Uint32Set.equals().
+
+## 4.9.7
+Wed, 06 Nov 2024 19:23:04 GMT
+
+_Version update only_
+
+## 4.9.6
+Tue, 05 Nov 2024 15:22:45 GMT
+
+_Version update only_
+
+## 4.9.5
+Tue, 22 Oct 2024 20:01:40 GMT
+
+_Version update only_
+
+## 4.9.4
+Wed, 09 Oct 2024 20:22:04 GMT
+
+### Updates
+
+- Add MaybePromise utility type.
+
+## 4.9.3
+Thu, 03 Oct 2024 19:15:45 GMT
+
+_Version update only_
+
+## 4.9.2
+Wed, 02 Oct 2024 15:14:43 GMT
+
+_Version update only_
+
+## 4.9.1
+Wed, 25 Sep 2024 20:10:58 GMT
+
+_Version update only_
+
+## 4.9.0
+Mon, 23 Sep 2024 13:44:01 GMT
+
+_Version update only_
+
+## 4.8.7
+Fri, 13 Sep 2024 15:11:17 GMT
+
+_Version update only_
+
+## 4.8.6
+Fri, 06 Sep 2024 05:06:49 GMT
+
+_Version update only_
+
+## 4.8.5
+Wed, 28 Aug 2024 17:27:23 GMT
+
+_Version update only_
+
+## 4.8.4
+Thu, 22 Aug 2024 17:37:06 GMT
+
+_Version update only_
+
+## 4.8.3
+Fri, 16 Aug 2024 18:18:14 GMT
+
+_Version update only_
+
+## 4.8.2
+Thu, 15 Aug 2024 15:33:49 GMT
+
+_Version update only_
+
+## 4.8.1
+Mon, 12 Aug 2024 14:05:54 GMT
+
+_Version update only_
+
+## 4.8.0
+Thu, 08 Aug 2024 16:15:37 GMT
+
+### Updates
+
+- Add `ListenerType` helper to retrieve listener type of a `BeEvent`.
+- Update ThirdPartyNotices.md
+- Add fork and merge methods to TransientIdSequence.
+- Begin deprecating @internal APIs.
+
+## 4.7.8
+Wed, 31 Jul 2024 13:38:04 GMT
+
+_Version update only_
+
+## 4.7.7
+Fri, 19 Jul 2024 14:52:42 GMT
+
+_Version update only_
+
+## 4.7.6
+Fri, 12 Jul 2024 14:42:55 GMT
+
+_Version update only_
+
+## 4.7.5
+Thu, 11 Jul 2024 15:24:55 GMT
+
+_Version update only_
+
+## 4.7.4
+Mon, 01 Jul 2024 14:06:23 GMT
+
+_Version update only_
+
+## 4.7.3
+Thu, 27 Jun 2024 21:09:02 GMT
+
+_Version update only_
+
+## 4.7.2
+Sat, 22 Jun 2024 01:09:54 GMT
+
+_Version update only_
+
+## 4.7.1
+Thu, 13 Jun 2024 22:47:31 GMT
+
+_Version update only_
+
+## 4.7.0
+Wed, 12 Jun 2024 18:02:16 GMT
+
+_Version update only_
+
+## 4.6.2
+Sat, 08 Jun 2024 00:50:25 GMT
+
+_Version update only_
+
+## 4.6.1
+Wed, 29 May 2024 14:35:17 GMT
+
+_Version update only_
+
+## 4.6.0
+Mon, 13 May 2024 20:32:51 GMT
+
+### Updates
+
+- Improve ChangesetConflictArgs & SqliteChangeSetReader API
+
+## 4.5.2
+Tue, 16 Apr 2024 14:46:21 GMT
+
+_Version update only_
+
+## 4.5.1
+Wed, 03 Apr 2024 18:26:58 GMT
+
+_Version update only_
+
+## 4.5.0
+Tue, 02 Apr 2024 19:06:00 GMT
+
+### Updates
+
+- New `IModelStatus.Aborted` status
+
+## 4.4.9
+Mon, 15 Apr 2024 20:29:22 GMT
+
+_Version update only_
+
+## 4.4.8
+Mon, 25 Mar 2024 22:22:26 GMT
+
+_Version update only_
+
+## 4.4.7
+Fri, 15 Mar 2024 19:15:14 GMT
+
+_Version update only_
+
+## 4.4.6
+Fri, 08 Mar 2024 15:57:11 GMT
+
+_Version update only_
+
+## 4.4.5
+Tue, 05 Mar 2024 20:37:18 GMT
+
+_Version update only_
+
+## 4.4.4
+Fri, 01 Mar 2024 18:21:01 GMT
+
+_Version update only_
+
+## 4.4.3
+Fri, 23 Feb 2024 21:26:07 GMT
+
+_Version update only_
+
+## 4.4.2
+Fri, 16 Feb 2024 14:22:01 GMT
+
+_Version update only_
+
+## 4.4.1
+Fri, 16 Feb 2024 14:17:48 GMT
+
+_Version update only_
+
+## 4.4.0
+Mon, 12 Feb 2024 18:15:58 GMT
+
+### Updates
+
+- Add support for Node 20.
+
+## 4.3.5
+Mon, 25 Mar 2024 16:54:36 GMT
+
+_Version update only_
+
+## 4.3.4
+Fri, 22 Mar 2024 13:30:31 GMT
+
+_Version update only_
+
+## 4.3.3
+Wed, 03 Jan 2024 19:28:38 GMT
+
+_Version update only_
+
+## 4.3.2
+Thu, 14 Dec 2023 20:23:02 GMT
+
+_Version update only_
+
+## 4.3.1
+Wed, 13 Dec 2023 17:25:54 GMT
+
+_Version update only_
+
+## 4.3.0
+Thu, 07 Dec 2023 17:43:09 GMT
+
+### Updates
+
+- Add support for Node 20.
+
+## 4.2.4
+Mon, 20 Nov 2023 16:14:45 GMT
+
+_Version update only_
+
+## 4.2.3
+Mon, 06 Nov 2023 14:01:52 GMT
+
+_Version update only_
+
+## 4.2.2
+Thu, 02 Nov 2023 15:36:20 GMT
+
+_Version update only_
+
+## 4.2.1
+Tue, 24 Oct 2023 15:09:13 GMT
+
+_Version update only_
+
+## 4.2.0
+Tue, 17 Oct 2023 15:14:32 GMT
+
+### Updates
+
+- fix logging when OpenTelemetry Tracing is enabled
+- improve OpenTelemetry logging support
+
+## 4.1.9
+Tue, 10 Oct 2023 18:48:12 GMT
+
+_Version update only_
+
+## 4.1.8
+Fri, 06 Oct 2023 04:00:18 GMT
+
+_Version update only_
+
+## 4.1.7
+Thu, 28 Sep 2023 21:41:33 GMT
+
+_Version update only_
+
+## 4.1.6
+Tue, 12 Sep 2023 15:38:52 GMT
+
+_Version update only_
+
+## 4.1.5
+Fri, 08 Sep 2023 13:37:23 GMT
+
+_Version update only_
+
+## 4.1.4
+Thu, 07 Sep 2023 18:26:02 GMT
+
+_Version update only_
+
+## 4.1.3
+Wed, 30 Aug 2023 15:35:27 GMT
+
+_Version update only_
+
+## 4.1.2
+Wed, 23 Aug 2023 15:25:29 GMT
+
+### Updates
+
+- fix logging when OpenTelemetry Tracing is enabled
+
+## 4.1.1
+Fri, 18 Aug 2023 13:02:53 GMT
+
+_Version update only_
+
+## 4.1.0
+Mon, 14 Aug 2023 14:36:34 GMT
+
+### Updates
+
+- Promote YieldManager.
+- Switch to ESLint new flat config system
+
+## 4.0.7
+Thu, 10 Aug 2023 13:19:24 GMT
+
+_Version update only_
+
+## 4.0.6
+Mon, 24 Jul 2023 05:07:33 GMT
+
+_Version update only_
+
+## 4.0.5
+Tue, 18 Jul 2023 12:21:56 GMT
+
+_Version update only_
+
+## 4.0.4
+Wed, 12 Jul 2023 15:50:01 GMT
+
+_Version update only_
+
+## 4.0.3
+Mon, 03 Jul 2023 15:28:41 GMT
+
+_Version update only_
+
+## 4.0.2
+Wed, 21 Jun 2023 22:04:43 GMT
+
+_Version update only_
+
+## 4.0.1
+Wed, 21 Jun 2023 20:29:13 GMT
+
+_Version update only_
+
+## 4.0.0
+Mon, 22 May 2023 15:34:14 GMT
+
+### Updates
+
+- added PickMethods utility type
+- Update to eslint@8
+- Added DataTransformRequired flag to DbResult enum.
+- Add RequireAtLeastOne utility type.
+
+## 3.8.0
+Fri, 08 Dec 2023 15:23:59 GMT
+
+_Version update only_
+
+## 3.7.17
+Mon, 20 Nov 2023 18:24:23 GMT
+
+_Version update only_
+
+## 3.7.16
+Mon, 16 Oct 2023 12:49:07 GMT
+
+_Version update only_
+
+## 3.7.15
+Tue, 10 Oct 2023 19:58:35 GMT
+
+_Version update only_
+
+## 3.7.14
+Fri, 29 Sep 2023 16:57:16 GMT
+
+_Version update only_
+
+## 3.7.13
+Tue, 08 Aug 2023 19:49:18 GMT
+
+_Version update only_
+
+## 3.7.12
+Thu, 27 Jul 2023 21:50:57 GMT
+
+_Version update only_
+
+## 3.7.11
+Tue, 11 Jul 2023 17:17:21 GMT
+
+_Version update only_
+
+## 3.7.10
+Wed, 05 Jul 2023 13:41:21 GMT
+
+_Version update only_
+
+## 3.7.9
+Tue, 20 Jun 2023 12:51:02 GMT
+
+_Version update only_
+
+## 3.7.8
+Thu, 01 Jun 2023 17:00:39 GMT
+
+_Version update only_
+
+## 3.7.7
+Wed, 24 May 2023 17:27:09 GMT
+
+_Version update only_
+
+## 3.7.6
+Mon, 15 May 2023 18:23:40 GMT
+
+_Version update only_
+
+## 3.7.5
+Thu, 04 May 2023 19:43:18 GMT
+
+_Version update only_
+
+## 3.7.4
+Tue, 25 Apr 2023 17:50:35 GMT
+
+_Version update only_
+
+## 3.7.3
+Thu, 20 Apr 2023 13:19:28 GMT
+
+_Version update only_
+
+## 3.7.2
+Wed, 12 Apr 2023 13:12:42 GMT
+
+_Version update only_
+
+## 3.7.1
+Mon, 03 Apr 2023 15:15:36 GMT
+
+_Version update only_
+
+## 3.7.0
+Wed, 29 Mar 2023 15:02:27 GMT
+
+### Updates
+
+- Add RequireAtLeastOne utility type.
+
+## 3.6.3
+Mon, 27 Mar 2023 16:26:47 GMT
+
+_Version update only_
+
+## 3.6.2
+Fri, 17 Mar 2023 17:52:32 GMT
+
+_Version update only_
+
+## 3.6.1
+Fri, 24 Feb 2023 22:00:48 GMT
+
+_Version update only_
+
+## 3.6.0
+Wed, 08 Feb 2023 14:58:39 GMT
+
+### Updates
+
+- Added DataTransformRequired flag to DbResult enum.
+- Promote AccessToken to public; and remove beta ExtractLiterals and alpha AsyncMutex.
+- Added TransientIdSequence.peekNext to preview the next Id in the sequence.
+- Deprecate TransientIdSequence.next property in favor of getNext method.
+
+## 3.5.6
+Fri, 24 Feb 2023 16:02:47 GMT
+
+### Updates
+
+- Add SortedArray.slice.
+
+## 3.5.5
+Thu, 26 Jan 2023 22:53:27 GMT
+
+_Version update only_
+
+## 3.5.4
+Wed, 18 Jan 2023 15:27:15 GMT
+
+_Version update only_
+
+## 3.5.3
+Fri, 13 Jan 2023 17:23:07 GMT
+
+_Version update only_
+
+## 3.5.2
+Wed, 11 Jan 2023 16:46:30 GMT
+
+_Version update only_
+
+## 3.5.1
+Thu, 15 Dec 2022 16:38:28 GMT
+
+### Updates
+
+- Add UintArrayBuilder for constructing typed arrays of unknown number of bytes per element.
+- Deprecate `next` properties on ByteStream; replace with `read` methods.
+
+## 3.5.0
+Wed, 07 Dec 2022 19:12:36 GMT
+
+### Updates
+
+- Add EntityReferences
+- add PickAsyncMethods utility type
+- Add new ChangeSetStatus.DownloadCancelled error code.
+- Add ByteStream.remainingLength.
+
+## 3.4.7
+Wed, 30 Nov 2022 14:28:19 GMT
+
+_Version update only_
+
+## 3.4.6
+Tue, 22 Nov 2022 14:24:19 GMT
+
+_Version update only_
+
+## 3.4.5
+Thu, 17 Nov 2022 21:32:50 GMT
+
+_Version update only_
+
+## 3.4.4
+Thu, 10 Nov 2022 19:32:17 GMT
+
+_Version update only_
+
+## 3.4.3
+Fri, 28 Oct 2022 13:34:57 GMT
+
+_Version update only_
+
+## 3.4.2
+Mon, 24 Oct 2022 13:23:45 GMT
+
+_Version update only_
+
+## 3.4.1
+Mon, 17 Oct 2022 20:06:51 GMT
+
+### Updates
+
+- Add EntityReferences
+
+## 3.4.0
+Thu, 13 Oct 2022 20:24:47 GMT
+
+### Updates
+
+- Use older variable names from opentelemetry
+- Updated Node types declaration to support latest v16
+- Add APIs for incrementally constructing typed arrays.
+
+## 3.3.5
+Tue, 27 Sep 2022 11:50:59 GMT
+
+_Version update only_
+
+## 3.3.4
+Thu, 08 Sep 2022 19:00:04 GMT
+
+_Version update only_
+
+## 3.3.3
+Tue, 06 Sep 2022 20:54:19 GMT
+
+_Version update only_
+
+## 3.3.2
+Thu, 01 Sep 2022 14:37:22 GMT
+
+_Version update only_
+
+## 3.3.1
+Fri, 26 Aug 2022 15:40:02 GMT
+
+_Version update only_
+
+## 3.3.0
+Thu, 18 Aug 2022 19:08:02 GMT
+
+### Updates
+
+- upgrade mocha to version 10.0.0
+- Add ExtractLiterals type.
+- Remove AuthStatus from BentleyError.
+
+## 3.2.9
+Fri, 26 Aug 2022 14:21:40 GMT
+
+_Version update only_
+
+## 3.2.8
+Tue, 09 Aug 2022 15:52:41 GMT
+
+_Version update only_
+
+## 3.2.7
+Mon, 01 Aug 2022 13:36:56 GMT
+
+_Version update only_
+
+## 3.2.6
+Fri, 15 Jul 2022 19:04:43 GMT
+
+_Version update only_
+
+## 3.2.5
+Wed, 13 Jul 2022 15:45:52 GMT
+
+_Version update only_
+
+## 3.2.4
+Tue, 21 Jun 2022 18:06:33 GMT
+
+_Version update only_
+
+## 3.2.3
+Fri, 17 Jun 2022 15:18:39 GMT
+
+_Version update only_
+
+## 3.2.2
+Fri, 10 Jun 2022 16:11:36 GMT
+
+_Version update only_
+
+## 3.2.1
+Tue, 07 Jun 2022 15:02:56 GMT
+
+_Version update only_
+
+## 3.2.0
+Fri, 20 May 2022 13:10:54 GMT
+
+### Updates
+
+- Introducing StatusCategory
+
+## 3.1.3
+Fri, 15 Apr 2022 13:49:25 GMT
+
+_Version update only_
+
+## 3.1.2
+Wed, 06 Apr 2022 22:27:56 GMT
+
+_Version update only_
+
+## 3.1.1
+Thu, 31 Mar 2022 15:55:48 GMT
+
+_Version update only_
+
+## 3.1.0
+Tue, 29 Mar 2022 20:53:47 GMT
+
+### Updates
+
+- added ClassUtils.isProperSubclassOf utility
+- Add realityDataStatus
+- add internal YieldManager
+
+## 3.0.3
+Fri, 25 Mar 2022 15:10:02 GMT
+
+_Version update only_
+
+## 3.0.2
+Thu, 10 Mar 2022 21:18:13 GMT
+
+_Version update only_
+
+## 3.0.1
+Thu, 24 Feb 2022 15:26:55 GMT
+
+_Version update only_
+
+## 3.0.0
+Mon, 24 Jan 2022 14:00:52 GMT
+
+### Updates
+
+- Drop deprecated ElectronUtils and Id methods.
+- make ChangeSetApplyOption @internal - to be removed in future
+- add MarkRequired utility type
+- assert accepts a function for condition and/or message, and does nothing unless NODE_ENV-development or explicitly enabled.
+- Upgrade target to ES2019 and deliver both a CommonJs and ESModule version of package
+- Add ByteStream.nextUint24.
+- added UnexpectedErrors class
+- allow intercept log and filter it
+- Add various utility types.
+- rename to @itwin/core-bentley
+- Support for Node 16
+- Deprecate ByteStream constructor in favor of less error-prone initialization methods.
+- remove ClientRequestContext and its subclasses
+- Deprecated Config and removed config.app usage
+- remove ChangeSetApplyOption
+- remove ClientRequestContext.current
+- Switching to consume new Projects-Client
+-  Renamed an iModel's parent container to iTwin
+- added JSONSchema
+
+## 2.19.28
+Wed, 12 Jan 2022 14:52:38 GMT
+
+_Version update only_
+
+## 2.19.27
+Wed, 05 Jan 2022 20:07:20 GMT
+
+_Version update only_
+
+## 2.19.26
+Wed, 08 Dec 2021 20:54:52 GMT
+
+_Version update only_
+
+## 2.19.25
+Fri, 03 Dec 2021 20:05:49 GMT
+
+_Version update only_
+
+## 2.19.24
+Mon, 29 Nov 2021 18:44:31 GMT
+
+_Version update only_
+
+## 2.19.23
+Mon, 22 Nov 2021 20:41:39 GMT
+
+_Version update only_
+
+## 2.19.22
+Wed, 17 Nov 2021 01:23:26 GMT
+
+_Version update only_
+
+## 2.19.21
+Wed, 10 Nov 2021 10:58:24 GMT
+
+_Version update only_
+
+## 2.19.20
+Fri, 29 Oct 2021 16:14:22 GMT
+
+_Version update only_
+
+## 2.19.19
+Mon, 25 Oct 2021 16:16:25 GMT
+
+_Version update only_
+
+## 2.19.18
+Thu, 21 Oct 2021 20:59:44 GMT
+
+_Version update only_
+
+## 2.19.17
+Thu, 14 Oct 2021 21:19:43 GMT
+
+_Version update only_
+
+## 2.19.16
+Mon, 11 Oct 2021 17:37:46 GMT
+
+_Version update only_
+
+## 2.19.15
+Fri, 08 Oct 2021 16:44:23 GMT
+
+_Version update only_
+
+## 2.19.14
+Fri, 01 Oct 2021 13:07:03 GMT
+
+_Version update only_
+
+## 2.19.13
+Tue, 21 Sep 2021 21:06:40 GMT
+
+_Version update only_
+
+## 2.19.12
+Wed, 15 Sep 2021 18:06:46 GMT
+
+_Version update only_
+
+## 2.19.11
+Thu, 09 Sep 2021 21:04:57 GMT
+
+_Version update only_
+
+## 2.19.10
+Wed, 08 Sep 2021 14:36:01 GMT
+
+_Version update only_
+
+## 2.19.9
+Wed, 25 Aug 2021 15:36:01 GMT
+
+_Version update only_
+
+## 2.19.8
+Mon, 23 Aug 2021 13:23:13 GMT
+
+_Version update only_
+
+## 2.19.7
+Fri, 20 Aug 2021 17:47:22 GMT
+
+_Version update only_
+
+## 2.19.6
+Tue, 17 Aug 2021 20:34:28 GMT
+
+### Updates
+
+- Deprecated Config Class
+
+## 2.19.5
+Fri, 13 Aug 2021 21:48:08 GMT
+
+_Version update only_
+
+## 2.19.4
+Thu, 12 Aug 2021 13:09:26 GMT
+
+_Version update only_
+
+## 2.19.3
+Wed, 04 Aug 2021 20:29:34 GMT
+
+_Version update only_
+
+## 2.19.2
+Tue, 03 Aug 2021 18:26:23 GMT
+
+_Version update only_
+
+## 2.19.1
+Thu, 29 Jul 2021 20:01:11 GMT
+
+_Version update only_
+
+## 2.19.0
+Mon, 26 Jul 2021 12:21:25 GMT
+
+### Updates
+
+- Add Dictionary.findOrInsert, keys, and values.
+- async return value rather than fulfilled promise
+
+## 2.18.4
+Tue, 10 Aug 2021 19:35:13 GMT
+
+_Version update only_
+
+## 2.18.3
+Wed, 28 Jul 2021 17:16:30 GMT
+
+_Version update only_
+
+## 2.18.2
+Mon, 26 Jul 2021 16:18:31 GMT
+
+_Version update only_
+
+## 2.18.1
+Fri, 16 Jul 2021 17:45:09 GMT
+
+_Version update only_
+
+## 2.18.0
+Fri, 09 Jul 2021 18:11:24 GMT
+
+_Version update only_
+
+## 2.17.3
+Mon, 26 Jul 2021 16:08:36 GMT
+
+_Version update only_
+
+## 2.17.2
+Thu, 08 Jul 2021 15:23:00 GMT
+
+_Version update only_
+
+## 2.17.1
+Fri, 02 Jul 2021 15:38:30 GMT
+
+_Version update only_
+
+## 2.17.0
+Mon, 28 Jun 2021 16:20:10 GMT
+
+### Updates
+
+- Added new error to indicate corrupt briefcase state
+- Add IndexMap.toArray() and OrderedId64Array.array.
+- Added new error to indicate corrupt briefcase state
+- Add CompressedId64Set.sortAndCompress.
+- Add Mutable<T>.
+- Promote BeUiEvent to public.
+
+## 2.16.10
+Thu, 22 Jul 2021 20:23:44 GMT
+
+_Version update only_
+
+## 2.16.9
+Tue, 06 Jul 2021 22:08:34 GMT
+
+_Version update only_
+
+## 2.16.8
+Fri, 02 Jul 2021 17:40:46 GMT
+
+_Version update only_
+
+## 2.16.7
+Mon, 28 Jun 2021 18:13:04 GMT
+
+_Version update only_
+
+## 2.16.6
+Mon, 28 Jun 2021 13:12:55 GMT
+
+_Version update only_
+
+## 2.16.5
+Fri, 25 Jun 2021 16:03:01 GMT
+
+_Version update only_
+
+## 2.16.4
+Wed, 23 Jun 2021 17:09:07 GMT
+
+### Updates
+
+- handle exceptions from OneAtATimeAction execution functions
+
+## 2.16.3
+Wed, 16 Jun 2021 20:29:32 GMT
+
+_Version update only_
+
+## 2.16.2
+Thu, 03 Jun 2021 18:08:11 GMT
+
+_Version update only_
+
+## 2.16.1
+Thu, 27 May 2021 20:04:22 GMT
+
+_Version update only_
+
+## 2.16.0
+Mon, 24 May 2021 15:58:39 GMT
+
+### Updates
+
+- Add Id64.iterable; deprecate iterate and forEach.
+- Add Id64.fromUint32PairObject() for creating an Id64String from an Id64.Uint32Pair.
+
+## 2.15.6
+Wed, 26 May 2021 15:55:18 GMT
+
+_Version update only_
+
+## 2.15.5
+Thu, 20 May 2021 15:06:26 GMT
+
+_Version update only_
+
+## 2.15.4
+Tue, 18 May 2021 21:59:07 GMT
+
+_Version update only_
+
+## 2.15.3
+Mon, 17 May 2021 13:31:37 GMT
+
+_Version update only_
+
+## 2.15.2
+Wed, 12 May 2021 18:08:13 GMT
+
+_Version update only_
+
+## 2.15.1
+Wed, 05 May 2021 13:18:31 GMT
+
+_Version update only_
+
+## 2.15.0
+Fri, 30 Apr 2021 12:36:58 GMT
+
+### Updates
+
+- Added new error flags.
+- Promote APIs to public.
+
+## 2.14.4
+Thu, 22 Apr 2021 21:07:33 GMT
+
+_Version update only_
+
+## 2.14.3
+Thu, 15 Apr 2021 15:13:16 GMT
+
+_Version update only_
+
+## 2.14.2
+Thu, 08 Apr 2021 14:30:09 GMT
+
+_Version update only_
+
+## 2.14.1
+Mon, 05 Apr 2021 16:28:00 GMT
+
+_Version update only_
+
+## 2.14.0
+Fri, 02 Apr 2021 13:18:42 GMT
+
+_Version update only_
+
+## 2.13.0
+Tue, 09 Mar 2021 20:28:13 GMT
+
+### Updates
+
+- Initial setup for adding "basic manipulation" tools and commands to editor package.
+- Fixed broken double angle bracket link syntax
+- Add isIPhoneBrowser to ProcessDetector and make isIOSBrowser work for both iPads and iPhones. Clarify documentation.
+- Add ProcessDetector
+- Adjusted error messages and error when reversing or reinstating schema changesets
+- Updated to use TypeScript 4.1
+- begin rename project from iModel.js to iTwin.js
+
+## 2.12.3
+Mon, 08 Mar 2021 15:32:00 GMT
+
+_Version update only_
+
+## 2.12.2
+Wed, 03 Mar 2021 18:48:52 GMT
+
+_Version update only_
+
+## 2.12.1
+Tue, 23 Feb 2021 20:54:45 GMT
+
+_Version update only_
+
+## 2.12.0
+Thu, 18 Feb 2021 22:10:12 GMT
+
+_Version update only_
+
+## 2.11.2
+Thu, 18 Feb 2021 02:50:59 GMT
+
+_Version update only_
+
+## 2.11.1
+Thu, 04 Feb 2021 17:22:41 GMT
+
+### Updates
+
+- Fix 64-bit addition for CompressedId64Set.
+- Add OrderedSet that mimics the standard Set but maintains its contents in a user-specified ordering.
+- add error values for Ipc
+
+## 2.11.0
+Thu, 28 Jan 2021 13:39:27 GMT
+
+### Updates
+
+- make BeEvent.raiseEvent type safe
+
+## 2.10.3
+Fri, 08 Jan 2021 18:34:03 GMT
+
+_Version update only_
+
+## 2.10.2
+Fri, 08 Jan 2021 14:52:02 GMT
+
+_Version update only_
+
+## 2.10.1
+Tue, 22 Dec 2020 00:53:38 GMT
+
+_Version update only_
+
+## 2.10.0
+Fri, 18 Dec 2020 18:24:01 GMT
+
+### Updates
+
+- Added CheckpointV2 errors
+- Fix exception when constructing ObservableSet from an Iterable; add CompressedId64Set.reset().
+
+## 2.9.9
+Sun, 13 Dec 2020 19:00:03 GMT
+
+_Version update only_
+
+## 2.9.8
+Fri, 11 Dec 2020 02:57:36 GMT
+
+_Version update only_
+
+## 2.9.7
+Wed, 09 Dec 2020 20:58:23 GMT
+
+_Version update only_
+
+## 2.9.6
+Mon, 07 Dec 2020 18:40:48 GMT
+
+_Version update only_
+
+## 2.9.5
+Sat, 05 Dec 2020 01:55:56 GMT
+
+_Version update only_
+
+## 2.9.4
+Wed, 02 Dec 2020 20:55:40 GMT
+
+_Version update only_
+
+## 2.9.3
+Mon, 23 Nov 2020 20:57:56 GMT
+
+_Version update only_
+
+## 2.9.2
+Mon, 23 Nov 2020 15:33:50 GMT
+
+_Version update only_
+
+## 2.9.1
+Thu, 19 Nov 2020 17:03:42 GMT
+
+_Version update only_
+
+## 2.9.0
+Wed, 18 Nov 2020 16:01:50 GMT
+
+### Updates
+
+- DuplicatePolicy for SortedArray (additional option to replace existing equivalent value on insertion).
+- partitionArray().
+
+## 2.8.1
+Tue, 03 Nov 2020 00:33:56 GMT
+
+_Version update only_
+
+## 2.8.0
+Fri, 23 Oct 2020 17:04:02 GMT
+
+_Version update only_
+
+## 2.7.6
+Wed, 11 Nov 2020 16:28:23 GMT
+
+_Version update only_
+
+## 2.7.5
+Fri, 23 Oct 2020 16:23:50 GMT
+
+_Version update only_
+
+## 2.7.4
+Mon, 19 Oct 2020 17:57:01 GMT
+
+_Version update only_
+
+## 2.7.3
+Wed, 14 Oct 2020 17:00:58 GMT
+
+_Version update only_
+
+## 2.7.2
+Tue, 13 Oct 2020 18:20:38 GMT
+
+_Version update only_
+
+## 2.7.1
+Thu, 08 Oct 2020 13:04:35 GMT
+
+_Version update only_
+
+## 2.7.0
+Fri, 02 Oct 2020 18:03:32 GMT
+
+### Updates
+
+- Expand APIs for operating on ordered sets of Id64Strings (compressed or otherwise).
+- add Config.addEnvVarsStartingWith
+- Added a new error code used in iModelHub client to indicate missing lock chunk.
+- Introduce NoContentError (transmitted via 204)
+
+## 2.6.5
+Sat, 26 Sep 2020 16:06:34 GMT
+
+_Version update only_
+
+## 2.6.4
+Tue, 22 Sep 2020 17:40:07 GMT
+
+_Version update only_
+
+## 2.6.3
+Mon, 21 Sep 2020 14:47:09 GMT
+
+_Version update only_
+
+## 2.6.2
+Mon, 21 Sep 2020 13:07:43 GMT
+
+_Version update only_
+
+## 2.6.1
+Fri, 18 Sep 2020 13:15:08 GMT
+
+_Version update only_
+
+## 2.6.0
+Thu, 17 Sep 2020 13:16:12 GMT
+
+### Updates
+
+- Add Id64 functions for working with compact representations of Id64Sets and ordering Id64Strings based on 64-bit numerical value.
+- Moved ESLint configuration to a plugin
+
+## 2.5.5
+Wed, 02 Sep 2020 17:42:23 GMT
+
+_Version update only_
+
+## 2.5.4
+Fri, 28 Aug 2020 15:34:15 GMT
+
+_Version update only_
+
+## 2.5.3
+Wed, 26 Aug 2020 11:46:00 GMT
+
+_Version update only_
+
+## 2.5.2
+Tue, 25 Aug 2020 22:09:08 GMT
+
+_Version update only_
+
+## 2.5.1
+Mon, 24 Aug 2020 18:13:04 GMT
+
+_Version update only_
+
+## 2.5.0
+Thu, 20 Aug 2020 20:57:09 GMT
+
+### Updates
+
+- Introduce IModelApp security options (including CSRF protection).
+- Switch to ESLint
+
+## 2.4.2
+Fri, 14 Aug 2020 16:34:09 GMT
+
+_Version update only_
+
+## 2.4.1
+Fri, 07 Aug 2020 19:57:43 GMT
+
+### Updates
+
+- Added metadata sources functions to Logger
+
+## 2.4.0
+Tue, 28 Jul 2020 16:26:23 GMT
+
+_Version update only_
+
+## 2.3.3
+Thu, 23 Jul 2020 12:57:15 GMT
+
+_Version update only_
+
+## 2.3.2
+Tue, 14 Jul 2020 23:50:36 GMT
+
+_Version update only_
+
+## 2.3.1
+Mon, 13 Jul 2020 18:50:13 GMT
+
+_Version update only_
+
+## 2.3.0
+Fri, 10 Jul 2020 17:23:14 GMT
+
+### Updates
+
+- Generic functions for dynamic casting.
+
+## 2.2.1
+Tue, 07 Jul 2020 14:44:52 GMT
+
+_Version update only_
+
+## 2.2.0
+Fri, 19 Jun 2020 14:10:03 GMT
+
+### Updates
+
+- Introduce GeoServiceStatus status code
+
+## 2.1.0
+Thu, 28 May 2020 22:48:59 GMT
+
+### Updates
+
+- Added FailedToGetProductSettings error
+- Setup Guid.normalize() for internal use. 
+- channel rules
+
+## 2.0.0
+Wed, 06 May 2020 13:17:49 GMT
+
+### Updates
+
+- Monitor progress of downloading briefcases, ability to cancel download of briefcases. 
+- Update Config.App documentation to reflect the removal of the config.json file
+- Added ContextDoesNotExist error
+- BUG273249
+- Updated docs. 
+- Updated error text. 
+- added raw log method that bypass catogory check
+- order imports.
+- Add a type guard for `IDisposable`
+- Add Config class previously hosted in imodeljs-clients
+- Upgrade to Rush 5.23.2
+- Added ReadonlySortedArray.
+- Remove support for the iModel.js module system by no longer delivering modules.
+
+## 1.14.1
+Wed, 22 Apr 2020 19:04:00 GMT
+
+_Version update only_
+
+## 1.14.0
+Tue, 31 Mar 2020 15:44:19 GMT
+
+_Version update only_
+
+## 1.13.0
+Wed, 04 Mar 2020 16:16:31 GMT
+
+_Version update only_
+
+## 1.12.0
+Wed, 12 Feb 2020 17:45:49 GMT
+
+_Version update only_
+
+## 1.11.0
+Wed, 22 Jan 2020 19:24:11 GMT
+
+### Updates
+
+- VSS$257397: Temporary fix for checking electron renderer. 
+- Upgrade to TypeScript 3.7.2.
+
+## 1.10.0
+Tue, 07 Jan 2020 19:44:01 GMT
+
+### Updates
+
+- Added ByteStream class.
+
+## 1.9.0
+Tue, 10 Dec 2019 18:08:56 GMT
+
+### Updates
+
+- Setup OidcDesktopClient for Electron use cases. 
+- Added non-static wait and executeAfter to BeDuration
+- Fix warnings from static analysis
+- Added `BeDuration.race` for common timeout operations.
+
+## 1.8.0
+Fri, 22 Nov 2019 14:03:34 GMT
+
+_Version update only_
+
+## 1.7.0
+Fri, 01 Nov 2019 13:28:37 GMT
+
+_Version update only_
+
+## 1.6.0
+Wed, 09 Oct 2019 20:28:42 GMT
+
+_Version update only_
+
+## 1.5.0
+Mon, 30 Sep 2019 22:28:48 GMT
+
+### Updates
+
+- Fixed AuthStatus error numbers not to overlap with others.
+- Added ObservableSet<T>.
+- upgrade to TypeScript 3.6.2
+
+## 1.4.0
+Tue, 10 Sep 2019 12:09:49 GMT
+
+### Updates
+
+- Fixed AuthStatus error numbers not to overlap with others.
+- Added PriorityQueue.append function for adding new elements without applying sorting logic.
+
+## 1.3.0
+Tue, 13 Aug 2019 20:25:53 GMT
+
+_Version update only_
+
+## 1.2.0
+Wed, 24 Jul 2019 11:47:26 GMT
+
+_Version update only_
+
+## 1.1.0
+Mon, 01 Jul 2019 19:04:29 GMT
+
+### Updates
+
+- Added OneAtATimeActivity class
+- Introduced AsyncMutex - a utility to run async blocks of code in sequence. 
+- Update to TypeScript 3.5
+
+## 1.0.0
+Mon, 03 Jun 2019 18:09:39 GMT
+
+### Updates
+
+- RPC system now accepts only basic values (primitives, "interface" objects, and binary).
+- Added Id64.getFirst to get the first value of an Id64Arg
+- Added an error for seed file initialization timeout
+- Switched from iModelHub Project API to Context API
+- Refactored and simplified implementation of IModelDb.open
+- Add property accessor for empty Guid
+
+## 0.191.0
+Mon, 13 May 2019 15:52:05 GMT
+
+### Updates
+
+- Adds parameter for api-extractor to validate missing release tags
+- Add a Dictionary-based least-recently-used cache.
+- Fix broken links
+- LoggerCategory -> BentleyLoggerCategory
+- Logged the fields in ClientRequestContext
+- Logging fixes.
+- Put sourcemap in npm package.
+- Fixed logger to not mutate incoming objects. 
+- Improved performance logging
+- Added functions for iterating and obtaining the number of elements of a collection of Id64s represented as an Id64Arg.
+- Setup a generic context for tracking client requests, and made various related enhancements to logging, usage tracking and authorization. 
+- Use TextDecoder to decode binary utf-8 strings if supported.
+- Upgrade TypeDoc dependency to 0.14.2
+
+## 0.190.0
+Thu, 14 Mar 2019 14:26:49 GMT
+
+_Version update only_
+
+## 0.189.0
+Wed, 06 Mar 2019 15:41:22 GMT
+
+### Updates
+
+- Changes package.json to include api-extractor and adds api-extractor.json
+- Use new buildIModelJsBuild script
+- Add release tags to indicate API stability
+- Remove unneeded typedoc plugin dependency
+- Save BUILD_SEMVER to globally accessible map
+- Upgrade to TypeScript 3.2.2
+
+## 0.188.0
+Wed, 16 Jan 2019 16:36:09 GMT
+
+_Version update only_
+
+## 0.187.0
+Tue, 15 Jan 2019 15:18:59 GMT
+
+_Version update only_
+
+## 0.186.0
+Mon, 14 Jan 2019 23:09:10 GMT
+
+### Updates
+
+- Removed IModelDb's cache of accessToken. For long running operations like AutoPush, the user must explicitly supply an IAccessTokenManager to keep the token current. 
+
+## 0.185.0
+Fri, 11 Jan 2019 18:29:00 GMT
+
+### Updates
+
+- Optimize Id64String operations and supply specialized, optimized collection types.
+
+## 0.184.0
+Thu, 10 Jan 2019 22:46:17 GMT
+
+_Version update only_
+
+## 0.183.0
+Mon, 07 Jan 2019 21:49:21 GMT
+
+_Version update only_
+
+## 0.182.0
+Mon, 07 Jan 2019 13:31:34 GMT
+
+_Version update only_
+
+## 0.181.0
+Fri, 04 Jan 2019 13:02:40 GMT
+
+_Version update only_
+
+## 0.180.0
+Wed, 02 Jan 2019 15:18:23 GMT
+
+### Updates
+
+- Enable usage of custom collection classes inside for..of loops.
+
+## 0.179.0
+Wed, 19 Dec 2018 18:26:14 GMT
+
+### Updates
+
+- Fix issue where all event listeners are removed.
+
+## 0.178.0
+Thu, 13 Dec 2018 22:06:10 GMT
+
+_Version update only_
+
+## 0.177.0
+Wed, 12 Dec 2018 17:21:31 GMT
+
+_Version update only_
+
+## 0.176.0
+Mon, 10 Dec 2018 21:19:45 GMT
+
+_Version update only_
+
+## 0.175.0
+Mon, 10 Dec 2018 17:08:55 GMT
+
+_Version update only_
+
+## 0.174.0
+Mon, 10 Dec 2018 13:24:09 GMT
+
+_Version update only_
+
+## 0.173.0
+Thu, 06 Dec 2018 22:03:29 GMT
+
+_Version update only_
+
+## 0.172.0
+Tue, 04 Dec 2018 17:24:39 GMT
+
+_Version update only_
+
+## 0.171.0
+Mon, 03 Dec 2018 18:52:58 GMT
+
+_Version update only_
+
+## 0.170.0
+Mon, 26 Nov 2018 19:38:42 GMT
+
+### Updates
+
+- Change Logger.ParseLogLevel() to use camelCased method naming, Logger.parseLogLevel().
+
+## 0.169.0
+Tue, 20 Nov 2018 16:17:15 GMT
+
+### Updates
+
+- Remove PromiseUtil class
+
+## 0.168.0
+Sat, 17 Nov 2018 14:20:11 GMT
+
+_Version update only_
+
+## 0.167.0
+Fri, 16 Nov 2018 21:45:44 GMT
+
+### Updates
+
+- Changes to debug utilities. 
+- Fluentd Bunnyan Logger added
+
+## 0.166.0
+Mon, 12 Nov 2018 16:42:10 GMT
+
+_Version update only_
+
+## 0.165.0
+Mon, 12 Nov 2018 15:47:00 GMT
+
+_Version update only_
+
+## 0.164.0
+Thu, 08 Nov 2018 17:59:20 GMT
+
+### Updates
+
+- OIDC related enhancments (WIP).
+- Updated to TypeScript 3.1
+
+## 0.163.0
+Wed, 31 Oct 2018 20:55:37 GMT
+
+### Updates
+
+- Turn Guid class into a namespace and use GuidString in signatures.
+- Guid.wrap creates a Guid object without validating the input string.
+- Changed Id64 from a class to a namespace.
+
+## 0.162.0
+Wed, 24 Oct 2018 19:20:06 GMT
+
+### Updates
+
+- Breaking changes to optimize usage of 64-bit IDs.
+
+## 0.161.0
+Fri, 19 Oct 2018 13:04:14 GMT
+
+_Version update only_
+
+## 0.160.0
+Wed, 17 Oct 2018 18:18:38 GMT
+
+_Version update only_
+
+## 0.159.0
+Tue, 16 Oct 2018 14:09:09 GMT
+
+_Version update only_
+
+## 0.158.0
+Mon, 15 Oct 2018 19:36:09 GMT
+
+_Version update only_
+
+## 0.157.0
+Sun, 14 Oct 2018 17:20:06 GMT
+
+_Version update only_
+
+## 0.156.0
+Fri, 12 Oct 2018 23:00:10 GMT
+
+### Updates
+
+- Initial release
+

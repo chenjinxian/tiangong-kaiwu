@@ -1,0 +1,96 @@
+{
+  "$schema": "../../assets/Settings/Base.Schema.json",
+  "description": "the settings for test application 1",
+  "schemaPrefix": "testApp",
+  "title": "Test App",
+  "settingDefs": {
+    "list/multiSelectModifier": {
+      "type": "string",
+      "enum": [
+        "ctrlCmd",
+        "alt"
+      ],
+      "enumDescriptions": [
+        "ctrl key.",
+        "alt key."
+      ],
+      "default": "ctrlCmd",
+      "description": "multiSelectModifier"
+    },
+    "categories": {
+      "type": "array",
+      "description": "possible categories",
+      "items": {
+        "type": "string",
+        "description": "category names"
+      }
+    },
+    "list/openMode": {
+      "type": "string",
+      "enum": [
+        "singleClick",
+        "doubleClick"
+      ],
+      "default": "singleClick",
+      "description": "openModeModifier"
+    },
+    "list/horizontalScrolling": {
+      "type": "boolean",
+      "default": false,
+      "description": "horizontalScrolling setting"
+    },
+    "tree/indent": {
+      "type": "number",
+      "default": 8,
+      "minimum": 0,
+      "maximum": 40,
+      "description": "tree indent setting"
+    },
+    "tree/blah": {
+      "type": "boolean",
+      "default": true,
+      "description": "the setting for blah"
+    },
+    "fontList": {
+      "type": "array",
+      "description": "array of fonts to load",
+      "items": {
+        "type": "object",
+        "extends": "testApp/font"
+      }
+    }
+  },
+  "typeDefs": {
+    "font": {
+      "type": "object",
+      "description": "a single font",
+      "required": [
+        "workspace",
+        "fontName"
+      ],
+      "properties": {
+        "workspace": {
+          "type": "object",
+          "extends": "itwin/core/workspace/workspaceDb",
+          "description": "workspaceDb for font",
+          "required": [
+            "workspaceLimit"
+          ],
+          "properties": {
+            "workspaceLimit": {
+              "type": "integer"
+            }
+          }
+        },
+        "fontName": {
+          "type": "string",
+          "description": "name of font within resource container"
+        },
+        "fontType": {
+          "type": "string",
+          "description": "the type of the font"
+        }
+      }
+    }
+  }
+}

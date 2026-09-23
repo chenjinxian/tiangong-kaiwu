@@ -1,0 +1,46 @@
+{
+  "name": "extension-prototype",
+  "description": "extension-prototype",
+  "main": "./dist/index.js",
+  "module": "./lib/loader.js",
+  "typings": "./lib/loader",
+  "private": true,
+  "license": "MIT",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "tsc --project ./src 1>&2",
+    "esbuild": "npx esbuild src/index.ts --sourcemap --bundle --outfile=dist/index.js --format=esm --external:os --minify",
+    "clean": "rimraf -g lib dist",
+    "lint": "",
+    "//lint": "eslint \"./src/**/*.{ts,tsx}\" 1>&2",
+    "lint-deprecation": "",
+    "start": "",
+    "test": "",
+    "cover": "",
+    "docs": ""
+  },
+  "repository": {},
+  "keywords": [
+    "Bentley",
+    "BIM",
+    "iModel"
+  ],
+  "author": {
+    "name": "Bentley Systems, Inc.",
+    "url": "http://www.bentley.com"
+  },
+  "devDependencies": {
+    "@itwin/build-tools": "workspace:*",
+    "@itwin/eslint-plugin": "^6.0.0",
+    "esbuild": "^0.13.8",
+    "eslint": "^9.31.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.6.2"
+  },
+  "dependencies": {
+    "@itwin/core-extension": "workspace:*"
+  },
+  "activationEvents": [
+    "onStartup"
+  ]
+}

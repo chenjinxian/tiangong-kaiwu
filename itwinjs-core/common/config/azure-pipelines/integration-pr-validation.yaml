@@ -1,0 +1,43 @@
+# iTwin.js Core Integration PR Validation Build
+#
+# To decrease build load, only the latest Node version is tested on pull requests.
+# All other versions are run on `master` and `release/*` branches.
+#
+# Note: Currently a subset of all integration tests
+
+trigger:
+  - master
+  - release/*
+pr:
+  autoCancel: true
+  drafts: false
+  branches:
+    include:
+      - master
+      - release/*
+  paths:
+    exclude:
+      - "**.md"
+      - docs/**
+      - .github/CODEOWNERS
+      - common/changes/**/*.json
+      - "**/CHANGELOG.json"
+      - "**/CHANGELOG.md"
+
+variables:
+  - group: iTwin.js non-secret config variables
+  - group: iTwin.js Integration Test Users
+
+jobs:
+  - job: Node_24_x
+    condition: succeeded()
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: self
+        clean: true
+        fetchDepth: 1
+
+      - template: templates/integration-test-steps.yaml
+        parameters:
+          nodeVersion: 24.x

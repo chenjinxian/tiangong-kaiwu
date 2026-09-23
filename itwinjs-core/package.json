@@ -1,0 +1,33 @@
+{
+  "name": "itwinjs-core",
+  "//private": "NOTE: This 'root' package is private. It is never published",
+  "private": true,
+  "description": "iTwin.js core components",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iTwin/itwinjs-core"
+  },
+  "scripts": {
+    "build": "echo NOTE: use 'rush build' instead",
+    "clean": "echo NOTE: use 'rush clean' instead",
+    "docs": "echo NOTE: use 'rush docs' instead",
+    "lint": "echo NOTE: use 'rush lint' instead",
+    "test": "echo NOTE: use 'rush test' instead",
+    "test:integration": "echo NOTE: use 'rush test:integration' instead",
+    "preinstall": "echo ERROR: use 'rush install' instead && exit 1"
+  },
+  "keywords": [
+    "Bentley",
+    "BIM",
+    "iModel",
+    "digital-twin",
+    "iTwin"
+  ],
+  "author": {
+    "name": "Bentley Systems, Inc.",
+    "url": "http://www.bentley.com"
+  },
+  "//dependencies": "NOTE: dependencies will be empty here and instead specified in each package.",
+  "//devDependencies": "NOTE: devDependencies will be empty here and instead specified in each package."
+}

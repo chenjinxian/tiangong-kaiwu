@@ -1,0 +1,25 @@
+# UnitSystem
+
+## Attributes
+
+**typeName** Defines the name of this Unit System. Must be a valid [ECName](./ec-name.md) and be unique among all other items in a schema.
+
+**displayLabel** A localized display label that will be used instead of the name in a GUI. If not set, the name is used.
+
+**description** A user-facing description of the Unit System. Localized and may be shown in a UI.
+
+## Example
+
+```xml
+    <UnitSystem typeName="SI" />
+```
+
+```json
+"SI": {
+  "schemaItemType": "UnitSystem"
+},
+```
+
+## See Also
+
+- [Unit Systems and UnitSystemKey](/quantity-formatting/definitions/Units.md#unit-systems-and-unitsystemkey) - How EC UnitSystems map to application-level unit system preference groups

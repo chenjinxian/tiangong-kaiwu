@@ -1,0 +1,13 @@
+sep=;
+Release Tag;API Item Type;API Item Name
+internal;class;Capabilities
+public;type;ContextCreator
+internal;enum;DepthType
+public;interface;GraphicsDriverBugs
+public;function;queryRenderCompatibility
+internal;enum;RenderType
+public;type;WebGLContext
+internal;type;WebGLExtensionName
+public;enum;WebGLFeature
+public;interface;WebGLRenderCompatibilityInfo
+public;enum;WebGLRenderCompatibilityStatus

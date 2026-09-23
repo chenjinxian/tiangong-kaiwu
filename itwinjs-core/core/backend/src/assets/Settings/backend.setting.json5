@@ -1,0 +1,22 @@
+{
+  "itwin/core/gcs/default/databases": [
+    {
+      "name": "itwin/core/gcs/base",
+      "dbName": "base",
+      "version": "^1",
+      "baseUri": "https://geocoord-workspace.itwinjs.org",
+      "containerId": "gcs",
+      "isPublic": true,
+      "priority": 10000,
+      "prefetch": true
+    },
+    {
+      "name": "itwin/core/gcs/entire-earth",
+      "dbName": "allEarth",
+      "version": "^1",
+      "baseUri": "https://geocoord-workspace.itwinjs.org",
+      "containerId": "gcs",
+      "priority": 100
+    }
+  ]
+}
