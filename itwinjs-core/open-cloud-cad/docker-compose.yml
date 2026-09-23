@@ -1,0 +1,107 @@
+version: '3.8'
+
+# Open Cloud CAD - Complete Local Stack
+# All services use imodelhub-services mode (no Bentley cloud dependency)
+#
+# Services:
+# - imodelhub-services: iModel management API (port 4000) - EXTERNAL
+# - azurite: Azure Blob Storage emulator (port 10000) - EXTERNAL (from imodelhub-services)
+# - backend: Open Cloud CAD backend with RPC (port 4001)
+# - web-agent: Webhook receiver (port 4002)
+# - web: Frontend React application (port 3000)
+#
+# NOTE: imodelhub-services and Azurite should be started separately.
+#       See imodelhub-services/docker-compose.yml
+
+services:
+  # =============================================================================
+  # imodelhub-services (External - assumed running on host)
+  # Azurite (External - from imodelhub-services on port 10000)
+  # =============================================================================
+  # Note: These services should be started from imodelhub-services project first.
+  # Default: http://host.docker.internal:4000 and http://host.docker.internal:10000
+
+  # =============================================================================
+  # Backend - Open Cloud CAD Backend Service
+  # =============================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: open-cloud-cad-backend
+    ports:
+      - "4001:4001"
+    environment:
+      - NODE_ENV=production
+      - PORT=4001
+      - IMODELHUB_URL=http://host.docker.internal:4000
+      - AZURITE_URL=http://host.docker.internal:10000
+      - FRONTEND_URL=http://localhost:3000
+      - IMJS_BRIEFCASE_CACHE_LOCATION=/app/cache
+      - WEBHOOK_SECRET=your-webhook-secret
+    volumes:
+      - backend-cache:/app/cache
+    networks:
+      - open-cloud-cad-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # =============================================================================
+  # Web-Agent - Webhook Receiver (Optional)
+  # =============================================================================
+  web-agent:
+    build:
+      context: .
+      dockerfile: apps/web-agent/Dockerfile
+    container_name: open-cloud-cad-web-agent
+    ports:
+      - "4002:4002"
+    environment:
+      - NODE_ENV=production
+      - PORT=4002
+      - BACKEND_URL=http://backend:4001
+      - WEBHOOK_SECRET=your-webhook-secret
+      - DEBUG=false
+    depends_on:
+      - backend
+    networks:
+      - open-cloud-cad-network
+    restart: unless-stopped
+    profiles:
+      - with-web-agent  # Only start when explicitly requested
+
+  # =============================================================================
+  # Web - Frontend React Application
+  # =============================================================================
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: open-cloud-cad-web
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:4001
+      - VITE_IMODELHUB_URL=http://localhost:4000
+      - VITE_AZURITE_URL=http://localhost:10000
+    depends_on:
+      - backend
+    networks:
+      - open-cloud-cad-network
+    restart: unless-stopped
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  backend-cache:
+    driver: local
+  # NOTE: Azurite data is managed by imodelhub-services
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  open-cloud-cad-network:
+    driver: bridge

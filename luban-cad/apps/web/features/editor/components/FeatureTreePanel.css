@@ -1,0 +1,167 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Feature Tree Panel - Left sidebar (Onshape/FreeCAD style) */
+.feature-tree-panel {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  background: var(--iui-color-background-surface);
+  border-right: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+
+.feature-tree-panel--collapsed {
+  width: 48px;
+  align-items: center;
+  padding-top: var(--iui-size-xs);
+}
+
+/* Header */
+.feature-tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-xs) var(--iui-size-xs) var(--iui-size-xs) var(--iui-size-s);
+  flex-shrink: 0;
+}
+
+.feature-tree-tabs {
+  display: flex;
+  gap: var(--iui-size-2xs);
+}
+
+/* Collapsed state */
+.collapsed-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-xs);
+  margin-top: var(--iui-size-m);
+}
+
+.collapse-btn {
+  margin-top: var(--iui-size-2xs);
+}
+
+.collapsed-hint {
+  position: absolute;
+  left: 52px;
+  background: var(--iui-color-background-surface);
+  border: 1px solid var(--iui-color-border);
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  border-radius: var(--iui-border-radius);
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text);
+  box-shadow: var(--iui-shadow-2);
+  white-space: nowrap;
+  z-index: 100;
+}
+
+/* Content area */
+.feature-tree-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Override FeaturePanel/AssemblyPanel styles for tree context */
+.feature-tree-content .feature-panel,
+.feature-tree-content .assembly-panel {
+  padding: var(--iui-size-s);
+}
+
+.feature-tree-content .feature-panel-header,
+.feature-tree-content .assembly-panel-header {
+  margin-bottom: var(--iui-size-s);
+}
+
+.feature-tree-content .feature-list,
+.feature-tree-content .assembly-list {
+  max-height: none;
+}
+
+/* Tool Settings Panel - Bottom of left sidebar */
+.feature-tree-tool-settings {
+  flex-shrink: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border-top: 1px solid var(--iui-color-border);
+}
+
+.feature-tree-tool-settings .tool-settings-panel {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: var(--iui-size-s);
+  min-width: auto;
+  max-width: none;
+  animation: none;
+}
+
+.feature-tree-tool-settings .tool-settings-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--iui-color-text);
+  margin-bottom: var(--iui-size-xs);
+  padding-bottom: var(--iui-size-2xs);
+  border-bottom: 1px solid var(--iui-color-border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.feature-tree-tool-settings .tool-settings-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--iui-color-text);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: var(--iui-border-radius);
+}
+
+.feature-tree-tool-settings .tool-settings-close-btn:hover {
+  background: var(--iui-color-background-backdrop);
+}
+
+.feature-tree-tool-settings .tool-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-xs);
+}
+
+.feature-tree-tool-settings .tool-setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-s);
+}
+
+.feature-tree-tool-settings .tool-setting-label {
+  font-size: 12px;
+  color: var(--iui-color-text);
+  flex: 1;
+}
+
+.feature-tree-tool-settings .tool-setting-input {
+  width: 80px;
+  padding: 2px 6px;
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font-size: 12px;
+}
+
+.feature-tree-tool-settings .tool-setting-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--iui-color-text-accent);
+  cursor: pointer;
+}

@@ -1,0 +1,51 @@
+{
+  "name": "@open-cloud-cad/ui",
+  "version": "1.0.0",
+  "description": "Open Cloud CAD UI Components",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "types": "./lib/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc 1>&2",
+    "build:watch": "tsc -w",
+    "clean": "rimraf lib",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" 1>&2",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@open-cloud-cad/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@itwin/appui-abstract": "link:../../../itwinjs-core/ui/appui-abstract",
+    "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
+    "@itwin/core-common": "link:../../../itwinjs-core/core/common",
+    "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
+    "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry",
+    "@itwin/core-quantity": "link:../../../itwinjs-core/core/quantity",
+    "@itwin/core-react": "^5.5.0",
+    "@itwin/eslint-plugin": "^6.0.0",
+    "@itwin/appui-react": "^5.5.0",
+    "@itwin/imodel-components-react": "^5.5.0",
+    "@itwin/itwinui-react": "^3.18.0",
+    "@itwin/itwinui-icons-react": "^2.9.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "eslint": "^9.31.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-redux": "^9.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.6.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  }
+}

@@ -1,0 +1,109 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ToolDialog.css — with dark mode support */
+.tool-dialog {
+  min-width: 360px;
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.tool-dialog [class*="dialog-title-bar"],
+.tool-dialog [class*="_title-bar"] {
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.tool-dialog [class*="dialog-content"],
+.tool-dialog [class*="_dialog-content"] {
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.tool-dialog [class*="dialog-button-bar"],
+.tool-dialog [class*="_button-bar"] {
+  background-color: var(--color-bg-card) !important;
+  border-top: 1px solid var(--color-border) !important;
+}
+
+.tool-dialog-content {
+  padding: var(--iui-size-m);
+  color: var(--color-text-primary);
+}
+
+.tool-info {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-s);
+  padding: var(--iui-size-s) var(--iui-size-m);
+  background: var(--color-bg-page);
+  border-radius: var(--iui-border-radius);
+  border: 1px solid var(--color-border);
+  margin-bottom: var(--iui-size-m);
+}
+
+.tool-icon {
+  font-size: 24px;
+}
+
+.tool-info p {
+  margin: 0;
+  font-size: var(--iui-font-size-body);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.tool-parameter {
+  margin-bottom: var(--iui-size-m);
+}
+
+.tool-parameter:last-child {
+  margin-bottom: 0;
+}
+
+.tool-parameter label {
+  display: block;
+  margin-bottom: var(--iui-size-xs);
+  font-size: var(--iui-font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.tool-parameter label .unit {
+  margin-left: 4px;
+  font-weight: normal;
+  color: var(--color-text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--iui-font-size-small);
+}
+
+.parameter-slider {
+  width: 100%;
+  margin-top: var(--iui-size-xs);
+}
+
+.tool-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--iui-size-xs);
+  padding-top: var(--iui-size-m);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Input styling in tool dialogs */
+.tool-dialog input[type="number"],
+.tool-dialog input[type="text"] {
+  background: var(--color-bg-page) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+/* Select dropdown styling */
+.tool-dialog [class*="select"] {
+  background: var(--color-bg-page) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border) !important;
+}

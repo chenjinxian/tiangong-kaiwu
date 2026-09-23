@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@app/*": ["app/*"],
+      "@features/*": ["features/*"],
+      "@shared/*": ["shared/*"],
+      "@pages/*": ["src/pages/*"],
+      "@styles/*": ["styles/*"]
+    }
+  },
+  "include": ["src", "app", "features", "shared", "styles"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

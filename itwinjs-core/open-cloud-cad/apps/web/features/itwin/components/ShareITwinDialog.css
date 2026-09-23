@@ -1,0 +1,197 @@
+/* ShareITwinDialog styles - with dark mode support */
+.share-dialog {
+  min-width: 480px;
+  max-width: 560px;
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.share-dialog [class*="dialog-title-bar"],
+.share-dialog [class*="_title-bar"] {
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.share-dialog [class*="dialog-content"],
+.share-dialog [class*="_dialog-content"] {
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.share-dialog [class*="dialog-button-bar"],
+.share-dialog [class*="_button-bar"] {
+  background-color: var(--color-bg-card) !important;
+  border-top: 1px solid var(--color-border) !important;
+}
+
+.share-tab-panel {
+  padding: var(--iui-size-m) 0;
+  color: var(--color-text-primary);
+}
+
+.share-alert {
+  margin-bottom: var(--iui-size-m);
+}
+
+.share-hint {
+  margin: var(--iui-size-s) 0 var(--iui-size-m);
+  padding: var(--iui-size-s);
+  background: var(--color-bg-hover);
+  border-radius: var(--iui-border-radius);
+  color: var(--color-text-secondary);
+}
+
+.share-hint .iui-text {
+  color: var(--color-text-secondary);
+}
+
+/* Members list */
+.members-empty {
+  text-align: center;
+  padding: var(--iui-size-xl) 0;
+}
+
+.members-empty .empty-title {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.members-empty .empty-desc {
+  color: var(--color-text-tertiary);
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-xs);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-s);
+  background: var(--color-bg-page);
+  border-radius: var(--iui-border-radius);
+  border: 1px solid var(--color-border);
+}
+
+.member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-email {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-primary);
+}
+
+.member-meta {
+  display: flex;
+  gap: var(--iui-size-xs);
+  align-items: center;
+}
+
+.member-role {
+  font-size: var(--iui-font-size-small);
+  padding: 2px 6px;
+  border-radius: var(--iui-border-radius);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.member-role:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+.member-meta .iui-select {
+  min-width: 120px;
+}
+
+.member-role.role-admin {
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.member-role.role-editor {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.member-status {
+  font-size: var(--iui-font-size-small);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* Link sharing */
+.link-section {
+  margin-bottom: var(--iui-size-m);
+}
+
+.link-section label,
+.link-permissions label {
+  color: var(--color-text-primary) !important;
+}
+
+.link-input-group {
+  display: flex;
+  gap: var(--iui-size-xs);
+  margin-top: var(--iui-size-xs);
+}
+
+.link-input {
+  flex: 1;
+}
+
+.link-input input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--iui-font-size-small);
+  background: var(--color-bg-page) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+.link-hint {
+  margin-top: var(--iui-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.link-permissions {
+  margin-top: var(--iui-size-m);
+}
+
+/* Form inputs in share dialog */
+.share-dialog input[type="email"],
+.share-dialog input[type="text"] {
+  background: var(--color-bg-page) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+/* Select dropdown in dark mode */
+.share-dialog [class*="select"] {
+  background: var(--color-bg-page) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .share-dialog {
+    min-width: unset;
+    width: 100%;
+  }
+}

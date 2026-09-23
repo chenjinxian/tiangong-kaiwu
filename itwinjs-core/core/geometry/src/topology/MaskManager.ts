@@ -1,0 +1,71 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+
+/** @packageDocumentation
+ * @module Topology
+ */
+/**
+ * Methods to "grab and drop" mask bits from a 32-bit field.
+ * * Caller code (e.g. HalfEdgeGraph) initializes with a block of bits to be managed.
+ * * Callers borrow and return masks with "grabMask" and "dropMask".
+ * * Callers must exercise grab/drop balance discipline.
+ * @internal
+ */
+export class MaskManager {
+  private _freeMasks: number;
+  private _originalFreeMasks: number;
+  private _firstFreeMask: number;
+  /**
+   * Constructor
+   * @param freeMasks caller-defined block of bits that are to be managed.
+   * @param firstFreeMask the first free mask in the freeMasks bits block.
+   */
+  private constructor(freeMasks: number, firstFreeMask: number) {
+    this._freeMasks = freeMasks;
+    this._originalFreeMasks = freeMasks;
+    this._firstFreeMask = firstFreeMask;
+  }
+  /**
+   * Create a MaskManager.
+   * Typical use: MaskManager.create(0xFFF00000)
+   * * This makes bits 20 through 31 available to be borrowed, with lower bits reserved for fixed usage.
+   * @param freeMasks mask with bits set to be available for grab/drop.
+   * @returns undefined if `freeMasks` has none of the bits [0,31] set.
+   */
+  public static create(freeMasks: number): MaskManager | undefined {
+    // look for first bit up to bit 31
+    let firstFree = 0;
+    let testBit = 0x01;
+    for (let i = 0; i < 32; i++) {
+      if ((testBit & freeMasks) !== 0) {
+        firstFree = testBit;
+        break;
+      }
+      testBit = (testBit << 1);
+    }
+    if (firstFree === 0)
+      return undefined;
+    return new MaskManager(freeMasks, firstFree);
+  }
+  /** Find a mask bit that is not "in use" in order to borrow that mask. */
+  public grabMask(): number {
+    if (!this.hasFreeMask)
+      return 0;
+    let mask = this._firstFreeMask;
+    while (!(mask & this._freeMasks))
+      mask = mask << 1;
+    this._freeMasks &= ~mask;
+    return mask;
+  }
+  /** Return the borrowed mask so it is not "in use" anymore. */
+  public dropMask(mask: number) {
+    mask &= this._originalFreeMasks; // prevent "drop" of mask that is not in the pool.
+    this._freeMasks |= mask;
+  }
+  /** Whether there is a mask bit still available to grab. */
+  public get hasFreeMask(): boolean {
+    return this._freeMasks !== 0;
+  }
+}

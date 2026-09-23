@@ -1,0 +1,319 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+import { AuthorizationClient } from "@itwin/core-common";
+
+/**
+ * User type definition
+ */
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  plan: 'free' | 'professional' | 'enterprise';
+  avatar?: string;
+}
+
+/**
+ * Login credentials
+ */
+export interface LoginCredentials {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
+/**
+ * Register data
+ */
+export interface RegisterData {
+  email: string;
+  password: string;
+  name: string;
+}
+
+/**
+ * Auth response from API
+ */
+export interface AuthResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+const AUTH_STORAGE_KEY = 'open_cloud_cad_auth';
+const USER_STORAGE_KEY = 'open_cloud_cad_user';
+
+/**
+ * Mock auth service for development
+ * In production, this will call the real backend API
+ */
+class AuthService {
+  private currentUser: User | null = null;
+  private accessToken: string | null = null;
+
+  constructor() {
+    // Try to restore session from localStorage
+    this.restoreSession();
+  }
+
+  /**
+   * Login with email and password
+   */
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    // TODO: Replace with actual API call
+    // const response = await fetch('/api/auth/login', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(credentials),
+    // });
+    // return response.json();
+
+    // Mock implementation for development
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // Mock validation
+        if (credentials.email === 'demo@example.com' && credentials.password === 'demo123') {
+          const mockUser: User = {
+            id: 'user-001',
+            email: credentials.email,
+            name: 'Demo User',
+            plan: 'free',
+          };
+
+          const mockResponse: AuthResponse = {
+            user: mockUser,
+            accessToken: 'mock-access-token-' + Date.now(),
+            refreshToken: 'mock-refresh-token-' + Date.now(),
+            expiresIn: 3600, // 1 hour
+          };
+
+          this.setSession(mockResponse, credentials.rememberMe);
+          resolve(mockResponse);
+        } else if (credentials.password.length < 6) {
+          reject(new Error('密码错误'));
+        } else {
+          // For development, accept any valid-looking email/password
+          const mockUser: User = {
+            id: 'user-' + Date.now(),
+            email: credentials.email,
+            name: credentials.email.split('@')[0],
+            plan: 'free',
+          };
+
+          const mockResponse: AuthResponse = {
+            user: mockUser,
+            accessToken: 'mock-access-token-' + Date.now(),
+            refreshToken: 'mock-refresh-token-' + Date.now(),
+            expiresIn: 3600,
+          };
+
+          this.setSession(mockResponse, credentials.rememberMe);
+          resolve(mockResponse);
+        }
+      }, 800); // Simulate network delay
+    });
+  }
+
+  /**
+   * Register new account
+   */
+  async register(data: RegisterData): Promise<AuthResponse> {
+    // TODO: Replace with actual API call
+    // const response = await fetch('/api/auth/register', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(data),
+    // });
+    // return response.json();
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const mockUser: User = {
+          id: 'user-' + Date.now(),
+          email: data.email,
+          name: data.name,
+          plan: 'free',
+        };
+
+        const mockResponse: AuthResponse = {
+          user: mockUser,
+          accessToken: 'mock-access-token-' + Date.now(),
+          refreshToken: 'mock-refresh-token-' + Date.now(),
+          expiresIn: 3600,
+        };
+
+        this.setSession(mockResponse, false);
+        resolve(mockResponse);
+      }, 800);
+    });
+  }
+
+  /**
+   * Logout current user
+   */
+  async logout(): Promise<void> {
+    // TODO: Call logout API if needed
+    // await fetch('/api/auth/logout', { method: 'POST' });
+
+    this.clearSession();
+  }
+
+  /**
+   * Refresh access token
+   */
+  async refreshToken(): Promise<string> {
+    // TODO: Implement actual token refresh
+    // const response = await fetch('/api/auth/refresh', {
+    //   method: 'POST',
+    //   headers: { 'Authorization': `Bearer ${this.refreshToken}` },
+    // });
+    // const data = await response.json();
+    // this.accessToken = data.accessToken;
+    // return data.accessToken;
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const newToken = 'mock-access-token-refreshed-' + Date.now();
+        this.accessToken = newToken;
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+          accessToken: newToken,
+          refreshToken: 'mock-refresh-token',
+        }));
+        resolve(newToken);
+      }, 500);
+    });
+  }
+
+  /**
+   * Get current user
+   */
+  getCurrentUser(): User | null {
+    return this.currentUser;
+  }
+
+  /**
+   * Get access token
+   */
+  getAccessToken(): string | null {
+    return this.accessToken;
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated(): boolean {
+    return !!this.accessToken && !!this.currentUser;
+  }
+
+  /**
+   * Get authorization client for iTwin.js integration
+   */
+  getAuthorizationClient(): AuthorizationClient {
+    return new OpenCloudCadAuthClient(this);
+  }
+
+  /**
+   * Set session after login/register
+   */
+  private setSession(response: AuthResponse, _rememberMe: boolean = false): void {
+    this.currentUser = response.user;
+    this.accessToken = response.accessToken;
+
+    sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+      expiresAt: Date.now() + response.expiresIn * 1000,
+    }));
+    sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.user));
+  }
+
+  /**
+   * Clear session on logout
+   */
+  private clearSession(): void {
+    this.currentUser = null;
+    this.accessToken = null;
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(USER_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.removeItem(USER_STORAGE_KEY);
+  }
+
+  /**
+   * Restore session from storage
+   */
+  private restoreSession(): void {
+    // Try localStorage first (remember me), then sessionStorage
+    const authData = localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY);
+    const userData = localStorage.getItem(USER_STORAGE_KEY) || sessionStorage.getItem(USER_STORAGE_KEY);
+
+    if (authData && userData) {
+      try {
+        const auth = JSON.parse(authData);
+        const user = JSON.parse(userData);
+
+        // Check if token is expired
+        if (auth.expiresAt && auth.expiresAt > Date.now()) {
+          this.accessToken = auth.accessToken;
+          this.currentUser = user;
+        } else {
+          // Token expired, clear storage
+          this.clearSession();
+        }
+      } catch {
+        this.clearSession();
+      }
+    }
+  }
+}
+
+export const authService = new AuthService();
+
+/**
+ * Authorization client implementation for iTwin.js integration
+ * Wraps the authService to provide the AuthorizationClient interface
+ */
+export class OpenCloudCadAuthClient implements AuthorizationClient {
+  private _authService: AuthService;
+
+  constructor(authService: AuthService) {
+    this._authService = authService;
+  }
+
+  /**
+   * Get the current access token
+   */
+  async getAccessToken(): Promise<string> {
+    const token = this._authService.getAccessToken();
+    if (!token) {
+      throw new Error("Not authenticated");
+    }
+    return token;
+  }
+
+  /**
+   * Sign in - delegates to authService
+   */
+  async signIn(): Promise<void> {
+    // Sign in is handled by the login flow in UserContext
+    // This method is required by AuthorizationClient interface
+  }
+
+  /**
+   * Sign out - delegates to authService
+   */
+  async signOut(): Promise<void> {
+    await this._authService.logout();
+  }
+}
+
+/**
+ * Get the authorization client for iTwin.js integration
+ */
+export function getAuthorizationClient(): AuthorizationClient {
+  return new OpenCloudCadAuthClient(authService);
+}

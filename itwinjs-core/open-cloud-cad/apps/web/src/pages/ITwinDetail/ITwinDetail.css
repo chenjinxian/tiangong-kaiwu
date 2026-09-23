@@ -1,0 +1,324 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* apps/web/src/pages/ITwinDetail.css — iTwinUI Optimized */
+.imodels-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--iui-color-background-backdrop);
+  overflow: hidden;
+}
+
+/* ── Topbar ── */
+.imodels-page .topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--iui-size-m);
+  height: 56px;
+  background: var(--iui-color-background-surface);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.imodels-page .topbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+.imodels-page .logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--iui-border-radius);
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.imodels-page .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  font-size: var(--iui-font-size-body);
+  color: var(--iui-color-text-muted);
+}
+
+.imodels-page .breadcrumb-link {
+  color: var(--iui-color-text-accent);
+}
+
+.imodels-page .breadcrumb-sep {
+  color: var(--iui-color-text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.imodels-page .breadcrumb-current {
+  color: var(--iui-color-text);
+  font-weight: 600;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imodels-page .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+.imodels-page .topbar-actions button {
+  padding: var(--iui-size-xs) var(--iui-size-m);
+}
+
+/* ── Hero ── */
+.imodels-page .hero {
+  background: var(--iui-color-background-surface);
+  border-bottom: 1px solid var(--iui-color-border);
+  padding: var(--iui-size-l);
+  position: relative;
+  overflow: hidden;
+}
+
+.imodels-page .hero-content {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--iui-size-l);
+  position: relative;
+  z-index: 1;
+}
+
+.imodels-page .hero-left {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-m);
+}
+
+.imodels-page .hero-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--iui-border-radius-round);
+  background: var(--iui-color-background-accent-muted);
+  border: 1px solid var(--iui-color-border-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  color: var(--iui-color-text-accent);
+}
+
+.imodels-page .hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-xs);
+}
+
+.imodels-page .hero-name {
+  font-size: var(--iui-font-size-title);
+  font-weight: 700;
+  color: var(--iui-color-text);
+}
+
+.imodels-page .hero-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--iui-size-xs);
+  font-size: var(--iui-font-size-body);
+  color: var(--iui-color-text-muted);
+}
+
+.imodels-page .hero-meta .separator {
+  color: var(--iui-color-text-muted);
+}
+
+.imodels-page .hero-description {
+  font-size: var(--iui-font-size-body);
+  color: var(--iui-color-text-muted);
+  margin-top: var(--iui-size-xs);
+  max-width: 600px;
+  line-height: 1.5;
+}
+
+.imodels-page .hero-actions {
+  display: flex;
+  gap: var(--iui-size-xs);
+  flex-shrink: 0;
+}
+
+.imodels-page .hero-actions button {
+  padding: var(--iui-size-xs) var(--iui-size-m);
+}
+
+/* ── Sync indicator ── */
+.sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  margin-left: var(--iui-size-s);
+  color: var(--iui-color-text-accent);
+  font-size: var(--iui-font-size-small);
+  font-weight: 500;
+}
+
+.sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--iui-color-text-accent);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Content wrapper ── */
+.imodels-page .content-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── Toolbar ── */
+.imodels-page .toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-s) var(--iui-size-m);
+  background: var(--iui-color-background-surface-elevated);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.imodels-page .toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+.imodels-page .toolbar-left button {
+  padding: var(--iui-size-xs) var(--iui-size-m);
+}
+
+/* ── Grid ── */
+.imodels-page .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--iui-size-m);
+  padding: var(--iui-size-l);
+}
+
+/* ── Empty state ── */
+.imodels-page .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px var(--iui-size-m);
+  text-align: center;
+  animation: fade-in 0.4s ease;
+  flex: 1;
+  overflow-y: auto;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.imodels-page .empty-icon {
+  font-size: 64px;
+  margin-bottom: var(--iui-size-m);
+  opacity: 0.5;
+  color: var(--iui-color-text-muted);
+}
+
+.imodels-page .empty-title {
+  font-size: var(--iui-font-size-title);
+  font-weight: 600;
+  color: var(--iui-color-text);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.imodels-page .empty-desc {
+  font-size: var(--iui-font-size-body);
+  color: var(--iui-color-text-muted);
+  margin-bottom: var(--iui-size-l);
+  line-height: 1.5;
+}
+
+/* ── Loading state ── */
+.imodels-page .loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px var(--iui-size-m);
+  gap: var(--iui-size-m);
+}
+
+/* ── Error state ── */
+.imodels-page .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px var(--iui-size-m);
+  gap: var(--iui-size-m);
+  animation: fade-in 0.3s ease;
+}
+
+.imodels-page .error-icon {
+  font-size: 48px;
+  color: var(--iui-color-text-negative);
+}
+
+.imodels-page .error-actions {
+  display: flex;
+  gap: var(--iui-size-s);
+  margin-top: var(--iui-size-xs);
+}
+
+/* ── Spin ── */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .imodels-page .hero-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .imodels-page .hero-actions {
+    width: 100%;
+  }
+
+  .imodels-page .grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    padding: var(--iui-size-m);
+  }
+
+  .imodels-page .breadcrumb-current {
+    max-width: 150px;
+  }
+}

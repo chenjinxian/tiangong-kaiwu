@@ -1,0 +1,903 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+
+/** @packageDocumentation
+ * @module CartesianGeometry
+ */
+
+import { assert } from "@itwin/core-bentley";
+import { Arc3d } from "../curve/Arc3d";
+import { AnnounceNumberNumber, AnnounceNumberNumberCurvePrimitive, CurvePrimitive } from "../curve/CurvePrimitive";
+import { Geometry } from "../Geometry";
+import { Vector2d } from "../geometry3d/Point2dVector2d";
+import { Point3d, Vector3d } from "../geometry3d/Point3dVector3d";
+import { Point3dArray } from "../geometry3d/PointHelpers";
+import { PolygonOps } from "../geometry3d/PolygonOps";
+import { PolylineOps } from "../geometry3d/PolylineOps";
+import { Range3d } from "../geometry3d/Range";
+import { Transform } from "../geometry3d/Transform";
+import { TransformProps, XYZProps } from "../geometry3d/XYZProps";
+import { Matrix4d } from "../geometry4d/Matrix4d";
+import { HalfEdge, HalfEdgeGraph, HalfEdgeMask } from "../topology/Graph";
+import { Triangulator } from "../topology/Triangulation";
+import { AlternatingCCTreeNode } from "./AlternatingConvexClipTree";
+import { ClipPlane } from "./ClipPlane";
+import { Clipper, ClipPlaneContainment } from "./ClipUtils";
+import { ConvexClipPlaneSet } from "./ConvexClipPlaneSet";
+import { UnionOfConvexClipPlaneSets, UnionOfConvexClipPlaneSetsProps } from "./UnionOfConvexClipPlaneSets";
+
+// cspell:word zlow
+// cspell:word zhigh
+/**
+ * Bit mask type for referencing subsets of 6 planes of range box.
+ * @public
+ */
+export enum ClipMaskXYZRangePlanes {
+  /** no planes */
+  None = 0x00,
+  /** low x plane */
+  XLow = 0x01,
+  /** high x plane */
+  XHigh = 0x02,
+  /** low y plane */
+  YLow = 0x04,
+  /** high y plane */
+  YHigh = 0x08,
+  /** low z plane */
+  ZLow = 0x10,
+  /** high z plane */
+  ZHigh = 0x20,
+  /** all x and y planes, neither z plane */
+  XAndY = 0x0f,
+  /** all 6 planes */
+  All = 0x3f,
+}
+
+/**
+ * Wire format describing a [[ClipPrimitive]] defined by a set of clip planes.
+ * @public
+ */
+export interface ClipPrimitivePlanesProps {
+  planes?: {
+    /** The set of clip planes. */
+    clips?: UnionOfConvexClipPlaneSetsProps;
+    /** `true` if the primitive is invisible. */
+    invisible?: boolean;
+  };
+}
+
+/**
+ * Wire format describing a [[ClipShape]].
+ * @public
+ */
+export interface ClipPrimitiveShapeProps {
+  /** The clip polygon. */
+  shape?: {
+    /** Points of the polygon, in the xy plane of the local coordinate system. */
+    points?: XYZProps[];
+    /** Transform from local to world. */
+    trans?: TransformProps;
+    /** Lower bound on z (in local coordinates). */
+    zlow?: number;
+    /** Upper bound on z (in local coordinates). */
+    zhigh?: number;
+    /** `true` if this shape is considered a hole (keep geometry outside of the polygon). */
+    mask?: boolean;
+    /** `true` if this shape is invisible. */
+    invisible?: boolean;
+  };
+}
+
+/** Wire format describing a [[ClipPrimitive]].
+ * @public
+ */
+export type ClipPrimitiveProps = ClipPrimitivePlanesProps | ClipPrimitiveShapeProps;
+
+/**
+ * * ClipPrimitive is a base class for clipping implementations that use:
+ *   * A [[UnionOfConvexClipPlaneSets]] designated "clipPlanes".
+ *   * An "invisible" flag.
+ * * A ClipPrimitive can be constructed with or without planes. If without planes:
+ *     * The derived class is responsible for filling the plane sets.
+ *     * The derived class can populate the plane sets at construction time or afterwards with [[ClipPrimitive.ensurePlaneSets]].
+ * * The prevailing use is via derived class [[ClipShape]].
+ *    * A ClipShape carries a swept shape that generates the planes.
+ *    * A ClipShape has an `isMask` property
+ *       * `isMask === false` means the plane sets should cover the inside of its polygon.
+ *       * `isMask === true` means the plane sets should cover the outside of its polygon, i.e., the ClipShape acts as a hole.
+ *  * Note that the ClipShape's `isMask` property and the ClipPrimitive's `invisible` property are distinct flags.
+ *     * In normal usage, callers get "outside" clip behavior using ONLY the ClipShape `isMask` property.
+ *     * The ClipShape passes its `invisible` flag down to ClipPlanes that it creates.
+ *         * At that level, this flag controls whether cut edges are produced on the planes.
+ * @public
+ */
+export class ClipPrimitive implements Clipper {
+  /** The union of convex regions. */
+  protected _clipPlanes?: UnionOfConvexClipPlaneSets;
+  /** The invisible flag of the primitive, passed down to the clip planes. */
+  protected _invisible: boolean;
+  /**
+   * Get a reference to the `UnionOfConvexClipPlaneSets`.
+   * * It triggers construction of the sets by `this.ensurePlaneSets()`.
+   * * Derived class typically caches the set on the first such call.
+   */
+  public fetchClipPlanesRef(): UnionOfConvexClipPlaneSets | undefined {
+    this.ensurePlaneSets();
+    return this._clipPlanes;
+  }
+  /** Return whether this primitive is invisible. */
+  public get invisible(): boolean {
+    return this._invisible;
+  }
+  protected constructor(planeSet?: UnionOfConvexClipPlaneSets | undefined, isInvisible: boolean = false) {
+    this._clipPlanes = planeSet;
+    this._invisible = isInvisible;
+  }
+  /**
+   * Create a ClipPrimitive, capturing the supplied plane set as the clip planes.
+   * @param planes clipper
+   * @param isInvisible set the invisible flag on the ClipPrimitive
+   */
+  public static createCapture(
+    planes: UnionOfConvexClipPlaneSets | ConvexClipPlaneSet | undefined, isInvisible: boolean = false,
+  ): ClipPrimitive {
+    let planeData;
+    if (planes instanceof UnionOfConvexClipPlaneSets)
+      planeData = planes;
+    if (planes instanceof ConvexClipPlaneSet)
+      planeData = UnionOfConvexClipPlaneSets.createConvexSets([planes]);
+    return new ClipPrimitive(planeData, isInvisible);
+  }
+  /** Emit json form of the clip planes */
+  public toJSON(): ClipPrimitiveProps {
+    const planes: ClipPrimitivePlanesProps["planes"] = {};
+    if (this._clipPlanes)
+      planes.clips = this._clipPlanes.toJSON();
+    if (this._invisible)
+      planes.invisible = true;
+    return { planes };
+  }
+  /**
+   * Returns true if the planes are present.
+   * * This can be false (for instance) if a ClipShape is holding a polygon but has not yet been asked to construct
+   * the planes.
+   */
+  public arePlanesDefined(): boolean {
+    return this._clipPlanes !== undefined;
+  }
+  /** Return a deep clone. */
+  public clone(): ClipPrimitive {
+    const newPlanes = this._clipPlanes ? this._clipPlanes.clone() : undefined;
+    const result = new ClipPrimitive(newPlanes, this._invisible);
+    return result;
+  }
+  /**
+   * Trigger (if needed) computation of plane sets (if applicable) in the derived class.
+   * * Base class is no op.
+   * * In derived class, on first call create planes sets from defining data (e.g. swept shape).
+   * * In derived class, if planes are present leave them alone.
+   */
+  public ensurePlaneSets() { }
+  /**
+   * Return true if the point lies inside/on this polygon (or not inside/on if this polygon is a mask). Otherwise,
+   * return false.
+   * * Note that a derived class may choose to (a) implement its own test using its defining data, or (b) accept
+   * this implementation using planes that it inserted in the base class.
+   */
+  public pointInside(point: Point3d, onTolerance: number = Geometry.smallMetricDistanceSquared): boolean {
+    this.ensurePlaneSets();
+    let inside = true;
+    if (this._clipPlanes)
+      inside = this._clipPlanes.isPointOnOrInside(point, onTolerance);
+    return inside;
+  }
+  /**
+   * Method from [[Clipper]] interface.
+   * * Implement as dispatch to clipPlaneSets as supplied by derived class.
+   */
+  public isPointOnOrInside(point: Point3d, onTolerance: number = Geometry.smallMetricDistanceSquared): boolean {
+    this.ensurePlaneSets();
+    let inside = true;
+    if (this._clipPlanes)
+      inside = this._clipPlanes.isPointOnOrInside(point, onTolerance);
+    return inside;
+  }
+  /**
+   * Method from [[Clipper]] interface.
+   * * Implement as dispatch to clip volume as supplied by derived class.
+   */
+  public announceClippedSegmentIntervals(
+    f0: number, f1: number, pointA: Point3d, pointB: Point3d, announce?: AnnounceNumberNumber,
+  ): boolean {
+    this.ensurePlaneSets();
+    let hasInsideParts = false;
+    if (this._clipPlanes)
+      hasInsideParts = this._clipPlanes.announceClippedSegmentIntervals(f0, f1, pointA, pointB, announce);
+    return hasInsideParts;
+  }
+  /**
+   * Method from [[Clipper]] interface.
+   * * Implement as dispatch to clip volume as supplied by derived class.
+   */
+  public announceClippedArcIntervals(arc: Arc3d, announce?: AnnounceNumberNumberCurvePrimitive): boolean {
+    this.ensurePlaneSets();
+    let hasInsideParts = false;
+    if (this._clipPlanes)
+      hasInsideParts = this._clipPlanes.announceClippedArcIntervals(arc, announce);
+    return hasInsideParts;
+  }
+  /**
+   * Method from [[Clipper]] interface.
+   * * Implement as dispatch to clip volume as supplied by derived class.
+   */
+  public announceClippedCurveIntervals(curve: CurvePrimitive, announce?: AnnounceNumberNumberCurvePrimitive): boolean {
+    this.ensurePlaneSets();
+    let hasInsideParts = false;
+    if (this._clipPlanes)
+      hasInsideParts = this._clipPlanes.announceClippedCurveIntervals(curve, announce);
+    return hasInsideParts;
+  }
+  /**
+   * Multiply all ClipPlanes DPoint4d by matrix.
+   * @param matrix matrix to apply.
+   * @param invert if true, use in verse of the matrix.
+   * @param transpose if true, use the transpose of the matrix (or inverse, per invert parameter).
+   * @param matrix matrix to apply.
+   * * Note that if matrixA is applied to all of space, the matrix to send to this method to get a corresponding
+   * effect on the plane is the inverse transpose of matrixA.
+   * * Callers that will apply the same matrix to many planes should pre-invert the matrix for efficiency.
+   * * Both params default to true to get the full effect of transforming space.
+   */
+  public multiplyPlanesByMatrix4d(matrix: Matrix4d, invert: boolean = true, transpose: boolean = true): boolean {
+    if (invert) {  // form inverse once here, reuse for all planes
+      const inverse = matrix.createInverse();
+      if (!inverse)
+        return false;
+      return this.multiplyPlanesByMatrix4d(inverse, false, transpose);
+    }
+    if (this._clipPlanes)
+      this._clipPlanes.multiplyPlanesByMatrix4d(matrix);
+    return true;
+  }
+  /** Apply a transform to the clipper (e.g. transform all planes). */
+  public transformInPlace(transform: Transform): boolean {
+    if (this._clipPlanes)
+      this._clipPlanes.transformInPlace(transform);
+    return true;
+  }
+  /** Sets the primitive visibility. */
+  public setInvisible(invisible: boolean) {
+    this._invisible = invisible;
+  }
+  /**
+   * Return true if any plane of the primary clipPlanes has (a) non-zero z component in its normal vector and
+   * (b) finite distance from origin.
+   */
+  public containsZClip(): boolean {
+    const clipPlanes = this.fetchClipPlanesRef();
+    if (clipPlanes !== undefined) {
+      for (const convexSet of clipPlanes.convexSets)
+        for (const plane of convexSet.planes)
+          if (Math.abs(plane.inwardNormalRef.z) > 1.0e-6 && Math.abs(plane.distance) !== Number.MAX_VALUE)
+            return true;
+    }
+    return false;
+  }
+  /**
+   * Quick test of whether the given points fall completely inside or outside.
+   * @param points points to test.
+   * @param _ignoreMasks unused. The [[ClipShape]] override inverts this test when `ignoreMasks` is false and the instance is masked.
+   */
+  public classifyPointContainment(points: Point3d[], _ignoreMasks: boolean = true): ClipPlaneContainment {
+    this.ensurePlaneSets();
+    const planes = this._clipPlanes;
+    let inside = ClipPlaneContainment.StronglyInside;
+    if (planes)
+      inside = planes.classifyPointContainment(points, false);
+    return inside;
+  }
+  /**
+   * Promote json object form to class instance.
+   * * First try to convert to a ClipShape.
+   * * then try as a standalone instance of the base class ClipPrimitive.
+   */
+  public static fromJSON(json: ClipPrimitiveProps | undefined): ClipPrimitive | undefined {
+    if (!json)
+      return undefined;
+    const shape = ClipShape.fromClipShapeJSON(json as ClipPrimitiveShapeProps);
+    if (shape)
+      return shape;
+    return ClipPrimitive.fromJSONClipPrimitive(json as ClipPrimitivePlanesProps);
+  }
+  /** Specific converter producing the base class ClipPrimitive. */
+  public static fromJSONClipPrimitive(json: ClipPrimitivePlanesProps | undefined): ClipPrimitive | undefined {
+    const planes = json?.planes;
+    if (!planes)
+      return undefined;
+
+    const clipPlanes = planes.clips ? UnionOfConvexClipPlaneSets.fromJSON(planes.clips) : undefined;
+    const invisible = undefined !== planes.invisible ? planes.invisible : false;
+    return new ClipPrimitive(clipPlanes, invisible);
+  }
+}
+
+/** Internal helper class holding XYZ components that serves as a representation of polygon edges defined by clip planes */
+class PolyEdge {
+  public pointA: Point3d;
+  public pointB: Point3d;
+  public normal: Vector3d;
+
+  public constructor(origin: Point3d, next: Point3d, normal: Vector3d, z: number) {
+    this.pointA = Point3d.create(origin.x, origin.y, z);
+    this.pointB = Point3d.create(next.x, next.y, z);
+    this.normal = normal;
+  }
+  // Assume both normals are unit length.
+  // old logic: use difference of (previously computed) normals as perpendicular to bisector.
+  public static makeUnitPerpendicularToBisector(edgeA: PolyEdge, edgeB: PolyEdge, reverse: boolean): Vector3d | undefined {
+    let candidate = edgeB.normal.minus(edgeA.normal);
+    if (candidate.normalize(candidate) === undefined) { // adjacent edges are parallel: try chord as bisector normal
+      candidate = Vector3d.createStartEnd(edgeA.pointA, edgeB.pointB);
+      if (candidate.normalize(candidate) === undefined)
+        return undefined; // no chord => backtracking edge => fail
+    }
+    if (reverse)
+      candidate.scale(-1.0, candidate);
+    return candidate;
+  }
+}
+
+/**
+ * A clipping volume defined by a shape (an array of 3d points using only x and y dimensions).
+ * May be given either a ClipPlaneSet to store directly, or an array of polygon points as well as other parameters
+ * for parsing ClipPlanes from the shape later.
+ * @public
+ */
+export class ClipShape extends ClipPrimitive {
+  /** Points of the polygon, in the xy plane of the local coordinate system.  */
+  protected _polygon: Point3d[];
+  /** Optional low z (in local coordinates). */
+  protected _zLow?: number;
+  /** Optional high z (in local coordinates). */
+  protected _zHigh?: number;
+  /** True if this is considered a hole (keep geometry outside of the polygon). */
+  protected _isMask: boolean;
+  /** Transform from local to world. */
+  protected _transformFromClip?: Transform;
+  /** Transform from world to local. */
+  protected _transformToClip?: Transform;
+
+  protected constructor(
+    polygon: Point3d[] = [], zLow?: number, zHigh?: number, transform?: Transform, isMask: boolean = false, invisible: boolean = false,
+  ) {
+    super(undefined, invisible); // ClipPlaneSets will be set up later after storing points
+    this._isMask = false;
+    this._polygon = polygon;
+    this.initSecondaryProps(isMask, zLow, zHigh, transform);
+  }
+  /** Returns true if this ClipShape is marked as invisible. */
+  public override get invisible(): boolean {
+    return this._invisible;
+  }
+  /** Return local to world transform, which may be undefined. */
+  public get transformFromClip(): Transform | undefined {
+    return this._transformFromClip;
+  }
+  /** Return world to local transform, which may be undefined. */
+  public get transformToClip(): Transform | undefined {
+    return this._transformToClip;
+  }
+  /**
+   * Returns true if this ClipShape has a local to world transform.
+   * @see type guards [[hasTransformFromClip]], [[hasTransformToClip]], and [[hasTransforms]].
+  */
+  public get transformValid(): boolean {
+    return this._transformFromClip !== undefined;
+  }
+  /**
+   * Returns true if this ClipShape's lower z boundary is set.
+   * @see type guard [[hasZLow]].
+   */
+  public get zLowValid(): boolean {
+    return this._zLow !== undefined;
+  }
+  /**
+   * Returns true if this ClipShape's upper z boundary is set.
+   * @see type guard [[hasZHigh]].
+   */
+  public get zHighValid(): boolean {
+    return this._zHigh !== undefined;
+  }
+  /**
+   * Return true if this ClipShape has a local to world transform
+   * @deprecated in 5.5.0 - will not be removed until after 2027-01-05. Use duplicate property [[transformValid]] or
+   * type guard [[hasTransformFromClip]] instead.
+   */
+  public get transformIsValid(): boolean {
+    return this._transformFromClip !== undefined;
+  }
+  /** Type guard for [[zLow]]. */
+  public hasZLow(): this is { zLow: number } {
+    return this._zLow !== undefined;
+  }
+  /** Type guard for [[zHigh]]. */
+  public hasZHigh(): this is { zHigh: number } {
+    return this._zHigh !== undefined;
+  }
+  /**
+   * Type guard for [[transformFromClip]].
+   * @see related type guards [[hasTransformToClip]] and [[hasTransforms]].
+   */
+  public hasTransformFromClip(): this is { transformFromClip: Transform } {
+    return this._transformFromClip !== undefined;
+  }
+  /**
+   * Type guard for [[transformToClip]].
+   * @see related type guards [[hasTransformFromClip]] and [[hasTransforms]].
+   */
+  public hasTransformToClip(): this is { transformToClip: Transform } {
+    return this._transformToClip !== undefined;
+  }
+  /**
+   * Type guard for both [[transformFromClip]] and [[transformToClip]].
+   * @see individual type guards [[hasTransformFromClip]] and [[hasTransformToClip]].
+   */
+  public hasTransforms(): this is { transformFromClip: Transform, transformToClip: Transform } {
+    return this._transformFromClip !== undefined && this._transformToClip !== undefined;
+  }
+  /** Return this zLow, which may be undefined. */
+  public get zLow(): number | undefined {
+    return this._zLow;
+  }
+  /** Return this zHigh, which may be undefined. */
+  public get zHigh(): number | undefined {
+    return this._zHigh;
+  }
+  /** Returns a reference to this ClipShape's polygon array. */
+  public get polygon(): Point3d[] {
+    return this._polygon;
+  }
+  /** Returns true if this ClipShape is a masking set. */
+  public get isMask(): boolean {
+    return this._isMask;
+  }
+  /** Sets the polygon points array of this ClipShape to the array given (by reference). */
+  public setPolygon(polygon: Point3d[]) {
+    // Add closure point
+    if (!polygon[0].isAlmostEqual(polygon[polygon.length - 1]))
+      polygon.push(polygon[0].clone());
+    this._polygon = polygon;
+  }
+  /**
+   * If the ClipShape's associated `UnionOfConvexClipPlaneSets` is defined, do nothing.
+   * If the ClipShape's associated `UnionOfConvexClipPlaneSets` is undefined, generate it from the `ClipShape`
+   * and transform.
+   */
+  public override ensurePlaneSets() {
+    if (this._clipPlanes !== undefined)
+      return;
+    this._clipPlanes = UnionOfConvexClipPlaneSets.createEmpty();
+    this.parseClipPlanes(this._clipPlanes);
+    if (this._transformFromClip)
+      this._clipPlanes.transformInPlace(this._transformFromClip);
+  }
+  /**
+   * Initialize the members of the ClipShape class that may at times be undefined.
+   * zLow and zHigh default to Number.MAX_VALUE, and the transform defaults to an identity transform.
+   */
+  public initSecondaryProps(isMask: boolean, zLow?: number, zHigh?: number, transform?: Transform) {
+    this._isMask = isMask;
+    this._zLow = zLow;
+    this._zHigh = zHigh;
+
+    if (transform !== undefined) {
+      this._transformFromClip = transform;
+      this._transformToClip = transform.inverse(); // could be undefined
+    } else {
+      this._transformFromClip = Transform.createIdentity();
+      this._transformToClip = Transform.createIdentity();
+    }
+  }
+  /** Emit json object form */
+  public override toJSON(): ClipPrimitiveShapeProps {
+    const shape: ClipPrimitiveShapeProps["shape"] = {
+      points: this._polygon.map((pt) => pt.toJSON()),
+    };
+    if (this.invisible)
+      shape.invisible = true;
+    if (this._transformFromClip && !this._transformFromClip.isIdentity)
+      shape.trans = this._transformFromClip.toJSON();
+    if (this.isMask)
+      shape.mask = true;
+    if (typeof (this.zLow) !== "undefined" && this.zLow !== -Number.MAX_VALUE)
+      shape.zlow = this.zLow;
+    if (typeof (this.zHigh) !== "undefined" && this.zHigh !== Number.MAX_VALUE)
+      shape.zhigh = this.zHigh;
+    return { shape };
+  }
+  /** Parse `json` to a clip shape. */
+  public static fromClipShapeJSON(json: ClipPrimitiveShapeProps | undefined, result?: ClipShape): ClipShape | undefined {
+    const shape = json?.shape;
+    if (!shape)
+      return undefined;
+    const points: Point3d[] = shape.points ? shape.points.map((pt) => Point3d.fromJSON(pt)) : [];
+    const trans = shape.trans ? Transform.fromJSON(shape.trans) : undefined;
+    const zLow = typeof shape.zlow === "number" ? shape.zlow : undefined;
+    const zHigh = typeof shape.zhigh === "number" ? shape.zhigh : undefined;
+    const isMask = typeof shape.mask === "boolean" && shape.mask;
+    const invisible = typeof shape.invisible === "boolean" && shape.invisible;
+
+    return ClipShape.createShape(points, zLow, zHigh, trans, isMask, invisible, result);
+  }
+  /** Returns a new ClipShape that is a deep copy of the ClipShape given */
+  public static createFrom(other: ClipShape, result?: ClipShape): ClipShape {
+    const retVal = ClipShape.createEmpty(false, false, undefined, result);
+    retVal._invisible = other._invisible;
+    for (const point of other._polygon) {
+      retVal._polygon.push(point.clone());
+    }
+    retVal._isMask = other._isMask;
+    retVal._zLow = other._zLow;
+    retVal._zHigh = other._zHigh;
+    retVal._transformToClip = other._transformToClip ? other._transformToClip.clone() : undefined;
+    retVal._transformFromClip = other._transformFromClip ? other._transformFromClip.clone() : undefined;
+    return retVal;
+  }
+  /** Create a new ClipShape from an array of points that make up a 2d shape (stores a deep copy of these points). */
+  public static createShape(
+    polygon: Point3d[] = [],
+    zLow?: number,
+    zHigh?: number,
+    transform?: Transform,
+    isMask: boolean = false,
+    invisible: boolean = false,
+    result?: ClipShape,
+  ): ClipShape | undefined {
+    if (polygon.length < 3)
+      return undefined;
+    const pPoints = polygon.slice(0);
+    // Add closure point.
+    if (pPoints[0].isAlmostEqual(pPoints[pPoints.length - 1]))
+      pPoints[0].clone(pPoints[pPoints.length - 1]);
+    else
+      pPoints.push(pPoints[0].clone());
+    if (result) {
+      result._clipPlanes = undefined; // Start as undefined
+      result._invisible = invisible;
+      result._polygon = pPoints;
+      result.initSecondaryProps(isMask, zLow, zHigh, transform);
+      return result;
+    } else {
+      return new ClipShape(pPoints, zLow, zHigh, transform, isMask, invisible);
+    }
+  }
+  /**
+   * Create a ClipShape that exists as a 3 dimensional box of the range given. Optionally choose to
+   * also store this shape's zLow and zHigh members from the range through the use of a RangePlaneBitMask.
+   */
+  public static createBlock(
+    extremities: Range3d,
+    clipMask: ClipMaskXYZRangePlanes,
+    isMask: boolean = false,
+    invisible: boolean = false,
+    transform?: Transform,
+    result?: ClipShape,
+  ): ClipShape {
+    const low = extremities.low;
+    const high = extremities.high;
+    const blockPoints: Point3d[] = [];
+    for (let i = 0; i < 5; i++)
+      blockPoints.push(Point3d.create());
+    blockPoints[0].x = blockPoints[3].x = blockPoints[4].x = low.x;
+    blockPoints[1].x = blockPoints[2].x = high.x;
+    blockPoints[0].y = blockPoints[1].y = blockPoints[4].y = low.y;
+    blockPoints[2].y = blockPoints[3].y = high.y;
+    const shape = ClipShape.createShape(
+      blockPoints,
+      (ClipMaskXYZRangePlanes.None !== (clipMask & ClipMaskXYZRangePlanes.ZLow)) ? low.z : undefined,
+      (ClipMaskXYZRangePlanes.None !== (clipMask & ClipMaskXYZRangePlanes.ZHigh)) ? high.z : undefined,
+      transform,
+      isMask,
+      invisible,
+      result,
+    );
+    assert(shape !== undefined, "expect defined because blockPoints.length > 2");
+    return shape;
+  }
+  /** Creates a new ClipShape with undefined members and a polygon points array of zero length. */
+  public static createEmpty(
+    isMask = false, invisible: boolean = false, transform?: Transform, result?: ClipShape,
+  ): ClipShape {
+    if (result) {
+      result._clipPlanes = undefined;
+      result._invisible = invisible;
+      result._polygon.length = 0;
+      result.initSecondaryProps(isMask, undefined, undefined, transform);
+      return result;
+    }
+    return new ClipShape([], undefined, undefined, transform, isMask, invisible);
+  }
+  /** Checks to ensure that the member polygon has an area, and that the polygon is closed. */
+  public get isValidPolygon(): boolean {
+    if (this._polygon.length < 3)
+      return false;
+    if (!this._polygon[0].isExactEqual(this._polygon[this._polygon.length - 1]))
+      return false;
+    return true;
+  }
+  /** Returns a deep copy of this instance of ClipShape, storing in an optional result. */
+  public override clone(result?: ClipShape): ClipShape {
+    return ClipShape.createFrom(this, result);
+  }
+  /**
+   * Given the current polygon data, parses clip planes that together form an object, storing the result in
+   * the set given, either clip planes or mask planes.
+   */
+  private parseClipPlanes(set: UnionOfConvexClipPlaneSets) {
+    const points = this._polygon;
+    if (points.length === 3 && !this._isMask && points[0].isExactEqual(points[points.length - 1])) {
+      this.parseLinearPlanes(set, this._polygon[0], this._polygon[1]);
+      return true;
+    }
+    if (!this.isMask) {
+      const direction = PolygonOps.testXYPolygonTurningDirections(this.polygon);
+      if (direction !== 0) {
+        this.parseConvexPolygonPlanes(set, this._polygon, direction, false);
+        return true;
+      }
+    }
+    // REMARK:  Pass all polygons to non-convex case.  It will funnel
+    // to concave case as appropriate.
+    this.parsePolygonPlanes(set, this._polygon, this.isMask);
+    return true;
+  }
+  /**
+   * Given a start and end point, populate the given UnionOfConvexClipPlaneSets with ConvexClipPlaneSets
+   * defining the bounded region of linear planes. Returns true if successful.
+   * * This handles the degenerate 2-point polygon case, e.g., select by line. See [[parseConvexPolygonPlanes]].
+   */
+  private parseLinearPlanes(
+    set: UnionOfConvexClipPlaneSets, start: Point3d, end: Point3d, cameraFocalLength?: number,
+  ): boolean {
+    const normal = Vector2d.createStartEnd(start, end); // xy only!
+    if (!normal.normalize(normal))
+      return false; // filter out trivial edge
+    if (cameraFocalLength === 0.0)
+      cameraFocalLength = undefined; // ensure when camera is defined, vecStart/End3d are nonzero
+    const convexSet = ConvexClipPlaneSet.createEmpty();
+    if (cameraFocalLength === undefined) {
+      // normal and perp are nonzero, so ClipPlane creation can only fail on out-of-memory
+      const perp = Vector2d.create(-normal.y, normal.x);
+      convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndPoint(Vector3d.create(normal.x, normal.y), start, this._invisible));
+      convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndPoint(Vector3d.create(-normal.x, -normal.y), end, this._invisible));
+      convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndPoint(Vector3d.create(perp.x, perp.y), start, this._invisible));
+      convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndPoint(Vector3d.create(-perp.x, -perp.y), start, this._invisible));
+    } else {
+      // The cross products are nonzero because their inputs are nonzero and nonparallel (because start/end are xy-distinct).
+      // Thus ClipPlane creation can only fail on out-of-memory.
+      const vecStart3d = Vector3d.create(start.x, start.y, -cameraFocalLength);
+      const vecEnd3d = Vector3d.create(end.x, end.y, -cameraFocalLength);
+      const perpendicular = Vector3d.createZero();
+      const endNormal = Vector3d.createZero();
+      vecEnd3d.crossProduct(vecStart3d, perpendicular).normalize(perpendicular);
+      vecStart3d.crossProduct(perpendicular, endNormal).normalize(endNormal);
+      convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndDistance(perpendicular, 0.0, this._invisible));
+      convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndDistance(endNormal, 0.0, this._invisible));
+      perpendicular.negate(perpendicular);
+      vecEnd3d.crossProduct(perpendicular, endNormal).normalize(endNormal);
+      convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndDistance(perpendicular, 0.0, this._invisible));
+      convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndDistance(endNormal, 0.0, this._invisible));
+    }
+    convexSet.addZClipPlanes(this._invisible, this._zLow, this._zHigh);
+    set.addConvexSet(convexSet);
+    return true;
+  }
+  /**
+   * Given a convex polygon defined as an array of points, populate the given UnionOfConvexClipPlaneSets with
+   * ConvexClipPlaneSets defining the bounded region. Returns true if successful.
+   * @param polygon convex polygon with closure point. z-coordinates are ignored.
+   * @param direction whether the area described by the polygon is found on its directed edges' left (nonnegative) or
+   * right (negative). Typically this is positive for CCW xy-polygons.
+   * @param buildExteriorClipper whether the returned clippers represent the xy-region *outside* the polygon.
+   * When this is true, `direction` is typically set accordingly. For example, for a CCW polygon, to return clippers
+   * for the exterior region, pass `direction < 0` and `buildExteriorClipper = true`. Currently not implemented for
+   * camera view.
+   */
+  private parseConvexPolygonPlanes(
+    set: UnionOfConvexClipPlaneSets,
+    polygon: Point3d[],
+    direction: number,
+    buildExteriorClipper: boolean,
+    cameraFocalLength?: number,
+  ): boolean {
+    const edges: PolyEdge[] = [];
+    const reverse = direction < 0;
+    if (cameraFocalLength === 0.0)
+      cameraFocalLength = undefined; // ensure when camera is defined, edges[].pointA/B are nonzero
+    const z = (cameraFocalLength === undefined) ? 0.0 : -cameraFocalLength;
+    for (let i = 0; i < polygon.length - 1; i++) {
+      const dir = Vector2d.createStartEnd(polygon[i], polygon[i + 1]); // xy only!
+      if (dir.normalize(dir)) { // filter out trivial edges
+        const normal = Vector3d.create(reverse ? dir.y : -dir.y, reverse ? -dir.x : dir.x);
+        edges.push(new PolyEdge(polygon[i], polygon[i + 1], normal, z));
+      }
+    }
+    if (edges.length < 3) {
+      return false;
+    }
+    // NOTE: ClipPlane creation below fails only on out-of-memory because we ensure each input normal is nonzero:
+    // * edges[] normals are nonzero because the array is populated only with nontrivial edges.
+    // * with camera, edges[].pointA/B is nonzero and never parallel as vectors, thus their cross is nonzero.
+    // * bisector planes are only created for nonzero bisector normals.
+    if (buildExteriorClipper) {
+      assert(cameraFocalLength === undefined, "TODO: implement camera logic for exterior clipper creation");
+      const last = edges.length - 1;
+      for (let i = 0; i <= last; i++) {
+        const edge = edges[i];
+        const prevEdge = edges[i ? (i - 1) : last];
+        const nextEdge = edges[(i === last) ? 0 : (i + 1)];
+        const convexSet = ConvexClipPlaneSet.createEmpty();
+        const previousPerpendicular = PolyEdge.makeUnitPerpendicularToBisector(prevEdge, edge, !reverse);
+        const nextPerpendicular = PolyEdge.makeUnitPerpendicularToBisector(edge, nextEdge, reverse);
+        // Create three-sided fans from each edge:
+        // * We could define the region with only two planes per edge, but then we wouldn't be able to designate the "interior" status accurately.
+        // * Silently ignore undefined bisector normal. This can happen if input violates the convexity assumption with a pair of backtracking edges.
+        if (previousPerpendicular)
+          convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndPoint(previousPerpendicular, edge.pointA, this._invisible, true));
+        convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndPoint(edge.normal, edge.pointB, this._invisible, false));
+        if (nextPerpendicular)
+          convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndPoint(nextPerpendicular, nextEdge.pointA, this._invisible, true));
+        set.addConvexSet(convexSet);
+      }
+      set.addOutsideZClipSets(this._invisible, this._zLow, this._zHigh);
+    } else {
+      const convexSet = ConvexClipPlaneSet.createEmpty();
+      if (cameraFocalLength === undefined) {
+        for (const edge of edges)
+          convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndPoint(edge.normal, edge.pointA));
+      } else {
+        const cross = Vector3d.createZero();
+        if (reverse) {
+          for (const edge of edges) {
+            Vector3d.createFrom(edge.pointA).crossProduct(Vector3d.createFrom(edge.pointB), cross).normalize(cross);
+            convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndDistance(cross, 0.0));
+          }
+        } else {
+          for (const edge of edges) {
+            Vector3d.createFrom(edge.pointB).crossProduct(Vector3d.createFrom(edge.pointA), cross).normalize(cross);
+            convexSet.addPlaneToConvexSet(ClipPlane.createNormalAndDistance(cross, 0.0));
+          }
+        }
+      }
+      convexSet.addZClipPlanes(this._invisible, this._zLow, this._zHigh);
+      set.addConvexSet(convexSet);
+    }
+    return true;
+  }
+  /**
+   * Given a (possibly non-convex) polygon defined as an array of points, populate the given UnionOfConvexClipPlaneSets
+   * with multiple ConvexClipPlaneSets defining the bounded region. Returns true if successful.
+   */
+  private parsePolygonPlanes(set: UnionOfConvexClipPlaneSets, polygon: Point3d[], isMask: boolean, cameraFocalLength?: number,
+  ): boolean {
+    const cleanPolygon = PolylineOps.compressDanglers(polygon, true);
+    const announceFace = (_graph: HalfEdgeGraph, edge: HalfEdge): boolean => {
+      if (!edge.isMaskSet(HalfEdgeMask.EXTERIOR)) {
+        const convexFacetPoints = edge.collectAroundFace((node: HalfEdge): any => {
+          if (!node.isMaskSet(HalfEdgeMask.EXTERIOR))
+            return Point3d.create(node.x, node.y, 0);
+        });
+        // parseConvexPolygonPlanes expects a closed loop
+        convexFacetPoints.push(convexFacetPoints[0].clone());
+        const direction = PolygonOps.testXYPolygonTurningDirections(convexFacetPoints); // ###TODO: Can we expect a direction coming out of graph facet?
+        this.parseConvexPolygonPlanes(set, convexFacetPoints, direction, false, cameraFocalLength);
+      }
+      return true;
+    };
+    if (isMask) {
+      const polygonA = Point3dArray.clonePoint3dArray(cleanPolygon);
+      const hullAndInlets = AlternatingCCTreeNode.createHullAndInletsForPolygon(polygonA);
+      const allLoops = hullAndInlets.extractLoops();
+      if (allLoops.length === 0)
+        return false;
+      const hull = allLoops[0];
+      const direction1 = PolygonOps.testXYPolygonTurningDirections(hull); // ###TODO: Can we expect a direction coming out of graph facet?
+      this.parseConvexPolygonPlanes(set, hull, -direction1, true, cameraFocalLength);
+      for (let i = 1; i < allLoops.length; i++) {
+        const triangulatedPolygon = Triangulator.createTriangulatedGraphFromSingleLoop(allLoops[i]);
+        if (triangulatedPolygon) {
+          Triangulator.flipTriangles(triangulatedPolygon);
+          triangulatedPolygon.announceFaceLoops(announceFace);
+        }
+      }
+      return true;
+    } else {
+      const triangulatedPolygon = Triangulator.createTriangulatedGraphFromSingleLoop(cleanPolygon);
+      if (triangulatedPolygon === undefined)
+        return false;
+      Triangulator.flipTriangles(triangulatedPolygon);
+      triangulatedPolygon.announceFaceLoops(announceFace);
+    }
+    return true;
+  }
+  /**
+   * Multiply all ClipPlanes DPoint4d by matrix.
+   * @param matrix matrix to apply.
+   * @param invert if true, use in verse of the matrix.
+   * @param transpose if true, use the transpose of the matrix (or inverse, per invert parameter).
+   * @param matrix matrix to apply.
+   * * Note that if matrixA is applied to all of space, the matrix to send to this method to get a corresponding effect
+   * on the plane is the inverse transpose of matrixA.
+   * * Callers that will apply the same matrix to many planes should pre-invert the matrix for efficiency.
+   * * Both params default to true to get the full effect of transforming space.
+   */
+  public override multiplyPlanesByMatrix4d(matrix: Matrix4d, invert: boolean = true, transpose: boolean = true): boolean {
+    this.ensurePlaneSets();
+    return super.multiplyPlanesByMatrix4d(matrix, invert, transpose);
+  }
+  /**
+   * Apply `transform` to the local to world (`transformFromClip`) transform.
+   * * The world to local transform (`transformToClip` is recomputed from the (changed) `transformToClip`
+   * * the transform is passed to the base class to be applied to clip plane form of the clipper.
+   */
+  public override transformInPlace(transform: Transform): boolean {
+    if (transform.isIdentity)
+      return true;
+    super.transformInPlace(transform);
+    if (this._transformFromClip)
+      transform.multiplyTransformTransform(this._transformFromClip, this._transformFromClip);
+    else
+      this._transformFromClip = transform.clone();
+    this._transformToClip = this._transformFromClip.inverse(); // could be undefined
+    return true;
+  }
+  /**
+   * Return true if
+   * * at least one point is defined
+   * * The local to world transform (transformFromClip) either
+   *   * is undefined
+   *   * has no xy parts in its column Z (local frame Z is parallel to global Z)
+   */
+  public get isXYPolygon(): boolean {
+    if (this._polygon.length === 0) // Note: This is a lenient check, as points array could also contain less than 3 points (not a polygon)
+      return false;
+    if (this._transformFromClip === undefined)
+      return true;
+    const zVector = this._transformFromClip.matrix.columnZ();
+    return zVector.magnitudeXY() < 1.0e-8;
+  }
+  /** Transform the input point in place using this instance's `transformToClip` member */
+  public performTransformToClip(point: Point3d): void {
+    if (this._transformToClip !== undefined)
+      this._transformToClip.multiplyPoint3d(point, point);
+  }
+  /** Transform the input point in place using this instance's `transformFromClip` member */
+  public performTransformFromClip(point: Point3d): void {
+    if (this._transformFromClip !== undefined)
+      this._transformFromClip.multiplyPoint3d(point, point);
+  }
+  /**
+   * Quick test of whether the given points fall completely inside or outside.
+   * @param points points to test.
+   * @param ignoreMasks if false, invert the containment test on a masked (hole) instance; otherwise perform the containment test as usual.
+   */
+  public override classifyPointContainment(points: Point3d[], ignoreMasks: boolean): ClipPlaneContainment {
+    this.ensurePlaneSets();
+    const planes = this._clipPlanes;
+    let inside = ClipPlaneContainment.StronglyInside;
+    if (planes)
+      inside = planes.classifyPointContainment(points, false);
+    if (this._isMask && !ignoreMasks)
+      switch (inside) {
+        case ClipPlaneContainment.StronglyInside:
+          return ClipPlaneContainment.StronglyOutside;
+        case ClipPlaneContainment.StronglyOutside:
+          return ClipPlaneContainment.StronglyInside;
+        case ClipPlaneContainment.Ambiguous:
+          return ClipPlaneContainment.Ambiguous;
+      }
+    return inside;
+  }
+}

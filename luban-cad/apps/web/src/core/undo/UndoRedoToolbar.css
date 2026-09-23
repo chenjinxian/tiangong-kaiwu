@@ -1,0 +1,195 @@
+/**
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *
+ * Undo/Redo Toolbar Styles
+ */
+
+.undo-redo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--toolbar-bg, #2d2d2d);
+  border-radius: 4px;
+  padding: 2px;
+  position: relative;
+}
+
+.undo-redo-btn,
+.undo-redo-history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--toolbar-fg, #e0e0e0);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.undo-redo-btn:hover:not(:disabled),
+.undo-redo-history-toggle:hover {
+  background: var(--toolbar-hover-bg, #404040);
+}
+
+.undo-redo-btn:active:not(:disabled) {
+  background: var(--toolbar-active-bg, #505050);
+}
+
+.undo-redo-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.undo-redo-btn.active {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.undo-redo-history-toggle {
+  width: 20px;
+  margin-left: 2px;
+}
+
+/* History Dropdown */
+.undo-redo-history-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 280px;
+  max-width: 320px;
+  background: var(--dropdown-bg, #363636);
+  border: 1px solid var(--dropdown-border, #404040);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.undo-redo-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--dropdown-border, #404040);
+  background: var(--dropdown-header-bg, #2d2d2d);
+}
+
+.undo-redo-history-header span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dropdown-fg, #e0e0e0);
+}
+
+.undo-redo-clear-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  border: none;
+  border-radius: 3px;
+  background: var(--danger-btn-bg, #dc3545);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.undo-redo-clear-btn:hover {
+  background: var(--danger-btn-hover-bg, #c82333);
+}
+
+.undo-redo-history-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.undo-redo-history-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted, #888);
+  font-size: 12px;
+}
+
+.undo-redo-history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--dropdown-fg, #e0e0e0);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.undo-redo-history-item:hover {
+  background: var(--dropdown-item-hover-bg, #404040);
+}
+
+.undo-redo-history-item.current {
+  background: var(--dropdown-item-active-bg, #4a90d9);
+  color: white;
+}
+
+.undo-redo-history-dot {
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  font-size: 10px;
+}
+
+.undo-redo-history-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-redo-history-time {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted, #888);
+}
+
+.undo-redo-history-item.current .undo-redo-history-time {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Backdrop for closing dropdown */
+.undo-redo-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+/* Light theme support */
+@media (prefers-color-scheme: light) {
+  .undo-redo-toolbar {
+    --toolbar-bg: #f5f5f5;
+    --toolbar-fg: #333;
+    --toolbar-hover-bg: #e0e0e0;
+    --toolbar-active-bg: #d0d0d0;
+  }
+
+  .undo-redo-history-dropdown {
+    --dropdown-bg: #ffffff;
+    --dropdown-border: #ddd;
+    --dropdown-header-bg: #f5f5f5;
+    --dropdown-fg: #333;
+    --dropdown-item-hover-bg: #f0f0f0;
+    --dropdown-item-active-bg: #4a90d9;
+  }
+}

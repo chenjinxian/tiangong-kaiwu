@@ -1,0 +1,198 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Dialog error banner - consistent with form-error style */
+.dialog-error-banner {
+  margin-bottom: var(--iui-size-m);
+  padding: var(--iui-size-s) var(--iui-size-m);
+  background: var(--iui-color-background-negative-muted);
+  border: 1px solid var(--iui-color-border-negative);
+  border-radius: var(--iui-border-radius);
+  color: var(--iui-color-text-negative);
+  font-size: var(--iui-font-size-body);
+}
+
+/* Create / Edit form dialogs — unified design system
+   Based on CreateIModelWorkflow design patterns */
+
+/* Main dialog container - use our own color variables for proper dark mode support */
+.create-dialog,
+.edit-dialog {
+  min-inline-size: 480px !important;
+  min-width: 480px !important;
+  background-color: var(--color-bg-card) !important;
+  border-radius: var(--iui-border-radius) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Dialog backdrop - ensure proper dark overlay in dark mode */
+[data-theme="dark"] [class*="_dialog-backdrop"],
+[data-iui-theme="dark"] [class*="_dialog-backdrop"] {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Dialog title bar */
+.create-dialog [class*="dialog-title-bar"],
+.edit-dialog [class*="dialog-title-bar"],
+.create-dialog [class*="_title-bar"],
+.edit-dialog [class*="_title-bar"] {
+  padding: var(--iui-size-m) var(--iui-size-l) !important;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Dialog content area */
+.create-dialog [class*="dialog-content"],
+.edit-dialog [class*="dialog-content"],
+.create-dialog [class*="_dialog-content"],
+.edit-dialog [class*="_dialog-content"] {
+  padding: var(--iui-size-l) !important;
+  margin: 0 !important;
+  background-color: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Input groups - consistent spacing */
+.create-dialog [class*="input-group"],
+.edit-dialog [class*="input-group"] {
+  margin-bottom: var(--iui-size-m);
+}
+
+.create-dialog [class*="input-group"]:last-child,
+.edit-dialog [class*="input-group"]:last-child {
+  margin-bottom: 0;
+}
+
+/* Labels */
+.create-dialog [class*="label"],
+.edit-dialog [class*="label"],
+.create-dialog label,
+.edit-dialog label {
+  display: block;
+  font-size: var(--iui-font-size-body);
+  font-weight: 500;
+  color: var(--color-text-primary) !important;
+  margin-bottom: var(--iui-size-xs);
+}
+
+/* Required indicator */
+.create-dialog [class*="label"] [class*="required"],
+.edit-dialog [class*="label"] [class*="required"],
+.create-dialog [class*="label"][class*="required"]::after,
+.edit-dialog [class*="label"][class*="required"]::after {
+  color: var(--color-error);
+}
+
+/* Input fields - use our own variables for proper theming */
+.create-dialog input[class*="input"],
+.edit-dialog input[class*="input"],
+.create-dialog [class*="input"] input,
+.edit-dialog [class*="input"] input,
+.create-dialog .form-textarea,
+.edit-dialog .form-textarea,
+.create-dialog textarea,
+.edit-dialog textarea {
+  width: 100%;
+  padding: var(--iui-size-xs) var(--iui-size-s) !important;
+  font-size: var(--iui-font-size-body);
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-page) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--iui-border-radius);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.create-dialog .form-textarea,
+.edit-dialog .form-textarea,
+.create-dialog textarea,
+.edit-dialog textarea {
+  font-family: inherit;
+  resize: vertical;
+}
+
+.create-dialog input[class*="input"]:focus,
+.edit-dialog input[class*="input"]:focus,
+.create-dialog [class*="input"] input:focus,
+.edit-dialog [class*="input"] input:focus,
+.create-dialog .form-textarea:focus,
+.edit-dialog .form-textarea:focus,
+.create-dialog textarea:focus,
+.edit-dialog textarea:focus {
+  outline: none;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.create-dialog input[class*="input"]:disabled,
+.edit-dialog input[class*="input"]:disabled,
+.create-dialog [class*="input"] input:disabled,
+.edit-dialog [class*="input"] input:disabled,
+.create-dialog .form-textarea:disabled,
+.edit-dialog .form-textarea:disabled,
+.create-dialog textarea:disabled,
+.edit-dialog textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-bg-hover) !important;
+}
+
+/* Negative status */
+.create-dialog [class*="input"][class*="negative"] input,
+.edit-dialog [class*="input"][class*="negative"] input,
+.create-dialog input[class*="negative"],
+.edit-dialog input[class*="negative"] {
+  border-color: var(--color-error) !important;
+}
+
+/* Field error messages */
+.create-dialog .field-error,
+.edit-dialog .field-error {
+  display: block;
+  font-size: var(--iui-font-size-small);
+  color: var(--color-error);
+  margin-top: var(--iui-size-xs);
+}
+
+/* Button bar */
+.create-dialog [class*="dialog-button-bar"],
+.edit-dialog [class*="dialog-button-bar"],
+.create-dialog [class*="_button-bar"],
+.edit-dialog [class*="_button-bar"] {
+  padding: var(--iui-size-m) var(--iui-size-l) !important;
+  margin: 0 !important;
+  border-top: 1px solid var(--color-border) !important;
+  background-color: var(--color-bg-card) !important;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--iui-size-s);
+}
+
+/* Buttons in dialog */
+.create-dialog [class*="dialog-button-bar"] button,
+.edit-dialog [class*="dialog-button-bar"] button {
+  padding: var(--iui-size-xs) var(--iui-size-m);
+}
+
+/* Responsive adjustments */
+@media (max-width: 520px) {
+  .create-dialog,
+  .edit-dialog {
+    min-inline-size: auto !important;
+    min-width: auto !important;
+    width: 100% !important;
+  }
+
+  .create-dialog [class*="dialog-title-bar"],
+  .edit-dialog [class*="dialog-title-bar"],
+  .create-dialog [class*="dialog-content"],
+  .edit-dialog [class*="dialog-content"],
+  .create-dialog [class*="dialog-button-bar"],
+  .edit-dialog [class*="dialog-button-bar"] {
+    padding-left: var(--iui-size-m) !important;
+    padding-right: var(--iui-size-m) !important;
+  }
+}

@@ -1,0 +1,513 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module IModelConnection
+ */
+
+import { BeEvent, IModelStatus } from "@itwin/core-bentley";
+import {
+  ChangesetIdWithIndex,
+  ChangesetIndexAndId, ChangesetProps, EcefLocation, EcefLocationProps, GeographicCRS, GeographicCRSProps, ipcAppChannels,
+  ModelIdAndGeometryGuid, NotifyEntitiesChangedArgs, ReinstateTxnArgs, RemoveFunction, ReverseTxnArgs, RootSubjectProps, TxnNotifications,
+  TxnProps,
+} from "@itwin/core-common";
+import { Point3d, Range3d, Range3dProps, XYZProps } from "@itwin/core-geometry";
+import { BriefcaseConnection } from "./BriefcaseConnection";
+import { IpcApp, NotificationHandler } from "./IpcApp";
+import { EntityChanges, TxnEntityChanges } from "./TxnEntityChanges";
+
+/**
+ * Base class for notification handlers for events from the backend that are specific to a [[BriefcaseConnection]].
+ * @see [[BriefcaseTxns]].
+ * @public
+ */
+export abstract class BriefcaseNotificationHandler extends NotificationHandler {
+  constructor(private _key: string) { super(); }
+  public abstract get briefcaseChannelName(): string;
+  public get channelName() { return `${this.briefcaseChannelName}/${this._key}`; }
+}
+
+/** Manages local changes to a [[BriefcaseConnection]] via [Txns]($docs/learning/InteractiveEditing.md).
+ * @see [[BriefcaseConnection.txns]].
+ * @see [TxnManager]($backend) for the backend counterpart.
+ * @public
+ */
+export class BriefcaseTxns extends BriefcaseNotificationHandler implements TxnNotifications {
+  private readonly _iModel: BriefcaseConnection;
+  private _cleanup?: RemoveFunction;
+
+  /** @internal */
+  public get briefcaseChannelName() {
+    return ipcAppChannels.txns;
+  }
+
+  /** Event raised after Txn validation or changeset application to indicate the set of changed elements.
+   * Each [[TxnEntityChange]] exposes its class through `metadata.classFullName`. Use [[TxnEntityChanges.filter]] with `metadata.is` to match a class or one of its subclasses.
+   * @example
+   * ```ts
+   * iModel.txns.onElementsChanged.addListener((changes) => {
+   *   for (const change of changes.filter({ includeMetadata: (metadata) => metadata.is("BisCore:GeometricElement") }))
+   *     updateElement(change.id);
+   * });
+   * ```
+   * @note If there are many changed elements in a single Txn, the notifications are sent in batches so this event *may be called multiple times* per Txn.
+   */
+  public readonly onElementsChanged = new BeEvent<(changes: TxnEntityChanges) => void>();
+
+  /** Event raised after Txn validation or changeset application to indicate the set of changed models.
+   * Each [[TxnEntityChange]] exposes its class through `metadata.classFullName`. Use [[TxnEntityChanges.filter]] with `metadata.is` to match a class or one of its subclasses.
+   * @note If there are many changed models in a single Txn, the notifications are sent in batches so this event *may be called multiple times* per Txn.
+   */
+  public readonly onModelsChanged = new BeEvent<(changes: TxnEntityChanges) => void>();
+
+  /** Event raised after the geometry within one or more [[GeometricModelState]]s is modified by applying a changeset or validation of a transaction.
+   * A model's geometry can change as a result of:
+   *  - Insertion or deletion of a geometric element within the model; or
+   *  - Modification of an existing element's geometric properties; or
+   *  - An explicit request to flag it as changed via [IModelDb.Models.updateModel]($backend).
+   */
+  public readonly onModelGeometryChanged = new BeEvent<(changes: ReadonlyArray<ModelIdAndGeometryGuid>) => void>();
+
+  /** Event raised before a commit operation is performed. Initiated by a call to [[BriefcaseConnection.saveChanges]], unless there are no changes to save.
+   * @see [[onCommitted]] for the event raised after the operation.
+   */
+  public readonly onCommit = new BeEvent<() => void>();
+
+  /** Event raised after a commit operation is performed. Initiated by a call to [[BriefcaseConnection.saveChanges]], even if there were no changes to save.
+   * The event supplies the following information:
+   *  - `hasPendingTxns`: true if the briefcase has local changes not yet pushed to the server.
+   *  - `time`: the time at which changes were saved on the backend (obtained via `Date.now()`).
+   * @see [[onCommit]] for the event raised before the operation.
+   */
+  public readonly onCommitted = new BeEvent<(hasPendingTxns: boolean, time: number) => void>();
+
+  /** Event raised for a read-only briefcase that was opened with the `watchForChanges` flag enabled when changes made by another connection are applied to the briefcase.
+   * @see [[onReplayedExternalTxns]] for the event raised after all such changes have been applied.
+   */
+  public readonly onReplayExternalTxns = new BeEvent<() => void>();
+
+  /** Event raised for a read-only briefcase that was opened with the `watchForChanges` flag enabled when changes made by another connection are applied to the briefcase.
+   * @see [[onReplayExternalTxns]] for the event raised before the changes are applied.
+   */
+  public readonly onReplayedExternalTxns = new BeEvent<() => void>();
+
+  /** Event raised after a changeset has been applied to the briefcase.
+   * Changesets may be applied as a result of [[BriefcaseConnection.pullChanges]], or by undo/redo operations.
+   */
+  public readonly onChangesApplied = new BeEvent<() => void>();
+
+  /** Event raised before an undo/redo operation is performed.
+   * @see [[onAfterUndoRedo]] for the event raised after the operation.
+   */
+  public readonly onBeforeUndoRedo = new BeEvent<(isUndo: boolean) => void>();
+
+  /** Event raised after an undo/redo operation is performed.
+   * @see [[onBeforeUndoRedo]] for the event raised before to the operation.
+   */
+  public readonly onAfterUndoRedo = new BeEvent<(isUndo: boolean) => void>();
+
+  /** Event raised after changes are pulled and merged into the briefcase.
+   * @see [[BriefcaseConnection.pullAndMergeChanges]].
+   */
+  public readonly onChangesPulled = new BeEvent<(parentChangeset: ChangesetIndexAndId) => void>();
+
+  /** Event raised after the briefcase's local changes are pushed.
+   * @see [[BriefcaseConnection.pushChanges]].
+   */
+  public readonly onChangesPushed = new BeEvent<(parentChangeset: ChangesetIndexAndId) => void>();
+
+  /** Event raised before pull merge process begins.
+   * @alpha
+   */
+  public readonly onPullMergeBegin = new BeEvent<(changeset: ChangesetIdWithIndex) => void>();
+
+  /** Event raised before a rebase operation begins.
+   * @alpha
+   */
+  public readonly onRebaseBegin = new BeEvent<(txns: TxnProps[]) => void>();
+
+  /** Event raised before a transaction is rebased.
+   * @alpha
+   */
+  public readonly onRebaseTxnBegin = new BeEvent<(txnProps: TxnProps) => void>();
+
+  /**
+   * Event raised after a transaction is rebased.
+   * @alpha
+   */
+  public readonly onRebaseTxnEnd = new BeEvent<(txnProps: TxnProps) => void>();
+
+  /**
+   * Event raised after a rebase operation ends.
+   * @alpha
+   */
+  public readonly onRebaseEnd = new BeEvent<(txns: TxnProps[]) => void>();
+
+  /**
+   * Event raised after the pull merge process ends.
+   * @alpha
+   */
+  public readonly onPullMergeEnd = new BeEvent<(changeset: ChangesetIdWithIndex) => void>();
+
+  /** Event raised before incoming changes are applied.
+   * @alpha
+   */
+  public readonly onApplyIncomingChangesBegin = new BeEvent<(changesets: ChangesetProps[]) => void>();
+
+  /** Event raised after incoming changes are applied.
+   * @alpha
+   */
+  public readonly onApplyIncomingChangesEnd = new BeEvent<(changes: ChangesetProps[]) => void>();
+
+  /** Event raised before local changes are reversed.
+   * @alpha
+   */
+  public readonly onReverseLocalChangesBegin = new BeEvent<() => void>();
+
+  /** Event raised after local changes are reversed.
+   * @alpha
+   */
+  public readonly onReverseLocalChangesEnd = new BeEvent<(txns: TxnProps[]) => void>();
+
+  /** Event raised before downloading changesets begins.
+   * @alpha
+   */
+  public readonly onDownloadChangesetsBegin = new BeEvent<() => void>();
+
+  /** Event raised after downloading changesets ends.
+   * @alpha
+   */
+  public readonly onDownloadChangesetsEnd = new BeEvent<() => void>();
+
+  /** @internal */
+  public constructor(iModel: BriefcaseConnection) {
+    super(iModel.key);
+    this._iModel = iModel;
+    this._cleanup = this.registerImpl();
+  }
+
+  /** @internal */
+  public [Symbol.dispose](): void {
+    if (this._cleanup) {
+      this._cleanup();
+      this._cleanup = undefined;
+
+      this.onAfterUndoRedo.clear();
+      this.onApplyIncomingChangesBegin.clear();
+      this.onApplyIncomingChangesEnd.clear();
+      this.onBeforeUndoRedo.clear();
+      this.onChangesApplied.clear();
+      this.onChangesPulled.clear();
+      this.onChangesPushed.clear();
+      this.onCommit.clear();
+      this.onCommitted.clear();
+      this.onDownloadChangesetsBegin.clear();
+      this.onDownloadChangesetsEnd.clear();
+      this.onElementsChanged.clear();
+      this.onModelGeometryChanged.clear();
+      this.onModelsChanged.clear();
+      this.onPullMergeBegin.clear();
+      this.onPullMergeEnd.clear();
+      this.onRebaseBegin.clear();
+      this.onRebaseEnd.clear();
+      this.onRebaseTxnBegin.clear();
+      this.onRebaseTxnEnd.clear();
+      this.onReverseLocalChangesBegin.clear();
+      this.onReverseLocalChangesEnd.clear();
+    }
+  }
+
+  /** Query if the briefcase has any pending Txns waiting to be pushed. */
+  public async hasPendingTxns(): Promise<boolean> { // eslint-disable-line @itwin/prefer-get
+    return IpcApp.appFunctionIpc.hasPendingTxns(this._iModel.key);
+  }
+
+  /** Determine if any reversible (undoable) changes exist.
+   * @see [[reverseSingleTxn]] or [[reverseAll]] to undo changes.
+   */
+  public async isUndoPossible(): Promise<boolean> { // eslint-disable-line @itwin/prefer-get
+    return IpcApp.appFunctionIpc.isUndoPossible(this._iModel.key);
+  }
+
+  /** Determine if any reinstatable (redoable) changes exist.
+   * @see [[reinstateTxn]] to redo changes.
+   */
+  public async isRedoPossible(): Promise<boolean> { // eslint-disable-line @itwin/prefer-get
+    return IpcApp.appFunctionIpc.isRedoPossible(this._iModel.key);
+  }
+
+  /** Get the description of the operation that would be reversed by calling [[reverseTxns]]`(1)`.
+   * This is useful for showing the operation that would be undone, for example in a menu.
+   */
+  public async getUndoString(): Promise<string> {
+    return IpcApp.appFunctionIpc.getUndoString(this._iModel.key);
+  }
+
+  /** Get a description of the operation that would be reinstated by calling [[reinstateTxn]].
+   * This is useful for showing the operation that would be redone, in a pull-down menu for example.
+   */
+  public async getRedoString(): Promise<string> {
+    return IpcApp.appFunctionIpc.getRedoString(this._iModel.key);
+  }
+
+  /** Reverse (undo) the most recent operation.
+   * @see [[reinstateTxn]] to redo operations.
+   * @see [[reverseAll]] to undo all operations.
+   * @see [[isUndoPossible]] to determine if any reversible operations exist.
+   */
+  public async reverseSingleTxn(): Promise<IModelStatus> {
+    return this.reverseTxns(1);
+  }
+
+  /** Reverse (undo) the most recent operation to this briefcase in the current session. By default, this method also
+   * abandons the locks that were acquired for that operation.
+   * @beta
+   * @note This method will also abandon locks associated with any later, reversed Txns, if they have not
+   * already been abandoned. For example, if a call to [[reverseTxns]] reverses Txn 2 without abandoning
+   * its locks, and then this method is called to reverse Txn 1, it will abandon the locks associated
+   * with _both_ Txn 1 and Txn 2.
+   * @note If there are any outstanding uncommitted changes, they are reversed.
+   * @note The term "operation" is used rather than Txn, since multiple Txns can be grouped together via [TxnManager.beginMultiTxnOperation]($backend). So,
+   * even though this method reverses only one operation, multiple Txns may be reversed if they were grouped together when they were made.
+   * @note If there are no reversible operations, this method does nothing and returns Success.
+   * @param args Optional arguments to control the behavior of the reverse operation, such as whether to retain locks.
+   * @returns A Promise that resolves to success if the transactions were reversed, or rejects with an IModelError otherwise.
+   */
+  public async reverseSingleTxnAsync(args?: ReverseTxnArgs): Promise<void> {
+    await this.reverseTxnsAsync(1, args);
+  }
+
+  /** Reverse (undo) the most recent operation(s) to the briefcase in the current session.
+   * @param numOperations the number of operations to reverse. If this is greater than 1, the entire set of operations will
+   *  be reinstated together when/if [[reinstateTxn]] is called.
+   * @note If there are any outstanding uncommitted changes, they are reversed.
+   * @note The term "operation" is used rather than Txn, since multiple Txns can be grouped together via [TxnManager.beginMultiTxnOperation]($backend). So,
+   * even if numOperations is 1, multiple Txns may be reversed if they were grouped together when they were made.
+   * @note If numOperations is too large only the number of reversible operations are reversed.
+   */
+  public async reverseTxns(numOperations: number): Promise<IModelStatus> {
+    return IpcApp.appFunctionIpc.reverseTxns(this._iModel.key, numOperations);
+  }
+
+  /** Reverse (undo) the most recent operation(s) to the briefcase in the current session. By default, this method also
+   * abandons the locks that were acquired for those operations.
+   * @beta
+   * @note This method will also abandon locks associated with any later, reversed Txns, if they have not
+   * already been abandoned. For example, if a call to [[reverseTxns]] reverses Txn 2 without abandoning
+   * its locks, and then this method is called to reverse Txn 1, it will abandon the locks associated
+   * with _both_ Txn 1 and Txn 2.
+   * @note If you do not want to abandon any locks, set [ReverseTxnArgs.retainLocks]($common) to true.
+   * @note If there are any outstanding uncommitted changes, they are reversed.
+   * @note The term "operation" is used rather than Txn, since multiple Txns can be grouped together via [[beginMultiTxnOperation]]. So,
+   * even if numOperations is 1, multiple Txns may be reversed if they were grouped together when they were made.
+   * @note If numOperations is too large only the operations are reversible are reversed.
+   * @param numOperations the number of operations to reverse. If this is greater than 1, the entire set of operations will
+   *  be reinstated together when/if ReinstateTxn is called.
+   * @param args Optional arguments to control the behavior of the reverse operation, such as whether to retain locks.
+   * @returns A Promise that resolves to success if the transactions were reversed, or rejects with an IModelError otherwise.
+   */
+  public async reverseTxnsAsync(numOperations: number, args?: ReverseTxnArgs): Promise<void> {
+    return IpcApp.appFunctionIpc.reverseTxnsAsync(this._iModel.key, numOperations, args);
+  }
+
+  /** Reverse (undo) all changes back to the beginning of the session.
+   * @see [[reinstateTxn]] to redo changes.
+   * @see [[reverseSingleTxn]] to undo only the most recent operation.
+   * @see [[isUndoPossible]] to determine if any reversible operations exist.
+   */
+  public async reverseAll(): Promise<IModelStatus> {
+    return IpcApp.appFunctionIpc.reverseAllTxn(this._iModel.key);
+  }
+
+  /** Reverse (undo) all operations back to the beginning of the session. By default, this method also
+   * abandons the locks that were acquired for those operations.
+   * @beta
+   * @note This method will also abandon locks associated with any later, reversed Txns, if they have not
+   * already been abandoned. For example, if a call to [[reverseTxns]] reverses Txn 2 without abandoning
+   * its locks, and then this method is called to reverse Txn 1, it will abandon the locks associated
+   * with _both_ Txn 1 and Txn 2.
+   * @note If there are any outstanding uncommitted changes, they are reversed.
+   * @note If there are no reversible operations, this method does nothing and returns Success.
+   * @param args Optional arguments to control the behavior of the reverse operation, such as whether to retain locks.
+   * @returns A Promise that resolves to success if the transactions were reversed, or rejects with an IModelError otherwise.
+   */
+  public async reverseAllTxnsAsync(args?: ReverseTxnArgs): Promise<void> {
+    return IpcApp.appFunctionIpc.reverseAllTxnsAsync(this._iModel.key, args);
+  }
+
+  /** Reinstate (redo) the most recently reversed transaction. Since at any time multiple transactions can be reversed, it
+   * may take multiple calls to this method to reinstate all reversed operations.
+   * @returns Success if a reversed transaction was reinstated, error status otherwise.
+   * @note If there are any outstanding uncommitted changes, they are canceled before the Txn is reinstated.
+   * @see [[isRedoPossible]] to determine if any reinstatable operations exist.
+   * @see [[reverseSingleTxn]] or [[reverseAll]] to undo changes.
+   */
+  public async reinstateTxn(): Promise<IModelStatus> {
+    return IpcApp.appFunctionIpc.reinstateTxn(this._iModel.key);
+  }
+
+  /** Reinstate (redo) the most recently reversed transaction. Since at any time multiple transactions can be reversed, it
+   * may take multiple calls to this method to reinstate all reversed operations. This method also
+   * re-acquires the locks that were abandoned when those operations were reversed.
+   * @beta
+   * @param args Optional arguments to control the behavior of the reinstate operation.
+   * @returns Success if a reversed transaction was reinstated, error status otherwise.
+   * @note If there are any outstanding uncommitted changes, they are canceled before the Txn is reinstated.
+   * @see [[isRedoPossible]] to determine if any reinstatable operations exist.
+   * @see [[reverseSingleTxn]] or [[reverseAll]] to undo changes.
+   */
+  public async reinstateTxnAsync(args?: ReinstateTxnArgs): Promise<void> {
+    return IpcApp.appFunctionIpc.reinstateTxnAsync(this._iModel.key, args);
+  }
+
+  /** Restart the current TxnManager session. This causes all Txns in the current session to no longer be undoable (as if the file was closed
+   * and reopened.)
+   * @note This can be quite disconcerting to the user expecting to be able to undo previously made changes. It should only be used
+   * under extreme circumstances where damage to the file or session could happen if the currently committed are reversed. Use sparingly and with care.
+   * Probably a good idea to alert the user it happened.
+   */
+  public async restartTxnSession(): Promise<void> {
+    await IpcApp.appFunctionIpc.restartTxnSession(this._iModel.key);
+  }
+
+  /** @internal */
+  public notifyElementsChanged(changed: NotifyEntitiesChangedArgs): void {
+    this.onElementsChanged.raiseEvent(new EntityChanges(changed));
+  }
+
+  /** @internal */
+  public notifyModelsChanged(changed: NotifyEntitiesChangedArgs): void {
+    this.onModelsChanged.raiseEvent(new EntityChanges(changed));
+  }
+
+  /** @internal */
+  public notifyGeometryGuidsChanged(changes: ModelIdAndGeometryGuid[]): void {
+    this.onModelGeometryChanged.raiseEvent(changes);
+  }
+
+  /** @internal */
+  public notifyCommit() {
+    this.onCommit.raiseEvent();
+  }
+
+  /** @internal */
+  public notifyCommitted(hasPendingTxns: boolean, time: number) {
+    this.onCommitted.raiseEvent(hasPendingTxns, time);
+  }
+
+  /** @internal */
+  public notifyReplayExternalTxns() {
+    this.onReplayExternalTxns.raiseEvent();
+  }
+
+  /** @internal */
+  public notifyReplayedExternalTxns() {
+    this.onReplayedExternalTxns.raiseEvent();
+  }
+
+  /** @internal */
+  public notifyChangesApplied() {
+    this.onChangesApplied.raiseEvent();
+  }
+
+  /** @internal */
+  public notifyBeforeUndoRedo(isUndo: boolean) {
+    this.onBeforeUndoRedo.raiseEvent(isUndo);
+  }
+
+  /** @internal */
+  public notifyAfterUndoRedo(isUndo: boolean) {
+    this.onAfterUndoRedo.raiseEvent(isUndo);
+  }
+
+  /** @internal */
+  public notifyPulledChanges(parentChangeset: ChangesetIndexAndId) {
+    this.onChangesPulled.raiseEvent(parentChangeset);
+  }
+
+  /** @internal */
+  public notifyPushedChanges(parentChangeset: ChangesetIndexAndId) {
+    this.onChangesPushed.raiseEvent(parentChangeset);
+  }
+
+  /** @internal */
+  public notifyIModelNameChanged(name: string) {
+    this._iModel.name = name;
+  }
+
+  /** @internal */
+  public notifyRootSubjectChanged(subject: RootSubjectProps) {
+    this._iModel.rootSubject = subject;
+  }
+
+  /** @internal */
+  public notifyProjectExtentsChanged(range: Range3dProps) {
+    this._iModel.projectExtents = Range3d.fromJSON(range);
+  }
+
+  /** @internal */
+  public notifyGlobalOriginChanged(origin: XYZProps) {
+    this._iModel.globalOrigin = Point3d.fromJSON(origin);
+  }
+
+  /** @internal */
+  public notifyEcefLocationChanged(ecef: EcefLocationProps | undefined) {
+    this._iModel.ecefLocation = ecef ? new EcefLocation(ecef) : undefined;
+  }
+
+  /** @internal */
+  public notifyGeographicCoordinateSystemChanged(gcs: GeographicCRSProps | undefined) {
+    this._iModel.geographicCoordinateSystem = gcs ? new GeographicCRS(gcs) : undefined;
+  }
+
+  /** @internal */
+  public notifyPullMergeBegin(changeset: ChangesetIdWithIndex) {
+    this.onPullMergeBegin.raiseEvent(changeset);
+  }
+  /** @internal */
+  public notifyPullMergeEnd(changeset: ChangesetIdWithIndex) {
+    this.onPullMergeEnd.raiseEvent(changeset);
+  }
+  /** @internal */
+  public notifyApplyIncomingChangesBegin(changes: ChangesetProps[]) {
+    this.onApplyIncomingChangesBegin.raiseEvent(changes);
+  }
+  /** @internal */
+  public notifyApplyIncomingChangesEnd(changes: ChangesetProps[]) {
+    this.onApplyIncomingChangesEnd.raiseEvent(changes);
+  }
+  /** @internal */
+  public notifyReverseLocalChangesBegin() {
+    this.onReverseLocalChangesBegin.raiseEvent();
+  }
+  /** @internal */
+  public notifyReverseLocalChangesEnd(txns: TxnProps[]) {
+    this.onReverseLocalChangesEnd.raiseEvent(txns);
+  }
+  /** @internal */
+  public notifyDownloadChangesetsBegin() {
+    this.onDownloadChangesetsBegin.raiseEvent();
+  }
+  /** @internal */
+  public notifyDownloadChangesetsEnd() {
+    this.onDownloadChangesetsEnd.raiseEvent();
+  }
+  /** @internal */
+  public notifyRebaseBegin(txns: TxnProps[]) {
+    this.onRebaseBegin.raiseEvent(txns);
+  }
+  /** @internal */
+  public notifyRebaseEnd(txns: TxnProps[]) {
+    this.onRebaseEnd.raiseEvent(txns);
+  }
+  /** @internal */
+  public notifyRebaseTxnBegin(txn: TxnProps) {
+    this.onRebaseTxnBegin.raiseEvent(txn);
+  }
+  /** @internal */
+  public notifyRebaseTxnEnd(txn: TxnProps) {
+    this.onRebaseTxnEnd.raiseEvent(txn);
+  }
+}

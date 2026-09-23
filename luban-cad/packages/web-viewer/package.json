@@ -1,0 +1,40 @@
+{
+  "name": "@open-cloud-cad/web-viewer",
+  "version": "1.0.0",
+  "description": "Web platform viewer for Open Cloud CAD",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint \"src/**/*.ts\" 1>&2",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
+    "@itwin/core-common": "link:../../../itwinjs-core/core/common",
+    "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
+    "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry",
+    "@itwin/editor-frontend": "link:../../../itwinjs-core/editor/frontend",
+    "@itwin/imodels-access-frontend": "^6.0.2",
+    "@itwin/imodels-client-management": "^6.0.2",
+    "@open-cloud-cad/shared": "workspace:*",
+    "@open-cloud-cad/viewer-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@itwin/eslint-plugin": "^6.0.0",
+    "@testing-library/dom": "^10.0.0",
+    "@testing-library/react": "^16.2.0",
+    "@types/react": "^18.2.0",
+    "eslint": "^9.31.0",
+    "jsdom": "^26.0.0",
+    "react": "^18.0.0",
+    "typescript": "~5.6.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  }
+}

@@ -1,0 +1,97 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* CSS Variables - iTwinUI Optimized
+ *
+ * NOTE: This project now uses iTwinUI CSS variables as the primary design system.
+ * Custom variables are kept for backward compatibility and specific brand colors.
+ *
+ * Recommended: Use iTwinUI variables directly in new code:
+ * - --iui-color-background-backdrop
+ * - --iui-color-background-surface
+ * - --iui-color-background-surface-elevated
+ * - --iui-color-text
+ * - --iui-color-text-muted
+ * - --iui-color-border
+ * - --iui-size-xs, --iui-size-s, --iui-size-m, --iui-size-l, --iui-size-xl
+ * - --iui-border-radius
+ * - --iui-font-size-small, --iui-font-size-body, --iui-font-size-title
+ */
+
+/* Light theme (default)
+   Support both data-theme (app) and data-iui-theme (iTwinUI components) */
+:root,
+[data-theme="light"],
+[data-iui-theme="light"] {
+  /* Brand Primary - Electric Teal (custom brand color) */
+  --color-primary: #00b894;
+  --color-primary-hover: #00a685;
+  --color-primary-light: rgba(0, 184, 148, 0.08);
+
+  /* iTwinUI Aliases for backward compatibility */
+  --color-bg-page: var(--iui-color-background-backdrop, #f4f6f9);
+  --color-bg-card: var(--iui-color-background-surface, #ffffff);
+  --color-bg-sidebar: var(--iui-color-background-surface-elevated, #fafbfc);
+  --color-bg-header: var(--iui-color-background-surface, #ffffff);
+  --color-bg-hover: var(--iui-color-background-surface-hover, rgba(0, 0, 0, 0.035));
+  --color-text-primary: var(--iui-color-text, #1a1d23);
+  --color-text-secondary: var(--iui-color-text-muted, #5f6672);
+  --color-text-tertiary: var(--iui-color-text-muted, #8b919d);
+  --color-border: var(--iui-color-border, #e2e5ea);
+  --color-border-strong: var(--iui-color-border-subtle, #cdd1d8);
+
+  /* Status Colors - mapped to iTwinUI */
+  --color-success: var(--iui-color-text-success, #00b894);
+  --color-success-light: var(--iui-color-background-positive-muted, rgba(0, 184, 148, 0.08));
+  --color-warning: var(--iui-color-text-warning, #e17a2d);
+  --color-warning-light: var(--iui-color-background-warning-muted, rgba(225, 122, 45, 0.08));
+  --color-error: var(--iui-color-text-negative, #e04f5f);
+  --color-error-light: var(--iui-color-background-negative-muted, rgba(224, 79, 95, 0.08));
+
+  /* Radius - iTwinUI compatible */
+  --radius-sm: var(--iui-border-radius, 4px);
+  --radius-md: var(--iui-border-radius, 6px);
+  --radius-lg: var(--iui-border-radius-round, 8px);
+
+  /* Shadows - enhanced */
+  --shadow-sm: var(--iui-shadow-1, 0 1px 3px rgba(0, 0, 0, 0.04));
+  --shadow-md: var(--iui-shadow-2, 0 4px 12px rgba(0, 0, 0, 0.06));
+  --shadow-lg: var(--iui-shadow-3, 0 12px 28px rgba(0, 0, 0, 0.08));
+}
+
+/* Dark theme - synchronized with iTwinUI
+   Support both data-theme (app) and data-iui-theme (iTwinUI components) */
+[data-theme="dark"],
+[data-iui-theme="dark"] {
+  /* Brand Primary - Electric Teal (brighter for dark) */
+  --color-primary: #00e4b8;
+  --color-primary-hover: #33ffd4;
+  --color-primary-light: rgba(0, 228, 184, 0.12);
+
+  /* iTwinUI Aliases for backward compatibility */
+  --color-bg-page: var(--iui-color-background-backdrop, #0b0d13);
+  --color-bg-card: var(--iui-color-background-surface, #13161e);
+  --color-bg-sidebar: var(--iui-color-background-surface-elevated, #13161e);
+  --color-bg-header: var(--iui-color-background-surface, #171a24);
+  --color-bg-hover: var(--iui-color-background-surface-hover, rgba(255, 255, 255, 0.05));
+  --color-text-primary: var(--iui-color-text, #e4e7ec);
+  --color-text-secondary: var(--iui-color-text-muted, #8b919d);
+  --color-text-tertiary: var(--iui-color-text-muted, #5f6672);
+  --color-border: var(--iui-color-border, #232736);
+  --color-border-strong: var(--iui-color-border-subtle, #2e3348);
+
+  /* Status Colors */
+  --color-success: var(--iui-color-text-success, #00e4b8);
+  --color-success-light: var(--iui-color-background-positive-muted, rgba(0, 228, 184, 0.12));
+  --color-warning: var(--iui-color-text-warning, #f0a050);
+  --color-warning-light: var(--iui-color-background-warning-muted, rgba(240, 160, 80, 0.12));
+  --color-error: var(--iui-color-text-negative, #f07080);
+  --color-error-light: var(--iui-color-background-negative-muted, rgba(240, 112, 128, 0.12));
+
+  /* Shadows */
+  --shadow-sm: var(--iui-shadow-1, 0 1px 3px rgba(0, 0, 0, 0.3));
+  --shadow-md: var(--iui-shadow-2, 0 4px 12px rgba(0, 0, 0, 0.4));
+  --shadow-lg: var(--iui-shadow-3, 0 12px 28px rgba(0, 0, 0, 0.5));
+}

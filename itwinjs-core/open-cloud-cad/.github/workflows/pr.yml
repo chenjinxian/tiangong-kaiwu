@@ -1,0 +1,247 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+    types: [opened, synchronize, reopened]
+
+env:
+  RUSH_VERSION: 5.162.0
+
+jobs:
+  # =============================================================================
+  # PR Validation
+  # =============================================================================
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rush
+        run: npm install -g "@microsoft/rush@${RUSH_VERSION}"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: |
+            common/temp/pnpm-store
+            ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('common/config/rush/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: rush install
+
+      - name: Check for lockfile changes
+        run: |
+          if [ -n "$(git status --porcelain common/config/rush/pnpm-lock.yaml)" ]; then
+            echo "Lockfile has changed. Please run 'rush update' and commit the changes."
+            exit 1
+          fi
+
+      - name: Lint
+        run: rush lint
+
+      - name: Build (type check)
+        run: rush build --verbose
+
+  # =============================================================================
+  # Unit Tests
+  # =============================================================================
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rush
+        run: npm install -g "@microsoft/rush@${RUSH_VERSION}"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: |
+            common/temp/pnpm-store
+            ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('common/config/rush/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: rush install
+
+      - name: Build
+        run: rush build --verbose
+
+      - name: Run unit tests
+        run: rush test
+
+  # =============================================================================
+  # Coverage Report
+  # =============================================================================
+  coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rush
+        run: npm install -g "@microsoft/rush@${RUSH_VERSION}"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: |
+            common/temp/pnpm-store
+            ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('common/config/rush/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: rush install
+
+      - name: Build
+        run: rush build --verbose
+
+      - name: Generate coverage report
+        working-directory: open-cloud-cad/apps/web
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: open-cloud-cad/apps/web/coverage/
+          retention-days: 7
+
+      - name: Post coverage comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'open-cloud-cad/apps/web/coverage/lcov-report/index.html';
+
+            let coverageText = 'Coverage report generated.';
+
+            // Try to extract coverage summary if available
+            const summaryPath = 'open-cloud-cad/apps/web/coverage/coverage-summary.json';
+            if (fs.existsSync(summaryPath)) {
+              const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+              const total = summary.total || {};
+
+              let lines = total.lines || {};
+              let statements = total.statements || {};
+              let functions = total.functions || {};
+              let branches = total.branches || {};
+
+              coverageText = `## Coverage Report
+
+            | Metric | Coverage |
+            |--------|----------|
+            | Lines | ${lines.pct || 'N/A'}% |
+            | Statements | ${statements.pct || 'N/A'}% |
+            | Functions | ${functions.pct || 'N/A'}% |
+            | Branches | ${branches.pct || 'N/A'}% |
+            `;
+            }
+
+            // Find previous comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Coverage Report')
+            );
+
+            const body = `<!-- coverage-report -->\n${coverageText}\n\n[View full report](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  # =============================================================================
+  # Build Verification
+  # =============================================================================
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rush
+        run: npm install -g "@microsoft/rush@${RUSH_VERSION}"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: |
+            common/temp/pnpm-store
+            ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('common/config/rush/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: rush install
+
+      - name: Build all packages
+        run: rush rebuild --verbose
+
+      - name: Verify build outputs
+        run: |
+          test -d open-cloud-cad/apps/web/dist || exit 1
+          test -d open-cloud-cad/apps/backend/dist || exit 1
+          test -d open-cloud-cad/packages/shared/dist || exit 1
+          test -d open-cloud-cad/packages/viewer-core/dist || exit 1
+          test -d open-cloud-cad/packages/web-viewer/dist || exit 1
+          echo "All build outputs verified"
+
+      - name: Check bundle size
+        run: |
+          echo "Checking bundle sizes..."
+          du -sh open-cloud-cad/apps/web/dist || true
+          du -sh open-cloud-cad/apps/backend/dist || true

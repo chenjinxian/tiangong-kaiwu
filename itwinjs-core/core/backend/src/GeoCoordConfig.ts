@@ -1,0 +1,103 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module iModels
+ */
+
+import { BentleyError, Logger } from "@itwin/core-bentley";
+import { CloudSqlite } from "./CloudSqlite";
+import { IModelHost } from "./IModelHost";
+import { Settings } from "./workspace/Settings";
+import { WorkspaceDbCloudProps } from "./workspace/Workspace";
+import { IModelNative } from "./internal/NativePlatform";
+
+const loggerCat = "GeoCoord";
+
+/** @internal */
+export interface GcsDbProps extends WorkspaceDbCloudProps {
+  priority?: number;
+}
+const makeSettingName = (name: string) => `${"itwin/core/gcs"}/${name}`;
+
+/**
+ * Internal class to configure and load the gcs workspaces for an iModel.
+ * @internal
+ * @note GCS workspaces are loaded by default (the `disableWorkspaces` setting defaults to `false`). To
+ * suppress loading them from cloud containers and the network requests they issue when iModels are
+ * opened — override the `disableWorkspaces` setting (e.g. via [Settings.addDictionary]($backend)
+ * at [SettingsPriority.application]($backend)), which is useful for unit tests and other offline
+ * scenarios that don't require GCS data. GCS workspaces load lazily on first iModel open, so applying
+ * the override any time after `IModelHost.startup` is sufficient.
+ */
+export class GeoCoordConfig {
+  /** array of cloud prefetch tasks that may be awaited to permit offline usage */
+  public static readonly prefetches: CloudSqlite.CloudPrefetch[] = [];
+  public static readonly settingName = {
+    databases: makeSettingName("databases"),
+    defaultDatabases: makeSettingName("default/databases"),
+    disableWorkspaces: makeSettingName("disableWorkspaces"),
+  };
+
+  private static addGcsWorkspace(dbProps: GcsDbProps) {
+    // override to disable loading GCS data from workspaces
+    if (IModelHost.appWorkspace.settings.getBoolean(GeoCoordConfig.settingName.disableWorkspaces, false))
+      return;
+
+    try {
+      const ws = IModelHost.appWorkspace;
+      const container = ws.getContainer({ ...dbProps, accessToken: "" }); // all gcs containers are public so no accessToken is required
+      const cloudContainer = container.cloudContainer;
+      if (!cloudContainer?.isConnected) {
+        Logger.logError("GeoCoord", `could not load gcs database "${dbProps.dbName}"`);
+        return;
+      }
+
+      const gcsDbName = container.resolveDbFileName(dbProps);
+      const gcsDbProps = cloudContainer.queryDatabase(gcsDbName);
+      if (undefined === gcsDbProps)
+        throw new Error(`database "${gcsDbName}" not found in container "${dbProps.containerId}"`);
+
+      if (!IModelNative.platform.addGcsWorkspaceDb(gcsDbName, cloudContainer, dbProps.priority))
+        return; // already had this db
+
+      Logger.logInfo(loggerCat, `loaded gcsDb "${gcsDbName}", from "${dbProps.baseUri}/${dbProps.containerId}" size=${gcsDbProps.totalBlocks}, local=${gcsDbProps.localBlocks}`);
+
+      if (true === dbProps.prefetch)
+        this.prefetches.push(CloudSqlite.startCloudPrefetch(cloudContainer, gcsDbName));
+
+    } catch (e: any) {
+      let msg = `Cannot load GCS workspace (${e.errorNumber}): ${BentleyError.getErrorMessage(e)}`;
+      msg += `,container=${dbProps.baseUri}/${dbProps.containerId}, storage=${dbProps.storageType}, public=${dbProps.isPublic}, cacheDir=${IModelHost.cacheDir}`;
+      Logger.logError(loggerCat, msg);
+    }
+  }
+
+  private static loadAll(settings: Settings, settingName: string) {
+    const dbProps = settings.getArray<GcsDbProps>(settingName);
+    if (dbProps) {
+      for (const entry of dbProps) {
+        this.addGcsWorkspace(entry);
+      }
+    }
+  }
+
+  private static _defaultDbsLoaded = false;
+  public static onStartup() {
+    this._defaultDbsLoaded = false;
+    this.prefetches.length = 0;
+  }
+
+  public static loadDefaultDatabases(): void {
+    if (!this._defaultDbsLoaded) {
+      this._defaultDbsLoaded = true;
+      this.loadAll(IModelHost.appWorkspace.settings, this.settingName.defaultDatabases);
+    }
+  }
+
+  public static loadForImodel(settings: Settings) {
+    this.loadDefaultDatabases();
+    this.loadAll(settings, this.settingName.databases);
+  }
+}

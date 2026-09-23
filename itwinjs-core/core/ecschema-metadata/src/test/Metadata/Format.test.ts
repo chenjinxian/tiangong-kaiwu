@@ -1,0 +1,1119 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+
+import { assert, beforeEach, describe, expect, it } from "vitest";
+import { SchemaContext } from "../../Context";
+import { JsonParser } from "../../Deserialization/JsonParser";
+import { SchemaItemFormatProps } from "../../Deserialization/JsonProps";
+import { Format } from "../../Metadata/Format";
+import { MutableSchema, Schema } from "../../Metadata/Schema";
+import { DecimalPrecision, FormatTraits, FormatType, QuantityError, ShowSignOption } from "@itwin/core-quantity";
+import { expectAsyncToThrow } from "../TestUtils/AssertionHelpers";
+import { createSchemaJsonWithItems } from "../TestUtils/DeserializationHelpers";
+import { TestSchemaLocater } from "../TestUtils/FormatTestHelper";
+import { createEmptyXmlDocument, getElementChildrenByTagName } from "../TestUtils/SerializationHelper";
+import { ECSchemaNamespaceUris } from "../../Constants";
+import { ECSchemaError } from "../../Exception";
+
+/* eslint-disable @typescript-eslint/naming-convention */
+
+type Mutable<T> = { -readonly [P in keyof T]: T[P] };
+
+function createSchemaJson(koq: any) {
+  return createSchemaJsonWithItems({
+    TestFormat: {
+      schemaItemType: "Format",
+      ...koq,
+    },
+  }, {
+    references: [
+      {
+        name: "Formats",
+        version: "1.0.0",
+      },
+    ],
+  });
+}
+
+describe("Format", () => {
+  let schema: Schema;
+  let testFormat: Format;
+
+  it("should get fullName", async () => {
+    const schemaJson = createSchemaJsonWithItems({
+      TestFormat: {
+        schemaItemType: "Format",
+        type: "Decimal",
+      },
+    });
+
+    const ecSchema = await Schema.fromJson(schemaJson, new SchemaContext());
+    expect(ecSchema);
+    const format = await ecSchema.getItem("TestFormat", Format);
+    expect(format);
+    expect(format!.fullName).eq("TestSchema.TestFormat");
+  });
+
+  describe("type safety checks", () => {
+    const typeCheckJson = createSchemaJsonWithItems({
+      TestFormat: {
+        schemaItemType: "Format",
+        label: "Test Format",
+        description: "Used for testing",
+        type: "decimal",
+        precision: 6,
+      },
+      TestPhenomenon: {
+        schemaItemType: "Phenomenon",
+        definition: "LENGTH(1)",
+      },
+    });
+
+    let ecSchema: Schema;
+
+    beforeEach(async () => {
+      ecSchema = await Schema.fromJson(typeCheckJson, new SchemaContext());
+      expect(ecSchema).toBeDefined();
+    });
+
+    it("typeguard and type assertion should work on Format", async () => {
+      const format = await ecSchema.getItem("TestFormat");
+      expect(format);
+      expect(Format.isFormat(format)).toBe(true);
+      expect(() => Format.assertIsFormat(format)).not.toThrow();
+      // verify against other schema item type
+      const testPhenomenon = await ecSchema.getItem("TestPhenomenon");
+      expect(testPhenomenon);
+      expect(Format.isFormat(testPhenomenon)).toBe(false);
+      expect(() => Format.assertIsFormat(testPhenomenon)).toThrow();
+    });
+
+    it("Format type should work with getItem/Sync", async () => {
+      expect(await ecSchema.getItem("TestFormat", Format)).toBeInstanceOf(Format);
+      expect(ecSchema.getItemSync("TestFormat", Format)).toBeInstanceOf(Format);
+    });
+
+    it("Format type should reject for other item types on getItem/Sync", async () => {
+      expect(await ecSchema.getItem("TestPhenomenon", Format)).toBeUndefined();
+      expect(ecSchema.getItemSync("TestPhenomenon", Format)).toBeUndefined();
+    });
+  });
+
+  describe("type checking json", () => {
+    let jsonParser: JsonParser; // This is an easy way to test the logic directly in the parser without having to go through deserialization every time.
+
+    const rawSchema = {
+      $schema: ECSchemaNamespaceUris.SCHEMAURL3_2_JSON,
+      name: "TestSchema",
+      version: "1.2.3",
+      items: {
+        TestFormat: {
+          schemaItemType: "Format",
+        },
+      },
+    };
+
+    function createFormatJson(extraStuff: any): any {
+      return {
+        schemaItemType: "Format",
+        type: "Decimal",
+        ...extraStuff,
+      };
+    }
+
+    beforeEach(() => {
+      jsonParser = new JsonParser(rawSchema);
+      jsonParser.findItem("TestFormat"); // Hack for testing to force the Format name cache to populated within the Parser to allow for valid error messages.
+    });
+
+    it("check valid Format ECJSON", () => {
+      const correctFormat = {
+        type: "Decimal",
+        precision: 5,
+        roundFactor: 5,
+        minWidth: 5,
+        showSignOption: "",
+        formatTraits: "",
+        decimalSeparator: "",
+        thousandSeparator: "",
+        uomSeparator: "",
+        scientificType: "",
+        stationOffsetSize: 4,
+        stationSeparator: "",
+        composite: {
+          spacer: "",
+          includeZero: true,
+          units: [
+            {
+              name: "",
+              label: "",
+            },
+          ],
+        },
+      };
+
+      const formatProps = jsonParser.parseFormat(correctFormat);
+      expect(formatProps);
+    });
+
+    it("missing type attribute", () => {
+      const missingType = { schemaItemType: "Format" };
+      assert.throws(() => jsonParser.parseFormat(missingType), ECSchemaError, `The Format TestSchema.TestFormat does not have the required 'type' attribute.`);
+    });
+
+    it("invalid type attribute", () => {
+      const invalidType = { schemaItemType: "Format", type: true };
+      assert.throws(() => jsonParser.parseFormat(invalidType), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'type' attribute. It should be of type 'string'.`);
+    });
+
+    it("invalid precision attribute", () => {
+      const invalidPrecision = { precision: "" };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidPrecision)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'precision' attribute. It should be of type 'number'.`);
+    });
+
+    it("invalid roundFactor attribute", () => {
+      const invalidRoundFactor = { roundFactor: "" };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidRoundFactor)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'roundFactor' attribute. It should be of type 'number'.`);
+    });
+
+    it("invalid minWidth attribute", () => {
+      const invalidMinWidth = { minWidth: "" };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidMinWidth)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'minWidth' attribute. It should be of type 'number'.`);
+    });
+
+    it("invalid showSignOption attribute", () => {
+      const invalidShowSignOption = { showSignOption: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidShowSignOption)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'showSignOption' attribute. It should be of type 'string'.`);
+    });
+
+    it("invalid formatTraits attribute", () => {
+      const invalidFormatTraits = { formatTraits: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidFormatTraits)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'formatTraits' attribute. It should be of type 'string' or 'string[]'.`);
+    });
+
+    it("invalid decimalSeparator attribute", () => {
+      const invalidDecimalSeparator = { decimalSeparator: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidDecimalSeparator)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'decimalSeparator' attribute. It should be of type 'string'.`);
+    });
+
+    it("invalid thousandSeparator attribute", () => {
+      const invalidThousandSeparator = { thousandSeparator: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidThousandSeparator)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'thousandSeparator' attribute. It should be of type 'string'.`);
+    });
+
+    it("invalid uomSeparator attribute", () => {
+      const invalidUOMSeparator = { uomSeparator: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidUOMSeparator)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'uomSeparator' attribute. It should be of type 'string'.`);
+    });
+
+    it("invalid scientificType attribute", () => {
+      const invalidScientificType = { scientificType: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidScientificType)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'scientificType' attribute. It should be of type 'string'.`);
+    });
+
+    it("invalid stationOffsetSize attribute", () => {
+      const invalidStationOffsetSize = { stationOffsetSize: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidStationOffsetSize)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'stationOffsetSize' attribute. It should be of type 'number'.`);
+    });
+
+    it("invalid stationSeparator attribute", () => {
+      const invalidStationSeparator = { stationSeparator: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidStationSeparator)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'stationSeparator' attribute. It should be of type 'string'.`);
+    });
+
+    it("invalid composite attribute", () => {
+      const invalidComposite = { composite: true };
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidComposite)), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'composite' object.`);
+    });
+
+    const invalidCompositeSpacer = {
+      composite: {
+        spacer: true,
+      },
+    };
+    it("invalid composite spacer attribute", () => {
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidCompositeSpacer)), ECSchemaError, `The Format TestSchema.TestFormat has a Composite with an invalid 'spacer' attribute. It should be of type 'string'.`);
+    });
+
+    const invalidCompositeIncludeZero = {
+      composite: {
+        includeZero: "",
+      },
+    };
+    it("invalid composite include zero attribute", () => {
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidCompositeIncludeZero)), ECSchemaError, `The Format TestSchema.TestFormat has a Composite with an invalid 'includeZero' attribute. It should be of type 'boolean'.`);
+    });
+
+    const invalidCompositeUnits = {
+      composite: {
+        units: true,
+      },
+    };
+    it("invalid composite units attribute", () => {
+      assert.throws(() => jsonParser.parseFormat(createFormatJson(invalidCompositeUnits)), ECSchemaError, `The Format TestSchema.TestFormat has a Composite with an invalid 'units' attribute. It should be of type 'object[]'.`);
+    });
+  }); // type checking json
+
+  describe("deserialize formatted ECJSON", () => {
+    beforeEach(() => {
+      schema = new Schema(new SchemaContext(), "TestSchema", "ts", 1, 0, 0);
+      testFormat = (schema as MutableSchema).createFormatSync("TestFormat");
+    });
+
+    const validPropsWithoutUnits: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      label: "myfi4",
+      description: "Some tests description",
+      roundFactor: 15.0, // Non-default value
+      type: "decimal",
+      showSignOption: "noSign",
+      formatTraits: "keepSingleZero|trailZeroes",
+      precision: 12,
+      decimalSeparator: "-",
+      thousandSeparator: "!",
+      uomSeparator: "$",
+    };
+    it("sync - valid decimal format", () => {
+      testFormat.fromJSONSync(validPropsWithoutUnits);
+      expect(testFormat.label, "myfi4");
+      expect(testFormat.description).eq("Some tests description");
+      expect(testFormat.roundFactor).eq(15.0);
+      expect(testFormat.type).eq(FormatType.Decimal);
+      expect(testFormat.showSignOption).eq(ShowSignOption.NoSign);
+      expect(testFormat.hasFormatTrait(FormatTraits.KeepSingleZero)).true;
+      expect(testFormat.hasFormatTrait(FormatTraits.TrailZeroes)).true;
+      expect(testFormat.hasFormatTrait(FormatTraits.ApplyRounding)).false;
+      expect(testFormat.precision).eq(DecimalPrecision.Twelve);
+      expect(testFormat.decimalSeparator).eq("-");
+      expect(testFormat.thousandSeparator).eq("!");
+      expect(testFormat.uomSeparator).eq("$");
+    });
+    it("async - valid decimal format", async () => {
+      await testFormat.fromJSON(validPropsWithoutUnits);
+      expect(testFormat.label, "myfi4");
+      expect(testFormat.description).eq("Some tests description");
+      expect(testFormat.roundFactor).eq(15.0);
+      expect(testFormat.type).eq(FormatType.Decimal);
+      expect(testFormat.showSignOption).eq(ShowSignOption.NoSign);
+      expect(testFormat.hasFormatTrait(FormatTraits.KeepSingleZero)).true;
+      expect(testFormat.hasFormatTrait(FormatTraits.TrailZeroes)).true;
+      expect(testFormat.hasFormatTrait(FormatTraits.ApplyRounding)).false;
+      expect(testFormat.precision).eq(DecimalPrecision.Twelve);
+      expect(testFormat.decimalSeparator).eq("-");
+      expect(testFormat.thousandSeparator).eq("!");
+      expect(testFormat.uomSeparator).eq("$");
+    });
+
+    const invalidTypeAttributeValue: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "BadType",
+    };
+    it("sync - invalid type attribute value", () => {
+      assert.throws(() => testFormat.fromJSONSync(invalidTypeAttributeValue), QuantityError, `The Format TestFormat has an invalid 'type' attribute.`);
+    });
+    it("async - invalid type attribute value", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidTypeAttributeValue), QuantityError, `The Format TestFormat has an invalid 'type' attribute.`);
+    });
+
+    const invalidPrecisionDecimal: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "decimal",
+      precision: 13,
+    };
+    const invalidPrecisionScientific: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "scientific",
+      scientificType: "normalized",
+      precision: 30,
+    };
+    const invalidPrecisionStation: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "station",
+      stationOffsetSize: 3,
+      precision: -1,
+    };
+    it("sync - precision value is invalid with different format types", () => {
+      expect(() => testFormat.fromJSONSync(invalidPrecisionDecimal)).toThrow(`The Format TestFormat has an invalid 'precision' attribute.`);
+      expect(() => testFormat.fromJSONSync(invalidPrecisionScientific)).toThrow(`The Format TestFormat has an invalid 'precision' attribute.`);
+      expect(() => testFormat.fromJSONSync(invalidPrecisionStation)).toThrow(`The Format TestFormat has an invalid 'precision' attribute.`);
+    });
+    it("async - precision value is invalid with different format types", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidPrecisionDecimal), QuantityError, `The Format TestFormat has an invalid 'precision' attribute.`);
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidPrecisionScientific), QuantityError, `The Format TestFormat has an invalid 'precision' attribute.`);
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidPrecisionStation), QuantityError, `The Format TestFormat has an invalid 'precision' attribute.`);
+    });
+
+    const validPrecisionDecimal: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "decimal",
+      precision: 3,
+    };
+    const validPrecisionScientific: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "scientific",
+      scientificType: "normalized",
+      precision: 0,
+    };
+    const validPrecisionStation: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "station",
+      stationOffsetSize: 3,
+      precision: 12,
+    };
+    it("sync - precision value is valid with different format types", () => {
+      testFormat.fromJSONSync(validPrecisionDecimal);
+      expect(testFormat.precision).toEqual(3);
+
+      testFormat = (schema as MutableSchema).createFormatSync("TestFormatA");
+      testFormat.fromJSONSync(validPrecisionScientific);
+      expect(testFormat.precision).toEqual(0);
+
+      testFormat = (schema as MutableSchema).createFormatSync("TestFormatB");
+      testFormat.fromJSONSync(validPrecisionStation);
+      expect(testFormat.precision).toEqual(12);
+    });
+
+    it("async - precision value is valid with different format types", async () => {
+      await testFormat.fromJSON(validPrecisionDecimal);
+      expect(testFormat.precision).toEqual(3);
+
+      testFormat = (schema as MutableSchema).createFormatSync("TestFormatA");
+      await testFormat.fromJSON(validPrecisionScientific);
+      expect(testFormat.precision).toEqual(0);
+
+      testFormat = (schema as MutableSchema).createFormatSync("TestFormatB");
+      await testFormat.fromJSON(validPrecisionStation);
+      expect(testFormat.precision).toEqual(12);
+    });
+
+    const invalidMinWidth: Mutable<SchemaItemFormatProps> = {
+      schemaItemType: "Format",
+      type: "Decimal",
+      minWidth: 5.5,
+    };
+    it("sync - minWidth value is invalid", () => {
+      expect(() => testFormat.fromJSONSync(invalidMinWidth)).toThrow(`The Format TestFormat has an invalid 'minWidth' attribute. It should be a positive integer.`);
+
+      invalidMinWidth.minWidth = -1;
+      expect(() => testFormat.fromJSONSync(invalidMinWidth)).toThrow(`The Format TestFormat has an invalid 'minWidth' attribute. It should be a positive integer.`);
+    });
+    it("async - minWidth value is invalid", async () => {
+      invalidMinWidth.minWidth = 5.5; // TODO fix this
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidMinWidth), QuantityError, `The Format TestFormat has an invalid 'minWidth' attribute. It should be a positive integer.`);
+
+      invalidMinWidth.minWidth = -1;
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidMinWidth), QuantityError, `The Format TestFormat has an invalid 'minWidth' attribute. It should be a positive integer.`);
+    });
+
+    const missingScientificType: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "Scientific",
+    };
+    it("sync - scientific type is required when type is scientific", () => {
+      expect(() => testFormat.fromJSONSync(missingScientificType)).toThrow(`The Format TestFormat is 'Scientific' type therefore the attribute 'scientificType' is required.`);
+    });
+    it("async - scientific type is required when type is scientific", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(missingScientificType), QuantityError, `The Format TestFormat is 'Scientific' type therefore the attribute 'scientificType' is required.`);
+    });
+
+    const invalidScientificType: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "Scientific",
+      scientificType: "badType",
+    };
+    it("sync - scientific type is not supported", () => {
+      expect(() => testFormat.fromJSONSync(invalidScientificType)).toThrow(`The Format TestFormat has an invalid 'scientificType' attribute.`);
+    });
+    it("async - scientific type is not supported", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidScientificType), QuantityError, `The Format TestFormat has an invalid 'scientificType' attribute.`);
+    });
+
+    const missingStationOffsetSize: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "station",
+    };
+    it("sync - stationOffsetSize is required when type is station", () => {
+      expect(() => testFormat.fromJSONSync(missingStationOffsetSize)).toThrow(`The Format TestFormat is 'Station' type therefore the attribute 'stationOffsetSize' is required.`);
+    });
+    it("async - stationOffsetSize is required when type is station", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(missingStationOffsetSize), QuantityError, `The Format TestFormat is 'Station' type therefore the attribute 'stationOffsetSize' is required.`);
+    });
+
+    const invalidStationOffsetSize: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "station",
+      stationOffsetSize: -1,
+    };
+    it("sync - stationOffsetSize is invalid value", () => {
+      expect(() => testFormat.fromJSONSync(invalidStationOffsetSize)).toThrow(`The Format TestFormat has an invalid 'stationOffsetSize' attribute.`);
+    });
+    it("async - stationOffsetSize is invalid value", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidStationOffsetSize), QuantityError, `The Format TestFormat has an invalid 'stationOffsetSize' attribute.`);
+    });
+
+    const invalidShowSignOption: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "decimal",
+      showSignOption: "noSigned",
+    };
+    it("sync - scientific type is not supported", () => {
+      expect(() => testFormat.fromJSONSync(invalidShowSignOption)).toThrow(`The Format TestFormat has an invalid 'showSignOption' attribute.`);
+    });
+    it("async - scientific type is not supported", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidShowSignOption), QuantityError, `The Format TestFormat has an invalid 'showSignOption' attribute.`);
+    });
+
+    const invalidDecimalSeparator: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "decimal",
+      decimalSeparator: "badSeparator",
+    };
+    it("sync - decimal separator cannot be larger than 1 character", () => {
+      expect(() => testFormat.fromJSONSync(invalidDecimalSeparator)).toThrow(`The Format TestFormat has an invalid 'decimalSeparator' attribute. It should be an empty or one character string.`);
+    });
+    it("async - decimal separator cannot be larger than 1 character", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidDecimalSeparator), QuantityError, `The Format TestFormat has an invalid 'decimalSeparator' attribute. It should be an empty or one character string.`);
+    });
+
+    const invalidThousandSeparator: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "decimal",
+      thousandSeparator: "badSeparator",
+    };
+    it("sync - thousand separator cannot be larger than 1 character", () => {
+      expect(() => testFormat.fromJSONSync(invalidThousandSeparator)).toThrow(`The Format TestFormat has an invalid 'thousandSeparator' attribute. It should be an empty or one character string.`);
+    });
+    it("async - thousand separator cannot be larger than 1 character", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidThousandSeparator), QuantityError, `The Format TestFormat has an invalid 'thousandSeparator' attribute. It should be an empty or one character string.`);
+    });
+
+    const invalidUOMSeparator: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "decimal",
+      uomSeparator: "badSeparator",
+    };
+    it("sync - UOM separator cannot be larger than 1 character", () => {
+      expect(() => testFormat.fromJSONSync(invalidUOMSeparator)).toThrow(`The Format TestFormat has an invalid 'uomSeparator' attribute. It should be an empty or one character string.`);
+    });
+    it("async - UOM separator cannot be larger than 1 character", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidUOMSeparator), QuantityError, `The Format TestFormat has an invalid 'uomSeparator' attribute. It should be an empty or one character string.`);
+    });
+
+    const invalidStationSeparator: SchemaItemFormatProps = {
+      schemaItemType: "Format",
+      type: "decimal",
+      stationSeparator: "badSeparator",
+    };
+    it("sync - station separator cannot be larger than 1 character", () => {
+      expect(() => testFormat.fromJSONSync(invalidStationSeparator)).toThrow(`The Format TestFormat has an invalid 'stationSeparator' attribute. It should be an empty or one character string.`);
+    });
+    it("async - station separator cannot be larger than 1 character", async () => {
+      await expectAsyncToThrow(async () => testFormat.fromJSON(invalidStationSeparator), QuantityError, `The Format TestFormat has an invalid 'stationSeparator' attribute. It should be an empty or one character string.`);
+    });
+
+    describe("format traits", () => {
+      const validEmptyFormatTraitSring: SchemaItemFormatProps = {
+        schemaItemType: "Format",
+        type: "decimal",
+        formatTraits: "",
+      };
+      it("sync - ", () => {
+        testFormat.fromJSONSync(validEmptyFormatTraitSring);
+        expect(testFormat.hasFormatTrait(0x0));
+      });
+      it("async - ", async () => {
+        await testFormat.fromJSON(validEmptyFormatTraitSring);
+        expect(testFormat.hasFormatTrait(0x0));
+      });
+
+      const validFormatTraitString: SchemaItemFormatProps = {
+        schemaItemType: "Format",
+        type: "decimal",
+        formatTraits: "trailZeroes|keepSingleZero|zeroEmpty|keepDecimalPoint|applyRounding|fractionDash|showUnitLabel|prependUnitLabel|use1000Separator|exponentOnlyNegative",
+      };
+      it("sync - all valid options defined in a string", () => {
+        testFormat.fromJSONSync(validFormatTraitString);
+        expect(testFormat.hasFormatTrait(FormatTraits.TrailZeroes)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepSingleZero)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ZeroEmpty)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepDecimalPoint)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ApplyRounding)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.FractionDash)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ShowUnitLabel)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.PrependUnitLabel)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.Use1000Separator)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ExponentOnlyNegative)).true;
+      });
+      it("async - all valid options defined in a string", async () => {
+        await testFormat.fromJSON(validFormatTraitString);
+        expect(testFormat.hasFormatTrait(FormatTraits.TrailZeroes)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepSingleZero)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ZeroEmpty)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepDecimalPoint)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ApplyRounding)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.FractionDash)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ShowUnitLabel)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.PrependUnitLabel)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.Use1000Separator)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ExponentOnlyNegative)).true;
+      });
+
+      // TODO: Consolidate this and above test to reduce code...
+      const validFormatTraitArray: SchemaItemFormatProps = {
+        schemaItemType: "Format",
+        type: "decimal",
+        formatTraits: [
+          "trailZeroes",
+          "keepSingleZero",
+          "zeroEmpty",
+          "keepDecimalPoint",
+          "applyRounding",
+          "fractionDash",
+          "showUnitLabel",
+          "prependUnitLabel",
+          "use1000Separator",
+          "exponentOnlyNegative",
+        ],
+      };
+      it("sync - all valid options defined in a array", () => {
+        testFormat.fromJSONSync(validFormatTraitArray);
+        expect(testFormat.hasFormatTrait(FormatTraits.TrailZeroes)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepSingleZero)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ZeroEmpty)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepDecimalPoint)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ApplyRounding)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.FractionDash)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ShowUnitLabel)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.PrependUnitLabel)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.Use1000Separator)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ExponentOnlyNegative)).true;
+      });
+      it("async - all valid options defined in a array", async () => {
+        await testFormat.fromJSON(validFormatTraitArray);
+        expect(testFormat.hasFormatTrait(FormatTraits.TrailZeroes)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepSingleZero)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ZeroEmpty)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepDecimalPoint)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ApplyRounding)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.FractionDash)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ShowUnitLabel)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.PrependUnitLabel)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.Use1000Separator)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ExponentOnlyNegative)).true;
+      });
+
+      const validFormatTraitSeparator: SchemaItemFormatProps = {
+        schemaItemType: "Format",
+        type: "decimal",
+        formatTraits: "trailZeroes;keepSingleZero|zeroEmpty,applyRounding",
+      };
+      it("sync - valid multiple separators", () => {
+        testFormat.fromJSONSync(validFormatTraitSeparator);
+        expect(testFormat.hasFormatTrait(FormatTraits.TrailZeroes)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepSingleZero)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ZeroEmpty)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ApplyRounding)).true;
+      });
+      it("async - valid multiple separators", async () => {
+        await testFormat.fromJSON(validFormatTraitSeparator);
+        expect(testFormat.hasFormatTrait(FormatTraits.TrailZeroes)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.KeepSingleZero)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ZeroEmpty)).true;
+        expect(testFormat.hasFormatTrait(FormatTraits.ApplyRounding)).true;
+      });
+
+      const invalidSeparator: SchemaItemFormatProps = {
+        schemaItemType: "Format",
+        type: "decimal",
+        formatTraits: "applyRounding\fractionDash;showUnitLabel",
+      };
+      it("sync - invalid format trait separator", () => {
+        expect(() => testFormat.fromJSONSync(invalidSeparator)).toThrow(`The Format TestFormat has an invalid 'formatTraits' attribute.`);
+      });
+      it("async - invalid format trait separator", async () => {
+        await expectAsyncToThrow(async () => testFormat.fromJSON(invalidSeparator), QuantityError, `The Format TestFormat has an invalid 'formatTraits' attribute.`);
+      });
+
+      const invalidFormatTraitInString: SchemaItemFormatProps = {
+        schemaItemType: "Format",
+        type: "decimal",
+        formatTraits: "badTraits",
+      };
+      it("sync - invalid format trait within a string", () => {
+        expect(() => testFormat.fromJSONSync(invalidFormatTraitInString)).toThrow(`The Format TestFormat has an invalid 'formatTraits' attribute.`);
+      });
+      it("async - invalid format trait within a string", async () => {
+        await expectAsyncToThrow(async () => testFormat.fromJSON(invalidFormatTraitInString), QuantityError, `The Format TestFormat has an invalid 'formatTraits' attribute.`);
+      });
+
+      const invalidFormatTraitInArray: SchemaItemFormatProps = {
+        schemaItemType: "Format",
+        type: "decimal",
+        formatTraits: [
+          "badTraits",
+        ],
+      };
+      it("sync - invalid format trait within a array", () => {
+        expect(() => testFormat.fromJSONSync(invalidFormatTraitInArray)).toThrow(`The Format TestFormat has an invalid 'formatTraits' attribute.`);
+      });
+      it("async - invalid format trait within a array", async () => {
+        await expectAsyncToThrow(async () => testFormat.fromJSON(invalidFormatTraitInArray), QuantityError, `The Format TestFormat has an invalid 'formatTraits' attribute.`);
+      });
+    }); // formatTraits
+
+    describe("composite", () => {
+      let context: SchemaContext;
+      beforeEach(() => {
+        context = new SchemaContext();
+        context.addLocater(new TestSchemaLocater());
+      });
+
+      const invalidSpacer = {
+        type: "fractional",
+        composite: {
+          includeZero: false,
+          spacer: "spacer",
+          units: [
+            { name: "Formats.MILE" },
+          ],
+        },
+      };
+      it("sync - spacer must be a one character string", () => {
+        expect(() => Schema.fromJsonSync(createSchemaJson(invalidSpacer), context)).toThrow(`The Format TestSchema.TestFormat has a composite with an invalid 'spacer' attribute. It should be an empty or one character string.`);
+      });
+      it("async - spacer must be a one character string", async () => {
+        expect(() => Schema.fromJsonSync(createSchemaJson(invalidSpacer), context)).toThrow(`The Format TestSchema.TestFormat has a composite with an invalid 'spacer' attribute. It should be an empty or one character string.`);
+      });
+
+      const invalidCompositeWithoutUnits = {
+        type: "fractional",
+        composite: {},
+      };
+      it("sync - invalid composite without units", () => {
+        expect(() => Schema.fromJsonSync(createSchemaJson(invalidCompositeWithoutUnits), context)).toThrow(`The Format TestSchema.TestFormat has an invalid 'Composite' attribute. It should have 1-4 units.`);
+      });
+      it("async - invalid composite without units", async () => {
+        await expectAsyncToThrow(async () => Schema.fromJson(createSchemaJson(invalidCompositeWithoutUnits), context), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'Composite' attribute. It should have 1-4 units.`);
+      });
+
+      const invalidCompositeEmptyUnits = {
+        type: "fractional",
+        composite: {
+          units: [],
+        },
+      };
+      it("sync - invalid composite without units", () => {
+        expect(() => Schema.fromJsonSync(createSchemaJson(invalidCompositeEmptyUnits), context)).toThrow(`The Format TestSchema.TestFormat has an invalid 'Composite' attribute. It should have 1-4 units.`);
+      });
+      it("async - invalid composite without units", async () => {
+        await expectAsyncToThrow(async () => Schema.fromJson(createSchemaJson(invalidCompositeEmptyUnits), context), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'Composite' attribute. It should have 1-4 units.`);
+      });
+
+      const invalidCompositeTooManyUnits = {
+        type: "fractional",
+        composite: {
+          units: [
+            { name: "Formats.MILE" },
+            { name: "Formats.YRD" },
+            { name: "Formats.FT" },
+            { name: "Formats.IN" },
+            { name: "Formats.MILLIINCH" },
+          ],
+        },
+      };
+      it("sync - invalid composite with too many units", () => {
+        expect(() => Schema.fromJsonSync(createSchemaJson(invalidCompositeTooManyUnits), context)).toThrow(`The Format TestSchema.TestFormat has an invalid 'Composite' attribute. It should have 1-4 units.`);
+      });
+      it("async - invalid composite with too many units", async () => {
+        await expectAsyncToThrow(async () => Schema.fromJson(createSchemaJson(invalidCompositeTooManyUnits), context), ECSchemaError, `The Format TestSchema.TestFormat has an invalid 'Composite' attribute. It should have 1-4 units.`);
+      });
+
+      const invalidCompositeDuplicateUnits = {
+        type: "fractional",
+        composite: {
+          units: [
+            { name: "Formats.MILE" },
+            { name: "Formats.MILE" },
+          ],
+        },
+      };
+      it("sync - invalid composite with duplicate units", () => {
+        expect(() => Schema.fromJsonSync(createSchemaJson(invalidCompositeDuplicateUnits), context)).toThrow(`The Format TestSchema.TestFormat has duplicate units, 'Formats.MILE'.`);
+      });
+      it("async - invalid composite with duplicate units", async () => {
+        await expectAsyncToThrow(async () => Schema.fromJson(createSchemaJson(invalidCompositeDuplicateUnits), context), ECSchemaError, `The Format TestSchema.TestFormat has duplicate units, 'Formats.MILE'.`);
+      });
+
+      const validComposite = {
+        type: "decimal",
+        composite: {
+          includeZero: false,
+          spacer: "-",
+          units: [
+            {
+              name: "Formats.MILE",
+              label: "mile(s)",
+            },
+            {
+              name: "Formats.YRD",
+              label: "yrd(s)",
+            },
+            {
+              name: "Formats.FT",
+              label: "'",
+            },
+            {
+              name: "Formats.IN",
+              label: "\"",
+            },
+          ],
+        },
+      };
+      function validateTestFormat(format: Format | undefined) {
+        expect(format);
+
+        expect(format!.name).eq("TestFormat");
+        expect(format!.fullName).eq("TestSchema.TestFormat");
+
+        expect(format!.includeZero).false;
+        expect(format!.spacer).eq("-");
+
+        expect(format!.units);
+        expect(format!.units!.length).eq(4);
+        expect(format!.units![0][0].fullName).eq("Formats.MILE");
+        expect(format!.units![0][1]).eq("mile(s)");
+
+        expect(format!.units![1][0].fullName).eq("Formats.YRD");
+        expect(format!.units![1][1]).eq("yrd(s)");
+
+        expect(format!.units![2][0].fullName).eq("Formats.FT");
+        expect(format!.units![2][1]).eq("'");
+
+        expect(format!.units![3][0].fullName).eq("Formats.IN");
+        expect(format!.units![3][1]).eq("\"");
+      }
+      it("sync - ", () => {
+        const testSchema = Schema.fromJsonSync(createSchemaJson(validComposite), context);
+        expect(testSchema);
+        const format = testSchema.getItemSync("TestFormat", Format);
+        validateTestFormat(format);
+      });
+      it("async - ", async () => {
+        const testSchema = await Schema.fromJson(createSchemaJson(validComposite), context);
+        expect(testSchema);
+        const format = await testSchema.getItem("TestFormat", Format);
+        validateTestFormat(format);
+      });
+    }); // composite
+
+    describe("ratio properties with EC 3.3", () => {
+      let context: SchemaContext;
+      beforeEach(() => {
+        context = new SchemaContext();
+        context.addLocater(new TestSchemaLocater());
+      });
+
+      const ratioFormatJson = {
+        $schema: "https://dev.bentley.com/json_schemas/ec/33/ecschema",
+        name: "TestSchema",
+        version: "1.0.0",
+        alias: "ts",
+        references: [
+          {
+            name: "Formats",
+            version: "1.0.0",
+          },
+        ],
+        items: {
+          TestFormat: {
+            schemaItemType: "Format",
+            type: "Ratio",
+            ratioType: "OneToN",
+            ratioSeparator: ":",
+            ratioFormatType: "Decimal",
+            precision: 4,
+            composite: {
+              units: [
+                { name: "Formats.IN" },
+              ],
+            },
+          },
+        },
+      };
+
+      it("sync - should deserialize ratio properties with EC 3.3", async () => {
+        const testSchema = await Schema.fromJson(ratioFormatJson, context);
+        assert.isDefined(testSchema);
+        const format = testSchema.getItemSync("TestFormat", Format);
+        assert.isDefined(format);
+        expect(format.type).to.eq(FormatType.Ratio);
+        expect(format.ratioType).to.eq("OneToN");
+        expect(format.ratioSeparator).to.eq(":");
+        expect(format.ratioFormatType).to.eq("Decimal");
+        expect(format.precision).to.eq(4);
+      });
+
+      it("async - should deserialize ratio properties with EC 3.3", async () => {
+        const testSchema = await Schema.fromJson(ratioFormatJson, context);
+        assert.isDefined(testSchema);
+        const format = await testSchema.getItem("TestFormat", Format);
+        assert.isDefined(format);
+        expect(format.type).to.eq(FormatType.Ratio);
+        expect(format.ratioType).to.eq("OneToN");
+        expect(format.ratioSeparator).to.eq(":");
+        expect(format.ratioFormatType).to.eq("Decimal");
+        expect(format.precision).to.eq(4);
+      });
+    }); // ratio properties with EC 3.3
+
+  }); // deserialize properly formatted ECJSON
+
+  describe("toJSON", () => {
+    let context: SchemaContext;
+    beforeEach(() => {
+      context = new SchemaContext();
+      context.addLocater(new TestSchemaLocater());
+    });
+
+    it("Basic test I", () => {
+      const testFormatJson = {
+        schemaItemType: "Format",
+        type: "Fractional",
+        precision: 4,
+        composite: {
+          includeZero: false,
+          spacer: "-",
+          units: [
+            {
+              name: "Formats.MILE",
+              label: "mile(s)",
+            },
+          ],
+        },
+      };
+      const ecSchema = Schema.fromJsonSync(createSchemaJson(testFormatJson), context);
+      expect(ecSchema);
+      const format = ecSchema.getItemSync("TestFormat", Format);
+      expect(format);
+      const formatSerialization = format!.toJSON(false, true);
+      expect(formatSerialization).to.deep.equal(testFormatJson);
+    });
+
+    it("JSON stringify serialization", () => {
+      const testFormatJson = {
+        schemaItemType: "Format",
+        type: "Fractional",
+        precision: 4,
+        composite: {
+          includeZero: false,
+          spacer: "-",
+          units: [
+            {
+              name: "Formats.MILE",
+              label: "mile(s)",
+            },
+          ],
+        },
+      };
+      const ecSchema = Schema.fromJsonSync(createSchemaJson(testFormatJson), context);
+      expect(ecSchema);
+      const format = ecSchema.getItemSync("TestFormat", Format);
+      expect(format);
+      const json = JSON.stringify(format);
+      const formatSerialization = JSON.parse(json);
+      expect(formatSerialization).to.deep.equal(testFormatJson);
+    });
+  }); // toJson
+
+  describe("toXml", () => {
+    let context: SchemaContext;
+    const newDom = createEmptyXmlDocument();
+
+    beforeEach(() => {
+      context = new SchemaContext();
+      context.addLocater(new TestSchemaLocater());
+    });
+
+    it("should properly serialize", async () => {
+      const testFormatJson = {
+        schemaItemType: "Format",
+        type: "Scientific",
+        precision: 4,
+        roundFactor: 0,
+        minWidth: 10,
+        showSignOption: "OnlyNegative",
+        formatTraits: "KeepSingleZero|TrailZeroes",
+        decimalSeparator: ".",
+        thousandSeparator: ",",
+        uomSeparator: " ",
+        stationSeparator: "_",
+        scientificType: "Normalized",
+        composite: {
+          includeZero: false,
+          spacer: "-",
+          units: [
+            {
+              name: "Formats.MILE",
+              label: "mile(s)",
+            },
+            {
+              name: "Formats.YRD",
+              label: "yard(s)",
+            },
+          ],
+        },
+      };
+
+      const ecschema = Schema.fromJsonSync(createSchemaJson(testFormatJson), context);
+      expect(ecschema);
+      const format = ecschema.getItemSync("TestFormat", Format);
+      expect(format);
+
+      const serialized = await format!.toXml(newDom);
+      expect(serialized.nodeName).toEqual("Format");
+      expect(serialized.getAttribute("typeName")).toEqual("TestFormat");
+      expect(serialized.getAttribute("type")).toEqual("scientific");
+      expect(serialized.getAttribute("precision")).toEqual("4");
+      expect(serialized.getAttribute("roundFactor")).toEqual("0");
+      expect(serialized.getAttribute("minWidth")).toEqual("10");
+      expect(serialized.getAttribute("showSignOption")).toEqual("OnlyNegative");
+      // formatTraitsToArray ignores insertion order in favor of an arbitrary order
+      expect(serialized.getAttribute("formatTraits")).toEqual("TrailZeroes|KeepSingleZero");
+      expect(serialized.getAttribute("decimalSeparator")).toEqual(".");
+      expect(serialized.getAttribute("thousandSeparator")).toEqual(",");
+      expect(serialized.getAttribute("uomSeparator")).toEqual(" ");
+      expect(serialized.getAttribute("stationSeparator")).toEqual("_");
+      expect(serialized.getAttribute("scientificType")).toEqual("Normalized");
+
+      const compositeResult = getElementChildrenByTagName(serialized, "Composite");
+      expect(compositeResult.length).toEqual(1);
+      const composite = compositeResult[0];
+      expect(composite.getAttribute("spacer")).toEqual("-");
+      expect(composite.getAttribute("includeZero")).toEqual("false");
+
+      const units = getElementChildrenByTagName(composite, "Unit");
+      expect(units.length).toEqual(2);
+
+      const firstUnit = units[0];
+      expect(firstUnit.textContent).toEqual("f:MILE");
+      expect(firstUnit.getAttribute("label")).toEqual("mile(s)");
+
+      const secondUnit = units[1];
+      expect(secondUnit.textContent).toEqual("f:YRD");
+      expect(secondUnit.getAttribute("label")).toEqual("yard(s)");
+    });
+
+    it("should not serialize ratio properties with EC 3.2", async () => {
+      // Create schema with EC 3.3 first (so we can deserialize ratio properties)
+      const schemaJson33 = {
+        $schema: "https://dev.bentley.com/json_schemas/ec/33/ecschema",
+        name: "TestSchema",
+        version: "1.0.0",
+        alias: "ts",
+        items: {
+          TestFormat: {
+            schemaItemType: "Format",
+            type: "Ratio",
+            ratioType: "OneToN",
+            ratioSeparator: ":",
+            ratioFormatType: "Decimal",
+            precision: 4,
+            formatTraits: "trailZeroes",
+            composite: {
+              units: [
+                { name: "TestSchema.TestUnit" },
+              ],
+            },
+          },
+          TestPhenomenon: {
+            schemaItemType: "Phenomenon",
+            definition: "LENGTH(1)",
+          },
+          TestUnitSystem: {
+            schemaItemType: "UnitSystem",
+          },
+          TestUnit: {
+            schemaItemType: "Unit",
+            unitSystem: "TestSchema.TestUnitSystem",
+            phenomenon: "TestSchema.TestPhenomenon",
+            definition: "M",
+          },
+        },
+      };
+
+      const ecschema33 = await Schema.fromJson(schemaJson33, context);
+      assert.isDefined(ecschema33);
+      const format33 = ecschema33.getItemSync("TestFormat", Format);
+      assert.isDefined(format33);
+
+      // Now manually set the schema's EC version to 3.2 to test serialization behavior
+      (ecschema33 as any)._originalECSpecMinorVersion = 2;
+
+      const serialized = await format33.toXml(newDom);
+      expect(serialized.nodeName).to.eql("Format");
+      expect(serialized.getAttribute("typeName")).to.eql("TestFormat");
+      expect(serialized.getAttribute("type")).to.eql("ratio");
+      // Ratio properties should NOT be serialized for EC 3.2
+      expect(serialized.hasAttribute("ratioType")).to.be.false;
+      expect(serialized.hasAttribute("ratioSeparator")).to.be.false;
+      expect(serialized.hasAttribute("ratioFormatType")).to.be.false;
+    });
+
+    it("should serialize ratio properties with EC 3.3", async () => {
+      const testFormatJson = {
+        schemaItemType: "Format",
+        type: "Ratio",
+        ratioType: "OneToN",
+        ratioSeparator: ":",
+        ratioFormatType: "Decimal",
+        precision: 4,
+        formatTraits: "trailZeroes",
+        composite: {
+          units: [
+            { name: "TestSchema.TestUnit" },
+          ],
+        },
+      };
+
+      // Create schema with EC 3.3
+      const schemaJson = {
+        $schema: "https://dev.bentley.com/json_schemas/ec/33/ecschema",
+        name: "TestSchema",
+        version: "1.0.0",
+        alias: "ts",
+        items: {
+          TestFormat: testFormatJson,
+          TestPhenomenon: {
+            schemaItemType: "Phenomenon",
+            definition: "LENGTH(1)",
+          },
+          TestUnitSystem: {
+            schemaItemType: "UnitSystem",
+          },
+          TestUnit: {
+            schemaItemType: "Unit",
+            unitSystem: "TestSchema.TestUnitSystem",
+            phenomenon: "TestSchema.TestPhenomenon",
+            definition: "M",
+          },
+        },
+      };
+
+      const ecschema = await Schema.fromJson(schemaJson, context);
+      assert.isDefined(ecschema);
+      const format = ecschema.getItemSync("TestFormat", Format);
+      assert.isDefined(format);
+
+      const serialized = await format.toXml(newDom);
+      expect(serialized.nodeName).to.eql("Format");
+      expect(serialized.getAttribute("typeName")).to.eql("TestFormat");
+      expect(serialized.getAttribute("type")).to.eql("ratio");
+      // Ratio properties SHOULD be serialized for EC 3.3
+      expect(serialized.getAttribute("ratioType")).to.eql("OneToN");
+      expect(serialized.getAttribute("ratioSeparator")).to.eql(":");
+      expect(serialized.getAttribute("ratioFormatType")).to.eql("Decimal");
+    });
+  });
+});

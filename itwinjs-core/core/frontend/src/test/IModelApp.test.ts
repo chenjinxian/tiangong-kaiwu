@@ -1,0 +1,485 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+import { ITwinLocalization } from "@itwin/core-i18n";
+import { EmptyLocalization } from "@itwin/core-common";
+import { BasicUnitsProvider, UnitConversionProps, UnitProps } from "@itwin/core-quantity";
+import { AccuDraw } from "../AccuDraw";
+import { IModelApp, IModelAppOptions } from "../IModelApp";
+import { MockRender } from "../internal/render/MockRender";
+import { IdleTool } from "../tools/IdleTool";
+import { SelectionTool } from "../tools/SelectTool";
+import { Tool } from "../tools/Tool";
+import { LookAndMoveTool, PanViewTool, RotateViewTool } from "../tools/ViewTool";
+import { BentleyStatus, DbResult, IModelStatus, Logger } from "@itwin/core-bentley";
+
+/** class to simulate overriding the default AccuDraw */
+class TestAccuDraw extends AccuDraw { }
+
+/** class to simulate overriding the Idle tool */
+class TestIdleTool extends IdleTool { }
+
+let testVal1: string;
+let testVal2: string;
+
+/** class to test immediate tool */
+class TestImmediate extends Tool {
+  public static override toolId = "Test.Immediate";
+  constructor(val1: string, val2: string) {
+    testVal1 = val1;
+    testVal2 = val2;
+    super();
+  }
+}
+
+class AnotherImmediate extends Tool {
+  public static override toolId = "Test.AnotherImmediate";
+}
+
+class ThirdImmediate extends Tool {
+  public static override toolId = "Test.ThirdImmediate";
+}
+
+class FourthImmediate extends Tool {
+  public static override toolId = "Test.FourthImmediate";
+}
+
+class TestRotateTool extends RotateViewTool { }
+class TestSelectTool extends SelectionTool { }
+
+class TestApp extends MockRender.App {
+  public static override async startup(opts?: IModelAppOptions): Promise<void> {
+    opts = opts ? opts : {};
+    opts.accuDraw = new TestAccuDraw();
+    opts.localization = new ITwinLocalization(this.supplyI18NOptions());
+    await MockRender.App.startup(opts);
+
+    const namespace = "TestApp";
+    TestImmediate.register(namespace);
+    AnotherImmediate.register(namespace);
+    ThirdImmediate.register(namespace);
+    FourthImmediate.register(namespace);
+    TestIdleTool.register();
+    TestRotateTool.register();
+    TestSelectTool.register();
+    IModelApp.toolAdmin.onInitialized();
+
+    // register an anonymous class with the toolId "Null.Tool"
+    const testNull = class extends Tool {
+      public static override toolId = "Null.Tool"; public override async run() {
+        testVal1 = "fromNullTool";
+        return true;
+      }
+    };
+    testNull.register(namespace);
+  }
+
+  protected static supplyI18NOptions() { return { urlTemplate: `${window.location.origin}/locales/{{lng}}/{{ns}}.json` }; }
+}
+
+describe("IModelApp", () => {
+  beforeAll(async () => {
+    await TestApp.startup();
+    await IModelApp.localization.registerNamespace("TestApp");  // we must wait for the localization read to finish.
+  });
+  afterAll(async () => TestApp.shutdown());
+
+  it("TestApp should override correctly", async () => {
+    expect(IModelApp.accuDraw).toBeInstanceOf(TestAccuDraw);
+    expect(IModelApp.toolAdmin.idleTool).toBeInstanceOf(TestIdleTool);
+    expect(await IModelApp.tools.run("Test.Immediate", "test1", "test2")).toBe(true);
+    expect(testVal1).toBe("test1");
+    expect(testVal2).toBe("test2");
+    expect(await IModelApp.tools.run("Not.Found")).toBe(false);
+    expect(await IModelApp.tools.run("View.Pan")).toBe(true);
+    expect(IModelApp.toolAdmin.viewTool).toBeInstanceOf(PanViewTool);
+    expect(await IModelApp.tools.run("Null.Tool")).toBe(true);
+    expect(testVal1).toBe("fromNullTool");
+  });
+
+  it("Should get localized keyin, flyover, and description for tools", async () => {
+    expect(TestImmediate.keyin).toBe("Localized TestImmediate Keyin");
+    expect(TestImmediate.flyover).toBe("Localized TestImmediate Flyover");
+    expect(TestImmediate.description).toBe("Test of an Immediate Command");
+
+    expect(AnotherImmediate.keyin).toBe("Localized AnotherImmediate keyin and flyover");
+    expect(AnotherImmediate.flyover).toBe("Localized AnotherImmediate keyin and flyover");
+    expect(AnotherImmediate.description).toBe("Another Immediate Command description");
+
+    expect(ThirdImmediate.keyin).toBe("Localized ThirdImmediate Keyin");
+    expect(ThirdImmediate.flyover).toBe("ThirdImmediate flyover and description");
+    expect(ThirdImmediate.description).toBe("ThirdImmediate flyover and description");
+
+    expect(FourthImmediate.keyin).toBe("Localized FourthImmediate keyin, flyover, and description");
+    expect(FourthImmediate.flyover).toBe("Localized FourthImmediate keyin, flyover, and description");
+    expect(FourthImmediate.description).toBe("Localized FourthImmediate keyin, flyover, and description");
+
+    // here we are testing to make sure we can override the Select command but the keyin comes from the superclass because the toolId is not overridden
+    const selTool = IModelApp.tools.create("Select")!;
+    expect(selTool).toBeInstanceOf(TestSelectTool);
+    expect(selTool.keyin).toBe("select elements");
+  });
+
+  it("Should do localizations", () => {
+    // we have "TrivialTest.Test1" as the key in TestApp.json
+    expect(IModelApp.localization.getLocalizedString("TestApp:TrivialTests.Test1")).toBe("Localized Trivial Test 1");
+    expect(IModelApp.localization.getLocalizedString("TestApp:TrivialTests.Test2")).toBe("Localized Trivial Test 2");
+    expect(IModelApp.localization.getLocalizedString("LocateFailure.NoElements")).toBe("No Elements Found");
+
+    // there is no key for TrivialTest.Test3
+    expect(IModelApp.localization.getLocalizedString("TestApp:TrivialTests.Test3")).toBe("TrivialTests.Test3");
+
+    // Should properly substitute the values in localized strings with interpolations
+    expect(IModelApp.localization.getLocalizedString("TestApp:SubstitutionTests.Test1", { varA: "Variable1", varB: "Variable2" })).toBe("Substitute Variable1 and Variable2");
+    expect(IModelApp.localization.getLocalizedString("TestApp:SubstitutionTests.Test2", { varA: "Variable1", varB: "Variable2" })).toBe("Reverse substitute Variable2 and Variable1");
+
+    expect(IModelApp.translateStatus(IModelStatus.AlreadyOpen)).toBe("Already open");
+    expect(IModelApp.translateStatus(IModelStatus.DuplicateCode)).toBe("Duplicate code");
+    expect(IModelApp.translateStatus(DbResult.BE_SQLITE_ERROR_AlreadyOpen)).toBe("Database already open");
+    expect(IModelApp.translateStatus(BentleyStatus.ERROR)).toBe("Error");
+    expect(IModelApp.translateStatus(BentleyStatus.SUCCESS)).toBe("Success");
+    expect(IModelApp.translateStatus(101)).toBe("DbResult.BE_SQLITE_DONE");
+    expect(IModelApp.translateStatus(11111)).toBe("Status: 11111");
+    expect(IModelApp.translateStatus(undefined as any)).toBe("Illegal value");
+  });
+
+  it("Should support WebGL", () => {
+    expect(IModelApp.hasRenderSystem).toBe(true);
+    let canvas = document.getElementById("WebGLTestCanvas") as HTMLCanvasElement;
+    if (null === canvas) {
+      canvas = document.createElement("canvas");
+      if (null !== canvas) {
+        canvas.id = "WebGLTestCanvas";
+        document.body.appendChild(document.createTextNode("WebGL tests"));
+        document.body.appendChild(canvas);
+      }
+    }
+    canvas.width = 300;
+    canvas.height = 150;
+    expect(canvas).not.toBeUndefined();
+    if (undefined !== canvas) {
+      const context = canvas.getContext("webgl");
+      expect(context).not.toBeNull();
+      expect(context).not.toBeUndefined();
+    }
+  });
+
+  it("Should create mock render system without WebGL", () => {
+    expect(IModelApp.hasRenderSystem).toBe(true);
+    expect(IModelApp.renderSystem).toBeInstanceOf(MockRender.System);
+  });
+});
+
+
+describe("IModelApp startup tests", () => {
+  afterEach(async () => {
+    if (IModelApp.initialized)
+      await IModelApp.shutdown();
+  });
+
+  it("Should normalize path correctly", async () => {
+    await IModelApp.startup({ publicPath: "assets" });
+    expect(IModelApp.publicPath).toBe("assets/");
+    await IModelApp.shutdown();
+    await IModelApp.startup({ publicPath: "assets/" });
+    expect(IModelApp.publicPath).toBe("assets/");
+    await IModelApp.shutdown();
+    await IModelApp.startup();
+    expect(IModelApp.publicPath).toBe("");
+    await IModelApp.shutdown();
+  });
+});
+
+describe("LookAndMoveTool keyboard focus", () => {
+  afterEach(async () => {
+    document.body.focus();
+
+    if (IModelApp.initialized)
+      await IModelApp.shutdown();
+  });
+
+  it("moves focus Home after installation", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const button = document.createElement("button");
+    document.body.appendChild(button);
+    button.focus();
+    expect(document.activeElement).toBe(button);
+
+    try {
+      // Exercise the normal tool install pipeline (onInstall, onPostInstall, etc.) rather than invoking onPostInstall directly.
+      if (await IModelApp.tools.run(LookAndMoveTool.toolId))
+        expect(document.activeElement).toBe(document.body);
+    } finally {
+      button.remove();
+    }
+  });
+});
+
+/**
+ * A UnitsProvider that is NOT a BasicUnitsProvider (bypasses the early-exit in resetToUseInternalUnitsProvider)
+ * but still delegates to BasicUnitsProvider for correct behaviour.
+ */
+class NonBundledUnitsProvider {
+  private readonly _delegate = new BasicUnitsProvider();
+  public async findUnit(unitLabel: string, schemaName?: string, phenomenon?: string, unitSystem?: string): Promise<UnitProps> {
+    return this._delegate.findUnit(unitLabel, schemaName, phenomenon, unitSystem);
+  }
+  public async getUnitsByFamily(phenomenon: string): Promise<UnitProps[]> {
+    return this._delegate.getUnitsByFamily(phenomenon);
+  }
+  public async findUnitByName(name: string): Promise<UnitProps> {
+    return this._delegate.findUnitByName(name);
+  }
+  public async getConversion(fromUnit: UnitProps, toUnit: UnitProps): Promise<UnitConversionProps> {
+    return this._delegate.getConversion(fromUnit, toUnit);
+  }
+}
+
+describe("Shutdown hardening — ToolAdmin and QuantityFormatter", () => {
+  afterEach(async () => {
+    if (IModelApp.initialized)
+      await IModelApp.shutdown();
+  });
+
+  it("startPrimitiveTool does not emit activeToolChanged after toolAdmin.onShutDown clears _idleTool", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    // Simulate the race: onShutDown has cleared _idleTool but IModelApp is still initialised.
+    IModelApp.toolAdmin.onShutDown();
+
+    let toolChangedEmitted = false;
+    const removeListener = IModelApp.toolAdmin.activeToolChanged.addListener(() => { toolChangedEmitted = true; });
+
+    // Must not throw and must not fire activeToolChanged (no valid idle tool exists).
+    await IModelApp.toolAdmin.startPrimitiveTool(undefined);
+
+    expect(toolChangedEmitted).toBe(false);
+    removeListener();
+  });
+
+  it("setUnitsProvider does not call startDefaultTool after IModelApp.shutdown", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+    const toolAdmin = IModelApp.toolAdmin;
+    const formatter = IModelApp.quantityFormatter;
+
+    // Install a non-default provider so resetToUseInternalUnitsProvider won't early-exit.
+    await formatter.setUnitsProvider(new NonBundledUnitsProvider());
+
+    await IModelApp.shutdown();
+
+    const startDefaultSpy = vi.spyOn(toolAdmin, "startDefaultTool");
+
+    // Simulates the race: async units-provider reset fires after IModelApp has shut down.
+    await formatter.resetToUseInternalUnitsProvider();
+
+    // startDefaultTool must NOT be called — IModelApp is no longer initialised.
+    expect(startDefaultSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("Undo/redo edit command cleanup", () => {
+  afterEach(async () => {
+    if (IModelApp.initialized)
+      await IModelApp.shutdown();
+  });
+
+  it("undo finishes active edit command before reversing txns", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    const finishCommand = vi.fn(async () => "done");
+    toolAdmin.setEditCommandHandler({ finishCommand });
+
+    const reverseSingleTxnAsync = vi.fn(async () => { });
+    const activeToolSpy = vi.spyOn(toolAdmin, "activeTool", "get").mockReturnValue(undefined);
+    const selectedViewSpy = vi.spyOn(IModelApp.viewManager, "selectedView", "get").mockReturnValue({
+      view: {
+        iModel: {
+          isReadonly: false,
+          isBriefcaseConnection: () => true,
+          txns: { reverseSingleTxnAsync },
+        },
+      },
+    } as any);
+
+    expect(await toolAdmin.doUndoOperation()).toBe(true);
+    expect(finishCommand).toHaveBeenCalledOnce();
+    expect(reverseSingleTxnAsync).toHaveBeenCalledOnce();
+    expect(finishCommand.mock.invocationCallOrder[0]).toBeLessThan(reverseSingleTxnAsync.mock.invocationCallOrder[0]);
+
+    selectedViewSpy.mockRestore();
+    activeToolSpy.mockRestore();
+  });
+
+  it("redo uses notifications and skips txn when finishCommand fails", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    const finishCommand = vi.fn(async () => { throw new Error("Command is busy"); });
+    toolAdmin.setEditCommandHandler({ finishCommand });
+
+    const reinstateTxnAsync = vi.fn(async () => { });
+    const activeToolSpy = vi.spyOn(toolAdmin, "activeTool", "get").mockReturnValue(undefined);
+    const selectedViewSpy = vi.spyOn(IModelApp.viewManager, "selectedView", "get").mockReturnValue({
+      view: {
+        iModel: {
+          isReadonly: false,
+          isBriefcaseConnection: () => true,
+          txns: { reinstateTxnAsync },
+        },
+      },
+    } as any);
+    const outputMessageSpy = vi.spyOn(IModelApp.notifications, "outputMessage").mockImplementation(() => { });
+
+    expect(await toolAdmin.doRedoOperation()).toBe(false);
+    expect(finishCommand).toHaveBeenCalledOnce();
+    expect(reinstateTxnAsync).not.toHaveBeenCalled();
+    expect(outputMessageSpy).toHaveBeenCalledOnce();
+
+    selectedViewSpy.mockRestore();
+    activeToolSpy.mockRestore();
+    outputMessageSpy.mockRestore();
+  });
+});
+
+describe("callOnCleanup edit command cleanup", () => {
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    if (IModelApp.initialized)
+      await IModelApp.shutdown();
+  });
+
+  it("uses setPrimitiveTool path to cleanup primitive and finish edit command without notification", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    const primitiveCleanup = vi.fn(async () => { });
+    (toolAdmin as any)._primitiveTool = { onCleanup: primitiveCleanup };
+
+    const finishCommand = vi.fn(async () => "done");
+    toolAdmin.setEditCommandHandler({ finishCommand });
+
+    const outputMessageSpy = vi.spyOn(IModelApp.notifications, "outputMessage").mockImplementation(() => { });
+
+    await toolAdmin.callOnCleanup();
+
+    expect(primitiveCleanup).toHaveBeenCalledOnce();
+    expect(finishCommand).toHaveBeenCalledOnce();
+    expect(finishCommand.mock.invocationCallOrder[0]).toBeLessThan(primitiveCleanup.mock.invocationCallOrder[0]);
+    expect((toolAdmin as any)._primitiveTool).toBeUndefined();
+    expect(outputMessageSpy).not.toHaveBeenCalled();
+  });
+
+  it("finishes edit command directly when no primitive tool is active", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    (toolAdmin as any)._primitiveTool = undefined;
+
+    const finishCommand = vi.fn(async () => "done");
+    toolAdmin.setEditCommandHandler({ finishCommand });
+
+    const setPrimitiveToolSpy = vi.spyOn(toolAdmin, "setPrimitiveTool");
+    const outputMessageSpy = vi.spyOn(IModelApp.notifications, "outputMessage").mockImplementation(() => { });
+
+    await toolAdmin.callOnCleanup();
+
+    expect(setPrimitiveToolSpy).not.toHaveBeenCalled();
+    expect(finishCommand).toHaveBeenCalledOnce();
+    expect(outputMessageSpy).not.toHaveBeenCalled();
+  });
+
+  it("logs and suppresses notification when edit command finish throws during no-primitive cleanup", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    (toolAdmin as any)._primitiveTool = undefined;
+
+    const finishCommand = vi.fn(async () => { throw new Error("Command is busy"); });
+    toolAdmin.setEditCommandHandler({ finishCommand });
+
+    const logSpy = vi.spyOn(Logger, "logError").mockImplementation(() => { });
+    const outputMessageSpy = vi.spyOn(IModelApp.notifications, "outputMessage").mockImplementation(() => { });
+
+    await toolAdmin.callOnCleanup();
+
+    expect(finishCommand).toHaveBeenCalledOnce();
+    expect(outputMessageSpy).not.toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledOnce();
+  });
+
+  it("observes rejected edit command when view cleanup also throws", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    (toolAdmin as any)._viewTool = { onCleanup: vi.fn(async () => { throw new Error("view cleanup failed"); }) };
+
+    const finishCommand = vi.fn(async () => { throw new Error("Command is busy"); });
+    toolAdmin.setEditCommandHandler({ finishCommand });
+
+    const logSpy = vi.spyOn(Logger, "logError").mockImplementation(() => { });
+
+    await toolAdmin.callOnCleanup();
+
+    expect(finishCommand).toHaveBeenCalledOnce();
+    expect(logSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears stale primitive tool when primitive cleanup throws", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    (toolAdmin as any)._primitiveTool = {
+      onCleanup: vi.fn(async () => { throw new Error("cleanup failed"); }),
+    };
+
+    const finishCommand = vi.fn(async () => "done");
+    toolAdmin.setEditCommandHandler({ finishCommand });
+
+    const logSpy = vi.spyOn(Logger, "logError").mockImplementation(() => { });
+
+    await toolAdmin.callOnCleanup();
+
+    expect((toolAdmin as any)._primitiveTool).toBeUndefined();
+    expect(finishCommand).toHaveBeenCalledOnce();
+    expect(logSpy).toHaveBeenCalledOnce();
+  });
+
+  it("does not overwrite a replacement primitive tool after delayed cleanup", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    let releaseCleanup: (() => void) | undefined;
+    const cleanupReleased = new Promise<void>((resolve) => releaseCleanup = resolve);
+    const oldTool = { onCleanup: vi.fn(async () => cleanupReleased) };
+    const replacementTool = { onCleanup: vi.fn(async () => { }) };
+    (toolAdmin as any)._primitiveTool = oldTool;
+
+    const transition = toolAdmin.setPrimitiveTool(undefined);
+    await Promise.resolve();
+    (toolAdmin as any)._primitiveTool = replacementTool;
+
+    releaseCleanup?.();
+    await transition;
+
+    expect((toolAdmin as any)._primitiveTool).toBe(replacementTool);
+  });
+
+  it("installs replacement primitive tool after cleaning up old tool", async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+
+    const toolAdmin = IModelApp.toolAdmin;
+    const oldTool = { onCleanup: vi.fn(async () => { }) };
+    const replacementTool = { onCleanup: vi.fn(async () => { }) };
+    (toolAdmin as any)._primitiveTool = oldTool;
+
+    await toolAdmin.setPrimitiveTool(replacementTool as any);
+
+    expect(oldTool.onCleanup).toHaveBeenCalledOnce();
+    expect((toolAdmin as any)._primitiveTool).toBe(replacementTool);
+  });
+});

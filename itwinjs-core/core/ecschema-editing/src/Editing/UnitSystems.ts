@@ -1,0 +1,50 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Editing
+ */
+
+import { SchemaItemKey, SchemaItemType, SchemaKey, UnitSystem, UnitSystemProps } from "@itwin/ecschema-metadata";
+import { SchemaContextEditor } from "./Editor";
+import { MutableUnitSystem } from "./Mutable/MutableUnitSystem";
+import { ECEditingStatus, SchemaEditingError, SchemaItemId } from "./Exception";
+import { SchemaItems } from "./SchemaItems";
+
+/**
+ * @alpha
+ * A class allowing you to create schema items of type UnitSystems.
+ */
+export class UnitSystems extends SchemaItems {
+  protected override get itemTypeClass(): typeof UnitSystem {
+    return UnitSystem;
+  }
+
+  public constructor(schemaEditor: SchemaContextEditor) {
+    super(SchemaItemType.UnitSystem, schemaEditor);
+  }
+
+  public async create(schemaKey: SchemaKey, name: string, displayLabel?: string): Promise<SchemaItemKey> {
+
+    try {
+      const newUnitSystem = await this.createSchemaItem<UnitSystem>(schemaKey, this.schemaItemType, (schema) => schema.createUnitSystem.bind(schema), name) as MutableUnitSystem;
+
+      if (displayLabel)
+        newUnitSystem.setDisplayLabel(displayLabel);
+
+      return newUnitSystem.key;
+    } catch (e: any) {
+      throw new SchemaEditingError(ECEditingStatus.CreateSchemaItemFailed, new SchemaItemId(this.schemaItemType, name, schemaKey), e);
+    }
+  }
+
+  public async createFromProps(schemaKey: SchemaKey, unitSystemProps: UnitSystemProps): Promise<SchemaItemKey> {
+    try {
+      const newUnitSystem = await this.createSchemaItemFromProps(schemaKey, this.schemaItemType, (schema) => schema.createUnitSystem.bind(schema), unitSystemProps);
+      return newUnitSystem.key;
+    } catch (e: any) {
+      throw new SchemaEditingError(ECEditingStatus.CreateSchemaItemFromProps, new SchemaItemId(this.schemaItemType, unitSystemProps.name ?? "Unknown", schemaKey), e);
+    }
+  }
+}

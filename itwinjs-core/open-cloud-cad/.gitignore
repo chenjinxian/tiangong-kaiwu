@@ -1,0 +1,52 @@
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Cache
+.cache/
+*.cache
+
+# Test coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+.worktrees/
+
+# Briefcase cache
+briefcase-cache/
+
+# Superpowers
+.superpowers/
+
+# Test outputs
+test-results/
+playwright-report/
+*.png
+!src/**/*.png
+!public/**/*.png

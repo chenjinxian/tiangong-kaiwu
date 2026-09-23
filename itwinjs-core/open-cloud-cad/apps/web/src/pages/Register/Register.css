@@ -1,0 +1,198 @@
+/* Register page shares auth styles with Login page */
+@import '../Login/Login.css';
+
+/* Additional styles for Register page */
+
+/* ── Unified form design system (from CreateIModelWorkflow) ── */
+
+/* Form inputs - consistent spacing */
+.register-input {
+  margin-bottom: var(--iui-size-m);
+}
+
+/* Ensure LabeledInput has consistent padding */
+.register-input [class*="input"] {
+  padding: var(--iui-size-xs) var(--iui-size-s) !important;
+}
+
+/* Labels - consistent style */
+.register-input [class*="label"] {
+  font-size: var(--iui-font-size-body) !important;
+  font-weight: 500 !important;
+  margin-bottom: var(--iui-size-xs) !important;
+}
+
+/* Error messages - consistent with field-error */
+.register-input [class*="message-negative"] {
+  font-size: var(--iui-font-size-small) !important;
+  margin-top: var(--iui-size-xs) !important;
+}
+
+/* Error alert - consistent with form-error */
+.register-error-alert {
+  margin-bottom: var(--iui-size-m);
+}
+
+.register-submit-btn {
+  width: 100%;
+  padding: var(--iui-size-xs) var(--iui-size-m);
+}
+
+/* ── Input with valid indicator ── */
+.input-with-indicator {
+  position: relative;
+}
+
+.input-with-indicator .valid-indicator {
+  position: absolute;
+  right: 12px;
+  top: 38px;
+  color: var(--color-success, #10b981);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.input-with-indicator .valid-indicator.valid-indicator-password {
+  right: 44px;
+  top: 38px;
+}
+
+/* ── Password wrapper ── */
+.auth-page .password-wrapper {
+  position: relative;
+}
+
+.auth-page .password-wrapper .toggle-password {
+  position: absolute;
+  right: var(--iui-size-s);
+  top: 32px;
+  z-index: 1;
+}
+
+/* ── Password strength (custom — no iTwinUI equivalent) ── */
+.auth-page .password-strength {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-page .strength-bar {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.auth-page .strength-segment {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--color-border);
+  transition: background 0.2s ease;
+}
+
+.auth-page .strength-text {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Field help text */
+.field-help {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-top: 6px;
+  padding-left: 8px;
+}
+
+.field-error {
+  display: block;
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-negative);
+  margin-top: var(--iui-size-xs);
+}
+
+/* ── Terms checkbox ── */
+.register-terms {
+  margin-bottom: var(--iui-size-m);
+}
+
+.register-terms.has-error {
+  margin-bottom: var(--iui-size-xs);
+}
+
+.register-terms a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.register-terms a:hover {
+  text-decoration: underline;
+}
+
+/* ── Success state ── */
+.success-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  animation: register-fade-in-up 0.4s ease-out;
+}
+
+@keyframes register-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-icon {
+  width: 80px;
+  height: 80px;
+  background: var(--color-success-light, rgba(16, 185, 129, 0.1));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-success, #10b981);
+  margin-bottom: 24px;
+  animation: register-scale-in 0.3s ease-out;
+}
+
+@keyframes register-scale-in {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.success-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.success-message {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-bottom: 24px;
+}
+
+.success-redirect {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}

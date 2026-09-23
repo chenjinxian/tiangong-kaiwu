@@ -1,0 +1,219 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+.auth-page-skeleton {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Brand side skeleton */
+.brand-side-skeleton {
+  width: 45%;
+  background: linear-gradient(135deg, #0077cc 0%, #0055aa 50%, #004488 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 48px;
+}
+
+.skeleton-logo {
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+
+.skeleton-title {
+  width: 200px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.skeleton-subtitle {
+  width: 240px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  margin-bottom: 32px;
+}
+
+.skeleton-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.skeleton-feature {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.skeleton-icon {
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-text {
+  height: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  flex: 1;
+}
+
+/* Form side skeleton */
+.form-side-skeleton {
+  flex: 1;
+  background: var(--color-bg-card, #ffffff);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px;
+}
+
+.form-container-skeleton {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.skeleton-form-header {
+  margin-bottom: 32px;
+}
+
+.skeleton-form-title {
+  width: 100px;
+  height: 28px;
+  background: var(--color-border, #e5e7eb);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.skeleton-form-subtitle {
+  width: 180px;
+  height: 16px;
+  background: var(--color-border, #e5e7eb);
+  border-radius: 4px;
+}
+
+.skeleton-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-label {
+  width: 60px;
+  height: 14px;
+  background: var(--color-border, #e5e7eb);
+  border-radius: 2px;
+}
+
+.skeleton-input {
+  height: 44px;
+  background: var(--color-border, #e5e7eb);
+  border-radius: 8px;
+}
+
+.skeleton-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.skeleton-checkbox {
+  width: 80px;
+  height: 14px;
+  background: var(--color-border, #e5e7eb);
+  border-radius: 2px;
+}
+
+.skeleton-link {
+  width: 70px;
+  height: 14px;
+  background: var(--color-border, #e5e7eb);
+  border-radius: 2px;
+}
+
+.skeleton-button {
+  height: 48px;
+  background: var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.skeleton-footer {
+  height: 16px;
+  background: var(--color-border, #e5e7eb);
+  border-radius: 2px;
+  margin-top: 24px;
+  width: 60%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Pulse animation */
+@keyframes skeleton-pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* Stagger animation delays for more natural effect */
+.brand-side-skeleton .pulse:nth-child(1) { animation-delay: 0s; }
+.brand-side-skeleton .pulse:nth-child(2) { animation-delay: 0.1s; }
+.brand-side-skeleton .pulse:nth-child(3) { animation-delay: 0.2s; }
+
+.skeleton-features .skeleton-feature:nth-child(1) .pulse { animation-delay: 0.3s; }
+.skeleton-features .skeleton-feature:nth-child(2) .pulse { animation-delay: 0.4s; }
+.skeleton-features .skeleton-feature:nth-child(3) .pulse { animation-delay: 0.5s; }
+.skeleton-features .skeleton-feature:nth-child(4) .pulse { animation-delay: 0.6s; }
+
+.form-container-skeleton .pulse:nth-child(1) .pulse,
+.form-container-skeleton .pulse:nth-child(1) { animation-delay: 0.1s; }
+
+.form-container-skeleton .pulse:nth-child(2) .pulse:nth-child(1),
+.form-container-skeleton .pulse:nth-child(2) { animation-delay: 0.2s; }
+
+.form-container-skeleton .pulse:nth-child(2) .pulse:nth-child(2),
+.form-container-skeleton .pulse:nth-child(2) .pulse:nth-child(2) { animation-delay: 0.25s; }
+
+.form-container-skeleton .pulse:nth-child(3),
+.form-container-skeleton .pulse:nth-child(3) { animation-delay: 0.3s; }
+
+@media (max-width: 768px) {
+  .brand-side-skeleton {
+    display: none;
+  }
+  .form-side-skeleton {
+    padding: 24px;
+  }
+}

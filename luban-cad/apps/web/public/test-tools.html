@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Tools</title>
+</head>
+<body>
+  <h1>工具注册测试</h1>
+  <button onclick="testTools()">测试工具</button>
+  <pre id="result"></pre>
+  <script type="module">
+    import { IModelApp } from 'https://unpkg.com/@itwin/core-frontend@5.7.1/lib/esm/index.js';
+    window.IModelApp = IModelApp;
+    window.testTools = function() {
+      const tools = ['CreateSphere', 'CreateCylinder', 'CreateBox', 'SetSketchPlane', 'CreateLineString'];
+      let result = '';
+      for (const id of tools) {
+        const tool = IModelApp.tools.find(id);
+        result += `${id}: ${tool ? '已注册 ✓' : '未注册 ✗'}\n`;
+      }
+      document.getElementById('result').textContent = result;
+    };
+  </script>
+</body>
+</html>

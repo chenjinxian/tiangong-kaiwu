@@ -1,0 +1,20 @@
+{
+  "name": "@open-cloud-cad/config",
+  "version": "1.0.0",
+  "description": "Shared configuration files for Open Cloud CAD",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.react.json": "./tsconfig.react.json",
+    "./tsconfig.node.json": "./tsconfig.node.json",
+    "./vitest.shared.ts": "./vitest.shared.ts",
+    "./eslint.config.shared.js": "./eslint.config.shared.js"
+  },
+  "devDependencies": {
+    "@itwin/eslint-plugin": "^5.0.0",
+    "eslint": "^9.31.0",
+    "typescript": "~5.6.2",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,230 @@
+# Open Cloud CAD - Development Environment
+# 一键启动所有开发服务
+#
+# Usage:
+#   cd open-cloud-cad
+#   docker-compose -f docker-compose.dev.yml up -d
+#
+# Services:
+#   - PostgreSQL (5432)
+#   - Azurite Blob Storage (10000)
+#   - Redis (6379)
+#   - imodelhub-services (4000)
+#   - backend (4001)
+#   - web-agent (4002)
+#   - frontend (3000)
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Infrastructure
+  # ============================================================================
+  postgres:
+    image: postgres:17.6-alpine
+    container_name: occ-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: imodelhub
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d imodelhub"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: occ-azurite
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite-data:/data
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --debug /data/debug.log"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10000/devstoreaccount1?comp=list"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: occ-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  maildev:
+    image: maildev/maildev:latest
+    container_name: occ-maildev
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+    restart: unless-stopped
+
+  # ============================================================================
+  # imodelhub-services (从源码构建)
+  # ============================================================================
+  imodelhub:
+    build:
+      context: ../../imodelhub-services
+      dockerfile: Dockerfile
+    container_name: occ-imodelhub
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - APP_PORT=4000
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_NAME=imodelhub
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AZURE_BLOB_ENDPOINT=http://azurite:10000/devstoreaccount1
+      - MAIL_HOST=maildev
+      - MAIL_PORT=1025
+      - AUTH_JWT_SECRET=local-dev-secret
+      - AUTH_JWT_TOKEN_EXPIRES_IN=1d
+      - AUTH_REFRESH_SECRET=local-refresh-secret
+      - AUTH_REFRESH_TOKEN_EXPIRES_IN=7d
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Open Cloud CAD Backend
+  # ============================================================================
+  backend:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+    container_name: occ-backend
+    ports:
+      - "4001:4001"
+    environment:
+      - NODE_ENV=development
+      - PORT=4001
+      - IMODELHUB_URL=http://imodelhub:4000
+      - AZURITE_URL=http://azurite:10000
+      - FRONTEND_URL=http://localhost:3000
+      - IMJS_BRIEFCASE_CACHE_LOCATION=/app/cache
+      - WEBHOOK_SECRET=local-dev-secret
+      - WEB_AGENT_URL=http://web-agent:4002
+    volumes:
+      - backend-cache:/app/cache
+    depends_on:
+      imodelhub:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Web-Agent (Webhook Handler + Baseline Generator)
+  # ============================================================================
+  web-agent:
+    build:
+      context: ..
+      dockerfile: apps/web-agent/Dockerfile
+    container_name: occ-web-agent
+    ports:
+      - "4002:4002"
+    environment:
+      - NODE_ENV=development
+      - PORT=4002
+      - BACKEND_URL=http://backend:4001
+      - WEBHOOK_SECRET=local-dev-secret
+      - DEBUG=true
+      - BLOB_STORAGE_URL=http://azurite:10000/devstoreaccount1
+      - BLOB_ACCOUNT_NAME=devstoreaccount1
+      - BLOB_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+      - BLOB_CONTAINER_NAME=imodelhub
+      - IMODELHUB_API_URL=http://imodelhub:4000
+    depends_on:
+      backend:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Frontend (React + Vite)
+  # ============================================================================
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:4001
+        - VITE_IMODELHUB_URL=http://localhost:4000
+        - VITE_AZURITE_URL=http://localhost:10000
+    container_name: occ-web
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:4001
+      - VITE_IMODELHUB_URL=http://localhost:4000
+      - VITE_AZURITE_URL=http://localhost:10000
+    depends_on:
+      backend:
+        condition: service_healthy
+      web-agent:
+        condition: service_healthy
+    restart: unless-stopped
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres-data:
+  azurite-data:
+  redis-data:
+  backend-cache:
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  default:
+    name: open-cloud-cad-network

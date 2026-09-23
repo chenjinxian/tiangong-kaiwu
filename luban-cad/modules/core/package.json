@@ -1,0 +1,44 @@
+{
+  "name": "@open-cloud-cad/core",
+  "version": "2.0.0",
+  "description": "Open Cloud CAD Core Engine - Based on iTwin.js (V2)",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "types": "./lib/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc 1>&2",
+    "build:watch": "tsc -w",
+    "clean": "rimraf lib",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint \"src/**/*.ts*\" 1>&2",
+    "lint:fix": "eslint --fix \"src/**/*.ts*\" 1>&2"
+  },
+  "dependencies": {
+    "@itwin/browser-authorization": "^1.0.1"
+  },
+  "devDependencies": {
+    "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
+    "@itwin/core-common": "link:../../../itwinjs-core/core/common",
+    "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
+    "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry",
+    "@itwin/eslint-plugin": "^6.0.0",
+    "@types/node": "~20.17.0",
+    "eslint": "^9.31.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.6.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
+    "@itwin/core-common": "link:../../../itwinjs-core/core/common",
+    "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
+    "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry"
+  }
+}

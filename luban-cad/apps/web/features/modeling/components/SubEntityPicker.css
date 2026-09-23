@@ -1,0 +1,20 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+.sub-entity-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--bg-2, #f5f5f5);
+  border-radius: 4px;
+  border: 1px solid var(--border-1, #e0e0e0);
+}
+
+.sub-entity-picker-status {
+  color: var(--color-primary, #4d8cff);
+  font-size: 12px;
+  white-space: nowrap;
+}

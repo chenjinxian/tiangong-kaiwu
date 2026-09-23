@@ -1,0 +1,645 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Create iModel Workflow — with dark mode support */
+
+/* Dialog overlay */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--iui-size-m);
+}
+
+[data-theme="dark"] .dialog-overlay,
+[data-iui-theme="dark"] .dialog-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* Dialog container - use our own variables for proper dark mode */
+.dialog-container {
+  background-color: var(--color-bg-card);
+  border-radius: var(--iui-border-radius);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  color: var(--color-text-primary);
+}
+
+.dialog-container.processing {
+  max-width: 480px;
+}
+
+/* Dialog header */
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-m) var(--iui-size-l);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-card);
+}
+
+.dialog-title {
+  font-size: var(--iui-font-size-title);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.dialog-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--iui-border-radius);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.dialog-close-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* Dialog body */
+.dialog-body {
+  padding: var(--iui-size-l);
+  overflow-y: auto;
+  flex: 1;
+  background-color: var(--color-bg-card);
+}
+
+/* Form groups */
+.form-group {
+  margin-bottom: var(--iui-size-m);
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group.has-error .form-input,
+.form-group.has-error .form-textarea {
+  border-color: var(--color-error);
+}
+
+/* Form labels */
+.form-label {
+  display: block;
+  font-size: var(--iui-font-size-body);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.form-label-required::after {
+  content: '*';
+  color: var(--color-error);
+  margin-left: 4px;
+}
+
+/* Form inputs - use our own variables */
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  font-size: var(--iui-font-size-body);
+  color: var(--color-text-primary);
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--iui-border-radius);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.form-input:disabled,
+.form-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-bg-hover);
+}
+
+.form-input.input-error {
+  border-color: var(--color-error);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Form hints */
+.form-hint {
+  font-size: var(--iui-font-size-small);
+  color: var(--color-text-secondary);
+  margin-top: var(--iui-size-xs);
+  margin-bottom: 0;
+}
+
+/* Field errors */
+.field-error {
+  display: block;
+  font-size: var(--iui-font-size-small);
+  color: var(--color-error);
+  margin-top: var(--iui-size-xs);
+}
+
+/* Form errors */
+.form-error {
+  padding: var(--iui-size-s);
+  background: var(--color-error-light);
+  border: 1px solid var(--color-error);
+  border-radius: var(--iui-border-radius);
+  color: var(--color-error);
+  font-size: var(--iui-font-size-body);
+  margin-top: var(--iui-size-m);
+}
+
+/* File input */
+.file-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-s);
+  padding: var(--iui-size-xs);
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--iui-border-radius);
+}
+
+.file-name {
+  font-size: var(--iui-font-size-body);
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+.file-selected {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  color: var(--color-success);
+}
+
+.file-remove {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: var(--iui-size-xs);
+}
+
+.file-remove:hover {
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+/* Dialog footer */
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--iui-size-s);
+  padding: var(--iui-size-m) var(--iui-size-l);
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-bg-card);
+}
+
+/* Buttons - use our own variables */
+.btn-primary,
+.btn-secondary,
+.btn-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  font-size: var(--iui-font-size-body);
+  font-weight: 500;
+  border-radius: var(--iui-border-radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  filter: brightness(1.1);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  border-color: var(--color-primary);
+}
+
+.btn-cancel {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn-cancel:hover {
+  color: var(--color-text-primary);
+}
+
+/* Spinner icon */
+.spinner-icon {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Processing container */
+.workflow-progress-container {
+  padding: var(--iui-size-xl) var(--iui-size-l);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--iui-size-l);
+}
+
+/* Step indicators */
+.step-indicators {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  border-radius: var(--iui-border-radius);
+  background: var(--color-bg-page);
+  color: var(--color-text-secondary);
+  font-size: var(--iui-font-size-small);
+  transition: all 0.3s;
+}
+
+.step-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.step-item.completed {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.step-number {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.step-item.active .step-number {
+  background: var(--color-primary);
+  color: white;
+}
+
+.step-item.completed .step-number {
+  background: var(--color-success);
+  color: white;
+}
+
+/* Progress bar */
+.progress-wrapper {
+  width: 100%;
+  max-width: 400px;
+}
+
+.progress-bar-large {
+  width: 100%;
+  height: 8px;
+  background: var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: var(--iui-size-s);
+}
+
+.progress-fill-large {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), #6366f1);
+  border-radius: 4px;
+  transition: width 0.3s ease-out;
+}
+
+.progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--iui-font-size-body);
+}
+
+.progress-percentage {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.progress-description {
+  color: var(--color-text-secondary);
+}
+
+/* Step animation */
+.step-animation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--iui-size-m);
+  padding: var(--iui-size-l);
+  text-align: center;
+}
+
+.step-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  animation: pulse-icon 2s ease-in-out infinite;
+}
+
+@keyframes pulse-icon {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+.step-details {
+  text-align: center;
+}
+
+.step-title {
+  font-size: var(--iui-font-size-title);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.step-description {
+  font-size: var(--iui-font-size-body);
+  color: var(--color-text-secondary);
+}
+
+.step-status {
+  font-size: var(--iui-font-size-body);
+  color: var(--color-primary);
+  margin-top: var(--iui-size-xs);
+  font-weight: 500;
+}
+
+/* Cancelling text */
+.cancelling-text {
+  color: var(--color-text-secondary);
+  font-size: var(--iui-font-size-body);
+}
+
+/* Success state enhanced */
+.success-state-enhanced {
+  padding: var(--iui-size-2xl) var(--iui-size-xl);
+  text-align: center;
+  animation: fade-in-up 0.4s ease;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-animation {
+  margin-bottom: var(--iui-size-l);
+}
+
+.success-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--color-success);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  margin: 0 auto;
+  animation: scale-in 0.4s ease;
+}
+
+@keyframes scale-in {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.success-title {
+  font-size: var(--iui-font-size-title);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.success-description {
+  font-size: var(--iui-font-size-body);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--iui-size-l);
+}
+
+.success-actions {
+  display: flex;
+  gap: var(--iui-size-s);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Error state enhanced */
+.error-state-enhanced {
+  padding: var(--iui-size-2xl) var(--iui-size-xl);
+  text-align: center;
+  animation: fade-in-up 0.4s ease;
+}
+
+.error-animation {
+  margin-bottom: var(--iui-size-l);
+}
+
+.error-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--color-error-light);
+  color: var(--color-error);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  margin: 0 auto;
+  animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-5px);
+  }
+  40%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+.error-title {
+  font-size: var(--iui-font-size-title);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.error-description {
+  font-size: var(--iui-font-size-body);
+  color: var(--color-error);
+  margin-bottom: var(--iui-size-l);
+  max-width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.error-actions {
+  display: flex;
+  gap: var(--iui-size-s);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Spin animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .dialog-overlay {
+    padding: var(--iui-size-xs);
+  }
+
+  .dialog-container {
+    max-height: 95vh;
+  }
+
+  .dialog-header,
+  .dialog-body,
+  .dialog-footer {
+    padding-left: var(--iui-size-m);
+    padding-right: var(--iui-size-m);
+  }
+
+  .step-indicators {
+    gap: 4px;
+  }
+
+  .step-item {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .step-label {
+    display: none;
+  }
+
+  .workflow-progress-container {
+    padding: var(--iui-size-l) var(--iui-size-m);
+  }
+
+  .success-actions,
+  .error-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .success-actions button,
+  .error-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}

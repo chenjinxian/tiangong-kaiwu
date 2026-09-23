@@ -1,0 +1,203 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+.sketch-panel {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  background: var(--iui-color-background-surface);
+  border-right: 1px solid var(--iui-color-border);
+  height: 100%;
+}
+
+.sketch-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-s) var(--iui-size-m);
+  gap: var(--iui-size-xs);
+}
+
+.sketch-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+.sketch-panel-header .iui-text {
+  font-size: var(--iui-font-size-body);
+  font-weight: 600;
+}
+
+.sketch-tabs {
+  padding: 0 var(--iui-size-m);
+}
+
+.sketch-tabs .iui-tabs-wrapper {
+  border-bottom: 1px solid var(--iui-color-border);
+}
+
+.sketch-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--iui-size-m);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--iui-size-xl) 0;
+  text-align: center;
+}
+
+.empty-text {
+  color: var(--iui-color-text-muted);
+}
+
+.element-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.element-item {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  border-radius: var(--iui-border-radius);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.element-item:hover {
+  background: var(--iui-color-background-surface-elevated);
+}
+
+.element-item.selected {
+  background: var(--iui-color-background-accent-muted);
+}
+
+.constraint-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--iui-size-xs);
+}
+
+.constraint-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-s);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius);
+  background: var(--iui-color-background);
+  cursor: pointer;
+}
+
+.constraint-btn:hover {
+  border-color: var(--iui-color-border-accent);
+}
+
+.dimension-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--iui-size-xs);
+}
+
+.section-title {
+  font-weight: 600;
+  color: var(--iui-color-text-muted);
+  margin-bottom: var(--iui-size-xs);
+}
+
+/* Tabs */
+.sketch-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--iui-color-border);
+}
+
+.sketch-tab {
+  flex: 1;
+  padding: var(--iui-size-s) var(--iui-size-m);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-body);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sketch-tab:hover {
+  color: var(--iui-color-text);
+  background: var(--iui-color-background-surface-elevated);
+}
+
+.sketch-tab.active {
+  color: var(--iui-color-text-accent);
+  border-bottom-color: var(--iui-color-text-accent);
+  font-weight: 500;
+}
+
+/* Dimension buttons */
+.dimension-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-s);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius);
+  background: var(--iui-color-background);
+  cursor: pointer;
+}
+
+.dimension-btn:hover {
+  border-color: var(--iui-color-border-accent);
+}
+
+/* Dimension list */
+.dimension-list-existing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-xs);
+}
+
+.dimension-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius);
+  background: var(--iui-color-background);
+}
+
+.dimension-type {
+  font-size: var(--iui-font-size-body);
+}
+
+.dimension-value {
+  flex: 1;
+  text-align: center;
+  font-family: var(--iui-font-family-mono);
+  font-size: var(--iui-font-size-body);
+}
+
+/* Active states */
+.constraint-btn:active,
+.dimension-btn:active {
+  background: var(--iui-color-background-accent-muted);
+}
+
+.constraint-btn.active,
+.dimension-btn.active {
+  background: var(--iui-color-background-accent-muted);
+  border-color: var(--iui-color-border-accent);
+  color: var(--iui-color-text-accent);
+}

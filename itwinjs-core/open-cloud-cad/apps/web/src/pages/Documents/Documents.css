@@ -1,0 +1,339 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* apps/web/src/pages/Documents.css — with dark mode support */
+.itwins-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+/* ── Topbar ── */
+.itwins-page .topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-m);
+  padding: 0 var(--iui-size-m);
+  height: 56px;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  justify-content: flex-start;
+}
+
+.itwins-page .topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  flex-shrink: 0;
+}
+
+.itwins-page .logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--iui-border-radius);
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.itwins-page .logo-text {
+  font-size: var(--iui-font-size-body);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+/* ── Topbar actions ── */
+.itwins-page .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  margin-left: auto;
+}
+
+.itwins-page .topbar-actions button {
+  padding: var(--iui-size-xs) var(--iui-size-m);
+}
+
+/* ── Search bar ── */
+.itwins-page .search-bar {
+  flex: 1;
+  max-width: 420px;
+  margin-left: var(--iui-size-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--iui-border-radius);
+  padding: 0 var(--iui-size-s);
+  height: 36px;
+}
+
+.itwins-page .search-bar .search-icon {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.itwins-page .search-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 0;
+  height: 100%;
+}
+
+.itwins-page .search-bar button {
+  flex-shrink: 0;
+}
+
+/* ── Content layout ── */
+.itwins-page .content {
+  flex: 1;
+  overflow: hidden;
+  align-items: flex-start !important;
+}
+
+/* ── Sidebar ── */
+.itwins-page .sidebar {
+  height: 100%;
+}
+
+/* ── Main content ── */
+.itwins-page .main {
+  flex: 1;
+  padding: var(--iui-size-m) var(--iui-size-l);
+  overflow-y: auto;
+}
+
+.itwins-page .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--iui-size-s);
+  min-height: auto;
+  padding: var(--iui-size-xs) 0;
+}
+
+.itwins-page .section-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+.itwins-page .section-title {
+  font-size: var(--iui-font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  padding: var(--iui-size-xs) 0;
+}
+
+.itwins-page .item-count {
+  font-size: var(--iui-font-size-small);
+  color: var(--color-text-secondary);
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  background: var(--color-bg-page);
+  border-radius: var(--iui-border-radius);
+}
+
+.itwins-page .view-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) 0;
+}
+
+/* Content area transition */
+.itwins-page .content-area {
+  transition: opacity 0.15s ease;
+}
+
+.itwins-page .content-area.transitioning {
+  opacity: 0;
+}
+
+/* ── Grid ── */
+.itwins-page .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--iui-size-m);
+}
+
+/* Ensure grid items don't overflow */
+.itwins-page .grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ── Tile card ── */
+.itwins-page .grid > [class*="tile"] {
+  animation: fade-in-up 0.3s ease forwards;
+  opacity: 0;
+  transform: translateY(12px);
+  width: 100%;
+}
+
+.itwins-page .grid > [class*="tile"] [class*="tile-name"] {
+  padding: var(--iui-size-xs) var(--iui-size-s);
+}
+
+.itwins-page .grid > [class*="tile"] [class*="tile-description"] {
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  color: var(--color-text-secondary);
+  font-size: var(--iui-font-size-small);
+  display: block !important;
+}
+
+@keyframes fade-in-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.itwins-page .grid > [class*="tile"]:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.itwins-page .thumb-icon {
+  font-size: 40px;
+  color: var(--color-primary);
+  opacity: 0.6;
+  padding: var(--iui-size-m);
+}
+
+/* ── Search highlight ── */
+.itwins-page .search-highlight {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 600;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+/* ── Empty state ── */
+.itwins-page .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+  animation: fade-in 0.4s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.itwins-page .empty-icon {
+  font-size: 64px;
+  margin-bottom: var(--iui-size-m);
+  opacity: 0.7;
+  color: var(--color-text-secondary);
+}
+
+.itwins-page .empty-title {
+  font-size: var(--iui-font-size-title);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.itwins-page .empty-desc {
+  font-size: var(--iui-font-size-body);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--iui-size-l);
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.itwins-page .empty-actions {
+  display: flex;
+  gap: var(--iui-size-s);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── Loading state ── */
+.itwins-page .loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  gap: var(--iui-size-m);
+  color: var(--color-text-secondary);
+}
+
+/* ── Error state ── */
+.itwins-page .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  gap: var(--iui-size-xs);
+  animation: fade-in 0.3s ease;
+}
+
+.itwins-page .error-icon {
+  font-size: 48px;
+  color: var(--color-error);
+}
+
+/* ── Spin ── */
+.itwins-page .spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .itwins-page .sidebar {
+    display: none;
+  }
+
+  .itwins-page .search-bar {
+    max-width: none;
+  }
+
+  .itwins-page .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--iui-size-s);
+  }
+
+  .itwins-page .main {
+    padding: var(--iui-size-xs) var(--iui-size-m);
+  }
+
+  .itwins-page .section-header {
+    margin-bottom: var(--iui-size-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .itwins-page .grid {
+    grid-template-columns: 1fr;
+  }
+}

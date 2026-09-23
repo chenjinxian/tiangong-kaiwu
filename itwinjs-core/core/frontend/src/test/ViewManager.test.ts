@@ -1,0 +1,133 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OnScreenTarget } from "../internal/render/webgl/Target";
+import { IModelApp } from "../IModelApp";
+import { IModelConnection } from "../IModelConnection";
+import { createBlankConnection } from "./createBlankConnection";
+import { openBlankViewport } from "./openBlankViewport";
+import { expectColors } from "./ExpectColors";
+import { ColorDef, EmptyLocalization } from "@itwin/core-common";
+
+describe("ViewManager", () => {
+  let imodel: IModelConnection;
+
+  beforeEach(async () => {
+    await IModelApp.startup({ localization: new EmptyLocalization() });
+    imodel = createBlankConnection("view-manager-test");
+  });
+
+  afterEach(async () => {
+    await imodel.close();
+    await IModelApp.shutdown();
+  });
+
+  it("should resize fbo properly after dropping a recently-resized viewport", async () => {
+    using vp = openBlankViewport({ width: 32, height: 32 });
+    IModelApp.viewManager.addViewport(vp);
+    vp.renderFrame();
+    vp.vpDiv.style.width = vp.vpDiv.style.height = "3px";
+    IModelApp.viewManager.dropViewport(vp, false);
+    vp.renderFrame();
+    expect((vp.target as OnScreenTarget).checkFboDimensions()).toBe(true);
+  });
+
+  /** Dropping and immediately re-adding an unresized viewport to the view manager would result in a black rendering
+   * until the viewport was manually resized. This happened because when the viewport was removed it would have a 0,0
+   * dimension, which was internally recorded (but not acted upon with regard to framebuffers). Once re-adding the viewport,
+   * it would be flagged as having a size change because its dimensions were no longer 0 (they became the original
+   * dimensions). Disposing and recreating the framebuffers with the same dimensions as the previous framebuffers caused the
+   * black rendering in the particular case of re-adding the viewport.
+   *
+   * We resolved this problem by adding a check to not record a dimension change if the new dimensions are 0 -- we really
+   * do not want to create framebuffers with those dimensions anyway, because that is invalid.
+   *
+   * This test verifies that this problem has been resolved.
+   */
+  it("should not render black when dropping and re-adding viewport with same dimensions", async () => {
+    using vp = openBlankViewport({ width: 32, height: 32 });
+    vp.displayStyle.backgroundColor = ColorDef.red;
+    IModelApp.viewManager.addViewport(vp);
+    vp.renderFrame();
+    expectColors(vp, [ColorDef.red]);
+    IModelApp.viewManager.dropViewport(vp, false);
+    IModelApp.viewManager.addViewport(vp);
+    vp.renderFrame();
+    expectColors(vp, [ColorDef.red]);
+  });
+
+  it("should dispose of viewport when onShutdown is called", async () => {
+    const vp = openBlankViewport({ width: 30, height: 30 });
+    IModelApp.viewManager.addViewport(vp);
+    await IModelApp.shutdown();
+
+    expect(vp.isDisposed).toBe(true);
+  });
+
+  it("should start edit command cleanup before final viewport disposal returns", async () => {
+    const vp = openBlankViewport({ width: 30, height: 30 });
+    const finishCommand = vi.fn(async () => {
+      expect(vp.isDisposed).toBe(false);
+      return "done";
+    });
+    IModelApp.toolAdmin.setEditCommandHandler({ finishCommand });
+    IModelApp.viewManager.addViewport(vp);
+
+    IModelApp.viewManager.dropViewport(vp);
+
+    expect(finishCommand).toHaveBeenCalledOnce();
+    expect(vp.isDisposed).toBe(true);
+    await IModelApp.viewManager.waitForSelectedViewportChange();
+  });
+
+  it("should observe a rejected selected-viewport change immediately", async () => {
+    let releaseFirstChange: (() => void) | undefined;
+    const firstChange = new Promise<void>((resolve) => releaseFirstChange = resolve);
+    const secondChange = Promise.reject(new Error("selected viewport change failed"));
+    const selectedViewportChanged = vi.spyOn(IModelApp.toolAdmin, "onSelectedViewportChanged")
+      .mockReturnValueOnce(firstChange)
+      .mockReturnValueOnce(secondChange);
+
+    IModelApp.viewManager.notifySelectedViewportChanged(undefined, undefined);
+    IModelApp.viewManager.notifySelectedViewportChanged(undefined, undefined);
+
+    releaseFirstChange?.();
+    await IModelApp.viewManager.waitForSelectedViewportChange();
+    expect(selectedViewportChanged).toHaveBeenCalledTimes(2);
+  });
+
+  it("should not overwrite a reopened viewport's tool after delayed last-viewport cleanup", async () => {
+    using firstViewport = openBlankViewport({ width: 30, height: 30 });
+    IModelApp.viewManager.addViewport(firstViewport);
+    await IModelApp.viewManager.waitForSelectedViewportChange();
+    await IModelApp.toolAdmin.startPrimitiveTool(undefined);
+
+    let releaseCleanup: (() => void) | undefined;
+    const cleanupReleased = new Promise<void>((resolve) => releaseCleanup = resolve);
+    const oldTool = {
+      onCleanup: vi.fn(async () => cleanupReleased),
+      onSelectedViewportChanged: vi.fn(),
+    };
+    (IModelApp.toolAdmin as any)._primitiveTool = oldTool;
+    const finishCommand = vi.fn(async () => "done");
+    IModelApp.toolAdmin.setEditCommandHandler({ finishCommand });
+
+    const startPrimitiveTool = vi.spyOn(IModelApp.toolAdmin, "startPrimitiveTool");
+
+    IModelApp.viewManager.dropViewport(firstViewport, false);
+    using reopenedViewport = openBlankViewport({ width: 30, height: 30 });
+    IModelApp.viewManager.addViewport(reopenedViewport);
+
+    expect(oldTool.onCleanup).toHaveBeenCalledOnce();
+    expect(finishCommand).toHaveBeenCalledOnce();
+
+    releaseCleanup?.();
+    await IModelApp.viewManager.waitForSelectedViewportChange();
+    await startPrimitiveTool.mock.results[0].value;
+
+    expect(oldTool.onCleanup).toHaveBeenCalledOnce();
+    expect(finishCommand).toHaveBeenCalledOnce();
+  });
+});

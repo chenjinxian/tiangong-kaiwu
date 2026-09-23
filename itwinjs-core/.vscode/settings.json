@@ -1,0 +1,110 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+  "debug.internalConsoleOptions": "openOnSessionStart",
+  "editor.codeActionsOnSave": {
+    "editor.action.fixAll": "explicit",
+    "source.fixAll.eslint": "explicit",
+    "source.fixAll.markdownlint": "explicit"
+  },
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "eslint.enable": true,
+  "eslint.format.enable": true,
+  "eslint.lintTask.enable": true,
+  "eslint.useFlatConfig": true,
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
+  "files.associations": {
+    ".nycrc": "json",
+    "*.snap": "javascript",
+    "certa.json": "jsonc"
+  },
+  "files.exclude": {
+    "**/.nyc_output": true,
+    "**/.rush": true,
+    "**/*.build.log": true,
+    "**/*.build.error.log": true,
+    "**/generated-docs": true,
+    "**/staging-docs": true,
+    "**/package-deps.json": true,
+    "**/node_modules": true,
+    "**/test-apps/**/build": true,
+    "**/out": true,
+    "**/lib": true,
+    "common/temp": true
+  },
+  "files.trimTrailingWhitespace": true,
+  "importSorter.generalConfiguration.sortImportsInDirectory": false,
+  "importSorter.generalConfiguration.sortOnBeforeSave": false,
+  "importSorter.importStringConfiguration.maximumNumberOfImportExpressionsPerLine.count": 150,
+  "importSorter.importStringConfiguration.quoteMark": "double",
+  "importSorter.importStringConfiguration.tabSize": 2,
+  "importSorter.importStringConfiguration.trailingComma": "multiLine",
+  "importSorter.sortConfiguration.customOrderingRules.defaultNumberOfEmptyLinesAfterGroup": 0,
+  "importSorter.sortConfiguration.customOrderingRules.rules": [
+    {
+      "disableSort": true,
+      "orderLevel": 5,
+      "regex": "^$",
+      "type": "importMember"
+    },
+    {
+      "orderLevel": 10,
+      "regex": "^[^.@]"
+    },
+    {
+      "orderLevel": 15,
+      "regex": "^[@]"
+    },
+    {
+      "orderLevel": 30,
+      "regex": "^[.]"
+    }
+  ],
+  "importSorter.sortConfiguration.removeUnusedImports": true,
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "certa.json"
+      ],
+      "url": "./tools/certa/certa.schema.json"
+    }
+  ],
+  "markdownlint.config": {
+    "MD024": {
+      "allow_different_nesting": true
+    },
+    "MD033": false,
+    "MD041": false
+  },
+  "markdownlint.ignore": [
+    "**/CHANGELOG.md"
+  ],
+  "search.exclude": {
+    "**/.nyc_output": true,
+    "**/.rush": true,
+    "**/bower_components": true,
+    "**/node_modules": true
+  },
+  "terminal.integrated.env.linux": {
+    "NODE_ENV": "development"
+  },
+  "terminal.integrated.env.osx": {
+    "NODE_ENV": "development"
+  },
+  "terminal.integrated.env.windows": {
+    "NODE_ENV": "development"
+  },
+  "typescript.tsdk": "common/temp/node_modules/typescript/lib",
+  "vitest.maximumConfigs": 20,
+}

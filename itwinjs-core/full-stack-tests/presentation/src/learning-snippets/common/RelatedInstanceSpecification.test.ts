@@ -1,0 +1,263 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+ * See LICENSE.md in the project root for license terms and full copyright notice.
+ *--------------------------------------------------------------------------------------------*/
+import { expect } from "chai";
+import { IModel } from "@itwin/core-common";
+import { IModelConnection } from "@itwin/core-frontend";
+import { KeySet, Node, Ruleset, StandardNodeTypes } from "@itwin/presentation-common";
+import { Presentation } from "@itwin/presentation-frontend";
+import { initialize, terminate } from "../../IntegrationTests.js";
+import { getFieldByLabel } from "../../Utils.js";
+import { printRuleset } from "../Utils.js";
+import { TestIModelConnection } from "../../IModelSetupUtils.js";
+
+describe("Learning Snippets", () => {
+  let imodel: IModelConnection;
+
+  before(async () => {
+    await initialize();
+    imodel = TestIModelConnection.openFile("assets/datasets/Properties_60InstancesWithUrl2.ibim");
+  });
+
+  after(async () => {
+    await imodel.close();
+    await terminate();
+  });
+
+  describe("RelatedInstanceSpecification", () => {
+    it("using in instance filter with relationship path", async () => {
+      // __PUBLISH_EXTRACT_START__ Presentation.RelatedInstanceSpecification.UsingInInstanceFilter.Ruleset
+      // This ruleset defines a specification that returns content for `bis.ViewDefinition` instances. In addition,
+      // there's a related instance specification, that describes a path to a related display style, and an
+      // instance filter that filters using its property.
+      const ruleset: Ruleset = {
+        id: "example",
+        rules: [
+          {
+            ruleType: "Content",
+            specifications: [
+              {
+                specType: "ContentInstancesOfSpecificClasses",
+                classes: { schemaName: "BisCore", classNames: ["ViewDefinition"], arePolymorphic: true },
+                relatedInstances: [
+                  {
+                    relationshipPath: {
+                      relationship: { schemaName: "BisCore", className: "ViewDefinitionUsesDisplayStyle" },
+                      direction: "Forward",
+                    },
+                    alias: "display_style",
+                    isRequired: true,
+                  },
+                ],
+                instanceFilter: `display_style.CodeValue ~ "%View%"`,
+              },
+            ],
+          },
+        ],
+      };
+      // __PUBLISH_EXTRACT_END__
+      printRuleset(ruleset);
+
+      // Ensure that only `bis.ViewDefinition` instances are selected.
+      const content = (await Presentation.presentation.getContentIterator({
+        imodel,
+        rulesetOrId: ruleset,
+        keys: new KeySet(),
+        descriptor: {},
+      }))!;
+
+      expect(content.total).to.eq(3);
+      const field = getFieldByLabel(content.descriptor.fields, "Display Style");
+      for await (const record of content.items) {
+        expect(record.displayValues[field.name]).to.contain("View");
+      }
+    });
+
+    it("using in instance filter with target instance ids", async () => {
+      // __PUBLISH_EXTRACT_START__ Presentation.RelatedInstanceSpecification.UsingInInstanceFilterWithTargetInstances.Ruleset
+      // This ruleset defines a specification that returns content for `bis.ViewDefinition` instances. In addition,
+      // there's a related instance specification for the root Subject, and an instance filter that filters using its property.
+      const ruleset: Ruleset = {
+        id: "example",
+        rules: [
+          {
+            ruleType: "Content",
+            specifications: [
+              {
+                specType: "ContentInstancesOfSpecificClasses",
+                classes: { schemaName: "BisCore", classNames: ["ViewDefinition"], arePolymorphic: true },
+                relatedInstances: [
+                  {
+                    targetInstances: {
+                      class: { schemaName: "BisCore", className: "Subject" },
+                      instanceIds: [IModel.rootSubjectId],
+                    },
+                    alias: "root_subject",
+                    isRequired: true,
+                  },
+                ],
+                instanceFilter: `root_subject.Description = this.Description`,
+              },
+            ],
+          },
+        ],
+      };
+      // __PUBLISH_EXTRACT_END__
+      printRuleset(ruleset);
+
+      // Ensure that 4 `bis.ViewDefinition` instances are selected.
+      const content = await Presentation.presentation.getContentIterator({
+        imodel,
+        rulesetOrId: ruleset,
+        keys: new KeySet(),
+        descriptor: {},
+      });
+
+      expect(content?.total).to.eq(4);
+    });
+
+    it("using for customization", async () => {
+      // __PUBLISH_EXTRACT_START__ Presentation.RelatedInstanceSpecification.UsingForCustomization.Ruleset
+      // This ruleset defines a specification that returns content for `meta.ECClassDef` instances. In addition,
+      // there's a related instance specification, that describes a path to the schema that the class belongs to.
+      // Finally, there's an extended data rule that sets full class name on each of the content items. Full class name consists
+      // of schema and class names and the schema instance can be referenced through the alias specified in related
+      // instance specification.
+      const ruleset: Ruleset = {
+        id: "example",
+        rules: [
+          {
+            ruleType: "Content",
+            specifications: [
+              {
+                specType: "ContentInstancesOfSpecificClasses",
+                classes: { schemaName: "ECDbMeta", classNames: ["ECClassDef"] },
+                relatedInstances: [
+                  {
+                    relationshipPath: {
+                      relationship: { schemaName: "ECDbMeta", className: "SchemaOwnsClasses" },
+                      direction: "Backward",
+                    },
+                    alias: "schema",
+                    isRequired: true,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            ruleType: "ExtendedData",
+            condition: `this.IsOfClass("ECClassDef", "ECDbMeta")`,
+            items: {
+              fullClassName: `schema.Name & "." & this.Name`,
+            },
+          },
+        ],
+      };
+      // __PUBLISH_EXTRACT_END__
+      printRuleset(ruleset);
+
+      // __PUBLISH_EXTRACT_START__ Presentation.RelatedInstanceSpecification.UsingForCustomization.Result
+      // Every content item should have its full class name in extended data
+      const content = await Presentation.presentation.getContentIterator({
+        imodel,
+        rulesetOrId: ruleset,
+        keys: new KeySet(),
+        descriptor: {},
+      });
+      expect(content).to.not.be.undefined;
+      expect(content!.total).to.eq(417);
+      for await (const item of content!.items) {
+        const fullClassName = item.extendedData!.fullClassName;
+        const [schemaName, className] = fullClassName.split(".");
+        expect(schemaName).to.not.be.empty;
+        expect(className).to.not.be.empty;
+      }
+      // __PUBLISH_EXTRACT_END__
+    });
+
+    /* eslint-disable @typescript-eslint/no-deprecated */
+    it("using for grouping", async () => {
+      // __PUBLISH_EXTRACT_START__ Presentation.RelatedInstanceSpecification.UsingForGrouping.Ruleset
+      // This ruleset defines a specification that returns nodes for `meta.ECClassDef` instances. In addition,
+      // there's a related instance specification, that describes a path to the schema that the class belongs to.
+      // Finally, there's a grouping rule that requests grouping on `ECSchemaDef.Name` property. Because
+      // the `ECClassDef` instances are "linked" to related `ECSchemaDef` instances, the grouping takes effect
+      // and classes get grouped by related schema names.
+      const ruleset: Ruleset = {
+        id: "example",
+        rules: [
+          {
+            ruleType: "RootNodes",
+            specifications: [
+              {
+                specType: "InstanceNodesOfSpecificClasses",
+                classes: { schemaName: "ECDbMeta", classNames: ["ECClassDef"] },
+                groupByClass: false,
+                groupByLabel: false,
+                relatedInstances: [
+                  {
+                    relationshipPath: {
+                      relationship: { schemaName: "ECDbMeta", className: "SchemaOwnsClasses" },
+                      direction: "Backward",
+                    },
+                    alias: "schema",
+                    isRequired: true,
+                  },
+                ],
+              },
+            ],
+            customizationRules: [
+              {
+                ruleType: "Grouping",
+                class: { schemaName: "ECDbMeta", className: "ECSchemaDef" },
+                groups: [
+                  {
+                    specType: "Property",
+                    propertyName: "Name",
+                    createGroupForSingleItem: true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      // __PUBLISH_EXTRACT_END__
+      printRuleset(ruleset);
+
+      // Every node should have its full class name in extended data
+      const { total, items } = await Presentation.presentation.getNodesIterator({
+        imodel,
+        rulesetOrId: ruleset,
+      });
+      expect(total).to.eq(18);
+
+      async function testSchemaNode(schemaNode: Node) {
+        expect(schemaNode).to.containSubset({
+          key: {
+            type: StandardNodeTypes.ECPropertyGroupingNode,
+            className: "ECDbMeta:ECSchemaDef",
+            propertyName: "Name",
+          },
+        });
+
+        const { total: count } = await Presentation.presentation.getNodesIterator({
+          imodel,
+          rulesetOrId: ruleset,
+          parentKey: schemaNode.key,
+        });
+
+        expect(count).not.to.eq(0);
+      }
+
+      const promises: Promise<void>[] = [];
+      for await (const node of items) {
+        promises.push(testSchemaNode(node));
+      }
+      await Promise.all(promises);
+    });
+    /* eslint-enable @typescript-eslint/no-deprecated */
+  });
+});

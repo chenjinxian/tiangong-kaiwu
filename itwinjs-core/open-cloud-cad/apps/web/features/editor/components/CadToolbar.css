@@ -1,0 +1,137 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Horizontal CAD Toolbar - Onshape/FreeCAD style (top placement) */
+.cad-toolbar-horizontal {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  background: var(--iui-color-background-surface-elevated);
+  border-bottom: 1px solid var(--iui-color-border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.cad-toolbar-horizontal::-webkit-scrollbar {
+  height: 3px;
+}
+
+.cad-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.cad-toolbar-label {
+  font-size: 10px;
+  color: var(--iui-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-right: var(--iui-size-2xs);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.cad-toolbar-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.cad-toolbar-divider {
+  height: 24px;
+  margin: 0 var(--iui-size-xs);
+}
+
+.cad-tool-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.cad-tool-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cad-tool-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Legacy vertical toolbar styles (kept for backward compatibility) */
+.cad-toolbar {
+  display: flex;
+  flex-direction: column;
+  width: 72px;
+  background: var(--iui-color-background-surface);
+  border-right: 1px solid var(--iui-color-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+  padding: var(--iui-size-xs) 0;
+  scrollbar-width: thin;
+}
+
+.cad-toolbar::-webkit-scrollbar {
+  width: 3px;
+}
+
+.cad-tool-group-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--iui-size-xs) 0;
+  gap: 3px;
+}
+
+.cad-tool-group-label {
+  font-size: 8px;
+  color: var(--iui-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+  user-select: none;
+  max-width: 64px;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.cad-tool-btn-vertical {
+  width: 56px;
+  height: 56px;
+  border: 1px solid transparent;
+  border-radius: var(--iui-border-radius);
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.cad-tool-btn-vertical:hover {
+  background: var(--iui-color-background-surface-elevated);
+  border-color: var(--iui-color-border);
+  color: var(--iui-color-text);
+}
+
+.cad-tool-btn-vertical.active {
+  background: var(--iui-color-background-accent-muted);
+  border-color: var(--iui-color-border-accent);
+  color: var(--iui-color-text-accent);
+  box-shadow: inset 2px 0 0 var(--iui-color-text-accent);
+}

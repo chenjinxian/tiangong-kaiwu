@@ -1,0 +1,95 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Content fromJSON creates valid Content from valid JSON 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {
+        "test": "123",
+      },
+      "label": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test": 123,
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [],
+    "classesMap": Object {},
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "",
+    "fields": Array [],
+    "inputKeysHash": "",
+    "selectClasses": Array [],
+  },
+}
+`;
+
+exports[`Content fromJSON creates valid Content from valid serialized JSON 1`] = `
+Object {
+  "contentSet": Array [
+    Object {
+      "classInfo": Object {
+        "id": "0x1",
+        "label": "Class Label",
+        "name": "SchemaName:ClassName",
+      },
+      "displayValues": Object {
+        "test": "123",
+      },
+      "label": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "labelDefinition": Object {
+        "displayValue": "test display value",
+        "rawValue": "test raw value",
+        "typeName": "string",
+      },
+      "mergedFieldNames": Array [],
+      "primaryKeys": Array [
+        Object {
+          "className": "SchemaName:ClassName",
+          "id": "0x1",
+        },
+      ],
+      "values": Object {
+        "test": 123,
+      },
+    },
+  ],
+  "descriptor": Object {
+    "categories": Array [],
+    "classesMap": Object {},
+    "connectionId": "",
+    "contentFlags": 0,
+    "displayType": "",
+    "fields": Array [],
+    "inputKeysHash": "",
+    "selectClasses": Array [],
+  },
+}
+`;

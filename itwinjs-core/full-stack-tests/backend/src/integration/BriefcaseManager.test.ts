@@ -1,0 +1,229 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+
+import { assert, expect } from "chai";
+import * as os from "os";
+import * as sinon from "sinon";
+import { AccessToken, BriefcaseStatus, GuidString } from "@itwin/core-bentley";
+import { BriefcaseIdValue, BriefcaseProps, IModelVersion } from "@itwin/core-common";
+import { BriefcaseDb, BriefcaseManager, CheckpointManager, IModelHost, IModelJsFs, RequestNewBriefcaseArg, V2CheckpointManager } from "@itwin/core-backend";
+import { _hubAccess } from "@itwin/core-backend/lib/cjs/internal/Symbols";
+import { HubWrappers } from "@itwin/core-backend/lib/cjs/test/index";
+import { HubUtility, TestUserType } from "../HubUtility";
+
+import "./StartupShutdown"; // calls startup/shutdown IModelHost before/after all tests
+
+// Configuration needed:
+//    IMJS_TEST_REGULAR_USER_NAME
+//    IMJS_TEST_REGULAR_USER_PASSWORD
+//    IMJS_TEST_MANAGER_USER_NAME
+//    IMJS_TEST_MANAGER_USER_PASSWORD
+//    IMJS_TEST_SUPER_MANAGER_USER_NAME
+//    imjs_test_super_manager_password
+//    imjs_test_imodelhub_user_name
+//    imjs_test_imodelhub_user_password
+//    IMJS_OIDC_BROWSER_TEST_CLIENT_ID
+//      - Required to be a SPA
+//    IMJS_OIDC_BROWSER_TEST_REDIRECT_URI
+//    IMJS_OIDC_BROWSER_TEST_SCOPES
+//      - Required scopes: "itwin-platform"
+
+describe("BriefcaseManager", () => {
+  let testITwinId: string;
+
+  let readOnlyTestIModelId: GuidString;
+  let accessToken: AccessToken;
+
+  before(async () => {
+    accessToken = await HubUtility.getAccessToken(TestUserType.Regular);
+    testITwinId = await HubUtility.getTestITwinId(accessToken);
+    readOnlyTestIModelId = await HubUtility.getTestIModelId(accessToken, HubUtility.testIModelNames.readOnly);
+  });
+
+  after(async () => {
+    V2CheckpointManager.cleanup();
+  });
+
+  it("should be able to reverse apply changesets and maintain changeset indices", async () => {
+    const testIModelId = await HubUtility.getTestIModelId(accessToken, HubUtility.testIModelNames.readOnly);
+    const changesetId = "1b186c485d182c46c02b99aff4fb12637263438f";
+    const args: RequestNewBriefcaseArg = {
+      accessToken,
+      iTwinId: testITwinId,
+      iModelId: testIModelId,
+      briefcaseId: BriefcaseIdValue.Unassigned,
+      asOf: { afterChangeSetId: changesetId },
+    };
+    const props = await BriefcaseManager.downloadBriefcase(args);
+    const iModel = await BriefcaseDb.open({
+      fileName: props.fileName,
+      readonly: true,
+    });
+
+    expect(iModel.changeset.id).to.equal(changesetId);
+    expect(iModel.changeset.index).to.equal(4);
+    let index = 3;
+    await iModel.pullChanges({ accessToken, toIndex: index });
+    expect(iModel.changeset.index).to.equal(index);
+    index = 2;
+    await iModel.pullChanges({ accessToken, toIndex: index });
+    expect(iModel.changeset.index).to.equal(index);
+    index = 4;
+    await iModel.pullChanges({ accessToken, toIndex: index });
+    expect(iModel.changeset.index).to.equal(index);
+    expect(iModel.changeset.id).to.equal(changesetId);
+    await HubWrappers.closeAndDeleteBriefcaseDb(accessToken, iModel);
+  });
+
+  it("should open and close an iModel from the Hub", async () => {
+    const iModel = await HubWrappers.openCheckpointUsingRpc({ accessToken, iTwinId: testITwinId, iModelId: readOnlyTestIModelId, asOf: IModelVersion.first().toJSON(), deleteFirst: true });
+    assert.exists(iModel, "No iModel returned from call to BriefcaseManager.open");
+
+    // Validate that the IModelDb is readonly
+    assert(iModel.isReadonly, "iModel not set to Readonly mode");
+
+    const expectedChangeSet = await IModelHost[_hubAccess].getChangesetFromVersion({ version: IModelVersion.first(), accessToken, iModelId: readOnlyTestIModelId });
+    assert.strictEqual(iModel.changeset.id, expectedChangeSet.id);
+
+    // This iModelDb should be a snapshot because it was opened as a checkpoint
+    expect(iModel.isSnapshot).true;
+    iModel.close();
+  });
+
+  it("should reuse checkpoints", async () => {
+    const iModel1 = await HubWrappers.openCheckpointUsingRpc({ accessToken, iTwinId: testITwinId, iModelId: readOnlyTestIModelId, asOf: IModelVersion.named("FirstVersion").toJSON() });
+    assert.exists(iModel1, "No iModel returned from call to BriefcaseManager.open");
+
+    const iModel2 = await HubWrappers.openCheckpointUsingRpc({ accessToken, iTwinId: testITwinId, iModelId: readOnlyTestIModelId, asOf: IModelVersion.named("FirstVersion").toJSON() });
+    assert.exists(iModel2, "No iModel returned from call to BriefcaseManager.open");
+    assert.equal(iModel1, iModel2, "previously open briefcase was expected to be shared");
+
+    const iModel3 = await HubWrappers.openCheckpointUsingRpc({ accessToken, iTwinId: testITwinId, iModelId: readOnlyTestIModelId, asOf: IModelVersion.named("ThirdVersion").toJSON() });
+    assert.exists(iModel3, "No iModel returned from call to BriefcaseManager.open");
+    assert.notEqual(iModel3, iModel2, "opening two different versions should not cause briefcases to be shared when the older one is open");
+
+    iModel2.close();
+    iModel3.close();
+    });
+
+  it("should be able to show progress when downloading a briefcase (#integration)", async () => {
+    const testIModelId = await HubUtility.getTestIModelId(accessToken, HubUtility.testIModelNames.stadium);
+    let numProgressCalls = 0;
+    let aborted = 0;
+    let done = 0;
+    let complete = 0;
+    let last = -1;
+    const downloadProgress = (loaded: number, total: number) => {
+      if (total > 0 && loaded !== last) {
+        last = loaded;
+        numProgressCalls++;
+        done = loaded;
+        complete = total;
+        if (loaded > 0)
+          aborted = 1;
+      }
+      return aborted;
+    };
+
+    const args: RequestNewBriefcaseArg & BriefcaseProps = {
+      accessToken,
+      iTwinId: testITwinId,
+      iModelId: testIModelId,
+      briefcaseId: BriefcaseIdValue.Unassigned,
+      onProgress: downloadProgress,
+    };
+    const fileName = BriefcaseManager.getFileName(args);
+    await BriefcaseManager.deleteBriefcaseFiles(fileName);
+    await expect(BriefcaseManager.downloadBriefcase(args)).to.eventually.be.rejectedWith("cancelled").have.property("errorNumber", BriefcaseStatus.DownloadCancelled);
+    await BriefcaseManager.deleteBriefcaseFiles(fileName, accessToken);
+    assert.isAbove(numProgressCalls, 0, "download progress called");
+    assert.isAbove(done, 0, "done set");
+    assert.isAbove(complete, 0, "complete set");
+  });
+
+  it("Should be able to cancel an in progress download (#integration)", async () => {
+    const testIModelId = await HubUtility.getTestIModelId(accessToken, HubUtility.testIModelNames.stadium);
+    let aborted = 0;
+    let sawProgress = false;
+
+    const args = {
+      accessToken,
+      iTwinId: testITwinId,
+      iModelId: testIModelId,
+      briefcaseId: BriefcaseIdValue.Unassigned,
+      onProgress: (loaded: number, total: number) => {
+        if (!sawProgress && total > 0 && loaded > 0) {
+          sawProgress = true;
+          aborted = 1;
+        }
+
+        return aborted;
+      },
+    };
+    await BriefcaseManager.deleteBriefcaseFiles(BriefcaseManager.getFileName(args), accessToken);
+
+    await expect(BriefcaseManager.downloadBriefcase(args)).to.eventually.be.rejectedWith("cancelled").have.property("errorNumber", BriefcaseStatus.DownloadCancelled);
+    assert.isTrue(sawProgress, "test should observe progress before cancellation");
+  });
+
+  it("Should be able to delete the briefcase .bim file on a failed download", async () => {
+    const testIModelId = await HubUtility.getTestIModelId(accessToken, HubUtility.testIModelNames.stadium);
+    const args: RequestNewBriefcaseArg & BriefcaseProps = {
+      accessToken,
+      iTwinId: testITwinId,
+      iModelId: testIModelId,
+      briefcaseId: BriefcaseIdValue.Unassigned,
+    };
+    const fileName = BriefcaseManager.getFileName(args);
+    await BriefcaseManager.deleteBriefcaseFiles(fileName);
+    sinon.stub(CheckpointManager, "downloadCheckpoint").throws(new Error("testError"));
+    const downloadPromise = BriefcaseManager.downloadBriefcase({ ...args, fileName });
+    await expect(downloadPromise).to.eventually.be.rejectedWith("testError");
+    expect(IModelJsFs.existsSync(fileName)).to.be.false;
+    sinon.restore();
+  });
+
+  it("Should add os.hostname as deviceName when acquiring briefcase", async () => {
+    const testIModelId = await HubUtility.getTestIModelId(accessToken, HubUtility.testIModelNames.stadium);
+
+    // Stub the acquireNewBriefcaseId method to capture the args
+    const acquireStub = sinon.stub(BriefcaseManager, "acquireNewBriefcaseId");
+    acquireStub.resolves(1234);
+
+    // Stub downloadCheckpoint
+    const downloadStub = sinon.stub(CheckpointManager, "downloadCheckpoint");
+    downloadStub.throws(new Error("Stop execution after acquireNewBriefcaseId"));
+
+    const args: RequestNewBriefcaseArg = {
+      accessToken,
+      iTwinId: testITwinId,
+      iModelId: testIModelId,
+    };
+
+    try {
+      // check default deviceName value
+      await BriefcaseManager.downloadBriefcase(args);
+    } catch {
+      // downloadCheckpoint will throw from stub
+    }
+
+    try {
+      // check custom deviceName value
+      await BriefcaseManager.downloadBriefcase({ ...args, deviceName: "customDeviceName" });
+    } catch {
+      // downloadCheckpoint will throw from stub
+    }
+
+    // Verify that acquireNewBriefcaseId was called with the correct deviceName
+    expect(acquireStub.calledTwice).to.be.true;
+    const callArgsDefault = acquireStub.getCall(0).args[0];
+    expect(callArgsDefault.deviceName).to.equal(`${os.hostname()}:${os.type()}:${os.arch()}`);
+    const callArgsCustom = acquireStub.getCall(1).args[0];
+    expect(callArgsCustom.deviceName).to.equal("customDeviceName");
+
+    sinon.restore();
+  });
+
+});

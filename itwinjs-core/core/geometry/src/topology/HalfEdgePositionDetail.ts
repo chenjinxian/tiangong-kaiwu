@@ -1,0 +1,244 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+/** @packageDocumentation
+ * @module Topology
+ */
+
+import { Geometry } from "../Geometry";
+import { Point3d } from "../geometry3d/Point3dVector3d";
+import { XYAndZ } from "../geometry3d/XYZProps";
+import { HalfEdge } from "./Graph";
+
+/** Enumeration of categorization of "where" a HalfEdgePositionDetail is sitting in the graph. */
+export enum HalfEdgeTopo {
+  /** No known position. */
+  None = 0,
+  /** Sitting at a vertex, reached by a ray in this sector. */
+  Vertex = 1,
+  /** Sitting on an edge. */
+  Edge = 2,
+  /** Face point (before hitting barrier edge). */
+  Face = 3,
+  /**
+   * Exterior point (after hitting barrier edge at fraction).
+   * Fraction is 0 if exterior point "in sweep around exterior corner".
+  */
+  ExteriorFace = 4
+}
+/**
+ * Description of a generalized position within a graph, categorized as:
+ * * "at a certain node around a vertex"
+ * * "at a fractional position along an edge"
+ * * "within a face"
+ * @internal
+ */
+export class HalfEdgePositionDetail {
+  /** The relevant node. */
+  private _node?: HalfEdge;
+  /** The current coordinates. */
+  public x: number;
+  public y: number;
+  public z: number;
+  /** Fractional position along edge. Only defined if the topo tag is `HalfEdgeTopo.Edge`. */
+  private _edgeFraction?: number;
+  /** Enumeration of status vertex, edge, or face status. */
+  private _topo: HalfEdgeTopo;
+  /** First data tag. */
+  private _iTag?: number;
+  /** Second data tag. */
+  private _dTag?: number;
+  /** Special case for point on edge or vertex but target beyond and exterior. */
+  private _isExteriorTarget?: boolean;
+  /**
+   * Constructor.
+   * * The point is CAPTURED (static `create` methods normally clone their inputs).
+   */
+  private constructor(
+    node: HalfEdge | undefined,
+    x: number, y: number, z: number,
+    topo: HalfEdgeTopo,
+    edgeFraction?: number,
+    iTag?: number,
+    dTag?: number,
+    isExteriorTarget?: boolean,
+  ) {
+    this._node = node;
+    this.x = x; this.y = y; this.z = z;
+    this._topo = topo;
+    this._edgeFraction = edgeFraction;
+    this._iTag = iTag;
+    this._dTag = dTag;
+    this._isExteriorTarget = isExteriorTarget;
+  }
+  /** Copy (clones of) all data from other. */
+  public setFrom(other: HalfEdgePositionDetail) {
+    this._node = other._node;
+    this.x = other.x;
+    this.y = other.y;
+    this.z = other.z;
+    this._topo = other._topo;
+    this._edgeFraction = other._edgeFraction;
+    this._iTag = other._iTag;
+    this._dTag = other._dTag;
+  }
+  /** Reset to null topo state. */
+  public resetAsUnknown() {
+    this._node = undefined;
+    this._topo = HalfEdgeTopo.None;
+  }
+  /** Create with null data. */
+  public static create(): HalfEdgePositionDetail {
+    const detail = new HalfEdgePositionDetail(undefined, 0, 0, 0, HalfEdgeTopo.None);
+    return detail;
+  }
+  public get iTag(): number | undefined {
+    return this._iTag;
+  }
+  public set iTag(value: number) {
+    this._iTag = value;
+  }
+  public get dTag(): number | undefined {
+    return this._dTag;
+  }
+  public set dTag(value: number) {
+    this._dTag = value;
+  }
+  public hasDTag(): this is { get dTag(): number } {
+    return this._dTag !== undefined;
+  }
+  public get topo(): HalfEdgeTopo {
+    return this._topo;
+  }
+  /** Create with node, fraction along edge, marked as "HalfEdgeTopo.Edge".  Compute interpolated xyz on the edge. */
+  public static createEdgeAtFraction(node: HalfEdge, edgeFraction: number): HalfEdgePositionDetail {
+    const node1 = node.faceSuccessor;
+    const x = Geometry.interpolate(node.x, edgeFraction, node1.x);
+    const y = Geometry.interpolate(node.y, edgeFraction, node1.y);
+    const z = Geometry.interpolate(node.z, edgeFraction, node1.z);
+    return new HalfEdgePositionDetail(node, x, y, z, HalfEdgeTopo.Edge, edgeFraction);
+  }
+  /**
+   * Reassign contents so this instance becomes a face hit.
+   * @param node new node value. If missing, current node is left unchanged.
+   * @param xyz new coordinates. if missing, current coordinates are left unchanged.
+   */
+  public resetAsFace(node?: HalfEdge, xyz?: XYAndZ): HalfEdgePositionDetail {
+    this._topo = HalfEdgeTopo.Face;
+    if (node)
+      this._node = node;
+    if (xyz) {
+      this.x = xyz.x;
+      this.y = xyz.y;
+      this.z = xyz.z;
+    }
+    this._isExteriorTarget = undefined;
+    return this;
+  }
+  /** Reassign contents so this instance has dTag but no node or HalfEdgeTopo. */
+  public resetAsUndefinedWithTag(dTag: number): HalfEdgePositionDetail {
+    this._topo = HalfEdgeTopo.None;
+    this._dTag = 0;
+    this._iTag = 0;
+    this._dTag = dTag;
+    this._node = undefined;
+    this._isExteriorTarget = undefined;
+    return this;
+  }
+  /**
+   * Reassign contents so this instance becomes an edge hit.
+   * @param node new node value.
+   * @param edgeFraction new edge fraction. xyz is recomputed from this edge and its face successor.
+   */
+  public resetAtEdgeAndFraction(node: HalfEdge, edgeFraction: number): HalfEdgePositionDetail {
+    this._topo = HalfEdgeTopo.Edge;
+    this._node = node;
+    const nodeB = node.faceSuccessor;
+    this._edgeFraction = edgeFraction;
+    this.x = Geometry.interpolate(node.x, edgeFraction, nodeB.x);
+    this.y = Geometry.interpolate(node.y, edgeFraction, nodeB.y);
+    this.z = Geometry.interpolate(node.z, edgeFraction, nodeB.z);
+    this._isExteriorTarget = undefined;
+    return this;
+  }
+  /**
+   * Create at a node.
+   * * Take xyz from the node.
+   */
+  public static createVertex(node: HalfEdge): HalfEdgePositionDetail {
+    return new HalfEdgePositionDetail(node, node.x, node.y, node.z, HalfEdgeTopo.Vertex);
+  }
+  /** Mark as "HalfEdgeTopo.Vertex". */
+  public resetAsVertex(node: HalfEdge): HalfEdgePositionDetail {
+    this._topo = HalfEdgeTopo.Vertex;
+    this._node = node;
+    this._edgeFraction = 0.0;
+    this.setXYZFromNode(node);
+    this._isExteriorTarget = undefined;
+    return this;
+  }
+  /** Set the flag for an exterior relationship to target. */
+  public setIsExteriorTarget(isExterior: boolean | undefined) {
+    this._isExteriorTarget = isExterior;
+  }
+  /** Copy x,y,z from the node to this instance local values. */
+  public setXYZFromNode(node: HalfEdge) {
+    this.x = node.x;
+    this.y = node.y;
+    this.z = node.z;
+  }
+  /** Return the (possibly undefined) edge fraction. */
+  public get edgeFraction(): number | undefined {
+    return this._edgeFraction;
+  }
+  /**
+   * Property access for the flag for an exterior relationship to target.
+   * * undefined flag is returned as false.
+   */
+  public get isExteriorTarget(): boolean {
+    return this._isExteriorTarget !== undefined ? this._isExteriorTarget : false;
+  }
+  /** Return true if this detail is marked as being within a face. */
+  public isFace(): this is { get node() : HalfEdge } {
+    return this._topo === HalfEdgeTopo.Face && this._node !== undefined;
+  }
+  /** Return true if this detail is marked as being within an edge. */
+  public isEdge(): this is { get node() : HalfEdge, get edgeFraction() : number } {
+    return this._topo === HalfEdgeTopo.Edge && this._node !== undefined && this._edgeFraction !== undefined;
+  }
+  /** Return true if this detail is marked as being at a vertex. */
+  public isVertex(): this is { get node() : HalfEdge } {
+    return this._topo === HalfEdgeTopo.Vertex && this._node !== undefined;
+  }
+  /** Return true if this detail has no vertex, edge, or face qualifier. */
+  public get isUnclassified(): boolean {
+    return this._topo === HalfEdgeTopo.None;
+  }
+  /** Return the node reference from this detail */
+  public get node(): HalfEdge | undefined {
+    return this._node;
+  }
+  /** Return the (clone of, or optional filled in result) coordinates from this detail. */
+  public clonePoint(result?: Point3d): Point3d {
+    return Point3d.create(this.x, this.y, this.z, result);
+  }
+  /*
+    // If candidateKey is less than resultKey, replace resultPos and resultKey
+    // by the candidate data.
+    public updateMinimizer(
+      HalfEdgePositionDetail & resultPos, number & resultKey,
+  : HalfEdgePositionDetail & candidatePos, candidateKey: number
+    ): boolean {
+      if (candidateKey < resultKey) {
+        resultKey = candidateKey;
+        resultPos = candidatePos;
+        return true;
+      }
+      return false;
+    }
+  */
+  public isAtXY(x: number, y: number, tolerance: number = Geometry.smallMetricDistance): boolean {
+    return this._topo !== HalfEdgeTopo.None && Geometry.isSameCoordinateXY(this.x, this.y, x, y, tolerance);
+  }
+}

@@ -1,0 +1,286 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* apps/web/src/pages/Settings/Settings.css */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg-primary);
+}
+
+/* ── Topbar ── */
+.settings-page .topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--iui-size-m);
+  height: 56px;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.settings-page .topbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-m);
+}
+
+.settings-page .logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--iui-border-radius);
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.settings-page .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+.settings-page .breadcrumb-sep {
+  color: var(--color-text-secondary);
+}
+
+.settings-page .breadcrumb-current {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.settings-page .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+/* ── Content ── */
+.settings-content {
+  flex: 1;
+  overflow: auto;
+  padding: var(--iui-size-l);
+}
+
+.settings-layout {
+  display: flex;
+  max-width: 900px;
+  margin: 0 auto;
+  gap: var(--iui-size-l);
+  background: var(--color-bg-card);
+  border-radius: var(--iui-border-radius);
+  border: 1px solid var(--color-border);
+  min-height: 500px;
+}
+
+/* ── Sidebar ── */
+.settings-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  padding: var(--iui-size-l);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.user-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-bottom: var(--iui-size-m);
+}
+
+.avatar-wrapper {
+  position: relative;
+  cursor: pointer;
+  margin-bottom: var(--iui-size-m);
+}
+
+.avatar-wrapper .user-avatar {
+  font-size: 24px;
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.avatar-overlay .iui-text {
+  color: white;
+  font-weight: 500;
+}
+
+.avatar-wrapper:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.user-name {
+  font-weight: 600;
+  margin-bottom: var(--iui-size-2xs);
+  color: var(--color-text-primary);
+}
+
+.user-email {
+  color: var(--color-text-secondary);
+}
+
+/* ── Navigation ── */
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  margin-top: var(--iui-size-m);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-s);
+  padding: var(--iui-size-s) var(--iui-size-m);
+  border-radius: var(--iui-border-radius);
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: var(--iui-font-size-body);
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: left;
+}
+
+.nav-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.nav-item.active {
+  background: var(--color-bg-card);
+  color: var(--iui-color-text-accent);
+  font-weight: 500;
+}
+
+.nav-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Main Content ── */
+.settings-main {
+  flex: 1;
+  padding: var(--iui-size-xl);
+  background: var(--color-bg-card);
+}
+
+.settings-section {
+  max-width: 480px;
+}
+
+.section-title {
+  margin-bottom: var(--iui-size-xs);
+  color: var(--color-text-primary);
+}
+
+.section-description {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--iui-size-l);
+}
+
+/* ── Form Elements ── */
+.form-group {
+  margin-bottom: var(--iui-size-m);
+}
+
+.form-group .iui-label {
+  display: block;
+  margin-bottom: var(--iui-size-xs);
+  color: var(--color-text-primary);
+}
+
+.form-group .iui-input {
+  width: 100%;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.form-group .iui-input:focus {
+  border-color: var(--iui-color-text-accent);
+}
+
+.field-hint {
+  display: block;
+  margin-top: var(--iui-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.form-actions {
+  margin-top: var(--iui-size-l);
+  padding-top: var(--iui-size-m);
+  border-top: 1px solid var(--color-border);
+}
+
+.password-hint {
+  margin-bottom: var(--iui-size-m);
+  color: var(--color-text-secondary);
+}
+
+/* ── Preferences ── */
+.preference-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-m) 0;
+}
+
+.preference-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.preference-info strong {
+  color: var(--color-text-primary);
+}
+
+.preference-desc {
+  color: var(--color-text-secondary);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .nav-item span {
+    display: none;
+  }
+
+  .nav-item {
+    padding: var(--iui-size-s);
+  }
+}

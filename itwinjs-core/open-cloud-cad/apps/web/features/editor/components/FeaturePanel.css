@@ -1,0 +1,163 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* FeaturePanel.css — iTwinUI Optimized */
+
+.feature-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.feature-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-s) var(--iui-size-m);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.feature-panel-title {
+  font-size: var(--iui-font-size-small);
+  font-weight: 600;
+  color: var(--iui-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.feature-panel-add-row {
+  display: flex;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.feature-panel-loading {
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
+}
+
+.feature-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--iui-size-xs) 0;
+}
+
+.feature-empty {
+  padding: var(--iui-size-l) var(--iui-size-m);
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
+  text-align: center;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  border-bottom: 1px solid var(--iui-color-border);
+  cursor: pointer;
+  transition: background 0.12s ease;
+  border-left: 2px solid transparent;
+}
+
+.feature-item:hover {
+  background: var(--iui-color-background-surface-elevated);
+  border-left-color: var(--iui-color-text-accent);
+}
+
+.feature-item.suppressed {
+  opacity: 0.6;
+  background: var(--iui-color-background-backdrop);
+}
+
+.feature-item.suppressed .feature-type {
+  text-decoration: line-through;
+  color: var(--iui-color-text-muted);
+}
+
+.feature-order-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--iui-size-3xs);
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.feature-order {
+  font-size: 10px;
+  color: var(--iui-color-text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.feature-reorder-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.feature-reorder-btns .iui-button {
+  padding: 0;
+  height: 14px;
+  width: 14px;
+}
+
+.feature-reorder-btns .iui-button svg {
+  width: 10px;
+  height: 10px;
+}
+
+.feature-icon {
+  width: 18px;
+  font-size: 13px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.feature-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-3xs);
+  min-width: 0;
+}
+
+.feature-type {
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feature-suppressed-label {
+  color: var(--iui-color-text-negative);
+  font-size: 10px;
+}
+
+.feature-actions {
+  display: flex;
+  gap: var(--iui-size-3xs);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.feature-item:hover .feature-actions {
+  opacity: 1;
+}
+
+.form-group {
+  margin-bottom: var(--iui-size-m);
+}
+
+.form-group .iui-label {
+  display: block;
+  margin-bottom: var(--iui-size-xs);
+}

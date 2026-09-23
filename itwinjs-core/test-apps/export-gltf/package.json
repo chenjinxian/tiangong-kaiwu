@@ -1,0 +1,33 @@
+{
+  "name": "export-gltf",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Example of exporting graphics from an iModel",
+  "scripts": {
+    "build": "tsc 1>&2",
+    "lint": "eslint \"./src/**/*.ts\" 1>&2",
+    "lint-deprecation": "",
+    "clean": "rimraf -g lib .rush/temp/package-deps*.json",
+    "test": "",
+    "docs": "",
+    "cover": ""
+  },
+  "repository": {},
+  "dependencies": {
+    "@itwin/core-bentley": "workspace:*",
+    "@itwin/core-geometry": "workspace:*",
+    "@itwin/core-common": "workspace:*",
+    "@itwin/core-backend": "workspace:*",
+    "yargs": "^17.4.0"
+  },
+  "devDependencies": {
+    "@itwin/build-tools": "workspace:*",
+    "@itwin/eslint-plugin": "^6.0.0",
+    "@types/node": "~20.17.0",
+    "@types/yargs": "17.0.19",
+    "eslint": "^9.31.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.6.2"
+  }
+}

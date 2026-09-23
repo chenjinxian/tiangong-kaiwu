@@ -1,0 +1,36 @@
+{
+  "name": "imodel-from-geojson",
+  "//private": "NOTE: this is a private package that is never published",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc 1>&2",
+    "clean": "rimraf -g lib .rush/temp/package-deps*.json",
+    "cover": "",
+    "docs": "",
+    "lint": "eslint \"./src/**/*.ts\" 1>&2",
+    "lint-deprecation": "",
+    "test": ""
+  },
+  "repository": {},
+  "dependencies": {
+    "@itwin/core-bentley": "workspace:*",
+    "@itwin/core-geometry": "workspace:*",
+    "@itwin/core-common": "workspace:*",
+    "@itwin/core-backend": "workspace:*",
+    "fs-extra": "^8.1.0",
+    "yargs": "^17.4.0"
+  },
+  "devDependencies": {
+    "@itwin/build-tools": "workspace:*",
+    "@itwin/eslint-plugin": "^6.0.0",
+    "@types/fs-extra": "^4.0.7",
+    "@types/lodash": "^4.14.202",
+    "@types/node": "~20.17.0",
+    "@types/yargs": "17.0.19",
+    "eslint": "^9.31.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.6.2"
+  }
+}

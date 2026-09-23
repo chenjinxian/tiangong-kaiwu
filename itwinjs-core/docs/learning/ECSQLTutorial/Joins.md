@@ -1,0 +1,164 @@
+# Relationships and Joins
+
+## ECRelationshipClasses
+
+As ECRelationshipClasses are ECClasses as well, they can be used in ECSQL like ECClasses. Their additional relationship semantics are expressed by these system properties.
+
+| Property             | Description                                                          |
+| -------------------- | -------------------------------------------------------------------- |
+| `SourceECInstanceId` | ECInstanceId of the instance on the _source_ end of the relationship |
+| `SourceECClassId`    | ECClassId of the instance on the _source_ end of the relationship    |
+| `TargetECInstanceId` | ECInstanceId of the instance on the _target_ end of the relationship |
+| `TargetECClassId`    | ECClassId of the instance on the _target_ end of the relationship    |
+
+> **Try it yourself**
+>
+> _Goal:_ Return the child [Element](../../bis/domains/BisCore.ecschema.md#element)s (id and class id) of the parent [Element](../../bis/domains/BisCore.ecschema.md#element) 0x30000000048
+>
+> _ECSQL_
+>
+> ```sql
+> SELECT TargetECInstanceId ChildId, TargetECClassId ChildClassId FROM bis.ElementOwnsChildElements WHERE SourceECInstanceId=0x200000000c7
+> ```
+
+Like any ECClass, ECRelationshipClasses abstract away how they are actually persisted in the database. When working with plain database and SQL you need to know that. This usually depends on the cardinality of the relationship. For example M:N relationships (also known as _many to many_) require a separate link table which persists the pairs of related instances. For 1:N relationships (also known as _one to many_) though, the id of the related instance is usually persisted as foreign key in the child table directly. **For ECRelationshipClasses you do not need to know that.**
+
+A practical way to think about this is:
+
+- In a 1:N relationship, each child usually needs to point to only one parent, so a single foreign-key value on the child is often enough.
+- In an M:N relationship, each side can be related to many instances on the other side, so databases usually introduce a third table with one row per related pair.
+
+For example, use the same gym scenario as the ECSQL reference page. One light fixture can help satisfy more than one functional requirement, and one requirement can be satisfied by more than one fixture. A plain relational design often ends up with a third table whose rows look like this:
+
+| Relationship row | Meaning |
+| --- | --- |
+| `Fixture-A` -> `Light the Gym` | Fixture A helps satisfy the main lighting requirement |
+| `Fixture-A` -> `Provide Emergency Egress Lighting` | The same fixture also satisfies the emergency-lighting requirement |
+| `Fixture-B` -> `Light the Gym` | Another fixture also helps satisfy the main lighting requirement |
+
+The important beginner idea is that those middle rows are the relationship data. In ECSQL, the `ECRelationshipClass` is that middle concept. You query the relationship class directly and join through it, instead of first figuring out the physical link-table design.
+
+We will cover relationships more in the next chapter on joins.
+
+## Joins
+
+Joins are a powerful feature of ECSQL to combine data from different classes. **The syntax is the same as in SQL**.
+
+Unlike a plain database, ECSchemas provide first-class concepts like [ECRelationshipClasses](#ecrelationshipclasses) and [Navigation properties](./ECSQLDataTypes.md#navigation-properties) which are helpful when using joins in ECSQL. However, you can also use the joins as you did in SQL without being aware of the above-mentioned concepts.
+
+### Quick Recap
+
+The tutorial expects that you are familiar with SQL joins. Because their understanding is crucial for how relationships and navigation properties affect defining joins, we do a quick recap of the key aspects of joins.
+
+A join is made up of two pieces:
+
+- _What to join_: specifies the class to join to.
+- _How to join_: specifies the join condition. Those pairs of rows from the two classes that match the condition end up in the join.
+
+While you can use any condition, the typical join condition matches a property common to both of the joined classes. This is where ECRelationshipClasses and Navigation properties come into play. The next sections explain why.
+
+### Navigation Properties
+
+[Navigation properties](./ECSQLDataTypes.md#navigation-properties)' main goal is to simplify the navigation from instances to related instances. Consequently, whenever you have a navigation property, you do not need to worry about a join anymore.
+
+The rule of thumb therefore is: **Prefer navigation properties over joins when available.**
+
+However, navigation properties cannot replace all use cases of joins. We will look at those in the next sections.
+We will also cover examples that compare ECSQL using navigation properties with ECSQL using joins once we learnt how to use joins with ECRelationshipClasses.
+
+### Joins using ECRelationshipClasses
+
+Relationships are basically pairs of ids of the related instances. They act as middle-man when joining instances from the two related classes. It does not matter how the relationship is actually persisted (which also depends on the cardinality of the relationship) (see also [ECRelationshipClasses](#ecrelationshipclasses)).
+
+General idea: **join from a class to the relationship class and then join from the relationship class to the related class**
+
+For many readers, it helps to picture this as a two-step hop:
+
+1. Find the relationship rows connected to the starting class.
+2. From those relationship rows, find the related instances on the other side.
+
+### Ad-hoc Joins
+
+As noted above, you can have a join using any arbitrary join condition (_ad-hoc joins_). Usually you will find relationship classes or even navigation properties defined for the typical cases you need to join. Ad-hoc joins are therefore mainly needed if that is **not** the case.
+
+### Examples
+
+As explained above using navigation properties instead of joins is preferred. So always double-check whether a navigation property is defined for the ECRelationshipClass you want to navigate. The examples below show how to use navigation properties and how the corresponding ECSQL using ECRelationshipClasses would look like.
+
+> **Try it yourself**
+>
+> _Goal:_ Return the [Model](../../bis/domains/BisCore.ecschema.md#model) that contains the [Element](../../bis/domains/BisCore.ecschema.md#element) with code 'Sheets'.
+>
+> _ECSQL_
+>
+> ```sql
+> SELECT CodeValue, Model FROM bis.Element WHERE CodeValue = 'Sheets'
+> ```
+
+Note that the above ECSQL implies to navigate from the [Element](../../bis/domains/BisCore.ecschema.md#element) to the [Model](../../bis/domains/BisCore.ecschema.md#model) ECClass using the ECRelationshipClass [ModelContainsElements](../../bis/domains/BisCore.ecschema.md#modelcontainselements). But none of that has to be expressed in the ECSQL. It is all hidden behind the navigation property and makes the ECSQL straight-forward.
+
+The following ECSQL is the same as above but uses joins instead of the navigation property.
+
+> **Try it yourself**
+>
+> _Goal:_ Return the [Model](../../bis/domains/BisCore.ecschema.md#model) that contains the [Element](../../bis/domains/BisCore.ecschema.md#element) with code containing 'Sheets'.
+>
+> _ECSQL_
+>
+> ```sql
+> SELECT rel.SourceECInstanceId ModelId FROM bis.ModelContainsElements rel JOIN bis.Element ON rel.TargetECInstanceId=Element.ECInstanceId WHERE Element.CodeValue='Sheets'
+> ```
+
+If you want to return something else than just the id of the related instance, you can still use the navigation property but you need a join to bring in the related instance's class.
+
+> **Try it yourself**
+>
+> _Goal:_ Return the id, the modeled element and the parent model of the [Model](../../bis/domains/BisCore.ecschema.md#model) that contains the [Element](../../bis/domains/BisCore.ecschema.md#element) with code 'Cut'.
+>
+> _ECSQL_
+>
+> ```sql
+> SELECT Model.ECInstanceId,Model.ModeledElement.Id ModeledElementId,Model.ParentModel.Id ParentModelId FROM bis.Model JOIN bis.Element ON Element.Model.Id=Model.ECInstanceId WHERE Element.CodeValue='Cut'
+> ```
+
+Again for the purpose of learning, the same ECSQL expressed with relationship classes instead of navigation properties looks like this.
+
+> **Try it yourself**
+>
+> _Goal:_ Return the id, the modeled element and the parent model of the [Model](../../bis/domains/BisCore.ecschema.md#model) that contains the [Element](../../bis/domains/BisCore.ecschema.md#element) with code 'Cut'.
+>
+> _ECSQL_
+>
+> ```sql
+> SELECT Model.ECInstanceId,Model.ModeledElement.Id ModeledElementId,Model.ParentModel.Id ParentModelId FROM bis.Element JOIN bis.ModelContainsElements rel ON Element.ECInstanceId=rel.TargetECInstanceId JOIN bis.Model ON rel.SourceECInstanceId=Model.ECInstanceId WHERE Element.CodeValue='Cut'
+> ```
+
+---
+
+## CROSS JOIN with optional ON clause
+
+`CROSS JOIN` produces a Cartesian product of two classes (every row of the left class paired with every row of the right class). It now also accepts an optional `ON` clause to filter that product, matching standard SQL and SQLite syntax.
+
+### Why use CROSS JOIN instead of INNER JOIN?
+
+SQLite applies a [special optimizer rule for CROSS JOIN](https://www.sqlite.org/lang_select.html#special_handling_of_cross_join_): it will **never reorder** the tables in a `CROSS JOIN`, whereas it is free to reorder tables in an `INNER JOIN` for performance. This means you can use `CROSS JOIN ... ON` to get the filtering behavior of an `INNER JOIN` while retaining explicit control over the join order and query plan — which matters in performance-sensitive queries.
+
+### Examples
+
+Unfiltered Cartesian product (classic `CROSS JOIN`):
+
+```sql
+SELECT p.ECInstanceId, i.ECInstanceId FROM bis.Element p CROSS JOIN bis.Model i LIMIT 5
+```
+
+Filtered with `ON` clause — result is the same as `INNER JOIN` but join order is fixed:
+
+```sql
+-- Join order is guaranteed: Element is always the outer table
+SELECT e.ECInstanceId, m.ECInstanceId
+FROM bis.Element e CROSS JOIN bis.Model m ON m.ECInstanceId = e.Model.Id
+```
+
+---
+
+[< Previous](./ECSQLDataTypes.md) &nbsp; | &nbsp; [Next >](./PolymorphicQueries.md)

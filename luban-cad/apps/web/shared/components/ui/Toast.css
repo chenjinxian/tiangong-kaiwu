@@ -1,0 +1,54 @@
+/* Toast.css — Industrial Precision — Themed notification toasts */
+
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10000;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  backdrop-filter: blur(12px);
+  animation: toast-spring-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 380px;
+}
+
+.toast::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.toast--success::before {
+  background: var(--color-success);
+}
+
+.toast--error::before {
+  background: var(--color-error);
+}
+
+.toast--info::before {
+  background: var(--color-primary);
+}
+
+@keyframes toast-spring-in {
+  from {
+    transform: translateX(100%) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}

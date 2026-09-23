@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    /* Language and Environment */
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    /* Module Resolution */
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    /* Types */
+    "types": ["vitest/globals", "node"]
+  }
+}

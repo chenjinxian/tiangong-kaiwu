@@ -1,0 +1,39 @@
+# Triggered on a commit to master when core/backend/package.json changes
+# This is mainly to invalidate PRs on an @bentley/imodeljs-native version change
+
+name: Invalidate Open PRs when imodeljs-native is updated
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - 'master'
+    paths:
+    - '**/core/backend/package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  invalidate:
+    name: Invalidate imodeljs-native status check
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false # admin PAT is only needed for the API calls below, never written to .git/config on disk
+          ref: ${{ github.ref }} # checkouts the branch that triggered the workflow
+          fetch-depth: 0
+
+      # actions/setup-node v6.5.0
+      - name: Setup node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24.x"
+
+      - name: Run invalidate-status-checks.mjs
+        run: |
+          node ./.github/workflows/automation-scripts/invalidate-status-checks.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.IMJS_ADMIN_GH_TOKEN }}

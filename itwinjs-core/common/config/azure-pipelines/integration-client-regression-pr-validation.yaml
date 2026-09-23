@@ -1,0 +1,26 @@
+# iTwin.js Core Integration Client Regression PR Validation Build
+#
+# This integration test job uses the older internal 'imsoidcui' IMS authority and
+# OIDC clients to make sure that workflow is still supported.
+
+trigger:
+  - master
+pr: none
+
+variables:
+  - group: iModel.js non-secret config variables
+  - group: iModel.js Integration Test Users
+
+jobs:
+  - job: Node_24_x
+    condition: succeeded()
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: self
+        clean: true
+        fetchDepth: 1
+
+      - template: templates/integration-test-steps.yaml
+        parameters:
+          nodeVersion: 24.x

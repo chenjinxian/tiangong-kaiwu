@@ -1,0 +1,87 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* AssemblyPanel.css — iTwinUI Optimized */
+
+.assembly-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.assembly-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-s) var(--iui-size-m);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.assembly-panel-title {
+  font-size: var(--iui-font-size-small);
+  font-weight: 600;
+  color: var(--iui-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.assembly-add-row {
+  display: flex;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.assembly-loading {
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
+}
+
+.assembly-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--iui-size-xs) 0;
+}
+
+.assembly-empty {
+  padding: var(--iui-size-l) var(--iui-size-m);
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
+  text-align: center;
+}
+
+.assembly-item {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  border-bottom: 1px solid var(--iui-color-border);
+  cursor: pointer;
+  transition: background 0.12s ease;
+  border-left: 2px solid transparent;
+}
+
+.assembly-item:hover {
+  background: var(--iui-color-background-surface-elevated);
+  border-left-color: var(--iui-color-text-accent);
+}
+
+.assembly-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.assembly-name {
+  flex: 1;
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

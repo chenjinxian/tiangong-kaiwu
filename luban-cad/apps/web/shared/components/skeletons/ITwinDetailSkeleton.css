@@ -1,0 +1,229 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+.itwin-detail-skeleton {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg-page, #f8fafc);
+}
+
+/* Topbar skeleton */
+.topbar-skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 52px;
+  background: var(--color-bg-header, #ffffff);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.skeleton-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--color-border, #e5e7eb);
+}
+
+.skeleton-breadcrumb {
+  width: 200px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--color-border, #e5e7eb);
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-border, #e5e7eb);
+}
+
+/* Hero skeleton */
+.hero-skeleton {
+  background: var(--color-bg-card, #ffffff);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  padding: 20px 24px;
+}
+
+.hero-content-skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.hero-left-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.skeleton-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--color-border, #e5e7eb);
+}
+
+.hero-info-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-text {
+  background: var(--color-border, #e5e7eb);
+  border-radius: 4px;
+}
+
+.skeleton-text.title {
+  width: 180px;
+  height: 24px;
+}
+
+.skeleton-text.meta {
+  width: 240px;
+  height: 16px;
+}
+
+.skeleton-text.name {
+  width: 70%;
+  height: 18px;
+}
+
+.skeleton-text.desc {
+  width: 90%;
+  height: 14px;
+}
+
+.skeleton-text.meta {
+  width: 50%;
+  height: 12px;
+}
+
+.skeleton-button {
+  width: 120px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--color-border, #e5e7eb);
+}
+
+.skeleton-badge {
+  width: 100px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--color-border, #e5e7eb);
+}
+
+/* Toolbar skeleton */
+.toolbar-skeleton {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--color-bg-sidebar, #ffffff);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+/* Grid skeleton */
+.grid-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 24px;
+}
+
+.imodel-card-skeleton {
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.imodel-thumb-skeleton {
+  height: 120px;
+  background: linear-gradient(135deg, var(--color-border, #e5e7eb), #f1f5f9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.skeleton-status {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border, #e5e7eb);
+}
+
+.imodel-body-skeleton {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* iModels list skeleton (partial) */
+.imodels-list-skeleton {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Pulse animation */
+@keyframes skeleton-pulse-itwin {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.pulse {
+  animation: skeleton-pulse-itwin 1.5s ease-in-out infinite;
+}
+
+/* Stagger animation delays */
+.hero-skeleton .pulse {
+  animation-delay: 0s;
+}
+
+.hero-skeleton .pulse ~ .pulse {
+  animation-delay: 0.1s;
+}
+
+.toolbar-skeleton .pulse {
+  animation-delay: 0.2s;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .grid-skeleton {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    padding: 16px;
+  }
+
+  .hero-content-skeleton {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .skeleton-button {
+    width: 100%;
+  }
+}

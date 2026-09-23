@@ -1,0 +1,287 @@
+/*---------------------------------------------------------------------------------------------
+* Copyright (c) Bentley Systems, Incorporated. All rights reserved.
+* See LICENSE.md in the project root for license terms and full copyright notice.
+*--------------------------------------------------------------------------------------------*/
+
+import { assert } from "chai";
+import { Guid } from "@itwin/core-bentley";
+import { BriefcaseIdValue } from "@itwin/core-common";
+import { Element } from "../../Element";
+import { HubWrappers, IModelTestUtils } from "../IModelTestUtils";
+import { KnownTestLocations } from "../KnownTestLocations";
+import { HubMock } from "../../internal/HubMock";
+import { TestChangeSetUtility } from "../TestChangeSetUtility";
+import { _nativeDb, ChannelControl, ProgressStatus } from "../../core-backend";
+import { withEditTxn } from "../../EditTxn";
+
+describe("BriefcaseManager", async () => {
+  const testITwinId: string = Guid.createValue();
+  const managerAccessToken = "manager mock token";
+  const accessToken = "access token";
+
+  // contested version0 files can cause errors that cause tests to not call shutdown, so always do it here
+  afterEach(() => HubMock.shutdown());
+
+  it("Open iModels with various names causing potential issues on Windows/Unix", async () => {
+    HubMock.startup("bad names", KnownTestLocations.outputDir);
+    let iModelName = "iModel Name With Spaces";
+    let iModelId = await HubWrappers.createIModel(managerAccessToken, testITwinId, iModelName);
+    const args = { accessToken, iTwinId: testITwinId, iModelId };
+    assert.isDefined(iModelId);
+    let iModel = await HubWrappers.openCheckpointUsingRpc(args);
+    assert.isDefined(iModel);
+
+    iModelName = "iModel Name With :\/<>?* Characters";
+    iModelId = await HubWrappers.createIModel(managerAccessToken, testITwinId, iModelName);
+    assert.isDefined(iModelId);
+    iModel = await HubWrappers.openCheckpointUsingRpc(args);
+    assert.isDefined(iModel);
+
+    iModelName = "iModel Name Thats Excessively Long " +
+      "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789" +
+      "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789" +
+      "01234567890123456789"; // 35 + 2*100 + 20 = 255
+    // Note: iModelHub does not accept a name that's longer than 255 characters.
+    assert.equal(255, iModelName.length);
+    iModelId = await HubWrappers.createIModel(managerAccessToken, testITwinId, iModelName);
+    assert.isDefined(iModelId);
+    iModel = await HubWrappers.openCheckpointUsingRpc(args);
+    assert.isDefined(iModel);
+    iModel.close();
+  });
+
+  it("should set appropriate briefcase ids for FixedVersion, PullOnly and PullAndPush workflows", async () => {
+    HubMock.startup("briefcaseIds", KnownTestLocations.outputDir);
+    const iModelId = await HubWrappers.createIModel(accessToken, testITwinId, "imodel1");
+    const args = { accessToken, iTwinId: testITwinId, iModelId, deleteFirst: true };
+    const iModel1 = await HubWrappers.openCheckpointUsingRpc(args);
+    assert.equal(BriefcaseIdValue.Unassigned, iModel1.getBriefcaseId(), "checkpoint should be 0");
+
+    try {
+      const iModelFailure = await HubWrappers.openBriefcaseUsingRpc({ ...args, briefcaseId: 0 });
+      await HubWrappers.closeAndDeleteBriefcaseDb(accessToken, iModelFailure);
+      assert.fail("iModelFailure should fail due to iModel1 already being open as a SnapshotDb");
+    } catch (err: any) {
+      assert.isTrue(err.message.includes("iModel is already open as a SnapshotDb"), "iModelFailure failure must be due to db being open as a SnapshotDb");
+    }
+    await HubWrappers.closeAndDeleteBriefcaseDb(accessToken, iModel1);
+    const iModel2 = await HubWrappers.openBriefcaseUsingRpc({ ...args, briefcaseId: 0 });
+    assert.equal(BriefcaseIdValue.Unassigned, iModel2.briefcaseId, "pullOnly should be 0");
+
+    const iModel2Dup = await HubWrappers.openBriefcaseUsingRpc({ ...args, briefcaseId: 0 });
+
+    const iModel3 = await HubWrappers.openBriefcaseUsingRpc(args);
+    assert.isTrue(iModel3.briefcaseId >= BriefcaseIdValue.FirstValid && iModel3.briefcaseId <= BriefcaseIdValue.LastValid, "valid briefcaseId");
+
+    await HubWrappers.closeAndDeleteBriefcaseDb(accessToken, iModel2);
+    try {
+      await HubWrappers.closeAndDeleteBriefcaseDb(accessToken, iModel2Dup);
+      assert.fail("iModel2Dup failure should fail due to already being closed when iModel2 closed");
+    } catch (err: any) {
+      assert.isTrue(err.message.includes("db not open"), "iModel2Dup failure must be due to db not being open");
+    }
+    await HubWrappers.closeAndDeleteBriefcaseDb(accessToken, iModel3);
+  });
+
+  it("should reuse a briefcaseId when re-opening iModels for pullAndPush workflows", async () => {
+    HubMock.startup("briefcaseIdsReopen", KnownTestLocations.outputDir);
+    const iModelId = await HubWrappers.createIModel(accessToken, testITwinId, "imodel1");
+
+    const args = { accessToken, iTwinId: testITwinId, iModelId, deleteFirst: false };
+    const iModel1 = await HubWrappers.openBriefcaseUsingRpc(args);
+    const briefcaseId1 = iModel1.briefcaseId;
+    iModel1.close(); // Keeps the briefcase by default
+
+    const iModel3 = await HubWrappers.openBriefcaseUsingRpc(args);
+    const briefcaseId3 = iModel3.briefcaseId;
+    assert.strictEqual(briefcaseId3, briefcaseId1);
+
+    await HubWrappers.closeAndDeleteBriefcaseDb(accessToken, iModel3);
+  });
+
+  it("should reuse a briefcaseId when re-opening iModels of different versions for pullAndPush and pullOnly workflows", async () => {
+    HubMock.startup("workflow", KnownTestLocations.outputDir);
+    const userToken1 = "manager token";
+    const userToken2 = "super manager token";
+
+    // User1 creates an iModel on the Hub
+    const testUtility = new TestChangeSetUtility(userToken1, IModelTestUtils.generateUniqueName("BriefcaseReuseTest"));
+    await testUtility.createTestIModel();
+
+    // User2 opens and then closes the iModel pullOnly/pullPush, keeping the briefcase
+    const args = { accessToken: userToken2, iTwinId: testUtility.iTwinId, iModelId: testUtility.iModelId };
+    const iModelPullAndPush = await HubWrappers.openBriefcaseUsingRpc(args);
+    const briefcaseIdPullAndPush: number = iModelPullAndPush.briefcaseId;
+    const changesetPullAndPush = iModelPullAndPush.changeset;
+    iModelPullAndPush.close();
+
+    const iModelPullOnly = await HubWrappers.openBriefcaseUsingRpc({ ...args, briefcaseId: 0 });
+    const briefcaseIdPullOnly: number = iModelPullOnly.briefcaseId;
+    const changesetPullOnly = iModelPullOnly.changeset;
+    iModelPullOnly.close();
+
+    // User1 pushes a change set
+    await testUtility.pushTestChangeSet();
+
+    // User 2 reopens the iModel pullOnly/pullPush => Expect the same briefcase to be re-used, but the changeset should have been updated!!
+    const iModelPullAndPush2 = await HubWrappers.openBriefcaseUsingRpc(args);
+    const briefcaseIdPullAndPush2: number = iModelPullAndPush2.briefcaseId;
+    assert.strictEqual(briefcaseIdPullAndPush2, briefcaseIdPullAndPush);
+    const changesetPullAndPush2 = iModelPullAndPush2.changeset;
+    assert.notStrictEqual(changesetPullAndPush2, changesetPullAndPush);
+    await HubWrappers.closeAndDeleteBriefcaseDb(userToken2, iModelPullAndPush2);
+
+    const iModelPullOnly2 = await HubWrappers.openBriefcaseUsingRpc({ ...args, briefcaseId: 0 });
+    const briefcaseIdPullOnly2: number = iModelPullOnly2.briefcaseId;
+    assert.strictEqual(briefcaseIdPullOnly2, briefcaseIdPullOnly);
+    const changesetPullOnly2 = iModelPullOnly2.changeset;
+    assert.notStrictEqual(changesetPullOnly2, changesetPullOnly);
+    await HubWrappers.closeAndDeleteBriefcaseDb(userToken2, iModelPullOnly2);
+
+    // Delete iModel from the Hub and disk
+    await testUtility.deleteTestIModel();
+  });
+
+  it("should be able to edit a PullAndPush briefcase, reopen it as of a new version, and then push changes", async () => {
+    HubMock.startup("pullPush", KnownTestLocations.outputDir);
+    const userToken1 = "manager token"; // User1 is just used to create and update the iModel
+    const userToken2 = "super manager token"; // User2 is used for the test
+
+    // User1 creates an iModel on the Hub
+    const testUtility = new TestChangeSetUtility(userToken1, "PullAndPushTest");
+    await testUtility.createTestIModel();
+
+    // User2 opens the iModel pullAndPush and is able to edit and save changes
+    const args = { accessToken: userToken2, iTwinId: testUtility.iTwinId, iModelId: testUtility.iModelId };
+    let iModelPullAndPush = await HubWrappers.openBriefcaseUsingRpc(args);
+    assert.exists(iModelPullAndPush);
+    const briefcaseId = iModelPullAndPush.briefcaseId;
+    const pathname = iModelPullAndPush.pathName;
+
+    iModelPullAndPush.channels.addAllowedChannel(ChannelControl.sharedChannelName);
+    const rootEl: Element = iModelPullAndPush.elements.getRootSubject();
+    rootEl.userLabel = `${rootEl.userLabel}changed`;
+    withEditTxn(iModelPullAndPush, (txn) => txn.updateElement(rootEl.toJSON()));
+
+    assert.isFalse(iModelPullAndPush[_nativeDb].hasUnsavedChanges());
+    assert.isTrue(iModelPullAndPush[_nativeDb].hasPendingTxns());
+
+    iModelPullAndPush.close();
+
+    // User2 should be able to re-open the iModel pullAndPush again
+    // - the changes will still be there
+    iModelPullAndPush = await HubWrappers.openBriefcaseUsingRpc(args);
+    const changesetPullAndPush = iModelPullAndPush.changeset;
+    assert.strictEqual(iModelPullAndPush.briefcaseId, briefcaseId);
+    assert.strictEqual(iModelPullAndPush.pathName, pathname);
+    assert.isFalse(iModelPullAndPush[_nativeDb].hasUnsavedChanges());
+    assert.isTrue(iModelPullAndPush[_nativeDb].hasPendingTxns());
+
+    // User1 pushes a change set
+    await testUtility.pushTestChangeSet();
+
+    // User2 should be able to re-open the iModel
+    await HubWrappers.openBriefcaseUsingRpc(args);
+
+    // User2 closes and reopens the iModel pullAndPush as of the newer version
+    // - the changes will still be there, AND
+    // - the briefcase will be upgraded to the newer version since it was closed and re-opened.
+    iModelPullAndPush.close();
+    iModelPullAndPush = await HubWrappers.openBriefcaseUsingRpc(args);
+    const changesetPullAndPush3 = iModelPullAndPush.changeset;
+    assert.notStrictEqual(changesetPullAndPush3, changesetPullAndPush);
+    assert.strictEqual(iModelPullAndPush.briefcaseId, briefcaseId);
+    assert.strictEqual(iModelPullAndPush.pathName, pathname);
+    assert.isFalse(iModelPullAndPush[_nativeDb].hasUnsavedChanges());
+    assert.isTrue(iModelPullAndPush[_nativeDb].hasPendingTxns());
+
+    // User2 should be able to push the changes now
+    await iModelPullAndPush.pushChanges({ accessToken: userToken2, description: "test change" });
+    const changesetPullAndPush4 = iModelPullAndPush.changeset;
+    assert.notStrictEqual(changesetPullAndPush4, changesetPullAndPush3);
+
+    // Delete iModel from the Hub and disk
+    await HubWrappers.closeAndDeleteBriefcaseDb(userToken2, iModelPullAndPush);
+    await testUtility.deleteTestIModel();
+  });
+
+  describe("pushChanges download progress", () => {
+    const user1 = "user1 mock token";
+    const user2 = "user2 mock token";
+
+    /** Creates an iModel owned by user1, opens a briefcase for user2, then pushes another changeset as user1 so
+     * that user2's briefcase is behind by one changeset and must pull-and-merge before it can push.
+     */
+    async function setupOutdatedBriefcase(testName: string) {
+      HubMock.startup(testName, KnownTestLocations.outputDir);
+
+      const testUtility = new TestChangeSetUtility(user1, testName);
+      await testUtility.createTestIModel();
+
+      const briefcase = await HubWrappers.downloadAndOpenBriefcase({ accessToken: user2, iTwinId: testUtility.iTwinId, iModelId: testUtility.iModelId });
+      briefcase.channels.addAllowedChannel(ChannelControl.sharedChannelName);
+
+      await testUtility.pushTestChangeSet();
+
+      // Make a local change so that this briefcase actually has something to push.
+      const rootEl: Element = briefcase.elements.getRootSubject();
+      rootEl.userLabel = `${rootEl.userLabel} changed`;
+      withEditTxn(briefcase, (txn) => txn.updateElement(rootEl.toJSON()));
+
+      return { testUtility, briefcase };
+    }
+
+    it("reports download progress for the changesets pulled before pushing", async () => {
+      const { testUtility, briefcase } = await setupOutdatedBriefcase("pushProgress");
+      const changesetBeforePush = briefcase.changeset.id;
+
+      const progress: { loaded: number, total: number }[] = [];
+      await briefcase.pushChanges({
+        accessToken: user2,
+        description: "push with progress",
+        onDownloadProgress: (loaded, total) => {
+          progress.push({ loaded, total });
+          return ProgressStatus.Continue;
+        },
+      });
+
+      assert.isTrue(progress.every((p) => p.loaded <= p.total), "loaded should never exceed total");
+
+      // A push performs more than one pull, and the later ones have nothing left to download. Only the first
+      // sequence actually transfers bytes.
+      const downloaded = progress.filter((p) => p.total > 0);
+      assert.isNotEmpty(downloaded, "expected progress to be reported while pulling changesets");
+      for (let i = 1; i < downloaded.length; ++i)
+        assert.isAtLeast(downloaded[i].loaded, downloaded[i - 1].loaded, "loaded should be monotonically increasing");
+      assert.strictEqual(downloaded[downloaded.length - 1].loaded, downloaded[downloaded.length - 1].total, "the last report should indicate the download completed");
+
+      assert.notStrictEqual(briefcase.changeset.id, changesetBeforePush, "briefcase should have pulled and pushed");
+
+      await HubWrappers.closeAndDeleteBriefcaseDb(user2, briefcase);
+      await testUtility.deleteTestIModel();
+    });
+
+    it("aborts the push when the download progress callback requests it", async () => {
+      const { testUtility, briefcase } = await setupOutdatedBriefcase("pushProgressAbort");
+      const changesetBeforePush = briefcase.changeset.id;
+
+      let error: Error | undefined;
+      try {
+        await briefcase.pushChanges({
+          accessToken: user2,
+          description: "push that gets aborted",
+          onDownloadProgress: () => ProgressStatus.Abort,
+        });
+      } catch (err) {
+        error = err as Error;
+      }
+
+      assert.isDefined(error, "aborting the download should cause pushChanges to throw");
+      assert.strictEqual(briefcase.changeset.id, changesetBeforePush, "briefcase should not have advanced");
+      assert.isTrue(briefcase[_nativeDb].hasPendingTxns(), "local changes should still be pending");
+
+      await HubWrappers.closeAndDeleteBriefcaseDb(user2, briefcase);
+      await testUtility.deleteTestIModel();
+    });
+  });
+});

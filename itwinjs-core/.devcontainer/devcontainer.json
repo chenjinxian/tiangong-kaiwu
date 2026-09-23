@@ -1,0 +1,17 @@
+// See https://aka.ms/vscode-remote/devcontainer.json for format details.
+{
+  "name": "itwinjs-core-linux",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "streetsidesoftware.code-spell-checker",
+        "dbaeumer.vscode-eslint",
+        "davidanson.vscode-markdownlint",
+        "mike-co.import-sorter"
+      ]
+    }
+  }
+}

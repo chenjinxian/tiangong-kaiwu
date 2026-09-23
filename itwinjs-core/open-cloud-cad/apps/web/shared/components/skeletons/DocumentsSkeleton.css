@@ -1,0 +1,192 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+.documents-skeleton {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg-page, #f8fafc);
+}
+
+/* Topbar skeleton */
+.topbar-skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 52px;
+  background: var(--color-bg-header, #ffffff);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.skeleton-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--color-border, #e5e7eb);
+}
+
+.skeleton-text {
+  background: var(--color-border, #e5e7eb);
+  border-radius: 4px;
+}
+
+.skeleton-text.title {
+  width: 140px;
+  height: 18px;
+}
+
+.skeleton-text.section-title {
+  width: 120px;
+  height: 22px;
+}
+
+.skeleton-text.count {
+  width: 80px;
+  height: 16px;
+}
+
+.skeleton-text.card-title {
+  width: 70%;
+  height: 16px;
+  margin-bottom: 8px;
+}
+
+.skeleton-text.card-meta {
+  width: 50%;
+  height: 12px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.skeleton-button {
+  width: 100px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--color-border, #e5e7eb);
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-border, #e5e7eb);
+}
+
+/* Content skeleton */
+.content-skeleton {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sidebar skeleton */
+.sidebar-skeleton {
+  width: 200px;
+  background: var(--color-bg-sidebar, #ffffff);
+  border-right: 1px solid var(--color-border, #e5e7eb);
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav-skeleton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 12px;
+}
+
+.sidebar-item-skeleton {
+  height: 40px;
+  border-radius: 6px;
+  background: var(--color-border, #e5e7eb);
+}
+
+.sidebar-divider-skeleton {
+  height: 1px;
+  background: var(--color-border, #e5e7eb);
+  margin: 12px;
+}
+
+.sidebar-footer-skeleton {
+  padding: 0 12px;
+}
+
+/* Main skeleton */
+.main-skeleton {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.section-header-skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+/* Grid skeleton */
+.grid-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.card-skeleton {
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.card-thumb-skeleton {
+  height: 100px;
+  background: linear-gradient(135deg, var(--color-border, #e5e7eb), #f1f5f9);
+}
+
+.card-body-skeleton {
+  padding: 12px;
+}
+
+/* Pulse animation */
+@keyframes skeleton-pulse-documents {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.pulse {
+  animation: skeleton-pulse-documents 1.5s ease-in-out infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar-skeleton {
+    display: none;
+  }
+
+  .grid-skeleton {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}

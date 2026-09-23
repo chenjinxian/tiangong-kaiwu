@@ -1,0 +1,43 @@
+/* apps/web/src/styles/theme.css */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--color-bg-page);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* JetBrains Mono for code, status, and monospace elements */
+code, pre, .mono,
+.status-item, .status-text, .mode-text,
+.changeset-hash, .editor-changeset-index {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Theme switching transition — scoped to data-theme and data-iui-theme attributes */
+[data-theme],
+[data-iui-theme] {
+  transition: background-color 0.3s ease,
+              border-color 0.3s ease,
+              color 0.3s ease;
+}
+
+/* Disable transition for performance-critical elements */
+.no-transition,
+.no-transition * {
+  transition: none !important;
+}

@@ -1,0 +1,172 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Viewport Component */
+.viewport-component {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-page, #1e1e24);
+  position: relative;
+}
+
+/* Content area */
+.viewport-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Canvas element */
+.viewport-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Overlay states (loading, error) */
+.viewport-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--color-bg-page, #1e1e24);
+  z-index: 10;
+}
+
+.viewport-overlay.loading {
+  color: var(--color-text-secondary, #888);
+}
+
+.viewport-overlay.error {
+  color: var(--color-error, #f44336);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-border, #3d3d4a);
+  border-top-color: var(--color-primary, #5c6bc0);
+  border-radius: 50%;
+  animation: viewport-spin 1s linear infinite;
+}
+
+@keyframes viewport-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-icon {
+  font-size: 48px;
+}
+
+.viewport-overlay p {
+  font-size: 14px;
+  max-width: 400px;
+  text-align: center;
+  margin: 0;
+}
+
+/* Empty state */
+.viewport-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-page, #1e1e24);
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  color: var(--color-text-secondary, #666);
+}
+
+.empty-icon {
+  font-size: 64px;
+  opacity: 0.5;
+  margin-bottom: 8px;
+}
+
+.empty-content h3 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--color-text-secondary, #888);
+}
+
+.empty-content p {
+  font-size: 14px;
+  margin: 0;
+  color: var(--color-text-secondary, #666);
+}
+
+/* Status bar */
+.viewport-statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px;
+  background: var(--color-bg-sidebar, #25252c);
+  border-top: 1px solid var(--color-border, #3d3d4a);
+  font-size: 12px;
+  color: var(--color-text-secondary, #888);
+}
+
+.status-left,
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-separator {
+  color: var(--color-border-strong, #444);
+}
+
+.model-name {
+  font-weight: 500;
+  color: var(--color-text-primary, #aaa);
+}
+
+.model-id {
+  font-family: monospace;
+  color: var(--color-text-secondary, #666);
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.connection-status.connected {
+  color: var(--color-success, #4caf50);
+}
+
+/* Selection highlight in viewport */
+.viewport-canvas ::selection {
+  background: transparent;
+}

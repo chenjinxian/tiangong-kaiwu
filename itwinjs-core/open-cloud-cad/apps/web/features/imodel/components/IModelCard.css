@@ -1,0 +1,116 @@
+.imodel-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--iui-border-radius);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+  color: var(--color-text-primary);
+}
+
+.imodel-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.imodel-card__thumbnail {
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, var(--color-bg-page) 0%, var(--color-border) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.imodel-card__thumbnail.not-initialized {
+  background: linear-gradient(135deg, var(--color-bg-hover) 0%, var(--color-bg-page) 100%);
+}
+
+.imodel-card__icon {
+  width: 36px;
+  height: 36px;
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
+.imodel-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imodel-card__overlay span {
+  font-size: var(--iui-font-size-small);
+  color: var(--color-text-primary);
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  background: var(--color-bg-card);
+  border-radius: var(--iui-border-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.imodel-card__info {
+  padding: var(--iui-size-s);
+}
+
+.imodel-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+  margin-bottom: 2px;
+}
+
+.imodel-card__actions {
+  display: flex;
+  gap: var(--iui-size-xs);
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.imodel-card:hover .imodel-card__actions {
+  opacity: 1;
+}
+
+.imodel-card__title {
+  font-size: var(--iui-font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imodel-card__description {
+  font-size: var(--iui-font-size-small);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--iui-size-xs) 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imodel-card__meta {
+  margin-bottom: var(--iui-size-xs);
+}
+
+.imodel-card__meta .initialized {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.imodel-card__meta .not-initialized {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.imodel-card__date {
+  font-size: var(--iui-font-size-small);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--iui-size-xs) 0;
+}
+
+.imodel-card__action {
+  width: 100%;
+}

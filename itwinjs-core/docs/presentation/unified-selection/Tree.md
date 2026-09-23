@@ -1,0 +1,26 @@
+# Setting up a Tree component for Unified Selection
+
+> **Warning:** The page refers to a deprecated unified selection system. Please see [`@itwin/unified-selection`](https://www.npmjs.com/package/@itwin/unified-selection) and [Migrating from `@itwin/presentation-frontend` unified selection API](https://github.com/iTwin/presentation/blob/master/packages/unified-selection/learning/MigrationGuide.md) learning page for details on how to migrate to new system.
+
+As described in the [Tree selection handling section](./index.md#tree), selection in a Tree component and Unified Selection are synchronized in a two-way manner:
+
+- When a tree node is selected, *ECInstances* it represents are added to unified selection.
+- When an *ECInstance* is added to unified selection, the nodes that represent that *ECInstance* are selected in the tree component.
+
+## Reference
+
+The [Reference section in Unified Selection page](./index.md#reference) describes the core APIs used in Unified Selection workflows.
+
+The `@itwin/presentation-components` package delivers some helper APIs to make setting up Tree components to work with Unified Selection easier:
+
+- [usePresentationTreeState]($presentation-components) hook takes in `eventHandlerFactory` prop that could be used to create [UnifiedSelectionTreeEventHandler]($presentation-components).
+
+- [UnifiedSelectionTreeEventHandler]($presentation-components) is expected to be used directly in more advanced situations - when the tree component handles not only nodes' expand/collapse and selection, but also some custom actions that need to be implemented in a custom handler. In this situation consumers are expected to take care of creating and disposing their event handler on their own.
+
+## Example
+
+The below example shows how to create a very basic presentation rules driven Tree component and hook it into Unified Selection. The latter part is achieved by using [usePresentationTreeState]($presentation-components) and `eventHandlerFactory` to create [UnifiedSelectionTreeEventHandler]($presentation-components), as opposed to using the general [useTreeEventsHandler]($components-react).
+
+```tsx
+[[include:Presentation.Components.UnifiedSelection.Tree]]
+```

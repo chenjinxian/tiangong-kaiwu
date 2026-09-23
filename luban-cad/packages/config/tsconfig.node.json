@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    /* Language and Environment */
+    "lib": ["ES2022"],
+
+    /* Module Resolution */
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    /* Types */
+    "types": ["node", "vitest/globals"]
+  }
+}

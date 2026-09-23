@@ -1,0 +1,242 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* apps/web/src/pages/Editor.css — Professional CAD Workspace */
+.workspace-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--iui-color-background-backdrop);
+}
+
+/* ── Topbar ── */
+.workspace-page .topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-m);
+  padding: 0 var(--iui-size-m);
+  height: 44px;
+  background: var(--iui-color-background-surface);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+  box-shadow: var(--iui-shadow-1);
+}
+
+.workspace-page .logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--iui-border-radius);
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.workspace-page .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  font-size: var(--iui-font-size-body);
+  color: var(--iui-color-text-muted);
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-page .breadcrumb-link {
+  color: var(--iui-color-text-accent);
+  font-weight: 500;
+}
+
+.workspace-page .breadcrumb-sep {
+  color: var(--iui-color-text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--iui-font-size-small);
+}
+
+.workspace-page .breadcrumb-current {
+  color: var(--iui-color-text);
+  font-weight: 600;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-page .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  flex-shrink: 0;
+}
+
+/* ── Toolbar ── */
+.workspace-page .toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  background: var(--iui-color-background-surface);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+  min-height: 40px;
+}
+
+.workspace-page .toolbar-primary {
+  background: linear-gradient(to bottom, var(--iui-color-background-surface), var(--iui-color-background-surface-elevated));
+}
+
+.workspace-page .toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--iui-color-background-backdrop);
+  border-radius: var(--iui-border-radius);
+  border: 1px solid var(--iui-color-border);
+}
+
+.workspace-page .toolbar-group .iui-button {
+  border-radius: calc(var(--iui-border-radius) - 1px);
+}
+
+.workspace-page .toolbar-divider {
+  height: 24px;
+  margin: 0 calc(var(--iui-size-xs) / 2);
+  background: var(--iui-color-border);
+}
+
+.workspace-page .toolbar-spacer {
+  flex: 1;
+}
+
+/* Active tool styling */
+.workspace-page .toolbar-group .iui-button[data-iui-variant='cta'] {
+  background: var(--iui-color-background-accent-muted);
+  color: var(--iui-color-text-accent);
+}
+
+/* ── Editor main ── */
+.workspace-page .editor-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-page .editor-main .viewer-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-page .viewer-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--iui-color-background-backdrop);
+}
+
+/* Floating Measurement Panel */
+.floating-measurement-panel {
+  position: absolute;
+  top: var(--iui-size-m);
+  right: var(--iui-size-m);
+  z-index: 100;
+  max-width: 300px;
+  box-shadow: var(--iui-shadow-2);
+}
+
+/* ── Statusbar ── */
+.workspace-page .statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--iui-size-m);
+  height: 26px;
+  background: var(--iui-color-background-surface);
+  border-top: 1px solid var(--iui-color-border);
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.workspace-page .status-left,
+.workspace-page .status-right {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-m);
+}
+
+.workspace-page .status-item {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+.workspace-page .status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--iui-color-text-success);
+}
+
+.workspace-page .status-sep {
+  color: var(--iui-color-border);
+}
+
+.workspace-page .error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--iui-size-m);
+  color: var(--iui-color-text-negative);
+}
+
+/* ── Loading state ── */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--iui-size-m);
+  color: var(--iui-color-text-muted);
+}
+
+/* ── EditorBriefcaseStatus ── */
+.editor-briefcase-status {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+/* ── Responsive adjustments ── */
+@media (max-width: 1200px) {
+  .workspace-page .toolbar {
+    flex-wrap: wrap;
+    gap: var(--iui-size-xs);
+  }
+
+  .workspace-page .toolbar-group {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace-page .breadcrumb-current {
+    max-width: 150px;
+  }
+
+  .workspace-page .toolbar-spacer {
+    display: none;
+  }
+}

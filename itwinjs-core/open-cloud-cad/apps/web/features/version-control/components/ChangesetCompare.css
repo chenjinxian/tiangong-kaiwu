@@ -1,0 +1,358 @@
+/* ChangesetCompare.css — iTwinUI Optimized */
+
+.cs-compare-panel {
+  width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+  background: var(--iui-color-background-surface);
+  border-left: 1px solid var(--iui-color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cs-compare-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--iui-size-s) var(--iui-size-m);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.cs-compare-title {
+  font-size: var(--iui-font-size-body);
+  font-weight: 600;
+  color: var(--iui-color-text);
+}
+
+.cs-compare-controls {
+  padding: var(--iui-size-s);
+  border-bottom: 1px solid var(--iui-color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-s);
+  flex-shrink: 0;
+}
+
+.cs-compare-selects {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--iui-size-xs);
+}
+
+.cs-compare-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cs-compare-field label {
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
+}
+
+.cs-compare-select {
+  padding: 6px 8px;
+  background: var(--iui-color-background-surface-elevated);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius);
+  color: var(--iui-color-text);
+  font-size: var(--iui-font-size-small);
+  max-width: none;
+  width: 100%;
+}
+
+.cs-compare-select:focus {
+  outline: none;
+  border-color: var(--iui-color-border-accent);
+}
+
+.cs-compare-select option {
+  background: var(--iui-color-background-surface-elevated);
+}
+
+.cs-compare-arrow {
+  color: var(--iui-color-text-muted);
+  font-size: 14px;
+  padding-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.cs-compare-quick-actions {
+  display: flex;
+  gap: var(--iui-size-xs);
+}
+
+.cs-compare-quick-btn {
+  flex: 1;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius);
+  color: var(--iui-color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cs-compare-quick-btn:hover {
+  background: var(--iui-color-background-surface-elevated);
+  color: var(--iui-color-text);
+  border-color: var(--iui-color-border-accent);
+}
+
+.cs-compare-error {
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-negative);
+  background: var(--iui-color-background-negative-muted);
+  border-bottom: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.cs-compare-result {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cs-compare-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-s);
+  border-bottom: 1px solid var(--iui-color-border);
+  background: var(--iui-color-background-surface-elevated);
+  flex-shrink: 0;
+}
+
+.cs-compare-diffbar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--iui-color-border);
+}
+
+.cs-diffbar-segment {
+  min-width: 4px;
+  transition: flex 0.3s ease;
+}
+
+.cs-diffbar-segment--added {
+  background: var(--iui-color-text-success);
+}
+
+.cs-diffbar-segment--modified {
+  background: var(--iui-color-text-warning);
+}
+
+.cs-diffbar-segment--deleted {
+  background: var(--iui-color-text-negative);
+}
+
+.cs-compare-stats {
+  display: flex;
+  gap: var(--iui-size-s);
+}
+
+.cs-compare-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.cs-compare-stat-number {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--iui-color-text);
+}
+
+.cs-compare-stat-label {
+  font-size: 10px;
+  color: var(--iui-color-text-muted);
+  text-transform: uppercase;
+}
+
+.cs-compare-stat--added .cs-compare-stat-number {
+  color: var(--iui-color-text-success);
+}
+
+.cs-compare-stat--modified .cs-compare-stat-number {
+  color: var(--iui-color-text-warning);
+}
+
+.cs-compare-stat--deleted .cs-compare-stat-number {
+  color: var(--iui-color-text-negative);
+}
+
+/* Split-screen layout */
+.cs-compare-split {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--iui-color-border);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.cs-compare-pane {
+  background: var(--iui-color-background-surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.cs-compare-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  border-bottom: 1px solid var(--iui-color-border);
+  background: var(--iui-color-background-surface-elevated);
+  flex-shrink: 0;
+}
+
+.cs-compare-pane-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--iui-color-text-muted);
+  text-transform: uppercase;
+}
+
+.cs-compare-pane-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.cs-compare-pane-empty {
+  padding: var(--iui-size-l) var(--iui-size-s);
+  text-align: center;
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
+}
+
+/* Element change row */
+.compare-element {
+  border-bottom: 1px solid var(--iui-color-border);
+  background: var(--iui-color-background-surface);
+}
+
+.compare-element-header {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.compare-element-header:hover {
+  background: var(--iui-color-background-surface-elevated);
+}
+
+.compare-element-icon {
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.compare-element--added .compare-element-icon {
+  color: var(--iui-color-text-success);
+}
+
+.compare-element--modified .compare-element-icon {
+  color: var(--iui-color-text-warning);
+}
+
+.compare-element--deleted .compare-element-icon {
+  color: var(--iui-color-text-negative);
+}
+
+.compare-element-type {
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.compare-element--added .compare-element-type {
+  background: var(--iui-color-background-positive-muted);
+  color: var(--iui-color-text-success);
+}
+
+.compare-element--modified .compare-element-type {
+  background: var(--iui-color-background-warning-muted);
+  color: var(--iui-color-text-warning);
+}
+
+.compare-element--deleted .compare-element-type {
+  background: var(--iui-color-background-negative-muted);
+  color: var(--iui-color-text-negative);
+}
+
+.compare-element-code {
+  font-size: 11px;
+  color: var(--iui-color-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.compare-properties {
+  padding: 6px var(--iui-size-m) 10px 34px;
+  background: var(--iui-color-background-surface-elevated);
+  border-top: 1px solid var(--iui-color-border);
+}
+
+.compare-property {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: 3px 0;
+  font-size: 11px;
+}
+
+.compare-property-name {
+  color: var(--iui-color-text-muted);
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.compare-property-old {
+  color: var(--iui-color-text-negative);
+  text-decoration: line-through;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 90px;
+}
+
+.compare-property-arrow {
+  color: var(--iui-color-text-muted);
+  flex-shrink: 0;
+}
+
+.compare-property-new {
+  color: var(--iui-color-text-success);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 90px;
+}
