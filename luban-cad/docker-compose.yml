@@ -26,8 +26,8 @@ services:
   # =============================================================================
   backend:
     build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
+      context: ../backend
+      dockerfile: Dockerfile
     container_name: open-cloud-cad-backend
     ports:
       - "4001:4001"
@@ -52,8 +52,8 @@ services:
   # =============================================================================
   web-agent:
     build:
-      context: .
-      dockerfile: apps/web-agent/Dockerfile
+      context: ../web-agent
+      dockerfile: Dockerfile
     container_name: open-cloud-cad-web-agent
     ports:
       - "4002:4002"

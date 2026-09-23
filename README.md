@@ -11,7 +11,9 @@
 | 组件 | 位置 | 角色 |
 |---|---|---|
 | **itwinjs-core** | `./itwinjs-core/` | 核心基础框架（iTwin.js fork；自主化/差异化开发的底座） |
-| **鲁班CAD** | `./luban-cad/` | AI 生成式 CAD 产品——核心架构基于 open-cloud-cad（现实现位于 `../itwinjs-core/open-cloud-cad/`，向本目录迁移） |
+| **鲁班CAD** | `./luban-cad/` | AI 生成式 CAD 产品前端宿主（核心架构自 open-cloud-cad 迁入） |
+| **backend** | `./backend/` | 后台服务：Express + RPC/IPC + Briefcase 管理（:4001） |
+| **web-agent** | `./web-agent/` | 后台服务：Webhook 接收 + baseline 生成 + CloudSqlite 上传（:4002） |
 | **Zokei 渲染引擎** | `../Zokei/` | 图形渲染引擎：itwinjs-core 底层逻辑 + **Filament** 渲染效果 + 编译 **WebAssembly** |
 | **imodel-native** | `../imodel-native/` | iModel 原生引擎：已完成 **CMake** 全编译改造，实现基于 **ACIS 的 BRepCore**，向完全自主化演进（真形的孵化床） |
 

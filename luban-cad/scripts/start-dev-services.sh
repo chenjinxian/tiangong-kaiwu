@@ -21,7 +21,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Check if we're in the right directory
-if [ ! -f "package.json" ] || [ ! -d "apps/web-agent" ]; then
+if [ ! -f "package.json" ] || [ ! -d "../web-agent" ]; then
     echo -e "${RED}Error: Please run this script from the open-cloud-cad directory${NC}"
     exit 1
 fi
@@ -137,7 +137,7 @@ if check_port 4002; then
     echo -e "  ${GREEN}✓${NC} web-agent already running on port 4002"
 else
     echo "  Building web-agent..."
-    cd apps/web-agent
+    cd ../web-agent
 
     # Check if .env exists
     if [ ! -f ".env" ]; then

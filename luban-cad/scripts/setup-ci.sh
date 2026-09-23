@@ -98,7 +98,7 @@ fi
 # Verify key packages
 PACKAGES=(
     "apps/web"
-    "apps/backend"
+    "../backend"
     "packages/shared"
     "packages/viewer-core"
     "packages/web-viewer"

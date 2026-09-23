@@ -84,7 +84,7 @@ start_backend() {
         return 0
     fi
 
-    cd apps/backend
+    cd ../backend
     npm run dev &
     log_success "Backend started (http://localhost:4001)"
 }

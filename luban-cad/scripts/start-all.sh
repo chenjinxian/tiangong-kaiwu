@@ -308,7 +308,7 @@ start_backend() {
 
     log_info "启动 Backend..."
 
-    cd apps/backend
+    cd ../backend
     npm run dev > /tmp/open-cloud-cad/backend.log 2>&1 &
     BACKEND_PID=$!
     save_pid "backend" "$BACKEND_PID"
@@ -343,7 +343,7 @@ start_web_agent() {
 
     log_info "启动 Web-Agent..."
 
-    cd apps/web-agent
+    cd ../web-agent
     npm run dev > /tmp/open-cloud-cad/web-agent.log 2>&1 &
     WEB_AGENT_PID=$!
     save_pid "web-agent" "$WEB_AGENT_PID"

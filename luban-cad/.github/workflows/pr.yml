@@ -234,7 +234,7 @@ jobs:
       - name: Verify build outputs
         run: |
           test -d apps/web/dist || exit 1
-          test -d apps/backend/dist || exit 1
+          test -d ../backend/dist || exit 1
           test -d packages/shared/dist || exit 1
           test -d packages/viewer-core/dist || exit 1
           test -d packages/web-viewer/dist || exit 1
@@ -244,4 +244,4 @@ jobs:
         run: |
           echo "Checking bundle sizes..."
           du -sh apps/web/dist || true
-          du -sh apps/backend/dist || true
+          du -sh ../backend/dist || true

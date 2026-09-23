@@ -38,14 +38,14 @@ check_directories() {
         log_success "imodelhub-services 目录存在"
     fi
 
-    if [ ! -d "apps/backend" ]; then
+    if [ ! -d "../backend" ]; then
         log_error "backend 应用目录不存在"
         errors=$((errors + 1))
     else
         log_success "backend 应用目录存在"
     fi
 
-    if [ ! -d "apps/web-agent" ]; then
+    if [ ! -d "../web-agent" ]; then
         log_error "web-agent 应用目录不存在"
         errors=$((errors + 1))
     else
@@ -65,10 +65,10 @@ check_env_files() {
     log_info "检查环境配置文件..."
 
     # backend .env
-    if [ ! -f "apps/backend/.env" ]; then
+    if [ ! -f "../backend/.env" ]; then
         log_warning "backend/.env 不存在，将从 .env.example 创建"
-        if [ -f "apps/backend/.env.example" ]; then
-            cp apps/backend/.env.example apps/backend/.env
+        if [ -f "../backend/.env.example" ]; then
+            cp ../backend/.env.example ../backend/.env
             log_success "已创建 backend/.env"
         else
             log_error "backend/.env.example 也不存在"
@@ -79,10 +79,10 @@ check_env_files() {
     fi
 
     # web-agent .env
-    if [ ! -f "apps/web-agent/.env" ]; then
+    if [ ! -f "../web-agent/.env" ]; then
         log_warning "web-agent/.env 不存在，将从 .env.example 创建"
-        if [ -f "apps/web-agent/.env.example" ]; then
-            cp apps/web-agent/.env.example apps/web-agent/.env
+        if [ -f "../web-agent/.env.example" ]; then
+            cp ../web-agent/.env.example ../web-agent/.env
             log_success "已创建 web-agent/.env"
         else
             log_error "web-agent/.env.example 也不存在"
@@ -109,12 +109,12 @@ check_config_consistency() {
     backend_secret=""
     webagent_secret=""
 
-    if [ -f "apps/backend/.env" ]; then
-        backend_secret=$(grep "WEBHOOK_SECRET" apps/backend/.env | cut -d= -f2 | tr -d '"' | tr -d "'")
+    if [ -f "../backend/.env" ]; then
+        backend_secret=$(grep "WEBHOOK_SECRET" ../backend/.env | cut -d= -f2 | tr -d '"' | tr -d "'")
     fi
 
-    if [ -f "apps/web-agent/.env" ]; then
-        webagent_secret=$(grep "WEBHOOK_SECRET" apps/web-agent/.env | cut -d= -f2 | tr -d '"' | tr -d "'")
+    if [ -f "../web-agent/.env" ]; then
+        webagent_secret=$(grep "WEBHOOK_SECRET" ../web-agent/.env | cut -d= -f2 | tr -d '"' | tr -d "'")
     fi
 
     if [ "$backend_secret" != "$webagent_secret" ]; then
@@ -127,7 +127,7 @@ check_config_consistency() {
     fi
 
     # 检查端口配置
-    backend_port=$(grep "PORT" apps/backend/.env | head -1 | cut -d= -f2 | tr -d ' ')
+    backend_port=$(grep "PORT" ../backend/.env | head -1 | cut -d= -f2 | tr -d ' ')
     if [ "$backend_port" != "4001" ]; then
         log_warning "backend 端口不是 4001: $backend_port"
         warnings=$((warnings + 1))
@@ -135,7 +135,7 @@ check_config_consistency() {
         log_success "backend 端口配置正确 (4001)"
     fi
 
-    webagent_port=$(grep "PORT" apps/web-agent/.env | head -1 | cut -d= -f2 | tr -d ' ')
+    webagent_port=$(grep "PORT" ../web-agent/.env | head -1 | cut -d= -f2 | tr -d ' ')
     if [ "$webagent_port" != "4002" ]; then
         log_warning "web-agent 端口不是 4002: $webagent_port"
         warnings=$((warnings + 1))
@@ -144,8 +144,8 @@ check_config_consistency() {
     fi
 
     # 检查 Azurite 配置
-    backend_azurite=$(grep "AZURITE_URL" apps/backend/.env | cut -d= -f2 | tr -d ' ')
-    webagent_azurite=$(grep "BLOB_STORAGE_URL" apps/web-agent/.env | cut -d= -f2 | tr -d ' ')
+    backend_azurite=$(grep "AZURITE_URL" ../backend/.env | cut -d= -f2 | tr -d ' ')
+    webagent_azurite=$(grep "BLOB_STORAGE_URL" ../web-agent/.env | cut -d= -f2 | tr -d ' ')
 
     if [[ "$backend_azurite" != *"10000"* ]]; then
         log_warning "backend AZURITE_URL 可能配置错误: $backend_azurite"
@@ -155,8 +155,8 @@ check_config_consistency() {
     fi
 
     # 检查 IMODELHUB_URL
-    backend_hub=$(grep "IMODELHUB_URL" apps/backend/.env | cut -d= -f2 | tr -d ' ')
-    webagent_hub=$(grep "IMODELHUB_API_URL" apps/web-agent/.env | cut -d= -f2 | tr -d ' ')
+    backend_hub=$(grep "IMODELHUB_URL" ../backend/.env | cut -d= -f2 | tr -d ' ')
+    webagent_hub=$(grep "IMODELHUB_API_URL" ../web-agent/.env | cut -d= -f2 | tr -d ' ')
 
     if [ -z "$backend_hub" ]; then
         log_error "backend IMODELHUB_URL 未设置"
@@ -221,20 +221,20 @@ fix_common_issues() {
     log_info "尝试修复常见问题..."
 
     # 修复 webhook secret 不一致
-    backend_secret=$(grep "WEBHOOK_SECRET" apps/backend/.env 2>/dev/null | cut -d= -f2 | tr -d '"' | tr -d "'")
-    webagent_secret=$(grep "WEBHOOK_SECRET" apps/web-agent/.env 2>/dev/null | cut -d= -f2 | tr -d '"' | tr -d "'")
+    backend_secret=$(grep "WEBHOOK_SECRET" ../backend/.env 2>/dev/null | cut -d= -f2 | tr -d '"' | tr -d "'")
+    webagent_secret=$(grep "WEBHOOK_SECRET" ../web-agent/.env 2>/dev/null | cut -d= -f2 | tr -d '"' | tr -d "'")
 
     if [ "$backend_secret" != "$webagent_secret" ]; then
         log_info "修复 WEBHOOK_SECRET 不一致..."
 
         # 使用 backend 的值
         if [ -n "$backend_secret" ]; then
-            sed -i '' "s|WEBHOOK_SECRET=.*|WEBHOOK_SECRET=$backend_secret|" apps/web-agent/.env
+            sed -i '' "s|WEBHOOK_SECRET=.*|WEBHOOK_SECRET=$backend_secret|" ../web-agent/.env
             log_success "已将 web-agent WEBHOOK_SECRET 更新为: $backend_secret"
         else
             # 使用统一的默认值
-            echo "WEBHOOK_SECRET=local-dev-secret" >> apps/backend/.env
-            echo "WEBHOOK_SECRET=local-dev-secret" >> apps/web-agent/.env
+            echo "WEBHOOK_SECRET=local-dev-secret" >> ../backend/.env
+            echo "WEBHOOK_SECRET=local-dev-secret" >> ../web-agent/.env
             log_success "已设置统一的 WEBHOOK_SECRET: local-dev-secret"
         fi
     fi

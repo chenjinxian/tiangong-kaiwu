@@ -48,10 +48,10 @@ else
     check_fail "Frontend app missing (apps/web)"
 fi
 
-if [ -d "apps/web-agent" ]; then
+if [ -d "../web-agent" ]; then
     check_pass "Web-agent app exists"
 else
-    check_fail "Web-agent app missing (apps/web-agent)"
+    check_fail "Web-agent app missing (../web-agent)"
 fi
 
 if [ -d "/Users/xunzhang/Documents/GitHub/imodelhub-services" ]; then
@@ -88,7 +88,7 @@ if curl -s http://localhost:4002/health > /dev/null 2>&1; then
     check_pass "web-agent is running (port 4002)"
 else
     check_fail "web-agent not responding (port 4002)"
-    echo "    Start with: cd apps/web-agent && npm run dev"
+    echo "    Start with: cd ../web-agent && npm run dev"
 fi
 
 echo ""
@@ -99,8 +99,8 @@ echo ""
 echo -e "${YELLOW}3. Webhook Configuration${NC}"
 
 # Check web-agent .env
-if [ -f "apps/web-agent/.env" ]; then
-    WEBHOOK_SECRET=$(grep "WEBHOOK_SECRET" apps/web-agent/.env | cut -d= -f2 || echo "")
+if [ -f "../web-agent/.env" ]; then
+    WEBHOOK_SECRET=$(grep "WEBHOOK_SECRET" ../web-agent/.env | cut -d= -f2 || echo "")
     if [ -n "$WEBHOOK_SECRET" ]; then
         check_pass "web-agent WEBHOOK_SECRET configured"
     else

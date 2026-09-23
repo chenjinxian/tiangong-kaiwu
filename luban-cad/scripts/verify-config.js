@@ -15,16 +15,16 @@ console.log('╚═════════════════════�
 const checks = [];
 
 // Check 1: Backend .env file exists
-const backendEnvPath = path.join(__dirname, '../apps/backend/.env');
-const backendEnvExamplePath = path.join(__dirname, '../apps/backend/.env.example');
+const backendEnvPath = path.join(__dirname, '../../backend/.env');
+const backendEnvExamplePath = path.join(__dirname, '../../backend/.env.example');
 const backendEnvExists = fs.existsSync(backendEnvPath);
 
 checks.push({
   name: 'Backend .env file',
   status: backendEnvExists ? 'PASS' : 'WARN',
   message: backendEnvExists
-    ? 'Found apps/backend/.env'
-    : 'Not found. Copy from .env.example: cp apps/backend/.env.example apps/backend/.env'
+    ? 'Found ../backend/.env'
+    : 'Not found. Copy from .env.example: cp ../backend/.env.example ../backend/.env'
 });
 
 // Check 2: Web .env file exists
@@ -119,7 +119,7 @@ if (webEnvExists) {
 }
 
 // Check 5: Backend main.ts configuration
-const backendMainPath = path.join(__dirname, '../apps/backend/src/main.ts');
+const backendMainPath = path.join(__dirname, '../../backend/src/main.ts');
 if (fs.existsSync(backendMainPath)) {
   const mainContent = fs.readFileSync(backendMainPath, 'utf8');
 
@@ -200,7 +200,7 @@ if (failCount > 0) {
 
 if (!backendEnvExists) {
   console.log('1. Create backend .env:');
-  console.log('   cp apps/backend/.env.example apps/backend/.env');
+  console.log('   cp ../backend/.env.example ../backend/.env');
 }
 
 if (!webEnvExists) {
@@ -216,7 +216,7 @@ console.log('   # Terminal 2: Start imodelhub-services');
 console.log('   cd /path/to/imodelhub-services && npm run start:dev');
 console.log('');
 console.log('   # Terminal 3: Start Open Cloud CAD backend');
-console.log('   cd apps/backend && npm run dev');
+console.log('   cd ../backend && npm run dev');
 console.log('');
 console.log('   # Terminal 4: Start web frontend');
 console.log('   cd apps/web && npm run dev');
