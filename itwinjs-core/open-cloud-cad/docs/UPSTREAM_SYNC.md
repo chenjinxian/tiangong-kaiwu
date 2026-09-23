@@ -29,7 +29,7 @@ bash scripts/sync-from-upstream.sh   # 于仓库根目录执行
 
 ```bash
 git fetch upstream master
-git subtree pull --prefix=itwinjs-core --squash upstream master --no-edit
+git subtree pull --prefix=itwinjs-core --squash upstream master
 # 有冲突时解决后: git add -A && git commit --no-edit
 # 完成后在下方「同步记录」追加一行
 ```
