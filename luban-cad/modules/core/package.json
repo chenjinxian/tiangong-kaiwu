@@ -36,9 +36,9 @@
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
-    "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
-    "@itwin/core-common": "link:../../../itwinjs-core/core/common",
-    "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
-    "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry"
+    "@itwin/core-bentley": "*",
+    "@itwin/core-common": "*",
+    "@itwin/core-frontend": "*",
+    "@itwin/core-geometry": "*"
   }
 }
