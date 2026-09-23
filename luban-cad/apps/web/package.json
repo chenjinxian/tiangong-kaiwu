@@ -16,7 +16,7 @@
     "start:frontend": "cross-env NODE_ENV=development vite",
     "start:backend": "cd ../backend && npm run dev",
     "start:all": "npm run build:deps && run-p start:frontend start:backend",
-    "build:deps": "cd ../../../itwinjs-core && node common/scripts/install-run-rush.js build --to @itwin/core-backend --to @itwin/core-frontend --to @itwin/editor-backend --to @itwin/editor-frontend --to @itwin/presentation-frontend --to @itwin/presentation-common --to @itwin/appui-abstract --to @itwin/ecschema-metadata --to @itwin/ecschema-rpcinterface-common --to @itwin/core-i18n --to @itwin/core-quantity --bypass-policy",
+    "build:deps": "cd ../../../itwinjs-core && node common/scripts/install-run-rush.js build --to @itwin/core-backend --to @itwin/core-frontend --to @itwin/editor-backend --to @itwin/editor-frontend --to @itwin/presentation-frontend --to @itwin/presentation-common --to @itwin/appui-abstract --to @itwin/ecschema-metadata --to @itwin/ecschema-rpcinterface-common --to @itwin/core-i18n --to @itwin/core-quantity",
     "analyze": "npm run build && npx vite-bundle-visualizer"
   },
   "dependencies": {
