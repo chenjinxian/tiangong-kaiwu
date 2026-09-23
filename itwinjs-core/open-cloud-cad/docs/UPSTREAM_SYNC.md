@@ -75,6 +75,8 @@ git subtree pull --prefix=itwinjs-core --squash upstream master
 在其 `itwinjs-core/` 子目录）后，`itwinjs-core/common/temp/last-install.flag` 会钉着旧
 `rushJsonFolder`/`storePath`，rush 报 `Current PNPM store path does not match the last one used`
 并拒绝安装。修复：把这两个字段改写为当前绝对路径，或 `rush update --purge` 全量重装。
+另：工作区项目集变化后 pnpm 要清旧 `node_modules`，非交互环境报
+`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`——加 `CI=true` 环境变量即可（2026-09-23 实测）。
 
 ## 同步记录
 
