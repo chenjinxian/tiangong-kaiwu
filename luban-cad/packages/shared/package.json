@@ -1,7 +1,7 @@
 {
-  "name": "@open-cloud-cad/shared",
+  "name": "@luban-cad/shared",
   "version": "1.0.0",
-  "description": "Shared types and utilities for Open Cloud CAD",
+  "description": "Shared types and utilities for LubanCAD",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

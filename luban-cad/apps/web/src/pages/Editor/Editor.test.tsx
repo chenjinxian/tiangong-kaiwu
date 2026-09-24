@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Editor from './Editor.js';
 
 // Mock all external deps
-vi.mock('@open-cloud-cad/web-viewer', () => ({
+vi.mock('@luban-cad/web-viewer', () => ({
   WebViewer: () => <div data-testid="web-viewer" />,
 }));
 vi.mock('../../../features/editor/components/ThemeToggle.js', () => ({
@@ -33,7 +33,7 @@ const mockSave = vi.fn().mockResolvedValue(undefined);
 const mockPush = vi.fn().mockResolvedValue(undefined);
 const mockPull = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('@open-cloud-cad/viewer-core', () => ({
+vi.mock('@luban-cad/viewer-core', () => ({
   useBriefcaseConnection: () => ({
     connection: null,
     isLoading: false,

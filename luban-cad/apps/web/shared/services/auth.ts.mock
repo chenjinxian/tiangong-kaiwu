@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -44,8 +44,8 @@ export interface AuthResponse {
   expiresIn: number;
 }
 
-const AUTH_STORAGE_KEY = 'open_cloud_cad_auth';
-const USER_STORAGE_KEY = 'open_cloud_cad_user';
+const AUTH_STORAGE_KEY = 'luban_cad_auth';
+const USER_STORAGE_KEY = 'luban_cad_user';
 
 /**
  * Mock auth service for development
@@ -213,7 +213,7 @@ class AuthService {
    * Get authorization client for iTwin.js integration
    */
   getAuthorizationClient(): AuthorizationClient {
-    return new OpenCloudCadAuthClient(this);
+    return new LubanCadAuthClient(this);
   }
 
   /**
@@ -277,7 +277,7 @@ export const authService = new AuthService();
  * Authorization client implementation for iTwin.js integration
  * Wraps the authService to provide the AuthorizationClient interface
  */
-export class OpenCloudCadAuthClient implements AuthorizationClient {
+export class LubanCadAuthClient implements AuthorizationClient {
   private _authService: AuthService;
 
   constructor(authService: AuthService) {
@@ -315,5 +315,5 @@ export class OpenCloudCadAuthClient implements AuthorizationClient {
  * Get the authorization client for iTwin.js integration
  */
 export function getAuthorizationClient(): AuthorizationClient {
-  return new OpenCloudCadAuthClient(authService);
+  return new LubanCadAuthClient(authService);
 }

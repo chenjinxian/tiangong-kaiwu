@@ -1,8 +1,8 @@
-# Open Cloud CAD - Development Environment
+# LubanCAD - Development Environment
 # 一键启动所有开发服务
 #
 # Usage:
-#   cd open-cloud-cad
+#   cd luban-cad
 #   docker-compose -f docker-compose.dev.yml up -d
 #
 # Services:
@@ -10,8 +10,8 @@
 #   - Azurite Blob Storage (10000)
 #   - Redis (6379)
 #   - imodelhub-services (4000)
-#   - backend (4001)
-#   - web-agent (4002)
+#   - modeling-server (4001)
+#   - webhook-agent (4002)
 #   - frontend (3000)
 
 version: '3.8'
@@ -121,13 +121,13 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # Open Cloud CAD Backend
+  # LubanCAD Modeling Server
   # ============================================================================
-  backend:
+  modeling-server:
     build:
-      context: ../backend
+      context: ../modeling-server
       dockerfile: Dockerfile
-    container_name: occ-backend
+    container_name: occ-modeling-server
     ports:
       - "4001:4001"
     environment:
@@ -138,9 +138,9 @@ services:
       - FRONTEND_URL=http://localhost:3000
       - IMJS_BRIEFCASE_CACHE_LOCATION=/app/cache
       - WEBHOOK_SECRET=local-dev-secret
-      - WEB_AGENT_URL=http://web-agent:4002
+      - WEBHOOK_AGENT_URL=http://webhook-agent:4002
     volumes:
-      - backend-cache:/app/cache
+      - modeling-server-cache:/app/cache
     depends_on:
       imodelhub:
         condition: service_healthy
@@ -155,19 +155,19 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # Web-Agent (Webhook Handler + Baseline Generator)
+  # Webhook-Agent (Webhook Handler + Baseline Generator)
   # ============================================================================
-  web-agent:
+  webhook-agent:
     build:
-      context: ../web-agent
+      context: ../webhook-agent
       dockerfile: Dockerfile
-    container_name: occ-web-agent
+    container_name: occ-webhook-agent
     ports:
       - "4002:4002"
     environment:
       - NODE_ENV=development
       - PORT=4002
-      - BACKEND_URL=http://backend:4001
+      - BACKEND_URL=http://modeling-server:4001
       - WEBHOOK_SECRET=local-dev-secret
       - DEBUG=true
       - BLOB_STORAGE_URL=http://azurite:10000/devstoreaccount1
@@ -176,7 +176,7 @@ services:
       - BLOB_CONTAINER_NAME=imodelhub
       - IMODELHUB_API_URL=http://imodelhub:4000
     depends_on:
-      backend:
+      modeling-server:
         condition: service_healthy
       azurite:
         condition: service_healthy
@@ -207,9 +207,9 @@ services:
       - VITE_IMODELHUB_URL=http://localhost:4000
       - VITE_AZURITE_URL=http://localhost:10000
     depends_on:
-      backend:
+      modeling-server:
         condition: service_healthy
-      web-agent:
+      webhook-agent:
         condition: service_healthy
     restart: unless-stopped
 
@@ -220,11 +220,11 @@ volumes:
   postgres-data:
   azurite-data:
   redis-data:
-  backend-cache:
+  modeling-server-cache:
 
 # ============================================================================
 # Networks
 # ============================================================================
 networks:
   default:
-    name: open-cloud-cad-network
+    name: luban-cad-network

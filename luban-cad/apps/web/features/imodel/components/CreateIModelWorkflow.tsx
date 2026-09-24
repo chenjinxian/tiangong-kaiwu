@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -347,8 +347,8 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
 
         if (signal.aborted) return;
 
-        // Skip waiting for backend processing - show success immediately
-        // The iModel will be in 'notInitialized' state until web-agent finishes processing
+        // Skip waiting for modeling-server processing - show success immediately
+        // The iModel will be in 'notInitialized' state until webhook-agent finishes processing
       } else {
         iModel = await createIModel.mutateAsync({
           iTwinId,

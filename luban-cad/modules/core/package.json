@@ -1,7 +1,7 @@
 {
-  "name": "@open-cloud-cad/core",
+  "name": "@luban-cad/core",
   "version": "2.0.0",
-  "description": "Open Cloud CAD Core Engine - Based on iTwin.js (V2)",
+  "description": "LubanCAD Core Engine - Based on iTwin.js (V2)",
   "type": "module",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",

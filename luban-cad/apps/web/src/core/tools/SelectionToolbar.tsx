@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Selection Toolbar Component
@@ -42,8 +42,8 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
         <Tooltip content="框选 (Fence Select) - 拖动选择多个元素" placement="right">
           <button
             type="button"
-            className={`selection-btn ${activeTool === 'OpenCloudCad.FenceSelect' ? 'active' : ''}`}
-            onClick={() => runTool('OpenCloudCad.FenceSelect')}
+            className={`selection-btn ${activeTool === 'LubanCad.FenceSelect' ? 'active' : ''}`}
+            onClick={() => runTool('LubanCad.FenceSelect')}
           >
             <FenceSelectIcon />
           </button>
@@ -57,7 +57,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className="selection-btn"
-            onClick={() => runTool('OpenCloudCad.SelectAll')}
+            onClick={() => runTool('LubanCad.SelectAll')}
           >
             <SelectAllIcon />
           </button>
@@ -67,7 +67,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className="selection-btn"
-            onClick={() => runTool('OpenCloudCad.ClearSelection')}
+            onClick={() => runTool('LubanCad.ClearSelection')}
           >
             <ClearSelectionIcon />
           </button>
@@ -77,7 +77,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className="selection-btn"
-            onClick={() => runTool('OpenCloudCad.InvertSelection')}
+            onClick={() => runTool('LubanCad.InvertSelection')}
           >
             <InvertSelectionIcon />
           </button>
@@ -91,7 +91,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className="selection-btn"
-            onClick={() => runTool('OpenCloudCad.SelectByCategory')}
+            onClick={() => runTool('LubanCad.SelectByCategory')}
           >
             <SelectByCategoryIcon />
           </button>

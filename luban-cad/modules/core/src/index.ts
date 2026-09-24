@@ -1,12 +1,12 @@
 /**-----------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Open Cloud CAD Core Module - V2
+ * LubanCAD Core Module - V2
  *
- * This module provides the core CAD functionality for Open Cloud CAD.
+ * This module provides the core CAD functionality for LubanCAD.
  * It extends iTwin.js to provide CAD-specific features while leveraging
  * the powerful 3D rendering and data management capabilities of iTwin.js.
  *
@@ -19,7 +19,7 @@
  */
 
 // Main application and re-exports
-export * from "./OpenCloudCadApp.js";
+export * from "./LubanCadApp.js";
 
 // Version
 export const VERSION = "2.0.0";

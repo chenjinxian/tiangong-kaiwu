@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E Test Configuration for Open Cloud CAD
+ * Playwright E2E Test Configuration for LubanCAD
  *
  * @see https://playwright.dev/docs/test-configuration
  */

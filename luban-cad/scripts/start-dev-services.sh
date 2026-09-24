@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# Open Cloud CAD - Development Services Startup Script
+# LubanCAD - Development Services Startup Script
 #
 # This script starts all required services for iModel creation testing.
-# Run from the open-cloud-cad directory.
+# Run from the luban-cad directory.
 #
 
 set -e
@@ -16,13 +16,13 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  Open Cloud CAD - Dev Services Startup${NC}"
+echo -e "${BLUE}  LubanCAD - Dev Services Startup${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Check if we're in the right directory
-if [ ! -f "package.json" ] || [ ! -d "../web-agent" ]; then
-    echo -e "${RED}Error: Please run this script from the open-cloud-cad directory${NC}"
+if [ ! -f "package.json" ] || [ ! -d "../webhook-agent" ]; then
+    echo -e "${RED}Error: Please run this script from the luban-cad directory${NC}"
     exit 1
 fi
 
@@ -105,7 +105,7 @@ echo ""
 # ============================================
 echo -e "${YELLOW}Step 3: Checking imodelhub-services...${NC}"
 
-IMODELHUB_DIR="/Users/xunzhang/Documents/GitHub/imodelhub-services"
+IMODELHUB_DIR="${IMODELHUB_DIR:-$(cd "$(dirname "$0")/../../.." && pwd)/imodelhub-services}"
 if [ ! -d "$IMODELHUB_DIR" ]; then
     echo -e "${RED}Error: imodelhub-services not found at $IMODELHUB_DIR${NC}"
     exit 1
@@ -129,15 +129,15 @@ fi
 echo ""
 
 # ============================================
-# Step 4: Start web-agent
+# Step 4: Start webhook-agent
 # ============================================
-echo -e "${YELLOW}Step 4: Starting web-agent...${NC}"
+echo -e "${YELLOW}Step 4: Starting webhook-agent...${NC}"
 
 if check_port 4002; then
-    echo -e "  ${GREEN}✓${NC} web-agent already running on port 4002"
+    echo -e "  ${GREEN}✓${NC} webhook-agent already running on port 4002"
 else
-    echo "  Building web-agent..."
-    cd ../web-agent
+    echo "  Building webhook-agent..."
+    cd ../webhook-agent
 
     # Check if .env exists
     if [ ! -f ".env" ]; then
@@ -149,7 +149,7 @@ WEBHOOK_SECRET=test-webhook-secret-12345
 # Server port
 PORT=4002
 
-# Forward to backend (optional)
+# Forward to modeling-server (optional)
 BACKEND_URL=http://localhost:4001
 
 # Azurite Blob Storage
@@ -167,15 +167,15 @@ DEBUG=true
 EOF
     fi
 
-    echo "  Starting web-agent..."
+    echo "  Starting webhook-agent..."
     npm run dev &
     WEB_AGENT_PID=$!
     cd ../..
 
-    if wait_for_service "web-agent" "http://localhost:4002/health" 30; then
-        echo -e "  ${GREEN}✓${NC} web-agent started (PID: $WEB_AGENT_PID)"
+    if wait_for_service "webhook-agent" "http://localhost:4002/health" 30; then
+        echo -e "  ${GREEN}✓${NC} webhook-agent started (PID: $WEB_AGENT_PID)"
     else
-        echo -e "  ${RED}✗${NC} web-agent failed to start"
+        echo -e "  ${RED}✗${NC} webhook-agent failed to start"
         exit 1
     fi
 fi
@@ -211,7 +211,7 @@ echo ""
 echo "Services:"
 echo "  - Azurite Blob Storage: http://127.0.0.1:10000"
 echo "  - imodelhub-services:   http://localhost:4000"
-echo "  - web-agent:            http://localhost:4002"
+echo "  - webhook-agent:            http://localhost:4002"
 echo "  - Frontend:             http://localhost:3000"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"

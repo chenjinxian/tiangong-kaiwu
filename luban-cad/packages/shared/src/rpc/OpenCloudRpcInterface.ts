@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  */
 
@@ -15,7 +15,7 @@ import type {
 } from '../projects/types.js';
 
 /**
- * Open Cloud CAD RPC Interface
+ * LubanCAD RPC Interface
  *
  * This interface defines RPC methods that require backend access to:
  * - IModelHost / BriefcaseDb

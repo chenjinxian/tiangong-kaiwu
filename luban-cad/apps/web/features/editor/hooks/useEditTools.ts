@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  */
 
@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type BriefcaseConnection } from '@itwin/core-frontend';
 import { CompressedId64Set } from '@itwin/core-bentley';
 import { Transform, Matrix3d, Vector3d, Angle, Point3d } from '@itwin/core-geometry';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 import { undoManager } from '../../../src/core/undo/UndoManager.js';
 
 export interface UseEditToolsOptions {

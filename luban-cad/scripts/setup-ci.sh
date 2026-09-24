@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# Open Cloud CAD - CI Environment Setup Script
+# LubanCAD - CI Environment Setup Script
 #
 # This script prepares the CI environment for building and testing
-# the Open Cloud CAD monorepo using Rush.
+# the LubanCAD monorepo using Rush.
 #
 # Usage: ./scripts/setup-ci.sh
 #
@@ -11,7 +11,7 @@
 set -e
 
 echo "==================================="
-echo "Open Cloud CAD - CI Setup"
+echo "LubanCAD - CI Setup"
 echo "==================================="
 
 # =============================================================================
@@ -98,7 +98,7 @@ fi
 # Verify key packages
 PACKAGES=(
     "apps/web"
-    "../backend"
+    "../modeling-server"
     "packages/shared"
     "packages/viewer-core"
     "packages/web-viewer"

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Animation Tools - Camera walkthrough and keyframe animation
@@ -13,7 +13,7 @@ import {
 
 /** Camera walkthrough animation */
 export class CameraWalkTool extends Tool {
-  public static override toolId = 'OpenCloudCad.CameraWalk';
+  public static override toolId = 'LubanCad.CameraWalk';
   public static override iconSpec = 'icon-camera-walk';
 
   public override async run(): Promise<boolean> {
@@ -32,7 +32,7 @@ export class CameraWalkTool extends Tool {
 
 /** Fly to selection */
 export class FlyToSelectionTool extends Tool {
-  public static override toolId = 'OpenCloudCad.FlyToSelection';
+  public static override toolId = 'LubanCad.FlyToSelection';
   public static override iconSpec = 'icon-fly-to';
 
   public override async run(): Promise<boolean> {

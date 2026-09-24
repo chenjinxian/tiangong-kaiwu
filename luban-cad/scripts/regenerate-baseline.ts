@@ -3,7 +3,7 @@
  */
 
 const IMODELHUB_URL = 'http://localhost:4000';
-const WEB_AGENT_URL = 'http://localhost:4002';
+const WEBHOOK_AGENT_URL = 'http://localhost:4002';
 
 async function getAuthToken(): Promise<string | null> {
   try {
@@ -86,10 +86,10 @@ async function main(): Promise<void> {
     console.log('No baseline found');
   }
 
-  // Try to trigger baseline retry via web-agent
-  console.log('\nTriggering baseline retry via web-agent...');
+  // Try to trigger baseline retry via webhook-agent
+  console.log('\nTriggering baseline retry via webhook-agent...');
 
-  const retryResponse = await fetch(`${WEB_AGENT_URL}/baseline/retry/${imodel.id}`, {
+  const retryResponse = await fetch(`${WEBHOOK_AGENT_URL}/baseline/retry/${imodel.id}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
     console.error('Failed to trigger retry:', await retryResponse.text());
   }
 
-  console.log('\nDone! Check web-agent logs for progress.');
+  console.log('\nDone! Check webhook-agent logs for progress.');
 }
 
 main().catch(console.error);

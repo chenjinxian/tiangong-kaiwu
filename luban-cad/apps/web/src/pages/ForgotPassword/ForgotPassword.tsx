@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -95,7 +95,7 @@ const ForgotPassword: React.FC = () => {
       {/* Left: Brand */}
       <div className="brand-side">
         <div className="brand-logo">CC</div>
-        <Text variant="title" as="h1" className="brand-title">Open Cloud CAD</Text>
+        <Text variant="title" as="h1" className="brand-title">LubanCAD</Text>
         <Text className="brand-subtitle">基于 iTwin.js 的开源云端 CAD 平台</Text>
         <div className="brand-features">
           <div className="brand-feature">

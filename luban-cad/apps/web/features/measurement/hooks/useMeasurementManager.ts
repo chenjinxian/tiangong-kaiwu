@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Measurement Manager Hook
@@ -43,7 +43,7 @@ export function useMeasurementManager(): UseMeasurementManagerReturn {
 
   // Load from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('open-cloud-cad-measurements');
+    const saved = localStorage.getItem('luban-cad-measurements');
     if (saved) {
       try {
         setMeasurements(JSON.parse(saved));
@@ -55,7 +55,7 @@ export function useMeasurementManager(): UseMeasurementManagerReturn {
 
   // Save to localStorage when measurements change
   useEffect(() => {
-    localStorage.setItem('open-cloud-cad-measurements', JSON.stringify(measurements));
+    localStorage.setItem('luban-cad-measurements', JSON.stringify(measurements));
   }, [measurements]);
 
   // Start measurement

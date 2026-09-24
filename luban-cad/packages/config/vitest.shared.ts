@@ -1,12 +1,12 @@
 import { defineConfig } from 'vitest/config';
 
 /**
- * Shared Vitest configuration for Open Cloud CAD packages
+ * Shared Vitest configuration for LubanCAD packages
  *
  * Usage:
  * ```ts
  * import { defineConfig, mergeConfig } from 'vitest/config';
- * import sharedConfig from '@open-cloud-cad/config/vitest.shared';
+ * import sharedConfig from '@luban-cad/config/vitest.shared';
  *
  * export default mergeConfig(sharedConfig, defineConfig({
  *   // package-specific config

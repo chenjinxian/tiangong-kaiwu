@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { type GraphicalEditingScope, IModelApp, type ViewState2d } from '@itwin/core-frontend';
 import { EditTools } from '@itwin/editor-frontend';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useBriefcaseConnection, useViewport } from '@open-cloud-cad/viewer-core';
+import { useBriefcaseConnection, useViewport } from '@luban-cad/viewer-core';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
 import { EditorBriefcaseStatus } from '../../../features/editor/components/EditorBriefcaseStatus.js';
 import { FeatureTreePanel, type TreeTab } from '../../../features/editor/components/FeatureTreePanel.js';
@@ -66,7 +66,7 @@ import {
   ViewSwitcher,
   SavedViewsPanel,
   SectionToolsPanel,
-} from '@open-cloud-cad/viewer-core';
+} from '@luban-cad/viewer-core';
 
 /**
  * Editor page component - Main 3D CAD workspace

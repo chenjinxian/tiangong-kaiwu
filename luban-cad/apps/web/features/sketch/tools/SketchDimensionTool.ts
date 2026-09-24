@@ -1,11 +1,11 @@
 /*-----------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { BeButtonEvent, EventHandled, IModelApp, PrimitiveTool, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { Point3d } from '@itwin/core-geometry';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 
 /** Dimension types supported in sketch mode */
 export type DimensionType = 'distance' | 'angle' | 'radius' | 'diameter';

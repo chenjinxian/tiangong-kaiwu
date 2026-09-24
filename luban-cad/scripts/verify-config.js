@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Open Cloud CAD Configuration Verification Script
+ * LubanCAD Configuration Verification Script
  * Verifies imodelhub-services configuration is correct
  */
 
@@ -8,23 +8,23 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('╔══════════════════════════════════════════════════════════════╗');
-console.log('║   Open Cloud CAD Configuration Verification                  ║');
+console.log('║   LubanCAD Configuration Verification                  ║');
 console.log('║   imodelhub-services Mode                                    ║');
 console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
 const checks = [];
 
 // Check 1: Backend .env file exists
-const backendEnvPath = path.join(__dirname, '../../backend/.env');
-const backendEnvExamplePath = path.join(__dirname, '../../backend/.env.example');
+const backendEnvPath = path.join(__dirname, '../../modeling-server/.env');
+const backendEnvExamplePath = path.join(__dirname, '../../modeling-server/.env.example');
 const backendEnvExists = fs.existsSync(backendEnvPath);
 
 checks.push({
   name: 'Backend .env file',
   status: backendEnvExists ? 'PASS' : 'WARN',
   message: backendEnvExists
-    ? 'Found ../backend/.env'
-    : 'Not found. Copy from .env.example: cp ../backend/.env.example ../backend/.env'
+    ? 'Found ../modeling-server/.env'
+    : 'Not found. Copy from .env.example: cp ../modeling-server/.env.example ../modeling-server/.env'
 });
 
 // Check 2: Web .env file exists
@@ -119,7 +119,7 @@ if (webEnvExists) {
 }
 
 // Check 5: Backend main.ts configuration
-const backendMainPath = path.join(__dirname, '../../backend/src/main.ts');
+const backendMainPath = path.join(__dirname, '../../modeling-server/src/main.ts');
 if (fs.existsSync(backendMainPath)) {
   const mainContent = fs.readFileSync(backendMainPath, 'utf8');
 
@@ -199,8 +199,8 @@ if (failCount > 0) {
 }
 
 if (!backendEnvExists) {
-  console.log('1. Create backend .env:');
-  console.log('   cp ../backend/.env.example ../backend/.env');
+  console.log('1. Create modeling-server .env:');
+  console.log('   cp ../modeling-server/.env.example ../modeling-server/.env');
 }
 
 if (!webEnvExists) {
@@ -215,15 +215,15 @@ console.log('');
 console.log('   # Terminal 2: Start imodelhub-services');
 console.log('   cd /path/to/imodelhub-services && npm run start:dev');
 console.log('');
-console.log('   # Terminal 3: Start Open Cloud CAD backend');
-console.log('   cd ../backend && npm run dev');
+console.log('   # Terminal 3: Start LubanCAD modeling-server');
+console.log('   cd ../modeling-server && npm run dev');
 console.log('');
 console.log('   # Terminal 4: Start web frontend');
 console.log('   cd apps/web && npm run dev');
 
 console.log('\n4. Verify services are running:');
 console.log('   curl http://localhost:4000/health    # imodelhub-services');
-console.log('   curl http://localhost:4001/health    # backend');
+console.log('   curl http://localhost:4001/health    # modeling-server');
 console.log('   curl http://localhost:10000/devstoreaccount1?comp=list  # azurite');
 
 console.log('\n────────────────────────────────────────────────────────────────\n');

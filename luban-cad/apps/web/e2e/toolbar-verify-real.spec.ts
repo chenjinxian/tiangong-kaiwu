@@ -24,10 +24,10 @@ test.describe('CAD Toolbar - Real iModel Verification', () => {
 
     // Get real iTwin and iModel IDs from the API
     // Note: Frontend connects directly to imodelhub-services (port 4000)
-    // Token is stored in sessionStorage with key 'open_cloud_cad_auth'
+    // Token is stored in sessionStorage with key 'luban_cad_auth'
     const projectsResponse = await page.evaluate(async () => {
       try {
-        const authJson = sessionStorage.getItem('open_cloud_cad_auth');
+        const authJson = sessionStorage.getItem('luban_cad_auth');
         const auth = authJson ? JSON.parse(authJson) : null;
         const token = auth?.accessToken;
         const res = await fetch('http://localhost:4000/itwins?class=Project', {
@@ -52,7 +52,7 @@ test.describe('CAD Toolbar - Real iModel Verification', () => {
     // Get iModels for this project
     const imodelsResponse = await page.evaluate(async (pid) => {
       try {
-        const authJson = sessionStorage.getItem('open_cloud_cad_auth');
+        const authJson = sessionStorage.getItem('luban_cad_auth');
         const auth = authJson ? JSON.parse(authJson) : null;
         const token = auth?.accessToken;
         const res = await fetch(`http://localhost:4000/imodels?iTwinId=${pid}`, {

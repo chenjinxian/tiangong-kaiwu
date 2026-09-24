@@ -1,13 +1,13 @@
 version: '3.8'
 
-# Open Cloud CAD - Complete Local Stack
+# LubanCAD - Complete Local Stack
 # All services use imodelhub-services mode (no Bentley cloud dependency)
 #
 # Services:
 # - imodelhub-services: iModel management API (port 4000) - EXTERNAL
 # - azurite: Azure Blob Storage emulator (port 10000) - EXTERNAL (from imodelhub-services)
-# - backend: Open Cloud CAD backend with RPC (port 4001)
-# - web-agent: Webhook receiver (port 4002)
+# - modeling-server: LubanCAD modeling backend with RPC (port 4001)
+# - webhook-agent: Webhook receiver (port 4002)
 # - web: Frontend React application (port 3000)
 #
 # NOTE: imodelhub-services and Azurite should be started separately.
@@ -22,13 +22,13 @@ services:
   # Default: http://host.docker.internal:4000 and http://host.docker.internal:10000
 
   # =============================================================================
-  # Backend - Open Cloud CAD Backend Service
+  # Modeling Server - LubanCAD modeling backend service
   # =============================================================================
-  backend:
+  modeling-server:
     build:
-      context: ../backend
+      context: ../modeling-server
       dockerfile: Dockerfile
-    container_name: open-cloud-cad-backend
+    container_name: luban-cad-modeling-server
     ports:
       - "4001:4001"
     environment:
@@ -40,36 +40,36 @@ services:
       - IMJS_BRIEFCASE_CACHE_LOCATION=/app/cache
       - WEBHOOK_SECRET=your-webhook-secret
     volumes:
-      - backend-cache:/app/cache
+      - modeling-server-cache:/app/cache
     networks:
-      - open-cloud-cad-network
+      - luban-cad-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   # =============================================================================
-  # Web-Agent - Webhook Receiver (Optional)
+  # Webhook-Agent - Webhook Receiver (Optional)
   # =============================================================================
-  web-agent:
+  webhook-agent:
     build:
-      context: ../web-agent
+      context: ../webhook-agent
       dockerfile: Dockerfile
-    container_name: open-cloud-cad-web-agent
+    container_name: luban-cad-webhook-agent
     ports:
       - "4002:4002"
     environment:
       - NODE_ENV=production
       - PORT=4002
-      - BACKEND_URL=http://backend:4001
+      - BACKEND_URL=http://modeling-server:4001
       - WEBHOOK_SECRET=your-webhook-secret
       - DEBUG=false
     depends_on:
-      - backend
+      - modeling-server
     networks:
-      - open-cloud-cad-network
+      - luban-cad-network
     restart: unless-stopped
     profiles:
-      - with-web-agent  # Only start when explicitly requested
+      - with-webhook-agent  # Only start when explicitly requested
 
   # =============================================================================
   # Web - Frontend React Application
@@ -78,7 +78,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: open-cloud-cad-web
+    container_name: luban-cad-web
     ports:
       - "3000:3000"
     environment:
@@ -86,16 +86,16 @@ services:
       - VITE_IMODELHUB_URL=http://localhost:4000
       - VITE_AZURITE_URL=http://localhost:10000
     depends_on:
-      - backend
+      - modeling-server
     networks:
-      - open-cloud-cad-network
+      - luban-cad-network
     restart: unless-stopped
 
 # =============================================================================
 # Volumes
 # =============================================================================
 volumes:
-  backend-cache:
+  modeling-server-cache:
     driver: local
   # NOTE: Azurite data is managed by imodelhub-services
 
@@ -103,5 +103,5 @@ volumes:
 # Networks
 # =============================================================================
 networks:
-  open-cloud-cad-network:
+  luban-cad-network:
     driver: bridge

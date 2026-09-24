@@ -1,7 +1,7 @@
 {
-  "name": "@open-cloud-cad/web-viewer",
+  "name": "@luban-cad/web-viewer",
   "version": "1.0.0",
-  "description": "Web platform viewer for Open Cloud CAD",
+  "description": "Web platform viewer for LubanCAD",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,8 +20,8 @@
     "@itwin/editor-frontend": "link:../../../itwinjs-core/editor/frontend",
     "@itwin/imodels-access-frontend": "^6.0.2",
     "@itwin/imodels-client-management": "^6.0.2",
-    "@open-cloud-cad/shared": "workspace:*",
-    "@open-cloud-cad/viewer-core": "workspace:*"
+    "@luban-cad/shared": "workspace:*",
+    "@luban-cad/viewer-core": "workspace:*"
   },
   "devDependencies": {
     "@itwin/eslint-plugin": "^6.0.0",

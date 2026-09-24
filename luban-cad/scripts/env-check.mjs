@@ -8,8 +8,8 @@ const checks = [
   { name: 'PostgreSQL', port: 5432, required: true },
   { name: 'Azurite (Blob)', port: 10000, required: true },
   { name: 'imodelhub-services', port: 4000, required: true },
-  { name: 'Open Cloud CAD Backend', port: 4001, required: true },
-  { name: 'Open Cloud CAD Web', port: 5173, required: false }
+  { name: 'LubanCAD Backend', port: 4001, required: true },
+  { name: 'LubanCAD Web', port: 5173, required: false }
 ];
 
 console.log('🔍 Checking Environment...\n');
@@ -35,5 +35,5 @@ for (const check of checks) {
 console.log('\n📋 Requirements:');
 console.log('   • Docker Desktop - For PostgreSQL and Azurite');
 console.log('   • imodelhub-services - Backend API service');
-console.log('   • Open Cloud CAD backend - RPC and WebSocket service');
-console.log('   • Open Cloud CAD web - Frontend (optional for API tests)');
+console.log('   • LubanCAD modeling-server - RPC and WebSocket service');
+console.log('   • LubanCAD web - Frontend (optional for API tests)');

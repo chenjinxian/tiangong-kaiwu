@@ -1,5 +1,5 @@
 /**-----------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,7 +14,7 @@ import {
   Label,
   Alert,
 } from '@itwin/itwinui-react';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 import './CreateIModelWorkflow.css'; // Reuse dialog styles
 
 interface ExportDialogProps {

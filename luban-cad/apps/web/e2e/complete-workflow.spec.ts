@@ -1,8 +1,8 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Complete E2E test for Open Cloud CAD
+ * Complete E2E test for LubanCAD
  * Full workflow: Login -> Create iTwin -> Create iModel -> Open Editor
  */
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Tests for WebViewer component
@@ -17,7 +17,7 @@ vi.mock('./WebInitializer.js', () => ({
 }));
 
 // Mock viewer-core components
-vi.mock('@open-cloud-cad/viewer-core', () => ({
+vi.mock('@luban-cad/viewer-core', () => ({
   ViewerWithUI: vi.fn((props) => (
     <div data-testid="viewer-with-ui">
       <div data-testid="itwin-id">{props.iTwinId}</div>

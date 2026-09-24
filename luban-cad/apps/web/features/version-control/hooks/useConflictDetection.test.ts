@@ -1,16 +1,16 @@
 /*-----------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { useConflictDetection } from './useConflictDetection.js';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 
 // Mock the RPC interface
-vi.mock('@open-cloud-cad/shared', async () => {
-  const actual = await vi.importActual<typeof import('@open-cloud-cad/shared')>('@open-cloud-cad/shared');
+vi.mock('@luban-cad/shared', async () => {
+  const actual = await vi.importActual<typeof import('@luban-cad/shared')>('@luban-cad/shared');
   return {
     ...actual,
     OpenCloudRpcInterface: {

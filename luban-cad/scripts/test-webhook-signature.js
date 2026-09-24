@@ -24,7 +24,7 @@ const signature = crypto
 console.log('Generated signature:', signature);
 console.log('Signature header:', `sha256=${signature}`);
 
-// Verify signature (how web-agent does it)
+// Verify signature (how webhook-agent does it)
 const expectedSignature = crypto
   .createHmac('sha256', webagentSecret)
   .update(payload, 'utf-8')

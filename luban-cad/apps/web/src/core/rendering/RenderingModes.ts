@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Advanced Rendering Modes and Effects
@@ -13,7 +13,7 @@ import { RenderMode } from '@itwin/core-common';
 
 /** Toggle shadows */
 export class ToggleShadowsTool extends Tool {
-  public static override toolId = 'OpenCloudCad.ToggleShadows';
+  public static override toolId = 'LubanCad.ToggleShadows';
 
   public override async run(): Promise<boolean> {
     const viewport = IModelApp.viewManager.selectedView;
@@ -33,7 +33,7 @@ export class ToggleShadowsTool extends Tool {
 
 /** Toggle ambient occlusion */
 export class ToggleAOTool extends Tool {
-  public static override toolId = 'OpenCloudCad.ToggleAO';
+  public static override toolId = 'LubanCad.ToggleAO';
 
   public override async run(): Promise<boolean> {
     const viewport = IModelApp.viewManager.selectedView;
@@ -54,7 +54,7 @@ export class ToggleAOTool extends Tool {
 
 /** Set render mode */
 export class SetRenderModeTool extends Tool {
-  public static override toolId = 'OpenCloudCad.SetRenderMode';
+  public static override toolId = 'LubanCad.SetRenderMode';
 
   public override async run(mode?: RenderMode): Promise<boolean> {
     const viewport = IModelApp.viewManager.selectedView;

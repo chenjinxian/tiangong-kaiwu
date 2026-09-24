@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  */
 
@@ -15,7 +15,7 @@
 // export function initializeRpcClient(backendUrl: string = 'http://localhost:4001'): void {
 //   // Configure RPC for cloud/brower mode
 //   const rpcParams = {
-//     info: { title: 'Open Cloud CAD', version: 'v1.0' },
+//     info: { title: 'LubanCAD', version: 'v1.0' },
 //     uriPrefix: backendUrl,
 //   };
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Open Cloud CAD Demo Video Recorder
+ * LubanCAD Demo Video Recorder
  * Records a full demonstration video of the platform
  *
  * Usage: npx playwright install chromium (first time)
@@ -23,7 +23,7 @@ async function delay(ms) {
 }
 
 async function recordDemo() {
-  console.log('🎬 Starting Open Cloud CAD Demo Recording...\n');
+  console.log('🎬 Starting LubanCAD Demo Recording...\n');
 
   const browser = await chromium.launch({
     headless: false,

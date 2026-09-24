@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ConflictResolution } from '@open-cloud-cad/shared';
+import type { ConflictResolution } from '@luban-cad/shared';
 import type { NamedVersion } from '../../version-control/hooks/useNamedVersions.js';
 import { useConflictDetection } from '../../version-control/hooks/useConflictDetection.js';
 import { useChangesets } from '../../version-control/hooks/useChangesets.js';

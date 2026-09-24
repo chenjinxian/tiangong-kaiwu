@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => {
 });
 
  
-vi.mock('@open-cloud-cad/shared', () => ({
+vi.mock('@luban-cad/shared', () => ({
   OpenCloudRpcInterface: { getClient: mocks.mockGetClient },
 }));
 

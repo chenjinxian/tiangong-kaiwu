@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Authentication Client
@@ -62,9 +62,9 @@ interface BackendUser {
 // Constants
 // ============================================================================
 
-const AUTH_STORAGE_KEY = 'open_cloud_cad_auth';
-const USER_STORAGE_KEY = 'open_cloud_cad_user';
-const REMEMBER_ME_KEY = 'open_cloud_cad_remember_me';
+const AUTH_STORAGE_KEY = 'luban_cad_auth';
+const USER_STORAGE_KEY = 'luban_cad_user';
+const REMEMBER_ME_KEY = 'luban_cad_remember_me';
 const API_BASE_URL = import.meta.env.VITE_IMODELHUB_URL || '';
 
 // ============================================================================
@@ -478,7 +478,7 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<void> {
 /**
  * @deprecated Use storeAuth instead
  */
-export function OpenCloudCadAuthClient(_getToken: () => string | null) {
+export function LubanCadAuthClient(_getToken: () => string | null) {
   return {
     getAccessToken: async () => {
       const token = _getToken();

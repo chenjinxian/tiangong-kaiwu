@@ -1,4 +1,4 @@
-# Open Cloud CAD Docker Image
+# LubanCAD Docker Image
 FROM node:20-alpine
 
 WORKDIR /app

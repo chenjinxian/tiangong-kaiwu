@@ -59,7 +59,7 @@ jobs:
           name: build-artifacts
           path: |
             apps/web/dist
-            ../backend/dist
+            ../modeling-server/dist
             packages/*/dist
           retention-days: 1
 
@@ -96,13 +96,13 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
 
-      - name: Build and push backend image
+      - name: Build and push modeling-server image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ../backend/Dockerfile
+          file: ../modeling-server/Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:${{ needs.build.outputs.version }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/modeling-server:${{ needs.build.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -124,7 +124,7 @@ jobs:
     needs: [build, docker-build]
     environment:
       name: staging
-      url: https://staging.open-cloud-cad.example.com
+      url: https://staging.luban-cad.example.com
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -153,7 +153,7 @@ jobs:
     needs: [build, deploy-staging]
     environment:
       name: production
-      url: https://open-cloud-cad.example.com
+      url: https://luban-cad.example.com
     steps:
       - name: Checkout
         uses: actions/checkout@v4

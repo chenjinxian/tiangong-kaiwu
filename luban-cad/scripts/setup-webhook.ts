@@ -1,9 +1,9 @@
 /**
- * Setup webhook subscription for web-agent
+ * Setup webhook subscription for webhook-agent
  */
 
 const WEBHOOK_SECRET = 'your-webhook-signing-secret-change-in-production';
-const WEB_AGENT_URL = 'http://localhost:4002/webhook';
+const WEBHOOK_AGENT_URL = 'http://localhost:4002/webhook';
 const IMODELHUB_URL = 'http://localhost:4000';
 
 async function getAuthToken(): Promise<string | null> {
@@ -38,7 +38,7 @@ async function createWebhookSubscription(token: string): Promise<void> {
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({
-      callbackUrl: WEB_AGENT_URL,
+      callbackUrl: WEBHOOK_AGENT_URL,
       eventTypes: [
         'iModels.iModelCreated.v1',
         'iModels.ChangesetPushed.v1',

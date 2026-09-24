@@ -25,7 +25,7 @@ echo "==> Subtree-pulling into $PREFIX/ (squash lineage)..."
 if GIT_MERGE_AUTOEDIT=no git subtree pull --prefix="$PREFIX" --squash "$UPSTREAM_REMOTE" master; then
   echo ""
   echo "==> Sync clean. Review with: git log --oneline -- $PREFIX | tail -5"
-  echo "    Record the upstream sha in itwinjs-core/open-cloud-cad/docs/UPSTREAM_SYNC.md"
+  echo "    Record the upstream sha in docs/UPSTREAM_SYNC.md"
 else
   echo ""
   echo "!!! Merge conflicts detected. Resolve them, then:"

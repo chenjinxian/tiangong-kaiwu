@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -250,7 +250,7 @@ const Register: React.FC = () => {
       <div className="auth-page">
         <div className="brand-side">
           <div className="brand-logo">CC</div>
-          <Text variant="title" as="h1" className="brand-title">Open Cloud CAD</Text>
+          <Text variant="title" as="h1" className="brand-title">LubanCAD</Text>
           <Text className="brand-subtitle">基于 iTwin.js 的开源云端 CAD 平台</Text>
         </div>
         <div className="form-side">
@@ -260,7 +260,7 @@ const Register: React.FC = () => {
                 <CheckIcon size={48} />
               </div>
               <Text variant="title" as="h2" className="success-title">注册成功！</Text>
-              <Text className="success-message">欢迎加入 Open Cloud CAD</Text>
+              <Text className="success-message">欢迎加入 LubanCAD</Text>
               <Text className="success-redirect">正在跳转到项目列表...</Text>
             </div>
           </div>
@@ -281,7 +281,7 @@ const Register: React.FC = () => {
       {/* Left: Brand */}
       <div className="brand-side">
         <div className="brand-logo">CC</div>
-        <Text variant="title" as="h1" className="brand-title">Open Cloud CAD</Text>
+        <Text variant="title" as="h1" className="brand-title">LubanCAD</Text>
         <Text className="brand-subtitle">基于 iTwin.js 的开源云端 CAD 平台</Text>
         <div className="brand-features">
           <div className="brand-feature">

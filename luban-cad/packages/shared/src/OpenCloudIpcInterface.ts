@@ -1,8 +1,8 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Custom IPC interface for Open Cloud CAD briefcase operations.
+ * Custom IPC interface for LubanCAD briefcase operations.
  *
  * IpcApp.appFunctionIpc already handles openBriefcase/saveChanges/pushChanges/pullChanges.
  * This interface adds only the initial download step that NativeApp would normally handle.
@@ -10,7 +10,7 @@
 
 import type { Changeset } from './projects/types.js';
 
-/** IPC channel name for Open Cloud CAD custom operations */
+/** IPC channel name for LubanCAD custom operations */
 export const openCloudIpcChannel = "open-cloud-ipc";
 
 /** Result returned after briefcase is located/downloaded on the backend */
@@ -37,7 +37,7 @@ export interface CadFeatureRecord {
   suppressed?: boolean;
 }
 
-/** Custom IPC interface for Open Cloud CAD backend operations */
+/** Custom IPC interface for LubanCAD backend operations */
 export interface OpenCloudIpcInterface {
   /**
    * Locate a cached briefcase or download a new one from iModelHub.

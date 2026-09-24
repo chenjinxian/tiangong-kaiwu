@@ -28,7 +28,7 @@ test.describe('Modeling Tools Registration', () => {
 
     // Get real iModel IDs
     const authData = await page.evaluate(() => {
-      const authJson = sessionStorage.getItem('open_cloud_cad_auth');
+      const authJson = sessionStorage.getItem('luban_cad_auth');
       return authJson ? JSON.parse(authJson) : null;
     });
 
@@ -37,7 +37,7 @@ test.describe('Modeling Tools Registration', () => {
     // Get project and iModel IDs
     const projectsResponse = await page.evaluate(async () => {
       try {
-        const authJson = sessionStorage.getItem('open_cloud_cad_auth');
+        const authJson = sessionStorage.getItem('luban_cad_auth');
         const auth = authJson ? JSON.parse(authJson) : null;
         const token = auth?.accessToken;
         const res = await fetch('http://localhost:4000/itwins?class=Project', {
@@ -58,7 +58,7 @@ test.describe('Modeling Tools Registration', () => {
 
     const imodelsResponse = await page.evaluate(async (pid) => {
       try {
-        const authJson = sessionStorage.getItem('open_cloud_cad_auth');
+        const authJson = sessionStorage.getItem('luban_cad_auth');
         const auth = authJson ? JSON.parse(authJson) : null;
         const token = auth?.accessToken;
         const res = await fetch(`http://localhost:4000/imodels?iTwinId=${pid}`, {
@@ -119,7 +119,7 @@ test.describe('Modeling Tools Registration', () => {
     const pageContent = await page.content();
 
     // Check that the page has expected elements
-    expect(pageContent).toContain('Open Cloud CAD');
+    expect(pageContent).toContain('LubanCAD');
     expect(pageContent).toContain('login');
 
     console.log('Page structure verified');

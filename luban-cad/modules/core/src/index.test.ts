@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Basic smoke test for Core module
@@ -12,7 +12,7 @@ describe('Core Module', () => {
     expect(true).toBe(true);
   });
 
-  it('should export OpenCloudCadApp', () => {
+  it('should export LubanCadApp', () => {
     // Placeholder test - actual import would require iTwin.js setup
     expect(typeof describe).toBe('function');
   });

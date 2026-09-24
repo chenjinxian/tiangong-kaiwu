@@ -1,12 +1,12 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Error types following SDK patterns from @itwin/imodels-client
  */
 
 /**
- * Error codes for Open Cloud CAD operations
+ * Error codes for LubanCAD operations
  * Maps to: imodels-client IModelsErrorCode
  */
 export type OpenCloudCADErrorCode =
@@ -55,7 +55,7 @@ export type OpenCloudCADErrorCode =
   | 'InternalServerError';
 
 /**
- * Standard error structure for Open Cloud CAD
+ * Standard error structure for LubanCAD
  * Maps to: imodels-client IModelsError
  */
 export class OpenCloudCADError extends Error {

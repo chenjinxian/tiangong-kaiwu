@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Tests for WebInitializer module
@@ -63,7 +63,7 @@ vi.mock('@itwin/core-common', () => ({
   IModelTileRpcInterface: { interfaceName: 'IModelTileRpcInterface' },
 }));
 
-vi.mock('@open-cloud-cad/shared', () => ({
+vi.mock('@luban-cad/shared', () => ({
   // eslint-disable-next-line @typescript-eslint/naming-convention
   OpenCloudRpcInterface: {
     interfaceName: 'OpenCloudRpcInterface',

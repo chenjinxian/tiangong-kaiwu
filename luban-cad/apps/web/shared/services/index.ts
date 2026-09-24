@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Services barrel export
@@ -9,7 +9,7 @@
 // SDK Clients (Official iTwin Platform SDKs)
 // ============================================================================
 
-// Briefcase Client (Custom Open Cloud CAD API)
+// Briefcase Client (Custom LubanCAD API)
 export * from './briefcases/index.js';
 
 // Auth Client (REST API compatible)

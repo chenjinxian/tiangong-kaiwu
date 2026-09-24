@@ -23,7 +23,7 @@ vi.mock('@itwin/core-frontend', () => ({
   },
 }));
 
-vi.mock('@open-cloud-cad/shared', () => ({
+vi.mock('@luban-cad/shared', () => ({
   openCloudIpcChannel: 'open-cloud-ipc',
 }));
 

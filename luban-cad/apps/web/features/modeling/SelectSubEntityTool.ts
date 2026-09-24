@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -33,7 +33,7 @@ export interface SelectSubEntityToolOptions {
 export class SelectSubEntityTool extends LocateSubEntityTool {
   public static override toolId = 'SelectSubEntity';
   public static override iconSpec = 'icon-select-subentity';
-  public static override namespace = 'OpenCloudCad';
+  public static override namespace = 'LubanCad';
 
   private _mode: SubEntitySelectionMode = 'face';
   private _onSubEntitySelected?: (elementId: string, subEntity: SubEntityLocationProps) => void;

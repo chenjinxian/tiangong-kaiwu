@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  */
 
@@ -8,7 +8,7 @@ import { EditTools } from '@itwin/editor-frontend';
 import { FrontendIModelsAccess } from '@itwin/imodels-access-frontend';
 import { BentleyCloudRpcManager, IModelReadRpcInterface, IModelTileRpcInterface } from '@itwin/core-common';
 import { IModelsClient } from '@itwin/imodels-client-management';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 
 export interface WebInitializerOptions {
   /** Backend RPC URL */
@@ -41,7 +41,7 @@ export async function initializeWeb(options: WebInitializerOptions): Promise<voi
 
   if (!IpcApp.isValid) {
     // eslint-disable-next-line no-console
-    console.log('[WebInitializer] Initializing Open Cloud CAD Web Viewer...');
+    console.log('[WebInitializer] Initializing LubanCAD Web Viewer...');
     // eslint-disable-next-line no-console
     console.log(`[WebInitializer] iModelHub URL: ${iModelHubUrl}`);
 
@@ -111,7 +111,7 @@ export async function initializeWeb(options: WebInitializerOptions): Promise<voi
 
   // Always configure RPC client (idempotent - safe to call multiple times)
   BentleyCloudRpcManager.initializeClient(
-    { info: { title: 'Open Cloud CAD', version: 'v1.0' }, uriPrefix: backendUrl },
+    { info: { title: 'LubanCAD', version: 'v1.0' }, uriPrefix: backendUrl },
     rpcInterfaces,
   );
 

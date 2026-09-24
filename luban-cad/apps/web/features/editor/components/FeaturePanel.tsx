@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,7 @@ import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { Button, IconButton, Select, Text, Alert, Dialog, Input, Label } from '@itwin/itwinui-react';
 import { SvgAdd, SvgDelete, SvgEdit, SvgVisibilityHalf, SvgChevronUp, SvgChevronDown } from '@itwin/itwinui-icons-react';
 import { useFeatures } from '../hooks/useFeatures.js';
-import type { CadFeatureRecord } from '@open-cloud-cad/shared';
+import type { CadFeatureRecord } from '@luban-cad/shared';
 import './FeaturePanel.css';
 
 interface FeaturePanelProps {

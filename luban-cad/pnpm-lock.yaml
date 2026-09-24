@@ -41,13 +41,13 @@ importers:
       '@itwin/web-viewer-react':
         specifier: ^5.0.1
         version: 5.0.2(95d540e26525db77c221f07a58143c5e)
-      '@open-cloud-cad/shared':
+      '@luban-cad/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@open-cloud-cad/viewer-core':
+      '@luban-cad/viewer-core':
         specifier: workspace:*
         version: link:../../packages/viewer-core
-      '@open-cloud-cad/web-viewer':
+      '@luban-cad/web-viewer':
         specifier: workspace:*
         version: link:../../packages/web-viewer
       '@tanstack/react-query':
@@ -214,7 +214,7 @@ importers:
 
   modules/ui:
     dependencies:
-      '@open-cloud-cad/core':
+      '@luban-cad/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -330,7 +330,7 @@ importers:
       '@itwin/core-geometry':
         specifier: link:../../../itwinjs-core/core/geometry
         version: link:../../../itwinjs-core/core/geometry
-      '@open-cloud-cad/shared':
+      '@luban-cad/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -385,10 +385,10 @@ importers:
       '@itwin/imodels-client-management':
         specifier: ^6.0.2
         version: 6.2.2
-      '@open-cloud-cad/shared':
+      '@luban-cad/shared':
         specifier: workspace:*
         version: link:../shared
-      '@open-cloud-cad/viewer-core':
+      '@luban-cad/viewer-core':
         specifier: workspace:*
         version: link:../viewer-core
     devDependencies:

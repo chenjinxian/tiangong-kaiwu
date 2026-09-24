@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Open Cloud CAD - Health Check Script
+# LubanCAD - Health Check Script
 # Run this before and after deployment to verify all services are healthy
 
 set -e
@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Service endpoints
 IMODELHUB_URL="http://localhost:4000"
 BACKEND_URL="http://localhost:4001"
-WEB_AGENT_URL="http://localhost:4002"
+WEBHOOK_AGENT_URL="http://localhost:4002"
 AZURITE_URL="http://localhost:10000"
 
 # Counters
@@ -22,7 +22,7 @@ ERRORS=0
 WARNINGS=0
 
 echo "=========================================="
-echo "Open Cloud CAD - Health Check"
+echo "LubanCAD - Health Check"
 echo "=========================================="
 echo ""
 
@@ -59,16 +59,16 @@ check_azurite() {
 echo "1. Core Services"
 echo "----------------"
 check_service "imodelhub-services" "$IMODELHUB_URL" "/health"
-check_service "backend" "$BACKEND_URL" "/health"
-check_service "web-agent" "$WEB_AGENT_URL" "/health"
+check_service "modeling-server" "$BACKEND_URL" "/health"
+check_service "webhook-agent" "$WEBHOOK_AGENT_URL" "/health"
 check_azurite
 echo ""
 
 # 2. Check webhook configuration
 echo "2. Webhook Configuration"
 echo "------------------------"
-echo -n "Checking web-agent recent events... "
-EVENTS=$(curl -s "$WEB_AGENT_URL/webhook/events/recent" 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
+echo -n "Checking webhook-agent recent events... "
+EVENTS=$(curl -s "$WEBHOOK_AGENT_URL/webhook/events/recent" 2>/dev/null | grep -o '"count":[0-9]*' | cut -d: -f2)
 if [ -n "$EVENTS" ]; then
     echo -e "${GREEN}✓ OK${NC} (events received: $EVENTS)"
 else
@@ -81,7 +81,7 @@ echo ""
 echo "3. Orphaned iModels Check"
 echo "-------------------------"
 echo -n "Checking compensation job status... "
-COMPENSATION_STATUS=$(curl -s -H "X-API-Key: internal-api-key-for-web-agent" "$IMODELHUB_URL/imodels/admin/compensation-status" 2>/dev/null | grep -o '"pendingRepairs":[0-9]*' | cut -d: -f2)
+COMPENSATION_STATUS=$(curl -s -H "X-API-Key: internal-api-key-for-webhook-agent" "$IMODELHUB_URL/imodels/admin/compensation-status" 2>/dev/null | grep -o '"pendingRepairs":[0-9]*' | cut -d: -f2)
 if [ -n "$COMPENSATION_STATUS" ]; then
     if [ "$COMPENSATION_STATUS" -eq 0 ]; then
         echo -e "${GREEN}✓ OK${NC} (no pending repairs)"
@@ -123,7 +123,7 @@ else
     echo ""
     echo "Common fixes:"
     echo "  - Ensure all services are running: npm run start:all"
-    echo "  - Check logs: tail -f /tmp/web-agent.log"
-    echo "  - Repair failed baselines: curl -X POST $IMODELHUB_URL/imodels/admin/repair-baselines -H 'X-API-Key: internal-api-key-for-web-agent'"
+    echo "  - Check logs: tail -f /tmp/webhook-agent.log"
+    echo "  - Repair failed baselines: curl -X POST $IMODELHUB_URL/imodels/admin/repair-baselines -H 'X-API-Key: internal-api-key-for-webhook-agent'"
     exit 1
 fi

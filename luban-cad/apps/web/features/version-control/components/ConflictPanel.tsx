@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,7 @@ import type {
   ConflictDetectionResult,
   ConflictResolution,
   ConflictType,
-} from '@open-cloud-cad/shared';
+} from '@luban-cad/shared';
 import './ConflictPanel.css';
 
 interface ConflictPanelProps {

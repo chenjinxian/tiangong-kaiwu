@@ -264,7 +264,7 @@ jobs:
       - name: Verify build outputs
         run: |
           test -d apps/web/dist || exit 1
-          test -d ../backend/dist || exit 1
+          test -d ../modeling-server/dist || exit 1
           test -d packages/shared/dist || exit 1
           test -d packages/viewer-core/dist || exit 1
           test -d packages/web-viewer/dist || exit 1

@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { BeButtonEvent, EventHandled, IModelApp, PrimitiveTool, OutputMessagePriority } from '@itwin/core-frontend';
 import { Point3d } from '@itwin/core-geometry';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 
 /**
  * Create Hole Tool - Creates holes on selected faces
@@ -19,7 +19,7 @@ import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
 export class CreateHoleTool extends PrimitiveTool {
   public static override toolId = 'CreateHole';
   public static override iconSpec = 'icon-create-hole';
-  public static override namespace = 'OpenCloudCad';
+  public static override namespace = 'LubanCad';
 
   private _centerPoint?: Point3d;
   private _diameter = 10;
