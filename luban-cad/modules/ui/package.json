@@ -1,7 +1,7 @@
 {
-  "name": "@open-cloud-cad/ui",
+  "name": "@luban-cad/ui",
   "version": "1.0.0",
-  "description": "Open Cloud CAD UI Components",
+  "description": "LubanCAD UI Components",
   "type": "module",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -19,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@open-cloud-cad/core": "workspace:*"
+    "@luban-cad/core": "workspace:*"
   },
   "devDependencies": {
     "@itwin/appui-abstract": "link:../../../itwinjs-core/ui/appui-abstract",

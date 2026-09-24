@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -98,7 +98,7 @@ describe('SelectSubEntityTool', () => {
   });
 
   it('should have correct namespace', () => {
-    expect(SelectSubEntityTool.namespace).toBe('OpenCloudCad');
+    expect(SelectSubEntityTool.namespace).toBe('LubanCad');
   });
 
   it('should not require writeable target', () => {

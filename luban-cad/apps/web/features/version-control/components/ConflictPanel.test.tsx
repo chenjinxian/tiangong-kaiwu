@@ -1,12 +1,12 @@
 /*-----------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConflictPanel } from './ConflictPanel.js';
-import type { ConflictDetectionResult, ConflictResolution } from '@open-cloud-cad/shared';
+import type { ConflictDetectionResult, ConflictResolution } from '@luban-cad/shared';
 
 const mockConflictResult: ConflictDetectionResult = {
   hasConflicts: true,

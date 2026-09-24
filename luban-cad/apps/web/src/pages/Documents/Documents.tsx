@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -290,7 +290,7 @@ const Documents: React.FC = React.memo(() => {
       <header className="topbar">
         <div className="topbar-brand">
           <div className="logo-mark">CC</div>
-          <Text className="logo-text">Open Cloud CAD</Text>
+          <Text className="logo-text">LubanCAD</Text>
         </div>
 
         {/* Search bar */}

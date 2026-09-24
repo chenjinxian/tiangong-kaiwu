@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { useCallback, useEffect, useState } from 'react';
 import { type BriefcaseConnection, IpcApp } from '@itwin/core-frontend';
-import { type CadFeatureRecord, openCloudIpcChannel, type OpenCloudIpcInterface } from '@open-cloud-cad/shared';
+import { type CadFeatureRecord, openCloudIpcChannel, type OpenCloudIpcInterface } from '@luban-cad/shared';
 
 export interface UseFeaturesResult {
   features: CadFeatureRecord[];

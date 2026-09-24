@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,7 +22,7 @@ import {
 export class SetSketchPlaneTool extends PrimitiveTool {
   public static override toolId = 'SetSketchPlane';
   public static override iconSpec = 'icon-plane';
-  public static override namespace = 'OpenCloudCad';
+  public static override namespace = 'LubanCad';
 
   public override requireWriteableTarget(): boolean { return false; }
 

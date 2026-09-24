@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -83,7 +83,7 @@ export function useIModelPermission(options: UseIModelPermissionOptions): UseIMo
         throw new Error('Not authenticated');
       }
 
-      // Try to fetch permission from backend
+      // Try to fetch permission from modeling-server
       const response = await fetch(
         `${BACKEND_URL}/itwins/${iTwinId}/imodels/${iModelId}/permission`,
         {
@@ -97,7 +97,7 @@ export function useIModelPermission(options: UseIModelPermissionOptions): UseIMo
 
       if (!response.ok) {
         // Permission endpoint not available - default to readonly for safety
-        // This prevents unauthorized editing when backend permissions are unavailable
+        // This prevents unauthorized editing when modeling-server permissions are unavailable
         if (response.status === 404) {
           // Permission endpoint not available in local deployment —
           // assume authenticated users own their iModels

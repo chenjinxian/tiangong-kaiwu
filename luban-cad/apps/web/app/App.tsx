@@ -132,7 +132,7 @@ const AppRoutes: React.FC = () => {
 };
 
 /**
- * Open Cloud CAD Web Application
+ * LubanCAD Web Application
  *
  * Architecture:
  * - UserProvider: Global authentication state

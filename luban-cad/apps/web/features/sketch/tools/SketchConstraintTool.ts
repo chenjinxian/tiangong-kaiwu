@@ -1,10 +1,10 @@
 /*-----------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { BeButtonEvent, EventHandled, IModelApp, PrimitiveTool, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 
 /** Constraint types supported in sketch mode */
 export type ConstraintType =

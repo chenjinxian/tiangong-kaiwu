@@ -1,11 +1,11 @@
 /**-----------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Open Cloud CAD UI Module
- * React components and hooks for Open Cloud CAD
+ * LubanCAD UI Module
+ * React components and hooks for LubanCAD
  *
  * @packageDocumentation
  */

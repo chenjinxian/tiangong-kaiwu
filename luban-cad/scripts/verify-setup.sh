@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Open Cloud CAD - Setup Verification Script
+# LubanCAD - Setup Verification Script
 #
 # Verifies all components are properly configured for iModel creation testing.
 #
@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  Open Cloud CAD - Setup Verification${NC}"
+echo -e "${BLUE}  LubanCAD - Setup Verification${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -48,16 +48,17 @@ else
     check_fail "Frontend app missing (apps/web)"
 fi
 
-if [ -d "../web-agent" ]; then
+if [ -d "../webhook-agent" ]; then
     check_pass "Web-agent app exists"
 else
-    check_fail "Web-agent app missing (../web-agent)"
+    check_fail "Web-agent app missing (../webhook-agent)"
 fi
 
-if [ -d "/Users/xunzhang/Documents/GitHub/imodelhub-services" ]; then
+IMODELHUB_DIR="${IMODELHUB_DIR:-$(cd "$(dirname "$0")/../../.." && pwd)/imodelhub-services}"
+if [ -d "$IMODELHUB_DIR" ]; then
     check_pass "imodelhub-services found"
 else
-    check_fail "imodelhub-services not found (expected at /Users/xunzhang/Documents/GitHub/imodelhub-services)"
+    check_fail "imodelhub-services not found (sibling repo; override with IMODELHUB_DIR env var)"
 fi
 
 echo ""
@@ -83,12 +84,12 @@ else
     echo "    Start with: cd ../imodelhub-services && npm run start:dev"
 fi
 
-# web-agent
+# webhook-agent
 if curl -s http://localhost:4002/health > /dev/null 2>&1; then
-    check_pass "web-agent is running (port 4002)"
+    check_pass "webhook-agent is running (port 4002)"
 else
-    check_fail "web-agent not responding (port 4002)"
-    echo "    Start with: cd ../web-agent && npm run dev"
+    check_fail "webhook-agent not responding (port 4002)"
+    echo "    Start with: cd ../webhook-agent && npm run dev"
 fi
 
 echo ""
@@ -98,16 +99,16 @@ echo ""
 # ============================================
 echo -e "${YELLOW}3. Webhook Configuration${NC}"
 
-# Check web-agent .env
-if [ -f "../web-agent/.env" ]; then
-    WEBHOOK_SECRET=$(grep "WEBHOOK_SECRET" ../web-agent/.env | cut -d= -f2 || echo "")
+# Check webhook-agent .env
+if [ -f "../webhook-agent/.env" ]; then
+    WEBHOOK_SECRET=$(grep "WEBHOOK_SECRET" ../webhook-agent/.env | cut -d= -f2 || echo "")
     if [ -n "$WEBHOOK_SECRET" ]; then
-        check_pass "web-agent WEBHOOK_SECRET configured"
+        check_pass "webhook-agent WEBHOOK_SECRET configured"
     else
-        check_warn "web-agent WEBHOOK_SECRET not set in .env"
+        check_warn "webhook-agent WEBHOOK_SECRET not set in .env"
     fi
 else
-    check_warn "web-agent .env file not found"
+    check_warn "webhook-agent .env file not found"
 fi
 
 # Check database webhook subscription (if psql available)
@@ -123,7 +124,7 @@ if command -v psql > /dev/null 2>&1; then
             psql -d imodelhub -c "SELECT scope, scope_id, callback_url, event_types FROM webhook_subscriptions WHERE active = true" 2>/dev/null | sed 's/^/    /'
         else
             check_fail "No active webhook subscriptions in database"
-            echo "    Run: psql -d imodelhub -f /Users/xunzhang/Documents/GitHub/imodelhub-services/scripts/setup-webhook-for-testing.sql"
+            echo "    Run: psql -d imodelhub -f \$IMODELHUB_DIR/scripts/setup-webhook-for-testing.sql"
         fi
     else
         check_warn "Could not query database (may need to configure connection)"

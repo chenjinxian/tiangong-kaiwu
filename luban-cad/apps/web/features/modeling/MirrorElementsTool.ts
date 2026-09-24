@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { BeButtonEvent, EventHandled, IModelApp, PrimitiveTool, OutputMessagePriority } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 
 /**
  * Mirror Elements Tool - Mirrors selected elements across a plane
@@ -20,7 +20,7 @@ import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
 export class MirrorElementsTool extends PrimitiveTool {
   public static override toolId = 'MirrorElements';
   public static override iconSpec = 'icon-mirror-elements';
-  public static override namespace = 'OpenCloudCad';
+  public static override namespace = 'LubanCad';
 
   private _selectedElements: string[] = [];
   private _planePoint?: Point3d;

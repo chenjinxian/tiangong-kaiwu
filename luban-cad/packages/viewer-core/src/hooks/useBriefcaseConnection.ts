@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * useBriefcaseConnection — React hook for read-write iModel editing
@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BriefcaseConnection, IpcApp } from '@itwin/core-frontend';
-import { openCloudIpcChannel, type OpenCloudIpcInterface } from '@open-cloud-cad/shared';
+import { openCloudIpcChannel, type OpenCloudIpcInterface } from '@luban-cad/shared';
 
 export interface UseBriefcaseConnectionOptions {
   iTwinId: string;

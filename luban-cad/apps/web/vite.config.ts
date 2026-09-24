@@ -7,8 +7,8 @@ export default defineConfig({
   server: {
     port: 3000,
     fs: {
-      // Allow serving files from the iTwin.js monorepo packages (symlinked)
-      allow: ['..', '/Users/xunzhang/Documents/GitHub/itwinjs-core'],
+      // Allow serving files from the linked iTwin.js source packages (repo root)
+      allow: ['..', '../..'],
     },
     proxy: {
       // Auth endpoints
@@ -94,7 +94,6 @@ export default defineConfig({
       '@tanstack/react-query',
       '@itwin/itwinui-react',
       '@itwin/itwinui-icons-react',
-      '@itwin/core-markup',
     ],
     exclude: [
       '@itwin/core-frontend',
@@ -131,14 +130,12 @@ export default defineConfig({
       '@shared': '/shared',
       '@pages': '/src/pages',
       '@styles': '/styles',
-      '@itwin/core-markup': '/Users/xunzhang/Documents/GitHub/itwinjs-core/common/temp/node_modules/@itwin/core-markup/lib/esm/core-markup.js',
     },
     dedupe: [
       '@itwin/core-frontend',
       '@itwin/core-common',
       '@itwin/core-bentley',
       '@itwin/core-geometry',
-      '@itwin/core-markup',
       '@itwin/editor-frontend',
     ],
   },

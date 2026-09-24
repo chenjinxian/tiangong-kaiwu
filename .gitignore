@@ -7,3 +7,5 @@ coverage/
 *.log
 .env
 .env.*
+__azurite_db_*
+AzuriteConfig

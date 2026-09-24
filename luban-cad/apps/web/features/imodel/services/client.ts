@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * iModel Service Client
@@ -57,7 +57,7 @@ export async function getDownloadUrl(iModelId: string): Promise<string> {
 }
 
 /**
- * Get initialization progress for an iModel from the backend
+ * Get initialization progress for an iModel from the modeling-server
  */
 export async function getIModelProgress(iModelId: string): Promise<IModelProgress> {
   const auth = await getAuthorization();
@@ -73,7 +73,7 @@ export async function getIModelProgress(iModelId: string): Promise<IModelProgres
 }
 
 /**
- * Retry failed iModel initialization via backend -> web-agent
+ * Retry failed iModel initialization via modeling-server -> webhook-agent
  */
 export async function retryIModel(iModelId: string, iTwinId: string, imodelName?: string): Promise<void> {
   const auth = await getAuthorization();

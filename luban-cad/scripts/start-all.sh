@@ -1,10 +1,10 @@
 #!/bin/bash
 #
-# Open Cloud CAD - 统一服务启动脚本
+# LubanCAD - 统一服务启动脚本
 #
 # 规范：
 #   - 公共服务组件（PostgreSQL, Redis, Azurite）必须使用 Docker 启动
-#   - 自研服务（imodelhub-services, backend, web-agent, frontend）使用本地 npm 启动
+#   - 自研服务（imodelhub-services, modeling-server, webhook-agent, frontend）使用本地 npm 启动
 #
 # Usage:
 #   ./scripts/start-all.sh [command]
@@ -12,7 +12,7 @@
 # Commands:
 #   all       - 启动所有服务（默认）
 #   infra     - 只启动基础设施（postgres, azurite, redis）
-#   services  - 只启动应用服务（imodelhub, backend, web-agent）
+#   services  - 只启动应用服务（imodelhub, modeling-server, webhook-agent）
 #   web       - 只启动前端
 #   stop      - 停止所有服务（包括 Docker）
 #   status    - 查看服务状态
@@ -29,9 +29,9 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # 路径配置
-IMODELHUB_DIR="${IMODELHUB_DIR:-/Users/xunzhang/Documents/GitHub/imodelhub-services}"
+IMODELHUB_DIR="${IMODELHUB_DIR:-$(cd "$(dirname "$0")/../../.." && pwd)/imodelhub-services}"
 DOCKER_COMPOSE_FILE="$IMODELHUB_DIR/docker-compose.yaml"
-PID_DIR="/tmp/open-cloud-cad"
+PID_DIR="/tmp/luban-cad"
 
 # 创建 PID 目录
 mkdir -p "$PID_DIR"
@@ -265,40 +265,40 @@ start_imodelhub() {
     # 检查是否需要构建
     if [ ! -f "dist/main.js" ]; then
         log_info "  首次启动，正在构建..."
-        npm run build > /tmp/open-cloud-cad/imodelhub-build.log 2>&1
+        npm run build > /tmp/luban-cad/imodelhub-build.log 2>&1
         if [ $? -ne 0 ]; then
-            log_error "构建失败，查看日志: tail -f /tmp/open-cloud-cad/imodelhub-build.log"
+            log_error "构建失败，查看日志: tail -f /tmp/luban-cad/imodelhub-build.log"
             cd - > /dev/null
             return 1
         fi
         log_success "  构建完成"
     fi
 
-    npm run start:prod > /tmp/open-cloud-cad/imodelhub.log 2>&1 &
+    npm run start:prod > /tmp/luban-cad/imodelhub.log 2>&1 &
     IMODELHUB_PID=$!
     save_pid "imodelhub" "$IMODELHUB_PID"
     cd - > /dev/null
 
     if wait_for_service "imodelhub-services" "http://localhost:4000/health/live" 60; then
         log_success "imodelhub-services 启动成功 (生产模式, PID: $IMODELHUB_PID)"
-        echo "  日志: tail -f /tmp/open-cloud-cad/imodelhub.log"
+        echo "  日志: tail -f /tmp/luban-cad/imodelhub.log"
     else
         log_error "imodelhub-services 启动失败"
-        echo "  查看日志: tail -f /tmp/open-cloud-cad/imodelhub.log"
+        echo "  查看日志: tail -f /tmp/luban-cad/imodelhub.log"
         return 1
     fi
 }
 
-# 启动 backend（本地）
-start_backend() {
-    log_section "启动 Open Cloud CAD Backend（本地）"
+# 启动 modeling-server（本地）
+start_modeling_server() {
+    log_section "启动 LubanCAD Backend（本地）"
 
     if check_port 4001; then
         # Port is occupied - find and save the actual PID
         local actual_pid
         actual_pid=$(lsof -Pi :4001 -sTCP:LISTEN -t 2>/dev/null | head -1)
         if [ -n "$actual_pid" ]; then
-            save_pid "backend" "$actual_pid"
+            save_pid "modeling-server" "$actual_pid"
             log_success "Backend 已在运行 (端口: 4001, PID: $actual_pid)"
         else
             log_success "Backend 已在运行 (端口: 4001)"
@@ -308,24 +308,24 @@ start_backend() {
 
     log_info "启动 Backend..."
 
-    cd ../backend
-    npm run dev > /tmp/open-cloud-cad/backend.log 2>&1 &
+    cd ../modeling-server
+    npm run dev > /tmp/luban-cad/modeling-server.log 2>&1 &
     BACKEND_PID=$!
-    save_pid "backend" "$BACKEND_PID"
+    save_pid "modeling-server" "$BACKEND_PID"
     cd - > /dev/null
 
     if wait_for_service "Backend" "http://localhost:4001/health" 30; then
         log_success "Backend 启动成功 (PID: $BACKEND_PID)"
-        echo "  日志: tail -f /tmp/open-cloud-cad/backend.log"
+        echo "  日志: tail -f /tmp/luban-cad/modeling-server.log"
     else
         log_error "Backend 启动失败"
-        echo "  查看日志: tail -f /tmp/open-cloud-cad/backend.log"
+        echo "  查看日志: tail -f /tmp/luban-cad/modeling-server.log"
         return 1
     fi
 }
 
-# 启动 web-agent（本地）
-start_web_agent() {
+# 启动 webhook-agent（本地）
+start_webhook_agent() {
     log_section "启动 Web-Agent（本地）"
 
     if check_port 4002; then
@@ -333,7 +333,7 @@ start_web_agent() {
         local actual_pid
         actual_pid=$(lsof -Pi :4002 -sTCP:LISTEN -t 2>/dev/null | head -1)
         if [ -n "$actual_pid" ]; then
-            save_pid "web-agent" "$actual_pid"
+            save_pid "webhook-agent" "$actual_pid"
             log_success "Web-Agent 已在运行 (端口: 4002, PID: $actual_pid)"
         else
             log_success "Web-Agent 已在运行 (端口: 4002)"
@@ -343,18 +343,18 @@ start_web_agent() {
 
     log_info "启动 Web-Agent..."
 
-    cd ../web-agent
-    npm run dev > /tmp/open-cloud-cad/web-agent.log 2>&1 &
+    cd ../webhook-agent
+    npm run dev > /tmp/luban-cad/webhook-agent.log 2>&1 &
     WEB_AGENT_PID=$!
-    save_pid "web-agent" "$WEB_AGENT_PID"
+    save_pid "webhook-agent" "$WEB_AGENT_PID"
     cd - > /dev/null
 
     if wait_for_service "Web-Agent" "http://localhost:4002/health" 30; then
         log_success "Web-Agent 启动成功 (PID: $WEB_AGENT_PID)"
-        echo "  日志: tail -f /tmp/open-cloud-cad/web-agent.log"
+        echo "  日志: tail -f /tmp/luban-cad/webhook-agent.log"
     else
         log_error "Web-Agent 启动失败"
-        echo "  查看日志: tail -f /tmp/open-cloud-cad/web-agent.log"
+        echo "  查看日志: tail -f /tmp/luban-cad/webhook-agent.log"
         return 1
     fi
 }
@@ -379,7 +379,7 @@ start_web() {
     log_info "启动 Frontend..."
 
     cd apps/web
-    npm run dev > /tmp/open-cloud-cad/web.log 2>&1 &
+    npm run dev > /tmp/luban-cad/web.log 2>&1 &
     WEB_PID=$!
     save_pid "web" "$WEB_PID"
     cd - > /dev/null
@@ -389,10 +389,10 @@ start_web() {
 
     if check_port 3000; then
         log_success "Frontend 启动成功 (PID: $WEB_PID)"
-        echo "  日志: tail -f /tmp/open-cloud-cad/web.log"
+        echo "  日志: tail -f /tmp/luban-cad/web.log"
     else
         log_warning "Frontend 可能仍在启动中..."
-        echo "  查看日志: tail -f /tmp/open-cloud-cad/web.log"
+        echo "  查看日志: tail -f /tmp/luban-cad/web.log"
     fi
 }
 
@@ -402,7 +402,7 @@ stop_all() {
 
     # 停止本地应用服务
     log_info "停止本地应用服务..."
-    for service in imodelhub backend web-agent web; do
+    for service in imodelhub modeling-server webhook-agent web; do
         pid=$(get_pid "$service")
         if [ -n "$pid" ]; then
             if kill -0 "$pid" 2>/dev/null; then
@@ -467,7 +467,7 @@ show_status() {
     printf "%-20s %-10s %-10s %-10s\n" "服务" "端口" "状态" "PID"
     echo "-----------------------------------------------"
 
-    for service in imodelhub:4000 backend:4001 web-agent:4002 web:3000; do
+    for service in imodelhub:4000 modeling-server:4001 webhook-agent:4002 web:3000; do
         name=$(echo "$service" | cut -d: -f1)
         port=$(echo "$service" | cut -d: -f2)
         pid=$(get_pid "$name")
@@ -492,15 +492,15 @@ show_status() {
     fi
 
     if check_health "http://localhost:4001/health" 2; then
-        echo -e "  backend:           ${GREEN}健康${NC}"
+        echo -e "  modeling-server:           ${GREEN}健康${NC}"
     else
-        echo -e "  backend:           ${RED}异常${NC}"
+        echo -e "  modeling-server:           ${RED}异常${NC}"
     fi
 
     if check_health "http://localhost:4002/health" 2; then
-        echo -e "  web-agent:         ${GREEN}健康${NC}"
+        echo -e "  webhook-agent:         ${GREEN}健康${NC}"
     else
-        echo -e "  web-agent:         ${RED}异常${NC}"
+        echo -e "  webhook-agent:         ${RED}异常${NC}"
     fi
 }
 
@@ -510,12 +510,12 @@ show_usage() {
     echo ""
     echo "启动规范："
     echo "  - 公共服务组件（PostgreSQL, Redis, Azurite）必须使用 Docker 启动"
-    echo "  - 自研服务（imodelhub-services, backend, web-agent, frontend）使用本地 npm 启动"
+    echo "  - 自研服务（imodelhub-services, modeling-server, webhook-agent, frontend）使用本地 npm 启动"
     echo ""
     echo "Commands:"
     echo "  all       启动所有服务（默认）"
     echo "  infra     只启动基础设施（Docker: postgres, azurite, redis）"
-    echo "  services  只启动应用服务（本地: imodelhub, backend, web-agent）"
+    echo "  services  只启动应用服务（本地: imodelhub, modeling-server, webhook-agent）"
     echo "  web       只启动前端（本地）"
     echo "  stop      停止所有服务（包括 Docker 基础设施）"
     echo "  status    查看服务状态"
@@ -528,17 +528,17 @@ show_usage() {
     echo "  $0 status       # 查看服务状态"
     echo ""
     echo "环境变量:"
-    echo "  IMODELHUB_DIR   imodelhub-services 目录路径（默认: /Users/xunzhang/Documents/GitHub/imodelhub-services）"
+    echo "  IMODELHUB_DIR   imodelhub-services 目录路径（默认: 本仓同级的 imodelhub-services 检出）"
 }
 
 # 主命令处理
 case "${1:-all}" in
     all)
-        mkdir -p /tmp/open-cloud-cad
+        mkdir -p /tmp/luban-cad
         start_infra
         start_imodelhub
-        start_backend
-        start_web_agent
+        start_modeling_server
+        start_webhook_agent
         start_web
 
         echo ""
@@ -559,7 +559,7 @@ case "${1:-all}" in
         echo "  🌐 Frontend:           http://localhost:3000"
         echo ""
         echo "日志文件:"
-        echo "  tail -f /tmp/open-cloud-cad/*.log"
+        echo "  tail -f /tmp/luban-cad/*.log"
         echo ""
         echo "停止所有服务:"
         echo "  $0 stop"
@@ -571,8 +571,8 @@ case "${1:-all}" in
 
     services)
         start_imodelhub
-        start_backend
-        start_web_agent
+        start_modeling_server
+        start_webhook_agent
         ;;
 
     web)
@@ -583,12 +583,12 @@ case "${1:-all}" in
         start_imodelhub
         ;;
 
-    backend)
-        start_backend
+    modeling-server)
+        start_modeling_server
         ;;
 
-    web-agent)
-        start_web_agent
+    webhook-agent)
+        start_webhook_agent
         ;;
 
     stop)
@@ -600,11 +600,11 @@ case "${1:-all}" in
         ;;
 
     logs)
-        if [ -f "/tmp/open-cloud-cad/$2.log" ]; then
-            tail -f "/tmp/open-cloud-cad/$2.log"
+        if [ -f "/tmp/luban-cad/$2.log" ]; then
+            tail -f "/tmp/luban-cad/$2.log"
         else
             echo "查看所有日志:"
-            tail -f /tmp/open-cloud-cad/*.log
+            tail -f /tmp/luban-cad/*.log
         fi
         ;;
 

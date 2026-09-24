@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Selection Tools - Enhanced selection capabilities
@@ -29,7 +29,7 @@ import { dialogService } from '../services/DialogService.js';
  * Allows selecting elements by drawing a rectangle
  */
 export class FenceSelectTool extends SelectionTool {
-  public static override toolId = 'OpenCloudCad.FenceSelect';
+  public static override toolId = 'LubanCad.FenceSelect';
   public static override iconSpec = 'icon-select-fence';
 
   private _firstPoint?: Point3d;
@@ -266,7 +266,7 @@ class FenceDecorator implements Decorator {
  * Select All Elements Tool
  */
 export class SelectAllTool extends Tool {
-  public static override toolId = 'OpenCloudCad.SelectAll';
+  public static override toolId = 'LubanCad.SelectAll';
   public static override iconSpec = 'icon-select-all';
 
   public override async run(): Promise<boolean> {
@@ -306,7 +306,7 @@ export class SelectAllTool extends Tool {
  * Invert Selection Tool
  */
 export class InvertSelectionTool extends Tool {
-  public static override toolId = 'OpenCloudCad.InvertSelection';
+  public static override toolId = 'LubanCad.InvertSelection';
   public static override iconSpec = 'icon-select-invert';
 
   public override async run(): Promise<boolean> {
@@ -357,7 +357,7 @@ export class InvertSelectionTool extends Tool {
  * Clear Selection Tool
  */
 export class ClearSelectionTool extends Tool {
-  public static override toolId = 'OpenCloudCad.ClearSelection';
+  public static override toolId = 'LubanCad.ClearSelection';
   public static override iconSpec = 'icon-select-none';
 
   public override async run(): Promise<boolean> {
@@ -380,7 +380,7 @@ export class ClearSelectionTool extends Tool {
  * Select by Category Tool
  */
 export class SelectByCategoryTool extends Tool {
-  public static override toolId = 'OpenCloudCad.SelectByCategory';
+  public static override toolId = 'LubanCad.SelectByCategory';
   public static override iconSpec = 'icon-select-category';
 
   private _categoryId?: string;

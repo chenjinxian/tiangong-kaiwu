@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@ import { SubEntityLocationProps, SubEntityType } from '@itwin/editor-common';
 import { SolidModelingToolBase, SolidModelingToolBaseOptions } from './SolidModelingToolBase.js';
 import type { SolidModelingEventMap } from './SolidModelingEvents.js';
 import { EventHandled, IModelApp, OutputMessagePriority } from '@itwin/core-frontend';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 
 export interface DraftFacesToolOptions extends SolidModelingToolBaseOptions {
   /** 拔模角度（度） */
@@ -29,7 +29,7 @@ export interface DraftFacesToolOptions extends SolidModelingToolBaseOptions {
 export class DraftFacesTool extends SolidModelingToolBase<DraftFacesToolOptions> {
   public static override toolId = 'DraftFaces';
   public static override iconSpec = 'icon-draft-faces';
-  public static override namespace = 'OpenCloudCad';
+  public static override namespace = 'LubanCad';
 
   private _draftAngle = 5; // 默认5度
   private _draftDirection?: { x: number; y: number; z: number };

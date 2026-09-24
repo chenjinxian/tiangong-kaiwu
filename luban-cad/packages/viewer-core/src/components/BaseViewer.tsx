@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  */
 
@@ -86,7 +86,7 @@ export const BaseViewer: React.FC<BaseViewerProps> = (props) => {
   // Overlay loading/error states on top without unmounting the div.
   return (
     <div
-      className={`open-cloud-cad-viewer ${className ?? ''}`}
+      className={`luban-cad-viewer ${className ?? ''}`}
       style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}
     >
       {/* Viewport container – always present so useViewport can attach the canvas */}

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Open Cloud CAD - Environment Setup Script
+# LubanCAD - Environment Setup Script
 # This script creates .env files from .env.example templates
 
 set -e
@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 echo "==============================================="
-echo "Open Cloud CAD - Environment Setup"
+echo "LubanCAD - Environment Setup"
 echo "==============================================="
 echo ""
 
@@ -43,9 +43,9 @@ setup_env() {
 echo ""
 setup_env "Frontend (web)" "$PROJECT_DIR/apps/web/.env"
 
-# Setup web-agent
+# Setup webhook-agent
 echo ""
-setup_env "Webhook Agent" "$PROJECT_DIR/../web-agent/.env"
+setup_env "Webhook Agent" "$PROJECT_DIR/../webhook-agent/.env"
 
 echo ""
 echo "==============================================="
@@ -63,14 +63,14 @@ echo "   - WEBHOOK_SECRET must match imodelhub-services"
 echo "   - Default: 'your-webhook-signing-secret-change-in-production'"
 echo ""
 echo "3. imodelhub-services (separate repo):"
-echo "   - Ensure WEBHOOK_SIGNING_SECRET matches web-agent's WEBHOOK_SECRET"
+echo "   - Ensure WEBHOOK_SIGNING_SECRET matches webhook-agent's WEBHOOK_SECRET"
 echo "   - Both should use the same value"
 echo ""
 echo "Next Steps:"
 echo "  1. Review and edit .env files if needed"
 echo "  2. Start services: docker-compose up -d"
-echo "  3. Start backend: cd ../backend && npm run dev"
-echo "  4. Start web-agent: cd ../web-agent && npm start"
+echo "  3. Start modeling-server: cd ../modeling-server && npm run dev"
+echo "  4. Start webhook-agent: cd ../webhook-agent && npm start"
 echo "  5. Start frontend: cd apps/web && npm run dev"
 echo ""
 echo "For detailed configuration, see: docs/WEBHOOK_CONFIG.md"

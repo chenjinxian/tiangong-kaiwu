@@ -1,10 +1,10 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  */
 
 import React, { useEffect, useState } from 'react';
-import { ViewerWithUI, type ViewerWithUIProps } from '@open-cloud-cad/viewer-core';
+import { ViewerWithUI, type ViewerWithUIProps } from '@luban-cad/viewer-core';
 import { initializeWeb, shutdownWeb } from './WebInitializer.js';
 
 export interface WebViewerProps extends ViewerWithUIProps {

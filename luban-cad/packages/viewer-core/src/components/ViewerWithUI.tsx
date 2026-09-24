@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Viewer With UI - Complete 3D Viewer with Navigation Tools

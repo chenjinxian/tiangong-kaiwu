@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 import type { ElementGeometryResultOptions, ElementGeometryResultProps } from '@itwin/editor-common';
 
 /**

@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useState } from 'react';
-import type { ChangedElement, ChangesetComparisonResult, PropertyDifference } from '@open-cloud-cad/shared';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import type { ChangedElement, ChangesetComparisonResult, PropertyDifference } from '@luban-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 import type { Changeset } from '@itwin/imodels-client-management';
 import { SvgClose } from '@itwin/itwinui-icons-react';
 import './ChangesetCompare.css';

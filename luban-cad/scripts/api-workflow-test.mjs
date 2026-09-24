@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * API Workflow Test - Tests complete user journey via REST APIs
@@ -61,7 +61,7 @@ class APITestRunner {
 
     const services = [
       { name: 'imodelhub-services', url: `${IMODELHUB_URL}/health` },
-      { name: 'backend', url: `${BACKEND_URL}/health` }
+      { name: 'modeling-server', url: `${BACKEND_URL}/health` }
     ];
 
     for (const service of services) {
@@ -417,7 +417,7 @@ class APITestRunner {
 
   async runAllTests() {
     console.log('\n╔══════════════════════════════════════════════════════╗');
-    console.log('║     Open Cloud CAD - API Workflow Test Suite        ║');
+    console.log('║     LubanCAD - API Workflow Test Suite        ║');
     console.log('╚══════════════════════════════════════════════════════╝');
 
     await this.checkServices();

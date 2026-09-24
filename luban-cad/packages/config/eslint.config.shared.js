@@ -3,11 +3,11 @@ import tseslint from 'typescript-eslint';
 import iTwinPlugin from '@itwin/eslint-plugin';
 
 /**
- * Shared ESLint configuration for Open Cloud CAD packages
+ * Shared ESLint configuration for LubanCAD packages
  *
  * Usage:
  * ```js
- * import sharedConfig from '@open-cloud-cad/config/eslint.config.shared.js';
+ * import sharedConfig from '@luban-cad/config/eslint.config.shared.js';
  *
  * export default [
  *   ...sharedConfig,

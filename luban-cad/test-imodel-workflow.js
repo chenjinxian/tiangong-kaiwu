@@ -5,7 +5,7 @@
  * Tests the complete flow:
  * 1. Create iTwin
  * 2. Create iModel (triggers webhook)
- * 3. Webhook received by web-agent
+ * 3. Webhook received by webhook-agent
  * 4. Baseline file generated
  * 5. File uploaded to blob storage
  * 6. Completion callback to imodelhub-services
@@ -13,7 +13,7 @@
  */
 
 const BASE_URL = 'http://localhost:4000';
-const WEB_AGENT_URL = 'http://localhost:4002';
+const WEBHOOK_AGENT_URL = 'http://localhost:4002';
 
 // Test configuration
 const TEST_USER = {
@@ -50,9 +50,9 @@ async function apiRequest(path, options = {}) {
   return data;
 }
 
-// Helper: Check web-agent stats
+// Helper: Check webhook-agent stats
 async function getWebAgentStats() {
-  const response = await fetch(`${WEB_AGENT_URL}/health`);
+  const response = await fetch(`${WEBHOOK_AGENT_URL}/health`);
   return response.json();
 }
 
@@ -143,13 +143,13 @@ async function testCreateIModel() {
 // Test Step 4: Wait for webhook processing
 async function testWebhookProcessing() {
   console.log('\n📍 Step 4: Wait for webhook processing');
-  console.log('  Waiting for web-agent to process...');
+  console.log('  Waiting for webhook-agent to process...');
 
   const maxAttempts = 60;  // Wait up to 60 seconds
   for (let i = 0; i < maxAttempts; i++) {
     await delay(2000);  // Check every 2 seconds
 
-    // Check web-agent stats
+    // Check webhook-agent stats
     const stats = await getWebAgentStats();
     if (stats.stats?.pendingEvents > 0) {
       process.stdout.write(`\r  ⏳ Processing... (${i + 1}s)`);

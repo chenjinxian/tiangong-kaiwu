@@ -20,7 +20,7 @@ test('V2 Checkpoint should load successfully', async ({ page }) => {
 
   // Get auth token and iModel info
   const authData = await page.evaluate(() => {
-    const authJson = sessionStorage.getItem('open_cloud_cad_auth');
+    const authJson = sessionStorage.getItem('luban_cad_auth');
     return authJson ? JSON.parse(authJson) : null;
   });
 
@@ -28,7 +28,7 @@ test('V2 Checkpoint should load successfully', async ({ page }) => {
 
   // Get project and iModel IDs
   const projectsResponse = await page.evaluate(async () => {
-    const authJson = sessionStorage.getItem('open_cloud_cad_auth');
+    const authJson = sessionStorage.getItem('luban_cad_auth');
     const auth = authJson ? JSON.parse(authJson) : null;
     const token = auth?.accessToken;
     const res = await fetch('http://localhost:4000/itwins?class=Project', {
@@ -41,7 +41,7 @@ test('V2 Checkpoint should load successfully', async ({ page }) => {
   const projectId = projectsResponse.iTwins[0].id;
 
   const imodelsResponse = await page.evaluate(async (pid) => {
-    const authJson = sessionStorage.getItem('open_cloud_cad_auth');
+    const authJson = sessionStorage.getItem('luban_cad_auth');
     const auth = authJson ? JSON.parse(authJson) : null;
     const token = auth?.accessToken;
     const res = await fetch(`http://localhost:4000/imodels?iTwinId=${pid}`, {

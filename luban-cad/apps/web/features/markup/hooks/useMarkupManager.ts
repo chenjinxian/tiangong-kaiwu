@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Markup Manager Hook
@@ -78,7 +78,7 @@ export function useMarkupManager(options: UseMarkupManagerOptions): UseMarkupMan
 
   // Load sessions from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem(`open-cloud-cad-markups-${iModelId || 'global'}`);
+    const saved = localStorage.getItem(`luban-cad-markups-${iModelId || 'global'}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -93,7 +93,7 @@ export function useMarkupManager(options: UseMarkupManagerOptions): UseMarkupMan
   useEffect(() => {
     if (sessions.length > 0) {
       localStorage.setItem(
-        `open-cloud-cad-markups-${iModelId || 'global'}`,
+        `luban-cad-markups-${iModelId || 'global'}`,
         JSON.stringify({ sessions })
       );
     }

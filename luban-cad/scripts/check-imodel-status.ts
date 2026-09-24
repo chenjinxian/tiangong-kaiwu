@@ -3,7 +3,7 @@
  */
 
 const IMODELHUB_URL = 'http://localhost:4000';
-const WEB_AGENT_URL = 'http://localhost:4002';
+const WEBHOOK_AGENT_URL = 'http://localhost:4002';
 
 async function getAuthToken(): Promise<string | null> {
   try {
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
         console.log(`    Triggering baseline generation...`);
 
         const retryResponse = await fetch(
-          `${WEB_AGENT_URL}/baseline/retry/${imodel.id}`,
+          `${WEBHOOK_AGENT_URL}/baseline/retry/${imodel.id}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

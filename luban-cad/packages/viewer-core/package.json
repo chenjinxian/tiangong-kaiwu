@@ -1,7 +1,7 @@
 {
-  "name": "@open-cloud-cad/viewer-core",
+  "name": "@luban-cad/viewer-core",
   "version": "1.0.0",
-  "description": "Core viewer components and hooks for Open Cloud CAD",
+  "description": "Core viewer components and hooks for LubanCAD",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,7 +17,7 @@
     "@itwin/core-common": "link:../../../itwinjs-core/core/common",
     "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
     "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry",
-    "@open-cloud-cad/shared": "workspace:*"
+    "@luban-cad/shared": "workspace:*"
   },
   "devDependencies": {
     "@itwin/eslint-plugin": "^6.0.0",

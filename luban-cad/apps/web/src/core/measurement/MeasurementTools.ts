@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Measurement Tools - Distance, Angle, Area measurement
@@ -51,7 +51,7 @@ abstract class MeasurementTool extends Tool {
 
 /** Distance measurement tool */
 export class MeasureDistanceTool extends MeasurementTool {
-  public static override toolId = 'OpenCloudCad.MeasureDistance';
+  public static override toolId = 'LubanCad.MeasureDistance';
   public static override iconSpec = 'icon-measure-distance';
 
   public override async run(): Promise<boolean> {
@@ -104,7 +104,7 @@ export class MeasureDistanceTool extends MeasurementTool {
 
 /** Angle measurement tool */
 export class MeasureAngleTool extends MeasurementTool {
-  public static override toolId = 'OpenCloudCad.MeasureAngle';
+  public static override toolId = 'LubanCad.MeasureAngle';
   public static override iconSpec = 'icon-measure-angle';
 
   public override async run(): Promise<boolean> {
@@ -158,7 +158,7 @@ export class MeasureAngleTool extends MeasurementTool {
 
 /** Area measurement tool */
 export class MeasureAreaTool extends MeasurementTool {
-  public static override toolId = 'OpenCloudCad.MeasureArea';
+  public static override toolId = 'LubanCad.MeasureArea';
   public static override iconSpec = 'icon-measure-area';
 
   public override async run(): Promise<boolean> {

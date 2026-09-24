@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,7 +11,7 @@ import {
   OpenCloudRpcInterface,
   type ResolveConflictsRequest,
   type ResolveConflictsResult,
-} from '@open-cloud-cad/shared';
+} from '@luban-cad/shared';
 
 export interface UseConflictDetectionOptions {
   iModelId: string;

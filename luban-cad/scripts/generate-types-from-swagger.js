@@ -48,7 +48,7 @@ const nameTransformations = {
 
 // Field name transformations for consistency
 const fieldNameTransformations = {
-  // Map backend field names to frontend convention
+  // Map modeling-server field names to frontend convention
   'subClass': 'subclass',  // Backend uses subClass, we use subclass
   'createdBy': 'ownerId',  // Map to our convention
   'acquiredAt': 'acquiredDateTime',

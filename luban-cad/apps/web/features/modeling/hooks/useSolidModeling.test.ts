@@ -1,16 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSolidModeling } from './useSolidModeling.js';
-import { OpenCloudRpcInterface } from '@open-cloud-cad/shared';
+import { OpenCloudRpcInterface } from '@luban-cad/shared';
 import type { ElementGeometryResultProps } from '@itwin/editor-common';
 
 // Mock OpenCloudRpcInterface
-vi.mock('@open-cloud-cad/shared', () => ({
+vi.mock('@luban-cad/shared', () => ({
   OpenCloudRpcInterface: {
     getClient: vi.fn(),
   },

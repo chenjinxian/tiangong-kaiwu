@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Authenticated E2E test using pre-saved auth state
@@ -36,8 +36,8 @@ test.describe('Authenticated E2E Workflow', () => {
         expiresAt: 1775695737621
       };
       const userData = { id: "5", email: "test@example.com", name: "Test User", plan: "free" };
-      sessionStorage.setItem('open_cloud_cad_auth', JSON.stringify(authData));
-      sessionStorage.setItem('open_cloud_cad_user', JSON.stringify(userData));
+      sessionStorage.setItem('luban_cad_auth', JSON.stringify(authData));
+      sessionStorage.setItem('luban_cad_user', JSON.stringify(userData));
     });
 
     // Step 1: Navigate to iTwins page

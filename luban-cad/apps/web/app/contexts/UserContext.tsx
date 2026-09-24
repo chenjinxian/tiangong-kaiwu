@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -255,7 +255,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       if (!prev) return null;
       const updated = { ...prev, ...updates };
       // Also update in sessionStorage to persist across refreshes
-      const USER_STORAGE_KEY = 'open_cloud_cad_user';
+      const USER_STORAGE_KEY = 'luban_cad_user';
       sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * End-to-End Workflow Test Script
@@ -41,7 +41,7 @@ class E2ETestRunner {
 
     const services = [
       { name: 'imodelhub-services', url: IMODELHUB_URL + '/health' },
-      { name: 'backend', url: 'http://localhost:4001/health' },
+      { name: 'modeling-server', url: 'http://localhost:4001/health' },
       { name: 'web', url: BASE_URL }
     ];
 
@@ -184,7 +184,7 @@ class E2ETestRunner {
       await this.page.click('.imodel-card, [data-testid="imodel-card"]');
 
       // Wait for viewer to load
-      await this.page.waitForSelector('.open-cloud-cad-viewer, canvas', { timeout: 15000 });
+      await this.page.waitForSelector('.luban-cad-viewer, canvas', { timeout: 15000 });
 
       // Wait a bit for 3D to render
       await setTimeout(3000);
@@ -208,7 +208,7 @@ class E2ETestRunner {
     await this.setup();
 
     console.log('═══════════════════════════════════════════════════════');
-    console.log('           Open Cloud CAD - E2E Test Suite            ');
+    console.log('           LubanCAD - E2E Test Suite            ');
     console.log('═══════════════════════════════════════════════════════\n');
 
     // Run tests in sequence

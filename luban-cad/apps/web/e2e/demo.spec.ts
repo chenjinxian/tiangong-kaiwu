@@ -1,5 +1,5 @@
 /**
- * Open Cloud CAD - 功能演示测试
+ * LubanCAD - 功能演示测试
  * 生成演示截图展示全部功能
  */
 import { test, expect } from '@playwright/test';
@@ -10,7 +10,7 @@ const TEST_USER = {
   password: 'Test123!@#'
 };
 
-test.describe('Open Cloud CAD 功能演示', () => {
+test.describe('LubanCAD 功能演示', () => {
   test('完整功能演示', async ({ page }) => {
     test.setTimeout(300000);
     

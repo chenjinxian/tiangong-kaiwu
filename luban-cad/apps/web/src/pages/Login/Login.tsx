@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,7 +11,7 @@ import { EyeIcon, EyeOffIcon } from '../../../shared/components/icons/EyeIcons.j
 import { Button, IconButton, LabeledInput, Checkbox, Alert, Text, ProgressRadial } from '@itwin/itwinui-react';
 import './Login.css';
 
-const REMEMBER_ME_KEY = 'open-cloud-cad-remember';
+const REMEMBER_ME_KEY = 'luban-cad-remember';
 
 interface RememberMeData {
   email: string;
@@ -138,7 +138,7 @@ const Login: React.FC = () => {
       {/* Left: Brand */}
       <div className="brand-side">
         <div className="brand-logo">CC</div>
-        <Text variant="title" as="h1" className="brand-title">Open Cloud CAD</Text>
+        <Text variant="title" as="h1" className="brand-title">LubanCAD</Text>
         <Text className="brand-subtitle">基于 iTwin.js 的开源云端 CAD 平台</Text>
         <div className="brand-features">
           <div className="brand-feature">
@@ -165,7 +165,7 @@ const Login: React.FC = () => {
         <div className="form-container">
           <div className="form-header">
             <Text variant="title" as="h2" className="form-title">欢迎回来</Text>
-            <Text className="form-subtitle">登录您的 Open Cloud CAD 账户</Text>
+            <Text className="form-subtitle">登录您的 LubanCAD 账户</Text>
           </div>
 
           {error && (

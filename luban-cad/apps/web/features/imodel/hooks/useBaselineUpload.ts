@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * useBaselineUpload - Official SDK Hook
@@ -20,8 +20,8 @@ interface UploadProgress {
 
 /**
  * Hook for baseline file upload
- * Note: Baseline generation is handled automatically by the web-agent service.
- * When an empty iModel is created, web-agent receives a webhook event and
+ * Note: Baseline generation is handled automatically by the webhook-agent service.
+ * When an empty iModel is created, webhook-agent receives a webhook event and
  * generates the baseline file automatically. This hook is kept for future
  * manual baseline upload functionality if needed.
  */
@@ -39,11 +39,11 @@ export function useBaselineUpload() {
     setUploadState({ status: 'uploading', progress: 0 });
 
     try {
-      // Baseline upload is handled by web-agent service automatically
+      // Baseline upload is handled by webhook-agent service automatically
       // See: CLAUDE.md > Web-Agent Service section
       throw new Error(
-        'Baseline upload is handled automatically by web-agent service. ' +
-        'Create an empty iModel and web-agent will generate the baseline.'
+        'Baseline upload is handled automatically by webhook-agent service. ' +
+        'Create an empty iModel and webhook-agent will generate the baseline.'
       );
     } catch (err) {
       const uploadError = err instanceof Error ? err : new Error('Upload failed');
@@ -90,9 +90,9 @@ export function useCreateIModelWithBaseline() {
         },
       });
 
-      // Step 2: Baseline is generated automatically by web-agent service
-      // No manual upload needed - web-agent receives iModelCreated webhook and generates baseline
-      void params.file; // File will be used when web-agent processes the event
+      // Step 2: Baseline is generated automatically by webhook-agent service
+      // No manual upload needed - webhook-agent receives iModelCreated webhook and generates baseline
+      void params.file; // File will be used when webhook-agent processes the event
 
       return iModel;
     } catch (err) {

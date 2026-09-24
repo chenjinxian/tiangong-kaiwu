@@ -1,11 +1,11 @@
 #!/bin/bash
-# Open Cloud CAD - Service Starter Script
+# LubanCAD - Service Starter Script
 # Usage: ./start-services.sh [command]
 # Commands:
 #   infra     - Start infrastructure (postgres, azurite)
 #   imodelhub - Start imodelhub-services
-#   backend   - Start Open Cloud CAD backend
-#   web       - Start Open Cloud CAD web
+#   modeling-server   - Start LubanCAD modeling-server
+#   web       - Start LubanCAD web
 #   all       - Start all services in sequence
 #   test      - Run E2E tests
 
@@ -76,21 +76,21 @@ start_imodelhub() {
     fi
 }
 
-start_backend() {
-    log_info "Starting Open Cloud CAD backend..."
+start_modeling_server() {
+    log_info "Starting LubanCAD modeling-server..."
 
-    if check_service "backend" "http://localhost:4001/health"; then
+    if check_service "modeling-server" "http://localhost:4001/health"; then
         log_warning "Backend is already running"
         return 0
     fi
 
-    cd ../backend
+    cd ../modeling-server
     npm run dev &
     log_success "Backend started (http://localhost:4001)"
 }
 
 start_web() {
-    log_info "Starting Open Cloud CAD web..."
+    log_info "Starting LubanCAD web..."
 
     cd apps/web
     npm run dev &
@@ -117,10 +117,10 @@ show_status() {
         log_error "imodelhub-services: Not running"
     fi
 
-    if check_service "backend" "http://localhost:4001/health"; then
-        log_success "backend:            http://localhost:4001"
+    if check_service "modeling-server" "http://localhost:4001/health"; then
+        log_success "modeling-server:            http://localhost:4001"
     else
-        log_error "backend:            Not running"
+        log_error "modeling-server:            Not running"
     fi
 
     if curl -s "http://localhost:5173" > /dev/null 2>&1; then
@@ -141,8 +141,8 @@ case "${1:-all}" in
     imodelhub)
         start_imodelhub
         ;;
-    backend)
-        start_backend
+    modeling-server)
+        start_modeling_server
         ;;
     web)
         start_web
@@ -152,7 +152,7 @@ case "${1:-all}" in
         sleep 2
         start_imodelhub
         sleep 5
-        start_backend
+        start_modeling_server
         sleep 2
         start_web
         echo ""
@@ -167,7 +167,7 @@ case "${1:-all}" in
         show_status
         ;;
     *)
-        echo "Usage: $0 {infra|imodelhub|backend|web|all|test|status}"
+        echo "Usage: $0 {infra|imodelhub|modeling-server|web|all|test|status}"
         exit 1
         ;;
 esac

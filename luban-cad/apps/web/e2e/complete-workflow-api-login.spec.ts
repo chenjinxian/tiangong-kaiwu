@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Complete E2E test using API login
@@ -61,9 +61,9 @@ test.describe('Complete E2E Workflow (API Login)', () => {
         plan: 'free' as const
       };
 
-      localStorage.setItem('open_cloud_cad_auth', JSON.stringify(authData));
-      localStorage.setItem('open_cloud_cad_user', JSON.stringify(userData));
-      localStorage.setItem('open_cloud_cad_remember_me', 'true');
+      localStorage.setItem('luban_cad_auth', JSON.stringify(authData));
+      localStorage.setItem('luban_cad_user', JSON.stringify(userData));
+      localStorage.setItem('luban_cad_remember_me', 'true');
     }, {
       token: loginResponse.token,
       refreshToken: loginResponse.refreshToken,

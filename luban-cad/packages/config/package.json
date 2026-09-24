@@ -1,7 +1,7 @@
 {
-  "name": "@open-cloud-cad/config",
+  "name": "@luban-cad/config",
   "version": "1.0.0",
-  "description": "Shared configuration files for Open Cloud CAD",
+  "description": "Shared configuration files for LubanCAD",
   "private": true,
   "type": "module",
   "exports": {

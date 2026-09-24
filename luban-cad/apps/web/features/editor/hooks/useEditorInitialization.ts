@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
 import { IModelApp } from '@itwin/core-frontend';
-import { initializeWeb } from '@open-cloud-cad/web-viewer';
+import { initializeWeb } from '@luban-cad/web-viewer';
 import { getStoredAuth } from '../../auth/services/auth/client.js';
 
 export interface EditorInitializationState {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Open Cloud CAD. All rights reserved.
+ * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
  * Keyboard Shortcuts Manager
@@ -110,19 +110,19 @@ export function registerDefaultShortcuts(): void {
   keyboardManager.register({
     key: 'z',
     modifiers: { ctrl: true },
-    toolId: 'OpenCloudCad.Undo',
+    toolId: 'LubanCad.Undo',
     description: '撤销',
   });
   keyboardManager.register({
     key: 'z',
     modifiers: { ctrl: true, shift: true },
-    toolId: 'OpenCloudCad.Redo',
+    toolId: 'LubanCad.Redo',
     description: '重做',
   });
   keyboardManager.register({
     key: 'y',
     modifiers: { ctrl: true },
-    toolId: 'OpenCloudCad.Redo',
+    toolId: 'LubanCad.Redo',
     description: '重做 (替代)',
   });
 
@@ -130,7 +130,7 @@ export function registerDefaultShortcuts(): void {
   keyboardManager.register({
     key: 'a',
     modifiers: { ctrl: true },
-    toolId: 'OpenCloudCad.SelectAll',
+    toolId: 'LubanCad.SelectAll',
     description: '全选',
   });
 
