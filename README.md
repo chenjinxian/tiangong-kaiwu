@@ -14,7 +14,7 @@
 | **鲁班CAD** | AI 生成式 CAD 产品前端宿主 |
 | **modeling-server** | 图形建模后台服务：打开模型文件、编辑建模、供渲染数据（Express + RPC/IPC + Briefcase 管理，:4001） |
 | **webhook-agent** | Webhook 接收 + baseline 生成 + CloudSqlite 上传（:4002） |
-| **Zokei 渲染引擎**（仓外） | 图形渲染引擎：itwinjs-core 底层逻辑 + **Filament** 渲染效果 + 编译 **WebAssembly** |
+| **丹青（DanQing）渲染引擎**（仓外） | 纯客户端图形引擎：itwinjs-core 数字孪生大体量渲染 × **Filament** 高质量实时渲染与全平台能力的共同体 |
 | **imodel-native**（仓外） | iModel 原生引擎：已完成 **CMake** 全编译改造，实现基于 **ACIS 的 BRepCore**，向完全自主化演进（真形的孵化床） |
 
 **私有侧**（独立仓，自主研发，不在本仓）：

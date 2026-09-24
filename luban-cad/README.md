@@ -6,7 +6,7 @@
 
 ## 定位
 
-借助图形建模平台（itwinjs-core 底层逻辑 + Zokei 渲染引擎）实现的**生成式 CAD**：文生 3D，且生成的是**可用于工业制造的真实 BRep**（真形），不是通用大模型的 Mesh 玩具。
+借助图形建模平台（itwinjs-core 底层逻辑 + 丹青渲染引擎）实现的**生成式 CAD**：文生 3D，且生成的是**可用于工业制造的真实 BRep**（真形），不是通用大模型的 Mesh 玩具。
 
 ## 现状
 
@@ -18,7 +18,7 @@
 
 - 生成几何 → **真形（TrueForm）内核**（私有仓，自主研发，终局替换 imodel-native/ACIS 实现层）
 - 约束求解 → **绳墨（ShengMo）**（私有仓，自主研发，libslvs 起步、自研替换）
-- 渲染 → **Zokei**（Filament + WASM）
+- 渲染 → **丹青（DanQing）**（纯客户端图形引擎：itwinjs-core 大体量渲染 × Filament 实时渲染/全平台）
 - 数据/事务 → imodel-native（iModel IO/ECSQL/变更追踪）
 
 开发准则见 `./CLAUDE.md`。
