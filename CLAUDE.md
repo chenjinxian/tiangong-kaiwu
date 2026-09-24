@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/` | 平台文档（UPSTREAM_SYNC.md / ITWINJS_CORE_MODIFICATIONS.md 等） | — |
 | `scripts/sync-from-upstream.sh` | 上游一键同步脚本 | bash |
 
-**仓外项目**（用途说明，需自行检出）：imodelhub-services（本地 iModel 管理平台：iModel 管理 API :4000 + Azurite :10000 + Postgres，替代 Bentley 云，必须先行启动）、Zokei（渲染引擎，Filament + WASM）、imodel-native（iModel 原生引擎）。
+**仓外项目**（用途说明，需自行检出）：imodelhub-services（本地 iModel 管理平台：iModel 管理 API :4000 + Azurite :10000 + Postgres，替代 Bentley 云，必须先行启动）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、imodel-native（iModel 原生引擎）。
 
 ## 核心架构模型：link: 源码消费
 
