@@ -39,8 +39,8 @@
 │  ┌──────────────────────────────────────────────────────────────────────────┐  │
 │  │                        服务层 (Services)                                  │  │
 │  │  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐  │  │
-│  │  │   imodelhub      │  │   Backend        │  │   Web-Agent            │  │  │
-│  │  │   services       │  │   (4001)         │  │   (4002, 必需)     │  │  │
+│  │  │   imodelhub      │  │   modeling-server  │  │   Webhook-Agent        │  │  │
+│  │  │   services       │  │   (4001)           │  │   (4002, 必需)         │  │  │
 │  │  │   (4000)         │  │                  │  │                        │  │  │
 │  │  │                  │  │  • RPC Server    │  │  • Webhook Receiver    │  │  │
 │  │  │  • REST API      │  │  • WebSocket     │  │  • Event Forwarder     │  │  │
@@ -76,10 +76,10 @@
 - 使用 Azurite 替代 Azure Blob Storage
 
 ### 2. 单端口架构
-Backend 采用单端口架构，HTTP API 和 WebSocket 共享同一端口（`apps/backend/src/main.ts:126-146`）：
+modeling-server 采用单端口架构，HTTP API 和 WebSocket 共享同一端口（`modeling-server/src/main.ts:126-146`）：
 - 简化配置和部署
 - 避免跨域问题
-- WebSocket Upgrade 统一 JWT 校验（`verifyClient`，`apps/backend/src/main.ts:131-143`）；RPC 路由鉴权缺失为已知安全债（见 DEEP_ANALYSIS §8.1）
+- WebSocket Upgrade 统一 JWT 校验（`verifyClient`，`modeling-server/src/main.ts:131-143`）；RPC 路由鉴权缺失为已知安全债（见 DEEP_ANALYSIS §8.1）
 
 ### 3. Feature-Based 组织
 前端按功能模块组织代码：
@@ -104,11 +104,11 @@ Backend 采用单端口架构，HTTP API 和 WebSocket 共享同一端口（`app
 - PostgreSQL: 元数据存储
 - Azurite: Blob 存储
 
-### Backend (Port 4001)
+### modeling-server (Port 4001)
 
 **职责**: CAD 功能服务和 RPC 网关
 
-**架构特点**（对照 `apps/backend/src/main.ts:122-252` 实测核对）:
+**架构特点**（对照 `modeling-server/src/main.ts:122-252` 实测核对）:
 ```
 http.createServer(app) + enableWs(app, server, ...)   // main.ts:126-146
 │   └── verifyClient: JWT 校验，覆盖 /ws 与 /ipc 的 Upgrade  // main.ts:131-143
@@ -120,7 +120,7 @@ http.createServer(app) + enableWs(app, server, ...)   // main.ts:126-146
 │   │       （无鉴权，见安全债①）   // main.ts:214-231
 │   ├── GET  /rpc/metadata - OpenAPI 描述   // main.ts:233
 │   ├── GET  /health                       // main.ts:245
-│   └── POST /api/webhook/events（web-agent 转发）// main.ts:260
+│   └── POST /api/webhook/events（webhook-agent 转发）// main.ts:260
 ```
 
 **核心组件**:
@@ -140,12 +140,12 @@ http.createServer(app) + enableWs(app, server, ...)   // main.ts:126-146
 7. 启动 Express + WebSocket 服务
 ```
 
-### Web-Agent (Port 4002, 必需)
+### Webhook-Agent (Port 4002, 必需)
 
 **职责**: Webhook 事件接收、处理和 Baseline 生成
 
 **为什么必需**:
-创建空 iModel 时，imodelhub-services 发送 `iModelCreated` webhook，Web-Agent 必须生成 baseline 文件并上传到 Azurite，否则 iModel 无法初始化。
+创建空 iModel 时，imodelhub-services 发送 `iModelCreated` webhook，Webhook-Agent 必须生成 baseline 文件并上传到 Azurite，否则 iModel 无法初始化。
 
 **核心功能**:
 1. **接收 Webhook**: 从 imodelhub-services 接收事件
@@ -153,7 +153,7 @@ http.createServer(app) + enableWs(app, server, ...)   // main.ts:126-146
 3. **生成 Baseline**: 使用 `SnapshotDb.createEmpty()` 创建空 iModel 基线
 4. **上传存储**: 将 baseline 上传到 Azurite
 5. **通知完成**: 调用 imodelhub-services API 标记初始化完成
-6. **转发事件**: 将事件转发到 Backend
+6. **转发事件**: 将事件转发到 modeling-server
 
 **处理流程**:
 ```
@@ -161,7 +161,7 @@ imodelhub-services
        │
        │ POST /webhook/events
        ▼
-[Web-Agent: 验证签名]
+[Webhook-Agent: 验证签名]
        │
        ▼
 [检查 needBaseline 标志]
@@ -175,7 +175,7 @@ imodelhub-services
        │          [通知初始化完成]
        │
        ▼
-[转发到 Backend]
+[转发到 modeling-server]
        │
        ▼
 Frontend (通过 polling/WebSocket)
@@ -203,7 +203,7 @@ const response = await fetch('http://localhost:4000/itwins', {
 });
 ```
 
-### 2. Frontend → Backend (RPC)
+### 2. Frontend → modeling-server (RPC)
 
 使用 Bentley Cloud RPC 协议：
 
@@ -212,7 +212,7 @@ const rpcClient = BentleyCloudRpcManager.getClient(OpenCloudRpcInterface);
 const briefcase = await rpcClient.acquireBriefcase(iModelId);
 ```
 
-RPC 请求格式（路由 `/:title/:version/mode/*`，`apps/backend/src/main.ts:214-231`）:
+RPC 请求格式（路由 `/:title/:version/mode/*`，`modeling-server/src/main.ts:214-231`）:
 ```
 POST /Open%20Cloud%20CAD/v1.0/mode/2/invocation
 Content-Type: application/json
@@ -228,9 +228,9 @@ Content-Type: application/json
 }
 ```
 
-### 3. Backend ↔ imodelhub-services (REST)
+### 3. modeling-server ↔ imodelhub-services (REST)
 
-Backend 使用 ServiceAccountAuthClient 进行服务间认证：
+modeling-server 使用 ServiceAccountAuthClient 进行服务间认证：
 
 ```typescript
 const authClient = new ServiceAccountAuthClient({
@@ -258,7 +258,7 @@ ws.onmessage = (event) => {
 - 用于 iTwin.js BriefcaseConnection
 - 本地 IPC over WebSocket
 
-**升级鉴权**: `/ws` 与 `/ipc` 的 WebSocket Upgrade 均经 `verifyClient` JWT 校验（`apps/backend/src/main.ts:131-143`）；RPC 路由 `/:title/:version/mode/*` 无鉴权（`apps/backend/src/main.ts:214-231`，安全债见 DEEP_ANALYSIS §8.1）。
+**升级鉴权**: `/ws` 与 `/ipc` 的 WebSocket Upgrade 均经 `verifyClient` JWT 校验（`modeling-server/src/main.ts:131-143`）；RPC 路由 `/:title/:version/mode/*` 无鉴权（`modeling-server/src/main.ts:214-231`，安全债见 DEEP_ANALYSIS §8.1）。
 
 ## 数据流
 
@@ -277,7 +277,7 @@ POST /imodels (imodelhub-services)
 [Webhook: iModelCreated]
  │
  ▼
-[Web-Agent]
+[Webhook-Agent]
  │
  ▼
 [Baseline Generator]
@@ -304,7 +304,7 @@ User clicks "Edit"
 acquireBriefcase() [RPC]
  │
  ▼
-[Backend: download briefcase]
+[modeling-server: download briefcase]
  │
  ▼
 BriefcaseConnection.open()
@@ -322,7 +322,7 @@ saveChanges()
 pushChanges() [RPC]
  │
  ▼
-[Backend: push to iModelHub]
+[modeling-server: push to iModelHub]
  │
  ▼
 [Changeset created]
@@ -333,7 +333,7 @@ pushChanges() [RPC]
 ### 认证流程
 
 ```
-Frontend                           Backend                    imodelhub-services
+Frontend                           modeling-server                    imodelhub-services
    │                                  │                              │
    │  POST /auth/email/login          │                              │
    │─────────────────────────────────▶│                              │
@@ -350,7 +350,7 @@ Frontend                           Backend                    imodelhub-services
 
 ### CSRF 防护
 
-Backend 启用 CSRF 保护：
+modeling-server 启用 CSRF 保护：
 - Cookie 中设置 CSRF token
 - 请求头携带 X-CSRF-Token
 - 中间件验证一致性
@@ -447,8 +447,8 @@ const Editor = lazy(() => import('../pages/Editor/Editor.js'));
 ### 开发模式
 ```
 imodelhub-services (localhost:4000)
-Backend (localhost:4001)
-Web-Agent (localhost:4002)
+modeling-server (localhost:4001)
+Webhook-Agent (localhost:4002)
 Frontend (localhost:3000)
 Azurite (localhost:10000)
 PostgreSQL (localhost:5432)
@@ -458,8 +458,8 @@ PostgreSQL (localhost:5432)
 ```
 Docker Compose:
   - azurite
-  - backend
-  - web-agent (optional)
+  - modeling-server
+  - webhook-agent (optional)
   - web (nginx)
   
 External:

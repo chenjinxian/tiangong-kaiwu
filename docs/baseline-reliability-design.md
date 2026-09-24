@@ -3,14 +3,14 @@
 ## 问题分析
 
 ### 现状问题
-1. **单点故障**: web-agent 宕机导致事件丢失
+1. **单点故障**: webhook-agent 宕机导致事件丢失
 2. **无重试机制**: webhook 失败后无自动补偿
 3. **状态不一致**: iModel 标记为 initialized 但无 baseline 文件
 4. **缺乏监控**: 无法及时发现失败的初始化
 
 ### 根本原因
 ```
-iModel 创建 → Webhook 发送 → web-agent 接收 → 生成 Baseline → 上传 Azurite → 通知完成
+iModel 创建 → Webhook 发送 → webhook-agent 接收 → 生成 Baseline → 上传 Azurite → 通知完成
      │              │               │               │              │              │
      │              │               │               │              │              │
      ▼              ▼               ▼               ▼              ▼              ▼
@@ -21,7 +21,7 @@ iModel 创建 → Webhook 发送 → web-agent 接收 → 生成 Baseline → �
 
 ### 1. 健康检查与就绪检测 (Health Check)
 
-#### 实现位置: `apps/web-agent/src/health-check.ts`
+#### 实现位置: `webhook-agent/src/health-check.ts`
 - 检查 Azurite 连接状态
 - 检查 imodelhub-services API 可达性
 - 检查磁盘空间（baseline 生成需要临时空间）
@@ -157,7 +157,7 @@ export class IModelStateValidator {
 
 ### 5. 启动自检 (Startup Self-Check)
 
-#### 实现位置: `apps/web-agent/src/startup-check.ts`
+#### 实现位置: `webhook-agent/src/startup-check.ts`
 
 ```typescript
 /**
@@ -230,7 +230,7 @@ async validateIModel(@Param('id') id: string): Promise<ValidationReport> {
 
 ### 7. 前端状态显示
 
-#### 实现位置: `apps/web/features/imodel/components/IModelStatus.tsx`
+#### 实现位置: `luban-cad/apps/web/features/imodel/components/IModelStatus.tsx`
 
 ```typescript
 /**
@@ -273,8 +273,8 @@ export function IModelStatus({ imodel }: { imodel: IModel }) {
 ```bash
 # 1. 检查服务依赖
 curl http://localhost:4000/health  # imodelhub-services
-curl http://localhost:4001/health  # backend
-curl http://localhost:4002/health  # web-agent
+curl http://localhost:4001/health  # modeling-server
+curl http://localhost:4002/health  # webhook-agent
 curl http://localhost:10000/       # Azurite
 
 # 2. 检查 webhook 订阅

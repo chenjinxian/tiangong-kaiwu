@@ -491,7 +491,7 @@ export function registerMarkupTools(): void {
 ### 2.2 添加到 Viewer
 
 ```typescript
-// packages/viewer-core/src/components/ViewerWithUI.tsx
+// luban-cad/packages/viewer-core/src/components/ViewerWithUI.tsx
 import { useMarkupManager } from '../features/markup/hooks/useMarkupManager';
 import { MarkupToolbar } from '../features/markup/components/MarkupToolbar';
 import { MarkupSessionsPanel } from '../features/markup/components/MarkupSessionsPanel';
@@ -548,7 +548,7 @@ export const ViewerWithUI: React.FC = (props) => {
 ## 三、后端 API
 
 ```typescript
-// apps/backend/src/routes/markup.ts
+// modeling-server/src/routes/markup.ts
 import { Router } from 'express';
 import { db } from '../db';
 

@@ -43,7 +43,7 @@
 | 文件 | 变更行 | 说明 |
 |------|--------|------|
 | `editor/frontend/src/TransformElementsTool.ts` | +511 | 含 import 修复（补齐 Id64Array/Code/ColorDef 等缺失导入） |
-| `editor/backend/src/EditBuiltInCommand.ts` | +736 | 与 1.1 同 commit（`c76e2ab36d`）的后端配套 |
+| `editor/modeling-server/src/EditBuiltInCommand.ts` | +736 | 与 1.1 同 commit（`c76e2ab36d`）的后端配套 |
 | `editor/frontend/src/DeleteElementsTool.ts` | +42 | |
 | `editor/frontend/src/EditTool.ts` | +16 | |
 | `editor/frontend/src/EditToolIpc.ts` | +6 | |
@@ -69,11 +69,11 @@
 | `common/config/rush/repo-state.json` | +2 | rush update 产物 |
 | **小计** | **247** | |
 
-**d) core/backend 小修（1 文件，4 行）**
+**d) core/modeling-server 小修（1 文件，4 行）**
 
 | 文件 | 变更行 | 说明 |
 |------|--------|------|
-| `core/backend/src/CheckpointManager.ts` | +4 | V2 Checkpoint 认证/自愈修复（`91b94097e1`） |
+| `core/modeling-server/src/CheckpointManager.ts` | +4 | V2 Checkpoint 认证/自愈修复（`91b94097e1`） |
 | **小计** | **4** | |
 
 1.3 合计：6 + 3 + 4 + 1 = **14 文件**；1,317 + 1,239 + 247 + 4 = **2,807 行**。
@@ -91,7 +91,7 @@
 5. **依赖小版本升级的类型收紧**：vitest/react-query/@types/react/iTwinUI 局部小修；
 6. **git 邮箱策略**：本地操作 `--bypass-policy` 跳过。
 
-**本周实例（坑 #4 的实况预演）**：上游合并后 `IpcAppFunctions` 新增 `cancelPushChangesRequest`（`core/common/src/IpcAppProps.ts:219`），导致本仓 `AppFunctionIpcHandler`（实现该接口）编译失败，由 `8feafd5efc` "Fix luban-cad compile errors and update lockfile after master merge" 补 no-op 实现（`luban-cad/apps/backend/src/ipc/AppFunctionIpcHandler.ts:300`）。此类破损与 §1.2 的共享接口扩展同属一个风险类：**只要 fork 持有上游共享接口的扩展或实现，上游每次接口演进都是一次强制跟进**。
+**本周实例（坑 #4 的实况预演）**：上游合并后 `IpcAppFunctions` 新增 `cancelPushChangesRequest`（`core/common/src/IpcAppProps.ts:219`），导致本仓 `AppFunctionIpcHandler`（实现该接口）编译失败，由 `8feafd5efc` "Fix luban-cad compile errors and update lockfile after master merge" 补 no-op 实现（`modeling-server/src/ipc/AppFunctionIpcHandler.ts:300`）。此类破损与 §1.2 的共享接口扩展同属一个风险类：**只要 fork 持有上游共享接口的扩展或实现，上游每次接口演进都是一次强制跟进**。
 
 ---
 

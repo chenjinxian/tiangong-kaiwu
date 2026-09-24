@@ -16,15 +16,15 @@
 | PostgreSQL | 5432 | ✅ 运行中 |
 | Azurite | 10000-10002 | ✅ 运行中 |
 | imodelhub-services | 4000 | ✅ 健康 |
-| backend | 4001 | ✅ 健康 |
-| web-agent | 4002 | ✅ 健康 |
+| modeling-server | 4001 | ✅ 健康 |
+| webhook-agent | 4002 | ✅ 健康 |
 | frontend | 3000 | ✅ 运行中 |
 
 ---
 
 ## 2. 单元测试和集成测试结果
 
-### 前端测试 (apps/web)
+### 前端测试 (luban-cad/apps/web)
 ```
 Test Files:  39 passed (39)
 Tests:       488 passed | 11 skipped (499)
@@ -43,7 +43,7 @@ Duration:    3.79s
 - ✅ UI 组件 (shared/components)
 - ✅ 错误边界 (shared/components/feedback)
 
-### 后端测试 (apps/backend)
+### 后端测试 (modeling-server)
 ```
 Test Files:  7 passed (7)
 Tests:       86 passed (86)
@@ -189,7 +189,7 @@ curl -X GET http://localhost:4000/api/v1/imodels \
 1. **开发阶段**: 运行单元测试和集成测试
    ```bash
    cd luban-cad/apps/web && npm test
-   cd luban-cad/apps/backend && npm test
+   cd modeling-server && npm test
    ```
 
 2. **预发布阶段**: 手动验证核心用户流程

@@ -16,7 +16,7 @@
 | 功能 | 状态 | 说明 |
 |------|------|------|
 | 草图 | ✅ 基础 | Line/Arc/Circle/Rectangle/Polygon（自由绘制，未接约束服务） |
-| 实体建模 | 🟠 | 12 工具注册齐全，PatternTools ID 收集 bug（`apps/web/features/modeling/PatternTools.ts:131-134,331-334`）；PatternCommand 死代码未注册 |
+| 实体建模 | 🟠 | 12 工具注册齐全，PatternTools ID 收集 bug（`luban-cad/apps/web/features/modeling/PatternTools.ts:131-134,331-334`）；PatternCommand 死代码未注册 |
 | 布尔运算 | ✅ | Union/Subtract/Intersect |
 | 变换 | ✅ | Move/Rotate/Scale/Mirror |
 | 测量 | ✅ | Distance/Area/Volume/Length 等 6 种 |
@@ -24,7 +24,7 @@
 | 视图裁剪 | ✅ | Plane/Shape/Range 剖切 |
 | 版本控制 | 🟠 | Changeset/Named Version 可用；冲突检测 `compareChangesets` 返回 mock 空数据 |
 | 文档管理 | ✅ | Briefcase 串行编辑（短期不做实时协作，见平台 VISION §5 非目标） |
-| **特征树** | **🟠** | **Schema/IPC/UI 已有、缺重生成引擎**——CadFeature EC 类（`apps/backend/src/schema/OpenCloudCADSchema.ts`）+ IPC CRUD（`packages/shared/src/OpenCloudIpcInterface.ts:41`）+ FeatureTreePanel/FeaturePanel 均已存在，无重生成引擎（`platform-docs/analysis/2026-09-22-itwinjs-core-luban-cad.md:42`） |
+| **特征树** | **🟠** | **Schema/IPC/UI 已有、缺重生成引擎**——CadFeature EC 类（`modeling-server/src/schema/OpenCloudCADSchema.ts`）+ IPC CRUD（`luban-cad/packages/shared/src/OpenCloudIpcInterface.ts:41`）+ FeatureTreePanel/FeaturePanel 均已存在，无重生成引擎（`platform-docs/analysis/2026-09-22-itwinjs-core-luban-cad.md:42`） |
 | V2 Checkpoint 流水线 | ✅ | CloudSqlite BCVV 流式加载 + BaselineCompensationJob 自愈 |
 | 工具注册表 | ✅ | `registerTools.ts` 64 活跃工具 + 12 注释禁用 Markup——AI 工具面事实清单 |
 
@@ -37,7 +37,7 @@
 ### Phase 0 — 还债（前置）
 
 - **平台指针**：platform-docs/ROADMAP.md「Phase 0 — 还债」（目标、四类债务清单、验收基准）。
-- **应用侧落点**：安全债 4 项全部在本仓后端（RPC 无鉴权 `apps/backend/src/main.ts:214-231`、任意文件 IO `apps/backend/src/rpc/OpenCloudRpcImpl.ts:275-287`、token 泄露 `:302`、默认口令 `:1124-1127`）；功能债（PatternTools ID bug、mock API、PatternCommand 死代码）与卫生债（构建产物入库、死 CI）同在本仓——逐项证据见平台 ROADMAP Phase 0 与勘察笔记 §7。
+- **应用侧落点**：安全债 4 项全部在本仓后端（RPC 无鉴权 `modeling-server/src/main.ts:214-231`、任意文件 IO `modeling-server/src/rpc/OpenCloudRpcImpl.ts:275-287`、token 泄露 `:302`、默认口令 `:1124-1127`）；功能债（PatternTools ID bug、mock API、PatternCommand 死代码）与卫生债（构建产物入库、死 CI）同在本仓——逐项证据见平台 ROADMAP Phase 0 与勘察笔记 §7。
 - **门禁**：本阶段 P0 未清前不做对外部署形态联调（平台 ROADMAP 门禁条，原文引用）。
 - **对 AI 的意义**：安全债清偿是 RPC 鉴权成为 AI Gateway 对外暴露前置的同一债务。
 
@@ -46,7 +46,7 @@
 - **平台指针**：platform-docs/ROADMAP.md「Phase 1 — AI Agent Copilot（L1）」；架构归 AI-ARCHITECTURE.md。
 - **目标**：前端工具面接入 Agent——既有 64 活跃工具全量注册为 Agent Tools，AI 每步与人同权走 `BriefcaseTxns`/`saveChanges` 事务管道、同权可撤销；不建第二套建模 API。
 - **应用侧交付物**：
-  - [ ] 工具注册表 → Agent Tools 胶水层（toolId + 参数 Schema + 事务装饰，`apps/web` `registerTools.ts` 64 项为准）
+  - [ ] 工具注册表 → Agent Tools 胶水层（toolId + 参数 Schema + 事务装饰，`luban-cad/apps/web` `registerTools.ts` 64 项为准）
   - [ ] HITL 确认面板（前端，预览 → 确认 → 提交）
   - [ ] 破坏性操作与人工操作同权入事务/撤销链
 - **依赖**：ai-service 立项、Phase 0 安全债【P0】清偿（平台 Phase 1 依赖，引用）。

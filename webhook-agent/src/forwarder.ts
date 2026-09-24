@@ -2,10 +2,10 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Event Forwarder - Sends processed events to Backend API
+ * Event Forwarder - Sends processed events to Modeling-Server API
  *
  * Pure Webhook Receiver Architecture:
- *   Web-Agent receives webhook → processes → forwards to Backend via HTTP
+ *   Webhook-Agent receives webhook → processes → forwards to modeling-server via HTTP
  */
 
 import type { ForwarderConfig, ProcessedEvent } from './types.js';
@@ -13,7 +13,7 @@ import type { ForwarderConfig, ProcessedEvent } from './types.js';
 /**
  * Event Forwarder
  *
- * Forwards processed webhook events to the Backend API.
+ * Forwards processed webhook events to the Modeling-Server API.
  * Handles retries and error recovery.
  */
 export class EventForwarder {

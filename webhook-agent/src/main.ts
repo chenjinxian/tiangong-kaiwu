@@ -5,10 +5,10 @@
  * Webhook Agent - Pure Webhook Receiver
  *
  * This application receives webhook events from iTwin Platform,
- * validates their signatures, processes them, and forwards to Backend API.
+ * validates their signatures, processes them, and forwards to Modeling-Server API.
  *
  * Architecture: Pure Webhook Receiver (No WebSocket)
- *   iTwin Platform → Web-Agent (4002) → Backend API (4001) → Frontend (polls)
+ *   iTwin Platform → Webhook-Agent (4002) → Modeling-Server API (4001) → Frontend (polls)
  *
  * Usage:
  *   npm run dev          # Development mode with hot reload
@@ -18,7 +18,7 @@
  * Environment variables:
  *   WEBHOOK_SECRET       - Webhook secret for signature validation (required)
  *   PORT                 - HTTP server port (default: 4002)
- *   BACKEND_URL          - Backend API URL for event forwarding (default: http://localhost:4001)
+ *   BACKEND_URL          - Modeling-Server API URL for event forwarding (default: http://localhost:4001)
  *   BACKEND_API_KEY      - API key for backend authentication (optional)
  *   ALLOWED_ORIGINS      - CORS allowed origins (default: *)
  *   DEBUG                - Enable debug logging (default: false)
@@ -474,7 +474,7 @@ async function main(): Promise<void> {
     // eslint-disable-next-line no-console
     console.log(`   Health: http://localhost:${config.port}/health`);
     // eslint-disable-next-line no-console
-    console.log(`\n📡 Pure Webhook Receiver - Events forwarded to Backend API`);
+    console.log(`\n📡 Pure Webhook Receiver - Events forwarded to Modeling-Server API`);
     // eslint-disable-next-line no-console
     console.log(`   Backend: ${config.backendUrl}`);
     // eslint-disable-next-line no-console

@@ -374,7 +374,7 @@ interface ExtrudeFeature {
 │  1. 用户创建草图                                                         │
 │     ├── UI: 点击 "新建草图"                                             │
 │     ├── Frontend: POST /api/sketches                                    │
-│     ├── Backend: 创建 SketchDefinition (MongoDB)                         │
+│     ├── modeling-server: 创建 SketchDefinition (MongoDB)                         │
 │     └── 返回: sketchId                                                  │
 │                                                                         │
 │  2. 用户绘制几何                                                         │
@@ -385,7 +385,7 @@ interface ExtrudeFeature {
 │  3. 用户添加约束                                                         │
 │     ├── UI: 选择元素 → 点击约束按钮                                      │
 │     ├── Frontend: POST /api/sketches/{id}/constraints                   │
-│     ├── Backend: 更新 SketchDefinition.constraints                       │
+│     ├── modeling-server: 更新 SketchDefinition.constraints                       │
 │     └── MongoDB: 保存约束定义                                            │
 │                                                                         │
 │  4. 触发求解                                                             │
@@ -401,7 +401,7 @@ interface ExtrudeFeature {
 │                                                                         │
 │  6. 保存求解结果                                                          │
 │     ├── Frontend: POST /api/sketches/{id}/solve                         │
-│     ├── Backend:                                                        │
+│     ├── modeling-server:                                                        │
 │     │   ├── 更新 SketchDefinition.solvedState (MongoDB)                  │
 │     │   └── 更新 iModel Element 位置 (iTwin.js)                          │
 │     └── 完成: 草图确定                                                    │
@@ -409,7 +409,7 @@ interface ExtrudeFeature {
 │  7. 用户执行拉伸 (Extrude)                                               │
 │     ├── UI: 选择草图 → 点击 "拉伸"                                       │
 │     ├── Frontend: POST /api/features                                    │
-│     ├── Backend:                                                        │
+│     ├── modeling-server:                                                        │
 │     │   ├── 创建 Feature 定义 (MongoDB)                                  │
 │     │   └── 使用 iTwin.js 创建 BRep 实体                                 │
 │     │       └── 调用 Parasolid API: createExtrudedBody()                 │
@@ -419,7 +419,7 @@ interface ExtrudeFeature {
 │  8. 后续修改参数                                                         │
 │     ├── UI: 双击 Feature 编辑深度                                        │
 │     ├── Frontend: PUT /api/features/{id}                                │
-│     ├── Backend:                                                         │
+│     ├── modeling-server:                                                         │
 │     │   ├── 更新参数 (MongoDB)                                           │
 │     │   ├── 重生成: 重新调用 Parasolid                                   │
 │     │   └── 更新 iModel                                                  │
@@ -493,7 +493,7 @@ const healed = await parasolid.healBody(body);
 ### 完整的服务端求解流程
 
 ```typescript
-// apps/backend/src/sketch/SketchSolverService.ts
+// modeling-server/src/sketch/SketchSolverService.ts
 
 import { SolveSpaceWASM } from './solvers/SolveSpaceWASM';
 import { SketchDefinition } from '../models/SketchDefinition';
@@ -579,7 +579,7 @@ export class SketchSolverService {
 ### 前端集成
 
 ```typescript
-// apps/web/features/sketch/hooks/useSketchConstraints.ts
+// luban-cad/apps/web/features/sketch/hooks/useSketchConstraints.ts
 
 import { useCallback, useState } from 'react';
 import { useIModelConnection } from '@itwin/core-frontend';

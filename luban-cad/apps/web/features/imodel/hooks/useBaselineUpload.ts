@@ -40,7 +40,7 @@ export function useBaselineUpload() {
 
     try {
       // Baseline upload is handled by webhook-agent service automatically
-      // See: CLAUDE.md > Web-Agent Service section
+      // See: CLAUDE.md > Webhook-Agent Service section
       throw new Error(
         'Baseline upload is handled automatically by webhook-agent service. ' +
         'Create an empty iModel and webhook-agent will generate the baseline.'

@@ -17,8 +17,8 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              LubanCAD                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  Frontend (Port 3000)          │  Backend (Port 4001)    │  Web-Agent (4002)│
-│  ─────────────────────────     │  ───────────────────    │  ─────────────  │
+│  Frontend (Port 3000)       │  modeling-server (4001)  │  Webhook-Agent (4002)  │
+│  ─────────────────────      │  ─────────────────────   │  ────────────────────  │
 │  React 18 + TypeScript 5.6     │  Express + WebSocket    │  Webhook Receiver│
 │  ┌─────────────────────┐      │  ┌─────────────────┐    │  ┌───────────┐  │
 │  │  @itwin/core-frontend│◄────►│  │  LocalhostIpcHost│◄───►│  │  Baseline │  │
@@ -43,15 +43,15 @@
 | 服务 | 端口 | 核心职责 | 技术特点 |
 |------|------|----------|----------|
 | **Frontend** | 3000 | UI渲染、用户交互、3D视图 | React + iTwinUI, Vite构建 |
-| **Backend** | 4001 | RPC处理、Briefcase管理、编辑命令 | Express + WebSocket, 单端口架构 |
-| **Web-Agent** | 4002 | Webhook接收、Baseline生成 | 自动故障恢复、CloudSqlite上传 |
+| **modeling-server** | 4001 | RPC处理、Briefcase管理、编辑命令 | Express + WebSocket, 单端口架构 |
+| **Webhook-Agent** | 4002 | Webhook接收、Baseline生成 | 自动故障恢复、CloudSqlite上传 |
 | **imodelhub-services** | 4000 | 用户认证、项目管理、变更集 | 独立服务、PostgreSQL + Azurite |
 
 ---
 
 ## 二、核心设计决策分析
 
-### 2.1 单端口架构 (Backend)
+### 2.1 单端口架构 (modeling-server)
 
 **设计选择**: HTTP API 和 WebSocket IPC 共享端口 4001
 
@@ -114,7 +114,7 @@ private async _createCloudContainerAndUpload(...) {
 Frontend (useEditTools.ts)
     │
     ▼ RPC
-OpenCloudRpcImpl.ts (Backend)
+OpenCloudRpcImpl.ts (modeling-server)
     │
     ▼ IPC
 EditCommandAdmin (editor-backend)
@@ -227,8 +227,8 @@ export async function executeEditCommand(...): Promise<void> {
 |-------------------|------------------------|------|
 | `@luban-cad/viewer-core` | `@itwin/core-frontend` | 视图渲染 |
 | `@luban-cad/shared` | `@itwin/core-common` | RPC 接口定义 |
-| `apps/backend` | `@itwin/core-backend`, `@itwin/editor-backend` | 后端逻辑 |
-| `apps/web` | `@itwin/editor-frontend` | 实体建模工具 |
+| `modeling-server` | `@itwin/core-backend`, `@itwin/editor-backend` | 后端逻辑 |
+| `luban-cad/apps/web` | `@itwin/editor-frontend` | 实体建模工具 |
 
 ### 4.2 关键集成点
 
@@ -419,7 +419,7 @@ const Editor = lazy(() => import('../src/pages/Editor/Editor.js'));
 |------|------|------|
 | HTTP API | JWT Token | Authorization header |
 | WebSocket | Token 验证 | verifyClient hook |
-| RPC | ❌ 无鉴权（2026-09-22 实测） | 路由直通 `protocol.handleOperation*`，无 JWT/中间件（`apps/backend/src/main.ts:214-231`，见 §8.1 安全债①） |
+| RPC | ❌ 无鉴权（2026-09-22 实测） | 路由直通 `protocol.handleOperation*`，无 JWT/中间件（`modeling-server/src/main.ts:214-231`，见 §8.1 安全债①） |
 | Admin API | API Key | X-API-Key header |
 
 ### 7.2 Webhook 签名验证
@@ -463,27 +463,27 @@ export const sanitizeInput = (req, res, next) => {
 
 ### 8.1 安全债（部署阻断级，4 项——修复前不可对外部署）
 
-1. **RPC 无鉴权**：RPC 路由 `/:title/:version/mode/*` 的 GET/POST 直通 `protocol.handleOperation*`，无任何 JWT/中间件校验（`apps/backend/src/main.ts:214-231`）。
-2. **任意文件 IO**：`readExternalFile`/`writeExternalFile` 按调用方给定路径裸 `fs.readFileSync`/`fs.writeFileSync`，可读写服务器任意路径（`apps/backend/src/rpc/OpenCloudRpcImpl.ts:275-287`）。
-3. **token 泄露**：`getAccessToken` 把服务端 token 原样回传调用方（`apps/backend/src/rpc/OpenCloudRpcImpl.ts:302`）。
-4. **默认口令**：服务账号默认 `admin@example.com`/`secret`（`apps/backend/src/rpc/OpenCloudRpcImpl.ts:1124-1127`，env 未设即生效），且每次调用重新登录。
+1. **RPC 无鉴权**：RPC 路由 `/:title/:version/mode/*` 的 GET/POST 直通 `protocol.handleOperation*`，无任何 JWT/中间件校验（`modeling-server/src/main.ts:214-231`）。
+2. **任意文件 IO**：`readExternalFile`/`writeExternalFile` 按调用方给定路径裸 `fs.readFileSync`/`fs.writeFileSync`，可读写服务器任意路径（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:275-287`）。
+3. **token 泄露**：`getAccessToken` 把服务端 token 原样回传调用方（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:302`）。
+4. **默认口令**：服务账号默认 `admin@example.com`/`secret`（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:1124-1127`，env 未设即生效），且每次调用重新登录。
 
 ### 8.2 功能债
 
-- **mock API**：`compareChangesets` 返回 mock 空数据（`apps/backend/src/rpc/OpenCloudRpcImpl.ts:119-128`，"For now, return mock data" + 全 0 计数）；`exportToGltf` 产出 buffers/accessors 为空的 JSON 壳（`apps/backend/src/rpc/OpenCloudRpcImpl.ts:166-230`）。处置：实现或下线/标注 experimental【P1】。
-- **PatternTools ID 收集 bug**：内层循环 `newId` 单变量覆盖后才 push，副本只有最后一个 ID 入选集（`apps/web/features/modeling/PatternTools.ts:131-134` 与 `:331-334`）；另有错误吞咽 `catch → console.error → return undefined`（`:138-140`、`:338-340`）【P1】。
-- **死代码 PatternCommand**：`apps/backend/src/commands/PatternCommand.ts` 从未注册——`apps/backend/src/main.ts:99` 只注册 `editorBuiltInCommands`；实际阵列路径走前端 `basicManipulationIpc.insertGeometricElement`。处置：删除【P1】。
+- **mock API**：`compareChangesets` 返回 mock 空数据（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:119-128`，"For now, return mock data" + 全 0 计数）；`exportToGltf` 产出 buffers/accessors 为空的 JSON 壳（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:166-230`）。处置：实现或下线/标注 experimental【P1】。
+- **PatternTools ID 收集 bug**：内层循环 `newId` 单变量覆盖后才 push，副本只有最后一个 ID 入选集（`luban-cad/apps/web/features/modeling/PatternTools.ts:131-134` 与 `:331-334`）；另有错误吞咽 `catch → console.error → return undefined`（`:138-140`、`:338-340`）【P1】。
+- **死代码 PatternCommand**：`modeling-server/src/commands/PatternCommand.ts` 从未注册——`modeling-server/src/main.ts:99` 只注册 `editorBuiltInCommands`；实际阵列路径走前端 `basicManipulationIpc.insertGeometricElement`。处置：删除【P1】。
 
 ### 8.3 硬编码绝对路径（已于 2026-09-24 修复）
 
 - `modeling-server/src/ipc/OpenCloudIpcHandler.ts` 的 `_findDb`：本机绝对路径拼接已改为 `path.resolve(fileName)`（相对服务 cwd 解析）。
-- `apps/web/vite.config.ts`：`fs.allow` 改为仓内相对路径；失效的 core-markup alias（指向上游 rush store 的本机绝对路径）随 markup 降级一并移除。
+- `luban-cad/apps/web/vite.config.ts`：`fs.allow` 改为仓内相对路径；失效的 core-markup alias（指向上游 rush store 的本机绝对路径）随 markup 降级一并移除。
 - `luban-cad/scripts/*.sh` 的 `IMODELHUB_DIR` 默认值：改为仓外同级检出的相对推导，仍支持环境变量覆盖。
 
 ### 8.4 卫生问题
 
 - 死 CI 配置：`luban-cad/.github/workflows/`（cd/ci/pr）——GitHub 只认仓根 `.github/`，本目录配置不生效【P2】。
-- 构建产物入库：`apps/web/{playwright-report,test-results,__blobstorage__}`；itwinjs-core 仓根游离 `web-agent.log`【P2】。
+- 构建产物入库：`luban-cad/apps/web/{playwright-report,test-results,__blobstorage__}`；itwinjs-core 仓根游离 `webhook-agent.log`【P2】。
 
 ### 8.5 其他
 
@@ -533,21 +533,21 @@ itwinjs-core (Upstream)
 │
 └── presentation/              (未使用)
 
-LubanCAD (Extension)
+tiangong-kaiwu (本仓)
 │
-├── apps/
-│   ├── web/           ──► 基于 core-frontend 构建前端
-│   ├── backend/       ──► 集成 core-backend + editor-backend
-│   └── web-agent/     ──► 独立服务，处理 webhook
+├── luban-cad/
+│   ├── apps/web/      ──► 基于 core-frontend 构建前端
+│   ├── packages/
+│   │   ├── shared/        ──► 扩展 core-common 的 RPC 接口
+│   │   ├── viewer-core/   ──► 封装 core-frontend 的查看器
+│   │   └── web-viewer/    ──► 针对 Web 平台的初始化
+│   └── modules/
+│       ├── core/          ──► 扩展的 CAD 应用层
+│       └── ui/            ──► 自定义 UI 组件
 │
-├── packages/
-│   ├── shared/        ──► 扩展 core-common 的 RPC 接口
-│   ├── viewer-core/   ──► 封装 core-frontend 的查看器
-│   └── web-viewer/    ──► 针对 Web 平台的初始化
-│
-└── modules/
-    ├── core/          ──► 扩展的 CAD 应用层
-    └── ui/            ──► 自定义 UI 组件
+├── modeling-server/   ──► 图形建模后台（仓根独立 pnpm 项目）：集成 core-backend + editor-backend
+├── webhook-agent/     ──► 独立服务（仓根），处理 webhook + baseline 生成
+└── itwinjs-core/      ──► vendored iTwin.js fork（subtree 同步上游）
 ```
 
 ---
@@ -556,14 +556,14 @@ LubanCAD (Extension)
 
 | 文件 | 作用 |
 |------|------|
-| `apps/backend/src/main.ts` | 后端服务入口，初始化 IpcHost 和 RPC |
-| `apps/backend/src/rpc/OpenCloudRpcImpl.ts` | RPC 方法实现，包含编辑命令和冲突检测 |
-| `apps/backend/src/ipc/OpenCloudIpcHandler.ts` | IPC 处理器，管理 Briefcase 下载和 CAD 特征 |
-| `apps/web-agent/src/baseline-generator.ts` | Baseline 文件生成和 CloudSqlite 上传 |
-| `apps/web/app/App.tsx` | 前端路由和主题配置 |
-| `packages/viewer-core/src/hooks/useBriefcaseConnection.ts` | 可写连接管理 Hook |
-| `apps/web/features/editor/hooks/useEditTools.ts` | 编辑工具 Hook |
-| `apps/web/features/modeling/SolidModelingToolBase.ts` | 实体建模工具基类 |
+| `modeling-server/src/main.ts` | 后端服务入口，初始化 IpcHost 和 RPC |
+| `modeling-server/src/rpc/OpenCloudRpcImpl.ts` | RPC 方法实现，包含编辑命令和冲突检测 |
+| `modeling-server/src/ipc/OpenCloudIpcHandler.ts` | IPC 处理器，管理 Briefcase 下载和 CAD 特征 |
+| `webhook-agent/src/baseline-generator.ts` | Baseline 文件生成和 CloudSqlite 上传 |
+| `luban-cad/apps/web/app/App.tsx` | 前端路由和主题配置 |
+| `luban-cad/packages/viewer-core/src/hooks/useBriefcaseConnection.ts` | 可写连接管理 Hook |
+| `luban-cad/apps/web/features/editor/hooks/useEditTools.ts` | 编辑工具 Hook |
+| `luban-cad/apps/web/features/modeling/SolidModelingToolBase.ts` | 实体建模工具基类 |
 
 ---
 

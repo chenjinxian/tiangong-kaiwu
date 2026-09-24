@@ -11,10 +11,10 @@ LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有�
 │                         LubanCAD 部署架构                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  ┌──────────┐    ┌──────────┐    ┌──────────────────────────────────────┐  │
-│  │   Web    │───▶│  Backend │───▶│      imodelhub-services              │  │
-│  │  (3000)  │◀───│  (4001)  │◀───│         (4000)                       │  │
-│  └──────────┘    └────┬─────┘    └──────────────────────────────────────┘  │
+│  ┌──────────┐    ┌─────────────────┐    ┌──────────────────────────────────────┐  │
+│  │   Web    │───▶│ modeling-server │───▶│      imodelhub-services              │  │
+│  │  (3000)  │◀───│  (4001)         │◀───│         (4000)                       │  │
+│  └──────────┘    └────┬────────────┘    └──────────────────────────────────────┘  │
 │                       │                                                     │
 │                       ▼                                                     │
 │              ┌──────────────────┐                                          │
@@ -22,10 +22,10 @@ LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有�
 │              │  (10000/1/2)     │                                          │
 │              └──────────────────┘                                          │
 │                                                                             │
-│  ┌──────────────┐                                                           │
-│  │  web-agent   │  Webhook 接收器 + Baseline 生成器 (必需)                  │
-│  │   (4002)     │                                                           │
-│  └──────────────┘                                                           │
+│  ┌────────────────┐                                                             │
+│  │ webhook-agent  │  Webhook 接收器 + Baseline 生成器 (必需)                     │
+│  │   (4002)       │                                                             │
+│  └────────────────┘                                                             │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -37,29 +37,29 @@ LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有�
 | PostgreSQL | 5432 | imodelhub-services 数据库 | 是 |
 | azurite | 10000 | Azure Blob 存储模拟器 | 是 |
 | imodelhub-services | 4000 | iModel 管理服务 | 是 |
-| Backend | 4001 | LubanCAD 后端 | 是 |
+| modeling-server | 4001 | LubanCAD 后端 | 是 |
 | Web | 3000 | 前端应用 | 是 |
-| Web-Agent | 4002 | Webhook 接收器 + Baseline 生成 | 是 |
+| Webhook-Agent | 4002 | Webhook 接收器 + Baseline 生成 | 是 |
 
-### Web-Agent 为什么是必需的？
+### Webhook-Agent 为什么是必需的？
 
-**核心功能**: 当用户创建空 iModel 时，imodelhub-services 会发送 `iModelCreated` webhook 事件。Web-Agent 必须处理此事件并生成 baseline 文件：
+**核心功能**: 当用户创建空 iModel 时，imodelhub-services 会发送 `iModelCreated` webhook 事件。Webhook-Agent 必须处理此事件并生成 baseline 文件：
 
 1. **接收 Webhook**: 从 imodelhub-services 接收 `iModelCreated` 事件
 2. **生成 Baseline**: 使用 `SnapshotDb.createEmpty()` 创建空 iModel 基线文件
 3. **上传存储**: 将 baseline.bim 上传到 Azurite Blob 存储
 4. **通知完成**: 调用 imodelhub-services API 标记 iModel 初始化完成
 
-**如果不启动 Web-Agent**:
+**如果不启动 Webhook-Agent**:
 - 创建空 iModel 后会一直显示 "初始化中" 状态
 - iModel 无法打开（因为没有 baseline 文件）
 - 用户上传的 baseline 文件也无法正确处理
 
-**注意**: Web-Agent 和 Backend 需要相同的 `WEBHOOK_SECRET` 环境变量。
+**注意**: Webhook-Agent 和 modeling-server 需要相同的 `WEBHOOK_SECRET` 环境变量。
 
 ### Baseline 补偿任务 (自动故障恢复)
 
-为避免 iModel 因 web-agent 临时故障而卡在初始化状态，系统部署了自动补偿机制：
+为避免 iModel 因 webhook-agent 临时故障而卡在初始化状态，系统部署了自动补偿机制：
 
 **BaselineCompensationJob**:
 - 每 2 分钟扫描数据库，检测状态异常 iModel
@@ -69,29 +69,31 @@ LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有�
 **查看补偿状态**:
 ```bash
 curl http://localhost:4000/imodels/admin/compensation-status \
-  -H "X-API-Key: internal-api-key-for-web-agent"
+  -H "X-API-Key: internal-api-key-for-webhook-agent"
 ```
 
 ## 前置要求
 
 - Node.js 20.x+
-- pnpm 8.x+
-- Rush: `npm install -g @microsoft/rush`
+- pnpm 10.x（lockfile 为 lockfileVersion 9.0；pnpm 12 的默认供应链策略会拒绝安装。本机未装 pnpm 时可用 `corepack pnpm@10`）
+- Rush（仅 itwinjs-core 底座需要，经 `node common/scripts/install-run-rush.js` 调用，无需全局安装）
 - Docker (用于 PostgreSQL 和 Azurite)
-- imodelhub-services (单独部署)
+- imodelhub-services (仓外项目，单独部署)
 
 ## 开发环境部署
 
 ### 1. 安装依赖
 
 ```bash
-cd luban-cad
+# 0. 首次或改动 itwinjs-core 后：构建底座依赖包（在 itwinjs-core/ 内）
+cd itwinjs-core
+node common/scripts/install-run-rush.js update
+node common/scripts/install-run-rush.js build --to @itwin/core-backend --to @itwin/core-frontend --to @itwin/editor-backend --to @itwin/editor-frontend --to @itwin/presentation-frontend --to @itwin/presentation-common --to @itwin/appui-abstract --to @itwin/ecschema-metadata --to @itwin/ecschema-rpcinterface-common --to @itwin/core-i18n --to @itwin/core-quantity
 
-# 安装 Rush 依赖
-rush install
-
-# 构建所有包
-rush build
+# 1. 应用各项目（pnpm；link: 源码消费 itwinjs-core）
+cd luban-cad && pnpm install && pnpm -r build
+cd ../modeling-server && pnpm install && pnpm build
+cd ../webhook-agent && pnpm install && pnpm build
 ```
 
 ### 2. 启动 Azurite
@@ -108,7 +110,7 @@ curl http://localhost:10000/devstoreaccount1?comp=list
 
 ### 3. 配置环境变量
 
-#### Backend (`apps/backend/.env`)
+#### modeling-server (`modeling-server/.env`)
 
 ```env
 PORT=4001
@@ -122,7 +124,7 @@ IMODELHUB_ADMIN_EMAIL=admin@example.com
 IMODELHUB_ADMIN_PASSWORD=secret
 ```
 
-#### Frontend (`apps/web/.env`)
+#### Frontend (`luban-cad/apps/web/.env`)
 
 ```env
 VITE_API_URL=http://localhost:4001
@@ -130,7 +132,7 @@ VITE_IMODELHUB_URL=http://localhost:4000
 VITE_AZURITE_URL=http://localhost:10000
 ```
 
-#### Web-Agent (`apps/web-agent/.env`)
+#### Webhook-Agent (`webhook-agent/.env`)
 
 ```env
 PORT=4002
@@ -143,14 +145,14 @@ WEBHOOK_SECRET=your-webhook-secret
 分别在三个终端启动：
 
 ```bash
-# 终端 1: Backend
-cd apps/backend && rushx dev
+# 终端 1: modeling-server
+cd modeling-server && pnpm dev
 
-# 终端 2: Web-Agent (必需 - baseline 生成)
-cd apps/web-agent && rushx dev
+# 终端 2: Webhook-Agent (必需 - baseline 生成)
+cd webhook-agent && pnpm dev
 
 # 终端 3: Frontend
-cd apps/web && rushx dev
+cd luban-cad/apps/web && pnpm dev
 ```
 
 访问: http://localhost:3000
@@ -163,8 +165,8 @@ cd apps/web && rushx dev
 # 启动所有服务
 docker-compose up -d
 
-# 包含 Web-Agent
-docker-compose --profile with-web-agent up -d
+# 包含 Webhook-Agent
+docker-compose --profile with-webhook-agent up -d
 
 # 查看日志
 docker-compose logs -f
@@ -192,11 +194,11 @@ services:
     networks:
       - luban-cad-network
 
-  backend:
+  modeling-server:
     build:
       context: .
-      dockerfile: apps/backend/Dockerfile
-    container_name: luban-cad-backend
+      dockerfile: modeling-server/Dockerfile
+    container_name: luban-cad-modeling-server
     ports:
       - "4001:4001"
     environment:
@@ -208,7 +210,7 @@ services:
       - IMJS_BRIEFCASE_CACHE_LOCATION=/app/cache
       - WEBHOOK_SECRET=your-webhook-secret
     volumes:
-      - backend-cache:/app/cache
+      - modeling-server-cache:/app/cache
     depends_on:
       - azurite
     networks:
@@ -217,30 +219,30 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
-  web-agent:
+  webhook-agent:
     build:
       context: .
-      dockerfile: apps/web-agent/Dockerfile
-    container_name: luban-cad-web-agent
+      dockerfile: webhook-agent/Dockerfile
+    container_name: luban-cad-webhook-agent
     ports:
       - "4002:4002"
     environment:
       - NODE_ENV=production
       - PORT=4002
-      - BACKEND_URL=http://backend:4001
+      - BACKEND_URL=http://modeling-server:4001
       - WEBHOOK_SECRET=your-webhook-secret
     depends_on:
-      - backend
+      - modeling-server
     networks:
       - luban-cad-network
     restart: unless-stopped
     profiles:
-      - with-web-agent
+      - with-webhook-agent
 
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: luban-cad/apps/web/Dockerfile
     container_name: luban-cad-web
     ports:
       - "3000:3000"
@@ -249,14 +251,14 @@ services:
       - VITE_IMODELHUB_URL=http://localhost:4000
       - VITE_AZURITE_URL=http://localhost:10000
     depends_on:
-      - backend
+      - modeling-server
     networks:
       - luban-cad-network
     restart: unless-stopped
 
 volumes:
   azurite-data:
-  backend-cache:
+  modeling-server-cache:
 
 networks:
   luban-cad-network:
@@ -281,7 +283,7 @@ docker push your-registry/luban-cad-web:v1.0
 生产环境需要设置以下环境变量：
 
 ```bash
-# Backend
+# modeling-server
 export PORT=4001
 export IMODELHUB_URL=https://your-imodelhub-services.com
 export AZURITE_URL=https://your-storage.com
@@ -347,13 +349,13 @@ server {
 # 1. Core Services
 # ----------------
 # Checking imodelhub-services... ✓ OK
-# Checking backend... ✓ OK
-# Checking web-agent... ✓ OK
+# Checking modeling-server... ✓ OK
+# Checking webhook-agent... ✓ OK
 # Checking Azurite... ✓ OK
 #
 # 2. Webhook Configuration
 # ------------------------
-# Checking web-agent recent events... ✓ OK (events received: 5)
+# Checking webhook-agent recent events... ✓ OK (events received: 5)
 #
 # 3. Orphaned iModels Check
 # -------------------------
@@ -377,17 +379,17 @@ server {
 # 1. 检查 Azurite
 curl http://localhost:10000/devstoreaccount1?comp=list
 
-# 2. 检查 Backend
+# 2. 检查 modeling-server
 curl http://localhost:4001/health
 
-# 3. 检查 Web-Agent
+# 3. 检查 Webhook-Agent
 curl http://localhost:4002/health
 
 # 4. 检查 Frontend
 curl http://localhost:3000
 ```
 
-### Backend 健康响应
+### modeling-server 健康响应
 
 ```json
 {
@@ -406,11 +408,11 @@ curl http://localhost:3000
 ### 查看日志
 
 ```bash
-# Backend 日志
-docker logs -f luban-cad-backend
+# modeling-server 日志
+docker logs -f luban-cad-modeling-server
 
-# Web-Agent 日志
-docker logs -f luban-cad-web-agent
+# Webhook-Agent 日志
+docker logs -f luban-cad-webhook-agent
 
 # 所有服务日志
 docker-compose logs -f
@@ -418,7 +420,7 @@ docker-compose logs -f
 
 ### 日志配置
 
-Backend 使用结构化日志：
+modeling-server 使用结构化日志：
 
 ```typescript
 // 日志级别: debug, info, warn, error, fatal
@@ -464,26 +466,26 @@ kill -9 <PID>
 
 ### 服务启动失败
 
-1. **Backend 启动失败**
+1. **modeling-server 启动失败**
    - 检查 imodelhub-services 是否运行
    - 检查 Azurite 是否运行
    - 检查端口是否被占用
-   - 查看日志: `docker logs luban-cad-backend`
+   - 查看日志: `docker logs luban-cad-modeling-server`
 
 2. **Frontend 构建失败**
-   - 检查 node_modules: `rush install`
-   - 检查类型错误: `rush build`
+   - 检查 node_modules: `pnpm install`
+   - 检查类型错误: `pnpm -r build`（luban-cad workspace 全量）
    - 检查环境变量: `.env` 文件
 
 3. **RPC 调用失败**
-   - 检查 Backend 健康状态
+   - 检查 modeling-server 健康状态
    - 检查网络连接
    - 查看浏览器控制台错误
 
 4. **iModel 卡在"初始化中"**
-   - 检查 web-agent 是否运行: `./scripts/health-check.sh`
-   - 查看补偿任务状态: `curl http://localhost:4000/imodels/admin/compensation-status -H "X-API-Key: internal-api-key-for-web-agent"`
-   - 手动触发修复: `curl -X POST http://localhost:4000/imodels/admin/repair/{id} -H "X-API-Key: internal-api-key-for-web-agent"`
+   - 检查 webhook-agent 是否运行: `./scripts/health-check.sh`
+   - 查看补偿任务状态: `curl http://localhost:4000/imodels/admin/compensation-status -H "X-API-Key: internal-api-key-for-webhook-agent"`
+   - 手动触发修复: `curl -X POST http://localhost:4000/imodels/admin/repair/{id} -H "X-API-Key: internal-api-key-for-webhook-agent"`
 
 ### 数据重置
 
@@ -494,8 +496,8 @@ docker-compose down
 # 删除数据卷
 docker volume rm luban-cad_azurite-data
 
-# 清除 Backend 缓存
-rm -rf apps/backend/briefcase-cache/*
+# 清除 modeling-server 缓存
+rm -rf modeling-server/briefcase-cache/*
 
 # 重新启动
 docker-compose up -d
@@ -506,7 +508,7 @@ docker-compose up -d
 ### 1. 缓存配置
 
 ```bash
-# Backend 缓存大小限制
+# modeling-server 缓存大小限制
 IMJS_BRIEFCASE_CACHE_LOCATION=/app/cache
 IMJS_BRIEFCASE_CACHE_SIZE=10GB
 ```
@@ -533,17 +535,17 @@ location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
 ### 健康检查端点
 
 ```bash
-# Backend 健康检查
-curl -f http://localhost:4001/health || echo "Backend unhealthy"
+# modeling-server 健康检查
+curl -f http://localhost:4001/health || echo "modeling-server unhealthy"
 
 # 添加到 crontab
-*/5 * * * * curl -f http://localhost:4001/health || echo "Backend down" | mail -s "Alert" admin@example.com
+*/5 * * * * curl -f http://localhost:4001/health || echo "modeling-server down" | mail -s "Alert" admin@example.com
 ```
 
 ### Prometheus 指标 (可选)
 
 ```typescript
-// Backend 可以暴露 Prometheus 指标
+// modeling-server 可以暴露 Prometheus 指标
 app.get('/metrics', (req, res) => {
   res.set('Content-Type', 'text/plain');
   res.send(prometheusMetrics);
@@ -561,21 +563,21 @@ imodelhub-services 提供管理端点用于故障排查和修复（需要 API Ke
 | `/imodels/admin/repair/:id` | POST | 修复特定 iModel 的 baseline |
 | `/imodels/admin/compensation-status` | GET | 获取补偿任务状态 |
 
-**认证头**: `X-API-Key: internal-api-key-for-web-agent`
+**认证头**: `X-API-Key: internal-api-key-for-webhook-agent`
 
 **使用示例**:
 ```bash
 # 查看有哪些 iModel 需要修复
 curl http://localhost:4000/imodels/admin/uninitialized \
-  -H "X-API-Key: internal-api-key-for-web-agent"
+  -H "X-API-Key: internal-api-key-for-webhook-agent"
 
 # 修复特定 iModel
 curl -X POST http://localhost:4000/imodels/admin/repair/{iModelId} \
-  -H "X-API-Key: internal-api-key-for-web-agent"
+  -H "X-API-Key: internal-api-key-for-webhook-agent"
 
 # 批量修复所有失败的 baseline
 curl -X POST http://localhost:4000/imodels/admin/repair-baselines \
-  -H "X-API-Key: internal-api-key-for-web-agent"
+  -H "X-API-Key: internal-api-key-for-webhook-agent"
 ```
 
 ## 安全加固
@@ -605,7 +607,7 @@ echo ".env" >> .gitignore
 openssl rand -base64 32
 
 # 确保一致
-# backend/.env 和 web-agent/.env 中的 WEBHOOK_SECRET 必须相同
+# modeling-server/.env 和 webhook-agent/.env 中的 WEBHOOK_SECRET 必须相同
 ```
 
 ## 更新部署
@@ -616,8 +618,10 @@ openssl rand -base64 32
 # 1. 拉取最新代码
 git pull origin main
 
-# 2. 重新构建
-rush build
+# 2. 重新构建（应用各项目；itwinjs-core 有变更时先 rush build --to …）
+cd luban-cad && pnpm -r build
+cd ../modeling-server && pnpm build
+cd ../webhook-agent && pnpm build
 
 # 3. 重启服务
 docker-compose up -d --build
@@ -639,15 +643,15 @@ npm run migration:run
 | PostgreSQL | 5432 | ✅ | 数据库 |
 | Azurite | 10000 | ✅ | Blob 存储 |
 | imodelhub-services | 4000 | ✅ | 核心 API |
-| Backend | 4001 | ✅ | CAD 服务 |
+| modeling-server | 4001 | ✅ | CAD 服务 |
 | Frontend | 3000 | ✅ | Web 应用 |
-| Web-Agent | 4002 | ✅ | Webhook + Baseline 生成 |
+| Webhook-Agent | 4002 | ✅ | Webhook + Baseline 生成 |
 
 **访问地址**:
 - Frontend: http://localhost:3000
-- Backend Health: http://localhost:4001/health
-- Backend WebSocket: ws://localhost:4001/ws
-- Backend RPC: http://localhost:4001/rpc/metadata
+- modeling-server Health: http://localhost:4001/health
+- modeling-server WebSocket: ws://localhost:4001/ws
+- modeling-server RPC: http://localhost:4001/rpc/metadata
 
 ---
 
