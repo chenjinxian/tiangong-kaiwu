@@ -4,7 +4,7 @@
 
 ### 现有恢复机制
 
-1. **web-agent RecoveryChecker** (`apps/web-agent/src/main.ts`)
+1. **webhook-agent RecoveryChecker** (`webhook-agent/src/main.ts`)
    - 每 5 分钟检查一次未初始化的 iModel
    - 查询 `notInitialized` 和 `initializationFailed` 状态的 iModel
    - 通过合成 webhook 事件触发 baseline 生成
@@ -291,7 +291,7 @@ Response: {
 ### Phase 2: 策略引擎 (2-3 天)
 
 1. **实现错误分类**
-   - 在 web-agent 中分类错误代码
+   - 在 webhook-agent 中分类错误代码
    - 在 imodelhub-services 中记录错误代码
 
 2. **实现 RecoveryStrategyEngine**

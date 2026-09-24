@@ -1,6 +1,6 @@
-# 鲁班CAD 文档目录（luban-cad）
+# 天工开物平台文档目录（docs/）
 
-本文档目录包含天工开物平台 AI 生成式 CAD 产品（鲁班CAD / luban-cad）的所有技术文档和参考资料。
+本文档目录位于 tiangong-kaiwu 仓根部，包含鲁班CAD 应用与平台工程的技术文档和参考资料（2026-09-24 自冻结历史拷贝迁入）。
 
 ---
 
@@ -9,11 +9,10 @@
 ### 核心文档
 | 文档 | 说明 |
 |------|------|
-| [CLAUDE.md](../CLAUDE.md) | 项目主文档，包含架构、配置和快速开始指南 |
-| [README.md](../README.md) | 项目介绍和基本使用说明 |
-| [CHANGELOG.md](../CHANGELOG.md) | 版本变更记录 |
-| [QUICKSTART.md](../QUICKSTART.md) | 快速开始指南 |
-| platform-docs/STATUS.md | 全平台能力现状矩阵（状态权威锚点） |
+| [CLAUDE.md](../CLAUDE.md) | 平台总仓主文档：仓库布局、构建/测试命令、上游同步规约 |
+| [README.md](../README.md) | 平台介绍与架构分工 |
+| [luban-cad/CLAUDE.md](../luban-cad/CLAUDE.md) | 鲁班CAD 开发准则（复用优先/工具生命周期/AI 工具注册规约） |
+| platform-docs/STATUS.md | 全平台能力现状矩阵（仓外文档总仓，状态权威锚点） |
 
 ### 架构与设计
 | 文档 | 说明 |
@@ -43,7 +42,7 @@
 ### 子目录
 | 目录 | 说明 |
 |------|------|
-| [superpowers/](./superpowers/) | AI 辅助开发文档 |
+| [superpowers/](./superpowers/) | AI 辅助开发文档（历史计划/设计记录） |
 | [tool-integrations/](./tool-integrations/) | 工具集成状态 |
 
 ---
@@ -63,4 +62,4 @@
 
 现行能力状态以 platform-docs/STATUS.md 为准（状态标记：✅/🟠/⚪/❌）。
 
-*最后更新: 2026-09-22*
+*最后更新: 2026-09-24*

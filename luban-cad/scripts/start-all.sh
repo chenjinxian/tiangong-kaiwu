@@ -326,7 +326,7 @@ start_modeling_server() {
 
 # 启动 webhook-agent（本地）
 start_webhook_agent() {
-    log_section "启动 Web-Agent（本地）"
+    log_section "启动 Webhook-Agent（本地）"
 
     if check_port 4002; then
         # Port is occupied - find and save the actual PID
@@ -334,14 +334,14 @@ start_webhook_agent() {
         actual_pid=$(lsof -Pi :4002 -sTCP:LISTEN -t 2>/dev/null | head -1)
         if [ -n "$actual_pid" ]; then
             save_pid "webhook-agent" "$actual_pid"
-            log_success "Web-Agent 已在运行 (端口: 4002, PID: $actual_pid)"
+            log_success "Webhook-Agent 已在运行 (端口: 4002, PID: $actual_pid)"
         else
-            log_success "Web-Agent 已在运行 (端口: 4002)"
+            log_success "Webhook-Agent 已在运行 (端口: 4002)"
         fi
         return 0
     fi
 
-    log_info "启动 Web-Agent..."
+    log_info "启动 Webhook-Agent..."
 
     cd ../webhook-agent
     npm run dev > /tmp/luban-cad/webhook-agent.log 2>&1 &
@@ -349,11 +349,11 @@ start_webhook_agent() {
     save_pid "webhook-agent" "$WEB_AGENT_PID"
     cd - > /dev/null
 
-    if wait_for_service "Web-Agent" "http://localhost:4002/health" 30; then
-        log_success "Web-Agent 启动成功 (PID: $WEB_AGENT_PID)"
+    if wait_for_service "Webhook-Agent" "http://localhost:4002/health" 30; then
+        log_success "Webhook-Agent 启动成功 (PID: $WEB_AGENT_PID)"
         echo "  日志: tail -f /tmp/luban-cad/webhook-agent.log"
     else
-        log_error "Web-Agent 启动失败"
+        log_error "Webhook-Agent 启动失败"
         echo "  查看日志: tail -f /tmp/luban-cad/webhook-agent.log"
         return 1
     fi
@@ -555,7 +555,7 @@ case "${1:-all}" in
         echo "【应用服务（本地）】"
         echo "  📡 imodelhub-services: http://localhost:4000"
         echo "  🔧 Backend:            http://localhost:4001"
-        echo "  📨 Web-Agent:          http://localhost:4002"
+        echo "  📨 Webhook-Agent:          http://localhost:4002"
         echo "  🌐 Frontend:           http://localhost:3000"
         echo ""
         echo "日志文件:"
