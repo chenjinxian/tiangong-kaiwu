@@ -25,6 +25,20 @@
 bash scripts/sync-from-upstream.sh   # 于仓库根目录执行
 ```
 
+## imodel-native 联动（本地 imodeljs.node 替换）
+
+`scripts/sync-from-upstream.sh` 尾部会自动比对 `core/backend/package.json` 中
+`@bentley/imodeljs-native` 版本；变化时须按序完成（`scripts/replace-imodeljs-native.ps1`
+的硬门槛会强制校验第 1 步）：
+
+1. imodel-native 仓（`D:\Github\imodel-native`，分支 `dev/source-build`）跑 `.\sync-from-upstream.ps1`（冲突手工解）
+2. `cmake --preset win-x64-release && cmake --build --preset win-x64-release`（按需加 debug）
+3. 本仓 `rush update` → 按需 `rush build` → `powershell -File scripts/replace-imodeljs-native.ps1`
+
+任何 `rush update` / `pnpm install` 重装 node_modules 后，替换会被还原，需重跑替换脚本；
+后端启动无 "using dev build from …" banner 即已回退官方二进制。详见
+`docs/superpowers/specs/2026-09-26-imodeljs-native-local-replacement-design.md`。
+
 ## 手动流程
 
 ```bash
