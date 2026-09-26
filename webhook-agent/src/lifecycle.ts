@@ -34,19 +34,18 @@ export interface ShutdownCapable {
  * Ensure the process-global IModelHost is started. Idempotent: repeated calls
  * after a successful startup are no-ops, so hot paths (baseline generation)
  * can call this freely instead of each owning a startup call.
+ *
+ * Startup failures propagate to the caller (fail-fast: at boot main.ts's
+ * catch exits the process non-zero instead of serving traffic against an
+ * unstarted host). `started` is only set after a successful startup, so a
+ * later call retries rather than latching the failure.
  */
 export async function ensureIModelHostStarted(): Promise<void> {
   if (started) return;
 
-  try {
-    await IModelHost.startup();
-    started = true;
-    logger.info('[Lifecycle] IModelHost started (process-global, single startup)');
-  } catch (error) {
-    // Not latching `started`: the next caller retries rather than proceeding
-    // against an unstarted host.
-    logger.error('[Lifecycle] IModelHost.startup failed', { error });
-  }
+  await IModelHost.startup();
+  started = true;
+  logger.info('[Lifecycle] IModelHost started (process-global, single startup)');
 }
 
 /**

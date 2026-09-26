@@ -1,4 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// Config seam: the logger reads the frozen `config` singleton at import time,
+// and the real config validates eagerly (exiting the test process on machines
+// without a repo-root .env). Mocked wholesale like the other suites; the
+// logger only consumes LOG_LEVEL from it.
+vi.mock('../config.js', () => ({
+  config: { LOG_LEVEL: 'info' },
+}));
+
 import { LogLevel, logger } from './logger.js';
 
 describe('logger', () => {

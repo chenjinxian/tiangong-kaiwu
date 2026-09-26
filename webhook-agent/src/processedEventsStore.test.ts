@@ -1,7 +1,16 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+// Config seam: the store imports the logger, which reads the frozen `config`
+// singleton at import time (the real config validates eagerly and would exit
+// the test process on machines without a repo-root .env). Mocked like the
+// other suites; the logger only consumes LOG_LEVEL from it.
+vi.mock('./config.js', () => ({
+  config: { LOG_LEVEL: 'error' },
+}));
+
 import { createProcessedEventsStore } from './processedEventsStore.js';
 
 let dir: string;
