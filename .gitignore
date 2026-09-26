@@ -10,3 +10,4 @@ coverage/
 !.env.example
 __azurite_db_*
 AzuriteConfig
+data/
