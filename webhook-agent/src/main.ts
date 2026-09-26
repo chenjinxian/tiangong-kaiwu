@@ -284,8 +284,15 @@ async function main(): Promise<void> {
       if (!response.ok && debug) {
         logger.warn(`[Progress] Backend returned ${response.status} for iModel ${iModelId}`);
       }
-    } catch {
-      // Ignore errors - progress is best-effort
+    } catch (error) {
+      // Progress is best-effort — a failed POST never fails the baseline
+      // run — but the miss is surfaced with route context, not swallowed.
+      logger.warn(`[Progress] Failed to post progress to modeling-server for iModel ${iModelId}`, {
+        iModelId,
+        step,
+        progress,
+        reason: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

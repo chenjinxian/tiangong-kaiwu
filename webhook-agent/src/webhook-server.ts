@@ -22,6 +22,17 @@ import { config as appConfig } from './config.js';
 import { logger } from './utils/logger.js';
 
 /**
+ * Service-to-service key check for the agent-owned /baseline/retry route:
+ * modeling-server sends X-API-Key with the same WEBAGENT_API_KEY it uses
+ * outbound (mirrors MS's requireApiKey pattern). The key is read from the
+ * frozen config singleton at call time; a repeated header (string[]) is
+ * never treated as a match.
+ */
+export function isValidAgentApiKey(headerValue: string | string[] | undefined): boolean {
+  return typeof headerValue === 'string' && headerValue === appConfig.WEBAGENT_API_KEY;
+}
+
+/**
  * Webhook Server options
  */
 export interface WebhookServerOptions {
@@ -104,8 +115,14 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
     try {
       const bodyString = typeof rawBody === 'string' ? rawBody : rawBody.toString();
       event = JSON.parse(bodyString) as IncomingWebhookEvent;
-    } catch {
-      logger.error('[Webhook] Failed to parse event body');
+    } catch (error) {
+      // The 400 already tells the platform its payload was bad; the warn
+      // records how big the unparseable body was (and why it failed to
+      // parse) without ever dumping its contents into the log.
+      logger.warn('[Webhook] Failed to parse event body', {
+        bodyLength: rawBody.length,
+        reason: error instanceof Error ? error.message : String(error),
+      });
       res.sendStatus(400);
       return;
     }
@@ -167,7 +184,13 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
       let body: Record<string, unknown>;
       try {
         body = JSON.parse(req.body as string);
-      } catch {
+      } catch (error) {
+        // Recoverable: caller gets a 400 and can resend — surface the miss
+        // with route context instead of swallowing it.
+        logger.warn('[BaselineProcess] Invalid JSON body', {
+          bodyLength: typeof req.body === 'string' ? req.body.length : 0,
+          reason: error instanceof Error ? error.message : String(error),
+        });
         res.status(400).json({ error: 'Invalid JSON body' });
         return;
       }
@@ -214,7 +237,7 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
     app.post('/baseline/retry/:iModelId', async (req: Request, res: Response) => {
       // Service-to-service auth: modeling-server sends X-API-Key (WEBAGENT_API_KEY,
       // same value it uses outbound — mirrors MS's requireApiKey pattern).
-      if (req.headers['x-api-key'] !== appConfig.WEBAGENT_API_KEY) {
+      if (!isValidAgentApiKey(req.headers['x-api-key'])) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
@@ -224,7 +247,14 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
       let body: Record<string, unknown>;
       try {
         body = JSON.parse(req.body as string);
-      } catch {
+      } catch (error) {
+        // Recoverable: caller gets a 400 and can resend — surface the miss
+        // with route context instead of swallowing it.
+        logger.warn('[BaselineRetry] Invalid JSON body', {
+          iModelId,
+          bodyLength: typeof req.body === 'string' ? req.body.length : 0,
+          reason: error instanceof Error ? error.message : String(error),
+        });
         res.status(400).json({ error: 'Invalid JSON body' });
         return;
       }

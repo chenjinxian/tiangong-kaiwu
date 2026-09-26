@@ -56,6 +56,16 @@ interface BaselineGenerationResult {
 }
 
 /**
+ * SAS permission set for a baseline container, as consumed by
+ * generateSasUrl. Writers get the full 'racwdl' set (CloudSqlite container
+ * init + upload needs read/add/create/write/delete/list — delete included);
+ * readers get 'rl' (read + list).
+ */
+export function buildSasPermissions(write: boolean): ContainerSASPermissions {
+  return ContainerSASPermissions.parse(write ? 'racwdl' : 'rl');
+}
+
+/**
  * Baseline File Generator
  *
  * Handles async generation of empty baseline files for iModels.
@@ -809,9 +819,7 @@ export class BaselineGenerator {
     const containerClient = this._blobClient.getContainerClient(containerId);
     const startsOn = new Date();
     const expiresOn = new Date(startsOn.valueOf() + 30 * 24 * 60 * 60 * 1000); // 30 days
-    const permissions = writable
-      ? ContainerSASPermissions.parse('racwdl')
-      : ContainerSASPermissions.parse('rl');
+    const permissions = buildSasPermissions(writable);
     const sasUrl = await containerClient.generateSasUrl({ permissions, startsOn, expiresOn, protocol: SASProtocol.HttpsAndHttp });
     // Extract just the query string (after '?')
     return sasUrl.split('?')[1] ?? '';
