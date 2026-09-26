@@ -26,7 +26,7 @@ function runConfigImport(env: Record<string, string>): { status: number; output:
 }
 
 const SECRET_VARS = [
-  'AZURITE_ACCOUNT_KEY', 'WEBHOOK_SECRET', 'IMODELHUB_API_KEY',
+  'AZURITE_ACCOUNT_KEY', 'WEBHOOK_SECRET', 'IMODELHUB_API_KEY', 'BACKEND_API_KEY',
   'IMODELHUB_ADMIN_EMAIL', 'IMODELHUB_ADMIN_PASSWORD',
 ] as const;
 
@@ -34,6 +34,7 @@ const allSecrets: Record<string, string> = {
   AZURITE_ACCOUNT_KEY: 'a'.repeat(64),
   WEBHOOK_SECRET: 'b'.repeat(32),
   IMODELHUB_API_KEY: 'c'.repeat(32),
+  BACKEND_API_KEY: 'e'.repeat(32),
   IMODELHUB_ADMIN_EMAIL: 'admin@test.local',
   IMODELHUB_ADMIN_PASSWORD: 'd'.repeat(16),
 };
@@ -59,9 +60,22 @@ describe('webhook-agent config', () => {
     for (const [name, value] of Object.entries(allSecrets)) {
       process.env[name] = value;
     }
+    // The literal string 'false' must parse to boolean false — this is exactly
+    // the case z.coerce.boolean() got wrong (Boolean('false') === true).
+    process.env.DISABLE_AUTOMATIC_RECOVERY = 'false';
     const { config } = await import('./config.js');
     expect(config.PORT).toBe(4002);
     expect(config.IMODELHUB_URL).toBe('http://localhost:4000');
     expect(config.MODELING_SERVER_URL).toBe('http://localhost:4001');
+    expect(config.DISABLE_AUTOMATIC_RECOVERY).toBe(false);
+  });
+
+  it('defaults DISABLE_AUTOMATIC_RECOVERY to false when the variable is absent', () => {
+    const output = execFileSync(
+      process.execPath,
+      ['--import', 'tsx', '-e', "import('./src/config.ts').then(m => console.log('RECOVERY_DEFAULT:' + m.config.DISABLE_AUTOMATIC_RECOVERY))"],
+      { cwd: projectDir, env: { ...process.env, ...allSecrets }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    expect(output).toContain('RECOVERY_DEFAULT:false');
   });
 });

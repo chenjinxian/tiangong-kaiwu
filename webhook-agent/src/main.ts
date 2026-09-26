@@ -17,10 +17,12 @@
  *
  * Environment configuration: single source is src/config.ts (zod-validated,
  * loads the repo-root .env). Mandatory secrets: AZURITE_ACCOUNT_KEY,
- * WEBHOOK_SECRET, IMODELHUB_API_KEY, IMODELHUB_ADMIN_EMAIL,
- * IMODELHUB_ADMIN_PASSWORD. Dev defaults cover PORT, IMODELHUB_URL,
- * MODELING_SERVER_URL (replaces BACKEND_URL), AZURITE_ACCOUNT_NAME,
- * AZURITE_HOST (replaces BLOB_*), LOG_LEVEL and RECOVERY_*.
+ * WEBHOOK_SECRET, IMODELHUB_API_KEY (HUB outbound), BACKEND_API_KEY
+ * (modeling-server outbound, same value MS validates inbound),
+ * IMODELHUB_ADMIN_EMAIL, IMODELHUB_ADMIN_PASSWORD. Dev defaults cover PORT,
+ * IMODELHUB_URL, MODELING_SERVER_URL (replaces BACKEND_URL),
+ * AZURITE_ACCOUNT_NAME, AZURITE_HOST (replaces BLOB_*), LOG_LEVEL and
+ * RECOVERY_*.
  */
 
 import http from 'http';
@@ -288,6 +290,7 @@ async function main(): Promise<void> {
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'X-API-Key': config.BACKEND_API_KEY,
       };
       const response = await fetch(`${webhookConfig.backendUrl}/api/imodels/${iModelId}/progress`, {
         method: 'POST',

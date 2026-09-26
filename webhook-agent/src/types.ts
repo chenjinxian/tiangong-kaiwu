@@ -158,8 +158,6 @@ export interface ProcessedEvent extends WebhookEvent {
 export interface ForwarderConfig {
   /** Backend URL to forward events */
   backendUrl: string;
-  /** API key for authentication */
-  apiKey?: string;
   /** Forward timeout in ms */
   timeout: number;
   /** Retry attempts */
@@ -182,6 +180,4 @@ export interface WebhookConfig {
   allowedOrigins: string[];
   /** Backend URL for event forwarding */
   backendUrl: string;
-  /** API key for backend authentication */
-  backendApiKey?: string;
 }

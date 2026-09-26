@@ -9,6 +9,7 @@
  */
 
 import type { ForwarderConfig, ProcessedEvent } from './types.js';
+import { config } from './config.js';
 
 /**
  * Event Forwarder
@@ -21,13 +22,12 @@ export class EventForwarder {
   private _pendingEvents: Map<string, ProcessedEvent> = new Map();
   private _retryQueue: Array<{ event: ProcessedEvent; attempts: number }> = [];
 
-  constructor(config: Partial<ForwarderConfig>) {
+  constructor(options: Partial<ForwarderConfig>) {
     this._config = {
-      backendUrl: config.backendUrl || 'http://localhost:4001',
-      apiKey: config.apiKey,
-      timeout: config.timeout || 5000,
-      retryAttempts: config.retryAttempts || 3,
-      retryDelay: config.retryDelay || 1000,
+      backendUrl: options.backendUrl || 'http://localhost:4001',
+      timeout: options.timeout || 5000,
+      retryAttempts: options.retryAttempts || 3,
+      retryDelay: options.retryDelay || 1000,
     };
 
     // Start retry processor
@@ -75,11 +75,8 @@ export class EventForwarder {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-API-Key': config.BACKEND_API_KEY,
     };
-
-    if (this._config.apiKey) {
-      headers['X-API-Key'] = this._config.apiKey;
-    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this._config.timeout);

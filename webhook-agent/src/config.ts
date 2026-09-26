@@ -38,14 +38,19 @@ const schema = z.object({
   // --- secrets: mandatory ---
   AZURITE_ACCOUNT_KEY: z.string().min(16),             // replaces BLOB_ACCOUNT_KEY + hardcoded well-known key
   WEBHOOK_SECRET: z.string().min(32),
-  IMODELHUB_API_KEY: z.string().min(32),
+  IMODELHUB_API_KEY: z.string().min(32),               // WA → imodelhub-services (HUB) outbound
+  BACKEND_API_KEY: z.string().min(32),                 // WA → modeling-server outbound (value MS validates inbound)
   IMODELHUB_ADMIN_EMAIL: z.string().email(),
   IMODELHUB_ADMIN_PASSWORD: z.string().min(12),
 
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   RECOVERY_CHECK_INTERVAL_MINUTES: z.coerce.number().int().positive().default(5),
   RECOVERY_MAX_PER_CHECK: z.coerce.number().int().positive().default(10),
-  DISABLE_AUTOMATIC_RECOVERY: z.coerce.boolean().default(false),
+  // Boolean env strings parsed explicitly: z.coerce.boolean() would treat the
+  // literal string 'false' as true (Boolean('false') === true). The default
+  // sits on the enum (input side) — on a transformed pipe zod's .default() is
+  // output-typed and would bypass the transform.
+  DISABLE_AUTOMATIC_RECOVERY: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
 });
 
 export type Config = z.infer<typeof schema>;
