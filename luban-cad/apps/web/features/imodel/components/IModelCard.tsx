@@ -13,7 +13,6 @@ interface IModelCardProps {
   onRetry?: (iModel: IModel) => void;
   onRename?: (iModel: IModel) => void;
   onCopy?: (iModel: IModel) => void;
-  onMove?: (iModel: IModel) => void;
 }
 
 // Format date utility - moved outside component to avoid recreation
@@ -34,7 +33,6 @@ export const IModelCard: React.FC<IModelCardProps> = React.memo(({
   onRetry,
   onRename,
   onCopy,
-  onMove,
 }) => {
   const handleClick = useCallback(() => {
     onOpen?.(iModel);
@@ -55,8 +53,6 @@ export const IModelCard: React.FC<IModelCardProps> = React.memo(({
   void onRetry;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   void onCopy;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  void onMove;
 
   // Memoize initialization check
   const isInitialized = useMemo(() =>
