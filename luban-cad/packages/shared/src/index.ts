@@ -179,6 +179,16 @@ export type {
   ChangedElementsJobCompletedEvent,
   ExportJobCompletedEvent,
   AnyWebhookEvent,
+  // Content payload aliases (envelope-free) + local extension contracts
+  IModelCreatedContent,
+  IModelDeletedContent,
+  ChangesetPushedContent,
+  NamedVersionCreatedContent,
+  MemberAddedContent,
+  MemberRemovedContent,
+  MemberRoleUpdatedContent,
+  IModelCreatedNeedBaselineEvent,
+  IModelProgressPayload,
 } from './webhooks/types.js';
 
 // =============================================================================
