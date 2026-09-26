@@ -103,7 +103,7 @@ git subtree pull --prefix=itwinjs-core --squash upstream master
   小节跟进：imodel-native 合并 upstream/main 至 ≥ v5.14.38 → CMake 重编译 → rush update →
   `scripts/replace-imodeljs-native.ps1`（其硬门槛以 `core/backend/package.json` 动态读版本为准）
 - 首次带尾步自动检测的真实同步；`stays at` 分支已在合并完成后的重跑中验证
-- **2026-09-26 原生库替换机制启用**：`replace-imodeljs-native.ps1` 首次落地（imodel-native ≥ v5.14.38，release 配置），modeling-server 冒烟通过
+- **2026-09-26 原生库替换机制启用**：`replace-imodeljs-native.ps1` 首次落地（imodel-native ≥ v5.14.38，release 配置），modeling-server 冒烟通过（banner/进程级；模型级冒烟因 imodelhub-services 未运行延后）
 
 ### 2026-09-23（仓库整合 + 5.14.0-dev.17）
 
