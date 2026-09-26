@@ -7,5 +7,6 @@ coverage/
 *.log
 .env
 .env.*
+!.env.example
 __azurite_db_*
 AzuriteConfig
