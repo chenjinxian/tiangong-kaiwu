@@ -62,6 +62,17 @@ pnpm test                                  # vitest run
 pnpm lint
 ```
 
+### 原生库替换（本地 imodeljs.node）
+
+```bash
+powershell -File scripts/replace-imodeljs-native.ps1            # release 为默认；-Config debug 切换
+```
+
+- 用 imodel-native（`D:\Github\imodel-native`，分支 `dev/source-build`）的 `out/cmake/win-x64-<config>/Delivery/` 覆盖 node_modules 中 `@bentley/imodeljs-native` 的平台二进制 + 写 `devbuild.json`；TS wrapper/typings 仍来自 npm（`api_package/ts` 零改动）。
+- **硬门槛**：imodel-native HEAD 必须包含 itwinjs-core 所需版本 tag（`git merge-base --is-ancestor v<版本> HEAD`）；不满足先跑该仓 `sync-from-upstream.ps1` + CMake 重编译。
+- **任何 `rush update` / `pnpm install` 重装后必须重跑**；后端启动无 "using dev build from …" banner 即已回退官方二进制。
+- itwinjs-core 上游同步若提升了原生库版本：imodel-native 跟进同步 → 重编译 → 重跑本脚本（`scripts/sync-from-upstream.sh` 尾部会自动检测并提示）。
+
 ### 单测试 / 单 e2e
 
 ```bash
