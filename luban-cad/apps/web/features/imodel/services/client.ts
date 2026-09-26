@@ -7,15 +7,10 @@
  */
 
 import { getAuthorization } from '../../../shared/services/imodels/client.js';
+import type { IModelProgressPayload } from '@luban-cad/shared';
 
 const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
 const API_URL = import.meta.env.VITE_API_URL || '';
-
-export interface IModelProgress {
-  step: string;
-  progress: number;
-  updatedAt?: string;
-}
 
 /**
  * Delete an iModel by ID
@@ -76,7 +71,7 @@ export async function getDownloadUrl(iModelId: string): Promise<string> {
 /**
  * Get initialization progress for an iModel from the modeling-server
  */
-export async function getIModelProgress(iModelId: string): Promise<IModelProgress> {
+export async function getIModelProgress(iModelId: string): Promise<IModelProgressPayload> {
   const auth = await getAuthorization();
   const response = await fetch(`${API_URL}/api/imodels/${iModelId}/progress`, {
     headers: {
@@ -86,7 +81,7 @@ export async function getIModelProgress(iModelId: string): Promise<IModelProgres
   if (!response.ok) {
     throw new Error('Failed to fetch progress');
   }
-  return response.json() as Promise<IModelProgress>;
+  return response.json() as Promise<IModelProgressPayload>;
 }
 
 /**

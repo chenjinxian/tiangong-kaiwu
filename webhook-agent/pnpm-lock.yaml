@@ -32,6 +32,9 @@ importers:
       '@itwin/object-storage-core':
         specifier: ^3.0.4
         version: 3.1.3
+      '@luban-cad/shared':
+        specifier: link:../luban-cad/packages/shared
+        version: link:../luban-cad/packages/shared
       cors:
         specifier: ^2.8.5
         version: 2.8.6

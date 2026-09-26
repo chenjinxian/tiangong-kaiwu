@@ -32,7 +32,8 @@ import { builtinHandlers, EventProcessor } from './processor.js';
 import { EventForwarder } from './forwarder.js';
 import { BaselineGenerator } from './baseline-generator.js';
 import { config } from './config.js';
-import type { IModelCreatedNeedBaselineEvent, WebhookConfig, WebhookEvent } from './types.js';
+import type { WebhookConfig } from './types.js';
+import type { IModelCreatedNeedBaselineEvent, WebhookEvent } from '@luban-cad/shared';
 
 /** Container holding generated baseline files (not app config — fixed by convention). */
 const BASELINE_CONTAINER_NAME = 'imodelhub';
@@ -192,9 +193,10 @@ async function runRecoveryCheck(
           needBaseline: true,
         };
 
-        const syntheticEvent: WebhookEvent = {
-          eventType: 'iModels.iModelCreated.v1',
+        const syntheticEvent = {
+          eventType: 'iModels.iModelCreated.v1' as const,
           iTwinId: iModel.iTwinId,
+          messageId: `recovery-${iModel.id}-${Date.now()}`,
           webhookId: 'recovery-checker',
           enqueuedDateTime: new Date().toISOString(),
           content: syntheticContent,
@@ -338,7 +340,7 @@ async function main(): Promise<void> {
 
   processor.on('*', builtinHandlers.onIModelDeleted((_event, content) => {
     // eslint-disable-next-line no-console
-    console.log(`[Event] iModel deleted: ${content.imodelName} (${content.imodelId})`);
+    console.log(`[Event] iModel deleted: ${content.imodelId}`);
   }));
 
   processor.on('*', builtinHandlers.onChangesetPushed((_event, content) => {
@@ -348,7 +350,7 @@ async function main(): Promise<void> {
 
   processor.on('*', builtinHandlers.onNamedVersionCreated((_event, content) => {
     // eslint-disable-next-line no-console
-    console.log(`[Event] Named version created: ${content.versionName} on iModel ${content.imodelId}`);
+    console.log(`[Event] Named version created: ${content.namedVersionName} on iModel ${content.imodelId}`);
   }));
 
   processor.on('*', builtinHandlers.onMemberAdded((_event, content) => {
@@ -361,15 +363,6 @@ async function main(): Promise<void> {
     console.log(`[Event] Member removed: ${content.memberId}`);
   }));
 
-  processor.on('*', builtinHandlers.onBriefcaseAcquired((_event, content) => {
-    // eslint-disable-next-line no-console
-    console.log(`[Event] Briefcase acquired: ${content.briefcaseId} on iModel ${content.imodelId} by ${content.acquiredBy}`);
-  }));
-
-  processor.on('*', builtinHandlers.onBriefcaseReleased((_event, content) => {
-    // eslint-disable-next-line no-console
-    console.log(`[Event] Briefcase released: ${content.briefcaseId} on iModel ${content.imodelId} by ${content.releasedBy}`);
-  }));
 
   // Create event forwarder
   const forwarder = new EventForwarder({

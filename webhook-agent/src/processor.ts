@@ -8,18 +8,22 @@
  */
 
 import type {
-  BriefcaseAcquiredEvent,
-  BriefcaseReleasedEvent,
-  ChangesetPushedEvent,
-  IModelCreatedEvent,
-  IModelDeletedEvent,
-  MemberAddedEvent,
-  MemberRemovedEvent,
-  MemberRoleUpdatedEvent,
-  NamedVersionCreatedEvent,
-  ProcessedEvent,
+  ChangesetPushedContent,
+  IModelCreatedContent,
+  IModelDeletedContent,
+  MemberAddedContent,
+  MemberRemovedContent,
+  MemberRoleUpdatedContent,
+  NamedVersionCreatedContent,
   WebhookEvent,
-} from './types.js';
+} from '@luban-cad/shared';
+import type { ProcessedEvent } from './types.js';
+
+/**
+ * Wire shape of an incoming webhook: official envelope + event-specific
+ * content payload (typed per-event in @luban-cad/shared; unknown here).
+ */
+export type IncomingWebhookEvent = WebhookEvent & { content: unknown };
 
 /**
  * Event handler function type
@@ -101,7 +105,7 @@ export class EventProcessor {
    * @param event - Parsed webhook event
    * @returns Processed event with status
    */
-  public async processEvent(event: WebhookEvent): Promise<ProcessedEvent> {
+  public async processEvent(event: IncomingWebhookEvent): Promise<ProcessedEvent> {
     const processedEvent: ProcessedEvent = {
       ...event,
       id: this._generateEventId(),
@@ -197,10 +201,10 @@ export const builtinHandlers = {
   /**
    * Handle iModel deletion
    */
-  onIModelDeleted: (callback: (event: WebhookEvent, content: IModelDeletedEvent) => void) => {
+  onIModelDeleted: (callback: (event: WebhookEvent, content: IModelDeletedContent) => void) => {
     return (event: WebhookEvent, content: unknown) => {
       if (event.eventType === 'iModels.iModelDeleted.v1') {
-        callback(event, content as IModelDeletedEvent);
+        callback(event, content as IModelDeletedContent);
       }
     };
   },
@@ -208,10 +212,10 @@ export const builtinHandlers = {
   /**
    * Handle iModel creation
    */
-  onIModelCreated: (callback: (event: WebhookEvent, content: IModelCreatedEvent) => void) => {
+  onIModelCreated: (callback: (event: WebhookEvent, content: IModelCreatedContent) => void) => {
     return (event: WebhookEvent, content: unknown) => {
       if (event.eventType === 'iModels.iModelCreated.v1') {
-        callback(event, content as IModelCreatedEvent);
+        callback(event, content as IModelCreatedContent);
       }
     };
   },
@@ -219,10 +223,10 @@ export const builtinHandlers = {
   /**
    * Handle changeset push
    */
-  onChangesetPushed: (callback: (event: WebhookEvent, content: ChangesetPushedEvent) => void) => {
+  onChangesetPushed: (callback: (event: WebhookEvent, content: ChangesetPushedContent) => void) => {
     return (event: WebhookEvent, content: unknown) => {
       if (event.eventType === 'iModels.ChangesetPushed.v1') {
-        callback(event, content as ChangesetPushedEvent);
+        callback(event, content as ChangesetPushedContent);
       }
     };
   },
@@ -230,10 +234,10 @@ export const builtinHandlers = {
   /**
    * Handle named version creation
    */
-  onNamedVersionCreated: (callback: (event: WebhookEvent, content: NamedVersionCreatedEvent) => void) => {
+  onNamedVersionCreated: (callback: (event: WebhookEvent, content: NamedVersionCreatedContent) => void) => {
     return (event: WebhookEvent, content: unknown) => {
       if (event.eventType === 'iModels.NamedVersionCreated.v1') {
-        callback(event, content as NamedVersionCreatedEvent);
+        callback(event, content as NamedVersionCreatedContent);
       }
     };
   },
@@ -241,10 +245,10 @@ export const builtinHandlers = {
   /**
    * Handle member added
    */
-  onMemberAdded: (callback: (event: WebhookEvent, content: MemberAddedEvent) => void) => {
+  onMemberAdded: (callback: (event: WebhookEvent, content: MemberAddedContent) => void) => {
     return (event: WebhookEvent, content: unknown) => {
       if (event.eventType === 'accessControl.memberAdded.v1') {
-        callback(event, content as MemberAddedEvent);
+        callback(event, content as MemberAddedContent);
       }
     };
   },
@@ -252,10 +256,10 @@ export const builtinHandlers = {
   /**
    * Handle member removed
    */
-  onMemberRemoved: (callback: (event: WebhookEvent, content: MemberRemovedEvent) => void) => {
+  onMemberRemoved: (callback: (event: WebhookEvent, content: MemberRemovedContent) => void) => {
     return (event: WebhookEvent, content: unknown) => {
       if (event.eventType === 'accessControl.memberRemoved.v1') {
-        callback(event, content as MemberRemovedEvent);
+        callback(event, content as MemberRemovedContent);
       }
     };
   },
@@ -263,32 +267,10 @@ export const builtinHandlers = {
   /**
    * Handle member role updated
    */
-  onMemberRoleUpdated: (callback: (event: WebhookEvent, content: MemberRoleUpdatedEvent) => void) => {
+  onMemberRoleUpdated: (callback: (event: WebhookEvent, content: MemberRoleUpdatedContent) => void) => {
     return (event: WebhookEvent, content: unknown) => {
       if (event.eventType === 'accessControl.memberRoleUpdated.v1') {
-        callback(event, content as MemberRoleUpdatedEvent);
-      }
-    };
-  },
-
-  /**
-   * Handle briefcase acquired
-   */
-  onBriefcaseAcquired: (callback: (event: WebhookEvent, content: BriefcaseAcquiredEvent) => void) => {
-    return (event: WebhookEvent, content: unknown) => {
-      if (event.eventType === 'iModels.BriefcaseAcquired.v1') {
-        callback(event, content as BriefcaseAcquiredEvent);
-      }
-    };
-  },
-
-  /**
-   * Handle briefcase released
-   */
-  onBriefcaseReleased: (callback: (event: WebhookEvent, content: BriefcaseReleasedEvent) => void) => {
-    return (event: WebhookEvent, content: unknown) => {
-      if (event.eventType === 'iModels.BriefcaseReleased.v1') {
-        callback(event, content as BriefcaseReleasedEvent);
+        callback(event, content as MemberRoleUpdatedContent);
       }
     };
   },

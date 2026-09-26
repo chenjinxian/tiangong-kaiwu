@@ -7,6 +7,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { config } from '../config.js';
+import type { AnyWebhookEvent, IModelProgressPayload } from '@luban-cad/shared';
 import { logger } from '../utils/logger.js';
 
 export function createWebhookEventRoutes(): Router {
@@ -22,14 +23,14 @@ export function createWebhookEventRoutes(): Router {
 
   router.post('/api/webhook/events', (req: Request, res: Response) => {
     if (!requireApiKey(req, res)) return;
-    const event = req.body;
-    logger.info(`[Webhook] Received event: ${event.eventType} for iModel ${event.iModelId}`);
-    res.json({ received: true, eventId: event.id });
+    const event = req.body as AnyWebhookEvent;
+    logger.info(`[Webhook] Received event: ${event.eventType} (${event.messageId})`);
+    res.json({ received: true, messageId: event.messageId });
   });
 
   router.post('/api/imodels/:id/progress', (req: Request, res: Response) => {
     if (!requireApiKey(req, res)) return;
-    const { step, progress } = req.body as { step?: string; progress?: number };
+    const { step, progress } = req.body as IModelProgressPayload;
     if (typeof step !== 'string' || (progress !== undefined && typeof progress !== 'number')) {
       res.status(400).json({ error: 'Invalid progress payload' });
       return;

@@ -29,7 +29,8 @@
     "@itwin/object-storage-azure": "^3.0.4",
     "@itwin/object-storage-core": "^3.0.4",
     "@azure/storage-blob": "^12.28.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "@luban-cad/shared": "link:../luban-cad/packages/shared"
   },
   "devDependencies": {
     "vitest": "^4.1.10",

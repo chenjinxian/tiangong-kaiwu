@@ -11,7 +11,9 @@
 
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import type { WebhookConfig, WebhookEvent, IModelCreatedEvent } from './types.js';
+import type { WebhookConfig } from './types.js';
+import type { IModelCreatedNeedBaselineEvent } from '@luban-cad/shared';
+import type { IncomingWebhookEvent } from './processor.js';
 import { validateRequest } from './validator.js';
 import { EventProcessor } from './processor.js';
 import { EventForwarder } from './forwarder.js';
@@ -107,10 +109,10 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
     }
 
     // Parse event
-    let event: WebhookEvent;
+    let event: IncomingWebhookEvent;
     try {
       const bodyString = typeof rawBody === 'string' ? rawBody : rawBody.toString();
-      event = JSON.parse(bodyString) as WebhookEvent;
+      event = JSON.parse(bodyString) as IncomingWebhookEvent;
     } catch {
       // eslint-disable-next-line no-console
       console.error('[Webhook] Failed to parse event body');
@@ -261,14 +263,17 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
         imodelName: (imodelName as string) || `iModel-${iModelId}`,
         needBaseline: true,
       };
-      const event: WebhookEvent = {
+      const event = {
+        eventType: 'iModels.iModelCreated.v1' as const,
         iTwinId: iTwinId as string,
-        eventType: 'iModels.iModelCreated.v1',
+        messageId: `retry-${iModelId}-${Date.now()}`,
+        webhookId: 'baseline-retry',
+        enqueuedDateTime: new Date().toISOString(),
         content,
       };
 
       try {
-        await baselineGenerator.handleIModelCreated(event, content as unknown as IModelCreatedEvent);
+        await baselineGenerator.handleIModelCreated(event, content as unknown as IModelCreatedNeedBaselineEvent);
         // eslint-disable-next-line no-console
         console.log(`[BaselineRetry] Retry completed for iModel ${iModelId}`);
       } catch (error) {

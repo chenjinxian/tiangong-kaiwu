@@ -19,7 +19,7 @@ import {
   SASProtocol,
   StorageSharedKeyCredential,
 } from '@azure/storage-blob';
-import type { IModelCreatedEvent, WebhookEvent } from './types.js';
+import type { IModelCreatedNeedBaselineEvent, WebhookEvent } from '@luban-cad/shared';
 import { config } from './config.js';
 
 export interface BaselineGeneratorConfig {
@@ -109,7 +109,7 @@ export class BaselineGenerator {
    */
   public async handleIModelCreated(
     event: WebhookEvent,
-    content: IModelCreatedEvent
+    content: IModelCreatedNeedBaselineEvent
   ): Promise<BaselineGenerationResult> {
     const { imodelId, imodelName } = content;
 
