@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// OpenCloudIpcHandler.ts imports logger.ts, which loads config.ts at module
+// scope; config exits when secrets are missing.
+vi.hoisted(() => {
+  process.env.BACKEND_API_KEY ??= 'a'.repeat(32);
+  process.env.WEBAGENT_API_KEY ??= 'b'.repeat(32);
+  process.env.CSRF_SECRET ??= 'c'.repeat(32);
+  process.env.IMODELHUB_ADMIN_EMAIL ??= 'admin@test.local';
+  process.env.IMODELHUB_ADMIN_PASSWORD ??= 'd'.repeat(16);
+});
+
 // Mock @itwin/core-backend before importing handler
 vi.mock('@itwin/core-backend', () => ({
   // eslint-disable-next-line @typescript-eslint/naming-convention

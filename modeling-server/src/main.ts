@@ -30,19 +30,15 @@ import { logger } from './utils/logger.js';
 import { rateLimiter, sanitizeInput, securityAudit, securityHeaders } from './middleware/security.js';
 import { verifyWsUpgrade } from './middleware/wsAuth.js';
 import { createUserAuthRouter, notFoundHandler } from './routes/userAuth.js';
-
-// Environment configuration
-const PORT = process.env.PORT || 4001;
-const IMODELHUB_URL = process.env.IMODELHUB_URL || 'http://localhost:4000';
-const AZURITE_ACCOUNT_NAME = process.env.AZURITE_ACCOUNT_NAME || 'devstoreaccount1';
-const AZURITE_HOST = process.env.AZURITE_HOST || '127.0.0.1:10000';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-const IMODELHUB_ADMIN_EMAIL = process.env.IMODELHUB_ADMIN_EMAIL ?? 'admin@example.com';
-const IMODELHUB_ADMIN_PASSWORD = process.env.IMODELHUB_ADMIN_PASSWORD ?? 'secret';
+import { config } from './config.js';
+import { createWebhookEventRoutes, registerProgressHandler } from './middleware/webhookEvents.js';
 
 // Set Azurite base URI for CheckpointManager (overrides hardcoded Azure production URL)
-// This allows V2CheckpointManager.toCloudContainerProps to use Azurite instead of Azure
-process.env.IMJS_AZURE_BLOB_BASE_URI = `http://${AZURITE_HOST}/${AZURITE_ACCOUNT_NAME}`;
+// This allows V2CheckpointManager.toCloudContainerProps to use Azurite instead of Azure.
+// itwinjs-core reads this process.env key (CheckpointManager) — it is an upstream
+// contract and the one deliberate process.env write left in the codebase.
+const azuriteBlobBaseUri = `http://${config.AZURITE_HOST}/${config.AZURITE_ACCOUNT_NAME}`;
+process.env.IMJS_AZURE_BLOB_BASE_URI = azuriteBlobBaseUri;
 
 // Store connected WebSocket clients
 const wsClients = new Set<WebSocket>();
@@ -65,16 +61,16 @@ async function initializeBackend() {
   const azureStorage = new AzureClientStorage(new BlockBlobClientWrapperFactory());
 
   const iModelClient = new IModelsClient({
-    api: { baseUrl: `${IMODELHUB_URL}/imodels` },
+    api: { baseUrl: `${config.IMODELHUB_URL}/imodels` },
     cloudStorage: azureStorage,
   });
   const hubAccess = new BackendIModelsAccess(iModelClient);
 
   // Create service account auth client for backend-to-hub authentication
   const authClient = new ServiceAccountAuthClient({
-    loginUrl: `${IMODELHUB_URL}/auth/email/login`,
-    email: IMODELHUB_ADMIN_EMAIL,
-    password: IMODELHUB_ADMIN_PASSWORD,
+    loginUrl: `${config.IMODELHUB_URL}/auth/email/login`,
+    email: config.IMODELHUB_ADMIN_EMAIL,
+    password: config.IMODELHUB_ADMIN_PASSWORD,
   });
 
   // Startup LocalhostIpcHost (supersedes IModelHost; enables WebSocket IPC for BriefcaseConnection)
@@ -83,7 +79,7 @@ async function initializeBackend() {
     iModelHost: {
       hubAccess,
       authorizationClient: authClient,
-      cacheDir: process.env.IMJS_BRIEFCASE_CACHE_LOCATION || './briefcase-cache',
+      cacheDir: config.BRIEFCASE_CACHE_LOCATION,
     },
   });
   logger.info('LocalhostIpcHost initialized');
@@ -152,7 +148,7 @@ function setupServer(rpcConfig: BentleyCloudRpcConfiguration): http.Server {
   app.use(csrfMiddleware);
 
   app.use(cors({
-    origin: FRONTEND_URL,
+    origin: config.FRONTEND_URL,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     exposedHeaders: ['X-CSRF-Token'],
@@ -250,19 +246,31 @@ function setupServer(rpcConfig: BentleyCloudRpcConfiguration): http.Server {
       version: '1.0.0',
       websocket: {
         connectedClients: wsClients.size,
-        endpoint: `ws://localhost:${PORT}/ws`,
+        endpoint: `ws://localhost:${config.PORT}/ws`,
       },
     });
   });
 
   // ============================================
   // Webhook Event Receiver (from webhook-agent)
+  // Inbound API key is REQUIRED (enforced in webhookEvents.ts).
   // ============================================
-  app.post('/api/webhook/events', express.json(), (req: Request, res: Response) => {
-    const event = req.body;
-    logger.info(`[Webhook] Received event: ${event.eventType} for iModel ${event.iModelId}`);
-    // Acknowledge receipt - actual processing is done by imodelhub-services
-    res.json({ received: true, eventId: event.id });
+  app.use(createWebhookEventRoutes());
+  // Progress store stays here; webhookEvents.ts forwards validated payloads.
+  registerProgressHandler((iModelId, step, progress) => {
+    const clampedProgress = Math.max(0, Math.min(100, progress));
+    iModelProgressMap.set(iModelId, {
+      step: step || '处理中',
+      progress: clampedProgress,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Evict completed entries after a delay to prevent unbounded growth
+    if (clampedProgress >= 100) {
+      setTimeout(() => {
+        iModelProgressMap.delete(iModelId);
+      }, 60000);
+    }
   });
 
   // ============================================
@@ -278,12 +286,11 @@ function setupServer(rpcConfig: BentleyCloudRpcConfiguration): http.Server {
     }
 
     try {
-      const webAgentUrl = process.env.WEBAGENT_URL || 'http://localhost:4002';
-      const response = await fetch(`${webAgentUrl}/baseline/retry/${iModelId}`, {
+      const response = await fetch(`${config.WEBAGENT_URL}/baseline/retry/${iModelId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(process.env.WEBAGENT_API_KEY ? { 'X-API-Key': process.env.WEBAGENT_API_KEY } : {}),
+          'X-API-Key': config.WEBAGENT_API_KEY,
         },
         body: JSON.stringify({ iTwinId, imodelName }),
       });
@@ -303,39 +310,8 @@ function setupServer(rpcConfig: BentleyCloudRpcConfiguration): http.Server {
 
   // ============================================
   // iModel Initialization Progress Tracking
+  // (POST /api/imodels/:id/progress lives in webhookEvents.ts, API-key guarded)
   // ============================================
-  app.post('/api/imodels/:id/progress', (req: Request, res: Response) => {
-    // Validate API key from webhook-agent
-    const apiKey = req.headers['x-api-key'];
-    if (process.env.BACKEND_API_KEY && apiKey !== process.env.BACKEND_API_KEY) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    const { step, progress } = req.body as { step?: string; progress?: number };
-    if (typeof step !== 'string' || (progress !== undefined && typeof progress !== 'number')) {
-      res.status(400).json({ error: 'Invalid progress payload' });
-      return;
-    }
-
-    const iModelId = req.params.id;
-    const clampedProgress = Math.max(0, Math.min(100, progress ?? 0));
-    iModelProgressMap.set(iModelId, {
-      step: step || '处理中',
-      progress: clampedProgress,
-      updatedAt: new Date().toISOString(),
-    });
-
-    // Evict completed entries after a delay to prevent unbounded growth
-    if (clampedProgress >= 100) {
-      setTimeout(() => {
-        iModelProgressMap.delete(iModelId);
-      }, 60000);
-    }
-
-    res.json({ received: true });
-  });
-
   app.get('/api/imodels/:id/progress', async (req: Request, res: Response) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -345,7 +321,7 @@ function setupServer(rpcConfig: BentleyCloudRpcConfiguration): http.Server {
 
     // Validate token by calling imodelhub-services auth endpoint
     try {
-      const authResponse = await fetch(`${IMODELHUB_URL}/auth/me`, {
+      const authResponse = await fetch(`${config.IMODELHUB_URL}/auth/me`, {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         headers: { Authorization: authHeader },
       });
@@ -376,17 +352,17 @@ function setupServer(rpcConfig: BentleyCloudRpcConfiguration): http.Server {
   // ============================================
   // Start Server
   // ============================================
-  server.listen(PORT, () => {
-    logger.info(`LubanCAD Backend running on http://localhost:${PORT}`);
+  server.listen(config.PORT, () => {
+    logger.info(`LubanCAD Backend running on http://localhost:${config.PORT}`);
     logger.info(`Mode: imodelhub-services (local)`);
-    logger.info(`imodelhub-services: ${IMODELHUB_URL}`);
-    logger.info(`azurite blob base:  ${process.env.IMJS_AZURE_BLOB_BASE_URI}`);
+    logger.info(`imodelhub-services: ${config.IMODELHUB_URL}`);
+    logger.info(`azurite blob base:  ${azuriteBlobBaseUri}`);
     logger.info(`Available endpoints:`);
-    logger.info(`  Health check:  http://localhost:${PORT}/health`);
-    logger.info(`  WebSocket:     ws://localhost:${PORT}/ws`);
-    logger.info(`  RPC metadata:  http://localhost:${PORT}/rpc/metadata`);
+    logger.info(`  Health check:  http://localhost:${config.PORT}/health`);
+    logger.info(`  WebSocket:     ws://localhost:${config.PORT}/ws`);
+    logger.info(`  RPC metadata:  http://localhost:${config.PORT}/rpc/metadata`);
     logger.info(`Note: Frontend connects directly to imodelhub-services:4000 for REST APIs`);
-    logger.info(`Single port architecture - HTTP and WebSocket share port ${PORT}`);
+    logger.info(`Single port architecture - HTTP and WebSocket share port ${config.PORT}`);
   });
 
   return server;

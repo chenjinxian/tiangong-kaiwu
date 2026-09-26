@@ -8,6 +8,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProjectService } from './service.js';
 
+// service.ts loads config.ts at module scope; config exits when secrets are missing.
+vi.hoisted(() => {
+  process.env.BACKEND_API_KEY ??= 'a'.repeat(32);
+  process.env.WEBAGENT_API_KEY ??= 'b'.repeat(32);
+  process.env.CSRF_SECRET ??= 'c'.repeat(32);
+  process.env.IMODELHUB_ADMIN_EMAIL ??= 'admin@test.local';
+  process.env.IMODELHUB_ADMIN_PASSWORD ??= 'd'.repeat(16);
+});
+
 // Mock the iTwins client module with hoisted mocks
 const { mockCreateiTwin, mockGetAsync, mockQueryAsync, mockUpdateiTwin, mockDeleteiTwin, ITwinSubClass } = vi.hoisted(() => {
   const mockCreateiTwin = vi.fn();

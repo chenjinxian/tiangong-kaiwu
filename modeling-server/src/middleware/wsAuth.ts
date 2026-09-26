@@ -8,9 +8,8 @@
 
 import { IncomingMessage } from 'http';
 import { URL } from 'url';
+import { config } from '../config.js';
 import { logger } from '../utils/logger.js';
-
-const IMODELHUB_URL = process.env.IMODELHUB_URL || 'http://localhost:4000';
 
 /** Cache validated tokens to avoid hitting the auth service on every connection. */
 const tokenCache = new Map<string, { valid: boolean; expiresAt: number }>();
@@ -50,7 +49,7 @@ async function validateToken(token: string): Promise<boolean> {
   }
 
   try {
-    const res = await fetch(`${IMODELHUB_URL}/auth/me`, {
+    const res = await fetch(`${config.IMODELHUB_URL}/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` },
       signal: AbortSignal.timeout(5000),
     });

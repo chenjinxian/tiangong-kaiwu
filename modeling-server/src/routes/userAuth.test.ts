@@ -13,6 +13,15 @@ import express, { type Request, type Response } from 'express';
 import type { Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 
+// userAuth.ts loads config.ts at module scope; config exits when secrets are missing.
+vi.hoisted(() => {
+  process.env.BACKEND_API_KEY ??= 'a'.repeat(32);
+  process.env.WEBAGENT_API_KEY ??= 'b'.repeat(32);
+  process.env.CSRF_SECRET ??= 'c'.repeat(32);
+  process.env.IMODELHUB_ADMIN_EMAIL ??= 'admin@test.local';
+  process.env.IMODELHUB_ADMIN_PASSWORD ??= 'd'.repeat(16);
+});
+
 const HUB_BASE = 'http://hub.test:4000';
 const realFetch = global.fetch;
 

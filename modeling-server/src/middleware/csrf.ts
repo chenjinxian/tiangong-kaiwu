@@ -7,8 +7,9 @@
 
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { config } from '../config.js';
 
-const CSRF_TOKEN_SECRET = process.env.CSRF_SECRET || crypto.randomBytes(32).toString('hex');
+const CSRF_TOKEN_SECRET = config.CSRF_SECRET;
 const CSRF_COOKIE_NAME = 'csrf-token';
 
 /**
@@ -40,7 +41,7 @@ export function csrfMiddleware(req: Request, res: Response, next: NextFunction):
       const token = generateCsrfToken();
       res.cookie(CSRF_COOKIE_NAME, token, {
         httpOnly: false, // Must be accessible by JavaScript
-        secure: process.env.NODE_ENV === 'production',
+        secure: config.NODE_ENV === 'production',
         sameSite: 'strict',
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       });

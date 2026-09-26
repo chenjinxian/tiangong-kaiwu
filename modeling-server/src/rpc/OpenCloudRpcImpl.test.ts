@@ -8,6 +8,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 
+// OpenCloudRpcImpl.ts loads config.ts at module scope; config exits when
+// secrets are missing. (config is frozen — cacheDir tests assert against it.)
+vi.hoisted(() => {
+  process.env.BACKEND_API_KEY ??= 'a'.repeat(32);
+  process.env.WEBAGENT_API_KEY ??= 'b'.repeat(32);
+  process.env.CSRF_SECRET ??= 'c'.repeat(32);
+  process.env.IMODELHUB_ADMIN_EMAIL ??= 'admin@test.local';
+  process.env.IMODELHUB_ADMIN_PASSWORD ??= 'd'.repeat(16);
+});
+
 // Mock fs module
 vi.mock('fs');
 
@@ -194,16 +204,11 @@ describe('OpenCloudRpcImpl', () => {
       expect(config).toHaveProperty('maxUploadSize');
     });
 
-    it('should use default cache directory', async () => {
-      delete process.env.IMJS_BRIEFCASE_CACHE_LOCATION;
-      const config = await rpcImpl.getConfiguration();
-      expect(config.cacheDir).toBe('./briefcase-cache');
-    });
-
-    it('should use environment cache directory when set', async () => {
-      process.env.IMJS_BRIEFCASE_CACHE_LOCATION = '/custom/cache';
-      const config = await rpcImpl.getConfiguration();
-      expect(config.cacheDir).toBe('/custom/cache');
+    it('should report the configured cache directory', async () => {
+      // cacheDir now comes from config (frozen at import) instead of process.env
+      const { config } = await import('../config.js');
+      const result = await rpcImpl.getConfiguration();
+      expect(result.cacheDir).toBe(config.BRIEFCASE_CACHE_LOCATION);
     });
   });
 

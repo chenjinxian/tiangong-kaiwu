@@ -6,7 +6,25 @@
  * Provides structured logging compatible with popular logging services
  */
 
+import * as fs from "node:fs";
 import type { Request, Response } from "express";
+import { config } from "../config.js";
+
+/**
+ * Package version, read from package.json (npm only injects
+ * npm_package_version when running through npm scripts, so read the file
+ * directly to get the same value everywhere).
+ */
+function readPackageVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8")
+    ) as { version?: string };
+    return pkg.version ?? "1.0.0";
+  } catch {
+    return "1.0.0";
+  }
+}
 
 export enum LogLevel {
   TRACE = "trace",
@@ -43,7 +61,7 @@ interface MutableLogEntry {
 
 class Logger {
   private service = "luban-cad-backend";
-  private version = process.env.npm_package_version || "1.0.0";
+  private version = readPackageVersion();
   private level: LogLevel = LogLevel.INFO;
 
   private readonly levelPriority: Record<LogLevel, number> = {
@@ -56,11 +74,8 @@ class Logger {
   };
 
   constructor() {
-    // Set log level from environment
-    const envLevel = process.env.LOG_LEVEL?.toLowerCase();
-    if (envLevel && Object.values(LogLevel).includes(envLevel as LogLevel)) {
-      this.level = envLevel as LogLevel;
-    }
+    // Log level comes from validated config (LOG_LEVEL)
+    this.level = config.LOG_LEVEL as LogLevel;
   }
 
   /**
@@ -81,7 +96,7 @@ class Logger {
    * Format log entry as JSON (production) or pretty (development)
    */
   private format(entry: LogEntry): string {
-    if (process.env.NODE_ENV === "production") {
+    if (config.NODE_ENV === "production") {
       return JSON.stringify(entry);
     }
 

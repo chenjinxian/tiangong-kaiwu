@@ -6,12 +6,10 @@
 import { ITwin, ITwinsAccessClient, ITwinsQueryArg, ITwinSubClass } from '@itwin/itwins-client';
 import type { CreateProjectRequest, Project, ProjectListResponse, UpdateProjectRequest } from './types.js';
 import { logger } from '../utils/logger.js';
-
-// imodelhub-services URL
-const IMODELHUB_URL = process.env.IMODELHUB_URL || 'http://localhost:4000';
+import { config } from '../config.js';
 
 // Create iTwins client for project operations
-const iTwinsClient = new ITwinsAccessClient(`${IMODELHUB_URL}/itwins`);
+const iTwinsClient = new ITwinsAccessClient(`${config.IMODELHUB_URL}/itwins`);
 
 // Helper to convert ITwin to Project
 function toProject(iTwin: ITwin): Project {

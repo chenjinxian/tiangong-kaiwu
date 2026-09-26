@@ -9,6 +9,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generateCsrfToken, csrfMiddleware, getCsrfToken } from './csrf.js';
 import { NextFunction, Request, Response } from 'express';
 
+// csrf.ts loads config.ts at module scope; config exits when secrets are missing.
+vi.hoisted(() => {
+  process.env.BACKEND_API_KEY ??= 'a'.repeat(32);
+  process.env.WEBAGENT_API_KEY ??= 'b'.repeat(32);
+  process.env.CSRF_SECRET ??= 'c'.repeat(32);
+  process.env.IMODELHUB_ADMIN_EMAIL ??= 'admin@test.local';
+  process.env.IMODELHUB_ADMIN_PASSWORD ??= 'd'.repeat(16);
+});
+
 describe('csrf middleware', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;

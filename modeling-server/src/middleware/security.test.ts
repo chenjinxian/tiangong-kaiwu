@@ -14,6 +14,16 @@ import {
 } from './security.js';
 import { NextFunction, Request, Response } from 'express';
 
+// security.ts imports logger.ts, which loads config.ts at module scope;
+// config exits when secrets are missing.
+vi.hoisted(() => {
+  process.env.BACKEND_API_KEY ??= 'a'.repeat(32);
+  process.env.WEBAGENT_API_KEY ??= 'b'.repeat(32);
+  process.env.CSRF_SECRET ??= 'c'.repeat(32);
+  process.env.IMODELHUB_ADMIN_EMAIL ??= 'admin@test.local';
+  process.env.IMODELHUB_ADMIN_PASSWORD ??= 'd'.repeat(16);
+});
+
 describe('security middleware', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;

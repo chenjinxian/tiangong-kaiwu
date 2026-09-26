@@ -17,10 +17,11 @@
  */
 
 import { Router, type Request, type Response } from 'express';
+import { config } from '../config.js';
 // Note: the mounting app is expected to apply express.json() globally (main.ts does).
 
 export interface UserAuthRouterOptions {
-  /** Base URL of imodelhub-services; defaults to IMODELHUB_URL env or localhost:4000 */
+  /** Base URL of imodelhub-services; defaults to config.IMODELHUB_URL */
   hubBaseUrl?: string;
 }
 
@@ -62,7 +63,7 @@ function toPublicUser(user: HubUser) {
 }
 
 export function createUserAuthRouter(options: UserAuthRouterOptions = {}): Router {
-  const hubBase = options.hubBaseUrl ?? process.env.IMODELHUB_URL ?? 'http://localhost:4000';
+  const hubBase = options.hubBaseUrl ?? config.IMODELHUB_URL;
   const router = Router();
 
   const requireValidToken = async (req: Request, res: Response): Promise<boolean> => {

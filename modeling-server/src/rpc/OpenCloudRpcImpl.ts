@@ -12,6 +12,7 @@ import { IModelDb, IModelHost } from '@itwin/core-backend';
 import { RpcManager } from '@itwin/core-common';
 import { EditCommandAdmin } from '@itwin/editor-backend';
 import { logger } from '../utils/logger.js';
+import { config } from '../config.js';
 import { getNativeDb, hasPendingTxns } from '../utils/itwinInternals.js';
 import {
   type BriefcaseInfo,
@@ -257,7 +258,7 @@ export class OpenCloudRpcImpl extends OpenCloudRpcInterface {
     return {
       version: '1.0.0',
       apiVersion: 'v1.0',
-      cacheDir: process.env.IMJS_BRIEFCASE_CACHE_LOCATION || './briefcase-cache',
+      cacheDir: config.BRIEFCASE_CACHE_LOCATION,
       maxUploadSize: 100 * 1024 * 1024, // 100MB
     };
   }
