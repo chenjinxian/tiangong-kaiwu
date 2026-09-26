@@ -185,6 +185,34 @@ describe('useImodelProgressStream', () => {
     expect(onEvent).toHaveBeenCalledTimes(2);
   });
 
+  it('flips live to false immediately on disconnect and revives after reconnect', () => {
+    const { result } = renderHook(() => useImodelProgressStream({ onEvent }));
+    const first = MockWebSocket.instances[0];
+
+    act(() => {
+      first.serverOpen();
+      first.serverMessage(PROGRESS_EVENT);
+    });
+    expect(result.current.live).toBe(true);
+
+    // Server-initiated close: live drops immediately, no timer advance.
+    act(() => first.serverClose());
+    expect(result.current.live).toBe(false);
+
+    // Backoff reconnect (1s) + fresh message revives the stream.
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(MockWebSocket.instances).toHaveLength(2);
+    const second = MockWebSocket.instances[1];
+    act(() => {
+      second.serverOpen();
+      second.serverMessage(PROGRESS_EVENT);
+    });
+    expect(result.current.live).toBe(true);
+    expect(onEvent).toHaveBeenCalledTimes(2);
+  });
+
   it('shares a single connection across consumers and closes on the last unmount', () => {
     const first = renderHook(() => useImodelProgressStream());
     const second = renderHook(() => useImodelProgressStream({ onEvent }));

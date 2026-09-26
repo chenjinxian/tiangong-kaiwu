@@ -153,23 +153,32 @@ function connect(): void {
   };
 
   socketInstance.onclose = () => {
-    if (socket !== socketInstance) return; // Already replaced or torn down.
-    socket = null;
-    clearStaleTimer();
-    scheduleReconnect();
+    handleDisconnect(socketInstance);
   };
 
   socketInstance.onerror = () => {
     if (socket !== socketInstance) return; // onclose already handled it.
-    socket = null;
     try {
       socketInstance.close();
     } catch {
       // Best effort — the socket is already dead.
     }
-    clearStaleTimer();
-    scheduleReconnect();
+    handleDisconnect(socketInstance);
   };
+}
+
+/**
+ * Shared disconnect path (close or error): drop the socket, stop the staleness
+ * timer, drop back to not-live immediately — `live` must be true only while
+ * messages actually flow, so polling fallback resumes through the dead-stream
+ * window — and schedule the backoff reconnect.
+ */
+function handleDisconnect(closedSocket: WebSocket): void {
+  if (socket !== closedSocket) return; // Already replaced or torn down.
+  socket = null;
+  clearStaleTimer();
+  publishState({ live: false });
+  scheduleReconnect();
 }
 
 function teardown(): void {
