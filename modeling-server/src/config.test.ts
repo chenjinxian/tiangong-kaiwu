@@ -16,7 +16,9 @@ function runConfigImport(env: Record<string, string>): { status: number; output:
     const output = execFileSync(
       process.execPath,
       ['--import', 'tsx', '-e', "import('./src/config.ts').then(() => console.log('CONFIG_OK'))"],
-      { cwd: projectDir, env: { ...process.env, ...env }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+      // Base env carries the test-only seam so a developer's real repo-root
+      // .env is never loaded (not a secret: per-case deletion never touches it).
+      { cwd: projectDir, env: { ...process.env, LUBAN_CONFIG_NO_ENV_FILE: '1', ...env }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
     );
     return { status: 0, output };
   } catch (e) {

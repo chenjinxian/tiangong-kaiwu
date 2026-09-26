@@ -12,6 +12,9 @@ import * as path from 'node:path';
 import { z } from 'zod';
 
 function loadRootEnvFile(): void {
+  // Test-only seam: config tests set LUBAN_CONFIG_NO_ENV_FILE=1 so a real
+  // repo-root .env (developer machine) cannot leak into the cases under test.
+  if (process.env.LUBAN_CONFIG_NO_ENV_FILE === '1') return;
   // Walk up from this file until a directory containing .env is found
   // (works from both src/ during dev and dist/ after build).
   let dir = import.meta.dirname;
