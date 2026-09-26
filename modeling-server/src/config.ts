@@ -14,7 +14,7 @@ import { z } from 'zod';
 function loadRootEnvFile(): void {
   // Walk up from this file until a directory containing .env is found
   // (works from both src/ during dev and dist/ after build).
-  let dir = __dirname;
+  let dir = import.meta.dirname;
   for (let i = 0; i < 6; i++) {
     const candidate = path.join(dir, '.env');
     if (fs.existsSync(candidate)) {
