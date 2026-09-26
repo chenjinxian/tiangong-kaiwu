@@ -20,6 +20,7 @@ import { logger } from './utils/logger.js';
  */
 export class EventForwarder {
   private _config: ForwarderConfig;
+  /** Undelivered events, held from first failure until success (or, after retries are exhausted, indefinitely for observability). */
   private _pendingEvents: Map<string, ProcessedEvent> = new Map();
   private _retryQueue: Array<{ event: ProcessedEvent; attempts: number }> = [];
 
@@ -50,6 +51,7 @@ export class EventForwarder {
       if (response.ok) {
         event.forwardStatus = 'success';
         event.forwardedAt = new Date().toISOString();
+        this._pendingEvents.delete(event.id);
         logger.info(`[Forwarder] Event ${event.id} forwarded successfully`);
         return true;
       } else {
@@ -59,7 +61,9 @@ export class EventForwarder {
       logger.error(`[Forwarder] Failed to forward event ${event.id}`, { eventId: event.id, error });
       event.forwardStatus = 'failed';
 
-      // Queue for retry
+      // Hold as pending while queued for retry, so the event stays observable
+      // until it is delivered or retries are exhausted.
+      this._pendingEvents.set(event.id, event);
       this._retryQueue.push({ event, attempts: 1 });
       return false;
     }
@@ -104,6 +108,9 @@ export class EventForwarder {
       const { event, attempts } = item;
 
       if (attempts >= this._config.retryAttempts) {
+        // Retries exhausted: mark failed but keep the event observable in the
+        // pending set instead of silently dropping it from the retry queue.
+        event.forwardStatus = 'failed';
         logger.error(`[Forwarder] Max retries reached for event ${event.id}`);
         return;
       }
@@ -116,6 +123,7 @@ export class EventForwarder {
         if (response.ok) {
           event.forwardStatus = 'success';
           event.forwardedAt = new Date().toISOString();
+          this._pendingEvents.delete(event.id);
           logger.info(`[Forwarder] Event ${event.id} forwarded on retry`);
         } else {
           throw new Error(`HTTP ${response.status}`);
