@@ -23,6 +23,8 @@ export class EventForwarder {
   /** Undelivered events, held from first failure until success (or, after retries are exhausted, indefinitely for observability). */
   private _pendingEvents: Map<string, ProcessedEvent> = new Map();
   private _retryQueue: Array<{ event: ProcessedEvent; attempts: number }> = [];
+  /** Handle for the background retry processor, cleared on shutdown so the timer does not leak. */
+  private _retryIntervalId: NodeJS.Timeout | undefined;
 
   constructor(options: Partial<ForwarderConfig>) {
     this._config = {
@@ -99,7 +101,7 @@ export class EventForwarder {
    * Start background retry processor
    */
   private _startRetryProcessor(): void {
-    setInterval(async () => {
+    this._retryIntervalId = setInterval(async () => {
       if (this._retryQueue.length === 0) return;
 
       const item = this._retryQueue.shift();
@@ -155,9 +157,19 @@ export class EventForwarder {
   public async shutdown(): Promise<void> {
     logger.info('[Forwarder] Shutting down...');
 
-    // Wait for retry queue to process
+    // Wait for retry queue to process. The retry interval must stay alive
+    // while draining — it is what makes progress — so the timer is cleared
+    // only afterwards.
     while (this._retryQueue.length > 0) {
       await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    // Stop the background retry processor: previously this interval was
+    // never cleared, leaking a live timer (and an event-loop pin) after
+    // shutdown.
+    if (this._retryIntervalId !== undefined) {
+      clearInterval(this._retryIntervalId);
+      this._retryIntervalId = undefined;
     }
 
     logger.info('[Forwarder] Shutdown complete');

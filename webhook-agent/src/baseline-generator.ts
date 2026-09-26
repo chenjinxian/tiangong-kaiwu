@@ -22,6 +22,7 @@ import {
 import type { IModelCreatedNeedBaselineEvent, WebhookEvent } from '@luban-cad/shared';
 import { config } from './config.js';
 import { hubAuth } from './hubAuthClient.js';
+import { ensureIModelHostStarted } from './lifecycle.js';
 import { logger } from './utils/logger.js';
 
 export interface BaselineGeneratorConfig {
@@ -296,12 +297,12 @@ export class BaselineGenerator {
     expectedITwinId: string
   ): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const { BriefcaseDb, SnapshotDb, IModelHost, IModelDb, IModelJsFs } = await import('@itwin/core-backend');
+    const { BriefcaseDb, SnapshotDb, IModelDb, IModelJsFs } = await import('@itwin/core-backend');
     // eslint-disable-next-line @typescript-eslint/naming-convention
     const { OpenMode } = await import('@itwin/core-bentley');
 
-    // Ensure IModelHost is started
-    await IModelHost.startup();
+    // Ensure the process-global IModelHost is started (idempotent — see lifecycle.ts)
+    await ensureIModelHostStarted();
 
     // First, check what type of file this is by examining it with the native Db
     // We need to determine if it's a BriefcaseDb (has proper iTwinId) or a StandaloneDb
@@ -420,7 +421,7 @@ export class BaselineGenerator {
     try {
       // Follow WebEditHost.createBaselineFile implementation from web-service-backend
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      const { SnapshotDb, BriefcaseDb, IModelHost, IModelDb, IModelJsFs, BriefcaseLocalValue, DefinitionModel, PhysicalModel, SpatialCategory, DisplayStyle3d, ModelSelector, CategorySelector, SpatialViewDefinition } = await import('@itwin/core-backend');
+      const { SnapshotDb, BriefcaseDb, IModelDb, IModelJsFs, BriefcaseLocalValue, DefinitionModel, PhysicalModel, SpatialCategory, DisplayStyle3d, ModelSelector, CategorySelector, SpatialViewDefinition } = await import('@itwin/core-backend');
       // eslint-disable-next-line @typescript-eslint/naming-convention
       const { OpenMode } = await import('@itwin/core-bentley');
       // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -428,8 +429,8 @@ export class BaselineGenerator {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       const { Range3d } = await import('@itwin/core-geometry');
 
-      // Initialize IModelHost if not already initialized
-      await IModelHost.startup();
+      // Ensure the process-global IModelHost is started (idempotent — see lifecycle.ts)
+      await ensureIModelHostStarted();
 
       // Remove any existing file
       IModelJsFs.removeSync(tempFilePath);
@@ -630,10 +631,10 @@ export class BaselineGenerator {
    */
   private async _createCloudContainerAndUpload(localFilePath: string, iModelId: string): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const { IModelHost, CloudSqlite } = await import('@itwin/core-backend');
+    const { CloudSqlite } = await import('@itwin/core-backend');
 
-    // Ensure IModelHost is started
-    await IModelHost.startup();
+    // Ensure the process-global IModelHost is started (idempotent — see lifecycle.ts)
+    await ensureIModelHostStarted();
 
     // Create a temporary cache directory
     const cacheDir = path.join(
@@ -849,16 +850,14 @@ export class BaselineGenerator {
 
   /**
    * Shutdown the generator
+   *
+   * IModelHost startup/shutdown is process-global and owned by src/lifecycle.ts
+   * (main.ts pairs them via ensureIModelHostStarted/shutdownAll), so this
+   * method only resets the generator's own state and must NOT shut the host
+   * down — doing so would kill the host under the feet of concurrent work.
    */
   public async shutdown(): Promise<void> {
-    try {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      const { IModelHost } = await import('@itwin/core-backend');
-      await IModelHost.shutdown();
-    } catch {
-      // Ignore shutdown errors
-    }
-
+    logger.info('[BaselineGenerator] Shutdown: IModelHost lifecycle is global (owned by lifecycle.ts); resetting generator state only');
     this._initialized = false;
   }
 }

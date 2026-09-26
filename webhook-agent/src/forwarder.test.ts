@@ -84,4 +84,15 @@ describe('EventForwarder', () => {
     expect(n).toBeLessThanOrEqual(4); // bounded by retryAttempts: gave up, not looping forever
     expect(f.getRetryQueueLength() + f.getPendingCount()).toBeGreaterThan(0); // event not silently dropped
   });
+
+  it('clears its background retry interval on shutdown (no leaked timer)', async () => {
+    const clearSpy = vi.spyOn(globalThis, 'clearInterval');
+    const f = new EventForwarder({ backendUrl: 'http://ms.test:4001', timeout: 1000, retryAttempts: 3, retryDelay: 10 });
+
+    // Queue is empty, so the drain loop skips straight to timer teardown.
+    await f.shutdown();
+
+    expect(clearSpy).toHaveBeenCalledTimes(1);
+    clearSpy.mockRestore();
+  });
 });

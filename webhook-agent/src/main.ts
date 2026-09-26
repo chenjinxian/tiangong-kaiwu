@@ -31,6 +31,7 @@ import { createWebhookServer } from './webhook-server.js';
 import { builtinHandlers, EventProcessor } from './processor.js';
 import { EventForwarder } from './forwarder.js';
 import { BaselineGenerator } from './baseline-generator.js';
+import { ensureIModelHostStarted, shutdownAll } from './lifecycle.js';
 import { config } from './config.js';
 import { logger } from './utils/logger.js';
 import type { WebhookConfig } from './types.js';
@@ -266,6 +267,12 @@ async function main(): Promise<void> {
   logger.info(`[Config] Mode: Pure Webhook Receiver`);
   logger.info(`[Config] Debug: ${debug}`);
 
+  // Start the process-global IModelHost exactly once, at boot. All later
+  // needs (baseline generation) go through the idempotent
+  // ensureIModelHostStarted, and teardown happens once via shutdownAll in
+  // the signal handlers below.
+  await ensureIModelHostStarted();
+
   // Create event processor
   const processor = new EventProcessor({ debug });
 
@@ -382,7 +389,9 @@ async function main(): Promise<void> {
 
     server.close(async () => {
       await baselineGenerator.shutdown();
-      await forwarder.shutdown();
+      // shutdownAll flushes the forwarder, then shuts the process-global
+      // IModelHost down — exactly once even if a second signal arrives.
+      await shutdownAll(forwarder);
       logger.info('[Shutdown] Server closed');
       process.exit(0);
     });
