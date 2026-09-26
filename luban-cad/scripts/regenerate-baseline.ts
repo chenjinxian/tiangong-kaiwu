@@ -3,7 +3,6 @@
  */
 
 const IMODELHUB_URL = 'http://localhost:4000';
-const WEBHOOK_AGENT_URL = 'http://localhost:4002';
 
 async function getAuthToken(): Promise<string | null> {
   try {
@@ -86,17 +85,18 @@ async function main(): Promise<void> {
     console.log('No baseline found');
   }
 
-  // Try to trigger baseline retry via webhook-agent
-  console.log('\nTriggering baseline retry via webhook-agent...');
+  // Try to trigger baseline retry via imodelhub-services requeue
+  console.log('\nTriggering baseline retry via imodelhub-services requeue...');
 
-  const retryResponse = await fetch(`${WEBHOOK_AGENT_URL}/baseline/retry/${imodel.id}`, {
+  const retryResponse = await fetch(`${process.env.IMODELHUB_URL || 'http://localhost:4000'}/imodels/${imodel.id}/baselinefile/requeue`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      iTwinId: projectId,
-      imodelName: imodel.name,
-    }),
+    headers: { 'X-API-Key': process.env.IMODELHUB_API_KEY || '' },
   });
+
+  if (retryResponse.status === 409) {
+    console.log('已初始化，无需重试');
+    process.exit(0);
+  }
 
   if (retryResponse.ok) {
     console.log('Baseline retry triggered:', await retryResponse.json());
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
     console.error('Failed to trigger retry:', await retryResponse.text());
   }
 
-  console.log('\nDone! Check webhook-agent logs for progress.');
+  console.log('\nDone! Check imodelhub-services / webhook-agent logs for progress.');
 }
 
 main().catch(console.error);

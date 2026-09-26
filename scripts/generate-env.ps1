@@ -23,7 +23,6 @@ $envMap = [ordered]@{
   'IMODELHUB_ADMIN_EMAIL'    = 'admin@example.com'
   'IMODELHUB_ADMIN_PASSWORD' = New-Hex 16
   'BACKEND_API_KEY'          = New-Hex 32
-  'WEBAGENT_API_KEY'         = New-Hex 32
   'CSRF_SECRET'              = New-Hex 32
   'AZURITE_ACCOUNT_KEY'      = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='  # Azurite well-known（真实存储时换）
   'WEBHOOK_SECRET'           = New-Hex 32
@@ -34,6 +33,6 @@ $lines = @(('# 由 scripts/generate-env.ps1 生成于 ' + (Get-Date -Format 'yyy
 foreach ($k in $envMap.Keys) { $lines += "$k=$($envMap[$k])" }
 
 Set-Content -Path .env -Value ($lines -join "`r`n") -Encoding utf8
-Write-Host ".env 已生成（10 项）。注意：" -ForegroundColor Green
+Write-Host ".env 已生成。注意：" -ForegroundColor Green
 Write-Host "  1) WEBHOOK_SECRET 需与 imodelhub-services 的 webhook 订阅 secret 一致（见 docs/WEBHOOK_CONFIG.md）"
 Write-Host "  2) IMODELHUB_ADMIN_EMAIL/PASSWORD 需与 HUB 侧账号对齐（HUB 自带 seed，不一致时改 HUB 侧或本文件）"

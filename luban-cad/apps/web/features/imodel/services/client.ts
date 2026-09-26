@@ -85,7 +85,7 @@ export async function getIModelProgress(iModelId: string): Promise<IModelProgres
 }
 
 /**
- * Retry failed iModel initialization via modeling-server -> webhook-agent
+ * Retry failed iModel initialization via modeling-server -> imodelhub-services requeue
  */
 export async function retryIModel(iModelId: string, iTwinId: string, imodelName?: string): Promise<void> {
   const auth = await getAuthorization();

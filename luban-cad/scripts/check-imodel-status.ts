@@ -3,7 +3,6 @@
  */
 
 const IMODELHUB_URL = 'http://localhost:4000';
-const WEBHOOK_AGENT_URL = 'http://localhost:4002';
 
 async function getAuthToken(): Promise<string | null> {
   try {
@@ -88,18 +87,16 @@ async function main(): Promise<void> {
         console.log(`    Triggering baseline generation...`);
 
         const retryResponse = await fetch(
-          `${WEBHOOK_AGENT_URL}/baseline/retry/${imodel.id}`,
+          `${process.env.IMODELHUB_URL || 'http://localhost:4000'}/imodels/${imodel.id}/baselinefile/requeue`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              iTwinId: project.id,
-              imodelName: imodel.name,
-            }),
+            headers: { 'X-API-Key': process.env.IMODELHUB_API_KEY || '' },
           }
         );
 
-        if (retryResponse.ok) {
+        if (retryResponse.status === 409) {
+          console.log(`    已初始化，无需重试`);
+        } else if (retryResponse.ok) {
           console.log(`    ✅ Baseline retry triggered:`, await retryResponse.json());
         } else {
           console.error(`    ❌ Failed:`, await retryResponse.text());
