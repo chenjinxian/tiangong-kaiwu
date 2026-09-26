@@ -131,6 +131,10 @@ export function useVersionControl(
         return;
       }
 
+      if (conflictResult?.featureAvailable === false) {
+        showToast('冲突检测暂不可用，本次拉取跳过冲突预检', 'info');
+      }
+
       setOpStatus('拉取中...');
       await pullChanges();
       setHasRemoteChanges(false);

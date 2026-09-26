@@ -252,3 +252,33 @@ describe('OpenCloudRpcImpl', () => {
     });
   });
 });
+
+// T1.1: conflict detection / changeset comparison are NOT implemented against
+// the real hub — they must say so explicitly instead of returning silent empties.
+describe('Conflict feature degradation (T1.1)', () => {
+  let impl: InstanceType<typeof import('./OpenCloudRpcImpl.js').OpenCloudRpcImpl>;
+
+  beforeEach(async () => {
+    const { IModelDb } = await import('@itwin/core-backend');
+    vi.mocked(IModelDb.tryFindByKey).mockReturnValue({ changeset: { id: 'cs-1' } } as never);
+    impl = new (await import('./OpenCloudRpcImpl.js')).OpenCloudRpcImpl();
+  });
+
+  it('detectConflicts returns featureAvailable=false instead of a fake no-conflict answer', async () => {
+    const result = await impl.detectConflicts({ iModelId: 'im-1', briefcaseId: 1, targetChangesetId: 'cs-2' });
+    expect(result.featureAvailable).toBe(false);
+    expect(result.hasConflicts).toBe(false);
+    expect(result.totalConflicts).toBe(0);
+    expect(result.conflicts).toEqual([]);
+  });
+
+  it('compareChangesets returns featureAvailable=false instead of mock structure', async () => {
+    const result = await impl.compareChangesets('im-1', 'cs-1', 'cs-2');
+    expect(result.featureAvailable).toBe(false);
+  });
+
+  it('resolveConflicts returns featureAvailable=false', async () => {
+    const result = await impl.resolveConflicts({ iModelId: 'im-1', briefcaseId: 1, resolutions: {} });
+    expect(result.featureAvailable).toBe(false);
+  });
+});

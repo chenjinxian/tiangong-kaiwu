@@ -285,7 +285,13 @@ export const ChangesetCompare: React.FC<ChangesetCompareProps> = React.memo(({
 
       {error && <div className="cs-compare-error">{error}</div>}
 
-      {comparisonResult && (
+      {comparisonResult?.featureAvailable === false && (
+        <div className="cs-compare-error" data-testid="compare-unavailable">
+          变更对比功能暂不可用（后端未实现，规划中）
+        </div>
+      )}
+
+      {comparisonResult && comparisonResult.featureAvailable !== false && (
         <div className="cs-compare-result">
           <div className="cs-compare-summary">
             <div className="cs-compare-diffbar">

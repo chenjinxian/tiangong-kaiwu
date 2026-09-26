@@ -532,6 +532,14 @@ export interface ChangedElement {
  * Changeset comparison result
  */
 export interface ChangesetComparisonResult {
+
+  /**
+   * false when the backend does not implement this feature — UI must show an
+   * explicit unavailable state instead of treating the empty result as "no
+   * changes / no conflicts" (T1.1 explicit degradation).
+   */
+  featureAvailable?: boolean;
+
   sourceChangesetId: string;
   targetChangesetId: string;
   addedCount: number;
@@ -598,6 +606,14 @@ export type ConflictResolution = 'local' | 'remote' | 'merged' | 'manual';
  * Conflict detection result
  */
 export interface ConflictDetectionResult {
+
+  /**
+   * false when the backend does not implement this feature — UI must show an
+   * explicit unavailable state instead of treating the empty result as "no
+   * changes / no conflicts" (T1.1 explicit degradation).
+   */
+  featureAvailable?: boolean;
+
   /** Whether conflicts were detected */
   hasConflicts: boolean;
   /** Total number of conflicts */
@@ -642,6 +658,14 @@ export interface ResolveConflictsRequest {
  * Result after resolving conflicts
  */
 export interface ResolveConflictsResult {
+
+  /**
+   * false when the backend does not implement this feature — UI must show an
+   * explicit unavailable state instead of treating the empty result as "no
+   * changes / no conflicts" (T1.1 explicit degradation).
+   */
+  featureAvailable?: boolean;
+
   success: boolean;
   /** Number of conflicts resolved */
   resolvedCount: number;

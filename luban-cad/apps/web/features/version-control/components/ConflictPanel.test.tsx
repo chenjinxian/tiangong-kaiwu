@@ -203,3 +203,31 @@ describe('ConflictPanel', () => {
     expect(document.querySelector('[title="冲突检测"]')).toBeFalsy();
   });
 });
+
+
+describe('ConflictPanel feature degradation (T1.1)', () => {
+  it('shows an explicit unavailable notice when featureAvailable=false', () => {
+    const localDefaultProps = {
+      isVisible: true,
+      onClose: vi.fn(),
+      onResolve: vi.fn(),
+    };
+    const unavailableResult = {
+      featureAvailable: false,
+      hasConflicts: false,
+      totalConflicts: 0,
+      conflicts: [],
+      summary: { modifyModify: 0, deleteModify: 0, modifyDelete: 0, addAdd: 0 },
+      targetChangesetId: 'cs-2',
+      currentChangesetId: 'cs-1',
+    };
+    render(
+      <ConflictPanel
+        {...localDefaultProps}
+        detectionResult={unavailableResult}
+      />
+    );
+
+    expect(screen.getByText(/冲突检测功能暂不可用/)).toBeTruthy();
+  });
+});
