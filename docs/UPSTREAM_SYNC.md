@@ -38,6 +38,8 @@ bash scripts/sync-from-upstream.sh   # 于仓库根目录执行
 任何 `rush update` / `pnpm install` 重装 node_modules 后，替换会被还原，需重跑替换脚本；
 后端启动无 "using dev build from …" banner 即已回退官方二进制。详见
 `docs/superpowers/specs/2026-09-26-imodeljs-native-local-replacement-design.md`。
+REST 契约以 `docs/api-specs/`（官方 iTwin Platform OpenAPI 规格）为对照基准；SDK 面
+必须官方形状，自研扩展路由须挂在官方资源下并显式标注。
 
 ## 手动流程
 

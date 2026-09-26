@@ -1,0 +1,1140 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "Users",
+        "description": "Access information about users.\r\n",
+        "license": {
+            "name": "iTwin Platform License",
+            "url": "https://developer.bentley.com/terms-of-service/"
+        },
+        "version": "v1"
+    },
+    "servers": [
+        {
+            "url": "https://api.bentley.com/users"
+        }
+    ],
+    "paths": {
+        "/": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get users",
+                "description": "Search for users by name or email. The search string is required and must be between 3 and 200 characters. Paging is not supported and it will not return more than 1000 users.\r\n\r\nThis API will only return metadata for users that are in the same organization as the caller.\r\n\r\n### Authentication\r\n\r\nRequires `Authorization` header with valid Bearer token for scope `itwin-platform`.\r\n\r\nFor more documentation on authorization and how to get access token visit [OAUTH2 Authorization](https://developer.bentley.com/apis/overview/authorization/) page.\r\n\r\n### Rate limits\r\n\r\nAll iTwin Platform API operations have a rate limit. For more documentation on that visit [Rate limits and quotas](https://developer.bentley.com/apis/overview/rate-limits/) page.\r\n",
+                "operationId": "get-users",
+                "parameters": [
+                    {
+                        "name": "$search",
+                        "in": "query",
+                        "description": "Find all groups that have the search string anywhere in the display name",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "description": "OAuth access token with `itwin-platform` scope",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AuthorizationHeader.schema"
+                        }
+                    },
+                    {
+                        "name": "Accept",
+                        "in": "header",
+                        "description": "Setting to `application/vnd.bentley.itwin-platform.v1+json` is recommended.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AcceptHeader.schema"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/user-list"
+                                },
+                                "example": {
+                                    "users": [
+                                        {
+                                            "id": "e7aee7b1-4967-4f40-b220-0b1dc12c4542",
+                                            "email": "John.Smith@example.com",
+                                            "givenName": "John",
+                                            "surname": "Smith",
+                                            "organizationName": "Example Organization"
+                                        },
+                                        {
+                                            "id": "30af8cae-cd6b-4c5f-a984-5a03710db06e",
+                                            "email": "Jane.Smith@example.com",
+                                            "givenName": "Jane",
+                                            "surname": "Smith",
+                                            "organizationName": "Example Organization"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "This response indicates that request lacks valid authentication credentials. Access token might not been provided, issued by the wrong issuer, does not have required scopes or request headers were malformed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "HeaderNotFound": {
+                                        "value": {
+                                            "error": {
+                                                "code": "HeaderNotFound",
+                                                "message": "Header Authorization was not found in the request. Access denied."
+                                            }
+                                        }
+                                    },
+                                    "InvalidApplicationTier": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidApplicationTier",
+                                                "message": "The application is not allowed to access this API."
+                                            }
+                                        }
+                                    },
+                                    "InvalidAuthorizationScheme": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidAuthorizationScheme",
+                                                "message": "Authorization scheme 'Baerer' is not valid."
+                                            }
+                                        }
+                                    },
+                                    "InvalidHeaderValue": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidHeaderValue",
+                                                "message": "Authorization header is empty."
+                                            }
+                                        }
+                                    },
+                                    "RequiredScopeMissing": {
+                                        "value": {
+                                            "error": {
+                                                "code": "RequiredScopeMissing",
+                                                "message": "Access denied due to invalid access_token. One or more required scopes are missing. Make sure to provide a valid token for this API endpoint."
+                                            }
+                                        }
+                                    },
+                                    "Unauthorized": {
+                                        "value": {
+                                            "error": {
+                                                "code": "Unauthorized",
+                                                "message": "Access denied due to invalid client. Make sure that client was registered on https://developer.bentley.com."
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid request to get users",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": {
+                                        "code": "InvalidUsersRequest",
+                                        "message": "Cannot query users.",
+                                        "details": [
+                                            {
+                                                "code": "MissingRequiredParameter",
+                                                "message": "A search value was not specified.",
+                                                "target": "$search"
+                                            },
+                                            {
+                                                "code": "InvalidValue",
+                                                "message": "The search value must be between 3 and 200 characters.",
+                                                "target": "$search"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "This response indicates that the client sent more requests than allowed by this API for the current tier of the client.",
+                        "headers": {
+                            "retry-after": {
+                                "description": "Number of seconds to wait until client is allowed to make more requests.",
+                                "required": true,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": {
+                                        "code": "RateLimitExceeded",
+                                        "message": "The client sent more requests than allowed by this API for the current tier of the client."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/getbyidlist": {
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get users by id list",
+                "description": "This API allows you to pass a list of user ids and get back the user metadata for each one. It is implemented as a POST so that the ids can be specified in the body instead of the url. This allows you to specify up to 1000 user ids.\r\n\r\nThis API will only return metadata for users that are in the same organization as the caller.\r\n\r\n### Authentication\r\n\r\nRequires `Authorization` header with valid Bearer token for scope `itwin-platform`.\r\n\r\nFor more documentation on authorization and how to get access token visit [OAUTH2 Authorization](https://developer.bentley.com/apis/overview/authorization/) page.\r\n\r\n### Rate limits\r\n\r\nAll iTwin Platform API operations have a rate limit. For more documentation on that visit [Rate limits and quotas](https://developer.bentley.com/apis/overview/rate-limits/) page.\r\n",
+                "operationId": "get-users-by-id-list",
+                "parameters": [
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "description": "OAuth access token with `itwin-platform` scope",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AuthorizationHeader.schema"
+                        }
+                    },
+                    {
+                        "name": "Accept",
+                        "in": "header",
+                        "description": "Setting to `application/vnd.bentley.itwin-platform.v1+json` is recommended.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AcceptHeader.schema"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/userid-list"
+                            },
+                            "example": [
+                                "e7aee7b1-4967-4f40-b220-0b1dc12c4542",
+                                "30af8cae-cd6b-4c5f-a984-5a03710db06e"
+                            ]
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/user-list"
+                                },
+                                "example": {
+                                    "users": [
+                                        {
+                                            "id": "e7aee7b1-4967-4f40-b220-0b1dc12c4542",
+                                            "email": "John.Smith@example.com",
+                                            "givenName": "John",
+                                            "surname": "Smith",
+                                            "organizationName": "Example Organization"
+                                        },
+                                        {
+                                            "id": "30af8cae-cd6b-4c5f-a984-5a03710db06e",
+                                            "email": "Jane.Smith@example.com",
+                                            "givenName": "Jane",
+                                            "surname": "Smith",
+                                            "organizationName": "Example Organization"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "This response indicates that request lacks valid authentication credentials. Access token might not been provided, issued by the wrong issuer, does not have required scopes or request headers were malformed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "HeaderNotFound": {
+                                        "value": {
+                                            "error": {
+                                                "code": "HeaderNotFound",
+                                                "message": "Header Authorization was not found in the request. Access denied."
+                                            }
+                                        }
+                                    },
+                                    "InvalidApplicationTier": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidApplicationTier",
+                                                "message": "The application is not allowed to access this API."
+                                            }
+                                        }
+                                    },
+                                    "InvalidAuthorizationScheme": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidAuthorizationScheme",
+                                                "message": "Authorization scheme 'Baerer' is not valid."
+                                            }
+                                        }
+                                    },
+                                    "InvalidHeaderValue": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidHeaderValue",
+                                                "message": "Authorization header is empty."
+                                            }
+                                        }
+                                    },
+                                    "RequiredScopeMissing": {
+                                        "value": {
+                                            "error": {
+                                                "code": "RequiredScopeMissing",
+                                                "message": "Access denied due to invalid access_token. One or more required scopes are missing. Make sure to provide a valid token for this API endpoint."
+                                            }
+                                        }
+                                    },
+                                    "Unauthorized": {
+                                        "value": {
+                                            "error": {
+                                                "code": "Unauthorized",
+                                                "message": "Access denied due to invalid client. Make sure that client was registered on https://developer.bentley.com."
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid request to get users",
+                        "content": {
+                            "application/json;CannotQueryUsers": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DetailedErrorResponse"
+                                },
+                                "examples": {
+                                    "CannotQueryUsers": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidUsersRequest",
+                                                "message": "Cannot query users.",
+                                                "details": [
+                                                    {
+                                                        "code": "InvalidValue",
+                                                        "message": "The request body cannot contain more than 1000 user Ids.",
+                                                        "target": "request"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "application/json;InvalidRequestBody": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "InvalidRequestBody": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidUsersRequest",
+                                                "message": "Invalid request body.",
+                                                "details": null
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "This response indicates that the client sent more requests than allowed by this API for the current tier of the client.",
+                        "headers": {
+                            "retry-after": {
+                                "description": "Number of seconds to wait until client is allowed to make more requests.",
+                                "required": true,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": {
+                                        "code": "RateLimitExceeded",
+                                        "message": "The client sent more requests than allowed by this API for the current tier of the client."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/groups": {
+            "get": {
+                "tags": [
+                    "Groups"
+                ],
+                "summary": "Get groups",
+                "description": "Search for groups by name. The search string is required and must be between 3 and 200 characters. Paging is not supported.\r\n\r\nThis API will only return metadata for groups that are in the same organization as the caller.\r\n\r\n### Authentication\r\n\r\nRequires `Authorization` header with valid Bearer token for scope `itwin-platform`.\r\n\r\nFor more documentation on authorization and how to get access token visit [OAUTH2 Authorization](https://developer.bentley.com/apis/overview/authorization/) page.\r\n\r\n### Rate limits\r\n\r\nAll iTwin Platform API operations have a rate limit. For more documentation on that visit [Rate limits and quotas](https://developer.bentley.com/apis/overview/rate-limits/) page.\r\n",
+                "operationId": "get-groups",
+                "parameters": [
+                    {
+                        "name": "$search",
+                        "in": "query",
+                        "description": "Find all groups that have the search string anywhere in the display name",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "description": "OAuth access token with `itwin-platform` scope",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AuthorizationHeader.schema"
+                        }
+                    },
+                    {
+                        "name": "Accept",
+                        "in": "header",
+                        "description": "Setting to `application/vnd.bentley.itwin-platform.v1+json` is recommended.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AcceptHeader.schema"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/group-list"
+                                },
+                                "example": {
+                                    "groups": [
+                                        {
+                                            "id": "e7aee7b1-4967-4f40-b220-0b1dc12c4542",
+                                            "displayName": "Engineers"
+                                        },
+                                        {
+                                            "id": "30af8cae-cd6b-4c5f-a984-5a03710db06e",
+                                            "displayName": "External Contractors"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "This response indicates that request lacks valid authentication credentials. Access token might not been provided, issued by the wrong issuer, does not have required scopes or request headers were malformed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "HeaderNotFound": {
+                                        "value": {
+                                            "error": {
+                                                "code": "HeaderNotFound",
+                                                "message": "Header Authorization was not found in the request. Access denied."
+                                            }
+                                        }
+                                    },
+                                    "InvalidApplicationTier": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidApplicationTier",
+                                                "message": "The application is not allowed to access this API."
+                                            }
+                                        }
+                                    },
+                                    "InvalidAuthorizationScheme": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidAuthorizationScheme",
+                                                "message": "Authorization scheme 'Baerer' is not valid."
+                                            }
+                                        }
+                                    },
+                                    "InvalidHeaderValue": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidHeaderValue",
+                                                "message": "Authorization header is empty."
+                                            }
+                                        }
+                                    },
+                                    "RequiredScopeMissing": {
+                                        "value": {
+                                            "error": {
+                                                "code": "RequiredScopeMissing",
+                                                "message": "Access denied due to invalid access_token. One or more required scopes are missing. Make sure to provide a valid token for this API endpoint."
+                                            }
+                                        }
+                                    },
+                                    "Unauthorized": {
+                                        "value": {
+                                            "error": {
+                                                "code": "Unauthorized",
+                                                "message": "Access denied due to invalid client. Make sure that client was registered on https://developer.bentley.com."
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid request to get groups",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": {
+                                        "code": "InvalidUsersRequest",
+                                        "message": "Cannot query groups.",
+                                        "details": [
+                                            {
+                                                "code": "MissingRequiredParameter",
+                                                "message": "A search value was not specified.",
+                                                "target": "$search"
+                                            },
+                                            {
+                                                "code": "InvalidValue",
+                                                "message": "The search value must be between 3 and 200 characters.",
+                                                "target": "$search"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "This response indicates that the client sent more requests than allowed by this API for the current tier of the client.",
+                        "headers": {
+                            "retry-after": {
+                                "description": "Number of seconds to wait until client is allowed to make more requests.",
+                                "required": true,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": {
+                                        "code": "RateLimitExceeded",
+                                        "message": "The client sent more requests than allowed by this API for the current tier of the client."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "me",
+                "description": "Retrieve the logged in user's profile.\r\n\r\n### Authentication\r\n\r\nRequires `Authorization` header with valid Bearer token for scope `itwin-platform`.\r\n\r\nFor more documentation on authorization and how to get access token visit [OAUTH2 Authorization](https://developer.bentley.com/apis/overview/authorization/) page.\r\n\r\n### Rate limits\r\n\r\nAll iTwin Platform API operations have a rate limit. For more documentation on that visit [Rate limits and quotas](https://developer.bentley.com/apis/overview/rate-limits/) page.\r\n",
+                "operationId": "me",
+                "parameters": [
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "description": "OAuth access token with `itwin-platform` scope",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AuthorizationHeader.schema"
+                        }
+                    },
+                    {
+                        "name": "Accept",
+                        "in": "header",
+                        "description": "Setting to `application/vnd.bentley.itwin-platform.v1+json` is recommended.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AcceptHeader.schema"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/userResponse"
+                                },
+                                "example": {
+                                    "user": {
+                                        "id": "00000000-0000-0000-0000-000000000000",
+                                        "displayName": "John.Smith@example.com",
+                                        "givenName": "John",
+                                        "surname": "Smith",
+                                        "email": "John.Smith@example.com",
+                                        "alternateEmail": "John.Smith@example.com",
+                                        "phone": "000-000-0000",
+                                        "organizationName": "Example Organization",
+                                        "city": "Anytown",
+                                        "country": "US",
+                                        "language": "EN",
+                                        "createdDateTime": "2020-03-25T04:36:40.0000000+00:00"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "This response indicates that request lacks valid authentication credentials. Access token might not been provided, issued by the wrong issuer, does not have required scopes or request headers were malformed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "HeaderNotFound": {
+                                        "value": {
+                                            "error": {
+                                                "code": "HeaderNotFound",
+                                                "message": "Header Authorization was not found in the request. Access denied."
+                                            }
+                                        }
+                                    },
+                                    "InvalidApplicationTier": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidApplicationTier",
+                                                "message": "The application is not allowed to access this API."
+                                            }
+                                        }
+                                    },
+                                    "InvalidAuthorizationScheme": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidAuthorizationScheme",
+                                                "message": "Authorization scheme 'Baerer' is not valid."
+                                            }
+                                        }
+                                    },
+                                    "InvalidHeaderValue": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidHeaderValue",
+                                                "message": "Authorization header is empty."
+                                            }
+                                        }
+                                    },
+                                    "RequiredScopeMissing": {
+                                        "value": {
+                                            "error": {
+                                                "code": "RequiredScopeMissing",
+                                                "message": "Access denied due to invalid access_token. One or more required scopes are missing. Make sure to provide a valid token for this API endpoint."
+                                            }
+                                        }
+                                    },
+                                    "Unauthorized": {
+                                        "value": {
+                                            "error": {
+                                                "code": "Unauthorized",
+                                                "message": "Access denied due to invalid client. Make sure that client was registered on https://developer.bentley.com."
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "This response indicates that the client sent more requests than allowed by this API for the current tier of the client.",
+                        "headers": {
+                            "retry-after": {
+                                "description": "Number of seconds to wait until client is allowed to make more requests.",
+                                "required": true,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": {
+                                        "code": "RateLimitExceeded",
+                                        "message": "The client sent more requests than allowed by this API for the current tier of the client."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{id}": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get user",
+                "description": "Gets the metadata for the specified user id. This API will only return metadata for users that are in the same organization as the caller.\r\n\r\n### Authentication\r\n\r\nRequires `Authorization` header with valid Bearer token for scope `itwin-platform`.\r\n\r\nFor more documentation on authorization and how to get access token visit [OAUTH2 Authorization](https://developer.bentley.com/apis/overview/authorization/) page.\r\n\r\n### Rate limits\r\n\r\nAll iTwin Platform API operations have a rate limit. For more documentation on that visit [Rate limits and quotas](https://developer.bentley.com/apis/overview/rate-limits/) page.\r\n",
+                "operationId": "get-user",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "The user id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "description": "OAuth access token with `itwin-platform` scope",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AuthorizationHeader.schema"
+                        }
+                    },
+                    {
+                        "name": "Accept",
+                        "in": "header",
+                        "description": "Setting to `application/vnd.bentley.itwin-platform.v1+json` is recommended.",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/components/schemas/AcceptHeader.schema"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/userMinimalResponse"
+                                },
+                                "example": {
+                                    "user": {
+                                        "id": "e7aee7b1-4967-4f40-b220-0b1dc12c4542",
+                                        "email": "John.Smith@example.com",
+                                        "givenName": "John",
+                                        "surname": "Smith",
+                                        "organizationName": "Example Organization"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "This response indicates that request lacks valid authentication credentials. Access token might not been provided, issued by the wrong issuer, does not have required scopes or request headers were malformed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "examples": {
+                                    "HeaderNotFound": {
+                                        "value": {
+                                            "error": {
+                                                "code": "HeaderNotFound",
+                                                "message": "Header Authorization was not found in the request. Access denied."
+                                            }
+                                        }
+                                    },
+                                    "InvalidApplicationTier": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidApplicationTier",
+                                                "message": "The application is not allowed to access this API."
+                                            }
+                                        }
+                                    },
+                                    "InvalidAuthorizationScheme": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidAuthorizationScheme",
+                                                "message": "Authorization scheme 'Baerer' is not valid."
+                                            }
+                                        }
+                                    },
+                                    "InvalidHeaderValue": {
+                                        "value": {
+                                            "error": {
+                                                "code": "InvalidHeaderValue",
+                                                "message": "Authorization header is empty."
+                                            }
+                                        }
+                                    },
+                                    "RequiredScopeMissing": {
+                                        "value": {
+                                            "error": {
+                                                "code": "RequiredScopeMissing",
+                                                "message": "Access denied due to invalid access_token. One or more required scopes are missing. Make sure to provide a valid token for this API endpoint."
+                                            }
+                                        }
+                                    },
+                                    "Unauthorized": {
+                                        "value": {
+                                            "error": {
+                                                "code": "Unauthorized",
+                                                "message": "Access denied due to invalid client. Make sure that client was registered on https://developer.bentley.com."
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "This response indicates that the specified user was not found.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": {
+                                        "code": "UserNotFound",
+                                        "message": "Requested user is not available."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "This response indicates that the client sent more requests than allowed by this API for the current tier of the client.",
+                        "headers": {
+                            "retry-after": {
+                                "description": "Number of seconds to wait until client is allowed to make more requests.",
+                                "required": true,
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                },
+                                "example": {
+                                    "error": {
+                                        "code": "RateLimitExceeded",
+                                        "message": "The client sent more requests than allowed by this API for the current tier of the client."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AuthorizationHeader.schema": {
+                "pattern": "^Bearer .*$",
+                "type": "string"
+            },
+            "AcceptHeader.schema": {
+                "type": "string",
+                "default": "application/vnd.bentley.itwin-platform.v1+json"
+            },
+            "userMinimal": {
+                "title": "User",
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "givenName": {
+                        "type": "string"
+                    },
+                    "surname": {
+                        "type": "string"
+                    },
+                    "organizationName": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "user-list": {
+                "title": "Users",
+                "type": "object",
+                "properties": {
+                    "users": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/userMinimal"
+                        },
+                        "description": "A list of users."
+                    }
+                },
+                "additionalProperties": false,
+                "description": "User Search Results"
+            },
+            "Error": {
+                "required": [
+                    "code",
+                    "message"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "One of a server-defined set of error codes."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "A human-readable representation of the error."
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "The target of the error.",
+                        "nullable": true
+                    }
+                },
+                "description": "Contains error information."
+            },
+            "ErrorResponse": {
+                "title": "Error Response",
+                "required": [
+                    "error"
+                ],
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "$ref": "#/components/schemas/Error"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Gives details for an error that occurred while handling the request. Note that clients MUST NOT assume that every failed request will produce an object of this schema, or that all of the properties in the response will be non-null, as the error may have prevented this response from being constructed."
+            },
+            "userid-list": {
+                "title": "UsersIds",
+                "type": "array",
+                "items": {
+                    "type": "string"
+                },
+                "description": "User Ids to query"
+            },
+            "DetailedError": {
+                "required": [
+                    "code",
+                    "message",
+                    "details"
+                ],
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "One of a server-defined set of error codes."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "A human-readable representation of the error."
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "The target of the error.",
+                        "nullable": true
+                    },
+                    "details": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Error"
+                        },
+                        "description": "Optional array of more specific errors."
+                    }
+                },
+                "description": "Contains error information and an array of more specific errors."
+            },
+            "DetailedErrorResponse": {
+                "title": "Detailed Error Response",
+                "required": [
+                    "error"
+                ],
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "$ref": "#/components/schemas/DetailedError"
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Gives details for an error that occurred while handling the request. Note that clients MUST NOT assume that every failed request will produce an object of this schema, or that all of the properties in the response will be non-null, as the error may have prevented this response from being constructed."
+            },
+            "group": {
+                "title": "Group",
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "group-list": {
+                "title": "Users",
+                "type": "object",
+                "properties": {
+                    "groups": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/group"
+                        },
+                        "description": "A list of groups."
+                    }
+                },
+                "additionalProperties": false,
+                "description": "Group Search Results"
+            },
+            "user": {
+                "required": [
+                    "id",
+                    "email",
+                    "givenName",
+                    "surname",
+                    "language",
+                    "country",
+                    "createdDateTime",
+                    "displayName"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "givenName": {
+                        "type": "string"
+                    },
+                    "surname": {
+                        "type": "string"
+                    },
+                    "organizationName": {
+                        "type": "string"
+                    },
+                    "alternateEmail": {
+                        "type": "string"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "city": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "country": {
+                        "type": "string"
+                    },
+                    "language": {
+                        "type": "string"
+                    },
+                    "createdDateTime": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "userResponse": {
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "$ref": "#/components/schemas/user"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "userMinimalResponse": {
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "$ref": "#/components/schemas/userMinimal"
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "securitySchemes": {
+            "apiKeyHeader": {
+                "type": "apiKey",
+                "name": "X-Api-Subscription-Key",
+                "in": "header"
+            },
+            "apiKeyQuery": {
+                "type": "apiKey",
+                "name": "subscription-key",
+                "in": "query"
+            }
+        }
+    },
+    "security": [
+        {
+            "apiKeyHeader": []
+        },
+        {
+            "apiKeyQuery": []
+        }
+    ]
+}
