@@ -32,6 +32,7 @@ import { builtinHandlers, EventProcessor } from './processor.js';
 import { EventForwarder } from './forwarder.js';
 import { BaselineGenerator } from './baseline-generator.js';
 import { ensureIModelHostStarted, shutdownAll } from './lifecycle.js';
+import { createProcessedEventsStore } from './processedEventsStore.js';
 import { config } from './config.js';
 import { logger } from './utils/logger.js';
 import type { WebhookConfig } from './types.js';
@@ -123,9 +124,21 @@ async function queryFailedIModels(
 }
 
 /**
- * Track iModels currently being processed to prevent duplicate processing
+ * Track iModels currently being processed to prevent duplicate processing.
+ * This is the in-flight guard only: it covers one process lifetime, and each
+ * entry is released after the 2-minute hold below. Cross-restart dedup is
+ * handled by processedEvents (below).
  */
 const processingIModels = new Set<string>();
+
+/**
+ * Durable dedup store for the recovery checker: iModels it has already kicked
+ * off are recorded here so a restart within the 2-minute dedup window does not
+ * re-trigger baseline generation for the same iModel. Entries expire after the
+ * same 2-minute TTL the in-memory hold uses. Path is relative to cwd and is
+ * git-ignored (root .gitignore: data/).
+ */
+const processedEvents = createProcessedEventsStore('data/processed-events.json');
 
 /**
  * Run recovery check for uninitialized iModels
@@ -153,12 +166,16 @@ async function runRecoveryCheck(
       return;
     }
 
-    // Filter out iModels that are currently being processed
-    const eligibleForProcessing = allPending.filter(imodel => !processingIModels.has(imodel.id));
+    // Filter out iModels that are currently being processed (in-flight guard)
+    // or were processed recently — the persistent store survives restarts, so
+    // this dedup holds across process restarts within the 2-minute TTL.
+    const eligibleForProcessing = allPending.filter(imodel =>
+      !processingIModels.has(imodel.id) && !processedEvents.has(imodel.id)
+    );
 
     if (eligibleForProcessing.length === 0) {
       if (debug) {
-        logger.debug('[RecoveryChecker] All pending iModels are already being processed');
+        logger.debug('[RecoveryChecker] All pending iModels are already being processed or recently processed');
       }
       return;
     }
@@ -168,15 +185,18 @@ async function runRecoveryCheck(
     // Process each iModel
     for (const iModel of eligibleForProcessing.slice(0, maxPerCheck)) {
       // Skip if already being processed (double-check in case of race conditions)
-      if (processingIModels.has(iModel.id)) {
+      // or already handled within the dedup window (survives restarts)
+      if (processingIModels.has(iModel.id) || processedEvents.has(iModel.id)) {
         if (debug) {
-          logger.debug(`[RecoveryChecker] Skipping iModel ${iModel.id} - already being processed`);
+          logger.debug(`[RecoveryChecker] Skipping iModel ${iModel.id} - already being or recently processed`);
         }
         continue;
       }
 
-      // Mark as being processed
+      // Mark as being processed and record durably so a restart inside the
+      // dedup window does not re-process this iModel
       processingIModels.add(iModel.id);
+      processedEvents.add(iModel.id);
 
       logger.info(`[RecoveryChecker] Processing iModel ${iModel.id} (${iModel.name}) - state: ${iModel.state}`);
 
