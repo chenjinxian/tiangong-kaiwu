@@ -13,6 +13,7 @@
  *   parsed event to the caller-supplied `onEvent` (kept in a ref so the
  *   connection never needs to be rebuilt when the callback identity changes).
  * - Reconnects on close/error with exponential backoff: 1s × 2, capped at 30s.
+ * - 断连立即 live:false（重连收到消息后恢复）.
  * - `live` flips back to false after 30s without a message; the next message
  *   revives it. Consumers use `live` to disable polling fallback.
  */
