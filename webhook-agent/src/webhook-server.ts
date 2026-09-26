@@ -76,7 +76,6 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
     logger.debug('[Webhook] Body type', { bodyType: typeof rawBody });
     logger.debug('[Webhook] Body length', { bodyLength: rawBody ? (typeof rawBody === 'string' ? rawBody.length : rawBody.length) : 0 });
     logger.debug('[Webhook] Body preview', { bodyPreview: rawBody ? String(rawBody).substring(0, 200) : 'empty' });
-    logger.debug('[Webhook] Config secret', { secret: config.secret });
 
     if (!signatureHeader || !rawBody) {
       logger.warn('[Webhook] Missing signature or body');
