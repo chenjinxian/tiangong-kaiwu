@@ -21,6 +21,7 @@ import {
 } from '@azure/storage-blob';
 import type { IModelCreatedNeedBaselineEvent, WebhookEvent } from '@luban-cad/shared';
 import { config } from './config.js';
+import { hubAuth } from './hubAuthClient.js';
 
 export interface BaselineGeneratorConfig {
   /** Azurite blob storage URL (e.g. http://127.0.0.1:10000/devstoreaccount1) */
@@ -616,13 +617,12 @@ export class BaselineGenerator {
     // Step 2: Get upload URL from imodelhub-services (for confirmation)
     // eslint-disable-next-line no-console
     console.log(`[BaselineGenerator] Requesting upload URL from imodelhub-services...`);
-    const uploadInfo = await this._getBaselineUploadUrl(iModelId, 0);
 
     // Step 3: Confirm upload completion with directoryAccessInfo
     // eslint-disable-next-line no-console
     console.log(`[BaselineGenerator] Confirming upload completion...`);
     const sasToken = await this._generateSasToken(iModelId, false);
-    await this._confirmBaselineUpload(iModelId, uploadInfo.confirmationUrl, {
+    await this._confirmBaselineUpload(iModelId, {
       baseUrl: this._config.blobStorageUrl,
       storage: this._config.blobAccountName,
       baseDirectory: iModelId,
@@ -759,88 +759,29 @@ export class BaselineGenerator {
     }
   }
 
-  /**
-   * Get baseline upload URL from imodelhub-services
-   * Following the pattern from imodels-clients createFromBaseline
-   */
-  private async _getBaselineUploadUrl(
-    iModelId: string,
-    fileSize: number
-  ): Promise<{ uploadUrl: string; confirmationUrl: string }> {
-    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baseline/upload-url`;
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-API-Key': config.IMODELHUB_API_KEY,
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        fileSize,
-        fileName: 'baseline.bim',
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to get upload URL: HTTP ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json() as { uploadUrl: string; confirmationUrl: string };
-    return data;
-  }
 
   /**
-   * Upload file to Azure Blob Storage using the provided URL
-   * Following the pattern from imodels-clients cloudStorage.upload
-   */
-  private async _uploadFileToAzure(localFilePath: string, uploadUrl: string): Promise<void> {
-    // Read file content
-    const fileContent = await fs.readFile(localFilePath);
-
-    // Upload using the SAS URL
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'x-ms-blob-type': 'BlockBlob',
-        'Content-Length': fileContent.length.toString(),
-      },
-      body: fileContent,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to upload file: HTTP ${response.status} - ${errorText}`);
-    }
-
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] File uploaded successfully`);
-  }
-
-  /**
-   * Confirm baseline upload completion
-   * Following the pattern from imodels-clients (call complete link)
+   * Complete the baseline via the official route:
+   * POST /imodels/{id}/baselinefile with the agent-owned container's
+   * directoryAccessInfo (container-baseline flow, official API shape).
    */
   private async _confirmBaselineUpload(
     iModelId: string,
-    confirmationUrl: string,
     directoryAccessInfo: DirectoryAccessInfo
   ): Promise<void> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-API-Key': config.IMODELHUB_API_KEY,
+      'Authorization': await hubAuth.getAccessToken(),
     };
 
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Confirming with directoryAccessInfo:`, JSON.stringify(directoryAccessInfo, null, 2));
-
-    const response = await fetch(confirmationUrl, {
+    const response = await fetch(`${config.IMODELHUB_URL}/imodels/${iModelId}/baselinefile`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ directoryAccessInfo }),
+      body: JSON.stringify({
+        fileName: 'baseline.bim',
+        directoryAccessInfo,
+      }),
     });
 
     if (!response.ok) {
@@ -887,10 +828,11 @@ export class BaselineGenerator {
    * Get baseline file state from imodelhub-services
    */
   private async _getBaselineFileState(iModelId: string): Promise<string> {
-    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baseline`;
+    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baselinefile`;
 
     const headers: Record<string, string> = {
       'X-API-Key': config.IMODELHUB_API_KEY,
+      'Authorization': await hubAuth.getAccessToken(),
     };
 
     const response = await fetch(url, {
@@ -923,47 +865,10 @@ export class BaselineGenerator {
   }
 
   /**
-   * Notify imodelhub-services of successful baseline generation
-   */
-  private async _notifyCompletion(
-    iModelId: string,
-    fileSize: number,
-    directoryAccessInfo: DirectoryAccessInfo
-  ): Promise<void> {
-    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baseline/complete`;
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-API-Key': config.IMODELHUB_API_KEY,
-    };
-
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Notifying completion with directoryAccessInfo:`, JSON.stringify(directoryAccessInfo, null, 2));
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        fileSize,
-        fileName: 'baseline.bim',
-        briefcaseId: randomUUID(),
-        directoryAccessInfo,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to notify completion: HTTP ${response.status}`);
-    }
-
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Notified completion for iModel ${iModelId}`);
-  }
-
-  /**
    * Notify imodelhub-services of baseline generation failure
    */
   private async _notifyFailure(iModelId: string, error: string): Promise<void> {
-    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baseline/failed`;
+    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baselinefile/failed`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
