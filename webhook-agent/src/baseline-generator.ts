@@ -22,6 +22,7 @@ import {
 import type { IModelCreatedNeedBaselineEvent, WebhookEvent } from '@luban-cad/shared';
 import { config } from './config.js';
 import { hubAuth } from './hubAuthClient.js';
+import { logger } from './utils/logger.js';
 
 export interface BaselineGeneratorConfig {
   /** Azurite blob storage URL (e.g. http://127.0.0.1:10000/devstoreaccount1) */
@@ -88,8 +89,7 @@ export class BaselineGenerator {
    */
   public async initialize(): Promise<void> {
     if (this._initialized) return;
-    // eslint-disable-next-line no-console
-    console.log('[BaselineGenerator] Initialized (imodels-clients createFromBaseline pattern)');
+    logger.info('[BaselineGenerator] Initialized (imodels-clients createFromBaseline pattern)');
     this._initialized = true;
   }
 
@@ -100,8 +100,7 @@ export class BaselineGenerator {
     try {
       this._config.onProgress?.(iModelId, step, progress);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('[BaselineGenerator] Progress callback error:', error);
+      logger.warn('[BaselineGenerator] Progress callback error', { error });
     }
   }
 
@@ -114,8 +113,7 @@ export class BaselineGenerator {
   ): Promise<BaselineGenerationResult> {
     const { imodelId, imodelName } = content;
 
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Processing iModel ${imodelId} (${imodelName})`);
+    logger.info(`[BaselineGenerator] Processing iModel ${imodelId} (${imodelName})`);
 
     try {
       this._reportProgress(imodelId, '准备生成 baseline', 10);
@@ -145,8 +143,7 @@ export class BaselineGenerator {
       });
 
       this._reportProgress(imodelId, '完成', 100);
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Completed for iModel ${imodelId}`);
+      logger.info(`[BaselineGenerator] Completed for iModel ${imodelId}`);
 
       return {
         success: true,
@@ -157,8 +154,7 @@ export class BaselineGenerator {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-      // eslint-disable-next-line no-console
-      console.error(`[BaselineGenerator] Failed for iModel ${imodelId}:`, error);
+      logger.error(`[BaselineGenerator] Failed for iModel ${imodelId}`, { iModelId: imodelId, error });
 
       // Notify failure
       await this._notifyFailure(imodelId, errorMessage).catch(() => {
@@ -191,10 +187,8 @@ export class BaselineGenerator {
     sourceBlobPath: string,
     fileSize: number
   ): Promise<BaselineGenerationResult> {
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Processing user-uploaded baseline for iModel ${iModelId}`);
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Source: ${sourceBlobPath}`);
+    logger.info(`[BaselineGenerator] Processing user-uploaded baseline for iModel ${iModelId}`);
+    logger.debug(`[BaselineGenerator] Source: ${sourceBlobPath}`);
 
     const tempFilePath = path.join(
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -206,20 +200,17 @@ export class BaselineGenerator {
       this._reportProgress(iModelId, '准备处理 baseline', 10);
 
       // Step 1: Download the original file from Azurite
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Downloading original file...`);
+      logger.info(`[BaselineGenerator] Downloading original file...`);
       await this._downloadFromAzurite(sourceBlobPath, tempFilePath);
       this._reportProgress(iModelId, '正在下载原始文件', 30);
 
       // Step 2: Validate and fix the iModelId/iTwinId in the file
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Validating baseline file...`);
+      logger.info(`[BaselineGenerator] Validating baseline file...`);
       await this._validateAndFixBaseline(tempFilePath, iModelId, iTwinId);
       this._reportProgress(iModelId, '正在验证 baseline 文件', 50);
 
       // Step 3: Upload following imodels-clients createFromBaseline pattern
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Uploading via standard API flow...`);
+      logger.info(`[BaselineGenerator] Uploading via standard API flow...`);
       const directoryAccessInfo = await this._uploadViaCloudSqlite(tempFilePath, iModelId);
       this._reportProgress(iModelId, '正在上传至存储', 70);
 
@@ -232,8 +223,7 @@ export class BaselineGenerator {
       });
 
       this._reportProgress(iModelId, '完成', 100);
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] User baseline processed for iModel ${iModelId}`);
+      logger.info(`[BaselineGenerator] User baseline processed for iModel ${iModelId}`);
 
       return {
         success: true,
@@ -249,8 +239,7 @@ export class BaselineGenerator {
         // Ignore cleanup errors
       });
 
-      // eslint-disable-next-line no-console
-      console.error(`[BaselineGenerator] Failed to process user baseline for iModel ${iModelId}:`, error);
+      logger.error(`[BaselineGenerator] Failed to process user baseline for iModel ${iModelId}`, { iModelId, error });
 
       // Notify failure
       await this._notifyFailure(iModelId, errorMessage).catch(() => {
@@ -281,8 +270,7 @@ export class BaselineGenerator {
     // Download to local file
     await blockBlobClient.downloadToFile(localFilePath);
 
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Downloaded ${blobPath} to ${localFilePath}`);
+    logger.debug(`[BaselineGenerator] Downloaded ${blobPath} to ${localFilePath}`);
   }
 
   /**
@@ -324,17 +312,13 @@ export class BaselineGenerator {
       }
     } catch (error) {
       // If we can't open it as a native Db, try other approaches
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Could not inspect file with native Db, will try BriefcaseDb approach: ${error}`);
+      logger.debug(`[BaselineGenerator] Could not inspect file with native Db, will try BriefcaseDb approach: ${error}`);
       isBriefcaseFormat = true; // Assume Briefcase format for safety
     }
 
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Current IDs - iModel: ${currentIModelId}, iTwin: ${currentITwinId}`);
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Expected IDs - iModel: ${expectedIModelId}, iTwin: ${expectedITwinId}`);
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Detected format: ${isBriefcaseFormat ? 'BriefcaseDb' : 'StandaloneDb'}`);
+    logger.debug(`[BaselineGenerator] Current IDs - iModel: ${currentIModelId}, iTwin: ${currentITwinId}`);
+    logger.debug(`[BaselineGenerator] Expected IDs - iModel: ${expectedIModelId}, iTwin: ${expectedITwinId}`);
+    logger.debug(`[BaselineGenerator] Detected format: ${isBriefcaseFormat ? 'BriefcaseDb' : 'StandaloneDb'}`);
 
     if (isBriefcaseFormat) {
       // For BriefcaseDb files, open with BriefcaseDb and validate/fix
@@ -357,8 +341,7 @@ export class BaselineGenerator {
         } finally {
           nativeDb.closeFile();
         }
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Validated and fixed baseline file using native Db`);
+        logger.debug(`[BaselineGenerator] Validated and fixed baseline file using native Db`);
         return;
       }
 
@@ -370,20 +353,17 @@ export class BaselineGenerator {
 
         if (nativeDb.getIModelId() !== expectedIModelId) {
           nativeDb.setIModelId(expectedIModelId);
-          // eslint-disable-next-line no-console
-          console.log(`[BaselineGenerator] Fixed iModelId`);
+          logger.debug(`[BaselineGenerator] Fixed iModelId`);
         }
 
         if (nativeDb.getITwinId() !== expectedITwinId) {
           nativeDb.setITwinId(expectedITwinId);
-          // eslint-disable-next-line no-console
-          console.log(`[BaselineGenerator] Fixed iTwinId`);
+          logger.debug(`[BaselineGenerator] Fixed iTwinId`);
         }
 
         // Enable no-lock mode
         nativeDb.saveLocalValue('NoLocking', 'true');
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Enabled no-lock mode for user baseline`);
+        logger.debug(`[BaselineGenerator] Enabled no-lock mode for user baseline`);
 
         db.saveChanges();
       } finally {
@@ -409,8 +389,7 @@ export class BaselineGenerator {
       }
     }
 
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Validated and fixed baseline file`);
+    logger.info(`[BaselineGenerator] Validated and fixed baseline file`);
   }
 
   /**
@@ -446,8 +425,7 @@ export class BaselineGenerator {
       IModelJsFs.removeSync(tempFilePath);
 
       // Step 1: Create empty baseline file using SnapshotDb
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Creating empty baseline file...`);
+      logger.info(`[BaselineGenerator] Creating empty baseline file...`);
       const emptyBaseline = SnapshotDb.createEmpty(tempFilePath, { rootSubject: { name: 'Empty iModel' } });
       emptyBaseline.saveChanges();
       emptyBaseline.close();
@@ -462,8 +440,7 @@ export class BaselineGenerator {
         nativeDb.resetBriefcaseId(BriefcaseIdValue.Unassigned);
         nativeDb.saveLocalValue(BriefcaseLocalValue.NoLocking, 'true');
         nativeDb.saveChanges();
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Prepared baseline file`);
+        logger.debug(`[BaselineGenerator] Prepared baseline file`);
       } finally {
         nativeDb.closeFile();
       }
@@ -482,21 +459,18 @@ export class BaselineGenerator {
         // This provides adequate space for most CAD models
         const largeExtents = new Range3d(-500, -500, -100, 500, 500, 400);
         briefcaseDb.updateProjectExtents(largeExtents);
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Set project extents to: ${JSON.stringify(largeExtents.toJSON())}`);
+        logger.debug(`[BaselineGenerator] Set project extents to: ${JSON.stringify(largeExtents.toJSON())}`);
 
         // Create DefinitionModel for category
         const definitionModelId = DefinitionModel.insert(briefcaseDb, IModelDb.rootSubjectId, 'Definitions');
 
         // Create default SpatialCategory for element styling
         const categoryId = SpatialCategory.insert(briefcaseDb, definitionModelId, 'Default Category', new SubCategoryAppearance({ color: ColorByName.white }));
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Created SpatialCategory: ${categoryId}`);
+        logger.debug(`[BaselineGenerator] Created SpatialCategory: ${categoryId}`);
 
         // Create default PhysicalModel for 3D geometry
         const modelId = PhysicalModel.insert(briefcaseDb, IModel.rootSubjectId, 'Default Physical Model');
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Created PhysicalModel: ${modelId}`);
+        logger.debug(`[BaselineGenerator] Created PhysicalModel: ${modelId}`);
 
         // Create default view components with proper lighting
         const displayStyleId = DisplayStyle3d.insert(briefcaseDb, IModelDb.dictionaryId, 'default', {
@@ -564,11 +538,9 @@ export class BaselineGenerator {
         SpatialViewDefinition.insertWithCamera(briefcaseDb, IModelDb.dictionaryId, 'default', modelSelectorId, categorySelectorId, displayStyleId, briefcaseDb.projectExtents);
 
         briefcaseDb.saveChanges();
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Created baseline with default view`);
+        logger.info(`[BaselineGenerator] Created baseline with default view`);
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(`[BaselineGenerator] Error adding content:`, error);
+        logger.error('[BaselineGenerator] Error adding content', { error });
       } finally {
         briefcaseDb.close();
       }
@@ -578,14 +550,12 @@ export class BaselineGenerator {
       try {
         nativeDb2.setIModelId(iModelId);
         nativeDb2.saveChanges();
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Set iModelId: ${iModelId}`);
+        logger.debug(`[BaselineGenerator] Set iModelId: ${iModelId}`);
       } finally {
         nativeDb2.closeFile();
       }
 
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Completed baseline at ${tempFilePath}`);
+      logger.info(`[BaselineGenerator] Completed baseline at ${tempFilePath}`);
 
       return tempFilePath;
     } catch (error) {
@@ -610,17 +580,14 @@ export class BaselineGenerator {
     iModelId: string
   ): Promise<DirectoryAccessInfo> {
     // Step 1: Create container and upload .bim file using CloudSqlite
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Creating CloudSqlite container for ${iModelId}...`);
+    logger.info(`[BaselineGenerator] Creating CloudSqlite container for ${iModelId}...`);
     await this._createCloudContainerAndUpload(localFilePath, iModelId);
 
     // Step 2: Get upload URL from imodelhub-services (for confirmation)
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Requesting upload URL from imodelhub-services...`);
+    logger.debug(`[BaselineGenerator] Requesting upload URL from imodelhub-services...`);
 
     // Step 3: Confirm upload completion with directoryAccessInfo
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Confirming upload completion...`);
+    logger.debug(`[BaselineGenerator] Confirming upload completion...`);
     const sasToken = await this._generateSasToken(iModelId, false);
     await this._confirmBaselineUpload(iModelId, {
       baseUrl: this._config.blobStorageUrl,
@@ -631,15 +598,13 @@ export class BaselineGenerator {
     });
 
     // Step 4: Poll for initialization completion
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Waiting for baseline initialization...`);
+    logger.info(`[BaselineGenerator] Waiting for baseline initialization...`);
     await this._waitForBaselineInitialization(iModelId);
 
     // Generate read SAS token for the container
     const readSasToken = await this._generateSasToken(iModelId, false);
 
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Baseline upload completed for iModel ${iModelId}`);
+    logger.info(`[BaselineGenerator] Baseline upload completed for iModel ${iModelId}`);
 
     return {
       baseUrl: this._config.blobStorageUrl,
@@ -670,8 +635,7 @@ export class BaselineGenerator {
 
     try {
       // Step 1: Create Azure Blob Container with metadata (required for CloudSqlite)
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Creating Azure container ${iModelId} with metadata...`);
+      logger.debug(`[BaselineGenerator] Creating Azure container ${iModelId} with metadata...`);
       const containerClient = this._blobClient.getContainerClient(iModelId);
 
       // Check if container exists first
@@ -689,11 +653,9 @@ export class BaselineGenerator {
             json: JSON.stringify({ blockSize: '4M' }),
           },
         });
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Created Azure container with metadata`);
+        logger.debug(`[BaselineGenerator] Created Azure container with metadata`);
       } else {
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Azure container already exists`);
+        logger.debug(`[BaselineGenerator] Azure container already exists`);
       }
 
       // Step 2: Create/get CloudCache
@@ -717,22 +679,17 @@ export class BaselineGenerator {
 
       // Step 5: Initialize container FIRST (creates manifest.bcv in Azure)
       // This must be called BEFORE connect() for a new container
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Initializing container ${iModelId}...`);
+      logger.debug(`[BaselineGenerator] Initializing container ${iModelId}...`);
       container.initializeContainer({ blockSize: 4 * 1024 * 1024 }); // 4MB block size
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Container initialized`);
+      logger.debug(`[BaselineGenerator] Container initialized`);
 
       // Step 6: Connect container to cache
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Connecting to container...`);
+      logger.debug(`[BaselineGenerator] Connecting to container...`);
       container.connect(cache);
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Connected to container`);
+      logger.debug(`[BaselineGenerator] Connected to container`);
 
       // Step 7: Upload the .bim file as a database in the container (with write lock)
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Uploading database...`);
+      logger.debug(`[BaselineGenerator] Uploading database...`);
       await CloudSqlite.withWriteLock({ user: 'webhook-agent', container }, async () => {
         await CloudSqlite.uploadDb(container, {
           dbName: 'baseline.bim',
@@ -740,15 +697,13 @@ export class BaselineGenerator {
         });
       });
 
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineGenerator] Database uploaded successfully`);
+      logger.info(`[BaselineGenerator] Database uploaded successfully`);
 
       // Disconnect container (with detach to clean up cache)
       container.disconnect({ detach: true });
 
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(`[BaselineGenerator] Cloud container error:`, error);
+      logger.error('[BaselineGenerator] Cloud container error', { error });
       throw error;
     } finally {
       // Cleanup cache
@@ -789,8 +744,7 @@ export class BaselineGenerator {
       throw new Error(`Failed to confirm upload: HTTP ${response.status} - ${errorText}`);
     }
 
-    // eslint-disable-next-line no-console
-    console.log(`[BaselineGenerator] Upload confirmed`);
+    logger.info(`[BaselineGenerator] Upload confirmed`);
   }
 
   /**
@@ -808,8 +762,7 @@ export class BaselineGenerator {
       const state = await this._getBaselineFileState(iModelId);
 
       if (state === 'initialized') {
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineGenerator] Baseline initialized successfully`);
+        logger.info(`[BaselineGenerator] Baseline initialized successfully`);
         return;
       }
 
@@ -882,8 +835,7 @@ export class BaselineGenerator {
         body: JSON.stringify({ error }),
       });
     } catch (notifyError) {
-      // eslint-disable-next-line no-console
-      console.error('[BaselineGenerator] Failed to notify failure:', notifyError);
+      logger.error('[BaselineGenerator] Failed to notify failure', { error: notifyError });
     }
   }
 

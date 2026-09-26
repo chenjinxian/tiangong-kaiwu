@@ -10,6 +10,7 @@
 
 import type { ForwarderConfig, ProcessedEvent } from './types.js';
 import { config } from './config.js';
+import { logger } from './utils/logger.js';
 
 /**
  * Event Forwarder
@@ -42,23 +43,20 @@ export class EventForwarder {
    */
   public async forwardEvent(event: ProcessedEvent): Promise<boolean> {
     try {
-      // eslint-disable-next-line no-console
-      console.log(`[Forwarder] Forwarding event ${event.id} to backend`);
+      logger.debug(`[Forwarder] Forwarding event ${event.id} to backend`);
 
       const response = await this._sendEvent(event);
 
       if (response.ok) {
         event.forwardStatus = 'success';
         event.forwardedAt = new Date().toISOString();
-        // eslint-disable-next-line no-console
-        console.log(`[Forwarder] Event ${event.id} forwarded successfully`);
+        logger.info(`[Forwarder] Event ${event.id} forwarded successfully`);
         return true;
       } else {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(`[Forwarder] Failed to forward event ${event.id}:`, error);
+      logger.error(`[Forwarder] Failed to forward event ${event.id}`, { eventId: event.id, error });
       event.forwardStatus = 'failed';
 
       // Queue for retry
@@ -106,13 +104,11 @@ export class EventForwarder {
       const { event, attempts } = item;
 
       if (attempts >= this._config.retryAttempts) {
-        // eslint-disable-next-line no-console
-        console.error(`[Forwarder] Max retries reached for event ${event.id}`);
+        logger.error(`[Forwarder] Max retries reached for event ${event.id}`);
         return;
       }
 
-      // eslint-disable-next-line no-console
-      console.log(`[Forwarder] Retrying event ${event.id} (attempt ${attempts + 1})`);
+      logger.info(`[Forwarder] Retrying event ${event.id} (attempt ${attempts + 1})`);
 
       try {
         const response = await this._sendEvent(event);
@@ -120,14 +116,12 @@ export class EventForwarder {
         if (response.ok) {
           event.forwardStatus = 'success';
           event.forwardedAt = new Date().toISOString();
-          // eslint-disable-next-line no-console
-          console.log(`[Forwarder] Event ${event.id} forwarded on retry`);
+          logger.info(`[Forwarder] Event ${event.id} forwarded on retry`);
         } else {
           throw new Error(`HTTP ${response.status}`);
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(`[Forwarder] Retry failed for event ${event.id}:`, error);
+        logger.error(`[Forwarder] Retry failed for event ${event.id}`, { eventId: event.id, error });
         this._retryQueue.push({ event, attempts: attempts + 1 });
       }
     }, this._config.retryDelay);
@@ -151,15 +145,13 @@ export class EventForwarder {
    * Shutdown forwarder
    */
   public async shutdown(): Promise<void> {
-    // eslint-disable-next-line no-console
-    console.log('[Forwarder] Shutting down...');
+    logger.info('[Forwarder] Shutting down...');
 
     // Wait for retry queue to process
     while (this._retryQueue.length > 0) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    // eslint-disable-next-line no-console
-    console.log('[Forwarder] Shutdown complete');
+    logger.info('[Forwarder] Shutdown complete');
   }
 }

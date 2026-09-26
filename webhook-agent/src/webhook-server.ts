@@ -19,6 +19,7 @@ import { EventProcessor } from './processor.js';
 import { EventForwarder } from './forwarder.js';
 import { BaselineGenerator } from './baseline-generator.js';
 import { config as appConfig } from './config.js';
+import { logger } from './utils/logger.js';
 
 /**
  * Webhook Server options
@@ -70,22 +71,15 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
     const rawBody = req.body as string | Buffer;
 
     // DEBUG: Log detailed request info
-    // eslint-disable-next-line no-console
-    console.log('[Webhook] Received request');
-    // eslint-disable-next-line no-console
-    console.log('[Webhook] Headers:', JSON.stringify(req.headers));
-    // eslint-disable-next-line no-console
-    console.log('[Webhook] Body type:', typeof rawBody);
-    // eslint-disable-next-line no-console
-    console.log('[Webhook] Body length:', rawBody ? (typeof rawBody === 'string' ? rawBody.length : rawBody.length) : 0);
-    // eslint-disable-next-line no-console
-    console.log('[Webhook] Body preview:', rawBody ? String(rawBody).substring(0, 200) : 'empty');
-    // eslint-disable-next-line no-console
-    console.log('[Webhook] Config secret:', config.secret);
+    logger.debug('[Webhook] Received request');
+    logger.debug('[Webhook] Headers', { headers: req.headers });
+    logger.debug('[Webhook] Body type', { bodyType: typeof rawBody });
+    logger.debug('[Webhook] Body length', { bodyLength: rawBody ? (typeof rawBody === 'string' ? rawBody.length : rawBody.length) : 0 });
+    logger.debug('[Webhook] Body preview', { bodyPreview: rawBody ? String(rawBody).substring(0, 200) : 'empty' });
+    logger.debug('[Webhook] Config secret', { secret: config.secret });
 
     if (!signatureHeader || !rawBody) {
-      // eslint-disable-next-line no-console
-      console.warn('[Webhook] Missing signature or body');
+      logger.warn('[Webhook] Missing signature or body');
       res.sendStatus(401);
       return;
     }
@@ -98,12 +92,10 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
     );
 
     // DEBUG: Log validation result
-    // eslint-disable-next-line no-console
-    console.log('[Webhook] Validation result:', validation);
+    logger.debug('[Webhook] Validation result', { validation });
 
     if (!validation.valid) {
-      // eslint-disable-next-line no-console
-      console.warn('[Webhook] Invalid signature:', validation.error);
+      logger.warn('[Webhook] Invalid signature', { error: validation.error });
       res.sendStatus(401);
       return;
     }
@@ -114,14 +106,12 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
       const bodyString = typeof rawBody === 'string' ? rawBody : rawBody.toString();
       event = JSON.parse(bodyString) as IncomingWebhookEvent;
     } catch {
-      // eslint-disable-next-line no-console
-      console.error('[Webhook] Failed to parse event body');
+      logger.error('[Webhook] Failed to parse event body');
       res.sendStatus(400);
       return;
     }
 
-    // eslint-disable-next-line no-console
-    console.log(`[Webhook] Received: ${event.eventType} for iTwin ${event.iTwinId}`);
+    logger.info(`[Webhook] Received: ${event.eventType} for iTwin ${event.iTwinId}`);
 
     // Respond immediately (iTwin Platform has 5 second timeout)
     res.sendStatus(200);
@@ -133,8 +123,7 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
       // Forward to backend
       await forwarder.forwardEvent(processedEvent);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('[Webhook] Failed to process/forward event:', error);
+      logger.error('[Webhook] Failed to process/forward event', { error });
     }
   });
 
@@ -195,8 +184,7 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
 
       // Check if already being processed
       if (processingIModels.has(iModelIdStr)) {
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineProcess] Skipping iModel ${iModelIdStr} - already being processed`);
+        logger.debug(`[BaselineProcess] Skipping iModel ${iModelIdStr} - already being processed`);
         res.status(200).json({ message: 'Already being processed', iModelId: iModelIdStr });
         return;
       }
@@ -204,8 +192,7 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
       // Mark as being processed
       processingIModels.add(iModelIdStr);
 
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineProcess] Received request to process user baseline for iModel ${iModelIdStr}`);
+      logger.info(`[BaselineProcess] Received request to process user baseline for iModel ${iModelIdStr}`);
 
       // Respond immediately
       res.status(202).json({ message: 'Processing started', iModelId: iModelIdStr });
@@ -213,11 +200,9 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
       // Process asynchronously
       try {
         await baselineGenerator.processUserBaseline(iModelIdStr, iTwinId as string, sourceBlobPath as string, (fileSize as number) || 0);
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineProcess] Completed processing for iModel ${iModelIdStr}`);
+        logger.info(`[BaselineProcess] Completed processing for iModel ${iModelIdStr}`);
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(`[BaselineProcess] Failed to process for iModel ${iModelIdStr}:`, error);
+        logger.error(`[BaselineProcess] Failed to process for iModel ${iModelIdStr}`, { iModelId: iModelIdStr, error });
       } finally {
         // Remove from processing set after a delay to prevent immediate re-processing
         setTimeout(() => {
@@ -251,8 +236,7 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
         return;
       }
 
-      // eslint-disable-next-line no-console
-      console.log(`[BaselineRetry] Retrying baseline generation for iModel ${iModelId}`);
+      logger.info(`[BaselineRetry] Retrying baseline generation for iModel ${iModelId}`);
 
       // Respond immediately
       res.status(202).json({ message: 'Retry started', iModelId });
@@ -274,11 +258,9 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
 
       try {
         await baselineGenerator.handleIModelCreated(event, content as unknown as IModelCreatedNeedBaselineEvent);
-        // eslint-disable-next-line no-console
-        console.log(`[BaselineRetry] Retry completed for iModel ${iModelId}`);
+        logger.info(`[BaselineRetry] Retry completed for iModel ${iModelId}`);
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(`[BaselineRetry] Retry failed for iModel ${iModelId}:`, error);
+        logger.error(`[BaselineRetry] Retry failed for iModel ${iModelId}`, { iModelId, error });
       }
     });
   }
@@ -290,8 +272,7 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
 
   // Error handler
   app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) => {
-    // eslint-disable-next-line no-console
-    console.error('[Server] Error:', err);
+    logger.error('[Server] Error', { error: err });
     res.status(500).json({ error: 'Internal server error' });
   });
 

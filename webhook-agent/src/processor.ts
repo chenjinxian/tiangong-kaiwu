@@ -18,6 +18,7 @@ import type {
   WebhookEvent,
 } from '@luban-cad/shared';
 import type { ProcessedEvent } from './types.js';
+import { logger } from './utils/logger.js';
 
 /**
  * Wire shape of an incoming webhook: official envelope + event-specific
@@ -78,8 +79,7 @@ export class EventProcessor {
     this._handlers[eventType].push(handler as EventHandler<unknown>);
 
     if (this._options.debug) {
-      // eslint-disable-next-line no-console
-      console.log(`[Processor] Registered handler for ${eventType}`);
+      logger.debug(`[Processor] Registered handler for ${eventType}`);
     }
   }
 
@@ -114,8 +114,7 @@ export class EventProcessor {
     };
 
     if (this._options.debug) {
-      // eslint-disable-next-line no-console
-      console.log(`[Processor] Processing event: ${event.eventType}`);
+      logger.debug(`[Processor] Processing event: ${event.eventType}`);
     }
 
     try {
@@ -126,8 +125,7 @@ export class EventProcessor {
 
       if (handlers.length === 0) {
         if (this._options.debug) {
-          // eslint-disable-next-line no-console
-          console.log(`[Processor] No handlers for ${event.eventType}`);
+          logger.debug(`[Processor] No handlers for ${event.eventType}`);
         }
       } else {
         // Execute all handlers concurrently
@@ -136,8 +134,7 @@ export class EventProcessor {
             try {
               await handler(event, event.content);
             } catch (error) {
-              // eslint-disable-next-line no-console
-              console.error(`[Processor] Handler error for ${event.eventType}:`, error);
+              logger.error(`[Processor] Handler error for ${event.eventType}`, { eventType: event.eventType, error });
             }
           })
         );
@@ -146,14 +143,12 @@ export class EventProcessor {
       processedEvent.status = 'completed';
 
       if (this._options.debug) {
-        // eslint-disable-next-line no-console
-        console.log(`[Processor] Event completed: ${event.eventType}`);
+        logger.debug(`[Processor] Event completed: ${event.eventType}`);
       }
     } catch (error) {
       processedEvent.status = 'failed';
       processedEvent.error = error instanceof Error ? error.message : 'Unknown error';
-      // eslint-disable-next-line no-console
-      console.error(`[Processor] Event failed: ${event.eventType}`, error);
+      logger.error(`[Processor] Event failed: ${event.eventType}`, { eventType: event.eventType, error });
     }
 
     this._processingQueue.push(processedEvent);

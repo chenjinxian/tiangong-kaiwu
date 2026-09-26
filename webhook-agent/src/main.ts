@@ -32,6 +32,7 @@ import { builtinHandlers, EventProcessor } from './processor.js';
 import { EventForwarder } from './forwarder.js';
 import { BaselineGenerator } from './baseline-generator.js';
 import { config } from './config.js';
+import { logger } from './utils/logger.js';
 import type { WebhookConfig } from './types.js';
 import type { IModelCreatedNeedBaselineEvent, WebhookEvent } from '@luban-cad/shared';
 
@@ -146,8 +147,7 @@ async function runRecoveryCheck(
 
     if (allPending.length === 0) {
       if (debug) {
-        // eslint-disable-next-line no-console
-        console.log('[RecoveryChecker] No uninitialized iModels found');
+        logger.debug('[RecoveryChecker] No uninitialized iModels found');
       }
       return;
     }
@@ -157,22 +157,19 @@ async function runRecoveryCheck(
 
     if (eligibleForProcessing.length === 0) {
       if (debug) {
-        // eslint-disable-next-line no-console
-        console.log('[RecoveryChecker] All pending iModels are already being processed');
+        logger.debug('[RecoveryChecker] All pending iModels are already being processed');
       }
       return;
     }
 
-    // eslint-disable-next-line no-console
-    console.log(`[RecoveryChecker] Found ${allPending.length} iModels needing initialization (${uninitialized.length} notInitialized, ${failed.length} failed), ${eligibleForProcessing.length} eligible for processing`);
+    logger.info(`[RecoveryChecker] Found ${allPending.length} iModels needing initialization (${uninitialized.length} notInitialized, ${failed.length} failed), ${eligibleForProcessing.length} eligible for processing`);
 
     // Process each iModel
     for (const iModel of eligibleForProcessing.slice(0, maxPerCheck)) {
       // Skip if already being processed (double-check in case of race conditions)
       if (processingIModels.has(iModel.id)) {
         if (debug) {
-          // eslint-disable-next-line no-console
-          console.log(`[RecoveryChecker] Skipping iModel ${iModel.id} - already being processed`);
+          logger.debug(`[RecoveryChecker] Skipping iModel ${iModel.id} - already being processed`);
         }
         continue;
       }
@@ -180,8 +177,7 @@ async function runRecoveryCheck(
       // Mark as being processed
       processingIModels.add(iModel.id);
 
-      // eslint-disable-next-line no-console
-      console.log(`[RecoveryChecker] Processing iModel ${iModel.id} (${iModel.name}) - state: ${iModel.state}`);
+      logger.info(`[RecoveryChecker] Processing iModel ${iModel.id} (${iModel.name}) - state: ${iModel.state}`);
 
       try {
         // Create a synthetic event for the baseline generator
@@ -205,32 +201,27 @@ async function runRecoveryCheck(
         // Trigger baseline generation
         await baselineGenerator.handleIModelCreated(syntheticEvent, syntheticContent);
 
-        // eslint-disable-next-line no-console
-        console.log(`[RecoveryChecker] Successfully initiated baseline generation for iModel ${iModel.id}`);
+        logger.info(`[RecoveryChecker] Successfully initiated baseline generation for iModel ${iModel.id}`);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        // eslint-disable-next-line no-console
-        console.error(`[RecoveryChecker] Failed to process iModel ${iModel.id}:`, errorMessage);
+        logger.error(`[RecoveryChecker] Failed to process iModel ${iModel.id}`, { iModelId: iModel.id, error: errorMessage });
       } finally {
         // Remove from processing set after a delay to prevent immediate re-processing
         // Keep it in the set for 2 minutes to allow initialization to complete
         setTimeout(() => {
           processingIModels.delete(iModel.id);
           if (debug) {
-            // eslint-disable-next-line no-console
-            console.log(`[RecoveryChecker] Removed iModel ${iModel.id} from processing set`);
+            logger.debug(`[RecoveryChecker] Removed iModel ${iModel.id} from processing set`);
           }
         }, 2 * 60 * 1000);
       }
     }
 
     const duration = Date.now() - startTime;
-    // eslint-disable-next-line no-console
-    console.log(`[RecoveryChecker] Check completed in ${duration}ms, processed ${Math.min(eligibleForProcessing.length, maxPerCheck)} iModels`);
+    logger.info(`[RecoveryChecker] Check completed in ${duration}ms, processed ${Math.min(eligibleForProcessing.length, maxPerCheck)} iModels`);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    // eslint-disable-next-line no-console
-    console.error('[RecoveryChecker] Error during recovery check:', errorMessage);
+    logger.error('[RecoveryChecker] Error during recovery check', { error: errorMessage });
   }
 }
 
@@ -245,8 +236,7 @@ function startRecoveryChecker(
 ): NodeJS.Timeout {
   const intervalMs = checkIntervalMinutes * 60 * 1000;
 
-  // eslint-disable-next-line no-console
-  console.log(`[RecoveryChecker] Starting automatic recovery checker (interval: ${checkIntervalMinutes} minutes, max per check: ${maxPerCheck})`);
+  logger.info(`[RecoveryChecker] Starting automatic recovery checker (interval: ${checkIntervalMinutes} minutes, max per check: ${maxPerCheck})`);
 
   // Run immediately on startup
   runRecoveryCheck(baselineGenerator, maxPerCheck, debug);
@@ -263,26 +253,18 @@ function startRecoveryChecker(
  * Main application
  */
 async function main(): Promise<void> {
-  // eslint-disable-next-line no-console
-  console.log('╔══════════════════════════════════════════════════════════════╗');
-  // eslint-disable-next-line no-console
-  console.log('║       LubanCAD - Webhook Agent                         ║');
-  // eslint-disable-next-line no-console
-  console.log('║       Pure Webhook Receiver (No WebSocket)                   ║');
-  // eslint-disable-next-line no-console
-  console.log('╚══════════════════════════════════════════════════════════════╝');
+  logger.info('╔══════════════════════════════════════════════════════════════╗');
+  logger.info('║       LubanCAD - Webhook Agent                         ║');
+  logger.info('║       Pure Webhook Receiver (No WebSocket)                   ║');
+  logger.info('╚══════════════════════════════════════════════════════════════╝');
 
   const webhookConfig = buildWebhookConfig();
   const debug = config.LOG_LEVEL === 'debug';
 
-  // eslint-disable-next-line no-console
-  console.log(`[Config] Port: ${webhookConfig.port}`);
-  // eslint-disable-next-line no-console
-  console.log(`[Config] Backend URL: ${webhookConfig.backendUrl}`);
-  // eslint-disable-next-line no-console
-  console.log(`[Config] Mode: Pure Webhook Receiver`);
-  // eslint-disable-next-line no-console
-  console.log(`[Config] Debug: ${debug}`);
+  logger.info(`[Config] Port: ${webhookConfig.port}`);
+  logger.info(`[Config] Backend URL: ${webhookConfig.backendUrl}`);
+  logger.info(`[Config] Mode: Pure Webhook Receiver`);
+  logger.info(`[Config] Debug: ${debug}`);
 
   // Create event processor
   const processor = new EventProcessor({ debug });
@@ -300,8 +282,7 @@ async function main(): Promise<void> {
         body: JSON.stringify({ step, progress }),
       });
       if (!response.ok && debug) {
-        // eslint-disable-next-line no-console
-        console.warn(`[Progress] Backend returned ${response.status} for iModel ${iModelId}`);
+        logger.warn(`[Progress] Backend returned ${response.status} for iModel ${iModelId}`);
       }
     } catch {
       // Ignore errors - progress is best-effort
@@ -319,48 +300,40 @@ async function main(): Promise<void> {
   // Register built-in event handlers
   // Handle iModel created - check if baseline generation is needed
   processor.on('*', builtinHandlers.onIModelCreated((event, content) => {
-    // eslint-disable-next-line no-console
-    console.log(`[Event] iModel created: ${content.imodelName} (${content.imodelId})`);
+    logger.info(`[Event] iModel created: ${content.imodelName} (${content.imodelId})`);
 
     // Check if this is an empty iModel needing baseline generation
     // The event content includes needBaseline flag from imodelhub-services
     const needBaseline = (content as IModelCreatedNeedBaselineEvent).needBaseline === true;
     if (needBaseline) {
-      // eslint-disable-next-line no-console
-      console.log(`[Event] Triggering baseline generation for iModel ${content.imodelId}`);
+      logger.info(`[Event] Triggering baseline generation for iModel ${content.imodelId}`);
 
       // Trigger async baseline generation (don't await - webhook must respond quickly)
       baselineGenerator.handleIModelCreated(event, content as IModelCreatedNeedBaselineEvent)
         .catch((err) => {
-          // eslint-disable-next-line no-console
-          console.error('[BaselineGenerator] Error:', err);
+          logger.error('[BaselineGenerator] Error', { iModelId: content.imodelId, error: err });
         });
     }
   }));
 
   processor.on('*', builtinHandlers.onIModelDeleted((_event, content) => {
-    // eslint-disable-next-line no-console
-    console.log(`[Event] iModel deleted: ${content.imodelId}`);
+    logger.info(`[Event] iModel deleted: ${content.imodelId}`);
   }));
 
   processor.on('*', builtinHandlers.onChangesetPushed((_event, content) => {
-    // eslint-disable-next-line no-console
-    console.log(`[Event] Changeset pushed: index ${content.changesetIndex} on iModel ${content.imodelId}`);
+    logger.info(`[Event] Changeset pushed: index ${content.changesetIndex} on iModel ${content.imodelId}`);
   }));
 
   processor.on('*', builtinHandlers.onNamedVersionCreated((_event, content) => {
-    // eslint-disable-next-line no-console
-    console.log(`[Event] Named version created: ${content.namedVersionName} on iModel ${content.imodelId}`);
+    logger.info(`[Event] Named version created: ${content.namedVersionName} on iModel ${content.imodelId}`);
   }));
 
   processor.on('*', builtinHandlers.onMemberAdded((_event, content) => {
-    // eslint-disable-next-line no-console
-    console.log(`[Event] Member added: ${content.memberId} with role ${content.roleName}`);
+    logger.info(`[Event] Member added: ${content.memberId} with role ${content.roleName}`);
   }));
 
   processor.on('*', builtinHandlers.onMemberRemoved((_event, content) => {
-    // eslint-disable-next-line no-console
-    console.log(`[Event] Member removed: ${content.memberId}`);
+    logger.info(`[Event] Member removed: ${content.memberId}`);
   }));
 
 
@@ -388,14 +361,12 @@ async function main(): Promise<void> {
       debug
     );
   } else {
-    // eslint-disable-next-line no-console
-    console.log('[RecoveryChecker] Automatic recovery is disabled');
+    logger.info('[RecoveryChecker] Automatic recovery is disabled');
   }
 
   // Graceful shutdown
   const shutdown = (signal: string) => {
-    // eslint-disable-next-line no-console
-    console.log(`\n[Shutdown] Received ${signal}, shutting down gracefully...`);
+    logger.info(`\n[Shutdown] Received ${signal}, shutting down gracefully...`);
 
     // Clear recovery checker interval
     if (recoveryIntervalId) {
@@ -405,15 +376,13 @@ async function main(): Promise<void> {
     server.close(async () => {
       await baselineGenerator.shutdown();
       await forwarder.shutdown();
-      // eslint-disable-next-line no-console
-      console.log('[Shutdown] Server closed');
+      logger.info('[Shutdown] Server closed');
       process.exit(0);
     });
 
     // Force shutdown after 10 seconds
     setTimeout(() => {
-      // eslint-disable-next-line no-console
-      console.error('[Shutdown] Forced shutdown');
+      logger.error('[Shutdown] Forced shutdown');
       process.exit(1);
     }, 10000);
   };
@@ -423,24 +392,17 @@ async function main(): Promise<void> {
 
   // Start server
   server.listen(webhookConfig.port, () => {
-    // eslint-disable-next-line no-console
-    console.log(`\n✅ Webhook Agent started`);
-    // eslint-disable-next-line no-console
-    console.log(`   HTTP:   http://localhost:${webhookConfig.port}`);
-    // eslint-disable-next-line no-console
-    console.log(`   Health: http://localhost:${webhookConfig.port}/health`);
-    // eslint-disable-next-line no-console
-    console.log(`\n📡 Pure Webhook Receiver - Events forwarded to Modeling-Server API`);
-    // eslint-disable-next-line no-console
-    console.log(`   Backend: ${webhookConfig.backendUrl}`);
-    // eslint-disable-next-line no-console
-    console.log(`\n🎯 Ready to receive webhooks from iTwin Platform\n`);
+    logger.info(`\n✅ Webhook Agent started`);
+    logger.info(`   HTTP:   http://localhost:${webhookConfig.port}`);
+    logger.info(`   Health: http://localhost:${webhookConfig.port}/health`);
+    logger.info(`\n📡 Pure Webhook Receiver - Events forwarded to Modeling-Server API`);
+    logger.info(`   Backend: ${webhookConfig.backendUrl}`);
+    logger.info(`\n🎯 Ready to receive webhooks from iTwin Platform\n`);
   });
 }
 
 // Run main
 main().catch((error) => {
-  // eslint-disable-next-line no-console
-  console.error('[Main] Fatal error:', error);
+  logger.error('[Main] Fatal error', { error });
   process.exit(1);
 });
