@@ -82,10 +82,16 @@ class Logger {
 
   /**
    * Format log entry as a single JSON line (structured output only, so log
-   * shippers and tests can parse every line).
+   * shippers and tests can parse every line). Error instances are expanded
+   * explicitly: name/message/stack are non-enumerable, so a bare
+   * JSON.stringify would emit {}.
    */
   private format(entry: LogEntry): string {
-    return JSON.stringify(entry);
+    return JSON.stringify(entry, (k, v) =>
+      v instanceof Error
+        ? { name: v.name, message: v.message, stack: v.stack }
+        : v
+    );
   }
 
   /**

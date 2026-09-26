@@ -32,4 +32,17 @@ describe('logger', () => {
     expect(err).toHaveBeenCalledTimes(1);
     err.mockRestore();
   });
+
+  it('serializes Error instances in context with name, message and stack', () => {
+    const lines: string[] = [];
+    const err = vi.spyOn(console, 'error').mockImplementation((l: string) => lines.push(l));
+    logger.error('failed', { error: new Error('boom') });
+    err.mockRestore();
+    expect(lines).toHaveLength(1);
+    const entry = JSON.parse(lines[0]);
+    expect(entry.error.name).toBe('Error');
+    expect(entry.error.message).toBe('boom');
+    expect(typeof entry.error.stack).toBe('string');
+    expect(entry.error.stack.length).toBeGreaterThan(0);
+  });
 });
