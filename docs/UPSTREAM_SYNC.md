@@ -94,6 +94,16 @@ git subtree pull --prefix=itwinjs-core --squash upstream master
 
 ## 同步记录
 
+### 2026-09-26（5.14.0-dev.17 → 5.14.0-dev.19）
+
+- **上游版本**：5.14.0-dev.17 → **5.14.0-dev.19**（基线 `0b08bc37cc` → `6407fdd4c5`）
+- **冲突与处理**：仅 `core/frontend/src/internal/tile/OrbitGtTileTree.ts` 一处（上游重写），
+  该文件不在自定义改动清单，取上游版本
+- **原生库版本变化**：`@bentley/imodeljs-native` **5.14.35 → 5.14.38** —— 按「imodel-native 联动」
+  小节跟进：imodel-native 合并 upstream/main 至 ≥ v5.14.38 → CMake 重编译 → rush update →
+  `scripts/replace-imodeljs-native.ps1`（其硬门槛以 `core/backend/package.json` 动态读版本为准）
+- 首次带尾步自动检测的真实同步；`stays at` 分支已在合并完成后的重跑中验证
+
 ### 2026-09-23（仓库整合 + 5.14.0-dev.17）
 
 - **上游版本**：5.14.0-dev.15 → **5.14.0-dev.17**（`0b08bc37cc`），上游提交数 **8**
