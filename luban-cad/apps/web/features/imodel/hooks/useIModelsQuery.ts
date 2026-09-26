@@ -36,6 +36,11 @@ import { queryKeys } from '../../../app/providers/QueryProvider.js';
 interface UseIModelsOptions {
   iTwinId: string;
   enabled?: boolean;
+  /**
+   * True while the /ws progress stream is delivering events: disables the
+   * 5s polling fallback (the stream pushes updates + invalidation instead).
+   */
+  live?: boolean;
 }
 
 interface CreateIModelData {
@@ -58,7 +63,7 @@ interface CreateIModelWithBaselineData extends CreateIModelData {
  * Replaces useIModels.ts and useIModelsSdk.ts
  */
 export function useIModels(options: UseIModelsOptions): UseQueryResult<IModel[], Error> {
-  const { iTwinId, enabled = true } = options;
+  const { iTwinId, enabled = true, live = false } = options;
 
   return useQuery({
     queryKey: queryKeys.iModels.list(iTwinId),
@@ -83,7 +88,9 @@ export function useIModels(options: UseIModelsOptions): UseQueryResult<IModel[],
     },
     enabled: !!iTwinId && enabled,
     staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchInterval: 5000, // Poll every 5 seconds to check for initialization status updates
+    // Poll every 5 seconds to check for initialization status updates; when
+    // the /ws progress stream is live it pushes updates, so polling stops.
+    refetchInterval: live ? false : 5000,
     refetchIntervalInBackground: false, // Don't poll when tab is not active
   });
 }

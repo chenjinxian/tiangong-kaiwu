@@ -5,6 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Button,
   IconButton,
@@ -29,6 +30,8 @@ import {
   useIModels,
   useDeleteIModelMutation,
 } from '../../../features/imodel/hooks/useIModelsQuery.js';
+import { useImodelProgressStream } from '../../../features/imodel/hooks/useImodelProgressStream.js';
+import { queryKeys } from '../../../app/providers/QueryProvider.js';
 import {
   getDownloadUrl,
   retryIModel,
@@ -78,11 +81,28 @@ const ITwinDetail: React.FC = React.memo(() => {
     refetch: refetchITwin,
   } = useITwinQuery(iTwinId ?? null);
 
+  const queryClient = useQueryClient();
+  const activeITwinId = iTwinId ?? '';
+
+  // Live iModel progress: the modeling-server /ws stream pushes baseline
+  // initialization updates; each event invalidates the list so state changes
+  // surface immediately. While the stream is live the 5s polling fallback in
+  // useIModels is disabled.
+  const handleProgressEvent = useCallback(() => {
+    if (!activeITwinId) return;
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.iModels.list(activeITwinId),
+    });
+  }, [activeITwinId, queryClient]);
+  const { live: progressLive } = useImodelProgressStream({
+    onEvent: handleProgressEvent,
+  });
+
   const {
     data: iModels = [],
     isLoading: isIModelsLoading,
     refetch: refetchIModels,
-  } = useIModels({ iTwinId: iTwinId ?? '', enabled: !!iTwinId });
+  } = useIModels({ iTwinId: activeITwinId, enabled: !!iTwinId, live: progressLive });
 
   const isLoading = isITwinLoading || isIModelsLoading;
   const isPartialLoading = !isITwinLoading && isIModelsLoading;
