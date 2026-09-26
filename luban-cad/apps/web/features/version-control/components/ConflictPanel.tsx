@@ -163,6 +163,20 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
 
   if (!isVisible || !detectionResult) return null;
 
+  if (detectionResult.featureAvailable === false) {
+    return (
+      <Dialog isOpen={isVisible} onClose={handleClose} portal>
+        <div style={{ padding: '24px', textAlign: 'center' }}>
+          <h3>冲突检测功能暂不可用</h3>
+          <p style={{ color: 'var(--text-secondary, #888)' }}>
+            后端尚未实现变更对比/冲突检测（规划中，见 T1.6），拉取操作将不进行冲突预检。
+          </p>
+          <button type="button" onClick={handleClose}>知道了</button>
+        </div>
+      </Dialog>
+    );
+  }
+
   const resolvedCount = Object.keys(resolutions).length;
   const totalConflicts = detectionResult.totalConflicts;
   const allResolved = resolvedCount === totalConflicts;
