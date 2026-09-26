@@ -104,6 +104,7 @@ npx playwright test e2e/editor.spec.ts                   # 单 e2e（在 luban-c
 - **peer 版本解析报 `No matching version found for @itwin/xxx@dev.N`**：在消费方 package.json 显式声明 `"@itwin/xxx": "workspace:*"` 或 link: 让 peer 由本地满足。
 - **本机 pnpm 版本**：lockfile 是 lockfileVersion 9.0（pnpm 9/10 时代）；pnpm 12 的默认供应链策略（minimumReleaseAge）会拒绝安装。本机 pnpm 未全局安装，用 `corepack pnpm@10 install`。
 - **modeling-server 首启报 `@luban-cad/shared` 无 dist/**：link: 包需先构建一次 `cd luban-cad/packages/shared && pnpm build`（tsc），再启动 modeling-server（2026-09-26 实测）。
+- **link: 项目禁用 `pnpm add`**：modeling-server/webhook-agent 的 `link:../itwinjs-core/*` 会被静默重解析为 registry 包（2026-09-26 实测）。加依赖须手改 package.json + `corepack pnpm@10 install --no-frozen-lockfile`，并核对 lockfile 的 `link:` 计数不变。
 
 ## 文档锚点
 
