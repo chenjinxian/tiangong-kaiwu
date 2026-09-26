@@ -15,71 +15,50 @@
  *   npm run build        # Build for production
  *   npm start            # Run production build
  *
- * Environment variables:
- *   WEBHOOK_SECRET       - Webhook secret for signature validation (required)
- *   PORT                 - HTTP server port (default: 4002)
- *   BACKEND_URL          - Modeling-Server API URL for event forwarding (default: http://localhost:4001)
- *   BACKEND_API_KEY      - API key for backend authentication (optional)
- *   ALLOWED_ORIGINS      - CORS allowed origins (default: *)
- *   DEBUG                - Enable debug logging (default: false)
- *
- *   Baseline Generation:
- *   BLOB_STORAGE_URL     - Azurite blob storage URL (default: http://127.0.0.1:10000/devstoreaccount1)
- *   BLOB_ACCOUNT_NAME    - Blob storage account name (default: devstoreaccount1)
- *   BLOB_ACCOUNT_KEY     - Blob storage account key (default: Azurite default key)
- *   BLOB_CONTAINER_NAME  - Container name for baseline files (default: imodel-baselines)
- *   IMODELHUB_API_URL    - imodelhub-services API URL (default: http://localhost:4000)
- *   IMODELHUB_API_KEY    - API key for imodelhub-services (optional)
+ * Environment configuration: single source is src/config.ts (zod-validated,
+ * loads the repo-root .env). Mandatory secrets: AZURITE_ACCOUNT_KEY,
+ * WEBHOOK_SECRET, IMODELHUB_API_KEY, IMODELHUB_ADMIN_EMAIL,
+ * IMODELHUB_ADMIN_PASSWORD. Dev defaults cover PORT, IMODELHUB_URL,
+ * MODELING_SERVER_URL (replaces BACKEND_URL), AZURITE_ACCOUNT_NAME,
+ * AZURITE_HOST (replaces BLOB_*), LOG_LEVEL and RECOVERY_*.
  */
 
 import http from 'http';
 import express from 'express';
-import dotenv from 'dotenv';
 import { createWebhookServer } from './webhook-server.js';
 import { builtinHandlers, EventProcessor } from './processor.js';
 import { EventForwarder } from './forwarder.js';
 import { BaselineGenerator } from './baseline-generator.js';
+import { config } from './config.js';
 import type { IModelCreatedNeedBaselineEvent, WebhookConfig, WebhookEvent } from './types.js';
 
-// Load environment variables
-dotenv.config();
+/** Container holding generated baseline files (not app config — fixed by convention). */
+const BASELINE_CONTAINER_NAME = 'imodelhub';
 
 /**
- * Load configuration from environment
+ * Build webhook server configuration from the validated config module
  */
-function loadConfig(): WebhookConfig {
-  const secret = process.env.WEBHOOK_SECRET;
-  if (!secret) {
-    // eslint-disable-next-line no-console
-    console.error('[Config] Error: WEBHOOK_SECRET environment variable is required');
-    process.exit(1);
-  }
-
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-    : ['*'];
-
+function buildWebhookConfig(): WebhookConfig {
   return {
-    secret,
-    webhookId: process.env.WEBHOOK_ID,
-    port: parseInt(process.env.PORT || '4002', 10),
-    allowedOrigins,
-    backendUrl: process.env.BACKEND_URL || 'http://localhost:4001',
-    backendApiKey: process.env.BACKEND_API_KEY,
+    secret: config.WEBHOOK_SECRET,
+    port: config.PORT,
+    // CORS config is not part of the webhook-agent schema; keep the previous
+    // permissive default (the value used whenever ALLOWED_ORIGINS was unset).
+    allowedOrigins: ['*'],
+    backendUrl: config.MODELING_SERVER_URL,
   };
 }
 
 /**
- * Load baseline generator configuration
+ * Build baseline generator configuration from the validated config module
  */
-function loadBaselineConfig() {
+function buildBaselineConfig() {
   return {
-    blobStorageUrl: process.env.BLOB_STORAGE_URL || 'http://127.0.0.1:10000/devstoreaccount1',
-    blobAccountName: process.env.BLOB_ACCOUNT_NAME || 'devstoreaccount1',
-    blobAccountKey: process.env.BLOB_ACCOUNT_KEY || 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==',
-    blobContainerName: process.env.BLOB_CONTAINER_NAME || 'imodelhub',
-    imodelhubApiUrl: process.env.IMODELHUB_API_URL || 'http://localhost:4000',
-    imodelhubApiKey: process.env.IMODELHUB_API_KEY,
+    // Previous BLOB_STORAGE_URL default: http://127.0.0.1:10000/devstoreaccount1
+    blobStorageUrl: `http://${config.AZURITE_HOST}/${config.AZURITE_ACCOUNT_NAME}`,
+    blobAccountName: config.AZURITE_ACCOUNT_NAME,
+    blobAccountKey: config.AZURITE_ACCOUNT_KEY,
+    blobContainerName: BASELINE_CONTAINER_NAME,
   };
 }
 
@@ -89,11 +68,11 @@ function loadBaselineConfig() {
 function loadRecoveryConfig() {
   return {
     // Check interval in minutes (default: 5 minutes)
-    checkIntervalMinutes: parseInt(process.env.RECOVERY_CHECK_INTERVAL_MINUTES || '5', 10),
+    checkIntervalMinutes: config.RECOVERY_CHECK_INTERVAL_MINUTES,
     // Enable/disable automatic recovery (default: true)
-    enabled: process.env.DISABLE_AUTOMATIC_RECOVERY !== 'true',
+    enabled: !config.DISABLE_AUTOMATIC_RECOVERY,
     // Maximum number of iModels to process per check (default: 10)
-    maxPerCheck: parseInt(process.env.RECOVERY_MAX_PER_CHECK || '10', 10),
+    maxPerCheck: config.RECOVERY_MAX_PER_CHECK,
   };
 }
 
@@ -111,19 +90,12 @@ interface IModelState {
 /**
  * Query uninitialized iModels from imodelhub-services admin endpoint
  */
-async function queryUninitializedIModels(
-  imodelhubApiUrl: string,
-  imodelhubApiKey: string | undefined,
-  maxResults: number
-): Promise<IModelState[]> {
-  const url = `${imodelhubApiUrl}/imodels/admin/uninitialized?limit=${maxResults}`;
+async function queryUninitializedIModels(maxResults: number): Promise<IModelState[]> {
+  const url = `${config.IMODELHUB_URL}/imodels/admin/uninitialized?limit=${maxResults}`;
 
-  const headers: Record<string, string> = {};
-  if (imodelhubApiKey) {
-    headers['X-API-Key'] = imodelhubApiKey;
-  }
-
-  const response = await fetch(url, { headers });
+  const response = await fetch(url, {
+    headers: { 'X-API-Key': config.IMODELHUB_API_KEY },
+  });
   if (!response.ok) {
     throw new Error(`Failed to query uninitialized iModels: HTTP ${response.status}`);
   }
@@ -137,8 +109,6 @@ async function queryUninitializedIModels(
  * Note: The admin endpoint now returns both notInitialized and initializationFailed
  */
 async function queryFailedIModels(
-  imodelhubApiUrl: string,
-  imodelhubApiKey: string | undefined,
   _maxResults: number
 ): Promise<IModelState[]> {
   // The admin endpoint already returns both notInitialized and initializationFailed
@@ -157,8 +127,6 @@ const processingIModels = new Set<string>();
  */
 async function runRecoveryCheck(
   baselineGenerator: BaselineGenerator,
-  imodelhubApiUrl: string,
-  imodelhubApiKey: string | undefined,
   maxPerCheck: number,
   debug: boolean
 ): Promise<void> {
@@ -167,8 +135,8 @@ async function runRecoveryCheck(
   try {
     // Query both notInitialized and initializationFailed iModels
     const [uninitialized, failed] = await Promise.all([
-      queryUninitializedIModels(imodelhubApiUrl, imodelhubApiKey, maxPerCheck),
-      queryFailedIModels(imodelhubApiUrl, imodelhubApiKey, maxPerCheck),
+      queryUninitializedIModels(maxPerCheck),
+      queryFailedIModels(maxPerCheck),
     ]);
 
     const allPending = [...uninitialized, ...failed];
@@ -267,8 +235,6 @@ async function runRecoveryCheck(
  */
 function startRecoveryChecker(
   baselineGenerator: BaselineGenerator,
-  imodelhubApiUrl: string,
-  imodelhubApiKey: string | undefined,
   checkIntervalMinutes: number,
   maxPerCheck: number,
   debug: boolean
@@ -279,11 +245,11 @@ function startRecoveryChecker(
   console.log(`[RecoveryChecker] Starting automatic recovery checker (interval: ${checkIntervalMinutes} minutes, max per check: ${maxPerCheck})`);
 
   // Run immediately on startup
-  runRecoveryCheck(baselineGenerator, imodelhubApiUrl, imodelhubApiKey, maxPerCheck, debug);
+  runRecoveryCheck(baselineGenerator, maxPerCheck, debug);
 
   // Schedule periodic checks
   const intervalId = setInterval(() => {
-    runRecoveryCheck(baselineGenerator, imodelhubApiUrl, imodelhubApiKey, maxPerCheck, debug);
+    runRecoveryCheck(baselineGenerator, maxPerCheck, debug);
   }, intervalMs);
 
   return intervalId;
@@ -302,13 +268,13 @@ async function main(): Promise<void> {
   // eslint-disable-next-line no-console
   console.log('╚══════════════════════════════════════════════════════════════╝');
 
-  const config = loadConfig();
-  const debug = process.env.DEBUG === 'true';
+  const webhookConfig = buildWebhookConfig();
+  const debug = config.LOG_LEVEL === 'debug';
 
   // eslint-disable-next-line no-console
-  console.log(`[Config] Port: ${config.port}`);
+  console.log(`[Config] Port: ${webhookConfig.port}`);
   // eslint-disable-next-line no-console
-  console.log(`[Config] Backend URL: ${config.backendUrl}`);
+  console.log(`[Config] Backend URL: ${webhookConfig.backendUrl}`);
   // eslint-disable-next-line no-console
   console.log(`[Config] Mode: Pure Webhook Receiver`);
   // eslint-disable-next-line no-console
@@ -323,10 +289,7 @@ async function main(): Promise<void> {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (config.backendApiKey) {
-        headers['X-API-Key'] = config.backendApiKey;
-      }
-      const response = await fetch(`${config.backendUrl}/api/imodels/${iModelId}/progress`, {
+      const response = await fetch(`${webhookConfig.backendUrl}/api/imodels/${iModelId}/progress`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ step, progress }),
@@ -341,7 +304,7 @@ async function main(): Promise<void> {
   }
 
   // Initialize baseline generator
-  const baselineConfig = loadBaselineConfig();
+  const baselineConfig = buildBaselineConfig();
   const baselineGenerator = new BaselineGenerator({
     ...baselineConfig,
     onProgress: notifyBackendProgress,
@@ -407,15 +370,14 @@ async function main(): Promise<void> {
 
   // Create event forwarder
   const forwarder = new EventForwarder({
-    backendUrl: config.backendUrl,
-    apiKey: config.backendApiKey,
+    backendUrl: webhookConfig.backendUrl,
     timeout: 5000,
     retryAttempts: 3,
     retryDelay: 1000,
   });
 
   // Create HTTP server (baselineGenerator is passed to handle /baseline/process endpoint)
-  const app = createWebhookServer({ config, processor, forwarder, baselineGenerator });
+  const app = createWebhookServer({ config: webhookConfig, processor, forwarder, baselineGenerator });
 
   const server = http.createServer(app);
 
@@ -425,8 +387,6 @@ async function main(): Promise<void> {
   if (recoveryConfig.enabled) {
     recoveryIntervalId = startRecoveryChecker(
       baselineGenerator,
-      baselineConfig.imodelhubApiUrl,
-      baselineConfig.imodelhubApiKey,
       recoveryConfig.checkIntervalMinutes,
       recoveryConfig.maxPerCheck,
       debug
@@ -466,17 +426,17 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 
   // Start server
-  server.listen(config.port, () => {
+  server.listen(webhookConfig.port, () => {
     // eslint-disable-next-line no-console
     console.log(`\n✅ Webhook Agent started`);
     // eslint-disable-next-line no-console
-    console.log(`   HTTP:   http://localhost:${config.port}`);
+    console.log(`   HTTP:   http://localhost:${webhookConfig.port}`);
     // eslint-disable-next-line no-console
-    console.log(`   Health: http://localhost:${config.port}/health`);
+    console.log(`   Health: http://localhost:${webhookConfig.port}/health`);
     // eslint-disable-next-line no-console
     console.log(`\n📡 Pure Webhook Receiver - Events forwarded to Modeling-Server API`);
     // eslint-disable-next-line no-console
-    console.log(`   Backend: ${config.backendUrl}`);
+    console.log(`   Backend: ${webhookConfig.backendUrl}`);
     // eslint-disable-next-line no-console
     console.log(`\n🎯 Ready to receive webhooks from iTwin Platform\n`);
   });

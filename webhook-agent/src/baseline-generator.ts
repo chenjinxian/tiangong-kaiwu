@@ -20,6 +20,7 @@ import {
   StorageSharedKeyCredential,
 } from '@azure/storage-blob';
 import type { IModelCreatedEvent, WebhookEvent } from './types.js';
+import { config } from './config.js';
 
 export interface BaselineGeneratorConfig {
   /** Azurite blob storage URL (e.g. http://127.0.0.1:10000/devstoreaccount1) */
@@ -30,10 +31,6 @@ export interface BaselineGeneratorConfig {
   blobAccountKey: string;
   /** Container name for baseline files (unused - each iModel gets its own container) */
   blobContainerName: string;
-  /** imodelhub-services API URL */
-  imodelhubApiUrl: string;
-  /** API key for imodelhub-services */
-  imodelhubApiKey?: string;
   /** Temporary directory for file generation */
   tempDir?: string;
   /** Optional callback for progress updates */
@@ -770,15 +767,12 @@ export class BaselineGenerator {
     iModelId: string,
     fileSize: number
   ): Promise<{ uploadUrl: string; confirmationUrl: string }> {
-    const url = `${this._config.imodelhubApiUrl}/imodels/${iModelId}/baseline/upload-url`;
+    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baseline/upload-url`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-API-Key': config.IMODELHUB_API_KEY,
     };
-
-    if (this._config.imodelhubApiKey) {
-      headers['X-API-Key'] = this._config.imodelhubApiKey;
-    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -837,11 +831,8 @@ export class BaselineGenerator {
   ): Promise<void> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-API-Key': config.IMODELHUB_API_KEY,
     };
-
-    if (this._config.imodelhubApiKey) {
-      headers['X-API-Key'] = this._config.imodelhubApiKey;
-    }
 
     // eslint-disable-next-line no-console
     console.log(`[BaselineGenerator] Confirming with directoryAccessInfo:`, JSON.stringify(directoryAccessInfo, null, 2));
@@ -896,12 +887,11 @@ export class BaselineGenerator {
    * Get baseline file state from imodelhub-services
    */
   private async _getBaselineFileState(iModelId: string): Promise<string> {
-    const url = `${this._config.imodelhubApiUrl}/imodels/${iModelId}/baseline`;
+    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baseline`;
 
-    const headers: Record<string, string> = {};
-    if (this._config.imodelhubApiKey) {
-      headers['X-API-Key'] = this._config.imodelhubApiKey;
-    }
+    const headers: Record<string, string> = {
+      'X-API-Key': config.IMODELHUB_API_KEY,
+    };
 
     const response = await fetch(url, {
       method: 'GET',
@@ -940,15 +930,12 @@ export class BaselineGenerator {
     fileSize: number,
     directoryAccessInfo: DirectoryAccessInfo
   ): Promise<void> {
-    const url = `${this._config.imodelhubApiUrl}/imodels/${iModelId}/baseline/complete`;
+    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baseline/complete`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-API-Key': config.IMODELHUB_API_KEY,
     };
-
-    if (this._config.imodelhubApiKey) {
-      headers['X-API-Key'] = this._config.imodelhubApiKey;
-    }
 
     // eslint-disable-next-line no-console
     console.log(`[BaselineGenerator] Notifying completion with directoryAccessInfo:`, JSON.stringify(directoryAccessInfo, null, 2));
@@ -976,15 +963,12 @@ export class BaselineGenerator {
    * Notify imodelhub-services of baseline generation failure
    */
   private async _notifyFailure(iModelId: string, error: string): Promise<void> {
-    const url = `${this._config.imodelhubApiUrl}/imodels/${iModelId}/baseline/failed`;
+    const url = `${config.IMODELHUB_URL}/imodels/${iModelId}/baseline/failed`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-API-Key': config.IMODELHUB_API_KEY,
     };
-
-    if (this._config.imodelhubApiKey) {
-      headers['X-API-Key'] = this._config.imodelhubApiKey;
-    }
 
     try {
       await fetch(url, {

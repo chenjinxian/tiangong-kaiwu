@@ -25,9 +25,11 @@
     "@itwin/ecschema-metadata": "link:../itwinjs-core/core/ecschema-metadata",
     "@itwin/object-storage-azure": "^3.0.4",
     "@itwin/object-storage-core": "^3.0.4",
-    "@azure/storage-blob": "^12.28.0"
+    "@azure/storage-blob": "^12.28.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "vitest": "^4.1.10",
     "@itwin/eslint-plugin": "^6.0.0",
     "@types/node": "~20.17.0",
     "@types/ws": "^7.0.0",
