@@ -109,5 +109,6 @@ npx playwright test e2e/editor.spec.ts                   # 单 e2e（在 luban-c
 ## 文档锚点
 
 - 能力矩阵/状态：platform-docs（天工开物文档总仓，仓外）的 STATUS.md
+- 官方 iTwin Platform REST 规格（契约对照基准）：`docs/api-specs/*.json`（itwins / imodels-v2 / access-control-v2 / webhooks-v2 / storage / users）
 - 详细开发准则（工具生命周期/检查清单/AI 注册规约）：`luban-cad/CLAUDE.md`
 - 上游同步史与冲突处理经验：`docs/UPSTREAM_SYNC.md`
