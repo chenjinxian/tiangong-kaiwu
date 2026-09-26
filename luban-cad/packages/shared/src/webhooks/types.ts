@@ -536,3 +536,15 @@ export interface IModelProgressPayload {
   /** Set by modeling-server when storing; absent on the wire (WA->MS push) */
   updatedAt?: string;
 }
+
+/**
+ * Internal MS→frontend ws push contract for background baseline progress
+ * (broadcast on /ws; official API has no analogue).
+ */
+export interface IModelProgressEvent {
+  type: 'imodel-progress';
+  iModelId: string;
+  step: string;
+  progress: number;
+  updatedAt?: string;
+}

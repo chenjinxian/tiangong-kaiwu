@@ -189,6 +189,7 @@ export type {
   MemberRoleUpdatedContent,
   IModelCreatedNeedBaselineEvent,
   IModelProgressPayload,
+  IModelProgressEvent,
 } from './webhooks/types.js';
 
 // =============================================================================
