@@ -34,4 +34,15 @@ describe('processedEventsStore', () => {
     store.add('im-3');
     expect(JSON.parse(readFileSync(file, 'utf8')).events).toHaveLength(1);
   });
+
+  it('expires entries on read without a reload (in-process TTL)', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'pes-'));
+    const file = join(dir, 'processed-events.json');
+    const store = createProcessedEventsStore(file, 10);
+    store.add('fresh');
+    expect(store.has('fresh')).toBe(true);
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(store.has('fresh')).toBe(false);
+    expect(store.size()).toBe(0);
+  });
 });

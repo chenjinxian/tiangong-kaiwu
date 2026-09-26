@@ -135,8 +135,9 @@ const processingIModels = new Set<string>();
  * Durable dedup store for the recovery checker: iModels it has already kicked
  * off are recorded here so a restart within the 2-minute dedup window does not
  * re-trigger baseline generation for the same iModel. Entries expire after the
- * same 2-minute TTL the in-memory hold uses. Path is relative to cwd and is
- * git-ignored (root .gitignore: data/).
+ * same 2-minute TTL the in-memory hold uses — reads are TTL-aware, so a FAILED
+ * generation becomes retryable again once the window passes, even without a
+ * restart. Path is relative to cwd and is git-ignored (root .gitignore: data/).
  */
 const processedEvents = createProcessedEventsStore('data/processed-events.json');
 

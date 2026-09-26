@@ -5,8 +5,11 @@
  * Durable dedup store for processed events (e.g. iModels the recovery checker
  * has already kicked off). State survives process restarts: every add() is
  * written synchronously to a small JSON file, and construction reloads it,
- * dropping entries older than ttlMs. A corrupted file is downgraded to an
- * empty store (with a logger.warn) rather than crashing startup.
+ * dropping entries older than ttlMs. Reads are TTL-aware too, so entries
+ * expire lazily even without a reload — a FAILED generation therefore becomes
+ * retryable again once the window passes, within the same process. A corrupted
+ * file is downgraded to an empty store (with a logger.warn) rather than
+ * crashing startup.
  */
 
 import * as fs from 'node:fs';
@@ -14,7 +17,7 @@ import * as path from 'node:path';
 import { logger } from './utils/logger.js';
 
 export interface ProcessedEventsStore {
-  /** O(1) membership check. */
+  /** O(1) membership check; entries past the TTL read as absent. */
   has(id: string): boolean;
   /** Record an id in memory and persist the store synchronously. */
   add(id: string): void;
@@ -51,6 +54,9 @@ export function createProcessedEventsStore(
     }
   };
 
+  /** True when a stored timestamp is past the TTL (lazy expiry on read). */
+  const isExpired = (ts: number, now: number): boolean => now - ts > ttlMs;
+
   const load = (): void => {
     let raw: string;
     try {
@@ -82,17 +88,30 @@ export function createProcessedEventsStore(
   };
 
   const persist = (): void => {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    const payload = JSON.stringify({
-      events: Array.from(events, ([id, ts]) => ({ id, ts })),
-    });
-    fs.writeFileSync(filePath, payload, 'utf8');
+    // Durability is best-effort: a disk error must not propagate out of add()
+    // and poison the caller (the in-flight guard would leak the entry).
+    try {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      const payload = JSON.stringify({
+        events: Array.from(events, ([id, ts]) => ({ id, ts })),
+      });
+      fs.writeFileSync(filePath, payload, 'utf8');
+    } catch (error) {
+      logger.warn(`[ProcessedEventsStore] Failed to persist ${filePath}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   };
 
   load();
 
   return {
-    has: (id: string) => events.has(id),
+    // TTL-aware: an expired entry reads as absent (and the id becomes
+    // retryable) even though it may still sit in the Map until the next load.
+    has: (id: string) => {
+      const ts = events.get(id);
+      return ts !== undefined && !isExpired(ts, Date.now());
+    },
 
     add: (id: string) => {
       events.set(id, Date.now());
@@ -101,6 +120,13 @@ export function createProcessedEventsStore(
 
     persist,
 
-    size: () => events.size,
+    size: () => {
+      const now = Date.now();
+      let count = 0;
+      for (const ts of events.values()) {
+        if (!isExpired(ts, now)) count++;
+      }
+      return count;
+    },
   };
 }
