@@ -1,0 +1,51 @@
+{
+  "name": "@itwin/core-bentley",
+  "version": "5.14.0-dev.19",
+  "description": "Bentley JavaScript core components",
+  "main": "lib/cjs/core-bentley.js",
+  "module": "lib/esm/core-bentley.js",
+  "typings": "lib/cjs/core-bentley",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iTwin/itwinjs-core.git",
+    "directory": "core/bentley"
+  },
+  "scripts": {
+    "build": "npm run -s build:cjs && npm run -s build:esm",
+    "build:cjs": "tsc 1>&2 --outDir lib/cjs",
+    "build:esm": "tsc 1>&2 --module ES2022 --outDir lib/esm",
+    "clean": "rimraf -g lib .rush/temp/package-deps*.json",
+    "extract-api": "betools extract-api --entry=core-bentley",
+    "test": "vitest --run",
+    "docs": "betools docs --json=../../generated-docs/core/core-bentley/file.json --tsIndexFile=core-bentley.ts --onlyJson",
+    "cover": "vitest --run --coverage",
+    "lint": "eslint \"./src/**/*.ts\" 1>&2",
+    "lint-fix": "eslint --fix -f visualstudio \"./src/**/*.ts\" 1>&2",
+    "lint-deprecation": "eslint --fix -f visualstudio --no-inline-config -c ../../common/config/eslint/eslint.config.deprecation-policy.js \"./src/**/*.ts\""
+  },
+  "keywords": [
+    "Bentley",
+    "iModel",
+    "digital-twin",
+    "iTwin"
+  ],
+  "author": {
+    "name": "Bentley Systems, Inc.",
+    "url": "http://www.bentley.com"
+  },
+  "devDependencies": {
+    "@itwin/build-tools": "workspace:*",
+    "@itwin/eslint-plugin": "^6.0.0",
+    "@opentelemetry/api": "1.0.4",
+    "@types/node": "~20.17.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^9.31.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.6.2",
+    "vitest": "^4.1.10"
+  },
+  "nyc": {
+    "extends": "./node_modules/@itwin/build-tools/.nycrc"
+  }
+}

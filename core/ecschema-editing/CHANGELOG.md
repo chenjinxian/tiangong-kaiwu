@@ -1,0 +1,1435 @@
+# Change Log - @itwin/ecschema-editing
+
+This log was last generated on Fri, 25 Sep 2026 22:28:38 GMT and should not be manually modified.
+
+## 5.13.6
+Fri, 25 Sep 2026 22:27:22 GMT
+
+_Version update only_
+
+## 5.13.5
+Tue, 22 Sep 2026 22:38:08 GMT
+
+_Version update only_
+
+## 5.13.4
+Fri, 18 Sep 2026 15:11:19 GMT
+
+_Version update only_
+
+## 5.13.3
+Tue, 15 Sep 2026 20:25:28 GMT
+
+_Version update only_
+
+## 5.13.2
+Mon, 14 Sep 2026 20:22:20 GMT
+
+_Version update only_
+
+## 5.13.1
+Tue, 08 Sep 2026 18:43:29 GMT
+
+_Version update only_
+
+## 5.13.0
+Thu, 03 Sep 2026 18:49:56 GMT
+
+### Updates
+
+- Update Units Schema to 01.00.11.
+
+## 5.12.5
+Tue, 25 Aug 2026 21:22:08 GMT
+
+_Version update only_
+
+## 5.12.4
+Tue, 18 Aug 2026 15:45:35 GMT
+
+_Version update only_
+
+## 5.12.3
+Mon, 17 Aug 2026 11:29:39 GMT
+
+_Version update only_
+
+## 5.12.2
+Mon, 10 Aug 2026 20:38:45 GMT
+
+_Version update only_
+
+## 5.12.1
+Mon, 10 Aug 2026 19:07:26 GMT
+
+_Version update only_
+
+## 5.12.0
+Mon, 03 Aug 2026 12:25:49 GMT
+
+_Version update only_
+
+## 5.11.4
+Tue, 25 Aug 2026 19:54:22 GMT
+
+_Version update only_
+
+## 5.11.3
+Wed, 15 Jul 2026 19:40:44 GMT
+
+_Version update only_
+
+## 5.11.2
+Fri, 10 Jul 2026 12:20:31 GMT
+
+_Version update only_
+
+## 5.11.1
+Wed, 08 Jul 2026 19:03:46 GMT
+
+_Version update only_
+
+## 5.11.0
+Fri, 03 Jul 2026 13:05:21 GMT
+
+### Updates
+
+- Non polymorphic constraint must be concrete
+
+## 5.10.3
+Tue, 16 Jun 2026 12:58:32 GMT
+
+_Version update only_
+
+## 5.10.2
+Thu, 11 Jun 2026 21:09:38 GMT
+
+_Version update only_
+
+## 5.10.1
+Mon, 08 Jun 2026 18:45:58 GMT
+
+_Version update only_
+
+## 5.10.0
+Wed, 03 Jun 2026 20:19:46 GMT
+
+### Updates
+
+- Use units schema 01.00.10
+
+## 5.9.5
+Mon, 01 Jun 2026 17:34:00 GMT
+
+_Version update only_
+
+## 5.9.4
+Tue, 19 May 2026 19:45:27 GMT
+
+_Version update only_
+
+## 5.9.3
+Fri, 15 May 2026 11:25:54 GMT
+
+_Version update only_
+
+## 5.9.2
+Fri, 08 May 2026 20:36:41 GMT
+
+_Version update only_
+
+## 5.9.1
+Tue, 05 May 2026 17:43:30 GMT
+
+_Version update only_
+
+## 5.9.0
+Mon, 04 May 2026 16:32:08 GMT
+
+_Version update only_
+
+## 5.8.5
+Thu, 14 May 2026 19:12:21 GMT
+
+_Version update only_
+
+## 5.8.4
+Thu, 23 Apr 2026 18:05:14 GMT
+
+_Version update only_
+
+## 5.8.3
+Thu, 23 Apr 2026 14:52:42 GMT
+
+_Version update only_
+
+## 5.8.2
+Thu, 16 Apr 2026 11:05:01 GMT
+
+_Version update only_
+
+## 5.8.1
+Fri, 10 Apr 2026 13:02:00 GMT
+
+_Version update only_
+
+## 5.8.0
+Thu, 02 Apr 2026 18:19:33 GMT
+
+_Version update only_
+
+## 5.7.3
+Tue, 24 Mar 2026 14:29:17 GMT
+
+_Version update only_
+
+## 5.7.2
+Thu, 12 Mar 2026 14:12:44 GMT
+
+_Version update only_
+
+## 5.7.1
+Mon, 09 Mar 2026 14:41:48 GMT
+
+_Version update only_
+
+## 5.7.0
+Tue, 03 Mar 2026 18:21:20 GMT
+
+### Updates
+
+- Added performance metrics to Schema Merge Reporter
+- Updated SchemaMerger to provide a merge report to track which operations merged and which failed the merge operation.
+
+## 5.6.3
+Mon, 09 Mar 2026 22:09:11 GMT
+
+_Version update only_
+
+## 5.6.2
+Thu, 26 Feb 2026 22:14:46 GMT
+
+_Version update only_
+
+## 5.6.1
+Fri, 13 Feb 2026 17:11:47 GMT
+
+_Version update only_
+
+## 5.6.0
+Thu, 05 Feb 2026 16:12:37 GMT
+
+_Version update only_
+
+## 5.5.2
+Thu, 22 Jan 2026 16:16:54 GMT
+
+_Version update only_
+
+## 5.5.1
+Wed, 14 Jan 2026 17:52:53 GMT
+
+_Version update only_
+
+## 5.5.0
+Mon, 05 Jan 2026 17:05:53 GMT
+
+_Version update only_
+
+## 5.4.2
+Fri, 12 Dec 2025 14:40:14 GMT
+
+_Version update only_
+
+## 5.4.1
+Thu, 11 Dec 2025 21:29:31 GMT
+
+_Version update only_
+
+## 5.4.0
+Tue, 02 Dec 2025 21:22:25 GMT
+
+_Version update only_
+
+## 5.3.4
+Fri, 12 Dec 2025 20:11:41 GMT
+
+_Version update only_
+
+## 5.3.3
+Thu, 20 Nov 2025 22:30:37 GMT
+
+_Version update only_
+
+## 5.3.2
+Thu, 13 Nov 2025 23:23:23 GMT
+
+_Version update only_
+
+## 5.3.1
+Thu, 06 Nov 2025 20:29:06 GMT
+
+_Version update only_
+
+## 5.3.0
+Mon, 03 Nov 2025 19:02:35 GMT
+
+_Version update only_
+
+## 5.2.6
+Thu, 13 Nov 2025 21:13:51 GMT
+
+_Version update only_
+
+## 5.2.5
+Thu, 13 Nov 2025 07:45:14 GMT
+
+_Version update only_
+
+## 5.2.4
+Fri, 24 Oct 2025 16:20:38 GMT
+
+_Version update only_
+
+## 5.2.3
+Thu, 16 Oct 2025 23:00:31 GMT
+
+_Version update only_
+
+## 5.2.2
+Fri, 10 Oct 2025 14:49:15 GMT
+
+_Version update only_
+
+## 5.2.1
+Thu, 09 Oct 2025 17:10:26 GMT
+
+_Version update only_
+
+## 5.2.0
+Wed, 01 Oct 2025 20:22:54 GMT
+
+_Version update only_
+
+## 5.1.9
+Wed, 24 Sep 2025 17:38:08 GMT
+
+_Version update only_
+
+## 5.1.8
+Wed, 17 Sep 2025 17:17:16 GMT
+
+_Version update only_
+
+## 5.1.7
+Tue, 09 Sep 2025 19:28:04 GMT
+
+_Version update only_
+
+## 5.1.6
+Mon, 08 Sep 2025 13:53:47 GMT
+
+_Version update only_
+
+## 5.1.5
+Thu, 04 Sep 2025 13:51:09 GMT
+
+_Version update only_
+
+## 5.1.4
+Fri, 22 Aug 2025 14:22:33 GMT
+
+_Version update only_
+
+## 5.1.3
+Wed, 20 Aug 2025 13:57:10 GMT
+
+_Version update only_
+
+## 5.1.2
+Thu, 14 Aug 2025 19:38:08 GMT
+
+_Version update only_
+
+## 5.1.1
+Fri, 08 Aug 2025 18:06:10 GMT
+
+_Version update only_
+
+## 5.1.0
+Fri, 08 Aug 2025 12:51:53 GMT
+
+### Updates
+
+- Treat empty and missing description as equivalent in schema comparison
+- Use the latest released version 1.0.9 of units schema
+- Add support for `stationBaseFactor` in `Format`
+
+## 5.0.5
+Wed, 06 Aug 2025 15:34:15 GMT
+
+_Version update only_
+
+## 5.0.4
+Wed, 16 Jul 2025 14:59:59 GMT
+
+_Version update only_
+
+## 5.0.3
+Fri, 11 Jul 2025 00:56:56 GMT
+
+_Version update only_
+
+## 5.0.2
+Thu, 26 Jun 2025 22:16:01 GMT
+
+_Version update only_
+
+## 5.0.1
+Tue, 17 Jun 2025 18:33:52 GMT
+
+_Version update only_
+
+## 5.0.0
+Fri, 13 Jun 2025 20:25:38 GMT
+
+### Updates
+
+- Replaced ECClass.baseClass setter with setBaseClass method due to underlying changes in the ecschema-metadata package.
+- Changed Class.getProperty method to include inherited properties by default. This affected numerous call in the editing package.
+- Upgrade compile target to ES2023 and module to ES2022
+- Dropped support for Node 18
+- Added ESM support
+- Updated getSchemaItem methods from MergingSchemaContext to reflect changes made to methods from the base class SchemaContext.
+- Added format merging
+- Allows to re-apply stored conflict resolutions
+- Added ability to merge Unit and InvertedUnit Schema Items
+- applied changes in ecschema-metadatas SchemaLocater interface
+- Change core peer dependencies to strict version.
+
+## 4.11.7
+Thu, 13 Nov 2025 20:49:33 GMT
+
+_Version update only_
+
+## 4.11.6
+Mon, 16 Jun 2025 15:00:15 GMT
+
+_Version update only_
+
+## 4.11.5
+Fri, 06 Jun 2025 13:41:18 GMT
+
+_Version update only_
+
+## 4.11.4
+Tue, 03 Jun 2025 16:15:19 GMT
+
+_Version update only_
+
+## 4.11.3
+Wed, 28 May 2025 13:56:23 GMT
+
+_Version update only_
+
+## 4.11.2
+Tue, 20 May 2025 20:14:46 GMT
+
+_Version update only_
+
+## 4.11.1
+Wed, 30 Apr 2025 13:13:21 GMT
+
+_Version update only_
+
+## 4.11.0
+Wed, 16 Apr 2025 15:50:28 GMT
+
+_Version update only_
+
+## 4.10.13
+Thu, 10 Apr 2025 17:47:21 GMT
+
+_Version update only_
+
+## 4.10.12
+Wed, 02 Apr 2025 19:35:47 GMT
+
+_Version update only_
+
+## 4.10.11
+Wed, 19 Mar 2025 15:30:39 GMT
+
+_Version update only_
+
+## 4.10.10
+Tue, 11 Mar 2025 15:25:11 GMT
+
+_Version update only_
+
+## 4.10.9
+Tue, 11 Mar 2025 05:17:33 GMT
+
+_Version update only_
+
+## 4.10.8
+Thu, 06 Mar 2025 14:13:37 GMT
+
+_Version update only_
+
+## 4.10.7
+Tue, 18 Feb 2025 17:27:03 GMT
+
+_Version update only_
+
+## 4.10.6
+Fri, 24 Jan 2025 08:02:40 GMT
+
+_Version update only_
+
+## 4.10.5
+Tue, 21 Jan 2025 21:56:45 GMT
+
+_Version update only_
+
+## 4.10.4
+Mon, 13 Jan 2025 14:06:43 GMT
+
+_Version update only_
+
+## 4.10.3
+Mon, 06 Jan 2025 14:00:13 GMT
+
+_Version update only_
+
+## 4.10.2
+Thu, 21 Nov 2024 15:22:20 GMT
+
+_Version update only_
+
+## 4.10.1
+Thu, 14 Nov 2024 18:11:00 GMT
+
+_Version update only_
+
+## 4.10.0
+Wed, 13 Nov 2024 15:23:38 GMT
+
+_Version update only_
+
+## 4.9.7
+Wed, 06 Nov 2024 19:23:04 GMT
+
+_Version update only_
+
+## 4.9.6
+Tue, 05 Nov 2024 15:22:46 GMT
+
+_Version update only_
+
+## 4.9.5
+Tue, 22 Oct 2024 20:01:40 GMT
+
+_Version update only_
+
+## 4.9.4
+Wed, 09 Oct 2024 20:22:04 GMT
+
+_Version update only_
+
+## 4.9.3
+Thu, 03 Oct 2024 19:15:45 GMT
+
+_Version update only_
+
+## 4.9.2
+Wed, 02 Oct 2024 15:14:43 GMT
+
+_Version update only_
+
+## 4.9.1
+Wed, 25 Sep 2024 20:10:58 GMT
+
+_Version update only_
+
+## 4.9.0
+Mon, 23 Sep 2024 13:44:01 GMT
+
+### Updates
+
+- Added support for editing a Properties KindOfQuantity. 
+- Schema editing api addition, setAlias, to update Schema alias. 
+
+## 4.8.7
+Fri, 13 Sep 2024 15:11:17 GMT
+
+_Version update only_
+
+## 4.8.6
+Fri, 06 Sep 2024 05:06:49 GMT
+
+_Version update only_
+
+## 4.8.5
+Wed, 28 Aug 2024 17:27:23 GMT
+
+### Updates
+
+- Added support for editing a Properties KindOfQuantity. 
+
+## 4.8.4
+Thu, 22 Aug 2024 17:37:06 GMT
+
+_Version update only_
+
+## 4.8.3
+Fri, 16 Aug 2024 18:18:14 GMT
+
+_Version update only_
+
+## 4.8.2
+Thu, 15 Aug 2024 15:33:49 GMT
+
+_Version update only_
+
+## 4.8.1
+Mon, 12 Aug 2024 14:05:54 GMT
+
+_Version update only_
+
+## 4.8.0
+Thu, 08 Aug 2024 16:15:38 GMT
+
+### Updates
+
+- Introduced Schema Merging Changes API
+- Removed SchemaDifference namspace; difference method and typeguards are now exported functions of the package. SchemaDifferences has been renamed to SchemaDifferenceResult
+- Added SchemaItem name editing in the schema editing API.
+
+## 4.7.8
+Wed, 31 Jul 2024 13:38:04 GMT
+
+_Version update only_
+
+## 4.7.7
+Fri, 19 Jul 2024 14:52:42 GMT
+
+_Version update only_
+
+## 4.7.6
+Fri, 12 Jul 2024 14:42:55 GMT
+
+_Version update only_
+
+## 4.7.5
+Thu, 11 Jul 2024 15:24:55 GMT
+
+_Version update only_
+
+## 4.7.4
+Mon, 01 Jul 2024 14:06:24 GMT
+
+_Version update only_
+
+## 4.7.3
+Thu, 27 Jun 2024 21:09:02 GMT
+
+_Version update only_
+
+## 4.7.2
+Sat, 22 Jun 2024 01:09:54 GMT
+
+_Version update only_
+
+## 4.7.1
+Thu, 13 Jun 2024 22:47:32 GMT
+
+_Version update only_
+
+## 4.7.0
+Wed, 12 Jun 2024 18:02:16 GMT
+
+### Updates
+
+- Schema editing errors are now handled by throwing SchemaEditError instances rather than returning edit result objects.
+
+## 4.6.2
+Sat, 08 Jun 2024 00:50:25 GMT
+
+_Version update only_
+
+## 4.6.1
+Wed, 29 May 2024 14:35:17 GMT
+
+_Version update only_
+
+## 4.6.0
+Mon, 13 May 2024 20:32:51 GMT
+
+### Updates
+
+- Additional API added for the editing of Property attributes. 
+- PropertyMerger mutual calls replaced with editor calls
+- Replaced schema changes api with differencing api in SchemaMerger
+- Added setBaseClass method for Struct and RelationshipClass
+- Skip value change diagnotics if SchemaItem is missing 
+
+## 4.5.2
+Tue, 16 Apr 2024 14:46:22 GMT
+
+_Version update only_
+
+## 4.5.1
+Wed, 03 Apr 2024 18:26:58 GMT
+
+_Version update only_
+
+## 4.5.0
+Tue, 02 Apr 2024 19:06:00 GMT
+
+### Updates
+
+- Units v1.0.8 schema is released which introduces a new unit - Decanewton (daN)
+- Added navigation property merging
+- Added Schema Differencing API
+- Added multi-pass to class changes in SchemaMerger
+- Adjusted EC-001 supplemental test to add custom attribute after the reference was added
+- Added RelationshipClass merging
+
+## 4.4.9
+Mon, 15 Apr 2024 20:29:22 GMT
+
+_Version update only_
+
+## 4.4.8
+Mon, 25 Mar 2024 22:22:26 GMT
+
+_Version update only_
+
+## 4.4.7
+Fri, 15 Mar 2024 19:15:14 GMT
+
+_Version update only_
+
+## 4.4.6
+Fri, 08 Mar 2024 15:57:11 GMT
+
+_Version update only_
+
+## 4.4.5
+Tue, 05 Mar 2024 20:37:18 GMT
+
+_Version update only_
+
+## 4.4.4
+Fri, 01 Mar 2024 18:21:01 GMT
+
+_Version update only_
+
+## 4.4.3
+Fri, 23 Feb 2024 21:26:07 GMT
+
+_Version update only_
+
+## 4.4.2
+Fri, 16 Feb 2024 14:22:01 GMT
+
+_Version update only_
+
+## 4.4.1
+Fri, 16 Feb 2024 14:17:48 GMT
+
+_Version update only_
+
+## 4.4.0
+Mon, 12 Feb 2024 18:15:58 GMT
+
+### Updates
+
+- Added class merge
+- Added ability to track changes for property minLength, maxLength, minValue, maxValue, extendedTypeName attributes
+- Added ecclass property merging
+- Use Schema Editor instead od Mutable Schema Items directly
+- Removed keyMismatch comparison in schemaDelegate so that two reports are created for each schemaA and schemaB
+- Added full name comparison support for areItemsSameByName in SchemaComparer
+- Removed schemaComparerOptions flag from schemaCompare and added comparison support to compare schemas with different names.
+- Added methods for creating relationship or setting its properties
+- Added Merge function to merge CustomAttributes
+- Added kind of quantity merging
+
+## 4.3.5
+Mon, 25 Mar 2024 16:54:37 GMT
+
+_Version update only_
+
+## 4.3.4
+Fri, 22 Mar 2024 13:30:31 GMT
+
+_Version update only_
+
+## 4.3.3
+Wed, 03 Jan 2024 19:28:38 GMT
+
+_Version update only_
+
+## 4.3.2
+Thu, 14 Dec 2023 20:23:02 GMT
+
+_Version update only_
+
+## 4.3.1
+Wed, 13 Dec 2023 17:25:55 GMT
+
+_Version update only_
+
+## 4.3.0
+Thu, 07 Dec 2023 17:43:09 GMT
+
+### Updates
+
+- Added ability to track changes for property minLength, maxLength, minValue, maxValue, extendedTypeName attributes
+- Use Schema Editor instead od Mutable Schema Items directly
+- Added full name comparison support for areItemsSameByName in SchemaComparer
+- Removed schemaComparerOptions flag from schemaCompare and added comparison support to compare schemas with different names.
+
+## 4.2.4
+Mon, 20 Nov 2023 16:14:45 GMT
+
+_Version update only_
+
+## 4.2.3
+Mon, 06 Nov 2023 14:01:52 GMT
+
+_Version update only_
+
+## 4.2.2
+Thu, 02 Nov 2023 15:36:20 GMT
+
+_Version update only_
+
+## 4.2.1
+Tue, 24 Oct 2023 15:09:13 GMT
+
+_Version update only_
+
+## 4.2.0
+Tue, 17 Oct 2023 15:14:32 GMT
+
+### Updates
+
+- Added the ability to update the base class of an EC Class via the ecschema-editing API.
+- Added first version of SchemaMerger class.
+- Added schema merging support for phenomenon, constant, unit system and enumerators.
+- Added the ability to rename an ECProperty via the setName method.
+
+## 4.1.9
+Tue, 10 Oct 2023 18:48:12 GMT
+
+_Version update only_
+
+## 4.1.8
+Fri, 06 Oct 2023 04:00:18 GMT
+
+_Version update only_
+
+## 4.1.7
+Thu, 28 Sep 2023 21:41:33 GMT
+
+_Version update only_
+
+## 4.1.6
+Tue, 12 Sep 2023 15:38:52 GMT
+
+_Version update only_
+
+## 4.1.5
+Fri, 08 Sep 2023 13:37:23 GMT
+
+_Version update only_
+
+## 4.1.4
+Thu, 07 Sep 2023 18:26:02 GMT
+
+_Version update only_
+
+## 4.1.3
+Wed, 30 Aug 2023 15:35:27 GMT
+
+_Version update only_
+
+## 4.1.2
+Wed, 23 Aug 2023 15:25:29 GMT
+
+_Version update only_
+
+## 4.1.1
+Fri, 18 Aug 2023 13:02:53 GMT
+
+_Version update only_
+
+## 4.1.0
+Mon, 14 Aug 2023 14:36:34 GMT
+
+### Updates
+
+- Add the ability to update the name of an EC Class via the ecschema-editing API.
+- Added the ability to update the base class of an EC Class via the ecschema-editing API.
+- Upgrade sinon to 15.0.4
+- Switch to ESLint new flat config system
+
+## 4.0.7
+Thu, 10 Aug 2023 13:19:24 GMT
+
+_Version update only_
+
+## 4.0.6
+Mon, 24 Jul 2023 05:07:33 GMT
+
+_Version update only_
+
+## 4.0.5
+Tue, 18 Jul 2023 12:21:56 GMT
+
+_Version update only_
+
+## 4.0.4
+Wed, 12 Jul 2023 15:50:01 GMT
+
+_Version update only_
+
+## 4.0.3
+Mon, 03 Jul 2023 15:28:41 GMT
+
+_Version update only_
+
+## 4.0.2
+Wed, 21 Jun 2023 22:04:43 GMT
+
+_Version update only_
+
+## 4.0.1
+Wed, 21 Jun 2023 20:29:13 GMT
+
+_Version update only_
+
+## 4.0.0
+Mon, 22 May 2023 15:34:14 GMT
+
+### Updates
+
+- Updated to work with async schema loading changes made to ecschema-metadata
+- Update to eslint@8
+- Removed obsolete EC rule 102 - Abstract class must have abstract base class.
+
+## 3.8.0
+Fri, 08 Dec 2023 15:23:59 GMT
+
+_Version update only_
+
+## 3.7.17
+Mon, 20 Nov 2023 18:24:23 GMT
+
+_Version update only_
+
+## 3.7.16
+Mon, 16 Oct 2023 12:49:08 GMT
+
+_Version update only_
+
+## 3.7.15
+Tue, 10 Oct 2023 19:58:35 GMT
+
+_Version update only_
+
+## 3.7.14
+Fri, 29 Sep 2023 16:57:16 GMT
+
+_Version update only_
+
+## 3.7.13
+Tue, 08 Aug 2023 19:49:18 GMT
+
+_Version update only_
+
+## 3.7.12
+Thu, 27 Jul 2023 21:50:57 GMT
+
+_Version update only_
+
+## 3.7.11
+Tue, 11 Jul 2023 17:17:21 GMT
+
+_Version update only_
+
+## 3.7.10
+Wed, 05 Jul 2023 13:41:21 GMT
+
+_Version update only_
+
+## 3.7.9
+Tue, 20 Jun 2023 12:51:02 GMT
+
+_Version update only_
+
+## 3.7.8
+Thu, 01 Jun 2023 17:00:39 GMT
+
+_Version update only_
+
+## 3.7.7
+Wed, 24 May 2023 17:27:09 GMT
+
+_Version update only_
+
+## 3.7.6
+Mon, 15 May 2023 18:23:41 GMT
+
+_Version update only_
+
+## 3.7.5
+Thu, 04 May 2023 19:43:18 GMT
+
+### Updates
+
+- Removed obsolete EC rule 102 - Abstract class must have abstract base class.
+
+## 3.7.4
+Tue, 25 Apr 2023 17:50:35 GMT
+
+_Version update only_
+
+## 3.7.3
+Thu, 20 Apr 2023 13:19:29 GMT
+
+_Version update only_
+
+## 3.7.2
+Wed, 12 Apr 2023 13:12:42 GMT
+
+_Version update only_
+
+## 3.7.1
+Mon, 03 Apr 2023 15:15:37 GMT
+
+_Version update only_
+
+## 3.7.0
+Wed, 29 Mar 2023 15:02:27 GMT
+
+_Version update only_
+
+## 3.6.3
+Mon, 27 Mar 2023 16:26:47 GMT
+
+_Version update only_
+
+## 3.6.2
+Fri, 17 Mar 2023 17:52:32 GMT
+
+_Version update only_
+
+## 3.6.1
+Fri, 24 Feb 2023 22:00:48 GMT
+
+_Version update only_
+
+## 3.6.0
+Wed, 08 Feb 2023 14:58:40 GMT
+
+_Version update only_
+
+## 3.5.6
+Fri, 24 Feb 2023 16:02:47 GMT
+
+_Version update only_
+
+## 3.5.5
+Thu, 26 Jan 2023 22:53:27 GMT
+
+_Version update only_
+
+## 3.5.4
+Wed, 18 Jan 2023 15:27:15 GMT
+
+_Version update only_
+
+## 3.5.3
+Fri, 13 Jan 2023 17:23:07 GMT
+
+_Version update only_
+
+## 3.5.2
+Wed, 11 Jan 2023 16:46:30 GMT
+
+_Version update only_
+
+## 3.5.1
+Thu, 15 Dec 2022 16:38:29 GMT
+
+_Version update only_
+
+## 3.5.0
+Wed, 07 Dec 2022 19:12:37 GMT
+
+### Updates
+
+- bump up xmldom/xmldom version to avoid prototype pollution
+
+## 3.4.7
+Wed, 30 Nov 2022 14:28:19 GMT
+
+_Version update only_
+
+## 3.4.6
+Tue, 22 Nov 2022 14:24:19 GMT
+
+_Version update only_
+
+## 3.4.5
+Thu, 17 Nov 2022 21:32:50 GMT
+
+_Version update only_
+
+## 3.4.4
+Thu, 10 Nov 2022 19:32:17 GMT
+
+### Updates
+
+- bump xmldom to resolve GHSA-crh6-fp67-6883
+
+## 3.4.3
+Fri, 28 Oct 2022 13:34:58 GMT
+
+_Version update only_
+
+## 3.4.2
+Mon, 24 Oct 2022 13:23:45 GMT
+
+_Version update only_
+
+## 3.4.1
+Mon, 17 Oct 2022 20:06:51 GMT
+
+_Version update only_
+
+## 3.4.0
+Thu, 13 Oct 2022 20:24:47 GMT
+
+### Updates
+
+- Updated Node types declaration to support latest v16
+
+## 3.3.5
+Tue, 27 Sep 2022 11:50:59 GMT
+
+_Version update only_
+
+## 3.3.4
+Thu, 08 Sep 2022 19:00:05 GMT
+
+_Version update only_
+
+## 3.3.3
+Tue, 06 Sep 2022 20:54:19 GMT
+
+_Version update only_
+
+## 3.3.2
+Thu, 01 Sep 2022 14:37:22 GMT
+
+_Version update only_
+
+## 3.3.1
+Fri, 26 Aug 2022 15:40:02 GMT
+
+_Version update only_
+
+## 3.3.0
+Thu, 18 Aug 2022 19:08:02 GMT
+
+### Updates
+
+- Added support for adding CustomAttributes to EC Classes and Properties.
+- upgrade mocha to version 10.0.0
+
+## 3.2.9
+Fri, 26 Aug 2022 14:21:40 GMT
+
+_Version update only_
+
+## 3.2.8
+Tue, 09 Aug 2022 15:52:41 GMT
+
+_Version update only_
+
+## 3.2.7
+Mon, 01 Aug 2022 13:36:56 GMT
+
+_Version update only_
+
+## 3.2.6
+Fri, 15 Jul 2022 19:04:43 GMT
+
+_Version update only_
+
+## 3.2.5
+Wed, 13 Jul 2022 15:45:52 GMT
+
+_Version update only_
+
+## 3.2.4
+Tue, 21 Jun 2022 18:06:33 GMT
+
+_Version update only_
+
+## 3.2.3
+Fri, 17 Jun 2022 15:18:39 GMT
+
+_Version update only_
+
+## 3.2.2
+Fri, 10 Jun 2022 16:11:36 GMT
+
+_Version update only_
+
+## 3.2.1
+Tue, 07 Jun 2022 15:02:56 GMT
+
+_Version update only_
+
+## 3.2.0
+Fri, 20 May 2022 13:10:54 GMT
+
+_Version update only_
+
+## 3.1.3
+Fri, 15 Apr 2022 13:49:25 GMT
+
+_Version update only_
+
+## 3.1.2
+Wed, 06 Apr 2022 22:27:56 GMT
+
+_Version update only_
+
+## 3.1.1
+Thu, 31 Mar 2022 15:55:48 GMT
+
+_Version update only_
+
+## 3.1.0
+Tue, 29 Mar 2022 20:53:47 GMT
+
+### Updates
+
+- Now consuming FormatType from @itwin/core-quantity package.
+
+## 3.0.3
+Fri, 25 Mar 2022 15:10:02 GMT
+
+_Version update only_
+
+## 3.0.2
+Thu, 10 Mar 2022 21:18:13 GMT
+
+_Version update only_
+
+## 3.0.1
+Thu, 24 Feb 2022 15:26:55 GMT
+
+_Version update only_
+
+## 3.0.0
+Mon, 24 Jan 2022 14:00:52 GMT
+
+### Updates
+
+- Added delete class from schema and delete property from class as well as corresponding tests
+- Upgrade target to ES2019
+- Added the setVersion method to the Editor class to allow the update of a Schema version.
+- rename to @itwin/ecschema-editing
+- Replace usage of I18N with generic Localization interface.
+- Removing deprecated editing and validation types from ecschema-metadata.
+- remove ClientRequestContext.current
+- Added CreateElement, CreateElementUniqueAspect and CreateElementMultiAspect to schema editing API.
+
+## 2.19.28
+Wed, 12 Jan 2022 14:52:38 GMT
+
+_Version update only_
+
+## 2.19.27
+Wed, 05 Jan 2022 20:07:20 GMT
+
+_Version update only_
+
+## 2.19.26
+Wed, 08 Dec 2021 20:54:52 GMT
+
+_Version update only_
+
+## 2.19.25
+Fri, 03 Dec 2021 20:05:49 GMT
+
+_Version update only_
+
+## 2.19.24
+Mon, 29 Nov 2021 18:44:31 GMT
+
+_Version update only_
+
+## 2.19.23
+Mon, 22 Nov 2021 20:41:39 GMT
+
+_Version update only_
+
+## 2.19.22
+Wed, 17 Nov 2021 01:23:26 GMT
+
+_Version update only_
+
+## 2.19.21
+Wed, 10 Nov 2021 10:58:24 GMT
+
+_Version update only_
+
+## 2.19.20
+Fri, 29 Oct 2021 16:14:22 GMT
+
+_Version update only_
+
+## 2.19.19
+Mon, 25 Oct 2021 16:16:25 GMT
+
+_Version update only_
+
+## 2.19.18
+Thu, 21 Oct 2021 20:59:44 GMT
+
+_Version update only_
+
+## 2.19.17
+Thu, 14 Oct 2021 21:19:43 GMT
+
+_Version update only_
+
+## 2.19.16
+Mon, 11 Oct 2021 17:37:46 GMT
+
+_Version update only_
+
+## 2.19.15
+Fri, 08 Oct 2021 16:44:23 GMT
+
+_Version update only_
+
+## 2.19.14
+Fri, 01 Oct 2021 13:07:03 GMT
+
+_Version update only_
+
+## 2.19.13
+Tue, 21 Sep 2021 21:06:40 GMT
+
+_Version update only_
+
+## 2.19.12
+Wed, 15 Sep 2021 18:06:46 GMT
+
+### Updates
+
+- Bump xmldom@^0.6.0 -> @xmldom/xmldom@^0.7.0, and remove @types/xmldom, as typedefs are now delivered with their core pkg. This should resolve cve-2021-32796
+
+## 2.19.11
+Thu, 09 Sep 2021 21:04:57 GMT
+
+_Version update only_
+
+## 2.19.10
+Wed, 08 Sep 2021 14:36:01 GMT
+
+_Version update only_
+
+## 2.19.9
+Wed, 25 Aug 2021 15:36:01 GMT
+
+_Version update only_
+
+## 2.19.8
+Mon, 23 Aug 2021 13:23:13 GMT
+
+_Version update only_
+
+## 2.19.7
+Fri, 20 Aug 2021 17:47:22 GMT
+
+_Version update only_
+
+## 2.19.6
+Tue, 17 Aug 2021 20:34:28 GMT
+
+_Version update only_
+
+## 2.19.5
+Fri, 13 Aug 2021 21:48:08 GMT
+
+_Version update only_
+
+## 2.19.4
+Thu, 12 Aug 2021 13:09:26 GMT
+
+_Version update only_
+
+## 2.19.3
+Wed, 04 Aug 2021 20:29:34 GMT
+
+### Updates
+
+- switch to xmldom@0.6.0 which correctly escapes entities in attributes when serializing
+
+## 2.19.2
+Tue, 03 Aug 2021 18:26:23 GMT
+
+_Version update only_
+
+## 2.19.1
+Thu, 29 Jul 2021 20:01:11 GMT
+
+_Version update only_
+
+## 2.19.0
+Mon, 26 Jul 2021 12:21:25 GMT
+
+### Updates
+
+- Extracted editor classes to their own files and other alpha level changes.
+- Split editing tests into different test files
+
+## 2.18.4
+Tue, 10 Aug 2021 19:35:13 GMT
+
+_Version update only_
+
+## 2.18.3
+Wed, 28 Jul 2021 17:16:30 GMT
+
+_Version update only_
+
+## 2.18.2
+Mon, 26 Jul 2021 16:18:31 GMT
+
+_Version update only_
+
+## 2.18.1
+Fri, 16 Jul 2021 17:45:09 GMT
+
+_Version update only_
+
+## 2.18.0
+Fri, 09 Jul 2021 18:11:24 GMT
+
+### Updates
+
+- ECSchema validation and editing APIs moved from the ecschema-metadata package to the  ecschema-editing package.
+- Added ability to increment minor version number via the schema editing API.
+
