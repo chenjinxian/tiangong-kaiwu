@@ -26,7 +26,7 @@ import {
   type IModel,
   iModelsManagementClient,
 } from '../../../shared/services/imodels/client.js';
-import { deleteIModel, renameIModel, copyIModel, moveIModel } from '../services/client.js';
+import { deleteIModel, renameIModel, copyIModel } from '../services/client.js';
 import { queryKeys } from '../../../app/providers/QueryProvider.js';
 
 // ============================================================================
@@ -292,41 +292,6 @@ export function useCopyIModelMutation(): UseMutationResult<
   });
 }
 
-interface MoveIModelData {
-  iModelId: string;
-  sourceITwinId: string;
-  targetITwinId: string;
-}
-
-/**
- * Hook for moving an iModel to a different project
- */
-export function useMoveIModelMutation(): UseMutationResult<
-  void,
-  Error,
-  MoveIModelData
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ iModelId, sourceITwinId, targetITwinId }: MoveIModelData) => {
-      await moveIModel(iModelId, sourceITwinId, targetITwinId);
-    },
-    onSuccess: (_, variables) => {
-      // Invalidate both source and target project iModel lists
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.iModels.list(variables.sourceITwinId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.iModels.list(variables.targetITwinId),
-      });
-      // Remove the moved iModel from cache
-      void queryClient.removeQueries({
-        queryKey: queryKeys.iModels.detail(variables.iModelId),
-      });
-    },
-  });
-}
 
 // Re-export types
 export type { IModel };

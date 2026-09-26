@@ -37,7 +37,6 @@ import { CreateIModelWorkflow } from '../../../features/imodel/components/Create
 import { IModelCard } from '../../../features/imodel/components/IModelCard.js';
 import { RenameIModelDialog } from '../../../features/imodel/components/RenameIModelDialog.js';
 import { CopyIModelDialog } from '../../../features/imodel/components/CopyIModelDialog.js';
-import { MoveIModelDialog } from '../../../features/imodel/components/MoveIModelDialog.js';
 import { EditITwinDialog } from '../../../features/itwin/components/EditITwinDialog.js';
 import { ShareITwinDialog } from '../../../features/itwin/components/ShareITwinDialog.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
@@ -65,7 +64,6 @@ const ITwinDetail: React.FC = React.memo(() => {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
-  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [selectedIModel, setSelectedIModel] = useState<IModel | null>(null);
 
   const deleteITwinMutation = useDeleteITwinMutation();
@@ -241,20 +239,6 @@ const ITwinDetail: React.FC = React.memo(() => {
     setSelectedIModel(iModel);
     setIsCopyDialogOpen(true);
   }, []);
-
-  const handleMoveIModel = useCallback((iModel: IModel) => {
-    setSelectedIModel(iModel);
-    setIsMoveDialogOpen(true);
-  }, []);
-
-  const handleIModelMoved = useCallback(() => {
-    showToast('iModel 已移动', 'success');
-    void refetchIModels();
-    // Navigate away if the current project is empty after move
-    if (iModels.length <= 1) {
-      navigate('/itwins');
-    }
-  }, [showToast, refetchIModels, iModels.length, navigate]);
 
   const handleCreated = useCallback(() => {
     setIsCreateDialogOpen(false);
@@ -442,7 +426,6 @@ const ITwinDetail: React.FC = React.memo(() => {
                     onRetry={handleRetryIModel}
                     onRename={handleRenameIModel}
                     onCopy={handleCopyIModel}
-                    onMove={handleMoveIModel}
                   />
                 ))}
               </div>
@@ -499,15 +482,6 @@ const ITwinDetail: React.FC = React.memo(() => {
           showToast('iModel 复制成功', 'success');
           void refetchIModels();
         }}
-      />
-
-      {/* Move Dialog */}
-      <MoveIModelDialog
-        iModel={selectedIModel}
-        sourceITwinId={iTwinId ?? ''}
-        isOpen={isMoveDialogOpen}
-        onClose={() => setIsMoveDialogOpen(false)}
-        onMoved={handleIModelMoved}
       />
 
       {/* Hidden anchor for programmatic downloads */}
