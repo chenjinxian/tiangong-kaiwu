@@ -15,6 +15,7 @@ UPSTREAM_URL=https://github.com/iTwin/itwinjs-core.git
 PREFIX=itwinjs-core
 NATIVE_PKG='@bentley/imodeljs-native'
 native_ver() { node -p "require('./itwinjs-core/core/backend/package.json').dependencies['@bentley/imodeljs-native']"; }
+command -v node >/dev/null 2>&1 || { echo "node is required on PATH (native version check)"; exit 1; }
 NATIVE_BEFORE=$(native_ver)
 
 if ! git remote get-url "$UPSTREAM_REMOTE" >/dev/null 2>&1; then
@@ -46,5 +47,6 @@ else
   echo "!!! Merge conflicts detected. Resolve them, then:"
   echo "    git add -A && git commit --no-edit"
   echo "    (pnpm-lock.yaml / rush.json / common/config/rush/*: take upstream's version)"
+  echo "    Then check whether @bentley/imodeljs-native changed in itwinjs-core/core/backend/package.json (the version tail-check only runs on clean syncs) - see docs/UPSTREAM_SYNC.md「imodel-native 联动」"
   exit 1
 fi
