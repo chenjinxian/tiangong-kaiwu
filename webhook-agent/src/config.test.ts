@@ -29,7 +29,7 @@ function runConfigImport(env: Record<string, string>): { status: number; output:
 
 const SECRET_VARS = [
   'AZURITE_ACCOUNT_KEY', 'WEBHOOK_SECRET', 'IMODELHUB_API_KEY', 'BACKEND_API_KEY',
-  'IMODELHUB_ADMIN_EMAIL', 'IMODELHUB_ADMIN_PASSWORD',
+  'WEBAGENT_API_KEY', 'IMODELHUB_ADMIN_EMAIL', 'IMODELHUB_ADMIN_PASSWORD',
 ] as const;
 
 const allSecrets: Record<string, string> = {
@@ -37,6 +37,7 @@ const allSecrets: Record<string, string> = {
   WEBHOOK_SECRET: 'b'.repeat(32),
   IMODELHUB_API_KEY: 'c'.repeat(32),
   BACKEND_API_KEY: 'e'.repeat(32),
+  WEBAGENT_API_KEY: 'w'.repeat(32),
   IMODELHUB_ADMIN_EMAIL: 'admin@test.local',
   IMODELHUB_ADMIN_PASSWORD: 'd'.repeat(16),
 };

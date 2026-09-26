@@ -28,8 +28,12 @@ export function generateCsrfToken(): string {
  * - Validates token for state-changing requests (POST, PUT, DELETE, PATCH)
  */
 export function csrfMiddleware(req: Request, res: Response, next: NextFunction): void {
-  // Skip CSRF for webhook endpoints (called by webhook-agent, not browsers)
-  if (req.path === '/api/webhook/events') {
+  // Skip CSRF for webhook-agent service routes (called service-to-service and
+  // authenticated by X-API-Key, not browsers — there is no CSRF token to check)
+  if (
+    req.path === '/api/webhook/events' ||
+    (req.method === 'POST' && req.path.startsWith('/api/imodels/') && req.path.endsWith('/progress'))
+  ) {
     next();
     return;
   }

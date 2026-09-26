@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Webhook agent for LubanCAD - receives and processes iTwin Platform webhooks",
   "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
   "main": "./dist/main.js",
   "scripts": {
     "build": "tsc",

@@ -43,6 +43,7 @@ const schema = z.object({
   WEBHOOK_SECRET: z.string().min(32),
   IMODELHUB_API_KEY: z.string().min(32),               // WA → imodelhub-services (HUB) outbound
   BACKEND_API_KEY: z.string().min(32),                 // WA → modeling-server outbound (value MS validates inbound)
+  WEBAGENT_API_KEY: z.string().min(32),                // WA ← modeling-server inbound (/baseline/retry); same value as MS's outbound key, written once
   IMODELHUB_ADMIN_EMAIL: z.string().email(),
   IMODELHUB_ADMIN_PASSWORD: z.string().min(12),
 

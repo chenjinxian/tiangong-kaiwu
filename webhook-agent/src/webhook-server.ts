@@ -16,6 +16,7 @@ import { validateRequest } from './validator.js';
 import { EventProcessor } from './processor.js';
 import { EventForwarder } from './forwarder.js';
 import { BaselineGenerator } from './baseline-generator.js';
+import { config as appConfig } from './config.js';
 
 /**
  * Webhook Server options
@@ -225,6 +226,13 @@ export function createWebhookServer(options: WebhookServerOptions): express.Appl
 
     // Retry baseline generation for a failed iModel
     app.post('/baseline/retry/:iModelId', async (req: Request, res: Response) => {
+      // Service-to-service auth: modeling-server sends X-API-Key (WEBAGENT_API_KEY,
+      // same value it uses outbound — mirrors MS's requireApiKey pattern).
+      if (req.headers['x-api-key'] !== appConfig.WEBAGENT_API_KEY) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
       const { iModelId } = req.params;
       // Parse JSON body manually
       let body: Record<string, unknown>;

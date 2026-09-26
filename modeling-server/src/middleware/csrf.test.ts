@@ -26,6 +26,7 @@ describe('csrf middleware', () => {
   beforeEach(() => {
     mockReq = {
       method: 'GET',
+      path: '/',
       headers: {},
       cookies: {},
       body: {},
@@ -119,6 +120,37 @@ describe('csrf middleware', () => {
       csrfMiddleware(mockReq as Request, mockRes as Response, nextFn);
 
       expect(nextFn).toHaveBeenCalled();
+    });
+
+    it('skips CSRF for the webhook-agent progress route (X-API-Key, dynamic id)', () => {
+      // req.path is readonly on the Express type, so set it via a fresh literal
+      mockReq = {
+        method: 'POST',
+        path: '/api/imodels/imodel-123/progress',
+        headers: {},
+        cookies: {},
+        body: {},
+      };
+
+      csrfMiddleware(mockReq as Request, mockRes as Response, nextFn);
+
+      expect(nextFn).toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
+    });
+
+    it('still requires CSRF for other POSTs under /api/imodels', () => {
+      mockReq = {
+        method: 'POST',
+        path: '/api/imodels/imodel-123/baseline',
+        headers: {},
+        cookies: { 'csrf-token': 'some-token' },
+        body: {},
+      };
+
+      csrfMiddleware(mockReq as Request, mockRes as Response, nextFn);
+
+      expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(nextFn).not.toHaveBeenCalled();
     });
   });
 

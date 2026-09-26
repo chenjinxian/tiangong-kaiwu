@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "LubanCAD modeling backend service - opens/hosts iModels, executes modeling edits, serves render data (RPC + WebSocket IPC)",
   "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/main.ts",
