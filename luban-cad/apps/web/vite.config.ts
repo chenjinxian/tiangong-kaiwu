@@ -13,7 +13,9 @@ export default defineConfig({
     proxy: {
       // Auth endpoints
       '/auth': {
-        target: 'http://localhost:4001',
+        // imodelhub-services owns the auth surface (email/login, refresh, logout).
+        // modeling-server only serves /api/users/* and /api/auth/* forwarding routes.
+        target: 'http://localhost:4000',
         changeOrigin: true,
         secure: false,
       },
