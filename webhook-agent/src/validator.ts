@@ -9,6 +9,7 @@
  */
 
 import crypto from 'crypto';
+import { logger } from './utils/logger.js';
 
 /**
  * Signature validation result
@@ -101,7 +102,16 @@ export function validateSignature(
     }
 
     return { valid: true };
-  } catch {
+  } catch (error) {
+    // Fail closed, but never silently: every expected format failure (missing
+    // '=', non-sha256 algorithm, length mismatch) is already rejected
+    // explicitly above, so anything reaching this handler is unexpected —
+    // surface its reason instead of swallowing it. Returning false (not
+    // rethrowing) keeps malformed input a 401 in the async express route
+    // rather than an unhandled rejection.
+    logger.warn('signature parse failed', {
+      reason: error instanceof Error ? error.message : String(error),
+    });
     return { valid: false, error: 'Invalid signature format' };
   }
 }
