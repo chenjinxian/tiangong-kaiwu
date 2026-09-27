@@ -25,14 +25,14 @@ test.describe('Editor Page', () => {
     const hasEmptyState = await emptyState.isVisible().catch(() => false);
 
     if (hasEmptyState) {
-      test.skip(true, 'No projects available - empty state shown');
+      throw new Error('后端无数据：起全栈（docker compose up + start-ms-host）并 seed 至少一个项目后重跑——e2e 不再对空后端静默通过');
       return;
     }
 
     // Navigate to first project
     const projectLink = page.locator('[class*="card"], [class*="item"]').first();
     const count = await projectLink.count();
-    test.skip(count === 0, 'No projects available');
+    if (count === 0) { throw new Error('后端无项目数据——起栈+seed 后重跑'); }
 
     await projectLink.click();
     await page.waitForURL(/.*\/itwins\/.+/, { timeout: 10000 });
@@ -47,7 +47,7 @@ test.describe('Editor Page', () => {
       await page.waitForURL(/.*\/workspace\/.+/, { timeout: 10000 });
       await expect(page.url()).toMatch(/.*\/workspace\/.+/);
     } else {
-      test.skip(true, 'No iModels available to open in editor');
+      throw new Error('后端无 iModel 数据——起栈+seed 后重跑');
     }
   });
 
@@ -64,7 +64,7 @@ test.describe('Editor Page', () => {
     const hasError = await errorText.isVisible().catch(() => false);
 
     if (hasError) {
-      test.skip(true, 'iModel not available');
+      if (true) { throw new Error('e2e 数据前置不满足：iModel not available——起栈+seed 后重跑'); }
       return;
     }
 
@@ -92,7 +92,7 @@ test.describe('Editor Page', () => {
     const hasError = await errorText.isVisible().catch(() => false);
 
     if (hasError) {
-      test.skip(true, 'iModel not available');
+      if (true) { throw new Error('e2e 数据前置不满足：iModel not available——起栈+seed 后重跑'); }
       return;
     }
 
@@ -120,7 +120,7 @@ test.describe('Editor Page', () => {
     const hasError = await errorText.isVisible().catch(() => false);
 
     if (hasError) {
-      test.skip(true, 'iModel not available');
+      if (true) { throw new Error('e2e 数据前置不满足：iModel not available——起栈+seed 后重跑'); }
       return;
     }
 
@@ -158,7 +158,7 @@ test.describe('Editor Page', () => {
         await expect(page.url()).not.toContain('/workspace/');
       } else if (hasError) {
         // If there's an error and no navigation, just verify we're still on the page
-        test.skip(true, 'Navigation elements not available');
+        if (true) { throw new Error('e2e 数据前置不满足：Navigation elements not available——起栈+seed 后重跑'); }
       }
     }
   });

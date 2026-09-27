@@ -50,7 +50,7 @@ test.describe('Modeling Tools Registration', () => {
     });
 
     if (!projectsResponse.iTwins?.length) {
-      test.skip(true, 'No projects available');
+      throw new Error('后端无项目数据——起栈+seed 后重跑（e2e 不再静默跳过）');
       return;
     }
 
@@ -71,7 +71,7 @@ test.describe('Modeling Tools Registration', () => {
     }, projectId);
 
     if (!imodelsResponse.iModels?.length) {
-      test.skip(true, 'No iModels available');
+      throw new Error('后端无 iModel 数据——起栈+seed 后重跑');
       return;
     }
 

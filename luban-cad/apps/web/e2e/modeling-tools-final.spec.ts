@@ -115,10 +115,10 @@ test.describe('Modeling Tools - Toolbar Visibility', () => {
           }
         }
       } else {
-        test.skip('No iModels found in project');
+        throw new Error('e2e 数据前置不满足：No iModels found in project——起栈+seed 后重跑');
       }
     } else {
-      test.skip('No projects found');
+      throw new Error('e2e 数据前置不满足：No projects found——起栈+seed 后重跑');
     }
   });
 });

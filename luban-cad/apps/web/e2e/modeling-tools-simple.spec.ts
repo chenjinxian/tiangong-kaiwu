@@ -42,7 +42,7 @@ test.describe('Modeling Tools - Smoke Test', () => {
     const count = await projectCards.count();
 
     if (count === 0) {
-      test.skip('No projects available');
+      throw new Error('e2e 数据前置不满足：No projects available——起栈+seed 后重跑');
     }
 
     await projectCards.first().click();
@@ -68,7 +68,7 @@ test.describe('Modeling Tools - Smoke Test', () => {
       // Take screenshot for debugging
       await page.screenshot({ path: 'test-results/editor-page.png', fullPage: true });
     } else {
-      test.skip('No iModels available in project');
+      throw new Error('e2e 数据前置不满足：No iModels available in project——起栈+seed 后重跑');
     }
   });
 });
@@ -143,10 +143,10 @@ test.describe('Modeling Tools - Direct Editor Access', () => {
           console.log('Page content preview:', pageContent.substring(0, 500));
         }
       } else {
-        test.skip('No iModels found');
+        throw new Error('e2e 数据前置不满足：No iModels found——起栈+seed 后重跑');
       }
     } else {
-      test.skip('No projects found');
+      throw new Error('e2e 数据前置不满足：No projects found——起栈+seed 后重跑');
     }
   });
 });

@@ -90,7 +90,7 @@ test.describe('Modeling Tools - Toolbar', () => {
       await navigateToEditor(page);
     } catch (e) {
       console.log('Could not navigate to editor:', e);
-      test.skip();
+      throw new Error('e2e 数据前置不满足——起栈+seed 后重跑');
     }
   });
 
@@ -140,7 +140,7 @@ test.describe('Modeling Tools - Activation', () => {
       await navigateToEditor(page);
     } catch (e) {
       console.log('Could not navigate to editor:', e);
-      test.skip();
+      throw new Error('e2e 数据前置不满足——起栈+seed 后重跑');
     }
   });
 
@@ -244,7 +244,7 @@ test.describe('Modeling Tools - Error Handling', () => {
       await navigateToEditor(page);
     } catch (e) {
       console.log('Could not navigate to editor:', e);
-      test.skip();
+      throw new Error('e2e 数据前置不满足——起栈+seed 后重跑');
     }
   });
 

@@ -62,7 +62,7 @@ test.describe('Documents Page', () => {
     const hasEmptyState = await emptyState.isVisible().catch(() => false);
 
     if (hasEmptyState) {
-      test.skip(true, 'No projects available - empty state shown');
+      throw new Error('后端无数据：起全栈（docker compose up + start-ms-host）并 seed 至少一个项目后重跑——e2e 不再对空后端静默通过');
       return;
     }
 
@@ -71,7 +71,7 @@ test.describe('Documents Page', () => {
 
     // If no projects, skip this test
     const count = await projectLink.count();
-    test.skip(count === 0, 'No projects available to click');
+    if (count === 0) { throw new Error('e2e 数据前置不满足：No projects available to click——起栈+seed 后重跑'); }
 
     await projectLink.click();
 
@@ -106,7 +106,7 @@ test.describe('Documents Page', () => {
 
     if (!logoutClicked) {
       // Could not find logout element - skip this test
-      test.skip(true, 'Logout element not found');
+      if (true) { throw new Error('e2e 数据前置不满足：Logout element not found——起栈+seed 后重跑'); }
       return;
     }
 
