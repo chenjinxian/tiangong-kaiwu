@@ -2,7 +2,8 @@
 
 - 日期：2026-09-27
 - 状态：设计已获分节认可，待 spec 审阅
-- 前置：`2026-09-27-cad-foundation-kickoff-prompt.md`（D1-D7 决策框架与能力盘点）
+- 前置：`2026-09-27-cad-foundation-kickoff-prompt.md`（D1-D7 决策框架与能力盘点，历史文件）
+- 关联：`2026-09-27-cad-feature-system-decision-record.md`（决策总表）；`2026-09-27-cad-feature-system-evidence-base.md`（本文全部结论的一手证据汇编）
 - 范围：CAD 精确建模基础（特征系统）。AI 建模层完全搁置，仅以 API 消费者视角留白。
 
 ---

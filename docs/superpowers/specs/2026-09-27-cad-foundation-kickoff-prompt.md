@@ -1,5 +1,11 @@
 # CAD 基础新会话启动提示词
 
+> **状态（2026-09-27 更新）：已完成使命。** 本会话核心问题已裁决（**可行**），D2/D3 已定案。
+> 后续查阅请用文档集：`2026-09-27-cad-feature-system-decision-record.md`（决策总表）、
+> `2026-09-27-cad-feature-system-evidence-base.md`（全部一手证据）、
+> `2026-09-27-feature-system-imodel-architecture-design.md`（设计 spec）。
+> 本文件保留作历史记录，其中的 D1-D7 框架现状以决策记录为准。
+>
 > 用途：粘贴到新的 Claude Code 会话（工作目录 D:\Github\tiangong-kaiwu）作为第一条消息。
 > 生成于 2026-09-27，承接同日 AI 建模 brainstorm 会话（该会话经需求深挖后重定向为 CAD 基础建设）。
 > 本会话持久记忆已存档（memory: cad-foundation-direction / acis-license-scope / solvespace-interim-solver），会自动加载。
