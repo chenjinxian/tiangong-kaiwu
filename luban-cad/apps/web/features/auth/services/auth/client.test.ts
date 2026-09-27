@@ -39,12 +39,17 @@ describe('auth cookie mirror', () => {
     localStorage.clear();
   });
 
-  it('storeAuth mirrors the token payload into a same-origin cookie', () => {
+  it('storeAuth mirrors the access-token subset into a same-origin cookie', () => {
     storeAuth(user, tokens, false);
 
+    // Only { accessToken, expiresAt } — the refresh token must never be
+    // readable from document.cookie (modeling-server wsAuth reads
+    // payload.accessToken from this flat shape).
+    const cookiePayload = { accessToken: tokens.accessToken, expiresAt: tokens.expiresAt };
     expect(cookieWrites).toContainEqual(
-      `luban_cad_auth=${encodeURIComponent(JSON.stringify(tokens))}; path=/; SameSite=Lax`,
+      `luban_cad_auth=${encodeURIComponent(JSON.stringify(cookiePayload))}; path=/; SameSite=Lax`,
     );
+    expect(cookieWrites.some((w) => w.includes('refreshToken'))).toBe(false);
   });
 
   it('clearStoredAuth expires the cookie mirror', () => {

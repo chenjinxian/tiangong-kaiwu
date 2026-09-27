@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # start-ms-host.ps1 — 宿主形态启动 modeling-server（预裁决回退形态）
 #
 # Task 3（T1.4+T2.4 部署链统一）的形态裁决：modeling-server 默认以
@@ -44,7 +44,12 @@ if (-not (Test-Path (Join-Path $MsDir 'node_modules'))) {
 # --- 3. 启动 ---
 $argList = if ($Mode -eq 'prod') {
     if (-not (Test-Path (Join-Path $MsDir 'dist/main.js'))) {
-        Push-Location $MsDir; corepack pnpm@10 run build; Pop-Location
+        Push-Location $MsDir
+        try {
+            corepack pnpm@10 run build
+            # PS5.1 不会因原生命令非零退出码自动中止：构建失败必须显式停（勿带坏产物启动）
+            if ($LASTEXITCODE -ne 0) { Write-Error 'modeling-server build failed'; exit 1 }
+        } finally { Pop-Location }
     }
     @('run', 'start')
 } else {

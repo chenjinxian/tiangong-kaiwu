@@ -138,13 +138,15 @@ export function getStoredAuth(): { user: User | null; tokens: AuthTokens | null 
 }
 
 /**
- * Mirror the token payload into a same-origin cookie so the modeling-server
- * WebSocket upgrade can authenticate without a query-string token.
- * Client-readable by design (no HttpOnly) — it is a mirror of the
- * sessionStorage payload the app can already read.
+ * Mirror the access-token subset into a same-origin cookie so the
+ * modeling-server WebSocket upgrade can authenticate without a query-string
+ * token. Client-readable by design (no HttpOnly) — hence only
+ * { accessToken, expiresAt } is written: the refresh token must never be
+ * readable from document.cookie.
  */
 function writeAuthCookie(tokens: AuthTokens): void {
-  document.cookie = `${AUTH_STORAGE_KEY}=${encodeURIComponent(JSON.stringify(tokens))}; path=/; SameSite=Lax`;
+  const cookiePayload = { accessToken: tokens.accessToken, expiresAt: tokens.expiresAt };
+  document.cookie = `${AUTH_STORAGE_KEY}=${encodeURIComponent(JSON.stringify(cookiePayload))}; path=/; SameSite=Lax`;
 }
 
 function expireAuthCookie(): void {

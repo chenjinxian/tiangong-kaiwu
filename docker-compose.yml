@@ -3,8 +3,8 @@
 #
 # 用法：
 #   0) 仓库根 .env 就位（powershell -File scripts/generate-env.ps1）
-#   1) powershell -File scripts/start-ms-host.ps1 -Detach   # 宿主 MS :4001（见下）
-#   2) docker compose up -d --build
+#   1) docker compose up -d --build
+#   2) powershell -File scripts/start-ms-host.ps1 -Detach   # 宿主 MS :4001（见下）
 #   3) 入口 http://localhost/（nginx :80 单入口）
 #
 # 【modeling-server 形态裁决 —— Task 3 / 2026-09-27】
@@ -30,9 +30,10 @@
 #     AGENT_API_KEY        = ${IMODELHUB_API_KEY}    （Task 2 guard，缺失拒启）
 #     WEBHOOK_SIGNING_SECRET = ${WEBHOOK_SECRET}
 #     SEED_ADMIN_PASSWORD  = ${IMODELHUB_ADMIN_PASSWORD}
+#     AUTH_JWT_SECRET      = ${AUTH_JWT_SECRET}      （覆盖镜像内置测试值 secret；缺失拒启）
 #     AZURITE/AZURE_ACCOUNT_KEY = ${AZURITE_ACCOUNT_KEY}
-#   HUB 长尾变量（AUTH_JWT_*、MAIL_* 等）沿用镜像内自带 .env 兜底
-#   （../imodelhub-services 的构建产物），此处仅覆盖网络拓扑。
+#   其余 HUB 长尾变量（AUTH_JWT_EXPIRES、MAIL_* 等非密钥项）沿用镜像内
+#   自带 .env 兜底（../imodelhub-services 的构建产物），此处仅覆盖网络拓扑。
 # ============================================================
 name: tiangong-kaiwu
 
@@ -59,7 +60,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # BullMQ 要求 noeviction（队列任务不可被 LRU 驱逐）
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
     volumes:
       - redis-data:/data
     healthcheck:
@@ -136,6 +138,7 @@ services:
       AZURE_CONTAINER_NAME: imodelhub
       # ---- 共享密钥映射（根 .env 单源；environment 优先于镜像内 .env）----
       AGENT_API_KEY: ${IMODELHUB_API_KEY:?IMODELHUB_API_KEY missing in root .env (run scripts/generate-env.ps1)}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?generate-env 需补 AUTH_JWT_SECRET (re-run scripts/generate-env.ps1)}
       WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET missing in root .env}
       SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:?IMODELHUB_ADMIN_PASSWORD missing in root .env (run scripts/generate-env.ps1)}
     depends_on:
