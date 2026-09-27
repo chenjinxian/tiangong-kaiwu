@@ -43,7 +43,7 @@ REST 契约以 `docs/api-specs/`（官方 iTwin Platform OpenAPI 规格）为对
 
 统一部署（根 docker-compose.yml）：重建 itwinjs-core 后需 ①重跑
 `scripts/replace-imodeljs-native.ps1`（宿主 MS 原生库）②容器形态在用时
-`docker compose build --profile container modeling-server` 与 `docker compose build web`。
+`docker compose --profile container build modeling-server` 与 `docker compose build web`。
 
 ## 手动流程
 

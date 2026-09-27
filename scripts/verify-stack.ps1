@@ -384,8 +384,9 @@ try {
   });
   req.on('response', (res) => {
     console.log('WS_REJECTED status=' + res.statusCode);
+    const expectedReject = mode === 'reject' && res.statusCode === 401;
     res.resume();
-    process.exit(mode === 'reject' ? 0 : 1);
+    process.exit(expectedReject ? 0 : 1);
   });
   req.on('timeout', () => { console.log('WS_TIMEOUT'); req.destroy(); process.exit(2); });
   req.on('error', (e) => { console.log('WS_ERROR ' + e.message); process.exit(2); });
