@@ -80,12 +80,14 @@ npx vitest run src/rpc/OpenCloudRpcImpl.test.ts          # 单测（在该包目
 npx playwright test e2e/editor.spec.ts                   # 单 e2e（在 luban-cad/apps/web 内）
 ```
 
-### 完整本地栈启动顺序
+### 完整本地栈启动顺序（部署权威：根 compose）
 
 0. 首次运行先生成密钥配置：`powershell -File scripts/generate-env.ps1`（幂等；两后端服务的 `.env` 均读仓库根这一份，密钥缺失会拒启）
-1. 启动 imodelhub-services（仓外项目）的 Docker 基础设施（Postgres/Azurite/Redis）及其 API（:4000）
-2. itwinjs-core `rush build --to ...`（首次或改了依赖库后）
-3. `modeling-server` (:4001) → `webhook-agent` (:4002，可选) → `luban-cad/apps/web` (:3000)
+1. `docker compose up -d`（根 docker-compose.yml：Postgres/Azurite/Redis/Maildev + imodelhub:4000 + webhook-agent:4002 + web + nginx:80 单域名入口；MS 容器化见下注）
+2. modeling-server 为宿主进程（link: 依赖+本地编译原生库不可入 Linux 容器——`scripts/start-ms-host.ps1 -Detach`；实验性容器形态在 `--profile container`）
+3. `powershell -File scripts/verify-stack.ps1` 全栈验收（health×5 → iTwin/iModel/baseline 数据链 → WS cookie 握手 → dev-build 横幅）
+
+**开发态**（分进程调试）：itwinjs-core `rush build --to ...`（首次或改了依赖库后）→ `modeling-server` pnpm dev (:4001) → `webhook-agent` pnpm dev (:4002) → `luban-cad/apps/web` pnpm dev (:3000，`.env.development` 直连 :4001)。`luban-cad/docker-compose.yml` 仅作 dev 参考。
 
 ## itwinjs-core 修改与上游同步（强制）
 
