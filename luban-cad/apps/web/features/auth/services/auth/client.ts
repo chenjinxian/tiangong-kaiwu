@@ -138,7 +138,21 @@ export function getStoredAuth(): { user: User | null; tokens: AuthTokens | null 
 }
 
 /**
- * Store auth in sessionStorage only.
+ * Mirror the token payload into a same-origin cookie so the modeling-server
+ * WebSocket upgrade can authenticate without a query-string token.
+ * Client-readable by design (no HttpOnly) — it is a mirror of the
+ * sessionStorage payload the app can already read.
+ */
+function writeAuthCookie(tokens: AuthTokens): void {
+  document.cookie = `${AUTH_STORAGE_KEY}=${encodeURIComponent(JSON.stringify(tokens))}; path=/; SameSite=Lax`;
+}
+
+function expireAuthCookie(): void {
+  document.cookie = `${AUTH_STORAGE_KEY}=; path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+}
+
+/**
+ * Store auth in sessionStorage only (plus the same-origin cookie mirror).
  * Tokens are never persisted to localStorage — sessionStorage is cleared
  * when the browser tab closes, limiting the window for XSS token theft.
  */
@@ -149,6 +163,7 @@ export function storeAuth(
 ): void {
   sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(tokens));
   sessionStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  writeAuthCookie(tokens);
 
   // Clear any legacy tokens from localStorage
   localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -157,7 +172,7 @@ export function storeAuth(
 }
 
 /**
- * Clear stored auth from both storages
+ * Clear stored auth from both storages and expire the cookie mirror
  */
 export function clearStoredAuth(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -166,6 +181,7 @@ export function clearStoredAuth(): void {
   sessionStorage.removeItem(AUTH_STORAGE_KEY);
   sessionStorage.removeItem(USER_STORAGE_KEY);
   sessionStorage.removeItem(REMEMBER_ME_KEY);
+  expireAuthCookie();
 }
 
 // ============================================================================
