@@ -50,7 +50,7 @@ export function useVersionControl(
   saveChanges: (description: string) => Promise<void>,
   pushChanges: (description: string) => Promise<void>,
   pullChanges: () => Promise<void>,
-  showToast: (msg: string, type: 'success' | 'error') => void,
+  showToast: (msg: string, type: 'success' | 'error' | 'info') => void,
   setOpStatus: (status: string) => void,
 ): VersionControlState & VersionControlActions {
   const [showCompare, setShowCompare] = useState(false);

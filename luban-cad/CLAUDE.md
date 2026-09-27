@@ -18,7 +18,7 @@
 | iModel | `features/imodel/` | ✅ 模型管理 |
 | Editor | `features/editor/` | ✅ 3D 编辑器 |
 | Modeling | `features/modeling/` | 🟠 实体建模（PatternTools ID 收集 bug；PatternCommand 未注册） |
-| Markup | `features/markup/` | ❌ 降级占位（@itwin/core-markup 模块解析问题，12 工具禁用） |
+| Markup | `features/markup/` | ❌ 降级占位（`@itwin/core-markup` 依赖未配置——启用前需先补 workspace 依赖解析，T2.3 裁决：不预引依赖，等真实需求） |
 | Measurement | `features/measurement/` | ✅ 测量工具 |
 | View Clip | `features/view-clip/` | ✅ 视图裁剪 |
 | AccuDraw | `features/accudraw/` | ✅ 精确绘图 |

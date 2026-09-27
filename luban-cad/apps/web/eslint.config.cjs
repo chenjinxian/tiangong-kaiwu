@@ -1,5 +1,17 @@
 const iTwinPlugin = require("@itwin/eslint-plugin");
-const eslintBaseConfig = require("../../../common/config/eslint/eslint.config.base");
+const eslintBaseConfig = require("../../../itwinjs-core/common/config/eslint/eslint.config.base");
+
+// Shared constants use SCREAMING_SNAKE keys by design (T2.3 shared/lib).
+const constantsNamingOverride = {
+  files: ["shared/lib/constants.ts"],
+  rules: {
+    "@typescript-eslint/naming-convention": [
+      "error",
+      { selector: "objectLiteralProperty", format: ["camelCase", "UPPER_CASE"] },
+    ],
+  },
+};
+
 const tsParser = require("@typescript-eslint/parser");
 
 // Main source files (excluding tests and configs)
@@ -51,5 +63,6 @@ const testConfig = {
 module.exports = [
   mainConfig,
   ...eslintBaseConfig,
+  constantsNamingOverride,
   testConfig,
 ];
