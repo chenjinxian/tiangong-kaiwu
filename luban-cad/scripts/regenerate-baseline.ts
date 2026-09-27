@@ -2,6 +2,15 @@
  * Regenerate baseline for existing iModel
  */
 
+// Fail fast: the requeue route requires X-API-Key (HUB 侧 AGENT_API_KEY)
+const IMODELHUB_API_KEY = process.env.IMODELHUB_API_KEY;
+if (!IMODELHUB_API_KEY) {
+  console.error(
+    'IMODELHUB_API_KEY 未设置：baseline requeue 路由需要 X-API-Key（HUB 侧 AGENT_API_KEY），拒绝继续',
+  );
+  process.exit(1);
+}
+
 const IMODELHUB_URL = 'http://localhost:4000';
 
 async function getAuthToken(): Promise<string | null> {
@@ -90,7 +99,7 @@ async function main(): Promise<void> {
 
   const retryResponse = await fetch(`${process.env.IMODELHUB_URL || 'http://localhost:4000'}/imodels/${imodel.id}/baselinefile/requeue`, {
     method: 'POST',
-    headers: { 'X-API-Key': process.env.IMODELHUB_API_KEY || '' },
+    headers: { 'X-API-Key': IMODELHUB_API_KEY },
   });
 
   if (retryResponse.status === 409) {
