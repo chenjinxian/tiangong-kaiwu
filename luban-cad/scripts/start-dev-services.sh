@@ -136,38 +136,22 @@ echo -e "${YELLOW}Step 4: Starting webhook-agent...${NC}"
 if check_port 4002; then
     echo -e "  ${GREEN}✓${NC} webhook-agent already running on port 4002"
 else
-    echo "  Building webhook-agent..."
+    echo "  Starting webhook-agent..."
     cd ../webhook-agent
 
-    # Check if .env exists
-    if [ ! -f ".env" ]; then
-        echo -e "  ${YELLOW}!${NC} Creating default .env file"
-        cat > .env << 'EOF'
-# Webhook secret (must match database)
-WEBHOOK_SECRET=test-webhook-secret-12345
-
-# Server port
-PORT=4002
-
-# Forward to modeling-server (optional)
-BACKEND_URL=http://localhost:4001
-
-# Azurite Blob Storage
-BLOB_STORAGE_URL=http://127.0.0.1:10000/devstoreaccount1
-BLOB_ACCOUNT_NAME=devstoreaccount1
-BLOB_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
-BLOB_CONTAINER_NAME=imodel-baselines
-
-# iModelHub Services API
-IMODELHUB_API_URL=http://localhost:4000
-IMODELHUB_API_KEY=
-
-# Debug
-DEBUG=true
-EOF
+    # 配置单源：webhook-agent 的 config.ts 会向上查找仓库根 .env 并
+    # fail-fast 校验必填密钥。这里不再本地播种 .env（旧版曾写入空的
+    # IMODELHUB_API_KEY，遮蔽根 .env 且必然触发启动失败）。
+    ROOT_ENV="$(cd .. && pwd)/.env"
+    if [ ! -f "$ROOT_ENV" ]; then
+        echo -e "  ${RED}✗${NC} 仓库根 .env 缺失：$ROOT_ENV"
+        echo -e "  ${YELLOW}!${NC} 先运行: powershell -File scripts/generate-env.ps1"
+        exit 1
+    fi
+    if [ -f ".env" ]; then
+        echo -e "  ${YELLOW}!${NC} webhook-agent/.env 存在，会遮蔽仓库根 .env（config 向上就近查找）——建议删除，改用根 .env 单源"
     fi
 
-    echo "  Starting webhook-agent..."
     npm run dev &
     WEB_AGENT_PID=$!
     cd ../..

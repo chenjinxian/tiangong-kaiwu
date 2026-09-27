@@ -1,0 +1,285 @@
+# ============================================================
+# 天工开物（TiangongKaiwu）统一部署栈 —— 部署权威 compose
+#
+# 用法：
+#   0) 仓库根 .env 就位（powershell -File scripts/generate-env.ps1）
+#   1) powershell -File scripts/start-ms-host.ps1 -Detach   # 宿主 MS :4001（见下）
+#   2) docker compose up -d --build
+#   3) 入口 http://localhost/（nginx :80 单入口）
+#
+# 【modeling-server 形态裁决 —— Task 3 / 2026-09-27】
+#   MS 默认【宿主进程】运行（scripts/start-ms-host.ps1）：其 link:
+#   依赖 itwinjs-core 本地 rush 产物 + 本地编译的 imodeljs-win32-x64
+#   dev build，容器化回退官方 npm 原生二进制且构建超时风险高
+#   （详见 task-3 报告）。nginx/WA 经 host.docker.internal:4001 访问。
+#   实验容器形态：docker compose --profile container up -d modeling-server
+#   并设 MS_UPSTREAM=modeling-server:4001（根 .env）。
+#
+# 服务清单（默认 8 个 = 计划 6 服务 + HUB 运行时必需的 redis/maildev）：
+#   postgres / redis / maildev / azurite   基础设施（redis、maildev 为
+#                                          HUB API 启动依赖，其仓内
+#                                          compose 同样拉起，属最小集合）
+#   imodelhub                              本地 iModel 管理平台 :4000
+#   webhook-agent                          :4002（容器）
+#   web                                    前端静态 :3000（仅栈内）
+#   nginx                                  统一入口 :80
+#   modeling-server                        宿主 :4001（container profile 除外）
+#
+# env 单源：仓库根 .env（compose 自动读取插值 + 服务级 env_file）。
+#   共享密钥映射（HUB 名 ← 根 .env 名）：
+#     AGENT_API_KEY        = ${IMODELHUB_API_KEY}    （Task 2 guard，缺失拒启）
+#     WEBHOOK_SIGNING_SECRET = ${WEBHOOK_SECRET}
+#     SEED_ADMIN_PASSWORD  = ${IMODELHUB_ADMIN_PASSWORD}
+#     AZURITE/AZURE_ACCOUNT_KEY = ${AZURITE_ACCOUNT_KEY}
+#   HUB 长尾变量（AUTH_JWT_*、MAIL_* 等）沿用镜像内自带 .env 兜底
+#   （../imodelhub-services 的构建产物），此处仅覆盖网络拓扑。
+# ============================================================
+name: tiangong-kaiwu
+
+services:
+  # ------------------------------------------------------------
+  # 基础设施
+  # ------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${HUB_DATABASE_USERNAME:-root}
+      POSTGRES_PASSWORD: ${HUB_DATABASE_PASSWORD:-secret}
+      POSTGRES_DB: ${HUB_DATABASE_NAME:-api}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HUB_DATABASE_USERNAME:-root} -d ${HUB_DATABASE_NAME:-api}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks: [stack]
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks: [stack]
+
+  maildev:
+    # HUB 的 SMTP 出口（内网栈内自足；无需对外暴露）
+    image: maildev/maildev:latest
+    restart: unless-stopped
+    networks: [stack]
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
+    environment:
+      AZURITE_ACCOUNT_NAME: devstoreaccount1
+      # 与根 .env 同源注入（缺省 Azurite well-known key）
+      AZURITE_ACCOUNT_KEY: ${AZURITE_ACCOUNT_KEY:-Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==}
+      AZURITE_CORS_ALLOWED_ORIGINS: "*"
+      AZURITE_CORS_ALLOWED_METHODS: "GET,PUT,POST,DELETE,OPTIONS,HEAD"
+      AZURITE_CORS_ALLOWED_HEADERS: "*"
+      AZURITE_CORS_MAX_AGE_SECONDS: "86400"
+    ports:
+      # 10000 供宿主 MS（briefcase/baseline 下载）与 FE 直连调试使用
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "nc -z 127.0.0.1 10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # imodelhub-services（HUB，:4000）
+  # ------------------------------------------------------------
+  imodelhub:
+    build:
+      context: ../imodelhub-services
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      APP_PORT: "4000"
+      # 网络拓扑（容器名互通）
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USERNAME: ${HUB_DATABASE_USERNAME:-root}
+      DATABASE_PASSWORD: ${HUB_DATABASE_PASSWORD:-secret}
+      DATABASE_NAME: ${HUB_DATABASE_NAME:-api}
+      REDIS_HOST: redis
+      WORKER_HOST: redis://redis:6379/1
+      MAIL_HOST: maildev
+      MAIL_PORT: "1025"
+      AZURE_BLOB_ENDPOINT: http://azurite:10000/devstoreaccount1
+      AZURITE_BLOB_ENDPOINT: http://azurite:10000/devstoreaccount1
+      AZURITE_QUEUE_ENDPOINT: http://azurite:10001/devstoreaccount1
+      AZURITE_TABLE_ENDPOINT: http://azurite:10002/devstoreaccount1
+      AZURITE_ACCOUNT_NAME: devstoreaccount1
+      AZURITE_ACCOUNT_KEY: ${AZURITE_ACCOUNT_KEY:-Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==}
+      AZURE_ACCOUNT_NAME: devstoreaccount1
+      AZURE_ACCOUNT_KEY: ${AZURITE_ACCOUNT_KEY:-Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==}
+      AZURE_CONTAINER_NAME: imodelhub
+      # ---- 共享密钥映射（根 .env 单源；environment 优先于镜像内 .env）----
+      AGENT_API_KEY: ${IMODELHUB_API_KEY:?IMODELHUB_API_KEY missing in root .env (run scripts/generate-env.ps1)}
+      WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET missing in root .env}
+      SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+      maildev:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # webhook-agent（:4002，容器形态）
+  # ------------------------------------------------------------
+  webhook-agent:
+    build:
+      context: .
+      dockerfile: webhook-agent/Dockerfile
+    ports:
+      - "4002:4002"
+    env_file:
+      - .env
+    environment:
+      # environment 优先于 env_file：容器内网络拓扑固定值
+      NODE_ENV: production
+      PORT: "4002"
+      IMODELHUB_URL: http://imodelhub:4000
+      MODELING_SERVER_URL: ${WA_MODELING_SERVER_URL:-http://host.docker.internal:4001}
+      AZURITE_HOST: azurite:10000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      imodelhub:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # web 前端（栈内 :3000，经 nginx 单入口暴露）
+  # ------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: luban-cad/Dockerfile
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # nginx 统一入口（:80）
+  # ------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    environment:
+      # 宿主形态（默认）host.docker.internal:4001；
+      # 容器形态改 modeling-server:4001（根 .env 或 shell 覆盖）
+      MS_UPSTREAM: ${MS_UPSTREAM:-host.docker.internal:4001}
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      web:
+        condition: service_healthy
+      imodelhub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # modeling-server —— 实验容器形态（默认宿主进程，见文件头裁决）
+  # 启用：docker compose --profile container up -d modeling-server
+  # 并设 MS_UPSTREAM=modeling-server:4001
+  # ------------------------------------------------------------
+  modeling-server:
+    profiles: ["container"]
+    build:
+      context: .
+      dockerfile: modeling-server/Dockerfile
+    ports:
+      - "4001:4001"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "4001"
+      IMODELHUB_URL: http://imodelhub:4000
+      AZURITE_HOST: azurite:10000
+      FRONTEND_URL: http://localhost/
+      BRIEFCASE_CACHE_LOCATION: /data/briefcase-cache
+    volumes:
+      - briefcase-cache:/data/briefcase-cache
+    depends_on:
+      imodelhub:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks: [stack]
+
+# ------------------------------------------------------------
+volumes:
+  pgdata:
+  redis-data:
+  azurite-data:
+  briefcase-cache:
+
+networks:
+  stack:
+    driver: bridge

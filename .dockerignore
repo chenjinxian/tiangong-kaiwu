@@ -1,0 +1,64 @@
+# ============================================================
+# .dockerignore — 根 compose 构建上下文裁剪（repo 根 = build context）
+#
+# 三个应用镜像（web / modeling-server / webhook-agent）的 Dockerfile 都
+# 需要复制 itwinjs-core 中被 pnpm `link:` 引用的包目录（含宿主 rush
+# build 产物 lib/），因此 context 必须是仓库根。本文件把 context 收敛为：
+#   luban-cad/  modeling-server/  webhook-agent/
+#   itwinjs-core/ 中被 link: 引用的 15 个包目录
+#
+# 排除项里最关键的是 itwinjs-core/common/（rush pnpm store，数 GB，
+# 且为 Windows junction 链接，不可 COPY）与所有 node_modules/
+# （pnpm symlink 指向宿主绝对路径，容器内必须重新 install）。
+# 注意：**/dist 全局排除 —— 镜像内一律重新构建；宿主 dist 不进镜像。
+# ============================================================
+
+# --- 白名单骨架：其余根级条目一律不进 context ---
+*
+!luban-cad
+!modeling-server
+!webhook-agent
+!itwinjs-core
+
+# --- itwinjs-core 仅保留被 link: 引用的包（源码 + 宿主预构建 lib/）---
+itwinjs-core/*
+!itwinjs-core/core
+!itwinjs-core/editor
+!itwinjs-core/presentation
+!itwinjs-core/ui
+
+itwinjs-core/core/*
+!itwinjs-core/core/backend
+!itwinjs-core/core/bentley
+!itwinjs-core/core/common
+!itwinjs-core/core/frontend
+!itwinjs-core/core/geometry
+!itwinjs-core/core/i18n
+!itwinjs-core/core/quantity
+!itwinjs-core/core/ecschema-metadata
+!itwinjs-core/core/ecschema-rpc
+
+itwinjs-core/editor/*
+!itwinjs-core/editor/backend
+!itwinjs-core/editor/common
+!itwinjs-core/editor/frontend
+
+itwinjs-core/presentation/*
+!itwinjs-core/presentation/common
+!itwinjs-core/presentation/frontend
+
+itwinjs-core/ui/*
+!itwinjs-core/ui/appui-abstract
+
+# --- 通用排除（后置规则优先于上面的白名单）---
+**/node_modules
+**/dist
+**/coverage
+**/.pnpm-store
+**/*.log
+**/playwright-report
+**/test-results
+**/briefcase-cache
+luban-cad/apps/web/azure-pipelines
+modeling-server/briefcase-cache
+webhook-agent/briefcase-cache

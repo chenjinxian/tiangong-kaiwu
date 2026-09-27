@@ -1,33 +1,27 @@
-version: '3.8'
-
-# LubanCAD - Complete Local Stack
-# All services use imodelhub-services mode (no Bentley cloud dependency)
+# ============================================================================
+# 【dev 参考，不再是部署权威】
 #
-# Services:
-# - imodelhub-services: iModel management API (port 4000) - EXTERNAL
-# - azurite: Azure Blob Storage emulator (port 10000) - EXTERNAL (from imodelhub-services)
-# - modeling-server: LubanCAD modeling backend with RPC (port 4001)
-# - webhook-agent: Webhook receiver (port 4002)
-# - web: Frontend React application (port 3000)
+# 部署统一走仓库根 docker-compose.yml（infra + HUB + WA + web + nginx 单命令
+# 全栈，modeling-server 为宿主形态）；本文件仅保留 luban-cad 侧开发调试的
+# 局部起法参考，服务定义可能与根 compose 漂移，勿在此维护生产配置。
 #
-# NOTE: imodelhub-services and Azurite should be started separately.
-#       See imodelhub-services/docker-compose.yml
+# 差异要点（2026-09-27，T1.4+T2.4）：
+#   - 本文件不编 infra/HUB（假定 imodelhub-services 栈已在宿主跑起来）
+#   - MS/WA 的密钥全部来自仓库根 .env（config.ts 向上查找自动加载），
+#     此处只覆盖容器网络拓扑（host.docker.internal 回连宿主侧服务）
+#   - modeling-server 容器化仍属实验形态（link: 依赖 + 原生库替换问题，
+#     见根 compose 文件头的形态裁决）
+# ============================================================================
 
 services:
   # =============================================================================
-  # imodelhub-services (External - assumed running on host)
-  # Azurite (External - from imodelhub-services on port 10000)
-  # =============================================================================
-  # Note: These services should be started from imodelhub-services project first.
-  # Default: http://host.docker.internal:4000 and http://host.docker.internal:10000
-
-  # =============================================================================
-  # Modeling Server - LubanCAD modeling backend service
+  # Modeling Server - LubanCAD modeling backend service（实验容器形态）
+  # 常规开发：宿主直接 `pnpm dev`（或仓库根 scripts/start-ms-host.ps1）
   # =============================================================================
   modeling-server:
     build:
-      context: ../modeling-server
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: modeling-server/Dockerfile
     container_name: luban-cad-modeling-server
     ports:
       - "4001:4001"
@@ -35,10 +29,9 @@ services:
       - NODE_ENV=production
       - PORT=4001
       - IMODELHUB_URL=http://host.docker.internal:4000
-      - AZURITE_URL=http://host.docker.internal:10000
+      - AZURITE_HOST=host.docker.internal:10000
       - FRONTEND_URL=http://localhost:3000
-      - IMJS_BRIEFCASE_CACHE_LOCATION=/app/cache
-      - WEBHOOK_SECRET=your-webhook-secret
+      - BRIEFCASE_CACHE_LOCATION=/app/cache
     volumes:
       - modeling-server-cache:/app/cache
     networks:
@@ -52,41 +45,35 @@ services:
   # =============================================================================
   webhook-agent:
     build:
-      context: ../webhook-agent
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: webhook-agent/Dockerfile
     container_name: luban-cad-webhook-agent
     ports:
       - "4002:4002"
     environment:
       - NODE_ENV=production
       - PORT=4002
-      - BACKEND_URL=http://modeling-server:4001
-      - WEBHOOK_SECRET=your-webhook-secret
-      - DEBUG=false
-    depends_on:
-      - modeling-server
+      - IMODELHUB_URL=http://host.docker.internal:4000
+      - MODELING_SERVER_URL=http://host.docker.internal:4001
+      - AZURITE_HOST=host.docker.internal:10000
     networks:
       - luban-cad-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     profiles:
       - with-webhook-agent  # Only start when explicitly requested
 
   # =============================================================================
-  # Web - Frontend React Application
+  # Web - Frontend React Application（构建上下文为仓库根，见 luban-cad/Dockerfile）
   # =============================================================================
   web:
     build:
-      context: .
-      dockerfile: apps/web/Dockerfile
+      context: ..
+      dockerfile: luban-cad/Dockerfile
     container_name: luban-cad-web
     ports:
       - "3000:3000"
-    environment:
-      - VITE_API_URL=http://localhost:4001
-      - VITE_IMODELHUB_URL=http://localhost:4000
-      - VITE_AZURITE_URL=http://localhost:10000
-    depends_on:
-      - modeling-server
     networks:
       - luban-cad-network
     restart: unless-stopped

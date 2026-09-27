@@ -1,0 +1,155 @@
+# ============================================================
+# 天工开物 路由表（spec §2 前缀集）—— envsubst 模板
+# 渲染：nginx 镜像启动时 /etc/nginx/templates/default.conf.template
+#       -> /etc/nginx/conf.d/default.conf
+# 变量：MS_UPSTREAM（modeling-server 上游）
+#         宿主形态（默认）: host.docker.internal:4001
+#         容器形态        : modeling-server:4001（--profile container）
+#       envsubst 在 nginx 解析前完成 —— proxy_pass 为静态地址，
+#       无需 resolver。
+#
+# 前缀表（与 apps/web/vite.config.ts dev 代理逐条对齐）：
+#   /                                     -> web:3000（内层静态 + SPA 回退）
+#   /api  /ws  /ipc                       -> ${MS_UPSTREAM}（WS Upgrade 透传）
+#   /itwins /imodels /auth /accesscontrol /webhooks /users /files
+#   /oauth /.well-known                   -> imodelhub:4000
+#   /azurite/*                            -> azurite:10000/*（前缀剥除，FE 直传）
+# ============================================================
+
+server {
+    listen 80 default_server;
+    server_name _;
+
+    # ---------- modeling-server（API / WebSocket / IPC） ----------
+    location /api/ {
+        proxy_pass http://${MS_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ws {
+        proxy_pass http://${MS_UPSTREAM};
+        proxy_set_header Host       $host;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header X-Real-IP  $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    location /ipc {
+        proxy_pass http://${MS_UPSTREAM};
+        proxy_set_header Host       $host;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header X-Real-IP  $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # ---------- imodelhub-services（HUB 前缀集） ----------
+    # /itwins 的 HTML 导航请求回退 SPA（React Router 页面路由，
+    # 与 vite 代理的 bypass 行为一致）；API 调用（Accept 不含
+    # text/html）照常转 HUB。
+    location /itwins {
+        if ($http_accept ~* "text/html") {
+            rewrite ^ /__spa last;
+        }
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /imodels {
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /auth {
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /accesscontrol {
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /webhooks {
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /users {
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /files {
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /oauth {
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /.well-known {
+        proxy_pass http://imodelhub:4000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---------- Azurite 直传（前缀剥除，同 vite rewrite） ----------
+    location /azurite/ {
+        proxy_pass http://azurite:10000/;
+        proxy_set_header Host $host;
+        proxy_buffering off;
+    }
+
+    # ---------- SPA 回退（/itwins HTML 导航专用内部跳转） ----------
+    location = /__spa {
+        internal;
+        proxy_pass http://web:3000;
+        proxy_set_header Host $host;
+    }
+
+    # ---------- 前端静态（兜底） ----------
+    location / {
+        proxy_pass http://web:3000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
