@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { IModelProgressEvent } from '@luban-cad/shared';
 import { getStoredAuth } from '../../auth/services/auth/client.js';
+import { wsUrl } from '../../../shared/api/baseUrl.js';
 
 // ============================================================================
 // Types
@@ -114,14 +115,12 @@ function scheduleReconnect(): void {
 }
 
 function resolveWsUrl(): string {
-  // Mirror the Editor backend URL convention: default to the modeling-server
-  // origin when VITE_API_URL is unset, then convert to the ws scheme.
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:4001';
-  const wsBase = base.replace(/^http/i, 'ws');
+  // Same-origin when VITE_API_URL is unset (reverse-proxied /ws face),
+  // or derived from the configured base otherwise — see shared/api/baseUrl.
   const token = getStoredAuth().tokens?.accessToken ?? '';
   return token
-    ? `${wsBase}/ws?token=${encodeURIComponent(token)}`
-    : `${wsBase}/ws`;
+    ? wsUrl(`/ws?token=${encodeURIComponent(token)}`)
+    : wsUrl('/ws');
 }
 
 function connect(): void {

@@ -58,6 +58,7 @@ import { SketchPanel } from '../../../features/sketch/components/SketchPanel.js'
 import { useSolidModelingDialogs } from '../../../features/editor/hooks/useSolidModelingDialogs.js';
 import { useVersionControl } from '../../../features/editor/hooks/useVersionControl.js';
 import { ExportDialog } from '../../../features/imodel/components/ExportDialog.js';
+import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import {
   ViewCube,
   ModelPicker,
@@ -89,8 +90,10 @@ const Editor: React.FC = React.memo(() => {
 
   const isEditable = mode === 'editable';
 
-  // Initialize IModelApp on mount
-  const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:4001';
+  // Initialize IModelApp on mount. With VITE_API_URL unset (production build)
+  // the editor talks to the modeling-server through the reverse proxy on the
+  // current origin, so the RPC/IPC prefix must be an absolute same-origin URL.
+  const backendUrl = API_BASE_URL || window.location.origin;
   const { isAppInitialized } = useEditorInitialization(backendUrl);
 
   const handleBack = useCallback(() => { navigate('/itwins'); }, [navigate]);

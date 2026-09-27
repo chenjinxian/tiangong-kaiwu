@@ -90,6 +90,12 @@ function seedAuth(token = 'jwt-token'): void {
 }
 
 describe('useImodelProgressStream', () => {
+  // VITE_API_URL is unset in the test environment, so the socket URL is
+  // derived from the current origin (same-host/path derivation asserted in
+  // shared/api/baseUrl.test.ts); here it only pins scheme + path + token.
+  const EXPECTED_WS_BASE =
+    `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+
   let onEvent: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -111,7 +117,7 @@ describe('useImodelProgressStream', () => {
 
     expect(MockWebSocket.instances).toHaveLength(1);
     const socket = MockWebSocket.instances[0];
-    expect(socket.url).toBe('ws://localhost:4001/ws?token=jwt-token');
+    expect(socket.url).toBe(`${EXPECTED_WS_BASE}/ws?token=jwt-token`);
     expect(result.current.live).toBe(false);
     expect(result.current.lastEventAt).toBeNull();
 
@@ -157,7 +163,7 @@ describe('useImodelProgressStream', () => {
       });
       expect(MockWebSocket.instances.length).toBe(count + 1);
       socket = MockWebSocket.instances[MockWebSocket.instances.length - 1];
-      expect(socket.url).toBe('ws://localhost:4001/ws?token=jwt-token');
+      expect(socket.url).toBe(`${EXPECTED_WS_BASE}/ws?token=jwt-token`);
     }
   });
 

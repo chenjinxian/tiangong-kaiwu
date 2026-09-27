@@ -8,6 +8,8 @@ coverage/
 .env
 .env.*
 !.env.example
+# Non-secret dev-only FE base URL (direct-to-modeling-server in dev)
+!luban-cad/apps/web/.env.development
 __azurite_db_*
 AzuriteConfig
 webhook-agent/data/

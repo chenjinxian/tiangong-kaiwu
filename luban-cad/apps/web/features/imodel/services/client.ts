@@ -7,10 +7,10 @@
  */
 
 import { getAuthorization } from '../../../shared/services/imodels/client.js';
+import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import type { IModelProgressPayload } from '@luban-cad/shared';
 
 const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
-const API_URL = import.meta.env.VITE_API_URL || '';
 
 /**
  * Delete an iModel by ID
@@ -73,7 +73,7 @@ export async function getDownloadUrl(iModelId: string): Promise<string> {
  */
 export async function getIModelProgress(iModelId: string): Promise<IModelProgressPayload> {
   const auth = await getAuthorization();
-  const response = await fetch(`${API_URL}/api/imodels/${iModelId}/progress`, {
+  const response = await fetch(`${API_BASE_URL}/api/imodels/${iModelId}/progress`, {
     headers: {
       'Authorization': `${auth.scheme} ${auth.token}`,
     },
@@ -89,7 +89,7 @@ export async function getIModelProgress(iModelId: string): Promise<IModelProgres
  */
 export async function retryIModel(iModelId: string, iTwinId: string, imodelName?: string): Promise<void> {
   const auth = await getAuthorization();
-  const response = await fetch(`${API_URL}/api/imodels/${iModelId}/retry`, {
+  const response = await fetch(`${API_BASE_URL}/api/imodels/${iModelId}/retry`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

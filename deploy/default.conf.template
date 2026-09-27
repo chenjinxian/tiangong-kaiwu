@@ -8,9 +8,12 @@
 #       envsubst 在 nginx 解析前完成 —— proxy_pass 为静态地址，
 #       无需 resolver。
 #
-# 前缀表（与 apps/web/vite.config.ts dev 代理逐条对齐）：
+# 前缀表（/itwins 等与 apps/web/vite.config.ts dev 代理对齐）：
 #   /                                     -> web:3000（内层静态 + SPA 回退）
 #   /api  /ws  /ipc                       -> ${MS_UPSTREAM}（WS Upgrade 透传）
+#                                         生产 FE 不设 VITE_API_URL → 同源相对
+#                                         URL 全走这三条面（dev 由
+#                                         apps/web/.env.development 直连 :4001）。
 #   /itwins /imodels /auth /accesscontrol /webhooks /users /files
 #   /oauth /.well-known                   -> imodelhub:4000
 #   /azurite/*                            -> azurite:10000/*（前缀剥除，FE 直传）
@@ -21,7 +24,7 @@ server {
     server_name _;
 
     # ---------- modeling-server（API / WebSocket / IPC） ----------
-    location /api/ {
+    location /api {
         proxy_pass http://${MS_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;

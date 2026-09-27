@@ -137,7 +137,7 @@ services:
       # ---- 共享密钥映射（根 .env 单源；environment 优先于镜像内 .env）----
       AGENT_API_KEY: ${IMODELHUB_API_KEY:?IMODELHUB_API_KEY missing in root .env (run scripts/generate-env.ps1)}
       WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET missing in root .env}
-      SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:-}
+      SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:?IMODELHUB_ADMIN_PASSWORD missing in root .env (run scripts/generate-env.ps1)}
     depends_on:
       postgres:
         condition: service_healthy
@@ -226,6 +226,8 @@ services:
       web:
         condition: service_healthy
       imodelhub:
+        condition: service_healthy
+      azurite:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]

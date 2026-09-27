@@ -23,9 +23,8 @@ import {
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
 import { useToast } from '../../../shared/components/ui/ToastContainer.js';
+import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import './Settings.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4001';
 
 /**
  * Update user profile via backend API
