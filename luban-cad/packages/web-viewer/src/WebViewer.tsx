@@ -16,6 +16,8 @@ export interface WebViewerProps extends ViewerWithUIProps {
   style?: React.CSSProperties;
   /** Skip initialization - assume IModelApp is already initialized by parent */
   skipInitialization?: boolean;
+  /** Optional access token forwarded to the underlying viewer (tests pass it) */
+  accessToken?: string;
 }
 
 /**

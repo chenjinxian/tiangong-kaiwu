@@ -48,7 +48,7 @@ vi.mock('@luban-cad/viewer-core', () => ({
 
 vi.mock('@itwin/core-frontend', () => ({
   IModelApp: {
-    toolAdmin: { startDefaultTool: vi.fn(), doUndoOperation: vi.fn(), doRedoOperation: vi.fn() },
+    toolAdmin: { startDefaultTool: vi.fn(), doUndoOperation: vi.fn(), doRedoOperation: vi.fn(), activeToolChanged: { addListener: vi.fn(() => vi.fn) } },
     accuSnap: { currHit: null },
     locateManager: { options: { allowDecorations: false } },
     tools: { register: vi.fn(), run: vi.fn() },
@@ -118,6 +118,7 @@ vi.mock('../../../features/editor/hooks/useSolidModelingDialogs.js', () => ({
 vi.mock('../../../features/editor/hooks/useVersionControl.js', () => ({
   useVersionControl: (
     _iModelId: unknown,
+    _connection: unknown,
     saveChanges: (desc: string) => Promise<void>,
     pushChanges: (desc: string) => Promise<void>,
     pullChanges: () => Promise<void>,

@@ -69,7 +69,10 @@ export async function initializeWeb(options: WebInitializerOptions): Promise<voi
         },
         iModelApp: {
           rpcInterfaces,
-          hubAccess: new FrontendIModelsAccess(iModelClient),
+          // Type cast: @itwin/imodels-access-frontend (npm 6.x) implements its own
+          // bundled FrontendHubAccess identity, structurally identical to
+          // core-frontend's (link: 5.14.0-dev) — cross-copy assignment fails tsc only.
+          hubAccess: new FrontendIModelsAccess(iModelClient) as never,
           publicPath: '/workspace/default/',
         },
       });
