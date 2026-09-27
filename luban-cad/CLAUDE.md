@@ -23,7 +23,7 @@
 | View Clip | `features/view-clip/` | ✅ 视图裁剪 |
 | AccuDraw | `features/accudraw/` | ✅ 精确绘图 |
 | Version Control | `features/version-control/` | 🟠 Changeset/Named Version 可用；冲突检测 🟠（mock 数据）、冲突解决 ⚪（no-op 标记） |
-| **Pattern (阵列)** | `features/modeling/PatternTools.ts` | 🟠 线性/圆形阵列（ID 收集 bug） |
+| **Pattern (阵列)** | `features/modeling/PatternTools.ts` + `modeling-server/src/commands/PatternCommand.ts`（已净化、未注册） | 🟠 线性/圆形阵列（ID 收集 bug） |
 
 完整能力矩阵见 platform-docs/STATUS.md（状态标记：✅/🟠/⚪/❌）
 
