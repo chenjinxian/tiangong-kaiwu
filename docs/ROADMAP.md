@@ -3,6 +3,9 @@
 **文档版本**: 3.0
 **最后更新**: 2026-09-22
 
+> **⚠️ 2026-09-28 更新**：本文 Phase 2 的技术路线已被 2026-09-27 架构裁决取代——CadFeature 骨架判定为纯骨架无引擎、**全部重做**；约束求解路线由「FreeCAD GCS 移植」改为「SolveSpace/libslvs 过渡 + 绳墨自研」；协作路线由「短期不做实时协作」改为「单写者租约 + 多人路径论证」。
+> **全程序任务分解（含真形/绳墨自研泳道）以 `docs/superpowers/specs/2026-09-28-cad-full-program-roadmap.md` 为准**；架构裁决见 `docs/superpowers/specs/2026-09-27-cad-feature-system-decision-record.md`。平台分期（Phase 0–3）框架本身仍归 platform-docs 一事一源。
+
 本文档是平台 ROADMAP（platform-docs/ROADMAP.md）在 luban-cad 应用侧的落点：分期编号、目标、还债清单与排期口径以平台 ROADMAP 为一事一源，本文**引用、不重定义**。应用侧只保留 CAD 宿主相关项——**特征树重生成引擎、约束服务对接、工具面 Agent 化**；其余跨仓分期内容（ai-service 立项、ModelProvider、几何计算服务等）归平台文档。
 
 - 状态标记：`✅ 真实可用` / `🟠 部分实现` / `⚪ stub 或 mock` / `❌ 禁用或失效`。
