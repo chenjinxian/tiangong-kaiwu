@@ -72,13 +72,13 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 
 | ID | 任务 | 出口标准 | 依赖 | 规模 |
 |---|---|---|---|---|
-| T3.1 | FeatureTypeRegistry：featureType → {paramSchema, evaluate(ctx,params,inputs)}；MS 层 JSON Schema 校验 | 注册表可扩展，非法参数拒收 | T2 | M |
-| T3.2 | extrude（轮廓直拉，暂以显式轮廓绕过草图求解器） | 参数改→再生正确 | T2 | M |
-| T3.3 | boolean add/sub | 同上 | T2 | M |
+| T3.1 ✅ | FeatureTypeRegistry：featureType → {paramSchema, evaluate(ctx,params,inputs)}；MS 层 JSON Schema 校验 | 注册表可扩展，非法参数拒收 | T2 | M |
+| T3.2 ✅ | extrude（轮廓直拉，暂以显式轮廓绕过草图求解器） | 参数改→再生正确 | T2 | M |
+| T3.3 ✅ | boolean add/sub | 同上 | T2 | M |
 | T3.4 | fillet：**走 ElementGeometryCache 面**（`OperationType.Blend=24`，`EditBuiltInCommand.ts:443`）——注意 `createBRepGeometry` 的 `Round=10` 是「所有非光滑边」全倒角，**不能做选择性圆角**；params 存 `(nodeId,entityId)` 边引用，evaluate 经 `EdgesFromId`→缓存子实体桥接（T1.8）解引用 | 上游改形后引用自愈、可选边 | T1.1+T1.8 | M |
 | T3.5 | nodeId=orderKey 确定性打标约定落地（重跑同特征打同标——协议层自动打标已顺序确定，见 WS1 修订注记；本任务=把约定固化为引擎不变式+测试） | 任意中间特征改参后全链引用不断 | T1.1 | S |
-| T3.6 | 失败级联（出边 status=1+下游跳过+旧几何保留+保持脏）+ 抑制（0x80+SuppressedShape 语义） | FreeCAD 语义等价复现 | T2 | M |
-| T3.7 | 编辑管道接入：op=txn 边界，复用 basicManipulationIpc→BriefcaseTxns→saveChanges | CLAUDE.md 硬约束合规 | T2 | M |
+| T3.6 ✅ | 失败级联（出边 status=1+下游跳过+旧几何保留+保持脏）+ 抑制（0x80+SuppressedShape 语义） | FreeCAD 语义等价复现 | T2 | M |
+| T3.7 ✅ | 编辑管道接入：op=txn 边界，复用 basicManipulationIpc→BriefcaseTxns→saveChanges | CLAUDE.md 硬约束合规 | T2 | M |
 | T3.8 | HITL 预览：rollback mark 试算→回滚，不写库 | 拖拽实时预览 | T1.2 | M |
 | T3.9 | L3 输出缓存（MS 内存/SAB；参数哈希判失效——内核无几何重合判定，见 T1.6） | 命中缓存跳过内核调用 | T3.2 | M |
 | T3.10 | L2 内核级重跑：回滚到特征 k 前 mark，只重跑 k..n | 长链改首特征不重算全链 | T1.2 | M ⚠️ |
@@ -103,14 +103,14 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | ID | 任务 | 出口标准 | 依赖 | 规模 |
 |---|---|---|---|---|
 | T5.0 | spike #2：imodelhub-services 对 changeset description 的存取验证 | op 摘要可存取 | — | S |
-| T5.1 | op 即 push 管线（FeatureService.applyOp→txn→saveChanges→push） | changeset 粒度=op 粒度 | T3.7 | M |
-| T5.2 | op 日志元素（append-only：类型/特征 id/参数 old/new/用户/时间）+ description 摘要 | 审计链完整 | T5.0/T5.1 | M |
-| T5.3 | 语义 undo/redo：op 日志逆向/正放成新 changeset（不依赖 txn 栈——push 后栈清空是硬事实） | 跨会话 undo/redo 一致 | T5.2 | M |
-| T5.4 | 写租约：MS 按 iModel 会话级写锁（WS 会话持有+心跳+过期释放） | 同刻单编辑者；读者不限 | T5.1 | M |
+| T5.1 ✅ | op 即 push 管线（FeatureService.applyOp→txn→saveChanges→push） | changeset 粒度=op 粒度 | T3.7 | M |
+| T5.2 ✅ | op 日志元素（append-only：类型/特征 id/参数 old/new/用户/时间）+ description 摘要 | 审计链完整 | T5.0/T5.1 | M |
+| T5.3 ✅（updateParams 范围） | 语义 undo/redo：op 日志逆向/正放成新 changeset（不依赖 txn 栈——push 后栈清空是硬事实） | 跨会话 undo/redo 一致 | T5.2 | M |
+| T5.4 ✅ | 写租约：MS 按 iModel 会话级写锁（WS 会话持有+心跳+过期释放） | 同刻单编辑者；读者不限 | T5.1 | M |
 | T5.5 | 同步链验证：MS push→WS 广播→前端 pull→**tile 失效刷新实测**（本地栈唯一未验证环节） | 双端秒级一致 | T5.1 | M |
 | T5.6 | 📁 多人共编实现（op 队列串行+presence+per-user undo 校验失败即拒） | 留档，D8 论证已毕 | T5.4 | L ⚠️ |
 | T5.7 | 📁 分支/合并原型（op 日志重放到 fork 定义；iModelHub 无此概念） | 留档 | T5.2 | L ⚠️ |
-| T5.8 | **op RPC 接口定义入 `@luban-cad/shared`**（applyOp/undo/redo/租约获取释放/op 广播事件类型）——T6.x 全部前端任务的前置 | 接口包构建通过、两端引用 | — | S |
+| T5.8 ✅ | **op RPC 接口定义入 `@luban-cad/shared`**（applyOp/undo/redo/租约获取释放/op 广播事件类型）——T6.x 全部前端任务的前置 | 接口包构建通过、两端引用 | — | S |
 
 ## WS6 前端 UX 🔨
 
@@ -121,6 +121,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T6.3 | 视口拾取 → 反查 `(nodeId,entityId)` → 写入特征 params（拓扑引用建立入口） | 点选面/边建引用 | T1.1 | M |
 | T6.4 | 拖拽预览管道（预览 op→rollback mark→确认成真 op） | 流畅 | T3.8 | M |
 | T6.5 | 草图模式 UI（平面进入/退出、栅格、捕捉） | 可用 | T4.4 | L |
+| T6.6 | **M3 接线补遗**（M1 Task 9 审查实证）：`LubanFeatureRpcInterface` 须双端各补一处——后端 `main.ts` 的 `BentleyCloudRpcManager.initializeImpl` 数组 + 前端 `web-viewer/src/WebInitializer.ts` 的 `rpcInterfaces` 数组（OpenCloudRpcInterface 同款先例） | 前端可调通特征 RPC | T5.8 | S |
 
 ## WS7 测试与质量 🔨
 
@@ -129,7 +130,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T7.1 | 单测体系（Vitest，mock native：注册表/校验/op 日志/EDE 边维护） | 覆盖核心逻辑 | M |
 | T7.2 | 集成测试（真 briefcase+真 native：EDE 链路/失败级联/undo/抑制） | 全绿 | M |
 | T7.3 | e2e（Playwright：建特征→改参→undo→双端协同） | 全绿 | M |
-| T7.4 | 结构断言回归（借 kittyCAD artifactGraph 思路：EDE 图形态+TopologyID 映射作 CI 基准） | 进 CI | M |
+| T7.4 | 结构断言回归（借 kittyCAD artifactGraph 思路：EDE 图形态+TopologyID 映射作 CI 基准）——几何断言须用 `TestHost.normalizeBrepGeomJson` 归一化后比较（ACIS blob 非确定性，见风险登记第 9 条） | 进 CI | M |
 | T7.5 | 性能基准（特征链长 vs 再生时间；KernelLock 全局串行下的吞吐实测；**大实体 changeset 体积实测**——证据库 §2.4：BRep blob 无分块、50MiB 阈值是 ChangesetReader 侧迹象） | 基线报告 | M |
 | T7.6 | **LubanCAD schema 演进门禁**：v1 快速迭代期的 schema changeset 纪律（只加不删/只加属性不改类型）+ CI 检查 + op 日志元素 schema 归属（进同一 LubanCAD schema） | 演进规则成文+CI 拦截破坏性变更 | S |
 
@@ -187,7 +188,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | 里程碑 | 内容 | 关键任务 |
 |---|---|---|
 | **M0 go/no-go** | X1 spike 通过 | T2 全部 —— **✅ 2026-09-28 达成** |
-| **M1 最小参数化闭环** | 拉伸链+参数修改+undo+双端同步可演示 | T3.1-3.3、T5.1-5.5 骨架 |
+| **M1 最小参数化闭环** | 拉伸链+参数修改+undo+双端同步可演示 | T3.1-3.3、T5.1-5.5 骨架 —— **✅ 2026-09-29 达成**（分支 feature/m1-feature-engine，11 任务 SDD 执行，测试 24 文件/170 用例） |
 | **M2 草图驱动** | 约束求解入环，改草图尺寸全零件联动 | T4 全部 |
 | **M3 v1 特征完整** | 草图+拉伸+布尔+圆角+前端 UX 可用 | T3.4-3.6、WS6 |
 | **M4 协同完整** | 租约/语义 undo/双端实时 | WS5 完整 |
@@ -198,13 +199,14 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 ## 风险登记（承接 spec §4 + 迁移 spec §10.1）
 
 1. ~~X1（T2）是全案咽喉~~ **✅ 已消除（2026-09-28 M0）**。
-2. **tile 刷新链路（T5.5）**：本地栈唯一未实测的同步环节。
+2. **tile 刷新链路（T5.5）**：本地栈唯一未实测的同步环节。备注：M1 已验证 MS 侧 op=push/pull 数据链（FeatureSync.test.ts）；前端对外部 changeset 的自动 pull/tile 刷新未接线，归 WS6。
 3. **KernelLock 全局串行**：v1 无感（单写者），T11.5 前是并行天花板。
 4. **圆柱面操作（T1.5）**：柱面草图/面提取的前置，v1 不碰。
 5. **真形/绳墨是研究性投入**：接口契约（SolidKernel.h / solver-neutral）保证主线不被自研进度绑架——这是双轨制的全部意义。
 6. **双 op 面接缝（2026-09-28 审查新增）**：特征引擎跨 `createBRepGeometry`（12 粗粒度 op）与 ElementGeometryCache（31-op）两面；两面的事务/锁/缓存交互未经验证——T3.4 是最先暴露点，视情况在 WS3 前加一个 op 面选型 spike。
 7. **op=push 交互延迟**：本地 hub 往返可接受（M1 演示级）；AI 批量 op 场景的合批策略（composite op=单 changeset）留为设计注记，不进 v1。
 8. **内核会话态管理**：rollback mark、ElementGeometryCache 均为会话态；模型重开=重建（T1.2 出口已含 mark 表重建策略；缓存重建随 T3.12）。
+9. **ACIS BRep blob 非确定性**（M1 Task 10 实证）：blob 头含时间戳+随机 ID，同参数两次求值字节不同（~75 字节）。纪律：跨求值比较一律用 `TestHost.normalizeBrepGeomJson` 归一化；同持久化 blob 可字节比。影响面：T7.4 结构断言回归、T7.5 性能基准、未来任何字节级几何断言。
 
 ## 审查记录
 
