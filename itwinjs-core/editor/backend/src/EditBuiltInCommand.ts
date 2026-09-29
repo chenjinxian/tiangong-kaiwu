@@ -415,6 +415,67 @@ interface PointInsideRequestProps {
   onResult: PointInsideFunction;
 }
 
+/** @alpha */
+export interface TopologyIdProps {
+  /** Node (body) identifier of the persistent topology id */
+  nodeId: number;
+  /** Entity (face) identifier within the node */
+  entityId: number;
+}
+
+interface SubEntityIdsResponseProps {
+  /** Cache sub-entity ids of the matching sub-entities, decimal strings directly usable as SubEntityProps.id */
+  subEntityIds: string[];
+}
+
+interface TopologyIdsResponseProps {
+  /** Persistent topology id of every face, in traversal order */
+  ids: TopologyIdProps[];
+}
+
+interface ValidateBodyResponseProps {
+  /** Whether all bodies of the element pass the kernel consistency check */
+  valid: boolean;
+}
+
+type TopologyIdFunction = (info: TopologyIdProps) => void;
+type TopologyIdArrayFunction = (info: TopologyIdsResponseProps) => void;
+type SubEntityIdsFunction = (info: SubEntityIdsResponseProps) => void;
+type ValidateBodyFunction = (info: ValidateBodyResponseProps) => void;
+
+interface TopologyIdFromSubEntityRequestProps {
+  /** Cache sub-entity id of a face, decimal string form (as returned by BodySubEntities/FacesFromId) */
+  subEntityId: string;
+  /** Callback for result */
+  onResult: TopologyIdFunction;
+}
+
+interface FacesFromIdRequestProps {
+  /** Node identifier of the face to query */
+  nodeId: number;
+  /** Entity identifier of the face to query */
+  entityId: number;
+  /** Callback for result */
+  onResult: SubEntityIdsFunction;
+}
+
+interface EdgesFromIdRequestProps {
+  /** The two adjacent faces identifying the edge (exactly 2 entries, order-insensitive) */
+  faceIds: TopologyIdProps[];
+  /** Callback for result */
+  onResult: SubEntityIdsFunction;
+}
+
+interface AllTopologyIdsRequestProps {
+  /** Callback for result */
+  onResult: TopologyIdArrayFunction;
+}
+
+interface ValidateBodyRequestProps {
+  /** Callback for result */
+  onResult: ValidateBodyFunction;
+}
+
 enum OperationType {
   GeometrySummary = 0,
   SubEntityGeometry = 1,
@@ -447,6 +508,11 @@ enum OperationType {
   Imprint = 28,
   SweepPath = 29,
   Loft = 30,
+  TopologyIdFromSubEntity = 31,
+  FacesFromId = 32,
+  EdgesFromId = 33,
+  AllTopologyIds = 34,
+  ValidateBody = 35,
 }
 
 interface ElementGeometryCacheOperationRequestProps {
@@ -455,7 +521,7 @@ interface ElementGeometryCacheOperationRequestProps {
   /** Requested operation */
   op: OperationType;
   /** Parameters for operation */
-  params?: GeometrySummaryRequestProps | SubEntityGeometryRequestProps | SubEntityParameterRangeRequestProps | SubEntityEvaluateRequestProps | QuerySubEntityRequestProps | QueryBodyRequestProps | BodySubEntitiesRequestProps | ConnectedSubEntityRequestProps | LocateSubEntityRequestProps | LocateFaceRequestProps | ClosestSubEntityRequestProps | ClosestPointRequestProps | PointInsideRequestProps | BooleanOperationProps | SewSheetProps | ThickenSheetProps | CutProps | EmbossProps | ImprintProps | SweepPathProps | LoftProps | OffsetFacesProps | OffsetEdgesProps | HollowFacesProps | SweepFacesProps | SpinFacesProps | DeleteSubEntityProps | TransformSubEntityProps | BlendEdgesProps | ChamferEdgesProps;
+  params?: GeometrySummaryRequestProps | SubEntityGeometryRequestProps | SubEntityParameterRangeRequestProps | SubEntityEvaluateRequestProps | QuerySubEntityRequestProps | QueryBodyRequestProps | BodySubEntitiesRequestProps | ConnectedSubEntityRequestProps | LocateSubEntityRequestProps | LocateFaceRequestProps | ClosestSubEntityRequestProps | ClosestPointRequestProps | PointInsideRequestProps | TopologyIdFromSubEntityRequestProps | FacesFromIdRequestProps | EdgesFromIdRequestProps | AllTopologyIdsRequestProps | ValidateBodyRequestProps | BooleanOperationProps | SewSheetProps | ThickenSheetProps | CutProps | EmbossProps | ImprintProps | SweepPathProps | LoftProps | OffsetFacesProps | OffsetEdgesProps | HollowFacesProps | SweepFacesProps | SpinFacesProps | DeleteSubEntityProps | TransformSubEntityProps | BlendEdgesProps | ChamferEdgesProps;
   /** Callback for result when element's geometry stream is requested in flatbuffer or graphic formats */
   onGeometry?: ElementGeometryFunction;
 }
@@ -950,5 +1016,77 @@ export class SolidModelingCommand extends BasicManipulationCommand implements So
   public async chamferEdges(id: Id64String, params: ChamferEdgesProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined> {
     const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.Chamfer, params };
     return this.doElementGeometryOperation(props, opts);
+  }
+
+  /** Query the persistent topology id of a face identified by its cache sub-entity id (decimal string).
+   * @returns The (nodeId, entityId) pair for the face, or undefined if the operation failed (protocol error, not a face, etc.).
+   */
+  public async topologyIdFromSubEntity(id: Id64String, subEntityId: string): Promise<TopologyIdProps | undefined> {
+    let accepted: TopologyIdProps | undefined;
+    const onResult: TopologyIdFunction = (info: TopologyIdProps): void => {
+      accepted = info;
+    };
+    const params: TopologyIdFromSubEntityRequestProps = { subEntityId, onResult };
+    const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.TopologyIdFromSubEntity, params };
+    this.iModel[_nativeDb].elementGeometryCacheOperation(props);
+    return accepted;
+  }
+
+  /** Query the cache sub-entity ids of the face identified by the supplied persistent topology id.
+   * @returns Decimal string ids directly usable as SubEntityProps.id, or undefined if no face matched.
+   * Returns more than one id when the face has been split into multiple pieces.
+   */
+  public async facesFromId(id: Id64String, nodeId: number, entityId: number): Promise<string[] | undefined> {
+    let accepted: string[] | undefined;
+    const onResult: SubEntityIdsFunction = (info: SubEntityIdsResponseProps): void => {
+      accepted = info.subEntityIds;
+    };
+    const params: FacesFromIdRequestProps = { nodeId, entityId, onResult };
+    const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.FacesFromId, params };
+    this.iModel[_nativeDb].elementGeometryCacheOperation(props);
+    return accepted;
+  }
+
+  /** Query the cache sub-entity ids of the edge shared by two adjacent faces.
+   * @param faceIds The persistent topology ids of the two adjacent faces (exactly 2 entries, order-insensitive).
+   * @returns Decimal string ids directly usable as SubEntityProps.id, or undefined if no edge was found.
+   */
+  public async edgesFromId(id: Id64String, faceIds: TopologyIdProps[]): Promise<string[] | undefined> {
+    let accepted: string[] | undefined;
+    const onResult: SubEntityIdsFunction = (info: SubEntityIdsResponseProps): void => {
+      accepted = info.subEntityIds;
+    };
+    const params: EdgesFromIdRequestProps = { faceIds, onResult };
+    const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.EdgesFromId, params };
+    this.iModel[_nativeDb].elementGeometryCacheOperation(props);
+    return accepted;
+  }
+
+  /** Enumerate the persistent topology ids of all faces of the element (one entry per face, traversal order).
+   * @returns The id entries, or undefined if the element has no cached bodies or no faces with ids.
+   */
+  public async allTopologyIds(id: Id64String): Promise<TopologyIdProps[] | undefined> {
+    let accepted: TopologyIdProps[] | undefined;
+    const onResult: TopologyIdArrayFunction = (info: TopologyIdsResponseProps): void => {
+      accepted = info.ids;
+    };
+    const params: AllTopologyIdsRequestProps = { onResult };
+    const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.AllTopologyIds, params };
+    this.iModel[_nativeDb].elementGeometryCacheOperation(props);
+    return accepted;
+  }
+
+  /** Check kernel validity (consistency of topology and geometry) of all bodies of the element.
+   * @returns false is an answer, not a failure - true only when every body passes. Returns undefined on protocol failure.
+   */
+  public async validateBody(id: Id64String): Promise<boolean | undefined> {
+    let accepted: boolean | undefined;
+    const onResult: ValidateBodyFunction = (info: ValidateBodyResponseProps): void => {
+      accepted = info.valid;
+    };
+    const params: ValidateBodyRequestProps = { onResult };
+    const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.ValidateBody, params };
+    this.iModel[_nativeDb].elementGeometryCacheOperation(props);
+    return accepted;
   }
 }

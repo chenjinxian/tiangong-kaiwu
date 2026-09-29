@@ -113,3 +113,13 @@
 | `common/config/rush/repo-state.json` | rush update 自动生成（其变更计入上表 1.3c，非手写） |
 | `common/config/rush/browser-approved-packages.json` | rush 自动维护（其变更计入上表 1.3c，非手写） |
 | `pnpm-lock.yaml`（根目录） | rush update 自动生成；上游已删根 lockfile，本 fork 跟随删除 |
+
+---
+
+## 5. 台账快照（2026-09-22）后追加修改（按时间序）
+
+§1 的分类与统计为 2026-09-22 快照口径；此后新增的对上游存续文件的修改逐条记于此，不回填 §1 统计。
+
+| 日期 | commit | 文件 | 性质 | 说明 |
+|------|--------|------|------|------|
+| 2026-09-30 | `22a38fd2d9` | `editor/backend/src/EditBuiltInCommand.ts`（+139/-1） | 上游文件修补·纯追加 | WS1 T1.1/T1.3：OperationType 枚举扩 31-35 + 请求/响应 props 接口 + SolidModelingCommand 五个查询方法（topologyIdFromSubEntity/facesFromId/edgesFromId/allTopologyIds/validateBody），仿查询族形态（params.onResult 回调出线），wire 逐字消费 imodel-native 8e5ab9c60。导出 `TopologyIdProps` 供 M3 消费。同步风险与 §1.3 同类：上游若重排 OperationType 枚举尾部/改 `elementGeometryCacheOperation` 签名即冲突，但枚举追加在尾部、方法追加在类尾，冲突面最小 |
