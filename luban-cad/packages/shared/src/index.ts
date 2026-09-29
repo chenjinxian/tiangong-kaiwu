@@ -196,6 +196,8 @@ export type {
 // RPC Interface
 // =============================================================================
 export { OpenCloudRpcInterface } from './rpc/OpenCloudRpcInterface.js';
+export { LubanFeatureRpcInterface } from './rpc/LubanFeatureRpcInterface.js';
+export type { LubanFeatureType, ExtrudeParams, FeatureOp, FeatureTreeEntry, FeatureOpResult } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================
 // Error Types
