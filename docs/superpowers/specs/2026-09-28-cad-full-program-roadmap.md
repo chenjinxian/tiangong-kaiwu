@@ -35,20 +35,22 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T0.4 | 上游同步机制（sync-from-upstream.sh + UPSTREAM_SYNC.md） | ✅ 持续 |
 | T0.5 | 既有草图绘制/布尔/变换工具（自由绘制，无约束无参数化） | ✅ 可作 UI 素材复用 |
 
-## WS1 内核暴露（imodel-native，C++）🔨 —— 主线的供应线
+## WS1 内核暴露（imodel-native，C++）✅ **2026-09-30 达成（T1.1-T1.4 全达）** —— 主线的供应线
+
+> **2026-09-30 达成注记**：TopologyID 查询族=op31-34（`PSBRepOperation.h`：31=TopologyIdFromSubEntity/32=FacesFromId/33=EdgesFromId/34=AllTopologyIds）、validity check=op35（ValidateBody），已全部入 `PSBRepEdit.cpp` 的 op switch 读通道；rollback mark 取快照载体（`_Save`/`_RestoreEntityFromMemory`，markId 保号+按元素隔离，作废口径与生命周期语义见出口标准与 imodel-native 结论文档）；JS 侧 `TopologyId.test.ts` 确定性/往返断言绿。回归基线：modeling-server vitest 26 文件 197 过/10 skip（均为中毒态留档）/tsc 0 错/eslint 0 错；imodel-native ctest 13 套中 9 绿——**WS1 直接相关的 BRepCoreTest 与 PSBRepGeometryTest 全绿**；4 套失败（BentleyTest 1 例符号链接权限、UnitsTest 1 例方位角格式化、GeoCoordTests 1306 例 GCS 数据目录缺失、iModelPlatformTest 17 例 GCS/字体族）与 WS1 改动面（PSBRepGeometry + PlatformLib.h 增量虚方法 + addon wire）零重叠，判为环境与数据性既有失败。T1.5-T1.7 后置项与 T1.8 桥接验证（留 M3 T3.4）不动。
 
 > **2026-09-28 审查修订**：JS 侧实为**双 op 面**——`createBRepGeometry`/`BRepGeometryOperation`（core-common，12 个粗粒度 op：Unite/Subtract/Intersect/Sew/Cut/Emboss/Thicken/Hollow/Sweep/Loft/Round/Offset）与 ElementGeometryCache/`OperationType`（editor-backend `EditBuiltInCommand.ts:418-450`，**31 个 op**，即盘点所称「31-op 协议」的 JS 真身，含选择性 op Blend=24/Chamfer=25/SweepFaces=20 等）。特征引擎将同时消费两个面。另：**协议层 C++ 已自动打标**（PSBRepEdit.cpp 的 FindNodeIdRange→ChangeNodeIdAttributes→op→AddNodeIdAttributes 模式，nodeId=highest+1 由体上 id 范围派生）——D4 的确定性由「op 执行顺序确定 + rollback mark 恢复体上 id 状态」保证，**无需给 JS 协议加 nodeId 参数**；T1.1 出口标准因此改为含「全量重建后 nodeId 序列确定性」断言。
 
 | ID | 任务 | 出口标准 | 依赖 | 规模 |
 |---|---|---|---|---|
-| T1.1 | TopologyID 查询 op 暴露到 JS：`FacesFromId` + **`EdgesFromId`**（圆角引用的是边）+ `IdFromFace/IdFromEdge`（拾取反查用）（C++ 实现已在 `AcisTopologyId.h:78-138`，纯接线）+ TS 声明 + **nodeId 确定性断言测试**（同链重建两遍，id 序列一致） | MS 层 TS 可调；返回集合语义正确 | — | M |
-| T1.2 | 内核 rollback mark 暴露（`CreateRollbackMark`/`RollbackTo`，对应 HISTORY_STREAM bulletin） | JS 可打标/回滚；**mark 生命周期语义明确：mark 是内核会话态，模型重开=从 SAB 恢复 body+按序重跑建 mark 表**（策略写入出口文档） | — | M |
-| T1.3 | validity check 暴露（`HasConsistentTopologyAndGeometry`=api_check_entity 现为内部守门） | 求值后可主动校验，结果入特征 status | — | S |
-| T1.4 | TopologyID 存活性测试扩充：跨布尔/分裂/合并/序列化 roundtrip 的 id 断言 | 测试绿（Emboss 模式推广到 fillet/shell） | T1.1 | M |
+| T1.1 ✅（2026-09-30，op31-34+确定性断言） | TopologyID 查询 op 暴露到 JS：`FacesFromId` + **`EdgesFromId`**（圆角引用的是边）+ `IdFromFace/IdFromEdge`（拾取反查用）（C++ 实现已在 `AcisTopologyId.h:78-138`，纯接线）+ TS 声明 + **nodeId 确定性断言测试**（同链重建两遍，id 序列一致） | MS 层 TS 可调；返回集合语义正确 | — | M |
+| T1.2 ✅（2026-09-30，rollback mark 快照载体+语义文档） | 内核 rollback mark 暴露（`CreateRollbackMark`/`RollbackTo`，对应 HISTORY_STREAM bulletin） | JS 可打标/回滚；**mark 生命周期语义明确：mark 是内核会话态，模型重开=从 SAB 恢复 body+按序重跑建 mark 表**（策略写入出口文档） | — | M |
+| T1.3 ✅（2026-09-30，op35） | validity check 暴露（`HasConsistentTopologyAndGeometry`=api_check_entity 现为内部守门） | 求值后可主动校验，结果入特征 status | — | S |
+| T1.4 ✅（2026-09-30，C++ 测试+JS 确定性） | TopologyID 存活性测试扩充：跨布尔/分裂/合并/序列化 roundtrip 的 id 断言 | 测试绿（Emboss 模式推广到 fillet/shell） | T1.1 | M |
 | T1.5 | （后置）BodyFromFace 圆柱 seam-strip 面支持（§10.1 backlog） | 面提取/柱面草图解锁 | 🔬 | L ⚠️ |
 | T1.6 | （后置）IsSameStructureAndGeometry 自建（采样+点面距，ACIS 无 PK_FACE_is_coincident 对应） | L3 缓存几何级失效判断可用 | 🔬 | M ⚠️ |
 | T1.7 | （后置）装配实例化方案（ACIS 无内核 instancing，应用层元素引用+变换） | 装配阶段前置 | 🔬 | L ⚠️ |
-| T1.8 | **TopologyID ↔ ElementGeometryCache 子实体桥接**：`EdgesFromId` 返回的内核边 → 几何缓存的瞬态 SubEntity id 映射（blendEdges 等选择性 op 只吃缓存 id） | 圆角可按持久引用选边 | T1.1 | M |
+| T1.8 | **TopologyID ↔ ElementGeometryCache 子实体桥接**：`EdgesFromId` 返回的内核边 → 几何缓存的瞬态 SubEntity id 映射（blendEdges 等选择性 op 只吃缓存 id）。**2026-09-30 标注：op32/33 返回缓存子实体 id 已天然桥接——留 M3 T3.4 验证** | 圆角可按持久引用选边 | T1.1 | M |
 
 ## WS2 EDE×BRep 闭环 spike（X1，最高风险最先杀）✅ **2026-09-28 通过（M0 达成）**
 
@@ -203,11 +205,12 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 3. **KernelLock 全局串行**：v1 无感（单写者），T11.5 前是并行天花板。
 4. **圆柱面操作（T1.5）**：柱面草图/面提取的前置，v1 不碰。
 5. **真形/绳墨是研究性投入**：接口契约（SolidKernel.h / solver-neutral）保证主线不被自研进度绑架——这是双轨制的全部意义。
-6. **双 op 面接缝（2026-09-28 审查新增）**：特征引擎跨 `createBRepGeometry`（12 粗粒度 op）与 ElementGeometryCache（31-op）两面；两面的事务/锁/缓存交互未经验证——T3.4 是最先暴露点，视情况在 WS3 前加一个 op 面选型 spike。
+6. **双 op 面接缝（2026-09-28 审查新增）**：特征引擎跨 `createBRepGeometry`（12 粗粒度 op）与 ElementGeometryCache（31-op）两面；两面的事务/锁/缓存交互未经验证——T3.4 是最先暴露点，视情况在 WS3 前加一个 op 面选型 spike。**2026-09-30 补注：31-op 通道确认已实现（PSBRepEdit.cpp op switch，op31-35 已入该通道）**。
 7. **op=push 交互延迟**：本地 hub 往返可接受（M1 演示级）；AI 批量 op 场景的合批策略（composite op=单 changeset）留为设计注记，不进 v1。
 8. **内核会话态管理**：rollback mark、ElementGeometryCache 均为会话态；模型重开=重建（T1.2 出口已含 mark 表重建策略；缓存重建随 T3.12）。
 9. **ACIS BRep blob 非确定性**（M1 Task 10 实证）：blob 头含时间戳+随机 ID，同参数两次求值字节不同（~75 字节）。纪律：跨求值比较一律用 `TestHost.normalizeBrepGeomJson` 归一化；同持久化 blob 可字节比。影响面：T7.4 结构断言回归、T7.5 性能基准、未来任何字节级几何断言。观察记录（2026-09-29 M1 合并树）：全量套件出现一次未复现的失败（1/5 跑，用例名未捕获）——疑属归一化秒边界或 WriteLease 1ms TTL 边界家族，再现时按此排查。
-10. **【调查完成 2026-09-29·native 根因仍开放】body「中毒态」：EDE indirect 几何写静默失效**。最终画像（systematic-debugging 全程 + 探针矩阵 `debug-tail-root.test.ts`）：**分野=body 首次持久化几何的形态**——角点缺口起步（工具贴原点/贴边）→ 该 body 后续 indirect 写全部正常（X1/V3/matrix/K1/C1 全吻合）；**内嵌孔洞起步（工具内嵌于 base）→ 该 body 后续 indirect 几何写永久静默失效**（updateElement 无异常、ECSQL 原始列哈希不变=从未落库【Task7 改判：实为落库了陈旧内核体字节，哈希才不变——见 imodel-native 结论文档】；clone/J2/suppress 留档全吻合）。已证伪：EDE/indirect 事务本身、entry 跨 op 复用、负坐标、placement/bbox 关系（J2/K1）、「链尾 root」（matrix-D 反例）。**直写路径完全免疫**（J1：中毒态 body 直写正常）。工作轨迹：角点建链→retool 内嵌（V3 实证，FeatureEngine.test 在用）。**生产影响与修复路径**：FeatureService.applyInsert 建链时若首特征即产出内嵌拓扑则触发（当前 M1 测试均健康轨迹）；应用层缓解=insert 后强制一次 retool/直写重写 body（待 M2 前实施）；根治=imodel-native C++ 排查（跟进任务已建；**Task 7 C++ 调查已完结 2026-09-29**，结论：写库链路/TxnManager/JS 全部无辜，「静默不落库」改判为「疑似落库陈旧内核体」（假说：ACIS 会话层将上一次布尔在位结果体别名给后续 restore→save，机制待定界），字节级指纹与下一步实验设计（含健康轨迹不中毒这一未解释观测的判别实验）见 imodel-native `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md` @ ws1-kernel-exposure 0769fa956）。留档测试：FeatureEngine.test.ts 尾部 it.skip（中毒态）+ probe 文件克隆组。
+10. **【调查完成 2026-09-29·native 根因仍开放】body「中毒态」：EDE indirect 几何写静默失效**。最终画像（systematic-debugging 全程 + 探针矩阵 `debug-tail-root.test.ts`）：**分野=body 首次持久化几何的形态**——角点缺口起步（工具贴原点/贴边）→ 该 body 后续 indirect 写全部正常（X1/V3/matrix/K1/C1 全吻合）；**内嵌孔洞起步（工具内嵌于 base）→ 该 body 后续 indirect 几何写永久静默失效**（updateElement 无异常、ECSQL 原始列哈希不变=从未落库【Task7 改判：实为落库了陈旧内核体字节，哈希才不变——见 imodel-native 结论文档】；clone/J2/suppress 留档全吻合）。已证伪：EDE/indirect 事务本身、entry 跨 op 复用、负坐标、placement/bbox 关系（J2/K1）、「链尾 root」（matrix-D 反例）。**直写路径完全免疫**（J1：中毒态 body 直写正常）。工作轨迹：角点建链→retool 内嵌（V3 实证，FeatureEngine.test 在用）。**生产影响与修复路径**：FeatureService.applyInsert 建链时若首特征即产出内嵌拓扑则触发（当前 M1 测试均健康轨迹）；应用层缓解=insert 后强制一次 retool/直写重写 body（待 M2 前实施）；根治=imodel-native C++ 排查（跟进任务已建；**Task 7 C++ 调查已完结 2026-09-29**，结论：写库链路/TxnManager/JS 全部无辜，「静默不落库」改判为「疑似落库陈旧内核体」（假说：ACIS 会话层将上一次布尔在位结果体别名给后续 restore→save，机制待定界），字节级指纹与下一步实验设计（含健康轨迹不中毒这一未解释观测的判别实验）见 imodel-native `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md` @ ws1-kernel-exposure 06591ecc3）。留档测试：FeatureEngine.test.ts 尾部 it.skip（中毒态）+ probe 文件克隆组。
+11. **【移交 imodel-native 立项 2026-09-30】fork 逆向重建的 PSBRepGeometry 三项原生缺陷**：复现物在 tiangong SDD workspace `segfault-repro/` 与 `probe-t6/`——① GeometryCache 异步 populate 摄取持久化 BRep entry 硬崩（`FindOrAddElement`）；② 内核状态物化 op（op 读通道/createRollbackMark）后同会话异步缓存调用硬崩 0xC0000005（疑线程亲和）；③ 中毒态落库陈旧体（Task 7 结论，见 `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md` @ ws1-kernel-exposure 06591ecc3）。③已另行单列本登记第 10 条；本条将其与 ①② 归并为同一 imodel-native 立项入口。
 
 ## 审查记录
 
