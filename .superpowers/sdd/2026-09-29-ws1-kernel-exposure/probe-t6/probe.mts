@@ -1,12 +1,23 @@
 // Task 6 预研探针（SDD 调查产物）：rollback mark 三方法的 TS 侧调用面 + 内容类/缓存重建定界。
 //
+// 定界结论（判别面，输出留痕 probe-t6-output.txt）：
+//   异步缓存调用（clear-all=DropAppData / populate 重灌）与同会话已物化的内核状态存在确定性崩溃竞态
+//   （0xC0000005，worker 线程弃置主线程物化的 ACIS 体，疑线程亲和）——**同步「内核状态物化」类 op
+//   任一先行即各自独立毒化：op 读通道（op34/32/1，c6）与 createRollbackMark（c2）**；纯行级读写
+//   （requestElementGeometry / EditTxn 行写，c5）不毒化；无任何内核 op 时 populate→clear→populate
+//   正常（早期 c1 形态）。T3.8 操作律：异步缓存调用收敛在首个内核状态物化 op 之前。
+//
 // 臂（argv[2] 选其一，单进程单臂——崩臂进程终止，崩前输出已同步落 stdout）：
 //   brep  持久化 BRep entry 元素（内核 Sweep 产物）：不 populate 直调 createRollbackMark（同步
-//         EnsureCacheEntry 懒建）+ 异步 populate 是否仍崩（Task 4 缺陷点）。
-//   c1    DgnBox：异步 populate（worker 建缓存）→ clear-all（worker DropAppData）。
-//   c2    DgnBox：mark（同步建缓存）→ clear-all。
-//   c3    DgnBox：populate → mark → 直写 → clear → populate → rollback（全链,回滚后不再 clear）。
+//         EnsureCacheEntry 懒建,不崩）→ 行直写 → 异步 populate（Task 4 缺陷点,崩）。
+//   red   populate → mark → 行直写（不重建缓存）→ rollbackTo：部署二进制作废口径实证（同形直写
+//         不灭 mark → rolledBack:true）+ 回滚后 op 读通道可用性。
+//   c1    populate → 行读 + op 读 + 行直写 → clear（含 op 读,毒化——崩）。
+//   c2    mark（同步建缓存）→ clear（mark 毒化——崩）。
+//   c3    populate → mark → 行直写 → clear → populate → rollback（mark 毒化——崩于 clear）。
 //   c4    c3 + 回滚后再 clear→populate（行不动重建）。
+//   c5    populate → 行直写 + 行读 → clear → populate + 行读（纯行级读写——不崩,判别对照）。
+//   c6    populate → op 读（op34/32/1,无 mark 无行写）→ clear（op 读独立毒化——崩）。
 //
 // 运行（须在 modeling-server 目录内跑——@itwin 依赖经 createRequire 锚定其 node_modules 解析）：
 //   cd D:\Github\tiangong-kaiwu\modeling-server
@@ -148,7 +159,20 @@ async function armClear(scene: string): Promise<void> {
   const native = nativeOf(db);
   let mark = 0;
 
-  if ("red" === scene) {
+  if ("c6" === scene) {
+    // c6：populate → op 读通道（op34/32/1,无 mark、无行写）→ clear —— 判别「op 读是否独立毒化」。
+    await populate(cmd, el);
+    await measure(cmd, el, "c6 基线(缓存,s2)");
+    await rebuild(cmd, el);
+    await measure(cmd, el, "c6 重建后(缓存,s2)");
+  } else if ("c5" === scene) {
+    // c5：populate → 行直写（EditTxn updateElement,无 op 读、无 mark）→ clear —— 判别「行级写是否毒化」。
+    await populate(cmd, el);
+    rewriteRow(db, el, cubeEntries(3));
+    await rowRead(cmd, el, "c5 直写后(行,s3)");
+    await rebuild(cmd, el);
+    await rowRead(cmd, el, "c5 直写+重建(行,s3)");
+  } else if ("red" === scene) {
     // RED 臂：直写（不重建缓存）→rollbackTo——部署二进制实现的是哪个作废口径？
     // + 回滚后 op34/32/1 读通道是否仍可用（最终测试的最大未知）。
     await populate(cmd, el);
