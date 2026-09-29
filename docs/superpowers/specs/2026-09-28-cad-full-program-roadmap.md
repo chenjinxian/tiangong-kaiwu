@@ -37,24 +37,36 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 
 ## WS1 内核暴露（imodel-native，C++）🔨 —— 主线的供应线
 
+> **2026-09-28 审查修订**：JS 侧实为**双 op 面**——`createBRepGeometry`/`BRepGeometryOperation`（core-common，12 个粗粒度 op：Unite/Subtract/Intersect/Sew/Cut/Emboss/Thicken/Hollow/Sweep/Loft/Round/Offset）与 ElementGeometryCache/`OperationType`（editor-backend `EditBuiltInCommand.ts:418-450`，**31 个 op**，即盘点所称「31-op 协议」的 JS 真身，含选择性 op Blend=24/Chamfer=25/SweepFaces=20 等）。特征引擎将同时消费两个面。另：**协议层 C++ 已自动打标**（PSBRepEdit.cpp 的 FindNodeIdRange→ChangeNodeIdAttributes→op→AddNodeIdAttributes 模式，nodeId=highest+1 由体上 id 范围派生）——D4 的确定性由「op 执行顺序确定 + rollback mark 恢复体上 id 状态」保证，**无需给 JS 协议加 nodeId 参数**；T1.1 出口标准因此改为含「全量重建后 nodeId 序列确定性」断言。
+
 | ID | 任务 | 出口标准 | 依赖 | 规模 |
 |---|---|---|---|---|
-| T1.1 | TopologyID 查询 op 暴露到 JS：`FacesFromId(body,{nodeId,entityId})→面集`、`IdFromFace/EdgesFromId` 等（C++ 实现已在 `AcisTopologyId.h:78-138`，纯接线）+ TS 声明 | MS 层 TS 可调；返回集合语义正确 | — | M |
-| T1.2 | 内核 rollback mark 暴露（`CreateRollbackMark`/`RollbackTo`，对应 HISTORY_STREAM bulletin） | JS 可打标/回滚；预览与 L2 重跑可用 | — | M |
+| T1.1 | TopologyID 查询 op 暴露到 JS：`FacesFromId` + **`EdgesFromId`**（圆角引用的是边）+ `IdFromFace/IdFromEdge`（拾取反查用）（C++ 实现已在 `AcisTopologyId.h:78-138`，纯接线）+ TS 声明 + **nodeId 确定性断言测试**（同链重建两遍，id 序列一致） | MS 层 TS 可调；返回集合语义正确 | — | M |
+| T1.2 | 内核 rollback mark 暴露（`CreateRollbackMark`/`RollbackTo`，对应 HISTORY_STREAM bulletin） | JS 可打标/回滚；**mark 生命周期语义明确：mark 是内核会话态，模型重开=从 SAB 恢复 body+按序重跑建 mark 表**（策略写入出口文档） | — | M |
 | T1.3 | validity check 暴露（`HasConsistentTopologyAndGeometry`=api_check_entity 现为内部守门） | 求值后可主动校验，结果入特征 status | — | S |
 | T1.4 | TopologyID 存活性测试扩充：跨布尔/分裂/合并/序列化 roundtrip 的 id 断言 | 测试绿（Emboss 模式推广到 fillet/shell） | T1.1 | M |
 | T1.5 | （后置）BodyFromFace 圆柱 seam-strip 面支持（§10.1 backlog） | 面提取/柱面草图解锁 | 🔬 | L ⚠️ |
 | T1.6 | （后置）IsSameStructureAndGeometry 自建（采样+点面距，ACIS 无 PK_FACE_is_coincident 对应） | L3 缓存几何级失效判断可用 | 🔬 | M ⚠️ |
 | T1.7 | （后置）装配实例化方案（ACIS 无内核 instancing，应用层元素引用+变换） | 装配阶段前置 | 🔬 | L ⚠️ |
+| T1.8 | **TopologyID ↔ ElementGeometryCache 子实体桥接**：`EdgesFromId` 返回的内核边 → 几何缓存的瞬态 SubEntity id 映射（blendEdges 等选择性 op 只吃缓存 id） | 圆角可按持久引用选边 | T1.1 | M |
 
-## WS2 EDE×BRep 闭环 spike（X1，最高风险最先杀）🔨
+## WS2 EDE×BRep 闭环 spike（X1，最高风险最先杀）✅ **2026-09-28 通过（M0 达成）**
 
-| ID | 任务 | 出口标准 | 规模 |
-|---|---|---|---|
-| T2.1 | LubanCAD schema v0（`Feature` 单具体类+params JSON、`BodySolid extends GeometricElement3d`、`FeatureDrivesElement extends ElementDrivesElement`）+ JS 类注册（仿 BisCore/annotations 注册模式） | schema 可导入、类可实例化 | S |
-| T2.2 | 最小图闭环：featureType=`boxPrimitive`（绕开草图依赖）→ BodySolid；nodeId 打桩 | 建链成功 | S |
-| T2.3 | 五项断言：①回调每 saveChanges 恰一次 ②拓扑序正确 ③evaluate 抛错→status=1+旧几何保留 ④第二 briefcase pull 免重算见新几何 ⑤ChangesetReader 见参数行+几何行 | 全绿 | M |
-| — | **go/no-go**：通过→主线全速；不通过→降级方案（MS 自驱动传播遍历子图，数据模型不变，spec §4） | | |
+**验收结果**：`modeling-server/src/feature/spike-x1/X1EdeBrepSpike.test.ts` 5/5 绿（全量套件 15 文件 138 测试无回归；tsc/eslint 干净）。关键实证与发现：
+
+- EDE 回调契约**完全承载 BRep 再生**：拓扑序、每节点恰一次、indirectEditTxn 写回、环/失败语义全部如文档所述工作（证据即测试断言）。
+- **内核在环路径 = `IModelDb.createBRepGeometry`（BRepGeometryOperation 协议）**：`GeometryStreamBuilder.appendGeometry(实体)` 只存参数级条目、**不产生内核 BRep**（首轮失败实测）；正确路径 = `ElementGeometry.Builder.appendGeometryQuery` → `createBRepGeometry`（内核产出真 BRep entry）→ `elementGeometryBuilderParams` 写回元素。此路径即正式特征引擎的求值-写回骨架。
+- **changeset 实证**：参数行 Update（isIndirect=false）与几何行 Update（isIndirect=true）同包；第二 briefcase pull 后免重算读到新几何、零回调。
+- 失败级联如设计工作：非法参数 → status=1 持久化 + BodySolid 保留旧几何；修复后自愈。
+- 工程细节记录：briefcase 模式锁强制（exclusive on 元素）；读几何处需 `wantGeometry:true`；HubMock 深链可导入（core-backend 无 exports 字段）。
+
+| ID | 任务 | 状态 |
+|---|---|---|
+| T2.1 | LubanCAD schema v0 + JS 类注册 | ✅（SpikeFeature/SpikeBodySolid/SpikeFeatureDrives） |
+| T2.2 | 最小图闭环（boxPrimitive 两特征链 + Unite 布尔，nodeId 打桩） | ✅ |
+| T2.3 | 五项验收断言 | ✅ 全绿（EDE 传播/拓扑序/失败级联/跨 briefcase 免重算/changeset 行级内容） |
+
+**结论：go。** 降级方案（MS 自驱动传播）不需要了。
 
 ## WS3 特征引擎（modeling-server FeatureService）🔨 —— 主线核心
 
@@ -63,13 +75,15 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T3.1 | FeatureTypeRegistry：featureType → {paramSchema, evaluate(ctx,params,inputs)}；MS 层 JSON Schema 校验 | 注册表可扩展，非法参数拒收 | T2 | M |
 | T3.2 | extrude（轮廓直拉，暂以显式轮廓绕过草图求解器） | 参数改→再生正确 | T2 | M |
 | T3.3 | boolean add/sub | 同上 | T2 | M |
-| T3.4 | fillet：params 存 `(nodeId,entityId)` 引用，evaluate 经 `FacesFromId` 解引用（集合语义+特征级歧义策略） | 上游改形后引用自愈 | T1.1 | M |
-| T3.5 | nodeId=orderKey 确定性打标约定落地（重跑同特征打同标） | 任意中间特征改参后全链引用不断 | T1.1 | S |
+| T3.4 | fillet：**走 ElementGeometryCache 面**（`OperationType.Blend=24`，`EditBuiltInCommand.ts:443`）——注意 `createBRepGeometry` 的 `Round=10` 是「所有非光滑边」全倒角，**不能做选择性圆角**；params 存 `(nodeId,entityId)` 边引用，evaluate 经 `EdgesFromId`→缓存子实体桥接（T1.8）解引用 | 上游改形后引用自愈、可选边 | T1.1+T1.8 | M |
+| T3.5 | nodeId=orderKey 确定性打标约定落地（重跑同特征打同标——协议层自动打标已顺序确定，见 WS1 修订注记；本任务=把约定固化为引擎不变式+测试） | 任意中间特征改参后全链引用不断 | T1.1 | S |
 | T3.6 | 失败级联（出边 status=1+下游跳过+旧几何保留+保持脏）+ 抑制（0x80+SuppressedShape 语义） | FreeCAD 语义等价复现 | T2 | M |
 | T3.7 | 编辑管道接入：op=txn 边界，复用 basicManipulationIpc→BriefcaseTxns→saveChanges | CLAUDE.md 硬约束合规 | T2 | M |
 | T3.8 | HITL 预览：rollback mark 试算→回滚，不写库 | 拖拽实时预览 | T1.2 | M |
 | T3.9 | L3 输出缓存（MS 内存/SAB；参数哈希判失效——内核无几何重合判定，见 T1.6） | 命中缓存跳过内核调用 | T3.2 | M |
 | T3.10 | L2 内核级重跑：回滚到特征 k 前 mark，只重跑 k..n | 长链改首特征不重算全链 | T1.2 | M ⚠️ |
+| T3.11 | **D7 破坏式编辑打标**：绕开特征系统直改 BodySolid（既有 64 工具中的几何工具）→ 检测+打标 overridden+暂停自动再生；「重新参数化」入口=丢弃手工修改+全量重建（spec §3.3b） | 破坏后可标记、可恢复 | T3.7 | M |
+| T3.12 | **MS 崩溃/重启恢复**：重开 briefcase + op 日志在库内（随 changeset）+ 内存缓存冷启动全量重建（第一律）+ 写租约回收 | 崩溃后重进不丢定义、不丢一致性 | T5.2 | M |
 
 ## WS4 草图与约束求解 🔨
 
@@ -96,6 +110,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T5.5 | 同步链验证：MS push→WS 广播→前端 pull→**tile 失效刷新实测**（本地栈唯一未验证环节） | 双端秒级一致 | T5.1 | M |
 | T5.6 | 📁 多人共编实现（op 队列串行+presence+per-user undo 校验失败即拒） | 留档，D8 论证已毕 | T5.4 | L ⚠️ |
 | T5.7 | 📁 分支/合并原型（op 日志重放到 fork 定义；iModelHub 无此概念） | 留档 | T5.2 | L ⚠️ |
+| T5.8 | **op RPC 接口定义入 `@luban-cad/shared`**（applyOp/undo/redo/租约获取释放/op 广播事件类型）——T6.x 全部前端任务的前置 | 接口包构建通过、两端引用 | — | S |
 
 ## WS6 前端 UX 🔨
 
@@ -115,7 +130,8 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T7.2 | 集成测试（真 briefcase+真 native：EDE 链路/失败级联/undo/抑制） | 全绿 | M |
 | T7.3 | e2e（Playwright：建特征→改参→undo→双端协同） | 全绿 | M |
 | T7.4 | 结构断言回归（借 kittyCAD artifactGraph 思路：EDE 图形态+TopologyID 映射作 CI 基准） | 进 CI | M |
-| T7.5 | 性能基准（特征链长 vs 再生时间；KernelLock 全局串行下的吞吐实测） | 基线报告 | M |
+| T7.5 | 性能基准（特征链长 vs 再生时间；KernelLock 全局串行下的吞吐实测；**大实体 changeset 体积实测**——证据库 §2.4：BRep blob 无分块、50MiB 阈值是 ChangesetReader 侧迹象） | 基线报告 | M |
+| T7.6 | **LubanCAD schema 演进门禁**：v1 快速迭代期的 schema changeset 纪律（只加不删/只加属性不改类型）+ CI 检查 + op 日志元素 schema 归属（进同一 LubanCAD schema） | 演进规则成文+CI 拦截破坏性变更 | S |
 
 ## WS8 真形（TrueForm）自研几何内核 🔬 长线
 
@@ -170,7 +186,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 
 | 里程碑 | 内容 | 关键任务 |
 |---|---|---|
-| **M0 go/no-go** | X1 spike 通过 | T2 全部 |
+| **M0 go/no-go** | X1 spike 通过 | T2 全部 —— **✅ 2026-09-28 达成** |
 | **M1 最小参数化闭环** | 拉伸链+参数修改+undo+双端同步可演示 | T3.1-3.3、T5.1-5.5 骨架 |
 | **M2 草图驱动** | 约束求解入环，改草图尺寸全零件联动 | T4 全部 |
 | **M3 v1 特征完整** | 草图+拉伸+布尔+圆角+前端 UX 可用 | T3.4-3.6、WS6 |
@@ -181,8 +197,15 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 
 ## 风险登记（承接 spec §4 + 迁移 spec §10.1）
 
-1. **X1（T2）是全案咽喉**：EDE @beta、回调契约承载 BRep 未实证。降级方案在案（MS 自驱动传播）。
+1. ~~X1（T2）是全案咽喉~~ **✅ 已消除（2026-09-28 M0）**。
 2. **tile 刷新链路（T5.5）**：本地栈唯一未实测的同步环节。
 3. **KernelLock 全局串行**：v1 无感（单写者），T11.5 前是并行天花板。
 4. **圆柱面操作（T1.5）**：柱面草图/面提取的前置，v1 不碰。
 5. **真形/绳墨是研究性投入**：接口契约（SolidKernel.h / solver-neutral）保证主线不被自研进度绑架——这是双轨制的全部意义。
+6. **双 op 面接缝（2026-09-28 审查新增）**：特征引擎跨 `createBRepGeometry`（12 粗粒度 op）与 ElementGeometryCache（31-op）两面；两面的事务/锁/缓存交互未经验证——T3.4 是最先暴露点，视情况在 WS3 前加一个 op 面选型 spike。
+7. **op=push 交互延迟**：本地 hub 往返可接受（M1 演示级）；AI 批量 op 场景的合批策略（composite op=单 changeset）留为设计注记，不进 v1。
+8. **内核会话态管理**：rollback mark、ElementGeometryCache 均为会话态；模型重开=重建（T1.2 出口已含 mark 表重建策略；缓存重建随 T3.12）。
+
+## 审查记录
+
+- **2026-09-28 全面审查**（X1 通过后、实现启动前）：修订 T3.4（fillet 改走 ElementGeometryCache/Blend=24，纠正误用 Round=10）；WS1 加注「双 op 面」与「协议层自动打标、D4 无需协议加参」（证据：`itwinjs-core/editor/backend/src/EditBuiltInCommand.ts:418-450`、`imodel-native PSBRepEdit.cpp:1684-1693`）；新增 T1.8（TopologyID↔缓存子实体桥接）、T3.11（D7 打标）、T3.12（崩溃恢复）、T5.8（op RPC 接口入 shared）、T7.6（schema 演进门禁）；T1.1/T1.2 出口标准补强；风险登记补 6-8。spec ↔ roadmap 映射逐条核对：修订后全覆盖。

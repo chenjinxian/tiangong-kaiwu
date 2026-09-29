@@ -222,8 +222,7 @@ LubanCAD:Feature                ← 单一具体类，直接实例化（刻意�
 
 ## 4. 悬点清单（进入实施计划时必须转化为任务）
 
-1. X1 spike：EDE-BRep 回调契约（§3.3c #1）——**最早执行，阻塞后续所有特征引擎工作**。
+1. ~~X1 spike：EDE-BRep 回调契约~~ **✅ 已通过（2026-09-28，M0 达成）**：`modeling-server/src/feature/spike-x1/X1EdeBrepSpike.test.ts` 5/5 绿。回调契约承载 BRep 再生实证成立；内核在环路径定为 `IModelDb.createBRepGeometry`（GeometryStreamBuilder.appendGeometry 只存参数级条目，不产生内核 BRep——实测发现）。降级方案（MS 自驱动传播）弃用。
 2. X3：imodel-native 暴露 `FacesFromId` 查询 op + rollback mark——形态已定（内嵌式），需排期。
 3. X4：imodelhub-services 的 changeset description 支持确认。
-4. EDE @beta 风险对冲：若 spike 暴露契约不足，降级方案 = MS 自驱动传播（显式遍历受影响子图调 evaluate，放弃 saveChanges 内建传播），数据模型不变。
-5. libslvs DOF 暴露验证（D5 遗留，草图节点入图前需要）。
+4. libslvs DOF 暴露验证（D5 遗留，草图节点入图前需要）。
