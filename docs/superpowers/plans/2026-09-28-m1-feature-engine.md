@@ -780,8 +780,11 @@ import { Id64String } from "@itwin/core-bentley";
 import { EditTxn, StandaloneDb } from "@itwin/core-backend";
 import { ensureHostStarted, makeTempDir } from "./test/TestHost.js";
 import {
-  countBRepEntries, createFeatureModels, FeatureEngine, insertBodySolidElement, insertFeatureDrive,
-  insertFeatureElement, LubanCadSchema, queryBodySolid, rebuildAll, readBodyGeometry,
+  createFeatureModels, insertBodySolidElement, insertFeatureDrive, insertFeatureElement,
+  LubanCadSchema, queryBodySolid,
+} from "./LubanCadSchema.js";
+import {
+  countBRepEntries, FeatureEngine, readBodyGeometry, rebuildAll,
 } from "./FeatureEngine.js";
 
 const square = (s: number, cx = 0, cy = 0) => [
@@ -1556,13 +1559,14 @@ import type { ExtrudeParams } from "@luban-cad/shared";
 const params = (s: number, d: number): ExtrudeParams => ({ profile: [{ x: 0, y: 0 }, { x: s, y: 0 }, { x: s, y: s }, { x: 0, y: s }], distance: d });
 
 describe("语义 undo/redo", () => {
-  let dir: string; let file: string;
+  let dir: string; let file: string; const openDbs: StandaloneDb[] = [];
   let svc: FeatureService; let fid: string;
 
   beforeAll(async () => {
     await ensureHostStarted();
     dir = makeTempDir("undo-"); file = path.join(dir, "t.bim");
     const db = StandaloneDb.createEmpty(file, { rootSubject: { name: "T" }, enableTransactions: true });
+    openDbs.push(db);
     svc = FeatureService.for("undo:db", db);
     await svc.ensureInitialized();
     writeLeases.acquire("undo:db", "s1", "u");
@@ -1570,7 +1574,7 @@ describe("语义 undo/redo", () => {
     fid = (r as { featureId: string }).featureId!;
     await svc.applyOp("s1", { kind: "updateParams", featureId: fid, params: params(3, 1) });
   }, 180_000);
-  afterAll(() => { StandaloneDb.closeAllForTest?.(); fs.rmSync(dir, { recursive: true, force: true }); });
+  afterAll(() => { for (const d of openDbs) d.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
   it("undo 回到旧参数几何；redo 恢复", async () => {
     const g1 = JSON.stringify(svc.readBodyGeomForTest()); // s=3
@@ -1585,9 +1589,11 @@ describe("语义 undo/redo", () => {
 
   it("跨会话：重开库后 undo 上一会话的操作（op 日志在库内）", async () => {
     await svc.applyOp("s1", { kind: "updateParams", featureId: fid, params: params(5, 1) });
-    (svc as unknown as { db: StandaloneDb }).db.close();
-    services_clearForTest("undo:db");
-    const db2 = StandaloneDb.openEmptyFile?.(file) ?? reopen(file); // 见下注
+    const dbOld = (svc as unknown as { db: StandaloneDb }).db;
+    dbOld.close();
+    clearServiceCacheForTest(); // 从 ./FeatureService.js 导入
+    const db2 = StandaloneDb.openFile(file); // IModelDb.ts:4952
+    openDbs.push(db2);
     const svc2 = FeatureService.for("undo:db", db2);
     await svc2.ensureInitialized(); // 冷重建
     const before = JSON.stringify(svc2.readBodyGeomForTest());
@@ -1598,7 +1604,7 @@ describe("语义 undo/redo", () => {
 });
 ```
 
-执行注记：`StandaloneDb` 重开用 `StandaloneDb.openFile(file)`（核对 core-backend 的 StandaloneDb 静态方法名，spike 只用了 createEmpty；若叫 `StandaloneDb.openFile`/`open` 以实际为准）；`services_clearForTest` 即给 FeatureService.ts 加 `/** @internal */ export function clearServiceCacheForTest(): void { services.clear(); }` 并在测试内改名导入。写测试时按真实 API 修正这两处，不要留猜的调用。
+执行注记：`StandaloneDb.openFile` 已核实（`IModelDb.ts:4952`）；`clearServiceCacheForTest` 即给 FeatureService.ts 加 `/** @internal */ export function clearServiceCacheForTest(): void { services.clear(); }`，测试从 `./FeatureService.js` 导入它。两处均已核实/定义，不留猜测调用。
 
 - [ ] **Step 2: 跑测试，红→绿**
 
@@ -1824,7 +1830,7 @@ describe("双端同步（HubMock）", () => {
 
     // A 端再改参数 → push → B 端 pull → 几何一致
     await svc.applyOp("sess", { kind: "updateParams", featureId: (r as { featureId: string }).featureId!, params: params(4, 2) });
-    await dbB.pullAndApplyChanges({ accessToken: TOKEN });
+    await dbB.pullChanges({ accessToken: TOKEN }); // IModelDb.ts:4310
     expect(JSON.stringify(readBodyGeometry(dbB, bodyB))).toEqual(JSON.stringify(svc.readBodyGeomForTest()));
   });
 
@@ -1832,7 +1838,7 @@ describe("双端同步（HubMock）", () => {
     const before = JSON.stringify(readBodyGeometry(dbB, bodyB));
     const u = await svc.applyOp("sess", { kind: "undo" });
     expect(u.ok).toBe(true);
-    await dbB.pullAndApplyChanges({ accessToken: TOKEN });
+    await dbB.pullChanges({ accessToken: TOKEN });
     expect(JSON.stringify(readBodyGeometry(dbB, bodyB))).not.toEqual(before);
   });
 });
