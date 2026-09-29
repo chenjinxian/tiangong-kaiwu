@@ -207,6 +207,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 7. **op=push 交互延迟**：本地 hub 往返可接受（M1 演示级）；AI 批量 op 场景的合批策略（composite op=单 changeset）留为设计注记，不进 v1。
 8. **内核会话态管理**：rollback mark、ElementGeometryCache 均为会话态；模型重开=重建（T1.2 出口已含 mark 表重建策略；缓存重建随 T3.12）。
 9. **ACIS BRep blob 非确定性**（M1 Task 10 实证）：blob 头含时间戳+随机 ID，同参数两次求值字节不同（~75 字节）。纪律：跨求值比较一律用 `TestHost.normalizeBrepGeomJson` 归一化；同持久化 blob 可字节比。影响面：T7.4 结构断言回归、T7.5 性能基准、未来任何字节级几何断言。
+10. **【阻塞 M2 前必修】链尾特征为 EDE root 时传播断裂**（2026-09-29 M1 终审修复波发现、复审探针 ~20 臂独立实证）：EDE root=首特征的变更传播正常；**root=链尾特征的变更（updateParams 与 suppress 均然）不传播到 body**，且为两个独立原生异常：(A) params 臂 `createBRepGeometry(Subtract, [上游 brep, 新 tool])` 对新输入返回逐字节陈旧的旧结果（Sweep 正常），内存缓存亦被毒化；(B) suppress 臂 indirectEditTxn 几何写回被静默丢弃（属性行落库正常）。生产形态（`txn.end("save")`）同样复现，非测试构造问题。影响面：**多特征链改尾部特征=生产最常见的编辑路径**；M1 套件未命中（多特征用例仅覆盖首特征 root 与 rebuildAll 直写）。留档测试：`FeatureEngine.test.ts` 尾部 it.skip（注释含完整机制描述）。跟进：用 superpowers:systematic-debugging 定位我方用法（ElementGeometryDataEntry 内核句柄跨 createBRepGeometry 复用可能被消耗——备择假设）还是 native EDE 层缺陷。
 
 ## 审查记录
 
