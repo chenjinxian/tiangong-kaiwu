@@ -14,3 +14,5 @@ coverage/
 __azurite_db_*
 AzuriteConfig
 webhook-agent/data/
+# slvs 原生插件构建产物（node-gyp；源在 modeling-server/native/slvs/，产物不入库）
+modeling-server/native/slvs/build/
