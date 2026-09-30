@@ -12,7 +12,8 @@ export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
- * （互斥语义，Registry 层 zod 校验锁死），布尔类型不消费此字段（内联 profile 照旧）。
+ * （互斥语义，Registry 层 zod 校验锁死）。仅 extrude 接受此字段——布尔类型按类型拒收
+ * （Registry booleanSchema，M2 终审 I2；显式支持归 M2-UX 单裁）。
  */
 export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
