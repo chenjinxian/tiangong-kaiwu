@@ -96,7 +96,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T4.0 ✅（2026-09-30） | spike #3：libslvs DOF 计数 C API 暴露验证 | 欠/过约束状态可读 | — | S |
 | T4.1 ✅（2026-09-30） | solver-neutral 接口定版：`solve(entities,params,constraints,group)→{status,solvedParams,failedConstraints[]}`（绳墨平替的契约） | 接口冻结文档 | — | M |
 | T4.2 ✅（2026-09-30） | MS 进程内 libslvs 直链（权威解；纯云 SaaS，GPLv3 不触发——红线：on-prem 即污染） | 提交时权威解落库 | T4.1 | M |
-| T4.3 🔨 **M2-UX 后续计划** | FE WASM libslvs（官方 build-wasmlib.sh 路径）交互拖拽解（含 GPL 交付面单裁） | 拖拽免服务器往返 | T4.1 | M |
+| T4.3 ✅**已裁决 2026-09-30：MS 往返** | 交互求解=FE 经 WebSocket 节流发 solve 到 MS（SlvsSolver 已在）——Onshape 先例（全服务端求解+协议优化）+零 GPL conveying 义务；绳墨 WASM 为将来免费升级 | 拖拽预览（本地栈 ~5-20ms） | T4.2 | M |
 | T4.4 ✅（2026-09-30） | 草图元素（GeometricElement3d 平面曲线）+ 草图平面定义 | 视口可见可编辑 | T2 | M |
 | T4.5 ✅（2026-09-30，出口实证） | 草图入 EDE 图源节点：解算完成→草图行更新→saveChanges→下游重建 | **改草图尺寸→全零件联动**（M2 标志） | T3.2 | M |
 | T4.6 🔨 **M2-UX 后续计划** | 草图编辑交互（FE 工具：绘制+约束创建+尺寸标注） | 可用 | T4.3/T4.4 | L |
@@ -109,7 +109,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 2. **布尔特征的草图驱动显式支持**（M2 终审 I2 后状态）：Registry booleanSchema 已按类型**拒收**布尔+sketchId（曾以「zod 剥离未知键」防御，实测 no-op——引擎类型无关消费 sketchId、两步制建链被绕过）；若未来要支持，须先解决 T4.8 两步制与草图驱动布尔的交互。
 3. **chainClosedLoop 端点容差吸附**：现 1e-6 硬容差 + 断链守卫（点数守卫报错），交互面需要可见的端点吸附/断链诊断。
 4. **updateParams 守卫错误信息的 UI 呈现**：草图驱动特征被内联 params 覆写时拒收（sketchId 不匹配），错误文案需到前端可见。
-5. **FE WASM libslvs（=T4.3）**：官方 build-wasmlib.sh 路径 + GPL 交付面单裁（浏览器侧分发是否触 GPL 需单独裁决）。
+5. ~~FE WASM libslvs（=T4.3）~~ **已裁决 2026-09-30：MS 往返**——浏览器侧分发 GPL 派生二进制=conveying 触发源码邀约义务，裁定不背；Onshape 全服务端求解先例支撑天花板。
 6. **草图编辑交互（=T4.6）**：绘制+约束创建+尺寸标注的 FE 工具面。
 7. **约束状态显示（=T4.7）**：DOF/矛盾清单 UI。
 
