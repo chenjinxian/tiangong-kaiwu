@@ -10,10 +10,14 @@ import { RpcInterface } from "@itwin/core-common";
 /** v1 特征类型（M1：拉伸 + 布尔；fillet 等 M3 再加） */
 export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract";
 
-/** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离 */
+/** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
+ * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
+ * （互斥语义，Registry 层 zod 校验锁死），布尔类型不消费此字段（内联 profile 照旧）。
+ */
 export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
   distance: number;
+  sketchId?: string;
 }
 
 export type FeatureOp =
