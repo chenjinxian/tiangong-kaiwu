@@ -101,12 +101,12 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T4.5 ✅（2026-09-30，出口实证） | 草图入 EDE 图源节点：解算完成→草图行更新→saveChanges→下游重建 | **改草图尺寸→全零件联动**（M2 标志） | T3.2 | M |
 | T4.6 🔨 **M2-UX 后续计划** | 草图编辑交互（FE 工具：绘制+约束创建+尺寸标注） | 可用 | T4.3/T4.4 | L |
 | T4.7 🔨 **M2-UX 后续计划** | 约束状态显示（DOF/矛盾清单；矛盾清单 libslvs 原生支持） | UI 可见 | T4.0 | S |
-| T4.8 ✅（2026-09-30） | **建链轨迹规范化**（风险 #10 唯一防御——布尔插入两步制：先插角点工具、立即 updateParams 到目标参数，V3 轨迹实证健康；杜绝「内嵌孔洞起步」中毒轨迹入链） | applyInsert 建链不再产生中毒态 body | T3.3 | S |
+| T4.8 ✅（2026-09-30） | **建链轨迹规范化**（风险 #10 唯一防御——布尔插入两步制：先插角点工具、立即 updateParams 到目标参数，V3 轨迹实证健康；杜绝「内嵌孔洞起步」中毒轨迹入链。**M2 终审 I2 补钉**：布尔拒收 sketchId（Registry booleanSchema）——否则两步制引导参数 `{...params, profile:normalize([])}` ≡ 目标参数，防御被草图驱动布尔绕过） | applyInsert 建链不再产生中毒态 body | T3.3 | S |
 
 ### M2-UX 待办清单（2026-09-30 M2 收口移交；UX/交互面债务，不阻塞 M3 主线）
 
 1. **草图 op 不可撤销**（UX 债）：updateSketchConstraint 入 oplog 但 opType 不可逆，undo 语义未覆盖草图——需定「仅参数修改」之外的草图逆 op。
-2. **布尔带 sketchId 落库含冗余字段**：布尔特征 params 携带 sketchId 但引擎不消费（仅 extrude 语义），落库形态有冗余——schema 收敛或写入侧剥离。
+2. **布尔特征的草图驱动显式支持**（M2 终审 I2 后状态）：Registry booleanSchema 已按类型**拒收**布尔+sketchId（曾以「zod 剥离未知键」防御，实测 no-op——引擎类型无关消费 sketchId、两步制建链被绕过）；若未来要支持，须先解决 T4.8 两步制与草图驱动布尔的交互。
 3. **chainClosedLoop 端点容差吸附**：现 1e-6 硬容差 + 断链守卫（点数守卫报错），交互面需要可见的端点吸附/断链诊断。
 4. **updateParams 守卫错误信息的 UI 呈现**：草图驱动特征被内联 params 覆写时拒收（sketchId 不匹配），错误文案需到前端可见。
 5. **FE WASM libslvs（=T4.3）**：官方 build-wasmlib.sh 路径 + GPL 交付面单裁（浏览器侧分发是否触 GPL 需单独裁决）。
@@ -226,7 +226,9 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 **【2026-09-30 定论改判（m2-pre-poison 分支铁证钉）】**：应用层缓解**不可能**（六连实证：间接写/直写缓存条目/恒等洗涤/全新求值直写/同进程重开 rebuildAll/**子进程 rebuildAll**——全落陈旧体；子进程反例：全新 ACIS 会话+缓存正确 f2EqF1=true+直写真实落库，拓扑仍 hole）⇒ Task 7「会话体别名」假说证伪需修订（真机制=写通道与元素既有行的交互，native 层待查，铁证复现=FeatureEngine.test.ts 中毒态铁证用例）；**中毒跨进程持久、rebuildAll 不可恢复**；唯一应用层防御=**建链轨迹规范化**（V3 实证角点工具插入→立即 retool=健康——M2 实施：applyInsert 布尔特征先插角点工具再 updateParams 到目标参数）；native 根治（backlog ③）升最高优先。E1/E3 判别实验已被铁证钉吸收（E3「落库恒=初始 cavity」预言成立且更强；E1 回调内通道问题因缓解整体证伪而 moot）。
 **【2026-09-30 前提挑战（M2 Task 5）】**：fully-interior 工具经 sweep 落到不与 base 相交位置、Subtract=no-op 重序列化体（≠切削≠pass-through）——铁证钉的 holeGeom 实为未切削 base；中毒态与 off-origin sweep 不切削两观测纠缠。native 重开调查第一假设=sweep 变换未应用；内核回归钉=FeatureEngine.test.ts 尾部「真 fully-interior 工具不切削」describe（① interior Subtract == disjoint 参照 ② no-op 输出 ≠ base sweep 输出；native 改真 pass-through 时 ② 翻转即信号）。
 11. **【移交 imodel-native 立项 2026-09-30】fork 逆向重建的 PSBRepGeometry 三项原生缺陷**：复现物在 tiangong SDD workspace `segfault-repro/` 与 `probe-t6/`——① GeometryCache 异步 populate 摄取持久化 BRep entry 硬崩（`FindOrAddElement`）；② 内核状态物化 op（op 读通道/createRollbackMark）后同会话异步缓存调用硬崩 0xC0000005（疑线程亲和）；③ 中毒态落库陈旧体（Task 7 结论，见 `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md` @ ws1-kernel-exposure 06591ecc3）。③已另行单列本登记第 10 条；本条将其与 ①② 归并为同一 imodel-native 立项入口。
+12. **【2026-09-30 M2 终审 I3 登记】CI 缺位+原生构建依赖（M2 首次）**：modeling-server 门禁（vitest/tsc/eslint）仅本机跑；libslvs 原生构建依赖仓外 SolveSpace 克隆 + submodule 钉子（Eigen `3147391d`/mimalloc `f81bf1b3`）+ `EIGEN_DIR`/`MIMALLOC_DIR` 环境变量（bootstrap 步骤见 `modeling-server/native/slvs/VENDOR.md`「新机器 bootstrap」节）——换机/协作者/回归均无守门。中期补 CI workflow（缓存 `slvs.node` 产物或容器化工具链）。
 
 ## 审查记录
 
 - **2026-09-28 全面审查**（X1 通过后、实现启动前）：修订 T3.4（fillet 改走 ElementGeometryCache/Blend=24，纠正误用 Round=10）；WS1 加注「双 op 面」与「协议层自动打标、D4 无需协议加参」（证据：`itwinjs-core/editor/backend/src/EditBuiltInCommand.ts:418-450`、`imodel-native PSBRepEdit.cpp:1684-1693`）；新增 T1.8（TopologyID↔缓存子实体桥接）、T3.11（D7 打标）、T3.12（崩溃恢复）、T5.8（op RPC 接口入 shared）、T7.6（schema 演进门禁）；T1.1/T1.2 出口标准补强；风险登记补 6-8。spec ↔ roadmap 映射逐条核对：修订后全覆盖。
+- **2026-09-30 M2 终审修复波**（whole-branch review @ m2-sketch-solver b3cab67f81，裁决 With fixes）：**I1** updateParams 闸门对称化——存储无 sketchId 的内联特征被带 sketchId 的 op 覆写原会「挂上」草图却不建 sketch→feature 边、不 ensureSketchSolved，现拒收（`内联特征不支持挂接草图`）；**I2** 布尔+sketchId 由「zod 剥离」改为 Registry booleanSchema 按类型拒收（剥离防御实测 no-op：引擎类型无关消费 sketchId、两步制建链被绕过——T4.8 行已补注，M2-UX 清单第 2 条改写为显式支持单裁）；**I3** 原生构建绑定登记风险 #12 + VENDOR.md「新机器 bootstrap」。文档对齐：`@luban-cad/shared` ExtrudeParams 注释、FeatureTypeRegistry/FeatureService/FeatureEngine 注释同步改述「布尔拒收 sketchId」。回归：modeling-server vitest 29 文件 258 过/9 skip、tsc 0 错、eslint 仓级既有基线不变。
