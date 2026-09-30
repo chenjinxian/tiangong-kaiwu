@@ -10,16 +10,23 @@ import { RpcInterface } from "@itwin/core-common";
 /** v1 特征类型（M1：拉伸 + 布尔；fillet 等 M3 再加） */
 export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract";
 
-/** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离 */
+/** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
+ * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
+ * （互斥语义，Registry 层 zod 校验锁死）。仅 extrude 接受此字段——布尔类型按类型拒收
+ * （Registry booleanSchema，M2 终审 I2；显式支持归 M2-UX 单裁）。
+ */
 export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
   distance: number;
+  sketchId?: string;
 }
 
 export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: ExtrudeParams }
   | { kind: "updateParams"; featureId: string; params: ExtrudeParams }
   | { kind: "deleteFeature"; featureId: string }
+  /** M2 T4.5：改草图约束尺寸（仅 distance/radius 类约束）→ 重解算 → 草图 params+几何流重写 → EDE 传播 */
+  | { kind: "updateSketchConstraint"; sketchId: string; constraintId: number; value: number }
   | { kind: "undo" }
   | { kind: "redo" };
 
