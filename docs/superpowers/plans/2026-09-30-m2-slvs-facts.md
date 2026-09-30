@@ -49,7 +49,7 @@ typedef struct {
 
 - 只暴露上表 10 种；STEP/装配用的特殊点/法矢/距离（Slvs 特有）**未暴露**。
 - inline 帮助函数（头文件内联，零成本）：`Slvs_MakePoint2d/Point3d/Normal2d/Normal3d/Distance/LineSegment/Cubic/ArcOfCircle/Circle/Workplane/Param/Constraint`。
-- `Slvs_Is*` 谓词 17 个（`Slvs_IsFreeIn3D/Is3D/IsNone/IsPoint2D/.../IsCircle`），binding 层校验用。
+- `Slvs_Is*` 谓词 16 个（`Slvs_IsFreeIn3D/Is3D/IsNone/IsPoint2D/.../IsCircle`，slvs.h:415-430 实数），binding 层校验用。
 
 ## 3. Slvs_Constraint 全字段（include/slvs.h:122-140）
 
