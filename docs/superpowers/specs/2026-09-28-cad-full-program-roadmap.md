@@ -87,18 +87,31 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T3.11 | **D7 破坏式编辑打标**：绕开特征系统直改 BodySolid（既有 64 工具中的几何工具）→ 检测+打标 overridden+暂停自动再生；「重新参数化」入口=丢弃手工修改+全量重建（spec §3.3b） | 破坏后可标记、可恢复 | T3.7 | M |
 | T3.12 | **MS 崩溃/重启恢复**：重开 briefcase + op 日志在库内（随 changeset）+ 内存缓存冷启动全量重建（第一律）+ 写租约回收 | 崩溃后重进不丢定义、不丢一致性 | T5.2 | M |
 
-## WS4 草图与约束求解 🔨
+## WS4 草图与约束求解 🔨 **M2 后端闭环 2026-09-30 达成（T4.0/4.1/4.2/4.4/4.5/T4.8）；T4.3/T4.6/T4.7 归 M2-UX**
+
+> **2026-09-30 M2 达成注记**：solver-neutral 契约冻结（T4.1，绳墨平替入口）→ libslvs 源引入 + DOF C API 验证（T4.0）→ node-gyp 原生插件进程内直链（T4.2：三态契约实装 + 锚定 dof 语义 + 实体引用两趟合成/句柄重映射，权威解落库）→ Sketch 元素 schema（T4.4，solver-neutral 数据基座）→ 草图入 EDE 图源节点（T4.5：sketchProfileFrom 读侧 + 闭合链边构建 + extrude 消费 sketchId）。**M2 出口实证 = 改草图尺寸（updateSketchConstraint）→ 求解 → 全零件联动**。回归基线：modeling-server vitest 29 文件 255 过/9 skip（中毒态留档）/tsc 0 错/eslint 仓级既有基线不变。UX 交互面（T4.3/T4.6/T4.7 + 后端闭环期遗留债）归 **M2-UX 后续计划**（见泳道尾部清单）。
 
 | ID | 任务 | 出口标准 | 依赖 | 规模 |
 |---|---|---|---|---|
-| T4.0 | spike #3：libslvs DOF 计数 C API 暴露验证 | 欠/过约束状态可读 | — | S |
-| T4.1 | solver-neutral 接口定版：`solve(entities,params,constraints,group)→{status,solvedParams,failedConstraints[]}`（绳墨平替的契约） | 接口冻结文档 | — | M |
-| T4.2 | MS 进程内 libslvs 直链（权威解；纯云 SaaS，GPLv3 不触发——红线：on-prem 即污染） | 提交时权威解落库 | T4.1 | M |
-| T4.3 | FE WASM libslvs（官方 build-wasmlib.sh 路径）交互拖拽解 | 拖拽免服务器往返 | T4.1 | M |
-| T4.4 | 草图元素（GeometricElement3d 平面曲线）+ 草图平面定义 | 视口可见可编辑 | T2 | M |
-| T4.5 | 草图入 EDE 图源节点：解算完成→草图行更新→saveChanges→下游重建 | **改草图尺寸→全零件联动**（M2 标志） | T3.2 | M |
-| T4.6 | 草图编辑交互（FE 工具：绘制+约束创建+尺寸标注） | 可用 | T4.3/T4.4 | L |
-| T4.7 | 约束状态显示（DOF/矛盾清单；矛盾清单 libslvs 原生支持） | UI 可见 | T4.0 | S |
+| T4.0 ✅（2026-09-30） | spike #3：libslvs DOF 计数 C API 暴露验证 | 欠/过约束状态可读 | — | S |
+| T4.1 ✅（2026-09-30） | solver-neutral 接口定版：`solve(entities,params,constraints,group)→{status,solvedParams,failedConstraints[]}`（绳墨平替的契约） | 接口冻结文档 | — | M |
+| T4.2 ✅（2026-09-30） | MS 进程内 libslvs 直链（权威解；纯云 SaaS，GPLv3 不触发——红线：on-prem 即污染） | 提交时权威解落库 | T4.1 | M |
+| T4.3 🔨 **M2-UX 后续计划** | FE WASM libslvs（官方 build-wasmlib.sh 路径）交互拖拽解（含 GPL 交付面单裁） | 拖拽免服务器往返 | T4.1 | M |
+| T4.4 ✅（2026-09-30） | 草图元素（GeometricElement3d 平面曲线）+ 草图平面定义 | 视口可见可编辑 | T2 | M |
+| T4.5 ✅（2026-09-30，出口实证） | 草图入 EDE 图源节点：解算完成→草图行更新→saveChanges→下游重建 | **改草图尺寸→全零件联动**（M2 标志） | T3.2 | M |
+| T4.6 🔨 **M2-UX 后续计划** | 草图编辑交互（FE 工具：绘制+约束创建+尺寸标注） | 可用 | T4.3/T4.4 | L |
+| T4.7 🔨 **M2-UX 后续计划** | 约束状态显示（DOF/矛盾清单；矛盾清单 libslvs 原生支持） | UI 可见 | T4.0 | S |
+| T4.8 ✅（2026-09-30） | **建链轨迹规范化**（风险 #10 唯一防御——布尔插入两步制：先插角点工具、立即 updateParams 到目标参数，V3 轨迹实证健康；杜绝「内嵌孔洞起步」中毒轨迹入链） | applyInsert 建链不再产生中毒态 body | T3.3 | S |
+
+### M2-UX 待办清单（2026-09-30 M2 收口移交；UX/交互面债务，不阻塞 M3 主线）
+
+1. **草图 op 不可撤销**（UX 债）：updateSketchConstraint 入 oplog 但 opType 不可逆，undo 语义未覆盖草图——需定「仅参数修改」之外的草图逆 op。
+2. **布尔带 sketchId 落库含冗余字段**：布尔特征 params 携带 sketchId 但引擎不消费（仅 extrude 语义），落库形态有冗余——schema 收敛或写入侧剥离。
+3. **chainClosedLoop 端点容差吸附**：现 1e-6 硬容差 + 断链守卫（点数守卫报错），交互面需要可见的端点吸附/断链诊断。
+4. **updateParams 守卫错误信息的 UI 呈现**：草图驱动特征被内联 params 覆写时拒收（sketchId 不匹配），错误文案需到前端可见。
+5. **FE WASM libslvs（=T4.3）**：官方 build-wasmlib.sh 路径 + GPL 交付面单裁（浏览器侧分发是否触 GPL 需单独裁决）。
+6. **草图编辑交互（=T4.6）**：绘制+约束创建+尺寸标注的 FE 工具面。
+7. **约束状态显示（=T4.7）**：DOF/矛盾清单 UI。
 
 ## WS5 协同数据链 🔨
 
@@ -191,7 +204,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 |---|---|---|
 | **M0 go/no-go** | X1 spike 通过 | T2 全部 —— **✅ 2026-09-28 达成** |
 | **M1 最小参数化闭环** | 拉伸链+参数修改+undo+双端同步可演示 | T3.1-3.3、T5.1-5.5 骨架 —— **✅ 2026-09-29 达成**（分支 feature/m1-feature-engine，11 任务 SDD 执行，测试 24 文件/170 用例） |
-| **M2 草图驱动** | 约束求解入环，改草图尺寸全零件联动 | T4 全部 |
+| **M2 草图驱动** | 约束求解入环，改草图尺寸全零件联动 | T4 全部 —— **✅ 2026-09-30 达成（后端闭环——改草图尺寸→求解→全零件联动实证；UX 交互归 M2-UX）**（分支 m2-sketch-solver，7 任务 SDD，测试 29 文件/255 过/9 skip） |
 | **M3 v1 特征完整** | 草图+拉伸+布尔+圆角+前端 UX 可用 | T3.4-3.6、WS6 |
 | **M4 协同完整** | 租约/语义 undo/双端实时 | WS5 完整 |
 | **M5 真形 STEP 通路** | writer+reader+healing | T8.1/T8.2 |
@@ -211,6 +224,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 9. **ACIS BRep blob 非确定性**（M1 Task 10 实证）：blob 头含时间戳+随机 ID，同参数两次求值字节不同（~75 字节）。纪律：跨求值比较一律用 `TestHost.normalizeBrepGeomJson` 归一化；同持久化 blob 可字节比。影响面：T7.4 结构断言回归、T7.5 性能基准、未来任何字节级几何断言。观察记录（2026-09-29 M1 合并树）：全量套件出现一次未复现的失败（1/5 跑，用例名未捕获）——疑属归一化秒边界或 WriteLease 1ms TTL 边界家族，再现时按此排查。
 10. **【调查完成 2026-09-29·native 根因仍开放】body「中毒态」：EDE indirect 几何写静默失效**。最终画像（systematic-debugging 全程 + 探针矩阵 `debug-tail-root.test.ts`）：**分野=body 首次持久化几何的形态**——角点缺口起步（工具贴原点/贴边）→ 该 body 后续 indirect 写全部正常（X1/V3/matrix/K1/C1 全吻合）；**内嵌孔洞起步（工具内嵌于 base）→ 该 body 后续 indirect 几何写永久静默失效**（updateElement 无异常、ECSQL 原始列哈希不变=从未落库【Task7 改判：实为落库了陈旧内核体字节，哈希才不变——见 imodel-native 结论文档】；clone/J2/suppress 留档全吻合）。已证伪：EDE/indirect 事务本身、entry 跨 op 复用、负坐标、placement/bbox 关系（J2/K1）、「链尾 root」（matrix-D 反例）。**直写路径完全免疫**（J1：中毒态 body 直写正常）。工作轨迹：角点建链→retool 内嵌（V3 实证，FeatureEngine.test 在用）。**生产影响与修复路径**：FeatureService.applyInsert 建链时若首特征即产出内嵌拓扑则触发（当前 M1 测试均健康轨迹）；应用层缓解=insert 后强制一次 retool/直写重写 body（待 M2 前实施）；根治=imodel-native C++ 排查（跟进任务已建；**Task 7 C++ 调查已完结 2026-09-29**，结论：写库链路/TxnManager/JS 全部无辜，「静默不落库」改判为「疑似落库陈旧内核体」（假说：ACIS 会话层将上一次布尔在位结果体别名给后续 restore→save，机制待定界），字节级指纹与下一步实验设计（含健康轨迹不中毒这一未解释观测的判别实验）见 imodel-native `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md` @ ws1-kernel-exposure 06591ecc3）。留档测试：FeatureEngine.test.ts 尾部 it.skip（中毒态）+ probe 文件克隆组。
 **【2026-09-30 定论改判（m2-pre-poison 分支铁证钉）】**：应用层缓解**不可能**（六连实证：间接写/直写缓存条目/恒等洗涤/全新求值直写/同进程重开 rebuildAll/**子进程 rebuildAll**——全落陈旧体；子进程反例：全新 ACIS 会话+缓存正确 f2EqF1=true+直写真实落库，拓扑仍 hole）⇒ Task 7「会话体别名」假说证伪需修订（真机制=写通道与元素既有行的交互，native 层待查，铁证复现=FeatureEngine.test.ts 中毒态铁证用例）；**中毒跨进程持久、rebuildAll 不可恢复**；唯一应用层防御=**建链轨迹规范化**（V3 实证角点工具插入→立即 retool=健康——M2 实施：applyInsert 布尔特征先插角点工具再 updateParams 到目标参数）；native 根治（backlog ③）升最高优先。E1/E3 判别实验已被铁证钉吸收（E3「落库恒=初始 cavity」预言成立且更强；E1 回调内通道问题因缓解整体证伪而 moot）。
+**【2026-09-30 前提挑战（M2 Task 5）】**：fully-interior 工具经 sweep 落到不与 base 相交位置、Subtract=no-op 重序列化体（≠切削≠pass-through）——铁证钉的 holeGeom 实为未切削 base；中毒态与 off-origin sweep 不切削两观测纠缠。native 重开调查第一假设=sweep 变换未应用；内核回归钉=FeatureEngine.test.ts 尾部「真 fully-interior 工具不切削」describe（① interior Subtract == disjoint 参照 ② no-op 输出 ≠ base sweep 输出；native 改真 pass-through 时 ② 翻转即信号）。
 11. **【移交 imodel-native 立项 2026-09-30】fork 逆向重建的 PSBRepGeometry 三项原生缺陷**：复现物在 tiangong SDD workspace `segfault-repro/` 与 `probe-t6/`——① GeometryCache 异步 populate 摄取持久化 BRep entry 硬崩（`FindOrAddElement`）；② 内核状态物化 op（op 读通道/createRollbackMark）后同会话异步缓存调用硬崩 0xC0000005（疑线程亲和）；③ 中毒态落库陈旧体（Task 7 结论，见 `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md` @ ws1-kernel-exposure 06591ecc3）。③已另行单列本登记第 10 条；本条将其与 ①② 归并为同一 imodel-native 立项入口。
 
 ## 审查记录
