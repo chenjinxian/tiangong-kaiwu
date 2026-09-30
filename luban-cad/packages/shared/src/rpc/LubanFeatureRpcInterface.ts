@@ -24,6 +24,8 @@ export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: ExtrudeParams }
   | { kind: "updateParams"; featureId: string; params: ExtrudeParams }
   | { kind: "deleteFeature"; featureId: string }
+  /** M2 T4.5：改草图约束尺寸（仅 distance/radius 类约束）→ 重解算 → 草图 params+几何流重写 → EDE 传播 */
+  | { kind: "updateSketchConstraint"; sketchId: string; constraintId: number; value: number }
   | { kind: "undo" }
   | { kind: "redo" };
 
