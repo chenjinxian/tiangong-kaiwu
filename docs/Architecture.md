@@ -1,5 +1,7 @@
 # 鲁班CAD 架构设计（luban-cad，天工开物平台）
 
+> **代码归属（后端私有化，2026-10-01）**：本文所述后端服务 `modeling-server`（:4001）与 `webhook-agent`（:4002）的源码在私有仓 **luban-backend**，文中 `modeling-server/src/...` 等代码路径均指该私有仓。本仓公开侧只**消费产物**：imodelhub / webhook-agent 以 **GHCR 镜像**进栈（`docker-compose.yml` 零后端 build），MS 以 **GitHub Releases 产物**（`scripts/fetch-backend.ps1` → `dist-backend\`）+ `scripts/start-ms-host.ps1` 宿主运行。
+
 ## 系统架构
 
 ### 整体架构图
@@ -444,11 +446,15 @@ const Editor = lazy(() => import('../pages/Editor/Editor.js'));
 
 ## 部署模式
 
+**统一部署链路**（部署权威：根 `docker-compose.yml`）：
+`scripts/generate-env.ps1` → `scripts/fetch-backend.ps1`（Releases 拉 MS 产物 + `docker compose pull` 拉 GHCR 镜像）→ `docker compose up -d` → `scripts/start-ms-host.ps1 -Detach`（宿主 MS :4001）→ `scripts/verify-stack.ps1`
+
 ### 开发模式
 ```
-imodelhub-services (localhost:4000)
-modeling-server (localhost:4001)
-Webhook-Agent (localhost:4002)
+imodelhub-services (localhost:4000)         # 栈内为 GHCR 镜像 ghcr.io/chenjinxian/imodelhub
+modeling-server (localhost:4001)            # 宿主进程：本仓产物 dist-backend\（fetch-backend.ps1），
+                                            # 或私有仓 luban-backend 源码 dev（start-ms-host.ps1 -Source）
+Webhook-Agent (localhost:4002)              # GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent
 Frontend (localhost:3000)
 Azurite (localhost:10000)
 PostgreSQL (localhost:5432)
@@ -456,18 +462,19 @@ PostgreSQL (localhost:5432)
 
 ### 生产模式
 ```
-Docker Compose:
-  - azurite
-  - modeling-server
-  - webhook-agent (optional)
-  - web (nginx)
-  
-External:
-  - imodelhub-services
-  - PostgreSQL
+Docker Compose（根 docker-compose.yml）:
+  - postgres / redis / maildev / azurite   基础设施
+  - imodelhub      ← GHCR 镜像 ghcr.io/chenjinxian/imodelhub
+  - webhook-agent  ← GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent
+  - web            本仓构建（luban-cad/Dockerfile）
+  - nginx          :80 统一入口
+
+宿主进程（不在 compose 内）:
+  - modeling-server :4001 ← GitHub Releases 产物（scripts/fetch-backend.ps1 → dist-backend\，
+    scripts/start-ms-host.ps1 产物模式拉起）
 ```
 
 ---
 
-*文档版本: 3.2*
-*最后更新: 2026-09-22*
+*文档版本: 3.3*
+*最后更新: 2026-10-01（后端私有化：modeling-server/webhook-agent 源码迁私有仓 luban-backend，本仓改产物消费；部署链路改 generate-env → fetch-backend → compose up → start-ms-host → verify-stack）*

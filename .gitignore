@@ -13,6 +13,5 @@ coverage/
 !luban-cad/apps/web/.env.development
 __azurite_db_*
 AzuriteConfig
-webhook-agent/data/
-# slvs 原生插件构建产物（node-gyp；源在 modeling-server/native/slvs/，产物不入库）
-modeling-server/native/slvs/build/
+# 后端产物解压落点（fetch-backend.ps1）
+dist-backend/

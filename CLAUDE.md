@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # 天工开物（TiangongKaiwu）平台总仓
 
-基于云服务的 AI+CAD 应用平台。**本仓是唯一 git 仓库**；命名家族（2026-09-23 定版）：平台 **天工开物** / 产品 **鲁班CAD（LubanCAD）** / 几何内核 **真形（TrueForm，私有仓，自主研发）** / 约束求解器 **绳墨（ShengMo，私有仓，自主研发）**。代码内包名为 `@luban-cad/*`，功能状态标记用 ✅/🟠/⚪/❌。
+基于云服务的 AI+CAD 应用平台。**本仓是公开总仓**（后端服务源码在私有仓 `luban-backend`，本仓只消费其产物）；命名家族（2026-09-23 定版）：平台 **天工开物** / 产品 **鲁班CAD（LubanCAD）** / 几何内核 **真形（TrueForm，私有仓，自主研发）** / 约束求解器 **绳墨（ShengMo，私有仓，自主研发）**。代码内包名为 `@luban-cad/*`，功能状态标记用 ✅/🟠/⚪/❌。
 
 ## 仓库布局
 
@@ -12,26 +12,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |---|---|---|
 | `itwinjs-core/` | vendored iTwin.js fork（git-subtree squash 谱系，上游 `iTwin/itwinjs-core`）；其内另有一个旧品牌名的**冻结历史应用拷贝，勿改勿引用** | **Rush** + pnpm |
 | `luban-cad/` | 鲁班CAD 应用（pnpm workspace：`apps/web` + `packages/{shared,viewer-core,web-viewer,config}` + `modules/{core,ui}`） | **pnpm** + Vite + Vitest + Playwright |
-| `modeling-server/` | 图形建模后台服务：打开模型/编辑建模/渲染数据，Express + RPC/WebSocket IPC + Briefcase 管理（:4001），独立 pnpm 包 | tsx + Vitest |
-| `webhook-agent/` | Webhook 接收 + baseline 生成 + CloudSqlite 上传 Azurite（:4002），独立 pnpm 包 | tsx + Vitest |
+| `luban-backend/`（**私有仓，仓外**） | 后端服务：私有仓 luban-backend（modeling-server :4001 + webhook-agent :4002 源码与镜像/产物发布脚本）；产物经 **GHCR 镜像 + GitHub Releases** 分发，`scripts/fetch-backend.ps1` 拉取到本仓 `dist-backend/` | pnpm + tsx |
 | `docs/` | 平台文档（UPSTREAM_SYNC.md / ITWINJS_CORE_MODIFICATIONS.md 等） | — |
 | `scripts/sync-from-upstream.sh` | 上游一键同步脚本 | bash |
 
-**仓外项目**（用途说明，需自行检出）：imodelhub-services（本地 iModel 管理平台：iModel 管理 API :4000 + Azurite :10000 + Postgres，替代 Bentley 云，必须先行启动）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、imodel-native（iModel 原生引擎）。
+**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :4000 + Azurite :10000 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、imodel-native（iModel 原生引擎）。
 
 ## 核心架构模型：link: 源码消费
 
 应用**不经 npm registry**，直接以 pnpm `link:` 引用 itwinjs-core 源码目录（如 `"@itwin/core-backend": "link:../itwinjs-core/core/backend"`）。后果：
 
 - 改了 `itwinjs-core/` 的源码，必须先 `rush build --to <包>` 重建该包的 `lib/` 产物，应用端才能看到效果。
-- `modeling-server/`、`webhook-agent/` 是**独立 pnpm 项目**（各自 pnpm-lock.yaml，不属于 luban-cad workspace）；`modeling-server` 还跨项目 link 了 `../luban-cad/packages/shared`（`@luban-cad/shared`，RPC 接口定义所在）。
+- `modeling-server`、`webhook-agent` 是**独立 pnpm 项目**（各自 pnpm-lock.yaml，不属于 luban-cad workspace）；`modeling-server` 还跨项目 link 了 `../luban-cad/packages/shared`（`@luban-cad/shared`，RPC 接口定义所在）。（此条对私有仓 luban-backend 适用，见其 README）
 
 ## 运行流水线
 
 - **前端**（React 18 + Vite，:3000）：`luban-cad/apps/web/`，按 feature 分目录（`features/{auth,itwin,imodel,editor,modeling,measurement,view-clip,accudraw,version-control,...}`）。Vite dev server 把 `/auth` 代理到 modeling-server(:4001)，把 `/itwins`/`/imodels` 等代理到 imodelhub-services(:4000)。
-- **建模后台**（:4001，`modeling-server/`）：`LocalhostIpcHost`（取代 IModelHost，WebSocket IPC 支撑 BriefcaseConnection）+ `OpenCloudRpcImpl` + 自定义 IPC handler（`OpenCloudIpcHandler`、`AppFunctionIpcHandler`）+ `EditCommandAdmin` 注册内置编辑命令。
+- **建模后台**（:4001，宿主进程）：源码在私有仓 `luban-backend` 的 modeling-server；本仓以**产物**运行（`dist-backend\` + `scripts/start-ms-host.ps1` 产物模式）：`LocalhostIpcHost`（取代 IModelHost，WebSocket IPC 支撑 BriefcaseConnection）+ `OpenCloudRpcImpl` + 自定义 IPC handler（`OpenCloudIpcHandler`、`AppFunctionIpcHandler`）+ `EditCommandAdmin` 注册内置编辑命令。
 - **编辑管道（硬约束）**：工具继承 iTwin.js 标准基类（`ElementSetTool`/`PrimitiveTool`/`CopyElementsTool`）→ 编辑走 `basicManipulationIpc` → 事务走 `BriefcaseTxns`/`saveChanges`（**可撤销是硬约束**）。AI Agent 工具必须复用现有 `toolId`，禁止第二套建模 API；破坏性操作走 HITL（预览→确认→提交）。
-- **Webhook 管道**：iTwin 平台 → webhook-agent(:4002，验签) → modeling-server(:4001) → 前端轮询；webhook-agent 另负责生成 baseline（CloudSqlite）上传 Azurite。
+- **Webhook 管道**：iTwin 平台 → webhook-agent(:4002，验签，GHCR 镜像) → modeling-server(:4001，宿主产物) → 前端轮询；webhook-agent 另负责生成 baseline（CloudSqlite）上传 Azurite。
 
 ## 常用命令
 
@@ -52,14 +51,18 @@ pnpm build / pnpm lint / pnpm test         # 各包目录内均可用
 pnpm test:e2e                              # Playwright（apps/web 内）
 ```
 
-### modeling-server / webhook-agent（独立 pnpm 包）
+### 后端（私有仓 luban-backend；本仓走产物分发）
 
 ```bash
-cd modeling-server && pnpm install && pnpm dev     # :4001，tsx watch
-cd webhook-agent && pnpm install && pnpm dev       # :4002
-pnpm build                                 # tsc
-pnpm test                                  # vitest run
-pnpm lint
+# 外部验证者快速起栈（4+2 命令流；顺序执行）
+powershell -File scripts/generate-env.ps1            # 0) 仓库根 .env（幂等）
+powershell -File scripts/fetch-backend.ps1           # 1) Releases 拉 MS 产物 tgz→dist-backend\ + docker compose pull（GHCR）
+docker compose up -d                                 # 2) 栈：imodelhub/WA/web/nginx + 基础设施
+powershell -File scripts/start-ms-host.ps1 -Detach   # 3) 宿主 MS :4001（产物模式）
+powershell -File scripts/verify-stack.ps1            # 4) 全栈验收（health→数据链→WS→横幅）
+
+# 后端源码开发（私有仓检出者）：cd <luban-backend>\modeling-server && pnpm dev / test / lint（见该仓 README）
+powershell -File scripts/start-ms-host.ps1 -Source D:\Github\luban-backend\modeling-server   # 源码模式（install/build 全流程）
 ```
 
 ### 原生库替换（本地 imodeljs.node）
@@ -69,6 +72,7 @@ powershell -File scripts/replace-imodeljs-native.ps1            # release 为默
 ```
 
 - 用 imodel-native（`D:\Github\imodel-native`，分支 `dev/source-build`）的 `out/cmake/win-x64-<config>/Delivery/` 覆盖 node_modules 中 `@bentley/imodeljs-native` 的平台二进制 + 写 `devbuild.json`；TS wrapper/typings 仍来自 npm（`api_package/ts` 零改动）。
+- **作用范围（后端私有化后）**：脚本保留在本仓且不变，但其内置的 `modeling-server`/`webhook-agent` 安装现场模式在目录缺失时自然 no-op；要替换私有仓检出的后端 node_modules，用 `-ScanRoots D:\Github\luban-backend\modeling-server -ScanRoots D:\Github\luban-backend\webhook-agent`。
 - **硬门槛**：imodel-native HEAD 必须包含 itwinjs-core 所需版本 tag（`git merge-base --is-ancestor v<版本> HEAD`）；不满足先跑该仓 `sync-from-upstream.ps1` + CMake 重编译。
 - **任何 `rush update` / `pnpm install` 重装后必须重跑**；后端启动无 "using dev build from …" banner 即已回退官方二进制。
 - itwinjs-core 上游同步若提升了原生库版本：imodel-native 跟进同步 → 重编译 → 重跑本脚本（`scripts/sync-from-upstream.sh` 尾部会自动检测并提示）。
@@ -82,12 +86,13 @@ npx playwright test e2e/editor.spec.ts                   # 单 e2e（在 luban-c
 
 ### 完整本地栈启动顺序（部署权威：根 compose）
 
-0. 首次运行先生成密钥配置：`powershell -File scripts/generate-env.ps1`（幂等；两后端服务的 `.env` 均读仓库根这一份，密钥缺失会拒启）
-1. `docker compose up -d`（根 docker-compose.yml：Postgres/Azurite/Redis/Maildev + imodelhub:4000 + webhook-agent:4002 + web + nginx:80 单域名入口；MS 容器化见下注）
-2. modeling-server 为宿主进程（link: 依赖+本地编译原生库不可入 Linux 容器——`scripts/start-ms-host.ps1 -Detach`；实验性容器形态在 `--profile container`）
-3. `powershell -File scripts/verify-stack.ps1` 全栈验收（health×5 → iTwin/iModel/baseline 数据链 → WS cookie 握手 → dev-build 横幅）
+0. 首次运行先生成密钥配置：`powershell -File scripts/generate-env.ps1`（幂等；后端服务的 `.env` 均读仓库根这一份，密钥缺失会拒启）
+1. `powershell -File scripts/fetch-backend.ps1`（拉 GHCR 镜像 + MS 产物到 `dist-backend\`；已就位可跳过）
+2. `docker compose up -d`（根 docker-compose.yml：Postgres/Azurite/Redis/Maildev + imodelhub:4000 + webhook-agent:4002（均 GHCR 镜像）+ web + nginx:80 单域名入口）
+3. modeling-server 为宿主进程（link: 依赖+本地编译原生库不可入 Linux 容器——`scripts/start-ms-host.ps1 -Detach`，默认产物模式跑 `dist-backend\`）
+4. `powershell -File scripts/verify-stack.ps1` 全栈验收（health×5 → iTwin/iModel/baseline 数据链 → WS cookie 握手 → dev-build 横幅）
 
-**开发态**（分进程调试）：itwinjs-core `rush build --to ...`（首次或改了依赖库后）→ `modeling-server` pnpm dev (:4001) → `webhook-agent` pnpm dev (:4002) → `luban-cad/apps/web` pnpm dev (:3000，`.env.development` 直连 :4001)。`luban-cad/docker-compose.yml` 仅作 dev 参考。
+**开发态**（分进程调试）：itwinjs-core `rush build --to ...`（首次或改了依赖库后）→ 私有仓 `luban-backend` 内 modeling-server `pnpm dev` (:4001)，或本仓 `start-ms-host.ps1 -Source <私有仓>\modeling-server` 源码模式 → `luban-cad/apps/web` `pnpm dev` (:3000，`.env.development` 直连 :4001)。webhook-agent 随 compose 容器跑（:4002，GHCR 镜像；源码调试在私有仓）。`luban-cad/docker-compose.yml` 仅作 dev 参考。
 
 ## itwinjs-core 修改与上游同步（强制）
 
@@ -101,12 +106,12 @@ npx playwright test e2e/editor.spec.ts                   # 单 e2e（在 luban-c
 - **`rush update` 清 node_modules 报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`**：非交互环境需 `CI=true`（独立 pnpm 项目同理）。
 - **移动仓库后 rush 报 store path 不匹配**：`itwinjs-core/common/temp/last-install.flag` 钉着旧绝对路径，改写为当前路径或 `rush update --purge`。
 - **rush 的 git 邮箱策略检查**：本地 rush 操作可加 `--bypass-policy`（仅 install/update 类命令，**不是** build 的 flag）。
-- **上游接口新增方法**：如 `IpcAppFunctions` 加方法，`modeling-server/src/ipc/AppFunctionIpcHandler.ts` 需补实现（照搬 `core/backend/src/IpcHost.ts` 官方实现）。
+- **上游接口新增方法**：如 `IpcAppFunctions` 加方法，`modeling-server/src/ipc/AppFunctionIpcHandler.ts` 需补实现（照搬 `core/backend/src/IpcHost.ts` 官方实现）。（私有仓 luban-backend 适用，见其 README）
 - **markup 功能 ❌ 降级占位**：`@itwin/core-markup` 不在 luban-cad workspace 依赖中，12 个工具禁用；启用前需先补依赖解析。
 - **peer 版本解析报 `No matching version found for @itwin/xxx@dev.N`**：在消费方 package.json 显式声明 `"@itwin/xxx": "workspace:*"` 或 link: 让 peer 由本地满足。
 - **本机 pnpm 版本**：lockfile 是 lockfileVersion 9.0（pnpm 9/10 时代）；pnpm 12 的默认供应链策略（minimumReleaseAge）会拒绝安装。本机 pnpm 未全局安装，用 `corepack pnpm@10 install`。
-- **modeling-server 首启报 `@luban-cad/shared` 无 dist/**：link: 包需先构建一次 `cd luban-cad/packages/shared && pnpm build`（tsc），再启动 modeling-server（2026-09-26 实测）。
-- **link: 项目禁用 `pnpm add`**：modeling-server/webhook-agent 的 `link:../itwinjs-core/*` 会被静默重解析为 registry 包（2026-09-26 实测）。加依赖须手改 package.json + `corepack pnpm@10 install --no-frozen-lockfile`，并核对 lockfile 的 `link:` 计数不变。
+- **modeling-server 首启报 `@luban-cad/shared` 无 dist/**：link: 包需先构建一次 `cd luban-cad/packages/shared && pnpm build`（tsc），再启动 modeling-server（2026-09-26 实测）。（私有仓 luban-backend 适用，见其 README）
+- **link: 项目禁用 `pnpm add`**：modeling-server/webhook-agent 的 `link:../itwinjs-core/*` 会被静默重解析为 registry 包（2026-09-26 实测）。加依赖须手改 package.json + `corepack pnpm@10 install --no-frozen-lockfile`，并核对 lockfile 的 `link:` 计数不变。（私有仓 luban-backend 适用，见其 README）
 
 ## 文档锚点
 

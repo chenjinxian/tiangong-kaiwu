@@ -12,8 +12,6 @@
 |---|---|
 | **itwinjs-core** | 核心基础框架（iTwin.js fork；自主化/差异化开发的底座） |
 | **鲁班CAD** | AI 生成式 CAD 产品前端宿主 |
-| **modeling-server** | 图形建模后台服务：打开模型文件、编辑建模、供渲染数据（Express + RPC/IPC + Briefcase 管理，:4001） |
-| **webhook-agent** | Webhook 接收 + baseline 生成 + CloudSqlite 上传（:4002） |
 | **丹青（DanQing）渲染引擎**（仓外） | 纯客户端图形引擎：itwinjs-core 数字孪生大体量渲染 × **Filament** 高质量实时渲染与全平台能力的共同体 |
 | **imodel-native**（仓外） | iModel 原生引擎：已完成 **CMake** 全编译改造，实现基于 **ACIS 的 BRepCore**，向完全自主化演进（真形的孵化床） |
 
@@ -21,8 +19,11 @@
 
 | 组件 | 角色 |
 |---|---|
+| **luban-backend** | **PRIVATE** 后端服务仓：图形建模服务（打开模型文件、编辑建模、供渲染数据，Express + RPC/IPC + Briefcase 管理，:4001）+ Webhook Agent（接收/baseline 生成/CloudSqlite 上传，:4002）。镜像与产物在本仓发布（GHCR + GitHub Releases），公开仓经 `scripts/fetch-backend.ps1` 消费 |
 | **真形（TrueForm）** | **PRIVATE** 自主研发 BRep 几何内核——终局替换 ACIS 实现层 |
 | **绳墨（ShengMo）** | **PRIVATE** 自主研发约束求解引擎——SolveSpace/libslvs 起步，自研求解核与真形共同开发替换 |
+
+**快速起栈**（本仓，消费私有侧产物）：`scripts/generate-env.ps1` → `scripts/fetch-backend.ps1` → `docker compose up -d` → `scripts/start-ms-host.ps1 -Detach` → `scripts/verify-stack.ps1`。
 
 ## 文档
 

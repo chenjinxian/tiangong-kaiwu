@@ -3,27 +3,30 @@
 #
 # 用法：
 #   0) 仓库根 .env 就位（powershell -File scripts/generate-env.ps1）
-#   1) docker compose up -d --build
-#   2) powershell -File scripts/start-ms-host.ps1 -Detach   # 宿主 MS :4001（见下）
-#   3) 入口 http://localhost/（nginx :80 单入口）
+#   1) powershell -File scripts/fetch-backend.ps1   # MS 产物（Releases tgz → dist-backend\）+ GHCR 镜像（compose pull）
+#   2) docker compose up -d
+#   3) powershell -File scripts/start-ms-host.ps1 -Detach   # 宿主 MS :4001（产物模式，见下）
+#   4) powershell -File scripts/verify-stack.ps1    # 全栈验收
+#   入口 http://localhost/（nginx :80 单入口）
 #
-# 【modeling-server 形态裁决 —— Task 3 / 2026-09-27】
-#   MS 默认【宿主进程】运行（scripts/start-ms-host.ps1）：其 link:
-#   依赖 itwinjs-core 本地 rush 产物 + 本地编译的 imodeljs-win32-x64
-#   dev build，容器化回退官方 npm 原生二进制且构建超时风险高
-#   （详见 task-3 报告）。nginx/WA 经 host.docker.internal:4001 访问。
-#   实验容器形态：docker compose --profile container up -d modeling-server
-#   并设 MS_UPSTREAM=modeling-server:4001（根 .env）。
+# 【modeling-server 形态裁决 —— 后端私有化 2026-10-01】
+#   MS 源码已迁私有仓 luban-backend；本仓**不构建后端，只消费产物**：
+#   MS 以 GitHub Releases 产物（解压到 dist-backend\，fetch-backend.ps1
+#   拉取）+ scripts/start-ms-host.ps1 产物模式在宿主运行 :4001（link:
+#   依赖 + 本地编译 imodeljs 原生库不可入 Linux 容器）。nginx/WA 经
+#   host.docker.internal:4001 访问本进程。
+#   imodelhub / webhook-agent 为 GHCR 预构建镜像（本 compose 零 build:，
+#   web 除外）；镜像构建属私有仓 luban-backend 的事务，不进本仓。
 #
-# 服务清单（默认 8 个 = 计划 6 服务 + HUB 运行时必需的 redis/maildev）：
+# 服务清单（compose 内 8 个 = 计划 6 服务 + HUB 运行时必需的 redis/maildev；
+#           MS 是宿主进程，不占 compose 服务位）：
 #   postgres / redis / maildev / azurite   基础设施（redis、maildev 为
-#                                          HUB API 启动依赖，其仓内
-#                                          compose 同样拉起，属最小集合）
-#   imodelhub                              本地 iModel 管理平台 :4000
-#   webhook-agent                          :4002（容器）
-#   web                                    前端静态 :3000（仅栈内）
+#                                          HUB API 启动依赖，属最小集合）
+#   imodelhub                              本地 iModel 管理平台 :4000（GHCR 镜像）
+#   webhook-agent                          :4002（GHCR 镜像）
+#   web                                    前端静态 :3000（仅栈内，本仓构建）
 #   nginx                                  统一入口 :80
-#   modeling-server                        宿主 :4001（container profile 除外）
+#   modeling-server                        宿主 :4001（start-ms-host.ps1 拉起，非 compose 服务）
 #
 # env 单源：仓库根 .env（compose 自动读取插值 + 服务级 env_file）。
 #   共享密钥映射（HUB 名 ← 根 .env 名）：
@@ -106,12 +109,10 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # imodelhub-services（HUB，:4000）
+  # imodelhub-services（HUB，:4000）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
   # ------------------------------------------------------------
   imodelhub:
-    build:
-      context: ../imodelhub-services
-      dockerfile: Dockerfile
+    image: ghcr.io/chenjinxian/imodelhub:latest
     ports:
       - "4000:4000"
     environment:
@@ -160,12 +161,10 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # webhook-agent（:4002，容器形态）
+  # webhook-agent（:4002）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
   # ------------------------------------------------------------
   webhook-agent:
-    build:
-      context: .
-      dockerfile: webhook-agent/Dockerfile
+    image: ghcr.io/chenjinxian/luban-webhook-agent:latest
     ports:
       - "4002:4002"
     env_file:
@@ -241,49 +240,11 @@ services:
     restart: unless-stopped
     networks: [stack]
 
-  # ------------------------------------------------------------
-  # modeling-server —— 实验容器形态（默认宿主进程，见文件头裁决）
-  # 启用：docker compose --profile container up -d modeling-server
-  # 并设 MS_UPSTREAM=modeling-server:4001
-  # ------------------------------------------------------------
-  modeling-server:
-    profiles: ["container"]
-    build:
-      context: .
-      dockerfile: modeling-server/Dockerfile
-    ports:
-      - "4001:4001"
-    env_file:
-      - .env
-    environment:
-      NODE_ENV: production
-      PORT: "4001"
-      IMODELHUB_URL: http://imodelhub:4000
-      AZURITE_HOST: azurite:10000
-      FRONTEND_URL: http://localhost/
-      BRIEFCASE_CACHE_LOCATION: /data/briefcase-cache
-    volumes:
-      - briefcase-cache:/data/briefcase-cache
-    depends_on:
-      imodelhub:
-        condition: service_healthy
-      azurite:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
-    restart: unless-stopped
-    networks: [stack]
-
 # ------------------------------------------------------------
 volumes:
   pgdata:
   redis-data:
   azurite-data:
-  briefcase-cache:
 
 networks:
   stack:

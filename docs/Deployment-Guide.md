@@ -4,6 +4,18 @@
 
 LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有环境运行，**不依赖 Bentley iTwin Platform 云服务**。
 
+**后端私有化（2026-10-01）**：后端源码在私有仓 **luban-backend**，本仓只**消费产物**——imodelhub / webhook-agent 为 **GHCR 镜像**，modeling-server 以 **GitHub Releases 产物**（`dist-backend\`）在宿主进程运行。
+
+## 统一部署链路（部署权威：根 `docker-compose.yml`）
+
+```bash
+powershell -File scripts/generate-env.ps1            # 0) 仓库根 .env（幂等；密钥缺失拒启）
+powershell -File scripts/fetch-backend.ps1           # 1) Releases 拉 MS 产物 tgz→dist-backend\ + docker compose pull（GHCR 镜像）
+docker compose up -d                                 # 2) 栈：imodelhub/WA/web/nginx + 基础设施
+powershell -File scripts/start-ms-host.ps1 -Detach   # 3) 宿主 MS :4001（产物模式）
+powershell -File scripts/verify-stack.ps1            # 4) 全栈验收
+```
+
 ## 服务架构
 
 ```
@@ -41,6 +53,16 @@ LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有�
 | Web | 3000 | 前端应用 | 是 |
 | Webhook-Agent | 4002 | Webhook 接收器 + Baseline 生成 | 是 |
 
+**镜像/产物来源（后端私有化）**：
+
+| 服务 | 来源 |
+|---|---|
+| imodelhub | **GHCR 镜像** `ghcr.io/chenjinxian/imodelhub:latest`（构建在私有仓 luban-backend） |
+| webhook-agent | **GHCR 镜像** `ghcr.io/chenjinxian/luban-webhook-agent:latest`（构建在私有仓 luban-backend） |
+| modeling-server | **GitHub Releases 产物** `modeling-server-win-x64-*.tgz`（`scripts/fetch-backend.ps1` 解压到 `dist-backend\`，`scripts/start-ms-host.ps1` 宿主运行） |
+| web | 本仓构建（`luban-cad/Dockerfile`） |
+| postgres / redis / maildev / azurite / nginx | 官方镜像 |
+
 ### Webhook-Agent 为什么是必需的？
 
 **核心功能**: 当用户创建空 iModel 时，imodelhub-services 会发送 `iModelCreated` webhook 事件。Webhook-Agent 必须处理此事件并生成 baseline 文件：
@@ -74,11 +96,11 @@ curl http://localhost:4000/imodels/admin/compensation-status \
 
 ## 前置要求
 
-- Node.js 20.x+
-- pnpm 10.x（lockfile 为 lockfileVersion 9.0；pnpm 12 的默认供应链策略会拒绝安装。本机未装 pnpm 时可用 `corepack pnpm@10`）
+- Docker Desktop（栈：PostgreSQL/Azurite/Redis/Maildev + GHCR 镜像 + web/nginx）
+- gh CLI（已登录，且可读 `chenjinxian/tiangong-kaiwu` 的 Releases——`scripts/fetch-backend.ps1` 拉 MS 产物用）
+- Node.js 20.x + pnpm 10.x（仅前端/itwinjs-core 开发需要；lockfile 为 lockfileVersion 9.0，pnpm 12 供应链策略会拒装，用 `corepack pnpm@10`）
 - Rush（仅 itwinjs-core 底座需要，经 `node common/scripts/install-run-rush.js` 调用，无需全局安装）
-- Docker (用于 PostgreSQL 和 Azurite)
-- imodelhub-services (仓外项目，单独部署)
+- imodelhub-services / luban-backend 源码检出**非必需**（栈内消费 GHCR 镜像与 Releases 产物；后端源码开发见私有仓 luban-backend README）
 
 ## 开发环境部署
 
@@ -90,17 +112,18 @@ cd itwinjs-core
 node common/scripts/install-run-rush.js update
 node common/scripts/install-run-rush.js build --to @itwin/core-backend --to @itwin/core-frontend --to @itwin/editor-backend --to @itwin/editor-frontend --to @itwin/presentation-frontend --to @itwin/presentation-common --to @itwin/appui-abstract --to @itwin/ecschema-metadata --to @itwin/ecschema-rpcinterface-common --to @itwin/core-i18n --to @itwin/core-quantity
 
-# 1. 应用各项目（pnpm；link: 源码消费 itwinjs-core）
+# 1. 前端应用（pnpm；link: 源码消费 itwinjs-core）
 cd luban-cad && pnpm install && pnpm -r build
-cd ../modeling-server && pnpm install && pnpm build
-cd ../webhook-agent && pnpm install && pnpm build
+
+# 1'. 后端源码开发仅在私有仓 luban-backend 检出后进行（本仓不检出也能跑：
+#     走产物分发，见「统一部署链路」）；源码 dev/test/lint 流程见该私有仓 README
 ```
 
-### 2. 启动 Azurite
+### 2. 启动基础设施（Azurite 等）
 
 ```bash
-# Azurite/PostgreSQL 定义在 dev compose（基础 docker-compose.yml 不含这两项）
-docker-compose -f docker-compose.dev.yml up -d azurite
+# Azurite/PostgreSQL/Redis/Maildev 均在根 compose 内
+docker compose up -d azurite postgres redis maildev
 ```
 
 验证 Azurite:
@@ -110,48 +133,23 @@ curl http://localhost:10000/devstoreaccount1?comp=list
 
 ### 3. 配置环境变量
 
-#### modeling-server (`modeling-server/.env`)
+统一栈的环境变量**单源在仓库根 `.env`**（`scripts/generate-env.ps1` 幂等生成；compose 插值与服务级 `env_file` 均读它，密钥缺失会拒启）。密钥项：`IMODELHUB_API_KEY` / `WEBHOOK_SECRET` / `AUTH_JWT_SECRET` / `IMODELHUB_ADMIN_PASSWORD` / `AZURITE_ACCOUNT_KEY` 等（私有仓后端运行时亦读仓库根这一份 `.env`，见其 README）。
 
-```env
-PORT=4001
-IMODELHUB_URL=http://localhost:4000
-AZURITE_HOST=127.0.0.1:10000
-AZURITE_ACCOUNT_NAME=devstoreaccount1
-FRONTEND_URL=http://localhost:3000
-IMJS_BRIEFCASE_CACHE_LOCATION=./briefcase-cache
-WEBHOOK_SECRET=your-webhook-secret
-IMODELHUB_ADMIN_EMAIL=admin@example.com
-IMODELHUB_ADMIN_PASSWORD=secret
-```
-
-#### Frontend (`luban-cad/apps/web/.env`)
-
-```env
-VITE_API_URL=http://localhost:4001
-VITE_IMODELHUB_URL=http://localhost:4000
-VITE_AZURITE_URL=http://localhost:10000
-```
-
-#### Webhook-Agent (`webhook-agent/.env`)
-
-```env
-PORT=4002
-BACKEND_URL=http://localhost:4001
-WEBHOOK_SECRET=your-webhook-secret
-```
+前端开发态用 `luban-cad/apps/web/.env.development`（已入库，直连 :4001）。
 
 ### 4. 启动服务
 
-分别在三个终端启动：
-
 ```bash
-# 终端 1: modeling-server
-cd modeling-server && pnpm dev
+# 栈（imodelhub/WA/web/nginx + 基础设施，GHCR 镜像零后端构建）
+docker compose up -d
 
-# 终端 2: Webhook-Agent (必需 - baseline 生成)
-cd webhook-agent && pnpm dev
+# 终端 1: 宿主 modeling-server（产物模式；源码调试加 -Source 指私有仓检出）
+powershell -File scripts/start-ms-host.ps1 -Detach
 
-# 终端 3: Frontend
+# 终端 2: Webhook-Agent 随 compose 容器运行（GHCR 镜像，无需本地起）
+#   单独重启：docker compose restart webhook-agent
+
+# 终端 3: Frontend（开发态）
 cd luban-cad/apps/web && pnpm dev
 ```
 
@@ -162,140 +160,61 @@ cd luban-cad/apps/web && pnpm dev
 ### 使用 Docker Compose
 
 ```bash
-# 启动所有服务
-docker-compose up -d
-
-# 包含 Webhook-Agent
-docker-compose --profile with-webhook-agent up -d
+# 启动所有服务（后端镜像来自 GHCR；MS 为宿主进程，另行 start-ms-host.ps1）
+docker compose up -d
 
 # 查看日志
-docker-compose logs -f
+docker compose logs -f
 
 # 停止
-docker-compose down
+docker compose down
 ```
 
-### docker-compose.yml（示意精简版；实际以仓库 `docker-compose.yml` 为准——Azurite/PostgreSQL 由 `docker-compose.dev.yml` 或 imodelhub-services 侧启动）
+### docker-compose.yml（部署权威：仓库根 `docker-compose.yml`，后端零 build）
 
-```yaml
-version: '3.8'
+compose 内 **8 个服务**，镜像来源如下；MS 不占 compose 服务位（宿主进程）：
 
-services:
-  azurite:
-    image: mcr.microsoft.com/azure-storage/azurite:latest
-    container_name: luban-cad-azurite
-    ports:
-      - "10000:10000"
-      - "10001:10001"
-      - "10002:10002"
-    volumes:
-      - azurite-data:/data
-    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
-    networks:
-      - luban-cad-network
-
-  modeling-server:
-    build:
-      context: .
-      dockerfile: modeling-server/Dockerfile
-    container_name: luban-cad-modeling-server
-    ports:
-      - "4001:4001"
-    environment:
-      - NODE_ENV=production
-      - PORT=4001
-      - IMODELHUB_URL=http://host.docker.internal:4000
-      - AZURITE_URL=http://azurite:10000
-      - FRONTEND_URL=http://localhost:3000
-      - IMJS_BRIEFCASE_CACHE_LOCATION=/app/cache
-      - WEBHOOK_SECRET=your-webhook-secret
-    volumes:
-      - modeling-server-cache:/app/cache
-    depends_on:
-      - azurite
-    networks:
-      - luban-cad-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    restart: unless-stopped
-
-  webhook-agent:
-    build:
-      context: .
-      dockerfile: webhook-agent/Dockerfile
-    container_name: luban-cad-webhook-agent
-    ports:
-      - "4002:4002"
-    environment:
-      - NODE_ENV=production
-      - PORT=4002
-      - BACKEND_URL=http://modeling-server:4001
-      - WEBHOOK_SECRET=your-webhook-secret
-    depends_on:
-      - modeling-server
-    networks:
-      - luban-cad-network
-    restart: unless-stopped
-    profiles:
-      - with-webhook-agent
-
-  web:
-    build:
-      context: .
-      dockerfile: luban-cad/apps/web/Dockerfile
-    container_name: luban-cad-web
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_URL=http://localhost:4001
-      - VITE_IMODELHUB_URL=http://localhost:4000
-      - VITE_AZURITE_URL=http://localhost:10000
-    depends_on:
-      - modeling-server
-    networks:
-      - luban-cad-network
-    restart: unless-stopped
-
-volumes:
-  azurite-data:
-  modeling-server-cache:
-
-networks:
-  luban-cad-network:
-    driver: bridge
-```
+| 服务 | 来源 | 端口 |
+|---|---|---|
+| postgres | 官方 `postgres:17-alpine` | 5432（栈内） |
+| redis | 官方 `redis:7-alpine` | 6379（栈内） |
+| maildev | 官方 `maildev/maildev` | 1025（栈内） |
+| azurite | 官方 `mcr.microsoft.com/azure-storage/azurite` | 10000-10002 |
+| imodelhub | **GHCR** `ghcr.io/chenjinxian/imodelhub:latest` | 4000 |
+| webhook-agent | **GHCR** `ghcr.io/chenjinxian/luban-webhook-agent:latest` | 4002 |
+| web | 本仓构建（`luban-cad/Dockerfile`） | 3000（栈内） |
+| nginx | 官方 `nginx:alpine`（单域名入口） | 80 |
+| modeling-server | **非 compose 服务**：宿主进程，`scripts/start-ms-host.ps1` 跑 `dist-backend\` 产物 | 4001 |
 
 ## 生产环境部署
 
-### 1. 构建生产镜像
+### 1. 拉取产物与镜像
 
 ```bash
-# 构建所有镜像（仓库无单独的 prod compose，直接使用 docker-compose.yml）
-docker-compose build
+# 后端镜像（GHCR）+ MS 产物（Releases）一键拉齐，幂等
+powershell -File scripts/fetch-backend.ps1
 
-# 推送镜像到仓库
-docker tag luban-cad-web:latest your-registry/luban-cad-web:v1.0
-docker push your-registry/luban-cad-web:v1.0
+# web 镜像由 compose 按本仓源码构建；其余服务均为官方/GHCR 镜像
+# （后端镜像的构建/发布属私有仓 luban-backend 的事务，不在本仓）
 ```
 
 ### 2. 环境变量配置
 
-生产环境需要设置以下环境变量：
+生产环境的密钥/拓扑变量**单源在仓库根 `.env`**（`scripts/generate-env.ps1` 生成骨架后手工改值；compose 与后端服务均读它）。主要项：
 
 ```bash
-# modeling-server
-export PORT=4001
-export IMODELHUB_URL=https://your-imodelhub-services.com
-export AZURITE_URL=https://your-storage.com
-export FRONTEND_URL=https://your-frontend.com
-export WEBHOOK_SECRET=your-production-secret
-export IMODELHUB_ADMIN_EMAIL=admin@your-domain.com
-export IMODELHUB_ADMIN_PASSWORD=your-secure-password
+# 仓库根 .env（compose 插值 + 服务级 env_file 单源）
+IMODELHUB_API_KEY=<internal-api-key>          # WA↔HUB
+WEBHOOK_SECRET=<strong-secret>                # WA↔MS 必须一致（同源天然一致）
+AUTH_JWT_SECRET=<strong-secret>
+IMODELHUB_ADMIN_EMAIL=admin@your-domain.com
+IMODELHUB_ADMIN_PASSWORD=<secure-password>
+AZURITE_ACCOUNT_KEY=<key>
 
-# Frontend
-export VITE_API_URL=https://your-backend.com
-export VITE_IMODELHUB_URL=https://your-imodelhub-services.com
-export VITE_AZURITE_URL=https://your-storage.com
+# Frontend（构建期注入；本地开发用 .env.development，已入库）
+VITE_API_URL=https://your-backend.com
+VITE_IMODELHUB_URL=https://your-imodelhub-services.com
+VITE_AZURITE_URL=https://your-storage.com
 ```
 
 ### 3. SSL/TLS 配置
@@ -408,14 +327,14 @@ curl http://localhost:3000
 ### 查看日志
 
 ```bash
-# modeling-server 日志
-docker logs -f luban-cad-modeling-server
+# modeling-server 日志（宿主进程；start-ms-host.ps1 -Detach 重定向）
+#   %TEMP%\luban-cad-modeling-server.log（.err 为错误流）
 
-# Webhook-Agent 日志
-docker logs -f luban-cad-webhook-agent
+# Webhook-Agent 日志（GHCR 镜像容器）
+docker logs -f tiangong-kaiwu-webhook-agent-1
 
 # 所有服务日志
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ### 日志配置
@@ -467,10 +386,10 @@ kill -9 <PID>
 ### 服务启动失败
 
 1. **modeling-server 启动失败**
-   - 检查 imodelhub-services 是否运行
-   - 检查 Azurite 是否运行
-   - 检查端口是否被占用
-   - 查看日志: `docker logs luban-cad-modeling-server`
+   - 先确认产物就位：`dist-backend\modeling-server\dist\main.js`（缺则跑 `scripts/fetch-backend.ps1`）
+   - 检查 imodelhub-services 是否运行、Azurite 是否运行
+   - 检查端口 4001 是否被占用
+   - 查看日志: `%TEMP%\luban-cad-modeling-server.log(.err)`（宿主进程）
 
 2. **Frontend 构建失败**
    - 检查 node_modules: `pnpm install`
@@ -491,16 +410,16 @@ kill -9 <PID>
 
 ```bash
 # 停止所有服务
-docker-compose down
+docker compose down
 
 # 删除数据卷
-docker volume rm luban-cad_azurite-data
+docker volume rm tiangong-kaiwu_azurite-data
 
-# 清除 modeling-server 缓存
-rm -rf modeling-server/briefcase-cache/*
+# 清除 MS briefcase 缓存（宿主进程；位置由仓库根 .env 的 BRIEFCASE_CACHE_LOCATION 决定）
+rm -rf briefcase-cache/*
 
 # 重新启动
-docker-compose up -d
+docker compose up -d
 ```
 
 ## 性能优化
@@ -607,7 +526,7 @@ echo ".env" >> .gitignore
 openssl rand -base64 32
 
 # 确保一致
-# modeling-server/.env 和 webhook-agent/.env 中的 WEBHOOK_SECRET 必须相同
+# 统一栈环境变量单源在仓库根 .env（WA 镜像与宿主 MS 读同一份，天然一致）
 ```
 
 ## 更新部署
@@ -618,13 +537,12 @@ openssl rand -base64 32
 # 1. 拉取最新代码
 git pull origin main
 
-# 2. 重新构建（应用各项目；itwinjs-core 有变更时先 rush build --to …）
-cd luban-cad && pnpm -r build
-cd ../modeling-server && pnpm build
-cd ../webhook-agent && pnpm build
+# 2. 重拉后端产物与镜像（幂等；Releases/GHCR 有新版即更新）
+powershell -File scripts/fetch-backend.ps1
 
-# 3. 重启服务
-docker-compose up -d --build
+# 3. 重启栈与宿主 MS（web 有变更时 --build）
+docker compose up -d --build web
+powershell -File scripts/start-ms-host.ps1 -Detach
 ```
 
 ### 数据库迁移
@@ -655,5 +573,5 @@ npm run migration:run
 
 ---
 
-*文档版本: 2.2*
-*最后更新: 2026-09-22（校对：端口/健康检查/补偿任务/Admin API 与实测一致；Azurite 启动改用 docker-compose.dev.yml；修正不存在的 prod compose 引用）*
+*文档版本: 2.3*
+*最后更新: 2026-10-01（后端私有化：新增「统一部署链路」generate-env → fetch-backend → compose up → start-ms-host → verify-stack；imodelhub/webhook-agent 标注 GHCR 镜像来源，MS 改 Releases 产物宿主运行；删除示意 compose 与仓内后端 dev 指引）*
