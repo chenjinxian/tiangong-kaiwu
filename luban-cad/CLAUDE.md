@@ -23,7 +23,7 @@
 | View Clip | `features/view-clip/` | ✅ 视图裁剪 |
 | AccuDraw | `features/accudraw/` | ✅ 精确绘图 |
 | Version Control | `features/version-control/` | 🟠 Changeset/Named Version 可用；冲突检测 🟠（mock 数据）、冲突解决 ⚪（no-op 标记） |
-| **Pattern (阵列)** | `features/modeling/PatternTools.ts` + `modeling-server/src/commands/PatternCommand.ts`（已净化、未注册） | 🟠 线性/圆形阵列（ID 收集 bug） |
+| **Pattern (阵列)** | `features/modeling/PatternTools.ts` + `modeling-server/src/commands/PatternCommand.ts`（后端源码在**仓外私有仓 luban-backend**，产物经公开仓 `scripts/fetch-backend.ps1` 拉取；已净化、未注册） | 🟠 线性/圆形阵列（ID 收集 bug） |
 
 完整能力矩阵见 platform-docs/STATUS.md（状态标记：✅/🟠/⚪/❌）
 
@@ -46,9 +46,10 @@
 cd luban-cad && pnpm install
 cd apps/web && pnpm dev          # 前端 :3000
 
-# 3. 后台服务（仓库根部的独立 pnpm 项目）
-cd modeling-server && pnpm dev   # :4001
-cd webhook-agent && pnpm dev     # :4002
+# 3. 后台服务（源码在**仓外私有仓 luban-backend**，公开仓不检出也能跑：
+#    公开仓走产物分发——scripts/fetch-backend.ps1 拉 Releases 产物后
+#    scripts/start-ms-host.ps1 -Detach 起 MS :4001；webhook-agent 随
+#    docker compose 容器跑 :4002。源码 dev 见该私有仓 README）
 ```
 
 访问 http://localhost:3000
@@ -57,6 +58,8 @@ cd webhook-agent && pnpm dev     # :4002
 
 - **modeling-server (4001)**：图形建模后台——打开模型文件、执行编辑建模命令、供渲染数据（Express + WebSocket RPC/IPC + Briefcase 管理）
 - **webhook-agent (4002)**：Webhook 验签接收与转发、baseline 生成、CloudSqlite 上传
+
+> 两服务源码均在**仓外私有仓 luban-backend**（产物经公开仓 GHCR 镜像 + GitHub Releases 分发，`scripts/fetch-backend.ps1` 拉取）；本仓只消费产物。
 
 ## 开发准则（强制）
 

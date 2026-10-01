@@ -23,11 +23,19 @@ $ErrorActionPreference = 'Stop'
 $dest = Join-Path $RepoRoot 'dist-backend'
 New-Item -ItemType Directory -Force $dest | Out-Null
 
+# 幂等前清：旧 tgz 与旧解压树一并清掉（防版本混合/陈旧解压残留；
+# MS 进程仍占用 dist-backend\modeling-server 时 Remove/解压会报错中止——先停宿主 MS 再跑）
+Remove-Item -Path "$dest\modeling-server-win-x64-*.tgz" -Force -ErrorAction SilentlyContinue
+Remove-Item -Path (Join-Path $dest 'modeling-server') -Recurse -Force -ErrorAction SilentlyContinue
+
 Write-Host "==> 下载最新 Release 的 MS 产物（repo=$PublicRepo）..." -ForegroundColor Cyan
 gh release download --repo $PublicRepo --pattern 'modeling-server-win-x64-*.tgz' --dir $dest --clobber
 if ($LASTEXITCODE -ne 0) { throw "gh release download 失败（exit $LASTEXITCODE）——检查 gh 登录态与 $PublicRepo 的 Releases" }
+# 排序键不用文件名字典序（v1.9 > v1.10 会选错）：取名中数字段逐段补零后拼接，
+# 使字典序 == 数值序（前清后目录内通常仅剩最新一个 tgz，此键只是兜底）
 $tgz = Get-ChildItem -Path "$dest\modeling-server-win-x64-*.tgz" -ErrorAction SilentlyContinue |
-  Sort-Object Name -Descending | Select-Object -First 1
+  Sort-Object { ([regex]::Matches($_.BaseName, '\d+') | ForEach-Object { $_.Value.PadLeft(10, '0') }) -join '' } -Descending |
+  Select-Object -First 1
 if (-not $tgz) { throw "Release 中未找到 modeling-server-win-x64-*.tgz（repo=$PublicRepo）" }
 Write-Host "==> 解压 $($tgz.Name) ..."
 tar -xzf $tgz.FullName -C $dest
