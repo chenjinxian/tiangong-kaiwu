@@ -3,10 +3,9 @@
 如何把 [iTwin/itwinjs-core](https://github.com/iTwin/itwinjs-core) 官方 master 的更新同步到
 **tiangong-kaiwu 单仓** 的 `itwinjs-core/` 目录（vendor 前缀，git-subtree squash 谱系）。
 
-> 最近一次同步实例：2026-09-23 完成 5.14.0-dev.15→5.14.0-dev.17（8 个上游提交，基线 sha `0b08bc37cc`）。
-> 同日完成仓库整合：tiangong-kaiwu 成为唯一 git 仓库，`itwinjs-core/`、`luban-cad/` 降级为
-> 仓库内目录；itwinjs-core 基线以 subtree-squash 导入，自定义改动以普通提交叠在其上。
-> 上一轮（嵌套 fork 仓时期）：2026-09-22 5.9→5.14 合并（merge `6f260204a6` + 修复 `8feafd5efc`）。
+> 最近一次同步实例：**2026-10-03 完成 5.14.0-dev.19 → 5.15.x（上游 `8bdef3e3cd`，filter-repo 清史后的首次同步，subtree 谱系验证存活）**。
+> 上一次：2026-09-26 5.14.0-dev.17→dev.19（基线 `6407fdd4c5`）；2026-09-23 dev.15→dev.17 + 仓库整合。
+> 历史嵌套 fork 仓时期：2026-09-22 5.9→5.14 合并（merge `6f260204a6` + 修复 `8feafd5efc`）。
 
 ## 仓库模型（2026-09-23 起）
 
@@ -99,6 +98,32 @@ git subtree pull --prefix=itwinjs-core --squash upstream master
 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`——加 `CI=true` 环境变量即可（2026-09-23 实测）。
 
 ## 同步记录
+
+### 2026-10-03（5.14.0-dev.19 → 5.15.x，filter-repo 清史后首次同步）
+
+- **上游版本**：`6407fdd4c5` → **`8bdef3e3cd`**（上游约一周提交，380 文件 +9967/-4175）；
+  `@bentley/imodeljs-native` **5.14.38 → 5.15.5**（触发原生库联动，见下）
+- **谱系验证**：这是公开仓 git filter-repo 历史重写（2026-10-01，后端私有化）后的
+  首次真实同步——subtree squash 谱系在重写后存活，`sync-from-upstream.sh` 一次走通
+  （此前的 `git subtree split` 干跑演练已验证）。
+- **冲突与处理**：仅 `core/common/src/RenderSchedule.ts` 一处（fork 侧仅行尾规范化
+  噪音差异），按「与上游逐字节一致」原则取上游版（`git checkout --theirs`）。
+- **rush 重建**：`rush update --bypass-policy`（1m48s）+ `rush build --to core-backend
+  --to core-frontend --to editor-backend --to editor-frontend`（1m46s，增量）。
+- **imodel-native 联动**：其仓 `sync-from-upstream.ps1`（main→dev/source-build）**不带
+  tag**，须显式 `git fetch upstream tag v5.15.5` 过硬门槛（merge-base --is-ancestor）；
+  CMake 758/758 全新构建（vcvars64 shell，批处理文件方式，勿裸 shell）。
+- **新坑①（replace 脚本修正）**：Delivery 组装把 **iTwinNapi.dll 延迟加载桩（~13KB
+  无实现）放顶层**，真实现（~26KB+）在 `Node\` 子目录——imodeljs.node 绑定顶层名，
+  绑到桩则 node 报 "Module did not self-register"。`replace-imodeljs-native.ps1`
+  已加固定修正：拷贝后用 `Node\iTwinNapi.dll` 覆盖顶层。
+- **新坑②（私有仓测试修正）**：ACIS blob 头时间戳**个位数日期日为空格填充**
+  （`Oct␣␣3`），normalize 正则 `\d{2}` 只匹配零填充——9/23–10/02 全两位数日从未
+  暴露，10/03 首现。私有仓 `TestHost.ts` 正则改 `{1,2}\d{1,2}`（非上游回归）。
+- **回归与产物**：私有仓 MS 262/8 + WA 43/43 全绿（零回归）；产物链 backend-20261003
+  重发（MS tgz Release + WA/imodelhub/web 三镜像 GHCR 双 tag）；全栈 verify-stack
+  **14/14**（新产物 MS 宿主 + 新基线三容器）。
+- **提交**：公开仓 482b762（同步 merge）→ 收口提交；私有仓 2857cd5（normalize 正则）。
 
 ### 2026-09-26（5.14.0-dev.17 → 5.14.0-dev.19）
 

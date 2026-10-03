@@ -103,6 +103,11 @@ foreach ($site in $sites) {
   Get-ChildItem -LiteralPath $Delivery | Where-Object { $excludes -notcontains $_.Name } | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $plat -Recurse -Force
   }
+  # iTwinNapi.dll 顶层桩修正：Delivery 组装可能把延迟加载桩（~13KB 无实现）
+  # 放在顶层，真实现（~26KB+）在 Node\ 子目录——imodeljs.node 绑定顶层名，
+  # 绑到桩则 "Module did not self-register"（2026-10-03 5.15.5 构建实证）
+  $realNapi = Join-Path $Delivery 'Node\iTwinNapi.dll'
+  if (Test-Path $realNapi) { Copy-Item $realNapi (Join-Path $plat 'iTwinNapi.dll') -Force }
   # devbuild.json 在包根（require.resolve('./devbuild.json') 相对包根入口 imodeljs-native.js）
   Set-Content -Path (Join-Path $site 'devbuild.json') -Value '{"dev-build": true}' -Encoding ascii -NoNewline
   Write-Host "    已覆盖: $site"
