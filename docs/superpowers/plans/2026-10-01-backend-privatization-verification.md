@@ -62,10 +62,25 @@
 ## 遗留事项（移交后续）
 
 1. **e2e 测试债**（29/45 败，全部既有的测试与 UI/代码失配）——归 M3 测试体系任务
-2. **web 容器镜像**：luban-cad/Dockerfile 构建在 pnpm build 阶段失败（exit 2，疑同系 link: 闭包问题），当前 compose 注释 web 服务、前端走宿主 dev server；修复后可恢复 web 容器形态 + nginx 指回 web:3000
+2. ~~**web 容器镜像**：luban-cad/Dockerfile 构建在 pnpm build 阶段失败（exit 2，疑同系 link: 闭包问题），当前 compose 注释 web 服务、前端走宿主 dev server；修复后可恢复 web 容器形态 + nginx 指回 web:3000~~ **✅ 已修复（2026-10-03，见下节）**
 3. **真实上游同步**：upstream/master 已移动（6407fdd4c5..d093f15dd3），sync-from-upstream.sh 按既有流程立项执行
 4. **WA 镜像 MS 连接**：容器内 WA 访问宿主 MS 走 host.docker.internal:4001（compose WA_MODELING_SERVER_URL 可覆盖）
 5. **publish.ps1**：镜像已手动 push（digest 与 build 一致），后续版本直接 `powershell -File scripts/publish.ps1 -Tag backend-YYYYMMDD` 一条流水线
+
+## 补记：web 容器镜像修复（2026-10-03）
+
+web 镜像（ghcr.io/chenjinxian/luban-web:{backend-20261003,latest}）构建成功并推送，compose 恢复 web 容器服务、nginx 指回 web:3000，verify-stack 14/14 全绿（web 为容器形态）。
+
+失败链与根因（比预期深，非单纯闭包问题）：
+
+| 故障 | 根因 | 修复 |
+|---|---|---|
+| viewer-core TS2339（IModelConnection.key/projectExtents 不存在） | .dockerignore 排除 itwinjs-core 各包 node_modules（rush 现场），d.ts 链内 @itwin/* 导入 walk-up 落空，skipLibCheck 下静默丢基类成员 | luban-cad/Dockerfile 在 itwinjs-core 树根按各包 package.json name 动态建 symlink farm（两层遍历覆盖 ecschema-rpc/common 等嵌套包） |
+| Tooltip.tsx/Documents.tsx TS2322（Timeout vs number） | 容器含 @types/node，裸 setTimeout 解析为 NodeJS.Timeout | ref 改 number + 调用统一走 window.setTimeout |
+| vite "Rollup failed to resolve import fuse.js" | link: 目标的 registry 依赖（fuse.js 等）不在 web workspace | docker-closure.cjs 移植进 luban-cad，workspace 4 包分别 --emit 去重后 `pnpm add -w`（-w 防 ERR_PNPM_ADDING_TO_ROOT） |
+| vite 仍缺 ecschema-rpcinterface-common/webgl-compatibility | 前者是嵌套包（farm 一层遍历漏掉）；后者根本不在 .dockerignore 白名单 | farm 改两层遍历；.dockerignore 白名单补 core/webgl-compatibility、core/orbitgt、core/ecschema-rpcinterface |
+
+相关提交：公开仓 9caa334230；私有仓 be4c450（docker-closure 警告改 stderr + 双布局候选根 + 嵌套包映射）。
 
 ## 环境基座（本机）
 
