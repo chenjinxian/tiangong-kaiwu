@@ -16,3 +16,5 @@ AzuriteConfig
 # 后端产物解压落点（fetch-backend.ps1）
 dist-backend/
 test-results/
+# 上游 display-test-app 大资产超 GitHub 100MB 上限（本地保留不入库；上游同步剔除，见 UPSTREAM_SYNC 2026-10-03）
+itwinjs-core/test-apps/display-test-app/assets/*.Tiles
