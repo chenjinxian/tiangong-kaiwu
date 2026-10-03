@@ -9,13 +9,13 @@
 #       无需 resolver。
 #
 # 前缀表（/itwins 等与 apps/web/vite.config.ts dev 代理对齐）：
-#   /                                     -> web:3000（内层静态 + SPA 回退）
+#   /                                     -> host.docker.internal:3000（内层静态 + SPA 回退）
 #   /api  /ws  /ipc                       -> ${MS_UPSTREAM}（WS Upgrade 透传）
 #                                         生产 FE 不设 VITE_API_URL → 同源相对
 #                                         URL 全走这三条面（dev 由
 #                                         apps/web/.env.development 直连 :4001）。
 #   /itwins /imodels /auth /accesscontrol /webhooks /users /files
-#   /oauth /.well-known                   -> imodelhub:4000
+#   /oauth /.well-known                   -> host.docker.internal:4000
 #   /azurite/*                            -> azurite:10000/*（前缀剥除，FE 直传）
 # ============================================================
 
@@ -62,7 +62,7 @@ server {
         if ($http_accept ~* "text/html") {
             rewrite ^ /__spa last;
         }
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -70,7 +70,7 @@ server {
     }
 
     location /imodels {
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -78,7 +78,7 @@ server {
     }
 
     location /auth {
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -86,7 +86,7 @@ server {
     }
 
     location /accesscontrol {
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -94,7 +94,7 @@ server {
     }
 
     location /webhooks {
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -102,7 +102,7 @@ server {
     }
 
     location /users {
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -110,7 +110,7 @@ server {
     }
 
     location /files {
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -118,7 +118,7 @@ server {
     }
 
     location /oauth {
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -126,7 +126,7 @@ server {
     }
 
     location /.well-known {
-        proxy_pass http://imodelhub:4000;
+        proxy_pass http://host.docker.internal:4000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -143,13 +143,13 @@ server {
     # ---------- SPA 回退（/itwins HTML 导航专用内部跳转） ----------
     location = /__spa {
         internal;
-        proxy_pass http://web:3000;
+        proxy_pass http://host.docker.internal:3000;
         proxy_set_header Host $host;
     }
 
     # ---------- 前端静态（兜底） ----------
     location / {
-        proxy_pass http://web:3000;
+        proxy_pass http://host.docker.internal:3000;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;

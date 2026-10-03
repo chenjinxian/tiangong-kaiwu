@@ -16,8 +16,9 @@
 # ============================================================
 [CmdletBinding()]
 param(
-  [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
-  [string]$PublicRepo = 'chenjinxian/tiangong-kaiwu'
+  [string]$RepoRoot = 'D:\Github\tiangong-kaiwu',
+  [string]$PublicRepo = 'chenjinxian/tiangong-kaiwu',
+  [string]$LocalArtifact = ''  # 本地模式：直接指向本地产物 tgz（跳过 gh release download）
 )
 $ErrorActionPreference = 'Stop'
 $dest = Join-Path $RepoRoot 'dist-backend'
@@ -28,25 +29,42 @@ New-Item -ItemType Directory -Force $dest | Out-Null
 Remove-Item -Path "$dest\modeling-server-win-x64-*.tgz" -Force -ErrorAction SilentlyContinue
 Remove-Item -Path (Join-Path $dest 'modeling-server') -Recurse -Force -ErrorAction SilentlyContinue
 
-Write-Host "==> 下载最新 Release 的 MS 产物（repo=$PublicRepo）..." -ForegroundColor Cyan
-gh release download --repo $PublicRepo --pattern 'modeling-server-win-x64-*.tgz' --dir $dest --clobber
-if ($LASTEXITCODE -ne 0) { throw "gh release download 失败（exit $LASTEXITCODE）——检查 gh 登录态与 $PublicRepo 的 Releases" }
-# 排序键不用文件名字典序（v1.9 > v1.10 会选错）：取名中数字段逐段补零后拼接，
-# 使字典序 == 数值序（前清后目录内通常仅剩最新一个 tgz，此键只是兜底）
-$tgz = Get-ChildItem -Path "$dest\modeling-server-win-x64-*.tgz" -ErrorAction SilentlyContinue |
-  Sort-Object { ([regex]::Matches($_.BaseName, '\d+') | ForEach-Object { $_.Value.PadLeft(10, '0') }) -join '' } -Descending |
-  Select-Object -First 1
-if (-not $tgz) { throw "Release 中未找到 modeling-server-win-x64-*.tgz（repo=$PublicRepo）" }
+if ($LocalArtifact) {
+  # 本地模式：直接拷贝本地产物（开发/测试用，跳过 gh release download 与 compose pull）
+  Write-Host "==> 本地模式：拷贝 $LocalArtifact ..." -ForegroundColor Cyan
+  if (-not (Test-Path $LocalArtifact)) { throw "本地产物不存在: $LocalArtifact" }
+  Copy-Item $LocalArtifact $dest -Force
+  $tgz = Get-Item $LocalArtifact
+  Write-Host "==> 本地模式跳过 compose pull（镜像未发布到 GHCR）" -ForegroundColor Yellow
+} else {
+  Write-Host "==> 下载最新 Release 的 MS 产物（repo=$PublicRepo）..." -ForegroundColor Cyan
+  gh release download --repo $PublicRepo --pattern 'modeling-server-win-x64-*.tgz' --dir $dest --clobber
+  if ($LASTEXITCODE -ne 0) { throw "gh release download 失败（exit $LASTEXITCODE）——检查 gh 登录态与 $PublicRepo 的 Releases" }
+  # 排序键不用文件名字典序（v1.9 > v1.10 会选错）：取名中数字段逐段补零后拼接，
+  # 使字典序 == 数值序（前清后目录内通常仅剩最新一个 tgz，此键只是兜底）
+  $tgz = Get-ChildItem -Path "$dest\modeling-server-win-x64-*.tgz" -ErrorAction SilentlyContinue |
+    Sort-Object { ([regex]::Matches($_.BaseName, '\d+') | ForEach-Object { $_.Value.PadLeft(10, '0') }) -join '' } -Descending |
+    Select-Object -First 1
+  if (-not $tgz) { throw "Release 中未找到 modeling-server-win-x64-*.tgz（repo=$PublicRepo）" }
+  Write-Host "==> 拉取 GHCR 镜像（compose pull）..."
+  # Docker Desktop 安装后需重启终端才入 PATH；脚本内显式补 PATH 防呆
+  $env:PATH = "C:\Program Files\Docker\Docker\resources\bin;$env:PATH"
+  Push-Location $RepoRoot
+  try {
+    docker compose pull
+    if ($LASTEXITCODE -ne 0) { throw "docker compose pull 失败（exit $LASTEXITCODE）——检查 docker 与 GHCR 访问权限" }
+  } finally { Pop-Location }
+}
+
+# 解压产物（本地模式与 Release 模式共用）
 Write-Host "==> 解压 $($tgz.Name) ..."
-tar -xzf $tgz.FullName -C $dest
-if ($LASTEXITCODE -ne 0) { throw "tar 解压失败（exit $LASTEXITCODE）" }
+# bsdtar 对绝对路径的 gzip 流处理有 bug（"unexpected end of file"）——改用 Push-Location + 相对路径
+Push-Location $dest
+try {
+  tar -xzf $tgz.Name
+  if ($LASTEXITCODE -ne 0) { throw "tar 解压失败（exit $LASTEXITCODE）" }
+} finally { Pop-Location }
 if (-not (Test-Path (Join-Path $dest 'modeling-server\dist\main.js'))) {
   throw "解压后未找到 dist-backend\modeling-server\dist\main.js —— 产物包结构异常"
 }
-Write-Host "==> 拉取 GHCR 镜像（compose pull）..."
-Push-Location $RepoRoot
-try {
-  docker compose pull
-  if ($LASTEXITCODE -ne 0) { throw "docker compose pull 失败（exit $LASTEXITCODE）——检查 docker 与 GHCR 访问权限" }
-} finally { Pop-Location }
 Write-Host "==> 完成: $dest\modeling-server\（start-ms-host.ps1 直接可跑）" -ForegroundColor Green

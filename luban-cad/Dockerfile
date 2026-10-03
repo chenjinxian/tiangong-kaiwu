@@ -40,6 +40,6 @@ RUN corepack pnpm@10 -r --filter @luban-cad/web... run build
 
 # ---------- 运行阶段：nginx 静态服务 ----------
 FROM nginx:alpine
-COPY apps/web/web-nginx.conf /etc/nginx/conf.d/default.conf
+COPY luban-cad/apps/web/web-nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /build/luban-cad/apps/web/dist /usr/share/nginx/html
 EXPOSE 3000

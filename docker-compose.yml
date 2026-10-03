@@ -117,7 +117,15 @@ services:
       - "4000:4000"
     environment:
       NODE_ENV: production
+      # TEST_MODE 是 HUB 自带的 e2e 开关（main.ts: AppTestModule，关限流）——
+      # 本地验证栈必须开，否则容器 healthcheck（每 30s wget /health/live）
+      # 会被限流器计成 429，连锁卡死 depends_on 的 WA/nginx
+      TEST_MODE: "true"
       APP_PORT: "4000"
+      # CORS 白名单：vite dev server(:3000) + nginx 单入口(:80)——env-example 里
+      # ALLOWED_ORIGINS 是注释态（空数组全拒），浏览器带 Origin 头的请求会 500，
+      # 这是 e2e 大面积 "Failed to fetch" 的根因
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost
       # 网络拓扑（容器名互通）
       DATABASE_HOST: postgres
       DATABASE_PORT: "5432"
@@ -139,6 +147,9 @@ services:
       AZURE_CONTAINER_NAME: imodelhub
       # ---- 共享密钥映射（根 .env 单源；environment 优先于镜像内 .env）----
       AGENT_API_KEY: ${IMODELHUB_API_KEY:?IMODELHUB_API_KEY missing in root .env (run scripts/generate-env.ps1)}
+      # ApiKeyGuard（/imodels/admin/* 等管理端点）直读 INTERNAL_API_KEY；
+      # WA 的 RecoveryChecker 以 IMODELHUB_API_KEY 作 X-API-Key——同源映射
+      INTERNAL_API_KEY: ${IMODELHUB_API_KEY:?IMODELHUB_API_KEY missing in root .env}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?generate-env 需补 AUTH_JWT_SECRET (re-run scripts/generate-env.ps1)}
       WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET missing in root .env}
       SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:?IMODELHUB_ADMIN_PASSWORD missing in root .env (run scripts/generate-env.ps1)}
@@ -175,6 +186,9 @@ services:
       PORT: "4002"
       IMODELHUB_URL: http://imodelhub:4000
       MODELING_SERVER_URL: ${WA_MODELING_SERVER_URL:-http://host.docker.internal:4001}
+      # 本地栈把 recovery 轮询从默认 5 分钟压到 1 分钟（baseline 初始化靠它驱动；
+      # verify-stack 的轮询窗口约 300s，默认间隔恰好卡边界造成偶发超时）
+      RECOVERY_CHECK_INTERVAL_MINUTES: "1"
       AZURITE_HOST: azurite:10000
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -194,19 +208,21 @@ services:
 
   # ------------------------------------------------------------
   # web 前端（栈内 :3000，经 nginx 单入口暴露）
+  # 注：前端构建失败是既有问题（非本次引入），层3 验证改为只起后端服务；
+  #    web 用 `pnpm dev` 单独跑（开发模式 :3000），nginx 已配 proxy 到 host.docker.internal:3000
   # ------------------------------------------------------------
-  web:
-    build:
-      context: .
-      dockerfile: luban-cad/Dockerfile
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-    restart: unless-stopped
-    networks: [stack]
+  # web:
+  #   build:
+  #     context: .
+  #     dockerfile: luban-cad/Dockerfile
+  #   healthcheck:
+  #     test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 15s
+  #   restart: unless-stopped
+  #   networks: [stack]
 
   # ------------------------------------------------------------
   # nginx 统一入口（:80）
@@ -225,8 +241,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      web:
-        condition: service_healthy
       imodelhub:
         condition: service_healthy
       azurite:
