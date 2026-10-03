@@ -48,15 +48,17 @@ test.describe('Login Flow', () => {
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
-    // Fill in invalid credentials
+    // Fill in invalid credentials（密码需满足格式校验，否则 422 走不到「邮箱未注册」分支）
     await page.fill('input[type="email"]', 'invalid@example.com');
-    await page.fill('input[type="password"]', 'wrongpassword');
+    await page.fill('input[type="password"]', 'NoSuchUser123!');
 
     // Click login
     await page.getByRole('button', { name: /登录|Sign In/i }).click();
 
-    // Wait for error message - actual UI shows various error messages (including backend error formats)
-    await expect(page.getByText(/邮箱或密码错误|服务器暂时不可用|invalid|failed|error|错误|notFound|not found/i)).toBeVisible({ timeout: 5000 });
+    // Wait for error message —— iTwinUI Alert 不带 role="alert"，直接断言错误文案
+    // （404 →「该邮箱未注册，请先注册账户」；401 →「邮箱或密码错误」；422/其他 →「登录失败，请稍后重试」）
+    await expect(page.locator('.login-error-alert')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/邮箱或密码错误|未注册|服务器暂时不可用|登录失败|invalid|failed|error|错误|notFound|not found/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('should successfully login with valid credentials', async ({ page }) => {

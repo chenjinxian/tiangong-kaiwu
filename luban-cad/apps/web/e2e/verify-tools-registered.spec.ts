@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginWithSession, waitForEditorReady } from './helpers';
 
 /**
  * Verify modeling tools are registered
@@ -7,6 +8,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Modeling Tools Registration', () => {
   test('tools should be registered without errors', async ({ page }) => {
+    test.setTimeout(180000); // 编辑器 briefcase 连接在负载下建立较慢
     const consoleErrors: string[] = [];
     const consoleLogs: string[] = [];
 
@@ -19,12 +21,9 @@ test.describe('Modeling Tools Registration', () => {
       }
     });
 
-    // Login
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'test@example.com');
-    await page.fill('input[type="password"]', 'Test123!@#');
-    await page.getByRole('button', { name: /登录|Sign In/i }).click();
-    await page.waitForURL('**/itwins', { timeout: 10000 });
+    // 会话注入登录（免登录表单，见 helpers）
+    await loginWithSession(page);
+
 
     // Get real iModel IDs
     const authData = await page.evaluate(() => {
@@ -81,8 +80,8 @@ test.describe('Modeling Tools Registration', () => {
     // Navigate to workspace
     await page.goto(`/workspace/${projectId}/${imodelId}`);
 
-    // Wait for IModelApp initialization
-    await page.waitForTimeout(10000);
+    // Wait for IModelApp initialization（IPC WS 握手偶发挂起，waitForEditorReady 内含卡滞 reload 重试）
+    await waitForEditorReady(page);
 
     // Check for tool registration errors
     const toolRegistrationErrors = consoleErrors.filter(e =>

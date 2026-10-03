@@ -4,24 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect } from '@playwright/test';
-import { TEST_USER } from './fixtures';
+import { loginWithSession, SEED_PROJECT_NAME } from './helpers';
 
 test.describe('Documents Page', () => {
   test.beforeEach(async ({ page }) => {
-    // Login first
-    await page.goto('/login');
-    await page.fill('input[type="email"]', TEST_USER.email);
-    await page.fill('input[type="password"]', TEST_USER.password);
-    await page.getByRole('button', { name: /登录|Sign In/i }).click();
-    await page.waitForURL('**/itwins', { timeout: 10000 });
+    await loginWithSession(page);
   });
 
   test('should display documents page with header', async ({ page }) => {
-    // Check for page heading
-    await expect(page.getByRole('heading', { name: /项目|Projects|文档|Documents/i })).toBeVisible();
+    // 页面 heading = section-title（过滤标签，默认「我的项目」）；
+    // 注意项目卡片名也是 h2，getByRole('heading', {name: /项目/}) 会撞 strict mode
+    await expect(page.locator('.section-title')).toBeVisible();
+    await expect(page.locator('.section-title')).toHaveText('我的项目');
 
-    // Check for create project button (use first() since there may be two - header and empty state)
-    await expect(page.getByRole('button', { name: /新建|创建|New|Create/i }).first()).toBeVisible();
+    // Check for create project button (topbar high-visibility button)
+    await expect(page.getByRole('button', { name: '新建项目' })).toBeVisible();
   });
 
   test('should display project grid or list', async ({ page }) => {
@@ -40,40 +37,23 @@ test.describe('Documents Page', () => {
   });
 
   test('should open create project dialog', async ({ page }) => {
-    // Click create project button (use first() to avoid duplicate button issue)
-    await page.getByRole('button', { name: /新建|创建|New|Create/i }).first().click();
+    // Click create project button (topbar)
+    await page.getByRole('button', { name: '新建项目' }).click();
 
-    // Check for dialog/modal
-    const dialog = page.locator('[role="dialog"], [class*="modal"], [class*="dialog"]').first();
+    // 对话框标题只存在于 aria-label（内层 heading 为空）—— 用 role 定位
+    const dialog = page.getByRole('dialog', { name: '创建 iTwin 项目' });
     await expect(dialog).toBeVisible();
 
-    // Check for form elements in dialog
-    await expect(page.getByLabel(/名称|Name/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /创建|确认|Create|Confirm/i })).toBeVisible();
+    // 表单输入：label 未关联控件（getByLabel 不命中），用 placeholder
+    await expect(page.locator('input[placeholder="输入项目名称"]')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '创建', exact: true })).toBeVisible();
   });
 
   test('should navigate to project detail page', async ({ page }) => {
-    // Click on "我的项目" (My Projects) tab to see projects
-    await page.getByRole('button', { name: /我的项目|My Projects/i }).click();
-    await page.waitForTimeout(1000);
-
-    // Check if empty state is shown
-    const emptyState = page.getByText(/暂无项目|No projects/i);
-    const hasEmptyState = await emptyState.isVisible().catch(() => false);
-
-    if (hasEmptyState) {
-      throw new Error('后端无数据：起全栈（docker compose up + start-ms-host）并 seed 至少一个项目后重跑——e2e 不再对空后端静默通过');
-      return;
-    }
-
-    // Find and click on first project card/link
-    const projectLink = page.locator('[class*="card"], [class*="item"]').first();
-
-    // If no projects, skip this test
-    const count = await projectLink.count();
-    if (count === 0) { throw new Error('e2e 数据前置不满足：No projects available to click——起栈+seed 后重跑'); }
-
-    await projectLink.click();
+    // 项目卡片 = iTwinUI Tile（div[cursor=pointer] 内嵌以项目名命名的 button，无 a[href]/.card）
+    const projectTile = page.locator('main').getByRole('button', { name: SEED_PROJECT_NAME }).first();
+    await expect(projectTile, 'e2e 数据前置不满足：seed 项目卡片未出现——起栈+seed 后重跑').toBeVisible({ timeout: 15000 });
+    await projectTile.click();
 
     // Verify navigation to detail page - actual route is /itwins/:iTwinId
     await page.waitForURL(/.*\/itwins\/.+/, { timeout: 10000 });
@@ -88,27 +68,10 @@ test.describe('Documents Page', () => {
       return;
     }
 
-    // Click logout button or menu - sidebar uses "退出登录"
-    const logoutButton = page.getByRole('button', { name: /退出|注销|Logout|Sign Out/i });
-    let logoutClicked = false;
-
-    if (await logoutButton.isVisible().catch(() => false)) {
-      await logoutButton.click();
-      logoutClicked = true;
-    } else {
-      // Try sidebar logout link
-      const logoutLink = page.getByRole('link', { name: /退出登录|Logout/i });
-      if (await logoutLink.isVisible().catch(() => false)) {
-        await logoutLink.click();
-        logoutClicked = true;
-      }
-    }
-
-    if (!logoutClicked) {
-      // Could not find logout element - skip this test
-      if (true) { throw new Error('e2e 数据前置不满足：Logout element not found——起栈+seed 后重跑'); }
-      return;
-    }
+    // 侧边栏「退出登录」SidenavButton —— 用等待式断言（isVisible() 不等待会误判加载中）
+    const logoutButton = page.getByRole('button', { name: '退出登录' });
+    await expect(logoutButton).toBeVisible({ timeout: 15000 });
+    await logoutButton.click();
 
     // Verify redirect to login page (or already there)
     await page.waitForURL('**/login', { timeout: 10000 });

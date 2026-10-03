@@ -4,64 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect } from '@playwright/test';
+import { loginWithSession, navigateToEditor, activateToolbarTool, SEED_PROJECT_NAME } from './helpers';
 
-/**
- * Login helper function
- */
-async function loginUser(page: any) {
-  const TEST_USER = {
-    email: 'test@example.com',
-    password: 'Test123!@#',
-  };
-
-  // Navigate to login page
-  await page.goto('/login');
-
-  // Fill in credentials
-  await page.fill('input[type="email"]', TEST_USER.email);
-  await page.fill('input[type="password"]', TEST_USER.password);
-
-  // Click login button
-  await page.click('button[type="submit"]');
-
-  // Wait for navigation to documents/itwins page
-  await page.waitForURL(/\/documents|\/itwins/, { timeout: 10000 });
-}
-
-/**
- * Navigate to editor helper
- */
-async function navigateToEditor(page: any) {
-  // Wait for page to load (项目卡片)
-  await page.waitForSelector('text=测试项目', { timeout: 10000 });
-
-  // Click on first project card
-  await page.locator('.section-card, [class*="card"]').filter({ hasText: '测试项目' }).first().click();
-
-  // Wait for project detail page to load
-  await page.waitForTimeout(2000);
-
-  // Check if we're on the project detail page
-  const url = page.url();
-  if (!url.includes('/itwins/')) {
-    throw new Error('Not on project detail page');
-  }
-
-  // Look for iModel cards
-  const imodelCards = page.locator('.imodel-card, [class*="iModel"], .card');
-  const count = await imodelCards.count();
-
-  if (count === 0) {
-    console.log('No iModels found in this project');
-    throw new Error('No iModel available for testing');
-  }
-
-  // Click on first iModel
-  await imodelCards.first().click();
-
-  // Wait for viewer/editor to load
-  await page.waitForTimeout(5000);
-}
+/** 工具条按钮「可见的文案（accessible name）→ 注册 toolId」映射（CadToolbar.tsx + registerTools.ts） */
+const TOOLBAR_TOOLS: Record<string, string> = {
+  '并集 (Unite)': 'UniteSolids',
+  '差集 (Subtract)': 'SubtractSolids',
+  '交集 (Intersect)': 'IntersectSolids',
+  '圆角 (Fillet)': 'RoundEdges',
+  '倒角 (Chamfer)': 'ChamferEdges',
+  '抽壳 (Shell)': 'HollowFaces',
+  '面偏移 (Offset Face)': 'OffsetFaces',
+  '拉伸面 (Sweep Face)': 'SweepFaces',
+  '拔模 (Draft)': 'DraftFaces',
+  '镜像 (Mirror)': 'MirrorElements',
+};
 
 /**
  * E2E Tests for Modeling Tools
@@ -69,187 +26,87 @@ async function navigateToEditor(page: any) {
  * - Boolean tools (Unite, Subtract, Intersect)
  * - OffsetFaces
  * - SweepFaces
+ *
+ * 断言依据：工具激活提示走 outputPrompt 无 UI 消费（不落 DOM），
+ * 故激活断言用 window.IModelApp.toolAdmin.activeTool.toolId（main.tsx 调试暴露）。
  */
 
 test.describe('Modeling Tools - Basic Visibility', () => {
   test.beforeEach(async ({ page }) => {
-    await loginUser(page);
+    await loginWithSession(page);
   });
 
   test('login should succeed and show project page', async ({ page }) => {
-    // Verify we're on the projects page
-    await expect(page.locator('h2:has-text("我的项目")').first()).toBeVisible();
-    await expect(page.locator('text=测试项目').first()).toBeVisible();
+    // Verify we're on the projects page（section-title 即过滤标签 heading）
+    await expect(page.locator('.section-title')).toHaveText('我的项目');
+    await expect(page.getByText(SEED_PROJECT_NAME).first()).toBeVisible();
   });
 });
 
+// 编辑器内 15 个测试共享同一 seed iModel 的 briefcase —— 串行防连接争用
+test.describe.configure({ mode: 'serial' }); // 编辑器内 15 个测试共享同一 seed iModel 的 briefcase —— 串行防连接争用
+
 test.describe('Modeling Tools - Toolbar', () => {
   test.beforeEach(async ({ page }) => {
-    await loginUser(page);
-    try {
-      await navigateToEditor(page);
-    } catch (e) {
-      console.log('Could not navigate to editor:', e);
-      throw new Error('e2e 数据前置不满足——起栈+seed 后重跑');
-    }
+    await loginWithSession(page);
+    await navigateToEditor(page);
   });
 
   test('should display CAD toolbar with all categories', async ({ page }) => {
-    // Wait for toolbar to appear
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
+    const toolbar = page.locator('.cad-toolbar-horizontal');
+    await expect(toolbar).toBeVisible({ timeout: 10000 });
 
     // Check all tool categories are visible
     const categories = ['草图', '实体', '变换', '布尔', '边', '面', '高级'];
     for (const category of categories) {
-      await expect(page.locator('.cad-toolbar-horizontal').locator('text=' + category)).toBeVisible();
+      await expect(toolbar.getByText(category, { exact: true })).toBeVisible();
     }
   });
 
   test('should display boolean tool buttons', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    // Check boolean tools
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="并集"], button[label*="并集"]').first()).toBeVisible();
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="差集"], button[label*="差集"]').first()).toBeVisible();
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="交集"], button[label*="交集"]').first()).toBeVisible();
+    const toolbar = page.locator('.cad-toolbar-horizontal');
+    for (const label of ['并集', '差集', '交集']) {
+      // 工具按钮的 label 是 React prop（渲染为 aria-label），title= / label= 属性选择器均不适用
+      await expect(toolbar.getByRole('button', { name: new RegExp(label) }).first()).toBeVisible();
+    }
   });
 
   test('should display face tool buttons', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    // Check face tools
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="抽壳"], button[label*="抽壳"]').first()).toBeVisible();
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="面偏移"], button[label*="面偏移"]').first()).toBeVisible();
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="拉伸面"], button[label*="拉伸面"]').first()).toBeVisible();
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="拔模"], button[label*="拔模"]').first()).toBeVisible();
+    const toolbar = page.locator('.cad-toolbar-horizontal');
+    for (const label of ['抽壳', '面偏移', '拉伸面', '拔模']) {
+      await expect(toolbar.getByRole('button', { name: new RegExp(label) }).first()).toBeVisible();
+    }
   });
 
   test('should display edge tool buttons', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    // Check edge tools
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="圆角"], button[label*="圆角"]').first()).toBeVisible();
-    await expect(page.locator('.cad-toolbar-horizontal').locator('button[title*="倒角"], button[label*="倒角"]').first()).toBeVisible();
+    const toolbar = page.locator('.cad-toolbar-horizontal');
+    for (const label of ['圆角', '倒角']) {
+      await expect(toolbar.getByRole('button', { name: new RegExp(label) }).first()).toBeVisible();
+    }
   });
 });
 
 test.describe('Modeling Tools - Activation', () => {
   test.beforeEach(async ({ page }) => {
-    await loginUser(page);
-    try {
-      await navigateToEditor(page);
-    } catch (e) {
-      console.log('Could not navigate to editor:', e);
-      throw new Error('e2e 数据前置不满足——起栈+seed 后重跑');
-    }
+    await loginWithSession(page);
+    await navigateToEditor(page);
   });
 
-  test('should activate UniteSolids tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    // Click Unite button
-    const uniteButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="并集"], button[label*="并集"]').first();
-    await uniteButton.click();
-
-    // Check for tool activation message in notifications
-    await expect(page.locator('text=选择目标实体').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate SubtractSolids tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const subtractButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="差集"], button[label*="差集"]').first();
-    await subtractButton.click();
-
-    await expect(page.locator('text=选择目标实体').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate IntersectSolids tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const intersectButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="交集"], button[label*="交集"]').first();
-    await intersectButton.click();
-
-    await expect(page.locator('text=选择目标实体').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate OffsetFaces tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const offsetButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="面偏移"], button[label*="面偏移"]').first();
-    await offsetButton.click();
-
-    await expect(page.locator('text=点击选择要偏移的面').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate SweepFaces tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const sweepButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="拉伸面"], button[label*="拉伸面"]').first();
-    await sweepButton.click();
-
-    await expect(page.locator('text=选择要拉伸的面').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate RoundEdges tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const roundButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="圆角"], button[label*="圆角"]').first();
-    await roundButton.click();
-
-    await expect(page.locator('text=点击选择要圆角的边').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate ChamferEdges tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const chamferButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="倒角"], button[label*="倒角"]').first();
-    await chamferButton.click();
-
-    await expect(page.locator('text=点击选择要倒角的边').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate HollowFaces tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const hollowButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="抽壳"], button[label*="抽壳"]').first();
-    await hollowButton.click();
-
-    await expect(page.locator('text=点击选择要移除的面').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate DraftFaces tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const draftButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="拔模"], button[label*="拔模"]').first();
-    await draftButton.click();
-
-    await expect(page.locator('text=点击选择要拔模的面').first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('should activate MirrorElements tool without error', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
-
-    const mirrorButton = page.locator('.cad-toolbar-horizontal').locator('button[title*="镜像"], button[label*="镜像"]').first();
-    await mirrorButton.click();
-
-    await expect(page.locator('text=选择要镜像的元素').first()).toBeVisible({ timeout: 5000 });
-  });
+  for (const [buttonName, toolId] of Object.entries(TOOLBAR_TOOLS)) {
+    test(`should activate ${toolId} tool without error`, async ({ page }) => {
+      await activateToolbarTool(page, buttonName, toolId);
+    });
+  }
 });
 
 test.describe('Modeling Tools - Error Handling', () => {
   test.beforeEach(async ({ page }) => {
-    await loginUser(page);
-    try {
-      await navigateToEditor(page);
-    } catch (e) {
-      console.log('Could not navigate to editor:', e);
-      throw new Error('e2e 数据前置不满足——起栈+seed 后重跑');
-    }
+    await loginWithSession(page);
+    await navigateToEditor(page);
   });
 
   test('should handle tool activation without console errors', async ({ page }) => {
-    await page.waitForSelector('.cad-toolbar-horizontal', { timeout: 10000 });
+    const toolbar = page.locator('.cad-toolbar-horizontal');
 
     // Collect console errors
     const consoleErrors: string[] = [];
@@ -261,28 +118,11 @@ test.describe('Modeling Tools - Error Handling', () => {
     });
 
     // Test all tools
-    const tools = [
-      { name: '圆角', text: '点击选择要圆角的边' },
-      { name: '倒角', text: '点击选择要倒角的边' },
-      { name: '抽壳', text: '点击选择要移除的面' },
-      { name: '拔模', text: '点击选择要拔模的面' },
-      { name: '面偏移', text: '点击选择要偏移的面' },
-      { name: '拉伸面', text: '选择要拉伸的面' },
-      { name: '并集', text: '选择目标实体' },
-      { name: '差集', text: '选择目标实体' },
-      { name: '交集', text: '选择目标实体' },
-    ];
-
-    for (const tool of tools) {
+    for (const [buttonName, toolId] of Object.entries(TOOLBAR_TOOLS)) {
       // Clear previous errors
       consoleErrors.length = 0;
 
-      // Click tool button
-      const button = page.locator('.cad-toolbar-horizontal').locator(`button[title*="${tool.name}"], button[label*="${tool.name}"]`).first();
-      await button.click();
-
-      // Wait for tool activation
-      await page.waitForSelector(`text=${tool.text}`, { timeout: 5000 });
+      await activateToolbarTool(page, buttonName, toolId);
 
       // Check no critical errors
       const criticalErrors = consoleErrors.filter(e =>
@@ -292,7 +132,7 @@ test.describe('Modeling Tools - Error Handling', () => {
         e.includes('is not a function')
       );
 
-      expect(criticalErrors).toHaveLength(0);
+      expect(criticalErrors, `工具 ${toolId} 不应产生关键 console 错误`).toHaveLength(0);
 
       // Press Escape to exit tool
       await page.keyboard.press('Escape');

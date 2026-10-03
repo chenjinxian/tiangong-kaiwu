@@ -4,51 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect } from '@playwright/test';
-import { TEST_USER } from './fixtures';
+import { loginWithSession, navigateToEditor } from './helpers';
 
 test.describe('Editor Page', () => {
   test.beforeEach(async ({ page }) => {
-    // Login first
-    await page.goto('/login');
-    await page.fill('input[type="email"]', TEST_USER.email);
-    await page.fill('input[type="password"]', TEST_USER.password);
-    await page.getByRole('button', { name: /登录|Sign In/i }).click();
-    await page.waitForURL('**/itwins', { timeout: 10000 });
+    await loginWithSession(page);
   });
 
   test('should navigate to editor page from project detail', async ({ page }) => {
-    // Wait for projects to load
-    await page.waitForTimeout(2000);
+    // UI 全链路：项目卡片（Tile 内嵌按钮）→ 详情页「打开工作空间」→ 编辑器（见 helpers）
+    await navigateToEditor(page);
 
-    // Check if empty state is shown
-    const emptyState = page.getByText(/暂无项目|No projects/i);
-    const hasEmptyState = await emptyState.isVisible().catch(() => false);
-
-    if (hasEmptyState) {
-      throw new Error('后端无数据：起全栈（docker compose up + start-ms-host）并 seed 至少一个项目后重跑——e2e 不再对空后端静默通过');
-      return;
-    }
-
-    // Navigate to first project
-    const projectLink = page.locator('[class*="card"], [class*="item"]').first();
-    const count = await projectLink.count();
-    if (count === 0) { throw new Error('后端无项目数据——起栈+seed 后重跑'); }
-
-    await projectLink.click();
-    await page.waitForURL(/.*\/itwins\/.+/, { timeout: 10000 });
-
-    // Look for iModel and click to enter editor
-    await page.waitForTimeout(2000);
-    const imodelLink = page.locator('[class*="imodel"], [class*="model"]').first();
-
-    if (await imodelLink.isVisible().catch(() => false)) {
-      await imodelLink.click();
-      // Actual editor route is /workspace/:iTwinId/:iModelId
-      await page.waitForURL(/.*\/workspace\/.+/, { timeout: 10000 });
-      await expect(page.url()).toMatch(/.*\/workspace\/.+/);
-    } else {
-      throw new Error('后端无 iModel 数据——起栈+seed 后重跑');
-    }
+    // Actual editor route is /workspace/:iTwinId/:iModelId
+    await expect(page.url()).toMatch(/.*\/workspace\/.+/);
+    await expect(page.locator('.statusbar')).toBeVisible();
   });
 
   test('should display editor page with toolbar', async ({ page }) => {

@@ -1,22 +1,20 @@
 import { test, expect } from '@playwright/test';
+import { loginWithSession, waitForEditorReady } from './helpers';
 
 /**
  * V2 Checkpoint Verification Test
  */
 
 test('V2 Checkpoint should load successfully', async ({ page }) => {
+  test.setTimeout(180000); // 编辑器 briefcase 连接在全套件并行负载下建立较慢
   // Collect console messages
   const consoleMessages: string[] = [];
   page.on('console', msg => {
     consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
   });
 
-  // Login
-  await page.goto('/login');
-  await page.fill('input[type="email"]', 'test@example.com');
-  await page.fill('input[type="password"]', 'Test123!@#');
-  await page.getByRole('button', { name: /登录|Sign In/i }).click();
-  await page.waitForURL('**/itwins', { timeout: 10000 });
+  // 会话注入登录（免登录表单，见 helpers）
+  await loginWithSession(page);
 
   // Get auth token and iModel info
   const authData = await page.evaluate(() => {
@@ -74,16 +72,14 @@ test('V2 Checkpoint should load successfully', async ({ page }) => {
   console.log('Console messages:', consoleMessages.slice(-20));
   console.log('Connection errors:', connectionErrors);
 
-  // Check status bar
+  // 等编辑器就绪（IPC WS 握手偶发挂起，waitForEditorReady 内含卡滞 reload 重试）
+  await waitForEditorReady(page);
   const statusBar = page.locator('.statusbar');
-  if (await statusBar.isVisible().catch(() => false)) {
-    const statusText = await statusBar.textContent();
-    console.log('Status bar:', statusText);
 
-    // Should show "编辑模式" (edit mode) instead of error
-    expect(statusText).toContain('编辑模式');
-    expect(statusText).not.toContain('错误');
-  }
+  // Should show "编辑模式" (edit mode) instead of error
+  await expect(statusBar).toContainText('编辑模式', { timeout: 60000 });
+  console.log('Status bar:', await statusBar.textContent());
+  await expect(statusBar).not.toContainText('编辑错误');
 
   // Check for toolbar
   const toolbar = page.locator('.cad-toolbar-horizontal');

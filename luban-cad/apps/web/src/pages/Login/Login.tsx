@@ -63,10 +63,14 @@ const Login: React.FC = () => {
   }, [isAuthenticated, navigate]);
 
   // Clear errors when input changes
+  // 注意：依赖数组不可包含 error 本身 —— 否则错误一设置本 effect 立即触发 clearError()，
+  // 登录失败告警条闪现一帧即消失（用户/测试均不可见）。仅由输入变化驱动清除。
   useEffect(() => {
-    if (error) clearError();
+    if (email || password) {
+      clearError();
+    }
     if (emailError && !email) setEmailError('');
-  }, [email, password, error, clearError, emailError]);
+  }, [email, password, clearError, emailError]);
 
   // Email validation
   const validateEmail = useCallback((value: string): boolean => {

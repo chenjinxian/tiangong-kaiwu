@@ -39,6 +39,7 @@
 
 - 单测：shared 27/27 ✅；web-viewer 26/30（4 败：WebInitializer 既有）；viewer-core 106/114（8 败：Iso/Isometric 不匹配等既有）
 - e2e（45 测试/13 文件）：**16 通过**。修复历程：Playwright 浏览器未装（环境问题，装）→ hub CORS 空数组全拒致浏览器 fetch 500（compose 补 ALLOWED_ORIGINS）→ 测试用户/前置数据缺失（注册 test@example.com + 建「测试项目」种子，注意中文 payload 须 UTF-8 文件传参防 Git Bash GBK 污染）→ 16 通过。剩余 29 败均为**既有测试债**：e2e 选择器与 UI 结构失配（div[cursor=pointer] vs a[href]/.section-card）、auth.setup.ts 未注册进 testMatch（storage state 不生成）、logout 元素缺失、v2-checkpoint/editor 深链路。归 M3 测试体系任务。
+- ~~e2e 测试债~~ **✅ 已清偿（2026-10-03，M3 测试体系）**：45/45 全绿 ×2 连续（6.2m/7.2m，serial workers=1）。要点：① auth.setup 接入 config（setup project + 双写 storageState/session.json——本应用 auth 在 sessionStorage，storageState 带不了）；② 选择器全面适配现 UI（Tile 内嵌按钮/getByRole，对话框标题只存在 aria-label）；③ 工具激活断言改 window.IModelApp.toolAdmin.activeTool.toolId（提示语不落 DOM）；④ **发现并修复产品缺陷**：Login 错误横幅因 effect 依赖含 error 自清除而闪现不可见（src/pages/Login/Login.tsx）；⑤ 韧性三件套：会话注入登录（MS 全局限流 100 req/15min/IP）、auth.setup 自愈清场（hub 分页 $top=10 会把 seed 挤出首页）、编辑器 IPC WS 握手偶发挂起以 reload 重试兜底（根因在私有仓 MS，待跟进）。删除重复 spec complete-workflow-improved。
 
 ### 层5 谱系演练 ✅
 
@@ -61,7 +62,7 @@
 
 ## 遗留事项（移交后续）
 
-1. **e2e 测试债**（29/45 败，全部既有的测试与 UI/代码失配）——归 M3 测试体系任务
+1. ~~**e2e 测试债**（29/45 败，全部既有的测试与 UI/代码失配）——归 M3 测试体系任务~~ **✅ 2026-10-03 完成，见层4 补记**。另移交私有仓两跟进：MS IPC WS 握手偶发挂起（前端「初始化编辑器...」停滞，重连即恢复）；MS 全局 rateLimiter 100 req/15min/IP 对 e2e 套件偏紧（前端测试已改会话注入规避，可考虑 localhost/TEST_MODE 豁免）。
 2. ~~**web 容器镜像**：luban-cad/Dockerfile 构建在 pnpm build 阶段失败（exit 2，疑同系 link: 闭包问题），当前 compose 注释 web 服务、前端走宿主 dev server；修复后可恢复 web 容器形态 + nginx 指回 web:3000~~ **✅ 已修复（2026-10-03，见下节）**
 3. **真实上游同步**：upstream/master 已移动（6407fdd4c5..d093f15dd3），sync-from-upstream.sh 按既有流程立项执行
 4. **WA 镜像 MS 连接**：容器内 WA 访问宿主 MS 走 host.docker.internal:4001（compose WA_MODELING_SERVER_URL 可覆盖）

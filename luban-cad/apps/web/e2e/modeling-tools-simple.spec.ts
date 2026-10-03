@@ -4,149 +4,57 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect } from '@playwright/test';
-
-/**
- * Login helper function
- */
-async function loginUser(page: any) {
-  const TEST_USER = {
-    email: 'test@example.com',
-    password: 'Test123!@#',
-  };
-
-  await page.goto('/login');
-  await page.fill('input[type="email"]', TEST_USER.email);
-  await page.fill('input[type="password"]', TEST_USER.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL(/\/documents|\/itwins/, { timeout: 10000 });
-}
+import {
+  loginWithSession,
+  navigateToEditor,
+  getFirstProjectAndIModel,
+  waitForEditorReady,
+  SEED_PROJECT_NAME,
+} from './helpers';
 
 test.describe('Modeling Tools - Smoke Test', () => {
   test.beforeEach(async ({ page }) => {
-    await loginUser(page);
+    await loginWithSession(page);
   });
 
   test('login should succeed', async ({ page }) => {
-    await expect(page.locator('h2:has-text("我的项目")').first()).toBeVisible();
-    await expect(page.locator('text=测试项目').first()).toBeVisible();
+    await expect(page.locator('.section-title')).toHaveText('我的项目');
+    await expect(page.getByText(SEED_PROJECT_NAME).first()).toBeVisible();
   });
 
   test('should navigate to existing iModel editor', async ({ page }) => {
-    // Directly navigate to an existing iModel editor
-    // First get a list of projects/iModels from the API or navigate directly
-    await page.goto('/itwins');
-    await page.waitForTimeout(2000);
+    // UI 全链路：项目卡片 → 详情页「打开工作空间」→ 编辑器（见 helpers.navigateToEditor）
+    await navigateToEditor(page);
 
-    // Click on first project
-    const projectCards = page.locator('.section-card, [class*="card"]').filter({ hasText: /测试|项目/ });
-    const count = await projectCards.count();
-
-    if (count === 0) {
-      throw new Error('e2e 数据前置不满足：No projects available——起栈+seed 后重跑');
-    }
-
-    await projectCards.first().click();
-    await page.waitForTimeout(2000);
-
-    // Check if we're on project detail page
-    const url = page.url();
-    console.log('Current URL:', url);
-
-    // If we have iModels, click the first one
-    const imodelCards = page.locator('.card, [class*="iModel"], [class*="imodel"]').filter({ hasText: /iModel|模型/ });
-    const imodelCount = await imodelCards.count();
-    console.log('iModel count:', imodelCount);
-
-    if (imodelCount > 0) {
-      await imodelCards.first().click();
-      await page.waitForTimeout(5000);
-
-      // Check if we're on editor page
-      const editorUrl = page.url();
-      console.log('Editor URL:', editorUrl);
-
-      // Take screenshot for debugging
-      await page.screenshot({ path: 'test-results/editor-page.png', fullPage: true });
-    } else {
-      throw new Error('e2e 数据前置不满足：No iModels available in project——起栈+seed 后重跑');
-    }
+    await expect(page.url()).toMatch(/\/workspace\/[^/]+\/[^/]+/);
+    await expect(page.locator('.statusbar')).toBeVisible();
+    await page.screenshot({ path: 'test-results/editor-page.png', fullPage: true });
   });
 });
 
 test.describe('Modeling Tools - Direct Editor Access', () => {
   test('should load editor directly and show toolbar', async ({ page }) => {
-    // Try to access editor directly with a known iModel
-    // Note: This assumes there is at least one iModel in the system
+    test.setTimeout(180000); // 编辑器 briefcase 连接在全套件并行负载下建立较慢
+    await loginWithSession(page);
 
-    await loginUser(page);
+    // 经 hub API 取真实 ID（auth token 在 sessionStorage 的 luban_cad_auth）
+    const { projectId, imodelId } = await getFirstProjectAndIModel(page);
 
-    // First try to get iModel info from API
-    const response = await page.evaluate(async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:4000/itwins', {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
-        return await res.json();
-      } catch (e) {
-        return { error: String(e) };
-      }
-    });
+    // 编辑器路由是 /workspace/:iTwinId/:iModelId（不存在 /editor/...）
+    await page.goto(`/workspace/${projectId}/${imodelId}`);
+    await page.screenshot({ path: 'test-results/editor-direct.png', fullPage: true });
 
-    console.log('Projects response:', response);
+    // 先等编辑器就绪（IPC WS 握手偶发挂起，waitForEditorReady 内含卡滞 reload 重试）
+    await waitForEditorReady(page);
 
-    // If we have projects, navigate to the first one
-    if (response.iTwins && response.iTwins.length > 0) {
-      const projectId = response.iTwins[0].id;
+    // CAD 工具条（编辑权限 + briefcase 连接建立后渲染）
+    const toolbar = page.locator('.cad-toolbar-horizontal');
+    await expect(toolbar).toBeVisible({ timeout: 60000 });
 
-      // Get iModels for this project
-      const imodelsResponse = await page.evaluate(async (pid) => {
-        try {
-          const token = localStorage.getItem('token');
-          const res = await fetch(`http://localhost:4000/imodels?iTwinId=${pid}`, {
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-          });
-          return await res.json();
-        } catch (e) {
-          return { error: String(e) };
-        }
-      }, projectId);
-
-      console.log('iModels response:', imodelsResponse);
-
-      if (imodelsResponse.iModels && imodelsResponse.iModels.length > 0) {
-        const imodelId = imodelsResponse.iModels[0].id;
-
-        // Navigate directly to editor
-        await page.goto(`/editor/${projectId}/${imodelId}`);
-        await page.waitForTimeout(10000);
-
-        // Take screenshot
-        await page.screenshot({ path: 'test-results/editor-direct.png', fullPage: true });
-
-        // Check for toolbar
-        const toolbar = page.locator('.cad-toolbar-horizontal');
-        const isVisible = await toolbar.isVisible().catch(() => false);
-
-        if (isVisible) {
-          console.log('Toolbar is visible!');
-          await expect(toolbar).toBeVisible();
-
-          // Check tool categories
-          const categories = ['草图', '实体', '变换', '布尔', '边', '面', '高级'];
-          for (const category of categories) {
-            await expect(toolbar.locator('text=' + category)).toBeVisible();
-          }
-        } else {
-          console.log('Toolbar not found, checking page content...');
-          const pageContent = await page.content();
-          console.log('Page content preview:', pageContent.substring(0, 500));
-        }
-      } else {
-        throw new Error('e2e 数据前置不满足：No iModels found——起栈+seed 后重跑');
-      }
-    } else {
-      throw new Error('e2e 数据前置不满足：No projects found——起栈+seed 后重跑');
+    // Check tool categories
+    const categories = ['草图', '实体', '变换', '布尔', '边', '面', '高级'];
+    for (const category of categories) {
+      await expect(toolbar.getByText(category, { exact: true })).toBeVisible();
     }
   });
 });
