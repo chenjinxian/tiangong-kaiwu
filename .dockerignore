@@ -37,6 +37,9 @@ itwinjs-core/core/*
 !itwinjs-core/core/quantity
 !itwinjs-core/core/ecschema-metadata
 !itwinjs-core/core/ecschema-rpc
+!itwinjs-core/core/ecschema-rpcinterface
+!itwinjs-core/core/webgl-compatibility
+!itwinjs-core/core/orbitgt
 
 itwinjs-core/editor/*
 !itwinjs-core/editor/backend

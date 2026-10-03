@@ -207,22 +207,19 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # web 前端（栈内 :3000，经 nginx 单入口暴露）
-  # 注：前端构建失败是既有问题（非本次引入），层3 验证改为只起后端服务；
-  #    web 用 `pnpm dev` 单独跑（开发模式 :3000），nginx 已配 proxy 到 host.docker.internal:3000
+  # web 前端（栈内 :3000，经 nginx 单入口暴露）—— GHCR 预构建镜像
+  # （构建在公开仓 luban-cad/Dockerfile；修复史见该文件头与验证记录）
   # ------------------------------------------------------------
-  # web:
-  #   build:
-  #     context: .
-  #     dockerfile: luban-cad/Dockerfile
-  #   healthcheck:
-  #     test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 15s
-  #   restart: unless-stopped
-  #   networks: [stack]
+  web:
+    image: ghcr.io/chenjinxian/luban-web:latest
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks: [stack]
 
   # ------------------------------------------------------------
   # nginx 统一入口（:80）
@@ -241,6 +238,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      web:
+        condition: service_healthy
       imodelhub:
         condition: service_healthy
       azurite:

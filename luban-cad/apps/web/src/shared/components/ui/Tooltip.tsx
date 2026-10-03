@@ -34,10 +34,10 @@ export const Tooltip: React.FC<TooltipProps> = ({
 
   const showTooltip = useCallback(() => {
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      window.clearTimeout(timeoutRef.current);
     }
     if (delay > 0) {
-      timeoutRef.current = setTimeout(() => setIsVisible(true), delay);
+      timeoutRef.current = window.setTimeout(() => setIsVisible(true), delay);
     } else {
       setIsVisible(true);
     }
@@ -45,7 +45,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
 
   const hideTooltip = useCallback(() => {
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      window.clearTimeout(timeoutRef.current);
     }
     setIsVisible(false);
   }, []);
