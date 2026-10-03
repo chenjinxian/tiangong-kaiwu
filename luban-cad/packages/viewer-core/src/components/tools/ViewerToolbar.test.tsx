@@ -46,11 +46,11 @@ describe('ViewerToolbar', () => {
   it('should render all navigation buttons', () => {
     render(<ViewerToolbar />);
 
-    // Check for navigation buttons by title
+    // Check for navigation buttons by title（title 实文见 ViewerToolbar.tsx：适应视图 (Fit)、等轴测 (Iso)）
     expect(screen.getByTitle(/旋转.*Rotate/i)).toBeDefined();
     expect(screen.getByTitle(/平移.*Pan/i)).toBeDefined();
     expect(screen.getByTitle(/缩放.*Zoom/i)).toBeDefined();
-    expect(screen.getByTitle(/适应视图.*Fit View/i)).toBeDefined();
+    expect(screen.getByTitle(/适应视图.*Fit/i)).toBeDefined();
   });
 
   it('should render standard view buttons', () => {
@@ -59,7 +59,7 @@ describe('ViewerToolbar', () => {
     expect(screen.getByTitle(/顶视图.*Top/i)).toBeDefined();
     expect(screen.getByTitle(/前视图.*Front/i)).toBeDefined();
     expect(screen.getByTitle(/右视图.*Right/i)).toBeDefined();
-    expect(screen.getByTitle(/等轴测.*Isometric/i)).toBeDefined();
+    expect(screen.getByTitle(/等轴测.*Iso/i)).toBeDefined();
   });
 
   it('should apply custom className', () => {

@@ -40,6 +40,7 @@
 - 单测：shared 27/27 ✅；web-viewer 26/30（4 败：WebInitializer 既有）；viewer-core 106/114（8 败：Iso/Isometric 不匹配等既有）
 - e2e（45 测试/13 文件）：**16 通过**。修复历程：Playwright 浏览器未装（环境问题，装）→ hub CORS 空数组全拒致浏览器 fetch 500（compose 补 ALLOWED_ORIGINS）→ 测试用户/前置数据缺失（注册 test@example.com + 建「测试项目」种子，注意中文 payload 须 UTF-8 文件传参防 Git Bash GBK 污染）→ 16 通过。剩余 29 败均为**既有测试债**：e2e 选择器与 UI 结构失配（div[cursor=pointer] vs a[href]/.section-card）、auth.setup.ts 未注册进 testMatch（storage state 不生成）、logout 元素缺失、v2-checkpoint/editor 深链路。归 M3 测试体系任务。
 - ~~e2e 测试债~~ **✅ 已清偿（2026-10-03，M3 测试体系）**：45/45 全绿 ×2 连续（6.2m/7.2m，serial workers=1）。要点：① auth.setup 接入 config（setup project + 双写 storageState/session.json——本应用 auth 在 sessionStorage，storageState 带不了）；② 选择器全面适配现 UI（Tile 内嵌按钮/getByRole，对话框标题只存在 aria-label）；③ 工具激活断言改 window.IModelApp.toolAdmin.activeTool.toolId（提示语不落 DOM）；④ **发现并修复产品缺陷**：Login 错误横幅因 effect 依赖含 error 自清除而闪现不可见（src/pages/Login/Login.tsx）；⑤ 韧性三件套：会话注入登录（MS 全局限流 100 req/15min/IP）、auth.setup 自愈清场（hub 分页 $top=10 会把 seed 挤出首页）、编辑器 IPC WS 握手偶发挂起以 reload 重试兜底（根因在私有仓 MS，待跟进）。删除重复 spec complete-workflow-improved。
+- ~~单测债~~ **✅ 已清偿（2026-10-03 同日）**：viewer-core 57/57（vitest 补 exclude dist/ 消除 src/dist 双跑 ×4；ViewCube mock 补 view.getRotation/is3d/turnCameraOff；ViewerToolbar 断言适配实文 title「适应视图 (Fit)」「等轴测 (Iso)」）；web-viewer 15/15（同补 exclude dist/ ×2；IModelsClient/FrontendIModelsAccess mock 由箭头实现改可构造普通函数——`new` 箭头必抛 not a constructor）；apps/web 373 过/11 跳、shared 27/27 回归全绿。editor.spec 4 个假 ID（/workspace/test-itwin/test-imodel）空转测试改为真实 ID + 真实断言（工具条/编辑模式指示器/状态栏/面包屑返回）。
 
 ### 层5 谱系演练 ✅
 

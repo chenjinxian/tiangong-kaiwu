@@ -11,5 +11,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // dist/ 是 tsc 产物（含编译后的旧测试），不排除会与 src/ 双跑（2026-10-03 实测 4×2 败）
+    exclude: ['node_modules/', 'dist/'],
   },
 });

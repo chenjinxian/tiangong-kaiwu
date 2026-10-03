@@ -14,9 +14,16 @@ import { ViewCube, CompactViewCube } from './ViewCube.js';
 vi.mock('@itwin/core-frontend', () => ({
   IModelApp: {
     viewManager: {
+      // ViewCube 挂载时经 selectedView.view.getRotation() 同步旋转角，
+      // setStandardView 还会用 view.is3d()/turnCameraOff() —— mock 须齐备
       selectedView: {
         setStandardRotation: vi.fn(),
         synchWithView: vi.fn(),
+        view: {
+          getRotation: vi.fn(() => ({ at: (i: number, j: number) => (i === j ? 1 : 0) })),
+          is3d: vi.fn(() => true),
+          turnCameraOff: vi.fn(),
+        },
       },
     },
   },

@@ -3,8 +3,20 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from '@playwright/test';
-import { loginWithSession, navigateToEditor } from './helpers';
+import { test, expect, type Page } from '@playwright/test';
+import {
+  loginWithSession,
+  navigateToEditor,
+  getFirstProjectAndIModel,
+  waitForEditorReady,
+} from './helpers';
+
+/** 登录后直达真实编辑器（经 hub API 取 seed 项目/模型 ID；编辑器路由 /workspace/:iTwinId/:iModelId） */
+async function openRealEditor(page: Page): Promise<void> {
+  const { projectId, imodelId } = await getFirstProjectAndIModel(page);
+  await page.goto(`/workspace/${projectId}/${imodelId}`);
+  await waitForEditorReady(page);
+}
 
 test.describe('Editor Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -21,114 +33,39 @@ test.describe('Editor Page', () => {
   });
 
   test('should display editor page with toolbar', async ({ page }) => {
-    // Navigate directly to editor (if we have a test iModel)
-    // Actual route is /workspace/:iTwinId/:iModelId
-    await page.goto('/workspace/test-itwin/test-imodel');
+    await openRealEditor(page);
 
-    // Wait for editor to load
-    await page.waitForTimeout(3000);
-
-    // Check for error state or loading state
-    const errorText = page.getByText(/error|错误|not found|not exist/i);
-    const hasError = await errorText.isVisible().catch(() => false);
-
-    if (hasError) {
-      if (true) { throw new Error('e2e 数据前置不满足：iModel not available——起栈+seed 后重跑'); }
-      return;
-    }
-
-    // Check for toolbar (may not exist if viewer-only mode)
-    const toolbar = page.locator('[class*="toolbar"]').first();
-    const hasToolbar = await toolbar.isVisible().catch(() => false);
-
-    // Check for viewer container or loading state
-    const viewer = page.locator('[class*="viewer"], [class*="viewport"], [class*="loading"]').first();
-    const hasViewer = await viewer.isVisible().catch(() => false);
-
-    // If no toolbar and no viewer, page might be in error state - just verify URL
-    if (!hasToolbar && !hasViewer) {
-      // At minimum, verify we're on the workspace page
-      await expect(page.url()).toContain('/workspace/');
-    }
+    // 主工具条 + CAD 工具条（后者等价于 briefcase 连接已建立）
+    await expect(page.locator('.toolbar').first()).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('.cad-toolbar-horizontal')).toBeVisible({ timeout: 60000 });
   });
 
-  test('should toggle edit mode', async ({ page }) => {
-    await page.goto('/workspace/test-itwin/test-imodel');
-    await page.waitForTimeout(3000);
+  test('should show edit mode indicator', async ({ page }) => {
+    // 编辑/只读模式由权限自动判定（useIModelPermission），无手动开关——
+    // 以状态栏「编辑模式」指示器为准（只读时显示「只读模式」Badge）
+    await openRealEditor(page);
 
-    // Check for error state
-    const errorText = page.getByText(/error|错误|not found|not exist/i);
-    const hasError = await errorText.isVisible().catch(() => false);
-
-    if (hasError) {
-      if (true) { throw new Error('e2e 数据前置不满足：iModel not available——起栈+seed 后重跑'); }
-      return;
-    }
-
-    // Find edit mode toggle button
-    const editModeButton = page.getByRole('button', { name: /编辑|Edit|视图|View/i });
-
-    if (await editModeButton.isVisible().catch(() => false)) {
-      // Click to toggle edit mode
-      await editModeButton.click();
-      await page.waitForTimeout(1000);
-
-      // Verify edit mode is active (check for edit-specific UI)
-      const editToolbar = page.locator('[class*="edit-toolbar"], [class*="edit-mode"]').first();
-      // Just verify the button still exists (state change)
-      await expect(editModeButton).toBeVisible();
-    }
+    const statusBar = page.locator('.statusbar');
+    await expect(statusBar).toContainText(/编辑模式|只读模式/, { timeout: 60000 });
   });
 
   test('should display status bar', async ({ page }) => {
-    await page.goto('/workspace/test-itwin/test-imodel');
-    await page.waitForTimeout(3000);
+    await openRealEditor(page);
 
-    // Check for error state
-    const errorText = page.getByText(/error|错误|not found|not exist/i);
-    const hasError = await errorText.isVisible().catch(() => false);
-
-    if (hasError) {
-      if (true) { throw new Error('e2e 数据前置不满足：iModel not available——起栈+seed 后重跑'); }
-      return;
-    }
-
-    // Check for status bar
-    const statusBar = page.locator('[class*="status"], [class*="statusbar"]').first();
-    const hasStatusBar = await statusBar.isVisible().catch(() => false);
-
-    if (hasStatusBar) {
-      // Check for connection status
-      await expect(page.getByText(/已连接|Connected|在线|Online/i)).toBeVisible();
-    }
+    const statusBar = page.locator('.statusbar');
+    await expect(statusBar).toBeVisible();
+    await expect(statusBar).toContainText('已连接', { timeout: 60000 });
+    await expect(statusBar).toContainText('公制单位');
   });
 
   test('should navigate back to documents', async ({ page }) => {
-    await page.goto('/workspace/test-itwin/test-imodel');
-    await page.waitForTimeout(3000);
+    await openRealEditor(page);
 
-    // Check for error state - if iModel doesn't exist, just verify navigation works
-    const errorText = page.getByText(/error|错误|not found|not exist/i);
-    const hasError = await errorText.isVisible().catch(() => false);
-
-    // Look for back button or breadcrumb
-    const backButton = page.getByRole('button', { name: /返回|Back|项目列表|Projects/i }).first();
-
-    if (await backButton.isVisible().catch(() => false)) {
-      await backButton.click();
-      await page.waitForURL('**/itwins', { timeout: 10000 });
-      await expect(page.url()).toContain('/itwins');
-    } else {
-      // Try clicking on logo or home
-      const logo = page.locator('[class*="logo"], [class*="brand"]').first();
-      if (await logo.isVisible().catch(() => false)) {
-        await logo.click();
-        // Should navigate somewhere
-        await expect(page.url()).not.toContain('/workspace/');
-      } else if (hasError) {
-        // If there's an error and no navigation, just verify we're still on the page
-        if (true) { throw new Error('e2e 数据前置不满足：Navigation elements not available——起栈+seed 后重跑'); }
-      }
-    }
+    // 面包屑「项目列表」按钮 → /itwins
+    const backButton = page.getByRole('button', { name: '项目列表' }).first();
+    await expect(backButton).toBeVisible({ timeout: 30000 });
+    await backButton.click();
+    await page.waitForURL('**/itwins', { timeout: 30000 });
+    await expect(page.url()).toContain('/itwins');
   });
 });

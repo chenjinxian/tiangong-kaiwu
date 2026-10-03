@@ -39,17 +39,24 @@ vi.mock('@itwin/editor-frontend', () => ({
 }));
 
 vi.mock('@itwin/imodels-access-frontend', () => ({
+  // WebInitializer 以 new FrontendIModelsAccess(...) 构造 —— mock 实现须为可构造的
+  // 普通函数（箭头函数不可 new，会抛 "is not a constructor"）
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  FrontendIModelsAccess: vi.fn().mockImplementation(() => ({
-    getAccessToken: vi.fn(),
-  })),
+  FrontendIModelsAccess: vi.fn().mockImplementation(function FrontendIModelsAccessImpl() {
+    return {
+      getAccessToken: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('@itwin/imodels-client-management', () => ({
+  // 同上：以 new IModelsClient(...) 构造
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  IModelsClient: vi.fn().mockImplementation(() => ({
-    getAccessToken: vi.fn(),
-  })),
+  IModelsClient: vi.fn().mockImplementation(function IModelsClientImpl() {
+    return {
+      getAccessToken: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('@itwin/core-common', () => ({
