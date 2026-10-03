@@ -120,6 +120,12 @@ git subtree pull --prefix=itwinjs-core --squash upstream master
 - **新坑②（私有仓测试修正）**：ACIS blob 头时间戳**个位数日期日为空格填充**
   （`Oct␣␣3`），normalize 正则 `\d{2}` 只匹配零填充——9/23–10/02 全两位数日从未
   暴露，10/03 首现。私有仓 `TestHost.ts` 正则改 `{1,2}\d{1,2}`（非上游回归）。
+- **新坑③（GitHub 100MB 上限）**：上游 `display-test-app/assets/` 的两个 .Tiles
+  测试资产（278MB/347MB，上游仓以 LFS 存放，subtree 拉取变普通 blob）被
+  `git add -A` 卷入 merge，push 被 pre-receive 拒（GH001）。处理：`git filter-repo
+  --invert-paths --refs origin/main..main` 清洗本地未推提交 + .gitignore 挡
+  `*.Tiles`。**上游同步后提交前必查 `git diff --stat origin/main.. | grep -iE
+  '\.(Tiles|bim)'`**。
 - **回归与产物**：私有仓 MS 262/8 + WA 43/43 全绿（零回归）；产物链 backend-20261003
   重发（MS tgz Release + WA/imodelhub/web 三镜像 GHCR 双 tag）；全栈 verify-stack
   **14/14**（新产物 MS 宿主 + 新基线三容器）。
