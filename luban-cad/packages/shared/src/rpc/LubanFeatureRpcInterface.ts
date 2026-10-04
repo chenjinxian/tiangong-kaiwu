@@ -2,13 +2,13 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 鲁班CAD 特征系统 M1 RPC 接口（roadmap T5.8）。
+ * 鲁班CAD 特征系统 RPC 接口（M1 roadmap T5.8；M3-a 升 v1.1：fillet + suppress/reorder/preview/表单模型）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface } from "@itwin/core-common";
 
-/** v1 特征类型（M1：拉伸 + 布尔；fillet 等 M3 再加） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract";
+/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet） */
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -21,14 +21,25 @@ export interface ExtrudeParams {
   sketchId?: string;
 }
 
+/** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */
+export interface LubanTopologyId { nodeId: number; entityId: number }
+
+/** 边引用 = 两邻面拓扑 id 对（op33 EdgesFromId 的边寻址契约，恰 2 元素序无关） */
+export interface FilletEdgeRef { faceA: LubanTopologyId; faceB: LubanTopologyId }
+
+export interface FilletParams { radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }
+
+export type FeatureParams = ExtrudeParams | FilletParams;
+
 export type FeatureOp =
-  | { kind: "insertFeature"; featureType: LubanFeatureType; params: ExtrudeParams }
-  | { kind: "updateParams"; featureId: string; params: ExtrudeParams }
+  | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
+  | { kind: "updateParams"; featureId: string; params: FeatureParams }
   | { kind: "deleteFeature"; featureId: string }
+  | { kind: "setFeatureSuppressed"; featureId: string; suppressed: boolean }
+  | { kind: "reorderFeature"; featureId: string; to: number }  // to=目标序位（1 基）
   /** M2 T4.5：改草图约束尺寸（仅 distance/radius 类约束）→ 重解算 → 草图 params+几何流重写 → EDE 传播 */
   | { kind: "updateSketchConstraint"; sketchId: string; constraintId: number; value: number }
-  | { kind: "undo" }
-  | { kind: "redo" };
+  | { kind: "undo" } | { kind: "redo" };
 
 export interface FeatureTreeEntry {
   id: string;
@@ -43,12 +54,29 @@ export type FeatureOpResult =
   | { ok: true; featureId?: string }
   | { ok: false; error: string };
 
+/** M3-a：预览结果（HITL 预览→确认→提交；不落库，仅回报受影响特征及内核状态码） */
+export interface PreviewResult { ok: boolean; error?: string; affected: Array<{ featureId: string; status: number }> }
+
+/** M3-a：表单字段种类（前端按 kind 渲染；edgeRefs 由 resolveEdgeRef 寻址） */
+export type FeatureFormFieldKind = "number" | "json" | "boolean" | "edgeRefs" | "readonlyText";
+
+export interface FeatureFormField { name: string; label: string; kind: FeatureFormFieldKind; readOnly?: boolean }
+export interface FeatureFormModelEntry { fields: FeatureFormField[] }
+export type FeatureFormModel = Record<string, FeatureFormModelEntry>;
+
 export abstract class LubanFeatureRpcInterface extends RpcInterface {
   public static interfaceName = "luban-cad/features-v1";
-  public static interfaceVersion = "1.0.0";
+  public static interfaceVersion = "1.1.0";
 
   public async getFeatureTree(_iModelKey: string): Promise<FeatureTreeEntry[]> { return this.forward(arguments); }
   public async applyFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string): Promise<FeatureOpResult> { return this.forward(arguments); }
   public async acquireWriteLease(_iModelKey: string, _sessionId: string, _user?: string): Promise<{ ok: boolean; holder?: string }> { return this.forward(arguments); }
   public async releaseWriteLease(_iModelKey: string, _sessionId: string): Promise<void> { return this.forward(arguments); }
+
+  /** M3-a v1.1：op 预览（不提交事务，回报受影响特征） */
+  public async previewFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string): Promise<PreviewResult> { return this.forward(arguments); }
+  /** M3-a v1.1：拾取元素子实体 → 邻面对边引用（edgeRefs 表单值的寻址端点） */
+  public async resolveEdgeRef(_iModelKey: string, _elementId: string, _subEntityId: number): Promise<{ ok: boolean; ref?: FilletEdgeRef; error?: string }> { return this.forward(arguments); }
+  /** M3-a v1.1：按特征类型取参数表单模型（前端动态渲染） */
+  public async getFeatureFormModel(_iModelKey: string): Promise<FeatureFormModel> { return this.forward(arguments); }
 }
