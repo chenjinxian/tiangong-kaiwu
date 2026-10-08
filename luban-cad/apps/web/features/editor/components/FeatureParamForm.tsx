@@ -157,6 +157,15 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
                       refs.map((ref, i) => (
                         <span className="feature-edge-chip" key={`${formatEdgeChip(ref)}-${i}`}>
                           {formatEdgeChip(ref)}
+                          <button
+                            type="button"
+                            className="feature-edge-chip-remove"
+                            aria-label={`删除边引用 ${i + 1}`}
+                            disabled={disabled}
+                            onClick={() => emit(field.name, refs.filter((_, j) => j !== i))}
+                          >
+                            ×
+                          </button>
                         </span>
                       ))
                     )}

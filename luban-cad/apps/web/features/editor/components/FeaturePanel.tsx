@@ -6,14 +6,18 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Button, Dialog, IconButton, Label, Select, Text } from '@itwin/itwinui-react';
 import { SvgAdd, SvgChevronDown, SvgChevronUp, SvgDelete, SvgEdit, SvgVisibilityHalf } from '@itwin/itwinui-icons-react';
+import type { BriefcaseConnection } from '@itwin/core-frontend';
 import type { FeatureFormField, FeatureParams, FeatureTreeEntry, FilletEdgeRef, LubanFeatureType } from '@luban-cad/shared';
 import { FeatureParamForm } from './FeatureParamForm.js';
 import type { UseFeatureSystem } from '../hooks/useFeatureSystem.js';
+import { useEdgeRefPicker } from '../hooks/useEdgeRefPicker.js';
 import './FeaturePanel.css';
 
 export interface FeaturePanelProps {
   /** 特征系统中枢（M3-a T6.6 hook 产物，由父级注入） */
   fs: UseFeatureSystem;
+  /** T6.3：视口选边拾取器需要的连接（缺省/ null → 拾取按钮禁用） */
+  connection?: BriefcaseConnection | null;
   /** 编辑点击通知（可选；T6.2 起编辑对话框内建于本面板，参数表单 + 应用自理） */
   onEditFeature?: (entry: FeatureTreeEntry) => void;
   /** 可选 toast 回调（删除守卫等错误除行内 Alert 外同步上抛；创建/编辑成功亦回报） */
@@ -107,7 +111,7 @@ function buildInitialValue(fields: FeatureFormField[], params: Record<string, un
  * 写租约未持有（leaseOk=false）时整体降级只读。
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEditFeature, onToast, isVisible = true }) => {
+export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, connection, onEditFeature, onToast, isVisible = true }) => {
   const [showNew, setShowNew] = useState(false);
   const [newType, setNewType] = useState<string | undefined>(undefined);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -125,6 +129,29 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEdi
   );
 
   const readOnly = !fs.leaseOk;
+
+  /** 当前活动对话框的字段集（新建/编辑对话框互斥；皆无 → 空） */
+  const activeDialogFields = editing
+    ? (fs.formModel?.[editing.featureType]?.fields ?? [])
+    : newType
+      ? (fs.formModel?.[newType]?.fields ?? [])
+      : [];
+  /** edgeRefs kind 字段名（fillet=edges；无该 kind 的类型无拾取器） */
+  const edgeFieldName = activeDialogFields.find((f) => f.kind === 'edgeRefs')?.name;
+  const pickerEdges =
+    edgeFieldName !== undefined && Array.isArray(formValue[edgeFieldName])
+      ? (formValue[edgeFieldName] as FilletEdgeRef[])
+      : [];
+  /** T6.3 选边拾取器：ref 单一事实源=formValue[edgeFieldName]（onEdgesChange 回写表单态） */
+  const picker = useEdgeRefPicker(connection ?? undefined, fs, {
+    edges: pickerEdges,
+    onEdgesChange: (next) => {
+      if (edgeFieldName === undefined) return;
+      setFormValue((prev) => ({ ...prev, [edgeFieldName]: next }));
+    },
+    onError: (message) => onToast?.(message, 'error'),
+  });
+  const stopPicking = picker.stop;
 
   /** 树区行内写操作统一出口：租约缺失直接拒（aria-disabled 按钮仍可派发 click，双保险）；成功清错误、失败 Alert + 可选 toast */
   const runOp = useCallback(
@@ -176,9 +203,10 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEdi
   );
 
   const closeEdit = useCallback(() => {
+    stopPicking(); // 对话框关闭中途拾取 → 退场回收（三通道纪律）
     setEditing(null);
     setDialogError(null);
-  }, []);
+  }, [stopPicking]);
 
   /** 对话框应用统一出口：成功关闭 + toast；失败 Alert 呈现后端守卫/校验文案（M2-UX #4）；
    *  RPC 层抛错（后端失联等）同样落入 Alert —— 绝不留「点了没反应」的哑对话框 */
@@ -227,20 +255,22 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEdi
 
   const handleNewTypeChange = useCallback(
     (type: string) => {
+      stopPicking(); // 类型切换中途拾取 → 退场回收
       setNewType(type);
       setDialogError(null);
       const fields = fs.formModel?.[type]?.fields ?? [];
       // 初值不预填既有参数（新建场景无存储值）：仅补零值，草图 id 等留空由用户/后续流程填
       setFormValue(buildInitialValue(fields, {}));
     },
-    [fs.formModel],
+    [fs.formModel, stopPicking],
   );
 
   const closeNew = useCallback(() => {
+    stopPicking(); // 对话框关闭中途拾取 → 退场回收
     setShowNew(false);
     setNewType(undefined);
     setDialogError(null);
-  }, []);
+  }, [stopPicking]);
 
   if (!isVisible) return null;
 
@@ -252,6 +282,23 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEdi
   const editingFields = editing ? (fs.formModel?.[editing.featureType]?.fields ?? []) : [];
   const editingLabel = editing ? (FEATURE_TYPE_LABELS[editing.featureType] ?? editing.featureType) : '';
   const newFields = newType ? (fs.formModel?.[newType]?.fields ?? []) : [];
+
+  /** edgeRefs kind 字段的拾取器插槽（T6.3）：仅含该 kind 的表单（fillet）注入「从视图选边」 */
+  const renderEdgePickerSlot = (fields: FeatureFormField[]): React.ReactNode => {
+    if (!fields.some((f) => f.kind === 'edgeRefs')) return undefined;
+    return (
+      <div className="feature-edge-picker" data-testid="feature-edge-picker">
+        <Button
+          size="small"
+          styleType="borderless"
+          onClick={() => (picker.picking ? picker.stop() : picker.start())}
+          disabled={readOnly || applying || !connection}
+        >
+          {picker.picking ? '停止选边' : '从视图选边'}
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <div className="feature-panel">
@@ -382,9 +429,21 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEdi
         </Button>
       </div>
 
+      {/* 选边拾取中浮条（T6.3）：模态对话框的 backdrop 会吞掉视口点击——拾取期间对话框暂隐
+         （表单态在面板层，remount 不丢；fillet 表单无 json 字段，无失焦草稿风险），
+         拾取结束（右键/Esc/停止）后对话框自动复开，chips 已更新 */}
+      {picker.picking && (
+        <div className="feature-edge-picker-banner" data-testid="edge-picker-banner">
+          <Text variant="small">正在选边：在视口点击边加入引用；右键/Esc 结束</Text>
+          <Button size="small" styleType="borderless" onClick={() => picker.stop()}>
+            停止选边
+          </Button>
+        </div>
+      )}
+
       {/* 新建特征对话框：类型 Select + 表单模型参数表单 → insertFeature（守卫错误 Alert 呈现） */}
       <Dialog
-        isOpen={showNew}
+        isOpen={showNew && !picker.picking}
         onClose={closeNew}
         portal
         isDismissible
@@ -414,6 +473,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEdi
                     value={formValue}
                     onChange={setFormValue}
                     disabled={readOnly || applying}
+                    edgePicker={renderEdgePickerSlot(newFields)}
                   />
                 )}
               </>
@@ -444,7 +504,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEdi
 
       {/* 编辑特征对话框：表单模型参数表单预填 entry.params → updateParams */}
       <Dialog
-        isOpen={editing !== null}
+        isOpen={editing !== null && !picker.picking}
         onClose={closeEdit}
         portal
         isDismissible
@@ -460,6 +520,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, onEdi
                 value={formValue}
                 onChange={setFormValue}
                 disabled={readOnly || applying}
+                edgePicker={renderEdgePickerSlot(editingFields)}
               />
             )}
             {dialogError && (

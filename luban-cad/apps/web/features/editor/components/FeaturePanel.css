@@ -211,12 +211,60 @@
 }
 
 .feature-edge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
   padding: 2px var(--iui-size-xs);
   border: 1px solid var(--iui-color-border);
   border-radius: var(--iui-border-radius-1);
   background: var(--iui-color-background-surface-elevated);
   font-family: 'JetBrains Mono', monospace;
   font-size: var(--iui-font-size-small);
+}
+
+/* chips 行内删除钮（T6.3）：无边框 ×，与 chip 同色系弱化 */
+.feature-edge-chip-remove {
+  border: none;
+  background: transparent;
+  padding: 0 2px;
+  cursor: pointer;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-small);
+  line-height: 1;
+}
+
+.feature-edge-chip-remove:hover:not(:disabled) {
+  color: var(--iui-color-text-negative);
+}
+
+.feature-edge-chip-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 「从视图选边」拾取器插槽（T6.3）：按钮 + picking 态提示 */
+.feature-edge-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  margin-top: var(--iui-size-2xs);
+}
+
+.feature-edge-picker-hint {
+  color: var(--iui-color-text-muted);
+}
+
+/* 拾取中浮条（T6.3）：对话框暂隐期间的操作入口（模态 backdrop 吞视口点击的化解） */
+.feature-edge-picker-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  margin: var(--iui-size-2xs) 0;
+  border: 1px solid var(--iui-color-border-accent);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-accent-muted);
 }
 
 .feature-edge-empty {

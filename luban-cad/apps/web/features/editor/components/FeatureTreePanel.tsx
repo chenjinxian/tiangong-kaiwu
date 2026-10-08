@@ -129,7 +129,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
       {/* Content */}
       <div className="feature-tree-content">
         {activeTab === 'features' && (
-          <FeaturePanel fs={fs} onEditFeature={onEditFeature} onToast={onToast} isVisible />
+          <FeaturePanel fs={fs} connection={connection} onEditFeature={onEditFeature} onToast={onToast} isVisible />
         )}
         {activeTab === 'assemblies' && (
           <AssemblyPanel connection={connection} isVisible />

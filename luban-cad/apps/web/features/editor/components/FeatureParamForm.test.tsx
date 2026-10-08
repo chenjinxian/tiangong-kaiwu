@@ -81,6 +81,23 @@ describe('FeatureParamForm', () => {
       expect(screen.getByText('未选择边')).toBeDefined();
     });
 
+    it('edgeRefs chips × 删除 → onChange 收到剔除后的 edges 数组（其余字段保留）', () => {
+      const twoRefs: FilletEdgeRef[] = [
+        { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 3, entityId: 4 } },
+        { faceA: { nodeId: 5, entityId: 6 }, faceB: { nodeId: 7, entityId: 8 } },
+      ];
+      render(<FeatureParamForm fields={ALL_KIND_FIELDS} value={makeValue({ edges: twoRefs })} onChange={onChange} />);
+      fireEvent.click(screen.getByRole('button', { name: '删除边引用 1' }));
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ edges: [twoRefs[1]] }));
+      // 其余字段原样保留（发射语义 = {...value, edges: next}）
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ distance: 10 }));
+    });
+
+    it('edgeRefs chips × 在 disabled 时禁用', () => {
+      render(<FeatureParamForm fields={ALL_KIND_FIELDS} value={makeValue()} onChange={onChange} disabled />);
+      expect((screen.getByRole('button', { name: '删除边引用 1' }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
     it('readonlyText → 只读 Input 回显文本且禁用', () => {
       render(<FeatureParamForm fields={ALL_KIND_FIELDS} value={makeValue()} onChange={onChange} />);
       const input = screen.getByLabelText('草图') as HTMLInputElement;

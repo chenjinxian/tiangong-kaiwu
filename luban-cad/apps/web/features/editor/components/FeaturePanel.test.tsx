@@ -13,6 +13,23 @@ import type { UseFeatureSystem } from '../hooks/useFeatureSystem.js';
 // Mock CSS imports
 vi.mock('./FeaturePanel.css', () => ({}));
 
+// T6.3：useEdgeRefPicker 模块级 mock（避免 editor-frontend 工具链进 jsdom；拾取行为由 hook 单测钉）
+const pickerMocks = vi.hoisted(() => ({
+  start: vi.fn(),
+  stop: vi.fn(),
+  removeAt: vi.fn(),
+  picking: false,
+}));
+vi.mock('../hooks/useEdgeRefPicker.js', () => ({
+  useEdgeRefPicker: () => ({
+    picking: pickerMocks.picking,
+    refs: [],
+    start: pickerMocks.start,
+    stop: pickerMocks.stop,
+    removeAt: pickerMocks.removeAt,
+  }),
+}));
+
 const makeEntry = (over: Partial<FeatureTreeEntry> = {}): FeatureTreeEntry => ({
   id: 'f1',
   featureType: 'extrude',
@@ -48,6 +65,7 @@ describe('FeaturePanel', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    pickerMocks.picking = false;
   });
 
   describe('数据态渲染', () => {
@@ -457,6 +475,105 @@ describe('FeaturePanel', () => {
 
       await waitFor(() => expect(within(dialog).getByText('无 sketchId 时 profile 至少 3 点')).toBeDefined());
       expect(screen.getByRole('dialog')).toBeDefined();
+    });
+  });
+
+  describe('T6.3 视口选边拾取器（edgePicker 插槽接线）', () => {
+    const filletModel: FeatureFormModel = {
+      extrude: { fields: [{ name: 'distance', label: '距离', kind: 'number' }] },
+      fillet: {
+        fields: [
+          { name: 'radius', label: '圆角半径', kind: 'number' },
+          { name: 'propagateSmooth', label: '光滑传播', kind: 'boolean' },
+          { name: 'edges', label: '边引用', kind: 'edgeRefs' },
+        ],
+      },
+    };
+    const conn = { key: 'm.bim' } as never;
+
+    const openNewDialog = (fs: UseFeatureSystem) => {
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      return screen.getByRole('dialog');
+    };
+
+    it('fillet 表单渲染「从视图选边」按钮（edgeRefs kind 字段）；extrude 表单无按钮', () => {
+      const fs = makeFs({ formModel: filletModel });
+      const dialog = openNewDialog(fs);
+
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'fillet' } });
+      expect(within(dialog).getByRole('button', { name: '从视图选边' })).toBeDefined();
+
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'extrude' } });
+      expect(within(dialog).queryByRole('button', { name: '从视图选边' })).toBeNull();
+    });
+
+    it('点击「从视图选边」→ picker.start；picking 态对话框暂隐 + 浮条「停止选边」→ picker.stop', () => {
+      const fs = makeFs({ formModel: filletModel });
+      const { rerender } = render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'fillet' } });
+
+      fireEvent.click(within(dialog).getByRole('button', { name: '从视图选边' }));
+      expect(pickerMocks.start).toHaveBeenCalledTimes(1);
+
+      // picking 态：同一实例重渲染（hook mock 按渲染期读值）。
+      // FeaturePanel 是 React.memo——生产里 hook 内 setPicking 自驱重渲染，mock 无内部 state，
+      // 须换 prop 引用破 memo（测试伪影，非产品缺陷）
+      pickerMocks.picking = true;
+      rerender(<FeaturePanel fs={fs} onEditFeature={() => undefined} connection={conn} />);
+
+      // 模态 backdrop 吞视口点击 → 对话框暂隐（isOpen 门控），浮条接管拾取期操作
+      expect(screen.queryByRole('dialog')).toBeNull();
+      const banner = screen.getByTestId('edge-picker-banner');
+      fireEvent.click(within(banner).getByRole('button', { name: '停止选边' }));
+      expect(pickerMocks.stop).toHaveBeenCalled();
+
+      // 拾取结束 → 对话框复开（表单态在面板层未丢）
+      pickerMocks.picking = false;
+      rerender(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      expect(screen.getByRole('dialog')).toBeDefined();
+    });
+
+    it('无 connection → 拾取按钮禁用（aria-disabled）', () => {
+      const fs = makeFs({ formModel: filletModel });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'fillet' } });
+      expect(within(dialog).getByRole('button', { name: '从视图选边' }).getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('对话框取消/类型切换中途拾取 → picker.stop 回收（三通道退场纪律）', () => {
+      const fs = makeFs({ formModel: filletModel });
+      const dialog = openNewDialog(fs);
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'fillet' } });
+      // 类型选定本身亦走 handleNewTypeChange（含一次 stop 调用，属正常归零）——清计数后钉增量
+      pickerMocks.stop.mockClear();
+      fireEvent.click(within(dialog).getByRole('button', { name: '从视图选边' }));
+      expect(pickerMocks.stop).not.toHaveBeenCalled();
+
+      // 类型切换 mid-pick → stop
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'extrude' } });
+      expect(pickerMocks.stop).toHaveBeenCalledTimes(1);
+
+      // 取消关对话框 mid-pick → stop
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'fillet' } });
+      pickerMocks.stop.mockClear();
+      fireEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+      expect(pickerMocks.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('编辑 fillet 特征对话框同样注入拾取按钮', () => {
+      const fs = makeFs({
+        formModel: filletModel,
+        tree: [makeEntry({ id: 'fl1', featureType: 'fillet', params: { radius: 1, propagateSmooth: true, edges: [] } })],
+      });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      fireEvent.click(screen.getByRole('button', { name: '编辑特征' }));
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByRole('button', { name: '从视图选边' })).toBeDefined();
     });
   });
 });

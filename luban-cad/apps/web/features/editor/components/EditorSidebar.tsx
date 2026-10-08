@@ -66,7 +66,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
         </Tabs.TabList>
 
         <Tabs.Panel value="features" className="editor-sidebar-panel">
-          <FeaturePanel fs={featureSystem} onEditFeature={() => undefined} isVisible />
+          <FeaturePanel fs={featureSystem} connection={connection} onEditFeature={() => undefined} isVisible />
         </Tabs.Panel>
 
         <Tabs.Panel value="assemblies" className="editor-sidebar-panel">

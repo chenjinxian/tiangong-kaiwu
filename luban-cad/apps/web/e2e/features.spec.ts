@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect } from '@playwright/test';
-import { loginWithSession, navigateToEditor } from './helpers';
+import { expectToolActivated, getActiveToolId, loginWithSession, navigateToEditor } from './helpers';
 
 /**
  * 特征树（M3-a T6.1）——接 M1 特征 RPC（useFeatureSystem）后的 UI 第一批验收。
@@ -116,6 +116,66 @@ test.describe('Feature Tree (特征 RPC)', () => {
     await expect(guardDialog).toHaveCount(0);
 
     // ── 自清：链尾删除所建特征（尾特征删除守卫放行），种子 iModel 回到基线行数 ──
+    await newRow.hover();
+    await newRow.getByRole('button', { name: '删除特征' }).click();
+    await expect(treePanel.locator('.feature-row')).toHaveCount(rowsBefore);
+  });
+
+  /**
+   * T6.3 视口选边 → 邻面对引用：先按 T6.2 同款步骤建一个 extrude（种子模型持有几何体），
+   * 再新建 fillet → 「从视图选边」→ SelectSubEntity 工具激活（拾取期间对话框暂隐——模态
+   * backdrop 吞视口点击的化解，浮条接管）→ Escape 退场（KeyboardManager → startDefaultTool
+   * → onComplete → 对话框复开）。几何级命中点击不断言（flaky 面；交互正确性由单测 +
+   * MS 集成测试双保险）。末尾删除所建 extrude 自清。
+   */
+  test('T6.3 选边拾取器：fillet 表单「从视图选边」→ 工具激活 → Escape 退场', async ({ page }) => {
+    await navigateToEditor(page);
+
+    const treePanel = page.locator('.feature-tree-panel');
+    await expect(treePanel).toBeVisible({ timeout: 60000 });
+    await expect(treePanel.getByText('加载中...')).toHaveCount(0, { timeout: 60000 });
+    const rowsBefore = await treePanel.locator('.feature-row').count();
+
+    // ── 先建 extrude（T6.2 同款步骤）让种子模型持有几何体 ──
+    await treePanel.getByRole('button', { name: '新建特征' }).click();
+    const setupDialog = page.getByRole('dialog');
+    await expect(setupDialog).toBeVisible();
+    await setupDialog.locator('select').selectOption('extrude');
+    await setupDialog.getByLabel('距离').fill('2');
+    await setupDialog.getByLabel('轮廓').fill('[{"x":0,"y":0},{"x":2,"y":0},{"x":2,"y":2},{"x":0,"y":2}]');
+    await setupDialog.getByLabel('轮廓').blur();
+    await setupDialog.getByRole('button', { name: '创建' }).click();
+    await expect(setupDialog).toHaveCount(0);
+    await expect(treePanel.locator('.feature-row')).toHaveCount(rowsBefore + 1);
+
+    // ── 新建 fillet → 「从视图选边」按钮 → SelectSubEntity 激活 ──
+    await treePanel.getByRole('button', { name: '新建特征' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.locator('select').selectOption('fillet');
+    // fillet 表单字段齐备（chips 空态 + 拾取按钮）
+    await expect(dialog.getByText('未选择边')).toBeVisible();
+    const pickBtn = dialog.getByRole('button', { name: '从视图选边' });
+    await expect(pickBtn).toBeVisible();
+    await pickBtn.click();
+
+    // 拾取期间对话框暂隐（浮条接管），工具激活
+    await expect(page.getByTestId('edge-picker-banner')).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+    await expectToolActivated(page, 'SelectSubEntity');
+
+    // Escape 退场：KeyboardManager → startDefaultTool → 工具 onCleanup → onComplete → 对话框复开
+    await page.keyboard.press('Escape');
+    await expect
+      .poll(() => getActiveToolId(page), { timeout: 10000, message: 'SelectSubEntity 应退出' })
+      .not.toBe('SelectSubEntity');
+    await expect(page.getByTestId('edge-picker-banner')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
+
+    // ── 自清：关对话框 + 链尾删除所建 extrude，种子 iModel 回到基线行数 ──
+    await page.getByRole('dialog').getByRole('button', { name: '取消' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    const newRow = treePanel.locator('.feature-row').last();
     await newRow.hover();
     await newRow.getByRole('button', { name: '删除特征' }).click();
     await expect(treePanel.locator('.feature-row')).toHaveCount(rowsBefore);

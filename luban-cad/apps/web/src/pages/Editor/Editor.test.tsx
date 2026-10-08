@@ -148,6 +148,10 @@ vi.mock('../../../features/editor/hooks/useVersionControl.js', () => ({
 vi.mock('../../../features/editor/hooks/useAutoSave.js', () => ({
   useAutoSave: () => {},
 }));
+// T6.3：FeaturePanel 内嵌的选边拾取器 hook——桩掉以免 SelectSubEntityTool/editor-frontend 链入套件
+vi.mock('../../../features/editor/hooks/useEdgeRefPicker.js', () => ({
+  useEdgeRefPicker: () => ({ picking: false, refs: [], start: vi.fn(), stop: vi.fn(), removeAt: vi.fn() }),
+}));
 vi.mock('../../../features/editor/registerTools.js', () => ({
   registerAllTools: vi.fn(),
 }));
