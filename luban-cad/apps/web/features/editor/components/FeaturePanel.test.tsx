@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import React from 'react';
 import type { FeatureFormModel, FeatureTreeEntry } from '@luban-cad/shared';
 import { FeaturePanel } from './FeaturePanel.js';
@@ -574,6 +574,193 @@ describe('FeaturePanel', () => {
       fireEvent.click(screen.getByRole('button', { name: '编辑特征' }));
       const dialog = screen.getByRole('dialog');
       expect(within(dialog).getByRole('button', { name: '从视图选边' })).toBeDefined();
+    });
+  });
+
+  describe('T6.4 编辑对话框试算预览（debounce previewOp + 反馈徽标）', () => {
+    /** extrude 双字段表单（json + number）——编辑流预填存储 params */
+    const editFormModel: FeatureFormModel = {
+      extrude: {
+        fields: [
+          { name: 'profile', label: '轮廓', kind: 'json' },
+          { name: 'distance', label: '距离', kind: 'number' },
+        ],
+      },
+    };
+    const editEntry = makeEntry({ id: 'f1', featureType: 'extrude', params: { profile: [], distance: 5 } });
+
+    beforeEach(() => {
+      // fake timers 必须先于 mount 安装（T6 教训：定时器相关副作用在挂载期即注册）
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const openEditDialog = (fs: UseFeatureSystem) => {
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} onToast={onToast} />);
+      fireEvent.click(screen.getByRole('button', { name: '编辑特征' }));
+      return screen.getByRole('dialog');
+    };
+
+    /** 推进 debounce 窗口并冲刷微任务（previewOp 决议 → setState 落盘） */
+    const advanceDebounce = async (ms = 400) => {
+      await act(async () => {
+        vi.advanceTimersByTime(ms);
+      });
+    };
+
+    it('草稿变更 → 400ms debounce → previewOp(updateParams) 携带草稿参数；徽标成功文案 + 应用可用', async () => {
+      const previewOp = vi.fn().mockResolvedValue({ ok: true, affected: [{ featureId: 'f1', status: 0 }] });
+      const fs = makeFs({ formModel: editFormModel, tree: [editEntry], previewOp });
+      const dialog = openEditDialog(fs);
+
+      // 打开对话框本身不触发试算（无预览垃圾）
+      await advanceDebounce(1000);
+      expect(previewOp).not.toHaveBeenCalled();
+      expect(within(dialog).queryByTestId('preview-badge')).toBeNull();
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '3' } });
+      // debounce 窗口内不调用
+      await advanceDebounce(399);
+      expect(previewOp).not.toHaveBeenCalled();
+
+      await advanceDebounce(1);
+      expect(previewOp).toHaveBeenCalledTimes(1);
+      expect(previewOp).toHaveBeenCalledWith({
+        kind: 'updateParams',
+        featureId: 'f1',
+        params: { profile: [], distance: 3 },
+      });
+      expect(within(dialog).getByTestId('preview-badge')).toBeDefined();
+      expect(within(dialog).getByText('✓ 试算通过（1 个特征受影响）')).toBeDefined();
+      expect(within(dialog).getByRole('button', { name: '应用' }).getAttribute('aria-disabled')).not.toBe('true');
+    });
+
+    it('连续变更 debounce 折叠：仅以最后一次草稿试算一次', async () => {
+      const previewOp = vi.fn().mockResolvedValue({ ok: true, affected: [] });
+      const fs = makeFs({ formModel: editFormModel, tree: [editEntry], previewOp });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '3' } });
+      await advanceDebounce(200);
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '4' } });
+      await advanceDebounce(200); // 第一次 timer 已被清，未到第二次 400ms
+      expect(previewOp).not.toHaveBeenCalled();
+
+      await advanceDebounce(200);
+      expect(previewOp).toHaveBeenCalledTimes(1);
+      expect(previewOp).toHaveBeenCalledWith({
+        kind: 'updateParams',
+        featureId: 'f1',
+        params: { profile: [], distance: 4 },
+      });
+    });
+
+    it('试算失败 → 徽标失败文案 + 应用禁用 + 「仍要应用」强制执行', async () => {
+      const previewOp = vi
+        .fn()
+        .mockResolvedValue({ ok: false, error: 'distance 必须为正数', affected: [{ featureId: 'f1', status: 3 }] });
+      const applyOp = vi.fn().mockResolvedValue({ ok: true });
+      const fs = makeFs({ formModel: editFormModel, tree: [editEntry], previewOp, applyOp });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '-1' } });
+      await advanceDebounce();
+
+      expect(within(dialog).getByText('⚠ 试算失败：distance 必须为正数')).toBeDefined();
+      expect(within(dialog).getByRole('button', { name: '应用' }).getAttribute('aria-disabled')).toBe('true');
+
+      // 仍要应用：防引用失效误锁死——强制执行同一份草稿
+      fireEvent.click(within(dialog).getByRole('button', { name: '仍要应用' }));
+      expect(applyOp).toHaveBeenCalledWith({
+        kind: 'updateParams',
+        featureId: 'f1',
+        params: { profile: [], distance: -1 },
+      });
+    });
+
+    it('previewOp 返回 undefined（RPC 不可用）→ 无徽标、应用不被禁用（优雅降级）', async () => {
+      const previewOp = vi.fn().mockResolvedValue(undefined);
+      const fs = makeFs({ formModel: editFormModel, tree: [editEntry], previewOp });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '3' } });
+      await advanceDebounce();
+
+      expect(within(dialog).queryByTestId('preview-badge')).toBeNull();
+      expect(within(dialog).getByRole('button', { name: '应用' }).getAttribute('aria-disabled')).not.toBe('true');
+      expect(within(dialog).queryByRole('button', { name: '仍要应用' })).toBeNull();
+    });
+
+    it('取消编辑 → 徽标/试算态不留痕；重开对话框不触发预览（无打开即预览）', async () => {
+      const previewOp = vi.fn().mockResolvedValue({ ok: true, affected: [{ featureId: 'f1', status: 0 }] });
+      const fs = makeFs({ formModel: editFormModel, tree: [editEntry], previewOp });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '3' } });
+      await advanceDebounce();
+      expect(within(dialog).getByTestId('preview-badge')).toBeDefined();
+
+      fireEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByTestId('preview-badge')).toBeNull();
+
+      // 重开：预填存储值 = 无草稿变更 → 不试算
+      fireEvent.click(screen.getByRole('button', { name: '编辑特征' }));
+      const dialog2 = screen.getByRole('dialog');
+      expect(within(dialog2).queryByTestId('preview-badge')).toBeNull();
+      await advanceDebounce(1000);
+      expect(previewOp).toHaveBeenCalledTimes(1);
+    });
+
+    it('乱序守卫：迟到的旧试算决议不得覆盖新徽标（last-call-wins）', async () => {
+      let resolveStale:
+        | ((v: { ok: boolean; error?: string; affected: Array<{ featureId: string; status: number }> }) => void)
+        | undefined;
+      const previewOp = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<{ ok: boolean; error?: string; affected: Array<{ featureId: string; status: number }> }>(
+              (res) => {
+                resolveStale = res;
+              },
+            ),
+        )
+        .mockResolvedValue({ ok: true, affected: [] });
+      const fs = makeFs({ formModel: editFormModel, tree: [editEntry], previewOp });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '3' } });
+      await advanceDebounce(); // 第一次试算挂起未决议
+      expect(previewOp).toHaveBeenCalledTimes(1);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '4' } });
+      await advanceDebounce(); // 第二次试算成功
+      expect(within(dialog).getByText(/试算通过/)).toBeDefined();
+
+      // 迟到的第一次决议（失败）被丢弃
+      await act(async () => {
+        resolveStale?.({ ok: false, error: '过期结果', affected: [] });
+      });
+      expect(within(dialog).queryByText(/试算失败/)).toBeNull();
+      expect(within(dialog).getByText(/试算通过/)).toBeDefined();
+    });
+
+    it('草稿回退存储值 → 清徽标且不再试算', async () => {
+      const previewOp = vi.fn().mockResolvedValue({ ok: true, affected: [{ featureId: 'f1', status: 0 }] });
+      const fs = makeFs({ formModel: editFormModel, tree: [editEntry], previewOp });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '3' } });
+      await advanceDebounce();
+      expect(within(dialog).getByTestId('preview-badge')).toBeDefined();
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '5' } });
+      await advanceDebounce();
+      expect(within(dialog).queryByTestId('preview-badge')).toBeNull();
+      expect(previewOp).toHaveBeenCalledTimes(1);
     });
   });
 });

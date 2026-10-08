@@ -180,4 +180,66 @@ test.describe('Feature Tree (特征 RPC)', () => {
     await newRow.getByRole('button', { name: '删除特征' }).click();
     await expect(treePanel.locator('.feature-row')).toHaveCount(rowsBefore);
   });
+
+  /**
+   * T6.4 试算预览管道（反馈级）：编辑 extrude distance → 400ms debounce → previewOp(updateParams)
+   * → 对话框顶部 .preview-badge 成功文案 → 应用成功；distance=-1 → 徽标失败文案 + 「应用」禁用 +
+   * 「仍要应用」强制出口可见（MS previewOp 与 applyOp 同 zod 校验，文案一致由单测钉 parity）。
+   * 末尾删除所建特征自清。
+   */
+  test('T6.4 试算预览：改 distance → 徽标成功 → 应用成功；非法值 → 徽标失败 + 应用禁用', async ({ page }) => {
+    await navigateToEditor(page);
+
+    const treePanel = page.locator('.feature-tree-panel');
+    await expect(treePanel).toBeVisible({ timeout: 60000 });
+    await expect(treePanel.getByText('加载中...')).toHaveCount(0, { timeout: 60000 });
+    const rowsBefore = await treePanel.locator('.feature-row').count();
+
+    // ── 先建 extrude（T6.2 同款步骤）提供可编辑特征 ──
+    await treePanel.getByRole('button', { name: '新建特征' }).click();
+    const setupDialog = page.getByRole('dialog');
+    await expect(setupDialog).toBeVisible();
+    await setupDialog.locator('select').selectOption('extrude');
+    await setupDialog.getByLabel('距离').fill('2');
+    await setupDialog.getByLabel('轮廓').fill('[{"x":0,"y":0},{"x":2,"y":0},{"x":2,"y":2},{"x":0,"y":2}]');
+    await setupDialog.getByLabel('轮廓').blur();
+    await setupDialog.getByRole('button', { name: '创建' }).click();
+    await expect(setupDialog).toHaveCount(0);
+    const newRow = treePanel.locator('.feature-row').last();
+    await expect(newRow).toContainText('拉伸 (extrude)');
+
+    // ── 编辑：distance 3 → debounce 后徽标成功 → 应用成功 ──
+    await newRow.hover();
+    await newRow.getByRole('button', { name: '编辑特征' }).click();
+    const editDialog = page.getByRole('dialog');
+    await expect(editDialog).toBeVisible();
+    await editDialog.getByLabel('距离').fill('3');
+    const badge = editDialog.locator('.preview-badge');
+    // debounce 400ms + RPC 往返（previewOp 影子求值），给足余量
+    await expect(badge).toBeVisible({ timeout: 15000 });
+    await expect(badge).toContainText('试算通过');
+    await editDialog.getByRole('button', { name: '应用' }).click();
+    await expect(page.getByText('特征参数已更新')).toBeVisible();
+    await expect(editDialog).toHaveCount(0);
+
+    // ── 非法值路径：distance=-1 → 徽标失败文案 + 应用禁用 + 「仍要应用」出口 ──
+    await newRow.hover();
+    await newRow.getByRole('button', { name: '编辑特征' }).click();
+    const guardDialog = page.getByRole('dialog');
+    await expect(guardDialog).toBeVisible();
+    await guardDialog.getByLabel('距离').fill('-1');
+    const guardBadge = guardDialog.locator('.preview-badge');
+    await expect(guardBadge).toBeVisible({ timeout: 15000 });
+    await expect(guardBadge).toContainText('试算失败');
+    // name 子串匹配会同时命中「仍要应用」——exact 钉死主按钮
+    await expect(guardDialog.getByRole('button', { name: '应用', exact: true })).toHaveAttribute('aria-disabled', 'true');
+    await expect(guardDialog.getByRole('button', { name: '仍要应用' })).toBeVisible();
+    await guardDialog.getByRole('button', { name: '取消' }).click();
+    await expect(guardDialog).toHaveCount(0);
+
+    // ── 自清：链尾删除所建特征，种子 iModel 回到基线行数 ──
+    await newRow.hover();
+    await newRow.getByRole('button', { name: '删除特征' }).click();
+    await expect(treePanel.locator('.feature-row')).toHaveCount(rowsBefore);
+  });
 });

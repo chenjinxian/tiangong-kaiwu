@@ -3,8 +3,8 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Button, Dialog, IconButton, Label, Select, Text } from '@itwin/itwinui-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Badge, Button, Dialog, IconButton, Label, Select, Text } from '@itwin/itwinui-react';
 import { SvgAdd, SvgChevronDown, SvgChevronUp, SvgDelete, SvgEdit, SvgVisibilityHalf } from '@itwin/itwinui-icons-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import type { FeatureFormField, FeatureParams, FeatureTreeEntry, FilletEdgeRef, LubanFeatureType } from '@luban-cad/shared';
@@ -40,6 +40,16 @@ const FEATURE_TYPE_LABELS: Record<string, string> = {
   booleanSubtract: '布尔减 (booleanSubtract)',
   fillet: '圆角 (fillet)',
 };
+
+/** T6.4 试算预览 debounce 窗口（草稿停笔 400ms 后才发 previewOp，折叠连续击键） */
+const PREVIEW_DEBOUNCE_MS = 400;
+
+/** 编辑对话框试算徽标态：ok + 受影响特征数 / 失败文案（previewOp 不可用 = null，无徽标不挡应用） */
+interface PreviewBadgeState {
+  ok: boolean;
+  error?: string;
+  affectedCount: number;
+}
 
 /** 后端 FeatureTreeEntry.params 为 unknown（早期为 JSON 字符串；现 getTree 已 parse）——
  *  编辑预填宽容归一：字符串先 parse，非对象兜底 {}，边引用数组消毒。 */
@@ -121,6 +131,13 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
   const [dialogError, setDialogError] = useState<string | null>(null);
   /** 应用进行中（防重复提交；op 为同步+短事务，失败不 stuck） */
   const [applying, setApplying] = useState(false);
+  /** T6.4 试算徽标态（仅编辑对话框；null = 无徽标：未试算 / RPC 不可用 / 草稿回退存储值） */
+  const [preview, setPreview] = useState<PreviewBadgeState | null>(null);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 试算序号：每次草稿变更 +1，决议时比对——乱序返回的旧结果不得覆盖新徽标（last-call-wins） */
+  const previewSeqRef = useRef(0);
+  /** 编辑打开时的存储参数快照（JSON 串）：草稿与之相等 = 无实际变更 → 不试算、清徽标 */
+  const editBaselineJsonRef = useRef<string | null>(null);
 
   // MS 返回已按 orderKey 排序；防御性再排一次（UI 不假设后端序）
   const sortedTree = useMemo(
@@ -152,6 +169,53 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
     onError: (message) => onToast?.(message, 'error'),
   });
   const stopPicking = picker.stop;
+
+  /**
+   * T6.4 试算预览管道（仅编辑对话框）：草稿变更 → 400ms debounce → previewOp(updateParams) → 徽标。
+   * - 打开/草稿回退存储值（与基线快照 JSON 相等）→ 不试算并清徽标（无打开即预览的垃圾请求）；
+   * - last-call-wins：每次变更递增序号，决议时旧序号直接丢弃（防抖只会压缩请求，防的是
+   *   RPC 往返乱序——慢请求后至覆盖新结果）；
+   * - previewOp 不可用（undefined）/ 抛错 → 无徽标、应用不挡（优雅降级，反馈级口径）。
+   */
+  useEffect(() => {
+    if (!editing) return;
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    const seq = ++previewSeqRef.current; // 先占位序号：草稿回退基线时，在途的中间草稿试算结果一并作废
+    if (JSON.stringify(formValue) === editBaselineJsonRef.current) {
+      setPreview(null);
+      return;
+    }
+    previewTimerRef.current = setTimeout(() => {
+      previewTimerRef.current = null;
+      void (async () => {
+        let result: { ok: boolean; error?: string; affected: Array<{ featureId: string; status: number }> } | undefined;
+        try {
+          result = await fs.previewOp({
+            kind: 'updateParams',
+            featureId: editing.id,
+            params: formValue as unknown as FeatureParams,
+          });
+        } catch {
+          result = undefined; // RPC 层异常等同不可用 → 不挡应用
+        }
+        if (seq !== previewSeqRef.current) return; // 乱序守卫：仅最后一次草稿的试算生效
+        setPreview(
+          result === undefined
+            ? null
+            : { ok: result.ok, error: result.error, affectedCount: result.affected.length },
+        );
+      })();
+    }, PREVIEW_DEBOUNCE_MS);
+    return () => {
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+    };
+  }, [editing, formValue, fs]);
 
   /** 树区行内写操作统一出口：租约缺失直接拒（aria-disabled 按钮仍可派发 click，双保险）；成功清错误、失败 Alert + 可选 toast */
   const runOp = useCallback(
@@ -196,8 +260,11 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
       onEditFeature?.(entry); // 兼容通知（外部观察/埋点）；面板自身接管编辑流
       setEditing(entry);
       setDialogError(null);
+      setPreview(null);
       const fields = fs.formModel?.[entry.featureType]?.fields ?? [];
-      setFormValue(buildInitialValue(fields, parseStoredParams(entry.params)));
+      const initial = buildInitialValue(fields, parseStoredParams(entry.params));
+      editBaselineJsonRef.current = JSON.stringify(initial);
+      setFormValue(initial);
     },
     [fs.formModel, onEditFeature],
   );
@@ -206,6 +273,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
     stopPicking(); // 对话框关闭中途拾取 → 退场回收（三通道纪律）
     setEditing(null);
     setDialogError(null);
+    setPreview(null); // 试算徽标随对话框退场清零（取消不留状态）
   }, [stopPicking]);
 
   /** 对话框应用统一出口：成功关闭 + toast；失败 Alert 呈现后端守卫/校验文案（M2-UX #4）；
@@ -224,6 +292,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           setEditing(null);
           setShowNew(false);
           setNewType(undefined);
+          setPreview(null); // 试算徽标随对话框关闭清零
           onToast?.(successMessage, 'success');
         } else {
           setDialogError(result.error);
@@ -244,6 +313,15 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
       '特征参数已更新',
     );
   }, [applyFromDialog, editing, formValue]);
+
+  /** T6.4 预览失败时的强制应用（「仍要应用」）：防引用失效等误操作锁死用户——守卫文案已由徽标呈现，确认权交还用户 */
+  const handleForceApplyEdit = useCallback(() => {
+    if (!editing || preview?.ok !== false) return;
+    void applyFromDialog(
+      { kind: 'updateParams', featureId: editing.id, params: formValue as unknown as FeatureParams },
+      '特征参数已更新',
+    );
+  }, [applyFromDialog, editing, preview, formValue]);
 
   const handleCreate = useCallback(() => {
     if (!newType) return;
@@ -281,6 +359,8 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
 
   const editingFields = editing ? (fs.formModel?.[editing.featureType]?.fields ?? []) : [];
   const editingLabel = editing ? (FEATURE_TYPE_LABELS[editing.featureType] ?? editing.featureType) : '';
+  /** T6.4：试算失败 → 主「应用」禁用 + 呈现「仍要应用」强制出口 */
+  const previewFailed = preview !== null && !preview.ok;
   const newFields = newType ? (fs.formModel?.[newType]?.fields ?? []) : [];
 
   /** edgeRefs kind 字段的拾取器插槽（T6.3）：仅含该 kind 的表单（fillet）注入「从视图选边」 */
@@ -514,14 +594,26 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           <Dialog.TitleBar titleText={`编辑特征：${editingLabel}`} />
           <Dialog.Content>
             {editing && (
-              <FeatureParamForm
-                key={`edit-${editing.id}`}
-                fields={editingFields}
-                value={formValue}
-                onChange={setFormValue}
-                disabled={readOnly || applying}
-                edgePicker={renderEdgePickerSlot(editingFields)}
-              />
+              <>
+                {/* T6.4 试算反馈徽标：草稿试算结果（positive=通过 / negative=失败）；预览不可用时无徽标 */}
+                {preview && (
+                  <div className="preview-badge" data-testid="preview-badge">
+                    <Badge backgroundColor={preview.ok ? 'positive' : 'negative'}>
+                      {preview.ok
+                        ? `✓ 试算通过（${preview.affectedCount} 个特征受影响）`
+                        : `⚠ 试算失败：${preview.error ?? '未知错误'}`}
+                    </Badge>
+                  </div>
+                )}
+                <FeatureParamForm
+                  key={`edit-${editing.id}`}
+                  fields={editingFields}
+                  value={formValue}
+                  onChange={setFormValue}
+                  disabled={readOnly || applying}
+                  edgePicker={renderEdgePickerSlot(editingFields)}
+                />
+              </>
             )}
             {dialogError && (
               <Alert type="negative" className="feature-dialog-error">{dialogError}</Alert>
@@ -534,10 +626,19 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
             >
               取消
             </Button>
+            {previewFailed && (
+              <Button
+                styleType="default"
+                onClick={handleForceApplyEdit}
+                disabled={readOnly || applying}
+              >
+                仍要应用
+              </Button>
+            )}
             <Button
               styleType="high-visibility"
               onClick={handleApplyEdit}
-              disabled={!editing || readOnly || applying}
+              disabled={!editing || readOnly || applying || previewFailed}
             >
               应用
             </Button>
