@@ -106,6 +106,7 @@ export function toggleProjectExtents(imodel: IModelConnection, enabled?: boolean
  */
 export class ToggleProjectExtentsTool extends Tool {
   public static override toolId = "ToggleProjectExtents";
+  public static override namespace = "LubanCad";
   public static override get minArgs() { return 0; }
   public static override get maxArgs() { return 0; }
 

@@ -15,6 +15,7 @@ import {
 export class CameraWalkTool extends Tool {
   public static override toolId = 'LubanCad.CameraWalk';
   public static override iconSpec = 'icon-camera-walk';
+  public static override namespace = 'LubanCad';
 
   public override async run(): Promise<boolean> {
     const viewport = IModelApp.viewManager.selectedView;
@@ -34,6 +35,7 @@ export class CameraWalkTool extends Tool {
 export class FlyToSelectionTool extends Tool {
   public static override toolId = 'LubanCad.FlyToSelection';
   public static override iconSpec = 'icon-fly-to';
+  public static override namespace = 'LubanCad';
 
   public override async run(): Promise<boolean> {
     const viewport = IModelApp.viewManager.selectedView;

@@ -125,6 +125,7 @@ export function toggleACS(iModel: IModelConnection, enabled?: boolean): boolean 
  */
 export class ToggleACSTool extends Tool {
   public static override toolId = "ToggleACS";
+  public static override namespace = "LubanCad";
   public static override get minArgs() { return 0; }
   public static override get maxArgs() { return 0; }
 

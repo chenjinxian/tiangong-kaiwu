@@ -2,7 +2,8 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 鲁班CAD 特征系统 RPC 接口（M1 roadmap T5.8；M3-a 升 v1.1：fillet + suppress/reorder/preview/表单模型）。
+ * 鲁班CAD 特征系统 RPC 接口（M1 roadmap T5.8；M3-a 升 v1.1：fillet + suppress/reorder/preview/表单模型；
+ * M3-b 升 v1.2：insertSketch/updateSketch op + getSketch/listSketches 读面）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -39,6 +40,8 @@ export type FeatureOp =
   | { kind: "reorderFeature"; featureId: string; to: number }  // to=目标序位（1 基）
   /** M2 T4.5：改草图约束尺寸（仅 distance/radius 类约束）→ 重解算 → 草图 params+几何流重写 → EDE 传播 */
   | { kind: "updateSketchConstraint"; sketchId: string; constraintId: number; value: number }
+  | { kind: "insertSketch"; entities: SketchEntityDto[]; constraints: SketchConstraintDto[] }
+  | { kind: "updateSketch"; sketchId: string; entities: SketchEntityDto[]; constraints: SketchConstraintDto[] }
   | { kind: "undo" } | { kind: "redo" };
 
 export interface FeatureTreeEntry {
@@ -64,6 +67,23 @@ export interface FeatureFormField { name: string; label: string; kind: FeatureFo
 export interface FeatureFormModelEntry { fields: FeatureFormField[] }
 export type FeatureFormModel = Record<string, FeatureFormModelEntry>;
 
+/**
+ * M3-b v1.2：草图实体/约束（solver-neutral，与后端 SolverTypes.ts 同形——两端同源维护，
+ * 改一处必须同步另一处）。实体 id/引用为草图内局部编号（非 iModel ElementId）。
+ */
+export type SketchEntityDto =
+  | { kind: "point"; id: number; x?: number; y?: number }
+  | { kind: "line"; id: number; p1: number; p2: number }
+  | { kind: "circle"; id: number; center: number; radius?: number };
+export interface SketchConstraintDto {
+  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius";
+  id: number; refs: number[]; value?: number;
+}
+export type SketchSolveStatusDto = "ok" | "underconstrained" | "conflicting" | "failed";
+export interface SketchSolveStateDto { status: SketchSolveStatusDto; dof: number; failedConstraintIds: number[]; conflictingRank: number[]; redundant?: boolean }
+export interface SketchDto { id: string; entities: SketchEntityDto[]; constraints: SketchConstraintDto[]; solve: SketchSolveStateDto }
+export interface SketchSummaryDto { id: string; entityCount: number; constraintCount: number }
+
 export abstract class LubanFeatureRpcInterface extends RpcInterface {
   /**
    * 接口名必须是干净标识符：BentleyCloudRpcProtocol 的 URL 操作路径按 "-" 与 "/"
@@ -72,7 +92,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.1.0";
+  public static interfaceVersion = "1.2.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
@@ -90,4 +110,9 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
   public async resolveEdgeRef(_iModelKey: string, _elementId: string, _subEntityId: number): Promise<{ ok: boolean; ref?: FilletEdgeRef; error?: string }> { return this.forward(arguments); }
   /** M3-a v1.1：按特征类型取参数表单模型（前端动态渲染） */
   public async getFeatureFormModel(_iModelKey: string): Promise<FeatureFormModel> { return this.forward(arguments); }
+
+  /** M3-b v1.2：读单张草图（实体+约束+解算状态；不存在返回 undefined） */
+  public async getSketch(_iModelKey: string, _sketchId: string): Promise<SketchDto | undefined> { return this.forward(arguments); }
+  /** M3-b v1.2：列 iModel 内全部草图（摘要读面） */
+  public async listSketches(_iModelKey: string): Promise<SketchSummaryDto[]> { return this.forward(arguments); }
 }

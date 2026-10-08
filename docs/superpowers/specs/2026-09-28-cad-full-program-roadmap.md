@@ -87,7 +87,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T3.11 | **D7 破坏式编辑打标**：绕开特征系统直改 BodySolid（既有 64 工具中的几何工具）→ 检测+打标 overridden+暂停自动再生；「重新参数化」入口=丢弃手工修改+全量重建（spec §3.3b） | 破坏后可标记、可恢复 | T3.7 | M |
 | T3.12 | **MS 崩溃/重启恢复**：重开 briefcase + op 日志在库内（随 changeset）+ 内存缓存冷启动全量重建（第一律）+ 写租约回收 | 崩溃后重进不丢定义、不丢一致性 | T5.2 | M |
 
-## WS4 草图与约束求解 🔨 **M2 后端闭环 2026-09-30 达成（T4.0/4.1/4.2/4.4/4.5/T4.8）；T4.3/T4.6/T4.7 归 M2-UX**
+## WS4 草图与约束求解 🔨 **M2 后端闭环 2026-09-30 达成（T4.0/4.1/4.2/4.4/4.5/T4.8）；T4.3 ✅（2026-09-30 裁决 MS 往返）；T4.6/T4.7 归 M3-b ✅ 2026-10-09 达成**
 
 > **2026-09-30 M2 达成注记**：solver-neutral 契约冻结（T4.1，绳墨平替入口）→ libslvs 源引入 + DOF C API 验证（T4.0）→ node-gyp 原生插件进程内直链（T4.2：三态契约实装 + 锚定 dof 语义 + 实体引用两趟合成/句柄重映射，权威解落库）→ Sketch 元素 schema（T4.4，solver-neutral 数据基座）→ 草图入 EDE 图源节点（T4.5：sketchProfileFrom 读侧 + 闭合链边构建 + extrude 消费 sketchId）。**M2 出口实证 = 改草图尺寸（updateSketchConstraint）→ 求解 → 全零件联动**。回归基线：modeling-server vitest 29 文件 255 过/9 skip（中毒态留档——native-assault 幻影定案后翻转启用，见风险 #10）/tsc 0 错/eslint 仓级既有基线不变。UX 交互面（T4.3/T4.6/T4.7 + 后端闭环期遗留债）归 **M2-UX 后续计划**（见泳道尾部清单）。
 
@@ -99,19 +99,19 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T4.3 ✅**已裁决 2026-09-30：MS 往返** | 交互求解=FE 经 WebSocket 节流发 solve 到 MS（SlvsSolver 已在）——Onshape 先例（全服务端求解+协议优化）+零 GPL conveying 义务；绳墨 WASM 为将来免费升级 | 拖拽预览（本地栈 ~5-20ms） | T4.2 | M |
 | T4.4 ✅（2026-09-30） | 草图元素（GeometricElement3d 平面曲线）+ 草图平面定义 | 视口可见可编辑 | T2 | M |
 | T4.5 ✅（2026-09-30，出口实证） | 草图入 EDE 图源节点：解算完成→草图行更新→saveChanges→下游重建 | **改草图尺寸→全零件联动**（M2 标志） | T3.2 | M |
-| T4.6 🔨 **归 M3-b**（原 M2-UX 后续计划） | 草图编辑交互（FE 工具：绘制+约束创建+尺寸标注） | 可用 | T4.3/T4.4 | L |
-| T4.7 🔨 **归 M3-b**（原 M2-UX 后续计划） | 约束状态显示（DOF/矛盾清单；矛盾清单 libslvs 原生支持） | UI 可见 | T4.0 | S |
+| T4.6 ✅（2026-10-09 M3-b） | 草图编辑交互（FE 工具：绘制+约束创建+尺寸标注——裁决 E-3 全新 PrimitiveTool 族不继承 iTwin Create*（其写 3D 普通元素进不了草图领域模型）：线/矩形/圆绘制+Decorator 橡皮筋+先试算后提交；E-4 废弃 14 空壳工具（未注册/死 RPC/无预览）新写 SketchAddConstraintTool/SketchAddDimensionTool 槽位驱动拾取+值确认桥） | 可用 | T4.3/T4.4 | L |
+| T4.7 ✅（2026-10-09 M3-b，裁决 E-6 面板清单口径——视口分色不做） | 约束状态显示（DOF/矛盾清单；矛盾清单 libslvs 原生支持；getSketch 服务端现场求解返回三态/dof/failedConstraintIds） | UI 可见 | T4.0 | S |
 | T4.8 ✅（2026-09-30） | **建链轨迹规范化**（原定位「风险 #10 唯一防御」——native-assault 幻影定案后**降格为纵深冗余**：中毒态系 sweep 双因子缺陷的 no-op 观测，写路径无缺陷可防；两步制机制保留——布尔插入先插角点工具、立即 updateParams 到目标参数，杜绝「内嵌孔洞起步」退化轨迹入链。**M2 终审 I2 补钉**：布尔拒收 sketchId（Registry booleanSchema）——否则两步制引导参数 `{...params, profile:normalize([])}` ≡ 目标参数，被草图驱动布尔绕过） | applyInsert 建链不再以内嵌退化拓扑起步 | T3.3 | S |
 
 ### M2-UX 待办清单（2026-09-30 M2 收口移交；UX/交互面债务，不阻塞 M3 主线）
 
-1. **草图 op 不可撤销**（UX 债）：updateSketchConstraint 入 oplog 但 opType 不可逆，undo 语义未覆盖草图——需定「仅参数修改」之外的草图逆 op。
-2. **布尔特征的草图驱动显式支持**（M2 终审 I2 后状态）：Registry booleanSchema 已按类型**拒收**布尔+sketchId（曾以「zod 剥离未知键」防御，实测 no-op——引擎类型无关消费 sketchId、两步制建链被绕过）；若未来要支持，须先解决 T4.8 两步制与草图驱动布尔的交互。
-3. **chainClosedLoop 端点容差吸附**：现 1e-6 硬容差 + 断链守卫（点数守卫报错），交互面需要可见的端点吸附/断链诊断。
-4. **updateParams 守卫错误信息的 UI 呈现**：草图驱动特征被内联 params 覆写时拒收（sketchId 不匹配），错误文案需到前端可见。
+1. **草图 op 不可撤销**（UX 债）：updateSketchConstraint 入 oplog 但 opType 不可逆，undo 语义未覆盖草图——需定「仅参数修改」之外的草图逆 op。**维持挂起（2026-10-09 M3-b 核对：E-5 裁决 updateSketch/insertSketch 同理不入 invertible——正确解需 params+几何流快照对，独立专项）**。
+2. **布尔特征的草图驱动显式支持**（M2 终审 I2 后状态）：Registry booleanSchema 已按类型**拒收**布尔+sketchId（曾以「zod 剥离未知键」防御，实测 no-op——引擎类型无关消费 sketchId、两步制建链被绕过）；若未来要支持，须先解决 T4.8 两步制与草图驱动布尔的交互。**维持挂起（2026-10-09 M3-b 未触及）**。
+3. ~~chainClosedLoop 端点容差吸附~~ **已清偿（2026-10-09 M3-b 核对补注）**：AccuSnap 已开 + 绘制工具取点经 accuSnap.currHit（端点吸附生效）；断链诊断属后端 chainClosedLoop 消费面——extrude 轮廓读取已有断链守卫报错经 FeatureOpResult 上呈、SketchPanel 错误区可见。
+4. ~~updateParams 守卫错误信息的 UI 呈现~~ **已清偿（M3-a 2026-10-04，移交时漏核销——2026-10-09 M3-b 核对补注）**：参数面板（T6.2 出口含「守卫错误呈现」）+试算预览徽标（T6.4）已上呈守卫错误。
 5. ~~FE WASM libslvs（=T4.3）~~ **已裁决 2026-09-30：MS 往返**——浏览器侧分发 GPL 派生二进制=conveying 触发源码邀约义务，裁定不背；Onshape 全服务端求解先例支撑天花板。
-6. **草图编辑交互（=T4.6）**：绘制+约束创建+尺寸标注的 FE 工具面。
-7. **约束状态显示（=T4.7）**：DOF/矛盾清单 UI。
+6. ~~草图编辑交互（=T4.6）~~ **已核销（2026-10-09 M3-b 达成，见 T4.6 行）**。
+7. ~~约束状态显示（=T4.7）~~ **已核销（2026-10-09 M3-b 达成，见 T4.7 行）**。
 
 ## WS5 协同数据链 🔨
 
@@ -135,7 +135,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T6.2 ✅（2026-10-04 M3-a） | 参数面板（JSON Schema 驱动表单——五 kind 字段表单模型经 RPC 下发渲染，编辑即 op，守卫错误呈现） | 全特征类型可用 | T3.1 | M |
 | T6.3 ✅（2026-10-04 M3-a） | 视口拾取 → 反查 `(nodeId,entityId)` → 写入特征 params（拓扑引用建立入口；拾取反查经 op31+op7 组合解邻面对，出口「点选面/边建引用」以边实现——fillet 消费面；纯面引用消费方不存在于 M3 范围） | 点选面/边建引用 | T1.1 | M |
 | T6.4 ✅（2026-10-04 M3-a，反馈级口径） | 拖拽预览管道（预览 op=previewOp 影子求值→确认成真 op；v1 交付=debounce 试算+成功/失败反馈徽标，非视口几何级——D-4 已知边界） | 流畅 | T3.8 | M |
-| T6.5 🔨 **M3-b** | 草图模式 UI（平面进入/退出、栅格、捕捉） | 可用 | T4.4 | L |
+| T6.5 ✅（2026-10-09 M3-b，裁决 E-2 模式面口径） | 草图模式 UI（平面进入/退出、栅格、捕捉——进入=俯视对齐（Top）+栅格显示+状态栏提示+特征树联动入口，退出=位姿/栅格还原；**完整平面定义（原点/法向选择）显式划出**，见 M3-b 计划「显式划出」清单） | 可用 | T4.4 | L |
 | T6.6 ✅（2026-10-04 M3-a） | **M3 接线补遗**（M1 Task 9 审查实证）：`LubanFeatureRpcInterface` 须双端各补一处——后端 `main.ts` 的 `BentleyCloudRpcManager.initializeImpl` 数组 + 前端 `web-viewer/src/WebInitializer.ts` 的 `rpcInterfaces` 数组（OpenCloudRpcInterface 同款先例）。**改名裁决**：interfaceName `"luban-cad/features-v1"` → `"LubanFeatureRpcInterface"`（BentleyCloudRpcProtocol 按 `-` 切 operationId/按 `/` 截 path，旧名永远寻址不到——潜伏缺陷，因从未被传输消费而未爆） | 前端可调通特征 RPC | T5.8 | S |
 
 ## WS7 测试与质量 🔨
@@ -205,7 +205,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | **M0 go/no-go** | X1 spike 通过 | T2 全部 —— **✅ 2026-09-28 达成** |
 | **M1 最小参数化闭环** | 拉伸链+参数修改+undo+双端同步可演示 | T3.1-3.3、T5.1-5.5 骨架 —— **✅ 2026-09-29 达成**（分支 feature/m1-feature-engine，11 任务 SDD 执行，测试 24 文件/170 用例） |
 | **M2 草图驱动** | 约束求解入环，改草图尺寸全零件联动 | T4 全部 —— **✅ 2026-09-30 达成（后端闭环——改草图尺寸→求解→全零件联动实证；UX 交互归 M2-UX）**（分支 m2-sketch-solver，7 任务 SDD，测试 29 文件/255 过/9 skip） |
-| **M3 v1 特征完整** | 草图+拉伸+布尔+圆角+前端 UX 可用 | T3.4-3.6、WS6 —— **M3-a ✅ 2026-10-04 达成**（fillet+特征树/参数面板/拾取引用/预览管道半壁 = T3.4/T3.5/T3.8/T6.1-T6.4/T6.6；草图 UX 半壁 = T6.5/T4.6/T4.7 归 **M3-b**） |
+| **M3 v1 特征完整** | 草图+拉伸+布尔+圆角+前端 UX 可用 | T3.4-3.6、WS6 —— **✅ 2026-10-09 全部达成（M3-a 2026-10-04：fillet+特征树/参数面板/拾取引用/预览管道半壁 = T3.4/T3.5/T3.8/T6.1-T6.4/T6.6；M3-b 2026-10-09：草图交互 UX 半壁 = T6.5/T4.6/T4.7，8 任务 SDD）** |
 | **M4 协同完整** | 租约/语义 undo/双端实时 | WS5 完整 |
 | **M5 真形 STEP 通路** | writer+reader+healing | T8.1/T8.2 |
 | **M6 绳墨平替** | 自研求解器替换 libslvs | T9.1-9.4 |
@@ -221,7 +221,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 6. **双 op 面接缝（2026-09-28 审查新增）**：特征引擎跨 `createBRepGeometry`（12 粗粒度 op）与 ElementGeometryCache（31-op）两面；两面的事务/锁/缓存交互未经验证——T3.4 是最先暴露点，视情况在 WS3 前加一个 op 面选型 spike。**2026-09-30 补注：31-op 通道确认已实现（PSBRepEdit.cpp op switch，op31-35 已入该通道）**。**2026-10-04 结案注：T3.4 已验证——fillet 求值跨两面混合调用序（scratch 载体缓存通道 op32/33/34/Blend + 真实库 createBRepGeometry 粗粒度 op）稳定无崩溃无串扰（FilletFlow 9/9 + 探针臂全过），接缝风险实证消除**。
 7. **op=push 交互延迟**：本地 hub 往返可接受（M1 演示级）；AI 批量 op 场景的合批策略（composite op=单 changeset）留为设计注记，不进 v1。
 8. **内核会话态管理**：rollback mark、ElementGeometryCache 均为会话态；模型重开=重建（T1.2 出口已含 mark 表重建策略；缓存重建随 T3.12）。
-9. **ACIS BRep blob 非确定性**（M1 Task 10 实证）：blob 头含时间戳+随机 ID，同参数两次求值字节不同（~75 字节）。纪律：跨求值比较一律用 `TestHost.normalizeBrepGeomJson` 归一化；同持久化 blob 可字节比。影响面：T7.4 结构断言回归、T7.5 性能基准、未来任何字节级几何断言。观察记录（2026-09-29 M1 合并树）：全量套件出现一次未复现的失败（1/5 跑，用例名未捕获）——疑属归一化秒边界或 WriteLease 1ms TTL 边界家族，再现时按此排查。
+9. **ACIS BRep blob 非确定性**（M1 Task 10 实证）：blob 头含时间戳+随机 ID，同参数两次求值字节不同（~75 字节）。纪律：跨求值比较一律用 `TestHost.normalizeBrepGeomJson` 归一化；同持久化 blob 可字节比。影响面：T7.4 结构断言回归、T7.5 性能基准、未来任何字节级几何断言。观察记录（2026-09-29 M1 合并树）：全量套件出现一次未复现的失败（1/5 跑，用例名未捕获）——疑属归一化秒边界或 WriteLease 1ms TTL 边界家族，再现时按此排查。归一化函数选择以 TestHost 文档为准：缓存条目 JSON（数字索引形态）用 normalizeFeatureCacheJson、持久几何流用 normalizeBrepGeomJson——选错会使断言变同义反复（M3-a Task 1 实证）。
 10. **【幻影定案 2026-09-30·已治愈】body「中毒态」= sweep 双因子缺陷的 Subtract no-op 观测（EDE 写路径无辜）**。终局（native-assault 泳道，2026-09-30）：**内嵌工具从未真正切削**——**C++ 因子**：imodel-native `PSBRepCreate.cpp` Sweep case `createSheet` 旗标漏取反（官方 `IsAnyRegionType ^ 1`，ida :1254-1258 直证），region 剖面恒出零厚 sheet（已修 4a98c0820）；**JS 因子**：`FeatureEngine.ts` sweepProfile 闭合点去重→Loop 内几何开线→ACIS ewire 缺口→`api_skin_wires` 端盖失败退化 sheet（已修 a9eb19c：显式补 pts[0] 闭合收尾）。双因子任一在即 sweep 产物=壳；内嵌工具的壳面与 base 壳面几何不相交（体足迹重叠）→ Subtract 恒 no-op——历史上「内嵌孔洞起步→后续 indirect 写永久失效」的全部观测（陈旧体落库/列哈希不变/跨进程持久/rebuildAll 不可恢复/子进程复现/直写免疫）均为 **no-op 重序列化的正确行为**：EDE indirect 写通道自始健康、直写/间接写无分野，「静默不落库」与「落库陈旧内核体」两代改判一并被 no-op 解释取代。实证链：坐标 L1-L5 全层保真、唯一丢失层=体语义（见 `.superpowers/sdd/native-assault/task-2-report.md`）；翻转钉零残留（suppress 三臂=会话内/同进程重开/子进程全部「移除真孔」，260 过三轮满套件，见 task-2b-report）。**表述勘定**：「应用层缓解不可能」「建链轨迹规范化=唯一防御」「阻塞 M2」随幻影定案废止——两步制保留为纵深冗余（生产码注释已改，T4.8）；debug-tail-root 调查矩阵=方法论资产留档（探针臂 skip 保留、翻转钉转正）。**附带新契约**：4 点 Loop（隐式闭合）剖面 sweep 仍出 sheet=内核契约（开线端盖失败退化，非缺陷）——特征引擎剖面构造须守「显式闭合链」约定（JS 侧已落 pts[0] 收尾）。历史调查留档：imodel-native `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md`（其 FNV 指纹法/证伪清单仍是有效方法论资产，结论段已加定案框）。
 11. **【已治愈 2026-09-30·native-assault】fork 逆向重建的 PSBRepGeometry 三项原生缺陷——全部闭环**：**③ 中毒态落库陈旧体 = 幻影定案**（非独立缺陷，实为风险 #10 的 sweep 双因子 no-op 观测；C++ 因子已修 4a98c0820，见第 10 条）。**① GeometryCache 异步 populate 摄取持久化 BRep entry 硬崩 + ② 内核状态物化 op（op 读通道/createRollbackMark）后同会话异步缓存调用硬崩 0xC0000005 = 同根一修**——ACIS 内核上下文（bulletin board/history stream/error state）每线程一份，worker 线程未 `api_start_modeller` 即触任何 `api_*` 必崩（①崩于 `api_restore_entity_list_file`、②崩于 `~AcisKernelEntity`→`api_del_entity`，原「疑线程亲和」坐实为缺每线程内核注册；printf 二分一轮定界）；修复 = `AcisKernelManager::EnsureSessionStarted` thread_local 懒注册（135 内核入口零改动全覆盖，含析构路径）+ 注册分支纳入 KernelLock（73faeb924+bb3c4e19e），回归钉 `WorkerThreadKernelAccess_SaveRestoreDelete`。**M3 前置全解除**：T3.4 解锁（附带修复 Sweep 产物 nodeId=1 不打标——op31-34 在 Sweep 产物修前恒死火）；T3.8「异步缓存调用收敛在首个内核态物化 op 之前」操作律**解除**（probe-t6 八臂全过，消费面可按普通调用序写）。登记 = imodel-native `docs/superpowers/specs/2026-09-30-native-defects-backlog.md`（三项均已标已修）；复现物 `segfault-repro/`/`probe-t6/` 按修复判据复验后归档。
 12. **【2026-09-30 M2 终审 I3 登记】CI 缺位+原生构建依赖（M2 首次）**：modeling-server 门禁（vitest/tsc/eslint）仅本机跑；libslvs 原生构建依赖仓外 SolveSpace 克隆 + submodule 钉子（Eigen `3147391d`/mimalloc `f81bf1b3`）+ `EIGEN_DIR`/`MIMALLOC_DIR` 环境变量（bootstrap 步骤见 `modeling-server/native/slvs/VENDOR.md`「新机器 bootstrap」节）——换机/协作者/回归均无守门。中期补 CI workflow（缓存 `slvs.node` 产物或容器化工具链）。
@@ -237,3 +237,9 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
   - **Task 8x 插队修复**（T3.12 领域真生产洞）：FeatureService 单例缓存随 db 关开清退——原第二编辑器会话起全部特征 RPC 抛 `db not open`；连带实证 e2e 45/45 有盲点（空态/表单模型在 RPC 死时也成立），已补「面板无 db-not-open」断言。
   - **既有 bug 登记（非本计划产物）**：① op7 getConnectedSubEntities 死桩（PSBRepEdit.cpp:974-1033 收集后从不序列化回包，smoke-brep-protocol.js:177-180 已钉）② registerAllTools 静默死于 SelectAllTool（裸 Tool 无 namespace）→全局快捷键含 Escape 全死——M3-b 立项候选。
   - **回归**：modeling-server vitest 31 文件 295 过/8 skip + tsc 0 错 + eslint 增量零新增；公开仓 shared 33/viewer-core 57/web-viewer 15/apps/web 454 过/11 skip；e2e Playwright 全量（含新增 features.spec 5 例）。详情见 plan 目录 task-11-report。
+- **2026-10-09 M3-b 收口注记**（plan `2026-10-04-m3b-sketch-ux`，两仓 `feature/m3b-sketch-ux`，8 任务 SDD）：
+  - **裁决落点（E-1~E-7 全部显式登记）**：E-1 草图 op=insertSketch/updateSketch 两个整体覆写 op（非细粒度 op 族；updateSketchConstraint 保留不动，updateSketch 是其超集）；E-2 草图平面=XY@z=0 固定，T6.5 只做模式行为（完整平面定义=原点/法向选择 UI+数据面，显式划出归后续）；E-3 绘制工具全新写 PrimitiveTool 族（SketchLine/Rectangle/Circle，不继承 iTwin Create*——探查实证其写普通 3D 元素进不了草图领域模型）；E-4 14 空壳工具删除而非修补（其 RPC 通道是不存在的第二套 API，违 CLAUDE.md「禁止第二套建模 API」硬约束），新写 SketchAddConstraintTool/SketchAddDimensionTool（槽位驱动拾取+值确认桥）；E-5 草图 op 不入 invertible（oplog 记但 undo 报无可撤销——M2-UX #1 挂起维持）；E-6 求解状态显示=面板清单（视口分色不做——appearance 覆盖零先例净新增面大）；E-7 updateSketch 预览=先试算（previewOp 试求解不落库返回三态+错误）再提交（非乐观提交+拒收回滚）。
+  - **M3-a 终审 ticket 清偿（Task 8，五项全清）**：registerAllTools 静默死 ✅（根因=ToolRegistry.register namespace throw——SelectAllTool 裸 Tool 无 namespace，15 裸类补 namespace='LubanCad' 后零抛错，全局快捷键含 Escape 复活链双测试钉）；suppress e2e 臂 ✅（建特征→抑制→灰标→解除）；EditorSidebar 死容器删除 ✅（117 行死容器挂活 useFeatureSystem——双租约隐患；FeatureTreePanel 是正主）；T7 旧两例补「面板无 db-not-open」盲点断言 ✅（含历史失败模式注释）；归一化函数选择注记 ✅（风险 #9 补「缓存条目=normalizeFeatureCacheJson，持久几何流=normalizeBrepGeomJson——选错会使断言变同义反复」）。**剩余 ticket 状态不变**：op7 getConnectedSubEntities 死桩/radii 原生修复（imodel-native 专项归口）、carrier dispose（留 M4）、非流形集成臂（后端测试债随原生专项）、e2e flake 专项排查（记录不阻塞）、lint 债 220 清偿（留 M4）——归口见 M3-b 计划「显式划出」清单。
+  - **新登记 backlog**：**deleteSketch op 缺口**（shared+后端+宿主三面）——v1 op 面无草图删除路径，草图元素（LubanCAD.Sketch）非 LubanCAD.Feature 行、不进特征树、不受 deleteFeature 链尾守卫管辖，残留空草图危害限于草图切换器列表污染（e2e sketch.spec 头注释已建档：每次运行残留一个空 sketch 元素属已知债）；归后续里程碑。
+  - **潜伏态观察**：EditorSidebar 删除后浮出 version-control 既有潜伏态——ChangesetTimeline/NamedVersionPanel/ChangesetCompare 无生产挂载（version-control feature 清偿票，M3-b 正确地未越权）。
+  - **回归**：modeling-server vitest 32 文件 303 过/8 skip + tsc 0 错 + eslint 增量零新增（仓级既有基线 220 不变）；公开仓 shared 38/viewer-core 57/web-viewer 15/apps/web 594 过/11 skip；e2e Playwright 全量 53 例（`--list` 权威计数——预估 55 与实测 53 之差经核定，features.spec 6 例 + sketch.spec 2 例）：49 过/4 失败（sketch.spec×2、v2-checkpoint、verify-tools-registered——全集中于套件末三文件，判定=已知 WS 握手挂起/editor 初始化 flake 族的单跑呈现；定向重跑 3 spec 6/6 过、无产品回归。按实际计数——M3-a 既有教训）。详情见 plan 目录 task-9-report。

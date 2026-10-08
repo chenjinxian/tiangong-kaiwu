@@ -41,13 +41,13 @@ async function waitEditorReady(timeout = 180000) {
 
 try {
   // ── 1. 登录页 ─────────────────────────────────────────
-  log('步骤 1/11：打开登录页');
+  log('步骤 1/12：打开登录页');
   await page.goto(`${BASE}/login`);
   await page.waitForSelector('input[type="email"]', { state: 'visible' });
   await shot(page, '01-登录页');
 
   // ── 2. 登录 ───────────────────────────────────────────
-  log('步骤 2/11：登录 test@example.com');
+  log('步骤 2/12：登录 test@example.com');
   await page.fill('input[type="email"]', 'test@example.com');
   await page.fill('input[type="password"]', 'Test123!@#');
   await page.getByRole('button', { name: /^登录$/ }).click();
@@ -57,14 +57,14 @@ try {
   await shot(page, '02-项目列表-我的项目');
 
   // ── 3. 打开种子项目 ──────────────────────────────────
-  log('步骤 3/11：点击「测试项目」卡片进入详情');
+  log('步骤 3/12：点击「测试项目」卡片进入详情');
   await page.locator('main').getByRole('button', { name: '测试项目' }).first().click();
   await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 15000 });
   await page.getByRole('button', { name: '打开工作空间' }).first().waitFor({ state: 'visible', timeout: 15000 });
   await shot(page, '03-项目详情-iModel卡片');
 
   // ── 4. 进入编辑器 ────────────────────────────────────
-  log('步骤 4/11：点击「打开工作空间」进入编辑器');
+  log('步骤 4/12：点击「打开工作空间」进入编辑器');
   await page.getByRole('button', { name: '打开工作空间' }).first().click();
   await page.waitForURL(/\/workspace\/[^/]+\/[^/]+/, { timeout: 60000 });
   await waitEditorReady();
@@ -75,7 +75,7 @@ try {
   await shot(page, '04-编辑器-工具条与状态栏');
 
   // ── 5. 激活布尔工具 ──────────────────────────────────
-  log('步骤 5/11：点击「并集 (Unite)」激活布尔工具');
+  log('步骤 5/12：点击「并集 (Unite)」激活布尔工具');
   await page.locator('.cad-toolbar-horizontal').getByRole('button', { name: '并集 (Unite)' }).click();
   for (let i = 0; i < 10; i++) {
     if ((await getActiveTool()) === 'UniteSolids') break;
@@ -86,7 +86,7 @@ try {
 
   // ── 6. 激活圆角工具 ──────────────────────────────────
   await page.keyboard.press('Escape');
-  log('步骤 6/11：Esc 退出后点击「圆角 (Fillet)」');
+  log('步骤 6/12：Esc 退出后点击「圆角 (Fillet)」');
   await page.locator('.cad-toolbar-horizontal').getByRole('button', { name: '圆角 (Fillet)' }).click();
   for (let i = 0; i < 10; i++) {
     if ((await getActiveTool()) === 'RoundEdges') break;
@@ -97,7 +97,7 @@ try {
   await page.keyboard.press('Escape');
 
   // ── 7. 返回并新建项目 ────────────────────────────────
-  log(`步骤 7/11：面包屑返回，新建项目「${DEMO_PROJECT}」`);
+  log(`步骤 7/12：面包屑返回，新建项目「${DEMO_PROJECT}」`);
   await page.getByRole('button', { name: '项目列表' }).first().click();
   await page.waitForURL('**/itwins', { timeout: 30000 });
   await page.getByRole('button', { name: '新建项目' }).click();
@@ -112,7 +112,7 @@ try {
   await shot(page, '08-新项目卡片出现');
 
   // ── 8. 新建 iModel 并进编辑器 ────────────────────────
-  log(`步骤 8/11：进入新项目，新建 iModel「${DEMO_IMODEL}」`);
+  log(`步骤 8/12：进入新项目，新建 iModel「${DEMO_IMODEL}」`);
   await page.locator('main').getByRole('button', { name: DEMO_PROJECT }).first().click();
   await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 30000 });
   projectId = page.url().split('/')[4];
@@ -141,7 +141,7 @@ try {
   await shot(page, '11-新模型编辑器');
 
   // ── 9. 特征树：新建 extrude 特征（M3-a 特征 UX）────────
-  log('步骤 9/11：特征树面板——新建特征（拉伸）');
+  log('步骤 9/12：特征树面板——新建特征（拉伸）');
   const treePanel = page.locator('.feature-tree-panel');
   await treePanel.waitFor({ state: 'visible', timeout: 60000 });
   await treePanel.getByText('加载中...').waitFor({ state: 'hidden', timeout: 60000 }).catch(() => {});
@@ -161,7 +161,7 @@ try {
   await shot(page, '13-特征树-extrude已建');
 
   // ── 10. 参数面板：改参 → 试算预览徽标（T6.2/T6.4）────
-  log('步骤 10/11：编辑特征——距离 2→3，试算预览徽标');
+  log('步骤 10/12：编辑特征——距离 2→3，试算预览徽标');
   await featureRow.hover();
   await featureRow.getByRole('button', { name: '编辑特征' }).click();
   const editDlg = page.getByRole('dialog');
@@ -176,16 +176,28 @@ try {
   await editDlg.waitFor({ state: 'hidden', timeout: 15000 });
   log('✅ 参数已应用（previewOp 影子试算 → applyOp 真提交）');
 
-  // ── 11. 退出登录 ─────────────────────────────────────
-  log('步骤 11/11：返回项目列表并退出登录');
+  // ── 11. 草图模式（M3-b：SketchPanel+状态栏提示）────────
+  log('步骤 11/12：进入草图模式——SketchPanel 与状态栏提示');
+  await page.locator('.cad-toolbar-horizontal').getByRole('button', { name: '编辑草图' }).click();
+  const sketchPanel = page.locator('.sketch-panel');
+  await sketchPanel.waitFor({ state: 'visible', timeout: 15000 });
+  const sketchStatus = await page.locator('.statusbar').textContent();
+  log(`✅ 草图模式就绪，状态栏：${sketchStatus?.replace(/\s+/g, ' ')}`);
+  await shot(page, '15-草图模式-SketchPanel');
+  await sketchPanel.getByRole('button', { name: '退出草图' }).click();
+  await sketchPanel.waitFor({ state: 'hidden', timeout: 15000 });
+  log('✅ 已退出草图模式');
+
+  // ── 12. 退出登录 ─────────────────────────────────────
+  log('步骤 12/12：返回项目列表并退出登录');
   await page.getByRole('button', { name: '项目列表' }).first().click();
   await page.waitForURL('**/itwins', { timeout: 30000 });
   await page.getByRole('button', { name: '退出登录' }).click();
   await page.waitForURL('**/login', { timeout: 15000 });
   log('✅ 已退出，回到登录页');
-  await shot(page, '15-退出登录');
+  await shot(page, '16-退出登录');
 
-  log('🎉 完整流程演示结束：15 张截图已存 demo/manual/');
+  log('🎉 完整流程演示结束：16 张截图已存 demo/manual/');
 } finally {
   // 清理演示项目（级联删 iModel）
   try {

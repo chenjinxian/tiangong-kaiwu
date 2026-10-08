@@ -25,6 +25,10 @@ test.describe('Feature Tree (特征 RPC)', () => {
     // 首次打开时 MS ensureInitialized 会自建 PartStudio（schema+空 body），随后 getTree 返回 []
     // ——空态文案出现即等价于特征树 RPC 链路已通
     await expect(treePanel.getByText('暂无特征')).toBeVisible({ timeout: 60000 });
+
+    // T8 盲点断言：面板/页面不得回退「db not open」死文本（T8x 后端修复前 RPC 死时
+    // 本例与前例会静默通过——容器可见+空态文案在错误横幅下同样成立）
+    await expect(page.getByText('db not open')).toHaveCount(0);
   });
 
   test('新建特征对话框：type 选项含 4 类型（formModel 键集），取消关闭', async ({ page }) => {
@@ -48,6 +52,9 @@ test.describe('Feature Tree (特征 RPC)', () => {
 
     await dialog.getByRole('button', { name: '取消' }).click();
     await expect(dialog).toHaveCount(0);
+
+    // T8 盲点断言：同上——对话框交互全程页面不得出现「db not open」死文本
+    await expect(page.getByText('db not open')).toHaveCount(0);
   });
 
   /**
@@ -239,6 +246,50 @@ test.describe('Feature Tree (特征 RPC)', () => {
     await expect(guardDialog.getByRole('button', { name: '仍要应用' })).toBeVisible();
     await guardDialog.getByRole('button', { name: '取消' }).click();
     await expect(guardDialog).toHaveCount(0);
+
+    // ── 自清：链尾删除所建特征，种子 iModel 回到基线行数 ──
+    await newRow.hover();
+    await newRow.getByRole('button', { name: '删除特征' }).click();
+    await expect(treePanel.locator('.feature-row')).toHaveCount(rowsBefore);
+  });
+
+  /**
+   * T8 抑制臂：建 extrude（T6.2 同款步骤）→ 行内「抑制特征」toggle → 行获得
+   * .feature-row--suppressed 灰标 + 「已抑制」徽标 → 再点「取消抑制」→ 灰标消失。
+   * 抑制走 setFeatureSuppressed op（树刷新后行保留、状态翻转）。链尾删除自清。
+   */
+  test('T8 抑制 toggle：抑制 → 灰标出现 → 解除 → 灰标消失', async ({ page }) => {
+    await navigateToEditor(page);
+
+    const treePanel = page.locator('.feature-tree-panel');
+    await expect(treePanel).toBeVisible({ timeout: 60000 });
+    await expect(treePanel.getByText('加载中...')).toHaveCount(0, { timeout: 60000 });
+    const rowsBefore = await treePanel.locator('.feature-row').count();
+
+    // ── 建 extrude（T6.2 同款步骤）──
+    await treePanel.getByRole('button', { name: '新建特征' }).click();
+    const setupDialog = page.getByRole('dialog');
+    await expect(setupDialog).toBeVisible();
+    await setupDialog.locator('select').selectOption('extrude');
+    await setupDialog.getByLabel('距离').fill('2');
+    await setupDialog.getByLabel('轮廓').fill('[{"x":0,"y":0},{"x":2,"y":0},{"x":2,"y":2},{"x":0,"y":2}]');
+    await setupDialog.getByLabel('轮廓').blur();
+    await setupDialog.getByRole('button', { name: '创建' }).click();
+    await expect(setupDialog).toHaveCount(0);
+    const newRow = treePanel.locator('.feature-row').last();
+    await expect(newRow).toContainText('拉伸 (extrude)');
+
+    // ── 抑制：行内 toggle → 灰标 + 徽标 ──
+    await newRow.hover();
+    await newRow.getByRole('button', { name: '抑制特征' }).click();
+    await expect(newRow).toHaveClass(/feature-row--suppressed/);
+    await expect(newRow.getByText('已抑制')).toBeVisible();
+
+    // ── 解除：再点 toggle → 灰标消失 ──
+    await newRow.hover();
+    await newRow.getByRole('button', { name: '取消抑制' }).click();
+    await expect(newRow).not.toHaveClass(/feature-row--suppressed/);
+    await expect(newRow.getByText('已抑制')).toHaveCount(0);
 
     // ── 自清：链尾删除所建特征，种子 iModel 回到基线行数 ──
     await newRow.hover();
