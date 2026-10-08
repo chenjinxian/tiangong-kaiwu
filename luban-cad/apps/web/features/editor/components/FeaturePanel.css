@@ -56,7 +56,7 @@
   text-align: center;
 }
 
-.feature-item {
+.feature-row {
   display: flex;
   align-items: center;
   gap: var(--iui-size-xs);
@@ -67,19 +67,28 @@
   border-left: 2px solid transparent;
 }
 
-.feature-item:hover {
+.feature-row:hover {
   background: var(--iui-color-background-surface-elevated);
   border-left-color: var(--iui-color-text-accent);
 }
 
-.feature-item.suppressed {
+.feature-row--suppressed {
   opacity: 0.6;
   background: var(--iui-color-background-backdrop);
 }
 
-.feature-item.suppressed .feature-type {
+.feature-row--suppressed .feature-type {
   text-decoration: line-through;
   color: var(--iui-color-text-muted);
+}
+
+.feature-row--failed {
+  border-left-color: var(--iui-color-text-negative);
+}
+
+.feature-readonly-hint {
+  color: var(--iui-color-text-muted);
+  font-size: 10px;
 }
 
 .feature-order-section {
@@ -142,6 +151,38 @@
   font-size: 10px;
 }
 
+/* 徽标：抑制（灰）/ 失败（红点） */
+.feature-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.feature-badge--suppressed {
+  color: var(--iui-color-text-muted);
+  font-size: 10px;
+}
+
+.feature-badge--failed {
+  color: var(--iui-color-text-negative);
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* 底部「新建特征」入口 */
+.feature-panel-footer {
+  display: flex;
+  justify-content: center;
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  border-top: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.feature-formmodel-loading {
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
+}
+
 .feature-actions {
   display: flex;
   gap: var(--iui-size-3xs);
@@ -149,7 +190,7 @@
   transition: opacity 0.12s ease;
 }
 
-.feature-item:hover .feature-actions {
+.feature-row:hover .feature-actions {
   opacity: 1;
 }
 

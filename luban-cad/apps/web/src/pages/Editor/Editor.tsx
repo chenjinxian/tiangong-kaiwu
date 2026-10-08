@@ -57,6 +57,8 @@ import { toggleProjectExtents } from '../../core/decorations/ProjectExtentsDecor
 import { SketchPanel } from '../../../features/sketch/components/SketchPanel.js';
 import { useSolidModelingDialogs } from '../../../features/editor/hooks/useSolidModelingDialogs.js';
 import { useVersionControl } from '../../../features/editor/hooks/useVersionControl.js';
+import { useFeatureSystem } from '../../../features/editor/hooks/useFeatureSystem.js';
+import type { FeatureTreeEntry } from '@luban-cad/shared';
 import { ExportDialog } from '../../../features/imodel/components/ExportDialog.js';
 import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import {
@@ -370,6 +372,17 @@ const Editor: React.FC = React.memo(() => {
     setOpStatus,
   );
 
+  // 特征系统（M3-a）：Editor 级持有，保证写租约在左侧面板切换/草图模式间稳定；
+  // 只读 briefcase 不申请租约（hook 内部按 isReadonly 裁决），树读取不受阻。
+  const featureSystem = useFeatureSystem(
+    isEditable ? briefcase.connection ?? undefined : undefined,
+  );
+
+  // 特征编辑入口（T6.1 接线；参数表单面板由 T6.2 接管）
+  const handleEditFeature = useCallback((entry: FeatureTreeEntry) => {
+    showToast(`特征参数编辑即将上线（当前类型：${entry.featureType}）`, 'info');
+  }, [showToast]);
+
   // Keyboard shortcuts
   useEditorKeyboard(isEditable, deleteSelected, setOpStatus);
 
@@ -605,6 +618,9 @@ const Editor: React.FC = React.memo(() => {
         {isEditable && !isSketchMode && (
           <FeatureTreePanel
             connection={briefcase.connection}
+            fs={featureSystem}
+            onEditFeature={handleEditFeature}
+            onToast={showToast}
             activeTab={leftPanelTab}
             onTabChange={setLeftPanelTab}
             isCollapsed={isLeftPanelCollapsed}
