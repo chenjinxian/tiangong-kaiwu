@@ -24,6 +24,7 @@
   display: flex;
   align-items: center;
   gap: var(--iui-size-xs);
+  flex-wrap: wrap;
 }
 
 .sketch-panel-header .iui-text {
@@ -31,12 +32,29 @@
   font-weight: 600;
 }
 
-.sketch-tabs {
-  padding: 0 var(--iui-size-m);
+.sketch-panel-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+  padding: 0 var(--iui-size-m) var(--iui-size-s);
 }
 
-.sketch-tabs .iui-tabs-wrapper {
-  border-bottom: 1px solid var(--iui-color-border);
+.sketch-switcher {
+  flex: 1;
+  min-width: 0;
+}
+
+.sketch-id {
+  color: var(--iui-color-text-muted);
+  font-family: var(--iui-font-family-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sketch-error {
+  color: var(--iui-color-text-negative);
 }
 
 .sketch-panel-content {
@@ -58,56 +76,8 @@
   color: var(--iui-color-text-muted);
 }
 
-.element-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--iui-size-2xs);
-}
-
-.element-item {
-  display: flex;
-  align-items: center;
-  gap: var(--iui-size-xs);
-  padding: var(--iui-size-xs) var(--iui-size-s);
-  border-radius: var(--iui-border-radius);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.element-item:hover {
-  background: var(--iui-color-background-surface-elevated);
-}
-
-.element-item.selected {
-  background: var(--iui-color-background-accent-muted);
-}
-
-.constraint-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--iui-size-xs);
-}
-
-.constraint-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--iui-size-2xs);
-  padding: var(--iui-size-s);
-  border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius);
-  background: var(--iui-color-background);
-  cursor: pointer;
-}
-
-.constraint-btn:hover {
-  border-color: var(--iui-color-border-accent);
-}
-
-.dimension-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--iui-size-xs);
+.empty-hint {
+  color: var(--iui-color-text-muted);
 }
 
 .section-title {
@@ -116,10 +86,19 @@
   margin-bottom: var(--iui-size-xs);
 }
 
+/* 工具按钮组（绘制/约束/尺寸） */
+.tool-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iui-size-xs);
+  padding-bottom: var(--iui-size-s);
+}
+
 /* Tabs */
 .sketch-tabs {
   display: flex;
   border-bottom: 1px solid var(--iui-color-border);
+  padding: 0 var(--iui-size-m);
 }
 
 .sketch-tab {
@@ -145,23 +124,95 @@
   font-weight: 500;
 }
 
-/* Dimension buttons */
-.dimension-btn {
+/* 元素清单 */
+.element-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  padding-top: var(--iui-size-s);
+}
+
+.element-item {
   display: flex;
   align-items: center;
   gap: var(--iui-size-xs);
-  padding: var(--iui-size-s);
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  border-radius: var(--iui-border-radius);
+}
+
+.element-item:hover {
+  background: var(--iui-color-background-surface-elevated);
+}
+
+.element-kind {
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
   border: 1px solid var(--iui-color-border);
   border-radius: var(--iui-border-radius);
-  background: var(--iui-color-background);
-  cursor: pointer;
+  padding: 0 var(--iui-size-2xs);
 }
 
-.dimension-btn:hover {
-  border-color: var(--iui-color-border-accent);
+.element-name {
+  flex: 1;
+  font-family: var(--iui-font-family-mono);
+  font-size: var(--iui-font-size-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Dimension list */
+/* 约束清单 + 矛盾/失败红标（solve.failedConstraintIds/conflictingRank 命中） */
+.constraint-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.constraint-item {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs) var(--iui-size-s);
+  border-radius: var(--iui-border-radius);
+  border: 1px solid transparent;
+}
+
+.constraint-item:hover {
+  background: var(--iui-color-background-surface-elevated);
+}
+
+.constraint-item.conflict {
+  background: var(--iui-color-background-negative-muted);
+  border-color: var(--iui-color-border-negative);
+}
+
+.constraint-summary {
+  flex: 1;
+  font-family: var(--iui-font-family-mono);
+  font-size: var(--iui-font-size-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 尺寸候选值确认表单（dimensionCandidate 值确认桥） */
+.dimension-candidate-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-s);
+  border: 1px solid var(--iui-color-border-accent);
+  border-radius: var(--iui-border-radius);
+  background: var(--iui-color-background-accent-muted);
+  margin-bottom: var(--iui-size-s);
+}
+
+.dimension-candidate-actions {
+  display: flex;
+  gap: var(--iui-size-xs);
+}
+
+/* 现有尺寸清单 */
 .dimension-list-existing {
   display: flex;
   flex-direction: column;
@@ -171,7 +222,7 @@
 .dimension-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--iui-size-xs);
   padding: var(--iui-size-xs) var(--iui-size-s);
   border: 1px solid var(--iui-color-border);
   border-radius: var(--iui-border-radius);
@@ -179,7 +230,8 @@
 }
 
 .dimension-type {
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
 }
 
 .dimension-value {
@@ -187,17 +239,19 @@
   text-align: center;
   font-family: var(--iui-font-family-mono);
   font-size: var(--iui-font-size-body);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--iui-color-border);
+  cursor: pointer;
+  padding: 0 var(--iui-size-2xs);
 }
 
-/* Active states */
-.constraint-btn:active,
-.dimension-btn:active {
-  background: var(--iui-color-background-accent-muted);
-}
-
-.constraint-btn.active,
-.dimension-btn.active {
-  background: var(--iui-color-background-accent-muted);
-  border-color: var(--iui-color-border-accent);
+.dimension-value:hover {
+  border-bottom-color: var(--iui-color-border-accent);
   color: var(--iui-color-text-accent);
+}
+
+.dimension-value-input {
+  flex: 1;
+  text-align: center;
 }

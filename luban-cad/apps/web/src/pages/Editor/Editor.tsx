@@ -55,6 +55,7 @@ import { useEditorInitialization } from '../../../features/editor/hooks/useEdito
 import { useEditorKeyboard } from '../../../features/editor/hooks/useEditorKeyboard.js';
 import { toggleProjectExtents } from '../../core/decorations/ProjectExtentsDecoration.js';
 import { SketchPanel } from '../../../features/sketch/components/SketchPanel.js';
+import { useSketchSystem } from '../../../features/sketch/hooks/useSketchSystem.js';
 import { useSolidModelingDialogs } from '../../../features/editor/hooks/useSolidModelingDialogs.js';
 import { useVersionControl } from '../../../features/editor/hooks/useVersionControl.js';
 import { useFeatureSystem } from '../../../features/editor/hooks/useFeatureSystem.js';
@@ -384,6 +385,13 @@ const Editor: React.FC = React.memo(() => {
     isEditable ? briefcase.connection ?? undefined : undefined,
   );
 
+  // 草图系统（M3-b T4.7）：SketchPanel 数据面——读面（摘要表+活动草图现场解算）+
+  // insertSketch/updateSketch 提交管道；只读/未连接不取数（面板亦不渲染）。
+  const sketchSystem = useSketchSystem(
+    isEditable ? briefcase.connection ?? undefined : undefined,
+    featureSystem,
+  );
+
   // 特征编辑入口：参数面板（T6.2）已内建于 FeaturePanel，Editor 无需再占位
 
   // Keyboard shortcuts
@@ -633,6 +641,8 @@ const Editor: React.FC = React.memo(() => {
           <SketchPanel
             isActive={isSketchMode}
             onExit={() => setIsSketchMode(false)}
+            sketchSystem={sketchSystem}
+            onToast={showToast}
           />
         )}
 
