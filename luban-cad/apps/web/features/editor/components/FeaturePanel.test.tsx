@@ -270,4 +270,193 @@ describe('FeaturePanel', () => {
       expect(within(dialog).queryByRole('combobox')).toBeNull();
     });
   });
+
+  describe('T6.2 编辑对话框（参数表单 + updateParams）', () => {
+    /** 与 MS getFeatureFormModel 同形的 extrude 字段集（含 json/number/readonlyText 三 kind） */
+    const fullFormModel: FeatureFormModel = {
+      ...formModel,
+      extrude: {
+        fields: [
+          { name: 'profile', label: '轮廓', kind: 'json' },
+          { name: 'distance', label: '距离', kind: 'number' },
+          { name: 'sketchId', label: '草图', kind: 'readonlyText', readOnly: true },
+        ],
+      },
+    };
+
+    const entryWithParams = (params: unknown): FeatureTreeEntry =>
+      makeEntry({ id: 'f1', featureType: 'extrude', params });
+
+    const openEditDialog = (fs: UseFeatureSystem) => {
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} onToast={onToast} />);
+      fireEvent.click(screen.getByRole('button', { name: '编辑特征' }));
+      return screen.getByRole('dialog');
+    };
+
+    it('编辑打开对话框：标题含类型标签，表单按字段模型渲染且预填存储 params', () => {
+      const fs = makeFs({
+        formModel: fullFormModel,
+        tree: [entryWithParams({ profile: [{ x: 0, y: 0 }], distance: 5, sketchId: 'sk-9' })],
+      });
+      const dialog = openEditDialog(fs);
+
+      expect(within(dialog).getByText('编辑特征：拉伸 (extrude)')).toBeDefined();
+      expect((within(dialog).getByLabelText('距离') as HTMLInputElement).value).toBe('5');
+      expect((within(dialog).getByLabelText('轮廓') as HTMLTextAreaElement).value).toBe('[{"x":0,"y":0}]');
+      expect((within(dialog).getByLabelText('草图') as HTMLInputElement).value).toBe('sk-9');
+      // 兼容通知仍上抛（T6.1 契约）
+      expect(onEditFeature).toHaveBeenCalledWith(expect.objectContaining({ id: 'f1' }));
+    });
+
+    it('entry.params 为 JSON 字符串时宽容解析预填', () => {
+      const fs = makeFs({
+        formModel: fullFormModel,
+        tree: [entryWithParams(JSON.stringify({ profile: [], distance: 7 }))],
+      });
+      const dialog = openEditDialog(fs);
+      expect((within(dialog).getByLabelText('距离') as HTMLInputElement).value).toBe('7');
+    });
+
+    it('应用：改 distance → applyOp(updateParams) 携带全量表单值；成功后关对话框 + toast success', async () => {
+      const applyOp = vi.fn().mockResolvedValue({ ok: true });
+      const fs = makeFs({
+        formModel: fullFormModel,
+        tree: [entryWithParams({ profile: [{ x: 0, y: 0 }], distance: 5 })],
+        applyOp,
+      });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '3' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: '应用' }));
+
+      await waitFor(() =>
+        expect(applyOp).toHaveBeenCalledWith({
+          kind: 'updateParams',
+          featureId: 'f1',
+          params: { profile: [{ x: 0, y: 0 }], distance: 3 },
+        }),
+      );
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(onToast).toHaveBeenCalledWith('特征参数已更新', 'success');
+    });
+
+    it('应用失败（后端守卫）：错误文案在对话框顶部 Alert 呈现（M2-UX #4），对话框不关', async () => {
+      const applyOp = vi.fn().mockResolvedValue({ ok: false, error: 'distance 必须为正数' });
+      const fs = makeFs({
+        formModel: fullFormModel,
+        tree: [entryWithParams({ profile: [], distance: 5 })],
+        applyOp,
+      });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '-1' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: '应用' }));
+
+      await waitFor(() => expect(within(dialog).getByText('distance 必须为正数')).toBeDefined());
+      // iTwinUI v3 Alert 无隐式 role、类名带 hash 前缀 —— 断言错误文案落在 alert 容器内
+      expect(within(dialog).getByText('distance 必须为正数').closest('div[class*="alert"]')).not.toBeNull();
+      expect(screen.getByRole('dialog')).toBeDefined();
+    });
+
+    it('applyOp 抛错（RPC 层失败，如后端 db 未开）：错误仍落对话框 Alert，不留哑对话框', async () => {
+      const applyOp = vi.fn().mockRejectedValue(new Error('db not open'));
+      const fs = makeFs({
+        formModel: fullFormModel,
+        tree: [entryWithParams({ profile: [], distance: 5 })],
+        applyOp,
+      });
+      const dialog = openEditDialog(fs);
+
+      fireEvent.click(within(dialog).getByRole('button', { name: '应用' }));
+
+      await waitFor(() => expect(within(dialog).getByText('db not open')).toBeDefined());
+      expect(screen.getByRole('dialog')).toBeDefined();
+    });
+  });
+
+  describe('T6.2 新建特征流（类型 Select → 参数表单 → insertFeature）', () => {
+    const fullFormModel: FeatureFormModel = {
+      ...formModel,
+      extrude: {
+        fields: [
+          { name: 'profile', label: '轮廓', kind: 'json' },
+          { name: 'distance', label: '距离', kind: 'number' },
+          { name: 'sketchId', label: '草图', kind: 'readonlyText', readOnly: true },
+        ],
+      },
+      fillet: {
+        fields: [
+          { name: 'radius', label: '圆角半径', kind: 'number' },
+          { name: 'propagateSmooth', label: '光滑传播', kind: 'boolean' },
+          { name: 'edges', label: '边引用', kind: 'edgeRefs' },
+        ],
+      },
+    };
+
+    it('选定类型后渲染参数表单；创建 → applyOp(insertFeature)；成功关对话框 + toast success', async () => {
+      const applyOp = vi.fn().mockResolvedValue({ ok: true, featureId: 'new-1' });
+      const fs = makeFs({ formModel: fullFormModel, applyOp });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} onToast={onToast} />);
+
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'extrude' } });
+
+      // 参数表单出现（三 kind 字段）且「创建」可用
+      expect(within(dialog).getByLabelText('距离')).toBeDefined();
+      expect(within(dialog).getByLabelText('轮廓')).toBeDefined();
+      expect(within(dialog).getByLabelText('草图')).toBeDefined();
+      expect(within(dialog).getByRole('button', { name: '创建' }).getAttribute('aria-disabled')).not.toBe('true');
+
+      fireEvent.change(within(dialog).getByLabelText('轮廓'), {
+        target: { value: '[{"x":0,"y":0},{"x":2,"y":0},{"x":2,"y":2},{"x":0,"y":2}]' },
+      });
+      fireEvent.blur(within(dialog).getByLabelText('轮廓'));
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '2' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: '创建' }));
+
+      await waitFor(() =>
+        expect(applyOp).toHaveBeenCalledWith({
+          kind: 'insertFeature',
+          featureType: 'extrude',
+          params: {
+            profile: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }],
+            distance: 2,
+          },
+        }),
+      );
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(onToast).toHaveBeenCalledWith('特征已创建', 'success');
+    });
+
+    it('未选类型时「创建」禁用；fillet 的 edgeRefs 渲染 chips + 「未选择边」', () => {
+      const fs = makeFs({ formModel: fullFormModel });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
+
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByRole('button', { name: '创建' }).getAttribute('aria-disabled')).toBe('true');
+
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'fillet' } });
+      expect(within(dialog).getByTestId('feature-edge-chips-edges')).toBeDefined();
+      expect(within(dialog).getByText('未选择边')).toBeDefined();
+      expect((within(dialog).getByLabelText('圆角半径') as HTMLInputElement).value).toBe('0');
+    });
+
+    it('创建失败：后端校验错误在对话框 Alert 呈现（M2-UX #4）', async () => {
+      const applyOp = vi.fn().mockResolvedValue({ ok: false, error: '无 sketchId 时 profile 至少 3 点' });
+      const fs = makeFs({ formModel: fullFormModel, applyOp });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
+
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'extrude' } });
+      fireEvent.change(within(dialog).getByLabelText('距离'), { target: { value: '2' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: '创建' }));
+
+      await waitFor(() => expect(within(dialog).getByText('无 sketchId 时 profile 至少 3 点')).toBeDefined());
+      expect(screen.getByRole('dialog')).toBeDefined();
+    });
+  });
 });

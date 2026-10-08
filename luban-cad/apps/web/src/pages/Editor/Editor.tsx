@@ -58,7 +58,6 @@ import { SketchPanel } from '../../../features/sketch/components/SketchPanel.js'
 import { useSolidModelingDialogs } from '../../../features/editor/hooks/useSolidModelingDialogs.js';
 import { useVersionControl } from '../../../features/editor/hooks/useVersionControl.js';
 import { useFeatureSystem } from '../../../features/editor/hooks/useFeatureSystem.js';
-import type { FeatureTreeEntry } from '@luban-cad/shared';
 import { ExportDialog } from '../../../features/imodel/components/ExportDialog.js';
 import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import {
@@ -378,10 +377,7 @@ const Editor: React.FC = React.memo(() => {
     isEditable ? briefcase.connection ?? undefined : undefined,
   );
 
-  // 特征编辑入口（T6.1 接线；参数表单面板由 T6.2 接管）
-  const handleEditFeature = useCallback((entry: FeatureTreeEntry) => {
-    showToast(`特征参数编辑即将上线（当前类型：${entry.featureType}）`, 'info');
-  }, [showToast]);
+  // 特征编辑入口：参数面板（T6.2）已内建于 FeaturePanel，Editor 无需再占位
 
   // Keyboard shortcuts
   useEditorKeyboard(isEditable, deleteSelected, setOpStatus);
@@ -619,7 +615,6 @@ const Editor: React.FC = React.memo(() => {
           <FeatureTreePanel
             connection={briefcase.connection}
             fs={featureSystem}
-            onEditFeature={handleEditFeature}
             onToast={showToast}
             activeTab={leftPanelTab}
             onTabChange={setLeftPanelTab}

@@ -29,14 +29,6 @@
   letter-spacing: 0.6px;
 }
 
-.feature-panel-add-row {
-  display: flex;
-  gap: var(--iui-size-xs);
-  padding: var(--iui-size-xs) var(--iui-size-m);
-  border-bottom: 1px solid var(--iui-color-border);
-  flex-shrink: 0;
-}
-
 .feature-panel-loading {
   padding: var(--iui-size-xs) var(--iui-size-m);
   font-size: var(--iui-font-size-small);
@@ -146,11 +138,6 @@
   white-space: nowrap;
 }
 
-.feature-suppressed-label {
-  color: var(--iui-color-text-negative);
-  font-size: 10px;
-}
-
 /* 徽标：抑制（灰）/ 失败（红点） */
 .feature-badges {
   display: flex;
@@ -201,4 +188,43 @@
 .form-group .iui-label {
   display: block;
   margin-bottom: var(--iui-size-xs);
+}
+
+/* 表单模型驱动的参数表单（T6.2 FeatureParamForm） */
+.feature-param-form .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.feature-field-error {
+  display: block;
+  margin-top: var(--iui-size-2xs);
+  color: var(--iui-color-text-negative);
+  font-size: var(--iui-font-size-small);
+}
+
+/* edgeRefs 字段：chips 区 + 拾取器插槽（T6.3 注入「从视图选边」按钮） */
+.feature-edge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iui-size-2xs);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.feature-edge-chip {
+  padding: 2px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-surface-elevated);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--iui-font-size-small);
+}
+
+.feature-edge-empty {
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-small);
+}
+
+/* 对话框内应用失败 Alert（M2-UX 债 #4：守卫文案到前端可见） */
+.feature-dialog-error {
+  margin-top: var(--iui-size-s);
 }

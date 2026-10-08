@@ -28,7 +28,8 @@ interface FeatureTreePanelProps {
   connection: BriefcaseConnection | null;
   /** 特征系统中枢（Editor 级 useFeatureSystem 注入，保证写租约在面板切换间稳定） */
   fs: UseFeatureSystem;
-  onEditFeature: (entry: FeatureTreeEntry) => void;
+  /** 编辑点击通知（可选；编辑对话框 T6.2 起内建于 FeaturePanel，父级无需再接管） */
+  onEditFeature?: (entry: FeatureTreeEntry) => void;
   onToast?: (message: string, type: 'success' | 'error' | 'info') => void;
   activeTab: TreeTab;
   onTabChange: (tab: TreeTab) => void;
