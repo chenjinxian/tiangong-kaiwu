@@ -58,7 +58,8 @@ export interface SketchAddConstraintToolOptions {
 const CONSTRAINT_LABELS: Record<SketchConstraintKind, string> = {
   coincident: '重合',
   horizontal: '水平',
-  vertical: '垂直',
+  // M3-b T8：vertical 用「竖直」——与 perpendicular「垂直」消歧（CAD 中文惯例）
+  vertical: '竖直',
   parallel: '平行',
   perpendicular: '垂直',
   equal: '等长/等半径',

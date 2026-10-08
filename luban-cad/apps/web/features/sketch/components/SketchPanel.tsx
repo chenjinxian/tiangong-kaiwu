@@ -189,6 +189,14 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
     return unsubscribe;
   }, [isActive]);
 
+  // 草图切换（openSketch 切换器 / activeSketch?.id 变化）时清空尺寸编辑态——
+  // 旧草图的 pendingDimension refs / editingDimensionId 挂到新草图会指错实体（M3-b T8 Minor 1）
+  const activeSketchId = activeSketch?.id;
+  useEffect(() => {
+    setPendingDimension(undefined);
+    setEditingDimensionId(null);
+  }, [activeSketchId]);
+
   const handleExitSketch = useCallback(() => {
     void IModelApp.toolAdmin.startDefaultTool();
     sketchSystem.closeSketch();

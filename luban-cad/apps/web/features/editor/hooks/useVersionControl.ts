@@ -8,10 +8,13 @@ import type { ConflictResolution } from '@luban-cad/shared';
 import type { NamedVersion } from '../../version-control/hooks/useNamedVersions.js';
 import { useConflictDetection } from '../../version-control/hooks/useConflictDetection.js';
 import { useChangesets } from '../../version-control/hooks/useChangesets.js';
-import type { EditorSidebarTab } from '../components/EditorSidebar.js';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 
-export type { EditorSidebarTab };
+/**
+ * 侧栏 tab 字面联合（M3-b T8：原定义于已删除的 EditorSidebar 死容器——Editor.tsx
+ * 现行正主为 FeatureTreePanel/TreeTab，本 hook 仍保留 history/versions 两态驱动）。
+ */
+export type EditorSidebarTab = 'features' | 'assemblies' | 'history' | 'versions';
 
 export interface VersionControlState {
   showCompare: boolean;

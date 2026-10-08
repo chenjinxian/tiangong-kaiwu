@@ -195,9 +195,6 @@ vi.mock('@itwin/editor-frontend', () => ({
 vi.mock('../../../features/editor/components/EditorBriefcaseStatus.js', () => ({
   EditorBriefcaseStatus: () => <div data-testid="briefcase-status" />,
 }));
-vi.mock('../../../features/editor/components/EditorSidebar.js', () => ({
-  EditorSidebar: () => <div data-testid="editor-sidebar" />,
-}));
 vi.mock('../../../features/editor/components/CadToolbar.js', () => ({
   // T6.5：工具条「编辑草图」触发 onEnterSketchMode（真 CadToolbar 的同名按钮 e2e 覆盖）
   CadToolbar: (props: { onEnterSketchMode?: () => void }) => (
