@@ -22,6 +22,11 @@ export interface FeaturePanelProps {
   onEditFeature?: (entry: FeatureTreeEntry) => void;
   /** 可选 toast 回调（删除守卫等错误除行内 Alert 外同步上抛；创建/编辑成功亦回报） */
   onToast?: (message: string, type: 'success' | 'error' | 'info') => void;
+  /**
+   * T6.5 编辑草图回跳（可选）：params.sketchId 存在的 sketch 驱动特征行渲染
+   * 「编辑草图」入口，点击回调 sketchId——由 Editor 接管「进草图模式 + openSketch」。
+   */
+  onEditSketch?: (sketchId: string) => void;
   isVisible?: boolean;
 }
 
@@ -121,7 +126,7 @@ function buildInitialValue(fields: FeatureFormField[], params: Record<string, un
  * 写租约未持有（leaseOk=false）时整体降级只读。
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, connection, onEditFeature, onToast, isVisible = true }) => {
+export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, connection, onEditFeature, onToast, onEditSketch, isVisible = true }) => {
   const [showNew, setShowNew] = useState(false);
   const [newType, setNewType] = useState<string | undefined>(undefined);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -400,6 +405,13 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
         )}
         {sortedTree.map((entry, idx) => {
           const failed = entry.status !== 0;
+          // T6.5：sketch 驱动特征（params.sketchId 存在）→ 行内「编辑草图」回跳入口。
+          // 宽容归一沿用 parseStoredParams（存储可能是 JSON 字符串或对象）。
+          const params = parseStoredParams(entry.params);
+          const sketchId =
+            typeof params.sketchId === 'string' && params.sketchId.length > 0
+              ? params.sketchId
+              : undefined;
           const rowClasses = [
             'feature-row',
             entry.suppressed ? 'feature-row--suppressed' : '',
@@ -460,6 +472,18 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
               </div>
 
               <div className="feature-actions">
+                {sketchId !== undefined && onEditSketch !== undefined && (
+                  <Button
+                    size="small"
+                    styleType="borderless"
+                    className="feature-sketch-link"
+                    title="编辑草图：跳转到草图模式"
+                    onClick={() => onEditSketch(sketchId)}
+                  >
+                    编辑草图
+                  </Button>
+                )}
+
                 <IconButton
                   size="small"
                   styleType="borderless"

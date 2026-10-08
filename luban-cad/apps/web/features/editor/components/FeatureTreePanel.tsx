@@ -30,6 +30,8 @@ interface FeatureTreePanelProps {
   fs: UseFeatureSystem;
   /** 编辑点击通知（可选；编辑对话框 T6.2 起内建于 FeaturePanel，父级无需再接管） */
   onEditFeature?: (entry: FeatureTreeEntry) => void;
+  /** T6.5 编辑草图回跳（可选；透传 FeaturePanel——sketch 驱动特征行的「编辑草图」入口） */
+  onEditSketch?: (sketchId: string) => void;
   onToast?: (message: string, type: 'success' | 'error' | 'info') => void;
   activeTab: TreeTab;
   onTabChange: (tab: TreeTab) => void;
@@ -41,6 +43,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
   connection,
   fs,
   onEditFeature,
+  onEditSketch,
   onToast,
   activeTab,
   onTabChange,
@@ -129,7 +132,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
       {/* Content */}
       <div className="feature-tree-content">
         {activeTab === 'features' && (
-          <FeaturePanel fs={fs} connection={connection} onEditFeature={onEditFeature} onToast={onToast} isVisible />
+          <FeaturePanel fs={fs} connection={connection} onEditFeature={onEditFeature} onEditSketch={onEditSketch} onToast={onToast} isVisible />
         )}
         {activeTab === 'assemblies' && (
           <AssemblyPanel connection={connection} isVisible />

@@ -172,9 +172,17 @@
 
 .feature-actions {
   display: flex;
+  align-items: center;
   gap: var(--iui-size-3xs);
   opacity: 0;
   transition: opacity 0.12s ease;
+}
+
+/* T6.5 sketch 驱动特征行的「编辑草图」回跳入口：窄条文字按钮，与图标动作同排 */
+.feature-sketch-link {
+  font-size: var(--iui-font-size-small);
+  padding: 2px var(--iui-size-xs);
+  white-space: nowrap;
 }
 
 .feature-row:hover .feature-actions {

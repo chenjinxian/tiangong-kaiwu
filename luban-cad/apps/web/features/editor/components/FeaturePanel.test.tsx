@@ -763,4 +763,78 @@ describe('FeaturePanel', () => {
       expect(previewOp).toHaveBeenCalledTimes(1);
     });
   });
+
+  /**
+   * T6.5 编辑草图入口（特征树联动）：params.sketchId 存在的行（sketch 驱动特征，如
+   * sketch 拉伸）行内渲染「编辑草图」按钮 → 点击回调 onEditSketch(sketchId)，由 Editor
+   * 层接管「进草图模式 + openSketch」。params 宽容归一沿用 parseStoredParams
+   * （JSON 字符串/对象双形态）；无 sketchId 的行/未注入回调时不得出现悬挂入口。
+   */
+  describe('T6.5 编辑草图入口（sketchId 行联动）', () => {
+    it('params.sketchId 存在 → 行内出现「编辑草图」按钮，点击回调 sketchId', () => {
+      const onEditSketch = vi.fn();
+      const fs = makeFs({
+        tree: [makeEntry({ id: 'f1', featureType: 'extrude', orderKey: 1, params: { sketchId: 'sk-1', distance: 2 } })],
+      });
+      render(<FeaturePanel fs={fs} onEditSketch={onEditSketch} />);
+
+      const row = screen.getByText('拉伸 (extrude)').closest('.feature-row') as HTMLElement;
+      const btn = within(row).getByRole('button', { name: '编辑草图' });
+      fireEvent.click(btn);
+      expect(onEditSketch).toHaveBeenCalledTimes(1);
+      expect(onEditSketch).toHaveBeenCalledWith('sk-1');
+    });
+
+    it('无 sketchId 的行不渲染「编辑草图」按钮', () => {
+      const onEditSketch = vi.fn();
+      const fs = makeFs({
+        tree: [
+          makeEntry({ id: 'f1', featureType: 'extrude', orderKey: 1, params: { distance: 2 } }),
+          makeEntry({ id: 'f2', featureType: 'fillet', orderKey: 2, params: { radius: 1 } }),
+        ],
+      });
+      render(<FeaturePanel fs={fs} onEditSketch={onEditSketch} />);
+
+      expect(screen.queryByRole('button', { name: '编辑草图' })).toBeNull();
+    });
+
+    it('sketchId 为空串/非字符串 → 不渲染按钮', () => {
+      const fs = makeFs({
+        tree: [
+          makeEntry({ id: 'f1', orderKey: 1, params: { sketchId: '' } }),
+          makeEntry({ id: 'f2', orderKey: 2, params: { sketchId: 42 } }),
+        ],
+      });
+      render(<FeaturePanel fs={fs} onEditSketch={vi.fn()} />);
+
+      expect(screen.queryByRole('button', { name: '编辑草图' })).toBeNull();
+    });
+
+    it('params 为 JSON 字符串含 sketchId → 宽容解析出现按钮（parseStoredParams 双形态）', () => {
+      const onEditSketch = vi.fn();
+      const fs = makeFs({
+        tree: [
+          makeEntry({
+            id: 'f1',
+            featureType: 'extrude',
+            orderKey: 1,
+            params: JSON.stringify({ sketchId: 'sk-9', distance: 5 }),
+          }),
+        ],
+      });
+      render(<FeaturePanel fs={fs} onEditSketch={onEditSketch} />);
+
+      fireEvent.click(screen.getByRole('button', { name: '编辑草图' }));
+      expect(onEditSketch).toHaveBeenCalledWith('sk-9');
+    });
+
+    it('未注入 onEditSketch 回调 → 即使含 sketchId 也不渲染按钮（无悬挂入口）', () => {
+      const fs = makeFs({
+        tree: [makeEntry({ id: 'f1', orderKey: 1, params: { sketchId: 'sk-1' } })],
+      });
+      render(<FeaturePanel fs={fs} />);
+
+      expect(screen.queryByRole('button', { name: '编辑草图' })).toBeNull();
+    });
+  });
 });

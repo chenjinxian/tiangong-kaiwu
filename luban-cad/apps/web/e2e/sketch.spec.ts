@@ -47,4 +47,36 @@ test.describe('Sketch Panel (草图 RPC)', () => {
     await sketchPanel.getByRole('button', { name: '退出草图' }).click();
     await expect(sketchPanel).toHaveCount(0);
   });
+
+  /**
+   * T6.5 草图模式行为面（e2e 可断言层）：进入 → 状态栏出现「草图模式：XY 平面」提示；
+   * 退出 → 提示消失。相机/栅格为视口内部态（e2e 断言 flaky），归单测钉死
+   * （sketchModeView.test.ts + Editor.test.tsx 的 T6.5 块）。
+   * 另作负向门禁：种子 iModel 的特征行无 sketchId（sketch 驱动特征 M3-b 才有），
+   * 特征树不得出现「编辑草图」入口——按钮门禁由单测正反向双钉。
+   */
+  test('T6.5 状态栏草图模式提示：进入出现/退出消失 + 特征树无 sketchId 行无入口', async ({ page }) => {
+    await navigateToEditor(page);
+
+    const statusbar = page.locator('.statusbar');
+    const treePanel = page.locator('.feature-tree-panel');
+    await expect(treePanel).toBeVisible({ timeout: 60000 });
+    await expect(statusbar).not.toContainText('草图模式');
+    // 负向门禁：无 sketch 驱动特征 → 特征树无「编辑草图」行内入口（与工具条同名按钮区分：作用域在树面板内）
+    await expect(treePanel.getByRole('button', { name: '编辑草图' })).toHaveCount(0);
+
+    // 进入草图模式 → 提示出现
+    await page
+      .locator('.cad-toolbar-horizontal')
+      .getByRole('button', { name: '编辑草图' })
+      .click();
+    const sketchPanel = page.locator('.sketch-panel');
+    await expect(sketchPanel).toBeVisible({ timeout: 15000 });
+    await expect(statusbar).toContainText('草图模式：XY 平面');
+
+    // 退出 → 提示消失
+    await sketchPanel.getByRole('button', { name: '退出草图' }).click();
+    await expect(sketchPanel).toHaveCount(0);
+    await expect(statusbar).not.toContainText('草图模式');
+  });
 });
