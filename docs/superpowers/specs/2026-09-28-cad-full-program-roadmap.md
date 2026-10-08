@@ -131,7 +131,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 
 | ID | 任务 | 出口标准 | 依赖 | 规模 |
 |---|---|---|---|---|
-| T6.1 ✅（2026-10-04 M3-a） | FeatureTreePanel 重做（读特征元素按 orderKey、失败红标/抑制灰标、排序=orderKey op；v1 以上下移按钮实现排序 op 化——拖拽 UI 为增强不阻塞出口；旧骨架废弃） | 对标 Onshape 特征树最小体验 | T3 | M |
+| T6.1 ✅（2026-10-04 M3-a） | FeatureTreePanel 重做（读特征元素按 orderKey、失败红标/抑制灰标、排序=orderKey op；v1 以上下移按钮实现排序 op 化——拖拽 UI 为增强不阻塞出口；排序 op+守卫已交付并经测试——v1 线性链无非恒等合法重排（守卫正确拒收，上移/下移按钮呈现守卫文案），用户可见排序待分支特征（M3-b）；旧骨架废弃） | 对标 Onshape 特征树最小体验 | T3 | M |
 | T6.2 ✅（2026-10-04 M3-a） | 参数面板（JSON Schema 驱动表单——五 kind 字段表单模型经 RPC 下发渲染，编辑即 op，守卫错误呈现） | 全特征类型可用 | T3.1 | M |
 | T6.3 ✅（2026-10-04 M3-a） | 视口拾取 → 反查 `(nodeId,entityId)` → 写入特征 params（拓扑引用建立入口；拾取反查经 op31+op7 组合解邻面对，出口「点选面/边建引用」以边实现——fillet 消费面；纯面引用消费方不存在于 M3 范围） | 点选面/边建引用 | T1.1 | M |
 | T6.4 ✅（2026-10-04 M3-a，反馈级口径） | 拖拽预览管道（预览 op=previewOp 影子求值→确认成真 op；v1 交付=debounce 试算+成功/失败反馈徽标，非视口几何级——D-4 已知边界） | 流畅 | T3.8 | M |
@@ -236,4 +236,4 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
   - **原生修复**：imodel-native aacbcf2d0——子实体修改 op 对改造目标重解析子实体 id，根治「SUCCESS 但几何原状」静默空操作（Blend/Chamfer/Offset/Hollow/Delete/Transform 全族受益）；未归因现象「连续第二次 blend 不重灌失稳」与 op7 getConnectedSubEntities 死桩登记 imodel-native defects backlog。
   - **Task 8x 插队修复**（T3.12 领域真生产洞）：FeatureService 单例缓存随 db 关开清退——原第二编辑器会话起全部特征 RPC 抛 `db not open`；连带实证 e2e 45/45 有盲点（空态/表单模型在 RPC 死时也成立），已补「面板无 db-not-open」断言。
   - **既有 bug 登记（非本计划产物）**：① op7 getConnectedSubEntities 死桩（PSBRepEdit.cpp:974-1033 收集后从不序列化回包，smoke-brep-protocol.js:177-180 已钉）② registerAllTools 静默死于 SelectAllTool（裸 Tool 无 namespace）→全局快捷键含 Escape 全死——M3-b 立项候选。
-  - **回归**：modeling-server vitest 31 文件 295 过/8 skip + tsc 0 错 + eslint 增量零新增；公开仓 shared 33/viewer-core 57/web-viewer 15/apps/web 454 过/11 skip；e2e Playwright 全量（含新增 features.spec 6 例）。详情见 plan 目录 task-11-report。
+  - **回归**：modeling-server vitest 31 文件 295 过/8 skip + tsc 0 错 + eslint 增量零新增；公开仓 shared 33/viewer-core 57/web-viewer 15/apps/web 454 过/11 skip；e2e Playwright 全量（含新增 features.spec 5 例）。详情见 plan 目录 task-11-report。
