@@ -201,6 +201,7 @@ export type {
   LubanFeatureType, ExtrudeParams, FeatureOp, FeatureTreeEntry, FeatureOpResult,
   // M3-a v1.1
   LubanTopologyId, FilletEdgeRef, FilletParams, FeatureParams, PreviewResult, FeatureFormField, FeatureFormModel,
+  FeatureFormFieldKind, FeatureFormModelEntry,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

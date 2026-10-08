@@ -124,7 +124,8 @@ test.describe('Feature Tree (特征 RPC)', () => {
   /**
    * T6.3 视口选边 → 邻面对引用：先按 T6.2 同款步骤建一个 extrude（种子模型持有几何体），
    * 再新建 fillet → 「从视图选边」→ SelectSubEntity 工具激活（拾取期间对话框暂隐——模态
-   * backdrop 吞视口点击的化解，浮条接管）→ Escape 退场（KeyboardManager → startDefaultTool
+   * backdrop 吞视口点击的化解，浮条接管）→ Escape 退场（hook 自挂的 window capture 级
+   * keydown 监听 → startDefaultTool
    * → onComplete → 对话框复开）。几何级命中点击不断言（flaky 面；交互正确性由单测 +
    * MS 集成测试双保险）。末尾删除所建 extrude 自清。
    */
@@ -164,7 +165,7 @@ test.describe('Feature Tree (特征 RPC)', () => {
     await expect(dialog).toHaveCount(0);
     await expectToolActivated(page, 'SelectSubEntity');
 
-    // Escape 退场：KeyboardManager → startDefaultTool → 工具 onCleanup → onComplete → 对话框复开
+    // Escape 退场：hook 自挂 capture 监听 → startDefaultTool → 工具 onCleanup → onComplete → 对话框复开
     await page.keyboard.press('Escape');
     await expect
       .poll(() => getActiveToolId(page), { timeout: 10000, message: 'SelectSubEntity 应退出' })

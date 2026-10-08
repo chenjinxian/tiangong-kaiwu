@@ -77,11 +77,11 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T3.1 ✅ | FeatureTypeRegistry：featureType → {paramSchema, evaluate(ctx,params,inputs)}；MS 层 JSON Schema 校验 | 注册表可扩展，非法参数拒收 | T2 | M |
 | T3.2 ✅ | extrude（轮廓直拉，暂以显式轮廓绕过草图求解器） | 参数改→再生正确 | T2 | M |
 | T3.3 ✅ | boolean add/sub | 同上 | T2 | M |
-| T3.4 | fillet：**走 ElementGeometryCache 面**（`OperationType.Blend=24`，`EditBuiltInCommand.ts:443`）——注意 `createBRepGeometry` 的 `Round=10` 是「所有非光滑边」全倒角，**不能做选择性圆角**；params 存 `(nodeId,entityId)` 边引用，evaluate 经 `EdgesFromId`→缓存子实体桥接（T1.8）解引用 | 上游改形后引用自愈、可选边 | T1.1+T1.8 | M |
-| T3.5 | nodeId=orderKey 确定性打标约定落地（重跑同特征打同标——协议层自动打标已顺序确定，见 WS1 修订注记；本任务=把约定固化为引擎不变式+测试） | 任意中间特征改参后全链引用不断 | T1.1 | S |
+| T3.4 ✅（2026-10-04 M3-a） | fillet：**走 ElementGeometryCache 面**（`OperationType.Blend=24`，`EditBuiltInCommand.ts:443`）——注意 `createBRepGeometry` 的 `Round=10` 是「所有非光滑边」全倒角，**不能做选择性圆角**；params 存邻面对引用（**裁决 D-1**：op33 契约倒逼，改两邻面 TopologyID 对非单边 id，面对=集语义全边 blend）；evaluate 经预求值通道+scratch 载体（**裁决 D-2/D-3**）+原生修改 op 静默 no-op 修复（imodel-native aacbcf2d0，Blend/Chamfer/Offset/Hollow/Delete/Transform 全族受益）解引用 | 上游改形后引用自愈、可选边 | T1.1+T1.8 | M |
+| T3.5 ✅（2026-10-04 M3-a） | nodeId=orderKey 确定性打标约定落地（重跑同特征打同标——协议层自动打标已顺序确定，见 WS1 修订注记；本任务=把约定固化为引擎不变式+测试）——确定性两遍重跑+引用自愈臂已落（FilletFlow 9/9） | 任意中间特征改参后全链引用不断 | T1.1 | S |
 | T3.6 ✅（抑制=直通语义，0x80 冻结留 M2） | 失败级联（出边 status=1+下游跳过+旧几何保留+保持脏）+ 抑制（0x80+SuppressedShape 语义） | FreeCAD 语义等价复现 | T2 | M |
 | T3.7 ✅ | 编辑管道接入：op=txn 边界，复用 basicManipulationIpc→BriefcaseTxns→saveChanges | CLAUDE.md 硬约束合规 | T2 | M |
-| T3.8 | HITL 预览：rollback mark 试算→回滚，不写库 | 拖拽实时预览 | T1.2 | M |
+| T3.8 ✅（2026-10-04 M3-a，口径改道裁决 D-4） | HITL 预览：~~rollback mark 试算→回滚~~→**影子求值**（复制特征缓存为 shadow Map 试算脏子链，零写库；mark 的 TS 调用面在 itwinjs-core 零存在，提升成本高于收益，mark 保留给 T3.10 届时再补）；v1 预览反馈=「成功/失败/受影响清单」级（previewOp RPC），视口几何级实时预览列后续增强 | 拖拽实时预览 | T1.2 | M |
 | T3.9 | L3 输出缓存（MS 内存/SAB；参数哈希判失效——内核无几何重合判定，见 T1.6） | 命中缓存跳过内核调用 | T3.2 | M |
 | T3.10 | L2 内核级重跑：回滚到特征 k 前 mark，只重跑 k..n | 长链改首特征不重算全链 | T1.2 | M ⚠️ |
 | T3.11 | **D7 破坏式编辑打标**：绕开特征系统直改 BodySolid（既有 64 工具中的几何工具）→ 检测+打标 overridden+暂停自动再生；「重新参数化」入口=丢弃手工修改+全量重建（spec §3.3b） | 破坏后可标记、可恢复 | T3.7 | M |
@@ -99,8 +99,8 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T4.3 ✅**已裁决 2026-09-30：MS 往返** | 交互求解=FE 经 WebSocket 节流发 solve 到 MS（SlvsSolver 已在）——Onshape 先例（全服务端求解+协议优化）+零 GPL conveying 义务；绳墨 WASM 为将来免费升级 | 拖拽预览（本地栈 ~5-20ms） | T4.2 | M |
 | T4.4 ✅（2026-09-30） | 草图元素（GeometricElement3d 平面曲线）+ 草图平面定义 | 视口可见可编辑 | T2 | M |
 | T4.5 ✅（2026-09-30，出口实证） | 草图入 EDE 图源节点：解算完成→草图行更新→saveChanges→下游重建 | **改草图尺寸→全零件联动**（M2 标志） | T3.2 | M |
-| T4.6 🔨 **M2-UX 后续计划** | 草图编辑交互（FE 工具：绘制+约束创建+尺寸标注） | 可用 | T4.3/T4.4 | L |
-| T4.7 🔨 **M2-UX 后续计划** | 约束状态显示（DOF/矛盾清单；矛盾清单 libslvs 原生支持） | UI 可见 | T4.0 | S |
+| T4.6 🔨 **归 M3-b**（原 M2-UX 后续计划） | 草图编辑交互（FE 工具：绘制+约束创建+尺寸标注） | 可用 | T4.3/T4.4 | L |
+| T4.7 🔨 **归 M3-b**（原 M2-UX 后续计划） | 约束状态显示（DOF/矛盾清单；矛盾清单 libslvs 原生支持） | UI 可见 | T4.0 | S |
 | T4.8 ✅（2026-09-30） | **建链轨迹规范化**（原定位「风险 #10 唯一防御」——native-assault 幻影定案后**降格为纵深冗余**：中毒态系 sweep 双因子缺陷的 no-op 观测，写路径无缺陷可防；两步制机制保留——布尔插入先插角点工具、立即 updateParams 到目标参数，杜绝「内嵌孔洞起步」退化轨迹入链。**M2 终审 I2 补钉**：布尔拒收 sketchId（Registry booleanSchema）——否则两步制引导参数 `{...params, profile:normalize([])}` ≡ 目标参数，被草图驱动布尔绕过） | applyInsert 建链不再以内嵌退化拓扑起步 | T3.3 | S |
 
 ### M2-UX 待办清单（2026-09-30 M2 收口移交；UX/交互面债务，不阻塞 M3 主线）
@@ -131,12 +131,12 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 
 | ID | 任务 | 出口标准 | 依赖 | 规模 |
 |---|---|---|---|---|
-| T6.1 | FeatureTreePanel 重做（读特征元素按 orderKey、失败红标/抑制灰标、拖拽排序=orderKey op；旧骨架废弃） | 对标 Onshape 特征树最小体验 | T3 | M |
-| T6.2 | 参数面板（JSON Schema 驱动表单，编辑即 op） | 全特征类型可用 | T3.1 | M |
-| T6.3 | 视口拾取 → 反查 `(nodeId,entityId)` → 写入特征 params（拓扑引用建立入口） | 点选面/边建引用 | T1.1 | M |
-| T6.4 | 拖拽预览管道（预览 op→rollback mark→确认成真 op） | 流畅 | T3.8 | M |
-| T6.5 | 草图模式 UI（平面进入/退出、栅格、捕捉） | 可用 | T4.4 | L |
-| T6.6 | **M3 接线补遗**（M1 Task 9 审查实证）：`LubanFeatureRpcInterface` 须双端各补一处——后端 `main.ts` 的 `BentleyCloudRpcManager.initializeImpl` 数组 + 前端 `web-viewer/src/WebInitializer.ts` 的 `rpcInterfaces` 数组（OpenCloudRpcInterface 同款先例） | 前端可调通特征 RPC | T5.8 | S |
+| T6.1 ✅（2026-10-04 M3-a） | FeatureTreePanel 重做（读特征元素按 orderKey、失败红标/抑制灰标、排序=orderKey op；v1 以上下移按钮实现排序 op 化——拖拽 UI 为增强不阻塞出口；旧骨架废弃） | 对标 Onshape 特征树最小体验 | T3 | M |
+| T6.2 ✅（2026-10-04 M3-a） | 参数面板（JSON Schema 驱动表单——五 kind 字段表单模型经 RPC 下发渲染，编辑即 op，守卫错误呈现） | 全特征类型可用 | T3.1 | M |
+| T6.3 ✅（2026-10-04 M3-a） | 视口拾取 → 反查 `(nodeId,entityId)` → 写入特征 params（拓扑引用建立入口；拾取反查经 op31+op7 组合解邻面对，出口「点选面/边建引用」以边实现——fillet 消费面；纯面引用消费方不存在于 M3 范围） | 点选面/边建引用 | T1.1 | M |
+| T6.4 ✅（2026-10-04 M3-a，反馈级口径） | 拖拽预览管道（预览 op=previewOp 影子求值→确认成真 op；v1 交付=debounce 试算+成功/失败反馈徽标，非视口几何级——D-4 已知边界） | 流畅 | T3.8 | M |
+| T6.5 🔨 **M3-b** | 草图模式 UI（平面进入/退出、栅格、捕捉） | 可用 | T4.4 | L |
+| T6.6 ✅（2026-10-04 M3-a） | **M3 接线补遗**（M1 Task 9 审查实证）：`LubanFeatureRpcInterface` 须双端各补一处——后端 `main.ts` 的 `BentleyCloudRpcManager.initializeImpl` 数组 + 前端 `web-viewer/src/WebInitializer.ts` 的 `rpcInterfaces` 数组（OpenCloudRpcInterface 同款先例）。**改名裁决**：interfaceName `"luban-cad/features-v1"` → `"LubanFeatureRpcInterface"`（BentleyCloudRpcProtocol 按 `-` 切 operationId/按 `/` 截 path，旧名永远寻址不到——潜伏缺陷，因从未被传输消费而未爆） | 前端可调通特征 RPC | T5.8 | S |
 
 ## WS7 测试与质量 🔨
 
@@ -205,7 +205,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | **M0 go/no-go** | X1 spike 通过 | T2 全部 —— **✅ 2026-09-28 达成** |
 | **M1 最小参数化闭环** | 拉伸链+参数修改+undo+双端同步可演示 | T3.1-3.3、T5.1-5.5 骨架 —— **✅ 2026-09-29 达成**（分支 feature/m1-feature-engine，11 任务 SDD 执行，测试 24 文件/170 用例） |
 | **M2 草图驱动** | 约束求解入环，改草图尺寸全零件联动 | T4 全部 —— **✅ 2026-09-30 达成（后端闭环——改草图尺寸→求解→全零件联动实证；UX 交互归 M2-UX）**（分支 m2-sketch-solver，7 任务 SDD，测试 29 文件/255 过/9 skip） |
-| **M3 v1 特征完整** | 草图+拉伸+布尔+圆角+前端 UX 可用 | T3.4-3.6、WS6 |
+| **M3 v1 特征完整** | 草图+拉伸+布尔+圆角+前端 UX 可用 | T3.4-3.6、WS6 —— **M3-a ✅ 2026-10-04 达成**（fillet+特征树/参数面板/拾取引用/预览管道半壁 = T3.4/T3.5/T3.8/T6.1-T6.4/T6.6；草图 UX 半壁 = T6.5/T4.6/T4.7 归 **M3-b**） |
 | **M4 协同完整** | 租约/语义 undo/双端实时 | WS5 完整 |
 | **M5 真形 STEP 通路** | writer+reader+healing | T8.1/T8.2 |
 | **M6 绳墨平替** | 自研求解器替换 libslvs | T9.1-9.4 |
@@ -218,7 +218,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 3. **KernelLock 全局串行**：v1 无感（单写者），T11.5 前是并行天花板。
 4. **圆柱面操作（T1.5）**：柱面草图/面提取的前置，v1 不碰。
 5. **真形/绳墨是研究性投入**：接口契约（SolidKernel.h / solver-neutral）保证主线不被自研进度绑架——这是双轨制的全部意义。
-6. **双 op 面接缝（2026-09-28 审查新增）**：特征引擎跨 `createBRepGeometry`（12 粗粒度 op）与 ElementGeometryCache（31-op）两面；两面的事务/锁/缓存交互未经验证——T3.4 是最先暴露点，视情况在 WS3 前加一个 op 面选型 spike。**2026-09-30 补注：31-op 通道确认已实现（PSBRepEdit.cpp op switch，op31-35 已入该通道）**。
+6. **双 op 面接缝（2026-09-28 审查新增）**：特征引擎跨 `createBRepGeometry`（12 粗粒度 op）与 ElementGeometryCache（31-op）两面；两面的事务/锁/缓存交互未经验证——T3.4 是最先暴露点，视情况在 WS3 前加一个 op 面选型 spike。**2026-09-30 补注：31-op 通道确认已实现（PSBRepEdit.cpp op switch，op31-35 已入该通道）**。**2026-10-04 结案注：T3.4 已验证——fillet 求值跨两面混合调用序（scratch 载体缓存通道 op32/33/34/Blend + 真实库 createBRepGeometry 粗粒度 op）稳定无崩溃无串扰（FilletFlow 9/9 + 探针臂全过），接缝风险实证消除**。
 7. **op=push 交互延迟**：本地 hub 往返可接受（M1 演示级）；AI 批量 op 场景的合批策略（composite op=单 changeset）留为设计注记，不进 v1。
 8. **内核会话态管理**：rollback mark、ElementGeometryCache 均为会话态；模型重开=重建（T1.2 出口已含 mark 表重建策略；缓存重建随 T3.12）。
 9. **ACIS BRep blob 非确定性**（M1 Task 10 实证）：blob 头含时间戳+随机 ID，同参数两次求值字节不同（~75 字节）。纪律：跨求值比较一律用 `TestHost.normalizeBrepGeomJson` 归一化；同持久化 blob 可字节比。影响面：T7.4 结构断言回归、T7.5 性能基准、未来任何字节级几何断言。观察记录（2026-09-29 M1 合并树）：全量套件出现一次未复现的失败（1/5 跑，用例名未捕获）——疑属归一化秒边界或 WriteLease 1ms TTL 边界家族，再现时按此排查。
@@ -231,3 +231,9 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 - **2026-09-28 全面审查**（X1 通过后、实现启动前）：修订 T3.4（fillet 改走 ElementGeometryCache/Blend=24，纠正误用 Round=10）；WS1 加注「双 op 面」与「协议层自动打标、D4 无需协议加参」（证据：`itwinjs-core/editor/backend/src/EditBuiltInCommand.ts:418-450`、`imodel-native PSBRepEdit.cpp:1684-1693`）；新增 T1.8（TopologyID↔缓存子实体桥接）、T3.11（D7 打标）、T3.12（崩溃恢复）、T5.8（op RPC 接口入 shared）、T7.6（schema 演进门禁）；T1.1/T1.2 出口标准补强；风险登记补 6-8。spec ↔ roadmap 映射逐条核对：修订后全覆盖。
 - **2026-09-30 M2 终审修复波**（whole-branch review @ m2-sketch-solver b3cab67f81，裁决 With fixes）：**I1** updateParams 闸门对称化——存储无 sketchId 的内联特征被带 sketchId 的 op 覆写原会「挂上」草图却不建 sketch→feature 边、不 ensureSketchSolved，现拒收（`内联特征不支持挂接草图`）；**I2** 布尔+sketchId 由「zod 剥离」改为 Registry booleanSchema 按类型拒收（剥离防御实测 no-op：引擎类型无关消费 sketchId、两步制建链被绕过——T4.8 行已补注，M2-UX 清单第 2 条改写为显式支持单裁）；**I3** 原生构建绑定登记风险 #12 + VENDOR.md「新机器 bootstrap」。文档对齐：`@luban-cad/shared` ExtrudeParams 注释、FeatureTypeRegistry/FeatureService/FeatureEngine 注释同步改述「布尔拒收 sketchId」。回归：modeling-server vitest 29 文件 258 过/9 skip、tsc 0 错、eslint 仓级既有基线不变。
 - **2026-09-30 native-assault 泳道（风险 #11 backlog 三项攻坚，四任务 SDD + 各任务审查循环）**：native-① 内核 sweep 位置复现钉（96d422f，「位置完美保持」实证——「sweep 变换未应用」假设在 C++ 内核层证伪，嫌疑收窄 entry 生产/解码侧）→ native-② 全链坐标定界——坐标 L1-L5 全层无损、唯一丢失层=体语义（sheet vs solid），双因子=C++ Sweep `createSheet` 旗标漏取反（ida 直证，4a98c08 已修）+ JS sweepProfile 闭合点去重→开线退化（tiangong 侧 a9eb19c 一行修）；native-②b 中毒态钉翻转 + region-solid 接线回归钉（75dd05d..33ff9f0，审查 round1：探针臂 300s 超时+stderr 入错信、四处过时 prose 改幻影定案口径含生产码 FeatureService「历史防御/纵深冗余」）→ native-③ ①②硬崩同根定界（ACIS 内核上下文每线程一份）+ thread_local 懒注册修复（73faeb9..bb3c4e1，审查 round1：注册分支纳入 KernelLock）。**定案三连：风险 #10 中毒态=幻影（EDE 写路径无辜，本登记第 10 条整段改写）；风险 #11 ①②③全治愈（第 11 条整段改写）；T3.8 异步收敛操作律解除**。附带定案：Sweep 产物 nodeId=1（op31-34 在 Sweep 产物解死火，T3.4 前置清空）；4 点 Loop（隐式闭合）出 sheet=内核契约（特征引擎剖面构造须显式闭合链）。回归：modeling-server vitest 29 文件 260 过/8 skip（原 9 skip 中毒态留档用例翻转启用后零残留）+tsc 0 错+eslint 仓级既有基线不变；imodel-native BRepCoreTest 31/31+PSBRepGeometryTest 10/10。
+- **2026-10-04 M3-a 收口注记**（plan `2026-10-04-m3a-v1-feature-complete`，两仓 `feature/m3a-v1-features`，12 任务 SDD）：
+  - **裁决落点（D-1~D-5 全部显式登记）**：D-1 边引用编码改邻面对（op33 契约倒逼，`FilletEdgeRef{faceA,faceB}`，面对=集语义全边 blend）；D-2 fillet 求值=异步预求值前相+EDE 标记短路（async/同步接缝）；D-3 求值载体=会话级 scratch StandaloneDb（changeset 零污染）；D-4 T3.8 预览弃 rollback mark 改影子求值（mark 的 TS 面零存在+成本，反馈级口径）；D-5 undo 覆盖面维持 M1 口径（updateParams 可逆，suppress/reorder/insert 记 oplog 不可逆，UI toast 提示）。
+  - **原生修复**：imodel-native aacbcf2d0——子实体修改 op 对改造目标重解析子实体 id，根治「SUCCESS 但几何原状」静默空操作（Blend/Chamfer/Offset/Hollow/Delete/Transform 全族受益）；未归因现象「连续第二次 blend 不重灌失稳」与 op7 getConnectedSubEntities 死桩登记 imodel-native defects backlog。
+  - **Task 8x 插队修复**（T3.12 领域真生产洞）：FeatureService 单例缓存随 db 关开清退——原第二编辑器会话起全部特征 RPC 抛 `db not open`；连带实证 e2e 45/45 有盲点（空态/表单模型在 RPC 死时也成立），已补「面板无 db-not-open」断言。
+  - **既有 bug 登记（非本计划产物）**：① op7 getConnectedSubEntities 死桩（PSBRepEdit.cpp:974-1033 收集后从不序列化回包，smoke-brep-protocol.js:177-180 已钉）② registerAllTools 静默死于 SelectAllTool（裸 Tool 无 namespace）→全局快捷键含 Escape 全死——M3-b 立项候选。
+  - **回归**：modeling-server vitest 31 文件 295 过/8 skip + tsc 0 错 + eslint 增量零新增；公开仓 shared 33/viewer-core 57/web-viewer 15/apps/web 454 过/11 skip；e2e Playwright 全量（含新增 features.spec 6 例）。详情见 plan 目录 task-11-report。
