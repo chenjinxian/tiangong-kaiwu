@@ -64,6 +64,9 @@ export function useSketchSystem(
   // 活动草图 id 走 ref：refresh 回调身份只随 connectionKey 变化，
   // 避免「setActiveSketch(新对象) → refresh 重建 → 挂载 effect 重跑」的取数环。
   const activeIdRef = useRef<string | undefined>(undefined);
+  // 活动身份代际：openSketch 发起 / closeSketch / 换连接时 +1——
+  // 迟到的 getSketch 解析发现自己代数过期即丢弃，防止覆写更新后的身份（stale-clobber 竞态）。
+  const activeEpochRef = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!connectionKey) {
@@ -81,8 +84,12 @@ export function useSketchSystem(
         activeId ? client.getSketch(connectionKey, activeId) : Promise.resolve(undefined),
       ]);
       setSketches(list);
-      setActiveSketch(activeId ? sketch : undefined);
-      setError(undefined);
+      // 身份相关写入仅在身份未变时落地（列表与身份无关，恒写）：
+      // refresh 在途期间若发生 openSketch/closeSketch，迟到解析不得覆写新身份。
+      if (activeIdRef.current === activeId) {
+        setActiveSketch(activeId ? sketch : undefined);
+        setError(undefined);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -90,8 +97,9 @@ export function useSketchSystem(
     }
   }, [connectionKey]);
 
-  // 初始/换连接加载摘要表（换连接同时清活动草图，防跨 iModel 错配 id）
+  // 初始/换连接加载摘要表（换连接同时清活动草图并推进代际，防跨 iModel 错配 id / 迟写覆写）
   useEffect(() => {
+    activeEpochRef.current += 1;
     activeIdRef.current = undefined;
     setActiveSketch(undefined);
     void refresh();
@@ -116,13 +124,18 @@ export function useSketchSystem(
         return;
       }
       setLoading(true);
+      const epoch = ++activeEpochRef.current; // 使进行中的旧 open/旧身份失效
       try {
         const sketch = await LubanFeatureRpcInterface.getClient().getSketch(connectionKey, id);
+        // 迟写丢弃：await 期间若已被更新的 open/close/换连接取代，不得覆写
+        if (activeEpochRef.current !== epoch) return;
         activeIdRef.current = id;
         setActiveSketch(sketch);
         setError(undefined);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        if (activeEpochRef.current === epoch) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
       } finally {
         setLoading(false);
       }
@@ -131,6 +144,7 @@ export function useSketchSystem(
   );
 
   const closeSketch = useCallback(() => {
+    activeEpochRef.current += 1; // 使进行中的 open 迟写失效
     activeIdRef.current = undefined;
     setActiveSketch(undefined);
   }, []);

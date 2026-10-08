@@ -295,6 +295,102 @@ describe('useSketchSystem', () => {
     expect(fakeClient.getSketch).toHaveBeenLastCalledWith('test-model.bim', 'sk-1');
   });
 
+  it('a refresh in flight must not clobber a newer openSketch (stale-clobber race)', async () => {
+    const connection = createMockConnection();
+    const { result } = await openAndSettle(connection, createMockFs(), 'sk-1');
+    expect(result.current.activeSketch?.id).toBe('sk-1');
+
+    // Gate the next getSketch so the onCommitted-triggered refresh stays in flight.
+    let releaseRefresh!: (sketch: SketchDto) => void;
+    const refreshGate = new Promise<SketchDto>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    fakeClient.getSketch.mockReturnValueOnce(refreshGate);
+
+    const callsBefore = fakeClient.getSketch.mock.calls.length;
+    act(() => {
+      connection.emitCommitted();
+    });
+    // Wait for the refresh to actually be in flight (its gated getSketch was issued).
+    await waitFor(() => expect(fakeClient.getSketch.mock.calls.length).toBe(callsBefore + 1));
+    expect(fakeClient.getSketch).toHaveBeenLastCalledWith('test-model.bim', 'sk-1');
+
+    // Switch sketch while the refresh is still awaiting the gate.
+    await act(async () => {
+      await result.current.openSketch('sk-2');
+    });
+    expect(result.current.activeSketch?.id).toBe('sk-2');
+
+    // The stale refresh resolves late: list still lands, activeSketch must not revert to sk-1.
+    await act(async () => {
+      releaseRefresh(fakeClient.makeSketch('sk-1'));
+    });
+    expect(result.current.activeSketch?.id).toBe('sk-2');
+    expect(result.current.sketches).toEqual(fakeClient.makeSummaries());
+  });
+
+  it('a refresh in flight must not clobber closeSketch (stale-clobber race)', async () => {
+    const connection = createMockConnection();
+    const { result } = await openAndSettle(connection, createMockFs(), 'sk-1');
+
+    let releaseRefresh!: (sketch: SketchDto) => void;
+    const refreshGate = new Promise<SketchDto>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    fakeClient.getSketch.mockReturnValueOnce(refreshGate);
+
+    const callsBefore = fakeClient.getSketch.mock.calls.length;
+    act(() => {
+      connection.emitCommitted();
+    });
+    await waitFor(() => expect(fakeClient.getSketch.mock.calls.length).toBe(callsBefore + 1));
+    expect(fakeClient.getSketch).toHaveBeenLastCalledWith('test-model.bim', 'sk-1');
+
+    act(() => {
+      result.current.closeSketch();
+    });
+    expect(result.current.activeSketch).toBeUndefined();
+
+    // The stale refresh resolves late: activeSketch must stay cleared, list still lands.
+    await act(async () => {
+      releaseRefresh(fakeClient.makeSketch('sk-1'));
+    });
+    expect(result.current.activeSketch).toBeUndefined();
+    expect(result.current.sketches).toEqual(fakeClient.makeSummaries());
+  });
+
+  it('a late openSketch resolution superseded by a newer open is discarded', async () => {
+    const connection = createMockConnection();
+
+    // Gate the first open so the second open supersedes it while in flight.
+    let releaseFirst!: (sketch: SketchDto) => void;
+    const firstGate = new Promise<SketchDto>((resolve) => {
+      releaseFirst = resolve;
+    });
+    fakeClient.getSketch.mockReturnValueOnce(firstGate);
+
+    const { result } = renderSketchSystem(connection, createMockFs());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let firstOpen!: Promise<void>;
+    await act(async () => {
+      firstOpen = result.current.openSketch('sk-1');
+    });
+    await waitFor(() => expect(fakeClient.getSketch).toHaveBeenCalledWith('test-model.bim', 'sk-1'));
+
+    await act(async () => {
+      await result.current.openSketch('sk-2');
+    });
+    expect(result.current.activeSketch?.id).toBe('sk-2');
+
+    // Release the stale sk-1 resolution: it must be discarded, not clobber sk-2.
+    await act(async () => {
+      releaseFirst(fakeClient.makeSketch('sk-1'));
+      await firstOpen;
+    });
+    expect(result.current.activeSketch?.id).toBe('sk-2');
+  });
+
   it('unsubscribes onCommitted on unmount', () => {
     const connection = createMockConnection();
 
