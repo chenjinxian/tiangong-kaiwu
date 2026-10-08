@@ -16,9 +16,13 @@ import type {
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
-  it("接口名与版本固定", () => {
-    expect(LubanFeatureRpcInterface.interfaceName).toBe("luban-cad/features-v1");
+  it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
+    expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
     expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.1.0");
+  });
+
+  it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
+    expect(typeof LubanFeatureRpcInterface.getClient).toBe("function");
   });
 });
 

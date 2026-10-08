@@ -8,7 +8,7 @@ import { EditTools } from '@itwin/editor-frontend';
 import { FrontendIModelsAccess } from '@itwin/imodels-access-frontend';
 import { BentleyCloudRpcManager, IModelReadRpcInterface, IModelTileRpcInterface } from '@itwin/core-common';
 import { IModelsClient } from '@itwin/imodels-client-management';
-import { OpenCloudRpcInterface } from '@luban-cad/shared';
+import { OpenCloudRpcInterface, LubanFeatureRpcInterface } from '@luban-cad/shared';
 
 export interface WebInitializerOptions {
   /** Backend RPC URL */
@@ -37,7 +37,7 @@ export interface WebInitializerOptions {
 export async function initializeWeb(options: WebInitializerOptions): Promise<void> {
   const { backendUrl, iModelHubUrl = '', accessToken } = options;
 
-  const rpcInterfaces = [OpenCloudRpcInterface, IModelReadRpcInterface, IModelTileRpcInterface];
+  const rpcInterfaces = [OpenCloudRpcInterface, LubanFeatureRpcInterface, IModelReadRpcInterface, IModelTileRpcInterface];
 
   if (!IpcApp.isValid) {
     // eslint-disable-next-line no-console

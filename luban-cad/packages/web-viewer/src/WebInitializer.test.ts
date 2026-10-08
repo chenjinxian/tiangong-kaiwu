@@ -75,6 +75,10 @@ vi.mock('@luban-cad/shared', () => ({
   OpenCloudRpcInterface: {
     interfaceName: 'OpenCloudRpcInterface',
   },
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  LubanFeatureRpcInterface: {
+    interfaceName: 'LubanFeatureRpcInterface',
+  },
 }));
 
 describe('WebInitializer', () => {

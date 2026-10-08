@@ -5,7 +5,7 @@
  * 鲁班CAD 特征系统 RPC 接口（M1 roadmap T5.8；M3-a 升 v1.1：fillet + suppress/reorder/preview/表单模型）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
-import { RpcInterface } from "@itwin/core-common";
+import { RpcInterface, RpcManager } from "@itwin/core-common";
 
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet） */
 export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet";
@@ -65,8 +65,19 @@ export interface FeatureFormModelEntry { fields: FeatureFormField[] }
 export type FeatureFormModel = Record<string, FeatureFormModelEntry>;
 
 export abstract class LubanFeatureRpcInterface extends RpcInterface {
-  public static interfaceName = "luban-cad/features-v1";
+  /**
+   * 接口名必须是干净标识符：BentleyCloudRpcProtocol 的 URL 操作路径按 "-" 与 "/"
+   * 切分解析（itwinjs-core BentleyCloudRpcProtocol.getOperationFromPath），
+   * "luban-cad/features-v1" 这类带 "/" "-" 的名字永远无法被 HTTP RPC 寻址
+   * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
+   */
+  public static interfaceName = "LubanFeatureRpcInterface";
   public static interfaceVersion = "1.1.0";
+
+  /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
+  public static getClient(): LubanFeatureRpcInterface {
+    return RpcManager.getClientForInterface(LubanFeatureRpcInterface);
+  }
 
   public async getFeatureTree(_iModelKey: string): Promise<FeatureTreeEntry[]> { return this.forward(arguments); }
   public async applyFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string): Promise<FeatureOpResult> { return this.forward(arguments); }
