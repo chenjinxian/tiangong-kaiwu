@@ -17,6 +17,7 @@ import { AssemblyPanel } from './AssemblyPanel.js';
 import { ChangesetTimeline } from '../../version-control/components/ChangesetTimeline.js';
 import { ChangesetCompare } from '../../version-control/components/ChangesetCompare.js';
 import { NamedVersionPanel } from '../../version-control/components/NamedVersionPanel.js';
+import { useFeatureSystem } from '../hooks/useFeatureSystem.js';
 
 export type EditorSidebarTab = 'features' | 'assemblies' | 'history' | 'versions';
 
@@ -51,6 +52,9 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   onRollbackToVersion,
   onCompareVersions,
 }) => {
+  // 历史遗留容器（现行 Editor 改用 FeatureTreePanel）；为编译兼容接入特征系统 hook
+  const featureSystem = useFeatureSystem(connection ?? undefined);
+
   return (
     <div className={`editor-sidebar${showCompare ? ' editor-sidebar--wide' : ''}`}>
       <Tabs.Wrapper value={activeTab} onValueChange={(v) => onTabChange(v as EditorSidebarTab)}>
@@ -62,7 +66,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
         </Tabs.TabList>
 
         <Tabs.Panel value="features" className="editor-sidebar-panel">
-          <FeaturePanel connection={connection} isVisible />
+          <FeaturePanel fs={featureSystem} connection={connection} onEditFeature={() => undefined} isVisible />
         </Tabs.Panel>
 
         <Tabs.Panel value="assemblies" className="editor-sidebar-panel">

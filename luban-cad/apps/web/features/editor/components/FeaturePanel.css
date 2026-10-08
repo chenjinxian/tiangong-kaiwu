@@ -29,14 +29,6 @@
   letter-spacing: 0.6px;
 }
 
-.feature-panel-add-row {
-  display: flex;
-  gap: var(--iui-size-xs);
-  padding: var(--iui-size-xs) var(--iui-size-m);
-  border-bottom: 1px solid var(--iui-color-border);
-  flex-shrink: 0;
-}
-
 .feature-panel-loading {
   padding: var(--iui-size-xs) var(--iui-size-m);
   font-size: var(--iui-font-size-small);
@@ -56,7 +48,7 @@
   text-align: center;
 }
 
-.feature-item {
+.feature-row {
   display: flex;
   align-items: center;
   gap: var(--iui-size-xs);
@@ -67,19 +59,28 @@
   border-left: 2px solid transparent;
 }
 
-.feature-item:hover {
+.feature-row:hover {
   background: var(--iui-color-background-surface-elevated);
   border-left-color: var(--iui-color-text-accent);
 }
 
-.feature-item.suppressed {
+.feature-row--suppressed {
   opacity: 0.6;
   background: var(--iui-color-background-backdrop);
 }
 
-.feature-item.suppressed .feature-type {
+.feature-row--suppressed .feature-type {
   text-decoration: line-through;
   color: var(--iui-color-text-muted);
+}
+
+.feature-row--failed {
+  border-left-color: var(--iui-color-text-negative);
+}
+
+.feature-readonly-hint {
+  color: var(--iui-color-text-muted);
+  font-size: 10px;
 }
 
 .feature-order-section {
@@ -137,9 +138,36 @@
   white-space: nowrap;
 }
 
-.feature-suppressed-label {
+/* 徽标：抑制（灰）/ 失败（红点） */
+.feature-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.feature-badge--suppressed {
+  color: var(--iui-color-text-muted);
+  font-size: 10px;
+}
+
+.feature-badge--failed {
   color: var(--iui-color-text-negative);
   font-size: 10px;
+  line-height: 1;
+}
+
+/* 底部「新建特征」入口 */
+.feature-panel-footer {
+  display: flex;
+  justify-content: center;
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  border-top: 1px solid var(--iui-color-border);
+  flex-shrink: 0;
+}
+
+.feature-formmodel-loading {
+  font-size: var(--iui-font-size-small);
+  color: var(--iui-color-text-muted);
 }
 
 .feature-actions {
@@ -149,7 +177,7 @@
   transition: opacity 0.12s ease;
 }
 
-.feature-item:hover .feature-actions {
+.feature-row:hover .feature-actions {
   opacity: 1;
 }
 
@@ -160,4 +188,96 @@
 .form-group .iui-label {
   display: block;
   margin-bottom: var(--iui-size-xs);
+}
+
+/* 表单模型驱动的参数表单（T6.2 FeatureParamForm） */
+.feature-param-form .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.feature-field-error {
+  display: block;
+  margin-top: var(--iui-size-2xs);
+  color: var(--iui-color-text-negative);
+  font-size: var(--iui-font-size-small);
+}
+
+/* edgeRefs 字段：chips 区 + 拾取器插槽（T6.3 注入「从视图选边」按钮） */
+.feature-edge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iui-size-2xs);
+  margin-bottom: var(--iui-size-xs);
+}
+
+.feature-edge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  padding: 2px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-surface-elevated);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--iui-font-size-small);
+}
+
+/* chips 行内删除钮（T6.3）：无边框 ×，与 chip 同色系弱化 */
+.feature-edge-chip-remove {
+  border: none;
+  background: transparent;
+  padding: 0 2px;
+  cursor: pointer;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-small);
+  line-height: 1;
+}
+
+.feature-edge-chip-remove:hover:not(:disabled) {
+  color: var(--iui-color-text-negative);
+}
+
+.feature-edge-chip-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 「从视图选边」拾取器插槽（T6.3）：按钮 + picking 态提示 */
+.feature-edge-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  margin-top: var(--iui-size-2xs);
+}
+
+.feature-edge-picker-hint {
+  color: var(--iui-color-text-muted);
+}
+
+/* 拾取中浮条（T6.3）：对话框暂隐期间的操作入口（模态 backdrop 吞视口点击的化解） */
+.feature-edge-picker-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  margin: var(--iui-size-2xs) 0;
+  border: 1px solid var(--iui-color-border-accent);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-accent-muted);
+}
+
+.feature-edge-empty {
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-small);
+}
+
+/* 对话框内应用失败 Alert（M2-UX 债 #4：守卫文案到前端可见） */
+.feature-dialog-error {
+  margin-top: var(--iui-size-s);
+}
+
+/* T6.4 试算反馈徽标（编辑对话框顶部）：与参数表单的组距一致，靠底对齐表单列 */
+.preview-badge {
+  margin-bottom: var(--iui-size-m);
 }

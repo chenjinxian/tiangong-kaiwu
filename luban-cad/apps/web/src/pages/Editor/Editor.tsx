@@ -57,6 +57,7 @@ import { toggleProjectExtents } from '../../core/decorations/ProjectExtentsDecor
 import { SketchPanel } from '../../../features/sketch/components/SketchPanel.js';
 import { useSolidModelingDialogs } from '../../../features/editor/hooks/useSolidModelingDialogs.js';
 import { useVersionControl } from '../../../features/editor/hooks/useVersionControl.js';
+import { useFeatureSystem } from '../../../features/editor/hooks/useFeatureSystem.js';
 import { ExportDialog } from '../../../features/imodel/components/ExportDialog.js';
 import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import {
@@ -370,6 +371,14 @@ const Editor: React.FC = React.memo(() => {
     setOpStatus,
   );
 
+  // 特征系统（M3-a）：Editor 级持有，保证写租约在左侧面板切换/草图模式间稳定；
+  // 只读 briefcase 不申请租约（hook 内部按 isReadonly 裁决），树读取不受阻。
+  const featureSystem = useFeatureSystem(
+    isEditable ? briefcase.connection ?? undefined : undefined,
+  );
+
+  // 特征编辑入口：参数面板（T6.2）已内建于 FeaturePanel，Editor 无需再占位
+
   // Keyboard shortcuts
   useEditorKeyboard(isEditable, deleteSelected, setOpStatus);
 
@@ -605,6 +614,8 @@ const Editor: React.FC = React.memo(() => {
         {isEditable && !isSketchMode && (
           <FeatureTreePanel
             connection={briefcase.connection}
+            fs={featureSystem}
+            onToast={showToast}
             activeTab={leftPanelTab}
             onTabChange={setLeftPanelTab}
             isCollapsed={isLeftPanelCollapsed}

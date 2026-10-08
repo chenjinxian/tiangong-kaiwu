@@ -197,7 +197,12 @@ export type {
 // =============================================================================
 export { OpenCloudRpcInterface } from './rpc/OpenCloudRpcInterface.js';
 export { LubanFeatureRpcInterface } from './rpc/LubanFeatureRpcInterface.js';
-export type { LubanFeatureType, ExtrudeParams, FeatureOp, FeatureTreeEntry, FeatureOpResult } from './rpc/LubanFeatureRpcInterface.js';
+export type {
+  LubanFeatureType, ExtrudeParams, FeatureOp, FeatureTreeEntry, FeatureOpResult,
+  // M3-a v1.1
+  LubanTopologyId, FilletEdgeRef, FilletParams, FeatureParams, PreviewResult, FeatureFormField, FeatureFormModel,
+  FeatureFormFieldKind, FeatureFormModelEntry,
+} from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================
 // Error Types

@@ -15,15 +15,22 @@ import {
   SvgItem,
 } from '@itwin/itwinui-icons-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
+import type { FeatureTreeEntry } from '@luban-cad/shared';
 import { FeaturePanel } from './FeaturePanel.js';
 import { AssemblyPanel } from './AssemblyPanel.js';
 import { ToolSettingsPanel } from './ToolSettingsPanel.js';
+import type { UseFeatureSystem } from '../hooks/useFeatureSystem.js';
 import './FeatureTreePanel.css';
 
 export type TreeTab = 'features' | 'assemblies';
 
 interface FeatureTreePanelProps {
   connection: BriefcaseConnection | null;
+  /** 特征系统中枢（Editor 级 useFeatureSystem 注入，保证写租约在面板切换间稳定） */
+  fs: UseFeatureSystem;
+  /** 编辑点击通知（可选；编辑对话框 T6.2 起内建于 FeaturePanel，父级无需再接管） */
+  onEditFeature?: (entry: FeatureTreeEntry) => void;
+  onToast?: (message: string, type: 'success' | 'error' | 'info') => void;
   activeTab: TreeTab;
   onTabChange: (tab: TreeTab) => void;
   isCollapsed: boolean;
@@ -32,6 +39,9 @@ interface FeatureTreePanelProps {
 
 export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
   connection,
+  fs,
+  onEditFeature,
+  onToast,
   activeTab,
   onTabChange,
   isCollapsed,
@@ -119,7 +129,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
       {/* Content */}
       <div className="feature-tree-content">
         {activeTab === 'features' && (
-          <FeaturePanel connection={connection} isVisible />
+          <FeaturePanel fs={fs} connection={connection} onEditFeature={onEditFeature} onToast={onToast} isVisible />
         )}
         {activeTab === 'assemblies' && (
           <AssemblyPanel connection={connection} isVisible />

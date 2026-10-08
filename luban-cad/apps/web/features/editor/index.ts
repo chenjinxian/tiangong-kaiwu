@@ -12,5 +12,6 @@ export { ThemeToggle } from './components/ThemeToggle.js';
 
 // Hooks
 export { useEditTools } from './hooks/useEditTools.js';
-export { useFeatures } from './hooks/useFeatures.js';
+export { useFeatureSystem } from './hooks/useFeatureSystem.js';
+export type { UseFeatureSystem } from './hooks/useFeatureSystem.js';
 export { useSelection } from './hooks/useSelection.js';
