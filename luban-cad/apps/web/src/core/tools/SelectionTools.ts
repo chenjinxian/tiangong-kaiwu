@@ -268,6 +268,7 @@ class FenceDecorator implements Decorator {
 export class SelectAllTool extends Tool {
   public static override toolId = 'LubanCad.SelectAll';
   public static override iconSpec = 'icon-select-all';
+  public static override namespace = 'LubanCad';
 
   public override async run(): Promise<boolean> {
     const viewport = IModelApp.viewManager.selectedView;
@@ -308,6 +309,7 @@ export class SelectAllTool extends Tool {
 export class InvertSelectionTool extends Tool {
   public static override toolId = 'LubanCad.InvertSelection';
   public static override iconSpec = 'icon-select-invert';
+  public static override namespace = 'LubanCad';
 
   public override async run(): Promise<boolean> {
     const viewport = IModelApp.viewManager.selectedView;
@@ -359,6 +361,7 @@ export class InvertSelectionTool extends Tool {
 export class ClearSelectionTool extends Tool {
   public static override toolId = 'LubanCad.ClearSelection';
   public static override iconSpec = 'icon-select-none';
+  public static override namespace = 'LubanCad';
 
   public override async run(): Promise<boolean> {
     const viewport = IModelApp.viewManager.selectedView;
@@ -382,6 +385,7 @@ export class ClearSelectionTool extends Tool {
 export class SelectByCategoryTool extends Tool {
   public static override toolId = 'LubanCad.SelectByCategory';
   public static override iconSpec = 'icon-select-category';
+  public static override namespace = 'LubanCad';
 
   private _categoryId?: string;
 

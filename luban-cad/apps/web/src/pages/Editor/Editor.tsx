@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { type GraphicalEditingScope, IModelApp, type ViewState2d } from '@itwin/core-frontend';
+import { type GraphicalEditingScope, IModelApp, NotifyMessageDetails, OutputMessagePriority, type ViewState2d } from '@itwin/core-frontend';
 import { EditTools } from '@itwin/editor-frontend';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBriefcaseConnection, useViewport } from '@luban-cad/viewer-core';
@@ -229,8 +229,15 @@ const Editor: React.FC = React.memo(() => {
         await EditTools.initialize();
         if (cancelled) return;
         registerAllTools();
-      } catch {
-        // Tool registration failed silently
+      } catch (err) {
+        // 工具注册失败必须可见（M3-b T4 修复：曾在 SelectAllTool 处静默抛死，
+        // 其后注册行与 registerDefaultShortcuts 全部不执行）
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(
+            OutputMessagePriority.Error,
+            `工具注册失败: ${err instanceof Error ? err.message : String(err)}`
+          )
+        );
       }
     };
 

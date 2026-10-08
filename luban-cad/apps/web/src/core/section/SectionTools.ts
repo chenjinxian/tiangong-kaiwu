@@ -23,6 +23,7 @@ import { ColorDef, LinePixels } from '@itwin/core-common';
 export class SectionByPlaneTool extends PrimitiveTool {
   public static override toolId = 'SectionByPlane';
   public static override iconSpec = 'icon-section-plane';
+  public static override namespace = 'LubanCad';
 
   private _decorator?: SectionDecorator;
   private _step: 'origin' | 'normal' = 'origin';
@@ -144,6 +145,7 @@ export class SectionByPlaneTool extends PrimitiveTool {
 export class ClearSectionTool extends PrimitiveTool {
   public static override toolId = 'ClearSection';
   public static override iconSpec = 'icon-clear-section';
+  public static override namespace = 'LubanCad';
 
   public override async run(): Promise<boolean> {
     const result = await super.run();

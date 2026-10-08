@@ -106,6 +106,7 @@ export function getGridSettings(): GridSettings | null {
  */
 export class ToggleGridTool extends Tool {
   public static override toolId = "ToggleGrid";
+  public static override namespace = "LubanCad";
   public static override get minArgs() { return 0; }
   public static override get maxArgs() { return 0; }
 
@@ -121,6 +122,7 @@ export class ToggleGridTool extends Tool {
  */
 export class GridSettingsTool extends Tool {
   public static override toolId = "GridSettings";
+  public static override namespace = "LubanCad";
   public static override get minArgs() { return 0; }
   public static override get maxArgs() { return 4; }
 

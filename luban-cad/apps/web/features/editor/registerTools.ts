@@ -54,6 +54,7 @@ import { SelectSubEntityTool } from '../modeling/SelectSubEntityTool.js';
 import { DraftFacesTool } from '../modeling/DraftFacesTool.js';
 import { CreateHoleTool } from '../modeling/CreateHoleTool.js';
 import { MirrorElementsTool } from '../modeling/MirrorElementsTool.js';
+import { SketchCircleTool, SketchLineTool, SketchRectangleTool } from '../sketch/tools/SketchCreateTool.js';
 import {
   FenceSelectTool,
   SelectAllTool,
@@ -128,6 +129,10 @@ export function registerAllTools(): void {
   // Modeling tools - iTwin.js native tools
   IModelApp.tools.register(SetSketchPlaneTool);
   IModelApp.tools.register(SelectSubEntityTool);
+  // 鲁班草图绘制工具链（M3-b T4）：线/矩形/圆 + 橡皮筋预览
+  IModelApp.tools.register(SketchLineTool);
+  IModelApp.tools.register(SketchRectangleTool);
+  IModelApp.tools.register(SketchCircleTool);
   // Solid modeling tools from @itwin/editor-frontend
   IModelApp.tools.register(RoundEdgesTool);
   IModelApp.tools.register(ChamferEdgesTool);
