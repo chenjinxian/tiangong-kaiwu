@@ -202,6 +202,8 @@ export type {
   // M3-a v1.1
   LubanTopologyId, FilletEdgeRef, FilletParams, FeatureParams, PreviewResult, FeatureFormField, FeatureFormModel,
   FeatureFormFieldKind, FeatureFormModelEntry,
+  // M3-b v1.2
+  SketchEntityDto, SketchConstraintDto, SketchSolveStatusDto, SketchSolveStateDto, SketchDto, SketchSummaryDto,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================
