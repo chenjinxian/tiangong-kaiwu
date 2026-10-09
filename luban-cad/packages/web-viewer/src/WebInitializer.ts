@@ -73,7 +73,20 @@ export async function initializeWeb(options: WebInitializerOptions): Promise<voi
           // bundled FrontendHubAccess identity, structurally identical to
           // core-frontend's (link: 5.14.0-dev) — cross-copy assignment fails tsc only.
           hubAccess: new FrontendIModelsAccess(iModelClient) as never,
-          publicPath: '/workspace/default/',
+          // 静态资源（imdl worker 等）就在 web 容器静态根——`/workspace/default/` 前缀
+          // 会让 iTwin.js 拼出 `<origin>/workspace/default/scripts/parse-imdl-worker.js`，
+          // 落到 SPA 回退返回 index.html（worker 解码器 404），几何渲染不出（2026-10-09 实证）。
+          publicPath: '/',
+          // tile/原生 RPC 通道（IModelTileRpcInterface 等 checkToken=true 的接口）要求前端提供
+          // authorizationClient 取 access token 放请求头；缺失则 tile 请求根本发不出（2026-10-09 实证：
+          // MS 日志零 tile 请求痕迹，几何渲染不出）。此处把 WS 用的同一 token 接上。
+          ...(accessToken
+            ? {
+                authorizationClient: {
+                  getAccessToken: async () => accessToken,
+                },
+              }
+            : {}),
         },
       });
 

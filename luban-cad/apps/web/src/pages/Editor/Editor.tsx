@@ -8,6 +8,7 @@ import { type GraphicalEditingScope, IModelApp, NotifyMessageDetails, OutputMess
 import { EditTools } from '@itwin/editor-frontend';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBriefcaseConnection, useViewport } from '@luban-cad/viewer-core';
+import { useFeatureDisplaySync } from '../../../features/editor/useFeatureDisplaySync.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
 import { EditorBriefcaseStatus } from '../../../features/editor/components/EditorBriefcaseStatus.js';
 import { FeatureTreePanel, type TreeTab } from '../../../features/editor/components/FeatureTreePanel.js';
@@ -166,6 +167,10 @@ const Editor: React.FC = React.memo(() => {
   );
 
   const { saveChanges, pushChanges, pullChanges } = briefcase;
+
+  // 特征显示同步（BRep 显示 bug 层③修复）：MS 服务端写库的 geometryGuid 变化
+  // 在常驻 editing scope 下被 core-frontend 缓冲——此处即时失效 tile tree（见 hook 注释）
+  useFeatureDisplaySync(briefcase.connection ?? undefined);
 
   const editViewportRef = useRef<HTMLDivElement>(null);
   const editingScopeRef = useRef<GraphicalEditingScope | null>(null);

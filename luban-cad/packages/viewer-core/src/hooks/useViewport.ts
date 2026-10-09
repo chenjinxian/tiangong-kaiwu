@@ -179,6 +179,10 @@ async function ensureViewHasCategoriesAndModels(view: SpatialViewState, iModel: 
         view.modelSelector.addModels([modId]);
       }
     }
+    // ModelState 必须显式加载（addModels 不会触发加载；未加载的 model 不建 tile tree——见 setupViewCategoriesAndModels 同款注释）
+    const unloaded = modelIds.filter((id) => !iModel.models.getLoaded(id));
+    if (unloaded.length > 0)
+      await iModel.models.load(unloaded);
     // eslint-disable-next-line no-console
     console.log('[useViewport] Added', modelIds.length, 'models to view');
   }
@@ -243,15 +247,31 @@ async function setupViewCategoriesAndModels(viewport: ScreenViewport): Promise<v
 
   // Get all models and ensure they're in the view
   const modelIds = await queryAllPhysicalModelIds(iModel);
-  let modelsChanged = false;
+  const newlyAdded: string[] = [];
   for (const modId of modelIds) {
     if (!view.modelSelector.has(modId)) {
       view.modelSelector.addModels([modId]);
-      modelsChanged = true;
+      newlyAdded.push(modId);
     }
   }
 
-  if (categoriesChanged || modelsChanged) {
+  // CRITICAL（BRep 显示 bug 主断点修复，2026-10-09）：
+  // 1) ModelState 必须显式加载——viewport 的 SpatialTileTreeReferences.updateModels 只为
+  //    首帧迭代时已加载的 model 建 TileTreeReference，未加载的 model 即使进了 modelSelector
+  //    也不会请求 tile（症状：服务端后建的物理 model 几何永不显示）。
+  // 2) SpatialRefs 的 _allLoaded 缓存——首帧后新加载的 model 不再自动进 refs，须
+  //    drop+add 触发 markModelSelectorChanged → refs 重建（Playwright 双探针实证）。
+  const unloadedModels = modelIds.filter((id) => !iModel.models.getLoaded(id));
+  if (unloadedModels.length > 0) {
+    await iModel.models.load(unloadedModels);
+    // load 完成（此刻渲染循环可能已跑过首帧）→ drop+add 已加载的 model 触发 refs 重建
+    view.modelSelector.dropModels(unloadedModels);
+    view.modelSelector.addModels(unloadedModels);
+    // eslint-disable-next-line no-console
+    console.log('[useViewport] Loaded', unloadedModels.length, 'unloaded models + rebuilt refs');
+  }
+
+  if (categoriesChanged || newlyAdded.length > 0) {
     // eslint-disable-next-line no-console
     console.log('[useViewport] View updated with', categoryIds.length, 'categories and', modelIds.length, 'models');
     // Sync the viewport with the updated view state
