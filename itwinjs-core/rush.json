@@ -429,5 +429,15 @@
       "shouldPublish": true,
       "versionPolicyName": "prerelease-monorepo-lockStep"
     }
-  ]
+  ],
+
+  // ==== FORK LOCAL（tiangong-kaiwu）：postRushInstall 自动接线本地 imodeljs 原生库 ====
+  // rush update/install 后自动重跑 scripts/replace-imodeljs-native.ps1（消灭重装回退官方包）。
+  // 上游同步冲突时取上游版本后须重新追加本块；登记于 docs/ITWINJS_CORE_MODIFICATIONS.md §5。
+  // 失败不阻断 install（rush 黄色警告）；--ignore-hooks 可跳过。
+  "eventHooks": {
+    "postRushInstall": [
+      "node ../scripts/replace-imodeljs-native-postinstall.cjs"
+    ]
+  }
 }

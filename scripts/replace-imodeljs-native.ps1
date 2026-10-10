@@ -11,6 +11,8 @@
 # 用法: powershell -File scripts\replace-imodeljs-native.ps1 [-Config debug] [-NativeRepo D:\Github\imodel-native]
 #       [-IncludeTypings:$false]  # 仅替换二进制，跳过 typings/JS wrapper 自产覆盖
 # 注意: 任何 rush update / pnpm install 重装 node_modules 后需重跑本脚本。
+#       （itwinjs-core rush 现场已由 rush.json eventHooks.postRushInstall 自动接线本脚本，
+#        见 scripts/replace-imodeljs-native-postinstall.cjs；其余现场仍手动。）
 [CmdletBinding()]
 param(
   [string]$NativeRepo = 'D:\Github\imodel-native',

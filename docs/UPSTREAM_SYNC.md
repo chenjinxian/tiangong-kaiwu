@@ -34,8 +34,10 @@ bash scripts/sync-from-upstream.sh   # 于仓库根目录执行
 2. `cmake --preset win-x64-release && cmake --build --preset win-x64-release`（按需加 debug）
 3. 本仓 `rush update` → 按需 `rush build` → `powershell -File scripts/replace-imodeljs-native.ps1`
 
-任何 `rush update` / `pnpm install` 重装 node_modules 后，替换会被还原，需重跑替换脚本；
-后端启动无 "using dev build from …" banner 即已回退官方二进制。详见
+任何 `rush update` / `pnpm install` 重装 node_modules 后，替换会被还原——itwinjs-core rush 现场
+已由 `rush.json` eventHooks.postRushInstall 自动重跑（2026-10-11 接线，fork 本地改动，
+同步冲突取上游后重新追加，见 docs/ITWINJS_CORE_MODIFICATIONS.md §5）；其余现场（luban-cad/
+后端私有仓）需手动重跑。后端启动无 "using dev build from …" banner 即已回退官方二进制。详见
 `docs/superpowers/specs/2026-09-26-imodeljs-native-local-replacement-design.md`。
 REST 契约以 `docs/api-specs/`（官方 iTwin Platform OpenAPI 规格）为对照基准；SDK 面
 必须官方形状，自研扩展路由须挂在官方资源下并显式标注。

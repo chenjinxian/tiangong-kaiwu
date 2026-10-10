@@ -123,3 +123,4 @@
 | 日期 | commit | 文件 | 性质 | 说明 |
 |------|--------|------|------|------|
 | 2026-09-30 | `22a38fd2d9` | `editor/backend/src/EditBuiltInCommand.ts`（+139/-1） | 上游文件修补·纯追加 | WS1 T1.1/T1.3：OperationType 枚举扩 31-35 + 请求/响应 props 接口 + SolidModelingCommand 五个查询方法（topologyIdFromSubEntity/facesFromId/edgesFromId/allTopologyIds/validateBody），仿查询族形态（params.onResult 回调出线），wire 逐字消费 imodel-native 8e5ab9c60。导出 `TopologyIdProps` 供 M3 消费。同步风险与 §1.3 同类：上游若重排 OperationType 枚举尾部/改 `elementGeometryCacheOperation` 签名即冲突，但枚举追加在尾部、方法追加在类尾，冲突面最小 |
+| 2026-10-11 | （本提交） | `rush.json`（尾部追加 `eventHooks`，+10 行） | fork 本地接线·纯追加 | rush postInstall 自动接线：`eventHooks.postRushInstall` 挂 `node ../scripts/replace-imodeljs-native-postinstall.cjs`（守卫包装：非 Windows 跳过 / Windows 转交 replace-imodeljs-native.ps1），消灭 rush update 重装后回退官方原生包的手工纪律。同步风险：**rush.json 按仓规与上游逐字节一致，subtree 同步冲突时取上游版本后须重新追加本块**（块内注释已自标记）；守卫脚本在 subtree 之外（仓库根 scripts/），不受同步影响 |

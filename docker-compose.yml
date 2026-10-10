@@ -18,6 +18,13 @@
 #   imodelhub / webhook-agent 为 GHCR 预构建镜像（本 compose 零 build:，
 #   web 除外）；镜像构建属私有仓 luban-backend 的事务，不进本仓。
 #
+# 【imodeljs 原生库范围注记 —— spec §4.4 / module-governance 2026-10-11】
+#   scripts/replace-imodeljs-native.ps1 的本地 imodeljs.node 替换**仅属宿主 Windows
+#   开发机**：itwinjs-core rush update 后由 rush.json eventHooks.postRushInstall 自动
+#   重跑（非 Windows 优雅跳过）。本 compose 的一切 Linux 容器（imodelhub / webhook-agent /
+#   web / nginx）刻意停留官方 npm @bentley/imodeljs-native 包——Windows 本地编译的原生库
+#   与产物不可入 Linux 镜像；宿主 MS 是唯一消费 dev build 的进程。
+#
 # 服务清单（compose 内 8 个 = 计划 6 服务 + HUB 运行时必需的 redis/maildev；
 #           MS 是宿主进程，不占 compose 服务位）：
 #   postgres / redis / maildev / azurite   基础设施（redis、maildev 为
