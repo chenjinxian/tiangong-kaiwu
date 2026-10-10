@@ -67,4 +67,9 @@ try {
 if (-not (Test-Path (Join-Path $dest 'modeling-server\dist\main.js'))) {
   throw "解压后未找到 dist-backend\modeling-server\dist\main.js —— 产物包结构异常"
 }
+
+# 产物依赖实例去重（2026-10-10 风暴根因修复）：tgz 分装 dereference 符号链接产生
+# 多份 @itwin 实例 → 跨拷贝 instanceof 失败 → 特征求值恒败 → notifyCommit 风暴。
+& (Join-Path $PSScriptRoot 'dedupe-artifact-deps.ps1') -MsDir (Join-Path $dest 'modeling-server')
+
 Write-Host "==> 完成: $dest\modeling-server\（start-ms-host.ps1 直接可跑）" -ForegroundColor Green

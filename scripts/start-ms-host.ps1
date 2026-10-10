@@ -45,6 +45,10 @@ if ($Source) {
     if (-not (Test-Path (Join-Path $MsDir 'dist\main.js'))) {
         throw "产物未就绪: $MsDir — 先跑 powershell -File scripts\fetch-backend.ps1（或 -Source 指私有仓 modeling-server 走源码模式）"
     }
+    # 依赖实例去重（幂等，2026-10-10 风暴根因修复）：旧产物树 tgz dereference
+    # 产生多份 @itwin 实例 → instanceof 跨拷贝失败 → 求值恒败风暴。fetch-backend
+    # 解压后已调；此处兜底已拉取未愈合的树。
+    & (Join-Path $PSScriptRoot 'dedupe-artifact-deps.ps1') -MsDir $MsDir
 }
 
 # --- 1. 根 .env 前置检查（密钥完整性由 MS config.ts 自身 fail-fast）---
