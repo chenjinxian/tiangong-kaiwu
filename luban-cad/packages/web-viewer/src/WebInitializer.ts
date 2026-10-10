@@ -75,10 +75,11 @@ export async function initializeWeb(options: WebInitializerOptions): Promise<voi
           // （服务端 bisect：两 flag 关闭后 range 恰为内容包络、Imdl 头坐标中心化正确——
           // TileProbe/TreePropsProbe 实测）。TileAdmin 官方配置出口，非 fork 改动；native 侧
           // 根因（expandProjectExtents 的 range 簿记）另行立案。
-          tileAdmin: {
-            useProjectExtents: false,
-            expandProjectExtents: false,
-          },
+          // tile 范围 flags 注记（2026-10-10 定案）：曾疑 useProjectExtents/expandProjectExtents
+          // 导致「畸形膨胀 range + contentRange 落 range.low 角」而关闭两 flag——后证实 -840 的
+          // contentRange 是 Imdl v9 中心化坐标系的合法值（props.location 负责去中心化），flags
+          // 全开（0x1d）下选择/绘制/渲染全链正常；重开空屏的唯一根因是初始相机取景空 extents
+          // （useViewport 内容感知取景已修）。故保持上游默认 flags，不加覆盖。
           // Type cast: @itwin/imodels-access-frontend (npm 6.x) implements its own
           // bundled FrontendHubAccess identity, structurally identical to
           // core-frontend's (link: 5.14.0-dev) — cross-copy assignment fails tsc only.
