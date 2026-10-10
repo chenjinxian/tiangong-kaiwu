@@ -14,10 +14,11 @@
 // - start 跑 SelectSubEntityTool（mode:'edge'，复用 features/modeling 既有工具）；
 //   每选中一条边 → fs.resolveEdgeRef(elementId, subEntity.id)（SubEntityProps.id 是数字，
 //   照 WS1 wire 契约直传 RPC）→ ok 则去重追加（面对序无关键），失败 toast 错误文案。
-// - 退场三通道幂等：工具自行退出（右键/Esc → onComplete）/ stop()（对话框关闭、类型
-//   切换中途拾取 → 激活工具仍为本工具才 exitTool，不误伤他工具）/ unmount 回收。
-// - deselect 经「拾取键 elementId:subEntityId → ref 键」映射反查移除；拾取停止后
-//   迟到的 resolve 结果一律丢弃（runningRef 闸门）。
+// - 退场三通道幂等：工具自行退出（单选拾得即 onComplete；右键/Esc 亦然）/ stop()（对话框
+//   关闭、类型切换中途拾取 → 激活工具仍为本工具才 exitTool，不误伤他工具）/ unmount 回收。
+// - deselect 经「拾取键 elementId:subEntityId → ref 键」映射反查移除；**显式 stop()/unmount
+//   后**在途回包丢弃（discardRef 闸门）——单选会话自然完成不丢弃（chips 依赖迟到回包落账，
+//   2026-10-10 修正：原 runningRef 兼任闸门致 ok 回包被吞、chips 恒空）。
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IModelApp, type BriefcaseConnection } from '@itwin/core-frontend';
@@ -58,6 +59,11 @@ export function useEdgeRefPicker(
   const [picking, setPicking] = useState(false);
   /** 工具会话存活标记（回调闭包与退场通道共用的同步闸门；state 异步不可担此任） */
   const runningRef = useRef(false);
+  /** 结果丢弃闸门（2026-10-10 语义修正）：仅显式 stop()/unmount 丢弃在途回包。
+   * 原 runningRef 兼任此职——但单选会话的自然完成（拾取 1 条边后工具自行退出→onComplete）
+   * 也置 runningRef=false，迟到的 resolve 结果被误丢，chips 恒空（实测：ok:true 回包被闸门
+   * 吞掉）。自然完成后回包仍应落账（对话框已复开，chips 即时可见）。 */
+  const discardRef = useRef(false);
   /** 最新 options（工具回调在拾取全程存活，须恒读最新 edges/onEdgesChange——免闭包陈旧） */
   const optsRef = useRef(options);
   optsRef.current = options;
@@ -73,6 +79,7 @@ export function useEdgeRefPicker(
   const stop = useCallback(() => {
     if (!runningRef.current) return;
     runningRef.current = false;
+    discardRef.current = true;
     setPicking(false);
     exitActivePickerTool();
   }, [exitActivePickerTool]);
@@ -82,6 +89,7 @@ export function useEdgeRefPicker(
     return () => {
       if (runningRef.current) {
         runningRef.current = false;
+        discardRef.current = true;
         exitActivePickerTool();
       }
     };
@@ -103,6 +111,7 @@ export function useEdgeRefPicker(
   const start = useCallback(() => {
     if (!connection || runningRef.current) return;
     runningRef.current = true;
+    discardRef.current = false;
     setPicking(true);
     pickMapRef.current.clear();
     void runSelectSubEntityTool({
@@ -112,7 +121,7 @@ export function useEdgeRefPicker(
         const pickKey = `${elementId}:${subEntityId}`;
         void fs.resolveEdgeRef(elementId, subEntityId)
           .then((r) => {
-            if (!runningRef.current) return; // 拾取已停止——丢弃迟到解析
+            if (discardRef.current) return; // 显式 stop/unmount——丢弃在途回包
             if (r.ok && r.ref) {
               const key = refKey(r.ref);
               pickMapRef.current.set(pickKey, key);
@@ -124,7 +133,7 @@ export function useEdgeRefPicker(
             }
           })
           .catch((err: unknown) => {
-            if (runningRef.current)
+            if (!discardRef.current)
               optsRef.current.onError?.(err instanceof Error ? err.message : String(err));
           });
       },
@@ -136,6 +145,8 @@ export function useEdgeRefPicker(
         optsRef.current.onEdgesChange(optsRef.current.edges.filter((e) => refKey(e) !== key));
       },
       onComplete: () => {
+        // 自然完成（单选会话拾得 1 条边后工具自行退出）：结束 picking 态但**不**置丢弃——
+        // 在途回包仍落账（对话框复开即见 chips）；stop() 路径已在 stop 内置丢弃闸门。
         runningRef.current = false;
         setPicking(false);
       },

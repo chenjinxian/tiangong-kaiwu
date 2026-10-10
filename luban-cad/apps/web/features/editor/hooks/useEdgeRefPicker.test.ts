@@ -230,6 +230,30 @@ describe('useEdgeRefPicker', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it('单选会话自然完成后迟到的 resolve 结果仍落账（2026-10-10 闸门语义修正）', async () => {
+    // 单选工具拾得 1 条边即自行退出（onComplete）——晚于完成的 ok 回包必须入列，
+    // 否则 chips 恒空（stop 丢弃闸门只对显式 stop/unmount 生效）。
+    let release!: (v: { ok: boolean; ref?: FilletEdgeRef }) => void;
+    const pending = new Promise<{ ok: boolean; ref?: FilletEdgeRef }>((res) => {
+      release = res;
+    });
+    const fs = { resolveEdgeRef: vi.fn(() => pending) } as unknown as UseFeatureSystem;
+    const { result, onEdgesChange, onError } = renderPicker(fs);
+    act(() => result.current.start());
+    act(() => {
+      toolMocks.captured!.onSubEntitySelected!('0x11', edgeLoc(42));
+    });
+    act(() => {
+      toolMocks.captured!.onComplete!(); // 工具自然退出（非 stop()）
+    });
+    expect(result.current.picking).toBe(false);
+    await act(async () => {
+      release({ ok: true, ref: REF_A });
+    });
+    expect(onEdgesChange).toHaveBeenCalledWith([REF_A]);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('拾取态 Escape（window keydown，capture）→ stop 退出工具并置 picking=false', () => {
     const fs = makeFs({ ok: true, ref: REF_A });
     const { result } = renderPicker(fs);
