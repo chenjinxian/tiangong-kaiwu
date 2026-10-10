@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { IModelApp, type IModelConnection, ScreenViewport, ViewCreator3d, ViewState, SpatialViewState } from '@itwin/core-frontend';
+import { Range3d } from '@itwin/core-geometry';
 
 export interface UseViewportOptions {
   iModel: IModelConnection | undefined;
@@ -276,5 +277,23 @@ async function setupViewCategoriesAndModels(viewport: ScreenViewport): Promise<v
     console.log('[useViewport] View updated with', categoryIds.length, 'categories and', modelIds.length, 'models');
     // Sync the viewport with the updated view state
     viewport.synchWithView();
+  }
+
+  // 内容感知初始取景（2026-10-10 重开空屏末段根因）：种子库 projectExtents（±500）远大于
+  // 米级特征内容——初始视图/「适应」在 tile 树加载前取景时 computeFitRange 回退
+  // projectExtents → 相机落在一公里外，几何小到不可见。模型进 selector 后按模型范围
+  // 联合集（后端 ECSQL 查询，不依赖 tile 加载时序）取景；查询失败/空范围维持原行为。
+  try {
+    const ranges = await iModel.models.queryModelRanges(modelIds);
+    const union = new Range3d();
+    for (const r of ranges) union.extendRange(Range3d.fromJSON(r));
+    if (!union.isNull) {
+      viewport.view.lookAtViewAlignedVolume(union, viewport.viewRect.aspect);
+      viewport.synchWithView({});
+      // eslint-disable-next-line no-console
+      console.log('[useViewport] Content-aware fit:', JSON.stringify(union.toJSON()));
+    }
+  } catch {
+    // 后端查询不可用——维持既有取景（projectExtents 兜底）
   }
 }

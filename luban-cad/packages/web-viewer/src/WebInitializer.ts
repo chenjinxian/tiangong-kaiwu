@@ -69,6 +69,16 @@ export async function initializeWeb(options: WebInitializerOptions): Promise<voi
         },
         iModelApp: {
           rpcInterfaces,
+          // tile 范围 flags（2026-10-10 重开显示断点定案）：useProjectExtents/expandProjectExtents
+          // 开启时 native 对空 extents 库算出畸形膨胀的 root range（2×2×3 方块 → ±840），且 tile
+          // 头 contentRange 落在 range.low 角 → 前端 tile 选择按声明范围恒剔除 → 几何永不渲染
+          // （服务端 bisect：两 flag 关闭后 range 恰为内容包络、Imdl 头坐标中心化正确——
+          // TileProbe/TreePropsProbe 实测）。TileAdmin 官方配置出口，非 fork 改动；native 侧
+          // 根因（expandProjectExtents 的 range 簿记）另行立案。
+          tileAdmin: {
+            useProjectExtents: false,
+            expandProjectExtents: false,
+          },
           // Type cast: @itwin/imodels-access-frontend (npm 6.x) implements its own
           // bundled FrontendHubAccess identity, structurally identical to
           // core-frontend's (link: 5.14.0-dev) — cross-copy assignment fails tsc only.
