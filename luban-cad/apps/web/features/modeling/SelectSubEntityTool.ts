@@ -47,6 +47,17 @@ export class SelectSubEntityTool extends LocateSubEntityTool {
     this._onComplete = options.onComplete;
   }
 
+  /**
+   * Enable element location for BRep sub-entity detection.
+   * 缺此步点击无命中（不 locate 元素 → 无 sub-entity 定位）——对齐
+   * SolidModelingToolBase.onPostInstall 的 initLocateElements(true, false)
+   * （工具栏圆角能选边、本工具不能的差异点，2026-10-09 实测定界）。
+   */
+  public override async onPostInstall(): Promise<void> {
+    await super.onPostInstall();
+    this.initLocateElements(true, false);
+  }
+
   public override requireWriteableTarget(): boolean {
     return false;
   }

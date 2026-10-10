@@ -113,16 +113,30 @@ export async function initializeWeb(options: WebInitializerOptions): Promise<voi
   // Note: EditTools.initialize() is called from Editor.tsx after IModelApp is fully initialized
   // This avoids race conditions during startup
 
-  // Enable AccuSnap for geometry-aware cursor snapping
-  // Only enable if accuSnap is available (may not be available during React StrictMode double-invoke)
-  if (IModelApp.accuSnap) {
-    IModelApp.accuSnap.enableSnap(true);
-    IModelApp.accuSnap.enableLocate(true);
-    // eslint-disable-next-line no-console
-    console.log('AccuSnap enabled (snap + locate)');
-  } else {
-    // eslint-disable-next-line no-console
-    console.warn('AccuSnap not available, skipping AccuSnap initialization');
+  // Enable AccuSnap for geometry-aware cursor snapping.
+  // React StrictMode 双跑竞态下 IModelApp.accuSnap 可能尚未就绪（实测 2026-10-09：
+  // 跳过后工具 locate 失效——选边/拾取点击永远落空）——未就绪则轮询补启而非放弃。
+  const enableAccuSnap = () => {
+    if (IModelApp.accuSnap) {
+      IModelApp.accuSnap.enableSnap(true);
+      IModelApp.accuSnap.enableLocate(true);
+      // eslint-disable-next-line no-console
+      console.log('AccuSnap enabled (snap + locate)');
+      return true;
+    }
+    return false;
+  };
+  if (!enableAccuSnap()) {
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (enableAccuSnap() || ++tries > 60) {
+        clearInterval(timer);
+        if (tries > 60) {
+          // eslint-disable-next-line no-console
+          console.warn('AccuSnap not available after retries (30s) — locate-dependent tools may fail');
+        }
+      }
+    }, 500);
   }
 
   // Always configure RPC client (idempotent - safe to call multiple times)

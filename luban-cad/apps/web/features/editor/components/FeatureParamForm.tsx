@@ -65,6 +65,19 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
       return init;
     });
     const [jsonErrors, setJsonErrors] = useState<Record<string, string | undefined>>({});
+    /** number 字段输入中草稿（raw 字符串）：受控 value 直接回写会吞小数点中间态
+     *  （输 "0." → Number=0 → 显示强制归 "0" → "." 丢失，0.1 永远打不出——实测 2026-10-09）。
+     *  草稿期间显示 raw，合法即 emit；失焦清草稿回 value 归一显示。与 jsonDrafts 同款模式。 */
+    const [numDrafts, setNumDrafts] = useState<Record<string, string>>({});
+
+    const clearNumDraft = (name: string) => {
+      setNumDrafts((prev) => {
+        if (!(name in prev)) return prev;
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    };
 
     const emit = (name: string, next: unknown) => {
       onChange({ ...value, [name]: next });
@@ -92,7 +105,11 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
         {fields.map((field) => {
           const fieldId = `feature-field-${field.name}`;
           switch (field.kind) {
-            case 'number':
+            case 'number': {
+              const draft = numDrafts[field.name];
+              const shown = draft !== undefined
+                ? draft
+                : value[field.name] === undefined || value[field.name] === null ? '' : String(value[field.name]);
               return (
                 <div className="form-group" key={field.name}>
                   <Label htmlFor={fieldId}>{field.label}</Label>
@@ -100,15 +117,19 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
                     id={fieldId}
                     type="number"
                     size="small"
-                    value={value[field.name] === undefined || value[field.name] === null ? '' : String(value[field.name])}
+                    value={shown}
                     onChange={(e) => {
-                      const n = parseNumberInput(e.target.value);
+                      const raw = e.target.value;
+                      setNumDrafts((prev) => ({ ...prev, [field.name]: raw }));
+                      const n = parseNumberInput(raw);
                       if (n !== undefined) emit(field.name, n);
                     }}
+                    onBlur={() => clearNumDraft(field.name)}
                     disabled={disabled || field.readOnly}
                   />
                 </div>
               );
+            }
             case 'json':
               return (
                 <div className="form-group" key={field.name}>
