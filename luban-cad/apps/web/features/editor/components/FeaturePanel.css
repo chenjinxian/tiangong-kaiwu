@@ -289,3 +289,10 @@
 .preview-badge {
   margin-bottom: var(--iui-size-m);
 }
+
+/* 撤销/重做按钮组（OpLog 通道入口）：头部 flex space-between 下钉到右端 */
+.feature-panel-undo-redo {
+  display: flex;
+  gap: var(--iui-size-2xs);
+  margin-left: auto;
+}

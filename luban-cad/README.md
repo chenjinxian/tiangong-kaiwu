@@ -66,7 +66,7 @@ corepack pnpm@10 dev            # 前端 :3000(代理 /auth /itwins /imodels…�
 | `pnpm test` | vitest 单测全量(约 600 用例) |
 | `pnpm test:e2e` | Playwright 53 用例(需栈+vite dev;workers=1) |
 | `pnpm build` / `pnpm lint` | 生产构建 / eslint |
-| `node demo-flow.mjs` | 15 幕全流程演示(可见浏览器;圆角选边含 DIAG 仪器) |
+| `node demo-flow.mjs` | 24 幕全流程演示(可见浏览器;四类型特征建链→倒序改参→撤销/抑制→重开终审;圆角选边含 DIAG 仪器) |
 
 改动 `itwinjs-core/` 源码后需 Rush 重建(`node common/scripts/install-run-rush.js build --to <包>`),否则应用端看不到效果;改动 `packages/shared` 后需 `pnpm build` 该包(后端 link: 消费其 dist)。
 

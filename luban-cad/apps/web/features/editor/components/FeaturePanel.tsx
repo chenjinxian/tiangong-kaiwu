@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Badge, Button, Dialog, IconButton, Label, Select, Text } from '@itwin/itwinui-react';
-import { SvgAdd, SvgChevronDown, SvgChevronUp, SvgDelete, SvgEdit, SvgVisibilityHalf } from '@itwin/itwinui-icons-react';
+import { SvgAdd, SvgChevronDown, SvgChevronUp, SvgDelete, SvgEdit, SvgRedo, SvgUndo, SvgVisibilityHalf } from '@itwin/itwinui-icons-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import type { FeatureFormField, FeatureParams, FeatureTreeEntry, FilletEdgeRef, LubanFeatureType } from '@luban-cad/shared';
 import { FeatureParamForm } from './FeatureParamForm.js';
@@ -252,6 +252,16 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
     [runOp],
   );
 
+  /** 撤销/重做（特征 OpLog 通道）：后端 applyOp undo/redo 的 UI 入口（M1 栈语义，仅
+   *  updateParams 可逆——其余 opType 遇 undo 报「无可撤销」）。v1 无 canUndo 读面：
+   *  按钮恒可用，失败文案走 runOp 的 Alert+toast 通道（不预判、不留哑按钮）。 */
+  const handleUndo = useCallback(() => {
+    void runOp({ kind: 'undo' });
+  }, [runOp]);
+  const handleRedo = useCallback(() => {
+    void runOp({ kind: 'redo' });
+  }, [runOp]);
+
   const handleMove = useCallback(
     (entry: FeatureTreeEntry, delta: -1 | 1) => {
       void runOp({ kind: 'reorderFeature', featureId: entry.id, to: entry.orderKey + delta });
@@ -389,6 +399,26 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
     <div className="feature-panel">
       <div className="feature-panel-header">
         <Text variant="title" className="feature-panel-title">特征历史</Text>
+        <div className="feature-panel-undo-redo">
+          <IconButton
+            size="small"
+            styleType="borderless"
+            label="撤销"
+            onClick={handleUndo}
+            disabled={readOnly}
+          >
+            <SvgUndo />
+          </IconButton>
+          <IconButton
+            size="small"
+            styleType="borderless"
+            label="重做"
+            onClick={handleRedo}
+            disabled={readOnly}
+          >
+            <SvgRedo />
+          </IconButton>
+        </div>
         {readOnly && (
           <Text variant="small" className="feature-readonly-hint">只读（未持有写租约）</Text>
         )}

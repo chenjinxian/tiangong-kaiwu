@@ -837,4 +837,43 @@ describe('FeaturePanel', () => {
       expect(screen.queryByRole('button', { name: '编辑草图' })).toBeNull();
     });
   });
+
+  /**
+   * 撤销/重做入口（特征 OpLog 通道）：后端 applyOp({kind:'undo'|'redo'}) 早已就绪
+   * （M1 OpLog 栈语义，仅 updateParams 可逆），本组钉 UI 入口——头部按钮渲染、
+   * 点击派发、「无可撤销」失败呈现、只读禁用。v1 无 canUndo 读面：按钮恒可用，
+   * 失败即提示（注释钉在 FeaturePanel 头部按钮处）。
+   */
+  describe('撤销/重做入口（特征 OpLog 通道）', () => {
+    it('头部渲染撤销/重做按钮，点击分别派发 {kind:undo}/{kind:redo}', async () => {
+      const applyOp = vi.fn().mockResolvedValue({ ok: true });
+      const fs = makeFs({ tree: [makeEntry({ id: 'f1' })], applyOp });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
+
+      fireEvent.click(screen.getByRole('button', { name: '撤销' }));
+      await waitFor(() => expect(applyOp).toHaveBeenCalledWith({ kind: 'undo' }));
+
+      fireEvent.click(screen.getByRole('button', { name: '重做' }));
+      await waitFor(() => expect(applyOp).toHaveBeenCalledWith({ kind: 'redo' }));
+    });
+
+    it('无可撤销（ok:false）→ 错误文案 Alert 呈现 + onToast(error)', async () => {
+      const applyOp = vi.fn().mockResolvedValue({ ok: false, error: '无可撤销的操作（M1 仅支持参数修改的撤销）' });
+      const fs = makeFs({ tree: [makeEntry({ id: 'f1' })], applyOp });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} onToast={onToast} />);
+
+      fireEvent.click(screen.getByRole('button', { name: '撤销' }));
+
+      await waitFor(() => expect(screen.getByText(/无可撤销的操作/)).toBeDefined());
+      expect(onToast).toHaveBeenCalledWith(expect.stringContaining('无可撤销'), 'error');
+    });
+
+    it('leaseOk=false 时撤销/重做禁用（只读态纪律同其他动作）', () => {
+      const fs = makeFs({ leaseOk: false, tree: [makeEntry({ id: 'f1' })] });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
+
+      expect(screen.getByRole('button', { name: '撤销' }).getAttribute('aria-disabled')).toBe('true');
+      expect(screen.getByRole('button', { name: '重做' }).getAttribute('aria-disabled')).toBe('true');
+    });
+  });
 });
