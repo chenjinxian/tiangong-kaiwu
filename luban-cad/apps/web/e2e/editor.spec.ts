@@ -7,13 +7,13 @@ import { test, expect, type Page } from '@playwright/test';
 import {
   loginWithSession,
   navigateToEditor,
-  getFirstProjectAndIModel,
+  getSeedProjectAndIModel,
   waitForEditorReady,
 } from './helpers';
 
 /** 登录后直达真实编辑器（经 hub API 取 seed 项目/模型 ID；编辑器路由 /workspace/:iTwinId/:iModelId） */
 async function openRealEditor(page: Page): Promise<void> {
-  const { projectId, imodelId } = await getFirstProjectAndIModel(page);
+  const { projectId, imodelId } = await getSeedProjectAndIModel(page);
   await page.goto(`/workspace/${projectId}/${imodelId}`);
   await waitForEditorReady(page);
 }

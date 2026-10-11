@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginWithSession, waitForEditorReady } from './helpers';
+import { loginWithSession, waitForEditorReady, getSeedProjectAndIModel } from './helpers';
 
 /**
  * Verify modeling tools are registered
@@ -25,56 +25,9 @@ test.describe('Modeling Tools Registration', () => {
     await loginWithSession(page);
 
 
-    // Get real iModel IDs
-    const authData = await page.evaluate(() => {
-      const authJson = sessionStorage.getItem('luban_cad_auth');
-      return authJson ? JSON.parse(authJson) : null;
-    });
-
-    console.log('Auth available:', !!authData?.accessToken);
-
-    // Get project and iModel IDs
-    const projectsResponse = await page.evaluate(async () => {
-      try {
-        const authJson = sessionStorage.getItem('luban_cad_auth');
-        const auth = authJson ? JSON.parse(authJson) : null;
-        const token = auth?.accessToken;
-        const res = await fetch('http://localhost:4000/itwins?class=Project', {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
-        return await res.json();
-      } catch (e) {
-        return { error: String(e) };
-      }
-    });
-
-    if (!projectsResponse.iTwins?.length) {
-      throw new Error('后端无项目数据——起栈+seed 后重跑（e2e 不再静默跳过）');
-      return;
-    }
-
-    const projectId = projectsResponse.iTwins[0].id;
-
-    const imodelsResponse = await page.evaluate(async (pid) => {
-      try {
-        const authJson = sessionStorage.getItem('luban_cad_auth');
-        const auth = authJson ? JSON.parse(authJson) : null;
-        const token = auth?.accessToken;
-        const res = await fetch(`http://localhost:4000/imodels?iTwinId=${pid}`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
-        return await res.json();
-      } catch (e) {
-        return { error: String(e) };
-      }
-    }, projectId);
-
-    if (!imodelsResponse.iModels?.length) {
-      throw new Error('后端无 iModel 数据——起栈+seed 后重跑');
-      return;
-    }
-
-    const imodelId = imodelsResponse.iModels[0].id;
+    // Get real iModel IDs（种子项目 + e2e 自管库，按名定位——见 helpers；
+    // 项目/库缺失由 helper 内的明确报错兜底）
+    const { projectId, imodelId } = await getSeedProjectAndIModel(page);
     console.log(`Using iModel: ${imodelId}`);
 
     // Navigate to workspace

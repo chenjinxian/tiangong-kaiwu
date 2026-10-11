@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginWithSession, waitForEditorReady } from './helpers';
+import { loginWithSession, waitForEditorReady, getSeedProjectAndIModel } from './helpers';
 
 /**
  * V2 Checkpoint Verification Test
@@ -24,32 +24,8 @@ test('V2 Checkpoint should load successfully', async ({ page }) => {
 
   expect(authData?.accessToken).toBeTruthy();
 
-  // Get project and iModel IDs
-  const projectsResponse = await page.evaluate(async () => {
-    const authJson = sessionStorage.getItem('luban_cad_auth');
-    const auth = authJson ? JSON.parse(authJson) : null;
-    const token = auth?.accessToken;
-    const res = await fetch('http://localhost:4000/itwins?class=Project', {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-    });
-    return await res.json();
-  });
-
-  expect(projectsResponse.iTwins?.length).toBeGreaterThan(0);
-  const projectId = projectsResponse.iTwins[0].id;
-
-  const imodelsResponse = await page.evaluate(async (pid) => {
-    const authJson = sessionStorage.getItem('luban_cad_auth');
-    const auth = authJson ? JSON.parse(authJson) : null;
-    const token = auth?.accessToken;
-    const res = await fetch(`http://localhost:4000/imodels?iTwinId=${pid}`, {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-    });
-    return await res.json();
-  }, projectId);
-
-  expect(imodelsResponse.iModels?.length).toBeGreaterThan(0);
-  const imodelId = imodelsResponse.iModels[0].id;
+  // Get project and iModel IDs（种子项目 + e2e 自管库，按名定位——见 helpers）
+  const { projectId, imodelId } = await getSeedProjectAndIModel(page);
 
   console.log(`Testing iModel: ${imodelId}`);
 

@@ -10,8 +10,9 @@
  *
  * 清理口径：v1 op 面无 deleteSketch——草图元素（LubanCAD.Sketch）不是 LubanCAD.Feature 行，
  * 不进特征树（queryAllFeatures 不命中）、不受 deleteFeature 链尾守卫管辖，故无 UI 删除路径；
- * 空草图对既有 spec 的特征树行数断言零扰动（features.spec 差值口径不受影响），每次运行残留
- * 一个空 sketch 元素属已知债（deleteSketch op 留给后续 milestone）。
+ * 空草图对既有 spec 的特征树行数断言零扰动（features.spec 差值口径不受影响）。残留的空
+ * sketch 元素自 2026-10-11 起由 auth.setup 的种子库重置每轮清零（deleteSketch op 仍留给
+ * 后续 milestone，同轮内的残留面不变）。
  */
 
 import { test, expect } from '@playwright/test';

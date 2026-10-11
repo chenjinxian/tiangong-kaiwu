@@ -20,6 +20,11 @@ import { expect, type Page } from '@playwright/test';
 
 export const SEED_PROJECT_NAME = '测试项目';
 
+/** e2e 名下自管 iModel——auth.setup 每轮「删旧建新」重置（种子数据态自治，2026-10-11），
+ *  specs 一律按此名引用。「测试项目」内还有人工调试库（调试专用-*），按位置（iModels[0]）
+ *  取库会误伤/误开；ASCII 名沿用本目录「中文只进文件常量」的编码纪律。 */
+export const E2E_IMODEL_NAME = 'E2E Seed';
+
 /** UI 登录（e2e 标准账号，与 fixtures.TEST_USER 一致）。
  *  仅登录流相关 spec 使用（login/complete-workflow/demo）—— 每次登录都是一次 MS HTTP
  *  请求，而 modeling-server 有全局 100 请求/15 分钟/IP 限流，滥用会 429 拖垮整套件。 */
@@ -58,9 +63,15 @@ export async function navigateToEditor(page: Page, projectName = SEED_PROJECT_NA
   await projectTile.click();
   await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 15000 });
 
-  // 详情页：iModel 卡片的「打开工作空间」（未初始化时禁用，等待解锁）
-  const openBtn = page.getByRole('button', { name: '打开工作空间' }).first();
-  await expect(openBtn).toBeVisible({ timeout: 15000 });
+  // 详情页：iModel 卡片按名锁定 e2e 自管库（「测试项目」内还有人工调试库，不能 .first()
+  // 按位置取）。主按钮未初始化时文案为「初始化」且禁用——等文案翻转为「打开工作空间」
+  // 并解锁即等价 baseline initialized（auth.setup 重置已轮询到 initialized，此为兜底）。
+  const card = page.locator('.imodel-card').filter({
+    has: page.locator('.imodel-card__title', { hasText: E2E_IMODEL_NAME }),
+  });
+  await expect(card).toBeVisible({ timeout: 15000 });
+  const openBtn = card.getByRole('button', { name: '打开工作空间' });
+  await expect(openBtn).toBeVisible({ timeout: 60000 });
   await expect(openBtn).toBeEnabled({ timeout: 60000 });
   await openBtn.click();
   await page.waitForURL(/\/workspace\/[^/]+\/[^/]+/, { timeout: 60000 });
@@ -153,24 +164,32 @@ export async function expectToolActivated(page: Page, toolId: string, timeout = 
     .toBe(toolId);
 }
 
-/** 取第一个 iTwin 的第一个 iModel 的真实 ID（hub API，须先登录产生 sessionStorage token） */
-export async function getFirstProjectAndIModel(page: Page): Promise<{ projectId: string; imodelId: string }> {
-  return page.evaluate(async () => {
+/** 经 hub API 取种子项目 + e2e 自管 iModel 的真实 ID（须先登录产生 sessionStorage token）。
+ *  按名精确匹配（项目=测试项目 / iModel=E2E Seed，auth.setup 每轮重置重建），不依赖列表
+ *  返回顺序——项目内还有人工调试库，iModels[0] 位置口径不安全。 */
+export async function getSeedProjectAndIModel(page: Page): Promise<{ projectId: string; imodelId: string }> {
+  return page.evaluate(async (names: { projectName: string; imodelName: string }) => {
     const authJson = sessionStorage.getItem('luban_cad_auth');
     const auth = authJson ? JSON.parse(authJson) : null;
     const headers: Record<string, string> = auth?.accessToken
       ? { Authorization: `Bearer ${auth.accessToken}` }
       : {};
     const projects = await fetch('http://localhost:4000/itwins?class=Project', { headers }).then((r) => r.json());
-    if (!projects.iTwins?.length) {
-      throw new Error('后端无项目数据——起栈+seed 后重跑（e2e 不再静默跳过）');
+    const project = (projects.iTwins ?? []).find(
+      (t: { displayName?: string }) => t.displayName === names.projectName
+    );
+    if (!project) {
+      throw new Error(`后端无「${names.projectName}」项目——起栈+seed 后重跑（e2e 不再静默跳过）`);
     }
-    const imodels = await fetch(`http://localhost:4000/imodels?iTwinId=${projects.iTwins[0].id}`, { headers }).then((r) => r.json());
-    if (!imodels.iModels?.length) {
-      throw new Error('后端无 iModel 数据——起栈+seed 后重跑');
+    const imodels = await fetch(`http://localhost:4000/imodels?iTwinId=${project.id}`, { headers }).then((r) => r.json());
+    const imodel = (imodels.iModels ?? []).find(
+      (m: { name?: string; displayName?: string }) => (m.displayName ?? m.name) === names.imodelName
+    );
+    if (!imodel) {
+      throw new Error(`「${names.projectName}」内无 e2e 自管 iModel「${names.imodelName}」——auth.setup 的种子重置未生效？`);
     }
-    return { projectId: projects.iTwins[0].id as string, imodelId: imodels.iModels[0].id as string };
-  });
+    return { projectId: project.id as string, imodelId: imodel.id as string };
+  }, { projectName: SEED_PROJECT_NAME, imodelName: E2E_IMODEL_NAME });
 }
 
 /** best-effort 清理测试项目（DELETE /itwins/:id 级联删 iModel；失败不影响测试结果） */

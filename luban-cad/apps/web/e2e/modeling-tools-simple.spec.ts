@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 import {
   loginWithSession,
   navigateToEditor,
-  getFirstProjectAndIModel,
+  getSeedProjectAndIModel,
   waitForEditorReady,
   SEED_PROJECT_NAME,
 } from './helpers';
@@ -38,7 +38,7 @@ test.describe('Modeling Tools - Direct Editor Access', () => {
     await loginWithSession(page);
 
     // 经 hub API 取真实 ID（auth token 在 sessionStorage 的 luban_cad_auth）
-    const { projectId, imodelId } = await getFirstProjectAndIModel(page);
+    const { projectId, imodelId } = await getSeedProjectAndIModel(page);
 
     // 编辑器路由是 /workspace/:iTwinId/:iModelId（不存在 /editor/...）
     await page.goto(`/workspace/${projectId}/${imodelId}`);
