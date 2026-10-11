@@ -76,11 +76,11 @@ const wsFrames = [];
 page.on('websocket', (ws) => {
   ws.on('framesent', (f) => {
     const s = typeof f.payload === 'string' ? f.payload : '';
-    if (s) wsFrames.push([Date.now(), `> ${s.slice(0, 400)}`]);
+    if (s) wsFrames.push([Date.now(), `> ${s.slice(0, 800)}`]);
   });
   ws.on('framereceived', (f) => {
     const s = typeof f.payload === 'string' ? f.payload : '';
-    if (s) wsFrames.push([Date.now(), `< ${s.slice(0, 400)}`]);
+    if (s) wsFrames.push([Date.now(), `< ${s.slice(0, 800)}`]);
   });
 });
 
@@ -96,7 +96,7 @@ async function waitEditorReady(timeout = 180000) {
     if (Date.now() - last > 30000) {
       if (await page.getByText('初始化编辑器').isVisible().catch(() => false)) {
         log('⚠️ 编辑器初始化卡滞，刷新页面重试');
-        await page.reload();
+        await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
       }
       last = Date.now();
     }
@@ -471,7 +471,7 @@ try {
 
   // ── 13. 重开零操作显示（含圆角几何）────────────────────
   log('步骤 13/15：reload 重开——持久化后零操作显示');
-  await page.reload();
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
   await waitEditorReady();
   await page.waitForTimeout(9000); // briefcase 重连 + tile 加载
   await shot(page, '20-重开显示');

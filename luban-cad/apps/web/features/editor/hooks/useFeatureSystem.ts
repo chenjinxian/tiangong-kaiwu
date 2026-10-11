@@ -20,6 +20,8 @@ const LEASE_RENEW_INTERVAL_MS = 10_000;
 /** op 派发前的租约自愈窗口：须大于服务端 WriteLease 30s TTL（陈旧租约自然过期），留余量。 */
 const LEASE_OP_ACQUIRE_BUDGET_MS = 35_000;
 const LEASE_OP_ACQUIRE_RETRY_MS = 2_000;
+/** 边引用解析超时（⑩ 残留加固）：rpc-over-ipc 无传输级超时，特征级兜底窗口。 */
+const RESOLVE_EDGE_REF_TIMEOUT_MS = 15_000;
 
 export interface UseFeatureSystem {
   tree: FeatureTreeEntry[];
@@ -187,12 +189,29 @@ export function useFeatureSystem(
   const resolveEdgeRef = useCallback(
     async (elementId: string, subEntityId: number): Promise<{ ok: boolean; ref?: FilletEdgeRef; error?: string }> => {
       if (!connectionKey) return { ok: false, error: '未连接 iModel' };
+      // ⑩ 残留加固（2026-10-11）：rpc-over-ipc 无传输级超时——悬挂形态（backlog ⑩，如
+      // 陈旧产物×新 native 的 req=1/resp=0）下前端 promise 永悬零反馈。特征级兜底：与
+      // 超时竞速，超时转 ok:false + 可重拾取文案（拾取会话已自然完成，重开「从视图选边」
+      // 即可重试）。迟到回包的拒绝挂 no-op catch 防 unhandledrejection。
+      const raw = LubanFeatureRpcInterface
+        .getClient()
+        .resolveEdgeRef(connectionKey, elementId, subEntityId);
+      void raw.catch(() => undefined);
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        return await LubanFeatureRpcInterface
-          .getClient()
-          .resolveEdgeRef(connectionKey, elementId, subEntityId);
+        return await Promise.race([
+          raw,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`边引用解析超时（>${RESOLVE_EDGE_REF_TIMEOUT_MS / 1000}s）——服务端无应答，可重新拾取该边`)),
+              RESOLVE_EDGE_REF_TIMEOUT_MS,
+            );
+          }),
+        ]);
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      } finally {
+        clearTimeout(timer);
       }
     },
     [connectionKey],

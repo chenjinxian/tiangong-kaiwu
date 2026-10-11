@@ -339,4 +339,33 @@ describe('useFeatureSystem', () => {
     expect(resolved?.ok).toBe(true);
     expect(resolved?.ref?.faceA).toEqual({ nodeId: 1, entityId: 2 });
   });
+
+  it('resolveEdgeRef 悬挂 RPC 超时转 ok:false（不再永悬零反馈）', async () => {
+    const connection = createMockConnection();
+    // 永不 settle 的悬挂回包（⑩ 形态：陈旧产物×新 native 的 req=1/resp=0）
+    fakeClient.resolveEdgeRef.mockImplementation(() => new Promise(() => {}));
+
+    vi.useFakeTimers();
+    try {
+      const { result } = renderFeatureSystem(connection);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      let resolved: Awaited<ReturnType<typeof result.current.resolveEdgeRef>> | undefined;
+      await act(async () => {
+        const pending = result.current.resolveEdgeRef('0x123', 7).then((r) => {
+          resolved = r;
+        });
+        await vi.advanceTimersByTimeAsync(16_000); // 越过 15s 超时预算
+        await pending;
+      });
+
+      expect(resolved?.ok).toBe(false);
+      expect(resolved?.error).toContain('超时');
+      expect(resolved?.error).toContain('重新拾取');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
