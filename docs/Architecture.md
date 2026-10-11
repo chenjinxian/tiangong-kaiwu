@@ -330,6 +330,27 @@ pushChanges() [RPC]
 [Changeset created]
 ```
 
+## Tile 云缓存（2026-10-11 接入）
+
+**itwinjs-core 原生通道，fork 零改动**（docs/ITWINJS_CORE_MODIFICATIONS.md 无需登记）。
+
+```
+前端 TileAdmin(默认 CloudStorageCacheChannel)
+  ├─ getTileCacheConfig → MS RPC → TransferConfig{baseUrl=/azurite/<account>, SAS}
+  ├─ 命中 → 浏览器直取同源 /azurite/<account>/<iModelId>/tiles/<treeId>/<guid>/<contentId>
+  │         (vite dev / nginx 两形态均透传到 Azurite;SAS 按 account+container 签名,不含 host)
+  └─ 未命中 → generateTileContent RPC → MS native 生成 → uploadTile 直连 Azurite
+              (http://{AZURITE_HOST}/{account},不经 nginx——绕 client_max_body_size)
+              → 返回 ExternalCache → 前端再取云
+```
+
+- **开关**：MS `TILE_CACHE_STORAGE=azurite`(默认)/`local`(回退 native `.Tiles` sqlite)。
+- **改写接缝**：MS `PublicUrlTileStorage`(私仓 `modeling-server/src/tile/`)startup 后包装 `IModelHost.tileStorage`,只改 `getDownloadConfig` 的 baseUrl。
+- **容器**：Azurite 容器名 = iModelId,开库时 `OpenCloudIpcHandler._doDownloadBriefcase` 顶端 `initialize`(幂等,失败不阻断开库)。
+- **本地 .Tiles 缓存**：配置云缓存后上游自动禁用(`setMaxTileCacheSize(0)`)。
+- **密钥**:MS 新增必填 `AZURITE_ACCOUNT_KEY`(generate-env.ps1 已生成 well-known key;存量环境重跑脚本)。
+- **已知边界**：孤儿 blob 无清理(changeset 推进/删 iModel 后旧 tiles 残留),清理 agent 另行立项。
+
 ## 安全设计
 
 ### 认证流程
@@ -427,7 +448,7 @@ modeling-server 启用 CSRF 保护：
 | iTwin 列表 | React Query | 5分钟 |
 | iModel 列表 | React Query | 2分钟 |
 | Briefcase | LocalStorage | 持久化 |
-| Tile Data | Browser Cache | HTTP Cache |
+| Tile Data | Azurite 云缓存(默认;见「Tile 云缓存」节) | blob key 含 geometryGuid,编辑即失效换键 |
 | Baseline Files | Azurite | CDN / Local |
 
 ### 懒加载

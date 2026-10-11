@@ -9,6 +9,10 @@
 #   4) powershell -File scripts/verify-stack.ps1    # 全栈验收
 #   入口 http://localhost/（nginx :80 单入口）
 #
+# 【tile 云缓存（2026-10-11）】MS 默认把生成的 tiles 上传 Azurite（容器名=iModelId，
+#   浏览器经 /azurite 同源代理直取）；关闭法：MS 环境 TILE_CACHE_STORAGE=local 后重启。
+#   细节见 docs/Architecture.md「Tile 云缓存」节。
+#
 # 【modeling-server 形态裁决 —— 后端私有化 2026-10-01】
 #   MS 源码已迁私有仓 luban-backend；本仓**不构建后端，只消费产物**：
 #   MS 以 GitHub Releases 产物（解压到 dist-backend\，fetch-backend.ps1
