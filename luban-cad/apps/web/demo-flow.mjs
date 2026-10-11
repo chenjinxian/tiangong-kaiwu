@@ -76,11 +76,11 @@ const wsFrames = [];
 page.on('websocket', (ws) => {
   ws.on('framesent', (f) => {
     const s = typeof f.payload === 'string' ? f.payload : '';
-    if (s) wsFrames.push([Date.now(), `> ${s.slice(0, 200)}`]);
+    if (s) wsFrames.push([Date.now(), `> ${s.slice(0, 400)}`]);
   });
   ws.on('framereceived', (f) => {
     const s = typeof f.payload === 'string' ? f.payload : '';
-    if (s) wsFrames.push([Date.now(), `< ${s.slice(0, 200)}`]);
+    if (s) wsFrames.push([Date.now(), `< ${s.slice(0, 400)}`]);
   });
 });
 
@@ -114,10 +114,22 @@ try {
 
   // ── 2. 登录 ───────────────────────────────────────────
   log('步骤 2/15：登录 test@example.com');
-  await page.fill('input[type="email"]', 'test@example.com');
-  await page.fill('input[type="password"]', 'Test123!@#');
-  await page.getByRole('button', { name: /^登录$/ }).click();
-  await page.waitForURL('**/itwins', { timeout: 15000 });
+  // 登录重试（≤3）：本地栈偶发登录不跳转（HUB/代理抖动,2026-10-11 实测背靠背轮次复发）
+  let loggedIn = false;
+  for (let attempt = 1; attempt <= 3 && !loggedIn; attempt++) {
+    await page.fill('input[type="email"]', 'test@example.com');
+    await page.fill('input[type="password"]', 'Test123!@#');
+    await page.getByRole('button', { name: /^登录$/ }).click();
+    try {
+      await page.waitForURL('**/itwins', { timeout: 15000 });
+      loggedIn = true;
+    } catch {
+      log(`   登录未跳转（第 ${attempt} 次）——重载重试`);
+      await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await page.waitForSelector('input[type="email"]', { state: 'visible' });
+    }
+  }
+  if (!loggedIn) throw new Error('登录 3 次未成功');
   await page.locator('.section-title').waitFor({ state: 'visible' });
   log(`✅ 登录成功，进入「${await page.locator('.section-title').textContent()}」`);
   await shot(page, '02-项目列表-我的项目');
@@ -417,9 +429,19 @@ try {
     if (grew) picked = pickedNow;
     const took = Date.now() - clickAt;
     const toastLog = await page.evaluate(() => window.__toastLog ?? []).catch(() => []);
-    const winFrames = wsFrames.filter(([t]) => t >= clickAt - 1500 && t <= Date.now()).slice(-14).map(([, s]) => s);
-    log(`   点棱(${Math.round(pt.x)},${Math.round(pt.y)}) 前态=${JSON.stringify(state)} → chips ${pickedNow}${grew ? ` ✅落账(${took}ms)` : ` 未落(${took}ms)`} toasts=${JSON.stringify(toastLog.slice(-4))}`);
-    if (!grew && winFrames.length) log(`   [ws 窗口帧]\n     ${winFrames.join('\n     ')}`);
+    // 全量 resolveEdgeRef 帧配对：请求帧含 operation 名,应答帧按 request id 反查
+    const edgeReqFrames = wsFrames.filter(([, s]) => /resolveEdgeRef/.test(s));
+    const edgeIds = edgeReqFrames.map(([, s]) => {
+      const m = s.match(/"request":(\d+)/); return m ? Number(m[1]) : -1;
+    });
+    const edgeRespFrames = wsFrames.filter(([, s]) =>
+      s.startsWith('< ') && edgeIds.some((id) => s.includes(`"response":${id},`)));
+    log(`   点棱(${Math.round(pt.x)},${Math.round(pt.y)}) 前态=${JSON.stringify(state)} → chips ${pickedNow}${grew ? ` ✅落账(${took}ms)` : ` 未落(${took}ms)`} toasts=${JSON.stringify(toastLog.slice(-4))} resolveReq=${edgeReqFrames.length} resolveResp=${edgeRespFrames.length}`);
+    if (!grew) {
+      if (edgeReqFrames.length) log(`   [resolveEdgeRef 请求]\n     ${edgeReqFrames.map(([, s]) => s).join('\n     ')}`);
+      if (edgeRespFrames.length) log(`   [resolveEdgeRef 应答]\n     ${edgeRespFrames.map(([, s]) => s.slice(0, 300)).join('\n     ')}`);
+      if (!edgeReqFrames.length) log('   [零请求] 前端未发出 resolveEdgeRef（拾取回调未触发或 RPC 客户端未 dispatch）');
+    }
   }
   log(`   [console 全量]\n${consoleLines.join('\n   ')}`);
   if (picked < 1) {
