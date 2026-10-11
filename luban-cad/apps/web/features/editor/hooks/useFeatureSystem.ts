@@ -17,6 +17,9 @@ import {
 
 /** 写租约续期间隔（与后端 WriteLease 租期配套：10s 一跳） */
 const LEASE_RENEW_INTERVAL_MS = 10_000;
+/** op 派发前的租约自愈窗口：须大于服务端 WriteLease 30s TTL（陈旧租约自然过期），留余量。 */
+const LEASE_OP_ACQUIRE_BUDGET_MS = 35_000;
+const LEASE_OP_ACQUIRE_RETRY_MS = 2_000;
 
 export interface UseFeatureSystem {
   tree: FeatureTreeEntry[];
@@ -141,9 +144,30 @@ export function useFeatureSystem(
 
   const applyOp = useCallback(async (op: FeatureOp): Promise<FeatureOpResult> => {
     if (!connectionKey) return { ok: false, error: '未连接 iModel' };
-    const result = await LubanFeatureRpcInterface
-      .getClient()
-      .applyFeatureOp(connectionKey, op, sessionIdRef.current);
+    const client = LubanFeatureRpcInterface.getClient();
+    const sessionId = sessionIdRef.current;
+    // 租约自愈（2026-10-11）：前页/重载残留的陈旧租约要等服务端 30s TTL 自然过期，而 op
+    // 是一次性派发——落在陈旧窗口内即被拒且无人重放（renew 定时器只续租约，不重放 op；
+    // e2e sketch「暂无实体」同位两轮失败即此：features 前页租约未过期，sketch 首个
+    // insertSketch 被一次性拒绝）。op 前显式重取（同 sessionId 幂等刷新 TTL），未得手则
+    // 有限重试直至陈旧租约自然过期；真实并发持有者（活页 10s renew 永不过期）在重试
+    // 上限后照常拿到 holder 报错。
+    const deadline = Date.now() + LEASE_OP_ACQUIRE_BUDGET_MS;
+    let holder: string | undefined;
+    for (;;) {
+      try {
+        const lease = await client.acquireWriteLease(connectionKey, sessionId);
+        if (lease.ok) break;
+        holder = lease.holder;
+      } catch {
+        holder = undefined; // 网络抖动：窗口内照常重试
+      }
+      if (Date.now() >= deadline) {
+        return { ok: false, error: holder ? `写租约被 ${holder} 持有` : '写租约获取失败' };
+      }
+      await new Promise((resolve) => setTimeout(resolve, LEASE_OP_ACQUIRE_RETRY_MS));
+    }
+    const result = await client.applyFeatureOp(connectionKey, op, sessionId);
     if (result.ok) await refresh();
     return result;
   }, [connectionKey, refresh]);

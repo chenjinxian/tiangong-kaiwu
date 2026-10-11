@@ -212,6 +212,64 @@ describe('useFeatureSystem', () => {
     expect(fakeClient.getFeatureTree.mock.calls.length).toBe(treeFetches);
   });
 
+  it('applyOp 自愈陈旧租约：预取被拒 → 有限重试得手 → 派发 op', async () => {
+    const connection = createMockConnection();
+    const op: FeatureOp = { kind: 'deleteFeature', featureId: 'f1' };
+
+    // Fake timers 先于 mount 安装（renew 范式），mount 初始 acquire 在 advance(0) 内冲刷
+    vi.useFakeTimers();
+    try {
+      const { result } = renderFeatureSystem(connection);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      // op 前预取第一次被陈旧租约拒（mockResolvedValueOnce 恰好落在 applyOp 的首个预取上）
+      fakeClient.acquireWriteLease.mockResolvedValueOnce({ ok: false, holder: 'stale-page' });
+
+      let applyResult: Awaited<ReturnType<typeof result.current.applyOp>> | undefined;
+      await act(async () => {
+        const pending = result.current.applyOp(op).then((r) => {
+          applyResult = r;
+        });
+        await vi.advanceTimersByTimeAsync(2_100); // 跨过 2s 重试间隔
+        await pending;
+      });
+
+      expect(applyResult).toEqual({ ok: true, featureId: 'f2' });
+      expect(fakeClient.applyFeatureOp).toHaveBeenCalledWith('test-model.bim', op, expect.any(String));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('applyOp 租约被持续持有时有限重试后报 holder，且不派发 op', async () => {
+    const connection = createMockConnection();
+    const op: FeatureOp = { kind: 'deleteFeature', featureId: 'f1' };
+
+    vi.useFakeTimers();
+    try {
+      const { result } = renderFeatureSystem(connection);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      fakeClient.acquireWriteLease.mockImplementation(async () => ({ ok: false, holder: 'live-editor' }));
+
+      let applyResult: Awaited<ReturnType<typeof result.current.applyOp>> | undefined;
+      await act(async () => {
+        const pending = result.current.applyOp(op).then((r) => {
+          applyResult = r;
+        });
+        await vi.advanceTimersByTimeAsync(40_000); // 越过 35s 预算上限
+        await pending;
+      });
+
+      expect(applyResult).toEqual({ ok: false, error: '写租约被 live-editor 持有' });
+      expect(fakeClient.applyFeatureOp).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('refreshes the tree when connection.txns.onCommitted fires', async () => {
     const connection = createMockConnection();
 
