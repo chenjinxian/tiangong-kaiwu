@@ -45,6 +45,7 @@
 #     WEBHOOK_SIGNING_SECRET = ${WEBHOOK_SECRET}
 #     SEED_ADMIN_PASSWORD  = ${IMODELHUB_ADMIN_PASSWORD}
 #     AUTH_JWT_SECRET      = ${AUTH_JWT_SECRET}      （覆盖镜像内置测试值 secret；缺失拒启）
+#     AUTH_REFRESH/FORGOT/CONFIRM_EMAIL_SECRET = 同名（辅助令牌密钥；2026-10-12 审计补，缺失拒启）
 #     AZURITE/AZURE_ACCOUNT_KEY = ${AZURITE_ACCOUNT_KEY}
 #   其余 HUB 长尾变量（AUTH_JWT_EXPIRES、MAIL_* 等非密钥项）沿用镜像内
 #   自带 .env 兜底（../imodelhub-services 的构建产物），此处仅覆盖网络拓扑。
@@ -128,15 +129,18 @@ services:
       - "4000:4000"
     environment:
       NODE_ENV: production
-      # TEST_MODE 是 HUB 自带的 e2e 开关（main.ts: AppTestModule，关限流）——
-      # 本地验证栈必须开，否则容器 healthcheck（每 30s wget /health/live）
-      # 会被限流器计成 429，连锁卡死 depends_on 的 WA/nginx
-      TEST_MODE: "true"
+      # 【2026-10-12 审计 P0 修复】TEST_MODE 已移除：限流正式生效。
+      # 当年被迫开 TEST_MODE 的根因是限流器四个命名桶全局生效——strict-auth(30/h)
+      # 连坐业务路由、healthcheck(120/h) 必撞 429 连锁卡死 depends_on。现已在 HUB
+      # 侧根治：/health* 全桶免疫 + auth/strict-auth 桶经桶级 skipIf 收敛到 /auth*，
+      # 业务路由只剩 short(200/min)+long(2000/h)（可用 THROTTLER_*_LIMIT 环境变量调参）。
+      # e2e 语义保留给 CI 独立测试栈（imodelhub 仓 docker-compose.relational.test.yaml）。
       APP_PORT: "4000"
-      # CORS 白名单：vite dev server(:3000) + nginx 单入口(:80)——env-example 里
-      # ALLOWED_ORIGINS 是注释态（空数组全拒），浏览器带 Origin 头的请求会 500，
-      # 这是 e2e 大面积 "Failed to fetch" 的根因
-      ALLOWED_ORIGINS: http://localhost:3000,http://localhost
+      # CORS 白名单：默认 vite dev server(:3000) + nginx 单入口(:80)；跨主机部署
+      # 经根 .env 的 HUB_ALLOWED_ORIGINS 覆盖（2026-10-12 审计：原值钉死 localhost）
+      ALLOWED_ORIGINS: ${HUB_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost}
+      # 栈内无 Jaeger/OTLP collector，停用空转导出（默认开且指向 localhost:4318）
+      TRACING_ENABLED: "false"
       # 网络拓扑（容器名互通）
       DATABASE_HOST: postgres
       DATABASE_PORT: "5432"
@@ -144,7 +148,6 @@ services:
       DATABASE_PASSWORD: ${HUB_DATABASE_PASSWORD:-secret}
       DATABASE_NAME: ${HUB_DATABASE_NAME:-api}
       REDIS_HOST: redis
-      WORKER_HOST: redis://redis:6379/1
       MAIL_HOST: maildev
       MAIL_PORT: "1025"
       AZURE_BLOB_ENDPOINT: http://azurite:10000/devstoreaccount1
@@ -162,6 +165,11 @@ services:
       # WA 的 RecoveryChecker 以 IMODELHUB_API_KEY 作 X-API-Key——同源映射
       INTERNAL_API_KEY: ${IMODELHUB_API_KEY:?IMODELHUB_API_KEY missing in root .env}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?generate-env 需补 AUTH_JWT_SECRET (re-run scripts/generate-env.ps1)}
+      # 三个辅助令牌密钥（2026-10-12 审计 P1#2 补齐：此前容器沿用公开镜像烘焙的
+      # 默认值，存在伪造 refresh/forgot 令牌风险；轮换后存量令牌失效，重新登录即可）
+      AUTH_REFRESH_SECRET: ${AUTH_REFRESH_SECRET:?generate-env 需补 AUTH_REFRESH_SECRET (re-run scripts/generate-env.ps1)}
+      AUTH_FORGOT_SECRET: ${AUTH_FORGOT_SECRET:?generate-env 需补 AUTH_FORGOT_SECRET (re-run scripts/generate-env.ps1)}
+      AUTH_CONFIRM_EMAIL_SECRET: ${AUTH_CONFIRM_EMAIL_SECRET:?generate-env 需补 AUTH_CONFIRM_EMAIL_SECRET (re-run scripts/generate-env.ps1)}
       WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET missing in root .env}
       SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:?IMODELHUB_ADMIN_PASSWORD missing in root .env (run scripts/generate-env.ps1)}
     depends_on:

@@ -24,6 +24,11 @@ $envMap = [ordered]@{
   'AZURITE_ACCOUNT_KEY'      = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='  # Azurite well-known（真实存储时换）
   'WEBHOOK_SECRET'           = New-Hex 32
   'AUTH_JWT_SECRET'          = New-Hex 32
+  # HUB 辅助 JWT 密钥（refresh/forgot/confirm-email 令牌签名；2026-10-12 审计 P1#2：
+  # 此前未单源化，容器沿用公开镜像烘焙的默认值——伪造 refresh/forgot 令牌风险）
+  'AUTH_REFRESH_SECRET'      = New-Hex 32
+  'AUTH_FORGOT_SECRET'       = New-Hex 32
+  'AUTH_CONFIRM_EMAIL_SECRET'= New-Hex 32
   'IMODELHUB_API_KEY'        = New-Hex 32
 }
 
