@@ -81,10 +81,16 @@ async function fetchWithAuth(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    // 官方错误包络 { error: { code, message } } 优先，回落旧包络顶层 message（P1 Task11 两段式读取）
+    const message =
+      (errorData.error as { message?: string } | undefined)?.message ??
+      errorData.message ??
+      `HTTP ${response.status}`;
+    // 403 统一提示：fetch 层无全局 toast，经既有通知链（throw → 页面 showToast(error.message)）统一文案
     throw new ITwinsApiError(
-      errorData.message || `HTTP ${response.status}`,
+      response.status === 403 ? '无权限访问该资源' : message,
       response.status,
-      errorData.code
+      errorData.error?.code ?? errorData.code
     );
   }
 
