@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Button, NonIdealState, Text } from '@itwin/itwinui-react';
+import { SvgRefresh, SvgStatusError } from '@itwin/itwinui-icons-react';
 import { logger } from '../../lib/logger.js';
 
 interface Props {
@@ -13,25 +15,39 @@ interface Props {
   fallback?: ReactNode;
   /** Optional callback when error is caught */
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  /** Optional reset callback — preferred by the retry action over a full page reload */
+  onReset?: () => void;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
+  errorInfo: ErrorInfo | null;
 }
 
 /**
- * Error Boundary component for catching React rendering errors
- * Logs errors to monitoring service and displays fallback UI
+ * Error Boundary component for catching React rendering errors.
+ * Logs errors to monitoring service, notifies the optional onError
+ * callback, and displays a fallback UI instead of crashing.
+ *
+ * 默认 fallback 采用 itwinui NonIdealState：DEV 下附带 componentStack 便于定位。
+ * 文案暂中文硬编码，i18n 化随 P 系列页面波次统一处理。
+ *
+ * @example
+ * ```tsx
+ * <ErrorBoundary onError={reportToMonitoring} onReset={clearLocalState}>
+ *   <MyComponent />
+ * </ErrorBoundary>
+ * ```
  */
 export class ErrorBoundary extends Component<Props, State> {
   public constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, errorInfo: null };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
@@ -44,61 +60,63 @@ export class ErrorBoundary extends Component<Props, State> {
 
     // Call optional error handler
     this.props.onError?.(error, errorInfo);
+
+    this.setState({ errorInfo });
   }
+
+  private handleReset = (): void => {
+    if (this.props.onReset) {
+      this.props.onReset();
+      this.setState({ hasError: false, error: null, errorInfo: null });
+    } else {
+      window.location.reload();
+    }
+  };
 
   public render(): ReactNode {
     if (this.state.hasError) {
-      // Return custom fallback or default error UI
+      // Custom fallback UI
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
       return (
-        this.props.fallback ?? (
-          <div
-            style={{
-              padding: '24px',
-              textAlign: 'center',
-              border: '1px solid #ff6b6b',
-              borderRadius: '8px',
-              backgroundColor: '#fff5f5',
-              margin: '16px',
-            }}
-          >
-            <h2 style={{ color: '#c92a2a', marginBottom: '12px' }}>
-              页面出现错误
-            </h2>
-            <p style={{ color: '#666', marginBottom: '16px' }}>
-              抱歉，该页面出现了问题。请刷新页面重试。
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#228be6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              刷新页面
-            </button>
-            {import.meta.env.DEV && this.state.error && (
-              <pre
-                style={{
-                  marginTop: '16px',
-                  padding: '12px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '4px',
-                  textAlign: 'left',
-                  fontSize: '12px',
-                  overflow: 'auto',
-                }}
-              >
-                {this.state.error.message}
-                {'\n'}
-                {this.state.error.stack}
-              </pre>
-            )}
-          </div>
-        )
+        <NonIdealState
+          svg={<SvgStatusError />}
+          heading="出错了"
+          description={
+            <div style={{ textAlign: 'center', maxWidth: 500 }}>
+              <Text color="subtext">
+                {this.state.error?.message || '应用程序发生错误'}
+              </Text>
+              {import.meta.env.DEV && this.state.errorInfo && (
+                <pre
+                  style={{
+                    marginTop: 16,
+                    padding: 16,
+                    background: 'var(--iui-color-background-muted)',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    overflow: 'auto',
+                    maxHeight: 200,
+                    textAlign: 'left',
+                  }}
+                >
+                  {this.state.errorInfo.componentStack}
+                </pre>
+              )}
+              <div style={{ marginTop: 24 }}>
+                <Button
+                  styleType="high-visibility"
+                  startIcon={<SvgRefresh />}
+                  onClick={this.handleReset}
+                >
+                  重试
+                </Button>
+              </div>
+            </div>
+          }
+        />
       );
     }
 
