@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ThemeProvider as ITwinThemeProvider, ProgressRadial } from '@itwin/itwinui-react';
 import { UserProvider } from './contexts/UserContext.js';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext.js';
-import { PrivateRoute } from '../features/editor/index.js';
+import { PrivateRoute } from './components/PrivateRoute.js';
 import { ErrorBoundary } from '../shared/components/index.js';
 import { DialogProvider } from '../src/core/components/DialogProvider.js';
 

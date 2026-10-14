@@ -7,7 +7,6 @@
 export { CadToolbar } from './components/CadToolbar.js';
 export { AssemblyPanel } from './components/AssemblyPanel.js';
 export { FeaturePanel } from './components/FeaturePanel.js';
-export { PrivateRoute } from './components/PrivateRoute.js';
 export { ThemeToggle } from './components/ThemeToggle.js';
 
 // Hooks
