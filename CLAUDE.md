@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 目录 | 角色 | 工具链 |
 |---|---|---|
 | `itwinjs-core/` | vendored iTwin.js fork（git-subtree squash 谱系，上游 `iTwin/itwinjs-core`）；其内另有一个旧品牌名的**冻结历史应用拷贝，勿改勿引用** | **Rush** + pnpm |
-| `luban-cad/` | 鲁班CAD 应用（pnpm workspace：`apps/web` + `packages/{shared,viewer-core,web-viewer,config}` + `modules/{core,ui}`） | **pnpm** + Vite + Vitest + Playwright |
+| `luban-cad/` | 鲁班CAD 应用（pnpm workspace：`apps/web` + `packages/{shared,viewer-core,web-viewer,config}`） | **pnpm** + Vite + Vitest + Playwright |
 | `luban-backend/`（**私有仓，仓外**） | 后端服务：私有仓 luban-backend（modeling-server :4001 + webhook-agent :4002 源码与镜像/产物发布脚本）；产物经 **GHCR 镜像 + GitHub Releases** 分发，`scripts/fetch-backend.ps1` 拉取到本仓 `dist-backend/` | pnpm + tsx |
 | `docs/` | 平台文档（UPSTREAM_SYNC.md / ITWINJS_CORE_MODIFICATIONS.md 等） | — |
 | `scripts/sync-from-upstream.sh` | 上游一键同步脚本 | bash |
