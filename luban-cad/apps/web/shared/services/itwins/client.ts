@@ -11,91 +11,13 @@ import {
   ITwinsAccessClient,
   ITwinSubClass,
 } from '@itwin/itwins-client';
-import { getValidAccessToken, refreshAccessToken } from '../../../features/auth/services/auth/client.js';
+import { getValidAccessToken } from '../../../features/auth/services/auth/client.js';
+import { fetchWithAuth, ApiError as ITwinsApiError } from '../../api/httpClient.js';
+
+// 向后兼容导出：instanceof 语义不变（同类别名）
+export { ApiError as ITwinsApiError } from '../../api/httpClient.js';
 
 const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
-
-/**
- * Custom error class for iTwins API errors
- * Preserves HTTP status code for proper error handling
- */
-export class ITwinsApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number,
-    public code?: string
-  ) {
-    super(message);
-    this.name = 'ITwinsApiError';
-  }
-
-  public get isNotFound(): boolean {
-    return this.statusCode === 404;
-  }
-
-  public get isUnauthorized(): boolean {
-    return this.statusCode === 401;
-  }
-
-  public get isForbidden(): boolean {
-    return this.statusCode === 403;
-  }
-}
-
-/**
- * Raw API client for direct fetch operations
- * Handles token refresh and automatic retry on 401 errors
- */
-async function fetchWithAuth(
-  endpoint: string,
-  options: RequestInit = {},
-  retryCount = 0
-): Promise<Response> {
-  const token = await getValidAccessToken();
-  if (!token) {
-    throw new ITwinsApiError('No authentication token', 401);
-  }
-
-  const url = `${BACKEND_URL}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  // Handle 401 errors - try to refresh token and retry once
-  if (response.status === 401 && retryCount === 0) {
-    try {
-      await refreshAccessToken();
-      // Retry the request with the new token
-      return await fetchWithAuth(endpoint, options, retryCount + 1);
-    } catch {
-      // Refresh failed, throw 401 error
-      throw new ITwinsApiError('Authentication failed', 401, 'Unauthorized');
-    }
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    // 官方错误包络 { error: { code, message } } 优先，回落旧包络顶层 message（P1 Task11 两段式读取）
-    const message =
-      (errorData.error as { message?: string } | undefined)?.message ??
-      errorData.message ??
-      `HTTP ${response.status}`;
-    // 403 统一提示：fetch 层无全局 toast，经既有通知链（throw → 页面 showToast(error.message)）统一文案
-    throw new ITwinsApiError(
-      response.status === 403 ? '无权限访问该资源' : message,
-      response.status,
-      errorData.error?.code ?? errorData.code
-    );
-  }
-
-  return response;
-}
 
 /**
  * Get a single iTwin by ID with proper 404 handling
