@@ -6,16 +6,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Avatar,
   Button,
+  Flex,
   IconButton,
   Input,
-  Tile,
-  Avatar,
-  Text,
   ProgressRadial,
-  SideNavigation,
   SidenavButton,
-  Flex,
+  SideNavigation,
+  Text,
+  Tile,
 } from '@itwin/itwinui-react';
 import {
   SvgAdd,
@@ -24,17 +24,17 @@ import {
   SvgClose,
   SvgExit,
   SvgFolder,
+  SvgProject,
   SvgRefresh,
   SvgSearch,
   SvgShare,
   SvgStar,
-  SvgProject,
 } from '@itwin/itwinui-icons-react';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import {
-  useRecentITwinsQuery,
   useFavoriteITwinsQuery,
   useITwinsQuery,
+  useRecentITwinsQuery,
 } from '../../../features/itwin/hooks/useITwinsQuery.js';
 import type { ITwin } from '@itwin/itwins-client';
 import { CreateITwinDialog } from '../../../features/itwin/components/CreateITwinDialog.js';
@@ -102,14 +102,14 @@ const Documents: React.FC = React.memo(() => {
           projects: recentProjects.data ?? [],
           isLoading: recentProjects.isLoading,
           error: recentProjects.error,
-          refresh: () => recentProjects.refetch(),
+          refresh: async () => recentProjects.refetch(),
         };
       case 'favorites':
         return {
           projects: favoriteProjects.data ?? [],
           isLoading: favoriteProjects.isLoading,
           error: favoriteProjects.error,
-          refresh: () => favoriteProjects.refetch(),
+          refresh: async () => favoriteProjects.refetch(),
         };
       case 'my':
       case 'shared':
@@ -118,7 +118,7 @@ const Documents: React.FC = React.memo(() => {
           projects: myProjects.data ?? [],
           isLoading: myProjects.isLoading,
           error: myProjects.error,
-          refresh: () => myProjects.refetch(),
+          refresh: async () => myProjects.refetch(),
         };
     }
   };

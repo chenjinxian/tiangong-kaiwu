@@ -3,15 +3,15 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Dialog,
   Button,
-  Select,
+  Dialog,
   Label,
+  Select,
   Text,
 } from '@itwin/itwinui-react';
-import { IModelApp } from '@itwin/core-frontend';
+import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 
 interface Category {
   id: string;
@@ -28,6 +28,7 @@ interface CategoryPickerDialogProps {
 /**
  * Category Picker Dialog - Allows user to select a category for element selection
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 export const CategoryPickerDialog: React.FC<CategoryPickerDialogProps> = ({
   isOpen,
   onClose,
@@ -39,7 +40,7 @@ export const CategoryPickerDialog: React.FC<CategoryPickerDialogProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      loadCategories();
+      void loadCategories();
     }
   }, [isOpen]);
 
@@ -83,8 +84,10 @@ export const CategoryPickerDialog: React.FC<CategoryPickerDialogProps> = ({
       } else if (cats.length > 0) {
         setSelectedCategory(cats[0].id);
       }
-    } catch (err) {
-      console.error('[CategoryPickerDialog] Failed to load categories:', err);
+    } catch {
+      IModelApp.notifications.outputMessage(
+        new NotifyMessageDetails(OutputMessagePriority.Error, '加载类别列表失败')
+      );
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +124,7 @@ export const CategoryPickerDialog: React.FC<CategoryPickerDialogProps> = ({
               id="category-select"
               options={options}
               value={selectedCategory}
-              onChange={(value) => setSelectedCategory(value as string)}
+              onChange={(value) => setSelectedCategory(value)}
               disabled={isLoading || categories.length === 0}
               placeholder={isLoading ? '加载中...' : '选择类别'}
             />

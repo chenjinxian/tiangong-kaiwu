@@ -129,8 +129,7 @@ export class SectionByPlaneTool extends PrimitiveTool {
           `剖切平面已应用: 原点(${this._origin.x.toFixed(2)}, ${this._origin.y.toFixed(2)}, ${this._origin.z.toFixed(2)})`
         )
       );
-    } catch (err) {
-      console.error('[SectionByPlaneTool] Failed to apply clip:', err);
+    } catch {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
           OutputMessagePriority.Error,
@@ -182,8 +181,7 @@ export class ClearSectionTool extends PrimitiveTool {
           '剖切已清除'
         )
       );
-    } catch (err) {
-      console.error('[ClearSectionTool] Failed to clear clipping:', err);
+    } catch {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
           OutputMessagePriority.Error,
@@ -199,18 +197,18 @@ class SectionDecorator implements Decorator {
   private _planeOrigin?: Point3d;
   private _planeNormal?: Vector3d;
 
-  setPlaneOrigin(origin: Point3d): void {
+  public setPlaneOrigin(origin: Point3d): void {
     this._planeOrigin = origin.clone();
     this._planeNormal = Vector3d.create(0, 1, 0); // Default normal
     IModelApp.viewManager.invalidateDecorationsAllViews();
   }
 
-  setPlaneNormal(normal: Vector3d): void {
+  public setPlaneNormal(normal: Vector3d): void {
     this._planeNormal = normal.clone();
     IModelApp.viewManager.invalidateDecorationsAllViews();
   }
 
-  decorate(context: DecorateContext): void {
+  public decorate(context: DecorateContext): void {
     if (!this._planeOrigin) return;
 
     const builder = context.createGraphicBuilder(GraphicType.WorldDecoration);
@@ -243,7 +241,6 @@ class SectionDecorator implements Decorator {
 
       // Find perpendicular vectors to the normal
       let u: Vector3d;
-      let v: Vector3d;
 
       if (Math.abs(this._planeNormal.z) < 0.9) {
         u = this._planeNormal.crossProduct(Vector3d.create(0, 0, 1));
@@ -251,7 +248,7 @@ class SectionDecorator implements Decorator {
         u = this._planeNormal.crossProduct(Vector3d.create(0, 1, 0));
       }
       u.normalizeInPlace();
-      v = this._planeNormal.crossProduct(u);
+      const v = this._planeNormal.crossProduct(u);
       v.normalizeInPlace();
 
       // Generate circle points

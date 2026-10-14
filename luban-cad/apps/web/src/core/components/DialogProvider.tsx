@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useEffect, useState } from 'react';
-import { dialogService, type DialogRequest } from '../services/DialogService.js';
+import { type DialogRequest, dialogService } from '../services/DialogService.js';
 import { CategoryPickerDialog } from './CategoryPickerDialog.js';
 
 /**
@@ -12,6 +12,7 @@ import { CategoryPickerDialog } from './CategoryPickerDialog.js';
  *
  * Place this component at the root of your app to enable tools to show dialogs.
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 export const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentDialog, setCurrentDialog] = useState<DialogRequest | null>(null);
 

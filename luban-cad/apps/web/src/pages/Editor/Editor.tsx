@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { type GraphicalEditingScope, IModelApp, NotifyMessageDetails, OutputMessagePriority, type ViewState2d } from '@itwin/core-frontend';
+import { type GraphicalEditingScope, IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { EditTools } from '@itwin/editor-frontend';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBriefcaseConnection, useViewport } from '@luban-cad/viewer-core';
@@ -17,26 +17,26 @@ import { MeasurementResultsPanel } from '../../../features/measurement/component
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { useITwinQuery } from '../../../features/itwin/hooks/useITwinsQuery.js';
 import {
+  SvgCrop,
   SvgCursor,
+  SvgExport,
+  SvgFitToView,
+  SvgInfo,
+  SvgLayers,
   SvgMeasure,
   SvgModel,
-  SvgLayers,
-  SvgSettings,
-  SvgVisibilityHalf,
-  SvgSave,
-  SvgCrop,
-  SvgFitToView,
   SvgMove,
-  SvgZoomIn,
-  SvgUndo,
   SvgRedo,
   SvgRotateRight,
-  SvgExport,
-  SvgInfo,
+  SvgSave,
+  SvgSettings,
+  SvgUndo,
+  SvgVisibilityHalf,
+  SvgZoomIn,
 } from '@itwin/itwinui-icons-react';
 import { useIModel } from '../../../features/imodel/hooks/useIModelsQuery.js';
 import { useIModelPermission } from '../../../features/imodel/hooks/useIModelPermission.js';
-import { Button, IconButton, Avatar, Divider, Text, Badge, ProgressRadial, ButtonGroup } from '@itwin/itwinui-react';
+import { Avatar, Badge, Button, ButtonGroup, Divider, IconButton, ProgressRadial, Text } from '@itwin/itwinui-react';
 import './Editor.css';
 import './Editor.overlay.css';
 import { useEditTools } from '../../../features/editor/hooks/useEditTools.js';
@@ -47,8 +47,9 @@ import { useAppToast } from '../../../shared/hooks/useAppToast.js';
 import { RoundEdgesDialog } from '../../../features/modeling/components/RoundEdgesDialog.js';
 import { ChamferEdgesDialog } from '../../../features/modeling/components/ChamferEdgesDialog.js';
 import { HollowFacesDialog } from '../../../features/modeling/components/HollowFacesDialog.js';
-import { UndoRedoToolbar, useUndoManager } from '../../core/undo/index.js';
-import { useTransformGizmo, type GizmoMode } from '../../core/gizmo/useTransformGizmo.js';
+import { UndoRedoToolbar } from "../../core/undo/UndoRedoToolbar";
+import { useUndoManager } from "../../core/undo/useUndoManager";
+import { type GizmoMode, useTransformGizmo } from '../../core/gizmo/useTransformGizmo.js';
 import { Point3d } from '@itwin/core-geometry';
 import { useAutoSave } from '../../../features/editor/hooks/useAutoSave.js';
 import { PushChangesetDialog } from '../../../features/version-control/components/PushChangesetDialog.js';
@@ -70,13 +71,13 @@ import { useFeatureSystem } from '../../../features/editor/hooks/useFeatureSyste
 import { ExportDialog } from '../../../features/imodel/components/ExportDialog.js';
 import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import {
-  ViewCube,
-  ModelPicker,
   CategoryPicker,
-  ViewSettingsPanel,
-  ViewSwitcher,
+  ModelPicker,
   SavedViewsPanel,
   SectionToolsPanel,
+  ViewCube,
+  ViewSettingsPanel,
+  ViewSwitcher,
 } from '@luban-cad/viewer-core';
 
 /**
@@ -201,7 +202,7 @@ const Editor: React.FC = React.memo(() => {
     if (settings.model === undefined || !view.viewsModel(settings.model)) {
       settings.model = undefined;
       if (view.is2d()) {
-        settings.model = (view as ViewState2d).baseModelId;
+        settings.model = (view).baseModelId;
       } else if (view.isSpatialView()) {
         for (const modId of view.modelSelector.models) {
           settings.model = modId;

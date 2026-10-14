@@ -132,8 +132,7 @@ export class ToggleACSTool extends Tool {
   public override async run(): Promise<boolean> {
     const vp = IModelApp.viewManager.selectedView;
     if (undefined !== vp && vp.view.isSpatialView()) {
-      const enabled = toggleACS(vp.iModel);
-      console.log(`ACS triad ${enabled ? 'enabled' : 'disabled'}`);
+      toggleACS(vp.iModel);
     }
     return true;
   }

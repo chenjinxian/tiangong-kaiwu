@@ -3,22 +3,22 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
+  Avatar,
   Button,
+  Divider,
   Input,
   Label,
   Text,
-  Avatar,
-  Alert,
-  Divider,
 } from '@itwin/itwinui-react';
 import {
   SvgChevronLeft,
-  SvgUser,
   SvgLock,
   SvgNotification,
+  SvgUser,
 } from '@itwin/itwinui-icons-react';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';

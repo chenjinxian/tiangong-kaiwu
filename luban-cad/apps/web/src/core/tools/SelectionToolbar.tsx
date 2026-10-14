@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import { IModelApp } from '@itwin/core-frontend';
+import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { Tooltip } from '@itwin/itwinui-react';
 import './SelectionToolbar.css';
 
@@ -21,6 +21,7 @@ interface SelectionToolbarProps {
 /**
  * Toolbar with selection enhancement tools
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   className = '',
   selectionCount = 0,
@@ -32,7 +33,12 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
     try {
       await IModelApp.tools.run(toolId);
     } catch (err) {
-      console.error(`Tool ${toolId} failed:`, err);
+      IModelApp.notifications.outputMessage(
+        new NotifyMessageDetails(
+          OutputMessagePriority.Error,
+          `工具 ${toolId} 启动失败: ${(err as Error).message}`
+        )
+      );
     }
   };
 
@@ -43,7 +49,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className={`selection-btn ${activeTool === 'LubanCad.FenceSelect' ? 'active' : ''}`}
-            onClick={() => runTool('LubanCad.FenceSelect')}
+            onClick={async () => runTool('LubanCad.FenceSelect')}
           >
             <FenceSelectIcon />
           </button>
@@ -57,7 +63,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className="selection-btn"
-            onClick={() => runTool('LubanCad.SelectAll')}
+            onClick={async () => runTool('LubanCad.SelectAll')}
           >
             <SelectAllIcon />
           </button>
@@ -67,7 +73,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className="selection-btn"
-            onClick={() => runTool('LubanCad.ClearSelection')}
+            onClick={async () => runTool('LubanCad.ClearSelection')}
           >
             <ClearSelectionIcon />
           </button>
@@ -77,7 +83,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className="selection-btn"
-            onClick={() => runTool('LubanCad.InvertSelection')}
+            onClick={async () => runTool('LubanCad.InvertSelection')}
           >
             <InvertSelectionIcon />
           </button>
@@ -91,7 +97,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <button
             type="button"
             className="selection-btn"
-            onClick={() => runTool('LubanCad.SelectByCategory')}
+            onClick={async () => runTool('LubanCad.SelectByCategory')}
           >
             <SelectByCategoryIcon />
           </button>
@@ -111,6 +117,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
 };
 
 // Icon Components
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 const FenceSelectIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
     <rect x="4" y="4" width="16" height="16" rx="1" />
@@ -121,6 +128,7 @@ const FenceSelectIcon: React.FC = () => (
   </svg>
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 const SelectAllIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
     <rect x="4" y="4" width="16" height="16" rx="2" />
@@ -128,6 +136,7 @@ const SelectAllIcon: React.FC = () => (
   </svg>
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 const ClearSelectionIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
     <rect x="4" y="4" width="16" height="16" rx="2" />
@@ -136,6 +145,7 @@ const ClearSelectionIcon: React.FC = () => (
   </svg>
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 const InvertSelectionIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
     <path d="M4 12h16" />
@@ -144,6 +154,7 @@ const InvertSelectionIcon: React.FC = () => (
   </svg>
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 const SelectByCategoryIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
     <rect x="4" y="4" width="16" height="6" rx="1" />

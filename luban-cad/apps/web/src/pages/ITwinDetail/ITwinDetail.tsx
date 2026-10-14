@@ -7,9 +7,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  Badge,
   Button,
   IconButton,
-  Badge,
   Text,
 } from '@itwin/itwinui-react';
 import {
@@ -17,18 +17,18 @@ import {
   SvgChevronLeft,
   SvgDelete,
   SvgEdit,
+  SvgModel,
   SvgRefresh,
   SvgSettings,
-  SvgModel,
   SvgStatusError,
 } from '@itwin/itwinui-icons-react';
 import {
-  useITwinQuery,
   useDeleteITwinMutation,
+  useITwinQuery,
 } from '../../../features/itwin/hooks/useITwinsQuery.js';
 import {
-  useIModels,
   useDeleteIModelMutation,
+  useIModels,
 } from '../../../features/imodel/hooks/useIModelsQuery.js';
 import { useImodelProgressStream } from '../../../features/imodel/hooks/useImodelProgressStream.js';
 import { queryKeys } from '../../../app/providers/QueryProvider.js';
@@ -349,7 +349,7 @@ const ITwinDetail: React.FC = React.memo(() => {
               <div className="hero-meta">
                 <Badge backgroundColor="positive">{iTwin.status === 'Active' ? 'Active' : iTwin.status || 'Active'}</Badge>
                 {(() => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                   
                   const t = iTwin as any;
                   const created = t.createdDateTime || t.createdAt;
                   const updated = t.lastModifiedDateTime || t.updatedAt || t.modifiedAt;

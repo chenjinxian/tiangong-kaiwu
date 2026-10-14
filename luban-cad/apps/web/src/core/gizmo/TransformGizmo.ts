@@ -10,9 +10,9 @@
 
 import {
   DecorateContext,
+  type Decorator,
   GraphicType,
   IModelApp,
-  type Decorator,
   ScreenViewport,
 } from '@itwin/core-frontend';
 import { ColorDef, LinePixels } from '@itwin/core-common';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
@@ -9,13 +8,12 @@
 
 import {
   BeButtonEvent,
-  BeModifierKeys,
   DecorateContext,
   Decorator,
   EventHandled,
   GraphicType,
-  HitDetail,
   IModelApp,
+  OutputMessagePriority,
   SelectionTool,
   Tool,
   Viewport,
@@ -36,11 +34,13 @@ export class FenceSelectTool extends SelectionTool {
   private _isWindowSelect = true; // Window vs Crossing selection
   private _fenceDecorator?: FenceDecorator;
 
-  protected override get wantAccuSnap(): boolean {
+  // NOTE: SelectionTool does not declare wantAccuSnap/wantDynamics in its chain;
+  // these are inert members kept for documentation of intent.
+  protected get wantAccuSnap(): boolean {
     return false;
   }
 
-  protected override get wantDynamics(): boolean {
+  protected get wantDynamics(): boolean {
     return true;
   }
 
@@ -68,8 +68,9 @@ export class FenceSelectTool extends SelectionTool {
     }
 
     // Second click - complete fence selection
+    if (!ev.viewport) return EventHandled.No;
     const secondPoint = ev.point.clone();
-    await this.performFenceSelection(this._firstPoint, secondPoint, ev.viewport!);
+    await this.performFenceSelection(this._firstPoint, secondPoint, ev.viewport);
 
     this._firstPoint = undefined;
     this._fenceDecorator?.clear();
@@ -94,8 +95,8 @@ export class FenceSelectTool extends SelectionTool {
     return EventHandled.Yes;
   }
 
-  public async onKeyTransition(wentDown: boolean, key: BeModifierKeys): Promise<EventHandled> {
-    if (wentDown && key === BeModifierKeys.Control) {
+  public override async onKeyTransition(wentDown: boolean, keyEvent: KeyboardEvent): Promise<EventHandled> {
+    if (wentDown && keyEvent.ctrlKey) {
       // Toggle between window/crossing selection with Ctrl key
       this._isWindowSelect = !this._isWindowSelect;
       return EventHandled.Yes;
@@ -117,7 +118,6 @@ export class FenceSelectTool extends SelectionTool {
    * Perform the actual fence selection
    */
   private async performFenceSelection(first: Point3d, second: Point3d, viewport: Viewport): Promise<void> {
-    const view = viewport.view;
     const worldCorners = [
       Point3d.create(Math.min(first.x, second.x), Math.min(first.y, second.y), Math.min(first.z, second.z)),
       Point3d.create(Math.max(first.x, second.x), Math.max(first.y, second.y), Math.max(first.z, second.z)),
@@ -294,7 +294,7 @@ export class SelectAllTool extends Tool {
     } catch (err) {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
-          3,
+          OutputMessagePriority.Error,
           `选择失败: ${(err as Error).message}`
         )
       );
@@ -323,7 +323,6 @@ export class InvertSelectionTool extends Tool {
         allIds.push(row[0] as string);
       }
 
-      const allIdSet = new Set(allIds);
       const currentSelection = viewport.iModel.selectionSet.elements;
 
       // Invert: select all that are not currently selected
@@ -346,7 +345,7 @@ export class InvertSelectionTool extends Tool {
     } catch (err) {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
-          3,
+          OutputMessagePriority.Error,
           `反选失败: ${(err as Error).message}`
         )
       );
@@ -429,7 +428,7 @@ export class SelectByCategoryTool extends Tool {
     } catch (err) {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
-          3,
+          OutputMessagePriority.Error,
           `选择失败: ${(err as Error).message}`
         )
       );
@@ -484,4 +483,3 @@ export class SelectionVisualizer implements Decorator {
     }
   }
 }
-// Trigger rebuild 2026年 4月 3日 星期五 21时07分21秒 CST

@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { AuthPageSkeleton } from '../../../shared/components/skeletons/AuthPageSkeleton.js';
 import { CheckIcon, EyeIcon, EyeOffIcon } from '../../../shared/components/icons/EyeIcons.js';
-import { Button, IconButton, LabeledInput, Checkbox, Alert, Text, ProgressRadial } from '@itwin/itwinui-react';
+import { Alert, Button, Checkbox, IconButton, LabeledInput, ProgressRadial, Text } from '@itwin/itwinui-react';
 import './Register.css';
 
 interface ValidationErrors {

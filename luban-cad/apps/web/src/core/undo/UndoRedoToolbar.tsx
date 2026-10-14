@@ -8,7 +8,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Tooltip } from '@itwin/itwinui-react';
-import { undoManager, type UndoableOperation } from './UndoManager.js';
+import { type UndoableOperation, undoManager } from './UndoManager.js';
 import './UndoRedoToolbar.css';
 
 interface UndoRedoToolbarProps {
@@ -20,6 +20,7 @@ interface UndoRedoToolbarProps {
  * Toolbar with undo/redo buttons and history dropdown
  * Follows display-test-app's toolbar patterns
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = '' }) => {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -197,6 +198,7 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
 };
 
 // Icon Components
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 const UndoIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M3 7v6h6" />
@@ -204,6 +206,7 @@ const UndoIcon: React.FC = () => (
   </svg>
 );
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 const RedoIcon: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M21 7v6h-6" />
@@ -215,6 +218,7 @@ interface ChevronIconProps {
   direction: 'up' | 'down';
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 const ChevronIcon: React.FC<ChevronIconProps> = ({ direction }) => (
   <svg
     width="12"
