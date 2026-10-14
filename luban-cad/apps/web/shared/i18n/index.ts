@@ -5,9 +5,9 @@
 
 /**
  * i18n 骨架（P0 Task3）：i18next + react-i18next，资源打包内置（无运行时拉取）。
- * 语言优先级：localStorage(luban-cad-lang) → zh-CN（默认中文，不经 navigator 猜测，
- * 以保持产品默认语言确定性；nonExplicitSupportedLngs 也不启用，否则 zh-CN 会被
- * supportedLngs 归一化拒绝而破坏 fallback 链）。
+ * 语言优先级：localStorage(luban-cad-lang) → navigator → zh-CN。
+ * 注意：不启用 nonExplicitSupportedLngs——该选项会把 zh-CN 归一为语言部件 zh 后
+ * 拒收 fallback 码，破坏 zh-CN 回落链（i18next 21.10 isSupportedCode 实证）。
  * 命名空间按页面/域划分：common/auth/documents/editor/settings（本任务仅建 common，
  * 各波次页面迁移时各自补 namespace 文件并注册到 resources）。
  */
@@ -31,7 +31,7 @@ void i18n
     fallbackLng: 'zh-CN',
     supportedLngs: ['zh-CN', 'en'],
     detection: {
-      order: ['localStorage'],
+      order: ['localStorage', 'navigator'],
       lookupLocalStorage: LANGUAGE_STORAGE_KEY,
       caches: ['localStorage'],
     },
