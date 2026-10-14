@@ -1,6 +1,5 @@
-import { getValidAccessToken } from '../../../features/auth/services/auth/client.js';
-
-const API_BASE_URL = import.meta.env.VITE_IMODELHUB_URL || '';
+import { fetchWithAuth } from '../../api/httpClient.js';
+import { API_BASE_URL } from '../../api/baseUrl.js';
 
 export interface DeviceInfo {
   name: string;
@@ -38,40 +37,21 @@ export interface ReleaseBriefcaseRequest {
 }
 
 async function apiGet<T>(url: string, options?: { params?: Record<string, unknown> }): Promise<T> {
-  const token = await getValidAccessToken();
   const queryString = options?.params
     ? `?${new URLSearchParams(Object.entries(options.params).map(([k, v]) => [k, String(v)])).toString()}`
     : '';
 
-  const response = await fetch(`${API_BASE_URL}${url}${queryString}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
-  }
+  const response = await fetchWithAuth(`${url}${queryString}`, { baseUrl: API_BASE_URL });
 
   return response.json() as Promise<T>;
 }
 
 async function apiPost<T>(url: string, body?: unknown): Promise<T> {
-  const token = await getValidAccessToken();
-
-  const response = await fetch(`${API_BASE_URL}${url}`, {
+  const response = await fetchWithAuth(url, {
+    baseUrl: API_BASE_URL,
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
     body: body ? JSON.stringify(body) : undefined,
   });
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
-  }
 
   return response.json() as Promise<T>;
 }

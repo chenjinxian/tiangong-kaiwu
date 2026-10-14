@@ -12,11 +12,13 @@ import {
   webhooksClient,
 } from './client.js';
 import * as authClient from '../../../features/auth/services/auth/client.js';
+import { ApiError } from '../../api/httpClient.js';
 
 // Mock the auth client
 vi.mock('../../../features/auth/services/auth/client.js', () => ({
   getAccessToken: vi.fn(),
   getValidAccessToken: vi.fn(),
+  refreshAccessToken: vi.fn(),
 }));
 
 describe('Webhooks Client', () => {
@@ -225,28 +227,25 @@ describe('Webhooks Client', () => {
     });
 
     describe('error handling', () => {
-      it('should throw error on API failure', async () => {
-        mockFetch.mockResolvedValue({
-          ok: false,
-          status: 404,
-          statusText: 'Not Found',
-        });
-
-        await expect(webhooksClient.getWebhook('itwin-1', 'webhook-1')).rejects.toThrow(
-          'Webhooks API error: 404 Not Found'
+      it('should throw ApiError on API failure (unified httpClient envelope)', async () => {
+        mockFetch.mockResolvedValue(
+          new Response(JSON.stringify({ error: { code: 'NotFound', message: 'webhook missing' } }), { status: 404 }),
         );
+
+        const err = await webhooksClient.getWebhook('itwin-1', 'webhook-1').catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(ApiError);
+        expect((err as ApiError).statusCode).toBe(404);
+        expect((err as ApiError).code).toBe('NotFound');
+        expect((err as ApiError).message).toBe('webhook missing');
       });
 
-      it('should throw error on server error', async () => {
-        mockFetch.mockResolvedValue({
-          ok: false,
-          status: 500,
-          statusText: 'Internal Server Error',
-        });
+      it('should throw ApiError on server error, falling back to HTTP status text', async () => {
+        mockFetch.mockResolvedValue(new Response('not json', { status: 500, statusText: 'Internal Server Error' }));
 
-        await expect(webhooksClient.getWebhooks('itwin-1')).rejects.toThrow(
-          'Webhooks API error: 500 Internal Server Error'
-        );
+        const err = await webhooksClient.getWebhooks('itwin-1').catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(ApiError);
+        expect((err as ApiError).statusCode).toBe(500);
+        expect((err as ApiError).message).toBe('HTTP 500');
       });
     });
   });

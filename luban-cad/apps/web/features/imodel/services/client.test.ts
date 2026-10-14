@@ -5,10 +5,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetAuthorization = vi.fn();
-
-vi.mock('../../../shared/services/imodels/client.js', () => ({
-  getAuthorization: (...args: unknown[]) => mockGetAuthorization(...args),
+// fetchWithAuth (shared/api/httpClient) sources tokens from the auth client;
+// mock it so the stubbed global fetch is the only network boundary.
+vi.mock('../../../features/auth/services/auth/client.js', () => ({
+  getValidAccessToken: vi.fn(async () => 'tok'),
+  refreshAccessToken: vi.fn(async () => null),
 }));
 
 import { copyIModel, getDownloadUrl, NoDownloadLinkError } from './client.js';
@@ -22,7 +23,6 @@ function respond(status: number, body: unknown, headers: Record<string, string> 
 
 beforeEach(() => {
   vi.unstubAllGlobals();
-  mockGetAuthorization.mockResolvedValue({ scheme: 'Bearer', token: 'tok' });
   calls = [];
   vi.stubGlobal('fetch', (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     calls.push({ url: String(input), init });

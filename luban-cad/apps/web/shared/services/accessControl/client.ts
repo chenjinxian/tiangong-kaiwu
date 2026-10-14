@@ -10,6 +10,7 @@
  */
 
 import { getValidAccessToken } from '../../../features/auth/services/auth/client.js';
+import { fetchWithAuth } from '../../api/httpClient.js';
 
 const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
 
@@ -55,45 +56,20 @@ class AccessControlClient {
     this._baseUrl = baseUrl.replace(/\/$/, '');
   }
 
-  private async fetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<Response> {
-    const token = await getValidAccessToken();
-    const url = `${this._baseUrl}${path}`;
-    const response = await fetch(url, {
-      ...options,
-      /* eslint-disable @typescript-eslint/naming-convention */
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...options.headers,
-      },
-      /* eslint-enable @typescript-eslint/naming-convention */
-    });
-
-    // Handle 401 errors - refresh token and retry once
-    if (response.status === 401 && retryCount === 0) {
-      return this.fetch(path, options, retryCount + 1);
-    }
-
-    if (!response.ok) {
-      throw new Error(`Access Control API error: ${response.status} ${response.statusText}`);
-    }
-
-    return response;
-  }
-
   public async getMembers(iTwinId: string): Promise<Member[]> {
-    const response = await this.fetch(`/itwins/${iTwinId}/members`);
+    const response = await fetchWithAuth(`/itwins/${iTwinId}/members`, { baseUrl: this._baseUrl });
     const data = await response.json();
     return data.members || [];
   }
 
   public async getMember(iTwinId: string, memberId: string): Promise<Member> {
-    const response = await this.fetch(`/itwins/${iTwinId}/members/${memberId}`);
+    const response = await fetchWithAuth(`/itwins/${iTwinId}/members/${memberId}`, { baseUrl: this._baseUrl });
     return response.json();
   }
 
   public async createMember(iTwinId: string, request: CreateMemberRequest): Promise<Member> {
-    const response = await this.fetch(`/itwins/${iTwinId}/members`, {
+    const response = await fetchWithAuth(`/itwins/${iTwinId}/members`, {
+      baseUrl: this._baseUrl,
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -101,7 +77,8 @@ class AccessControlClient {
   }
 
   public async updateMember(iTwinId: string, memberId: string, request: UpdateMemberRequest): Promise<Member> {
-    const response = await this.fetch(`/itwins/${iTwinId}/members/${memberId}`, {
+    const response = await fetchWithAuth(`/itwins/${iTwinId}/members/${memberId}`, {
+      baseUrl: this._baseUrl,
       method: 'PATCH',
       body: JSON.stringify(request),
     });
@@ -109,13 +86,14 @@ class AccessControlClient {
   }
 
   public async deleteMember(iTwinId: string, memberId: string): Promise<void> {
-    await this.fetch(`/itwins/${iTwinId}/members/${memberId}`, {
+    await fetchWithAuth(`/itwins/${iTwinId}/members/${memberId}`, {
+      baseUrl: this._baseUrl,
       method: 'DELETE',
     });
   }
 
   public async getRoles(iTwinId: string): Promise<Role[]> {
-    const response = await this.fetch(`/itwins/${iTwinId}/roles`);
+    const response = await fetchWithAuth(`/itwins/${iTwinId}/roles`, { baseUrl: this._baseUrl });
     const data = await response.json();
     return data.roles || [];
   }
