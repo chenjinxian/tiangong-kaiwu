@@ -1,0 +1,5 @@
+{
+  "app": { "name": "LubanCAD", "tagline": "Cloud CAD platform built on iTwin.js" },
+  "common": { "loading": "Loading…", "confirm": "Confirm", "cancel": "Cancel" },
+  "notFound": { "title": "404 - Page Not Found", "goDocuments": "Go to Documents" }
+}

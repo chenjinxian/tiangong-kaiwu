@@ -1,0 +1,5 @@
+{
+  "app": { "name": "鲁班CAD", "tagline": "基于 iTwin.js 的云端 CAD 平台" },
+  "common": { "onlyZh": "仅中文占位", "loading": "加载中…", "confirm": "确认", "cancel": "取消" },
+  "notFound": { "title": "404 - 页面不存在", "goDocuments": "回到文档" }
+}
