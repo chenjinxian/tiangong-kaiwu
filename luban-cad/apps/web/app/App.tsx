@@ -5,7 +5,7 @@ import { ThemeProvider as ITwinThemeProvider, ProgressRadial } from '@itwin/itwi
 import { UserProvider } from './contexts/UserContext.js';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext.js';
 import { PrivateRoute } from './components/PrivateRoute.js';
-import { ErrorBoundary } from '../shared/components/index.js';
+import { ErrorBoundary } from '../shared/components/feedback/ErrorBoundary.js';
 import { DialogProvider } from '../src/core/components/DialogProvider.js';
 
 // Lazy load pages for better performance

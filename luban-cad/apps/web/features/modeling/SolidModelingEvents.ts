@@ -33,7 +33,7 @@ class SolidModelingEvents {
       this.listeners.set(event, set);
     }
     set.add(fn);
-    return () => { set!.delete(fn); };
+    return () => { set.delete(fn); };
   }
 
   off<K extends keyof SolidModelingEventMap>(event: K, fn: SolidModelingEventMap[K]): void {

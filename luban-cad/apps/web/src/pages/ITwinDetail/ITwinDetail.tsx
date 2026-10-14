@@ -349,7 +349,6 @@ const ITwinDetail: React.FC = React.memo(() => {
               <div className="hero-meta">
                 <Badge backgroundColor="positive">{iTwin.status === 'Active' ? 'Active' : iTwin.status || 'Active'}</Badge>
                 {(() => {
-                   
                   const t = iTwin as any;
                   const created = t.createdDateTime || t.createdAt;
                   const updated = t.lastModifiedDateTime || t.updatedAt || t.modifiedAt;

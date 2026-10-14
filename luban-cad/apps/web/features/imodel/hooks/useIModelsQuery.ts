@@ -16,9 +16,9 @@
 
 import {
   useMutation,
+  type UseMutationResult,
   useQuery,
   useQueryClient,
-  type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
 import {
@@ -26,7 +26,7 @@ import {
   type IModel,
   iModelsManagementClient,
 } from '../../../shared/services/imodels/client.js';
-import { deleteIModel, renameIModel, copyIModel } from '../services/client.js';
+import { copyIModel, deleteIModel, renameIModel } from '../services/client.js';
 import { queryKeys } from '../../../app/providers/QueryProvider.js';
 
 // ============================================================================

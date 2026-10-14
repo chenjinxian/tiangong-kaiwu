@@ -15,9 +15,9 @@
  */
 
 import {
+  type DefaultOptions,
   QueryClient,
   QueryClientProvider,
-  type DefaultOptions,
 } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import React, { type ReactNode } from 'react';
@@ -189,7 +189,7 @@ export { queryClientInstance as queryClient };
  * Invalidate all queries for a specific entity
  * Useful after mutations that affect multiple queries
  */
-export function invalidateEntity(
+export async function invalidateEntity(
   queryClient: QueryClient,
   entity: keyof typeof queryKeys
 ): Promise<void> {
@@ -202,7 +202,7 @@ export function invalidateEntity(
  * Prefetch a query
  * Useful for route preloading
  */
-export function prefetchQuery<T>(
+export async function prefetchQuery<T>(
   queryClient: QueryClient,
   queryKey: readonly unknown[],
   queryFn: () => Promise<T>

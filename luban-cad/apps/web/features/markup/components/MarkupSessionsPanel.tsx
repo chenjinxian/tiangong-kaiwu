@@ -8,21 +8,21 @@
 
 import React, { useState } from 'react';
 import {
+  Badge,
+  IconButton,
+  Input,
+
   List,
   ListItem,
-  IconButton,
-
-  Badge,
-  Input,
   Tooltip,
 } from '@itwin/itwinui-react';
 import {
-  SvgPlay,
+  SvgCheckmark,
+  SvgClose,
   SvgDelete,
   SvgDownload,
   SvgEdit,
-  SvgCheckmark,
-  SvgClose,
+  SvgPlay,
 } from '@itwin/itwinui-icons-react';
 import { MarkupSession } from '../hooks/useMarkupManager';
 

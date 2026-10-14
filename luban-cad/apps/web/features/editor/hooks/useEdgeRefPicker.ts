@@ -21,7 +21,7 @@
 //   2026-10-10 修正：原 runningRef 兼任闸门致 ok 回包被吞、chips 恒空）。
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IModelApp, type BriefcaseConnection } from '@itwin/core-frontend';
+import { type BriefcaseConnection, IModelApp } from '@itwin/core-frontend';
 import type { FilletEdgeRef } from '@luban-cad/shared';
 import { runSelectSubEntityTool, SelectSubEntityTool } from '../../modeling/SelectSubEntityTool.js';
 import type { UseFeatureSystem } from './useFeatureSystem.js';

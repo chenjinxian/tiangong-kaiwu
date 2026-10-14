@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import { BeButtonEvent, EventHandled, IModelApp, PrimitiveTool, OutputMessagePriority } from '@itwin/core-frontend';
+import { BeButtonEvent, EventHandled, IModelApp, OutputMessagePriority, PrimitiveTool } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
 import { OpenCloudRpcInterface } from '@luban-cad/shared';
 

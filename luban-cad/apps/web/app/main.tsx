@@ -21,6 +21,7 @@ initMonitoring()
 // Expose IModelApp to window for debugging
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- debug global keeps the library's PascalCase name
     IModelApp: typeof IModelApp;
   }
 }

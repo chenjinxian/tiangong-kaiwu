@@ -5,16 +5,16 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
-  type User,
-  type LoginCredentials,
-  type AuthResponse,
-  type RegisterData,
-  type AuthTokens,
   AuthError,
+  type AuthResponse,
+  type AuthTokens,
   getStoredAuth,
   login as loginApi,
-  register as registerApi,
+  type LoginCredentials,
   logout as logoutApi,
+  register as registerApi,
+  type RegisterData,
+  type User,
 } from '../../features/auth/services/auth/client.js';
 import { getQueryClient } from '../providers/QueryProvider.js';
 

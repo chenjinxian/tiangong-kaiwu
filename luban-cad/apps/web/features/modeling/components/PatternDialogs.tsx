@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { IModelApp } from '@itwin/core-frontend';
-import { Vector3d, Point3d } from '@itwin/core-geometry';
+import { Point3d, Vector3d } from '@itwin/core-geometry';
 
 interface LinearPatternDialogProps {
   isOpen: boolean;

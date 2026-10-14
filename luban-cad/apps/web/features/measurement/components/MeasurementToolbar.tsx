@@ -8,19 +8,19 @@
 
 import React from 'react';
 import {
-  IconButton,
   DropdownMenu,
-  Tooltip,
+  IconButton,
   Text,
+  Tooltip,
 } from '@itwin/itwinui-react';
 import {
-  SvgMeasure,
-  SvgLocation,
-  SvgText,
   SvgCheckmark,
   SvgCrop,
   SvgList,
+  SvgLocation,
+  SvgMeasure,
   SvgSettings,
+  SvgText,
 } from '@itwin/itwinui-icons-react';
 import { MeasurementType } from '../hooks/useMeasurementManager';
 

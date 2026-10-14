@@ -3,13 +3,13 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import { Point3d, Point2d, Vector3d, Matrix3d, Transform, Angle, YawPitchRollAngles } from '@itwin/core-geometry';
+import { Angle, Matrix3d, Point2d, Point3d, Transform, Vector3d, YawPitchRollAngles } from '@itwin/core-geometry';
 import { CopyElementsTool } from '@itwin/editor-frontend';
-import { Id64Array, Id64String, Id64Arg } from '@itwin/core-bentley';
-import { GeometricElementProps, Code, isPlacement2dProps, Placement2d, Placement3d } from '@itwin/core-common';
+import { Id64Arg, Id64Array, Id64String } from '@itwin/core-bentley';
+import { Code, GeometricElementProps, isPlacement2dProps, Placement2d, Placement3d } from '@itwin/core-common';
 import { basicManipulationIpc } from '@itwin/editor-frontend';
 import { EditTools } from '@itwin/editor-frontend';
-import { DialogItem, DialogProperty, DialogPropertySyncItem, PropertyDescriptionHelper, PropertyEditorParamTypes, RangeEditorParams } from '@itwin/appui-abstract';
+import { DialogItem, DialogProperty, DialogPropertySyncItem, PropertyDescriptionHelper, PropertyEditorParamTypes } from '@itwin/appui-abstract';
 
 /**
  * Linear Pattern Tool - Creates linear array of selected elements
@@ -45,7 +45,7 @@ export class LinearPatternTool extends CopyElementsTool {
     if (!this._countProperty)
       this._countProperty = new DialogProperty<number>(
         PropertyDescriptionHelper.buildNumberEditorDescription('patternCount', '数量',
-          { type: PropertyEditorParamTypes.Range, minimum: 2 } as RangeEditorParams), 3);
+          { type: PropertyEditorParamTypes.Range, minimum: 2 }), 3);
     return this._countProperty;
   }
 
@@ -57,7 +57,7 @@ export class LinearPatternTool extends CopyElementsTool {
     if (!this._spacingProperty)
       this._spacingProperty = new DialogProperty<number>(
         PropertyDescriptionHelper.buildNumberEditorDescription('patternSpacing', '间距',
-          { type: PropertyEditorParamTypes.Range, minimum: 0.001 } as RangeEditorParams), 20);
+          { type: PropertyEditorParamTypes.Range, minimum: 0.001 }), 20);
     return this._spacingProperty;
   }
 
@@ -226,7 +226,7 @@ export class CircularPatternTool extends CopyElementsTool {
     if (!this._countProperty)
       this._countProperty = new DialogProperty<number>(
         PropertyDescriptionHelper.buildNumberEditorDescription('patternCount', '数量',
-          { type: PropertyEditorParamTypes.Range, minimum: 2 } as RangeEditorParams), 4);
+          { type: PropertyEditorParamTypes.Range, minimum: 2 }), 4);
     return this._countProperty;
   }
 
@@ -238,7 +238,7 @@ export class CircularPatternTool extends CopyElementsTool {
     if (!this._totalAngleProperty)
       this._totalAngleProperty = new DialogProperty<number>(
         PropertyDescriptionHelper.buildNumberEditorDescription('patternTotalAngle', '总角度',
-          { type: PropertyEditorParamTypes.Range, minimum: 1, maximum: 360 } as RangeEditorParams), 360);
+          { type: PropertyEditorParamTypes.Range, minimum: 1, maximum: 360 }), 360);
     return this._totalAngleProperty;
   }
 

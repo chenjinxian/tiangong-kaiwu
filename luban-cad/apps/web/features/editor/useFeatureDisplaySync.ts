@@ -14,7 +14,7 @@
  * ModelChangeMonitor 后续在 scope 退出时对同批 guid 再跑一遍官方流程，幂等无害。
  */
 import { useEffect } from 'react';
-import { IModelApp, type BriefcaseConnection } from '@itwin/core-frontend';
+import { type BriefcaseConnection, IModelApp } from '@itwin/core-frontend';
 
 export function useFeatureDisplaySync(connection: BriefcaseConnection | undefined): void {
   useEffect(() => {

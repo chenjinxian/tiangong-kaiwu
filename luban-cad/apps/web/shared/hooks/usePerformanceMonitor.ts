@@ -141,23 +141,23 @@ export function usePerformanceMonitor(options: PerformanceOptions) {
       // Only log warnings/errors once per threshold breach to avoid spam
       if (metrics.isVerySlow) {
         if (!hasWarnedRef.current) {
-          logger.error(`[Performance] ${name} is very slow: ${duration.toFixed(2)}ms`, metrics as unknown as Record<string, unknown>);
+          logger.error(`[Performance] ${name} is very slow: ${duration.toFixed(2)}ms`, metrics);
           hasWarnedRef.current = true;
         }
       } else if (metrics.isSlow) {
         if (logLevel === 'warn' || logLevel === 'info' || logLevel === 'debug') {
-          logger.warn(`[Performance] ${name} exceeded 60fps budget: ${duration.toFixed(2)}ms`, metrics as unknown as Record<string, unknown>);
+          logger.warn(`[Performance] ${name} exceeded 60fps budget: ${duration.toFixed(2)}ms`, metrics);
         }
       } else if (logEveryRender) {
         switch (logLevel) {
           case 'debug':
-            logger.debug(`[Performance] ${name} render: ${duration.toFixed(2)}ms`, metrics as unknown as Record<string, unknown>);
+            logger.debug(`[Performance] ${name} render: ${duration.toFixed(2)}ms`, metrics);
             break;
           case 'info':
-            logger.info(`[Performance] ${name} render: ${duration.toFixed(2)}ms`, metrics as unknown as Record<string, unknown>);
+            logger.info(`[Performance] ${name} render: ${duration.toFixed(2)}ms`, metrics);
             break;
           case 'warn':
-            logger.warn(`[Performance] ${name} render: ${duration.toFixed(2)}ms`, metrics as unknown as Record<string, unknown>);
+            logger.warn(`[Performance] ${name} render: ${duration.toFixed(2)}ms`, metrics);
             break;
         }
       }

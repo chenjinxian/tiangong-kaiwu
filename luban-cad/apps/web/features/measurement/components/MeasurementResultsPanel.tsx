@@ -8,15 +8,15 @@
 
 import React from 'react';
 import {
+  Badge,
+  IconButton,
   List,
   ListItem,
-  IconButton,
-  Badge,
 } from '@itwin/itwinui-react';
 import {
+  SvgClose,
   SvgDelete,
   SvgExport,
-  SvgClose,
 } from '@itwin/itwinui-icons-react';
 import { MeasurementRecord, MeasurementType } from '../hooks/useMeasurementManager';
 

@@ -32,6 +32,7 @@ export class FenceSelectTool extends SelectionTool {
 
   private _firstPoint?: Point3d;
   private _isWindowSelect = true; // Window vs Crossing selection
+  private _windowSelectOverride?: boolean; // Ctrl toggle; wins over drag direction until fence ends
   private _fenceDecorator?: FenceDecorator;
 
   // NOTE: SelectionTool does not declare wantAccuSnap/wantDynamics in its chain;
@@ -46,6 +47,7 @@ export class FenceSelectTool extends SelectionTool {
 
   public override async onPostInstall(): Promise<void> {
     await super.onPostInstall();
+    this._windowSelectOverride = undefined;
     this._fenceDecorator = new FenceDecorator();
     IModelApp.viewManager.addDecorator(this._fenceDecorator);
   }
@@ -55,6 +57,7 @@ export class FenceSelectTool extends SelectionTool {
       IModelApp.viewManager.dropDecorator(this._fenceDecorator);
       this._fenceDecorator = undefined;
     }
+    this._windowSelectOverride = undefined;
     await super.onCleanup();
   }
 
@@ -73,6 +76,7 @@ export class FenceSelectTool extends SelectionTool {
     await this.performFenceSelection(this._firstPoint, secondPoint, ev.viewport);
 
     this._firstPoint = undefined;
+    this._windowSelectOverride = undefined;
     this._fenceDecorator?.clear();
     await this.onRestartTool();
     return EventHandled.No;
@@ -80,7 +84,8 @@ export class FenceSelectTool extends SelectionTool {
 
   public async onMouseMotion(ev: BeButtonEvent): Promise<void> {
     if (this._firstPoint && ev.viewport) {
-      this._isWindowSelect = this.calculateWindowSelect(this._firstPoint, ev.point);
+      // Ctrl toggle sticks for the rest of the fence; drag direction decides otherwise
+      this._isWindowSelect = this._windowSelectOverride ?? this.calculateWindowSelect(this._firstPoint, ev.point);
       this._fenceDecorator?.updateCurrentPoint(ev.point, this._isWindowSelect);
     }
   }
@@ -89,6 +94,7 @@ export class FenceSelectTool extends SelectionTool {
     if (this._firstPoint) {
       // Cancel fence selection on right click
       this._firstPoint = undefined;
+      this._windowSelectOverride = undefined;
       this._fenceDecorator?.clear();
       return EventHandled.No;
     }
@@ -97,8 +103,11 @@ export class FenceSelectTool extends SelectionTool {
 
   public override async onKeyTransition(wentDown: boolean, keyEvent: KeyboardEvent): Promise<EventHandled> {
     if (wentDown && keyEvent.ctrlKey) {
-      // Toggle between window/crossing selection with Ctrl key
-      this._isWindowSelect = !this._isWindowSelect;
+      // Toggle between window/crossing selection with Ctrl key.
+      // The override is kept until the fence completes/cancels, otherwise the
+      // next onMouseMotion would overwrite the toggle with the drag direction.
+      this._windowSelectOverride = !this._isWindowSelect;
+      this._isWindowSelect = this._windowSelectOverride;
       return EventHandled.Yes;
     }
     return EventHandled.No;

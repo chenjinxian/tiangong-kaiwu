@@ -169,7 +169,7 @@ export const PerformanceProfiler: React.FC<PerformanceProfilerProps> = React.mem
           logger.error(
             `[Profiler] ${profilerId} is very slow: ${actualDuration.toFixed(2)}ms ` +
               `(phase: ${phase}, base: ${baseDuration.toFixed(2)}ms)`,
-            data as unknown as Record<string, unknown>
+            data
           );
           setHasWarned(true);
 
@@ -181,12 +181,12 @@ export const PerformanceProfiler: React.FC<PerformanceProfilerProps> = React.mem
         logger.warn(
           `[Profiler] ${profilerId} exceeded 60fps budget: ${actualDuration.toFixed(2)}ms ` +
             `(phase: ${phase})`,
-          data as unknown as Record<string, unknown>
+          data
         );
       } else if (logEveryRender) {
         logger.debug(
           `[Profiler] ${profilerId} render: ${actualDuration.toFixed(2)}ms (phase: ${phase})`,
-          data as unknown as Record<string, unknown>
+          data
         );
       }
 

@@ -39,6 +39,7 @@ export class NoDownloadLinkError extends Error {
 export async function getDownloadUrl(iModelId: string): Promise<string> {
   const response = await fetchWithAuth(`/imodels/${iModelId}`);
 
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- `_links` is the external iModels API contract (HAL style)
   const result = await response.json() as { _links?: { download?: { href?: string } } };
   const href = result._links?.download?.href;
   if (!href) {

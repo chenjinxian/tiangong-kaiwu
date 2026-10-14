@@ -7,9 +7,9 @@ import React, { useCallback, useState } from 'react';
 import {
   Button,
   Dialog,
+  Input,
   InputGroup,
   Label,
-  Input,
   Text,
 } from '@itwin/itwinui-react';
 import { ITwinSubClass, useITwinMutations } from '../hooks/useITwinsQuery.js';

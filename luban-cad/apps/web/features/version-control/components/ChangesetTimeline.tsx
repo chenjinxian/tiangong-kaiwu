@@ -5,7 +5,7 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { type Changeset, useChangesets } from '../hooks/useChangesets.js';
-import { SvgRefresh, SvgCompare } from '@itwin/itwinui-icons-react';
+import { SvgCompare, SvgRefresh } from '@itwin/itwinui-icons-react';
 import './ChangesetTimeline.css';
 
 interface ChangesetTimelineProps {
