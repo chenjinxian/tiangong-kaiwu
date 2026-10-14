@@ -55,9 +55,9 @@ test.describe('Documents Page', () => {
     await expect(projectTile, 'e2e 数据前置不满足：seed 项目卡片未出现——起栈+seed 后重跑').toBeVisible({ timeout: 15000 });
     await projectTile.click();
 
-    // Verify navigation to detail page - actual route is /itwins/:iTwinId
-    await page.waitForURL(/.*\/itwins\/.+/, { timeout: 10000 });
-    await expect(page.url()).toMatch(/.*\/itwins\/.+/);
+    // Verify navigation to detail page - actual route is /documents/:iTwinId
+    await page.waitForURL(/.*\/documents\/.+/, { timeout: 10000 });
+    await expect(page.url()).toMatch(/.*\/documents\/.+/);
   });
 
   test('should logout successfully', async ({ page }) => {

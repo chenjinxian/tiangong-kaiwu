@@ -12,7 +12,7 @@ import { expect, type Page } from '@playwright/test';
  * UI 事实（勿凭旧测试反推）：
  * - 项目卡片是 iTwinUI Tile：div[cursor=pointer] 内嵌以项目名命名的 <button>（无 a[href]、无 .section-card）。
  * - iModel 卡片的主按钮文案是「打开工作空间」（initialized 前禁用）。
- * - 编辑器路由是 /workspace/:iTwinId/:iModelId（不存在 /editor/...）。
+ * - 编辑器路由是 /documents/:iTwinId/:iModelId（不存在 /editor/...）。
  * - CreateITwinDialog 标题只存在于 aria-label（内层 heading 为空）→ 用 getByRole('dialog', { name }) 定位。
  * - 工具激活提示走 IModelApp.notifications.outputPrompt，无 UI 消费、不落 DOM；
  *   断言用 main.tsx 暴露的 window.IModelApp.toolAdmin.activeTool.toolId。
@@ -33,7 +33,7 @@ export async function loginViaUI(page: Page): Promise<void> {
   await page.fill('input[type="email"]', 'test@example.com');
   await page.fill('input[type="password"]', 'Test123!@#');
   await page.getByRole('button', { name: /^登录$|登录中|Sign In/i }).first().click();
-  await page.waitForURL(/\/itwins/, { timeout: 15000 });
+  await page.waitForURL(/\/documents/, { timeout: 15000 });
 }
 
 /** 会话注入登录：复用 auth.setup 产物（playwright/.auth/session.json）注入 sessionStorage，
@@ -48,7 +48,7 @@ export async function loginWithSession(page: Page): Promise<void> {
       if (typeof value === 'string') sessionStorage.setItem(key, value);
     }
   }, session);
-  await page.goto('/itwins');
+  await page.goto('/documents');
   await expect(page.locator('.section-title')).toBeVisible({ timeout: 15000 });
 }
 
@@ -57,11 +57,11 @@ export async function loginWithSession(page: Page): Promise<void> {
  * 工具条出现即等价于 briefcase 连接已建立（CadToolbar 仅在 isEditMode 渲染）。
  */
 export async function navigateToEditor(page: Page, projectName = SEED_PROJECT_NAME): Promise<void> {
-  // 项目卡片：Tile 内嵌按钮（可点击冒泡到卡片 onClick → /itwins/:id）
+  // 项目卡片：Tile 内嵌按钮（可点击冒泡到卡片 onClick → /documents/:id）
   const projectTile = page.locator('main').getByRole('button', { name: projectName }).first();
   await expect(projectTile).toBeVisible({ timeout: 20000 });
   await projectTile.click();
-  await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 15000 });
+  await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 15000 });
 
   // 详情页：iModel 卡片按名锁定 e2e 自管库（「测试项目」内还有人工调试库，不能 .first()
   // 按位置取）。主按钮未初始化时文案为「初始化」且禁用——等文案翻转为「打开工作空间」
@@ -74,7 +74,7 @@ export async function navigateToEditor(page: Page, projectName = SEED_PROJECT_NA
   await expect(openBtn).toBeVisible({ timeout: 60000 });
   await expect(openBtn).toBeEnabled({ timeout: 60000 });
   await openBtn.click();
-  await page.waitForURL(/\/workspace\/[^/]+\/[^/]+/, { timeout: 60000 });
+  await page.waitForURL(/\/documents\/[^/]+\/[^/]+/, { timeout: 60000 });
 
   await waitForEditorReady(page);
   await expect(page.locator('.cad-toolbar-horizontal')).toBeVisible({ timeout: 60000 });

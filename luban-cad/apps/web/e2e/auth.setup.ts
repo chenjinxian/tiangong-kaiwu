@@ -19,7 +19,7 @@ async function loginViaUI(page: import('@playwright/test').Page): Promise<void> 
   await page.fill('input[type="email"]', TEST_USER.email);
   await page.fill('input[type="password"]', TEST_USER.password);
   await page.getByRole('button', { name: /^登录$|登录中|Sign In/i }).first().click();
-  await page.waitForURL('**/itwins', { timeout: 15000 });
+  await page.waitForURL('**/documents', { timeout: 15000 });
 }
 
 async function registerViaUI(page: import('@playwright/test').Page): Promise<void> {
@@ -30,7 +30,7 @@ async function registerViaUI(page: import('@playwright/test').Page): Promise<voi
   await page.fill('input#confirmPassword', TEST_USER.password);
   await page.check('input[type="checkbox"]');
   await page.getByRole('button', { name: /创建账户|Register/i }).click();
-  await page.waitForURL('**/itwins', { timeout: 15000 });
+  await page.waitForURL('**/documents', { timeout: 15000 });
 }
 
 setup('authenticate', async ({ page }) => {
@@ -45,7 +45,7 @@ setup('authenticate', async ({ page }) => {
   }
 
   // Verify we're logged in
-  await expect(page.url()).toContain('/itwins');
+  await expect(page.url()).toContain('/documents');
 
   // 自愈清场：删除历史运行遗留的测试项目（E2E Project */Demo Project *）。
   // hub 项目列表分页 $top=10，遗留项目会把 seed「测试项目」挤出首页导致依赖它的 spec 失败。

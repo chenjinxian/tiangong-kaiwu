@@ -286,21 +286,21 @@ try {
     await page.fill('input[type="password"]', 'Test123!@#');
     await page.getByRole('button', { name: /^登录$/ }).click();
     try {
-      await page.waitForURL('**/itwins', { timeout: 15000 });
+      await page.waitForURL('**/documents', { timeout: 15000 });
       loggedIn = true;
     } catch {
       log(`   登录未跳转（第 ${attempt} 次）——重载重试`);
       await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded', timeout: 45000 });
       // 慢成功陷阱（2026-10-11 晚两次实测）：登录其实已成功但跳转超 15s——重进 /login
-      // 会因已认证被重定向去 /itwins，email 输入框永不渲染，waitForSelector 烧满误杀。
-      // 轮询双信号：见到 /itwins = 直接视为登录成功；见到表单 = 正常重试。
+      // 会因已认证被重定向去 /documents，email 输入框永不渲染，waitForSelector 烧满误杀。
+      // 轮询双信号：见到 /documents = 直接视为登录成功；见到表单 = 正常重试。
       let landed = null;
       for (let i = 0; i < 30 && !landed; i++) {
-        if (page.url().includes('/itwins')) landed = 'itwins';
+        if (page.url().includes('/documents')) landed = 'documents';
         else if (await page.locator('input[type="email"]').isVisible().catch(() => false)) landed = 'form';
         else await page.waitForTimeout(1000);
       }
-      if (landed === 'itwins') { log('   （慢成功）已在项目列表——视为登录成功'); loggedIn = true; }
+      if (landed === 'documents') { log('   （慢成功）已在项目列表——视为登录成功'); loggedIn = true; }
       else if (!landed) throw new Error('登录页未就绪（email 输入框未渲染且未跳转项目列表）');
     }
   }
@@ -312,14 +312,14 @@ try {
   // ── 3. 打开种子项目 ──────────────────────────────────
   log('步骤 3/24：点击「测试项目」卡片进入详情');
   await page.locator('main').getByRole('button', { name: '测试项目' }).first().click();
-  await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 15000 });
+  await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 15000 });
   await page.getByRole('button', { name: '打开工作空间' }).first().waitFor({ state: 'visible', timeout: 15000 });
   await shot(page, '03-项目详情-iModel卡片');
 
   // ── 4. 进入编辑器 ────────────────────────────────────
   log('步骤 4/24：点击「打开工作空间」进入编辑器');
   await page.getByRole('button', { name: '打开工作空间' }).first().click();
-  await page.waitForURL(/\/workspace\/[^/]+\/[^/]+/, { timeout: 60000 });
+  await page.waitForURL(/\/documents\/[^/]+\/[^/]+/, { timeout: 60000 });
   await waitEditorReady();
   await page.locator('.cad-toolbar-horizontal').waitFor({ state: 'visible', timeout: 60000 });
   const status1 = await page.locator('.statusbar').textContent();
@@ -352,7 +352,7 @@ try {
   // ── 7. 返回并新建项目 ────────────────────────────────
   log(`步骤 7/24：面包屑返回，新建项目「${DEMO_PROJECT}」`);
   await page.getByRole('button', { name: '项目列表' }).first().click();
-  await page.waitForURL('**/itwins', { timeout: 30000 });
+  await page.waitForURL('**/documents', { timeout: 30000 });
   await page.getByRole('button', { name: '新建项目' }).click();
   const dlg = page.getByRole('dialog', { name: '创建 iTwin 项目' });
   await dlg.waitFor({ state: 'visible' });
@@ -367,7 +367,7 @@ try {
   // ── 8. 新建 iModel 并进编辑器 ────────────────────────
   log(`步骤 8/24：进入新项目，新建 iModel「${DEMO_IMODEL}」`);
   await page.locator('main').getByRole('button', { name: DEMO_PROJECT }).first().click();
-  await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 30000 });
+  await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 30000 });
   projectId = page.url().split('/')[4];
   await page.getByRole('button', { name: '新建 iModel' }).first().click();
   const iDlg = page.locator('.dialog-container').filter({ hasText: '创建 iModel' });
@@ -385,7 +385,7 @@ try {
   log('✅ iModel 已创建并初始化');
   await shot(page, '10-新iModel卡片-打开工作空间已解锁');
   await openBtn.click();
-  await page.waitForURL(/\/workspace\/[^/]+\/[^/]+/, { timeout: 60000 });
+  await page.waitForURL(/\/documents\/[^/]+\/[^/]+/, { timeout: 60000 });
   await waitEditorReady();
   await page.locator('.cad-toolbar-horizontal').waitFor({ state: 'visible', timeout: 60000 });
   const status2 = await page.locator('.statusbar').textContent();
@@ -845,7 +845,7 @@ try {
   // ── 24. 退出登录 ─────────────────────────────────────
   log('步骤 24/24：返回项目列表并退出登录');
   await page.getByRole('button', { name: '项目列表' }).first().click();
-  await page.waitForURL('**/itwins', { timeout: 30000 });
+  await page.waitForURL('**/documents', { timeout: 30000 });
   await page.getByRole('button', { name: '退出登录' }).click();
   await page.waitForURL('**/login', { timeout: 15000 });
   log('✅ 已退出，回到登录页');

@@ -32,7 +32,7 @@ const ForgotPassword: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/itwins', { replace: true });
+      navigate('/documents', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

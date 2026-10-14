@@ -169,7 +169,7 @@ const Documents: React.FC = React.memo(() => {
 
   const handleProjectClick = useCallback((project: { id?: string }) => {
     if (project.id) {
-      navigate(`/itwins/${project.id}`);
+      navigate(`/documents/${project.id}`);
     }
   }, [navigate]);
 

@@ -407,7 +407,7 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
 
   const handleOpenIModel = () => {
     if (createdIModelId) {
-      navigate(`/workspace/${iTwinId}/${createdIModelId}`);
+      navigate(`/documents/${iTwinId}/${createdIModelId}`);
     }
   };
 

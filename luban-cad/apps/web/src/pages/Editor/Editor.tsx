@@ -106,9 +106,9 @@ const Editor: React.FC = React.memo(() => {
   const backendUrl = API_BASE_URL || window.location.origin;
   const { isAppInitialized } = useEditorInitialization(backendUrl);
 
-  const handleBack = useCallback(() => { navigate('/itwins'); }, [navigate]);
+  const handleBack = useCallback(() => { navigate('/documents'); }, [navigate]);
   const handleNavigateToProject = useCallback(() => {
-    if (iTwinId) navigate(`/itwins/${iTwinId}`);
+    if (iTwinId) navigate(`/documents/${iTwinId}`);
   }, [navigate, iTwinId]);
 
   // Selection tool

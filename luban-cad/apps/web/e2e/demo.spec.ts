@@ -26,7 +26,7 @@ test.describe('LubanCAD 功能演示', () => {
     await page.fill('input[type="email"]', TEST_USER.email);
     await page.fill('input[type="password"]', TEST_USER.password);
     await page.getByRole('button', { name: /^登录$|登录中|Sign In/i }).first().click();
-    await page.waitForURL('**/itwins', { timeout: 15000 });
+    await page.waitForURL('**/documents', { timeout: 15000 });
 
     // 3. 文档中心 - 我的项目（默认过滤即 my）
     console.log('📸 2. 文档中心 - 我的项目');
@@ -52,7 +52,7 @@ test.describe('LubanCAD 功能演示', () => {
     const projectItem = page.locator('main').getByRole('button', { name: projectName }).first();
     await expect(projectItem).toBeVisible({ timeout: 30000 });
     await projectItem.click();
-    await page.waitForURL(/.*\/itwins\/.+/, { timeout: 30000 });
+    await page.waitForURL(/.*\/documents\/.+/, { timeout: 30000 });
     await page.waitForTimeout(2000);
     await page.screenshot({ path: 'demo/04-project-detail.png', fullPage: true });
 
@@ -76,7 +76,7 @@ test.describe('LubanCAD 功能演示', () => {
     await expect(openBtn).toBeVisible({ timeout: 60000 });
     await expect(openBtn).toBeEnabled({ timeout: 60000 });
     await openBtn.click();
-    await page.waitForURL(/\/workspace\/.+/, { timeout: 60000 });
+    await page.waitForURL(/\/documents\/.+/, { timeout: 60000 });
     await waitForEditorReady(page);
     await page.locator('.cad-toolbar-horizontal').waitFor({ state: 'visible', timeout: 60000 });
     await page.waitForTimeout(2000);

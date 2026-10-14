@@ -52,7 +52,7 @@ const Register: React.FC = () => {
   const [passwordFeedback, setPasswordFeedback] = useState('');
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/itwins');
+    if (isAuthenticated) navigate('/documents');
   }, [isAuthenticated, navigate]);
 
   // Page loading simulation
@@ -232,7 +232,7 @@ const Register: React.FC = () => {
       await register({ name, email, password });
       setIsSuccess(true);
       setTimeout(() => {
-        navigate('/itwins');
+        navigate('/documents');
       }, 2000);
     } catch {
       // Error handled by context

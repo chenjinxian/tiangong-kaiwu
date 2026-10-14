@@ -33,8 +33,8 @@ export const test = baseTest.extend<{
     // Click login button
     await page.click('button[type="submit"]');
 
-    // Wait for navigation to itwins page
-    await page.waitForURL('**/itwins');
+    // Wait for navigation to documents page
+    await page.waitForURL('**/documents');
 
     // Use the authenticated page
     await use({ page, user: TEST_USER });

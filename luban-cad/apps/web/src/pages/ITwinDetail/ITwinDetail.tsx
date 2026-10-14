@@ -175,7 +175,7 @@ const ITwinDetail: React.FC = React.memo(() => {
     try {
       await deleteITwinMutation.mutateAsync(iTwinId);
       showToast('项目已删除', 'success');
-      navigate('/itwins');
+      navigate('/documents');
     } catch (error) {
       const message = error instanceof Error ? error.message : '删除失败，请重试';
       showToast(message, 'error');
@@ -183,7 +183,7 @@ const ITwinDetail: React.FC = React.memo(() => {
   }, [iTwinId, deleteITwinMutation, navigate, showToast]);
 
   const handleBack = useCallback(() => {
-    navigate('/itwins');
+    navigate('/documents');
   }, [navigate]);
 
   const handleSettings = useCallback(() => {
@@ -191,7 +191,7 @@ const ITwinDetail: React.FC = React.memo(() => {
   }, [navigate]);
 
   const handleOpenIModel = useCallback((iModel: IModel) => {
-    navigate(`/workspace/${iTwinId}/${iModel.id}`);
+    navigate(`/documents/${iTwinId}/${iModel.id}`);
   }, [navigate, iTwinId]);
 
   const handleDeleteIModel = useCallback(async (iModel: IModel) => {

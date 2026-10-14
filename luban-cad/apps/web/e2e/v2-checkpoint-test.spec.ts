@@ -29,8 +29,8 @@ test('V2 Checkpoint should load successfully', async ({ page }) => {
 
   console.log(`Testing iModel: ${imodelId}`);
 
-  // Navigate to workspace
-  await page.goto(`/workspace/${projectId}/${imodelId}`);
+  // Navigate to editor
+  await page.goto(`/documents/${projectId}/${imodelId}`);
 
   // Wait for connection attempt
   await page.waitForTimeout(15000);

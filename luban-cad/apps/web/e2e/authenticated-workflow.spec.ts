@@ -33,7 +33,7 @@ test.beforeEach(async ({ page }) => {
 
 /** 创建项目并导航到详情页，返回 iTwinId */
 async function createProjectAndOpen(page: Page): Promise<string> {
-  await page.goto('/itwins');
+  await page.goto('/documents');
 
   // 新建项目对话框：标题只在 aria-label（内层 heading 为空），用 role 定位
   await page.getByRole('button', { name: '新建项目' }).first().click();
@@ -48,9 +48,9 @@ async function createProjectAndOpen(page: Page): Promise<string> {
   const projectItem = page.locator('main').getByRole('button', { name: TEST_PROJECT_NAME }).first();
   await expect(projectItem).toBeVisible({ timeout: 30000 });
   await projectItem.click();
-  await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 30000 });
+  await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 30000 });
   await expect(page.locator('body')).toContainText(TEST_PROJECT_NAME);
-  return page.url().split('/')[4] ?? ''; // /itwins/:iTwinId
+  return page.url().split('/')[4] ?? ''; // /documents/:iTwinId
 }
 
 test.describe('Authenticated E2E Workflow', () => {
@@ -83,7 +83,7 @@ test.describe('Authenticated E2E Workflow', () => {
     await expect(openBtn).toBeVisible({ timeout: 60000 });
     await expect(openBtn).toBeEnabled({ timeout: 60000 });
     await openBtn.click();
-    await page.waitForURL(/\/workspace\/[^/]+\/[^/]+/, { timeout: 60000 });
+    await page.waitForURL(/\/documents\/[^/]+\/[^/]+/, { timeout: 60000 });
 
     // 编辑器就绪：主工具条 + 面包屑 + CAD 工具条（后者等价于 briefcase 连接已建立）
     await waitForEditorReady(page);

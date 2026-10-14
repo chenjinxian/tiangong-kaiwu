@@ -90,7 +90,7 @@ const Settings: React.FC = React.memo(() => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const handleBack = useCallback(() => {
-    navigate('/itwins');
+    navigate('/documents');
   }, [navigate]);
 
   const handleUpdateProfile = useCallback(async () => {

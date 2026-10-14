@@ -26,7 +26,7 @@ test.describe('Modeling Tools - Smoke Test', () => {
     // UI 全链路：项目卡片 → 详情页「打开工作空间」→ 编辑器（见 helpers.navigateToEditor）
     await navigateToEditor(page);
 
-    await expect(page.url()).toMatch(/\/workspace\/[^/]+\/[^/]+/);
+    await expect(page.url()).toMatch(/\/documents\/[^/]+\/[^/]+/);
     await expect(page.locator('.statusbar')).toBeVisible();
     await page.screenshot({ path: 'test-results/editor-page.png', fullPage: true });
   });
@@ -40,8 +40,8 @@ test.describe('Modeling Tools - Direct Editor Access', () => {
     // 经 hub API 取真实 ID（auth token 在 sessionStorage 的 luban_cad_auth）
     const { projectId, imodelId } = await getSeedProjectAndIModel(page);
 
-    // 编辑器路由是 /workspace/:iTwinId/:iModelId（不存在 /editor/...）
-    await page.goto(`/workspace/${projectId}/${imodelId}`);
+    // 编辑器路由是 /documents/:iTwinId/:iModelId（不存在 /editor/...）
+    await page.goto(`/documents/${projectId}/${imodelId}`);
     await page.screenshot({ path: 'test-results/editor-direct.png', fullPage: true });
 
     // 先等编辑器就绪（IPC WS 握手偶发挂起，waitForEditorReady 内含卡滞 reload 重试）

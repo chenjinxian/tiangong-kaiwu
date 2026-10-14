@@ -24,7 +24,7 @@ test.describe('Complete E2E Workflow', () => {
     // Step 1: Login
     console.log('📍 Step 1: Login');
     await loginViaUI(page);
-    await expect(page.url()).toContain('/itwins');
+    await expect(page.url()).toContain('/documents');
 
     // Step 2: Create new iTwin project
     console.log('📍 Step 2: Create iTwin Project');
@@ -46,7 +46,7 @@ test.describe('Complete E2E Workflow', () => {
     // Step 3: Navigate to the new project
     console.log('📍 Step 3: Navigate to project');
     await projectItem.click();
-    await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 30000 });
+    await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 30000 });
     const projectId = page.url().split('/')[4] ?? '';
     await expect(page.locator('body')).toContainText(TEST_PROJECT_NAME);
 
@@ -70,7 +70,7 @@ test.describe('Complete E2E Workflow', () => {
     await expect(openBtn).toBeVisible({ timeout: 60000 });
     await expect(openBtn).toBeEnabled({ timeout: 60000 });
     await openBtn.click();
-    await page.waitForURL(/\/workspace\/[^/]+\/[^/]+/, { timeout: 60000 });
+    await page.waitForURL(/\/documents\/[^/]+\/[^/]+/, { timeout: 60000 });
 
     // 编辑器就绪：主工具条/面包屑 + CAD 工具条（后者等价于 briefcase 连接已建立）
     await waitForEditorReady(page);
