@@ -18,6 +18,10 @@
  * - --iui-size-xs, --iui-size-s, --iui-size-m, --iui-size-l, --iui-size-xl
  * - --iui-border-radius
  * - --iui-font-size-small, --iui-font-size-body, --iui-font-size-title
+ *
+ * MIGRATION (P0): 品牌 teal 经 --iui-color-accent-hsl 注入 iTwinUI accent 管道
+ * （high-visibility 按钮、聚焦态等全部继承）。格式为 iTwinUI 种子原生格式 `Hdeg S% L%`。
+ * 旧 --color-* 别名已 @deprecated，仅为向后兼容保留，禁止新增消费方。
  */
 
 /* Light theme (default)
@@ -30,6 +34,12 @@
   --color-primary-hover: #00a685;
   --color-primary-light: rgba(0, 184, 148, 0.08);
 
+  /* Brand accent seed override — 品牌 teal 注入 iTwinUI accent 管道
+   * （high-visibility 按钮 / 聚焦态 / 选中态经 --iui-color-accent-hsl 继承） */
+  --iui-color-accent-hsl: 167deg 100% 36.1%; /* 品牌 teal #00b894 → iTwinUI accent 种子 */
+
+  /* @deprecated P0 起品牌色经 --iui-color-accent-hsl 注入；
+   * 以下 --color-* 别名仅为向后兼容保留，各波次页面重写时逐页清除，禁止新增消费方。 */
   /* iTwinUI Aliases for backward compatibility */
   --color-bg-page: var(--iui-color-background-backdrop, #f4f6f9);
   --color-bg-card: var(--iui-color-background-surface, #ffffff);
@@ -70,6 +80,11 @@
   --color-primary-hover: #33ffd4;
   --color-primary-light: rgba(0, 228, 184, 0.12);
 
+  /* Brand accent seed override — 品牌亮 teal 注入 iTwinUI accent 管道 */
+  --iui-color-accent-hsl: 167deg 100% 44.7%; /* 品牌亮 teal #00e4b8 */
+
+  /* @deprecated P0 起品牌色经 --iui-color-accent-hsl 注入；
+   * 以下 --color-* 别名仅为向后兼容保留，各波次页面重写时逐页清除，禁止新增消费方。 */
   /* iTwinUI Aliases for backward compatibility */
   --color-bg-page: var(--iui-color-background-backdrop, #0b0d13);
   --color-bg-card: var(--iui-color-background-surface, #13161e);
