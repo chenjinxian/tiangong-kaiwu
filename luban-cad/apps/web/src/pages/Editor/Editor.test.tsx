@@ -177,10 +177,9 @@ vi.mock('../../../features/editor/hooks/useEdgeRefPicker.js', () => ({
 vi.mock('../../../features/editor/registerTools.js', () => ({
   registerAllTools: vi.fn(),
 }));
-vi.mock('../../../shared/components/ui/ToastContainer.js', () => ({
-  useToast: () => ({
+vi.mock('../../../shared/hooks/useAppToast.js', () => ({
+  useAppToast: () => ({
     showToast: vi.fn(),
-    ToastContainer: () => null,
   }),
 }));
 vi.mock('../../../app/contexts/ThemeContext.js', () => ({

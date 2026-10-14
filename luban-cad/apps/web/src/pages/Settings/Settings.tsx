@@ -22,7 +22,7 @@ import {
 } from '@itwin/itwinui-icons-react';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
-import { useToast } from '../../../shared/components/ui/ToastContainer.js';
+import { useAppToast } from '../../../shared/hooks/useAppToast.js';
 import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import './Settings.css';
 
@@ -74,7 +74,7 @@ async function changeUserPassword(currentPassword: string, newPassword: string, 
 const Settings: React.FC = React.memo(() => {
   const navigate = useNavigate();
   const { user, updateUser } = useUser();
-  const { showToast, ToastContainer } = useToast();
+  const { showToast } = useAppToast();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'preferences'>('profile');
 
@@ -377,8 +377,6 @@ const Settings: React.FC = React.memo(() => {
           </main>
         </div>
       </div>
-
-      <ToastContainer />
     </div>
   );
 });

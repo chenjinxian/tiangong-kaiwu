@@ -43,7 +43,7 @@ import { useEditTools } from '../../../features/editor/hooks/useEditTools.js';
 import { CadToolbar } from '../../../features/editor/components/CadToolbar.js';
 import { registerAllTools } from '../../../features/editor/registerTools.js';
 import { ConflictPanel } from '../../../features/version-control/components/ConflictPanel.js';
-import { useToast } from '../../../shared/components/ui/ToastContainer.js';
+import { useAppToast } from '../../../shared/hooks/useAppToast.js';
 import { RoundEdgesDialog } from '../../../features/modeling/components/RoundEdgesDialog.js';
 import { ChamferEdgesDialog } from '../../../features/modeling/components/ChamferEdgesDialog.js';
 import { HollowFacesDialog } from '../../../features/modeling/components/HollowFacesDialog.js';
@@ -153,8 +153,7 @@ const Editor: React.FC = React.memo(() => {
   const [opStatus, setOpStatus] = useState('');
   // Track if editing scope is ready (must be declared before useEffect that uses it)
   const [isEditingScopeReady, setIsEditingScopeReady] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  const { showToast, ToastContainer } = useToast();
+  const { showToast } = useAppToast();
 
   // Unified connection: always use BriefcaseConnection (read-only when not editable)
   // Wait for permission to load before opening briefcase to avoid race condition:
@@ -837,8 +836,6 @@ const Editor: React.FC = React.memo(() => {
           showToast(`已导出 ${format} 格式: ${fileName}`, 'success');
         }}
       />
-
-      <ToastContainer />
 
       {/* Status bar */}
       <div className="statusbar">

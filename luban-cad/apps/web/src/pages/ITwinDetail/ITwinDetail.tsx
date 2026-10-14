@@ -43,7 +43,7 @@ import { CopyIModelDialog } from '../../../features/imodel/components/CopyIModel
 import { EditITwinDialog } from '../../../features/itwin/components/EditITwinDialog.js';
 import { ShareITwinDialog } from '../../../features/itwin/components/ShareITwinDialog.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
-import { useToast } from '../../../shared/components/ui/ToastContainer.js';
+import { useAppToast } from '../../../shared/hooks/useAppToast.js';
 import {
   IModelsListSkeleton,
   ITwinDetailSkeleton,
@@ -60,7 +60,7 @@ import './ITwinDetail.css';
 const ITwinDetail: React.FC = React.memo(() => {
   const { iTwinId } = useParams<{ iTwinId: string }>();
   const navigate = useNavigate();
-  const { showToast, ToastContainer } = useToast();
+  const { showToast } = useAppToast();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -506,8 +506,6 @@ const ITwinDetail: React.FC = React.memo(() => {
 
       {/* Hidden anchor for programmatic downloads */}
       <a ref={downloadAnchorRef} style={{ display: 'none' }} />
-
-      <ToastContainer />
     </div>
   );
 });
