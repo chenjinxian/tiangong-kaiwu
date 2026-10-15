@@ -260,8 +260,10 @@ vi.mock('../../../features/modeling/components/ChamferEdgesDialog.js', () => ({
 vi.mock('../../../features/modeling/components/HollowFacesDialog.js', () => ({
   HollowFacesDialog: () => <div data-testid="hollow-dialog" />,
 }));
-vi.mock('../../core/undo/index.js', () => ({
+vi.mock('../../core/undo/UndoRedoToolbar.js', () => ({
   UndoRedoToolbar: () => <div data-testid="undo-redo-toolbar" />,
+}));
+vi.mock('../../core/undo/useUndoManager.js', () => ({
   useUndoManager: () => ({ undo: vi.fn(), redo: vi.fn(), canUndo: false, canRedo: false }),
 }));
 vi.mock('../../core/tools/index.js', () => ({
@@ -285,9 +287,9 @@ vi.mock('../../../features/imodel/hooks/useIModelPermission.js', () => ({
 
 function renderEditor() {
   return render(
-    <MemoryRouter initialEntries={['/itwins/itwin1/imodels/imodel1/edit']}>
+    <MemoryRouter initialEntries={['/documents/itwin1/imodel1']}>
       <Routes>
-        <Route path="/itwins/:iTwinId/imodels/:iModelId/edit" element={<Editor />} />
+        <Route path="/documents/:iTwinId/:iModelId" element={<Editor />} />
       </Routes>
     </MemoryRouter>
   );
