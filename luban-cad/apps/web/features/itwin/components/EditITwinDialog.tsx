@@ -7,9 +7,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   Dialog,
+  Input,
   InputGroup,
   Label,
-  Input,
   Text,
 } from '@itwin/itwinui-react';
 import type { ITwin } from '@itwin/itwins-client';

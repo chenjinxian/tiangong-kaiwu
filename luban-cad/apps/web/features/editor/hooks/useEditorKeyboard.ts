@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect } from 'react';
-import { keyboardManager } from '../../../src/core/shortcuts/index.js';
+import { keyboardManager } from '../../../src/core/shortcuts/KeyboardManager.js';
 
 /**
  * Hook for keyboard shortcuts in the editor.

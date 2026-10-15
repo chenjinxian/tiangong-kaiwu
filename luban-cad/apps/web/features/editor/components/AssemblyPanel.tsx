@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { type BriefcaseConnection, IpcApp } from '@itwin/core-frontend';
 import { openCloudIpcChannel, type OpenCloudIpcInterface } from '@luban-cad/shared';
-import { Button, IconButton, Input, Text, Alert } from '@itwin/itwinui-react';
+import { Alert, Button, IconButton, Input, Text } from '@itwin/itwinui-react';
 import { SvgAdd } from '@itwin/itwinui-icons-react';
 import './AssemblyPanel.css';
 

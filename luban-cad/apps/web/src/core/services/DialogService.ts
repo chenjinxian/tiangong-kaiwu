@@ -20,34 +20,34 @@ export interface DialogRequest<T = unknown> {
 }
 
 class DialogService {
-  private currentDialog: DialogRequest | null = null;
-  private queue: DialogRequest[] = [];
-  private listeners: Set<() => void> = new Set();
+  private _currentDialog: DialogRequest | null = null;
+  private _queue: DialogRequest[] = [];
+  private _listeners: Set<() => void> = new Set();
 
   /**
    * Show category picker dialog
    * Returns the selected category ID or undefined if cancelled
    */
-  async showCategoryPicker(): Promise<string | undefined> {
+  public async showCategoryPicker(): Promise<string | undefined> {
     return this.showDialog<string>('categoryPicker');
   }
 
   /**
    * Internal method to show a dialog
    */
-  private showDialog<T>(type: DialogType, data?: Record<string, unknown>): Promise<T | undefined> {
+  private async showDialog<T>(type: DialogType, data?: Record<string, unknown>): Promise<T | undefined> {
     return new Promise((resolve, reject) => {
       const request: DialogRequest<T> = {
         type,
-        resolve: resolve as (value: unknown) => void,
+        resolve,
         reject,
         data,
       };
 
-      if (this.currentDialog) {
-        this.queue.push(request as DialogRequest);
+      if (this._currentDialog) {
+        this._queue.push(request as DialogRequest);
       } else {
-        this.currentDialog = request as DialogRequest;
+        this._currentDialog = request as DialogRequest;
         this.notifyListeners();
       }
     });
@@ -56,33 +56,33 @@ class DialogService {
   /**
    * Get current dialog request (for React components to render)
    */
-  getCurrentDialog(): DialogRequest | null {
-    return this.currentDialog;
+  public getCurrentDialog(): DialogRequest | null {
+    return this._currentDialog;
   }
 
   /**
    * Subscribe to dialog changes
    */
-  subscribe(listener: () => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+  public subscribe(listener: () => void): () => void {
+    this._listeners.add(listener);
+    return () => this._listeners.delete(listener);
   }
 
   private notifyListeners(): void {
-    this.listeners.forEach(listener => listener());
+    this._listeners.forEach(listener => listener());
   }
 
   /**
    * Close current dialog with a result
    */
-  closeDialog(result?: unknown): void {
-    if (this.currentDialog) {
-      this.currentDialog.resolve(result);
-      this.currentDialog = null;
+  public closeDialog(result?: unknown): void {
+    if (this._currentDialog) {
+      this._currentDialog.resolve(result);
+      this._currentDialog = null;
 
       // Process next dialog in queue
-      if (this.queue.length > 0) {
-        this.currentDialog = this.queue.shift() || null;
+      if (this._queue.length > 0) {
+        this._currentDialog = this._queue.shift() || null;
       }
 
       this.notifyListeners();
@@ -92,14 +92,14 @@ class DialogService {
   /**
    * Cancel current dialog
    */
-  cancelDialog(): void {
-    if (this.currentDialog) {
-      this.currentDialog.resolve(undefined);
-      this.currentDialog = null;
+  public cancelDialog(): void {
+    if (this._currentDialog) {
+      this._currentDialog.resolve(undefined);
+      this._currentDialog = null;
 
       // Process next dialog in queue
-      if (this.queue.length > 0) {
-        this.currentDialog = this.queue.shift() || null;
+      if (this._queue.length > 0) {
+        this._currentDialog = this._queue.shift() || null;
       }
 
       this.notifyListeners();
@@ -109,13 +109,13 @@ class DialogService {
   /**
    * Clear all pending dialogs
    */
-  clearAll(): void {
-    if (this.currentDialog) {
-      this.currentDialog.resolve(undefined);
+  public clearAll(): void {
+    if (this._currentDialog) {
+      this._currentDialog.resolve(undefined);
     }
-    this.queue.forEach(req => req.resolve(undefined));
-    this.queue = [];
-    this.currentDialog = null;
+    this._queue.forEach(req => req.resolve(undefined));
+    this._queue = [];
+    this._currentDialog = null;
     this.notifyListeners();
   }
 }

@@ -69,11 +69,11 @@ test.describe('Login Flow', () => {
     // Click login
     await page.getByRole('button', { name: /登录|Sign In/i }).click();
 
-    // Wait for navigation to itwins page (actual app navigates to /itwins)
-    await page.waitForURL('**/itwins', { timeout: 10000 });
+    // Wait for navigation to documents page (actual app navigates to /documents)
+    await page.waitForURL('**/documents', { timeout: 10000 });
 
-    // Verify we're on the itwins page
-    await expect(page.url()).toContain('/itwins');
+    // Verify we're on the documents page
+    await expect(page.url()).toContain('/documents');
 
     // Verify user is logged in (check for user menu or avatar)
     await expect(page.getByText(TEST_USER.name).or(page.getByTitle(TEST_USER.name))).toBeVisible();
@@ -96,12 +96,12 @@ test.describe('Login Flow', () => {
     await page.fill('input[type="email"]', TEST_USER.email);
     await page.fill('input[type="password"]', TEST_USER.password);
     await page.getByRole('button', { name: /登录|Sign In/i }).click();
-    await page.waitForURL('**/itwins', { timeout: 10000 });
+    await page.waitForURL('**/documents', { timeout: 10000 });
 
     // Reload the page
     await page.reload();
 
-    // Verify still on itwins page (not redirected to login)
-    await expect(page.url()).toContain('/itwins');
+    // Verify still on documents page (not redirected to login)
+    await expect(page.url()).toContain('/documents');
   });
 });

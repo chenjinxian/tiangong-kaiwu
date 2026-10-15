@@ -8,26 +8,26 @@
 
 import React, { useState } from 'react';
 import {
-  IconButton,
   ButtonGroup,
-  Tooltip,
   Dialog,
+  IconButton,
   Input,
+  Tooltip,
 } from '@itwin/itwinui-react';
 import {
-  SvgLine,
-  SvgRectangle,
-  SvgCircle,
-  SvgText,
   SvgArrowRight,
-  SvgCloud,
-  SvgPolygon,
-  SvgDraw,
-  SvgMore,
-  SvgSave,
+  SvgCircle,
   SvgClose,
+  SvgCloud,
   SvgCrop,
+  SvgDraw,
+  SvgLine,
   SvgList,
+  SvgMore,
+  SvgPolygon,
+  SvgRectangle,
+  SvgSave,
+  SvgText,
 } from '@itwin/itwinui-icons-react';
 import { MarkupToolType } from '../hooks/useMarkupManager';
 

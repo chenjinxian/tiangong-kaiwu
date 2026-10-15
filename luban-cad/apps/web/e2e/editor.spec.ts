@@ -11,10 +11,10 @@ import {
   waitForEditorReady,
 } from './helpers';
 
-/** 登录后直达真实编辑器（经 hub API 取 seed 项目/模型 ID；编辑器路由 /workspace/:iTwinId/:iModelId） */
+/** 登录后直达真实编辑器（经 hub API 取 seed 项目/模型 ID；编辑器路由 /documents/:iTwinId/:iModelId） */
 async function openRealEditor(page: Page): Promise<void> {
   const { projectId, imodelId } = await getSeedProjectAndIModel(page);
-  await page.goto(`/workspace/${projectId}/${imodelId}`);
+  await page.goto(`/documents/${projectId}/${imodelId}`);
   await waitForEditorReady(page);
 }
 
@@ -27,8 +27,8 @@ test.describe('Editor Page', () => {
     // UI 全链路：项目卡片（Tile 内嵌按钮）→ 详情页「打开工作空间」→ 编辑器（见 helpers）
     await navigateToEditor(page);
 
-    // Actual editor route is /workspace/:iTwinId/:iModelId
-    await expect(page.url()).toMatch(/.*\/workspace\/.+/);
+    // Actual editor route is /documents/:iTwinId/:iModelId
+    await expect(page.url()).toMatch(/.*\/documents\/.+/);
     await expect(page.locator('.statusbar')).toBeVisible();
   });
 
@@ -61,11 +61,11 @@ test.describe('Editor Page', () => {
   test('should navigate back to documents', async ({ page }) => {
     await openRealEditor(page);
 
-    // 面包屑「项目列表」按钮 → /itwins
+    // 面包屑「项目列表」按钮 → /documents
     const backButton = page.getByRole('button', { name: '项目列表' }).first();
     await expect(backButton).toBeVisible({ timeout: 30000 });
     await backButton.click();
-    await page.waitForURL('**/itwins', { timeout: 30000 });
-    await expect(page.url()).toContain('/itwins');
+    await page.waitForURL('**/documents', { timeout: 30000 });
+    await expect(page.url()).toContain('/documents');
   });
 });

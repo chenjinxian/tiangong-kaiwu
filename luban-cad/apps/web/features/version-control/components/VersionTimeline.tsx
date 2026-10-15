@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
-import { Button, IconButton, Badge, Text } from '@itwin/itwinui-react';
+import { Badge, Button, IconButton, Text } from '@itwin/itwinui-react';
 import {
-  SvgChevronUp,
   SvgChevronDown,
-  SvgHistory,
-  SvgUploadToCloud,
+  SvgChevronUp,
   SvgDownload,
+  SvgHistory,
   SvgLabel,
+  SvgUploadToCloud,
 } from '@itwin/itwinui-icons-react';
 import type { Changeset } from '@itwin/imodels-client-management';
 import './VersionTimeline.css';

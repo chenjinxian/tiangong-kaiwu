@@ -113,8 +113,7 @@ export class ToggleProjectExtentsTool extends Tool {
   public override async run(): Promise<boolean> {
     const vp = IModelApp.viewManager.selectedView;
     if (undefined !== vp && vp.view.isSpatialView()) {
-      const enabled = toggleProjectExtents(vp.iModel);
-      console.log(`Project extents ${enabled ? 'enabled' : 'disabled'}`);
+      toggleProjectExtents(vp.iModel);
     }
     return true;
   }

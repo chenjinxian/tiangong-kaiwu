@@ -3,23 +3,23 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  Alert,
   Button,
   Dialog,
+  IconButton,
+  Input,
   InputGroup,
   Label,
-  Input,
-  Text,
-  Alert,
   Select,
-  IconButton,
   Tabs,
+  Text,
 } from '@itwin/itwinui-react';
 import {
-  SvgCopy,
-  SvgCheckmark,
   SvgAdd,
+  SvgCheckmark,
+  SvgCopy,
   SvgDelete,
 } from '@itwin/itwinui-icons-react';
 import type { ITwin } from '../../../shared/services/itwins/client.js';

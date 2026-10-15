@@ -7,12 +7,12 @@
  */
 
 import React, { useState } from 'react';
-import { IconButton, DropdownMenu, Tooltip } from '@itwin/itwinui-react';
+import { DropdownMenu, IconButton, Tooltip } from '@itwin/itwinui-react';
 import {
+  SvgChevronRight,
   SvgCrop,
   SvgList,
   SvgSettings,
-  SvgChevronRight,
   SvgSync,
 } from '@itwin/itwinui-icons-react';
 import { SolidPrimitiveType } from '../hooks/useSolidPrimitives';

@@ -1,6 +1,11 @@
-import { getValidAccessToken } from '../../../features/auth/services/auth/client.js';
+/**
+ * Briefcase Client — LubanCAD 自有面（modeling-server :4001 自有路由）。
+ * 契约同步裁决（Sync S3）：本 client 指向 modeling-server 自有路由，不属于
+ * imodelhub 官方契约面，不随本波 hub 契约重写改动。
+ */
 
-const API_BASE_URL = import.meta.env.VITE_IMODELHUB_URL || '';
+import { fetchWithAuth } from '../../api/httpClient.js';
+import { API_BASE_URL } from '../../api/baseUrl.js';
 
 export interface DeviceInfo {
   name: string;
@@ -38,40 +43,21 @@ export interface ReleaseBriefcaseRequest {
 }
 
 async function apiGet<T>(url: string, options?: { params?: Record<string, unknown> }): Promise<T> {
-  const token = await getValidAccessToken();
   const queryString = options?.params
     ? `?${new URLSearchParams(Object.entries(options.params).map(([k, v]) => [k, String(v)])).toString()}`
     : '';
 
-  const response = await fetch(`${API_BASE_URL}${url}${queryString}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
-  }
+  const response = await fetchWithAuth(`${url}${queryString}`, { baseUrl: API_BASE_URL });
 
   return response.json() as Promise<T>;
 }
 
 async function apiPost<T>(url: string, body?: unknown): Promise<T> {
-  const token = await getValidAccessToken();
-
-  const response = await fetch(`${API_BASE_URL}${url}`, {
+  const response = await fetchWithAuth(url, {
+    baseUrl: API_BASE_URL,
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
     body: body ? JSON.stringify(body) : undefined,
   });
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
-  }
 
   return response.json() as Promise<T>;
 }

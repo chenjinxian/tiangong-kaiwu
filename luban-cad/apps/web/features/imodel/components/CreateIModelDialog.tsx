@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import {
   Button,
   Dialog,
+  Input,
   InputGroup,
   Label,
-  Input,
 } from '@itwin/itwinui-react';
 import { useCreateIModelMutation } from '../hooks/useIModelsQuery.js';
 import '../../itwin/components/Dialog.css';

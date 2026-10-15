@@ -8,13 +8,13 @@
 
 import React from 'react';
 import {
-  IconButton,
   DropdownMenu,
+  IconButton,
   Tooltip,
 } from '@itwin/itwinui-react';
 import {
-  SvgCrop,
   SvgClose,
+  SvgCrop,
 } from '@itwin/itwinui-icons-react';
 import { ClipType } from '../hooks/useViewClip';
 

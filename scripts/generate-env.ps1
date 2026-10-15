@@ -22,6 +22,13 @@ $envMap = [ordered]@{
   'BACKEND_API_KEY'          = New-Hex 32
   'CSRF_SECRET'              = New-Hex 32
   'AZURITE_ACCOUNT_KEY'      = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='  # Azurite well-known（真实存储时换）
+  # HUB 预签名 URL 主机改写双 env（Sync S4/S5）：HUB 用它自己的 AZURE_BLOB_ENDPOINT 给
+  # changeset/baseline _links 签名（容器网内主机 azurite:10000，宿主 MS 进程不可解析）。
+  # MS 侧两键同设 → 预签名 URL 的 host 匹配 endpoint 的 host 时改写为 PUBLIC_HOST
+  # （SAS 只签路径+查询，换主机不失效；任一缺省恒不改写）。值须与根 docker-compose.yml
+  # 里 imodelhub 服务的 AZURE_BLOB_ENDPOINT 一致；仅宿主 MS 进程消费（容器网内自可达）。
+  'AZURE_BLOB_ENDPOINT'      = 'http://azurite:10000/devstoreaccount1'
+  'AZURE_BLOB_PUBLIC_HOST'   = '127.0.0.1:10000'
   'WEBHOOK_SECRET'           = New-Hex 32
   'AUTH_JWT_SECRET'          = New-Hex 32
   # HUB 辅助 JWT 密钥（refresh/forgot/confirm-email 令牌签名；2026-10-12 审计 P1#2：

@@ -14,7 +14,7 @@ import {
   type ScreenViewport,
 } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
-import { TransformGizmo, type GizmoAxis, type GizmoMode } from './TransformGizmo.js';
+import { type GizmoAxis, type GizmoMode, TransformGizmo } from './TransformGizmo.js';
 export type { GizmoMode, GizmoAxis };
 
 export interface UseTransformGizmoOptions {

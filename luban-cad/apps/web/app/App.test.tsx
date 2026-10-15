@@ -37,8 +37,8 @@ vi.mock('./contexts/UserContext.js', () => ({
   UserProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="user-provider">{children}</div>,
 }));
 
-vi.mock('../features/editor/components/PrivateRoute.js', () => ({
-   
+vi.mock('./components/PrivateRoute.js', () => ({
+
   PrivateRoute: ({ children }: { children: React.ReactNode }) => <div data-testid="private-route">{children}</div>,
 }));
 

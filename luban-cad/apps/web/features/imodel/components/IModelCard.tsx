@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { Badge, Button, IconButton } from '@itwin/itwinui-react';
-import { SvgItem, SvgDelete, SvgEdit } from '@itwin/itwinui-icons-react';
+import { SvgDelete, SvgEdit, SvgItem } from '@itwin/itwinui-icons-react';
 import type { IModel } from '../../../shared/services/imodels/client.js';
 import { IMODEL_STATES } from '../../../shared/lib/constants.js';
 import './IModelCard.css';
@@ -47,11 +47,10 @@ export const IModelCard: React.FC<IModelCardProps> = React.memo(({
   }, [iModel, onRename]);
 
   // Unused handlers (props available for future use):
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   void onDownload;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   void onRetry;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   void onCopy;
 
   // Memoize initialization check
@@ -62,7 +61,6 @@ export const IModelCard: React.FC<IModelCardProps> = React.memo(({
   );
 
   // Get creation date - simplified logic
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const im = iModel as any;
   console.log('IModelCard data:', {
     id: im.id,

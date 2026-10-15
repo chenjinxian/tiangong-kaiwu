@@ -83,7 +83,7 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
             id="chamfer-mode"
             options={modeOptions}
             value={mode.toString()}
-            onChange={(value) => setMode(parseInt(String(value), 10) as ChamferMode)}
+            onChange={(value) => setMode(parseInt(String(value), 10))}
           />
         </div>
 

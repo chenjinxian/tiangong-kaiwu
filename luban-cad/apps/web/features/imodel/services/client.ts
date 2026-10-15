@@ -6,28 +6,17 @@
  * Provides iModel mutations and file operations
  */
 
-import { getAuthorization } from '../../../shared/services/imodels/client.js';
+import { fetchWithAuth } from '../../../shared/api/httpClient.js';
 import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import type { IModelProgressPayload } from '@luban-cad/shared';
-
-const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
 
 /**
  * Delete an iModel by ID
  */
 export async function deleteIModel(iModelId: string): Promise<void> {
-  const auth = await getAuthorization();
-  const response = await fetch(`${BACKEND_URL}/imodels/${iModelId}`, {
+  await fetchWithAuth(`/imodels/${iModelId}`, {
     method: 'DELETE',
-    headers: {
-      'Authorization': `${auth.scheme} ${auth.token}`,
-    },
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Failed to delete iModel: ${response.statusText}`);
-  }
 }
 
 /**
@@ -43,25 +32,25 @@ export class NoDownloadLinkError extends Error {
 
 /**
  * Get a download URL for an iModel baseline file.
- * Follows the official API pattern: the link, when present, is advertised as
- * `_links.download.href` on the iModel resource itself — there is no separate
- * download route. Absent link => NoDownloadLinkError (disable, don't guess).
+ * 改道（Sync S3）：iModel 资源自身的 `_links` 无 download；官方契约把链接放在
+ * GET /imodels/:id/baselinefile 响应的 `_links.download.href`。兼容两种线格式：
+ * 官方 `{baselineFile: {_links: {download: {href}}}}` 包络与平铺 `{_links: {download}}`。
+ * 缺席 => NoDownloadLinkError（禁用入口，勿猜）。
+ * 注：imodelhub-services 当前 getBaselineFile 尚未回 `_links`（仅 state/fileSize 等
+ * 平铺字段），故当下实际行为即缺席分支；hub 按官方契约补齐后本函数自然生效。
  */
 export async function getDownloadUrl(iModelId: string): Promise<string> {
-  const auth = await getAuthorization();
-  const response = await fetch(`${BACKEND_URL}/imodels/${iModelId}`, {
-    headers: {
-      'Authorization': `${auth.scheme} ${auth.token}`,
-    },
-  });
+  const response = await fetchWithAuth(`/imodels/${iModelId}/baselinefile`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Failed to get iModel: ${response.statusText}`);
-  }
-
-  const result = await response.json() as { _links?: { download?: { href?: string } } };
-  const href = result._links?.download?.href;
+  const result = await response.json() as {
+    baselineFile?: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- `_links` is the external iModels API contract (HAL style)
+      _links?: { download?: { href?: string } };
+    };
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- `_links` is the external iModels API contract (HAL style)
+    _links?: { download?: { href?: string } };
+  };
+  const href = result.baselineFile?._links?.download?.href ?? result._links?.download?.href;
   if (!href) {
     throw new NoDownloadLinkError(iModelId);
   }
@@ -72,15 +61,9 @@ export async function getDownloadUrl(iModelId: string): Promise<string> {
  * Get initialization progress for an iModel from the modeling-server
  */
 export async function getIModelProgress(iModelId: string): Promise<IModelProgressPayload> {
-  const auth = await getAuthorization();
-  const response = await fetch(`${API_BASE_URL}/api/imodels/${iModelId}/progress`, {
-    headers: {
-      'Authorization': `${auth.scheme} ${auth.token}`,
-    },
+  const response = await fetchWithAuth(`/api/imodels/${iModelId}/progress`, {
+    baseUrl: API_BASE_URL,
   });
-  if (!response.ok) {
-    throw new Error('Failed to fetch progress');
-  }
   return response.json() as Promise<IModelProgressPayload>;
 }
 
@@ -88,43 +71,24 @@ export async function getIModelProgress(iModelId: string): Promise<IModelProgres
  * Retry failed iModel initialization via modeling-server -> imodelhub-services requeue
  */
 export async function retryIModel(iModelId: string, iTwinId: string, imodelName?: string): Promise<void> {
-  const auth = await getAuthorization();
-  const response = await fetch(`${API_BASE_URL}/api/imodels/${iModelId}/retry`, {
+  await fetchWithAuth(`/api/imodels/${iModelId}/retry`, {
+    baseUrl: API_BASE_URL,
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `${auth.scheme} ${auth.token}`,
-    },
     body: JSON.stringify({ iTwinId, imodelName }),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to retry iModel initialization');
-  }
 }
 
 /**
  * Rename an iModel
  */
 export async function renameIModel(iModelId: string, newName: string, newDescription?: string): Promise<void> {
-  const auth = await getAuthorization();
-  const response = await fetch(`${BACKEND_URL}/imodels/${iModelId}`, {
+  await fetchWithAuth(`/imodels/${iModelId}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `${auth.scheme} ${auth.token}`,
-    },
     body: JSON.stringify({
       name: newName,
       ...(newDescription !== undefined && { description: newDescription }),
     }),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Failed to rename iModel: ${response.statusText}`);
-  }
 }
 
 /**
@@ -137,23 +101,13 @@ export async function copyIModel(
   targetITwinId: string,
   newName: string
 ): Promise<{ iModelId: string }> {
-  const auth = await getAuthorization();
-  const response = await fetch(`${BACKEND_URL}/imodels/${sourceIModelId}/clone`, {
+  const response = await fetchWithAuth(`/imodels/${sourceIModelId}/clone`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `${auth.scheme} ${auth.token}`,
-    },
     body: JSON.stringify({
       name: newName,
       targetITwinId,
     }),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Failed to copy iModel: ${response.statusText}`);
-  }
 
   const location = response.headers.get('Location');
   if (!location) {

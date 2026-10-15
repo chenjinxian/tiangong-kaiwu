@@ -7,12 +7,12 @@
  */
 
 import React, { useState } from 'react';
-import { IconButton, Button, Divider } from '@itwin/itwinui-react';
+import { Button, Divider, IconButton } from '@itwin/itwinui-react';
 import {
   SvgChevronLeft,
   SvgChevronRight,
-  SvgList,
   SvgItem,
+  SvgList,
 } from '@itwin/itwinui-icons-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import type { FeatureTreeEntry } from '@luban-cad/shared';

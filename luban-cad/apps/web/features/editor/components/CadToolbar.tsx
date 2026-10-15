@@ -5,8 +5,8 @@
 
 import React, { useState } from 'react';
 import { IModelApp } from '@itwin/core-frontend';
-import { Tooltip, IconButton, Divider, Text, ButtonGroup } from '@itwin/itwinui-react';
-import { LinearPatternDialog, CircularPatternDialog } from '../../../features/modeling/components/PatternDialogs.js';
+import { ButtonGroup, Divider, IconButton, Text, Tooltip } from '@itwin/itwinui-react';
+import { CircularPatternDialog, LinearPatternDialog } from '../../../features/modeling/components/PatternDialogs.js';
 import './CadToolbar.css';
 
 interface CadToolbarProps {
@@ -382,7 +382,7 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
-                onClick={() => handleToolClick(tool.id)}
+                onClick={async () => handleToolClick(tool.id)}
                 label={tool.label}
                 className="cad-tool-btn"
               >
@@ -417,7 +417,7 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
-                onClick={() => handleToolClick(tool.id)}
+                onClick={async () => handleToolClick(tool.id)}
                 label={tool.label}
                 className="cad-tool-btn"
               >
@@ -439,7 +439,7 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
-                onClick={() => handleToolClick(tool.id)}
+                onClick={async () => handleToolClick(tool.id)}
                 label={tool.label}
                 className="cad-tool-btn"
               >
@@ -461,7 +461,7 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
-                onClick={() => handleToolClick(tool.id)}
+                onClick={async () => handleToolClick(tool.id)}
                 label={tool.label}
                 className="cad-tool-btn"
               >
@@ -483,7 +483,7 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
-                onClick={() => handleToolClick(tool.id)}
+                onClick={async () => handleToolClick(tool.id)}
                 label={tool.label}
                 className="cad-tool-btn"
               >
@@ -505,7 +505,7 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
-                onClick={() => handleToolClick(tool.id)}
+                onClick={async () => handleToolClick(tool.id)}
                 label={tool.label}
                 className="cad-tool-btn"
               >
@@ -527,7 +527,7 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
-                onClick={() => handleToolClick(tool.id)}
+                onClick={async () => handleToolClick(tool.id)}
                 label={tool.label}
                 className="cad-tool-btn"
               >

@@ -30,8 +30,8 @@ test.describe('Modeling Tools Registration', () => {
     const { projectId, imodelId } = await getSeedProjectAndIModel(page);
     console.log(`Using iModel: ${imodelId}`);
 
-    // Navigate to workspace
-    await page.goto(`/workspace/${projectId}/${imodelId}`);
+    // Navigate to editor
+    await page.goto(`/documents/${projectId}/${imodelId}`);
 
     // Wait for IModelApp initialization（IPC WS 握手偶发挂起，waitForEditorReady 内含卡滞 reload 重试）
     await waitForEditorReady(page);

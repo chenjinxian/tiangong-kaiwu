@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { AuthPageSkeleton } from '../../../shared/components/skeletons/AuthPageSkeleton.js';
 import { EyeIcon, EyeOffIcon } from '../../../shared/components/icons/EyeIcons.js';
-import { Button, IconButton, LabeledInput, Checkbox, Alert, Text, ProgressRadial } from '@itwin/itwinui-react';
+import { Alert, Button, Checkbox, IconButton, LabeledInput, ProgressRadial, Text } from '@itwin/itwinui-react';
 import './Login.css';
 
 const REMEMBER_ME_KEY = 'luban-cad-remember';
@@ -58,7 +58,7 @@ const Login: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/itwins', { replace: true });
+      navigate('/documents', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

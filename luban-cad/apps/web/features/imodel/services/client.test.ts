@@ -5,10 +5,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetAuthorization = vi.fn();
-
-vi.mock('../../../shared/services/imodels/client.js', () => ({
-  getAuthorization: (...args: unknown[]) => mockGetAuthorization(...args),
+// fetchWithAuth (shared/api/httpClient) sources tokens from the auth client;
+// mock it so the stubbed global fetch is the only network boundary.
+vi.mock('../../../features/auth/services/auth/client.js', () => ({
+  getValidAccessToken: vi.fn(async () => 'tok'),
+  refreshAccessToken: vi.fn(async () => null),
 }));
 
 import { copyIModel, getDownloadUrl, NoDownloadLinkError } from './client.js';
@@ -22,7 +23,6 @@ function respond(status: number, body: unknown, headers: Record<string, string> 
 
 beforeEach(() => {
   vi.unstubAllGlobals();
-  mockGetAuthorization.mockResolvedValue({ scheme: 'Bearer', token: 'tok' });
   calls = [];
   vi.stubGlobal('fetch', (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
     calls.push({ url: String(input), init });
@@ -56,23 +56,39 @@ describe('copyIModel', () => {
 });
 
 describe('getDownloadUrl', () => {
-  it('reads the download link from GET /imodels/{id} _links.download', async () => {
+  it('reads _links.download.href from GET /imodels/{id}/baselinefile (official baselineFile envelope)', async () => {
     vi.stubGlobal('fetch', (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       calls.push({ url: String(input), init });
-      return respond(200, { id: 'src-1', _links: { download: { href: '/imodels/src-1/baselinefile/download?sig=1' } } });
+      return respond(200, {
+        baselineFile: {
+          id: 'bf-1',
+          displayName: 'baseline.bim',
+          state: 'initialized',
+          _links: { download: { href: 'https://blob.example.com/baseline.bim?sig=1' } },
+        },
+      });
     }) as typeof fetch);
 
     const url = await getDownloadUrl('src-1');
 
-    expect(url).toBe('/imodels/src-1/baselinefile/download?sig=1');
-    expect(calls[0].url).toMatch(/\/imodels\/src-1$/);
+    expect(url).toBe('https://blob.example.com/baseline.bim?sig=1');
+    expect(calls[0].url).toMatch(/\/imodels\/src-1\/baselinefile$/);
     expect(calls[0].init?.method).toBeUndefined();
   });
 
-  it('throws NoDownloadLinkError when the hub exposes no download link', async () => {
+  it('also accepts a flat _links.download envelope without the baselineFile wrapper', async () => {
     vi.stubGlobal('fetch', (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       calls.push({ url: String(input), init });
-      return respond(200, { id: 'src-1', _links: { changesets: { href: '/imodels/src-1/changesets' } } });
+      return respond(200, { iModelId: 'src-1', state: 'initialized', _links: { download: { href: 'https://blob.example.com/flat.bim?sig=2' } } });
+    }) as typeof fetch);
+
+    await expect(getDownloadUrl('src-1')).resolves.toBe('https://blob.example.com/flat.bim?sig=2');
+  });
+
+  it('throws NoDownloadLinkError when baselinefile exposes no download link', async () => {
+    vi.stubGlobal('fetch', (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      calls.push({ url: String(input), init });
+      return respond(200, { iModelId: 'src-1', baselineBriefcaseId: '1', fileSize: 12, state: 'initialized' });
     }) as typeof fetch);
 
     await expect(getDownloadUrl('src-1')).rejects.toBeInstanceOf(NoDownloadLinkError);

@@ -7,9 +7,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  Badge,
   Button,
   IconButton,
-  Badge,
   Text,
 } from '@itwin/itwinui-react';
 import {
@@ -17,18 +17,18 @@ import {
   SvgChevronLeft,
   SvgDelete,
   SvgEdit,
+  SvgModel,
   SvgRefresh,
   SvgSettings,
-  SvgModel,
   SvgStatusError,
 } from '@itwin/itwinui-icons-react';
 import {
-  useITwinQuery,
   useDeleteITwinMutation,
+  useITwinQuery,
 } from '../../../features/itwin/hooks/useITwinsQuery.js';
 import {
-  useIModels,
   useDeleteIModelMutation,
+  useIModels,
 } from '../../../features/imodel/hooks/useIModelsQuery.js';
 import { useImodelProgressStream } from '../../../features/imodel/hooks/useImodelProgressStream.js';
 import { queryKeys } from '../../../app/providers/QueryProvider.js';
@@ -43,7 +43,7 @@ import { CopyIModelDialog } from '../../../features/imodel/components/CopyIModel
 import { EditITwinDialog } from '../../../features/itwin/components/EditITwinDialog.js';
 import { ShareITwinDialog } from '../../../features/itwin/components/ShareITwinDialog.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
-import { useToast } from '../../../shared/components/ui/ToastContainer.js';
+import { useAppToast } from '../../../shared/hooks/useAppToast.js';
 import {
   IModelsListSkeleton,
   ITwinDetailSkeleton,
@@ -60,7 +60,7 @@ import './ITwinDetail.css';
 const ITwinDetail: React.FC = React.memo(() => {
   const { iTwinId } = useParams<{ iTwinId: string }>();
   const navigate = useNavigate();
-  const { showToast, ToastContainer } = useToast();
+  const { showToast } = useAppToast();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -175,7 +175,7 @@ const ITwinDetail: React.FC = React.memo(() => {
     try {
       await deleteITwinMutation.mutateAsync(iTwinId);
       showToast('项目已删除', 'success');
-      navigate('/itwins');
+      navigate('/documents');
     } catch (error) {
       const message = error instanceof Error ? error.message : '删除失败，请重试';
       showToast(message, 'error');
@@ -183,7 +183,7 @@ const ITwinDetail: React.FC = React.memo(() => {
   }, [iTwinId, deleteITwinMutation, navigate, showToast]);
 
   const handleBack = useCallback(() => {
-    navigate('/itwins');
+    navigate('/documents');
   }, [navigate]);
 
   const handleSettings = useCallback(() => {
@@ -191,7 +191,7 @@ const ITwinDetail: React.FC = React.memo(() => {
   }, [navigate]);
 
   const handleOpenIModel = useCallback((iModel: IModel) => {
-    navigate(`/workspace/${iTwinId}/${iModel.id}`);
+    navigate(`/documents/${iTwinId}/${iModel.id}`);
   }, [navigate, iTwinId]);
 
   const handleDeleteIModel = useCallback(async (iModel: IModel) => {
@@ -349,7 +349,6 @@ const ITwinDetail: React.FC = React.memo(() => {
               <div className="hero-meta">
                 <Badge backgroundColor="positive">{iTwin.status === 'Active' ? 'Active' : iTwin.status || 'Active'}</Badge>
                 {(() => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const t = iTwin as any;
                   const created = t.createdDateTime || t.createdAt;
                   const updated = t.lastModifiedDateTime || t.updatedAt || t.modifiedAt;
@@ -506,8 +505,6 @@ const ITwinDetail: React.FC = React.memo(() => {
 
       {/* Hidden anchor for programmatic downloads */}
       <a ref={downloadAnchorRef} style={{ display: 'none' }} />
-
-      <ToastContainer />
     </div>
   );
 });

@@ -4,25 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
-  IModelApp,
-  RotateViewTool,
-  PanViewTool,
-  FitViewTool,
-  ViewUndoTool,
-  ViewRedoTool,
-  ZoomViewTool,
-  WindowAreaTool,
+  MeasureAreaTool as CoreMeasureAreaTool,
   MeasureDistanceTool as CoreMeasureDistanceTool,
-  MeasureLocationTool,
+  FitViewTool,
+  IModelApp,
   MeasureAreaByPointsTool,
   MeasureLengthTool,
-  MeasureAreaTool as CoreMeasureAreaTool,
+  MeasureLocationTool,
   MeasureVolumeTool,
-  ViewClipClearTool,
-  ViewClipByPlaneTool,
-  ViewClipByShapeTool,
-  ViewClipByRangeTool,
+  PanViewTool,
+  RotateViewTool,
   ViewClipByElementTool,
+  ViewClipByPlaneTool,
+  ViewClipByRangeTool,
+  ViewClipByShapeTool,
+  ViewClipClearTool,
+  ViewRedoTool,
+  ViewUndoTool,
+  WindowAreaTool,
+  ZoomViewTool,
 } from '@itwin/core-frontend';
 import {
   CreateSphereTool, CreateCylinderTool, CreateBoxTool, CreateConeTool, CreateTorusTool,
@@ -33,7 +33,7 @@ import {
   // Sketch tools from iTwin.js
   CreateLineStringTool, CreateArcTool, CreateCircleTool, CreateEllipseTool, CreateRectangleTool, CreateBCurveTool,
 } from '@itwin/editor-frontend';
-import { LinearPatternTool, CircularPatternTool } from '../modeling/PatternTools.js';
+import { CircularPatternTool, LinearPatternTool } from '../modeling/PatternTools.js';
 // TODO: Fix @itwin/core-markup module resolution
 // import {
 //   LineTool,
@@ -64,43 +64,27 @@ import {
   VerticalAddTool,
 } from '../sketch/tools/SketchAddConstraintTool.js';
 import { DistanceAddTool, RadiusAddTool } from '../sketch/tools/SketchAddDimensionTool.js';
-import {
-  FenceSelectTool,
-  SelectAllTool,
-  InvertSelectionTool,
-  ClearSelectionTool,
-  SelectByCategoryTool,
-} from '../../src/core/tools/index.js';
+import { ClearSelectionTool, FenceSelectTool, InvertSelectionTool, SelectAllTool, SelectByCategoryTool } from '../../src/core/tools/SelectionTools.js';
 // Note: Measurement tools from core-frontend are used instead
 // import {
 //   MeasureDistanceTool,
 //   MeasureAngleTool,
 //   MeasureAreaTool,
 // } from '../../src/core/measurement/index.js';
-import {
-  SectionByPlaneTool,
-  ClearSectionTool,
-} from '../../src/core/section/index.js';
+import { ClearSectionTool, SectionByPlaneTool } from '../../src/core/section/SectionTools.js';
 import {
   ToggleACSTool,
 } from '../../src/core/decorations/ACSDecoration.js';
 import {
-  ToggleGridTool,
   GridSettingsTool,
+  ToggleGridTool,
 } from '../../src/core/decorations/GridDecoration.js';
 import {
   ToggleProjectExtentsTool,
 } from '../../src/core/decorations/ProjectExtentsDecoration.js';
-import {
-  CameraWalkTool,
-  FlyToSelectionTool,
-} from '../../src/core/animation/index.js';
-import {
-  ToggleShadowsTool,
-  ToggleAOTool,
-  SetRenderModeTool,
-} from '../../src/core/rendering/index.js';
-import { registerDefaultShortcuts } from '../../src/core/shortcuts/index.js';
+import { CameraWalkTool, FlyToSelectionTool } from '../../src/core/animation/AnimationTools.js';
+import { SetRenderModeTool, ToggleAOTool, ToggleShadowsTool } from '../../src/core/rendering/RenderingModes.js';
+import { registerDefaultShortcuts } from '../../src/core/shortcuts/KeyboardManager.js';
 
 /**
  * 注册所有编辑器工具

@@ -3,16 +3,16 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  Dialog,
+  Alert,
   Button,
+  Dialog,
+  Label,
+  ProgressRadial,
   Select,
   SelectOption,
-  ProgressRadial,
   Text,
-  Label,
-  Alert,
 } from '@itwin/itwinui-react';
 import { OpenCloudRpcInterface } from '@luban-cad/shared';
 import './CreateIModelWorkflow.css'; // Reuse dialog styles
@@ -142,7 +142,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
             id="export-format"
             options={EXPORT_FORMATS}
             value={format}
-            onChange={(value) => setFormat(value as ExportFormat)}
+            onChange={(value) => setFormat(value)}
             disabled={isExporting}
           />
         </div>

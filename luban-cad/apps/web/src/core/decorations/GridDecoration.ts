@@ -111,8 +111,7 @@ export class ToggleGridTool extends Tool {
   public static override get maxArgs() { return 0; }
 
   public override async run(): Promise<boolean> {
-    const enabled = toggleGrid();
-    console.log(`Grid ${enabled ? 'enabled' : 'disabled'}`);
+    toggleGrid();
     return true;
   }
 }

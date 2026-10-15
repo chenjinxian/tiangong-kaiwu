@@ -4,17 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  type User,
-  type LoginCredentials,
-  type AuthResponse,
-  type RegisterData,
-  type AuthTokens,
   AuthError,
+  type AuthResponse,
+  type AuthTokens,
   getStoredAuth,
   login as loginApi,
-  register as registerApi,
+  type LoginCredentials,
   logout as logoutApi,
+  register as registerApi,
+  type RegisterData,
+  type User,
 } from '../../features/auth/services/auth/client.js';
 import { getQueryClient } from '../providers/QueryProvider.js';
 
@@ -67,6 +68,9 @@ interface UserProviderProps {
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
+  // auth 命名空间：登录/注册域文案（429 限流文案见 login.error.rateLimited*）
+  const { t } = useTranslation('auth');
+
   // State
   const [user, setUser] = useState<User | null>(null);
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
@@ -140,6 +144,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           case 404:
             message = '该邮箱未注册，请先注册账户';
             break;
+          case 429:
+            // imodelhub 登录限流（5 次/15min，IP+email 桶，被拒计入窗口）——
+            // Retry-After-auth 头（秒）可得时给出具体等待时长，否则静态文案
+            message =
+              typeof err.retryAfterSeconds === 'number' &&
+              Number.isFinite(err.retryAfterSeconds) &&
+              err.retryAfterSeconds > 0
+                ? t('login.error.rateLimitedWithRetry', { minutes: Math.ceil(err.retryAfterSeconds / 60) })
+                : t('login.error.rateLimited');
+            break;
           case 500:
           case 502:
           case 503:
@@ -160,7 +174,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   /**
    * Register handler

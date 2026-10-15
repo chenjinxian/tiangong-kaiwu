@@ -70,9 +70,9 @@ test.describe('Complete E2E Workflow (API Login)', () => {
 
     console.log('✅ Auth state set in sessionStorage');
 
-    // Navigate to iTwins page (should be authenticated now)
-    await page.goto(`${BASE_URL}/itwins`);
-    await expect(page).toHaveURL(/\/itwins/);
+    // Navigate to Documents page (should be authenticated now)
+    await page.goto(`${BASE_URL}/documents`);
+    await expect(page).toHaveURL(/\/documents/);
 
     // Step 2: Create new iTwin project
     console.log('📍 Step 2: Create iTwin Project');
@@ -94,7 +94,7 @@ test.describe('Complete E2E Workflow (API Login)', () => {
     // Step 3: Navigate to project
     console.log('📍 Step 3: Navigate to project');
     await projectItem.click();
-    await page.waitForURL(/\/itwins\/[^/]+$/, { timeout: 30000 });
+    await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 30000 });
     const projectId = page.url().split('/')[4] ?? '';
     await expect(page.locator('body')).toContainText(TEST_PROJECT_NAME);
 
@@ -118,7 +118,7 @@ test.describe('Complete E2E Workflow (API Login)', () => {
     await expect(openBtn).toBeVisible({ timeout: 60000 });
     await expect(openBtn).toBeEnabled({ timeout: 60000 });
     await openBtn.click();
-    await page.waitForURL(/\/workspace\/[^/]+\/[^/]+/, { timeout: 60000 });
+    await page.waitForURL(/\/documents\/[^/]+\/[^/]+/, { timeout: 60000 });
 
     // 编辑器就绪：主工具条/面包屑 + CAD 工具条（后者等价于 briefcase 连接已建立）
     await waitForEditorReady(page);

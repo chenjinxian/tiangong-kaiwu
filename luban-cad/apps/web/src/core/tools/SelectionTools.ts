@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
@@ -9,13 +8,12 @@
 
 import {
   BeButtonEvent,
-  BeModifierKeys,
   DecorateContext,
   Decorator,
   EventHandled,
   GraphicType,
-  HitDetail,
   IModelApp,
+  OutputMessagePriority,
   SelectionTool,
   Tool,
   Viewport,
@@ -34,18 +32,22 @@ export class FenceSelectTool extends SelectionTool {
 
   private _firstPoint?: Point3d;
   private _isWindowSelect = true; // Window vs Crossing selection
+  private _windowSelectOverride?: boolean; // Ctrl toggle; wins over drag direction until fence ends
   private _fenceDecorator?: FenceDecorator;
 
-  protected override get wantAccuSnap(): boolean {
+  // NOTE: SelectionTool does not declare wantAccuSnap/wantDynamics in its chain;
+  // these are inert members kept for documentation of intent.
+  protected get wantAccuSnap(): boolean {
     return false;
   }
 
-  protected override get wantDynamics(): boolean {
+  protected get wantDynamics(): boolean {
     return true;
   }
 
   public override async onPostInstall(): Promise<void> {
     await super.onPostInstall();
+    this._windowSelectOverride = undefined;
     this._fenceDecorator = new FenceDecorator();
     IModelApp.viewManager.addDecorator(this._fenceDecorator);
   }
@@ -55,6 +57,7 @@ export class FenceSelectTool extends SelectionTool {
       IModelApp.viewManager.dropDecorator(this._fenceDecorator);
       this._fenceDecorator = undefined;
     }
+    this._windowSelectOverride = undefined;
     await super.onCleanup();
   }
 
@@ -68,10 +71,12 @@ export class FenceSelectTool extends SelectionTool {
     }
 
     // Second click - complete fence selection
+    if (!ev.viewport) return EventHandled.No;
     const secondPoint = ev.point.clone();
-    await this.performFenceSelection(this._firstPoint, secondPoint, ev.viewport!);
+    await this.performFenceSelection(this._firstPoint, secondPoint, ev.viewport);
 
     this._firstPoint = undefined;
+    this._windowSelectOverride = undefined;
     this._fenceDecorator?.clear();
     await this.onRestartTool();
     return EventHandled.No;
@@ -79,7 +84,8 @@ export class FenceSelectTool extends SelectionTool {
 
   public async onMouseMotion(ev: BeButtonEvent): Promise<void> {
     if (this._firstPoint && ev.viewport) {
-      this._isWindowSelect = this.calculateWindowSelect(this._firstPoint, ev.point);
+      // Ctrl toggle sticks for the rest of the fence; drag direction decides otherwise
+      this._isWindowSelect = this._windowSelectOverride ?? this.calculateWindowSelect(this._firstPoint, ev.point);
       this._fenceDecorator?.updateCurrentPoint(ev.point, this._isWindowSelect);
     }
   }
@@ -88,16 +94,20 @@ export class FenceSelectTool extends SelectionTool {
     if (this._firstPoint) {
       // Cancel fence selection on right click
       this._firstPoint = undefined;
+      this._windowSelectOverride = undefined;
       this._fenceDecorator?.clear();
       return EventHandled.No;
     }
     return EventHandled.Yes;
   }
 
-  public async onKeyTransition(wentDown: boolean, key: BeModifierKeys): Promise<EventHandled> {
-    if (wentDown && key === BeModifierKeys.Control) {
-      // Toggle between window/crossing selection with Ctrl key
-      this._isWindowSelect = !this._isWindowSelect;
+  public override async onKeyTransition(wentDown: boolean, keyEvent: KeyboardEvent): Promise<EventHandled> {
+    if (wentDown && keyEvent.ctrlKey) {
+      // Toggle between window/crossing selection with Ctrl key.
+      // The override is kept until the fence completes/cancels, otherwise the
+      // next onMouseMotion would overwrite the toggle with the drag direction.
+      this._windowSelectOverride = !this._isWindowSelect;
+      this._isWindowSelect = this._windowSelectOverride;
       return EventHandled.Yes;
     }
     return EventHandled.No;
@@ -117,7 +127,6 @@ export class FenceSelectTool extends SelectionTool {
    * Perform the actual fence selection
    */
   private async performFenceSelection(first: Point3d, second: Point3d, viewport: Viewport): Promise<void> {
-    const view = viewport.view;
     const worldCorners = [
       Point3d.create(Math.min(first.x, second.x), Math.min(first.y, second.y), Math.min(first.z, second.z)),
       Point3d.create(Math.max(first.x, second.x), Math.max(first.y, second.y), Math.max(first.z, second.z)),
@@ -294,7 +303,7 @@ export class SelectAllTool extends Tool {
     } catch (err) {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
-          3,
+          OutputMessagePriority.Error,
           `选择失败: ${(err as Error).message}`
         )
       );
@@ -323,7 +332,6 @@ export class InvertSelectionTool extends Tool {
         allIds.push(row[0] as string);
       }
 
-      const allIdSet = new Set(allIds);
       const currentSelection = viewport.iModel.selectionSet.elements;
 
       // Invert: select all that are not currently selected
@@ -346,7 +354,7 @@ export class InvertSelectionTool extends Tool {
     } catch (err) {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
-          3,
+          OutputMessagePriority.Error,
           `反选失败: ${(err as Error).message}`
         )
       );
@@ -429,7 +437,7 @@ export class SelectByCategoryTool extends Tool {
     } catch (err) {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
-          3,
+          OutputMessagePriority.Error,
           `选择失败: ${(err as Error).message}`
         )
       );
@@ -484,4 +492,3 @@ export class SelectionVisualizer implements Decorator {
     }
   }
 }
-// Trigger rebuild 2026年 4月 3日 星期五 21时07分21秒 CST

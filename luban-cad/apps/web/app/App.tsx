@@ -1,10 +1,11 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ThemeProvider as ITwinThemeProvider, ProgressRadial } from '@itwin/itwinui-react';
 import { UserProvider } from './contexts/UserContext.js';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext.js';
-import { PrivateRoute } from '../features/editor/index.js';
-import { ErrorBoundary } from '../shared/components/index.js';
+import { PrivateRoute } from './components/PrivateRoute.js';
+import { ErrorBoundary } from '../shared/components/feedback/ErrorBoundary.js';
 import { DialogProvider } from '../src/core/components/DialogProvider.js';
 
 // Lazy load pages for better performance
@@ -35,6 +36,33 @@ const PageLoader: React.FC = () => (
     <ProgressRadial indeterminate size="large" />
   </div>
 );
+
+/**
+ * Legacy route redirects: /itwins/* → /documents/*
+ * (Onshape-style /documents route family; old URLs stay shareable/bookmarkable.)
+ */
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const LegacyITwinRedirect: React.FC = () => {
+  const { iTwinId } = useParams();
+  return <Navigate to={`/documents/${iTwinId}`} replace />;
+};
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const LegacyWorkspaceRedirect: React.FC = () => {
+  const { iTwinId, iModelId } = useParams();
+  return <Navigate to={`/documents/${iTwinId}/${iModelId}`} replace />;
+};
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const NotFoundPage: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div style={{ padding: 40, textAlign: 'center' }}>
+      <h1>{t('notFound.title')}</h1>
+      <a href="/documents">{t('notFound.goDocuments')}</a>
+    </div>
+  );
+};
 
 /**
  * App routes with theme integration
@@ -69,7 +97,7 @@ const AppRoutes: React.FC = () => {
 
                 {/* Protected routes with ErrorBoundary */}
                 <Route
-                  path="/itwins"
+                  path="/documents"
                   element={
                     <PrivateRoute>
                       <ErrorBoundary>
@@ -79,7 +107,7 @@ const AppRoutes: React.FC = () => {
                   }
                 />
                 <Route
-                  path="/itwins/:iTwinId"
+                  path="/documents/:iTwinId"
                   element={
                     <PrivateRoute>
                       <ErrorBoundary>
@@ -89,7 +117,7 @@ const AppRoutes: React.FC = () => {
                   }
                 />
                 <Route
-                  path="/workspace/:iTwinId/:iModelId"
+                  path="/documents/:iTwinId/:iModelId"
                   element={
                     <PrivateRoute>
                       <ErrorBoundary>
@@ -109,19 +137,16 @@ const AppRoutes: React.FC = () => {
                   }
                 />
 
+                {/* Legacy route compatibility redirects */}
+                <Route path="/itwins" element={<Navigate to="/documents" replace />} />
+                <Route path="/itwins/:iTwinId" element={<LegacyITwinRedirect />} />
+                <Route path="/workspace/:iTwinId/:iModelId" element={<LegacyWorkspaceRedirect />} />
+
                 {/* Default redirect */}
-                <Route path="/" element={<Navigate to="/itwins" replace />} />
+                <Route path="/" element={<Navigate to="/documents" replace />} />
 
                 {/* 404 */}
-                <Route
-                  path="*"
-                  element={
-                    <div style={{ padding: 40, textAlign: 'center' }}>
-                      <h1>404 - Page Not Found</h1>
-                      <a href="/itwins">Go to Documents</a>
-                    </div>
-                  }
-                />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </BrowserRouter>

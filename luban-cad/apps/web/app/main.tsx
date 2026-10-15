@@ -11,6 +11,7 @@ import '../styles/variables.css'
 import '../styles/theme.css'
 import App from './App.js'
 import '../styles/index.css'
+import '../shared/i18n/index.js'
 import { initMonitoring } from '../shared/lib/monitoring.js'
 import { QueryProvider } from './providers/QueryProvider.js'
 import { IModelApp } from '@itwin/core-frontend'
@@ -20,6 +21,7 @@ initMonitoring()
 // Expose IModelApp to window for debugging
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- debug global keeps the library's PascalCase name
     IModelApp: typeof IModelApp;
   }
 }

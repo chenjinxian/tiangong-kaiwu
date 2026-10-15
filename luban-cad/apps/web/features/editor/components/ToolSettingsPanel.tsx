@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { IModelApp } from '@itwin/core-frontend';
 import type { DialogItem, DialogItemValue } from '@itwin/appui-abstract';
 
@@ -104,7 +104,7 @@ export const ToolSettingsPanel: React.FC = () => {
             className="tool-setting-input"
             value={typeof value === 'number' ? value : ''}
             step={0.001}
-            onChange={(e) => handleValueChange(property.name, parseFloat(e.target.value))}
+            onChange={async (e) => handleValueChange(property.name, parseFloat(e.target.value))}
           />
         );
       case 'int':
@@ -115,7 +115,7 @@ export const ToolSettingsPanel: React.FC = () => {
             className="tool-setting-input"
             value={typeof value === 'number' ? value : ''}
             step={1}
-            onChange={(e) => handleValueChange(property.name, parseInt(e.target.value, 10))}
+            onChange={async (e) => handleValueChange(property.name, parseInt(e.target.value, 10))}
           />
         );
       case 'boolean':
@@ -124,7 +124,7 @@ export const ToolSettingsPanel: React.FC = () => {
             type="checkbox"
             className="tool-setting-checkbox"
             checked={!!value}
-            onChange={(e) => handleValueChange(property.name, e.target.checked)}
+            onChange={async (e) => handleValueChange(property.name, e.target.checked)}
           />
         );
       case 'string':
@@ -134,7 +134,7 @@ export const ToolSettingsPanel: React.FC = () => {
             type="text"
             className="tool-setting-input"
             value={typeof value === 'string' ? value : String(value ?? '')}
-            onChange={(e) => handleValueChange(property.name, e.target.value)}
+            onChange={async (e) => handleValueChange(property.name, e.target.value)}
           />
         );
     }

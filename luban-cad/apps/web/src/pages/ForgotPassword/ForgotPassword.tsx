@@ -3,16 +3,16 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { AuthPageSkeleton } from '../../../shared/components/skeletons/AuthPageSkeleton.js';
 import {
+  Alert,
   Button,
   LabeledInput,
-  Alert,
-  Text,
   ProgressRadial,
+  Text,
 } from '@itwin/itwinui-react';
 import { forgotPassword } from '../../../features/auth/services/auth/client.js';
 import './ForgotPassword.css';
@@ -32,7 +32,7 @@ const ForgotPassword: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/itwins', { replace: true });
+      navigate('/documents', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

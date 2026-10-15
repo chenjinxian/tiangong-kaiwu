@@ -57,9 +57,10 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
 
-    expect(screen.getByText('页面出现错误')).toBeDefined();
-    expect(screen.getByText('抱歉，该页面出现了问题。请刷新页面重试。')).toBeDefined();
-    expect(screen.getByText('刷新页面')).toBeDefined();
+    // NonIdealState 兜底：标题 + 错误 message + 重试按钮
+    expect(screen.getByText('出错了')).toBeDefined();
+    expect(screen.getByText('Test error')).toBeDefined();
+    expect(screen.getByText('重试')).toBeDefined();
   });
 
   it('should log error to monitoring service', () => {
@@ -92,13 +93,15 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
 
-    // Error message should be in the document (in the pre element)
+    // DEV 下展示错误 message 与 componentStack
     expect(screen.getByText(/Development error/)).toBeDefined();
+    expect(screen.getByText(/at ThrowError/)).toBeDefined();
   });
 
   it('should not show error details in production mode', () => {
     process.env.NODE_ENV = 'production';
     const testError = new Error('Production error');
+    testError.stack = 'Error: Production error\n    at TestComponent';
 
     render(
       <ErrorBoundary>
@@ -106,8 +109,9 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
 
-    // The error message should not be visible in production
-    expect(screen.queryByText('Production error')).toBeNull();
+    // 新 UI 语义：错误 message 始终展示；DEV 专属的 componentStack 详情生产态不渲染
+    expect(screen.getByText('Production error')).toBeDefined();
+    expect(screen.queryByText(/at TestComponent/)).toBeNull();
   });
 
   it('should call onError callback when error occurs', () => {
@@ -138,7 +142,7 @@ describe('ErrorBoundary', () => {
     );
 
     expect(screen.getByTestId('custom-fallback')).toBeDefined();
-    expect(screen.queryByText('页面出现错误')).toBeNull();
+    expect(screen.queryByText('出错了')).toBeNull();
   });
 
   it('should reload page when reload button is clicked', () => {
@@ -147,6 +151,7 @@ describe('ErrorBoundary', () => {
     Object.defineProperty(window, 'location', {
       value: { reload: reloadMock },
       writable: true,
+      configurable: true,
     });
 
     render(
@@ -155,8 +160,41 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
 
-    fireEvent.click(screen.getByText('刷新页面'));
+    fireEvent.click(screen.getByText('重试'));
     expect(reloadMock).toHaveBeenCalled();
+  });
+
+  it('should prefer onReset over reload and recover after retry', () => {
+    const onResetMock = vi.fn();
+    const reloadMock = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: { reload: reloadMock },
+      writable: true,
+      configurable: true,
+    });
+
+    // 可切换的抛错子组件：模拟 onReset 清除致病状态后可恢复
+    let shouldThrow = true;
+    const ConditionalThrow: React.FC = () => {
+      if (shouldThrow) {
+        throw new Error('Test error');
+      }
+      return <div data-testid="safe-content">Safe Content</div>;
+    };
+
+    render(
+      <ErrorBoundary onReset={onResetMock}>
+        <ConditionalThrow />
+      </ErrorBoundary>
+    );
+
+    expect(screen.getByText('出错了')).toBeDefined();
+
+    shouldThrow = false;
+    fireEvent.click(screen.getByText('重试'));
+    expect(onResetMock).toHaveBeenCalledTimes(1);
+    expect(reloadMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('safe-content')).toBeDefined();
   });
 
   it('should handle multiple children', () => {
@@ -182,7 +220,8 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
 
-    expect(screen.getByText('页面出现错误')).toBeDefined();
+    expect(screen.getByText('出错了')).toBeDefined();
+    expect(screen.getByText('应用程序发生错误')).toBeDefined();
   });
 
   it('should handle non-Error objects thrown', () => {
@@ -196,6 +235,7 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
 
-    expect(screen.getByText('页面出现错误')).toBeDefined();
+    expect(screen.getByText('出错了')).toBeDefined();
+    expect(screen.getByText('应用程序发生错误')).toBeDefined();
   });
 });

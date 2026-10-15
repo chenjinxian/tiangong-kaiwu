@@ -2,132 +2,129 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Access Control Client - Placeholder
- * Member and role management
+ * Access Control Client — 官方 iTwin Platform access-control 成员路由（Sync S3 重写）。
  *
- * Note: The @itwin/access-control-client package API may differ from expected.
- * This is a placeholder implementation using REST API calls.
+ * 成员面为 users-scoped：`/accesscontrol/itwins/:id/members/users`（旧实现误挂
+ * `/itwins/:id/members`，对现 hub 必 404）。
+ * 契约取证：imodelhub-services/src/access-control/access-control.controller.ts +
+ * dto/create/create-member.dto.ts（**CreateUserMemberDto = {email, userId?, roleIds?}**
+ * ——角色字段是复数 roleIds 数组，非单数 roleId）+ dto/update/update-member.dto.ts
+ * （UpdateUserMemberDto = {roleIds?}）+ dto/response/{member,role}-response.dto.ts。
  */
 
 import { getValidAccessToken } from '../../../features/auth/services/auth/client.js';
+import { fetchWithAuth } from '../../api/httpClient.js';
 
-const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
-
-// Placeholder types
-export interface Member {
+export interface ITwinMemberRole {
   id: string;
-  userId: string;
+  displayName: string;
+}
+
+export interface ITwinMember {
+  id: string;
   email: string;
-  role: string;
-  status: string;
+  roles: ITwinMemberRole[];
 }
 
-export interface Role {
+/** POST members/users 请求体（后端 CreateUserMemberDto：email 必填，roleIds 数组可选） */
+export interface AddUserMemberRequest {
+  email: string;
+  roleIds: string[];
+}
+
+/** PATCH members/users/:memberId 请求体（后端 UpdateUserMemberDto） */
+export interface UpdateUserMemberRequest {
+  roleIds?: string[];
+}
+
+/**
+ * PATCH 响应的 member 原始形态——该路由回 roleIds 数组（非列表/添加路由的 roles
+ * 对象数组），与 ITwinMember 不同形，勿混用；需要角色名时拿 roleIds 去 listRoles 对表。
+ */
+export interface UserMemberPatchResult {
   id: string;
-  name: string;
-  permissions: string[];
-}
-
-export interface Permission {
-  id: string;
-  name: string;
-  description: string;
-}
-
-export interface CreateMemberRequest {
+  iTwinId: string;
   userId: string;
-  roleId: string;
+  email?: string;
+  roleIds: string[];
+  createdAt?: string;
+  modifiedAt?: string;
 }
 
-export interface UpdateMemberRequest {
-  roleId?: string;
-  status?: string;
+export interface ITwinRole {
+  id: string;
+  displayName: string;
+}
+
+interface UserMembersEnvelope {
+  members?: ITwinMember[];
+}
+
+interface RolesEnvelope {
+  roles?: ITwinRole[];
+}
+
+const membersRoot = (iTwinId: string) => `/accesscontrol/itwins/${iTwinId}/members/users`;
+
+/** 列出 iTwin 的用户成员（GET members/users → {members}） */
+export async function listUserMembers(iTwinId: string): Promise<ITwinMember[]> {
+  const response = await fetchWithAuth(membersRoot(iTwinId));
+  const data = (await response.json()) as UserMembersEnvelope;
+  return data.members ?? [];
 }
 
 /**
- * Access Control Client
- * Uses REST API until SDK is fully integrated
+ * 添加用户成员（POST members/users，响应为 {members:[member]} 单元素数组包络）。
+ * 后端按 email 邀请/挂角色；permission: ITWINS_MODIFY。
  */
-class AccessControlClient {
-  private _baseUrl: string;
-
-  constructor(baseUrl: string) {
-    this._baseUrl = baseUrl.replace(/\/$/, '');
+export async function addUserMember(iTwinId: string, request: AddUserMemberRequest): Promise<ITwinMember> {
+  const response = await fetchWithAuth(membersRoot(iTwinId), {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+  const data = (await response.json()) as UserMembersEnvelope;
+  const member = data.members?.[0];
+  if (!member) {
+    throw new Error('Add member succeeded but the response carried no member');
   }
-
-  private async fetch(path: string, options: RequestInit = {}, retryCount = 0): Promise<Response> {
-    const token = await getValidAccessToken();
-    const url = `${this._baseUrl}${path}`;
-    const response = await fetch(url, {
-      ...options,
-      /* eslint-disable @typescript-eslint/naming-convention */
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...options.headers,
-      },
-      /* eslint-enable @typescript-eslint/naming-convention */
-    });
-
-    // Handle 401 errors - refresh token and retry once
-    if (response.status === 401 && retryCount === 0) {
-      return this.fetch(path, options, retryCount + 1);
-    }
-
-    if (!response.ok) {
-      throw new Error(`Access Control API error: ${response.status} ${response.statusText}`);
-    }
-
-    return response;
-  }
-
-  public async getMembers(iTwinId: string): Promise<Member[]> {
-    const response = await this.fetch(`/itwins/${iTwinId}/members`);
-    const data = await response.json();
-    return data.members || [];
-  }
-
-  public async getMember(iTwinId: string, memberId: string): Promise<Member> {
-    const response = await this.fetch(`/itwins/${iTwinId}/members/${memberId}`);
-    return response.json();
-  }
-
-  public async createMember(iTwinId: string, request: CreateMemberRequest): Promise<Member> {
-    const response = await this.fetch(`/itwins/${iTwinId}/members`, {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-    return response.json();
-  }
-
-  public async updateMember(iTwinId: string, memberId: string, request: UpdateMemberRequest): Promise<Member> {
-    const response = await this.fetch(`/itwins/${iTwinId}/members/${memberId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(request),
-    });
-    return response.json();
-  }
-
-  public async deleteMember(iTwinId: string, memberId: string): Promise<void> {
-    await this.fetch(`/itwins/${iTwinId}/members/${memberId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  public async getRoles(iTwinId: string): Promise<Role[]> {
-    const response = await this.fetch(`/itwins/${iTwinId}/roles`);
-    const data = await response.json();
-    return data.roles || [];
-  }
+  return member;
 }
 
 /**
- * Access Control Client instance
+ * 更新用户成员角色（PATCH members/users/:memberId）。
+ * 注意返回的是 roleIds 形态的原始 member（见 UserMemberPatchResult）。
  */
-export const accessControlClient = new AccessControlClient(`${BACKEND_URL}/accesscontrol`);
+export async function updateUserMember(
+  iTwinId: string,
+  memberId: string,
+  patch: UpdateUserMemberRequest,
+): Promise<UserMemberPatchResult> {
+  const response = await fetchWithAuth(`${membersRoot(iTwinId)}/${memberId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+  const data = (await response.json()) as { member?: UserMemberPatchResult };
+  if (!data.member) {
+    throw new Error('Update member succeeded but the response carried no member');
+  }
+  return data.member;
+}
+
+/** 移除用户成员（DELETE members/users/:memberId） */
+export async function removeUserMember(iTwinId: string, memberId: string): Promise<void> {
+  await fetchWithAuth(`${membersRoot(iTwinId)}/${memberId}`, { method: 'DELETE' });
+}
+
+/** 列出 iTwin 角色（GET itwins/:id/roles → {roles[].id/displayName}）；permission: ITWINS_WEBVIEW */
+export async function listRoles(iTwinId: string): Promise<ITwinRole[]> {
+  const response = await fetchWithAuth(`/accesscontrol/itwins/${iTwinId}/roles`);
+  const data = (await response.json()) as RolesEnvelope;
+  return data.roles ?? [];
+}
 
 /**
- * Get access token for access control operations
+ * Get access token for access control operations（SDK 回调出口，barrel 消费为
+ * getAccessControlAuthorization；沿用既有裸 token 口径）
  */
 export async function getAuthorization(): Promise<string> {
   return getValidAccessToken();

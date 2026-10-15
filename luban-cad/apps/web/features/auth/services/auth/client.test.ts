@@ -2,12 +2,23 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Auth client storage tests: the same-origin cookie mirror that the
- * modeling-server WebSocket upgrade reads (wsAuth extractTokenFromCookie).
+ * Auth client tests: the same-origin cookie mirror that the modeling-server
+ * WebSocket upgrade reads (wsAuth extractTokenFromCookie), and the wire
+ * contract with the local imodelhub services (refresh/forgot/reset).
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { clearStoredAuth, storeAuth, type AuthTokens, type User } from './client.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  AuthError,
+  clearStoredAuth,
+  forgotPassword,
+  login,
+  refreshToken,
+  resetPassword,
+  storeAuth,
+  type AuthTokens,
+  type User,
+} from './client.js';
 
 const user: User = { id: 'u1', email: 'a@b.c', name: 'A B', plan: 'free' };
 const tokens: AuthTokens = {
@@ -59,5 +70,105 @@ describe('auth cookie mirror', () => {
     clearStoredAuth();
 
     expect(cookieWrites.some((w) => w.startsWith('luban_cad_auth=;') && w.includes('Max-Age=0'))).toBe(true);
+  });
+});
+
+describe('auth hub wire contract', () => {
+  type FetchCall = { url: string; init?: RequestInit };
+  let calls: FetchCall[];
+
+  beforeEach(() => {
+    calls = [];
+    vi.stubGlobal('fetch', (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      calls.push({ url: String(input), init });
+      return new Response(JSON.stringify({ token: 'jwt-new', refreshToken: 'r-new', tokenExpires: Date.now() + 900_000 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as typeof fetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function header(name: string): string | null {
+    return new Headers(calls[0].init?.headers).get(name);
+  }
+
+  function body(): Record<string, unknown> {
+    return JSON.parse(calls[0].init?.body as string) as Record<string, unknown>;
+  }
+
+  it('refreshToken sends the refresh token as a Bearer Authorization header', async () => {
+    const tokens = await refreshToken('r-old');
+
+    expect(calls[0].url).toContain('/auth/refresh');
+    expect(calls[0].init?.method).toBe('POST');
+    // Backend guards POST /auth/refresh with AuthGuard('jwt-refresh') reading
+    // fromAuthHeaderAsBearerToken() — without this header the refresh is a
+    // guaranteed 401.
+    expect(header('authorization')).toBe('Bearer r-old');
+    expect(body()).toEqual({ refreshToken: 'r-old' });
+    expect(tokens.accessToken).toBe('jwt-new');
+    expect(tokens.refreshToken).toBe('r-new');
+  });
+
+  it('forgotPassword POSTs to /auth/forgot/password', async () => {
+    await forgotPassword({ email: 'a@b.c' });
+
+    expect(calls[0].url).toContain('/auth/forgot/password');
+    expect(calls[0].url).not.toContain('/auth/forgot-password');
+    expect(calls[0].init?.method).toBe('POST');
+    expect(body()).toEqual({ email: 'a@b.c' });
+  });
+
+  it('resetPassword POSTs to /auth/reset/password with {hash,password}', async () => {
+    await resetPassword({ token: 't-1', newPassword: 'p-1' });
+
+    expect(calls[0].url).toContain('/auth/reset/password');
+    expect(calls[0].url).not.toContain('/auth/reset-password');
+    expect(calls[0].init?.method).toBe('POST');
+    // Backend DTO is { hash, password } — the legacy token/newPassword field
+    // names are rejected client-side of the wire by this mapping.
+    expect(body()).toEqual({ hash: 't-1', password: 'p-1' });
+    expect(Object.prototype.hasOwnProperty.call(body(), 'token')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(body(), 'newPassword')).toBe(false);
+  });
+});
+
+describe('login 429 限流契约（Sync F2）', () => {
+  beforeEach(() => {
+    // hub 登录桶超限：429 + Retry-After-auth（@nestjs/throttler 命名桶后缀头，
+    // 秒）；响应体为 {statusCode, message} 包络。
+    vi.stubGlobal('fetch', (async () => new Response(
+      JSON.stringify({ statusCode: 429, message: 'ThrottlerException: Too Many Requests' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After-auth': '600' } },
+    )) as typeof fetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('429 时 AuthError 携带 status=429 与 Retry-After-auth 秒数', async () => {
+    const failure = await login({ email: 'a@b.c', password: 'x' }).catch((e: unknown) => e);
+
+    expect(failure).toBeInstanceOf(AuthError);
+    expect((failure as AuthError).status).toBe(429);
+    expect((failure as AuthError).retryAfterSeconds).toBe(600);
+  });
+
+  it('429 无 Retry-After-auth 头时 retryAfterSeconds 为 undefined（静态文案回落）', async () => {
+    vi.stubGlobal('fetch', (async () => new Response(
+      JSON.stringify({ statusCode: 429, message: 'ThrottlerException: Too Many Requests' }),
+      { status: 429, headers: { 'Content-Type': 'application/json' } },
+    )) as typeof fetch);
+
+    const failure = await login({ email: 'a@b.c', password: 'x' }).catch((e: unknown) => e);
+
+    expect(failure).toBeInstanceOf(AuthError);
+    expect((failure as AuthError).status).toBe(429);
+    expect((failure as AuthError).retryAfterSeconds).toBeUndefined();
   });
 });

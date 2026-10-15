@@ -125,9 +125,9 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 
 ### 4.4 i18n
 
-- `@itwin/core-i18n`（已是 link: 依赖）建骨架；namespace 按页面/域划分（`auth`/`documents`/`editor`/`settings`/`common`）。
 - 中文 = 默认语言，英文同步维护；所有用户可见文案走 key；语言切换入口在 Settings 偏好（localStorage 持久化 + 探测 `navigator.language` 首启默认）。
 - 错误文案映射（UserContext 现有 HTTP status→中文）迁入 i18n 并补英文。
+- **技术修正（P0 实施裁决）**：骨架采用 `i18next` + `react-i18next`（非 `@itwin/core-i18n`——认证页在 IModelApp.startup 前渲染；react-i18next 是 React 标准集成，i18next 版本 ^21 与 core-i18n 内嵌对齐）。命名空间按页面/域划分（`auth`/`documents`/`editor`/`settings`/`common`）。
 
 ### 4.5 组件策略
 
@@ -154,7 +154,9 @@ state 与副作用下沉到 `features/editor/hooks/` 现有 hooks（useEditTools
 
 | 波次 | 范围 | 验收门 |
 |---|---|---|
-| **P0 基座** | httpClient 统一 + i18n 骨架（zh/en）+ token 映射 + useToaster 迁移 + `/documents` 路由骨架与旧路由重定向 + 债务清偿（ErrorBoundary 单例化、PrivateRoute 归位 app 层、死文件与 `modules/{core,ui}` 空壳删除、硬编码色值清零） | `pnpm lint/test` 绿；现有 e2e 全绿（含重定向兼容） |
+| **P0 基座** | httpClient 统一 + i18n 骨架（zh/en）+ token 映射 + useToaster 迁移 + `/documents` 路由骨架与旧路由重定向 + 债务清偿（ErrorBoundary 单例化、PrivateRoute 归位 app 层、死文件与 `modules/{core,ui}` 空壳删除） | `pnpm lint/test` 绿；现有 e2e 全绿（含重定向兼容） **✅ 完成（2026-10-15）：10 任务全绿，验收经契约同步 S5 收口（e2e 53/53 全绿、重定向 4/4、静态 629/11）** |
+
+> **P0 完成口径注记**：「硬编码色值清零」实际口径 = 品牌 token 映射（T4）+ 本波触碰面清零（PrivateRoute/ErrorBoundary）；残留（`features/modeling/PatternDialogs.tsx`、`EditorBriefcaseStatus.tsx`、`ExportDialog.tsx`、`BriefcaseStatus.tsx`、`shared/components/feedback/PerformanceProfiler.tsx`）按终审裁决分配至 P2-P5 逐波清偿。
 | **P1 认证** | Login/Register/ForgotPassword 三页 itwin-ui 分屏重做 + Google SSO（env 探测）+ 404 页 + 认证页 i18n 全量 | login.spec.ts 更新绿；中英切换走查 |
 | **P2 Documents** | 侧栏筛选（含真「与我共享」）+ SearchBox + 排序 + Table/Tile 双视图 + 真实缩略图 + 行级右键菜单 + 详情面板 + 创建对话框重构 | documents.spec.ts 更新绿；空态/加载/错误三态走查 |
 | **P3 Detail+Share** | DocumentDetail 重构 + iModel 缩略图 + CreateIModelWorkflow 的 Stepper 化 + Share 对话框（members/roles hooks + 邀请/角色/移除） | e2e 新增 share 流；权限错误路径覆盖 |

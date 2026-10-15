@@ -16,3 +16,6 @@ export {
   useOperationTimer,
   withPerformanceMonitoring,
 } from './usePerformanceMonitor.js';
+
+// Toast (itwinui useToaster adapter, P0 Task5)
+export { useAppToast, type ToastType } from './useAppToast.js';

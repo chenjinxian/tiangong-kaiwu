@@ -12,7 +12,7 @@ import {
   IModelApp,
 } from '@itwin/core-frontend';
 import { SubEntityLocationProps } from '@itwin/editor-common';
-import { solidModelingEvents, SolidModelingEventMap } from './SolidModelingEvents.js';
+import { SolidModelingEventMap, solidModelingEvents } from './SolidModelingEvents.js';
 
 export interface SolidModelingToolBaseOptions {
   /** 选择子实体时的回调 */

@@ -11,90 +11,44 @@ import {
   ITwinsAccessClient,
   ITwinSubClass,
 } from '@itwin/itwins-client';
-import { getValidAccessToken, refreshAccessToken } from '../../../features/auth/services/auth/client.js';
+import { getValidAccessToken } from '../../../features/auth/services/auth/client.js';
+import { fetchWithAuth, ApiError as ITwinsApiError } from '../../api/httpClient.js';
+
+// 向后兼容导出：instanceof 语义不变（同类别名）
+export { ApiError as ITwinsApiError } from '../../api/httpClient.js';
 
 const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
 
-/**
- * Custom error class for iTwins API errors
- * Preserves HTTP status code for proper error handling
- */
-export class ITwinsApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number,
-    public code?: string
-  ) {
-    super(message);
-    this.name = 'ITwinsApiError';
-  }
+// ============================================================================
+// 列表翻页聚合（Sync S2）：后端列表默认 $top=10（clamp ≤200）且满页时给
+// _links.next（绝对 URL）——首页直接要 $top=200，仍有 next 则裸跟绝对 URL，
+// 硬帽 5 跳防失控环（200×6≈1200 条上界）。
+// ============================================================================
 
-  public get isNotFound(): boolean {
-    return this.statusCode === 404;
-  }
+const LIST_PAGE_SIZE = 200;
+const MAX_FOLLOW_PAGES = 5;
 
-  public get isUnauthorized(): boolean {
-    return this.statusCode === 401;
-  }
-
-  public get isForbidden(): boolean {
-    return this.statusCode === 403;
-  }
+interface ITwinsPage {
+  iTwins?: ITwin[];
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- 后端线格式字面 _links
+  _links?: { next?: { href?: string } };
 }
 
-/**
- * Raw API client for direct fetch operations
- * Handles token refresh and automatic retry on 401 errors
- */
-async function fetchWithAuth(
-  endpoint: string,
-  options: RequestInit = {},
-  retryCount = 0
-): Promise<Response> {
-  const token = await getValidAccessToken();
-  if (!token) {
-    throw new ITwinsApiError('No authentication token', 401);
+/** 聚合跟页：沿首页响应体的 _links.next.href 续取，至多 cap 跳 */
+async function followNextLinks(
+  firstPage: ITwinsPage,
+  cap: number = MAX_FOLLOW_PAGES,
+): Promise<ITwin[]> {
+  const items: ITwin[] = [...(firstPage.iTwins ?? [])];
+  let next = firstPage._links?.next?.href;
+  for (let followed = 0; next && followed < cap; followed += 1) {
+    // next 已是绝对 URL：传 baseUrl='' 让 fetchWithAuth 原样使用（仍带 Bearer/401 刷新）
+    const response = await fetchWithAuth(next, { baseUrl: '' });
+    const page = (await response.json()) as ITwinsPage;
+    items.push(...(page.iTwins ?? []));
+    next = page._links?.next?.href;
   }
-
-  const url = `${BACKEND_URL}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  // Handle 401 errors - try to refresh token and retry once
-  if (response.status === 401 && retryCount === 0) {
-    try {
-      await refreshAccessToken();
-      // Retry the request with the new token
-      return await fetchWithAuth(endpoint, options, retryCount + 1);
-    } catch {
-      // Refresh failed, throw 401 error
-      throw new ITwinsApiError('Authentication failed', 401, 'Unauthorized');
-    }
-  }
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    // 官方错误包络 { error: { code, message } } 优先，回落旧包络顶层 message（P1 Task11 两段式读取）
-    const message =
-      (errorData.error as { message?: string } | undefined)?.message ??
-      errorData.message ??
-      `HTTP ${response.status}`;
-    // 403 统一提示：fetch 层无全局 toast，经既有通知链（throw → 页面 showToast(error.message)）统一文案
-    throw new ITwinsApiError(
-      response.status === 403 ? '无权限访问该资源' : message,
-      response.status,
-      errorData.error?.code ?? errorData.code
-    );
-  }
-
-  return response;
+  return items;
 }
 
 /**
@@ -141,18 +95,17 @@ export async function queryITwins(
   _subClass: ITwinSubClass = ITwinSubClass.Project,
   search?: string
 ): Promise<ITwin[]> {
-  const params = new URLSearchParams();
   // Note: imodelhub-service stores 'subclass' as empty string, so we filter by 'class' instead
-  params.append('class', 'Project');
+  // OData 风格 $top/$search 手工拼（URLSearchParams 会把 $ 编码成 %24，后端虽兼容但线上不直观）
+  let query = `class=Project&$top=${LIST_PAGE_SIZE}`;
   if (search) {
-    params.append('$search', search);
+    query += `&$search=${encodeURIComponent(search)}`;
   }
 
-  const response = await fetchWithAuth(`/itwins?${params.toString()}`);
-  const data = await response.json();
+  const response = await fetchWithAuth(`/itwins?${query}`);
+  const firstPage = (await response.json()) as ITwinsPage;
 
-  // Backend returns { iTwins: [...] }
-  return data.iTwins || [];
+  return followNextLinks(firstPage);
 }
 
 /**
@@ -167,7 +120,8 @@ export async function createITwin(data: {
     method: 'POST',
     body: JSON.stringify({
       displayName: data.displayName,
-      subClass: data.subClass || ITwinSubClass.Project,
+      // 后端 DTO 字段是小写 subclass（白名单静默剥离 subClass → DB 落空串）
+      subclass: data.subClass || ITwinSubClass.Project,
       description: data.description,
     }),
   });
@@ -209,18 +163,18 @@ export async function deleteITwin(iTwinId: string): Promise<void> {
  * Query favorite iTwins
  */
 export async function queryFavoriteITwins(): Promise<ITwin[]> {
-  const response = await fetchWithAuth('/itwins/favorites');
-  const data = await response.json();
-  return data.iTwins || [];
+  const response = await fetchWithAuth(`/itwins/favorites?$top=${LIST_PAGE_SIZE}`);
+  const firstPage = (await response.json()) as ITwinsPage;
+  return followNextLinks(firstPage);
 }
 
 /**
  * Query recent iTwins
  */
 export async function queryRecentITwins(): Promise<ITwin[]> {
-  const response = await fetchWithAuth('/itwins/recents');
-  const data = await response.json();
-  return data.iTwins || [];
+  const response = await fetchWithAuth(`/itwins/recents?$top=${LIST_PAGE_SIZE}`);
+  const firstPage = (await response.json()) as ITwinsPage;
+  return followNextLinks(firstPage);
 }
 
 /**

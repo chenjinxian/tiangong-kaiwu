@@ -45,25 +45,37 @@ export type {
   NamedVersion,
 } from './imodels/client.js';
 
-// Access Control Client (@itwin/access-control-client)
+// Access Control Client (official access-control routes — Sync S3)
 export {
-  accessControlClient,
+  addUserMember,
   getAuthorization as getAccessControlAuthorization,
+  listRoles,
+  listUserMembers,
+  removeUserMember,
+  updateUserMember,
 } from './accessControl/client.js';
 export type {
-  Member,
-  Role,
-  Permission,
+  AddUserMemberRequest,
+  ITwinMember,
+  ITwinMemberRole,
+  ITwinRole,
+  UpdateUserMemberRequest,
+  UserMemberPatchResult,
 } from './accessControl/client.js';
 
-// Webhooks Client (@itwin/webhooks-client)
+// Webhooks Client (official webhooks routes — Sync S3)
 export {
-  webhooksClient,
+  createWebhook,
+  deleteWebhook,
   getAuthorization as getWebhooksAuthorization,
+  getWebhook,
+  listWebhooks,
+  updateWebhook,
 } from './webhooks/client.js';
 export type {
-  Webhook,
-  WebhookEvent,
-  WebhookEventType,
+  CreateWebhookRequest,
+  UpdateWebhookRequest,
+  WebhookScope,
+  WebhookSubscription,
 } from './webhooks/client.js';
 

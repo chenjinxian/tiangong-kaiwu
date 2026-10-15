@@ -289,7 +289,7 @@ export class MeasurementManager {
     value: number,
     points: Point3d[]
   ): string {
-    const id = `meas-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `meas-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     this._measurements.push({
       id,
       type,
