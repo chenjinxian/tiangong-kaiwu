@@ -29,12 +29,13 @@
 #   web / nginx）刻意停留官方 npm @bentley/imodeljs-native 包——Windows 本地编译的原生库
 #   与产物不可入 Linux 镜像；宿主 MS 是唯一消费 dev build 的进程。
 #
-# 服务清单（compose 内 8 个 = 计划 6 服务 + HUB 运行时必需的 redis/maildev；
+# 服务清单（compose 内 9 个 = 计划 6 服务 + HUB 运行时必需的 redis/maildev + BFF（RW1-T3）；
 #           MS 是宿主进程，不占 compose 服务位）：
 #   postgres / redis / maildev / azurite   基础设施（redis、maildev 为
 #                                          HUB API 启动依赖，属最小集合）
 #   imodelhub                              本地 iModel 管理平台 :4000（GHCR 镜像）
 #   webhook-agent                          :4002（GHCR 镜像）
+#   bff                                    :4003 BFF 薄层（本仓 build——Ruling 见服务注记）
 #   web                                    前端静态 :3000（仅栈内，本仓构建）
 #   nginx                                  统一入口 :80
 #   modeling-server                        宿主 :4001（start-ms-host.ps1 拉起，非 compose 服务）
@@ -241,6 +242,54 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
+  # BFF 薄层（luban-bff，栈内 :4003，不经宿主端口暴露）—— RW1-T3
+  #
+  # 【形态 Ruling】compose `build: ./services/bff` 偏离全 GHCR 惯例：BFF
+  #   无原生依赖、构建上下文极小（单 pnpm 项目 ~30s），且迭代期 API 面未稳；
+  #   稳定后再上 GHCR 管线（同 MS/WA 镜像化流程）。若错：compose 多一次本地
+  #   构建延迟，无功能影响。
+  #
+  # 职责（零业务逻辑）：/api/* JWT 验证终结（hub /auth/me + 60s 缓存）→ 反代 MS；
+  #   HUB 九前缀透传（不终结）；全局限流（内存令牌桶 100/15min/IP）；
+  #   CORS 单点（同源为主 + dev origin 白名单）；/health。
+  # 路由（deploy/default.conf.template）：v1 默认仅 /api 经 BFF；
+  #   HUB 九前缀默认仍直达 HUB_UPSTREAM（行为同参数化前）——全量经 BFF 透传时
+  #   把 nginx 的 HUB_UPSTREAM 指到 luban-bff:4003（双跳：nginx→BFF→hub），
+  #   BFF 侧 HUB_UPSTREAM 此时须指回真实 hub。
+  # /ws /ipc 永不经 BFF（WS 长连接直连 MS）。
+  # ------------------------------------------------------------
+  bff:
+    build: ./services/bff
+    container_name: luban-bff
+    environment:
+      NODE_ENV: production
+      PORT: "4003"
+      # 宿主形态（默认）host.docker.internal:4001（MS 是宿主进程）；
+      # 容器形态（--profile container）改 http://modeling-server:4001
+      MS_UPSTREAM: ${BFF_MS_UPSTREAM:-http://host.docker.internal:4001}
+      # 宿主形态（默认，hub 源码模式）host.docker.internal:4000；
+      # hub 容器形态改 http://imodelhub:4000
+      HUB_UPSTREAM: ${BFF_HUB_UPSTREAM:-http://host.docker.internal:4000}
+      # CORS 白名单：vite dev server(:3000) + nginx 单入口(:80)
+      ALLOWED_ORIGINS: ${BFF_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost}
+      RATE_LIMIT_MAX: ${BFF_RATE_LIMIT_MAX:-100}
+      RATE_LIMIT_WINDOW_MS: ${BFF_RATE_LIMIT_WINDOW_MS:-900000}
+      AUTH_CACHE_TTL_MS: ${BFF_AUTH_CACHE_TTL_MS:-60000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      imodelhub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
   # nginx 统一入口（:80）
   # ------------------------------------------------------------
   nginx:
@@ -251,6 +300,12 @@ services:
       # 宿主形态（默认）host.docker.internal:4001；
       # 容器形态改 modeling-server:4001（根 .env 或 shell 覆盖）
       MS_UPSTREAM: ${MS_UPSTREAM:-host.docker.internal:4001}
+      # /api 上游：启用 BFF（默认）luban-bff:4003；BFF 未启用回退
+      # host.docker.internal:4001（直达 MS，行为同 RW1 前）
+      BFF_UPSTREAM: ${BFF_UPSTREAM:-luban-bff:4003}
+      # HUB 九前缀上游：默认直达 hub（宿主形态）；hub 容器形态改
+      # imodelhub:4000；全量经 BFF 透传改 luban-bff:4003（双跳，见 bff 注记）
+      HUB_UPSTREAM: ${HUB_UPSTREAM:-host.docker.internal:4000}
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/default.conf.template:/etc/nginx/templates/default.conf.template:ro

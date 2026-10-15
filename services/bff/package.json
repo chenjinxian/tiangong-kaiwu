@@ -1,0 +1,29 @@
+{
+  "name": "@luban-cad/bff",
+  "version": "1.0.0",
+  "description": "LubanCAD BFF (Backend For Frontend) thin layer - same-origin API gateway: /api JWT termination, HUB prefix passthrough, rate limiting, CORS single point",
+  "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.20",
+    "@types/node": "~20.17.0",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.1.4",
+    "tsx": "~4.22.0",
+    "typescript": "~5.6.2",
+    "vitest": "^4.1.10"
+  }
+}

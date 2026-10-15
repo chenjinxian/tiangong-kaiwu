@@ -5,17 +5,27 @@
 # 变量：MS_UPSTREAM（modeling-server 上游）
 #         宿主形态（默认）: host.docker.internal:4001
 #         容器形态        : modeling-server:4001（--profile container）
+#       BFF_UPSTREAM（/api 上游——RW1-T3 BFF v1）
+#         启用 BFF（默认） : luban-bff:4003
+#         BFF 未启用回退  : host.docker.internal:4001（直达 MS，行为同 RW1 前）
+#       HUB_UPSTREAM（imodelhub 上游——RW1-T3 参数化，原为 9 处硬编码）
+#         宿主形态（默认）: host.docker.internal:4000
+#         容器形态        : imodelhub:4000
 #       envsubst 在 nginx 解析前完成 —— proxy_pass 为静态地址，
 #       无需 resolver。
 #
 # 前缀表（/itwins 等与 apps/web/vite.config.ts dev 代理对齐）：
 #   /                                     -> web:3000（内层静态 + SPA 回退）
-#   /api  /ws  /ipc                       -> ${MS_UPSTREAM}（WS Upgrade 透传）
+#   /api                                  -> ${BFF_UPSTREAM}（BFF v1 JWT 终结+限流+CORS）
+#   /ws  /ipc                             -> ${MS_UPSTREAM}（WS Upgrade 透传）
 #                                         生产 FE 不设 VITE_API_URL → 同源相对
 #                                         URL 全走这三条面（dev 由
 #                                         apps/web/.env.development 直连 :4001）。
 #   /itwins /imodels /auth /accesscontrol /webhooks /users /files
-#   /oauth /.well-known                   -> host.docker.internal:4000
+#   /oauth /.well-known                   -> ${HUB_UPSTREAM}（RW1-T3 v1 默认直达 HUB，
+#                                         行为同参数化前；全量经 BFF 透传（限流/CORS 单点
+#                                         覆盖九面）= 把 HUB_UPSTREAM 指到 luban-bff:4003，
+#                                         BFF 侧 HUB_UPSTREAM 再指回 hub——双跳见 compose 注记）
 #   /azurite/*                            -> azurite:10000/*（前缀剥除，FE 直传）
 # ============================================================
 
@@ -23,15 +33,16 @@ server {
     listen 80 default_server;
     server_name _;
 
-    # ---------- modeling-server（API / WebSocket / IPC） ----------
+    # ---------- /api 面（RW1-T3：经 BFF v1 JWT 终结+限流+CORS） ----------
     location /api {
-        proxy_pass http://${MS_UPSTREAM};
+        proxy_pass http://${BFF_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # ---------- modeling-server（WebSocket / IPC——不经 BFF，WS 长连接） ----------
     location /ws {
         proxy_pass http://${MS_UPSTREAM};
         proxy_set_header Host       $host;
@@ -62,7 +73,7 @@ server {
         if ($http_accept ~* "text/html") {
             rewrite ^ /__spa last;
         }
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -70,7 +81,7 @@ server {
     }
 
     location /imodels {
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -78,7 +89,7 @@ server {
     }
 
     location /auth {
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -86,7 +97,7 @@ server {
     }
 
     location /accesscontrol {
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -94,7 +105,7 @@ server {
     }
 
     location /webhooks {
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -102,7 +113,7 @@ server {
     }
 
     location /users {
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -110,7 +121,7 @@ server {
     }
 
     location /files {
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -118,7 +129,7 @@ server {
     }
 
     location /oauth {
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -126,7 +137,7 @@ server {
     }
 
     location /.well-known {
-        proxy_pass http://host.docker.internal:4000;
+        proxy_pass http://${HUB_UPSTREAM};
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
