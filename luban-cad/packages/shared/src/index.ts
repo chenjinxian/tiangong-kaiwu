@@ -207,6 +207,12 @@ export type {
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================
+// op DSL v1（RW2-T5：FeatureOp 链双向序列化，KCL 等价物第一步）
+// =============================================================================
+export { opsToDsl, dslToOps, OpDslParseError } from './opDsl.js';
+export type { OpDslValidator, OpDslParseOptions } from './opDsl.js';
+
+// =============================================================================
 // Error Types
 // =============================================================================
 export {
