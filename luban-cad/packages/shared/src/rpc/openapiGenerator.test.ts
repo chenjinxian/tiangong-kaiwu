@@ -11,7 +11,6 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { generateOpenApiFromFiles } from '../../../../../scripts/generate-openapi.js';
 
 const FIXTURE_TYPES = `
