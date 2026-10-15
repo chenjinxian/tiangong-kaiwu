@@ -47,6 +47,11 @@ export abstract class FixtureRpcInterface extends RpcInterface {
   public async deleteWidget(_id: string): Promise<void> {
     return this.forward(arguments);
   }
+
+  /** Get a widget (may not exist) */
+  public async getWidget(_id: string): Promise<WidgetDto | undefined> {
+    return this.forward(arguments);
+  }
 }
 `;
 
@@ -64,10 +69,11 @@ describe('generateOpenApiFromFiles', () => {
 
   it('emits one path per RpcInterface method', () => {
     const pathKeys = Object.keys(doc.paths);
-    expect(pathKeys).toHaveLength(3);
+    expect(pathKeys).toHaveLength(4);
     expect(pathKeys).toContain('/FixtureRpcInterface-2.1.0/createWidget');
     expect(pathKeys).toContain('/FixtureRpcInterface-2.1.0/listWidgets');
     expect(pathKeys).toContain('/FixtureRpcInterface-2.1.0/deleteWidget');
+    expect(pathKeys).toContain('/FixtureRpcInterface-2.1.0/getWidget');
   });
 
   it('uses the interfaceName-interfaceVersion path shape', () => {
@@ -126,5 +132,17 @@ describe('generateOpenApiFromFiles', () => {
   it('strips the leading underscore from param names', () => {
     const op = doc.paths['/FixtureRpcInterface-2.1.0/deleteWidget'].post!;
     expect(op.requestBody!.description).toBe('Positional parameters: id');
+  });
+
+  it('wraps a nullable $ref in anyOf (OpenAPI 3.0 ignores $ref siblings)', () => {
+    const op = doc.paths['/FixtureRpcInterface-2.1.0/getWidget'].post!;
+    const ok = op.responses['200'] as { content: Record<string, { schema: Record<string, unknown> }> };
+    const schema = ok.content['application/json'].schema;
+    // 合法形态：anyOf 包裹 + 顶层 nullable
+    expect(schema.anyOf).toEqual([{ $ref: '#/components/schemas/WidgetDto' }]);
+    expect(schema.nullable).toBe(true);
+    // 回归钉：$ref 与 nullable 兄弟键形态（3.0 下 nullable 被静默忽略）不得再现
+    expect(schema.$ref).toBeUndefined();
+    expect(Object.keys(schema).sort()).toEqual(['anyOf', 'nullable']);
   });
 });

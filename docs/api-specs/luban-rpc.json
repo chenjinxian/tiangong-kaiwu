@@ -1242,7 +1242,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SketchDto",
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SketchDto"
+                    }
+                  ],
                   "nullable": true
                 }
               }

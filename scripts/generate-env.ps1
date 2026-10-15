@@ -37,6 +37,9 @@ $envMap = [ordered]@{
   'AUTH_FORGOT_SECRET'       = New-Hex 32
   'AUTH_CONFIRM_EMAIL_SECRET'= New-Hex 32
   'IMODELHUB_API_KEY'        = New-Hex 32
+  # nginx 的 /api 上游（RW1-T3 BFF v1，与根 docker-compose.yml 的 BFF_UPSTREAM 缺省同值）：
+  # 缺省 host.docker.internal:4001 直达宿主 MS（BFF 未启用行为同 RW1 前）；启用 BFF 改 luban-bff:4003
+  'BFF_UPSTREAM'             = 'host.docker.internal:4001'
 }
 
 $mode = '生成'

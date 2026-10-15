@@ -311,7 +311,12 @@ class SchemaEmitter {
         } else {
           schema = { oneOf: members.map((t: any) => this.fromTypeNode(t, file)) };
         }
-        if (nullable) schema = { ...schema, nullable: true };
+        if (nullable) {
+          // OpenAPI 3.0：$ref 的兄弟键被忽略——纯 $ref 联合 undefined/null 时
+          // {...$ref, nullable} 会静默丢 nullable，须以 anyOf 包裹（RW2-T1）
+          const pureRef = Object.keys(schema).length === 1 && typeof schema.$ref === 'string';
+          schema = pureRef ? { anyOf: [schema], nullable: true } : { ...schema, nullable: true };
+        }
         return schema;
       }
       case ts.SyntaxKind.TypeReference: {
