@@ -204,6 +204,8 @@ export type {
   FeatureFormFieldKind, FeatureFormModelEntry,
   // M3-b v1.2
   SketchEntityDto, SketchConstraintDto, SketchSolveStatusDto, SketchSolveStateDto, SketchDto, SketchSummaryDto,
+  // RW2-T6 v1.4
+  ChamferParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

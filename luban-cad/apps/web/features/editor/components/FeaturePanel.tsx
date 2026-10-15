@@ -30,12 +30,13 @@ export interface FeaturePanelProps {
   isVisible?: boolean;
 }
 
-/** 特征类型 → 图标（M1：拉伸 + 布尔；M3-a 增 fillet） */
+/** 特征类型 → 图标（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer） */
 const FEATURE_ICONS: Record<string, string> = {
   extrude: '⬆',
   booleanAdd: '⊕',
   booleanSubtract: '⊖',
   fillet: '⌒',
+  chamfer: '◢',
 };
 
 /** 特征类型 → 展示标签（formModel 键集驱动的新建入口共用同一套键） */
@@ -44,6 +45,7 @@ const FEATURE_TYPE_LABELS: Record<string, string> = {
   booleanAdd: '布尔加 (booleanAdd)',
   booleanSubtract: '布尔减 (booleanSubtract)',
   fillet: '圆角 (fillet)',
+  chamfer: '倒角 (chamfer)',
 };
 
 /** T6.4 试算预览 debounce 窗口（草稿停笔 400ms 后才发 previewOp，折叠连续击键） */

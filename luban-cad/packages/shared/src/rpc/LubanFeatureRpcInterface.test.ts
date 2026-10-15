@@ -6,6 +6,7 @@ import type {
   LubanTopologyId,
   FilletEdgeRef,
   FilletParams,
+  ChamferParams,
   FeatureParams,
   FeatureOp,
   PreviewResult,
@@ -25,7 +26,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.3.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.4.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -37,7 +38,7 @@ describe("M3-a v1.1 类型契约", () => {
   it("fillet 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "fillet";
     expect(t).toBe("fillet");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer">();
   });
 
   it("FilletParams：邻面对边引用对（LubanTopologyId/FilletEdgeRef 形状）", () => {
@@ -52,12 +53,14 @@ describe("M3-a v1.1 类型契约", () => {
     expectTypeOf<FilletParams>().toEqualTypeOf<{ radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }>();
   });
 
-  it("FeatureParams = ExtrudeParams | FilletParams；新 FeatureOp 变体可构造", () => {
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams>();
+  it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams；新 FeatureOp 变体可构造", () => {
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams>();
     const insertFillet: FeatureOp = { kind: "insertFeature", featureType: "fillet", params: { radius: 1, propagateSmooth: false, edges: [] } };
+    const insertChamfer: FeatureOp = { kind: "insertFeature", featureType: "chamfer", params: { mode: 1, propagateSmooth: true, edges: [], values1: 0.1 } };
     const suppress: FeatureOp = { kind: "setFeatureSuppressed", featureId: "f1", suppressed: true };
     const reorder: FeatureOp = { kind: "reorderFeature", featureId: "f1", to: 2 };
     expect(insertFillet.kind).toBe("insertFeature");
+    expect(insertChamfer.kind).toBe("insertFeature");
     expect(suppress.suppressed).toBe(true);
     expect(reorder.to).toBe(2);
   });
@@ -177,5 +180,29 @@ describe("RW2-T3 v1.3 deleteSketch 契约", () => {
       { kind: "redo" },
     ];
     expect(legacy).toHaveLength(10);
+  });
+});
+
+describe("RW2-T6 v1.4 chamfer 契约", () => {
+  it("chamfer 已入特征类型联合（编译期逐字断言）", () => {
+    const t: LubanFeatureType = "chamfer";
+    expect(t).toBe("chamfer");
+  });
+
+  it("ChamferParams：mode + 双值（标量或逐边数组）+ 邻面对边引用形状", () => {
+    const ref: FilletEdgeRef = { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 3, entityId: 4 } };
+    const scalar: ChamferParams = { mode: 1, propagateSmooth: true, edges: [ref], values1: 0.1 };
+    const dual: ChamferParams = { mode: 2, propagateSmooth: false, edges: [ref], values1: 0.1, values2: 0.2 };
+    const perEdge: ChamferParams = { mode: 1, propagateSmooth: true, edges: [ref, ref], values1: [0.1, 0.2] };
+    expect(scalar.mode).toBe(1);
+    expect(dual.values2).toBe(0.2);
+    expect(perEdge.values1).toEqual([0.1, 0.2]);
+    expectTypeOf<ChamferParams>().toEqualTypeOf<{
+      mode: number;
+      propagateSmooth: boolean;
+      edges: FilletEdgeRef[];
+      values1: number | number[];
+      values2?: number | number[] | undefined;
+    }>();
   });
 });

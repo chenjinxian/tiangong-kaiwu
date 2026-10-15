@@ -51,12 +51,13 @@ const makeFs = (over: Partial<UseFeatureSystem> = {}): UseFeatureSystem => ({
   ...over,
 });
 
-/** 4 类型表单模型（与 MS getFeatureFormModel 产物同形） */
+/** 5 类型表单模型（与 MS getFeatureFormModel 产物同形；RW2-T6 起含 chamfer） */
 const formModel: FeatureFormModel = {
   extrude: { fields: [{ name: 'distance', label: '距离', kind: 'number' }] },
   booleanAdd: { fields: [] },
   booleanSubtract: { fields: [] },
   fillet: { fields: [{ name: 'radius', label: '半径', kind: 'number' }] },
+  chamfer: { fields: [{ name: 'mode', label: '倒角模式', kind: 'number' }, { name: 'values1', label: '倒角值 1', kind: 'number' }, { name: 'propagateSmooth', label: '光滑传播', kind: 'boolean' }, { name: 'edges', label: '边引用', kind: 'edgeRefs' }] },
 };
 
 describe('FeaturePanel', () => {
@@ -251,7 +252,7 @@ describe('FeaturePanel', () => {
   });
 
   describe('新建特征对话框', () => {
-    it('打开对话框：type 选项 = formModel 键集（4 类型）', () => {
+    it('打开对话框：type 选项 = formModel 键集（5 类型，含 RW2-T6 chamfer）', () => {
       const fs = makeFs({ formModel });
       render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
 
@@ -263,7 +264,12 @@ describe('FeaturePanel', () => {
       const values = Array.from(select.querySelectorAll('option'))
         .map((o) => (o as HTMLOptionElement).value)
         .filter((v) => v !== '');
-      expect(values).toEqual(['extrude', 'booleanAdd', 'booleanSubtract', 'fillet']);
+      expect(values).toEqual(['extrude', 'booleanAdd', 'booleanSubtract', 'fillet', 'chamfer']);
+      // chamfer 标签渲染（FEATURE_TYPE_LABELS 注册）
+      const labels = Array.from(select.querySelectorAll('option'))
+        .map((o) => (o as HTMLOptionElement).textContent)
+        .filter((v) => v !== null && v !== '');
+      expect(labels).toContain('倒角 (chamfer)');
     });
 
     it('取消关闭对话框', () => {

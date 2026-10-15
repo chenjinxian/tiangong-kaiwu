@@ -4,13 +4,14 @@
  *
  * 鲁班CAD 特征系统 RPC 接口（M1 roadmap T5.8；M3-a 升 v1.1：fillet + suppress/reorder/preview/表单模型；
  * M3-b 升 v1.2：insertSketch/updateSketch op + getSketch/listSketches 读面；
- * RW2-T3 升 v1.3：deleteSketch op（守卫：被任一特征引用即拒收））。
+ * RW2-T3 升 v1.3：deleteSketch op（守卫：被任一特征引用即拒收）；
+ * RW2-T6 升 v1.4：chamfer 特征类型（ChamferMode 0..4 + 双值倒角参数））。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 
-/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet";
+/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer） */
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -31,7 +32,24 @@ export interface FilletEdgeRef { faceA: LubanTopologyId; faceB: LubanTopologyId 
 
 export interface FilletParams { radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }
 
-export type FeatureParams = ExtrudeParams | FilletParams;
+/**
+ * chamfer 参数（RW2-T6）：倒角模式 + 一/双倒角值 + 邻面对边引用集。
+ * mode = 内核 ChamferMode 枚举（editor/common EditorBuiltInIpc.ts）：0=Ranges / 1=Length /
+ * 2=Distances / 3=DistanceAngle / 4=AngleDistance；值语义随 mode（Length 只用 values1；
+ * Distances=values1/values2 双距离；DistanceAngle=values1 距离+values2 弧度角；
+ * AngleDistance 反之）。values 允许标量（全部边同值）或等长于边集的数组（逐边值）——
+ * 服务端求值器一律展开为等长数组喂内核（native 标量广播契约经 blendEdges 探针证伪不可信）。
+ * edges 寻址与 fillet 完全同构（resolveEdgeRef 的 FilletEdgeRef 邻面对拓扑 id）。
+ */
+export interface ChamferParams {
+  mode: number;
+  propagateSmooth: boolean;
+  edges: FilletEdgeRef[];
+  values1: number | number[];
+  values2?: number | number[];
+}
+
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams;
 
 export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
@@ -95,7 +113,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.3.0";
+  public static interfaceVersion = "1.4.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
