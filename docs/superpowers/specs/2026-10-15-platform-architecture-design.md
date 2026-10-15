@@ -1,11 +1,20 @@
-# 天工开物平台总架构蓝图——对标 Onshape（CAD 核心）+ KittyCAD（AI 核心）
+# 天工开物平台总架构蓝图——对标 Onshape（CAD 核心）+ 超越 KittyCAD（AI 核心）+ 商业制造输出（3D 打印/CNC/CAM）
 
-- **日期**：2026-10-15
-- **状态**：§1-§4 经用户逐节确认（2026-10-15）
+- **日期**：2026-10-15（v2 修订：纳入用户三点战略强调）
+- **状态**：§1-§4 经用户逐节确认；v2 修订（制造线+内核差异化升格）待确认
 - **范围**：全平台三仓（tiangong-kaiwu / luban-backend 私有 / imodelhub-services）+ 仓外内核（真形/绳墨/imodel-native 联动）
 - **勘察依据**：四报告存档于 `.superpowers/sdd/2026-10-15-architecture-program/report-*.md`（平台快照/CAD 差距/KittyCAD 对标/iTwin 依赖全景）
 
-## 0. 用户四项边界裁定
+## 0. 终极目标与边界裁定
+
+**终极目标（用户 2026-10-15 定调）**：打造云原生 CAD 应用（对标 Onshape），在此之上构建超越 KittyCAD 的 AI agent harness 建模能力，**支持导出 3D 打印与 CNC 加工制造、满足 CAM 商业需求——整体远超 FreeCAD**。
+
+**三大差异化支柱（用户强调）**：
+1. **自研几何内核真形（TrueForm）与 ACIS 完全对标**——对比 FreeCAD（开源内核性能天花板）与 KittyCAD（闭源自研）的核心优势；SolidKernel.h 106 方法契约即其规格书
+2. **绳墨（ShengMo）改造 SolveSpace 为商业级约束求解器**——从过渡 libslvs 起步的既定升级线，商业性能是目标态
+3. **iTwin 数据协同 + imodel-native 大体量渲染**——市面全部开源 CAD 产品不具备的工程底座
+
+**重心**：技术方案已各自成立，最欠缺的是**整合**——把内核/求解/协同/渲染/AI 五资产融合成一款伟大的 AI+CAD 产品。本蓝图的一切波次服务于这个整合。
 
 | # | 边界 | 裁决 |
 |---|---|---|
@@ -13,6 +22,8 @@
 | A2 | iTwin 基座 | **iTwin 全家桶基座 + 内核渐进**（真形/绳墨在特征求值层渐进替换，R1→R3 战略沿用） |
 | A3 | P1-P5 前端波次 | **并入总计划**（RW4 重排） |
 | A4 | 蓝图范围 | **全含仓外仓** |
+| A5 | 制造输出 | **产品级目标**：3D 打印（STL/3MF 网格导出）+ CNC（STEP/DXF）+ CAM 商业需求为独立产品线（RW-M 战役） |
+| A6 | 内核地位 | **真形/绳墨升格为核心差异化资产**：R3 加速、绳墨商业化为命名里程碑，非后台渐进 |
 
 ## 1. 现状综合判断
 
@@ -45,10 +56,16 @@ L2 服务治理（渐进）—— 事件总线·统一权限面·可观测聚合
 L1 内核层 —— R1 ACIS（现状）→ R3 真形（渐进）；绳墨求解；imodel-native 引擎池·solver-neutral 冻结契约
 ```
 
-### 三条架构主线
+### 四条架构主线
 1. **CAD 核心线**：两套建模心智收敛为「特征 op 面」单一心智——直改工具收编为特征执行通道（D7）；特征类型 4→8→数十种渐进；**op 链可序列化为可读 DSL**（人审 diff 载体 + AI 生成目标表示——「KCL 等价物」）
-2. **AI 核心线**：ai-service 总线先行——FeatureOp zod→JSON Schema 工具化、previewFeatureOp 即 HITL、会话三元组落库（接受/撤销=真值标注）、上下文供给（特征树+草图+视口快照）
-3. **平台线**：网关/BFF 收 D2/D4/D12，D3 安全必修，契约中心起步；事件总线/可观测/权限收敛按规模渐进（RW6）
+2. **AI 核心线**：ai-service 总线先行——FeatureOp zod→JSON Schema 工具化、previewFeatureOp 即 HITL、会话三元组落库（接受/撤销=真值标注）、上下文供给（特征树+草图+视口快照）；**超越点**：自研内核的 op 粒度比 Zoo 的 KCL stdlib 更深——agent 可直达拓扑操作面
+3. **制造输出线（新，A5）**：**网格导出**（STL/3MF，3D 打印）复用 imodel-native tessellation 能力→水密网格校验→切片友好；**精确几何导出**（STEP for CNC、DXF 2D）走真形 InterOp（T8.1 STEP writer 近期里程碑）；**CAM 商业需求**分层——v1 制造就绪检查（DFM：壁厚/干涉/可制造性告警，天然是 AI agent 工具）+ 格式导出；v2 刀路/G-code 属深水区（依赖真形成熟+制造格式地基）
+4. **平台线**：网关/BFF 收 D2/D4/D12，D3 安全必修，契约中心起步；事件总线/可观测/权限收敛按规模渐进（RW6）
+
+### 内核双轨差异化（A6 升格）
+真形 R3 与绳墨商业化不再是后台渐进项，是产品竞争力的**命名里程碑**：
+- **真形**：R1（ACIS 替换期，产品现实）→ R2（acis-solid-kernel 差分验证）→ R3（独立原创内核，M0-M5 ≥12-24 人月）；**STEP writer（T8.1）是制造线的解锁件**——InterOp 未授权使 CNC 导出唯一路径=真形自研，制造线与 R3 形成需求互锁（制造需求反哺内核优先级）
+- **绳墨**：libslvs 过渡（GPLv3 纯云合规）→ 商业级改造（实体/约束种类扩展、性能）；solver-neutral 冻结契约是平替入口——商业化为独立里程碑跟踪
 
 ## 3. 重构战役（RW0-RW6）
 
@@ -84,6 +101,15 @@ P1 认证三页+404 → P2 Documents → P3 Detail+Share（消费 S3 重写 clie
 ### RW5 数据飞轮+生成式起步（AI 线二期）
 反馈采集（接受/撤销回流）→ eval 基准（demo-flow 24 幕→prompt→期望特征树）→ 生成回路（text→op DSL→执行→读错→修≤5→快照审阅）→ 模型路由产品化（Auto/Standard/Thoughtful 用户开关）。
 
+### RW-M 制造输出口径（新战役，A5；网格导出可与 RW2 并行起步）
+| 项 | 内容 | 依赖 |
+|---|---|---|
+| 网格导出 v1 | STL/3MF 导出（BRep→tessellation→水密校验→导出）；3D 打印就绪检查（壁厚/自交告警） | imodel-native tessellation（已有）；RW2 特征面稳定 |
+| 精确导出 v1 | STEP writer（CNC 主通道）+ DXF 2D（草图/工程图 2D 前置） | **真形 InterOp T8.1 里程碑**（ACIS InterOp 未授权，唯一路径） |
+| DFM 就绪 | 制造规则检查作为 AI agent 工具（壁厚/干涉/可制造性告警）——AI 线与制造线的交汇点 | RW3 总线 |
+| CAM v2 | 刀路/G-code/装夹——商业 CAM 深水区 | 真形成熟+制造格式地基；独立立项 |
+**门**：STL/3MF 导出可用（e2e：建模→导出→切片软件可开）+ STEP writer 真形里程碑联动跟踪 + DFM 检查进 agent 工具集。
+
 ### RW6 平台深水区（按需启动）
 MS 会话态外置（writeLeases/wsClients/progressMap→Redis）渐进无状态化；事件总线评估；可观测聚合（collector+dashboard+trace 传播）；权限面收敛 D6；多实体 Part Studio/装配 instancing（L1 依赖，与真形 R2/R3 联动）。
 
@@ -92,7 +118,8 @@ MS 会话态外置（writeLeases/wsClients/progressMap→Redis）渐进无状态
 RW0 ──→ RW1 ──→ RW3 ──→ RW5
  │        │  ↘ RW2 ──↗（op DSL 是 RW5 生成目标前置）
  │        └──→ RW4（与 RW2/RW3 并行；仅 EditorShell AI 位需设计协同）
- └──（RW6 独立按需）
+ ├─（RW6 独立按需）
+ └──→ RW-M 网格导出（RW2 后可启）；RW-M 精确导出 ⟂ 真形 T8.1 里程碑联动；CAM v2 ⟂ 真形成熟
 ```
 
 ## 4. 风险登记与裁决清单
@@ -107,7 +134,9 @@ RW0 ──→ RW1 ──→ RW3 ──→ RW5
 | R5 | AI 生成质量无基线 | RW5 eval 先于生成能力（demo-flow 改造）；上线即积累真值 |
 | R6 | BFF 增加一跳延迟与运维面 | 薄层无业务逻辑；nginx 保留 L7 静态面 |
 | R7 | 三仓 link: 耦合×重构并发 | 既有纪律沿用（rush build 先行/link: 计数核对/copy-native）；每波验收含三仓联动冒烟 |
-| R8 | 范围失控 | 波次门禁制（每波独立 spec+plan+e2e）；缺口登记制；RW6 显式按需 |
+| R8 | 范围失控 | 波次门禁制（每波独立 spec+plan+e2e）；缺口登记制；RW6/RW-M-CAM 显式按需 |
+| R9 | **制造线×内核互锁风险**：STEP 导出唯一路径=真形 InterOp（T8.1），若内核里程碑滞后则 CNC 口径被卡 | 网格导出（STL/3MF）先行为 3D 打印口径解锁商业价值；STEP writer 在真形仓列为最高优先里程碑跟踪；CAM v2 显式后置 |
+| R10 | **AI 面暴露内核敏感操作**（agent 直达拓扑面可能产生不可修复几何） | 全部经 zod op 契约白名单（禁二套 API 铁律天然防线）+ ValidateBody（op35）后校验 + HITL 破坏性确认 |
 
 ### 裁决清单（可推翻）
 | # | 裁决 | 代价若错 |
