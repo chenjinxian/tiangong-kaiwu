@@ -12,6 +12,7 @@
 
 ## Global Constraints
 
+- **官方客户端源码强制参考（用户指令 2026-10-15）**：本地检出 `D:\Github\{object-storage,viewer,webhooks-api-samples,access-control-client,auth-clients,imodels-clients,itwins-client}`（均为官方 npm 包源码树）。实现/复核任何数据服务（前端 client 或私有仓 MS/WA 的 hub 交互）时**必须先参考对应官方源码**（路由构造/参数名/分页/类型形状），与本计划契约要点冲突时以官方用法为准并记录。P2-P5 波次的 services 实现同受此约束。
 - 基线契约事实（新版 hub，勘察实证）：
   - 错误包络 `{statusCode, message, error:{code,message}, timestamp, path[, errors]}`；`error.code` 白名单 5 码（CheckpointNotFound/iModelNotFound/iTwinNotFound/BriefcaseNotFound/ConflictingLocks）；422 字段明细在顶层 `errors`
   - `_links` 全部绝对化（PUBLIC_BASE_URL 优先）；itwins 翻页 `$skip/$top`（默认 top=10、clamp≤200）；imodels 系 `$continuationToken`+`$top`；`_links.next` 满页即出
