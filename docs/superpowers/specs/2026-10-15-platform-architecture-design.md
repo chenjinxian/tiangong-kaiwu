@@ -88,6 +88,8 @@ Sync S4-S6：私有仓适配（预签名主机改写层+SDK 收紧+cosmetic）�
 - 顺手清债：UndoManager 假成功 no-op、PatternTools ID bug、PatternCommand 死码注册、deleteSketch op
 **门**：demo-flow 扩幕（新类型）+ op DSL 往返恒等测试。
 
+> ✅ **RW2 完成 2026-10-15**：八任务全落地（本仓 c3afe2d839..4aa79f737f + 私有仓 139f930..3806af8）。chamfer/shell 特征化（4→6 类型）+ 判型泛化注册表 + resolveFaceRef 选面链 + op DSL v1（往返恒等双钉）+ 顺手清债四件（UndoManager 假成功/PatternTools ID bug/PatternCommand 死码删/deleteSketch op）+ D7 打标隔离带 + revolve/pattern 立项卡（RW2-T8 定案，下一波次）。验收门：双仓静态全绿（web 663/57+build、shared 88、MS 342/40+build、WA 46）；drift 门绿（28 methods/33 schemas 零漂移）；e2e 53/53 全过（首轮 40 直过，尾部 5 败经重试 22/22 全过——根因 hub JWT TTL 15min 环境约束，非回归）；demo-flow 24 幕回归全绿（像素 807303/z-span=5/commit 28≤40）。验收证据：`.superpowers/sdd/2026-10-15-rw2-cad-convergence/task-rw2-9-report.md`。登记后续：chamfer/shell demo-flow 扩幕 + 专用 e2e 用例（RW3 波次 backlog）；e2e 全量超 JWT TTL 尾部级联失败定量化（测试 env 续期/TTL 调大待立项）。
+
 #### revolve/pattern 定案（RW2-T8；两型均下一波次启动，本波不实施——R8 范围门禁）
 
 **revolve 立项卡（工作量=中）**
