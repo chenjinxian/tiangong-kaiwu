@@ -125,20 +125,6 @@ export abstract class OpenCloudRpcInterface extends RpcInterface {
   // =============================================================================
 
   /**
-   * Read external text file
-   */
-  public async readExternalFile(_fileName: string): Promise<string> {
-    return this.forward(arguments);
-  }
-
-  /**
-   * Write external text file
-   */
-  public async writeExternalFile(_fileName: string, _content: string): Promise<void> {
-    return this.forward(arguments);
-  }
-
-  /**
    * Export iModel to GLTF format
    * Returns file content as bytes
    */
@@ -154,13 +140,6 @@ export abstract class OpenCloudRpcInterface extends RpcInterface {
    * Get application configuration from backend
    */
   public async getConfiguration(): Promise<Record<string, string | number | boolean>> {
-    return this.forward(arguments);
-  }
-
-  /**
-   * Get access token (backend retrieves from its authorization client)
-   */
-  public async getAccessToken(): Promise<string> {
     return this.forward(arguments);
   }
 
