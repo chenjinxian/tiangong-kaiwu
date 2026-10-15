@@ -79,6 +79,8 @@ Sync S4-S6：私有仓适配（预签名主机改写层+SDK 收紧+cosmetic）�
 - 契约中心：OpenAPI spec 从 TS interface 生成（LubanFeatureRpcInterface+services 面先行）
 **门**：安全三项清零（渗透自测）+ 前端同源单面化 + spec 生成管线落地。
 
+> ✅ **RW1 完成 2026-10-15**：五任务全落地（私有仓 `feat/rw1-security-gateway` a6d83c5..139f930 + 本仓 main 2ef64f583a..6dc1b50357）。安全债①RPC JWT guard、②③危险方法三连删经渗透自测三项实证清零（直连 :4001 无 token→401/带 token→通；三方法活码零命中——冻结区外；:80/api BFF 面 401/200 双态实证）；BFF v1+nginx 上游参数化（默认 MS 直连、显式启用 BFF）；契约中心 v1 落地（luban-rpc.json 27 paths/31 schemas + drift 门绿）。回归：web 单测 629/11、MS 单测 302/8、e2e 53/53 全绿。验收证据：`.superpowers/sdd/2026-10-15-rw1-security-gateway/task-rw1-5-report.md`。已知 P1 缺口：/ipc 长连接 token 不重验（DEEP_ANALYSIS §8.1 登记，RW1 范围内不修）。
+
 ### RW2 CAD 核心收敛（CAD 线）
 - D7 破坏式编辑打标（overridden 标记+暂停再生——两套心智隔离带）
 - **op DSL v1**：FeatureOp 链↔可读 DSL/JSON 脚本双向序列化（命名参数+注释位）——序列化格式而非语言（裁决#1）
