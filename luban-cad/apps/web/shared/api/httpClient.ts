@@ -16,6 +16,8 @@ export class ApiError extends Error {
     message: string,
     public readonly statusCode: number,
     public readonly code?: string,
+    /** 422 字段级明细（后端顶层 errors: {field: msg}）；其余状态码缺省（Sync S2） */
+    public readonly details?: Record<string, string>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -66,12 +68,15 @@ export async function fetchWithAuth(
       error?: { code?: string; message?: string };
       message?: string;
       code?: string;
+      errors?: Record<string, string>;
     };
     const message = errorData.error?.message ?? errorData.message ?? `HTTP ${response.status}`;
     throw new ApiError(
       response.status === 403 ? '无权限访问该资源' : message,
       response.status,
       errorData.error?.code ?? errorData.code,
+      // 422 字段级明细透出（无 errors 字段则保持 undefined，既有行为不变）
+      errorData.errors,
     );
   }
 

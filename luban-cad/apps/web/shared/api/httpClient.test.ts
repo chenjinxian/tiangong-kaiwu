@@ -67,4 +67,23 @@ describe('fetchWithAuth', () => {
     mockFetch.mockResolvedValue(new Response('not json', { status: 500 }));
     await expect(fetchWithAuth('/itwins')).rejects.toMatchObject({ message: 'HTTP 500' });
   });
+
+  it('422 顶层 errors 透出为 ApiError.details（字段级明细）', async () => {
+    const errors = { displayName: '显示名过长', description: '描述含非法字符' };
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { code: 'ValidationError', message: '校验失败' }, errors }), { status: 422 }),
+    );
+    const err = await fetchWithAuth('/itwins').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).statusCode).toBe(422);
+    expect((err as ApiError).code).toBe('ValidationError');
+    expect((err as ApiError).message).toBe('校验失败');
+    expect((err as ApiError).details).toEqual(errors);
+
+    // 无顶层 errors 时 details 缺省——既有 message/code 行为不变
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ message: '旧消息' }), { status: 422 }));
+    const err2 = await fetchWithAuth('/itwins').catch((e: unknown) => e);
+    expect((err2 as ApiError).message).toBe('旧消息');
+    expect((err2 as ApiError).details).toBeUndefined();
+  });
 });

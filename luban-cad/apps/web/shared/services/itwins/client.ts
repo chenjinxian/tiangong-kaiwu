@@ -19,6 +19,38 @@ export { ApiError as ITwinsApiError } from '../../api/httpClient.js';
 
 const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
 
+// ============================================================================
+// 列表翻页聚合（Sync S2）：后端列表默认 $top=10（clamp ≤200）且满页时给
+// _links.next（绝对 URL）——首页直接要 $top=200，仍有 next 则裸跟绝对 URL，
+// 硬帽 5 跳防失控环（200×6≈1200 条上界）。
+// ============================================================================
+
+const LIST_PAGE_SIZE = 200;
+const MAX_FOLLOW_PAGES = 5;
+
+interface ITwinsPage {
+  iTwins?: ITwin[];
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- 后端线格式字面 _links
+  _links?: { next?: { href?: string } };
+}
+
+/** 聚合跟页：沿首页响应体的 _links.next.href 续取，至多 cap 跳 */
+async function followNextLinks(
+  firstPage: ITwinsPage,
+  cap: number = MAX_FOLLOW_PAGES,
+): Promise<ITwin[]> {
+  const items: ITwin[] = [...(firstPage.iTwins ?? [])];
+  let next = firstPage._links?.next?.href;
+  for (let followed = 0; next && followed < cap; followed += 1) {
+    // next 已是绝对 URL：传 baseUrl='' 让 fetchWithAuth 原样使用（仍带 Bearer/401 刷新）
+    const response = await fetchWithAuth(next, { baseUrl: '' });
+    const page = (await response.json()) as ITwinsPage;
+    items.push(...(page.iTwins ?? []));
+    next = page._links?.next?.href;
+  }
+  return items;
+}
+
 /**
  * Get a single iTwin by ID with proper 404 handling
  * Falls back to raw fetch if SDK returns generic error
@@ -63,18 +95,17 @@ export async function queryITwins(
   _subClass: ITwinSubClass = ITwinSubClass.Project,
   search?: string
 ): Promise<ITwin[]> {
-  const params = new URLSearchParams();
   // Note: imodelhub-service stores 'subclass' as empty string, so we filter by 'class' instead
-  params.append('class', 'Project');
+  // OData 风格 $top/$search 手工拼（URLSearchParams 会把 $ 编码成 %24，后端虽兼容但线上不直观）
+  let query = `class=Project&$top=${LIST_PAGE_SIZE}`;
   if (search) {
-    params.append('$search', search);
+    query += `&$search=${encodeURIComponent(search)}`;
   }
 
-  const response = await fetchWithAuth(`/itwins?${params.toString()}`);
-  const data = await response.json();
+  const response = await fetchWithAuth(`/itwins?${query}`);
+  const firstPage = (await response.json()) as ITwinsPage;
 
-  // Backend returns { iTwins: [...] }
-  return data.iTwins || [];
+  return followNextLinks(firstPage);
 }
 
 /**
@@ -89,7 +120,8 @@ export async function createITwin(data: {
     method: 'POST',
     body: JSON.stringify({
       displayName: data.displayName,
-      subClass: data.subClass || ITwinSubClass.Project,
+      // 后端 DTO 字段是小写 subclass（白名单静默剥离 subClass → DB 落空串）
+      subclass: data.subClass || ITwinSubClass.Project,
       description: data.description,
     }),
   });
@@ -131,18 +163,18 @@ export async function deleteITwin(iTwinId: string): Promise<void> {
  * Query favorite iTwins
  */
 export async function queryFavoriteITwins(): Promise<ITwin[]> {
-  const response = await fetchWithAuth('/itwins/favorites');
-  const data = await response.json();
-  return data.iTwins || [];
+  const response = await fetchWithAuth(`/itwins/favorites?$top=${LIST_PAGE_SIZE}`);
+  const firstPage = (await response.json()) as ITwinsPage;
+  return followNextLinks(firstPage);
 }
 
 /**
  * Query recent iTwins
  */
 export async function queryRecentITwins(): Promise<ITwin[]> {
-  const response = await fetchWithAuth('/itwins/recents');
-  const data = await response.json();
-  return data.iTwins || [];
+  const response = await fetchWithAuth(`/itwins/recents?$top=${LIST_PAGE_SIZE}`);
+  const firstPage = (await response.json()) as ITwinsPage;
+  return followNextLinks(firstPage);
 }
 
 /**
