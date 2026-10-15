@@ -35,7 +35,9 @@ export function createApp(config: BffConfig): Express {
   const app = express();
   app.disable('x-powered-by');
   // Behind nginx: honor X-Forwarded-For for client IP (rate limit per real client).
-  app.set('trust proxy', true);
+  // 只信 nginx 一跳：trust proxy=1 时 req.ip 取最右非可信代理（真实客户端），
+  // 防止客户端自带 X-Forwarded-For 伪造最左值绕过按 IP 令牌桶（RW1 终审裁决）。
+  app.set('trust proxy', 1);
 
   const validateToken = createTokenValidator(config.authUrl, config.authCacheTtlMs);
 

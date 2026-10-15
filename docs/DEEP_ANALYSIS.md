@@ -470,6 +470,8 @@ export const sanitizeInput = (req, res, next) => {
 
 > 已知 P1 缺口（RW1-T2 登记）：**/ipc 长连接 token 不重验**——WS Upgrade 的 JWT 验签（`verifyClient`，`main.ts:172`）只发生在握手一刻，连接存续期内不随 token 过期/吊销重验；`/ipc` 为编辑管道长连接，挂载后风险敞口持续存在。待 RW1 后续任务或专门会话收口（候选：短 TTL + 周期性重验消息、或 leases/关键 op 处补验）。
 
+> 已知 P1 残留债务（RW1 终审 2026-10-15 登记）：**同族任意路径 IO 变体未清**——`readExternalSavedViews`/`writeExternalSavedViews`/`readExternalCameraPaths`/`writeExternalCameraPaths`（`modeling-server/src/rpc/export-gltf.ts:80-90` + `OpenCloudRpcImpl.ts:133-157`）仍是「调用方给路径→字符串手术→裸 fs 读写」形态（`createCameraPathsFilename('../../x.bim')`→`'../../x_cameraPaths.json'` 任意路径读写，仅受固定后缀约束）。T1 guard 已压到已认证面、前端零消费已实证（luban-cad 内仅接口声明命中）。建议处置：直接删（零消费）或 basename 化+目录囚禁。归 RW2 或安全专项收口。
+
 ### 8.2 功能债
 
 - **mock API**：`compareChangesets` 返回 mock 空数据（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:119-128`，"For now, return mock data" + 全 0 计数）；`exportToGltf` 产出 buffers/accessors 为空的 JSON 壳（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:166-230`）。处置：实现或下线/标注 experimental【P1】。
