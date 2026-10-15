@@ -84,9 +84,25 @@ Sync S4-S6：私有仓适配（预签名主机改写层+SDK 收紧+cosmetic）�
 ### RW2 CAD 核心收敛（CAD 线）
 - D7 破坏式编辑打标（overridden 标记+暂停再生——两套心智隔离带）
 - **op DSL v1**：FeatureOp 链↔可读 DSL/JSON 脚本双向序列化（命名参数+注释位）——序列化格式而非语言（裁决#1）
-- 特征类型扩展第一批：revolve/chamfer/shell/pattern 特征化（直改工具收编）：4→8 类型
+- 特征类型扩展第一批：chamfer/shell 特征化（直改工具收编，本波实施：4→6 类型）；revolve/pattern 勘察定级中/深，本波只定案立项（立项卡见下）
 - 顺手清债：UndoManager 假成功 no-op、PatternTools ID bug、PatternCommand 死码注册、deleteSketch op
 **门**：demo-flow 扩幕（新类型）+ op DSL 往返恒等测试。
+
+#### revolve/pattern 定案（RW2-T8；两型均下一波次启动，本波不实施——R8 范围门禁）
+
+**revolve 立项卡（工作量=中）**
+- 内核通道：SpinFaces=21，走异步通道（镜像 fillet 的 evaluate*Async / EvalCarrier scratch 范式）。
+- 主要阻塞点：轮廓→片体造形问题——SpinFaces 的输入形态是剖面轮廓，轮廓到实体造形的语义需先小步实证（勘察实证），这是工作量中定级的主要不确定项。
+- 前端：无现存工具；上游 SpinFacesTool 存在但未注册，收编成本低于新写。
+- 依赖清单：RW2 判型泛化注册表驱动（新增类型零硬编码改）；chamfer/shell 已立的 zod schema/参数表单模式；既有拓扑寻址 RPC（resolveEdgeRef，及 T7 的 resolveFaceRef）形态。
+- 启动条件：①最小 SpinFaces 用例跑通（轮廓造形语义实证）②本波 chamfer/shell 落地稳定后。
+
+**pattern 立项卡（工作量=深）**
+- 内核通道：无内核 op——TransformSubEntity=23 只移动子实体、不复制，不能承阵列生成语义。
+- 生成语义定案（勘察）：对阵列源=特征输出的 N 份变换拷贝逐次 Unite；同步路径可做——参数层变换轮廓点列 → 逐份 sweep → 链式 Unite。
+- 债务状态：零债（RW2-T3 已清 PatternTools ID bug + PatternCommand 死码删）。
+- 依赖清单：判型泛化注册表；阵列源寻址（特征输出引用，依赖 FeatureOp 参数层引用形态）；sweep 通道复用；布尔 Unite 通道现成。
+- 启动条件：①阵列生成语义小稿定案（计数/间距/方向/源引用四要素）②chamfer/shell 波次稳定后。
 
 ### RW3 AI 总线（AI 线一期，与 RW2 部分并行）
 - ai-service 新服务：agent harness（Plan→Act→Observe→Update；失败自动修≤5 次后停——Zookeeper 范式）

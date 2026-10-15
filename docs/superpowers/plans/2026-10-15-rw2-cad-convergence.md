@@ -169,8 +169,10 @@
 **Interfaces:**
 - Produces: revolve 立项卡（SpinFaces=21 异步通道+轮廓→片体造形问题+前端无现存工具——工作量与依赖清单）；pattern 立项卡（无内核 op+阵列生成语义+背负 PatternTools bug/PatternCommand 删后清零）——两型均显式「下一波次启动」
 
-- [ ] **Step 1**: revolve/pattern 定案文档（依赖/工作量/阻塞点/启动条件）
-- [ ] **Step 2**: Commit `docs: RW2 revolve/pattern 定案——下一波次立项卡（RW2-T8）`
+- [x] **Step 1**: revolve/pattern 定案文档（依赖/工作量/阻塞点/启动条件）
+- [x] **Step 2**: Commit `docs: RW2 revolve/pattern 定案——下一波次立项卡（RW2-T8）`
+
+**定案摘要（指向 spec）**：两型均显式「下一波次启动」，本波不实施（R8 范围门禁）。revolve=中工作量——内核 SpinFaces=21 异步通道范式现成，阻塞点在轮廓→片体造形语义待小步实证，前端收编上游未注册的 SpinFacesTool；pattern=深工作量——无内核 op（TransformSubEntity=23 只移动不复制），生成语义定案为「N 份变换拷贝逐次 Unite」（同步路径：参数层变换轮廓点列→逐份 sweep→链式 Unite），债务已清零（T3 两笔）。两卡完整依赖清单与启动条件见 spec「RW2 CAD 核心收敛」节内「revolve/pattern 定案」小节。
 
 ### Task RW2-9: RW2 验收门
 
