@@ -43,7 +43,13 @@ export interface AuthResponse {
 }
 
 export class AuthError extends Error {
-  constructor(message: string, public status: number) {
+  constructor(
+    message: string,
+    public status: number,
+    // hub 登录限流 429 时经 Retry-After-auth 头（秒）透出剩余封锁时长；
+    // 头缺席时为 undefined，消费方回落静态文案
+    public retryAfterSeconds?: number,
+  ) {
     super(message);
     this.name = 'AuthError';
   }
@@ -205,7 +211,16 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Login failed' }));
-    throw new AuthError(error.message || 'Login failed', response.status);
+    // 登录限流 429：@nestjs/throttler 命名桶（auth）经 Retry-After-auth 头返回
+    // 剩余封锁秒数（Fetch Headers.get 大小写不敏感，'retry-after-auth' 同一命中），
+    // 透出给 UI 做等待时长文案
+    const retryAfterHeader = response.headers.get('Retry-After-auth');
+    const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
+    throw new AuthError(
+      error.message || 'Login failed',
+      response.status,
+      retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined,
+    );
   }
 
   const data = await response.json() as {

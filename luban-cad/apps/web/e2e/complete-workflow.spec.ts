@@ -2,12 +2,14 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Complete E2E test for LubanCAD（UI 登录版）
+ * Complete E2E test for LubanCAD（会话注入版）
  * Full workflow: Login -> Create iTwin -> Create iModel -> Open Editor
+ * 登录步：loginWithSession 注入 auth.setup 产物，零登录请求——新版 imodelhub
+ * 登录限流 5 次/15min（IP+email 桶），UI 实时登录仅 login.spec 保留。
  */
 
 import { test, expect } from '@playwright/test';
-import { loginViaUI, deleteProjectViaApi, waitForEditorReady } from './helpers';
+import { loginWithSession, deleteProjectViaApi, waitForEditorReady } from './helpers';
 
 // Helper: Generate unique names to avoid conflicts
 const timestamp = Date.now();
@@ -21,9 +23,9 @@ test.describe('Complete E2E Workflow', () => {
     console.log(`🏗️  Project name: ${TEST_PROJECT_NAME}`);
     console.log(`📐 iModel name: ${TEST_IMODEL_NAME}`);
 
-    // Step 1: Login
-    console.log('📍 Step 1: Login');
-    await loginViaUI(page);
+    // Step 1: Login（会话注入——零登录请求，不占 imodelhub 登录限流桶）
+    console.log('📍 Step 1: Login (session injection)');
+    await loginWithSession(page);
     await expect(page.url()).toContain('/documents');
 
     // Step 2: Create new iTwin project

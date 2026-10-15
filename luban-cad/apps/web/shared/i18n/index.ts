@@ -16,6 +16,8 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import zhCommon from './locales/zh-CN/common.json';
 import enCommon from './locales/en/common.json';
+import zhAuth from './locales/zh-CN/auth.json';
+import enAuth from './locales/en/auth.json';
 
 export const LANGUAGE_STORAGE_KEY = 'luban-cad-lang';
 
@@ -24,8 +26,8 @@ void i18n
   .use(initReactI18next)
   .init({
     resources: {
-      'zh-CN': { common: zhCommon },
-      en: { common: enCommon },
+      'zh-CN': { common: zhCommon, auth: zhAuth },
+      en: { common: enCommon, auth: enAuth },
     },
     defaultNS: 'common',
     fallbackLng: 'zh-CN',

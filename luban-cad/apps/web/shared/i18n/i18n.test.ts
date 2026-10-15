@@ -35,6 +35,16 @@ describe('i18n 骨架', () => {
     await i18n.changeLanguage('zh-CN');
   });
 
+  it('auth 命名空间键命中（429 限流文案，Sync F2）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('login.error.rateLimited', { ns: 'auth' })).toBe('尝试过于频繁，请稍后再试');
+    expect(i18n.t('login.error.rateLimitedWithRetry', { ns: 'auth', minutes: 10 })).toBe(
+      '尝试过于频繁，请 10 分钟后再试',
+    );
+    await i18n.changeLanguage('en');
+    expect(i18n.t('login.error.rateLimited', { ns: 'auth' })).toBe('Too many attempts. Please try again later.');
+  });
+
   it('语言持久化键常量', () => {
     expect(LANGUAGE_STORAGE_KEY).toBe('luban-cad-lang');
   });

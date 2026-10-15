@@ -25,18 +25,12 @@ export const SEED_PROJECT_NAME = '测试项目';
  *  取库会误伤/误开；ASCII 名沿用本目录「中文只进文件常量」的编码纪律。 */
 export const E2E_IMODEL_NAME = 'E2E Seed';
 
-/** UI 登录（e2e 标准账号，与 fixtures.TEST_USER 一致）。
- *  仅登录流相关 spec 使用（login/complete-workflow/demo）—— 每次登录都是一次 MS HTTP
- *  请求，而 modeling-server 有全局 100 请求/15 分钟/IP 限流，滥用会 429 拖垮整套件。 */
-export async function loginViaUI(page: Page): Promise<void> {
-  await page.goto('/login');
-  await page.fill('input[type="email"]', 'test@example.com');
-  await page.fill('input[type="password"]', 'Test123!@#');
-  await page.getByRole('button', { name: /^登录$|登录中|Sign In/i }).first().click();
-  await page.waitForURL(/\/documents/, { timeout: 15000 });
-}
+/** UI 实时登录（goto /login + 表单提交）仅 login.spec 保留——新版 imodelhub 登录限流
+ *  5 次/15min（IP+email 桶，被拒计入窗口），其余 spec 一律走本会话注入（零登录请求）。
+ *  （旧 loginViaUI helper 曾服务 complete-workflow/demo，Sync F2 迁移后为零引用已删。） */
 
-/** 会话注入登录：复用 auth.setup 产物（playwright/.auth/session.json）注入 sessionStorage，
+/**
+ * 会话注入登录：复用 auth.setup 产物（playwright/.auth/session.json）注入 sessionStorage，
  *  免走登录表单 —— 常规 spec 的标准登录方式（不消耗 MS 限流额度，且更快）。
  *  依赖 config 中 setup project 先行（dependencies 保证）。 */
 export async function loginWithSession(page: Page): Promise<void> {

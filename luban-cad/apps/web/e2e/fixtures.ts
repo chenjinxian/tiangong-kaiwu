@@ -3,42 +3,17 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-import { test as baseTest, expect } from '@playwright/test';
-
 /**
  * Test user credentials for E2E testing
  * These should match the test user created in the development environment
+ *
+ * 常规 spec 的标准登录方式是会话注入（helpers.loginWithSession，复用 auth.setup
+ * 产物，零登录请求）——新版 imodelhub 登录限流 5 次/15min（IP+email 桶），UI 实时
+ * 登录仅 login.spec 保留。故此处不再提供页面级认证 fixture（authenticatedPage
+ * 曾为零引用的死代码，Sync F2 已删）。
  */
 export const TEST_USER = {
   email: 'test@example.com',
   password: 'Test123!@#',
   name: 'Test User',
 };
-
-/**
- * Extended test fixture with authentication
- */
-export const test = baseTest.extend<{
-  authenticatedPage: { page: typeof baseTest.prototype.page; user: typeof TEST_USER };
-}>({
-  // Provide authentication fixture
-  authenticatedPage: async ({ page }, use) => {
-    // Navigate to login page
-    await page.goto('/login');
-
-    // Fill in credentials
-    await page.fill('input[type="email"]', TEST_USER.email);
-    await page.fill('input[type="password"]', TEST_USER.password);
-
-    // Click login button
-    await page.click('button[type="submit"]');
-
-    // Wait for navigation to documents page
-    await page.waitForURL('**/documents');
-
-    // Use the authenticated page
-    await use({ page, user: TEST_USER });
-  },
-});
-
-export { expect } from '@playwright/test';

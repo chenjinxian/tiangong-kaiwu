@@ -9,8 +9,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  AuthError,
   clearStoredAuth,
   forgotPassword,
+  login,
   refreshToken,
   resetPassword,
   storeAuth,
@@ -132,5 +134,41 @@ describe('auth hub wire contract', () => {
     expect(body()).toEqual({ hash: 't-1', password: 'p-1' });
     expect(Object.prototype.hasOwnProperty.call(body(), 'token')).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(body(), 'newPassword')).toBe(false);
+  });
+});
+
+describe('login 429 限流契约（Sync F2）', () => {
+  beforeEach(() => {
+    // hub 登录桶超限：429 + Retry-After-auth（@nestjs/throttler 命名桶后缀头，
+    // 秒）；响应体为 {statusCode, message} 包络。
+    vi.stubGlobal('fetch', (async () => new Response(
+      JSON.stringify({ statusCode: 429, message: 'ThrottlerException: Too Many Requests' }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After-auth': '600' } },
+    )) as typeof fetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('429 时 AuthError 携带 status=429 与 Retry-After-auth 秒数', async () => {
+    const failure = await login({ email: 'a@b.c', password: 'x' }).catch((e: unknown) => e);
+
+    expect(failure).toBeInstanceOf(AuthError);
+    expect((failure as AuthError).status).toBe(429);
+    expect((failure as AuthError).retryAfterSeconds).toBe(600);
+  });
+
+  it('429 无 Retry-After-auth 头时 retryAfterSeconds 为 undefined（静态文案回落）', async () => {
+    vi.stubGlobal('fetch', (async () => new Response(
+      JSON.stringify({ statusCode: 429, message: 'ThrottlerException: Too Many Requests' }),
+      { status: 429, headers: { 'Content-Type': 'application/json' } },
+    )) as typeof fetch);
+
+    const failure = await login({ email: 'a@b.c', password: 'x' }).catch((e: unknown) => e);
+
+    expect(failure).toBeInstanceOf(AuthError);
+    expect((failure as AuthError).status).toBe(429);
+    expect((failure as AuthError).retryAfterSeconds).toBeUndefined();
   });
 });
