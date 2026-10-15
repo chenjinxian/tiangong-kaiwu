@@ -1,0 +1,2470 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "LubanCAD RpcInterface Contracts",
+    "version": "1.0.0",
+    "description": "Machine-generated from packages/shared RpcInterface definitions (scripts/generate-openapi.ts).\nDo not edit by hand; regenerate via `pnpm gen:openapi` and commit the result.\n\nExcluded from v1 (registered):\n- OpenCloudIpcInterface: non-RpcInterface IPC channel (IpcApp open-cloud-ipc), not HTTP-addressable.\n- Server-side zod registry (luban-backend FeatureTypeRegistry) op parameter schemas: later wave."
+  },
+  "paths": {
+    "/OpenCloudRpcInterface-1.0.0/acquireBriefcase": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-acquireBriefcase",
+        "summary": "Acquire a briefcase for an iModel This operation requires BriefcaseDb access on the backend",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefcaseInfo"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/releaseBriefcase": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-releaseBriefcase",
+        "summary": "Release a briefcase",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelId, briefcaseId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/pullChangesets": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-pullChangesets",
+        "summary": "Pull changesets for a briefcase",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelId, briefcaseId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChangesetInfo"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/pushChanges": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-pushChanges",
+        "summary": "Push changes to an iModel",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelId, briefcaseId, description",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangesetInfo"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/compareChangesets": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-compareChangesets",
+        "summary": "Compare two changesets and return differences",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelId, sourceChangesetId, targetChangesetId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangesetComparisonResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/readExternalSavedViews": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-readExternalSavedViews",
+        "summary": "Read external saved views from file Reference: display-test-app implementation",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: bimFileName",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/writeExternalSavedViews": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-writeExternalSavedViews",
+        "summary": "Write external saved views to file",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: bimFileName, namedViews",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/readExternalCameraPaths": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-readExternalCameraPaths",
+        "summary": "Read external camera paths from file",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: bimFileName",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/writeExternalCameraPaths": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-writeExternalCameraPaths",
+        "summary": "Write external camera paths to file",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: bimFileName, cameraPaths",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/exportIModel": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-exportIModel",
+        "summary": "Export iModel to GLTF format Returns file content as bytes",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelId, format",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "GLTF"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/getConfiguration": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-getConfiguration",
+        "summary": "Get application configuration from backend",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: (none)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/terminate": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-terminate",
+        "summary": "Terminate backend (for graceful shutdown)",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: (none)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/startEditCommand": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-startEditCommand",
+        "summary": "Start an edit command on the backend This integrates with",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: commandId, iModelKey, ...args",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {}
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/callEditMethod": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-callEditMethod",
+        "summary": "Call a method on the active edit command",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: methodName, ...args",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {}
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/finishEditCommand": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-finishEditCommand",
+        "summary": "Finish the current edit command",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: (none)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/detectConflicts": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-detectConflicts",
+        "summary": "Detect conflicts before pulling changesets. Checks for conflicts between local pending changes and remote changesets.",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DetectConflictsRequest"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictDetectionResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/resolveConflicts": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-resolveConflicts",
+        "summary": "Resolve conflicts after detection. Applies the specified resolutions to conflicts and prepares for pull.",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ResolveConflictsRequest"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveConflictsResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/OpenCloudRpcInterface-1.0.0/hasLocalChanges": {
+      "post": {
+        "operationId": "OpenCloudRpcInterface-1.0.0-hasLocalChanges",
+        "summary": "Check if there are local pending changes that haven't been pushed.",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelId, briefcaseId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/getFeatureTree": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-getFeatureTree",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FeatureTreeEntry"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/applyFeatureOp": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-applyFeatureOp",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, op, sessionId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FeatureOp"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureOpResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/acquireWriteLease": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-acquireWriteLease",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, sessionId, user?",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "holder": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/releaseWriteLease": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-releaseWriteLease",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, sessionId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/previewFeatureOp": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-previewFeatureOp",
+        "summary": "M3-a v1.1：op 预览（不提交事务，回报受影响特征）",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, op, sessionId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FeatureOp"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/resolveEdgeRef": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-resolveEdgeRef",
+        "summary": "M3-a v1.1：拾取元素子实体 → 邻面对边引用（edgeRefs 表单值的寻址端点）",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, elementId, subEntityId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "ref": {
+                      "$ref": "#/components/schemas/FilletEdgeRef"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/getFeatureFormModel": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-getFeatureFormModel",
+        "summary": "M3-a v1.1：按特征类型取参数表单模型（前端动态渲染）",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFormModel"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/getSketch": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-getSketch",
+        "summary": "M3-b v1.2：读单张草图（实体+约束+解算状态；不存在返回 undefined）",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, sketchId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchDto",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.2.0/listSketches": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.2.0-listSketches",
+        "summary": "M3-b v1.2：列 iModel 内全部草图（摘要读面）",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SketchSummaryDto"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RpcError": {
+        "type": "object",
+        "properties": {
+          "errorNumber": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "description": "Standard iTwin.js RpcRequest rejection payload"
+      },
+      "BriefcaseInfo": {
+        "type": "object",
+        "properties": {
+          "briefcaseId": {
+            "type": "number"
+          },
+          "iModelId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "acquiredDateTime": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "number"
+          },
+          "deviceName": {
+            "type": "string"
+          },
+          "applicationId": {
+            "type": "string"
+          },
+          "applicationName": {
+            "type": "string"
+          },
+          "_links": {
+            "$ref": "#/components/schemas/BriefcaseLinks"
+          }
+        },
+        "required": [
+          "briefcaseId",
+          "iModelId",
+          "userId",
+          "acquiredDateTime"
+        ]
+      },
+      "ChangesetInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "index": {
+            "type": "number"
+          },
+          "parentId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "briefcaseId": {
+            "type": "number"
+          },
+          "creatorId": {
+            "type": "string"
+          },
+          "pushDateTime": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "number"
+          },
+          "_links": {
+            "$ref": "#/components/schemas/ChangesetLinks"
+          }
+        },
+        "required": [
+          "id",
+          "index",
+          "briefcaseId"
+        ]
+      },
+      "ChangesetComparisonResult": {
+        "type": "object",
+        "properties": {
+          "featureAvailable": {
+            "type": "boolean"
+          },
+          "sourceChangesetId": {
+            "type": "string"
+          },
+          "targetChangesetId": {
+            "type": "string"
+          },
+          "addedCount": {
+            "type": "number"
+          },
+          "modifiedCount": {
+            "type": "number"
+          },
+          "deletedCount": {
+            "type": "number"
+          },
+          "changedElements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangedElement"
+            }
+          },
+          "totalBytesChanged": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "sourceChangesetId",
+          "targetChangesetId",
+          "addedCount",
+          "modifiedCount",
+          "deletedCount",
+          "changedElements"
+        ]
+      },
+      "DetectConflictsRequest": {
+        "type": "object",
+        "properties": {
+          "iModelId": {
+            "type": "string"
+          },
+          "briefcaseId": {
+            "type": "number"
+          },
+          "targetChangesetId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "iModelId",
+          "briefcaseId",
+          "targetChangesetId"
+        ]
+      },
+      "ConflictDetectionResult": {
+        "type": "object",
+        "properties": {
+          "featureAvailable": {
+            "type": "boolean"
+          },
+          "hasConflicts": {
+            "type": "boolean"
+          },
+          "totalConflicts": {
+            "type": "number"
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Conflict"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "modifyModify": {
+                "type": "number"
+              },
+              "deleteModify": {
+                "type": "number"
+              },
+              "modifyDelete": {
+                "type": "number"
+              },
+              "addAdd": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "modifyModify",
+              "deleteModify",
+              "modifyDelete",
+              "addAdd"
+            ]
+          },
+          "targetChangesetId": {
+            "type": "string"
+          },
+          "currentChangesetId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hasConflicts",
+          "totalConflicts",
+          "conflicts",
+          "summary",
+          "targetChangesetId",
+          "currentChangesetId"
+        ]
+      },
+      "ResolveConflictsRequest": {
+        "type": "object",
+        "properties": {
+          "iModelId": {
+            "type": "string"
+          },
+          "briefcaseId": {
+            "type": "number"
+          },
+          "resolutions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "local",
+                "remote",
+                "merged",
+                "manual"
+              ]
+            }
+          },
+          "manualValues": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ConflictElementProps"
+            }
+          }
+        },
+        "required": [
+          "iModelId",
+          "briefcaseId",
+          "resolutions"
+        ]
+      },
+      "ResolveConflictsResult": {
+        "type": "object",
+        "properties": {
+          "featureAvailable": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "resolvedCount": {
+            "type": "number"
+          },
+          "unresolvedConflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Conflict"
+            }
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "resolvedCount"
+        ]
+      },
+      "FeatureTreeEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "featureType": {
+            "type": "string"
+          },
+          "orderKey": {
+            "type": "number"
+          },
+          "suppressed": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "number"
+          },
+          "params": {}
+        },
+        "required": [
+          "id",
+          "featureType",
+          "orderKey",
+          "suppressed",
+          "status",
+          "params"
+        ]
+      },
+      "FeatureOp": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "insertFeature"
+                ]
+              },
+              "featureType": {
+                "type": "string",
+                "enum": [
+                  "extrude",
+                  "booleanAdd",
+                  "booleanSubtract",
+                  "fillet"
+                ]
+              },
+              "params": {
+                "$ref": "#/components/schemas/FeatureParams"
+              }
+            },
+            "required": [
+              "kind",
+              "featureType",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "updateParams"
+                ]
+              },
+              "featureId": {
+                "type": "string"
+              },
+              "params": {
+                "$ref": "#/components/schemas/FeatureParams"
+              }
+            },
+            "required": [
+              "kind",
+              "featureId",
+              "params"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "deleteFeature"
+                ]
+              },
+              "featureId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "featureId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "setFeatureSuppressed"
+                ]
+              },
+              "featureId": {
+                "type": "string"
+              },
+              "suppressed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "featureId",
+              "suppressed"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reorderFeature"
+                ]
+              },
+              "featureId": {
+                "type": "string"
+              },
+              "to": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "featureId",
+              "to"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "updateSketchConstraint"
+                ]
+              },
+              "sketchId": {
+                "type": "string"
+              },
+              "constraintId": {
+                "type": "number"
+              },
+              "value": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "sketchId",
+              "constraintId",
+              "value"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "insertSketch"
+                ]
+              },
+              "entities": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SketchEntityDto"
+                }
+              },
+              "constraints": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SketchConstraintDto"
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "entities",
+              "constraints"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "updateSketch"
+                ]
+              },
+              "sketchId": {
+                "type": "string"
+              },
+              "entities": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SketchEntityDto"
+                }
+              },
+              "constraints": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SketchConstraintDto"
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "sketchId",
+              "entities",
+              "constraints"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "undo"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "redo"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        ]
+      },
+      "FeatureOpResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "featureId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ok",
+              "error"
+            ]
+          }
+        ]
+      },
+      "PreviewResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "affected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "featureId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "featureId",
+                "status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "affected"
+        ]
+      },
+      "FilletEdgeRef": {
+        "type": "object",
+        "properties": {
+          "faceA": {
+            "$ref": "#/components/schemas/LubanTopologyId"
+          },
+          "faceB": {
+            "$ref": "#/components/schemas/LubanTopologyId"
+          }
+        },
+        "required": [
+          "faceA",
+          "faceB"
+        ]
+      },
+      "FeatureFormModel": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/FeatureFormModelEntry"
+        }
+      },
+      "SketchDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SketchEntityDto"
+            }
+          },
+          "constraints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SketchConstraintDto"
+            }
+          },
+          "solve": {
+            "$ref": "#/components/schemas/SketchSolveStateDto"
+          }
+        },
+        "required": [
+          "id",
+          "entities",
+          "constraints",
+          "solve"
+        ]
+      },
+      "SketchSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entityCount": {
+            "type": "number"
+          },
+          "constraintCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "entityCount",
+          "constraintCount"
+        ]
+      },
+      "BriefcaseLinks": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "object",
+            "properties": {
+              "href": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "href"
+            ]
+          },
+          "creator": {
+            "type": "object",
+            "properties": {
+              "href": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "href"
+            ]
+          },
+          "application": {
+            "type": "object",
+            "properties": {
+              "href": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "href"
+            ]
+          }
+        }
+      },
+      "ChangesetLinks": {
+        "type": "object",
+        "properties": {
+          "download": {
+            "type": "object",
+            "properties": {
+              "href": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "href"
+            ]
+          },
+          "upload": {
+            "type": "object",
+            "properties": {
+              "href": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "href"
+            ]
+          }
+        }
+      },
+      "ChangedElement": {
+        "type": "object",
+        "properties": {
+          "elementId": {
+            "type": "string"
+          },
+          "className": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "changeType": {
+            "type": "string",
+            "enum": [
+              "added",
+              "modified",
+              "deleted"
+            ]
+          },
+          "propertyDifferences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PropertyDifference"
+            }
+          }
+        },
+        "required": [
+          "elementId",
+          "className",
+          "code",
+          "changeType"
+        ]
+      },
+      "Conflict": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "elementId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "modify-modify",
+              "delete-modify",
+              "modify-delete",
+              "add-add",
+              "delete-delete"
+            ]
+          },
+          "localVersion": {
+            "$ref": "#/components/schemas/ConflictElementProps"
+          },
+          "remoteVersion": {
+            "$ref": "#/components/schemas/ConflictElementProps"
+          },
+          "baseVersion": {
+            "$ref": "#/components/schemas/ConflictElementProps"
+          },
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "local",
+              "remote",
+              "merged",
+              "manual"
+            ]
+          },
+          "isResolved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "elementId",
+          "type",
+          "localVersion",
+          "remoteVersion",
+          "isResolved"
+        ]
+      },
+      "ConflictElementProps": {
+        "type": "object",
+        "properties": {
+          "elementId": {
+            "type": "string"
+          },
+          "className": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "geometry": {},
+          "properties": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "lastModifiedBy": {
+            "type": "string"
+          },
+          "lastModifiedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "elementId",
+          "className",
+          "code",
+          "properties"
+        ]
+      },
+      "FeatureParams": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ExtrudeParams"
+          },
+          {
+            "$ref": "#/components/schemas/FilletParams"
+          }
+        ]
+      },
+      "SketchEntityDto": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "point"
+                ]
+              },
+              "id": {
+                "type": "number"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "line"
+                ]
+              },
+              "id": {
+                "type": "number"
+              },
+              "p1": {
+                "type": "number"
+              },
+              "p2": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "p1",
+              "p2"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "circle"
+                ]
+              },
+              "id": {
+                "type": "number"
+              },
+              "center": {
+                "type": "number"
+              },
+              "radius": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "center"
+            ]
+          }
+        ]
+      },
+      "SketchConstraintDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "coincident",
+              "horizontal",
+              "vertical",
+              "parallel",
+              "perpendicular",
+              "equal",
+              "distance",
+              "radius"
+            ]
+          },
+          "id": {
+            "type": "number"
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "refs"
+        ]
+      },
+      "LubanTopologyId": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "number"
+          },
+          "entityId": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "nodeId",
+          "entityId"
+        ]
+      },
+      "FeatureFormModelEntry": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeatureFormField"
+            }
+          }
+        },
+        "required": [
+          "fields"
+        ]
+      },
+      "SketchSolveStateDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "underconstrained",
+              "conflicting",
+              "failed"
+            ]
+          },
+          "dof": {
+            "type": "number"
+          },
+          "failedConstraintIds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "conflictingRank": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "redundant": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "dof",
+          "failedConstraintIds",
+          "conflictingRank"
+        ]
+      },
+      "PropertyDifference": {
+        "type": "object",
+        "properties": {
+          "propertyName": {
+            "type": "string"
+          },
+          "oldValue": {},
+          "newValue": {}
+        },
+        "required": [
+          "propertyName",
+          "oldValue",
+          "newValue"
+        ]
+      },
+      "ExtrudeParams": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "distance": {
+            "type": "number"
+          },
+          "sketchId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile",
+          "distance"
+        ]
+      },
+      "FilletParams": {
+        "type": "object",
+        "properties": {
+          "radius": {
+            "type": "number"
+          },
+          "propagateSmooth": {
+            "type": "boolean"
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilletEdgeRef"
+            }
+          }
+        },
+        "required": [
+          "radius",
+          "propagateSmooth",
+          "edges"
+        ]
+      },
+      "FeatureFormField": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "number",
+              "json",
+              "boolean",
+              "edgeRefs",
+              "readonlyText"
+            ]
+          },
+          "readOnly": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "kind"
+        ]
+      }
+    }
+  },
+  "x-luban-excluded": [
+    {
+      "interface": "OpenCloudIpcInterface",
+      "file": "luban-cad/packages/shared/src/OpenCloudIpcInterface.ts",
+      "reason": "非 RpcInterface 形态（IpcApp 自定义 IPC 通道），v1 显式排除"
+    }
+  ],
+  "x-luban-sources": [
+    "luban-cad/packages/shared/src/rpc/OpenCloudRpcInterface.ts",
+    "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts"
+  ],
+  "x-luban-warnings": []
+}

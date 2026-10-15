@@ -1,7 +1,12 @@
 {
   "name": "luban-cad",
   "private": true,
+  "scripts": {
+    "gen:openapi": "tsx ../scripts/generate-openapi.ts"
+  },
   "devDependencies": {
-    "playwright-core": "^1.59.0"
+    "playwright-core": "^1.59.0",
+    "tsx": "^4.22.5",
+    "typescript": "~5.6.2"
   }
 }
