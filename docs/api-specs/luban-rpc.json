@@ -845,9 +845,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/getFeatureTree": {
+    "/LubanFeatureRpcInterface-1.3.0/getFeatureTree": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-getFeatureTree",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-getFeatureTree",
         "requestBody": {
           "required": true,
           "description": "Positional parameters: iModelKey",
@@ -893,9 +893,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/applyFeatureOp": {
+    "/LubanFeatureRpcInterface-1.3.0/applyFeatureOp": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-applyFeatureOp",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-applyFeatureOp",
         "requestBody": {
           "required": true,
           "description": "Positional parameters: iModelKey, op, sessionId",
@@ -944,9 +944,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/acquireWriteLease": {
+    "/LubanFeatureRpcInterface-1.3.0/acquireWriteLease": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-acquireWriteLease",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-acquireWriteLease",
         "requestBody": {
           "required": true,
           "description": "Positional parameters: iModelKey, sessionId, user?",
@@ -1006,9 +1006,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/releaseWriteLease": {
+    "/LubanFeatureRpcInterface-1.3.0/releaseWriteLease": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-releaseWriteLease",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-releaseWriteLease",
         "requestBody": {
           "required": true,
           "description": "Positional parameters: iModelKey, sessionId",
@@ -1047,9 +1047,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/previewFeatureOp": {
+    "/LubanFeatureRpcInterface-1.3.0/previewFeatureOp": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-previewFeatureOp",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-previewFeatureOp",
         "summary": "M3-a v1.1：op 预览（不提交事务，回报受影响特征）",
         "requestBody": {
           "required": true,
@@ -1099,9 +1099,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/resolveEdgeRef": {
+    "/LubanFeatureRpcInterface-1.3.0/resolveEdgeRef": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-resolveEdgeRef",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-resolveEdgeRef",
         "summary": "M3-a v1.1：拾取元素子实体 → 邻面对边引用（edgeRefs 表单值的寻址端点）",
         "requestBody": {
           "required": true,
@@ -1165,9 +1165,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/getFeatureFormModel": {
+    "/LubanFeatureRpcInterface-1.3.0/getFeatureFormModel": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-getFeatureFormModel",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-getFeatureFormModel",
         "summary": "M3-a v1.1：按特征类型取参数表单模型（前端动态渲染）",
         "requestBody": {
           "required": true,
@@ -1211,9 +1211,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/getSketch": {
+    "/LubanFeatureRpcInterface-1.3.0/getSketch": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-getSketch",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-getSketch",
         "summary": "M3-b v1.2：读单张草图（实体+约束+解算状态；不存在返回 undefined）",
         "requestBody": {
           "required": true,
@@ -1265,9 +1265,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.2.0/listSketches": {
+    "/LubanFeatureRpcInterface-1.3.0/listSketches": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.2.0-listSketches",
+        "operationId": "LubanFeatureRpcInterface-1.3.0-listSketches",
         "summary": "M3-b v1.2：列 iModel 内全部草图（摘要读面）",
         "requestBody": {
           "required": true,
@@ -1814,6 +1814,24 @@
               "sketchId",
               "entities",
               "constraints"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "deleteSketch"
+                ]
+              },
+              "sketchId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "sketchId"
             ]
           },
           {

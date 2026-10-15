@@ -3,7 +3,8 @@
  * Licensed under the MIT License.
  *
  * 鲁班CAD 特征系统 RPC 接口（M1 roadmap T5.8；M3-a 升 v1.1：fillet + suppress/reorder/preview/表单模型；
- * M3-b 升 v1.2：insertSketch/updateSketch op + getSketch/listSketches 读面）。
+ * M3-b 升 v1.2：insertSketch/updateSketch op + getSketch/listSketches 读面；
+ * RW2-T3 升 v1.3：deleteSketch op（守卫：被任一特征引用即拒收））。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -42,6 +43,8 @@ export type FeatureOp =
   | { kind: "updateSketchConstraint"; sketchId: string; constraintId: number; value: number }
   | { kind: "insertSketch"; entities: SketchEntityDto[]; constraints: SketchConstraintDto[] }
   | { kind: "updateSketch"; sketchId: string; entities: SketchEntityDto[]; constraints: SketchConstraintDto[] }
+  /** RW2-T3 v1.3：删草图（守卫：被任一特征引用即拒收——服务端按 sketch→feature 边检查） */
+  | { kind: "deleteSketch"; sketchId: string }
   | { kind: "undo" } | { kind: "redo" };
 
 export interface FeatureTreeEntry {
@@ -92,7 +95,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.2.0";
+  public static interfaceVersion = "1.3.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

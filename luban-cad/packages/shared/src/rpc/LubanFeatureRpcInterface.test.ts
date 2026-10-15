@@ -25,7 +25,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.2.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.3.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -154,5 +154,28 @@ describe("M3-b v1.2 草图契约", () => {
   it("v1.2 新增 getSketch/listSketches RPC 方法挂在类原型", () => {
     expect(typeof LubanFeatureRpcInterface.prototype.getSketch).toBe("function");
     expect(typeof LubanFeatureRpcInterface.prototype.listSketches).toBe("function");
+  });
+});
+
+describe("RW2-T3 v1.3 deleteSketch 契约", () => {
+  it("FeatureOp 新增 deleteSketch 变体可构造（既有 9 分支不变）", () => {
+    const del: FeatureOp = { kind: "deleteSketch", sketchId: "sk-1" };
+    expect(del.kind).toBe("deleteSketch");
+    expect(del.sketchId).toBe("sk-1");
+    expectTypeOf<Extract<FeatureOp, { kind: "deleteSketch" }>>().toEqualTypeOf<{ kind: "deleteSketch"; sketchId: string }>();
+    // 既有 9 分支仍可赋值（回归锁）
+    const legacy: FeatureOp[] = [
+      { kind: "insertFeature", featureType: "extrude", params: { profile: [], distance: 1 } },
+      { kind: "updateParams", featureId: "f1", params: { profile: [], distance: 1 } },
+      { kind: "deleteFeature", featureId: "f1" },
+      { kind: "setFeatureSuppressed", featureId: "f1", suppressed: false },
+      { kind: "reorderFeature", featureId: "f1", to: 1 },
+      { kind: "updateSketchConstraint", sketchId: "sk-1", constraintId: 10, value: 5 },
+      { kind: "insertSketch", entities: [], constraints: [] },
+      { kind: "updateSketch", sketchId: "sk-1", entities: [], constraints: [] },
+      { kind: "undo" },
+      { kind: "redo" },
+    ];
+    expect(legacy).toHaveLength(10);
   });
 });

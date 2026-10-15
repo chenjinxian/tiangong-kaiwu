@@ -18,13 +18,13 @@
 | iModel | `features/imodel/` | ✅ 模型管理 |
 | Editor | `features/editor/` | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口） |
 | Sketch | `features/sketch/` | ✅ 草图编辑（M3-b：线/矩形/圆绘制+约束/尺寸工具链+DOF/矛盾面板+先试算后提交） |
-| Modeling | `features/modeling/` | 🟠 实体建模（PatternTools ID 收集 bug；PatternCommand 未注册）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService） |
+| Modeling | `features/modeling/` | 🟠 实体建模（阵列走前端直改通道）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService） |
 | Markup | `features/markup/` | ❌ 降级占位（`@itwin/core-markup` 依赖未配置——启用前需先补 workspace 依赖解析，T2.3 裁决：不预引依赖，等真实需求） |
 | Measurement | `features/measurement/` | ✅ 测量工具 |
 | View Clip | `features/view-clip/` | ✅ 视图裁剪 |
 | AccuDraw | `features/accudraw/` | ✅ 精确绘图 |
 | Version Control | `features/version-control/` | 🟠 Changeset/Named Version 可用；冲突检测 🟠（mock 数据）、冲突解决 ⚪（no-op 标记） |
-| **Pattern (阵列)** | `features/modeling/PatternTools.ts` + `modeling-server/src/commands/PatternCommand.ts`（后端源码在**仓外私有仓 luban-backend**，产物经公开仓 `scripts/fetch-backend.ps1` 拉取；已净化、未注册） | 🟠 线性/圆形阵列（ID 收集 bug） |
+| **Pattern (阵列)** | `features/modeling/PatternTools.ts`（前端 `basicManipulationIpc.insertGeometricElement` 直改通道；后端 PatternCommand 死码已删 RW2-T3，全私有仓零引用） | ✅ 线性/圆形阵列（ID 收集 bug 已修+回归测试，RW2-T3） |
 
 完整能力矩阵见 platform-docs/STATUS.md（状态标记：✅/🟠/⚪/❌）
 

@@ -5,7 +5,7 @@
 
 import { Angle, Matrix3d, Point2d, Point3d, Transform, Vector3d, YawPitchRollAngles } from '@itwin/core-geometry';
 import { CopyElementsTool } from '@itwin/editor-frontend';
-import { Id64Arg, Id64Array, Id64String } from '@itwin/core-bentley';
+import { Id64Arg, Id64Array } from '@itwin/core-bentley';
 import { Code, GeometricElementProps, isPlacement2dProps, Placement2d, Placement3d } from '@itwin/core-common';
 import { basicManipulationIpc } from '@itwin/editor-frontend';
 import { EditTools } from '@itwin/editor-frontend';
@@ -96,8 +96,6 @@ export class LinearPatternTool extends CopyElementsTool {
 
         if (!placement.isValid) continue;
 
-        let newId: Id64String | undefined;
-
         // Create multiple copies along direction
         for (let i = 1; i < this.patternCount; i++) {
           const offset = dirVector.scale(this.patternSpacing * i);
@@ -128,10 +126,10 @@ export class LinearPatternTool extends CopyElementsTool {
             (newProps as any).userLabel = `${props.userLabel}_Pattern_${i}`;
           }
 
-          newId = await basicManipulationIpc.insertGeometricElement(newProps);
+          // RW2-T3：每个副本的 id 都要入 newIds（旧实现循环外只收末个，replaceAgenda 漏选其余副本）
+          const created = await basicManipulationIpc.insertGeometricElement(newProps);
+          if (created) newIds.push(created);
         }
-
-        if (newId) newIds.push(newId);
       }
 
       return newIds.length > 0 ? newIds : undefined;
@@ -279,8 +277,6 @@ export class CircularPatternTool extends CopyElementsTool {
           ? Point3d.createFrom(placement.origin)
           : Point3d.create(placement.origin.x, placement.origin.y, 0);
 
-        let newId: Id64String | undefined;
-
         // Create multiple copies around center
         for (let i = 1; i < this.patternCount; i++) {
           const angle = Angle.createRadians(angleStep.radians * i);
@@ -328,10 +324,10 @@ export class CircularPatternTool extends CopyElementsTool {
             (newProps as any).userLabel = `${props.userLabel}_Circular_${i}`;
           }
 
-          newId = await basicManipulationIpc.insertGeometricElement(newProps);
+          // RW2-T3：每个副本的 id 都要入 newIds（旧实现循环外只收末个，replaceAgenda 漏选其余副本）
+          const created = await basicManipulationIpc.insertGeometricElement(newProps);
+          if (created) newIds.push(created);
         }
-
-        if (newId) newIds.push(newId);
       }
 
       return newIds.length > 0 ? newIds : undefined;
