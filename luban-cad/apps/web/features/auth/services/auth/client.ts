@@ -283,7 +283,15 @@ export async function logout(accessToken: string | null, refreshToken?: string |
 export async function refreshToken(refreshTokenValue: string): Promise<AuthTokens> {
   const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      // Backend guards this route with AuthGuard('jwt-refresh') reading
+      // fromAuthHeaderAsBearerToken() — without this header the refresh is
+      // a guaranteed 401 (silent logout on every access-token expiry).
+      // Lowercase key: HTTP headers are case-insensitive, and the repo lint
+      // naming-convention (camelCase) rejects the capitalized form.
+      'authorization': `Bearer ${refreshTokenValue}`,
+    },
     body: JSON.stringify({ refreshToken: refreshTokenValue }),
   });
 
@@ -465,7 +473,7 @@ export interface ResetPasswordRequest {
  * Request password reset email
  */
 export async function forgotPassword(data: ForgotPasswordRequest): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot/password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -481,10 +489,12 @@ export async function forgotPassword(data: ForgotPasswordRequest): Promise<void>
  * Reset password with token
  */
 export async function resetPassword(data: ResetPasswordRequest): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+  const response = await fetch(`${API_BASE_URL}/auth/reset/password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    // Backend DTO is { hash, password }; the client-facing field names
+    // (token/newPassword) map onto it here to keep the exported signature.
+    body: JSON.stringify({ hash: data.token, password: data.newPassword }),
   });
 
   if (!response.ok) {
