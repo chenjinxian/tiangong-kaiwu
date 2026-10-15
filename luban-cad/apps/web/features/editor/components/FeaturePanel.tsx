@@ -252,9 +252,10 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
     [runOp],
   );
 
-  /** 撤销/重做（特征 OpLog 通道）：后端 applyOp undo/redo 的 UI 入口（M1 栈语义，仅
+  /** 特征撤销/重做（特征 OpLog 通道）：后端 applyOp undo/redo 的 UI 入口（M1 栈语义，仅
    *  updateParams 可逆——其余 opType 遇 undo 报「无可撤销」）。v1 无 canUndo 读面：
-   *  按钮恒可用，失败文案走 runOp 的 Alert+toast 通道（不预判、不留哑按钮）。 */
+   *  按钮恒可用，失败文案走 runOp 的 Alert+toast 通道（不预判、不留哑按钮）。
+   *  RW2-T2 文案分立：此处=「特征撤销」，勿与 UndoRedoToolbar 的「编辑撤销」混同。 */
   const handleUndo = useCallback(() => {
     void runOp({ kind: 'undo' });
   }, [runOp]);
@@ -403,7 +404,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           <IconButton
             size="small"
             styleType="borderless"
-            label="撤销"
+            label="特征撤销"
             onClick={handleUndo}
             disabled={readOnly}
           >
@@ -412,7 +413,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           <IconButton
             size="small"
             styleType="borderless"
-            label="重做"
+            label="特征重做"
             onClick={handleRedo}
             disabled={readOnly}
           >

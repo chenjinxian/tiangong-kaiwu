@@ -109,8 +109,8 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
 
   return (
     <div className={`undo-redo-toolbar ${className}`}>
-      {/* Undo Button */}
-      <Tooltip content={`撤销${undoLabel ? `: ${undoLabel}` : ''} (Ctrl+Z)`} placement="bottom">
+      {/* Undo Button —— 编辑事务栈（briefcase txns），与 FeaturePanel 的「特征撤销」分立 */}
+      <Tooltip content={`编辑撤销${undoLabel ? `: ${undoLabel}` : ''} (Ctrl+Z)`} placement="bottom">
         <button
           type="button"
           className={`undo-redo-btn ${!canUndo ? 'disabled' : ''} ${isUndoing ? 'active' : ''}`}
@@ -122,7 +122,7 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
       </Tooltip>
 
       {/* Redo Button */}
-      <Tooltip content={`重做${redoLabel ? `: ${redoLabel}` : ''} (Ctrl+Shift+Z)`} placement="bottom">
+      <Tooltip content={`编辑重做${redoLabel ? `: ${redoLabel}` : ''} (Ctrl+Shift+Z)`} placement="bottom">
         <button
           type="button"
           className={`undo-redo-btn ${!canRedo ? 'disabled' : ''} ${isRedoing ? 'active' : ''}`}
