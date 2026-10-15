@@ -252,10 +252,11 @@ services:
   # 职责（零业务逻辑）：/api/* JWT 验证终结（hub /auth/me + 60s 缓存）→ 反代 MS；
   #   HUB 九前缀透传（不终结）；全局限流（内存令牌桶 100/15min/IP）；
   #   CORS 单点（同源为主 + dev origin 白名单）；/health。
-  # 路由（deploy/default.conf.template）：v1 默认仅 /api 经 BFF；
-  #   HUB 九前缀默认仍直达 HUB_UPSTREAM（行为同参数化前）——全量经 BFF 透传时
-  #   把 nginx 的 HUB_UPSTREAM 指到 luban-bff:4003（双跳：nginx→BFF→hub），
-  #   BFF 侧 HUB_UPSTREAM 此时须指回真实 hub。
+  # 路由（deploy/default.conf.template）：启用 = 根 .env/shell 设 nginx 的
+  #   BFF_UPSTREAM=luban-bff:4003（compose 缺省为 host.docker.internal:4001 直达
+  #   MS，BFF 未启用行为不变）；HUB 九前缀默认直达 HUB_UPSTREAM，全量经 BFF 透传
+  #   同法把 nginx 的 HUB_UPSTREAM 指到 luban-bff:4003（双跳，BFF 侧 HUB_UPSTREAM
+  #   指回真实 hub）。
   # /ws /ipc 永不经 BFF（WS 长连接直连 MS）。
   # ------------------------------------------------------------
   bff:
@@ -300,9 +301,10 @@ services:
       # 宿主形态（默认）host.docker.internal:4001；
       # 容器形态改 modeling-server:4001（根 .env 或 shell 覆盖）
       MS_UPSTREAM: ${MS_UPSTREAM:-host.docker.internal:4001}
-      # /api 上游：启用 BFF（默认）luban-bff:4003；BFF 未启用回退
-      # host.docker.internal:4001（直达 MS，行为同 RW1 前）
-      BFF_UPSTREAM: ${BFF_UPSTREAM:-luban-bff:4003}
+      # /api 上游缺省 host.docker.internal:4001 直达 MS（brief Step 3：
+      # BFF 未启用行为不变）；启用 BFF（本栈启用面）= 根 .env/shell 显式设
+      # BFF_UPSTREAM=luban-bff:4003；双形态见 deploy/default.conf.template 头注释
+      BFF_UPSTREAM: ${BFF_UPSTREAM:-host.docker.internal:4001}
       # HUB 九前缀上游：默认直达 hub（宿主形态）；hub 容器形态改
       # imodelhub:4000；全量经 BFF 透传改 luban-bff:4003（双跳，见 bff 注记）
       HUB_UPSTREAM: ${HUB_UPSTREAM:-host.docker.internal:4000}
@@ -317,6 +319,10 @@ services:
       imodelhub:
         condition: service_healthy
       azurite:
+        condition: service_healthy
+      # RW1-T3 fix R1：BFF_UPSTREAM 启用 luban-bff:4003 时，nginx 配置加载
+      # 需 bff 已入 Docker DNS，否则 [emerg] host not found crash-loop
+      bff:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]

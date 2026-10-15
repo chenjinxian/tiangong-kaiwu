@@ -6,8 +6,8 @@
 #         宿主形态（默认）: host.docker.internal:4001
 #         容器形态        : modeling-server:4001（--profile container）
 #       BFF_UPSTREAM（/api 上游——RW1-T3 BFF v1）
-#         启用 BFF（默认） : luban-bff:4003
-#         BFF 未启用回退  : host.docker.internal:4001（直达 MS，行为同 RW1 前）
+#         缺省（BFF 未启用）: host.docker.internal:4001（直达 MS，行为同 RW1 前）
+#         启用 BFF         : luban-bff:4003（compose 栈经根 .env/shell 显式设置）
 #       HUB_UPSTREAM（imodelhub 上游——RW1-T3 参数化，原为 9 处硬编码）
 #         宿主形态（默认）: host.docker.internal:4000
 #         容器形态        : imodelhub:4000
