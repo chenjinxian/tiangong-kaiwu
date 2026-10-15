@@ -29,6 +29,10 @@ const fakeClient = vi.hoisted(() => {
       ok: true,
       ref: { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 3, entityId: 4 } },
     }) as const),
+    resolveFaceRef: vi.fn(async (_key: string, _elementId: string, _subEntityId: number) => ({
+      ok: true,
+      ref: { nodeId: 5, entityId: 6 },
+    }) as const),
     getFeatureFormModel: vi.fn(async (_key: string): Promise<FeatureFormModel> => ({
       extrude: { fields: [{ name: 'distance', label: '距离', kind: 'number' }] },
       fillet: { fields: [{ name: 'radius', label: '半径', kind: 'number' }] },
@@ -355,6 +359,50 @@ describe('useFeatureSystem', () => {
       let resolved: Awaited<ReturnType<typeof result.current.resolveEdgeRef>> | undefined;
       await act(async () => {
         const pending = result.current.resolveEdgeRef('0x123', 7).then((r) => {
+          resolved = r;
+        });
+        await vi.advanceTimersByTimeAsync(16_000); // 越过 15s 超时预算
+        await pending;
+      });
+
+        expect(resolved?.ok).toBe(false);
+      expect(resolved?.error).toContain('超时');
+      expect(resolved?.error).toContain('重新拾取');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resolveFaceRef forwards elementId + subEntityId and returns the face topo id（RW2-T7）', async () => {
+    const connection = createMockConnection();
+
+    const { result } = renderFeatureSystem(connection);
+    await waitFor(() => expect(result.current.tree).toEqual(fakeClient.makeTree()));
+
+    let resolved: Awaited<ReturnType<typeof result.current.resolveFaceRef>> | undefined;
+    await act(async () => {
+      resolved = await result.current.resolveFaceRef('0x123', 9);
+    });
+
+    expect(fakeClient.resolveFaceRef).toHaveBeenCalledWith('test-model.bim', '0x123', 9);
+    expect(resolved?.ok).toBe(true);
+    expect(resolved?.ref).toEqual({ nodeId: 5, entityId: 6 });
+  });
+
+  it('resolveFaceRef 悬挂 RPC 超时转 ok:false（同 resolveEdgeRef 兜底口径）', async () => {
+    const connection = createMockConnection();
+    fakeClient.resolveFaceRef.mockImplementation(() => new Promise(() => {}));
+
+    vi.useFakeTimers();
+    try {
+      const { result } = renderFeatureSystem(connection);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      let resolved: Awaited<ReturnType<typeof result.current.resolveFaceRef>> | undefined;
+      await act(async () => {
+        const pending = result.current.resolveFaceRef('0x123', 9).then((r) => {
           resolved = r;
         });
         await vi.advanceTimersByTimeAsync(16_000); // 越过 15s 超时预算

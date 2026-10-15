@@ -39,9 +39,11 @@ export interface UseEdgeRefPicker {
   picking: boolean;
   /** 直通 options.edges（hook 不私存 ref 列表） */
   refs: FilletEdgeRef[];
-  start(): void;
-  stop(): void;
-  removeAt(index: number): void;
+  /** 属性式函数类型（非方法签名）：面板 `const stop = picker.stop` 直取不触 unbound-method
+   *  （2026-10-15 RW2-T7 顺修——原方法签名触发 @typescript-eslint/unbound-method 存量误报） */
+  start: () => void;
+  stop: () => void;
+  removeAt: (index: number) => void;
 }
 
 /** ref 序无关键（面对无序：{A,B} 与 {B,A} 是同一边——去重/反查共用） */

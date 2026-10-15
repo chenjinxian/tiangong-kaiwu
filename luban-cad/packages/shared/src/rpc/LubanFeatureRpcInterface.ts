@@ -5,13 +5,15 @@
  * 鲁班CAD 特征系统 RPC 接口（M1 roadmap T5.8；M3-a 升 v1.1：fillet + suppress/reorder/preview/表单模型；
  * M3-b 升 v1.2：insertSketch/updateSketch op + getSketch/listSketches 读面；
  * RW2-T3 升 v1.3：deleteSketch op（守卫：被任一特征引用即拒收）；
- * RW2-T6 升 v1.4：chamfer 特征类型（ChamferMode 0..4 + 双值倒角参数））。
+ * RW2-T6 升 v1.4：chamfer 特征类型（ChamferMode 0..4 + 双值倒角参数）；
+ * RW2-T7 升 v1.5：shell 特征类型（HollowFaces 抽壳：defaultDistance + 面拓扑 id 集 + distances）
+ * + resolveFaceRef 面寻址 RPC（拾取面缓存子实体 id → 持久拓扑 id））。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 
-/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer";
+/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell） */
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -49,7 +51,23 @@ export interface ChamferParams {
   values2?: number | number[];
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams;
+/**
+ * shell 参数（RW2-T7）：内核 HollowFaces=19 的消费形态（editor/common EditorBuiltInIpc.ts）。
+ * defaultDistance = 未列入 faces 的其余面的统一偏置距离；faces = 需单独定距的面持久拓扑 id 集
+ * （min 1；op32 facesFromId 求值期解析，面分裂时多片全入）；distances 标量（全部指定面同距）
+ * 或等长于 faces 的数组（逐面定距）——服务端求值器一律展开等长数组喂内核（blendEdges 探针
+ * 证伪的标量广播纪律，RW2-T6 起全异步类型遵守）。
+ * 【距离符号语义（内核注记）】正 = 沿面法向外扩、负 = 内缩、0 = 穿孔移除该面——故 defaultDistance
+ * 与 distances 值域为全体实数（含 0），形态校验不做正数约束（与 chamfer 正值域刻意不同）；
+ * 组合最终合法性由内核裁决（同 fillet/chamfer 引用失效的求值层裁决口径）。
+ */
+export interface ShellParams {
+  defaultDistance: number;
+  faces: LubanTopologyId[];
+  distances: number | number[];
+}
+
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams;
 
 export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
@@ -81,8 +99,8 @@ export type FeatureOpResult =
 /** M3-a：预览结果（HITL 预览→确认→提交；不落库，仅回报受影响特征及内核状态码） */
 export interface PreviewResult { ok: boolean; error?: string; affected: Array<{ featureId: string; status: number }> }
 
-/** M3-a：表单字段种类（前端按 kind 渲染；edgeRefs 由 resolveEdgeRef 寻址） */
-export type FeatureFormFieldKind = "number" | "json" | "boolean" | "edgeRefs" | "readonlyText";
+/** M3-a：表单字段种类（前端按 kind 渲染；edgeRefs 由 resolveEdgeRef 寻址；RW2-T7 增 faceRefs——由 resolveFaceRef 寻址） */
+export type FeatureFormFieldKind = "number" | "json" | "boolean" | "edgeRefs" | "faceRefs" | "readonlyText";
 
 export interface FeatureFormField { name: string; label: string; kind: FeatureFormFieldKind; readOnly?: boolean }
 export interface FeatureFormModelEntry { fields: FeatureFormField[] }
@@ -113,7 +131,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.4.0";
+  public static interfaceVersion = "1.5.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
@@ -129,6 +147,8 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
   public async previewFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string): Promise<PreviewResult> { return this.forward(arguments); }
   /** M3-a v1.1：拾取元素子实体 → 邻面对边引用（edgeRefs 表单值的寻址端点） */
   public async resolveEdgeRef(_iModelKey: string, _elementId: string, _subEntityId: number): Promise<{ ok: boolean; ref?: FilletEdgeRef; error?: string }> { return this.forward(arguments); }
+  /** RW2-T7 v1.5：拾取元素面 → 持久拓扑 id（faceRefs/shell faces 表单值的寻址端点；op31 topologyIdFromSubEntity） */
+  public async resolveFaceRef(_iModelKey: string, _elementId: string, _subEntityId: number): Promise<{ ok: boolean; ref?: LubanTopologyId; error?: string }> { return this.forward(arguments); }
   /** M3-a v1.1：按特征类型取参数表单模型（前端动态渲染） */
   public async getFeatureFormModel(_iModelKey: string): Promise<FeatureFormModel> { return this.forward(arguments); }
 

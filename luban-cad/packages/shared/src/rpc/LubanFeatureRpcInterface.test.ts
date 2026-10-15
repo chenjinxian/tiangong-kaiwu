@@ -7,6 +7,7 @@ import type {
   FilletEdgeRef,
   FilletParams,
   ChamferParams,
+  ShellParams,
   FeatureParams,
   FeatureOp,
   PreviewResult,
@@ -26,7 +27,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.4.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.5.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -38,7 +39,7 @@ describe("M3-a v1.1 类型契约", () => {
   it("fillet 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "fillet";
     expect(t).toBe("fillet");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell">();
   });
 
   it("FilletParams：邻面对边引用对（LubanTopologyId/FilletEdgeRef 形状）", () => {
@@ -53,14 +54,16 @@ describe("M3-a v1.1 类型契约", () => {
     expectTypeOf<FilletParams>().toEqualTypeOf<{ radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }>();
   });
 
-  it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams；新 FeatureOp 变体可构造", () => {
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams>();
+  it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams；新 FeatureOp 变体可构造", () => {
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams>();
     const insertFillet: FeatureOp = { kind: "insertFeature", featureType: "fillet", params: { radius: 1, propagateSmooth: false, edges: [] } };
     const insertChamfer: FeatureOp = { kind: "insertFeature", featureType: "chamfer", params: { mode: 1, propagateSmooth: true, edges: [], values1: 0.1 } };
+    const insertShell: FeatureOp = { kind: "insertFeature", featureType: "shell", params: { defaultDistance: 0.1, faces: [{ nodeId: 1, entityId: 2 }], distances: 0 } };
     const suppress: FeatureOp = { kind: "setFeatureSuppressed", featureId: "f1", suppressed: true };
     const reorder: FeatureOp = { kind: "reorderFeature", featureId: "f1", to: 2 };
     expect(insertFillet.kind).toBe("insertFeature");
     expect(insertChamfer.kind).toBe("insertFeature");
+    expect(insertShell.kind).toBe("insertFeature");
     expect(suppress.suppressed).toBe(true);
     expect(reorder.to).toBe(2);
   });
@@ -68,10 +71,12 @@ describe("M3-a v1.1 类型契约", () => {
   it("PreviewResult / FeatureFormModel 形状", () => {
     const preview: PreviewResult = { ok: false, error: "bad edges", affected: [{ featureId: "f1", status: 3 }] };
     const field: FeatureFormField = { name: "radius", label: "半径", kind: "edgeRefs", readOnly: true };
-    const model: FeatureFormModel = { fillet: { fields: [field] } };
+    const faceField: FeatureFormField = { name: "faces", label: "面引用", kind: "faceRefs" };
+    const model: FeatureFormModel = { fillet: { fields: [field] }, shell: { fields: [faceField] } };
     expect(preview.ok).toBe(false);
     expect(preview.affected[0]?.status).toBe(3);
     expect(model.fillet?.fields[0]?.kind).toBe("edgeRefs");
+    expect(model.shell?.fields[0]?.kind).toBe("faceRefs");
     expectTypeOf<FeatureFormField["kind"]>().toEqualTypeOf<FeatureFormFieldKind>();
     expectTypeOf<FeatureFormModel>().toEqualTypeOf<Record<string, FeatureFormModelEntry>>();
   });
@@ -79,6 +84,7 @@ describe("M3-a v1.1 类型契约", () => {
   it("v1.1 新增三 RPC 方法挂在类原型", () => {
     expect(typeof LubanFeatureRpcInterface.prototype.previewFeatureOp).toBe("function");
     expect(typeof LubanFeatureRpcInterface.prototype.resolveEdgeRef).toBe("function");
+    expect(typeof LubanFeatureRpcInterface.prototype.resolveFaceRef).toBe("function");
     expect(typeof LubanFeatureRpcInterface.prototype.getFeatureFormModel).toBe("function");
   });
 });
@@ -204,5 +210,33 @@ describe("RW2-T6 v1.4 chamfer 契约", () => {
       values1: number | number[];
       values2?: number | number[] | undefined;
     }>();
+  });
+});
+
+describe("RW2-T7 v1.5 shell 契约", () => {
+  it("shell 已入特征类型联合（编译期逐字断言）", () => {
+    const t: LubanFeatureType = "shell";
+    expect(t).toBe("shell");
+  });
+
+  it("ShellParams：defaultDistance + 面拓扑 id 集 + distances（标量或逐面数组；0=穿孔语义入值域）", () => {
+    const face: LubanTopologyId = { nodeId: 1, entityId: 2 };
+    const scalar: ShellParams = { defaultDistance: 0.1, faces: [face], distances: 0 }; // 0=穿孔移除该面
+    const perFace: ShellParams = { defaultDistance: -0.2, faces: [face, { nodeId: 1, entityId: 3 }], distances: [0.15, 0] };
+    expect(scalar.defaultDistance).toBe(0.1);
+    expect(scalar.distances).toBe(0);
+    expect(perFace.distances).toEqual([0.15, 0]);
+    expectTypeOf<ShellParams>().toEqualTypeOf<{
+      defaultDistance: number;
+      faces: LubanTopologyId[];
+      distances: number | number[];
+    }>();
+    // 值域钉：负距离（内缩）与 0（穿孔）均为合法形态（与 chamfer 正值域刻意不同）
+    const inward: ShellParams = { defaultDistance: 0.1, faces: [face], distances: -0.05 };
+    expect(inward.distances).toBe(-0.05);
+  });
+
+  it("v1.5 新增 resolveFaceRef RPC 方法挂在类原型", () => {
+    expect(typeof LubanFeatureRpcInterface.prototype.resolveFaceRef).toBe("function");
   });
 });

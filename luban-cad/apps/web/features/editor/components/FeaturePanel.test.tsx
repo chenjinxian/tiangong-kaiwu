@@ -30,6 +30,23 @@ vi.mock('../hooks/useEdgeRefPicker.js', () => ({
   }),
 }));
 
+// RW2-T7：useFaceRefPicker 模块级 mock（同 edge picker mock 纪律；拾取行为由 hook 单测钉）
+const facePickerMocks = vi.hoisted(() => ({
+  start: vi.fn(),
+  stop: vi.fn(),
+  removeAt: vi.fn(),
+  picking: false,
+}));
+vi.mock('../hooks/useFaceRefPicker.js', () => ({
+  useFaceRefPicker: () => ({
+    picking: facePickerMocks.picking,
+    refs: [],
+    start: facePickerMocks.start,
+    stop: facePickerMocks.stop,
+    removeAt: facePickerMocks.removeAt,
+  }),
+}));
+
 const makeEntry = (over: Partial<FeatureTreeEntry> = {}): FeatureTreeEntry => ({
   id: 'f1',
   featureType: 'extrude',
@@ -48,16 +65,18 @@ const makeFs = (over: Partial<UseFeatureSystem> = {}): UseFeatureSystem => ({
   applyOp: vi.fn().mockResolvedValue({ ok: true }),
   previewOp: vi.fn().mockResolvedValue(undefined),
   resolveEdgeRef: vi.fn().mockResolvedValue({ ok: false }),
+  resolveFaceRef: vi.fn().mockResolvedValue({ ok: false }),
   ...over,
 });
 
-/** 5 类型表单模型（与 MS getFeatureFormModel 产物同形；RW2-T6 起含 chamfer） */
+/** 6 类型表单模型（与 MS getFeatureFormModel 产物同形；RW2-T6 起含 chamfer；RW2-T7 起含 shell） */
 const formModel: FeatureFormModel = {
   extrude: { fields: [{ name: 'distance', label: '距离', kind: 'number' }] },
   booleanAdd: { fields: [] },
   booleanSubtract: { fields: [] },
   fillet: { fields: [{ name: 'radius', label: '半径', kind: 'number' }] },
   chamfer: { fields: [{ name: 'mode', label: '倒角模式', kind: 'number' }, { name: 'values1', label: '倒角值 1', kind: 'number' }, { name: 'propagateSmooth', label: '光滑传播', kind: 'boolean' }, { name: 'edges', label: '边引用', kind: 'edgeRefs' }] },
+  shell: { fields: [{ name: 'defaultDistance', label: '默认距离', kind: 'number' }, { name: 'faces', label: '面引用', kind: 'faceRefs' }, { name: 'distances', label: '面距离', kind: 'number' }] },
 };
 
 describe('FeaturePanel', () => {
@@ -67,6 +86,7 @@ describe('FeaturePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pickerMocks.picking = false;
+    facePickerMocks.picking = false;
   });
 
   describe('数据态渲染', () => {
@@ -252,7 +272,7 @@ describe('FeaturePanel', () => {
   });
 
   describe('新建特征对话框', () => {
-    it('打开对话框：type 选项 = formModel 键集（5 类型，含 RW2-T6 chamfer）', () => {
+    it('打开对话框：type 选项 = formModel 键集（6 类型，含 RW2-T6 chamfer / RW2-T7 shell）', () => {
       const fs = makeFs({ formModel });
       render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
 
@@ -264,12 +284,13 @@ describe('FeaturePanel', () => {
       const values = Array.from(select.querySelectorAll('option'))
         .map((o) => (o as HTMLOptionElement).value)
         .filter((v) => v !== '');
-      expect(values).toEqual(['extrude', 'booleanAdd', 'booleanSubtract', 'fillet', 'chamfer']);
-      // chamfer 标签渲染（FEATURE_TYPE_LABELS 注册）
+      expect(values).toEqual(['extrude', 'booleanAdd', 'booleanSubtract', 'fillet', 'chamfer', 'shell']);
+      // chamfer/shell 标签渲染（FEATURE_TYPE_LABELS 注册）
       const labels = Array.from(select.querySelectorAll('option'))
         .map((o) => (o as HTMLOptionElement).textContent)
         .filter((v) => v !== null && v !== '');
       expect(labels).toContain('倒角 (chamfer)');
+      expect(labels).toContain('抽壳 (shell)');
     });
 
     it('取消关闭对话框', () => {
@@ -580,6 +601,107 @@ describe('FeaturePanel', () => {
       fireEvent.click(screen.getByRole('button', { name: '编辑特征' }));
       const dialog = screen.getByRole('dialog');
       expect(within(dialog).getByRole('button', { name: '从视图选边' })).toBeDefined();
+    });
+  });
+
+  describe('RW2-T7 视口选面拾取器（facePicker 插槽接线）', () => {
+    const shellModel: FeatureFormModel = {
+      extrude: { fields: [{ name: 'distance', label: '距离', kind: 'number' }] },
+      shell: {
+        fields: [
+          { name: 'defaultDistance', label: '默认距离', kind: 'number' },
+          { name: 'faces', label: '面引用', kind: 'faceRefs' },
+          { name: 'distances', label: '面距离', kind: 'number' },
+        ],
+      },
+    };
+    const conn = { key: 'm.bim' } as never;
+
+    it('shell 表单渲染「从视图选面」按钮（faceRefs kind 字段）+ 面 chips 空态；extrude 表单无按钮', () => {
+      const fs = makeFs({ formModel: shellModel });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'shell' } });
+      expect(within(dialog).getByRole('button', { name: '从视图选面' })).toBeDefined();
+      expect(within(dialog).getByTestId('feature-face-chips-faces')).toBeDefined();
+      expect(within(dialog).getByText('未选择面')).toBeDefined();
+
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'extrude' } });
+      expect(within(dialog).queryByRole('button', { name: '从视图选面' })).toBeNull();
+    });
+
+    it('点击「从视图选面」→ facePicker.start；picking 态对话框暂隐 + 浮条「停止选面」→ facePicker.stop', () => {
+      const fs = makeFs({ formModel: shellModel });
+      const { rerender } = render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'shell' } });
+
+      fireEvent.click(within(dialog).getByRole('button', { name: '从视图选面' }));
+      expect(facePickerMocks.start).toHaveBeenCalledTimes(1);
+
+      // picking 态：同 edge picker 测试的 memo 伪影纪律（hook mock 无内部 state，须换 prop 破 memo）
+      facePickerMocks.picking = true;
+      rerender(<FeaturePanel fs={fs} onEditFeature={() => undefined} connection={conn} />);
+
+      // 模态 backdrop 吞视口点击 → 对话框暂隐（isOpen 门控），浮条接管拾取期操作
+      expect(screen.queryByRole('dialog')).toBeNull();
+      const banner = screen.getByTestId('face-picker-banner');
+      fireEvent.click(within(banner).getByRole('button', { name: '停止选面' }));
+      expect(facePickerMocks.stop).toHaveBeenCalled();
+
+      // 拾取结束 → 对话框复开（表单态在面板层未丢）
+      facePickerMocks.picking = false;
+      rerender(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      expect(screen.getByRole('dialog')).toBeDefined();
+    });
+
+    it('无 connection → 选面按钮禁用（aria-disabled）', () => {
+      const fs = makeFs({ formModel: shellModel });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'shell' } });
+      expect(within(dialog).getByRole('button', { name: '从视图选面' }).getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('编辑 shell 特征对话框注入选面按钮且预填面引用 chips（buildInitialValue faceRefs 归一）', () => {
+      const fs = makeFs({
+        formModel: shellModel,
+        tree: [makeEntry({
+          id: 'sh1', featureType: 'shell', orderKey: 1,
+          params: { defaultDistance: 0.1, faces: [{ nodeId: 1, entityId: 2 }], distances: 0 },
+        })],
+      });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      fireEvent.click(screen.getByRole('button', { name: '编辑特征' }));
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByRole('button', { name: '从视图选面' })).toBeDefined();
+      const chips = within(dialog).getByTestId('feature-face-chips-faces');
+      expect(within(chips).getByText('#1/2')).toBeDefined();
+      expect((within(dialog).getByLabelText('默认距离') as HTMLInputElement).value).toBe('0.1');
+    });
+
+    it('shell 创建流：填参 → applyOp(insertFeature) 携带 faces 数组（全链参数形态）', async () => {
+      const applyOp = vi.fn().mockResolvedValue({ ok: true, featureId: 'new-sh' });
+      const fs = makeFs({ formModel: shellModel, applyOp });
+      render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} connection={conn} />);
+      fireEvent.click(screen.getByRole('button', { name: '新建特征' }));
+      const dialog = screen.getByRole('dialog');
+      fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'shell' } });
+      fireEvent.change(within(dialog).getByLabelText('默认距离'), { target: { value: '0.2' } });
+      fireEvent.change(within(dialog).getByLabelText('面距离'), { target: { value: '0' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: '创建' }));
+
+      await waitFor(() =>
+        expect(applyOp).toHaveBeenCalledWith({
+          kind: 'insertFeature',
+          featureType: 'shell',
+          params: { defaultDistance: 0.2, faces: [], distances: 0 },
+        }),
+      );
     });
   });
 

@@ -174,6 +174,10 @@ vi.mock('../../../features/editor/hooks/useAutoSave.js', () => ({
 vi.mock('../../../features/editor/hooks/useEdgeRefPicker.js', () => ({
   useEdgeRefPicker: () => ({ picking: false, refs: [], start: vi.fn(), stop: vi.fn(), removeAt: vi.fn() }),
 }));
+// RW2-T7：FeaturePanel 内嵌的选面拾取器 hook——同 edge picker 桩纪律（SelectSubEntityTool 链不入门）
+vi.mock('../../../features/editor/hooks/useFaceRefPicker.js', () => ({
+  useFaceRefPicker: () => ({ picking: false, refs: [], start: vi.fn(), stop: vi.fn(), removeAt: vi.fn() }),
+}));
 vi.mock('../../../features/editor/registerTools.js', () => ({
   registerAllTools: vi.fn(),
 }));

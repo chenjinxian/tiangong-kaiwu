@@ -206,6 +206,8 @@ export type {
   SketchEntityDto, SketchConstraintDto, SketchSolveStatusDto, SketchSolveStateDto, SketchDto, SketchSummaryDto,
   // RW2-T6 v1.4
   ChamferParams,
+  // RW2-T7 v1.5
+  ShellParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

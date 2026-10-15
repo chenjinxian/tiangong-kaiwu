@@ -12,6 +12,7 @@ import {
   type FeatureTreeEntry,
   type FilletEdgeRef,
   LubanFeatureRpcInterface,
+  type LubanTopologyId,
   type PreviewResult,
 } from '@luban-cad/shared';
 
@@ -22,6 +23,8 @@ const LEASE_OP_ACQUIRE_BUDGET_MS = 35_000;
 const LEASE_OP_ACQUIRE_RETRY_MS = 2_000;
 /** 边引用解析超时（⑩ 残留加固）：rpc-over-ipc 无传输级超时，特征级兜底窗口。 */
 const RESOLVE_EDGE_REF_TIMEOUT_MS = 15_000;
+/** 面引用解析超时（RW2-T7）：同边引用兜底口径。 */
+const RESOLVE_FACE_REF_TIMEOUT_MS = 15_000;
 
 export interface UseFeatureSystem {
   tree: FeatureTreeEntry[];
@@ -34,6 +37,8 @@ export interface UseFeatureSystem {
   applyOp(op: FeatureOp): Promise<FeatureOpResult>;
   previewOp(op: FeatureOp): Promise<PreviewResult | undefined>;
   resolveEdgeRef(elementId: string, subEntityId: number): Promise<{ ok: boolean; ref?: FilletEdgeRef; error?: string }>;
+  /** RW2-T7：拾取面 → 持久拓扑 id（shell faces 表单值寻址端点） */
+  resolveFaceRef(elementId: string, subEntityId: number): Promise<{ ok: boolean; ref?: LubanTopologyId; error?: string }>;
 }
 
 /**
@@ -217,6 +222,34 @@ export function useFeatureSystem(
     [connectionKey],
   );
 
+  /** RW2-T7：面引用寻址——同 resolveEdgeRef 的兜底纪律（超时竞速 + 迟到 no-op catch）。 */
+  const resolveFaceRef = useCallback(
+    async (elementId: string, subEntityId: number): Promise<{ ok: boolean; ref?: LubanTopologyId; error?: string }> => {
+      if (!connectionKey) return { ok: false, error: '未连接 iModel' };
+      const raw = LubanFeatureRpcInterface
+        .getClient()
+        .resolveFaceRef(connectionKey, elementId, subEntityId);
+      void raw.catch(() => undefined);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          raw,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`面引用解析超时（>${RESOLVE_FACE_REF_TIMEOUT_MS / 1000}s）——服务端无应答，可重新拾取该面`)),
+              RESOLVE_FACE_REF_TIMEOUT_MS,
+            );
+          }),
+        ]);
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    [connectionKey],
+  );
+
   return {
     tree,
     loading,
@@ -227,5 +260,6 @@ export function useFeatureSystem(
     applyOp,
     previewOp,
     resolveEdgeRef,
+    resolveFaceRef,
   };
 }

@@ -5,10 +5,10 @@
 
 import React, { useState } from 'react';
 import { Input, Label, Text, Textarea, ToggleSwitch } from '@itwin/itwinui-react';
-import type { FeatureFormField, FilletEdgeRef } from '@luban-cad/shared';
+import type { FeatureFormField, FilletEdgeRef, LubanTopologyId } from '@luban-cad/shared';
 
 export interface FeatureParamFormProps {
-  /** 表单模型字段（fs.formModel[featureType].fields；五 kind：number/json/boolean/edgeRefs/readonlyText） */
+  /** 表单模型字段（fs.formModel[featureType].fields；六 kind：number/json/boolean/edgeRefs/faceRefs/readonlyText） */
   fields: FeatureFormField[];
   /** 当前参数值（key = 字段名；编辑流预填存储 params，新建流为零值） */
   value: Record<string, unknown>;
@@ -16,6 +16,8 @@ export interface FeatureParamFormProps {
   disabled?: boolean;
   /** edgeRefs 字段的拾取器插槽（T6.3「从视图选边」注入按钮）；无插槽时仅渲染 chips */
   edgePicker?: React.ReactNode;
+  /** faceRefs 字段的拾取器插槽（RW2-T7「从视图选面」注入按钮）；无插槽时仅渲染 chips */
+  facePicker?: React.ReactNode;
 }
 
 /** json 字段无值时的零值（profile 内联轮廓按 [] 起步，契合后端「sketchId 存在时 profile 须为空数组」语义） */
@@ -37,6 +39,11 @@ function formatEdgeChip(ref: FilletEdgeRef): string {
   return `#${faceA.nodeId}/${faceA.entityId} ~ #${faceB.nodeId}/${faceB.entityId}`;
 }
 
+/** 面引用 chip 格式（RW2-T7）：单面拓扑 id（无邻面对形态） */
+function formatFaceChip(ref: LubanTopologyId): string {
+  return `#${ref.nodeId}/${ref.entityId}`;
+}
+
 /** number 输入容错归一：空串/非法输入 → undefined（不向上发射，等同「未修改」守卫） */
 function parseNumberInput(raw: string): number | undefined {
   if (raw.trim() === '') return undefined;
@@ -52,11 +59,12 @@ function parseNumberInput(raw: string): number | undefined {
  *   且绝不把非法值向上发射（外发 params 恒为可解析 JSON）；
  * - boolean → ToggleSwitch；
  * - edgeRefs → chips 区（FilletEdgeRef 两邻面拓扑 id 对）+ edgePicker 插槽（T6.3 注入拾取按钮）；
+ * - faceRefs → chips 区（RW2-T7：LubanTopologyId 单面拓扑 id）+ facePicker 插槽（注入拾取按钮）；
  * - readonlyText → 只读 Input（草图 id 等展示字段，改值入口在草图约束 op）。
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
-  ({ fields, value, onChange, disabled = false, edgePicker }) => {
+  ({ fields, value, onChange, disabled = false, edgePicker, facePicker }) => {
     const [jsonDrafts, setJsonDrafts] = useState<Record<string, string>>(() => {
       const init: Record<string, string> = {};
       for (const f of fields) {
@@ -192,6 +200,35 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
                     )}
                   </div>
                   {edgePicker}
+                </div>
+              );
+            }
+            case 'faceRefs': {
+              const refs = Array.isArray(value[field.name]) ? (value[field.name] as LubanTopologyId[]) : [];
+              return (
+                <div className="form-group" key={field.name}>
+                  <Label>{field.label}</Label>
+                  <div className="feature-edge-chips" data-testid={`feature-face-chips-${field.name}`}>
+                    {refs.length === 0 ? (
+                      <Text variant="small" className="feature-edge-empty">未选择面</Text>
+                    ) : (
+                      refs.map((ref, i) => (
+                        <span className="feature-edge-chip" key={`${formatFaceChip(ref)}-${i}`}>
+                          {formatFaceChip(ref)}
+                          <button
+                            type="button"
+                            className="feature-edge-chip-remove"
+                            aria-label={`删除面引用 ${i + 1}`}
+                            disabled={disabled}
+                            onClick={() => emit(field.name, refs.filter((_, j) => j !== i))}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  {facePicker}
                 </div>
               );
             }

@@ -6,17 +6,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import React from 'react';
-import type { FeatureFormField, FilletEdgeRef } from '@luban-cad/shared';
+import type { FeatureFormField, FilletEdgeRef, LubanTopologyId } from '@luban-cad/shared';
 import { FeatureParamForm } from './FeatureParamForm.js';
 
 vi.mock('./FeaturePanel.css', () => ({}));
 
-/** 五 kind 字段集（与 MS getFeatureFormModel 产物同形：extrude 3 字段 + fillet 3 字段） */
+/** 六 kind 字段集（与 MS getFeatureFormModel 产物同形：extrude 3 字段 + fillet 3 字段 + shell 字段） */
 const ALL_KIND_FIELDS: FeatureFormField[] = [
   { name: 'distance', label: '距离', kind: 'number' },
   { name: 'profile', label: '轮廓', kind: 'json' },
   { name: 'propagateSmooth', label: '光滑传播', kind: 'boolean' },
   { name: 'edges', label: '边引用', kind: 'edgeRefs' },
+  { name: 'faces', label: '面引用', kind: 'faceRefs' },
   { name: 'sketchId', label: '草图', kind: 'readonlyText', readOnly: true },
 ];
 
@@ -24,11 +25,16 @@ const EDGE_REFS: FilletEdgeRef[] = [
   { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 3, entityId: 4 } },
 ];
 
+const FACE_REFS: LubanTopologyId[] = [
+  { nodeId: 1, entityId: 2 },
+];
+
 const makeValue = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
   distance: 10,
   profile: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }],
   propagateSmooth: true,
   edges: EDGE_REFS,
+  faces: FACE_REFS,
   sketchId: 'sk-1',
   ...over,
 });
@@ -40,7 +46,7 @@ describe('FeatureParamForm', () => {
     vi.clearAllMocks();
   });
 
-  describe('五种 kind 渲染', () => {
+  describe('六种 kind 渲染', () => {
     it('number → Input[type=number] 且回显数值', () => {
       render(<FeatureParamForm fields={ALL_KIND_FIELDS} value={makeValue()} onChange={onChange} />);
       const input = screen.getByLabelText('距离') as HTMLInputElement;
@@ -96,6 +102,36 @@ describe('FeatureParamForm', () => {
     it('edgeRefs chips × 在 disabled 时禁用', () => {
       render(<FeatureParamForm fields={ALL_KIND_FIELDS} value={makeValue()} onChange={onChange} disabled />);
       expect((screen.getByRole('button', { name: '删除边引用 1' }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('faceRefs → chips 区渲染面引用标签 + facePicker 插槽内容（RW2-T7）', () => {
+      render(
+        <FeatureParamForm
+          fields={ALL_KIND_FIELDS}
+          value={makeValue()}
+          onChange={onChange}
+          facePicker={<button type="button">从视图选面</button>}
+        />,
+      );
+      const chips = screen.getByTestId('feature-face-chips-faces');
+      expect(within(chips).getByText('#1/2')).toBeDefined();
+      expect(screen.getByRole('button', { name: '从视图选面' })).toBeDefined();
+    });
+
+    it('faceRefs 空值 → 显示「未选择面」提示', () => {
+      render(<FeatureParamForm fields={ALL_KIND_FIELDS} value={makeValue({ faces: [] })} onChange={onChange} />);
+      expect(screen.getByText('未选择面')).toBeDefined();
+    });
+
+    it('faceRefs chips × 删除 → onChange 收到剔除后的 faces 数组（其余字段保留）', () => {
+      const twoFaces: LubanTopologyId[] = [
+        { nodeId: 1, entityId: 2 },
+        { nodeId: 5, entityId: 6 },
+      ];
+      render(<FeatureParamForm fields={ALL_KIND_FIELDS} value={makeValue({ faces: twoFaces })} onChange={onChange} />);
+      fireEvent.click(screen.getByRole('button', { name: '删除面引用 1' }));
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ faces: [twoFaces[1]] }));
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ distance: 10 }));
     });
 
     it('readonlyText → 只读 Input 回显文本且禁用', () => {

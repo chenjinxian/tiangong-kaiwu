@@ -7,10 +7,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Badge, Button, Dialog, IconButton, Label, Select, Text } from '@itwin/itwinui-react';
 import { SvgAdd, SvgChevronDown, SvgChevronUp, SvgDelete, SvgEdit, SvgRedo, SvgUndo, SvgVisibilityHalf } from '@itwin/itwinui-icons-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { FeatureFormField, FeatureParams, FeatureTreeEntry, FilletEdgeRef, LubanFeatureType } from '@luban-cad/shared';
+import type { FeatureFormField, FeatureParams, FeatureTreeEntry, FilletEdgeRef, LubanFeatureType, LubanTopologyId } from '@luban-cad/shared';
 import { FeatureParamForm } from './FeatureParamForm.js';
 import type { UseFeatureSystem } from '../hooks/useFeatureSystem.js';
 import { useEdgeRefPicker } from '../hooks/useEdgeRefPicker.js';
+import { useFaceRefPicker } from '../hooks/useFaceRefPicker.js';
 import './FeaturePanel.css';
 
 export interface FeaturePanelProps {
@@ -30,13 +31,14 @@ export interface FeaturePanelProps {
   isVisible?: boolean;
 }
 
-/** 特征类型 → 图标（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer） */
+/** 特征类型 → 图标（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell——空心方契合抽壳） */
 const FEATURE_ICONS: Record<string, string> = {
   extrude: '⬆',
   booleanAdd: '⊕',
   booleanSubtract: '⊖',
   fillet: '⌒',
   chamfer: '◢',
+  shell: '◻',
 };
 
 /** 特征类型 → 展示标签（formModel 键集驱动的新建入口共用同一套键） */
@@ -46,6 +48,7 @@ const FEATURE_TYPE_LABELS: Record<string, string> = {
   booleanSubtract: '布尔减 (booleanSubtract)',
   fillet: '圆角 (fillet)',
   chamfer: '倒角 (chamfer)',
+  shell: '抽壳 (shell)',
 };
 
 /** T6.4 试算预览 debounce 窗口（草稿停笔 400ms 后才发 previewOp，折叠连续击键） */
@@ -83,6 +86,15 @@ function isEdgeRef(v: unknown): v is FilletEdgeRef {
   return isTopo(faceA) && isTopo(faceB);
 }
 
+/** 面拓扑 id 形态守卫（RW2-T7：单面引用——nodeId/entityId 数字对，无邻面对结构） */
+function isFaceRef(v: unknown): v is LubanTopologyId {
+  if (typeof v !== 'object' || v === null) return false;
+  return (
+    typeof (v as { nodeId?: unknown }).nodeId === 'number' &&
+    typeof (v as { entityId?: unknown }).entityId === 'number'
+  );
+}
+
 function parseStoredEdges(raw: unknown): FilletEdgeRef[] {
   let obj: unknown = raw;
   if (typeof obj === 'string') {
@@ -95,6 +107,18 @@ function parseStoredEdges(raw: unknown): FilletEdgeRef[] {
   return Array.isArray(obj) ? obj.filter(isEdgeRef) : [];
 }
 
+function parseStoredFaces(raw: unknown): LubanTopologyId[] {
+  let obj: unknown = raw;
+  if (typeof obj === 'string') {
+    try {
+      obj = JSON.parse(obj);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(obj) ? obj.filter(isFaceRef) : [];
+}
+
 /** 按表单模型字段集从存储 params 归一出表单初值（缺省补字段类型零值，冗余项丢弃）。
  *  只读文本字段（sketchId 等）存储缺失时整体省略——否则外发 params 携带 sketchId:"" 会被后端
  *  「内联特征不支持挂接草图」对称守卫误拒；存储存在时原样回传（草图驱动特征守卫要求 op 携带相同 sketchId）。 */
@@ -103,6 +127,8 @@ function buildInitialValue(fields: FeatureFormField[], params: Record<string, un
   for (const f of fields) {
     if (f.kind === 'edgeRefs') {
       value[f.name] = parseStoredEdges(params[f.name]);
+    } else if (f.kind === 'faceRefs') {
+      value[f.name] = parseStoredFaces(params[f.name]);
     } else if (f.name in params) {
       value[f.name] = params[f.name];
     } else if (f.kind === 'number') {
@@ -176,6 +202,24 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
     onError: (message) => onToast?.(message, 'error'),
   });
   const stopPicking = picker.stop;
+  /** faceRefs kind 字段名（RW2-T7：shell=faces；无该 kind 的类型无选面拾取器） */
+  const faceFieldName = activeDialogFields.find((f) => f.kind === 'faceRefs')?.name;
+  const pickerFaces =
+    faceFieldName !== undefined && Array.isArray(formValue[faceFieldName])
+      ? (formValue[faceFieldName] as LubanTopologyId[])
+      : [];
+  /** RW2-T7 选面拾取器：同 edge 拾取器的单一事实源纪律（onFacesChange 回写表单态） */
+  const facePicker = useFaceRefPicker(connection ?? undefined, fs, {
+    faces: pickerFaces,
+    onFacesChange: (next) => {
+      if (faceFieldName === undefined) return;
+      setFormValue((prev) => ({ ...prev, [faceFieldName]: next }));
+    },
+    onError: (message) => onToast?.(message, 'error'),
+  });
+  const stopFacePicking = facePicker.stop;
+  /** 任一拾取进行中（对话框暂隐 + 浮条 gate 共用） */
+  const anyPicking = picker.picking || facePicker.picking;
 
   /**
    * T6.4 试算预览管道（仅编辑对话框）：草稿变更 → 400ms debounce → previewOp(updateParams) → 徽标。
@@ -289,10 +333,11 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
 
   const closeEdit = useCallback(() => {
     stopPicking(); // 对话框关闭中途拾取 → 退场回收（三通道纪律）
+    stopFacePicking();
     setEditing(null);
     setDialogError(null);
     setPreview(null); // 试算徽标随对话框退场清零（取消不留状态）
-  }, [stopPicking]);
+  }, [stopPicking, stopFacePicking]);
 
   /** 对话框应用统一出口：成功关闭 + toast；失败 Alert 呈现后端守卫/校验文案（M2-UX #4）；
    *  RPC 层抛错（后端失联等）同样落入 Alert —— 绝不留「点了没反应」的哑对话框 */
@@ -352,21 +397,23 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
   const handleNewTypeChange = useCallback(
     (type: string) => {
       stopPicking(); // 类型切换中途拾取 → 退场回收
+      stopFacePicking();
       setNewType(type);
       setDialogError(null);
       const fields = fs.formModel?.[type]?.fields ?? [];
       // 初值不预填既有参数（新建场景无存储值）：仅补零值，草图 id 等留空由用户/后续流程填
       setFormValue(buildInitialValue(fields, {}));
     },
-    [fs.formModel, stopPicking],
+    [fs.formModel, stopPicking, stopFacePicking],
   );
 
   const closeNew = useCallback(() => {
     stopPicking(); // 对话框关闭中途拾取 → 退场回收
+    stopFacePicking();
     setShowNew(false);
     setNewType(undefined);
     setDialogError(null);
-  }, [stopPicking]);
+  }, [stopPicking, stopFacePicking]);
 
   if (!isVisible) return null;
 
@@ -381,7 +428,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
   const previewFailed = preview !== null && !preview.ok;
   const newFields = newType ? (fs.formModel?.[newType]?.fields ?? []) : [];
 
-  /** edgeRefs kind 字段的拾取器插槽（T6.3）：仅含该 kind 的表单（fillet）注入「从视图选边」 */
+  /** edgeRefs kind 字段的拾取器插槽（T6.3）：仅含该 kind 的表单（fillet/chamfer）注入「从视图选边」 */
   const renderEdgePickerSlot = (fields: FeatureFormField[]): React.ReactNode => {
     if (!fields.some((f) => f.kind === 'edgeRefs')) return undefined;
     return (
@@ -393,6 +440,23 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           disabled={readOnly || applying || !connection}
         >
           {picker.picking ? '停止选边' : '从视图选边'}
+        </Button>
+      </div>
+    );
+  };
+
+  /** faceRefs kind 字段的拾取器插槽（RW2-T7）：仅含该 kind 的表单（shell）注入「从视图选面」 */
+  const renderFacePickerSlot = (fields: FeatureFormField[]): React.ReactNode => {
+    if (!fields.some((f) => f.kind === 'faceRefs')) return undefined;
+    return (
+      <div className="feature-edge-picker" data-testid="feature-face-picker">
+        <Button
+          size="small"
+          styleType="borderless"
+          onClick={() => (facePicker.picking ? facePicker.stop() : facePicker.start())}
+          disabled={readOnly || applying || !connection}
+        >
+          {facePicker.picking ? '停止选面' : '从视图选面'}
         </Button>
       </div>
     );
@@ -566,9 +630,9 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
         </Button>
       </div>
 
-      {/* 选边拾取中浮条（T6.3）：模态对话框的 backdrop 会吞掉视口点击——拾取期间对话框暂隐
-         （表单态在面板层，remount 不丢；fillet 表单无 json 字段，无失焦草稿风险），
-         拾取结束（右键/Esc/停止）后对话框自动复开，chips 已更新 */}
+      {/* 选边/选面拾取中浮条（T6.3 / RW2-T7）：模态对话框的 backdrop 会吞掉视口点击——拾取期间
+         对话框暂隐（表单态在面板层，remount 不丢），拾取结束（右键/Esc/停止）后对话框自动复开，
+         chips 已更新。两浮条互斥（任一拾取会话独占视口）。 */}
       {picker.picking && (
         <div className="feature-edge-picker-banner" data-testid="edge-picker-banner">
           <Text variant="small">正在选边：在视口点击边加入引用；右键/Esc 结束</Text>
@@ -577,10 +641,18 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           </Button>
         </div>
       )}
+      {facePicker.picking && (
+        <div className="feature-edge-picker-banner" data-testid="face-picker-banner">
+          <Text variant="small">正在选面：在视口点击面加入引用；右键/Esc 结束</Text>
+          <Button size="small" styleType="borderless" onClick={() => facePicker.stop()}>
+            停止选面
+          </Button>
+        </div>
+      )}
 
       {/* 新建特征对话框：类型 Select + 表单模型参数表单 → insertFeature（守卫错误 Alert 呈现） */}
       <Dialog
-        isOpen={showNew && !picker.picking}
+        isOpen={showNew && !anyPicking}
         onClose={closeNew}
         portal
         isDismissible
@@ -611,6 +683,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                     onChange={setFormValue}
                     disabled={readOnly || applying}
                     edgePicker={renderEdgePickerSlot(newFields)}
+                    facePicker={renderFacePickerSlot(newFields)}
                   />
                 )}
               </>
@@ -641,7 +714,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
 
       {/* 编辑特征对话框：表单模型参数表单预填 entry.params → updateParams */}
       <Dialog
-        isOpen={editing !== null && !picker.picking}
+        isOpen={editing !== null && !anyPicking}
         onClose={closeEdit}
         portal
         isDismissible
@@ -669,6 +742,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                   onChange={setFormValue}
                   disabled={readOnly || applying}
                   edgePicker={renderEdgePickerSlot(editingFields)}
+                  facePicker={renderFacePickerSlot(editingFields)}
                 />
               </>
             )}
