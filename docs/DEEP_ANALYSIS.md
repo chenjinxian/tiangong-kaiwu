@@ -63,7 +63,7 @@ enableWs(app, server, { ... });
 
 **优势**:
 - 简化部署配置
-- WS Upgrade JWT（`verifyClient`）；RPC 路由无鉴权，见 §8.1
+- WS Upgrade JWT（`verifyClient`）；HTTP RPC 路由已挂 JWT guard（RW1-T1），见 §8.1
 - 减少端口占用
 
 **实现细节**:
@@ -419,7 +419,7 @@ const Editor = lazy(() => import('../src/pages/Editor/Editor.js'));
 |------|------|------|
 | HTTP API | JWT Token | Authorization header |
 | WebSocket | Token 验证 | verifyClient hook |
-| RPC | ❌ 无鉴权（2026-09-22 实测） | 路由直通 `protocol.handleOperation*`，无 JWT/中间件（`modeling-server/src/main.ts:214-231`，见 §8.1 安全债①） |
+| RPC | ✅ JWT guard（RW1-T1 修复，原 2026-09-22 实测无鉴权） | `rpcGuard` 中间件挂 `/:title/:version/mode/*` GET/POST（`modeling-server/src/main.ts:258,268`；`/rpc/metadata` 刻意开放），见 §8.1 安全债① |
 | Admin API | API Key | X-API-Key header |
 
 ### 7.2 Webhook 签名验证
@@ -461,12 +461,14 @@ export const sanitizeInput = (req, res, next) => {
 
 > 一事一源：债务分级、消项动作与验收归 `platform-docs/analysis/2026-09-22-itwinjs-core-luban-cad.md` §7–§8 与 platform-docs/ROADMAP.md Phase 0；本文只录实测问题清单（file:line 均为 2026-09-22 复测命中）。
 
-### 8.1 安全债（部署阻断级，4 项——修复前不可对外部署）
+### 8.1 安全债（4 项——①②③已修、④已消；2026-10-15 RW1 战役清偿，行号为私有仓 `feat/rw1-security-gateway` 当前布局）
 
-1. **RPC 无鉴权**：RPC 路由 `/:title/:version/mode/*` 的 GET/POST 直通 `protocol.handleOperation*`，无任何 JWT/中间件校验（`modeling-server/src/main.ts:214-231`）。
-2. **任意文件 IO**：`readExternalFile`/`writeExternalFile` 按调用方给定路径裸 `fs.readFileSync`/`fs.writeFileSync`，可读写服务器任意路径（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:275-287`）。
-3. **token 泄露**：`getAccessToken` 把服务端 token 原样回传调用方（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:302`）。
-4. **默认口令**：服务账号默认 `admin@example.com`/`secret`（`modeling-server/src/rpc/OpenCloudRpcImpl.ts:1124-1127`，env 未设即生效），且每次调用重新登录。
+1. **RPC 无鉴权** ✅已修（RW1-T1，私有仓 `67697f1`）：`/:title/:version/mode/*` 的 GET/POST 已挂 `rpcGuard` JWT 校验（`modeling-server/src/main.ts:258,268`，guard 在 `src/middleware/rpcGuard.ts`）；`/rpc/metadata` 刻意保持开放作 OpenAPI bootstrap 源（`main.ts:277`）。
+2. **任意文件 IO** ✅已修（RW1-T2，私有仓 `139f930` + 公开仓 `2ef64f583a`）：`readExternalFile`/`writeExternalFile` 已自 RPC 接口声明与后端实现双双删除（实现原在 `modeling-server/src/rpc/OpenCloudRpcImpl.ts:275-287` 区带；删除前 grep 复核零消费方）。
+3. **token 泄露** ✅已修（RW1-T2，同上两提交）：`getAccessToken` RPC 方法已删——后端服务账号 token 不再经 HTTP RPC 渠道回传调用方（实现原在 `OpenCloudRpcImpl.ts:302` 区带）。
+4. **默认口令** ✅已消（RW1 战役前勘察实证已根治）：secrets 一律无默认值，zod 校验缺失/非法即拒启并逐一点名（`modeling-server/src/config.ts:8,57-63`）；服务账号登录与 token 缓存归 `ServiceAccountAuthClient`（`main.ts:92`、`src/auth/ServiceAccountAuthClient.ts`），不再每次调用重新登录。
+
+> 已知 P1 缺口（RW1-T2 登记）：**/ipc 长连接 token 不重验**——WS Upgrade 的 JWT 验签（`verifyClient`，`main.ts:172`）只发生在握手一刻，连接存续期内不随 token 过期/吊销重验；`/ipc` 为编辑管道长连接，挂载后风险敞口持续存在。待 RW1 后续任务或专门会话收口（候选：短 TTL + 周期性重验消息、或 leases/关键 op 处补验）。
 
 ### 8.2 功能债
 
