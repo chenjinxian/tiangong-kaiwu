@@ -2,112 +2,104 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Webhooks Client - Placeholder
+ * Webhooks Client — 官方 iTwin Platform Webhooks API v2 路由（Sync S3 重写）。
  *
- * NOTE: @itwin/webhooks-client package does not exist.
- * Webhooks functionality will be implemented via direct REST API calls
- * or when an official SDK package becomes available.
+ * 后端控制器根为 `/webhooks`（旧实现误挂 `/itwins/:id/webhooks`，对现 hub 必 404）。
+ * 契约取证：imodelhub-services/src/webhooks/webhooks.controller.ts + dto/
+ * {create,update,find-all}-webhook-subscription.dto.ts + webhook-subscription-response.dto.ts。
+ * 事件名形如 `iModels.iModelCreated.v1`（@luban-cad/shared webhooks types）。
  */
 
 import { getValidAccessToken } from '../../../features/auth/services/auth/client.js';
 import { fetchWithAuth } from '../../api/httpClient.js';
 
-const BACKEND_URL = import.meta.env.VITE_IMODELHUB_URL || '';
+/** 订阅作用域（后端 WebhookScope 枚举：'Account' | 'iTwin'） */
+export type WebhookScope = 'Account' | 'iTwin';
 
-// Placeholder types
-export interface Webhook {
+/** 单条 webhook 订阅（官方响应字段口径） */
+export interface WebhookSubscription {
   id: string;
-  url: string;
-  events: string[];
-  iTwinId: string;
-  isActive: boolean;
+  callbackUrl: string;
+  eventTypes: string[];
+  scope: WebhookScope;
+  scopeId: string;
+  active: boolean;
+  created?: string;
+  modified?: string;
 }
-
-export interface WebhookEvent {
-  id: string;
-  webhookId: string;
-  eventType: string;
-  payload: unknown;
-  timestamp: string;
-}
-
-export type WebhookEventType = 'imodel.created' | 'imodel.deleted' | 'changeset.pushed' | 'namedversion.created';
 
 export interface CreateWebhookRequest {
-  url: string;
-  events: WebhookEventType[];
-  iTwinId: string;
+  callbackUrl: string;
+  eventTypes: string[];
+  scope: WebhookScope;
+  /** scope='iTwin' 时必填（后端 ValidateIf）；'Account' 可省 */
+  scopeId?: string;
 }
 
-export interface UpdateWebhookRequest {
-  url?: string;
-  events?: WebhookEventType[];
-  isActive?: boolean;
+export type UpdateWebhookRequest = Partial<
+  Pick<WebhookSubscription, 'callbackUrl' | 'eventTypes' | 'active'>
+>;
+
+interface WebhookListEnvelope {
+  webhooks?: WebhookSubscription[];
+}
+
+/** 列出当前调用者的订阅；scope/scopeId 为可选过滤参数（GET /webhooks?scope=&scopeId=） */
+export async function listWebhooks(scope?: WebhookScope, scopeId?: string): Promise<WebhookSubscription[]> {
+  const params = new URLSearchParams();
+  if (scope) {
+    params.set('scope', scope);
+  }
+  if (scopeId) {
+    params.set('scopeId', scopeId);
+  }
+  const query = params.toString();
+  const response = await fetchWithAuth(`/webhooks${query ? `?${query}` : ''}`);
+  const data = (await response.json()) as WebhookListEnvelope;
+  return data.webhooks ?? [];
 }
 
 /**
- * Placeholder Webhooks Client
- * Uses REST API until an official SDK is available
+ * 创建订阅（POST /webhooks → 201）。
+ * 创建后默认 inactive，需 updateWebhook(id, {active:true}) 启用。
+ * 后端仅在创建响应回传一次性 secret（@Expose({groups:['create']})，HMAC 验签用）——务必保存。
  */
-class WebhooksClient {
-  private readonly _baseUrl: string;
+export async function createWebhook(
+  request: CreateWebhookRequest,
+): Promise<WebhookSubscription & { secret?: string }> {
+  const response = await fetchWithAuth('/webhooks', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+  return response.json() as Promise<WebhookSubscription & { secret?: string }>;
+}
 
-  public constructor(config: { baseUrl: string }) {
-    this._baseUrl = `${config.baseUrl.replace(/\/webhooks$/, '')  }/webhooks`;
-  }
+/** 读取单条订阅（GET /webhooks/:webhookId） */
+export async function getWebhook(webhookId: string): Promise<WebhookSubscription> {
+  const response = await fetchWithAuth(`/webhooks/${webhookId}`);
+  return response.json() as Promise<WebhookSubscription>;
+}
 
-  public async getWebhooks(iTwinId: string): Promise<Webhook[]> {
-    const response = await fetchWithAuth(`/itwins/${iTwinId}/webhooks`, { baseUrl: this._baseUrl });
-    const data = await response.json();
-    return data.webhooks || [];
-  }
+/** 局部更新（PATCH /webhooks/:webhookId：callbackUrl/eventTypes/active） */
+export async function updateWebhook(
+  webhookId: string,
+  patch: UpdateWebhookRequest,
+): Promise<WebhookSubscription> {
+  const response = await fetchWithAuth(`/webhooks/${webhookId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+  return response.json() as Promise<WebhookSubscription>;
+}
 
-  public async getWebhook(iTwinId: string, webhookId: string): Promise<Webhook> {
-    const response = await fetchWithAuth(`/itwins/${iTwinId}/webhooks/${webhookId}`, { baseUrl: this._baseUrl });
-    return response.json();
-  }
-
-  public async createWebhook(request: CreateWebhookRequest): Promise<Webhook> {
-    const response = await fetchWithAuth(`/itwins/${request.iTwinId}/webhooks`, {
-      baseUrl: this._baseUrl,
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-    return response.json();
-  }
-
-  public async updateWebhook(iTwinId: string, webhookId: string, request: UpdateWebhookRequest): Promise<Webhook> {
-    const response = await fetchWithAuth(`/itwins/${iTwinId}/webhooks/${webhookId}`, {
-      baseUrl: this._baseUrl,
-      method: 'PATCH',
-      body: JSON.stringify(request),
-    });
-    return response.json();
-  }
-
-  public async deleteWebhook(iTwinId: string, webhookId: string): Promise<void> {
-    await fetchWithAuth(`/itwins/${iTwinId}/webhooks/${webhookId}`, {
-      baseUrl: this._baseUrl,
-      method: 'DELETE',
-    });
-  }
-
-  public async getWebhookEvents(iTwinId: string, webhookId: string): Promise<WebhookEvent[]> {
-    const response = await fetchWithAuth(`/itwins/${iTwinId}/webhooks/${webhookId}/events`, { baseUrl: this._baseUrl });
-    const data = await response.json();
-    return data.events || [];
-  }
+/** 删除订阅（DELETE /webhooks/:webhookId → 204） */
+export async function deleteWebhook(webhookId: string): Promise<void> {
+  await fetchWithAuth(`/webhooks/${webhookId}`, { method: 'DELETE' });
 }
 
 /**
- * Webhooks Client instance
- */
-export const webhooksClient = new WebhooksClient({
-  baseUrl: `${BACKEND_URL}/webhooks`,
-});
-
-/**
- * Get access token for webhooks operations
+ * Get access token for webhooks operations（SDK 回调出口，barrel 消费为
+ * getWebhooksAuthorization；沿用既有裸 token 口径）
  */
 export async function getAuthorization(): Promise<string> {
   return getValidAccessToken();

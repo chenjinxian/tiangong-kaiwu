@@ -4,249 +4,169 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  getAuthorization,
-  type Webhook,
-  type WebhookEvent,
-  type WebhookEventType,
-  webhooksClient,
-} from './client.js';
-import * as authClient from '../../../features/auth/services/auth/client.js';
-import { ApiError } from '../../api/httpClient.js';
 
-// Mock the auth client
+// fetchWithAuth sources tokens from the auth client; mock it so the stubbed
+// global fetch is the only network boundary.
 vi.mock('../../../features/auth/services/auth/client.js', () => ({
-  getAccessToken: vi.fn(),
-  getValidAccessToken: vi.fn(),
-  refreshAccessToken: vi.fn(),
+  getValidAccessToken: vi.fn(async () => 'tok'),
+  refreshAccessToken: vi.fn(async () => null),
 }));
 
-describe('Webhooks Client', () => {
-  const mockGetValidAccessToken = vi.mocked(authClient.getValidAccessToken);
-  const mockFetch = vi.fn();
+import {
+  createWebhook,
+  deleteWebhook,
+  getAuthorization,
+  getWebhook,
+  listWebhooks,
+  updateWebhook,
+  type WebhookSubscription,
+} from './client.js';
+import { ApiError } from '../../api/httpClient.js';
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    global.fetch = mockFetch;
+let calls: Array<{ url: string; init?: RequestInit }>;
+
+function respond(status: number, body: unknown, headers: Record<string, string> = {}) {
+  return new Response(body === null ? null : JSON.stringify(body), { status, headers });
+}
+
+function stubFetch(responder: () => Response) {
+  vi.stubGlobal('fetch', (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    calls.push({ url: String(input), init });
+    return responder();
+  }) as typeof fetch);
+}
+
+const webhook: WebhookSubscription = {
+  id: 'wh-1',
+  callbackUrl: 'https://example.com/hook',
+  eventTypes: ['iModels.iModelCreated.v1'],
+  scope: 'iTwin',
+  scopeId: 'twin-1',
+  active: false,
+};
+
+beforeEach(() => {
+  vi.unstubAllGlobals();
+  calls = [];
+});
+
+describe('listWebhooks', () => {
+  it('GETs the official /webhooks root (not the stale /itwins/:id/webhooks) and unwraps the envelope', async () => {
+    stubFetch(() => respond(200, { webhooks: [webhook] }));
+
+    const result = await listWebhooks();
+
+    expect(result).toEqual([webhook]);
+    expect(calls[0].url).toMatch(/\/webhooks$/);
+    expect(calls[0].init?.method).toBeUndefined();
   });
 
-  describe('getAuthorization', () => {
-    it('should return access token', async () => {
-      mockGetValidAccessToken.mockResolvedValue('test-token-123');
+  it('forwards scope/scopeId as query filters when provided', async () => {
+    stubFetch(() => respond(200, { webhooks: [] }));
 
-      const result = await getAuthorization();
+    await listWebhooks('iTwin', 'twin-1');
 
-      expect(result).toBe('test-token-123');
-      expect(mockGetValidAccessToken).toHaveBeenCalled();
-    });
-
-    it('should return empty string when not authenticated', async () => {
-      mockGetValidAccessToken.mockResolvedValue('');
-
-      const result = await getAuthorization();
-
-      expect(result).toBe('');
-    });
+    expect(calls[0].url).toMatch(/\/webhooks\?scope=iTwin&scopeId=twin-1$/);
   });
 
-  describe('webhooksClient', () => {
-    const mockWebhook: Webhook = {
-      id: 'webhook-1',
-      url: 'https://example.com/webhook',
-      events: ['imodel.created'],
-      iTwinId: 'itwin-1',
-      isActive: true,
-    };
+  it('omits the query string when no filters are given', async () => {
+    stubFetch(() => respond(200, { webhooks: [] }));
 
-    const mockWebhookEvent: WebhookEvent = {
-      id: 'event-1',
-      webhookId: 'webhook-1',
-      eventType: 'imodel.created',
-      payload: { imodelId: 'imodel-1' },
-      timestamp: '2024-01-01T00:00:00Z',
-    };
+    await listWebhooks();
 
-    beforeEach(() => {
-      mockGetValidAccessToken.mockResolvedValue('test-token');
+    expect(calls[0].url).not.toContain('?');
+  });
+
+  it('returns [] when the envelope is missing', async () => {
+    stubFetch(() => respond(200, {}));
+
+    expect(await listWebhooks()).toEqual([]);
+  });
+});
+
+describe('createWebhook', () => {
+  it('POSTs the official body {callbackUrl, eventTypes, scope, scopeId} to /webhooks', async () => {
+    stubFetch(() => respond(201, { ...webhook, secret: 'one-time-secret' }));
+
+    const result = await createWebhook({
+      callbackUrl: 'https://example.com/hook',
+      eventTypes: ['iModels.iModelCreated.v1'],
+      scope: 'iTwin',
+      scopeId: 'twin-1',
     });
 
-    describe('getWebhooks', () => {
-      it('should fetch webhooks for an iTwin', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: async () => ({ webhooks: [mockWebhook] }),
-        });
-
-        const result = await webhooksClient.getWebhooks('itwin-1');
-
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/itwins/itwin-1/webhooks'),
-          expect.objectContaining({
-            headers: expect.objectContaining({
-               
-              Authorization: 'Bearer test-token',
-            }),
-          })
-        );
-        expect(result).toEqual([mockWebhook]);
-      });
-
-      it('should return empty array when no webhooks', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: async () => ({ webhooks: [] }),
-        });
-
-        const result = await webhooksClient.getWebhooks('itwin-1');
-
-        expect(result).toEqual([]);
-      });
-
-      it('should return empty array when webhooks field missing', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: async () => ({}),
-        });
-
-        const result = await webhooksClient.getWebhooks('itwin-1');
-
-        expect(result).toEqual([]);
-      });
+    expect(calls[0].url).toMatch(/\/webhooks$/);
+    expect(calls[0].init?.method).toBe('POST');
+    expect(JSON.parse(calls[0].init?.body as string)).toEqual({
+      callbackUrl: 'https://example.com/hook',
+      eventTypes: ['iModels.iModelCreated.v1'],
+      scope: 'iTwin',
+      scopeId: 'twin-1',
     });
+    expect(result.id).toBe('wh-1');
+    // 创建响应独有的一次性 secret（HMAC 验签用）必须透出给调用方
+    expect(result.secret).toBe('one-time-secret');
+  });
+});
 
-    describe('getWebhook', () => {
-      it('should fetch a single webhook', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: async () => mockWebhook,
-        });
+describe('getWebhook', () => {
+  it('GETs /webhooks/:webhookId', async () => {
+    stubFetch(() => respond(200, webhook));
 
-        const result = await webhooksClient.getWebhook('itwin-1', 'webhook-1');
+    const result = await getWebhook('wh-1');
 
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/itwins/itwin-1/webhooks/webhook-1'),
-          expect.any(Object)
-        );
-        expect(result).toEqual(mockWebhook);
-      });
-    });
+    expect(result).toEqual(webhook);
+    expect(calls[0].url).toMatch(/\/webhooks\/wh-1$/);
+  });
+});
 
-    describe('createWebhook', () => {
-      it('should create a new webhook', async () => {
-        const createRequest = {
-          url: 'https://example.com/webhook',
-          events: ['imodel.created' as WebhookEventType],
-          iTwinId: 'itwin-1',
-        };
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: async () => mockWebhook,
-        });
+describe('updateWebhook', () => {
+  it('PATCHes /webhooks/:webhookId with only the provided fields', async () => {
+    stubFetch(() => respond(200, { ...webhook, active: true }));
 
-        const result = await webhooksClient.createWebhook(createRequest);
+    const result = await updateWebhook('wh-1', { active: true });
 
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/itwins/itwin-1/webhooks'),
-          expect.objectContaining({
-            method: 'POST',
-            body: JSON.stringify(createRequest),
-          })
-        );
-        expect(result).toEqual(mockWebhook);
-      });
-    });
+    expect(result.active).toBe(true);
+    expect(calls[0].url).toMatch(/\/webhooks\/wh-1$/);
+    expect(calls[0].init?.method).toBe('PATCH');
+    expect(JSON.parse(calls[0].init?.body as string)).toEqual({ active: true });
+  });
+});
 
-    describe('updateWebhook', () => {
-      it('should update an existing webhook', async () => {
-        const updateRequest = {
-          url: 'https://example.com/new-webhook',
-          isActive: false,
-        };
-        const updatedWebhook = { ...mockWebhook, ...updateRequest };
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: async () => updatedWebhook,
-        });
+describe('deleteWebhook', () => {
+  it('DELETEs /webhooks/:webhookId and resolves on 204', async () => {
+    stubFetch(() => new Response(null, { status: 204 }));
 
-        const result = await webhooksClient.updateWebhook('itwin-1', 'webhook-1', updateRequest);
+    await expect(deleteWebhook('wh-1')).resolves.toBeUndefined();
 
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/itwins/itwin-1/webhooks/webhook-1'),
-          expect.objectContaining({
-            method: 'PATCH',
-            body: JSON.stringify(updateRequest),
-          })
-        );
-        expect(result).toEqual(updatedWebhook);
-      });
-    });
+    expect(calls[0].url).toMatch(/\/webhooks\/wh-1$/);
+    expect(calls[0].init?.method).toBe('DELETE');
+  });
+});
 
-    describe('deleteWebhook', () => {
-      it('should delete a webhook', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-        });
+describe('getAuthorization', () => {
+  it('returns the raw access token for SDK callbacks', async () => {
+    expect(await getAuthorization()).toBe('tok');
+  });
+});
 
-        await webhooksClient.deleteWebhook('itwin-1', 'webhook-1');
+describe('error handling', () => {
+  it('propagates ApiError from the unified httpClient envelope', async () => {
+    stubFetch(() => respond(404, { error: { code: 'NotFound', message: 'webhook missing' } }));
 
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/itwins/itwin-1/webhooks/webhook-1'),
-          expect.objectContaining({
-            method: 'DELETE',
-          })
-        );
-      });
-    });
+    const err = await getWebhook('wh-1').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).statusCode).toBe(404);
+    expect((err as ApiError).code).toBe('NotFound');
+    expect((err as ApiError).message).toBe('webhook missing');
+  });
 
-    describe('getWebhookEvents', () => {
-      it('should fetch events for a webhook', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: async () => ({ events: [mockWebhookEvent] }),
-        });
+  it('falls back to the HTTP status text when the body is not an envelope', async () => {
+    stubFetch(() => new Response('not json', { status: 500, statusText: 'Internal Server Error' }));
 
-        const result = await webhooksClient.getWebhookEvents('itwin-1', 'webhook-1');
-
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/itwins/itwin-1/webhooks/webhook-1/events'),
-          expect.any(Object)
-        );
-        expect(result).toEqual([mockWebhookEvent]);
-      });
-
-      it('should return empty array when no events', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          json: async () => ({}),
-        });
-
-        const result = await webhooksClient.getWebhookEvents('itwin-1', 'webhook-1');
-
-        expect(result).toEqual([]);
-      });
-    });
-
-    describe('error handling', () => {
-      it('should throw ApiError on API failure (unified httpClient envelope)', async () => {
-        mockFetch.mockResolvedValue(
-          new Response(JSON.stringify({ error: { code: 'NotFound', message: 'webhook missing' } }), { status: 404 }),
-        );
-
-        const err = await webhooksClient.getWebhook('itwin-1', 'webhook-1').catch((e: unknown) => e);
-        expect(err).toBeInstanceOf(ApiError);
-        expect((err as ApiError).statusCode).toBe(404);
-        expect((err as ApiError).code).toBe('NotFound');
-        expect((err as ApiError).message).toBe('webhook missing');
-      });
-
-      it('should throw ApiError on server error, falling back to HTTP status text', async () => {
-        mockFetch.mockResolvedValue(new Response('not json', { status: 500, statusText: 'Internal Server Error' }));
-
-        const err = await webhooksClient.getWebhooks('itwin-1').catch((e: unknown) => e);
-        expect(err).toBeInstanceOf(ApiError);
-        expect((err as ApiError).statusCode).toBe(500);
-        expect((err as ApiError).message).toBe('HTTP 500');
-      });
-    });
+    const err = await listWebhooks().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).statusCode).toBe(500);
+    expect((err as ApiError).message).toBe('HTTP 500');
   });
 });

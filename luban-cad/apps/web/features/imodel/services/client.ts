@@ -32,16 +32,25 @@ export class NoDownloadLinkError extends Error {
 
 /**
  * Get a download URL for an iModel baseline file.
- * Follows the official API pattern: the link, when present, is advertised as
- * `_links.download.href` on the iModel resource itself — there is no separate
- * download route. Absent link => NoDownloadLinkError (disable, don't guess).
+ * 改道（Sync S3）：iModel 资源自身的 `_links` 无 download；官方契约把链接放在
+ * GET /imodels/:id/baselinefile 响应的 `_links.download.href`。兼容两种线格式：
+ * 官方 `{baselineFile: {_links: {download: {href}}}}` 包络与平铺 `{_links: {download}}`。
+ * 缺席 => NoDownloadLinkError（禁用入口，勿猜）。
+ * 注：imodelhub-services 当前 getBaselineFile 尚未回 `_links`（仅 state/fileSize 等
+ * 平铺字段），故当下实际行为即缺席分支；hub 按官方契约补齐后本函数自然生效。
  */
 export async function getDownloadUrl(iModelId: string): Promise<string> {
-  const response = await fetchWithAuth(`/imodels/${iModelId}`);
+  const response = await fetchWithAuth(`/imodels/${iModelId}/baselinefile`);
 
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- `_links` is the external iModels API contract (HAL style)
-  const result = await response.json() as { _links?: { download?: { href?: string } } };
-  const href = result._links?.download?.href;
+  const result = await response.json() as {
+    baselineFile?: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- `_links` is the external iModels API contract (HAL style)
+      _links?: { download?: { href?: string } };
+    };
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- `_links` is the external iModels API contract (HAL style)
+    _links?: { download?: { href?: string } };
+  };
+  const href = result.baselineFile?._links?.download?.href ?? result._links?.download?.href;
   if (!href) {
     throw new NoDownloadLinkError(iModelId);
   }
