@@ -13,6 +13,41 @@ import { _nativeDb, BriefcaseDb, GeometricElement, IModelDb, IpcHost } from "@it
 import { BRepEntity, ColorDefProps, DynamicGraphicsRequest3dProps, EcefLocation, EcefLocationProps, ElementGeometry, ElementGeometryBuilderParams, ElementGeometryDataEntry, ElementGeometryFunction, ElementGeometryInfo, ElementGeometryRequest, FilePropertyProps, GeometricElementProps, GeometryPartProps, IModelError, Placement3dProps } from "@itwin/core-common";
 import { BasicManipulationCommandIpc, BlendEdgesProps, BooleanOperationProps, BRepEntityType, ChamferEdgesProps, ConnectedSubEntityProps, CutProps, DeleteSubEntityProps, EdgeParameterRangeProps, editorBuiltInCmdIds, ElementGeometryCacheFilter, ElementGeometryResultOptions, ElementGeometryResultProps, EmbossProps, EvaluatedEdgeProps, EvaluatedFaceProps, EvaluatedVertexProps, FaceParameterRangeProps, FlatBufferGeometryFilter, HollowFacesProps, ImprintProps, LocateSubEntityProps, LoftProps, OffsetEdgesProps, OffsetFacesProps, PointInsideResultProps, SewSheetProps, SolidModelingCommandIpc, SpinFacesProps, SubEntityAppearanceProps, SubEntityGeometryProps, SubEntityLocationProps, SubEntityProps, SubEntityType, SweepFacesProps, SweepPathProps, ThickenSheetProps, TransformSubEntityProps } from "@itwin/editor-common";
 import { EditCommand } from "./EditCommand";
+
+// ---------------------------------------------------------------------------
+// Luban CAD D7 直改守卫挂钩（fork 修改，登记于 docs/ITWINJS_CORE_MODIFICATIONS.md §5）：
+// 直改工具（变换/布尔/局部操作等）绕开特征系统改写 LubanCAD BodySolid 时，由注入方（鲁班 MS）
+// 就地改写 props.jsonProperties 打 overridden 标记（随后 updateElement 一并落库），特征引擎见标
+// 暂停再生。DI 形态仿 LubanCadSchema.bindFeatureEngine（依赖倒置：fork 不感知下游类名）。
+// ---------------------------------------------------------------------------
+
+/** 直改写点 op 标识（四写点：deleteElements/transformPlacement/rotatePlacement/updateGeometricElement）。 */
+export type DirectEditOp = "deleteElements" | "transformPlacement" | "rotatePlacement" | "updateGeometricElement";
+
+/** 直改守卫挂钩（由应用方注入；实现须为全函数——调用侧兜底吞错，守卫故障不得阻断直改工具）。 */
+export interface DirectEditGuardHooks {
+  /**
+   * 直改写点回调。props 传入时就地改写其 jsonProperties（调用方随后的 updateElement 一并落库）；
+   * 无 props（deleteElements 路径）时由实现自定语义。不得抛错。
+   */
+  onDirectEdit(iModel: IModelDb, elementId: Id64String, op: DirectEditOp, props?: GeometricElementProps): void;
+}
+
+let directEditGuard: DirectEditGuardHooks | undefined;
+
+/** 注入/解绑（undefined）直改守卫。幂等。 */
+export function bindDirectEditGuard(hooks: DirectEditGuardHooks | undefined): void { directEditGuard = hooks; }
+
+/** 四写点统一调用入口：无挂钩 no-op；挂钩异常吞掉（隔离带故障不得阻断直改工具的可用性）。 */
+function applyDirectEditGuard(iModel: IModelDb, elementId: Id64String, op: DirectEditOp, props?: GeometricElementProps): void {
+  if (!directEditGuard)
+    return;
+  try {
+    directEditGuard.onDirectEdit(iModel, elementId, op, props);
+  } catch {
+    // 吞错是有意裁决：守卫只打标记，直改工具的可用性不可因守卫故障而损（标记缺失可后补重新参数化）。
+  }
+}
 /** Implementation for a EditCommand command that provides basic creation and modification operations.
  * @beta
  */
@@ -36,8 +71,10 @@ export class BasicManipulationCommand extends EditCommand implements BasicManipu
     await this.iModel.locks.acquireLocks({ exclusive: idSet });
     this.beginEditing();
 
-    for (const id of idSet)
+    for (const id of idSet) {
+      applyDirectEditGuard(this.iModel, id, "deleteElements");
       this.txn.deleteElement(id);
+    }
 
     return IModelStatus.Success;
   }
@@ -56,7 +93,9 @@ export class BasicManipulationCommand extends EditCommand implements BasicManipu
         continue; // Ignore assembly parents w/o geometry, etc...
 
       element.placement.multiplyTransform(transform);
-      this.txn.updateElement(element.toJSON());
+      const props = element.toJSON();
+      applyDirectEditGuard(this.iModel, id, "transformPlacement", props);
+      this.txn.updateElement(props);
     }
 
     return IModelStatus.Success;
@@ -79,7 +118,9 @@ export class BasicManipulationCommand extends EditCommand implements BasicManipu
       const transform = Transform.createFixedPointAndMatrix(fixedPoint, matrix);
 
       element.placement.multiplyTransform(transform);
-      this.txn.updateElement(element.toJSON());
+      const props = element.toJSON();
+      applyDirectEditGuard(this.iModel, id, "rotatePlacement", props);
+      this.txn.updateElement(props);
     }
 
     return IModelStatus.Success;
@@ -118,6 +159,7 @@ export class BasicManipulationCommand extends EditCommand implements BasicManipu
     if (undefined !== data)
       props.elementGeometryBuilderParams = { entryArray: data.entryArray, viewIndependent: data.viewIndependent };
 
+    applyDirectEditGuard(this.iModel, props.id, "updateGeometricElement", props);
     this.txn.updateElement(props);
   }
 
