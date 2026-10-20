@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { ViewCube } from '@luban-cad/viewer-core';
 
 export interface EditorViewportProps {
@@ -19,14 +20,15 @@ export interface EditorViewportProps {
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const EditorViewport: React.FC<EditorViewportProps> = ({ viewportRef }) => {
+  const { i18n } = useTranslation('editor');
   return (
     <div className="viewer-wrap">
       <div ref={viewportRef} style={{ width: '100%', height: '100%' }} />
 
       <div className="viewer-overlay">
-        {/* Top Right: ViewCube */}
+        {/* Top Right: ViewCube（viewer-core 无 i18next 依赖，语言经 prop 注入） */}
         <div className="overlay-top-right">
-          <ViewCube />
+          <ViewCube language={i18n.language.startsWith('en') ? 'en' : 'zh-CN'} />
         </div>
       </div>
     </div>

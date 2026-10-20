@@ -15,9 +15,13 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { IModelApp, StandardViewId } from '@itwin/core-frontend';
 
+export type ViewCubeLanguage = 'zh-CN' | 'en';
+
 export interface ViewCubeProps {
   className?: string;
   style?: React.CSSProperties;
+  /** 立方体面/快捷视图文案语言（RW4-P5：编辑器 en 象限不得残留中文）。默认中文。 */
+  language?: ViewCubeLanguage;
 }
 
 interface CubeFace {
@@ -100,7 +104,21 @@ const CORNERS: CornerConfig[] = [
 /**
  * Professional ViewCube - Autodesk Forge Viewer Style
  */
-export const ViewCube: React.FC<ViewCubeProps> = ({ className, style }) => {
+export const ViewCube: React.FC<ViewCubeProps> = ({ className, style, language = 'zh-CN' }) => {
+  const isEn = language === 'en';
+  const quickViews = isEn
+    ? [
+        { id: StandardViewId.Iso, label: 'Iso', title: 'Isometric' },
+        { id: StandardViewId.Top, label: 'Top', title: 'Top view' },
+        { id: StandardViewId.Front, label: 'Front', title: 'Front view' },
+        { id: StandardViewId.Right, label: 'Right', title: 'Right view' },
+      ]
+    : [
+        { id: StandardViewId.Iso, label: 'Iso', title: '等轴测' },
+        { id: StandardViewId.Top, label: '顶', title: '顶视图' },
+        { id: StandardViewId.Front, label: '前', title: '前视图' },
+        { id: StandardViewId.Right, label: '右', title: '右视图' },
+      ];
   const [rotation, setRotation] = useState({ x: -25, y: 45 });
   const [hoveredFace, setHoveredFace] = useState<StandardViewId | null>(null);
   const [activeFace, setActiveFace] = useState<StandardViewId>(StandardViewId.Iso);
@@ -232,7 +250,9 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ className, style }) => {
           textShadow: '0 1px 1px rgba(0,0,0,0.1)',
         }}
       >
-        {CUBE_FACES.find((f) => f.id === activeFace)?.labelZh || '前'}
+        {isEn
+          ? CUBE_FACES.find((f) => f.id === activeFace)?.label || 'FRONT'
+          : CUBE_FACES.find((f) => f.id === activeFace)?.labelZh || '前'}
       </div>
 
       {/* Cube Container */}
@@ -308,16 +328,18 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ className, style }) => {
                 >
                   {face.label}
                 </span>
-                <span
-                  style={{
-                    fontSize: '9px',
-                    fontWeight: 600,
-                    color: isActive || isHovered ? '#fff' : '#212529',
-                    marginTop: '1px',
-                  }}
-                >
-                  {face.labelZh}
-                </span>
+                {!isEn && (
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      color: isActive || isHovered ? '#fff' : '#212529',
+                      marginTop: '1px',
+                    }}
+                  >
+                    {face.labelZh}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -402,12 +424,7 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ className, style }) => {
           border: '1px solid rgba(0, 0, 0, 0.08)',
         }}
       >
-        {[
-          { id: StandardViewId.Iso, label: 'Iso', title: '等轴测' },
-          { id: StandardViewId.Top, label: '顶', title: '顶视图' },
-          { id: StandardViewId.Front, label: '前', title: '前视图' },
-          { id: StandardViewId.Right, label: '右', title: '右视图' },
-        ].map((view) => (
+        {quickViews.map((view) => (
           <button
             key={view.id}
             onClick={() => setStandardView(view.id, view.id)}
@@ -482,7 +499,8 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ className, style }) => {
 /**
  * Compact ViewCube for small spaces
  */
-export const CompactViewCube: React.FC<ViewCubeProps> = ({ className, style }) => {
+export const CompactViewCube: React.FC<ViewCubeProps> = ({ className, style, language = 'zh-CN' }) => {
+  const isEn = language === 'en';
   const setStandardView = useCallback((viewId: StandardViewId) => {
     const viewport = IModelApp.viewManager?.selectedView;
     if (!viewport) return;
@@ -497,12 +515,19 @@ export const CompactViewCube: React.FC<ViewCubeProps> = ({ className, style }) =
     viewport.synchWithView({});
   }, []);
 
-  const views = [
-    { id: StandardViewId.Iso, icon: '📦', title: '等轴测' },
-    { id: StandardViewId.Top, icon: '⬆️', title: '顶视图' },
-    { id: StandardViewId.Front, icon: '🔲', title: '前视图' },
-    { id: StandardViewId.Right, icon: '▶️', title: '右视图' },
-  ];
+  const views = isEn
+    ? [
+        { id: StandardViewId.Iso, icon: '📦', title: 'Isometric' },
+        { id: StandardViewId.Top, icon: '⬆️', title: 'Top view' },
+        { id: StandardViewId.Front, icon: '🔲', title: 'Front view' },
+        { id: StandardViewId.Right, icon: '▶️', title: 'Right view' },
+      ]
+    : [
+        { id: StandardViewId.Iso, icon: '📦', title: '等轴测' },
+        { id: StandardViewId.Top, icon: '⬆️', title: '顶视图' },
+        { id: StandardViewId.Front, icon: '🔲', title: '前视图' },
+        { id: StandardViewId.Right, icon: '▶️', title: '右视图' },
+      ];
 
   return (
     <div

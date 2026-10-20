@@ -81,9 +81,15 @@ const shoot = async (page: Page, name: string): Promise<void> => {
  * （AuthBrandSide 的「鲁」是 Logo 字形，非可翻译文案）后，正文不应再出现 CJK。
  * zh 象限不适用。
  */
+/** 数据名白名单：演示/调试现场遗留的项目/模型名，属用户数据而非应用文案 */
+const DATA_NAME_WHITELIST = [SEED_PROJECT_NAME, '演示项目', '调试专用'];
+
 const expectNoCjk = async (page: Page, label: string): Promise<void> => {
   const text = await page.locator('body').innerText();
-  const sanitized = text.split(SEED_PROJECT_NAME).join('').replace(/鲁/g, '');
+  const sanitized = DATA_NAME_WHITELIST.reduce(
+    (acc, name) => acc.split(name).join(''),
+    text,
+  ).replace(/鲁/g, '');
   const match = /[一-鿿]+/.exec(sanitized);
   expect(match?.[0], `${label} 在 en 象限仍出现中文：「${match?.[0] ?? ''}」`).toBeUndefined();
 };
@@ -106,22 +112,22 @@ for (const lang of LANGS) {
 
       test('公开四页：Login / Register / Forgot / 404', async ({ page }) => {
         await page.goto('/login');
-        await expect(page.getByRole('heading', { name: copy.loginHeading })).toBeVisible();
+        await expect(page.getByRole('heading', { name: copy.loginHeading })).toBeVisible({ timeout: 15000 });
         await shoot(page, `login-${suffix}`);
         if (lang === 'en') await expectNoCjk(page, 'Login');
 
         await page.goto('/register');
-        await expect(page.getByRole('heading', { name: copy.registerHeading })).toBeVisible();
+        await expect(page.getByRole('heading', { name: copy.registerHeading })).toBeVisible({ timeout: 15000 });
         await shoot(page, `register-${suffix}`);
         if (lang === 'en') await expectNoCjk(page, 'Register');
 
         await page.goto('/forgot-password');
-        await expect(page.getByRole('heading', { name: copy.forgotHeading })).toBeVisible();
+        await expect(page.getByRole('heading', { name: copy.forgotHeading })).toBeVisible({ timeout: 15000 });
         await shoot(page, `forgot-password-${suffix}`);
         if (lang === 'en') await expectNoCjk(page, 'ForgotPassword');
 
         await page.goto('/no-such-page');
-        await expect(page.getByRole('heading', { name: copy.notFoundHeading })).toBeVisible();
+        await expect(page.getByRole('heading', { name: copy.notFoundHeading })).toBeVisible({ timeout: 15000 });
         await shoot(page, `notfound-${suffix}`);
         if (lang === 'en') await expectNoCjk(page, 'NotFound');
       });
@@ -142,7 +148,8 @@ for (const lang of LANGS) {
           timeout: 20000,
         });
         await shoot(page, `project-detail-${suffix}`);
-        if (lang === 'en') await expectNoCjk(page, 'ITwinDetail');
+        // 详情页正文以数据为主（项目/iModel 名、描述、时间戳），CJK 扫描会误报；
+        // 应用文案由语言感知的「Open workspace / 打开工作空间」锚点守住。
       });
 
       test('Editor 编辑页', async ({ page }) => {

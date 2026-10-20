@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { ViewCube, CompactViewCube } from './ViewCube.js';
 
 // Mock iTwin.js dependencies
@@ -48,6 +48,19 @@ describe('ViewCube', () => {
     const { container } = render(<ViewCube className="custom-cube" />);
     expect((container.firstChild as HTMLElement).classList.contains('custom-cube')).toBe(true);
   });
+
+  it('language=en：面/快捷视图文案全英文（RW4-P5 en 象限）', () => {
+    const { container } = render(<ViewCube language="en" />);
+    expect(container.textContent).not.toMatch(/[一-鿿]/);
+    expect(screen.getByTitle('Front view')).toBeDefined();
+    expect(screen.getByTitle('Isometric')).toBeDefined();
+  });
+
+  it('默认中文：保留中文面标签与快捷视图标题', () => {
+    const { container } = render(<ViewCube />);
+    expect(container.textContent).toMatch(/[一-鿿]/);
+    expect(screen.getByTitle('前视图')).toBeDefined();
+  });
 });
 
 describe('CompactViewCube', () => {
@@ -59,5 +72,11 @@ describe('CompactViewCube', () => {
   it('should render quick view buttons', () => {
     const { container } = render(<CompactViewCube />);
     expect(container).toBeDefined();
+  });
+
+  it('language=en：快捷视图标题全英文', () => {
+    render(<CompactViewCube language="en" />);
+    expect(screen.getByTitle('Top view')).toBeDefined();
+    expect(screen.getByTitle('Right view')).toBeDefined();
   });
 });
