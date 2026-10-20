@@ -27,7 +27,8 @@ describe('iTwin 对话框文案（documents ns）', () => {
     await i18n.changeLanguage('en');
     render(<CreateITwinDialog isOpen onClose={() => undefined} />);
 
-    expect(await screen.findByRole('dialog', { name: 'New iTwin Project' })).toBeTruthy();
+    // titleText 渲染为可见 heading（3.22：titleText 才是标题文本 prop）
+    expect(await screen.findByRole('heading', { name: 'New iTwin Project' })).toBeTruthy();
     expect(await screen.findByText('Project Name')).toBeTruthy();
     expect(await screen.findByPlaceholderText('Enter project name')).toBeTruthy();
     expect(await screen.findByText('Create')).toBeTruthy();
@@ -45,9 +46,8 @@ describe('iTwin 对话框文案（documents ns）', () => {
       />,
     );
 
-    // 3.22 的 Dialog.TitleBar 把标题只写进 wrapper 的 title 属性（h2 为空文本）——按属性断言
-    const titleBar = document.querySelector('[class*="dialog-title-bar"]');
-    expect(titleBar?.getAttribute('title')).toBe('Edit Project');
+    // Edit 已补 Dialog.Main/Backdrop 语义 + titleText——标题可作可见 heading 断言
+    expect(await screen.findByRole('heading', { name: 'Edit Project' })).toBeTruthy();
     expect(await screen.findByText('Project Name')).toBeTruthy();
     expect(await screen.findByText('Save')).toBeTruthy();
     expect(await screen.findByText('Cancel')).toBeTruthy();

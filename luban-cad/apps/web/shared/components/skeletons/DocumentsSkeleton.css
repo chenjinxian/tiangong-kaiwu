@@ -190,3 +190,48 @@
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
+
+/* ── RW4-P2 新结构骨架（Header 搜索位 / Table 视图）────────────────── */
+.topbar-search-skeleton {
+  inline-size: min(420px, 40vw);
+  block-size: 32px;
+  border-radius: var(--iui-border-radius, 4px);
+  background: var(--iui-color-background-3, #e6e6e6);
+}
+
+.table-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-s, 8px);
+  padding-bottom: var(--iui-size-m, 12px);
+}
+
+.table-head-skeleton {
+  block-size: 36px;
+  border-radius: var(--iui-border-radius, 4px);
+  background: var(--iui-color-background-3, #e6e6e6);
+}
+
+.table-row-skeleton {
+  display: grid;
+  grid-template-columns: 32px 2fr 1fr 1fr 1fr;
+  align-items: center;
+  gap: var(--iui-size-s, 8px);
+  padding: var(--iui-size-xs, 6px) var(--iui-size-s, 8px);
+  border-radius: var(--iui-border-radius, 4px);
+  background: var(--iui-color-background-2, #f2f2f2);
+}
+
+.table-row-skeleton .row-title {
+  block-size: 14px;
+  inline-size: 70%;
+  border-radius: 2px;
+  background: var(--iui-color-background-3, #e6e6e6);
+}
+
+.table-row-skeleton .row-meta {
+  block-size: 12px;
+  inline-size: 60%;
+  border-radius: 2px;
+  background: var(--iui-color-background-3, #e6e6e6);
+}

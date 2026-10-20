@@ -59,7 +59,7 @@
 }
 
 /* ── 主区标题 ─────────────────────────────────────────────────────── */
-.section-title {
+.itwins-page .section-title {
   font-size: var(--iui-font-size-2);
   font-weight: var(--iui-font-weight-semibold, 600);
   color: var(--iui-color-text);
@@ -104,6 +104,17 @@
 
 .doc-nonideal {
   flex: 1;
+}
+
+/* 刷新图标旋转（旧规则随重写删除，此处本地恢复，不依赖 ITwinDetail 懒加载 chunk） */
+.spin {
+  animation: documents-spin 1s linear infinite;
+}
+
+@keyframes documents-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── 网格视图 ────────────────────────────────────────────────────── */
@@ -160,7 +171,8 @@
   cursor: pointer;
 }
 
-.doc-table-row--selected > td {
+.doc-table-row--selected {
+  /* iTwinUI 3.22 Table 为 div 结构（无 td）——高亮直接落行容器 */
   background: var(--iui-color-background-accent-muted, var(--iui-color-background-2));
 }
 
@@ -261,4 +273,15 @@
 .doc-info-list dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+/* ── 响应式（旧规则恢复）────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .itwins-page .sidebar {
+    display: none;
+  }
+
+  .doc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
 }

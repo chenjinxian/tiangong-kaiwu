@@ -99,12 +99,13 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
     <Dialog
       isOpen={isOpen}
       onClose={handleClose}
-      title={t('edit.title')}
       isDismissible
+      portal
     >
-      {/* 与 Create 对话框同构：TitleBar 承载可见标题 + aria-label（根 title 在 3.22 不渲染 heading） */}
-      <Dialog.TitleBar title={t('edit.title')} />
-      <Dialog.Content>
+      <Dialog.Backdrop />
+      <Dialog.Main styleType="default" className="edit-dialog">
+        <Dialog.TitleBar titleText={t('edit.title')} />
+        <Dialog.Content>
         {submitError && (
           <Text
             color="negative"
@@ -142,7 +143,8 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
         >
           {t('edit.submit')}
         </Button>
-      </Dialog.ButtonBar>
+        </Dialog.ButtonBar>
+      </Dialog.Main>
     </Dialog>
   );
 });

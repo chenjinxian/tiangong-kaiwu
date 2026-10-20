@@ -828,7 +828,7 @@ const Documents: React.FC = React.memo(() => {
             </div>
           </div>
 
-          <InformationPanelWrapper className="content-area">
+          <InformationPanelWrapper>
             {renderContent()}
 
             {/* 详情侧栏：选中行 → 大缩略图/所有者/角色/时间/描述 */}

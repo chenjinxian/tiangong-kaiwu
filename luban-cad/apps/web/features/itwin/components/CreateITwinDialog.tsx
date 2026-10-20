@@ -86,7 +86,7 @@ export const CreateITwinDialog: React.FC<CreateITwinDialogProps> = React.memo(({
     >
       <Dialog.Backdrop />
       <Dialog.Main styleType="default" title={t('create.title')} className="create-dialog">
-        <Dialog.TitleBar title={t('create.title')} />
+        <Dialog.TitleBar titleText={t('create.title')} />
         <Dialog.Content>
           {submitError && (
             <Text
