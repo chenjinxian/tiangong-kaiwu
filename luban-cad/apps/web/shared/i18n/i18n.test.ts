@@ -130,6 +130,71 @@ describe('i18n 骨架', () => {
     await i18n.changeLanguage('zh-CN');
   });
 
+  it('documents 命名空间：筛选/搜索/空态键命中（zh/en，e2e 中文锚点）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('filters.my', { ns: 'documents' })).toBe('我的项目');
+    expect(i18n.t('filters.recent', { ns: 'documents' })).toBe('最近打开');
+    expect(i18n.t('filters.favorites', { ns: 'documents' })).toBe('收藏项目');
+    expect(i18n.t('filters.shared', { ns: 'documents' })).toBe('与我共享');
+    expect(i18n.t('actions.create', { ns: 'documents' })).toBe('新建项目');
+    expect(i18n.t('actions.logout', { ns: 'documents' })).toBe('退出登录');
+    expect(i18n.t('search.placeholder', { ns: 'documents' })).toBe('搜索项目...');
+    expect(i18n.t('empty.myTitle', { ns: 'documents' })).toBe('暂无项目');
+    expect(i18n.t('states.loading', { ns: 'documents' })).toBe('加载项目中...');
+    expect(i18n.t('states.errorTitle', { ns: 'documents' })).toBe('加载失败');
+    expect(i18n.t('actions.retry', { ns: 'documents' })).toBe('重试');
+    expect(i18n.t('section.count', { ns: 'documents', count: 3 })).toBe('3 个项目');
+    await i18n.changeLanguage('en');
+    expect(i18n.t('filters.my', { ns: 'documents' })).toMatch(/My project/i);
+    expect(i18n.t('filters.shared', { ns: 'documents' })).toMatch(/Shared/i);
+    expect(i18n.t('actions.create', { ns: 'documents' })).toMatch(/New project/i);
+    expect(i18n.t('empty.myTitle', { ns: 'documents' })).toMatch(/No projects/i);
+    await i18n.changeLanguage('zh-CN');
+  });
+
+  it('documents 命名空间：行级菜单/详情侧栏/删除确认/双视图键命中（zh/en）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('actions.open', { ns: 'documents' })).toBe('打开');
+    expect(i18n.t('actions.rename', { ns: 'documents' })).toBe('重命名');
+    expect(i18n.t('actions.favorite', { ns: 'documents' })).toBe('收藏');
+    expect(i18n.t('actions.unfavorite', { ns: 'documents' })).toBe('取消收藏');
+    expect(i18n.t('actions.share', { ns: 'documents' })).toBe('分享');
+    expect(i18n.t('actions.delete', { ns: 'documents' })).toBe('删除');
+    expect(i18n.t('actions.details', { ns: 'documents' })).toBe('详情');
+    expect(i18n.t('view.tile', { ns: 'documents' })).toBe('网格视图');
+    expect(i18n.t('view.table', { ns: 'documents' })).toBe('列表视图');
+    expect(i18n.t('table.name', { ns: 'documents' })).toBe('名称');
+    expect(i18n.t('role.owner', { ns: 'documents' })).toBe('所有者');
+    expect(i18n.t('role.member', { ns: 'documents' })).toBe('成员');
+    expect(i18n.t('info.description', { ns: 'documents' })).toBe('描述');
+    expect(i18n.t('deleteDialog.title', { ns: 'documents' })).toBe('删除项目');
+    expect(i18n.t('deleteDialog.message', { ns: 'documents', name: 'X' })).toBe(
+      '确定要删除项目「X」吗？此操作不可撤销，项目下的所有 iModel 也将被删除。',
+    );
+    await i18n.changeLanguage('en');
+    expect(i18n.t('actions.open', { ns: 'documents' })).toMatch(/Open/i);
+    expect(i18n.t('view.table', { ns: 'documents' })).toMatch(/Table|List/i);
+    expect(i18n.t('role.owner', { ns: 'documents' })).toMatch(/Owner/i);
+    expect(i18n.t('deleteDialog.message', { ns: 'documents', name: 'X' })).toMatch(/X/);
+    await i18n.changeLanguage('zh-CN');
+  });
+
+  it('documents 命名空间：Create/Edit 对话框文案键命中（zh/en，e2e 中文锚点）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('create.title', { ns: 'documents' })).toBe('创建 iTwin 项目');
+    expect(i18n.t('create.namePlaceholder', { ns: 'documents' })).toBe('输入项目名称');
+    expect(i18n.t('create.numberPlaceholder', { ns: 'documents' })).toBe('输入项目编号（可选）');
+    expect(i18n.t('create.submit', { ns: 'documents' })).toBe('创建');
+    expect(i18n.t('create.cancel', { ns: 'documents' })).toBe('取消');
+    expect(i18n.t('edit.title', { ns: 'documents' })).toBe('编辑项目');
+    expect(i18n.t('edit.submit', { ns: 'documents' })).toBe('保存');
+    await i18n.changeLanguage('en');
+    expect(i18n.t('create.title', { ns: 'documents' })).toMatch(/New .*Project/i);
+    expect(i18n.t('create.namePlaceholder', { ns: 'documents' })).toMatch(/name/i);
+    expect(i18n.t('edit.submit', { ns: 'documents' })).toMatch(/Save/i);
+    await i18n.changeLanguage('zh-CN');
+  });
+
   it('语言持久化键常量', () => {
     expect(LANGUAGE_STORAGE_KEY).toBe('luban-cad-lang');
   });

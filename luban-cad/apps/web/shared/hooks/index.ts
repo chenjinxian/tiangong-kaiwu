@@ -19,3 +19,6 @@ export {
 
 // Toast (itwinui useToaster adapter, P0 Task5)
 export { useAppToast, type ToastType } from './useAppToast.js';
+
+// iTwin 缩略图认证加载（RW4-P2-T2-1）
+export { useITwinImage, type ITwinImageDescriptor } from './useITwinImage.js';

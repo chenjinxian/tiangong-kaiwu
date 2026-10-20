@@ -96,6 +96,8 @@ export const queryKeys = {
     detail: (id: string | null) => [...queryKeys.itwins.all, 'detail', id] as const,
     favorites: () => [...queryKeys.itwins.all, 'favorites'] as const,
     recents: () => [...queryKeys.itwins.all, 'recents'] as const,
+    // 缩略图 objectURL（useITwinImage，RW4-P2-T2-1）——缓存条目移除时回收 blob URL
+    image: (id: string | null) => [...queryKeys.itwins.all, 'image', id] as const,
   },
 
   // Projects (REST API)

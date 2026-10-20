@@ -1,0 +1,113 @@
+{
+  "appTitle": "Documents",
+  "filters": {
+    "recent": "Recent",
+    "favorites": "Favorites",
+    "my": "My Projects",
+    "shared": "Shared with Me"
+  },
+  "section": {
+    "count": "{{count}} projects",
+    "searchResults": "Search: \"{{query}}\""
+  },
+  "actions": {
+    "create": "New Project",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "clearSearch": "Clear search",
+    "viewTile": "Grid view",
+    "viewTable": "Table view",
+    "open": "Open",
+    "details": "Details",
+    "rename": "Rename",
+    "favorite": "Add to Favorites",
+    "unfavorite": "Remove from Favorites",
+    "share": "Share",
+    "delete": "Delete",
+    "logout": "Sign Out",
+    "settings": "Settings"
+  },
+  "search": {
+    "placeholder": "Search projects...",
+    "noResults": "No matching projects",
+    "noResultsHint": "Try a different keyword"
+  },
+  "empty": {
+    "recentTitle": "No recent projects",
+    "recentDescription": "Projects you open will appear here",
+    "favoritesTitle": "No favorites yet",
+    "favoritesDescription": "Click the star on a project card to favorite it",
+    "sharedTitle": "No shared projects",
+    "sharedDescription": "Projects shared with you by other users will appear here",
+    "myTitle": "No projects",
+    "myDescription": "Create your first iTwin project",
+    "viewAll": "View all projects"
+  },
+  "states": {
+    "loading": "Loading projects...",
+    "errorTitle": "Failed to load",
+    "unnamed": "Untitled Project",
+    "createdAt": "Created {{date}}",
+    "favoriteSuccess": "Added to favorites",
+    "unfavoriteSuccess": "Removed from favorites",
+    "favoriteFailed": "Failed to update favorite. Please retry.",
+    "deleteSuccess": "Project deleted",
+    "deleteFailed": "Failed to delete. Please retry."
+  },
+  "view": {
+    "tile": "Grid view",
+    "table": "Table view"
+  },
+  "table": {
+    "name": "Name",
+    "owner": "Owner",
+    "role": "Role",
+    "createdAt": "Created",
+    "modifiedAt": "Modified",
+    "actions": "Actions",
+    "rowActions": "More actions"
+  },
+  "role": {
+    "owner": "Owner",
+    "member": "Member"
+  },
+  "info": {
+    "title": "Details",
+    "owner": "Owner",
+    "role": "Role",
+    "createdAt": "Created",
+    "modifiedAt": "Modified",
+    "description": "Description",
+    "noDescription": "No description",
+    "close": "Close details"
+  },
+  "share": {
+    "comingSoon": "Coming soon (P3)"
+  },
+  "deleteDialog": {
+    "title": "Delete Project",
+    "message": "Are you sure you want to delete project \"{{name}}\"? This action cannot be undone, and all iModels in the project will also be deleted.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "create": {
+    "title": "New iTwin Project",
+    "nameLabel": "Project Name",
+    "namePlaceholder": "Enter project name",
+    "nameRequired": "Please enter a project name",
+    "numberLabel": "Project Number",
+    "numberPlaceholder": "Enter project number (optional)",
+    "submit": "Create",
+    "cancel": "Cancel",
+    "failed": "Failed to create. Please retry."
+  },
+  "edit": {
+    "title": "Edit Project",
+    "nameLabel": "Project Name",
+    "namePlaceholder": "Enter project name",
+    "nameRequired": "Please enter a project name",
+    "submit": "Save",
+    "cancel": "Cancel",
+    "failed": "Failed to update. Please retry."
+  }
+}
