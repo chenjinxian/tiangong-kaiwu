@@ -45,6 +45,12 @@ const COPY: Record<Lang, {
   openWorkspace: RegExp;
   editorSelect: RegExp;
   editorDisplay: RegExp;
+  editorShare: RegExp;
+  editorRename: RegExp;
+  shareDialog: RegExp;
+  renameDialog: RegExp;
+  historyButton: RegExp;
+  namedVersionsTab: RegExp;
   settingsTab: RegExp;
   projectsFilter: RegExp;
 }> = {
@@ -57,6 +63,12 @@ const COPY: Record<Lang, {
     openWorkspace: /打开工作空间/,
     editorSelect: /^选择$/,
     editorDisplay: /^显示设置$/,
+    editorShare: /^分享$/,
+    editorRename: /^重命名$/,
+    shareDialog: /分享项目/,
+    renameDialog: /重命名 iModel/,
+    historyButton: /^历史$/,
+    namedVersionsTab: /命名版本/,
     settingsTab: /个人资料/,
     projectsFilter: /我的项目/,
   },
@@ -69,6 +81,12 @@ const COPY: Record<Lang, {
     openWorkspace: /Open workspace/,
     editorSelect: /^Select$/,
     editorDisplay: /^Display$/,
+    editorShare: /^Share$/,
+    editorRename: /^Rename$/,
+    shareDialog: /Share Project/,
+    renameDialog: /Rename iModel/,
+    historyButton: /^History$/,
+    namedVersionsTab: /Named versions/,
     settingsTab: /Profile/,
     projectsFilter: /My Projects/,
   },
@@ -167,9 +185,16 @@ for (const lang of LANGS) {
         await expect(openWorkspace).toBeEnabled({ timeout: 60000 });
         await openWorkspace.click();
         await page.waitForURL(/\/documents\/[^/]+\/[^/]+/, { timeout: 60000 });
-        await expect(page.getByRole('button', { name: copy.editorSelect }).first()).toBeVisible({
-          timeout: 60000,
-        });
+        // briefcase/WS 偶发挂起（memory: 串行多轮后初始化卡死）：一次 reload 重试
+        const selectButton = page.getByRole('button', { name: copy.editorSelect }).first();
+        const editorReady = await selectButton
+          .waitFor({ state: 'visible', timeout: 45000 })
+          .then(() => true)
+          .catch(() => false);
+        if (!editorReady) {
+          await page.reload();
+          await expect(selectButton).toBeVisible({ timeout: 60000 });
+        }
         // 停靠/状态栏渲染完毕再截（避免 capture 到加载帧）
         await page.waitForTimeout(1200);
         await shoot(page, `editor-${suffix}`);
@@ -181,6 +206,28 @@ for (const lang of LANGS) {
         await page.waitForTimeout(500);
         await shoot(page, `editor-dock-${suffix}`);
         if (lang === 'en') await expectNoCjk(page, 'Editor dock');
+
+        // 终审 I1：顶栏 Share / 重命名可达（对话框打开即断言，Escape 关闭）
+        await page.getByRole('button', { name: copy.editorShare }).first().click();
+        const shareDialog = page.getByRole('dialog', { name: copy.shareDialog });
+        await expect(shareDialog).toBeVisible();
+        await shareDialog.getByRole('button', { name: 'Close' }).first().click();
+        await expect(shareDialog).toBeHidden();
+
+        await page.getByRole('button', { name: copy.editorRename }).first().click();
+        const renameDialog = page.getByRole('dialog', { name: copy.renameDialog });
+        await expect(renameDialog).toBeVisible();
+        await renameDialog.getByRole('button', { name: 'Close' }).first().click();
+        await expect(renameDialog).toBeHidden();
+
+        // 终审 I1：版本历史停靠 → 命名版本页可达
+        await page.getByRole('button', { name: copy.historyButton }).first().click();
+        const historyDock = page.getByTestId('editor-dock');
+        await expect(historyDock.getByRole('tab', { name: copy.namedVersionsTab })).toBeVisible();
+        await historyDock.getByRole('tab', { name: copy.namedVersionsTab }).click();
+        await page.waitForTimeout(500);
+        await shoot(page, `editor-named-versions-${suffix}`);
+        if (lang === 'en') await expectNoCjk(page, 'Editor named versions');
       });
 
       test('Settings 设置页', async ({ page }) => {
