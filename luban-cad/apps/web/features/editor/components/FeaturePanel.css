@@ -104,13 +104,15 @@
   gap: 0;
 }
 
-.feature-reorder-btns .iui-button {
+/* iTwinUI 3.22 类名运行时哈希化（_iui3220-button），.iui-button 选择器不命中；
+ * 语义选择器为稳定契约（P5 评审 Important#2 系统性扫尾）。 */
+.feature-reorder-btns button {
   padding: 0;
   height: 14px;
   width: 14px;
 }
 
-.feature-reorder-btns .iui-button svg {
+.feature-reorder-btns button svg {
   width: 10px;
   height: 10px;
 }
@@ -193,7 +195,7 @@
   margin-bottom: var(--iui-size-m);
 }
 
-.form-group .iui-label {
+.form-group label {
   display: block;
   margin-bottom: var(--iui-size-xs);
 }

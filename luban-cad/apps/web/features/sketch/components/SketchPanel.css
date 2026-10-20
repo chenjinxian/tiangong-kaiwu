@@ -27,7 +27,7 @@
   flex-wrap: wrap;
 }
 
-.sketch-panel-header .iui-text {
+.sketch-panel-header span {
   font-size: var(--iui-font-size-1);
   font-weight: 600;
 }

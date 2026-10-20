@@ -97,7 +97,7 @@
   margin-top: 2px;
 }
 
-.share-member__meta .iui-select {
+.share-member__meta [role="combobox"] {
   min-width: 120px;
 }
 

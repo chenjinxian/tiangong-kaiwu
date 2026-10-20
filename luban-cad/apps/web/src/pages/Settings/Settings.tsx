@@ -63,7 +63,8 @@ const Settings: React.FC = React.memo(() => {
 
   // Profile form state
   const [name, setName] = useState(user?.name || '');
-  const [profileError, setProfileError] = useState('');
+  // 存 i18n key 而非译文：切换语言后错误文案随之更新（P5 评审 Minor#4）
+  const [profileErrorKey, setProfileErrorKey] = useState('');
   const email = user?.email || '';
 
   // Password form state
@@ -80,8 +81,13 @@ const Settings: React.FC = React.memo(() => {
   );
 
   const profileMutation = useMutation({
+    // 写操作非幂等：不继承 QueryProvider 的全局 retry:1（4xx 不重试，P5 评审 deferred）
+    retry: false,
     mutationFn: async (nextName: string) => {
-      const response = await fetchWithAuth(`${API_BASE_URL}/api/users/profile`, {
+      // modeling-server 面：相对 path + baseUrl 覆写。不可把 API_BASE_URL 拼进 path——
+      // fetchWithAuth 默认 base 为 VITE_IMODELHUB_URL，叠加会得到双 origin（P5 评审 Important#1）
+      const response = await fetchWithAuth('/api/users/profile', {
+        baseUrl: API_BASE_URL,
         method: 'PUT',
         body: JSON.stringify({ name: nextName }),
       });
@@ -100,8 +106,10 @@ const Settings: React.FC = React.memo(() => {
   });
 
   const passwordMutation = useMutation({
+    retry: false,
     mutationFn: async (payload: PasswordPayload) => {
-      await fetchWithAuth(`${API_BASE_URL}/api/users/password`, {
+      await fetchWithAuth('/api/users/password', {
+        baseUrl: API_BASE_URL,
         method: 'PUT',
         body: JSON.stringify(payload),
       });
@@ -123,18 +131,18 @@ const Settings: React.FC = React.memo(() => {
 
   const handleNameChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setName(event.target.value);
-    setProfileError('');
+    setProfileErrorKey('');
   }, []);
 
   const handleUpdateProfile = useCallback(() => {
     const trimmed = name.trim();
     if (!trimmed) {
-      setProfileError(t('profile.validation.nameRequired'));
+      setProfileErrorKey('profile.validation.nameRequired');
       return;
     }
-    setProfileError('');
+    setProfileErrorKey('');
     profileMutation.mutate(trimmed);
-  }, [name, profileMutation, t]);
+  }, [name, profileMutation]);
 
   const handleChangePassword = useCallback(() => {
     if (!currentPassword) {
@@ -261,13 +269,13 @@ const Settings: React.FC = React.memo(() => {
                   onChange={handleNameChange}
                   placeholder={t('profile.namePlaceholder')}
                   autoComplete="name"
-                  status={profileError ? 'negative' : undefined}
-                  aria-invalid={!!profileError}
-                  aria-describedby={profileError ? 'settings-name-error' : undefined}
+                  status={profileErrorKey ? 'negative' : undefined}
+                  aria-invalid={!!profileErrorKey}
+                  aria-describedby={profileErrorKey ? 'settings-name-error' : undefined}
                 />
-                {profileError && (
+                {profileErrorKey && (
                   <span id="settings-name-error" className="field-error" role="alert">
-                    {profileError}
+                    {t(profileErrorKey)}
                   </span>
                 )}
               </div>

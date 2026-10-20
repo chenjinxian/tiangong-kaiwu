@@ -64,11 +64,11 @@
   padding: var(--iui-size-s) 0;
 }
 
-.cw-progress .iui-stepper {
+.cw-progress [class*="stepper"] {
   width: 100%;
 }
 
-.cw-progress .iui-progress-linear {
+.cw-progress [class*="progress-indicator-linear"] {
   width: 100%;
 }
 

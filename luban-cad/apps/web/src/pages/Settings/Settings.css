@@ -76,7 +76,7 @@
   border-right: 1px solid var(--iui-color-border);
 }
 
-.user-preview {
+.settings-page .user-preview {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -84,7 +84,7 @@
   text-align: center;
 }
 
-.avatar-wrapper {
+.settings-page .avatar-wrapper {
   position: relative;
   display: inline-flex;
   margin-bottom: var(--iui-size-m);
@@ -95,11 +95,11 @@
   cursor: pointer;
 }
 
-.avatar-wrapper .user-avatar {
+.settings-page .avatar-wrapper .user-avatar {
   font-size: 24px;
 }
 
-.avatar-overlay {
+.settings-page .avatar-overlay {
   position: absolute;
   inset: 0;
   display: flex;
@@ -112,24 +112,24 @@
   transition: opacity 0.2s;
 }
 
-.avatar-wrapper:hover .avatar-overlay,
-.avatar-wrapper:focus-visible .avatar-overlay {
+.settings-page .avatar-wrapper:hover .settings-page .avatar-overlay,
+.settings-page .avatar-wrapper:focus-visible .settings-page .avatar-overlay {
   opacity: 1;
 }
 
-.avatar-wrapper:focus-visible {
+.settings-page .avatar-wrapper:focus-visible {
   outline: 2px solid var(--iui-color-border-accent);
   outline-offset: 2px;
 }
 
-.user-name {
+.settings-page .user-name {
   margin-bottom: var(--iui-size-2xs);
   color: var(--iui-color-text);
   font-weight: 600;
   word-break: break-word;
 }
 
-.user-email {
+.settings-page .user-email {
   color: var(--iui-color-text-muted);
   word-break: break-all;
 }
@@ -145,7 +145,7 @@
   border: none;
 }
 
-.settings-tablist .iui-tab {
+.settings-tablist [role="tab"] {
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -159,25 +159,20 @@
   text-align: left;
 }
 
-.settings-tablist .iui-tab:hover {
+.settings-tablist [role="tab"]:hover {
   background: var(--iui-color-background-hover);
 }
 
-.settings-tablist .iui-tab[aria-selected='true'] {
+.settings-tablist [role="tab"][aria-selected='true'] {
   background: var(--iui-color-background);
   color: var(--iui-color-text-accent);
   font-weight: 600;
 }
 
-.settings-tablist .iui-tab-icon {
-  display: inline-flex;
+.settings-tablist [role="tab"] svg {
   width: 20px;
   height: 20px;
-}
-
-.settings-tablist .iui-tab-icon svg {
-  width: 100%;
-  height: 100%;
+  flex-shrink: 0;
 }
 
 /* ── Main Content ── */
@@ -192,55 +187,55 @@
   max-width: 520px;
 }
 
-.section-title {
+.settings-page .section-title {
   margin-bottom: var(--iui-size-xs);
   color: var(--iui-color-text);
 }
 
-.section-description {
+.settings-page .section-description {
   margin-bottom: var(--iui-size-l);
   color: var(--iui-color-text-muted);
 }
 
 /* ── Form Elements ── */
-.form-group {
+.settings-page .form-group {
   margin-bottom: var(--iui-size-m);
 }
 
-.form-group .iui-label {
+.settings-page .form-group label {
   display: block;
   margin-bottom: var(--iui-size-xs);
   color: var(--iui-color-text);
 }
 
-.form-group .iui-input {
+.settings-page .form-group input {
   width: 100%;
 }
 
-.field-hint {
+.settings-page .field-hint {
   display: block;
   margin-top: var(--iui-size-xs);
   color: var(--iui-color-text-muted);
 }
 
-.field-error {
+.settings-page .field-error {
   display: block;
   margin-top: var(--iui-size-xs);
   color: var(--iui-color-text-negative);
 }
 
-.form-actions {
+.settings-page .form-actions {
   margin-top: var(--iui-size-l);
   padding-top: var(--iui-size-m);
   border-top: 1px solid var(--iui-color-border);
 }
 
-.password-hint {
+.settings-page .password-hint {
   margin-bottom: var(--iui-size-m);
 }
 
 /* ── Preferences ── */
-.preference-item {
+.settings-page .preference-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -248,28 +243,28 @@
   padding: var(--iui-size-m) 0;
 }
 
-.preference-info {
+.settings-page .preference-info {
   display: flex;
   flex-direction: column;
   gap: var(--iui-size-2xs);
   min-width: 0;
 }
 
-.preference-label {
+.settings-page .preference-label {
   color: var(--iui-color-text);
   font-weight: 500;
 }
 
-.preference-desc {
+.settings-page .preference-desc {
   color: var(--iui-color-text-muted);
 }
 
-.preference-control {
+.settings-page .preference-control {
   flex-shrink: 0;
   width: 200px;
 }
 
-.preference-note {
+.settings-page .preference-note {
   display: block;
   margin: var(--iui-size-xs) 0 var(--iui-size-s);
   color: var(--iui-color-text-muted);
@@ -297,7 +292,7 @@
     flex-wrap: wrap;
   }
 
-  .settings-tablist .iui-tab {
+  .settings-tablist [role="tab"] {
     flex: 1 1 120px;
     justify-content: center;
     width: auto;
@@ -307,13 +302,13 @@
     padding: var(--iui-size-l);
   }
 
-  .preference-item {
+  .settings-page .preference-item {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--iui-size-s);
   }
 
-  .preference-control {
+  .settings-page .preference-control {
     width: 100%;
   }
 }

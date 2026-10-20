@@ -46,6 +46,7 @@ vi.mock('../../../shared/api/httpClient.js', async () => {
 
 import { ThemeProvider } from '../../../app/contexts/ThemeContext.js';
 import { ApiError, fetchWithAuth } from '../../../shared/api/httpClient.js';
+import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import i18n, { LANGUAGE_STORAGE_KEY } from '../../../shared/i18n/index.js';
 import Settings, { LENGTH_UNIT_STORAGE_KEY } from './Settings.js';
 
@@ -145,9 +146,11 @@ describe('Settings（RW4-P5-T5-1）', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
 
     await waitFor(() => expect(mockedFetchWithAuth).toHaveBeenCalledTimes(1));
+    // 精确断言相对 path + baseUrl：守住「API_BASE_URL 不得拼进 path」的基址叠加回归
     expect(mockedFetchWithAuth).toHaveBeenCalledWith(
-      expect.stringContaining('/api/users/profile'),
+      '/api/users/profile',
       expect.objectContaining({
+        baseUrl: API_BASE_URL,
         method: 'PUT',
         body: JSON.stringify({ name: '爱丽丝' }),
       }),
@@ -192,8 +195,9 @@ describe('Settings（RW4-P5-T5-1）', () => {
 
     await waitFor(() => expect(mockedFetchWithAuth).toHaveBeenCalledTimes(1));
     expect(mockedFetchWithAuth).toHaveBeenCalledWith(
-      expect.stringContaining('/api/users/password'),
+      '/api/users/password',
       expect.objectContaining({
+        baseUrl: API_BASE_URL,
         method: 'PUT',
         body: JSON.stringify({ currentPassword: 'oldpass', newPassword: 'newpass1' }),
       }),
@@ -239,6 +243,23 @@ describe('Settings（RW4-P5-T5-1）', () => {
     expect(
       within(screen.getByRole('tabpanel')).getByText('Preferences'),
     ).toBeTruthy();
+  });
+
+  it('字段错误存 key：切换语言后错误文案随译文更新', async () => {
+    renderSettings();
+    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', '请输入姓名');
+
+    fireEvent.click(screen.getByRole('tab', { name: '偏好设置' }));
+    fireEvent.change(screen.getByLabelText('界面语言'), { target: { value: 'en' } });
+    await waitFor(() => expect(i18n.language).toBe('en'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Profile' }));
+
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      'Please enter your name',
+    );
   });
 
   it('长度单位偏好持久化到 localStorage，并在重新挂载后回填', () => {

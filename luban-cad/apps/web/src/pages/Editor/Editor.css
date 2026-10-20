@@ -55,7 +55,7 @@
   border: 1px solid var(--iui-color-border);
 }
 
-.workspace-page .toolbar-group .iui-button {
+.workspace-page .toolbar-group button {
   border-radius: calc(var(--iui-border-radius-1) - 1px);
 }
 
@@ -70,7 +70,7 @@
 }
 
 /* Active tool styling */
-.workspace-page .toolbar-group .iui-button[data-iui-variant='cta'] {
+.workspace-page .toolbar-group button[data-iui-variant='cta'] {
   background: var(--iui-color-background-accent-muted);
   color: var(--iui-color-text-accent);
 }
