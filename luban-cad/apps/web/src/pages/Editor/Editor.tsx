@@ -234,6 +234,9 @@ const Editor: React.FC = React.memo(() => {
           new NotifyMessageDetails(
             OutputMessagePriority.Error,
             i18n.t('page.toolRegistrationFailed', {
+              // useTranslation 的 t 绑定 editor ns；此处走全局单例，必须显式传 ns
+              //（defaultNS=common 无此键，漏传会显示原始 key——P4 评审 Important#1）
+              ns: 'editor',
               message: err instanceof Error ? err.message : String(err),
             })
           )
@@ -380,8 +383,11 @@ const Editor: React.FC = React.memo(() => {
   }, []);
 
   const toggleMeasurementPanel = useCallback(() => {
+    // 与 P4 前一致：只读态不提供测量结果停靠（面板尚未接真实测量数据，
+    // 打开只会是空面板；接线后随测量工具一并放开——P4 评审 Minor#5）
+    if (!isEditable) return;
     toggleDock({ tab: 'toolSettings', toolPanel: 'measurement' });
-  }, [toggleDock]);
+  }, [isEditable, toggleDock]);
 
   const toggleDisplayPanel = useCallback((displayPanel: EditorDockDisplayPanel) => {
     toggleDock({ tab: 'display', displayPanel });
@@ -582,6 +588,9 @@ const Editor: React.FC = React.memo(() => {
           isCollapsed={isLeftPanelCollapsed}
           onToggleCollapse={() => setIsLeftPanelCollapsed(v => !v)}
           onExitSketchMode={exitSketchMode}
+          // 右栏「工具设置」激活时左栏让位：ToolSettingsPanel 为单例 handler 宿主，
+          // 双实例会互相清空 reloadToolSettingsHandler（P4 评审 Important#3）
+          showToolSettings={!(dock.isOpen && dock.tab === 'toolSettings')}
         />
 
         {/* Center: 3D Viewer */}
@@ -622,8 +631,10 @@ const Editor: React.FC = React.memo(() => {
         />
       </div>
 
-      {/* Bottom: Version Timeline (Onshape style) */}
-      {isEditable && (
+      {/* Bottom: Version Timeline (Onshape style)。
+          右栏历史 tab 打开时隐藏底栏，避免 DOM 双实例（推送/拉取/历史按钮 strict-mode
+          与视觉重复——P4 评审 Minor#4）；关闭右栏后底栏原样回归。 */}
+      {isEditable && !(dock.isOpen && dock.tab === 'history') && (
         <VersionTimeline
           isExpanded={isVersionTimelineExpanded}
           onToggleExpand={() => setIsVersionTimelineExpanded(v => !v)}

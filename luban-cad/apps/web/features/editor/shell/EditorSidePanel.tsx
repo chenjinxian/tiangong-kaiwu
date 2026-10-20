@@ -25,6 +25,8 @@ export interface EditorSidePanelProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   onExitSketchMode: () => void;
+  /** 工具设置是否留在左栏（右侧停靠面板占用该面板时传 false，防双实例） */
+  showToolSettings?: boolean;
 }
 
 /**
@@ -47,6 +49,7 @@ export const EditorSidePanel: React.FC<EditorSidePanelProps> = ({
   isCollapsed,
   onToggleCollapse,
   onExitSketchMode,
+  showToolSettings,
 }) => {
   if (!isEditable) return null;
 
@@ -72,6 +75,7 @@ export const EditorSidePanel: React.FC<EditorSidePanelProps> = ({
       onTabChange={onTabChange}
       isCollapsed={isCollapsed}
       onToggleCollapse={onToggleCollapse}
+      showToolSettings={showToolSettings}
     />
   );
 };

@@ -57,7 +57,10 @@ export const ToolSettingsPanel: React.FC = () => {
   }, [shouldShowToolSettings]);
 
   useEffect(() => {
-    // Register handler to receive tool settings updates from iTwin.js tools
+    // Register handler to receive tool settings updates from iTwin.js tools.
+    // 保存并恢复前一个 handler：左右宿主切换/热重载时若直接置 undefined，会把
+    // 另一实例或后续挂载的 handler 一并清空（P4 评审 Important#3）。
+    const previousHandler = IModelApp.toolAdmin.reloadToolSettingsHandler;
     IModelApp.toolAdmin.reloadToolSettingsHandler = reloadToolSettings;
 
     // Listen for tool activation changes
@@ -69,7 +72,10 @@ export const ToolSettingsPanel: React.FC = () => {
     reloadToolSettings();
 
     return () => {
-      IModelApp.toolAdmin.reloadToolSettingsHandler = undefined;
+      // 仅在仍由本实例持有时恢复；被新实例覆盖则交给新实例管理
+      if (IModelApp.toolAdmin.reloadToolSettingsHandler === reloadToolSettings) {
+        IModelApp.toolAdmin.reloadToolSettingsHandler = previousHandler;
+      }
       removeListener();
     };
   }, [reloadToolSettings]);

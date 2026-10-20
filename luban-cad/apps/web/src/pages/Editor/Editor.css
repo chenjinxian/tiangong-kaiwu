@@ -12,19 +12,7 @@
   background: var(--iui-color-background-backdrop);
 }
 
-/* ── Topbar ── */
-.workspace-page .topbar {
-  display: flex;
-  align-items: center;
-  gap: var(--iui-size-m);
-  padding: 0 var(--iui-size-m);
-  height: 44px;
-  background: var(--iui-color-background-surface);
-  border-bottom: 1px solid var(--iui-color-border);
-  flex-shrink: 0;
-  box-shadow: var(--iui-shadow-1);
-}
-
+/* ── Logo（HeaderLogo 插槽仍消费 .logo-mark）── */
 .workspace-page .logo-mark {
   width: 28px;
   height: 28px;
@@ -36,43 +24,6 @@
   color: white;
   font-size: 10px;
   font-weight: 800;
-  flex-shrink: 0;
-}
-
-.workspace-page .breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: var(--iui-size-xs);
-  font-size: var(--iui-font-size-body);
-  color: var(--iui-color-text-muted);
-  flex: 1;
-  min-width: 0;
-}
-
-.workspace-page .breadcrumb-link {
-  color: var(--iui-color-text-accent);
-  font-weight: 500;
-}
-
-.workspace-page .breadcrumb-sep {
-  color: var(--iui-color-text-muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: var(--iui-font-size-small);
-}
-
-.workspace-page .breadcrumb-current {
-  color: var(--iui-color-text);
-  font-weight: 600;
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workspace-page .topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--iui-size-xs);
   flex-shrink: 0;
 }
 
@@ -142,16 +93,6 @@
   background: var(--iui-color-background-backdrop);
 }
 
-/* Floating Measurement Panel */
-.floating-measurement-panel {
-  position: absolute;
-  top: var(--iui-size-m);
-  right: var(--iui-size-m);
-  z-index: 100;
-  max-width: 300px;
-  box-shadow: var(--iui-shadow-2);
-}
-
 /* ── Statusbar ── */
 .workspace-page .statusbar {
   display: flex;
@@ -184,12 +125,14 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--iui-color-text-success);
+  background: var(--iui-color-text-positive);
 }
 
-/* P4 债务清零：状态灯色 token 化（原 #0c0/#f90/#c00/#0066cc 硬编码） */
+/* P4 债务清零：状态灯色 token 化（原 #0c0/#f90/#c00/#0066cc 硬编码）。
+ * iTwinUI 3.22 定义的是 --iui-color-text-positive（无 --iui-color-text-success，
+ * 后者无效 token 会让成功态圆点透明——P4 评审 Important#2）。 */
 .workspace-page .status-indicator--success {
-  background: var(--iui-color-text-success);
+  background: var(--iui-color-text-positive);
 }
 
 .workspace-page .status-indicator--warning {
@@ -254,10 +197,6 @@
 }
 
 @media (max-width: 768px) {
-  .workspace-page .breadcrumb-current {
-    max-width: 150px;
-  }
-
   .workspace-page .toolbar-spacer {
     display: none;
   }

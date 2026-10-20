@@ -32,6 +32,10 @@ vi.mock('@luban-cad/web-viewer', () => ({
 vi.mock('../../../features/editor/components/ThemeToggle.js', () => ({
   ThemeToggle: () => <button type="button">Theme</button>,
 }));
+// 工具设置单例宿主探针（P4 评审 Important#3 回归：左右同挂会互清 handler）
+vi.mock('../../../features/editor/components/ToolSettingsPanel.js', () => ({
+  ToolSettingsPanel: () => <div data-testid="tool-settings-panel" />,
+}));
 vi.mock('../../../features/itwin/hooks/useITwinsQuery.js', () => ({
   useITwinQuery: () => ({ data: { displayName: 'My Project' }, isLoading: false }),
 }));
@@ -453,6 +457,37 @@ describe('Editor', () => {
 
       fireEvent.click(within(dock).getByRole('button', { name: '关闭面板' }));
       expect(screen.queryByTestId('editor-dock')).toBeNull();
+    });
+
+    it('左栏工具设置与停靠「工具参数」互斥（单实例，防 handler 互清）', () => {
+      renderEditor();
+      expect(screen.getAllByTestId('tool-settings-panel')).toHaveLength(1);
+
+      // 打开测量：左栏让位（停靠占用工具设置 tab），测量子页不挂工具参数
+      fireEvent.click(screen.getByRole('button', { name: '测量' }));
+      const dock = screen.getByTestId('editor-dock');
+      expect(screen.queryAllByTestId('tool-settings-panel')).toHaveLength(0);
+
+      // 切回「工具参数」：仅停靠内一份
+      fireEvent.click(within(dock).getByRole('tab', { name: '工具参数' }));
+      expect(within(dock).getAllByTestId('tool-settings-panel')).toHaveLength(1);
+      expect(screen.getAllByTestId('tool-settings-panel')).toHaveLength(1);
+
+      // 收起停靠：左栏恢复，仍只有一份
+      fireEvent.click(within(dock).getByRole('button', { name: '关闭面板' }));
+      expect(screen.getAllByTestId('tool-settings-panel')).toHaveLength(1);
+    });
+
+    it('历史停靠打开时隐藏底栏版本时间线（防双实例）', () => {
+      renderEditor();
+      expect(screen.getAllByRole('button', { name: /推送/i })).toHaveLength(1);
+
+      fireEvent.click(screen.getByRole('button', { name: '历史' }));
+
+      const dock = screen.getByTestId('editor-dock');
+      expect(within(dock).getAllByRole('button', { name: /推送/i })).toHaveLength(1);
+      // 全局仍只有一份：底栏已让位（P4 评审 Minor#4 strict-mode 冲突回归）
+      expect(screen.getAllByRole('button', { name: /推送/i })).toHaveLength(1);
     });
   });
 

@@ -38,6 +38,12 @@ interface FeatureTreePanelProps {
   onTabChange: (tab: TreeTab) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  /**
+   * 是否渲染内嵌工具设置面板（默认 true）。右侧停靠面板激活「工具设置」时由
+   * Editor 传 false——ToolSettingsPanel 是单例 handler 宿主（reloadToolSettingsHandler），
+   * 双实例会互相清空 handler（P4 评审 Important#3）。
+   */
+  showToolSettings?: boolean;
 }
 
 export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
@@ -50,6 +56,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
   onTabChange,
   isCollapsed,
   onToggleCollapse,
+  showToolSettings = true,
 }) => {
   const { t } = useTranslation('editor');
   const [isHovering, setIsHovering] = useState(false);
@@ -141,12 +148,16 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
         )}
       </div>
 
-      <Divider />
+      {showToolSettings && (
+        <>
+          <Divider />
 
-      {/* Tool Settings - For iTwin.js native tools */}
-      <div className="feature-tree-tool-settings">
-        <ToolSettingsPanel />
-      </div>
+          {/* Tool Settings - For iTwin.js native tools */}
+          <div className="feature-tree-tool-settings">
+            <ToolSettingsPanel />
+          </div>
+        </>
+      )}
     </div>
   );
 };
