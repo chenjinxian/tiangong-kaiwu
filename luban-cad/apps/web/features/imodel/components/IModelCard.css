@@ -104,7 +104,7 @@
 }
 
 .imodel-card__meta .initialized {
-  background: var(--iui-color-text-positive-light);
+  background: var(--iui-color-background-positive-muted);
   color: var(--iui-color-text-positive);
 }
 

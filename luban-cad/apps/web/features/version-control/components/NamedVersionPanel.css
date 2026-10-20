@@ -40,7 +40,7 @@
   padding: var(--iui-size-xs) var(--iui-size-m);
   font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-negative);
-  background: var(--iui-color-text-negative-light);
+  background: var(--iui-color-background-negative-muted);
   border-bottom: 1px solid var(--iui-color-border);
 }
 
@@ -166,7 +166,7 @@
   align-items: center;
   gap: var(--iui-size-s);
   padding: var(--iui-size-s);
-  background: var(--iui-color-text-warning-light);
+  background: var(--iui-color-background-warning-muted);
   border: 1px solid var(--iui-color-text-warning);
   border-radius: var(--iui-border-radius-1);
   margin-bottom: var(--iui-size-xs);
@@ -205,7 +205,7 @@
 
 .nv-warning-text {
   padding: var(--iui-size-s);
-  background: var(--iui-color-text-negative-light);
+  background: var(--iui-color-background-negative-muted);
   border: 1px solid var(--iui-color-text-negative);
   border-radius: var(--iui-border-radius-1);
   font-size: var(--iui-font-size-0);

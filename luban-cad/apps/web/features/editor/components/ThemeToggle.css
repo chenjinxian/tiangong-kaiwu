@@ -16,7 +16,7 @@
 
 .theme-toggle:hover {
   background: var(--iui-color-background-hover);
-  border-color: var(--iui-color-border-strong);
+  border-color: var(--iui-color-border-subtle);
 }
 
 .theme-toggle:active {

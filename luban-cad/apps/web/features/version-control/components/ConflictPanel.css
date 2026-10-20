@@ -52,22 +52,22 @@
 }
 
 .type-tag.modify-modify {
-  background: var(--iui-color-text-warning-light);
+  background: var(--iui-color-background-warning-muted);
   color: var(--iui-color-text-warning);
 }
 
 .type-tag.delete-modify {
-  background: var(--iui-color-text-negative-light);
+  background: var(--iui-color-background-negative-muted);
   color: var(--iui-color-text-negative);
 }
 
 .type-tag.modify-delete {
-  background: var(--iui-color-text-warning-light);
+  background: var(--iui-color-background-warning-muted);
   color: var(--iui-color-text-warning);
 }
 
 .type-tag.add-add {
-  background: var(--iui-color-text-positive-light);
+  background: var(--iui-color-background-positive-muted);
   color: var(--iui-color-text-positive);
 }
 
@@ -115,22 +115,22 @@
 }
 
 .conflict-type-badge[data-type="modify-modify"] {
-  background: var(--iui-color-text-warning-light);
+  background: var(--iui-color-background-warning-muted);
   color: var(--iui-color-text-warning);
 }
 
 .conflict-type-badge[data-type="delete-modify"] {
-  background: var(--iui-color-text-negative-light);
+  background: var(--iui-color-background-negative-muted);
   color: var(--iui-color-text-negative);
 }
 
 .conflict-type-badge[data-type="modify-delete"] {
-  background: var(--iui-color-text-warning-light);
+  background: var(--iui-color-background-warning-muted);
   color: var(--iui-color-text-warning);
 }
 
 .conflict-type-badge[data-type="add-add"] {
-  background: var(--iui-color-text-positive-light);
+  background: var(--iui-color-background-positive-muted);
   color: var(--iui-color-text-positive);
 }
 
