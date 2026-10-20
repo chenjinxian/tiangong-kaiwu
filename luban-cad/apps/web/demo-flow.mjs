@@ -5,6 +5,8 @@
 //   DEMO_DWELL  — 关键节拍驻留 ms（默认 2500：几何变化/徽标/对话框在屏幕上停住供人看清；
 //                 改参幕的预览徽标在「应用」前驻留，建特征表单在「创建」前驻留）
 //   例：快速验证跑 `DEMO_SLOWMO=300 DEMO_DWELL=0 node demo-flow.mjs`
+//   DEMO_PACE  — 步骤间驻留 ms（默认 6000：对外展示档——每步开始前上一幕结果停驻供讲解；
+//                 5-10 秒可调，`DEMO_PACE=8000 node demo-flow.mjs`；验证档 DEMO_PACE=0 关闭）
 //   DEMO_KEEP=1 — 保留演示项目不做 API 清理（跑完自己从项目列表打开工作空间查看/继续编辑）
 //
 // 24 幕四阶段（2026-10-11 参数化能力增强版，当日晚重构链序）：
@@ -125,11 +127,14 @@ function readMsLogSlice() {
   }
 }
 
-// 节奏旋钮实现（见文件头注释）：SLOW_MO=动作间隔，DWELL=关键节拍驻留
+// 节奏旋钮实现（见文件头注释）：SLOW_MO=动作间隔，DWELL=关键节拍驻留，PACE=步骤间展示驻留
 const SLOW_MO = Number(process.env.DEMO_SLOWMO ?? 900);
 const DWELL = Number(process.env.DEMO_DWELL ?? 2500);
+const PACE = Number(process.env.DEMO_PACE ?? 6000);
 const browser = await chromium.launch({ headless: false, slowMo: SLOW_MO });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+/** 步骤间展示驻留：每步开始前停 PACE ms——上一幕完成状态（含截图）停驻供对外讲解（DEMO_PACE=0 关闭） */
+const pace = () => (PACE > 0 ? page.waitForTimeout(PACE) : Promise.resolve());
 let projectId = '';
 /** 圆角是否成功入树（⑩ 降级时 false——Phase C 圆角相关幕据此自适应跳过/重算） */
 let hasFillet = false;
@@ -272,12 +277,14 @@ async function expectZSpan(expected, label, timeout = 20000) {
 try {
   // ══ Phase A：启动（幕 1-8）════════════════════════════════════════
   // ── 1. 登录页 ─────────────────────────────────────────
+  await pace();
   log('步骤 1/24：打开登录页');
   await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForSelector('input[type="email"]', { state: 'visible' });
   await shot(page, '01-登录页');
 
   // ── 2. 登录 ───────────────────────────────────────────
+  await pace();
   log('步骤 2/24：登录 test@example.com');
   // 登录重试（≤3）：本地栈偶发登录不跳转（HUB/代理抖动,2026-10-11 实测背靠背轮次复发）
   let loggedIn = false;
@@ -310,6 +317,7 @@ try {
   await shot(page, '02-项目列表-我的项目');
 
   // ── 3. 打开种子项目 ──────────────────────────────────
+  await pace();
   log('步骤 3/24：点击「测试项目」卡片进入详情');
   await page.locator('main').getByRole('button', { name: '测试项目' }).first().click();
   await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 15000 });
@@ -317,6 +325,7 @@ try {
   await shot(page, '03-项目详情-iModel卡片');
 
   // ── 4. 进入编辑器 ────────────────────────────────────
+  await pace();
   log('步骤 4/24：点击「打开工作空间」进入编辑器');
   await page.getByRole('button', { name: '打开工作空间' }).first().click();
   await page.waitForURL(/\/documents\/[^/]+\/[^/]+/, { timeout: 60000 });
@@ -328,6 +337,7 @@ try {
   await shot(page, '04-编辑器-工具条与状态栏');
 
   // ── 5. 激活布尔工具（直接建模轨道冒烟）────────────────
+  await pace();
   log('步骤 5/24：点击「并集 (Unite)」激活布尔工具');
   await page.locator('.cad-toolbar-horizontal').getByRole('button', { name: '并集 (Unite)' }).click();
   for (let i = 0; i < 10; i++) {
@@ -339,6 +349,7 @@ try {
 
   // ── 6. 激活圆角工具 ──────────────────────────────────
   await page.keyboard.press('Escape');
+  await pace();
   log('步骤 6/24：Esc 退出后点击「圆角 (Fillet)」');
   await page.locator('.cad-toolbar-horizontal').getByRole('button', { name: '圆角 (Fillet)' }).click();
   for (let i = 0; i < 10; i++) {
@@ -350,6 +361,7 @@ try {
   await page.keyboard.press('Escape');
 
   // ── 7. 返回并新建项目 ────────────────────────────────
+  await pace();
   log(`步骤 7/24：面包屑返回，新建项目「${DEMO_PROJECT}」`);
   await page.getByRole('button', { name: '项目列表' }).first().click();
   await page.waitForURL('**/documents', { timeout: 30000 });
@@ -365,6 +377,7 @@ try {
   await shot(page, '08-新项目卡片出现');
 
   // ── 8. 新建 iModel 并进编辑器 ────────────────────────
+  await pace();
   log(`步骤 8/24：进入新项目，新建 iModel「${DEMO_IMODEL}」`);
   await page.locator('main').getByRole('button', { name: DEMO_PROJECT }).first().click();
   await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 30000 });
@@ -395,6 +408,7 @@ try {
 
   // ══ Phase B：建链（幕 9-14）═══════════════════════════════════════
   // ── 9. 特征树：新建 extrude 底座 ─────────────────────
+  await pace();
   log('步骤 9/24：特征树面板——新建特征（拉伸底座 2×2×2）');
   const treePanel = page.locator('.feature-tree-panel');
   await treePanel.waitFor({ state: 'visible', timeout: 60000 });
@@ -416,6 +430,7 @@ try {
   await shot(page, '13-特征树-extrude底座已建');
 
   // ── 10. 改底座高 2→3（试算预览徽标首演：此时全链仅 1 特征）──
+  await pace();
   log('步骤 10/24：编辑底座——距离 2→3，试算预览徽标（闭包=1）');
   await editFeatureAndAssert({
     rowLabel: '拉伸 (extrude)',
@@ -427,6 +442,7 @@ try {
   log('✅ 底座高度 2→3 已应用（previewOp 影子试算 → applyOp 真提交）');
 
   // ── 11. 圆角选边 + 创建（链序裁决：前置到孔/凸台之前，纯 sweep 体上选边）──
+  await pace();
   log('步骤 11/24：新建特征（圆角 r=0.2）——从视图选边（底座四角竖棱）');
 
   // 取景守卫（B4 根因修复，2026-10-11 实证）：编辑器打开时模型为空——内容感知初始取景
@@ -633,6 +649,7 @@ try {
   }
 
   // ── 12. 草图模式（M3-b：SketchPanel+状态栏提示）────────
+  await pace();
   log('步骤 12/24：进入草图模式——SketchPanel 与状态栏提示');
   await page.locator('.cad-toolbar-horizontal').getByRole('button', { name: '编辑草图' }).click();
   const sketchPanel = page.locator('.sketch-panel');
@@ -645,6 +662,7 @@ try {
   log('✅ 已退出草图模式');
 
   // ── 13. 新建 booleanSubtract 圆孔（32 边形近似）────────────────
+  await pace();
   log('步骤 13/24：新建特征（布尔减圆孔——32 边形 r=0.25 居中偏西南，贯通）');
   await createParamFeature({
     type: 'booleanSubtract',
@@ -661,6 +679,7 @@ try {
   await shot(page, '20-圆孔已建-贯通孔可见');
 
   // ── 14. 新建 booleanAdd 圆柱凸台（32 边形近似）────────────────
+  await pace();
   log('步骤 14/24：新建特征（布尔加圆柱凸台——32 边形 r=0.45 居中偏东北，高 4）');
   await createParamFeature({
     type: 'booleanAdd',
@@ -683,6 +702,7 @@ try {
   const badgeFor = { boss: 1, hole: 2, fillet: 3, base: hasFillet ? 4 : 3 };
 
   // ── 15. 改凸台高度（链尾编辑 + bbox 硬断言）────────────
+  await pace();
   log('步骤 15/24：编辑圆柱凸台——高度 4→5（链尾编辑，闭包=1，bbox z-span 4→5）');
   await editFeatureAndAssert({
     rowLabel: '布尔加 (booleanAdd)',
@@ -697,6 +717,7 @@ try {
   log('✅ 凸台高度 4→5 已应用——bbox z-span=5 硬断言通过（几何真再生）');
 
   // ── 16. 改孔半径（中链编辑：32 边形轮廓整体改写）────────
+  await pace();
   log(`步骤 16/24：编辑圆孔——半径 ${HOLE.r0}→${HOLE.r1}（闭包=孔+凸台）`);
   await editFeatureAndAssert({
     rowLabel: '布尔减 (booleanSubtract)',
@@ -713,6 +734,7 @@ try {
   log('✅ 孔半径已改（下游凸台随链重算）');
 
   // ── 17. 孔深改到不贯通（贯通→盲孔，拓扑真变）───────────
+  await pace();
   log(`步骤 17/24：编辑圆孔——深度 ${HOLE.depthThrough}→${HOLE.depthBlind}（贯通→盲孔：顶面孔口消失）`);
   await editFeatureAndAssert({
     rowLabel: '布尔减 (booleanSubtract)',
@@ -727,7 +749,8 @@ try {
 
   // ── 18. 改圆角半径（中链编辑：下游孔/凸台随圆角重算）─────
   if (hasFillet) {
-    log('步骤 18/24：编辑圆角——半径 0.2→0.35（中链编辑，闭包=圆角+孔+凸台）');
+    await pace();
+  log('步骤 18/24：编辑圆角——半径 0.2→0.35（中链编辑，闭包=圆角+孔+凸台）');
     await editFeatureAndAssert({
       rowLabel: '圆角 (fillet)',
       edit: async (d) => await d.getByLabel('圆角半径').fill('0.35'),
@@ -738,10 +761,12 @@ try {
     await shot(page, '26b-圆角加大');
     log('✅ 圆角半径已改（中链编辑——下游孔/凸台在新几何上随链重算）');
   } else {
-    log('步骤 18/24：⚠️ 无圆角（⑩ 降级）——跳过改圆角幕');
+    await pace();
+  log('步骤 18/24：⚠️ 无圆角（⑩ 降级）——跳过改圆角幕');
   }
 
   // ── 19. 改底座高度（链头编辑：全链重算，圆角引用自愈合链）──
+  await pace();
   log('步骤 19/24：编辑底座——高度 3→4（链头编辑，闭包=全链 4 特征）');
   await editFeatureAndAssert({
     rowLabel: '拉伸 (extrude)',
@@ -757,6 +782,7 @@ try {
   // ── 20. 撤销/重做（OpLog 通道；读回存储参数硬断言）──────
   // 幕序硬约束：undo 只逆 updateParams，suppress 等非可逆 opType 会挡住 undo 目标扫描
   // （findUndoTarget 对最新活动条目非可逆即报无可撤销）——本幕必须在抑制幕之前。
+  await pace();
   log('步骤 20/24：撤销底座改参 → 读回距离=3 → 重做 → 读回距离=4');
   const readBaseDistance = async () => {
     const row = featureRow('拉伸 (extrude)');
@@ -790,7 +816,8 @@ try {
 
   // ── 21. 抑制/恢复圆角（直通语义：尖棱↔圆角）────────────
   if (hasFillet) {
-    log('步骤 21/24：抑制圆角 → 尖棱截图 → 取消抑制 → 圆角恢复');
+    await pace();
+  log('步骤 21/24：抑制圆角 → 尖棱截图 → 取消抑制 → 圆角恢复');
     const waitSuppressed = async (want, label) => {
       for (let i = 0; i < 20; i++) {
         const n = await treePanel.locator('.feature-row--suppressed').count();
@@ -815,11 +842,13 @@ try {
     await shot(page, '31-恢复圆角');
     log('✅ 抑制/恢复全通（suppressed 直通语义，几何随开关真实往返）');
   } else {
-    log('步骤 21/24：⚠️ 无圆角（⑩ 降级）——跳过抑制/恢复幕');
+    await pace();
+  log('步骤 21/24：⚠️ 无圆角（⑩ 降级）——跳过抑制/恢复幕');
   }
 
   // ══ Phase D：终审（幕 22-24）══════════════════════════════════════
   // ── 22. 重开零操作显示（持久化 + 冷重建确定性）─────────
+  await pace();
   log('步骤 22/24：reload 重开——持久化后零操作显示（含圆角/孔/盲孔/凸台）');
   await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
   await waitEditorReady();
@@ -833,6 +862,7 @@ try {
   log('✅ 重开 bbox z-span=5——持久化几何与编辑终态逐位一致');
 
   // ── 23. 服务端健康审计（本次运行增量）──────────────────
+  await pace();
   log('步骤 23/24：MS 日志健康审计（增量切片）');
   const slice = readMsLogSlice();
   const commits = (slice.match(/notifyCommitted/g) ?? []).length;
@@ -843,6 +873,7 @@ try {
     throw new Error(`健康审计未过：commit=${commits}(≤${COMMIT_BUDGET}) 求值失败=${evalFail} ERROR=${errors}`);
 
   // ── 24. 退出登录 ─────────────────────────────────────
+  await pace();
   log('步骤 24/24：返回项目列表并退出登录');
   await page.getByRole('button', { name: '项目列表' }).first().click();
   await page.waitForURL('**/documents', { timeout: 30000 });
