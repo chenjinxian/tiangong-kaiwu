@@ -7,6 +7,16 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IModelApp } from '@itwin/core-frontend';
 import { ButtonGroup, Divider, IconButton, Text, Tooltip } from '@itwin/itwinui-react';
+import {
+  SvgCircle,
+  SvgCopy,
+  SvgDelete,
+  SvgEllipse,
+  SvgLine,
+  SvgMove,
+  SvgObjectRotate,
+  SvgRectangle,
+} from '@itwin/itwinui-icons-react';
 import { CircularPatternDialog, LinearPatternDialog } from '../../../features/modeling/components/PatternDialogs.js';
 import './CadToolbar.css';
 
@@ -30,7 +40,19 @@ interface ToolDef {
   icon: React.ReactNode;
 }
 
-// Custom SVG Icons for CAD tools - designed to be visually descriptive with outline style
+// ── 图标策略（RW4-P4-T4-2）───────────────────────────────────────────────
+// 8 个有官方对应，已换 @itwin/itwinui-icons-react：
+//   CreateLineString→SvgLine · CreateCircle→SvgCircle · CreateEllipse→SvgEllipse
+//   CreateRectangle→SvgRectangle · MoveElements→SvgMove · CopyElements→SvgCopy
+//   DeleteElements→SvgDelete · RotateElements→SvgObjectRotate
+// 以下 20 个无官方对应，保留自制描边图标并登记（后续官方补齐后可替换）：
+//   SetSketchPlane（SketchPlaneIcon）、CreateArc（ArcIcon）、CreateBCurve（SplineIcon）、
+//   CreateSphere（SphereIcon）、CreateCylinder（CylinderIcon）、CreateBox（BoxIcon）、
+//   UniteSolids（UniteIcon）、SubtractSolids（SubtractIcon）、IntersectSolids（IntersectIcon）、
+//   RoundEdges（FilletIcon）、ChamferEdges（ChamferIcon）、HollowFaces（ShellIcon）、
+//   OffsetFaces（OffsetIcon）、SweepFaces（SweepIcon）、DraftFaces（DraftIcon）、
+//   CreateHole（HoleIcon）、MirrorElements（MirrorIcon）、LinearPattern（LinearPatternIcon）、
+//   CircularPattern（CircularPatternIcon）、编辑草图（EditSketchIcon）。
 const SketchPlaneIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
     <rect x="3" y="3" width="18" height="18" rx="2" strokeDasharray="2 2" />
@@ -48,44 +70,12 @@ const EditSketchIcon = () => (
   </svg>
 );
 
-const LineIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <line x1="4" y1="20" x2="20" y2="4" />
-    <circle cx="4" cy="20" r="1.5" fill="none" />
-    <circle cx="20" cy="4" r="1.5" fill="none" />
-  </svg>
-);
-
 const ArcIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
     <path d="M4 20 Q12 4 20 20" />
     <circle cx="4" cy="20" r="1.5" fill="none" />
     <circle cx="20" cy="20" r="1.5" fill="none" />
     <circle cx="12" cy="10" r="1.5" fill="none" />
-  </svg>
-);
-
-const CircleIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <circle cx="12" cy="12" r="8" />
-    <line x1="12" y1="4" x2="12" y2="12" />
-    <circle cx="12" cy="12" r="1.5" fill="none" />
-  </svg>
-);
-
-const EllipseIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <ellipse cx="12" cy="12" rx="9" ry="5" />
-    <line x1="12" y1="7" x2="12" y2="12" />
-    <circle cx="12" cy="12" r="1.5" fill="none" />
-  </svg>
-);
-
-const RectangleIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <rect x="4" y="6" width="16" height="12" rx="1" />
-    <circle cx="4" cy="6" r="1.5" fill="none" />
-    <circle cx="20" cy="18" r="1.5" fill="none" />
   </svg>
 );
 
@@ -121,40 +111,6 @@ const BoxIcon = () => (
     <line x1="12" y1="12" x2="12" y2="20" />
     <line x1="4" y1="8" x2="4" y2="16" strokeDasharray="2 2" />
     <line x1="20" y1="8" x2="20" y2="16" strokeDasharray="2 2" />
-  </svg>
-);
-
-const MoveIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <rect x="8" y="8" width="8" height="8" rx="1" />
-    <path d="M8 4v4M16 4v4M8 20v-4M16 20v-4M4 8h4M4 16h4M20 8h-4M20 16h-4" />
-    <circle cx="12" cy="12" r="1.5" fill="none" />
-  </svg>
-);
-
-const CopyIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <rect x="6" y="6" width="12" height="12" rx="1" />
-    <rect x="10" y="10" width="8" height="8" rx="1" strokeDasharray="2 2" />
-    <path d="M10 10V6a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4h-4" />
-  </svg>
-);
-
-const DeleteIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M4 6h16M10 6V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2" />
-    <path d="M8 6v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6" />
-    <line x1="10" y1="11" x2="10" y2="17" />
-    <line x1="14" y1="11" x2="14" y2="17" />
-  </svg>
-);
-
-const RotateIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M12 4a8 8 0 1 1-6.2 13.2" />
-    <path d="M12 4v4l3-2" />
-    <circle cx="12" cy="12" r="3" fill="none" />
-    <circle cx="12" cy="12" r="1" fill="none" />
   </svg>
 );
 
@@ -287,11 +243,11 @@ const CircularPatternIcon = () => (
 // 形态——demo-flow/modeling-tools spec 以该文案为精确锚点）
 const SKETCH_TOOLS: ToolDef[] = [
   { id: 'SetSketchPlane', labelKey: 'cadToolbar.tools.setSketchPlane', icon: <SketchPlaneIcon /> },
-  { id: 'CreateLineString', labelKey: 'cadToolbar.tools.line', icon: <LineIcon /> },
+  { id: 'CreateLineString', labelKey: 'cadToolbar.tools.line', icon: <SvgLine /> },
   { id: 'CreateArc', labelKey: 'cadToolbar.tools.arc', icon: <ArcIcon /> },
-  { id: 'CreateCircle', labelKey: 'cadToolbar.tools.circle', icon: <CircleIcon /> },
-  { id: 'CreateEllipse', labelKey: 'cadToolbar.tools.ellipse', icon: <EllipseIcon /> },
-  { id: 'CreateRectangle', labelKey: 'cadToolbar.tools.rectangle', icon: <RectangleIcon /> },
+  { id: 'CreateCircle', labelKey: 'cadToolbar.tools.circle', icon: <SvgCircle /> },
+  { id: 'CreateEllipse', labelKey: 'cadToolbar.tools.ellipse', icon: <SvgEllipse /> },
+  { id: 'CreateRectangle', labelKey: 'cadToolbar.tools.rectangle', icon: <SvgRectangle /> },
   { id: 'CreateBCurve', labelKey: 'cadToolbar.tools.bSpline', icon: <SplineIcon /> },
 ];
 
@@ -320,10 +276,10 @@ const FACE_TOOLS: ToolDef[] = [
 ];
 
 const TRANSFORM_TOOLS: ToolDef[] = [
-  { id: 'MoveElements', labelKey: 'cadToolbar.tools.move', icon: <MoveIcon /> },
-  { id: 'RotateElements', labelKey: 'cadToolbar.tools.rotate', icon: <RotateIcon /> },
-  { id: 'CopyElements', labelKey: 'cadToolbar.tools.copy', icon: <CopyIcon /> },
-  { id: 'DeleteElements', labelKey: 'cadToolbar.tools.delete', icon: <DeleteIcon /> },
+  { id: 'MoveElements', labelKey: 'cadToolbar.tools.move', icon: <SvgMove /> },
+  { id: 'RotateElements', labelKey: 'cadToolbar.tools.rotate', icon: <SvgObjectRotate /> },
+  { id: 'CopyElements', labelKey: 'cadToolbar.tools.copy', icon: <SvgCopy /> },
+  { id: 'DeleteElements', labelKey: 'cadToolbar.tools.delete', icon: <SvgDelete /> },
 ];
 
 const ADVANCED_TOOLS: ToolDef[] = [

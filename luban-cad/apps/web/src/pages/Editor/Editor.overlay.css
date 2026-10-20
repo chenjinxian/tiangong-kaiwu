@@ -1,4 +1,7 @@
-/* ── Viewer Overlay - Professional Floating UI ── */
+/* ── Viewer Overlay - Professional Floating UI ──
+ * RW4-P4-T4-2：原 overlay-left-stack / overlay-right-stack / overlay-bottom-left
+ * 浮层栈退役（展示面板迁入右侧 EditorDockPanel）；视口内仅保留 ViewCube。
+ */
 .viewer-overlay {
   position: absolute;
   inset: 0;
@@ -31,97 +34,6 @@
   transform: scale(1.02);
 }
 
-/* Left Panel Stack */
-.overlay-left-stack {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--iui-size-xs);
-  max-height: calc(100% - 100px);
-  overflow-y: auto;
-}
-
-/* Right Panel Stack */
-.overlay-right-stack {
-  position: absolute;
-  top: 180px;
-  right: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--iui-size-xs);
-  max-height: calc(100% - 200px);
-  overflow-y: auto;
-}
-
-/* Bottom Left: Measurement Panel */
-.overlay-bottom-left {
-  position: absolute;
-  bottom: 60px;
-  left: 12px;
-}
-
-/* Floating Panel Base Styles */
-.floating-panel {
-  background: var(--iui-color-background-surface);
-  border-radius: var(--iui-border-radius);
-  box-shadow: var(--iui-shadow-2);
-  border: 1px solid var(--iui-color-border);
-  animation: slideIn 0.2s ease-out;
-  min-width: 200px;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Right side animation */
-.overlay-right-stack .floating-panel {
-  animation: slideInRight 0.2s ease-out;
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Floating panel scrollbar styling */
-.overlay-left-stack::-webkit-scrollbar,
-.overlay-right-stack::-webkit-scrollbar {
-  width: 4px;
-}
-
-.overlay-left-stack::-webkit-scrollbar-track,
-.overlay-right-stack::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.overlay-left-stack::-webkit-scrollbar-thumb,
-.overlay-right-stack::-webkit-scrollbar-thumb {
-  background: var(--iui-color-border);
-  border-radius: 2px;
-}
-
-/* Dark mode support */
-[data-iui-theme='dark'] .overlay-left-stack::-webkit-scrollbar-thumb,
-[data-iui-theme='dark'] .overlay-right-stack::-webkit-scrollbar-thumb {
-  background: var(--iui-color-border-subtle);
-}
-
 /* ── Tool Settings Panel ── */
 .tool-settings-panel {
   /* Position within left stack */
@@ -133,7 +45,18 @@
   padding: var(--iui-size-m);
   min-width: 200px;
   max-width: 260px;
-  animation: slideIn 0.2s ease-out;
+  animation: toolSettingsSlideIn 0.2s ease-out;
+}
+
+@keyframes toolSettingsSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .tool-settings-header {
@@ -214,23 +137,5 @@
   .overlay-top-right {
     top: 8px;
     right: 8px;
-  }
-
-  .overlay-left-stack {
-    top: 8px;
-    left: 8px;
-  }
-
-  .overlay-right-stack {
-    top: 160px;
-    right: 8px;
-  }
-
-  .tool-settings-container {
-    bottom: 40px;
-    min-width: 250px;
-    left: 12px;
-    right: 12px;
-    transform: none;
   }
 }

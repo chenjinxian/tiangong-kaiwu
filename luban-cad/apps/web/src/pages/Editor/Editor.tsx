@@ -7,21 +7,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { type GraphicalEditingScope, IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { EditTools } from '@itwin/editor-frontend';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  CategoryPicker,
-  ModelPicker,
-  SavedViewsPanel,
-  SectionToolsPanel,
-  useBriefcaseConnection,
-  useViewport,
-  ViewSettingsPanel,
-  ViewSwitcher,
-} from '@luban-cad/viewer-core';
+import { useBriefcaseConnection, useViewport } from '@luban-cad/viewer-core';
 import { useTranslation } from 'react-i18next';
 import { Button, ProgressRadial, Text } from '@itwin/itwinui-react';
 import { useFeatureDisplaySync } from '../../../features/editor/useFeatureDisplaySync.js';
 import { VersionTimeline } from '../../../features/version-control/components/VersionTimeline.js';
-import { MeasurementResultsPanel } from '../../../features/measurement/components/MeasurementResultsPanel.js';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { useITwinQuery } from '../../../features/itwin/hooks/useITwinsQuery.js';
 import { useIModel } from '../../../features/imodel/hooks/useIModelsQuery.js';
@@ -62,6 +52,13 @@ import { EditorToolBar } from '../../../features/editor/shell/EditorToolBar.js';
 import { EditorSidePanel } from '../../../features/editor/shell/EditorSidePanel.js';
 import { EditorViewport } from '../../../features/editor/shell/EditorViewport.js';
 import { EditorStatusBar } from '../../../features/editor/shell/EditorStatusBar.js';
+import {
+  DEFAULT_EDITOR_DOCK_STATE,
+  type EditorDockDisplayPanel,
+  EditorDockPanel,
+  type EditorDockState,
+} from '../../../features/editor/shell/EditorDockPanel.js';
+import { AiSidePanelSlot } from '../../../features/editor/shell/AiSidePanelSlot.js';
 import { type TreeTab } from '../../../features/editor/components/FeatureTreePanel.js';
 
 /**
@@ -321,7 +318,6 @@ const Editor: React.FC = React.memo(() => {
   const [leftPanelTab, setLeftPanelTab] = useState<TreeTab>('features');
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
   const [isVersionTimelineExpanded, setIsVersionTimelineExpanded] = useState(false);
-  const [showMeasurementPanel, setShowMeasurementPanel] = useState(false);
   const [isSketchMode, setIsSketchMode] = useState(false);
   /**
    * T6.5 草图模式视口行为：进入前捕获的视角快照/栅格前值（退出恢复用；null = 无选中
@@ -359,34 +355,37 @@ const Editor: React.FC = React.memo(() => {
     setIsSketchMode(false);
   }, []);
 
-  // New viewer tools panel states
-  const [showModelPicker, setShowModelPicker] = useState(false);
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [showViewSettings, setShowViewSettings] = useState(false);
-  const [showViewSwitcher, setShowViewSwitcher] = useState(false);
-  const [showSavedViews, setShowSavedViews] = useState(false);
-  const [showSectionTools, setShowSectionTools] = useState(false);
+  // 右侧停靠状态机（RW4-P4-T4-2）：原 6 个浮层 boolean + measurement 收敛为单一对象。
+  // 同一时刻至多一个停靠面板；工具栏按钮再次点击同一面板即收起。
+  const [dock, setDock] = useState<EditorDockState>(DEFAULT_EDITOR_DOCK_STATE);
 
-  // 互斥浮层编排（保留原行为：模型/类别、切换视图/保存视图各自二选一）
-  const toggleModelPicker = useCallback(() => {
-    setShowModelPicker(v => !v);
-    setShowCategoryPicker(false);
+  const openDock = useCallback((patch: Partial<Omit<EditorDockState, 'isOpen'>>) => {
+    setDock(prev => ({ ...prev, ...patch, isOpen: true }));
   }, []);
-  const toggleCategoryPicker = useCallback(() => {
-    setShowCategoryPicker(v => !v);
-    setShowModelPicker(false);
+
+  const toggleDock = useCallback((patch: Partial<Omit<EditorDockState, 'isOpen'>>) => {
+    setDock(prev => {
+      const isSamePanel = prev.isOpen
+        && (patch.tab === undefined || prev.tab === patch.tab)
+        && (patch.toolPanel === undefined || prev.toolPanel === patch.toolPanel)
+        && (patch.displayPanel === undefined || prev.displayPanel === patch.displayPanel);
+      return isSamePanel
+        ? { ...prev, isOpen: false }
+        : { ...prev, ...patch, isOpen: true };
+    });
   }, []);
-  const toggleViewSwitcher = useCallback(() => {
-    setShowViewSwitcher(v => !v);
-    setShowSavedViews(false);
+
+  const closeDock = useCallback(() => {
+    setDock(prev => ({ ...prev, isOpen: false }));
   }, []);
-  const toggleSavedViews = useCallback(() => {
-    setShowSavedViews(v => !v);
-    setShowViewSwitcher(false);
-  }, []);
-  const toggleSectionTools = useCallback(() => setShowSectionTools(v => !v), []);
-  const toggleViewSettings = useCallback(() => setShowViewSettings(v => !v), []);
-  const toggleMeasurementPanel = useCallback(() => setShowMeasurementPanel(v => !v), []);
+
+  const toggleMeasurementPanel = useCallback(() => {
+    toggleDock({ tab: 'toolSettings', toolPanel: 'measurement' });
+  }, [toggleDock]);
+
+  const toggleDisplayPanel = useCallback((displayPanel: EditorDockDisplayPanel) => {
+    toggleDock({ tab: 'display', displayPanel });
+  }, [toggleDock]);
 
   // Export dialog state
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -545,20 +544,9 @@ const Editor: React.FC = React.memo(() => {
       <EditorToolBar
         isEditable={isEditable}
         hasConnection={!!briefcase.connection}
-        showMeasurementPanel={showMeasurementPanel}
+        dock={dock}
         onToggleMeasurement={toggleMeasurementPanel}
-        showModelPicker={showModelPicker}
-        onToggleModelPicker={toggleModelPicker}
-        showCategoryPicker={showCategoryPicker}
-        onToggleCategoryPicker={toggleCategoryPicker}
-        showSectionTools={showSectionTools}
-        onToggleSectionTools={toggleSectionTools}
-        showViewSwitcher={showViewSwitcher}
-        onToggleViewSwitcher={toggleViewSwitcher}
-        showSavedViews={showSavedViews}
-        onToggleSavedViews={toggleSavedViews}
-        showViewSettings={showViewSettings}
-        onToggleViewSettings={toggleViewSettings}
+        onToggleDisplayPanel={toggleDisplayPanel}
         onSelectTool={handleSelectTool}
         onRotateView={handleRotateView}
         onPanView={handlePanView}
@@ -597,52 +585,33 @@ const Editor: React.FC = React.memo(() => {
         />
 
         {/* Center: 3D Viewer */}
-        <EditorViewport viewportRef={editViewportRef}>
-          {/* Left Panel Stack: Model/Category/Settings/ToolSettings */}
-          <div className="overlay-left-stack">
-            {showModelPicker && (
-              <div className="floating-panel">
-                <ModelPicker />
-              </div>
-            )}
-            {showCategoryPicker && (
-              <div className="floating-panel">
-                <CategoryPicker />
-              </div>
-            )}
-            {showViewSettings && (
-              <div className="floating-panel">
-                <ViewSettingsPanel />
-              </div>
-            )}
-          </div>
+        <EditorViewport viewportRef={editViewportRef} />
 
-          {/* Right Panel Stack: View Switcher/Saved Views/Section Tools */}
-          <div className="overlay-right-stack">
-            {showViewSwitcher && (
-              <div className="floating-panel">
-                <ViewSwitcher />
-              </div>
-            )}
-            {showSavedViews && (
-              <div className="floating-panel">
-                <SavedViewsPanel />
-              </div>
-            )}
-            {showSectionTools && (
-              <div className="floating-panel">
-                <SectionToolsPanel />
-              </div>
-            )}
-          </div>
+        {/* Right: 停靠面板（工具设置/版本历史/显示设置） */}
+        <EditorDockPanel
+          state={dock}
+          isEditable={isEditable}
+          onTabChange={tab => setDock(prev => ({ ...prev, tab, isOpen: true }))}
+          onToolPanelChange={toolPanel => setDock(prev => ({ ...prev, toolPanel }))}
+          onDisplayPanelChange={displayPanel => setDock(prev => ({ ...prev, displayPanel }))}
+          onClose={closeDock}
+          changesets={versionControl.changesets}
+          currentChangesetId={briefcase.connection?.changeset.id ?? null}
+          hasLocalChanges={versionControl.hasLocalChanges}
+          onPush={() => versionControl.setPushDialogOpen(true)}
+          onPull={() => void versionControl.handlePull()}
+          onShowHistory={() => {
+            versionControl.setActiveSidebarTab('history');
+            openDock({ tab: 'history' });
+          }}
+          onShowVersions={() => {
+            versionControl.setActiveSidebarTab('versions');
+            openDock({ tab: 'history' });
+          }}
+        />
 
-          {/* Measurement Panel - Bottom Left */}
-          {isEditable && showMeasurementPanel && (
-            <div className="overlay-bottom-left">
-              <MeasurementResultsPanel measurements={[]} onDelete={() => {}} onClear={() => {}} onExport={() => {}} />
-            </div>
-          )}
-        </EditorViewport>
+        {/* RW3 AI 预留位：RW4 恒 false（零布局影响） */}
+        <AiSidePanelSlot isActive={false} />
 
         {/* Conflict detection panel */}
         <ConflictPanel
@@ -665,11 +634,11 @@ const Editor: React.FC = React.memo(() => {
           onPull={() => void versionControl.handlePull()}
           onShowHistory={() => {
             versionControl.setActiveSidebarTab('history');
-            setIsVersionTimelineExpanded(true);
+            openDock({ tab: 'history' });
           }}
           onShowVersions={() => {
             versionControl.setActiveSidebarTab('versions');
-            setIsVersionTimelineExpanded(true);
+            openDock({ tab: 'history' });
           }}
         />
       )}

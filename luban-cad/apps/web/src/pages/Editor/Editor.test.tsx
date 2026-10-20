@@ -60,6 +60,13 @@ vi.mock('@luban-cad/viewer-core', () => ({
   }),
   useViewport: () => ({ viewport: undefined }),
   ViewCube: () => <div data-testid="view-cube" />,
+  // RW4-P4-T4-2：右侧停靠面板承接的展示面板（真实件由 viewer-core 单测/e2e 覆盖）
+  ModelPicker: () => <div data-testid="model-picker" />,
+  CategoryPicker: () => <div data-testid="category-picker" />,
+  ViewSettingsPanel: () => <div data-testid="view-settings-panel" />,
+  ViewSwitcher: () => <div data-testid="view-switcher" />,
+  SavedViewsPanel: () => <div data-testid="saved-views-panel" />,
+  SectionToolsPanel: () => <div data-testid="section-tools-panel" />,
 }));
 
 vi.mock('@itwin/core-frontend', () => ({
@@ -411,6 +418,42 @@ describe('Editor', () => {
     renderEditor();
     expect(screen.getByRole('button', { name: /项目列表/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /My Project/i })).toBeDefined();
+  });
+
+  /**
+   * RW4-P4-T4-2 右侧停靠状态机：工具栏按钮 → 单一停靠面板（至多一个开启）；
+   * 再次点击同面板收起；关闭按钮收起；显示设置各面板共用同一停靠容器。
+   */
+  describe('右侧停靠面板状态机（T4-2）', () => {
+    it('测量按钮打开停靠（测量结果），再次点击同一按钮收起', () => {
+      renderEditor();
+      expect(screen.queryByTestId('editor-dock')).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: '测量' }));
+
+      const dock = screen.getByTestId('editor-dock');
+      expect(within(dock).getByText('暂无测量数据')).toBeDefined();
+
+      fireEvent.click(screen.getAllByRole('button', { name: '测量' })[0]);
+      expect(screen.queryByTestId('editor-dock')).toBeNull();
+    });
+
+    it('模型/类别共用显示设置停靠；关闭按钮收起', () => {
+      renderEditor();
+
+      fireEvent.click(screen.getAllByRole('button', { name: '模型' })[0]);
+      let dock = screen.getByTestId('editor-dock');
+      expect(within(dock).getByTestId('model-picker')).toBeDefined();
+
+      // 切到类别：仍同一停靠容器（状态机 displayPanel 切换，不叠加浮层）
+      fireEvent.click(screen.getAllByRole('button', { name: '类别' })[0]);
+      dock = screen.getByTestId('editor-dock');
+      expect(within(dock).queryByTestId('model-picker')).toBeNull();
+      expect(within(dock).getByTestId('category-picker')).toBeDefined();
+
+      fireEvent.click(within(dock).getByRole('button', { name: '关闭面板' }));
+      expect(screen.queryByTestId('editor-dock')).toBeNull();
+    });
   });
 
   /**

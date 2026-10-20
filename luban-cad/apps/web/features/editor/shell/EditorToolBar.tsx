@@ -23,24 +23,15 @@ import {
   SvgZoomIn,
 } from '@itwin/itwinui-icons-react';
 import { UndoRedoToolbar } from '../../../src/core/undo/UndoRedoToolbar.js';
+import type { EditorDockDisplayPanel, EditorDockState } from './EditorDockPanel.js';
 
 export interface EditorToolBarProps {
   isEditable: boolean;
   hasConnection: boolean;
-  showMeasurementPanel: boolean;
+  /** 右侧停靠状态机（RW4-P4-T4-2：6 个浮层 boolean 收敛为单一状态对象） */
+  dock: EditorDockState;
   onToggleMeasurement: () => void;
-  showModelPicker: boolean;
-  onToggleModelPicker: () => void;
-  showCategoryPicker: boolean;
-  onToggleCategoryPicker: () => void;
-  showSectionTools: boolean;
-  onToggleSectionTools: () => void;
-  showViewSwitcher: boolean;
-  onToggleViewSwitcher: () => void;
-  showSavedViews: boolean;
-  onToggleSavedViews: () => void;
-  showViewSettings: boolean;
-  onToggleViewSettings: () => void;
+  onToggleDisplayPanel: (panel: EditorDockDisplayPanel) => void;
   onSelectTool: () => void;
   onRotateView: () => void;
   onPanView: () => void;
@@ -59,20 +50,9 @@ export interface EditorToolBarProps {
 export const EditorToolBar: React.FC<EditorToolBarProps> = ({
   isEditable,
   hasConnection,
-  showMeasurementPanel,
+  dock,
   onToggleMeasurement,
-  showModelPicker,
-  onToggleModelPicker,
-  showCategoryPicker,
-  onToggleCategoryPicker,
-  showSectionTools,
-  onToggleSectionTools,
-  showViewSwitcher,
-  onToggleViewSwitcher,
-  showSavedViews,
-  onToggleSavedViews,
-  showViewSettings,
-  onToggleViewSettings,
+  onToggleDisplayPanel,
   onSelectTool,
   onRotateView,
   onPanView,
@@ -82,6 +62,10 @@ export const EditorToolBar: React.FC<EditorToolBarProps> = ({
   onViewRedo,
 }) => {
   const { t } = useTranslation('editor');
+
+  const isMeasurementActive = dock.isOpen && dock.tab === 'toolSettings' && dock.toolPanel === 'measurement';
+  const isDisplayPanelActive = (panel: EditorDockDisplayPanel): boolean =>
+    dock.isOpen && dock.tab === 'display' && dock.displayPanel === panel;
 
   return (
     <div className="toolbar toolbar-primary">
@@ -95,7 +79,7 @@ export const EditorToolBar: React.FC<EditorToolBarProps> = ({
           <SvgCursor />
         </IconButton>
         <IconButton
-          styleType={showMeasurementPanel ? 'cta' : 'borderless'}
+          styleType={isMeasurementActive ? 'cta' : 'borderless'}
           label={t('toolbar.measure')}
           onClick={onToggleMeasurement}
         >
@@ -156,23 +140,23 @@ export const EditorToolBar: React.FC<EditorToolBarProps> = ({
       {/* Display Controls */}
       <ButtonGroup className="toolbar-group">
         <IconButton
-          styleType={showModelPicker ? 'cta' : 'borderless'}
+          styleType={isDisplayPanelActive('model') ? 'cta' : 'borderless'}
           label={t('toolbar.model')}
-          onClick={onToggleModelPicker}
+          onClick={() => onToggleDisplayPanel('model')}
         >
           <SvgModel />
         </IconButton>
         <IconButton
-          styleType={showCategoryPicker ? 'cta' : 'borderless'}
+          styleType={isDisplayPanelActive('category') ? 'cta' : 'borderless'}
           label={t('toolbar.category')}
-          onClick={onToggleCategoryPicker}
+          onClick={() => onToggleDisplayPanel('category')}
         >
           <SvgLayers />
         </IconButton>
         <IconButton
-          styleType={showSectionTools ? 'cta' : 'borderless'}
+          styleType={isDisplayPanelActive('section') ? 'cta' : 'borderless'}
           label={t('toolbar.section')}
-          onClick={onToggleSectionTools}
+          onClick={() => onToggleDisplayPanel('section')}
         >
           <SvgCrop />
         </IconButton>
@@ -183,23 +167,23 @@ export const EditorToolBar: React.FC<EditorToolBarProps> = ({
       {/* View Management */}
       <ButtonGroup className="toolbar-group">
         <IconButton
-          styleType={showViewSwitcher ? 'cta' : 'borderless'}
+          styleType={isDisplayPanelActive('viewSwitcher') ? 'cta' : 'borderless'}
           label={t('toolbar.viewSwitcher')}
-          onClick={onToggleViewSwitcher}
+          onClick={() => onToggleDisplayPanel('viewSwitcher')}
         >
           <SvgVisibilityHalf />
         </IconButton>
         <IconButton
-          styleType={showSavedViews ? 'cta' : 'borderless'}
+          styleType={isDisplayPanelActive('savedViews') ? 'cta' : 'borderless'}
           label={t('toolbar.savedViews')}
-          onClick={onToggleSavedViews}
+          onClick={() => onToggleDisplayPanel('savedViews')}
         >
           <SvgSave />
         </IconButton>
         <IconButton
-          styleType={showViewSettings ? 'cta' : 'borderless'}
+          styleType={isDisplayPanelActive('viewSettings') ? 'cta' : 'borderless'}
           label={t('toolbar.viewSettings')}
-          onClick={onToggleViewSettings}
+          onClick={() => onToggleDisplayPanel('viewSettings')}
         >
           <SvgSettings />
         </IconButton>
