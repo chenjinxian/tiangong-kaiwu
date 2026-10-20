@@ -5,12 +5,12 @@
 
 /**
  * Share 流 e2e（RW4-P3-T3-2）：
- * 详情页 hero「分享项目」→ 邀请（真数据 POST /accesscontrol/.../members/users）→
- * 成员行出现 → 移除确认 Dialog 可达（取消）→ 链接页 = origin + /documents/:id。
+ * 详情页 hero「分享项目」→ 添加成员（真数据 POST /accesscontrol/.../members/users）→
+ * 成员行出现 → 移除按钮按 UUID 守卫降级（aria-disabled+inline 说明）→ 链接页 = origin + /documents/:id。
  *
  * 限流纪律：登录一律 loginWithSession（零登录请求）。
  * 契约备注（2026-10-20 实探）：本 hub 的 GET members/users 回 `id = userId`
- *（email 邀请时即 email），而 PATCH/DELETE 路由 Param 走 ParseUUIDPipe →
+ *（成员行 id=userId，邀请时即 email），而 PATCH/DELETE 路由 Param 走 ParseUUIDPipe →
  * 对 email 形态 id 返回 400；故本 spec 不提交移除（成员行出现 + 确认框可达即止），
  * 收尾用 `/itwins/:id/members` facade 的 member row UUID 做 best-effort 清理。
  */
