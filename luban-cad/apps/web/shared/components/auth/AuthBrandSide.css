@@ -194,7 +194,8 @@
 }
 
 .auth-page .auth-footer a {
-  /* 注：--iui-color-text-accent 在 i22 主题内指向 informational 蓝；品牌 teal 走 accent 种子 */
+  /* 注：i22 存量内 --iui-color-text-accent 指向 informational 蓝；品牌 teal 走 accent 种子
+   * （P1.5 起该别名已随 variables.css 别名族覆写为 teal，两者等价，保留种子写法不依赖覆写） */
   color: hsl(var(--iui-color-accent-hsl));
   text-decoration: none;
   font-weight: 500;

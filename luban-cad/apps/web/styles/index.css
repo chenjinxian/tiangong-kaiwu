@@ -40,14 +40,22 @@ body {
   outline-offset: 2px;
 }
 
-/* Links */
+/* Links — 仅裸文本锚点保留品牌色默认值（RW4-P1.5 评审 Important① 修正）。
+ * 本规则处于无 layer 全局层，任何非 layer 声明都压过 iTwinUI @layer 内组件色：
+ * 原先无条件 `a { color }` 会把 `Button as={Link}`（渲染为 <a class="iui-button …">，
+ * 404 页「回到文档」）染成 teal 字叠 accent 底。色值收窄为「非 itwinui 组件锚点」
+ * （iui 哈希类不含者），组件锚点色权交还 iTwinUI 组件层。
+ * 现存裸 <a>（react-router Link）均有自身显式 token 色（AuthBrandSide.css 等），不受影响。 */
 a {
-  color: var(--color-primary);
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
-a:hover {
+a:where(:not([class*='iui'])) {
+  color: var(--color-primary);
+}
+
+a:where(:not([class*='iui'])):hover {
   color: var(--color-primary-hover);
 }
 

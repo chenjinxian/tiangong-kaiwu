@@ -20,7 +20,9 @@
  * - --iui-font-size-small, --iui-font-size-body, --iui-font-size-title
  *
  * MIGRATION (P0): 品牌 teal 经 --iui-color-accent-hsl 注入 iTwinUI accent 管道
- * （high-visibility 按钮、聚焦态等全部继承）。格式为 iTwinUI 种子原生格式 `Hdeg S% L%`。
+ * （聚焦态/选中态等继承）。格式为 iTwinUI 种子原生格式 `Hdeg S% L%`。
+ * P1.5 补遗：i22 的 high-visibility 按钮链走 accent 别名族（--iui-color-background-accent
+ * 等，实为 informational 蓝别名），故同主题块扩展覆写该别名族（见 light/dark 块内注释）。
  * 旧 --color-* 别名已 @deprecated，仅为向后兼容保留，禁止新增消费方。
  */
 
@@ -35,8 +37,20 @@
   --color-primary-light: rgba(0, 184, 148, 0.08);
 
   /* Brand accent seed override — 品牌 teal 注入 iTwinUI accent 管道
-   * （high-visibility 按钮 / 聚焦态 / 选中态经 --iui-color-accent-hsl 继承） */
+   * （聚焦态 / 选中态经 --iui-color-accent-hsl 继承） */
   --iui-color-accent-hsl: 167deg 100% 36.1%; /* 品牌 teal #00b894 → iTwinUI accent 种子 */
+
+  /* 品牌别名族覆写（P1.5 评审修正，兑现 P0-T4 契约）：i22 里 accent 别名族
+   * （background/border/text/icon-accent）实际指向 informational 蓝（stratakit 桥接 token
+   * 缺位），high-visibility 按钮链走 --iui-color-background-accent——种子覆写半径不足，
+   * 按钮仍呈蓝。此处同选择器（[data-theme]/[data-iui-theme]，无 layer 压过 @layer 定义）
+   * 逐别名覆写为品牌 teal。
+   * 红线：--iui-color-informational-* 本身不覆写（信息色语义不污染）。 */
+  --iui-color-background-accent: hsl(167deg 100% 36.1%); /* 品牌 teal */
+  --iui-color-background-accent-hover: hsl(167deg 100% 30%); /* 加深一档 */
+  --iui-color-border-accent: hsl(167deg 100% 36.1%);
+  --iui-color-text-accent: hsl(167deg 100% 36.1%);
+  --iui-color-icon-accent: hsl(167deg 100% 36.1%);
 
   /* @deprecated P0 起品牌色经 --iui-color-accent-hsl 注入；
    * 以下 --color-* 别名仅为向后兼容保留，各波次页面重写时逐页清除，禁止新增消费方。 */
@@ -82,6 +96,14 @@
 
   /* Brand accent seed override — 品牌亮 teal 注入 iTwinUI accent 管道 */
   --iui-color-accent-hsl: 167deg 100% 44.7%; /* 品牌亮 teal #00e4b8 */
+
+  /* 品牌别名族覆写（P1.5 评审修正）：同 light 主题——accent 别名族压 informational 蓝，
+   * 映射品牌亮 teal。红线：--iui-color-informational-* 本身不覆写。 */
+  --iui-color-background-accent: hsl(167deg 100% 44.7%); /* 品牌亮 teal */
+  --iui-color-background-accent-hover: hsl(167deg 100% 52%); /* 提亮一档 */
+  --iui-color-border-accent: hsl(167deg 100% 44.7%);
+  --iui-color-text-accent: hsl(167deg 100% 44.7%);
+  --iui-color-icon-accent: hsl(167deg 100% 44.7%);
 
   /* @deprecated P0 起品牌色经 --iui-color-accent-hsl 注入；
    * 以下 --color-* 别名仅为向后兼容保留，各波次页面重写时逐页清除，禁止新增消费方。 */
