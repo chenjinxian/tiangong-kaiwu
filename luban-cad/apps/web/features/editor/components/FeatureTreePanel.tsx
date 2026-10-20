@@ -7,6 +7,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Divider, IconButton } from '@itwin/itwinui-react';
 import {
   SvgChevronLeft,
@@ -50,6 +51,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
   isCollapsed,
   onToggleCollapse,
 }) => {
+  const { t } = useTranslation('editor');
   const [isHovering, setIsHovering] = useState(false);
 
   if (isCollapsed) {
@@ -62,7 +64,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
         <IconButton
           styleType="borderless"
           size="small"
-          label="展开设计树"
+          label={t('featureTree.expand')}
           onClick={onToggleCollapse}
           className="collapse-btn"
         >
@@ -73,7 +75,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
           <IconButton
             styleType={activeTab === 'features' ? 'cta' : 'borderless'}
             size="small"
-            label="特征"
+            label={t('featureTree.features')}
             onClick={() => onTabChange('features')}
           >
             <SvgList />
@@ -81,7 +83,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
           <IconButton
             styleType={activeTab === 'assemblies' ? 'cta' : 'borderless'}
             size="small"
-            label="装配"
+            label={t('featureTree.assemblies')}
             onClick={() => onTabChange('assemblies')}
           >
             <SvgItem />
@@ -90,7 +92,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
 
         {isHovering && (
           <div className="collapsed-hint">
-            {activeTab === 'features' ? '特征历史' : '装配体'}
+            {activeTab === 'features' ? t('featureTree.featureHistory') : t('featureTree.assemblyBody')}
           </div>
         )}
       </div>
@@ -107,20 +109,20 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
             size="small"
             onClick={() => onTabChange('features')}
           >
-            特征
+            {t('featureTree.features')}
           </Button>
           <Button
             styleType={activeTab === 'assemblies' ? 'cta' : 'borderless'}
             size="small"
             onClick={() => onTabChange('assemblies')}
           >
-            装配
+            {t('featureTree.assemblies')}
           </Button>
         </div>
         <IconButton
           styleType="borderless"
           size="small"
-          label="收起"
+          label={t('featureTree.collapse')}
           onClick={onToggleCollapse}
         >
           <SvgChevronLeft />

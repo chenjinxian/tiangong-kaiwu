@@ -187,6 +187,28 @@
   background: var(--iui-color-text-success);
 }
 
+/* P4 债务清零：状态灯色 token 化（原 #0c0/#f90/#c00/#0066cc 硬编码） */
+.workspace-page .status-indicator--success {
+  background: var(--iui-color-text-success);
+}
+
+.workspace-page .status-indicator--warning {
+  background: var(--iui-color-text-warning);
+}
+
+.workspace-page .status-indicator--danger {
+  background: var(--iui-color-text-negative);
+}
+
+.workspace-page .status-indicator--info {
+  background: var(--iui-color-text-informational);
+}
+
+/* EditorShell 顶栏：Header 不参与 toolbars 的 flex 压缩 */
+.workspace-page .editor-topbar {
+  flex-shrink: 0;
+}
+
 .workspace-page .status-sep {
   color: var(--iui-color-border);
 }

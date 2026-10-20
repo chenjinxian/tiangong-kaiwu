@@ -108,7 +108,7 @@ function ReleaseDialog({
     <Dialog isOpen={isOpen} onClose={onClose} portal>
       <Dialog.Backdrop />
       <Dialog.Main styleType="default" title='释放编辑权限'>
-        <Dialog.TitleBar title='释放编辑权限' />
+        <Dialog.TitleBar titleText='释放编辑权限' />
         <Dialog.Content>
         {hasPendingChanges && (
           <Alert type='informational' style={{ marginBottom: '16px' }}>

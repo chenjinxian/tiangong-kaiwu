@@ -1,0 +1,143 @@
+{
+  "page": {
+    "checkingPermission": "Checking permissions...",
+    "initializing": "Initializing editor...",
+    "invalidUrl": "Invalid URL: missing iTwin or iModel ID",
+    "backToProjectList": "Back to projects",
+    "imodelInitializing": "iModel is initializing, please wait...",
+    "imodelInitHint": "This may take a few minutes",
+    "imodelNotReady": "iModel is not ready",
+    "statusLabel": "Status: {{status}}",
+    "statusUnknown": "Unknown",
+    "backToProject": "Back to project",
+    "toolRegistrationFailed": "Tool registration failed: {{message}}"
+  },
+  "topbar": {
+    "projectList": "Projects",
+    "loading": "Loading...",
+    "exportModel": "Export model",
+    "editPermissionRequired": "Edit permission required"
+  },
+  "toolbar": {
+    "select": "Select",
+    "selectTitle": "Selection tool (Space)",
+    "measure": "Measure",
+    "measureTitle": "Measurement tools",
+    "rotate": "Rotate",
+    "rotateTitle": "Rotate view",
+    "pan": "Pan",
+    "panTitle": "Pan view",
+    "zoom": "Zoom",
+    "zoomTitle": "Zoom view",
+    "fit": "Fit",
+    "fitTitle": "Fit view",
+    "viewUndo": "Undo view",
+    "viewUndoTitle": "Undo view change",
+    "viewRedo": "Redo view",
+    "viewRedoTitle": "Redo view change",
+    "model": "Models",
+    "modelTitle": "Model picker",
+    "category": "Categories",
+    "categoryTitle": "Category picker",
+    "section": "Section",
+    "sectionTitle": "Section tools",
+    "viewSwitcher": "Views",
+    "viewSwitcherTitle": "Switch view definition",
+    "savedViews": "Saved views",
+    "savedViewsTitle": "Saved views",
+    "viewSettings": "Display",
+    "viewSettingsTitle": "View display settings"
+  },
+  "statusbar": {
+    "connected": "Connected",
+    "loadingBriefcase": "Loading briefcase...",
+    "processing": "Processing...",
+    "editError": "Edit error: {{message}}",
+    "editMode": "Edit mode",
+    "readonly": "Read-only",
+    "sketchMode": "Sketch mode: XY plane",
+    "selectionCount": "Selected: {{count}} elements",
+    "metric": "Metric units",
+    "perspective": "Perspective view"
+  },
+  "export": {
+    "success": "Exported {{fileName}} as {{format}}"
+  },
+  "cadToolbar": {
+    "categories": {
+      "sketch": "Sketch",
+      "solid": "Solid",
+      "transform": "Transform",
+      "boolean": "Boolean",
+      "edges": "Edge",
+      "faces": "Face",
+      "advanced": "Advanced"
+    },
+    "tools": {
+      "setSketchPlane": "Set Sketch Plane",
+      "line": "Line",
+      "arc": "Arc",
+      "circle": "Circle",
+      "ellipse": "Ellipse",
+      "rectangle": "Rectangle",
+      "bSpline": "B-Spline",
+      "sphere": "Sphere",
+      "cylinder": "Cylinder",
+      "box": "Box",
+      "unite": "Unite",
+      "subtract": "Subtract",
+      "intersect": "Intersect",
+      "fillet": "Fillet",
+      "chamfer": "Chamfer",
+      "shell": "Shell",
+      "offsetFace": "Offset Face",
+      "sweepFace": "Sweep Face",
+      "draft": "Draft",
+      "hole": "Hole",
+      "mirror": "Mirror",
+      "linearPattern": "Linear Pattern",
+      "circularPattern": "Circular Pattern",
+      "move": "Move",
+      "rotate": "Rotate",
+      "copy": "Copy",
+      "delete": "Delete"
+    },
+    "editSketch": "Edit sketch",
+    "editSketchTooltip": "Edit Sketch"
+  },
+  "featureTree": {
+    "features": "Features",
+    "assemblies": "Assemblies",
+    "expand": "Expand design tree",
+    "collapse": "Collapse",
+    "featureHistory": "Feature history",
+    "assemblyBody": "Assembly"
+  },
+  "dock": {
+    "title": "Panel",
+    "close": "Close panel",
+    "historyReadonly": "Version history is unavailable in read-only mode",
+    "tabs": {
+      "toolSettings": "Tool settings",
+      "history": "Version history",
+      "display": "Display settings"
+    },
+    "toolPanels": {
+      "settings": "Tool settings",
+      "measurement": "Measurement results"
+    },
+    "displayPanels": {
+      "model": "Models",
+      "category": "Categories",
+      "viewSettings": "Display",
+      "viewSwitcher": "Views",
+      "savedViews": "Saved views",
+      "section": "Section"
+    }
+  },
+  "ai": {
+    "title": "AI assistant",
+    "reserved": "AI side panel slot",
+    "placeholder": "AI assistant will be available in a future release"
+  }
+}

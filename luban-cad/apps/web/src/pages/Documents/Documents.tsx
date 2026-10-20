@@ -922,7 +922,7 @@ const Documents: React.FC = React.memo(() => {
       >
         <Dialog.Backdrop />
         <Dialog.Main styleType="default" title={t('deleteDialog.title')} className="doc-delete-dialog">
-          <Dialog.TitleBar title={t('deleteDialog.title')} />
+          <Dialog.TitleBar titleText={t('deleteDialog.title')} />
           <Dialog.Content>
             <Text>{t('deleteDialog.message', { name: deleteTarget?.name ?? '' })}</Text>
           </Dialog.Content>

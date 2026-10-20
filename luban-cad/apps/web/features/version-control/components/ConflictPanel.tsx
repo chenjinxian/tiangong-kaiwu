@@ -185,7 +185,7 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
     <Dialog isOpen={isVisible} onClose={handleClose} portal>
       <Dialog.Backdrop />
       <Dialog.Main styleType="default" title="冲突检测">
-        <Dialog.TitleBar title="冲突检测" />
+        <Dialog.TitleBar titleText="冲突检测" />
         <Dialog.Content>
         <div className="conflict-panel">
           <div className="conflict-summary">

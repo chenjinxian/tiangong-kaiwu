@@ -1,0 +1,143 @@
+{
+  "page": {
+    "checkingPermission": "检查权限中...",
+    "initializing": "初始化编辑器...",
+    "invalidUrl": "无效的 URL: 缺少 iTwin 或 iModel ID",
+    "backToProjectList": "返回项目列表",
+    "imodelInitializing": "iModel 初始化中，请稍候...",
+    "imodelInitHint": "这可能需要几分钟时间",
+    "imodelNotReady": "iModel 未准备就绪",
+    "statusLabel": "状态: {{status}}",
+    "statusUnknown": "未知",
+    "backToProject": "返回项目",
+    "toolRegistrationFailed": "工具注册失败: {{message}}"
+  },
+  "topbar": {
+    "projectList": "项目列表",
+    "loading": "加载中...",
+    "exportModel": "导出模型",
+    "editPermissionRequired": "需要编辑权限"
+  },
+  "toolbar": {
+    "select": "选择",
+    "selectTitle": "选择工具 (Space)",
+    "measure": "测量",
+    "measureTitle": "测量工具",
+    "rotate": "旋转",
+    "rotateTitle": "旋转视图",
+    "pan": "平移",
+    "panTitle": "平移视图",
+    "zoom": "缩放",
+    "zoomTitle": "缩放视图",
+    "fit": "适应",
+    "fitTitle": "适应视图",
+    "viewUndo": "撤销视图",
+    "viewUndoTitle": "撤销视图更改",
+    "viewRedo": "重做视图",
+    "viewRedoTitle": "重做视图更改",
+    "model": "模型",
+    "modelTitle": "模型选择器",
+    "category": "类别",
+    "categoryTitle": "类别选择器",
+    "section": "剖切",
+    "sectionTitle": "剖切工具",
+    "viewSwitcher": "切换视图",
+    "viewSwitcherTitle": "切换视图定义",
+    "savedViews": "保存视图",
+    "savedViewsTitle": "保存的视图",
+    "viewSettings": "显示设置",
+    "viewSettingsTitle": "视图显示设置"
+  },
+  "statusbar": {
+    "connected": "已连接",
+    "loadingBriefcase": "加载简报...",
+    "processing": "处理中...",
+    "editError": "编辑错误: {{message}}",
+    "editMode": "编辑模式",
+    "readonly": "只读模式",
+    "sketchMode": "草图模式：XY 平面",
+    "selectionCount": "已选: {{count}} 个元素",
+    "metric": "公制单位",
+    "perspective": "透视视图"
+  },
+  "export": {
+    "success": "已导出 {{format}} 格式: {{fileName}}"
+  },
+  "cadToolbar": {
+    "categories": {
+      "sketch": "草图",
+      "solid": "实体",
+      "transform": "变换",
+      "boolean": "布尔",
+      "edges": "边",
+      "faces": "面",
+      "advanced": "高级"
+    },
+    "tools": {
+      "setSketchPlane": "草图平面 (Set Sketch Plane)",
+      "line": "直线 (Line)",
+      "arc": "弧线 (Arc)",
+      "circle": "圆 (Circle)",
+      "ellipse": "椭圆 (Ellipse)",
+      "rectangle": "矩形 (Rectangle)",
+      "bSpline": "B样条 (B-Spline)",
+      "sphere": "球体 (Sphere)",
+      "cylinder": "圆柱 (Cylinder)",
+      "box": "长方体 (Box)",
+      "unite": "并集 (Unite)",
+      "subtract": "差集 (Subtract)",
+      "intersect": "交集 (Intersect)",
+      "fillet": "圆角 (Fillet)",
+      "chamfer": "倒角 (Chamfer)",
+      "shell": "抽壳 (Shell)",
+      "offsetFace": "面偏移 (Offset Face)",
+      "sweepFace": "拉伸面 (Sweep Face)",
+      "draft": "拔模 (Draft)",
+      "hole": "打孔 (Hole)",
+      "mirror": "镜像 (Mirror)",
+      "linearPattern": "线性阵列 (Linear Pattern)",
+      "circularPattern": "圆形阵列 (Circular Pattern)",
+      "move": "移动 (Move)",
+      "rotate": "旋转 (Rotate)",
+      "copy": "复制 (Copy)",
+      "delete": "删除 (Delete)"
+    },
+    "editSketch": "编辑草图",
+    "editSketchTooltip": "编辑草图 (Edit Sketch)"
+  },
+  "featureTree": {
+    "features": "特征",
+    "assemblies": "装配",
+    "expand": "展开设计树",
+    "collapse": "收起",
+    "featureHistory": "特征历史",
+    "assemblyBody": "装配体"
+  },
+  "dock": {
+    "title": "面板",
+    "close": "关闭面板",
+    "historyReadonly": "只读模式下不提供版本历史操作",
+    "tabs": {
+      "toolSettings": "工具设置",
+      "history": "版本历史",
+      "display": "显示设置"
+    },
+    "toolPanels": {
+      "settings": "工具设置",
+      "measurement": "测量结果"
+    },
+    "displayPanels": {
+      "model": "模型",
+      "category": "类别",
+      "viewSettings": "显示",
+      "viewSwitcher": "切换视图",
+      "savedViews": "保存视图",
+      "section": "剖切"
+    }
+  },
+  "ai": {
+    "title": "AI 助手",
+    "reserved": "AI 侧栏预留位",
+    "placeholder": "AI 助手将在后续版本接入"
+  }
+}

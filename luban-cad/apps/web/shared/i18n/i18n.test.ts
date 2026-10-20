@@ -249,6 +249,43 @@ describe('i18n 骨架', () => {
     await i18n.changeLanguage('zh-CN');
   });
 
+  it('editor 命名空间：壳/状态栏/停靠面板文案键命中（zh/en，e2e 中文锚点）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('topbar.projectList', { ns: 'editor' })).toBe('项目列表');
+    expect(i18n.t('page.initializing', { ns: 'editor' })).toBe('初始化编辑器...');
+    expect(i18n.t('statusbar.connected', { ns: 'editor' })).toBe('已连接');
+    expect(i18n.t('statusbar.metric', { ns: 'editor' })).toBe('公制单位');
+    expect(i18n.t('statusbar.editMode', { ns: 'editor' })).toBe('编辑模式');
+    expect(i18n.t('statusbar.readonly', { ns: 'editor' })).toBe('只读模式');
+    expect(i18n.t('statusbar.sketchMode', { ns: 'editor' })).toBe('草图模式：XY 平面');
+    expect(i18n.t('statusbar.selectionCount', { ns: 'editor', count: 3 })).toBe('已选: 3 个元素');
+    expect(i18n.t('dock.tabs.toolSettings', { ns: 'editor' })).toBe('工具设置');
+    expect(i18n.t('dock.tabs.history', { ns: 'editor' })).toBe('版本历史');
+    expect(i18n.t('dock.tabs.display', { ns: 'editor' })).toBe('显示设置');
+    await i18n.changeLanguage('en');
+    expect(i18n.t('topbar.projectList', { ns: 'editor' })).toBe('Projects');
+    expect(i18n.t('statusbar.connected', { ns: 'editor' })).toBe('Connected');
+    expect(i18n.t('dock.tabs.display', { ns: 'editor' })).toBe('Display settings');
+    await i18n.changeLanguage('zh-CN');
+  });
+
+  it('editor 命名空间：CAD 工具条/特征树文案键命中（zh/en）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('cadToolbar.categories.sketch', { ns: 'editor' })).toBe('草图');
+    expect(i18n.t('cadToolbar.categories.advanced', { ns: 'editor' })).toBe('高级');
+    expect(i18n.t('cadToolbar.tools.unite', { ns: 'editor' })).toBe('并集 (Unite)');
+    expect(i18n.t('cadToolbar.tools.fillet', { ns: 'editor' })).toBe('圆角 (Fillet)');
+    expect(i18n.t('cadToolbar.tools.line', { ns: 'editor' })).toBe('直线 (Line)');
+    expect(i18n.t('cadToolbar.editSketch', { ns: 'editor' })).toBe('编辑草图');
+    expect(i18n.t('featureTree.features', { ns: 'editor' })).toBe('特征');
+    expect(i18n.t('featureTree.featureHistory', { ns: 'editor' })).toBe('特征历史');
+    await i18n.changeLanguage('en');
+    expect(i18n.t('cadToolbar.categories.sketch', { ns: 'editor' })).toBe('Sketch');
+    expect(i18n.t('cadToolbar.tools.unite', { ns: 'editor' })).toBe('Unite');
+    expect(i18n.t('featureTree.features', { ns: 'editor' })).toBe('Features');
+    await i18n.changeLanguage('zh-CN');
+  });
+
   it('语言持久化键常量', () => {
     expect(LANGUAGE_STORAGE_KEY).toBe('luban-cad-lang');
   });

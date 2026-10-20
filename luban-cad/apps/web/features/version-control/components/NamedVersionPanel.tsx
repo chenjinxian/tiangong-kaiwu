@@ -79,7 +79,7 @@ const CreateNamedVersionDialog: React.FC<{
     <Dialog isOpen={isOpen} onClose={handleClose} portal>
       <Dialog.Backdrop />
       <Dialog.Main styleType="default" title='创建命名版本'>
-        <Dialog.TitleBar title='创建命名版本' />
+        <Dialog.TitleBar titleText='创建命名版本' />
         <Dialog.Content>
           <div className='nv-dialog-content'>
             <div className='nv-field'>
@@ -167,7 +167,7 @@ const RollbackConfirmDialog: React.FC<{
     <Dialog isOpen={isOpen} onClose={onClose} portal>
       <Dialog.Backdrop />
       <Dialog.Main styleType="default" title='确认回滚'>
-        <Dialog.TitleBar title='确认回滚' />
+        <Dialog.TitleBar titleText='确认回滚' />
         <Dialog.Content>
           <div className='nv-dialog-content'>
             <div className='nv-warning-box'>

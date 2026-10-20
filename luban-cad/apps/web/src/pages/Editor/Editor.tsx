@@ -7,36 +7,25 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { type GraphicalEditingScope, IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { EditTools } from '@itwin/editor-frontend';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useBriefcaseConnection, useViewport } from '@luban-cad/viewer-core';
+import {
+  CategoryPicker,
+  ModelPicker,
+  SavedViewsPanel,
+  SectionToolsPanel,
+  useBriefcaseConnection,
+  useViewport,
+  ViewSettingsPanel,
+  ViewSwitcher,
+} from '@luban-cad/viewer-core';
+import { useTranslation } from 'react-i18next';
+import { Button, ProgressRadial, Text } from '@itwin/itwinui-react';
 import { useFeatureDisplaySync } from '../../../features/editor/useFeatureDisplaySync.js';
-import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
-import { EditorBriefcaseStatus } from '../../../features/editor/components/EditorBriefcaseStatus.js';
-import { FeatureTreePanel, type TreeTab } from '../../../features/editor/components/FeatureTreePanel.js';
 import { VersionTimeline } from '../../../features/version-control/components/VersionTimeline.js';
 import { MeasurementResultsPanel } from '../../../features/measurement/components/MeasurementResultsPanel.js';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { useITwinQuery } from '../../../features/itwin/hooks/useITwinsQuery.js';
-import {
-  SvgCrop,
-  SvgCursor,
-  SvgExport,
-  SvgFitToView,
-  SvgInfo,
-  SvgLayers,
-  SvgMeasure,
-  SvgModel,
-  SvgMove,
-  SvgRedo,
-  SvgRotateRight,
-  SvgSave,
-  SvgSettings,
-  SvgUndo,
-  SvgVisibilityHalf,
-  SvgZoomIn,
-} from '@itwin/itwinui-icons-react';
 import { useIModel } from '../../../features/imodel/hooks/useIModelsQuery.js';
 import { useIModelPermission } from '../../../features/imodel/hooks/useIModelPermission.js';
-import { Avatar, Badge, Button, ButtonGroup, Divider, IconButton, ProgressRadial, Text } from '@itwin/itwinui-react';
 import './Editor.css';
 import './Editor.overlay.css';
 import { useEditTools } from '../../../features/editor/hooks/useEditTools.js';
@@ -47,16 +36,14 @@ import { useAppToast } from '../../../shared/hooks/useAppToast.js';
 import { RoundEdgesDialog } from '../../../features/modeling/components/RoundEdgesDialog.js';
 import { ChamferEdgesDialog } from '../../../features/modeling/components/ChamferEdgesDialog.js';
 import { HollowFacesDialog } from '../../../features/modeling/components/HollowFacesDialog.js';
-import { UndoRedoToolbar } from '../../core/undo/UndoRedoToolbar.js';
-import { useUndoManager } from '../../core/undo/useUndoManager.js';
-import { type GizmoMode, useTransformGizmo } from '../../core/gizmo/useTransformGizmo.js';
+import { useUndoManager } from '../../../src/core/undo/useUndoManager.js';
+import { type GizmoMode, useTransformGizmo } from '../../../src/core/gizmo/useTransformGizmo.js';
 import { Point3d } from '@itwin/core-geometry';
 import { useAutoSave } from '../../../features/editor/hooks/useAutoSave.js';
 import { PushChangesetDialog } from '../../../features/version-control/components/PushChangesetDialog.js';
 import { useEditorInitialization } from '../../../features/editor/hooks/useEditorInitialization.js';
 import { useEditorKeyboard } from '../../../features/editor/hooks/useEditorKeyboard.js';
-import { toggleProjectExtents } from '../../core/decorations/ProjectExtentsDecoration.js';
-import { SketchPanel } from '../../../features/sketch/components/SketchPanel.js';
+import { toggleProjectExtents } from '../../../src/core/decorations/ProjectExtentsDecoration.js';
 import { useSketchSystem } from '../../../features/sketch/hooks/useSketchSystem.js';
 import {
   applySketchTopView,
@@ -70,25 +57,26 @@ import { useVersionControl } from '../../../features/editor/hooks/useVersionCont
 import { useFeatureSystem } from '../../../features/editor/hooks/useFeatureSystem.js';
 import { ExportDialog } from '../../../features/imodel/components/ExportDialog.js';
 import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
-import {
-  CategoryPicker,
-  ModelPicker,
-  SavedViewsPanel,
-  SectionToolsPanel,
-  ViewCube,
-  ViewSettingsPanel,
-  ViewSwitcher,
-} from '@luban-cad/viewer-core';
+import { EditorTopBar } from '../../../features/editor/shell/EditorTopBar.js';
+import { EditorToolBar } from '../../../features/editor/shell/EditorToolBar.js';
+import { EditorSidePanel } from '../../../features/editor/shell/EditorSidePanel.js';
+import { EditorViewport } from '../../../features/editor/shell/EditorViewport.js';
+import { EditorStatusBar } from '../../../features/editor/shell/EditorStatusBar.js';
+import { type TreeTab } from '../../../features/editor/components/FeatureTreePanel.js';
 
 /**
  * Editor page component - Main 3D CAD workspace
- * Optimized with React.memo and useCallback for performance
+ *
+ * RW4-P4-T4-1：898 行 God Component → 壳化编排。展示层拆分到
+ * `features/editor/shell/`（TopBar/ToolBar/SidePanel/Viewport/StatusBar/DockPanel），
+ * 本文件只保留：路由/权限/初始化、既有 hooks 契约、工具处理器与页面级状态。
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const Editor: React.FC = React.memo(() => {
   const { iTwinId, iModelId } = useParams<{ iTwinId: string; iModelId: string }>();
   const navigate = useNavigate();
   const { user } = useUser();
+  const { t, i18n } = useTranslation('editor');
 
   const { data: iTwin } = useITwinQuery(iTwinId ?? null);
   const { data: iModel, isLoading: isIModelLoading } = useIModel(iModelId ?? null);
@@ -248,7 +236,9 @@ const Editor: React.FC = React.memo(() => {
         IModelApp.notifications.outputMessage(
           new NotifyMessageDetails(
             OutputMessagePriority.Error,
-            `工具注册失败: ${err instanceof Error ? err.message : String(err)}`
+            i18n.t('page.toolRegistrationFailed', {
+              message: err instanceof Error ? err.message : String(err),
+            })
           )
         );
       }
@@ -259,7 +249,7 @@ const Editor: React.FC = React.memo(() => {
     return () => {
       cancelled = true;
     };
-  }, [isAppInitialized]);
+  }, [isAppInitialized, i18n]);
 
   // Component unmount: exit editing scope when leaving the page
   useEffect(() => {
@@ -377,6 +367,27 @@ const Editor: React.FC = React.memo(() => {
   const [showSavedViews, setShowSavedViews] = useState(false);
   const [showSectionTools, setShowSectionTools] = useState(false);
 
+  // 互斥浮层编排（保留原行为：模型/类别、切换视图/保存视图各自二选一）
+  const toggleModelPicker = useCallback(() => {
+    setShowModelPicker(v => !v);
+    setShowCategoryPicker(false);
+  }, []);
+  const toggleCategoryPicker = useCallback(() => {
+    setShowCategoryPicker(v => !v);
+    setShowModelPicker(false);
+  }, []);
+  const toggleViewSwitcher = useCallback(() => {
+    setShowViewSwitcher(v => !v);
+    setShowSavedViews(false);
+  }, []);
+  const toggleSavedViews = useCallback(() => {
+    setShowSavedViews(v => !v);
+    setShowViewSwitcher(false);
+  }, []);
+  const toggleSectionTools = useCallback(() => setShowSectionTools(v => !v), []);
+  const toggleViewSettings = useCallback(() => setShowViewSettings(v => !v), []);
+  const toggleMeasurementPanel = useCallback(() => setShowMeasurementPanel(v => !v), []);
+
   // Export dialog state
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
@@ -462,7 +473,7 @@ const Editor: React.FC = React.memo(() => {
       <div className="workspace-page">
         <div className="loading-state">
           <ProgressRadial size="large" indeterminate />
-          <Text>{isPermissionLoading ? '检查权限中...' : '初始化编辑器...'}</Text>
+          <Text>{isPermissionLoading ? t('page.checkingPermission') : t('page.initializing')}</Text>
         </div>
       </div>
     );
@@ -472,8 +483,8 @@ const Editor: React.FC = React.memo(() => {
     return (
       <div className="workspace-page">
         <div className="error-state">
-          <Text>无效的 URL: 缺少 iTwin 或 iModel ID</Text>
-          <Button styleType="high-visibility" onClick={handleBack}>返回项目列表</Button>
+          <Text>{t('page.invalidUrl')}</Text>
+          <Button styleType="high-visibility" onClick={handleBack}>{t('page.backToProjectList')}</Button>
         </div>
       </div>
     );
@@ -489,9 +500,9 @@ const Editor: React.FC = React.memo(() => {
       <div className="workspace-page">
         <div className="loading-state">
           <ProgressRadial size="large" indeterminate />
-          <Text>iModel 初始化中，请稍候...</Text>
-          <Text variant="small" style={{ color: '#666', marginTop: 8 }}>
-            这可能需要几分钟时间
+          <Text>{t('page.imodelInitializing')}</Text>
+          <Text variant="small" style={{ color: 'var(--iui-color-text-muted)', marginTop: 8 }}>
+            {t('page.imodelInitHint')}
           </Text>
         </div>
       </div>
@@ -502,11 +513,11 @@ const Editor: React.FC = React.memo(() => {
     return (
       <div className="workspace-page">
         <div className="error-state">
-          <Text>iModel 未准备就绪</Text>
-          <Text variant="small" style={{ color: '#666' }}>
-            状态: {iModelState || '未知'}
+          <Text>{t('page.imodelNotReady')}</Text>
+          <Text variant="small" style={{ color: 'var(--iui-color-text-muted)' }}>
+            {t('page.statusLabel', { status: iModelState || t('page.statusUnknown') })}
           </Text>
-          <Button styleType="high-visibility" onClick={handleBack}>返回项目</Button>
+          <Button styleType="high-visibility" onClick={handleBack}>{t('page.backToProject')}</Button>
         </div>
       </div>
     );
@@ -514,163 +525,48 @@ const Editor: React.FC = React.memo(() => {
 
   return (
     <div className="workspace-page">
-      {/* Topbar */}
-      <header className="topbar">
-        <div className="logo-mark">CC</div>
-        <nav className="breadcrumb">
-          <Button styleType="borderless" className="breadcrumb-link" onClick={handleBack}>项目列表</Button>
-          {iTwin && (
-            <>
-              <Text className="breadcrumb-sep">/</Text>
-              <Button styleType="borderless" className="breadcrumb-link" onClick={handleNavigateToProject}>
-                {iTwin.displayName}
-              </Button>
-            </>
-          )}
-          <Text className="breadcrumb-sep">/</Text>
-          <Text className="breadcrumb-current">
-            {isIModelLoading ? '加载中...' : (iModel?.displayName ?? iModelId?.slice(0, 8))}
-          </Text>
-        </nav>
-        <div className="topbar-actions">
-          <EditorBriefcaseStatus
-            connection={briefcase.connection}
-            isLoading={briefcase.isLoading}
-            error={briefcase.error}
-            isEditable={isEditable}
-          />
-          {!isEditable && (
-            <IconButton styleType="default" disabled title="需要编辑权限">
-              <SvgInfo />
-            </IconButton>
-          )}
-          <IconButton
-            styleType="default"
-            onClick={() => setIsExportDialogOpen(true)}
-            title="导出模型"
-          >
-            <SvgExport />
-          </IconButton>
-          <Divider orientation="vertical" />
-          <ThemeToggle />
-          <Avatar
-            title={user?.name || user?.email}
-            abbreviation={(user?.name?.slice(0, 2) || user?.email?.slice(0, 2) || 'U').toUpperCase()}
-          />
-        </div>
-      </header>
+      {/* Topbar（Header + HeaderBreadcrumbs） */}
+      <EditorTopBar
+        iTwinName={iTwin?.displayName}
+        iModelName={iModel?.displayName}
+        iModelId={iModelId}
+        isIModelLoading={isIModelLoading}
+        isEditable={isEditable}
+        connection={briefcase.connection}
+        connectionLoading={briefcase.isLoading}
+        connectionError={briefcase.error}
+        user={user}
+        onBack={handleBack}
+        onNavigateToProject={handleNavigateToProject}
+        onExport={() => setIsExportDialogOpen(true)}
+      />
 
       {/* Primary Toolbar - Integrated Layout */}
-      <div className="toolbar toolbar-primary">
-        {/* Selection & Measurement */}
-        <ButtonGroup className="toolbar-group">
-          <IconButton styleType="borderless" label="选择" onClick={handleSelectTool} title="选择工具 (Space)">
-            <SvgCursor />
-          </IconButton>
-          <IconButton
-            styleType={showMeasurementPanel ? 'cta' : 'borderless'}
-            label="测量"
-            onClick={() => setShowMeasurementPanel(v => !v)}
-            title="测量工具"
-          >
-            <SvgMeasure />
-          </IconButton>
-        </ButtonGroup>
-
-        <Divider orientation="vertical" className="toolbar-divider" />
-
-        {/* View Navigation Tools */}
-        <ButtonGroup className="toolbar-group">
-          <IconButton styleType="borderless" label="旋转" onClick={handleRotateView} title="旋转视图">
-            <SvgRotateRight />
-          </IconButton>
-          <IconButton styleType="borderless" label="平移" onClick={handlePanView} title="平移视图">
-            <SvgMove />
-          </IconButton>
-          <IconButton styleType="borderless" label="缩放" onClick={handleZoomView} title="缩放视图">
-            <SvgZoomIn />
-          </IconButton>
-          <IconButton styleType="borderless" label="适应" onClick={handleFitView} title="适应视图">
-            <SvgFitToView />
-          </IconButton>
-          <IconButton styleType="borderless" label="撤销视图" onClick={handleViewUndo} title="撤销视图更改">
-            <SvgUndo />
-          </IconButton>
-          <IconButton styleType="borderless" label="重做视图" onClick={handleViewRedo} title="重做视图更改">
-            <SvgRedo />
-          </IconButton>
-        </ButtonGroup>
-
-        <Divider orientation="vertical" className="toolbar-divider" />
-
-        {/* Display Controls */}
-        <ButtonGroup className="toolbar-group">
-          <IconButton
-            styleType={showModelPicker ? 'cta' : 'borderless'}
-            label="模型"
-            onClick={() => { setShowModelPicker(v => !v); setShowCategoryPicker(false); }}
-            title="模型选择器"
-          >
-            <SvgModel />
-          </IconButton>
-          <IconButton
-            styleType={showCategoryPicker ? 'cta' : 'borderless'}
-            label="类别"
-            onClick={() => { setShowCategoryPicker(v => !v); setShowModelPicker(false); }}
-            title="类别选择器"
-          >
-            <SvgLayers />
-          </IconButton>
-          <IconButton
-            styleType={showSectionTools ? 'cta' : 'borderless'}
-            label="剖切"
-            onClick={() => setShowSectionTools(v => !v)}
-            title="剖切工具"
-          >
-            <SvgCrop />
-          </IconButton>
-        </ButtonGroup>
-
-        <Divider orientation="vertical" className="toolbar-divider" />
-
-        {/* View Management */}
-        <ButtonGroup className="toolbar-group">
-          <IconButton
-            styleType={showViewSwitcher ? 'cta' : 'borderless'}
-            label="切换视图"
-            onClick={() => { setShowViewSwitcher(v => !v); setShowSavedViews(false); }}
-            title="切换视图定义"
-          >
-            <SvgVisibilityHalf />
-          </IconButton>
-          <IconButton
-            styleType={showSavedViews ? 'cta' : 'borderless'}
-            label="保存视图"
-            onClick={() => { setShowSavedViews(v => !v); setShowViewSwitcher(false); }}
-            title="保存的视图"
-          >
-            <SvgSave />
-          </IconButton>
-          <IconButton
-            styleType={showViewSettings ? 'cta' : 'borderless'}
-            label="显示设置"
-            onClick={() => setShowViewSettings(v => !v)}
-            title="视图显示设置"
-          >
-            <SvgSettings />
-          </IconButton>
-        </ButtonGroup>
-
-        {/* Spacer */}
-        <div className="toolbar-spacer" />
-
-        {/* Undo/Redo - Only in editable mode */}
-        {isEditable && briefcase.connection && (
-          <ButtonGroup className="toolbar-group">
-            <UndoRedoToolbar />
-          </ButtonGroup>
-        )}
-      </div>
+      <EditorToolBar
+        isEditable={isEditable}
+        hasConnection={!!briefcase.connection}
+        showMeasurementPanel={showMeasurementPanel}
+        onToggleMeasurement={toggleMeasurementPanel}
+        showModelPicker={showModelPicker}
+        onToggleModelPicker={toggleModelPicker}
+        showCategoryPicker={showCategoryPicker}
+        onToggleCategoryPicker={toggleCategoryPicker}
+        showSectionTools={showSectionTools}
+        onToggleSectionTools={toggleSectionTools}
+        showViewSwitcher={showViewSwitcher}
+        onToggleViewSwitcher={toggleViewSwitcher}
+        showSavedViews={showSavedViews}
+        onToggleSavedViews={toggleSavedViews}
+        showViewSettings={showViewSettings}
+        onToggleViewSettings={toggleViewSettings}
+        onSelectTool={handleSelectTool}
+        onRotateView={handleRotateView}
+        onPanView={handlePanView}
+        onZoomView={handleZoomView}
+        onFitView={handleFitView}
+        onViewUndo={handleViewUndo}
+        onViewRedo={handleViewRedo}
+      />
 
       {/* Secondary Toolbar - Modeling Tools (Onshape/FreeCAD style) */}
       {isEditable && (
@@ -685,84 +581,68 @@ const Editor: React.FC = React.memo(() => {
       {/* Main content area: Onshape-style 3-panel layout */}
       <div className="editor-main">
         {/* Left: Feature Tree or Sketch Panel */}
-        {isEditable && !isSketchMode && (
-          <FeatureTreePanel
-            connection={briefcase.connection}
-            fs={featureSystem}
-            onToast={showToast}
-            onEditSketch={handleEditSketch}
-            activeTab={leftPanelTab}
-            onTabChange={setLeftPanelTab}
-            isCollapsed={isLeftPanelCollapsed}
-            onToggleCollapse={() => setIsLeftPanelCollapsed(v => !v)}
-          />
-        )}
-        {isEditable && isSketchMode && (
-          <SketchPanel
-            isActive={isSketchMode}
-            onExit={exitSketchMode}
-            sketchSystem={sketchSystem}
-            onToast={showToast}
-          />
-        )}
+        <EditorSidePanel
+          isEditable={isEditable}
+          isSketchMode={isSketchMode}
+          connection={briefcase.connection}
+          featureSystem={featureSystem}
+          sketchSystem={sketchSystem}
+          onToast={showToast}
+          onEditSketch={handleEditSketch}
+          activeTab={leftPanelTab}
+          onTabChange={setLeftPanelTab}
+          isCollapsed={isLeftPanelCollapsed}
+          onToggleCollapse={() => setIsLeftPanelCollapsed(v => !v)}
+          onExitSketchMode={exitSketchMode}
+        />
 
         {/* Center: 3D Viewer */}
-        <div className="viewer-wrap">
-          <div ref={editViewportRef} style={{ width: '100%', height: '100%' }} />
-
-          {/* Floating UI Overlay - Organized Layout */}
-          <div className="viewer-overlay">
-            {/* Top Right: ViewCube */}
-            <div className="overlay-top-right">
-              <ViewCube />
-            </div>
-
-            {/* Left Panel Stack: Model/Category/Settings/ToolSettings */}
-            <div className="overlay-left-stack">
-              {showModelPicker && (
-                <div className="floating-panel">
-                  <ModelPicker />
-                </div>
-              )}
-              {showCategoryPicker && (
-                <div className="floating-panel">
-                  <CategoryPicker />
-                </div>
-              )}
-              {showViewSettings && (
-                <div className="floating-panel">
-                  <ViewSettingsPanel />
-                </div>
-              )}
-            </div>
-
-            {/* Right Panel Stack: View Switcher/Saved Views/Section Tools */}
-            <div className="overlay-right-stack">
-              {showViewSwitcher && (
-                <div className="floating-panel">
-                  <ViewSwitcher />
-                </div>
-              )}
-              {showSavedViews && (
-                <div className="floating-panel">
-                  <SavedViewsPanel />
-                </div>
-              )}
-              {showSectionTools && (
-                <div className="floating-panel">
-                  <SectionToolsPanel />
-                </div>
-              )}
-            </div>
-
-            {/* Measurement Panel - Bottom Left */}
-            {isEditable && showMeasurementPanel && (
-              <div className="overlay-bottom-left">
-                <MeasurementResultsPanel measurements={[]} onDelete={() => {}} onClear={() => {}} onExport={() => {}} />
+        <EditorViewport viewportRef={editViewportRef}>
+          {/* Left Panel Stack: Model/Category/Settings/ToolSettings */}
+          <div className="overlay-left-stack">
+            {showModelPicker && (
+              <div className="floating-panel">
+                <ModelPicker />
+              </div>
+            )}
+            {showCategoryPicker && (
+              <div className="floating-panel">
+                <CategoryPicker />
+              </div>
+            )}
+            {showViewSettings && (
+              <div className="floating-panel">
+                <ViewSettingsPanel />
               </div>
             )}
           </div>
-        </div>
+
+          {/* Right Panel Stack: View Switcher/Saved Views/Section Tools */}
+          <div className="overlay-right-stack">
+            {showViewSwitcher && (
+              <div className="floating-panel">
+                <ViewSwitcher />
+              </div>
+            )}
+            {showSavedViews && (
+              <div className="floating-panel">
+                <SavedViewsPanel />
+              </div>
+            )}
+            {showSectionTools && (
+              <div className="floating-panel">
+                <SectionToolsPanel />
+              </div>
+            )}
+          </div>
+
+          {/* Measurement Panel - Bottom Left */}
+          {isEditable && showMeasurementPanel && (
+            <div className="overlay-bottom-left">
+              <MeasurementResultsPanel measurements={[]} onDelete={() => {}} onClear={() => {}} onExport={() => {}} />
+            </div>
+          )}
+        </EditorViewport>
 
         {/* Conflict detection panel */}
         <ConflictPanel
@@ -834,60 +714,24 @@ const Editor: React.FC = React.memo(() => {
         iModelName={iModel?.displayName ?? iModelId ?? ''}
         onClose={() => setIsExportDialogOpen(false)}
         onExport={(format, fileName) => {
-          showToast(`已导出 ${format} 格式: ${fileName}`, 'success');
+          showToast(t('export.success', { format, fileName }), 'success');
         }}
       />
 
       {/* Status bar */}
-      <div className="statusbar">
-        <div className="status-left">
-          <div className="status-item">
-            <span className="status-indicator" />
-            <Text variant="small">已连接</Text>
-          </div>
-          {isEditable && (
-            <>
-              <Text className="status-sep">|</Text>
-              <div className="status-item">
-                <span className="status-indicator" style={{ background: briefcase.isLoading || solidModeling.isProcessing ? '#f90' : briefcase.error ? '#c00' : '#0c0' }} />
-                <Text variant="small">
-                  {briefcase.isLoading ? '加载简报...' : solidModeling.isProcessing ? '处理中...' : briefcase.error ? `编辑错误: ${briefcase.error.message}` : opStatus || '编辑模式'}
-                </Text>
-              </div>
-              {isSketchMode && (
-                <>
-                  <Text className="status-sep">|</Text>
-                  <div className="status-item" data-testid="sketch-mode-hint">
-                    <span className="status-indicator" style={{ background: '#0066cc' }} />
-                    <Text variant="small">草图模式：XY 平面</Text>
-                  </div>
-                </>
-              )}
-              {selectionCount > 0 && (
-                <>
-                  <Text className="status-sep">|</Text>
-                  <Badge backgroundColor="positive">{`已选: ${selectionCount} 个元素`}</Badge>
-                </>
-              )}
-            </>
-          )}
-          {!isEditable && (
-            <>
-              <Text className="status-sep">|</Text>
-              <Badge backgroundColor="informational">只读模式</Badge>
-            </>
-          )}
-          <Text className="status-sep">|</Text>
-          <Text variant="small">公制单位</Text>
-          <Text className="status-sep">|</Text>
-          <Text variant="small">透视视图</Text>
-        </div>
-        <div className="status-right">
-          <Text variant="small">{iTwin?.displayName || iTwinId?.slice(0, 8)}</Text>
-          <Text className="status-sep">|</Text>
-          <Text variant="small">{iModel?.displayName || iModelId?.slice(0, 8)}</Text>
-        </div>
-      </div>
+      <EditorStatusBar
+        isEditable={isEditable}
+        isSketchMode={isSketchMode}
+        connectionLoading={briefcase.isLoading}
+        connectionError={briefcase.error}
+        isProcessing={solidModeling.isProcessing}
+        opStatus={opStatus}
+        selectionCount={selectionCount}
+        iTwinName={iTwin?.displayName}
+        iModelName={iModel?.displayName}
+        iTwinId={iTwinId}
+        iModelId={iModelId}
+      />
     </div>
   );
 });

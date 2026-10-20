@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IModelApp } from '@itwin/core-frontend';
 import { ButtonGroup, Divider, IconButton, Text, Tooltip } from '@itwin/itwinui-react';
 import { CircularPatternDialog, LinearPatternDialog } from '../../../features/modeling/components/PatternDialogs.js';
@@ -23,8 +24,8 @@ interface CadToolbarProps {
 interface ToolDef {
   /** Exact toolId string registered by EditTools.initialize() — passed to IModelApp.tools.run() */
   id: string;
-  /** Tooltip text (Chinese + English) */
-  label: string;
+  /** i18n key in the `editor` namespace (`cadToolbar.tools.*`) — label + tooltip */
+  labelKey: string;
   /** Icon component */
   icon: React.ReactNode;
 }
@@ -282,53 +283,54 @@ const CircularPatternIcon = () => (
   </svg>
 );
 
-// Tool definitions with descriptive icons
+// Tool definitions with descriptive icons（文案全部走 editor ns，zh 保留「中文 (English)」
+// 形态——demo-flow/modeling-tools spec 以该文案为精确锚点）
 const SKETCH_TOOLS: ToolDef[] = [
-  { id: 'SetSketchPlane', label: '草图平面 (Set Sketch Plane)', icon: <SketchPlaneIcon /> },
-  { id: 'CreateLineString', label: '直线 (Line)', icon: <LineIcon /> },
-  { id: 'CreateArc', label: '弧线 (Arc)', icon: <ArcIcon /> },
-  { id: 'CreateCircle', label: '圆 (Circle)', icon: <CircleIcon /> },
-  { id: 'CreateEllipse', label: '椭圆 (Ellipse)', icon: <EllipseIcon /> },
-  { id: 'CreateRectangle', label: '矩形 (Rectangle)', icon: <RectangleIcon /> },
-  { id: 'CreateBCurve', label: 'B样条 (B-Spline)', icon: <SplineIcon /> },
+  { id: 'SetSketchPlane', labelKey: 'cadToolbar.tools.setSketchPlane', icon: <SketchPlaneIcon /> },
+  { id: 'CreateLineString', labelKey: 'cadToolbar.tools.line', icon: <LineIcon /> },
+  { id: 'CreateArc', labelKey: 'cadToolbar.tools.arc', icon: <ArcIcon /> },
+  { id: 'CreateCircle', labelKey: 'cadToolbar.tools.circle', icon: <CircleIcon /> },
+  { id: 'CreateEllipse', labelKey: 'cadToolbar.tools.ellipse', icon: <EllipseIcon /> },
+  { id: 'CreateRectangle', labelKey: 'cadToolbar.tools.rectangle', icon: <RectangleIcon /> },
+  { id: 'CreateBCurve', labelKey: 'cadToolbar.tools.bSpline', icon: <SplineIcon /> },
 ];
 
 const SOLID_TOOLS: ToolDef[] = [
-  { id: 'CreateSphere', label: '球体 (Sphere)', icon: <SphereIcon /> },
-  { id: 'CreateCylinder', label: '圆柱 (Cylinder)', icon: <CylinderIcon /> },
-  { id: 'CreateBox', label: '长方体 (Box)', icon: <BoxIcon /> },
+  { id: 'CreateSphere', labelKey: 'cadToolbar.tools.sphere', icon: <SphereIcon /> },
+  { id: 'CreateCylinder', labelKey: 'cadToolbar.tools.cylinder', icon: <CylinderIcon /> },
+  { id: 'CreateBox', labelKey: 'cadToolbar.tools.box', icon: <BoxIcon /> },
 ];
 
 const BOOLEAN_TOOLS: ToolDef[] = [
-  { id: 'UniteSolids', label: '并集 (Unite)', icon: <UniteIcon /> },
-  { id: 'SubtractSolids', label: '差集 (Subtract)', icon: <SubtractIcon /> },
-  { id: 'IntersectSolids', label: '交集 (Intersect)', icon: <IntersectIcon /> },
+  { id: 'UniteSolids', labelKey: 'cadToolbar.tools.unite', icon: <UniteIcon /> },
+  { id: 'SubtractSolids', labelKey: 'cadToolbar.tools.subtract', icon: <SubtractIcon /> },
+  { id: 'IntersectSolids', labelKey: 'cadToolbar.tools.intersect', icon: <IntersectIcon /> },
 ];
 
 const EDGE_TOOLS: ToolDef[] = [
-  { id: 'RoundEdges', label: '圆角 (Fillet)', icon: <FilletIcon /> },
-  { id: 'ChamferEdges', label: '倒角 (Chamfer)', icon: <ChamferIcon /> },
+  { id: 'RoundEdges', labelKey: 'cadToolbar.tools.fillet', icon: <FilletIcon /> },
+  { id: 'ChamferEdges', labelKey: 'cadToolbar.tools.chamfer', icon: <ChamferIcon /> },
 ];
 
 const FACE_TOOLS: ToolDef[] = [
-  { id: 'HollowFaces', label: '抽壳 (Shell)', icon: <ShellIcon /> },
-  { id: 'OffsetFaces', label: '面偏移 (Offset Face)', icon: <OffsetIcon /> },
-  { id: 'SweepFaces', label: '拉伸面 (Sweep Face)', icon: <SweepIcon /> },
-  { id: 'DraftFaces', label: '拔模 (Draft)', icon: <DraftIcon /> },
+  { id: 'HollowFaces', labelKey: 'cadToolbar.tools.shell', icon: <ShellIcon /> },
+  { id: 'OffsetFaces', labelKey: 'cadToolbar.tools.offsetFace', icon: <OffsetIcon /> },
+  { id: 'SweepFaces', labelKey: 'cadToolbar.tools.sweepFace', icon: <SweepIcon /> },
+  { id: 'DraftFaces', labelKey: 'cadToolbar.tools.draft', icon: <DraftIcon /> },
 ];
 
 const TRANSFORM_TOOLS: ToolDef[] = [
-  { id: 'MoveElements', label: '移动 (Move)', icon: <MoveIcon /> },
-  { id: 'RotateElements', label: '旋转 (Rotate)', icon: <RotateIcon /> },
-  { id: 'CopyElements', label: '复制 (Copy)', icon: <CopyIcon /> },
-  { id: 'DeleteElements', label: '删除 (Delete)', icon: <DeleteIcon /> },
+  { id: 'MoveElements', labelKey: 'cadToolbar.tools.move', icon: <MoveIcon /> },
+  { id: 'RotateElements', labelKey: 'cadToolbar.tools.rotate', icon: <RotateIcon /> },
+  { id: 'CopyElements', labelKey: 'cadToolbar.tools.copy', icon: <CopyIcon /> },
+  { id: 'DeleteElements', labelKey: 'cadToolbar.tools.delete', icon: <DeleteIcon /> },
 ];
 
 const ADVANCED_TOOLS: ToolDef[] = [
-  { id: 'CreateHole', label: '打孔 (Hole)', icon: <HoleIcon /> },
-  { id: 'MirrorElements', label: '镜像 (Mirror)', icon: <MirrorIcon /> },
-  { id: 'LinearPattern', label: '线性阵列 (Linear Pattern)', icon: <LinearPatternIcon /> },
-  { id: 'CircularPattern', label: '圆形阵列 (Circular Pattern)', icon: <CircularPatternIcon /> },
+  { id: 'CreateHole', labelKey: 'cadToolbar.tools.hole', icon: <HoleIcon /> },
+  { id: 'MirrorElements', labelKey: 'cadToolbar.tools.mirror', icon: <MirrorIcon /> },
+  { id: 'LinearPattern', labelKey: 'cadToolbar.tools.linearPattern', icon: <LinearPatternIcon /> },
+  { id: 'CircularPattern', labelKey: 'cadToolbar.tools.circularPattern', icon: <CircularPatternIcon /> },
 ];
 
 /**
@@ -337,6 +339,7 @@ const ADVANCED_TOOLS: ToolDef[] = [
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, isReady, onEnterSketchMode, isSketchMode }) => {
+  const { t } = useTranslation('editor');
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [showLinearPatternDialog, setShowLinearPatternDialog] = useState(false);
   const [showCircularPatternDialog, setShowCircularPatternDialog] = useState(false);
@@ -375,15 +378,15 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
     <div className="cad-toolbar-horizontal">
       {/* Sketch Tools */}
       <div className="cad-toolbar-group">
-        <Text variant="small" className="cad-toolbar-label">草图</Text>
+        <Text variant="small" className="cad-toolbar-label">{t('cadToolbar.categories.sketch')}</Text>
         <ButtonGroup className="cad-toolbar-buttons">
           {SKETCH_TOOLS.map((tool) => (
-            <Tooltip key={tool.id} content={tool.label} placement="bottom">
+            <Tooltip key={tool.id} content={t(tool.labelKey)} placement="bottom">
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
                 onClick={async () => handleToolClick(tool.id)}
-                label={tool.label}
+                label={t(tool.labelKey)}
                 className="cad-tool-btn"
               >
                 <span className="cad-tool-icon">{tool.icon}</span>
@@ -391,12 +394,12 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
             </Tooltip>
           ))}
           {onEnterSketchMode && (
-            <Tooltip content="编辑草图 (Edit Sketch)" placement="bottom">
+            <Tooltip content={t('cadToolbar.editSketchTooltip')} placement="bottom">
               <IconButton
                 size="small"
                 styleType={isSketchMode ? 'cta' : 'borderless'}
                 onClick={onEnterSketchMode}
-                label="编辑草图"
+                label={t('cadToolbar.editSketch')}
                 className="cad-tool-btn"
               >
                 <span className="cad-tool-icon"><EditSketchIcon /></span>
@@ -410,15 +413,15 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
 
       {/* Solid Tools */}
       <div className="cad-toolbar-group">
-        <Text variant="small" className="cad-toolbar-label">实体</Text>
+        <Text variant="small" className="cad-toolbar-label">{t('cadToolbar.categories.solid')}</Text>
         <ButtonGroup className="cad-toolbar-buttons">
           {SOLID_TOOLS.map((tool) => (
-            <Tooltip key={tool.id} content={tool.label} placement="bottom">
+            <Tooltip key={tool.id} content={t(tool.labelKey)} placement="bottom">
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
                 onClick={async () => handleToolClick(tool.id)}
-                label={tool.label}
+                label={t(tool.labelKey)}
                 className="cad-tool-btn"
               >
                 <span className="cad-tool-icon">{tool.icon}</span>
@@ -432,15 +435,15 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
 
       {/* Transform Tools */}
       <div className="cad-toolbar-group">
-        <Text variant="small" className="cad-toolbar-label">变换</Text>
+        <Text variant="small" className="cad-toolbar-label">{t('cadToolbar.categories.transform')}</Text>
         <ButtonGroup className="cad-toolbar-buttons">
           {TRANSFORM_TOOLS.map((tool) => (
-            <Tooltip key={tool.id} content={tool.label} placement="bottom">
+            <Tooltip key={tool.id} content={t(tool.labelKey)} placement="bottom">
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
                 onClick={async () => handleToolClick(tool.id)}
-                label={tool.label}
+                label={t(tool.labelKey)}
                 className="cad-tool-btn"
               >
                 <span className="cad-tool-icon">{tool.icon}</span>
@@ -454,15 +457,15 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
 
       {/* Boolean Tools */}
       <div className="cad-toolbar-group">
-        <Text variant="small" className="cad-toolbar-label">布尔</Text>
+        <Text variant="small" className="cad-toolbar-label">{t('cadToolbar.categories.boolean')}</Text>
         <ButtonGroup className="cad-toolbar-buttons">
           {BOOLEAN_TOOLS.map((tool) => (
-            <Tooltip key={tool.id} content={tool.label} placement="bottom">
+            <Tooltip key={tool.id} content={t(tool.labelKey)} placement="bottom">
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
                 onClick={async () => handleToolClick(tool.id)}
-                label={tool.label}
+                label={t(tool.labelKey)}
                 className="cad-tool-btn"
               >
                 <span className="cad-tool-icon">{tool.icon}</span>
@@ -476,15 +479,15 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
 
       {/* Edge Tools */}
       <div className="cad-toolbar-group">
-        <Text variant="small" className="cad-toolbar-label">边</Text>
+        <Text variant="small" className="cad-toolbar-label">{t('cadToolbar.categories.edges')}</Text>
         <ButtonGroup className="cad-toolbar-buttons">
           {EDGE_TOOLS.map((tool) => (
-            <Tooltip key={tool.id} content={tool.label} placement="bottom">
+            <Tooltip key={tool.id} content={t(tool.labelKey)} placement="bottom">
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
                 onClick={async () => handleToolClick(tool.id)}
-                label={tool.label}
+                label={t(tool.labelKey)}
                 className="cad-tool-btn"
               >
                 <span className="cad-tool-icon">{tool.icon}</span>
@@ -498,15 +501,15 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
 
       {/* Face Tools */}
       <div className="cad-toolbar-group">
-        <Text variant="small" className="cad-toolbar-label">面</Text>
+        <Text variant="small" className="cad-toolbar-label">{t('cadToolbar.categories.faces')}</Text>
         <ButtonGroup className="cad-toolbar-buttons">
           {FACE_TOOLS.map((tool) => (
-            <Tooltip key={tool.id} content={tool.label} placement="bottom">
+            <Tooltip key={tool.id} content={t(tool.labelKey)} placement="bottom">
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
                 onClick={async () => handleToolClick(tool.id)}
-                label={tool.label}
+                label={t(tool.labelKey)}
                 className="cad-tool-btn"
               >
                 <span className="cad-tool-icon">{tool.icon}</span>
@@ -520,15 +523,15 @@ export const CadToolbar: React.FC<CadToolbarProps> = React.memo(({ isEditMode, i
 
       {/* Advanced Tools */}
       <div className="cad-toolbar-group">
-        <Text variant="small" className="cad-toolbar-label">高级</Text>
+        <Text variant="small" className="cad-toolbar-label">{t('cadToolbar.categories.advanced')}</Text>
         <ButtonGroup className="cad-toolbar-buttons">
           {ADVANCED_TOOLS.map((tool) => (
-            <Tooltip key={tool.id} content={tool.label} placement="bottom">
+            <Tooltip key={tool.id} content={t(tool.labelKey)} placement="bottom">
               <IconButton
                 size="small"
                 styleType={activeTool === tool.id ? 'cta' : 'borderless'}
                 onClick={async () => handleToolClick(tool.id)}
-                label={tool.label}
+                label={t(tool.labelKey)}
                 className="cad-tool-btn"
               >
                 <span className="cad-tool-icon">{tool.icon}</span>
