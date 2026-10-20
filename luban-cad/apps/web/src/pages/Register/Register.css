@@ -1,44 +1,23 @@
-/* Register page shares auth styles with Login page */
-@import '../Login/Login.css';
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) LubanCAD. All rights reserved.
+ *--------------------------------------------------------------------------------------------*/
 
-/* Additional styles for Register page */
+/* 注册页专属样式（RW4-P1-T3）。分屏/品牌栏/表单容器/密码壳/页脚/加载遮罩等公共件
+ * 见 shared/components/auth/AuthBrandSide.css；此处仅留注册页增量（强度条/绿勾/条款/成功态）。 */
 
-/* ── Unified form design system (from CreateIModelWorkflow) ── */
-
-/* Form inputs - consistent spacing */
-.register-input {
+.auth-page .register-input {
   margin-bottom: var(--iui-size-m);
 }
 
-/* Ensure LabeledInput has consistent padding */
-.register-input [class*="input"] {
-  padding: var(--iui-size-xs) var(--iui-size-s) !important;
-}
-
-/* Labels - consistent style */
-.register-input [class*="label"] {
-  font-size: var(--iui-font-size-body) !important;
-  font-weight: 500 !important;
-  margin-bottom: var(--iui-size-xs) !important;
-}
-
-/* Error messages - consistent with field-error */
-.register-input [class*="message-negative"] {
-  font-size: var(--iui-font-size-small) !important;
-  margin-top: var(--iui-size-xs) !important;
-}
-
-/* Error alert - consistent with form-error */
-.register-error-alert {
+.auth-page .register-error-alert {
   margin-bottom: var(--iui-size-m);
 }
 
-.register-submit-btn {
+.auth-page .register-submit-btn {
   width: 100%;
-  padding: var(--iui-size-xs) var(--iui-size-m);
 }
 
-/* ── Input with valid indicator ── */
+/* ── 输入框绿勾（字段有效性指示） ── */
 .input-with-indicator {
   position: relative;
 }
@@ -47,7 +26,7 @@
   position: absolute;
   right: 12px;
   top: 38px;
-  color: var(--color-success, #10b981);
+  color: var(--iui-color-text-success);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,19 +38,7 @@
   top: 38px;
 }
 
-/* ── Password wrapper ── */
-.auth-page .password-wrapper {
-  position: relative;
-}
-
-.auth-page .password-wrapper .toggle-password {
-  position: absolute;
-  right: var(--iui-size-s);
-  top: 32px;
-  z-index: 1;
-}
-
-/* ── Password strength (custom — no iTwinUI equivalent) ── */
+/* ── 密码强度条（自绘——iTwinUI 无等价件；色走状态语义 token） ── */
 .auth-page .password-strength {
   margin-top: 8px;
   display: flex;
@@ -89,7 +56,7 @@
   height: 4px;
   flex: 1;
   border-radius: 2px;
-  background: var(--color-border);
+  background: var(--iui-color-border);
   transition: background 0.2s ease;
 }
 
@@ -99,11 +66,11 @@
   white-space: nowrap;
 }
 
-/* Field help text */
+/* 字段辅助/错误文本 */
 .field-help {
   display: block;
   font-size: 11px;
-  color: var(--color-text-tertiary);
+  color: var(--iui-color-text-muted);
   margin-top: 6px;
   padding-left: 8px;
 }
@@ -115,7 +82,7 @@
   margin-top: var(--iui-size-xs);
 }
 
-/* ── Terms checkbox ── */
+/* ── 条款勾选（/terms /privacy 死链已移除，同意句为次要文本） ── */
 .register-terms {
   margin-bottom: var(--iui-size-m);
 }
@@ -124,16 +91,7 @@
   margin-bottom: var(--iui-size-xs);
 }
 
-.register-terms a {
-  color: var(--color-primary);
-  text-decoration: none;
-}
-
-.register-terms a:hover {
-  text-decoration: underline;
-}
-
-/* ── Success state ── */
+/* ── 成功态 ── */
 .success-state {
   display: flex;
   flex-direction: column;
@@ -158,12 +116,12 @@
 .success-icon {
   width: 80px;
   height: 80px;
-  background: var(--color-success-light, rgba(16, 185, 129, 0.1));
+  background: var(--iui-color-background-positive-muted);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-success, #10b981);
+  color: var(--iui-color-text-success);
   margin-bottom: 24px;
   animation: register-scale-in 0.3s ease-out;
 }
@@ -180,19 +138,19 @@
 }
 
 .success-title {
-  font-size: 24px;
+  font-size: var(--iui-font-size-3);
   font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 8px;
+  color: var(--iui-color-text);
+  margin: 0 0 8px;
 }
 
 .success-message {
   font-size: 14px;
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
   margin-bottom: 24px;
 }
 
 .success-redirect {
   font-size: 13px;
-  color: var(--color-text-tertiary);
+  color: var(--iui-color-text-muted);
 }

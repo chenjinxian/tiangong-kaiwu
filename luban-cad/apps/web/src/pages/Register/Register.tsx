@@ -3,12 +3,29 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * 注册页（RW4-P1-T3 Onshape IA 重做）：Surface 分屏 + AuthBrandSide（六特性行）+ itwin-ui 表单件。
+ * 行为保留：500ms 防抖字段校验/密码强度条/字段绿勾/条款勾选必选/注册成功过渡态。
+ * 文案全走 auth 命名空间 i18n；/terms /privacy 死链移除——同意句改次要文本。
+ */
+
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { AuthPageSkeleton } from '../../../shared/components/skeletons/AuthPageSkeleton.js';
+import { AuthBrandSide } from '../../../shared/components/auth/AuthBrandSide.js';
 import { CheckIcon, EyeIcon, EyeOffIcon } from '../../../shared/components/icons/EyeIcons.js';
-import { Alert, Button, Checkbox, IconButton, LabeledInput, ProgressRadial, Text } from '@itwin/itwinui-react';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  IconButton,
+  LabeledInput,
+  ProgressRadial,
+  Surface,
+  Text,
+} from '@itwin/itwinui-react';
 import './Register.css';
 
 interface ValidationErrors {
@@ -29,6 +46,7 @@ interface FieldValidity {
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const Register: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('auth');
   const { register, isAuthenticated, isLoading, error, clearError } = useUser();
 
   const [name, setName] = useState('');
@@ -61,49 +79,48 @@ const Register: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Clear context errors when inputs change
+  // Clear context errors when inputs change（error 有意不进依赖——见 Login 同名守卫注释）
   useEffect(() => {
     if (error) clearError();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, email, password, confirmPassword, clearError]);
 
   // Password strength calculation
   useEffect(() => {
     let strength = 0;
-    const feedback: string[] = [];
+    const feedbackKeys: string[] = [];
 
     if (password.length >= 8) {
       strength++;
     } else if (password.length > 0) {
-      feedback.push('至少8个字符');
+      feedbackKeys.push('length');
     }
 
     if (/[a-z]/.test(password) && /[A-Z]/.test(password)) {
       strength++;
     } else if (password.length > 0) {
-      feedback.push('需包含大小写字母');
+      feedbackKeys.push('mixedCase');
     }
 
     if (/\d/.test(password)) {
       strength++;
     } else if (password.length > 0) {
-      feedback.push('需包含数字');
+      feedbackKeys.push('digit');
     }
 
     if (/[^a-zA-Z0-9]/.test(password)) {
       strength++;
     } else if (password.length > 0 && strength >= 2) {
-      feedback.push('可添加特殊字符增强安全性');
+      feedbackKeys.push('special');
     }
 
     setPasswordStrength(strength);
-    setPasswordFeedback(feedback[0] || '');
+    setPasswordFeedback(feedbackKeys[0] ? t(`register.strengthHint.${feedbackKeys[0]}`) : '');
 
     setFieldValidity(prev => ({
       ...prev,
       password: strength >= 2 && password.length >= 8,
     }));
-  }, [password]);
+  }, [password, t]);
 
   // Validate name
   useEffect(() => {
@@ -114,7 +131,7 @@ const Register: React.FC = () => {
         return;
       }
       if (name.trim().length < 2) {
-        setValidationErrors(prev => ({ ...prev, name: '姓名至少2个字符' }));
+        setValidationErrors(prev => ({ ...prev, name: t('register.validation.nameTooShort') }));
         setFieldValidity(prev => ({ ...prev, name: false }));
       } else {
         setValidationErrors(prev => ({ ...prev, name: undefined }));
@@ -122,7 +139,7 @@ const Register: React.FC = () => {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [name]);
+  }, [name, t]);
 
   // Validate email
   const validateEmail = useCallback((value: string): boolean => {
@@ -139,7 +156,7 @@ const Register: React.FC = () => {
         return;
       }
       if (!validateEmail(email)) {
-        setValidationErrors(prev => ({ ...prev, email: '请输入有效的邮箱地址' }));
+        setValidationErrors(prev => ({ ...prev, email: t('register.validation.emailInvalid') }));
         setFieldValidity(prev => ({ ...prev, email: false }));
       } else {
         setValidationErrors(prev => ({ ...prev, email: undefined }));
@@ -147,7 +164,7 @@ const Register: React.FC = () => {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [email, validateEmail]);
+  }, [email, validateEmail, t]);
 
   // Validate confirm password
   useEffect(() => {
@@ -158,7 +175,7 @@ const Register: React.FC = () => {
         return;
       }
       if (confirmPassword !== password) {
-        setValidationErrors(prev => ({ ...prev, confirmPassword: '两次输入的密码不一致' }));
+        setValidationErrors(prev => ({ ...prev, confirmPassword: t('register.validation.mismatch') }));
         setFieldValidity(prev => ({ ...prev, confirmPassword: false }));
       } else {
         setValidationErrors(prev => ({ ...prev, confirmPassword: undefined }));
@@ -166,47 +183,48 @@ const Register: React.FC = () => {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [confirmPassword, password]);
+  }, [confirmPassword, password, t]);
 
-  const getStrengthColor = () => {
-    if (passwordStrength <= 1) return 'var(--color-error)';
-    if (passwordStrength === 2) return 'var(--color-warning)';
-    return 'var(--color-success)';
+  // 强度条语义色——状态语义 token（负向/警告/正向），随主题自动切换
+  const getStrengthColor = (): string => {
+    if (passwordStrength <= 1) return 'var(--iui-color-text-negative)';
+    if (passwordStrength === 2) return 'var(--iui-color-text-warning)';
+    return 'var(--iui-color-text-success)';
   };
 
-  const getStrengthText = () => {
-    if (passwordStrength === 0) return '太短';
-    if (passwordStrength === 1) return '弱';
-    if (passwordStrength === 2) return '中等';
-    if (passwordStrength === 3) return '强';
-    return '非常强';
+  const getStrengthText = (): string => {
+    if (passwordStrength === 0) return t('register.strength.tooShort');
+    if (passwordStrength === 1) return t('register.strength.weak');
+    if (passwordStrength === 2) return t('register.strength.medium');
+    if (passwordStrength === 3) return t('register.strength.strong');
+    return t('register.strength.veryStrong');
   };
 
   const validateForm = (): boolean => {
     const errors: ValidationErrors = {};
 
     if (!name.trim()) {
-      errors.name = '请输入姓名';
+      errors.name = t('register.validation.nameRequired');
     } else if (name.trim().length < 2) {
-      errors.name = '姓名至少2个字符';
+      errors.name = t('register.validation.nameTooShort');
     }
 
     if (!email.trim()) {
-      errors.email = '请输入邮箱地址';
+      errors.email = t('register.validation.emailRequired');
     } else if (!validateEmail(email)) {
-      errors.email = '请输入有效的邮箱地址';
+      errors.email = t('register.validation.emailInvalid');
     }
 
     if (!password) {
-      errors.password = '请输入密码';
+      errors.password = t('register.validation.passwordRequired');
     } else if (password.length < 8) {
-      errors.password = '密码长度至少为8位';
+      errors.password = t('register.validation.passwordTooShort');
     } else if (passwordStrength < 2) {
-      errors.password = '密码强度不足';
+      errors.password = t('register.validation.passwordWeak');
     }
 
     if (password !== confirmPassword) {
-      errors.confirmPassword = '两次输入的密码不一致';
+      errors.confirmPassword = t('register.validation.mismatch');
     }
 
     setValidationErrors(errors);
@@ -219,7 +237,7 @@ const Register: React.FC = () => {
     if (!agreeToTerms) {
       setValidationErrors(prev => ({
         ...prev,
-        terms: '请同意服务条款和隐私政策',
+        terms: t('register.termsRequired'),
       }));
       return;
     }
@@ -248,23 +266,19 @@ const Register: React.FC = () => {
   if (isSuccess) {
     return (
       <div className="auth-page">
-        <div className="brand-side">
-          <div className="brand-logo">CC</div>
-          <Text variant="title" as="h1" className="brand-title">LubanCAD</Text>
-          <Text className="brand-subtitle">基于 iTwin.js 的开源云端 CAD 平台</Text>
-        </div>
-        <div className="form-side">
-          <div className="form-container">
+        <AuthBrandSide features={[]} />
+        <Surface className="auth-form-side">
+          <div className="auth-form-container">
             <div className="success-state">
               <div className="success-icon">
                 <CheckIcon size={48} />
               </div>
-              <Text variant="title" as="h2" className="success-title">注册成功！</Text>
-              <Text className="success-message">欢迎加入 LubanCAD</Text>
-              <Text className="success-redirect">正在跳转到项目列表...</Text>
+              <Text variant="title" as="h2" className="success-title">{t('register.success.title')}</Text>
+              <Text className="success-message">{t('register.success.message')}</Text>
+              <Text className="success-redirect">{t('register.success.redirect')}</Text>
             </div>
           </div>
-        </div>
+        </Surface>
       </div>
     );
   }
@@ -278,49 +292,28 @@ const Register: React.FC = () => {
 
   return (
     <div className="auth-page">
-      {/* Left: Brand */}
-      <div className="brand-side">
-        <div className="brand-logo">CC</div>
-        <Text variant="title" as="h1" className="brand-title">LubanCAD</Text>
-        <Text className="brand-subtitle">基于 iTwin.js 的开源云端 CAD 平台</Text>
-        <div className="brand-features">
-          <div className="brand-feature">
-            <span className="brand-feature-icon">✓</span>
-            <Text>完全免费，开源透明</Text>
-          </div>
-          <div className="brand-feature">
-            <span className="brand-feature-icon">⊕</span>
-            <Text>云端实时协作</Text>
-          </div>
-          <div className="brand-feature">
-            <span className="brand-feature-icon">◈</span>
-            <Text>工业级 3D 渲染引擎</Text>
-          </div>
-          <div className="brand-feature">
-            <span className="brand-feature-icon">⚙</span>
-            <Text>专业 CAD 功能</Text>
-          </div>
-          <div className="brand-feature">
-            <span className="brand-feature-icon">⊞</span>
-            <Text>多格式 CAD 支持</Text>
-          </div>
-          <div className="brand-feature">
-            <span className="brand-feature-icon">🔒</span>
-            <Text>企业级数据安全</Text>
-          </div>
-        </div>
-      </div>
+      {/* Left: Brand（Register 六特性行） */}
+      <AuthBrandSide
+        features={[
+          { icon: '✓', label: t('brand.features.free') },
+          { icon: '⊕', label: t('brand.features.collab') },
+          { icon: '◈', label: t('brand.features.rendering') },
+          { icon: '⚙', label: t('brand.features.cad') },
+          { icon: '⊞', label: t('brand.features.formats') },
+          { icon: '🔒', label: t('brand.features.security') },
+        ]}
+      />
 
-      {/* Right: Form */}
-      <div className="form-side">
-        <div className="form-container">
-          <div className="form-header">
-            <Text variant="title" as="h2" className="form-title">创建账户</Text>
-            <Text className="form-subtitle">开始您的云端 CAD 之旅</Text>
+      {/* Right: Form（Surface 分屏骨架） */}
+      <Surface className="auth-form-side">
+        <div className="auth-form-container">
+          <div className="auth-form-header">
+            <Text variant="title" as="h2" className="auth-form-title">{t('register.title')}</Text>
+            <Text className="auth-form-subtitle">{t('register.subtitle')}</Text>
           </div>
 
           {error && (
-            <Alert type="negative" className="register-error-alert">
+            <Alert type="negative" className="register-error-alert auth-error-alert">
               {error}
             </Alert>
           )}
@@ -329,11 +322,11 @@ const Register: React.FC = () => {
             <div className="input-with-indicator">
               <LabeledInput
                 id="name"
-                label="姓名"
+                label={t('register.name')}
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="请输入您的姓名"
+                placeholder={t('register.namePlaceholder')}
                 disabled={isLoading}
                 autoComplete="name"
                 status={validationErrors.name ? 'negative' : undefined}
@@ -350,7 +343,7 @@ const Register: React.FC = () => {
             <div className="input-with-indicator">
               <LabeledInput
                 id="email"
-                label="电子邮箱"
+                label={t('register.email')}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -369,14 +362,14 @@ const Register: React.FC = () => {
             </div>
 
             <div className="input-with-indicator">
-              <div className="password-wrapper">
+              <div className="auth-password-wrapper">
                 <LabeledInput
                   id="password"
-                  label="密码"
+                  label={t('register.password')}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="至少8位，含大小写字母和数字"
+                  placeholder={t('register.passwordPlaceholder')}
                   disabled={isLoading}
                   autoComplete="new-password"
                   status={validationErrors.password ? 'negative' : undefined}
@@ -387,8 +380,8 @@ const Register: React.FC = () => {
                   size="small"
                   styleType="borderless"
                   onClick={() => setShowPassword(!showPassword)}
-                  label={showPassword ? '隐藏密码' : '显示密码'}
-                  className="toggle-password"
+                  label={showPassword ? t('fields.hidePassword') : t('fields.showPassword')}
+                  className="auth-toggle-password"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
@@ -412,7 +405,7 @@ const Register: React.FC = () => {
               )}
               {passwordFeedback && password && !validationErrors.password && (
                 <Text variant="small" className="field-help">
-                  提示: {passwordFeedback}
+                  {t('register.strengthHintPrefix', { hint: passwordFeedback })}
                 </Text>
               )}
               {fieldValidity.password && !validationErrors.password && (
@@ -425,11 +418,11 @@ const Register: React.FC = () => {
             <div className="input-with-indicator">
               <LabeledInput
                 id="confirmPassword"
-                label="确认密码"
+                label={t('register.confirmPassword')}
                 type={showPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="再次输入密码"
+                placeholder={t('register.confirmPasswordPlaceholder')}
                 disabled={isLoading}
                 autoComplete="new-password"
                 status={validationErrors.confirmPassword ? 'negative' : undefined}
@@ -445,18 +438,7 @@ const Register: React.FC = () => {
 
             <div className={`register-terms ${validationErrors.terms ? 'has-error' : ''}`}>
               <Checkbox
-                label={
-                  <span>
-                    我同意{' '}
-                    <Link to="/terms" target="_blank" rel="noopener noreferrer">
-                      服务条款
-                    </Link>
-                    {' '}和{' '}
-                    <Link to="/privacy" target="_blank" rel="noopener noreferrer">
-                      隐私政策
-                    </Link>
-                  </span>
-                }
+                label={t('register.termsConsent')}
                 checked={agreeToTerms}
                 onChange={(e) => {
                   setAgreeToTerms(e.target.checked);
@@ -480,26 +462,26 @@ const Register: React.FC = () => {
               {isLoading ? (
                 <>
                   <ProgressRadial size="small" indeterminate />
-                  <span>创建账户中...</span>
+                  <span>{t('register.submitting')}</span>
                 </>
               ) : (
-                '创建账户'
+                t('register.submit')
               )}
             </Button>
           </form>
 
-          <div className="form-footer">
-            <Text>已有账户？ <Link to="/login">立即登录</Link></Text>
+          <div className="auth-footer">
+            <Text>{t('register.haveAccount')} <Link to="/login">{t('register.login')}</Link></Text>
           </div>
         </div>
-      </div>
+      </Surface>
 
       {/* Loading overlay */}
       {isLoading && (
-        <div className="auth-loading-overlay" role="status" aria-label="创建账户中">
+        <div className="auth-loading-overlay" role="status" aria-label={t('register.loadingAria')}>
           <div className="auth-loading-spinner">
             <ProgressRadial size="large" indeterminate />
-            <Text>正在创建账户...</Text>
+            <Text>{t('register.loading')}</Text>
           </div>
         </div>
       )}
