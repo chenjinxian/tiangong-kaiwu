@@ -310,7 +310,15 @@
     },
     "toolsTitle": "Measurement tools",
     "measuring": "Measuring...",
-    "done": "Done"
+    "done": "Done",
+    "csv": {
+      "type": "Type",
+      "value": "Value",
+      "unit": "Unit",
+      "description": "Description",
+      "time": "Time"
+    },
+    "exportFileName": "Measurements"
   },
   "selection": {
     "toolStartFailed": "Failed to start tool {{toolId}}: {{message}}",

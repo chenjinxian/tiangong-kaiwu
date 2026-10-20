@@ -558,11 +558,11 @@ const Editor: React.FC = React.memo(() => {
         onShare={() => setIsShareDialogOpen(true)}
         onRename={() => setIsRenameDialogOpen(true)}
         onOpenHistory={() => openDock({ tab: 'history', historyPanel: 'changesets' })}
-        changesetLabel={(() => {
-          const id = briefcase.connection?.changeset.id;
-          const index = id ? versionControl.changesets.findIndex(cs => cs.id === id) : -1;
-          return index >= 0 ? `#${index + 1}` : undefined;
-        })()}
+        changesetLabel={
+          // briefcase 连接即带当前 changeset.index（不依赖 changesets 列表加载——
+          // 终审 I4：fresh editor 下版本药丸曾不可见）
+          briefcase.connection ? `#${briefcase.connection.changeset.index}` : undefined
+        }
       />
 
       {/* Primary Toolbar - Integrated Layout */}
@@ -639,7 +639,6 @@ const Editor: React.FC = React.memo(() => {
             openDock({ tab: 'history', historyPanel: 'namedVersions' });
           }}
           onRollback={versionControl.handleRollbackToVersion}
-          onCompareVersions={versionControl.handleCompareVersions}
           measurements={measurementManager.measurements}
           onDeleteMeasurement={measurementManager.deleteMeasurement}
           onClearMeasurements={measurementManager.clearMeasurements}

@@ -43,7 +43,26 @@
 
 .editor-dock .editor-dock-tablist {
   flex-shrink: 0;
-  padding: 0 var(--iui-size-xs);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  padding: 2px var(--iui-size-2xs);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* iTwinUI 3.22 Legacy Tabs：tab 基础样式 block-size:100% + 默认 16px 内边距，
+ * 在 320px dock 内会溢出/粘连（终审复检 Important#3）。收敛为紧凑单行，
+ * 放不下时横向滚动（不再换行撑高把第三个 tab 裁掉）。 */
+.editor-dock .editor-dock-tablist [role='tab'],
+.editor-dock .editor-dock-subtabs [role='tab'] {
+  white-space: nowrap;
+  block-size: auto;
+  min-block-size: 0;
+  padding: 4px 5px;
+  line-height: 1.2;
+  border-radius: var(--iui-border-radius-1);
 }
 
 .editor-dock .editor-dock-content {
@@ -56,6 +75,10 @@
 
 /* 二级 tab（工具设置/测量结果、显示设置六面板） */
 .editor-dock .editor-dock-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
   margin-bottom: var(--iui-size-s);
 }
 

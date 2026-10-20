@@ -393,14 +393,18 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
           )}
           {!compareMode && (
             <>
-              <button
-                type='button'
-                className='nv-compare-toggle-btn'
-                title={t('namedVersions.compareTitle')}
-                onClick={() => setCompareMode(true)}
-              >
-                ⚖️
-              </button>
+              {/* 对比需要调用方提供 onCompareVersions（后台 compareChangesets 未接时
+                  不渲染入口，避免假按钮——终审复检 Important#1） */}
+              {onCompareVersions && (
+                <button
+                  type='button'
+                  className='nv-compare-toggle-btn'
+                  title={t('namedVersions.compareTitle')}
+                  onClick={() => setCompareMode(true)}
+                >
+                  ⚖️
+                </button>
+              )}
               <button
                 type='button'
                 className='nv-create-btn'

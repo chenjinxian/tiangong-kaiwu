@@ -52,7 +52,7 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 | Comments / 协作 presence | ❌ 缺口登记（无后端） |
 | My account | 🟠 P5 子集：Profile ✅ / 改密 ✅ / 偏好（主题、单位、语言，前端持久化）✅；2FA、API keys、订阅 ❌ 缺口登记 |
 | Public 文档广场 | ⚪ 缺口登记（list API 无 public scope） |
-| Help 中心 | 🟠 快捷键注册表已有（KeyboardManager），Shift+? 速查表面板未做（终审 I1，登记 RW4 缺口）；外链文档登记 |
+| Help 中心 | ⚪ 未实现（KeyboardManager 注册表已有，Shift+? 速查表面板未做；登记 RW4 缺口） |
 
 ### 3.2 Documents 页功能级
 
@@ -77,23 +77,23 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 | iModel 卡片 + 真实缩略图 | ✅ GET `/imodels/:id/thumbnail` |
 | 新建模型工作流 | ✅ CreateIModelWorkflow（645 行 CSS 重型组件）itwin-ui 化，`Stepper` 编排 |
 | 成员/权限管理 | 🟠 Share 对话框：成员列表 / 邀请 / 链接可用；角色下拉/移除对邀请产生的非 UUID 成员降级（imodelhub 成员契约缺陷，已登记其 BACKLOG） |
-| 版本历史入口 | ✅ 入口按钮 → 版本面板 |
+| 版本历史入口 | ⚪ 详情页无版本入口（版本面板仅在编辑器；终审复检登记） |
 
 ### 3.4 Editor 页功能级
 
 | Onshape 能力 | 裁决 |
 |---|---|
 | 顶栏：文档名点击重命名 | ✅ 顶栏重命名按钮 → RenameIModelDialog（PATCH `/imodels/:id`；当前顶栏展示 iModel 名） |
-| 顶栏：版本药丸 + 下拉 | ✅ 版本药丸 → 历史停靠（变更集/命名版本双页）；无下拉菜单；分支/合并 ❌ 缺口登记 |
+| 顶栏：版本药丸 + 下拉 | 🟠 版本药丸（briefcase changeset.index → 历史停靠）已实现；下拉菜单/分支/合并未做（缺口登记） |
 | 顶栏：undo/redo | ✅ UndoRedoToolbar 移至顶栏（BriefcaseTxns 管道不动） |
 | 顶栏：Share 按钮 | ✅ 已接 ShareITwinDialog（终审 I1 修复） |
 | 顶栏：协作头像 | ❌ 不做（无 presence） |
 | 左栏：特征树（抑制/隐藏/右键菜单） | 🟠 `Tabs` 特征/装配 + 抑制/删除/重排已做；itwin-ui `Tree` 组件、隐藏、行右键菜单未做（终审 I1，登记）；**rollback 条 ⚪ 不做**——与已裁决的线性链重排守卫语义冲突 |
-| 左栏：Parts 面板 | 🟠 Parts 列表接真实数据源（特征产出实体）；Assembly 维持占位 |
+| 左栏：Parts 面板 | ⚪ 未实现 Parts 面板；Assembly 现有面板为真实 PhysicalModels 列表（终审复检修正） |
 | 工具栏：上下文工具组 | ✅ CadToolbar（556 行+~20 手写 SVG）重构为 itwin-ui ButtonGroup + 官方 icons；草图模式上下文切换保留 |
 | 右侧停靠工具对话框 | ✅ 替换绝对定位浮动 overlay 栈（Onshape 标志性交互） |
 | ViewCube（视口右上） | ✅ 接入 viewer-core 现成 ViewCube（复用优先铁律） |
-| 底部元素 tabs | 🟠 未实现（EditorElementTabs/Parts 面板缺；多 iModel 并行架构不支持，登记） |
+| 底部元素 tabs | ⚪ 未实现（EditorElementTabs/Parts 面板缺；多 iModel 并行架构不支持，登记） |
 | 底部状态条 | ✅ token 化重构；单位随 Settings 偏好（公制/英制，终审 Minor#2 已接线） |
 | 视口右键菜单 | ⚪ 未实现（终审 I1；登记后续波） |
 | 键盘快捷键 + 速查表 | 🟠 注册表/快捷键已做；Shift+? 速查表面板未做（终审 I1，登记） |
@@ -185,6 +185,8 @@ state 与副作用下沉到 `features/editor/hooks/` 现有 hooks（useEditTools
 | 特征树 Tree 组件/隐藏/行右键菜单 | 当前 Tabs+抑制/删除/重排可用；Tree/隐藏/右键未做（终审 I1） | 特征系统 UX 后续波 |
 | Parts 面板 / 底部元素 tabs | 多 iModel 并行架构未支持；当前单模型单 tab（终审 I1） | 多文档工作区立项 |
 | 「最近打开」排序键 | hub 列表无 lastOpened 字段 | imodelhub 后端立项 |
+| 命名版本「对比」 | RPC compareChangesets 未落地/未接，入口已隐藏（终审复检 Important#1） | 后端 compare API 立项 |
+| 测量结果采集 | 面板读取持久化结果；Measure.* 工具结果订阅未接（终审 Minor#1） | 测量链路后续波 |
 | Share 角色/移除对非 UUID 成员降级 | imodelhub access-control 成员契约缺陷（列表 id=userId、roles 恒空） | imodelhub BACKLOG（已登记） |
 
 ## 7. 测试与验收策略

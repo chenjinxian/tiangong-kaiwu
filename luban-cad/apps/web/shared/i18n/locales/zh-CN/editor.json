@@ -310,7 +310,15 @@
     },
     "toolsTitle": "测量工具",
     "measuring": "测量中...",
-    "done": "完成"
+    "done": "完成",
+    "csv": {
+      "type": "类型",
+      "value": "数值",
+      "unit": "单位",
+      "description": "描述",
+      "time": "时间"
+    },
+    "exportFileName": "测量数据"
   },
   "selection": {
     "toolStartFailed": "工具 {{toolId}} 启动失败: {{message}}",

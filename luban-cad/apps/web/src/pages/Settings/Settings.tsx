@@ -31,8 +31,8 @@ import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import { ApiError, fetchWithAuth } from '../../../shared/api/httpClient.js';
 import i18n, { LANGUAGE_STORAGE_KEY } from '../../../shared/i18n/index.js';
 import {
-  LENGTH_UNIT_STORAGE_KEY,
   getStoredLengthUnit,
+  LENGTH_UNIT_STORAGE_KEY,
   type LengthUnit,
 } from '../../../shared/constants/lengthUnit.js';
 import './Settings.css';

@@ -227,6 +227,8 @@ const Documents: React.FC = React.memo(() => {
   const [view, setView] = useState<ViewMode>(readStoredView);
   const [sort, setSort] = useState<SortState>({ id: 'modifiedAt', desc: true });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 侧栏默认展开（可读性）；expander 受控可收起（终审 Minor#4）
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<DocumentRow | null>(null);
   const [shareTarget, setShareTarget] = useState<DocumentRow | null>(null);
@@ -779,7 +781,8 @@ const Documents: React.FC = React.memo(() => {
         {/* Sidebar — 四筛选（与我共享=真数据） */}
         <SideNavigation
           className="sidebar"
-          isExpanded
+          isExpanded={isSidebarExpanded}
+          onExpanderClick={() => setIsSidebarExpanded(v => !v)}
           items={sidebarItems.map((item) => (
             <SidenavButton
               key={item.id}

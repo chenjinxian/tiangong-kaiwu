@@ -13,6 +13,7 @@
 | 服务 | 宿主端口 | 容器/进程内端口 | 配置位置 |
 |---|---|---|---|
 | Web 前端（Vite dev） | **5300** | 5300（Vite） | `vite.config.ts` `server.port`；`.env.development` 的 `VITE_API_URL=http://localhost:5401` |
+| web 静态容器（nginx 后端） | 不发布 | 3000（容器内） | `luban-cad/apps/web/web-nginx.conf`；经外层 nginx :5301 暴露 |
 | Nginx 单入口 | **5301** | 80 | 根 `docker-compose.yml` `nginx.ports` |
 | imodelhub-services (HUB) | **5400** | 4000 | compose `imodelhub.ports`；`APP_PORT=4000` 不变 |
 | modeling-server (MS，宿主进程) | **5401** | 5401 | 根 `.env` `PORT=5401`；`scripts/start-ms-host.ps1` 读取 |

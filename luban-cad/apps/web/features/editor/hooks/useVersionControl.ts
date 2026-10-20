@@ -92,7 +92,8 @@ export function useVersionControl(
 
   const { changesets } = useChangesets({
     iModelId: iModelId ?? '',
-    enabled: !!iModelId && (activeSidebarTab === 'history' || showCompare),
+    // 'versions' 入口（Named Version 面板）同样需要 changesets 列表做回滚索引解析
+    enabled: !!iModelId && (activeSidebarTab === 'history' || activeSidebarTab === 'versions' || showCompare),
   });
 
   const handleSave = useCallback(async () => {

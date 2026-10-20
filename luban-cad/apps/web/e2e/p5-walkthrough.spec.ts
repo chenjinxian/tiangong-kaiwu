@@ -51,6 +51,8 @@ const COPY: Record<Lang, {
   renameDialog: RegExp;
   historyButton: RegExp;
   namedVersionsTab: RegExp;
+  namedVersionsEmpty: RegExp;
+  versionPill: RegExp;
   settingsTab: RegExp;
   projectsFilter: RegExp;
 }> = {
@@ -69,6 +71,8 @@ const COPY: Record<Lang, {
     renameDialog: /重命名 iModel/,
     historyButton: /^历史$/,
     namedVersionsTab: /命名版本/,
+    namedVersionsEmpty: /暂无命名版本/,
+    versionPill: /^#\d+$/,
     settingsTab: /个人资料/,
     projectsFilter: /我的项目/,
   },
@@ -87,6 +91,8 @@ const COPY: Record<Lang, {
     renameDialog: /Rename iModel/,
     historyButton: /^History$/,
     namedVersionsTab: /Named versions/,
+    namedVersionsEmpty: /No named versions/,
+    versionPill: /^#\d+$/,
     settingsTab: /Profile/,
     projectsFilter: /My Projects/,
   },
@@ -97,14 +103,14 @@ const shoot = async (page: Page, name: string): Promise<void> => {
   await page.screenshot({ path: resolve(SHOT_DIR, `${name}.png`), fullPage: true });
 };
 
+/** 数据名白名单：演示/调试现场遗留的项目/模型名，属用户数据而非应用文案 */
+const DATA_NAME_WHITELIST = [SEED_PROJECT_NAME, '演示项目', '调试专用'];
+
 /**
  * en 象限中文兜底：剔除非应用文案的数据名（种子项目名/用户输入）与品牌字标
  * （AuthBrandSide 的「鲁」是 Logo 字形，非可翻译文案）后，正文不应再出现 CJK。
  * zh 象限不适用。
  */
-/** 数据名白名单：演示/调试现场遗留的项目/模型名，属用户数据而非应用文案 */
-const DATA_NAME_WHITELIST = [SEED_PROJECT_NAME, '演示项目', '调试专用'];
-
 const expectNoCjk = async (page: Page, label: string): Promise<void> => {
   const text = await page.locator('body').innerText();
   const sanitized = DATA_NAME_WHITELIST.reduce(
@@ -195,6 +201,8 @@ for (const lang of LANGS) {
           await page.reload();
           await expect(selectButton).toBeVisible({ timeout: 60000 });
         }
+        // 版本药丸默认可见（briefcase changeset.index；终审复检 I4）
+        await expect(page.getByRole('button', { name: copy.versionPill }).first()).toBeVisible({ timeout: 15000 });
         // 停靠/状态栏渲染完毕再截（避免 capture 到加载帧）
         await page.waitForTimeout(1200);
         await shoot(page, `editor-${suffix}`);
@@ -225,6 +233,9 @@ for (const lang of LANGS) {
         const historyDock = page.getByTestId('editor-dock');
         await expect(historyDock.getByRole('tab', { name: copy.namedVersionsTab })).toBeVisible();
         await historyDock.getByRole('tab', { name: copy.namedVersionsTab }).click();
+        // 命名版本面板真实内容（不是仅 tab 可点）且底栏时间线已让位
+        await expect(historyDock.getByText(copy.namedVersionsEmpty).first()).toBeVisible({ timeout: 15000 });
+        await expect(page.locator('.version-timeline-bar')).toHaveCount(0);
         await page.waitForTimeout(500);
         await shoot(page, `editor-named-versions-${suffix}`);
         if (lang === 'en') await expectNoCjk(page, 'Editor named versions');
