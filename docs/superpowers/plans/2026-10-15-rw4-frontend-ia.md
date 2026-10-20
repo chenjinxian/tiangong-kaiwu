@@ -41,19 +41,20 @@
 **Task P1-T1: auth namespace 全量 + AuthBrandSide 共享件 + UserContext 收编**
 - Files: Create `shared/components/auth/AuthBrandSide.tsx`（三页 brand 侧栏拷贝合一：logo+4 特性行，props 化文案）；Modify `shared/i18n/locales/{zh-CN,en}/auth.json`（Login 9+Register 30+ForgotPassword 9+UserContext 8 处错误码≈56 键，含插值）；Modify `shared/i18n/index.ts`（auth 已注册则确认）；Modify `app/contexts/UserContext.tsx`（HTTP status→错误文案映射改 t('auth.error.xxx')）
 - 删 `common.onlyZh` 演示键 + 对应回落测试改走真实键
-- [ ] TDD：i18n 测试补 auth ns 键断言 → 落键 → 绿；Commit
+- [x] TDD：i18n 测试补 auth ns 键断言 → 落键 → 绿；Commit
 
 **Task P1-T2: Login 重做**
 - Files: Rewrite `src/pages/Login/Login.tsx`（Surface 分屏+HeaderLogo 品牌+LabeledInput 保留 label 关联（e2e getByLabel 依赖）+记住我/防抖逻辑保留+Google SSO 按钮位（env `VITE_GOOGLE_CLIENT_ID` 探测，无值不渲染——占位 onClick 预留 OIDC 面板））；Modify Login.css（自绘→token，预计砍半）；login.spec 适配（选择器不变则零改）
-- [ ] e2e login.spec 绿 + Commit
+- [x] e2e login.spec 绿 + Commit
 
 **Task P1-T3: Register + ForgotPassword 重做**
 - Files: Rewrite 两页（表单件 itwin-ui 化+密码强度条保留（token 化色）+字段绿勾保留+/terms /privacy 死链移除或指向占位 Dialog）；AuthBrandSide 接入两页
-- [ ] 全量单测 + Commit
+- [x] 全量单测 + Commit
 
 **Task P1-T4: 404 精修 + P1 验收**
 - Files: App.tsx 404 `<a href>`→`<Link>`；e2e 全量（重点 login/documents 冒烟）+ 中英走查（localStorage luban-cad-lang=en 截图 Login/Register/Forgot/404）
-- [ ] Commit + P1 波门记录
+- [x] Commit + P1 波门记录
+- [x] P1.5 收口（评审 Important×2 处置）：404 按钮链全局 `a` 色规则收窄（styles/index.css，itwinui 组件锚点让位组件层）+ 品牌 teal accent 别名族覆写（variables.css 兑现 P0-T4 契约，informational 不动）；随附 i18n 走查基建化（playwright.i18n.config.ts + e2e/i18n-walkthrough.spec.ts，免登录双语四页 8/8 绿）
 
 ### Wave P2：Documents
 

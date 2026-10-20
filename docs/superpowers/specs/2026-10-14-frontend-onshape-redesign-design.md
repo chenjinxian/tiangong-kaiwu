@@ -116,6 +116,7 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 - iTwinUI v3 token 为唯一基座；品牌 teal 仅映射 accent（`--iui-color-accent-*` 层），不再维护自研 `--color-*` 平行体系。
 - `styles/variables.css` 收敛为「品牌映射 + 少量语义扩展」；组件硬编码色值清零（Editor statusbar `#f90/#c00/#0c0`、PrivateRoute `#f5f5f5/#2196f3` 等）。
 - 暗/亮双主题沿用现有 ThemeContext（双写 `data-theme`/`data-iui-theme`），全部经 token 呈现。
+- **P1 评审修正**：3.22 high-visibility 按钮链走 background-accent 别名族，种子覆写半径不足，P1.5 扩展覆写（`variables.css` 同主题块补 `--iui-color-background-accent(-hover)`/`border-accent`/`text-accent`/`icon-accent` 别名族，红线：`--iui-color-informational-*` 不动）。
 
 ### 4.3 数据层
 
