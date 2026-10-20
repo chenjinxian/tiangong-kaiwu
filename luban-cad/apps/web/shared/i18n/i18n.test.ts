@@ -23,6 +23,39 @@ describe('i18n 骨架', () => {
     expect(i18n.t('app.name')).toBe('鲁班CAD');
   });
 
+  it('common 命名空间：ErrorBoundary 兜底与 403 文案键命中（zh/en，RW4-P5）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('errorBoundary.title', { ns: 'common' })).toBe('出错了');
+    expect(i18n.t('errorBoundary.fallbackMessage', { ns: 'common' })).toBe('应用程序发生错误');
+    expect(i18n.t('errorBoundary.retry', { ns: 'common' })).toBe('重试');
+    expect(i18n.t('errors.forbidden', { ns: 'common' })).toBe('无权限访问该资源');
+
+    await i18n.changeLanguage('en');
+    expect(i18n.t('errorBoundary.title', { ns: 'common' })).toBe('Something went wrong');
+    expect(i18n.t('errorBoundary.fallbackMessage', { ns: 'common' })).toBe(
+      'An unexpected error occurred',
+    );
+    expect(i18n.t('errorBoundary.retry', { ns: 'common' })).toBe('Retry');
+    expect(i18n.t('errors.forbidden', { ns: 'common' })).toBe(
+      'You do not have permission to access this resource',
+    );
+    await i18n.changeLanguage('zh-CN');
+  });
+
+  it('common 命名空间：zh/en 键完全对齐', () => {
+    const flattenKeys = (obj: Record<string, unknown>, prefix = ''): string[] =>
+      Object.entries(obj).flatMap(([key, value]) => {
+        const path = prefix ? `${prefix}.${key}` : key;
+        return value !== null && typeof value === 'object'
+          ? flattenKeys(value as Record<string, unknown>, path)
+          : [path];
+      });
+
+    expect(flattenKeys(enCommon as Record<string, unknown>).sort()).toEqual(
+      flattenKeys(zhCommon as Record<string, unknown>).sort(),
+    );
+  });
+
   it('切换英文后键命中英文文案', async () => {
     await i18n.changeLanguage('en');
     expect(i18n.t('app.name')).toBe('LubanCAD');

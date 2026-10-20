@@ -7,6 +7,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button, NonIdealState, Text } from '@itwin/itwinui-react';
 import { SvgRefresh, SvgStatusError } from '@itwin/itwinui-icons-react';
 import { logger } from '../../lib/logger.js';
+import i18n from '../../i18n/index.js';
 
 interface Props {
   /** Child components to render */
@@ -25,13 +26,16 @@ interface State {
   errorInfo: ErrorInfo | null;
 }
 
+/** i18next 的 t() 返回类型含 object；兜底文案恒为字符串（RW4-P5） */
+const tCommon = (key: string): string => String(i18n.t(key, { ns: 'common' }));
+
 /**
  * Error Boundary component for catching React rendering errors.
  * Logs errors to monitoring service, notifies the optional onError
  * callback, and displays a fallback UI instead of crashing.
  *
  * 默认 fallback 采用 itwinui NonIdealState：DEV 下附带 componentStack 便于定位。
- * 文案暂中文硬编码，i18n 化随 P 系列页面波次统一处理。
+ * 文案走全局 i18n 单例（common 命名空间），随应用语言切换（RW4-P5）。
  *
  * @example
  * ```tsx
@@ -83,11 +87,11 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <NonIdealState
           svg={<SvgStatusError />}
-          heading="出错了"
+          heading={tCommon('errorBoundary.title')}
           description={
             <div style={{ textAlign: 'center', maxWidth: 500 }}>
               <Text color="subtext">
-                {this.state.error?.message || '应用程序发生错误'}
+                {this.state.error?.message || tCommon('errorBoundary.fallbackMessage')}
               </Text>
               {import.meta.env.DEV && this.state.errorInfo && (
                 <pre
@@ -111,7 +115,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   startIcon={<SvgRefresh />}
                   onClick={this.handleReset}
                 >
-                  重试
+                  {tCommon('errorBoundary.retry')}
                 </Button>
               </div>
             </div>

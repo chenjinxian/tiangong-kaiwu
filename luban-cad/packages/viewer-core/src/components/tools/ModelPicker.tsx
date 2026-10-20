@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { IModelApp, Viewport, SpatialViewState } from '@itwin/core-frontend';
 import { Id64String } from '@itwin/core-bentley';
+import type { ViewerLanguage, ViewerLanguageProps } from './panelLanguage.js';
 
 export interface ModelInfo {
   id: Id64String;
@@ -18,11 +19,39 @@ export interface ModelInfo {
   isVisible: boolean;
 }
 
-export interface ModelPickerProps {
+export interface ModelPickerProps extends ViewerLanguageProps {
   className?: string;
   style?: React.CSSProperties;
   viewport?: Viewport;
 }
+
+interface ModelPickerLabels {
+  no3dView: string;
+  title: string;
+  showAll: string;
+  hideAll: string;
+  loading: string;
+  empty: string;
+}
+
+const LABELS: Record<ViewerLanguage, ModelPickerLabels> = {
+  'zh-CN': {
+    no3dView: '模型选择器仅在3D视图中可用',
+    title: '模型 (Models)',
+    showAll: '全选',
+    hideAll: '全不选',
+    loading: '加载中...',
+    empty: '无可用模型',
+  },
+  en: {
+    no3dView: 'Model picker is only available in 3D views',
+    title: 'Models',
+    showAll: 'Show All',
+    hideAll: 'Hide All',
+    loading: 'Loading...',
+    empty: 'No models available',
+  },
+};
 
 /**
  * Model Picker Component
@@ -33,7 +62,9 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   className,
   style,
   viewport: propsViewport,
+  language = 'zh-CN',
 }) => {
+  const labels = LABELS[language];
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewport, setViewport] = useState<Viewport | undefined>(propsViewport);
@@ -165,7 +196,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
         }}
       >
         <div style={{ color: '#666', fontSize: '14px' }}>
-          模型选择器仅在3D视图中可用
+          {labels.no3dView}
         </div>
       </div>
     );
@@ -195,7 +226,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
           alignItems: 'center',
         }}
       >
-        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>模型 (Models)</span>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{labels.title}</span>
         <span style={{ fontSize: '12px', color: '#666' }}>
           {models.filter((m) => m.isVisible).length}/{models.length}
         </span>
@@ -221,7 +252,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             cursor: 'pointer',
           }}
         >
-          全选
+          {labels.showAll}
         </button>
         <button
           onClick={hideAll}
@@ -234,7 +265,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             cursor: 'pointer',
           }}
         >
-          全不选
+          {labels.hideAll}
         </button>
       </div>
 
@@ -248,11 +279,11 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
       >
         {isLoading ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-            加载中...
+            {labels.loading}
           </div>
         ) : models.length === 0 ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-            无可用模型
+            {labels.empty}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

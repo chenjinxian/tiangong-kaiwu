@@ -14,8 +14,9 @@
 
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { IModelApp, StandardViewId } from '@itwin/core-frontend';
+import type { ViewerLanguage } from './panelLanguage.js';
 
-export type ViewCubeLanguage = 'zh-CN' | 'en';
+export type ViewCubeLanguage = ViewerLanguage;
 
 export interface ViewCubeProps {
   className?: string;
@@ -367,7 +368,7 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ className, style, language =
                 boxShadow: '0 0 4px rgba(255, 107, 107, 0.6)',
                 transition: 'transform 0.2s ease',
               }}
-              title="等轴测视图"
+              title={isEn ? 'Isometric view' : '等轴测视图'}
             />
           ))}
         </div>
@@ -488,7 +489,7 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ className, style, language =
           e.currentTarget.style.color = '#333';
           e.currentTarget.style.transform = 'scale(1)';
         }}
-        title="重置视图 (Home)"
+        title={isEn ? 'Reset view (Home)' : '重置视图 (Home)'}
       >
         🏠
       </button>

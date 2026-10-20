@@ -22,8 +22,9 @@ import {
   ConvexClipPlaneSet,
   ClipPlane,
 } from '@itwin/core-geometry';
+import type { ViewerLanguage, ViewerLanguageProps } from './panelLanguage.js';
 
-export interface SectionToolsPanelProps {
+export interface SectionToolsPanelProps extends ViewerLanguageProps {
   className?: string;
   style?: React.CSSProperties;
   viewport?: Viewport;
@@ -35,13 +36,38 @@ interface SectionState {
 }
 
 const SECTION_PLANES = [
-  { id: 'xPos', label: 'X+ (右)', axis: 'x', direction: 1, icon: '▶️' },
-  { id: 'xNeg', label: 'X- (左)', axis: 'x', direction: -1, icon: '◀️' },
-  { id: 'yPos', label: 'Y+ (前)', axis: 'y', direction: 1, icon: '🔼' },
-  { id: 'yNeg', label: 'Y- (后)', axis: 'y', direction: -1, icon: '🔽' },
-  { id: 'zPos', label: 'Z+ (上)', axis: 'z', direction: 1, icon: '⬆️' },
-  { id: 'zNeg', label: 'Z- (下)', axis: 'z', direction: -1, icon: '⬇️' },
+  { id: 'xPos', label: 'X+ (右)', labelEn: 'X+ (Right)', axis: 'x', direction: 1, icon: '▶️' },
+  { id: 'xNeg', label: 'X- (左)', labelEn: 'X- (Left)', axis: 'x', direction: -1, icon: '◀️' },
+  { id: 'yPos', label: 'Y+ (前)', labelEn: 'Y+ (Front)', axis: 'y', direction: 1, icon: '🔼' },
+  { id: 'yNeg', label: 'Y- (后)', labelEn: 'Y- (Back)', axis: 'y', direction: -1, icon: '🔽' },
+  { id: 'zPos', label: 'Z+ (上)', labelEn: 'Z+ (Top)', axis: 'z', direction: 1, icon: '⬆️' },
+  { id: 'zNeg', label: 'Z- (下)', labelEn: 'Z- (Bottom)', axis: 'z', direction: -1, icon: '⬇️' },
 ] as const;
+
+interface SectionToolsLabels {
+  no3dView: string;
+  title: string;
+  enableAll: string;
+  clearAll: string;
+  position: string;
+}
+
+const LABELS: Record<ViewerLanguage, SectionToolsLabels> = {
+  'zh-CN': {
+    no3dView: '剖切工具仅在3D视图中可用',
+    title: '剖切工具 (Section)',
+    enableAll: '全部启用',
+    clearAll: '全部清除',
+    position: '位置',
+  },
+  en: {
+    no3dView: 'Section tools are only available in 3D views',
+    title: 'Section Tools',
+    enableAll: 'Enable All',
+    clearAll: 'Clear All',
+    position: 'Position',
+  },
+};
 
 /**
  * Section Tools Panel Component
@@ -52,7 +78,9 @@ export const SectionToolsPanel: React.FC<SectionToolsPanelProps> = ({
   className,
   style,
   viewport: propsViewport,
+  language = 'zh-CN',
 }) => {
+  const labels = LABELS[language];
   const [viewport, setViewport] = useState<Viewport | undefined>(propsViewport);
   const [sections, setSections] = useState<Record<string, SectionState>>(
     Object.fromEntries(SECTION_PLANES.map((p) => [p.id, { enabled: false, position: 50 }]))
@@ -195,7 +223,7 @@ export const SectionToolsPanel: React.FC<SectionToolsPanelProps> = ({
           ...style,
         }}
       >
-        <div style={{ color: '#666', fontSize: '14px' }}>剖切工具仅在3D视图中可用</div>
+        <div style={{ color: '#666', fontSize: '14px' }}>{labels.no3dView}</div>
       </div>
     );
   }
@@ -226,7 +254,7 @@ export const SectionToolsPanel: React.FC<SectionToolsPanelProps> = ({
           alignItems: 'center',
         }}
       >
-        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>剖切工具 (Section)</span>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{labels.title}</span>
         <span style={{ fontSize: '12px', color: '#666' }}>{enabledCount}/6</span>
       </div>
 
@@ -251,7 +279,7 @@ export const SectionToolsPanel: React.FC<SectionToolsPanelProps> = ({
             cursor: 'pointer',
           }}
         >
-          全部启用
+          {labels.enableAll}
         </button>
         <button
           onClick={clearAllSections}
@@ -265,7 +293,7 @@ export const SectionToolsPanel: React.FC<SectionToolsPanelProps> = ({
             cursor: 'pointer',
           }}
         >
-          全部清除
+          {labels.clearAll}
         </button>
       </div>
 
@@ -313,7 +341,7 @@ export const SectionToolsPanel: React.FC<SectionToolsPanelProps> = ({
                       flex: 1,
                     }}
                   >
-                    {plane.label}
+                    {language === 'en' ? plane.labelEn : plane.label}
                   </span>
                 </label>
 
@@ -327,7 +355,7 @@ export const SectionToolsPanel: React.FC<SectionToolsPanelProps> = ({
                         gap: '8px',
                       }}
                     >
-                      <span style={{ fontSize: '11px', color: '#666', minWidth: '30px' }}>位置</span>
+                      <span style={{ fontSize: '11px', color: '#666', minWidth: '30px' }}>{labels.position}</span>
                       <input
                         type="range"
                         min="0"

@@ -5,11 +5,22 @@
  * 3D Navigation and Measurement Tools
  */
 
+// Language contract (viewer-core has no i18next; host injects `language`)
+export {
+  type ViewerLanguage,
+  type ViewerLanguageProps,
+} from './panelLanguage.js';
+
 // Toolbar
 export { ViewerToolbar, type ViewerToolbarProps } from './ViewerToolbar.js';
 
 // ViewCube
-export { ViewCube, CompactViewCube, type ViewCubeProps } from './ViewCube.js';
+export {
+  ViewCube,
+  CompactViewCube,
+  type ViewCubeProps,
+  type ViewCubeLanguage,
+} from './ViewCube.js';
 
 // Measurement Tools
 export {

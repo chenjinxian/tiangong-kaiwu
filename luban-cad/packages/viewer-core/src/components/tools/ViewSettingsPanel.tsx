@@ -21,8 +21,9 @@ import {
 } from '@itwin/core-frontend';
 import { RenderMode, ColorDef, GridOrientationType } from '@itwin/core-common';
 import { Id64String } from '@itwin/core-bentley';
+import type { ViewerLanguage, ViewerLanguageProps } from './panelLanguage.js';
 
-export interface ViewSettingsPanelProps {
+export interface ViewSettingsPanelProps extends ViewerLanguageProps {
   className?: string;
   style?: React.CSSProperties;
   viewport?: Viewport;
@@ -32,40 +33,93 @@ interface ViewFlagOption {
   name: string;
   flag: string;
   label: string;
+  labelEn: string;
 }
 
 const VIEW_FLAGS: ViewFlagOption[] = [
-  { name: 'shadows', flag: 'shadows', label: '阴影 (Shadows)' },
-  { name: 'lighting', flag: 'lighting', label: '光照 (Lighting)' },
-  { name: 'fill', flag: 'fill', label: '填充 (Fill)' },
-  { name: 'materials', flag: 'materials', label: '材质 (Materials)' },
-  { name: 'textures', flag: 'textures', label: '纹理 (Textures)' },
-  { name: 'visibleEdges', flag: 'visibleEdges', label: '可见边 (Visible Edges)' },
-  { name: 'hiddenEdges', flag: 'hiddenEdges', label: '隐藏边 (Hidden Edges)' },
-  { name: 'backgroundMap', flag: 'backgroundMap', label: '背景地图 (Background Map)' },
-  { name: 'monochrome', flag: 'monochrome', label: '单色模式 (Monochrome)' },
-  { name: 'ambientOcclusion', flag: 'ambientOcclusion', label: '环境光遮蔽 (AO)' },
-  { name: 'transparency', flag: 'transparency', label: '透明度 (Transparency)' },
-  { name: 'weights', flag: 'weights', label: '线宽 (Line Weights)' },
-  { name: 'styles', flag: 'styles', label: '线型 (Line Styles)' },
-  { name: 'constructions', flag: 'constructions', label: '构造元素 (Constructions)' },
-  { name: 'clipVolume', flag: 'clipVolume', label: '裁剪体积 (Clip Volume)' },
+  { name: 'shadows', flag: 'shadows', label: '阴影 (Shadows)', labelEn: 'Shadows' },
+  { name: 'lighting', flag: 'lighting', label: '光照 (Lighting)', labelEn: 'Lighting' },
+  { name: 'fill', flag: 'fill', label: '填充 (Fill)', labelEn: 'Fill' },
+  { name: 'materials', flag: 'materials', label: '材质 (Materials)', labelEn: 'Materials' },
+  { name: 'textures', flag: 'textures', label: '纹理 (Textures)', labelEn: 'Textures' },
+  { name: 'visibleEdges', flag: 'visibleEdges', label: '可见边 (Visible Edges)', labelEn: 'Visible Edges' },
+  { name: 'hiddenEdges', flag: 'hiddenEdges', label: '隐藏边 (Hidden Edges)', labelEn: 'Hidden Edges' },
+  { name: 'backgroundMap', flag: 'backgroundMap', label: '背景地图 (Background Map)', labelEn: 'Background Map' },
+  { name: 'monochrome', flag: 'monochrome', label: '单色模式 (Monochrome)', labelEn: 'Monochrome' },
+  { name: 'ambientOcclusion', flag: 'ambientOcclusion', label: '环境光遮蔽 (AO)', labelEn: 'Ambient Occlusion (AO)' },
+  { name: 'transparency', flag: 'transparency', label: '透明度 (Transparency)', labelEn: 'Transparency' },
+  { name: 'weights', flag: 'weights', label: '线宽 (Line Weights)', labelEn: 'Line Weights' },
+  { name: 'styles', flag: 'styles', label: '线型 (Line Styles)', labelEn: 'Line Styles' },
+  { name: 'constructions', flag: 'constructions', label: '构造元素 (Constructions)', labelEn: 'Constructions' },
+  { name: 'clipVolume', flag: 'clipVolume', label: '裁剪体积 (Clip Volume)', labelEn: 'Clip Volume' },
 ];
 
 const RENDER_MODES = [
-  { name: '线框 (Wireframe)', value: RenderMode.Wireframe },
-  { name: '实心填充 (Solid Fill)', value: RenderMode.SolidFill },
-  { name: '隐藏线 (Hidden Line)', value: RenderMode.HiddenLine },
-  { name: '平滑着色 (Smooth Shade)', value: RenderMode.SmoothShade },
+  { name: '线框 (Wireframe)', nameEn: 'Wireframe', value: RenderMode.Wireframe },
+  { name: '实心填充 (Solid Fill)', nameEn: 'Solid Fill', value: RenderMode.SolidFill },
+  { name: '隐藏线 (Hidden Line)', nameEn: 'Hidden Line', value: RenderMode.HiddenLine },
+  { name: '平滑着色 (Smooth Shade)', nameEn: 'Smooth Shade', value: RenderMode.SmoothShade },
 ];
 
 const GRID_ORIENTATIONS = [
-  { value: GridOrientationType.View, label: '视图 (View)' },
-  { value: GridOrientationType.WorldXY, label: '世界 XY (World XY)' },
-  { value: GridOrientationType.WorldYZ, label: '世界 YZ (World YZ)' },
-  { value: GridOrientationType.WorldXZ, label: '世界 XZ (World XZ)' },
-  { value: GridOrientationType.AuxCoord, label: '辅助坐标 (ACS)' },
+  { value: GridOrientationType.View, label: '视图 (View)', labelEn: 'View' },
+  { value: GridOrientationType.WorldXY, label: '世界 XY (World XY)', labelEn: 'World XY' },
+  { value: GridOrientationType.WorldYZ, label: '世界 YZ (World YZ)', labelEn: 'World YZ' },
+  { value: GridOrientationType.WorldXZ, label: '世界 XZ (World XZ)', labelEn: 'World XZ' },
+  { value: GridOrientationType.AuxCoord, label: '辅助坐标 (ACS)', labelEn: 'Auxiliary Coordinates (ACS)' },
 ];
+
+interface ViewSettingsLabels {
+  noActiveView: string;
+  title: string;
+  loading: string;
+  displayStyle: string;
+  currentStyle: string;
+  renderMode: string;
+  aids: string;
+  acsTriad: string;
+  grid: string;
+  spacing: string;
+  gridsPerRef: string;
+  orientation: string;
+  displayOptions: string;
+  backgroundColor: string;
+}
+
+const LABELS: Record<ViewerLanguage, ViewSettingsLabels> = {
+  'zh-CN': {
+    noActiveView: '视图设置需要活动视图',
+    title: '视图设置 (View Settings)',
+    loading: '加载中...',
+    displayStyle: '显示样式 (Display Style)',
+    currentStyle: '当前样式 (Current)',
+    renderMode: '渲染模式 (Render Mode)',
+    aids: '辅助显示 (Aids)',
+    acsTriad: 'ACS 坐标系 (ACS Triad)',
+    grid: '网格 (Grid)',
+    spacing: '间距 (Spacing)',
+    gridsPerRef: '每参考线格数 (Grids/Ref)',
+    orientation: '方向 (Orientation)',
+    displayOptions: '显示选项 (Display Options)',
+    backgroundColor: '背景颜色 (Background Color)',
+  },
+  en: {
+    noActiveView: 'View settings require an active view',
+    title: 'View Settings',
+    loading: 'Loading...',
+    displayStyle: 'Display Style',
+    currentStyle: 'Current style',
+    renderMode: 'Render Mode',
+    aids: 'Aids',
+    acsTriad: 'ACS Triad',
+    grid: 'Grid',
+    spacing: 'Spacing',
+    gridsPerRef: 'Grids/Ref',
+    orientation: 'Orientation',
+    displayOptions: 'Display Options',
+    backgroundColor: 'Background Color',
+  },
+};
 
 /**
  * View Settings Panel Component
@@ -74,7 +128,9 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
   className,
   style,
   viewport: propsViewport,
+  language = 'zh-CN',
 }) => {
+  const labels = LABELS[language];
   const [viewport, setViewport] = useState<Viewport | undefined>(propsViewport);
   const [renderMode, setRenderMode] = useState<RenderMode>(RenderMode.SmoothShade);
   const [viewFlags, setViewFlags] = useState<Record<string, boolean>>({});
@@ -440,7 +496,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
           ...style,
         }}
       >
-        视图设置需要活动视图
+        {labels.noActiveView}
       </div>
     );
   }
@@ -449,26 +505,26 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
     <div className={className} style={panelStyles}>
       {/* Header */}
       <div style={headerStyles}>
-        <span style={titleStyles}>视图设置 (View Settings)</span>
+        <span style={titleStyles}>{labels.title}</span>
       </div>
 
       {/* Content */}
       <div style={contentStyles}>
         {isLoading ? (
           <div style={{ padding: '20px', textAlign: 'center', color: isDarkTheme ? '#aaaaaa' : '#666666' }}>
-            加载中...
+            {labels.loading}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Display Style Selector */}
             <div>
-              <label style={sectionLabelStyles}>显示样式 (Display Style)</label>
+              <label style={sectionLabelStyles}>{labels.displayStyle}</label>
               <select
                 value={selectedStyle}
                 onChange={(e) => handleDisplayStyleChange(e.target.value)}
                 style={selectStyles}
               >
-                <option value="">当前样式 (Current)</option>
+                <option value="">{labels.currentStyle}</option>
                 {displayStyles.map((style) => (
                   <option key={style.id} value={style.id}>
                     {style.name}
@@ -479,7 +535,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
 
             {/* Render Mode */}
             <div>
-              <label style={sectionLabelStyles}>渲染模式 (Render Mode)</label>
+              <label style={sectionLabelStyles}>{labels.renderMode}</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {RENDER_MODES.map((mode) => (
                   <label
@@ -493,7 +549,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
                       onChange={() => handleRenderModeChange(mode.value)}
                       style={{ marginRight: '8px' }}
                     />
-                    <span style={{ fontSize: '13px' }}>{mode.name}</span>
+                    <span style={{ fontSize: '13px' }}>{language === 'en' ? mode.nameEn : mode.name}</span>
                   </label>
                 ))}
               </div>
@@ -504,7 +560,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
 
             {/* ACS and Grid Controls */}
             <div>
-              <label style={sectionLabelStyles}>辅助显示 (Aids)</label>
+              <label style={sectionLabelStyles}>{labels.aids}</label>
 
               {/* ACS Triad */}
               <label
@@ -522,7 +578,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
                   onChange={(e) => handleACSToggle(e.target.checked)}
                   style={{ marginRight: '8px' }}
                 />
-                <span style={{ fontSize: '13px' }}>ACS 坐标系 (ACS Triad)</span>
+                <span style={{ fontSize: '13px' }}>{labels.acsTriad}</span>
               </label>
 
               {/* Grid Toggle */}
@@ -541,7 +597,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
                   onChange={(e) => handleGridToggle(e.target.checked)}
                   style={{ marginRight: '8px' }}
                 />
-                <span style={{ fontSize: '13px' }}>网格 (Grid)</span>
+                <span style={{ fontSize: '13px' }}>{labels.grid}</span>
               </label>
 
               {/* Grid Settings - only shown when grid is enabled */}
@@ -549,7 +605,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
                 <div style={gridSettingsStyles}>
                   {/* Grid Spacing */}
                   <div>
-                    <label style={subLabelStyles}>间距 (Spacing)</label>
+                    <label style={subLabelStyles}>{labels.spacing}</label>
                     <input
                       type="number"
                       min="0.01"
@@ -562,7 +618,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
 
                   {/* Grids Per Ref */}
                   <div>
-                    <label style={subLabelStyles}>每参考线格数 (Grids/Ref)</label>
+                    <label style={subLabelStyles}>{labels.gridsPerRef}</label>
                     <input
                       type="number"
                       min="1"
@@ -575,7 +631,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
 
                   {/* Grid Orientation */}
                   <div>
-                    <label style={subLabelStyles}>方向 (Orientation)</label>
+                    <label style={subLabelStyles}>{labels.orientation}</label>
                     <select
                       value={gridOrientation}
                       onChange={(e) => handleGridOrientationChange(parseInt(e.target.value, 10) as GridOrientationType)}
@@ -583,7 +639,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
                     >
                       {GRID_ORIENTATIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
-                          {opt.label}
+                          {language === 'en' ? opt.labelEn : opt.label}
                         </option>
                       ))}
                     </select>
@@ -597,7 +653,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
 
             {/* View Flags */}
             <div>
-              <label style={sectionLabelStyles}>显示选项 (Display Options)</label>
+              <label style={sectionLabelStyles}>{labels.displayOptions}</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {VIEW_FLAGS.map((opt) => (
                   <label
@@ -616,7 +672,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
                       onChange={(e) => handleFlagToggle(opt.flag, e.target.checked)}
                       style={{ marginRight: '8px' }}
                     />
-                    <span style={{ fontSize: '13px' }}>{opt.label}</span>
+                    <span style={{ fontSize: '13px' }}>{language === 'en' ? opt.labelEn : opt.label}</span>
                   </label>
                 ))}
               </div>
@@ -627,7 +683,7 @@ export const ViewSettingsPanel: React.FC<ViewSettingsPanelProps> = ({
 
             {/* Background Color */}
             <div>
-              <label style={sectionLabelStyles}>背景颜色 (Background Color)</label>
+              <label style={sectionLabelStyles}>{labels.backgroundColor}</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
                   type="color"

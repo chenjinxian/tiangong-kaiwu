@@ -14,6 +14,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { IModelApp, Viewport, ViewState } from '@itwin/core-frontend';
 import { ViewFlags } from '@itwin/core-common';
+import type { ViewerLanguage, ViewerLanguageProps } from './panelLanguage.js';
 
 export interface SavedView {
   id: string;
@@ -23,12 +24,55 @@ export interface SavedView {
   selectedElements?: string[];
 }
 
-export interface SavedViewsPanelProps {
+export interface SavedViewsPanelProps extends ViewerLanguageProps {
   className?: string;
   style?: React.CSSProperties;
   viewport?: Viewport;
   storageKey?: string; // Local storage key prefix
 }
+
+interface SavedViewsLabels {
+  noActiveView: string;
+  title: string;
+  placeholder: string;
+  save: string;
+  emptyTitle: string;
+  emptyHint: string;
+  restoreTitle: string;
+  restore: string;
+  selectedSuffix: string;
+  update: string;
+  delete: string;
+}
+
+const LABELS: Record<ViewerLanguage, SavedViewsLabels> = {
+  'zh-CN': {
+    noActiveView: '保存视图需要活动视图',
+    title: '保存视图 (Saved Views)',
+    placeholder: '输入视图名称...',
+    save: '保存',
+    emptyTitle: '还没有保存的视图',
+    emptyHint: '调整视图后点击保存',
+    restoreTitle: '恢复视图',
+    restore: '恢复',
+    selectedSuffix: '选中',
+    update: '更新',
+    delete: '删除',
+  },
+  en: {
+    noActiveView: 'Saved views require an active view',
+    title: 'Saved Views',
+    placeholder: 'Enter a view name...',
+    save: 'Save',
+    emptyTitle: 'No saved views yet',
+    emptyHint: 'Adjust the view, then click Save',
+    restoreTitle: 'Restore view',
+    restore: 'Restore',
+    selectedSuffix: 'selected',
+    update: 'Update',
+    delete: 'Delete',
+  },
+};
 
 /**
  * Saved Views Panel Component
@@ -40,7 +84,9 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
   style,
   viewport: propsViewport,
   storageKey = 'openCloudCAD.savedViews',
+  language = 'zh-CN',
 }) => {
+  const labels = LABELS[language];
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [newViewName, setNewViewName] = useState('');
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
@@ -228,7 +274,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
    */
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleString('zh-CN', {
+    return date.toLocaleString(language === 'en' ? 'en-US' : 'zh-CN', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -249,7 +295,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
           ...style,
         }}
       >
-        <div style={{ color: '#666', fontSize: '14px' }}>保存视图需要活动视图</div>
+        <div style={{ color: '#666', fontSize: '14px' }}>{labels.noActiveView}</div>
       </div>
     );
   }
@@ -278,7 +324,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
           alignItems: 'center',
         }}
       >
-        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>保存视图 (Saved Views)</span>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{labels.title}</span>
         <span style={{ fontSize: '12px', color: '#666' }}>{savedViews.length}</span>
       </div>
 
@@ -294,7 +340,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
             type="text"
             value={newViewName}
             onChange={(e) => setNewViewName(e.target.value)}
-            placeholder="输入视图名称..."
+            placeholder={labels.placeholder}
             onKeyPress={(e) => {
               if (e.key === 'Enter') saveView();
             }}
@@ -320,7 +366,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
               fontWeight: 'bold',
             }}
           >
-            保存
+            {labels.save}
           </button>
         </div>
       </div>
@@ -336,8 +382,8 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
         {savedViews.length === 0 ? (
           <div style={{ padding: '30px', textAlign: 'center', color: '#999' }}>
             <div style={{ fontSize: '32px', marginBottom: '8px' }}>📷</div>
-            <div style={{ fontSize: '13px' }}>还没有保存的视图</div>
-            <div style={{ fontSize: '12px', marginTop: '4px' }}>调整视图后点击保存</div>
+            <div style={{ fontSize: '13px' }}>{labels.emptyTitle}</div>
+            <div style={{ fontSize: '12px', marginTop: '4px' }}>{labels.emptyHint}</div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -374,7 +420,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
                   </span>
                   <button
                     onClick={() => recallView(view)}
-                    title="恢复视图"
+                    title={labels.restoreTitle}
                     style={{
                       padding: '4px 8px',
                       borderRadius: '4px',
@@ -386,7 +432,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
                       marginLeft: '8px',
                     }}
                   >
-                    恢复
+                    {labels.restore}
                   </button>
                 </div>
 
@@ -398,7 +444,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
                   }}
                 >
                   {formatTime(view.timestamp)}
-                  {view.selectedElements && ` • ${view.selectedElements.length} 选中`}
+                  {view.selectedElements && ` • ${view.selectedElements.length} ${labels.selectedSuffix}`}
                 </div>
 
                 <div style={{ display: 'flex', gap: '6px' }}>
@@ -414,7 +460,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
                       fontSize: '12px',
                     }}
                   >
-                    更新
+                    {labels.update}
                   </button>
                   <button
                     onClick={() => deleteView(view.id)}
@@ -428,7 +474,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
                       fontSize: '12px',
                     }}
                   >
-                    删除
+                    {labels.delete}
                   </button>
                 </div>
               </div>

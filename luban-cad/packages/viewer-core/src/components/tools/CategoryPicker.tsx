@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { IModelApp, Viewport } from '@itwin/core-frontend';
 import { Id64String } from '@itwin/core-bentley';
+import type { ViewerLanguage, ViewerLanguageProps } from './panelLanguage.js';
 
 export interface CategoryInfo {
   id: Id64String;
@@ -19,11 +20,39 @@ export interface CategoryInfo {
   isVisible: boolean;
 }
 
-export interface CategoryPickerProps {
+export interface CategoryPickerProps extends ViewerLanguageProps {
   className?: string;
   style?: React.CSSProperties;
   viewport?: Viewport;
 }
+
+interface CategoryPickerLabels {
+  noActiveView: string;
+  title: string;
+  showAll: string;
+  hideAll: string;
+  loading: string;
+  empty: string;
+}
+
+const LABELS: Record<ViewerLanguage, CategoryPickerLabels> = {
+  'zh-CN': {
+    noActiveView: '类别选择器需要活动视图',
+    title: '类别 (Categories)',
+    showAll: '全选',
+    hideAll: '全不选',
+    loading: '加载中...',
+    empty: '无可用类别',
+  },
+  en: {
+    noActiveView: 'Category picker requires an active view',
+    title: 'Categories',
+    showAll: 'Show All',
+    hideAll: 'Hide All',
+    loading: 'Loading...',
+    empty: 'No categories available',
+  },
+};
 
 /**
  * Category Picker Component
@@ -34,7 +63,9 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
   className,
   style,
   viewport: propsViewport,
+  language = 'zh-CN',
 }) => {
+  const labels = LABELS[language];
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewport, setViewport] = useState<Viewport | undefined>(propsViewport);
@@ -163,7 +194,7 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
         }}
       >
         <div style={{ color: '#666', fontSize: '14px' }}>
-          类别选择器需要活动视图
+          {labels.noActiveView}
         </div>
       </div>
     );
@@ -193,7 +224,7 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
           alignItems: 'center',
         }}
       >
-        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>类别 (Categories)</span>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{labels.title}</span>
         <span style={{ fontSize: '12px', color: '#666' }}>
           {categories.filter((c) => c.isVisible).length}/{categories.length}
         </span>
@@ -219,7 +250,7 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
             cursor: 'pointer',
           }}
         >
-          全选
+          {labels.showAll}
         </button>
         <button
           onClick={hideAll}
@@ -232,7 +263,7 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
             cursor: 'pointer',
           }}
         >
-          全不选
+          {labels.hideAll}
         </button>
       </div>
 
@@ -246,11 +277,11 @@ export const CategoryPicker: React.FC<CategoryPickerProps> = ({
       >
         {isLoading ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-            加载中...
+            {labels.loading}
           </div>
         ) : categories.length === 0 ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-            无可用类别
+            {labels.empty}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

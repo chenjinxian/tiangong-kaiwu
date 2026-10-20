@@ -7,6 +7,7 @@ vi.mock('../../features/auth/services/auth/client.js', () => ({
 
 import { fetchWithAuth, ApiError } from './httpClient.js';
 import { getValidAccessToken, refreshAccessToken } from '../../features/auth/services/auth/client.js';
+import i18n from '../i18n/index.js';
 
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -16,7 +17,10 @@ beforeEach(() => {
   vi.mocked(refreshAccessToken).mockResolvedValue(null);
   mockFetch.mockReset();
 });
-afterEach(() => vi.clearAllMocks());
+afterEach(async () => {
+  vi.clearAllMocks();
+  await i18n.changeLanguage('zh-CN');
+});
 
 describe('fetchWithAuth', () => {
   it('注入 Bearer 头并使用默认 hub base', async () => {
@@ -47,6 +51,14 @@ describe('fetchWithAuth', () => {
     const err = await fetchWithAuth('/itwins').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).message).toBe('无权限访问该资源');
+    expect((err as ApiError).isForbidden).toBe(true);
+  });
+
+  it('403 统一文案随应用语言切换为英文（RW4-P5）', async () => {
+    await i18n.changeLanguage('en');
+    mockFetch.mockResolvedValue(new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 }));
+    const err = await fetchWithAuth('/itwins').catch((e: unknown) => e);
+    expect((err as ApiError).message).toBe('You do not have permission to access this resource');
     expect((err as ApiError).isForbidden).toBe(true);
   });
 

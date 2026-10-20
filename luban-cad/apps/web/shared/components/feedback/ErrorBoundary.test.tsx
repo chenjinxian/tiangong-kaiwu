@@ -8,6 +8,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import * as loggerModule from '../../lib/logger.js';
+import i18n from '../../i18n/index.js';
 
 // Mock logger
 vi.mock('../../lib/logger.js', () => ({
@@ -33,9 +34,10 @@ describe('ErrorBoundary', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env.NODE_ENV = originalEnv;
     vi.restoreAllMocks();
+    await i18n.changeLanguage('zh-CN');
   });
 
   it('should render children when no error', () => {
@@ -61,6 +63,20 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('出错了')).toBeDefined();
     expect(screen.getByText('Test error')).toBeDefined();
     expect(screen.getByText('重试')).toBeDefined();
+  });
+
+  it('fallback is bilingual when language is en (RW4-P5)', async () => {
+    await i18n.changeLanguage('en');
+
+    render(
+      <ErrorBoundary>
+        <ThrowError error={new Error()} />
+      </ErrorBoundary>
+    );
+
+    expect(screen.getByText('Something went wrong')).toBeDefined();
+    expect(screen.getByText('An unexpected error occurred')).toBeDefined();
+    expect(screen.getByText('Retry')).toBeDefined();
   });
 
   it('should log error to monitoring service', () => {

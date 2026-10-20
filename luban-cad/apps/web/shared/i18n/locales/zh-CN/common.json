@@ -1,5 +1,13 @@
 {
   "app": { "name": "鲁班CAD", "tagline": "基于 iTwin.js 的云端 CAD 平台" },
   "common": { "loading": "加载中…", "confirm": "确认", "cancel": "取消" },
+  "errors": {
+    "forbidden": "无权限访问该资源"
+  },
+  "errorBoundary": {
+    "title": "出错了",
+    "fallbackMessage": "应用程序发生错误",
+    "retry": "重试"
+  },
   "notFound": { "title": "404 - 页面不存在", "subtitle": "您访问的页面不存在或已被移动", "goDocuments": "回到文档" }
 }

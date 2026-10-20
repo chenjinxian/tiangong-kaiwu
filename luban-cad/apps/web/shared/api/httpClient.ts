@@ -7,9 +7,10 @@
  * 全站唯一认证 fetch 封装（P0 Task1）。
  * 行为口径迁移自 shared/services/itwins/client.ts 原 fetchWithAuth：
  * Bearer 注入 / 401 刷新并重试一次 / 官方错误包络 {error:{code,message}} 优先、
- * 回落旧包络顶层 message / 403 统一文案（页面经 showToast(error.message) 上浮）。
+ * 回落旧包络顶层 message / 403 统一文案（按应用语言本地化；页面经 showToast(error.message) 上浮）。
  */
 import { getValidAccessToken, refreshAccessToken } from '../../features/auth/services/auth/client.js';
+import i18n from '../i18n/index.js';
 
 export class ApiError extends Error {
   constructor(
@@ -72,7 +73,9 @@ export async function fetchWithAuth(
     };
     const message = errorData.error?.message ?? errorData.message ?? `HTTP ${response.status}`;
     throw new ApiError(
-      response.status === 403 ? '无权限访问该资源' : message,
+      response.status === 403
+        ? String(i18n.t('errors.forbidden', { ns: 'common' }))
+        : message,
       response.status,
       errorData.error?.code ?? errorData.code,
       // 422 字段级明细透出（无 errors 字段则保持 undefined，既有行为不变）

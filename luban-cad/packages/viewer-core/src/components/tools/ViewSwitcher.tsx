@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { IModelApp, Viewport, ViewState } from '@itwin/core-frontend';
 import { Id64String } from '@itwin/core-bentley';
+import type { ViewerLanguage, ViewerLanguageProps } from './panelLanguage.js';
 
 export interface ViewDefinition {
   id: Id64String;
@@ -20,12 +21,34 @@ export interface ViewDefinition {
   viewType: '2d' | '3d' | 'sheet' | 'drawing' | 'unknown';
 }
 
-export interface ViewSwitcherProps {
+export interface ViewSwitcherProps extends ViewerLanguageProps {
   className?: string;
   style?: React.CSSProperties;
   viewport?: Viewport;
   onViewChanged?: (view: ViewState) => void;
 }
+
+interface ViewSwitcherLabels {
+  noActiveView: string;
+  title: string;
+  loading: string;
+  empty: string;
+}
+
+const LABELS: Record<ViewerLanguage, ViewSwitcherLabels> = {
+  'zh-CN': {
+    noActiveView: '视图切换需要活动视图',
+    title: '视图切换 (Views)',
+    loading: '加载中...',
+    empty: '无可用视图',
+  },
+  en: {
+    noActiveView: 'View switcher requires an active view',
+    title: 'Views',
+    loading: 'Loading...',
+    empty: 'No views available',
+  },
+};
 
 /**
  * View Switcher Component
@@ -37,7 +60,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   style,
   viewport: propsViewport,
   onViewChanged,
+  language = 'zh-CN',
 }) => {
+  const labels = LABELS[language];
   const [views, setViews] = useState<ViewDefinition[]>([]);
   const [currentViewId, setCurrentViewId] = useState<Id64String>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -198,7 +223,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
           ...style,
         }}
       >
-        <div style={{ color: '#666', fontSize: '14px' }}>视图切换需要活动视图</div>
+        <div style={{ color: '#666', fontSize: '14px' }}>{labels.noActiveView}</div>
       </div>
     );
   }
@@ -227,7 +252,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
           alignItems: 'center',
         }}
       >
-        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>视图切换 (Views)</span>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{labels.title}</span>
         <span style={{ fontSize: '12px', color: '#666' }}>{views.length}</span>
       </div>
 
@@ -240,9 +265,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         }}
       >
         {isLoading ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>加载中...</div>
+          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>{labels.loading}</div>
         ) : views.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>无可用视图</div>
+          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>{labels.empty}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             {views.map((view) => (
