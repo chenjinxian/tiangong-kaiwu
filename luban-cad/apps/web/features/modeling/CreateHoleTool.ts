@@ -6,6 +6,7 @@
 import { BeButtonEvent, EventHandled, IModelApp, OutputMessagePriority, PrimitiveTool } from '@itwin/core-frontend';
 import { Point3d } from '@itwin/core-geometry';
 import { OpenCloudRpcInterface } from '@luban-cad/shared';
+import i18n from '../../shared/i18n/index.js';
 
 /**
  * Create Hole Tool - Creates holes on selected faces
@@ -33,7 +34,7 @@ export class CreateHoleTool extends PrimitiveTool {
     IModelApp.notifications.outputMessage(
       new (await import('@itwin/core-frontend')).NotifyMessageDetails(
         OutputMessagePriority.Info,
-        '点击选择打孔位置，或在面上选择具体位置'
+        i18n.t('modelingTools.holePrompt', { ns: 'editor' })
       )
     );
   }
@@ -44,7 +45,12 @@ export class CreateHoleTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Info,
-          `已选择位置 (${this._centerPoint.x.toFixed(2)}, ${this._centerPoint.y.toFixed(2)}, ${this._centerPoint.z.toFixed(2)})，右键完成或继续点击选择新位置`
+          i18n.t('modelingTools.holePositionSelected', {
+            ns: 'editor',
+            x: this._centerPoint.x.toFixed(2),
+            y: this._centerPoint.y.toFixed(2),
+            z: this._centerPoint.z.toFixed(2),
+          })
         )
       );
       return EventHandled.Yes;
@@ -71,7 +77,11 @@ export class CreateHoleTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Info,
-          `正在打孔: 直径 ${this._diameter}mm, 深度 ${this._depth}mm...`
+          i18n.t('modelingTools.holeApplying', {
+            ns: 'editor',
+            diameter: this._diameter,
+            depth: this._depth,
+          })
         )
       );
 
@@ -108,7 +118,11 @@ export class CreateHoleTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Success,
-          `打孔完成: 直径 ${this._diameter}mm, 深度 ${this._depth}mm`
+          i18n.t('modelingTools.holeDone', {
+            ns: 'editor',
+            diameter: this._diameter,
+            depth: this._depth,
+          })
         )
       );
     } catch (err) {
@@ -116,7 +130,7 @@ export class CreateHoleTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Error,
-          `打孔失败: ${errorMessage}`
+          i18n.t('modelingTools.holeFailed', { ns: 'editor', message: errorMessage })
         )
       );
       console.error('[CreateHoleTool] Failed:', err);

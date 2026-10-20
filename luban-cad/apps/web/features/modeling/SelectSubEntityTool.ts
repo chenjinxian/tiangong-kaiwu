@@ -12,6 +12,7 @@ import {
   IModelApp,
 } from '@itwin/core-frontend';
 import { SubEntityLocationProps, SubEntityType } from '@itwin/editor-common';
+import i18n from '../../shared/i18n/index.js';
 
 export type SubEntitySelectionMode = 'face' | 'edge' | 'vertex';
 
@@ -164,14 +165,14 @@ export class SelectSubEntityTool extends LocateSubEntityTool {
    * Provide tool assistance instructions.
    */
   protected override setupAndPromptForNextAction(): void {
-    const modeText = {
-      face: '面 (Face)',
-      edge: '边 (Edge)',
-      vertex: '顶点 (Vertex)',
-    }[this._mode];
+    const promptKey: Record<SubEntitySelectionMode, string> = {
+      face: 'selectSubEntity.promptFace',
+      edge: 'selectSubEntity.promptEdge',
+      vertex: 'selectSubEntity.promptVertex',
+    };
 
     IModelApp.notifications.outputPrompt(
-      `点击选择${modeText}，右键完成选择`
+      i18n.t(promptKey[this._mode], { ns: 'editor' })
     );
   }
 }

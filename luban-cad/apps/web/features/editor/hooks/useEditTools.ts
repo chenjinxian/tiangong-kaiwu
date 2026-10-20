@@ -9,6 +9,7 @@ import { CompressedId64Set } from '@itwin/core-bentley';
 import { Angle, Matrix3d, Point3d, Transform, Vector3d } from '@itwin/core-geometry';
 import { OpenCloudRpcInterface } from '@luban-cad/shared';
 import { undoManager } from '../../../src/core/undo/UndoManager.js';
+import i18n from '../../../shared/i18n/index.js';
 
 export interface UseEditToolsOptions {
   connection: BriefcaseConnection | null;
@@ -67,8 +68,10 @@ export function useEditTools({ connection }: UseEditToolsOptions): UseEditToolsR
       isRunning.current = false;
     }
     if (editSucceeded) {
-      await conn.saveChanges('删除元素');
-      undoManager.recordOperation({ description: `删除 ${ids.length} 个元素` });
+      await conn.saveChanges(i18n.t('editTools.deleteTxn', { ns: 'editor' }));
+      undoManager.recordOperation({
+        description: i18n.t('editTools.deletedCount', { ns: 'editor', count: ids.length }),
+      });
       conn.selectionSet.emptyAll();
     }
   }, []);
@@ -93,8 +96,10 @@ export function useEditTools({ connection }: UseEditToolsOptions): UseEditToolsR
       isRunning.current = false;
     }
     if (editSucceeded) {
-      await conn.saveChanges('移动元素');
-      undoManager.recordOperation({ description: `移动 ${ids.length} 个元素` });
+      await conn.saveChanges(i18n.t('editTools.moveTxn', { ns: 'editor' }));
+      undoManager.recordOperation({
+        description: i18n.t('editTools.movedCount', { ns: 'editor', count: ids.length }),
+      });
       // Do NOT clear selection after translation
     }
   }, []);
@@ -124,8 +129,10 @@ export function useEditTools({ connection }: UseEditToolsOptions): UseEditToolsR
       isRunning.current = false;
     }
     if (editSucceeded) {
-      await conn.saveChanges('旋转元素');
-      undoManager.recordOperation({ description: `旋转 ${ids.length} 个元素` });
+      await conn.saveChanges(i18n.t('editTools.rotateTxn', { ns: 'editor' }));
+      undoManager.recordOperation({
+        description: i18n.t('editTools.rotatedCount', { ns: 'editor', count: ids.length }),
+      });
     }
   }, []);
 
@@ -151,8 +158,10 @@ export function useEditTools({ connection }: UseEditToolsOptions): UseEditToolsR
       isRunning.current = false;
     }
     if (editSucceeded) {
-      await conn.saveChanges('缩放元素');
-      undoManager.recordOperation({ description: `缩放 ${ids.length} 个元素` });
+      await conn.saveChanges(i18n.t('editTools.scaleTxn', { ns: 'editor' }));
+      undoManager.recordOperation({
+        description: i18n.t('editTools.scaledCount', { ns: 'editor', count: ids.length }),
+      });
     }
   }, []);
 

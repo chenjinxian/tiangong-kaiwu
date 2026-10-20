@@ -21,6 +21,7 @@ import {
 import { Point3d } from '@itwin/core-geometry';
 import { ColorDef, LinePixels } from '@itwin/core-common';
 import { dialogService } from '../services/DialogService.js';
+import i18n from '../../../shared/i18n/index.js';
 
 /**
  * Fence (window/crossing) selection tool
@@ -160,7 +161,11 @@ export class FenceSelectTool extends SelectionTool {
     IModelApp.notifications.outputMessage(
       new (await import('@itwin/core-frontend')).NotifyMessageDetails(
         1,
-        `选择了 ${selectedIds.length} 个元素 (${this._isWindowSelect ? '窗口' : '交叉'}选择)`
+        i18n.t('selectionTools.fenceResult', {
+          ns: 'editor',
+          count: selectedIds.length,
+          mode: i18n.t(this._isWindowSelect ? 'selectionTools.window' : 'selectionTools.crossing', { ns: 'editor' }),
+        })
       )
     );
   }
@@ -296,7 +301,7 @@ export class SelectAllTool extends Tool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          `选择了全部 ${ids.length} 个元素`
+          i18n.t('selectionTools.selectAll', { ns: 'editor', count: ids.length })
         )
       );
       return true;
@@ -304,7 +309,7 @@ export class SelectAllTool extends Tool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Error,
-          `选择失败: ${(err as Error).message}`
+          i18n.t('selectionTools.selectFailed', { ns: 'editor', message: (err as Error).message })
         )
       );
       return false;
@@ -347,7 +352,7 @@ export class InvertSelectionTool extends Tool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          `选择了 ${invertedSelection.size} 个元素 (反选)`
+          i18n.t('selectionTools.invertResult', { ns: 'editor', count: invertedSelection.size })
         )
       );
       return true;
@@ -355,7 +360,7 @@ export class InvertSelectionTool extends Tool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Error,
-          `反选失败: ${(err as Error).message}`
+          i18n.t('selectionTools.invertFailed', { ns: 'editor', message: (err as Error).message })
         )
       );
       return false;
@@ -380,7 +385,7 @@ export class ClearSelectionTool extends Tool {
     IModelApp.notifications.outputMessage(
       new (await import('@itwin/core-frontend')).NotifyMessageDetails(
         1,
-        '已清除选择'
+        i18n.t('selectionTools.cleared', { ns: 'editor' })
       )
     );
     return true;
@@ -430,7 +435,7 @@ export class SelectByCategoryTool extends Tool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          `按类别选择了 ${ids.length} 个元素`
+          i18n.t('selectionTools.byCategory', { ns: 'editor', count: ids.length })
         )
       );
       return true;
@@ -438,7 +443,7 @@ export class SelectByCategoryTool extends Tool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Error,
-          `选择失败: ${(err as Error).message}`
+          i18n.t('selectionTools.selectFailed', { ns: 'editor', message: (err as Error).message })
         )
       );
       return false;

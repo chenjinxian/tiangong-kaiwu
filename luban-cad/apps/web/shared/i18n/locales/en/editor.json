@@ -321,7 +321,9 @@
     "history": "History",
     "historyTitle": "Operation history",
     "clear": "Clear",
-    "empty": "No history yet"
+    "empty": "No history yet",
+    "fallbackUndo": "Undo edit",
+    "fallbackRedo": "Redo edit"
   },
   "viewClip": {
     "plane": "Plane clip",
@@ -377,7 +379,33 @@
       "totalAngle": "Total Angle:",
       "center": "Center:",
       "cancel": "Cancel",
-      "confirm": "Confirm"
+      "confirm": "Confirm",
+      "toolCount": "Count",
+      "toolSpacing": "Spacing",
+      "toolTotalAngle": "Total angle"
+    },
+    "hollowFaces": {
+      "title": "Hollow Faces",
+      "applied": "Hollow applied to {{count}} faces",
+      "shellThickness": "Shell Thickness",
+      "useDifferentThickness": "Use a different thickness for selected faces",
+      "faceThickness": "Face Thickness",
+      "cancel": "Cancel",
+      "apply": "Apply"
+    },
+    "solidOps": {
+      "roundApplying": "Applying fillet...",
+      "roundSuccess": "Fillet applied successfully to {{count}} edges",
+      "roundFailed": "Failed to apply fillet",
+      "roundError": "Fillet failed: {{message}}",
+      "chamferApplying": "Applying chamfer...",
+      "chamferSuccess": "Chamfer applied successfully to {{count}} edges",
+      "chamferFailed": "Failed to apply chamfer",
+      "chamferError": "Chamfer failed: {{message}}",
+      "hollowApplying": "Applying hollow...",
+      "hollowSuccess": "Hollow applied successfully to {{count}} faces",
+      "hollowFailed": "Failed to apply hollow",
+      "hollowError": "Hollow failed: {{message}}"
     }
   },
   "briefcase": {
@@ -402,11 +430,204 @@
       "cancel": "Cancel",
       "releasing": "Releasing...",
       "confirm": "Confirm Release"
+    },
+    "compact": {
+      "loading": "Loading...",
+      "connectionError": "Connection error",
+      "editable": "Editable",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "readonly": "Read-only",
+      "unsaved": "Unsaved"
     }
   },
   "ai": {
     "title": "AI assistant",
     "reserved": "AI side panel slot",
     "placeholder": "AI assistant will be available in a future release"
+  },
+  "toolSettings": {
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
+  "featurePanel": {
+    "title": "Feature History",
+    "undo": "Undo feature",
+    "redo": "Redo feature",
+    "readOnlyHint": "Read-only (write lease not held)",
+    "loading": "Loading...",
+    "empty": "No features yet",
+    "suppressed": "Suppressed",
+    "evaluationFailed": "Evaluation failed",
+    "editSketchTitle": "Edit sketch: jump to sketch mode",
+    "editSketch": "Edit sketch",
+    "suppress": "Suppress feature",
+    "unsuppress": "Unsuppress",
+    "edit": "Edit feature",
+    "delete": "Delete feature",
+    "create": "New feature",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "pickEdge": "Pick edges in view",
+    "stopPickEdge": "Stop picking edges",
+    "pickFace": "Pick faces in view",
+    "stopPickFace": "Stop picking faces",
+    "edgePickerBanner": "Picking edges: click edges in the viewport to add references; right-click/Esc to finish",
+    "facePickerBanner": "Picking faces: click faces in the viewport to add references; right-click/Esc to finish",
+    "newDialogTitle": "New Feature",
+    "typeLabel": "Feature type",
+    "typePlaceholder": "Select a feature type",
+    "formModelLoading": "Loading form model...",
+    "cancel": "Cancel",
+    "submitCreate": "Create",
+    "editDialogTitle": "Edit Feature: {{label}}",
+    "previewOk": "✓ Preview passed ({{count}} features affected)",
+    "previewFailed": "⚠ Preview failed: {{error}}",
+    "unknownError": "Unknown error",
+    "forceApply": "Apply anyway",
+    "apply": "Apply",
+    "updated": "Feature parameters updated",
+    "created": "Feature created",
+    "leaseMissing": "Write lease not held",
+    "edgeResolveFailed": "Failed to resolve edge reference",
+    "types": {
+      "extrude": "Extrude",
+      "booleanAdd": "Boolean Add",
+      "booleanSubtract": "Boolean Subtract",
+      "fillet": "Fillet",
+      "chamfer": "Chamfer",
+      "shell": "Shell"
+    },
+    "faceResolveFailed": "Failed to resolve face reference"
+  },
+  "featureParamForm": {
+    "invalidJson": "Invalid JSON; this field was not saved",
+    "noEdges": "No edges selected",
+    "noFaces": "No faces selected",
+    "removeEdge": "Remove edge reference {{index}}",
+    "removeFace": "Remove face reference {{index}}"
+  },
+  "assemblyPanel": {
+    "title": "Assemblies",
+    "createLabel": "Create new assembly",
+    "namePlaceholder": "Assembly name...",
+    "create": "Create",
+    "loading": "Loading...",
+    "empty": "No assemblies yet"
+  },
+  "pushChangeset": {
+    "title": "Push Changeset",
+    "descriptionLabel": "Description",
+    "required": "Required",
+    "descriptionPlaceholder": "e.g. Fix base dimensions, add fillet features",
+    "cancel": "Cancel",
+    "confirm": "Push"
+  },
+  "exportDialog": {
+    "title": "Export Model",
+    "invalidIModelId": "Invalid iModel ID",
+    "noData": "Export failed: no data returned",
+    "success": "Exported {{format}} successfully ({{size}} KB)",
+    "failed": "Export failed",
+    "formatLabel": "Export format",
+    "model": "Model:",
+    "formatHint": "The model will be exported as a {{extension}} file and downloaded automatically when finished.",
+    "exporting": "Exporting {{format}}...",
+    "cancel": "Cancel",
+    "export": "Export",
+    "exportingButton": "Exporting..."
+  },
+  "selectionTools": {
+    "fenceResult": "Selected {{count}} elements ({{mode}} selection)",
+    "window": "window",
+    "crossing": "crossing",
+    "selectAll": "Selected all {{count}} elements",
+    "selectFailed": "Selection failed: {{message}}",
+    "invertResult": "Selected {{count}} elements (inverted)",
+    "invertFailed": "Invert selection failed: {{message}}",
+    "cleared": "Selection cleared",
+    "byCategory": "Selected {{count}} elements by category"
+  },
+  "measurementTools": {
+    "distancePrompt": "Click two points to measure distance",
+    "distanceResult": "Distance: {{distance}} m\nDX: {{dx}}, DY: {{dy}}, DZ: {{dz}}",
+    "anglePrompt": "Click three points to measure angle (second point is the vertex)",
+    "angleResult": "Angle: {{degrees}}°",
+    "areaPrompt": "Click multiple points to measure area (double-click to finish)",
+    "areaResult": "Area: {{area}} m²"
+  },
+  "sectionTools": {
+    "originPrompt": "Click a point on the section plane, then click to set the normal",
+    "originSelected": "Section plane origin selected; click to set the normal direction",
+    "applied": "Section plane applied: origin ({{x}}, {{y}}, {{z}})",
+    "applyFailed": "Failed to apply section plane",
+    "noViewport": "No active viewport",
+    "cleared": "Section cleared",
+    "clearFailed": "Failed to clear section"
+  },
+  "editTools": {
+    "deleteTxn": "Delete elements",
+    "moveTxn": "Move elements",
+    "rotateTxn": "Rotate elements",
+    "scaleTxn": "Scale elements",
+    "deletedCount": "Deleted {{count}} elements",
+    "movedCount": "Moved {{count}} elements",
+    "rotatedCount": "Rotated {{count}} elements",
+    "scaledCount": "Scaled {{count}} elements",
+    "deleteFailed": "Delete failed: {{message}}"
+  },
+  "versionOps": {
+    "manualSave": "Manual save",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "saveFailed": "Save failed: {{message}}",
+    "pushing": "Pushing...",
+    "pushSuccess": "Pushed successfully",
+    "pushFailed": "Push failed: {{message}}",
+    "checkingConflicts": "Checking for conflicts...",
+    "conflictsFound": "Conflicts detected. Resolve them and try again.",
+    "conflictCheckUnavailable": "Conflict detection is unavailable; skipping the pre-pull conflict check",
+    "pulling": "Pulling...",
+    "pullSuccess": "Pulled successfully",
+    "pullFailed": "Pull failed: {{message}}",
+    "resolving": "Resolving conflicts...",
+    "resolved": "Resolved {{count}} conflicts",
+    "resolveFailed": "Failed to resolve conflicts",
+    "resolveFailedWithMessage": "Failed to resolve conflicts: {{message}}",
+    "rollingBack": "Rolling back to version \"{{versionName}}\"...",
+    "rollbackSuccess": "Rolled back to version \"{{versionName}}\"",
+    "changesetNotFound": "Changeset not found",
+    "rollbackFailed": "Rollback failed: {{message}}",
+    "invalidChangeset": "Invalid changeset ID"
+  },
+  "featureSystem": {
+    "notConnected": "iModel not connected",
+    "leaseHeldBy": "Write lease is held by {{holder}}",
+    "leaseAcquireFailed": "Failed to acquire write lease",
+    "edgeResolveTimeout": "Edge reference resolution timed out (>{{seconds}}s) — no response from the server; pick the edge again",
+    "faceResolveTimeout": "Face reference resolution timed out (>{{seconds}}s) — no response from the server; pick the face again"
+  },
+  "modelingTools": {
+    "holePrompt": "Click to choose the hole position, or pick a specific location on a face",
+    "holePositionSelected": "Position selected ({{x}}, {{y}}, {{z}}). Right-click to finish or keep clicking to choose a new position",
+    "holeApplying": "Creating hole: diameter {{diameter}}mm, depth {{depth}}mm...",
+    "holeDone": "Hole created: diameter {{diameter}}mm, depth {{depth}}mm",
+    "holeFailed": "Failed to create hole: {{message}}",
+    "mirrorSelect": "Select elements to mirror ({{count}} selected); right-click to continue",
+    "mirrorPlanePoint": "Click to choose a point on the mirror plane",
+    "mirrorPlaneNormal": "Click to set the mirror plane normal, or right-click to use the default normal (Y axis)",
+    "mirrorApplying": "Mirroring {{count}} elements...",
+    "mirrorDone": "Mirror complete: {{count}} elements mirrored",
+    "mirrorFailed": "Mirror failed: {{message}}",
+    "draftPrompt": "Click faces to draft (angle: {{angle}}°); right-click when done",
+    "draftSelected": "{{count}} faces selected; right-click when done",
+    "draftApplying": "Applying draft to {{count}} faces at {{angle}}°...",
+    "draftDone": "Draft complete: {{count}} faces drafted at {{angle}}°",
+    "draftFailed": "Draft failed: {{message}}"
+  },
+  "selectSubEntity": {
+    "promptFace": "Click to select a face; right-click when done",
+    "promptEdge": "Click to select an edge; right-click when done",
+    "promptVertex": "Click to select a vertex; right-click when done"
   }
 }

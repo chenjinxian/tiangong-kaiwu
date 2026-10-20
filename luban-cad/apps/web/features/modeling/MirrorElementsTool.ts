@@ -6,6 +6,7 @@
 import { BeButtonEvent, EventHandled, IModelApp, OutputMessagePriority, PrimitiveTool } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
 import { OpenCloudRpcInterface } from '@luban-cad/shared';
+import i18n from '../../shared/i18n/index.js';
 
 /**
  * Mirror Elements Tool - Mirrors selected elements across a plane
@@ -37,9 +38,12 @@ export class MirrorElementsTool extends PrimitiveTool {
 
   private async updateInstruction(): Promise<void> {
     const messages: Record<typeof this._step, string> = {
-      select: `选择要镜像的元素（已选 ${this._selectedElements.length} 个），右键进入下一步`,
-      'plane-point': '点击选择镜像平面上的点',
-      'plane-normal': '点击确定镜像平面法向，或右键使用默认法向（Y轴）',
+      select: i18n.t('modelingTools.mirrorSelect', {
+        ns: 'editor',
+        count: this._selectedElements.length,
+      }),
+      'plane-point': i18n.t('modelingTools.mirrorPlanePoint', { ns: 'editor' }),
+      'plane-normal': i18n.t('modelingTools.mirrorPlaneNormal', { ns: 'editor' }),
     };
     IModelApp.notifications.outputMessage(
       new (await import('@itwin/core-frontend')).NotifyMessageDetails(1, messages[this._step])
@@ -129,7 +133,10 @@ export class MirrorElementsTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          `正在镜像 ${this._selectedElements.length} 个元素...`
+          i18n.t('modelingTools.mirrorApplying', {
+            ns: 'editor',
+            count: this._selectedElements.length,
+          })
         )
       );
 
@@ -172,7 +179,10 @@ export class MirrorElementsTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           0,
-          `镜像完成: ${this._selectedElements.length} 个元素已镜像`
+          i18n.t('modelingTools.mirrorDone', {
+            ns: 'editor',
+            count: this._selectedElements.length,
+          })
         )
       );
     } catch (err) {
@@ -180,7 +190,7 @@ export class MirrorElementsTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Error,
-          `镜像失败: ${errorMessage}`
+          i18n.t('modelingTools.mirrorFailed', { ns: 'editor', message: errorMessage })
         )
       );
       console.error('[MirrorElementsTool] Failed:', err);

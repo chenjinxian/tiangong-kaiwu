@@ -8,6 +8,7 @@ import { SolidModelingToolBase, SolidModelingToolBaseOptions } from './SolidMode
 import type { SolidModelingEventMap } from './SolidModelingEvents.js';
 import { EventHandled, IModelApp, OutputMessagePriority } from '@itwin/core-frontend';
 import { OpenCloudRpcInterface } from '@luban-cad/shared';
+import i18n from '../../shared/i18n/index.js';
 
 export interface DraftFacesToolOptions extends SolidModelingToolBaseOptions {
   /** 拔模角度（度） */
@@ -53,11 +54,11 @@ export class DraftFacesTool extends SolidModelingToolBase<DraftFacesToolOptions>
   }
 
   protected getPromptText(): string {
-    return `点击选择要拔模的面（角度: ${this._draftAngle}°），右键完成选择`;
+    return i18n.t('modelingTools.draftPrompt', { ns: 'editor', angle: this._draftAngle });
   }
 
   protected getSelectedPromptText(count: number): string {
-    return `已选择 ${count} 个面，右键完成选择`;
+    return i18n.t('modelingTools.draftSelected', { ns: 'editor', count });
   }
 
   protected createRestartTool(): SolidModelingToolBase<DraftFacesToolOptions> {
@@ -101,7 +102,11 @@ export class DraftFacesTool extends SolidModelingToolBase<DraftFacesToolOptions>
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          `正在执行拔模: ${this._selectedEntities.length} 个面, 角度 ${this._draftAngle}°...`
+          i18n.t('modelingTools.draftApplying', {
+            ns: 'editor',
+            count: this._selectedEntities.length,
+            angle: this._draftAngle,
+          })
         )
       );
 
@@ -138,7 +143,11 @@ export class DraftFacesTool extends SolidModelingToolBase<DraftFacesToolOptions>
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           0,
-          `拔模完成: ${this._selectedEntities.length} 个面已应用 ${this._draftAngle}° 拔模角度`
+          i18n.t('modelingTools.draftDone', {
+            ns: 'editor',
+            count: this._selectedEntities.length,
+            angle: this._draftAngle,
+          })
         )
       );
     } catch (err) {
@@ -146,7 +155,7 @@ export class DraftFacesTool extends SolidModelingToolBase<DraftFacesToolOptions>
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           OutputMessagePriority.Error,
-          `拔模失败: ${errorMessage}`
+          i18n.t('modelingTools.draftFailed', { ns: 'editor', message: errorMessage })
         )
       );
       console.error('[DraftFacesTool] Failed:', err);

@@ -321,7 +321,9 @@
     "history": "历史记录",
     "historyTitle": "操作历史",
     "clear": "清除",
-    "empty": "暂无历史记录"
+    "empty": "暂无历史记录",
+    "fallbackUndo": "编辑撤销",
+    "fallbackRedo": "编辑重做"
   },
   "viewClip": {
     "plane": "平面剖切",
@@ -377,7 +379,33 @@
       "totalAngle": "总角度 (Total Angle):",
       "center": "中心点 (Center):",
       "cancel": "取消",
-      "confirm": "确定"
+      "confirm": "确定",
+      "toolCount": "数量",
+      "toolSpacing": "间距",
+      "toolTotalAngle": "总角度"
+    },
+    "hollowFaces": {
+      "title": "抽壳面 (Hollow Faces)",
+      "applied": "已为 {{count}} 个面应用抽壳",
+      "shellThickness": "壳体厚度 (Shell Thickness)",
+      "useDifferentThickness": "为选定面使用不同厚度 (Use different thickness for selected faces)",
+      "faceThickness": "选定面厚度 (Face Thickness)",
+      "cancel": "取消",
+      "apply": "应用"
+    },
+    "solidOps": {
+      "roundApplying": "应用圆角...",
+      "roundSuccess": "圆角应用成功: {{count}} 条边",
+      "roundFailed": "圆角应用失败",
+      "roundError": "圆角失败: {{message}}",
+      "chamferApplying": "应用倒角...",
+      "chamferSuccess": "倒角应用成功: {{count}} 条边",
+      "chamferFailed": "倒角应用失败",
+      "chamferError": "倒角失败: {{message}}",
+      "hollowApplying": "应用抽壳...",
+      "hollowSuccess": "抽壳应用成功: {{count}} 个面",
+      "hollowFailed": "抽壳应用失败",
+      "hollowError": "抽壳失败: {{message}}"
     }
   },
   "briefcase": {
@@ -402,11 +430,204 @@
       "cancel": "取消",
       "releasing": "释放中...",
       "confirm": "确认释放"
+    },
+    "compact": {
+      "loading": "加载中...",
+      "connectionError": "连接错误",
+      "editable": "可编辑",
+      "connected": "已连接",
+      "disconnected": "未连接",
+      "readonly": "只读",
+      "unsaved": "未保存"
     }
   },
   "ai": {
     "title": "AI 助手",
     "reserved": "AI 侧栏预留位",
     "placeholder": "AI 助手将在后续版本接入"
+  },
+  "toolSettings": {
+    "expand": "展开",
+    "collapse": "收起"
+  },
+  "featurePanel": {
+    "title": "特征历史",
+    "undo": "特征撤销",
+    "redo": "特征重做",
+    "readOnlyHint": "只读（未持有写租约）",
+    "loading": "加载中...",
+    "empty": "暂无特征",
+    "suppressed": "已抑制",
+    "evaluationFailed": "求值失败",
+    "editSketchTitle": "编辑草图：跳转到草图模式",
+    "editSketch": "编辑草图",
+    "suppress": "抑制特征",
+    "unsuppress": "取消抑制",
+    "edit": "编辑特征",
+    "delete": "删除特征",
+    "create": "新建特征",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "pickEdge": "从视图选边",
+    "stopPickEdge": "停止选边",
+    "pickFace": "从视图选面",
+    "stopPickFace": "停止选面",
+    "edgePickerBanner": "正在选边：在视口点击边加入引用；右键/Esc 结束",
+    "facePickerBanner": "正在选面：在视口点击面加入引用；右键/Esc 结束",
+    "newDialogTitle": "新建特征",
+    "typeLabel": "特征类型",
+    "typePlaceholder": "选择特征类型",
+    "formModelLoading": "表单模型加载中...",
+    "cancel": "取消",
+    "submitCreate": "创建",
+    "editDialogTitle": "编辑特征：{{label}}",
+    "previewOk": "✓ 试算通过（{{count}} 个特征受影响）",
+    "previewFailed": "⚠ 试算失败：{{error}}",
+    "unknownError": "未知错误",
+    "forceApply": "仍要应用",
+    "apply": "应用",
+    "updated": "特征参数已更新",
+    "created": "特征已创建",
+    "leaseMissing": "未持有写租约",
+    "edgeResolveFailed": "边引用解析失败",
+    "types": {
+      "extrude": "拉伸 (extrude)",
+      "booleanAdd": "布尔加 (booleanAdd)",
+      "booleanSubtract": "布尔减 (booleanSubtract)",
+      "fillet": "圆角 (fillet)",
+      "chamfer": "倒角 (chamfer)",
+      "shell": "抽壳 (shell)"
+    },
+    "faceResolveFailed": "面引用解析失败"
+  },
+  "featureParamForm": {
+    "invalidJson": "JSON 格式非法，未保存该字段",
+    "noEdges": "未选择边",
+    "noFaces": "未选择面",
+    "removeEdge": "删除边引用 {{index}}",
+    "removeFace": "删除面引用 {{index}}"
+  },
+  "assemblyPanel": {
+    "title": "装配体",
+    "createLabel": "创建新装配体",
+    "namePlaceholder": "装配体名称...",
+    "create": "创建",
+    "loading": "加载中...",
+    "empty": "暂无装配体"
+  },
+  "pushChangeset": {
+    "title": "推送变更 (Push Changeset)",
+    "descriptionLabel": "变更描述 (Description)",
+    "required": "必填",
+    "descriptionPlaceholder": "例如：修复底座尺寸、添加圆角特征",
+    "cancel": "取消",
+    "confirm": "推送"
+  },
+  "exportDialog": {
+    "title": "导出模型",
+    "invalidIModelId": "无效的 iModel ID",
+    "noData": "导出失败：没有数据返回",
+    "success": "成功导出 {{format}} 格式，文件大小: {{size}} KB",
+    "failed": "导出失败",
+    "formatLabel": "导出格式",
+    "model": "模型:",
+    "formatHint": "将导出为 {{extension}} 格式文件，导出完成后会自动下载。",
+    "exporting": "正在导出 {{format}} 格式...",
+    "cancel": "取消",
+    "export": "导出",
+    "exportingButton": "导出中..."
+  },
+  "selectionTools": {
+    "fenceResult": "选择了 {{count}} 个元素 ({{mode}}选择)",
+    "window": "窗口",
+    "crossing": "交叉",
+    "selectAll": "选择了全部 {{count}} 个元素",
+    "selectFailed": "选择失败: {{message}}",
+    "invertResult": "选择了 {{count}} 个元素 (反选)",
+    "invertFailed": "反选失败: {{message}}",
+    "cleared": "已清除选择",
+    "byCategory": "按类别选择了 {{count}} 个元素"
+  },
+  "measurementTools": {
+    "distancePrompt": "点击两点测量距离",
+    "distanceResult": "距离: {{distance}} m\nDX: {{dx}}, DY: {{dy}}, DZ: {{dz}}",
+    "anglePrompt": "点击三点测量角度 (顶点为第二点)",
+    "angleResult": "角度: {{degrees}}°",
+    "areaPrompt": "点击多点测量面积 (双击完成)",
+    "areaResult": "面积: {{area}} m²"
+  },
+  "sectionTools": {
+    "originPrompt": "点击选择剖切平面上的点，然后点击确定法向",
+    "originSelected": "已选择剖切平面原点，点击确定法向方向",
+    "applied": "剖切平面已应用: 原点({{x}}, {{y}}, {{z}})",
+    "applyFailed": "应用剖切平面失败",
+    "noViewport": "没有活动的视口",
+    "cleared": "剖切已清除",
+    "clearFailed": "清除剖切失败"
+  },
+  "editTools": {
+    "deleteTxn": "删除元素",
+    "moveTxn": "移动元素",
+    "rotateTxn": "旋转元素",
+    "scaleTxn": "缩放元素",
+    "deletedCount": "删除 {{count}} 个元素",
+    "movedCount": "移动 {{count}} 个元素",
+    "rotatedCount": "旋转 {{count}} 个元素",
+    "scaledCount": "缩放 {{count}} 个元素",
+    "deleteFailed": "删除失败: {{message}}"
+  },
+  "versionOps": {
+    "manualSave": "手动保存",
+    "saving": "保存中...",
+    "saved": "已保存",
+    "saveFailed": "保存失败: {{message}}",
+    "pushing": "推送中...",
+    "pushSuccess": "推送成功",
+    "pushFailed": "推送失败: {{message}}",
+    "checkingConflicts": "检查冲突...",
+    "conflictsFound": "检测到冲突，请解决后重试",
+    "conflictCheckUnavailable": "冲突检测暂不可用，本次拉取跳过冲突预检",
+    "pulling": "拉取中...",
+    "pullSuccess": "拉取成功",
+    "pullFailed": "拉取失败: {{message}}",
+    "resolving": "解决冲突...",
+    "resolved": "已解决 {{count}} 个冲突",
+    "resolveFailed": "解决冲突失败",
+    "resolveFailedWithMessage": "解决冲突失败: {{message}}",
+    "rollingBack": "正在回滚到版本 \"{{versionName}}\"...",
+    "rollbackSuccess": "已回滚到版本 \"{{versionName}}\"",
+    "changesetNotFound": "未找到对应的变更集",
+    "rollbackFailed": "回滚失败: {{message}}",
+    "invalidChangeset": "无效的变更集ID"
+  },
+  "featureSystem": {
+    "notConnected": "未连接 iModel",
+    "leaseHeldBy": "写租约被 {{holder}} 持有",
+    "leaseAcquireFailed": "写租约获取失败",
+    "edgeResolveTimeout": "边引用解析超时（>{{seconds}}s）——服务端无应答，可重新拾取该边",
+    "faceResolveTimeout": "面引用解析超时（>{{seconds}}s）——服务端无应答，可重新拾取该面"
+  },
+  "modelingTools": {
+    "holePrompt": "点击选择打孔位置，或在面上选择具体位置",
+    "holePositionSelected": "已选择位置 ({{x}}, {{y}}, {{z}})，右键完成或继续点击选择新位置",
+    "holeApplying": "正在打孔: 直径 {{diameter}}mm, 深度 {{depth}}mm...",
+    "holeDone": "打孔完成: 直径 {{diameter}}mm, 深度 {{depth}}mm",
+    "holeFailed": "打孔失败: {{message}}",
+    "mirrorSelect": "选择要镜像的元素（已选 {{count}} 个），右键进入下一步",
+    "mirrorPlanePoint": "点击选择镜像平面上的点",
+    "mirrorPlaneNormal": "点击确定镜像平面法向，或右键使用默认法向（Y轴）",
+    "mirrorApplying": "正在镜像 {{count}} 个元素...",
+    "mirrorDone": "镜像完成: {{count}} 个元素已镜像",
+    "mirrorFailed": "镜像失败: {{message}}",
+    "draftPrompt": "点击选择要拔模的面（角度: {{angle}}°），右键完成选择",
+    "draftSelected": "已选择 {{count}} 个面，右键完成选择",
+    "draftApplying": "正在执行拔模: {{count}} 个面, 角度 {{angle}}°...",
+    "draftDone": "拔模完成: {{count}} 个面已应用 {{angle}}° 拔模角度",
+    "draftFailed": "拔模失败: {{message}}"
+  },
+  "selectSubEntity": {
+    "promptFace": "点击选择面 (Face)，右键完成选择",
+    "promptEdge": "点击选择边 (Edge)，右键完成选择",
+    "promptVertex": "点击选择顶点 (Vertex)，右键完成选择"
   }
 }

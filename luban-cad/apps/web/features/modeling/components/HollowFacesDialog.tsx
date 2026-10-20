@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Input } from '@itwin/itwinui-react';
 import { SOLID_MODELING_DEFAULTS } from '../../../shared/lib/constants.js';
 import './ToolDialog.css';
@@ -29,6 +30,7 @@ export const HollowFacesDialog: React.FC<HollowFacesDialogProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const { t } = useTranslation('editor');
   const [shellThickness, setShellThickness] = useState<number>(SOLID_MODELING_DEFAULTS.HOLLOW_THICKNESS);
   const [faceThickness, setFaceThickness] = useState<number>(0);
   const [useFaceThickness, setUseFaceThickness] = useState(false);
@@ -45,18 +47,18 @@ export const HollowFacesDialog: React.FC<HollowFacesDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="抽壳面 (Hollow Faces)"
+      title={t('modeling.hollowFaces.title')}
       className="tool-dialog"
     >
       <div className="tool-dialog-content">
         <div className="tool-info">
           <span className="tool-icon">🥡</span>
-          <p>已为 {selectedCount} 个面应用抽壳</p>
+          <p>{t('modeling.hollowFaces.applied', { count: selectedCount })}</p>
         </div>
 
         <div className="tool-parameter">
           <label htmlFor="shell-thickness">
-            壳体厚度 (Shell Thickness)
+            {t('modeling.hollowFaces.shellThickness')}
             <span className="unit">m</span>
           </label>
           <Input
@@ -86,14 +88,14 @@ export const HollowFacesDialog: React.FC<HollowFacesDialogProps> = ({
               checked={useFaceThickness}
               onChange={(e) => setUseFaceThickness(e.target.checked)}
             />
-            为选定面使用不同厚度 (Use different thickness for selected faces)
+            {t('modeling.hollowFaces.useDifferentThickness')}
           </label>
         </div>
 
         {useFaceThickness && (
           <div className="tool-parameter">
             <label htmlFor="face-thickness">
-              选定面厚度 (Face Thickness)
+              {t('modeling.hollowFaces.faceThickness')}
               <span className="unit">m</span>
             </label>
             <Input
@@ -111,10 +113,10 @@ export const HollowFacesDialog: React.FC<HollowFacesDialogProps> = ({
 
       <div className="tool-dialog-actions">
         <Button onClick={onClose} styleType="default">
-          取消
+          {t('modeling.hollowFaces.cancel')}
         </Button>
         <Button onClick={handleConfirm} styleType="high-visibility">
-          应用
+          {t('modeling.hollowFaces.apply')}
         </Button>
       </div>
     </Dialog>

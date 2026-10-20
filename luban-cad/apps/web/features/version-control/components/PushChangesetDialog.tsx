@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Input } from '@itwin/itwinui-react';
 import '../../../features/modeling/components/ToolDialog.css';
 
@@ -25,6 +26,7 @@ export const PushChangesetDialog: React.FC<PushChangesetDialogProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const { t } = useTranslation('editor');
   const [description, setDescription] = useState('');
 
   const handleConfirm = useCallback(() => {
@@ -44,35 +46,35 @@ export const PushChangesetDialog: React.FC<PushChangesetDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={handleClose}
-      title="推送变更 (Push Changeset)"
+      title={t('pushChangeset.title')}
       className="tool-dialog"
     >
       <div className="tool-dialog-content">
         <div className="tool-parameter">
           <label htmlFor="changeset-description">
-            变更描述 (Description)
-            <span className="unit">必填</span>
+            {t('pushChangeset.descriptionLabel')}
+            <span className="unit">{t('pushChangeset.required')}</span>
           </label>
           <Input
             id="changeset-description"
             type="text"
             value={description}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
-            placeholder="例如：修复底座尺寸、添加圆角特征"
+            placeholder={t('pushChangeset.descriptionPlaceholder')}
           />
         </div>
       </div>
 
       <div className="tool-dialog-actions">
         <Button onClick={handleClose} styleType="default">
-          取消
+          {t('pushChangeset.cancel')}
         </Button>
         <Button
           onClick={handleConfirm}
           styleType="high-visibility"
           disabled={!description.trim()}
         >
-          推送
+          {t('pushChangeset.confirm')}
         </Button>
       </div>
     </Dialog>

@@ -10,6 +10,7 @@ import { Code, GeometricElementProps, isPlacement2dProps, Placement2d, Placement
 import { basicManipulationIpc } from '@itwin/editor-frontend';
 import { EditTools } from '@itwin/editor-frontend';
 import { DialogItem, DialogProperty, DialogPropertySyncItem, PropertyDescriptionHelper, PropertyEditorParamTypes } from '@itwin/appui-abstract';
+import i18n from '../../shared/i18n/index.js';
 
 /**
  * Linear Pattern Tool - Creates linear array of selected elements
@@ -41,11 +42,16 @@ export class LinearPatternTool extends CopyElementsTool {
   protected override get wantDynamics(): boolean { return false; }
 
   // Count property (number of copies to create)
+  // 注：DialogProperty 实例级惰性缓存——工具每次运行现建实例，故每次取当前语言即可；
+  // 同一实例存活期间切语言不刷新标签（可接受，工具会话短暂）。
   public get countProperty(): DialogProperty<number> {
     if (!this._countProperty)
       this._countProperty = new DialogProperty<number>(
-        PropertyDescriptionHelper.buildNumberEditorDescription('patternCount', '数量',
-          { type: PropertyEditorParamTypes.Range, minimum: 2 }), 3);
+        PropertyDescriptionHelper.buildNumberEditorDescription(
+          'patternCount',
+          i18n.t('modeling.pattern.toolCount', { ns: 'editor' }),
+          { type: PropertyEditorParamTypes.Range, minimum: 2 },
+        ), 3);
     return this._countProperty;
   }
 
@@ -56,8 +62,11 @@ export class LinearPatternTool extends CopyElementsTool {
   public get spacingProperty(): DialogProperty<number> {
     if (!this._spacingProperty)
       this._spacingProperty = new DialogProperty<number>(
-        PropertyDescriptionHelper.buildNumberEditorDescription('patternSpacing', '间距',
-          { type: PropertyEditorParamTypes.Range, minimum: 0.001 }), 20);
+        PropertyDescriptionHelper.buildNumberEditorDescription(
+          'patternSpacing',
+          i18n.t('modeling.pattern.toolSpacing', { ns: 'editor' }),
+          { type: PropertyEditorParamTypes.Range, minimum: 0.001 },
+        ), 20);
     return this._spacingProperty;
   }
 
@@ -223,8 +232,11 @@ export class CircularPatternTool extends CopyElementsTool {
   public get countProperty(): DialogProperty<number> {
     if (!this._countProperty)
       this._countProperty = new DialogProperty<number>(
-        PropertyDescriptionHelper.buildNumberEditorDescription('patternCount', '数量',
-          { type: PropertyEditorParamTypes.Range, minimum: 2 }), 4);
+        PropertyDescriptionHelper.buildNumberEditorDescription(
+          'patternCount',
+          i18n.t('modeling.pattern.toolCount', { ns: 'editor' }),
+          { type: PropertyEditorParamTypes.Range, minimum: 2 },
+        ), 4);
     return this._countProperty;
   }
 
@@ -235,8 +247,11 @@ export class CircularPatternTool extends CopyElementsTool {
   public get totalAngleProperty(): DialogProperty<number> {
     if (!this._totalAngleProperty)
       this._totalAngleProperty = new DialogProperty<number>(
-        PropertyDescriptionHelper.buildNumberEditorDescription('patternTotalAngle', '总角度',
-          { type: PropertyEditorParamTypes.Range, minimum: 1, maximum: 360 }), 360);
+        PropertyDescriptionHelper.buildNumberEditorDescription(
+          'patternTotalAngle',
+          i18n.t('modeling.pattern.toolTotalAngle', { ns: 'editor' }),
+          { type: PropertyEditorParamTypes.Range, minimum: 1, maximum: 360 },
+        ), 360);
     return this._totalAngleProperty;
   }
 

@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { ConflictResolution } from '@luban-cad/shared';
+import i18n from '../../../shared/i18n/index.js';
 import type { NamedVersion } from '../../version-control/hooks/useNamedVersions.js';
 import { useConflictDetection } from '../../version-control/hooks/useConflictDetection.js';
 import { useChangesets } from '../../version-control/hooks/useChangesets.js';
@@ -95,56 +96,65 @@ export function useVersionControl(
   });
 
   const handleSave = useCallback(async () => {
-    setOpStatus('保存中...');
+    setOpStatus(i18n.t('versionOps.saving', { ns: 'editor' }));
     try {
-      await saveChanges('手动保存');
+      await saveChanges(i18n.t('versionOps.manualSave', { ns: 'editor' }));
       setHasLocalChanges(true);
       setOpStatus('');
-      showToast('已保存', 'success');
+      showToast(i18n.t('versionOps.saved', { ns: 'editor' }), 'success');
     } catch (e) {
-      const msg = `保存失败: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = i18n.t('versionOps.saveFailed', {
+        ns: 'editor',
+        message: e instanceof Error ? e.message : String(e),
+      });
       setOpStatus(msg);
       showToast(msg, 'error');
     }
   }, [saveChanges, showToast, setOpStatus]);
 
   const handlePush = useCallback(async (description: string) => {
-    setOpStatus('推送中...');
+    setOpStatus(i18n.t('versionOps.pushing', { ns: 'editor' }));
     try {
       await pushChanges(description);
       setHasLocalChanges(false);
       setOpStatus('');
-      showToast('推送成功', 'success');
+      showToast(i18n.t('versionOps.pushSuccess', { ns: 'editor' }), 'success');
     } catch (e) {
-      const msg = `推送失败: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = i18n.t('versionOps.pushFailed', {
+        ns: 'editor',
+        message: e instanceof Error ? e.message : String(e),
+      });
       setOpStatus(msg);
       showToast(msg, 'error');
     }
   }, [pushChanges, showToast, setOpStatus]);
 
   const handlePull = useCallback(async (targetChangesetId?: string) => {
-    setOpStatus('检查冲突...');
+    setOpStatus(i18n.t('versionOps.checkingConflicts', { ns: 'editor' }));
     try {
       const conflictResult = await detectConflicts(targetChangesetId ?? 'latest');
 
       if (conflictResult?.hasConflicts) {
         setPendingPullChangesetId(targetChangesetId ?? 'latest');
         setShowConflictPanel(true);
-        setOpStatus('检测到冲突，请解决后重试');
+        setOpStatus(i18n.t('versionOps.conflictsFound', { ns: 'editor' }));
         return;
       }
 
       if (conflictResult?.featureAvailable === false) {
-        showToast('冲突检测暂不可用，本次拉取跳过冲突预检', 'info');
+        showToast(i18n.t('versionOps.conflictCheckUnavailable', { ns: 'editor' }), 'info');
       }
 
-      setOpStatus('拉取中...');
+      setOpStatus(i18n.t('versionOps.pulling', { ns: 'editor' }));
       await pullChanges();
       setHasRemoteChanges(false);
       setOpStatus('');
-      showToast('拉取成功', 'success');
+      showToast(i18n.t('versionOps.pullSuccess', { ns: 'editor' }), 'success');
     } catch (e) {
-      const msg = `拉取失败: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = i18n.t('versionOps.pullFailed', {
+        ns: 'editor',
+        message: e instanceof Error ? e.message : String(e),
+      });
       setOpStatus(msg);
       showToast(msg, 'error');
     }
@@ -155,11 +165,14 @@ export function useVersionControl(
   }, [handlePull]);
 
   const handleResolveConflicts = useCallback(async (resolutions: Record<string, ConflictResolution>) => {
-    setOpStatus('解决冲突...');
+    setOpStatus(i18n.t('versionOps.resolving', { ns: 'editor' }));
     try {
       const result = await resolveConflicts(resolutions);
       if (result?.success) {
-        showToast(`已解决 ${result.resolvedCount} 个冲突`, 'success');
+        showToast(
+          i18n.t('versionOps.resolved', { ns: 'editor', count: result.resolvedCount }),
+          'success',
+        );
         setShowConflictPanel(false);
         clearDetection();
 
@@ -170,10 +183,13 @@ export function useVersionControl(
         }
         setPendingPullChangesetId(null);
       } else {
-        showToast(result?.error ?? '解决冲突失败', 'error');
+        showToast(result?.error ?? i18n.t('versionOps.resolveFailed', { ns: 'editor' }), 'error');
       }
     } catch (e) {
-      const msg = `解决冲突失败: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = i18n.t('versionOps.resolveFailedWithMessage', {
+        ns: 'editor',
+        message: e instanceof Error ? e.message : String(e),
+      });
       showToast(msg, 'error');
     }
     setOpStatus('');
@@ -186,17 +202,20 @@ export function useVersionControl(
   }, [clearDetection]);
 
   const handleRollbackToVersion = useCallback(async (changesetId: string, versionName: string) => {
-    setOpStatus(`正在回滚到版本 "${versionName}"...`);
+    setOpStatus(i18n.t('versionOps.rollingBack', { ns: 'editor', versionName }));
     try {
       const targetChangeset = changesets.find(cs => cs.id === changesetId);
       if (!targetChangeset) {
-        throw new Error('未找到对应的变更集');
+        throw new Error(i18n.t('versionOps.changesetNotFound', { ns: 'editor' }));
       }
 
       await handlePullToChangeset(changesetId, targetChangeset.index);
-      showToast(`已回滚到版本 "${versionName}"`, 'success');
+      showToast(i18n.t('versionOps.rollbackSuccess', { ns: 'editor', versionName }), 'success');
     } catch (e) {
-      const msg = `回滚失败: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = i18n.t('versionOps.rollbackFailed', {
+        ns: 'editor',
+        message: e instanceof Error ? e.message : String(e),
+      });
       setOpStatus(msg);
       showToast(msg, 'error');
     }
@@ -204,7 +223,7 @@ export function useVersionControl(
 
   const handleCompareVersions = useCallback((source: NamedVersion, target: NamedVersion) => {
     if (!source.changesetId || !target.changesetId) {
-      showToast('无效的变更集ID', 'error');
+      showToast(i18n.t('versionOps.invalidChangeset', { ns: 'editor' }), 'error');
       return;
     }
     setCompareVersions({ source, target });

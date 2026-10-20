@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input, Label, Text, Textarea, ToggleSwitch } from '@itwin/itwinui-react';
 import type { FeatureFormField, FilletEdgeRef, LubanTopologyId } from '@luban-cad/shared';
 
@@ -65,6 +66,7 @@ function parseNumberInput(raw: string): number | undefined {
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
   ({ fields, value, onChange, disabled = false, edgePicker, facePicker }) => {
+    const { t } = useTranslation('editor');
     const [jsonDrafts, setJsonDrafts] = useState<Record<string, string>>(() => {
       const init: Record<string, string> = {};
       for (const f of fields) {
@@ -104,7 +106,7 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
         setJsonErrors((prev) => ({ ...prev, [field.name]: undefined }));
       } catch {
         // 非法 JSON：行内报错，不外传（外发 params 永不为非法 JSON）
-        setJsonErrors((prev) => ({ ...prev, [field.name]: 'JSON 格式非法，未保存该字段' }));
+        setJsonErrors((prev) => ({ ...prev, [field.name]: t('featureParamForm.invalidJson') }));
       }
     };
 
@@ -181,7 +183,7 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
                   <Label>{field.label}</Label>
                   <div className="feature-edge-chips" data-testid={`feature-edge-chips-${field.name}`}>
                     {refs.length === 0 ? (
-                      <Text variant="small" className="feature-edge-empty">未选择边</Text>
+                      <Text variant="small" className="feature-edge-empty">{t('featureParamForm.noEdges')}</Text>
                     ) : (
                       refs.map((ref, i) => (
                         <span className="feature-edge-chip" key={`${formatEdgeChip(ref)}-${i}`}>
@@ -189,7 +191,7 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
                           <button
                             type="button"
                             className="feature-edge-chip-remove"
-                            aria-label={`删除边引用 ${i + 1}`}
+                            aria-label={t('featureParamForm.removeEdge', { index: i + 1 })}
                             disabled={disabled}
                             onClick={() => emit(field.name, refs.filter((_, j) => j !== i))}
                           >
@@ -210,7 +212,7 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
                   <Label>{field.label}</Label>
                   <div className="feature-edge-chips" data-testid={`feature-face-chips-${field.name}`}>
                     {refs.length === 0 ? (
-                      <Text variant="small" className="feature-edge-empty">未选择面</Text>
+                      <Text variant="small" className="feature-edge-empty">{t('featureParamForm.noFaces')}</Text>
                     ) : (
                       refs.map((ref, i) => (
                         <span className="feature-edge-chip" key={`${formatFaceChip(ref)}-${i}`}>
@@ -218,7 +220,7 @@ export const FeatureParamForm: React.FC<FeatureParamFormProps> = React.memo(
                           <button
                             type="button"
                             className="feature-edge-chip-remove"
-                            aria-label={`删除面引用 ${i + 1}`}
+                            aria-label={t('featureParamForm.removeFace', { index: i + 1 })}
                             disabled={disabled}
                             onClick={() => emit(field.name, refs.filter((_, j) => j !== i))}
                           >

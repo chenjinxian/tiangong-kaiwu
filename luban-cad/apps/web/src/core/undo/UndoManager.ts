@@ -8,6 +8,7 @@
 
 import { BeEvent, IModelStatus } from '@itwin/core-bentley';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
+import i18n from '../../../shared/i18n/index.js';
 
 /** Information about a single undoable operation */
 export interface UndoableOperation {
@@ -148,13 +149,15 @@ export class UndoManager {
   /** Get label for next undo operation（txn 描述优先，历史描述兜底） */
   public get undoLabel(): string {
     if (!this.canUndo) return '';
-    return this._txnUndoLabel || this._operationHistory[this._currentIndex]?.description || '编辑撤销';
+    return this._txnUndoLabel || this._operationHistory[this._currentIndex]?.description ||
+      i18n.t('undoRedo.fallbackUndo', { ns: 'editor' });
   }
 
   /** Get label for next redo operation（txn 描述优先，历史描述兜底） */
   public get redoLabel(): string {
     if (!this.canRedo) return '';
-    return this._txnRedoLabel || this._operationHistory[this._currentIndex + 1]?.description || '编辑重做';
+    return this._txnRedoLabel || this._operationHistory[this._currentIndex + 1]?.description ||
+      i18n.t('undoRedo.fallbackRedo', { ns: 'editor' });
   }
 
   /** Get full operation history (for UI display) */

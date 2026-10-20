@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 
 interface EditorBriefcaseStatusProps {
@@ -23,6 +24,7 @@ export function EditorBriefcaseStatus({
   error,
   isEditable,
 }: EditorBriefcaseStatusProps): JSX.Element {
+  const { t } = useTranslation('editor');
   const [hasPendingTxns, setHasPendingTxns] = useState(false);
 
   // Poll for pending transactions when connected and editable
@@ -67,10 +69,12 @@ export function EditorBriefcaseStatus({
   };
 
   const getStatusText = (): string => {
-    if (isLoading) return '加载中...';
-    if (error) return '连接错误';
-    if (connection) return isEditable ? '可编辑' : '已连接';
-    return isEditable ? '未连接' : '只读';
+    if (isLoading) return t('briefcase.compact.loading');
+    if (error) return t('briefcase.compact.connectionError');
+    if (connection) {
+      return isEditable ? t('briefcase.compact.editable') : t('briefcase.compact.connected');
+    }
+    return isEditable ? t('briefcase.compact.disconnected') : t('briefcase.compact.readonly');
   };
 
   const changesetIndex = connection?.changeset?.index;
@@ -103,7 +107,7 @@ export function EditorBriefcaseStatus({
       )}
 
       {hasPendingTxns && (
-        <span className="editor-pending-badge">未保存</span>
+        <span className="editor-pending-badge">{t('briefcase.compact.unsaved')}</span>
       )}
 
       {error && (

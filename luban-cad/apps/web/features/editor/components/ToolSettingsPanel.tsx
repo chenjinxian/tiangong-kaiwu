@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IModelApp } from '@itwin/core-frontend';
 import type { DialogItem, DialogItemValue } from '@itwin/appui-abstract';
 
@@ -15,6 +16,7 @@ import type { DialogItem, DialogItemValue } from '@itwin/appui-abstract';
  * Parent component (Editor.tsx) should conditionally render based on isAppInitialized.
  */
 export const ToolSettingsPanel: React.FC = () => {
+  const { t } = useTranslation('editor');
   const [toolSettings, setToolSettings] = useState<DialogItem[]>([]);
   const [toolLabel, setToolLabel] = useState<string>('');
   const [isVisible, setIsVisible] = useState(false);
@@ -157,7 +159,7 @@ export const ToolSettingsPanel: React.FC = () => {
         <button
           className="tool-settings-close-btn"
           onClick={() => setIsMinimized(!isMinimized)}
-          title={isMinimized ? '展开' : '收起'}
+          title={isMinimized ? t('toolSettings.expand') : t('toolSettings.collapse')}
         >
           {isMinimized ? '▲' : '▼'}
         </button>

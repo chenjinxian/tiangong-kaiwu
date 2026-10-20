@@ -25,6 +25,7 @@ import { type BriefcaseConnection, IModelApp } from '@itwin/core-frontend';
 import type { FilletEdgeRef } from '@luban-cad/shared';
 import { runSelectSubEntityTool, SelectSubEntityTool } from '../../modeling/SelectSubEntityTool.js';
 import type { UseFeatureSystem } from './useFeatureSystem.js';
+import i18n from '../../../shared/i18n/index.js';
 
 export interface UseEdgeRefPickerOptions {
   /** 当前边引用数组（表单值 edges；单一事实源在 FeatureParamForm 的 value/onChange） */
@@ -131,7 +132,9 @@ export function useEdgeRefPicker(
               if (cur.some((e) => refKey(e) === key)) return; // 同一边重复拾取（含序颠倒）→ 去重
               optsRef.current.onEdgesChange([...cur, r.ref]);
             } else {
-              optsRef.current.onError?.(r.error ?? '边引用解析失败');
+              optsRef.current.onError?.(
+                r.error ?? i18n.t('featurePanel.edgeResolveFailed', { ns: 'editor' }),
+              );
             }
           })
           .catch((err: unknown) => {

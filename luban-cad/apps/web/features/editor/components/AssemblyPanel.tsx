@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type BriefcaseConnection, IpcApp } from '@itwin/core-frontend';
 import { openCloudIpcChannel, type OpenCloudIpcInterface } from '@luban-cad/shared';
 import { Alert, Button, IconButton, Input, Text } from '@itwin/itwinui-react';
@@ -27,6 +28,7 @@ interface AssemblyPanelProps {
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const AssemblyPanel: React.FC<AssemblyPanelProps> = React.memo(({ connection, isVisible }) => {
+  const { t } = useTranslation('editor');
   const [assemblies, setAssemblies] = useState<AssemblyRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,11 +74,11 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = React.memo(({ connect
   return (
     <div className="assembly-panel">
       <div className="assembly-panel-header">
-        <Text variant="title" className="assembly-panel-title">装配体</Text>
+        <Text variant="title" className="assembly-panel-title">{t('assemblyPanel.title')}</Text>
         <IconButton
           size="small"
           styleType="borderless"
-          label="创建新装配体"
+          label={t('assemblyPanel.createLabel')}
           onClick={() => setShowAdd((v) => !v)}
         >
           <SvgAdd />
@@ -88,7 +90,7 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = React.memo(({ connect
           <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="装配体名称..."
+            placeholder={t('assemblyPanel.namePlaceholder')}
             size="small"
             onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate(); }}
           />
@@ -97,17 +99,17 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = React.memo(({ connect
             size="small"
             onClick={() => void handleCreate()}
           >
-            创建
+            {t('assemblyPanel.create')}
           </Button>
         </div>
       )}
 
       {error && <Alert type="negative">{error}</Alert>}
-      {isLoading && <Text className="assembly-loading">加载中...</Text>}
+      {isLoading && <Text className="assembly-loading">{t('assemblyPanel.loading')}</Text>}
 
       <div className="assembly-list">
         {assemblies.length === 0 && !isLoading && (
-          <Text className="assembly-empty">暂无装配体</Text>
+          <Text className="assembly-empty">{t('assemblyPanel.empty')}</Text>
         )}
         {assemblies.map((asm) => (
           <div key={asm.id} className="assembly-item">

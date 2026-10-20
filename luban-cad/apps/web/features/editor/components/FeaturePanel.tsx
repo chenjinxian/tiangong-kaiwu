@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Dialog, IconButton, Label, Select, Text } from '@itwin/itwinui-react';
 import { SvgAdd, SvgChevronDown, SvgChevronUp, SvgDelete, SvgEdit, SvgRedo, SvgUndo, SvgVisibilityHalf } from '@itwin/itwinui-icons-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
@@ -41,14 +42,14 @@ const FEATURE_ICONS: Record<string, string> = {
   shell: '◻',
 };
 
-/** 特征类型 → 展示标签（formModel 键集驱动的新建入口共用同一套键） */
-const FEATURE_TYPE_LABELS: Record<string, string> = {
-  extrude: '拉伸 (extrude)',
-  booleanAdd: '布尔加 (booleanAdd)',
-  booleanSubtract: '布尔减 (booleanSubtract)',
-  fillet: '圆角 (fillet)',
-  chamfer: '倒角 (chamfer)',
-  shell: '抽壳 (shell)',
+/** 特征类型 → i18n 键（formModel 键集驱动的新建入口共用同一套键） */
+const FEATURE_TYPE_LABEL_KEYS: Record<string, string> = {
+  extrude: 'featurePanel.types.extrude',
+  booleanAdd: 'featurePanel.types.booleanAdd',
+  booleanSubtract: 'featurePanel.types.booleanSubtract',
+  fillet: 'featurePanel.types.fillet',
+  chamfer: 'featurePanel.types.chamfer',
+  shell: 'featurePanel.types.shell',
 };
 
 /** T6.4 试算预览 debounce 窗口（草稿停笔 400ms 后才发 previewOp，折叠连续击键） */
@@ -155,6 +156,12 @@ function buildInitialValue(fields: FeatureFormField[], params: Record<string, un
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, connection, onEditFeature, onToast, onEditSketch, isVisible = true }) => {
+  const { t } = useTranslation('editor');
+  /** 类型标签运行时解析（语言切换即生效；未知类型回退原始 featureType） */
+  const getFeatureTypeLabel = useCallback(
+    (type: string): string => (FEATURE_TYPE_LABEL_KEYS[type] ? t(FEATURE_TYPE_LABEL_KEYS[type]) : type),
+    [t],
+  );
   const [showNew, setShowNew] = useState(false);
   const [newType, setNewType] = useState<string | undefined>(undefined);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -271,7 +278,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
   /** 树区行内写操作统一出口：租约缺失直接拒（aria-disabled 按钮仍可派发 click，双保险）；成功清错误、失败 Alert + 可选 toast */
   const runOp = useCallback(
     async (op: Parameters<UseFeatureSystem['applyOp']>[0]) => {
-      if (!fs.leaseOk) return { ok: false as const, error: '未持有写租约' };
+      if (!fs.leaseOk) return { ok: false as const, error: t('featurePanel.leaseMissing') };
       const result = await fs.applyOp(op);
       if (!result.ok) {
         setActionError(result.error);
@@ -281,7 +288,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
       }
       return result;
     },
-    [fs, onToast],
+    [fs, onToast, t],
   );
 
   const handleToggleSuppress = useCallback(
@@ -344,7 +351,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
   const applyFromDialog = useCallback(
     async (op: Parameters<UseFeatureSystem['applyOp']>[0], successMessage: string) => {
       if (!fs.leaseOk) {
-        setDialogError('未持有写租约');
+        setDialogError(t('featurePanel.leaseMissing'));
         return;
       }
       setApplying(true);
@@ -366,33 +373,33 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
         setApplying(false);
       }
     },
-    [fs, onToast],
+    [fs, onToast, t],
   );
 
   const handleApplyEdit = useCallback(() => {
     if (!editing) return;
     void applyFromDialog(
       { kind: 'updateParams', featureId: editing.id, params: formValue as unknown as FeatureParams },
-      '特征参数已更新',
+      t('featurePanel.updated'),
     );
-  }, [applyFromDialog, editing, formValue]);
+  }, [applyFromDialog, editing, formValue, t]);
 
   /** T6.4 预览失败时的强制应用（「仍要应用」）：防引用失效等误操作锁死用户——守卫文案已由徽标呈现，确认权交还用户 */
   const handleForceApplyEdit = useCallback(() => {
     if (!editing || preview?.ok !== false) return;
     void applyFromDialog(
       { kind: 'updateParams', featureId: editing.id, params: formValue as unknown as FeatureParams },
-      '特征参数已更新',
+      t('featurePanel.updated'),
     );
-  }, [applyFromDialog, editing, preview, formValue]);
+  }, [applyFromDialog, editing, preview, formValue, t]);
 
   const handleCreate = useCallback(() => {
     if (!newType) return;
     void applyFromDialog(
       { kind: 'insertFeature', featureType: newType as LubanFeatureType, params: formValue as unknown as FeatureParams },
-      '特征已创建',
+      t('featurePanel.created'),
     );
-  }, [applyFromDialog, newType, formValue]);
+  }, [applyFromDialog, newType, formValue, t]);
 
   const handleNewTypeChange = useCallback(
     (type: string) => {
@@ -419,11 +426,11 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
 
   const newFeatureOptions = Object.keys(fs.formModel ?? {}).map((type) => ({
     value: type,
-    label: FEATURE_TYPE_LABELS[type] ?? type,
+    label: getFeatureTypeLabel(type),
   }));
 
   const editingFields = editing ? (fs.formModel?.[editing.featureType]?.fields ?? []) : [];
-  const editingLabel = editing ? (FEATURE_TYPE_LABELS[editing.featureType] ?? editing.featureType) : '';
+  const editingLabel = editing ? getFeatureTypeLabel(editing.featureType) : '';
   /** T6.4：试算失败 → 主「应用」禁用 + 呈现「仍要应用」强制出口 */
   const previewFailed = preview !== null && !preview.ok;
   const newFields = newType ? (fs.formModel?.[newType]?.fields ?? []) : [];
@@ -439,7 +446,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           onClick={() => (picker.picking ? picker.stop() : picker.start())}
           disabled={readOnly || applying || !connection}
         >
-          {picker.picking ? '停止选边' : '从视图选边'}
+          {picker.picking ? t('featurePanel.stopPickEdge') : t('featurePanel.pickEdge')}
         </Button>
       </div>
     );
@@ -456,7 +463,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           onClick={() => (facePicker.picking ? facePicker.stop() : facePicker.start())}
           disabled={readOnly || applying || !connection}
         >
-          {facePicker.picking ? '停止选面' : '从视图选面'}
+          {facePicker.picking ? t('featurePanel.stopPickFace') : t('featurePanel.pickFace')}
         </Button>
       </div>
     );
@@ -465,12 +472,12 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
   return (
     <div className="feature-panel">
       <div className="feature-panel-header">
-        <Text variant="title" className="feature-panel-title">特征历史</Text>
+        <Text variant="title" className="feature-panel-title">{t('featurePanel.title')}</Text>
         <div className="feature-panel-undo-redo">
           <IconButton
             size="small"
             styleType="borderless"
-            label="特征撤销"
+            label={t('featurePanel.undo')}
             onClick={handleUndo}
             disabled={readOnly}
           >
@@ -479,7 +486,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           <IconButton
             size="small"
             styleType="borderless"
-            label="特征重做"
+            label={t('featurePanel.redo')}
             onClick={handleRedo}
             disabled={readOnly}
           >
@@ -487,18 +494,18 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           </IconButton>
         </div>
         {readOnly && (
-          <Text variant="small" className="feature-readonly-hint">只读（未持有写租约）</Text>
+          <Text variant="small" className="feature-readonly-hint">{t('featurePanel.readOnlyHint')}</Text>
         )}
       </div>
 
       {fs.error && <Alert type="negative">{fs.error}</Alert>}
       {actionError && <Alert type="negative">{actionError}</Alert>}
 
-      {fs.loading && <Text className="feature-panel-loading">加载中...</Text>}
+      {fs.loading && <Text className="feature-panel-loading">{t('featurePanel.loading')}</Text>}
 
       <div className="feature-list">
         {sortedTree.length === 0 && !fs.loading && (
-          <Text className="feature-empty">暂无特征</Text>
+          <Text className="feature-empty">{t('featurePanel.empty')}</Text>
         )}
         {sortedTree.map((entry, idx) => {
           const failed = entry.status !== 0;
@@ -526,7 +533,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                   <IconButton
                     size="small"
                     styleType="borderless"
-                    label="上移"
+                    label={t('featurePanel.moveUp')}
                     onClick={() => handleMove(entry, -1)}
                     disabled={readOnly || idx === 0}
                   >
@@ -535,7 +542,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                   <IconButton
                     size="small"
                     styleType="borderless"
-                    label="下移"
+                    label={t('featurePanel.moveDown')}
                     onClick={() => handleMove(entry, 1)}
                     disabled={readOnly || idx === sortedTree.length - 1}
                   >
@@ -550,17 +557,17 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
 
               <div className="feature-info">
                 <Text className="feature-type">
-                  {FEATURE_TYPE_LABELS[entry.featureType] ?? entry.featureType}
+                  {getFeatureTypeLabel(entry.featureType)}
                 </Text>
                 <div className="feature-badges">
                   {entry.suppressed && (
-                    <Text variant="small" className="feature-badge feature-badge--suppressed">已抑制</Text>
+                    <Text variant="small" className="feature-badge feature-badge--suppressed">{t('featurePanel.suppressed')}</Text>
                   )}
                   {failed && (
                     <span
                       className="feature-badge feature-badge--failed"
-                      title="求值失败"
-                      aria-label="求值失败"
+                      title={t('featurePanel.evaluationFailed')}
+                      aria-label={t('featurePanel.evaluationFailed')}
                     >
                       ●
                     </span>
@@ -574,17 +581,17 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                     size="small"
                     styleType="borderless"
                     className="feature-sketch-link"
-                    title="编辑草图：跳转到草图模式"
+                    title={t('featurePanel.editSketchTitle')}
                     onClick={() => onEditSketch(sketchId)}
                   >
-                    编辑草图
+                    {t('featurePanel.editSketch')}
                   </Button>
                 )}
 
                 <IconButton
                   size="small"
                   styleType="borderless"
-                  label={entry.suppressed ? '取消抑制' : '抑制特征'}
+                  label={entry.suppressed ? t('featurePanel.unsuppress') : t('featurePanel.suppress')}
                   onClick={() => handleToggleSuppress(entry)}
                   disabled={readOnly}
                 >
@@ -594,7 +601,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                 <IconButton
                   size="small"
                   styleType="borderless"
-                  label="编辑特征"
+                  label={t('featurePanel.edit')}
                   onClick={() => handleEdit(entry)}
                   disabled={readOnly}
                 >
@@ -604,7 +611,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                 <IconButton
                   size="small"
                   styleType="borderless"
-                  label="删除特征"
+                  label={t('featurePanel.delete')}
                   onClick={() => handleDelete(entry)}
                   disabled={readOnly}
                   className="feature-delete-btn"
@@ -626,7 +633,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           onClick={() => setShowNew(true)}
           disabled={readOnly}
         >
-          新建特征
+          {t('featurePanel.create')}
         </Button>
       </div>
 
@@ -635,17 +642,17 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
          chips 已更新。两浮条互斥（任一拾取会话独占视口）。 */}
       {picker.picking && (
         <div className="feature-edge-picker-banner" data-testid="edge-picker-banner">
-          <Text variant="small">正在选边：在视口点击边加入引用；右键/Esc 结束</Text>
+          <Text variant="small">{t('featurePanel.edgePickerBanner')}</Text>
           <Button size="small" styleType="borderless" onClick={() => picker.stop()}>
-            停止选边
+            {t('featurePanel.stopPickEdge')}
           </Button>
         </div>
       )}
       {facePicker.picking && (
         <div className="feature-edge-picker-banner" data-testid="face-picker-banner">
-          <Text variant="small">正在选面：在视口点击面加入引用；右键/Esc 结束</Text>
+          <Text variant="small">{t('featurePanel.facePickerBanner')}</Text>
           <Button size="small" styleType="borderless" onClick={() => facePicker.stop()}>
-            停止选面
+            {t('featurePanel.stopPickFace')}
           </Button>
         </div>
       )}
@@ -659,17 +666,17 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
       >
         <Dialog.Backdrop />
         <Dialog.Main styleType="default">
-          <Dialog.TitleBar titleText="新建特征" />
+          <Dialog.TitleBar titleText={t('featurePanel.newDialogTitle')} />
           <Dialog.Content>
             {fs.formModel ? (
               <>
                 <div className="form-group">
-                  <Label htmlFor="feature-new-type">特征类型</Label>
+                  <Label htmlFor="feature-new-type">{t('featurePanel.typeLabel')}</Label>
                   <Select
                     native
                     id="feature-new-type"
                     value={newType ?? ''}
-                    placeholder="选择特征类型"
+                    placeholder={t('featurePanel.typePlaceholder')}
                     options={newFeatureOptions}
                     onChange={handleNewTypeChange}
                     size="small"
@@ -688,7 +695,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                 )}
               </>
             ) : (
-              <Text className="feature-formmodel-loading">表单模型加载中...</Text>
+              <Text className="feature-formmodel-loading">{t('featurePanel.formModelLoading')}</Text>
             )}
             {dialogError && (
               <Alert type="negative" className="feature-dialog-error">{dialogError}</Alert>
@@ -699,14 +706,14 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
               styleType="default"
               onClick={closeNew}
             >
-              取消
+              {t('featurePanel.cancel')}
             </Button>
             <Button
               styleType="high-visibility"
               onClick={handleCreate}
               disabled={!newType || readOnly || applying}
             >
-              创建
+              {t('featurePanel.submitCreate')}
             </Button>
           </Dialog.ButtonBar>
         </Dialog.Main>
@@ -721,7 +728,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
       >
         <Dialog.Backdrop />
         <Dialog.Main styleType="default">
-          <Dialog.TitleBar titleText={`编辑特征：${editingLabel}`} />
+          <Dialog.TitleBar titleText={t('featurePanel.editDialogTitle', { label: editingLabel })} />
           <Dialog.Content>
             {editing && (
               <>
@@ -730,8 +737,8 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                   <div className="preview-badge" data-testid="preview-badge">
                     <Badge backgroundColor={preview.ok ? 'positive' : 'negative'}>
                       {preview.ok
-                        ? `✓ 试算通过（${preview.affectedCount} 个特征受影响）`
-                        : `⚠ 试算失败：${preview.error ?? '未知错误'}`}
+                        ? t('featurePanel.previewOk', { count: preview.affectedCount })
+                        : t('featurePanel.previewFailed', { error: preview.error ?? t('featurePanel.unknownError') })}
                     </Badge>
                   </div>
                 )}
@@ -755,7 +762,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
               styleType="default"
               onClick={closeEdit}
             >
-              取消
+              {t('featurePanel.cancel')}
             </Button>
             {previewFailed && (
               <Button
@@ -763,7 +770,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
                 onClick={handleForceApplyEdit}
                 disabled={readOnly || applying}
               >
-                仍要应用
+                {t('featurePanel.forceApply')}
               </Button>
             )}
             <Button
@@ -771,7 +778,7 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
               onClick={handleApplyEdit}
               disabled={!editing || readOnly || applying || previewFailed}
             >
-              应用
+              {t('featurePanel.apply')}
             </Button>
           </Dialog.ButtonBar>
         </Dialog.Main>

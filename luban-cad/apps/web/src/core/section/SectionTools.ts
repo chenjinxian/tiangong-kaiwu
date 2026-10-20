@@ -18,6 +18,7 @@ import {
 } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
 import { ColorDef, LinePixels } from '@itwin/core-common';
+import i18n from '../../../shared/i18n/index.js';
 
 /** Clip using a plane tool */
 export class SectionByPlaneTool extends PrimitiveTool {
@@ -41,7 +42,7 @@ export class SectionByPlaneTool extends PrimitiveTool {
     IModelApp.notifications.outputMessage(
       new NotifyMessageDetails(
         OutputMessagePriority.Info,
-        '点击选择剖切平面上的点，然后点击确定法向'
+        i18n.t('sectionTools.originPrompt', { ns: 'editor' })
       )
     );
   }
@@ -58,7 +59,7 @@ export class SectionByPlaneTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
           OutputMessagePriority.Info,
-          '已选择剖切平面原点，点击确定法向方向'
+          i18n.t('sectionTools.originSelected', { ns: 'editor' })
         )
       );
 
@@ -126,14 +127,19 @@ export class SectionByPlaneTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
           OutputMessagePriority.Success,
-          `剖切平面已应用: 原点(${this._origin.x.toFixed(2)}, ${this._origin.y.toFixed(2)}, ${this._origin.z.toFixed(2)})`
+          i18n.t('sectionTools.applied', {
+            ns: 'editor',
+            x: this._origin.x.toFixed(2),
+            y: this._origin.y.toFixed(2),
+            z: this._origin.z.toFixed(2),
+          })
         )
       );
     } catch {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
           OutputMessagePriority.Error,
-          '应用剖切平面失败'
+          i18n.t('sectionTools.applyFailed', { ns: 'editor' })
         )
       );
     }
@@ -166,7 +172,7 @@ export class ClearSectionTool extends PrimitiveTool {
         IModelApp.notifications.outputMessage(
           new NotifyMessageDetails(
             OutputMessagePriority.Info,
-            '没有活动的视口'
+            i18n.t('sectionTools.noViewport', { ns: 'editor' })
           )
         );
         return;
@@ -178,14 +184,14 @@ export class ClearSectionTool extends PrimitiveTool {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
           OutputMessagePriority.Success,
-          '剖切已清除'
+          i18n.t('sectionTools.cleared', { ns: 'editor' })
         )
       );
     } catch {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
           OutputMessagePriority.Error,
-          '清除剖切失败'
+          i18n.t('sectionTools.clearFailed', { ns: 'editor' })
         )
       );
     }

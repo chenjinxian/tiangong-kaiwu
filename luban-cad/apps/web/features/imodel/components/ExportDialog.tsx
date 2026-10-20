@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Button,
@@ -45,6 +46,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   onClose,
   onExport,
 }) => {
+  const { t } = useTranslation('editor');
   const [format, setFormat] = useState<ExportFormat>('GLTF');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +78,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
   const handleExport = useCallback(async () => {
     if (!iModelId) {
-      setError('无效的 iModel ID');
+      setError(t('exportDialog.invalidIModelId'));
       return;
     }
 
@@ -89,7 +91,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       const data = await rpc.exportIModel(iModelId, format);
 
       if (!data || data.length === 0) {
-        throw new Error('导出失败：没有数据返回');
+        throw new Error(t('exportDialog.noData'));
       }
 
       const baseName = iModelName.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -98,7 +100,10 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       // Download the file
       downloadFile(data, fileName, getMimeType());
 
-      setSuccess(`成功导出 ${format} 格式，文件大小: ${(data.length / 1024).toFixed(2)} KB`);
+      setSuccess(t('exportDialog.success', {
+        format,
+        size: (data.length / 1024).toFixed(2),
+      }));
 
       if (onExport) {
         onExport(format, fileName);
@@ -110,17 +115,17 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       }, 1500);
     } catch (err) {
       console.error('[ExportDialog] Export failed:', err);
-      setError(err instanceof Error ? err.message : '导出失败');
+      setError(err instanceof Error ? err.message : t('exportDialog.failed'));
     } finally {
       setIsExporting(false);
     }
-  }, [iModelId, iModelName, format, downloadFile, handleClose, onExport]);
+  }, [iModelId, iModelName, format, downloadFile, handleClose, onExport, t]);
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={handleClose}
-      title="导出模型"
+      title={t('exportDialog.title')}
       isDismissible={!isExporting}
     >
       <div className="create-imodel-form">
@@ -137,7 +142,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
         )}
 
         <div className="form-field">
-          <Label htmlFor="export-format">导出格式</Label>
+          <Label htmlFor="export-format">{t('exportDialog.formatLabel')}</Label>
           <Select
             id="export-format"
             options={EXPORT_FORMATS}
@@ -149,13 +154,13 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
         <div className="form-field">
           <Text variant="small" style={{ color: '#666' }}>
-            模型: <strong>{iModelName}</strong>
+            {t('exportDialog.model')} <strong>{iModelName}</strong>
           </Text>
         </div>
 
         <div className="form-field">
           <Text variant="small" style={{ color: '#666' }}>
-            将导出为 {FORMAT_EXTENSIONS[format]} 格式文件，导出完成后会自动下载。
+            {t('exportDialog.formatHint', { extension: FORMAT_EXTENSIONS[format] })}
           </Text>
         </div>
 
@@ -163,7 +168,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           <div className="form-field" style={{ textAlign: 'center', padding: '20px' }}>
             <ProgressRadial size="large" indeterminate />
             <Text variant="small" style={{ marginTop: '12px', display: 'block' }}>
-              正在导出 {format} 格式...
+              {t('exportDialog.exporting', { format })}
             </Text>
           </div>
         )}
@@ -175,14 +180,14 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
           onClick={handleClose}
           disabled={isExporting}
         >
-          取消
+          {t('exportDialog.cancel')}
         </Button>
         <Button
           styleType="high-visibility"
           onClick={handleExport}
           disabled={isExporting}
         >
-          {isExporting ? '导出中...' : '导出'}
+          {isExporting ? t('exportDialog.exportingButton') : t('exportDialog.export')}
         </Button>
       </div>
     </Dialog>

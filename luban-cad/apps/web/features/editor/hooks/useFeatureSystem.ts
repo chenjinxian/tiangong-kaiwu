@@ -15,6 +15,7 @@ import {
   type LubanTopologyId,
   type PreviewResult,
 } from '@luban-cad/shared';
+import i18n from '../../../shared/i18n/index.js';
 
 /** 写租约续期间隔（与后端 WriteLease 租期配套：10s 一跳） */
 const LEASE_RENEW_INTERVAL_MS = 10_000;
@@ -150,7 +151,7 @@ export function useFeatureSystem(
   }, [connectionKey]);
 
   const applyOp = useCallback(async (op: FeatureOp): Promise<FeatureOpResult> => {
-    if (!connectionKey) return { ok: false, error: '未连接 iModel' };
+    if (!connectionKey) return { ok: false, error: i18n.t('featureSystem.notConnected', { ns: 'editor' }) };
     const client = LubanFeatureRpcInterface.getClient();
     const sessionId = sessionIdRef.current;
     // 租约自愈（2026-10-11）：前页/重载残留的陈旧租约要等服务端 30s TTL 自然过期，而 op
@@ -170,7 +171,12 @@ export function useFeatureSystem(
         holder = undefined; // 网络抖动：窗口内照常重试
       }
       if (Date.now() >= deadline) {
-        return { ok: false, error: holder ? `写租约被 ${holder} 持有` : '写租约获取失败' };
+        return {
+          ok: false,
+          error: holder
+            ? i18n.t('featureSystem.leaseHeldBy', { ns: 'editor', holder })
+            : i18n.t('featureSystem.leaseAcquireFailed', { ns: 'editor' }),
+        };
       }
       await new Promise((resolve) => setTimeout(resolve, LEASE_OP_ACQUIRE_RETRY_MS));
     }
@@ -193,7 +199,7 @@ export function useFeatureSystem(
 
   const resolveEdgeRef = useCallback(
     async (elementId: string, subEntityId: number): Promise<{ ok: boolean; ref?: FilletEdgeRef; error?: string }> => {
-      if (!connectionKey) return { ok: false, error: '未连接 iModel' };
+      if (!connectionKey) return { ok: false, error: i18n.t('featureSystem.notConnected', { ns: 'editor' }) };
       // ⑩ 残留加固（2026-10-11）：rpc-over-ipc 无传输级超时——悬挂形态（backlog ⑩，如
       // 陈旧产物×新 native 的 req=1/resp=0）下前端 promise 永悬零反馈。特征级兜底：与
       // 超时竞速，超时转 ok:false + 可重拾取文案（拾取会话已自然完成，重开「从视图选边」
@@ -208,7 +214,10 @@ export function useFeatureSystem(
           raw,
           new Promise<never>((_, reject) => {
             timer = setTimeout(
-              () => reject(new Error(`边引用解析超时（>${RESOLVE_EDGE_REF_TIMEOUT_MS / 1000}s）——服务端无应答，可重新拾取该边`)),
+              () => reject(new Error(i18n.t('featureSystem.edgeResolveTimeout', {
+                ns: 'editor',
+                seconds: RESOLVE_EDGE_REF_TIMEOUT_MS / 1000,
+              }))),
               RESOLVE_EDGE_REF_TIMEOUT_MS,
             );
           }),
@@ -225,7 +234,7 @@ export function useFeatureSystem(
   /** RW2-T7：面引用寻址——同 resolveEdgeRef 的兜底纪律（超时竞速 + 迟到 no-op catch）。 */
   const resolveFaceRef = useCallback(
     async (elementId: string, subEntityId: number): Promise<{ ok: boolean; ref?: LubanTopologyId; error?: string }> => {
-      if (!connectionKey) return { ok: false, error: '未连接 iModel' };
+      if (!connectionKey) return { ok: false, error: i18n.t('featureSystem.notConnected', { ns: 'editor' }) };
       const raw = LubanFeatureRpcInterface
         .getClient()
         .resolveFaceRef(connectionKey, elementId, subEntityId);
@@ -236,7 +245,10 @@ export function useFeatureSystem(
           raw,
           new Promise<never>((_, reject) => {
             timer = setTimeout(
-              () => reject(new Error(`面引用解析超时（>${RESOLVE_FACE_REF_TIMEOUT_MS / 1000}s）——服务端无应答，可重新拾取该面`)),
+              () => reject(new Error(i18n.t('featureSystem.faceResolveTimeout', {
+                ns: 'editor',
+                seconds: RESOLVE_FACE_REF_TIMEOUT_MS / 1000,
+              }))),
               RESOLVE_FACE_REF_TIMEOUT_MS,
             );
           }),

@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react';
 import { keyboardManager } from '../../../src/core/shortcuts/KeyboardManager.js';
+import i18n from '../../../shared/i18n/index.js';
 
 /**
  * Hook for keyboard shortcuts in the editor.
@@ -22,7 +23,10 @@ export function useEditorKeyboard(
       const tag = document.activeElement?.tagName;
       if (e.key === 'Delete' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
         void deleteSelected().catch((err: unknown) =>
-          onStatusChange(`删除失败: ${err instanceof Error ? err.message : String(err)}`)
+          onStatusChange(i18n.t('editTools.deleteFailed', {
+            ns: 'editor',
+            message: err instanceof Error ? err.message : String(err),
+          }))
         );
       }
 

@@ -23,6 +23,7 @@ import { type BriefcaseConnection, IModelApp } from '@itwin/core-frontend';
 import type { LubanTopologyId } from '@luban-cad/shared';
 import { runSelectSubEntityTool, SelectSubEntityTool } from '../../modeling/SelectSubEntityTool.js';
 import type { UseFeatureSystem } from './useFeatureSystem.js';
+import i18n from '../../../shared/i18n/index.js';
 
 export interface UseFaceRefPickerOptions {
   /** 当前面引用数组（表单值 faces；单一事实源在 FeatureParamForm 的 value/onChange） */
@@ -122,7 +123,9 @@ export function useFaceRefPicker(
               if (cur.some((f) => refKey(f) === key)) return; // 同一面重复拾取 → 去重
               optsRef.current.onFacesChange([...cur, r.ref]);
             } else {
-              optsRef.current.onError?.(r.error ?? '面引用解析失败');
+              optsRef.current.onError?.(
+                r.error ?? i18n.t('featurePanel.faceResolveFailed', { ns: 'editor' }),
+              );
             }
           })
           .catch((err: unknown) => {

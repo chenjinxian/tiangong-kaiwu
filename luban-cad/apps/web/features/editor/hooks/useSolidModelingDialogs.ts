@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ChamferMode, type SubEntityLocationProps } from '@itwin/editor-common';
+import i18n from '../../../shared/i18n/index.js';
 import { solidModelingEvents } from '../../modeling/SolidModelingEvents.js';
 import { useSolidModeling } from '../../modeling/hooks/useSolidModeling.js';
 
@@ -83,7 +84,7 @@ export function useSolidModelingDialogs(
   const handleRoundConfirm = useCallback(async (params: { radius: number; propagateSmooth: boolean }) => {
     if (!selectedElementId || selectedEdges.length === 0) return;
 
-    setOpStatus('应用圆角...');
+    setOpStatus(i18n.t('modeling.solidOps.roundApplying', { ns: 'editor' }));
     try {
       const result = await blendEdges(selectedElementId, {
         radius: params.radius,
@@ -92,12 +93,18 @@ export function useSolidModelingDialogs(
       });
 
       if (result) {
-        showToast(`圆角应用成功: ${selectedEdges.length} 条边`, 'success');
+        showToast(
+          i18n.t('modeling.solidOps.roundSuccess', { ns: 'editor', count: selectedEdges.length }),
+          'success',
+        );
       } else {
-        showToast('圆角应用失败', 'error');
+        showToast(i18n.t('modeling.solidOps.roundFailed', { ns: 'editor' }), 'error');
       }
     } catch (e) {
-      const msg = `圆角失败: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = i18n.t('modeling.solidOps.roundError', {
+        ns: 'editor',
+        message: e instanceof Error ? e.message : String(e),
+      });
       showToast(msg, 'error');
     }
     setOpStatus('');
@@ -116,7 +123,7 @@ export function useSolidModelingDialogs(
   }) => {
     if (!selectedElementId || selectedEdges.length === 0) return;
 
-    setOpStatus('应用倒角...');
+    setOpStatus(i18n.t('modeling.solidOps.chamferApplying', { ns: 'editor' }));
     try {
       const result = await chamferEdges(selectedElementId, {
         edges: selectedEdges,
@@ -129,12 +136,18 @@ export function useSolidModelingDialogs(
       });
 
       if (result) {
-        showToast(`倒角应用成功: ${selectedEdges.length} 条边`, 'success');
+        showToast(
+          i18n.t('modeling.solidOps.chamferSuccess', { ns: 'editor', count: selectedEdges.length }),
+          'success',
+        );
       } else {
-        showToast('倒角应用失败', 'error');
+        showToast(i18n.t('modeling.solidOps.chamferFailed', { ns: 'editor' }), 'error');
       }
     } catch (e) {
-      const msg = `倒角失败: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = i18n.t('modeling.solidOps.chamferError', {
+        ns: 'editor',
+        message: e instanceof Error ? e.message : String(e),
+      });
       showToast(msg, 'error');
     }
     setOpStatus('');
@@ -146,7 +159,7 @@ export function useSolidModelingDialogs(
   const handleHollowConfirm = useCallback(async (params: { shellThickness: number; faceThickness: number }) => {
     if (!selectedElementId || selectedFaces.length === 0) return;
 
-    setOpStatus('应用抽壳...');
+    setOpStatus(i18n.t('modeling.solidOps.hollowApplying', { ns: 'editor' }));
     try {
       const result = await hollowFaces(selectedElementId, {
         faces: selectedFaces,
@@ -155,12 +168,18 @@ export function useSolidModelingDialogs(
       });
 
       if (result) {
-        showToast(`抽壳应用成功: ${selectedFaces.length} 个面`, 'success');
+        showToast(
+          i18n.t('modeling.solidOps.hollowSuccess', { ns: 'editor', count: selectedFaces.length }),
+          'success',
+        );
       } else {
-        showToast('抽壳应用失败', 'error');
+        showToast(i18n.t('modeling.solidOps.hollowFailed', { ns: 'editor' }), 'error');
       }
     } catch (e) {
-      const msg = `抽壳失败: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = i18n.t('modeling.solidOps.hollowError', {
+        ns: 'editor',
+        message: e instanceof Error ? e.message : String(e),
+      });
       showToast(msg, 'error');
     }
     setOpStatus('');

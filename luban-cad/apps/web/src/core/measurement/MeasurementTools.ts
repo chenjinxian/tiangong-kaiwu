@@ -17,6 +17,7 @@ import {
 } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
 import { ColorDef, LinePixels } from '@itwin/core-common';
+import i18n from '../../../shared/i18n/index.js';
 
 /** Base class for measurement tools */
 abstract class MeasurementTool extends Tool {
@@ -61,7 +62,7 @@ export class MeasureDistanceTool extends MeasurementTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          '点击两点测量距离'
+          i18n.t('measurementTools.distancePrompt', { ns: 'editor' })
         )
       );
     }
@@ -80,7 +81,13 @@ export class MeasureDistanceTool extends MeasurementTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          `距离: ${distance.toFixed(4)} m\nDX: ${dx.toFixed(4)}, DY: ${dy.toFixed(4)}, DZ: ${dz.toFixed(4)}`
+          i18n.t('measurementTools.distanceResult', {
+            ns: 'editor',
+            distance: distance.toFixed(4),
+            dx: dx.toFixed(4),
+            dy: dy.toFixed(4),
+            dz: dz.toFixed(4),
+          })
         )
       );
 
@@ -114,7 +121,7 @@ export class MeasureAngleTool extends MeasurementTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          '点击三点测量角度 (顶点为第二点)'
+          i18n.t('measurementTools.anglePrompt', { ns: 'editor' })
         )
       );
     }
@@ -134,7 +141,7 @@ export class MeasureAngleTool extends MeasurementTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          `角度: ${degrees.toFixed(2)}°`
+          i18n.t('measurementTools.angleResult', { ns: 'editor', degrees: degrees.toFixed(2) })
         )
       );
 
@@ -168,7 +175,7 @@ export class MeasureAreaTool extends MeasurementTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          '点击多点测量面积 (双击完成)'
+          i18n.t('measurementTools.areaPrompt', { ns: 'editor' })
         )
       );
     }
@@ -186,7 +193,7 @@ export class MeasureAreaTool extends MeasurementTool {
       IModelApp.notifications.outputMessage(
         new (await import('@itwin/core-frontend')).NotifyMessageDetails(
           1,
-          `面积: ${area.toFixed(4)} m²`
+          i18n.t('measurementTools.areaResult', { ns: 'editor', area: area.toFixed(4) })
         )
       );
     }
