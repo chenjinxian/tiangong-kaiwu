@@ -148,11 +148,26 @@
     "successTitle": "Created",
     "errorTitle": "Creation failed",
     "steps": {
-      "validating": { "label": "Validating", "description": "Validating input..." },
-      "creating": { "label": "Creating", "description": "Creating iModel..." },
-      "initializing": { "label": "Initializing", "description": "Initializing iModel..." },
-      "uploading": { "label": "Uploading", "description": "Uploading baseline file..." },
-      "completing": { "label": "Completing", "description": "Finishing creation..." }
+      "validating": {
+        "label": "Validating",
+        "description": "Validating input..."
+      },
+      "creating": {
+        "label": "Creating",
+        "description": "Creating iModel..."
+      },
+      "initializing": {
+        "label": "Initializing",
+        "description": "Initializing iModel..."
+      },
+      "uploading": {
+        "label": "Uploading",
+        "description": "Uploading baseline file..."
+      },
+      "completing": {
+        "label": "Completing",
+        "description": "Finishing creation..."
+      }
     },
     "form": {
       "nameLabel": "Model Name",
@@ -213,12 +228,13 @@
       "emailPlaceholder": "colleague@company.com",
       "roleLabel": "Role",
       "noRoles": "No roles available (invitees get default member access)",
-      "submit": "Send invite",
+      "submit": "Add member",
       "emailRequired": "Please enter an email address",
       "invalidEmail": "Please enter a valid email address",
-      "success": "Invitation sent to {{email}}",
+      "success": "Member added: {{email}}",
       "failed": "Failed to send invitation. Please retry.",
-      "hint": "Invitees will receive an email. If they don't have an account, they'll be guided to register."
+      "hint": "The member gains project access immediately (this hub does not send email notifications).",
+      "rolesLoadFailed": "Failed to load roles — invitees will be added with default member access"
     },
     "members": {
       "loading": "Loading members...",
@@ -236,13 +252,14 @@
       "removeSuccess": "Member removed",
       "removeFailed": "Failed to remove member. Please retry.",
       "roleUpdated": "Role updated",
-      "roleUpdateFailed": "Failed to update role. Please retry."
+      "roleUpdateFailed": "Failed to update role. Please retry.",
+      "manageUnavailable": "This hub version cannot change or remove this member yet (member id is not a UUID; see imodelhub backlog)"
     },
     "link": {
       "label": "Share link",
       "copy": "Copy link",
       "copied": "Copied",
-      "hint": "Anyone with this link can view this project"
+      "hint": "Only users with project access can open this link"
     }
   },
   "share": {

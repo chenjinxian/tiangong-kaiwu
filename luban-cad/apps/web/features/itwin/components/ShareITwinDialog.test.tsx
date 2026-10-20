@@ -53,8 +53,10 @@ const ROLES = [
   { id: 'r-admin', displayName: 'Admin' },
   { id: 'r-viewer', displayName: 'Viewer' },
 ];
+const MEMBER_UUID = '11111111-1111-4111-8111-111111111111';
 const MEMBERS = [
-  { id: 'm-1', email: 'a@b.c', roles: [{ id: 'r-admin', displayName: 'Admin' }] },
+  // hub 成员行 PK 为 UUID 时改角色/移除可用
+  { id: MEMBER_UUID, email: 'a@b.c', roles: [{ id: 'r-admin', displayName: 'Admin' }] },
 ];
 
 function renderDialog(): ReturnType<typeof render> {
@@ -108,7 +110,7 @@ describe('ShareITwinDialog（真数据）', () => {
       target: { value: 'invite@x.com' },
     });
     fireEvent.change(screen.getByLabelText('权限'), { target: { value: 'r-viewer' } });
-    fireEvent.click(screen.getByRole('button', { name: '发送邀请' }));
+    fireEvent.click(screen.getByRole('button', { name: '添加成员' }));
 
     await waitFor(() =>
       expect(mockedAddMember).toHaveBeenCalledWith('twin-1', {
@@ -132,7 +134,7 @@ describe('ShareITwinDialog（真数据）', () => {
     fireEvent.change(screen.getByPlaceholderText('colleague@company.com'), {
       target: { value: 'x@y.z' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '发送邀请' }));
+    fireEvent.click(screen.getByRole('button', { name: '添加成员' }));
 
     await waitFor(() =>
       expect(mockedAddMember).toHaveBeenCalledWith('twin-1', { email: 'x@y.z', roleIds: [] }),
@@ -154,7 +156,7 @@ describe('ShareITwinDialog（真数据）', () => {
     fireEvent.change(roleSelect, { target: { value: 'r-viewer' } });
 
     await waitFor(() =>
-      expect(mockedUpdateMember).toHaveBeenCalledWith('twin-1', 'm-1', { roleIds: ['r-viewer'] }),
+      expect(mockedUpdateMember).toHaveBeenCalledWith('twin-1', MEMBER_UUID, { roleIds: ['r-viewer'] }),
     );
     expect(showToastMock).toHaveBeenCalledWith('角色已更新', 'success');
   });
@@ -172,8 +174,25 @@ describe('ShareITwinDialog（真数据）', () => {
 
     fireEvent.click(within(confirm).getByRole('button', { name: '移除', exact: true }));
 
-    await waitFor(() => expect(mockedRemoveMember).toHaveBeenCalledWith('twin-1', 'm-1'));
+    await waitFor(() => expect(mockedRemoveMember).toHaveBeenCalledWith('twin-1', MEMBER_UUID));
     expect(showToastMock).toHaveBeenCalledWith('成员已移除', 'success');
+  });
+
+  it('非 UUID 成员 id（现 hub 形态）：改角色/移除禁用并给出诚实说明', async () => {
+    mockedListMembers.mockResolvedValue([
+      { id: 'invited@x.com', email: 'invited@x.com', roles: [] },
+    ]);
+
+    renderDialog();
+    await screen.findByText('invited@x.com');
+
+    const roleSelect = document.querySelector('.share-member select') as HTMLSelectElement;
+    expect(roleSelect.disabled).toBe(true);
+    // iTwinUI 用 aria-disabled（非原生 disabled 属性）
+    expect(screen.getByRole('button', { name: '移除成员' }).getAttribute('aria-disabled')).toBe('true');
+    expect(
+      screen.getByText(/暂不支持修改或移除该成员/),
+    ).toBeTruthy();
   });
 
   it('链接页 = origin + /documents/:id，复制按钮写剪贴板', async () => {

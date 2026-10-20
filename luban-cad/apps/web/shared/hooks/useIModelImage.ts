@@ -37,11 +37,21 @@ function isImageQueryKey(key: readonly unknown[]): boolean {
   return key[0] === 'iModels' && key[1] === 'image';
 }
 
-/** Azurite 绝对地址 → dev server `/azurite` 同源代理（CORS 规避，先例同 CreateIModelWorkflow） */
+/**
+ * Azurite 绝对地址 → `/azurite` 同源代理（dev 由 vite、生产由 nginx location 承接）。
+ *
+ * 主机形态覆盖（RW4-P3 评审 Critical：compose 里 hub 的 AZURE_BLOB_ENDPOINT 为
+ * `http://azurite:10000/...`，预签名 URL 由它生成——浏览器不可解析 `azurite` 主机）：
+ * - `azurite` / `localhost` / `127.0.0.1` 且端口 10000
+ * - 任意主机但 pathname 以 `/devstoreaccount1/` 开头（Azurite 路径风格特征）
+ */
 function toSameOriginImageUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    if (parsed.hostname === 'localhost' && parsed.port === '10000') {
+    const azuriteHosts = new Set(['azurite', 'localhost', '127.0.0.1']);
+    const isAzuriteHost = azuriteHosts.has(parsed.hostname) && parsed.port === '10000';
+    const isAzuritePath = parsed.pathname.startsWith('/devstoreaccount1/');
+    if (isAzuriteHost || isAzuritePath) {
       return `/azurite${parsed.pathname}${parsed.search}`;
     }
     return url;
@@ -66,7 +76,8 @@ export function useIModelImage(iModelId: string | null | undefined): string | nu
     queryFn: async (): Promise<string | null> => {
       if (!iModelId) return null;
       try {
-        const response = await fetchWithAuth(`/imodels/${iModelId}/thumbnail`);
+        // ?size=medium：hub 默认 small(128px)，卡片按 16:9 拉伸会模糊
+        const response = await fetchWithAuth(`/imodels/${iModelId}/thumbnail?size=medium`);
         const payload = (await response.json()) as IModelThumbnailPayload;
         if (!payload.downloadUrl) return null;
 

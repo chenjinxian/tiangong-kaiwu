@@ -237,7 +237,7 @@ describe('i18n 骨架', () => {
     expect(i18n.t('shareDialog.tabs.invite', { ns: 'documents' })).toBe('邀请成员');
     expect(i18n.t('shareDialog.tabs.link', { ns: 'documents' })).toBe('分享链接');
     expect(i18n.t('shareDialog.invite.emailLabel', { ns: 'documents' })).toBe('邮箱地址');
-    expect(i18n.t('shareDialog.invite.submit', { ns: 'documents' })).toBe('发送邀请');
+    expect(i18n.t('shareDialog.invite.submit', { ns: 'documents' })).toBe('添加成员');
     expect(i18n.t('shareDialog.members.empty', { ns: 'documents' })).toBe('暂无成员');
     expect(i18n.t('shareDialog.members.removeTitle', { ns: 'documents' })).toBe('移除成员');
     expect(i18n.t('shareDialog.link.copy', { ns: 'documents' })).toBe('复制链接');

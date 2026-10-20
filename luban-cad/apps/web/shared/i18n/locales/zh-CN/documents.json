@@ -146,11 +146,26 @@
     "successTitle": "创建成功",
     "errorTitle": "创建失败",
     "steps": {
-      "validating": { "label": "验证中", "description": "正在验证输入数据..." },
-      "creating": { "label": "创建中", "description": "正在创建 iModel..." },
-      "initializing": { "label": "初始化中", "description": "正在初始化 iModel..." },
-      "uploading": { "label": "上传中", "description": "正在上传 baseline 文件..." },
-      "completing": { "label": "完成中", "description": "正在完成创建..." }
+      "validating": {
+        "label": "验证中",
+        "description": "正在验证输入数据..."
+      },
+      "creating": {
+        "label": "创建中",
+        "description": "正在创建 iModel..."
+      },
+      "initializing": {
+        "label": "初始化中",
+        "description": "正在初始化 iModel..."
+      },
+      "uploading": {
+        "label": "上传中",
+        "description": "正在上传 baseline 文件..."
+      },
+      "completing": {
+        "label": "完成中",
+        "description": "正在完成创建..."
+      }
     },
     "form": {
       "nameLabel": "模型名称",
@@ -210,12 +225,13 @@
       "emailPlaceholder": "colleague@company.com",
       "roleLabel": "权限",
       "noRoles": "暂无可分配角色（邀请后默认获得成员访问）",
-      "submit": "发送邀请",
+      "submit": "添加成员",
       "emailRequired": "请输入邮箱地址",
       "invalidEmail": "请输入有效的邮箱地址",
-      "success": "邀请已发送至 {{email}}",
+      "success": "成员已添加：{{email}}",
       "failed": "邀请失败，请重试",
-      "hint": "受邀者将收到邮件通知。如果他们没有账户，将会被引导注册。"
+      "hint": "该成员将立即获得项目访问权限（本 hub 不发送邮件通知）。",
+      "rolesLoadFailed": "角色列表加载失败——邀请将以默认成员权限添加"
     },
     "members": {
       "loading": "加载成员中...",
@@ -233,13 +249,14 @@
       "removeSuccess": "成员已移除",
       "removeFailed": "移除失败，请重试",
       "roleUpdated": "角色已更新",
-      "roleUpdateFailed": "角色更新失败，请重试"
+      "roleUpdateFailed": "角色更新失败，请重试",
+      "manageUnavailable": "当前 hub 版本暂不支持修改或移除该成员（成员 id 非 UUID，见 imodelhub backlog）"
     },
     "link": {
       "label": "分享链接",
       "copy": "复制链接",
       "copied": "已复制",
-      "hint": "任何拥有此链接的人都可以查看此项目"
+      "hint": "仅拥有项目访问权限的用户可打开此链接"
     }
   },
   "share": {

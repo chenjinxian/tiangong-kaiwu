@@ -64,6 +64,10 @@ interface ShareITwinDialogProps {
 type ShareTab = 'members' | 'invite' | 'link';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// 现 hub 的 GET members/users 返回 id=userId（邀请场景为 email），而 PATCH/DELETE
+// 走 ParseUUIDPipe——非 UUID id 的改角色/移除必然 400（imodelhub backlog）。
+// 前端对这类成员显式降级：禁用操作 + inline 说明，避免把必然失败呈现为「请重试」。
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
@@ -217,7 +221,7 @@ export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
           title={t('shareDialog.title')}
           className="share-dialog"
         >
-          <Dialog.TitleBar title={t('shareDialog.title')} />
+          <Dialog.TitleBar titleText={t('shareDialog.title')} />
           <Dialog.Content>
             <Tabs.Wrapper
               value={activeTab}
@@ -264,6 +268,7 @@ export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
                         .map((role) => role.displayName)
                         .filter(Boolean)
                         .join(', ');
+                      const manageable = UUID_PATTERN.test(member.id);
                       return (
                         <div key={member.id} className="share-member">
                           <div className="share-member__info">
@@ -280,17 +285,24 @@ export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
                                     ...roleOptions,
                                   ]}
                                   onChange={(value) => handleRoleChange(member, value)}
+                                  disabled={!manageable}
                                 />
                               ) : (
                                 <Tag>{roleLabel || t('shareDialog.members.noRole')}</Tag>
                               )}
                             </div>
+                            {!manageable && (
+                              <Text variant="small" className="share-hint-text">
+                                {t('shareDialog.members.manageUnavailable')}
+                              </Text>
+                            )}
                           </div>
                           <IconButton
                             size="small"
                             styleType="borderless"
                             onClick={() => setRemoveTarget(member)}
                             label={t('shareDialog.members.remove')}
+                            disabled={!manageable}
                           >
                             <SvgDelete />
                           </IconButton>
@@ -337,7 +349,9 @@ export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
                     />
                   ) : (
                     <Text variant="small" className="share-hint-text">
-                      {t('shareDialog.invite.noRoles')}
+                      {rolesQuery.isError
+                        ? t('shareDialog.invite.rolesLoadFailed')
+                        : t('shareDialog.invite.noRoles')}
                     </Text>
                   )}
                 </InputGroup>
@@ -404,7 +418,7 @@ export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
           title={t('shareDialog.members.removeTitle')}
           className="share-remove-dialog"
         >
-          <Dialog.TitleBar title={t('shareDialog.members.removeTitle')} />
+          <Dialog.TitleBar titleText={t('shareDialog.members.removeTitle')} />
           <Dialog.Content>
             <Text>
               {t('shareDialog.members.removeMessage', { email: removeTarget?.email ?? '' })}

@@ -517,7 +517,7 @@ const ITwinDetail: React.FC = React.memo(() => {
           title={t('detail.deleteProject.title')}
           className="detail-delete-dialog"
         >
-          <Dialog.TitleBar title={t('detail.deleteProject.title')} />
+          <Dialog.TitleBar titleText={t('detail.deleteProject.title')} />
           <Dialog.Content>
             <Text>{t('detail.deleteProject.message', { name: iTwin.displayName ?? '' })}</Text>
           </Dialog.Content>
@@ -555,7 +555,7 @@ const ITwinDetail: React.FC = React.memo(() => {
           title={t('detail.deleteIModel.title')}
           className="detail-delete-dialog"
         >
-          <Dialog.TitleBar title={t('detail.deleteIModel.title')} />
+          <Dialog.TitleBar titleText={t('detail.deleteIModel.title')} />
           <Dialog.Content>
             <Text>{t('detail.deleteIModel.message', { name: deleteIModelName })}</Text>
           </Dialog.Content>

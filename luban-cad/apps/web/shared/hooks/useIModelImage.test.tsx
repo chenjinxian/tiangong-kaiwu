@@ -78,11 +78,24 @@ describe('useIModelImage', () => {
 
     await waitFor(() => expect(result.current).toBe('blob:imodel-thumb'));
 
-    expect(mockedFetchWithAuth).toHaveBeenCalledWith('/imodels/i-1/thumbnail');
+    expect(mockedFetchWithAuth).toHaveBeenCalledWith('/imodels/i-1/thumbnail?size=medium');
     expect(fetchMock).toHaveBeenCalledWith(
       '/azurite/devstoreaccount1/imodels/i-1/thumbnail.png?sig=x',
     );
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  });
+
+  it('rewrites compose-form Azurite host (azurite:10000) to the same-origin proxy', async () => {
+    mockedFetchWithAuth.mockResolvedValueOnce(
+      jsonResponse({ downloadUrl: 'http://azurite:10000/devstoreaccount1/imodels/i-1/thumb.png?sig=y', size: 'medium' }),
+    );
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => imageResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useIModelImage('i-1'), { wrapper });
+
+    await waitFor(() => expect(result.current).toBe('blob:imodel-thumb'));
+    expect(fetchMock).toHaveBeenCalledWith('/azurite/devstoreaccount1/imodels/i-1/thumb.png?sig=y');
   });
 
   it('keeps non-Azurite download URLs untouched', async () => {

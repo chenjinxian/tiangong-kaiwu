@@ -50,19 +50,17 @@ test.describe('Share Project Dialog', () => {
     const email = `share-e2e-${Date.now()}@example.com`;
     await dialog.getByRole('tab', { name: '邀请成员' }).click();
     await dialog.getByPlaceholder('colleague@company.com').fill(email);
-    await dialog.getByRole('button', { name: '发送邀请' }).click();
+    await dialog.getByRole('button', { name: '添加成员' }).click();
 
     // 邀请成功切回成员页——成员行出现（POST members/users 直接加成员）
     const memberRow = dialog.locator('.share-member').filter({ hasText: email });
     await expect(memberRow).toBeVisible({ timeout: 15000 });
 
-    // 移除确认 Dialog 可达（取消；不提交见文件头契约备注）
-    await memberRow.getByRole('button', { name: '移除成员' }).click();
-    const confirm = page.getByRole('dialog', { name: '移除成员' });
-    await expect(confirm).toBeVisible();
-    await expect(confirm.getByText(email)).toBeVisible();
-    await confirm.getByRole('button', { name: '取消' }).click();
-    await expect(confirm).toBeHidden();
+    // 现 hub 契约缺陷：成员行 id=email（非 UUID），PATCH/DELETE 必 400——
+    // 前端按 UUID 守卫显式降级：移除/改角色禁用 + inline 诚实说明（不呈现「请重试」）
+    await expect(memberRow.getByRole('button', { name: '移除成员' }))
+      .toHaveAttribute('aria-disabled', 'true');
+    await expect(memberRow.getByText(/暂不支持修改或移除该成员/)).toBeVisible();
 
     // 链接页 = origin + /documents/:iTwinId
     await dialog.getByRole('tab', { name: '分享链接' }).click();
