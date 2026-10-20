@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ThemeProvider as ITwinThemeProvider, ProgressRadial } from '@itwin/itwinui-react';
+import { Button, ThemeProvider as ITwinThemeProvider, ProgressRadial, Text } from '@itwin/itwinui-react';
 import { UserProvider } from './contexts/UserContext.js';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext.js';
 import { PrivateRoute } from './components/PrivateRoute.js';
@@ -53,13 +53,40 @@ export const LegacyWorkspaceRedirect: React.FC = () => {
   return <Navigate to={`/documents/${iTwinId}/${iModelId}`} replace />;
 };
 
+/**
+ * 404 页（RW4-P1-T4 精修）：client-side Link 取代全页 <a href> 债务。
+ */
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const NotFoundPage: React.FC = () => {
+export const NotFoundPage: React.FC = () => {
   const { t } = useTranslation();
   return (
-    <div style={{ padding: 40, textAlign: 'center' }}>
-      <h1>{t('notFound.title')}</h1>
-      <a href="/documents">{t('notFound.goDocuments')}</a>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        padding: 40,
+        textAlign: 'center',
+        backgroundColor: 'var(--iui-color-background-backdrop)',
+        color: 'var(--iui-color-text)',
+      }}
+    >
+      <Text variant="headline" as="div" style={{ fontSize: 72, fontWeight: 700, color: 'hsl(var(--iui-color-accent-hsl))', lineHeight: 1 }}>
+        404
+      </Text>
+      <Text variant="title" as="h1" style={{ margin: 0 }}>
+        {t('notFound.title')}
+      </Text>
+      <Text as="p" style={{ margin: '0 0 16px', color: 'var(--iui-color-text-muted)' }}>
+        {t('notFound.subtitle')}
+      </Text>
+      {/* client-side 导航（react-router Link），保持 SPA 会话与滚动状态 */}
+      <Button styleType="high-visibility" as={Link} to="/documents">
+        {t('notFound.goDocuments')}
+      </Button>
     </div>
   );
 };

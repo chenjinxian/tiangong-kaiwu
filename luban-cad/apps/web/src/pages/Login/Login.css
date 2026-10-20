@@ -11,7 +11,8 @@
 
 .auth-page .auth-forgot-link {
   font-size: 13px;
-  color: var(--iui-color-text-accent);
+  /* 品牌 teal 走 accent 种子（--iui-color-text-accent 在 i22 指向 informational 蓝） */
+  color: hsl(var(--iui-color-accent-hsl));
   text-decoration: none;
   font-weight: 500;
 }

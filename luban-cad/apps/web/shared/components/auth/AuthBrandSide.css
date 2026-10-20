@@ -47,20 +47,32 @@
   z-index: 1;
 }
 
-/* HeaderLogo 品牌区（logo 方块 + 产品名） */
-.auth-brand-logo.iui-header-brand {
+/* HeaderLogo 品牌区（logo 方块 + 产品名）。
+ * iTwinUI 3.22 的 header-brand 自带 block-size:100%（页面 header 场景，类名为构建哈希）——
+ * 分屏栏内必须松绑为内容高，否则占满整列把标语/特性行挤到面板底。
+ * 选择器走 .auth-brand-side 后代（0,2,0）压过哈希单类（0,1,0），不依赖哈希名。 */
+.auth-brand-side .auth-brand-logo {
+  block-size: auto;
+  flex-shrink: 1;
   font-size: 26px;
   font-weight: 700;
   color: var(--iui-color-white);
   letter-spacing: -0.5px;
   padding: 0;
   min-height: unset;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   background: none;
   cursor: default;
 }
 
-.auth-brand-mark {
+/* logo 槽（header-brand-icon 哈希类）解除固定 36px 尺寸与边距 */
+.auth-brand-side .auth-brand-logo [class*='header-brand-icon'] {
+  inline-size: auto;
+  block-size: auto;
+  margin-inline: 0;
+}
+
+.auth-brand-side .auth-brand-mark {
   width: 56px;
   height: 56px;
   background: hsl(var(--iui-color-accent-hsl) / 0.14);
@@ -182,7 +194,8 @@
 }
 
 .auth-page .auth-footer a {
-  color: var(--iui-color-text-accent);
+  /* 注：--iui-color-text-accent 在 i22 主题内指向 informational 蓝；品牌 teal 走 accent 种子 */
+  color: hsl(var(--iui-color-accent-hsl));
   text-decoration: none;
   font-weight: 500;
 }
