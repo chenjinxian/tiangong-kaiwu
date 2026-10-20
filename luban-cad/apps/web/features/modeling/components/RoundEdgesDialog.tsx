@@ -5,7 +5,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Dialog, Input, ToggleSwitch } from '@itwin/itwinui-react';
+import { Button, Dialog, Input, Text, ToggleSwitch } from '@itwin/itwinui-react';
 import { SOLID_MODELING_DEFAULTS } from '../../../shared/lib/constants.js';
 import './ToolDialog.css';
 
@@ -50,10 +50,14 @@ export const RoundEdgesDialog: React.FC<RoundEdgesDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={t('modeling.roundEdges.title')}
+      aria-label={t('modeling.roundEdges.title')}
       className="tool-dialog"
     >
       <div className="tool-dialog-content">
+        {/* 3.22 的 Dialog 根无 title 渲染；可见标题用 heading（P5 终审 Minor#1） */}
+        <Text variant="headline" as="h3" className="tool-dialog-title">
+          {t('modeling.roundEdges.title')}
+        </Text>
         <div className="tool-info">
           <span className="tool-icon">🔧</span>
           <p>{t('modeling.roundEdges.applied', { count: selectedCount })}</p>

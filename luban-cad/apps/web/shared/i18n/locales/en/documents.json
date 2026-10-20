@@ -173,8 +173,6 @@
       "nameLabel": "Model Name",
       "namePlaceholder": "Enter model name",
       "nameHint": "Identifies the model. Letters, digits and hyphens are recommended.",
-      "displayNameLabel": "Display Name",
-      "displayNamePlaceholder": "Optional, shown in the UI",
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "Model description...",
       "baselineLabel": "Baseline File (optional)",
@@ -262,9 +260,7 @@
       "hint": "Only users with project access can open this link"
     }
   },
-  "share": {
-    "comingSoon": "Coming soon (P3)"
-  },
+  "share": {},
   "deleteDialog": {
     "title": "Delete Project",
     "message": "Are you sure you want to delete project \"{{name}}\"? This action cannot be undone, and all iModels in the project will also be deleted.",

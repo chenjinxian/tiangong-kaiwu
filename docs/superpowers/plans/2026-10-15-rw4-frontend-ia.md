@@ -100,7 +100,7 @@
 - [x] modeling-tools 三 spec + demo-flow 24 幕选择器同步 + Commit（b6bdd5fa52）
 
 **Task P4-T4-3: P4 验收**
-- [x] 全量 e2e + demo-flow 全幕 + P4 波门（editor/features/sketch 18/18、modeling 23/23 无失败、demo 24/24；P4 关闭）
+- [x] 全量 e2e + demo-flow 全幕 + P4 波门（editor/features/sketch 18/18、modeling 23/23 无失败、demo 24/24）；终审缺口登记：视口右键菜单/Shift+? 速查表/Tree/隐藏/右键/Parts/元素 tabs（见前端 spec §6，不再标 ✅）
 
 ### Wave P5：Settings + 收尾
 

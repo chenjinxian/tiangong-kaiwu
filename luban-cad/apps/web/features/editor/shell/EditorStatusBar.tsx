@@ -6,6 +6,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Text } from '@itwin/itwinui-react';
+import { getStoredLengthUnit } from '../../../shared/constants/lengthUnit.js';
 
 export interface EditorStatusBarProps {
   isEditable: boolean;
@@ -47,6 +48,10 @@ export const EditorStatusBar: React.FC<EditorStatusBarProps> = ({
   iModelId,
 }) => {
   const { t } = useTranslation('editor');
+  // Settings 偏好（默认公制）；展示偏好，不改建模/导出单位
+  const unitLabel = getStoredLengthUnit() === 'inch'
+    ? t('statusbar.imperial')
+    : t('statusbar.metric');
 
   const modeIndicatorClass = connectionLoading || isProcessing
     ? 'status-indicator--warning'
@@ -102,7 +107,7 @@ export const EditorStatusBar: React.FC<EditorStatusBarProps> = ({
           </>
         )}
         <Text className="status-sep">|</Text>
-        <Text variant="small">{t('statusbar.metric')}</Text>
+        <Text variant="small">{unitLabel}</Text>
         <Text className="status-sep">|</Text>
         <Text variant="small">{t('statusbar.perspective')}</Text>
       </div>

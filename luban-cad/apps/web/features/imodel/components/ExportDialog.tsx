@@ -125,10 +125,13 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={handleClose}
-      title={t('exportDialog.title')}
+      aria-label={t('exportDialog.title')}
       isDismissible={!isExporting}
     >
       <div className="create-imodel-form">
+        <Text variant="headline" as="h3" className="tool-dialog-title">
+          {t('exportDialog.title')}
+        </Text>
         {error && (
           <Alert type="negative" className="form-alert">
             {error}

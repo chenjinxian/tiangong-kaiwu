@@ -30,13 +30,17 @@ import { useAppToast } from '../../../shared/hooks/useAppToast.js';
 import { API_BASE_URL } from '../../../shared/api/baseUrl.js';
 import { ApiError, fetchWithAuth } from '../../../shared/api/httpClient.js';
 import i18n, { LANGUAGE_STORAGE_KEY } from '../../../shared/i18n/index.js';
+import {
+  LENGTH_UNIT_STORAGE_KEY,
+  getStoredLengthUnit,
+  type LengthUnit,
+} from '../../../shared/constants/lengthUnit.js';
 import './Settings.css';
 
-type SettingsTab = 'profile' | 'password' | 'preferences';
-type LengthUnit = 'mm' | 'inch';
+// 测试/既有调用方从 Settings 导入该键（shared/constants 为唯一事实源）
+export { LENGTH_UNIT_STORAGE_KEY };
 
-/** 长度单位偏好（仅本机持久化；当前不影响建模与导出） */
-export const LENGTH_UNIT_STORAGE_KEY = 'luban-cad-length-unit';
+type SettingsTab = 'profile' | 'password' | 'preferences';
 
 interface ProfileResponse {
   user?: {
@@ -76,9 +80,7 @@ const Settings: React.FC = React.memo(() => {
   const [language, setLanguage] = useState(() =>
     i18n.language.startsWith('en') ? 'en' : 'zh-CN',
   );
-  const [lengthUnit, setLengthUnit] = useState<LengthUnit>(() =>
-    localStorage.getItem(LENGTH_UNIT_STORAGE_KEY) === 'inch' ? 'inch' : 'mm',
-  );
+  const [lengthUnit, setLengthUnit] = useState<LengthUnit>(getStoredLengthUnit);
 
   const profileMutation = useMutation({
     // 写操作非幂等：不继承 QueryProvider 的全局 retry:1（4xx 不重试，P5 评审 deferred）

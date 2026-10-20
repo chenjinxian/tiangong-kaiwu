@@ -52,7 +52,7 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 | Comments / 协作 presence | ❌ 缺口登记（无后端） |
 | My account | 🟠 P5 子集：Profile ✅ / 改密 ✅ / 偏好（主题、单位、语言，前端持久化）✅；2FA、API keys、订阅 ❌ 缺口登记 |
 | Public 文档广场 | ⚪ 缺口登记（list API 无 public scope） |
-| Help 中心 | 🟠 快捷键速查表面板（Shift+?，前端自绘）；外链文档登记 |
+| Help 中心 | 🟠 快捷键注册表已有（KeyboardManager），Shift+? 速查表面板未做（终审 I1，登记 RW4 缺口）；外链文档登记 |
 
 ### 3.2 Documents 页功能级
 
@@ -61,10 +61,10 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 | 侧栏筛选（我的/与我共享/最近/收藏） | ✅ 全做，「与我共享」以 role≠owner 过滤，替换现有假 shared |
 | Create 新建文档 | ✅ CreateITwinDialog 重构为 itwin-ui 标准 Dialog |
 | 搜索 | ✅ 前端 filter（官方 spec 亦无搜索 API） |
-| 排序（名称/修改时间/创建时间/最近打开） | ✅ 前端排序 |
+| 排序（名称/修改时间/创建时间/最近打开） | 🟠 三键已做；「最近打开」排序键缺（数据源无 lastOpened，登记） |
 | 列表/网格视图切换 | ✅ itwin-ui `Table` + `Tile` 双视图 |
 | 文档缩略图 | ✅ GET `/itwins/:id/image`，无图回退插画 |
-| 行级右键菜单（打开/重命名/收藏/分享/删除） | ✅ DropdownMenu + 右键触发 |
+| 行级右键菜单（打开/重命名/收藏/分享/删除） | ✅ DropdownMenu + 右键触发（分享已接 ShareITwinDialog） |
 | 右侧详情面板 | ✅ `InformationPanel` 式侧栏（缩略图/所有者/时间/描述） |
 | Labels 标签 | ⚪ 缺口登记 |
 | Trash 回收站 | ⚪ 缺口登记（v1 删除 = 危险确认对话框） |
@@ -76,27 +76,27 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 |---|---|
 | iModel 卡片 + 真实缩略图 | ✅ GET `/imodels/:id/thumbnail` |
 | 新建模型工作流 | ✅ CreateIModelWorkflow（645 行 CSS 重型组件）itwin-ui 化，`Stepper` 编排 |
-| 成员/权限管理 | ✅ Share 对话框：成员列表 / 邀请 / 角色下拉 / 移除 |
+| 成员/权限管理 | 🟠 Share 对话框：成员列表 / 邀请 / 链接可用；角色下拉/移除对邀请产生的非 UUID 成员降级（imodelhub 成员契约缺陷，已登记其 BACKLOG） |
 | 版本历史入口 | ✅ 入口按钮 → 版本面板 |
 
 ### 3.4 Editor 页功能级
 
 | Onshape 能力 | 裁决 |
 |---|---|
-| 顶栏：文档名点击重命名 | ✅ PATCH `/itwins/:id` |
-| 顶栏：版本药丸 + 下拉 | ✅ named versions；分支/合并 ❌ 缺口登记 |
+| 顶栏：文档名点击重命名 | ✅ 顶栏重命名按钮 → RenameIModelDialog（PATCH `/imodels/:id`；当前顶栏展示 iModel 名） |
+| 顶栏：版本药丸 + 下拉 | ✅ 版本药丸 → 历史停靠（变更集/命名版本双页）；无下拉菜单；分支/合并 ❌ 缺口登记 |
 | 顶栏：undo/redo | ✅ UndoRedoToolbar 移至顶栏（BriefcaseTxns 管道不动） |
-| 顶栏：Share 按钮 | ✅ 复用 P3 Share 对话框 |
+| 顶栏：Share 按钮 | ✅ 已接 ShareITwinDialog（终审 I1 修复） |
 | 顶栏：协作头像 | ❌ 不做（无 presence） |
-| 左栏：特征树（抑制/隐藏/右键菜单） | ✅ 重构（itwin-ui `Tabs`+`Tree`）；**rollback 条 ⚪ 不做**——与已裁决的线性链重排守卫语义冲突，登记 |
+| 左栏：特征树（抑制/隐藏/右键菜单） | 🟠 `Tabs` 特征/装配 + 抑制/删除/重排已做；itwin-ui `Tree` 组件、隐藏、行右键菜单未做（终审 I1，登记）；**rollback 条 ⚪ 不做**——与已裁决的线性链重排守卫语义冲突 |
 | 左栏：Parts 面板 | 🟠 Parts 列表接真实数据源（特征产出实体）；Assembly 维持占位 |
 | 工具栏：上下文工具组 | ✅ CadToolbar（556 行+~20 手写 SVG）重构为 itwin-ui ButtonGroup + 官方 icons；草图模式上下文切换保留 |
 | 右侧停靠工具对话框 | ✅ 替换绝对定位浮动 overlay 栈（Onshape 标志性交互） |
 | ViewCube（视口右上） | ✅ 接入 viewer-core 现成 ViewCube（复用优先铁律） |
-| 底部元素 tabs | 🟠 tab 条结构（当前模型为唯一 tab；多 tab=多 iModel 并行，架构不支持，状态诚实不多造） |
-| 底部状态条 | ✅ token 化重构；单位跟随 Settings 偏好 |
-| 视口右键菜单 | ✅ 视图操作菜单（缩放/视角/显示模式） |
-| 键盘快捷键 + 速查表 | ✅ KeyboardManager 扩展注册表 + Shift+? 面板 |
+| 底部元素 tabs | 🟠 未实现（EditorElementTabs/Parts 面板缺；多 iModel 并行架构不支持，登记） |
+| 底部状态条 | ✅ token 化重构；单位随 Settings 偏好（公制/英制，终审 Minor#2 已接线） |
+| 视口右键菜单 | ⚪ 未实现（终审 I1；登记后续波） |
+| 键盘快捷键 + 速查表 | 🟠 注册表/快捷键已做；Shift+? 速查表面板未做（终审 I1，登记） |
 
 ## 4. 架构裁决（贯穿所有波次）
 
@@ -180,6 +180,12 @@ state 与副作用下沉到 `features/editor/hooks/` 现有 hooks（useEditTools
 | 邮箱验证流 | 无验证端点 | imodelhub 后端立项 |
 | 2FA / API keys / 订阅 | 无后端 | 商业化路线图 |
 | Teams/Companies 侧栏 | access-control groups 存在但未接 | v2 候选 |
+| 视口右键菜单 | 未实现（P4 范围裁决遗漏，终审 I1） | RW4 后续波（视图操作菜单） |
+| Shift+? 快捷键速查表 | KeyboardManager 注册表已有，UI 面板未做（终审 I1） | RW4 后续波 |
+| 特征树 Tree 组件/隐藏/行右键菜单 | 当前 Tabs+抑制/删除/重排可用；Tree/隐藏/右键未做（终审 I1） | 特征系统 UX 后续波 |
+| Parts 面板 / 底部元素 tabs | 多 iModel 并行架构未支持；当前单模型单 tab（终审 I1） | 多文档工作区立项 |
+| 「最近打开」排序键 | hub 列表无 lastOpened 字段 | imodelhub 后端立项 |
+| Share 角色/移除对非 UUID 成员降级 | imodelhub access-control 成员契约缺陷（列表 id=userId、roles 恒空） | imodelhub BACKLOG（已登记） |
 
 ## 7. 测试与验收策略
 

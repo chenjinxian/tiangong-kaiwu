@@ -115,9 +115,9 @@ Sync S4-S6：私有仓适配（预签名主机改写层+SDK 收紧+cosmetic）�
 - 前端 AI 侧栏：EditorShell 预留位（裁决#4），Zookeeper 式对话工作台 v1
 **门**：e2e「prompt→op→预览→确认→提交」全链 + HITL 零新建（复用 previewFeatureOp）。
 
-### RW4 前端 Onshape IA（原 P1-P5 并入重排）✅ 完成（2026-10-20）
+### RW4 前端 Onshape IA（原 P1-P5 并入重排）✅ 主干完成（2026-10-20，缺口登记见前端 spec §6）
 P1 认证三页+404 → P2 Documents → P3 Detail+Share（消费 S3 重写 clients）→ P4 EditorShell（预留 AI 侧栏位）→ P5 Settings+收尾。基准沿用 2026-10-14 前端 spec 的 §3 矩阵；执行细节按 RW1 BFF 面校准。
-收口口径：七页 IA 全重写 + 中英双语（editor/documents 各 503/226 键集一致）+ 四象限走查 21/21（32 截图）+ demo-flow 24/24；AI 侧栏预留位 `AiSidePanelSlot`（RW3 挂载点）。遗留：imodelhub access-control 成员契约（改角色/移除降级，见其 BACKLOG）；Trash/Labels/Comment 按 spec 缺口登记不做。
+收口口径：七页 IA 全重写 + 中英双语（editor/documents 各 503/226 键集一致；sketch/停靠面板在终审修复中补齐）+ 四象限走查（32 截图）+ demo-flow 24/24；AI 侧栏预留位 `AiSidePanelSlot`（RW3 挂载点）。终审后缺口（诚实登记，不再标 ✅）：视口右键菜单、Shift+? 速查表、特征树 Tree/隐藏/右键、Parts/元素 tabs、「最近打开」排序、imodelhub access-control 成员契约（改角色/移除降级）。
 
 ### RW5 数据飞轮+生成式起步（AI 线二期）
 反馈采集（接受/撤销回流）→ eval 基准（demo-flow 24 幕→prompt→期望特征树）→ 生成回路（text→op DSL→执行→读错→修≤5→快照审阅）→ 模型路由产品化（Auto/Standard/Thoughtful 用户开关）。

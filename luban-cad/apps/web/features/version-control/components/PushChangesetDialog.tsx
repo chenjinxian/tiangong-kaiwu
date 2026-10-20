@@ -5,7 +5,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Dialog, Input } from '@itwin/itwinui-react';
+import { Button, Dialog, Input, Text } from '@itwin/itwinui-react';
 import '../../../features/modeling/components/ToolDialog.css';
 
 export interface PushChangesetDialogProps {
@@ -46,10 +46,13 @@ export const PushChangesetDialog: React.FC<PushChangesetDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={handleClose}
-      title={t('pushChangeset.title')}
+      aria-label={t('pushChangeset.title')}
       className="tool-dialog"
     >
       <div className="tool-dialog-content">
+        <Text variant="headline" as="h3" className="tool-dialog-title">
+          {t('pushChangeset.title')}
+        </Text>
         <div className="tool-parameter">
           <label htmlFor="changeset-description">
             {t('pushChangeset.descriptionLabel')}

@@ -7,6 +7,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Angle, Matrix3d, Point3d, Vector3d } from '@itwin/core-geometry';
 import type { Viewport } from '@itwin/core-frontend';
 import Editor from './Editor.js';
@@ -35,6 +36,13 @@ vi.mock('../../../features/editor/components/ThemeToggle.js', () => ({
 // 工具设置单例宿主探针（P4 评审 Important#3 回归：左右同挂会互清 handler）
 vi.mock('../../../features/editor/components/ToolSettingsPanel.js', () => ({
   ToolSettingsPanel: () => <div data-testid="tool-settings-panel" />,
+}));
+// 顶栏分享/重命名对话框（终审 I1 接入）：内部走服务 hooks，与本页编排测试解耦
+vi.mock('../../../features/itwin/components/ShareITwinDialog.js', () => ({
+  ShareITwinDialog: () => <div data-testid="share-dialog" />,
+}));
+vi.mock('../../../features/imodel/components/RenameIModelDialog.js', () => ({
+  RenameIModelDialog: () => <div data-testid="rename-dialog" />,
 }));
 vi.mock('../../../features/itwin/hooks/useITwinsQuery.js', () => ({
   useITwinQuery: () => ({ data: { displayName: 'My Project' }, isLoading: false }),
@@ -301,12 +309,18 @@ vi.mock('../../../features/imodel/hooks/useIModelPermission.js', () => ({
 }));
 
 function renderEditor() {
+  // ShareITwinDialog（终审 I1 接入顶栏）依赖 react-query context
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return render(
-    <MemoryRouter initialEntries={['/documents/itwin1/imodel1']}>
-      <Routes>
-        <Route path="/documents/:iTwinId/:iModelId" element={<Editor />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/documents/itwin1/imodel1']}>
+        <Routes>
+          <Route path="/documents/:iTwinId/:iModelId" element={<Editor />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

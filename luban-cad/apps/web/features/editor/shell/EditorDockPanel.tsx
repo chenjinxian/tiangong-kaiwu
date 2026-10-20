@@ -18,7 +18,10 @@ import {
 } from '@luban-cad/viewer-core';
 import { ToolSettingsPanel } from '../components/ToolSettingsPanel.js';
 import { MeasurementResultsPanel } from '../../measurement/components/MeasurementResultsPanel.js';
+import type { MeasurementRecord } from '../../measurement/hooks/useMeasurementManager.js';
 import { VersionTimeline } from '../../version-control/components/VersionTimeline.js';
+import { NamedVersionPanel } from '../../version-control/components/NamedVersionPanel.js';
+import type { NamedVersion } from '../../version-control/hooks/useNamedVersions.js';
 import './EditorDockPanel.css';
 
 /* ── 停靠状态机（RW4-P4-T4-2）────────────────────────────────────────────
@@ -31,6 +34,7 @@ import './EditorDockPanel.css';
  */
 export type EditorDockTab = 'toolSettings' | 'history' | 'display';
 export type EditorDockToolPanel = 'settings' | 'measurement';
+export type EditorDockHistoryPanel = 'changesets' | 'namedVersions';
 export type EditorDockDisplayPanel =
   | 'model'
   | 'category'
@@ -44,6 +48,7 @@ export interface EditorDockState {
   tab: EditorDockTab;
   toolPanel: EditorDockToolPanel;
   displayPanel: EditorDockDisplayPanel;
+  historyPanel: EditorDockHistoryPanel;
 }
 
 export const DEFAULT_EDITOR_DOCK_STATE: EditorDockState = {
@@ -51,10 +56,12 @@ export const DEFAULT_EDITOR_DOCK_STATE: EditorDockState = {
   tab: 'toolSettings',
   toolPanel: 'settings',
   displayPanel: 'viewSettings',
+  historyPanel: 'changesets',
 };
 
 const DOCK_TAB_ORDER: EditorDockTab[] = ['toolSettings', 'history', 'display'];
 const TOOL_PANEL_ORDER: EditorDockToolPanel[] = ['settings', 'measurement'];
+const HISTORY_PANEL_ORDER: EditorDockHistoryPanel[] = ['changesets', 'namedVersions'];
 const DISPLAY_PANEL_ORDER: EditorDockDisplayPanel[] = [
   'model',
   'category',
@@ -70,7 +77,9 @@ export interface EditorDockPanelProps {
   onTabChange: (tab: EditorDockTab) => void;
   onToolPanelChange: (panel: EditorDockToolPanel) => void;
   onDisplayPanelChange: (panel: EditorDockDisplayPanel) => void;
+  onHistoryPanelChange: (panel: EditorDockHistoryPanel) => void;
   onClose: () => void;
+  iModelId: string | null;
   changesets: Changeset[];
   currentChangesetId: string | null;
   hasLocalChanges: boolean;
@@ -78,6 +87,13 @@ export interface EditorDockPanelProps {
   onPull: () => void;
   onShowHistory: () => void;
   onShowVersions: () => void;
+  onRollback?: (changesetId: string, versionName: string) => Promise<void>;
+  onCompareVersions?: (source: NamedVersion, target: NamedVersion) => void;
+  /** 测量结果（useMeasurementManager 注入；空数组时面板显示空态） */
+  measurements: MeasurementRecord[];
+  onDeleteMeasurement: (id: string) => void;
+  onClearMeasurements: () => void;
+  onExportMeasurements: () => void;
 }
 
 /**
@@ -93,7 +109,9 @@ export const EditorDockPanel: React.FC<EditorDockPanelProps> = ({
   onTabChange,
   onToolPanelChange,
   onDisplayPanelChange,
+  onHistoryPanelChange,
   onClose,
+  iModelId,
   changesets,
   currentChangesetId,
   hasLocalChanges,
@@ -101,18 +119,26 @@ export const EditorDockPanel: React.FC<EditorDockPanelProps> = ({
   onPull,
   onShowHistory,
   onShowVersions,
+  onRollback,
+  onCompareVersions,
+  measurements,
+  onDeleteMeasurement,
+  onClearMeasurements,
+  onExportMeasurements,
 }) => {
-  const { t } = useTranslation('editor');
+  const { t, i18n } = useTranslation('editor');
+  // viewer-core 无 i18next 依赖：语言经 prop 注入（终审 I2）
+  const viewerLanguage = i18n.language.startsWith('en') ? 'en' : 'zh-CN';
 
   if (!state.isOpen) return null;
 
   const toolPanelContent = state.toolPanel === 'measurement'
     ? (
         <MeasurementResultsPanel
-          measurements={[]}
-          onDelete={() => {}}
-          onClear={() => {}}
-          onExport={() => {}}
+          measurements={measurements}
+          onDelete={onDeleteMeasurement}
+          onClear={onClearMeasurements}
+          onExport={onExportMeasurements}
         />
       )
     : <ToolSettingsPanel />;
@@ -120,34 +146,56 @@ export const EditorDockPanel: React.FC<EditorDockPanelProps> = ({
   const displayPanelContent = (() => {
     switch (state.displayPanel) {
       case 'model':
-        return <ModelPicker />;
+        return <ModelPicker language={viewerLanguage} />;
       case 'category':
-        return <CategoryPicker />;
+        return <CategoryPicker language={viewerLanguage} />;
       case 'viewSwitcher':
-        return <ViewSwitcher />;
+        return <ViewSwitcher language={viewerLanguage} />;
       case 'savedViews':
-        return <SavedViewsPanel />;
+        return <SavedViewsPanel language={viewerLanguage} />;
       case 'section':
-        return <SectionToolsPanel />;
+        return <SectionToolsPanel language={viewerLanguage} />;
       case 'viewSettings':
       default:
-        return <ViewSettingsPanel />;
+        return <ViewSettingsPanel language={viewerLanguage} />;
     }
   })();
 
   const historyContent = isEditable
     ? (
-        <VersionTimeline
-          isExpanded
-          onToggleExpand={onClose}
-          changesets={changesets}
-          currentChangesetId={currentChangesetId}
-          hasLocalChanges={hasLocalChanges}
-          onPush={onPush}
-          onPull={onPull}
-          onShowHistory={onShowHistory}
-          onShowVersions={onShowVersions}
-        />
+        <Tabs
+          labels={HISTORY_PANEL_ORDER.map(panel => t(`dock.historyPanels.${panel}`))}
+          activeIndex={HISTORY_PANEL_ORDER.indexOf(state.historyPanel)}
+          onTabSelected={index => onHistoryPanelChange(HISTORY_PANEL_ORDER[index])}
+          type="borderless"
+          tabsClassName="editor-dock-subtabs"
+          contentClassName="editor-dock-subcontent"
+        >
+          {state.historyPanel === 'namedVersions'
+            ? (
+                <NamedVersionPanel
+                  iModelId={iModelId}
+                  currentChangesetId={currentChangesetId}
+                  isVisible
+                  onClose={onClose}
+                  onRollback={onRollback}
+                  onCompareVersions={onCompareVersions}
+                />
+              )
+            : (
+                <VersionTimeline
+                  isExpanded
+                  onToggleExpand={onClose}
+                  changesets={changesets}
+                  currentChangesetId={currentChangesetId}
+                  hasLocalChanges={hasLocalChanges}
+                  onPush={onPush}
+                  onPull={onPull}
+                  onShowHistory={onShowHistory}
+                  onShowVersions={onShowVersions}
+                />
+              )}
+        </Tabs>
       )
     : <Text variant="small" className="editor-dock-empty">{t('dock.historyReadonly')}</Text>;
 

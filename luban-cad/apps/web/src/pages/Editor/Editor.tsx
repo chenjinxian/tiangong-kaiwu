@@ -14,6 +14,10 @@ import { useFeatureDisplaySync } from '../../../features/editor/useFeatureDispla
 import { VersionTimeline } from '../../../features/version-control/components/VersionTimeline.js';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { useITwinQuery } from '../../../features/itwin/hooks/useITwinsQuery.js';
+import { ShareITwinDialog } from '../../../features/itwin/components/ShareITwinDialog.js';
+import { RenameIModelDialog } from '../../../features/imodel/components/RenameIModelDialog.js';
+import { useMeasurementManager } from '../../../features/measurement/hooks/useMeasurementManager.js';
+import { downloadMeasurements } from '../../../features/measurement/utils/exportMeasurements.js';
 import { useIModel } from '../../../features/imodel/hooks/useIModelsQuery.js';
 import { useIModelPermission } from '../../../features/imodel/hooks/useIModelPermission.js';
 import './Editor.css';
@@ -76,7 +80,8 @@ const Editor: React.FC = React.memo(() => {
   const { t, i18n } = useTranslation('editor');
 
   const { data: iTwin } = useITwinQuery(iTwinId ?? null);
-  const { data: iModel, isLoading: isIModelLoading } = useIModel(iModelId ?? null);
+  const { data: iModel, isLoading: isIModelLoading, refetch: refetchIModel } =
+    useIModel(iModelId ?? null);
 
   // Permission-based mode determination
   const { mode, isLoading: isPermissionLoading } = useIModelPermission({
@@ -371,7 +376,8 @@ const Editor: React.FC = React.memo(() => {
       const isSamePanel = prev.isOpen
         && (patch.tab === undefined || prev.tab === patch.tab)
         && (patch.toolPanel === undefined || prev.toolPanel === patch.toolPanel)
-        && (patch.displayPanel === undefined || prev.displayPanel === patch.displayPanel);
+        && (patch.displayPanel === undefined || prev.displayPanel === patch.displayPanel)
+        && (patch.historyPanel === undefined || prev.historyPanel === patch.historyPanel);
       return isSamePanel
         ? { ...prev, isOpen: false }
         : { ...prev, ...patch, isOpen: true };
@@ -393,11 +399,16 @@ const Editor: React.FC = React.memo(() => {
     toggleDock({ tab: 'display', displayPanel });
   }, [toggleDock]);
 
-  // Export dialog state
+  // Export / Share / Rename dialog state
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
 
   const { selectionCount, deleteSelected, applyTranslation, applyRotation, applyScale } =
     useEditTools({ connection: isEditable ? briefcase.connection : null });
+
+  // 测量结果（持久化于 localStorage；停靠面板消费真实数据，P5 终审 Minor#4）
+  const measurementManager = useMeasurementManager();
 
   // 3D Transform Gizmo
   const { hoveredAxis: _hoveredAxis, isDragging: _isDragging } = useTransformGizmo({
@@ -533,7 +544,7 @@ const Editor: React.FC = React.memo(() => {
       {/* Topbar（Header + HeaderBreadcrumbs） */}
       <EditorTopBar
         iTwinName={iTwin?.displayName}
-        iModelName={iModel?.displayName}
+        iModelName={iModel?.displayName || iModel?.name}
         iModelId={iModelId}
         isIModelLoading={isIModelLoading}
         isEditable={isEditable}
@@ -544,6 +555,14 @@ const Editor: React.FC = React.memo(() => {
         onBack={handleBack}
         onNavigateToProject={handleNavigateToProject}
         onExport={() => setIsExportDialogOpen(true)}
+        onShare={() => setIsShareDialogOpen(true)}
+        onRename={() => setIsRenameDialogOpen(true)}
+        onOpenHistory={() => openDock({ tab: 'history', historyPanel: 'changesets' })}
+        changesetLabel={(() => {
+          const id = briefcase.connection?.changeset.id;
+          const index = id ? versionControl.changesets.findIndex(cs => cs.id === id) : -1;
+          return index >= 0 ? `#${index + 1}` : undefined;
+        })()}
       />
 
       {/* Primary Toolbar - Integrated Layout */}
@@ -603,7 +622,9 @@ const Editor: React.FC = React.memo(() => {
           onTabChange={tab => setDock(prev => ({ ...prev, tab, isOpen: true }))}
           onToolPanelChange={toolPanel => setDock(prev => ({ ...prev, toolPanel }))}
           onDisplayPanelChange={displayPanel => setDock(prev => ({ ...prev, displayPanel }))}
+          onHistoryPanelChange={historyPanel => setDock(prev => ({ ...prev, historyPanel }))}
           onClose={closeDock}
+          iModelId={iModelId ?? null}
           changesets={versionControl.changesets}
           currentChangesetId={briefcase.connection?.changeset.id ?? null}
           hasLocalChanges={versionControl.hasLocalChanges}
@@ -615,8 +636,14 @@ const Editor: React.FC = React.memo(() => {
           }}
           onShowVersions={() => {
             versionControl.setActiveSidebarTab('versions');
-            openDock({ tab: 'history' });
+            openDock({ tab: 'history', historyPanel: 'namedVersions' });
           }}
+          onRollback={versionControl.handleRollbackToVersion}
+          onCompareVersions={versionControl.handleCompareVersions}
+          measurements={measurementManager.measurements}
+          onDeleteMeasurement={measurementManager.deleteMeasurement}
+          onClearMeasurements={measurementManager.clearMeasurements}
+          onExportMeasurements={() => downloadMeasurements(measurementManager.measurements)}
         />
 
         {/* RW3 AI 预留位：RW4 恒 false（零布局影响） */}
@@ -649,7 +676,7 @@ const Editor: React.FC = React.memo(() => {
           }}
           onShowVersions={() => {
             versionControl.setActiveSidebarTab('versions');
-            openDock({ tab: 'history' });
+            openDock({ tab: 'history', historyPanel: 'namedVersions' });
           }}
         />
       )}
@@ -691,10 +718,29 @@ const Editor: React.FC = React.memo(() => {
       <ExportDialog
         isOpen={isExportDialogOpen}
         iModelId={iModelId ?? ''}
-        iModelName={iModel?.displayName ?? iModelId ?? ''}
+        iModelName={iModel?.displayName || iModel?.name || iModelId || ''}
         onClose={() => setIsExportDialogOpen(false)}
         onExport={(format, fileName) => {
           showToast(t('export.success', { format, fileName }), 'success');
+        }}
+      />
+
+      {/* 分享当前项目（复用 P3 ShareITwinDialog） */}
+      <ShareITwinDialog
+        iTwin={iTwin ?? null}
+        isOpen={isShareDialogOpen}
+        onClose={() => setIsShareDialogOpen(false)}
+      />
+
+      {/* 重命名当前 iModel（编辑权限） */}
+      <RenameIModelDialog
+        iModel={iModel ?? null}
+        iTwinId={iTwinId ?? ''}
+        isOpen={isRenameDialogOpen}
+        onClose={() => setIsRenameDialogOpen(false)}
+        onRenamed={() => {
+          void refetchIModel();
+          setIsRenameDialogOpen(false);
         }}
       />
 
@@ -708,7 +754,7 @@ const Editor: React.FC = React.memo(() => {
         opStatus={opStatus}
         selectionCount={selectionCount}
         iTwinName={iTwin?.displayName}
-        iModelName={iModel?.displayName}
+        iModelName={iModel?.displayName || iModel?.name}
         iTwinId={iTwinId}
         iModelId={iModelId}
       />

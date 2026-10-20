@@ -44,6 +44,7 @@ const COPY: Record<Lang, {
   documents: RegExp;
   openWorkspace: RegExp;
   editorSelect: RegExp;
+  editorDisplay: RegExp;
   settingsTab: RegExp;
   projectsFilter: RegExp;
 }> = {
@@ -55,6 +56,7 @@ const COPY: Record<Lang, {
     documents: /文档|项目/,
     openWorkspace: /打开工作空间/,
     editorSelect: /^选择$/,
+    editorDisplay: /^显示设置$/,
     settingsTab: /个人资料/,
     projectsFilter: /我的项目/,
   },
@@ -66,6 +68,7 @@ const COPY: Record<Lang, {
     documents: /Documents|Projects/,
     openWorkspace: /Open workspace/,
     editorSelect: /^Select$/,
+    editorDisplay: /^Display$/,
     settingsTab: /Profile/,
     projectsFilter: /My Projects/,
   },
@@ -171,6 +174,13 @@ for (const lang of LANGS) {
         await page.waitForTimeout(1200);
         await shoot(page, `editor-${suffix}`);
         if (lang === 'en') await expectNoCjk(page, 'Editor');
+
+        // 停靠面板展开态（viewer-core 面板文案的 en 兜底；终审 I2）
+        await page.getByRole('button', { name: copy.editorDisplay }).first().click();
+        await expect(page.getByTestId('editor-dock')).toBeVisible({ timeout: 15000 });
+        await page.waitForTimeout(500);
+        await shoot(page, `editor-dock-${suffix}`);
+        if (lang === 'en') await expectNoCjk(page, 'Editor dock');
       });
 
       test('Settings 设置页', async ({ page }) => {

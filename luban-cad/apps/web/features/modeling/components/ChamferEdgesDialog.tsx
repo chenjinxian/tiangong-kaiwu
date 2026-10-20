@@ -5,7 +5,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Dialog, Input, Select, ToggleSwitch } from '@itwin/itwinui-react';
+import { Button, Dialog, Input, Select, Text, ToggleSwitch } from '@itwin/itwinui-react';
 import { ChamferMode } from '@itwin/editor-common';
 import { SOLID_MODELING_DEFAULTS } from '../../../shared/lib/constants.js';
 import './ToolDialog.css';
@@ -70,10 +70,13 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title={t('modeling.chamfer.title')}
+      aria-label={t('modeling.chamfer.title')}
       className="tool-dialog"
     >
       <div className="tool-dialog-content">
+        <Text variant="headline" as="h3" className="tool-dialog-title">
+          {t('modeling.chamfer.title')}
+        </Text>
         <div className="tool-info">
           <span className="tool-icon">✂️</span>
           <p>{t('modeling.chamfer.applied', { count: selectedCount })}</p>

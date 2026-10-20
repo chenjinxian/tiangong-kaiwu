@@ -18,8 +18,8 @@
  * - Table 列=缩略图(useITwinImage+SvgProject 回退)/名称/所有者/角色 Tag/创建·更新时间；
  *   列头排序（名称/创建/更新，manualSortBy 受控态统一驱动双视图）
  * - 行级 DropdownMenu（右键 onContextMenu + 行尾 IconButton 双触发）：打开/详情/重命名
- *   （EditITwinDialog 复用）/收藏 toggle/分享（占位禁用+「即将上线 P3」）/删除（危险确认
- *   Dialog——window.confirm 不许用）
+ *   （EditITwinDialog 复用）/收藏 toggle/分享（ShareITwinDialog，与详情页同源）/删除
+ *   （危险确认 Dialog——window.confirm 不许用）
  * - 右侧 InformationPanel 详情侧栏（选中行：大缩略图/所有者/角色/创建·更新时间/描述）
  * - 空态 NonIdealState 替换 6 个内联 SVG；双 setTimeout 切换动画已删
  * e2e 契约锚点：.section-title（helpers 登录门）/main 内 Tile role=button/
@@ -86,6 +86,7 @@ import {
 } from '../../../features/itwin/hooks/useITwinsQuery.js';
 import { CreateITwinDialog } from '../../../features/itwin/components/CreateITwinDialog.js';
 import { EditITwinDialog } from '../../../features/itwin/components/EditITwinDialog.js';
+import { ShareITwinDialog } from '../../../features/itwin/components/ShareITwinDialog.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
 import { useAppToast } from '../../../shared/hooks/useAppToast.js';
 import { useITwinImage } from '../../../shared/hooks/useITwinImage.js';
@@ -228,6 +229,7 @@ const Documents: React.FC = React.memo(() => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<DocumentRow | null>(null);
+  const [shareTarget, setShareTarget] = useState<DocumentRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DocumentRow | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; row: DocumentRow } | null>(null);
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
@@ -482,7 +484,14 @@ const Documents: React.FC = React.memo(() => {
         >
           {isFavorite ? t('actions.unfavorite') : t('actions.favorite')}
         </MenuItem>,
-        <MenuItem key="share" disabled startIcon={<SvgShare />} sublabel={t('share.comingSoon')}>
+        <MenuItem
+          key="share"
+          startIcon={<SvgShare />}
+          onClick={() => {
+            close();
+            setShareTarget(row);
+          }}
+        >
           {t('actions.share')}
         </MenuItem>,
         <MenuItem
@@ -770,6 +779,7 @@ const Documents: React.FC = React.memo(() => {
         {/* Sidebar — 四筛选（与我共享=真数据） */}
         <SideNavigation
           className="sidebar"
+          isExpanded
           items={sidebarItems.map((item) => (
             <SidenavButton
               key={item.id}
@@ -898,6 +908,13 @@ const Documents: React.FC = React.memo(() => {
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         onCreated={refresh}
+      />
+
+      {/* Share Dialog（P3 真实现；行级菜单入口，与详情页同源） */}
+      <ShareITwinDialog
+        iTwin={shareTarget?.itwin ?? null}
+        isOpen={!!shareTarget}
+        onClose={() => setShareTarget(null)}
       />
 
       {/* Rename Dialog（EditITwinDialog 复用） */}

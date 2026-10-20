@@ -171,8 +171,6 @@
       "nameLabel": "模型名称",
       "namePlaceholder": "输入模型名称",
       "nameHint": "用于标识模型，建议使用英文、数字和连字符",
-      "displayNameLabel": "显示名称",
-      "displayNamePlaceholder": "可选，用于界面展示",
       "descriptionLabel": "描述",
       "descriptionPlaceholder": "模型描述...",
       "baselineLabel": "Baseline 文件 (可选)",
@@ -259,9 +257,7 @@
       "hint": "仅拥有项目访问权限的用户可打开此链接"
     }
   },
-  "share": {
-    "comingSoon": "即将上线（P3）"
-  },
+  "share": {},
   "deleteDialog": {
     "title": "删除项目",
     "message": "确定要删除项目「{{name}}」吗？此操作不可撤销，项目下的所有 iModel 也将被删除。",

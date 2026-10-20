@@ -101,7 +101,6 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
 
   // Form state
   const [name, setName] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
   const [baselineFile, setBaselineFile] = useState<File | null>(null);
   const [nameError, setNameError] = useState('');
@@ -169,8 +168,7 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
     setErrorStep(null);
     setCreatedIModelId(null);
     setIsCancelling(false);
-    setName('');
-    setDisplayName('');
+    setName('');
     setDescription('');
     setBaselineFile(null);
     setNameError('');
@@ -462,8 +460,7 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
     setError(null);
     setErrorStep(null);
     setCreatedIModelId(null);
-    setName('');
-    setDisplayName('');
+    setName('');
     setDescription('');
     setBaselineFile(null);
   };
@@ -520,19 +517,6 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
                   <Text variant="small" className="cw-hint">
                     {t('createIModel.form.nameHint')}
                   </Text>
-                </InputGroup>
-
-                <InputGroup>
-                  <Label htmlFor="model-displayName">
-                    {t('createIModel.form.displayNameLabel')}
-                  </Label>
-                  <Input
-                    id="model-displayName"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder={t('createIModel.form.displayNamePlaceholder')}
-                    disabled={isLoading}
-                  />
                 </InputGroup>
 
                 <InputGroup>
@@ -650,8 +634,8 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
               <Text variant="headline" as="h3">{t('createIModel.success.title')}</Text>
               <Text>
                 {baselineFile
-                  ? t('createIModel.success.baselinePending', { name: displayName || name })
-                  : t('createIModel.success.ready', { name: displayName || name })}
+                  ? t('createIModel.success.baselinePending', { name })
+                  : t('createIModel.success.ready', { name })}
               </Text>
               <div className="cw-result-actions">
                 <Button

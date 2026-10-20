@@ -10,6 +10,13 @@
   color: var(--iui-color-text) !important;
 }
 
+/* 可见标题（3.22 Dialog 根 title 属性只落 HTML tooltip，不渲染——P5 终审 Minor#1） */
+.tool-dialog .tool-dialog-title {
+  margin: 0 0 var(--iui-size-s);
+  padding-bottom: var(--iui-size-xs);
+  border-bottom: 1px solid var(--iui-color-border);
+}
+
 .tool-dialog [class*="dialog-title-bar"],
 .tool-dialog [class*="_title-bar"] {
   background-color: var(--iui-color-background) !important;

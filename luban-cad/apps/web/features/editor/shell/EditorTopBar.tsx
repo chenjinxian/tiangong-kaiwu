@@ -7,6 +7,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Avatar,
+  Button,
   Divider,
   Header,
   HeaderBreadcrumbs,
@@ -14,7 +15,7 @@ import {
   HeaderLogo,
   IconButton,
 } from '@itwin/itwinui-react';
-import { SvgExport, SvgInfo } from '@itwin/itwinui-icons-react';
+import { SvgExport, SvgInfo, SvgRename, SvgShare } from '@itwin/itwinui-icons-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { ThemeToggle } from '../components/ThemeToggle.js';
 import { EditorBriefcaseStatus } from '../components/EditorBriefcaseStatus.js';
@@ -37,6 +38,14 @@ export interface EditorTopBarProps {
   onBack: () => void;
   onNavigateToProject: () => void;
   onExport: () => void;
+  /** 分享当前项目（复用 ShareITwinDialog，P3 真实现） */
+  onShare: () => void;
+  /** 重命名当前 iModel（RenameIModelDialog） */
+  onRename: () => void;
+  /** 版本药丸 → 打开历史停靠 */
+  onOpenHistory: () => void;
+  /** 当前 changeset 展示标签（如 #12）；缺省不渲染药丸 */
+  changesetLabel?: string;
 }
 
 /**
@@ -59,12 +68,18 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
   onBack,
   onNavigateToProject,
   onExport,
+  onShare,
+  onRename,
+  onOpenHistory,
+  changesetLabel,
 }) => {
   const { t } = useTranslation('editor');
   const { t: tCommon } = useTranslation('common');
+  // 名称回退：displayName（= name，官方 API 口径）→ name → ID 片段（Editor 已做前两级，
+  // 此处保留兜底；P5 终审 I4 实测曾只显示 ID 片段）
   const currentModelName = isIModelLoading
     ? t('topbar.loading')
-    : (iModelName ?? iModelId?.slice(0, 8) ?? '');
+    : (iModelName || iModelId?.slice(0, 8) || '');
 
   const breadcrumbs = [
     <HeaderButton key="documents" name={t('topbar.projectList')} onClick={onBack} />,
@@ -82,6 +97,39 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
       error={connectionError}
       isEditable={isEditable}
     />,
+    ...(changesetLabel
+      ? [
+          <Button
+            key="version-pill"
+            styleType="borderless"
+            size="small"
+            onClick={onOpenHistory}
+            title={t('topbar.versionPillTitle')}
+          >
+            {changesetLabel}
+          </Button>,
+        ]
+      : []),
+    <IconButton
+      key="share"
+      styleType="default"
+      onClick={onShare}
+      label={t('topbar.share')}
+    >
+      <SvgShare />
+    </IconButton>,
+    ...(isEditable
+      ? [
+          <IconButton
+            key="rename"
+            styleType="default"
+            onClick={onRename}
+            label={t('topbar.rename')}
+          >
+            <SvgRename />
+          </IconButton>,
+        ]
+      : []),
     ...(!isEditable
       ? [
           <IconButton
