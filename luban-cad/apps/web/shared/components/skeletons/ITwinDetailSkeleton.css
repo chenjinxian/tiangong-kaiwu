@@ -7,7 +7,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: var(--color-bg-page, #f8fafc);
+  background: var(--iui-color-background-backdrop, #f8fafc);
 }
 
 /* Topbar skeleton */
@@ -17,8 +17,8 @@
   justify-content: space-between;
   padding: 0 24px;
   height: 52px;
-  background: var(--color-bg-header, #ffffff);
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--iui-color-background, #ffffff);
+  border-bottom: 1px solid var(--iui-color-border, #e5e7eb);
 }
 
 .topbar-left {
@@ -31,27 +31,27 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 .skeleton-breadcrumb {
   width: 200px;
   height: 16px;
   border-radius: 4px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 .skeleton-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 /* Hero skeleton */
 .hero-skeleton {
-  background: var(--color-bg-card, #ffffff);
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--iui-color-background, #ffffff);
+  border-bottom: 1px solid var(--iui-color-border, #e5e7eb);
   padding: 20px 24px;
 }
 
@@ -72,7 +72,7 @@
   width: 52px;
   height: 52px;
   border-radius: 12px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 .hero-info-skeleton {
@@ -82,7 +82,7 @@
 }
 
 .skeleton-text {
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 4px;
 }
 
@@ -115,14 +115,14 @@
   width: 120px;
   height: 36px;
   border-radius: 8px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 .skeleton-badge {
   width: 100px;
   height: 28px;
   border-radius: 6px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 /* Toolbar skeleton */
@@ -130,8 +130,8 @@
   display: flex;
   align-items: center;
   padding: 12px 24px;
-  background: var(--color-bg-sidebar, #ffffff);
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--iui-color-background, #ffffff);
+  border-bottom: 1px solid var(--iui-color-border, #e5e7eb);
 }
 
 /* Grid skeleton */
@@ -143,15 +143,15 @@
 }
 
 .imodel-card-skeleton {
-  background: var(--color-bg-card, #ffffff);
-  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--iui-color-background, #ffffff);
+  border: 1px solid var(--iui-color-border, #e5e7eb);
   border-radius: 12px;
   overflow: hidden;
 }
 
 .imodel-thumb-skeleton {
   height: 120px;
-  background: linear-gradient(135deg, var(--color-border, #e5e7eb), #f1f5f9);
+  background: linear-gradient(135deg, var(--iui-color-border, #e5e7eb), #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,7 +165,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 .imodel-body-skeleton {

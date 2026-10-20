@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  color: var(--color-text-primary);
+  color: var(--iui-color-text);
 }
 
 .nv-panel-header {
@@ -18,15 +18,15 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--iui-size-xs) var(--iui-size-m);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--iui-color-border);
   flex-shrink: 0;
-  background: var(--color-bg-card);
+  background: var(--iui-color-background);
 }
 
 .nv-panel-title {
   font-size: var(--iui-font-size-0);
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -39,15 +39,15 @@
 .nv-error {
   padding: var(--iui-size-xs) var(--iui-size-m);
   font-size: var(--iui-font-size-0);
-  color: var(--color-error);
-  background: var(--color-error-light);
-  border-bottom: 1px solid var(--color-border);
+  color: var(--iui-color-text-negative);
+  background: var(--iui-color-text-negative-light);
+  border-bottom: 1px solid var(--iui-color-border);
 }
 
 .nv-loading {
   padding: var(--iui-size-s);
   font-size: var(--iui-font-size-0);
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
   text-align: center;
 }
 
@@ -55,13 +55,13 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--iui-size-xs) 0;
-  background: var(--color-bg-card);
+  background: var(--iui-color-background);
 }
 
 .nv-empty {
   padding: var(--iui-size-l) var(--iui-size-m);
   text-align: center;
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
 }
 
 .nv-empty p {
@@ -72,13 +72,13 @@
 /* Named version item */
 .nv-item {
   padding: var(--iui-size-s) var(--iui-size-m);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--iui-color-border);
   transition: background 0.1s;
-  background: var(--color-bg-card);
+  background: var(--iui-color-background);
 }
 
 .nv-item:hover {
-  background: var(--color-bg-hover);
+  background: var(--iui-color-background-hover);
 }
 
 .nv-item--current {
@@ -95,7 +95,7 @@
 .nv-item-name {
   font-size: var(--iui-font-size-1);
   font-weight: 500;
-  color: var(--color-text-primary);
+  color: var(--iui-color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -113,7 +113,7 @@
 
 .nv-item-description {
   font-size: var(--iui-font-size-0);
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
   margin-bottom: var(--iui-size-xs);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -126,7 +126,7 @@
   display: flex;
   gap: var(--iui-size-xs);
   font-size: var(--iui-font-size-0);
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
   margin-bottom: var(--iui-size-xs);
 }
 
@@ -140,16 +140,16 @@
   gap: var(--iui-size-xs);
   margin-top: var(--iui-size-xs);
   padding-top: var(--iui-size-xs);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--iui-color-border);
 }
 
 /* Compare mode styles */
 .nv-compare-hint {
   padding: var(--iui-size-xs) var(--iui-size-m);
   background: var(--color-primary-light);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--iui-color-border);
   font-size: var(--iui-font-size-0);
-  color: var(--color-text-primary);
+  color: var(--iui-color-text);
 }
 
 .nv-compare-hint strong {
@@ -158,7 +158,7 @@
 
 /* Rollback dialog styles - for dark mode support in dialogs */
 .nv-dialog-content {
-  color: var(--color-text-primary);
+  color: var(--iui-color-text);
 }
 
 .nv-warning-box {
@@ -166,8 +166,8 @@
   align-items: center;
   gap: var(--iui-size-s);
   padding: var(--iui-size-s);
-  background: var(--color-warning-light);
-  border: 1px solid var(--color-warning);
+  background: var(--iui-color-text-warning-light);
+  border: 1px solid var(--iui-color-text-warning);
   border-radius: var(--iui-border-radius-1);
   margin-bottom: var(--iui-size-xs);
 }
@@ -178,7 +178,7 @@
 
 .nv-rollback-info {
   padding: var(--iui-size-s);
-  background: var(--color-bg-page);
+  background: var(--iui-color-background-backdrop);
   border-radius: var(--iui-border-radius-1);
   margin-bottom: var(--iui-size-s);
 }
@@ -195,19 +195,19 @@
 }
 
 .nv-rollback-label {
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
 }
 
 .nv-rollback-value {
-  color: var(--color-text-primary);
+  color: var(--iui-color-text);
   font-weight: 500;
 }
 
 .nv-warning-text {
   padding: var(--iui-size-s);
-  background: var(--color-error-light);
-  border: 1px solid var(--color-error);
+  background: var(--iui-color-text-negative-light);
+  border: 1px solid var(--iui-color-text-negative);
   border-radius: var(--iui-border-radius-1);
   font-size: var(--iui-font-size-0);
-  color: var(--color-error);
+  color: var(--iui-color-text-negative);
 }

@@ -75,7 +75,7 @@
 /* Form side skeleton */
 .form-side-skeleton {
   flex: 1;
-  background: var(--color-bg-card, #ffffff);
+  background: var(--iui-color-background, #ffffff);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -95,7 +95,7 @@
 .skeleton-form-title {
   width: 100px;
   height: 28px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 4px;
   margin-bottom: 8px;
 }
@@ -103,7 +103,7 @@
 .skeleton-form-subtitle {
   width: 180px;
   height: 16px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 4px;
 }
 
@@ -122,13 +122,13 @@
 .skeleton-label {
   width: 60px;
   height: 14px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 2px;
 }
 
 .skeleton-input {
   height: 44px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 8px;
 }
 
@@ -142,27 +142,27 @@
 .skeleton-checkbox {
   width: 80px;
   height: 14px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 2px;
 }
 
 .skeleton-link {
   width: 70px;
   height: 14px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 2px;
 }
 
 .skeleton-button {
   height: 48px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 8px;
   margin-top: 4px;
 }
 
 .skeleton-footer {
   height: 16px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 2px;
   margin-top: 24px;
   width: 60%;

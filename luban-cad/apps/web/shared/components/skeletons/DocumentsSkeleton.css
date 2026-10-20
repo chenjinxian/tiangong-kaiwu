@@ -7,7 +7,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--color-bg-page, #f8fafc);
+  background: var(--iui-color-background-backdrop, #f8fafc);
 }
 
 /* Topbar skeleton */
@@ -17,8 +17,8 @@
   justify-content: space-between;
   padding: 0 24px;
   height: 52px;
-  background: var(--color-bg-header, #ffffff);
-  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--iui-color-background, #ffffff);
+  border-bottom: 1px solid var(--iui-color-border, #e5e7eb);
 }
 
 .topbar-brand {
@@ -31,11 +31,11 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 .skeleton-text {
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   border-radius: 4px;
 }
 
@@ -75,14 +75,14 @@
   width: 100px;
   height: 32px;
   border-radius: 6px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 .skeleton-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 /* Content skeleton */
@@ -95,8 +95,8 @@
 /* Sidebar skeleton */
 .sidebar-skeleton {
   width: 200px;
-  background: var(--color-bg-sidebar, #ffffff);
-  border-right: 1px solid var(--color-border, #e5e7eb);
+  background: var(--iui-color-background, #ffffff);
+  border-right: 1px solid var(--iui-color-border, #e5e7eb);
   padding: 12px 0;
   display: flex;
   flex-direction: column;
@@ -113,12 +113,12 @@
 .sidebar-item-skeleton {
   height: 40px;
   border-radius: 6px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
 }
 
 .sidebar-divider-skeleton {
   height: 1px;
-  background: var(--color-border, #e5e7eb);
+  background: var(--iui-color-border, #e5e7eb);
   margin: 12px;
 }
 
@@ -148,15 +148,15 @@
 }
 
 .card-skeleton {
-  background: var(--color-bg-card, #ffffff);
-  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--iui-color-background, #ffffff);
+  border: 1px solid var(--iui-color-border, #e5e7eb);
   border-radius: 12px;
   overflow: hidden;
 }
 
 .card-thumb-skeleton {
   height: 100px;
-  background: linear-gradient(135deg, var(--color-border, #e5e7eb), #f1f5f9);
+  background: linear-gradient(135deg, var(--iui-color-border, #e5e7eb), #f1f5f9);
 }
 
 .card-body-skeleton {

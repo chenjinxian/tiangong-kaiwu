@@ -1,19 +1,19 @@
 .imodel-card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
+  background: var(--iui-color-background);
+  border: 1px solid var(--iui-color-border);
   border-radius: var(--iui-border-radius-1);
   overflow: hidden;
   transition: box-shadow 0.2s ease;
-  color: var(--color-text-primary);
+  color: var(--iui-color-text);
 }
 
 .imodel-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--iui-shadow-2);
 }
 
 .imodel-card__thumbnail {
   aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, var(--color-bg-page) 0%, var(--color-border) 100%);
+  background: linear-gradient(135deg, var(--iui-color-background-backdrop) 0%, var(--iui-color-border) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,13 +21,13 @@
 }
 
 .imodel-card__thumbnail.not-initialized {
-  background: linear-gradient(135deg, var(--color-bg-hover) 0%, var(--color-bg-page) 100%);
+  background: linear-gradient(135deg, var(--iui-color-background-hover) 0%, var(--iui-color-background-backdrop) 100%);
 }
 
 .imodel-card__icon {
   width: 36px;
   height: 36px;
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
   opacity: 0.5;
 }
 
@@ -50,11 +50,11 @@
 
 .imodel-card__overlay span {
   font-size: var(--iui-font-size-0);
-  color: var(--color-text-primary);
+  color: var(--iui-color-text);
   padding: var(--iui-size-xs) var(--iui-size-s);
-  background: var(--color-bg-card);
+  background: var(--iui-color-background);
   border-radius: var(--iui-border-radius-1);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--iui-shadow-1);
 }
 
 .imodel-card__info {
@@ -83,7 +83,7 @@
 .imodel-card__title {
   font-size: var(--iui-font-size-1);
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--iui-color-text);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -92,7 +92,7 @@
 
 .imodel-card__description {
   font-size: var(--iui-font-size-0);
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
   margin: 0 0 var(--iui-size-xs) 0;
   white-space: nowrap;
   overflow: hidden;
@@ -104,18 +104,18 @@
 }
 
 .imodel-card__meta .initialized {
-  background: var(--color-success-light);
-  color: var(--color-success);
+  background: var(--iui-color-text-positive-light);
+  color: var(--iui-color-text-positive);
 }
 
 .imodel-card__meta .not-initialized {
-  background: var(--color-bg-hover);
-  color: var(--color-text-secondary);
+  background: var(--iui-color-background-hover);
+  color: var(--iui-color-text-muted);
 }
 
 .imodel-card__date {
   font-size: var(--iui-font-size-0);
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
   margin: 0 0 var(--iui-size-xs) 0;
 }
 

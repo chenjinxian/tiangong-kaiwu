@@ -22,9 +22,9 @@
 .edit-dialog {
   min-inline-size: 480px !important;
   min-width: 480px !important;
-  background-color: var(--color-bg-card) !important;
+  background-color: var(--iui-color-background) !important;
   border-radius: var(--iui-border-radius-1) !important;
-  color: var(--color-text-primary) !important;
+  color: var(--iui-color-text) !important;
 }
 
 /* Dialog backdrop - ensure proper dark overlay in dark mode */
@@ -40,9 +40,9 @@
 .edit-dialog [class*="_title-bar"] {
   padding: var(--iui-size-m) var(--iui-size-l) !important;
   margin: 0 !important;
-  border-bottom: 1px solid var(--color-border) !important;
-  background-color: var(--color-bg-card) !important;
-  color: var(--color-text-primary) !important;
+  border-bottom: 1px solid var(--iui-color-border) !important;
+  background-color: var(--iui-color-background) !important;
+  color: var(--iui-color-text) !important;
 }
 
 /* Dialog content area */
@@ -52,8 +52,8 @@
 .edit-dialog [class*="_dialog-content"] {
   padding: var(--iui-size-l) !important;
   margin: 0 !important;
-  background-color: var(--color-bg-card) !important;
-  color: var(--color-text-primary) !important;
+  background-color: var(--iui-color-background) !important;
+  color: var(--iui-color-text) !important;
 }
 
 /* Input groups - consistent spacing */
@@ -75,7 +75,7 @@
   display: block;
   font-size: var(--iui-font-size-1);
   font-weight: 500;
-  color: var(--color-text-primary) !important;
+  color: var(--iui-color-text) !important;
   margin-bottom: var(--iui-size-xs);
 }
 
@@ -84,7 +84,7 @@
 .edit-dialog [class*="label"] [class*="required"],
 .create-dialog [class*="label"][class*="required"]::after,
 .edit-dialog [class*="label"][class*="required"]::after {
-  color: var(--color-error);
+  color: var(--iui-color-text-negative);
 }
 
 /* Input fields - use our own variables for proper theming */
@@ -99,9 +99,9 @@
   width: 100%;
   padding: var(--iui-size-xs) var(--iui-size-s) !important;
   font-size: var(--iui-font-size-1);
-  color: var(--color-text-primary) !important;
-  background: var(--color-bg-page) !important;
-  border: 1px solid var(--color-border) !important;
+  color: var(--iui-color-text) !important;
+  background: var(--iui-color-background-backdrop) !important;
+  border: 1px solid var(--iui-color-border) !important;
   border-radius: var(--iui-border-radius-1);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -137,7 +137,7 @@
 .edit-dialog textarea:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  background: var(--color-bg-hover) !important;
+  background: var(--iui-color-background-hover) !important;
 }
 
 /* Negative status */
@@ -145,7 +145,7 @@
 .edit-dialog [class*="input"][class*="negative"] input,
 .create-dialog input[class*="negative"],
 .edit-dialog input[class*="negative"] {
-  border-color: var(--color-error) !important;
+  border-color: var(--iui-color-text-negative) !important;
 }
 
 /* Field error messages */
@@ -153,7 +153,7 @@
 .edit-dialog .field-error {
   display: block;
   font-size: var(--iui-font-size-0);
-  color: var(--color-error);
+  color: var(--iui-color-text-negative);
   margin-top: var(--iui-size-xs);
 }
 
@@ -164,8 +164,8 @@
 .edit-dialog [class*="_button-bar"] {
   padding: var(--iui-size-m) var(--iui-size-l) !important;
   margin: 0 !important;
-  border-top: 1px solid var(--color-border) !important;
-  background-color: var(--color-bg-card) !important;
+  border-top: 1px solid var(--iui-color-border) !important;
+  background-color: var(--iui-color-background) !important;
   display: flex;
   justify-content: flex-end;
   gap: var(--iui-size-s);
