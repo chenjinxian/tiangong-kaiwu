@@ -39,6 +39,11 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('/')` */
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
 
+    /* 产品默认语言为中文：固定浏览器 locale 使 i18n navigator 探测落 zh-CN，
+       各 spec 的中文断言稳定（RW4-P2 起页面文案全部走 t()，Chromium 默认
+       en-US 会让探测落英文）。i18n 走查 spec 显式注入 localStorage 语言，不受此影响。 */
+    locale: 'zh-CN',
+
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
 

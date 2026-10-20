@@ -52,7 +52,8 @@
     "unfavoriteSuccess": "已取消收藏",
     "favoriteFailed": "收藏操作失败，请重试",
     "deleteSuccess": "项目已删除",
-    "deleteFailed": "删除失败，请重试"
+    "deleteFailed": "删除失败，请重试",
+    "editSaved": "项目信息已更新"
   },
   "view": {
     "tile": "网格视图",
