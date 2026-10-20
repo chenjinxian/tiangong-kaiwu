@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_OIDC_CLIENT_ID: string
   readonly VITE_OIDC_REDIRECT_URI: string
   readonly VITE_OIDC_POST_LOGOUT_REDIRECT_URI: string
+  /** Google OAuth 客户端 ID（登录页 SSO 按钮位探测；空 = 不渲染，RW4-P1-T2） */
+  readonly VITE_GOOGLE_CLIENT_ID: string
   readonly VITE_WEBHOOK_SECRET: string
   readonly VITE_AZURE_STORAGE_ACCOUNT: string
   readonly VITE_AZURE_STORAGE_CONTAINER: string

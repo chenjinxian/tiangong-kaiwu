@@ -3,12 +3,30 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * 登录页（RW4-P1-T2 Onshape IA 重做）：Surface 分屏 + AuthBrandSide 品牌栏 + itwin-ui 表单件。
+ * 行为保留：记住我（luban-cad-remember）/500ms 邮箱防抖校验/300ms 页面载入。
+ * 文案全走 auth 命名空间 i18n；e2e 契约锚点 = heading 欢迎回来/getByLabel 电子邮箱/密码/
+ * button 登录/link 立即注册/.login-error-alert。
+ */
+
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '../../../app/contexts/UserContext.js';
 import { AuthPageSkeleton } from '../../../shared/components/skeletons/AuthPageSkeleton.js';
+import { AuthBrandSide } from '../../../shared/components/auth/AuthBrandSide.js';
 import { EyeIcon, EyeOffIcon } from '../../../shared/components/icons/EyeIcons.js';
-import { Alert, Button, Checkbox, IconButton, LabeledInput, ProgressRadial, Text } from '@itwin/itwinui-react';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  IconButton,
+  LabeledInput,
+  ProgressRadial,
+  Surface,
+  Text,
+} from '@itwin/itwinui-react';
 import './Login.css';
 
 const REMEMBER_ME_KEY = 'luban-cad-remember';
@@ -18,9 +36,37 @@ interface RememberMeData {
   timestamp: number;
 }
 
+/** Google OAuth 客户端 ID 探测（构建期经 VITE_GOOGLE_CLIENT_ID 注入；空 = 不渲染 SSO 入口）。
+ * 组件体内读取（每次渲染取现值）——模块级常量会在测试 vi.stubEnv 前固化，env 探测失真。 */
+const googleClientId = (): string => import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+
+/** 官方 Google "G" 四色标（品牌 SVG 资产，内联避免运行时拉取与额外依赖） */
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const GoogleGIcon: React.FC = () => (
+  <svg aria-hidden="true" viewBox="0 0 18 18" width="18" height="18" focusable="false">
+    <path
+      fill="#4285F4"
+      d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"
+    />
+    <path
+      fill="#34A853"
+      d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.32A9 9 0 0 0 9 18z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M3.97 10.72a5.41 5.41 0 0 1 0-3.44V4.96H.96a9 9 0 0 0 0 8.08l3.01-2.32z"
+    />
+    <path
+      fill="#EA4335"
+      d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.42 0 9 0A9 9 0 0 0 .96 4.96l3.01 2.32C4.68 5.16 6.66 3.58 9 3.58z"
+    />
+  </svg>
+);
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('auth');
   const { login, isAuthenticated, isLoading: isAuthLoading, error, clearError } = useUser();
 
   const [email, setEmail] = useState('');
@@ -73,19 +119,22 @@ const Login: React.FC = () => {
   }, [email, password, clearError, emailError]);
 
   // Email validation
-  const validateEmail = useCallback((value: string): boolean => {
-    if (!value) {
+  const validateEmail = useCallback(
+    (value: string): boolean => {
+      if (!value) {
+        setEmailError('');
+        return false;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        setEmailError(t('login.emailInvalid'));
+        return false;
+      }
       setEmailError('');
-      return false;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) {
-      setEmailError('请输入有效的邮箱地址');
-      return false;
-    }
-    setEmailError('');
-    return true;
-  }, []);
+      return true;
+    },
+    [t],
+  );
 
   // Debounced email validation
   useEffect(() => {
@@ -130,6 +179,11 @@ const Login: React.FC = () => {
     await login({ email, password, rememberMe });
   };
 
+  const handleGoogleSso = useCallback(() => {
+    // TODO(RW4 后续波): OIDC 授权码回调流——跳 Google consent → 后端 /auth/google 交换 JWT
+    // （后端 GOOGLE_CLIENT_ID/SECRET 已配置；前端待接 oauth 客户端后启用此入口）。
+  }, []);
+
   // Show skeleton while loading
   if (isPageLoading) {
     return <AuthPageSkeleton />;
@@ -139,41 +193,19 @@ const Login: React.FC = () => {
 
   return (
     <div className="auth-page">
-      {/* Left: Brand */}
-      <div className="brand-side">
-        <div className="brand-logo">CC</div>
-        <Text variant="title" as="h1" className="brand-title">LubanCAD</Text>
-        <Text className="brand-subtitle">基于 iTwin.js 的开源云端 CAD 平台</Text>
-        <div className="brand-features">
-          <div className="brand-feature">
-            <span className="brand-feature-icon">✓</span>
-            <Text>完全免费，开源透明</Text>
-          </div>
-          <div className="brand-feature">
-            <span className="brand-feature-icon">⊕</span>
-            <Text>云端实时协作</Text>
-          </div>
-          <div className="brand-feature">
-            <span className="brand-feature-icon">◈</span>
-            <Text>工业级 3D 渲染引擎</Text>
-          </div>
-          <div className="brand-feature">
-            <span className="brand-feature-icon">⚙</span>
-            <Text>专业 CAD 功能</Text>
-          </div>
-        </div>
-      </div>
+      {/* Left: Brand（三页共享品牌侧栏） */}
+      <AuthBrandSide />
 
-      {/* Right: Form */}
-      <div className="form-side">
-        <div className="form-container">
-          <div className="form-header">
-            <Text variant="title" as="h2" className="form-title">欢迎回来</Text>
-            <Text className="form-subtitle">登录您的 LubanCAD 账户</Text>
+      {/* Right: Form（Surface 分屏骨架） */}
+      <Surface className="auth-form-side">
+        <div className="auth-form-container">
+          <div className="auth-form-header">
+            <Text variant="title" as="h2" className="auth-form-title">{t('login.title')}</Text>
+            <Text className="auth-form-subtitle">{t('login.subtitle')}</Text>
           </div>
 
           {error && (
-            <Alert type="negative" className="login-error-alert">
+            <Alert type="negative" className="login-error-alert auth-error-alert">
               {error}
             </Alert>
           )}
@@ -181,7 +213,7 @@ const Login: React.FC = () => {
           <form onSubmit={handleSubmit} noValidate>
             <LabeledInput
               id="email"
-              label="电子邮箱"
+              label={t('login.email')}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -194,14 +226,14 @@ const Login: React.FC = () => {
               className="login-input"
             />
 
-            <div className="password-wrapper">
+            <div className="auth-password-wrapper">
               <LabeledInput
                 id="password"
-                label="密码"
+                label={t('login.password')}
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="输入您的密码"
+                placeholder={t('login.passwordPlaceholder')}
                 disabled={isAuthLoading}
                 autoComplete="current-password"
                 required
@@ -211,23 +243,23 @@ const Login: React.FC = () => {
                 size="small"
                 styleType="borderless"
                 onClick={() => setShowPassword(!showPassword)}
-                label={showPassword ? '隐藏密码' : '显示密码'}
-                className="toggle-password"
+                label={showPassword ? t('fields.hidePassword') : t('fields.showPassword')}
+                className="auth-toggle-password"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
               </IconButton>
             </div>
 
-            <div className="form-options">
+            <div className="auth-options-row">
               <Checkbox
-                label="记住我"
+                label={t('login.rememberMe')}
                 checked={rememberMe}
                 onChange={(e) => handleRememberMeChange(e.target.checked)}
                 disabled={isAuthLoading}
               />
-              <Link to="/forgot-password" className="form-forgot">
-                忘记密码？
+              <Link to="/forgot-password" className="auth-forgot-link">
+                {t('login.forgotPassword')}
               </Link>
             </div>
 
@@ -240,26 +272,46 @@ const Login: React.FC = () => {
               {isAuthLoading ? (
                 <>
                   <ProgressRadial size="small" indeterminate />
-                  <span>登录中...</span>
+                  <span>{t('login.submitting')}</span>
                 </>
               ) : (
-                '登录'
+                t('login.submit')
               )}
             </Button>
+
+            {/* Google SSO 按钮位：VITE_GOOGLE_CLIENT_ID 非空才渲染（env 探测式入口） */}
+            {googleClientId() && (
+              <>
+                <div className="auth-sso-divider" role="separator" aria-label={t('sso.or')}>
+                  <span className="auth-sso-divider-line" aria-hidden="true" />
+                  <Text variant="small" className="auth-sso-divider-text">{t('sso.or')}</Text>
+                  <span className="auth-sso-divider-line" aria-hidden="true" />
+                </div>
+                <Button
+                  styleType="default"
+                  type="button"
+                  className="auth-google-btn"
+                  onClick={handleGoogleSso}
+                  startIcon={<GoogleGIcon />}
+                >
+                  {t('sso.googleContinue')}
+                </Button>
+              </>
+            )}
           </form>
 
-          <div className="form-footer">
-            <Text>还没有账户？ <Link to="/register">立即注册</Link></Text>
+          <div className="auth-footer">
+            <Text>{t('login.noAccount')} <Link to="/register">{t('login.register')}</Link></Text>
           </div>
         </div>
-      </div>
+      </Surface>
 
       {/* Loading overlay for auth operations */}
       {isAuthLoading && (
-        <div className="auth-loading-overlay" role="status" aria-label="登录中">
+        <div className="auth-loading-overlay" role="status" aria-label={t('login.loadingAria')}>
           <div className="auth-loading-spinner">
             <ProgressRadial size="large" indeterminate />
-            <Text>正在登录...</Text>
+            <Text>{t('login.loading')}</Text>
           </div>
         </div>
       )}
