@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Button,
   Dialog,
@@ -26,6 +27,7 @@ export const CreateIModelDialog: React.FC<CreateIModelDialogProps> = ({
   onCreated,
   iTwinId,
 }) => {
+  const { t } = useTranslation('documents');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -34,7 +36,7 @@ export const CreateIModelDialog: React.FC<CreateIModelDialogProps> = ({
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) {
-      newErrors.name = '请输入模型名称';
+      newErrors.name = t('imodelDialog.create.nameRequired');
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -73,15 +75,15 @@ export const CreateIModelDialog: React.FC<CreateIModelDialogProps> = ({
       isDismissible
     >
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" title="创建 iModel" className="create-dialog">
-        <Dialog.TitleBar title="创建 iModel" />
+      <Dialog.Main styleType="default" title={t('imodelDialog.create.title')} className="create-dialog">
+        <Dialog.TitleBar titleText={t('imodelDialog.create.title')} />
         <Dialog.Content>
           <InputGroup>
-            <Label required>模型名称</Label>
+            <Label required>{t('imodelDialog.create.nameLabel')}</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="输入模型名称"
+              placeholder={t('imodelDialog.create.namePlaceholder')}
               disabled={createMutation.isPending}
               status={errors.name ? 'negative' : undefined}
               autoFocus
@@ -92,12 +94,12 @@ export const CreateIModelDialog: React.FC<CreateIModelDialogProps> = ({
           </InputGroup>
 
           <InputGroup>
-            <Label>描述</Label>
+            <Label>{t('imodelDialog.create.descriptionLabel')}</Label>
             <textarea
               className="form-textarea"
               value={description}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-              placeholder="输入模型描述（可选）"
+              placeholder={t('imodelDialog.create.descriptionPlaceholder')}
               disabled={createMutation.isPending}
               rows={3}
             />
@@ -110,7 +112,7 @@ export const CreateIModelDialog: React.FC<CreateIModelDialogProps> = ({
             onClick={handleClose}
             disabled={createMutation.isPending}
           >
-            取消
+            {t('imodelDialog.cancel')}
           </Button>
           <Button
             styleType="high-visibility"
@@ -118,7 +120,7 @@ export const CreateIModelDialog: React.FC<CreateIModelDialogProps> = ({
             disabled={createMutation.isPending}
             loading={createMutation.isPending}
           >
-            创建
+            {t('imodelDialog.create.submit')}
           </Button>
         </Dialog.ButtonBar>
       </Dialog.Main>

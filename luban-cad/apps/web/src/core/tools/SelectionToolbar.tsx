@@ -7,6 +7,7 @@
  */
 
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { Tooltip } from '@itwin/itwinui-react';
 import './SelectionToolbar.css';
@@ -26,6 +27,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   className = '',
   selectionCount = 0,
 }) => {
+  const { t } = useTranslation('editor');
   const [activeTool, setActiveTool] = useState<string | null>(null);
 
   const runTool = async (toolId: string) => {
@@ -36,7 +38,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
           OutputMessagePriority.Error,
-          `工具 ${toolId} 启动失败: ${(err as Error).message}`
+          t('selection.toolStartFailed', { toolId, message: (err as Error).message })
         )
       );
     }
@@ -45,7 +47,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   return (
     <div className={`selection-toolbar ${className}`}>
       <div className="selection-group">
-        <Tooltip content="框选 (Fence Select) - 拖动选择多个元素" placement="right">
+        <Tooltip content={t('selection.fenceSelect')} placement="right">
           <button
             type="button"
             className={`selection-btn ${activeTool === 'LubanCad.FenceSelect' ? 'active' : ''}`}
@@ -59,7 +61,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
       <div className="selection-divider" />
 
       <div className="selection-group">
-        <Tooltip content="全选 (Ctrl+A)" placement="right">
+        <Tooltip content={t('selection.selectAll')} placement="right">
           <button
             type="button"
             className="selection-btn"
@@ -69,7 +71,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           </button>
         </Tooltip>
 
-        <Tooltip content="清除选择" placement="right">
+        <Tooltip content={t('selection.clearSelection')} placement="right">
           <button
             type="button"
             className="selection-btn"
@@ -79,7 +81,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           </button>
         </Tooltip>
 
-        <Tooltip content="反选" placement="right">
+        <Tooltip content={t('selection.invertSelection')} placement="right">
           <button
             type="button"
             className="selection-btn"
@@ -93,7 +95,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
       <div className="selection-divider" />
 
       <div className="selection-group">
-        <Tooltip content="按类别选择" placement="right">
+        <Tooltip content={t('selection.selectByCategory')} placement="right">
           <button
             type="button"
             className="selection-btn"
@@ -108,7 +110,12 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
         <>
           <div className="selection-divider" />
           <div className="selection-count">
-            已选择: <strong>{selectionCount}</strong>
+            <Trans
+              t={t}
+              i18nKey="selection.selectedCount"
+              values={{ count: selectionCount }}
+              components={{ strong: <strong /> }}
+            />
           </div>
         </>
       )}

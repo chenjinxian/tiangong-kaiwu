@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Badge, Button, IconButton, Text } from '@itwin/itwinui-react';
 import {
   SvgChevronDown,
@@ -39,9 +40,11 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
   onShowHistory,
   onShowVersions,
 }) => {
+  const { t, i18n } = useTranslation('editor');
+
   const formatDate = (date: string | undefined) => {
     if (!date) return '-';
-    return new Date(date).toLocaleDateString('zh-CN', {
+    return new Date(date).toLocaleDateString(i18n.language, {
       month: 'short',
       day: 'numeric',
     });
@@ -58,7 +61,7 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
           <IconButton
             styleType="borderless"
             size="small"
-            label={isExpanded ? '收起' : '展开'}
+            label={isExpanded ? t('versionTimeline.collapse') : t('versionTimeline.expand')}
             onClick={onToggleExpand}
           >
             {isExpanded ? <SvgChevronDown /> : <SvgChevronUp />}
@@ -66,11 +69,11 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
 
           <div className="version-timeline-summary">
             <Text variant="small" className="version-count">
-              {changesets.length} 个变更
+              {t('versionTimeline.changesetCount', { count: changesets.length })}
             </Text>
             {hasLocalChanges && (
               <Badge backgroundColor="warning" className="local-changes-badge">
-                未推送更改
+                {t('versionTimeline.unpushedChanges')}
               </Badge>
             )}
           </div>
@@ -99,7 +102,7 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
             onClick={onPush}
             disabled={!hasLocalChanges}
           >
-            推送
+            {t('versionTimeline.push')}
           </Button>
           <Button
             styleType="borderless"
@@ -107,7 +110,7 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
             startIcon={<SvgDownload />}
             onClick={onPull}
           >
-            拉取
+            {t('versionTimeline.pull')}
           </Button>
           <Button
             styleType="borderless"
@@ -115,7 +118,7 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
             startIcon={<SvgHistory />}
             onClick={onShowHistory}
           >
-            历史
+            {t('versionTimeline.history')}
           </Button>
           <Button
             styleType="borderless"
@@ -123,7 +126,7 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
             startIcon={<SvgLabel />}
             onClick={onShowVersions}
           >
-            版本
+            {t('versionTimeline.versions')}
           </Button>
         </div>
       </div>
@@ -133,7 +136,7 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
         <div className="version-timeline-content">
           <div className="timeline-list">
             {changesets.length === 0 ? (
-              <Text className="timeline-empty">暂无变更历史</Text>
+              <Text className="timeline-empty">{t('versionTimeline.empty')}</Text>
             ) : (
               changesets.map((cs, idx) => (
                 <div
@@ -146,13 +149,17 @@ export const VersionTimeline: React.FC<VersionTimelineProps> = ({
                     {idx < changesets.length - 1 && <div className="timeline-line" />}
                   </div>
                   <div className="timeline-info">
-                    <Text className="timeline-description">{cs.description || cs.displayName || '(无描述)'}</Text>
+                    <Text className="timeline-description">
+                      {cs.description || cs.displayName || t('versionTimeline.noDescription')}
+                    </Text>
                     <Text variant="small" className="timeline-meta">
                       {formatDate(cs.pushDateTime)}
                     </Text>
                   </div>
                   {cs.id === currentChangesetId && (
-                    <Badge backgroundColor="positive" className="current-badge">当前</Badge>
+                    <Badge backgroundColor="positive" className="current-badge">
+                      {t('versionTimeline.current')}
+                    </Badge>
                   )}
                 </div>
               ))

@@ -290,5 +290,26 @@
     "submit": "Save",
     "cancel": "Cancel",
     "failed": "Failed to update. Please retry."
+  },
+  "imodelDialog": {
+    "cancel": "Cancel",
+    "create": {
+      "title": "Create iModel",
+      "nameLabel": "Model Name",
+      "namePlaceholder": "Enter model name",
+      "nameRequired": "Please enter a model name",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Enter model description (optional)",
+      "submit": "Create"
+    },
+    "rename": {
+      "title": "Rename iModel",
+      "nameLabel": "Name",
+      "namePlaceholder": "Enter iModel name",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Enter description (optional)",
+      "submit": "Save",
+      "failed": "Rename failed"
+    }
   }
 }

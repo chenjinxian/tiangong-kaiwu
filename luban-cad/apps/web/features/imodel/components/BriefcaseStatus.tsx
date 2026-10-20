@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBriefcase, useReleaseDialog } from '../hooks/useBriefcase';
 import { Alert, Badge, Button, Dialog } from '@itwin/itwinui-react';
 
@@ -10,6 +11,7 @@ interface BriefcaseStatusProps {
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function BriefcaseStatus({ imodelId, canEdit: userCanEdit }: BriefcaseStatusProps) {
+  const { t } = useTranslation('editor');
   const { briefcase, canEdit: _hasBriefcase, isLoading, acquire, release, isAcquiring, isReleasing } =
     useBriefcase(imodelId, { autoAcquire: userCanEdit });
   const releaseDialog = useReleaseDialog();
@@ -17,7 +19,7 @@ export function BriefcaseStatus({ imodelId, canEdit: userCanEdit }: BriefcaseSta
   const [pushChanges, setPushChanges] = useState(true);
 
   if (isLoading) {
-    return <Badge>加载中...</Badge>;
+    return <Badge>{t('briefcase.loading')}</Badge>;
   }
 
   // No briefcase - show acquire button
@@ -28,7 +30,7 @@ export function BriefcaseStatus({ imodelId, canEdit: userCanEdit }: BriefcaseSta
         disabled={isAcquiring}
         styleType='high-visibility'
       >
-        {isAcquiring ? '申请中...' : '申请编辑权限'}
+        {isAcquiring ? t('briefcase.acquiring') : t('briefcase.acquire')}
       </Button>
     );
   }
@@ -37,9 +39,11 @@ export function BriefcaseStatus({ imodelId, canEdit: userCanEdit }: BriefcaseSta
   if (briefcase.status === 'active') {
     return (
       <div className='briefcase-status' style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Badge backgroundColor='#2d8a2d'>{userCanEdit ? '所有者编辑中' : '编辑中'}</Badge>
+        <Badge backgroundColor='#2d8a2d'>
+          {userCanEdit ? t('briefcase.ownerEditing') : t('briefcase.editing')}
+        </Badge>
         <span style={{ fontSize: '12px', color: '#666' }}>
-          已同步到 changeset #{briefcase.changesetIndex}
+          {t('briefcase.syncedToChangeset', { index: briefcase.changesetIndex })}
         </span>
         <Button
           onClick={() => releaseDialog.open(false)}
@@ -47,7 +51,7 @@ export function BriefcaseStatus({ imodelId, canEdit: userCanEdit }: BriefcaseSta
           styleType='default'
           size='small'
         >
-          释放编辑权限
+          {t('briefcase.release')}
         </Button>
 
         <ReleaseDialog
@@ -68,17 +72,15 @@ export function BriefcaseStatus({ imodelId, canEdit: userCanEdit }: BriefcaseSta
   }
 
   // Other statuses
-  return <Badge>{getStatusText(briefcase.status)}</Badge>;
+  const statusKey = BRIEFCASE_STATUS_KEYS[briefcase.status];
+  return <Badge>{statusKey ? t(statusKey) : briefcase.status}</Badge>;
 }
 
-function getStatusText(status: string): string {
-  const statusMap: Record<string, string> = {
-    active: '编辑中',
-    released: '已释放',
-    expired: '已过期',
-  };
-  return statusMap[status] || status;
-}
+const BRIEFCASE_STATUS_KEYS: Record<string, string> = {
+  active: 'briefcase.status.active',
+  released: 'briefcase.status.released',
+  expired: 'briefcase.status.expired',
+};
 
 interface ReleaseDialogProps {
   isOpen: boolean;
@@ -104,28 +106,29 @@ function ReleaseDialog({
   onPushChangesChange,
   isReleasing,
 }: ReleaseDialogProps) {
+  const { t } = useTranslation('editor');
   return (
     <Dialog isOpen={isOpen} onClose={onClose} portal>
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" title='释放编辑权限'>
-        <Dialog.TitleBar titleText='释放编辑权限' />
+      <Dialog.Main styleType="default" title={t('briefcase.releaseDialog.title')}>
+        <Dialog.TitleBar titleText={t('briefcase.releaseDialog.title')} />
         <Dialog.Content>
         {hasPendingChanges && (
           <Alert type='informational' style={{ marginBottom: '16px' }}>
-            您有未推送的本地变更。
+            {t('briefcase.releaseDialog.pendingChanges')}
             <label style={{ display: 'flex', alignItems: 'center', marginTop: '8px' }}>
               <input
                 type='checkbox'
                 checked={pushChanges}
                 onChange={(e) => onPushChangesChange(e.target.checked)}
               />
-              <span style={{ marginLeft: '8px' }}>推送变更到服务器</span>
+              <span style={{ marginLeft: '8px' }}>{t('briefcase.releaseDialog.pushChanges')}</span>
             </label>
             {pushChanges && (
               <textarea
                 value={changeDescription}
                 onChange={(e) => onChangeDescriptionChange(e.target.value)}
-                placeholder='描述您做的修改...'
+                placeholder={t('briefcase.releaseDialog.descriptionPlaceholder')}
                 style={{
                   width: '100%',
                   marginTop: '8px',
@@ -139,19 +142,19 @@ function ReleaseDialog({
           </Alert>
         )}
 
-        <p>释放后其他用户可以申请编辑此 iModel。</p>
+        <p>{t('briefcase.releaseDialog.hint')}</p>
       </Dialog.Content>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
           <Button onClick={onClose} styleType='default'>
-            取消
+            {t('briefcase.releaseDialog.cancel')}
           </Button>
           <Button
             onClick={onConfirm}
             disabled={isReleasing || (pushChanges && !changeDescription.trim())}
             styleType='high-visibility'
           >
-            {isReleasing ? '释放中...' : '确认释放'}
+            {isReleasing ? t('briefcase.releaseDialog.releasing') : t('briefcase.releaseDialog.confirm')}
           </Button>
         </div>
       </Dialog.Main>

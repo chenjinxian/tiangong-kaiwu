@@ -135,6 +135,275 @@
       "section": "Section"
     }
   },
+  "theme": {
+    "switchToDark": "Switch to dark theme",
+    "switchToLight": "Switch to light theme"
+  },
+  "versionTimeline": {
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "changesetCount": "{{count}} changesets",
+    "unpushedChanges": "Unpushed changes",
+    "push": "Push",
+    "pull": "Pull",
+    "history": "History",
+    "versions": "Versions",
+    "empty": "No change history",
+    "noDescription": "(No description)",
+    "current": "Current"
+  },
+  "changesetTimeline": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "current": "Current",
+    "noDescription": "(No description)",
+    "pullToVersion": "Pull to this version",
+    "pullHere": "Pull here",
+    "panelTitle": "Change History",
+    "compareVersions": "Compare versions",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "empty": "No changeset records"
+  },
+  "conflictPanel": {
+    "title": "Conflict Detection",
+    "unavailable": {
+      "title": "Conflict detection is unavailable",
+      "description": "The backend does not yet implement change comparison/conflict detection (planned, see T1.6). Pulls will skip the conflict pre-check.",
+      "acknowledge": "Got it"
+    },
+    "types": {
+      "modifyModify": "Both modified",
+      "deleteModify": "Deleted-Modified",
+      "modifyDelete": "Modified-Deleted",
+      "addAdd": "Both added",
+      "deleteDelete": "Both deleted"
+    },
+    "descriptions": {
+      "modifyModify": "You and your collaborator both modified this element",
+      "deleteModify": "Your collaborator deleted this element, but you modified it",
+      "modifyDelete": "You modified this element, but your collaborator deleted it",
+      "addAdd": "You and your collaborator both added an element with the same ID",
+      "deleteDelete": "Both sides deleted this element (no conflict)"
+    },
+    "status": {
+      "resolved": "Resolved",
+      "pending": "Pending",
+      "unresolved": "Unresolved"
+    },
+    "localVersion": "Your version (Local)",
+    "remoteVersion": "Their version (Remote)",
+    "baseVersion": "Base version",
+    "chooseResolution": "Choose a resolution:",
+    "useMine": "Use mine",
+    "useTheirs": "Use theirs",
+    "mergeBoth": "Merge both",
+    "summary": {
+      "total": "Total conflicts:",
+      "resolved": "Resolved:"
+    },
+    "typeSummary": {
+      "modifyModify": "Both modified: {{count}}",
+      "deleteModify": "Deleted-Modified: {{count}}",
+      "modifyDelete": "Modified-Deleted: {{count}}",
+      "addAdd": "Both added: {{count}}"
+    },
+    "noConflicts": "✅ No conflicts detected. It is safe to pull changes.",
+    "cancel": "Cancel",
+    "applyResolutions": "Apply resolutions",
+    "remaining": "{{count}} conflicts remaining",
+    "continuePull": "Continue Pull"
+  },
+  "namedVersions": {
+    "title": "Named Versions",
+    "selectCompareTarget": "Select a version to compare",
+    "cancelCompare": "Cancel comparison",
+    "compareTitle": "Compare versions",
+    "createAction": "Create named version",
+    "newAction": "+ New",
+    "refresh": "Refresh",
+    "close": "Close",
+    "sourceVersionHint": "Source: <strong>{{name}}</strong>. Click another version to compare.",
+    "loading": "Loading...",
+    "empty": "No named versions",
+    "emptyHint": "Create named versions for important milestones to track progress",
+    "current": "Current",
+    "changesetIndex": "Changeset #{{index}}",
+    "createdBy": "Created by {{author}}",
+    "compareAction": "⚖️ Compare",
+    "compareActionTitle": "Compare this version",
+    "rollbackAction": "↩ Rollback",
+    "rollbackActionTitle": "Roll back to this version",
+    "unnamedVersion": "Untitled version",
+    "invalidChangeset": "Invalid changeset ID",
+    "createDialog": {
+      "title": "Create Named Version",
+      "nameLabel": "Version name *",
+      "namePlaceholder": "e.g. Design Review V1",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Describe this version's content or changes...",
+      "basedOnChangeset": "Will be created on changeset: {{changesetId}}...",
+      "nameRequired": "Please enter a version name",
+      "noChangeset": "There is no changeset to tag",
+      "createFailed": "Failed to create. Please retry.",
+      "cancel": "Cancel",
+      "creating": "Creating...",
+      "create": "Create"
+    },
+    "rollbackDialog": {
+      "title": "Confirm Rollback",
+      "question": "Are you sure you want to roll back to this version?",
+      "versionName": "Version name:",
+      "changesetIndex": "Changeset index:",
+      "warning1": "Warning: rolling back discards all local changes after the current changeset.",
+      "warning2": "It is recommended to create a named version of the current version as a backup.",
+      "rollbackFailed": "Rollback failed",
+      "cancel": "Cancel",
+      "rollingBack": "Rolling back...",
+      "confirm": "Confirm Rollback"
+    }
+  },
+  "measurement": {
+    "resultsTitle": "Measurement Results",
+    "types": {
+      "distance": "Distance",
+      "area": "Area",
+      "volume": "Volume",
+      "length": "Length",
+      "location": "Coordinates"
+    },
+    "xyzCoordinates": "XYZ Coordinates",
+    "export": "Export",
+    "clearAll": "Clear all",
+    "empty": "No measurements yet",
+    "emptyHint": "Select a measurement tool to start",
+    "delete": "Delete",
+    "items": {
+      "distance": {
+        "label": "Distance Measurement",
+        "description": "Measure the distance between two points"
+      },
+      "length": {
+        "label": "Length Measurement",
+        "description": "Measure the length of a curve or edge"
+      },
+      "area": {
+        "label": "Area Measurement",
+        "description": "Measure the area of a surface"
+      },
+      "volume": {
+        "label": "Volume Measurement",
+        "description": "Measure the volume of a solid"
+      },
+      "location": {
+        "label": "Location Coordinates",
+        "description": "Show the XYZ coordinates of a point"
+      }
+    },
+    "toolsTitle": "Measurement tools",
+    "measuring": "Measuring...",
+    "done": "Done"
+  },
+  "selection": {
+    "toolStartFailed": "Failed to start tool {{toolId}}: {{message}}",
+    "fenceSelect": "Fence Select - drag to select multiple elements",
+    "selectAll": "Select All (Ctrl+A)",
+    "clearSelection": "Clear selection",
+    "invertSelection": "Invert selection",
+    "selectByCategory": "Select by category",
+    "selectedCount": "Selected: <strong>{{count}}</strong>"
+  },
+  "undoRedo": {
+    "undoTooltip": "Undo edit (Ctrl+Z)",
+    "undoTooltipWithLabel": "Undo edit: {{label}} (Ctrl+Z)",
+    "redoTooltip": "Redo edit (Ctrl+Shift+Z)",
+    "redoTooltipWithLabel": "Redo edit: {{label}} (Ctrl+Shift+Z)",
+    "history": "History",
+    "historyTitle": "Operation history",
+    "clear": "Clear",
+    "empty": "No history yet"
+  },
+  "viewClip": {
+    "plane": "Plane clip",
+    "shape": "Shape clip",
+    "range": "Range clip",
+    "element": "Element clip",
+    "clear": "Clear clip",
+    "tools": "Clip tools"
+  },
+  "categoryPicker": {
+    "title": "Select Category",
+    "loadFailed": "Failed to load categories",
+    "option": "{{name}} ({{count}} elements)",
+    "instruction": "Select a category to select all elements in it.",
+    "category": "Category",
+    "loading": "Loading...",
+    "selectCategory": "Select a category",
+    "none": "No categories found",
+    "cancel": "Cancel",
+    "select": "Select"
+  },
+  "modeling": {
+    "roundEdges": {
+      "title": "Round Edges",
+      "applied": "Fillet applied to {{count}} edges",
+      "radius": "Radius",
+      "propagate": "Propagate to smooth edges",
+      "cancel": "Cancel",
+      "apply": "Apply"
+    },
+    "chamfer": {
+      "title": "Chamfer Edges",
+      "applied": "Chamfer applied to {{count}} edges",
+      "mode": "Mode",
+      "modeLength": "Length",
+      "modeDistances": "Distances",
+      "modeDistanceAngle": "Distance-Angle",
+      "modeAngleDistance": "Angle-Distance",
+      "length": "Length",
+      "leftDistance": "Left Distance",
+      "rightDistance": "Right Distance",
+      "angle": "Angle",
+      "propagate": "Propagate to smooth edges",
+      "cancel": "Cancel",
+      "apply": "Apply"
+    },
+    "pattern": {
+      "linearTitle": "Linear Pattern",
+      "circularTitle": "Circular Pattern",
+      "count": "Count:",
+      "spacing": "Spacing:",
+      "direction": "Direction:",
+      "totalAngle": "Total Angle:",
+      "center": "Center:",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    }
+  },
+  "briefcase": {
+    "loading": "Loading...",
+    "acquiring": "Requesting...",
+    "acquire": "Request edit access",
+    "ownerEditing": "Owner editing",
+    "editing": "Editing",
+    "syncedToChangeset": "Synced to changeset #{{index}}",
+    "release": "Release edit access",
+    "status": {
+      "active": "Editing",
+      "released": "Released",
+      "expired": "Expired"
+    },
+    "releaseDialog": {
+      "title": "Release Edit Access",
+      "pendingChanges": "You have local changes that have not been pushed.",
+      "pushChanges": "Push changes to server",
+      "descriptionPlaceholder": "Describe your changes...",
+      "hint": "After releasing, other users can request edit access to this iModel.",
+      "cancel": "Cancel",
+      "releasing": "Releasing...",
+      "confirm": "Confirm Release"
+    }
+  },
   "ai": {
     "title": "AI assistant",
     "reserved": "AI side panel slot",

@@ -7,6 +7,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
   IconButton,
@@ -33,39 +34,39 @@ interface MeasurementToolbarProps {
 
 const measurementItems: Array<{
   type: MeasurementType;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
-  description: string;
+  descriptionKey: string;
 }> = [
   {
     type: 'distance',
-    label: '距离测量',
+    labelKey: 'measurement.items.distance.label',
     icon: <SvgCrop />,
-    description: '测量两点之间的距离',
+    descriptionKey: 'measurement.items.distance.description',
   },
   {
     type: 'length',
-    label: '长度测量',
+    labelKey: 'measurement.items.length.label',
     icon: <SvgText />,
-    description: '测量曲线或边的长度',
+    descriptionKey: 'measurement.items.length.description',
   },
   {
     type: 'area',
-    label: '面积测量',
+    labelKey: 'measurement.items.area.label',
     icon: <SvgList />,
-    description: '测量表面的面积',
+    descriptionKey: 'measurement.items.area.description',
   },
   {
     type: 'volume',
-    label: '体积测量',
+    labelKey: 'measurement.items.volume.label',
     icon: <SvgSettings />,
-    description: '测量实体的体积',
+    descriptionKey: 'measurement.items.volume.description',
   },
   {
     type: 'location',
-    label: '位置坐标',
+    labelKey: 'measurement.items.location.label',
     icon: <SvgLocation />,
-    description: '显示点的 XYZ 坐标',
+    descriptionKey: 'measurement.items.location.description',
   },
 ];
 
@@ -75,6 +76,7 @@ export const MeasurementToolbar: React.FC<MeasurementToolbarProps> = ({
   onStopMeasurement,
   isToolActive,
 }) => {
+  const { t } = useTranslation('editor');
   const activeItem = measurementItems.find((item) => item.type === activeMeasurement);
 
   return (
@@ -92,14 +94,14 @@ export const MeasurementToolbar: React.FC<MeasurementToolbarProps> = ({
             >
               <span className="measurement-icon">{item.icon}</span>
               <div className="measurement-info">
-                <div className="measurement-label">{item.label}</div>
-                <div className="measurement-description">{item.description}</div>
+                <div className="measurement-label">{t(item.labelKey)}</div>
+                <div className="measurement-description">{t(item.descriptionKey)}</div>
               </div>
             </div>
           ))
         }
       >
-        <Tooltip content="测量工具">
+        <Tooltip content={t('measurement.toolsTitle')}>
           <IconButton styleType={isToolActive ? 'cta' : 'default'}>
             {activeItem?.icon || <SvgMeasure />}
           </IconButton>
@@ -109,10 +111,12 @@ export const MeasurementToolbar: React.FC<MeasurementToolbarProps> = ({
       {isToolActive && (
         <div className="active-measurement-indicator">
           <span className="pulse-dot" />
-          <Text variant="body">{activeItem?.label || '测量中...'}</Text>
+          <Text variant="body">
+            {activeItem ? t(activeItem.labelKey) : t('measurement.measuring')}
+          </Text>
           <button className="stop-button" onClick={onStopMeasurement}>
             <SvgCheckmark />
-            完成
+            {t('measurement.done')}
           </button>
         </div>
       )}

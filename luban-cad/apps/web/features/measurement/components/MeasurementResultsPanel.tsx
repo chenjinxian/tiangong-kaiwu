@@ -7,6 +7,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Badge,
   IconButton,
@@ -27,12 +28,12 @@ interface MeasurementResultsPanelProps {
   onExport: () => void;
 }
 
-const typeLabels: Record<MeasurementType, string> = {
-  distance: '距离',
-  area: '面积',
-  volume: '体积',
-  length: '长度',
-  location: '坐标',
+const typeLabelKeys: Record<MeasurementType, string> = {
+  distance: 'measurement.types.distance',
+  area: 'measurement.types.area',
+  volume: 'measurement.types.volume',
+  length: 'measurement.types.length',
+  location: 'measurement.types.location',
 };
 
 const typeColors: Record<MeasurementType, 'positive' | 'negative' | 'primary' | 'secondary'> = {
@@ -49,9 +50,11 @@ export const MeasurementResultsPanel: React.FC<MeasurementResultsPanelProps> = (
   onClear,
   onExport,
 }) => {
+  const { t } = useTranslation('editor');
+
   const formatValue = (record: MeasurementRecord): string => {
     if (record.type === 'location') {
-      return record.description || 'XYZ 坐标';
+      return record.description || t('measurement.xyzCoordinates');
     }
     return `${record.value.toFixed(4)} ${record.unit}`;
   };
@@ -64,19 +67,19 @@ export const MeasurementResultsPanel: React.FC<MeasurementResultsPanelProps> = (
     <div className="measurement-results-panel">
       <div className="panel-header">
         <div className="panel-header-content">
-          <span style={{ fontWeight: 500 }}>测量结果</span>
+          <span style={{ fontWeight: 500 }}>{t('measurement.resultsTitle')}</span>
           <Badge>{String(measurements.length)}</Badge>
         </div>
         <div className="panel-actions">
           <IconButton
-            title="导出"
+            title={t('measurement.export')}
             onClick={onExport}
             disabled={measurements.length === 0}
           >
             <SvgExport />
           </IconButton>
           <IconButton
-            title="清除全部"
+            title={t('measurement.clearAll')}
             onClick={onClear}
             disabled={measurements.length === 0}
           >
@@ -88,9 +91,9 @@ export const MeasurementResultsPanel: React.FC<MeasurementResultsPanelProps> = (
       <div className="panel-body">
         {measurements.length === 0 ? (
           <div className="empty-state">
-            <span style={{ color: "var(--iui-color-text-muted)" }}>暂无测量数据</span>
+            <span style={{ color: "var(--iui-color-text-muted)" }}>{t('measurement.empty')}</span>
             <span style={{ color: "var(--iui-color-text-muted)", fontSize: 12 }}>
-              选择测量工具开始测量
+              {t('measurement.emptyHint')}
             </span>
           </div>
         ) : (
@@ -104,7 +107,7 @@ export const MeasurementResultsPanel: React.FC<MeasurementResultsPanelProps> = (
                 <div className="measurement-content">
                   <div className="measurement-header">
                     <Badge color={typeColors[measurement.type]}>
-                      {typeLabels[measurement.type]}
+                      {t(typeLabelKeys[measurement.type])}
                     </Badge>
                     <span style={{ fontSize: 12, color: "var(--iui-color-text-muted)" }}>
                       {formatTime(measurement.timestamp)}
@@ -121,7 +124,7 @@ export const MeasurementResultsPanel: React.FC<MeasurementResultsPanelProps> = (
                 </div>
                 <IconButton
                   size="small"
-                  title="删除"
+                  title={t('measurement.delete')}
                   onClick={() => onDelete(measurement.id)}
                 >
                   <SvgDelete />

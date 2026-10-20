@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Button,
   Dialog,
@@ -34,6 +35,7 @@ export const CategoryPickerDialog: React.FC<CategoryPickerDialogProps> = ({
   onClose,
   onSelect,
 }) => {
+  const { t } = useTranslation('editor');
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -86,7 +88,7 @@ export const CategoryPickerDialog: React.FC<CategoryPickerDialogProps> = ({
       }
     } catch {
       IModelApp.notifications.outputMessage(
-        new NotifyMessageDetails(OutputMessagePriority.Error, '加载类别列表失败')
+        new NotifyMessageDetails(OutputMessagePriority.Error, t('categoryPicker.loadFailed'))
       );
     } finally {
       setIsLoading(false);
@@ -102,51 +104,51 @@ export const CategoryPickerDialog: React.FC<CategoryPickerDialogProps> = ({
 
   const options = categories.map((cat) => ({
     value: cat.id,
-    label: `${cat.name} (${cat.elementCount ?? 0} 个元素)`,
+    label: t('categoryPicker.option', { name: cat.name, count: cat.elementCount ?? 0 }),
   }));
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="选择类别"
+      title={t('categoryPicker.title')}
       isDismissible
     >
       <Dialog.Content>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: '300px' }}>
           <Text variant="small">
-            选择一个类别来选择该类别下的所有元素。
+            {t('categoryPicker.instruction')}
           </Text>
 
           <div>
-            <Label htmlFor="category-select">类别</Label>
+            <Label htmlFor="category-select">{t('categoryPicker.category')}</Label>
             <Select
               id="category-select"
               options={options}
               value={selectedCategory}
               onChange={(value) => setSelectedCategory(value)}
               disabled={isLoading || categories.length === 0}
-              placeholder={isLoading ? '加载中...' : '选择类别'}
+              placeholder={isLoading ? t('categoryPicker.loading') : t('categoryPicker.selectCategory')}
             />
           </div>
 
           {categories.length === 0 && !isLoading && (
             <Text variant="small" style={{ color: 'var(--iui-color-text-muted)' }}>
-              没有找到类别
+              {t('categoryPicker.none')}
             </Text>
           )}
         </div>
       </Dialog.Content>
       <Dialog.ButtonBar>
         <Button styleType="default" onClick={onClose}>
-          取消
+          {t('categoryPicker.cancel')}
         </Button>
         <Button
           styleType="high-visibility"
           onClick={handleConfirm}
           disabled={!selectedCategory}
         >
-          选择
+          {t('categoryPicker.select')}
         </Button>
       </Dialog.ButtonBar>
     </Dialog>

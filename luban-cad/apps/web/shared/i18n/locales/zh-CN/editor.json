@@ -135,6 +135,275 @@
       "section": "剖切"
     }
   },
+  "theme": {
+    "switchToDark": "切换到暗色主题",
+    "switchToLight": "切换到亮色主题"
+  },
+  "versionTimeline": {
+    "collapse": "收起",
+    "expand": "展开",
+    "changesetCount": "{{count}} 个变更",
+    "unpushedChanges": "未推送更改",
+    "push": "推送",
+    "pull": "拉取",
+    "history": "历史",
+    "versions": "版本",
+    "empty": "暂无变更历史",
+    "noDescription": "(无描述)",
+    "current": "当前"
+  },
+  "changesetTimeline": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "current": "当前",
+    "noDescription": "(无描述)",
+    "pullToVersion": "拉取到此版本",
+    "pullHere": "拉取至此",
+    "panelTitle": "变更历史",
+    "compareVersions": "版本对比",
+    "refresh": "刷新",
+    "loading": "加载中...",
+    "empty": "暂无变更记录"
+  },
+  "conflictPanel": {
+    "title": "冲突检测",
+    "unavailable": {
+      "title": "冲突检测功能暂不可用",
+      "description": "后端尚未实现变更对比/冲突检测（规划中，见 T1.6），拉取操作将不进行冲突预检。",
+      "acknowledge": "知道了"
+    },
+    "types": {
+      "modifyModify": "双方修改",
+      "deleteModify": "删除-修改",
+      "modifyDelete": "修改-删除",
+      "addAdd": "双方添加",
+      "deleteDelete": "双方删除"
+    },
+    "descriptions": {
+      "modifyModify": "您和对方都修改了此元素",
+      "deleteModify": "对方删除了此元素，但您进行了修改",
+      "modifyDelete": "您修改了此元素，但对方将其删除",
+      "addAdd": "您和对方都添加了相同 ID 的元素",
+      "deleteDelete": "双方都已删除此元素（无冲突）"
+    },
+    "status": {
+      "resolved": "已解决",
+      "pending": "待确认",
+      "unresolved": "未解决"
+    },
+    "localVersion": "您的版本（本地）",
+    "remoteVersion": "对方版本（远程）",
+    "baseVersion": "基础版本",
+    "chooseResolution": "选择解决方案：",
+    "useMine": "使用我的",
+    "useTheirs": "使用对方的",
+    "mergeBoth": "合并双方",
+    "summary": {
+      "total": "总冲突数：",
+      "resolved": "已解决："
+    },
+    "typeSummary": {
+      "modifyModify": "双方修改: {{count}}",
+      "deleteModify": "删除-修改: {{count}}",
+      "modifyDelete": "修改-删除: {{count}}",
+      "addAdd": "双方添加: {{count}}"
+    },
+    "noConflicts": "✅ 未检测到冲突，可以安全拉取变更",
+    "cancel": "取消",
+    "applyResolutions": "应用解决方案",
+    "remaining": "还需解决 {{count}} 个冲突",
+    "continuePull": "继续拉取"
+  },
+  "namedVersions": {
+    "title": "命名版本",
+    "selectCompareTarget": "选择对比目标版本",
+    "cancelCompare": "取消对比",
+    "compareTitle": "对比版本",
+    "createAction": "创建命名版本",
+    "newAction": "+ 新建",
+    "refresh": "刷新",
+    "close": "关闭",
+    "sourceVersionHint": "源版本: <strong>{{name}}</strong>，点击另一个版本进行对比",
+    "loading": "加载中...",
+    "empty": "暂无命名版本",
+    "emptyHint": "为重要里程碑创建命名版本以便追踪",
+    "current": "当前",
+    "changesetIndex": "变更集 #{{index}}",
+    "createdBy": "由 {{author}} 创建",
+    "compareAction": "⚖️ 对比",
+    "compareActionTitle": "对比此版本",
+    "rollbackAction": "↩ 回滚",
+    "rollbackActionTitle": "回滚到此版本",
+    "unnamedVersion": "未命名版本",
+    "invalidChangeset": "无效的变更集ID",
+    "createDialog": {
+      "title": "创建命名版本",
+      "nameLabel": "版本名称 *",
+      "namePlaceholder": "例如：设计评审 V1",
+      "descriptionLabel": "描述",
+      "descriptionPlaceholder": "描述此版本的内容或变更...",
+      "basedOnChangeset": "将基于当前变更集创建: {{changesetId}}...",
+      "nameRequired": "请输入版本名称",
+      "noChangeset": "当前没有可标记的变更版本",
+      "createFailed": "创建失败，请重试",
+      "cancel": "取消",
+      "creating": "创建中...",
+      "create": "创建"
+    },
+    "rollbackDialog": {
+      "title": "确认回滚",
+      "question": "确定要回滚到以下版本吗？",
+      "versionName": "版本名称：",
+      "changesetIndex": "变更集索引：",
+      "warning1": "警告：回滚操作会丢弃当前变更集之后的所有本地变更。",
+      "warning2": "建议先创建当前版本的命名版本作为备份。",
+      "rollbackFailed": "回滚失败",
+      "cancel": "取消",
+      "rollingBack": "回滚中...",
+      "confirm": "确认回滚"
+    }
+  },
+  "measurement": {
+    "resultsTitle": "测量结果",
+    "types": {
+      "distance": "距离",
+      "area": "面积",
+      "volume": "体积",
+      "length": "长度",
+      "location": "坐标"
+    },
+    "xyzCoordinates": "XYZ 坐标",
+    "export": "导出",
+    "clearAll": "清除全部",
+    "empty": "暂无测量数据",
+    "emptyHint": "选择测量工具开始测量",
+    "delete": "删除",
+    "items": {
+      "distance": {
+        "label": "距离测量",
+        "description": "测量两点之间的距离"
+      },
+      "length": {
+        "label": "长度测量",
+        "description": "测量曲线或边的长度"
+      },
+      "area": {
+        "label": "面积测量",
+        "description": "测量表面的面积"
+      },
+      "volume": {
+        "label": "体积测量",
+        "description": "测量实体的体积"
+      },
+      "location": {
+        "label": "位置坐标",
+        "description": "显示点的 XYZ 坐标"
+      }
+    },
+    "toolsTitle": "测量工具",
+    "measuring": "测量中...",
+    "done": "完成"
+  },
+  "selection": {
+    "toolStartFailed": "工具 {{toolId}} 启动失败: {{message}}",
+    "fenceSelect": "框选 (Fence Select) - 拖动选择多个元素",
+    "selectAll": "全选 (Ctrl+A)",
+    "clearSelection": "清除选择",
+    "invertSelection": "反选",
+    "selectByCategory": "按类别选择",
+    "selectedCount": "已选择: <strong>{{count}}</strong>"
+  },
+  "undoRedo": {
+    "undoTooltip": "编辑撤销 (Ctrl+Z)",
+    "undoTooltipWithLabel": "编辑撤销: {{label}} (Ctrl+Z)",
+    "redoTooltip": "编辑重做 (Ctrl+Shift+Z)",
+    "redoTooltipWithLabel": "编辑重做: {{label}} (Ctrl+Shift+Z)",
+    "history": "历史记录",
+    "historyTitle": "操作历史",
+    "clear": "清除",
+    "empty": "暂无历史记录"
+  },
+  "viewClip": {
+    "plane": "平面剖切",
+    "shape": "形状剖切",
+    "range": "范围剖切",
+    "element": "元素剖切",
+    "clear": "清除剖切",
+    "tools": "剖切工具"
+  },
+  "categoryPicker": {
+    "title": "选择类别",
+    "loadFailed": "加载类别列表失败",
+    "option": "{{name}} ({{count}} 个元素)",
+    "instruction": "选择一个类别来选择该类别下的所有元素。",
+    "category": "类别",
+    "loading": "加载中...",
+    "selectCategory": "选择类别",
+    "none": "没有找到类别",
+    "cancel": "取消",
+    "select": "选择"
+  },
+  "modeling": {
+    "roundEdges": {
+      "title": "圆角边 (Round Edges)",
+      "applied": "已为 {{count}} 条边应用圆角",
+      "radius": "圆角半径 (Radius)",
+      "propagate": "传播到相切边 (Propagate to smooth edges)",
+      "cancel": "取消",
+      "apply": "应用"
+    },
+    "chamfer": {
+      "title": "倒角边 (Chamfer Edges)",
+      "applied": "已为 {{count}} 条边应用倒角",
+      "mode": "倒角模式 (Mode)",
+      "modeLength": "等距 (Length)",
+      "modeDistances": "双距离 (Distances)",
+      "modeDistanceAngle": "距离-角度 (Distance-Angle)",
+      "modeAngleDistance": "角度-距离 (Angle-Distance)",
+      "length": "倒角长度 (Length)",
+      "leftDistance": "左侧距离 (Left Distance)",
+      "rightDistance": "右侧距离 (Right Distance)",
+      "angle": "角度 (Angle)",
+      "propagate": "传播到相切边 (Propagate to smooth edges)",
+      "cancel": "取消",
+      "apply": "应用"
+    },
+    "pattern": {
+      "linearTitle": "线性阵列 (Linear Pattern)",
+      "circularTitle": "圆形阵列 (Circular Pattern)",
+      "count": "数量 (Count):",
+      "spacing": "间距 (Spacing):",
+      "direction": "方向 (Direction):",
+      "totalAngle": "总角度 (Total Angle):",
+      "center": "中心点 (Center):",
+      "cancel": "取消",
+      "confirm": "确定"
+    }
+  },
+  "briefcase": {
+    "loading": "加载中...",
+    "acquiring": "申请中...",
+    "acquire": "申请编辑权限",
+    "ownerEditing": "所有者编辑中",
+    "editing": "编辑中",
+    "syncedToChangeset": "已同步到 changeset #{{index}}",
+    "release": "释放编辑权限",
+    "status": {
+      "active": "编辑中",
+      "released": "已释放",
+      "expired": "已过期"
+    },
+    "releaseDialog": {
+      "title": "释放编辑权限",
+      "pendingChanges": "您有未推送的本地变更。",
+      "pushChanges": "推送变更到服务器",
+      "descriptionPlaceholder": "描述您做的修改...",
+      "hint": "释放后其他用户可以申请编辑此 iModel。",
+      "cancel": "取消",
+      "releasing": "释放中...",
+      "confirm": "确认释放"
+    }
+  },
   "ai": {
     "title": "AI 助手",
     "reserved": "AI 侧栏预留位",

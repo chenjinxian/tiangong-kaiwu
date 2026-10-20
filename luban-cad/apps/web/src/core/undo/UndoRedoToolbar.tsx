@@ -7,6 +7,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@itwin/itwinui-react';
 import { type UndoableOperation, undoManager } from './UndoManager.js';
 import './UndoRedoToolbar.css';
@@ -22,6 +23,7 @@ interface UndoRedoToolbarProps {
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention -- React component requires PascalCase
 export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = '' }) => {
+  const { t, i18n } = useTranslation('editor');
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [undoLabel, setUndoLabel] = useState('');
@@ -110,7 +112,12 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
   return (
     <div className={`undo-redo-toolbar ${className}`}>
       {/* Undo Button —— 编辑事务栈（briefcase txns），与 FeaturePanel 的「特征撤销」分立 */}
-      <Tooltip content={`编辑撤销${undoLabel ? `: ${undoLabel}` : ''} (Ctrl+Z)`} placement="bottom">
+      <Tooltip
+        content={undoLabel
+          ? t('undoRedo.undoTooltipWithLabel', { label: undoLabel })
+          : t('undoRedo.undoTooltip')}
+        placement="bottom"
+      >
         <button
           type="button"
           className={`undo-redo-btn ${!canUndo ? 'disabled' : ''} ${isUndoing ? 'active' : ''}`}
@@ -122,7 +129,12 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
       </Tooltip>
 
       {/* Redo Button */}
-      <Tooltip content={`编辑重做${redoLabel ? `: ${redoLabel}` : ''} (Ctrl+Shift+Z)`} placement="bottom">
+      <Tooltip
+        content={redoLabel
+          ? t('undoRedo.redoTooltipWithLabel', { label: redoLabel })
+          : t('undoRedo.redoTooltip')}
+        placement="bottom"
+      >
         <button
           type="button"
           className={`undo-redo-btn ${!canRedo ? 'disabled' : ''} ${isRedoing ? 'active' : ''}`}
@@ -134,7 +146,7 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
       </Tooltip>
 
       {/* History Dropdown Toggle */}
-      <Tooltip content="历史记录" placement="bottom">
+      <Tooltip content={t('undoRedo.history')} placement="bottom">
         <button
           type="button"
           className="undo-redo-history-toggle"
@@ -148,7 +160,7 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
       {showHistory && (
         <div className="undo-redo-history-dropdown">
           <div className="undo-redo-history-header">
-            <span>操作历史</span>
+            <span>{t('undoRedo.historyTitle')}</span>
             <button
               type="button"
               className="undo-redo-clear-btn"
@@ -157,12 +169,12 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
                 setShowHistory(false);
               }}
             >
-              清除
+              {t('undoRedo.clear')}
             </button>
           </div>
           <div className="undo-redo-history-list">
             {history.length === 0 ? (
-              <div className="undo-redo-history-empty">暂无历史记录</div>
+              <div className="undo-redo-history-empty">{t('undoRedo.empty')}</div>
             ) : (
               history.map((op, index) => (
                 <button
@@ -176,7 +188,7 @@ export const UndoRedoToolbar: React.FC<UndoRedoToolbarProps> = ({ className = ''
                   </span>
                   <span className="undo-redo-history-text">{op.description}</span>
                   <span className="undo-redo-history-time">
-                    {new Date(op.timestamp).toLocaleTimeString()}
+                    {new Date(op.timestamp).toLocaleTimeString(i18n.language)}
                   </span>
                 </button>
               ))

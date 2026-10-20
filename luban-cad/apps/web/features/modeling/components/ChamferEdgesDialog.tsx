@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Input, Select, ToggleSwitch } from '@itwin/itwinui-react';
 import { ChamferMode } from '@itwin/editor-common';
 import { SOLID_MODELING_DEFAULTS } from '../../../shared/lib/constants.js';
@@ -37,6 +38,7 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const { t } = useTranslation('editor');
   // Note: ChamferMode values from @itwin/editor-common: Length=1, Distances=2, DistanceAngle=3, AngleDistance=4
   const [mode, setMode] = useState<ChamferMode>(1 as ChamferMode);
   const [length, setLength] = useState<number>(SOLID_MODELING_DEFAULTS.CHAMFER_LENGTH);
@@ -58,27 +60,27 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
   }, [mode, length, distanceLeft, distanceRight, angle, propagateSmooth, onConfirm, onClose]);
 
   const modeOptions = [
-    { value: String(ChamferMode.Length), label: '等距 (Length)' },
-    { value: String(ChamferMode.Distances), label: '双距离 (Distances)' },
-    { value: String(ChamferMode.DistanceAngle), label: '距离-角度 (Distance-Angle)' },
-    { value: String(ChamferMode.AngleDistance), label: '角度-距离 (Angle-Distance)' },
+    { value: String(ChamferMode.Length), label: t('modeling.chamfer.modeLength') },
+    { value: String(ChamferMode.Distances), label: t('modeling.chamfer.modeDistances') },
+    { value: String(ChamferMode.DistanceAngle), label: t('modeling.chamfer.modeDistanceAngle') },
+    { value: String(ChamferMode.AngleDistance), label: t('modeling.chamfer.modeAngleDistance') },
   ];
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="倒角边 (Chamfer Edges)"
+      title={t('modeling.chamfer.title')}
       className="tool-dialog"
     >
       <div className="tool-dialog-content">
         <div className="tool-info">
           <span className="tool-icon">✂️</span>
-          <p>已为 {selectedCount} 条边应用倒角</p>
+          <p>{t('modeling.chamfer.applied', { count: selectedCount })}</p>
         </div>
 
         <div className="tool-parameter">
-          <label htmlFor="chamfer-mode">倒角模式 (Mode)</label>
+          <label htmlFor="chamfer-mode">{t('modeling.chamfer.mode')}</label>
           <Select
             id="chamfer-mode"
             options={modeOptions}
@@ -91,7 +93,7 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
         {mode === 1 && (
           <div className="tool-parameter">
             <label htmlFor="chamfer-length">
-              倒角长度 (Length)
+              {t('modeling.chamfer.length')}
               <span className="unit">m</span>
             </label>
             <Input
@@ -113,7 +115,7 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
             {(mode === 2 || mode === 3) && (
               <div className="tool-parameter">
                 <label htmlFor="distance-left">
-                  左侧距离 (Left Distance)
+                  {t('modeling.chamfer.leftDistance')}
                   <span className="unit">m</span>
                 </label>
                 <Input
@@ -131,7 +133,7 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
             {(mode === 2 || mode === 4) && (
               <div className="tool-parameter">
                 <label htmlFor="distance-right">
-                  右侧距离 (Right Distance)
+                  {t('modeling.chamfer.rightDistance')}
                   <span className="unit">m</span>
                 </label>
                 <Input
@@ -152,7 +154,7 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
         {(mode === 3 || mode === 4) && (
           <div className="tool-parameter">
             <label htmlFor="chamfer-angle">
-              角度 (Angle)
+              {t('modeling.chamfer.angle')}
               <span className="unit">°</span>
             </label>
             <Input
@@ -169,7 +171,7 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
 
         <div className="tool-parameter">
           <ToggleSwitch
-            label="传播到相切边 (Propagate to smooth edges)"
+            label={t('modeling.chamfer.propagate')}
             checked={propagateSmooth}
             onChange={() => setPropagateSmooth(!propagateSmooth)}
           />
@@ -178,10 +180,10 @@ export const ChamferEdgesDialog: React.FC<ChamferEdgesDialogProps> = ({
 
       <div className="tool-dialog-actions">
         <Button onClick={onClose} styleType="default">
-          取消
+          {t('modeling.chamfer.cancel')}
         </Button>
         <Button onClick={handleConfirm} styleType="high-visibility">
-          应用
+          {t('modeling.chamfer.apply')}
         </Button>
       </div>
     </Dialog>

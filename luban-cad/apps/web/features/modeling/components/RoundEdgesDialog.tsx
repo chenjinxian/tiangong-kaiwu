@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Input, ToggleSwitch } from '@itwin/itwinui-react';
 import { SOLID_MODELING_DEFAULTS } from '../../../shared/lib/constants.js';
 import './ToolDialog.css';
@@ -29,6 +30,7 @@ export const RoundEdgesDialog: React.FC<RoundEdgesDialogProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const { t } = useTranslation('editor');
   const [radius, setRadius] = useState<number>(SOLID_MODELING_DEFAULTS.BLEND_RADIUS);
   const [propagateSmooth, setPropagateSmooth] = useState(true);
 
@@ -48,18 +50,18 @@ export const RoundEdgesDialog: React.FC<RoundEdgesDialogProps> = ({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="圆角边 (Round Edges)"
+      title={t('modeling.roundEdges.title')}
       className="tool-dialog"
     >
       <div className="tool-dialog-content">
         <div className="tool-info">
           <span className="tool-icon">🔧</span>
-          <p>已为 {selectedCount} 条边应用圆角</p>
+          <p>{t('modeling.roundEdges.applied', { count: selectedCount })}</p>
         </div>
 
         <div className="tool-parameter">
           <label htmlFor="radius">
-            圆角半径 (Radius)
+            {t('modeling.roundEdges.radius')}
             <span className="unit">m</span>
           </label>
           <Input
@@ -84,7 +86,7 @@ export const RoundEdgesDialog: React.FC<RoundEdgesDialogProps> = ({
 
         <div className="tool-parameter">
           <ToggleSwitch
-            label="传播到相切边 (Propagate to smooth edges)"
+            label={t('modeling.roundEdges.propagate')}
             checked={propagateSmooth}
             onChange={() => setPropagateSmooth(!propagateSmooth)}
           />
@@ -93,10 +95,10 @@ export const RoundEdgesDialog: React.FC<RoundEdgesDialogProps> = ({
 
       <div className="tool-dialog-actions">
         <Button onClick={onClose} styleType="default">
-          取消
+          {t('modeling.roundEdges.cancel')}
         </Button>
         <Button onClick={handleConfirm} styleType="high-visibility">
-          应用
+          {t('modeling.roundEdges.apply')}
         </Button>
       </div>
     </Dialog>

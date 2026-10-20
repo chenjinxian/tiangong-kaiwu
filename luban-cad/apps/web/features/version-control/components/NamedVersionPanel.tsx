@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Button, Dialog, Input } from '@itwin/itwinui-react';
 import { SvgStatusError } from '@itwin/itwinui-icons-react';
 import {
@@ -24,10 +25,10 @@ interface NamedVersionPanelProps {
   onCompareVersions?: (sourceVersion: NamedVersion, targetVersion: NamedVersion) => void;
 }
 
- 
-function formatDate(isoString: string): string {
+
+function formatDate(isoString: string, language: string): string {
   const d = new Date(isoString);
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(language, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -43,17 +44,18 @@ const CreateNamedVersionDialog: React.FC<{
   isLoading: boolean;
   defaultChangesetId: string | null;
 }> = React.memo(({ isOpen, onClose, onCreate, isLoading, defaultChangesetId }) => {
+  const { t } = useTranslation('editor');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleCreate = useCallback(async () => {
     if (!name.trim()) {
-      setError('请输入版本名称');
+      setError(t('namedVersions.createDialog.nameRequired'));
       return;
     }
     if (!defaultChangesetId) {
-      setError('当前没有可标记的变更版本');
+      setError(t('namedVersions.createDialog.noChangeset'));
       return;
     }
 
@@ -64,9 +66,9 @@ const CreateNamedVersionDialog: React.FC<{
       setDescription('');
       onClose();
     } catch {
-      setError('创建失败，请重试');
+      setError(t('namedVersions.createDialog.createFailed'));
     }
-  }, [name, description, defaultChangesetId, onCreate, onClose]);
+  }, [name, description, defaultChangesetId, onCreate, onClose, t]);
 
   const handleClose = useCallback(() => {
     setName('');
@@ -78,28 +80,28 @@ const CreateNamedVersionDialog: React.FC<{
   return (
     <Dialog isOpen={isOpen} onClose={handleClose} portal>
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" title='创建命名版本'>
-        <Dialog.TitleBar titleText='创建命名版本' />
+      <Dialog.Main styleType="default" title={t('namedVersions.createDialog.title')}>
+        <Dialog.TitleBar titleText={t('namedVersions.createDialog.title')} />
         <Dialog.Content>
           <div className='nv-dialog-content'>
             <div className='nv-field'>
-              <label htmlFor='nv-name'>版本名称 *</label>
+              <label htmlFor='nv-name'>{t('namedVersions.createDialog.nameLabel')}</label>
               <Input
                 id='nv-name'
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder='例如：设计评审 V1'
+                placeholder={t('namedVersions.createDialog.namePlaceholder')}
                 disabled={isLoading}
               />
             </div>
 
             <div className='nv-field'>
-              <label htmlFor='nv-description'>描述</label>
+              <label htmlFor='nv-description'>{t('namedVersions.createDialog.descriptionLabel')}</label>
               <textarea
                 id='nv-description'
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder='描述此版本的内容或变更...'
+                placeholder={t('namedVersions.createDialog.descriptionPlaceholder')}
                 disabled={isLoading}
                 rows={3}
               />
@@ -107,7 +109,11 @@ const CreateNamedVersionDialog: React.FC<{
 
             {defaultChangesetId && (
               <div className='nv-info'>
-                <span>将基于当前变更集创建: {defaultChangesetId.slice(0, 8)}...</span>
+                <span>
+                  {t('namedVersions.createDialog.basedOnChangeset', {
+                    changesetId: defaultChangesetId.slice(0, 8),
+                  })}
+                </span>
               </div>
             )}
 
@@ -117,14 +123,14 @@ const CreateNamedVersionDialog: React.FC<{
 
         <Dialog.ButtonBar>
           <Button onClick={handleClose} styleType='default' disabled={isLoading}>
-            取消
+            {t('namedVersions.createDialog.cancel')}
           </Button>
           <Button
             onClick={handleCreate}
             styleType='high-visibility'
             disabled={isLoading || !name.trim()}
           >
-            {isLoading ? '创建中...' : '创建'}
+            {isLoading ? t('namedVersions.createDialog.creating') : t('namedVersions.createDialog.create')}
           </Button>
         </Dialog.ButtonBar>
       </Dialog.Main>
@@ -151,6 +157,7 @@ const RollbackConfirmDialog: React.FC<{
   versionName,
   changesetIndex,
 }) => {
+  const { t } = useTranslation('editor');
   const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = useCallback(async () => {
@@ -159,36 +166,36 @@ const RollbackConfirmDialog: React.FC<{
       await onConfirm();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '回滚失败');
+      setError(err instanceof Error ? err.message : t('namedVersions.rollbackDialog.rollbackFailed'));
     }
-  }, [onConfirm, onClose]);
+  }, [onConfirm, onClose, t]);
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} portal>
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" title='确认回滚'>
-        <Dialog.TitleBar titleText='确认回滚' />
+      <Dialog.Main styleType="default" title={t('namedVersions.rollbackDialog.title')}>
+        <Dialog.TitleBar titleText={t('namedVersions.rollbackDialog.title')} />
         <Dialog.Content>
           <div className='nv-dialog-content'>
             <div className='nv-warning-box'>
               <SvgStatusError className="nv-warning-icon" />
-              <p>确定要回滚到以下版本吗？</p>
+              <p>{t('namedVersions.rollbackDialog.question')}</p>
             </div>
 
             <div className='nv-rollback-info'>
               <div className='nv-rollback-field'>
-                <span className='nv-rollback-label'>版本名称：</span>
+                <span className='nv-rollback-label'>{t('namedVersions.rollbackDialog.versionName')}</span>
                 <span className='nv-rollback-value'>{versionName}</span>
               </div>
               <div className='nv-rollback-field'>
-                <span className='nv-rollback-label'>变更集索引：</span>
+                <span className='nv-rollback-label'>{t('namedVersions.rollbackDialog.changesetIndex')}</span>
                 <span className='nv-rollback-value'>#{changesetIndex}</span>
               </div>
             </div>
 
             <div className='nv-warning-text'>
-              <p>警告：回滚操作会丢弃当前变更集之后的所有本地变更。</p>
-              <p>建议先创建当前版本的命名版本作为备份。</p>
+              <p>{t('namedVersions.rollbackDialog.warning1')}</p>
+              <p>{t('namedVersions.rollbackDialog.warning2')}</p>
             </div>
 
             {error && <div className='nv-error'>{error}</div>}
@@ -197,10 +204,10 @@ const RollbackConfirmDialog: React.FC<{
 
         <Dialog.ButtonBar>
           <Button onClick={onClose} styleType='default' disabled={isLoading}>
-            取消
+            {t('namedVersions.rollbackDialog.cancel')}
           </Button>
           <Button onClick={handleConfirm} styleType='high-visibility' disabled={isLoading}>
-            {isLoading ? '回滚中...' : '确认回滚'}
+            {isLoading ? t('namedVersions.rollbackDialog.rollingBack') : t('namedVersions.rollbackDialog.confirm')}
           </Button>
         </Dialog.ButtonBar>
       </Dialog.Main>
@@ -219,13 +226,15 @@ const NamedVersionItem: React.FC<{
   onRollback?: () => void;
   onCompare?: () => void;
 }> = React.memo(({ version, isCurrent, canRollback, onRollback, onCompare }) => {
+  const { t, i18n } = useTranslation('editor');
+
   return (
     <div className={`nv-item${isCurrent ? ' nv-item--current' : ''}`}>
       <div className='nv-item-header'>
         <span className='nv-item-name' title={version.name}>
           {version.name}
         </span>
-        {isCurrent && <span className='nv-item-badge'>当前</span>}
+        {isCurrent && <span className='nv-item-badge'>{t('namedVersions.current')}</span>}
       </div>
 
       {version.description && (
@@ -235,12 +244,14 @@ const NamedVersionItem: React.FC<{
       )}
 
       <div className='nv-item-meta'>
-        <span className='nv-item-changeset'>变更集 #{version.changesetIndex}</span>
-        <span className='nv-item-date'>{formatDate(version.createdDateTime)}</span>
+        <span className='nv-item-changeset'>
+          {t('namedVersions.changesetIndex', { index: version.changesetIndex })}
+        </span>
+        <span className='nv-item-date'>{formatDate(version.createdDateTime, i18n.language)}</span>
       </div>
 
       {version.createdBy && (
-        <div className='nv-item-author'>由 {version.createdBy} 创建</div>
+        <div className='nv-item-author'>{t('namedVersions.createdBy', { author: version.createdBy })}</div>
       )}
 
       <div className='nv-item-actions'>
@@ -249,9 +260,9 @@ const NamedVersionItem: React.FC<{
             type='button'
             className='nv-action-btn nv-compare-btn'
             onClick={onCompare}
-            title='对比此版本'
+            title={t('namedVersions.compareActionTitle')}
           >
-            ⚖️ 对比
+            {t('namedVersions.compareAction')}
           </button>
         )}
         {canRollback && onRollback && (
@@ -259,9 +270,9 @@ const NamedVersionItem: React.FC<{
             type='button'
             className='nv-action-btn nv-rollback-btn'
             onClick={onRollback}
-            title='回滚到此版本'
+            title={t('namedVersions.rollbackActionTitle')}
           >
-            ↩ 回滚
+            {t('namedVersions.rollbackAction')}
           </button>
         )}
       </div>
@@ -281,6 +292,7 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
   onRollback,
   onCompareVersions,
 }) => {
+  const { t } = useTranslation('editor');
   const { namedVersions, isLoading, error, refetch } = useNamedVersions({
     iModelId: iModelId ?? '',
     enabled: isVisible && !!iModelId,
@@ -322,9 +334,9 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
     setIsRollingBack(true);
     try {
       const changesetId = selectedVersion.changesetId;
-      const name = selectedVersion.name ?? '未命名版本';
+      const name = selectedVersion.name ?? t('namedVersions.unnamedVersion');
       if (!changesetId) {
-        throw new Error('无效的变更集ID');
+        throw new Error(t('namedVersions.invalidChangeset'));
       }
       await onRollback(changesetId, name);
       setShowRollbackDialog(false);
@@ -334,7 +346,7 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
     } finally {
       setIsRollingBack(false);
     }
-  }, [selectedVersion, onRollback]);
+  }, [selectedVersion, onRollback, t]);
 
   const handleCompareClick = useCallback((version: NamedVersion) => {
     if (!compareMode) {
@@ -364,7 +376,7 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
     <div className='nv-panel'>
       <div className='nv-panel-header'>
         <span className='nv-panel-title'>
-          {compareMode ? '选择对比目标版本' : '命名版本'}
+          {compareMode ? t('namedVersions.selectCompareTarget') : t('namedVersions.title')}
         </span>
         <div className='nv-panel-actions'>
           {compareMode && (
@@ -376,7 +388,7 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
                 setCompareSource(null);
               }}
             >
-              取消对比
+              {t('namedVersions.cancelCompare')}
             </button>
           )}
           {!compareMode && (
@@ -384,7 +396,7 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
               <button
                 type='button'
                 className='nv-compare-toggle-btn'
-                title='对比版本'
+                title={t('namedVersions.compareTitle')}
                 onClick={() => setCompareMode(true)}
               >
                 ⚖️
@@ -392,22 +404,22 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
               <button
                 type='button'
                 className='nv-create-btn'
-                title='创建命名版本'
+                title={t('namedVersions.createAction')}
                 onClick={() => setShowCreateDialog(true)}
               >
-                + 新建
+                {t('namedVersions.newAction')}
               </button>
             </>
           )}
           <button
             type='button'
             className='nv-refresh-btn'
-            title='刷新'
+            title={t('namedVersions.refresh')}
             onClick={() => void refetch()}
           >
             ↻
           </button>
-          <button type='button' className='nv-close-btn' title='关闭' onClick={onClose}>
+          <button type='button' className='nv-close-btn' title={t('namedVersions.close')} onClick={onClose}>
             ✕
           </button>
         </div>
@@ -415,7 +427,14 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
 
       {compareMode && compareSource && (
         <div className='nv-compare-hint'>
-          <span>源版本: <strong>{compareSource.name}</strong>，点击另一个版本进行对比</span>
+          <span>
+            <Trans
+              t={t}
+              i18nKey="namedVersions.sourceVersionHint"
+              values={{ name: compareSource.name }}
+              components={{ strong: <strong /> }}
+            />
+          </span>
         </div>
       )}
 
@@ -440,13 +459,13 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
       />
 
       {error && <div className='nv-error'>{error.message}</div>}
-      {isLoading && <div className='nv-loading'>加载中...</div>}
+      {isLoading && <div className='nv-loading'>{t('namedVersions.loading')}</div>}
 
       <div className='nv-list'>
         {!isLoading && sortedVersions.length === 0 && (
           <div className='nv-empty'>
-            <p>暂无命名版本</p>
-            <p className='nv-empty-hint'>为重要里程碑创建命名版本以便追踪</p>
+            <p>{t('namedVersions.empty')}</p>
+            <p className='nv-empty-hint'>{t('namedVersions.emptyHint')}</p>
           </div>
         )}
 

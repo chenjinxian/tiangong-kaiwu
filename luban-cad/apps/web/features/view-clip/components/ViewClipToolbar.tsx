@@ -7,6 +7,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
   IconButton,
@@ -23,17 +24,19 @@ interface ViewClipToolbarProps {
   onApplyClip: (type: ClipType) => void;
 }
 
-const clipTools: Array<{ type: Exclude<ClipType, 'clear'>; label: string; icon: React.ReactNode }> = [
-  { type: 'plane', label: '平面剖切', icon: <SvgCrop /> },
-  { type: 'shape', label: '形状剖切', icon: <SvgCrop /> },
-  { type: 'range', label: '范围剖切', icon: <SvgCrop /> },
-  { type: 'element', label: '元素剖切', icon: <SvgCrop /> },
+const clipTools: Array<{ type: Exclude<ClipType, 'clear'>; labelKey: string; icon: React.ReactNode }> = [
+  { type: 'plane', labelKey: 'viewClip.plane', icon: <SvgCrop /> },
+  { type: 'shape', labelKey: 'viewClip.shape', icon: <SvgCrop /> },
+  { type: 'range', labelKey: 'viewClip.range', icon: <SvgCrop /> },
+  { type: 'element', labelKey: 'viewClip.element', icon: <SvgCrop /> },
 ];
 
 export const ViewClipToolbar: React.FC<ViewClipToolbarProps> = ({
   isClipped,
   onApplyClip,
 }) => {
+  const { t } = useTranslation('editor');
+
   return (
     <div className="view-clip-toolbar">
       <DropdownMenu
@@ -48,7 +51,7 @@ export const ViewClipToolbar: React.FC<ViewClipToolbarProps> = ({
               }}
             >
               <span className="clip-icon">{tool.icon}</span>
-              <span>{tool.label}</span>
+              <span>{t(tool.labelKey)}</span>
             </div>
           )),
           <hr key="clip-separator" />,
@@ -61,11 +64,11 @@ export const ViewClipToolbar: React.FC<ViewClipToolbarProps> = ({
             }}
           >
             <span className="clip-icon"><SvgClose /></span>
-            <span>清除剖切</span>
+            <span>{t('viewClip.clear')}</span>
           </div>,
         ]}
       >
-        <Tooltip content="剖切工具">
+        <Tooltip content={t('viewClip.tools')}>
           <IconButton
             styleType={isClipped ? 'cta' : 'default'}
           >
@@ -75,7 +78,7 @@ export const ViewClipToolbar: React.FC<ViewClipToolbarProps> = ({
       </DropdownMenu>
 
       {isClipped && (
-        <Tooltip content="清除剖切">
+        <Tooltip content={t('viewClip.clear')}>
           <IconButton onClick={() => onApplyClip('clear')}>
             <SvgClose />
           </IconButton>

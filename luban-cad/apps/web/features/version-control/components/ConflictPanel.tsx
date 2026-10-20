@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, Dialog } from '@itwin/itwinui-react';
 import type {
   Conflict,
@@ -20,20 +21,20 @@ interface ConflictPanelProps {
   onResolve: (resolutions: Record<string, ConflictResolution>) => void;
 }
 
-const conflictTypeLabels: Record<ConflictType, string> = {
-  'modify-modify': '双方修改',
-  'delete-modify': '删除-修改',
-  'modify-delete': '修改-删除',
-  'add-add': '双方添加',
-  'delete-delete': '双方删除',
+const conflictTypeKeys: Record<ConflictType, string> = {
+  'modify-modify': 'conflictPanel.types.modifyModify',
+  'delete-modify': 'conflictPanel.types.deleteModify',
+  'modify-delete': 'conflictPanel.types.modifyDelete',
+  'add-add': 'conflictPanel.types.addAdd',
+  'delete-delete': 'conflictPanel.types.deleteDelete',
 };
 
-const conflictTypeDescriptions: Record<ConflictType, string> = {
-  'modify-modify': '您和对方都修改了此元素',
-  'delete-modify': '对方删除了此元素，但您进行了修改',
-  'modify-delete': '您修改了此元素，但对方将其删除',
-  'add-add': '您和对方都添加了相同 ID 的元素',
-  'delete-delete': '双方都已删除此元素（无冲突）',
+const conflictDescriptionKeys: Record<ConflictType, string> = {
+  'modify-modify': 'conflictPanel.descriptions.modifyModify',
+  'delete-modify': 'conflictPanel.descriptions.deleteModify',
+  'modify-delete': 'conflictPanel.descriptions.modifyDelete',
+  'add-add': 'conflictPanel.descriptions.addAdd',
+  'delete-delete': 'conflictPanel.descriptions.deleteDelete',
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -46,13 +47,14 @@ function ConflictItem({
   resolution?: ConflictResolution;
   onResolutionChange: (conflictId: string, resolution: ConflictResolution) => void;
 }): React.ReactElement {
+  const { t } = useTranslation('editor');
   const [showDetails, setShowDetails] = useState(false);
 
   return (
     <div className={`conflict-item ${conflict.isResolved ? 'resolved' : ''}`}>
       <div className="conflict-header" onClick={() => setShowDetails(!showDetails)}>
         <div className="conflict-type-badge" data-type={conflict.type}>
-          {conflictTypeLabels[conflict.type]}
+          {t(conflictTypeKeys[conflict.type])}
         </div>
         <div className="conflict-info">
           <span className="conflict-code">{conflict.localVersion.code}</span>
@@ -60,11 +62,11 @@ function ConflictItem({
         </div>
         <div className="conflict-status">
           {conflict.isResolved ? (
-            <span className="status-resolved">已解决</span>
+            <span className="status-resolved">{t('conflictPanel.status.resolved')}</span>
           ) : resolution ? (
-            <span className="status-pending">待确认</span>
+            <span className="status-pending">{t('conflictPanel.status.pending')}</span>
           ) : (
-            <span className="status-unresolved">未解决</span>
+            <span className="status-unresolved">{t('conflictPanel.status.unresolved')}</span>
           )}
         </div>
         <button type="button" className="conflict-expand-btn">
@@ -74,11 +76,11 @@ function ConflictItem({
 
       {showDetails && (
         <div className="conflict-details">
-          <p className="conflict-description">{conflictTypeDescriptions[conflict.type]}</p>
+          <p className="conflict-description">{t(conflictDescriptionKeys[conflict.type])}</p>
 
           <div className="conflict-versions">
             <div className="version-box local">
-              <div className="version-header">您的版本（本地）</div>
+              <div className="version-header">{t('conflictPanel.localVersion')}</div>
               <div className="version-content">
                 <pre>{JSON.stringify(conflict.localVersion.properties, null, 2)}</pre>
               </div>
@@ -87,7 +89,7 @@ function ConflictItem({
             <div className="version-arrow">⇄</div>
 
             <div className="version-box remote">
-              <div className="version-header">对方版本（远程）</div>
+              <div className="version-header">{t('conflictPanel.remoteVersion')}</div>
               <div className="version-content">
                 <pre>{JSON.stringify(conflict.remoteVersion.properties, null, 2)}</pre>
               </div>
@@ -96,7 +98,7 @@ function ConflictItem({
 
           {conflict.baseVersion && (
             <div className="version-box base">
-              <div className="version-header">基础版本</div>
+              <div className="version-header">{t('conflictPanel.baseVersion')}</div>
               <div className="version-content">
                 <pre>{JSON.stringify(conflict.baseVersion.properties, null, 2)}</pre>
               </div>
@@ -104,21 +106,21 @@ function ConflictItem({
           )}
 
           <div className="conflict-actions">
-            <span>选择解决方案：</span>
+            <span>{t('conflictPanel.chooseResolution')}</span>
             <div className="resolution-buttons">
               <button
                 type="button"
                 className={`resolution-btn ${resolution === 'local' ? 'selected' : ''}`}
                 onClick={() => onResolutionChange(conflict.id, 'local')}
               >
-                使用我的
+                {t('conflictPanel.useMine')}
               </button>
               <button
                 type="button"
                 className={`resolution-btn ${resolution === 'remote' ? 'selected' : ''}`}
                 onClick={() => onResolutionChange(conflict.id, 'remote')}
               >
-                使用对方的
+                {t('conflictPanel.useTheirs')}
               </button>
               <button
                 type="button"
@@ -126,7 +128,7 @@ function ConflictItem({
                 onClick={() => onResolutionChange(conflict.id, 'merged')}
                 disabled={conflict.type !== 'modify-modify'}
               >
-                合并双方
+                {t('conflictPanel.mergeBoth')}
               </button>
             </div>
           </div>
@@ -143,6 +145,7 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
   onClose,
   onResolve,
 }) => {
+  const { t } = useTranslation('editor');
   const [resolutions, setResolutions] = useState<Record<string, ConflictResolution>>({});
 
   const handleResolutionChange = useCallback((conflictId: string, resolution: ConflictResolution) => {
@@ -167,11 +170,13 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
     return (
       <Dialog isOpen={isVisible} onClose={handleClose} portal>
         <div style={{ padding: '24px', textAlign: 'center' }}>
-          <h3>冲突检测功能暂不可用</h3>
+          <h3>{t('conflictPanel.unavailable.title')}</h3>
           <p style={{ color: 'var(--text-secondary, #888)' }}>
-            后端尚未实现变更对比/冲突检测（规划中，见 T1.6），拉取操作将不进行冲突预检。
+            {t('conflictPanel.unavailable.description')}
           </p>
-          <button type="button" onClick={handleClose}>知道了</button>
+          <button type="button" onClick={handleClose}>
+            {t('conflictPanel.unavailable.acknowledge')}
+          </button>
         </div>
       </Dialog>
     );
@@ -184,33 +189,41 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
   return (
     <Dialog isOpen={isVisible} onClose={handleClose} portal>
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" title="冲突检测">
-        <Dialog.TitleBar titleText="冲突检测" />
+      <Dialog.Main styleType="default" title={t('conflictPanel.title')}>
+        <Dialog.TitleBar titleText={t('conflictPanel.title')} />
         <Dialog.Content>
         <div className="conflict-panel">
           <div className="conflict-summary">
             <div className="summary-item">
-              <span className="summary-label">总冲突数：</span>
+              <span className="summary-label">{t('conflictPanel.summary.total')}</span>
               <span className="summary-value">{detectionResult.totalConflicts}</span>
             </div>
             <div className="summary-item">
-              <span className="summary-label">已解决：</span>
+              <span className="summary-label">{t('conflictPanel.summary.resolved')}</span>
               <span className="summary-value">{resolvedCount}/{totalConflicts}</span>
             </div>
           </div>
 
           <div className="conflict-type-summary">
             {detectionResult.summary.modifyModify > 0 && (
-              <span className="type-tag modify-modify">双方修改: {detectionResult.summary.modifyModify}</span>
+              <span className="type-tag modify-modify">
+                {t('conflictPanel.typeSummary.modifyModify', { count: detectionResult.summary.modifyModify })}
+              </span>
             )}
             {detectionResult.summary.deleteModify > 0 && (
-              <span className="type-tag delete-modify">删除-修改: {detectionResult.summary.deleteModify}</span>
+              <span className="type-tag delete-modify">
+                {t('conflictPanel.typeSummary.deleteModify', { count: detectionResult.summary.deleteModify })}
+              </span>
             )}
             {detectionResult.summary.modifyDelete > 0 && (
-              <span className="type-tag modify-delete">修改-删除: {detectionResult.summary.modifyDelete}</span>
+              <span className="type-tag modify-delete">
+                {t('conflictPanel.typeSummary.modifyDelete', { count: detectionResult.summary.modifyDelete })}
+              </span>
             )}
             {detectionResult.summary.addAdd > 0 && (
-              <span className="type-tag add-add">双方添加: {detectionResult.summary.addAdd}</span>
+              <span className="type-tag add-add">
+                {t('conflictPanel.typeSummary.addAdd', { count: detectionResult.summary.addAdd })}
+              </span>
             )}
           </div>
 
@@ -227,7 +240,7 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
 
           {!detectionResult.hasConflicts && (
             <div className="no-conflicts">
-              ✅ 未检测到冲突，可以安全拉取变更
+              {t('conflictPanel.noConflicts')}
             </div>
           )}
         </div>
@@ -235,7 +248,7 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
 
         <div className="conflict-panel-footer">
           <Button onClick={handleClose} styleType="default">
-            取消
+            {t('conflictPanel.cancel')}
           </Button>
           {detectionResult.hasConflicts && (
             <Button
@@ -243,12 +256,14 @@ export const ConflictPanel: React.FC<ConflictPanelProps> = ({
               styleType="high-visibility"
               disabled={!allResolved}
             >
-              {allResolved ? '应用解决方案' : `还需解决 ${totalConflicts - resolvedCount} 个冲突`}
+              {allResolved
+                ? t('conflictPanel.applyResolutions')
+                : t('conflictPanel.remaining', { count: totalConflicts - resolvedCount })}
             </Button>
           )}
           {!detectionResult.hasConflicts && (
             <Button onClick={handleClose} styleType="high-visibility">
-              继续拉取
+              {t('conflictPanel.continuePull')}
             </Button>
           )}
         </div>

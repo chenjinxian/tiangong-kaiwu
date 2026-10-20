@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { type Changeset, useChangesets } from '../hooks/useChangesets.js';
 import { SvgCompare, SvgRefresh } from '@itwin/itwinui-icons-react';
 import './ChangesetTimeline.css';
@@ -16,9 +18,9 @@ interface ChangesetTimelineProps {
   onCompare?: () => void;
 }
 
-function formatTime(isoString: string): string {
+function formatTime(isoString: string, language: string): string {
   const d = new Date(isoString);
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -29,15 +31,15 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-function getDateGroupLabel(isoString: string): string {
+function getDateGroupLabel(isoString: string, t: TFunction, language: string): string {
   const d = new Date(isoString);
   const now = new Date();
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  if (isSameDay(d, now)) return '今天';
-  if (isSameDay(d, yesterday)) return '昨天';
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (isSameDay(d, now)) return t('changesetTimeline.today');
+  if (isSameDay(d, yesterday)) return t('changesetTimeline.yesterday');
+  return d.toLocaleDateString(language, { month: 'short', day: 'numeric' });
 }
 
 interface GroupedChangesets {
@@ -45,10 +47,14 @@ interface GroupedChangesets {
   items: Changeset[];
 }
 
-function groupChangesetsByDate(changesets: Changeset[]): GroupedChangesets[] {
+function groupChangesetsByDate(
+  changesets: Changeset[],
+  t: TFunction,
+  language: string,
+): GroupedChangesets[] {
   const groups: GroupedChangesets[] = [];
   for (const cs of changesets) {
-    const label = getDateGroupLabel(cs.pushDateTime);
+    const label = getDateGroupLabel(cs.pushDateTime, t, language);
     const last = groups[groups.length - 1];
     if (last && last.label === label) {
       last.items.push(cs);
@@ -69,26 +75,28 @@ function ChangesetItem({
   isCurrent: boolean;
   onPull?: (id: string, index: number) => void;
 }): React.ReactElement {
+  const { t, i18n } = useTranslation('editor');
+
   return (
     <div className={`cs-item${isCurrent ? ' cs-item--current' : ''}`}>
       <div className="cs-dot" />
       <div className="cs-body">
         <div className="cs-meta">
           <span className="cs-index">#{cs.index}</span>
-          <span className="cs-time">{formatTime(cs.pushDateTime)}</span>
-          {isCurrent && <span className="cs-badge">当前</span>}
+          <span className="cs-time">{formatTime(cs.pushDateTime, i18n.language)}</span>
+          {isCurrent && <span className="cs-badge">{t('changesetTimeline.current')}</span>}
         </div>
         <div className="cs-desc" title={cs.description || cs.displayName}>
-          {cs.description || cs.displayName || '(无描述)'}
+          {cs.description || cs.displayName || t('changesetTimeline.noDescription')}
         </div>
         {!isCurrent && onPull && (
           <button
             type="button"
             className="cs-pull-btn"
             onClick={() => onPull(cs.id, cs.index)}
-            title="拉取到此版本"
+            title={t('changesetTimeline.pullToVersion')}
           >
-            拉取至此
+            {t('changesetTimeline.pullHere')}
           </button>
         )}
       </div>
@@ -104,6 +112,7 @@ export const ChangesetTimeline: React.FC<ChangesetTimelineProps> = ({
   onPullToChangeset,
   onCompare,
 }) => {
+  const { t, i18n } = useTranslation('editor');
   const { changesets, isLoading, error, refetch } = useChangesets({
     iModelId: iModelId ?? '',
     enabled: isVisible && !!iModelId,
@@ -118,21 +127,21 @@ export const ChangesetTimeline: React.FC<ChangesetTimelineProps> = ({
 
   const grouped = useMemo(() => {
     const sorted = [...changesets].reverse();
-    return groupChangesetsByDate(sorted);
-  }, [changesets]);
+    return groupChangesetsByDate(sorted, t, i18n.language);
+  }, [changesets, t, i18n.language]);
 
   if (!isVisible || !iModelId) return null;
 
   return (
     <div className="cs-panel">
       <div className="cs-panel-header">
-        <span className="cs-panel-title">变更历史</span>
+        <span className="cs-panel-title">{t('changesetTimeline.panelTitle')}</span>
         <div className="cs-panel-actions">
           {onCompare && (
             <button
               type="button"
               className="cs-icon-btn"
-              title="版本对比"
+              title={t('changesetTimeline.compareVersions')}
               onClick={onCompare}
             >
               <SvgCompare />
@@ -141,7 +150,7 @@ export const ChangesetTimeline: React.FC<ChangesetTimelineProps> = ({
           <button
             type="button"
             className="cs-icon-btn"
-            title="刷新"
+            title={t('changesetTimeline.refresh')}
             onClick={() => void refetch()}
           >
             <SvgRefresh />
@@ -150,11 +159,11 @@ export const ChangesetTimeline: React.FC<ChangesetTimelineProps> = ({
       </div>
 
       {error && <div className="cs-error">{error.message}</div>}
-      {isLoading && <div className="cs-loading">加载中...</div>}
+      {isLoading && <div className="cs-loading">{t('changesetTimeline.loading')}</div>}
 
       <div className="cs-list">
         {!isLoading && grouped.length === 0 && (
-          <div className="cs-empty">暂无变更记录</div>
+          <div className="cs-empty">{t('changesetTimeline.empty')}</div>
         )}
 
         {/* Continuous timeline line */}

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Button,
   Dialog,
@@ -34,6 +35,7 @@ export const RenameIModelDialog: React.FC<RenameIModelDialogProps> = ({
   onRenamed,
   iTwinId,
 }) => {
+  const { t } = useTranslation('documents');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export const RenameIModelDialog: React.FC<RenameIModelDialogProps> = ({
       onRenamed?.();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '重命名失败');
+      setError(err instanceof Error ? err.message : t('imodelDialog.rename.failed'));
     }
   };
 
@@ -77,28 +79,28 @@ export const RenameIModelDialog: React.FC<RenameIModelDialogProps> = ({
       isDismissible
     >
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" title="重命名 iModel" className="create-dialog">
-        <Dialog.TitleBar title="重命名 iModel" />
+      <Dialog.Main styleType="default" title={t('imodelDialog.rename.title')} className="create-dialog">
+        <Dialog.TitleBar titleText={t('imodelDialog.rename.title')} />
         <Dialog.Content>
           <div className="form-group">
-            <Label htmlFor="imodel-name" required>名称</Label>
+            <Label htmlFor="imodel-name" required>{t('imodelDialog.rename.nameLabel')}</Label>
             <Input
               id="imodel-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="输入 iModel 名称"
+              placeholder={t('imodelDialog.rename.namePlaceholder')}
               disabled={renameMutation.isPending}
               autoFocus
             />
           </div>
 
           <div className="form-group">
-            <Label htmlFor="imodel-description">描述</Label>
+            <Label htmlFor="imodel-description">{t('imodelDialog.rename.descriptionLabel')}</Label>
             <Input
               id="imodel-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="输入描述（可选）"
+              placeholder={t('imodelDialog.rename.descriptionPlaceholder')}
               disabled={renameMutation.isPending}
             />
           </div>
@@ -116,7 +118,7 @@ export const RenameIModelDialog: React.FC<RenameIModelDialogProps> = ({
             onClick={handleClose}
             disabled={renameMutation.isPending}
           >
-            取消
+            {t('imodelDialog.cancel')}
           </Button>
           <Button
             styleType="high-visibility"
@@ -124,7 +126,7 @@ export const RenameIModelDialog: React.FC<RenameIModelDialogProps> = ({
             disabled={renameMutation.isPending || !name.trim()}
             loading={renameMutation.isPending}
           >
-            保存
+            {t('imodelDialog.rename.submit')}
           </Button>
         </Dialog.ButtonBar>
       </Dialog.Main>

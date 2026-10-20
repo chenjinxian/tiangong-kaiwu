@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IModelApp } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
 
@@ -13,6 +14,7 @@ interface LinearPatternDialogProps {
 }
 
 export const LinearPatternDialog: React.FC<LinearPatternDialogProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation('editor');
   const [count, setCount] = useState(3);
   const [spacing, setSpacing] = useState(20);
   const [dirX, setDirX] = useState(1);
@@ -58,10 +60,10 @@ export const LinearPatternDialog: React.FC<LinearPatternDialogProps> = ({ isOpen
         minWidth: '300px',
         color: '#fff',
       }}>
-        <h3 style={{ marginTop: 0 }}>线性阵列 (Linear Pattern)</h3>
+        <h3 style={{ marginTop: 0 }}>{t('modeling.pattern.linearTitle')}</h3>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>数量 (Count):</label>
+          <label style={{ display: 'block', marginBottom: '5px' }}>{t('modeling.pattern.count')}</label>
           <input
             type="number"
             min={2}
@@ -79,7 +81,7 @@ export const LinearPatternDialog: React.FC<LinearPatternDialogProps> = ({ isOpen
         </div>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>间距 (Spacing):</label>
+          <label style={{ display: 'block', marginBottom: '5px' }}>{t('modeling.pattern.spacing')}</label>
           <input
             type="number"
             min={0.001}
@@ -98,7 +100,7 @@ export const LinearPatternDialog: React.FC<LinearPatternDialogProps> = ({ isOpen
         </div>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>方向 (Direction):</label>
+          <label style={{ display: 'block', marginBottom: '5px' }}>{t('modeling.pattern.direction')}</label>
           <div style={{ display: 'flex', gap: '10px' }}>
             <input
               type="number"
@@ -157,7 +159,7 @@ export const LinearPatternDialog: React.FC<LinearPatternDialogProps> = ({ isOpen
               cursor: 'pointer',
             }}
           >
-            取消
+            {t('modeling.pattern.cancel')}
           </button>
           <button
             onClick={handleApply}
@@ -170,7 +172,7 @@ export const LinearPatternDialog: React.FC<LinearPatternDialogProps> = ({ isOpen
               cursor: 'pointer',
             }}
           >
-            确定
+            {t('modeling.pattern.confirm')}
           </button>
         </div>
       </div>
@@ -184,6 +186,7 @@ interface CircularPatternDialogProps {
 }
 
 export const CircularPatternDialog: React.FC<CircularPatternDialogProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation('editor');
   const [count, setCount] = useState(4);
   const [totalAngle, setTotalAngle] = useState(360);
   const [centerX, setCenterX] = useState(0);
@@ -229,10 +232,10 @@ export const CircularPatternDialog: React.FC<CircularPatternDialogProps> = ({ is
         minWidth: '300px',
         color: '#fff',
       }}>
-        <h3 style={{ marginTop: 0 }}>圆形阵列 (Circular Pattern)</h3>
+        <h3 style={{ marginTop: 0 }}>{t('modeling.pattern.circularTitle')}</h3>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>数量 (Count):</label>
+          <label style={{ display: 'block', marginBottom: '5px' }}>{t('modeling.pattern.count')}</label>
           <input
             type="number"
             min={2}
@@ -250,7 +253,7 @@ export const CircularPatternDialog: React.FC<CircularPatternDialogProps> = ({ is
         </div>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>总角度 (Total Angle):</label>
+          <label style={{ display: 'block', marginBottom: '5px' }}>{t('modeling.pattern.totalAngle')}</label>
           <input
             type="number"
             min={1}
@@ -269,7 +272,7 @@ export const CircularPatternDialog: React.FC<CircularPatternDialogProps> = ({ is
         </div>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>中心点 (Center):</label>
+          <label style={{ display: 'block', marginBottom: '5px' }}>{t('modeling.pattern.center')}</label>
           <div style={{ display: 'flex', gap: '10px' }}>
             <input
               type="number"
@@ -328,7 +331,7 @@ export const CircularPatternDialog: React.FC<CircularPatternDialogProps> = ({ is
               cursor: 'pointer',
             }}
           >
-            取消
+            {t('modeling.pattern.cancel')}
           </button>
           <button
             onClick={handleApply}
@@ -341,7 +344,7 @@ export const CircularPatternDialog: React.FC<CircularPatternDialogProps> = ({ is
               cursor: 'pointer',
             }}
           >
-            确定
+            {t('modeling.pattern.confirm')}
           </button>
         </div>
       </div>

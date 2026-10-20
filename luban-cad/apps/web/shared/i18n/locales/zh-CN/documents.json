@@ -287,5 +287,26 @@
     "submit": "保存",
     "cancel": "取消",
     "failed": "更新失败，请重试"
+  },
+  "imodelDialog": {
+    "cancel": "取消",
+    "create": {
+      "title": "创建 iModel",
+      "nameLabel": "模型名称",
+      "namePlaceholder": "输入模型名称",
+      "nameRequired": "请输入模型名称",
+      "descriptionLabel": "描述",
+      "descriptionPlaceholder": "输入模型描述（可选）",
+      "submit": "创建"
+    },
+    "rename": {
+      "title": "重命名 iModel",
+      "nameLabel": "名称",
+      "namePlaceholder": "输入 iModel 名称",
+      "descriptionLabel": "描述",
+      "descriptionPlaceholder": "输入描述（可选）",
+      "submit": "保存",
+      "failed": "重命名失败"
+    }
   }
 }
