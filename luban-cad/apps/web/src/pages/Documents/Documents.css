@@ -48,7 +48,7 @@
 .logo-mark {
   inline-size: 28px;
   block-size: 28px;
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   background: hsl(var(--iui-color-accent-hsl));
   color: var(--iui-color-white);
   display: flex;
@@ -132,7 +132,7 @@
   inline-size: 32px;
   block-size: 32px;
   object-fit: cover;
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   display: block;
 }
 
@@ -147,7 +147,7 @@
   inline-size: 100%;
   block-size: 160px;
   object-fit: cover;
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
 }
 
 .doc-thumb-icon--large {
@@ -156,8 +156,9 @@
   padding: var(--iui-size-xl);
   box-sizing: border-box;
   color: var(--iui-color-icon-muted);
-  background: var(--iui-color-background-2);
-  border-radius: var(--iui-border-radius);
+  /* RW4-P5-T5-2b：原 --iui-color-background-2（3.22 未定义）→ 最接近的占位表面令牌 */
+  background: var(--iui-color-background-backdrop);
+  border-radius: var(--iui-border-radius-1);
 }
 
 /* ── Table ───────────────────────────────────────────────────────── */
@@ -173,7 +174,7 @@
 
 .doc-table-row--selected {
   /* iTwinUI 3.22 Table 为 div 结构（无 td）——高亮直接落行容器 */
-  background: var(--iui-color-background-accent-muted, var(--iui-color-background-2));
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-backdrop));
 }
 
 .doc-name-cell {
@@ -250,8 +251,8 @@
 .doc-info-thumb {
   display: flex;
   justify-content: center;
-  background: var(--iui-color-background-2);
-  border-radius: var(--iui-border-radius);
+  background: var(--iui-color-background-backdrop);
+  border-radius: var(--iui-border-radius-1);
   overflow: hidden;
 }
 
@@ -288,5 +289,5 @@
 
 /* 选中行加固：iTwinUI 给每个单元格上 backgroundColor 会遮挡行容器底色——同步染单元格 */
 .doc-table-row--selected [class*="table-cell"] {
-  background-color: var(--iui-color-background-accent-muted, var(--iui-color-background-2));
+  background-color: var(--iui-color-background-accent-muted, var(--iui-color-background-backdrop));
 }

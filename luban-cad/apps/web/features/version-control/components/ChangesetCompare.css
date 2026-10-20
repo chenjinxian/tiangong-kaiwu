@@ -4,7 +4,7 @@
   width: 100%;
   height: 100%;
   flex-shrink: 0;
-  background: var(--iui-color-background-surface);
+  background: var(--iui-color-background);
   border-left: 1px solid var(--iui-color-border);
   display: flex;
   flex-direction: column;
@@ -21,7 +21,7 @@
 }
 
 .cs-compare-title {
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
   font-weight: 600;
   color: var(--iui-color-text);
 }
@@ -50,17 +50,17 @@
 }
 
 .cs-compare-field label {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
 }
 
 .cs-compare-select {
   padding: 6px 8px;
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   color: var(--iui-color-text);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   max-width: none;
   width: 100%;
 }
@@ -71,7 +71,7 @@
 }
 
 .cs-compare-select option {
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
 }
 
 .cs-compare-arrow {
@@ -91,7 +91,7 @@
   padding: 6px 12px;
   background: transparent;
   border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   color: var(--iui-color-text-muted);
   font-size: 11px;
   cursor: pointer;
@@ -99,14 +99,14 @@
 }
 
 .cs-compare-quick-btn:hover {
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   color: var(--iui-color-text);
   border-color: var(--iui-color-border-accent);
 }
 
 .cs-compare-error {
   padding: var(--iui-size-xs) var(--iui-size-s);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-negative);
   background: var(--iui-color-background-negative-muted);
   border-bottom: 1px solid var(--iui-color-border);
@@ -127,7 +127,7 @@
   gap: var(--iui-size-xs);
   padding: var(--iui-size-s);
   border-bottom: 1px solid var(--iui-color-border);
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   flex-shrink: 0;
 }
 
@@ -145,7 +145,7 @@
 }
 
 .cs-diffbar-segment--added {
-  background: var(--iui-color-text-success);
+  background: var(--iui-color-text-positive);
 }
 
 .cs-diffbar-segment--modified {
@@ -182,7 +182,7 @@
 }
 
 .cs-compare-stat--added .cs-compare-stat-number {
-  color: var(--iui-color-text-success);
+  color: var(--iui-color-text-positive);
 }
 
 .cs-compare-stat--modified .cs-compare-stat-number {
@@ -205,7 +205,7 @@
 }
 
 .cs-compare-pane {
-  background: var(--iui-color-background-surface);
+  background: var(--iui-color-background);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -219,7 +219,7 @@
   gap: var(--iui-size-xs);
   padding: var(--iui-size-xs) var(--iui-size-m);
   border-bottom: 1px solid var(--iui-color-border);
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   flex-shrink: 0;
 }
 
@@ -239,14 +239,14 @@
 .cs-compare-pane-empty {
   padding: var(--iui-size-l) var(--iui-size-s);
   text-align: center;
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
 }
 
 /* Element change row */
 .compare-element {
   border-bottom: 1px solid var(--iui-color-border);
-  background: var(--iui-color-background-surface);
+  background: var(--iui-color-background);
 }
 
 .compare-element-header {
@@ -259,7 +259,7 @@
 }
 
 .compare-element-header:hover {
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
 }
 
 .compare-element-icon {
@@ -271,7 +271,7 @@
 }
 
 .compare-element--added .compare-element-icon {
-  color: var(--iui-color-text-success);
+  color: var(--iui-color-text-positive);
 }
 
 .compare-element--modified .compare-element-icon {
@@ -292,7 +292,7 @@
 
 .compare-element--added .compare-element-type {
   background: var(--iui-color-background-positive-muted);
-  color: var(--iui-color-text-success);
+  color: var(--iui-color-text-positive);
 }
 
 .compare-element--modified .compare-element-type {
@@ -317,7 +317,7 @@
 
 .compare-properties {
   padding: 6px var(--iui-size-m) 10px 34px;
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   border-top: 1px solid var(--iui-color-border);
 }
 
@@ -350,7 +350,7 @@
 }
 
 .compare-property-new {
-  color: var(--iui-color-text-success);
+  color: var(--iui-color-text-positive);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

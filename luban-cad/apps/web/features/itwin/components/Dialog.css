@@ -9,9 +9,9 @@
   padding: var(--iui-size-s) var(--iui-size-m);
   background: var(--iui-color-background-negative-muted);
   border: 1px solid var(--iui-color-border-negative);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   color: var(--iui-color-text-negative);
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
 }
 
 /* Create / Edit form dialogs — unified design system
@@ -23,7 +23,7 @@
   min-inline-size: 480px !important;
   min-width: 480px !important;
   background-color: var(--color-bg-card) !important;
-  border-radius: var(--iui-border-radius) !important;
+  border-radius: var(--iui-border-radius-1) !important;
   color: var(--color-text-primary) !important;
 }
 
@@ -73,7 +73,7 @@
 .create-dialog label,
 .edit-dialog label {
   display: block;
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
   font-weight: 500;
   color: var(--color-text-primary) !important;
   margin-bottom: var(--iui-size-xs);
@@ -98,11 +98,11 @@
 .edit-dialog textarea {
   width: 100%;
   padding: var(--iui-size-xs) var(--iui-size-s) !important;
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
   color: var(--color-text-primary) !important;
   background: var(--color-bg-page) !important;
   border: 1px solid var(--color-border) !important;
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -152,7 +152,7 @@
 .create-dialog .field-error,
 .edit-dialog .field-error {
   display: block;
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--color-error);
   margin-top: var(--iui-size-xs);
 }

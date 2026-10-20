@@ -19,7 +19,7 @@
 .imodels-page .logo-mark {
   width: 28px;
   height: 28px;
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
   display: flex;
   align-items: center;
@@ -47,7 +47,7 @@
 .detail-hero__media {
   width: 220px;
   aspect-ratio: 16 / 9;
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   overflow: hidden;
   background: var(--iui-color-background-accent-muted);
 }
@@ -115,7 +115,7 @@
   gap: var(--iui-size-xs);
   margin-left: var(--iui-size-s);
   color: var(--iui-color-text-accent);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   font-weight: 500;
 }
 
@@ -146,7 +146,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--iui-size-s) var(--iui-size-m);
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   border-bottom: 1px solid var(--iui-color-border);
   flex-shrink: 0;
 }

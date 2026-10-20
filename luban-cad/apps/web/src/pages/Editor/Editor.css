@@ -16,7 +16,7 @@
 .workspace-page .logo-mark {
   width: 28px;
   height: 28px;
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
   display: flex;
   align-items: center;
@@ -33,14 +33,16 @@
   align-items: center;
   gap: var(--iui-size-xs);
   padding: var(--iui-size-xs) var(--iui-size-m);
-  background: var(--iui-color-background-surface);
+  background: var(--iui-color-background);
   border-bottom: 1px solid var(--iui-color-border);
   flex-shrink: 0;
   min-height: 40px;
 }
 
 .workspace-page .toolbar-primary {
-  background: linear-gradient(to bottom, var(--iui-color-background-surface), var(--iui-color-background-surface-elevated));
+  /* RW4-P5-T5-2b：原 surface → surface-elevated 渐变的两端令牌在 3.22 均未定义，
+   * 且无第二种表面令牌可用（surface-elevated 归一到 background），故收敛为纯主题表面。 */
+  background: var(--iui-color-background);
 }
 
 .workspace-page .toolbar-group {
@@ -49,12 +51,12 @@
   gap: 2px;
   padding: 2px;
   background: var(--iui-color-background-backdrop);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   border: 1px solid var(--iui-color-border);
 }
 
 .workspace-page .toolbar-group .iui-button {
-  border-radius: calc(var(--iui-border-radius) - 1px);
+  border-radius: calc(var(--iui-border-radius-1) - 1px);
 }
 
 .workspace-page .toolbar-divider {
@@ -100,9 +102,9 @@
   justify-content: space-between;
   padding: 0 var(--iui-size-m);
   height: 26px;
-  background: var(--iui-color-background-surface);
+  background: var(--iui-color-background);
   border-top: 1px solid var(--iui-color-border);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
   flex-shrink: 0;
   font-family: 'JetBrains Mono', monospace;

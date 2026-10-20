@@ -22,7 +22,7 @@
 }
 
 .assembly-panel-title {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   font-weight: 600;
   color: var(--iui-color-text-muted);
   text-transform: uppercase;
@@ -39,7 +39,7 @@
 
 .assembly-loading {
   padding: var(--iui-size-xs) var(--iui-size-m);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
 }
 
@@ -51,7 +51,7 @@
 
 .assembly-empty {
   padding: var(--iui-size-l) var(--iui-size-m);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
   text-align: center;
 }
@@ -68,7 +68,7 @@
 }
 
 .assembly-item:hover {
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   border-left-color: var(--iui-color-text-accent);
 }
 
@@ -79,7 +79,7 @@
 
 .assembly-name {
   flex: 1;
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text);
   overflow: hidden;
   text-overflow: ellipsis;

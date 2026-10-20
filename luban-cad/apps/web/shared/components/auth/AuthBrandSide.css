@@ -120,7 +120,7 @@
   height: 28px;
   background: hsl(var(--iui-color-accent-hsl) / 0.12);
   border: 1px solid hsl(var(--iui-color-accent-hsl) / 0.2);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -222,7 +222,7 @@
   align-items: center;
   gap: 14px;
   padding: 28px 36px;
-  background: var(--iui-color-background-surface);
+  background: var(--iui-color-background);
   border: 1px solid var(--iui-color-border);
   border-radius: var(--iui-border-radius-round);
   box-shadow: var(--iui-shadow-3);

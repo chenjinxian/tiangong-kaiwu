@@ -22,7 +22,7 @@
 }
 
 .feature-panel-title {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   font-weight: 600;
   color: var(--iui-color-text-muted);
   text-transform: uppercase;
@@ -31,7 +31,7 @@
 
 .feature-panel-loading {
   padding: var(--iui-size-xs) var(--iui-size-m);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
 }
 
@@ -43,7 +43,7 @@
 
 .feature-empty {
   padding: var(--iui-size-l) var(--iui-size-m);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
   text-align: center;
 }
@@ -60,7 +60,7 @@
 }
 
 .feature-row:hover {
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   border-left-color: var(--iui-color-text-accent);
 }
 
@@ -131,7 +131,7 @@
 }
 
 .feature-type {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -166,7 +166,7 @@
 }
 
 .feature-formmodel-loading {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
 }
 
@@ -180,7 +180,7 @@
 
 /* T6.5 sketch 驱动特征行的「编辑草图」回跳入口：窄条文字按钮，与图标动作同排 */
 .feature-sketch-link {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   padding: 2px var(--iui-size-xs);
   white-space: nowrap;
 }
@@ -207,7 +207,7 @@
   display: block;
   margin-top: var(--iui-size-2xs);
   color: var(--iui-color-text-negative);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
 }
 
 /* edgeRefs 字段：chips 区 + 拾取器插槽（T6.3 注入「从视图选边」按钮） */
@@ -225,9 +225,9 @@
   padding: 2px var(--iui-size-xs);
   border: 1px solid var(--iui-color-border);
   border-radius: var(--iui-border-radius-1);
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
   font-family: 'JetBrains Mono', monospace;
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
 }
 
 /* chips 行内删除钮（T6.3）：无边框 ×，与 chip 同色系弱化 */
@@ -237,7 +237,7 @@
   padding: 0 2px;
   cursor: pointer;
   color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   line-height: 1;
 }
 
@@ -277,7 +277,7 @@
 
 .feature-edge-empty {
   color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
 }
 
 /* 对话框内应用失败 Alert（M2-UX 债 #4：守卫文案到前端可见） */

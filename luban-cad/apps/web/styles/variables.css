@@ -9,21 +9,23 @@
  * Custom variables are kept for backward compatibility and specific brand colors.
  *
  * Recommended: Use iTwinUI variables directly in new code:
- * - --iui-color-background-backdrop
- * - --iui-color-background-surface
- * - --iui-color-background-surface-elevated
- * - --iui-color-text
- * - --iui-color-text-muted
+ * - --iui-color-background, --iui-color-background-backdrop, --iui-color-background-hover
+ * - --iui-color-text, --iui-color-text-muted
  * - --iui-color-border
  * - --iui-size-xs, --iui-size-s, --iui-size-m, --iui-size-l, --iui-size-xl
- * - --iui-border-radius
- * - --iui-font-size-small, --iui-font-size-body, --iui-font-size-title
+ * - --iui-border-radius-1, --iui-border-radius-round
+ * - --iui-font-size-0, --iui-font-size-1, --iui-font-size-3
  *
  * MIGRATION (P0): 品牌 teal 经 --iui-color-accent-hsl 注入 iTwinUI accent 管道
  * （聚焦态/选中态等继承）。格式为 iTwinUI 种子原生格式 `Hdeg S% L%`。
  * P1.5 补遗：i22 的 high-visibility 按钮链走 accent 别名族（--iui-color-background-accent
  * 等，实为 informational 蓝别名），故同主题块扩展覆写该别名族（见 light/dark 块内注释）。
  * 旧 --color-* 别名已 @deprecated，仅为向后兼容保留，禁止新增消费方。
+ *
+ * TOKEN INTEGRITY (RW4-P5-T5-2b): 仅使用 @itwin/itwinui-react 3.22 styles.css 实际定义的令牌。
+ * 历史无效名归一：surface* → background(+hover/backdrop)、border-radius → border-radius-1、
+ * font-size-small/body/l → font-size-0/1/3、text-success → text-positive、font-family-mono → font-mono。
+ * 守护测试：styles/iuiTokens.test.ts（任何未定义的 var(--iui-*) 都会使测试失败）。
  */
 
 /* Light theme (default)
@@ -56,10 +58,10 @@
    * 以下 --color-* 别名仅为向后兼容保留，各波次页面重写时逐页清除，禁止新增消费方。 */
   /* iTwinUI Aliases for backward compatibility */
   --color-bg-page: var(--iui-color-background-backdrop, #f4f6f9);
-  --color-bg-card: var(--iui-color-background-surface, #ffffff);
-  --color-bg-sidebar: var(--iui-color-background-surface-elevated, #fafbfc);
-  --color-bg-header: var(--iui-color-background-surface, #ffffff);
-  --color-bg-hover: var(--iui-color-background-surface-hover, rgba(0, 0, 0, 0.035));
+  --color-bg-card: var(--iui-color-background, #ffffff);
+  --color-bg-sidebar: var(--iui-color-background, #fafbfc);
+  --color-bg-header: var(--iui-color-background, #ffffff);
+  --color-bg-hover: var(--iui-color-background-hover, rgba(0, 0, 0, 0.035));
   --color-text-primary: var(--iui-color-text, #1a1d23);
   --color-text-secondary: var(--iui-color-text-muted, #5f6672);
   --color-text-tertiary: var(--iui-color-text-muted, #8b919d);
@@ -67,7 +69,7 @@
   --color-border-strong: var(--iui-color-border-subtle, #cdd1d8);
 
   /* Status Colors - mapped to iTwinUI */
-  --color-success: var(--iui-color-text-success, #00b894);
+  --color-success: var(--iui-color-text-positive, #00b894);
   --color-success-light: var(--iui-color-background-positive-muted, rgba(0, 184, 148, 0.08));
   --color-warning: var(--iui-color-text-warning, #e17a2d);
   --color-warning-light: var(--iui-color-background-warning-muted, rgba(225, 122, 45, 0.08));
@@ -75,8 +77,8 @@
   --color-error-light: var(--iui-color-background-negative-muted, rgba(224, 79, 95, 0.08));
 
   /* Radius - iTwinUI compatible */
-  --radius-sm: var(--iui-border-radius, 4px);
-  --radius-md: var(--iui-border-radius, 6px);
+  --radius-sm: var(--iui-border-radius-1, 4px);
+  --radius-md: var(--iui-border-radius-1, 6px);
   --radius-lg: var(--iui-border-radius-round, 8px);
 
   /* Shadows - enhanced */
@@ -109,10 +111,10 @@
    * 以下 --color-* 别名仅为向后兼容保留，各波次页面重写时逐页清除，禁止新增消费方。 */
   /* iTwinUI Aliases for backward compatibility */
   --color-bg-page: var(--iui-color-background-backdrop, #0b0d13);
-  --color-bg-card: var(--iui-color-background-surface, #13161e);
-  --color-bg-sidebar: var(--iui-color-background-surface-elevated, #13161e);
-  --color-bg-header: var(--iui-color-background-surface, #171a24);
-  --color-bg-hover: var(--iui-color-background-surface-hover, rgba(255, 255, 255, 0.05));
+  --color-bg-card: var(--iui-color-background, #13161e);
+  --color-bg-sidebar: var(--iui-color-background, #13161e);
+  --color-bg-header: var(--iui-color-background, #171a24);
+  --color-bg-hover: var(--iui-color-background-hover, rgba(255, 255, 255, 0.05));
   --color-text-primary: var(--iui-color-text, #e4e7ec);
   --color-text-secondary: var(--iui-color-text-muted, #8b919d);
   --color-text-tertiary: var(--iui-color-text-muted, #5f6672);
@@ -120,7 +122,7 @@
   --color-border-strong: var(--iui-color-border-subtle, #2e3348);
 
   /* Status Colors */
-  --color-success: var(--iui-color-text-success, #00e4b8);
+  --color-success: var(--iui-color-text-positive, #00e4b8);
   --color-success-light: var(--iui-color-background-positive-muted, rgba(0, 228, 184, 0.12));
   --color-warning: var(--iui-color-text-warning, #f0a050);
   --color-warning-light: var(--iui-color-background-warning-muted, rgba(240, 160, 80, 0.12));

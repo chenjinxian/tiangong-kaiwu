@@ -24,7 +24,7 @@
 }
 
 .nv-panel-title {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   font-weight: 600;
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -38,7 +38,7 @@
 
 .nv-error {
   padding: var(--iui-size-xs) var(--iui-size-m);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--color-error);
   background: var(--color-error-light);
   border-bottom: 1px solid var(--color-border);
@@ -46,7 +46,7 @@
 
 .nv-loading {
   padding: var(--iui-size-s);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--color-text-secondary);
   text-align: center;
 }
@@ -66,7 +66,7 @@
 
 .nv-empty p {
   margin: 0;
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
 }
 
 /* Named version item */
@@ -93,7 +93,7 @@
 }
 
 .nv-item-name {
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
   font-weight: 500;
   color: var(--color-text-primary);
   overflow: hidden;
@@ -112,7 +112,7 @@
 }
 
 .nv-item-description {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--color-text-secondary);
   margin-bottom: var(--iui-size-xs);
   overflow: hidden;
@@ -125,7 +125,7 @@
 .nv-item-meta {
   display: flex;
   gap: var(--iui-size-xs);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--color-text-secondary);
   margin-bottom: var(--iui-size-xs);
 }
@@ -148,7 +148,7 @@
   padding: var(--iui-size-xs) var(--iui-size-m);
   background: var(--color-primary-light);
   border-bottom: 1px solid var(--color-border);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--color-text-primary);
 }
 
@@ -168,7 +168,7 @@
   padding: var(--iui-size-s);
   background: var(--color-warning-light);
   border: 1px solid var(--color-warning);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   margin-bottom: var(--iui-size-xs);
 }
 
@@ -179,7 +179,7 @@
 .nv-rollback-info {
   padding: var(--iui-size-s);
   background: var(--color-bg-page);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   margin-bottom: var(--iui-size-s);
 }
 
@@ -187,7 +187,7 @@
   display: flex;
   justify-content: space-between;
   margin-bottom: var(--iui-size-xs);
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
 }
 
 .nv-rollback-field:last-child {
@@ -207,7 +207,7 @@
   padding: var(--iui-size-s);
   background: var(--color-error-light);
   border: 1px solid var(--color-error);
-  border-radius: var(--iui-border-radius);
-  font-size: var(--iui-font-size-small);
+  border-radius: var(--iui-border-radius-1);
+  font-size: var(--iui-font-size-0);
   color: var(--color-error);
 }

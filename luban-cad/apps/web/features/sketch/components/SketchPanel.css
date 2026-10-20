@@ -7,7 +7,7 @@
   display: flex;
   flex-direction: column;
   width: 280px;
-  background: var(--iui-color-background-surface);
+  background: var(--iui-color-background);
   border-right: 1px solid var(--iui-color-border);
   height: 100%;
 }
@@ -28,7 +28,7 @@
 }
 
 .sketch-panel-header .iui-text {
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
   font-weight: 600;
 }
 
@@ -47,7 +47,7 @@
 
 .sketch-id {
   color: var(--iui-color-text-muted);
-  font-family: var(--iui-font-family-mono);
+  font-family: var(--iui-font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -108,14 +108,14 @@
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-body);
+  font-size: var(--iui-font-size-1);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .sketch-tab:hover {
   color: var(--iui-color-text);
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
 }
 
 .sketch-tab.active {
@@ -137,25 +137,25 @@
   align-items: center;
   gap: var(--iui-size-xs);
   padding: var(--iui-size-xs) var(--iui-size-s);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
 }
 
 .element-item:hover {
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
 }
 
 .element-kind {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
   border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   padding: 0 var(--iui-size-2xs);
 }
 
 .element-name {
   flex: 1;
-  font-family: var(--iui-font-family-mono);
-  font-size: var(--iui-font-size-small);
+  font-family: var(--iui-font-mono);
+  font-size: var(--iui-font-size-0);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -173,12 +173,12 @@
   align-items: center;
   gap: var(--iui-size-xs);
   padding: var(--iui-size-xs) var(--iui-size-s);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   border: 1px solid transparent;
 }
 
 .constraint-item:hover {
-  background: var(--iui-color-background-surface-elevated);
+  background: var(--iui-color-background);
 }
 
 .constraint-item.conflict {
@@ -188,8 +188,8 @@
 
 .constraint-summary {
   flex: 1;
-  font-family: var(--iui-font-family-mono);
-  font-size: var(--iui-font-size-small);
+  font-family: var(--iui-font-mono);
+  font-size: var(--iui-font-size-0);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -202,7 +202,7 @@
   gap: var(--iui-size-xs);
   padding: var(--iui-size-s);
   border: 1px solid var(--iui-color-border-accent);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   background: var(--iui-color-background-accent-muted);
   margin-bottom: var(--iui-size-s);
 }
@@ -225,20 +225,20 @@
   gap: var(--iui-size-xs);
   padding: var(--iui-size-xs) var(--iui-size-s);
   border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
   background: var(--iui-color-background);
 }
 
 .dimension-type {
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
   color: var(--iui-color-text-muted);
 }
 
 .dimension-value {
   flex: 1;
   text-align: center;
-  font-family: var(--iui-font-family-mono);
-  font-size: var(--iui-font-size-body);
+  font-family: var(--iui-font-mono);
+  font-size: var(--iui-font-size-1);
   background: transparent;
   border: none;
   border-bottom: 1px dashed var(--iui-color-border);

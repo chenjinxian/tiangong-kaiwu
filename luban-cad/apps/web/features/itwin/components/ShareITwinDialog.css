@@ -23,7 +23,7 @@
   margin: var(--iui-size-s) 0 var(--iui-size-m);
   padding: var(--iui-size-s);
   background: var(--iui-color-background-backdrop);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
 }
 
 .share-hint-text {
@@ -74,7 +74,7 @@
   padding: var(--iui-size-s);
   background: var(--iui-color-background-backdrop);
   border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius);
+  border-radius: var(--iui-border-radius-1);
 }
 
 .share-member__info {
@@ -118,7 +118,7 @@
 
 .share-link-input input {
   font-family: 'JetBrains Mono', monospace;
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
 }
 
 .share-link-hint {

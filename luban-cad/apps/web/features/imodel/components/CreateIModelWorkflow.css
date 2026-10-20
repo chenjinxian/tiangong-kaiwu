@@ -46,7 +46,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--iui-size-xs);
-  font-size: var(--iui-font-size-small);
+  font-size: var(--iui-font-size-0);
 }
 
 .cw-file-name svg {
