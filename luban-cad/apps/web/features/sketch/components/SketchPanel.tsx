@@ -20,6 +20,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Badge,
   Button,
@@ -121,45 +122,46 @@ function entityLabel(e: SketchEntityDto): string {
   }
 }
 
-const ENTITY_KIND_LABEL: Record<SketchEntityDto['kind'], string> = {
-  point: '点',
-  line: '线',
-  circle: '圆',
+const ENTITY_KIND_KEYS: Record<SketchEntityDto['kind'], string> = {
+  point: 'sketch.entityKinds.point',
+  line: 'sketch.entityKinds.line',
+  circle: 'sketch.entityKinds.circle',
 };
 
-const CONSTRAINT_BUTTONS: Array<{ kind: SketchConstraintKind; label: string }> = [
-  { kind: 'horizontal', label: '水平' },
-  { kind: 'vertical', label: '竖直' },
-  { kind: 'parallel', label: '平行' },
-  { kind: 'perpendicular', label: '垂直' },
-  { kind: 'coincident', label: '重合' },
-  { kind: 'equal', label: '相等' },
+const CONSTRAINT_BUTTONS: Array<{ kind: SketchConstraintKind; labelKey: string }> = [
+  { kind: 'horizontal', labelKey: 'sketch.panel.constraintActions.horizontal' },
+  { kind: 'vertical', labelKey: 'sketch.panel.constraintActions.vertical' },
+  { kind: 'parallel', labelKey: 'sketch.panel.constraintActions.parallel' },
+  { kind: 'perpendicular', labelKey: 'sketch.panel.constraintActions.perpendicular' },
+  { kind: 'coincident', labelKey: 'sketch.panel.constraintActions.coincident' },
+  { kind: 'equal', labelKey: 'sketch.panel.constraintActions.equal' },
 ];
 
-const DIMENSION_BUTTONS: Array<{ kind: SketchDimensionKind; label: string }> = [
-  { kind: 'distance', label: '距离尺寸' },
-  { kind: 'radius', label: '半径尺寸' },
+const DIMENSION_BUTTONS: Array<{ kind: SketchDimensionKind; labelKey: string }> = [
+  { kind: 'distance', labelKey: 'sketch.panel.dimensionActions.distance' },
+  { kind: 'radius', labelKey: 'sketch.panel.dimensionActions.radius' },
 ];
 
-const CREATE_BUTTONS: Array<{ kind: SketchCreateKind; label: string }> = [
-  { kind: 'line', label: '直线' },
-  { kind: 'rectangle', label: '矩形' },
-  { kind: 'circle', label: '圆' },
+const CREATE_BUTTONS: Array<{ kind: SketchCreateKind; labelKey: string }> = [
+  { kind: 'line', labelKey: 'sketch.panel.createActions.line' },
+  { kind: 'rectangle', labelKey: 'sketch.panel.createActions.rectangle' },
+  { kind: 'circle', labelKey: 'sketch.panel.createActions.circle' },
 ];
 
 /** DOF 徽标（求解三态：恰定=positive / 欠约束=informational / 矛盾·失败=negative） */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const SolveBadge: React.FC<{ solve: SketchSolveStateDto }> = ({ solve }) => {
+  const { t } = useTranslation('editor');
   if (solve.status === 'ok' && solve.dof === 0) {
-    return <Badge backgroundColor="positive">自由度: 0</Badge>;
+    return <Badge backgroundColor="positive">{t('sketch.panel.solve.dofZero')}</Badge>;
   }
   if (solve.status === 'underconstrained') {
-    return <Badge backgroundColor="informational">{`欠约束 (${solve.dof})`}</Badge>;
+    return <Badge backgroundColor="informational">{t('sketch.panel.solve.underconstrained', { dof: solve.dof })}</Badge>;
   }
   if (solve.status === 'conflicting') {
-    return <Badge backgroundColor="negative">矛盾</Badge>;
+    return <Badge backgroundColor="negative">{t('sketch.panel.solve.conflicting')}</Badge>;
   }
-  return <Badge backgroundColor="negative">失败</Badge>;
+  return <Badge backgroundColor="negative">{t('sketch.panel.solve.failed')}</Badge>;
 };
 
 interface PendingDimension extends SketchDimensionCandidate {
@@ -168,6 +170,7 @@ interface PendingDimension extends SketchDimensionCandidate {
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sketchSystem, onToast }) => {
+  const { t } = useTranslation('editor');
   const [activeTab, setActiveTab] = useState<'elements' | 'constraints' | 'dimensions'>('elements');
   /** 尺寸值编辑态（现有 distance/radius 约束的 value 内联改） */
   const [editingDimensionId, setEditingDimensionId] = useState<number | null>(null);
@@ -208,9 +211,9 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
   const handleCreateSketch = useCallback(async () => {
     const result = await sketchSystem.createSketch([], []);
     if (!result.ok) {
-      onToast(result.error ?? '新建草图失败', 'error');
+      onToast(result.error ?? t('sketch.panel.errors.createFailed'), 'error');
     }
-  }, [sketchSystem, onToast]);
+  }, [sketchSystem, onToast, t]);
 
   const handleDeleteEntity = useCallback(
     async (entityId: number) => {
@@ -219,10 +222,10 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
       const next = computeCascadeDelete(sketch.entities, sketch.constraints, entityId);
       const result = await sketchSystem.applyUpdate(next.entities, next.constraints);
       if (!result.ok) {
-        onToast(result.error ?? '草图更新失败', 'error');
+        onToast(result.error ?? t('sketch.panel.errors.updateFailed'), 'error');
       }
     },
-    [sketchSystem, onToast],
+    [sketchSystem, onToast, t],
   );
 
   const handleDeleteConstraint = useCallback(
@@ -234,10 +237,10 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
         sketch.constraints.filter((c) => c.id !== constraintId),
       );
       if (!result.ok) {
-        onToast(result.error ?? '草图更新失败', 'error');
+        onToast(result.error ?? t('sketch.panel.errors.updateFailed'), 'error');
       }
     },
-    [sketchSystem, onToast],
+    [sketchSystem, onToast, t],
   );
 
   const submitDimensionEdit = useCallback(
@@ -246,7 +249,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
       if (!sketch || editSubmitting) return;
       const value = Number(editValue);
       if (!Number.isFinite(value) || value <= 0) {
-        onToast('尺寸值必须为正数', 'error');
+        onToast(t('sketch.panel.errors.invalidDimension'), 'error');
         return;
       }
       setEditSubmitting(true);
@@ -256,7 +259,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
         );
         const result = await sketchSystem.applyUpdate(sketch.entities, nextConstraints);
         if (!result.ok) {
-          onToast(result.error ?? '草图更新失败', 'error');
+          onToast(result.error ?? t('sketch.panel.errors.updateFailed'), 'error');
           return;
         }
         setEditingDimensionId(null);
@@ -264,7 +267,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
         setEditSubmitting(false);
       }
     },
-    [sketchSystem, editValue, editSubmitting, onToast],
+    [sketchSystem, editValue, editSubmitting, onToast, t],
   );
 
   const confirmPendingDimension = useCallback(async () => {
@@ -273,7 +276,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
     if (!sketch || !pending) return;
     const value = Number(pending.value);
     if (!Number.isFinite(value) || value <= 0) {
-      onToast('尺寸值必须为正数', 'error');
+      onToast(t('sketch.panel.errors.invalidDimension'), 'error');
       return;
     }
     const newConstraint: SketchConstraintDto = {
@@ -285,11 +288,11 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
     const result = await sketchSystem.applyUpdate(sketch.entities, [...sketch.constraints, newConstraint]);
     if (!result.ok) {
       // 拒收文本（含 dof/冲突 id）原样透出；表单保持——可改值再提交或取消
-      onToast(result.error ?? '草图更新失败', 'error');
+      onToast(result.error ?? t('sketch.panel.errors.updateFailed'), 'error');
       return;
     }
     setPendingDimension(undefined);
-  }, [pendingDimension, sketchSystem, onToast]);
+  }, [pendingDimension, sketchSystem, onToast, t]);
 
   if (!isActive) return null;
 
@@ -309,15 +312,17 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
             size="small"
             styleType="borderless"
             onClick={handleExitSketch}
-            label="退出草图"
+            label={t('sketch.panel.exit')}
           >
             <SvgChevronLeft />
           </IconButton>
-          <Text variant="title">草图编辑</Text>
+          <Text variant="title">{t('sketch.panel.title')}</Text>
           {activeSketch && (
             <>
               <SolveBadge solve={activeSketch.solve} />
-              {activeSketch.solve.redundant && <Badge backgroundColor="warning">冗余</Badge>}
+              {activeSketch.solve.redundant && (
+                <Badge backgroundColor="warning">{t('sketch.panel.solve.redundant')}</Badge>
+              )}
             </>
           )}
         </div>
@@ -327,7 +332,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
           startIcon={<SvgCheckmark />}
           onClick={handleExitSketch}
         >
-          完成
+          {t('sketch.panel.finish')}
         </Button>
       </div>
 
@@ -346,12 +351,12 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
         ) : (
           activeSketch && (
             <Text variant="small" className="sketch-id">
-              草图: {activeSketch.id}
+              {t('sketch.panel.sketchId', { id: activeSketch.id })}
             </Text>
           )
         )}
         <Button size="small" onClick={() => void handleCreateSketch()}>
-          新建草图
+          {t('sketch.panel.newSketch')}
         </Button>
       </div>
 
@@ -363,25 +368,25 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
           className={`sketch-tab ${activeTab === 'elements' ? 'active' : ''}`}
           onClick={() => setActiveTab('elements')}
         >
-          元素
+          {t('sketch.panel.tabs.elements')}
         </button>
         <button
           className={`sketch-tab ${activeTab === 'constraints' ? 'active' : ''}`}
           onClick={() => setActiveTab('constraints')}
         >
-          约束
+          {t('sketch.panel.tabs.constraints')}
         </button>
         <button
           className={`sketch-tab ${activeTab === 'dimensions' ? 'active' : ''}`}
           onClick={() => setActiveTab('dimensions')}
         >
-          尺寸
+          {t('sketch.panel.tabs.dimensions')}
         </button>
       </div>
 
       {/* Content */}
       <div className="sketch-panel-content">
-        {sketchSystem.loading && <Text variant="small">加载中...</Text>}
+        {sketchSystem.loading && <Text variant="small">{t('sketch.panel.loading')}</Text>}
         {sketchSystem.error && (
           <Text variant="small" className="sketch-error">
             {sketchSystem.error}
@@ -390,10 +395,10 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
         {!activeSketch && !sketchSystem.loading && (
           <div className="empty-state">
             <Text variant="small" className="empty-text">
-              尚未打开草图
+              {t('sketch.panel.empty.notOpen')}
             </Text>
             <Text variant="small" className="empty-hint">
-              点击「新建草图」创建空白草图
+              {t('sketch.panel.empty.notOpenHint')}
             </Text>
           </div>
         )}
@@ -407,7 +412,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
                   size="small"
                   onClick={() => void runSketchCreateTool(b.kind, { sketchSystem, onToast })}
                 >
-                  {b.label}
+                  {t(b.labelKey)}
                 </Button>
               ))}
             </div>
@@ -415,24 +420,24 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
             {activeSketch.entities.length === 0 ? (
               <div className="empty-state">
                 <Text variant="small" className="empty-text">
-                  暂无实体
+                  {t('sketch.panel.empty.noEntities')}
                 </Text>
                 <Text variant="small" className="empty-hint">
-                  使用绘制工具创建线/矩形/圆
+                  {t('sketch.panel.empty.noEntitiesHint')}
                 </Text>
               </div>
             ) : (
               <div className="element-list">
                 {activeSketch.entities.map((entity) => (
                   <div key={entity.id} className="element-item">
-                    <span className="element-kind">{ENTITY_KIND_LABEL[entity.kind]}</span>
+                    <span className="element-kind">{t(ENTITY_KIND_KEYS[entity.kind])}</span>
                     <Text variant="body" className="element-name">
                       {entityLabel(entity)}
                     </Text>
                     <IconButton
                       size="small"
                       styleType="borderless"
-                      label="删除"
+                      label={t('sketch.panel.delete')}
                       className="sketch-row-delete"
                       onClick={() => void handleDeleteEntity(entity.id)}
                     >
@@ -454,17 +459,17 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
                   size="small"
                   onClick={() => void runSketchAddConstraintTool(b.kind, { sketchSystem, onToast })}
                 >
-                  {b.label}
+                  {t(b.labelKey)}
                 </Button>
               ))}
             </div>
             <Divider />
             <Text variant="small" className="section-title">
-              约束清单 ({activeSketch.constraints.length})
+              {t('sketch.panel.constraintList', { count: activeSketch.constraints.length })}
             </Text>
             {activeSketch.constraints.length === 0 ? (
               <Text variant="small" className="empty-hint">
-                暂无约束
+                {t('sketch.panel.empty.noConstraints')}
               </Text>
             ) : (
               <div className="constraint-list">
@@ -479,7 +484,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
                     <IconButton
                       size="small"
                       styleType="borderless"
-                      label="删除"
+                      label={t('sketch.panel.delete')}
                       className="sketch-row-delete"
                       onClick={() => void handleDeleteConstraint(c.id)}
                     >
@@ -501,7 +506,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
                   size="small"
                   onClick={() => void runSketchAddDimensionTool(b.kind, { sketchSystem, onToast })}
                 >
-                  {b.label}
+                  {t(b.labelKey)}
                 </Button>
               ))}
             </div>
@@ -509,13 +514,13 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
             {pendingDimension && (
               <div className="dimension-candidate-form">
                 <Text variant="small" className="section-title">
-                  确认尺寸值
+                  {t('sketch.panel.confirmDimensionTitle')}
                 </Text>
                 <Input
                   size="small"
                   type="number"
                   value={pendingDimension.value}
-                  placeholder="输入尺寸值（>0）"
+                  placeholder={t('sketch.panel.dimensionPlaceholder')}
                   onChange={(e) =>
                     setPendingDimension({ ...pendingDimension, value: e.target.value })
                   }
@@ -525,10 +530,10 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
                 />
                 <div className="dimension-candidate-actions">
                   <Button size="small" styleType="high-visibility" onClick={() => void confirmPendingDimension()}>
-                    确认
+                    {t('sketch.panel.confirm')}
                   </Button>
                   <Button size="small" onClick={() => setPendingDimension(undefined)}>
-                    取消
+                    {t('sketch.panel.cancel')}
                   </Button>
                 </div>
               </div>
@@ -537,18 +542,20 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
             <Divider />
 
             <Text variant="small" className="section-title">
-              现有尺寸 ({dimensionConstraints.length})
+              {t('sketch.panel.existingDimensions', { count: dimensionConstraints.length })}
             </Text>
             {dimensionConstraints.length === 0 ? (
               <Text variant="small" className="empty-hint">
-                暂无尺寸标注
+                {t('sketch.panel.empty.noDimensions')}
               </Text>
             ) : (
               <div className="dimension-list-existing">
                 {dimensionConstraints.map((c) => (
                   <div key={c.id} className="dimension-item">
                     <span className="dimension-type">
-                      {c.kind === 'distance' ? '距离' : '半径'}
+                      {t(c.kind === 'distance'
+                        ? 'sketch.dimensionKinds.distance'
+                        : 'sketch.dimensionKinds.radius')}
                     </span>
                     {editingDimensionId === c.id ? (
                       <Input
@@ -567,7 +574,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
                       <button
                         type="button"
                         className="dimension-value"
-                        title="点击修改尺寸值"
+                        title={t('sketch.panel.editDimensionTitle')}
                         onClick={() => {
                           setEditingDimensionId(c.id);
                           setEditValue(c.value !== undefined ? String(c.value) : '');
@@ -579,7 +586,7 @@ export const SketchPanel: React.FC<SketchPanelProps> = ({ isActive, onExit, sket
                     <IconButton
                       size="small"
                       styleType="borderless"
-                      label="删除"
+                      label={t('sketch.panel.delete')}
                       className="sketch-row-delete"
                       onClick={() => void handleDeleteConstraint(c.id)}
                     >

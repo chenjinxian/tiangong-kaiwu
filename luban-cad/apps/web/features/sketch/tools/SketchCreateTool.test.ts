@@ -24,6 +24,7 @@ import {
   runSketchCreateTool,
 } from './SketchCreateTool.js';
 import { IModelApp } from '@itwin/core-frontend';
+import i18n from '../../../shared/i18n/index.js';
 
 // ---------------------------------------------------------------------------
 // Mock @itwin/core-frontend（SelectSubEntityTool.test.ts 先例：假基类 + IModelApp）
@@ -177,6 +178,17 @@ describe('SketchCreateTool 静态契约', () => {
     expect(mocks.initLocateElements).toHaveBeenCalledWith(false, true);
     expect(mocks.addDecorator).toHaveBeenCalledTimes(1);
     await tool.onCleanup();
+  });
+
+  it('英文提示语：语言切换为 en 后按当前语言输出（调用时翻译，无模块加载期快照）', async () => {
+    await i18n.changeLanguage('en');
+    try {
+      const tool = await installTool(new SketchLineTool(), makeSketchSystem());
+      expect(mocks.outputPrompt).toHaveBeenCalledWith('Click to place the line start point');
+      await tool.onCleanup();
+    } finally {
+      await i18n.changeLanguage('zh-CN');
+    }
   });
 });
 

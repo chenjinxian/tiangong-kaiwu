@@ -16,7 +16,10 @@
     "projectList": "项目列表",
     "loading": "加载中...",
     "exportModel": "导出模型",
-    "editPermissionRequired": "需要编辑权限"
+    "editPermissionRequired": "需要编辑权限",
+    "share": "分享",
+    "rename": "重命名",
+    "versionPillTitle": "当前版本（打开历史）"
   },
   "toolbar": {
     "select": "选择",
@@ -58,7 +61,8 @@
     "sketchMode": "草图模式：XY 平面",
     "selectionCount": "已选: {{count}} 个元素",
     "metric": "公制单位",
-    "perspective": "透视视图"
+    "perspective": "透视视图",
+    "imperial": "英制单位"
   },
   "export": {
     "success": "已导出 {{format}} 格式: {{fileName}}"
@@ -133,6 +137,10 @@
       "viewSwitcher": "切换视图",
       "savedViews": "保存视图",
       "section": "剖切"
+    },
+    "historyPanels": {
+      "changesets": "变更集",
+      "namedVersions": "命名版本"
     }
   },
   "theme": {
@@ -406,6 +414,143 @@
       "hollowSuccess": "抽壳应用成功: {{count}} 个面",
       "hollowFailed": "抽壳应用失败",
       "hollowError": "抽壳失败: {{message}}"
+    }
+  },
+  "sketch": {
+    "entityKinds": {
+      "point": "点",
+      "line": "线",
+      "circle": "圆"
+    },
+    "constraintKinds": {
+      "coincident": "重合",
+      "horizontal": "水平",
+      "vertical": "竖直",
+      "parallel": "平行",
+      "perpendicular": "垂直",
+      "equal": "等长/等半径"
+    },
+    "dimensionKinds": {
+      "distance": "距离",
+      "radius": "半径"
+    },
+    "panel": {
+      "title": "草图编辑",
+      "exit": "退出草图",
+      "finish": "完成",
+      "sketchId": "草图: {{id}}",
+      "newSketch": "新建草图",
+      "loading": "加载中...",
+      "delete": "删除",
+      "tabs": {
+        "elements": "元素",
+        "constraints": "约束",
+        "dimensions": "尺寸"
+      },
+      "solve": {
+        "dofZero": "自由度: 0",
+        "underconstrained": "欠约束 ({{dof}})",
+        "conflicting": "矛盾",
+        "failed": "失败",
+        "redundant": "冗余"
+      },
+      "createActions": {
+        "line": "直线",
+        "rectangle": "矩形",
+        "circle": "圆"
+      },
+      "constraintActions": {
+        "horizontal": "水平",
+        "vertical": "竖直",
+        "parallel": "平行",
+        "perpendicular": "垂直",
+        "coincident": "重合",
+        "equal": "相等"
+      },
+      "dimensionActions": {
+        "distance": "距离尺寸",
+        "radius": "半径尺寸"
+      },
+      "empty": {
+        "notOpen": "尚未打开草图",
+        "notOpenHint": "点击「新建草图」创建空白草图",
+        "noEntities": "暂无实体",
+        "noEntitiesHint": "使用绘制工具创建线/矩形/圆",
+        "noConstraints": "暂无约束",
+        "noDimensions": "暂无尺寸标注"
+      },
+      "constraintList": "约束清单 ({{count}})",
+      "existingDimensions": "现有尺寸 ({{count}})",
+      "confirmDimensionTitle": "确认尺寸值",
+      "dimensionPlaceholder": "输入尺寸值（>0）",
+      "editDimensionTitle": "点击修改尺寸值",
+      "confirm": "确认",
+      "cancel": "取消",
+      "errors": {
+        "createFailed": "新建草图失败",
+        "updateFailed": "草图更新失败",
+        "invalidDimension": "尺寸值必须为正数"
+      }
+    },
+    "tools": {
+      "entityKinds": {
+        "point": "点",
+        "line": "线",
+        "circle": "圆"
+      },
+      "create": {
+        "line": {
+          "firstPrompt": "点击放置直线起点",
+          "nextPrompt": "点击放置直线终点"
+        },
+        "rectangle": {
+          "firstPrompt": "点击放置矩形第一个角点",
+          "nextPrompt": "点击放置矩形对角点"
+        },
+        "circle": {
+          "firstPrompt": "点击放置圆心",
+          "nextPrompt": "点击确定半径"
+        }
+      },
+      "constraint": {
+        "pick": {
+          "coincidentFirst": "{{label}}约束：拾取第一个点",
+          "coincidentSecond": "{{label}}约束：拾取第二个点",
+          "linearFirst": "{{label}}约束：拾取一条线或一个点",
+          "linearPairSecond": "{{label}}约束（点对式）：拾取第二个点",
+          "pairFirst": "{{label}}约束：拾取第一条线",
+          "pairSecond": "{{label}}约束：拾取第二条线",
+          "equalFirst": "{{label}}约束：拾取第一条线或圆",
+          "equalSecond": "{{label}}约束：拾取同类的第二个{{kind}}"
+        },
+        "reject": {
+          "coincidentNeedsPoint": "重合约束需要拾取点（拾取到{{actual}}）",
+          "linearNeedsLineOrPoint": "{{label}}约束需要线或点（拾取到{{actual}}）",
+          "linearPairNeedsPoint": "{{label}}约束（点对式）第二个槽位需要点（拾取到{{actual}}）",
+          "parallelNeedsLine": "{{label}}约束需要拾取线（拾取到{{actual}}）",
+          "equalNeedsLineOrCircle": "等长/等半径约束需要线或圆（拾取到点）",
+          "equalNoMixing": "等长/等半径约束不得混搭（线对线或圆对圆）"
+        }
+      },
+      "dimension": {
+        "promptFirst": "{{label}}尺寸：拾取{{slot}}（共 {{count}} 个）",
+        "promptNext": "{{label}}尺寸：再拾取{{slot}}（还需 {{remaining}} 个）",
+        "slotMismatch": "{{label}}尺寸需要拾取{{slot}}（拾取到{{actual}}）"
+      }
+    },
+    "toasts": {
+      "zeroSize": "形状尺寸为零，请重新绘制",
+      "systemNotReady": "草图系统未就绪",
+      "updateFailed": "草图更新失败",
+      "notOpenOrEmpty": "未打开草图或草图无实体",
+      "noSolvedCoords": "草图实体无可用解算坐标",
+      "alreadyPicked": "该实体已拾取，请选择另一个",
+      "slotMismatch": "槽位类型不匹配"
+    },
+    "system": {
+      "notConnected": "未连接 iModel",
+      "featureSystemNotReady": "特征系统未就绪",
+      "notOpen": "未打开草图"
     }
   },
   "briefcase": {

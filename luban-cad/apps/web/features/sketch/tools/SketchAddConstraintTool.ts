@@ -34,6 +34,7 @@ import {
 import { Geometry, Point3d } from '@itwin/core-geometry';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
+import i18n from '../../../shared/i18n/index.js';
 
 /** v1 约束种类（SolverTypes 冻结联合中无值的 6 种；tangent/concentric 等不存在） */
 export type SketchConstraintKind =
@@ -55,17 +56,31 @@ export interface SketchAddConstraintToolOptions {
   onToast?: SketchToolToast;
 }
 
-const CONSTRAINT_LABELS: Record<SketchConstraintKind, string> = {
-  coincident: '重合',
-  horizontal: '水平',
+const CONSTRAINT_LABEL_KEYS: Record<SketchConstraintKind, string> = {
+  coincident: 'sketch.constraintKinds.coincident',
+  horizontal: 'sketch.constraintKinds.horizontal',
   // M3-b T8：vertical 用「竖直」——与 perpendicular「垂直」消歧（CAD 中文惯例）
-  vertical: '竖直',
-  parallel: '平行',
-  perpendicular: '垂直',
-  equal: '等长/等半径',
+  vertical: 'sketch.constraintKinds.vertical',
+  parallel: 'sketch.constraintKinds.parallel',
+  perpendicular: 'sketch.constraintKinds.perpendicular',
+  equal: 'sketch.constraintKinds.equal',
 };
 
-const KIND_NAMES: Record<EntityKind, string> = { point: '点', line: '线', circle: '圆' };
+const ENTITY_KIND_NAME_KEYS: Record<EntityKind, string> = {
+  point: 'sketch.tools.entityKinds.point',
+  line: 'sketch.tools.entityKinds.line',
+  circle: 'sketch.tools.entityKinds.circle',
+};
+
+/** 约束种类名（调用时翻译） */
+function constraintLabel(kind: SketchConstraintKind): string {
+  return i18n.t(CONSTRAINT_LABEL_KEYS[kind], { ns: 'editor' });
+}
+
+/** 实体种类名（调用时翻译） */
+function entityKindName(kind: EntityKind): string {
+  return i18n.t(ENTITY_KIND_NAME_KEYS[kind], { ns: 'editor' });
+}
 
 interface PickVerdict {
   ok: boolean;
@@ -81,7 +96,12 @@ function acceptPick(kind: SketchConstraintKind, picked: EntityKind[], next: Enti
   const reject = (message: string): PickVerdict => ({ ok: false, complete: false, message });
   switch (kind) {
     case 'coincident':
-      if (next !== 'point') return reject(`重合约束需要拾取点（拾取到${KIND_NAMES[next]}）`);
+      if (next !== 'point') {
+        return reject(i18n.t('sketch.tools.constraint.reject.coincidentNeedsPoint', {
+          ns: 'editor',
+          actual: entityKindName(next),
+        }));
+      }
       return picked.length === 0
         ? { ok: true, complete: false }
         : { ok: true, complete: true };
@@ -90,15 +110,31 @@ function acceptPick(kind: SketchConstraintKind, picked: EntityKind[], next: Enti
       if (picked.length === 0) {
         if (next === 'line') return { ok: true, complete: true }; // 单线槽
         if (next === 'point') return { ok: true, complete: false }; // 点对式起槽
-        return reject(`${CONSTRAINT_LABELS[kind]}约束需要线或点（拾取到${KIND_NAMES[next]}）`);
+        return reject(i18n.t('sketch.tools.constraint.reject.linearNeedsLineOrPoint', {
+          ns: 'editor',
+          label: constraintLabel(kind),
+          actual: entityKindName(next),
+        }));
       }
       // 已进入点对式：第二槽只收 point（SolverTypes：恰 2 个 point）
-      if (next !== 'point') return reject(`${CONSTRAINT_LABELS[kind]}约束（点对式）第二个槽位需要点（拾取到${KIND_NAMES[next]}）`);
+      if (next !== 'point') {
+        return reject(i18n.t('sketch.tools.constraint.reject.linearPairNeedsPoint', {
+          ns: 'editor',
+          label: constraintLabel(kind),
+          actual: entityKindName(next),
+        }));
+      }
       return { ok: true, complete: true };
     case 'parallel':
     case 'perpendicular': {
-      const label = CONSTRAINT_LABELS[kind];
-      if (next !== 'line') return reject(`${label}约束需要拾取线（拾取到${KIND_NAMES[next]}）`);
+      const label = constraintLabel(kind);
+      if (next !== 'line') {
+        return reject(i18n.t('sketch.tools.constraint.reject.parallelNeedsLine', {
+          ns: 'editor',
+          label,
+          actual: entityKindName(next),
+        }));
+      }
       return picked.length === 0
         ? { ok: true, complete: false }
         : { ok: true, complete: true };
@@ -106,10 +142,12 @@ function acceptPick(kind: SketchConstraintKind, picked: EntityKind[], next: Enti
     case 'equal': {
       if (picked.length === 0) {
         if (next === 'line' || next === 'circle') return { ok: true, complete: false };
-        return reject('等长/等半径约束需要线或圆（拾取到点）');
+        return reject(i18n.t('sketch.tools.constraint.reject.equalNeedsLineOrCircle', { ns: 'editor' }));
       }
       // SolverTypes：2 line 或 2 circle，不得混搭——首槽种类锁定后续槽位
-      if (next !== picked[0]) return reject('等长/等半径约束不得混搭（线对线或圆对圆）');
+      if (next !== picked[0]) {
+        return reject(i18n.t('sketch.tools.constraint.reject.equalNoMixing', { ns: 'editor' }));
+      }
       return { ok: true, complete: true };
     }
   }
@@ -117,20 +155,32 @@ function acceptPick(kind: SketchConstraintKind, picked: EntityKind[], next: Enti
 
 /** 首槽提示语（满槽语义随槽形变化，提示在每次点击后刷新） */
 function pickPrompt(kind: SketchConstraintKind, picked: EntityKind[]): string {
-  const label = CONSTRAINT_LABELS[kind];
+  const label = constraintLabel(kind);
   switch (kind) {
     case 'coincident':
-      return picked.length === 0 ? `${label}约束：拾取第一个点` : `${label}约束：拾取第二个点`;
+      return picked.length === 0
+        ? i18n.t('sketch.tools.constraint.pick.coincidentFirst', { ns: 'editor', label })
+        : i18n.t('sketch.tools.constraint.pick.coincidentSecond', { ns: 'editor', label });
     case 'horizontal':
     case 'vertical':
-      if (picked.length === 0) return `${label}约束：拾取一条线或一个点`;
-      return `${label}约束（点对式）：拾取第二个点`;
+      if (picked.length === 0) {
+        return i18n.t('sketch.tools.constraint.pick.linearFirst', { ns: 'editor', label });
+      }
+      return i18n.t('sketch.tools.constraint.pick.linearPairSecond', { ns: 'editor', label });
     case 'parallel':
     case 'perpendicular':
-      return picked.length === 0 ? `${label}约束：拾取第一条线` : `${label}约束：拾取第二条线`;
+      return picked.length === 0
+        ? i18n.t('sketch.tools.constraint.pick.pairFirst', { ns: 'editor', label })
+        : i18n.t('sketch.tools.constraint.pick.pairSecond', { ns: 'editor', label });
     case 'equal':
-      if (picked.length === 0) return `${label}约束：拾取第一条线或圆`;
-      return `${label}约束：拾取同类的第二个${KIND_NAMES[picked[0]]}`;
+      if (picked.length === 0) {
+        return i18n.t('sketch.tools.constraint.pick.equalFirst', { ns: 'editor', label });
+      }
+      return i18n.t('sketch.tools.constraint.pick.equalSecond', {
+        ns: 'editor',
+        label,
+        kind: entityKindName(picked[0]),
+      });
   }
 }
 
@@ -271,27 +321,27 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
     const sketchSystem = this._sketchSystem;
     const sketch = sketchSystem?.activeSketch;
     if (!sketchSystem || !sketch || sketch.entities.length === 0) {
-      this._toast('未打开草图或草图无实体', 'error');
+      this._toast(i18n.t('sketch.toasts.notOpenOrEmpty', { ns: 'editor' }), 'error');
       return EventHandled.Yes;
     }
 
     // v1 单草图假设：不校验命中元素 id（草图元素=唯一 GeometricElement3d）
     const entityId = resolveNearestEntityId(sketch.entities, { x: hit.x, y: hit.y });
     if (entityId === undefined) {
-      this._toast('草图实体无可用解算坐标', 'info');
+      this._toast(i18n.t('sketch.toasts.noSolvedCoords', { ns: 'editor' }), 'info');
       return EventHandled.Yes;
     }
     const entity = sketch.entities.find((e) => e.id === entityId);
     if (!entity) return EventHandled.Yes;
 
     if (this._refs.includes(entity.id)) {
-      this._toast('该实体已拾取，请选择另一个', 'info');
+      this._toast(i18n.t('sketch.toasts.alreadyPicked', { ns: 'editor' }), 'info');
       return EventHandled.Yes;
     }
 
     const verdict = acceptPick(this.constraintKind, this._pickedKinds, entity.kind);
     if (!verdict.ok) {
-      this._toast(verdict.message ?? '槽位类型不匹配', 'info'); // 拒收不消耗点击，继续拾取
+      this._toast(verdict.message ?? i18n.t('sketch.toasts.slotMismatch', { ns: 'editor' }), 'info'); // 拒收不消耗点击，继续拾取
       return EventHandled.Yes;
     }
 
@@ -314,7 +364,7 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
       // 后端拒收零变更——拾取清空（草稿=参数数组，仅提交时追加，无本地残留）；
       // 拒收文本（含 dof/冲突 id）原样透出，工具保持存活可立即重选。
       this._clearPicks();
-      this._toast(result.error ?? '草图更新失败', 'error');
+      this._toast(result.error ?? i18n.t('sketch.toasts.updateFailed', { ns: 'editor' }), 'error');
       IModelApp.notifications.outputPrompt(pickPrompt(this.constraintKind, []));
       return EventHandled.No;
     }

@@ -35,6 +35,7 @@ import { Arc3d, Point3d } from '@itwin/core-geometry';
 import { ColorDef, LinePixels } from '@itwin/core-common';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
+import i18n from '../../../shared/i18n/index.js';
 
 export type SketchCreateKind = 'line' | 'rectangle' | 'circle';
 export type SketchCreateToast = (message: string, type: 'success' | 'error' | 'info') => void;
@@ -123,10 +124,20 @@ export abstract class SketchCreateTool extends PrimitiveTool {
 
   /** 形状种类（预览绘制分派用） */
   protected abstract readonly sketchKind: SketchCreateKind;
-  /** 首点提示语 */
-  protected abstract readonly firstPrompt: string;
-  /** 次点提示语 */
-  protected abstract readonly nextPrompt: string;
+  /** 首点提示语键（调用时翻译，避免语言快照） */
+  protected abstract readonly firstPromptKey: string;
+  /** 次点提示语键（调用时翻译，避免语言快照） */
+  protected abstract readonly nextPromptKey: string;
+
+  /** 首点提示语（每次读取时按当前语言翻译） */
+  protected get firstPrompt(): string {
+    return i18n.t(this.firstPromptKey, { ns: 'editor' });
+  }
+
+  /** 次点提示语（每次读取时按当前语言翻译） */
+  protected get nextPrompt(): string {
+    return i18n.t(this.nextPromptKey, { ns: 'editor' });
+  }
 
   private _sketchSystem?: UseSketchSystem;
   private _onToast?: SketchCreateToast;
@@ -191,7 +202,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     const idBase = this._nextId;
     const draft = this.buildShape(points);
     if (!draft) {
-      this._toast('形状尺寸为零，请重新绘制', 'info');
+      this._toast(i18n.t('sketch.toasts.zeroSize', { ns: 'editor' }), 'info');
       IModelApp.notifications.outputPrompt(this.firstPrompt);
       return EventHandled.No;
     }
@@ -199,7 +210,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     const sketchSystem = this._sketchSystem;
     if (!sketchSystem) {
       this._nextId = idBase;
-      this._toast('草图系统未就绪', 'error');
+      this._toast(i18n.t('sketch.toasts.systemNotReady', { ns: 'editor' }), 'error');
       return EventHandled.No;
     }
 
@@ -212,7 +223,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       // 后端拒收零变更（库侧无写入）——本地回滚 = 丢弃草稿 + id 计数器复原；
       // 拒收文本（含 dof/冲突 id）原样透出，工具保持存活可立即重画。
       this._nextId = idBase;
-      this._toast(result.error ?? '草图更新失败', 'error');
+      this._toast(result.error ?? i18n.t('sketch.toasts.updateFailed', { ns: 'editor' }), 'error');
       IModelApp.notifications.outputPrompt(this.firstPrompt);
       return EventHandled.No;
     }
@@ -292,8 +303,8 @@ export class SketchLineTool extends SketchCreateTool {
   public static override toolId = 'Sketch.CreateLine';
   public static override iconSpec = 'icon-line';
   protected readonly sketchKind = 'line';
-  protected readonly firstPrompt = '点击放置直线起点';
-  protected readonly nextPrompt = '点击放置直线终点';
+  protected readonly firstPromptKey = 'sketch.tools.create.line.firstPrompt';
+  protected readonly nextPromptKey = 'sketch.tools.create.line.nextPrompt';
 
   protected createInstance(): SketchCreateTool { return new SketchLineTool(); }
 
@@ -323,8 +334,8 @@ export class SketchRectangleTool extends SketchCreateTool {
   public static override toolId = 'Sketch.CreateRectangle';
   public static override iconSpec = 'icon-rectangle';
   protected readonly sketchKind = 'rectangle';
-  protected readonly firstPrompt = '点击放置矩形第一个角点';
-  protected readonly nextPrompt = '点击放置矩形对角点';
+  protected readonly firstPromptKey = 'sketch.tools.create.rectangle.firstPrompt';
+  protected readonly nextPromptKey = 'sketch.tools.create.rectangle.nextPrompt';
 
   protected createInstance(): SketchCreateTool { return new SketchRectangleTool(); }
 
@@ -360,8 +371,8 @@ export class SketchCircleTool extends SketchCreateTool {
   public static override toolId = 'Sketch.CreateCircle';
   public static override iconSpec = 'icon-circle';
   protected readonly sketchKind = 'circle';
-  protected readonly firstPrompt = '点击放置圆心';
-  protected readonly nextPrompt = '点击确定半径';
+  protected readonly firstPromptKey = 'sketch.tools.create.circle.firstPrompt';
+  protected readonly nextPromptKey = 'sketch.tools.create.circle.nextPrompt';
 
   protected createInstance(): SketchCreateTool { return new SketchCircleTool(); }
 

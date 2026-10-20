@@ -14,6 +14,7 @@ import {
   type SketchSummaryDto,
 } from '@luban-cad/shared';
 import type { UseFeatureSystem } from '../../editor/hooks/useFeatureSystem.js';
+import i18n from '../../../shared/i18n/index.js';
 
 export interface UseSketchSystem {
   /** iModel 内全部草图摘要（listSketches 读面） */
@@ -120,7 +121,7 @@ export function useSketchSystem(
   const openSketch = useCallback(
     async (id: string) => {
       if (!connectionKey) {
-        setError('未连接 iModel');
+        setError(i18n.t('sketch.system.notConnected', { ns: 'editor' }));
         return;
       }
       setLoading(true);
@@ -151,9 +152,9 @@ export function useSketchSystem(
 
   const applyUpdate = useCallback(
     async (entities: SketchEntityDto[], constraints: SketchConstraintDto[]): Promise<FeatureOpResult> => {
-      if (!fs) return { ok: false, error: '特征系统未就绪' };
+      if (!fs) return { ok: false, error: i18n.t('sketch.system.featureSystemNotReady', { ns: 'editor' }) };
       const activeId = activeIdRef.current;
-      if (!activeId) return { ok: false, error: '未打开草图' };
+      if (!activeId) return { ok: false, error: i18n.t('sketch.system.notOpen', { ns: 'editor' }) };
       let result: FeatureOpResult;
       try {
         result = await fs.applyOp({ kind: 'updateSketch', sketchId: activeId, entities, constraints });
@@ -174,7 +175,7 @@ export function useSketchSystem(
 
   const createSketch = useCallback(
     async (entities: SketchEntityDto[], constraints: SketchConstraintDto[]): Promise<FeatureOpResult> => {
-      if (!fs) return { ok: false, error: '特征系统未就绪' };
+      if (!fs) return { ok: false, error: i18n.t('sketch.system.featureSystemNotReady', { ns: 'editor' }) };
       let result: FeatureOpResult;
       try {
         result = await fs.applyOp({ kind: 'insertSketch', entities, constraints });

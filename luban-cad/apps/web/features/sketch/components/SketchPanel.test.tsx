@@ -26,6 +26,7 @@ import type {
   SketchSolveStateDto,
 } from '@luban-cad/shared';
 import { SketchPanel, computeCascadeDelete } from './SketchPanel.js';
+import i18n from '../../../shared/i18n/index.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { runSketchCreateTool } from '../tools/SketchCreateTool.js';
 import { runSketchAddConstraintTool } from '../tools/SketchAddConstraintTool.js';
@@ -560,6 +561,36 @@ describe('SketchPanel（M3-b T4.7 真数据面板）', () => {
       expect(mockedRunDimension).toHaveBeenCalledWith('distance', { sketchSystem, onToast });
       fireEvent.click(screen.getByRole('button', { name: '半径尺寸' }));
       expect(mockedRunDimension).toHaveBeenCalledWith('radius', { sketchSystem, onToast });
+    });
+  });
+
+  describe('英文渲染（RW4-P5 I2-sketch）', () => {
+    it('语言切换为 en 时面板、DOF 徽标与工具按钮显示英文；恢复 zh-CN 后中文回归', async () => {
+      await i18n.changeLanguage('en');
+      try {
+        const { unmount } = renderPanel(makeSketchSystem());
+        expect(screen.getByText('Edit Sketch')).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Exit Sketch' })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'New Sketch' })).toBeDefined();
+        expect(screen.getByText('Degrees of freedom: 0')).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Line' })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Rectangle' })).toBeDefined();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Constraints' }));
+        expect(screen.getByText('Constraints (3)')).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Horizontal' })).toBeDefined();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Dimensions' }));
+        expect(screen.getByText('Existing Dimensions (2)')).toBeDefined();
+        expect(screen.getByRole('button', { name: 'Distance Dimension' })).toBeDefined();
+        unmount();
+      } finally {
+        await i18n.changeLanguage('zh-CN');
+      }
+
+      renderPanel(makeSketchSystem());
+      expect(screen.getByText('草图编辑')).toBeDefined();
+      expect(screen.getByText('自由度: 0')).toBeDefined();
     });
   });
 

@@ -24,6 +24,7 @@ import {
 } from '@itwin/core-frontend';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { pickHitPoint, resolveNearestEntityId, type SketchToolToast } from './SketchAddConstraintTool.js';
+import i18n from '../../../shared/i18n/index.js';
 
 /** v1 尺寸种类（SolverTypes 冻结联合中带值的两种） */
 export type SketchDimensionKind = 'distance' | 'radius';
@@ -75,7 +76,10 @@ export interface SketchAddDimensionToolOptions {
   onToast?: SketchToolToast;
 }
 
-const DIMENSION_LABELS: Record<SketchDimensionKind, string> = { distance: '距离', radius: '半径' };
+const DIMENSION_LABEL_KEYS: Record<SketchDimensionKind, string> = {
+  distance: 'sketch.dimensionKinds.distance',
+  radius: 'sketch.dimensionKinds.radius',
+};
 
 /** 槽位形状（SolverTypes 冻结契约）：distance=2 point；radius=1 circle */
 const DIMENSION_SLOTS: Record<SketchDimensionKind, { slot: 'point' | 'circle'; count: number }> = {
@@ -83,12 +87,32 @@ const DIMENSION_SLOTS: Record<SketchDimensionKind, { slot: 'point' | 'circle'; c
   radius: { slot: 'circle', count: 1 },
 };
 
+/** 槽位实体种类名（调用时翻译） */
+function slotName(slot: 'point' | 'circle'): string {
+  return i18n.t(
+    slot === 'point' ? 'sketch.tools.entityKinds.point' : 'sketch.tools.entityKinds.circle',
+    { ns: 'editor' },
+  );
+}
+
+/** 尺寸种类名（调用时翻译） */
+function dimensionLabel(kind: SketchDimensionKind): string {
+  return i18n.t(DIMENSION_LABEL_KEYS[kind], { ns: 'editor' });
+}
+
 function pickPrompt(kind: SketchDimensionKind, pickedCount: number): string {
-  const label = DIMENSION_LABELS[kind];
+  const label = dimensionLabel(kind);
   const { slot, count } = DIMENSION_SLOTS[kind];
-  const slotName = slot === 'point' ? '点' : '圆';
-  if (pickedCount === 0) return `${label}尺寸：拾取${slotName}（共 ${count} 个）`;
-  return `${label}尺寸：再拾取${slotName}（还需 ${count - pickedCount} 个）`;
+  const slotLabel = slotName(slot);
+  if (pickedCount === 0) {
+    return i18n.t('sketch.tools.dimension.promptFirst', { ns: 'editor', label, slot: slotLabel, count });
+  }
+  return i18n.t('sketch.tools.dimension.promptNext', {
+    ns: 'editor',
+    label,
+    slot: slotLabel,
+    remaining: count - pickedCount,
+  });
 }
 
 /**
@@ -127,29 +151,31 @@ export abstract class SketchAddDimensionTool extends PrimitiveTool {
     const sketchSystem = this._sketchSystem;
     const sketch = sketchSystem?.activeSketch;
     if (!sketchSystem || !sketch || sketch.entities.length === 0) {
-      this._toast('未打开草图或草图无实体', 'error');
+      this._toast(i18n.t('sketch.toasts.notOpenOrEmpty', { ns: 'editor' }), 'error');
       return EventHandled.Yes;
     }
 
     const entityId = resolveNearestEntityId(sketch.entities, { x: hit.x, y: hit.y });
     if (entityId === undefined) {
-      this._toast('草图实体无可用解算坐标', 'info');
+      this._toast(i18n.t('sketch.toasts.noSolvedCoords', { ns: 'editor' }), 'info');
       return EventHandled.Yes;
     }
     const entity = sketch.entities.find((e) => e.id === entityId);
     if (!entity) return EventHandled.Yes;
 
     if (this._refs.includes(entity.id)) {
-      this._toast('该实体已拾取，请选择另一个', 'info');
+      this._toast(i18n.t('sketch.toasts.alreadyPicked', { ns: 'editor' }), 'info');
       return EventHandled.Yes;
     }
 
     const { slot, count } = DIMENSION_SLOTS[this.dimensionKind];
     if (entity.kind !== slot) {
-      const slotName = slot === 'point' ? '点' : '圆';
-      this._toast(`${DIMENSION_LABELS[this.dimensionKind]}尺寸需要拾取${slotName}（拾取到${
-        entity.kind === 'point' ? '点' : entity.kind === 'line' ? '线' : '圆'
-      }）`, 'info'); // 拒收不消耗点击，继续拾取
+      this._toast(i18n.t('sketch.tools.dimension.slotMismatch', {
+        ns: 'editor',
+        label: dimensionLabel(this.dimensionKind),
+        slot: slotName(slot),
+        actual: i18n.t(`sketch.tools.entityKinds.${entity.kind}`, { ns: 'editor' }),
+      }), 'info'); // 拒收不消耗点击，继续拾取
       return EventHandled.Yes;
     }
 
