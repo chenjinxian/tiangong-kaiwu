@@ -189,7 +189,7 @@ const Register: React.FC = () => {
   const getStrengthColor = (): string => {
     if (passwordStrength <= 1) return 'var(--iui-color-text-negative)';
     if (passwordStrength === 2) return 'var(--iui-color-text-warning)';
-    return 'var(--iui-color-text-success)';
+    return 'var(--iui-color-text-positive)';
   };
 
   const getStrengthText = (): string => {

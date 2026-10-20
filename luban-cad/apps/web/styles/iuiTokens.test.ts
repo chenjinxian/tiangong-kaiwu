@@ -29,13 +29,16 @@ import { describe, expect, it } from 'vitest';
 const APP_ROOT = resolve(__dirname, '..');
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git']);
 
-/** 扫描应用内全部 .css（跳过 dist/node_modules 等构建产物目录）。 */
-function collectCssFiles(dir: string, out: string[] = []): string[] {
+/** 扫描应用内全部 .css/.ts/.tsx（跳过 dist/node_modules 等构建产物目录）。
+ *  TSX 内联样式同样会 `var(--iui-*)`（ErrorBoundary/Register 曾各有一处无效令牌），
+ *  一并纳入守护面。 */
+const SCANNED_EXTENSIONS = new Set(['.css', '.ts', '.tsx']);
+function collectAppFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
-      collectCssFiles(resolve(dir, entry.name), out);
-    } else if (extname(entry.name) === '.css') {
+      collectAppFiles(resolve(dir, entry.name), out);
+    } else if (SCANNED_EXTENSIONS.has(extname(entry.name))) {
       out.push(resolve(dir, entry.name));
     }
   }
@@ -56,8 +59,8 @@ function collectDefinitions(css: string, into: Set<string>): void {
 const itwinuiStylesPath = createRequire(import.meta.url).resolve('@itwin/itwinui-react/styles.css');
 const itwinuiStyles = readFileSync(itwinuiStylesPath, 'utf8');
 
-// 一次性读取所有应用 CSS，保持测试在毫秒级完成。
-const appCssFiles = collectCssFiles(APP_ROOT)
+// 一次性读取所有应用 CSS/TS/TSX，保持测试在亚秒级完成。
+const appCssFiles = collectAppFiles(APP_ROOT)
   .sort()
   .map((file) => ({
     file,
@@ -78,7 +81,7 @@ describe('iTwinUI token 完整性守护', () => {
     expect(definedTokens.size).toBeGreaterThan(100);
   });
 
-  it('应用 CSS 中的 var(--iui-*) 均有定义（无 fallback 兜底也不算合法）', () => {
+  it('应用 CSS/TS/TSX 中的 var(--iui-*) 均有定义（无 fallback 兜底也不算合法）', () => {
     const undefinedUsages = new Map<string, Set<string>>();
 
     for (const { relativePath, css } of appCssFiles) {
