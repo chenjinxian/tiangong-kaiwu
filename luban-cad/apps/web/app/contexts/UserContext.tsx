@@ -68,7 +68,7 @@ interface UserProviderProps {
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
-  // auth 命名空间：登录/注册域文案（429 限流文案见 login.error.rateLimited*）
+  // auth 命名空间：登录/注册/退出错误文案（HTTP status 映射见 error.*，429 限流见 login.error.rateLimited*）
   const { t } = useTranslation('auth');
 
   // State
@@ -131,18 +131,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       return response;
     } catch (err) {
-      // Map HTTP status codes and network errors to user-friendly messages
+      // Map HTTP status codes and network errors to user-friendly messages（文案走 auth ns）
       let message: string;
       if (err instanceof AuthError) {
         switch (err.status) {
           case 401:
-            message = '邮箱或密码错误';
+            message = t('error.invalidCredentials');
             break;
           case 403:
-            message = '账户已被禁用';
+            message = t('error.accountDisabled');
             break;
           case 404:
-            message = '该邮箱未注册，请先注册账户';
+            message = t('error.emailNotRegistered');
             break;
           case 429:
             // imodelhub 登录限流（5 次/15min，IP+email 桶，被拒计入窗口）——
@@ -158,15 +158,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           case 502:
           case 503:
           case 504:
-            message = '服务器暂时不可用，请稍后重试';
+            message = t('error.serverUnavailable');
             break;
           default:
-            message = '登录失败，请稍后重试';
+            message = t('error.loginFailed');
         }
       } else if (err instanceof Error && err.message.includes('Network Error')) {
-        message = '网络连接失败，请检查网络设置';
+        message = t('error.network');
       } else {
-        message = err instanceof Error ? err.message : '登录失败';
+        message = err instanceof Error ? err.message : t('error.loginUnexpected');
       }
 
       setError(message);
@@ -188,20 +188,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setTokens(response.tokens);
       return response;
     } catch (err) {
-      // Map technical error messages to user-friendly messages
-      let message = err instanceof Error ? err.message : '注册失败';
+      // Map technical error messages to user-friendly messages（文案走 auth ns）
+      let message = err instanceof Error ? err.message : t('error.registerFailed');
 
       // Handle specific error patterns
       if (message.includes('emailAlreadyExists') || message.includes('email: 该邮箱已被注册')) {
-        message = '该邮箱已被注册，请使用其他邮箱或直接登录';
+        message = t('error.emailExists');
       } else if (message.includes('email:')) {
         // Extract field-specific error
         const match = message.match(/email:\s*(.+)/);
         if (match) message = match[1];
       } else if (message === 'An error occurred') {
-        message = '注册失败，请检查输入信息是否正确';
+        message = t('error.registerUnexpected');
       } else if (message.includes('Network Error')) {
-        message = '网络连接失败，请检查网络设置';
+        message = t('error.network');
       }
 
       setError(message);
@@ -209,7 +209,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   /**
    * Logout handler
@@ -225,12 +225,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const queryClient = getQueryClient();
       void queryClient.clear();
     } catch (err) {
-      const message = err instanceof Error ? err.message : '退出失败';
+      const message = err instanceof Error ? err.message : t('error.logoutFailed');
       setError(message);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   /**
    * Clear error
