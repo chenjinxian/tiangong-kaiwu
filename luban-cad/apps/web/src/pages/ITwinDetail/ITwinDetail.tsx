@@ -86,7 +86,7 @@ type DetailITwin = ITwin & {
 const ITwinDetail: React.FC = React.memo(() => {
   const { iTwinId } = useParams<{ iTwinId: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation('documents');
+  const { t, i18n } = useTranslation('documents');
   const { t: tCommon } = useTranslation('common');
   const { showToast } = useAppToast();
 
@@ -259,12 +259,12 @@ const ITwinDetail: React.FC = React.memo(() => {
   }, [refetchIModels, refetchITwin]);
 
   const formatDate = useCallback((dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('zh-CN', {
+    return new Date(dateString).toLocaleDateString(i18n.language, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
-  }, []);
+  }, [i18n.language]);
 
   // Show full skeleton during initial loading
   if (isLoading) {
