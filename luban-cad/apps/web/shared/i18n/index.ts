@@ -22,6 +22,8 @@ import zhDocuments from './locales/zh-CN/documents.json';
 import enDocuments from './locales/en/documents.json';
 import zhEditor from './locales/zh-CN/editor.json';
 import enEditor from './locales/en/editor.json';
+import zhSettings from './locales/zh-CN/settings.json';
+import enSettings from './locales/en/settings.json';
 
 export const LANGUAGE_STORAGE_KEY = 'luban-cad-lang';
 
@@ -30,8 +32,20 @@ void i18n
   .use(initReactI18next)
   .init({
     resources: {
-      'zh-CN': { common: zhCommon, auth: zhAuth, documents: zhDocuments, editor: zhEditor },
-      en: { common: enCommon, auth: enAuth, documents: enDocuments, editor: enEditor },
+      'zh-CN': {
+        common: zhCommon,
+        auth: zhAuth,
+        documents: zhDocuments,
+        editor: zhEditor,
+        settings: zhSettings,
+      },
+      en: {
+        common: enCommon,
+        auth: enAuth,
+        documents: enDocuments,
+        editor: enEditor,
+        settings: enSettings,
+      },
     },
     defaultNS: 'common',
     fallbackLng: 'zh-CN',
