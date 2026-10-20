@@ -156,13 +156,13 @@ state 与副作用下沉到 `features/editor/hooks/` 现有 hooks（useEditTools
 | 波次 | 范围 | 验收门 |
 |---|---|---|
 | **P0 基座** | httpClient 统一 + i18n 骨架（zh/en）+ token 映射 + useToaster 迁移 + `/documents` 路由骨架与旧路由重定向 + 债务清偿（ErrorBoundary 单例化、PrivateRoute 归位 app 层、死文件与 `modules/{core,ui}` 空壳删除） | `pnpm lint/test` 绿；现有 e2e 全绿（含重定向兼容） **✅ 完成（2026-10-15）：10 任务全绿，验收经契约同步 S5 收口（e2e 53/53 全绿、重定向 4/4、静态 629/11）** |
+| **P1 认证** | Login/Register/ForgotPassword 三页 itwin-ui 分屏重做 + Google SSO（env 探测）+ 404 页 + 认证页 i18n 全量 | login.spec.ts 更新绿；中英切换走查 **✅ 完成（2026-10-20）** |
+| **P2 Documents** | 侧栏筛选（含真「与我共享」）+ SearchBox + 排序 + Table/Tile 双视图 + 真实缩略图 + 行级右键菜单 + 详情面板 + 创建对话框重构 | documents.spec.ts 更新绿；空态/加载/错误三态走查 **✅ 完成（2026-10-20；共享语义按 hub DTO 诚实注记）** |
+| **P3 Detail+Share** | DocumentDetail 重构 + iModel 缩略图 + CreateIModelWorkflow 的 Stepper 化 + Share 对话框（members/roles hooks + 邀请/角色/移除） | e2e 新增 share 流；权限错误路径覆盖 **✅ 完成（2026-10-20；改角色/移除待 imodelhub 成员契约修复，前端 UUID 守卫降级）** |
+| **P4 Editor** | EditorShell 分解（900 行 God Component 拆解）+ 顶栏（重命名/版本药丸/undo-redo/Share）+ 左栏 Tabs+Tree + 右侧停靠面板退役 overlay 栈 + ViewCube 接入 + 状态条 token 化 + 快捷键速查表 + 版本面板升级 | editor/features/sketch/modeling e2e 全绿；demo-flow 24 幕选择器同步更新 **✅ 完成（2026-10-20）** |
+| **P5 Settings+收尾** | Settings 收编 httpClient+react-query + 偏好（主题/单位/语言）+ e2e/demo 全量更新 + 全站中英走查 + 视觉走查 | 14 spec 全绿 + demo-flow 全幕通过 **✅ 完成（2026-10-20）** |
 
 > **P0 完成口径注记**：「硬编码色值清零」实际口径 = 品牌 token 映射（T4）+ 本波触碰面清零（PrivateRoute/ErrorBoundary）；残留（`features/modeling/PatternDialogs.tsx`、`EditorBriefcaseStatus.tsx`、`ExportDialog.tsx`、`BriefcaseStatus.tsx`、`shared/components/feedback/PerformanceProfiler.tsx`）按终审裁决分配至 P2-P5 逐波清偿。
-| **P1 认证** | Login/Register/ForgotPassword 三页 itwin-ui 分屏重做 + Google SSO（env 探测）+ 404 页 + 认证页 i18n 全量 | login.spec.ts 更新绿；中英切换走查 |
-| **P2 Documents** | 侧栏筛选（含真「与我共享」）+ SearchBox + 排序 + Table/Tile 双视图 + 真实缩略图 + 行级右键菜单 + 详情面板 + 创建对话框重构 | documents.spec.ts 更新绿；空态/加载/错误三态走查 |
-| **P3 Detail+Share** | DocumentDetail 重构 + iModel 缩略图 + CreateIModelWorkflow 的 Stepper 化 + Share 对话框（members/roles hooks + 邀请/角色/移除） | e2e 新增 share 流；权限错误路径覆盖 |
-| **P4 Editor** | EditorShell 分解（900 行 God Component 拆解）+ 顶栏（重命名/版本药丸/undo-redo/Share）+ 左栏 Tabs+Tree + 右侧停靠面板退役 overlay 栈 + ViewCube 接入 + 状态条 token 化 + 快捷键速查表 + 版本面板升级 | editor/features/sketch/modeling e2e 全绿；demo-flow 24 幕选择器同步更新 |
-| **P5 Settings+收尾** | Settings 收编 httpClient+react-query + 偏好（主题/单位/语言）+ e2e/demo 全量更新 + 全站中英走查 + 视觉走查 | 14 spec 全绿 + demo-flow 全幕通过 |
 
 **每波纪律**：单波单 PR；e2e 跟随本波更新并保持绿；demo-flow.mjs 选择器在 P4 同步更新；每波末清本波产生的临时兼容层。
 

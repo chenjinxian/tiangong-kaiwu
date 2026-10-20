@@ -60,7 +60,7 @@
 
 **Task P2-T2-1: documents namespace + useITwinImage 缩略图 hook**
 - Files: Create `locales/{zh-CN,en}/documents.json`（Documents 23+CreateITwinDialog 12+EditITwinDialog 9+详情侧栏键）；Create `shared/hooks/useITwinImage.ts`（`useITwinImage(iTwinId)`：fetchWithAuth(`/itwins/:id/image`)→blob→objectURL，react-query 缓存+404/无图回退 null+组件卸载 revoke；照 ITwinDetail.tsx:216-234 先例）；TDD hook 测试
-- [ ] Commit
+- [x] Commit（P2-T2-2 02b911e682/e4faaba388 + P2.5 修复）
 
 **Task P2-T2-2: Documents 页重做（Onshape 文档中心 IA）**
 - Files: Rewrite `src/pages/Documents/Documents.tsx`：
@@ -78,39 +78,39 @@
 
 **Task P3-T3-1: ITwinDetail 重做**
 - Files: Rewrite `src/pages/ITwinDetail/ITwinDetail.tsx`：HeaderBreadcrumbs 面包屑+hero itwin-ui 化（Surface+Tag+真实大图 useITwinImage）+删除确认 window.confirm→Modal（危险操作标准形态）+IModelCard 缩略图（useIModelImage 同构 hook 或同 hook 泛型化）；顺手：IModelCard console.log 清理+死 props 处置
-- [ ] Commit
+- [x] Commit（P3-T3-1 615ab38b14）
 
 **Task P3-T3-2: ShareITwinDialog 真实现（官方契约）**
 - Files: Rewrite `features/itwin/components/ShareITwinDialog.tsx`：Tabs 三页（成员/邀请/链接）→（成员列表=listUserMembers+角色 displayName（listRoles 映射）/移除 removeUserMember；邀请=addUserMember{email,roleIds}(角色下拉来自 listRoles)；链接=改 `/documents/:id`）；**入口补齐**：ITwinDetail hero 加 Share IconButton（现 isShareDialogOpen 无 true 置位）；官方参考 `D:\Github\access-control-client`（UserMembersClient 语义）；PATCH 回 roleIds 异形按 S3 的 UserMemberPatchResult 处理
 - Create e2e share 流 spec（邀请→成员出现→改角色→移除；需 seed 第二用户或 invite-only 断言到 toast 层）
-- [ ] share spec 绿 + Commit
+- [x] share spec 绿 + Commit（d572e61b2f；hub 成员契约缺陷已登记降级）
 
 **Task P3-T3-3: CreateIModelWorkflow Stepper 化 + P3 验收**
 - Files: Modify `features/imodel/components/CreateIModelWorkflow.tsx`（645 行 CSS 重组件→itwin-ui `Stepper` 编排，逻辑保留：baselinefile upload 预签名两段）；CSS 砍量
-- [ ] complete-workflow 两 spec 绿 + P3 波门
+- [x] complete-workflow 两 spec 绿 + P3 波门（14/14，P3 关闭）
 
 ### Wave P4：EditorShell（最重波）
 
 **Task P4-T4-1: editor namespace + Editor.tsx 壳化分解**
 - Files: Create `locales/{zh-CN,en}/editor.json`（Editor 41+CadToolbar 29+FeatureTreePanel 11≈81）；Create `features/editor/shell/`：`EditorTopBar.tsx`（518-561 切出：Header+HeaderBreadcrumbs+EditorBriefcaseStatus+导出+ThemeToggle+Avatar）、`EditorToolBar.tsx`（564-673：4 ButtonGroup+UndoRedoToolbar）、`EditorSidePanel.tsx`（688-707：FeatureTree/SketchPanel 切换）、`EditorViewport.tsx`（710-765：viewer+ViewCube 已接件）、`EditorStatusBar.tsx`（842-890：token 化色+data-testid 保留）；Editor.tsx 变壳（早退分支+组件编排+state 下沉既有 hooks）
-- [ ] editor.spec/features.spec/sketch.spec 绿（选择器契约：.statusbar/.feature-tree-panel/.cad-toolbar-horizontal 保留）+ Commit
+- [x] editor.spec/features.spec/sketch.spec 绿（选择器契约保留）+ Commit（1383941ded）
 
 **Task P4-T4-2: 右侧停靠面板 + CadToolbar 图标 + AI 预留位**
 - Files: Create `features/editor/shell/EditorDockPanel.tsx`（右侧停靠容器：工具设置/版本历史/显示设置 tab 化停靠，替换 viewer-overlay 绝对定位栈 714-764——6 个 boolean state 收敛为 dock 状态机；MeasurementResultsPanel 停靠化）；Modify CadToolbar（8 图标换官方+20 登记注释）；Create `features/editor/shell/AiSidePanelSlot.tsx`（RW3 预留空位组件+注释契约）
-- [ ] modeling-tools 三 spec + demo-flow 24 幕选择器同步 + Commit
+- [x] modeling-tools 三 spec + demo-flow 24 幕选择器同步 + Commit（b6bdd5fa52）
 
 **Task P4-T4-3: P4 验收**
-- [ ] 全量 e2e（53 基线+share 新增）+ demo-flow 全幕 + P4 波门
+- [x] 全量 e2e + demo-flow 全幕 + P4 波门（editor/features/sketch 18/18、modeling 23/23 无失败、demo 24/24；P4 关闭）
 
 ### Wave P5：Settings + 收尾
 
 **Task P5-T5-1: Settings 重做**
 - Files: Rewrite `src/pages/Settings/Settings.tsx`：裸 fetch×2→react-query mutations（端点不变 PUT /api/users/profile|password，走 fetchWithAuth）+3 tab→itwin-ui `Tabs`+preferences 实做（主题 ThemeToggle 保留+**语言切换 Select**（写 luban-cad-lang+i18n.changeLanguage）+单位偏好 localStorage 占位诚实标注）；Create `locales/{zh-CN,en}/settings.json`
-- [ ] Commit
+- [x] Commit（b6515b3485 + 74a9ee450d）
 
 **Task P5-T5-2: 全站收尾 + RW4 验收门**
 - Files: 清理（.bak 删除/404 Link 复核/useAppToast barrel 统一/`--color-*` deprecated 消费清点）；中英四象限走查（亮/暗×zh/en 截图七页）；全量 e2e+单测+build；spec 勾选+ledger 收口
-- [ ] Commit + RW4 终审（opus）
+- [x] Commit + RW4 终审（opus）
 
 ---
 
