@@ -13,6 +13,7 @@ import {
   Text,
 } from '@itwin/itwinui-react';
 import type { ITwin } from '@itwin/itwins-client';
+import { useTranslation } from 'react-i18next';
 import { useUpdateITwinMutation } from '../hooks/useITwinsQuery.js';
 import { logger } from '../../../shared/lib/logger.js';
 import './Dialog.css';
@@ -37,6 +38,7 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
   const [displayName, setDisplayName] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
+  const { t } = useTranslation('documents');
 
   const updateITwinMutation = useUpdateITwinMutation();
 
@@ -52,11 +54,11 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
   const validate = useCallback((): boolean => {
     const newErrors: Record<string, string> = {};
     if (!displayName.trim()) {
-      newErrors.displayName = '请输入项目名称';
+      newErrors.displayName = t('edit.nameRequired');
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [displayName]);
+  }, [displayName, t]);
 
   const handleClose = useCallback(() => {
     setErrors({});
@@ -81,10 +83,10 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
       handleClose();
     } catch (error) {
       logger.error('更新 iTwin 失败', error instanceof Error ? error : undefined);
-      const message = error instanceof Error ? error.message : '更新失败，请重试';
+      const message = error instanceof Error ? error.message : t('edit.failed');
       setSubmitError(message);
     }
-  }, [displayName, validate, iTwin, updateITwinMutation, onSaved, handleClose]);
+  }, [displayName, validate, iTwin, updateITwinMutation, onSaved, handleClose, t]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !updateITwinMutation.isPending) {
@@ -97,9 +99,11 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
     <Dialog
       isOpen={isOpen}
       onClose={handleClose}
-      title="编辑项目"
+      title={t('edit.title')}
       isDismissible
     >
+      {/* 与 Create 对话框同构：TitleBar 承载可见标题 + aria-label（根 title 在 3.22 不渲染 heading） */}
+      <Dialog.TitleBar title={t('edit.title')} />
       <Dialog.Content>
         {submitError && (
           <Text
@@ -110,12 +114,12 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
           </Text>
         )}
         <InputGroup>
-          <Label required>项目名称</Label>
+          <Label required>{t('edit.nameLabel')}</Label>
           <Input
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入项目名称"
+            placeholder={t('edit.namePlaceholder')}
             disabled={updateITwinMutation.isPending}
             autoFocus
             status={errors.displayName ? 'negative' : undefined}
@@ -128,7 +132,7 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
 
       <Dialog.ButtonBar>
         <Button styleType="default" onClick={handleClose} disabled={updateITwinMutation.isPending}>
-          取消
+          {t('edit.cancel')}
         </Button>
         <Button
           styleType="high-visibility"
@@ -136,7 +140,7 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
           disabled={updateITwinMutation.isPending}
           loading={updateITwinMutation.isPending}
         >
-          保存
+          {t('edit.submit')}
         </Button>
       </Dialog.ButtonBar>
     </Dialog>

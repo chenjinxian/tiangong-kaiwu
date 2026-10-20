@@ -46,16 +46,35 @@ function isImageQueryKey(key: readonly unknown[]): boolean {
 // 每个 QueryClient 只挂一次缓存监听（WeakMap 防重复订阅）
 const cleanupRegistered = new WeakMap<QueryClient, boolean>();
 
+function asBlobUrl(data: unknown): string | null {
+  return typeof data === 'string' && data.startsWith('blob:') ? data : null;
+}
+
 function registerImageCacheCleanup(client: QueryClient): void {
   if (cleanupRegistered.has(client)) return;
   cleanupRegistered.set(client, true);
+  // queryHash → 上一次安装的 objectURL。refetch 成功会**替换** state.data（无 removed 事件），
+  // 若不在此回收，每次 itwins.* 广域 invalidate（改名/删除/收藏）都会泄漏全部缩略图。
+  const installed = new Map<string, string>();
+
   client.getQueryCache().subscribe((event) => {
-    if (event.type !== 'removed') return;
     if (!isImageQueryKey(event.query.queryKey)) return;
-    const data = event.query.state.data;
-    if (typeof data === 'string' && data.startsWith('blob:')) {
-      URL.revokeObjectURL(data);
+    const hash = event.query.queryHash;
+    const current = asBlobUrl(event.query.state.data);
+
+    if (event.type === 'removed') {
+      if (current) URL.revokeObjectURL(current);
+      installed.delete(hash);
+      return;
     }
+
+    // updated（数据替换 / 状态刷新）：旧 URL 与当前不同即回收
+    const previous = installed.get(hash);
+    if (previous && previous !== current) {
+      URL.revokeObjectURL(previous);
+    }
+    if (current) installed.set(hash, current);
+    else installed.delete(hash);
   });
 }
 

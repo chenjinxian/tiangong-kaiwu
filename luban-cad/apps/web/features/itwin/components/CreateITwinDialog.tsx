@@ -12,6 +12,7 @@ import {
   Label,
   Text,
 } from '@itwin/itwinui-react';
+import { useTranslation } from 'react-i18next';
 import { ITwinSubClass, useITwinMutations } from '../hooks/useITwinsQuery.js';
 import { logger } from '../../../shared/lib/logger.js';
 import './Dialog.css';
@@ -36,17 +37,18 @@ export const CreateITwinDialog: React.FC<CreateITwinDialogProps> = React.memo(({
   const [projectNumber, setProjectNumber] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
+  const { t } = useTranslation('documents');
 
   const createITwinMutation = useITwinMutations();
 
   const validate = useCallback((): boolean => {
     const newErrors: Record<string, string> = {};
     if (!displayName.trim()) {
-      newErrors.displayName = '请输入项目名称';
+      newErrors.displayName = t('create.nameRequired');
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [displayName]);
+  }, [displayName, t]);
 
   const handleClose = useCallback(() => {
     setDisplayName('');
@@ -70,10 +72,10 @@ export const CreateITwinDialog: React.FC<CreateITwinDialogProps> = React.memo(({
       handleClose();
     } catch (error) {
       logger.error('创建 iTwin 失败', error instanceof Error ? error : undefined);
-      const message = error instanceof Error ? error.message : '创建失败，请重试';
+      const message = error instanceof Error ? error.message : t('create.failed');
       setSubmitError(message);
     }
-  }, [displayName, validate, createITwinMutation, onCreated, handleClose]);
+  }, [displayName, validate, createITwinMutation, onCreated, handleClose, t]);
 
   return (
     <Dialog
@@ -83,8 +85,8 @@ export const CreateITwinDialog: React.FC<CreateITwinDialogProps> = React.memo(({
       isDismissible
     >
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" title="创建 iTwin 项目" className="create-dialog">
-        <Dialog.TitleBar title="创建 iTwin 项目" />
+      <Dialog.Main styleType="default" title={t('create.title')} className="create-dialog">
+        <Dialog.TitleBar title={t('create.title')} />
         <Dialog.Content>
           {submitError && (
             <Text
@@ -95,11 +97,11 @@ export const CreateITwinDialog: React.FC<CreateITwinDialogProps> = React.memo(({
             </Text>
           )}
           <InputGroup>
-            <Label required>项目名称</Label>
+            <Label required>{t('create.nameLabel')}</Label>
             <Input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="输入项目名称"
+              placeholder={t('create.namePlaceholder')}
               disabled={createITwinMutation.isPending}
               autoFocus
               status={errors.displayName ? 'negative' : undefined}
@@ -110,11 +112,11 @@ export const CreateITwinDialog: React.FC<CreateITwinDialogProps> = React.memo(({
           </InputGroup>
 
           <InputGroup>
-            <Label>项目编号</Label>
+            <Label>{t('create.numberLabel')}</Label>
             <Input
               value={projectNumber}
               onChange={(e) => setProjectNumber(e.target.value)}
-              placeholder="输入项目编号（可选）"
+              placeholder={t('create.numberPlaceholder')}
               disabled={createITwinMutation.isPending}
             />
           </InputGroup>
@@ -122,7 +124,7 @@ export const CreateITwinDialog: React.FC<CreateITwinDialogProps> = React.memo(({
 
         <Dialog.ButtonBar>
           <Button styleType="default" onClick={handleClose} disabled={createITwinMutation.isPending}>
-            取消
+            {t('create.cancel')}
           </Button>
           <Button
             styleType="high-visibility"
@@ -130,7 +132,7 @@ export const CreateITwinDialog: React.FC<CreateITwinDialogProps> = React.memo(({
             disabled={createITwinMutation.isPending}
             loading={createITwinMutation.isPending}
           >
-            创建
+            {t('create.submit')}
           </Button>
         </Dialog.ButtonBar>
       </Dialog.Main>

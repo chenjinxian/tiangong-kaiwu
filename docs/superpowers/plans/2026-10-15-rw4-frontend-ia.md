@@ -71,7 +71,8 @@
   - 右侧 `InformationPanel` 详情侧栏（选中行：大缩略图/所有者/时间/描述）
   - 空态 NonIdealState 替换 6 个内联 SVG；删除双 setTimeout 动画
 - Modify e2e/documents.spec 适配（保 `.section-title` 或改断言+Table 行定位新写）；CreateITwinDialog 保留逻辑、文案进 ns
-- [ ] documents.spec + authenticated-workflow 绿 + Commit
+- [x] documents.spec 6/6 + authenticated-workflow 2/2 + complete-workflow 2/2 绿 + Commit `e4faaba388`
+- [x] P2 收口（评审 Needs fixes 处置，controller 完成）：补全新结构 CSS（右键锚点 fixed 定位/网格/缩略图/选中行/危险项/详情侧栏）+ Create/Edit 对话框 i18n（含渲染断言测试）+ useITwinImage 替换泄漏修复（refetch 替换时 revoke 旧 URL + 测试）+ 真共享 createdBy 代理诚实注记 + **playwright locale zh-CN**（i18n 探测根因，惠及全波）。Commit 见 P2.5 笔
 
 ### Wave P3：Detail + Share
 

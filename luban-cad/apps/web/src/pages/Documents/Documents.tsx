@@ -8,7 +8,11 @@
  * - 顶栏 Header：HeaderLogo 品牌 + 居中 SearchBox（Onshape IA 核心识别特征）+
  *   新建按钮 + ThemeToggle + Avatar；自绘 topbar 退役
  * - SideNavigation 四筛选；「与我共享」改真数据——listITwins 全量（$top=200+跟页聚合）
- *   派生 `createdBy !== 我`（即 role!=='owner'）过滤，假回落 case 'shared' 已删
+ *   派生 `createdBy !== 我` 过滤，假回落 case 'shared' 已删。
+ *   ⚠️ 诚实口径（RW4-P2 评审）：hub 列表 DTO 不带 per-user role 字段，spec 的
+ *   `role !== owner` 无法字面实现，`createdBy` 是唯一可用代理——正常创建者项目准确；
+ *   ownership 转移后的 owner-member 会被归入「与我共享」（P3 Share 波若扩展 hub 列表
+ *   带 role 即修正）。
  * - 主区 Table/Tile 双视图（SvgList/SvgGrid 切换，localStorage 记忆偏好；默认 Tile——
  *   e2e 契约 `main` 内 Tile role=button 按项目名定位依赖 Tile 形态在场）
  * - Table 列=缩略图(useITwinImage+SvgProject 回退)/名称/所有者/角色 Tag/创建·更新时间；
@@ -238,7 +242,7 @@ const Documents: React.FC = React.memo(() => {
   const removeFromFavoritesMutation = useRemoveFromFavoritesMutation();
 
   // -----------------------------------------------------------------------
-  // Role / shared derivation（真数据：createdBy 即 owner，否则为共享成员）
+  // Role / shared derivation（createdBy 代理——见文件头诚实口径注记）
   // -----------------------------------------------------------------------
   const isOwnerOf = useCallback(
     (project: ITwin) => !!user?.id && !!project.createdBy && project.createdBy === user.id,

@@ -157,6 +157,24 @@ describe('useITwinImage', () => {
     );
   });
 
+  it('refetch 成功替换数据时回收旧 objectURL（广域 invalidate 不泄漏）', async () => {
+    mockFetchWithAuth
+      .mockResolvedValueOnce(jsonResponse([{ id: 'img-1', url: '/files/a.png' }]))
+      .mockResolvedValueOnce(binaryResponse())
+      .mockResolvedValueOnce(jsonResponse([{ id: 'img-2', url: '/files/b.png' }]))
+      .mockResolvedValueOnce(binaryResponse());
+
+    const client = renderProbe('twin-replace');
+    await waitFor(() => expect(latestUrl).toBe('blob:mock-1'));
+
+    // 模拟 itwins.all 广域 invalidate（改名/删除/收藏 mutation 后的真实路径）
+    await client.refetchQueries({ queryKey: queryKeys.itwins.image('twin-replace') });
+
+    await waitFor(() => expect(latestUrl).toBe('blob:mock-2'));
+    expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:mock-1');
+    expect(mockRevokeObjectURL).not.toHaveBeenCalledWith('blob:mock-2');
+  });
+
   it('组件卸载但缓存未移除 → 不 revoke（重挂载仍可用，避免破图）', async () => {
     mockFetchWithAuth
       .mockResolvedValueOnce(jsonResponse([{ id: 'img-1', url: '/files/a.png' }]))
