@@ -285,3 +285,8 @@
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
+
+/* 选中行加固：iTwinUI 给每个单元格上 backgroundColor 会遮挡行容器底色——同步染单元格 */
+.doc-table-row--selected [class*="table-cell"] {
+  background-color: var(--iui-color-background-accent-muted, var(--iui-color-background-2));
+}

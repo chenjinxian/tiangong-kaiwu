@@ -6,8 +6,8 @@
 /**
  * RW4-P2 评审 Important#2 收口：对话框文案走 documents 命名空间，
  * 断言**渲染后的可见文案**（英文态）而非仅键存在。
- * iTwinUI Dialog 标题以 aria-label 承载（内层 heading 为空，见 e2e 既有注释）——
- * 标题用 role+name 断言，标签/占位/按钮用可见文本。
+ * 3.22 的标题需用 `titleText`（渲染为可见 h2）；Dialog.Main 的 `title` 提供
+ * role=dialog 的 accessible name。两者都断言，标签/占位/按钮用可见文本。
  */
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -27,7 +27,8 @@ describe('iTwin 对话框文案（documents ns）', () => {
     await i18n.changeLanguage('en');
     render(<CreateITwinDialog isOpen onClose={() => undefined} />);
 
-    // titleText 渲染为可见 heading（3.22：titleText 才是标题文本 prop）
+    // Dialog.Main title → role=dialog 名称；titleText → 可见 heading
+    expect(await screen.findByRole('dialog', { name: 'New iTwin Project' })).toBeTruthy();
     expect(await screen.findByRole('heading', { name: 'New iTwin Project' })).toBeTruthy();
     expect(await screen.findByText('Project Name')).toBeTruthy();
     expect(await screen.findByPlaceholderText('Enter project name')).toBeTruthy();
@@ -46,7 +47,8 @@ describe('iTwin 对话框文案（documents ns）', () => {
       />,
     );
 
-    // Edit 已补 Dialog.Main/Backdrop 语义 + titleText——标题可作可见 heading 断言
+    // Edit 已补 Dialog.Main/Backdrop 语义 + title（dialog 名称）+ titleText（可见 heading）
+    expect(await screen.findByRole('dialog', { name: 'Edit Project' })).toBeTruthy();
     expect(await screen.findByRole('heading', { name: 'Edit Project' })).toBeTruthy();
     expect(await screen.findByText('Project Name')).toBeTruthy();
     expect(await screen.findByText('Save')).toBeTruthy();

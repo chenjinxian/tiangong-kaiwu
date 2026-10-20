@@ -103,7 +103,7 @@ export const EditITwinDialog: React.FC<EditITwinDialogProps> = React.memo(({
       portal
     >
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" className="edit-dialog">
+      <Dialog.Main styleType="default" className="edit-dialog" title={t('edit.title')}>
         <Dialog.TitleBar titleText={t('edit.title')} />
         <Dialog.Content>
         {submitError && (

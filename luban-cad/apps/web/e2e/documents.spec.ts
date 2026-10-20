@@ -40,7 +40,7 @@ test.describe('Documents Page', () => {
     // Click create project button (topbar)
     await page.getByRole('button', { name: '新建项目' }).click();
 
-    // 对话框标题只存在于 aria-label（内层 heading 为空）—— 用 role 定位
+    // 对话框 accessible name 来自 Dialog.Main 的 title（titleText 是可见标题）
     const dialog = page.getByRole('dialog', { name: '创建 iTwin 项目' });
     await expect(dialog).toBeVisible();
 
