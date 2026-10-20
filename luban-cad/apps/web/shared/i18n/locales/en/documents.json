@@ -143,6 +143,52 @@
     "rename": "Rename",
     "delete": "Delete"
   },
+  "shareDialog": {
+    "title": "Share Project",
+    "close": "Close",
+    "tabs": {
+      "members_one": "Member ({{count}})",
+      "members_other": "Members ({{count}})",
+      "invite": "Invite",
+      "link": "Share link"
+    },
+    "invite": {
+      "emailLabel": "Email address",
+      "emailPlaceholder": "colleague@company.com",
+      "roleLabel": "Role",
+      "noRoles": "No roles available (invitees get default member access)",
+      "submit": "Send invite",
+      "emailRequired": "Please enter an email address",
+      "invalidEmail": "Please enter a valid email address",
+      "success": "Invitation sent to {{email}}",
+      "failed": "Failed to send invitation. Please retry.",
+      "hint": "Invitees will receive an email. If they don't have an account, they'll be guided to register."
+    },
+    "members": {
+      "loading": "Loading members...",
+      "loadFailed": "Failed to load members",
+      "retry": "Retry",
+      "empty": "No members yet",
+      "emptyHint": "Add team members from the Invite tab",
+      "roleLabel": "Role",
+      "noRole": "Member",
+      "remove": "Remove member",
+      "removeTitle": "Remove member",
+      "removeMessage": "Remove {{email}} from this project?",
+      "cancel": "Cancel",
+      "confirmRemove": "Remove",
+      "removeSuccess": "Member removed",
+      "removeFailed": "Failed to remove member. Please retry.",
+      "roleUpdated": "Role updated",
+      "roleUpdateFailed": "Failed to update role. Please retry."
+    },
+    "link": {
+      "label": "Share link",
+      "copy": "Copy link",
+      "copied": "Copied",
+      "hint": "Anyone with this link can view this project"
+    }
+  },
   "share": {
     "comingSoon": "Coming soon (P3)"
   },

@@ -1,33 +1,18 @@
-/* ShareITwinDialog styles - with dark mode support */
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) LubanCAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ShareITwinDialog — RW4-P3-T3-2 真实现（itwin-ui 组件承担外观，本文件仅布局/宽度） */
+
 .share-dialog {
   min-width: 480px;
   max-width: 560px;
-  background-color: var(--color-bg-card) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.share-dialog [class*="dialog-title-bar"],
-.share-dialog [class*="_title-bar"] {
-  background-color: var(--color-bg-card) !important;
-  color: var(--color-text-primary) !important;
-  border-bottom: 1px solid var(--color-border) !important;
-}
-
-.share-dialog [class*="dialog-content"],
-.share-dialog [class*="_dialog-content"] {
-  background-color: var(--color-bg-card) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.share-dialog [class*="dialog-button-bar"],
-.share-dialog [class*="_button-bar"] {
-  background-color: var(--color-bg-card) !important;
-  border-top: 1px solid var(--color-border) !important;
 }
 
 .share-tab-panel {
   padding: var(--iui-size-m) 0;
-  color: var(--color-text-primary);
+  min-height: 220px;
 }
 
 .share-alert {
@@ -37,31 +22,43 @@
 .share-hint {
   margin: var(--iui-size-s) 0 var(--iui-size-m);
   padding: var(--iui-size-s);
-  background: var(--color-bg-hover);
+  background: var(--iui-color-background-backdrop);
   border-radius: var(--iui-border-radius);
-  color: var(--color-text-secondary);
 }
 
-.share-hint .iui-text {
-  color: var(--color-text-secondary);
+.share-hint-text {
+  display: block;
+  color: var(--iui-color-text-muted);
+  padding: var(--iui-size-xs) 0;
 }
 
-/* Members list */
-.members-empty {
+/* ── Members ── */
+.share-members-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-s);
+  padding: var(--iui-size-l) 0;
+  color: var(--iui-color-text-muted);
+}
+
+.share-members-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--iui-size-xs);
   text-align: center;
   padding: var(--iui-size-xl) 0;
 }
 
-.members-empty .empty-title {
-  color: var(--color-text-secondary);
-  margin-bottom: var(--iui-size-xs);
+.share-empty-title {
+  color: var(--iui-color-text-muted);
 }
 
-.members-empty .empty-desc {
-  color: var(--color-text-tertiary);
+.share-empty-desc {
+  color: var(--iui-color-text-muted);
 }
 
-.members-list {
+.share-members-list {
   display: flex;
   flex-direction: column;
   gap: var(--iui-size-xs);
@@ -69,126 +66,77 @@
   overflow-y: auto;
 }
 
-.member-item {
+.share-member {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--iui-size-s);
   padding: var(--iui-size-s);
-  background: var(--color-bg-page);
+  background: var(--iui-color-background-backdrop);
+  border: 1px solid var(--iui-color-border);
   border-radius: var(--iui-border-radius);
-  border: 1px solid var(--color-border);
 }
 
-.member-info {
+.share-member__info {
   flex: 1;
   min-width: 0;
 }
 
-.member-email {
+.share-member__email {
   display: block;
   font-weight: 500;
-  margin-bottom: 2px;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--color-text-primary);
+  white-space: nowrap;
 }
 
-.member-meta {
+.share-member__meta {
   display: flex;
-  gap: var(--iui-size-xs);
   align-items: center;
+  gap: var(--iui-size-xs);
+  margin-top: 2px;
 }
 
-.member-role {
-  font-size: var(--iui-font-size-small);
-  padding: 2px 6px;
-  border-radius: var(--iui-border-radius);
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.member-role:hover {
-  background: var(--color-primary);
-  color: white;
-}
-
-.member-meta .iui-select {
+.share-member__meta .iui-select {
   min-width: 120px;
 }
 
-.member-role.role-admin {
-  background: var(--color-error-light);
-  color: var(--color-error);
+/* ── Link ── */
+.share-link-section {
+  margin-top: var(--iui-size-xs);
 }
 
-.member-role.role-editor {
-  background: var(--color-warning-light);
-  color: var(--color-warning);
-}
-
-.member-status {
-  font-size: var(--iui-font-size-small);
-  color: var(--color-text-tertiary);
-  font-style: italic;
-}
-
-/* Link sharing */
-.link-section {
-  margin-bottom: var(--iui-size-m);
-}
-
-.link-section label,
-.link-permissions label {
-  color: var(--color-text-primary) !important;
-}
-
-.link-input-group {
+.share-link-input-group {
   display: flex;
   gap: var(--iui-size-xs);
   margin-top: var(--iui-size-xs);
 }
 
-.link-input {
+.share-link-input {
   flex: 1;
 }
 
-.link-input input {
+.share-link-input input {
   font-family: 'JetBrains Mono', monospace;
   font-size: var(--iui-font-size-small);
-  background: var(--color-bg-page) !important;
-  color: var(--color-text-primary) !important;
-  border: 1px solid var(--color-border) !important;
 }
 
-.link-hint {
+.share-link-hint {
+  display: block;
   margin-top: var(--iui-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--iui-color-text-muted);
 }
 
-.link-permissions {
-  margin-top: var(--iui-size-m);
+/* ── Remove confirm ── */
+.share-danger-button {
+  color: var(--iui-color-text-negative);
 }
 
-/* Form inputs in share dialog */
-.share-dialog input[type="email"],
-.share-dialog input[type="text"] {
-  background: var(--color-bg-page) !important;
-  color: var(--color-text-primary) !important;
-  border: 1px solid var(--color-border) !important;
+.share-remove-dialog p {
+  margin: 0;
 }
 
-/* Select dropdown in dark mode */
-.share-dialog [class*="select"] {
-  background: var(--color-bg-page) !important;
-  color: var(--color-text-primary) !important;
-  border-color: var(--color-border) !important;
-}
-
-/* Responsive */
+/* ── Responsive ── */
 @media (max-width: 600px) {
   .share-dialog {
     min-width: unset;

@@ -141,6 +141,51 @@
     "rename": "重命名",
     "delete": "删除"
   },
+  "shareDialog": {
+    "title": "分享项目",
+    "close": "关闭",
+    "tabs": {
+      "members": "成员 ({{count}})",
+      "invite": "邀请成员",
+      "link": "分享链接"
+    },
+    "invite": {
+      "emailLabel": "邮箱地址",
+      "emailPlaceholder": "colleague@company.com",
+      "roleLabel": "权限",
+      "noRoles": "暂无可分配角色（邀请后默认获得成员访问）",
+      "submit": "发送邀请",
+      "emailRequired": "请输入邮箱地址",
+      "invalidEmail": "请输入有效的邮箱地址",
+      "success": "邀请已发送至 {{email}}",
+      "failed": "邀请失败，请重试",
+      "hint": "受邀者将收到邮件通知。如果他们没有账户，将会被引导注册。"
+    },
+    "members": {
+      "loading": "加载成员中...",
+      "loadFailed": "成员加载失败",
+      "retry": "重试",
+      "empty": "暂无成员",
+      "emptyHint": "在「邀请成员」标签中添加团队成员",
+      "roleLabel": "角色",
+      "noRole": "成员",
+      "remove": "移除成员",
+      "removeTitle": "移除成员",
+      "removeMessage": "确定要将 {{email}} 移出此项目吗？",
+      "cancel": "取消",
+      "confirmRemove": "移除",
+      "removeSuccess": "成员已移除",
+      "removeFailed": "移除失败，请重试",
+      "roleUpdated": "角色已更新",
+      "roleUpdateFailed": "角色更新失败，请重试"
+    },
+    "link": {
+      "label": "分享链接",
+      "copy": "复制链接",
+      "copied": "已复制",
+      "hint": "任何拥有此链接的人都可以查看此项目"
+    }
+  },
   "share": {
     "comingSoon": "即将上线（P3）"
   },

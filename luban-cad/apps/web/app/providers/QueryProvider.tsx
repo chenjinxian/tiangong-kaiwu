@@ -98,6 +98,9 @@ export const queryKeys = {
     recents: () => [...queryKeys.itwins.all, 'recents'] as const,
     // 缩略图 objectURL（useITwinImage，RW4-P2-T2-1）——缓存条目移除时回收 blob URL
     image: (id: string | null) => [...queryKeys.itwins.all, 'image', id] as const,
+    // ShareITwinDialog（RW4-P3-T3-2）：成员/角色列表，变更后按前缀 invalidate
+    members: (id: string | null) => [...queryKeys.itwins.all, 'members', id] as const,
+    roles: (id: string | null) => [...queryKeys.itwins.all, 'roles', id] as const,
   },
 
   // Projects (REST API)

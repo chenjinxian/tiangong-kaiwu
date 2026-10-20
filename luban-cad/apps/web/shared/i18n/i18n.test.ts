@@ -215,6 +215,25 @@ describe('i18n 骨架', () => {
     await i18n.changeLanguage('zh-CN');
   });
 
+  it('documents 命名空间：分享对话框文案键命中（zh/en，share e2e 锚点）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('shareDialog.title', { ns: 'documents' })).toBe('分享项目');
+    expect(i18n.t('shareDialog.tabs.members', { ns: 'documents', count: 2 })).toBe('成员 (2)');
+    expect(i18n.t('shareDialog.tabs.invite', { ns: 'documents' })).toBe('邀请成员');
+    expect(i18n.t('shareDialog.tabs.link', { ns: 'documents' })).toBe('分享链接');
+    expect(i18n.t('shareDialog.invite.emailLabel', { ns: 'documents' })).toBe('邮箱地址');
+    expect(i18n.t('shareDialog.invite.submit', { ns: 'documents' })).toBe('发送邀请');
+    expect(i18n.t('shareDialog.members.empty', { ns: 'documents' })).toBe('暂无成员');
+    expect(i18n.t('shareDialog.members.removeTitle', { ns: 'documents' })).toBe('移除成员');
+    expect(i18n.t('shareDialog.link.copy', { ns: 'documents' })).toBe('复制链接');
+    await i18n.changeLanguage('en');
+    expect(i18n.t('shareDialog.title', { ns: 'documents' })).toBe('Share Project');
+    expect(i18n.t('shareDialog.tabs.members', { ns: 'documents', count: 1 })).toBe('Member (1)');
+    expect(i18n.t('shareDialog.tabs.members', { ns: 'documents', count: 3 })).toBe('Members (3)');
+    expect(i18n.t('shareDialog.link.copy', { ns: 'documents' })).toMatch(/Copy/i);
+    await i18n.changeLanguage('zh-CN');
+  });
+
   it('语言持久化键常量', () => {
     expect(LANGUAGE_STORAGE_KEY).toBe('luban-cad-lang');
   });
