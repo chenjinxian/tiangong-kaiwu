@@ -8,7 +8,7 @@
  *
  * 数据流：
  *   GET /imodels/:id/thumbnail（认证）→ {downloadUrl,size} 元数据
- *   → downloadUrl 二段取图（本 hub 的 Azurite 绝对地址 http://localhost:10000/... 改走
+ *   → downloadUrl 二段取图（本 hub 的 Azurite 绝对地址 http://localhost:10500/...（或容器内 azurite:10000）改走
  *     `/azurite/...` 同源代理，照 CreateIModelWorkflow 的 convertToProxyUrl 先例）
  *   → blob → URL.createObjectURL。
  *   无图（downloadUrl:null）/404/失败一律回 null，组件层回退 SvgItem 占位。
@@ -42,14 +42,15 @@ function isImageQueryKey(key: readonly unknown[]): boolean {
  *
  * 主机形态覆盖（RW4-P3 评审 Critical：compose 里 hub 的 AZURE_BLOB_ENDPOINT 为
  * `http://azurite:10000/...`，预签名 URL 由它生成——浏览器不可解析 `azurite` 主机）：
- * - `azurite` / `localhost` / `127.0.0.1` 且端口 10000
+ * - `azurite` / `localhost` / `127.0.0.1` 且端口 10000（容器内）或 10500（宿主发布）
  * - 任意主机但 pathname 以 `/devstoreaccount1/` 开头（Azurite 路径风格特征）
  */
 function toSameOriginImageUrl(url: string): string {
   try {
     const parsed = new URL(url);
     const azuriteHosts = new Set(['azurite', 'localhost', '127.0.0.1']);
-    const isAzuriteHost = azuriteHosts.has(parsed.hostname) && parsed.port === '10000';
+    const azuritePorts = new Set(['10000', '10500']);
+    const isAzuriteHost = azuriteHosts.has(parsed.hostname) && azuritePorts.has(parsed.port);
     const isAzuritePath = parsed.pathname.startsWith('/devstoreaccount1/');
     if (isAzuriteHost || isAzuritePath) {
       return `/azurite${parsed.pathname}${parsed.search}`;

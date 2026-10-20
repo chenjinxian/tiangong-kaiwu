@@ -31,11 +31,12 @@
 浏览器(React 18 + Vite)
    │ 同源 :80
    ▼
-nginx(单入口)─┬─ /api /ws /ipc ─→ modeling-server :4001(建模宿主:Briefcase/编辑管道/RPC/原生几何内核)
-              ├─ /auth /itwins /imodels… ─→ iModelHub :4000(元数据中枢:用户/项目/模型/changeset/锁/权限)
-              ├─ /azurite ─→ Azurite :10000(对象存储:baseline/changeset/tile/缩略图)
+nginx(单入口)─┬─ /api /ws /ipc ─→ modeling-server :5401(建模宿主:Briefcase/编辑管道/RPC/原生几何内核)
+              ├─ /auth /itwins /imodels… ─→ iModelHub :5400(元数据中枢:用户/项目/模型/changeset/锁/权限)
+              ├─ /azurite ─→ Azurite :10500(对象存储:baseline/changeset/tile/缩略图)
               └─ / → web(静态)
-附属:webhook-agent :4002(验签+baseline 生成)、PostgreSQL(元数据)、Redis(缓存/OIDC)、Maildev(开发邮箱)
+附属:webhook-agent :5402(验签+baseline 生成)、PostgreSQL(元数据)、Redis(缓存/OIDC)、Maildev(开发邮箱)
+宿主端口专用段:前端 :5300 / 单入口 :5301 / HUB :5400 / MS :5401 / WA :5402 / Azurite 10500-10502（见 docs/PORTS.md）
 ```
 
 后端服务源码在私有仓,本仓**消费其发布产物**(GHCR 镜像 + GitHub Releases tgz)——本地起栈无需后端源码。
@@ -69,7 +70,7 @@ nginx(单入口)─┬─ /api /ws /ipc ─→ modeling-server :4001(建模宿�
 powershell -File scripts/generate-env.ps1     # ① 生成根 .env(幂等;密钥缺失拒启)
 powershell -File scripts/fetch-backend.ps1    # ② 拉 MS 产物(Releases)+ GHCR 镜像
 docker compose up -d                          # ③ 起栈:Postgres/Azurite/Redis/Maildev + HUB/WA/web/nginx
-powershell -File scripts/start-ms-host.ps1 -Detach   # ④ 建模宿主 MS :4001
+powershell -File scripts/start-ms-host.ps1 -Detach   # ④ 建模宿主 MS :5401
 powershell -File scripts/verify-stack.ps1     # ⑤ 全栈验收(应 14/14)
 ```
 
@@ -111,7 +112,7 @@ node demo-flow.mjs    # 可见浏览器 15 幕:登录→建项目/模型→拉�
 cd luban-cad/apps/web && corepack pnpm@10 test          # vitest 全量
 
 # e2e(需栈在跑 + 前端 dev server)
-cd luban-cad/apps/web && corepack pnpm@10 dev           # 终端 A:起 vite :3000
+cd luban-cad/apps/web && corepack pnpm@10 dev           # 终端 A:起 vite :5300
 corepack pnpm@10 test:e2e                               # 终端 B:Playwright 53 用例(约 10 分钟)
 ```
 
@@ -121,7 +122,7 @@ e2e 基建说明:种子模型由测试自管(每轮自动重置);登录走会话
 
 | 改动面 | 需要做什么 |
 |---|---|
-| 仅 `luban-cad/apps/web` 前端 | `corepack pnpm@10 install` 一次,此后 `dev` 热更即生效(:3000 直连后端) |
+| 仅 `luban-cad/apps/web` 前端 | `corepack pnpm@10 install` 一次,此后 `dev` 热更即生效(:5300 直连后端) |
 | `luban-cad/packages/*` 共享包 | 对应包 `pnpm build`(watch 可用) |
 | `itwinjs-core/*` fork 源码 | Rush 重建:`node common/scripts/install-run-rush.js build --to <包>`;改动必须登记 `docs/ITWINJS_CORE_MODIFICATIONS.md` |
 | 后端行为 | 后端源码在私有仓;本仓只能消费产物。本地栈换产物:`fetch-backend.ps1` 重拉 + 重启 MS |

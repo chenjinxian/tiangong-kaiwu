@@ -85,6 +85,19 @@ describe('useIModelImage', () => {
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
 
+  it('rewrites host-published Azurite (localhost:10500) to the same-origin proxy', async () => {
+    mockedFetchWithAuth.mockResolvedValueOnce(
+      jsonResponse({ downloadUrl: 'http://localhost:10500/devstoreaccount1/imodels/i-1/thumb.png?sig=z', size: 'medium' }),
+    );
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => imageResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useIModelImage('i-1'), { wrapper });
+
+    await waitFor(() => expect(result.current).toBe('blob:imodel-thumb'));
+    expect(fetchMock).toHaveBeenCalledWith('/azurite/devstoreaccount1/imodels/i-1/thumb.png?sig=z');
+  });
+
   it('rewrites compose-form Azurite host (azurite:10000) to the same-origin proxy', async () => {
     mockedFetchWithAuth.mockResolvedValueOnce(
       jsonResponse({ downloadUrl: 'http://azurite:10000/devstoreaccount1/imodels/i-1/thumb.png?sig=y', size: 'medium' }),

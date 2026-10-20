@@ -37,7 +37,7 @@ export default defineConfig({
   /* Shared settings for all the projects below */
   use: {
     /* Base URL to use in actions like `await page.goto('/')` */
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5300',
 
     /* 产品默认语言为中文：固定浏览器 locale 使 i18n navigator 探测落 zh-CN，
        各 spec 的中文断言稳定（RW4-P2 起页面文案全部走 t()，Chromium 默认
@@ -91,7 +91,7 @@ export default defineConfig({
   /* Run local dev server before starting the tests */
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:5300',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

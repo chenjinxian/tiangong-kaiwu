@@ -169,7 +169,7 @@ export async function getSeedProjectAndIModel(page: Page): Promise<{ projectId: 
       ? { Authorization: `Bearer ${auth.accessToken}` }
       : {};
     // $top=100：后端默认 $top=10 会截断种子数据（Sync S2；itwins clamp 上限 200）
-    const projects = await fetch('http://localhost:4000/itwins?class=Project&$top=100', { headers }).then((r) => r.json());
+    const projects = await fetch('http://localhost:5400/itwins?class=Project&$top=100', { headers }).then((r) => r.json());
     const project = (projects.iTwins ?? []).find(
       (t: { displayName?: string }) => t.displayName === names.projectName
     );
@@ -177,7 +177,7 @@ export async function getSeedProjectAndIModel(page: Page): Promise<{ projectId: 
       throw new Error(`后端无「${names.projectName}」项目——起栈+seed 后重跑（e2e 不再静默跳过）`);
     }
     // $top=100：同理压过后端默认 10（imodels 认 $continuationToken+$top，裸 $top 也收）
-    const imodels = await fetch(`http://localhost:4000/imodels?iTwinId=${project.id}&$top=100`, { headers }).then((r) => r.json());
+    const imodels = await fetch(`http://localhost:5400/imodels?iTwinId=${project.id}&$top=100`, { headers }).then((r) => r.json());
     const imodel = (imodels.iModels ?? []).find(
       (m: { name?: string; displayName?: string }) => (m.displayName ?? m.name) === names.imodelName
     );
@@ -197,7 +197,7 @@ export async function deleteProjectViaApi(page: Page, projectId: string): Promis
       const headers: Record<string, string> = auth?.accessToken
         ? { Authorization: `Bearer ${auth.accessToken}` }
         : {};
-      await fetch(`http://localhost:4000/itwins/${id}`, { method: 'DELETE', headers });
+      await fetch(`http://localhost:5400/itwins/${id}`, { method: 'DELETE', headers });
     }, projectId)
     .catch(() => undefined);
 }

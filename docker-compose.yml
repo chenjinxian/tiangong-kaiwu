@@ -5,9 +5,9 @@
 #   0) 仓库根 .env 就位（powershell -File scripts/generate-env.ps1）
 #   1) powershell -File scripts/fetch-backend.ps1   # MS 产物（Releases tgz → dist-backend\）+ GHCR 镜像（compose pull）
 #   2) docker compose up -d
-#   3) powershell -File scripts/start-ms-host.ps1 -Detach   # 宿主 MS :4001（产物模式，见下）
+#   3) powershell -File scripts/start-ms-host.ps1 -Detach   # 宿主 MS :5401（产物模式，见下）
 #   4) powershell -File scripts/verify-stack.ps1    # 全栈验收
-#   入口 http://localhost/（nginx :80 单入口）
+#   入口 http://localhost:5301/（nginx 宿主 :5301 / 容器内 :80 单入口）
 #
 # 【tile 云缓存（2026-10-11）】MS 默认把生成的 tiles 上传 Azurite（容器名=iModelId，
 #   浏览器经 /azurite 同源代理直取）；关闭法：MS 环境 TILE_CACHE_STORAGE=local 后重启。
@@ -16,9 +16,9 @@
 # 【modeling-server 形态裁决 —— 后端私有化 2026-10-01】
 #   MS 源码已迁私有仓 luban-backend；本仓**不构建后端，只消费产物**：
 #   MS 以 GitHub Releases 产物（解压到 dist-backend\，fetch-backend.ps1
-#   拉取）+ scripts/start-ms-host.ps1 产物模式在宿主运行 :4001（link:
+#   拉取）+ scripts/start-ms-host.ps1 产物模式在宿主运行 :5401（link:
 #   依赖 + 本地编译 imodeljs 原生库不可入 Linux 容器）。nginx/WA 经
-#   host.docker.internal:4001 访问本进程。
+#   host.docker.internal:5401 访问本进程。
 #   imodelhub / webhook-agent 为 GHCR 预构建镜像（本 compose 零 build:，
 #   web 除外）；镜像构建属私有仓 luban-backend 的事务，不进本仓。
 #
@@ -33,12 +33,12 @@
 #           MS 是宿主进程，不占 compose 服务位）：
 #   postgres / redis / maildev / azurite   基础设施（redis、maildev 为
 #                                          HUB API 启动依赖，属最小集合）
-#   imodelhub                              本地 iModel 管理平台 :4000（GHCR 镜像）
-#   webhook-agent                          :4002（GHCR 镜像）
-#   bff                                    :4003 BFF 薄层（本仓 build——Ruling 见服务注记）
-#   web                                    前端静态 :3000（仅栈内，本仓构建）
-#   nginx                                  统一入口 :80
-#   modeling-server                        宿主 :4001（start-ms-host.ps1 拉起，非 compose 服务）
+#   imodelhub                              本地 iModel 管理平台 :5400（GHCR 镜像，容器内 4000）
+#   webhook-agent                          :5402（GHCR 镜像，容器内 4002）
+#   bff                                    栈内 :5403 BFF 薄层（本仓 build——Ruling 见服务注记）
+#   web                                    前端静态 :3000（仅栈内，GHCR 镜像）
+#   nginx                                  统一入口 :5301（容器内 80）
+#   modeling-server                        宿主 :5401（start-ms-host.ps1 拉起，非 compose 服务）
 #
 # env 单源：仓库根 .env（compose 自动读取插值 + 服务级 env_file）。
 #   共享密钥映射（HUB 名 ← 根 .env 名）：
@@ -106,10 +106,11 @@ services:
       AZURITE_CORS_ALLOWED_HEADERS: "*"
       AZURITE_CORS_MAX_AGE_SECONDS: "86400"
     ports:
-      # 10000 供宿主 MS（briefcase/baseline 下载）与 FE 直连调试使用
-      - "10000:10000"
-      - "10001:10001"
-      - "10002:10002"
+      # 宿主发布 10500-10502（容器内仍 10000-10002）；供宿主 MS（briefcase/baseline
+      # 下载）、FE 直连调试使用。专用段避免与 itwinjs-core/其他本地工具冲突。
+      - "0.0.0.0:10500:10000"
+      - "0.0.0.0:10501:10001"
+      - "0.0.0.0:10502:10002"
     volumes:
       - azurite-data:/data
     healthcheck:
@@ -122,12 +123,12 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # imodelhub-services（HUB，:4000）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
+  # imodelhub-services（HUB，宿主 :5400 / 容器内 :4000）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
   # ------------------------------------------------------------
   imodelhub:
     image: ghcr.io/chenjinxian/imodelhub:latest
     ports:
-      - "4000:4000"
+      - "0.0.0.0:5400:4000"
     environment:
       NODE_ENV: production
       # 【2026-10-12 审计 P0 修复】TEST_MODE 已移除：限流正式生效。
@@ -137,9 +138,9 @@ services:
       # 业务路由只剩 short(200/min)+long(2000/h)（可用 THROTTLER_*_LIMIT 环境变量调参）。
       # e2e 语义保留给 CI 独立测试栈（imodelhub 仓 docker-compose.relational.test.yaml）。
       APP_PORT: "4000"
-      # CORS 白名单：默认 vite dev server(:3000) + nginx 单入口(:80)；跨主机部署
+      # CORS 白名单：默认 vite dev server(:5300) + nginx 单入口(:5301)；跨主机部署
       # 经根 .env 的 HUB_ALLOWED_ORIGINS 覆盖（2026-10-12 审计：原值钉死 localhost）
-      ALLOWED_ORIGINS: ${HUB_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost}
+      ALLOWED_ORIGINS: ${HUB_ALLOWED_ORIGINS:-http://localhost:5300,http://localhost:5301}
       # 栈内无 Jaeger/OTLP collector，停用空转导出（默认开且指向 localhost:4318）
       TRACING_ENABLED: "false"
       # 网络拓扑（容器名互通）
@@ -192,12 +193,12 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # webhook-agent（:4002）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
+  # webhook-agent（宿主 :5402 / 容器内 :4002）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
   # ------------------------------------------------------------
   webhook-agent:
     image: ghcr.io/chenjinxian/luban-webhook-agent:latest
     ports:
-      - "4002:4002"
+      - "0.0.0.0:5402:4002"
     env_file:
       - .env
     environment:
@@ -205,7 +206,7 @@ services:
       NODE_ENV: production
       PORT: "4002"
       IMODELHUB_URL: http://imodelhub:4000
-      MODELING_SERVER_URL: ${WA_MODELING_SERVER_URL:-http://host.docker.internal:4001}
+      MODELING_SERVER_URL: ${WA_MODELING_SERVER_URL:-http://host.docker.internal:5401}
       # 本地栈把 recovery 轮询从默认 5 分钟压到 1 分钟（baseline 初始化靠它驱动；
       # verify-stack 的轮询窗口约 300s，默认间隔恰好卡边界造成偶发超时）
       RECOVERY_CHECK_INTERVAL_MINUTES: "1"
@@ -242,7 +243,7 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # BFF 薄层（luban-bff，栈内 :4003，不经宿主端口暴露）—— RW1-T3
+  # BFF 薄层（luban-bff，栈内 :5403，不经宿主端口暴露）—— RW1-T3
   #
   # 【形态 Ruling】compose `build: ./services/bff` 偏离全 GHCR 惯例：BFF
   #   无原生依赖、构建上下文极小（单 pnpm 项目 ~30s），且迭代期 API 面未稳；
@@ -253,9 +254,9 @@ services:
   #   HUB 九前缀透传（不终结）；全局限流（内存令牌桶 100/15min/IP）；
   #   CORS 单点（同源为主 + dev origin 白名单）；/health。
   # 路由（deploy/default.conf.template）：启用 = 根 .env/shell 设 nginx 的
-  #   BFF_UPSTREAM=luban-bff:4003（compose 缺省为 host.docker.internal:4001 直达
+  #   BFF_UPSTREAM=luban-bff:5403（compose 缺省为 host.docker.internal:5401 直达
   #   MS，BFF 未启用行为不变）；HUB 九前缀默认直达 HUB_UPSTREAM，全量经 BFF 透传
-  #   同法把 nginx 的 HUB_UPSTREAM 指到 luban-bff:4003（双跳，BFF 侧 HUB_UPSTREAM
+  #   同法把 nginx 的 HUB_UPSTREAM 指到 luban-bff:5403（双跳，BFF 侧 HUB_UPSTREAM
   #   指回真实 hub）。
   # /ws /ipc 永不经 BFF（WS 长连接直连 MS）。
   # ------------------------------------------------------------
@@ -264,15 +265,15 @@ services:
     container_name: luban-bff
     environment:
       NODE_ENV: production
-      PORT: "4003"
-      # 宿主形态（默认）host.docker.internal:4001（MS 是宿主进程）；
+      PORT: "5403"
+      # 宿主形态（默认）host.docker.internal:5401（MS 是宿主进程）；
       # 容器形态（--profile container）改 http://modeling-server:4001
-      MS_UPSTREAM: ${BFF_MS_UPSTREAM:-http://host.docker.internal:4001}
-      # 宿主形态（默认，hub 源码模式）host.docker.internal:4000；
+      MS_UPSTREAM: ${BFF_MS_UPSTREAM:-http://host.docker.internal:5401}
+      # 宿主形态（默认，hub 源码模式）host.docker.internal:5400；
       # hub 容器形态改 http://imodelhub:4000
-      HUB_UPSTREAM: ${BFF_HUB_UPSTREAM:-http://host.docker.internal:4000}
-      # CORS 白名单：vite dev server(:3000) + nginx 单入口(:80)
-      ALLOWED_ORIGINS: ${BFF_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost}
+      HUB_UPSTREAM: ${BFF_HUB_UPSTREAM:-http://host.docker.internal:5400}
+      # CORS 白名单：vite dev server(:5300) + nginx 单入口(:5301)
+      ALLOWED_ORIGINS: ${BFF_ALLOWED_ORIGINS:-http://localhost:5300,http://localhost:5301}
       RATE_LIMIT_MAX: ${BFF_RATE_LIMIT_MAX:-100}
       RATE_LIMIT_WINDOW_MS: ${BFF_RATE_LIMIT_WINDOW_MS:-900000}
       AUTH_CACHE_TTL_MS: ${BFF_AUTH_CACHE_TTL_MS:-60000}
@@ -282,7 +283,7 @@ services:
       imodelhub:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5403/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -291,23 +292,23 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # nginx 统一入口（:80）
+  # nginx 统一入口（宿主 :5301 / 容器内 :80）
   # ------------------------------------------------------------
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
+      - "0.0.0.0:5301:80"
     environment:
-      # 宿主形态（默认）host.docker.internal:4001；
-      # 容器形态改 modeling-server:4001（根 .env 或 shell 覆盖）
-      MS_UPSTREAM: ${MS_UPSTREAM:-host.docker.internal:4001}
-      # /api 上游缺省 host.docker.internal:4001 直达 MS（brief Step 3：
+      # 宿主形态（默认）host.docker.internal:5401；
+      # 容器形态改 modeling-server:4001（根 .env 或 shell 覆盖；容器内端口不变）
+      MS_UPSTREAM: ${MS_UPSTREAM:-host.docker.internal:5401}
+      # /api 上游缺省 host.docker.internal:5401 直达 MS（brief Step 3：
       # BFF 未启用行为不变）；启用 BFF（本栈启用面）= 根 .env/shell 显式设
-      # BFF_UPSTREAM=luban-bff:4003；双形态见 deploy/default.conf.template 头注释
-      BFF_UPSTREAM: ${BFF_UPSTREAM:-host.docker.internal:4001}
+      # BFF_UPSTREAM=luban-bff:5403；双形态见 deploy/default.conf.template 头注释
+      BFF_UPSTREAM: ${BFF_UPSTREAM:-host.docker.internal:5401}
       # HUB 九前缀上游：默认直达 hub（宿主形态）；hub 容器形态改
-      # imodelhub:4000；全量经 BFF 透传改 luban-bff:4003（双跳，见 bff 注记）
-      HUB_UPSTREAM: ${HUB_UPSTREAM:-host.docker.internal:4000}
+      # imodelhub:4000；全量经 BFF 透传改 luban-bff:5403（双跳，见 bff 注记）
+      HUB_UPSTREAM: ${HUB_UPSTREAM:-host.docker.internal:5400}
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
@@ -320,7 +321,7 @@ services:
         condition: service_healthy
       azurite:
         condition: service_healthy
-      # RW1-T3 fix R1：BFF_UPSTREAM 启用 luban-bff:4003 时，nginx 配置加载
+      # RW1-T3 fix R1：BFF_UPSTREAM 启用 luban-bff:5403 时，nginx 配置加载
       # 需 bff 已入 Docker DNS，否则 [emerg] host not found crash-loop
       bff:
         condition: service_healthy

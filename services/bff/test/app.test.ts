@@ -83,7 +83,7 @@ beforeAll(async () => {
     msUpstream: msMock.url,
     hubUpstream: hubMock.url,
     authUrl: `${hubMock.url}/auth/me`,
-    allowedOrigins: ['http://localhost:3000'],
+    allowedOrigins: ['http://localhost:5300'],
     rateLimitMax: 100,
     rateLimitWindowMs: 900_000,
     authCacheTtlMs: 60_000,
@@ -248,9 +248,9 @@ describe('CORS single point', () => {
   it('allows whitelisted dev origins with credentials', async () => {
     const res = await request(app)
       .get('/itwins/x')
-      .set('Origin', 'http://localhost:3000');
+      .set('Origin', 'http://localhost:5300');
     expect(res.status).toBe(201);
-    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5300');
     expect(res.headers['access-control-allow-credentials']).toBe('true');
   });
 
@@ -263,10 +263,10 @@ describe('CORS single point', () => {
   it('answers OPTIONS preflight for whitelisted origins', async () => {
     const res = await request(app)
       .options('/api/users/me')
-      .set('Origin', 'http://localhost:3000')
+      .set('Origin', 'http://localhost:5300')
       .set('Access-Control-Request-Method', 'POST');
     expect(res.status).toBe(204);
-    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5300');
     expect(res.headers['access-control-allow-methods']).toContain('POST');
   });
 });

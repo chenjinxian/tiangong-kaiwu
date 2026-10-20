@@ -45,20 +45,20 @@
 # 1. 启动基础设施（本地 iModel 管理平台及其 Postgres/Azurite/Redis，仓外项目，见其自带编排）
 # 2. 安装依赖并构建（首次或改动 itwinjs-core 后先跑 rush build --to …，见根 CLAUDE.md）
 cd luban-cad && pnpm install
-cd apps/web && pnpm dev          # 前端 :3000
+cd apps/web && pnpm dev          # 前端 :5300
 
 # 3. 后台服务（源码在**仓外私有仓 luban-backend**，公开仓不检出也能跑：
 #    公开仓走产物分发——scripts/fetch-backend.ps1 拉 Releases 产物后
-#    scripts/start-ms-host.ps1 -Detach 起 MS :4001；webhook-agent 随
-#    docker compose 容器跑 :4002。源码 dev 见该私有仓 README）
+#    scripts/start-ms-host.ps1 -Detach 起 MS :5401；webhook-agent 随
+#    docker compose 容器跑 :5402。源码 dev 见该私有仓 README）
 ```
 
-访问 http://localhost:3000
+访问 http://localhost:5300
 
 ## 核心服务
 
-- **modeling-server (4001)**：图形建模后台——打开模型文件、执行编辑建模命令、供渲染数据（Express + WebSocket RPC/IPC + Briefcase 管理）
-- **webhook-agent (4002)**：Webhook 验签接收与转发、baseline 生成、CloudSqlite 上传
+- **modeling-server (5401)**：图形建模后台——打开模型文件、执行编辑建模命令、供渲染数据（Express + WebSocket RPC/IPC + Briefcase 管理）
+- **webhook-agent (5402)**：Webhook 验签接收与转发、baseline 生成、CloudSqlite 上传
 
 > 两服务源码均在**仓外私有仓 luban-backend**（产物经公开仓 GHCR 镜像 + GitHub Releases 分发，`scripts/fetch-backend.ps1` 拉取）；本仓只消费产物。
 

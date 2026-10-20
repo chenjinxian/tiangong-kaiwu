@@ -11,7 +11,7 @@
  * is served through the reverse proxy (nginx) on the current origin — the
  * deployment premise for the same-origin session-cookie path. Production
  * images build WITHOUT the variable; local dev sets
- * `VITE_API_URL=http://localhost:4001` (apps/web/.env.development) so the
+ * `VITE_API_URL=http://localhost:5401` (apps/web/.env.development) so the
  * dev server talks to the modeling-server directly.
  */
 

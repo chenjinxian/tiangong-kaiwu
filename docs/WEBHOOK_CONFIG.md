@@ -78,7 +78,7 @@ const dataSource = new DataSource({
 
 dataSource.initialize().then(async () => {
   const repo = dataSource.getRepository(WebhookSubscriptionEntity);
-  await repo.delete({ callbackUrl: 'http://localhost:4002/webhook/events' });
+  await repo.delete({ callbackUrl: 'http://localhost:5402/webhook/events' });
   console.log('Deleted old webhook subscription');
   await dataSource.destroy();
 });
@@ -123,7 +123,7 @@ async function seed() {
   await dataSource.initialize();
   const repo = dataSource.getRepository(WebhookSubscriptionEntity);
   
-  const callbackUrl = 'http://localhost:4002/webhook/events';
+  const callbackUrl = 'http://localhost:5402/webhook/events';
   const webhookSecret = process.env.WEBHOOK_SIGNING_SECRET;
   
   const subscription = repo.create({

@@ -27,8 +27,20 @@ $envMap = [ordered]@{
   # MS 侧两键同设 → 预签名 URL 的 host 匹配 endpoint 的 host 时改写为 PUBLIC_HOST
   # （SAS 只签路径+查询，换主机不失效；任一缺省恒不改写）。值须与根 docker-compose.yml
   # 里 imodelhub 服务的 AZURE_BLOB_ENDPOINT 一致；仅宿主 MS 进程消费（容器网内自可达）。
+  # 宿主 Azurite 发布口为 10500（容器内仍 10000）——2026-10-20 端口重排。
   'AZURE_BLOB_ENDPOINT'      = 'http://azurite:10000/devstoreaccount1'
-  'AZURE_BLOB_PUBLIC_HOST'   = '127.0.0.1:10000'
+  'AZURE_BLOB_PUBLIC_HOST'   = '127.0.0.1:10500'
+  # ---- 宿主服务端口（专用段 53xx/54xx，避开 itwinjs-core 的 3000/3001/5000/8080） ----
+  'PORT'                     = '5401'                       # modeling-server 宿主进程
+  'IMODELHUB_URL'            = 'http://localhost:5400'
+  'FRONTEND_URL'             = 'http://localhost:5300'
+  'MODELING_SERVER_URL'      = 'http://localhost:5401'      # WA 宿主直连调试用
+  'AZURITE_HOST'             = '127.0.0.1:10500'            # 宿主 MS 访问 Azurite
+  'MS_UPSTREAM'              = 'host.docker.internal:5401'
+  'HUB_UPSTREAM'             = 'host.docker.internal:5400'
+  'WA_MODELING_SERVER_URL'   = 'http://host.docker.internal:5401'
+  'HUB_ALLOWED_ORIGINS'      = 'http://localhost:5300,http://localhost:5301'
+  'BFF_ALLOWED_ORIGINS'      = 'http://localhost:5300,http://localhost:5301'
   'WEBHOOK_SECRET'           = New-Hex 32
   'AUTH_JWT_SECRET'          = New-Hex 32
   # HUB 辅助 JWT 密钥（refresh/forgot/confirm-email 令牌签名；2026-10-12 审计 P1#2：
@@ -38,8 +50,8 @@ $envMap = [ordered]@{
   'AUTH_CONFIRM_EMAIL_SECRET'= New-Hex 32
   'IMODELHUB_API_KEY'        = New-Hex 32
   # nginx 的 /api 上游（RW1-T3 BFF v1，与根 docker-compose.yml 的 BFF_UPSTREAM 缺省同值）：
-  # 缺省 host.docker.internal:4001 直达宿主 MS（BFF 未启用行为同 RW1 前）；启用 BFF 改 luban-bff:4003
-  'BFF_UPSTREAM'             = 'host.docker.internal:4001'
+  # 缺省 host.docker.internal:5401 直达宿主 MS（BFF 未启用行为同 RW1 前）；启用 BFF 改 luban-bff:5403
+  'BFF_UPSTREAM'             = 'host.docker.internal:5401'
 }
 
 $mode = '生成'

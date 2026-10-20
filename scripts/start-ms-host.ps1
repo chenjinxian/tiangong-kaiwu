@@ -1,9 +1,9 @@
 ﻿# ============================================================
 # start-ms-host.ps1 — 宿主形态启动 modeling-server（预裁决回退形态）
 #
-# 形态裁决：MS 以宿主进程运行 :4001（容器化不可行：link: 依赖 +
-# 本地编译 imodeljs 原生库不可入 Linux 容器）。根 compose 的 nginx/WA
-# 经 host.docker.internal:4001 访问本进程。
+# 形态裁决：MS 以宿主进程运行（默认 :5401，读根 .env 的 PORT；容器化不可行：
+# link: 依赖 + 本地编译 imodeljs 原生库不可入 Linux 容器）。根 compose 的
+# nginx/WA 经 host.docker.internal:5401 访问本进程。
 #
 # 双模式（后端私有化 2026-10-01：MS 源码在私有仓 luban-backend）：
 #   产物模式（默认）：跑 dist-backend\modeling-server 预构建产物
@@ -57,13 +57,19 @@ if (-not (Test-Path $EnvFile)) {
     exit 1
 }
 
+# 端口唯一事实源：根 .env 的 PORT（重排后默认 5401；避开 itwinjs-core 3000/3001/5000/8080）
+$MsPort = '5401'
+foreach ($line in Get-Content $EnvFile) {
+    if ($line -match '^\s*PORT\s*=\s*(\d+)\s*$') { $MsPort = $Matches[1]; break }
+}
+
 # --- 2. 启动 ---
 if (-not $Source) {
     # 产物模式：跳过 install/build，node 直启预构建 dist（不依赖 corepack/pnpm）
     if ($Mode -eq 'dev') {
         Write-Host "（产物模式忽略 -Mode dev：产物即构建结果，node 直启 dist）" -ForegroundColor DarkGray
     }
-    Write-Host "modeling-server（产物，宿主形态）启动中 ... 端口 4001" -ForegroundColor Cyan
+    Write-Host "modeling-server（产物，宿主形态）启动中 ... 端口 $MsPort" -ForegroundColor Cyan
     if ($Detach) {
         Start-Process -FilePath 'node' -ArgumentList 'dist\main.js' `
             -WorkingDirectory $MsDir -WindowStyle Hidden `
@@ -97,7 +103,7 @@ if (-not $Source) {
         @('run', 'dev')
     }
 
-    Write-Host "modeling-server（$Mode，源码模式）启动中 ... 端口 4001" -ForegroundColor Cyan
+    Write-Host "modeling-server（$Mode，源码模式）启动中 ... 端口 $MsPort" -ForegroundColor Cyan
     if ($Detach) {
         Start-Process -FilePath 'corepack' -ArgumentList (@('pnpm@10') + $argList) `
             -WorkingDirectory $MsDir -WindowStyle Hidden `
@@ -115,12 +121,12 @@ if ($Detach) {
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep -Seconds 2
         try {
-            $r = Invoke-WebRequest -Uri 'http://127.0.0.1:4001/health' -UseBasicParsing -TimeoutSec 2
+            $r = Invoke-WebRequest -Uri "http://127.0.0.1:$MsPort/health" -UseBasicParsing -TimeoutSec 2
             if ($r.StatusCode -eq 200) { $ok = $true; break }
         } catch { }
     }
     if ($ok) {
-        Write-Host "modeling-server 健康: http://127.0.0.1:4001/health (200)" -ForegroundColor Green
+        Write-Host "modeling-server 健康: http://127.0.0.1:$MsPort/health (200)" -ForegroundColor Green
     } else {
         Write-Host "60 秒内 /health 未就绪，查看日志: $LogFile" -ForegroundColor Red
         exit 1

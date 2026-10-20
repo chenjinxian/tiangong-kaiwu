@@ -56,11 +56,11 @@ setup('authenticate', async ({ page }) => {
     const headers: Record<string, string> = auth?.accessToken
       ? { Authorization: `Bearer ${auth.accessToken}` }
       : {};
-    const res = await fetch('http://localhost:4000/itwins?class=Project&$top=100', { headers });
+    const res = await fetch('http://localhost:5400/itwins?class=Project&$top=100', { headers });
     const { iTwins } = await res.json();
     for (const t of iTwins ?? []) {
       if (typeof t.displayName === 'string' && /^(E2E|Demo) Project /.test(t.displayName)) {
-        await fetch(`http://localhost:4000/itwins/${t.id}`, { method: 'DELETE', headers }).catch(() => undefined);
+        await fetch(`http://localhost:5400/itwins/${t.id}`, { method: 'DELETE', headers }).catch(() => undefined);
       }
     }
   });
@@ -72,7 +72,7 @@ setup('authenticate', async ({ page }) => {
   // e2e 名下自管具名库 E2E Seed，按名「删旧建新」，其余数据零接触。API 形状对照
   // scripts/verify-stack.ps1 Step B（POST /imodels {iTwinId,name}，creationMode 缺省
   // empty → webhook-agent 生成 baseline；终态 failed/missingFiles 即失败）。
-  const HUB = 'http://localhost:4000';
+  const HUB = 'http://localhost:5400';
   const authJson = await page.evaluate(() => sessionStorage.getItem('luban_cad_auth'));
   const token = (authJson ? JSON.parse(authJson) : {})?.accessToken;
   expect(token, '种子重置需要登录 token').toBeTruthy();

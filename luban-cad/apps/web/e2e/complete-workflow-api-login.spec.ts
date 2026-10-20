@@ -10,8 +10,8 @@ import { test, expect } from '@playwright/test';
 import { waitForEditorReady } from './helpers';
 
 // Test configuration
-const BASE_URL = 'http://localhost:3000';
-const API_URL = 'http://localhost:4000';
+const BASE_URL = 'http://localhost:5300';
+const API_URL = 'http://localhost:5400';
 const TEST_USER = {
   email: 'test@example.com',
   password: 'Test123!@#'
@@ -136,7 +136,7 @@ test.describe('Complete E2E Workflow (API Login)', () => {
         const headers: Record<string, string> = auth?.accessToken
           ? { Authorization: `Bearer ${auth.accessToken}` }
           : {};
-        await fetch(`http://localhost:4000/itwins/${id}`, { method: 'DELETE', headers });
+        await fetch(`http://localhost:5400/itwins/${id}`, { method: 'DELETE', headers });
       }, projectId)
       .catch(() => undefined);
   });

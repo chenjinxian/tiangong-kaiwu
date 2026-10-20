@@ -3,9 +3,9 @@
  */
 
 export interface BffConfig {
-  /** modeling-server upstream origin, e.g. http://host.docker.internal:4001 */
+  /** modeling-server upstream origin, e.g. http://host.docker.internal:5401 */
   msUpstream: string;
-  /** imodelhub-services upstream origin (HUB nine prefixes), e.g. http://host.docker.internal:4000 */
+  /** imodelhub-services upstream origin (HUB nine prefixes), e.g. http://host.docker.internal:5400 */
   hubUpstream: string;
   /** hub token-validation endpoint (full URL, e.g. ${hubUpstream}/auth/me) */
   authUrl: string;
@@ -20,10 +20,10 @@ export interface BffConfig {
 }
 
 const DEFAULTS = {
-  port: 4003,
-  msUpstream: 'http://host.docker.internal:4001',
-  hubUpstream: 'http://host.docker.internal:4000',
-  allowedOrigins: 'http://localhost:3000,http://localhost',
+  port: 5403,
+  msUpstream: 'http://host.docker.internal:5401',
+  hubUpstream: 'http://host.docker.internal:5400',
+  allowedOrigins: 'http://localhost:5300,http://localhost:5301',
   rateLimitMax: 100,
   rateLimitWindowMs: 900_000, // 15 min
   authCacheTtlMs: 60_000, // 1 min

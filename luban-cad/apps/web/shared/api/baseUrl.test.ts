@@ -26,8 +26,8 @@ describe('baseUrl', () => {
   });
 
   it('wsUrl converts the configured http base to ws', () => {
-    vi.stubEnv('VITE_API_URL', 'http://localhost:4001');
-    expect(wsUrl('/ws?token=jwt')).toBe('ws://localhost:4001/ws?token=jwt');
+    vi.stubEnv('VITE_API_URL', 'http://localhost:5401');
+    expect(wsUrl('/ws?token=jwt')).toBe('ws://localhost:5401/ws?token=jwt');
   });
 
   it('wsUrl converts the configured https base to wss', () => {

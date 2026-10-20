@@ -1,5 +1,5 @@
 /**
- * Briefcase Client — LubanCAD 自有面（modeling-server :4001 自有路由）。
+ * Briefcase Client — LubanCAD 自有面（modeling-server :5401 自有路由）。
  * 契约同步裁决（Sync S3）：本 client 指向 modeling-server 自有路由，不属于
  * imodelhub 官方契约面，不随本波 hub 契约重写改动。
  */

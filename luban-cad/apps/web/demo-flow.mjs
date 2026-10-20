@@ -1,5 +1,5 @@
 // 手动演示驱动：可见浏览器完整走一遍用户流程，逐步截图到 demo/manual/
-// 用法：node demo-flow.mjs（需本地栈：MS :4001 + hub :4000 + 前端 :3000）
+// 用法：node demo-flow.mjs（需本地栈：MS :5401 + hub :5400 + 前端 :5300）
 // 节奏旋钮（2026-10-11 晚，「给人看」优先）：
 //   DEMO_SLOWMO — 每个 Playwright 动作的间隔 ms（默认 900，观看档；验证档可 300）
 //   DEMO_DWELL  — 关键节拍驻留 ms（默认 2500：几何变化/徽标/对话框在屏幕上停住供人看清；
@@ -37,8 +37,8 @@ import { mkdirSync, statSync, readdirSync, unlinkSync } from 'node:fs';
 import { openSync, readSync, closeSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-const BASE = 'http://localhost:3000';
-const API = 'http://localhost:4000';
+const BASE = 'http://localhost:5300';
+const API = 'http://localhost:5400';
 const SHOT_DIR = 'demo/manual';
 const MS_LOG = 'C:/Users/24389/AppData/Local/Temp/luban-cad-modeling-server.log';
 // 健康审计 commit 预算（2026-10-11 晚实证校准）：计数含 **EvalCarrier scratch 载体库**的
@@ -886,7 +886,7 @@ try {
 } finally {
   // 清理演示项目（级联删 iModel）；DEMO_KEEP=1 时保留供人工查看/继续编辑
   if (process.env.DEMO_KEEP) {
-    log(`🔒 DEMO_KEEP：演示项目「${DEMO_PROJECT}」已保留（id=${projectId || '未创建'}）——前端 :3000 项目列表可见，打开工作空间即可查看最终模型`);
+    log(`🔒 DEMO_KEEP：演示项目「${DEMO_PROJECT}」已保留（id=${projectId || '未创建'}）——前端 :5300 项目列表可见，打开工作空间即可查看最终模型`);
   } else {
     try {
       const login = await fetch(`${API}/auth/email/login`, {

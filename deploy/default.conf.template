@@ -3,15 +3,15 @@
 # 渲染：nginx 镜像启动时 /etc/nginx/templates/default.conf.template
 #       -> /etc/nginx/conf.d/default.conf
 # 变量：MS_UPSTREAM（modeling-server 上游）
-#         宿主形态（默认）: host.docker.internal:4001
+#         宿主形态（默认）: host.docker.internal:5401
 #         容器形态        : modeling-server:4001（--profile container）
 #       BFF_UPSTREAM（/api 上游——RW1-T3 BFF v1）
-#         缺省（BFF 未启用）: host.docker.internal:4001（直达 MS，行为同 RW1 前）
+#         缺省（BFF 未启用）: host.docker.internal:5401（直达 MS，行为同 RW1 前）
 #         容器形态（BFF 未启用）: 保持 host-gateway 直达宿主 MS，或改
 #         modeling-server:4001（--profile container，同 MS_UPSTREAM 容器形态）
-#         启用 BFF         : luban-bff:4003（compose 栈经根 .env/shell 显式设置）
+#         启用 BFF         : luban-bff:5403（compose 栈经根 .env/shell 显式设置）
 #       HUB_UPSTREAM（imodelhub 上游——RW1-T3 参数化，原为 9 处硬编码）
-#         宿主形态（默认）: host.docker.internal:4000
+#         宿主形态（默认）: host.docker.internal:5400
 #         容器形态        : imodelhub:4000
 #       envsubst 在 nginx 解析前完成 —— proxy_pass 为静态地址，
 #       无需 resolver。
@@ -22,11 +22,11 @@
 #   /ws  /ipc                             -> ${MS_UPSTREAM}（WS Upgrade 透传）
 #                                         生产 FE 不设 VITE_API_URL → 同源相对
 #                                         URL 全走这三条面（dev 由
-#                                         apps/web/.env.development 直连 :4001）。
+#                                         apps/web/.env.development 直连 :5401）。
 #   /itwins /imodels /auth /accesscontrol /webhooks /users /files
 #   /oauth /.well-known                   -> ${HUB_UPSTREAM}（RW1-T3 v1 默认直达 HUB，
 #                                         行为同参数化前；全量经 BFF 透传（限流/CORS 单点
-#                                         覆盖九面）= 把 HUB_UPSTREAM 指到 luban-bff:4003，
+#                                         覆盖九面）= 把 HUB_UPSTREAM 指到 luban-bff:5403，
 #                                         BFF 侧 HUB_UPSTREAM 再指回 hub——双跳见 compose 注记）
 #   /azurite/*                            -> azurite:10000/*（前缀剥除，FE 直传）
 # ============================================================

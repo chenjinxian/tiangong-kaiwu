@@ -18,7 +18,7 @@
 import { test, expect } from '@playwright/test';
 import { loginWithSession, SEED_PROJECT_NAME } from './helpers';
 
-const HUB = 'http://localhost:4000';
+const HUB = 'http://localhost:5400';
 
 test.describe('Share Project Dialog', () => {
   test('invite by email adds a member row and the share surfaces render', async ({ page }) => {

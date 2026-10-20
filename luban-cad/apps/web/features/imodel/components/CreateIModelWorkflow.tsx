@@ -168,7 +168,7 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
     setErrorStep(null);
     setCreatedIModelId(null);
     setIsCancelling(false);
-    setName('');
+    setName('');
     setDescription('');
     setBaselineFile(null);
     setNameError('');
@@ -232,14 +232,18 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
 
   /**
    * Convert Azurite URL to proxy URL to avoid CORS issues
-   * Original: http://localhost:10000/devstoreaccount1/...
+   * Original: http://localhost:10000/devstoreaccount1/...（容器内端点）
+   *           http://localhost:10500/devstoreaccount1/...（宿主发布端点，2026-10-20 重排）
    * Proxy:    /azurite/devstoreaccount1/...
    */
   const convertToProxyUrl = (azuriteUrl: string): string => {
     try {
       const url = new URL(azuriteUrl);
-      // Only convert localhost:10000 URLs
-      if (url.hostname === 'localhost' && url.port === '10000') {
+      const azuriteHosts = new Set(['azurite', 'localhost', '127.0.0.1']);
+      const azuritePorts = new Set(['10000', '10500']);
+      const isAzuriteHost = azuriteHosts.has(url.hostname) && azuritePorts.has(url.port);
+      const isAzuritePath = url.pathname.startsWith('/devstoreaccount1/');
+      if (isAzuriteHost || isAzuritePath) {
         return `/azurite${url.pathname}${url.search}`;
       }
       return azuriteUrl;
@@ -460,7 +464,7 @@ export const CreateIModelWorkflow: React.FC<CreateIModelWorkflowProps> = ({
     setError(null);
     setErrorStep(null);
     setCreatedIModelId(null);
-    setName('');
+    setName('');
     setDescription('');
     setBaselineFile(null);
   };

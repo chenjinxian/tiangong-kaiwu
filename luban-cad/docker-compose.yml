@@ -24,13 +24,13 @@ services:
       dockerfile: modeling-server/Dockerfile
     container_name: luban-cad-modeling-server
     ports:
-      - "4001:4001"
+      - "0.0.0.0:5401:4001"
     environment:
       - NODE_ENV=production
       - PORT=4001
-      - IMODELHUB_URL=http://host.docker.internal:4000
-      - AZURITE_HOST=host.docker.internal:10000
-      - FRONTEND_URL=http://localhost:3000
+      - IMODELHUB_URL=http://host.docker.internal:5400
+      - AZURITE_HOST=host.docker.internal:10500
+      - FRONTEND_URL=http://localhost:5300
       - BRIEFCASE_CACHE_LOCATION=/app/cache
     volumes:
       - modeling-server-cache:/app/cache
@@ -49,13 +49,13 @@ services:
       dockerfile: webhook-agent/Dockerfile
     container_name: luban-cad-webhook-agent
     ports:
-      - "4002:4002"
+      - "0.0.0.0:5402:4002"
     environment:
       - NODE_ENV=production
       - PORT=4002
-      - IMODELHUB_URL=http://host.docker.internal:4000
-      - MODELING_SERVER_URL=http://host.docker.internal:4001
-      - AZURITE_HOST=host.docker.internal:10000
+      - IMODELHUB_URL=http://host.docker.internal:5400
+      - MODELING_SERVER_URL=http://host.docker.internal:5401
+      - AZURITE_HOST=host.docker.internal:10500
     networks:
       - luban-cad-network
     extra_hosts:
@@ -73,7 +73,7 @@ services:
       dockerfile: luban-cad/Dockerfile
     container_name: luban-cad-web
     ports:
-      - "3000:3000"
+      - "0.0.0.0:5300:3000"
     networks:
       - luban-cad-network
     restart: unless-stopped

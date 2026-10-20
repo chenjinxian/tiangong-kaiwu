@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    port: 5300,
     fs: {
       // Allow serving files from the linked iTwin.js source packages (repo root)
       allow: ['..', '../..'],
@@ -15,14 +15,14 @@ export default defineConfig({
       '/auth': {
         // imodelhub-services owns the auth surface (email/login, refresh, logout).
         // modeling-server only serves /api/users/* and /api/auth/* forwarding routes.
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       // iTwin Platform API endpoints (SDK-compatible)
       // bypass HTML navigation requests so React Router handles /itwins/* page routes
       '/itwins': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
         bypass: (req) => {
@@ -30,45 +30,45 @@ export default defineConfig({
         },
       },
       '/imodels': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/accesscontrol': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/webhooks': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/users': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       // OIDC/OAuth endpoints
       '/.well-known': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/oauth': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       // File uploads
       '/files': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       // Azurite blob storage (for baseline file upload)
       '/azurite': {
-        target: 'http://localhost:10000',
+        target: 'http://localhost:10500',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/azurite/, ''),
@@ -172,50 +172,50 @@ export default defineConfig({
     chunkSizeWarningLimit: 500, // 500KB
   },
   preview: {
-    port: 4173,
+    port: 5302,
     proxy: {
       '/auth': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/itwins': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/imodels': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/accesscontrol': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/webhooks': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/users': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/.well-known': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/oauth': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },
       '/files': {
-        target: 'http://localhost:4000',
+        target: 'http://localhost:5400',
         changeOrigin: true,
         secure: false,
       },

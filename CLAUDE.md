@@ -12,11 +12,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |---|---|---|
 | `itwinjs-core/` | vendored iTwin.js fork（git-subtree squash 谱系，上游 `iTwin/itwinjs-core`）；其内另有一个旧品牌名的**冻结历史应用拷贝，勿改勿引用** | **Rush** + pnpm |
 | `luban-cad/` | 鲁班CAD 应用（pnpm workspace：`apps/web` + `packages/{shared,viewer-core,web-viewer,config}`） | **pnpm** + Vite + Vitest + Playwright |
-| `luban-backend/`（**私有仓，仓外**） | 后端服务：私有仓 luban-backend（modeling-server :4001 + webhook-agent :4002 源码与镜像/产物发布脚本）；产物经 **GHCR 镜像 + GitHub Releases** 分发，`scripts/fetch-backend.ps1` 拉取到本仓 `dist-backend/` | pnpm + tsx |
+| `luban-backend/`（**私有仓，仓外**） | 后端服务：私有仓 luban-backend（modeling-server :5401 + webhook-agent :5402 源码与镜像/产物发布脚本）；产物经 **GHCR 镜像 + GitHub Releases** 分发，`scripts/fetch-backend.ps1` 拉取到本仓 `dist-backend/` | pnpm + tsx |
 | `docs/` | 平台文档（UPSTREAM_SYNC.md / ITWINJS_CORE_MODIFICATIONS.md 等） | — |
 | `scripts/sync-from-upstream.sh` | 上游一键同步脚本 | bash |
 
-**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :4000 + Azurite :10000 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、imodel-native（iModel 原生引擎）。
+**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :5400 + Azurite :10500 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、imodel-native（iModel 原生引擎）。
 
 ## 核心架构模型：link: 源码消费
 
@@ -27,10 +27,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 运行流水线
 
-- **前端**（React 18 + Vite，:3000）：`luban-cad/apps/web/`，按 feature 分目录（`features/{auth,itwin,imodel,editor,modeling,measurement,view-clip,accudraw,version-control,...}`）。Vite dev server 把 `/auth` 代理到 modeling-server(:4001)，把 `/itwins`/`/imodels` 等代理到 imodelhub-services(:4000)。
-- **建模后台**（:4001，宿主进程）：源码在私有仓 `luban-backend` 的 modeling-server；本仓以**产物**运行（`dist-backend\` + `scripts/start-ms-host.ps1` 产物模式）：`LocalhostIpcHost`（取代 IModelHost，WebSocket IPC 支撑 BriefcaseConnection）+ `OpenCloudRpcImpl` + 自定义 IPC handler（`OpenCloudIpcHandler`、`AppFunctionIpcHandler`）+ `EditCommandAdmin` 注册内置编辑命令。
+- **前端**（React 18 + Vite，:5300）：`luban-cad/apps/web/`，按 feature 分目录（`features/{auth,itwin,imodel,editor,modeling,measurement,view-clip,accudraw,version-control,...}`）。Vite dev server 把 `/auth` 代理到 modeling-server(:5401)，把 `/itwins`/`/imodels` 等代理到 imodelhub-services(:5400)。
+- **建模后台**（:5401，宿主进程）：源码在私有仓 `luban-backend` 的 modeling-server；本仓以**产物**运行（`dist-backend\` + `scripts/start-ms-host.ps1` 产物模式）：`LocalhostIpcHost`（取代 IModelHost，WebSocket IPC 支撑 BriefcaseConnection）+ `OpenCloudRpcImpl` + 自定义 IPC handler（`OpenCloudIpcHandler`、`AppFunctionIpcHandler`）+ `EditCommandAdmin` 注册内置编辑命令。
 - **编辑管道（硬约束）**：工具继承 iTwin.js 标准基类（`ElementSetTool`/`PrimitiveTool`/`CopyElementsTool`）→ 编辑走 `basicManipulationIpc` → 事务走 `BriefcaseTxns`/`saveChanges`（**可撤销是硬约束**）。AI Agent 工具必须复用现有 `toolId`，禁止第二套建模 API；破坏性操作走 HITL（预览→确认→提交）。
-- **Webhook 管道**：iTwin 平台 → webhook-agent(:4002，验签，GHCR 镜像) → modeling-server(:4001，宿主产物) → 前端轮询；webhook-agent 另负责生成 baseline（CloudSqlite）上传 Azurite。
+- **Webhook 管道**：iTwin 平台 → webhook-agent(:5402，验签，GHCR 镜像) → modeling-server(:5401，宿主产物) → 前端轮询；webhook-agent 另负责生成 baseline（CloudSqlite）上传 Azurite。
 
 ## 常用命令
 
@@ -46,7 +46,7 @@ node common/scripts/install-run-rush.js build --to @itwin/core-backend --to @itw
 
 ```bash
 cd luban-cad && pnpm install
-cd apps/web && pnpm dev                    # 前端 :3000
+cd apps/web && pnpm dev                    # 前端 :5300
 pnpm build / pnpm lint / pnpm test         # 各包目录内均可用
 pnpm test:e2e                              # Playwright（apps/web 内）
 ```
@@ -58,7 +58,7 @@ pnpm test:e2e                              # Playwright（apps/web 内）
 powershell -File scripts/generate-env.ps1            # 0) 仓库根 .env（幂等）
 powershell -File scripts/fetch-backend.ps1           # 1) Releases 拉 MS 产物 tgz→dist-backend\ + docker compose pull（GHCR）
 docker compose up -d                                 # 2) 栈：imodelhub/WA/web/nginx + 基础设施
-powershell -File scripts/start-ms-host.ps1 -Detach   # 3) 宿主 MS :4001（产物模式）
+powershell -File scripts/start-ms-host.ps1 -Detach   # 3) 宿主 MS :5401（产物模式）
 powershell -File scripts/verify-stack.ps1            # 4) 全栈验收（health→数据链→WS→横幅）
 
 # 后端源码开发（私有仓检出者）：cd <luban-backend>\modeling-server && pnpm dev / test / lint（见该仓 README）
@@ -95,11 +95,11 @@ npx playwright test e2e/editor.spec.ts                   # 单 e2e（在 luban-c
 
 0. 首次运行先生成密钥配置：`powershell -File scripts/generate-env.ps1`（幂等；后端服务的 `.env` 均读仓库根这一份，密钥缺失会拒启）
 1. `powershell -File scripts/fetch-backend.ps1`（拉 GHCR 镜像 + MS 产物到 `dist-backend\`；已就位可跳过）
-2. `docker compose up -d`（根 docker-compose.yml：Postgres/Azurite/Redis/Maildev + imodelhub:4000 + webhook-agent:4002（均 GHCR 镜像）+ web + nginx:80 单域名入口）
+2. `docker compose up -d`（根 docker-compose.yml：Postgres/Azurite/Redis/Maildev + imodelhub:5400 + webhook-agent:5402（均 GHCR 镜像）+ web + nginx:5301 单域名入口；宿主端口登记见 `docs/PORTS.md`）
 3. modeling-server 为宿主进程（link: 依赖+本地编译原生库不可入 Linux 容器——`scripts/start-ms-host.ps1 -Detach`，默认产物模式跑 `dist-backend\`）
 4. `powershell -File scripts/verify-stack.ps1` 全栈验收（health×5 → iTwin/iModel/baseline 数据链 → WS cookie 握手 → dev-build 横幅）
 
-**开发态**（分进程调试）：itwinjs-core `rush build --to ...`（首次或改了依赖库后）→ 私有仓 `luban-backend` 内 modeling-server `pnpm dev` (:4001)，或本仓 `start-ms-host.ps1 -Source <私有仓>\modeling-server` 源码模式 → `luban-cad/apps/web` `pnpm dev` (:3000，`.env.development` 直连 :4001)。webhook-agent 随 compose 容器跑（:4002，GHCR 镜像；源码调试在私有仓）。`luban-cad/docker-compose.yml` 仅作 dev 参考。
+**开发态**（分进程调试）：itwinjs-core `rush build --to ...`（首次或改了依赖库后）→ 私有仓 `luban-backend` 内 modeling-server `pnpm dev` (:5401)，或本仓 `start-ms-host.ps1 -Source <私有仓>\modeling-server` 源码模式 → `luban-cad/apps/web` `pnpm dev` (:5300，`.env.development` 直连 :5401)。webhook-agent 随 compose 容器跑（:5402，GHCR 镜像；源码调试在私有仓）。`luban-cad/docker-compose.yml` 仅作 dev 参考。
 
 ## itwinjs-core 修改与上游同步（强制）
 
@@ -125,4 +125,5 @@ npx playwright test e2e/editor.spec.ts                   # 单 e2e（在 luban-c
 - 能力矩阵/状态：platform-docs（天工开物文档总仓，仓外）的 STATUS.md
 - 官方 iTwin Platform REST 规格（契约对照基准）：`docs/api-specs/*.json`（itwins / imodels-v2 / access-control-v2 / webhooks-v2 / storage / users）
 - 详细开发准则（工具生命周期/检查清单/AI 注册规约）：`luban-cad/CLAUDE.md`
+- 宿主端口登记（53xx/54xx 专用段，避开 itwinjs-core）：`docs/PORTS.md`
 - 上游同步史与冲突处理经验：`docs/UPSTREAM_SYNC.md`

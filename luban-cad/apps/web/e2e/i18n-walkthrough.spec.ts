@@ -24,7 +24,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
-const BASE = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+const BASE = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5300';
 const LANG_KEY = 'luban-cad-lang'; // shared/i18n LANGUAGE_STORAGE_KEY（避免拉起 i18n 单例）
 const SHOT_DIR =
   process.env.I18N_WALKTHROUGH_SHOT_DIR ||

@@ -7,20 +7,20 @@
 # 用法:
 #   powershell -File scripts/verify-stack.ps1                    # 全量（含 baseline 数据链，最慢 ~5min）
 #   powershell -File scripts/verify-stack.ps1 -SkipBaseline      # 跳过数据链（health + WS + 横幅）
-#   powershell -File scripts/verify-stack.ps1 -BaseUrl http://localhost
+#   powershell -File scripts/verify-stack.ps1 -BaseUrl http://localhost:5301
 #
 # 前置:
 #   1) 仓库根 .env（scripts/generate-env.ps1；登录用 IMODELHUB_ADMIN_EMAIL/PASSWORD）
 #   2) 栈已起：docker compose up -d + powershell -File scripts/start-ms-host.ps1 -Detach
 #
 # 探针表（实配依据，改路由时同步此表）:
-#   HUB      GET http://<host>:4000/health        直探 —— deploy/default.conf.template 无 /health 路由，
+#   HUB      GET http://<host>:5400/health        直探 —— deploy/default.conf.template 无 /health 路由，
 #                                                 经 BaseUrl 探 /health 只会落进 web SPA 兜底
-#   MS       GET http://<host>:4001/health        宿主进程（或 --profile container 映射口），main.ts:243
-#   web      GET <BaseUrl>/                       经 nginx → web:3000 静态
-#   WA       GET http://<host>:4002/health        webhook-server.ts /health（WA 无 /health/live；
+#   MS       GET http://<host>:5401/health        宿主进程（或 --profile container 映射口），main.ts:243
+#   web      GET <BaseUrl>/（默认 :5301）          经 nginx → web:3000（栈内）静态
+#   WA       GET http://<host>:5402/health        webhook-server.ts /health（WA 无 /health/live；
 #                                                 根 compose healthcheck 同款端点），不经 nginx
-#   azurite  GET http://<host>:10000/             任意 HTTP 应答即视为 up（含 400/403）
+#   azurite  GET http://<host>:10500/             任意 HTTP 应答即视为 up（含 400/403）
 #
 # 数据链（-SkipBaseline 跳过；请求形状对照 imodelhub-services DTO）:
 #   POST /auth/email/login {email,password}          → {token, refreshToken, tokenExpires, user}
@@ -43,7 +43,7 @@
 # ============================================================
 [CmdletBinding()]
 param(
-    [string]$BaseUrl = 'http://localhost',
+    [string]$BaseUrl = 'http://localhost:5301',
     [switch]$SkipBaseline
 )
 
@@ -192,23 +192,23 @@ Write-Host ''
 Write-Host "== Step A: health 探针（BaseUrl=$Base，直探主机=$ProbeHost）==" -ForegroundColor Cyan
 $msHealthy = $false
 
-$r = Invoke-StackHttp -Method Get -Uri "http://${ProbeHost}:4000/health" -TimeoutSec 5
+$r = Invoke-StackHttp -Method Get -Uri "http://${ProbeHost}:5400/health" -TimeoutSec 5
 if ($r.StatusCode -eq 200) {
-    Add-Check 'A' 'HUB :4000/health' $true 'HTTP 200（直探：nginx 无 /health 路由）'
+    Add-Check 'A' 'HUB :5400/health' $true 'HTTP 200（直探：nginx 无 /health 路由）'
 } elseif ($r.Error) {
-    Add-Check 'A' 'HUB :4000/health' $false "$($r.Error)（docker compose up -d imodelhub）"
+    Add-Check 'A' 'HUB :5400/health' $false "$($r.Error)（docker compose up -d imodelhub）"
 } else {
-    Add-Check 'A' 'HUB :4000/health' $false "HTTP $($r.StatusCode)（503 = 其依赖 postgres/redis 未就绪）"
+    Add-Check 'A' 'HUB :5400/health' $false "HTTP $($r.StatusCode)（503 = 其依赖 postgres/redis 未就绪）"
 }
 
-$r = Invoke-StackHttp -Method Get -Uri "http://${ProbeHost}:4001/health" -TimeoutSec 5
+$r = Invoke-StackHttp -Method Get -Uri "http://${ProbeHost}:5401/health" -TimeoutSec 5
 if ($r.StatusCode -eq 200) {
     $msHealthy = $true
-    Add-Check 'A' 'MS :4001/health' $true 'HTTP 200（宿主进程或 --profile container 映射口）'
+    Add-Check 'A' 'MS :5401/health' $true 'HTTP 200（宿主进程或 --profile container 映射口）'
 } elseif ($r.Error) {
-    Add-Check 'A' 'MS :4001/health' $false "$($r.Error)（宿主形态：scripts/start-ms-host.ps1 -Detach）"
+    Add-Check 'A' 'MS :5401/health' $false "$($r.Error)（宿主形态：scripts/start-ms-host.ps1 -Detach）"
 } else {
-    Add-Check 'A' 'MS :4001/health' $false "HTTP $($r.StatusCode)"
+    Add-Check 'A' 'MS :5401/health' $false "HTTP $($r.StatusCode)"
 }
 
 $r = Invoke-StackHttp -Method Get -Uri "$Base/" -TimeoutSec 10
@@ -220,23 +220,23 @@ if ($r.StatusCode -eq 200) {
     Add-Check 'A' "web $Base/" $false "HTTP $($r.StatusCode)（502/504 = nginx 通但 web 容器异常）"
 }
 
-$r = Invoke-StackHttp -Method Get -Uri "http://${ProbeHost}:4002/health" -TimeoutSec 5
+$r = Invoke-StackHttp -Method Get -Uri "http://${ProbeHost}:5402/health" -TimeoutSec 5
 if ($r.StatusCode -eq 200) {
     $waJson = Convert-JsonSafe $r.Body
     $pending = if ($waJson -and $waJson.stats) { $waJson.stats.pendingForwards } else { '?' }
-    Add-Check 'A' 'WA :4002/health' $true "HTTP 200，pendingForwards=$pending（WA 无 /health/live，/health 即活探针）"
+    Add-Check 'A' 'WA :5402/health' $true "HTTP 200，pendingForwards=$pending（WA 无 /health/live，/health 即活探针）"
 } elseif ($r.Error) {
-    Add-Check 'A' 'WA :4002/health' $false "$($r.Error)（docker compose up -d webhook-agent）"
+    Add-Check 'A' 'WA :5402/health' $false "$($r.Error)（docker compose up -d webhook-agent）"
 } else {
-    Add-Check 'A' 'WA :4002/health' $false "HTTP $($r.StatusCode)"
+    Add-Check 'A' 'WA :5402/health' $false "HTTP $($r.StatusCode)"
 }
 
-$r = Invoke-StackHttp -Method Get -Uri "http://${ProbeHost}:10000/" -TimeoutSec 5
+$r = Invoke-StackHttp -Method Get -Uri "http://${ProbeHost}:10500/" -TimeoutSec 5
 if ($r.StatusCode -ge 100) {
     # Azurite 对未认证根路径应答 400/403 均正常 —— 任意 HTTP 应答即 up
-    Add-Check 'A' 'azurite :10000' $true "HTTP $($r.StatusCode)（任意应答即 up）"
+    Add-Check 'A' 'azurite :10500' $true "HTTP $($r.StatusCode)（任意应答即 up）"
 } else {
-    Add-Check 'A' 'azurite :10000' $false "$($r.Error)（docker compose up -d azurite；HUB/MS 的 briefcase/baseline 都依赖它）"
+    Add-Check 'A' 'azurite :10500' $false "$($r.Error)（docker compose up -d azurite；HUB/MS 的 briefcase/baseline 都依赖它）"
 }
 
 # ============================================================
@@ -450,7 +450,7 @@ $foundIn = $null
 $foundLine = $null
 
 if (-not $msHealthy) {
-    Add-Check 'D' 'MS dev-build 横幅' $false 'MS 未运行（Step A :4001/health 未通过），无从核验横幅'
+    Add-Check 'D' 'MS dev-build 横幅' $false 'MS 未运行（Step A :5401/health 未通过），无从核验横幅'
 } else {
     $hostLog = Join-Path $env:TEMP 'luban-cad-modeling-server.log'
     foreach ($f in @($hostLog, "$hostLog.err")) {

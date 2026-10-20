@@ -31,6 +31,6 @@ RUN corepack pnpm@10 install --frozen-lockfile --prod
 
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 4003
+EXPOSE 5403
 USER node
 CMD ["node", "dist/server.js"]

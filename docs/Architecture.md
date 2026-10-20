@@ -1,6 +1,6 @@
 # 鲁班CAD 架构设计（luban-cad，天工开物平台）
 
-> **代码归属（后端私有化，2026-10-01）**：本文所述后端服务 `modeling-server`（:4001）与 `webhook-agent`（:4002）的源码在私有仓 **luban-backend**，文中 `modeling-server/src/...` 等代码路径均指该私有仓。本仓公开侧只**消费产物**：imodelhub / webhook-agent 以 **GHCR 镜像**进栈（`docker-compose.yml` 零后端 build），MS 以 **GitHub Releases 产物**（`scripts/fetch-backend.ps1` → `dist-backend\`）+ `scripts/start-ms-host.ps1` 宿主运行。
+> **代码归属（后端私有化，2026-10-01）**：本文所述后端服务 `modeling-server`（:5401）与 `webhook-agent`（:5402）的源码在私有仓 **luban-backend**，文中 `modeling-server/src/...` 等代码路径均指该私有仓。本仓公开侧只**消费产物**：imodelhub / webhook-agent 以 **GHCR 镜像**进栈（`docker-compose.yml` 零后端 build），MS 以 **GitHub Releases 产物**（`scripts/fetch-backend.ps1` → `dist-backend\`）+ `scripts/start-ms-host.ps1` 宿主运行。
 
 ## 系统架构
 
@@ -42,8 +42,8 @@
 │  │                        服务层 (Services)                                  │  │
 │  │  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐  │  │
 │  │  │   imodelhub      │  │   modeling-server  │  │   Webhook-Agent        │  │  │
-│  │  │   services       │  │   (4001)           │  │   (4002, 必需)         │  │  │
-│  │  │   (4000)         │  │                  │  │                        │  │  │
+│  │  │   services       │  │   (5401)           │  │   (5402, 必需)         │  │  │
+│  │  │   (5400)         │  │                  │  │                        │  │  │
 │  │  │                  │  │  • RPC Server    │  │  • Webhook Receiver    │  │  │
 │  │  │  • REST API      │  │  • WebSocket     │  │  • Event Forwarder     │  │  │
 │  │  │  • Auth          │  │  • IPC Handler   │  │  • Baseline Generator  │  │  │
@@ -58,7 +58,7 @@
 │  │                      数据层 (Data Layer)                                  │  │
 │  │  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐  │  │
 │  │  │   PostgreSQL     │  │   Azurite        │  │   Local Filesystem     │  │  │
-│  │  │   (5432)         │  │   (10000)        │  │   (Briefcase Cache)    │  │  │
+│  │  │   (5432)         │  │   (10500)        │  │   (Briefcase Cache)    │  │  │
 │  │  │                  │  │                  │  │                        │  │  │
 │  │  │  • Users         │  │  • Blob Storage  │  │  • Briefcase Cache     │  │  │
 │  │  │  • iTwins        │  │  • Baseline Files│  │  • External Files      │  │  │
@@ -91,7 +91,7 @@ modeling-server 采用单端口架构，HTTP API 和 WebSocket 共享同一端�
 
 ## 服务详解
 
-### imodelhub-services (Port 4000)
+### imodelhub-services (Port 5400)
 
 **职责**: 核心数据管理服务
 
@@ -106,7 +106,7 @@ modeling-server 采用单端口架构，HTTP API 和 WebSocket 共享同一端�
 - PostgreSQL: 元数据存储
 - Azurite: Blob 存储
 
-### modeling-server (Port 4001)
+### modeling-server (Port 5401)
 
 **职责**: CAD 功能服务和 RPC 网关
 
@@ -114,7 +114,7 @@ modeling-server 采用单端口架构，HTTP API 和 WebSocket 共享同一端�
 ```
 http.createServer(app) + enableWs(app, server, ...)   // main.ts:126-146
 │   └── verifyClient: JWT 校验，覆盖 /ws 与 /ipc 的 Upgrade  // main.ts:131-143
-├── WebSocket 端点（与 HTTP 共享 4001 端口）
+├── WebSocket 端点（与 HTTP 共享 5401 端口）
 │   ├── /ws  - 通知通道            // main.ts:166
 │   └── /ipc - iTwin.js IPC 通道   // main.ts:188
 ├── HTTP 路由
@@ -142,7 +142,7 @@ http.createServer(app) + enableWs(app, server, ...)   // main.ts:126-146
 7. 启动 Express + WebSocket 服务
 ```
 
-### Webhook-Agent (Port 4002, 必需)
+### Webhook-Agent (Port 5402, 必需)
 
 **职责**: Webhook 事件接收、处理和 Baseline 生成
 
@@ -198,7 +198,7 @@ Frontend (通过 polling/WebSocket)
 直接调用 REST API，使用 JWT Token 认证：
 
 ```typescript
-const response = await fetch('http://localhost:4000/itwins', {
+const response = await fetch('http://localhost:5400/itwins', {
   headers: {
     'Authorization': `Bearer ${accessToken}`
   }
@@ -247,7 +247,7 @@ const authClient = new ServiceAccountAuthClient({
 **通知通道** (`/ws`):
 ```javascript
 // 连接
-const ws = new WebSocket('ws://localhost:4001/ws');
+const ws = new WebSocket('ws://localhost:5401/ws');
 
 // 接收消息
 ws.onmessage = (event) => {
@@ -468,16 +468,16 @@ const Editor = lazy(() => import('../pages/Editor/Editor.js'));
 ## 部署模式
 
 **统一部署链路**（部署权威：根 `docker-compose.yml`）：
-`scripts/generate-env.ps1` → `scripts/fetch-backend.ps1`（Releases 拉 MS 产物 + `docker compose pull` 拉 GHCR 镜像）→ `docker compose up -d` → `scripts/start-ms-host.ps1 -Detach`（宿主 MS :4001）→ `scripts/verify-stack.ps1`
+`scripts/generate-env.ps1` → `scripts/fetch-backend.ps1`（Releases 拉 MS 产物 + `docker compose pull` 拉 GHCR 镜像）→ `docker compose up -d` → `scripts/start-ms-host.ps1 -Detach`（宿主 MS :5401）→ `scripts/verify-stack.ps1`
 
 ### 开发模式
 ```
-imodelhub-services (localhost:4000)         # 栈内为 GHCR 镜像 ghcr.io/chenjinxian/imodelhub
-modeling-server (localhost:4001)            # 宿主进程：本仓产物 dist-backend\（fetch-backend.ps1），
+imodelhub-services (localhost:5400)         # 栈内为 GHCR 镜像 ghcr.io/chenjinxian/imodelhub
+modeling-server (localhost:5401)            # 宿主进程：本仓产物 dist-backend\（fetch-backend.ps1），
                                             # 或私有仓 luban-backend 源码 dev（start-ms-host.ps1 -Source）
-Webhook-Agent (localhost:4002)              # GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent
-Frontend (localhost:3000)
-Azurite (localhost:10000)
+Webhook-Agent (localhost:5402)              # GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent
+Frontend (localhost:5300)
+Azurite (localhost:10500)
 PostgreSQL (localhost:5432)
 ```
 
@@ -491,7 +491,7 @@ Docker Compose（根 docker-compose.yml）:
   - nginx          :80 统一入口
 
 宿主进程（不在 compose 内）:
-  - modeling-server :4001 ← GitHub Releases 产物（scripts/fetch-backend.ps1 → dist-backend\，
+  - modeling-server :5401 ← GitHub Releases 产物（scripts/fetch-backend.ps1 → dist-backend\，
     scripts/start-ms-host.ps1 产物模式拉起）
 ```
 
