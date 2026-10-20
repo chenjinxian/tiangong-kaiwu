@@ -8,6 +8,10 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
 
+  /* 中英走查基建（RW4-P1.5）走独立 playwright.i18n.config.ts——四页公开页零登录，
+   * 归入本配置会连带触发 setup project（白烧 1 次登录限流）且基线计数漂移 */
+  testIgnore: /i18n-walkthrough\.spec\.ts/,
+
   /* 编辑器类测试含 briefcase 下载 + WebGL 初始化，导航等待预算可达 60s+，
      默认 30s 会误杀慢机上的 beforeEach（个别 spec 内另有更长的 setTimeout 覆盖） */
   timeout: 120000,
