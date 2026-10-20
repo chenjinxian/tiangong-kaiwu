@@ -82,6 +82,65 @@
     "noDescription": "暂无描述",
     "close": "关闭详情"
   },
+  "detail": {
+    "breadcrumb": {
+      "documents": "项目列表"
+    },
+    "actions": {
+      "createIModel": "新建 iModel",
+      "editProject": "编辑项目",
+      "deleteProject": "删除项目",
+      "refresh": "刷新",
+      "settings": "设置",
+      "share": "分享项目"
+    },
+    "createdAt": "创建于 {{date}}",
+    "updatedAt": "更新于 {{date}}",
+    "imodelCount": "{{count}} 个 iModel",
+    "syncing": "同步中",
+    "syncingTitle": "有 iModel 正在初始化",
+    "error": {
+      "title": "项目未找到",
+      "description": "无法加载项目信息",
+      "retry": "重试",
+      "back": "返回项目列表"
+    },
+    "empty": {
+      "title": "暂无 iModel",
+      "description": "开始创建您的第一个 iModel"
+    },
+    "deleteProject": {
+      "title": "删除项目",
+      "message": "确定要删除项目「{{name}}」吗？此操作不可撤销，项目下的所有 iModel 也将被删除。",
+      "cancel": "取消",
+      "confirm": "删除",
+      "success": "项目已删除",
+      "failed": "删除失败，请重试"
+    },
+    "deleteIModel": {
+      "title": "删除 iModel",
+      "message": "确定要删除 iModel「{{name}}」吗？此操作不可撤销。",
+      "cancel": "取消",
+      "confirm": "删除",
+      "success": "iModel 已删除",
+      "failed": "删除失败，请重试"
+    },
+    "editSaved": "项目信息已更新",
+    "imodelRenamed": "iModel 已重命名",
+    "imodelCopied": "iModel 复制成功"
+  },
+  "imodelCard": {
+    "initialized": "已初始化",
+    "notInitialized": "未初始化",
+    "untitled": "未命名 iModel",
+    "createdAt": "创建于 {{date}}",
+    "updatedAt": "更新于 {{date}}",
+    "noDate": "无日期",
+    "open": "打开工作空间",
+    "initialize": "初始化",
+    "rename": "重命名",
+    "delete": "删除"
+  },
   "share": {
     "comingSoon": "即将上线（P3）"
   },

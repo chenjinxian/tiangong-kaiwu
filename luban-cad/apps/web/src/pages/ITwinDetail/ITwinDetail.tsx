@@ -3,13 +3,32 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * iTwin detail page（RW4-P3-T3-1 Onshape IA 重做）：
+ * - 顶栏 Header + HeaderBreadcrumbs（项目列表 → 当前项目）+ ThemeToggle/设置/刷新
+ * - Hero itwin-ui 化：Surface + 真实项目大图（useITwinImage）+ Tag 状态 + 元信息；
+ *   操作区=新建 iModel / 分享 / 编辑 / 删除
+ * - 删除确认 window.confirm 退役 → itwin-ui Dialog（项目 + iModel 各一，危险操作标准形态）
+ * - IModelCard 真实缩略图（useIModelImage）与死 props 清理见 IModelCard.tsx
+ * e2e 契约锚点：`.imodel-card` / `.imodel-card__title` / 「打开工作空间」/「新建 iModel」。
+ */
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Badge,
   Button,
+  Dialog,
+  Header,
+  HeaderBreadcrumbs,
+  HeaderButton,
+  HeaderLogo,
   IconButton,
+  NonIdealState,
+  Surface,
+  Tag,
   Text,
 } from '@itwin/itwinui-react';
 import {
@@ -18,8 +37,10 @@ import {
   SvgDelete,
   SvgEdit,
   SvgModel,
+  SvgProject,
   SvgRefresh,
   SvgSettings,
+  SvgShare,
   SvgStatusError,
 } from '@itwin/itwinui-icons-react';
 import {
@@ -32,46 +53,53 @@ import {
 } from '../../../features/imodel/hooks/useIModelsQuery.js';
 import { useImodelProgressStream } from '../../../features/imodel/hooks/useImodelProgressStream.js';
 import { queryKeys } from '../../../app/providers/QueryProvider.js';
-import {
-  getDownloadUrl,
-  retryIModel,
-} from '../../../features/imodel/services/client.js';
 import { CreateIModelWorkflow } from '../../../features/imodel/components/CreateIModelWorkflow.js';
 import { IModelCard } from '../../../features/imodel/components/IModelCard.js';
 import { RenameIModelDialog } from '../../../features/imodel/components/RenameIModelDialog.js';
-import { CopyIModelDialog } from '../../../features/imodel/components/CopyIModelDialog.js';
 import { EditITwinDialog } from '../../../features/itwin/components/EditITwinDialog.js';
 import { ShareITwinDialog } from '../../../features/itwin/components/ShareITwinDialog.js';
 import { ThemeToggle } from '../../../features/editor/components/ThemeToggle.js';
 import { useAppToast } from '../../../shared/hooks/useAppToast.js';
+import { useITwinImage } from '../../../shared/hooks/useITwinImage.js';
 import {
   IModelsListSkeleton,
   ITwinDetailSkeleton,
 } from '../../../shared/components/skeletons/ITwinDetailSkeleton.js';
 import type { IModel } from '../../../features/imodel/hooks/useIModelsQuery.js';
+import type { ITwin } from '../../../shared/services/itwins/client.js';
 import './ITwinDetail.css';
+
+/** 本 hub 详情实际携带的时间/描述字段（官方 ITwin 之外的超集） */
+type DetailITwin = ITwin & {
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  modifiedAt?: string;
+  lastModifiedDateTime?: string;
+};
 
 /**
  * iTwin detail page
  * Displays iTwin information and its iModels list
- * Uses iTwinUI components for consistent design
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const ITwinDetail: React.FC = React.memo(() => {
   const { iTwinId } = useParams<{ iTwinId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation('documents');
+  const { t: tCommon } = useTranslation('common');
   const { showToast } = useAppToast();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
-  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
+  const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
+  const [deleteIModelTarget, setDeleteIModelTarget] = useState<IModel | null>(null);
   const [selectedIModel, setSelectedIModel] = useState<IModel | null>(null);
 
   const deleteITwinMutation = useDeleteITwinMutation();
   const deleteIModelMutation = useDeleteIModelMutation();
-  const downloadAnchorRef = useRef<HTMLAnchorElement>(null);
 
   // Use React Query hooks for data fetching
   const {
@@ -83,6 +111,7 @@ const ITwinDetail: React.FC = React.memo(() => {
 
   const queryClient = useQueryClient();
   const activeITwinId = iTwinId ?? '';
+  const projectImage = useITwinImage(iTwinId);
 
   // Live iModel progress: the modeling-server /ws stream pushes baseline
   // initialization updates; each event invalidates the list so state changes
@@ -167,20 +196,24 @@ const ITwinDetail: React.FC = React.memo(() => {
     setIsEditDialogOpen(true);
   }, []);
 
-  const handleDeleteProject = useCallback(async () => {
-    if (!iTwinId) return;
-    const confirmed = window.confirm('确定要删除此项目吗？此操作不可撤销，项目下的所有 iModel 也将被删除。');
-    if (!confirmed) return;
+  const handleDeleteProject = useCallback(() => {
+    setIsDeleteProjectOpen(true);
+  }, []);
 
+  const handleConfirmDeleteProject = useCallback(async () => {
+    if (!iTwinId) return;
     try {
       await deleteITwinMutation.mutateAsync(iTwinId);
-      showToast('项目已删除', 'success');
+      showToast(t('detail.deleteProject.success'), 'success');
+      setIsDeleteProjectOpen(false);
       navigate('/documents');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '删除失败，请重试';
+    } catch (deleteError) {
+      const message = deleteError instanceof Error
+        ? deleteError.message
+        : t('detail.deleteProject.failed');
       showToast(message, 'error');
     }
-  }, [iTwinId, deleteITwinMutation, navigate, showToast]);
+  }, [iTwinId, deleteITwinMutation, navigate, showToast, t]);
 
   const handleBack = useCallback(() => {
     navigate('/documents');
@@ -194,70 +227,29 @@ const ITwinDetail: React.FC = React.memo(() => {
     navigate(`/documents/${iTwinId}/${iModel.id}`);
   }, [navigate, iTwinId]);
 
-  const handleDeleteIModel = useCallback(async (iModel: IModel) => {
-    if (!iTwinId || !iModel.id) return;
-    const confirmed = window.confirm(`确定要删除 iModel "${iModel.displayName || iModel.name || '未命名'}" 吗？此操作不可撤销。`);
-    if (!confirmed) return;
+  const handleRequestDeleteIModel = useCallback((iModel: IModel) => {
+    setDeleteIModelTarget(iModel);
+  }, []);
 
+  const handleConfirmDeleteIModel = useCallback(async () => {
+    const target = deleteIModelTarget;
+    if (!iTwinId || !target?.id) return;
     try {
-      await deleteIModelMutation.mutateAsync({ iModelId: iModel.id, iTwinId });
-      showToast('iModel 已删除', 'success');
+      await deleteIModelMutation.mutateAsync({ iModelId: target.id, iTwinId });
+      showToast(t('detail.deleteIModel.success'), 'success');
+      setDeleteIModelTarget(null);
       void refetchIModels();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '删除失败，请重试';
+    } catch (deleteError) {
+      const message = deleteError instanceof Error
+        ? deleteError.message
+        : t('detail.deleteIModel.failed');
       showToast(message, 'error');
     }
-  }, [iTwinId, deleteIModelMutation, showToast, refetchIModels]);
-
-  const handleDownloadIModel = useCallback(async (iModel: IModel) => {
-    if (!iModel.id) return;
-    try {
-      const url = await getDownloadUrl(iModel.id);
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('下载请求失败');
-      }
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const anchor = downloadAnchorRef.current;
-      const fileName = `${iModel.displayName || iModel.name || 'imodel'}.bim`;
-      if (anchor) {
-        anchor.href = blobUrl;
-        anchor.download = fileName;
-        anchor.click();
-      } else {
-        const tempAnchor = document.createElement('a');
-        tempAnchor.href = blobUrl;
-        tempAnchor.download = fileName;
-        tempAnchor.click();
-      }
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '下载失败，请重试';
-      showToast(message, 'error');
-    }
-  }, [showToast]);
-
-  const handleRetryIModel = useCallback(async (iModel: IModel) => {
-    if (!iTwinId || !iModel.id) return;
-    try {
-      await retryIModel(iModel.id, iTwinId, iModel.displayName || iModel.name);
-      showToast('已发起重试，请稍候', 'success');
-      void refetchIModels();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '重试失败，请稍后再试';
-      showToast(message, 'error');
-    }
-  }, [iTwinId, showToast, refetchIModels]);
+  }, [iTwinId, deleteIModelTarget, deleteIModelMutation, showToast, t, refetchIModels]);
 
   const handleRenameIModel = useCallback((iModel: IModel) => {
     setSelectedIModel(iModel);
     setIsRenameDialogOpen(true);
-  }, []);
-
-  const handleCopyIModel = useCallback((iModel: IModel) => {
-    setSelectedIModel(iModel);
-    setIsCopyDialogOpen(true);
   }, []);
 
   const handleCreated = useCallback(() => {
@@ -282,123 +274,146 @@ const ITwinDetail: React.FC = React.memo(() => {
   if (!iTwin || error) {
     return (
       <div className="imodels-page">
-        <div className="error-state">
-          <div className="error-icon">
-            <SvgStatusError className="icon-large" />
-          </div>
-          <Text variant="title" as="h2">{error || '项目未找到'}</Text>
-          <Text>无法加载项目信息</Text>
-          <div className="error-actions">
-            <Button styleType="high-visibility" onClick={handleRefresh} startIcon={<SvgRefresh />}>
-              重试
-            </Button>
-            <Button styleType="default" onClick={handleBack}>
-              返回项目列表
-            </Button>
-          </div>
-        </div>
+        <NonIdealState
+          className="detail-nonideal"
+          svg={<SvgStatusError />}
+          heading={error || t('detail.error.title')}
+          description={t('detail.error.description')}
+          actions={
+            <>
+              <Button styleType="high-visibility" onClick={handleRefresh} startIcon={<SvgRefresh />}>
+                {t('detail.error.retry')}
+              </Button>
+              <Button styleType="default" onClick={handleBack}>
+                {t('detail.error.back')}
+              </Button>
+            </>
+          }
+        />
       </div>
     );
   }
 
+  const detailITwin = iTwin as DetailITwin;
+  const createdRaw = detailITwin.createdDateTime || detailITwin.createdAt;
+  const updatedRaw = detailITwin.lastModifiedDateTime || detailITwin.updatedAt || detailITwin.modifiedAt;
+  const createdStr = createdRaw ? formatDate(createdRaw) : null;
+  const updatedStr = updatedRaw ? formatDate(updatedRaw) : null;
+  const statusLabel = iTwin.status || 'Active';
+  const deleteIModelName = deleteIModelTarget?.displayName
+    || deleteIModelTarget?.name
+    || t('imodelCard.untitled');
+
   return (
     <div className="imodels-page">
-      {/* Topbar */}
-      <header className="topbar">
-        <div className="topbar-left">
-          <div className="logo-mark">CC</div>
-          <nav className="breadcrumb">
-            <Button styleType="borderless" onClick={handleBack} startIcon={<SvgChevronLeft />}>
-              项目列表
-            </Button>
-            <Text className="breadcrumb-sep">/</Text>
-            <Text className="breadcrumb-current">{iTwin.displayName}</Text>
-          </nav>
-        </div>
-        <div className="topbar-actions">
+      {/* Topbar — Header + HeaderBreadcrumbs（项目列表 → 当前项目） */}
+      <Header
+        className="detail-header"
+        appLogo={
+          <HeaderLogo logo={<div className="logo-mark">CC</div>}>
+            {tCommon('app.name')}
+          </HeaderLogo>
+        }
+        breadcrumbs={
+          <HeaderBreadcrumbs
+            items={[
+              <HeaderButton
+                key="documents"
+                name={t('detail.breadcrumb.documents')}
+                onClick={handleBack}
+                startIcon={<SvgChevronLeft />}
+              />,
+              <HeaderButton key="current" name={iTwin.displayName} isActive />,
+            ]}
+          />
+        }
+        actions={[
           <IconButton
+            key="refresh"
             onClick={handleRefresh}
-            label="刷新"
-            title="刷新"
+            label={t('detail.actions.refresh')}
             styleType="borderless"
           >
             <SvgRefresh className={isIModelsLoading ? 'spin' : ''} />
-          </IconButton>
-          <ThemeToggle />
-          <div style={{ position: 'relative' }}>
-            <IconButton
-              label="设置"
-              styleType="borderless"
-              onClick={handleSettings}
-            >
-              <SvgSettings />
-            </IconButton>
-          </div>
-        </div>
-      </header>
+          </IconButton>,
+          <ThemeToggle key="theme" />,
+          <IconButton
+            key="settings"
+            label={t('detail.actions.settings')}
+            styleType="borderless"
+            onClick={handleSettings}
+          >
+            <SvgSettings />
+          </IconButton>,
+        ]}
+      />
 
-      {/* Hero section */}
-      <div className="hero">
-        <div className="hero-content">
-          <div className="hero-left">
-            <div className="hero-icon">
-              <SvgModel className="icon-large" />
+      {/* Hero — Surface + 真实项目大图 + Tag 元信息 */}
+      <Surface className="detail-hero" elevation={1}>
+        <div className="detail-hero__media">
+          {projectImage ? (
+            <img className="detail-hero__image" src={projectImage} alt="" />
+          ) : (
+            <div className="detail-hero__image-fallback">
+              <SvgProject />
             </div>
-            <div className="hero-info">
-              <div className="hero-name">{iTwin.displayName}</div>
-              <div className="hero-meta">
-                <Badge backgroundColor="positive">{iTwin.status === 'Active' ? 'Active' : iTwin.status || 'Active'}</Badge>
-                {(() => {
-                  const t = iTwin as any;
-                  const created = t.createdDateTime || t.createdAt;
-                  const updated = t.lastModifiedDateTime || t.updatedAt || t.modifiedAt;
-                  const createdStr = created ? formatDate(created) : null;
-                  const updatedStr = updated ? formatDate(updated) : null;
-                  return (
-                    <>
-                      {createdStr && <span>创建于 {createdStr}</span>}
-                      {updatedStr && createdStr !== updatedStr && (
-                        <><span className="separator">·</span><span>更新于 {updatedStr}</span></>
-                      )}
-                    </>
-                  );
-                })()}
-                <span className="separator">·</span>
-                <span>
-                  {iModels.length} 个 iModel
-                  {hasUninitialized && (
-                    <span className="sync-indicator" title="有 iModel 正在初始化">
-                      <span className="sync-dot" />
-                      同步中
-                    </span>
-                  )}
-                </span>
-              </div>
-              {/* Description - safely check if it exists */}
-              {(iTwin as { description?: string }).description && (
-                <div className="hero-description">
-                  {(iTwin as { description?: string }).description}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="hero-actions">
-            <Button
-              styleType="high-visibility"
-              startIcon={<SvgAdd />}
-              onClick={() => setIsCreateDialogOpen(true)}
-            >
-              新建 iModel
-            </Button>
-            <IconButton label="编辑项目" styleType="default" onClick={handleEditProject}>
-              <SvgEdit />
-            </IconButton>
-            <IconButton label="删除项目" styleType="default" onClick={handleDeleteProject}>
-              <SvgDelete />
-            </IconButton>
-          </div>
+          )}
         </div>
-      </div>
+        <div className="detail-hero__content">
+          <Text variant="headline" as="h1" className="detail-hero__title">
+            {iTwin.displayName}
+          </Text>
+          <div className="detail-hero__meta">
+            <Tag>{statusLabel}</Tag>
+            {createdStr && (
+              <Text variant="small">{t('detail.createdAt', { date: createdStr })}</Text>
+            )}
+            {updatedStr && createdStr !== updatedStr && (
+              <Text variant="small">{t('detail.updatedAt', { date: updatedStr })}</Text>
+            )}
+            <Text variant="small">{t('detail.imodelCount', { count: iModels.length })}</Text>
+            {hasUninitialized && (
+              <span className="sync-indicator" title={t('detail.syncingTitle')}>
+                <span className="sync-dot" />
+                {t('detail.syncing')}
+              </span>
+            )}
+          </div>
+          {detailITwin.description && (
+            <Text className="detail-hero__description">{detailITwin.description}</Text>
+          )}
+        </div>
+        <div className="detail-hero__actions">
+          <Button
+            styleType="high-visibility"
+            startIcon={<SvgAdd />}
+            onClick={() => setIsCreateDialogOpen(true)}
+          >
+            {t('detail.actions.createIModel')}
+          </Button>
+          <IconButton
+            label={t('detail.actions.share')}
+            styleType="default"
+            onClick={() => setIsShareDialogOpen(true)}
+          >
+            <SvgShare />
+          </IconButton>
+          <IconButton
+            label={t('detail.actions.editProject')}
+            styleType="default"
+            onClick={handleEditProject}
+          >
+            <SvgEdit />
+          </IconButton>
+          <IconButton
+            label={t('detail.actions.deleteProject')}
+            styleType="default"
+            onClick={handleDeleteProject}
+          >
+            <SvgDelete />
+          </IconButton>
+        </div>
+      </Surface>
 
       {/* Content wrapper - scrollable area */}
       <div className="content-wrapper">
@@ -412,27 +427,28 @@ const ITwinDetail: React.FC = React.memo(() => {
             <div className="toolbar">
               <div className="toolbar-left">
                 <Badge backgroundColor="primary">
-                  {`${iModels.length} 个 iModel${hasUninitialized ? ' *' : ''}`}
+                  {t('detail.imodelCount', { count: iModels.length })}
                 </Badge>
               </div>
             </div>
 
             {/* Grid */}
             {iModels.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">
-                  <SvgModel className="icon-large" />
-                </div>
-                <Text variant="title" as="h3" className="empty-title">暂无 iModel</Text>
-                <Text className="empty-desc">开始创建您的第一个 iModel</Text>
-                <Button
-                  styleType="high-visibility"
-                  startIcon={<SvgAdd />}
-                  onClick={() => setIsCreateDialogOpen(true)}
-                >
-                  新建 iModel
-                </Button>
-              </div>
+              <NonIdealState
+                className="detail-nonideal"
+                svg={<SvgModel />}
+                heading={t('detail.empty.title')}
+                description={t('detail.empty.description')}
+                actions={
+                  <Button
+                    styleType="high-visibility"
+                    startIcon={<SvgAdd />}
+                    onClick={() => setIsCreateDialogOpen(true)}
+                  >
+                    {t('detail.actions.createIModel')}
+                  </Button>
+                }
+              />
             ) : (
               <div className="grid">
                 {iModels.map((iModel) => (
@@ -440,11 +456,8 @@ const ITwinDetail: React.FC = React.memo(() => {
                     key={iModel.id}
                     iModel={iModel}
                     onOpen={handleOpenIModel}
-                    onDelete={handleDeleteIModel}
-                    onDownload={handleDownloadIModel}
-                    onRetry={handleRetryIModel}
+                    onDelete={handleRequestDeleteIModel}
                     onRename={handleRenameIModel}
-                    onCopy={handleCopyIModel}
                   />
                 ))}
               </div>
@@ -468,7 +481,7 @@ const ITwinDetail: React.FC = React.memo(() => {
         isOpen={isEditDialogOpen}
         onClose={() => setIsEditDialogOpen(false)}
         onSaved={() => {
-          showToast('项目信息已更新', 'success');
+          showToast(t('detail.editSaved'), 'success');
           void refetchITwin();
         }}
       />
@@ -486,25 +499,86 @@ const ITwinDetail: React.FC = React.memo(() => {
         isOpen={isRenameDialogOpen}
         onClose={() => setIsRenameDialogOpen(false)}
         onRenamed={() => {
-          showToast('iModel 已重命名', 'success');
+          showToast(t('detail.imodelRenamed'), 'success');
           void refetchIModels();
         }}
       />
 
-      {/* Copy Dialog */}
-      <CopyIModelDialog
-        iModel={selectedIModel}
-        currentITwinId={iTwinId ?? ''}
-        isOpen={isCopyDialogOpen}
-        onClose={() => setIsCopyDialogOpen(false)}
-        onCopied={() => {
-          showToast('iModel 复制成功', 'success');
-          void refetchIModels();
-        }}
-      />
+      {/* Delete project 危险确认 Dialog（window.confirm 退役） */}
+      <Dialog
+        isOpen={isDeleteProjectOpen}
+        onClose={() => setIsDeleteProjectOpen(false)}
+        portal
+        isDismissible
+      >
+        <Dialog.Backdrop />
+        <Dialog.Main
+          styleType="default"
+          title={t('detail.deleteProject.title')}
+          className="detail-delete-dialog"
+        >
+          <Dialog.TitleBar title={t('detail.deleteProject.title')} />
+          <Dialog.Content>
+            <Text>{t('detail.deleteProject.message', { name: iTwin.displayName ?? '' })}</Text>
+          </Dialog.Content>
+          <Dialog.ButtonBar>
+            <Button
+              styleType="default"
+              onClick={() => setIsDeleteProjectOpen(false)}
+              disabled={deleteITwinMutation.isPending}
+            >
+              {t('detail.deleteProject.cancel')}
+            </Button>
+            <Button
+              styleType="high-visibility"
+              className="detail-danger-button"
+              onClick={handleConfirmDeleteProject}
+              loading={deleteITwinMutation.isPending}
+              disabled={deleteITwinMutation.isPending}
+            >
+              {t('detail.deleteProject.confirm')}
+            </Button>
+          </Dialog.ButtonBar>
+        </Dialog.Main>
+      </Dialog>
 
-      {/* Hidden anchor for programmatic downloads */}
-      <a ref={downloadAnchorRef} style={{ display: 'none' }} />
+      {/* Delete iModel 危险确认 Dialog */}
+      <Dialog
+        isOpen={!!deleteIModelTarget}
+        onClose={() => setDeleteIModelTarget(null)}
+        portal
+        isDismissible
+      >
+        <Dialog.Backdrop />
+        <Dialog.Main
+          styleType="default"
+          title={t('detail.deleteIModel.title')}
+          className="detail-delete-dialog"
+        >
+          <Dialog.TitleBar title={t('detail.deleteIModel.title')} />
+          <Dialog.Content>
+            <Text>{t('detail.deleteIModel.message', { name: deleteIModelName })}</Text>
+          </Dialog.Content>
+          <Dialog.ButtonBar>
+            <Button
+              styleType="default"
+              onClick={() => setDeleteIModelTarget(null)}
+              disabled={deleteIModelMutation.isPending}
+            >
+              {t('detail.deleteIModel.cancel')}
+            </Button>
+            <Button
+              styleType="high-visibility"
+              className="detail-danger-button"
+              onClick={handleConfirmDeleteIModel}
+              loading={deleteIModelMutation.isPending}
+              disabled={deleteIModelMutation.isPending}
+            >
+              {t('detail.deleteIModel.confirm')}
+            </Button>
+          </Dialog.ButtonBar>
+        </Dialog.Main>
+      </Dialog>
     </div>
   );
 });

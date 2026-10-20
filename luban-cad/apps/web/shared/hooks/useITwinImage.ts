@@ -21,10 +21,11 @@
  */
 
 import { useEffect } from 'react';
-import { type QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, fetchWithAuth } from '../api/httpClient.js';
 import { queryKeys } from '../../app/providers/QueryProvider.js';
 import { logger } from '../lib/logger.js';
+import { registerImageCacheCleanup } from './imageQueryCleanup.js';
 
 /** GET /itwins/:id/image 清单项（本 hub 形态；官方形态为带 _links 的元数据，url 字段兼容） */
 export interface ITwinImageDescriptor {
@@ -43,41 +44,6 @@ function isImageQueryKey(key: readonly unknown[]): boolean {
   return key[0] === 'itwins' && key[1] === 'image';
 }
 
-// 每个 QueryClient 只挂一次缓存监听（WeakMap 防重复订阅）
-const cleanupRegistered = new WeakMap<QueryClient, boolean>();
-
-function asBlobUrl(data: unknown): string | null {
-  return typeof data === 'string' && data.startsWith('blob:') ? data : null;
-}
-
-function registerImageCacheCleanup(client: QueryClient): void {
-  if (cleanupRegistered.has(client)) return;
-  cleanupRegistered.set(client, true);
-  // queryHash → 上一次安装的 objectURL。refetch 成功会**替换** state.data（无 removed 事件），
-  // 若不在此回收，每次 itwins.* 广域 invalidate（改名/删除/收藏）都会泄漏全部缩略图。
-  const installed = new Map<string, string>();
-
-  client.getQueryCache().subscribe((event) => {
-    if (!isImageQueryKey(event.query.queryKey)) return;
-    const hash = event.query.queryHash;
-    const current = asBlobUrl(event.query.state.data);
-
-    if (event.type === 'removed') {
-      if (current) URL.revokeObjectURL(current);
-      installed.delete(hash);
-      return;
-    }
-
-    // updated（数据替换 / 状态刷新）：旧 URL 与当前不同即回收
-    const previous = installed.get(hash);
-    if (previous && previous !== current) {
-      URL.revokeObjectURL(previous);
-    }
-    if (current) installed.set(hash, current);
-    else installed.delete(hash);
-  });
-}
-
 /**
  * 加载 iTwin 缩略图，返回可作 <img src> 的 objectURL；
  * 未加载 / 无图 / 失败返回 null（调用方回退 SvgProject 占位）。
@@ -86,7 +52,7 @@ export function useITwinImage(iTwinId: string | null | undefined): string | null
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    registerImageCacheCleanup(queryClient);
+    registerImageCacheCleanup(queryClient, 'itwins.image', isImageQueryKey);
   }, [queryClient]);
 
   const query = useQuery({

@@ -83,6 +83,66 @@
     "noDescription": "No description",
     "close": "Close details"
   },
+  "detail": {
+    "breadcrumb": {
+      "documents": "Projects"
+    },
+    "actions": {
+      "createIModel": "New iModel",
+      "editProject": "Edit project",
+      "deleteProject": "Delete project",
+      "refresh": "Refresh",
+      "settings": "Settings",
+      "share": "Share Project"
+    },
+    "createdAt": "Created {{date}}",
+    "updatedAt": "Updated {{date}}",
+    "imodelCount_one": "{{count}} iModel",
+    "imodelCount_other": "{{count}} iModels",
+    "syncing": "Syncing",
+    "syncingTitle": "An iModel is initializing",
+    "error": {
+      "title": "Project not found",
+      "description": "Unable to load project information",
+      "retry": "Retry",
+      "back": "Back to projects"
+    },
+    "empty": {
+      "title": "No iModels yet",
+      "description": "Create your first iModel to get started"
+    },
+    "deleteProject": {
+      "title": "Delete Project",
+      "message": "Are you sure you want to delete project \"{{name}}\"? This action cannot be undone, and all iModels in the project will also be deleted.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "success": "Project deleted",
+      "failed": "Failed to delete. Please retry."
+    },
+    "deleteIModel": {
+      "title": "Delete iModel",
+      "message": "Are you sure you want to delete iModel \"{{name}}\"? This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "success": "iModel deleted",
+      "failed": "Failed to delete. Please retry."
+    },
+    "editSaved": "Project updated",
+    "imodelRenamed": "iModel renamed",
+    "imodelCopied": "iModel copied"
+  },
+  "imodelCard": {
+    "initialized": "Initialized",
+    "notInitialized": "Not initialized",
+    "untitled": "Untitled iModel",
+    "createdAt": "Created {{date}}",
+    "updatedAt": "Updated {{date}}",
+    "noDate": "No date",
+    "open": "Open workspace",
+    "initialize": "Initialize",
+    "rename": "Rename",
+    "delete": "Delete"
+  },
   "share": {
     "comingSoon": "Coming soon (P3)"
   },

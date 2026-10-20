@@ -195,6 +195,26 @@ describe('i18n 骨架', () => {
     await i18n.changeLanguage('zh-CN');
   });
 
+  it('documents 命名空间：详情页/iModel 卡片文案键命中（zh/en，e2e 中文锚点）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('detail.breadcrumb.documents', { ns: 'documents' })).toBe('项目列表');
+    expect(i18n.t('detail.actions.createIModel', { ns: 'documents' })).toBe('新建 iModel');
+    expect(i18n.t('detail.actions.share', { ns: 'documents' })).toBe('分享项目');
+    expect(i18n.t('detail.imodelCount', { ns: 'documents', count: 2 })).toBe('2 个 iModel');
+    expect(i18n.t('detail.deleteProject.message', { ns: 'documents', name: 'X' })).toContain('「X」');
+    expect(i18n.t('imodelCard.open', { ns: 'documents' })).toBe('打开工作空间');
+    expect(i18n.t('imodelCard.notInitialized', { ns: 'documents' })).toBe('未初始化');
+    // e2e helpers 依名的 iModel 卡片语义锚点（文案由卡片 t() 渲染）
+    expect(i18n.t('imodelCard.untitled', { ns: 'documents' })).toBe('未命名 iModel');
+    await i18n.changeLanguage('en');
+    expect(i18n.t('detail.actions.createIModel', { ns: 'documents' })).toBe('New iModel');
+    expect(i18n.t('detail.imodelCount', { ns: 'documents', count: 1 })).toBe('1 iModel');
+    expect(i18n.t('detail.imodelCount', { ns: 'documents', count: 2 })).toBe('2 iModels');
+    expect(i18n.t('imodelCard.open', { ns: 'documents' })).toMatch(/Open workspace/i);
+    expect(i18n.t('detail.deleteProject.message', { ns: 'documents', name: 'X' })).toContain('X');
+    await i18n.changeLanguage('zh-CN');
+  });
+
   it('语言持久化键常量', () => {
     expect(LANGUAGE_STORAGE_KEY).toBe('luban-cad-lang');
   });

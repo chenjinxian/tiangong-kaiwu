@@ -31,6 +31,14 @@
   opacity: 0.5;
 }
 
+/* RW4-P3-T3-1：真实缩略图（useIModelImage objectURL）铺满 16:9 媒体区 */
+.imodel-card__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .imodel-card__overlay {
   position: absolute;
   inset: 0;

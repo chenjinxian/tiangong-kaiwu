@@ -115,6 +115,9 @@ export const queryKeys = {
     list: (projectId: string) => [...queryKeys.iModels.all, 'list', projectId] as const,
     detail: (iModelId: string) =>
       [...queryKeys.iModels.all, 'detail', iModelId] as const,
+    // 缩略图 objectURL（useIModelImage，RW4-P3-T3-1）——缓存条目移除时回收 blob URL
+    image: (iModelId: string | null) =>
+      [...queryKeys.iModels.all, 'image', iModelId] as const,
   },
 
   // Briefcases
