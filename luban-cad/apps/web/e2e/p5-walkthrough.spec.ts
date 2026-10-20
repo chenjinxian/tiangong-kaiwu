@@ -52,6 +52,7 @@ const COPY: Record<Lang, {
   historyButton: RegExp;
   namedVersionsTab: RegExp;
   namedVersionsEmpty: RegExp;
+  changesetsTab: RegExp;
   versionPill: RegExp;
   settingsTab: RegExp;
   projectsFilter: RegExp;
@@ -72,6 +73,7 @@ const COPY: Record<Lang, {
     historyButton: /^历史$/,
     namedVersionsTab: /命名版本/,
     namedVersionsEmpty: /暂无命名版本/,
+    changesetsTab: /变更集/,
     versionPill: /^#\d+$/,
     settingsTab: /个人资料/,
     projectsFilter: /我的项目/,
@@ -92,6 +94,7 @@ const COPY: Record<Lang, {
     historyButton: /^History$/,
     namedVersionsTab: /Named versions/,
     namedVersionsEmpty: /No named versions/,
+    changesetsTab: /Changesets/,
     versionPill: /^#\d+$/,
     settingsTab: /Profile/,
     projectsFilter: /My Projects/,
@@ -207,6 +210,14 @@ for (const lang of LANGS) {
         await page.waitForTimeout(1200);
         await shoot(page, `editor-${suffix}`);
         if (lang === 'en') await expectNoCjk(page, 'Editor');
+
+        // 药丸直达历史停靠：changesets 查询应启动、底栏时间线让位（终审复检 Important#2）
+        await page.getByRole('button', { name: copy.versionPill }).first().click();
+        const pillDock = page.getByTestId('editor-dock');
+        await expect(pillDock.getByRole('tab', { name: copy.changesetsTab })).toBeVisible({ timeout: 15000 });
+        // 历史停靠内保留一条 VersionTimeline（含其 bar）；页面底栏必须让位 → 全局仅 1 条
+        await expect(pillDock.locator('.version-timeline-bar')).toHaveCount(1);
+        await expect(page.locator('.version-timeline-bar')).toHaveCount(1);
 
         // 停靠面板展开态（viewer-core 面板文案的 en 兜底；终审 I2）
         await page.getByRole('button', { name: copy.editorDisplay }).first().click();

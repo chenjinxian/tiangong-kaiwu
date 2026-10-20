@@ -349,6 +349,8 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
   }, [selectedVersion, onRollback, t]);
 
   const handleCompareClick = useCallback((version: NamedVersion) => {
+    // 无对比渲染器时不得进入 compare mode（终审复检 Important#1：行内入口残留）
+    if (!onCompareVersions) return;
     if (!compareMode) {
       // Enter compare mode with this as source
       setCompareMode(true);
@@ -480,7 +482,7 @@ export const NamedVersionPanel: React.FC<NamedVersionPanelProps> = React.memo(({
             isCurrent={version.changesetId === currentChangesetId}
             canRollback={version.changesetId !== currentChangesetId && !!onRollback}
             onRollback={() => handleRollbackClick(version)}
-            onCompare={() => handleCompareClick(version)}
+            onCompare={onCompareVersions ? () => handleCompareClick(version) : undefined}
           />
         ))}
       </div>

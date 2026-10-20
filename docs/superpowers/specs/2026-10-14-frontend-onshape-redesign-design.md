@@ -31,7 +31,7 @@
 imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）：
 
 - **认证**：local + **Google OAuth**（`GOOGLE_CLIENT_ID/SECRET` 已配置于 .env）+ refresh + 密码重置（mailer）。
-- **iTwins**：CRUD + favorites + recents + **GET `/itwins/:id/image`（文档图）**；列表项带 `role: owner/editor/viewer/none` →「与我共享」= role≠owner 可前端过滤。
+- **iTwins**：CRUD + favorites + recents + **GET `/itwins/:id/image`（文档图）**；列表项实际 DTO 无 role 字段（P2 实测）→「与我共享」以 `createdBy !== 我` 代理（诚实注记）。
 - **access-control**：角色 CRUD / 用户成员 CRUD / 所有者 / 组 / 权限——**全量实现**，Share 对话框的最大能力洼地。
 - **iModels**：CRUD + briefcases + changesets + named versions + locks + checkpoints + **GET `/imodels/:id/thumbnail`（缩略图）**。
 - **无 API**：labels、public scope、presence、评论、邮箱验证端点；trash 仅实体有 `deletedAt` 列、无端点。
@@ -58,7 +58,7 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 
 | Onshape 能力 | 裁决 |
 |---|---|
-| 侧栏筛选（我的/与我共享/最近/收藏） | ✅ 全做，「与我共享」以 role≠owner 过滤，替换现有假 shared |
+| 侧栏筛选（我的/与我共享/最近/收藏） | 🟠 四筛选全做；「与我共享」以 `createdBy !== 我` 代理（hub DTO 无 role，待 access-control 列表补角色） |
 | Create 新建文档 | ✅ CreateITwinDialog 重构为 itwin-ui 标准 Dialog |
 | 搜索 | ✅ 前端 filter（官方 spec 亦无搜索 API） |
 | 排序（名称/修改时间/创建时间/最近打开） | 🟠 三键已做；「最近打开」排序键缺（数据源无 lastOpened，登记） |
@@ -85,7 +85,7 @@ imodelhub-services（NestJS，`D:\Github\imodelhub-services` 已全量修复）�
 |---|---|
 | 顶栏：文档名点击重命名 | ✅ 顶栏重命名按钮 → RenameIModelDialog（PATCH `/imodels/:id`；当前顶栏展示 iModel 名） |
 | 顶栏：版本药丸 + 下拉 | 🟠 版本药丸（briefcase changeset.index → 历史停靠）已实现；下拉菜单/分支/合并未做（缺口登记） |
-| 顶栏：undo/redo | ✅ UndoRedoToolbar 移至顶栏（BriefcaseTxns 管道不动） |
+| 顶栏：undo/redo | ✅ UndoRedoToolbar 移至主工具条（BriefcaseTxns 管道不动；措辞修正） |
 | 顶栏：Share 按钮 | ✅ 已接 ShareITwinDialog（终审 I1 修复） |
 | 顶栏：协作头像 | ❌ 不做（无 presence） |
 | 左栏：特征树（抑制/隐藏/右键菜单） | 🟠 `Tabs` 特征/装配 + 抑制/删除/重排已做；itwin-ui `Tree` 组件、隐藏、行右键菜单未做（终审 I1，登记）；**rollback 条 ⚪ 不做**——与已裁决的线性链重排守卫语义冲突 |
@@ -159,7 +159,7 @@ state 与副作用下沉到 `features/editor/hooks/` 现有 hooks（useEditTools
 | **P1 认证** | Login/Register/ForgotPassword 三页 itwin-ui 分屏重做 + Google SSO（env 探测）+ 404 页 + 认证页 i18n 全量 | login.spec.ts 更新绿；中英切换走查 **✅ 完成（2026-10-20）** |
 | **P2 Documents** | 侧栏筛选（含真「与我共享」）+ SearchBox + 排序 + Table/Tile 双视图 + 真实缩略图 + 行级右键菜单 + 详情面板 + 创建对话框重构 | documents.spec.ts 更新绿；空态/加载/错误三态走查 **✅ 完成（2026-10-20；共享语义按 hub DTO 诚实注记）** |
 | **P3 Detail+Share** | DocumentDetail 重构 + iModel 缩略图 + CreateIModelWorkflow 的 Stepper 化 + Share 对话框（members/roles hooks + 邀请/角色/移除） | e2e 新增 share 流；权限错误路径覆盖 **✅ 完成（2026-10-20；改角色/移除待 imodelhub 成员契约修复，前端 UUID 守卫降级）** |
-| **P4 Editor** | EditorShell 分解（900 行 God Component 拆解）+ 顶栏（重命名/版本药丸/undo-redo/Share）+ 左栏 Tabs+Tree + 右侧停靠面板退役 overlay 栈 + ViewCube 接入 + 状态条 token 化 + 快捷键速查表 + 版本面板升级 | editor/features/sketch/modeling e2e 全绿；demo-flow 24 幕选择器同步更新 **✅ 完成（2026-10-20）** |
+| **P4 Editor** | EditorShell 分解（900 行 God Component 拆解）+ 顶栏（重命名/版本药丸/undo-redo/Share）+ 左栏 Tabs+Tree + 右侧停靠面板退役 overlay 栈 + ViewCube 接入 + 状态条 token 化 + 版本面板升级（快捷键速查表/视口右键/Tree 隐藏等缺口见 §6） | editor/features/sketch/modeling e2e 全绿；demo-flow 24 幕选择器同步更新 **✅ 主干完成（2026-10-20，缺口登记）** |
 | **P5 Settings+收尾** | Settings 收编 httpClient+react-query + 偏好（主题/单位/语言）+ e2e/demo 全量更新 + 全站中英走查 + 视觉走查 | 14 spec 全绿 + demo-flow 全幕通过 **✅ 完成（2026-10-20）** |
 
 > **P0 完成口径注记**：「硬编码色值清零」实际口径 = 品牌 token 映射（T4）+ 本波触碰面清零（PrivateRoute/ErrorBoundary）；残留（`features/modeling/PatternDialogs.tsx`、`EditorBriefcaseStatus.tsx`、`ExportDialog.tsx`、`BriefcaseStatus.tsx`、`shared/components/feedback/PerformanceProfiler.tsx`）按终审裁决分配至 P2-P5 逐波清偿。

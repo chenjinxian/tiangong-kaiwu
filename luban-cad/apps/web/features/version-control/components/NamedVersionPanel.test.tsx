@@ -332,6 +332,16 @@ describe('NamedVersionPanel', () => {
       expect(compareButtons.length).toBeGreaterThanOrEqual(1);
     });
 
+    it('hides all compare affordances when no renderer is provided', () => {
+      const { onCompareVersions: omitCompare, ...propsWithoutCompare } = defaultProps;
+      void omitCompare;
+      render(<NamedVersionPanel {...propsWithoutCompare} />);
+
+      // 头部开关与行内「⚖️ 对比」都不得出现（终审复检 Important#1）
+      expect(screen.queryByTitle('对比版本')).toBeNull();
+      expect(screen.queryAllByText('⚖️ 对比')).toHaveLength(0);
+    });
+
     it.skip('should trigger comparison when selecting two versions', async () => {
       // NOTE: This test is skipped due to stale closure issues with React state.
       // The handleCompareClick callback captures compareMode from closure at render time,

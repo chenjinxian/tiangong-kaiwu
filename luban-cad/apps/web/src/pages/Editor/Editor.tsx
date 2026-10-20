@@ -557,7 +557,12 @@ const Editor: React.FC = React.memo(() => {
         onExport={() => setIsExportDialogOpen(true)}
         onShare={() => setIsShareDialogOpen(true)}
         onRename={() => setIsRenameDialogOpen(true)}
-        onOpenHistory={() => openDock({ tab: 'history', historyPanel: 'changesets' })}
+        onOpenHistory={() => {
+          // 药丸直达历史停靠：同步激活 history tab，使 changesets 查询启动
+          //（否则 fresh editor 下回滚索引不可解析——终审复检 Important#2）
+          versionControl.setActiveSidebarTab('history');
+          openDock({ tab: 'history', historyPanel: 'changesets' });
+        }}
         changesetLabel={
           // briefcase 连接即带当前 changeset.index（不依赖 changesets 列表加载——
           // 终审 I4：fresh editor 下版本药丸曾不可见）
