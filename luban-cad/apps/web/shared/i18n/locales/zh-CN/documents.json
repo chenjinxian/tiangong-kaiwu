@@ -141,6 +141,62 @@
     "rename": "重命名",
     "delete": "删除"
   },
+  "createIModel": {
+    "title": "创建 iModel",
+    "successTitle": "创建成功",
+    "errorTitle": "创建失败",
+    "steps": {
+      "validating": { "label": "验证中", "description": "正在验证输入数据..." },
+      "creating": { "label": "创建中", "description": "正在创建 iModel..." },
+      "initializing": { "label": "初始化中", "description": "正在初始化 iModel..." },
+      "uploading": { "label": "上传中", "description": "正在上传 baseline 文件..." },
+      "completing": { "label": "完成中", "description": "正在完成创建..." }
+    },
+    "form": {
+      "nameLabel": "模型名称",
+      "namePlaceholder": "输入模型名称",
+      "nameHint": "用于标识模型，建议使用英文、数字和连字符",
+      "displayNameLabel": "显示名称",
+      "displayNamePlaceholder": "可选，用于界面展示",
+      "descriptionLabel": "描述",
+      "descriptionPlaceholder": "模型描述...",
+      "baselineLabel": "Baseline 文件 (可选)",
+      "selectFile": "选择文件",
+      "noFile": "未选择文件",
+      "removeFile": "移除文件",
+      "baselineHint": "选择 .bim 文件作为 iModel 的 baseline，创建后可立即编辑",
+      "cancel": "取消",
+      "submit": "创建"
+    },
+    "validation": {
+      "nameRequired": "请输入模型名称",
+      "nameTooShort": "模型名称至少2个字符",
+      "invalidFileType": "请选择 .bim 文件",
+      "fileTooLarge": "文件大小不能超过 100MB"
+    },
+    "errors": {
+      "notAuthenticated": "未登录",
+      "uploadFailed": "上传文件失败: {{status}} {{statusText}}",
+      "uploadUrlFailed": "获取上传地址失败: {{status}}",
+      "completeUploadFailed": "完成上传失败: {{status}}",
+      "createFailed": "创建失败",
+      "sessionExpired": "登录已过期，请重新登录"
+    },
+    "processing": {
+      "cancel": "取消创建",
+      "cancelling": "正在取消..."
+    },
+    "success": {
+      "title": "iModel 创建成功！",
+      "baselinePending": "您的 iModel「{{name}}」已创建，baseline 文件正在后台处理中，请稍后再打开",
+      "ready": "您的 iModel「{{name}}」已成功创建并准备就绪",
+      "open": "打开 iModel",
+      "baselinePendingTitle": "Baseline 文件正在处理中，请稍后再试",
+      "createAnother": "创建另一个"
+    },
+    "retry": "重试",
+    "backToForm": "返回修改"
+  },
   "shareDialog": {
     "title": "分享项目",
     "close": "关闭",

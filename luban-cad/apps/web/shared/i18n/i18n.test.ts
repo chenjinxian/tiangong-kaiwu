@@ -215,6 +215,21 @@ describe('i18n 骨架', () => {
     await i18n.changeLanguage('zh-CN');
   });
 
+  it('documents 命名空间：Create iModel 工作流文案键命中（zh/en）', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.t('createIModel.title', { ns: 'documents' })).toBe('创建 iModel');
+    expect(i18n.t('createIModel.form.namePlaceholder', { ns: 'documents' })).toBe('输入模型名称');
+    expect(i18n.t('createIModel.form.submit', { ns: 'documents' })).toBe('创建');
+    expect(i18n.t('createIModel.steps.uploading.label', { ns: 'documents' })).toBe('上传中');
+    expect(i18n.t('createIModel.success.baselinePending', { ns: 'documents', name: 'M' })).toContain('M');
+    await i18n.changeLanguage('en');
+    expect(i18n.t('createIModel.title', { ns: 'documents' })).toBe('Create iModel');
+    expect(i18n.t('createIModel.form.namePlaceholder', { ns: 'documents' })).toBe('Enter model name');
+    expect(i18n.t('createIModel.form.submit', { ns: 'documents' })).toBe('Create');
+    expect(i18n.t('createIModel.validation.nameRequired', { ns: 'documents' })).toMatch(/model name/i);
+    await i18n.changeLanguage('zh-CN');
+  });
+
   it('documents 命名空间：分享对话框文案键命中（zh/en，share e2e 锚点）', async () => {
     await i18n.changeLanguage('zh-CN');
     expect(i18n.t('shareDialog.title', { ns: 'documents' })).toBe('分享项目');

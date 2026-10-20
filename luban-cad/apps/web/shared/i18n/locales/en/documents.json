@@ -143,6 +143,62 @@
     "rename": "Rename",
     "delete": "Delete"
   },
+  "createIModel": {
+    "title": "Create iModel",
+    "successTitle": "Created",
+    "errorTitle": "Creation failed",
+    "steps": {
+      "validating": { "label": "Validating", "description": "Validating input..." },
+      "creating": { "label": "Creating", "description": "Creating iModel..." },
+      "initializing": { "label": "Initializing", "description": "Initializing iModel..." },
+      "uploading": { "label": "Uploading", "description": "Uploading baseline file..." },
+      "completing": { "label": "Completing", "description": "Finishing creation..." }
+    },
+    "form": {
+      "nameLabel": "Model Name",
+      "namePlaceholder": "Enter model name",
+      "nameHint": "Identifies the model. Letters, digits and hyphens are recommended.",
+      "displayNameLabel": "Display Name",
+      "displayNamePlaceholder": "Optional, shown in the UI",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Model description...",
+      "baselineLabel": "Baseline File (optional)",
+      "selectFile": "Choose file",
+      "noFile": "No file selected",
+      "removeFile": "Remove file",
+      "baselineHint": "Choose a .bim file as the iModel baseline so it can be edited right away",
+      "cancel": "Cancel",
+      "submit": "Create"
+    },
+    "validation": {
+      "nameRequired": "Please enter a model name",
+      "nameTooShort": "Model name must be at least 2 characters",
+      "invalidFileType": "Please choose a .bim file",
+      "fileTooLarge": "File size must not exceed 100MB"
+    },
+    "errors": {
+      "notAuthenticated": "Not signed in",
+      "uploadFailed": "File upload failed: {{status}} {{statusText}}",
+      "uploadUrlFailed": "Failed to get upload URL: {{status}}",
+      "completeUploadFailed": "Failed to complete upload: {{status}}",
+      "createFailed": "Creation failed",
+      "sessionExpired": "Session expired. Please sign in again."
+    },
+    "processing": {
+      "cancel": "Cancel creation",
+      "cancelling": "Cancelling..."
+    },
+    "success": {
+      "title": "iModel created!",
+      "baselinePending": "Your iModel \"{{name}}\" was created. The baseline file is being processed in the background. Please open it later.",
+      "ready": "Your iModel \"{{name}}\" was created and is ready to open",
+      "open": "Open iModel",
+      "baselinePendingTitle": "Baseline file is still being processed. Please try again later.",
+      "createAnother": "Create another"
+    },
+    "retry": "Retry",
+    "backToForm": "Back to form"
+  },
   "shareDialog": {
     "title": "Share Project",
     "close": "Close",

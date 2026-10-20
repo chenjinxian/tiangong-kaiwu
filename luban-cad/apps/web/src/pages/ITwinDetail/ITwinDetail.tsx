@@ -48,6 +48,7 @@ import {
   useITwinQuery,
 } from '../../../features/itwin/hooks/useITwinsQuery.js';
 import {
+  type IModel,
   useDeleteIModelMutation,
   useIModels,
 } from '../../../features/imodel/hooks/useIModelsQuery.js';
@@ -65,7 +66,6 @@ import {
   IModelsListSkeleton,
   ITwinDetailSkeleton,
 } from '../../../shared/components/skeletons/ITwinDetailSkeleton.js';
-import type { IModel } from '../../../features/imodel/hooks/useIModelsQuery.js';
 import type { ITwin } from '../../../shared/services/itwins/client.js';
 import './ITwinDetail.css';
 

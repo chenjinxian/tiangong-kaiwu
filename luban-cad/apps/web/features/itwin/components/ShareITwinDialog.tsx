@@ -44,12 +44,12 @@ import {
 import type { ITwin } from '../../../shared/services/itwins/client.js';
 import {
   addUserMember,
+  type AddUserMemberRequest,
+  type ITwinMember,
   listRoles,
   listUserMembers,
   removeUserMember,
   updateUserMember,
-  type AddUserMemberRequest,
-  type ITwinMember,
 } from '../../../shared/services/accessControl/client.js';
 import { queryKeys } from '../../../app/providers/QueryProvider.js';
 import { useAppToast } from '../../../shared/hooks/useAppToast.js';
@@ -85,14 +85,14 @@ export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
 
   const membersQuery = useQuery({
     queryKey: queryKeys.itwins.members(iTwinId),
-    queryFn: () => listUserMembers(iTwinId as string),
+    queryFn: async () => listUserMembers(iTwinId as string),
     enabled: isOpen && !!iTwinId,
     staleTime: 30 * 1000,
   });
 
   const rolesQuery = useQuery({
     queryKey: queryKeys.itwins.roles(iTwinId),
-    queryFn: () => listRoles(iTwinId as string),
+    queryFn: async () => listRoles(iTwinId as string),
     enabled: isOpen && !!iTwinId,
     staleTime: 5 * 60 * 1000,
   });
@@ -103,13 +103,13 @@ export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
   }, [iTwinId, queryClient]);
 
   const addMemberMutation = useMutation({
-    mutationFn: (request: AddUserMemberRequest) => addUserMember(iTwinId as string, request),
+    mutationFn: async (request: AddUserMemberRequest) => addUserMember(iTwinId as string, request),
     onSuccess: invalidateMembers,
   });
 
   const updateMemberMutation = useMutation({
     // PATCH 返回 roleIds 异形，仅确认成功；列表刷新后由 ITwinMember.roles 渲染
-    mutationFn: ({ memberId, roleIds }: { memberId: string; roleIds: string[] }) =>
+    mutationFn: async ({ memberId, roleIds }: { memberId: string; roleIds: string[] }) =>
       updateUserMember(iTwinId as string, memberId, { roleIds }),
     onSuccess: () => {
       invalidateMembers();
@@ -119,7 +119,7 @@ export const ShareITwinDialog: React.FC<ShareITwinDialogProps> = ({
   });
 
   const removeMemberMutation = useMutation({
-    mutationFn: (memberId: string) => removeUserMember(iTwinId as string, memberId),
+    mutationFn: async (memberId: string) => removeUserMember(iTwinId as string, memberId),
     onSuccess: () => {
       invalidateMembers();
       setRemoveTarget(null);
