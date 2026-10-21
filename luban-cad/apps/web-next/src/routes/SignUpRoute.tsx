@@ -11,17 +11,17 @@
 //   特殊字符各 +1，clamp 0..4；颜色走 iTwinUI 语义 token
 //   （≤1 负向 / =2 警告 / ≥3 正向），data-testid="password-strength"。
 // - 提交：AuthSession.register(email, password, firstName, lastName)
-//   → 成功 navigate('/documents')；429 → auth.signUp.tooManyRequests
+//   → 成功由 useAuthForm 的 navigateAfterSuccess 回跳（location.state.from
+//   ?? '/documents'，终审 I5）；429 → auth.signUp.tooManyRequests
 //   （seconds 插值）；其它 → message 透传（错误按形状解包，兼容裸对象）。
 
 import React, { useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button, Checkbox } from '@itwin/itwinui-react';
 import { AuthFormField, AuthPageShell, useAuthForm } from '@modules/authentication';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
-import { ROUTE_DOCUMENTS } from '@config/routes.constants.js';
 import './SignUpRoute.css';
 
 /** 邮箱格式（与 /login 同规则）。 */
@@ -81,7 +81,6 @@ function SignUpHero(): React.JSX.Element {
 
 export function SignUpRoute(): React.JSX.Element {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   const validate = useCallback((values: SignUpValues): Partial<Record<keyof SignUpValues, string>> => {
     const errors: Partial<Record<keyof SignUpValues, string>> = {};
@@ -100,7 +99,6 @@ export function SignUpRoute(): React.JSX.Element {
     setFormError(null);
     try {
       await AuthSession.register(values.email, values.password, values.firstName, values.lastName);
-      navigate(ROUTE_DOCUMENTS);
     } catch (error) {
       const { status, retryAfterSeconds } = (error ?? {}) as { status?: number; retryAfterSeconds?: number };
       if (status === 429 && typeof retryAfterSeconds === 'number') {
@@ -108,15 +106,19 @@ export function SignUpRoute(): React.JSX.Element {
       } else {
         setFormError(error instanceof Error ? error.message : String(error));
       }
+      // 失败须让 hook 的成功回跳判定成立：横幅落盘后原样上抛，
+      // useAuthForm.submit 内统一吞掉（防 unhandled rejection）。
+      throw error;
     }
     // deps 不含 setFormError：它由下方 useAuthForm 返回，是 React 保证稳定的
     // useState setter（此处若在 deps 引用会命中 TDZ——声明在后）。
-  }, [navigate, t]);
+  }, [t]);
 
   const { values, errors, touched, submitting, formError, setFormError, setValue, submit } = useAuthForm<SignUpValues>({
     initialValues: { firstName: '', lastName: '', email: '', password: '', confirmPassword: '', terms: false },
     validate,
     onSubmit,
+    navigateAfterSuccess: true,
   });
 
   const strength = useMemo(() => computeStrength(values.password), [values.password]);

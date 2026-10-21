@@ -18,6 +18,22 @@ export default defineConfig({
       '/accesscontrol': { target: 'http://localhost:5400', changeOrigin: true, secure: false },
       '/users': { target: 'http://localhost:5400', changeOrigin: true, secure: false },
       '/files': { target: 'http://localhost:5400', changeOrigin: true, secure: false },
+      // M3-T1：modeling-server (:5401) 同源代理。MS 的 CORS 单源钉死
+      // FRONTEND_URL=http://localhost:5300（dist-backend/modeling-server/dist/
+      // main.js cors({ origin: config.FRONTEND_URL })），web-next :5310 直连
+      // HTTP/WS 必被拦——改走同源代理，DevViewerRoute 的 backendUrl 相应
+      // 改传 window.location.origin。前缀取证于 main.js Express 注册：
+      // - /ipc（express-ws，LocalhostIpcHost 的 BriefcaseConnection 通道，
+      //   viewer-next buildUrlForSocket 拼 ws://<origin>/ipc）；
+      // - /ws（进度广播通道，verifyClient 同样鉴 JWT）；
+      // - /rpc/metadata（OpenAPI bootstrap，HTTP）；
+      // - /api/*（/api/imodels/:id/progress 等用户态查询面）。
+      // 注：HTTP RPC 面 `/:title/:version/mode/*` 前端不使用（实际 RPC 全走
+      // /ipc WS，main.js 注记），不挂代理。
+      '/ipc': { target: 'ws://localhost:5401', ws: true, changeOrigin: true, secure: false },
+      '/ws': { target: 'ws://localhost:5401', ws: true, changeOrigin: true, secure: false },
+      '/rpc': { target: 'http://localhost:5401', changeOrigin: true, secure: false },
+      '/api': { target: 'http://localhost:5401', changeOrigin: true, secure: false },
     },
   },
   resolve: {

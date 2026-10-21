@@ -1,13 +1,21 @@
 import { useCallback, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ROUTE_DOCUMENTS } from '@config/routes.constants.js';
 import type { AuthFormState } from '../types.js';
 
 export interface UseAuthFormOptions<T> {
   initialValues: T;
   validate: (values: T) => Partial<Record<keyof T, string>>;
   onSubmit: (values: T) => Promise<void>;
+  /** M3-T1（终审 I5）：onSubmit 成功后的回跳开关。true 时提交成功即
+   * navigate(location.state?.from?.pathname ?? ROUTE_DOCUMENTS)——RequireAuth
+   * 守卫把被拦地址落在 location.state.from，登录成功回跳原目的地；
+   * onSubmit 拒绝则不跳（失败呈现收敛在调用方）。缺省 false：
+   * forgot-password 成功走本页 success 态，不跳路由。 */
+  navigateAfterSuccess?: boolean;
 }
 
-export function useAuthForm<T extends Record<string, unknown>>({ initialValues, validate, onSubmit }: UseAuthFormOptions<T>) {
+export function useAuthForm<T extends Record<string, unknown>>({ initialValues, validate, onSubmit, navigateAfterSuccess = false }: UseAuthFormOptions<T>) {
   const [values, setValues] = useState<T>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
@@ -16,6 +24,8 @@ export function useAuthForm<T extends Record<string, unknown>>({ initialValues, 
    * setValue 时若存在 formError 即清掉——429 横幅挂起期间用户改任一字段，
    * 横幅即时消失；同值 setState 有 React 短路，无额外渲染开销。 */
   const [formError, setFormError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // 语义钉死（brief 测试钉死）：字段变更即按新值重派生全量错误，
   // 但无条件清掉本字段错误（键入中的字段不即时报错）——其它字段错误保留。
@@ -42,10 +52,17 @@ export function useAuthForm<T extends Record<string, unknown>>({ initialValues, 
     setSubmitting(true);
     try {
       await onSubmit(values);
+      if (navigateAfterSuccess) {
+        // location.state.from 由 RequireAuth 守卫落（被拦地址）；缺席回退文档页。
+        navigate(location.state?.from?.pathname ?? ROUTE_DOCUMENTS);
+      }
+    } catch {
+      // 失败呈现收敛在调用方 onSubmit 内（setFormError 横幅）；此处吞掉防
+      // 路由层 `void submit()` 变成 unhandled rejection。
     } finally {
       setSubmitting(false);
     }
-  }, [values, validate, onSubmit]);
+  }, [values, validate, onSubmit, navigateAfterSuccess, navigate, location.state]);
 
   const state: AuthFormState<T> = { values, errors, touched, submitting, formError };
   return { ...state, setFormError, setValue, submit };

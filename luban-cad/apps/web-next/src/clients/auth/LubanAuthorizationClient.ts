@@ -8,6 +8,7 @@
  */
 
 import { AuthSession } from './AuthSession.js';
+import { ApiClientError } from '../http/ApiClientError.js';
 
 /**
  * 结构镜像 `@itwin/core-common` 的 `AuthorizationClient`（`AccessToken` 在
@@ -20,8 +21,21 @@ interface AuthorizationClient {
 }
 
 export class LubanAuthorizationClient implements AuthorizationClient {
-  /** 委托 getValidAccessToken：将过期自动单飞刷新，未登录返回空串。 */
+  /** 委托 getValidAccessToken：将过期自动单飞刷新。出口两钉死（M3-T1，终审 I6）：
+   * - 统一加 `Bearer ` 前缀——iTwin RPC / tile 请求头直接消费本返回值，
+   *   裸 token 会被后端 fromAuthHeaderAsBearerToken() 恒拒；
+   * - 空 token（未登录/会话已清）短路抛 ApiClientError(401, AUTH_SESSION_EXPIRED)，
+   *   不把裸空串漏进请求头。 */
   public async getAccessToken(): Promise<string> {
-    return AuthSession.getValidAccessToken();
+    const token = await AuthSession.getValidAccessToken();
+    if (!token) {
+      throw new ApiClientError({
+        status: 401,
+        code: 'AUTH_SESSION_EXPIRED',
+        i18nKey: 'common.errors.sessionExpired',
+        message: 'No valid access token (session missing or cleared)',
+      });
+    }
+    return `Bearer ${token}`;
   }
 }

@@ -18,6 +18,7 @@
 
 import { env } from '@config/env.js';
 import { AuthSession } from '@clients/auth/AuthSession.js';
+import { ApiClientError } from '@clients/http/ApiClientError.js';
 
 export interface ITwinMemberRole {
   id: string;
@@ -57,7 +58,9 @@ export interface ITwinRole {
   displayName: string;
 }
 
-/** 带 Bearer 的认证 fetch（token 单飞刷新在 AuthSession 内部）。 */
+/** 带 Bearer 的认证 fetch（token 单飞刷新在 AuthSession 内部）。
+ * 非 2xx 统一抛 ApiClientError（M3-T1，终审 I2 收口）——共享面的 401
+ * 由此进 QueryErrorBridge 刷新重放管道，裸 Error 会失明。 */
 async function hubFetch(path: string, init?: RequestInit): Promise<Response> {
   const accessToken = await AuthSession.getValidAccessToken();
   const response = await fetch(`${env.hubUrl}${path}`, {
@@ -69,7 +72,12 @@ async function hubFetch(path: string, init?: RequestInit): Promise<Response> {
     },
   });
   if (!response.ok) {
-    throw new Error(`access-control request failed (status ${response.status})`);
+    const body = await response.json().catch(() => ({})) as { message?: string; code?: string };
+    throw new ApiClientError({
+      status: response.status,
+      code: body.code,
+      message: body.message ?? `access-control request failed (status ${response.status})`,
+    });
   }
   return response;
 }

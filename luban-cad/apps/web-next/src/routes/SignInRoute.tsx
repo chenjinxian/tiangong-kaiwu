@@ -6,19 +6,19 @@
 //
 // 语义钉死（brief）：
 // - 校验：邮箱格式 EMAIL_PATTERN、密码非空；错误逐字段（useAuthForm）。
-// - 提交：AuthSession.login(email, password) → 成功 navigate('/documents')；
+// - 提交：AuthSession.login(email, password) → 成功由 useAuthForm 的
+//   navigateAfterSuccess 回跳（location.state.from ?? '/documents'，终审 I5）；
 //   429 → 错误区 auth.signIn.tooManyRequests（seconds 插值）；
 //   其它 → message 透传。错误按形状解包（duck-type），兼容 ApiClientError
 //   与测试注入的裸对象。
 
 import React, { useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button, Checkbox } from '@itwin/itwinui-react';
 import { AuthFormField, AuthPageShell, useAuthForm } from '@modules/authentication';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
-import { ROUTE_DOCUMENTS } from '@config/routes.constants.js';
 import './SignInRoute.css';
 
 /** 邮箱格式（brief 钉死）。 */
@@ -55,7 +55,6 @@ function SignInHero(): React.JSX.Element {
 
 export function SignInRoute(): React.JSX.Element {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   const validate = useCallback((values: SignInValues): Partial<Record<keyof SignInValues, string>> => {
     const errors: Partial<Record<keyof SignInValues, string>> = {};
@@ -69,7 +68,6 @@ export function SignInRoute(): React.JSX.Element {
     setFormError(null);
     try {
       await AuthSession.login(values.email, values.password);
-      navigate(ROUTE_DOCUMENTS);
     } catch (error) {
       const { status, retryAfterSeconds } = (error ?? {}) as { status?: number; retryAfterSeconds?: number };
       if (status === 429 && typeof retryAfterSeconds === 'number') {
@@ -77,15 +75,19 @@ export function SignInRoute(): React.JSX.Element {
       } else {
         setFormError(error instanceof Error ? error.message : String(error));
       }
+      // 失败须让 hook 的成功回跳判定成立：横幅落盘后原样上抛，
+      // useAuthForm.submit 内统一吞掉（防 unhandled rejection）。
+      throw error;
     }
     // deps 不含 setFormError：它由下方 useAuthForm 返回，是 React 保证稳定的
     // useState setter（此处若在 deps 引用会命中 TDZ——声明在后）。
-  }, [navigate, t]);
+  }, [t]);
 
   const { values, errors, touched, submitting, formError, setFormError, setValue, submit } = useAuthForm<SignInValues>({
     initialValues: { email: '', password: '', rememberMe: false },
     validate,
     onSubmit,
+    navigateAfterSuccess: true,
   });
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {

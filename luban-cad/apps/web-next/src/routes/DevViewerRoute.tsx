@@ -7,7 +7,9 @@ import { startViewer, stopViewer } from '@luban-cad/viewer-next';
 /**
  * Dev 专用查看器冒烟页（M0 真实栈验证载体，非产品页）：
  * - email/password 登录钮 → `AuthSession.login` 落会话（M0 尚无认证 UI，brief Step 4 钉死的便捷入口）；
- * - 「启动查看器」→ `startViewer({ backendUrl: env.msUrl, hubUrl: env.hubUrl, accessToken })`
+ * - 「启动查看器」→ `startViewer({ backendUrl: window.location.origin, hubUrl: env.hubUrl, accessToken })`
+ *   （M3-T1：MS CORS 钉死 :5300，web-next :5310 直连必被拦——backendUrl 传同源，
+ *   viewer-next 拼出 ws://<origin>/ipc 走 vite 代理转发 MS :5401；env.msUrl 仅作展示）
  *   → 轮询 `IModelApp.toolAdmin`（50ms×30s，对齐旧 `apps/web useEditorInitialization`）；
  * - `data-testid="viewer-status"` 显示 `IpcApp: valid/invalid · toolAdmin: ready/not-ready`。
  */
@@ -109,7 +111,7 @@ export function DevViewerRoute(): React.JSX.Element {
     void (async () => {
       try {
         await startViewer({
-          backendUrl: env.msUrl,
+          backendUrl: window.location.origin,
           hubUrl: env.hubUrl,
           accessToken: AuthSession.getStoredAuth()?.accessToken,
         });

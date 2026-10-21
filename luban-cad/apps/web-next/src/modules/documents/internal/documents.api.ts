@@ -11,8 +11,11 @@
 
 import { env } from '@config/env.js';
 import { AuthSession } from '@clients/auth/AuthSession.js';
+import { ApiClientError } from '@clients/http/ApiClientError.js';
 
-/** 带 Bearer 的认证 fetch：token 经 AuthSession 单飞刷新（过期自愈）。 */
+/** 带 Bearer 的认证 fetch：token 经 AuthSession 单飞刷新（过期自愈）。
+ * 非 2xx 统一抛 ApiClientError（M3-T1，终审 I2 收口）——QueryErrorBridge
+ * 只分流 ApiClientError 的 401，裸 Error 会让收藏面 401 失明（不走刷新重放）。 */
 async function hubFetch(path: string, init?: RequestInit): Promise<Response> {
   const accessToken = await AuthSession.getValidAccessToken();
   const response = await fetch(`${env.hubUrl}${path}`, {
@@ -24,7 +27,12 @@ async function hubFetch(path: string, init?: RequestInit): Promise<Response> {
     },
   });
   if (!response.ok) {
-    throw new Error(`hub request failed (status ${response.status})`);
+    const body = await response.json().catch(() => ({})) as { message?: string; code?: string };
+    throw new ApiClientError({
+      status: response.status,
+      code: body.code,
+      message: body.message ?? `hub request failed (status ${response.status})`,
+    });
   }
   return response;
 }
