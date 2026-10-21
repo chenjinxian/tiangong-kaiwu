@@ -54,7 +54,7 @@ export function PartStudioPage(): React.JSX.Element {
           <PartStudioDock />
         </div>
       </div>
-      <PartStudioTabs connection={phase} />
+      <PartStudioTabs iTwinId={iTwinId ?? ''} iModelId={iModelId ?? ''} connection={phase} />
       {/* 命令搜索面板：页面级常驻挂载（alt+/ 热键经 store 驱动开合）。 */}
       <CommandPalette />
     </div>

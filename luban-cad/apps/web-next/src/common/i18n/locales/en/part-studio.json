@@ -39,6 +39,56 @@
     "newTab": "New tab",
     "partStudio": "Part Studio 1"
   },
+  "tabManager": {
+    "title": "Tab manager",
+    "listLabel": "Tab list",
+    "shortcut": "Tab manager (alt+~+t)",
+    "searchPlaceholder": "Search tabs",
+    "clear": "Clear",
+    "filterLabel": "Filter",
+    "filters": {
+      "all": "All",
+      "partStudio": "Part Studio",
+      "assembly": "Assembly",
+      "tutorial": "Tutorial"
+    },
+    "viewList": "List view",
+    "viewGrid": "Grid view",
+    "openAs": "Open as",
+    "empty": "No matching tabs",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load tabs",
+    "retry": "Retry",
+    "previewLabel": "Selected element preview",
+    "noPreview": "No preview image",
+    "close": "Close",
+    "kindLabels": {
+      "partStudio": "Part Studio",
+      "assembly": "Assembly",
+      "tutorial": "Tutorial"
+    }
+  },
+  "documentMenu": {
+    "open": "Document menu",
+    "rename": "Rename document",
+    "move": "Move…",
+    "details": "Document details…",
+    "restoreWorkspace": "Restore deleted workspace…",
+    "copyWorkspace": "Copy workspace…",
+    "updateWorkspace": "Update workspace…",
+    "units": "Workspace units…",
+    "workspaceProperties": "Workspace properties…",
+    "viewOnly": "Switch to view only mode",
+    "editMode": "Switch to edit mode",
+    "print": "Print…",
+    "closeDocument": "Close document",
+    "unitsDialog": {
+      "title": "Workspace units",
+      "unitsLabel": "Length units",
+      "hint": "Only millimeters (mm) are supported in this version; more unit systems will come in a later milestone.",
+      "close": "Close"
+    }
+  },
   "status": {
     "connection": "Connection",
     "connecting": "Connecting",
@@ -345,6 +395,26 @@
     "dependencies": {
       "title": "Dependency viewer (on the roadmap)",
       "message": "A feature dependency viewer is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "moveDocument": {
+      "title": "Move (on the roadmap)",
+      "message": "Moving a document to another project is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "restoreWorkspace": {
+      "title": "Restore deleted workspace (on the roadmap)",
+      "message": "Restoring deleted workspaces is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "copyWorkspace": {
+      "title": "Copy workspace (on the roadmap)",
+      "message": "Workspace copy is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "updateWorkspace": {
+      "title": "Update workspace (on the roadmap)",
+      "message": "Workspace update (syncing upstream changes) is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "workspaceProperties": {
+      "title": "Workspace properties (on the roadmap)",
+      "message": "Custom workspace properties are on the LubanCAD roadmap and are not available in this version yet."
     }
   }
 }

@@ -2,10 +2,11 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * PartStudioTabs（M3 Task 3）：编辑器底部区（os-11 页签条 + 状态栏）——
- * - 页签条：适应视图钮（T6 接 viewport 视图命令，壳期可点占位）+ 禁用「+」
- *   （多页签管理 os-33 属后续里程碑，完整 UI 面保留按钮但禁用）+ 活动页签
- *   「Part Studio 1」；
+ * PartStudioTabs（M3 Task 3；T7 页签管理器接线）：编辑器底部区（os-11 页签条
+ * + 状态栏）——
+ * - 页签条：适应视图钮（T6 接 viewport 视图命令，壳期可点占位）+ 「+」
+ *   （T7 启用：打开页签管理器 TabManagerDialog，os-33「页签=同文档 iModel
+ *   列表」跳转的诚实降级）+ 活动页签「Part Studio 1」；
  * - 状态栏：连接态（viewer-next useViewport 相位驱动）/ 编辑模式 / 单位 /
  *   视图类型（后三项壳期静态值，T4+ 随工具/视口接线）。
  */
@@ -15,8 +16,13 @@ import { useTranslation } from 'react-i18next';
 import { IconButton } from '@itwin/itwinui-react';
 import { SvgAdd, SvgFitToView } from '@itwin/itwinui-icons-react';
 import type { ViewportPhase } from '@luban-cad/viewer-next';
+import { TabManagerDialog } from '../tabs/TabManagerDialog.js';
 
 export interface PartStudioTabsProps {
+  /** 当前 iTwin（页签管理器元素列表数据源寻址）。 */
+  iTwinId: string;
+  /** 当前 iModel（页签管理器活动元素高亮寻址）。 */
+  iModelId: string;
   /** 运行时连接相位（useViewport 出口 → 状态栏连接态）。 */
   connection: ViewportPhase;
 }
@@ -33,8 +39,9 @@ function connectionKey(connection: ViewportPhase): string {
   }
 }
 
-export function PartStudioTabs({ connection }: PartStudioTabsProps): React.JSX.Element {
+export function PartStudioTabs({ iTwinId, iModelId, connection }: PartStudioTabsProps): React.JSX.Element {
   const { t } = useTranslation();
+  const [tabManagerOpen, setTabManagerOpen] = React.useState(false);
 
   return (
     <>
@@ -45,8 +52,12 @@ export function PartStudioTabs({ connection }: PartStudioTabsProps): React.JSX.E
           <IconButton label={t('partStudio.tabs.fitView')} styleType="borderless">
             <SvgFitToView />
           </IconButton>
-          {/* 多页签管理（os-33）后续里程碑；完整 UI 面保留按钮、禁用呈现。 */}
-          <IconButton label={t('partStudio.tabs.newTab')} styleType="borderless" disabled>
+          {/* 「+」（T7）：打开页签管理器（os-33；同文档 iModel 列表跳转）。 */}
+          <IconButton
+            label={t('partStudio.tabs.newTab')}
+            styleType="borderless"
+            onClick={() => setTabManagerOpen(true)}
+          >
             <SvgAdd />
           </IconButton>
         </div>
@@ -83,6 +94,14 @@ export function PartStudioTabs({ connection }: PartStudioTabsProps): React.JSX.E
           <span className="part-studio-status-bar__value">{t('partStudio.status.viewIso')}</span>
         </span>
       </div>
+
+      {/* 页签管理器（os-33）：底部「+」开合；常驻挂载、状态驱动。 */}
+      <TabManagerDialog
+        iTwinId={iTwinId}
+        activeIModelId={iModelId}
+        isOpen={tabManagerOpen}
+        onClose={() => setTabManagerOpen(false)}
+      />
     </>
   );
 }

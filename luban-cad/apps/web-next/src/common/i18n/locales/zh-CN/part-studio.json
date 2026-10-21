@@ -39,6 +39,56 @@
     "newTab": "新建页签",
     "partStudio": "Part Studio 1"
   },
+  "tabManager": {
+    "title": "页签管理器",
+    "listLabel": "页签列表",
+    "shortcut": "页签管理器 (alt+~+t)",
+    "searchPlaceholder": "搜索页签",
+    "clear": "清除",
+    "filterLabel": "筛选",
+    "filters": {
+      "all": "全部",
+      "partStudio": "Part Studio",
+      "assembly": "装配体",
+      "tutorial": "教程"
+    },
+    "viewList": "列表视图",
+    "viewGrid": "网格视图",
+    "openAs": "以打开",
+    "empty": "无匹配页签",
+    "loading": "加载中…",
+    "loadFailed": "页签列表加载失败",
+    "retry": "重试",
+    "previewLabel": "所选元素预览",
+    "noPreview": "没有预览图像",
+    "close": "关闭",
+    "kindLabels": {
+      "partStudio": "Part Studio",
+      "assembly": "装配体",
+      "tutorial": "教程"
+    }
+  },
+  "documentMenu": {
+    "open": "文档菜单",
+    "rename": "重命名文档",
+    "move": "移至…",
+    "details": "文档详细信息…",
+    "restoreWorkspace": "还原已删除的工作区…",
+    "copyWorkspace": "复制工作区…",
+    "updateWorkspace": "更新工作区…",
+    "units": "工作区单位…",
+    "workspaceProperties": "工作区属性…",
+    "viewOnly": "切换到仅查看模式",
+    "editMode": "切换到编辑模式",
+    "print": "打印…",
+    "closeDocument": "关闭文档",
+    "unitsDialog": {
+      "title": "工作区单位",
+      "unitsLabel": "长度单位",
+      "hint": "当前版本仅支持毫米（mm）；更多单位制将在后续里程碑开放。",
+      "close": "关闭"
+    }
+  },
   "status": {
     "connection": "连接",
     "connecting": "连接中",
@@ -345,6 +395,26 @@
     "dependencies": {
       "title": "依赖项查看（规划中）",
       "message": "特征依赖项查看器已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "moveDocument": {
+      "title": "移至（规划中）",
+      "message": "将文档移动到其他项目的目录管理已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "restoreWorkspace": {
+      "title": "还原已删除的工作区（规划中）",
+      "message": "已删除工作区的还原已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "copyWorkspace": {
+      "title": "复制工作区（规划中）",
+      "message": "工作区复制已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "updateWorkspace": {
+      "title": "更新工作区（规划中）",
+      "message": "工作区更新（同步上游变更）已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "workspaceProperties": {
+      "title": "工作区属性（规划中）",
+      "message": "工作区自定义属性已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
     }
   }
 }

@@ -25,6 +25,7 @@ import type {
   PartStudioState,
   PartStudioToolState,
   PartStudioTreeState,
+  PartStudioViewOnlyState,
   TreeTab,
 } from '../types.js';
 
@@ -58,6 +59,9 @@ export interface PartStudioActions {
   openFeatureDialog: (feature: { featureId: string; featureName: string; featureType: string }) => void;
   openSketchDialog: (sketchId?: string) => void;
   closeDialog: () => void;
+  // viewOnly 切片（T7：仅查看模式切换）
+  setViewOnly: (active: boolean) => void;
+  toggleViewOnly: () => void;
 }
 
 export type PartStudioStore = PartStudioState & PartStudioActions;
@@ -101,6 +105,8 @@ const initialCanvas: PartStudioCanvasState = {
 };
 
 const initialDialog: PartStudioDialogState = { active: null };
+
+const initialViewOnly: PartStudioViewOnlyState = { isActive: false };
 
 /** tree 切片：双段树活动段 + 树选中/展开。 */
 function createTreeSlice([set, get]: SliceCreator): { tree: PartStudioTreeState } & Pick<PartStudioActions,
@@ -175,6 +181,7 @@ export const usePartStudioStore = create<PartStudioStore>()((...args) => ({
   ...createCommandPaletteSlice(args),
   ...createCanvasSlice(args),
   ...createDialogSlice(args),
+  ...createViewOnlySlice(args),
 }));
 
 /** canvas 切片：画布选择集（pick 回流宿主）+ 会话隐藏集。 */
@@ -208,5 +215,19 @@ function createDialogSlice([set]: SliceCreator): { dialog: PartStudioDialogState
     openFeatureDialog: (feature) => set({ dialog: { active: 'feature', ...feature } }),
     openSketchDialog: (sketchId) => set({ dialog: { active: 'sketch', sketchId: sketchId ?? null } }),
     closeDialog: () => set({ dialog: { active: null } }),
+  };
+}
+
+/**
+ * viewOnly 切片：仅查看模式（T7 os-24 汉堡菜单「切换到仅查看模式」）——
+ * 菜单 checkmark/标签反转的数据源；ribbon 只读态等后续消费面经 selector
+ * 订阅（store 铁律：编辑器会话态唯一归属 zustand）。
+ */
+function createViewOnlySlice([set, get]: SliceCreator): { viewOnly: PartStudioViewOnlyState } & Pick<PartStudioActions,
+  'setViewOnly' | 'toggleViewOnly'> {
+  return {
+    viewOnly: initialViewOnly,
+    setViewOnly: (active) => set({ viewOnly: { isActive: active } }),
+    toggleViewOnly: () => set({ viewOnly: { isActive: !get().viewOnly.isActive } }),
   };
 }

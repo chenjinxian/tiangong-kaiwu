@@ -69,6 +69,14 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   // T5 画布右键「显示依赖项…」登记：依赖项查看器无后端面，gated 引导（集合 14→15，
   // capabilities.test.ts EXPECTED_GATED_IDS 已同步）。
   dependencies: 'gated', // 依赖项查看
+  // T7 汉堡文档菜单（os-24）gated 项登记：移动/工作区还原/复制/更新/属性均无
+  // 后端面（集合 15→20，capabilities.test.ts EXPECTED_GATED_IDS 已同步）；打印
+  // 沿用既有 print 登记。
+  moveDocument: 'gated', // 移至…
+  restoreWorkspace: 'gated', // 还原已删除的工作区…
+  copyWorkspace: 'gated', // 复制工作区…
+  updateWorkspace: 'gated', // 更新工作区…
+  workspaceProperties: 'gated', // 工作区属性…
 };
 
 /** 查询工具能力档位（缺省 full）。 */
@@ -108,4 +116,9 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   print: guidanceFor('print'),
   assemblyEdit: guidanceFor('assemblyEdit'),
   dependencies: guidanceFor('dependencies'),
+  moveDocument: guidanceFor('moveDocument'),
+  restoreWorkspace: guidanceFor('restoreWorkspace'),
+  copyWorkspace: guidanceFor('copyWorkspace'),
+  updateWorkspace: guidanceFor('updateWorkspace'),
+  workspaceProperties: guidanceFor('workspaceProperties'),
 };

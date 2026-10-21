@@ -2,11 +2,13 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * PartStudioTopBar（M3 Task 3）：编辑器顶栏（对齐 os-11）——
- * - 品牌 LC（回 /documents）+ 面包屑（文档 → iTwin 名 → iModel 名，名字经
+ * PartStudioTopBar（M3 Task 3；T7 挂汉堡菜单 + 共享对话框）：编辑器顶栏（对齐 os-11/os-24）——
+ * - 品牌 LC（回 /documents）+ 汉堡文档菜单（DocumentMenuBar，os-24 位于品牌
+ *   右侧、面包屑之前）+ 面包屑（文档 → iTwin 名 → iModel 名，名字经
  *   react-query 双查询：ItwinsClient.get / ImodelsClient.get）；
  * - 分支徽标（Main，os-11 文档名右侧 pill）；
- * - 操作区：分享钮（T6+ 接共享对话框，壳期占位可点）+ 帮助钮 + 用户菜单
+ * - 操作区：分享钮（T7 接共享对话框——复用 documents 模块 ShareDocumentDialog，
+ *   跨模块经 @modules/documents barrel）+ 帮助钮 + 用户菜单
  *   （我的帐户/深色模式/退出登录，os-03 同口径）。
  */
 
@@ -34,7 +36,9 @@ import {
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
+import { ShareDocumentDialog } from '@modules/documents';
 import { useTheme } from '@app/providers/ThemeContext.js';
+import { DocumentMenuBar } from './DocumentMenuBar.js';
 
 export interface PartStudioTopBarProps {
   iTwinId: string;
@@ -63,22 +67,29 @@ export function PartStudioTopBar({ iTwinId, iModelId }: PartStudioTopBarProps): 
   const itwinName = itwinQuery.data?.displayName ?? '';
   const imodelName = imodelQuery.data?.displayName ?? imodelQuery.data?.name ?? '';
 
+  const [shareOpen, setShareOpen] = React.useState(false);
+
   const handleLogout = React.useCallback(async () => {
     await AuthSession.logout();
     navigate('/login');
   }, [navigate]);
 
   return (
-    <Header
+    <>
+      <Header
       className="part-studio-top-bar"
       data-testid="part-studio-top-bar"
       appLogo={
-        <HeaderLogo
-          logo={<div className="part-studio-logo-mark">LC</div>}
-          onClick={() => navigate('/documents')}
-        >
-          {t('common.app.name')}
-        </HeaderLogo>
+        <>
+          <HeaderLogo
+            logo={<div className="part-studio-logo-mark">LC</div>}
+            onClick={() => navigate('/documents')}
+          >
+            {t('common.app.name')}
+          </HeaderLogo>
+          {/* 汉堡文档菜单（os-24：品牌右侧、文档名之前）。 */}
+          <DocumentMenuBar iTwinId={iTwinId} documentName={itwinName} />
+        </>
       }
       breadcrumbs={
         <HeaderBreadcrumbs
@@ -103,13 +114,15 @@ export function PartStudioTopBar({ iTwinId, iModelId }: PartStudioTopBarProps): 
         />
       }
       actions={[
-        // 分享：壳期占位（T6+ 接共享对话框；按钮可点，完整 UI 面不灰化）。
+        // 分享（T7）：复用 documents 模块 ShareDocumentDialog（经 @modules/documents
+        // barrel）——共享当前文档（iTwin）成员/邀请/链接三页签。
         <Button
           key="share"
           size="small"
           styleType="high-visibility"
           startIcon={<SvgShare />}
           className="part-studio-share-button"
+          onClick={() => setShareOpen(true)}
         >
           {t('partStudio.topBar.share')}
         </Button>,
@@ -148,6 +161,21 @@ export function PartStudioTopBar({ iTwinId, iModelId }: PartStudioTopBarProps): 
           </IconButton>
         </DropdownMenu>,
       ]}
-    />
+      />
+      {/* 共享对话框（T7）：复用 documents 模块 ShareDocumentDialog——共享当前
+          文档（iTwin）的成员/邀请/链接三页签（跨模块经 @modules/documents barrel）。 */}
+      <ShareDocumentDialog
+        doc={{
+          id: iTwinId,
+          name: itwinName,
+          owner: '',
+          role: '',
+          createdAt: '',
+          modifiedAt: null,
+        }}
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+      />
+    </>
   );
 }

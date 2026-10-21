@@ -1,0 +1,16 @@
+/* DocumentMenuBar.css — 汉堡文档菜单触发钮（os-24，顶栏品牌右侧）与
+ * 工作区单位对话框 hint。全部走 iTwinUI 令牌（组件禁写裸色值）。 */
+
+.document-menu-bar__trigger {
+  margin-inline-end: var(--iui-size-2xs);
+}
+
+.document-menu-bar__units-dialog {
+  inline-size: min(360px, calc(100vw - var(--iui-size-xl)));
+}
+
+.document-menu-bar__units-hint {
+  display: block;
+  margin-block-start: var(--iui-size-xs);
+  color: var(--iui-color-text-muted, currentColor);
+}

@@ -1,0 +1,193 @@
+/* TabManagerDialog.css — 页签管理器（os-33）。对话框面板/工具条/元素列表
+ * （列表+网格双视图）/底部预览/底栏（快捷键标注 + 「以打开」）布局。
+ * 全部走 iTwinUI 令牌（组件禁写裸色值，见 PartStudioPage.css 文件头）。 */
+
+.tab-manager-dialog {
+  inline-size: min(560px, calc(100vw - var(--iui-size-xl)));
+}
+
+/* ── 工具条：搜索框（+清除钮）/ 类型筛选 / 视图切换 ────────────────────── */
+.tab-manager-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  margin-block-end: var(--iui-size-s);
+}
+
+.tab-manager-toolbar__search {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.tab-manager-toolbar__views {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ── 元素列表：行=图标 + 名称 + 类型标签；活动项蓝底；选中项描边 ────────── */
+.tab-manager-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-block-size: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+}
+
+.tab-manager-list[data-view='grid'] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs);
+}
+
+.tab-manager-row[aria-current='true'] {
+  background: var(--iui-color-background-accent-muted, rgba(0, 128, 255, 0.12));
+}
+
+.tab-manager-row[data-selected='true'] .tab-manager-row__action {
+  outline: 2px solid var(--iui-color-border-accent, #0080ff);
+  outline-offset: -2px;
+}
+
+.tab-manager-row__action {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: start;
+  border-radius: var(--iui-border-radius-1);
+}
+
+.tab-manager-list[data-view='grid'] .tab-manager-row__action {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.tab-manager-row__action:hover {
+  background: var(--iui-color-background-hover, rgba(128, 128, 128, 0.12));
+}
+
+.tab-manager-row__icon {
+  display: inline-flex;
+  color: var(--iui-color-icon, currentColor);
+}
+
+.tab-manager-row__icon svg {
+  inline-size: var(--iui-size-m);
+  block-size: var(--iui-size-m);
+}
+
+.tab-manager-row__name {
+  flex: 1;
+  font-size: var(--iui-font-size-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-manager-row__kind {
+  font-size: var(--iui-font-size-0);
+  color: var(--iui-color-text-muted, currentColor);
+}
+
+/* ── 加载/失败/空态 ──────────────────────────────────────────────────── */
+.tab-manager-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--iui-size-xs);
+  min-block-size: 120px;
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+}
+
+.tab-manager-status__alert {
+  max-inline-size: 100%;
+}
+
+/* ── 底部：所选元素预览（占位缩略图口径同 ImodelCard） ────────────────── */
+.tab-manager-preview {
+  margin-block-start: var(--iui-size-s);
+  padding: var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+}
+
+.tab-manager-preview__label {
+  display: block;
+  margin-block-end: var(--iui-size-2xs);
+  color: var(--iui-color-text-muted, currentColor);
+}
+
+.tab-manager-preview__body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-s);
+}
+
+.tab-manager-preview__thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 96px;
+  block-size: 72px;
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-backdrop, transparent);
+  color: var(--iui-color-icon-muted, currentColor);
+}
+
+.tab-manager-preview__thumb svg {
+  inline-size: var(--iui-size-l);
+  block-size: var(--iui-size-l);
+}
+
+.tab-manager-preview__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tab-manager-preview__name {
+  font-weight: 600;
+}
+
+.tab-manager-preview__kind,
+.tab-manager-preview__hint {
+  font-size: var(--iui-font-size-0);
+  color: var(--iui-color-text-muted, currentColor);
+}
+
+/* ── 底栏：快捷键标注（左）+ 「以打开」+ 关闭钮（右） ─────────────────── */
+.tab-manager-footer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-s);
+}
+
+.tab-manager-footer__shortcut {
+  font-size: var(--iui-font-size-0);
+  color: var(--iui-color-text-muted, currentColor);
+}

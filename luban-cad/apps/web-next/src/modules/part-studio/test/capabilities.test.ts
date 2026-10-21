@@ -22,7 +22,9 @@ import {
   isGated,
 } from '../internal/capabilities.js';
 
-/** spec §5 初始 gated 集合（材料/外观、曲面/曲线各两条，共 14）+ T5 登记 dependencies（共 15）。 */
+/** spec §5 初始 gated 集合（材料/外观、曲面/曲线各两条，共 14）+ T5 登记 dependencies（共 15）
+ * + T7 汉堡文档菜单（os-24）登记 moveDocument/restoreWorkspace/copyWorkspace/
+ * updateWorkspace/workspaceProperties（共 20）。 */
 const EXPECTED_GATED_IDS = [
   'draft', // 拔模
   'shell', // 抽壳
@@ -39,10 +41,15 @@ const EXPECTED_GATED_IDS = [
   'print', // 打印
   'assemblyEdit', // 装配体编辑
   'dependencies', // 依赖项查看（T5 画布右键「显示依赖项…」登记）
+  'moveDocument', // 移至…（T7 汉堡菜单）
+  'restoreWorkspace', // 还原已删除的工作区…（T7 汉堡菜单）
+  'copyWorkspace', // 复制工作区…（T7 汉堡菜单）
+  'updateWorkspace', // 更新工作区…（T7 汉堡菜单）
+  'workspaceProperties', // 工作区属性…（T7 汉堡菜单）
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies（共 15，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项（共 20，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

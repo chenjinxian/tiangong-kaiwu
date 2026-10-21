@@ -111,6 +111,14 @@ export type PartStudioDialogState =
   | { active: 'sketch'; sketchId: string | null };
 
 /**
+ * viewOnly 切片——仅查看模式（T7 汉堡菜单「切换到仅查看模式」切换；
+ * os-24 菜单项 checkmark 数据源，后续消费面：ribbon 只读态/编辑工具禁用）。
+ */
+export interface PartStudioViewOnlyState {
+  isActive: boolean;
+}
+
+/**
  * part-studio 编辑器会话态聚合（spec §3 五分法：编辑器会话态唯一归属
  * zustand；服务端态归 react-query、运行时态归 viewer-next，不进本类型）。
  */
@@ -122,4 +130,5 @@ export interface PartStudioState {
   commandPalette: PartStudioCommandPaletteState;
   canvas: PartStudioCanvasState;
   dialog: PartStudioDialogState;
+  viewOnly: PartStudioViewOnlyState;
 }

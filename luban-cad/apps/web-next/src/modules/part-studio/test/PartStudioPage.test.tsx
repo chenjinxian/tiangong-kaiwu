@@ -9,8 +9,8 @@
 //  3) 画布（part-studio-canvas）：viewport 挂载点（part-studio-viewport）；
 //  4) 右停靠（part-studio-dock）：工具设置 / 版本历史 / 显示设置三页签——
 //     点击写 store dock.activeTab 并展开占位内容，再点活动页签收合；
-//  5) 底部页签条（part-studio-tab-strip）：适应视图钮 + 禁用「+」+ 活动页签
-//     「Part Studio 1」+ 状态栏（连接态/编辑模式/单位/视图类型）。
+//  5) 底部页签条（part-studio-tab-strip）：适应视图钮 + 「+」（T7 开页签
+//     管理器）+ 活动页签「Part Studio 1」+ 状态栏（连接态/编辑模式/单位/视图类型）。
 //
 // 定位：五区结构存在性 + store 接线验收层；mock 口径与 document-details 结构
 // 测试一致——真实 store/hooks 参与，客户端（ItwinsClient / ImodelsClient /
@@ -25,6 +25,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   itwinsGet: vi.fn(),
   imodelsGet: vi.fn(),
+  imodelsList: vi.fn(),
 }));
 
 vi.mock('@clients/itwins/ItwinsClient.js', () => ({
@@ -42,7 +43,7 @@ vi.mock('@clients/itwins/ItwinsClient.js', () => ({
 vi.mock('@clients/imodels/ImodelsClient.js', () => ({
   ImodelsClient: class {
     get = mocks.imodelsGet;
-    list = vi.fn();
+    list = mocks.imodelsList;
     create = vi.fn();
     delete = vi.fn();
   },
@@ -113,6 +114,8 @@ beforeEach(() => {
   resetStore();
   mocks.itwinsGet.mockResolvedValue(ITWIN_DETAIL);
   mocks.imodelsGet.mockResolvedValue(IMODEL_DETAIL);
+  // T7 页签管理器（底部「+」开合）：列表查询零真实请求。
+  mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
 });
 
 describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
@@ -185,13 +188,17 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(dock).queryByTestId('part-studio-dock-body')).toBeNull();
   });
 
-  it('页签条：适应视图钮 + 禁用「+」+ 活动页签 Part Studio 1', () => {
+  it('页签条：适应视图钮 + 「+」（T7 开页签管理器）+ 活动页签 Part Studio 1', async () => {
+    const user = userEvent.setup();
     renderPage();
     const strip = screen.getByTestId('part-studio-tab-strip');
     expect(within(strip).getByRole('button', { name: '适应视图' })).toBeDefined();
     const newTabButton = within(strip).getByRole('button', { name: '新建页签' });
-    // iTwinUI 禁用态语义：aria-disabled（非原生 disabled，保留可聚焦性）。
-    expect(newTabButton.getAttribute('aria-disabled')).toBe('true');
+    // T7 起「+」启用（os-33 页签管理器入口；T3 壳期禁用位收口）。
+    expect(newTabButton.getAttribute('aria-disabled')).not.toBe('true');
+    await user.click(newTabButton);
+    // 页签管理器对话框打开（底栏快捷键标注为其结构锚点）。
+    expect(await screen.findByText('页签管理器 (alt+~+t)')).toBeDefined();
     const tab = within(strip).getByRole('tab', { name: 'Part Studio 1' });
     expect(tab.getAttribute('aria-selected')).toBe('true');
   });

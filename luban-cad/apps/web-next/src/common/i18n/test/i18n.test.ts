@@ -159,6 +159,25 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'sketchDialog.optionsGroup', 'sketchDialog.history', 'sketchDialog.help',
   'sketchDialog.helpText',
   'sketch.constraintsOverlay',
+  // M3 Task 7：页签管理器（os-33）+ 汉堡文档菜单（os-24）chrome 键——
+  // capabilities.*（20 条）由 capabilities.test.ts 数据驱动守卫。
+  'tabManager.title', 'tabManager.listLabel', 'tabManager.shortcut',
+  'tabManager.searchPlaceholder', 'tabManager.clear', 'tabManager.filterLabel',
+  'tabManager.filters.all', 'tabManager.filters.partStudio',
+  'tabManager.filters.assembly', 'tabManager.filters.tutorial',
+  'tabManager.viewList', 'tabManager.viewGrid', 'tabManager.openAs',
+  'tabManager.empty', 'tabManager.loading', 'tabManager.loadFailed', 'tabManager.retry',
+  'tabManager.previewLabel', 'tabManager.noPreview', 'tabManager.close',
+  'tabManager.kindLabels.partStudio', 'tabManager.kindLabels.assembly',
+  'tabManager.kindLabels.tutorial',
+  'documentMenu.open',
+  'documentMenu.rename', 'documentMenu.move', 'documentMenu.details',
+  'documentMenu.restoreWorkspace', 'documentMenu.copyWorkspace',
+  'documentMenu.updateWorkspace', 'documentMenu.units',
+  'documentMenu.workspaceProperties', 'documentMenu.viewOnly', 'documentMenu.editMode',
+  'documentMenu.print', 'documentMenu.closeDocument',
+  'documentMenu.unitsDialog.title', 'documentMenu.unitsDialog.unitsLabel',
+  'documentMenu.unitsDialog.hint', 'documentMenu.unitsDialog.close',
 ] as const;
 
 describe('i18n 骨架', () => {
