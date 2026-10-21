@@ -52,8 +52,6 @@ function ForgotPasswordHero(): React.JSX.Element {
 
 export function ForgotPasswordRoute(): React.JSX.Element {
   const { t } = useTranslation();
-  /** 提交期表单级错误（429 限流文案 / 后端 message 透传）。 */
-  const [formError, setFormError] = useState<string | null>(null);
   /** 成功态：替换表单（brief：success state replaces the form）。 */
   const [sent, setSent] = useState(false);
 
@@ -80,9 +78,11 @@ export function ForgotPasswordRoute(): React.JSX.Element {
         setFormError(typeof rawMessage === 'string' && rawMessage ? rawMessage : t('auth.forgot.error'));
       }
     }
+    // deps 不含 setFormError：它由下方 useAuthForm 返回，是 React 保证稳定的
+    // useState setter（此处若在 deps 引用会命中 TDZ——声明在后）。
   }, [t]);
 
-  const { values, errors, submitting, setValue, submit } = useAuthForm<ForgotPasswordValues>({
+  const { values, errors, touched, submitting, formError, setFormError, setValue, submit } = useAuthForm<ForgotPasswordValues>({
     initialValues: { email: '' },
     validate,
     onSubmit,
@@ -96,7 +96,7 @@ export function ForgotPasswordRoute(): React.JSX.Element {
   return (
     <AuthPageShell hero={<ForgotPasswordHero />}>
       <div className="forgot" data-testid="forgot-password-route">
-        <div className="forgot__logo" aria-hidden="true">鲁班CAD</div>
+        <div className="forgot__logo" aria-hidden="true">{t('common.app.name')}</div>
         <h1 className="forgot__title">{t('auth.forgot.title')}</h1>
         <p className="forgot__subtitle">{t('auth.forgot.subtitle')}</p>
         {sent ? (
@@ -115,7 +115,7 @@ export function ForgotPasswordRoute(): React.JSX.Element {
               label={t('auth.forgot.emailLabel')}
               value={values.email}
               onChange={(v) => setValue('email', v)}
-              error={errors.email}
+              error={touched.email ? errors.email : undefined}
               autoComplete="email"
             />
             <Button

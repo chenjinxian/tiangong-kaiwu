@@ -24,15 +24,7 @@ beforeAll(async () => {
 // DOM 令 getBy* 命中多元素。双挂钩幂等无害。
 afterEach(cleanup);
 
-// vitest 4 陷阱兜底（实测 4.1.11，上游 vitest-dev/vitest#10845）：测试文件
-// 若写 `beforeEach(() => mock.mockReset())`——箭头隐式 return 的是 mock 函数
-// 本身，vitest 4 会把 hook 返回的函数注册为 cleanup，用例结束时 vitest 会
-// 调用该 mock（无参）——此时若实现是 mockRejectedValue 注入的拒绝，这个
-// 「用户已捕获」的拒绝会被当作用例错误上报（判为用例失败）。在 afterEach
-// 阶段先清空全部 mock 实现（本仓各用例均在用例体内自行桩实现，清空无副作用），
-// 使上述隐式 cleanup 调用拿到 undefined 而非拒绝。afterEach 先于 hook
-// 注册的 cleanup 执行（4.1.11 实测），顺序敏感，勿调换到 onFinished 之后。
-import { vi } from 'vitest';
-afterEach(() => {
-  vi.resetAllMocks();
-});
+// 终审 M-d：原全局 afterEach(vi.resetAllMocks()) 已删——三份路由测试的
+// beforeEach 已改块体（`() => { mock.mockReset(); }`），vitest 4「隐式
+// return 注册 hook cleanup」陷阱（上游 vitest-dev/vitest#10845）不复存在，
+// 全局清空失去存在理由；mock 生命周期归各测试文件自治。

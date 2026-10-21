@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IconButton, Input, Text } from '@itwin/itwinui-react';
 import { SvgVisibilityShow, SvgVisibilityHide } from '@itwin/itwinui-icons-react';
+import './AuthFormField.css';
 
 export interface AuthFormFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'name' | 'value' | 'onChange' | 'size'> {
   label: string;
@@ -13,11 +15,12 @@ export interface AuthFormFieldProps extends Omit<React.InputHTMLAttributes<HTMLI
 }
 
 export function AuthFormField({ label, name, value, onChange, error, showPasswordToggle = false, type = 'text', ...rest }: AuthFormFieldProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   const effectiveType = showPasswordToggle ? (visible ? 'text' : 'password') : type;
   return (
     <div className="auth-form-field">
-      <Text as="label" htmlFor={name} variant="small" style={{ marginBottom: 'var(--lx-size-2xs)' }}>{label}</Text>
+      <Text as="label" htmlFor={name} variant="small" className="auth-form-field__label">{label}</Text>
       <div className="auth-form-field__control">
         <Input
           id={name}
@@ -31,10 +34,11 @@ export function AuthFormField({ label, name, value, onChange, error, showPasswor
         />
         {showPasswordToggle && (
           <IconButton
+            className="auth-form-field__toggle"
             styleType="borderless"
             size="small"
             onClick={() => setVisible((v) => !v)}
-            label={visible ? '隐藏密码' : '显示密码'}
+            label={visible ? t('auth.form.hidePassword') : t('auth.form.showPassword')}
           >
             {visible ? <SvgVisibilityHide /> : <SvgVisibilityShow />}
           </IconButton>

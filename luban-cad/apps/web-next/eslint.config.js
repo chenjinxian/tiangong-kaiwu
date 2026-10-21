@@ -7,6 +7,9 @@ import itwinPlugin from '@itwin/eslint-plugin';
 // TS 专属语法（类型注解/非空断言）即 Parsing error。@typescript-eslint/parser 是
 // @itwin/eslint-plugin 的直接依赖，但 pnpm 严格布局下无法从包根直接 import，
 // 故锚定在插件入口（.pnpm store 实路径）处解析。
+// 说明（终审 M-h）：下方 block 2 的 barrel 规则 files 限 src/modules/**——
+// @routes/** 直引 @modules/<name>/<deep> 深路径不在拦截面（routes 不属 modules），
+// 该方向靠 review 兜，不在本规则扩围（扩 files 会误伤模块内部相对深引）。
 const pluginRequire = createRequire(fileURLToPath(import.meta.resolve('@itwin/eslint-plugin')));
 const tsParser = pluginRequire('@typescript-eslint/parser');
 

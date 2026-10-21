@@ -24,7 +24,7 @@
 .signin__subtitle {
   margin: 0;
   font-size: var(--lx-font-size-body, 13px);
-  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+  color: var(--iui-color-text-muted);
 }
 
 .signin__form {
@@ -37,9 +37,9 @@
   padding: 8px 12px;
   border-radius: var(--lx-radius, 2px);
   font-size: var(--lx-font-size-body, 13px);
-  color: var(--iui-color-text-negative, hsl(0 100% 32%));
-  background: var(--iui-color-background-negative, hsl(0 100% 95%));
-  border: 1px solid var(--iui-color-border-negative, hsl(0 100% 75%));
+  color: var(--iui-color-text-negative);
+  background: var(--iui-color-background-negative);
+  border: 1px solid var(--iui-color-border-negative);
 }
 
 .signin__row {
@@ -59,7 +59,7 @@
   justify-content: center;
   gap: 4px;
   font-size: var(--lx-font-size-body, 13px);
-  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+  color: var(--iui-color-text-muted);
 }
 
 .signin__link {
@@ -95,7 +95,7 @@
 
 .signin-hero__tagline {
   font-size: var(--lx-font-size-body, 13px);
-  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+  color: var(--iui-color-text-muted);
 }
 
 .signin-hero__tokens {
@@ -111,7 +111,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+  color: var(--iui-color-text-muted);
 }
 
 .signin-hero__token {
@@ -123,16 +123,16 @@
 }
 
 .signin-hero__token-key {
-  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+  color: var(--iui-color-text-muted);
 }
 
 .signin-hero__token-value {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: var(--iui-color-text, hsl(0 0% 15%));
+  color: var(--iui-color-text);
   word-break: break-all;
 }
 
 .signin-hero__note {
   font-size: 12px;
-  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+  color: var(--iui-color-text-muted);
 }

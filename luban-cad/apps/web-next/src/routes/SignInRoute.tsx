@@ -11,13 +11,14 @@
 //   其它 → message 透传。错误按形状解包（duck-type），兼容 ApiClientError
 //   与测试注入的裸对象。
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button, Checkbox } from '@itwin/itwinui-react';
 import { AuthFormField, AuthPageShell, useAuthForm } from '@modules/authentication';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
+import { ROUTE_DOCUMENTS } from '@config/routes.constants.js';
 import './SignInRoute.css';
 
 /** 邮箱格式（brief 钉死）。 */
@@ -55,8 +56,6 @@ function SignInHero(): React.JSX.Element {
 export function SignInRoute(): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  /** 提交期表单级错误（429 限流文案 / 后端 message 透传）。 */
-  const [formError, setFormError] = useState<string | null>(null);
 
   const validate = useCallback((values: SignInValues): Partial<Record<keyof SignInValues, string>> => {
     const errors: Partial<Record<keyof SignInValues, string>> = {};
@@ -70,7 +69,7 @@ export function SignInRoute(): React.JSX.Element {
     setFormError(null);
     try {
       await AuthSession.login(values.email, values.password);
-      navigate('/documents');
+      navigate(ROUTE_DOCUMENTS);
     } catch (error) {
       const { status, retryAfterSeconds } = (error ?? {}) as { status?: number; retryAfterSeconds?: number };
       if (status === 429 && typeof retryAfterSeconds === 'number') {
@@ -79,9 +78,11 @@ export function SignInRoute(): React.JSX.Element {
         setFormError(error instanceof Error ? error.message : String(error));
       }
     }
+    // deps 不含 setFormError：它由下方 useAuthForm 返回，是 React 保证稳定的
+    // useState setter（此处若在 deps 引用会命中 TDZ——声明在后）。
   }, [navigate, t]);
 
-  const { values, errors, submitting, setValue, submit } = useAuthForm<SignInValues>({
+  const { values, errors, touched, submitting, formError, setFormError, setValue, submit } = useAuthForm<SignInValues>({
     initialValues: { email: '', password: '', rememberMe: false },
     validate,
     onSubmit,
@@ -95,7 +96,7 @@ export function SignInRoute(): React.JSX.Element {
   return (
     <AuthPageShell hero={<SignInHero />}>
       <div className="signin" data-testid="signin-route">
-        <div className="signin__logo" aria-hidden="true">鲁班CAD</div>
+        <div className="signin__logo" aria-hidden="true">{t('common.app.name')}</div>
         <h1 className="signin__title">{t('auth.signIn.title')}</h1>
         <p className="signin__subtitle">{t('auth.signIn.subtitle')}</p>
         <form className="signin__form" onSubmit={handleSubmit} noValidate>
@@ -108,7 +109,7 @@ export function SignInRoute(): React.JSX.Element {
             label={t('auth.signIn.emailLabel')}
             value={values.email}
             onChange={(v) => setValue('email', v)}
-            error={errors.email}
+            error={touched.email ? errors.email : undefined}
             autoComplete="email"
           />
           <AuthFormField
@@ -116,7 +117,7 @@ export function SignInRoute(): React.JSX.Element {
             label={t('auth.signIn.passwordLabel')}
             value={values.password}
             onChange={(v) => setValue('password', v)}
-            error={errors.password}
+            error={touched.password ? errors.password : undefined}
             showPasswordToggle
             autoComplete="current-password"
           />

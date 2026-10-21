@@ -72,4 +72,26 @@ describe('AuthSession', () => {
       retryAfterSeconds: 720,
     });
   });
+
+  // 终审 C-A 回归钉死：真实后端注册成功返回 204 No Content 空体——register
+  // 成功分支不得解析 body（空体 .json() 抛 SyntaxError），应直接转 login 落会话。
+  it('register 成功（204 空体）不解析 body，直接走 login 落会话', async () => {
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/email/register')) {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      return Promise.resolve(jsonResponse({
+        token: tokenPayload(900), refreshToken: 'r-reg', tokenExpires: Date.now() + 900_000,
+        user: { id: '7', email: 't@e.com', name: 'Reg User' },
+      }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = await AuthSession.register('t@e.com', 'pw', 'Reg', 'User');
+    expect(user.name).toBe('Reg User');
+    expect(AuthSession.getStoredAuth()?.refreshToken).toBe('r-reg');
+    const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(urls.filter((u) => u.includes('/auth/email/register'))).toHaveLength(1);
+    expect(urls.filter((u) => u.includes('/auth/email/login'))).toHaveLength(1);
+  });
 });

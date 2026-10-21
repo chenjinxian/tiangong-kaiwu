@@ -49,4 +49,36 @@ describe('useAuthForm', () => {
     expect(result.current.errors.email).toBeUndefined();
     expect(result.current.errors.password).toBe('必填');
   });
+
+  // 终审 M-g：429 横幅（formError）挂起期间，任一字段变更即清除横幅。
+  it('setValue 时若存在 formError 则清掉', () => {
+    const { result } = renderHook(() =>
+      useAuthForm({
+        initialValues: { email: '' },
+        validate: () => ({}),
+        onSubmit: async () => {},
+      }));
+    act(() => result.current.setFormError('请求过于频繁'));
+    expect(result.current.formError).toBe('请求过于频繁');
+    act(() => result.current.setValue('email', 'a@b.c'));
+    expect(result.current.formError).toBeNull();
+  });
+
+  // 终审 I-C touched 门控的前置：提交校验失败时全部字段标记 touched，
+  // 路由 error={touched.x ? errors.x : undefined} 门控下错误仍全部可见。
+  it('提交校验失败时全部字段标记 touched', async () => {
+    const { result } = renderHook(() =>
+      useAuthForm({
+        initialValues: { email: '', password: '' },
+        validate: (v) => ({
+          ...(v.email ? {} : { email: '必填' }),
+          ...(v.password ? {} : { password: '必填' }),
+        }),
+        onSubmit: async () => {},
+      }));
+    await act(async () => { await result.current.submit(); });
+    expect(result.current.touched.email).toBe(true);
+    expect(result.current.touched.password).toBe(true);
+    expect(result.current.errors.email).toBe('必填');
+  });
 });

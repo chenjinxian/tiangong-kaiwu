@@ -1,0 +1,25 @@
+/* AuthFormField.css — 认证表单字段控件布局。
+ * 终审 I-B：密码可见切换钮原为块级 IconButton，堆叠在输入框下方；现控件区
+ * 相对定位 + 切换钮绝对定位右中。终审 M-f：标签下沿间距引用 iTwinUI 原生
+ * --iui-size-xs（--lx-size-2xs 令牌不存在，同族 --lx-size-* 亦无定义）。 */
+
+.auth-form-field {
+  display: grid;
+  gap: var(--iui-size-3xs);
+}
+
+.auth-form-field__control {
+  position: relative;
+}
+
+/* 给右 absolutely 定位的切换钮留位，避免输入文本与钮重叠。 */
+.auth-form-field__control .iui-input {
+  padding-right: var(--iui-size-xl);
+}
+
+.auth-form-field__toggle {
+  position: absolute;
+  right: var(--iui-size-xs);
+  top: 50%;
+  transform: translateY(-50%);
+}

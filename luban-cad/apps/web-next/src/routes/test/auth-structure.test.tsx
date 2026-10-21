@@ -1,10 +1,12 @@
 // auth-structure.test.tsx —— 三页共用一套结构检查器（参数化）
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@clients/auth/AuthSession.js', () => ({ AuthSession: { login: vi.fn(), register: vi.fn(), forgotPassword: vi.fn() } }));
 
+import { AuthSession } from '@clients/auth/AuthSession.js';
 import { SignInRoute } from '../SignInRoute.js';
 import { SignUpRoute } from '../SignUpRoute.js';
 import { ForgotPasswordRoute } from '../ForgotPasswordRoute.js';
@@ -30,5 +32,23 @@ describe('认证三页结构完备性', () => {
     expect(screen.getByLabelText(/邮箱|Email/i)).toBeDefined();
     expect(screen.getByRole('button', { name: /发送|Send/i })).toBeDefined();
     expect(screen.getByRole('link', { name: /返回登录|Sign in|Back/i })).toBeDefined();
+  });
+
+  // 终审 M-c：登录成功跳转 /documents 的落地断言——MemoryRouter 挂占位路由，
+  // 提交后须渲染占位（钉死 navigate(ROUTE_DOCUMENTS) 常量替换未改语义）。
+  it('登录成功跳转 /documents（占位路由落地）', async () => {
+    vi.mocked(AuthSession.login).mockResolvedValue({ id: '1', email: 't@e.com', name: 'T' });
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<SignInRoute />} />
+          <Route path="/documents" element={<div data-testid="documents-landing" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent.type(screen.getByLabelText(/邮箱|Email/i), 't@e.com');
+    await userEvent.type(screen.getByLabelText(/密码|Password/i), 'pw');
+    await userEvent.click(screen.getByRole('button', { name: /登录|Sign in/i }));
+    expect(await screen.findByTestId('documents-landing')).toBeDefined();
   });
 });

@@ -10,7 +10,9 @@ vi.mock('@clients/auth/AuthSession.js', () => ({ AuthSession: { login: (...a: un
 import { SignInRoute } from '../SignInRoute.js';
 
 describe('SignInRoute', () => {
-  beforeEach(() => loginMock.mockReset());
+  // 终审 M-d：块体 beforeEach——箭头隐式 return 会把 mock 注册成 vitest 4 的
+  // hook cleanup（上游 #10845 陷阱），块体返回 undefined 则无此患。
+  beforeEach(() => { loginMock.mockReset(); });
 
   it('渲染邮箱/密码/记住我/登录按钮', () => {
     render(<MemoryRouter><SignInRoute /></MemoryRouter>);

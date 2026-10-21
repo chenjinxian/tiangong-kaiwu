@@ -14,13 +14,14 @@
 //   → 成功 navigate('/documents')；429 → auth.signUp.tooManyRequests
 //   （seconds 插值）；其它 → message 透传（错误按形状解包，兼容裸对象）。
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button, Checkbox } from '@itwin/itwinui-react';
 import { AuthFormField, AuthPageShell, useAuthForm } from '@modules/authentication';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
+import { ROUTE_DOCUMENTS } from '@config/routes.constants.js';
 import './SignUpRoute.css';
 
 /** 邮箱格式（与 /login 同规则）。 */
@@ -81,8 +82,6 @@ function SignUpHero(): React.JSX.Element {
 export function SignUpRoute(): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  /** 提交期表单级错误（429 限流文案 / 后端 message 透传）。 */
-  const [formError, setFormError] = useState<string | null>(null);
 
   const validate = useCallback((values: SignUpValues): Partial<Record<keyof SignUpValues, string>> => {
     const errors: Partial<Record<keyof SignUpValues, string>> = {};
@@ -101,7 +100,7 @@ export function SignUpRoute(): React.JSX.Element {
     setFormError(null);
     try {
       await AuthSession.register(values.email, values.password, values.firstName, values.lastName);
-      navigate('/documents');
+      navigate(ROUTE_DOCUMENTS);
     } catch (error) {
       const { status, retryAfterSeconds } = (error ?? {}) as { status?: number; retryAfterSeconds?: number };
       if (status === 429 && typeof retryAfterSeconds === 'number') {
@@ -110,9 +109,11 @@ export function SignUpRoute(): React.JSX.Element {
         setFormError(error instanceof Error ? error.message : String(error));
       }
     }
+    // deps 不含 setFormError：它由下方 useAuthForm 返回，是 React 保证稳定的
+    // useState setter（此处若在 deps 引用会命中 TDZ——声明在后）。
   }, [navigate, t]);
 
-  const { values, errors, submitting, setValue, submit } = useAuthForm<SignUpValues>({
+  const { values, errors, touched, submitting, formError, setFormError, setValue, submit } = useAuthForm<SignUpValues>({
     initialValues: { firstName: '', lastName: '', email: '', password: '', confirmPassword: '', terms: false },
     validate,
     onSubmit,
@@ -128,7 +129,7 @@ export function SignUpRoute(): React.JSX.Element {
   return (
     <AuthPageShell hero={<SignUpHero />}>
       <div className="signup" data-testid="signup-route">
-        <div className="signup__logo" aria-hidden="true">鲁班CAD</div>
+        <div className="signup__logo" aria-hidden="true">{t('common.app.name')}</div>
         <h1 className="signup__title">{t('auth.signUp.title')}</h1>
         <p className="signup__subtitle">{t('auth.signUp.subtitle')}</p>
         <form className="signup__form" onSubmit={handleSubmit} noValidate>
@@ -140,7 +141,7 @@ export function SignUpRoute(): React.JSX.Element {
             label={t('auth.signUp.firstNameLabel')}
             value={values.firstName}
             onChange={(v) => setValue('firstName', v)}
-            error={errors.firstName}
+            error={touched.firstName ? errors.firstName : undefined}
             autoComplete="given-name"
           />
           <AuthFormField
@@ -148,7 +149,7 @@ export function SignUpRoute(): React.JSX.Element {
             label={t('auth.signUp.lastNameLabel')}
             value={values.lastName}
             onChange={(v) => setValue('lastName', v)}
-            error={errors.lastName}
+            error={touched.lastName ? errors.lastName : undefined}
             autoComplete="family-name"
           />
           <AuthFormField
@@ -157,7 +158,7 @@ export function SignUpRoute(): React.JSX.Element {
             label={t('auth.signUp.emailLabel')}
             value={values.email}
             onChange={(v) => setValue('email', v)}
-            error={errors.email}
+            error={touched.email ? errors.email : undefined}
             autoComplete="email"
           />
           <AuthFormField
@@ -165,7 +166,7 @@ export function SignUpRoute(): React.JSX.Element {
             label={t('auth.signUp.passwordLabel')}
             value={values.password}
             onChange={(v) => setValue('password', v)}
-            error={errors.password}
+            error={touched.password ? errors.password : undefined}
             showPasswordToggle
             autoComplete="new-password"
           />
@@ -190,7 +191,7 @@ export function SignUpRoute(): React.JSX.Element {
             label={t('auth.signUp.confirmPasswordLabel')}
             value={values.confirmPassword}
             onChange={(v) => setValue('confirmPassword', v)}
-            error={errors.confirmPassword}
+            error={touched.confirmPassword ? errors.confirmPassword : undefined}
             showPasswordToggle
             autoComplete="new-password"
           />
@@ -200,7 +201,7 @@ export function SignUpRoute(): React.JSX.Element {
               checked={values.terms}
               onChange={(e) => setValue('terms', e.target.checked)}
             />
-            {errors.terms && (
+            {touched.terms && errors.terms && (
               <div className="signup__terms-error">{errors.terms}</div>
             )}
           </div>

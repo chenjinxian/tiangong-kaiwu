@@ -9,7 +9,9 @@ vi.mock('@clients/auth/AuthSession.js', () => ({ AuthSession: { register: (...a:
 import { SignUpRoute } from '../SignUpRoute.js';
 
 describe('SignUpRoute', () => {
-  beforeEach(() => registerMock.mockReset());
+  // 终审 M-d：块体 beforeEach（理由同 SignInRoute.test.tsx，防隐式 return 注册
+  // vitest 4 hook cleanup 陷阱）。
+  beforeEach(() => { registerMock.mockReset(); });
 
   it('渲染姓名/邮箱/密码/确认密码/条款/注册按钮', () => {
     render(<MemoryRouter><SignUpRoute /></MemoryRouter>);

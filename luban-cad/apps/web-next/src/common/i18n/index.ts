@@ -2,9 +2,10 @@ import i18next, { type i18n as I18n } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import zhCommon from './locales/zh-CN/common.json';
 import enCommon from './locales/en/common.json';
-// M1 Task 3：auth 词库最小键集（auth.signIn.*，供 /login 页取用）。
-// 与 common 同姿态挂在默认 ns translation 之下（键路径 auth.signIn.xxx，
-// 见上方注释）；完整 auth 词表由 Task 7 补全。
+// T7 结论：T3-T5 键集已全，词表零改动（auth 词表自 Task 3 最小键集起
+// 未再走「Task 7 补全」流程，终审仅增 form.showPassword/hidePassword 两键）；
+// 与 common 同姿态挂在默认 ns translation 之下（键路径 auth.signIn.xxx 等）；
+// 守卫为 zh/en 展平键集深比较 + 路由/组件取用键存在性（见 i18n.test.ts）。
 import zhAuth from './locales/zh-CN/auth.json';
 import enAuth from './locales/en/auth.json';
 

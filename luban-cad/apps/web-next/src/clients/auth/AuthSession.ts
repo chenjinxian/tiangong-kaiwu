@@ -140,19 +140,12 @@ export class AuthSession {
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({})) as { message?: string };
-      // 登录限流 429：@nestjs/throttler 命名桶（auth）经 Retry-After-auth 头返回
-      // 剩余封锁秒数（Fetch Headers.get 大小写不敏感，'retry-after-auth' 同一命中），
-      // 透出给 UI 做等待时长文案（语义移植自旧 client.ts 非 2xx 分支）。
-      const retryAfterHeader = response.headers.get('Retry-After-auth');
-      const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
       throw new ApiClientError({
         status: response.status,
         code: 'AUTH_LOGIN_FAILED',
         i18nKey: 'common.errors.loginFailed',
         message: body.message ?? `Login failed (status ${response.status})`,
-        retryAfterSeconds: retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
-          ? retryAfterSeconds
-          : undefined,
+        retryAfterSeconds: AuthSession.parseRetryAfter(response),
       });
     }
 
@@ -170,9 +163,10 @@ export class AuthSession {
   /** 注册：`POST ${hubUrl}/auth/email/register` `{email,password,firstName,lastName}`
    * （端点对齐旧应用 client.ts register）。错误语义同 login：非 2xx 抛
    * ApiClientError，429 取 Retry-After-auth 头透出 retryAfterSeconds。
-   * 成功响应与 login 同形（token 三元组 + user）时落会话（注册即登录，
-   * 跳转 /documents 后与 login 姿态一致）；仅返回 user 段的后端形态
-   * 不落会话，只回转换后的用户。 */
+   * 成功（2xx，**不解析 body**——真实后端注册成功返回 204 No Content 空体，
+   * 空体 `.json()` 会抛 SyntaxError）后直接转 login(email, password) 落会话，
+   * 返回类型与 login 同（注册即登录，跳转 /documents 后姿态一致；
+   * 「先注册后登录」两段式对齐旧应用 client.ts:250-272）。 */
   public static async register(email: string, password: string, firstName: string, lastName: string): Promise<AuthUser> {
     const response = await fetch(`${env.hubUrl}/auth/email/register`, {
       method: 'POST',
@@ -182,32 +176,17 @@ export class AuthSession {
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({})) as { message?: string };
-      // 429 语义同 login：@nestjs/throttler 命名桶经 Retry-After-auth 头
-      // 返回剩余封锁秒数（Fetch Headers.get 大小写不敏感）。
-      const retryAfterHeader = response.headers.get('Retry-After-auth');
-      const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
       throw new ApiClientError({
         status: response.status,
         code: 'AUTH_REGISTER_FAILED',
         i18nKey: 'common.errors.registerFailed',
         message: body.message ?? `Registration failed (status ${response.status})`,
-        retryAfterSeconds: retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
-          ? retryAfterSeconds
-          : undefined,
+        retryAfterSeconds: AuthSession.parseRetryAfter(response),
       });
     }
 
-    const data = await response.json() as Partial<TokenResponse> & { user: BackendUser };
-    const user = convertUser(data.user);
-    if (data.token && data.refreshToken) {
-      AuthSession.storeAuth({
-        accessToken: data.token,
-        refreshToken: data.refreshToken,
-        expiresAt: data.tokenExpires || Date.now() + DEFAULT_TTL_MS,
-        user,
-      });
-    }
-    return user;
+    // 注册成功即登录（旧应用姿态）；204 空体无 token 可落，会话由 login 段建立。
+    return AuthSession.login(email, password);
   }
 
   /** 找回密码：`POST ${hubUrl}/auth/forgot/password` `{email}`。错误语义同
@@ -222,20 +201,25 @@ export class AuthSession {
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({})) as { message?: string };
-      // 429 语义同 login/register：@nestjs/throttler 命名桶经 Retry-After-auth
-      // 头返回剩余封锁秒数（Fetch Headers.get 大小写不敏感）。
-      const retryAfterHeader = response.headers.get('Retry-After-auth');
-      const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
       throw new ApiClientError({
         status: response.status,
         code: 'AUTH_FORGOT_PASSWORD_FAILED',
         i18nKey: 'common.errors.forgotPasswordFailed',
         message: body.message ?? `Forgot password failed (status ${response.status})`,
-        retryAfterSeconds: retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
-          ? retryAfterSeconds
-          : undefined,
+        retryAfterSeconds: AuthSession.parseRetryAfter(response),
       });
     }
+  }
+
+  /** 429 限流头解析（login/register/forgotPassword 三处共用）：@nestjs/throttler
+   * 命名桶经 Retry-After-auth 头返回剩余封锁秒数（Fetch Headers.get 大小写
+   * 不敏感，'retry-after-auth' 同一命中）；头缺席或非有限数返回 undefined。 */
+  private static parseRetryAfter(response: Response): number | undefined {
+    const retryAfterHeader = response.headers.get('Retry-After-auth');
+    const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
+    return retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
+      ? retryAfterSeconds
+      : undefined;
   }
 
   /**

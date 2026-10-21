@@ -9,7 +9,9 @@ vi.mock('@clients/auth/AuthSession.js', () => ({ AuthSession: { forgotPassword: 
 import { ForgotPasswordRoute } from '../ForgotPasswordRoute.js';
 
 describe('ForgotPasswordRoute', () => {
-  beforeEach(() => forgotMock.mockReset());
+  // 终审 M-d：块体 beforeEach（理由同 SignInRoute.test.tsx，防隐式 return 注册
+  // vitest 4 hook cleanup 陷阱）。
+  beforeEach(() => { forgotMock.mockReset(); });
 
   it('渲染邮箱输入与提交按钮', () => {
     render(<MemoryRouter><ForgotPasswordRoute /></MemoryRouter>);

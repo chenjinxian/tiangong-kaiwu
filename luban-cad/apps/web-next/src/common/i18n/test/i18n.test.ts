@@ -12,6 +12,10 @@ const flatten = (obj: unknown, prefix = ''): string[] =>
 /** 三个路由页 t('auth.*') 实际取用的键集（与 SignInRoute/SignUpRoute/
  * ForgotPasswordRoute 逐条对账；漏任一即渲染裸键名）。 */
 const REQUIRED_AUTH_KEYS = {
+  // AuthFormField 密码可见切换钮 aria 文案（终审 M-a i18n 化后挂账守卫）。
+  form: [
+    'form.showPassword', 'form.hidePassword',
+  ],
   signIn: [
     'signIn.title', 'signIn.subtitle',
     'signIn.emailLabel', 'signIn.emailRequired', 'signIn.emailInvalid',
@@ -86,6 +90,7 @@ describe('i18n 骨架', () => {
     const zhKeys = flatten(zh).sort();
     expect(flatten(en).sort()).toEqual(zhKeys);
     const required = [
+      ...REQUIRED_AUTH_KEYS.form,
       ...REQUIRED_AUTH_KEYS.signIn,
       ...REQUIRED_AUTH_KEYS.signUp,
       ...REQUIRED_AUTH_KEYS.forgot,
