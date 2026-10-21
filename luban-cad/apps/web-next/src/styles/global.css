@@ -1,0 +1,7 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-size: var(--lx-font-size-body);
+  background: var(--lx-backdrop);
+  -webkit-font-smoothing: antialiased;
+}

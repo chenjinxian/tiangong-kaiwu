@@ -1,0 +1,35 @@
+/* onshape-skin.css — Onshape 实测令牌（来源 onshape-audit/os-01 取色）
+ * 规则：本文件只做 iTwinUI 变量覆写与 --lx-* 语义令牌；组件禁写裸色值。
+ * 取样方法：PowerShell System.Drawing.GetPixel 对 os-01-documents.png（1600×900）取点。 */
+:root {
+  /* accent：os-01 创建按钮实体取色 RGB(22,81,176)=#1651b0（按钮体 x≈40–178/y≈99–131 均匀纯色；
+   * brief 给的 (107,115) 点落在白色 "Create" 文字字形上，偏移到按钮体取样）。
+   * 转 HSL：H 217.0 / S 77.8% / L 38.8% → 钉 217 78% 39%（非 brief 占位 216 72% 47%）。 */
+  --lx-accent-hsl: 217 78% 39%;
+  --lx-accent: hsl(var(--lx-accent-hsl));
+  /* 中性面
+   * backdrop：os-01 页面留白带取色（(700,85)/(800,85) 等）RGB(245,245,245)=#f5f5f5；
+   * brief 预期 ~(245,246,247)，实测蓝通道为 245 → 钉实测 #f5f5f5（非占位 #f5f6f7）。
+   * surface：os-01 内容面板/文档行取色（(700,600)）RGB(255,255,255)=#ffffff。
+   * border：os-01 未单独取色，沿 brief 中性值（os-01 顶栏底分隔线实测 (213,213,213)=#d5d5d5
+   * 属加重分隔线，不作组件描边钉值；如需可后续另立 token）。 */
+  --lx-backdrop: #f5f5f5;
+  --lx-surface: #ffffff;
+  --lx-border: #e3e5e8;
+  /* 密度（Onshape 32px 控件带 / 13px 字阶 / 近直角；
+   * 32px 控件带已由 os-01 按钮几何实证：y≈99–131 ≈ 32px） */
+  --lx-control-height: 32px;
+  --lx-font-size-body: 13px;
+  --lx-radius: 2px;
+  /* 覆写 iTwinUI 语义 */
+  --iui-color-background-backdrop: var(--lx-backdrop);
+  --iui-color-border: var(--lx-border);
+  --iui-border-radius-1: var(--lx-radius);
+}
+
+/* 暗色覆写：os-01 未提供暗色截图，按 Onshape 深色观感占位（后续如有 os-*-dark 取色再钉值）。 */
+[data-theme='dark'] {
+  --lx-backdrop: #1f2124;
+  --lx-surface: #26282b;
+  --lx-border: #3a3d40;
+}
