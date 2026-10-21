@@ -76,7 +76,7 @@ Expected: FAIL（App 不存在）
   },
   "dependencies": {
     "@itwin/itwinui-react": "^3.22.0",
-    "@itwin/itwinui-icons-react": "^3.1.0",
+    "@itwin/itwinui-icons-react": "^2.9.0",
     "@luban-cad/shared": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "i18next": "^21.9.1",
@@ -107,7 +107,8 @@ Expected: FAIL（App 不存在）
 
 ```ts
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+// defineConfig 取自 vitest/config：内联 test 配置需要，纯 vite 导出在 tsc --noEmit 下报 TS2769
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
@@ -892,8 +893,8 @@ const initializeClientMock = vi.fn();
 
 vi.mock('@itwin/core-frontend', () => ({
   IModelApp: { initialized: false, accuSnap: { enableSnap: vi.fn(), enableLocate: vi.fn() } },
-  IpcApp: { isValid: false, buildUrlForSocket: (u: URL) => u },
-  LocalhostIpcApp: { startup: startupMock },
+  IpcApp: { isValid: false },
+  LocalhostIpcApp: { startup: startupMock, buildUrlForSocket: (u: URL) => u },
 }));
 vi.mock('@itwin/core-common', () => ({
   BentleyCloudRpcManager: { initializeClient: initializeClientMock },
@@ -972,6 +973,13 @@ Run → Expected: FAIL
 ```
 
 - [ ] **Step 3: 跑测试确认通过 + tsc 构建**
+
+`src/index.ts`（公共入口，Task 8 依赖此导出面）:
+
+```ts
+export { startViewer, stopViewer } from './host/web-initializer.js';
+export { ensureAccuSnap } from './tools/ensure-accusnap.js';
+```
 
 Run: `cd luban-cad && pnpm install && cd packages/viewer-next && npx vitest run && pnpm build`
 Expected: 测试 PASS；`dist/` 产出
