@@ -17,7 +17,8 @@
  *
  * 数据面：useDocumentDetail + useImodels（本模块 hooks）；三态裁决——
  * 详情加载中整页加载态；详情错误 NonIdealState（重试/返回）；iModel
- * 列表独立 loading 只影响网格区（hero 计数用已知数据照常渲染）。
+ * 列表独立 loading 只影响网格区（hero 计数用已知数据照常渲染；网格区
+ * loading 门先于空态——初载不闪「暂无 iModel」，零布局跳动违例，I4）。
  */
 
 import React from 'react';
@@ -81,7 +82,12 @@ export function DocumentDetailsPage(): React.JSX.Element {
     error: docError,
     refetch: refetchDoc,
   } = useDocumentDetail(iTwinId);
-  const { imodels, isLoading: isImodelsLoading, refetch: refetchImodels } = useImodels(iTwinId);
+  const {
+    imodels,
+    isLoading: isImodelsLoading,
+    isFetching: isImodelsFetching,
+    refetch: refetchImodels,
+  } = useImodels(iTwinId);
 
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [isShareOpen, setIsShareOpen] = React.useState(false);
@@ -277,7 +283,9 @@ export function DocumentDetailsPage(): React.JSX.Element {
             styleType="borderless"
             onClick={handleRefresh}
           >
-            <SvgRefresh className={isImodelsLoading ? 'spin' : undefined} />
+            {/* 旋转信号用 isFetching（首载+refetch 恒真）；isLoading 仅首载为真，
+                有缓存数据的刷新期间恒假——用它刷新钮永不转圈（终审 I3）。 */}
+            <SvgRefresh className={isImodelsFetching ? 'spin' : undefined} />
           </IconButton>,
           <IconButton
             key="theme"
@@ -343,7 +351,14 @@ export function DocumentDetailsPage(): React.JSX.Element {
             {t('documents.detail.imodelCount', { count: imodels.length })}
           </Text>
         </div>
-        {imodels.length === 0 ? (
+        {/* 网格三态门：初载 loading → ProgressRadial 占位先于空态（终审 I4——
+            空态先于加载门会在首载瞬间闪「暂无 iModel」再跳网格，违零布局跳动）；
+            空态引导创建；常态卡片网格。hero 计数行用已知数据照常渲染。 */}
+        {isImodelsLoading ? (
+          <div className="document-details-grid-loading">
+            <ProgressRadial size="large" indeterminate />
+          </div>
+        ) : imodels.length === 0 ? (
           <NonIdealState
             className="document-details-nonideal"
             svg={<SvgModel />}

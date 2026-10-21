@@ -163,6 +163,15 @@
   padding-block: var(--iui-size-xs);
 }
 
+/* iModel 网格初载占位（终审 I4）：ProgressRadial 先于空态门渲染——给固定
+ * 最小高度，避免「空态 → 网格」的内容高度跳变（零布局跳动违例）。 */
+.document-details-grid-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 240px;
+}
+
 .document-details-count {
   color: var(--iui-color-text-muted);
 }

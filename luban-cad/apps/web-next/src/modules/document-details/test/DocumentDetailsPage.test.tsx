@@ -108,6 +108,15 @@ const ITWIN_DETAIL = {
   lastModifiedDateTime: '2026-10-20T12:30:00.0000000+00:00',
 };
 
+/** 手动闸门：promise 的 resolve 由用例掌控（模拟 refetch 在途，I3 旋转断言用）。 */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -267,6 +276,45 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     expect(await screen.findByText('暂无 iModel')).toBeDefined();
     expect(screen.getByText('创建您的第一个 iModel 开始建模')).toBeDefined();
     expect(screen.getAllByRole('button', { name: '新建 iModel' }).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('iModel 网格初载门（终审 I4）：详情先到、网格加载中 → ProgressRadial 占位，空态文案缺席', async () => {
+    // 网格查询永续悬挂——详情（hero）先行到位，网格区必须停在加载占位，
+    // 不得先闪「暂无 iModel」再跳网格（零布局跳动违例）。
+    mocks.imodelsList.mockReturnValue(new Promise(() => { /* 悬挂 */ }));
+    const { container } = renderPage();
+    // 详情查询不受影响——hero 正常渲染（页面级 loading 门未被误触发）。
+    expect(await screen.findByRole('heading', { name: '演示文档' })).toBeDefined();
+    // 网格区：加载占位在场（iTwinUI 运行时给 ProgressRadial 根节点哈希类名
+    // _iui3xxx-progress-indicator-radial——不断哈希类，断言走稳定 data-iui-* 属性）。
+    const loading = container.querySelector('.document-details-grid-loading');
+    expect(loading).not.toBeNull();
+    expect(loading?.querySelector('[data-iui-indeterminate="true"]')).not.toBeNull();
+    expect(screen.queryByText('暂无 iModel')).toBeNull();
+  });
+
+  it('刷新接线（终审 I3）：refetch 期间刷新图标旋转（isFetching 驱动，非 isLoading）', async () => {
+    const user = userEvent.setup();
+    // 首载立即成功（isLoading 随之转假）；点刷新后第二次调用悬挂——
+    // 此时 isPending 恒假、isFetching 真：SvgRefresh.spin 只能由 isFetching 驱动。
+    const second = deferred<typeof IMODELS>();
+    let call = 0;
+    mocks.imodelsList.mockImplementation(() => {
+      call += 1;
+      return call === 1 ? Promise.resolve(IMODELS) : second.promise;
+    });
+    renderPage();
+    await screen.findByText('楼层模型'); // 首载落定
+    const refreshBtn = screen.getByRole('button', { name: '刷新' });
+    const svg = refreshBtn.querySelector('svg')!;
+    // SVG 的 className 是 SVGAnimatedString——断言必须走 getAttribute('class')。
+    const svgClass = () => svg.getAttribute('class') ?? '';
+    expect(svgClass()).not.toContain('spin');
+    await user.click(refreshBtn);
+    await waitFor(() => expect(svgClass()).toContain('spin'));
+    // refetch 落定：旋转卸除。
+    second.resolve([]);
+    await waitFor(() => expect(svgClass()).not.toContain('spin'));
   });
 
   it('加载态：hero 数据未到 → 加载中文案', () => {

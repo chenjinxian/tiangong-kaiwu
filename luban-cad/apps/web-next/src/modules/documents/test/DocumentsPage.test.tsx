@@ -159,6 +159,21 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     expect(screen.getByRole('button', { name: '刷新' })).toBeDefined();
   });
 
+  it('刷新接线（终审 I3）：isFetching=true 且 isLoading=false → 刷新钮禁用 + 旋转', () => {
+    // isLoading(isPending) 仅首载为真——只给 isFetching 才能覆盖「有缓存数据的
+    // refetch 期间」；isRefreshing 改接 isFetching 前，本用例刷新钮即不禁用不转圈。
+    mockUseDocuments.mockReturnValue({
+      documents: DOCS, isLoading: false, isFetching: true, error: null,
+    });
+    renderPage();
+    const refreshBtn = screen.getByRole('button', { name: '刷新' });
+    // iTwinUI v3 ButtonBase 禁用态渲染 data-iui-disabled/aria-disabled，不写 disabled
+    // 属性（保 tooltip/focus）——「禁用」断言走稳定 data-iui-disabled。
+    expect(refreshBtn.getAttribute('data-iui-disabled')).toBe('true');
+    // SVG 元素的 className 是 SVGAnimatedString——断言必须走 getAttribute('class')。
+    expect(refreshBtn.querySelector('svg')?.getAttribute('class')).toContain('documents-spin');
+  });
+
   it('排序菜单项渲染本地化标签（非原始键串，键与 DocumentSortId 对齐）', async () => {
     const user = userEvent.setup();
     renderPage();

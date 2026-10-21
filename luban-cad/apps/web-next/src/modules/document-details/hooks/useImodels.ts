@@ -8,8 +8,10 @@
  *   本文件内联（hub 详情超集字段的宽类型读取，与 documents.mapper 的
  *   ITwinRaw 同姿态）；
  * - `useImodels(iTwinId)`：iModel 卡片网格数据源（ImodelsClient.list 收拢
- *   为数组后逐条走 toImodelSummary），出口 `{ imodels, isLoading, error, refetch }`
- *   （imodels 恒为数组，避免调用方对 undefined 分支防御）。
+ *   为数组后逐条走 toImodelSummary），出口 `{ imodels, isLoading, isFetching,
+ *   error, refetch }`（imodels 恒为数组，避免调用方对 undefined 分支防御；
+ *   isFetching 首载与 refetch 期间恒真——刷新钮旋转信号，isLoading 仅首载
+ *   为真、刷新期间恒假，终审 I3 改由 isFetching 驱动 SvgRefresh.spin）。
  *
  * queryKey 与 documents 模块同族（['documents', ...] 前缀）——
  * 创建/删除 iModel 后按 ['documents','imodels'] 前缀失效即可刷新网格与计数。
@@ -32,6 +34,7 @@ export interface UseDocumentDetailResult {
 export interface UseImodelsResult {
   imodels: ImodelSummary[];
   isLoading: boolean;
+  isFetching: boolean;
   error: unknown;
   refetch: () => void;
 }
@@ -59,6 +62,7 @@ export function useImodels(iTwinId: string | undefined): UseImodelsResult {
   return {
     imodels: query.data ?? [],
     isLoading: query.isPending,
+    isFetching: query.isFetching,
     error: query.error,
     refetch: () => void query.refetch(),
   };

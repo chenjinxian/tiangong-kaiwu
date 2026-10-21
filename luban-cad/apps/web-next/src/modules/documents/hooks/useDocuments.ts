@@ -6,8 +6,10 @@
  * - queryKey `['documents', filter]`——筛选即缓存键，切换侧栏自动命中/取新；
  * - 内部按 filter 分流取数（recent/favorites 走官方专用端点；my/shared 走
  *   list() 后按 createdBy 与当前用户比对；public 见下方裁决）；
- * - 出口收敛为 `{ documents, isLoading, error }`（documents 恒为数组，
- *   避免调用方对 undefined 分支防御）。
+ * - 出口收敛为 `{ documents, isLoading, isFetching, error }`（documents 恒为数组，
+ *   避免调用方对 undefined 分支防御；isFetching 首载与 refetch 期间恒真——
+ *   刷新钮禁用/旋转信号；isLoading 仅首载为真，刷新期间恒假，终审 I3
+ *   改由 isFetching 驱动，否则刷新钮永不转圈）。
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -19,6 +21,7 @@ import type { DocumentFilter, DocumentSummary } from '../types.js';
 export interface UseDocumentsResult {
   documents: DocumentSummary[];
   isLoading: boolean;
+  isFetching: boolean;
   error: unknown;
 }
 
@@ -30,6 +33,7 @@ export function useDocuments(filter: DocumentFilter): UseDocumentsResult {
   return {
     documents: query.data ?? [],
     isLoading: query.isPending,
+    isFetching: query.isFetching,
     error: query.error,
   };
 }

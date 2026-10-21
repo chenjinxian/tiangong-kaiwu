@@ -104,7 +104,7 @@ export function DocumentsPage(): React.JSX.Element {
   const user = AuthSession.getStoredAuth()?.user;
 
   const { filter, setFilter } = useDocumentFilters();
-  const { documents, isLoading, error } = useDocuments(filter);
+  const { documents, isLoading, isFetching, error } = useDocuments(filter);
   // 收藏集合常开（favorites 档即真值；其余档星标状态也须真实——旧应用
   // useFavoriteITwinsQuery(true) 同口径；同 queryKey 与列表查询去重）。
   const { documents: favoriteDocuments } = useDocuments('favorites');
@@ -510,7 +510,7 @@ export function DocumentsPage(): React.JSX.Element {
             view={view}
             onViewChange={handleViewChange}
             onRefresh={refresh}
-            isRefreshing={isLoading}
+            isRefreshing={isFetching}
           />
 
           <div className="documents-body">
