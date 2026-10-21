@@ -10,6 +10,8 @@
  * - 错误统一 ApiClientError（旧 AuthError/裸 Error 不再出口）；
  * - getStoredAuth 不做过期自动清场（旧实现 expiresAt 过期即清+返回 null，
  *   会吞掉「过期→单飞刷新」路径——过期裁决收敛在 getValidAccessToken）。
+ * - 存储姿态裁决见 spec §2「裁决（2026-10-21，终审 I7）」：access+refresh
+ *   同键持久化 sessionStorage，不采纳 access 单独内存化。
  */
 
 import { env } from '@config/env.js';
@@ -138,11 +140,19 @@ export class AuthSession {
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({})) as { message?: string };
+      // 登录限流 429：@nestjs/throttler 命名桶（auth）经 Retry-After-auth 头返回
+      // 剩余封锁秒数（Fetch Headers.get 大小写不敏感，'retry-after-auth' 同一命中），
+      // 透出给 UI 做等待时长文案（语义移植自旧 client.ts 非 2xx 分支）。
+      const retryAfterHeader = response.headers.get('Retry-After-auth');
+      const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
       throw new ApiClientError({
         status: response.status,
         code: 'AUTH_LOGIN_FAILED',
         i18nKey: 'common.errors.loginFailed',
         message: body.message ?? `Login failed (status ${response.status})`,
+        retryAfterSeconds: retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
+          ? retryAfterSeconds
+          : undefined,
       });
     }
 

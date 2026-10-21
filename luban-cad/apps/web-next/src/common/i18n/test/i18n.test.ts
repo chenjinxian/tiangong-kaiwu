@@ -14,9 +14,14 @@ describe('i18n 骨架', () => {
     expect(i18n.t('common.app.name')).toBe('LubanCAD');
     expect(localStorage.getItem('luban-next-lang')).toBe('en');
   });
-  it('en 词库与 zh-CN 键集一致（键奇偶守卫）', async () => {
+  it('en 词库与 zh-CN 键集一致（展平深比较）', async () => {
+    const flatten = (obj: unknown, prefix = ''): string[] =>
+      Object.entries(obj as Record<string, unknown>).flatMap(([k, v]) =>
+        v !== null && typeof v === 'object' && !Array.isArray(v)
+          ? flatten(v, `${prefix}${k}.`)
+          : [`${prefix}${k}`]);
     const zh = (await import('../locales/zh-CN/common.json')).default;
     const en = (await import('../locales/en/common.json')).default;
-    expect(Object.keys(en).sort()).toEqual(Object.keys(zh).sort());
+    expect(flatten(en).sort()).toEqual(flatten(zh).sort());
   });
 });

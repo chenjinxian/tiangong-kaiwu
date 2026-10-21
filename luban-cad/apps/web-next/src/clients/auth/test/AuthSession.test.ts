@@ -48,7 +48,7 @@ describe('AuthSession', () => {
     // 回归钉死：刷新请求必须带 `Authorization: Bearer <stored refreshToken>`——
     // 后端 AuthGuard('jwt-refresh') fromAuthHeaderAsBearerToken() 缺此头恒 401，
     // 历史「missing header → permanent 401」回归即此断言兜底。
-    expect((refreshCalls[0][1] as RequestInit).headers).toMatchObject({ Authorization: 'Bearer r-old' });
+    expect((refreshCalls[0]?.[1] as RequestInit).headers).toMatchObject({ Authorization: 'Bearer r-old' });
     expect(AuthSession.getStoredAuth()?.refreshToken).toBe('r-new');
   });
 
@@ -60,5 +60,16 @@ describe('AuthSession', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ statusCode: 401 }, 401)));
     await expect(AuthSession.getValidAccessToken()).rejects.toMatchObject({ status: 401 });
     expect(AuthSession.getStoredAuth()).toBeNull();
+  });
+
+  it('登录 429：携带 Retry-After-auth 头时错误透出 retryAfterSeconds', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ message: 'Too many requests' }),
+      { status: 429, headers: { 'content-type': 'application/json', 'Retry-After-auth': '720' } },
+    )));
+    await expect(AuthSession.login('t@e.com', 'pw')).rejects.toMatchObject({
+      status: 429,
+      retryAfterSeconds: 720,
+    });
   });
 });

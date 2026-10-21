@@ -14,12 +14,15 @@ export interface ApiClientErrorOptions {
   code?: string;
   i18nKey?: string;
   message?: string;
+  /** 限流剩余封锁秒数（如登录 429 的 Retry-After-auth 头透出），供 UI 等待文案。 */
+  retryAfterSeconds?: number;
 }
 
 export class ApiClientError extends Error {
   public readonly status: number;
   public readonly code?: string;
   public readonly i18nKey: string;
+  public readonly retryAfterSeconds?: number;
 
   constructor(options: ApiClientErrorOptions) {
     super(options.message ?? `API request failed (status ${options.status})`);
@@ -27,5 +30,6 @@ export class ApiClientError extends Error {
     this.status = options.status;
     this.code = options.code;
     this.i18nKey = options.i18nKey ?? 'common.errors.apiRequestFailed';
+    this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }

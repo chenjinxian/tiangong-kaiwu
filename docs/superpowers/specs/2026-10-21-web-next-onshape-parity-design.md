@@ -84,7 +84,9 @@ packages/viewer-next/       # 视口包：link: 消费 vendored itwinjs-core
 
 官方 client `baseUrl` 指向本地 hub :5400（SDK 原生支持 apiUrl 覆盖）。
 
-**认证**：后端为自有 JWT（非 Bentley IMS OIDC），auth-clients 的 OAuth 流不适用、不硬套。自建 `LubanAuthorizationClient`（实现 core-common `AuthorizationClient` 接口）向官方 client 请求管道注入 Bearer。会话：access token 内存、refresh 持久化 sessionStorage；401 → 单飞刷新 → 原请求重放（逻辑自旧应用移植）。
+**认证**：后端为自有 JWT（非 Bentley IMS OIDC），auth-clients 的 OAuth 流不适用、不硬套。自建 `LubanAuthorizationClient`（实现 core-common `AuthorizationClient` 接口）向官方 client 请求管道注入 Bearer。401 → 单飞刷新 → 原请求重放（逻辑自旧应用移植）。
+
+裁决（2026-10-21，终审 I7）：会话保持**单键持久化 sessionStorage**（access+refresh 同键 `luban-next-auth`，TTL 15min + refresh 续期），与旧应用姿态持平；不采用「access token 仅内存、refresh 持久化」。理由：同域存储 threat model 下，access token 单独内存化并不缩小 XSS 攻击面（脚本仍可经内存化模块/请求管道取到 token），却牺牲页面刷新后的会话延续体验——收益为零、体验有损，故维持单键持久化。
 
 **数据流（单向）**：`组件 → hooks(react-query) → clients/* → 官方 SDK → hub`。
 - queryKeys 工厂按域分层（`documentsKeys.itwin(id).image`）
