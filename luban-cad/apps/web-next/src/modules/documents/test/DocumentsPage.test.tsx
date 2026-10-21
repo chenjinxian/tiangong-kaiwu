@@ -25,13 +25,18 @@ vi.mock('../hooks/useDocuments.js', () => ({
   useDocuments: (...args: unknown[]) => mockUseDocuments(...args),
 }));
 
+// hoisted：vi.mock 工厂提升执行，工厂内引用顶层 const 会撞 TDZ——
+// 共享 delete mock 须经 vi.hoisted 声明（删除失败反馈用例要驱动它 reject）。
+const { itwinsDeleteMock } = vi.hoisted(() => ({ itwinsDeleteMock: vi.fn() }));
+
 vi.mock('@clients/itwins/ItwinsClient.js', () => ({
-  // 类字段箭头函数：每实例一份 vi.fn，互不影响（get 供详情侧栏描述查询）。
+  // 类字段箭头函数：每实例一份 vi.fn，互不影响（get 供详情侧栏描述查询）；
+  // delete 例外—— hoist 共享，供用例注入 reject。
   ItwinsClient: class {
     get = vi.fn().mockResolvedValue({ id: 'doc-1', displayName: '文档 A', description: '' });
     create = vi.fn();
     update = vi.fn();
-    delete = vi.fn();
+    delete = itwinsDeleteMock;
   },
 }));
 
@@ -81,6 +86,8 @@ function renderPage() {
 
 beforeEach(() => {
   mockUseDocuments.mockReturnValue({ documents: DOCS, isLoading: false, error: null });
+  // 默认 resolved（undefined）；个别用例注入 reject。
+  itwinsDeleteMock.mockReset();
 });
 
 describe('DocumentsPage 结构（/documents 中心页）', () => {
@@ -196,6 +203,37 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     expect(await screen.findByText(/确定要删除文档「文档 A」吗/)).toBeDefined();
     expect(screen.getByRole('button', { name: '取消' })).toBeDefined();
     expect(screen.getByRole('button', { name: '删除' })).toBeDefined();
+  });
+
+  it('删除失败 → 内联错误呈现（不静默），对话框保持在场', async () => {
+    const user = userEvent.setup();
+    itwinsDeleteMock.mockRejectedValue(new Error('hub boom'));
+    renderPage();
+    await user.click(screen.getAllByRole('button', { name: '更多操作' })[0]!);
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: '删除' }));
+    await user.click(await screen.findByRole('button', { name: '删除' }));
+    expect(await screen.findByText('hub boom')).toBeDefined();
+    // 保持在场：确认消息与操作钮仍在（可重试）。
+    expect(screen.getByText(/确定要删除文档「文档 A」吗/)).toBeDefined();
+    expect(screen.getByRole('button', { name: '删除' })).toBeDefined();
+  });
+
+  it('表格排序受控：工具条排序菜单改序后表头 sorted 态跟随（无假状态）', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: '列表视图' }));
+    // 初始排序 modifiedAt desc → 更新时间表头带 sorted 态。
+    const modifiedHeader = await screen.findByRole('columnheader', { name: '更新时间' });
+    expect(modifiedHeader.className).toMatch(/sorted/);
+    // owner/role 列不参与排序（disableSortBy）——无 actionable 态。
+    expect(screen.getByRole('columnheader', { name: '所有者' }).className).not.toMatch(/actionable/);
+    expect(screen.getByRole('columnheader', { name: '角色' }).className).not.toMatch(/actionable/);
+    // 工具条改排序 → 名称列头 sorted 态回灌，原列头卸下。
+    await user.click(screen.getByRole('button', { name: '排序' }));
+    await user.click(await screen.findByRole('menuitem', { name: '名称' }));
+    expect((await screen.findByRole('columnheader', { name: '名称' })).className).toMatch(/sorted/);
+    expect(screen.getByRole('columnheader', { name: '更新时间' }).className).not.toMatch(/sorted/);
   });
 
   it('行菜单「打开」→ 跳转 /documents/:iTwinId', async () => {

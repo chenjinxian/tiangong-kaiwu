@@ -12,7 +12,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { DropdownMenu, IconButton, Table, Tag } from '@itwin/itwinui-react';
 import { SvgDocument, SvgMoreVertical } from '@itwin/itwinui-icons-react';
-import type { Column } from '@itwin/itwinui-react/react-table';
+import type { Column, TableState } from '@itwin/itwinui-react/react-table';
 import type { DocumentSort, DocumentSummary } from '../types.js';
 
 /** Table 行数据（type 而非 interface——react-table 泛型约束
@@ -75,11 +75,15 @@ export function DocumentTable({
         id: 'owner',
         Header: t('documents.table.owner'),
         accessor: 'owner',
+        // 手动排序仅受理 name/createdAt/modifiedAt（见 handleSort）——owner/role
+        // 不加 disableSortBy 会「点列头翻箭头但数据不重排」（假状态）。
+        disableSortBy: true,
       },
       {
         id: 'role',
         Header: t('documents.table.role'),
         accessor: 'role',
+        disableSortBy: true,
         Cell: ({ row }) => <Tag>{row.original.role || t('documents.role.member')}</Tag>,
       },
       {
@@ -131,6 +135,23 @@ export function DocumentTable({
     [onSortChange],
   );
 
+  // 受控 sortBy 回灌：initialState 仅挂载时生效——工具条排序菜单改序后表头
+  // sorted 态不跟随（假状态）。iTwinUI Table 不透传 react-table v7 的 state
+  // 选项（会落进 DOM 属性），但透传 useControlledState——每次渲染以父级
+  // sort 覆写实例 state.sortBy；列头点击的 toggle 意图经 onSort 上报父级、
+  // 由父级 sort 态回灌（v7 受控 state 契约）。
+  const sortByState = React.useMemo(
+    () => [{ id: sort.id, desc: sort.desc }],
+    [sort],
+  );
+  const useControlledSortBy = React.useCallback(
+    (tableState: TableState<DocumentRow>): TableState<DocumentRow> => ({
+      ...tableState,
+      sortBy: sortByState,
+    }),
+    [sortByState],
+  );
+
   return (
     <Table<DocumentRow>
       className="documents-table"
@@ -140,7 +161,7 @@ export function DocumentTable({
       isSortable
       manualSortBy
       onSort={handleSort}
-      initialState={{ sortBy: [{ id: sort.id, desc: sort.desc }] }}
+      useControlledState={useControlledSortBy}
       onRowClick={(_event, row) => onRowClick(row.original.doc)}
       rowProps={(row) => ({
         className:

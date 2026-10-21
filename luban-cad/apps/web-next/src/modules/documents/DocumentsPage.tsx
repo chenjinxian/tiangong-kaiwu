@@ -117,6 +117,7 @@ export function DocumentsPage(): React.JSX.Element {
   const [renameTarget, setRenameTarget] = React.useState<DocumentSummary | null>(null);
   const [shareTarget, setShareTarget] = React.useState<DocumentSummary | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<DocumentSummary | null>(null);
+  const [deleteError, setDeleteError] = React.useState('');
   const [gatedAction, setGatedAction] = React.useState<GatedCreateAction | null>(null);
 
   const favoriteMutation = useMutation({
@@ -256,14 +257,20 @@ export function DocumentsPage(): React.JSX.Element {
 
   const handleDeleteConfirm = React.useCallback(async () => {
     if (!deleteTarget) return;
+    setDeleteError('');
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
       if (selectedId === deleteTarget.id) setSelectedId(null);
       setDeleteTarget(null);
-    } catch {
-      // 删除失败保持对话框在场，由重试承接（旧应用 toast 降级同 toggleFavorite 注）。
+    } catch (deleteFailure) {
+      // 失败不静默：内联呈现错误并保持对话框在场承接重试（RenameDialog 同口径）。
+      setDeleteError(
+        deleteFailure instanceof Error && deleteFailure.message
+          ? deleteFailure.message
+          : t('documents.states.deleteFailed'),
+      );
     }
-  }, [deleteTarget, deleteMutation, selectedId]);
+  }, [deleteTarget, deleteMutation, selectedId, t]);
 
   // 行/卡操作菜单（Table 行尾 + Tile moreOptions 共用）
   const buildMenuItems = React.useCallback(
@@ -326,6 +333,7 @@ export function DocumentsPage(): React.JSX.Element {
           startIcon={<SvgDelete />}
           onClick={() => {
             close();
+            setDeleteError('');
             setDeleteTarget(doc);
           }}
         >
@@ -543,10 +551,13 @@ export function DocumentsPage(): React.JSX.Element {
         onClose={() => setShareTarget(null)}
       />
 
-      {/* 删除确认（危险操作 HITL） */}
+      {/* 删除确认（危险操作 HITL；失败内联呈现错误，不静默） */}
       <Dialog
         isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
+        onClose={() => {
+          setDeleteError('');
+          setDeleteTarget(null);
+        }}
         portal
         isDismissible
       >
@@ -558,6 +569,11 @@ export function DocumentsPage(): React.JSX.Element {
         >
           <Dialog.TitleBar titleText={t('documents.deleteDialog.title')} />
           <Dialog.Content>
+            {deleteError && (
+              <Text color="negative" className="documents-dialog__error">
+                {deleteError}
+              </Text>
+            )}
             <Text>
               {t('documents.deleteDialog.message', { name: deleteTarget?.name ?? '' })}
             </Text>
