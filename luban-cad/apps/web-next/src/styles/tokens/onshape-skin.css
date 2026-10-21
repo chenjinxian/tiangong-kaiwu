@@ -21,8 +21,9 @@
   --lx-control-height: 32px;
   --lx-font-size-body: 13px;
   --lx-radius: 2px;
-  /* 覆写 iTwinUI 语义 */
-  --iui-color-background-backdrop: var(--lx-backdrop);
+  /* 覆写 iTwinUI 语义
+   * 页面底色一律引用 --lx-backdrop（页面骨架层用）；--iui-color-background-backdrop
+   * 不覆写——iTwinUI 原生语义是模态遮罩底色（半透明暗），覆成不透明浅灰会毁掉弹窗遮罩。 */
   --iui-color-border: var(--lx-border);
   --iui-border-radius-1: var(--lx-radius);
 }
