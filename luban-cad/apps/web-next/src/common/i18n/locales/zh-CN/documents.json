@@ -182,5 +182,53 @@
       "copied": "已复制",
       "hint": "仅拥有文档访问权限的用户可打开此链接"
     }
+  },
+  "detail": {
+    "breadcrumb": {
+      "documents": "文档"
+    },
+    "status": {
+      "active": "活跃"
+    },
+    "meta": {
+      "createdAt": "创建于 {{date}}",
+      "updatedAt": "更新于 {{date}}"
+    },
+    "imodelCount": "{{count}} 个 iModel",
+    "syncing": "同步中",
+    "syncingTitle": "存在正在初始化的 iModel，完成后列表将自动刷新",
+    "actions": {
+      "createIModel": "新建 iModel"
+    },
+    "states": {
+      "loading": "加载中…",
+      "errorTitle": "加载失败",
+      "errorDescription": "文档信息加载失败，请重试",
+      "retry": "重试",
+      "back": "返回文档列表"
+    },
+    "create": {
+      "title": "新建 iModel",
+      "nameLabel": "iModel 名称",
+      "namePlaceholder": "输入 iModel 名称",
+      "nameRequired": "请输入 iModel 名称",
+      "descriptionLabel": "描述",
+      "descriptionPlaceholder": "输入描述（可选）",
+      "failed": "创建失败，请重试"
+    },
+    "card": {
+      "open": "打开工作空间",
+      "moreActions": "更多操作",
+      "initialized": "已初始化",
+      "initializing": "初始化中",
+      "noDescription": "暂无描述",
+      "untitled": "未命名 iModel",
+      "deleteTitle": "删除 iModel",
+      "deleteMessage": "确定要删除 iModel「{{name}}」吗？此操作不可撤销。"
+    },
+    "empty": {
+      "title": "暂无 iModel",
+      "description": "创建您的第一个 iModel 开始建模"
+    }
   }
 }

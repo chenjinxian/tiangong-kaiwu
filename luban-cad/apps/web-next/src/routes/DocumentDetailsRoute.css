@@ -1,0 +1,8 @@
+/* DocumentDetailsRoute.css — /documents/:iTwinId 路由壳：占满视口高度，
+ * 页面骨架（顶栏/hero/内容区）在 DocumentDetailsPage.css。 */
+
+.document-details-route {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

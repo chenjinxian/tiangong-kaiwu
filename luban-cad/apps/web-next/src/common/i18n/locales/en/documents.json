@@ -182,5 +182,53 @@
       "copied": "Copied",
       "hint": "Only users with document access can open this link"
     }
+  },
+  "detail": {
+    "breadcrumb": {
+      "documents": "Documents"
+    },
+    "status": {
+      "active": "Active"
+    },
+    "meta": {
+      "createdAt": "Created {{date}}",
+      "updatedAt": "Updated {{date}}"
+    },
+    "imodelCount": "{{count}} iModels",
+    "syncing": "Syncing",
+    "syncingTitle": "Some iModels are still initializing. The list refreshes automatically when done.",
+    "actions": {
+      "createIModel": "New iModel"
+    },
+    "states": {
+      "loading": "Loading…",
+      "errorTitle": "Failed to load",
+      "errorDescription": "Failed to load document info. Please retry.",
+      "retry": "Retry",
+      "back": "Back to documents"
+    },
+    "create": {
+      "title": "New iModel",
+      "nameLabel": "iModel name",
+      "namePlaceholder": "Enter an iModel name",
+      "nameRequired": "Please enter an iModel name",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Enter a description (optional)",
+      "failed": "Failed to create. Please retry."
+    },
+    "card": {
+      "open": "Open workspace",
+      "moreActions": "More actions",
+      "initialized": "Initialized",
+      "initializing": "Initializing",
+      "noDescription": "No description",
+      "untitled": "Untitled iModel",
+      "deleteTitle": "Delete iModel",
+      "deleteMessage": "Delete iModel \"{{name}}\"? This action cannot be undone."
+    },
+    "empty": {
+      "title": "No iModels yet",
+      "description": "Create your first iModel to start modeling"
+    }
   }
 }

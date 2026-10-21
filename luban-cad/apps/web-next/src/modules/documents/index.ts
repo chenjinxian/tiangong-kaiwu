@@ -19,3 +19,6 @@ export type {
   GatedCreateAction,
 } from './types.js';
 export { DocumentsPage } from './DocumentsPage.js';
+// M2 Task 6：ShareDocumentDialog 经 barrel 透出——document-details 模块
+// hero「分享」复用三页签对话框（跨模块只准 import 模块入口，spec 规则 4）。
+export { ShareDocumentDialog } from './components/ShareDocumentDialog.js';

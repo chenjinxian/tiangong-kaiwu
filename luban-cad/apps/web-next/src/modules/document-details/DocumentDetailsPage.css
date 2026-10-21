@@ -1,0 +1,244 @@
+/* DocumentDetailsPage.css — /documents/:iTwinId 文档详情页（Onshape os-01
+ * 详情区 IA）。全部走 iTwinUI / --lx-* 令牌（组件禁写裸色值，见
+ * tokens/onshape-skin.css）。 */
+
+/* ── 页面骨架 ─────────────────────────────────────────────────────── */
+.document-details-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--lx-backdrop);
+  color: var(--iui-color-text);
+  overflow: hidden;
+}
+
+.document-details-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--iui-size-m);
+}
+
+/* ── 顶栏 ─────────────────────────────────────────────────────────── */
+.document-details-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.document-details-header [class*='page-header-right'] {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding-inline-end: var(--iui-size-m);
+}
+
+/* iTwinUI header-brand-icon 槽为 24×24：logo 必须同尺寸（DocumentsPage 同口径）。 */
+.document-details-logo-mark {
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: var(--iui-border-radius-1);
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  color: var(--iui-color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 10px;
+}
+
+/* 刷新中旋转动画（旧应用 .spin 同口径）。 */
+@keyframes document-details-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.document-details-header .spin {
+  animation: document-details-spin 1s linear infinite;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────── */
+.document-details-hero {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  gap: var(--iui-size-l);
+  align-items: flex-start;
+  margin: var(--iui-size-m);
+  padding: var(--iui-size-m);
+}
+
+.document-details-hero__media {
+  inline-size: 96px;
+  block-size: 96px;
+  flex-shrink: 0;
+  border-radius: var(--iui-border-radius-1);
+  overflow: hidden;
+  background: var(--iui-color-background-disabled, var(--iui-color-icon-muted));
+}
+
+.document-details-hero__image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.document-details-hero__image-fallback {
+  inline-size: 100%;
+  block-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--iui-color-icon-muted);
+}
+
+.document-details-hero__image-fallback svg {
+  inline-size: 48px;
+  block-size: 48px;
+}
+
+.document-details-hero__content {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-xs);
+}
+
+.document-details-hero__title {
+  margin: 0;
+}
+
+.document-details-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--iui-size-s);
+}
+
+.document-details-hero__description {
+  color: var(--iui-color-text-muted);
+}
+
+.document-details-hero__actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+}
+
+/* 同步指示（存在未初始化 iModel）：绿点脉冲对齐旧应用 sync-indicator 口径。 */
+.document-details-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iui-size-2xs, 4px);
+  font-size: var(--iui-font-size-0);
+  color: var(--iui-color-text-muted);
+}
+
+.document-details-sync__dot {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--iui-color-text-warning);
+  animation: document-details-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes document-details-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ── 内容区（计数行 + 卡片网格）──────────────────────────────────── */
+.document-details-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--iui-size-m) var(--iui-size-m);
+}
+
+.document-details-toolbar {
+  display: flex;
+  align-items: center;
+  padding-block: var(--iui-size-xs);
+}
+
+.document-details-count {
+  color: var(--iui-color-text-muted);
+}
+
+.document-details-nonideal {
+  margin-block-start: var(--iui-size-xl);
+}
+
+.imodel-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--iui-size-m);
+}
+
+/* ── iModel 卡片 ──────────────────────────────────────────────────── */
+.imodel-card__thumb-fallback {
+  inline-size: 100%;
+  block-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--iui-color-icon-muted);
+  background: var(--iui-color-background-disabled);
+}
+
+.imodel-card__thumb-fallback svg {
+  inline-size: 40px;
+  block-size: 40px;
+}
+
+.imodel-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.imodel-card__badge-dot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+}
+
+.imodel-card__badge-dot--initialized {
+  background: var(--iui-color-text-positive);
+}
+
+.imodel-card__badge-dot--initializing {
+  background: var(--iui-color-text-warning);
+}
+
+.imodel-card__quick-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-2xs, 4px);
+}
+
+/* ── 对话框 ───────────────────────────────────────────────────────── */
+.document-details-dialog {
+  max-inline-size: 480px;
+}
+
+.document-details-dialog__error {
+  display: block;
+  margin-block-end: var(--iui-size-s);
+}
+
+.document-details-danger-button {
+  background-color: var(--iui-color-text-negative);
+  border-color: var(--iui-color-text-negative);
+}
+
+.document-details-danger-button:hover {
+  background-color: var(--iui-color-text-negative);
+  filter: brightness(0.9);
+}
+
+.document-details-menu-item-danger {
+  color: var(--iui-color-text-negative);
+}

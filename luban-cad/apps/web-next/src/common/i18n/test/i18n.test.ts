@@ -86,6 +86,24 @@ const REQUIRED_DOCUMENT_KEYS = [
   'shareDialog.tabs.members', 'shareDialog.tabs.invite', 'shareDialog.tabs.link',
 ] as const;
 
+/** DocumentDetailsPage（Task 6）实际取用的 documents.detail.* 键集——与
+ * modules/document-details 组件逐条对账；漏任一即渲染裸键名。 */
+const REQUIRED_DOCUMENT_DETAIL_KEYS = [
+  'detail.breadcrumb.documents',
+  'detail.status.active',
+  'detail.meta.createdAt', 'detail.meta.updatedAt',
+  'detail.imodelCount', 'detail.syncing', 'detail.syncingTitle',
+  'detail.actions.createIModel',
+  'detail.states.loading', 'detail.states.errorTitle', 'detail.states.errorDescription',
+  'detail.states.retry', 'detail.states.back',
+  'detail.create.title', 'detail.create.nameLabel', 'detail.create.nameRequired',
+  'detail.create.descriptionLabel', 'detail.create.failed',
+  'detail.card.open', 'detail.card.moreActions', 'detail.card.initialized',
+  'detail.card.initializing', 'detail.card.noDescription', 'detail.card.untitled',
+  'detail.card.deleteTitle', 'detail.card.deleteMessage',
+  'detail.empty.title', 'detail.empty.description',
+] as const;
+
 describe('i18n 骨架', () => {
   it('默认 zh-CN，键命中', async () => {
     const i18n = await initI18n();
@@ -162,5 +180,21 @@ describe('i18n 骨架', () => {
     const i18n = await initI18n();
     await changeAppLanguage('zh-CN');
     expect(i18n.t('documents.section.count', { count: 2 })).toContain('2');
+  });
+  // M2 Task 6：documents.detail 词库（详情页）键集一致性 + 页面取用键存在性。
+  it('documents.detail 词库：zh/en 键奇偶且详情页取用键存在', async () => {
+    const zh = (await import('../locales/zh-CN/documents.json')).default;
+    const en = (await import('../locales/en/documents.json')).default;
+    const zhKeys = flatten(zh).sort();
+    expect(flatten(en).sort()).toEqual(zhKeys);
+    for (const key of REQUIRED_DOCUMENT_DETAIL_KEYS) {
+      // documents.json 根即 documents 块（挂 translation.documents 下），
+      // 展平键不带 documents. 前缀；组件侧 t('documents.<key>') 对应词库键 <key>。
+      expect(zhKeys, `documents.${key} 应在 zh-CN documents.json 中存在`).toContain(key);
+    }
+    // imodelCount 的 {{count}} 插值在双语下均可渲染（hero 计数验收依赖）。
+    const i18n = await initI18n();
+    await changeAppLanguage('zh-CN');
+    expect(i18n.t('documents.detail.imodelCount', { count: 2 })).toContain('2');
   });
 });
