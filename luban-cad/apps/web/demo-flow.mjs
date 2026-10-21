@@ -187,7 +187,7 @@ async function assertNoFailedRows(label) {
 
 /** 「适应」重取景 + 等一帧（改动 bbox 的幕截图前调用，防顶面出画） */
 async function refit() {
-  await page.locator('.toolbar-primary').getByRole('button', { name: '适应' }).first().click();
+  await page.locator('.viewport-view-toolbar').getByRole('button', { name: '适应' }).first().click();
   await page.waitForTimeout(1800);
 }
 
@@ -363,7 +363,7 @@ try {
   // ── 7. 返回并新建文档 ────────────────────────────────
   await pace();
   log(`步骤 7/24：面包屑返回，新建文档「${DEMO_PROJECT}」`);
-  await page.getByRole('button', { name: '项目列表' }).first().click();
+  await page.getByRole('button', { name: '文档', exact: true }).first().click();
   await page.waitForURL('**/documents', { timeout: 30000 });
   await page.getByRole('button', { name: '新建文档' }).click();
   const dlg = page.getByRole('dialog', { name: '新建文档' });
@@ -448,7 +448,7 @@ try {
   // 取景守卫（B4 根因修复，2026-10-11 实证）：编辑器打开时模型为空——内容感知初始取景
   // 框住的是空模型的大 extents，建特征后相机从未重取景，实体只占视口数像素，一切点击
   // 落在小点之外。先「适应」重建取景，并加形体投影尺寸守卫（<80px 即取景失败，拒绝盲点）。
-  await page.locator('.toolbar-primary').getByRole('button', { name: '适应' }).first().click();
+  await page.locator('.viewport-view-toolbar').getByRole('button', { name: '适应' }).first().click();
   await page.waitForTimeout(2000);
 
   // 实体投影包围盒守卫 + 普通选择探针（可命中性验明）
@@ -875,7 +875,7 @@ try {
   // ── 24. 退出登录 ─────────────────────────────────────
   await pace();
   log('步骤 24/24：返回项目列表并退出登录');
-  await page.getByRole('button', { name: '项目列表' }).first().click();
+  await page.getByRole('button', { name: '文档', exact: true }).first().click();
   await page.waitForURL('**/documents', { timeout: 30000 });
   await page.getByRole('button', { name: '退出登录' }).click();
   await page.waitForURL('**/login', { timeout: 15000 });
