@@ -1,0 +1,2 @@
+# 根 .gitignore 的 `.env.*` 会拦掉本包的 .env.development（见根文件对 apps/web 的同款豁免）
+!.env.development
