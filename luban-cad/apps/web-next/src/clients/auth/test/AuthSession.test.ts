@@ -45,6 +45,10 @@ describe('AuthSession', () => {
     await Promise.all([AuthSession.getValidAccessToken(), AuthSession.getValidAccessToken(), AuthSession.getValidAccessToken()]);
     const refreshCalls = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/auth/refresh'));
     expect(refreshCalls).toHaveLength(1);
+    // 回归钉死：刷新请求必须带 `Authorization: Bearer <stored refreshToken>`——
+    // 后端 AuthGuard('jwt-refresh') fromAuthHeaderAsBearerToken() 缺此头恒 401，
+    // 历史「missing header → permanent 401」回归即此断言兜底。
+    expect((refreshCalls[0][1] as RequestInit).headers).toMatchObject({ Authorization: 'Bearer r-old' });
     expect(AuthSession.getStoredAuth()?.refreshToken).toBe('r-new');
   });
 

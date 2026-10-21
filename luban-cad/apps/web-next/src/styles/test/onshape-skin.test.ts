@@ -20,4 +20,9 @@ describe('onshape-skin 令牌', () => {
   it('backdrop 钉实测中性灰', () => {
     expect(css).toMatch(/--lx-backdrop:\s*#f[0-9a-f]{5}/i);
   });
+  it('R6 负向守卫：不覆写 iTwin scrim 语义令牌 --iui-color-background-backdrop', () => {
+    // 该变量是 iTwin 遮罩层（scrim）语义锚点，皮肤层覆写会撕裂模态/遮罩表现——
+    // 皮肤只定义自有 --lx-* 命名空间令牌（R6 裁决），不得回写 iTwin 令牌。
+    expect(css).not.toMatch(/^\s*--iui-color-background-backdrop\s*:/m);
+  });
 });

@@ -8,11 +8,10 @@
  */
 
 import { IModelApp, IpcApp, LocalhostIpcApp } from '@itwin/core-frontend';
-import { EditTools } from '@itwin/editor-frontend';
 import { FrontendIModelsAccess } from '@itwin/imodels-access-frontend';
 import { BentleyCloudRpcManager, IModelReadRpcInterface, IModelTileRpcInterface } from '@itwin/core-common';
 import { IModelsClient } from '@itwin/imodels-client-management';
-import { OpenCloudRpcInterface, LubanFeatureRpcInterface } from '@luban-cad/shared';
+import { LubanFeatureRpcInterface, OpenCloudRpcInterface } from '@luban-cad/shared';
 import { ensureAccuSnap } from '../tools/ensure-accusnap.js';
 
 export interface StartViewerOptions {
