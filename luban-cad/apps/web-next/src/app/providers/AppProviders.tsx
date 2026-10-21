@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider as IuiThemeProvider } from '@itwin/itwinui-react';
 import { initI18n, isI18nReady } from '@common/i18n/index.js';
 import { ThemeProvider, useTheme } from './ThemeContext.js';
+import { createQueryErrorBridgeCache } from './QueryErrorBridge.js';
 
 // i18n 就绪门：模块加载即启动初始化。词库内联 → i18next.init 同步完成，
 // 首帧 isI18nReady() 已为 true，children 不闪隐藏（也令既有同步渲染断言
@@ -10,7 +11,10 @@ import { ThemeProvider, useTheme } from './ThemeContext.js';
 // 首帧尚未就绪的场景——解析完成再渲染 children。
 void initI18n();
 
+// QueryCache 内联 401 桥（M2 Task 1）：全局 onError 分流 401 → 单飞刷新 →
+// 重放；失败清场跳 /login（见 QueryErrorBridge.tsx 模块头注）。
 const queryClient = new QueryClient({
+  queryCache: createQueryErrorBridgeCache(),
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 

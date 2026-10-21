@@ -189,6 +189,33 @@ export class AuthSession {
     return AuthSession.login(email, password);
   }
 
+  /** 登出：`POST ${hubUrl}/auth/logout`，头 `Authorization: Bearer <accessToken>`
+   * + 体 `{accessToken, refreshToken}`（端点/头/体姿态对齐旧应用
+   * client.ts:277-293 实测）。请求错误（网络与 HTTP 非 2xx，fetch 本身
+   * 不抛 4xx/5xx，故 try/catch 只罩网络层）静默吞——旧实现同款
+   * 「Ignore errors during logout」；**无论成败都 clearAuth()**（finally），
+   * 调用方随后跳 /login。 */
+  public static async logout(): Promise<void> {
+    const stored = AuthSession.getStoredAuth();
+    try {
+      if (stored?.accessToken) {
+        await fetch(`${env.hubUrl}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // HTTP 头大小写不敏感；Bearer 装载 accessToken（对齐旧实现）
+            'Authorization': `Bearer ${stored.accessToken}`,
+          },
+          body: JSON.stringify({ accessToken: stored.accessToken, refreshToken: stored.refreshToken }),
+        });
+      }
+    } catch {
+      // 登出请求失败不阻断清场（旧应用姿态）
+    } finally {
+      AuthSession.clearAuth();
+    }
+  }
+
   /** 找回密码：`POST ${hubUrl}/auth/forgot/password` `{email}`。错误语义同
    * login/register：非 2xx 抛 ApiClientError（429 取 Retry-After-auth 头
    * 透出 retryAfterSeconds）；成功无落会话（重置态在服务端邮件流）。 */
