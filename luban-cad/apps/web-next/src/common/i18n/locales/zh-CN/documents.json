@@ -196,7 +196,7 @@
     },
     "imodelCount": "{{count}} 个 iModel",
     "syncing": "同步中",
-    "syncingTitle": "存在正在初始化的 iModel，完成后列表将自动刷新",
+    "syncingTitle": "存在正在初始化的 iModel，可点击刷新查看进度",
     "actions": {
       "createIModel": "新建 iModel"
     },

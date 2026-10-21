@@ -196,7 +196,7 @@
     },
     "imodelCount": "{{count}} iModels",
     "syncing": "Syncing",
-    "syncingTitle": "Some iModels are still initializing. The list refreshes automatically when done.",
+    "syncingTitle": "An iModel is initializing. Click refresh to check progress.",
     "actions": {
       "createIModel": "New iModel"
     },
