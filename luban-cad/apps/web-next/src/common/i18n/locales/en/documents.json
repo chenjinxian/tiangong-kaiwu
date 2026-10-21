@@ -1,0 +1,186 @@
+{
+  "appTitle": "Documents",
+  "userMenu": {
+    "open": "User menu",
+    "account": "My account",
+    "darkMode": "Dark mode",
+    "logout": "Sign out"
+  },
+  "filters": {
+    "recent": "Recently opened",
+    "favorites": "Favorites",
+    "my": "My documents",
+    "shared": "Shared with me",
+    "public": "Public"
+  },
+  "createMenu": {
+    "button": "Create",
+    "newDocument": "New document",
+    "newFolder": "New folder",
+    "importFile": "Import file",
+    "importFrom": "Import from",
+    "labelTag": "Label"
+  },
+  "capability": {
+    "title": "Coming soon",
+    "folder": "Folders are coming soon. Documents are organized in a flat list in this version; folder hierarchy will arrive in a later release.",
+    "importFile": "File import is coming soon. You will be able to create new documents by importing CAD files.",
+    "importFrom": "Importing from external sources is coming soon. Third-party document imports will be supported in a later release.",
+    "labelTag": "Labels are coming soon. You will be able to tag documents for categorization and filtering.",
+    "confirm": "Got it"
+  },
+  "section": {
+    "count": "{{count}} documents",
+    "searchResults": "Search: \"{{query}}\""
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "clearSearch": "Clear search",
+    "open": "Open",
+    "details": "Details",
+    "rename": "Rename",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "share": "Share",
+    "delete": "Delete"
+  },
+  "search": {
+    "placeholder": "Search documents…",
+    "noResults": "No matching documents",
+    "noResultsHint": "Try a different keyword"
+  },
+  "empty": {
+    "recentTitle": "No recent documents",
+    "recentDescription": "Documents you open will appear here",
+    "favoritesTitle": "No favorite documents",
+    "favoritesDescription": "Click the star on a document card to favorite it",
+    "myTitle": "No documents",
+    "myDescription": "Create your first document",
+    "sharedTitle": "No shared documents",
+    "sharedDescription": "Documents shared with you by other users will appear here",
+    "publicTitle": "No public documents",
+    "publicDescription": "Public documents will appear here",
+    "viewAll": "View all documents"
+  },
+  "states": {
+    "loading": "Loading documents…",
+    "errorTitle": "Failed to load",
+    "unnamed": "Untitled document",
+    "createdAt": "Created {{date}}",
+    "modifiedAt": "Modified {{date}}",
+    "noDate": "—",
+    "favoriteSuccess": "Added to favorites",
+    "unfavoriteSuccess": "Removed from favorites",
+    "favoriteFailed": "Failed to update favorite. Please retry.",
+    "deleteSuccess": "Document deleted",
+    "deleteFailed": "Failed to delete. Please retry.",
+    "editSaved": "Document updated"
+  },
+  "view": {
+    "tile": "Grid view",
+    "table": "List view"
+  },
+  "table": {
+    "name": "Name",
+    "owner": "Owner",
+    "role": "Role",
+    "createdAt": "Created",
+    "modifiedAt": "Modified",
+    "rowActions": "More actions"
+  },
+  "role": {
+    "owner": "Owner",
+    "member": "Member"
+  },
+  "info": {
+    "title": "Details",
+    "owner": "Owner",
+    "role": "Role",
+    "createdAt": "Created",
+    "modifiedAt": "Modified",
+    "description": "Description",
+    "noDescription": "No description"
+  },
+  "deleteDialog": {
+    "title": "Delete document",
+    "message": "Delete document \"{{name}}\"? This action cannot be undone, and all iModels in the document will also be deleted.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "create": {
+    "title": "New document",
+    "nameLabel": "Document name",
+    "namePlaceholder": "Enter a document name",
+    "nameRequired": "Please enter a document name",
+    "numberLabel": "Document number",
+    "numberPlaceholder": "Enter a document number (optional)",
+    "submit": "Create",
+    "cancel": "Cancel",
+    "failed": "Failed to create. Please retry."
+  },
+  "rename": {
+    "title": "Rename document",
+    "nameLabel": "Document name",
+    "namePlaceholder": "Enter a document name",
+    "nameRequired": "Please enter a document name",
+    "submit": "Save",
+    "cancel": "Cancel",
+    "failed": "Failed to update. Please retry."
+  },
+  "sort": {
+    "label": "Sort",
+    "name": "Name",
+    "modified": "Modified",
+    "created": "Created",
+    "ascending": "Ascending",
+    "descending": "Descending"
+  },
+  "shareDialog": {
+    "title": "Share document",
+    "close": "Close",
+    "tabs": {
+      "members": "Members ({{count}})",
+      "invite": "Invite",
+      "link": "Share link"
+    },
+    "members": {
+      "loading": "Loading members…",
+      "loadFailed": "Failed to load members",
+      "retry": "Retry",
+      "empty": "No members yet",
+      "emptyHint": "Add team members from the Invite tab",
+      "roleLabel": "Role",
+      "noRole": "Member",
+      "remove": "Remove member",
+      "removeTitle": "Remove member",
+      "removeMessage": "Remove {{email}} from this document?",
+      "cancel": "Cancel",
+      "confirmRemove": "Remove",
+      "removeSuccess": "Member removed",
+      "removeFailed": "Failed to remove member. Please retry.",
+      "roleUpdated": "Role updated",
+      "roleUpdateFailed": "Failed to update role. Please retry.",
+      "manageUnavailable": "This hub version cannot change or remove this member yet"
+    },
+    "invite": {
+      "emailLabel": "Email address",
+      "emailPlaceholder": "colleague@company.com",
+      "roleLabel": "Role",
+      "noRoles": "No roles available",
+      "submit": "Add member",
+      "emailRequired": "Please enter an email address",
+      "invalidEmail": "Please enter a valid email address",
+      "success": "Member added: {{email}}",
+      "failed": "Failed to add member. Please retry.",
+      "hint": "The member gains document access immediately (this hub does not send email notifications).",
+      "rolesLoadFailed": "Failed to load roles"
+    },
+    "link": {
+      "label": "Share link",
+      "copy": "Copy link",
+      "copied": "Copied",
+      "hint": "Only users with document access can open this link"
+    }
+  }
+}

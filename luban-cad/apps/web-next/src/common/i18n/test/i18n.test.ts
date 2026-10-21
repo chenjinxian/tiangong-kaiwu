@@ -60,6 +60,32 @@ const REQUIRED_ERROR_KEYS = [
   'errors.apiRequestFailed',
 ] as const;
 
+/** DocumentsPage（Task 5）实际取用的 documents.* 键集——与
+ * modules/documents 组件逐条对账；漏任一即渲染裸键名。 */
+const REQUIRED_DOCUMENT_KEYS = [
+  'userMenu.open', 'userMenu.account', 'userMenu.darkMode', 'userMenu.logout',
+  'filters.recent', 'filters.favorites', 'filters.my', 'filters.shared', 'filters.public',
+  'createMenu.button', 'createMenu.newDocument', 'createMenu.newFolder',
+  'createMenu.importFile', 'createMenu.importFrom', 'createMenu.labelTag',
+  'capability.title', 'capability.confirm',
+  'section.count', 'section.searchResults',
+  'actions.refresh', 'actions.retry', 'actions.clearSearch', 'actions.open', 'actions.details',
+  'actions.rename', 'actions.favorite', 'actions.unfavorite', 'actions.share', 'actions.delete',
+  'search.placeholder', 'search.noResults', 'search.noResultsHint',
+  'empty.myTitle', 'empty.myDescription',
+  'states.loading', 'states.errorTitle', 'states.unnamed', 'states.noDate',
+  'view.tile', 'view.table',
+  'table.name', 'table.owner', 'table.role', 'table.createdAt', 'table.modifiedAt', 'table.rowActions',
+  'info.title', 'info.owner', 'info.role', 'info.createdAt', 'info.modifiedAt',
+  'info.description', 'info.noDescription',
+  'deleteDialog.title', 'deleteDialog.message', 'deleteDialog.cancel', 'deleteDialog.confirm',
+  'create.title', 'create.nameLabel', 'create.nameRequired', 'create.submit', 'create.cancel',
+  'rename.title', 'rename.nameLabel', 'rename.submit', 'rename.cancel',
+  'sort.label', 'sort.name', 'sort.modified', 'sort.created', 'sort.ascending', 'sort.descending',
+  'shareDialog.title', 'shareDialog.close',
+  'shareDialog.tabs.members', 'shareDialog.tabs.invite', 'shareDialog.tabs.link',
+] as const;
+
 describe('i18n 骨架', () => {
   it('默认 zh-CN，键命中', async () => {
     const i18n = await initI18n();
@@ -120,5 +146,21 @@ describe('i18n 骨架', () => {
       expect(zhKeys, `common.${key} 应在 zh-CN common.json 中存在`).toContain(key);
       expect(enKeys, `common.${key} 应在 en common.json 中存在`).toContain(key);
     }
+  });
+  // M2 Task 5：documents 词库（中心页）键集一致性 + 页面取用键存在性。
+  it('documents 词库：zh/en 键奇偶且页面取用键存在', async () => {
+    const zh = (await import('../locales/zh-CN/documents.json')).default;
+    const en = (await import('../locales/en/documents.json')).default;
+    const zhKeys = flatten(zh).sort();
+    expect(flatten(en).sort()).toEqual(zhKeys);
+    for (const key of REQUIRED_DOCUMENT_KEYS) {
+      // documents.json 根即 documents 块（挂 translation.documents 下），
+      // 展平键不带 documents. 前缀；组件侧 t('documents.<key>') 对应词库键 <key>。
+      expect(zhKeys, `documents.${key} 应在 zh-CN documents.json 中存在`).toContain(key);
+    }
+    // section.count 的 {{count}} 插值在双语下均可渲染（分区计数验收依赖）。
+    const i18n = await initI18n();
+    await changeAppLanguage('zh-CN');
+    expect(i18n.t('documents.section.count', { count: 2 })).toContain('2');
   });
 });

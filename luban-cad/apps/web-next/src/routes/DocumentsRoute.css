@@ -1,0 +1,8 @@
+/* DocumentsRoute.css — /documents 路由壳：占满视口高度，
+ * 页面骨架（顶栏/左栏/主区）在 DocumentsPage.css。 */
+
+.documents-route {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

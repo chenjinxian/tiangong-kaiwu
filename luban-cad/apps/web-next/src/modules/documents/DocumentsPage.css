@@ -1,0 +1,478 @@
+/* DocumentsPage.css — /documents 文档中心页（Onshape os-01 IA）。
+ * 全部走 iTwinUI / --lx-* 令牌（组件禁写裸色值，见 tokens/onshape-skin.css）。 */
+
+/* ── 页面骨架 ─────────────────────────────────────────────────────── */
+.documents-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--lx-backdrop);
+  color: var(--iui-color-text);
+}
+
+.documents-content {
+  flex: 1;
+  overflow: hidden;
+  align-items: flex-start !important;
+}
+
+/* ── 顶栏 ─────────────────────────────────────────────────────────── */
+.documents-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.documents-header [class*='page-header-right'] {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding-inline-end: var(--iui-size-m);
+}
+
+.documents-search {
+  width: min(420px, 40vw);
+}
+
+/* iTwinUI header-brand-icon 槽为 24×24：logo 必须同尺寸，否则方块
+ * 会盖住紧随其后的品牌字标首字母（旧应用 UI 走查实测）。 */
+.documents-logo-mark {
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: var(--iui-border-radius-1);
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  color: var(--iui-color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 10px;
+}
+
+/* ── 左栏（创建 ▾ + 五筛选）──────────────────────────────────────── */
+.documents-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--iui-size-xs);
+  padding: var(--iui-size-xs);
+  box-sizing: border-box;
+}
+
+.documents-sidebar__create {
+  display: flex;
+  flex-direction: column;
+}
+
+.documents-sidebar__create > button {
+  width: 100%;
+}
+
+.documents-sidebar__nav {
+  height: 100%;
+}
+
+/* Onshape 左栏更宽：展开态 220px（收起态仍按 iTwinUI 窄条） */
+.documents-sidebar__nav[class*='expanded'] {
+  inline-size: 220px !important;
+  min-inline-size: 220px;
+}
+
+/* ── 主区 ─────────────────────────────────────────────────────────── */
+.documents-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-s);
+  padding: var(--iui-size-m) var(--iui-size-l);
+  overflow-y: auto;
+}
+
+.documents-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* InformationPanel 为 absolute 定位——wrapper 提供 positioned 祖先
+ * （panel 从内容区右缘滑入，iTwinUI 契约）。 */
+.documents-body__wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 工具条 ───────────────────────────────────────────────────────── */
+.documents-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--iui-size-s);
+  flex-wrap: wrap;
+}
+
+.documents-toolbar__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--iui-size-xs);
+  min-width: 0;
+}
+
+.documents-toolbar__count {
+  color: var(--iui-color-text-muted);
+}
+
+.documents-toolbar__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+/* 刷新图标旋转 */
+.documents-spin {
+  animation: documents-spin 1s linear infinite;
+}
+
+@keyframes documents-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 加载 / 空态 ──────────────────────────────────────────────────── */
+.documents-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--iui-size-s);
+  color: var(--iui-color-text-muted);
+}
+
+.documents-nonideal {
+  flex: 1;
+}
+
+/* ── 网格视图 ─────────────────────────────────────────────────────── */
+.documents-grid {
+  display: grid;
+  /* Onshape 卡片密度：桌面约 4 列，与缩略图 16:9 比例平衡 */
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--iui-size-m);
+  overflow-y: auto;
+  align-content: start;
+  padding-bottom: var(--iui-size-m);
+}
+
+/* iTwinUI Tile 自带固定 inline-size（约 288px），在 auto-fill 列宽更小的网格里会
+ * 溢出到相邻列并盖住左邻卡片的 quick-action——让 Tile 服从网格列宽。 */
+.documents-grid > [class*='tile'] {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+/* Tile 的元素型 thumbnail 默认落进 64×64 图标槽（iTwinUI 3.22 契约）；
+ * 占位图标松绑为铺满缩略图区。 */
+.documents-grid [class*='tile-thumbnail'] [class*='thumbnail-icon'] {
+  inline-size: 100%;
+  block-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lx-backdrop);
+}
+
+.documents-grid [class*='tile-thumbnail'] [class*='thumbnail-icon'] svg {
+  inline-size: 64px;
+  block-size: 64px;
+  color: var(--iui-color-icon-muted);
+  /* SvgDocument 是实心字形——降到淡灰才像占位而非模型预览 */
+  opacity: 0.32;
+}
+
+/* iTwinUI 3.22 的 tile-name/content 在本组合下 padding-inline 实际为 0
+ * （实测名称紧贴卡片左缘）——补回 Onshape 卡片内边距 */
+.documents-grid [class*='tile-name'],
+.documents-grid [class*='tile-content'] {
+  padding-inline: var(--iui-size-s);
+}
+
+.documents-grid [class*='tile-name'] {
+  padding-block-start: var(--iui-size-xs);
+  margin-block-end: var(--iui-size-2xs);
+}
+
+/* 缩略图右上 quick-action：星标 + 更多菜单（Onshape 悬停态；
+ * 已收藏星标常驻，避免「收藏了却看不见」的状态不可读） */
+.document-tile__quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.documents-grid [class*='tile-thumbnail-quick-action'] {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.documents-grid :is([class*='tile']:hover, [class*='tile']:focus-within) [class*='tile-thumbnail-quick-action'],
+.documents-grid [class*='tile-thumbnail-quick-action']:has(.document-tile__star--favorite) {
+  opacity: 1;
+}
+
+/* ── 缩略图（Table 单元格 / 详情侧栏共用）────────────────────────── */
+.documents-thumb-img {
+  inline-size: 32px;
+  block-size: 32px;
+  object-fit: cover;
+  border-radius: var(--iui-border-radius-1);
+  display: block;
+}
+
+.documents-thumb-icon {
+  inline-size: 32px;
+  block-size: 32px;
+  color: var(--iui-color-icon-muted);
+  display: block;
+}
+
+/* ── Table ────────────────────────────────────────────────────────── */
+.documents-table {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.documents-table-row {
+  cursor: pointer;
+}
+
+.documents-table-row--selected {
+  /* iTwinUI 3.22 Table 为 div 结构（无 td）——高亮直接落行容器 */
+  background: var(--iui-color-background-accent-muted, var(--lx-backdrop));
+}
+
+/* 选中行加固：iTwinUI 给每个单元格上 backgroundColor 会遮挡行容器底色——同步染单元格 */
+.documents-table-row--selected [class*='table-cell'] {
+  background-color: var(--iui-color-background-accent-muted, var(--lx-backdrop));
+}
+
+.documents-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  min-width: 0;
+}
+
+.documents-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documents-row-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── 危险操作（行菜单删除项 + 删除确认钮）──────────────────────────── */
+.documents-menu-item-danger {
+  color: var(--iui-color-text-negative);
+}
+
+.documents-danger-button {
+  color: var(--iui-color-text-negative);
+}
+
+.documents-dialog p {
+  margin: 0;
+}
+
+.documents-dialog__error {
+  display: block;
+  margin-bottom: var(--iui-size-s);
+}
+
+/* ── 详情侧栏（InformationPanel）──────────────────────────────────── */
+.documents-info-panel {
+  inline-size: 340px;
+}
+
+.documents-info-panel__header {
+  font-weight: var(--iui-font-weight-semibold, 600);
+}
+
+.documents-info-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-s);
+  padding: var(--iui-size-s) 0;
+}
+
+.documents-info-thumb {
+  display: flex;
+  justify-content: center;
+  background: var(--lx-backdrop);
+  border-radius: var(--iui-border-radius-1);
+  overflow: hidden;
+}
+
+.documents-info-thumb__img {
+  inline-size: 100%;
+  block-size: 160px;
+  object-fit: cover;
+  border-radius: var(--iui-border-radius-1);
+}
+
+.documents-info-thumb__icon {
+  inline-size: 100%;
+  block-size: 160px;
+  padding: var(--iui-size-xl);
+  box-sizing: border-box;
+  color: var(--iui-color-icon-muted);
+  opacity: 0.32;
+}
+
+.documents-info-name {
+  overflow-wrap: anywhere;
+}
+
+.documents-info-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--iui-size-2xs) var(--iui-size-s);
+  margin: 0;
+}
+
+.documents-info-list dt {
+  color: var(--iui-color-text-muted);
+}
+
+.documents-info-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── 共享对话框（移植自旧 ShareITwinDialog.css）────────────────────── */
+.share-dialog {
+  max-inline-size: 560px;
+}
+
+.share-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-m);
+  min-block-size: 240px;
+}
+
+.share-alert {
+  margin-bottom: 0;
+}
+
+.share-members-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  color: var(--iui-color-text-muted);
+}
+
+.share-members-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--iui-size-xs);
+}
+
+.share-empty-title {
+  color: var(--iui-color-text);
+}
+
+.share-empty-desc {
+  color: var(--iui-color-text-muted);
+}
+
+.share-members-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.share-member {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-s);
+  padding-block: var(--iui-size-2xs);
+  border-bottom: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.share-member:last-child {
+  border-bottom: none;
+}
+
+.share-member__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.share-member__email {
+  overflow-wrap: anywhere;
+}
+
+.share-member__meta {
+  display: flex;
+  align-items: center;
+}
+
+.share-hint-text {
+  color: var(--iui-color-text-muted);
+}
+
+.share-invite-role {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.share-hint {
+  color: var(--iui-color-text-muted);
+}
+
+.share-link-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.share-link-input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.share-link-input {
+  flex: 1;
+}
+
+.share-link-hint {
+  color: var(--iui-color-text-muted);
+}
+
+.share-danger-button {
+  color: var(--iui-color-text-negative);
+}
+
+/* ── 响应式 ───────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .documents-sidebar {
+    display: none;
+  }
+
+  .documents-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}

@@ -24,6 +24,16 @@ beforeAll(async () => {
 // DOM 令 getBy* 命中多元素。双挂钩幂等无害。
 afterEach(cleanup);
 
+// M2 Task 5：jsdom 未实现 Element.scrollTo；iTwinUI Tabs 在 layout effect
+// 里调用（share 对话框三页签），不补形即 TypeError（移植自旧应用
+// apps/web test/setup.ts 同口径）。
+if (typeof HTMLElement.prototype.scrollTo !== 'function') {
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+    value: () => {},
+    writable: true,
+  });
+}
+
 // 终审 M-d：原全局 afterEach(vi.resetAllMocks()) 已删——三份路由测试的
 // beforeEach 已改块体（`() => { mock.mockReset(); }`），vitest 4「隐式
 // return 注册 hook cleanup」陷阱（上游 vitest-dev/vitest#10845）不复存在，

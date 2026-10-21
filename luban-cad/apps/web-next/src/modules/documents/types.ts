@@ -28,3 +28,19 @@ export interface DocumentSummary {
   /** 缩略图（ITwin.image）；缺席时本键不产出。 */
   thumbnailUrl?: string;
 }
+
+/** 主区视图档位（网格/列表双视图，Onshape 文档中心 IA）。 */
+export type DocumentsView = 'tile' | 'table';
+
+/** 排序键（名称/创建时间/修改时间）。 */
+export type DocumentSortId = 'name' | 'createdAt' | 'modifiedAt';
+
+/** 排序状态：排序键 + 方向（受控态统一驱动 Table 表头与工具条排序菜单）。 */
+export interface DocumentSort {
+  id: DocumentSortId;
+  desc: boolean;
+}
+
+/** 创建菜单的 gated（🟠 能力门）项键——照常可点，打开能力引导对话框
+ * （spec §0 铁律 1 完整 UI 面：gated 是运行时数据，不是视觉残缺）。 */
+export type GatedCreateAction = 'folder' | 'importFile' | 'importFrom' | 'labelTag';
