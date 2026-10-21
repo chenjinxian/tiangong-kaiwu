@@ -2,7 +2,8 @@
 //
 // M3 Task 2（brief Step 1）：能力注册表——完整 UI 面的落地机制（spec §5）：
 //  1) 初始 gated 集合精确等于 spec §5 钉死的 12 项（材料/外观与曲面/曲线
-//     各拆两条注册，共 14 个 toolId）；
+//     各拆两条注册，共 14 个 toolId）；T5 起画布右键「显示依赖项…」登记
+//     dependencies（依赖项查看器无后端面，gated 引导），集合扩至 15；
 //  2) isGated：gated 项为 true；full 项与未登记项为 false（完整 UI 面——
 //     未登记默认 full，只有显式 gated 才走能力引导）；
 //  3) CAPABILITY_GUIDANCE：每个 gated 工具都有引导文案 i18n 键
@@ -21,7 +22,7 @@ import {
   isGated,
 } from '../internal/capabilities.js';
 
-/** spec §5 初始 gated 集合（材料/外观、曲面/曲线各两条，共 14）。 */
+/** spec §5 初始 gated 集合（材料/外观、曲面/曲线各两条，共 14）+ T5 登记 dependencies（共 15）。 */
 const EXPECTED_GATED_IDS = [
   'draft', // 拔模
   'shell', // 抽壳
@@ -37,10 +38,11 @@ const EXPECTED_GATED_IDS = [
   'notifications', // 通知
   'print', // 打印
   'assemblyEdit', // 装配体编辑
+  'dependencies', // 依赖项查看（T5 画布右键「显示依赖项…」登记）
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死的 14 项（不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies（共 15，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

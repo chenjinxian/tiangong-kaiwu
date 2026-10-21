@@ -66,6 +66,9 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   notifications: 'gated', // 通知
   print: 'gated', // 打印
   assemblyEdit: 'gated', // 装配体编辑
+  // T5 画布右键「显示依赖项…」登记：依赖项查看器无后端面，gated 引导（集合 14→15，
+  // capabilities.test.ts EXPECTED_GATED_IDS 已同步）。
+  dependencies: 'gated', // 依赖项查看
 };
 
 /** 查询工具能力档位（缺省 full）。 */
@@ -104,4 +107,5 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   notifications: guidanceFor('notifications'),
   print: guidanceFor('print'),
   assemblyEdit: guidanceFor('assemblyEdit'),
+  dependencies: guidanceFor('dependencies'),
 };

@@ -15,7 +15,9 @@ import { create } from 'zustand';
 import type { StoreApi } from 'zustand';
 
 import type {
+  CanvasSelection,
   DockTab,
+  PartStudioCanvasState,
   PartStudioCommandPaletteState,
   PartStudioDockState,
   PartStudioSketchState,
@@ -47,6 +49,10 @@ export interface PartStudioActions {
   toggleCommandPalette: () => void;
   setCommandPaletteQuery: (query: string) => void;
   setPaletteHighlight: (enabled: boolean) => void;
+  // canvas 切片（T5：viewport pick → store 回流的寻址单位宿主）
+  setCanvasSelection: (selection: readonly CanvasSelection[]) => void;
+  hideNodes: (nodeIds: readonly string[]) => void;
+  showNodes: (nodeIds: readonly string[]) => void;
 }
 
 export type PartStudioStore = PartStudioState & PartStudioActions;
@@ -82,6 +88,11 @@ const initialCommandPalette: PartStudioCommandPaletteState = {
   isOpen: false,
   query: '',
   highlightEnabled: true,
+};
+
+const initialCanvas: PartStudioCanvasState = {
+  selection: [],
+  hiddenIds: [],
 };
 
 /** tree 切片：双段树活动段 + 树选中/展开。 */
@@ -155,4 +166,24 @@ export const usePartStudioStore = create<PartStudioStore>()((...args) => ({
   ...createToolSlice(args),
   ...createSketchSlice(args),
   ...createCommandPaletteSlice(args),
+  ...createCanvasSlice(args),
 }));
+
+/** canvas 切片：画布选择集（pick 回流宿主）+ 会话隐藏集。 */
+function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvasState } & Pick<PartStudioActions,
+  'setCanvasSelection' | 'hideNodes' | 'showNodes'> {
+  return {
+    canvas: initialCanvas,
+    setCanvasSelection: (selection) => set({ canvas: { ...get().canvas, selection: [...selection] } }),
+    hideNodes: (nodeIds) => {
+      const canvas = get().canvas;
+      const hiddenIds = [...new Set([...canvas.hiddenIds, ...nodeIds])];
+      set({ canvas: { ...canvas, hiddenIds } });
+    },
+    showNodes: (nodeIds) => {
+      const canvas = get().canvas;
+      const dropping = new Set(nodeIds);
+      set({ canvas: { ...canvas, hiddenIds: canvas.hiddenIds.filter((id) => !dropping.has(id)) } });
+    },
+  };
+}

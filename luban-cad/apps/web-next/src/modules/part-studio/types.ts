@@ -11,10 +11,43 @@ export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature
 /**
  * 画布选择集条目——viewport pick → store 回流的寻址单位
  *（选择驱动 UI：ribbon 组重排/高亮、画布右键按 kind 重构的依据）。
+ * T5 定宿主（T2 挂账「CanvasSelection 无宿主」收口）：存 store.canvas
+ * .selection；label/featureType 为可选显示/路由元数据（featureType 是
+ * 「编辑特征」路由 tools.run 的目标 toolId）。
  */
 export interface CanvasSelection {
   kind: CanvasSelectionKind;
   id: string;
+  /** 显示名（菜单标签「删除 {{name}}」插值；缺省回退 id）。 */
+  label?: string;
+  /** kind=feature 时的特征类型（ribbon 工具 id 同族，如 extrude）。 */
+  featureType?: string;
+}
+
+/** 特征条目（双段树特征段视图模型；数据由消费方注入——壳期空集，RPC 接线后走 react-query）。 */
+export interface FeatureNode {
+  id: string;
+  name: string;
+  /** 特征类型（:type 筛选依据；ribbon 工具 id 同族命名，如 sketch/extrude/fillet）。 */
+  type: string;
+  /** 重生成失败（os-11：出错特征红色显示）。 */
+  hasError: boolean;
+  /** 有警告（:warnings 筛选依据）。 */
+  hasWarning?: boolean;
+  /** 已抑制（os-11：抑制斜体；:suppressed 筛选依据）。 */
+  isSuppressed: boolean;
+  /** 已隐藏（:hidden 筛选依据；画布隐藏集 store.canvas.hiddenIds 叠加其上）。 */
+  isHidden: boolean;
+  /** 使用/更改的变量名（:variable 筛选依据，区分大小写）。 */
+  variables?: readonly string[];
+}
+
+/** 零件条目（双段树零件段视图模型；注入口径同 FeatureNode）。 */
+export interface PartNode {
+  id: string;
+  name: string;
+  isHidden: boolean;
+  hasError?: boolean;
 }
 
 /** 双段树活动段（os-11 左栏：特征列表 / 零件列表）。 */
@@ -59,6 +92,14 @@ export interface PartStudioCommandPaletteState {
   highlightEnabled: boolean;
 }
 
+/** canvas 切片——画布选择集（viewport pick → store 回流）+ 会话隐藏集。 */
+export interface PartStudioCanvasState {
+  /** 画布选择集（右键菜单按 primary.kind 重构的依据；T6 viewport pick 接线后写入）。 */
+  selection: readonly CanvasSelection[];
+  /** 隐藏集（画布菜单「隐藏」的会话记录；FeatureOverrideProvider 消费、:hidden 叠加）。 */
+  hiddenIds: readonly string[];
+}
+
 /**
  * part-studio 编辑器会话态聚合（spec §3 五分法：编辑器会话态唯一归属
  * zustand；服务端态归 react-query、运行时态归 viewer-next，不进本类型）。
@@ -69,4 +110,5 @@ export interface PartStudioState {
   tool: PartStudioToolState;
   sketch: PartStudioSketchState;
   commandPalette: PartStudioCommandPaletteState;
+  canvas: PartStudioCanvasState;
 }

@@ -153,6 +153,54 @@
     "highlight": "Highlight tools in toolbar",
     "empty": "No matching tools"
   },
+  "canvasMenu": {
+    "menuLabel": "Canvas menu",
+    "fitView": "Fit view",
+    "top": "Top view",
+    "front": "Front view",
+    "right": "Right view",
+    "iso": "Isometric view",
+    "displaySettings": "Display settings",
+    "editFeature": "Edit {{name}}…",
+    "showDependencies": "Show dependencies of {{name}}…",
+    "hide": "Hide {{name}}",
+    "zoomToFit": "Zoom to fit",
+    "viewNormalTo": "View normal to",
+    "delete": "Delete {{name}}",
+    "assignMaterial": "Assign material to {{name}}…",
+    "editAppearance": "Edit appearance of {{name}}…",
+    "appearanceForFace": "Add appearance to face…",
+    "createDrawing": "Create drawing of {{name}}…",
+    "deleteTitle": "Delete {{name}}",
+    "deleteMessage": "{{name}} will be deleted from the model. This cannot be undone once committed.",
+    "cancel": "Cancel",
+    "confirmDelete": "Delete"
+  },
+  "tree": {
+    "contextMenuLabel": "Feature menu",
+    "rename": "Rename",
+    "edit": "Edit…",
+    "suppress": "Suppress",
+    "unsuppress": "Unsuppress",
+    "delete": "Delete",
+    "deleteTitle": "Delete {{name}}",
+    "deleteMessage": "{{name}} will be deleted from the model. This cannot be undone once committed.",
+    "cancel": "Cancel",
+    "confirmDelete": "Delete"
+  },
+  "treeFilter": {
+    "placeholder": "Filter by name or type",
+    "helpLabel": "Filter syntax",
+    "clear": "Clear search",
+    "syntax": {
+      "errors": "Filter by features and bodies with errors",
+      "warnings": "Filter by features and bodies with warnings",
+      "hidden": "Filter by hidden features and bodies",
+      "suppressed": "Filter by suppressed features",
+      "type": "Filter features and bodies by type",
+      "variable": "Filter features that use or change a specific variable (case-sensitive)"
+    }
+  },
   "capability": {
     "close": "Got it"
   },
@@ -212,6 +260,10 @@
     "assemblyEdit": {
       "title": "Assembly editing (on the roadmap)",
       "message": "Assembly editing is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "dependencies": {
+      "title": "Dependency viewer (on the roadmap)",
+      "message": "A feature dependency viewer is on the LubanCAD roadmap and is not available in this version yet."
     }
   }
 }

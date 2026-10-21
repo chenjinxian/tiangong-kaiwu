@@ -153,6 +153,54 @@
     "highlight": "亮显工具栏中的工具",
     "empty": "无匹配工具"
   },
+  "canvasMenu": {
+    "menuLabel": "画布菜单",
+    "fitView": "适应视图",
+    "top": "顶视图",
+    "front": "前视图",
+    "right": "右视图",
+    "iso": "等轴测视图",
+    "displaySettings": "显示设置",
+    "editFeature": "编辑 {{name}}…",
+    "showDependencies": "显示 {{name}} 的依赖项…",
+    "hide": "隐藏 {{name}}",
+    "zoomToFit": "缩放到合适大小",
+    "viewNormalTo": "视图垂直于",
+    "delete": "删除 {{name}}",
+    "assignMaterial": "将材料指定用于 {{name}}…",
+    "editAppearance": "编辑 {{name}} 的外观…",
+    "appearanceForFace": "为面添加外观…",
+    "createDrawing": "创建 {{name}} 的工程图…",
+    "deleteTitle": "删除 {{name}}",
+    "deleteMessage": "将从模型中删除 {{name}}。该操作提交后不可撤销。",
+    "cancel": "取消",
+    "confirmDelete": "删除"
+  },
+  "tree": {
+    "contextMenuLabel": "特征菜单",
+    "rename": "重命名",
+    "edit": "编辑…",
+    "suppress": "抑制",
+    "unsuppress": "取消抑制",
+    "delete": "删除",
+    "deleteTitle": "删除 {{name}}",
+    "deleteMessage": "将从模型中删除 {{name}}。该操作提交后不可撤销。",
+    "cancel": "取消",
+    "confirmDelete": "删除"
+  },
+  "treeFilter": {
+    "placeholder": "按名称或类型筛选",
+    "helpLabel": "筛选语法",
+    "clear": "清除搜索",
+    "syntax": {
+      "errors": "按有错误的特征和主体进行筛选",
+      "warnings": "按有警告的特征和主体进行筛选",
+      "hidden": "按隐藏的特征和主体进行筛选",
+      "suppressed": "按抑制的特征筛选",
+      "type": "按类型筛选特征和主体",
+      "variable": "按使用或更改特定变量的特征进行筛选（区分大小写）"
+    }
+  },
   "capability": {
     "close": "知道了"
   },
@@ -212,6 +260,10 @@
     "assemblyEdit": {
       "title": "装配体编辑（规划中）",
       "message": "装配体编辑已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "dependencies": {
+      "title": "依赖项查看（规划中）",
+      "message": "特征依赖项查看器已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
     }
   }
 }

@@ -5,7 +5,9 @@
  * part-studio 模块 barrel（spec 规则 4：跨模块只准 import 模块入口
  * `@modules/<name>`）——对外出口编辑器会话态 store、能力注册表、契约
  * 类型（M3 Task 2）与 PartStudioPage 编辑器壳（M3 Task 3；ribbon/树/
- * 画布/停靠内部组件经 PartStudioPage 聚合，不单独外销）。
+ * 画布/停靠内部组件经 PartStudioPage 聚合，不单独外销）。M3 Task 5 增
+ * 出口：选择驱动 hooks（useCanvasSelection/useFeatureTree）与树/画布
+ * 契约类型（FeatureNode/PartNode/PartStudioCanvasState）。
  */
 
 export { usePartStudioStore } from './stores/part-studio.store.js';
@@ -33,11 +35,19 @@ export type {
   RibbonIcon,
   RibbonTool,
 } from './ribbon/ribbon-registry.js';
+// M3 Task 5：选择驱动 hooks（T6 FeatureDialog fast-pick/树数据接线消费面）。
+export { useCanvasSelection } from './hooks/useCanvasSelection.js';
+export type { CanvasSelectionApi } from './hooks/useCanvasSelection.js';
+export { useFeatureTree } from './hooks/useFeatureTree.js';
+export type { FeatureTreeModel, UseFeatureTreeOptions } from './hooks/useFeatureTree.js';
 export { PartStudioPage } from './PartStudioPage.js';
 export type {
   CanvasSelection,
   CanvasSelectionKind,
   DockTab,
+  FeatureNode,
+  PartNode,
+  PartStudioCanvasState,
   PartStudioCommandPaletteState,
   PartStudioDockState,
   PartStudioSketchState,

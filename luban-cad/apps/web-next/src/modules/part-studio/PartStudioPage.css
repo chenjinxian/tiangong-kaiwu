@@ -621,3 +621,280 @@
 .part-studio-capability-dialog__confirm:hover {
   background: var(--iui-color-text-accent-hover, var(--iui-color-text-accent));
 }
+
+/* ── 画布右键菜单（os-12；空白态/选中态按选择集重构）────────────────── */
+.part-studio-canvas-menu {
+  position: fixed;
+  z-index: 70;
+  min-inline-size: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--iui-size-2xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-3, 0 4px 16px rgba(0, 0, 0, 0.25));
+}
+
+.part-studio-canvas-menu__item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--iui-border-radius-1);
+}
+
+.part-studio-canvas-menu__item:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-canvas-menu__separator {
+  block-size: 1px;
+  margin: var(--iui-size-2xs) var(--iui-size-xs);
+  background: var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+/* ── 树上右键菜单（os-15 子集）────────────────────────────────────── */
+.part-studio-tree-menu {
+  position: fixed;
+  z-index: 70;
+  min-inline-size: 140px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--iui-size-2xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-3, 0 4px 16px rgba(0, 0, 0, 0.25));
+}
+
+.part-studio-tree-menu__item {
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--iui-border-radius-1);
+}
+
+.part-studio-tree-menu__item:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-tree-menu__item--danger {
+  color: var(--iui-color-text-negative, #d30b0b);
+}
+
+.part-studio-tree-menu__separator {
+  block-size: 1px;
+  margin: var(--iui-size-2xs) var(--iui-size-xs);
+  background: var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+/* ── 双段树增强（T5：筛选框/计数/行三态）────────────────────────────── */
+.part-studio-tree-filter {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  padding: 0 var(--iui-size-2xs) var(--iui-size-2xs);
+}
+
+.part-studio-tree-filter__field {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.part-studio-tree-filter__input {
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-m) var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-tree-filter__clear {
+  position: absolute;
+  inset-inline-end: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  cursor: pointer;
+}
+
+.part-studio-tree-filter__help-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  cursor: pointer;
+}
+
+.part-studio-tree-filter__help-trigger:hover,
+.part-studio-tree-filter__help-trigger[aria-expanded="true"] {
+  background: var(--iui-color-background-hover);
+  color: var(--iui-color-text);
+}
+
+.part-studio-tree-filter__syntax {
+  position: absolute;
+  inset-block-start: calc(100% - var(--iui-size-2xs));
+  inset-inline: var(--iui-size-2xs);
+  z-index: 65;
+  margin: 0;
+  padding: var(--iui-size-xs);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-3, 0 4px 16px rgba(0, 0, 0, 0.25));
+}
+
+.part-studio-tree-filter__syntax-item {
+  display: flex;
+  flex-direction: row;
+  gap: var(--iui-size-2xs);
+  font-size: var(--iui-font-size-0);
+  color: var(--iui-color-text-muted);
+}
+
+.part-studio-tree-filter__syntax-item code {
+  color: var(--iui-color-text);
+  font-family: var(--iui-font-mono, monospace);
+  flex-shrink: 0;
+}
+
+.part-studio-tree__section-header-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-tree__section-header {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.part-studio-tree__count {
+  flex-shrink: 0;
+  padding-inline-end: var(--iui-size-xs);
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-tree-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--iui-border-radius-1);
+}
+
+.part-studio-tree-row:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-tree-row--selected,
+.part-studio-tree-row--selected:hover {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  color: var(--iui-color-text-accent);
+}
+
+/* os-11：出错特征红色显示。 */
+.part-studio-tree-row--error,
+.part-studio-tree-row--error.part-studio-tree-row--selected {
+  color: var(--iui-color-text-negative, #d30b0b);
+}
+
+/* os-11：抑制特征斜体。 */
+.part-studio-tree-row--suppressed .part-studio-tree-row__name {
+  font-style: italic;
+}
+
+/* 隐藏（含画布隐藏集叠加）淡显。 */
+.part-studio-tree-row--hidden .part-studio-tree-row__name {
+  opacity: 0.5;
+}
+
+.part-studio-tree-row__input {
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-accent, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+}
+
+/* ── HITL 删除对话框动作排布（取消/删除双钮）────────────────────────── */
+.part-studio-capability-dialog__actions--split {
+  justify-content: space-between;
+}
+
+.part-studio-capability-dialog__secondary {
+  padding: var(--iui-size-2xs) var(--iui-size-l);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-capability-dialog__secondary:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-capability-dialog__danger {
+  padding: var(--iui-size-2xs) var(--iui-size-l);
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-text-negative, #d30b0b);
+  color: var(--iui-color-white);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
