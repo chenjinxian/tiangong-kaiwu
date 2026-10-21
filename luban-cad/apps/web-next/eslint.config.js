@@ -34,7 +34,7 @@ export default [
   },
   {
     // 分层方向：下层禁引上层
-    files: ['src/clients/**/*.ts', 'src/common/**/*.ts', 'src/components/**/*.ts'],
+    files: ['src/clients/**/*.ts', 'src/clients/**/*.tsx', 'src/common/**/*.ts', 'src/common/**/*.tsx', 'src/components/**/*.ts', 'src/components/**/*.tsx'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [{
