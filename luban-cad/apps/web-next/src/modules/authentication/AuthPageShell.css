@@ -1,0 +1,25 @@
+.auth-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--lx-backdrop);
+}
+.auth-shell__form {
+  flex: 0 0 min(560px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: var(--lx-surface);
+  border-right: 1px solid var(--lx-border);
+}
+.auth-shell__hero {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lx-backdrop);
+}
+@media (max-width: 960px) {
+  .auth-shell__hero { display: none; }
+  .auth-shell__form { flex: 1; }
+}
