@@ -12,8 +12,12 @@
   position: relative;
 }
 
-/* 给右 absolutely 定位的切换钮留位，避免输入文本与钮重叠。 */
-.auth-form-field__control .iui-input {
+/* 给右 absolutely 定位的切换钮留位，避免输入文本与钮重叠。
+ * 选择器用元素形式：iTwinUI 3.22 运行时把组件类名哈希化（实测 DOM 类为
+ * `_iui3220-input`），`.iui-input` 类选择器永不命中（终审复查新破坏项）。
+ * 特异性 0-1-1（类+元素）高于哈希类规则 0-1-0，padding-right 可稳定覆盖
+ * 哈希规则的 padding-inline 右分量。 */
+.auth-form-field__control input {
   padding-right: var(--iui-size-xl);
 }
 
