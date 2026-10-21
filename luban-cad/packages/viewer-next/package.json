@@ -1,0 +1,30 @@
+{
+  "name": "@luban-cad/viewer-next",
+  "version": "0.1.0",
+  "description": "Next-generation viewer host for LubanCAD (web-next M0): iTwin.js startup sequence, RPC wiring, AccuSnap lifecycle",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint \"src/**/*.ts\" 1>&2",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
+    "@itwin/core-common": "link:../../../itwinjs-core/core/common",
+    "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
+    "@itwin/editor-frontend": "link:../../../itwinjs-core/editor/frontend",
+    "@itwin/imodels-access-frontend": "^6.0.2",
+    "@itwin/imodels-client-management": "^6.0.2",
+    "@luban-cad/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@itwin/eslint-plugin": "^6.0.0",
+    "eslint": "^9.31.0",
+    "typescript": "~5.6.2",
+    "vitest": "^4.1.10"
+  }
+}
