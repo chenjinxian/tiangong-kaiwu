@@ -43,7 +43,7 @@ MS_UPSTREAM=host.docker.internal:5401
 HUB_UPSTREAM=host.docker.internal:5400
 WA_MODELING_SERVER_URL=http://host.docker.internal:5401
 BFF_UPSTREAM=host.docker.internal:5401                       # 启用 BFF 改 luban-bff:5403
-HUB_ALLOWED_ORIGINS=http://localhost:5300,http://localhost:5301
+HUB_ALLOWED_ORIGINS=http://localhost:5300,http://localhost:5301,http://localhost:5310
 BFF_ALLOWED_ORIGINS=http://localhost:5300,http://localhost:5301
 ```
 
