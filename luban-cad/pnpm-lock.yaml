@@ -192,6 +192,9 @@ importers:
       '@itwin/core-frontend':
         specifier: link:../../../itwinjs-core/core/frontend
         version: link:../../../itwinjs-core/core/frontend
+      '@itwin/itwins-client':
+        specifier: ^1.6.1
+        version: 1.6.1
       '@itwin/itwinui-icons-react':
         specifier: ^2.9.0
         version: 2.11.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

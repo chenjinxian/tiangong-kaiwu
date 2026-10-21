@@ -10,6 +10,7 @@
     "lint": "eslint \"src/**/*.ts*\" 1>&2"
   },
   "dependencies": {
+    "@itwin/itwins-client": "^1.6.1",
     "@itwin/itwinui-react": "^3.22.0",
     "@itwin/itwinui-icons-react": "^2.9.0",
     "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
