@@ -1,1 +1,10 @@
-{ "app": { "name": "鲁班CAD" } }
+{
+  "app": { "name": "鲁班CAD" },
+  "errors": {
+    "loginFailed": "登录失败，请检查邮箱或密码",
+    "registerFailed": "注册失败，请稍后重试",
+    "forgotPasswordFailed": "重置邮件发送失败，请稍后重试",
+    "sessionExpired": "会话已过期，请重新登录",
+    "apiRequestFailed": "请求失败，请稍后重试"
+  }
+}

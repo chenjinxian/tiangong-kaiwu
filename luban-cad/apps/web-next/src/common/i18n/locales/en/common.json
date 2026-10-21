@@ -1,1 +1,10 @@
-{ "app": { "name": "LubanCAD" } }
+{
+  "app": { "name": "LubanCAD" },
+  "errors": {
+    "loginFailed": "Sign in failed. Please check your email or password.",
+    "registerFailed": "Registration failed. Please try again later.",
+    "forgotPasswordFailed": "Failed to send the reset email. Please try again later.",
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "apiRequestFailed": "Request failed. Please try again later."
+  }
+}
