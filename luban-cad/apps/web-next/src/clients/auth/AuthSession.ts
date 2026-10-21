@@ -210,6 +210,34 @@ export class AuthSession {
     return user;
   }
 
+  /** 找回密码：`POST ${hubUrl}/auth/forgot/password` `{email}`。错误语义同
+   * login/register：非 2xx 抛 ApiClientError（429 取 Retry-After-auth 头
+   * 透出 retryAfterSeconds）；成功无落会话（重置态在服务端邮件流）。 */
+  public static async forgotPassword(email: string): Promise<void> {
+    const response = await fetch(`${env.hubUrl}/auth/forgot/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as { message?: string };
+      // 429 语义同 login/register：@nestjs/throttler 命名桶经 Retry-After-auth
+      // 头返回剩余封锁秒数（Fetch Headers.get 大小写不敏感）。
+      const retryAfterHeader = response.headers.get('Retry-After-auth');
+      const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
+      throw new ApiClientError({
+        status: response.status,
+        code: 'AUTH_FORGOT_PASSWORD_FAILED',
+        i18nKey: 'common.errors.forgotPasswordFailed',
+        message: body.message ?? `Forgot password failed (status ${response.status})`,
+        retryAfterSeconds: retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
+          ? retryAfterSeconds
+          : undefined,
+      });
+    }
+  }
+
   /**
    * 取可用 access token：未登录返回空串（core-common AuthorizationClient
    * 契约）；将过期（含已过期）走单飞刷新；失败清场并抛 ApiClientError。
