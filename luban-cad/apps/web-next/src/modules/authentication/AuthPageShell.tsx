@@ -11,7 +11,7 @@ export function AuthPageShell({ hero, children }: AuthPageShellProps): React.JSX
   return (
     <div className="auth-shell">
       <div className="auth-shell__form">{children}</div>
-      <div className="auth-shell__hero">{hero}</div>
+      <div className="auth-shell__hero" data-testid="auth-hero">{hero}</div>
     </div>
   );
 }
