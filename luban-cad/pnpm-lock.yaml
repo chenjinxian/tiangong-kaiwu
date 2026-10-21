@@ -192,6 +192,9 @@ importers:
       '@itwin/core-frontend':
         specifier: link:../../../itwinjs-core/core/frontend
         version: link:../../../itwinjs-core/core/frontend
+      '@itwin/imodels-client-management':
+        specifier: ^6.0.2
+        version: 6.2.2
       '@itwin/itwins-client':
         specifier: ^1.6.1
         version: 1.6.1
