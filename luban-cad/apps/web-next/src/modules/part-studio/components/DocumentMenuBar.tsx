@@ -48,11 +48,11 @@ export interface DocumentMenuBarProps {
 }
 
 /** 工作区单位可选项（mm=唯一可用；其余单位制占位 disabled——完整 UI 面）。 */
-const UNIT_OPTIONS = [
-  { value: 'mm', label: '毫米 (mm)', disabled: false },
-  { value: 'in', label: '英寸 (in)', disabled: true },
-  { value: 'cm', label: '厘米 (cm)', disabled: true },
-  { value: 'm', label: '米 (m)', disabled: true },
+const UNIT_OPTIONS: readonly { value: 'mm' | 'in' | 'cm' | 'm'; disabled: boolean }[] = [
+  { value: 'mm', disabled: false },
+  { value: 'in', disabled: true },
+  { value: 'cm', disabled: true },
+  { value: 'm', disabled: true },
 ];
 
 export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps): React.JSX.Element {
@@ -65,6 +65,33 @@ export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps)
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
   const [renameOpen, setRenameOpen] = React.useState(false);
   const [unitsOpen, setUnitsOpen] = React.useState(false);
+
+  /** 单位选项走 i18n（zh/en 双语）；disabled 口径由数据表钉死。 */
+  const unitOptions = React.useMemo(
+    () =>
+      UNIT_OPTIONS.map((option) => ({
+        ...option,
+        label: t(`partStudio.documentMenu.unitsDialog.options.${option.value}`),
+      })),
+    [t],
+  );
+
+  /**
+   * 重命名对话框 doc 契约：useMemo 钉引用（依赖 iTwinId/面包屑名）——
+   * RenameDocumentDialog 的 useEffect([doc]) 在 doc 引用变化时重置输入框；
+   * 父级重渲染（面包屑查询回填等）若每次构造新对象会误重置用户输入。
+   */
+  const renameDoc = React.useMemo(
+    () => ({
+      id: iTwinId,
+      name: documentName,
+      owner: '',
+      role: '',
+      createdAt: '',
+      modifiedAt: null,
+    }),
+    [iTwinId, documentName],
+  );
 
   /** gated 项点击路由：开能力引导（不导航，不落库）。 */
   const handleGated = React.useCallback((capability: string) => {
@@ -135,16 +162,10 @@ export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps)
         </IconButton>
       </DropdownMenu>
 
-      {/* 重命名文档：复用 documents 模块对话框（跨模块 barrel 消费）。 */}
+      {/* 重命名文档：复用 documents 模块对话框（跨模块 barrel 消费；doc 经
+          useMemo 钉引用，父级重渲染不误重置输入框）。 */}
       <RenameDocumentDialog
-        doc={{
-          id: iTwinId,
-          name: documentName,
-          owner: '',
-          role: '',
-          createdAt: '',
-          modifiedAt: null,
-        }}
+        doc={renameDoc}
         isOpen={renameOpen}
         onClose={() => setRenameOpen(false)}
         onRenamed={handleRenamed}
@@ -166,7 +187,7 @@ export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps)
               native
               label={t('partStudio.documentMenu.unitsDialog.unitsLabel')}
               value="mm"
-              options={UNIT_OPTIONS}
+              options={unitOptions}
               onChange={() => {
                 // 仅 mm 可用（options 其余项 disabled）；选中变化暂不可达，
                 // 单位制接线后由 store/后端承载（内核单位制跟随里程碑）。

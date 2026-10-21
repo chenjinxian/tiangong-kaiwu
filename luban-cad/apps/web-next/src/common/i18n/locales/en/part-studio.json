@@ -86,7 +86,13 @@
       "title": "Workspace units",
       "unitsLabel": "Length units",
       "hint": "Only millimeters (mm) are supported in this version; more unit systems will come in a later milestone.",
-      "close": "Close"
+      "close": "Close",
+      "options": {
+        "mm": "Millimeters (mm)",
+        "in": "Inches (in)",
+        "cm": "Centimeters (cm)",
+        "m": "Meters (m)"
+      }
     }
   },
   "status": {

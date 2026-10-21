@@ -173,7 +173,8 @@ describe('canvas 切片（画布选择集 + 会话隐藏集，T5 收口 CanvasSe
   });
 });
 
-describe('dialog 切片（画布内联对话框宿主寻址，T6）', () => {  it('openFeatureDialog 记特征寻址三元组；openSketchDialog 记草图 id（缺省 null）', () => {
+describe('dialog 切片（画布内联对话框宿主寻址，T6）', () => {
+  it('openFeatureDialog 记特征寻址三元组；openSketchDialog 记草图 id（缺省 null）', () => {
     const store = usePartStudioStore.getState();
     store.openFeatureDialog({ featureId: 'ex1', featureName: 'Extrude 1', featureType: 'extrude' });
     expect(usePartStudioStore.getState().dialog).toEqual({

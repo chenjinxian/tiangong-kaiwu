@@ -178,6 +178,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'documentMenu.print', 'documentMenu.closeDocument',
   'documentMenu.unitsDialog.title', 'documentMenu.unitsDialog.unitsLabel',
   'documentMenu.unitsDialog.hint', 'documentMenu.unitsDialog.close',
+  'documentMenu.unitsDialog.options.mm', 'documentMenu.unitsDialog.options.in',
+  'documentMenu.unitsDialog.options.cm', 'documentMenu.unitsDialog.options.m',
 ] as const;
 
 describe('i18n 骨架', () => {

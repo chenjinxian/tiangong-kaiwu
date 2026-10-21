@@ -2,15 +2,15 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * PartStudioPage（M3 Task 3）：/documents/:iTwinId/:iModelId Part Studio 编辑器
+ * PartStudioPage（M3 Task 3；T7 页签管理器接线）：/documents/:iTwinId/:iModelId Part Studio 编辑器
  * 布局壳（对齐 Onshape os-11 五区）——
  * - 顶栏（PartStudioTopBar）：品牌 + 面包屑（文档/iTwin/iModel）+ 分支徽标 +
  *   分享 + 用户菜单 + 帮助；
  * - 左栏（PartStudioSidebar）：窄图标条 + 双段树（特征/零件）；
  * - 中央画布（PartStudioCanvas）：viewport 挂载点；
  * - 右停靠（PartStudioDock）：工具设置/版本历史/显示设置三页签；
- * - 底部（PartStudioTabs）：页签条（适应视图/禁用「+」/Part Studio 1）+
- *   状态栏（连接态/编辑模式/单位/视图类型）。
+ * - 底部（PartStudioTabs）：页签条（适应视图/「+」开页签管理器[T7，os-33]/
+ *   Part Studio 1）+ 状态栏（连接态/编辑模式/单位/视图类型）。
  *
  * 查看器接线：useViewport（viewer-next）在页面层单实例——backendUrl 传同源
  * （MS CORS 钉死 :5300，web-next :5310 走 vite 代理，见 vite.config.ts 注记；
