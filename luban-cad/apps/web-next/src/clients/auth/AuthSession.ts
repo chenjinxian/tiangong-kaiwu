@@ -126,9 +126,11 @@ export class AuthSession {
 
   // ---- API ----
 
-  /** 登录：`POST ${hubUrl}/auth/login` `{email,password}`，成功即落会话。 */
+  /** 登录：`POST ${hubUrl}/auth/email/login` `{email,password}`，成功即落会话
+   * （端点对齐旧应用 client.ts:203 实测——brief 的 `/auth/login` 为缺陷，
+   * 控制器 R7 裁定采纳）。 */
   public static async login(email: string, password: string): Promise<AuthUser> {
-    const response = await fetch(`${env.hubUrl}/auth/login`, {
+    const response = await fetch(`${env.hubUrl}/auth/email/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
