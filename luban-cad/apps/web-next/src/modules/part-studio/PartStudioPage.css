@@ -1,0 +1,274 @@
+/* PartStudioPage.css — /documents/:iTwinId/:iModelId Part Studio 编辑器布局壳
+ * （Onshape os-11 五区 IA）。全部走 iTwinUI 令牌 / --lx-* 皮肤变量（组件禁
+ * 写裸色值，见 tokens/onshape-skin.css）；壳期布局为 grid/flex 骨架，T4+
+ * 按采集证据细化。 */
+
+/* ── 页面骨架（顶栏 / 主体 / 页签条 / 状态栏 四行）────────────────── */
+.part-studio-page {
+  display: flex;
+  flex-direction: column;
+  block-size: 100vh;
+  background: var(--lx-backdrop);
+  color: var(--iui-color-text);
+  overflow: hidden;
+}
+
+.part-studio-body {
+  flex: 1;
+  min-block-size: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+.part-studio-main {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+/* ── 顶栏 ─────────────────────────────────────────────────────────── */
+.part-studio-top-bar {
+  flex-shrink: 0;
+  border-block-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+/* iTwinUI header-brand-icon 槽为 24×24：logo 必须同尺寸（DocumentsPage 同口径）。 */
+.part-studio-logo-mark {
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: var(--iui-border-radius-1);
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  color: var(--iui-color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 10px;
+}
+
+/* 分支徽标（os-11：文档名右侧 pill）。 */
+.part-studio-branch-pill {
+  align-self: center;
+  padding: 1px var(--iui-size-xs);
+  border-radius: var(--iui-border-radius-1);
+  border: 1px solid var(--iui-color-border);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  line-height: var(--iui-size-m);
+  white-space: nowrap;
+}
+
+.part-studio-share-button {
+  margin-inline-end: var(--iui-size-2xs);
+}
+
+/* ── 左栏：窄图标条 + 双段树 ───────────────────────────────────────── */
+.part-studio-sidebar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  border-inline-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  background: var(--iui-color-background);
+}
+
+.part-studio-icon-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-2xs);
+  border-inline-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.part-studio-icon-rail__button {
+  inline-size: 32px;
+  block-size: 32px;
+}
+
+.part-studio-icon-rail__button--active {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  color: var(--iui-color-text-accent);
+}
+
+.part-studio-tree {
+  inline-size: 240px;
+  overflow-y: auto;
+  padding: var(--iui-size-2xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-tree__section {
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-tree__section-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--iui-border-radius-1);
+}
+
+.part-studio-tree__section-header:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-tree__list {
+  margin: 0;
+  padding: 0 0 0 var(--iui-size-l);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-tree__empty,
+.part-studio-tree__part {
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+/* ── 画布 ─────────────────────────────────────────────────────────── */
+.part-studio-canvas {
+  flex: 1;
+  min-inline-size: 0;
+  position: relative;
+  background: var(--iui-color-background);
+}
+
+/* viewport 宿主：T5/T6 接管创建；壳期撑满画布区。 */
+.part-studio-viewport {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── 右停靠 ───────────────────────────────────────────────────────── */
+.part-studio-dock {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-inline-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  background: var(--iui-color-background);
+}
+
+.part-studio-dock__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-2xs);
+}
+
+.part-studio-dock__tab {
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.part-studio-dock__tab:hover {
+  background: var(--iui-color-background-hover);
+  color: var(--iui-color-text);
+}
+
+.part-studio-dock__tab--active {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  color: var(--iui-color-text-accent);
+}
+
+.part-studio-dock__body {
+  inline-size: 280px;
+  padding: var(--iui-size-m);
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+/* ── 底部页签条 + 状态栏 ──────────────────────────────────────────── */
+.part-studio-tab-strip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: 0 var(--iui-size-xs);
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  background: var(--iui-color-background);
+}
+
+.part-studio-tab-strip__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.part-studio-tab-strip__tabs {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  overflow-x: auto;
+}
+
+.part-studio-tab {
+  padding: var(--iui-size-xs) var(--iui-size-m);
+  border: none;
+  border-block-start: 2px solid transparent;
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.part-studio-tab--active {
+  color: var(--iui-color-text);
+  font-weight: 600;
+  border-block-start-color: var(--iui-color-text-accent);
+  background: var(--iui-color-background-accent-muted, transparent);
+}
+
+.part-studio-status-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-l);
+  padding: 1px var(--iui-size-m);
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  background: var(--lx-backdrop);
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  line-height: var(--iui-size-m);
+}
+
+.part-studio-status-bar__item {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-status-bar__label {
+  color: var(--iui-color-text-disabled, var(--iui-color-text-muted));
+}
+
+.part-studio-status-bar__value {
+  color: var(--iui-color-text);
+  font-variant-numeric: tabular-nums;
+}

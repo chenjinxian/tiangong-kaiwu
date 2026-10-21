@@ -9,7 +9,10 @@
     "skipLibCheck": true,
     "types": ["vitest/globals"],
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    // M3 Task 3：useViewport 的 React 测试（.tsx）需要 JSX 转换；产物仍是
+    // react-jsx 运行时导入（peerDependencies.react 由消费方供给）。
+    "jsx": "react-jsx"
   },
   "include": ["src"]
 }

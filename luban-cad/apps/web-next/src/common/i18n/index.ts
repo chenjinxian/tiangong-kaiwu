@@ -18,6 +18,11 @@ import enDocuments from './locales/en/documents.json';
 // i18n.test.ts 展平深比较守卫。
 import zhSettings from './locales/zh-CN/settings.json';
 import enSettings from './locales/en/settings.json';
+// M3 Task 3：part-studio 词库（Part Studio 编辑器壳五区：顶栏/侧栏/停靠/
+// 页签条/状态栏）。同姿态挂 translation.partStudio 之下（键路径
+// partStudio.<key>）；zh/en 键集一致性由 i18n.test.ts 展平深比较守卫。
+import zhPartStudio from './locales/zh-CN/part-studio.json';
+import enPartStudio from './locales/en/part-studio.json';
 
 const LANG_KEY = 'luban-next-lang';
 
@@ -41,8 +46,24 @@ export async function initI18n(): Promise<I18n> {
     // 取词，直接挂 ns 时取不到、原样返回键名）。挂 translation 下后
     // 'common.app.name' = ns translation + 资源路径 common→app→name，命中。
     resources: {
-      'zh-CN': { translation: { common: zhCommon, auth: zhAuth, documents: zhDocuments, settings: zhSettings } },
-      en: { translation: { common: enCommon, auth: enAuth, documents: enDocuments, settings: enSettings } },
+      'zh-CN': {
+        translation: {
+          common: zhCommon,
+          auth: zhAuth,
+          documents: zhDocuments,
+          settings: zhSettings,
+          partStudio: zhPartStudio,
+        },
+      },
+      en: {
+        translation: {
+          common: enCommon,
+          auth: enAuth,
+          documents: enDocuments,
+          settings: enSettings,
+          partStudio: enPartStudio,
+        },
+      },
     },
     lng: detectLanguage(),
     fallbackLng: 'zh-CN',

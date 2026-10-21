@@ -8,9 +8,12 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "lint": "eslint \"src/**/*.ts\" 1>&2",
+    "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\" 1>&2",
     "test": "vitest run",
     "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
   },
   "dependencies": {
     "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
@@ -23,7 +26,14 @@
   },
   "devDependencies": {
     "@itwin/eslint-plugin": "^6.0.0",
+    "@testing-library/dom": "^10.0.0",
+    "@testing-library/react": "^16.2.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "eslint": "^9.31.0",
+    "jsdom": "^26.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
     "typescript": "~5.6.2",
     "vitest": "^4.1.10"
   }

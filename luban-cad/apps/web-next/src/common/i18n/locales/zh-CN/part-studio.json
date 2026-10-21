@@ -1,0 +1,54 @@
+{
+  "topBar": {
+    "breadcrumb": { "documents": "文档" },
+    "branch": { "main": "Main" },
+    "share": "分享",
+    "help": "帮助",
+    "userMenu": {
+      "open": "用户菜单",
+      "account": "我的帐户",
+      "darkMode": "深色模式",
+      "logout": "退出登录"
+    }
+  },
+  "sidebar": {
+    "railLabel": "工具类别",
+    "rail": {
+      "features": "特征",
+      "parts": "零件",
+      "assemblies": "装配体",
+      "import": "导入"
+    },
+    "tree": {
+      "features": "特征",
+      "parts": "零件",
+      "emptyFeatures": "暂无特征",
+      "defaultPart": "Part 1"
+    }
+  },
+  "dock": {
+    "tabs": {
+      "toolSettings": "工具设置",
+      "history": "版本历史",
+      "display": "显示设置"
+    },
+    "placeholder": "内容即将推出"
+  },
+  "tabs": {
+    "fitView": "适应视图",
+    "newTab": "新建页签",
+    "partStudio": "Part Studio 1"
+  },
+  "status": {
+    "connection": "连接",
+    "connecting": "连接中",
+    "connected": "已连接",
+    "connectionFailed": "连接失败",
+    "editMode": "编辑模式",
+    "editModePart": "零件",
+    "units": "单位",
+    "unitMm": "mm",
+    "viewType": "视图类型",
+    "viewIso": "等轴测"
+  }
+}

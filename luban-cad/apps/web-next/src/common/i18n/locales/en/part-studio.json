@@ -1,0 +1,54 @@
+{
+  "topBar": {
+    "breadcrumb": { "documents": "Documents" },
+    "branch": { "main": "Main" },
+    "share": "Share",
+    "help": "Help",
+    "userMenu": {
+      "open": "User menu",
+      "account": "My account",
+      "darkMode": "Dark mode",
+      "logout": "Sign out"
+    }
+  },
+  "sidebar": {
+    "railLabel": "Tool categories",
+    "rail": {
+      "features": "Features",
+      "parts": "Parts",
+      "assemblies": "Assemblies",
+      "import": "Import"
+    },
+    "tree": {
+      "features": "Features",
+      "parts": "Parts",
+      "emptyFeatures": "No features yet",
+      "defaultPart": "Part 1"
+    }
+  },
+  "dock": {
+    "tabs": {
+      "toolSettings": "Tool settings",
+      "history": "Version history",
+      "display": "Display settings"
+    },
+    "placeholder": "Coming soon"
+  },
+  "tabs": {
+    "fitView": "Fit to view",
+    "newTab": "New tab",
+    "partStudio": "Part Studio 1"
+  },
+  "status": {
+    "connection": "Connection",
+    "connecting": "Connecting",
+    "connected": "Connected",
+    "connectionFailed": "Connection failed",
+    "editMode": "Edit mode",
+    "editModePart": "Part",
+    "units": "Units",
+    "unitMm": "mm",
+    "viewType": "View",
+    "viewIso": "Isometric"
+  }
+}

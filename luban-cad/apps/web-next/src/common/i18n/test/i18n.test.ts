@@ -120,6 +120,28 @@ const REQUIRED_SETTINGS_KEYS = [
   'placeholder.title', 'placeholder.description',
 ] as const;
 
+/** PartStudioPage（M3 Task 3）实际取用的 partStudio.* 键集——与
+ * modules/part-studio 组件逐条对账；漏任一即渲染裸键名。 */
+const REQUIRED_PART_STUDIO_KEYS = [
+  'topBar.breadcrumb.documents',
+  'topBar.branch.main',
+  'topBar.share', 'topBar.help',
+  'topBar.userMenu.open', 'topBar.userMenu.account',
+  'topBar.userMenu.darkMode', 'topBar.userMenu.logout',
+  'sidebar.railLabel',
+  'sidebar.rail.features', 'sidebar.rail.parts',
+  'sidebar.rail.assemblies', 'sidebar.rail.import',
+  'sidebar.tree.features', 'sidebar.tree.parts',
+  'sidebar.tree.emptyFeatures', 'sidebar.tree.defaultPart',
+  'dock.tabs.toolSettings', 'dock.tabs.history', 'dock.tabs.display',
+  'dock.placeholder',
+  'tabs.fitView', 'tabs.newTab', 'tabs.partStudio',
+  'status.connection', 'status.connecting', 'status.connected', 'status.connectionFailed',
+  'status.editMode', 'status.editModePart',
+  'status.units', 'status.unitMm',
+  'status.viewType', 'status.viewIso',
+] as const;
+
 describe('i18n 骨架', () => {
   it('默认 zh-CN，键命中', async () => {
     const i18n = await initI18n();
@@ -212,6 +234,18 @@ describe('i18n 骨架', () => {
     const i18n = await initI18n();
     await changeAppLanguage('zh-CN');
     expect(i18n.t('documents.detail.imodelCount', { count: 2 })).toContain('2');
+  });
+  // M3 Task 3：part-studio 词库（编辑器壳）键集一致性 + 页面取用键存在性。
+  it('part-studio 词库：zh/en 键奇偶且编辑器壳取用键存在', async () => {
+    const zh = (await import('../locales/zh-CN/part-studio.json')).default;
+    const en = (await import('../locales/en/part-studio.json')).default;
+    const zhKeys = flatten(zh).sort();
+    expect(flatten(en).sort()).toEqual(zhKeys);
+    for (const key of REQUIRED_PART_STUDIO_KEYS) {
+      // part-studio.json 根即 partStudio 块（挂 translation.partStudio 下），
+      // 展平键不带 partStudio. 前缀；组件侧 t('partStudio.<key>') 对应词库键 <key>。
+      expect(zhKeys, `partStudio.${key} 应在 zh-CN part-studio.json 中存在`).toContain(key);
+    }
   });
   // M2 Task 7：settings 词库（设置页）键集一致性 + 页面取用键存在性。
   it('settings 词库：zh/en 键奇偶且设置页取用键存在', async () => {
