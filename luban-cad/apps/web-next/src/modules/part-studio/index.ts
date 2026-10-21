@@ -7,7 +7,10 @@
  * 类型（M3 Task 2）与 PartStudioPage 编辑器壳（M3 Task 3；ribbon/树/
  * 画布/停靠内部组件经 PartStudioPage 聚合，不单独外销）。M3 Task 5 增
  * 出口：选择驱动 hooks（useCanvasSelection/useFeatureTree）与树/画布
- * 契约类型（FeatureNode/PartNode/PartStudioCanvasState）。
+ * 契约类型（FeatureNode/PartNode/PartStudioCanvasState）。M3 Task 6 增
+ * 出口：内联非模态对话框（FeatureDialog/SketchDialog——画布宿主经
+ * store.dialog 寻址渲染）与对话契约类型（结果载荷/实体芯片/平面选项）、
+ * 草图工具注册表（草图模式 ribbon 变身数据源）。
  */
 
 export { usePartStudioStore } from './stores/part-studio.store.js';
@@ -35,11 +38,35 @@ export type {
   RibbonIcon,
   RibbonTool,
 } from './ribbon/ribbon-registry.js';
+// M3 Task 6：草图工具注册表（os-30 草图模式 ribbon 变身的数据源契约）。
+export {
+  SKETCH_TOOL_GROUP_ORDER,
+  SKETCH_RIBBON_TOOLS,
+} from './ribbon/sketch-tools.js';
+export type { SketchRibbonGroup, SketchRibbonTool } from './ribbon/sketch-tools.js';
 // M3 Task 5：选择驱动 hooks（T6 FeatureDialog fast-pick/树数据接线消费面）。
 export { useCanvasSelection } from './hooks/useCanvasSelection.js';
 export type { CanvasSelectionApi } from './hooks/useCanvasSelection.js';
 export { useFeatureTree } from './hooks/useFeatureTree.js';
 export type { FeatureTreeModel, UseFeatureTreeOptions } from './hooks/useFeatureTree.js';
+// M3 Task 6：内联非模态对话框（FeatureDialog/SketchDialog）——画布宿主经
+// store.dialog 寻址渲染；跨模块消费面（如后续装配模块复用对话框形态）经
+// 此 barrel 取组件与结果契约类型。
+export { FeatureDialog } from './dialogs/FeatureDialog.js';
+export type {
+  FeatureBooleanScope,
+  FeatureDialogEntity,
+  FeatureDialogProps,
+  FeatureDialogResult,
+  FeatureDirection,
+  FeatureResultType,
+} from './dialogs/FeatureDialog.js';
+export { SketchDialog } from './dialogs/SketchDialog.js';
+export type {
+  SketchDialogProps,
+  SketchDialogResult,
+  SketchPlaneOption,
+} from './dialogs/SketchDialog.js';
 export { PartStudioPage } from './PartStudioPage.js';
 export type {
   CanvasSelection,
@@ -49,6 +76,7 @@ export type {
   PartNode,
   PartStudioCanvasState,
   PartStudioCommandPaletteState,
+  PartStudioDialogState,
   PartStudioDockState,
   PartStudioSketchState,
   PartStudioState,

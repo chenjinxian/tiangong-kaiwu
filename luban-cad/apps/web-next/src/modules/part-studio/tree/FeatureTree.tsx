@@ -9,6 +9,8 @@
  * - 行（TreeRow）：名称 + 错误红显 + 抑制斜体 + 隐藏淡显；行点击选中（树→画布
  *   emphasize 联动的数据源），行右键菜单（os-15 子集：重命名/编辑…/抑制/
  *   删除 HITL）；
+ * - T6 草图模式：活动草图行红显（os-30 树红显进行中草图，store.sketch 驱动
+ *   传 TreeRow sketchActive）；
  * - 数据由 props 注入（useFeatureTree 派生；壳期空集回退占位「暂无特征 /
  *   Part 1」，T3 结构断言兼容）；变异出口为回调（onRename/onEdit/onSuppress/
  *   onDelete——RPC/react-query 变异层后续接线，壳期缺省 console.warn）。
@@ -66,6 +68,9 @@ export function FeatureTree({
   const model = useFeatureTree({ features, parts, filter });
   // 树→画布 emphasize 联动（hook 内 effect：selectedNodeIds → viewport）。
   useCanvasSelection();
+  // T6 草图模式：活动草图行红显（os-30 树红显进行中草图）。
+  const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
+  const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
 
   const [collapsed, setCollapsed] = React.useState<Record<TreeTab, boolean>>({
     features: false,
@@ -129,6 +134,7 @@ export function FeatureTree({
       key={node.id}
       node={node}
       selected={model.selectedNodeIds.includes(node.id)}
+      sketchActive={sketchActive && activeSketchId === node.id}
       onSelect={(n) => model.selectNodes([n.id])}
       onContextMenu={handleRowContextMenu}
       editing={editingId === node.id}

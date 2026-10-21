@@ -6,6 +6,8 @@
  * - 错误红显（data-error，重生成失败的特征红色显示）；
  * - 抑制斜体（data-suppressed）；
  * - 隐藏淡显（data-hidden，画布隐藏集叠加后的有效态）。
+ * T6 增：活动草图红显（data-sketch-active——os-30 草图模式树红显进行中草图；
+ * store.sketch 驱动，FeatureTree 传入）。
  * 行点击选中（写 store.tree.selectedNodeIds → 画布 emphasize 联动）、行右键
  * 交 FeatureTree 弹菜单。重命名内联编辑态（editing）由 FeatureTree 驱动。
  */
@@ -21,6 +23,8 @@ export interface TreeRowProps {
   node: TreeNode;
   /** 选中态（store.tree.selectedNodeIds 含本行 id）。 */
   selected: boolean;
+  /** 活动草图态（os-30：草图模式红显活动草图行；T6 增）。 */
+  sketchActive?: boolean;
   /** 行点击（FeatureTree 写 store + 关菜单）。 */
   onSelect: (node: TreeRowProps['node']) => void;
   /** 行右键（FeatureTree 打开上下文菜单）。 */
@@ -39,6 +43,7 @@ export function isNodeHidden(node: TreeNode): boolean {
 export function TreeRow({
   node,
   selected,
+  sketchActive = false,
   onSelect,
   onContextMenu,
   editing,
@@ -73,6 +78,7 @@ export function TreeRow({
     errored ? 'part-studio-tree-row--error' : '',
     suppressed ? 'part-studio-tree-row--suppressed' : '',
     isNodeHidden(node) ? 'part-studio-tree-row--hidden' : '',
+    sketchActive ? 'part-studio-tree-row--sketch-active' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -104,6 +110,7 @@ export function TreeRow({
           data-error={errored ? 'true' : undefined}
           data-suppressed={suppressed ? 'true' : undefined}
           data-hidden={isNodeHidden(node) ? 'true' : undefined}
+          data-sketch-active={sketchActive ? 'true' : undefined}
           aria-current={selected ? 'true' : undefined}
           onClick={() => onSelect(node)}
           onContextMenu={(event) => onContextMenu(node, event)}

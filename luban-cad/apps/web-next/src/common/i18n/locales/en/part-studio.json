@@ -53,6 +53,8 @@
   },
   "ribbon": {
     "toolbarLabel": "Feature tools",
+    "sketchToolbarLabel": "Sketch tools",
+    "exitSketch": "Exit sketch",
     "searchTools": "Search tools…",
     "searchShortcut": "alt+/",
     "groups": {
@@ -67,6 +69,11 @@
       "sheetMetal": "Sheet metal",
       "custom": "Custom features",
       "surfaceCurve": "Surface/curve"
+    },
+    "sketchGroups": {
+      "sketchDraw": "Draw",
+      "sketchEdit": "Edit",
+      "sketchAnnotate": "Annotate"
     },
     "tools": {
       "sketch": { "label": "Sketch" },
@@ -142,7 +149,81 @@
       "isoparametricCurve": { "label": "Isoparametric curve" },
       "editCurve": { "label": "Edit curve" },
       "routeCurve": { "label": "Route curve" }
+    },
+    "sketchTools": {
+      "line": { "label": "Line" },
+      "rectangle": { "label": "Rectangle" },
+      "circle": { "label": "Circle" },
+      "arc": { "label": "Arc" },
+      "spline": { "label": "Spline" },
+      "fillet": { "label": "Fillet" },
+      "trim": { "label": "Trim" },
+      "offset": { "label": "Offset" },
+      "mirror": { "label": "Mirror" },
+      "text": { "label": "Text" },
+      "dimension": { "label": "Dimension" },
+      "constraint": { "label": "Constraint" }
     }
+  },
+  "featureDialog": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "resultTypeTabs": "Result type",
+    "booleanScopeTabs": "Boolean scope",
+    "resultTypes": {
+      "solid": "Solid",
+      "surface": "Surface",
+      "thinWall": "Thin wall"
+    },
+    "booleanScopes": {
+      "new": "New",
+      "add": "Add",
+      "remove": "Remove",
+      "intersect": "Intersect"
+    },
+    "entitiesLabel": "Faces and sketch regions",
+    "fastPick": "Quick pick",
+    "removeEntity": "Remove {{label}}",
+    "sections": {
+      "direction": "Direction",
+      "startOffset": "Start offset",
+      "symmetric": "Symmetric",
+      "draft": "Draft"
+    },
+    "directionOptions": {
+      "forward": "Forward",
+      "backward": "Backward"
+    },
+    "rollbackLabel": "Rollback",
+    "finish": "Finish",
+    "help": "Help",
+    "helpText": "Pick faces or sketch regions in the canvas to add entities; ✓ commits the feature, ✗ discards changes."
+  },
+  "sketchDialog": {
+    "defaultTitle": "Sketch",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "planeLabel": "Sketch plane",
+    "planePlaceholder": "Select a plane…",
+    "planes": {
+      "top": "Top",
+      "front": "Front",
+      "right": "Right"
+    },
+    "fastPick": "Quick pick",
+    "optionsGroup": "Sketch options",
+    "toggles": {
+      "disableImprint": "Disable imprint",
+      "showConstraints": "Show constraints",
+      "showExpressions": "Show expressions",
+      "showErrors": "Show errors"
+    },
+    "history": "History",
+    "help": "Help",
+    "helpText": "Pick a sketch plane to start sketching; the toggles control imprint/constraints/expressions/error display."
+  },
+  "sketch": {
+    "constraintsOverlay": "Constraints"
   },
   "palette": {
     "title": "Search tools",

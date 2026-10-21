@@ -19,6 +19,7 @@ import type {
   DockTab,
   PartStudioCanvasState,
   PartStudioCommandPaletteState,
+  PartStudioDialogState,
   PartStudioDockState,
   PartStudioSketchState,
   PartStudioState,
@@ -53,6 +54,10 @@ export interface PartStudioActions {
   setCanvasSelection: (selection: readonly CanvasSelection[]) => void;
   hideNodes: (nodeIds: readonly string[]) => void;
   showNodes: (nodeIds: readonly string[]) => void;
+  // dialog 切片（T6：画布内联非模态对话框宿主寻址）
+  openFeatureDialog: (feature: { featureId: string; featureName: string; featureType: string }) => void;
+  openSketchDialog: (sketchId?: string) => void;
+  closeDialog: () => void;
 }
 
 export type PartStudioStore = PartStudioState & PartStudioActions;
@@ -94,6 +99,8 @@ const initialCanvas: PartStudioCanvasState = {
   selection: [],
   hiddenIds: [],
 };
+
+const initialDialog: PartStudioDialogState = { active: null };
 
 /** tree 切片：双段树活动段 + 树选中/展开。 */
 function createTreeSlice([set, get]: SliceCreator): { tree: PartStudioTreeState } & Pick<PartStudioActions,
@@ -167,6 +174,7 @@ export const usePartStudioStore = create<PartStudioStore>()((...args) => ({
   ...createSketchSlice(args),
   ...createCommandPaletteSlice(args),
   ...createCanvasSlice(args),
+  ...createDialogSlice(args),
 }));
 
 /** canvas 切片：画布选择集（pick 回流宿主）+ 会话隐藏集。 */
@@ -185,5 +193,20 @@ function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvas
       const dropping = new Set(nodeIds);
       set({ canvas: { ...canvas, hiddenIds: canvas.hiddenIds.filter((id) => !dropping.has(id)) } });
     },
+  };
+}
+
+/**
+ * dialog 切片：画布内联非模态对话框宿主寻址（T6）——feature=特征编辑
+ * （树上「编辑…」路由）；sketch=新建草图（ribbon newSketch 激活路由，
+ * sketchId 缺省 null——对话框确认时由宿主补 'sketch-active'）。
+ */
+function createDialogSlice([set]: SliceCreator): { dialog: PartStudioDialogState } & Pick<PartStudioActions,
+  'openFeatureDialog' | 'openSketchDialog' | 'closeDialog'> {
+  return {
+    dialog: initialDialog,
+    openFeatureDialog: (feature) => set({ dialog: { active: 'feature', ...feature } }),
+    openSketchDialog: (sketchId) => set({ dialog: { active: 'sketch', sketchId: sketchId ?? null } }),
+    closeDialog: () => set({ dialog: { active: null } }),
   };
 }

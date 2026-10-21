@@ -101,6 +101,16 @@ export interface PartStudioCanvasState {
 }
 
 /**
+ * dialog 切片——画布内联非模态对话框的宿主寻址（T6：FeatureDialog/SketchDialog
+ * 由 PartStudioCanvas 按 active 渲染）。feature=特征编辑（树上「编辑…」/后续
+ * 路由）；sketch=新建草图（ribbon newSketch 激活路由）。
+ */
+export type PartStudioDialogState =
+  | { active: null }
+  | { active: 'feature'; featureId: string; featureName: string; featureType: string }
+  | { active: 'sketch'; sketchId: string | null };
+
+/**
  * part-studio 编辑器会话态聚合（spec §3 五分法：编辑器会话态唯一归属
  * zustand；服务端态归 react-query、运行时态归 viewer-next，不进本类型）。
  */
@@ -111,4 +121,5 @@ export interface PartStudioState {
   sketch: PartStudioSketchState;
   commandPalette: PartStudioCommandPaletteState;
   canvas: PartStudioCanvasState;
+  dialog: PartStudioDialogState;
 }

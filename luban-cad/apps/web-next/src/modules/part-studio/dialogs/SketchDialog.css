@@ -1,0 +1,163 @@
+/* SketchDialog.css — 草图对话框（os-30）：非模态内联面板（同 Extrude 对话
+ * 框位——画布区左上角内联定位，无模态遮罩）。全部走 iTwinUI 令牌（组件禁
+ * 写裸色值，见 PartStudioPage.css 文件头）。 */
+
+/* ── 面板骨架（非模态内联：absolute 钉画布左上，不遮罩）────────────────── */
+.part-studio-sketch-dialog {
+  position: absolute;
+  inset-block-start: var(--iui-size-xs);
+  inset-inline-start: var(--iui-size-xs);
+  z-index: 30;
+  inline-size: min(300px, calc(100% - var(--iui-size-l)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-2, 0 2px 8px rgba(0, 0, 0, 0.2));
+}
+
+/* ── 顶置标题行：草图名 + ✓/✗ + 历史时钟 + ? 帮助 ────────────────────── */
+.part-studio-sketch-dialog__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+}
+
+.part-studio-sketch-dialog__title {
+  margin: 0;
+  font-size: var(--iui-font-size-1);
+  font-weight: 600;
+}
+
+.part-studio-sketch-dialog__header-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
+
+.part-studio-sketch-dialog__confirm,
+.part-studio-sketch-dialog__cancel,
+.part-studio-sketch-dialog__history,
+.part-studio-sketch-dialog__help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  cursor: pointer;
+}
+
+.part-studio-sketch-dialog__confirm svg,
+.part-studio-sketch-dialog__cancel svg,
+.part-studio-sketch-dialog__history svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
+/* os-30：绿✓确认 / 红✗取消。 */
+.part-studio-sketch-dialog__confirm {
+  color: var(--iui-color-text-positive, #208a3c);
+}
+
+.part-studio-sketch-dialog__cancel {
+  color: var(--iui-color-text-negative, #d30b0b);
+}
+
+.part-studio-sketch-dialog__history {
+  color: var(--iui-color-text-muted);
+}
+
+.part-studio-sketch-dialog__confirm:hover,
+.part-studio-sketch-dialog__cancel:hover,
+.part-studio-sketch-dialog__history:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-sketch-dialog__help {
+  border: 1px solid var(--iui-color-border);
+  border-radius: 50%;
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-sketch-dialog__help:hover {
+  background: var(--iui-color-background-hover);
+  color: var(--iui-color-text);
+}
+
+.part-studio-sketch-dialog__help-text {
+  margin: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-backdrop, var(--iui-color-background-hover));
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+}
+
+/* ── 草图平面选择 + 快速拾取（os-30：蓝框 select）───────────────────────── */
+.part-studio-sketch-dialog__plane-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-sketch-dialog__plane-select {
+  flex: 1;
+  min-inline-size: 0;
+  padding: var(--iui-size-2xs);
+  border: 1px solid var(--iui-color-border-accent, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-sketch-dialog__fast-pick {
+  flex-shrink: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.part-studio-sketch-dialog__fast-pick:hover {
+  background: var(--iui-color-background-hover);
+}
+
+/* ── 四开关勾选组（os-30）────────────────────────────────────────────── */
+.part-studio-sketch-dialog__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  padding-block-start: var(--iui-size-2xs);
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.part-studio-sketch-dialog__toggle {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}

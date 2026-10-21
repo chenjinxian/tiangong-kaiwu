@@ -8,6 +8,8 @@
  * Enter 激活选中项（走 useToolActivation：gated → 能力引导对话框，full →
  * IModelApp.tools.run），Escape/关闭钮收合；查询词回写 store（ribbon「亮显
  * 工具栏中的工具」勾选后的高亮数据源，os-23 勾选默认开）。
+ * T6：os-30「search 框禁用」——草图模式（store.sketch.isActive）alt+/ 热键
+ * 不响应，且进入草图模式时强制收合面板。
  */
 
 import React from 'react';
@@ -24,14 +26,22 @@ export function CommandPalette(): React.JSX.Element | null {
   const closeCommandPalette = usePartStudioStore((s) => s.closeCommandPalette);
   const setCommandPaletteQuery = usePartStudioStore((s) => s.setCommandPaletteQuery);
   const setPaletteHighlight = usePartStudioStore((s) => s.setPaletteHighlight);
+  const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
   const { activate, gatedCapability, closeGatedDialog } = useToolActivation();
   const [activeIndex, setActiveIndex] = React.useState(0);
+
+  // os-30「search 框禁用」：进入草图模式强制收合命令搜索。
+  React.useEffect(() => {
+    if (sketchActive) closeCommandPalette();
+  }, [sketchActive, closeCommandPalette]);
 
   // alt+/ 热键 + Escape 收合（面板关闭时仅监听不渲染，开合全走 store）。
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === '/' && event.altKey) {
         event.preventDefault();
+        // os-30：草图模式命令搜索禁用。
+        if (usePartStudioStore.getState().sketch.isActive) return;
         usePartStudioStore.getState().toggleCommandPalette();
         return;
       }

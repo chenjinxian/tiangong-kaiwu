@@ -10,9 +10,16 @@
  *
  * useToolActivation：ribbon/palette 统一的激活路由——gated → 能力引导；
  * full → IModelApp.tools.run（id 校准见 ribbon-registry 文件头）+
- * 写 store tool.activeToolId（主钮激活态）。CapabilityDialog：gated 引导
+ * 写 store tool.activeToolId（主钮激活态）。T6 特例：newSketch 开 SketchDialog
+ * （os-30 创建草图流程：平面选择+四开关，确认后进草图模式），真实 sketch
+ * 工具接线前不经 tools.run。CapabilityDialog：gated 引导
  * 面（CAPABILITY_GUIDANCE 文案；documents 模块的 CapabilityDialog 绑定
  * GatedCreateAction + documents 命名空间，不可复用，故 part-studio 自建）。
+ *
+ * T6 草图模式变身（os-30）：store.sketch.isActive → 工具条整体切换为草图
+ * 工具组（SKETCH_TOOL_GROUP_ORDER 三组），特征工具组隐去；命令搜索触发钮
+ * 禁用（os-30「search 框禁用」）；右端追加「退出草图」按钮（exitSketch
+ * 复位，特征 ribbon 还原）。
  */
 
 import React from 'react';
@@ -28,7 +35,9 @@ import {
   allRibbonCommands,
   findRibbonCommand,
 } from './ribbon-registry.js';
-import type { RibbonTool } from './ribbon-registry.js';
+import type { RibbonIcon } from './ribbon-registry.js';
+import { SKETCH_TOOL_GROUP_ORDER, SKETCH_RIBBON_TOOLS } from './sketch-tools.js';
+import type { SketchRibbonTool } from './sketch-tools.js';
 import { RibbonDropdown } from './RibbonDropdown.js';
 
 /** useToolActivation 出口：激活路由 + gated 引导对话框状态。 */
@@ -44,12 +53,20 @@ export interface ToolActivation {
  * 工具激活路由（ribbon/CommandPalette 共用）：gated capability 开能力引导；
  * 否则写 store 激活态并投 IModelApp.tools.run。未接线命令（id 非真实
  * toolId）由 tools.run 返回 false/抛错打警告——后续里程碑接线。
+ * T6：newSketch 例外路由——开 SketchDialog（os-30），不经 tools.run。
  */
 export function useToolActivation(): ToolActivation {
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
   const setActiveTool = usePartStudioStore((s) => s.setActiveTool);
+  const openSketchDialog = usePartStudioStore((s) => s.openSketchDialog);
 
   const activate = React.useCallback(async (id: string) => {
+    if (id === 'newSketch') {
+      // os-30：草图命令开 SketchDialog（平面选择+四开关，确认进草图模式）；
+      // 真实 sketch 工具接线前不经 tools.run（接线时移除本特例）。
+      openSketchDialog();
+      return;
+    }
     const command = findRibbonCommand(id);
     const capability = command?.capability ?? id;
     if (isGated(capability)) {
@@ -65,7 +82,7 @@ export function useToolActivation(): ToolActivation {
     } catch (err) {
       console.error(`[part-studio] 命令 ${id} 激活失败:`, err);
     }
-  }, [setActiveTool]);
+  }, [setActiveTool, openSketchDialog]);
 
   const closeGatedDialog = React.useCallback(() => setGatedCapability(null), []);
 
@@ -104,9 +121,17 @@ export function CapabilityDialog({ capability, onClose }: CapabilityDialogProps)
   );
 }
 
-/** 单工具按钮（无下拉变体的工具）。 */
+/** 工具钮模型（RibbonTool/SketchRibbonTool 结构子集——渲染只依赖这四键）。 */
+interface RibbonButtonModel {
+  id: string;
+  icon: RibbonIcon;
+  labelKey: string;
+  shortcut?: string;
+}
+
+/** 单工具按钮（无下拉变体的工具；草图/特征模式共用）。 */
 function RibbonToolButton({ tool, onActivate, active, highlighted }: {
-  tool: RibbonTool;
+  tool: RibbonButtonModel;
   onActivate: (id: string) => void;
   active: boolean;
   highlighted: boolean;
@@ -136,6 +161,8 @@ function RibbonToolButton({ tool, onActivate, active, highlighted }: {
 
 /**
  * 工具 ribbon：分组工具条 + 命令搜索触发钮。激活态/亮显态全 store 驱动。
+ * T6 草图模式（os-30）：sketch.isActive → 整体切换为草图工具组 + 搜索禁用
+ * + 退出草图钮。
  */
 export function Ribbon(): React.JSX.Element {
   const { t } = useTranslation();
@@ -143,6 +170,8 @@ export function Ribbon(): React.JSX.Element {
   const activeToolId = usePartStudioStore((s) => s.tool.activeToolId);
   const palette = usePartStudioStore((s) => s.commandPalette);
   const toggleCommandPalette = usePartStudioStore((s) => s.toggleCommandPalette);
+  const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
+  const exitSketch = usePartStudioStore((s) => s.exitSketch);
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
   const highlightIds = React.useMemo(() => {
@@ -158,50 +187,84 @@ export function Ribbon(): React.JSX.Element {
 
   return (
     <div className="part-studio-ribbon" data-testid="part-studio-ribbon">
-      <div className="part-studio-ribbon__groups" role="toolbar" aria-label={t('partStudio.ribbon.toolbarLabel')}>
-        {RIBBON_GROUP_ORDER.map((group) => {
-          const tools = RIBBON_TOOLS.filter((tool) => tool.group === group);
-          if (tools.length === 0) return null;
-          return (
-            <div
-              key={group}
-              className="part-studio-ribbon__group"
-              role="group"
-              aria-label={t(`partStudio.ribbon.groups.${group}`)}
-            >
-              {tools.map((tool) =>
-                tool.dropdownItems ? (
-                  <RibbonDropdown
-                    key={tool.id}
-                    tool={tool}
-                    onActivate={activate}
-                    active={activeToolId === tool.id}
-                    highlighted={highlightIds?.has(tool.id) ?? false}
-                  />
-                ) : (
+      {sketchActive ? (
+        /* 草图模式变身（os-30）：草图工具组替换特征工具组。 */
+        <div className="part-studio-ribbon__groups" role="toolbar" aria-label={t('partStudio.ribbon.sketchToolbarLabel')}>
+          {SKETCH_TOOL_GROUP_ORDER.map((group) => {
+            const tools = SKETCH_RIBBON_TOOLS.filter((tool) => tool.group === group);
+            return (
+              <div
+                key={group}
+                className="part-studio-ribbon__group"
+                role="group"
+                aria-label={t(`partStudio.ribbon.sketchGroups.${group}`)}
+              >
+                {tools.map((tool: SketchRibbonTool) => (
                   <RibbonToolButton
                     key={tool.id}
                     tool={tool}
                     onActivate={activate}
                     active={activeToolId === tool.id}
-                    highlighted={highlightIds?.has(tool.id) ?? false}
+                    highlighted={false}
                   />
-                ),
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {/* 命令搜索触发钮（os-11 最右：搜索工具… alt+/）。 */}
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="part-studio-ribbon__groups" role="toolbar" aria-label={t('partStudio.ribbon.toolbarLabel')}>
+          {RIBBON_GROUP_ORDER.map((group) => {
+            const tools = RIBBON_TOOLS.filter((tool) => tool.group === group);
+            if (tools.length === 0) return null;
+            return (
+              <div
+                key={group}
+                className="part-studio-ribbon__group"
+                role="group"
+                aria-label={t(`partStudio.ribbon.groups.${group}`)}
+              >
+                {tools.map((tool) =>
+                  tool.dropdownItems ? (
+                    <RibbonDropdown
+                      key={tool.id}
+                      tool={tool}
+                      onActivate={activate}
+                      active={activeToolId === tool.id}
+                      highlighted={highlightIds?.has(tool.id) ?? false}
+                    />
+                  ) : (
+                    <RibbonToolButton
+                      key={tool.id}
+                      tool={tool}
+                      onActivate={activate}
+                      active={activeToolId === tool.id}
+                      highlighted={highlightIds?.has(tool.id) ?? false}
+                    />
+                  ),
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {/* 命令搜索触发钮（os-11 最右：搜索工具… alt+/）；os-30：草图模式禁用。 */}
       <button
         type="button"
         className="part-studio-ribbon__search-trigger"
         onClick={toggleCommandPalette}
+        disabled={sketchActive}
       >
         <SvgSearch className="part-studio-ribbon__search-icon" />
         <span>{t('partStudio.ribbon.searchTools')}</span>
         <kbd className="part-studio-ribbon__search-kbd">{t('partStudio.ribbon.searchShortcut')}</kbd>
       </button>
+      {/* 草图模式退出钮（os-30：回到特征 ribbon）。 */}
+      {sketchActive && (
+        <button type="button" className="part-studio-ribbon__exit-sketch" onClick={exitSketch}>
+          {t('partStudio.ribbon.exitSketch')}
+        </button>
+      )}
       <CapabilityDialog capability={gatedCapability} onClose={closeGatedDialog} />
     </div>
   );

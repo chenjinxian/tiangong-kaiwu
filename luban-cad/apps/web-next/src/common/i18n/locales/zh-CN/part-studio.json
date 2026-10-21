@@ -53,6 +53,8 @@
   },
   "ribbon": {
     "toolbarLabel": "特征工具",
+    "sketchToolbarLabel": "草图工具",
+    "exitSketch": "退出草图",
     "searchTools": "搜索工具…",
     "searchShortcut": "alt+/",
     "groups": {
@@ -67,6 +69,11 @@
       "sheetMetal": "钣金",
       "custom": "自定义特征",
       "surfaceCurve": "曲面/曲线"
+    },
+    "sketchGroups": {
+      "sketchDraw": "绘制",
+      "sketchEdit": "编辑",
+      "sketchAnnotate": "标注"
     },
     "tools": {
       "sketch": { "label": "草图" },
@@ -142,7 +149,81 @@
       "isoparametricCurve": { "label": "等参" },
       "editCurve": { "label": "编辑" },
       "routeCurve": { "label": "路线曲线" }
+    },
+    "sketchTools": {
+      "line": { "label": "线" },
+      "rectangle": { "label": "矩形" },
+      "circle": { "label": "圆" },
+      "arc": { "label": "圆弧" },
+      "spline": { "label": "样条" },
+      "fillet": { "label": "圆角" },
+      "trim": { "label": "修剪" },
+      "offset": { "label": "偏移" },
+      "mirror": { "label": "镜像" },
+      "text": { "label": "文本" },
+      "dimension": { "label": "尺寸" },
+      "constraint": { "label": "约束" }
     }
+  },
+  "featureDialog": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "resultTypeTabs": "结果类型",
+    "booleanScopeTabs": "布尔作用域",
+    "resultTypes": {
+      "solid": "实体",
+      "surface": "曲面",
+      "thinWall": "薄壁"
+    },
+    "booleanScopes": {
+      "new": "新建",
+      "add": "加入",
+      "remove": "移除",
+      "intersect": "相交"
+    },
+    "entitiesLabel": "面和草图区域",
+    "fastPick": "快速拾取",
+    "removeEntity": "移除 {{label}}",
+    "sections": {
+      "direction": "方向",
+      "startOffset": "起始偏移",
+      "symmetric": "对称",
+      "draft": "拔模"
+    },
+    "directionOptions": {
+      "forward": "正向",
+      "backward": "反向"
+    },
+    "rollbackLabel": "回滚",
+    "finish": "成品",
+    "help": "帮助",
+    "helpText": "在画布中拾取面或草图区域以添加实体；✓ 提交特征，✗ 放弃更改。"
+  },
+  "sketchDialog": {
+    "defaultTitle": "草图",
+    "confirm": "确认",
+    "cancel": "取消",
+    "planeLabel": "草图平面",
+    "planePlaceholder": "选择草图平面…",
+    "planes": {
+      "top": "上视",
+      "front": "前视",
+      "right": "右视"
+    },
+    "fastPick": "快速拾取",
+    "optionsGroup": "草图选项",
+    "toggles": {
+      "disableImprint": "禁用压印",
+      "showConstraints": "显示约束",
+      "showExpressions": "显示表达式",
+      "showErrors": "显示错误"
+    },
+    "history": "历史",
+    "help": "帮助",
+    "helpText": "选择草图平面后开始绘制草图；勾选组控制压印/约束/表达式/错误的显示。"
+  },
+  "sketch": {
+    "constraintsOverlay": "约束"
   },
   "palette": {
     "title": "搜索工具",

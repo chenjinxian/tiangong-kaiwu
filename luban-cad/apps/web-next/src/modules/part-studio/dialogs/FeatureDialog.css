@@ -1,0 +1,334 @@
+/* FeatureDialog.css — 特征编辑非模态内联面板（os-31）。画布区左上角内联
+ * 定位（PartStudioCanvas 相对宿主）；无模态遮罩——画布可持续拾取。全部走
+ * iTwinUI 令牌（组件禁写裸色值，见 PartStudioPage.css 文件头）。 */
+
+/* ── 面板骨架（非模态内联：absolute 钉画布左上，不遮罩）────────────────── */
+.part-studio-feature-dialog {
+  position: absolute;
+  inset-block-start: var(--iui-size-xs);
+  inset-inline-start: var(--iui-size-xs);
+  z-index: 30;
+  inline-size: min(320px, calc(100% - var(--iui-size-l)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-2, 0 2px 8px rgba(0, 0, 0, 0.2));
+}
+
+/* ── 顶置标题行：特征名 + ✓确认（绿）/✗取消（红）───────────────────────── */
+.part-studio-feature-dialog__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+}
+
+.part-studio-feature-dialog__title {
+  margin: 0;
+  font-size: var(--iui-font-size-1);
+  font-weight: 600;
+}
+
+.part-studio-feature-dialog__header-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
+
+.part-studio-feature-dialog__confirm,
+.part-studio-feature-dialog__cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__confirm svg,
+.part-studio-feature-dialog__cancel svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
+/* os-31：绿✓确认 / 红✗取消。 */
+.part-studio-feature-dialog__confirm {
+  color: var(--iui-color-text-positive, #208a3c);
+}
+
+.part-studio-feature-dialog__confirm:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-feature-dialog__cancel {
+  color: var(--iui-color-text-negative, #d30b0b);
+}
+
+.part-studio-feature-dialog__cancel:hover {
+  background: var(--iui-color-background-hover);
+}
+
+/* ── 布尔作用域双页签（os-31：结果类型 × 布尔作用域）───────────────────── */
+.part-studio-feature-dialog__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.part-studio-feature-dialog__tablist {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  border-block-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.part-studio-feature-dialog__tab {
+  padding: 2px var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.part-studio-feature-dialog__tab:hover {
+  color: var(--iui-color-text);
+}
+
+.part-studio-feature-dialog__tab--active {
+  color: var(--iui-color-text-accent);
+  font-weight: 600;
+  border-block-end: 2px solid var(--iui-color-text-accent);
+  margin-block-end: -1px;
+}
+
+/* ── 芯片式实体选择框（os-31）────────────────────────────────────────── */
+.part-studio-feature-dialog__entities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-feature-dialog__entities-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+}
+
+.part-studio-feature-dialog__entities-label {
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-feature-dialog__fast-pick {
+  padding: 1px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__fast-pick:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-feature-dialog__chips {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.part-studio-feature-dialog__chip {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 2px 1px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-feature-dialog__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 16px;
+  block-size: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__chip-remove svg {
+  inline-size: 10px;
+  block-size: 10px;
+}
+
+.part-studio-feature-dialog__chip-remove:hover {
+  color: var(--iui-color-text-negative, #d30b0b);
+}
+
+/* ── 折叠段（方向/起始偏移/对称/拔模）──────────────────────────────────── */
+.part-studio-feature-dialog__sections {
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-feature-dialog__section {
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.part-studio-feature-dialog__section-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__section-toggle:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-feature-dialog__section-body {
+  padding: 0 var(--iui-size-xs) var(--iui-size-2xs);
+}
+
+.part-studio-feature-dialog__select,
+.part-studio-feature-dialog__input {
+  inline-size: 100%;
+  padding: var(--iui-size-2xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-feature-dialog__checkbox {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+/* ── 底部：回滚滑杆 + 成品 + ?（os-31）────────────────────────────────── */
+.part-studio-feature-dialog__footer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--iui-size-xs);
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  padding-block-start: var(--iui-size-2xs);
+}
+
+.part-studio-feature-dialog__rollback {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.part-studio-feature-dialog__rollback-label {
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-feature-dialog__rollback-slider {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.part-studio-feature-dialog__footer-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-feature-dialog__finish {
+  padding: var(--iui-size-2xs) var(--iui-size-l);
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-text-accent);
+  color: var(--iui-color-white);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__finish:hover {
+  background: var(--iui-color-text-accent-hover, var(--iui-color-text-accent));
+}
+
+.part-studio-feature-dialog__help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: 1px solid var(--iui-color-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__help:hover {
+  background: var(--iui-color-background-hover);
+  color: var(--iui-color-text);
+}
+
+.part-studio-feature-dialog__help-text {
+  margin: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-backdrop, var(--iui-color-background-hover));
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+}

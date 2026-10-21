@@ -146,6 +146,19 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'palette.title', 'palette.placeholder', 'palette.hint', 'palette.returnHint',
   'palette.close', 'palette.highlight', 'palette.empty',
   'capability.close',
+  // M3 Task 6：草图模式变身 + 非模态对话框 chrome 键——ribbon.sketchTools.*
+  // 与 sketchGroups.*（12+3 条）由 SketchDialog.test 数据驱动守卫。
+  'ribbon.sketchToolbarLabel', 'ribbon.exitSketch',
+  'featureDialog.confirm', 'featureDialog.cancel',
+  'featureDialog.resultTypeTabs', 'featureDialog.booleanScopeTabs',
+  'featureDialog.entitiesLabel', 'featureDialog.fastPick',
+  'featureDialog.rollbackLabel', 'featureDialog.finish',
+  'featureDialog.help', 'featureDialog.helpText',
+  'sketchDialog.defaultTitle', 'sketchDialog.confirm', 'sketchDialog.cancel',
+  'sketchDialog.planeLabel', 'sketchDialog.planePlaceholder', 'sketchDialog.fastPick',
+  'sketchDialog.optionsGroup', 'sketchDialog.history', 'sketchDialog.help',
+  'sketchDialog.helpText',
+  'sketch.constraintsOverlay',
 ] as const;
 
 describe('i18n 骨架', () => {

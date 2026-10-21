@@ -898,3 +898,63 @@
   font-size: var(--iui-font-size-0);
   cursor: pointer;
 }
+
+/* ── 草图模式（T6：os-30 ribbon 变身/画布覆盖层/树红显）────────────────── */
+/* 退出草图钮（草图 ribbon 右端：回到特征工具组）。 */
+.part-studio-ribbon__exit-sketch {
+  flex-shrink: 0;
+  padding: 2px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.part-studio-ribbon__exit-sketch:hover {
+  background: var(--iui-color-background-hover);
+}
+
+/* 草图模式搜索触发钮禁用态（os-30「search 框禁用」）。 */
+.part-studio-ribbon__search-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 栅格覆盖层（纯视觉，aria-hidden； sketch 激活时铺在 viewport 上）。 */
+.part-studio-canvas__sketch-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--iui-color-border-subtle, var(--iui-color-border)) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--iui-color-border-subtle, var(--iui-color-border)) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.35;
+}
+
+/* 约束覆盖层（角标标签，pointer-events 穿透——画布拾取不被拦截）。 */
+.part-studio-canvas__sketch-constraints {
+  position: absolute;
+  inset-block-end: var(--iui-size-xs);
+  inset-inline-start: var(--iui-size-xs);
+  z-index: 20;
+  padding: 1px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  pointer-events: none;
+}
+
+/* os-30：树红显活动草图（进行中）——与错误红显同源负色，加粗区分语义。 */
+.part-studio-tree-row--sketch-active,
+.part-studio-tree-row--sketch-active.part-studio-tree-row--selected {
+  color: var(--iui-color-text-negative, #d30b0b);
+  font-weight: 600;
+}
