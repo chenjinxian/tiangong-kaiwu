@@ -3,23 +3,26 @@
     "checkingPermission": "Checking permissions...",
     "initializing": "Initializing editor...",
     "invalidUrl": "Invalid URL: missing iTwin or iModel ID",
-    "backToProjectList": "Back to projects",
+    "backToProjectList": "Back to documents",
     "imodelInitializing": "iModel is initializing, please wait...",
     "imodelInitHint": "This may take a few minutes",
     "imodelNotReady": "iModel is not ready",
     "statusLabel": "Status: {{status}}",
     "statusUnknown": "Unknown",
-    "backToProject": "Back to project",
+    "backToProject": "Back to document",
     "toolRegistrationFailed": "Tool registration failed: {{message}}"
   },
   "topbar": {
-    "projectList": "Projects",
+    "projectList": "Documents",
     "loading": "Loading...",
     "exportModel": "Export model",
     "editPermissionRequired": "Edit permission required",
     "share": "Share",
     "rename": "Rename",
-    "versionPillTitle": "Current version (open history)"
+    "versionPillTitle": "Current version (open history)",
+    "help": "Help",
+    "backToProjectList": "Back to documents",
+    "backToProject": "Back to document"
   },
   "toolbar": {
     "select": "Select",
@@ -651,7 +654,8 @@
       "chamfer": "Chamfer",
       "shell": "Shell"
     },
-    "faceResolveFailed": "Failed to resolve face reference"
+    "faceResolveFailed": "Failed to resolve face reference",
+    "readOnlyShort": "Read-only"
   },
   "featureParamForm": {
     "invalidJson": "Invalid JSON; this field was not saved",
@@ -782,5 +786,37 @@
     "promptFace": "Click to select a face; right-click when done",
     "promptEdge": "Click to select an edge; right-click when done",
     "promptVertex": "Click to select a vertex; right-click when done"
+  },
+  "docTabs": {
+    "label": "Document tabs",
+    "partStudio": "Part Studio 1",
+    "newTabUnsupported": "Multiple document tabs are not supported yet"
+  },
+  "viewportMenu": {
+    "fit": "Fit view",
+    "top": "Top view",
+    "front": "Front view",
+    "right": "Right view",
+    "iso": "Isometric view",
+    "displaySettings": "Display settings"
+  },
+  "help": {
+    "title": "Keyboard shortcuts",
+    "description": "Shortcuts registered in the editor:",
+    "thisDialog": "Open shortcut help",
+    "hint": "Tip: press Shift+? anytime to open this panel."
+  },
+  "shortcuts": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "redoAlt": "Redo (alternate)",
+    "selectAll": "Select all",
+    "fit": "Fit view",
+    "rotate": "Rotate view",
+    "pan": "Pan view",
+    "zoom": "Zoom view",
+    "windowArea": "Window area",
+    "select": "Selection tool",
+    "escape": "Exit current tool"
   }
 }

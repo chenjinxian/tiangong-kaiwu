@@ -178,7 +178,7 @@ const ForgotPassword: React.FC = () => {
 
               <div className="auth-footer">
                 <Text>
-                  {t('forgotPassword.remembered')}
+                  {t('forgotPassword.remembered')}{' '}
                   <Link to="/login">{t('forgotPassword.login')}</Link>
                 </Text>
               </div>

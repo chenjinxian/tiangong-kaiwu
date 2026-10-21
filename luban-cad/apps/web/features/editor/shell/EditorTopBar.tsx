@@ -110,14 +110,16 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
           </Button>,
         ]
       : []),
-    <IconButton
+    // Onshape 签名：顶栏「Share」为带文字的默认按钮，非纯图标
+    <Button
       key="share"
       styleType="default"
+      size="small"
+      startIcon={<SvgShare />}
       onClick={onShare}
-      label={t('topbar.share')}
     >
-      <SvgShare />
-    </IconButton>,
+      {t('topbar.share')}
+    </Button>,
     ...(isEditable
       ? [
           <IconButton

@@ -261,7 +261,9 @@ describe('FeaturePanel', () => {
       });
       render(<FeaturePanel fs={fs} onEditFeature={onEditFeature} />);
 
-      expect(screen.getByText('只读（未持有写租约）')).toBeDefined();
+      // 窄面板显示短标签，完整原因在 title（防止标题被挤折行）
+      const readOnlyHint = screen.getByText('只读');
+      expect(readOnlyHint.getAttribute('title')).toBe('只读（未持有写租约）');
       expect(screen.getByRole('button', { name: '新建特征' }).getAttribute('aria-disabled')).toBe('true');
       expect(screen.getAllByRole('button', { name: '抑制特征' }).every((b) => b.getAttribute('aria-disabled') === 'true')).toBe(true);
       expect(screen.getAllByRole('button', { name: '编辑特征' }).every((b) => b.getAttribute('aria-disabled') === 'true')).toBe(true);

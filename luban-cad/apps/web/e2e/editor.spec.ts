@@ -61,8 +61,8 @@ test.describe('Editor Page', () => {
   test('should navigate back to documents', async ({ page }) => {
     await openRealEditor(page);
 
-    // 面包屑「项目列表」按钮 → /documents
-    const backButton = page.getByRole('button', { name: '项目列表' }).first();
+    // 面包屑「文档」按钮 → /documents（术语 Onshape 化：项目 → 文档）
+    const backButton = page.getByRole('button', { name: '文档' }).first();
     await expect(backButton).toBeVisible({ timeout: 30000 });
     await backButton.click();
     await page.waitForURL('**/documents', { timeout: 30000 });

@@ -25,6 +25,9 @@ export const EyeIcon: React.FC<IconProps> = ({ size = 18, className }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
     className={className}
+    // iTwinUI IconButton 的 `svg { fill: currentColor }` 会覆盖根节点
+    // fill="none" 呈现属性 → 整只眼睛被填成黑点；内联样式优先级更高。
+    style={{ fill: 'none' }}
     aria-hidden="true"
   >
     <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
@@ -47,6 +50,8 @@ export const EyeOffIcon: React.FC<IconProps> = ({ size = 18, className }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
     className={className}
+    // 同上：避免 IconButton 的 fill 规则把描边图标填实
+    style={{ fill: 'none' }}
     aria-hidden="true"
   >
     <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />

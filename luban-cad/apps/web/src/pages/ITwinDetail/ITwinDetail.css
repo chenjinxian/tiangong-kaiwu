@@ -17,8 +17,9 @@
 
 /* ── Header 品牌标 ── */
 .imodels-page .logo-mark {
-  width: 28px;
-  height: 28px;
+  /* header-brand-icon 槽 24×24：28px 会压住品牌字标（UI 走查实测） */
+  width: 24px;
+  height: 24px;
   border-radius: var(--iui-border-radius-1);
   background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
   display: flex;
@@ -27,6 +28,29 @@
   color: white;
   font-size: 10px;
   font-weight: 800;
+}
+
+.imodels-page .detail-header [class*='header-brand-label'] {
+  margin-inline-start: var(--iui-size-2xs);
+}
+
+.imodels-page .detail-header [class*='page-header-divider'] {
+  margin-inline: var(--iui-size-xs);
+}
+
+/* 同 Editor：Header 动作按钮收敛 32px，避免图标被拉成整列方块 */
+.imodels-page .detail-header [class*='page-header-right'] {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding-inline-end: var(--iui-size-m);
+}
+
+.imodels-page .detail-header [class*='page-header-right'] button {
+  align-self: center;
+  block-size: 32px !important;
+  min-block-size: 32px;
+  border-radius: var(--iui-border-radius-1) !important;
 }
 
 .detail-header {
@@ -145,9 +169,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--iui-size-s) var(--iui-size-m);
-  background: var(--iui-color-background);
-  border-bottom: 1px solid var(--iui-color-border);
+  /* 与网格同缩进、无底纹带：计数行只做信息，不再抢视觉层级 */
+  padding: var(--iui-size-s) var(--iui-size-l) 0;
+  background: transparent;
   flex-shrink: 0;
 }
 
@@ -157,10 +181,17 @@
   gap: var(--iui-size-xs);
 }
 
+.imodels-page .imodel-count {
+  color: var(--iui-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: var(--iui-font-weight-semibold, 600);
+}
+
 /* ── Grid ── */
 .imodels-page .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--iui-size-m);
   padding: var(--iui-size-l);
 }

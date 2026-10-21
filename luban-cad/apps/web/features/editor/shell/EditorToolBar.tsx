@@ -9,18 +9,12 @@ import { ButtonGroup, Divider, IconButton } from '@itwin/itwinui-react';
 import {
   SvgCrop,
   SvgCursor,
-  SvgFitToView,
   SvgLayers,
   SvgMeasure,
   SvgModel,
-  SvgMove,
-  SvgRedo,
-  SvgRotateRight,
   SvgSave,
   SvgSettings,
-  SvgUndo,
   SvgVisibilityHalf,
-  SvgZoomIn,
 } from '@itwin/itwinui-icons-react';
 import { UndoRedoToolbar } from '../../../src/core/undo/UndoRedoToolbar.js';
 import type { EditorDockDisplayPanel, EditorDockState } from './EditorDockPanel.js';
@@ -33,12 +27,6 @@ export interface EditorToolBarProps {
   onToggleMeasurement: () => void;
   onToggleDisplayPanel: (panel: EditorDockDisplayPanel) => void;
   onSelectTool: () => void;
-  onRotateView: () => void;
-  onPanView: () => void;
-  onZoomView: () => void;
-  onFitView: () => void;
-  onViewUndo: () => void;
-  onViewRedo: () => void;
 }
 
 /**
@@ -54,12 +42,6 @@ export const EditorToolBar: React.FC<EditorToolBarProps> = ({
   onToggleMeasurement,
   onToggleDisplayPanel,
   onSelectTool,
-  onRotateView,
-  onPanView,
-  onZoomView,
-  onFitView,
-  onViewUndo,
-  onViewRedo,
 }) => {
   const { t } = useTranslation('editor');
 
@@ -87,53 +69,6 @@ export const EditorToolBar: React.FC<EditorToolBarProps> = ({
         </IconButton>
       </ButtonGroup>
 
-      <Divider orientation="vertical" className="toolbar-divider" />
-
-      {/* View Navigation Tools */}
-      <ButtonGroup className="toolbar-group">
-        <IconButton
-          styleType="borderless"
-          label={t('toolbar.rotate')}
-          onClick={onRotateView}
-        >
-          <SvgRotateRight />
-        </IconButton>
-        <IconButton
-          styleType="borderless"
-          label={t('toolbar.pan')}
-          onClick={onPanView}
-        >
-          <SvgMove />
-        </IconButton>
-        <IconButton
-          styleType="borderless"
-          label={t('toolbar.zoom')}
-          onClick={onZoomView}
-        >
-          <SvgZoomIn />
-        </IconButton>
-        <IconButton
-          styleType="borderless"
-          label={t('toolbar.fit')}
-          onClick={onFitView}
-        >
-          <SvgFitToView />
-        </IconButton>
-        <IconButton
-          styleType="borderless"
-          label={t('toolbar.viewUndo')}
-          onClick={onViewUndo}
-        >
-          <SvgUndo />
-        </IconButton>
-        <IconButton
-          styleType="borderless"
-          label={t('toolbar.viewRedo')}
-          onClick={onViewRedo}
-        >
-          <SvgRedo />
-        </IconButton>
-      </ButtonGroup>
 
       <Divider orientation="vertical" className="toolbar-divider" />
 

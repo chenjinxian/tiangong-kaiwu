@@ -3,23 +3,26 @@
     "checkingPermission": "检查权限中...",
     "initializing": "初始化编辑器...",
     "invalidUrl": "无效的 URL: 缺少 iTwin 或 iModel ID",
-    "backToProjectList": "返回项目列表",
+    "backToProjectList": "返回文档列表",
     "imodelInitializing": "iModel 初始化中，请稍候...",
     "imodelInitHint": "这可能需要几分钟时间",
     "imodelNotReady": "iModel 未准备就绪",
     "statusLabel": "状态: {{status}}",
     "statusUnknown": "未知",
-    "backToProject": "返回项目",
+    "backToProject": "返回文档",
     "toolRegistrationFailed": "工具注册失败: {{message}}"
   },
   "topbar": {
-    "projectList": "项目列表",
+    "projectList": "文档",
     "loading": "加载中...",
     "exportModel": "导出模型",
     "editPermissionRequired": "需要编辑权限",
     "share": "分享",
     "rename": "重命名",
-    "versionPillTitle": "当前版本（打开历史）"
+    "versionPillTitle": "当前版本（打开历史）",
+    "help": "帮助",
+    "backToProjectList": "返回文档列表",
+    "backToProject": "返回文档"
   },
   "toolbar": {
     "select": "选择",
@@ -651,7 +654,8 @@
       "chamfer": "倒角 (chamfer)",
       "shell": "抽壳 (shell)"
     },
-    "faceResolveFailed": "面引用解析失败"
+    "faceResolveFailed": "面引用解析失败",
+    "readOnlyShort": "只读"
   },
   "featureParamForm": {
     "invalidJson": "JSON 格式非法，未保存该字段",
@@ -782,5 +786,37 @@
     "promptFace": "点击选择面 (Face)，右键完成选择",
     "promptEdge": "点击选择边 (Edge)，右键完成选择",
     "promptVertex": "点击选择顶点 (Vertex)，右键完成选择"
+  },
+  "docTabs": {
+    "label": "文档标签",
+    "partStudio": "零件工作室 1",
+    "newTabUnsupported": "多文档工作区暂未支持"
+  },
+  "viewportMenu": {
+    "fit": "适应视图",
+    "top": "顶视图",
+    "front": "前视图",
+    "right": "右视图",
+    "iso": "等轴测视图",
+    "displaySettings": "显示设置"
+  },
+  "help": {
+    "title": "键盘快捷键",
+    "description": "当前编辑器已注册的快捷键：",
+    "thisDialog": "打开快捷键帮助",
+    "hint": "提示：按 Shift+? 可随时打开此面板。"
+  },
+  "shortcuts": {
+    "undo": "撤销",
+    "redo": "重做",
+    "redoAlt": "重做 (替代)",
+    "selectAll": "全选",
+    "fit": "适应视图 (Fit View)",
+    "rotate": "旋转视图 (Rotate View)",
+    "pan": "平移视图 (Pan View)",
+    "zoom": "缩放视图 (Zoom View)",
+    "windowArea": "窗口区域 (Window Area)",
+    "select": "选择工具 (Select)",
+    "escape": "退出当前工具"
   }
 }

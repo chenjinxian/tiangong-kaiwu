@@ -59,6 +59,12 @@ a:where(:not([class*='iui'])):hover {
   color: var(--color-primary-hover);
 }
 
+/* iTwinUI 3.22 的 Dialog.TitleBar 关闭钮没有右推规则（× 紧贴标题文字）。
+ * 统一推到行尾——快捷键表/分享/重命名等全部对话框受益。 */
+[class*='dialog-title-bar'] > button {
+  margin-inline-start: auto;
+}
+
 /* Scrollbar — themed */
 ::-webkit-scrollbar {
   width: 6px;

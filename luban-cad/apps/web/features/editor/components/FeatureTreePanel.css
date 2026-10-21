@@ -30,9 +30,21 @@
   flex-shrink: 0;
 }
 
+/* Onshape 式页签：无限下划线选中态（旧「绿色药丸」在左栏头显得比工具还抢眼） */
 .feature-tree-tabs {
   display: flex;
-  gap: var(--iui-size-2xs);
+  gap: var(--iui-size-s);
+  border-bottom: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.feature-tree-tabs button {
+  border-radius: 0 !important;
+}
+
+.feature-tree-tabs button[data-iui-variant='cta'] {
+  background: transparent !important;
+  color: var(--iui-color-text-accent);
+  box-shadow: inset 0 -2px 0 hsl(var(--iui-color-accent-hsl));
 }
 
 /* Collapsed state */

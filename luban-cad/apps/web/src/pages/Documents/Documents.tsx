@@ -15,7 +15,7 @@
  *   带 role 即修正）。
  * - 主区 Table/Tile 双视图（SvgList/SvgGrid 切换，localStorage 记忆偏好；默认 Tile——
  *   e2e 契约 `main` 内 Tile role=button 按项目名定位依赖 Tile 形态在场）
- * - Table 列=缩略图(useITwinImage+SvgProject 回退)/名称/所有者/角色 Tag/创建·更新时间；
+ * - Table 列=缩略图(useITwinImage+SvgDocument 回退)/名称/所有者/角色 Tag/创建·更新时间；
  *   列头排序（名称/创建/更新，manualSortBy 受控态统一驱动双视图）
  * - 行级 DropdownMenu（右键 onContextMenu + 行尾 IconButton 双触发）：打开/详情/重命名
  *   （EditITwinDialog 复用）/收藏 toggle/分享（ShareITwinDialog，与详情页同源）/删除
@@ -23,7 +23,7 @@
  * - 右侧 InformationPanel 详情侧栏（选中行：大缩略图/所有者/角色/创建·更新时间/描述）
  * - 空态 NonIdealState 替换 6 个内联 SVG；双 setTimeout 切换动画已删
  * e2e 契约锚点：.section-title（helpers 登录门）/main 内 Tile role=button/
- * 「新建项目」「退出登录」/空态语义 /暂无项目/。
+ * 「新建文档」「退出登录」/空态语义 /暂无文档/。
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -59,17 +59,18 @@ import {
   SvgClock,
   SvgCloseSmall,
   SvgDelete,
+  SvgDocument,
   SvgExit,
   SvgFolderOpened,
   SvgGrid,
   SvgInfo,
   SvgList,
   SvgMoreVertical,
-  SvgProject,
   SvgRefresh,
   SvgRename,
   SvgSearch,
   SvgShare,
+  SvgSortMenu,
   SvgStar,
   SvgStarHollow,
   SvgStatusError,
@@ -168,7 +169,7 @@ function parseDate(value: string | null | undefined): number {
 // Presentational subcomponents
 // ============================================================================
 
-/** 缩略图：useITwinImage 认证加载，无图/失败回退 SvgProject 占位 */
+/** 缩略图：useITwinImage 认证加载，无图/失败回退文档占位（Table/详情侧栏） */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const ProjectThumbnail: React.FC<{ iTwinId: string | null | undefined; large?: boolean }> = ({
   iTwinId,
@@ -178,7 +179,7 @@ const ProjectThumbnail: React.FC<{ iTwinId: string | null | undefined; large?: b
   if (objectUrl) {
     return <img className={large ? 'doc-thumb-img doc-thumb-img--large' : 'doc-thumb-img'} src={objectUrl} alt="" />;
   }
-  return <SvgProject className={large ? 'doc-thumb-icon doc-thumb-icon--large' : 'doc-thumb-icon'} />;
+  return <SvgDocument className={large ? 'doc-thumb-icon doc-thumb-icon--large' : 'doc-thumb-icon'} />;
 };
 
 /** 搜索命中高亮（保留旧版行为） */
@@ -209,6 +210,84 @@ const RoleTag: React.FC<{ role: DocumentRow['role']; label: string }> = ({ role,
     {label}
   </Tag>
 );
+
+interface DocumentTileProps {
+  row: DocumentRow;
+  isFavorite: boolean;
+  isSelected: boolean;
+  query: string;
+  modifiedLabel: string;
+  favoriteLabel: string;
+  moreOptionsLabel: string;
+  menuItems: React.JSX.Element[];
+  onOpen: () => void;
+  onToggleFavorite: () => void;
+  onContextMenu: (event: React.MouseEvent) => void;
+}
+
+/**
+ * 文档网格卡片（Onshape 文档中心 1:1）：
+ * - 有 `useITwinImage` 预览时以字符串 URL 传给 Tile → iTwinUI 渲染铺满缩略图区的
+ *   `tile-thumbnail-picture`（传 ReactNode 只会落进 64px 图标槽，实测）；
+ * - 无预览回退大号 SvgDocument 占位（CSS 松绑 64px 图标槽）；
+ * - 星标/更多菜单收进缩略图右上 quick-action（Onshape 悬停态），未收藏时随悬停显隐。
+ */
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const DocumentTile: React.FC<DocumentTileProps> = ({
+  row,
+  isFavorite,
+  isSelected,
+  query,
+  modifiedLabel,
+  favoriteLabel,
+  moreOptionsLabel,
+  menuItems,
+  onOpen,
+  onToggleFavorite,
+  onContextMenu,
+}) => {
+  const thumbnailUrl = useITwinImage(row.id);
+  return (
+    <Tile
+      name={<HighlightText text={row.name} query={query} />}
+      // Onshape 卡片口径：主行=修改时间，meta=所有者
+      description={modifiedLabel}
+      metadata={row.ownerLabel}
+      thumbnail={thumbnailUrl || <SvgDocument className="doc-thumb-icon doc-thumb-icon--tile" />}
+      rightIcon={
+        // 快捷操作不触发行点击/双击
+        <div
+          className="doc-tile-quick-actions"
+          onClick={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          <IconButton
+            className={
+              isFavorite ? 'doc-tile-star doc-tile-star--favorite' : 'doc-tile-star'
+            }
+            data-favorite={isFavorite ? 'true' : 'false'}
+            styleType="borderless"
+            size="small"
+            label={favoriteLabel}
+            onClick={onToggleFavorite}
+          >
+            {/* 状态语义：收藏=实心星（SvgStar），未收藏=空心星——与 Onshape 一致 */}
+            {isFavorite ? <SvgStar /> : <SvgStarHollow />}
+          </IconButton>
+          <DropdownMenu menuItems={menuItems}>
+            <IconButton label={moreOptionsLabel} styleType="borderless" size="small">
+              <SvgMoreVertical />
+            </IconButton>
+          </DropdownMenu>
+        </div>
+      }
+      isActionable
+      isSelected={isSelected}
+      onClick={onOpen}
+      onContextMenu={onContextMenu}
+    />
+  );
+};
 
 // ============================================================================
 // Page
@@ -714,17 +793,29 @@ const Documents: React.FC = React.memo(() => {
 
     return (
       <div className="doc-grid">
-        {sortedRows.map((row) => (
-          <Tile
-            key={row.id}
-            name={<HighlightText text={row.name} query={searchQuery} />}
-            description={t('states.createdAt', { date: formatDate(row.createdAt, i18n.language) })}
-            thumbnail={<ProjectThumbnail iTwinId={row.id} />}
-            isActionable
-            onClick={() => handleProjectClick(row)}
-            onContextMenu={(event: React.MouseEvent) => openContextMenu(row, event)}
-          />
-        ))}
+        {sortedRows.map((row) => {
+          const isFavorite = favoriteIds.has(row.id);
+          return (
+            <DocumentTile
+              key={row.id}
+              row={row}
+              isFavorite={isFavorite}
+              isSelected={selectedId === row.id}
+              query={searchQuery}
+              modifiedLabel={t('states.modifiedAt', {
+                date: formatDate(row.modifiedAt, i18n.language),
+              })}
+              favoriteLabel={
+                isFavorite ? t('actions.unfavorite') : t('actions.favorite')
+              }
+              moreOptionsLabel={t('table.rowActions')}
+              menuItems={buildRowMenuItems(row, closeContextMenu)}
+              onOpen={() => handleProjectClick(row)}
+              onToggleFavorite={() => toggleFavorite(row)}
+              onContextMenu={(event: React.MouseEvent) => openContextMenu(row, event)}
+            />
+          );
+        })}
       </div>
     );
   };
@@ -740,7 +831,7 @@ const Documents: React.FC = React.memo(() => {
       <Header
         className="documents-header"
         appLogo={
-          <HeaderLogo logo={<div className="logo-mark">CC</div>}>{tCommon('app.name')}</HeaderLogo>
+          <HeaderLogo logo={<div className="logo-mark">LC</div>}>{tCommon('app.name')}</HeaderLogo>
         }
         actions={[
           <Button
@@ -814,6 +905,42 @@ const Documents: React.FC = React.memo(() => {
               )}
             </div>
             <div className="view-controls">
+              {/* Onshape 式排序菜单（网格/列表共用状态） */}
+              <DropdownMenu
+                menuItems={[
+                  <MenuItem
+                    key="name"
+                    onClick={() => setSort({ id: 'name', desc: false })}
+                    isSelected={sort.id === 'name'}
+                  >
+                    {t('sort.name')}
+                  </MenuItem>,
+                  <MenuItem
+                    key="modified"
+                    onClick={() => setSort({ id: 'modifiedAt', desc: true })}
+                    isSelected={sort.id === 'modifiedAt'}
+                  >
+                    {t('sort.modified')}
+                  </MenuItem>,
+                  <MenuItem
+                    key="created"
+                    onClick={() => setSort({ id: 'createdAt', desc: true })}
+                    isSelected={sort.id === 'createdAt'}
+                  >
+                    {t('sort.created')}
+                  </MenuItem>,
+                  <MenuItem
+                    key="direction"
+                    onClick={() => setSort(prev => ({ ...prev, desc: !prev.desc }))}
+                  >
+                    {sort.desc ? t('sort.ascending') : t('sort.descending')}
+                  </MenuItem>,
+                ]}
+              >
+                <Button styleType="borderless" size="small" startIcon={<SvgSortMenu />}>
+                  {t('sort.label')}
+                </Button>
+              </DropdownMenu>
               <IconButton
                 onClick={() => handleViewChange('tile')}
                 isActive={view === 'tile'}

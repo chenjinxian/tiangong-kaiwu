@@ -12,13 +12,13 @@ test.describe('Documents Page', () => {
   });
 
   test('should display documents page with header', async ({ page }) => {
-    // 页面 heading = section-title（过滤标签，默认「我的项目」）；
+    // 页面 heading = section-title（过滤标签，默认「我的文档」）；
     // 注意项目卡片名也是 h2，getByRole('heading', {name: /项目/}) 会撞 strict mode
     await expect(page.locator('.section-title')).toBeVisible();
-    await expect(page.locator('.section-title')).toHaveText('我的项目');
+    await expect(page.locator('.section-title')).toHaveText('我的文档');
 
     // Check for create project button (topbar high-visibility button)
-    await expect(page.getByRole('button', { name: '新建项目' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '新建文档' })).toBeVisible();
   });
 
   test('should display project grid or list', async ({ page }) => {
@@ -27,7 +27,7 @@ test.describe('Documents Page', () => {
 
     // Check for grid/list container OR empty state
     const grid = page.locator('[class*="grid"], [class*="list"]').first();
-    const emptyState = page.getByText(/暂无项目|No projects|Empty/i);
+    const emptyState = page.getByText(/暂无文档|No documents|Empty/i);
 
     const hasGrid = await grid.isVisible().catch(() => false);
     const hasEmpty = await emptyState.isVisible().catch(() => false);
@@ -38,14 +38,14 @@ test.describe('Documents Page', () => {
 
   test('should open create project dialog', async ({ page }) => {
     // Click create project button (topbar)
-    await page.getByRole('button', { name: '新建项目' }).click();
+    await page.getByRole('button', { name: '新建文档' }).click();
 
     // 对话框 accessible name 来自 Dialog.Main 的 title（titleText 是可见标题）
-    const dialog = page.getByRole('dialog', { name: '创建 iTwin 项目' });
+    const dialog = page.getByRole('dialog', { name: '新建文档' });
     await expect(dialog).toBeVisible();
 
     // 表单输入：label 未关联控件（getByLabel 不命中），用 placeholder
-    await expect(page.locator('input[placeholder="输入项目名称"]')).toBeVisible();
+    await expect(page.locator('input[placeholder="输入文档名称"]')).toBeVisible();
     await expect(dialog.getByRole('button', { name: '创建', exact: true })).toBeVisible();
   });
 

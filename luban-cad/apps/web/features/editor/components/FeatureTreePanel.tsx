@@ -46,6 +46,7 @@ interface FeatureTreePanelProps {
   showToolSettings?: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
   connection,
   fs,
@@ -136,7 +137,7 @@ export const FeatureTreePanel: React.FC<FeatureTreePanelProps> = ({
         </IconButton>
       </div>
 
-      <Divider />
+      {/* 分隔线由页签自身的 border-bottom 提供（双线叠在一起会显脏） */}
 
       {/* Content */}
       <div className="feature-tree-content">

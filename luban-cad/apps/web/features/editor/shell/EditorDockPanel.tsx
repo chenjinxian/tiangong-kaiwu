@@ -234,9 +234,10 @@ export const EditorDockPanel: React.FC<EditorDockPanelProps> = ({
   })();
 
   return (
-    <aside className="editor-dock" data-testid="editor-dock" aria-label={t('dock.title')}>
+    <aside className="editor-dock" data-testid="editor-dock" aria-label={t(`dock.tabs.${state.tab}`)}>
       <div className="editor-dock-header">
-        <Text variant="small" className="editor-dock-title">{t('dock.title')}</Text>
+        {/* Onshape 式：面板头显示当前活动页签名（旧占位「PANEL」无信息量） */}
+        <Text variant="small" className="editor-dock-title">{t(`dock.tabs.${state.tab}`)}</Text>
         <IconButton
           styleType="borderless"
           size="small"

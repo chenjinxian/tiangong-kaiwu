@@ -136,7 +136,8 @@
   flex-direction: column;
   justify-content: center;
   padding: 48px;
-  background-color: var(--iui-color-background-backdrop);
+  /* Onshape 登录右栏为纯白（旧 backdrop 灰底让输入区像禁用态） */
+  background-color: var(--iui-color-background);
 }
 
 .auth-page .auth-form-container {

@@ -19,6 +19,8 @@ export interface KeyboardShortcut {
   toolId?: string;
   action?: () => void | Promise<void>;
   description: string;
+  /** i18n key（editor ns）：帮助面板优先使用，避免非 React 模块硬编码文案 */
+  descriptionKey?: string;
 }
 
 export class KeyboardManager {
@@ -112,18 +114,21 @@ export function registerDefaultShortcuts(): void {
     modifiers: { ctrl: true },
     toolId: 'LubanCad.Undo',
     description: '撤销',
+    descriptionKey: 'shortcuts.undo',
   });
   keyboardManager.register({
     key: 'z',
     modifiers: { ctrl: true, shift: true },
     toolId: 'LubanCad.Redo',
     description: '重做',
+    descriptionKey: 'shortcuts.redo',
   });
   keyboardManager.register({
     key: 'y',
     modifiers: { ctrl: true },
     toolId: 'LubanCad.Redo',
     description: '重做 (替代)',
+    descriptionKey: 'shortcuts.redoAlt',
   });
 
   // Selection
@@ -132,6 +137,7 @@ export function registerDefaultShortcuts(): void {
     modifiers: { ctrl: true },
     toolId: 'LubanCad.SelectAll',
     description: '全选',
+    descriptionKey: 'shortcuts.selectAll',
   });
 
   // View
@@ -139,26 +145,31 @@ export function registerDefaultShortcuts(): void {
     key: 'f',
     toolId: 'View.Fit',
     description: '适应视图 (Fit View)',
+    descriptionKey: 'shortcuts.fit',
   });
   keyboardManager.register({
     key: 'r',
     toolId: 'View.Rotate',
     description: '旋转视图 (Rotate View)',
+    descriptionKey: 'shortcuts.rotate',
   });
   keyboardManager.register({
     key: 'p',
     toolId: 'View.Pan',
     description: '平移视图 (Pan View)',
+    descriptionKey: 'shortcuts.pan',
   });
   keyboardManager.register({
     key: 'z',
     toolId: 'View.Zoom',
     description: '缩放视图 (Zoom View)',
+    descriptionKey: 'shortcuts.zoom',
   });
   keyboardManager.register({
     key: 'w',
     toolId: 'View.WindowArea',
     description: '窗口区域 (Window Area)',
+    descriptionKey: 'shortcuts.windowArea',
   });
   keyboardManager.register({
     key: 's',
@@ -166,6 +177,7 @@ export function registerDefaultShortcuts(): void {
       await IModelApp.toolAdmin?.startDefaultTool();
     },
     description: '选择工具 (Select)',
+    descriptionKey: 'shortcuts.select',
   });
 
   // Escape to exit tool
@@ -175,5 +187,6 @@ export function registerDefaultShortcuts(): void {
       await IModelApp.toolAdmin.startDefaultTool();
     },
     description: '退出当前工具',
+    descriptionKey: 'shortcuts.escape',
   });
 }

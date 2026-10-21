@@ -24,22 +24,22 @@ test.describe('LubanCAD 功能演示', () => {
     // 会话注入登录（auth.setup 产物；限流收紧后 UI 实时登录仅 login.spec 保留）
     await loginWithSession(page);
 
-    // 2. 文档中心 - 我的项目（默认过滤即 my）
-    console.log('📸 2. 文档中心 - 我的项目');
+    // 2. 文档中心 - 我的文档（默认过滤即 my）
+    console.log('📸 2. 文档中心 - 我的文档');
     await page.waitForTimeout(2000);
     await page.screenshot({ path: 'demo/02-documents-my.png', fullPage: true });
 
     // 3. 创建项目对话框
     console.log('📸 3. 创建项目对话框');
-    await page.getByRole('button', { name: '新建项目' }).click();
+    await page.getByRole('button', { name: '新建文档' }).click();
     // 对话框标题只存在于 aria-label（内层 heading 为空）—— 用 role 定位
-    const dialog = page.getByRole('dialog', { name: '创建 iTwin 项目' });
+    const dialog = page.getByRole('dialog', { name: '新建文档' });
     await expect(dialog).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: 'demo/03-create-project-dialog.png', fullPage: true });
 
     // 4. 创建项目
     const projectName = `Demo Project ${Date.now()}`;
-    await page.locator('input[placeholder="输入项目名称"]').fill(projectName);
+    await page.locator('input[placeholder="输入文档名称"]').fill(projectName);
     await dialog.getByRole('button', { name: '创建', exact: true }).click();
     await expect(dialog).toBeHidden({ timeout: 30000 });
 

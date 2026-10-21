@@ -416,6 +416,31 @@ describe('Editor', () => {
     expect(screen.getByRole('button', { name: /拉取/i })).toBeDefined();
   });
 
+  it('renders Onshape-style document tab and opens viewport context menu', () => {
+    const { container } = renderEditor();
+    expect(screen.getByRole('tab', { name: /零件工作室 1/ })).toBeDefined();
+
+    const viewer = container.querySelector('.viewer-wrap');
+    expect(viewer).not.toBeNull();
+    fireEvent.contextMenu(viewer!);
+
+    expect(screen.getByRole('menu')).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: '适应视图' })).toBeDefined();
+
+    // 点击外部关闭
+    fireEvent.mouseDown(window);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('opens the shortcut help dialog with Shift+?', async () => {
+    renderEditor();
+    fireEvent.keyDown(window, { key: '?', shiftKey: true });
+
+    await waitFor(() =>
+      expect(screen.getByRole('dialog', { name: '键盘快捷键' })).toBeDefined(),
+    );
+  });
+
   // Note: Manual save button is not rendered - auto-save is used instead (via useAutoSave hook)
   // Save functionality is tested through the useVersionControl mock
 
@@ -434,7 +459,7 @@ describe('Editor', () => {
 
   it('shows project breadcrumb', () => {
     renderEditor();
-    expect(screen.getByRole('button', { name: /项目列表/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /^文档$/ })).toBeDefined();
     expect(screen.getByRole('button', { name: /My Project/i })).toBeDefined();
   });
 

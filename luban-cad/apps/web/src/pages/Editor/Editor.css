@@ -14,8 +14,9 @@
 
 /* ── Logo（HeaderLogo 插槽仍消费 .logo-mark）── */
 .workspace-page .logo-mark {
-  width: 28px;
-  height: 28px;
+  /* header-brand-icon 槽 24×24，logo 超出会压住品牌字标（UI 走查实测） */
+  width: 24px;
+  height: 24px;
   border-radius: var(--iui-border-radius-1);
   background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
   display: flex;
@@ -25,6 +26,31 @@
   font-size: 10px;
   font-weight: 800;
   flex-shrink: 0;
+}
+
+.workspace-page .editor-topbar [class*='header-brand-label'] {
+  margin-inline-start: var(--iui-size-2xs);
+}
+
+.workspace-page .editor-topbar [class*='page-header-divider'] {
+  margin-inline: var(--iui-size-xs);
+}
+
+/* Onshape 式紧凑顶栏按钮：iTwinUI Header 默认把动作按钮拉满 56px 高，
+ * 三个图标按钮会渲染成整列方块（UI 走查实测）；收敛为 32px 常规按钮。 */
+.workspace-page .editor-topbar [class*='page-header-right'] {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding-inline-end: var(--iui-size-m);
+}
+
+.workspace-page .editor-topbar [class*='page-header-right'] button {
+  align-self: center;
+  block-size: 32px !important;
+  min-block-size: 32px;
+  border-radius: var(--iui-border-radius-1) !important;
+  white-space: nowrap;
 }
 
 /* ── Toolbar ── */

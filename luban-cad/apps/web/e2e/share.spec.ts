@@ -5,7 +5,7 @@
 
 /**
  * Share 流 e2e（RW4-P3-T3-2）：
- * 详情页 hero「分享项目」→ 添加成员（真数据 POST /accesscontrol/.../members/users）→
+ * 详情页 hero「分享文档」→ 添加成员（真数据 POST /accesscontrol/.../members/users）→
  * 成员行出现 → 移除按钮按 UUID 守卫降级（aria-disabled+inline 说明）→ 链接页 = origin + /documents/:id。
  *
  * 限流纪律：登录一律 loginWithSession（零登录请求）。
@@ -20,7 +20,7 @@ import { loginWithSession, SEED_PROJECT_NAME } from './helpers';
 
 const HUB = 'http://localhost:5400';
 
-test.describe('Share Project Dialog', () => {
+test.describe('Share Document Dialog', () => {
   test('invite by email adds a member row and the share surfaces render', async ({ page }) => {
     test.setTimeout(120000);
 
@@ -34,8 +34,8 @@ test.describe('Share Project Dialog', () => {
     const projectId = page.url().split('/documents/')[1] ?? '';
 
     // 入口补齐：hero 分享按钮此前无 true 置位点
-    await page.getByRole('button', { name: '分享项目' }).first().click();
-    const dialog = page.getByRole('dialog', { name: '分享项目' });
+    await page.getByRole('button', { name: '分享文档' }).first().click();
+    const dialog = page.getByRole('dialog', { name: '分享文档' });
     await expect(dialog).toBeVisible({ timeout: 10000 });
 
     // 成员页真数据加载完成（空态或既有成员行）

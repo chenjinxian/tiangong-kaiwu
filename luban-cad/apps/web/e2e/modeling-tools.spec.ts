@@ -38,7 +38,7 @@ test.describe('Modeling Tools - Basic Visibility', () => {
 
   test('login should succeed and show project page', async ({ page }) => {
     // Verify we're on the projects page（section-title 即过滤标签 heading）
-    await expect(page.locator('.section-title')).toHaveText('我的项目');
+    await expect(page.locator('.section-title')).toHaveText('我的文档');
     await expect(page.getByText(SEED_PROJECT_NAME).first()).toBeVisible();
   });
 });

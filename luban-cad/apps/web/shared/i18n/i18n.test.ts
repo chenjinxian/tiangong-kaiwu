@@ -165,23 +165,23 @@ describe('i18n 骨架', () => {
 
   it('documents 命名空间：筛选/搜索/空态键命中（zh/en，e2e 中文锚点）', async () => {
     await i18n.changeLanguage('zh-CN');
-    expect(i18n.t('filters.my', { ns: 'documents' })).toBe('我的项目');
-    expect(i18n.t('filters.recent', { ns: 'documents' })).toBe('最近打开');
-    expect(i18n.t('filters.favorites', { ns: 'documents' })).toBe('收藏项目');
+    expect(i18n.t('filters.my', { ns: 'documents' })).toBe('我的文档');
+    expect(i18n.t('filters.recent', { ns: 'documents' })).toBe('最近');
+    expect(i18n.t('filters.favorites', { ns: 'documents' })).toBe('收藏');
     expect(i18n.t('filters.shared', { ns: 'documents' })).toBe('与我共享');
-    expect(i18n.t('actions.create', { ns: 'documents' })).toBe('新建项目');
+    expect(i18n.t('actions.create', { ns: 'documents' })).toBe('新建文档');
     expect(i18n.t('actions.logout', { ns: 'documents' })).toBe('退出登录');
-    expect(i18n.t('search.placeholder', { ns: 'documents' })).toBe('搜索项目...');
-    expect(i18n.t('empty.myTitle', { ns: 'documents' })).toBe('暂无项目');
-    expect(i18n.t('states.loading', { ns: 'documents' })).toBe('加载项目中...');
+    expect(i18n.t('search.placeholder', { ns: 'documents' })).toBe('搜索文档...');
+    expect(i18n.t('empty.myTitle', { ns: 'documents' })).toBe('暂无文档');
+    expect(i18n.t('states.loading', { ns: 'documents' })).toBe('加载文档中...');
     expect(i18n.t('states.errorTitle', { ns: 'documents' })).toBe('加载失败');
     expect(i18n.t('actions.retry', { ns: 'documents' })).toBe('重试');
-    expect(i18n.t('section.count', { ns: 'documents', count: 3 })).toBe('3 个项目');
+    expect(i18n.t('section.count', { ns: 'documents', count: 3 })).toBe('3 个文档');
     await i18n.changeLanguage('en');
-    expect(i18n.t('filters.my', { ns: 'documents' })).toMatch(/My project/i);
+    expect(i18n.t('filters.my', { ns: 'documents' })).toMatch(/My documents/i);
     expect(i18n.t('filters.shared', { ns: 'documents' })).toMatch(/Shared/i);
-    expect(i18n.t('actions.create', { ns: 'documents' })).toMatch(/New project/i);
-    expect(i18n.t('empty.myTitle', { ns: 'documents' })).toMatch(/No projects/i);
+    expect(i18n.t('actions.create', { ns: 'documents' })).toMatch(/New document/i);
+    expect(i18n.t('empty.myTitle', { ns: 'documents' })).toMatch(/No documents/i);
     await i18n.changeLanguage('zh-CN');
   });
 
@@ -200,9 +200,9 @@ describe('i18n 骨架', () => {
     expect(i18n.t('role.owner', { ns: 'documents' })).toBe('所有者');
     expect(i18n.t('role.member', { ns: 'documents' })).toBe('成员');
     expect(i18n.t('info.description', { ns: 'documents' })).toBe('描述');
-    expect(i18n.t('deleteDialog.title', { ns: 'documents' })).toBe('删除项目');
+    expect(i18n.t('deleteDialog.title', { ns: 'documents' })).toBe('删除文档');
     expect(i18n.t('deleteDialog.message', { ns: 'documents', name: 'X' })).toBe(
-      '确定要删除项目「X」吗？此操作不可撤销，项目下的所有 iModel 也将被删除。',
+      '确定要删除文档「X」吗？此操作不可撤销，文档下的所有 iModel 也将被删除。',
     );
     await i18n.changeLanguage('en');
     expect(i18n.t('actions.open', { ns: 'documents' })).toMatch(/Open/i);
@@ -214,15 +214,15 @@ describe('i18n 骨架', () => {
 
   it('documents 命名空间：Create/Edit 对话框文案键命中（zh/en，e2e 中文锚点）', async () => {
     await i18n.changeLanguage('zh-CN');
-    expect(i18n.t('create.title', { ns: 'documents' })).toBe('创建 iTwin 项目');
-    expect(i18n.t('create.namePlaceholder', { ns: 'documents' })).toBe('输入项目名称');
-    expect(i18n.t('create.numberPlaceholder', { ns: 'documents' })).toBe('输入项目编号（可选）');
+    expect(i18n.t('create.title', { ns: 'documents' })).toBe('新建文档');
+    expect(i18n.t('create.namePlaceholder', { ns: 'documents' })).toBe('输入文档名称');
+    expect(i18n.t('create.numberPlaceholder', { ns: 'documents' })).toBe('输入文档编号（可选）');
     expect(i18n.t('create.submit', { ns: 'documents' })).toBe('创建');
     expect(i18n.t('create.cancel', { ns: 'documents' })).toBe('取消');
-    expect(i18n.t('edit.title', { ns: 'documents' })).toBe('编辑项目');
+    expect(i18n.t('edit.title', { ns: 'documents' })).toBe('编辑文档');
     expect(i18n.t('edit.submit', { ns: 'documents' })).toBe('保存');
     await i18n.changeLanguage('en');
-    expect(i18n.t('create.title', { ns: 'documents' })).toMatch(/New .*Project/i);
+    expect(i18n.t('create.title', { ns: 'documents' })).toMatch(/New .*Document/i);
     expect(i18n.t('create.namePlaceholder', { ns: 'documents' })).toMatch(/name/i);
     expect(i18n.t('edit.submit', { ns: 'documents' })).toMatch(/Save/i);
     await i18n.changeLanguage('zh-CN');
@@ -230,9 +230,9 @@ describe('i18n 骨架', () => {
 
   it('documents 命名空间：详情页/iModel 卡片文案键命中（zh/en，e2e 中文锚点）', async () => {
     await i18n.changeLanguage('zh-CN');
-    expect(i18n.t('detail.breadcrumb.documents', { ns: 'documents' })).toBe('项目列表');
+    expect(i18n.t('detail.breadcrumb.documents', { ns: 'documents' })).toBe('文档');
     expect(i18n.t('detail.actions.createIModel', { ns: 'documents' })).toBe('新建 iModel');
-    expect(i18n.t('detail.actions.share', { ns: 'documents' })).toBe('分享项目');
+    expect(i18n.t('detail.actions.share', { ns: 'documents' })).toBe('分享文档');
     expect(i18n.t('detail.imodelCount', { ns: 'documents', count: 2 })).toBe('2 个 iModel');
     expect(i18n.t('detail.deleteProject.message', { ns: 'documents', name: 'X' })).toContain('「X」');
     expect(i18n.t('imodelCard.open', { ns: 'documents' })).toBe('打开工作空间');
@@ -265,7 +265,7 @@ describe('i18n 骨架', () => {
 
   it('documents 命名空间：分享对话框文案键命中（zh/en，share e2e 锚点）', async () => {
     await i18n.changeLanguage('zh-CN');
-    expect(i18n.t('shareDialog.title', { ns: 'documents' })).toBe('分享项目');
+    expect(i18n.t('shareDialog.title', { ns: 'documents' })).toBe('分享文档');
     expect(i18n.t('shareDialog.tabs.members', { ns: 'documents', count: 2 })).toBe('成员 (2)');
     expect(i18n.t('shareDialog.tabs.invite', { ns: 'documents' })).toBe('邀请成员');
     expect(i18n.t('shareDialog.tabs.link', { ns: 'documents' })).toBe('分享链接');
@@ -275,7 +275,7 @@ describe('i18n 骨架', () => {
     expect(i18n.t('shareDialog.members.removeTitle', { ns: 'documents' })).toBe('移除成员');
     expect(i18n.t('shareDialog.link.copy', { ns: 'documents' })).toBe('复制链接');
     await i18n.changeLanguage('en');
-    expect(i18n.t('shareDialog.title', { ns: 'documents' })).toBe('Share Project');
+    expect(i18n.t('shareDialog.title', { ns: 'documents' })).toBe('Share Document');
     expect(i18n.t('shareDialog.tabs.members', { ns: 'documents', count: 1 })).toBe('Member (1)');
     expect(i18n.t('shareDialog.tabs.members', { ns: 'documents', count: 3 })).toBe('Members (3)');
     expect(i18n.t('shareDialog.link.copy', { ns: 'documents' })).toMatch(/Copy/i);
@@ -284,7 +284,7 @@ describe('i18n 骨架', () => {
 
   it('editor 命名空间：壳/状态栏/停靠面板文案键命中（zh/en，e2e 中文锚点）', async () => {
     await i18n.changeLanguage('zh-CN');
-    expect(i18n.t('topbar.projectList', { ns: 'editor' })).toBe('项目列表');
+    expect(i18n.t('topbar.projectList', { ns: 'editor' })).toBe('文档');
     expect(i18n.t('page.initializing', { ns: 'editor' })).toBe('初始化编辑器...');
     expect(i18n.t('statusbar.connected', { ns: 'editor' })).toBe('已连接');
     expect(i18n.t('statusbar.metric', { ns: 'editor' })).toBe('公制单位');
@@ -296,7 +296,7 @@ describe('i18n 骨架', () => {
     expect(i18n.t('dock.tabs.history', { ns: 'editor' })).toBe('版本历史');
     expect(i18n.t('dock.tabs.display', { ns: 'editor' })).toBe('显示设置');
     await i18n.changeLanguage('en');
-    expect(i18n.t('topbar.projectList', { ns: 'editor' })).toBe('Projects');
+    expect(i18n.t('topbar.projectList', { ns: 'editor' })).toBe('Documents');
     expect(i18n.t('statusbar.connected', { ns: 'editor' })).toBe('Connected');
     expect(i18n.t('dock.tabs.display', { ns: 'editor' })).toBe('Display settings');
     await i18n.changeLanguage('zh-CN');

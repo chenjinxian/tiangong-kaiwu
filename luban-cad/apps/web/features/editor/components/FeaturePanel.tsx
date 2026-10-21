@@ -494,7 +494,11 @@ export const FeaturePanel: React.FC<FeaturePanelProps> = React.memo(({ fs, conne
           </IconButton>
         </div>
         {readOnly && (
-          <Text variant="small" className="feature-readonly-hint">{t('featurePanel.readOnlyHint')}</Text>
+          // 窄面板里完整提示会挤爆标题（实测 FEATURE HISTORY 折成两行）——
+          // 短标签 + title 承载完整原因
+          <Text variant="small" className="feature-readonly-hint" title={t('featurePanel.readOnlyHint')}>
+            {t('featurePanel.readOnlyShort')}
+          </Text>
         )}
       </div>
 

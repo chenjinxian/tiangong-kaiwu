@@ -77,16 +77,16 @@ test.describe('Complete E2E Workflow (API Login)', () => {
     // Step 2: Create new iTwin project
     console.log('📍 Step 2: Create iTwin Project');
 
-    // 新建项目对话框：标题只在 aria-label（内层 heading 为空），用 role 定位
-    await page.getByRole('button', { name: '新建项目' }).first().click();
-    const dialog = page.getByRole('dialog', { name: '创建 iTwin 项目' });
+    // 新建文档对话框：标题只在 aria-label（内层 heading 为空），用 role 定位
+    await page.getByRole('button', { name: '新建文档' }).first().click();
+    const dialog = page.getByRole('dialog', { name: '新建文档' });
     await expect(dialog).toBeVisible({ timeout: 10000 });
 
-    await page.locator('input[placeholder="输入项目名称"]').fill(TEST_PROJECT_NAME);
+    await page.locator('input[placeholder="输入文档名称"]').fill(TEST_PROJECT_NAME);
     await dialog.getByRole('button', { name: '创建', exact: true }).click();
     await expect(dialog).toBeHidden({ timeout: 30000 });
 
-    // 项目卡片出现在「我的项目」列表（默认过滤即 my）
+    // 项目卡片出现在「我的文档」列表（默认过滤即 my）
     const projectItem = page.locator('main').getByRole('button', { name: TEST_PROJECT_NAME }).first();
     await expect(projectItem).toBeVisible({ timeout: 30000 });
     console.log('✅ iTwin created successfully');

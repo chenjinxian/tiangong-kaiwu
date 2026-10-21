@@ -10,7 +10,7 @@
 //   DEMO_KEEP=1 — 保留演示项目不做 API 清理（跑完自己从项目列表打开工作空间查看/继续编辑）
 //
 // 24 幕四阶段（2026-10-11 参数化能力增强版，当日晚重构链序）：
-//   Phase A（幕 1-8）   登录 → 种子项目工具冒烟 → 新建项目/iModel → 编辑器就绪
+//   Phase A（幕 1-8）   登录 → 种子项目工具冒烟 → 新建文档/iModel → 编辑器就绪
 //   Phase B（幕 9-14）  建链：拉伸底座 → 圆角选边创建 → [草图幕] → 布尔减圆孔 →
 //                        布尔加圆柱凸台——四种特征类型全覆盖；圆孔/凸台=32 边形近似
 //                       （轮廓契约是多边形点列，演示分辨率下与圆不可分辨，零后端改动）
@@ -314,7 +314,7 @@ try {
   if (!loggedIn) throw new Error('登录 3 次未成功');
   await page.locator('.section-title').waitFor({ state: 'visible' });
   log(`✅ 登录成功，进入「${await page.locator('.section-title').textContent()}」`);
-  await shot(page, '02-项目列表-我的项目');
+  await shot(page, '02-项目列表-我的文档');
 
   // ── 3. 打开种子项目 ──────────────────────────────────
   await pace();
@@ -360,16 +360,16 @@ try {
   await shot(page, '06-圆角工具已激活');
   await page.keyboard.press('Escape');
 
-  // ── 7. 返回并新建项目 ────────────────────────────────
+  // ── 7. 返回并新建文档 ────────────────────────────────
   await pace();
-  log(`步骤 7/24：面包屑返回，新建项目「${DEMO_PROJECT}」`);
+  log(`步骤 7/24：面包屑返回，新建文档「${DEMO_PROJECT}」`);
   await page.getByRole('button', { name: '项目列表' }).first().click();
   await page.waitForURL('**/documents', { timeout: 30000 });
-  await page.getByRole('button', { name: '新建项目' }).click();
-  const dlg = page.getByRole('dialog', { name: '创建 iTwin 项目' });
+  await page.getByRole('button', { name: '新建文档' }).click();
+  const dlg = page.getByRole('dialog', { name: '新建文档' });
   await dlg.waitFor({ state: 'visible' });
-  await shot(page, '07-新建项目对话框');
-  await page.locator('input[placeholder="输入项目名称"]').fill(DEMO_PROJECT);
+  await shot(page, '07-新建文档对话框');
+  await page.locator('input[placeholder="输入文档名称"]').fill(DEMO_PROJECT);
   await dlg.getByRole('button', { name: '创建', exact: true }).click();
   await dlg.waitFor({ state: 'hidden', timeout: 30000 });
   await page.locator('main').getByRole('button', { name: DEMO_PROJECT }).first().waitFor({ state: 'visible', timeout: 30000 });

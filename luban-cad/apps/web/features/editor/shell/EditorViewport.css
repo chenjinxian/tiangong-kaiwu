@@ -1,0 +1,55 @@
+/*---------------------------------------------------------------------------------------------
+ * Copyright (c) LubanCAD. All rights reserved.
+ * Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Onshape 式视口浮动视图工具条（图形区左上，不占顶部工具条） */
+.viewport-view-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--iui-color-background);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  box-shadow: var(--iui-shadow-2);
+}
+
+/* Onshape 风格视口右键菜单（fixed 定位到指针处） */
+.viewport-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  padding: var(--iui-size-2xs);
+  background: var(--iui-color-background);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  box-shadow: var(--iui-shadow-2);
+}
+
+.viewport-context-menu [role='menuitem'] {
+  display: block;
+  width: 100%;
+  padding: 6px var(--iui-size-s);
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  color: var(--iui-color-text);
+  text-align: left;
+  font-size: var(--iui-font-size-1);
+  cursor: pointer;
+}
+
+.viewport-context-menu [role='menuitem']:hover,
+.viewport-context-menu [role='menuitem']:focus-visible {
+  background: var(--iui-color-background-hover);
+}
+
+.viewport-context-separator {
+  height: 1px;
+  margin: var(--iui-size-2xs) 0;
+  background: var(--iui-color-border);
+}

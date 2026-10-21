@@ -28,10 +28,10 @@ describe('iTwin 对话框文案（documents ns）', () => {
     render(<CreateITwinDialog isOpen onClose={() => undefined} />);
 
     // Dialog.Main title → role=dialog 名称；titleText → 可见 heading
-    expect(await screen.findByRole('dialog', { name: 'New iTwin Project' })).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: 'New iTwin Project' })).toBeTruthy();
-    expect(await screen.findByText('Project Name')).toBeTruthy();
-    expect(await screen.findByPlaceholderText('Enter project name')).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'New Document' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'New Document' })).toBeTruthy();
+    expect(await screen.findByText('Document name')).toBeTruthy();
+    expect(await screen.findByPlaceholderText('Enter a document name')).toBeTruthy();
     expect(await screen.findByText('Create')).toBeTruthy();
     expect(await screen.findByText('Cancel')).toBeTruthy();
     await i18n.changeLanguage('zh-CN');
@@ -48,9 +48,9 @@ describe('iTwin 对话框文案（documents ns）', () => {
     );
 
     // Edit 已补 Dialog.Main/Backdrop 语义 + title（dialog 名称）+ titleText（可见 heading）
-    expect(await screen.findByRole('dialog', { name: 'Edit Project' })).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: 'Edit Project' })).toBeTruthy();
-    expect(await screen.findByText('Project Name')).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Edit Document' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Edit Document' })).toBeTruthy();
+    expect(await screen.findByText('Document name')).toBeTruthy();
     expect(await screen.findByText('Save')).toBeTruthy();
     expect(await screen.findByText('Cancel')).toBeTruthy();
     await i18n.changeLanguage('zh-CN');

@@ -68,7 +68,7 @@ const COPY: Record<Lang, {
     editorDisplay: /^显示设置$/,
     editorShare: /^分享$/,
     editorRename: /^重命名$/,
-    shareDialog: /分享项目/,
+    shareDialog: /分享文档/,
     renameDialog: /重命名 iModel/,
     historyButton: /^历史$/,
     namedVersionsTab: /命名版本/,
@@ -76,7 +76,7 @@ const COPY: Record<Lang, {
     changesetsTab: /变更集/,
     versionPill: /^#\d+$/,
     settingsTab: /个人资料/,
-    projectsFilter: /我的项目/,
+    projectsFilter: /我的文档/,
   },
   en: {
     loginHeading: 'Welcome back',
@@ -89,7 +89,7 @@ const COPY: Record<Lang, {
     editorDisplay: /^Display$/,
     editorShare: /^Share$/,
     editorRename: /^Rename$/,
-    shareDialog: /Share Project/,
+    shareDialog: /Share Document/,
     renameDialog: /Rename iModel/,
     historyButton: /^History$/,
     namedVersionsTab: /Named versions/,
@@ -97,7 +97,7 @@ const COPY: Record<Lang, {
     changesetsTab: /Changesets/,
     versionPill: /^#\d+$/,
     settingsTab: /Profile/,
-    projectsFilter: /My Projects/,
+    projectsFilter: /My Documents/,
   },
 };
 

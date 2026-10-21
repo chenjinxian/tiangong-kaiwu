@@ -26,6 +26,21 @@
   height: 100%;
 }
 
+/* Onshape 左栏更宽：展开态 220px（收起态仍按 iTwinUI 窄条） */
+.itwins-page .sidebar[class*='expanded'] {
+  inline-size: 220px !important;
+  min-inline-size: 220px;
+}
+
+/* Header 内 high-visibility 按钮在 3.22 被拉满 56px 高、方角——收敛为常规按钮 */
+.documents-header [class*='page-header-right'] button[data-iui-variant='high-visibility'] {
+  align-self: center;
+  block-size: 32px !important;
+  min-block-size: 32px;
+  padding-inline: var(--iui-size-m);
+  border-radius: var(--iui-border-radius-1) !important;
+}
+
 .itwins-page .main {
   flex: 1;
   min-width: 0;
@@ -45,17 +60,43 @@
   border-bottom: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
 }
 
+/* Onshape 风格头部：动作区留右内边距，主按钮不贴边/不截断标签 */
+.documents-header [class*='page-header-right'] {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding-inline-end: var(--iui-size-m);
+}
+
+.documents-header [class*='page-header-right'] .iui-button,
+.documents-header [class*='page-header-right'] button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* iTwinUI header-brand-icon 槽为 24×24：logo 必须同尺寸，否则 28px 方块
+ * 会盖住紧随其后的品牌字标首字母（UI 走查实测）。 */
 .logo-mark {
-  inline-size: 28px;
-  block-size: 28px;
+  inline-size: 24px;
+  block-size: 24px;
   border-radius: var(--iui-border-radius-1);
-  background: hsl(var(--iui-color-accent-hsl));
+  /* 与 Editor / ITwinDetail 同款品牌渐变（三页 logo 曾各写一套） */
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
   color: var(--iui-color-white);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: var(--iui-font-weight-bold, 700);
-  font-size: var(--iui-font-size-0);
+  font-weight: 800;
+  font-size: 10px;
+}
+
+/* Onshape 品牌区与面包屑之间留呼吸位（iTwinUI 默认字标紧贴图标、分隔线贴边） */
+.documents-header [class*='header-brand-label'] {
+  margin-inline-start: var(--iui-size-2xs);
+}
+
+.documents-header [class*='page-header-divider'] {
+  margin-inline: var(--iui-size-xs);
 }
 
 /* ── 主区标题 ─────────────────────────────────────────────────────── */
@@ -120,11 +161,20 @@
 /* ── 网格视图 ────────────────────────────────────────────────────── */
 .doc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  /* Onshape 卡片密度：桌面 4 列（1440 下约 280px/卡），与缩略图 16:9 比例平衡 */
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--iui-size-m);
   overflow-y: auto;
   align-content: start;
   padding-bottom: var(--iui-size-m);
+}
+
+/* iTwinUI Tile 自带固定 inline-size（约 288px），在 auto-fill 列宽更小的网格里会
+ * 溢出到相邻列并盖住左邻卡片的 quick-action（实测星标/菜单不可见、不可点）。
+ * 让 Tile 服从网格列宽。 */
+.doc-grid > [class*='tile'] {
+  inline-size: 100%;
+  min-inline-size: 0;
 }
 
 /* ── 缩略图（Table 单元格 / Tile / 详情侧栏共用）─────────────────── */
@@ -159,6 +209,56 @@
   /* RW4-P5-T5-2b：原 --iui-color-background-2（3.22 未定义）→ 最接近的占位表面令牌 */
   background: var(--iui-color-background-backdrop);
   border-radius: var(--iui-border-radius-1);
+}
+
+/* ── Onshape 式网格卡片预览 ───────────────────────────────────────
+ * Tile 的元素型 thumbnail 默认落进 64×64 图标槽（iTwinUI 3.22 契约）；
+ * 占位图标松绑为铺满缩略图区，真实预览走 thumbnail 字符串 URL（铺满图片）。 */
+.doc-grid [class*='tile-thumbnail'] [class*='thumbnail-icon'] {
+  inline-size: 100%;
+  block-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--iui-color-background-backdrop);
+}
+
+.doc-grid [class*='tile-thumbnail'] [class*='thumbnail-icon'] svg {
+  inline-size: 64px;
+  block-size: 64px;
+  color: var(--iui-color-icon-muted);
+  /* SvgDocument 是实心字形——降到淡灰才像占位而非模型预览 */
+  opacity: 0.32;
+}
+
+/* iTwinUI 3.22 的 tile-name/content 在本组合下 padding-inline 实际为 0
+ * （实测名称紧贴卡片左缘）——补回 Onshape 卡片内边距 */
+.doc-grid [class*='tile-name'],
+.doc-grid [class*='tile-content'] {
+  padding-inline: var(--iui-size-s);
+}
+
+.doc-grid [class*='tile-name'] {
+  padding-block-start: var(--iui-size-xs);
+  margin-block-end: var(--iui-size-2xs);
+}
+
+/* 缩略图右上 quick-action：星标 + 更多菜单（Onshape 悬停态；
+ * 已收藏星标常驻，避免“收藏了却看不见”的状态不可读） */
+.doc-tile-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.doc-grid [class*='tile-thumbnail-quick-action'] {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.doc-grid :is([class*='tile']:hover, [class*='tile']:focus-within) [class*='tile-thumbnail-quick-action'],
+.doc-grid [class*='tile-thumbnail-quick-action']:has(.doc-tile-star--favorite) {
+  opacity: 1;
 }
 
 /* ── Table ───────────────────────────────────────────────────────── */

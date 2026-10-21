@@ -1,17 +1,17 @@
 {
   "appTitle": "文档",
   "filters": {
-    "recent": "最近打开",
-    "favorites": "收藏项目",
-    "my": "我的项目",
+    "recent": "最近",
+    "favorites": "收藏",
+    "my": "我的文档",
     "shared": "与我共享"
   },
   "section": {
-    "count": "{{count}} 个项目",
+    "count": "{{count}} 个文档",
     "searchResults": "搜索: \"{{query}}\""
   },
   "actions": {
-    "create": "新建项目",
+    "create": "新建文档",
     "refresh": "刷新",
     "retry": "重试",
     "clearSearch": "清除搜索",
@@ -28,32 +28,33 @@
     "settings": "设置"
   },
   "search": {
-    "placeholder": "搜索项目...",
-    "noResults": "未找到匹配的项目",
+    "placeholder": "搜索文档...",
+    "noResults": "未找到匹配的文档",
     "noResultsHint": "尝试使用其他关键词搜索"
   },
   "empty": {
-    "recentTitle": "暂无最近项目",
-    "recentDescription": "您打开的项目将显示在这里",
-    "favoritesTitle": "暂无收藏项目",
-    "favoritesDescription": "点击项目卡片上的星标来收藏",
-    "sharedTitle": "暂无共享项目",
-    "sharedDescription": "其他用户分享给您的项目将显示在这里",
-    "myTitle": "暂无项目",
-    "myDescription": "创建您的第一个 iTwin 项目",
-    "viewAll": "查看所有项目"
+    "recentTitle": "暂无最近文档",
+    "recentDescription": "您打开的文档将显示在这里",
+    "favoritesTitle": "暂无收藏文档",
+    "favoritesDescription": "点击文档卡片上的星标来收藏",
+    "sharedTitle": "暂无共享文档",
+    "sharedDescription": "其他用户分享给您的文档将显示在这里",
+    "myTitle": "暂无文档",
+    "myDescription": "创建您的第一个文档",
+    "viewAll": "查看所有文档"
   },
   "states": {
-    "loading": "加载项目中...",
+    "loading": "加载文档中...",
     "errorTitle": "加载失败",
-    "unnamed": "未命名项目",
+    "unnamed": "未命名文档",
     "createdAt": "创建于 {{date}}",
     "favoriteSuccess": "已收藏",
     "unfavoriteSuccess": "已取消收藏",
     "favoriteFailed": "收藏操作失败，请重试",
-    "deleteSuccess": "项目已删除",
+    "deleteSuccess": "文档已删除",
     "deleteFailed": "删除失败，请重试",
-    "editSaved": "项目信息已更新"
+    "editSaved": "文档信息已更新",
+    "modifiedAt": "修改于 {{date}}"
   },
   "view": {
     "tile": "网格视图",
@@ -84,15 +85,15 @@
   },
   "detail": {
     "breadcrumb": {
-      "documents": "项目列表"
+      "documents": "文档"
     },
     "actions": {
       "createIModel": "新建 iModel",
-      "editProject": "编辑项目",
-      "deleteProject": "删除项目",
+      "editProject": "编辑文档",
+      "deleteProject": "删除文档",
       "refresh": "刷新",
       "settings": "设置",
-      "share": "分享项目"
+      "share": "分享文档"
     },
     "createdAt": "创建于 {{date}}",
     "updatedAt": "更新于 {{date}}",
@@ -100,21 +101,21 @@
     "syncing": "同步中",
     "syncingTitle": "有 iModel 正在初始化",
     "error": {
-      "title": "项目未找到",
-      "description": "无法加载项目信息",
+      "title": "文档未找到",
+      "description": "无法加载文档信息",
       "retry": "重试",
-      "back": "返回项目列表"
+      "back": "返回文档列表"
     },
     "empty": {
       "title": "暂无 iModel",
       "description": "开始创建您的第一个 iModel"
     },
     "deleteProject": {
-      "title": "删除项目",
-      "message": "确定要删除项目「{{name}}」吗？此操作不可撤销，项目下的所有 iModel 也将被删除。",
+      "title": "删除文档",
+      "message": "确定要删除文档「{{name}}」吗？此操作不可撤销，文档下的所有 iModel 也将被删除。",
       "cancel": "取消",
       "confirm": "删除",
-      "success": "项目已删除",
+      "success": "文档已删除",
       "failed": "删除失败，请重试"
     },
     "deleteIModel": {
@@ -125,7 +126,7 @@
       "success": "iModel 已删除",
       "failed": "删除失败，请重试"
     },
-    "editSaved": "项目信息已更新",
+    "editSaved": "文档信息已更新",
     "imodelRenamed": "iModel 已重命名",
     "imodelCopied": "iModel 复制成功"
   },
@@ -211,7 +212,7 @@
     "backToForm": "返回修改"
   },
   "shareDialog": {
-    "title": "分享项目",
+    "title": "分享文档",
     "close": "关闭",
     "tabs": {
       "members": "成员 ({{count}})",
@@ -228,7 +229,7 @@
       "invalidEmail": "请输入有效的邮箱地址",
       "success": "成员已添加：{{email}}",
       "failed": "添加成员失败，请重试",
-      "hint": "该成员将立即获得项目访问权限（本 hub 不发送邮件通知）。",
+      "hint": "该成员将立即获得文档访问权限（本 hub 不发送邮件通知）。",
       "rolesLoadFailed": "角色列表加载失败——邀请将以默认成员权限添加"
     },
     "members": {
@@ -241,7 +242,7 @@
       "noRole": "成员",
       "remove": "移除成员",
       "removeTitle": "移除成员",
-      "removeMessage": "确定要将 {{email}} 移出此项目吗？",
+      "removeMessage": "确定要将 {{email}} 移出此文档吗？",
       "cancel": "取消",
       "confirmRemove": "移除",
       "removeSuccess": "成员已移除",
@@ -254,32 +255,32 @@
       "label": "分享链接",
       "copy": "复制链接",
       "copied": "已复制",
-      "hint": "仅拥有项目访问权限的用户可打开此链接"
+      "hint": "仅拥有文档访问权限的用户可打开此链接"
     }
   },
   "share": {},
   "deleteDialog": {
-    "title": "删除项目",
-    "message": "确定要删除项目「{{name}}」吗？此操作不可撤销，项目下的所有 iModel 也将被删除。",
+    "title": "删除文档",
+    "message": "确定要删除文档「{{name}}」吗？此操作不可撤销，文档下的所有 iModel 也将被删除。",
     "cancel": "取消",
     "confirm": "删除"
   },
   "create": {
-    "title": "创建 iTwin 项目",
-    "nameLabel": "项目名称",
-    "namePlaceholder": "输入项目名称",
-    "nameRequired": "请输入项目名称",
-    "numberLabel": "项目编号",
-    "numberPlaceholder": "输入项目编号（可选）",
+    "title": "新建文档",
+    "nameLabel": "文档名称",
+    "namePlaceholder": "输入文档名称",
+    "nameRequired": "请输入文档名称",
+    "numberLabel": "文档编号",
+    "numberPlaceholder": "输入文档编号（可选）",
     "submit": "创建",
     "cancel": "取消",
     "failed": "创建失败，请重试"
   },
   "edit": {
-    "title": "编辑项目",
-    "nameLabel": "项目名称",
-    "namePlaceholder": "输入项目名称",
-    "nameRequired": "请输入项目名称",
+    "title": "编辑文档",
+    "nameLabel": "文档名称",
+    "namePlaceholder": "输入文档名称",
+    "nameRequired": "请输入文档名称",
     "submit": "保存",
     "cancel": "取消",
     "failed": "更新失败，请重试"
@@ -304,5 +305,13 @@
       "submit": "保存",
       "failed": "重命名失败"
     }
+  },
+  "sort": {
+    "label": "排序",
+    "name": "名称",
+    "modified": "修改时间",
+    "created": "创建时间",
+    "ascending": "升序",
+    "descending": "降序"
   }
 }

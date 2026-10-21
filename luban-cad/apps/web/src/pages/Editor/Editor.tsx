@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { type GraphicalEditingScope, IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
+import { type GraphicalEditingScope, IModelApp, NotifyMessageDetails, OutputMessagePriority, StandardViewId } from '@itwin/core-frontend';
 import { EditTools } from '@itwin/editor-frontend';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBriefcaseConnection, useViewport } from '@luban-cad/viewer-core';
@@ -33,6 +33,7 @@ import { HollowFacesDialog } from '../../../features/modeling/components/HollowF
 import { useUndoManager } from '../../../src/core/undo/useUndoManager.js';
 import { type GizmoMode, useTransformGizmo } from '../../../src/core/gizmo/useTransformGizmo.js';
 import { Point3d } from '@itwin/core-geometry';
+import { ColorDef } from '@itwin/core-common';
 import { useAutoSave } from '../../../features/editor/hooks/useAutoSave.js';
 import { PushChangesetDialog } from '../../../features/version-control/components/PushChangesetDialog.js';
 import { useEditorInitialization } from '../../../features/editor/hooks/useEditorInitialization.js';
@@ -55,6 +56,8 @@ import { EditorTopBar } from '../../../features/editor/shell/EditorTopBar.js';
 import { EditorToolBar } from '../../../features/editor/shell/EditorToolBar.js';
 import { EditorSidePanel } from '../../../features/editor/shell/EditorSidePanel.js';
 import { EditorViewport } from '../../../features/editor/shell/EditorViewport.js';
+import { EditorDocumentTabs } from '../../../features/editor/shell/EditorDocumentTabs.js';
+import { ShortcutHelpDialog } from '../../../features/editor/shell/ShortcutHelpDialog.js';
 import { EditorStatusBar } from '../../../features/editor/shell/EditorStatusBar.js';
 import {
   DEFAULT_EDITOR_DOCK_STATE,
@@ -141,6 +144,30 @@ const Editor: React.FC = React.memo(() => {
     await IModelApp.tools.run('View.Redo');
   }, []);
 
+  /** 视口右键菜单：标准视图（正交投影 + 同步） */
+  const handleStandardView = useCallback((view: StandardViewId) => {
+    const viewport = IModelApp.viewManager?.selectedView;
+    if (!viewport) return;
+    viewport.setStandardRotation(view);
+    if (viewport.view.is3d()) {
+      viewport.view.turnCameraOff();
+    }
+    viewport.synchWithView({});
+  }, []);
+
+  // Shift+? 快捷键速查表（Onshape Help > Shortcuts）
+  const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.shiftKey && event.key === '?') {
+        event.preventDefault();
+        setIsShortcutHelpOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const [opStatus, setOpStatus] = useState('');
   // Track if editing scope is ready (must be declared before useEffect that uses it)
   const [isEditingScopeReady, setIsEditingScopeReady] = useState(false);
@@ -206,6 +233,31 @@ const Editor: React.FC = React.memo(() => {
       toggleProjectExtents(conn, true);
     }
   }, [editViewport, briefcase.connection, isEditingScopeReady]);
+
+  /**
+   * Onshape 式视口底色：亮色主题浅灰 (#f2f4f7)，暗色主题深灰 (#262626)。
+   * 数据模型里的 view 背景默认黑，观感与 Onshape 差距最大的一处。
+   * 不用 useTheme（Editor 测试无 ThemeProvider）——读 ThemeContext 写入的
+   * documentElement[data-theme] 并监听属性变化。
+   */
+  useEffect(() => {
+    if (!editViewport) return;
+    const apply = (): void => {
+      const theme = document.documentElement.getAttribute('data-theme') ?? 'light';
+      const color = theme === 'dark'
+        ? ColorDef.from(38, 38, 38)
+        : ColorDef.from(242, 244, 247);
+      editViewport.view.displayStyle.backgroundColor = color;
+      editViewport.invalidateScene();
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'data-iui-theme'],
+    });
+    return () => observer.disconnect();
+  }, [editViewport]);
 
   // Initialize EditTools and register custom tools once IModelApp is running
   useEffect(() => {
@@ -570,6 +622,12 @@ const Editor: React.FC = React.memo(() => {
         }
       />
 
+      {/* Onshape 文档 tab 条（单文档单 tab；多 tab 架构未支持，诚实禁用 +） */}
+      <EditorDocumentTabs
+        modelName={iModel?.displayName || iModel?.name}
+        onHelp={() => setIsShortcutHelpOpen(true)}
+      />
+
       {/* Primary Toolbar - Integrated Layout */}
       <EditorToolBar
         isEditable={isEditable}
@@ -578,12 +636,6 @@ const Editor: React.FC = React.memo(() => {
         onToggleMeasurement={toggleMeasurementPanel}
         onToggleDisplayPanel={toggleDisplayPanel}
         onSelectTool={handleSelectTool}
-        onRotateView={handleRotateView}
-        onPanView={handlePanView}
-        onZoomView={handleZoomView}
-        onFitView={handleFitView}
-        onViewUndo={handleViewUndo}
-        onViewRedo={handleViewRedo}
       />
 
       {/* Secondary Toolbar - Modeling Tools (Onshape/FreeCAD style) */}
@@ -618,7 +670,17 @@ const Editor: React.FC = React.memo(() => {
         />
 
         {/* Center: 3D Viewer */}
-        <EditorViewport viewportRef={editViewportRef} />
+        <EditorViewport
+          viewportRef={editViewportRef}
+          onFitView={handleFitView}
+          onStandardView={handleStandardView}
+          onOpenDisplaySettings={() => toggleDisplayPanel('viewSettings')}
+          onRotateView={handleRotateView}
+          onPanView={handlePanView}
+          onZoomView={handleZoomView}
+          onViewUndo={handleViewUndo}
+          onViewRedo={handleViewRedo}
+        />
 
         {/* Right: 停靠面板（工具设置/版本历史/显示设置） */}
         <EditorDockPanel
@@ -746,6 +808,12 @@ const Editor: React.FC = React.memo(() => {
           void refetchIModel();
           setIsRenameDialogOpen(false);
         }}
+      />
+
+      {/* 快捷键速查表（Shift+? / 顶栏帮助） */}
+      <ShortcutHelpDialog
+        isOpen={isShortcutHelpOpen}
+        onClose={() => setIsShortcutHelpOpen(false)}
       />
 
       {/* Status bar */}

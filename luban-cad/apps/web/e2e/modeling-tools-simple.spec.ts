@@ -18,7 +18,7 @@ test.describe('Modeling Tools - Smoke Test', () => {
   });
 
   test('login should succeed', async ({ page }) => {
-    await expect(page.locator('.section-title')).toHaveText('我的项目');
+    await expect(page.locator('.section-title')).toHaveText('我的文档');
     await expect(page.getByText(SEED_PROJECT_NAME).first()).toBeVisible();
   });
 

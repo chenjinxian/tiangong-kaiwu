@@ -11,9 +11,12 @@
   box-shadow: var(--iui-shadow-2);
 }
 
+/* Onshape 式干净占位：浅底 + 居中图形（旧对角渐变在 4 列网格里像灰块，
+ * 视觉噪点大且与真实预览不可区分） */
 .imodel-card__thumbnail {
   aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, var(--iui-color-background-backdrop) 0%, var(--iui-color-border) 100%);
+  background: var(--iui-color-background-backdrop);
+  border-bottom: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,14 +24,14 @@
 }
 
 .imodel-card__thumbnail.not-initialized {
-  background: linear-gradient(135deg, var(--iui-color-background-hover) 0%, var(--iui-color-background-backdrop) 100%);
+  background: var(--iui-color-background-hover);
 }
 
 .imodel-card__icon {
-  width: 36px;
-  height: 36px;
-  color: var(--iui-color-text-muted);
-  opacity: 0.5;
+  width: 44px;
+  height: 44px;
+  color: var(--iui-color-icon-muted);
+  opacity: 0.4;
 }
 
 /* RW4-P3-T3-1：真实缩略图（useIModelImage objectURL）铺满 16:9 媒体区 */

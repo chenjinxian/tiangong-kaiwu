@@ -23,6 +23,8 @@
 
 .feature-panel-title {
   font-size: var(--iui-font-size-0);
+  white-space: nowrap;
+  flex-shrink: 0;
   font-weight: 600;
   color: var(--iui-color-text-muted);
   text-transform: uppercase;
@@ -81,6 +83,10 @@
 .feature-readonly-hint {
   color: var(--iui-color-text-muted);
   font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-inline-size: 0;
 }
 
 .feature-order-section {

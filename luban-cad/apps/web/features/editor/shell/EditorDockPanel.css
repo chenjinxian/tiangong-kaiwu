@@ -27,10 +27,8 @@
 }
 
 .editor-dock-title {
-  font-weight: 600;
-  color: var(--iui-color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: var(--iui-font-weight-semibold, 600);
+  color: var(--iui-color-text);
 }
 
 /* 停靠主体：tab 头固定，内容区滚动 */

@@ -18,7 +18,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  Badge,
   Button,
   Dialog,
   Header,
@@ -310,7 +309,7 @@ const ITwinDetail: React.FC = React.memo(() => {
       <Header
         className="detail-header"
         appLogo={
-          <HeaderLogo logo={<div className="logo-mark">CC</div>}>
+          <HeaderLogo logo={<div className="logo-mark">LC</div>}>
             {tCommon('app.name')}
           </HeaderLogo>
         }
@@ -423,12 +422,12 @@ const ITwinDetail: React.FC = React.memo(() => {
         {/* Content */}
         {!isPartialLoading && (
           <>
-            {/* Toolbar */}
+            {/* Toolbar — Onshape 式轻量计数行（旧高饱和 Badge 像可点按钮） */}
             <div className="toolbar">
               <div className="toolbar-left">
-                <Badge backgroundColor="primary">
+                <Text variant="small" className="imodel-count">
                   {t('detail.imodelCount', { count: iModels.length })}
-                </Badge>
+                </Text>
               </div>
             </div>
 

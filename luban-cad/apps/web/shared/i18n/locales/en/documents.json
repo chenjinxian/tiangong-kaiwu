@@ -3,16 +3,16 @@
   "filters": {
     "recent": "Recent",
     "favorites": "Favorites",
-    "my": "My Projects",
-    "shared": "Shared with Me"
+    "my": "My Documents",
+    "shared": "Shared with me"
   },
   "section": {
-    "count_one": "{{count}} project",
-    "count_other": "{{count}} projects",
+    "count_one": "{{count}} document",
+    "count_other": "{{count}} documents",
     "searchResults": "Search: \"{{query}}\""
   },
   "actions": {
-    "create": "New Project",
+    "create": "New Document",
     "refresh": "Refresh",
     "retry": "Retry",
     "clearSearch": "Clear search",
@@ -29,32 +29,33 @@
     "settings": "Settings"
   },
   "search": {
-    "placeholder": "Search projects...",
-    "noResults": "No matching projects",
+    "placeholder": "Search documents...",
+    "noResults": "No matching documents",
     "noResultsHint": "Try a different keyword"
   },
   "empty": {
-    "recentTitle": "No recent projects",
-    "recentDescription": "Projects you open will appear here",
+    "recentTitle": "No recent documents",
+    "recentDescription": "Documents you open will appear here",
     "favoritesTitle": "No favorites yet",
-    "favoritesDescription": "Click the star on a project card to favorite it",
-    "sharedTitle": "No shared projects",
-    "sharedDescription": "Projects shared with you by other users will appear here",
-    "myTitle": "No projects",
-    "myDescription": "Create your first iTwin project",
-    "viewAll": "View all projects"
+    "favoritesDescription": "Click the star on a document card to favorite it",
+    "sharedTitle": "No shared documents",
+    "sharedDescription": "Documents shared with you by other users will appear here",
+    "myTitle": "No documents",
+    "myDescription": "Create your first document",
+    "viewAll": "View all documents"
   },
   "states": {
-    "loading": "Loading projects...",
+    "loading": "Loading documents...",
     "errorTitle": "Failed to load",
-    "unnamed": "Untitled Project",
+    "unnamed": "Untitled Document",
     "createdAt": "Created {{date}}",
     "favoriteSuccess": "Added to favorites",
     "unfavoriteSuccess": "Removed from favorites",
     "favoriteFailed": "Failed to update favorite. Please retry.",
-    "deleteSuccess": "Project deleted",
+    "deleteSuccess": "Document deleted",
     "deleteFailed": "Failed to delete. Please retry.",
-    "editSaved": "Project updated"
+    "editSaved": "Document updated",
+    "modifiedAt": "Modified {{date}}"
   },
   "view": {
     "tile": "Grid view",
@@ -85,15 +86,15 @@
   },
   "detail": {
     "breadcrumb": {
-      "documents": "Projects"
+      "documents": "Documents"
     },
     "actions": {
       "createIModel": "New iModel",
-      "editProject": "Edit project",
-      "deleteProject": "Delete project",
+      "editProject": "Edit document",
+      "deleteProject": "Delete document",
       "refresh": "Refresh",
       "settings": "Settings",
-      "share": "Share Project"
+      "share": "Share document"
     },
     "createdAt": "Created {{date}}",
     "updatedAt": "Updated {{date}}",
@@ -102,21 +103,21 @@
     "syncing": "Syncing",
     "syncingTitle": "An iModel is initializing",
     "error": {
-      "title": "Project not found",
-      "description": "Unable to load project information",
+      "title": "Document not found",
+      "description": "Unable to load document information",
       "retry": "Retry",
-      "back": "Back to projects"
+      "back": "Back to documents"
     },
     "empty": {
       "title": "No iModels yet",
       "description": "Create your first iModel to get started"
     },
     "deleteProject": {
-      "title": "Delete Project",
-      "message": "Are you sure you want to delete project \"{{name}}\"? This action cannot be undone, and all iModels in the project will also be deleted.",
+      "title": "Delete Document",
+      "message": "Are you sure you want to delete document \"{{name}}\"? This action cannot be undone, and all iModels in the document will also be deleted.",
       "cancel": "Cancel",
       "confirm": "Delete",
-      "success": "Project deleted",
+      "success": "Document deleted",
       "failed": "Failed to delete. Please retry."
     },
     "deleteIModel": {
@@ -127,7 +128,7 @@
       "success": "iModel deleted",
       "failed": "Failed to delete. Please retry."
     },
-    "editSaved": "Project updated",
+    "editSaved": "Document updated",
     "imodelRenamed": "iModel renamed",
     "imodelCopied": "iModel copied"
   },
@@ -213,7 +214,7 @@
     "backToForm": "Back to form"
   },
   "shareDialog": {
-    "title": "Share Project",
+    "title": "Share Document",
     "close": "Close",
     "tabs": {
       "members_one": "Member ({{count}})",
@@ -231,7 +232,7 @@
       "invalidEmail": "Please enter a valid email address",
       "success": "Member added: {{email}}",
       "failed": "Failed to add member. Please retry.",
-      "hint": "The member gains project access immediately (this hub does not send email notifications).",
+      "hint": "The member gains document access immediately (this hub does not send email notifications).",
       "rolesLoadFailed": "Failed to load roles — invitees will be added with default member access"
     },
     "members": {
@@ -244,7 +245,7 @@
       "noRole": "Member",
       "remove": "Remove member",
       "removeTitle": "Remove member",
-      "removeMessage": "Remove {{email}} from this project?",
+      "removeMessage": "Remove {{email}} from this document?",
       "cancel": "Cancel",
       "confirmRemove": "Remove",
       "removeSuccess": "Member removed",
@@ -257,32 +258,32 @@
       "label": "Share link",
       "copy": "Copy link",
       "copied": "Copied",
-      "hint": "Only users with project access can open this link"
+      "hint": "Only users with document access can open this link"
     }
   },
   "share": {},
   "deleteDialog": {
-    "title": "Delete Project",
-    "message": "Are you sure you want to delete project \"{{name}}\"? This action cannot be undone, and all iModels in the project will also be deleted.",
+    "title": "Delete Document",
+    "message": "Are you sure you want to delete document \"{{name}}\"? This action cannot be undone, and all iModels in the document will also be deleted.",
     "cancel": "Cancel",
     "confirm": "Delete"
   },
   "create": {
-    "title": "New iTwin Project",
-    "nameLabel": "Project Name",
-    "namePlaceholder": "Enter project name",
-    "nameRequired": "Please enter a project name",
-    "numberLabel": "Project Number",
-    "numberPlaceholder": "Enter project number (optional)",
+    "title": "New Document",
+    "nameLabel": "Document name",
+    "namePlaceholder": "Enter a document name",
+    "nameRequired": "Please enter a document name",
+    "numberLabel": "Document number",
+    "numberPlaceholder": "Enter a document number (optional)",
     "submit": "Create",
     "cancel": "Cancel",
     "failed": "Failed to create. Please retry."
   },
   "edit": {
-    "title": "Edit Project",
-    "nameLabel": "Project Name",
-    "namePlaceholder": "Enter project name",
-    "nameRequired": "Please enter a project name",
+    "title": "Edit Document",
+    "nameLabel": "Document name",
+    "namePlaceholder": "Enter document name",
+    "nameRequired": "Please enter a document name",
     "submit": "Save",
     "cancel": "Cancel",
     "failed": "Failed to update. Please retry."
@@ -307,5 +308,13 @@
       "submit": "Save",
       "failed": "Rename failed"
     }
+  },
+  "sort": {
+    "label": "Sort",
+    "name": "Name",
+    "modified": "Modified",
+    "created": "Created",
+    "ascending": "Ascending",
+    "descending": "Descending"
   }
 }
