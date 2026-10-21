@@ -167,6 +167,49 @@ export class AuthSession {
     return user;
   }
 
+  /** 注册：`POST ${hubUrl}/auth/email/register` `{email,password,firstName,lastName}`
+   * （端点对齐旧应用 client.ts register）。错误语义同 login：非 2xx 抛
+   * ApiClientError，429 取 Retry-After-auth 头透出 retryAfterSeconds。
+   * 成功响应与 login 同形（token 三元组 + user）时落会话（注册即登录，
+   * 跳转 /documents 后与 login 姿态一致）；仅返回 user 段的后端形态
+   * 不落会话，只回转换后的用户。 */
+  public static async register(email: string, password: string, firstName: string, lastName: string): Promise<AuthUser> {
+    const response = await fetch(`${env.hubUrl}/auth/email/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, firstName, lastName }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as { message?: string };
+      // 429 语义同 login：@nestjs/throttler 命名桶经 Retry-After-auth 头
+      // 返回剩余封锁秒数（Fetch Headers.get 大小写不敏感）。
+      const retryAfterHeader = response.headers.get('Retry-After-auth');
+      const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : undefined;
+      throw new ApiClientError({
+        status: response.status,
+        code: 'AUTH_REGISTER_FAILED',
+        i18nKey: 'common.errors.registerFailed',
+        message: body.message ?? `Registration failed (status ${response.status})`,
+        retryAfterSeconds: retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
+          ? retryAfterSeconds
+          : undefined,
+      });
+    }
+
+    const data = await response.json() as Partial<TokenResponse> & { user: BackendUser };
+    const user = convertUser(data.user);
+    if (data.token && data.refreshToken) {
+      AuthSession.storeAuth({
+        accessToken: data.token,
+        refreshToken: data.refreshToken,
+        expiresAt: data.tokenExpires || Date.now() + DEFAULT_TTL_MS,
+        user,
+      });
+    }
+    return user;
+  }
+
   /**
    * 取可用 access token：未登录返回空串（core-common AuthorizationClient
    * 契约）；将过期（含已过期）走单飞刷新；失败清场并抛 ApiClientError。
