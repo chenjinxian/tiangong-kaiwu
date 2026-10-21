@@ -2,6 +2,11 @@ import i18next, { type i18n as I18n } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import zhCommon from './locales/zh-CN/common.json';
 import enCommon from './locales/en/common.json';
+// M1 Task 3：auth 词库最小键集（auth.signIn.*，供 /login 页取用）。
+// 与 common 同姿态挂在默认 ns translation 之下（键路径 auth.signIn.xxx，
+// 见上方注释）；完整 auth 词表由 Task 7 补全。
+import zhAuth from './locales/zh-CN/auth.json';
+import enAuth from './locales/en/auth.json';
 
 const LANG_KEY = 'luban-next-lang';
 
@@ -25,8 +30,8 @@ export async function initI18n(): Promise<I18n> {
     // 取词，直接挂 ns 时取不到、原样返回键名）。挂 translation 下后
     // 'common.app.name' = ns translation + 资源路径 common→app→name，命中。
     resources: {
-      'zh-CN': { translation: { common: zhCommon } },
-      en: { translation: { common: enCommon } },
+      'zh-CN': { translation: { common: zhCommon, auth: zhAuth } },
+      en: { translation: { common: enCommon, auth: enAuth } },
     },
     lng: detectLanguage(),
     fallbackLng: 'zh-CN',

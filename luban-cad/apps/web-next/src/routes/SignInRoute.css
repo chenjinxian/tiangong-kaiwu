@@ -1,0 +1,138 @@
+/* SignInRoute.css — /login 左表单列 + 右 hero 占位（组件禁写裸色值，令牌见 tokens/onshape-skin.css）。 */
+
+.signin {
+  width: 100%;
+  max-width: 360px;
+  display: grid;
+  gap: var(--lx-size-m, 16px);
+}
+
+.signin__logo {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--lx-accent);
+  letter-spacing: 0.02em;
+}
+
+.signin__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.signin__subtitle {
+  margin: 0;
+  font-size: var(--lx-font-size-body, 13px);
+  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+}
+
+.signin__form {
+  display: grid;
+  gap: var(--lx-size-m, 16px);
+  margin-top: var(--lx-size-xs, 8px);
+}
+
+.signin__error {
+  padding: 8px 12px;
+  border-radius: var(--lx-radius, 2px);
+  font-size: var(--lx-font-size-body, 13px);
+  color: var(--iui-color-text-negative, hsl(0 100% 32%));
+  background: var(--iui-color-background-negative, hsl(0 100% 95%));
+  border: 1px solid var(--iui-color-border-negative, hsl(0 100% 75%));
+}
+
+.signin__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lx-size-m, 16px);
+}
+
+.signin__submit {
+  width: 100%;
+}
+
+.signin__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: var(--lx-font-size-body, 13px);
+  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+}
+
+.signin__link {
+  color: var(--lx-accent);
+  text-decoration: none;
+}
+.signin__link:hover {
+  text-decoration: underline;
+}
+
+/* 右列占位 hero：品牌文案 + 设计令牌面板（后续里程碑替换为产品实景图）。 */
+.signin-hero {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+}
+
+.signin-hero__panel {
+  display: grid;
+  gap: var(--lx-size-m, 16px);
+  padding: 32px;
+  background: var(--lx-surface);
+  border: 1px solid var(--lx-border);
+  border-radius: var(--lx-radius, 2px);
+  box-shadow: 0 8px 24px hsl(var(--lx-accent-hsl) / 8%);
+}
+
+.signin-hero__brand {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--lx-accent);
+}
+
+.signin-hero__tagline {
+  font-size: var(--lx-font-size-body, 13px);
+  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+}
+
+.signin-hero__tokens {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  background: var(--lx-backdrop);
+  border: 1px solid var(--lx-border);
+  border-radius: var(--lx-radius, 2px);
+}
+
+.signin-hero__token-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+}
+
+.signin-hero__token {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--lx-font-size-body, 13px);
+}
+
+.signin-hero__token-key {
+  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+}
+
+.signin-hero__token-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--iui-color-text, hsl(0 0% 15%));
+  word-break: break-all;
+}
+
+.signin-hero__note {
+  font-size: 12px;
+  color: var(--iui-color-text-muted, hsl(0 0% 40%));
+}

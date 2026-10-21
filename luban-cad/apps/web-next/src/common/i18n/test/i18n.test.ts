@@ -24,4 +24,15 @@ describe('i18n 骨架', () => {
     const en = (await import('../locales/en/common.json')).default;
     expect(flatten(en).sort()).toEqual(flatten(zh).sort());
   });
+  // M1 Task 3 起：auth 最小词库（完整词表 Task 7 补全），键集一致性同口径约束。
+  it('auth 词库 en 与 zh-CN 键集一致（展平深比较）', async () => {
+    const flatten = (obj: unknown, prefix = ''): string[] =>
+      Object.entries(obj as Record<string, unknown>).flatMap(([k, v]) =>
+        v !== null && typeof v === 'object' && !Array.isArray(v)
+          ? flatten(v, `${prefix}${k}.`)
+          : [`${prefix}${k}`]);
+    const zh = (await import('../locales/zh-CN/auth.json')).default;
+    const en = (await import('../locales/en/auth.json')).default;
+    expect(flatten(en).sort()).toEqual(flatten(zh).sort());
+  });
 });
