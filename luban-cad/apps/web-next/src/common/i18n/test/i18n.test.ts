@@ -81,7 +81,7 @@ const REQUIRED_DOCUMENT_KEYS = [
   'deleteDialog.title', 'deleteDialog.message', 'deleteDialog.cancel', 'deleteDialog.confirm',
   'create.title', 'create.nameLabel', 'create.nameRequired', 'create.submit', 'create.cancel',
   'rename.title', 'rename.nameLabel', 'rename.submit', 'rename.cancel',
-  'sort.label', 'sort.name', 'sort.modified', 'sort.created', 'sort.ascending', 'sort.descending',
+  'sort.label', 'sort.name', 'sort.modifiedAt', 'sort.createdAt', 'sort.ascending', 'sort.descending',
   'shareDialog.title', 'shareDialog.close',
   'shareDialog.tabs.members', 'shareDialog.tabs.invite', 'shareDialog.tabs.link',
 ] as const;

@@ -131,8 +131,8 @@
   "sort": {
     "label": "Sort",
     "name": "Name",
-    "modified": "Modified",
-    "created": "Created",
+    "modifiedAt": "Modified",
+    "createdAt": "Created",
     "ascending": "Ascending",
     "descending": "Descending"
   },

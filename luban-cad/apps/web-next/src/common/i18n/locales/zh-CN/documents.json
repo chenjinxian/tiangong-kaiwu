@@ -131,8 +131,8 @@
   "sort": {
     "label": "排序",
     "name": "名称",
-    "modified": "修改时间",
-    "created": "创建时间",
+    "modifiedAt": "修改时间",
+    "createdAt": "创建时间",
     "ascending": "升序",
     "descending": "降序"
   },

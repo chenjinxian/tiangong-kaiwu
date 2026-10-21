@@ -159,6 +159,18 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     expect(screen.getByRole('button', { name: '刷新' })).toBeDefined();
   });
 
+  it('排序菜单项渲染本地化标签（非原始键串，键与 DocumentSortId 对齐）', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: '排序' }));
+    const menu = await screen.findByRole('menu');
+    for (const label of ['名称', '修改时间', '创建时间']) {
+      expect(within(menu).getByRole('menuitem', { name: label })).toBeDefined();
+    }
+    // 反例钉死：不得渲染原始 i18n 键串（documents.sort.* 裸键回归）。
+    expect(within(menu).queryByText(/documents\.sort\./)).toBeNull();
+  });
+
   it('表格视图：名称/所有者/角色/创建时间/更新时间 列 + 行内容', async () => {
     const user = userEvent.setup();
     renderPage();
