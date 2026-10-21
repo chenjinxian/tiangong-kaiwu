@@ -50,9 +50,13 @@ export interface PartStudioSketchState {
   activeSketchId: string | null;
 }
 
-/** commandPalette 切片——命令搜索面板（alt+/）开关。 */
+/** commandPalette 切片——命令搜索面板（alt+/）开关 + 查询词 + ribbon 亮显。 */
 export interface PartStudioCommandPaletteState {
   isOpen: boolean;
+  /** 当前查询词（ribbon「亮显工具栏中的工具」的数据源；T4）。 */
+  query: string;
+  /** 亮显开关（os-23 勾选，默认开）。 */
+  highlightEnabled: boolean;
 }
 
 /**

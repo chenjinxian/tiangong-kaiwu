@@ -45,6 +45,8 @@ export interface PartStudioActions {
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   toggleCommandPalette: () => void;
+  setCommandPaletteQuery: (query: string) => void;
+  setPaletteHighlight: (enabled: boolean) => void;
 }
 
 export type PartStudioStore = PartStudioState & PartStudioActions;
@@ -78,6 +80,8 @@ const initialSketch: PartStudioSketchState = {
 
 const initialCommandPalette: PartStudioCommandPaletteState = {
   isOpen: false,
+  query: '',
+  highlightEnabled: true,
 };
 
 /** tree 切片：双段树活动段 + 树选中/展开。 */
@@ -127,14 +131,17 @@ function createSketchSlice([set]: SliceCreator): { sketch: PartStudioSketchState
   };
 }
 
-/** commandPalette 切片：命令搜索（alt+/）开合。 */
+/** commandPalette 切片：命令搜索（alt+/）开合 + 查询词/亮显（ribbon 高亮数据源）。 */
 function createCommandPaletteSlice([set, get]: SliceCreator): { commandPalette: PartStudioCommandPaletteState } & Pick<PartStudioActions,
-  'openCommandPalette' | 'closeCommandPalette' | 'toggleCommandPalette'> {
+  'openCommandPalette' | 'closeCommandPalette' | 'toggleCommandPalette' | 'setCommandPaletteQuery' | 'setPaletteHighlight'> {
   return {
     commandPalette: initialCommandPalette,
-    openCommandPalette: () => set({ commandPalette: { isOpen: true } }),
-    closeCommandPalette: () => set({ commandPalette: { isOpen: false } }),
-    toggleCommandPalette: () => set({ commandPalette: { isOpen: !get().commandPalette.isOpen } }),
+    // 打开即清空查询词（os-23：每次进入都是全新搜索）。
+    openCommandPalette: () => set({ commandPalette: { ...get().commandPalette, isOpen: true, query: '' } }),
+    closeCommandPalette: () => set({ commandPalette: { ...get().commandPalette, isOpen: false } }),
+    toggleCommandPalette: () => set({ commandPalette: { ...get().commandPalette, isOpen: !get().commandPalette.isOpen } }),
+    setCommandPaletteQuery: (query) => set({ commandPalette: { ...get().commandPalette, query } }),
+    setPaletteHighlight: (enabled) => set({ commandPalette: { ...get().commandPalette, highlightEnabled: enabled } }),
   };
 }
 

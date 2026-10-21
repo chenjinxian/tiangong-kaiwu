@@ -37,6 +37,8 @@ const INITIAL_STATE: PartStudioState = {
   },
   commandPalette: {
     isOpen: false,
+    query: '',
+    highlightEnabled: true,
   },
 };
 

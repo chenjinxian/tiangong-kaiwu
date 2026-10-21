@@ -17,6 +17,22 @@ export {
   isGated,
 } from './internal/capabilities.js';
 export type { Capability, CapabilityGuidance } from './internal/capabilities.js';
+// M3 Task 4：ribbon 注册表（ribbon/树/画布/页签的命令数据源契约——跨切片
+// 消费面经此 barrel 取 registry 数据与类型；Ribbon/CommandPalette 组件由
+// PartStudioPage 聚合，不单独外销）。
+export {
+  RIBBON_GROUP_ORDER,
+  RIBBON_TOOLS,
+  allRibbonCommands,
+  findRibbonCommand,
+} from './ribbon/ribbon-registry.js';
+export type {
+  RibbonCommand,
+  RibbonDropdownItem,
+  RibbonGroup,
+  RibbonIcon,
+  RibbonTool,
+} from './ribbon/ribbon-registry.js';
 export { PartStudioPage } from './PartStudioPage.js';
 export type {
   CanvasSelection,

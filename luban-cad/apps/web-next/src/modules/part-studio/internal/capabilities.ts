@@ -20,15 +20,36 @@ export interface CapabilityGuidance {
 
 /**
  * 工具/菜单项 → 能力档位。未登记默认 full（完整 UI 面：只有显式 gated
- * 才走能力引导）。full 锚点先钉现有建模工具面（ribbon T4 扩 27 工具时
- * 全量入册）。
+ * 才走能力引导）。T4 ribbon 校准收口：27 工具 + 44 下拉子项引用的
+ * capability 键已全量入册本表（ribbon-registry 测试钉死该不变式）。
  */
 export const TOOL_CAPABILITIES: Record<string, Capability> = {
-  // —— full 锚点（已有真实工具面）——
+  // —— full 锚点（已有真实工具面；T4 ribbon 校准全量入册）——
   sketch: 'full',
   extrude: 'full',
   fillet: 'full',
   chamfer: 'full',
+  revolve: 'full', // 旋转
+  sweep: 'full', // 扫掠
+  loft: 'full', // 放样
+  thicken: 'full', // 加厚（含封闭变体）
+  hole: 'full', // 孔
+  linearPattern: 'full', // 线性阵列
+  circularPattern: 'full', // 环形阵列
+  curvePattern: 'full', // 曲线阵列
+  mirror: 'full', // 镜像
+  boolean: 'full', // 布尔运算
+  splitPart: 'full', // 分割
+  transform: 'full', // 变换（含包覆/印花）
+  wrap: 'full', // 包覆
+  decal: 'full', // 印花
+  deleteBodies: 'full', // 删除零件
+  modifyFillet: 'full', // 修改圆角
+  deleteFace: 'full', // 删除面
+  moveFace: 'full', // 移动面
+  replaceFace: 'full', // 替换面
+  cPlane: 'full', // 平面
+  userFeatures: 'full', // 添加自定义特征
 
   // —— 初始 gated 集合（spec §5；材料/外观、曲面/曲线各拆两条）——
   draft: 'gated', // 拔模

@@ -50,5 +50,168 @@
     "unitMm": "mm",
     "viewType": "View",
     "viewIso": "Isometric"
+  },
+  "ribbon": {
+    "toolbarLabel": "Feature tools",
+    "searchTools": "Search tools…",
+    "searchShortcut": "alt+/",
+    "groups": {
+      "sketch": "Sketch",
+      "create": "Create",
+      "shape": "Engineered features",
+      "pattern": "Pattern",
+      "combine": "Combine",
+      "directEdit": "Direct edit",
+      "reference": "Reference geometry",
+      "frames": "Frames",
+      "sheetMetal": "Sheet metal",
+      "custom": "Custom features",
+      "surfaceCurve": "Surface/curve"
+    },
+    "tools": {
+      "sketch": { "label": "Sketch" },
+      "extrude": { "label": "Extrude" },
+      "revolve": { "label": "Revolve" },
+      "sweep": { "label": "Sweep" },
+      "loft": { "label": "Loft" },
+      "thicken": { "label": "Thicken" },
+      "fillet": { "label": "Fillet" },
+      "chamfer": { "label": "Chamfer" },
+      "draft": { "label": "Draft" },
+      "shell": { "label": "Shell" },
+      "hole": { "label": "Hole" },
+      "thread": { "label": "External thread" },
+      "linearPattern": { "label": "Linear pattern" },
+      "mirror": { "label": "Mirror" },
+      "boolean": { "label": "Boolean" },
+      "splitPart": { "label": "Split" },
+      "transform": { "label": "Transform" },
+      "deleteBodies": { "label": "Delete part" },
+      "modifyFillet": { "label": "Modify fillet" },
+      "deleteFace": { "label": "Delete face" },
+      "moveFace": { "label": "Move face" },
+      "replaceFace": { "label": "Replace face" },
+      "cPlane": { "label": "Plane" },
+      "frame": { "label": "Frame" },
+      "sheetMetal": { "label": "Sheet metal model" },
+      "userFeatures": { "label": "Add custom features" },
+      "surfaceCurve": { "label": "Surface/curve" }
+    },
+    "items": {
+      "thickenClosed": { "label": "Thicken closed" },
+      "faceBlend": { "label": "Face blend" },
+      "bodyDraft": { "label": "Body draft" },
+      "circularPattern": { "label": "Circular pattern" },
+      "curvePattern": { "label": "Curve pattern" },
+      "wrap": { "label": "Wrap" },
+      "decal": { "label": "Decal" },
+      "frameTrim": { "label": "Frame trim" },
+      "gusset": { "label": "Gusset" },
+      "endCap": { "label": "End cap" },
+      "cutList": { "label": "Cut list" },
+      "flange": { "label": "Flange" },
+      "hem": { "label": "Hem" },
+      "tab": { "label": "Tab" },
+      "smBend": { "label": "Bend" },
+      "smJog": { "label": "SMJog" },
+      "forming": { "label": "Forming" },
+      "sheetMetalLoft": { "label": "Sheet metal loft" },
+      "smJoint": { "label": "Make joint" },
+      "bendRelief": { "label": "Bend relief" },
+      "cornerBreak": { "label": "Corner break" },
+      "endSheetMetal": { "label": "End sheet metal model" },
+      "pcbFlexModel": { "label": "PCBFlexModel" },
+      "pcbEndFlexModel": { "label": "PCBEndFlexModel" },
+      "surfacePlane": { "label": "Plane" },
+      "offsetSurface": { "label": "Offset surface" },
+      "boundarySurface": { "label": "Boundary surface" },
+      "fillSurface": { "label": "Fill" },
+      "moveBoundary": { "label": "Move boundary" },
+      "ruledSurface": { "label": "Ruled surface" },
+      "mutualTrim": { "label": "Mutual trim" },
+      "constraintSurface": { "label": "Constraint surface" },
+      "helix": { "label": "Helix" },
+      "fitSpline3d": { "label": "Fit spline 3D" },
+      "projectCurve": { "label": "Project" },
+      "bridgeCurve": { "label": "Bridge curve" },
+      "compositeCurve": { "label": "Composite curve" },
+      "intersectionCurve": { "label": "Intersection" },
+      "trimCurve": { "label": "Trim" },
+      "isoline": { "label": "Isoline" },
+      "offsetCurve": { "label": "Offset curve" },
+      "isoparametricCurve": { "label": "Isoparametric curve" },
+      "editCurve": { "label": "Edit curve" },
+      "routeCurve": { "label": "Route curve" }
+    }
+  },
+  "palette": {
+    "title": "Search tools",
+    "placeholder": "Search tools",
+    "hint": "Start typing to search for tools",
+    "returnHint": "Press alt+/ to return to this search at any time",
+    "close": "Close search",
+    "highlight": "Highlight tools in toolbar",
+    "empty": "No matching tools"
+  },
+  "capability": {
+    "close": "Got it"
+  },
+  "capabilities": {
+    "draft": {
+      "title": "Draft (on the roadmap)",
+      "message": "Draft features are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "shell": {
+      "title": "Shell (on the roadmap)",
+      "message": "Shell features are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "thread": {
+      "title": "External thread (on the roadmap)",
+      "message": "External thread features are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "sheetMetal": {
+      "title": "Sheet metal (on the roadmap)",
+      "message": "Sheet metal modeling (flange, bend, flat pattern, etc.) is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "frames": {
+      "title": "Frames (on the roadmap)",
+      "message": "Frame modeling is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "surfaces": {
+      "title": "Surfaces (on the roadmap)",
+      "message": "Surface modeling is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "curves": {
+      "title": "Curves (on the roadmap)",
+      "message": "3D curve tools are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "render": {
+      "title": "Rendering (on the roadmap)",
+      "message": "Rendering is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "drawing": {
+      "title": "Drawings (on the roadmap)",
+      "message": "Drawings are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "material": {
+      "title": "Materials (on the roadmap)",
+      "message": "Material libraries are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "appearance": {
+      "title": "Appearances (on the roadmap)",
+      "message": "Appearance libraries are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "notifications": {
+      "title": "Notifications (on the roadmap)",
+      "message": "The notification center is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "print": {
+      "title": "Printing (on the roadmap)",
+      "message": "Printing is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "assemblyEdit": {
+      "title": "Assembly editing (on the roadmap)",
+      "message": "Assembly editing is on the LubanCAD roadmap and is not available in this version yet."
+    }
   }
 }

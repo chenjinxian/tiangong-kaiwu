@@ -50,5 +50,168 @@
     "unitMm": "mm",
     "viewType": "视图类型",
     "viewIso": "等轴测"
+  },
+  "ribbon": {
+    "toolbarLabel": "特征工具",
+    "searchTools": "搜索工具…",
+    "searchShortcut": "alt+/",
+    "groups": {
+      "sketch": "草图",
+      "create": "创建",
+      "shape": "工程特征",
+      "pattern": "阵列",
+      "combine": "组合",
+      "directEdit": "直接编辑",
+      "reference": "参考几何",
+      "frames": "框架",
+      "sheetMetal": "钣金",
+      "custom": "自定义特征",
+      "surfaceCurve": "曲面/曲线"
+    },
+    "tools": {
+      "sketch": { "label": "草图" },
+      "extrude": { "label": "拉伸" },
+      "revolve": { "label": "旋转" },
+      "sweep": { "label": "扫掠" },
+      "loft": { "label": "放样" },
+      "thicken": { "label": "加厚" },
+      "fillet": { "label": "圆角" },
+      "chamfer": { "label": "倒角" },
+      "draft": { "label": "拔模" },
+      "shell": { "label": "抽壳" },
+      "hole": { "label": "孔" },
+      "thread": { "label": "外部螺纹" },
+      "linearPattern": { "label": "线性阵列" },
+      "mirror": { "label": "镜像" },
+      "boolean": { "label": "布尔运算" },
+      "splitPart": { "label": "分割" },
+      "transform": { "label": "变换" },
+      "deleteBodies": { "label": "删除零件" },
+      "modifyFillet": { "label": "修改圆角" },
+      "deleteFace": { "label": "删除面" },
+      "moveFace": { "label": "移动面" },
+      "replaceFace": { "label": "替换面" },
+      "cPlane": { "label": "平面" },
+      "frame": { "label": "框架" },
+      "sheetMetal": { "label": "钣金模型" },
+      "userFeatures": { "label": "添加自定义特征" },
+      "surfaceCurve": { "label": "曲面/曲线" }
+    },
+    "items": {
+      "thickenClosed": { "label": "封闭" },
+      "faceBlend": { "label": "面混合" },
+      "bodyDraft": { "label": "主体拔模" },
+      "circularPattern": { "label": "环形阵列" },
+      "curvePattern": { "label": "曲线阵列" },
+      "wrap": { "label": "包覆" },
+      "decal": { "label": "印花" },
+      "frameTrim": { "label": "框架修剪" },
+      "gusset": { "label": "角撑板" },
+      "endCap": { "label": "端盖" },
+      "cutList": { "label": "切割清单" },
+      "flange": { "label": "法兰" },
+      "hem": { "label": "卷边" },
+      "tab": { "label": "薄片" },
+      "smBend": { "label": "折弯" },
+      "smJog": { "label": "SMJog" },
+      "forming": { "label": "成型" },
+      "sheetMetalLoft": { "label": "钣金放样" },
+      "smJoint": { "label": "制作接头" },
+      "bendRelief": { "label": "折弯止裂槽" },
+      "cornerBreak": { "label": "尖角倒钝" },
+      "endSheetMetal": { "label": "结束钣金模型" },
+      "pcbFlexModel": { "label": "PCBFlexModel" },
+      "pcbEndFlexModel": { "label": "PCBEndFlexModel" },
+      "surfacePlane": { "label": "平面" },
+      "offsetSurface": { "label": "偏移曲面" },
+      "boundarySurface": { "label": "边界曲面" },
+      "fillSurface": { "label": "填充" },
+      "moveBoundary": { "label": "移动边界" },
+      "ruledSurface": { "label": "直纹曲面" },
+      "mutualTrim": { "label": "相互修剪" },
+      "constraintSurface": { "label": "约束曲面" },
+      "helix": { "label": "螺旋" },
+      "fitSpline3d": { "label": "3D 拟合样条" },
+      "projectCurve": { "label": "投影" },
+      "bridgeCurve": { "label": "桥接" },
+      "compositeCurve": { "label": "复合" },
+      "intersectionCurve": { "label": "交点" },
+      "trimCurve": { "label": "修剪" },
+      "isoline": { "label": "等斜线" },
+      "offsetCurve": { "label": "偏移" },
+      "isoparametricCurve": { "label": "等参" },
+      "editCurve": { "label": "编辑" },
+      "routeCurve": { "label": "路线曲线" }
+    }
+  },
+  "palette": {
+    "title": "搜索工具",
+    "placeholder": "搜索工具",
+    "hint": "开始键入以搜索工具",
+    "returnHint": "按 alt+/ 可随时返回此搜索",
+    "close": "关闭搜索",
+    "highlight": "亮显工具栏中的工具",
+    "empty": "无匹配工具"
+  },
+  "capability": {
+    "close": "知道了"
+  },
+  "capabilities": {
+    "draft": {
+      "title": "拔模（规划中）",
+      "message": "拔模特征已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "shell": {
+      "title": "抽壳（规划中）",
+      "message": "抽壳特征已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "thread": {
+      "title": "外部螺纹（规划中）",
+      "message": "外部螺纹特征已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "sheetMetal": {
+      "title": "钣金（规划中）",
+      "message": "钣金建模（法兰/折弯/展开等）已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "frames": {
+      "title": "框架（规划中）",
+      "message": "框架建模已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "surfaces": {
+      "title": "曲面（规划中）",
+      "message": "曲面建模已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "curves": {
+      "title": "曲线（规划中）",
+      "message": "3D 曲线工具已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "render": {
+      "title": "渲染（规划中）",
+      "message": "渲染能力已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "drawing": {
+      "title": "工程图（规划中）",
+      "message": "工程图能力已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "material": {
+      "title": "材料（规划中）",
+      "message": "材料库已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "appearance": {
+      "title": "外观（规划中）",
+      "message": "外观库已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "notifications": {
+      "title": "通知（规划中）",
+      "message": "通知中心已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "print": {
+      "title": "打印（规划中）",
+      "message": "打印能力已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "assemblyEdit": {
+      "title": "装配体编辑（规划中）",
+      "message": "装配体编辑已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    }
   }
 }

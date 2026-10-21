@@ -140,6 +140,12 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'status.editMode', 'status.editModePart',
   'status.units', 'status.unitMm',
   'status.viewType', 'status.viewIso',
+  // M3 Task 4：ribbon/命令搜索/能力引导对话框 chrome 键——ribbon.tools.* 与
+  // ribbon.items.*（27+44 条）由 ribbon-registry.test.ts 数据驱动守卫。
+  'ribbon.toolbarLabel', 'ribbon.searchTools', 'ribbon.searchShortcut',
+  'palette.title', 'palette.placeholder', 'palette.hint', 'palette.returnHint',
+  'palette.close', 'palette.highlight', 'palette.empty',
+  'capability.close',
 ] as const;
 
 describe('i18n 骨架', () => {

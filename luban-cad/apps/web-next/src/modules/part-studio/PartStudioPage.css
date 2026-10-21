@@ -272,3 +272,352 @@
   color: var(--iui-color-text);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── 工具 ribbon（os-11 第二行：分组工具条 + 右端命令搜索触发钮）────────── */
+.part-studio-ribbon {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding: 2px var(--iui-size-xs);
+  border-block-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  background: var(--iui-color-background);
+  overflow-x: auto;
+}
+
+.part-studio-ribbon__groups {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.part-studio-ribbon__group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1px;
+  padding: 0 var(--iui-size-2xs);
+  border-inline-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.part-studio-ribbon__group:last-child {
+  border-inline-end: none;
+}
+
+/* 工具钮：激活态（store tool.activeToolId）+ 命令搜索亮显态（os-23）。 */
+.part-studio-ribbon__tool--active {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  color: var(--iui-color-text-accent);
+}
+
+.part-studio-ribbon__tool--highlight {
+  outline: 2px solid var(--iui-color-text-accent);
+  outline-offset: -2px;
+  border-radius: var(--iui-border-radius-1);
+}
+
+/* 「图标 + ▾」飞出菜单宿主。 */
+.part-studio-ribbon__dropdown {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+}
+
+.part-studio-ribbon__arrow {
+  margin-inline-start: -2px;
+  inline-size: 14px;
+}
+
+.part-studio-ribbon__menu {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: 40;
+  min-inline-size: 160px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--iui-size-2xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-2, 0 2px 8px rgba(0, 0, 0, 0.2));
+}
+
+.part-studio-ribbon__menu-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  border-radius: var(--iui-border-radius-1);
+  white-space: nowrap;
+}
+
+.part-studio-ribbon__menu-item:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-ribbon__menu-icon {
+  display: inline-flex;
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.part-studio-ribbon__menu-icon svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+/* 命令搜索触发钮（os-11 command-search-trigger）。 */
+.part-studio-ribbon__search-trigger {
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  padding: 2px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.part-studio-ribbon__search-trigger:hover {
+  background: var(--iui-color-background-hover);
+  color: var(--iui-color-text);
+}
+
+.part-studio-ribbon__search-icon {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
+.part-studio-ribbon__search-kbd {
+  padding: 0 4px;
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-backdrop, transparent);
+  font-size: var(--iui-font-size-0);
+  font-family: inherit;
+}
+
+/* ── 命令搜索面板（os-23：顶部居中浮层）──────────────────────────────── */
+.part-studio-palette {
+  position: fixed;
+  inset-block-start: 96px;
+  inset-inline: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.part-studio-palette__panel {
+  inline-size: min(520px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-3, 0 4px 16px rgba(0, 0, 0, 0.25));
+  pointer-events: auto;
+}
+
+.part-studio-palette__bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-palette__input {
+  flex: 1;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+}
+
+.part-studio-palette__close {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: var(--iui-size-2xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.part-studio-palette__close:hover {
+  color: var(--iui-color-text);
+}
+
+.part-studio-palette__hint {
+  margin: 0;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-palette__hint--secondary {
+  font-size: var(--iui-font-size-0);
+  opacity: 0.8;
+}
+
+.part-studio-palette__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-block-size: 320px;
+  overflow-y: auto;
+}
+
+.part-studio-palette__result {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  border-radius: var(--iui-border-radius-1);
+  text-align: start;
+}
+
+.part-studio-palette__result--active,
+.part-studio-palette__result:hover {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+}
+
+.part-studio-palette__result-icon {
+  display: inline-flex;
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.part-studio-palette__result-icon svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.part-studio-palette__result-label {
+  flex: 1;
+}
+
+.part-studio-palette__result-kbd {
+  padding: 0 4px;
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  font-size: var(--iui-font-size-0);
+  font-family: inherit;
+}
+
+.part-studio-palette__empty {
+  margin: 0;
+  padding: var(--iui-size-xs);
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  text-align: center;
+}
+
+.part-studio-palette__highlight {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-2xs) var(--iui-size-xs) 0;
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+/* ── 能力引导对话框（gated 点击后的引导面）────────────────────────────── */
+.part-studio-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* iTwin scrim 语义令牌（skin R6 负向守卫钉死：不覆写、只消费）。 */
+  background: var(--iui-color-background-backdrop);
+}
+
+.part-studio-capability-dialog {
+  inline-size: min(420px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-s);
+  padding: var(--iui-size-m);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-3, 0 4px 16px rgba(0, 0, 0, 0.25));
+}
+
+.part-studio-capability-dialog__title {
+  margin: 0;
+  font-size: var(--iui-font-size-2);
+}
+
+.part-studio-capability-dialog__message {
+  margin: 0;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-1);
+  line-height: 1.5;
+}
+
+.part-studio-capability-dialog__actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.part-studio-capability-dialog__confirm {
+  padding: var(--iui-size-2xs) var(--iui-size-l);
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-text-accent);
+  color: var(--iui-color-white);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-capability-dialog__confirm:hover {
+  background: var(--iui-color-text-accent-hover, var(--iui-color-text-accent));
+}

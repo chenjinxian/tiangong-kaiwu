@@ -15,7 +15,7 @@
  * 查看器接线：useViewport（viewer-next）在页面层单实例——backendUrl 传同源
  * （MS CORS 钉死 :5300，web-next :5310 走 vite 代理，见 vite.config.ts 注记；
  * 姿态同 DevViewerRoute），viewportRef 下沉画布、相位上供状态栏。ribbon/
- * 树数据/特征对话框等 T4+ 接管。
+ * 命令搜索（T4）挂顶栏下；树数据/特征对话框等 T5+ 接管。
  */
 
 import React from 'react';
@@ -28,6 +28,8 @@ import { PartStudioSidebar } from './components/PartStudioSidebar.js';
 import { PartStudioCanvas } from './components/PartStudioCanvas.js';
 import { PartStudioDock } from './components/PartStudioDock.js';
 import { PartStudioTabs } from './components/PartStudioTabs.js';
+import { Ribbon } from './ribbon/Ribbon.js';
+import { CommandPalette } from './ribbon/CommandPalette.js';
 import './PartStudioPage.css';
 
 export function PartStudioPage(): React.JSX.Element {
@@ -43,6 +45,8 @@ export function PartStudioPage(): React.JSX.Element {
   return (
     <div className="part-studio-page" data-testid="part-studio-page">
       <PartStudioTopBar iTwinId={iTwinId ?? ''} iModelId={iModelId ?? ''} />
+      {/* 工具 ribbon（os-11 第二行）：27 工具 + 8 下拉 + 命令搜索触发钮。 */}
+      <Ribbon />
       <div className="part-studio-body">
         <PartStudioSidebar />
         <div className="part-studio-main">
@@ -51,6 +55,8 @@ export function PartStudioPage(): React.JSX.Element {
         </div>
       </div>
       <PartStudioTabs connection={phase} />
+      {/* 命令搜索面板：页面级常驻挂载（alt+/ 热键经 store 驱动开合）。 */}
+      <CommandPalette />
     </div>
   );
 }
