@@ -2,8 +2,16 @@
 //
 // Task 2 失败测试先行（brief Step 1）：mock 官方 @itwin/itwins-client 的
 // ITwinsAccessClient，断言两件事——
-//  1) 调用形状：构造函数收 env.hubUrl；每个方法先经 AuthSession.getValidAccessToken
-//     取 token，再透传官方方法（参数映射见各用例）；
+//  1) 调用形状：构造函数收 `${env.hubUrl}/itwins`（hub 的 SDK 兼容路由挂
+//     在 /itwins/*：列表=/itwins、收藏=/itwins/favorites、最近=/itwins/recents；
+//     与 ImodelsClient 的 `${env.hubUrl}/imodels` 同口径——M2 Task 8 实测
+//     根路径 base 会打到 NestJS 信息根路由/favorites 404）；每个方法先经
+//     AuthSession.getValidAccessToken 取 token，再透传官方方法；
+//  1b) token 形态：官方 SDK 把 accessToken 字符串原样写进 authorization 头
+//     （BaseClient.getRequestOptions），iTwin.js AccessToken 惯例为带
+//     scheme 的 "Bearer <jwt>"——封装层负责加前缀（hub 裸 jwt 头恒 401，
+//     M2 Task 8 实测）；与 ImodelsClient `{ scheme: 'Bearer', token }`、
+//     内部 fetchers `Authorization: Bearer ${token}` 同口径；
 //  2) 返回映射：官方 ITwinsAPIResponse<T> { data?, status, error? } 解包为 T；
 //     error/status>=400 映射为 ApiClientError（status 三元组契约）。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,6 +47,8 @@ vi.mock('@itwin/itwins-client', () => ({
 }));
 
 const TOKEN = 'tok-1';
+/** 官方 SDK 边界的期望形态：authorization 头字符串（含 Bearer scheme）。 */
+const BEARER_TOKEN = `Bearer ${TOKEN}`;
 
 beforeEach(() => {
   vi.spyOn(AuthSession, 'getValidAccessToken').mockResolvedValue(TOKEN);
@@ -50,9 +60,9 @@ afterEach(() => {
 });
 
 describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
-  it('构造函数以 env.hubUrl 实例化官方客户端', () => {
+  it('构造函数以 `${env.hubUrl}/itwins` 实例化官方客户端（SDK 兼容路由前缀）', () => {
     new ItwinsClient();
-    expect(official.ctor).toHaveBeenCalledWith(env.hubUrl);
+    expect(official.ctor).toHaveBeenCalledWith(`${env.hubUrl}/itwins`);
   });
 
   it('list()：queryAsync(token, undefined, params)，解包 data', async () => {
@@ -61,7 +71,7 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
     const client = new ItwinsClient();
 
     await expect(client.list()).resolves.toEqual(data);
-    expect(official.queryAsync).toHaveBeenCalledWith(TOKEN, undefined, undefined);
+    expect(official.queryAsync).toHaveBeenCalledWith(BEARER_TOKEN, undefined, undefined);
   });
 
   it('list({top,skip})：分页参数原样透传官方 query 参数', async () => {
@@ -69,7 +79,7 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
     const client = new ItwinsClient();
 
     await client.list({ top: 5, skip: 10 });
-    expect(official.queryAsync).toHaveBeenCalledWith(TOKEN, undefined, { top: 5, skip: 10 });
+    expect(official.queryAsync).toHaveBeenCalledWith(BEARER_TOKEN, undefined, { top: 5, skip: 10 });
   });
 
   it('get(id)：getAsync(token, id) 并返回单个 iTwin', async () => {
@@ -78,7 +88,7 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
     const client = new ItwinsClient();
 
     await expect(client.get('a')).resolves.toEqual(data);
-    expect(official.getAsync).toHaveBeenCalledWith(TOKEN, 'a');
+    expect(official.getAsync).toHaveBeenCalledWith(BEARER_TOKEN, 'a');
   });
 
   it('create({displayName,class})：createiTwin(token, iTwin)', async () => {
@@ -87,7 +97,7 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
     const client = new ItwinsClient();
 
     await expect(client.create({ displayName: 'N', class: 'Thing' })).resolves.toEqual(data);
-    expect(official.createiTwin).toHaveBeenCalledWith(TOKEN, { displayName: 'N', class: 'Thing' });
+    expect(official.createiTwin).toHaveBeenCalledWith(BEARER_TOKEN, { displayName: 'N', class: 'Thing' });
   });
 
   it('update(id, partial)：updateiTwin(token, id, partial)', async () => {
@@ -96,7 +106,7 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
     const client = new ItwinsClient();
 
     await expect(client.update('a', { displayName: 'Renamed' })).resolves.toEqual(data);
-    expect(official.updateiTwin).toHaveBeenCalledWith(TOKEN, 'a', { displayName: 'Renamed' });
+    expect(official.updateiTwin).toHaveBeenCalledWith(BEARER_TOKEN, 'a', { displayName: 'Renamed' });
   });
 
   it('delete(id)：deleteiTwin(token, id)，204 无 data 仍 resolve void', async () => {
@@ -104,7 +114,7 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
     const client = new ItwinsClient();
 
     await expect(client.delete('a')).resolves.toBeUndefined();
-    expect(official.deleteiTwin).toHaveBeenCalledWith(TOKEN, 'a');
+    expect(official.deleteiTwin).toHaveBeenCalledWith(BEARER_TOKEN, 'a');
   });
 
   it('listFavorites()/listRecents()：透传 queryFavoritesAsync/queryRecentsAsync', async () => {
@@ -116,8 +126,8 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
 
     await expect(client.listFavorites()).resolves.toEqual(fav);
     await expect(client.listRecents()).resolves.toEqual(recent);
-    expect(official.queryFavoritesAsync).toHaveBeenCalledWith(TOKEN);
-    expect(official.queryRecentsAsync).toHaveBeenCalledWith(TOKEN);
+    expect(official.queryFavoritesAsync).toHaveBeenCalledWith(BEARER_TOKEN);
+    expect(official.queryRecentsAsync).toHaveBeenCalledWith(BEARER_TOKEN);
   });
 
   it('官方响应带 error 时映射为 ApiClientError（status 三元组契约）', async () => {
