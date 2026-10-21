@@ -1,0 +1,145 @@
+// src/modules/part-studio/test/part-studio.store.test.ts
+//
+// M3 Task 2（brief Step 1）：part-studio 编辑器会话态 store——
+//  1) 初始态：五分切片（tree/dock/tool/sketch/commandPalette）缺省值
+//     （spec §3 五分法：编辑器会话态唯一归属 zustand，本 store 聚合五切片）；
+//  2) 各切片 action 切换：树页签/选中/展开、停靠页签与开合、当前工具、
+//     草图模式进出、命令搜索开关；
+//  3) usePartStudioStore() 在 React 内的订阅：action 触发 → hook 返回值
+//     跟随重渲染（selector 粒度消费面 sanity）。
+//
+// 定位：纯 zustand 逻辑（无 RPC/无组件），全部断言直挂 store API
+//（getState/setState）；仅用例 3 经 renderHook 验证 React 订阅面。
+
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { usePartStudioStore } from '../stores/part-studio.store.js';
+import type { PartStudioState } from '../types.js';
+
+/** 初始会话态快照（实现漂移时「初始态」用例即红，防静默改缺省）。 */
+const INITIAL_STATE: PartStudioState = {
+  tree: {
+    activeTab: 'features',
+    selectedNodeIds: [],
+    expandedNodeIds: [],
+  },
+  dock: {
+    activeTab: 'toolSettings',
+    isOpen: false,
+  },
+  tool: {
+    activeToolId: null,
+  },
+  sketch: {
+    isActive: false,
+    activeSketchId: null,
+  },
+  commandPalette: {
+    isOpen: false,
+  },
+};
+
+beforeEach(() => {
+  // 合并式复位：只盖五切片状态键，action 函数不动。
+  usePartStudioStore.setState(INITIAL_STATE);
+});
+
+describe('usePartStudioStore 初始态', () => {
+  it('五分切片全部落在缺省会话态（tree/dock/tool/sketch/commandPalette）', () => {
+    const state = usePartStudioStore.getState();
+    expect({
+      tree: state.tree,
+      dock: state.dock,
+      tool: state.tool,
+      sketch: state.sketch,
+      commandPalette: state.commandPalette,
+    }).toEqual(INITIAL_STATE);
+  });
+});
+
+describe('tree 切片（树选中/展开 + 双段活动页签）', () => {
+  it('setActiveTreeTab 在 features/parts 两段间切换', () => {
+    usePartStudioStore.getState().setActiveTreeTab('parts');
+    expect(usePartStudioStore.getState().tree.activeTab).toBe('parts');
+    usePartStudioStore.getState().setActiveTreeTab('features');
+    expect(usePartStudioStore.getState().tree.activeTab).toBe('features');
+  });
+
+  it('setSelectedNodeIds 覆写树选中集', () => {
+    usePartStudioStore.getState().setSelectedNodeIds(['sketch-1', 'extrude-2']);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['sketch-1', 'extrude-2']);
+  });
+
+  it('toggleNodeExpanded 幂等翻转展开集', () => {
+    const { toggleNodeExpanded } = usePartStudioStore.getState();
+    toggleNodeExpanded('node-1');
+    expect(usePartStudioStore.getState().tree.expandedNodeIds).toEqual(['node-1']);
+    toggleNodeExpanded('node-1');
+    expect(usePartStudioStore.getState().tree.expandedNodeIds).toEqual([]);
+  });
+});
+
+describe('dock 切片（停靠页签 + 开合）', () => {
+  it('openDock/closeDock/toggleDock 翻转开合态', () => {
+    const store = usePartStudioStore.getState();
+    store.openDock();
+    expect(usePartStudioStore.getState().dock.isOpen).toBe(true);
+    store.toggleDock();
+    expect(usePartStudioStore.getState().dock.isOpen).toBe(false);
+    store.toggleDock();
+    expect(usePartStudioStore.getState().dock.isOpen).toBe(true);
+    store.closeDock();
+    expect(usePartStudioStore.getState().dock.isOpen).toBe(false);
+  });
+
+  it('setDockTab 在 toolSettings/history/display 三页签间切换', () => {
+    usePartStudioStore.getState().setDockTab('history');
+    expect(usePartStudioStore.getState().dock.activeTab).toBe('history');
+    usePartStudioStore.getState().setDockTab('display');
+    expect(usePartStudioStore.getState().dock.activeTab).toBe('display');
+  });
+});
+
+describe('tool 切片（当前工具）', () => {
+  it('setActiveTool 记工具 id，可置 null 回到无工具', () => {
+    usePartStudioStore.getState().setActiveTool('Extrude');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBe('Extrude');
+    usePartStudioStore.getState().setActiveTool(null);
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+  });
+});
+
+describe('sketch 切片（草图模式）', () => {
+  it('enterSketch 进草图模式并记活动草图，exitSketch 全复位', () => {
+    usePartStudioStore.getState().enterSketch('sketch-9');
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9' });
+    usePartStudioStore.getState().exitSketch();
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null });
+  });
+});
+
+describe('commandPalette 切片（命令搜索开关）', () => {
+  it('open/close/toggle 翻转命令搜索面板', () => {
+    const store = usePartStudioStore.getState();
+    store.openCommandPalette();
+    expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(true);
+    store.toggleCommandPalette();
+    expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(false);
+    store.toggleCommandPalette();
+    expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(true);
+    store.closeCommandPalette();
+    expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(false);
+  });
+});
+
+describe('usePartStudioStore() React 订阅面', () => {
+  it('selector 订阅：action 触发后 hook 返回值跟随', () => {
+    const { result } = renderHook(() => usePartStudioStore((s) => s.tool.activeToolId));
+    expect(result.current).toBeNull();
+    act(() => {
+      usePartStudioStore.getState().setActiveTool('Fillet');
+    });
+    expect(result.current).toBe('Fillet');
+  });
+});
