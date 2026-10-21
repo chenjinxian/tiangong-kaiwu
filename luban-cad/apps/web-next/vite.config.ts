@@ -3,6 +3,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    // link: 包不做预打包（brief 钉死项）；@itwin/core-frontend 为 DevViewerRoute
+    // 就绪态回退读取通道，按 apps/web 先例排除（esm 产物源码直服）。
+    exclude: ['@luban-cad/viewer-next', '@luban-cad/shared', '@itwin/core-frontend'],
+  },
   server: {
     port: 5310,
     strictPort: true,

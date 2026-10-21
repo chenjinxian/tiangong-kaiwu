@@ -12,7 +12,9 @@
   "dependencies": {
     "@itwin/itwinui-react": "^3.22.0",
     "@itwin/itwinui-icons-react": "^2.9.0",
+    "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
     "@luban-cad/shared": "workspace:*",
+    "@luban-cad/viewer-next": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "i18next": "^21.9.1",
     "i18next-browser-languagedetector": "^6.1.2",
