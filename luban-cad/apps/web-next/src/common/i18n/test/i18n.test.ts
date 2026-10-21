@@ -104,6 +104,22 @@ const REQUIRED_DOCUMENT_DETAIL_KEYS = [
   'detail.empty.title', 'detail.empty.description',
 ] as const;
 
+/** SettingsPage（M2 Task 7）实际取用的 settings.* 键集——与
+ * modules/settings 组件逐条对账；漏任一即渲染裸键名。 */
+const REQUIRED_SETTINGS_KEYS = [
+  'breadcrumb.back', 'breadcrumb.current',
+  'userMenu.open', 'userMenu.account', 'userMenu.darkMode', 'userMenu.logout',
+  'nav.sections.account', 'nav.sections.subscription', 'nav.sections.team',
+  'nav.items.profile', 'nav.items.email', 'nav.items.preferences', 'nav.items.notifications',
+  'nav.items.security', 'nav.items.devices', 'nav.items.applications', 'nav.items.integrations',
+  'nav.items.developer', 'nav.items.subscription', 'nav.items.paymentOptions',
+  'nav.items.paymentHistory', 'nav.items.team',
+  'profile.title', 'profile.avatarHint', 'profile.changeAvatar', 'profile.removeAvatar',
+  'profile.firstName', 'profile.lastName', 'profile.username', 'profile.nickname', 'profile.bio',
+  'preferences.title', 'preferences.darkMode', 'preferences.language',
+  'placeholder.title', 'placeholder.description',
+] as const;
+
 describe('i18n 骨架', () => {
   it('默认 zh-CN，键命中', async () => {
     const i18n = await initI18n();
@@ -196,5 +212,21 @@ describe('i18n 骨架', () => {
     const i18n = await initI18n();
     await changeAppLanguage('zh-CN');
     expect(i18n.t('documents.detail.imodelCount', { count: 2 })).toContain('2');
+  });
+  // M2 Task 7：settings 词库（设置页）键集一致性 + 页面取用键存在性。
+  it('settings 词库：zh/en 键奇偶且设置页取用键存在', async () => {
+    const zh = (await import('../locales/zh-CN/settings.json')).default;
+    const en = (await import('../locales/en/settings.json')).default;
+    const zhKeys = flatten(zh).sort();
+    expect(flatten(en).sort()).toEqual(zhKeys);
+    for (const key of REQUIRED_SETTINGS_KEYS) {
+      // settings.json 根即 settings 块（挂 translation.settings 下），
+      // 展平键不带 settings. 前缀；组件侧 t('settings.<key>') 对应词库键 <key>。
+      expect(zhKeys, `settings.${key} 应在 zh-CN settings.json 中存在`).toContain(key);
+    }
+    // 复位默认语言（本用例的 changeAppLanguage 调用为后续测试保持 zh-CN 基线）。
+    const i18n = await initI18n();
+    await changeAppLanguage('zh-CN');
+    expect(i18n.t('settings.nav.sections.account')).toBe('帐户');
   });
 });

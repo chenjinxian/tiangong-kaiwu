@@ -13,6 +13,11 @@ import enAuth from './locales/en/auth.json';
 // 展平深比较守卫。
 import zhDocuments from './locales/zh-CN/documents.json';
 import enDocuments from './locales/en/documents.json';
+// M2 Task 7：settings 词库（设置页）。与 common/auth/documents 同姿态挂默认
+// ns translation 之下（键路径 settings.<key>）；zh/en 键集一致性由
+// i18n.test.ts 展平深比较守卫。
+import zhSettings from './locales/zh-CN/settings.json';
+import enSettings from './locales/en/settings.json';
 
 const LANG_KEY = 'luban-next-lang';
 
@@ -36,8 +41,8 @@ export async function initI18n(): Promise<I18n> {
     // 取词，直接挂 ns 时取不到、原样返回键名）。挂 translation 下后
     // 'common.app.name' = ns translation + 资源路径 common→app→name，命中。
     resources: {
-      'zh-CN': { translation: { common: zhCommon, auth: zhAuth, documents: zhDocuments } },
-      en: { translation: { common: enCommon, auth: enAuth, documents: enDocuments } },
+      'zh-CN': { translation: { common: zhCommon, auth: zhAuth, documents: zhDocuments, settings: zhSettings } },
+      en: { translation: { common: enCommon, auth: enAuth, documents: enDocuments, settings: enSettings } },
     },
     lng: detectLanguage(),
     fallbackLng: 'zh-CN',

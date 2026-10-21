@@ -1,0 +1,113 @@
+/* SettingsPage.css — /settings 设置页（Onshape os-48 IA）。
+ * 全部走 iTwinUI / --lx-* 令牌（组件禁写裸色值，见 tokens/onshape-skin.css）。 */
+
+/* ── 页面骨架 ─────────────────────────────────────────────────────── */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--lx-backdrop);
+  color: var(--iui-color-text);
+}
+
+.settings-content {
+  flex: 1;
+  overflow: hidden;
+  align-items: flex-start !important;
+}
+
+/* ── 顶栏 ─────────────────────────────────────────────────────────── */
+.settings-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.settings-header [class*='page-header-right'] {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-xs);
+  padding-inline-end: var(--iui-size-m);
+}
+
+/* iTwinUI header-brand-icon 槽为 24×24：logo 必须同尺寸（旧应用 UI 走查实测）。 */
+.settings-logo-mark {
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: var(--iui-border-radius-1);
+  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  color: var(--iui-color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 10px;
+}
+
+/* ── 左导航（分区：帐户/订阅/团队）────────────────────────────────── */
+.settings-sidebar__nav {
+  height: 100%;
+}
+
+/* 设置页导航为文本主导（os-48 为链接列表）——展开态放宽到 240px */
+.settings-sidebar__nav[class*='expanded'] {
+  inline-size: 240px !important;
+  min-inline-size: 240px;
+}
+
+.settings-sidebar__section {
+  display: flex;
+  flex-direction: column;
+  padding-block: var(--iui-size-2xs);
+}
+
+.settings-sidebar__section + .settings-sidebar__section {
+  border-top: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.settings-sidebar__section-title {
+  padding: var(--iui-size-2xs) var(--iui-size-s);
+  color: var(--iui-color-text-muted);
+  font-weight: var(--iui-font-weight-semibold, 600);
+  text-transform: none;
+}
+
+/* ── 主区 ─────────────────────────────────────────────────────────── */
+.settings-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--iui-size-m) var(--iui-size-l);
+}
+
+/* ── 面板 ─────────────────────────────────────────────────────────── */
+.settings-panel {
+  padding: var(--iui-size-l);
+  max-inline-size: 720px;
+}
+
+.settings-panel--placeholder {
+  padding: 0;
+}
+
+.settings-panel__title {
+  margin: 0;
+}
+
+.settings-profile__form {
+  max-inline-size: 420px;
+}
+
+.settings-profile__avatar-hint {
+  color: var(--iui-color-text-muted);
+}
+
+.settings-preferences__language {
+  min-inline-size: 200px;
+}
+
+/* ── 响应式 ───────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .settings-sidebar__nav {
+    display: none;
+  }
+}

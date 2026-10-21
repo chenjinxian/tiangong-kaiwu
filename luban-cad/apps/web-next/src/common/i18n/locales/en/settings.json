@@ -1,0 +1,54 @@
+{
+  "breadcrumb": {
+    "back": "Documents",
+    "current": "Settings"
+  },
+  "userMenu": {
+    "open": "User menu",
+    "account": "My account",
+    "darkMode": "Dark mode",
+    "logout": "Sign out"
+  },
+  "nav": {
+    "sections": {
+      "account": "Account",
+      "subscription": "Subscription",
+      "team": "Team"
+    },
+    "items": {
+      "profile": "Profile",
+      "email": "Email",
+      "preferences": "Preferences",
+      "notifications": "Notifications",
+      "security": "Security",
+      "devices": "Devices",
+      "applications": "Applications",
+      "integrations": "Integrations",
+      "developer": "Developer",
+      "subscription": "Subscription",
+      "paymentOptions": "Payment options",
+      "paymentHistory": "Payment history",
+      "team": "Team"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "avatarHint": "Avatar upload is coming soon.",
+    "changeAvatar": "Change",
+    "removeAvatar": "Remove",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "username": "Username (forum name)",
+    "nickname": "Nickname",
+    "bio": "Bio"
+  },
+  "preferences": {
+    "title": "Preferences",
+    "darkMode": "Dark mode",
+    "language": "Language"
+  },
+  "placeholder": {
+    "title": "Coming soon",
+    "description": "This settings section will be available in a later release."
+  }
+}

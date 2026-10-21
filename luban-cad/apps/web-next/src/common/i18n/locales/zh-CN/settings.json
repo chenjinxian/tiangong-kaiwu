@@ -1,0 +1,54 @@
+{
+  "breadcrumb": {
+    "back": "文档",
+    "current": "设置"
+  },
+  "userMenu": {
+    "open": "用户菜单",
+    "account": "我的帐户",
+    "darkMode": "深色模式",
+    "logout": "退出登录"
+  },
+  "nav": {
+    "sections": {
+      "account": "帐户",
+      "subscription": "订阅",
+      "team": "团队"
+    },
+    "items": {
+      "profile": "个人资料",
+      "email": "电子邮件",
+      "preferences": "首选项",
+      "notifications": "通知",
+      "security": "安全",
+      "devices": "设备",
+      "applications": "应用程序",
+      "integrations": "集成",
+      "developer": "开发者",
+      "subscription": "订阅",
+      "paymentOptions": "支付选项",
+      "paymentHistory": "支付记录",
+      "team": "团队"
+    }
+  },
+  "profile": {
+    "title": "个人资料",
+    "avatarHint": "头像上传即将推出。",
+    "changeAvatar": "更改",
+    "removeAvatar": "移除",
+    "firstName": "名字",
+    "lastName": "姓氏",
+    "username": "用户名（论坛名）",
+    "nickname": "昵称",
+    "bio": "个人简历"
+  },
+  "preferences": {
+    "title": "首选项",
+    "darkMode": "深色模式",
+    "language": "语言"
+  },
+  "placeholder": {
+    "title": "即将推出",
+    "description": "此设置分区将在后续版本提供。"
+  }
+}
