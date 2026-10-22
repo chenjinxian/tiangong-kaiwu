@@ -4,7 +4,7 @@
  *
  * iModel（模型）数据层客户端（Task 3）：对官方 `@itwin/imodels-client-management`
  * `IModelsClient` 的薄封装——
- * - 构造时以 `env.hubUrl`（本地 imodelhub :5400，代理路径 /imodels）作为官方
+ * - 构造时以 `env.hubUrl`（同源 origin，代理路径 /imodels）作为官方
  *   `api.baseUrl` 实例化官方客户端（官方缺省为 Bentley 云，必须覆写）；
  * - 官方 v6 方法形状为「操作参数对象 + authorization 回调」：每个方法收
  *   `{ authorization, ... }`，回调在官方客户端**每次发请求**时被调（分页场景

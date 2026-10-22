@@ -2,8 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSession } from '../AuthSession.js';
 
-const HUB = 'http://localhost:5400';
-
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }

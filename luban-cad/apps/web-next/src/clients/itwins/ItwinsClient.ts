@@ -4,8 +4,9 @@
  *
  * iTwin（项目）数据层客户端（Task 2）：对官方 `@itwin/itwins-client`
  * `ITwinsAccessClient` 的薄封装——
- * - 构造时以 `env.hubUrl`（本地 imodelhub :5400）+ `/itwins` 前缀实例化
- *   官方客户端（hub SDK 兼容路由布局；与 ImodelsClient `/imodels` 同口径）；
+ * - 构造时以 `env.hubUrl`（同源 origin，走代理/反代到 hub）+ `/itwins` 前缀
+ *   实例化官方客户端（hub SDK 兼容路由布局；与 ImodelsClient `/imodels`
+ *   同口径）；
  * - 每个方法先经 `AuthSession.getValidAccessToken()` 取 token（过期单飞
  *   刷新逻辑在 AuthSession 内部），再调官方方法；
  * - 官方 `ITwinsAPIResponse<T> { data?, status, error? }` 统一解包：
@@ -25,8 +26,8 @@ export class ItwinsClient {
 
   public constructor() {
     // hub 的 SDK 兼容路由挂在 /itwins/*（列表=GET /itwins、收藏=/itwins/
-    // favorites、最近=/itwins/recents——M2 Task 8 对 :5400 实测根路径 base
-    // 会打到 NestJS 信息根路由、/favorites 404）；与 ImodelsClient 的
+    // favorites、最近=/itwins/recents——M2 Task 8 实测根路径 base 会打到
+    // NestJS 信息根路由、/favorites 404）；与 ImodelsClient 的
     // `${env.hubUrl}/imodels` 同口径。
     this.accessClient = new ITwinsAccessClient(`${env.hubUrl}/itwins`);
   }
