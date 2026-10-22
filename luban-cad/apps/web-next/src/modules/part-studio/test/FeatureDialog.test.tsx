@@ -93,10 +93,11 @@ const ENTITIES: FeatureDialogEntity[] = [{ id: 'sk1-face', label: 'Sketch 1 的�
 function renderDialog(props: Partial<Parameters<typeof FeatureDialog>[0]> = {}): {
   onConfirm: ReturnType<typeof vi.fn>;
   onCancel: ReturnType<typeof vi.fn>;
+  unmount: () => void;
 } {
   const onConfirm = vi.fn();
   const onCancel = vi.fn();
-  render(
+  const rendered = render(
     <FeatureDialog
       featureName="Extrude 1"
       entities={ENTITIES}
@@ -105,7 +106,7 @@ function renderDialog(props: Partial<Parameters<typeof FeatureDialog>[0]> = {}):
       {...props}
     />,
   );
-  return { onConfirm, onCancel };
+  return { onConfirm, onCancel, unmount: () => rendered.unmount() };
 }
 
 beforeEach(() => {
@@ -309,6 +310,46 @@ const _typeCheck: JSX.Element = (
   />
 );
 void _typeCheck;
+
+// ---------------------------------------------------------------------------
+// M5 Task 1（P0 呈现链修复批，D-T9-5）：Escape 关闭——对话框开着派发
+// document keydown Escape → onCancel 被调（对齐 CanvasContextMenu 挂载期
+// 一次注册模式；IModelApp Escape 工具语义共存由 P1 波次放行传播）。
+// ---------------------------------------------------------------------------
+describe('M5-T1 D-T9-5：Escape 关闭（document keydown 挂载期一次注册）', () => {
+  it('对话框开着派发 document keydown Escape → onCancel 被调（不触发 onConfirm）', () => {
+    const { onConfirm, onCancel } = renderDialog();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('非 Escape 键不触发；卸载后 Escape 不再触发（监听摘除）', () => {
+    const { onCancel, unmount } = renderDialog();
+    fireEvent.keyDown(document, { key: 'Enter' });
+    expect(onCancel).not.toHaveBeenCalled();
+    unmount();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('onCancel 换引用不重挂监听（挂载期一次注册，经 ref 取用——对齐 CanvasContextMenu T5-⑤）', () => {
+    const addSpy = vi.spyOn(document, 'addEventListener');
+    try {
+      const first = vi.fn();
+      const { rerender } = render(<FeatureDialog featureName="Extrude 1" onCancel={first} />);
+      expect(addSpy.mock.calls.filter(([type]) => type === 'keydown')).toHaveLength(1);
+      const second = vi.fn();
+      rerender(<FeatureDialog featureName="Extrude 1" onCancel={second} />);
+      expect(addSpy.mock.calls.filter(([type]) => type === 'keydown')).toHaveLength(1);
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(first).not.toHaveBeenCalled();
+    } finally {
+      addSpy.mockRestore();
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // M4 Task 6：提交接线（拉伸闭环提交面）——new 模式 ✓/成品 → applyOp 形状钉死

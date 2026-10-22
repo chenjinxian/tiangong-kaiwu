@@ -213,6 +213,9 @@ const FAKE_CONNECTION = {
     .mockResolvedValue({ id: 'cs-new', index: 3 }),
   changeset: { id: 'cs-2', index: 2 },
   editorToolSettings: { category: undefined, model: undefined },
+  // M5-T1（D-T9-4 层2）：useFeatureDisplaySync 的 undo/redo 全量失效扫
+  // connection.tiles（可迭代；空集=零 extant tree）。
+  tiles: [],
   // 零件段物理元素查询替身：缺省空集（异步可迭代）；真数据用例 mockImplementation 换真集。
   createQueryReader: vi.fn((): AsyncGenerator<string[], void, unknown> => (async function* () { /* 空集 */ })()),
 };

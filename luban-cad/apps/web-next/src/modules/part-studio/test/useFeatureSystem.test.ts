@@ -10,12 +10,20 @@
 //  - applyOp：成功转发 op+sessionId 且 refresh；失败仅回错误结果不 refresh；
 //    陈旧租约自愈（有限重试得手再派发）；被持续持有则越 35s 预算报 holder 不派发；
 //  - 事件：txns.onCommitted 触发 refresh；unmount 退订。
+//
+// M5 Task 1（P0 呈现链修复批）追加断言面：
+//  - D-T9-6：txns.onAfterUndoRedo 触发 refresh（反转事务不发 onCommitted——
+//    M4 终审 MS 日志实证；官方双订口径 BriefcaseConnection.ts:124-128）；
+//  - T5-①：慢响应纪元守卫——首个 getFeatureTree 悬挂，第二次 refresh 先返回
+//    新树，放行首响应后被纪元丢弃（树仍为新树，loading 落定 false）；
+//  - 超时兜底：applyFeatureOp / getFeatureTree 永悬挂 → FEATURE_OP_TIMEOUT_MS
+//   (15s) 后超时 reject/置 error（RPC 悬挂不再永久 busy）。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import type { FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
-import { useFeatureSystem } from '../hooks/useFeatureSystem.js';
+import { FEATURE_OP_TIMEOUT_MS, useFeatureSystem } from '../hooks/useFeatureSystem.js';
 
 // ---------------------------------------------------------------------------
 // LubanFeatureRpcInterface.getClient() 可编程替身（本版子集四方法）
@@ -42,10 +50,12 @@ vi.mock('@luban-cad/shared', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// BriefcaseConnection 替身：key + isReadonly + txns.onCommitted（hook 契约面）
+// BriefcaseConnection 替身：key + isReadonly + txns.onCommitted/onAfterUndoRedo
+//（hook 契约面；M5-T1 增订 onAfterUndoRedo——D-T9-6）
 // ---------------------------------------------------------------------------
 function createMockConnection({ isReadonly = false }: { isReadonly?: boolean } = {}) {
   const committedListeners = new Set<(hasPending: boolean) => void>();
+  const undoRedoListeners = new Set<(isUndo: boolean) => void>();
   return {
     key: 'test-model.bim',
     isReadonly,
@@ -58,9 +68,20 @@ function createMockConnection({ isReadonly = false }: { isReadonly?: boolean } =
           committedListeners.delete(listener);
         }),
       },
+      onAfterUndoRedo: {
+        addListener: vi.fn((listener: (isUndo: boolean) => void) => {
+          undoRedoListeners.add(listener);
+        }),
+        removeListener: vi.fn((listener: (isUndo: boolean) => void) => {
+          undoRedoListeners.delete(listener);
+        }),
+      },
     },
     emitCommitted() {
       committedListeners.forEach((listener) => listener(false));
+    },
+    emitAfterUndoRedo(isUndo = true) {
+      undoRedoListeners.forEach((listener) => listener(isUndo));
     },
   };
 }
@@ -327,5 +348,107 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     unmount();
 
     expect(connection.txns.onCommitted.removeListener).toHaveBeenCalled();
+  });
+
+  // ── M5-T1（P0 呈现链修复批）──────────────────────────────────────────────
+
+  it('D-T9-6：txns.onAfterUndoRedo 触发 refresh（反转事务不发 onCommitted，双订口径）', async () => {
+    const connection = createMockConnection();
+
+    const { result, unmount } = renderFeatureSystem(connection);
+    await waitFor(() => expect(fakeClient.getFeatureTree).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      connection.emitAfterUndoRedo(true);
+    });
+
+    await waitFor(() => expect(fakeClient.getFeatureTree).toHaveBeenCalledTimes(2));
+
+    unmount();
+    expect(connection.txns.onAfterUndoRedo.removeListener).toHaveBeenCalled();
+  });
+
+  it('T5-①：慢响应纪元守卫——首个 getFeatureTree 悬挂，第二次 refresh 先返回新树，放行首响应后树仍为新树', async () => {
+    const connection = createMockConnection();
+    const newTree: FeatureTreeEntry[] = [
+      { id: 'f2', featureType: 'fillet', orderKey: 2, suppressed: false, status: 0, params: {} },
+    ];
+    // 首个调用（mount 引导）悬挂；第二次调用（显式 refresh）返回新树。
+    let releaseFirst!: (entries: FeatureTreeEntry[]) => void;
+    fakeClient.getFeatureTree
+      .mockImplementationOnce(
+        () => new Promise<FeatureTreeEntry[]>((resolve) => { releaseFirst = resolve; }),
+      )
+      .mockResolvedValueOnce(newTree);
+
+    const { result } = renderFeatureSystem(connection);
+    await act(async () => {}); // 冲刷 mount effect：引导 refresh 悬挂中
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      await result.current.refresh(); // 第二次：新树先落
+    });
+    expect(result.current.tree).toEqual(newTree);
+    expect(result.current.loading).toBe(false);
+
+    // 放行首响应：晚到的旧树必须被纪元丢弃（不得翻回 loading/覆盖新树）。
+    await act(async () => {
+      releaseFirst(fakeClient.makeTree());
+      await new Promise((resolve) => setTimeout(resolve, 0)); // 宏任务边界保证微任务链冲刷
+    });
+    expect(result.current.tree).toEqual(newTree);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('超时兜底：applyFeatureOp 永悬挂 → FEATURE_OP_TIMEOUT_MS 后 reject（i18n 超时错误，经既有错误面可达）', async () => {
+    const connection = createMockConnection();
+    const op: FeatureOp = { kind: 'deleteFeature', featureId: 'f1' };
+    fakeClient.applyFeatureOp.mockImplementation(
+      () => new Promise<FeatureOpResult>(() => undefined), // 永悬挂（rpc-over-ipc 挂死）
+    );
+
+    vi.useFakeTimers();
+    try {
+      const { result } = renderFeatureSystem(connection);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0); // 冲刷 mount 引导（读树/租约均即时落定）
+      });
+
+      let caught: unknown;
+      await act(async () => {
+        const pending = result.current.applyOp(op).catch((err: unknown) => { caught = err; });
+        await vi.advanceTimersByTimeAsync(FEATURE_OP_TIMEOUT_MS);
+        await pending;
+      });
+
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).message).toContain('超时');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('超时兜底：getFeatureTree 永悬挂 → 超时置 error 且 loading 落定（树侧不永久 busy）', async () => {
+    const connection = createMockConnection();
+    fakeClient.getFeatureTree.mockImplementation(
+      () => new Promise<FeatureTreeEntry[]>(() => undefined), // 永悬挂
+    );
+
+    vi.useFakeTimers();
+    try {
+      const { result } = renderFeatureSystem(connection);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FEATURE_OP_TIMEOUT_MS);
+      });
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toContain('超时');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

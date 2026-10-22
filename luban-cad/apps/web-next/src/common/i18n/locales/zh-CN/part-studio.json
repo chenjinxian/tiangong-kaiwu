@@ -380,7 +380,8 @@
   "featureSystem": {
     "notConnected": "未连接 iModel",
     "leaseHeldBy": "写租约被 {{holder}} 持有",
-    "leaseAcquireFailed": "写租约获取失败"
+    "leaseAcquireFailed": "写租约获取失败",
+    "opTimeout": "特征操作超时：RPC {{seconds}} 秒无响应，请检查建模服务连接后重试"
   },
   "treeFilter": {
     "placeholder": "按名称或类型筛选",

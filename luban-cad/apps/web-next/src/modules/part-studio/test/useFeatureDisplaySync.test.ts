@@ -10,6 +10,12 @@
 //    3) refreshForModifiedModels(modelIds) 重绘 + 重新请求 tile；
 //  - 未加载补载（决定性保障）：ModelState 未加载 → models.load 后空间视图
 //    modelSelector drop/add + 再次 refreshForModifiedModels。
+//
+// M5 Task 1（P0 呈现链修复批，D-T9-4 层2）追加断言面：
+//  - txns.onAfterUndoRedo → 全量失效（凡 extant tile tree owner 一律 dispose +
+//    refreshForModifiedModels）——反转事务不发 onCommitted 亦无 guid 通知载荷
+//   （后端 TxnManager 仅 notifyAfterUndoRedo），官方 maybeProcess 在常驻
+//    editingScope 下 early-return 结构性不覆盖，故 undo/redo 路径由本 hook 补位。
 
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -58,6 +64,7 @@ function makeConnection({
 }: MakeConnectionOptions = {}) {
   const inView = inViewModelIds ?? tileModelIds;
   const geometryListeners = new Set<(changes: ReadonlyArray<{ id: string; guid: string }>) => void>();
+  const undoRedoListeners = new Set<(isUndo: boolean) => void>();
   const loadedModels = new Map<string, { asGeometricModel: { geometryGuid: string } }>();
   for (const id of loadedModelIds) {
     loadedModels.set(id, { asGeometricModel: { geometryGuid: 'guid-initial' } });
@@ -78,6 +85,18 @@ function makeConnection({
           geometryListeners.delete(listener);
         }),
       },
+      onAfterUndoRedo: {
+        // BeEvent 契约：addListener 返回退订 disposer（与 onModelGeometryChanged 同形）。
+        addListener: vi.fn((listener: (isUndo: boolean) => void) => {
+          undoRedoListeners.add(listener);
+          return () => {
+            undoRedoListeners.delete(listener);
+          };
+        }),
+        removeListener: vi.fn((listener: (isUndo: boolean) => void) => {
+          undoRedoListeners.delete(listener);
+        }),
+      },
     },
     models: {
       getLoaded: vi.fn((id: string) => loadedModels.get(id)),
@@ -91,6 +110,9 @@ function makeConnection({
     })),
     emitGeometryChanged(changes: Array<{ id: string; guid: string }>) {
       geometryListeners.forEach((listener) => listener(changes));
+    },
+    emitAfterUndoRedo(isUndo = true) {
+      undoRedoListeners.forEach((listener) => listener(isUndo));
     },
   };
 
@@ -186,5 +208,33 @@ describe('useFeatureDisplaySync（三步失效移植件）', () => {
   it('无连接不订阅', () => {
     const { unmount } = renderDisplaySync(undefined);
     expect(() => unmount()).not.toThrow();
+  });
+
+  // ── M5-T1（D-T9-4 层2）：undo/redo 全量失效 ─────────────────────────────
+
+  it('D-T9-4 层2：onAfterUndoRedo → 全量失效（dispose 全部 extant tile owners + 重绘）', () => {
+    const connection = makeConnection();
+
+    renderDisplaySync(connection);
+    connection.emitAfterUndoRedo(true);
+
+    // 反转事务无 guid 载荷——凡 extant tree owner 一律 dispose（撤销后的几何
+    // 基准 guid 由服务端在 tree 重建时经 requestTileTreeProps 供给）。
+    expect(ownerOf(connection, '0x100').disposed).toBe(true);
+    expect(ownerOf(connection, '0x200').disposed).toBe(true);
+    expect(viewManager.refreshForModifiedModels).toHaveBeenCalledTimes(1);
+    expect(viewManager.refreshForModifiedModels).toHaveBeenCalledWith(['0x100', '0x200']);
+  });
+
+  it('unmount 后 onAfterUndoRedo 不再失效（并列监听一并摘除）', () => {
+    const connection = makeConnection();
+
+    const { unmount } = renderDisplaySync(connection);
+    unmount();
+    connection.emitAfterUndoRedo(false);
+
+    expect(ownerOf(connection, '0x100').disposed).toBe(false);
+    expect(ownerOf(connection, '0x200').disposed).toBe(false);
+    expect(viewManager.refreshForModifiedModels).not.toHaveBeenCalled();
   });
 });

@@ -34,6 +34,12 @@
  *（宿主已整体收口写面对话框，此门兜底竞态帧）。方向/对称/拔模随载荷回传
  * 但本版不进 op（shared ExtrudeParams 仅 profile/distance/sketchId——映射
  * 归特征对话框增强单裁，见 useFeatureSystem 头注延后项）。
+ * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
+ * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
+ * 对齐 canvas/CanvasContextMenu.tsx:226-234 模式（onCancel 经 ref 取用，
+ * 不随 props 变化重挂）；IModelApp Escape 工具语义共存由 P1 波次放行传播
+ *（viewer-next keyboard-shortcuts Escape 分支不拦断，浮层收合与工具取消
+ * 两层语义并存）。
  */
 
 import React from 'react';
@@ -166,6 +172,22 @@ export function FeatureDialog({
   const aliveRef = React.useRef(true);
   React.useEffect(() => () => {
     aliveRef.current = false;
+  }, []);
+  // Escape 关闭（M5-T1 D-T9-5）：自研非模态面板（非 iTwinUI Dialog）无官方
+  // dismissal——document keydown 挂载期一次注册（Escape→onCancel），回调经
+  // ref 取用，不随 props/重渲染重挂（CanvasContextMenu.tsx:226-234 同款模式；
+  // IModelApp Escape 工具语义共存——P1 波次已放行传播，两层语义并存）。
+  const onCancelRef = React.useRef(onCancel);
+  onCancelRef.current = onCancel;
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancelRef.current?.();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+    // 监听终身一次挂载；闭包内一律走 ref（意图在此注记，非遗漏依赖）。
   }, []);
   // edit 模式且宿主已接提交面（T6 评审 M-1）：updateParams 本版不接线（特征
   // 对话框增强 backlog），✓/成品 禁用 + 提示行，消除「点确认即关面板无事发生」

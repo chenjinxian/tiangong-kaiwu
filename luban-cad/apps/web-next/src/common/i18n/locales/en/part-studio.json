@@ -380,7 +380,8 @@
   "featureSystem": {
     "notConnected": "iModel not connected",
     "leaseHeldBy": "Write lease is held by {{holder}}",
-    "leaseAcquireFailed": "Failed to acquire write lease"
+    "leaseAcquireFailed": "Failed to acquire write lease",
+    "opTimeout": "Feature operation timed out: no RPC response within {{seconds}} s; check the modeling service connection and retry"
   },
   "treeFilter": {
     "placeholder": "Filter by name or type",
