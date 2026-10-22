@@ -64,6 +64,9 @@ vi.mock('@clients/auth/AuthSession.js', () => ({
 
 // Ribbon.js（CapabilityDialog 来源）模块级依赖面钉形（零真实查看器）。
 vi.mock('@itwin/core-frontend', () => ({
+  // Tool 基类桩：part-studio barrel → PartStudioPage → viewer-next 装饰件
+  // （ToggleProjectExtentsTool extends Tool）模块加载期即需 Tool 存在。
+  Tool: class {},
   IModelApp: {
     tools: { run: vi.fn() },
     viewManager: { selectedView: null },

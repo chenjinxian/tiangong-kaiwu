@@ -75,15 +75,27 @@ vi.mock('@clients/auth/AuthSession.js', () => ({
   },
 }));
 
-// 结构断言零查看器启动：useViewport 钉 ready 相位（状态栏「已连接」断言依赖）。
+// 结构断言零查看器启动：useViewport 钉 ready 相位（状态栏「已连接」断言依赖）；
+// M4-T2：useBriefcaseConnection 钉 null 连接、applyViewportBackground 钉 no-op
+//（PartStudioPage 的连接/视口/底色组合接线在本文件全 no-op 化）。
 vi.mock('@luban-cad/viewer-next', () => ({
   useViewport: vi.fn().mockReturnValue({
     viewportRef: { current: null },
     phase: 'ready',
     error: null,
+    viewport: undefined,
   }),
-  startViewer: vi.fn().mockResolvedValue(undefined),
-  stopViewer: vi.fn().mockResolvedValue(undefined),
+  useBriefcaseConnection: vi.fn().mockReturnValue({
+    connection: null,
+    isLoading: false,
+    error: null,
+    saveChanges: vi.fn().mockResolvedValue(undefined),
+    pushChanges: vi.fn().mockResolvedValue(undefined),
+    pullChanges: vi.fn().mockResolvedValue(undefined),
+  }),
+  applyViewportBackground: vi.fn(),
+  acquireViewer: vi.fn().mockResolvedValue(undefined),
+  releaseViewer: vi.fn().mockResolvedValue(undefined),
   ensureAccuSnap: vi.fn().mockResolvedValue(undefined),
 }));
 

@@ -19,6 +19,7 @@
 import React from 'react';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { ScreenViewport } from '@itwin/core-frontend';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import type { FeatureDialogResult } from '../dialogs/FeatureDialog.js';
@@ -29,6 +30,8 @@ import { usePartStudioStore } from '../stores/part-studio.store.js';
 export interface PartStudioCanvasProps {
   /** viewport 宿主 div ref（viewer-next useViewport 出口）。 */
   viewportRef: RefObject<HTMLDivElement>;
+  /** ScreenViewport 实例（M4-T2 起 Page 下传；T5 适应视图/T6 内联对话框消费位）。 */
+  viewport?: ScreenViewport;
 }
 
 interface MenuAnchor {
@@ -36,7 +39,7 @@ interface MenuAnchor {
   y: number;
 }
 
-export function PartStudioCanvas({ viewportRef }: PartStudioCanvasProps): React.JSX.Element {
+export function PartStudioCanvas({ viewportRef, viewport }: PartStudioCanvasProps): React.JSX.Element {
   const { t } = useTranslation();
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
 
@@ -62,8 +65,14 @@ export function PartStudioCanvas({ viewportRef }: PartStudioCanvasProps): React.
     closeDialog();
   }, [closeDialog]);
 
+  // data-viewport-ready：M4-T2 视口下传锚点（结构断言/T5 适应视图接线前的就绪观测位）。
   return (
-    <div className="part-studio-canvas" data-testid="part-studio-canvas" onContextMenu={handleContextMenu}>
+    <div
+      className="part-studio-canvas"
+      data-testid="part-studio-canvas"
+      data-viewport-ready={viewport ? 'true' : 'false'}
+      onContextMenu={handleContextMenu}
+    >
       <div ref={viewportRef} className="part-studio-viewport" data-testid="part-studio-viewport" />
 
       {/* T6 草图模式覆盖层（os-30）：栅格（纯视觉）+ 约束（标签）。 */}

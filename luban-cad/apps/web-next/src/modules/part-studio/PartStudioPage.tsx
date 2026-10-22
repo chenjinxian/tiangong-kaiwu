@@ -2,8 +2,8 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * PartStudioPage（M3 Task 3；T7 页签管理器接线）：/documents/:iTwinId/:iModelId Part Studio 编辑器
- * 布局壳（对齐 Onshape os-11 五区）——
+ * PartStudioPage（M3 Task 3 壳；T7 页签管理器接线；M4 Task 2 真连接组合）：
+ * /documents/:iTwinId/:iModelId Part Studio 编辑器布局壳（对齐 Onshape os-11 五区）——
  * - 顶栏（PartStudioTopBar）：品牌 + 面包屑（文档/iTwin/iModel）+ 分支徽标 +
  *   分享 + 用户菜单 + 帮助；
  * - 左栏（PartStudioSidebar）：窄图标条 + 双段树（特征/零件）；
@@ -12,15 +12,31 @@
  * - 底部（PartStudioTabs）：页签条（适应视图/「+」开页签管理器[T7，os-33]/
  *   Part Studio 1）+ 状态栏（连接态/编辑模式/单位/视图类型）。
  *
- * 查看器接线：useViewport（viewer-next）在页面层单实例——backendUrl 传同源
- * （MS CORS 钉死 :5300，web-next :5310 走 vite 代理，见 vite.config.ts 注记；
- * 姿态同 DevViewerRoute），viewportRef 下沉画布、相位上供状态栏。ribbon/
- * 命令搜索（T4）挂顶栏下；树数据/特征对话框等 T5+ 接管。
+ * 查看器接线（M4-T2 组合链，双层组件定序）：
+ * - 外层 PartStudioPage：useBriefcaseConnection({iTwinId, iModelId,
+ *   readonly: viewOnly})——viewOnly 取 store 仅查看切片（计划权限门裁决：可编辑 =
+ *   !viewOnly；briefcase 默认可写打开）；
+ * - 内层 PartStudioSession：connection 作 iModel 下传 useViewport
+ *   （BriefcaseConnection extends IModelConnection——ScreenViewport 创建/类目模型
+ *   补全/内容感知取景全链在 viewer-next）→ viewport 下传 PartStudioCanvas +
+ *   Onshape 底色接线（applyViewportBackground + MutationObserver 监听
+ *   documentElement[data-theme]，同旧 Editor.tsx 姿态——不用 useTheme，页面测试
+ *   无 ThemeProvider）；
+ * - **为何拆两层**：React effect 子先父后——内层 useViewport 的挂载副作用
+ *   （acquireViewer）先于外层 useBriefcaseConnection 的打开副作用执行，host 的
+ *   IpcApp._ipc 在其同步前缀就位，随后的 downloadBriefcase IPC 由 LocalTransport
+ *   缓冲至 WebSocket 开启（vendored core-frontend 语义），消除「连接先于 host」
+ *   的启动竞态（单组件顺序下 downloadBriefcase 必然首挂载被拒）。
+ *
+ * backendUrl 传同源（MS CORS 钉死 :5300，web-next :5310 走 vite 代理，见
+ * vite.config.ts 注记；姿态同 DevViewerRoute），相位上供状态栏。ribbon/命令
+ * 搜索（T4）挂顶栏下；树数据/特征对话框等 T5+ 接管。
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useViewport } from '@luban-cad/viewer-next';
+import { applyViewportBackground, useBriefcaseConnection, useViewport } from '@luban-cad/viewer-next';
+import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
 import { PartStudioTopBar } from './components/PartStudioTopBar.js';
@@ -30,31 +46,75 @@ import { PartStudioDock } from './components/PartStudioDock.js';
 import { PartStudioTabs } from './components/PartStudioTabs.js';
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
+import { usePartStudioStore } from './stores/part-studio.store.js';
 import './PartStudioPage.css';
 
 export function PartStudioPage(): React.JSX.Element {
   const { iTwinId, iModelId } = useParams<{ iTwinId: string; iModelId: string }>();
+  // 权限门（计划裁决）：可编辑 = !viewOnly（M3-T7 仅查看模式切片）；
+  // briefcase 默认可写打开，viewOnly 激活时 readonly 打开（不占写位）。
+  const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
+  // 连接先行（ids 未载前 null 短路）；effect 定序见文件头注「为何拆两层」。
+  const briefcase = useBriefcaseConnection(
+    iTwinId && iModelId ? { iTwinId, iModelId, readonly: viewOnly } : null,
+  );
+
+  return (
+    <PartStudioSession
+      iTwinId={iTwinId ?? ''}
+      iModelId={iModelId ?? ''}
+      connection={briefcase.connection}
+    />
+  );
+}
+
+interface PartStudioSessionProps {
+  iTwinId: string;
+  iModelId: string;
+  connection: BriefcaseConnection | null;
+}
+
+function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionProps): React.JSX.Element {
   // 会话由 RequireAuth 门保证在场；token 静态传入（M3 雷②闭环：渲染期取一次，
   // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer-next 演进）。
-  const { viewportRef, phase } = useViewport({
+  const { viewportRef, phase, viewport } = useViewport({
     backendUrl: window.location.origin,
     hubUrl: env.hubUrl,
     accessToken: AuthSession.getStoredAuth()?.accessToken,
+    iModel: connection ?? undefined,
   });
+
+  // Onshape 式视口底色：亮色浅灰/暗色深灰。数据模型里的 view 背景默认黑，观感
+  // 与 Onshape 差距最大的一处。观察 ThemeProvider 写入的 documentElement[data-theme]
+  // 并监听属性变化（MutationObserver，同旧 Editor.tsx:243-260 姿态）。
+  useEffect(() => {
+    if (!viewport) return;
+    const apply = (): void => {
+      const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      applyViewportBackground(viewport, theme);
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'data-iui-theme'],
+    });
+    return () => observer.disconnect();
+  }, [viewport]);
 
   return (
     <div className="part-studio-page" data-testid="part-studio-page">
-      <PartStudioTopBar iTwinId={iTwinId ?? ''} iModelId={iModelId ?? ''} />
+      <PartStudioTopBar iTwinId={iTwinId} iModelId={iModelId} />
       {/* 工具 ribbon（os-11 第二行）：27 工具 + 8 下拉 + 命令搜索触发钮。 */}
       <Ribbon />
       <div className="part-studio-body">
         <PartStudioSidebar />
         <div className="part-studio-main">
-          <PartStudioCanvas viewportRef={viewportRef} />
+          <PartStudioCanvas viewportRef={viewportRef} viewport={viewport} />
           <PartStudioDock />
         </div>
       </div>
-      <PartStudioTabs iTwinId={iTwinId ?? ''} iModelId={iModelId ?? ''} connection={phase} />
+      <PartStudioTabs iTwinId={iTwinId} iModelId={iModelId} connection={phase} />
       {/* 命令搜索面板：页面级常驻挂载（alt+/ 热键经 store 驱动开合）。 */}
       <CommandPalette />
     </div>

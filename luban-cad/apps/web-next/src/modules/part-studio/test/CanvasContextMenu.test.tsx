@@ -36,6 +36,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@itwin/core-frontend', () => ({
+  // Tool 基类桩：part-studio barrel → PartStudioPage → viewer-next 装饰件
+  // （ToggleProjectExtentsTool extends Tool）模块加载期即需 Tool 存在。
+  Tool: class {},
   IModelApp: {
     tools: {
       run: mocks.toolsRun,

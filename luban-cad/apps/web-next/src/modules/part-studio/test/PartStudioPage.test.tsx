@@ -1,7 +1,8 @@
 // src/modules/part-studio/test/PartStudioPage.test.tsx
 //
-// M3 Task 3 结构断言（brief Step 1）：/documents/:iTwinId/:iModelId Part Studio
-// 编辑器布局壳五区存在性验收（对齐 os-11）——
+// M3 Task 3 结构断言（brief Step 1）+ M4 Task 2 连接/视口组合接线：
+// /documents/:iTwinId/:iModelId Part Studio 编辑器布局壳五区存在性验收（对齐
+// os-11）——
 //  1) 顶栏（part-studio-top-bar）：面包屑 文档 → iTwin 名 → iModel 名 + 分支
 //     徽标（Main）+ 分享钮 + 用户菜单 + 帮助钮；
 //  2) 左栏（part-studio-sidebar）：竖图标条（part-studio-icon-rail）+ 双段树
@@ -11,13 +12,20 @@
 //     点击写 store dock.activeTab 并展开占位内容，再点活动页签收合；
 //  5) 底部页签条（part-studio-tab-strip）：适应视图钮 + 「+」（T7 开页签
 //     管理器）+ 活动页签「Part Studio 1」+ 状态栏（连接态/编辑模式/单位/视图类型）。
+// M4 Task 2（连接/视口相位锚点）——
+//  6) useBriefcaseConnection 以路由 ids + viewOnly 调用（readonly=viewOnly）；
+//     connection 下传 useViewport.iModel；viewport 下传画布（data-viewport-ready）；
+//  7) 底色接线：viewport 就位即按 data-theme 应用（缺省 light）+ MutationObserver
+//     跟随 dark/light 切换。
 //
 // 定位：五区结构存在性 + store 接线验收层；mock 口径与 document-details 结构
 // 测试一致——真实 store/hooks 参与，客户端（ItwinsClient / ImodelsClient /
-// AuthSession）与 viewer-next（useViewport）模块级 mock（零真实请求/零查看器）。
+// AuthSession）与 viewer-next（useViewport/useBriefcaseConnection/
+// applyViewportBackground）模块级 mock（零真实请求/零查看器）。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import type React from 'react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,6 +34,12 @@ const mocks = vi.hoisted(() => ({
   itwinsGet: vi.fn(),
   imodelsGet: vi.fn(),
   imodelsList: vi.fn(),
+}));
+
+const viewerMocks = vi.hoisted(() => ({
+  useViewport: vi.fn(),
+  useBriefcaseConnection: vi.fn(),
+  applyViewportBackground: vi.fn(),
 }));
 
 vi.mock('@clients/itwins/ItwinsClient.js', () => ({
@@ -60,15 +74,14 @@ vi.mock('@clients/auth/AuthSession.js', () => ({
   },
 }));
 
-// 结构测试零查看器启动：useViewport 钉 ready 相位（状态栏「已连接」断言依赖）。
+// 结构测试零查看器启动：useViewport 钉 ready 相位 + 假 viewport 实例、
+// useBriefcaseConnection 钉就绪连接（状态栏「已连接」与 M4-T2 接线断言依赖）。
 vi.mock('@luban-cad/viewer-next', () => ({
-  useViewport: vi.fn().mockReturnValue({
-    viewportRef: { current: null },
-    phase: 'ready',
-    error: null,
-  }),
-  startViewer: vi.fn().mockResolvedValue(undefined),
-  stopViewer: vi.fn().mockResolvedValue(undefined),
+  useViewport: viewerMocks.useViewport,
+  useBriefcaseConnection: viewerMocks.useBriefcaseConnection,
+  applyViewportBackground: viewerMocks.applyViewportBackground,
+  acquireViewer: vi.fn().mockResolvedValue(undefined),
+  releaseViewer: vi.fn().mockResolvedValue(undefined),
   ensureAccuSnap: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -88,25 +101,38 @@ const IMODEL_DETAIL = {
   iTwinId: 'itwin-1',
 };
 
-/** store 复位：tree/dock 切片回缺省（结构用例间互不渗漏）。 */
+const FAKE_CONNECTION = { key: 'briefcase-key', isBriefcaseConnection: () => true };
+const FAKE_VIEWPORT = { view: { displayStyle: { backgroundColor: undefined } }, invalidateScene: vi.fn() };
+
+/** store 复位：八切片回缺省（结构用例间互不渗漏）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     dock: { activeTab: 'toolSettings', isOpen: false },
+    tool: { activeToolId: null },
+    sketch: { isActive: false, activeSketchId: null },
+    commandPalette: { isOpen: false, query: '', highlightEnabled: true },
+    canvas: { selection: [], hiddenIds: [] },
+    dialog: { active: null },
+    viewOnly: { isActive: false },
   });
 }
 
-function renderPage(): ReturnType<typeof render> {
+function pageTree(): React.JSX.Element {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  return (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/documents/itwin-1/im-1']}>
         <Routes>
           <Route path="/documents/:iTwinId/:iModelId" element={<PartStudioPage />} />
         </Routes>
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+
+function renderPage(): ReturnType<typeof render> {
+  return render(pageTree());
 }
 
 beforeEach(() => {
@@ -116,6 +142,22 @@ beforeEach(() => {
   mocks.imodelsGet.mockResolvedValue(IMODEL_DETAIL);
   // T7 页签管理器（底部「+」开合）：列表查询零真实请求。
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
+  // viewer-next mock 桩：连接就绪 + viewport 就位（M4-T2 接线断言的数据面）。
+  viewerMocks.useBriefcaseConnection.mockReturnValue({
+    connection: FAKE_CONNECTION,
+    isLoading: false,
+    error: null,
+    saveChanges: vi.fn().mockResolvedValue(undefined),
+    pushChanges: vi.fn().mockResolvedValue(undefined),
+    pullChanges: vi.fn().mockResolvedValue(undefined),
+  });
+  viewerMocks.useViewport.mockReturnValue({
+    viewportRef: { current: null },
+    phase: 'ready',
+    error: null,
+    viewport: FAKE_VIEWPORT,
+  });
+  document.documentElement.removeAttribute('data-theme');
 });
 
 describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
@@ -210,5 +252,57 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(statusBar).getByText('零件')).toBeDefined();
     expect(within(statusBar).getByText('mm')).toBeDefined();
     expect(within(statusBar).getByText('等轴测')).toBeDefined();
+  });
+});
+
+describe('M4-T2 连接/视口组合接线', () => {
+  it('useBriefcaseConnection 以路由 ids + viewOnly 调用；connection 下传 useViewport.iModel', () => {
+    renderPage();
+    expect(viewerMocks.useBriefcaseConnection).toHaveBeenCalledWith({
+      iTwinId: 'itwin-1',
+      iModelId: 'im-1',
+      readonly: false,
+    });
+    const lastViewportCall = viewerMocks.useViewport.mock.calls.at(-1);
+    expect(lastViewportCall).toBeDefined();
+    const viewportOptions = (lastViewportCall ?? [])[0] as { iModel: unknown; backendUrl: string };
+    expect(viewportOptions.iModel).toBe(FAKE_CONNECTION);
+    expect(viewportOptions.backendUrl).toBe(window.location.origin);
+  });
+
+  it('viewOnly 激活 → readonly 透传连接钩子（权限门：可编辑 = !viewOnly）', () => {
+    renderPage();
+    act(() => {
+      usePartStudioStore.getState().setViewOnly(true);
+    });
+    expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith({
+      iTwinId: 'itwin-1',
+      iModelId: 'im-1',
+      readonly: true,
+    });
+  });
+
+  it('viewport 下传画布：part-studio-canvas data-viewport-ready=true', () => {
+    renderPage();
+    expect(screen.getByTestId('part-studio-canvas').getAttribute('data-viewport-ready')).toBe('true');
+  });
+
+  it('底色接线：viewport 就位即按 data-theme 应用（缺省 light；MutationObserver 跟随切换）', async () => {
+    renderPage();
+    expect(viewerMocks.applyViewportBackground).toHaveBeenCalledWith(FAKE_VIEWPORT, 'light');
+
+    act(() => {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    });
+    await waitFor(() =>
+      expect(viewerMocks.applyViewportBackground).toHaveBeenLastCalledWith(FAKE_VIEWPORT, 'dark'),
+    );
+
+    act(() => {
+      document.documentElement.removeAttribute('data-theme');
+    });
+    await waitFor(() =>
+      expect(viewerMocks.applyViewportBackground).toHaveBeenLastCalledWith(FAKE_VIEWPORT, 'light'),
+    );
   });
 });
