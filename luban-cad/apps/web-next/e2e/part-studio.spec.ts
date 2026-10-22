@@ -20,6 +20,11 @@ import { expect, test } from '@playwright/test';
 import { openSeedImodelEditor, waitEditorReady } from './helpers';
 
 test.beforeEach(async ({ page }) => {
+  // 编辑器用例预算放大（T5 评审 M-4）：导航（openSeedImodelEditor ~90s 最坏）
+  // + waitEditorReady（30s 壳 + 90s 连接 + 90s canvas = 210s 最坏）远超全局
+  // 120s——病态慢栈下用例死于 Playwright timeout，丢失 helper 尾部的诊断文案
+  // （最后状态/重开次数）。test.slow() 三倍化（360s）兜住最坏链，正常态不受益。
+  test.slow();
   await openSeedImodelEditor(page);
   await waitEditorReady(page);
 });

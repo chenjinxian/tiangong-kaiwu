@@ -48,8 +48,10 @@ export default defineConfig({
 
   expect: {
     toHaveScreenshot: {
-      /* 钉版红即真红（retries 0 同纪律）；仅禁动画防过渡态像素噪声，
-       * maxDiffPixelRatio 缺省 0（严格逐像素）。 */
+      /* 钉版红即真红（retries 0 同纪律）；仅禁动画防过渡态像素噪声。
+       * 「逐像素」精确口径（T6 评审 M-3）：maxDiffPixelRatio 缺省 0=像素数
+       * 零容差（任何 1 个差异像素即红）；但 per-pixel 色距 threshold 缺省
+       * 0.2（YIQ）——非零色差在此容差内不判差，「零色差」不成立。 */
       animations: 'disabled',
     },
   },
@@ -69,7 +71,10 @@ export default defineConfig({
   webServer: {
     command: 'corepack pnpm@10 dev',
     url: 'http://localhost:5310',
-    reuseExistingServer: true,
+    // 常态开发态复用在场 dev server（M5-T5 口径）；CI 恒新起（T5 评审 M-5：
+    // 切换冲刺后 CI 形态临近，陈旧 dev server 被静默复用会吃假绿——旧应用
+    // apps/web 同口径 `!process.env.CI`）。
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
 });

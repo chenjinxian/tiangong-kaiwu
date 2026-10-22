@@ -21,3 +21,6 @@ test-results/
 # 上游 display-test-app 大资产超 GitHub 100MB 上限（本地保留不入库；上游同步剔除，见 UPSTREAM_SYNC 2026-10-03）
 itwinjs-core/test-apps/display-test-app/assets/*.Tiles
 docker-compose.override.yml
+# 真实栈探针证据落点（M4 终审 P2：根 shots/ 散落探针脚本/截图/日志——证据类不入库；
+# 仓内侧 .superpowers/sdd/*/shots 由 .superpowers/sdd/.gitignore 的 * 覆盖）
+/shots/

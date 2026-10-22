@@ -76,6 +76,10 @@ test('纯键盘：Tab 到创建 → 建文档（焦点路径断言）', async ({
 });
 
 test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活圆角 → Escape 分层', async ({ page }) => {
+  // 编辑器用例预算放大（T5 评审 M-4）：编辑器就绪链最坏 210s（waitEditorReady
+  // 30+90+90）+ 前置导航，超全局 120s——慢栈下 timeout 会抢先吃掉 helper 的
+  // 诊断文案。前一个用例（文档中心，无编辑器）不吃放大。
+  test.slow();
   await gotoDocuments(page, 'my');
 
   // 键盘激活种子项目卡（Enter 导航详情页；焦点锚定见文件头自首）
