@@ -111,7 +111,7 @@ hub 实测限流（IP+email 双桶）：**注册 3/h、登录 5/15min**（forgot
 | 复现 | `cd luban-cad/apps/web-next && corepack pnpm@10 exec playwright test e2e/perf.spec.ts`。**门禁轮纪律（T7）**：新起 dev server（吃真冷载+防长会话劣化）+ 整文件执行（编辑器用例在文件内先跑=冷值纪律进结构）+ fresh browser context 每跑 |
 | PASS 判据 | ①首帧中位 <5000ms（硬门）；②滚动 p95 ≤18.2ms（≈55fps 底线；60fps 目标 p95≈16.7ms）。**零阈值调整**——不达标如实红，登记 perf.md 判定与瓶颈分析 |
 | 证据链纪律（T7 评审 C-1/I-1） | 证据落 `<仓根>/.superpowers/sdd/2026-10-22-web-next-m5-cutover-sprint/perf-samples/run-<UTC 时间戳>/`——**每轮独立子目录永不覆盖**（固定文件名曾被全套件回归重跑静默覆盖门禁轮证据=v1 证据链断裂根因）；`PERF_EVIDENCE_DIR` 可整体改指向；路径锚 `import.meta.url` 非 cwd。**隔离复跑防自污染**：全套件回归会连带重跑本探针，门禁轮证据必须来自独立轮（新起 dev server + 单独跑本文件），不得引用回归轮数据充当门禁证据 |
-| 最近结果 | **2026-10-22 双 PASS**（T7 v2 门禁轮，run-2026-10-22T19-41-54-981Z）：滚动 p95 **16.8ms**（366 样本，≥18.2ms ×0 零掉帧，锁死 60Hz vsync）；首帧中位 **3932ms**<5s（余量 21.4%；冷 4661/热 3932·4171）。已知风险在案：D-T7-3 后续访惩罚 ~1.7-2s 机制未钉死，热中位带 3.6-4.7s 摆幅 ±12%——慢 CI 余量收窄，钉死后收紧协议不动阈值。登记全文 `​.superpowers/sdd/2026-10-22-web-next-m5-cutover-sprint/perf.md`（v2；v1 数字作废） |
+| 最近结果 | **2026-10-22 双 PASS**（T7 v2 门禁轮，run-2026-10-22T19-41-54-981Z）：滚动 p95 **16.8ms**（366 样本，≥18.2ms ×0 零掉帧，锁死 60Hz vsync）；首帧中位 **3932ms**<5s（余量 21.4%；冷 2224/热 3932·4171——T8 评审 M-1 订正：三跑原值以门禁轮 `perf-samples/run-…/editor-first-frame.json` 为准）。已知风险在案：D-T7-3 后续访惩罚 ~1.7-2s 机制未钉死，热中位带 3.6-4.7s 摆幅 ±12%——慢 CI 余量收窄，钉死后收紧协议不动阈值。登记全文 `​.superpowers/sdd/2026-10-22-web-next-m5-cutover-sprint/perf.md`（v2；v1 数字作废） |
 
 ---
 

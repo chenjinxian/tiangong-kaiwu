@@ -89,6 +89,10 @@ test('视觉钉版：文档详情（亮色）', async ({ page }) => {
 });
 
 test('视觉钉版：编辑器五区只读态（亮色，画布 mask）', async ({ page }) => {
+  // 编辑器用例预算放大（T8 评审 M-3，对齐 part-studio/keyboard 同款）：同链
+  // openSeedImodelEditor + waitEditorReady 最坏 ~300s > 全局 120s，慢栈下
+  // timeout 会抢先吃掉 helper 诊断文案。test.slow() 三倍化（360s）兜底。
+  test.slow();
   await pinLightZh(page);
   await openSeedImodelEditor(page);
   await waitEditorReady(page);

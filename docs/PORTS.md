@@ -12,9 +12,10 @@
 
 | 服务 | 宿主端口 | 容器/进程内端口 | 配置位置 |
 |---|---|---|---|
-| Web 前端（Vite dev） | **5300** | 5300（Vite） | `vite.config.ts` `server.port`；`.env.development` 的 `VITE_API_URL=http://localhost:5401` |
-| web-next dev（并行重写壳） | **5310** | 5310（Vite） | `apps/web-next/vite.config.ts` `server.port`；HUB CORS 白名单含 `http://localhost:5310`（`generate-env.ps1`） |
-| web 静态容器（nginx 后端） | 不发布 | 3000（容器内） | `luban-cad/apps/web/web-nginx.conf`；经外层 nginx :5301 暴露 |
+| Web 前端（Vite dev） | **5300** | 5300（Vite） | **切换冲刺（M5-T9）起归属 web-next**；过渡期 web-next dev 暂驻 :5310（下方行），apps/web（退役待删，见下）删除时一并迁入并同步 vite/playwright 配置与 HUB CORS 白名单 |
+| web-next dev | **5310** | 5310（Vite） | `apps/web-next/vite.config.ts` `server.port`；HUB CORS 白名单含 `http://localhost:5310`（`generate-env.ps1`）。**M5-T9 起为正选前端**（apps/web 进退役流程） |
+| apps/web dev（退役待删） | ~~5300~~ | 5300（Vite） | `apps/web/vite.config.ts` `server.port`；**M5-T9 起退役待删**（门禁核对单全绿+用户确认后删除，勿再起 dev——与 web-next 迁入 :5300 冲突） |
+| web 静态容器（nginx 后端） | 不发布 | 3000（容器内） | **M5-T9 起构建面 = `luban-cad/apps/web-next`**（`web-next/web-nginx.conf` + `web-next/Dockerfile`，compose `web` 服务本地 build）；经外层 nginx :5301 暴露 |
 | Nginx 单入口 | **5301** | 80 | 根 `docker-compose.yml` `nginx.ports` |
 | imodelhub-services (HUB) | **5400** | 4000 | compose `imodelhub.ports`；`APP_PORT=4000` 不变 |
 | modeling-server (MS，宿主进程) | **5401** | 5401 | 根 `.env` `PORT=5401`；`scripts/start-ms-host.ps1` 读取 |

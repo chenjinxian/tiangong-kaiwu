@@ -11,12 +11,14 @@
 
 ## 功能状态
 
+> **路径口径（2026-10-23 M5-T9 切换冲刺起）**：正选前端 = `apps/web-next/`（模块在 `src/modules/*`）；表中 `features/*` 路径属 `apps/web`（**退役待删**——切换门禁全绿+用户确认后删除，删除前仅作移植参考，勿改勿新增）。
+
 | 模块 | 路径 | 状态 |
 |------|------|------|
-| Auth | `features/auth/` | ✅ JWT 认证 |
-| iTwin | `features/itwin/` | ✅ 项目管理 |
-| iModel | `features/imodel/` | ✅ 模型管理 |
-| Editor | `features/editor/` | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口） |
+| Auth | web-next：`apps/web-next/src/modules/authentication/`（旧：`features/auth/`） | ✅ JWT 认证 |
+| iTwin | web-next：`apps/web-next/src/modules/documents/`（项目管理与文档中心同页）（旧：`features/itwin/`） | ✅ 项目管理 |
+| iModel | web-next：`apps/web-next/src/modules/documents/` + `document-details/`（旧：`features/imodel/`） | ✅ 模型管理 |
+| Editor | web-next：`apps/web-next/src/modules/part-studio/`（编辑器页：ribbon/特征树/参数面板/状态栏五区）+ 基座包 `packages/viewer-next`（iTwin 启动序列/RPC）+ `packages/editor/frontend`（第一方建模基座，2026-10-22 收编）（旧：`features/editor/`） | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口）；**web-next 侧真实后端全链路冒烟待 T4 解封（私有仓 pushChanges 修复+产物重发）** |
 | Sketch | `features/sketch/` | ✅ 草图编辑（M3-b：线/矩形/圆绘制+约束/尺寸工具链+DOF/矛盾面板+先试算后提交） |
 | Modeling | `features/modeling/` | 🟠 实体建模（阵列走前端直改通道）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService） |
 | Markup | `features/markup/` | ❌ 降级占位（`@itwin/core-markup` 依赖未配置——启用前需先补 workspace 依赖解析，T2.3 裁决：不预引依赖，等真实需求） |
@@ -43,9 +45,10 @@
 
 ```bash
 # 1. 启动基础设施（本地 iModel 管理平台及其 Postgres/Azurite/Redis，仓外项目，见其自带编排）
-# 2. 安装依赖并构建（首次或改动 itwinjs-core 后先跑 rush build --to …，见根 CLAUDE.md）
+# 2. 安装依赖并构建（首次或改动 itwinjs-core 后先跑 rush build --to …，见根 CLAUDE.md；
+#    全新检出还需先构建 workspace 基座包——见 apps/web-next/README.md「先 build 后 dev」）
 cd luban-cad && pnpm install
-cd apps/web && pnpm dev          # 前端 :5300
+cd apps/web-next && pnpm dev     # 前端 dev :5310（:5300 归属 web-next，apps/web 退役时迁入；栈内部署经 nginx :5301）
 
 # 3. 后台服务（源码在**仓外私有仓 luban-backend**，公开仓不检出也能跑：
 #    公开仓走产物分发——scripts/fetch-backend.ps1 拉 Releases 产物后
@@ -53,7 +56,7 @@ cd apps/web && pnpm dev          # 前端 :5300
 #    docker compose 容器跑 :5402。源码 dev 见该私有仓 README）
 ```
 
-访问 http://localhost:5300
+访问 http://localhost:5310
 
 ## 核心服务
 
@@ -127,4 +130,4 @@ cd apps/web && pnpm dev          # 前端 :5300
 tail -f /tmp/luban-cad/*.log
 ```
 
-*最后更新: 2026-09-24*
+*最后更新: 2026-10-23*
