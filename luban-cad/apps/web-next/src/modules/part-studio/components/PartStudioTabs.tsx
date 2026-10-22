@@ -9,8 +9,9 @@
  *   列表」跳转的诚实降级）+ 活动页签「Part Studio 1」；
  * - alt+~+t 和弦热键开页签管理器（os-33 底栏标注键位；M4-T8 收 M3 终审
  *   T7-①——Alt+~ 挂弦后击 t，可编辑焦点内不派发）；
- * - 状态栏：连接态（viewer-next useViewport 相位驱动）/ 编辑模式 / 单位 /
- *   视图类型（后三项壳期静态值，T4+ 随工具/视口接线）。
+ * - 状态栏：连接态（useViewport 相位 + briefcase 相位合并映射——M5-T2 前
+ *   briefcase isLoading/error 零消费，连接失败曾呈「已连接+黑屏」）/ 编辑
+ *   模式 / 单位 / 视图类型（后三项壳期静态值，T4+ 随工具/视口接线）。
  */
 
 import React from 'react';
@@ -27,10 +28,22 @@ export interface PartStudioTabsProps {
   iModelId: string;
   /** 运行时连接相位（useViewport 出口 → 状态栏连接态）。 */
   connection: ViewportPhase;
+  /** briefcase 打开中（M5-T2：isLoading 消费——「正在打开文档…」，优先于 host 相位呈现）。 */
+  briefcaseLoading?: boolean;
+  /** briefcase 打开失败消息（M5-T2：error 消费——「连接失败」，优先于 host 相位呈现；原文在画布错误面）。 */
+  briefcaseError?: string | null;
 }
 
-/** 相位 → 连接态文案键（ready=已连接；error=连接失败；其余=连接中）。 */
-function connectionKey(connection: ViewportPhase): string {
+/** 相位 → 连接态文案键（M5-T2 合并映射：briefcase 失败/打开中优先于 host 相位
+ *——T2-② 缺陷本体即 host ready 相位掩盖 briefcase 失败；ready=已连接；
+ * host error=连接失败；其余=连接中）。 */
+function connectionKey(
+  connection: ViewportPhase,
+  briefcaseLoading: boolean,
+  briefcaseError: string | null,
+): string {
+  if (briefcaseError) return 'partStudio.status.connectionFailed';
+  if (briefcaseLoading) return 'partStudio.status.openingDocument';
   switch (connection) {
     case 'ready':
       return 'partStudio.status.connected';
@@ -41,7 +54,13 @@ function connectionKey(connection: ViewportPhase): string {
   }
 }
 
-export function PartStudioTabs({ iTwinId, iModelId, connection }: PartStudioTabsProps): React.JSX.Element {
+export function PartStudioTabs({
+  iTwinId,
+  iModelId,
+  connection,
+  briefcaseLoading = false,
+  briefcaseError = null,
+}: PartStudioTabsProps): React.JSX.Element {
   const { t } = useTranslation();
   const [tabManagerOpen, setTabManagerOpen] = React.useState(false);
 
@@ -114,7 +133,7 @@ export function PartStudioTabs({ iTwinId, iModelId, connection }: PartStudioTabs
         <span className="part-studio-status-bar__item">
           <span className="part-studio-status-bar__label">{t('partStudio.status.connection')}</span>
           <span className="part-studio-status-bar__value" data-testid="part-studio-status-connection">
-            {t(connectionKey(connection))}
+            {t(connectionKey(connection, briefcaseLoading, briefcaseError))}
           </span>
         </span>
         <span className="part-studio-status-bar__item">

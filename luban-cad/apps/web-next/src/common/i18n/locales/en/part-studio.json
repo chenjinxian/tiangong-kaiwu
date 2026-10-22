@@ -60,7 +60,8 @@
     "confirm": "Push",
     "pushing": "Pushing…",
     "success": "Version pushed to the hub",
-    "pushFailed": "Push failed: {{message}}"
+    "pushFailed": "Push failed: {{message}}",
+    "disconnected": "Connection lost — the save version dialog has been closed"
   },
   "tabs": {
     "fitView": "Fit to view",
@@ -128,12 +129,17 @@
     "connecting": "Connecting",
     "connected": "Connected",
     "connectionFailed": "Connection failed",
+    "openingDocument": "Opening document…",
     "editMode": "Edit mode",
     "editModePart": "Part",
     "units": "Units",
     "unitMm": "mm",
     "viewType": "View",
     "viewIso": "Isometric"
+  },
+  "connection": {
+    "errorTitle": "Failed to open document",
+    "errorHint": "Close this tab and reopen the document to retry; if it keeps failing, check your network and the modeling service."
   },
   "tools": {
     "registrationFailed": "Tool registration failed: {{message}}",

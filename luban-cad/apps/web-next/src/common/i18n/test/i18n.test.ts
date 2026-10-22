@@ -159,6 +159,11 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'status.editMode', 'status.editModePart',
   'status.units', 'status.unitMm',
   'status.viewType', 'status.viewIso',
+  // M5 Task 2：连接相位呈现（briefcase isLoading/error 消费）——状态栏打开中
+  // 文案 + 画布错误面（标题/诚实重试路径）+ 推送对话框断连兜底 toast。
+  'status.openingDocument',
+  'connection.errorTitle', 'connection.errorHint',
+  'pushChangeset.disconnected',
   // M3 Task 4：ribbon/命令搜索/能力引导对话框 chrome 键——ribbon.tools.* 与
   // ribbon.items.*（27+44 条）由 ribbon-registry.test.ts 数据驱动守卫。
   'ribbon.toolbarLabel', 'ribbon.searchTools', 'ribbon.searchShortcut',

@@ -60,7 +60,8 @@
     "confirm": "推送",
     "pushing": "推送中…",
     "success": "版本已推送到云端",
-    "pushFailed": "推送失败: {{message}}"
+    "pushFailed": "推送失败: {{message}}",
+    "disconnected": "连接已断开，保存版本对话框已关闭"
   },
   "tabs": {
     "fitView": "适应视图",
@@ -128,12 +129,17 @@
     "connecting": "连接中",
     "connected": "已连接",
     "connectionFailed": "连接失败",
+    "openingDocument": "正在打开文档…",
     "editMode": "编辑模式",
     "editModePart": "零件",
     "units": "单位",
     "unitMm": "mm",
     "viewType": "视图类型",
     "viewIso": "等轴测"
+  },
+  "connection": {
+    "errorTitle": "文档打开失败",
+    "errorHint": "请关闭此页签后重新打开文档重试；若持续失败，请检查网络与建模服务状态。"
   },
   "tools": {
     "registrationFailed": "工具注册失败: {{message}}",

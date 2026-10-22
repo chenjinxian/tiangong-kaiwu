@@ -61,6 +61,20 @@
  * hub），成功后失效 `['part-studio','changesets']` 刷新 dock 面板，收点 =
  * onChangesPushed 事件（useUndoRedo 已订）驱动 hasPendingTxns 归 false。
  * dock「保存」钮与 Ctrl+S 键位保留 saveChanges 本地兜底语义（与推送分离）。
+ *
+ * 连接失败 UX（M5-T2）：briefcase 的 isLoading/error 两出口（M4-T2 落地后一直
+ * 零消费）接入呈现链——连接三态（下载中/失败/就绪）从此在编辑器页可见：
+ * - **呈现层位（T2 定序纪律裁量）**：useBriefcaseConnection 仍钉外层（「为何
+ *   拆两层」的 IpcApp 时序不变），isLoading/error 以 props 下传 Session 内层
+ *   呈现——画布骨架/错误面挂 PartStudioCanvas（绝对定位覆盖层，零布局跳动），
+ *   状态栏合并映射挂 PartStudioTabs（briefcase 失败/打开中优先于 host 相位——
+ *   T2-② 缺陷本体即 ready 相位掩盖 briefcase 失败）；
+ * - **诚实呈现**：错误面透传 error.message 原文；重试只给真实路径指引
+ *   （关闭页签后重新打开文档），不放行不通的重试钮（hook 无重试入口，id 不变
+ *   不重开）；
+ * - **T7-② 断连兜底**：推送对话框开着时连接消失（页签切换重开连接的中间态），
+ *   `connection &&` 条件渲染会直卸载对话框——收合并经 IModelApp.notifications
+ *   toast 说明（不无声消失；守卫保证只在「开→断」跃迁发声）。
  */
 
 import React, { useCallback, useEffect } from 'react';
@@ -110,6 +124,8 @@ export function PartStudioPage(): React.JSX.Element {
       iTwinId={iTwinId ?? ''}
       iModelId={iModelId ?? ''}
       connection={briefcase.connection}
+      connectionLoading={briefcase.isLoading}
+      connectionError={briefcase.error}
     />
   );
 }
@@ -118,9 +134,19 @@ interface PartStudioSessionProps {
   iTwinId: string;
   iModelId: string;
   connection: BriefcaseConnection | null;
+  /** briefcase 打开中（M5-T2 isLoading 消费：画布骨架 + 状态栏「正在打开文档…」）。 */
+  connectionLoading: boolean;
+  /** briefcase 打开失败（M5-T2 error 消费：画布错误面 + 状态栏失败态；成功/进行中恒 null）。 */
+  connectionError: Error | null;
 }
 
-function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionProps): React.JSX.Element {
+function PartStudioSession({
+  iTwinId,
+  iModelId,
+  connection,
+  connectionLoading,
+  connectionError,
+}: PartStudioSessionProps): React.JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   // 可编辑 = !viewOnly（权限门同外层连接口径）；viewOnly 时编辑作用域不进入
@@ -159,6 +185,16 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
 
   // 撤销/重做/保存（M4-T4；BriefcaseTxns 标准通道，禁旧自造 UndoManager）。
   const undoRedo = useUndoRedo(connection);
+
+  // 连接相位呈现（M5-T2）：briefcase 下载中/失败两态此前零消费——连接失败时
+  // 状态栏走 useViewport ready 相位显示「已连接」、画布永不出图（M4 终审
+  // T2-②）。错误消息原地格式化一次（画布错误面透传原文；状态栏只取失败布尔），
+  // 两处呈现位共用，防双处口径漂移。
+  const connectionErrorMessage = connectionError instanceof Error
+    ? connectionError.message
+    : connectionError
+      ? String(connectionError)
+      : null;
 
   // 顶栏三回调 viewOnly 门（T4 评审 Minor-1）：与键盘保存同口径——仅查看态下
   // 三钮点击不触发（连接虽可写打开，编辑面已整体收口）。
@@ -212,6 +248,22 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
     },
     [connection, iModelId, queryClient],
   );
+
+  // T7-②（M5-T2）断连兜底：连接消失（页签切换重开连接的中间态/异常退出）而
+  // 推送对话框仍开着时，`connection &&` 条件渲染会直卸载对话框（无声消失，无
+  // 交代）——此处收合并经 notifications 通道说明（与保存失败/推送成功 toast
+  // 同管道，诚实呈现不静默）。守卫保证只在「开→断」跃迁发声：首挂（对话框未
+  // 开）与正常关闭（connection 在场）均不响。
+  useEffect(() => {
+    if (connection || !pushDialogOpen) return;
+    setPushDialogOpen(false);
+    IModelApp.notifications.outputMessage(
+      new NotifyMessageDetails(
+        OutputMessagePriority.Warning,
+        t('partStudio.pushChangeset.disconnected'),
+      ),
+    );
+  }, [connection, pushDialogOpen, t]);
 
   // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer-next
   // registerDefaultShortcuts 独占（T3 交接裁定：二次绑定 = 工具双跑）。
@@ -362,6 +414,8 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
             viewport={viewport}
             applyOp={featureSystem.applyOp}
             leaseOk={featureSystem.leaseOk}
+            connectionLoading={connectionLoading}
+            connectionError={connectionErrorMessage}
           />
           <PartStudioDock
             iModelId={iModelId}
@@ -373,7 +427,13 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
           />
         </div>
       </div>
-      <PartStudioTabs iTwinId={iTwinId} iModelId={iModelId} connection={phase} />
+      <PartStudioTabs
+        iTwinId={iTwinId}
+        iModelId={iModelId}
+        connection={phase}
+        briefcaseLoading={connectionLoading}
+        briefcaseError={connectionErrorMessage}
+      />
       {/* 推送对话框（M4-T7）：顶栏「保存版本」钮与 dock「推送」钮的共享实例
           （确认走 connection.pushChanges；失败就地/成功 toast 归对话框自治）。 */}
       {connection && (

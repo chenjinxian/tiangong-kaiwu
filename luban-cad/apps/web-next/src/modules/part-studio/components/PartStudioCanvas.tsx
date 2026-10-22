@@ -21,7 +21,11 @@
  *   ——打开中的写面对话框整体收口（对话框宿主职责；对话框内另有 viewOnly
  *   提交门兜底，防御纵深）；
  * - store.sketch.isActive 驱动草图模式覆盖层：栅格（aria-hidden 纯视觉层）+
- *   约束（role=note 标签层）。
+ *   约束（role=note 标签层）；
+ * - 连接相位覆盖层（M5-T2）：briefcase 下载中骨架 / 失败错误面（Session 下传
+ *   isLoading/error，此前零消费）——绝对定位叠加在 viewport 上（零布局跳动）；
+ *   错误面透传 error.message 原文 + 诚实重试路径指引（重开=切页签/重进，
+ *   无假重试钮——连接 hook 无重试入口，id 不变不重开）。
  */
 
 import React from 'react';
@@ -47,6 +51,10 @@ export interface PartStudioCanvasProps {
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   /** 写租约在持（Session useFeatureSystem.leaseOk 直通；FeatureDialog 租约警示消费，T6 评审 I-2）。 */
   leaseOk?: boolean;
+  /** briefcase 打开中（M5-T2：Session 下传 isLoading——画布骨架覆盖层）。 */
+  connectionLoading?: boolean;
+  /** briefcase 打开失败消息（M5-T2：Session 下传 error.message 原文——错误面透传；null=无失败）。 */
+  connectionError?: string | null;
 }
 
 interface MenuAnchor {
@@ -54,7 +62,14 @@ interface MenuAnchor {
   y: number;
 }
 
-export function PartStudioCanvas({ viewportRef, viewport, applyOp, leaseOk }: PartStudioCanvasProps): React.JSX.Element {
+export function PartStudioCanvas({
+  viewportRef,
+  viewport,
+  applyOp,
+  leaseOk,
+  connectionLoading = false,
+  connectionError = null,
+}: PartStudioCanvasProps): React.JSX.Element {
   const { t } = useTranslation();
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
 
@@ -90,6 +105,37 @@ export function PartStudioCanvas({ viewportRef, viewport, applyOp, leaseOk }: Pa
       onContextMenu={handleContextMenu}
     >
       <div ref={viewportRef} className="part-studio-viewport" data-testid="part-studio-viewport" />
+
+      {/* 连接相位覆盖层（M5-T2）：briefcase 失败错误面 / 下载中骨架。绝对定位
+          叠加（z-index 低于草图覆盖层），viewport 区无重排——零布局跳动。错误
+          面透传 error.message 原文 + 诚实重试指引（无假重试钮）；骨架先行占位
+          防「已连接+黑屏」。 */}
+      {connectionError ? (
+        <div
+          className="part-studio-canvas__connection-error"
+          data-testid="part-studio-connection-error"
+          role="alert"
+        >
+          <p className="part-studio-canvas__connection-error-title">
+            {t('partStudio.connection.errorTitle')}
+          </p>
+          <p className="part-studio-canvas__connection-error-message">{connectionError}</p>
+          <p className="part-studio-canvas__connection-error-hint">
+            {t('partStudio.connection.errorHint')}
+          </p>
+        </div>
+      ) : connectionLoading ? (
+        <div
+          className="part-studio-canvas__connection-loading"
+          data-testid="part-studio-connection-loading"
+        >
+          <span className="part-studio-canvas__connection-loading-bar" />
+          <span className="part-studio-canvas__connection-loading-bar part-studio-canvas__connection-loading-bar--short" />
+          <span className="part-studio-canvas__connection-loading-label">
+            {t('partStudio.status.openingDocument')}
+          </span>
+        </div>
+      ) : null}
 
       {/* T6 草图模式覆盖层（os-30）：栅格（纯视觉）+ 约束（标签）。 */}
       {sketchActive && (

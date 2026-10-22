@@ -17,6 +17,12 @@
 //     connection 下传 useViewport.iModel；viewport 下传画布（data-viewport-ready）；
 //  7) 底色接线：viewport 就位即按 data-theme 应用（缺省 light）+ MutationObserver
 //     跟随 dark/light 切换。
+// M5 Task 2（连接失败 UX 批）——
+//  8) 连接相位呈现（briefcase isLoading/error 此前零消费，M4 终审 T2-②）：
+//     下载中 → 状态栏「正在打开文档…」+ 画布骨架覆盖层；失败 → 画布错误面
+//     （error.message 透传）+ 状态栏连接失败 + 诚实重试路径（无假重试钮）；
+//  9) T7-② 推送对话框断连兜底：对话框开着时连接消失 → 收合且 notifications
+//     toast 说明（不无声消失）。
 //
 // 定位：五区结构存在性 + store 接线验收层；mock 口径与 document-details 结构
 // 测试一致——真实 store/hooks 参与，客户端（ItwinsClient / ImodelsClient /
@@ -728,5 +734,79 @@ describe('M4-T8：waitForToolAdmin 5s 耗尽超时可见（不静默）', () => 
       vi.useRealTimers();
       (IModelApp as { initialized: boolean }).initialized = realInitialized;
     }
+  });
+});
+
+// ── M5 Task 2（连接失败 UX 批）──────────────────────────────────────────────
+// M4 终审 T2-②：useBriefcaseConnection 的 isLoading/error 两出口此前零消费——
+// 连接失败时状态栏走 useViewport ready 相位显示「已连接」、画布永不出图（黑屏）。
+// 本批把连接三态（下载中/失败/就绪）做进编辑器页呈现，并给断连时的推送对话框
+// 一个有声有色的收场（T7-②：收合 + notifications toast 说明，不无声消失）。
+describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送对话框断连兜底', () => {
+  const disconnectedMock = () => ({
+    connection: null as unknown,
+    isLoading: true,
+    error: null as Error | null,
+    saveChanges: vi.fn().mockResolvedValue(undefined),
+    pushChanges: vi.fn().mockResolvedValue(undefined),
+    pullChanges: vi.fn().mockResolvedValue(undefined),
+  });
+
+  it('连接失败：画布错误面（error.message 透传）+ 状态栏连接失败（briefcase 失败优先于 host ready 相位）+ 诚实重试路径无假重试钮', () => {
+    viewerMocks.useBriefcaseConnection.mockReturnValue({
+      connection: null,
+      isLoading: false,
+      error: new Error('downloadBriefcase failed: briefcase quota exceeded'),
+      saveChanges: vi.fn().mockResolvedValue(undefined),
+      pushChanges: vi.fn().mockResolvedValue(undefined),
+      pullChanges: vi.fn().mockResolvedValue(undefined),
+    });
+    renderPage();
+
+    // 画布错误面：标题 + error.message 原文透传（诊断线索不裁剪）+ 诚实重试指引。
+    const face = within(screen.getByTestId('part-studio-canvas')).getByTestId('part-studio-connection-error');
+    expect(within(face).getByText('文档打开失败')).toBeDefined();
+    expect(within(face).getByText('downloadBriefcase failed: briefcase quota exceeded')).toBeDefined();
+    expect(within(face).getByText(/重新打开文档/)).toBeDefined();
+    // 无假重试钮：重开=切页签/重进的真实路径，错误面只给指引不放行不通的按钮。
+    expect(within(face).queryByRole('button')).toBeNull();
+    // 状态栏同步失败态——host 相位 ready 被 briefcase 失败覆盖（T2-② 缺陷本体）。
+    expect(within(screen.getByTestId('part-studio-status-bar')).getByText('连接失败')).toBeDefined();
+  });
+
+  it('下载中：状态栏「正在打开文档…」+ 画布骨架覆盖层（五区在场不重排——零布局跳动）', () => {
+    viewerMocks.useBriefcaseConnection.mockReturnValue(disconnectedMock());
+    renderPage();
+    expect(within(screen.getByTestId('part-studio-status-bar')).getByText('正在打开文档…')).toBeDefined();
+    expect(within(screen.getByTestId('part-studio-canvas')).getByTestId('part-studio-connection-loading')).toBeDefined();
+    // 覆盖层为绝对定位叠加：五区结构照常在场（不因连接相位重排布局）。
+    expect(screen.getByTestId('part-studio-top-bar')).toBeDefined();
+    expect(screen.getByTestId('part-studio-sidebar')).toBeDefined();
+    expect(screen.getByTestId('part-studio-dock')).toBeDefined();
+    expect(screen.getByTestId('part-studio-status-bar')).toBeDefined();
+  });
+
+  it('T7-② 断连兜底：推送对话框开着时连接消失 → 对话框收合且 notifications toast 说明（不无声消失）', async () => {
+    const user = userEvent.setup();
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    const { rerender } = renderPage();
+    const save = (await within(screen.getByTestId('part-studio-top-bar')).findByRole('button', { name: '保存版本' })) as HTMLButtonElement;
+    await waitFor(() => expect(save.disabled).toBe(false));
+    await user.click(save);
+    expect(await screen.findByRole('dialog', { name: '保存版本' })).toBeDefined();
+    // 开对话框路径本身无 toast（兜底只在「开→断」跃迁发声）。
+    expect(coreFrontendMocks.outputMessage).not.toHaveBeenCalled();
+
+    // 连接消失（页签切换重开连接的中间态）：mock 翻转 + rerender 驱动 hook 重查询。
+    viewerMocks.useBriefcaseConnection.mockReturnValue(disconnectedMock());
+    await act(async () => {
+      await rerender(pageTree());
+    });
+
+    // 对话框收合 + toast 说明（notifications 通道）——不无声消失。
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull());
+    await waitFor(() => expect(coreFrontendMocks.outputMessage).toHaveBeenCalledTimes(1));
+    const details = coreFrontendMocks.outputMessage.mock.calls[0]?.[0] as { briefMessage: string };
+    expect(details.briefMessage).toContain('连接已断开');
   });
 });
