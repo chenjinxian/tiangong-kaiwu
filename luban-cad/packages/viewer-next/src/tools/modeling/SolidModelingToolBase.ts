@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 // 同源移植自 apps/web/features/modeling/SolidModelingToolBase.ts（web-next M4-T3；
-// 类名/接口名不改——Agent 复用规约）。唯一差异：SolidModelingEvents 改同目录
-// 相对导入。RoundEdgesTool/ChamferEdgesTool/HollowFacesTool（editor-frontend
-// 内置）不经此基类；本基类当前仅被移植件 DraftFacesTool 继承。
+// 类名/接口名不改——Agent 复用规约）。RoundEdgesTool/ChamferEdgesTool/
+// HollowFacesTool（editor-frontend 内置）不经此基类；本基类当前仅被移植件
+// DraftFacesTool 继承。
 
 import {
   LocateSubEntityTool,
@@ -30,7 +30,7 @@ export interface SolidModelingToolBaseOptions {
 
 /**
  * 实体建模工具基类 - 提供边/面选择的通用逻辑
- * RoundEdgesTool, ChamferEdgesTool, HollowFacesTool 继承此类
+ * （web-next 当前仅移植件 DraftFacesTool 继承此类）
  */
 export abstract class SolidModelingToolBase<
   TOptions extends SolidModelingToolBaseOptions = SolidModelingToolBaseOptions,

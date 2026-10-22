@@ -4,9 +4,10 @@
  * web-next 编辑工具注册表（web-next M4 Task 3）——旧应用
  * apps/web/features/editor/registerTools.ts registerAllTools() 的同源裁剪移植：
  * `EditTools.initialize()` 前置 + 按旧表分组序注册 + registerDefaultShortcuts
- * 子集（见 keyboard-shortcuts.ts）。幂等：模块级 flag，仅成功后落位；失败向上
- * 抛（PartStudioPage 编排层负责 IModelApp.notifications 可见——旧 Editor.tsx
- * :287-301 的教训：静默抛死会让后续注册全部不执行）。
+ * 子集（见 keyboard-shortcuts.ts）。分组序一处对调已登记：旧表裁剪 5 在测量 6
+ * 之前，新表按简报钉序（测量 6 → 裁剪 5）对调。幂等：模块级 flag，仅成功后
+ * 落位；失败向上抛（PartStudioPage 编排层负责 IModelApp.notifications 可见——
+ * 旧 Editor.tsx:287-301 的教训：静默抛死会让后续注册全部不执行）。
  *
  * ── 跳过项诚实登记（对照旧 registerTools.ts 全表；勿静默）──────────────────
  *  - core-markup 12 工具（Line/Rectangle/Circle/Ellipse/Arrow/Cloud/Polygon/
@@ -14,10 +15,10 @@
  *    未配置（同旧应用注释性跳过；启用前先补 workspace 依赖解析）；
  *  - SetSketchPlaneTool / SelectSubEntityTool（旧 features/modeling 自定义）：
  *    简报 Files 未列——草图模式接线里程碑移植（去向：tools/modeling/）；
- *  - 鲁班草图链 13 工具（SketchLineTool/SketchRectangleTool/SketchCircleTool +
- *    Coincident/Horizontal/Vertical/Parallel/Perpendicular/Equal 约束 +
- *    Distance/Radius 尺寸，旧 features/sketch/tools/*）：web-next 草图模式
- *    （SketchDialog 后续里程碑）接线时移植；
+ *  - 鲁班草图链 11 工具（绘制 3：SketchLineTool/SketchRectangleTool/
+ *    SketchCircleTool + 约束 6：Coincident/Horizontal/Vertical/Parallel/
+ *    Perpendicular/Equal + 尺寸 2：Distance/Radius，旧 features/sketch/tools/*）：
+ *    web-next 草图模式（SketchDialog 后续里程碑）接线时移植；
  *  - 选择 5 工具（FenceSelect/SelectAll/Invert/ClearSelection/SelectByCategory，
  *    旧 src/core/tools/SelectionTools.ts）：简报未列——命令面板接线里程碑移植；
  *  - 剖切 2 工具（SectionByPlane/ClearSection，旧 src/core/section/SectionTools.ts）：

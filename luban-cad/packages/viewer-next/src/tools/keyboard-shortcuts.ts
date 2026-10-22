@@ -22,7 +22,7 @@
 
 import { IModelApp } from '@itwin/core-frontend';
 
-/** 轮询上限（毫秒预算语义与旧 Editor.tsx 无关——此处仅派发，不做轮询）。 */
+/** 可编辑标签守卫集：焦点落在这些标签/contentEditable 内不派发工具键。 */
 const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
 
 let installed = false;
