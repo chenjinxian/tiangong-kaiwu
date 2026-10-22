@@ -31,17 +31,32 @@
  *   ensureEditTools（EditTools.initialize + 注册表 + 快捷键子集）——失败走
  *   IModelApp.notifications 错误面（旧 Editor.tsx:262-309 序移植）。注册后
  *   ribbon/命令搜索的 8 个真实 toolId（RoundEdges/DraftFaces/…）tools.run 直投
- *   真启动（useToolActivation 本任务不动）。
+ *   真启动（useToolActivation 本任务不动）；
+ * - 编辑作用域 + 撤销/重做/保存（M4-T4）：三 hook 挂 **Session 内层**
+ *   （connection prop 已在此层；外层只持 useBriefcaseConnection 组装）——
+ *   useEditingScope（Editor.tsx:322-371 忠实移植：复用/回查/卸载退出）、
+ *   useUndoRedo（BriefcaseTxns 标准通道：txns 三查询 + onCommit/onCommitted/
+ *   onAfterUndoRedo/onChangesPushed 事件驱动布尔；undo/redo 投内置工具
+ *   'Undo'/'Redo'）、useEditorKeyboard（只补 Ctrl+S——undo/redo/Delete/
+ *   Escape 键位 viewer-next registerDefaultShortcuts 独占，勿二次绑定）；
+ * - editorToolSettings 配置段（Editor.tsx:200-235 移植）：viewport+connection+
+ *   scope 就绪后校准默认类目/模型 + 空间视图默认开项目范围装饰件。
  *
  * backendUrl 传同源（MS CORS 钉死 :5300，web-next :5310 走 vite 代理，见
  * vite.config.ts 注记；姿态同 DevViewerRoute），相位上供状态栏。ribbon/命令
  * 搜索（T4）挂顶栏下；树数据/特征对话框等 T5+ 接管。
  */
 
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { applyViewportBackground, ensureEditTools, useBriefcaseConnection, useViewport } from '@luban-cad/viewer-next';
+import {
+  applyViewportBackground,
+  ensureEditTools,
+  toggleProjectExtents,
+  useBriefcaseConnection,
+  useViewport,
+} from '@luban-cad/viewer-next';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';
@@ -53,6 +68,9 @@ import { PartStudioDock } from './components/PartStudioDock.js';
 import { PartStudioTabs } from './components/PartStudioTabs.js';
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
+import { useEditingScope } from './hooks/useEditingScope.js';
+import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
+import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/part-studio.store.js';
 import './PartStudioPage.css';
 
@@ -83,6 +101,9 @@ interface PartStudioSessionProps {
 
 function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionProps): React.JSX.Element {
   const { t } = useTranslation();
+  // 可编辑 = !viewOnly（权限门同外层连接口径）；viewOnly 时编辑作用域不进入
+  //（readonly briefcase 无编辑面），键盘保存亦不挂。
+  const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
   // 会话由 RequireAuth 门保证在场；token 静态传入（M3 雷②闭环：渲染期取一次，
   // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer-next 演进）。
   const { viewportRef, phase, viewport } = useViewport({
@@ -91,6 +112,72 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
     accessToken: AuthSession.getStoredAuth()?.accessToken,
     iModel: connection ?? undefined,
   });
+
+  // 编辑作用域（M4-T4；Editor.tsx:322-371 忠实移植）：进入/复用/失败回查/
+  // 卸载退出——hook 内部自治，页面只消费 isReady（editorToolSettings 配置段的
+  // 就绪门，T5+ 特征树/工具面复用）。
+  const { isReady: isEditingScopeReady } = useEditingScope(connection ?? undefined, !viewOnly);
+
+  // 撤销/重做/保存（M4-T4；BriefcaseTxns 标准通道，禁旧自造 UndoManager）。
+  const undoRedo = useUndoRedo(connection);
+
+  // 保存错误面（registration-failed 同款 notifications 通道）：保存失败必须
+  // 可见，不静默吞（M3-b T4 教训）。
+  const handleSave = useCallback(() => {
+    void undoRedo.saveChanges().catch((err: unknown) => {
+      IModelApp.notifications.outputMessage(
+        new NotifyMessageDetails(
+          OutputMessagePriority.Error,
+          t('partStudio.topBar.edit.saveFailed', {
+            message: err instanceof Error ? err.message : String(err),
+          }),
+        ),
+      );
+    });
+  }, [undoRedo, t]);
+
+  // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer-next
+  // registerDefaultShortcuts 独占（T3 交接裁定：二次绑定 = 工具双跑）。
+  useEditorKeyboard(!viewOnly, { save: handleSave });
+
+  // editorToolSettings 配置段（M4-T4；Editor.tsx:200-235 移植）：viewport+
+  // connection+scope 三就绪后校准工具默认类目/模型，空间视图默认开项目范围
+  // 装饰件（D4 必办挂账的运行时入口）。
+  useEffect(() => {
+    if (!viewport || !connection || !isEditingScopeReady) return;
+    const conn = connection;
+    if (!conn.isBriefcaseConnection()) return;
+
+    const settings = conn.editorToolSettings;
+    const view = viewport.view;
+
+    // 校准并更新类目（默认取类目选择器首个）。
+    if (settings.category === undefined || !view.viewsCategory(settings.category)) {
+      settings.category = undefined;
+      for (const catId of view.categorySelector.categories) {
+        settings.category = catId;
+        break;
+      }
+    }
+
+    // 校准并更新模型（2d 取 baseModel；3d 空间视图取模型选择器首个）。
+    if (settings.model === undefined || !view.viewsModel(settings.model)) {
+      settings.model = undefined;
+      if (view.is2d()) {
+        settings.model = view.baseModelId;
+      } else if (view.isSpatialView()) {
+        for (const modId of view.modelSelector.models) {
+          settings.model = modId;
+          break;
+        }
+      }
+    }
+
+    // 空间视图默认开启项目范围装饰件。
+    if (view.isSpatialView()) {
+      toggleProjectExtents(conn, true);
+    }
+  }, [viewport, connection, isEditingScopeReady]);
 
   // 工具注册编排（M4-T3；旧 Editor.tsx:262-309 序忠实移植）：host 就绪
   //（phase ready = LocalhostIpcApp.startup 完成）→ waitForToolAdmin 轮询
@@ -160,7 +247,17 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
 
   return (
     <div className="part-studio-page" data-testid="part-studio-page">
-      <PartStudioTopBar iTwinId={iTwinId} iModelId={iModelId} />
+      <PartStudioTopBar
+        iTwinId={iTwinId}
+        iModelId={iModelId}
+        canUndo={undoRedo.canUndo}
+        canRedo={undoRedo.canRedo}
+        hasUnsavedChanges={undoRedo.hasUnsavedChanges}
+        isSaving={undoRedo.isSaving}
+        onUndo={() => void undoRedo.undo()}
+        onRedo={() => void undoRedo.redo()}
+        onSave={handleSave}
+      />
       {/* 工具 ribbon（os-11 第二行）：27 工具 + 8 下拉 + 命令搜索触发钮。 */}
       <Ribbon />
       <div className="part-studio-body">

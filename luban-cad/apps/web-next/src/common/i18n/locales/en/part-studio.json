@@ -2,6 +2,13 @@
   "topBar": {
     "breadcrumb": { "documents": "Documents" },
     "branch": { "main": "Main" },
+    "edit": {
+      "undo": "Undo",
+      "redo": "Redo",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveFailed": "Save failed: {{message}}"
+    },
     "share": "Share",
     "help": "Help",
     "userMenu": {

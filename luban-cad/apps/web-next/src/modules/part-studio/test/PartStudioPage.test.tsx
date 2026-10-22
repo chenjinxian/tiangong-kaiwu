@@ -41,6 +41,7 @@ const viewerMocks = vi.hoisted(() => ({
   useBriefcaseConnection: vi.fn(),
   applyViewportBackground: vi.fn(),
   ensureEditTools: vi.fn().mockResolvedValue(undefined),
+  toggleProjectExtents: vi.fn(),
 }));
 
 // M4-T3 编排错误面：IModelApp 可观测替身——未 startup 的真实 IModelApp 缺
@@ -49,6 +50,8 @@ const viewerMocks = vi.hoisted(() => ({
 // StandardViewId/EmphasizeElements…）走真实模块。
 const coreFrontendMocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
+  // M4-T4：undo/redo 走 IModelApp.tools.run('Undo'/'Redo')（viewer-next 内置在册）。
+  toolsRun: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
 }));
 
 vi.mock('@itwin/core-frontend', async (importOriginal) => {
@@ -61,6 +64,7 @@ vi.mock('@itwin/core-frontend', async (importOriginal) => {
       toolAdmin: { startDefaultTool: vi.fn() },
       viewManager: { selectedView: undefined },
       notifications: { outputMessage: coreFrontendMocks.outputMessage },
+      tools: { run: coreFrontendMocks.toolsRun },
     },
   };
 });
@@ -104,6 +108,7 @@ vi.mock('@luban-cad/viewer-next', () => ({
   useBriefcaseConnection: viewerMocks.useBriefcaseConnection,
   applyViewportBackground: viewerMocks.applyViewportBackground,
   ensureEditTools: viewerMocks.ensureEditTools,
+  toggleProjectExtents: viewerMocks.toggleProjectExtents,
   acquireViewer: vi.fn().mockResolvedValue(undefined),
   releaseViewer: vi.fn().mockResolvedValue(undefined),
   ensureAccuSnap: vi.fn().mockResolvedValue(undefined),
@@ -125,8 +130,60 @@ const IMODEL_DETAIL = {
   iTwinId: 'itwin-1',
 };
 
-const FAKE_CONNECTION = { key: 'briefcase-key', isBriefcaseConnection: () => true };
-const FAKE_VIEWPORT = { view: { displayStyle: { backgroundColor: undefined } }, invalidateScene: vi.fn() };
+// M4-T4 起连接替身需承载编辑作用域/事务桩（useEditingScope/useUndoRedo/
+// editorToolSettings 配置段全链真实参与）：
+//  - txns 事件桩 = BeEvent 兼容最小面（addListener 返回退订 + raise 直发）；
+//  - editingScope/supportsGraphicalEditing/enterEditingScope 供作用域进入路径；
+//  - saveChanges 供顶栏保存代理断言；editorToolSettings 供类目/模型补全断言。
+function makeTxnsStub() {
+  const makeEvent = () => {
+    const listeners = new Set<() => void>();
+    return {
+      addListener: (fn: () => void): (() => void) => {
+        listeners.add(fn);
+        return () => {
+          listeners.delete(fn);
+        };
+      },
+      raise: (): void => {
+        for (const fn of [...listeners]) fn();
+      },
+    };
+  };
+  return {
+    isUndoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    isRedoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    hasPendingTxns: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    onCommit: makeEvent(),
+    onCommitted: makeEvent(),
+    onAfterUndoRedo: makeEvent(),
+    onChangesPushed: makeEvent(),
+  };
+}
+
+let FAKE_CONNECTION = {
+  key: 'briefcase-key',
+  isBriefcaseConnection: () => true,
+  txns: makeTxnsStub(),
+  editingScope: undefined as unknown,
+  supportsGraphicalEditing: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
+  enterEditingScope: vi.fn(),
+  saveChanges: vi.fn<(description?: string) => Promise<void>>().mockResolvedValue(undefined),
+  editorToolSettings: { category: undefined, model: undefined },
+};
+
+const FAKE_VIEWPORT = {
+  view: {
+    displayStyle: { backgroundColor: undefined },
+    viewsCategory: vi.fn<() => boolean>().mockReturnValue(true),
+    viewsModel: vi.fn<() => boolean>().mockReturnValue(true),
+    is2d: vi.fn<() => boolean>().mockReturnValue(false),
+    isSpatialView: vi.fn<() => boolean>().mockReturnValue(false),
+    categorySelector: { categories: ['cat-1', 'cat-2'] },
+    modelSelector: { models: ['model-1'] },
+  },
+  invalidateScene: vi.fn(),
+};
 
 /** store 复位：八切片回缺省（结构用例间互不渗漏）。 */
 function resetStore(): void {
@@ -168,6 +225,17 @@ beforeEach(() => {
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
   // M4-T3：注册编排桩复位（mockReset 清实现，重挂成功缺省）。
   viewerMocks.ensureEditTools.mockReset().mockResolvedValue(undefined);
+  // M4-T4：连接替身桩复位（作用域进入成功路径 + 干净事务态）。exit 按真实
+  // 契约回 Promise（卸载退出链 .catch 依赖）。
+  FAKE_CONNECTION.supportsGraphicalEditing.mockResolvedValue(true);
+  FAKE_CONNECTION.enterEditingScope.mockResolvedValue({
+    isDisposed: false,
+    exit: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+  });
+  FAKE_CONNECTION.saveChanges.mockResolvedValue(undefined);
+  FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(false);
+  FAKE_CONNECTION.txns.isRedoPossible.mockResolvedValue(false);
+  FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(false);
   // viewer-next mock 桩：连接就绪 + viewport 就位（M4-T2 接线断言的数据面）。
   viewerMocks.useBriefcaseConnection.mockReturnValue({
     connection: FAKE_CONNECTION,
@@ -360,5 +428,70 @@ describe('M4-T3 工具注册编排（Editor.tsx:262-309 序移植）', () => {
     expect(details?.briefMessage).toContain('host not ready');
     // 失败不外抛（错误面消化后页面照常呈现）。
     expect(screen.getByTestId('part-studio-page')).toBeDefined();
+  });
+});
+
+describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
+  it('编辑作用域进入：connection 就绪 → enterEditingScope 调用（Editor.tsx:322-371 序）', async () => {
+    renderPage();
+    await waitFor(() => expect(FAKE_CONNECTION.enterEditingScope).toHaveBeenCalledTimes(1));
+    expect(FAKE_CONNECTION.supportsGraphicalEditing).toHaveBeenCalledTimes(1);
+  });
+
+  it('顶栏三钮：缺省干净事务态全禁用；事件驱动可解锁', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const topBar = screen.getByTestId('part-studio-top-bar');
+    // iTwinUI v3 美观禁用口径：disabled 属性或 aria-disabled 均算禁用
+    //（PartStudioTopBar.test 同款判定）。
+    const isDisabled = (button: HTMLElement): boolean =>
+      (button as HTMLButtonElement).disabled === true
+      || button.getAttribute('aria-disabled') === 'true';
+    const undo = within(topBar).getByRole('button', { name: '撤消' });
+    const redo = within(topBar).getByRole('button', { name: '重做' });
+    const save = within(topBar).getByRole('button', { name: '保存' });
+    expect(isDisabled(undo)).toBe(true);
+    expect(isDisabled(redo)).toBe(true);
+    expect(isDisabled(save)).toBe(true);
+
+    // undo 可能 + 有未存变更（txns 查询桩翻真）→ 事件驱动重查询后钮解锁。
+    FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(true);
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    act(() => {
+      FAKE_CONNECTION.txns.onAfterUndoRedo.raise();
+    });
+    await waitFor(() => expect(isDisabled(undo)).toBe(false));
+    await waitFor(() => expect(isDisabled(save)).toBe(false));
+
+    await user.click(undo);
+    expect(coreFrontendMocks.toolsRun).toHaveBeenCalledWith('Undo');
+  });
+
+  it('保存代理：点击保存钮 → connection.saveChanges（T1 连接对象标准通道）', async () => {
+    const user = userEvent.setup();
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    renderPage();
+    const topBar = screen.getByTestId('part-studio-top-bar');
+    const save = (await within(topBar).findByRole('button', { name: '保存' })) as HTMLButtonElement;
+    await waitFor(() => expect(save.disabled).toBe(false));
+    await user.click(save);
+    await waitFor(() => expect(FAKE_CONNECTION.saveChanges).toHaveBeenCalledTimes(1));
+  });
+
+  it('editorToolSettings 配置段：viewport+connection+scope 就绪 → 类目补全（Editor.tsx:200-235 移植）', async () => {
+    renderPage();
+    await waitFor(() =>
+      expect(FAKE_CONNECTION.editorToolSettings.category).toBe('cat-1'),
+    );
+    // 非空间视图（stub isSpatialView=false）不触发项目范围装饰件。
+    expect(viewerMocks.toggleProjectExtents).not.toHaveBeenCalled();
+  });
+
+  it('空间视图：项目范围装饰件默认开启（toggleProjectExtents(conn, true)）', async () => {
+    (FAKE_VIEWPORT.view.isSpatialView as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    renderPage();
+    await waitFor(() =>
+      expect(viewerMocks.toggleProjectExtents).toHaveBeenCalledWith(FAKE_CONNECTION, true),
+    );
   });
 });

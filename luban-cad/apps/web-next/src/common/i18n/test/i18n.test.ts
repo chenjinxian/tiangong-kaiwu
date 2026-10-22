@@ -151,6 +151,9 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'ribbon.sketchToolbarLabel', 'ribbon.exitSketch',
   // M4 Task 3：工具注册编排失败通知（PartStudioPage 编排层，错误面必须可见）。
   'tools.registrationFailed',
+  // M4 Task 4：顶栏右侧撤销/重做/保存三钮组（对齐 os-11）。
+  'topBar.edit.undo', 'topBar.edit.redo', 'topBar.edit.save',
+  'topBar.edit.saving', 'topBar.edit.saveFailed',
   'featureDialog.confirm', 'featureDialog.cancel',
   'featureDialog.resultTypeTabs', 'featureDialog.booleanScopeTabs',
   'featureDialog.entitiesLabel', 'featureDialog.fastPick',

@@ -64,6 +64,11 @@
   margin-inline-end: var(--iui-size-2xs);
 }
 
+/* 撤销/重做/保存三钮组（M4-T4，os-11 操作簇头部）：钮间呼吸感。 */
+.part-studio-edit-button {
+  margin-inline-end: var(--iui-size-3xs);
+}
+
 /* ── 左栏：窄图标条 + 双段树 ───────────────────────────────────────── */
 .part-studio-sidebar {
   flex-shrink: 0;

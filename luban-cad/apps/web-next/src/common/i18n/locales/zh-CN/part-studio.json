@@ -2,6 +2,13 @@
   "topBar": {
     "breadcrumb": { "documents": "文档" },
     "branch": { "main": "Main" },
+    "edit": {
+      "undo": "撤消",
+      "redo": "重做",
+      "save": "保存",
+      "saving": "保存中…",
+      "saveFailed": "保存失败: {{message}}"
+    },
     "share": "分享",
     "help": "帮助",
     "userMenu": {

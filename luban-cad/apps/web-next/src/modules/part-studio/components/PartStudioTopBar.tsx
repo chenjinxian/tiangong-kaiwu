@@ -2,12 +2,17 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * PartStudioTopBar（M3 Task 3；T7 挂汉堡菜单 + 共享对话框）：编辑器顶栏（对齐 os-11/os-24）——
+ * PartStudioTopBar（M3 Task 3；T7 挂汉堡菜单 + 共享对话框；M4-T4 挂编辑三钮组）：
+ * 编辑器顶栏（对齐 os-11/os-24）——
  * - 品牌 LC（回 /documents）+ 汉堡文档菜单（DocumentMenuBar，os-24 位于品牌
  *   右侧、面包屑之前）+ 面包屑（文档 → iTwin 名 → iModel 名，名字经
  *   react-query 双查询：ItwinsClient.get / ImodelsClient.get）；
  * - 分支徽标（Main，os-11 文档名右侧 pill）；
- * - 操作区：分享钮（T7 接共享对话框——复用 documents 模块 ShareDocumentDialog，
+ * - 操作区：**撤销/重做/保存三钮组（M4-T4，对齐 os-11 撤消/重做/保存键位，
+ *   操作簇头部）**——状态由页面层 useUndoRedo（BriefcaseTxns 标准通道）下传：
+ *   canUndo/canRedo/hasUnsavedChanges 驱动 disabled，isSaving 驱动保存钮加载
+ *   态（aria-busy + 禁用防重入）；未接线（props 缺省）时三钮诚实禁用；
+ * - 分享钮（T7 接共享对话框——复用 documents 模块 ShareDocumentDialog，
  *   跨模块经 @modules/documents barrel）+ 帮助钮 + 用户菜单
  *   （我的帐户/深色模式/退出登录，os-03 同口径）。
  */
@@ -26,12 +31,16 @@ import {
   IconButton,
   MenuItem,
   DropdownMenu,
+  ProgressRadial,
 } from '@itwin/itwinui-react';
 import {
   SvgCheckmark,
   SvgChevronLeft,
   SvgHelpCircularHollow,
+  SvgRedo,
+  SvgSave,
   SvgShare,
+  SvgUndo,
 } from '@itwin/itwinui-icons-react';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
@@ -43,9 +52,33 @@ import { DocumentMenuBar } from './DocumentMenuBar.js';
 export interface PartStudioTopBarProps {
   iTwinId: string;
   iModelId: string;
+  /** 撤销可用（BriefcaseTxns.isUndoPossible）；缺省 false（未接线诚实禁用）。 */
+  canUndo?: boolean;
+  /** 重做可用（BriefcaseTxns.isRedoPossible）；缺省 false。 */
+  canRedo?: boolean;
+  /** 有未保存本地变更（hasPendingTxns 口径）；缺省 false。 */
+  hasUnsavedChanges?: boolean;
+  /** 保存执行中（保存钮加载态 + 防重入禁用）；缺省 false。 */
+  isSaving?: boolean;
+  /** 撤销回调（IModelApp.tools.run('Undo') 通道由页面层持有）。 */
+  onUndo?: () => void;
+  /** 重做回调。 */
+  onRedo?: () => void;
+  /** 保存回调（connection.saveChanges 代理由页面层持有）。 */
+  onSave?: () => void;
 }
 
-export function PartStudioTopBar({ iTwinId, iModelId }: PartStudioTopBarProps): React.JSX.Element {
+export function PartStudioTopBar({
+  iTwinId,
+  iModelId,
+  canUndo = false,
+  canRedo = false,
+  hasUnsavedChanges = false,
+  isSaving = false,
+  onUndo,
+  onRedo,
+  onSave,
+}: PartStudioTopBarProps): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -114,6 +147,44 @@ export function PartStudioTopBar({ iTwinId, iModelId }: PartStudioTopBarProps): 
         />
       }
       actions={[
+        // 撤销/重做/保存三钮组（M4-T4，os-11 操作簇头部）：状态由页面层
+        // useUndoRedo（BriefcaseTxns 标准通道）驱动——undo/redo 点击投标准工具
+        // 'Undo'/'Redo'（viewer-next 注册表在册、快捷键同源）；保存钮加载态
+        // （aria-busy + 禁用防重入）；props 缺省 = 未接线，三钮诚实禁用。
+        <IconButton
+          key="undo"
+          label={t('partStudio.topBar.edit.undo')}
+          styleType="borderless"
+          className="part-studio-edit-button"
+          disabled={!canUndo}
+          onClick={onUndo}
+          data-testid="part-studio-undo-button"
+        >
+          <SvgUndo />
+        </IconButton>,
+        <IconButton
+          key="redo"
+          label={t('partStudio.topBar.edit.redo')}
+          styleType="borderless"
+          className="part-studio-edit-button"
+          disabled={!canRedo}
+          onClick={onRedo}
+          data-testid="part-studio-redo-button"
+        >
+          <SvgRedo />
+        </IconButton>,
+        <IconButton
+          key="save"
+          label={isSaving ? t('partStudio.topBar.edit.saving') : t('partStudio.topBar.edit.save')}
+          styleType="borderless"
+          className="part-studio-edit-button"
+          disabled={!hasUnsavedChanges || isSaving}
+          aria-busy={isSaving}
+          onClick={onSave}
+          data-testid="part-studio-save-button"
+        >
+          {isSaving ? <ProgressRadial size="x-small" indeterminate /> : <SvgSave />}
+        </IconButton>,
         // 分享（T7）：复用 documents 模块 ShareDocumentDialog（经 @modules/documents
         // barrel）——共享当前文档（iTwin）成员/邀请/链接三页签。
         <Button
