@@ -604,7 +604,7 @@ export class ExtendCurveTool extends ModifyCurveTool {
     if (curve instanceof Arc3d && closeDetail.curve instanceof Arc3d && (curve.sweep.isCCW !== closeDetail.curve.sweep.isCCW))
       curve.sweep.cloneComplement(true, curve.sweep); // Preserve current sweep direction...
 
-    const result = geom.clone() as Path;
+    const result = geom.clone();
     result.children[isStart ? 0 : geom.children.length - 1] = curve;
 
     return result;
@@ -783,11 +783,11 @@ export class RegionBooleanTool extends ModifyCurveTool {
   public get modeProperty() {
     if (!this._modeProperty)
       this._modeProperty = new DialogProperty<number>(PropertyDescriptionHelper.buildEnumPicklistEditorDescription(
-        "regionBooleanMode", EditTools.translate("RegionBoolean.Label.Mode"), RegionBooleanTool.getModeChoices()), RegionBooleanMode.Unite as number);
+        "regionBooleanMode", EditTools.translate("RegionBoolean.Label.Mode"), RegionBooleanTool.getModeChoices()), RegionBooleanMode.Unite);
     return this._modeProperty;
   }
 
-  public get mode(): RegionBooleanMode { return this.modeProperty.value as RegionBooleanMode; }
+  public get mode(): RegionBooleanMode { return this.modeProperty.value; }
   public set mode(mode: RegionBooleanMode) { this.modeProperty.value = mode; }
 
   protected override get clearSelectionSet(): boolean { return false; } // Don't clear for subtract so that mode can be changed...

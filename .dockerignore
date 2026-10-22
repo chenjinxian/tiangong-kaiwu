@@ -21,9 +21,10 @@
 !itwinjs-core
 
 # --- itwinjs-core 仅保留被 link: 引用的包（源码 + 宿主预构建 lib/）---
+# （editor 包 2026-10-22 收编 luban-cad/packages/editor——luban-cad/ 整目录已
+#   在白名单内，此处不再有 editor 条目）
 itwinjs-core/*
 !itwinjs-core/core
-!itwinjs-core/editor
 !itwinjs-core/presentation
 !itwinjs-core/ui
 
@@ -40,11 +41,6 @@ itwinjs-core/core/*
 !itwinjs-core/core/ecschema-rpcinterface
 !itwinjs-core/core/webgl-compatibility
 !itwinjs-core/core/orbitgt
-
-itwinjs-core/editor/*
-!itwinjs-core/editor/backend
-!itwinjs-core/editor/common
-!itwinjs-core/editor/frontend
 
 itwinjs-core/presentation/*
 !itwinjs-core/presentation/common

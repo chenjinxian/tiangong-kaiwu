@@ -34,11 +34,11 @@ if GIT_MERGE_AUTOEDIT=no git subtree pull --prefix="$PREFIX" --squash "$UPSTREAM
     echo ""
     echo "!!! upstream brought back $PREFIX/editor/ — editor is luban-cad first-party since 2026-10-22"
     echo "    (see docs/UPSTREAM_SYNC.md「editor/ 收编检查单」):"
-    echo "      1) git rm -r $PREFIX/editor"
+    echo "      1) git rm -r $PREFIX/editor ; git rm $PREFIX/common/api/editor-*.api.md $PREFIX/common/api/summary/editor-*.exports.csv"
     echo "      2) drop the three editor/* entries from $PREFIX/rush.json"
     echo "      3) drop '@itwin/editor-*' deps from full-stack-tests/core and test-apps/display-test-app"
     echo "      4) CI=true rush update   # regenerate lockfile (upstream's has editor importers)"
-    echo "      5) rush build --to @itwin/core-frontend --to @itwin/core-backend --bypass-policy"
+    echo "      5) rush build --to @itwin/core-frontend --to @itwin/core-backend"
   fi
   NATIVE_AFTER=$(native_ver)
   if [ "$NATIVE_BEFORE" != "$NATIVE_AFTER" ]; then

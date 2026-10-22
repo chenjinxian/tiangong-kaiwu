@@ -8,7 +8,7 @@
  */
 
 import {
-  DialogItem, DialogProperty, DialogPropertySyncItem, EnumerationChoice, PropertyDescriptionHelper, PropertyEditorParamTypes, RangeEditorParams,
+  DialogItem, DialogProperty, DialogPropertySyncItem, EnumerationChoice, PropertyDescriptionHelper, PropertyEditorParamTypes,
 } from "@itwin/appui-abstract";
 import { BentleyError, Id64String } from "@itwin/core-bentley";
 import {
@@ -602,7 +602,7 @@ export abstract class CreateOrContinuePathTool extends CreateElementWithDynamics
     if (!append && !pathS.isAlmostEqual(curveS))
       return;
 
-    const continuePath = this.continuationData.path.clone() as Path;
+    const continuePath = this.continuationData.path.clone();
     if (undefined === continuePath)
       return;
 
@@ -894,11 +894,11 @@ export class CreateArcTool extends CreateOrContinuePathTool {
   public get methodProperty() {
     if (!this._methodProperty)
       this._methodProperty = new DialogProperty<number>(PropertyDescriptionHelper.buildEnumPicklistEditorDescription(
-        "arcMethod", EditTools.translate("CreateArc.Label.Method"), CreateArcTool.getMethodChoices()), ArcMethod.StartCenter as number);
+        "arcMethod", EditTools.translate("CreateArc.Label.Method"), CreateArcTool.getMethodChoices()), ArcMethod.StartCenter);
     return this._methodProperty;
   }
 
-  public get method(): ArcMethod { return this.methodProperty.value as ArcMethod; }
+  public get method(): ArcMethod { return this.methodProperty.value; }
   public set method(method: ArcMethod) { this.methodProperty.value = method; }
 
   private _useRadiusProperty: DialogProperty<boolean> | undefined;
@@ -1349,11 +1349,11 @@ export class CreateCircleTool extends CreateOrContinuePathTool {
   public get methodProperty() {
     if (!this._methodProperty)
       this._methodProperty = new DialogProperty<number>(PropertyDescriptionHelper.buildEnumPicklistEditorDescription(
-        "circleMethod", EditTools.translate("CreateCircle.Label.Method"), CreateCircleTool.getMethodChoices()), CircleMethod.Center as number);
+        "circleMethod", EditTools.translate("CreateCircle.Label.Method"), CreateCircleTool.getMethodChoices()), CircleMethod.Center);
     return this._methodProperty;
   }
 
-  public get method(): CircleMethod { return this.methodProperty.value as CircleMethod; }
+  public get method(): CircleMethod { return this.methodProperty.value; }
   public set method(method: CircleMethod) { this.methodProperty.value = method; }
 
   private _useRadiusProperty: DialogProperty<boolean> | undefined;
@@ -1863,11 +1863,11 @@ export class CreateBCurveTool extends CreateOrContinuePathTool {
   public get methodProperty() {
     if (!this._methodProperty)
       this._methodProperty = new DialogProperty<number>(PropertyDescriptionHelper.buildEnumPicklistEditorDescription(
-        "bcurveMethod", EditTools.translate("CreateBCurve.Label.Method"), CreateBCurveTool.getMethodChoices()), BCurveMethod.ControlPoints as number);
+        "bcurveMethod", EditTools.translate("CreateBCurve.Label.Method"), CreateBCurveTool.getMethodChoices()), BCurveMethod.ControlPoints);
     return this._methodProperty;
   }
 
-  public get method(): BCurveMethod { return this.methodProperty.value as BCurveMethod; }
+  public get method(): BCurveMethod { return this.methodProperty.value; }
   public set method(method: BCurveMethod) { this.methodProperty.value = method; }
 
   private _orderProperty: DialogProperty<number> | undefined;
@@ -1875,7 +1875,7 @@ export class CreateBCurveTool extends CreateOrContinuePathTool {
     if (!this._orderProperty)
       this._orderProperty = new DialogProperty<number>(
         PropertyDescriptionHelper.buildNumberEditorDescription("bcurveOrder", EditTools.translate("CreateBCurve.Label.Order"),
-          { type: PropertyEditorParamTypes.Range, minimum: this.minOrder, maximum: this.maxOrder } as RangeEditorParams), 3);
+          { type: PropertyEditorParamTypes.Range, minimum: this.minOrder, maximum: this.maxOrder }), 3);
     return this._orderProperty;
   }
 

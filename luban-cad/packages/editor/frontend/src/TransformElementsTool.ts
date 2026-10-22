@@ -8,11 +8,12 @@
  */
 
 import { BentleyError, Id64, Id64Arg, Id64Array, Id64String, IModelStatus } from "@itwin/core-bentley";
-import { GeometricElementProps, Code, ColorDef, isPlacement2dProps, LinePixels, PersistentGraphicsRequestProps, Placement, Placement2d, Placement3d } from "@itwin/core-common";
-import { AccuDrawHintBuilder, AngleDescription, BeButtonEvent, CoreTools, DynamicsContext, ElementSetTool, GraphicBranch, GraphicType, ToolAssistanceInstruction, IModelApp, IModelConnection, IpcApp, ModifyElementSource, NotifyMessageDetails, OutputMessagePriority, readElementGraphics, RenderGraphic, RenderGraphicOwner, Viewport } from "@itwin/core-frontend";
+import { Code, ColorDef, GeometricElementProps, isPlacement2dProps, LinePixels, PersistentGraphicsRequestProps, Placement, Placement2d, Placement3d } from "@itwin/core-common";
+import { AccuDrawHintBuilder, AngleDescription, BeButtonEvent, CoreTools, DynamicsContext, ElementSetTool, GraphicBranch, GraphicType, IModelApp, IModelConnection, IpcApp, ModifyElementSource, NotifyMessageDetails, OutputMessagePriority, readElementGraphics, RenderGraphic, RenderGraphicOwner, ToolAssistanceInstruction, Viewport } from "@itwin/core-frontend";
 import { Angle, Geometry, Matrix3d, Point3d, Transform, Vector3d, YawPitchRollAngles } from "@itwin/core-geometry";
 import { editorBuiltInCmdIds } from "@itwin/editor-common";
-import { DialogItem, DialogProperty, DialogPropertySyncItem, EnumerationChoice, PropertyDescriptionHelper, PropertyEditorParamTypes, RangeEditorParams } from "@itwin/appui-abstract";import { EditTools } from "./EditTool";
+import { DialogItem, DialogProperty, DialogPropertySyncItem, EnumerationChoice, PropertyDescriptionHelper, PropertyEditorParamTypes } from "@itwin/appui-abstract";
+import { EditTools } from "./EditTool";
 import { basicManipulationIpc } from "./EditToolIpc";
 
 /** Geometric element id, placement, and RenderGraphic managed by [[TransformGraphicsProvider]].
@@ -424,7 +425,7 @@ export class CopyElementsTool extends MoveElementsTool {
     if (!this._numCopiesProperty)
       this._numCopiesProperty = new DialogProperty<number>(
         PropertyDescriptionHelper.buildNumberEditorDescription("numCopies", EditTools.translate("CopyElements.Label.NumCopies"),
-          { type: PropertyEditorParamTypes.Range, minimum: 1 } as RangeEditorParams), 1);
+          { type: PropertyEditorParamTypes.Range, minimum: 1 }), 1);
     return this._numCopiesProperty;
   }
 
@@ -563,11 +564,11 @@ export class RotateElementsTool extends TransformElementsTool {
   public get methodProperty() {
     if (!this._methodProperty)
       this._methodProperty = new DialogProperty<number>(PropertyDescriptionHelper.buildEnumPicklistEditorDescription(
-        "rotateMethod", EditTools.translate("RotateElements.Label.Method"), RotateElementsTool.getMethodChoices()), RotateMethod.By3Points as number);
+        "rotateMethod", EditTools.translate("RotateElements.Label.Method"), RotateElementsTool.getMethodChoices()), RotateMethod.By3Points);
     return this._methodProperty;
   }
 
-  public get rotateMethod(): RotateMethod { return this.methodProperty.value as RotateMethod; }
+  public get rotateMethod(): RotateMethod { return this.methodProperty.value; }
   public set rotateMethod(method: RotateMethod) { this.methodProperty.value = method; }
 
   private static aboutMessage(str: string) { return EditTools.translate(`RotateElements.About.${str}`); }
@@ -583,11 +584,11 @@ export class RotateElementsTool extends TransformElementsTool {
   public get aboutProperty() {
     if (!this._aboutProperty)
       this._aboutProperty = new DialogProperty<number>(PropertyDescriptionHelper.buildEnumPicklistEditorDescription(
-        "rotateAbout", EditTools.translate("RotateElements.Label.About"), RotateElementsTool.getAboutChoices()), RotateAbout.Point as number);
+        "rotateAbout", EditTools.translate("RotateElements.Label.About"), RotateElementsTool.getAboutChoices()), RotateAbout.Point);
     return this._aboutProperty;
   }
 
-  public get rotateAbout(): RotateAbout { return this.aboutProperty.value as RotateAbout; }
+  public get rotateAbout(): RotateAbout { return this.aboutProperty.value; }
   public set rotateAbout(method: RotateAbout) { this.aboutProperty.value = method; }
 
   private _angleProperty: DialogProperty<number> | undefined;

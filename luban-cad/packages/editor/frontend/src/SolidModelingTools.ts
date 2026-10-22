@@ -885,11 +885,11 @@ export class ImprintSolidElementsTool extends LocateSubEntityTool {
   public get methodProperty() {
     if (!this._methodProperty)
       this._methodProperty = new DialogProperty<number>(PropertyDescriptionHelper.buildEnumPicklistEditorDescription(
-        "imprintMethod", EditTools.translate("ImprintSolids.Label.Method"), ImprintSolidElementsTool.getMethodChoices()), ImprintSolidMethod.Element as number);
+        "imprintMethod", EditTools.translate("ImprintSolids.Label.Method"), ImprintSolidElementsTool.getMethodChoices()), ImprintSolidMethod.Element);
     return this._methodProperty;
   }
 
-  public get method(): ImprintSolidMethod { return this.methodProperty.value as ImprintSolidMethod; }
+  public get method(): ImprintSolidMethod { return this.methodProperty.value; }
   public set method(method: ImprintSolidMethod) { this.methodProperty.value = method; }
 
   private _distanceProperty: DialogProperty<number> | undefined;
@@ -1302,11 +1302,11 @@ export class ChamferEdgesTool extends BlendEdgesTool {
   public get methodProperty() {
     if (!this._methodProperty)
       this._methodProperty = new DialogProperty<number>(PropertyDescriptionHelper.buildEnumPicklistEditorDescription(
-        "chamferMethod", EditTools.translate("ChamferEdges.Label.Method"), ChamferEdgesTool.getMethodChoices()), ChamferMode.Length as number);
+        "chamferMethod", EditTools.translate("ChamferEdges.Label.Method"), ChamferEdgesTool.getMethodChoices()), ChamferMode.Length);
     return this._methodProperty;
   }
 
-  public get method(): ChamferMode { return this.methodProperty.value as ChamferMode; }
+  public get method(): ChamferMode { return this.methodProperty.value; }
   public set method(method: ChamferMode) { this.methodProperty.value = method; }
 
   private _lengthProperty: DialogProperty<number> | undefined;
