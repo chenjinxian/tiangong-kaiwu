@@ -6,7 +6,7 @@
 //     imodels_write / imodels_manage → 'editable'；webview/read 或空集 →
 //     'readonly'；
 //  3) 错误裁决：ApiClientError 403（hub 明确拒绝）→ 'readonly'（fail-closed：
-//     只读打开仍可看）；其余错误（网络抖动/旧 hub 无该路由 404）→ 'editable'
+//     只读打开仍可看）；其余错误（网络抖动等）→ 'editable'
 //    （旧 hook「本地部署错误兜底 editable」语义忠实移植，可用性优先）；
 //  4) 门控：iModelId=null 不发起查询（路由缺参/连接未就绪不空转）；
 //  5) queryKey 契约：['part-studio', 'permissions', iModelId]。

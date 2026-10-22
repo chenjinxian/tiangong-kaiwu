@@ -17,8 +17,10 @@
  *   官方 access-control 客户端 v2.3.1（旧应用同款）与 v4.4.1（上游 HEAD）
  *   均无 iModel 级方法——该查询在官方 API 家族中归属 iModels API（仓库
  *   docs/api-specs/access-control-v2.json 亦无 iModel 路由），故经官方
- *   imodels SDK 消费（官方语义：iModel 级未配置时自动回落 iTwin 级配置，
- *   单查询即完整裁决源）；authorization 走官方 v6 懒回调
+ *   imodels SDK 消费（Bentley 云语义含「iModel 级未配置时回落 iTwin 级
+ *   配置」；hub 实现暂无回落，非 creator 无显式授权者恒
+ *   `[imodels_webview]`——hub backlog 挂账，见 task-3-report 勘误段）；
+ *   authorization 走官方 v6 懒回调
  *   `{ scheme: 'Bearer', token }`（每次发请求都调），错误经
  *   `isIModelsApiError` 映射为 ApiClientError（ImodelsClient 同姿态）；
  * - 两路均返回权限字符串数组（官方 string 枚举值直通，如
