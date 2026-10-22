@@ -1,0 +1,37 @@
+{
+  "name": "@itwin/editor-backend",
+  "version": "5.15.0-dev.2",
+  "description": "iTwin.js editor backend（luban-cad 第一方包，2026-10-22 自 itwinjs-core/editor/backend 整体迁入；包名暂保 @itwin/* 最小化消费方 link: 搅动）",
+  "main": "lib/cjs/editor-backend.js",
+  "module": "lib/esm/editor-backend.js",
+  "typings": "lib/cjs/editor-backend",
+  "license": "MIT",
+  "engines": {
+    "node": "^20.0.0 || ^22.0.0 || ^24.0.0"
+  },
+  "scripts": {
+    "build": "npm run -s build:cjs && npm run -s build:esm",
+    "build:cjs": "tsc 1>&2 --outDir lib/cjs",
+    "build:esm": "tsc 1>&2 --module ES2022 --outDir lib/esm",
+    "clean": "rimraf lib",
+    "lint": "eslint --max-warnings 0 \"src/**/*.ts\" 1>&2"
+  },
+  "//dependencies": [
+    "@itwin/core-* / @itwin/editor-common 以 link: 直连源码目录（同 viewer-next 形态，不经 npm registry）；",
+    "本包为 luban-cad 第一方建模基座（建模功能的修改/新增都在此做），上游 itwinjs-core 不再携带 editor/。",
+    "私有仓 modeling-server 的 @itwin/editor-backend link: 路径更新至 luban-cad/packages/editor/backend（挂账）。"
+  ],
+  "dependencies": {
+    "@itwin/core-backend": "link:../../../../itwinjs-core/core/backend",
+    "@itwin/core-bentley": "link:../../../../itwinjs-core/core/bentley",
+    "@itwin/core-common": "link:../../../../itwinjs-core/core/common",
+    "@itwin/core-geometry": "link:../../../../itwinjs-core/core/geometry",
+    "@itwin/editor-common": "link:../common"
+  },
+  "devDependencies": {
+    "@itwin/eslint-plugin": "^6.0.0",
+    "eslint": "^9.31.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.6.2"
+  }
+}

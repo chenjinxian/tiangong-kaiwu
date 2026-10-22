@@ -8,9 +8,15 @@
 //     （下次调用可重试，与 PartStudioPage 的 notifications 可见错误面配套）；
 //  4) registerDefaultShortcuts 子集（Undo/Redo/Delete/Escape 键位）派发真启动。
 // mock 口径：@itwin/core-frontend 与 @itwin/editor-frontend 模块级 mock（桩类
-// 携真实 toolId 静态量）；四个移植工具与 project-extents-decoration 为被测真件
-// （其 toolId 是真静态量）；@luban-cad/shared 零真实 RPC。工厂内不可引用模块
-// 作用域绑定（vi.mock 提升先于模块体求值）——桩表全数收进 vi.hoisted。
+// 携真实 toolId 静态量）；project-extents-decoration 为被测真件（其 toolId 是
+// 真静态量）；@luban-cad/shared 零真实 RPC。工厂内不可引用模块作用域绑定
+// （vi.mock 提升先于模块体求值）——桩表全数收进 vi.hoisted。
+// 2026-10-22 editor 模块收编：四个移植工具自 viewer-next src/tools/modeling/
+// 迁入 @itwin/editor-frontend src/luban/modeling/，注册表改从其导出面导入——
+// 本测试的 '@itwin/editor-frontend' mock 桩表随之收编五桩（DraftFaces/
+// CreateHole/MirrorElements/LinearPattern/CircularPattern；toolId 真值由随迁
+// 的各工具行为测试钉死）；原 LocateSubEntityTool/basicManipulationIpc 桩随
+// SolidModelingToolBase 导入链消失而移除。
 
 // @vitest-environment jsdom
 
@@ -49,7 +55,7 @@ const mocks = vi.hoisted(() => {
     'ViewClip.ByElement': 'ViewClipByElementTool',
   };
 
-  /** editor-frontend 注册表 import 名 → 桩类 toolId（vendored 真实 toolId）。 */
+  /** editor-frontend 注册表 import 名 → 桩类 toolId（vendored/随迁真件的真实 toolId）。 */
   const editorToolIds: Record<string, string> = {
     CreateSphereTool: 'CreateSphere',
     CreateCylinderTool: 'CreateCylinder',
@@ -71,6 +77,13 @@ const mocks = vi.hoisted(() => {
     RoundEdgesTool: 'RoundEdges',
     ChamferEdgesTool: 'ChamferEdges',
     HollowFacesTool: 'HollowFaces',
+    // 2026-10-22 收编五桩：移植四工具（+CircularPattern）迁入 editor-frontend
+    // 后改由其导出面供给，此处置 stub 携真实 toolId（真值锚在各工具行为测试）。
+    DraftFacesTool: 'DraftFaces',
+    CreateHoleTool: 'CreateHole',
+    MirrorElementsTool: 'MirrorElements',
+    LinearPatternTool: 'LinearPattern',
+    CircularPatternTool: 'CircularPattern',
     OffsetFacesTool: 'OffsetFaces',
     SweepFacesTool: 'SweepFaces',
     UniteSolidElementsTool: 'UniteSolids',
@@ -111,20 +124,6 @@ vi.mock('@itwin/core-frontend', () => {
 vi.mock('@itwin/editor-frontend', () => {
   const exports: Record<string, unknown> = {
     EditTools: { initialize: mocks.initializeMock },
-    basicManipulationIpc: { insertGeometricElement: vi.fn() },
-    // SolidModelingToolBase 基类桩：被测移植件继承链可实例化即可。
-    LocateSubEntityTool: class {
-      public async run(): Promise<boolean> { return true; }
-      public async exitTool(): Promise<void> { /* 桩 */ }
-      public async onPostInstall(): Promise<void> { /* 桩 */ }
-      public async onCleanup(): Promise<void> { /* 桩 */ }
-      public initLocateElements(): void { /* 桩 */ }
-      public async onDataButtonDown(): Promise<number> { return 2; }
-      public async onResetButtonUp(): Promise<number> { return 2; }
-      protected async addSubEntity(): Promise<void> { /* 桩 */ }
-      protected async removeSubEntity(): Promise<void> { /* 桩 */ }
-      protected setupAndPromptForNextAction(): void { /* 桩 */ }
-    },
   };
   for (const [exportName, toolId] of Object.entries(mocks.editorToolIds)) {
     exports[exportName] = mocks.stubTool(toolId);

@@ -14,7 +14,8 @@
  *    Sketch/PlaceText/Distance/Symbol/MarkupSelect）：@itwin/core-markup 依赖
  *    未配置（同旧应用注释性跳过；启用前先补 workspace 依赖解析）；
  *  - SetSketchPlaneTool / SelectSubEntityTool（旧 features/modeling 自定义）：
- *    简报 Files 未列——草图模式接线里程碑移植（去向：tools/modeling/）；
+ *    简报 Files 未列——草图模式接线里程碑移植（去向：@itwin/editor-frontend
+ *    src/luban/，2026-10-22 editor 模块收编后的鲁班工具区）；
  *  - 鲁班草图链 11 工具（绘制 3：SketchLineTool/SketchRectangleTool/
  *    SketchCircleTool + 约束 6：Coincident/Horizontal/Vertical/Parallel/
  *    Perpendicular/Equal + 尺寸 2：Distance/Radius，旧 features/sketch/tools/*）：
@@ -57,6 +58,11 @@ import {
 } from '@itwin/core-frontend';
 import {
   ChamferEdgesTool,
+  // —— 以下 5 项为 M4-T3 移植四工具（DraftFaces/CreateHole/MirrorElements/
+  //    LinearPattern/CircularPattern），2026-10-22 随 editor 模块收编由
+  //    viewer-next src/tools/modeling/ 迁入 @itwin/editor-frontend src/luban/
+  //    modeling/，改从其导出面供给（建模功能归位第一方建模基座）——
+  CircularPatternTool,
   CopyElementsTool,
   CreateArcTool,
   CreateBCurveTool,
@@ -65,14 +71,18 @@ import {
   CreateConeTool,
   CreateCylinderTool,
   CreateEllipseTool,
+  CreateHoleTool,
   CreateLineStringTool,
   CreateRectangleTool,
   CreateSphereTool,
   CreateTorusTool,
   DeleteElementsTool,
+  DraftFacesTool,
   EditTools,
   HollowFacesTool,
   IntersectSolidElementsTool,
+  LinearPatternTool,
+  MirrorElementsTool,
   MoveElementsTool,
   OffsetFacesTool,
   RedoTool,
@@ -84,10 +94,6 @@ import {
   UniteSolidElementsTool,
 } from '@itwin/editor-frontend';
 
-import { DraftFacesTool } from './modeling/DraftFacesTool.js';
-import { CreateHoleTool } from './modeling/CreateHoleTool.js';
-import { MirrorElementsTool } from './modeling/MirrorElementsTool.js';
-import { CircularPatternTool, LinearPatternTool } from './modeling/PatternTools.js';
 import { ToggleProjectExtentsTool } from '../viewport/decorations/project-extents-decoration.js';
 import { registerDefaultShortcuts } from './keyboard-shortcuts.js';
 

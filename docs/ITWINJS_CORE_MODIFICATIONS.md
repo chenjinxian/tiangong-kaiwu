@@ -101,6 +101,12 @@
 
 战略论证、量化指标（T7 同步税触发条件、Phase 0 结构债对冲）与路线对比**详见 platform-docs（天工开物文档总仓，仓外）`KERNEL-STRATEGY.md` §4 成本行与 §6 触发条件**——本文件只记事实台账，一事一源，不重复战略推理。
 
+> **2026-10-22 落地**：editor 模块整体收编 luban-cad（用户裁决——上游不会再更新建模功能），
+> §1.1/§1.2/§1.3a/b 全部 editor 面随 `itwinjs-core/editor/*` 迁入 `luban-cad/packages/editor/`
+> 成为第一方包（包名暂保 `@itwin/editor-*`），**editor 模块自此不再是 fork 修改而是
+> luban-cad 自有实现，fork 内不再维护**；后续 subtree pull 带回上游 editor/ 的删除流程
+> 见 `docs/UPSTREAM_SYNC.md`「editor/ 收编检查单」。详见 §5 台账末行。
+
 ---
 
 ## 4. 自动生成文件
@@ -125,3 +131,4 @@
 | 2026-09-30 | `22a38fd2d9` | `editor/backend/src/EditBuiltInCommand.ts`（+139/-1） | 上游文件修补·纯追加 | WS1 T1.1/T1.3：OperationType 枚举扩 31-35 + 请求/响应 props 接口 + SolidModelingCommand 五个查询方法（topologyIdFromSubEntity/facesFromId/edgesFromId/allTopologyIds/validateBody），仿查询族形态（params.onResult 回调出线），wire 逐字消费 imodel-native 8e5ab9c60。导出 `TopologyIdProps` 供 M3 消费。同步风险与 §1.3 同类：上游若重排 OperationType 枚举尾部/改 `elementGeometryCacheOperation` 签名即冲突，但枚举追加在尾部、方法追加在类尾，冲突面最小 |
 | 2026-10-11 | 0219efe4d0 | `rush.json`（尾部追加 `eventHooks`，+10 行） | fork 本地接线·纯追加 | rush postInstall 自动接线：`eventHooks.postRushInstall` 挂 `node ../scripts/replace-imodeljs-native-postinstall.cjs`（守卫包装：非 Windows 跳过 / Windows 转交 replace-imodeljs-native.ps1），消灭 rush update 重装后回退官方原生包的手工纪律。同步风险：**rush.json 按仓规与上游逐字节一致，subtree 同步冲突时取上游版本后须重新追加本块**（块内注释已自标记）；守卫脚本在 subtree 之外（仓库根 scripts/），不受同步影响 |
 | 2026-10-15 | `6a3ff3d3ef` | `editor/backend/src/EditBuiltInCommand.ts`（+45/-3 行） | 上游文件修补·侵入式小改 | RW2-T4 D7 直改守卫挂钩：模块级 `bindDirectEditGuard(hooks)` DI 出口（形态仿 LubanCadSchema.bindFeatureEngine，导出 `DirectEditOp`/`DirectEditGuardHooks`）+ `applyDirectEditGuard` 统一调用入口（无挂钩 no-op、挂钩异常吞掉——隔离带故障不得阻断直改工具可用性）；BasicManipulationCommand 四写点接入：deleteElements（循环首行，无 props 形态）/transformPlacement/rotatePlacement（`element.toJSON()` 就地取 props、守卫改写后 updateElement）/updateGeometricElement（收口全部几何改写，SolidModelingCommand writeChanges 分支经此自动覆盖）。侵入面：两个 placement 循环体各 +2 行、deleteElements 循环 +1 行、updateGeometricElement +1 行——同步冲突面与 §1.3 同类：上游若改这几个方法的循环体/写点上下文即需手工重放本块（块首注释已自标记，冲突时按 bindDirectEditGuard 符号检索即可定位） |
+| 2026-10-22 | 本提交 | `editor/`（frontend/backend/common 全目录）+ `rush.json` 三条目 + `full-stack-tests/core`、`test-apps/display-test-app` 的 editor 依赖 | **归属变更·整体迁出** | editor 模块收编 luban-cad（用户裁决）：§1 全部 editor 面（复活工具 + 接口扩展 + 修补，约 1.1 万行）随 `itwinjs-core/editor/*` 原样迁入 `luban-cad/packages/editor/{frontend,backend,common}`（包名暂保 `@itwin/editor-*`，最小化私有仓 modeling-server 的 link: 搅动），成为 **luban-cad 第一方建模基座**——fork 内不再维护；web-next M4-T3 移植的四建模工具连同测试自 viewer-next 迁入其 `src/luban/`。fork 侧同步删除：rush.json 三条 editor 项目、两个 rush 测试应用的 `@itwin/editor-*` workspace 依赖（其后 fork 内这两应用不再可编译，属上游本地测试壳，已知搁置）。后续 subtree pull 会带回上游 editor/——删除流程见 `docs/UPSTREAM_SYNC.md`「editor/ 收编检查单」。§3 战略建议自此落地 |

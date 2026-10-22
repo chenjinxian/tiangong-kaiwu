@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    // 原 extends @itwin/build-tools/tsconfig-base.json（rush 专用，pnpm workspace 不可达）
+    // ——逐项内联（2026-10-22 editor 模块收编 luban-cad 时定版）。
+    // 注意：moduleResolution 为 node（上游形态）——相对导入不带 .js 后缀
+    //（src/luban/ 随迁件已按包内惯例改写，见其头注）。
+    "alwaysStrict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": false,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "incremental": true,
+    "inlineSources": true,
+    "jsx": "react",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noFallthroughCasesInSwitch": false,
+    "noImplicitAny": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "stripInternal": false,
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "ESNext.Disposable"]
+  },
+  "include": ["./src/**/*.ts"]
+}

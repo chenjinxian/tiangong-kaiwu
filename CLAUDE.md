@@ -39,7 +39,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 cd itwinjs-core
 node common/scripts/install-run-rush.js update          # 安装依赖
-node common/scripts/install-run-rush.js build --to @itwin/core-backend --to @itwin/core-frontend --to @itwin/editor-backend --to @itwin/editor-frontend   # 构建应用所需依赖包（同 luban-cad/apps/web 的 build:deps）
+node common/scripts/install-run-rush.js build --to @itwin/core-backend --to @itwin/core-frontend   # 构建应用所需依赖包（同 luban-cad/apps/web 的 build:deps；editor 包已收编 luban-cad/packages/editor，由 pnpm workspace 构建）
 ```
 
 ### luban-cad（pnpm workspace）
@@ -104,7 +104,7 @@ npx playwright test e2e/editor.spec.ts                   # 单 e2e（在 luban-c
 ## itwinjs-core 修改与上游同步（强制）
 
 - **复用优先**：开发前先在 itwinjs-core 找现成实现；禁止绕过 iTwin.js 工具生命周期自管状态、禁止自定义事件替代 `onCommitted` 等标准事件。工具开发检查清单见 `luban-cad/CLAUDE.md`。
-- **最小修改**：对 `itwinjs-core/` 的自定义改动集中在 `editor/*` 与 `core/backend/CheckpointManager.ts` 等少数文件，每处必须记录在 `docs/ITWINJS_CORE_MODIFICATIONS.md`。
+- **最小修改**：对 `itwinjs-core/` 的自定义改动集中在 `core/backend/CheckpointManager.ts` 等少数文件，每处必须记录在 `docs/ITWINJS_CORE_MODIFICATIONS.md`。（editor 模块 2026-10-22 起收编 `luban-cad/packages/editor/` 为 luban-cad 第一方建模基座——建模功能的修改/新增都在该包做，fork 内不再维护 editor/；后续 subtree pull 带回上游 editor/ 时须删除，见 `docs/UPSTREAM_SYNC.md`「editor/ 收编检查单」。）
 - **同步**：`bash scripts/sync-from-upstream.sh`（= `git subtree pull --prefix=itwinjs-core --squash upstream master`）。冲突时 `common/config/rush/pnpm-lock.yaml`、`rush.json`、`common/config/rush/*` 一律取上游版本，**绝不手工合并 lockfile**；完成后在 `docs/UPSTREAM_SYNC.md` 追加同步记录。
 - 保持 `common/config/rush/pnpm-lock.yaml` 与上游逐字节一致，是「随时可同步」的关键。
 

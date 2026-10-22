@@ -88,27 +88,6 @@
       "versionPolicyName": "prerelease-monorepo-lockStep"
     },
     {
-      "packageName": "@itwin/editor-common",
-      "projectFolder": "editor/common",
-      "reviewCategory": "edit",
-      "shouldPublish": true,
-      "versionPolicyName": "prerelease-monorepo-lockStep"
-    },
-    {
-      "packageName": "@itwin/editor-backend",
-      "projectFolder": "editor/backend",
-      "reviewCategory": "edit",
-      "shouldPublish": true,
-      "versionPolicyName": "prerelease-monorepo-lockStep"
-    },
-    {
-      "packageName": "@itwin/editor-frontend",
-      "projectFolder": "editor/frontend",
-      "reviewCategory": "edit",
-      "shouldPublish": true,
-      "versionPolicyName": "prerelease-monorepo-lockStep"
-    },
-    {
       "packageName": "@itwin/core-quantity",
       "projectFolder": "core/quantity",
       "reviewCategory": "common",

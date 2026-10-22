@@ -55,14 +55,15 @@ git subtree pull --prefix=itwinjs-core --squash upstream master
 # 完成后在下方「同步记录」追加一行
 ```
 
-> squash 谱系保证 git 每次都能做三方合并；自定义改动集中在 `editor/*` 与
-> `core/backend/CheckpointManager.ts` 等少数文件，冲突面很小。
+> squash 谱系保证 git 每次都能做三方合并；自定义改动集中在少量 `core/*` 文件
+> （editor 模块已于 2026-10-22 收编 luban-cad，见下节），冲突面很小。
 > **不要**手工改 `common/config/rush/pnpm-lock.yaml`——冲突时取上游版本。
 
 ## 冲突处理
 
-（新模型）自定义改动集中在 `editor/*` 与少量 `core/*` 文件；lockfile / rush 配置与上游
-逐字节一致（合体工作区已解耦），冲突一律取上游版本。
+（新模型）自定义改动集中在少量 `core/*` 文件（editor 模块已于 2026-10-22 收编
+luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合体工作区已解耦），
+冲突一律取上游版本。
 
 （历史经验——嵌套 fork 仓合体工作区时期，2026-09 同步 5.9→5.14 实测；保留备查）
 
@@ -98,6 +99,29 @@ git subtree pull --prefix=itwinjs-core --squash upstream master
 并拒绝安装。修复：把这两个字段改写为当前绝对路径，或 `rush update --purge` 全量重装。
 另：工作区项目集变化后 pnpm 要清旧 `node_modules`，非交互环境报
 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`——加 `CI=true` 环境变量即可（2026-09-23 实测）。
+
+## editor/ 收编检查单（2026-10-22 起，每次同步必办）
+
+**editor 模块（frontend/backend/common）已是 luban-cad 第一方包**（`luban-cad/packages/editor/`，
+包名暂保 `@itwin/editor-*`），fork 内不再维护、上游也不会再更新建模功能。但上游 subtree 仍携带
+`editor/` 目录——**每次 `subtree pull` 都会把它带回来**，pull 后必办：
+
+1. **删目录**：`git rm -r itwinjs-core/editor/`（上游带回的 editor/frontend、editor/backend、
+   editor/common 整体删除；`scripts/sync-from-upstream.sh` 尾部会检测并提示）。
+2. **删 rush.json 条目**：`@itwin/editor-common` / `@itwin/editor-backend` / `@itwin/editor-frontend`
+   三条 `projectFolder: editor/*` 一并删除（上游带回）。
+3. **删 fork 测试应用的 editor 依赖**：`full-stack-tests/core/package.json` 与
+   `test-apps/display-test-app/package.json` 里 `@itwin/editor-*: workspace:*` 三行删除
+   （上游带回；不删则 rush update 因 workspace 依赖无对应项目而失败。这两处源码仍
+   import @itwin/editor——它们只是上游本地测试壳，fork 内不再可编译，属已知搁置）。
+   `open-cloud-cad/`（冻结历史拷贝，非 rush 项目）不用管。
+4. **`rush update`**（`CI=true`，非交互环境）重新生成 lockfile——上游 lockfile 含 editor
+   importer 而目录已删，**「lockfile 取上游逐字节一致」原则自本日起对 lockfile 失效**：
+   冲突时照旧先取上游版，随后必须紧跟本步重生成。
+5. 验证：`rush build --to @itwin/core-frontend --to @itwin/core-backend --bypass-policy`
+   （editor 是叶子，core 链不依赖它；editor 的构建自收编起由 luban-cad pnpm workspace
+   负责：`pnpm --filter @itwin/editor-common --filter @itwin/editor-backend --filter
+   @itwin/editor-frontend run build`，apps/web 的 `build:deps` 已如此接线）。
 
 ## 同步记录
 
@@ -168,4 +192,6 @@ git subtree pull --prefix=itwinjs-core --squash upstream master
   `docs/ITWINJS_CORE_MODIFICATIONS.md`（仓库根 docs/）
 - 应用代码在 `luban-cad/`；itwinjs-core 内的历史拷贝目录仅作存档，保持原样
 - 保持 `common/config/rush/pnpm-lock.yaml` 与上游逐字节一致是「随时同步」的关键
-  ——不要为应用再生成锁文件
+  ——不要为应用再生成锁文件。**例外（2026-10-22 起）**：editor/ 收编 luban-cad 后，
+  每轮同步删目录后须 `rush update` 重生成 lockfile（见「editor/ 收编检查单」第 4 条）；
+  冲突时仍先取上游版再重生成
