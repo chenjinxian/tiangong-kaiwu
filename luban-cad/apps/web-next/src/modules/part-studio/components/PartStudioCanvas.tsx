@@ -16,8 +16,10 @@
  *  （M3-T6 台账①根治：不同特征切换即重挂，本地态不跨特征残留）；
  * - 提交链（M4-T6 拉伸闭环）：new 模式 ✓ → FeatureDialog 内部构 insertFeature
  *   op 经 applyOp（Session useFeatureSystem 直通）提交，成功回 onConfirm →
- *   closeDialog；edit 模式确认仍壳期 console.warn（updateParams 归特征对话
- *   框增强 backlog）；
+ *   closeDialog；edit 模式确认在对话框内已禁用+提示（T6 评审 M-1）；
+ * - viewOnly 运行时切换（T6 评审 I-1）：store.viewOnly 置位即 closeDialog
+ *   ——打开中的写面对话框整体收口（对话框宿主职责；对话框内另有 viewOnly
+ *   提交门兜底，防御纵深）；
  * - store.sketch.isActive 驱动草图模式覆盖层：栅格（aria-hidden 纯视觉层）+
  *   约束（role=note 标签层）。
  */
@@ -29,7 +31,6 @@ import type { ScreenViewport } from '@itwin/core-frontend';
 import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
-import type { FeatureDialogResult } from '../dialogs/FeatureDialog.js';
 import { SketchDialog } from '../dialogs/SketchDialog.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { usePartStudioStore } from '../stores/part-studio.store.js';
@@ -44,6 +45,8 @@ export interface PartStudioCanvasProps {
    * FeatureDialog new 模式提交消费；缺省=对话框回退纯回调壳期语义）。
    */
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
+  /** 写租约在持（Session useFeatureSystem.leaseOk 直通；FeatureDialog 租约警示消费，T6 评审 I-2）。 */
+  leaseOk?: boolean;
 }
 
 interface MenuAnchor {
@@ -51,7 +54,7 @@ interface MenuAnchor {
   y: number;
 }
 
-export function PartStudioCanvas({ viewportRef, viewport, applyOp }: PartStudioCanvasProps): React.JSX.Element {
+export function PartStudioCanvas({ viewportRef, viewport, applyOp, leaseOk }: PartStudioCanvasProps): React.JSX.Element {
   const { t } = useTranslation();
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
 
@@ -60,23 +63,18 @@ export function PartStudioCanvas({ viewportRef, viewport, applyOp }: PartStudioC
   const closeDialog = usePartStudioStore((s) => s.closeDialog);
   // T6：草图模式覆盖层开关（os-30 栅格/约束）。
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
+  // T6 评审 I-1：viewOnly 运行时切换 → 打开中的写面对话框整体收口（宿主职责；
+  // FeatureDialog 内另有 viewOnly 提交门兜底，防御纵深）。dialog.active 入参
+  // 兼盖「仅查看态下被打开」的对话框（打开即收）。
+  const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
+  React.useEffect(() => {
+    if (viewOnly && dialog.active) closeDialog();
+  }, [viewOnly, dialog.active, closeDialog]);
 
   const handleContextMenu = React.useCallback((event: React.MouseEvent) => {
     event.preventDefault();
     setAnchor({ x: event.clientX, y: event.clientY });
   }, []);
-
-  // M4-T6：new 模式提交成功回 here（FeatureDialog 内部已 toast）；edit 模式
-  // 本版不提交（updateParams 归特征对话框增强 backlog）——壳期口径收全量载荷。
-  const handleFeatureConfirm = React.useCallback(
-    (result: FeatureDialogResult, payload: { mode: 'new' | 'edit' }) => {
-      if (payload.mode === 'edit') {
-        console.warn('[part-studio] 特征编辑确认（updateParams 未接线——特征对话框增强 backlog）', result);
-      }
-      closeDialog();
-    },
-    [closeDialog],
-  );
 
   const handleSketchConfirm = React.useCallback((result: SketchDialogResult) => {
     console.warn('[part-studio] 草图对话框确认（onConfirm 未接线——RPC 变异层后续接管）', result);
@@ -124,9 +122,8 @@ export function PartStudioCanvas({ viewportRef, viewport, applyOp }: PartStudioC
           mode={dialog.mode}
           featureType={dialog.mode === 'edit' ? undefined : dialog.featureType}
           applyOp={applyOp}
-          onConfirm={(result) =>
-            handleFeatureConfirm(result, { mode: dialog.mode })
-          }
+          leaseOk={leaseOk}
+          onConfirm={closeDialog}
           onCancel={closeDialog}
         />
       )}

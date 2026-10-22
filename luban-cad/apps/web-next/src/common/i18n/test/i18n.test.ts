@@ -141,6 +141,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'tree.featureTypes.extrude', 'tree.featureTypes.booleanAdd', 'tree.featureTypes.booleanSubtract',
   'tree.featureTypes.fillet', 'tree.featureTypes.chamfer', 'tree.featureTypes.shell',
   'featureDialog.distanceLabel', 'featureDialog.distanceInvalid', 'featureDialog.submitSuccess',
+  // T6 评审 round 1：租约警示（I-2）+ edit 模式提示行（M-1）。
+  'featureDialog.leaseBusy', 'featureDialog.editHint',
   'dock.tabs.toolSettings', 'dock.tabs.history', 'dock.tabs.display',
   'dock.placeholder',
   'tabs.fitView', 'tabs.newTab', 'tabs.partStudio',

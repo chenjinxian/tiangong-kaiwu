@@ -253,6 +253,8 @@
     "distanceLabel": "距离",
     "distanceInvalid": "请输入有效的拉伸距离（大于 0）",
     "submitSuccess": "{{name}} 已创建",
+    "leaseBusy": "写租约被其他会话持有，提交将等待租约",
+    "editHint": "该特征类型的参数编辑即将推出",
     "sections": {
       "direction": "方向",
       "startOffset": "起始偏移",

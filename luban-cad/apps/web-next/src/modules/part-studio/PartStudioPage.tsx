@@ -306,7 +306,12 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
           connection={connection ?? undefined}
         />
         <div className="part-studio-main">
-          <PartStudioCanvas viewportRef={viewportRef} viewport={viewport} applyOp={featureSystem.applyOp} />
+          <PartStudioCanvas
+            viewportRef={viewportRef}
+            viewport={viewport}
+            applyOp={featureSystem.applyOp}
+            leaseOk={featureSystem.leaseOk}
+          />
           <PartStudioDock />
         </div>
       </div>

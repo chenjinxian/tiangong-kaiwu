@@ -253,6 +253,8 @@
     "distanceLabel": "Distance",
     "distanceInvalid": "Enter a valid extrude distance (greater than 0)",
     "submitSuccess": "{{name}} created",
+    "leaseBusy": "The write lease is held by another session; submitting will wait for the lease",
+    "editHint": "Parameter editing for this feature type is coming soon",
     "sections": {
       "direction": "Direction",
       "startOffset": "Start offset",

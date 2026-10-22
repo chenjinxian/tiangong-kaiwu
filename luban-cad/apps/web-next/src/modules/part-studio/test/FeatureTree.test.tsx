@@ -234,7 +234,7 @@ describe('树→画布联动单向流（树选中 → viewport emphasize；M4-T6
     expect(mocks.emphasizeElements).toHaveBeenLastCalledWith(['ab', 'c'], { id: 'vp' }, undefined, true);
   });
 
-  it('卸载清空 emphasize（无 viewport 静默跳过）', async () => {
+  it('卸载清空 emphasize（有 viewport：清理走 EmphasizeElements.get，不反向建实例）', async () => {
     const user = userEvent.setup();
     mocks.viewport = { id: 'vp' };
     const { unmount } = render(<FeatureTree entries={ENTRIES} />);
@@ -243,6 +243,18 @@ describe('树→画布联动单向流（树选中 → viewport emphasize；M4-T6
     const clears = mocks.clearEmphasizedElements.mock.calls.length;
     unmount();
     expect(mocks.clearEmphasizedElements.mock.calls.length).toBeGreaterThan(clears);
+  });
+
+  it('卸载时无 viewport → emphasize 全链静默跳过（应用/清理均不触碰）', async () => {
+    const user = userEvent.setup();
+    mocks.viewport = null;
+    const { unmount } = render(<FeatureTree entries={ENTRIES} />);
+    await user.click(screen.getByTestId('tree-row-ex1'));
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['ex1']);
+    expect(mocks.emphasizeElements).not.toHaveBeenCalled();
+    expect(mocks.clearEmphasizedElements).not.toHaveBeenCalled();
+    unmount();
+    expect(mocks.clearEmphasizedElements).not.toHaveBeenCalled();
   });
 });
 

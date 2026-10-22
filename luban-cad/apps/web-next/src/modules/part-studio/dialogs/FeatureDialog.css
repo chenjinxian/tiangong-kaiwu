@@ -128,6 +128,32 @@
   overflow-wrap: anywhere;
 }
 
+/* ── 租约警示（T6 评审 I-2：可视提示不硬禁用，保留租约自愈路）──────────── */
+.part-studio-feature-dialog__lease-warning {
+  margin: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-warning, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-warning, var(--iui-color-background-hover));
+  color: var(--iui-color-text);
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* ── edit 模式提示行（T6 评审 M-1：参数编辑即将推出，✓ 禁用）────────────── */
+.part-studio-feature-dialog__hint {
+  margin: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-backdrop, var(--iui-color-background-hover));
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 /* ── 距离（M4-T6：insertFeature extrude 唯一可编辑量，常驻不折叠）──────── */
 .part-studio-feature-dialog__distance {
   display: flex;

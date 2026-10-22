@@ -71,6 +71,7 @@ function resetStore(): void {
     canvas: { selection: [], hiddenIds: [] },
     sketch: { isActive: false, activeSketchId: null },
     dialog: { active: null },
+    viewOnly: { isActive: false },
   });
 }
 
@@ -148,6 +149,25 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     expect(screen.getByTestId('part-studio-sketch-dialog')).toBeDefined();
     await user.click(screen.getByRole('button', { name: '取消' }));
     expect(usePartStudioStore.getState().dialog.active).toBeNull();
+  });
+
+  it('viewOnly 置位 → 打开中的写面对话框整体收口（I-1 宿主职责），回切编辑不复活；仅查看态下打开亦即收', async () => {
+    renderCanvas();
+    actOpenEdit('ex1', '拉伸 1');
+    expect(screen.getByTestId('part-studio-feature-dialog')).toBeDefined();
+    act(() => {
+      usePartStudioStore.getState().setViewOnly(true);
+    });
+    expect(screen.queryByTestId('part-studio-feature-dialog')).toBeNull();
+    expect(usePartStudioStore.getState().dialog.active).toBeNull();
+    // 仅查看态下被打开的对话框：打开即收（dialog.active 入依赖）。
+    actOpenEdit('ex2', '拉伸 2');
+    expect(screen.queryByTestId('part-studio-feature-dialog')).toBeNull();
+    // 写面收口是终态：viewOnly 回切编辑不复活旧对话框。
+    act(() => {
+      usePartStudioStore.getState().setViewOnly(false);
+    });
+    expect(screen.queryByTestId('part-studio-feature-dialog')).toBeNull();
   });
 });
 

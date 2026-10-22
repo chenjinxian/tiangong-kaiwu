@@ -22,7 +22,7 @@ export interface CanvasSelection {
   id: string;
   /** 显示名（菜单标签「删除 {{name}}」插值；缺省回退 id）。 */
   label?: string;
-  /** kind=feature 时的特征类型（ribbon 工具 id 同族，如 extrude）。 */
+  /** kind=feature 时的特征类型（edit 模式 FeatureDialog 的寻址元数据，如 extrude）。 */
   featureType?: string;
 }
 

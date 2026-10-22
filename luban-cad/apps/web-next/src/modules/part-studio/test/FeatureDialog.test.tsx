@@ -73,10 +73,11 @@ import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 
-/** store 复位：canvas 切片回缺省（用例间互不渗漏）。 */
+/** store 复位：canvas/viewOnly 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
+    viewOnly: { isActive: false },
   });
 }
 
@@ -434,10 +435,53 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('edit 模式：确认不发起 insertFeature（updateParams 接线归特征对话框增强 backlog），回退纯回调', async () => {
+  it('viewOnly 置位 → 提交不可达（I-1 防御纵深：applyOp 与 onConfirm 均不发起）', async () => {
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
     const onConfirm = vi.fn();
+    usePartStudioStore.setState({ viewOnly: { isActive: true } });
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        onConfirm={onConfirm}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('leaseOk=false → 租约警示在场（不硬禁用），提交仍可达', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    renderSubmitDialog(applyOp, { leaseOk: false });
+    const warning = screen.getByTestId('part-studio-feature-dialog-lease-warning');
+    expect(warning.textContent).toContain('写租约被其他会话持有');
+    // 提交面不因租约警示禁用（保留陈旧租约 35s 自愈路）。
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaseOk 缺省 → 无租约警示（未接线/壳期不警示）', () => {
+    renderSubmitDialog(makeApplyOp());
+    expect(screen.queryByTestId('part-studio-feature-dialog-lease-warning')).toBeNull();
+  });
+
+  it('leaseOk=true → 无租约警示（仅在持缺失时警示面出现）', () => {
+    renderSubmitDialog(makeApplyOp(), { leaseOk: true });
+    expect(screen.queryByTestId('part-studio-feature-dialog-lease-warning')).toBeNull();
+  });
+
+  it('edit 模式（宿主已接提交面）→ ✓/成品 禁用 + 提示行「参数编辑即将推出」（M-1：消除假成功），不发起 op', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
     render(
       <FeatureDialog
         featureName="拉伸 1"
@@ -445,10 +489,17 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
         featureType="extrude"
         applyOp={applyOp}
         onConfirm={onConfirm}
+        onCancel={onCancel}
       />,
     );
-    await user.click(screen.getByRole('button', { name: '确认' }));
+    const hint = screen.getByTestId('part-studio-feature-dialog-edit-hint');
+    expect(hint.textContent).toContain('参数编辑即将推出');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    // ✗ 取消仍可达（禁用态下唯一出口——关闭面板），且全程不发起 op/确认。
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
     expect(applyOp).not.toHaveBeenCalled();
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });

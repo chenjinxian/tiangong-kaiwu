@@ -25,8 +25,13 @@
  *（IModelApp.notifications 标准通道，与保存错误面同管道）+ onConfirm（宿主
  * closeDialog——组件不自销，受控口径）；失败 → 就地 Alert（六态 error），
  * 对话框不关闭；提交中禁重入（两出口禁用）。非法距离校验先行（不发起 op）。
- * applyOp 未接线（壳期）或 mode='edit'（updateParams 归特征对话框增强
- * backlog）时确认回退纯 onConfirm（M3 语义保持）。方向/对称/拔模随载荷回传
+ * applyOp 未接线（壳期/纯展示）时确认回退纯 onConfirm（M3 语义保持）；
+ * mode='edit' 且 applyOp 在场（宿主已接提交面）时 ✓/成品 禁用 + 提示行
+ *「该特征类型的参数编辑即将推出」（T6 评审 M-1：updateParams 归特征对话框
+ * 增强 backlog，消除「假成功」观感）。租约警示（T6 评审 I-2）：leaseOk=false
+ * 时可视警示「提交将等待租约」，不硬禁用（保留陈旧租约 35s 自愈路）。
+ * viewOnly 门（T6 评审 I-1 防御纵深）：store.viewOnly 置位时确认不可达
+ *（宿主已整体收口写面对话框，此门兜底竞态帧）。方向/对称/拔模随载荷回传
  * 但本版不进 op（shared ExtrudeParams 仅 profile/distance/sketchId——映射
  * 归特征对话框增强单裁，见 useFeatureSystem 头注延后项）。
  */
@@ -37,6 +42,7 @@ import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/c
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type { FeatureOp, FeatureOpResult, LubanFeatureType } from '@luban-cad/shared';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
+import { usePartStudioStore } from '../stores/part-studio.store.js';
 import './FeatureDialog.css';
 
 /** 结果类型页签（os-31：实体|曲面|薄壁）。 */
@@ -79,6 +85,12 @@ export interface FeatureDialogProps {
   featureType?: LubanFeatureType;
   /** op 提交面（Session useFeatureSystem.applyOp 直通；缺省=纯回调壳期语义）。 */
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
+  /**
+   * 写租约在持（Session useFeatureSystem.leaseOk 直通；T6 评审 I-2）——
+   * false 且提交面在场时给可视警示「提交将等待租约」，**不硬禁用**（保留
+   * applyOp 陈旧租约 35s 自愈路）；缺省（未接线/壳期）不警示。
+   */
+  leaseOk?: boolean;
   /** 初始实体 chips（RPC 接线前由宿主注入；缺省空集）。 */
   entities?: readonly FeatureDialogEntity[];
   /** 回滚滑杆上限（默认 100；后端 OpLog 线性链接线后由宿主注入特征数）。 */
@@ -119,6 +131,7 @@ export function FeatureDialog({
   mode = 'edit',
   featureType,
   applyOp,
+  leaseOk,
   entities,
   rollbackMax = 100,
   onConfirm,
@@ -126,6 +139,9 @@ export function FeatureDialog({
 }: FeatureDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const { selection } = useCanvasSelection();
+  // 仅查看门（T6 评审 I-1 防御纵深）：viewOnly 置位时宿主已整体收口写面
+  // 对话框（PartStudioCanvas effect closeDialog），此门兜底竞态帧下的提交。
+  const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
 
   const [resultType, setResultType] = React.useState<FeatureResultType>('solid');
   const [booleanScope, setBooleanScope] = React.useState<FeatureBooleanScope>('new');
@@ -151,6 +167,10 @@ export function FeatureDialog({
   React.useEffect(() => () => {
     aliveRef.current = false;
   }, []);
+  // edit 模式且宿主已接提交面（T6 评审 M-1）：updateParams 本版不接线（特征
+  // 对话框增强 backlog），✓/成品 禁用 + 提示行，消除「点确认即关面板无事发生」
+  // 的假成功观感；applyOp 未接线（壳期/纯展示）保持 M3 纯回调语义。
+  const editStandalone = mode === 'edit' && applyOp !== undefined;
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -185,7 +205,8 @@ export function FeatureDialog({
    * closeDialog）；失败/校验不过 → 就地 Alert，对话框不关闭。
    */
   const handleConfirm = React.useCallback(() => {
-    if (submitting) return; // 禁重入
+    if (submitting || viewOnly) return; // 禁重入 + 仅查看门（I-1 防御纵深）
+    if (editStandalone) return; // M-1：edit 本版不提交（✓ 已禁用，此为防御兜底）
     if (!(mode === 'new' && applyOp && featureType)) {
       onConfirm?.(buildResult());
       return;
@@ -225,7 +246,7 @@ export function FeatureDialog({
         setError(result.error);
       }
     })();
-  }, [submitting, mode, applyOp, featureType, distance, t, onConfirm, buildResult, featureName]);
+  }, [submitting, viewOnly, editStandalone, mode, applyOp, featureType, distance, t, onConfirm, buildResult, featureName]);
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -248,7 +269,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting}
+            disabled={submitting || editStandalone}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -315,6 +336,29 @@ export function FeatureDialog({
         {error && (
           <p role="alert" className="part-studio-feature-dialog__alert" data-testid="part-studio-feature-dialog-error">
             {error}
+          </p>
+        )}
+
+        {/* 租约警示（T6 评审 I-2）：活租约被他人持有时可视提示，不硬禁用——
+            applyOp 内置陈旧租约 35s 有限重试自愈路，禁用即堵死。 */}
+        {applyOp !== undefined && mode === 'new' && leaseOk === false && (
+          <p
+            role="note"
+            className="part-studio-feature-dialog__lease-warning"
+            data-testid="part-studio-feature-dialog-lease-warning"
+          >
+            {t('partStudio.featureDialog.leaseBusy')}
+          </p>
+        )}
+
+        {/* edit 模式提示行（T6 评审 M-1）：参数编辑即将推出（✓ 已禁用）。 */}
+        {editStandalone && (
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint"
+            data-testid="part-studio-feature-dialog-edit-hint"
+          >
+            {t('partStudio.featureDialog.editHint')}
           </p>
         )}
 
@@ -456,7 +500,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting}
+            disabled={submitting || editStandalone}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}
