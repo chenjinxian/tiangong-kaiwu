@@ -40,6 +40,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
 
+  /* 视觉钉版基线（M5-T6，visual.spec.ts）：快照落 e2e/__screenshots__/
+   * （测试目录旁，git 正常跟踪——luban-cad/.gitignore 的 *.png 有对应豁免行）；
+   * 不带 {-projectname}{-platform} 后缀：本仓唯一 chromium 项目 + Windows 单机
+   * 钉版（跨平台像素本就不可比，基线随平台重建）。 */
+  snapshotPathTemplate: '{testDir}/__screenshots__/{arg}{ext}',
+
+  expect: {
+    toHaveScreenshot: {
+      /* 钉版红即真红（retries 0 同纪律）；仅禁动画防过渡态像素噪声，
+       * maxDiffPixelRatio 缺省 0（严格逐像素）。 */
+      animations: 'disabled',
+    },
+  },
+
   projects: [
     {
       name: 'setup',

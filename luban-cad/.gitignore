@@ -50,3 +50,5 @@ playwright-report/
 *.png
 !src/**/*.png
 !public/**/*.png
+# 视觉钉版基线（apps/web-next visual.spec.ts，M5-T6 起 git 跟踪）
+!apps/web-next/e2e/__screenshots__/*.png
