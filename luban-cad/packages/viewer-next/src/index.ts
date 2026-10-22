@@ -22,3 +22,15 @@ export type {
   UseBriefcaseConnectionOptions,
   UseBriefcaseConnectionResult,
 } from './connection/index.js';
+// M4 Task 3：编辑工具注册表——EditTools.initialize + 分组注册序（同旧
+// registerTools.ts 裁剪，跳过项登记见该文件头注）+ Undo/Redo/Delete/Escape
+// 快捷键子集。PartStudioPage 在 host 就绪（phase ready + ToolAdmin 轮询）后编排。
+// 懒引（动态 import）而非静态引出：barrel 是 app 各测试文件的高频静态入口
+// （part-studio 结构测试以「零真实查看器」口径模块级 mock @itwin/core-frontend），
+// 注册表携 40+ 工具类导出依赖（视图/测量/裁剪/基元/变换工具等），静态引出会把
+// 这些导出名强加给每个消费方的 mock 面；懒引后注册面仅在 ensureEditTools 实调
+// （host 就绪后一次性）时加载，运行时行为与签名不变。
+export async function ensureEditTools(): Promise<void> {
+  const { ensureEditTools: run } = await import('./tools/register-edit-tools.js');
+  return run();
+}

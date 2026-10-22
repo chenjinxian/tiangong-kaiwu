@@ -26,7 +26,12 @@
  *   （acquireViewer）先于外层 useBriefcaseConnection 的打开副作用执行，host 的
  *   IpcApp._ipc 在其同步前缀就位，随后的 downloadBriefcase IPC 由 LocalTransport
  *   缓冲至 WebSocket 开启（vendored core-frontend 语义），消除「连接先于 host」
- *   的启动竞态（单组件顺序下 downloadBriefcase 必然首挂载被拒）。
+ *   的启动竞态（单组件顺序下 downloadBriefcase 必然首挂载被拒）；
+ * - 工具注册（M4-T3）：phase ready → waitForToolAdmin 轮询（100ms×50）→
+ *   ensureEditTools（EditTools.initialize + 注册表 + 快捷键子集）——失败走
+ *   IModelApp.notifications 错误面（旧 Editor.tsx:262-309 序移植）。注册后
+ *   ribbon/命令搜索的 8 个真实 toolId（RoundEdges/DraftFaces/…）tools.run 直投
+ *   真启动（useToolActivation 本任务不动）。
  *
  * backendUrl 传同源（MS CORS 钉死 :5300，web-next :5310 走 vite 代理，见
  * vite.config.ts 注记；姿态同 DevViewerRoute），相位上供状态栏。ribbon/命令
@@ -35,7 +40,9 @@
 
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { applyViewportBackground, useBriefcaseConnection, useViewport } from '@luban-cad/viewer-next';
+import { useTranslation } from 'react-i18next';
+import { applyViewportBackground, ensureEditTools, useBriefcaseConnection, useViewport } from '@luban-cad/viewer-next';
+import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
@@ -75,6 +82,7 @@ interface PartStudioSessionProps {
 }
 
 function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionProps): React.JSX.Element {
+  const { t } = useTranslation();
   // 会话由 RequireAuth 门保证在场；token 静态传入（M3 雷②闭环：渲染期取一次，
   // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer-next 演进）。
   const { viewportRef, phase, viewport } = useViewport({
@@ -83,6 +91,54 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
     accessToken: AuthSession.getStoredAuth()?.accessToken,
     iModel: connection ?? undefined,
   });
+
+  // 工具注册编排（M4-T3；旧 Editor.tsx:262-309 序忠实移植）：host 就绪
+  //（phase ready = LocalhostIpcApp.startup 完成）→ waitForToolAdmin 轮询
+  //（100ms × 50 封顶）→ ensureEditTools（EditTools.initialize + 注册表 +
+  // 快捷键子集，幂等）。失败必须 notifications 可见——旧应用曾把注册失败
+  // 静默吞掉，其后注册行与快捷键全部不执行（Editor.tsx:287-301 教训）。
+  useEffect(() => {
+    if (phase !== 'ready') return;
+
+    let cancelled = false;
+
+    const waitForToolAdmin = async (): Promise<boolean> => {
+      for (let i = 0; i < 50; i++) {
+        if (cancelled) return false;
+        if (IModelApp.initialized && IModelApp.toolAdmin) {
+          return true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return false;
+    };
+
+    const initTools = async (): Promise<void> => {
+      const ready = await waitForToolAdmin();
+      if (!ready || cancelled) return;
+
+      try {
+        await ensureEditTools();
+      } catch (err) {
+        if (cancelled) return;
+        // 工具注册失败必须可见（同旧应用口径：错误面吞掉 = 工具全灭且无诊断线索）
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(
+            OutputMessagePriority.Error,
+            t('partStudio.tools.registrationFailed', {
+              message: err instanceof Error ? err.message : String(err),
+            }),
+          ),
+        );
+      }
+    };
+
+    void initTools();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, t]);
 
   // Onshape 式视口底色：亮色浅灰/暗色深灰。数据模型里的 view 背景默认黑，观感
   // 与 Onshape 差距最大的一处。观察 ThemeProvider 写入的 documentElement[data-theme]

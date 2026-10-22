@@ -107,6 +107,9 @@
     "viewType": "视图类型",
     "viewIso": "等轴测"
   },
+  "tools": {
+    "registrationFailed": "工具注册失败: {{message}}"
+  },
   "ribbon": {
     "toolbarLabel": "特征工具",
     "sketchToolbarLabel": "草图工具",

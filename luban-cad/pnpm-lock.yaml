@@ -354,6 +354,9 @@ importers:
 
   packages/viewer-next:
     dependencies:
+      '@itwin/appui-abstract':
+        specifier: link:../../../itwinjs-core/ui/appui-abstract
+        version: link:../../../itwinjs-core/ui/appui-abstract
       '@itwin/core-bentley':
         specifier: link:../../../itwinjs-core/core/bentley
         version: link:../../../itwinjs-core/core/bentley
@@ -366,6 +369,9 @@ importers:
       '@itwin/core-geometry':
         specifier: link:../../../itwinjs-core/core/geometry
         version: link:../../../itwinjs-core/core/geometry
+      '@itwin/editor-common':
+        specifier: link:../../../itwinjs-core/editor/common
+        version: link:../../../itwinjs-core/editor/common
       '@itwin/editor-frontend':
         specifier: link:../../../itwinjs-core/editor/frontend
         version: link:../../../itwinjs-core/editor/frontend

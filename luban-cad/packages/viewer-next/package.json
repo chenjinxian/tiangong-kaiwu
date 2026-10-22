@@ -16,10 +16,12 @@
     "react": "^18.0.0"
   },
   "dependencies": {
+    "@itwin/appui-abstract": "link:../../../itwinjs-core/ui/appui-abstract",
     "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
     "@itwin/core-common": "link:../../../itwinjs-core/core/common",
     "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
     "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry",
+    "@itwin/editor-common": "link:../../../itwinjs-core/editor/common",
     "@itwin/editor-frontend": "link:../../../itwinjs-core/editor/frontend",
     "@itwin/imodels-access-frontend": "^6.0.2",
     "@itwin/imodels-client-management": "^6.0.2",

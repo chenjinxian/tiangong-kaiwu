@@ -107,6 +107,9 @@
     "viewType": "View",
     "viewIso": "Isometric"
   },
+  "tools": {
+    "registrationFailed": "Tool registration failed: {{message}}"
+  },
   "ribbon": {
     "toolbarLabel": "Feature tools",
     "sketchToolbarLabel": "Sketch tools",

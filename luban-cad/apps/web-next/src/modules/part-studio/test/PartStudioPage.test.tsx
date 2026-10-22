@@ -40,7 +40,30 @@ const viewerMocks = vi.hoisted(() => ({
   useViewport: vi.fn(),
   useBriefcaseConnection: vi.fn(),
   applyViewportBackground: vi.fn(),
+  ensureEditTools: vi.fn().mockResolvedValue(undefined),
 }));
+
+// M4-T3 编排错误面：IModelApp 可观测替身——未 startup 的真实 IModelApp 缺
+// notifications/toolAdmin（waitForToolAdmin 会白等 5s），此处钉就绪态 +
+// outputMessage 捕获；类与常量（NotifyMessageDetails/OutputMessagePriority/
+// StandardViewId/EmphasizeElements…）走真实模块。
+const coreFrontendMocks = vi.hoisted(() => ({
+  outputMessage: vi.fn(),
+}));
+
+vi.mock('@itwin/core-frontend', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    IModelApp: {
+      ...(actual.IModelApp as object),
+      initialized: true,
+      toolAdmin: { startDefaultTool: vi.fn() },
+      viewManager: { selectedView: undefined },
+      notifications: { outputMessage: coreFrontendMocks.outputMessage },
+    },
+  };
+});
 
 vi.mock('@clients/itwins/ItwinsClient.js', () => ({
   ItwinsClient: class {
@@ -80,6 +103,7 @@ vi.mock('@luban-cad/viewer-next', () => ({
   useViewport: viewerMocks.useViewport,
   useBriefcaseConnection: viewerMocks.useBriefcaseConnection,
   applyViewportBackground: viewerMocks.applyViewportBackground,
+  ensureEditTools: viewerMocks.ensureEditTools,
   acquireViewer: vi.fn().mockResolvedValue(undefined),
   releaseViewer: vi.fn().mockResolvedValue(undefined),
   ensureAccuSnap: vi.fn().mockResolvedValue(undefined),
@@ -142,6 +166,8 @@ beforeEach(() => {
   mocks.imodelsGet.mockResolvedValue(IMODEL_DETAIL);
   // T7 页签管理器（底部「+」开合）：列表查询零真实请求。
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
+  // M4-T3：注册编排桩复位（mockReset 清实现，重挂成功缺省）。
+  viewerMocks.ensureEditTools.mockReset().mockResolvedValue(undefined);
   // viewer-next mock 桩：连接就绪 + viewport 就位（M4-T2 接线断言的数据面）。
   viewerMocks.useBriefcaseConnection.mockReturnValue({
     connection: FAKE_CONNECTION,
@@ -304,5 +330,35 @@ describe('M4-T2 连接/视口组合接线', () => {
     await waitFor(() =>
       expect(viewerMocks.applyViewportBackground).toHaveBeenLastCalledWith(FAKE_VIEWPORT, 'light'),
     );
+  });
+});
+
+describe('M4-T3 工具注册编排（Editor.tsx:262-309 序移植）', () => {
+  it('phase ready → waitForToolAdmin 通过 → ensureEditTools 恰一次（幂等在 viewer-next flag）', async () => {
+    renderPage();
+    await waitFor(() => expect(viewerMocks.ensureEditTools).toHaveBeenCalledTimes(1));
+  });
+
+  it('phase 未就绪（starting）→ 不编排注册', () => {
+    viewerMocks.useViewport.mockReturnValue({
+      viewportRef: { current: null },
+      phase: 'starting',
+      error: null,
+      viewport: undefined,
+    });
+    renderPage();
+    expect(viewerMocks.ensureEditTools).not.toHaveBeenCalled();
+  });
+
+  it('注册失败 → IModelApp.notifications 错误可见（不静默吞，消息含原因）', async () => {
+    viewerMocks.ensureEditTools.mockRejectedValueOnce(new Error('host not ready'));
+    renderPage();
+
+    await waitFor(() => expect(coreFrontendMocks.outputMessage).toHaveBeenCalledTimes(1));
+    const details = coreFrontendMocks.outputMessage.mock.calls[0]?.[0] as { briefMessage: string } | undefined;
+    expect(details?.briefMessage).toContain('工具注册失败');
+    expect(details?.briefMessage).toContain('host not ready');
+    // 失败不外抛（错误面消化后页面照常呈现）。
+    expect(screen.getByTestId('part-studio-page')).toBeDefined();
   });
 });

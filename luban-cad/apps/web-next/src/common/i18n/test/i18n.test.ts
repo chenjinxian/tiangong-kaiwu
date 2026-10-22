@@ -149,6 +149,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   // M3 Task 6：草图模式变身 + 非模态对话框 chrome 键——ribbon.sketchTools.*
   // 与 sketchGroups.*（12+3 条）由 SketchDialog.test 数据驱动守卫。
   'ribbon.sketchToolbarLabel', 'ribbon.exitSketch',
+  // M4 Task 3：工具注册编排失败通知（PartStudioPage 编排层，错误面必须可见）。
+  'tools.registrationFailed',
   'featureDialog.confirm', 'featureDialog.cancel',
   'featureDialog.resultTypeTabs', 'featureDialog.booleanScopeTabs',
   'featureDialog.entitiesLabel', 'featureDialog.fastPick',
