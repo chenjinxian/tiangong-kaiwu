@@ -19,7 +19,7 @@
  * IpcApp._ipc 就位）仍在调用方同步帧内完成，后续 IPC 调用可立即入 socket 缓冲。
  */
 
-import { IModelApp, IpcApp, LocalhostIpcApp } from '@itwin/core-frontend';
+import { IModelApp, IpcApp, LocalhostIpcApp, type NotificationManager } from '@itwin/core-frontend';
 import { FrontendIModelsAccess } from '@itwin/imodels-access-frontend';
 import { BentleyCloudRpcManager, IModelReadRpcInterface, IModelTileRpcInterface } from '@itwin/core-common';
 import { IModelsClient } from '@itwin/imodels-client-management';
@@ -33,6 +33,15 @@ export interface StartViewerOptions {
   hubUrl: string;
   /** Access token for WebSocket authentication */
   accessToken?: string;
+  /**
+   * 自定义 NotificationManager（review-8 I-2：notifications 呈现桥）——经
+   * IModelApp.startup 的官方注入点（IModelAppOptions.notifications）替换 core
+   * 缺省的哑通道基类（outputMessage 空实现，工具/连接错误面对用户不可见）。
+   * 缺省不注入（哑通道兜底，行为同旧）；仅在真正 startup 的分支生效（幂等重入
+   * 分支沿用既有实例——host 生命期内实例不变）。web-next 传 iTwinUI toaster 桥
+   * （app 层 ViewerNotifications），本包不引 UI 依赖。
+   */
+  notifications?: NotificationManager;
 }
 
 /** in-flight startup promise：并发 startViewer 共享同一次 startup（恰一次）。 */
@@ -80,7 +89,7 @@ export async function startViewer(options: StartViewerOptions): Promise<void> {
 }
 
 async function doStartViewer(options: StartViewerOptions): Promise<void> {
-  const { backendUrl, hubUrl, accessToken } = options;
+  const { backendUrl, hubUrl, accessToken, notifications } = options;
 
   const rpcInterfaces = [OpenCloudRpcInterface, LubanFeatureRpcInterface, IModelReadRpcInterface, IModelTileRpcInterface];
 
@@ -114,6 +123,11 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
         },
         iModelApp: {
           rpcInterfaces,
+          // notifications 注入点（review-8 I-2）：IModelApp.ts:467 的
+          // `opts.notifications ?? new NotificationManager()`——缺省 undefined
+          // 时 core 兜底哑通道（行为不变）。仅在本 startup 分支生效；幂等重入
+          // 分支不重复 startup，沿用既有实例。
+          notifications,
           // tile 范围 flags（2026-10-10 重开显示断点定案）：useProjectExtents/expandProjectExtents
           // 开启时 native 对空 extents 库算出畸形膨胀的 root range（2×2×3 方块 → ±840），且 tile
           // 头 contentRange 落在 range.low 角 → 前端 tile 选择按声明范围恒剔除 → 几何永不渲染

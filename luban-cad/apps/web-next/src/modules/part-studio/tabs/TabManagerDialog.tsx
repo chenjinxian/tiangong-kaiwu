@@ -224,8 +224,12 @@ export function TabManagerDialog({
     label: t(`partStudio.tabManager.filters.${value}`),
   }));
 
+  // setFocus（review-8 I-1 残留面收口）：打开即焦点入对话框——iTwinUI 的
+  // Escape 关闭挂在对话框元素 onKeyDown 上，焦点不在其内则击键永不可达（真实
+  // 栈探针实证：传播放行后对话框仍不关）。模态对话框焦点入内亦是 ARIA dialog
+  // 模式的标准姿态；关闭时 beforeClose 归还触发钮焦点。
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} portal isDismissible>
+    <Dialog isOpen={isOpen} onClose={onClose} portal isDismissible setFocus>
       <Dialog.Backdrop />
       <Dialog.Main
         styleType="default"

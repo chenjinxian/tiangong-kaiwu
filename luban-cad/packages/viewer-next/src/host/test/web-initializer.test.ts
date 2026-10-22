@@ -35,6 +35,7 @@ vi.mock('@itwin/imodels-access-frontend', () => ({ FrontendIModelsAccess: class 
 vi.mock('@itwin/imodels-client-management', () => ({ IModelsClient: class { constructor(public o: unknown) {} } }));
 
 import { acquireViewer, releaseViewer, startViewer } from '../web-initializer.js';
+import type { NotificationManager } from '@itwin/core-frontend';
 
 const VIEWER_OPTIONS = { backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' };
 
@@ -62,6 +63,19 @@ describe('startViewer（移植自 WebInitializer）', () => {
     await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
     const arg = startupMock.mock.calls[0][0];
     expect(arg.iModelApp.rpcInterfaces).toHaveLength(4);
+  });
+
+  it('notifications 选项透传 IModelApp.startup（review-8 I-2 呈现桥的官方注入点）', async () => {
+    const manager = { outputMessage: vi.fn() } as unknown as NotificationManager;
+    await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400', notifications: manager });
+    const arg = startupMock.mock.calls[0][0];
+    expect(arg.iModelApp.notifications).toBe(manager);
+  });
+
+  it('notifications 缺省 → 不注入（core 缺省 NotificationManager 兜底，行为同旧哑通道）', async () => {
+    await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
+    const arg = startupMock.mock.calls[0][0];
+    expect(arg.iModelApp.notifications).toBeUndefined();
   });
 
   it('幂等：二次调用不再 startup 但仍重配 RPC', async () => {

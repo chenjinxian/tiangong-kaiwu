@@ -24,6 +24,9 @@ vi.mock('@itwin/core-frontend', () => ({
   // Tool 基类桩：part-studio barrel → PartStudioPage → viewer-next 装饰件
   // （ToggleProjectExtentsTool extends Tool）模块加载期即需 Tool 存在。
   Tool: class {},
+  // I-2 notifications 呈现桥（PartStudioPage → ViewerNotifications）：
+  // ToasterNotificationManager extends NotificationManager——模块加载期即需基类。
+  NotificationManager: class { public outputMessage(): void { /* 哑通道桩 */ } },
   IModelApp: {
     tools: {
       run: mocks.toolsRun,

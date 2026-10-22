@@ -4,6 +4,7 @@ import { ThemeProvider as IuiThemeProvider } from '@itwin/itwinui-react';
 import { initI18n, isI18nReady } from '@common/i18n/index.js';
 import { ThemeProvider, useTheme } from './ThemeContext.js';
 import { createQueryErrorBridgeCache } from './QueryErrorBridge.js';
+import { ViewerNotificationsBridge } from './ViewerNotifications.js';
 
 // i18n 就绪门：模块加载即启动初始化。词库内联 → i18next.init 同步完成，
 // 首帧 isI18nReady() 已为 true，children 不闪隐藏（也令既有同步渲染断言
@@ -22,10 +23,18 @@ const queryClient = new QueryClient({
  * ThemeProvider（别名 IuiThemeProvider，导出同名冲突），使 data-iui-theme
  * 与 data-theme 同步——styles.css 的 iui 变量主题锚点自此生效（原 C1 关切：
  * 无 iui-root 时 iTwinUI 组件呈原生未样式化）。须挂在自研 ThemeProvider
- * 内层才能读到 theme 值。 */
+ * 内层才能读到 theme 值。
+ * ViewerNotificationsBridge 同层挂载（review-8 I-2）：IModelApp.notifications
+ * 的 sink 注册——须在 iTwinUI ThemeProvider 内层（useToaster 依赖其内部
+ * ToastProvider），故借道本桥；渲染 null。 */
 function IuiThemeBridge({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { theme } = useTheme();
-  return <IuiThemeProvider theme={theme}>{children}</IuiThemeProvider>;
+  return (
+    <IuiThemeProvider theme={theme}>
+      <ViewerNotificationsBridge />
+      {children}
+    </IuiThemeProvider>
+  );
 }
 
 export function AppProviders({ children }: { children: React.ReactNode }): React.JSX.Element {

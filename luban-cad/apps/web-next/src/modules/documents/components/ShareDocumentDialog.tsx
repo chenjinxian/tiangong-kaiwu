@@ -203,7 +203,10 @@ export function ShareDocumentDialog({
 
   return (
     <>
-      <Dialog isOpen={isOpen} onClose={handleClose} portal isDismissible>
+      {/* setFocus（review-8 I-1 残留面收口，同 TabManagerDialog）：打开即焦点
+          入对话框——Escape 关闭挂在对话框元素 onKeyDown 上，焦点不在其内则
+          击键永不可达。 */}
+      <Dialog isOpen={isOpen} onClose={handleClose} portal isDismissible setFocus>
         <Dialog.Backdrop />
         <Dialog.Main
           styleType="default"
@@ -393,12 +396,13 @@ export function ShareDocumentDialog({
         </Dialog.Main>
       </Dialog>
 
-      {/* 移除成员确认（危险操作标准形态） */}
+      {/* 移除成员确认（危险操作标准形态；setFocus 同上——确认层独立收 Escape）。 */}
       <Dialog
         isOpen={!!removeTarget}
         onClose={() => setRemoveTarget(null)}
         portal
         isDismissible
+        setFocus
       >
         <Dialog.Backdrop />
         <Dialog.Main

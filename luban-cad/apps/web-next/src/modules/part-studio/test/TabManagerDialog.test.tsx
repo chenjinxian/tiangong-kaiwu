@@ -311,6 +311,19 @@ describe('TabManagerDialog 打开行为', () => {
     expect(window.open).toHaveBeenCalledWith('https://example.com/docs/tutorial', '_blank', 'noopener');
     expect(screen.getByTestId('location-probe').textContent).toBe(`/documents/${ITWIN_ID}/im-1`);
   });
+
+  // review-8 I-1 端到端钉：Escape dismissal 的可达链 = 打开即焦点入对话框
+  //（iTwinUI Dialog onKeyDown 挂对话框元素——焦点不在其内则击键永不可达）+
+  // 传播放行（viewer-next keyboard-shortcuts Escape 分支不拦断）。本用例在
+  // jsdom 钉前半段（setFocus），真实栈由 p1fix 探针复测。
+  it('打开即焦点落对话框内；焦点处 Escape → 关闭（review-8 I-1 钉）', async () => {
+    render(<ControlledHost />);
+    await screen.findByRole('dialog');
+    expect(document.activeElement).not.toBeNull();
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });
 
 /** 受控宿主（extras 变体）：tutorial 点击断言用。 */

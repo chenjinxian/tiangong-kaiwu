@@ -27,6 +27,7 @@ import { type RefObject, useEffect, useRef, useState } from 'react';
 import {
   IModelApp,
   type IModelConnection,
+  type NotificationManager,
   ScreenViewport,
   SpatialViewState,
   ViewCreator3d,
@@ -47,6 +48,13 @@ export interface UseViewportOptions {
   accessToken?: string;
   /** 已就位的 iModel 连接（BriefcaseConnection extends IModelConnection）；就位且挂载点在 DOM 后创建 ScreenViewport */
   iModel?: IModelConnection;
+  /**
+   * 自定义 NotificationManager（review-8 I-2：notifications 呈现桥）——原样
+   * 透传 acquireViewer → IModelApp.startup 官方注入点；缺省不注入（core 哑
+   * 通道兜底）。消费方须传稳定实例（app 生命期单例）——本选项在 acquire effect
+   * 依赖面内，实例换新会触发重 acquire。
+   */
+  notifications?: NotificationManager;
 }
 
 export interface UseViewportResult {
@@ -61,7 +69,7 @@ export interface UseViewportResult {
 }
 
 export function useViewport(options: UseViewportOptions): UseViewportResult {
-  const { backendUrl, hubUrl, accessToken, iModel } = options;
+  const { backendUrl, hubUrl, accessToken, iModel, notifications } = options;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<ViewportPhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +80,7 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
   useEffect(() => {
     let mounted = true;
     setPhase('starting');
-    acquireViewer({ backendUrl, hubUrl, accessToken })
+    acquireViewer({ backendUrl, hubUrl, accessToken, notifications })
       .then(() => {
         if (mounted) setPhase('ready');
       })
@@ -85,7 +93,9 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
       mounted = false;
       void releaseViewer();
     };
-  }, [backendUrl, hubUrl, accessToken]);
+    // notifications 在依赖面内但要求消费方传稳定实例（app 生命期单例）——身份
+    // 恒定即不构成重 acquire 触发面；undefined 缺省路径同理。
+  }, [backendUrl, hubUrl, accessToken, notifications]);
 
   useEffect(() => {
     // 挂载点尚未进 DOM / iModel 未就位：暂不创建（iModel 就位后 effect 重跑）

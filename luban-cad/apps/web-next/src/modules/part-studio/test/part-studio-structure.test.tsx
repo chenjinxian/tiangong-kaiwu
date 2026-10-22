@@ -102,6 +102,9 @@ vi.mock('@luban-cad/viewer-next', () => ({
 // core-frontend 钉形：tools.run 可观测（full 工具激活断言）；viewManager 无
 // 视口 → useCanvasSelection emphasize effect 静默跳过（壳期口径）。
 vi.mock('@itwin/core-frontend', () => ({
+  // I-2 notifications 呈现桥（PartStudioPage → ViewerNotifications）：
+  // ToasterNotificationManager extends NotificationManager——模块加载期即需基类。
+  NotificationManager: class { public outputMessage(): void { /* 哑通道桩 */ } },
   IModelApp: {
     tools: { run: mocks.toolsRun },
     viewManager: { selectedView: null },

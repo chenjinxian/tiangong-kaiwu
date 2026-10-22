@@ -78,6 +78,7 @@ import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/c
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
+import { viewerNotifications } from '@app/providers/ViewerNotifications.js';
 import { PartStudioTopBar } from './components/PartStudioTopBar.js';
 import { PartStudioSidebar } from './components/PartStudioSidebar.js';
 import { PartStudioCanvas } from './components/PartStudioCanvas.js';
@@ -132,6 +133,10 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
     hubUrl: env.hubUrl,
     accessToken: AuthSession.getStoredAuth()?.accessToken,
     iModel: connection ?? undefined,
+    // notifications 呈现桥（review-8 I-2）：官方注入点换掉 core 缺省哑通道，
+    // registrationFailed/超时面/工具错误经 iTwinUI toaster 可见（app 生命期
+    // 单例——稳定身份，不构成重 acquire 触发面）。
+    notifications: viewerNotifications,
   });
 
   // 编辑作用域（M4-T4；Editor.tsx:322-371 忠实移植）：进入/复用/失败回查/

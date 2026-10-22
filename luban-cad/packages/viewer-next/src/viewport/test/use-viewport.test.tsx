@@ -140,12 +140,13 @@ let latestPhase = '';
 // console.log 静音 spy（实现内有进度日志；经变量持有以便 afterEach 恢复）
 let logSpy: ReturnType<typeof vi.spyOn>;
 
-function Harness({ iModel }: { iModel?: IModelConnection }) {
+function Harness({ iModel, notifications }: { iModel?: IModelConnection; notifications?: unknown }) {
   const { viewportRef, phase, error, viewport } = useViewport({
     backendUrl: 'http://localhost:5310',
     hubUrl: 'http://localhost:5400',
     accessToken: 'jwt-x',
     iModel,
+    notifications: notifications as never,
   });
   latestViewport = viewport;
   latestPhase = phase;
@@ -184,7 +185,17 @@ describe('useViewport host 接线（M4 Task 1 既有口径）', () => {
       backendUrl: 'http://localhost:5310',
       hubUrl: 'http://localhost:5400',
       accessToken: 'jwt-x',
+      notifications: undefined,
     });
+    await waitFor(() => expect(latestPhase).toBe('ready'));
+  });
+
+  it('notifications 选项透传 acquireViewer（review-8 I-2 呈现桥注入点）', async () => {
+    const manager = { outputMessage: vi.fn() };
+    render(<Harness notifications={manager} />);
+    expect(m.acquireViewerMock).toHaveBeenCalledWith(
+      expect.objectContaining({ notifications: manager }),
+    );
     await waitFor(() => expect(latestPhase).toBe('ready'));
   });
 

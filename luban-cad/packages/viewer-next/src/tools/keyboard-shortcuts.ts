@@ -17,7 +17,12 @@
  *    handleKeyDown(e)——web-next 由本模块自挂 window 监听（幂等；T4 的
  *    useEditorKeyboard 只补 Ctrl+S 等 app 性行为，Undo/Redo/Delete/Escape 勿
  *    二次绑定避免双跑）；INPUT/TEXTAREA/contentEditable 焦点守卫（旧 Delete
- *    守卫同口径，扩至全键位）。
+ *    守卫同口径，扩至全键位）；
+ *  - Escape 分支不拦断传播（review-8 I-1 收口）：监听在 window 捕获段，Escape
+ *    曾以 preventDefault+stopPropagation 派发——事件在抵达 target/冒泡段之前
+ *    被杀，右键菜单 Escape 收合与 iTwinUI Dialog Escape 关闭全灭（真实浏览器
+ *    探针实证）；现原样放行，工具取消与浮层 dismissal 两层语义共存（详见
+ *    Escape 分支内注）。
  */
 
 import { IModelApp } from '@itwin/core-frontend';
@@ -62,8 +67,16 @@ export function handleEditorKeyDown(e: KeyboardEvent): void {
     return;
   }
   if (!ctrl && !e.altKey && key === 'escape') {
-    e.preventDefault();
-    e.stopPropagation();
+    // review-8 I-1 收口：本监听挂 window 捕获段，此前的 preventDefault +
+    // stopPropagation 会把事件在抵达 target/冒泡段之前杀死——右键菜单的
+    // Escape 收合、iTwinUI Dialog 的 Escape 关闭（React 根容器委托的
+    // onKeyDown）全部失灵（评审真实浏览器探针实证）。现事件原样放行：浮层
+    // dismissal 与工具取消两层语义共存（浮层先行收合，startDefaultTool 照常
+    // 发生）。preventDefault 一并去掉：本分支语义由显式 startDefaultTool 承
+    // 载，无需抑制任何浏览器默认行为，而下游存在按 defaultPrevented 短路的
+    // 处理器（iTwinUI DropdownMenu 的 mergeEventHandlers 链），留置会无差别
+    // 抑制它们。其余键位（Ctrl+Z/Ctrl+Y/Delete）保持拦断不变——无下游
+    // dismissal 语义，单次派发即消费。
     void IModelApp.toolAdmin?.startDefaultTool();
   }
 }

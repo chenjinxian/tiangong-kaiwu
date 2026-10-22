@@ -24,6 +24,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@itwin/core-frontend', () => ({
   Tool: class {},
+  // I-2 notifications 呈现桥（PartStudioPage → ViewerNotifications）：
+  // ToasterNotificationManager extends NotificationManager——模块加载期即需基类。
+  NotificationManager: class { public outputMessage(): void { /* 哑通道桩 */ } },
   // M4-T6：成功 toast 构造 NotifyMessageDetails——钉形替身。
   NotifyMessageDetails: class {
     priority: number;

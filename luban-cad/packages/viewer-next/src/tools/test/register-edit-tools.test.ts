@@ -248,6 +248,15 @@ describe('registerDefaultShortcuts 子集（Undo/Redo/Delete/Escape 键位）', 
     window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...options }));
   }
 
+  /** 从真实 DOM 元素派发（body 为 target 的完整捕获→目标→冒泡传播路径）——
+   * 传播拦断类断言的数据面（window.dispatchEvent 的路径只有 window 自身，
+   * 无法暴露「捕获段 stopPropagation 杀死下游」的缺陷）。 */
+  function keydownFromBody(options: KeyboardEventInit): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...options });
+    document.body.dispatchEvent(event);
+    return event;
+  }
+
   it('ensureEditTools 后键位安装：Ctrl+Z → tools.run("Undo")', async () => {
     await registry.ensureEditTools();
     keydown({ key: 'z', ctrlKey: true });
@@ -304,5 +313,57 @@ describe('registerDefaultShortcuts 子集（Undo/Redo/Delete/Escape 键位）', 
     await registry.ensureEditTools();
     keydown({ key: 'Escape' });
     expect(mocks.startDefaultToolMock).toHaveBeenCalledTimes(1);
+  });
+
+  // ── review-8 I-1 回归钉：捕获段监听不得拦断传播 ──────────────────────────
+  // 监听挂 window 捕获段；此前 Escape 分支 stopPropagation 会把事件在抵达
+  // target/冒泡段之前杀死——右键菜单的 Escape 收合、iTwinUI Dialog 的 Escape
+  // 关闭（React 根容器委托）全部失灵（评审真实浏览器探针实证）。jsdom 下用
+  // 真实 DOM 传播路径（body 为 target）断言。
+
+  it('Escape 放行传播：body 冒泡段监听仍收到事件；工具取消两层语义共存', async () => {
+    await registry.ensureEditTools();
+    const bubbleSpy = vi.fn();
+    document.body.addEventListener('keydown', bubbleSpy);
+    try {
+      keydownFromBody({ key: 'Escape' });
+    } finally {
+      document.body.removeEventListener('keydown', bubbleSpy);
+    }
+    // 修复前：window 捕获段 stopPropagation → target/冒泡段监听永不触发。
+    expect(bubbleSpy).toHaveBeenCalledTimes(1);
+    // 同一次击键工具取消照常发生（两层语义共存，评审裁决）。
+    expect(mocks.startDefaultToolMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('Escape 不 preventDefault：下游监听收到 defaultPrevented=false', async () => {
+    await registry.ensureEditTools();
+    let downstreamPrevented: boolean | undefined;
+    const spy = (e: Event): void => {
+      downstreamPrevented = e.defaultPrevented;
+    };
+    document.body.addEventListener('keydown', spy);
+    try {
+      keydownFromBody({ key: 'Escape' });
+    } finally {
+      document.body.removeEventListener('keydown', spy);
+    }
+    // 下游存在按 defaultPrevented 短路的 dismissal 处理器（iTwinUI DropdownMenu
+    // 的 mergeEventHandlers 链）——Escape 分支不置位，事件原样放行。
+    expect(downstreamPrevented).toBe(false);
+  });
+
+  it('对照：Ctrl+Z 仍拦断传播（放行仅限 Escape 分支的有意不对称）', async () => {
+    await registry.ensureEditTools();
+    const bubbleSpy = vi.fn();
+    document.body.addEventListener('keydown', bubbleSpy);
+    try {
+      keydownFromBody({ key: 'z', ctrlKey: true });
+    } finally {
+      document.body.removeEventListener('keydown', bubbleSpy);
+    }
+    expect(mocks.runMock).toHaveBeenCalledWith('Undo');
+    // 其余键位无下游 dismissal 语义，保持拦断（单次派发即消费）不变。
+    expect(bubbleSpy).not.toHaveBeenCalled();
   });
 });

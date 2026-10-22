@@ -137,6 +137,8 @@ vi.mock('@luban-cad/viewer-next', () => ({
 
 import { usePartStudioStore } from '../index.js';
 import { PartStudioPage } from '../PartStudioPage.js';
+// review-8 I-2：useViewport.notifications 注入断言的数据面（app 生命期单例）。
+import { viewerNotifications } from '@app/providers/ViewerNotifications.js';
 // M4-T8：超时用例需在 mock 对象上改写 initialized（importOriginal 摊平的
 // 同一实例——vi.mock 工厂与测试文件共享模块图）。
 import { IModelApp } from '@itwin/core-frontend';
@@ -402,9 +404,11 @@ describe('M4-T2 连接/视口组合接线', () => {
     });
     const lastViewportCall = viewerMocks.useViewport.mock.calls.at(-1);
     expect(lastViewportCall).toBeDefined();
-    const viewportOptions = (lastViewportCall ?? [])[0] as { iModel: unknown; backendUrl: string };
+    const viewportOptions = (lastViewportCall ?? [])[0] as { iModel: unknown; backendUrl: string; notifications: unknown };
     expect(viewportOptions.iModel).toBe(FAKE_CONNECTION);
     expect(viewportOptions.backendUrl).toBe(window.location.origin);
+    // notifications 呈现桥注入（review-8 I-2）：官方注入点换掉 core 哑通道。
+    expect(viewportOptions.notifications).toBe(viewerNotifications);
   });
 
   it('viewOnly 激活 → readonly 透传连接钩子（权限门：可编辑 = !viewOnly）', () => {
