@@ -52,5 +52,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
+    // e2e/*.spec.ts 是 Playwright 套件（独立 config playwright.config.ts）——
+    // vitest 缺省 include 收 *.spec.* 会把它们当单测收集、集间即红（M5-T5 起
+    // 在场，M5-T7 perf 探针入 e2e 时一并钉死排除面）。
+    exclude: ['**/node_modules/**', 'e2e/**', 'playwright/**', 'test-results/**'],
   },
 });

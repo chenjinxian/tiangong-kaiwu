@@ -5,7 +5,7 @@
  * useDocuments（Task 4）：文档列表查询 hook（react-query）。
  * - queryKey `['documents', filter]`——筛选即缓存键，切换侧栏自动命中/取新；
  * - 内部按 filter 分流取数（recent/favorites 走官方专用端点；my/shared 走
- *   list() 后按 createdBy 与当前用户比对；public 见下方裁决）；
+ *   list({top:200}) 后按 createdBy 与当前用户比对；public 见下方裁决）；
  * - 出口收敛为 `{ documents, isLoading, isFetching, error }`（documents 恒为数组，
  *   避免调用方对 undefined 分支防御；isFetching 首载与 refetch 期间恒真——
  *   刷新钮禁用/旋转信号；isLoading 仅首载为真，刷新期间恒假，终审 I3
@@ -49,7 +49,12 @@ async function fetchDocuments(filter: DocumentFilter): Promise<DocumentSummary[]
     case 'my':
     case 'shared': {
       const me = AuthSession.getStoredAuth()?.user.id;
-      const all = await client.list();
+      // top: 200（M5-T7 perf 探针实测修正）：裸 list() 不带 $top 时 hub 端
+      // clampTop 缺省页 = 10 行（imodelhub-services common/utils/clamp-top.util
+      // def=10/max=200）——文档中心静默只显示 10 个文档且无分页 UI，超出部分
+      // 对用户不可见（perf 门禁「百行滚动」因此无法成立）。拉满 hub 上限一页
+      // （200），搜索/排序/计数在更大数据集上保持正确；分页 UI 归后续波次。
+      const all = await client.list({ top: 200 });
       // my：createdBy 命中当前用户；shared：createdBy 在场且非我
       // （createdBy 缺席的文档两边都不进——归属不明不猜）。
       const picked = filter === 'my'
