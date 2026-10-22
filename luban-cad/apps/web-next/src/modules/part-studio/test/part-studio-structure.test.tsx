@@ -1,7 +1,8 @@
 // src/modules/part-studio/test/part-studio-structure.test.tsx
 //
-// M3 Task 8（brief Step 1）：编辑器结构断言总账——/documents/:iTwinId/:iModelId
-// Part Studio 页全量结构锚点钉死（对齐 os-11/12/15/20/23/24/30/31/33）：
+// M3 Task 8（brief Step 1）+ M4 Task 9（结构断言扩展）：编辑器结构断言总账——
+// /documents/:iTwinId/:iModelId Part Studio 页全量结构锚点钉死（对齐
+// os-11/12/15/20/23/24/30/31/33）：
 //  1) 五区存在性：顶栏（part-studio-top-bar）/ 左栏（part-studio-sidebar =
 //     竖图标条 + 双段树）/ 画布（part-studio-canvas + viewport 挂载点）/
 //     右停靠（part-studio-dock 三页签）/ 底部页签条（part-studio-tab-strip
@@ -17,21 +18,32 @@
 //  6) 对话框锚点：FeatureDialog（os-31 非模态 aria-modal=false + 布尔作用域
 //     页签）/ SketchDialog（os-30 四开关 + ✓进草图模式 ribbon 变身）/
 //     TabManagerDialog（os-33 「+」打开）/ DocumentMenuBar（os-24 汉堡 11 项
-//     + 工作区单位对话框）。
+//     + 工作区单位对话框）；
+//  7) M4 收官锚点总账（T9 扩展）：顶栏 undo/redo/saveVersion 三钮
+//     （part-studio-{undo,redo,save}-button）、连接相位（状态栏
+//     part-studio-status-connection 三相位映射）、视口挂载点接线
+//     （useViewport.viewportRef 即 part-studio-viewport DOM 节点 +
+//     data-viewport-ready）、特征树真数据钩子（useFeatureSystem.tree 条目
+//     落树 + 零件段物理元素查询）、PushChangesetDialog 挂载（描述/确认锚点
+//     + pushChanges 通道）。
 //
-// 定位：M3 终审结构层总账（与各任务单测互补——单测钉行为，本文件钉「整页
-// 装配后所有锚点同时在场」）。mock 口径同 PartStudioPage.test.tsx（客户端/
-// viewer-next 模块级 mock，真实 store/i18n 参与）+ @itwin/core-frontend 钉形
-// （IModelApp.tools.run 可观测、viewManager 无视口）。
+// 定位：结构层总账（与各任务单测互补——单测钉行为，本文件钉「整页装配后
+// 所有锚点同时在场」）。mock 口径同 PartStudioPage.test.tsx M4 基线（客户端/
+// viewer-next 模块级 mock + 连接/视口替身 FAKE_CONNECTION/FAKE_VIEWPORT +
+// 特征 RPC 钉形——真实 store/hooks/i18n 参与，零真实请求/零查看器）；
+// @itwin/core-frontend 用 importOriginal 摊平（真实类/常量保留，IModelApp 钉
+// 就绪态 + tools.run/notifications 可观测）。
 //
-// 另见：PartStudioPage.test.tsx（五区+store 接线）、ribbon-registry.test.ts
-// （注册表纯枚举）、CommandPalette.test.tsx（面板行为）、CanvasContextMenu
-// .test.tsx（菜单模型）、FeatureDialog/SketchDialog/TabManagerDialog/
-// DocumentMenuBar.test.tsx（各对话框行为）。
+// 另见：PartStudioPage.test.tsx（五区+store 接线+M4 行为链）、
+// ribbon-registry.test.ts（注册表纯枚举）、CommandPalette.test.tsx（面板
+// 行为）、CanvasContextMenu.test.tsx（菜单模型）、FeatureDialog/SketchDialog/
+// TabManagerDialog/DocumentMenuBar/PushChangesetDialog.test.tsx（各对话框
+// 行为）、useUndoRedo/useFeatureSystem/useEditingScope/useChangesets.test
+// （各 hook 行为）。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider as IuiThemeProvider } from '@itwin/itwinui-react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -40,8 +52,42 @@ const mocks = vi.hoisted(() => ({
   itwinsGet: vi.fn(),
   imodelsGet: vi.fn(),
   imodelsList: vi.fn(),
+  // M4-T9：版本历史数据源（PushChangesetDialog 挂载锚点的面板查询通道）。
+  imodelsListChangesets: vi.fn(),
   toolsRun: vi.fn(),
+  // M4-T9：IModelApp.notifications 呈现面捕获（toast 行为归对话框/页面测试，
+  // 此处只需通道在场不抛）。
+  outputMessage: vi.fn(),
 }));
+
+// M4-T9：viewer-next 桩从 M3 壳口径（null 连接/无视口）升级为可控钉形——
+// M4 真连接组合（PartStudioSession 双层 + 编辑三钮 + 特征系统）整页参与。
+const viewerMocks = vi.hoisted(() => ({
+  useViewport: vi.fn(),
+  useBriefcaseConnection: vi.fn(),
+  applyViewportBackground: vi.fn(),
+  ensureEditTools: vi.fn().mockResolvedValue(undefined),
+  toggleProjectExtents: vi.fn(),
+}));
+
+// M4-T9：特征系统 RPC 替身（真实 useFeatureSystem 参与下的树真数据源——
+// 读树/写租约/op 提交全部可观测，隔离 LubanFeatureRpcInterface 注册态依赖）。
+const featureRpc = vi.hoisted(() => {
+  // FeatureTreeEntry 结构面（hoisted 工厂先于 import，钉局部结构型）。
+  type TreeEntry = {
+    id: string; featureType: string; orderKey: number;
+    suppressed: boolean; status: number; params: unknown;
+  };
+  return {
+  getFeatureTree: vi.fn(async (_key: string): Promise<TreeEntry[]> => []),
+  applyFeatureOp: vi.fn(
+    async (_key: string, _op: unknown, _sessionId: string): Promise<{ ok: boolean; featureId?: string }> =>
+      ({ ok: true, featureId: 'f-new' }),
+  ),
+  acquireWriteLease: vi.fn(async (_key: string, _sessionId: string) => ({ ok: true, holder: 'tester' })),
+  releaseWriteLease: vi.fn(async (_key: string, _sessionId: string) => undefined),
+  };
+});
 
 vi.mock('@clients/itwins/ItwinsClient.js', () => ({
   ItwinsClient: class {
@@ -59,6 +105,7 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
   ImodelsClient: class {
     get = mocks.imodelsGet;
     list = mocks.imodelsList;
+    listChangesets = mocks.imodelsListChangesets;
     create = vi.fn();
     delete = vi.fn();
   },
@@ -75,39 +122,43 @@ vi.mock('@clients/auth/AuthSession.js', () => ({
   },
 }));
 
-// 结构断言零查看器启动：useViewport 钉 ready 相位（状态栏「已连接」断言依赖）；
-// M4-T2：useBriefcaseConnection 钉 null 连接、applyViewportBackground 钉 no-op
-//（PartStudioPage 的连接/视口/底色组合接线在本文件全 no-op 化）。
+// core-frontend 钉形（M4-T9 升级为 importOriginal 摊平）：真实类/常量保留
+//（ViewerNotifications 的 NotificationManager 基类链在模块加载期即需要），
+// IModelApp 钉就绪态（initialized/toolAdmin——防 waitForToolAdmin 白等 5s）
+// + tools.run / notifications.outputMessage 可观测；viewManager 无视口 →
+// useCanvasSelection emphasize effect 静默跳过。
+vi.mock('@itwin/core-frontend', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    IModelApp: {
+      ...(actual.IModelApp as object),
+      initialized: true,
+      toolAdmin: { startDefaultTool: vi.fn() },
+      viewManager: { selectedView: undefined },
+      notifications: { outputMessage: mocks.outputMessage },
+      tools: { run: mocks.toolsRun },
+    },
+  };
+});
+
+// viewer-next 钉形：连接/视口相位由 beforeEach 按用例钉（缺省 ready +
+// FAKE_VIEWPORT，见下方 M4 基线段）。
 vi.mock('@luban-cad/viewer-next', () => ({
-  useViewport: vi.fn().mockReturnValue({
-    viewportRef: { current: null },
-    phase: 'ready',
-    error: null,
-    viewport: undefined,
-  }),
-  useBriefcaseConnection: vi.fn().mockReturnValue({
-    connection: null,
-    isLoading: false,
-    error: null,
-    saveChanges: vi.fn().mockResolvedValue(undefined),
-    pushChanges: vi.fn().mockResolvedValue(undefined),
-    pullChanges: vi.fn().mockResolvedValue(undefined),
-  }),
-  applyViewportBackground: vi.fn(),
+  useViewport: viewerMocks.useViewport,
+  useBriefcaseConnection: viewerMocks.useBriefcaseConnection,
+  applyViewportBackground: viewerMocks.applyViewportBackground,
+  ensureEditTools: viewerMocks.ensureEditTools,
+  toggleProjectExtents: viewerMocks.toggleProjectExtents,
   acquireViewer: vi.fn().mockResolvedValue(undefined),
   releaseViewer: vi.fn().mockResolvedValue(undefined),
   ensureAccuSnap: vi.fn().mockResolvedValue(undefined),
 }));
 
-// core-frontend 钉形：tools.run 可观测（full 工具激活断言）；viewManager 无
-// 视口 → useCanvasSelection emphasize effect 静默跳过（壳期口径）。
-vi.mock('@itwin/core-frontend', () => ({
-  // I-2 notifications 呈现桥（PartStudioPage → ViewerNotifications）：
-  // ToasterNotificationManager extends NotificationManager——模块加载期即需基类。
-  NotificationManager: class { public outputMessage(): void { /* 哑通道桩 */ } },
-  IModelApp: {
-    tools: { run: mocks.toolsRun },
-    viewManager: { selectedView: null },
+// M4-T9：特征 RPC 接口钉形（真实 useFeatureSystem 消费 getClient）。
+vi.mock('@luban-cad/shared', () => ({
+  LubanFeatureRpcInterface: {
+    getClient: () => featureRpc,
   },
 }));
 
@@ -116,6 +167,72 @@ import { PartStudioPage } from '../PartStudioPage.js';
 
 const ITWIN_DETAIL = { id: 'itwin-1', displayName: '演示文档', status: 'Active' };
 const IMODEL_DETAIL = { id: 'im-1', displayName: '楼层模型', name: '楼层模型', iTwinId: 'itwin-1' };
+
+// ── M4-T9 连接/视口替身（PartStudioPage.test 同构；真实 hooks 参与下的最小
+//    连接桩：txns 事件 BeEvent 兼容双面 + 物理元素查询游标 + 推送/保存代理）──
+function makeTxnsStub() {
+  const makeEvent = () => {
+    const listeners = new Set<() => void>();
+    return {
+      addListener: (fn: () => void): (() => void) => {
+        listeners.add(fn);
+        return () => {
+          listeners.delete(fn);
+        };
+      },
+      removeListener: (fn: () => void): void => {
+        listeners.delete(fn);
+      },
+      raise: (): void => {
+        for (const fn of [...listeners]) fn();
+      },
+    };
+  };
+  return {
+    isUndoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    isRedoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    hasPendingTxns: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    onCommit: makeEvent(),
+    onCommitted: makeEvent(),
+    onAfterUndoRedo: makeEvent(),
+    onChangesPushed: makeEvent(),
+    onModelGeometryChanged: makeEvent(),
+  };
+}
+
+const FAKE_CONNECTION = {
+  key: 'briefcase-key',
+  isReadonly: false,
+  isBriefcaseConnection: () => true,
+  txns: makeTxnsStub(),
+  editingScope: undefined as unknown,
+  supportsGraphicalEditing: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
+  enterEditingScope: vi.fn(),
+  saveChanges: vi.fn<(description?: string) => Promise<void>>().mockResolvedValue(undefined),
+  pushChanges: vi.fn<(description: string) => Promise<{ id: string; index: number }>>()
+    .mockResolvedValue({ id: 'cs-new', index: 3 }),
+  changeset: { id: 'cs-2', index: 2 },
+  editorToolSettings: { category: undefined, model: undefined },
+  // 零件段物理元素查询替身：缺省空集（异步可迭代）；真数据用例 mockImplementation 换真集。
+  createQueryReader: vi.fn((): AsyncGenerator<string[], void, unknown> => (async function* () { /* 空集 */ })()),
+};
+
+const FAKE_VIEWPORT = {
+  view: {
+    displayStyle: { backgroundColor: undefined },
+    viewsCategory: vi.fn<() => boolean>().mockReturnValue(true),
+    viewsModel: vi.fn<() => boolean>().mockReturnValue(true),
+    is2d: vi.fn<() => boolean>().mockReturnValue(false),
+    isSpatialView: vi.fn<() => boolean>().mockReturnValue(false),
+    categorySelector: { categories: ['cat-1', 'cat-2'] },
+    modelSelector: { models: ['model-1'] },
+  },
+  invalidateScene: vi.fn(),
+};
+
+// 视口挂载点接线断言的数据面：useViewport 出口 ref（渲染后应指向
+// part-studio-viewport DOM 节点）。
+const VIEWPORT_REF: { current: HTMLDivElement | null } = { current: null };
 
 /** os-11 工具顺序的 27 主钮可访问名（zh-CN 基线；▾=携带下拉飞菜单）。 */
 const EXPECTED_TOOL_LABELS = [
@@ -177,7 +294,39 @@ beforeEach(() => {
   mocks.itwinsGet.mockResolvedValue(ITWIN_DETAIL);
   mocks.imodelsGet.mockResolvedValue(IMODEL_DETAIL);
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
+  // M4-T9：dock 版本历史查询零真实请求（默认空集）。
+  mocks.imodelsListChangesets.mockResolvedValue([]);
   mocks.toolsRun.mockResolvedValue(true);
+  // M4-T3：注册编排桩复位（mockReset 清实现，重挂成功缺省）。
+  viewerMocks.ensureEditTools.mockReset().mockResolvedValue(undefined);
+  // M4-T4：连接替身桩复位（作用域进入成功路径 + 干净事务态）。
+  FAKE_CONNECTION.supportsGraphicalEditing.mockResolvedValue(true);
+  FAKE_CONNECTION.enterEditingScope.mockResolvedValue({
+    isDisposed: false,
+    exit: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+  });
+  FAKE_CONNECTION.saveChanges.mockResolvedValue(undefined);
+  FAKE_CONNECTION.pushChanges.mockResolvedValue({ id: 'cs-new', index: 3 });
+  FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(false);
+  FAKE_CONNECTION.txns.isRedoPossible.mockResolvedValue(false);
+  FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(false);
+  // M4-T9 viewer-next 桩：连接就绪（真实 useUndoRedo/useEditingScope/
+  // useFeatureSystem 参与的 M4 基线）+ viewport 就位 + ready 相位。
+  viewerMocks.useBriefcaseConnection.mockReturnValue({
+    connection: FAKE_CONNECTION as unknown as never,
+    isLoading: false,
+    error: null,
+    saveChanges: vi.fn().mockResolvedValue(undefined),
+    pushChanges: vi.fn().mockResolvedValue(undefined),
+    pullChanges: vi.fn().mockResolvedValue(undefined),
+  });
+  viewerMocks.useViewport.mockReturnValue({
+    viewportRef: VIEWPORT_REF,
+    phase: 'ready',
+    error: null,
+    viewport: FAKE_VIEWPORT,
+  });
+  VIEWPORT_REF.current = null;
 });
 
 describe('五区存在性（os-11 布局壳）', () => {
@@ -438,5 +587,120 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     // full 项锚点：工作区单位… → 单位对话框（毫米唯一可用）。
     await user.click(within(menu).getByRole('menuitem', { name: '工作区单位…' }));
     expect(await screen.findByRole('dialog', { name: '工作区单位' })).toBeDefined();
+  });
+});
+
+// ── M4 收官锚点总账（T9 结构断言扩展）────────────────────────────────────
+// PartStudioPage.test.tsx 钉 M4 行为链；本文件以「整页装配后锚点同时在场」
+// 的总账口径补钉 M4 五组新锚点：undo/redo/saveVersion 三钮、连接相位、
+// 视口挂载点、特征树真数据钩子、PushChangesetDialog 挂载。
+describe('M4 收官锚点总账（T9）', () => {
+  // iTwinUI v3 美观禁用口径：disabled 属性或 aria-disabled 均算禁用
+  //（PartStudioPage.test 同款判定）。
+  const isDisabled = (button: HTMLElement): boolean =>
+    (button as HTMLButtonElement).disabled === true
+    || button.getAttribute('aria-disabled') === 'true';
+
+  it('顶栏 undo/redo/saveVersion 三钮锚点在场；干净事务态诚实禁用，txns 解锁后撤销投标准工具 Undo', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const topBar = screen.getByTestId('part-studio-top-bar');
+    // testid 钉形（结构不变式）+ 可访问名钉形（os-11 操作簇：撤消/重做/保存版本）。
+    expect(within(topBar).getByTestId('part-studio-undo-button')).toBeDefined();
+    expect(within(topBar).getByTestId('part-studio-redo-button')).toBeDefined();
+    expect(within(topBar).getByTestId('part-studio-save-button')).toBeDefined();
+    expect(within(topBar).getByRole('button', { name: '撤消' })).toBeDefined();
+    expect(within(topBar).getByRole('button', { name: '重做' })).toBeDefined();
+    expect(within(topBar).getByRole('button', { name: '保存版本' })).toBeDefined();
+    const undo = within(topBar).getByTestId('part-studio-undo-button');
+    const save = within(topBar).getByTestId('part-studio-save-button');
+    expect(isDisabled(undo)).toBe(true);
+    expect(isDisabled(save)).toBe(true);
+
+    // 事件驱动解锁（BriefcaseTxns 标准通道）：txns 查询桩翻真 + 重查询事件。
+    FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(true);
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    act(() => {
+      FAKE_CONNECTION.txns.onAfterUndoRedo.raise();
+    });
+    await waitFor(() => expect(isDisabled(undo)).toBe(false));
+    await waitFor(() => expect(isDisabled(save)).toBe(false));
+    // 撤销点击 = 标准工具通道（useUndoRedo → IModelApp.tools.run('Undo')）。
+    await user.click(undo);
+    expect(mocks.toolsRun).toHaveBeenCalledWith('Undo');
+  });
+
+  it('连接相位驱动状态栏连接态：ready→已连接 / connecting→连接中 / error→连接失败', () => {
+    // 缺省 ready 相位（beforeEach 钉形）。
+    let page = renderPage();
+    expect(screen.getByTestId('part-studio-status-connection').textContent).toBe('已连接');
+    page.unmount();
+    // 相位映射钉形（PartStudioTabs.connectionKey 全三分支）。
+    for (const [phase, expected] of [
+      ['connecting', '连接中'],
+      ['error', '连接失败'],
+    ] as const) {
+      viewerMocks.useViewport.mockReturnValue({
+        viewportRef: VIEWPORT_REF,
+        phase,
+        error: null,
+        viewport: undefined,
+      });
+      page = renderPage();
+      expect(screen.getByTestId('part-studio-status-connection').textContent).toBe(expected);
+      page.unmount();
+    }
+  });
+
+  it('视口挂载点接线：useViewport.viewportRef 即 part-studio-viewport DOM 节点 + viewport 就位 data-viewport-ready=true', () => {
+    renderPage();
+    // ref 身份断言：画布挂载点 div 就是 useViewport 出口 ref 的宿主（viewer-next
+    // ScreenViewport 创建的挂载目标——jsdom 下可钉 DOM 接线事实）。
+    const mount = screen.getByTestId('part-studio-viewport');
+    expect(VIEWPORT_REF.current).toBe(mount);
+    // viewport 实例下传画布（M4-T2 锚点）。
+    expect(screen.getByTestId('part-studio-canvas').getAttribute('data-viewport-ready')).toBe('true');
+  });
+
+  it('特征树真数据钩子：useFeatureSystem.tree 条目落树（类型序号命名 + 段头计数）+ 零件段物理元素查询', async () => {
+    featureRpc.getFeatureTree.mockResolvedValue([
+      { id: 'f-1', featureType: 'extrude', orderKey: 1, suppressed: false, status: 0, params: {} },
+      { id: 'f-2', featureType: 'fillet', orderKey: 2, suppressed: true, status: 0, params: {} },
+    ]);
+    FAKE_CONNECTION.createQueryReader.mockImplementation(() =>
+      (async function* () {
+        yield ['256', 'Part 1'];
+      })(),
+    );
+    renderPage();
+    const tree = screen.getByTestId('part-studio-tree');
+    // 特征段：RPC 读树条目按类型序号命名（拉伸 1/圆角 1）+ 行锚点 + 段头计数。
+    expect(await within(tree).findByTestId('tree-row-f-1')).toBeDefined();
+    expect(await within(tree).findByText('拉伸 1')).toBeDefined();
+    expect(await within(tree).findByText('圆角 1')).toBeDefined();
+    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(2)');
+    // 零件段：connection 物理元素查询产物（CodeValue 命名）+ 计数。
+    expect(await within(tree).findByText('Part 1')).toBeDefined();
+    expect(within(tree).getByTestId('part-studio-part-count').textContent).toBe('(1)');
+  });
+
+  it('PushChangesetDialog 挂载：未推送变更解锁「保存版本」钮 → 点击挂载推送对话框（描述/确认锚点 + pushChanges 通道）', async () => {
+    const user = userEvent.setup();
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    renderPage();
+    const save = screen.getByTestId('part-studio-save-button');
+    await waitFor(() => expect(isDisabled(save)).toBe(false));
+    await user.click(save);
+
+    // 对话框挂载锚点：保存版本对话框 + 描述输入 + 确认钮 testid 在场。
+    const dialog = await screen.findByRole('dialog', { name: '保存版本' });
+    expect(within(dialog).getByTestId('part-studio-push-description-input')).toBeDefined();
+    const confirm = within(dialog).getByTestId('part-studio-push-confirm-button');
+    // 描述必填：空描述诚实禁用（推送不发起；iTwinUI 美观禁用同口径）。
+    expect(isDisabled(confirm)).toBe(true);
+    await user.type(within(dialog).getByTestId('part-studio-push-description-input'), 'M4 冒烟锚点');
+    await user.click(confirm);
+    // 确认走 connection.pushChanges 标准通道（M4-T7 裁定的收敛入口）。
+    await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('M4 冒烟锚点'));
   });
 });
