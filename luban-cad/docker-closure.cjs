@@ -53,14 +53,35 @@ function resolveWorkspacePkg(name) {
   const candidates = [];
   if (name.startsWith('@itwin/')) {
     const sub = name.replace('@itwin/', '');
+    // 名→目录全量表（2026-10-23 M5-T9 补齐：原表只覆盖 12/23——带连字符包名
+    // （core-i18n→core/i18n、presentation-common→presentation/common、
+    // appui-abstract→ui/appui-abstract 等）自动猜测 `core/<sub>` 全部落空，
+    // walk 走查静默跳过、其 registry 依赖（如 core/i18n 的 i18next-http-backend）
+    // 不进 pnpm add 清单 → 容器 vite build 报 Rollup failed to resolve import。
+    // 与 fork 现态同步：editor/* 已收编 luban-cad/packages/editor（fork 内无
+    // editor/，条目保留兼容旧 staging 布局）。
     const known = {
+      'appui-abstract': 'ui/appui-abstract',
       'core-backend': 'core/backend', 'core-bentley': 'core/bentley',
-      'core-common': 'core/common', 'core-geometry': 'core/geometry',
-      'core-quantity': 'core/quantity', 'ecschema-metadata': 'core/ecschema-metadata',
-      'editor-backend': 'editor/backend', 'editor-common': 'editor/common',
-      'editor-frontend': 'editor/frontend',
+      'core-common': 'core/common', 'core-electron': 'core/electron',
+      'core-extension': 'core/extension', 'core-frontend': 'core/frontend',
+      'core-geometry': 'core/geometry', 'core-i18n': 'core/i18n',
+      'core-markup': 'core/markup', 'core-mobile': 'core/mobile',
+      'core-orbitgt': 'core/orbitgt', 'core-quantity': 'core/quantity',
+      'ecschema-metadata': 'core/ecschema-metadata',
+      'ecschema-editing': 'core/ecschema-editing',
+      'ecschema-locaters': 'core/ecschema-locaters',
       'ecschema-rpcinterface-common': 'core/ecschema-rpc/common',
       'ecschema-rpcinterface-impl': 'core/ecschema-rpc/impl',
+      'express-server': 'core/express-server',
+      'frontend-devtools': 'core/frontend-devtools',
+      'hypermodeling-frontend': 'core/hypermodeling',
+      'presentation-backend': 'presentation/backend',
+      'presentation-common': 'presentation/common',
+      'presentation-frontend': 'presentation/frontend',
+      'webgl-compatibility': 'core/webgl-compatibility',
+      'editor-backend': 'editor/backend', 'editor-common': 'editor/common',
+      'editor-frontend': 'editor/frontend',
     };
     for (const root of coreRoots) {
       if (known[sub]) candidates.push(path.join(root, known[sub]));
