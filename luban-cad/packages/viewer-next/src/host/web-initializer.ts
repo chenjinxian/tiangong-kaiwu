@@ -49,8 +49,8 @@ let inFlightShutdown: Promise<void> | null = null;
  *
  * Idempotent: when `IpcApp.isValid` is already true the `LocalhostIpcApp.startup`
  * is skipped, but the RPC client is still (re)configured.
- * Concurrent calls share the same in-flight startup promise（恰一次；并发方携带
- * 不同 options 时以首到者为准——RPC 重配仍由后续顺序调用各自生效）。
+ * 并发语义：在飞行中（in-flight 未落定）的并发方共享同一 startup promise、
+ * 不做 RPC 重配；in-flight 落定后的再次调用仍走幂等体、照常幂等重配 RPC。
  *
  * @example
  * ```ts

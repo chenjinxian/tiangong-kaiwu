@@ -179,11 +179,11 @@ afterEach(() => {
 describe('useViewport host 接线（M4 Task 1 既有口径）', () => {
   it('挂载 → acquireViewer 以选项启动；ready 相位透传 DOM', async () => {
     render(<Harness />);
+    // acquireViewer 是 host 面（StartViewerOptions，无 iModel 键）——iModel 属视口创建链入参
     expect(m.acquireViewerMock).toHaveBeenCalledWith({
       backendUrl: 'http://localhost:5310',
       hubUrl: 'http://localhost:5400',
       accessToken: 'jwt-x',
-      iModel: undefined,
     });
     await waitFor(() => expect(latestPhase).toBe('ready'));
   });
