@@ -25,12 +25,16 @@ import {
 } from '@itwin/imodels-client-management';
 import type {
   AuthorizationCallback,
+  Changeset,
   IModel,
 } from '@itwin/imodels-client-management';
 import { env } from '@config/env.js';
 import { AuthSession } from '../auth/AuthSession.js';
 import { ApiClientError } from '../http/ApiClientError.js';
 import type { CreateImodelInput } from './types.js';
+
+/** 官方 Changeset 实体类型直通 re-export（版本历史消费面唯一类型入口）。 */
+export type { Changeset };
 
 export class ImodelsClient {
   private readonly client: IModelsClient;
@@ -82,6 +86,25 @@ export class ImodelsClient {
         iModelId: id,
       })
     );
+  }
+
+  /**
+   * iModel 的 changeset 列表（全量表示；官方迭代器自动翻页，收拢为数组）。
+   * 版本历史面板数据源（web-next M4-T7；官方
+   * `changesets.getRepresentationList`——旧应用 useChangesets.ts 同通道）。
+   */
+  public async listChangesets(iModelId: string): Promise<Changeset[]> {
+    return this.invoke(async () => {
+      const iterator = this.client.changesets.getRepresentationList({
+        authorization: this.authorization(),
+        iModelId,
+      });
+      const changesets: Changeset[] = [];
+      for await (const changeset of iterator) {
+        changesets.push(changeset);
+      }
+      return changesets;
+    });
   }
 
   // ---- authorization / 错误裁决 ----

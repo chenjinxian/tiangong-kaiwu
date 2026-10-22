@@ -1,0 +1,13 @@
+/* PushChangesetDialog.css — 推送对话框（M4-T7）：描述必填标注 + 输入列排。 */
+
+.part-studio-push-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-push-dialog__required {
+  margin-inline-start: var(--iui-size-3xs, 2px);
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}

@@ -28,6 +28,8 @@ const official = vi.hoisted(() => ({
   getSingle: vi.fn(),
   createEmpty: vi.fn(),
   delete: vi.fn(),
+  // T7：changesets 列表通道（与 iModels.getRepresentationList 分立，断言互不混淆）。
+  changesetsGetRepresentationList: vi.fn(),
 }));
 
 vi.mock('@itwin/imodels-client-management', async (importOriginal) => {
@@ -46,6 +48,11 @@ vi.mock('@itwin/imodels-client-management', async (importOriginal) => {
           delete: official.delete,
         };
       }
+      public get changesets() {
+        return {
+          getRepresentationList: official.changesetsGetRepresentationList,
+        };
+      }
     },
   };
 });
@@ -56,6 +63,13 @@ const TOKEN = 'tok-1';
 function asyncIterableOf<T>(items: T[]): AsyncIterableIterator<T> {
   return (async function* () {
     yield* items;
+  })();
+}
+
+/** 迭代即抛的替身（列表通道官方错误的真实形态：迭代中途 reject）。 */
+function asyncIterableError(error: unknown): AsyncIterableIterator<never> {
+  return (async function* () {
+    throw error;
   })();
 }
 
@@ -150,6 +164,55 @@ describe('ImodelsClient（官方 IModelsClient 封装）', () => {
     const client = new ImodelsClient();
 
     await expect(client.get('bad')).rejects.toMatchObject({
+      name: 'ApiClientError',
+      status: 404,
+      code: 'IMODELS_REQUEST_FAILED',
+    });
+  });
+
+  // ---- T7：版本历史数据源（官方 changesets 列表通道）----
+
+  it('listChangesets(iModelId)：changesets.getRepresentationList({ authorization, iModelId })，迭代器收拢为数组', async () => {
+    const items = [
+      { id: 'cs-2', index: 2, description: '加圆角', displayName: 'cs2' },
+      { id: 'cs-1', index: 1, description: '初始特征', displayName: 'cs1' },
+    ];
+    official.changesetsGetRepresentationList.mockReturnValue(asyncIterableOf(items));
+    const client = new ImodelsClient();
+
+    await expect(client.listChangesets('im-1')).resolves.toEqual(items);
+    expect(official.changesetsGetRepresentationList).toHaveBeenCalledTimes(1);
+    expect(official.changesetsGetRepresentationList).toHaveBeenCalledWith(
+      expect.objectContaining({ iModelId: 'im-1' }),
+    );
+    // 与 iModels 列表通道分立（不误入 iModels.getRepresentationList）。
+    expect(official.getRepresentationList).not.toHaveBeenCalled();
+  });
+
+  it('listChangesets 的 authorization 回调懒求值：调回调才取 token，返回 `{ scheme: "Bearer", token }`', async () => {
+    official.changesetsGetRepresentationList.mockReturnValue(asyncIterableOf([]));
+    const client = new ImodelsClient();
+
+    await client.listChangesets('im-1');
+    const params = official.changesetsGetRepresentationList.mock.calls[0]?.[0] as {
+      authorization: () => Promise<unknown>;
+    };
+
+    expect(AuthSession.getValidAccessToken).not.toHaveBeenCalled();
+    await expect(params.authorization()).resolves.toEqual({ scheme: 'Bearer', token: TOKEN });
+  });
+
+  it('listChangesets：官方 reject 的 IModelsError 映射为 ApiClientError（同三元组契约）', async () => {
+    official.changesetsGetRepresentationList.mockReturnValue(
+      asyncIterableError({
+        code: 'iModelNotFound',
+        message: 'iModel not found',
+        statusCode: 404,
+      }),
+    );
+    const client = new ImodelsClient();
+
+    await expect(client.listChangesets('bad')).rejects.toMatchObject({
       name: 'ApiClientError',
       status: 404,
       code: 'IMODELS_REQUEST_FAILED',

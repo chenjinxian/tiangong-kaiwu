@@ -145,6 +145,15 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.leaseBusy', 'featureDialog.editHint',
   'dock.tabs.toolSettings', 'dock.tabs.history', 'dock.tabs.display',
   'dock.placeholder',
+  // M4 Task 7：dock 版本历史真面板（changesets 六态 + 保存/推送动作钮）。
+  'dock.history.listLabel', 'dock.history.empty', 'dock.history.current',
+  'dock.history.noDescription', 'dock.history.loadFailed', 'dock.history.retry',
+  'dock.history.save', 'dock.history.unpushed', 'dock.history.push',
+  // M4 Task 7：推送对话框（描述必填 + 成功 toast/失败就地；旧应用
+  // PushChangesetDialog 形态移植，「保存版本」语义对齐 Onshape 版本模型）。
+  'pushChangeset.title', 'pushChangeset.descriptionLabel', 'pushChangeset.required',
+  'pushChangeset.descriptionPlaceholder', 'pushChangeset.cancel', 'pushChangeset.confirm',
+  'pushChangeset.pushing', 'pushChangeset.success', 'pushChangeset.pushFailed',
   'tabs.fitView', 'tabs.newTab', 'tabs.partStudio',
   'status.connection', 'status.connecting', 'status.connected', 'status.connectionFailed',
   'status.editMode', 'status.editModePart',
@@ -161,9 +170,12 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'ribbon.sketchToolbarLabel', 'ribbon.exitSketch',
   // M4 Task 3：工具注册编排失败通知（PartStudioPage 编排层，错误面必须可见）。
   'tools.registrationFailed',
-  // M4 Task 4：顶栏右侧撤销/重做/保存三钮组（对齐 os-11）。
-  'topBar.edit.undo', 'topBar.edit.redo', 'topBar.edit.save',
-  'topBar.edit.saving', 'topBar.edit.saveFailed',
+  // M4 Task 4：顶栏右侧撤销/重做/保存三钮组（对齐 os-11）。T4 评审 I-1 演进
+  //（M4-T7 承接）：顶栏第三钮改「保存版本」推送入口（saveChanges no-op 收敛
+  // 问题根治），save/saving 两键随旧语义除名；saveFailed 留守 Ctrl+S 本地兜底
+  // 错误面。
+  'topBar.edit.undo', 'topBar.edit.redo', 'topBar.edit.saveVersion',
+  'topBar.edit.saveFailed',
   'featureDialog.confirm', 'featureDialog.cancel',
   'featureDialog.resultTypeTabs', 'featureDialog.booleanScopeTabs',
   'featureDialog.entitiesLabel', 'featureDialog.fastPick',

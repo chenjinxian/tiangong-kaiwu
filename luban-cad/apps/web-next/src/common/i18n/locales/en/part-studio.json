@@ -5,8 +5,7 @@
     "edit": {
       "undo": "Undo",
       "redo": "Redo",
-      "save": "Save",
-      "saving": "Saving…",
+      "saveVersion": "Save version",
       "saveFailed": "Save failed: {{message}}"
     },
     "share": "Share",
@@ -39,7 +38,29 @@
       "history": "Version history",
       "display": "Display settings"
     },
-    "placeholder": "Coming soon"
+    "placeholder": "Coming soon",
+    "history": {
+      "listLabel": "Version list",
+      "empty": "No versions yet — this document is at its initial version",
+      "current": "Current version",
+      "noDescription": "(no description)",
+      "loadFailed": "Failed to load versions: {{message}}",
+      "retry": "Retry",
+      "save": "Save",
+      "unpushed": "Unpushed",
+      "push": "Push"
+    }
+  },
+  "pushChangeset": {
+    "title": "Save version",
+    "descriptionLabel": "Version description",
+    "required": "Required",
+    "descriptionPlaceholder": "e.g. Fix base dimensions, add fillet features",
+    "cancel": "Cancel",
+    "confirm": "Push",
+    "pushing": "Pushing…",
+    "success": "Version pushed to the hub",
+    "pushFailed": "Push failed: {{message}}"
   },
   "tabs": {
     "fitView": "Fit to view",

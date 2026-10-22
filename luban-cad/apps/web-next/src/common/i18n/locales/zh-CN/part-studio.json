@@ -5,8 +5,7 @@
     "edit": {
       "undo": "撤消",
       "redo": "重做",
-      "save": "保存",
-      "saving": "保存中…",
+      "saveVersion": "保存版本",
       "saveFailed": "保存失败: {{message}}"
     },
     "share": "分享",
@@ -39,7 +38,29 @@
       "history": "版本历史",
       "display": "显示设置"
     },
-    "placeholder": "内容即将推出"
+    "placeholder": "内容即将推出",
+    "history": {
+      "listLabel": "版本列表",
+      "empty": "尚无版本记录——当前为初始版本",
+      "current": "当前版本",
+      "noDescription": "(无描述)",
+      "loadFailed": "版本列表加载失败: {{message}}",
+      "retry": "重试",
+      "save": "保存",
+      "unpushed": "未推送",
+      "push": "推送"
+    }
+  },
+  "pushChangeset": {
+    "title": "保存版本",
+    "descriptionLabel": "版本描述",
+    "required": "必填",
+    "descriptionPlaceholder": "例如：修复底座尺寸、添加圆角特征",
+    "cancel": "取消",
+    "confirm": "推送",
+    "pushing": "推送中…",
+    "success": "版本已推送到云端",
+    "pushFailed": "推送失败: {{message}}"
   },
   "tabs": {
     "fitView": "适应视图",

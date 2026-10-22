@@ -34,6 +34,8 @@ const mocks = vi.hoisted(() => ({
   itwinsGet: vi.fn(),
   imodelsGet: vi.fn(),
   imodelsList: vi.fn(),
+  // M4-T7：版本历史数据源（dock 真面板的查询通道）。
+  imodelsListChangesets: vi.fn(),
 }));
 
 const viewerMocks = vi.hoisted(() => ({
@@ -85,6 +87,7 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
   ImodelsClient: class {
     get = mocks.imodelsGet;
     list = mocks.imodelsList;
+    listChangesets = mocks.imodelsListChangesets;
     create = vi.fn();
     delete = vi.fn();
   },
@@ -196,6 +199,10 @@ let FAKE_CONNECTION = {
   supportsGraphicalEditing: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
   enterEditingScope: vi.fn(),
   saveChanges: vi.fn<(description?: string) => Promise<void>>().mockResolvedValue(undefined),
+  // M4-T7：推送代理 + 当前版本标记数据源（dock 历史面板比对）。
+  pushChanges: vi.fn<(description: string) => Promise<{ id: string; index: number }>>()
+    .mockResolvedValue({ id: 'cs-new', index: 3 }),
+  changeset: { id: 'cs-2', index: 2 },
   editorToolSettings: { category: undefined, model: undefined },
   // 零件段查询替身：空集（异步可迭代）。
   createQueryReader: () => (async function* () { /* 空集 */ })(),
@@ -252,6 +259,8 @@ beforeEach(() => {
   mocks.imodelsGet.mockResolvedValue(IMODEL_DETAIL);
   // T7 页签管理器（底部「+」开合）：列表查询零真实请求。
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
+  // M4-T7：dock 版本历史查询零真实请求（页面级测试默认空集）。
+  mocks.imodelsListChangesets.mockResolvedValue([]);
   // M4-T3：注册编排桩复位（mockReset 清实现，重挂成功缺省）。
   viewerMocks.ensureEditTools.mockReset().mockResolvedValue(undefined);
   // M4-T4：连接替身桩复位（作用域进入成功路径 + 干净事务态）。exit 按真实
@@ -480,12 +489,12 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
       || button.getAttribute('aria-disabled') === 'true';
     const undo = within(topBar).getByRole('button', { name: '撤消' });
     const redo = within(topBar).getByRole('button', { name: '重做' });
-    const save = within(topBar).getByRole('button', { name: '保存' });
+    const save = within(topBar).getByRole('button', { name: '保存版本' });
     expect(isDisabled(undo)).toBe(true);
     expect(isDisabled(redo)).toBe(true);
     expect(isDisabled(save)).toBe(true);
 
-    // undo 可能 + 有未存变更（txns 查询桩翻真）→ 事件驱动重查询后钮解锁。
+    // undo 可能 + 有未推送变更（txns 查询桩翻真）→ 事件驱动重查询后钮解锁。
     FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(true);
     FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
     act(() => {
@@ -498,15 +507,57 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     expect(coreFrontendMocks.toolsRun).toHaveBeenCalledWith('Undo');
   });
 
-  it('保存代理：点击保存钮 → connection.saveChanges（T1 连接对象标准通道）', async () => {
+  it('保存版本入口（T4 评审 I-1 演进）：点击开推送对话框，确认走 connection.pushChanges（不再本地 saveChanges）', async () => {
     const user = userEvent.setup();
     FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
     renderPage();
     const topBar = screen.getByTestId('part-studio-top-bar');
-    const save = (await within(topBar).findByRole('button', { name: '保存' })) as HTMLButtonElement;
+    const save = (await within(topBar).findByRole('button', { name: '保存版本' })) as HTMLButtonElement;
     await waitFor(() => expect(save.disabled).toBe(false));
     await user.click(save);
-    await waitFor(() => expect(FAKE_CONNECTION.saveChanges).toHaveBeenCalledTimes(1));
+
+    // 推送对话框就位（描述必填 + 确认回传 pushChanges）。
+    const dialog = await screen.findByRole('dialog', { name: '保存版本' });
+    const input = within(dialog).getByLabelText(/版本描述/);
+    await user.type(input, '第一次推送');
+    await user.click(within(dialog).getByRole('button', { name: '推送' }));
+
+    await waitFor(() =>
+      expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('第一次推送'),
+    );
+    // 顶栏不再是本地 saveChanges 通道（no-op 提交已除名）。
+    expect(FAKE_CONNECTION.saveChanges).not.toHaveBeenCalled();
+    // 成功 toast（IModelApp.notifications 标准管道）+ 对话框收合。
+    await waitFor(() => expect(coreFrontendMocks.outputMessage).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('推送收敛点：推送成功后 txns 查询刷新 → hasPendingTxns 归 false（保存版本钮回落禁用）', async () => {
+    const user = userEvent.setup();
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    renderPage();
+    const topBar = screen.getByTestId('part-studio-top-bar');
+    const save = (await within(topBar).findByRole('button', { name: '保存版本' })) as HTMLButtonElement;
+    await waitFor(() => expect(save.disabled).toBe(false));
+
+    await user.click(save);
+    const dialog = await screen.findByRole('dialog', { name: '保存版本' });
+    await user.type(within(dialog).getByLabelText(/版本描述/), '收敛验证');
+    await user.click(within(dialog).getByRole('button', { name: '推送' }));
+    await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalled());
+
+    // onChangesPushed 事件（useUndoRedo 已订）驱动重查询：txns 桩翻假 → 钮禁用。
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(false);
+    act(() => {
+      FAKE_CONNECTION.txns.onChangesPushed.raise();
+    });
+    await waitFor(() => {
+      const settled = screen.getByTestId('part-studio-save-button');
+      expect(
+        (settled as HTMLButtonElement).disabled === true
+          || settled.getAttribute('aria-disabled') === 'true',
+      ).toBe(true);
+    });
   });
 
   it('viewOnly 激活：三钮即使解锁点击也不触发（回调门与键盘保存同口径）', async () => {
@@ -526,7 +577,7 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     const topBar = screen.getByTestId('part-studio-top-bar');
     const undo = await within(topBar).findByRole('button', { name: '撤消' });
     const redo = within(topBar).getByRole('button', { name: '重做' });
-    const save = within(topBar).getByRole('button', { name: '保存' });
+    const save = within(topBar).getByRole('button', { name: '保存版本' });
     await waitFor(() => expect(undo.getAttribute('aria-disabled')).not.toBe('true'));
     await waitFor(() => expect(save.getAttribute('aria-disabled')).not.toBe('true'));
 
@@ -534,7 +585,9 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     await user.click(redo);
     await user.click(save);
     expect(coreFrontendMocks.toolsRun).not.toHaveBeenCalled();
-    expect(FAKE_CONNECTION.saveChanges).not.toHaveBeenCalled();
+    expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
+    // viewOnly 门拦截推送入口：对话框不开。
+    expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull();
   });
 
   it('editorToolSettings 配置段：viewport+connection+scope 就绪 → 类目补全（Editor.tsx:200-235 移植）', async () => {
@@ -587,5 +640,58 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
       ),
     );
     await waitFor(() => expect(usePartStudioStore.getState().dialog.active).toBeNull());
+  });
+});
+
+describe('M4-T7 版本历史真面板接线（dock 数据源 + 推送对话框共享）', () => {
+  const CHANGESETS = [
+    { id: 'cs-2', index: 2, description: '加圆角', displayName: 'cs2', pushDateTime: '2026-10-20T09:00:00Z' },
+    { id: 'cs-1', index: 1, description: '初始特征', displayName: 'cs1', pushDateTime: '2026-10-19T09:00:00Z' },
+  ];
+
+  it('dock 版本历史：changesets 查询（官方 SDK 封装）+ 当前版本标记（connection.changeset.id 比对）', async () => {
+    const user = userEvent.setup();
+    mocks.imodelsListChangesets.mockResolvedValue(CHANGESETS);
+    renderPage();
+    const dock = screen.getByTestId('part-studio-dock');
+    await user.click(within(dock).getByRole('tab', { name: '版本历史' }));
+    expect(mocks.imodelsListChangesets).toHaveBeenCalledWith('im-1');
+
+    const list = await within(dock).findByTestId('part-studio-changesets-list');
+    const rows = within(list).getAllByTestId('part-studio-changeset-row');
+    expect(rows).toHaveLength(2);
+    // 当前版本标记数据源 = connection.changeset.id（'cs-2'）。
+    expect(within(rows[0]!).getByText('当前版本')).toBeDefined();
+    expect(within(rows[1]!).queryByText('当前版本')).toBeNull();
+  });
+
+  it('dock 推送钮：点击开共享推送对话框（与顶栏同实例），确认走 connection.pushChanges', async () => {
+    const user = userEvent.setup();
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    renderPage();
+    await waitFor(() =>
+      expect((screen.getByTestId('part-studio-save-button') as HTMLButtonElement).disabled).toBe(false),
+    );
+    const dock = screen.getByTestId('part-studio-dock');
+    await user.click(within(dock).getByRole('tab', { name: '版本历史' }));
+    const push = await within(dock).findByTestId('part-studio-dock-push-button');
+    await user.click(push);
+
+    const dialog = await screen.findByRole('dialog', { name: '保存版本' });
+    await user.type(within(dialog).getByLabelText(/版本描述/), 'dock 推送');
+    await user.click(within(dialog).getByRole('button', { name: '推送' }));
+    await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('dock 推送'));
+  });
+
+  it('dock 保存钮：本地兜底通道（connection.saveChanges），与推送语义分离保留', async () => {
+    const user = userEvent.setup();
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    renderPage();
+    const dock = screen.getByTestId('part-studio-dock');
+    await user.click(within(dock).getByRole('tab', { name: '版本历史' }));
+    const save = await within(dock).findByTestId('part-studio-dock-save-button');
+    await user.click(save);
+    await waitFor(() => expect(FAKE_CONNECTION.saveChanges).toHaveBeenCalledTimes(1));
+    expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
   });
 });

@@ -52,11 +52,20 @@
  * 对话框提交面经 Canvas applyOp 直通——ribbon「拉伸」→ FeatureDialog(new/
  * extrude) → insertFeature 落库 → onCommitted+refresh → 树新条目 → 显示同步
  * 几何出现。
+ *
+ * 版本历史/保存推送（M4-T7）：Session 内层持共享 PushChangesetDialog 实例——
+ * 顶栏「保存版本」钮（T4 评审 Important-1 裁定：每 op 自动 saveChanges 下旧
+ * 「保存」钮 no-op 提交永不回落，改推送入口）与 dock「推送」钮同开此对话框；
+ * 确认走 `connection.pushChanges(description)`（本地 Txns 打包 changeset 上
+ * hub），成功后失效 `['part-studio','changesets']` 刷新 dock 面板，收点 =
+ * onChangesPushed 事件（useUndoRedo 已订）驱动 hasPendingTxns 归 false。
+ * dock「保存」钮与 Ctrl+S 键位保留 saveChanges 本地兜底语义（与推送分离）。
  */
 
 import React, { useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   applyViewportBackground,
   ensureEditTools,
@@ -73,6 +82,7 @@ import { PartStudioSidebar } from './components/PartStudioSidebar.js';
 import { PartStudioCanvas } from './components/PartStudioCanvas.js';
 import { PartStudioDock } from './components/PartStudioDock.js';
 import { PartStudioTabs } from './components/PartStudioTabs.js';
+import { PushChangesetDialog } from './dialogs/PushChangesetDialog.js';
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
@@ -110,6 +120,7 @@ interface PartStudioSessionProps {
 
 function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionProps): React.JSX.Element {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   // 可编辑 = !viewOnly（权限门同外层连接口径）；viewOnly 时编辑作用域不进入
   //（readonly briefcase 无编辑面），键盘保存亦不挂。
   const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
@@ -158,7 +169,8 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
   }, [viewOnly, undoRedo]);
 
   // 保存错误面（registration-failed 同款 notifications 通道）：保存失败必须
-  // 可见，不静默吞（M3-b T4 教训）。
+  // 可见，不静默吞（M3-b T4 教训）。本地兜底通道（Ctrl+S 键位与 dock「保存」
+  // 钮共用；推送通道见 handleSaveVersion/handlePushConfirm）。
   const handleSave = useCallback(() => {
     if (viewOnly) return;
     void undoRedo.saveChanges().catch((err: unknown) => {
@@ -172,6 +184,28 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
       );
     });
   }, [viewOnly, undoRedo, t]);
+
+  // 保存版本入口（M4-T7；T4 评审 Important-1 承接）：顶栏「保存版本」钮与
+  // dock「推送」钮共同开共享推送对话框（连接缺失/viewOnly 门拦截——连接未就绪
+  // 时无可推送内容，诚实不响应）。
+  const [pushDialogOpen, setPushDialogOpen] = React.useState(false);
+  const handleSaveVersion = useCallback(() => {
+    if (viewOnly || !connection) return;
+    setPushDialogOpen(true);
+  }, [viewOnly, connection]);
+
+  // 推送确认（connection.pushChanges 标准通道）：成功后失效 changesets 查询
+  // 刷新 dock 面板（服务端态归 react-query）；hasPendingTxns 归 false 由
+  // onChangesPushed 事件驱动（useUndoRedo 已订）——推送对话框的失败就地/
+  // 成功 toast 归对话框自治，此处只承诺通道与刷新。
+  const handlePushConfirm = useCallback(
+    async (description: string): Promise<void> => {
+      if (!connection) return;
+      await connection.pushChanges(description);
+      await queryClient.invalidateQueries({ queryKey: ['part-studio', 'changesets', iModelId] });
+    },
+    [connection, iModelId, queryClient],
+  );
 
   // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer-next
   // registerDefaultShortcuts 独占（T3 交接裁定：二次绑定 = 工具双跑）。
@@ -290,10 +324,9 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
         canUndo={undoRedo.canUndo}
         canRedo={undoRedo.canRedo}
         hasUnsavedChanges={undoRedo.hasUnsavedChanges}
-        isSaving={undoRedo.isSaving}
         onUndo={handleUndo}
         onRedo={handleRedo}
-        onSave={handleSave}
+        onSave={handleSaveVersion}
       />
       {/* 工具 ribbon（os-11 第二行）：27 工具 + 8 下拉 + 命令搜索触发钮。 */}
       <Ribbon />
@@ -312,10 +345,26 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
             applyOp={featureSystem.applyOp}
             leaseOk={featureSystem.leaseOk}
           />
-          <PartStudioDock />
+          <PartStudioDock
+            iModelId={iModelId}
+            currentChangesetId={connection?.changeset?.id ?? null}
+            hasUnsavedChanges={undoRedo.hasUnsavedChanges}
+            isSaving={undoRedo.isSaving}
+            onSave={handleSave}
+            onPush={handleSaveVersion}
+          />
         </div>
       </div>
       <PartStudioTabs iTwinId={iTwinId} iModelId={iModelId} connection={phase} />
+      {/* 推送对话框（M4-T7）：顶栏「保存版本」钮与 dock「推送」钮的共享实例
+          （确认走 connection.pushChanges；失败就地/成功 toast 归对话框自治）。 */}
+      {connection && (
+        <PushChangesetDialog
+          isOpen={pushDialogOpen}
+          onClose={() => setPushDialogOpen(false)}
+          onConfirm={handlePushConfirm}
+        />
+      )}
       {/* 命令搜索面板：页面级常驻挂载（alt+/ 热键经 store 驱动开合）。 */}
       <CommandPalette />
     </div>

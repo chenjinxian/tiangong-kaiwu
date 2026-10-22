@@ -1,0 +1,94 @@
+/* PartStudioDock.css — 右停靠面板版本历史真面板（M4-T7）。
+ * 全部走 iTwinUI 令牌 / --lx-* 皮肤变量（组件禁写裸色值，见 tokens/onshape-skin.css）。 */
+
+.part-studio-dock-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-dock-history__content {
+  min-block-size: 0;
+  overflow-y: auto;
+}
+
+/* loading 骨架（双条呼吸；复用树的骨架条形制）。 */
+.part-studio-dock-history__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-3xs, 2px);
+  padding: var(--iui-size-2xs) 0;
+}
+
+/* empty 态：无 changeset = 初始版本语义。 */
+.part-studio-dock-history__empty {
+  margin: 0;
+  padding: var(--iui-size-2xs) 0;
+}
+
+.part-studio-dock-history__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-dock-history__row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-3xs, 2px) 0;
+  border-block-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}
+
+.part-studio-dock-history__row:last-child {
+  border-block-end: none;
+}
+
+/* 当前版本行：accent 淡底（os-11 版本时间线 current 同语义）。 */
+.part-studio-dock-history__row--current {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  border-radius: var(--iui-border-radius-1);
+  padding-inline: var(--iui-size-2xs);
+}
+
+.part-studio-dock-history__index {
+  flex-shrink: 0;
+  min-inline-size: 1.5em;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.part-studio-dock-history__info {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-dock-history__description {
+  color: var(--iui-color-text);
+  font-size: var(--iui-font-size-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-dock-history__date {
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+/* 动作钮行：保存（本地兜底）+ 推送（开描述对话框）。 */
+.part-studio-dock-history__actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: var(--iui-size-2xs);
+  padding-block-start: var(--iui-size-2xs);
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+}

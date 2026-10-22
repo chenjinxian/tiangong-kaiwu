@@ -2,16 +2,21 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * PartStudioTopBar（M3 Task 3；T7 挂汉堡菜单 + 共享对话框；M4-T4 挂编辑三钮组）：
- * 编辑器顶栏（对齐 os-11/os-24）——
+ * PartStudioTopBar（M3 Task 3；T7 挂汉堡菜单 + 共享对话框；M4-T4 挂编辑三钮组；
+ * M4-T7 第三钮演进为「保存版本」推送入口）：编辑器顶栏（对齐 os-11/os-24）——
  * - 品牌 LC（回 /documents）+ 汉堡文档菜单（DocumentMenuBar，os-24 位于品牌
  *   右侧、面包屑之前）+ 面包屑（文档 → iTwin 名 → iModel 名，名字经
  *   react-query 双查询：ItwinsClient.get / ImodelsClient.get）；
  * - 分支徽标（Main，os-11 文档名右侧 pill）；
- * - 操作区：**撤销/重做/保存三钮组（M4-T4，对齐 os-11 撤消/重做/保存键位，
+ * - 操作区：**撤销/重做/保存版本三钮组（M4-T4，对齐 os-11 撤消/重做/保存键位，
  *   操作簇头部）**——状态由页面层 useUndoRedo（BriefcaseTxns 标准通道）下传：
- *   canUndo/canRedo/hasUnsavedChanges 驱动 disabled，isSaving 驱动保存钮加载
- *   态（aria-busy + 禁用防重入）；未接线（props 缺省）时三钮诚实禁用；
+ *   canUndo/canRedo/hasUnsavedChanges 驱动 disabled；未接线（props 缺省）时
+ *   三钮诚实禁用。T4 评审 Important-1 演进（M4-T7 承接）：本应用工具链每 op
+ *   自动 saveChanges，旧「保存」钮点击为 no-op 提交永不回落——第三钮改为
+ *   「保存版本」推送入口（点击由宿主开 PushChangesetDialog，确认走
+ *   connection.pushChanges；onChangesPushed 事件驱动 hasPendingTxns 归 false
+ *   = 收敛点），图标/tooltip 相应对齐 Onshape 版本模型；本地兜底 saveChanges
+ *   语义下沉 dock「保存」钮与 Ctrl+S；
  * - 分享钮（T7 接共享对话框——复用 documents 模块 ShareDocumentDialog，
  *   跨模块经 @modules/documents barrel）+ 帮助钮 + 用户菜单
  *   （我的帐户/深色模式/退出登录，os-03 同口径）。
@@ -31,14 +36,13 @@ import {
   IconButton,
   MenuItem,
   DropdownMenu,
-  ProgressRadial,
 } from '@itwin/itwinui-react';
 import {
   SvgCheckmark,
   SvgChevronLeft,
   SvgHelpCircularHollow,
+  SvgNamedVersionAdd,
   SvgRedo,
-  SvgSave,
   SvgShare,
   SvgUndo,
 } from '@itwin/itwinui-icons-react';
@@ -56,15 +60,13 @@ export interface PartStudioTopBarProps {
   canUndo?: boolean;
   /** 重做可用（BriefcaseTxns.isRedoPossible）；缺省 false。 */
   canRedo?: boolean;
-  /** 有未保存本地变更（hasPendingTxns 口径）；缺省 false。 */
+  /** 有未推送本地变更（hasPendingTxns 口径；保存版本钮门——无可推送内容即禁用）。 */
   hasUnsavedChanges?: boolean;
-  /** 保存执行中（保存钮加载态 + 防重入禁用）；缺省 false。 */
-  isSaving?: boolean;
   /** 撤销回调（IModelApp.tools.run('Undo') 通道由页面层持有）。 */
   onUndo?: () => void;
   /** 重做回调。 */
   onRedo?: () => void;
-  /** 保存回调（connection.saveChanges 代理由页面层持有）。 */
+  /** 保存版本回调（宿主开推送对话框；pushChanges 通道由页面层持有）。 */
   onSave?: () => void;
 }
 
@@ -74,7 +76,6 @@ export function PartStudioTopBar({
   canUndo = false,
   canRedo = false,
   hasUnsavedChanges = false,
-  isSaving = false,
   onUndo,
   onRedo,
   onSave,
@@ -147,10 +148,11 @@ export function PartStudioTopBar({
         />
       }
       actions={[
-        // 撤销/重做/保存三钮组（M4-T4，os-11 操作簇头部）：状态由页面层
+        // 撤销/重做/保存版本三钮组（M4-T4，os-11 操作簇头部）：状态由页面层
         // useUndoRedo（BriefcaseTxns 标准通道）驱动——undo/redo 点击投标准工具
-        // 'Undo'/'Redo'（viewer-next 注册表在册、快捷键同源）；保存钮加载态
-        // （aria-busy + 禁用防重入）；props 缺省 = 未接线，三钮诚实禁用。
+        // 'Undo'/'Redo'（viewer-next 注册表在册、快捷键同源）；第三钮 M4-T7
+        // 演进为「保存版本」推送入口（无可推送内容诚实禁用）；props 缺省 =
+        // 未接线，三钮诚实禁用。
         <IconButton
           key="undo"
           label={t('partStudio.topBar.edit.undo')}
@@ -175,15 +177,14 @@ export function PartStudioTopBar({
         </IconButton>,
         <IconButton
           key="save"
-          label={isSaving ? t('partStudio.topBar.edit.saving') : t('partStudio.topBar.edit.save')}
+          label={t('partStudio.topBar.edit.saveVersion')}
           styleType="borderless"
           className="part-studio-edit-button"
-          disabled={!hasUnsavedChanges || isSaving}
-          aria-busy={isSaving}
+          disabled={!hasUnsavedChanges}
           onClick={onSave}
           data-testid="part-studio-save-button"
         >
-          {isSaving ? <ProgressRadial size="x-small" indeterminate /> : <SvgSave />}
+          <SvgNamedVersionAdd />
         </IconButton>,
         // 分享（T7）：复用 documents 模块 ShareDocumentDialog（经 @modules/documents
         // barrel）——共享当前文档（iTwin）成员/邀请/链接三页签。
