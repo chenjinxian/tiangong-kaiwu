@@ -19,7 +19,7 @@ import type { JSX } from 'react';
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   toolsRun: vi.fn(),
@@ -58,8 +58,7 @@ vi.mock('@itwin/core-frontend', () => ({
 
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
-import { buildCanvasMenu } from '../canvas/CanvasContextMenu.js';
-import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
+import { buildCanvasMenu, CanvasContextMenu, clampMenuPosition } from '../canvas/CanvasContextMenu.js';
 import { PartStudioCanvas } from '../components/PartStudioCanvas.js';
 
 /** 造一个带视口方法的 fake selectedView。 */
@@ -303,5 +302,47 @@ describe('PartStudioCanvas 集成：右键弹菜单 + 收合', () => {
     expect(screen.getByRole('menu', { name: '画布菜单' })).toBeDefined();
     await user.click(document.body);
     expect(screen.queryByRole('menu', { name: '画布菜单' })).toBeNull();
+  });
+});
+
+describe('菜单视口边缘钳制（终审 T5-④）', () => {
+  const realRect = HTMLElement.prototype.getBoundingClientRect;
+
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = realRect;
+  });
+
+  describe('clampMenuPosition 纯函数', () => {
+    it('视口内不动；右/下溢出向内收；欠尺寸视口钳到 margin', () => {
+      // 视口内：原样返回。
+      expect(clampMenuPosition(100, 200, 220, 300, 1024, 768)).toEqual({ x: 100, y: 200 });
+      // 右/下溢出：收进 8px margin。
+      expect(clampMenuPosition(1000, 700, 220, 300, 1024, 768)).toEqual({ x: 796, y: 460 });
+      // 越界过头（菜单比视口还大）：钳到 margin。
+      expect(clampMenuPosition(50, 50, 220, 300, 200, 260)).toEqual({ x: 8, y: 8 });
+      // 负坐标：钳到 margin 下限。
+      expect(clampMenuPosition(-40, -60, 220, 300, 1024, 768)).toEqual({ x: 8, y: 8 });
+    });
+  });
+
+  it('anchor 落在视口右下边缘时，渲染位置钳制在视口内', () => {
+    // jsdom 视口 1024×768；菜单实测尺寸 220×300（mock rect）。
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return {
+        width: 220, height: 300, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    };
+    render(<CanvasContextMenu anchor={{ x: 1000, y: 700 }} onClose={vi.fn()} />);
+    const menu = screen.getByRole('menu', { name: '画布菜单' }) as HTMLElement;
+    expect(menu.style.left).toBe('796px');
+    expect(menu.style.top).toBe('460px');
+  });
+
+  it('视口内常规 anchor 不位移', () => {
+    render(<CanvasContextMenu anchor={ANCHOR} onClose={vi.fn()} />);
+    const menu = screen.getByRole('menu', { name: '画布菜单' }) as HTMLElement;
+    expect(menu.style.left).toBe(`${ANCHOR.x}px`);
+    expect(menu.style.top).toBe(`${ANCHOR.y}px`);
   });
 });

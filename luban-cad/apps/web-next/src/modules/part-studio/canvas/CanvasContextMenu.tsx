@@ -123,6 +123,30 @@ export function buildCanvasMenu(selection: readonly CanvasSelection[]): CanvasMe
   }
 }
 
+/** 视口边缘钳制 margin（px）——菜单贴边仍留出可抓握的呼吸位。 */
+const MENU_VIEWPORT_MARGIN = 8;
+
+/**
+ * 菜单视口边缘钳制（终审 T5-④ 收口，纯函数）——右/下溢出时向内收到
+ * `视口 - 菜单尺寸 - margin`；左/上负坐标钳到 margin；菜单大于视口时钳到
+ * margin（不追求完整可见，只保证不越界）。坐标=client 坐标（菜单
+ * `position:fixed`）。
+ */
+export function clampMenuPosition(
+  x: number,
+  y: number,
+  menuWidth: number,
+  menuHeight: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  margin: number = MENU_VIEWPORT_MARGIN,
+): { x: number; y: number } {
+  return {
+    x: Math.max(margin, Math.min(x, viewportWidth - menuWidth - margin)),
+    y: Math.max(margin, Math.min(y, viewportHeight - menuHeight - margin)),
+  };
+}
+
 export interface CanvasContextMenuProps {
   /** 菜单锚点（视口 client 坐标）；null=关闭（常驻挂载，右键驱动开合）。 */
   anchor: { x: number; y: number } | null;
@@ -146,6 +170,18 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
   const { activate } = useToolActivation();
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState(false);
+  // 视口边缘钳制（终审 T5-④）：anchor 落在右/下边缘时菜单被截出视口外——
+  // 渲染后实测菜单尺寸，layout effect（绘制前）钳制到视口内，无闪现。
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = React.useState<{ x: number; y: number }>({ x: anchor?.x ?? 0, y: anchor?.y ?? 0 });
+  React.useLayoutEffect(() => {
+    if (!anchor) return;
+    const el = menuRef.current;
+    setPosition({ x: anchor.x, y: anchor.y });
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setPosition(clampMenuPosition(anchor.x, anchor.y, rect.width, rect.height, window.innerWidth, window.innerHeight));
+  }, [anchor]);
 
   // Escape/外部 mousedown 收合（旧应用 EditorViewport 同口径）。
   React.useEffect(() => {
@@ -295,10 +331,11 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
   return (
     <>
       <div
+        ref={menuRef}
         className="part-studio-canvas-menu"
         role="menu"
         aria-label={t('partStudio.canvasMenu.menuLabel')}
-        style={{ left: anchor.x, top: anchor.y }}
+        style={{ left: position.x, top: position.y }}
         onMouseDown={(event) => event.stopPropagation()}
       >
         {entries.map((entry, index) =>

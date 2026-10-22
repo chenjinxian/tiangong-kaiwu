@@ -151,6 +151,22 @@ describe('commandPalette 切片（命令搜索开关）', () => {
     store.closeCommandPalette();
     expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(false);
   });
+
+  it('open/toggle 入口统一清空查询词（os-23 每次全新搜索；终审 T4-① 口径统一）', () => {
+    const store = usePartStudioStore.getState();
+    store.setCommandPaletteQuery('圆角');
+    store.toggleCommandPalette(); // 开（原关）→ 开即全新搜索
+    expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(true);
+    expect(usePartStudioStore.getState().commandPalette.query).toBe('');
+    store.setCommandPaletteQuery('倒角');
+    store.toggleCommandPalette(); // 关 → 查询作废清空
+    expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(false);
+    expect(usePartStudioStore.getState().commandPalette.query).toBe('');
+    store.setCommandPaletteQuery('圆角');
+    store.closeCommandPalette();
+    store.openCommandPalette(); // open 入口同口径
+    expect(usePartStudioStore.getState().commandPalette.query).toBe('');
+  });
 });
 
 describe('canvas 切片（画布选择集 + 会话隐藏集，T5 收口 CanvasSelection 宿主）', () => {

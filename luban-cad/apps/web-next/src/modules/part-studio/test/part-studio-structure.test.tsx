@@ -30,6 +30,7 @@
 // DocumentMenuBar.test.tsx（各对话框行为）。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider as IuiThemeProvider } from '@itwin/itwinui-react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -139,13 +140,18 @@ function resetStore(): void {
 
 function renderPage(): ReturnType<typeof render> {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // IuiThemeProvider：与生产装配（AppProviders）一致——DropdownMenu 的 portal
+  // 容器由 ThemeProvider 提供（body 下 div[data-iui-portal]）；缺它则 iTwinUI
+  // Portal 无容器回退原地渲染，portal 逃逸断言（C2/D1）测不出真实行为。
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/documents/itwin-1/im-1']}>
-        <Routes>
-          <Route path="/documents/:iTwinId/:iModelId" element={<PartStudioPage />} />
-        </Routes>
-      </MemoryRouter>
+      <IuiThemeProvider>
+        <MemoryRouter initialEntries={['/documents/itwin-1/im-1']}>
+          <Routes>
+            <Route path="/documents/:iTwinId/:iModelId" element={<PartStudioPage />} />
+          </Routes>
+        </MemoryRouter>
+      </IuiThemeProvider>
     </QueryClientProvider>,
   );
 }
@@ -190,7 +196,7 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
     }
   });
 
-  it('8 下拉锚点在场（data-testid + 箭头钮 aria-haspopup=menu），变换飞菜单展开子项', async () => {
+  it('8 下拉锚点在场（data-testid + 箭头钮 aria-haspopup=menu），变换飞菜单展开子项（portal 逃逸到 body 外）', async () => {
     const user = userEvent.setup();
     renderPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
@@ -200,15 +206,41 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
         `ribbon 缺少下拉锚点 ${id}`,
       ).toBeDefined();
     }
-    // 箭头钮开合飞菜单（os-20 交互基线）。
+    // 箭头钮开合飞菜单（os-20 交互基线；aria 语义由 DropdownMenu 落在触发钮）。
     const arrow = within(ribbon).getByRole('button', { name: '变换 ▾' });
     expect(arrow.getAttribute('aria-haspopup')).toBe('menu');
     expect(arrow.getAttribute('aria-expanded')).toBe('false');
     await user.click(arrow);
     expect(arrow.getAttribute('aria-expanded')).toBe('true');
-    const menu = within(ribbon).getByRole('menu', { name: '变换' });
+    // C2/D1：飞菜单 portal 到 document.body（ribbon overflow-x 滚动容器外，
+    // 不再被裁剪）——查询必须挂 body 根，防「容器内假绿」。
+    const menu = within(document.body).getByRole('menu', { name: '变换' });
+    expect(ribbon.contains(menu)).toBe(false);
     expect(within(menu).getByRole('menuitem', { name: '包覆' })).toBeDefined();
     expect(within(menu).getByRole('menuitem', { name: '印花' })).toBeDefined();
+    // 子项点击 → 激活（wrap 在册 full → tools.run）+ 菜单收合（closeOnItemClick 缺省）。
+    await user.click(within(menu).getByRole('menuitem', { name: '包覆' }));
+    expect(mocks.toolsRun).toHaveBeenCalledWith('wrap');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBe('wrap');
+    expect(within(document.body).queryByRole('menu', { name: '变换' })).toBeNull();
+  });
+
+  it('飞菜单键盘导航：ArrowDown 聚焦子项 + Escape 收合并还焦点（DropdownMenu，终审 T4-③）', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const ribbon = screen.getByTestId('part-studio-ribbon');
+    const arrow = within(ribbon).getByRole('button', { name: '变换 ▾' });
+    await user.click(arrow);
+    const menu = within(document.body).getByRole('menu', { name: '变换' });
+    const firstItem = within(menu).getByRole('menuitem', { name: '包覆' });
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(firstItem);
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(within(menu).getByRole('menuitem', { name: '印花' }));
+    await user.keyboard('{Escape}');
+    expect(within(document.body).queryByRole('menu', { name: '变换' })).toBeNull();
+    // 焦点管理：收合后焦点还到触发钮。
+    expect(document.activeElement).toBe(arrow);
   });
 
   it('full 工具点击投 IModelApp.tools.run 并写 store；gated 工具开能力引导对话框', async () => {

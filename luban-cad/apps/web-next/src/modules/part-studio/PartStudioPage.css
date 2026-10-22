@@ -320,7 +320,8 @@
   border-radius: var(--iui-border-radius-1);
 }
 
-/* 「图标 + ▾」飞出菜单宿主。 */
+/* 「图标 + ▾」飞出菜单宿主（菜单本体=iTwinUI DropdownMenu portal 渲染，
+   样式走 iui-menu——M3 收口 C2：不再自绘绝对定位菜单，滚动容器不再裁剪）。 */
 .part-studio-ribbon__dropdown {
   position: relative;
   display: flex;
@@ -334,51 +335,10 @@
   inline-size: 14px;
 }
 
+/* portal 飞菜单：bottom-start 锚定箭头钮，钮底缘高于 ribbon 底缘（ribbon
+   padding）——外推 margin 使菜单完全清开 ribbon 底线（不与工具行叠压）。 */
 .part-studio-ribbon__menu {
-  position: absolute;
-  inset-block-start: 100%;
-  inset-inline-start: 0;
-  z-index: 40;
-  min-inline-size: 160px;
-  display: flex;
-  flex-direction: column;
-  padding: var(--iui-size-2xs);
-  border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius-1);
-  background: var(--iui-color-background);
-  box-shadow: var(--iui-shadow-2, 0 2px 8px rgba(0, 0, 0, 0.2));
-}
-
-.part-studio-ribbon__menu-item {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--iui-size-xs);
-  inline-size: 100%;
-  padding: var(--iui-size-2xs) var(--iui-size-xs);
-  border: none;
-  background: transparent;
-  color: var(--iui-color-text);
-  font: inherit;
-  font-size: var(--iui-font-size-0);
-  cursor: pointer;
-  border-radius: var(--iui-border-radius-1);
-  white-space: nowrap;
-}
-
-.part-studio-ribbon__menu-item:hover {
-  background: var(--iui-color-background-hover);
-}
-
-.part-studio-ribbon__menu-icon {
-  display: inline-flex;
-  inline-size: 16px;
-  block-size: 16px;
-}
-
-.part-studio-ribbon__menu-icon svg {
-  inline-size: 16px;
-  block-size: 16px;
+  margin-block-start: 6px;
 }
 
 /* 命令搜索触发钮（os-11 command-search-trigger）。 */

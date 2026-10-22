@@ -160,10 +160,12 @@ function createCommandPaletteSlice([set, get]: SliceCreator): { commandPalette: 
   'openCommandPalette' | 'closeCommandPalette' | 'toggleCommandPalette' | 'setCommandPaletteQuery' | 'setPaletteHighlight'> {
   return {
     commandPalette: initialCommandPalette,
-    // 打开即清空查询词（os-23：每次进入都是全新搜索）。
+    // 打开即清空查询词（os-23：每次进入都是全新搜索）——open/toggle 两个
+    // 打开入口同口径（终审 T4-① 收口：toggle 原不清空，入口间口径不一）。
     openCommandPalette: () => set({ commandPalette: { ...get().commandPalette, isOpen: true, query: '' } }),
     closeCommandPalette: () => set({ commandPalette: { ...get().commandPalette, isOpen: false } }),
-    toggleCommandPalette: () => set({ commandPalette: { ...get().commandPalette, isOpen: !get().commandPalette.isOpen } }),
+    toggleCommandPalette: () =>
+      set({ commandPalette: { ...get().commandPalette, isOpen: !get().commandPalette.isOpen, query: '' } }),
     setCommandPaletteQuery: (query) => set({ commandPalette: { ...get().commandPalette, query } }),
     setPaletteHighlight: (enabled) => set({ commandPalette: { ...get().commandPalette, highlightEnabled: enabled } }),
   };
