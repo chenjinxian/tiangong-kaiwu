@@ -121,9 +121,24 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
   // 撤销/重做/保存（M4-T4；BriefcaseTxns 标准通道，禁旧自造 UndoManager）。
   const undoRedo = useUndoRedo(connection);
 
+  // 顶栏三回调 viewOnly 门（T4 评审 Minor-1）：与键盘保存同口径——仅查看态下
+  // 三钮点击不触发（连接虽可写打开，编辑面已整体收口）。
+  // undo/redo 拒绝就地吞（T4 评审 Minor-6：tools.run 理论可拒，不逃逸为
+  // unhandled rejection；保存走 notifications 错误面，另口径）。
+  const handleUndo = useCallback(() => {
+    if (viewOnly) return;
+    void undoRedo.undo().catch(() => undefined);
+  }, [viewOnly, undoRedo]);
+
+  const handleRedo = useCallback(() => {
+    if (viewOnly) return;
+    void undoRedo.redo().catch(() => undefined);
+  }, [viewOnly, undoRedo]);
+
   // 保存错误面（registration-failed 同款 notifications 通道）：保存失败必须
   // 可见，不静默吞（M3-b T4 教训）。
   const handleSave = useCallback(() => {
+    if (viewOnly) return;
     void undoRedo.saveChanges().catch((err: unknown) => {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
@@ -134,7 +149,7 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
         ),
       );
     });
-  }, [undoRedo, t]);
+  }, [viewOnly, undoRedo, t]);
 
   // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer-next
   // registerDefaultShortcuts 独占（T3 交接裁定：二次绑定 = 工具双跑）。
@@ -254,8 +269,8 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
         canRedo={undoRedo.canRedo}
         hasUnsavedChanges={undoRedo.hasUnsavedChanges}
         isSaving={undoRedo.isSaving}
-        onUndo={() => void undoRedo.undo()}
-        onRedo={() => void undoRedo.redo()}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
         onSave={handleSave}
       />
       {/* 工具 ribbon（os-11 第二行）：27 工具 + 8 下拉 + 命令搜索触发钮。 */}

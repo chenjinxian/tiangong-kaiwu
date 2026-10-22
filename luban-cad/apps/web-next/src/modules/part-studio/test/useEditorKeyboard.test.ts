@@ -12,7 +12,7 @@
 //     通道独占）——save 不被调、默认行为不被拦；
 //  5) 卸载摘除监听。
 
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard.js';
@@ -51,14 +51,16 @@ describe('useEditorKeyboard（仅 Ctrl+S——undo/redo 归 viewer-next 快捷�
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it('save 返回 Promise：错误不逃逸为 unhandled rejection', async () => {
-    const save = vi.fn().mockRejectedValue(new Error('save failed'));
+  it('save 拒绝时不崩（拒绝吞掉，后续键派发不受影响）', async () => {
+    const save = vi.fn().mockRejectedValueOnce(new Error('save failed'));
     renderHook(() => useEditorKeyboard(true, { save }));
 
     pressSave({ ctrlKey: true });
-    await vi.waitFor(() => {
-      expect(save).toHaveBeenCalledTimes(1);
-    });
+    // 冲微任务：让拒绝落地——hook 不崩、监听仍在，二次派发照常工作。
+    await act(async () => {});
+    expect(save).toHaveBeenCalledTimes(1);
+    pressSave({ ctrlKey: true });
+    expect(save).toHaveBeenCalledTimes(2);
   });
 
   it('editable 焦点门：INPUT 聚焦时不派发', () => {

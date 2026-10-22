@@ -9,8 +9,9 @@
  * Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y / Delete / Escape 绑到真实注册工具（'Undo'/
  * 'Redo'/'DeleteElements'/默认工具）并自挂 window 捕获段监听——本 hook **不得
  * 二次绑定**（React 键盘层再拦一层 = 工具双跑）；undo/redo 走 viewer-next
- * 快捷键通道，不经本 hook（签名按裁定收缩为 `actions: { save }`）。可用
- * `isDefaultShortcutsInstalled()`（viewer-next 出口）判安装态。
+ * 快捷键通道，不经本 hook（签名按裁定收缩为 `actions: { save }`）。
+ * （安装态判据 `isDefaultShortcutsInstalled()` 在 viewer-next
+ * tools/keyboard-shortcuts.ts 内部，未经 barrel 出口——T4 评审 Minor-2 勘误。）
  *
  * 与旧应用差异（诚实登记）：旧 `features/editor/hooks/useEditorKeyboard.ts`
  * 是 Delete 键 + keyboardManager.handleKeyDown 委托派发；web-next Delete/

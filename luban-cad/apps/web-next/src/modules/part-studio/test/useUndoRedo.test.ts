@@ -151,9 +151,9 @@ describe('useUndoRedo（BriefcaseTxns 标准通道）', () => {
     const connection = makeConnection();
     const { result } = renderHook(() => useUndoRedo(connection));
 
-    await waitFor(() => {
-      expect(txnsOf(connection)).toBeTruthy();
-    });
+    // 显式冲微任务：引导三查询落定（T4 评审 Minor-4 替换恒真 waitFor）。
+    await act(async () => {});
+    expect(txnsOf(connection).hasPendingTxns).toHaveBeenCalledTimes(1);
     expect(result.current.hasUnsavedChanges).toBe(false);
 
     act(() => {

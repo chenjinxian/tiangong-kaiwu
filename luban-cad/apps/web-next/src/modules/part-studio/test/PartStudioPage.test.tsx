@@ -478,6 +478,34 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     await waitFor(() => expect(FAKE_CONNECTION.saveChanges).toHaveBeenCalledTimes(1));
   });
 
+  it('viewOnly 激活：三钮即使解锁点击也不触发（回调门与键盘保存同口径）', async () => {
+    const user = userEvent.setup();
+    act(() => {
+      usePartStudioStore.getState().setViewOnly(true);
+    });
+    renderPage();
+    // 事务态桩翻真 + 事件驱动刷新：三钮可点击态，但 viewOnly 门拦截触发。
+    FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(true);
+    FAKE_CONNECTION.txns.isRedoPossible.mockResolvedValue(true);
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    act(() => {
+      FAKE_CONNECTION.txns.onAfterUndoRedo.raise();
+    });
+
+    const topBar = screen.getByTestId('part-studio-top-bar');
+    const undo = await within(topBar).findByRole('button', { name: '撤消' });
+    const redo = within(topBar).getByRole('button', { name: '重做' });
+    const save = within(topBar).getByRole('button', { name: '保存' });
+    await waitFor(() => expect(undo.getAttribute('aria-disabled')).not.toBe('true'));
+    await waitFor(() => expect(save.getAttribute('aria-disabled')).not.toBe('true'));
+
+    await user.click(undo);
+    await user.click(redo);
+    await user.click(save);
+    expect(coreFrontendMocks.toolsRun).not.toHaveBeenCalled();
+    expect(FAKE_CONNECTION.saveChanges).not.toHaveBeenCalled();
+  });
+
   it('editorToolSettings 配置段：viewport+connection+scope 就绪 → 类目补全（Editor.tsx:200-235 移植）', async () => {
     renderPage();
     await waitFor(() =>
