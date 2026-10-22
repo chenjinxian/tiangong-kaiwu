@@ -363,6 +363,9 @@ importers:
       '@itwin/core-frontend':
         specifier: link:../../../itwinjs-core/core/frontend
         version: link:../../../itwinjs-core/core/frontend
+      '@itwin/core-geometry':
+        specifier: link:../../../itwinjs-core/core/geometry
+        version: link:../../../itwinjs-core/core/geometry
       '@itwin/editor-frontend':
         specifier: link:../../../itwinjs-core/editor/frontend
         version: link:../../../itwinjs-core/editor/frontend

@@ -1,7 +1,10 @@
-// web-initializer 验收（M0 移植 + M4 Task 1 引用计数）：
+// web-initializer 验收（M0 移植 + M4 Task 1 引用计数 + M4 Task 2 in-flight 去重）：
 //  - startViewer：socketUrl 组装/token 注入/RPC 通道面/幂等（既有口径，随文件迁入 host/test/）；
 //  - acquireViewer/releaseViewer：模块级引用计数——1→0 才 shutdown、空计数安全 no-op、
-//    acquire 失败回滚计数（M3 终审 T3-③「卸载无条件 stopViewer」收口）。
+//    acquire 失败回滚计数（M3 终审 T3-③「卸载无条件 stopViewer」收口）；
+//  - in-flight promise 去重（M4 Task 2，控制器裁定）：并发 acquire 共享同一 startup
+//    promise（恰一次）；release 归零 shutdown 在途时新 acquire 等它落定再重新
+//    startup（不落 shutdown 窗口拿假就绪）。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -103,5 +106,49 @@ describe('acquireViewer/releaseViewer（引用计数，M4 Task 1）', () => {
     await expect(acquireViewer(VIEWER_OPTIONS)).rejects.toThrow('ipc unreachable');
     await releaseViewer();
     expect(shutdownMock).not.toHaveBeenCalled();
+  });
+
+  it('并发 acquire×2 → startup 恰一次（in-flight promise 去重），两个持有者各释放一次才 shutdown', async () => {
+    // startup 悬挂——两个 acquire 在首个 startup 完成前同时进入
+    let releaseStartup!: () => void;
+    startupMock.mockImplementationOnce(
+      async () => new Promise<void>((resolve) => {
+        releaseStartup = resolve;
+      }),
+    );
+    const first = acquireViewer(VIEWER_OPTIONS);
+    const second = acquireViewer(VIEWER_OPTIONS);
+    await Promise.resolve();
+    expect(startupMock).toHaveBeenCalledTimes(1);
+    releaseStartup();
+    await Promise.all([first, second]);
+    expect(startupMock).toHaveBeenCalledTimes(1);
+    await releaseViewer();
+    expect(shutdownMock).not.toHaveBeenCalled();
+    await releaseViewer();
+    expect(shutdownMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('release 归零 shutdown 在途 → 立即再 acquire 等 shutdown 落定后重新 startup（不落 shutdown 窗口拿假就绪）', async () => {
+    await acquireViewer(VIEWER_OPTIONS);
+    // shutdown 悬挂——模拟 IModelApp.shutdown 进行中
+    let releaseShutdown!: () => void;
+    shutdownMock.mockImplementationOnce(
+      async () => new Promise<void>((resolve) => {
+        releaseShutdown = resolve;
+      }),
+    );
+    const released = releaseViewer();
+    const reacquired = acquireViewer(VIEWER_OPTIONS);
+    // shutdown 悬挂期间：新 acquire 的 startup 不得抢先执行（等在途 shutdown 落定）
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(startupMock).toHaveBeenCalledTimes(1); // 只有首个 acquire 那次
+    releaseShutdown();
+    await released;
+    await reacquired;
+    expect(shutdownMock).toHaveBeenCalledTimes(1);
+    // shutdown 落定后重新 startup——host 真就绪（IpcApp.isValid 翻转由本次 startup 完成）
+    expect(startupMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -19,6 +19,7 @@
     "@itwin/core-bentley": "link:../../../itwinjs-core/core/bentley",
     "@itwin/core-common": "link:../../../itwinjs-core/core/common",
     "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
+    "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry",
     "@itwin/editor-frontend": "link:../../../itwinjs-core/editor/frontend",
     "@itwin/imodels-access-frontend": "^6.0.2",
     "@itwin/imodels-client-management": "^6.0.2",

@@ -10,6 +10,13 @@
  * `acquireViewer`/`releaseViewer` 模块级引用计数——多消费方（多页签/多视口）共享
  * 同一 host 生命周期，计数 1→0 才真正 shutdown（M3 终审 T3-③「卸载无条件 stopViewer」
  * 收口：先卸载方不再杀掉后挂载方的 host）；acquire 复用 startViewer 幂等体。
+ *
+ * web-next M4 Task 2（2026-10-22）：startViewer 加 in-flight promise 去重——并发
+ * acquire 共享同一 startup promise（startup 恰一次）；release 归零的 shutdown 在途
+ * 时，新 acquire 等它落定再重新 startup——防「release 归零 shutdown 进行中 + 新
+ * acquire」交错拿到假就绪（IpcApp.isValid 未翻转、host 随即 shutdown）。
+ * 同步首段语义保持：队列空闲时 startup 的同步前缀（LocalTransport 创建 +
+ * IpcApp._ipc 就位）仍在调用方同步帧内完成，后续 IPC 调用可立即入 socket 缓冲。
  */
 
 import { IModelApp, IpcApp, LocalhostIpcApp } from '@itwin/core-frontend';
@@ -28,6 +35,11 @@ export interface StartViewerOptions {
   accessToken?: string;
 }
 
+/** in-flight startup promise：并发 startViewer 共享同一次 startup（恰一次）。 */
+let inFlightStartup: Promise<void> | null = null;
+/** in-flight shutdown promise：release 归零的 shutdown 进行中，新 startup 须等它落定。 */
+let inFlightShutdown: Promise<void> | null = null;
+
 /**
  * Start the iTwin.js viewer for the Web platform.
  *
@@ -37,6 +49,8 @@ export interface StartViewerOptions {
  *
  * Idempotent: when `IpcApp.isValid` is already true the `LocalhostIpcApp.startup`
  * is skipped, but the RPC client is still (re)configured.
+ * Concurrent calls share the same in-flight startup promise（恰一次；并发方携带
+ * 不同 options 时以首到者为准——RPC 重配仍由后续顺序调用各自生效）。
  *
  * @example
  * ```ts
@@ -48,6 +62,24 @@ export interface StartViewerOptions {
  * ```
  */
 export async function startViewer(options: StartViewerOptions): Promise<void> {
+  if (inFlightStartup) {
+    return inFlightStartup;
+  }
+  const run = async (): Promise<void> => {
+    // release 归零的 shutdown 在途：等它落定再 startup——否则「shutdown 进行中 +
+    // 新 acquire」交错，新方拿到假就绪（IpcApp.isValid 未翻转、host 随即 shutdown）
+    if (inFlightShutdown) {
+      await inFlightShutdown;
+    }
+    await doStartViewer(options);
+  };
+  inFlightStartup = run().finally(() => {
+    inFlightStartup = null;
+  });
+  return inFlightStartup;
+}
+
+async function doStartViewer(options: StartViewerOptions): Promise<void> {
   const { backendUrl, hubUrl, accessToken } = options;
 
   const rpcInterfaces = [OpenCloudRpcInterface, LubanFeatureRpcInterface, IModelReadRpcInterface, IModelTileRpcInterface];
@@ -195,16 +227,29 @@ export async function releaseViewer(): Promise<void> {
 
 /**
  * Shut down the iTwin.js viewer（原 stopViewer，私有——只经 releaseViewer 计数归零触发）。
+ * 并发 release（StrictMode 连卸）共享同一次 shutdown；在途标记供 startViewer 等待。
  */
 async function shutdownViewer(): Promise<void> {
-  if (IModelApp.initialized) {
-    try {
-      await IModelApp.shutdown();
-      // eslint-disable-next-line no-console
-      console.log('Web viewer shut down');
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('IModelApp shutdown error (likely React StrictMode double-invoke):', err);
+  if (inFlightShutdown) {
+    await inFlightShutdown;
+    return;
+  }
+  const run = (async (): Promise<void> => {
+    if (IModelApp.initialized) {
+      try {
+        await IModelApp.shutdown();
+        // eslint-disable-next-line no-console
+        console.log('Web viewer shut down');
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('IModelApp shutdown error (likely React StrictMode double-invoke):', err);
+      }
     }
+  })();
+  inFlightShutdown = run;
+  try {
+    await run;
+  } finally {
+    inFlightShutdown = null;
   }
 }
