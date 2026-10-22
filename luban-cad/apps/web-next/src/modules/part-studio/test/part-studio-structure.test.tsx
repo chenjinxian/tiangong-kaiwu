@@ -54,6 +54,8 @@ const mocks = vi.hoisted(() => ({
   imodelsList: vi.fn(),
   // M4-T9：版本历史数据源（PushChangesetDialog 挂载锚点的面板查询通道）。
   imodelsListChangesets: vi.fn(),
+  // M5-T3：iModel 级我的权限查询（briefcase readonly 合流的数据源）。
+  accessControlGetMyPermissions: vi.fn(),
   toolsRun: vi.fn(),
   // M4-T9：IModelApp.notifications 呈现面捕获（toast 行为归对话框/页面测试，
   // 此处只需通道在场不抛）。
@@ -108,6 +110,15 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
     listChangesets = mocks.imodelsListChangesets;
     create = vi.fn();
     delete = vi.fn();
+  },
+}));
+
+// M5-T3：权限判定数据层替身（缺省=创建者权限组，editable——本文件「三钮
+// 解锁即投通道」的锚点前提；门禁/合流行为细节归 PartStudioPage.test.tsx）。
+vi.mock('@clients/access-control/AccessControlClient.js', () => ({
+  AccessControlClient: class {
+    getMyIModelPermissions = mocks.accessControlGetMyPermissions;
+    getITwinPermissions = vi.fn();
   },
 }));
 
@@ -299,6 +310,13 @@ beforeEach(() => {
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
   // M4-T9：dock 版本历史查询零真实请求（默认空集）。
   mocks.imodelsListChangesets.mockResolvedValue([]);
+  // M5-T3：权限查询缺省=创建者权限组（editable）——canEdit 门全开，本文件的
+  // 锚点断言不因权限查询相位漂移。
+  mocks.accessControlGetMyPermissions.mockResolvedValue([
+    'imodels_webview',
+    'imodels_read',
+    'imodels_write',
+  ]);
   mocks.toolsRun.mockResolvedValue(true);
   // M4-T3：注册编排桩复位（mockReset 清实现，重挂成功缺省）。
   viewerMocks.ensureEditTools.mockReset().mockResolvedValue(undefined);

@@ -14,8 +14,13 @@
  *
  * 查看器接线（M4-T2 组合链，双层组件定序）：
  * - 外层 PartStudioPage：useBriefcaseConnection({iTwinId, iModelId,
- *   readonly: viewOnly})——viewOnly 取 store 仅查看切片（计划权限门裁决：可编辑 =
- *   !viewOnly；briefcase 默认可写打开）；
+ *   readonly: viewOnly || permissions.mode === 'readonly'})——briefcase readonly
+ *   三源合流单点（M5-T3）：store 仅查看切片 ∨ iModel 权限只读（usePermissions，
+ *   官方 SDK 通道 imodels-v2 GET /imodels/:id/permissions）；权限 isLoading
+ *   期间传 null options 关连接（旧应用竞态教训：首开定读写——权限未落定早开
+ *   只读连接会因打开 effect deps 不含 readonly 而恒只读，保存必败），落定后
+ *   再开；编辑面总门 canEdit = !viewOnly ∧ 权限 editable，props 单点下传
+ *   Session（各编辑出口统一消费，下游不二次判定）；
  * - 内层 PartStudioSession：connection 作 iModel 下传 useViewport
  *   （BriefcaseConnection extends IModelConnection——ScreenViewport 创建/类目模型
  *   补全/内容感知取景全链在 viewer-next）→ viewport 下传 PartStudioCanvas +
@@ -108,24 +113,36 @@ import { useEditingScope } from './hooks/useEditingScope.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 import { useFeatureSystem } from './hooks/useFeatureSystem.js';
+import { usePermissions } from './hooks/usePermissions.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import './PartStudioPage.css';
 
 export function PartStudioPage(): React.JSX.Element {
   const { iTwinId, iModelId } = useParams<{ iTwinId: string; iModelId: string }>();
-  // 权限门（计划裁决）：可编辑 = !viewOnly（M3-T7 仅查看模式切片）；
-  // briefcase 默认可写打开，viewOnly 激活时 readonly 打开（不占写位）。
+  // 权限门（M5-T3 真实判定收编 M4 中期口径）：可编辑 = !viewOnly ∧ 权限
+  // editable（viewOnly=store 仅查看切片；权限=iModel 级我的权限查询）。
   const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
-  // 连接先行（ids 未载前 null 短路）；effect 定序见文件头注「为何拆两层」。
+  const permissions = usePermissions({ iTwinId: iTwinId ?? null, iModelId: iModelId ?? null });
+  // 权限门接线（旧应用竞态教训——必须遵守）：useBriefcaseConnection 首开定
+  // 读写（打开 effect deps 不含 readonly），故权限 isLoading 期间传 null
+  // options 关连接（零 IPC），落定后再以合流 readonly 开——否则「权限未载
+  // 早开只读 → 权限解析 editable 但 effect 不重跑 → 连接恒只读保存失败」。
+  // 合流单点：readonly = viewOnly ∨ 权限只读。
   const briefcase = useBriefcaseConnection(
-    iTwinId && iModelId ? { iTwinId, iModelId, readonly: viewOnly } : null,
+    iTwinId && iModelId && !permissions.isLoading
+      ? { iTwinId, iModelId, readonly: viewOnly || permissions.mode === 'readonly' }
+      : null,
   );
+  // 编辑面单点门（Session 各编辑出口统一消费；加载中 mode 不可信占位
+  // readonly → 编辑面先收口，落定 editable 后随查询重渲染放行）。
+  const canEdit = !viewOnly && permissions.mode === 'editable';
 
   return (
     <PartStudioSession
       iTwinId={iTwinId ?? ''}
       iModelId={iModelId ?? ''}
+      canEdit={canEdit}
       connection={briefcase.connection}
       connectionLoading={briefcase.isLoading}
       connectionError={briefcase.error}
@@ -136,6 +153,9 @@ export function PartStudioPage(): React.JSX.Element {
 interface PartStudioSessionProps {
   iTwinId: string;
   iModelId: string;
+  /** 编辑面总门（M5-T3 单点合流）：!viewOnly ∧ 权限 editable——编辑作用域/
+   * undo/redo/保存/推送/键盘出口统一消费，勿在下游二次判定。 */
+  canEdit: boolean;
   connection: BriefcaseConnection | null;
   /** briefcase 打开中（M5-T2 isLoading 消费：画布骨架 + 状态栏「正在打开文档…」）。 */
   connectionLoading: boolean;
@@ -146,15 +166,13 @@ interface PartStudioSessionProps {
 function PartStudioSession({
   iTwinId,
   iModelId,
+  canEdit,
   connection,
   connectionLoading,
   connectionError,
 }: PartStudioSessionProps): React.JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  // 可编辑 = !viewOnly（权限门同外层连接口径）；viewOnly 时编辑作用域不进入
-  //（readonly briefcase 无编辑面），键盘保存亦不挂。
-  const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
   // 会话由 RequireAuth 门保证在场；token 静态传入（M3 雷②闭环：渲染期取一次，
   // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer-next 演进）。
   const { viewportRef, phase, viewport, error: viewportError } = useViewport({
@@ -170,8 +188,9 @@ function PartStudioSession({
 
   // 编辑作用域（M4-T4；Editor.tsx:322-371 忠实移植）：进入/复用/失败回查/
   // 卸载退出——hook 内部自治，页面只消费 isReady（editorToolSettings 配置段的
-  // 就绪门，特征系统/工具面复用）。
-  const { isReady: isEditingScopeReady } = useEditingScope(connection ?? undefined, !viewOnly);
+  // 就绪门，特征系统/工具面复用）。canEdit 门（M5-T3）：viewOnly ∨ 权限只读
+  // 皆不进入（readonly briefcase 无编辑面）。
+  const { isReady: isEditingScopeReady } = useEditingScope(connection ?? undefined, canEdit);
 
   // 特征系统中枢（M4-T5 移植 + M4-T6 接线）：编辑作用域就绪后 enabled
   //（viewOnly/readonly 连接被 useEditingScope 的 enabled 门拦截——单一裁决点，
@@ -203,25 +222,25 @@ function PartStudioSession({
   // briefcase 失败同面呈现，briefcase 优先（与状态栏序一致：上游失败因优先）。
   const canvasErrorMessage = connectionErrorMessage ?? viewportError;
 
-  // 顶栏三回调 viewOnly 门（T4 评审 Minor-1）：与键盘保存同口径——仅查看态下
-  // 三钮点击不触发（连接虽可写打开，编辑面已整体收口）。
+  // 顶栏三回调 canEdit 门（T4 评审 Minor-1 的 M5-T3 收编）：与键盘保存同口径
+  //——viewOnly ∨ 权限只读下三钮点击不触发（连接虽可写打开，编辑面已整体收口）。
   // undo/redo 拒绝就地吞（T4 评审 Minor-6：tools.run 理论可拒，不逃逸为
   // unhandled rejection；保存走 notifications 错误面，另口径）。
   const handleUndo = useCallback(() => {
-    if (viewOnly) return;
+    if (!canEdit) return;
     void undoRedo.undo().catch(() => undefined);
-  }, [viewOnly, undoRedo]);
+  }, [canEdit, undoRedo]);
 
   const handleRedo = useCallback(() => {
-    if (viewOnly) return;
+    if (!canEdit) return;
     void undoRedo.redo().catch(() => undefined);
-  }, [viewOnly, undoRedo]);
+  }, [canEdit, undoRedo]);
 
   // 保存错误面（registration-failed 同款 notifications 通道）：保存失败必须
   // 可见，不静默吞（M3-b T4 教训）。本地兜底通道（Ctrl+S 键位与 dock「保存」
   // 钮共用；推送通道见 handleSaveVersion/handlePushConfirm）。
   const handleSave = useCallback(() => {
-    if (viewOnly) return;
+    if (!canEdit) return;
     void undoRedo.saveChanges().catch((err: unknown) => {
       IModelApp.notifications.outputMessage(
         new NotifyMessageDetails(
@@ -232,16 +251,16 @@ function PartStudioSession({
         ),
       );
     });
-  }, [viewOnly, undoRedo, t]);
+  }, [canEdit, undoRedo, t]);
 
   // 保存版本入口（M4-T7；T4 评审 Important-1 承接）：顶栏「保存版本」钮与
-  // dock「推送」钮共同开共享推送对话框（连接缺失/viewOnly 门拦截——连接未就绪
+  // dock「推送」钮共同开共享推送对话框（连接缺失/canEdit 门拦截——连接未就绪
   // 时无可推送内容，诚实不响应）。
   const [pushDialogOpen, setPushDialogOpen] = React.useState(false);
   const handleSaveVersion = useCallback(() => {
-    if (viewOnly || !connection) return;
+    if (!canEdit || !connection) return;
     setPushDialogOpen(true);
-  }, [viewOnly, connection]);
+  }, [canEdit, connection]);
 
   // 推送确认（connection.pushChanges 标准通道）：成功后失效 changesets 查询
   // 刷新 dock 面板（服务端态归 react-query）；hasPendingTxns 归 false 由
@@ -274,7 +293,7 @@ function PartStudioSession({
 
   // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer-next
   // registerDefaultShortcuts 独占（T3 交接裁定：二次绑定 = 工具双跑）。
-  useEditorKeyboard(!viewOnly, { save: handleSave });
+  useEditorKeyboard(canEdit, { save: handleSave });
 
   // editorToolSettings 配置段（M4-T4；Editor.tsx:200-235 移植）：viewport+
   // connection+scope 三就绪后校准工具默认类目/模型，空间视图默认开项目范围

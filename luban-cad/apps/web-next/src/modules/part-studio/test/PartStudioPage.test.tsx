@@ -23,6 +23,11 @@
 //     （error.message 透传）+ 状态栏连接失败 + 诚实重试路径（无假重试钮）；
 //  9) T7-② 推送对话框断连兜底：对话框开着时连接消失 → 收合且 notifications
 //     toast 说明（不无声消失）。
+// M5 Task 3（权限判定接线批）——
+//  10) 权限门：usePermissions 加载中传 null options 关闭连接（旧应用竞态
+//      教训——首开定读写，权限未落定早开=恒只读），落定后以合流 readonly
+//     （viewOnly ∨ 权限只读）开；权限只读时编辑面整体收口（编辑作用域不
+//      进入 + 推送入口拦截）。
 //
 // 定位：五区结构存在性 + store 接线验收层；mock 口径与 document-details 结构
 // 测试一致——真实 store/hooks 参与，客户端（ItwinsClient / ImodelsClient /
@@ -42,6 +47,8 @@ const mocks = vi.hoisted(() => ({
   imodelsList: vi.fn(),
   // M4-T7：版本历史数据源（dock 真面板的查询通道）。
   imodelsListChangesets: vi.fn(),
+  // M5-T3：iModel 级我的权限查询（briefcase readonly 合流的数据源）。
+  accessControlGetMyPermissions: vi.fn(),
 }));
 
 const viewerMocks = vi.hoisted(() => ({
@@ -96,6 +103,15 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
     listChangesets = mocks.imodelsListChangesets;
     create = vi.fn();
     delete = vi.fn();
+  },
+}));
+
+// M5-T3：权限判定数据层替身（缺省=创建者权限组，editable——既有用例的
+// 「briefcase 可写打开」前提；权限门用例在用例内改写）。
+vi.mock('@clients/access-control/AccessControlClient.js', () => ({
+  AccessControlClient: class {
+    getMyIModelPermissions = mocks.accessControlGetMyPermissions;
+    getITwinPermissions = vi.fn();
   },
 }));
 
@@ -275,6 +291,13 @@ beforeEach(() => {
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
   // M4-T7：dock 版本历史查询零真实请求（页面级测试默认空集）。
   mocks.imodelsListChangesets.mockResolvedValue([]);
+  // M5-T3：权限查询缺省=创建者权限组（editable）——既有用例的「briefcase
+  // 可写打开」前提；权限门/合流用例在用例内改写返回值。
+  mocks.accessControlGetMyPermissions.mockResolvedValue([
+    'imodels_webview',
+    'imodels_read',
+    'imodels_write',
+  ]);
   // M4-T3：注册编排桩复位（mockReset 清实现，重挂成功缺省）。
   viewerMocks.ensureEditTools.mockReset().mockResolvedValue(undefined);
   // M4-T4：连接替身桩复位（作用域进入成功路径 + 干净事务态）。exit 按真实
@@ -404,13 +427,17 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
 });
 
 describe('M4-T2 连接/视口组合接线', () => {
-  it('useBriefcaseConnection 以路由 ids + viewOnly 调用；connection 下传 useViewport.iModel', () => {
+  it('useBriefcaseConnection 以路由 ids + viewOnly 调用；connection 下传 useViewport.iModel', async () => {
     renderPage();
-    expect(viewerMocks.useBriefcaseConnection).toHaveBeenCalledWith({
-      iTwinId: 'itwin-1',
-      iModelId: 'im-1',
-      readonly: false,
-    });
+    // M5-T3 起权限落定前 options 为 null（权限门）——等权限查询落定后的
+    // 选项形态（权限缺省替身=创建者权限组 editable）。
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenCalledWith({
+        iTwinId: 'itwin-1',
+        iModelId: 'im-1',
+        readonly: false,
+      }),
+    );
     const lastViewportCall = viewerMocks.useViewport.mock.calls.at(-1);
     expect(lastViewportCall).toBeDefined();
     const viewportOptions = (lastViewportCall ?? [])[0] as { iModel: unknown; backendUrl: string; notifications: unknown };
@@ -420,8 +447,17 @@ describe('M4-T2 连接/视口组合接线', () => {
     expect(viewportOptions.notifications).toBe(viewerNotifications);
   });
 
-  it('viewOnly 激活 → readonly 透传连接钩子（权限门：可编辑 = !viewOnly）', () => {
+  it('viewOnly 激活 → readonly 透传连接钩子（权限门合流：viewOnly ∨ 权限只读）', async () => {
     renderPage();
+    // 权限落定（editable）且首开形态就位后再翻 viewOnly——首开定读写
+    //（useBriefcaseConnection 打开 effect deps 不含 readonly）。
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith({
+        iTwinId: 'itwin-1',
+        iModelId: 'im-1',
+        readonly: false,
+      }),
+    );
     act(() => {
       usePartStudioStore.getState().setViewOnly(true);
     });
@@ -454,6 +490,89 @@ describe('M4-T2 连接/视口组合接线', () => {
     await waitFor(() =>
       expect(viewerMocks.applyViewportBackground).toHaveBeenLastCalledWith(FAKE_VIEWPORT, 'light'),
     );
+  });
+});
+
+// ── M5 Task 3（权限判定接线）────────────────────────────────────────────────
+// 旧应用竞态教训（必须遵守）：权限解析前早开 briefcase → 首开定读写
+//（useBriefcaseConnection 打开 effect deps 不含 readonly）→ 权限解析 editable
+// 但连接恒只读 → 保存失败。接线裁决：权限 isLoading 期间传 null options 关闭
+// 连接，权限落定后再以合流 readonly（viewOnly ∨ 权限只读）开。
+describe('M5-T3 权限门（权限未载不开连接）+ briefcase readonly 三源合流', () => {
+  it('权限加载中：useBriefcaseConnection 只收 null options（零 IPC 不早开，防旧竞态）', () => {
+    // 恒挂起权限查询：整个用例生命期 isLoading 恒真。
+    mocks.accessControlGetMyPermissions.mockReturnValue(new Promise<string[]>(() => {}));
+    renderPage();
+
+    // 出现过 null 门禁调用；从未以任何非空 options 调用（briefcase 未早开）。
+    expect(viewerMocks.useBriefcaseConnection).toHaveBeenCalledWith(null);
+    expect(viewerMocks.useBriefcaseConnection).not.toHaveBeenCalledWith(
+      expect.objectContaining({ iTwinId: 'itwin-1' }),
+    );
+  });
+
+  it('权限落定 editable：以 readonly:false 开连接（缺省可写语义不变）', async () => {
+    mocks.accessControlGetMyPermissions.mockResolvedValue(['imodels_webview', 'imodels_write']);
+    renderPage();
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith({
+        iTwinId: 'itwin-1',
+        iModelId: 'im-1',
+        readonly: false,
+      }),
+    );
+  });
+
+  it('权限落定 readonly（仅 webview）：viewOnly=false 仍以 readonly:true 开连接（权限只读合流）', async () => {
+    mocks.accessControlGetMyPermissions.mockResolvedValue(['imodels_webview']);
+    renderPage();
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith({
+        iTwinId: 'itwin-1',
+        iModelId: 'im-1',
+        readonly: true,
+      }),
+    );
+  });
+
+  it('viewOnly 与权限只读双活：单点合流仍 readonly:true（∨ 语义，不双开不冲突）', async () => {
+    mocks.accessControlGetMyPermissions.mockResolvedValue(['imodels_webview']);
+    act(() => {
+      usePartStudioStore.getState().setViewOnly(true);
+    });
+    renderPage();
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith({
+        iTwinId: 'itwin-1',
+        iModelId: 'im-1',
+        readonly: true,
+      }),
+    );
+  });
+
+  it('权限只读落定：编辑面整体收口（编辑作用域不进入 + 推送对话框不开）', async () => {
+    mocks.accessControlGetMyPermissions.mockResolvedValue(['imodels_webview']);
+    renderPage();
+    // 连接替身照常就绪（readonly 打开也会成功）——编辑面收口只由 canEdit 门驱动。
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith(
+        expect.objectContaining({ readonly: true }),
+      ),
+    );
+    // readonly briefcase 无编辑面：编辑作用域不进入。
+    expect(FAKE_CONNECTION.enterEditingScope).not.toHaveBeenCalled();
+
+    // 推送入口（顶栏保存版本钮）被 canEdit 门拦截：有未推送变更也不开对话框。
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    act(() => {
+      FAKE_CONNECTION.txns.onChangesPushed.raise();
+    });
+    const user = userEvent.setup();
+    const save = (await within(screen.getByTestId('part-studio-top-bar')).findByRole('button', {
+      name: '保存版本',
+    })) as HTMLButtonElement;
+    await user.click(save);
+    expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull();
   });
 });
 

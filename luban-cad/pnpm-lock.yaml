@@ -189,6 +189,9 @@ importers:
 
   apps/web-next:
     dependencies:
+      '@itwin/access-control-client':
+        specifier: ^2.3.1
+        version: 2.3.1
       '@itwin/core-frontend':
         specifier: link:../../../itwinjs-core/core/frontend
         version: link:../../../itwinjs-core/core/frontend
