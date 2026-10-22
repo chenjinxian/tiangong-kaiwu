@@ -126,6 +126,10 @@ luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合�
    负责：`pnpm --filter @itwin/editor-common --filter @itwin/editor-backend --filter
    @itwin/editor-frontend run build`，apps/web 的 `build:deps` 已如此接线）。
 
+## imdl worker 快照检查单（2026-10-23 起，每次同步必办）
+
+- **重拷 web-next worker 快照**：`cp itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js luban-cad/apps/web-next/public/scripts/`（源=`core/frontend/lib/public/scripts/`；worker 与 lib/esm 主包须同轮构建成对，上游同步/rush 重编译后不重拷即版本漂移——`apps/web-next/Dockerfile` 构建尾有 cmp 字节对齐断言，漂移即构建红；同 apps/web 先例，机理见 `luban-cad/apps/web-next/README.md`「public/scripts」节）。
+
 ## 同步记录
 
 ### 2026-10-03（5.14.0-dev.19 → 5.15.x，filter-repo 清史后首次同步）

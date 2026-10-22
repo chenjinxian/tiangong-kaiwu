@@ -11,16 +11,18 @@
 #      shared + viewer-next + editor/frontend + editor/common）
 #   3. workspace 根 node_modules 的 link: 兜底 farm（M5-T9 实测新增，见
 #      该 RUN 注：现行 pnpm hoisted 不再把 link: 依赖平铺到根）
-#   4. 构建后硬断言 dist/scripts/parse-imdl-worker.js 在场（publicPath
-#      铁律守卫：publicPath:'/' 下 core-frontend 的 ImdlParser 按
+#   4. 构建后硬断言 dist/scripts/parse-imdl-worker.js 在场且与
+#      itwinjs-core/core/frontend/lib/public/scripts/ 源 cmp 逐字节一致
+#      （publicPath 铁律守卫：publicPath:'/' 下 core-frontend 的 ImdlParser 按
 #      `<origin>/scripts/parse-imdl-worker.js` 取 tile 解码 worker；该文件
 #      缺失时 SPA 回退返回 index.html 当 JS——worker 静默死亡、几何渲染
-#      不出（2026-10-09/2026-10-22 两代实证）。文件本体由
-#      apps/web-next/public/scripts/ 提供（vite publicDir 随构建拷贝，
-#      dev :5310 同路受益），快照源 = itwinjs-core/core/frontend/lib/
-#      public/scripts/parse-imdl-worker.js——**itwinjs-core 上游同步/重编译
-#      后须重拷对齐**（同 apps/web 先例；不同步则 worker 与 lib/esm 主包
-#      版本漂移）。此断言防「public/ 被误删仍构建成功」的静默绿。
+#      不出（2026-10-09/2026-10-22 两代实证）；在场但漂移 = worker 与 lib/esm
+#      主包版本错配，同类炸面。文件本体由 apps/web-next/public/scripts/
+#      提供（vite publicDir 随构建拷贝，dev :5310 同路受益），快照源 =
+#      itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js——
+#      **itwinjs-core 上游同步/重编译后须重拷对齐**（同 apps/web 先例，
+#      已登记 UPSTREAM_SYNC 检查单）。此断言防「public/ 被误删仍构建成功」
+#      与「快照陈旧仍构建成功」两类静默绿。
 #
 # 构建上下文必须是【仓库根】（.dockerignore 白名单裁剪）：web-next 经
 # pnpm link: 消费 itwinjs-core 源码 + 宿主 rush build 产物 lib/。
@@ -115,10 +117,15 @@ RUN mkdir -p /build/luban-cad/node_modules \
  && test -e /build/luban-cad/node_modules/@luban-cad/viewer-next
 
 # 依拓扑序构建 web-next 及其 workspace 依赖（shared → viewer-next → web-next），
-# 构建后硬断言 worker 快照在静态根（publicPath 铁律，见文件头注 3）
+# 构建后硬断言 worker 快照在静态根且与 core/frontend/lib/public 源逐字节一致
+# （publicPath 铁律 + 字节对齐守卫：文件在场但漂移 = worker 与 lib/esm 主包
+# 版本错配，同样静默炸在 tile 解码——两文件同 context 同源，不存在合法
+# 不一致态；上游同步/重编译后重拷对齐，见文件头注 4 与 UPSTREAM_SYNC 检查单）
 RUN corepack pnpm@10 -r --filter @luban-cad/web-next... run build \
  && { test -f /build/luban-cad/apps/web-next/dist/scripts/parse-imdl-worker.js \
-      || { echo "FATAL: dist/scripts/parse-imdl-worker.js missing — imdl tile worker 404（publicPath 铁律）"; exit 1; }; }
+        && cmp /build/luban-cad/apps/web-next/dist/scripts/parse-imdl-worker.js \
+               /build/itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js; } \
+ || { echo "FATAL: dist/scripts/parse-imdl-worker.js 缺失或与 core/frontend/lib/public 漂移（publicPath 铁律字节对齐断言）——重拷 apps/web-next/public/scripts/ 快照（见 README）"; exit 1; }
 
 # ---------- 运行阶段：nginx 静态服务 ----------
 FROM nginx:alpine
