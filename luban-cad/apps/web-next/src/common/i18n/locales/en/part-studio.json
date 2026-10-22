@@ -335,6 +335,11 @@
     "cancel": "Cancel",
     "confirmDelete": "Delete"
   },
+  "featureSystem": {
+    "notConnected": "iModel not connected",
+    "leaseHeldBy": "Write lease is held by {{holder}}",
+    "leaseAcquireFailed": "Failed to acquire write lease"
+  },
   "treeFilter": {
     "placeholder": "Filter by name or type",
     "helpLabel": "Filter syntax",

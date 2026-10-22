@@ -164,6 +164,9 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'sketchDialog.optionsGroup', 'sketchDialog.history', 'sketchDialog.help',
   'sketchDialog.helpText',
   'sketch.constraintsOverlay',
+  // M4 Task 5：特征系统中枢 hook（useFeatureSystem）applyOp 错误面键——
+  // hook 回调内 i18next 直取（非组件 t()），漏键即渲染裸键名。
+  'featureSystem.notConnected', 'featureSystem.leaseHeldBy', 'featureSystem.leaseAcquireFailed',
   // M3 Task 7：页签管理器（os-33）+ 汉堡文档菜单（os-24）chrome 键——
   // capabilities.*（20 条）由 capabilities.test.ts 数据驱动守卫。
   'tabManager.title', 'tabManager.listLabel', 'tabManager.shortcut',

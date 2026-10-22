@@ -335,6 +335,11 @@
     "cancel": "取消",
     "confirmDelete": "删除"
   },
+  "featureSystem": {
+    "notConnected": "未连接 iModel",
+    "leaseHeldBy": "写租约被 {{holder}} 持有",
+    "leaseAcquireFailed": "写租约获取失败"
+  },
   "treeFilter": {
     "placeholder": "按名称或类型筛选",
     "helpLabel": "筛选语法",
