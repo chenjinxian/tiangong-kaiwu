@@ -2,15 +2,17 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button, Input } from '@itwin/itwinui-react';
 import { AuthSession, type AuthUser } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
-import { startViewer, stopViewer } from '@luban-cad/viewer-next';
+import { acquireViewer, releaseViewer } from '@luban-cad/viewer-next';
 
 /**
  * Dev 专用查看器冒烟页（M0 真实栈验证载体，非产品页）：
  * - email/password 登录钮 → `AuthSession.login` 落会话（M0 尚无认证 UI，brief Step 4 钉死的便捷入口）；
- * - 「启动查看器」→ `startViewer({ backendUrl: window.location.origin, hubUrl: env.hubUrl, accessToken })`
+ * - 「启动查看器」→ `acquireViewer({ backendUrl: window.location.origin, hubUrl: env.hubUrl, accessToken })`
  *   （M3-T1：MS CORS 钉死 :5300，web-next :5310 直连必被拦——backendUrl 传同源，
  *   viewer-next 拼出 ws://<origin>/ipc 走 vite 代理转发 MS :5401；env.msUrl 仅作展示）
  *   → 轮询 `IModelApp.toolAdmin`（50ms×30s，对齐旧 `apps/web useEditorInitialization`）；
+ * - 「停止查看器」→ `releaseViewer()`（M4-T1 引用计数：与 acquireViewer 成对持有——
+ *   单点直调 release 会因计数归 0 前的守卫变 no-op，须与启动同配对）；
  * - `data-testid="viewer-status"` 显示 `IpcApp: valid/invalid · toolAdmin: ready/not-ready`。
  */
 
@@ -110,7 +112,7 @@ export function DevViewerRoute(): React.JSX.Element {
     setViewerState({ phase: 'starting', ipcValid: null, message: null });
     void (async () => {
       try {
-        await startViewer({
+        await acquireViewer({
           backendUrl: window.location.origin,
           hubUrl: env.hubUrl,
           accessToken: AuthSession.getStoredAuth()?.accessToken,
@@ -126,7 +128,7 @@ export function DevViewerRoute(): React.JSX.Element {
         return;
       }
 
-      // startViewer 已返回（LocalhostIpcApp.startup 完成）；toolAdmin 在 startup 后异步
+      // acquireViewer 已返回（LocalhostIpcApp.startup 完成）；toolAdmin 在 startup 后异步
       // 创建，轮询就绪（语义同旧 useEditorInitialization：50ms 间隔、30s 预算）。
       const deadline = Date.now() + TOOL_ADMIN_TIMEOUT_MS;
       const tick = async (): Promise<void> => {
@@ -157,7 +159,7 @@ export function DevViewerRoute(): React.JSX.Element {
   };
 
   const handleStop = (): void => {
-    void stopViewer().then(() => {
+    void releaseViewer().then(() => {
       if (mountedRef.current) setViewerState(IDLE_VIEWER_STATE);
     });
   };

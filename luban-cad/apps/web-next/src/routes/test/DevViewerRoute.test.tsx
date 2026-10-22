@@ -5,11 +5,11 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 
-const startViewerMock = vi.fn().mockResolvedValue(undefined);
-const stopViewerMock = vi.fn().mockResolvedValue(undefined);
+const acquireViewerMock = vi.fn().mockResolvedValue(undefined);
+const releaseViewerMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('@luban-cad/viewer-next', () => ({
-  startViewer: (...a: unknown[]) => startViewerMock(...a),
-  stopViewer: (...a: unknown[]) => stopViewerMock(...a),
+  acquireViewer: (...a: unknown[]) => acquireViewerMock(...a),
+  releaseViewer: (...a: unknown[]) => releaseViewerMock(...a),
 }));
 
 import { DevViewerRoute } from '../DevViewerRoute.js';
@@ -23,14 +23,20 @@ describe('DevViewerRoute', () => {
     sessionStorage.clear();
   });
 
-  it('点击启动后调用 startViewer 并显示 toolAdmin 状态', async () => {
+  it('点击启动后调用 acquireViewer 并显示 toolAdmin 状态', async () => {
     vi.stubGlobal('IModelApp', { toolAdmin: {} });
     render(<DevViewerRoute />);
     await userEvent.click(screen.getByRole('button', { name: '启动查看器' }));
     await waitFor(() =>
       expect(screen.getByTestId('viewer-status').textContent).toMatch(/toolAdmin: ready/),
     );
-    expect(startViewerMock).toHaveBeenCalledTimes(1);
+    expect(acquireViewerMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('点击停止调用 releaseViewer（与 acquire 成对的引用计数回收）', async () => {
+    render(<DevViewerRoute />);
+    await userEvent.click(screen.getByRole('button', { name: '停止查看器' }));
+    await waitFor(() => expect(releaseViewerMock).toHaveBeenCalledTimes(1));
   });
 
   it('登录成功后会话落库并显示已登录用户', async () => {
