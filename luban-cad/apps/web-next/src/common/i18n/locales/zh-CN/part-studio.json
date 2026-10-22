@@ -136,7 +136,8 @@
     "viewIso": "等轴测"
   },
   "tools": {
-    "registrationFailed": "工具注册失败: {{message}}"
+    "registrationFailed": "工具注册失败: {{message}}",
+    "waitForAdminTimeout": "工具初始化等待超时：ToolAdmin 未在 5 秒内就绪，编辑工具未注册——请检查建模服务连接后重试。"
   },
   "ribbon": {
     "toolbarLabel": "特征工具",
@@ -351,6 +352,10 @@
   },
   "tree": {
     "contextMenuLabel": "特征菜单",
+    "insertElements": "插入元素",
+    "pauseRebuild": "暂停重建",
+    "featureHistory": "特征历史",
+    "sectionToolsLabel": "特征段工具",
     "rename": "重命名",
     "edit": "编辑…",
     "suppress": "抑制",
@@ -473,6 +478,18 @@
     "workspaceProperties": {
       "title": "工作区属性（规划中）",
       "message": "工作区自定义属性已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "insertElement": {
+      "title": "插入元素（规划中）",
+      "message": "跨 Part Studio 插入元素已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "pauseRebuild": {
+      "title": "暂停重建（规划中）",
+      "message": "暂停模型重建已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "featureHistory": {
+      "title": "特征历史（规划中）",
+      "message": "特征重生成历史查看已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
     }
   }
 }

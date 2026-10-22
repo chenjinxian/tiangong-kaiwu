@@ -18,7 +18,7 @@
 
 import { env } from '@config/env.js';
 import { AuthSession } from '@clients/auth/AuthSession.js';
-import { ApiClientError } from '@clients/http/ApiClientError.js';
+import { ApiClientError, parseRetryAfterSeconds } from '@clients/http/ApiClientError.js';
 
 export interface ITwinMemberRole {
   id: string;
@@ -60,7 +60,9 @@ export interface ITwinRole {
 
 /** 带 Bearer 的认证 fetch（token 单飞刷新在 AuthSession 内部）。
  * 非 2xx 统一抛 ApiClientError（M3-T1，终审 I2 收口）——共享面的 401
- * 由此进 QueryErrorBridge 刷新重放管道，裸 Error 会失明。 */
+ * 由此进 QueryErrorBridge 刷新重放管道，裸 Error 会失明。
+ * M4-T8 T1-①：429/Retry-After 分支透出 retryAfterSeconds（与 documents.api
+ * 同一解析出口）。 */
 async function hubFetch(path: string, init?: RequestInit): Promise<Response> {
   const accessToken = await AuthSession.getValidAccessToken();
   const response = await fetch(`${env.hubUrl}${path}`, {
@@ -77,6 +79,7 @@ async function hubFetch(path: string, init?: RequestInit): Promise<Response> {
       status: response.status,
       code: body.code,
       message: body.message ?? `access-control request failed (status ${response.status})`,
+      retryAfterSeconds: parseRetryAfterSeconds(response),
     });
   }
   return response;

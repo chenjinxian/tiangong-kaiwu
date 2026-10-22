@@ -12,7 +12,9 @@
  *   「推送」钮（宿主开共享 PushChangesetDialog——T4 评审 I-1 裁定的
  *   「保存→版本」收敛入口）；六态完备：loading 骨架 / error（就地错误条 +
  *   重试）/ empty（无 changeset = 初始版本语义）；面板随页签挂载（未开的
- *   占位页签不发起查询）；工具设置/显示设置仍壳期占位（T8+ 接管）。
+ *   占位页签不发起查询）；工具设置/显示设置仍壳期占位（T8+ 接管）；
+ * - 页签 aria-controls ↔ 面板 aria-labelledby 双向关联（M4-T8 收 M3 终审
+ *   T3-④，a11y：tab→panel 指向 + panel→活动 tab 回指）。
  */
 
 import React from 'react';
@@ -83,7 +85,9 @@ export function PartStudioDock({
             key={tab.id}
             type="button"
             role="tab"
+            id={`part-studio-dock-tab-${tab.id}`}
             aria-selected={activeTab === tab.id}
+            aria-controls="part-studio-dock-body"
             className={
               activeTab === tab.id && isOpen
                 ? 'part-studio-dock__tab part-studio-dock__tab--active'
@@ -96,7 +100,13 @@ export function PartStudioDock({
         ))}
       </div>
       {isOpen && (
-        <div className="part-studio-dock__body" data-testid="part-studio-dock-body" role="tabpanel">
+        <div
+          className="part-studio-dock__body"
+          data-testid="part-studio-dock-body"
+          role="tabpanel"
+          id="part-studio-dock-body"
+          aria-labelledby={`part-studio-dock-tab-${activeTab}`}
+        >
           {activeTab === 'history' ? (
             <ChangesetsPanel
               iModelId={iModelId ?? null}

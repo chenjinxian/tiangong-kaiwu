@@ -356,3 +356,77 @@ describe('菜单视口边缘钳制（终审 T5-④）', () => {
     expect(menu.style.top).toBe(`${ANCHOR.y}px`);
   });
 });
+
+// ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────
+
+describe('M4-T8 D5：菜单项左置图标（os-12 V18）', () => {
+  it('空白态与选中态每个菜单项都带图标（svg 在场，aria-hidden）', () => {
+    for (const selection of [
+      [],
+      [{ kind: 'part', id: 'p1', label: 'Part 1' }],
+      [{ kind: 'feature', id: 'f1', label: 'Extrude 1', featureType: 'extrude' }],
+    ] as readonly CanvasSelection[][]) {
+      setSelection(selection);
+      const { unmount } = renderMenu();
+      const menu = screen.getByRole('menu', { name: '画布菜单' });
+      const items = within(menu).getAllByRole('menuitem');
+      expect(items.length).toBeGreaterThan(0);
+      for (const itemEl of items) {
+        const icon = itemEl.querySelector('svg');
+        expect(icon, `菜单项「${itemEl.textContent}」缺图标`).not.toBeNull();
+        expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
+      }
+      unmount();
+    }
+  });
+});
+
+describe('M4-T8 T5-⑥：占位 kind 治理（每项真实 kind，不借道 show-dependencies）', () => {
+  it('全菜单模型 kind 唯一：材料/外观/工程图/面外观各持专名 kind，show-dependencies 仅依赖项一项', () => {
+    // 所有选中态的菜单项摊平，动作 kind 逐一钉死（gated→full 翻转时忘改
+    // kind 即此处红——终审台账「占位 kind 清零」检查单的钉点）。
+    const menus = [
+      [],
+      [{ kind: 'part', id: 'p1', label: 'Part 1' }],
+      [{ kind: 'face', id: 'face-1', label: '面 1' }],
+      [{ kind: 'edge', id: 'e1', label: '边 1' }],
+      [{ kind: 'feature', id: 'f1', label: 'Extrude 1', featureType: 'extrude' }],
+    ] as readonly CanvasSelection[][];
+    const kinds: string[] = [];
+    for (const selection of menus) {
+      for (const entry of buildCanvasMenu(selection)) {
+        if (entry !== 'separator') kinds.push(entry.action.kind);
+      }
+    }
+    expect(kinds.filter((kind) => kind === 'show-dependencies')).toHaveLength(1);
+    // 逐一钉死四项真实 kind（不再共用 show-dependencies）。
+    const partItems = buildCanvasMenu([{ kind: 'part', id: 'p1', label: 'Part 1' }])
+      .filter((e) => e !== 'separator') as Array<{ id: string; action: { kind: string } }>;
+    expect(partItems.find((i) => i.id === 'assign-material')?.action.kind).toBe('assign-material');
+    expect(partItems.find((i) => i.id === 'edit-appearance')?.action.kind).toBe('edit-appearance');
+    expect(partItems.find((i) => i.id === 'create-drawing')?.action.kind).toBe('create-drawing');
+    const faceItems = buildCanvasMenu([{ kind: 'face', id: 'face-1', label: '面 1' }])
+      .filter((e) => e !== 'separator') as Array<{ id: string; action: { kind: string } }>;
+    expect(faceItems.find((i) => i.id === 'appearance-for-face')?.action.kind).toBe('appearance-for-face');
+  });
+});
+
+describe('M4-T8 T5-⑤：菜单监听一次注册（anchor 变化不重挂）', () => {
+  it('两次 anchor 更新不重挂 window mousedown/keydown 监听（挂载期一次到位）', () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    try {
+      const { rerender } = render(<CanvasContextMenu anchor={ANCHOR} onClose={vi.fn()} />);
+      const countBy = (type: string) => addSpy.mock.calls.filter(([t]) => t === type).length;
+      const mousedownBefore = countBy('mousedown');
+      const keydownBefore = countBy('keydown');
+      expect(mousedownBefore).toBe(1);
+      expect(keydownBefore).toBe(1);
+      // anchor 变化（重开菜单）：监听不再重挂（M3-T5⑤ 效率债收口）。
+      rerender(<CanvasContextMenu anchor={{ x: 10, y: 20 }} onClose={vi.fn()} />);
+      expect(countBy('mousedown')).toBe(mousedownBefore);
+      expect(countBy('keydown')).toBe(keydownBefore);
+    } finally {
+      addSpy.mockRestore();
+    }
+  });
+});

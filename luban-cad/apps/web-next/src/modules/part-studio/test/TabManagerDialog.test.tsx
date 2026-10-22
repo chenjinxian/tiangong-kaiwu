@@ -350,3 +350,53 @@ describe('PartStudioTabs 集成（「+」开管理器）', () => {
     expect(screen.getByText('页签管理器 (alt+~+t)')).toBeDefined();
   });
 });
+
+// ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────
+
+describe('M4-T8 T6-③：列表方向键导航（↑↓ + 端点键）', () => {
+  it('ArrowDown/ArrowUp 移动选中与焦点（预览跟随）；Home 跳首行', async () => {
+    renderDialog();
+    const list = await screen.findByRole('list', { name: '页签列表' });
+    const preview = screen.getByTestId('tab-manager-preview');
+    // 首行为初始选中；焦点落首行动作元素。
+    const firstRow = within(list).getByText('楼层模型').closest('li') as HTMLElement;
+    const secondRow = within(list).getByText('支架零件').closest('li') as HTMLElement;
+    (firstRow.querySelector('.tab-manager-row__action') as HTMLElement).focus();
+
+    // ↓：选中+焦点双移动到第二行，底部预览跟随。
+    fireEvent.keyDown(firstRow, { key: 'ArrowDown' });
+    expect(within(preview).getByText('支架零件')).toBeDefined();
+    expect(document.activeElement).toBe(secondRow.querySelector('.tab-manager-row__action'));
+
+    // Home：端点跳回首行（焦点随行）。
+    fireEvent.keyDown(secondRow, { key: 'Home' });
+    expect(within(preview).getByText('楼层模型')).toBeDefined();
+    expect(document.activeElement).toBe(firstRow.querySelector('.tab-manager-row__action'));
+
+    // ↑：回首行后上键不动（端点钳制在首行）。
+    fireEvent.keyDown(firstRow, { key: 'ArrowUp' });
+    expect(within(preview).getByText('楼层模型')).toBeDefined();
+    expect(document.activeElement).toBe(firstRow.querySelector('.tab-manager-row__action'));
+  });
+});
+
+describe('M4-T8 T7-①：alt+~+t 和弦热键开页签管理器', () => {
+  it('Alt+~ 挂弦后击 t → 对话框打开；裸 t 不挂弦不响应', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <PartStudioTabs iTwinId={ITWIN_ID} iModelId="im-1" connection="ready" />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // 裸 t（未挂弦）不打开。
+    fireEvent.keyDown(window, { key: 't' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // 和弦：Alt+~ 挂弦 → t 打开。
+    fireEvent.keyDown(window, { altKey: true, key: '~' });
+    fireEvent.keyDown(window, { key: 't' });
+    expect(await screen.findByRole('dialog')).toBeDefined();
+  });
+});

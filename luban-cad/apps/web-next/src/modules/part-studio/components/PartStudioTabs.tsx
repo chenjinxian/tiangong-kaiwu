@@ -2,11 +2,13 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * PartStudioTabs（M3 Task 3；T7 页签管理器接线）：编辑器底部区（os-11 页签条
+ * PartStudioTabs（M3 Task 3；T7 页签管理器接线；M4-T8 和弦热键）：编辑器底部区（os-11 页签条
  * + 状态栏）——
  * - 页签条：适应视图钮（T6 接 viewport 视图命令，壳期可点占位）+ 「+」
  *   （T7 启用：打开页签管理器 TabManagerDialog，os-33「页签=同文档 iModel
  *   列表」跳转的诚实降级）+ 活动页签「Part Studio 1」；
+ * - alt+~+t 和弦热键开页签管理器（os-33 底栏标注键位；M4-T8 收 M3 终审
+ *   T7-①——Alt+~ 挂弦后击 t，可编辑焦点内不派发）；
  * - 状态栏：连接态（viewer-next useViewport 相位驱动）/ 编辑模式 / 单位 /
  *   视图类型（后三项壳期静态值，T4+ 随工具/视口接线）。
  */
@@ -42,6 +44,40 @@ function connectionKey(connection: ViewportPhase): string {
 export function PartStudioTabs({ iTwinId, iModelId, connection }: PartStudioTabsProps): React.JSX.Element {
   const { t } = useTranslation();
   const [tabManagerOpen, setTabManagerOpen] = React.useState(false);
+
+  // alt+~+t 和弦热键（os-33 底栏标注键位；M4-T8 收 M3 终审 T7-①）：Alt+~
+  // 挂弦，下一击 t 开页签管理器（第二击不要求 Alt 仍按住——和弦语义非三键
+  // 同时；任一其他击键解除挂弦）。可编辑焦点内不派发（viewer-next 键位守卫
+  // 同口径：INPUT/TEXTAREA/SELECT/contentEditable）。
+  React.useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      const el = (target instanceof Element ? target : document.activeElement) as HTMLElement | null;
+      if (!el) return false;
+      return (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
+        || el.isContentEditable === true
+        || el.getAttribute('contenteditable') === 'true'
+      );
+    };
+    let chordArmed = false;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.altKey && (event.key === '~' || event.key === '`')) {
+        chordArmed = true;
+        return;
+      }
+      if (chordArmed && event.key.toLowerCase() === 't') {
+        chordArmed = false;
+        if (!isEditableTarget(event.target)) {
+          event.preventDefault();
+          setTabManagerOpen(true);
+        }
+        return;
+      }
+      chordArmed = false;
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <>

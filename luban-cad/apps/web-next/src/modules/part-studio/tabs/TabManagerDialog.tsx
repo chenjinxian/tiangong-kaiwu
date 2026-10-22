@@ -13,11 +13,13 @@
  *   需 Authorization 头，img 无法携带，占位图标口径同 ImodelCard）；
  * - 底栏：「页签管理器 (alt+~+t)」快捷键标注 + 「以打开」checkbox
  *   （勾选=新浏览器页签打开，对应 os-17「在新浏览器页签中打开」）；
- * - 打开：单击选中（预览跟随）/ 双击或 Enter 打开（os-33「↵ 以打开」）。
+ * - 打开：单击选中（预览跟随）/ 双击或 Enter 打开（os-33「↵ 以打开」）；
+ * - 键盘（M4-T8 a11y 收口）：列表 ↑↓ 行导航（选中+焦点双移动，预览跟随）+
+ *   Home/End/PageUp/PageDown 端点跳转（M3 终审 T6-③；挂账清除）。
  *
- * 挂账：alt+~+t 和弦热键与 ↑↓ 行导航随 a11y 波次（T4 既有 deferred 口径），
- * 本版仅做快捷键标注；多页签并行 briefcase 架构未支持（os-33 完整多开
- * 属后续里程碑，本版为同文档 iModel 跳转的诚实降级）。
+ * 挂账：alt+~+t 和弦热键由宿主 PartStudioTabs 承接（M4-T8 T7-①）；多页签
+ * 并行 briefcase 架构未支持（os-33 完整多开属后续里程碑，本版为同文档
+ * iModel 跳转的诚实降级）。
  */
 
 import React from 'react';
@@ -171,6 +173,50 @@ export function TabManagerDialog({
     [openAs, navigate, onClose],
   );
 
+  // 列表键盘导航（M4-T8 T6-③）：↑↓ 相对移动（选中+焦点双移动，预览跟随），
+  // Home/End/PageUp/PageDown 端点跳转；选中项被筛走时从端点起（-1 → 首/尾）。
+  const listRef = React.useRef<HTMLUListElement | null>(null);
+  const moveListSelection = React.useCallback(
+    (target: TabElement | undefined) => {
+      if (!target) return;
+      setSelectedId(target.id);
+      // 焦点随行：选中态与 DOM 焦点双移动（键盘用户不丢位置）。
+      listRef.current
+        ?.querySelector<HTMLElement>(`li[data-element-id="${target.id}"] .tab-manager-row__action`)
+        ?.focus();
+    },
+    [],
+  );
+  const handleListKeyDown = React.useCallback(
+    (event: React.KeyboardEvent) => {
+      if (visible.length === 0) return;
+      const currentIndex = visible.findIndex((element) => element.id === selectedId);
+      switch (event.key) {
+        case 'ArrowDown':
+          event.preventDefault();
+          moveListSelection(visible[Math.min(currentIndex + 1, visible.length - 1)]);
+          return;
+        case 'ArrowUp':
+          event.preventDefault();
+          moveListSelection(visible[Math.max(currentIndex - 1, 0)]);
+          return;
+        case 'Home':
+        case 'PageUp':
+          event.preventDefault();
+          moveListSelection(visible[0]);
+          return;
+        case 'End':
+        case 'PageDown':
+          event.preventDefault();
+          moveListSelection(visible[visible.length - 1]);
+          return;
+        default:
+          return;
+      }
+    },
+    [visible, selectedId, moveListSelection],
+  );
+
   if (!isOpen) return null;
 
   const filterOptions = (['all', 'partStudio', 'assembly', 'tutorial'] as const).map((value) => ({
@@ -258,10 +304,12 @@ export function TabManagerDialog({
             </div>
           ) : (
             <ul
+              ref={listRef}
               role="list"
               aria-label={t('partStudio.tabManager.listLabel')}
               data-view={view}
               className="tab-manager-list"
+              onKeyDown={handleListKeyDown}
             >
               {visible.map((element) => {
                 const isActive = element.id === activeIModelId;
@@ -280,6 +328,7 @@ export function TabManagerDialog({
                   <li
                     key={element.id}
                     role="listitem"
+                    data-element-id={element.id}
                     aria-current={isActive ? 'true' : undefined}
                     data-selected={isSelected ? 'true' : undefined}
                     data-kind={element.kind}

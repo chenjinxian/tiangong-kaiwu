@@ -7,6 +7,11 @@
    * 转 HSL：H 217.0 / S 77.8% / L 38.8% → 钉 217 78% 39%（非 brief 占位 216 72% 47%）。 */
   --lx-accent-hsl: 217 78% 39%;
   --lx-accent: hsl(var(--lx-accent-hsl));
+  /* 品牌渐变（T3-① 令牌化收口，M4-T8）：logo mark 底——135° 线性渐变，
+   * 亮端=iTwinUI accent 语义（随主题），深端锚点 #0055aa 钉值本层（组件层
+   * 禁裸色值，token guard 守卫）。 */
+  --lx-accent-deep: #0055aa;
+  --lx-brand-gradient: linear-gradient(135deg, var(--iui-color-text-accent), var(--lx-accent-deep));
   /* 中性面
    * backdrop：os-01 页面留白带取色（(700,85)/(800,85) 等）RGB(245,245,245)=#f5f5f5；
    * brief 预期 ~(245,246,247)，实测蓝通道为 245 → 钉实测 #f5f5f5（非占位 #f5f6f7）。

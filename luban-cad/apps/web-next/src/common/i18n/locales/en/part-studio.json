@@ -136,7 +136,8 @@
     "viewIso": "Isometric"
   },
   "tools": {
-    "registrationFailed": "Tool registration failed: {{message}}"
+    "registrationFailed": "Tool registration failed: {{message}}",
+    "waitForAdminTimeout": "Tool initialization timed out: ToolAdmin was not ready within 5s, edit tools are not registered — check the modeling service connection and retry."
   },
   "ribbon": {
     "toolbarLabel": "Feature tools",
@@ -351,6 +352,10 @@
   },
   "tree": {
     "contextMenuLabel": "Feature menu",
+    "insertElements": "Insert elements",
+    "pauseRebuild": "Pause rebuild",
+    "featureHistory": "Feature history",
+    "sectionToolsLabel": "Feature section tools",
     "rename": "Rename",
     "edit": "Edit…",
     "suppress": "Suppress",
@@ -473,6 +478,18 @@
     "workspaceProperties": {
       "title": "Workspace properties (on the roadmap)",
       "message": "Custom workspace properties are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "insertElement": {
+      "title": "Insert elements (on the roadmap)",
+      "message": "Inserting elements across Part Studios is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "pauseRebuild": {
+      "title": "Pause rebuild (on the roadmap)",
+      "message": "Pausing model rebuild is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "featureHistory": {
+      "title": "Feature history (on the roadmap)",
+      "message": "A feature regeneration history viewer is on the LubanCAD roadmap and is not available in this version yet."
     }
   }
 }

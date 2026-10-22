@@ -439,3 +439,35 @@ describe('useCanvasSelection：画布拾取回流 store', () => {
 function fireEventContextMenu(element: HTMLElement): void {
   fireEvent.contextMenu(element);
 }
+
+// ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────
+
+describe('M4-T8 D3：特征段头三工具钮（os-11 段头形态）', () => {
+  it('特征段头渲染 插入元素/暂停重建/特征历史 三钮；点击 gated 项开能力引导对话框', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={ENTRIES} />);
+    const tree = screen.getByTestId('part-studio-tree');
+    // 三钮照常渲染（完整 UI 面：不灰化不删减），零件段头无此钮组。
+    for (const name of ['插入元素', '暂停重建', '特征历史']) {
+      expect(within(tree).getByRole('button', { name })).toBeDefined();
+    }
+    // 点击 gated 项 → 能力引导对话框（能力注册表路由）。
+    await user.click(within(tree).getByRole('button', { name: '插入元素' }));
+    expect(screen.getByRole('dialog', { name: '插入元素（规划中）' })).toBeDefined();
+  });
+});
+
+describe('M4-T8 D5：树右键菜单项左置图标（os-15 V20）', () => {
+  it('右键菜单每项带图标（svg 在场，aria-hidden）', () => {
+    render(<FeatureTree entries={ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items.length).toBeGreaterThan(0);
+    for (const itemEl of items) {
+      const icon = itemEl.querySelector('svg');
+      expect(icon, `菜单项「${itemEl.textContent}」缺图标`).not.toBeNull();
+      expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
+    }
+  });
+});

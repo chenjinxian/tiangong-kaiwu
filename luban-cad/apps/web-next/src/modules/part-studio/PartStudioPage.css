@@ -33,12 +33,13 @@
   border-block-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
 }
 
-/* iTwinUI header-brand-icon 槽为 24×24：logo 必须同尺寸（DocumentsPage 同口径）。 */
+/* iTwinUI header-brand-icon 槽为 24×24：logo 必须同尺寸（DocumentsPage 同口径）。
+ * 底色走 --lx-brand-gradient 品牌渐变令牌（T3-① 令牌化收口：组件层禁裸色值）。 */
 .part-studio-logo-mark {
   inline-size: 24px;
   block-size: 24px;
   border-radius: var(--iui-border-radius-1);
-  background: linear-gradient(135deg, var(--iui-color-text-accent), #0055aa);
+  background: var(--lx-brand-gradient);
   color: var(--iui-color-white);
   display: flex;
   align-items: center;
@@ -60,7 +61,14 @@
   white-space: nowrap;
 }
 
+/* 分享钮（os-11/V3）：iTwinUI Header actions 槽会把钮体拉伸到满高——限高
+ * （--lx-control-height 32px 控件带，os-01 按钮几何实证）+ 圆角回正（D2 收口：
+ * 不再是全高直角方块）。 */
 .part-studio-share-button {
+  align-self: center;
+  block-size: var(--lx-control-height);
+  padding-inline: var(--iui-size-s);
+  border-radius: var(--lx-radius);
   margin-inline-end: var(--iui-size-2xs);
 }
 
@@ -702,6 +710,9 @@
 }
 
 .part-studio-tree-menu__item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   inline-size: 100%;
   padding: var(--iui-size-2xs) var(--iui-size-xs);
   border: none;
@@ -838,6 +849,31 @@
   padding-inline-end: var(--iui-size-xs);
   color: var(--iui-color-text-muted);
   font-size: var(--iui-font-size-0);
+}
+
+/* 特征段头三工具钮（os-11 段头形态；D3）：计数右侧行内工具组。 */
+.part-studio-tree__section-tools {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding-inline-end: var(--iui-size-3xs);
+}
+
+/* 右键菜单项左置图标（os-12/os-15 V18/V20；D5）：固定宽槽对齐标签列。 */
+.part-studio-menu-item-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 16px;
+  block-size: 16px;
+  margin-inline-end: var(--iui-size-2xs);
+}
+
+.part-studio-menu-item-icon svg {
+  inline-size: 14px;
+  block-size: 14px;
 }
 
 .part-studio-tree-row {

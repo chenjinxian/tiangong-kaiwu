@@ -202,7 +202,6 @@ export function PartStudioTopBar({
           key="help"
           label={t('partStudio.topBar.help')}
           styleType="borderless"
-          className="part-studio-help-button"
         >
           <SvgHelpCircularHollow />
         </IconButton>,

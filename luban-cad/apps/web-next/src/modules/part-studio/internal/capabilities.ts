@@ -77,6 +77,12 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   copyWorkspace: 'gated', // 复制工作区…
   updateWorkspace: 'gated', // 更新工作区…
   workspaceProperties: 'gated', // 工作区属性…
+  // M4-T8 D3 特征段头三钮（os-11 段头形态）登记：插入元素（跨 Part Studio
+  // 元素插入）/暂停重建/特征历史（重生成时间）均无后端面，gated 引导
+  // （集合 20→23，capabilities.test.ts EXPECTED_GATED_IDS 已同步）。
+  insertElement: 'gated', // 插入元素
+  pauseRebuild: 'gated', // 暂停重建
+  featureHistory: 'gated', // 特征历史
 };
 
 /** 查询工具能力档位（缺省 full）。 */
@@ -121,4 +127,7 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   copyWorkspace: guidanceFor('copyWorkspace'),
   updateWorkspace: guidanceFor('updateWorkspace'),
   workspaceProperties: guidanceFor('workspaceProperties'),
+  insertElement: guidanceFor('insertElement'),
+  pauseRebuild: guidanceFor('pauseRebuild'),
+  featureHistory: guidanceFor('featureHistory'),
 };

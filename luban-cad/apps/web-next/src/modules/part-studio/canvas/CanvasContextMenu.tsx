@@ -11,15 +11,44 @@
  *   （store.hiddenIds + viewport 隐藏）/缩放到合适大小/视图垂直于/删除
  *   （HITL 确认）；零件/面附加材料·外观·工程图 gated 项（完整 UI 面：照常
  *   可点 → 能力引导对话框）；
- * - 菜单模型=buildCanvasMenu 纯函数（选中态/空白态切换的测试钉点）。
+ * - 每项带左置图标（os-12 V18；M4-T8 D5 收口，aria-hidden 纯装饰）；
+ * - 菜单模型=buildCanvasMenu 纯函数（选中态/空白态切换的测试钉点）；
+ * - 监听一次注册（M4-T8 收 M3 终审 T5-⑤：Escape/外部 mousedown 监听挂载期
+ *   一次到位，anchor/onClose 经 ref 取用——不再随每次右键重挂）。
  *
  * 开合由宿主（PartStudioCanvas）经 anchor 驱动：anchor=null 渲染空（常驻
  * 挂载、右键驱动），Escape/外部 mousedown 收合。
+ *
+ * 【gated→full 翻转检查单】（能力注册表翻转时逐项过，防静默 no-op）：
+ * 1. 占位 kind 清零——assign-material/edit-appearance/create-drawing/
+ *    appearance-for-face 四项今日为专名 kind + 诚实占位动作（注册表翻转后
+ *    reachable），翻转时必须同步接真实动作实现并从占位 case 组移出；
+ * 2. 每项 action 路由与后端面对齐（dependencies 面板、材料/外观/工程图
+ *    后端能力）；
+ * 3. capabilities.test.ts EXPECTED_GATED_IDS 与 i18n capabilities 文案同步
+ *    删改。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
+import {
+  SvgAlignLeft,
+  SvgAlignRight,
+  SvgAlignTop,
+  SvgDelete,
+  SvgDocumentation,
+  SvgEdit,
+  SvgFitToView,
+  SvgHierarchyTree,
+  SvgLayers,
+  SvgModel,
+  SvgObjectRotate,
+  SvgPalette,
+  SvgSettings,
+  SvgVisibilityHide,
+  SvgWindowZoomIn,
+} from '@itwin/itwinui-icons-react';
 import { isGated } from '../internal/capabilities.js';
 import {
   fitView,
@@ -42,7 +71,14 @@ export type CanvasMenuAction =
   | { kind: 'hide' }
   | { kind: 'zoom-to-fit' }
   | { kind: 'view-normal-to' }
-  | { kind: 'delete' };
+  | { kind: 'delete' }
+  // M4-T8 T5-⑥：材料/外观/工程图四项各持专名 kind（不再借道
+  // show-dependencies）——gated 翻转后可达；真实动作随后端面接线（头注
+  // 「翻转检查单」第 1 条）。
+  | { kind: 'assign-material' }
+  | { kind: 'edit-appearance' }
+  | { kind: 'create-drawing' }
+  | { kind: 'appearance-for-face' };
 
 export interface CanvasMenuItem {
   id: string;
@@ -52,22 +88,24 @@ export interface CanvasMenuItem {
   usesName: boolean;
   /** 能力键（gated → 能力引导对话框；缺省 full 直执行）。 */
   capability?: string;
+  /** 左置图标（os-12 V18；aria-hidden 纯装饰）。 */
+  icon: React.ComponentType;
   action: CanvasMenuAction;
 }
 
 /** 菜单条目 = 菜单项 | 分隔线。 */
 export type CanvasMenuEntry = CanvasMenuItem | 'separator';
 
-function item(id: string, labelKey: string, action: CanvasMenuAction, usesName = false, capability?: string): CanvasMenuItem {
-  return { id, labelKey: `partStudio.canvasMenu.${labelKey}`, action, usesName, capability };
+function item(id: string, labelKey: string, icon: React.ComponentType, action: CanvasMenuAction, usesName = false, capability?: string): CanvasMenuItem {
+  return { id, labelKey: `partStudio.canvasMenu.${labelKey}`, icon, action, usesName, capability };
 }
 
 /** 视图命令组（隐藏/缩放/视图垂直于——所有选中态共用）。 */
 function viewCommandGroup(): CanvasMenuEntry[] {
   return [
-    item('hide', 'hide', { kind: 'hide' }, true),
-    item('zoom-to-fit', 'zoomToFit', { kind: 'zoom-to-fit' }),
-    item('view-normal-to', 'viewNormalTo', { kind: 'view-normal-to' }),
+    item('hide', 'hide', SvgVisibilityHide, { kind: 'hide' }, true),
+    item('zoom-to-fit', 'zoomToFit', SvgWindowZoomIn, { kind: 'zoom-to-fit' }),
+    item('view-normal-to', 'viewNormalTo', SvgObjectRotate, { kind: 'view-normal-to' }),
   ];
 }
 
@@ -79,47 +117,49 @@ export function buildCanvasMenu(selection: readonly CanvasSelection[]): CanvasMe
   const primary = selection.length > 0 ? selection[selection.length - 1] : undefined;
   if (!primary) {
     return [
-      item('fit-view', 'fitView', { kind: 'fit-view' }),
+      item('fit-view', 'fitView', SvgFitToView, { kind: 'fit-view' }),
       'separator',
-      item('standard-view-top', 'top', { kind: 'standard-view', view: 'top' }),
-      item('standard-view-front', 'front', { kind: 'standard-view', view: 'front' }),
-      item('standard-view-right', 'right', { kind: 'standard-view', view: 'right' }),
-      item('standard-view-iso', 'iso', { kind: 'standard-view', view: 'iso' }),
+      item('standard-view-top', 'top', SvgAlignTop, { kind: 'standard-view', view: 'top' }),
+      item('standard-view-front', 'front', SvgAlignLeft, { kind: 'standard-view', view: 'front' }),
+      item('standard-view-right', 'right', SvgAlignRight, { kind: 'standard-view', view: 'right' }),
+      item('standard-view-iso', 'iso', SvgModel, { kind: 'standard-view', view: 'iso' }),
       'separator',
-      item('open-display-settings', 'displaySettings', { kind: 'open-display-settings' }),
+      item('open-display-settings', 'displaySettings', SvgSettings, { kind: 'open-display-settings' }),
     ];
   }
   switch (primary.kind) {
     case 'feature':
       return [
-        item('edit-feature', 'editFeature', { kind: 'edit-feature' }, true),
-        item('show-dependencies', 'showDependencies', { kind: 'show-dependencies' }, true, 'dependencies'),
+        item('edit-feature', 'editFeature', SvgEdit, { kind: 'edit-feature' }, true),
+        item('show-dependencies', 'showDependencies', SvgHierarchyTree, { kind: 'show-dependencies' }, true, 'dependencies'),
         'separator',
         ...viewCommandGroup(),
         'separator',
-        item('delete', 'delete', { kind: 'delete' }, true),
+        item('delete', 'delete', SvgDelete, { kind: 'delete' }, true),
       ];
     case 'part':
       return [
         ...viewCommandGroup(),
         'separator',
-        item('assign-material', 'assignMaterial', { kind: 'show-dependencies' }, true, 'material'),
-        item('edit-appearance', 'editAppearance', { kind: 'show-dependencies' }, true, 'appearance'),
-        item('create-drawing', 'createDrawing', { kind: 'show-dependencies' }, true, 'drawing'),
+        // M4-T8 T5-⑥：四项 gated 占位各持专名 kind（真实动作随后端面接线，
+        // 头注「gated→full 翻转检查单：占位 kind 清零」）。
+        item('assign-material', 'assignMaterial', SvgLayers, { kind: 'assign-material' }, true, 'material'),
+        item('edit-appearance', 'editAppearance', SvgPalette, { kind: 'edit-appearance' }, true, 'appearance'),
+        item('create-drawing', 'createDrawing', SvgDocumentation, { kind: 'create-drawing' }, true, 'drawing'),
         'separator',
-        item('delete', 'delete', { kind: 'delete' }, true),
+        item('delete', 'delete', SvgDelete, { kind: 'delete' }, true),
       ];
     case 'face':
       return [
         ...viewCommandGroup(),
         'separator',
-        item('appearance-for-face', 'appearanceForFace', { kind: 'show-dependencies' }, false, 'appearance'),
+        item('appearance-for-face', 'appearanceForFace', SvgPalette, { kind: 'appearance-for-face' }, false, 'appearance'),
         'separator',
-        item('delete', 'delete', { kind: 'delete' }, true),
+        item('delete', 'delete', SvgDelete, { kind: 'delete' }, true),
       ];
     case 'edge':
     case 'vertex':
-      return [...viewCommandGroup(), 'separator', item('delete', 'delete', { kind: 'delete' }, true)];
+      return [...viewCommandGroup(), 'separator', item('delete', 'delete', SvgDelete, { kind: 'delete' }, true)];
   }
 }
 
@@ -184,18 +224,27 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
   }, [anchor]);
 
   // Escape/外部 mousedown 收合（旧应用 EditorViewport 同口径）。
+  // M4-T8 收 M3 终审 T5-⑤：监听一次注册——挂载期一次到位，anchor/onClose
+  // 经 ref 取用，不再随每次右键（anchor 变化）重挂一对监听（效率债收口）。
+  const anchorRef = React.useRef(anchor);
+  anchorRef.current = anchor;
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
   React.useEffect(() => {
-    if (!anchor) return undefined;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+    const handleMouseDown = () => {
+      if (anchorRef.current) onCloseRef.current();
     };
-    window.addEventListener('mousedown', onClose);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && anchorRef.current) onCloseRef.current();
+    };
+    window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      window.removeEventListener('mousedown', onClose);
+      window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [anchor, onClose]);
+    // 监听终身一次挂载；闭包内一律走 ref（意图在此注记，非遗漏依赖）。
+  }, []);
 
   const primary = selection.length > 0 ? selection[selection.length - 1]! : null;
 
@@ -276,6 +325,15 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
         case 'show-dependencies':
           // 非 gated 落到此（注册表翻转后）——依赖项面板接线前为 no-op。
           onClose();
+          return;
+        case 'assign-material':
+        case 'edit-appearance':
+        case 'create-drawing':
+        case 'appearance-for-face':
+          // T5-⑥ 治理后的专名 kind（注册表翻转后 reachable）——材料/外观/
+          // 工程图后端面接线前为诚实占位（不再借道 show-dependencies 静默
+          // no-op；头注「翻转检查单」第 1 条）。
+          runAndClose(() => console.warn(`[part-studio] 菜单动作 ${action.kind} 未接线（后端面缺失，诚实占位）`));
           return;
       }
     },
@@ -360,6 +418,9 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
               className="part-studio-canvas-menu__item"
               onClick={() => handleItemClick(entry)}
             >
+              <span className="part-studio-menu-item-icon" aria-hidden="true">
+                <entry.icon />
+              </span>
               {entry.usesName ? t(entry.labelKey, { name }) : t(entry.labelKey)}
             </button>
           ),

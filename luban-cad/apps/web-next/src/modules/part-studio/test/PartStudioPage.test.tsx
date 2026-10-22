@@ -137,6 +137,9 @@ vi.mock('@luban-cad/viewer-next', () => ({
 
 import { usePartStudioStore } from '../index.js';
 import { PartStudioPage } from '../PartStudioPage.js';
+// M4-T8：超时用例需在 mock 对象上改写 initialized（importOriginal 摊平的
+// 同一实例——vi.mock 工厂与测试文件共享模块图）。
+import { IModelApp } from '@itwin/core-frontend';
 
 const ITWIN_DETAIL = {
   id: 'itwin-1',
@@ -693,5 +696,30 @@ describe('M4-T7 版本历史真面板接线（dock 数据源 + 推送对话框�
     await user.click(save);
     await waitFor(() => expect(FAKE_CONNECTION.saveChanges).toHaveBeenCalledTimes(1));
     expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
+  });
+});
+
+// ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────
+
+describe('M4-T8：waitForToolAdmin 5s 耗尽超时可见（不静默）', () => {
+  it('ToolAdmin 未就绪等满 5s → notifications 错误面 + 不触发 ensureEditTools', async () => {
+    // 未就绪现场：initialized=false（waitForToolAdmin 轮询 100ms×50 白等）。
+    const realInitialized = (IModelApp as { initialized: boolean }).initialized;
+    (IModelApp as { initialized: boolean }).initialized = false;
+    vi.useFakeTimers();
+    try {
+      renderPage();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_100);
+      });
+      expect(coreFrontendMocks.outputMessage).toHaveBeenCalledTimes(1);
+      const details = coreFrontendMocks.outputMessage.mock.calls[0]?.[0] as { briefMessage: string };
+      expect(details.briefMessage).toContain('工具初始化等待超时');
+      // 超时路不进注册（工具带全灭必须有诊断线索，但不误投注册）。
+      expect(viewerMocks.ensureEditTools).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+      (IModelApp as { initialized: boolean }).initialized = realInitialized;
+    }
   });
 });

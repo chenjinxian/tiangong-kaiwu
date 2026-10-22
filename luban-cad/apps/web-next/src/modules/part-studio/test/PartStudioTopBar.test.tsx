@@ -166,3 +166,14 @@ describe('PartStudioTopBar 撤销/重做/保存三钮组（M4 Task 4）', () => 
     expect(onSave).not.toHaveBeenCalled();
   });
 });
+
+// ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────
+
+describe('M4-T8 T3-②：help-button 死类清理', () => {
+  it('帮助钮不再携带无 CSS 规则的 part-studio-help-button 死类', () => {
+    renderTopBar();
+    const topBar = screen.getByTestId('part-studio-top-bar');
+    const help = within(topBar).getByRole('button', { name: '帮助' });
+    expect(help.className).not.toContain('part-studio-help-button');
+  });
+});

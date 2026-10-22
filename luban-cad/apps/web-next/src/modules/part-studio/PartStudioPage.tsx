@@ -29,7 +29,8 @@
  *   的启动竞态（单组件顺序下 downloadBriefcase 必然首挂载被拒）；
  * - 工具注册（M4-T3）：phase ready → waitForToolAdmin 轮询（100ms×50）→
  *   ensureEditTools（EditTools.initialize + 注册表 + 快捷键子集）——失败走
- *   IModelApp.notifications 错误面（旧 Editor.tsx:262-309 序移植）。注册后
+ *   IModelApp.notifications 错误面（旧 Editor.tsx:262-309 序移植）；轮询 5s
+ *   耗尽同样错误面可见不静默（M4-T8 收 M3-T3 挂单）。注册后
  *   ribbon/命令搜索的 8 个真实 toolId（RoundEdges/DraftFaces/…）tools.run 直投
  *   真启动（useToolActivation 本任务不动）；
  * - 编辑作用域 + 撤销/重做/保存（M4-T4）：三 hook 挂 **Session 内层**
@@ -273,7 +274,19 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
 
     const initTools = async (): Promise<void> => {
       const ready = await waitForToolAdmin();
-      if (!ready || cancelled) return;
+      if (cancelled) return;
+      if (!ready) {
+        // M4-T8（M3-T3 挂单）：轮询 5s 耗尽 ToolAdmin 未就绪——工具带/快捷键
+        // 全灭且无诊断线索，必须错误面可见（同注册失败不静默口径），且不误投
+        // ensureEditTools。
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(
+            OutputMessagePriority.Error,
+            t('partStudio.tools.waitForAdminTimeout'),
+          ),
+        );
+        return;
+      }
 
       try {
         await ensureEditTools();

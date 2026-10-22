@@ -225,3 +225,24 @@ describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
     expect(isDisabled(idlePush)).toBe(true);
   });
 });
+
+// ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────
+
+describe('M4-T8 T3-④：dock tab aria-controls 关联', () => {
+  it('页签 aria-controls 指向面板 id；面板 aria-labelledby 指回活动页签', async () => {
+    const user = userEvent.setup();
+    renderDock();
+    const dock = screen.getByTestId('part-studio-dock');
+    const historyTab = within(dock).getByRole('tab', { name: '版本历史' });
+    await user.click(historyTab);
+
+    const body = within(dock).getByTestId('part-studio-dock-body');
+    // tab → panel 指向（aria-controls=id）；panel → tab 回指（aria-labelledby）。
+    expect(historyTab.getAttribute('aria-controls')).toBe(body.id);
+    expect(body.getAttribute('aria-labelledby')).toBe(historyTab.id);
+    // 切页签后回指随活动页签走。
+    await user.click(within(dock).getByRole('tab', { name: '显示设置' }));
+    expect(within(dock).getByTestId('part-studio-dock-body').getAttribute('aria-labelledby'))
+      .toBe(within(dock).getByRole('tab', { name: '显示设置' }).id);
+  });
+});

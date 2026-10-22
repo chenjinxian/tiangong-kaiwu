@@ -17,18 +17,37 @@
  *   变化）即重查（新特征落库 → 新实体出现）；
  * - 行（TreeRow）：名称 + 错误红显 + 抑制斜体 + 隐藏淡显；行点击选中（树→画布
  *   emphasize 联动的数据源），行右键菜单（os-15 子集：重命名/编辑…/抑制/
- *   删除 HITL）；
+ *   删除 HITL，每项左置图标——os-15 V20，M4-T8 D5 收口）；
+ * - 特征段头三工具钮（os-11 段头形态；M4-T8 D3 收口）：插入元素/暂停重建/
+ *   特征历史——完整 UI 面铁律（照常渲染可点），均无后端面，登记 gated →
+ *   能力引导对话框（capabilities.ts 单一真源；full 翻转后接真实路由）；
  * - T6 草图模式：活动草图行红显（os-30 树红显进行中草图，store.sketch 驱动
  *   传 TreeRow sketchActive）；
  * - 数据注入：entries（useFeatureSystem.tree 直通）经 useFeatureTree 映射；
- *   变异出口为回调（onRename/onEdit/onSuppress/onDelete——RPC 变异层接线面）。
+ *   变异出口为回调（onRename/onEdit/onSuppress/onDelete——RPC 变异层接线面）；
+ * - 菜单监听一次注册（M4-T8 收 M3 终审 T5-⑤ 同款：挂载期一次到位，menu 经
+ *   ref 取用，不随每次右键重挂）。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { IconButton } from '@itwin/itwinui-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import type { FeatureTreeEntry } from '@luban-cad/shared';
-import { SvgChevronDown, SvgChevronRight } from '@itwin/itwinui-icons-react';
+import {
+  SvgAdd,
+  SvgChevronDown,
+  SvgChevronRight,
+  SvgClock,
+  SvgDelete,
+  SvgEdit,
+  SvgEditAll,
+  SvgHideManuallySuppressed,
+  SvgPause,
+  SvgVisibilityShow,
+} from '@itwin/itwinui-icons-react';
+import { CapabilityDialog } from '../ribbon/Ribbon.js';
+import { isGated } from '../internal/capabilities.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { useFeatureTree } from '../hooks/useFeatureTree.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
@@ -74,6 +93,18 @@ interface MenuState {
 const TREE_SECTIONS: { id: TreeTab; labelKey: string; testidPrefix: string }[] = [
   { id: 'features', labelKey: 'partStudio.sidebar.tree.features', testidPrefix: 'part-studio-feature' },
   { id: 'parts', labelKey: 'partStudio.sidebar.tree.parts', testidPrefix: 'part-studio-part' },
+];
+
+/**
+ * 特征段头三工具钮（os-11 段头形态；M4-T8 D3）：插入元素/暂停重建/特征
+ * 历史——完整 UI 面铁律（照常渲染可点）；三者均无后端面，登记 gated →
+ * 能力引导对话框（capabilities.ts 单一真源；翻转 gated→full 时此处零改动，
+ * 真实动作在 handleSectionTool 的 full 分支接线）。
+ */
+const FEATURE_SECTION_TOOLS: { id: string; labelKey: string; capability: string; icon: React.ComponentType }[] = [
+  { id: 'insert-elements', labelKey: 'partStudio.tree.insertElements', capability: 'insertElement', icon: SvgAdd },
+  { id: 'pause-rebuild', labelKey: 'partStudio.tree.pauseRebuild', capability: 'pauseRebuild', icon: SvgPause },
+  { id: 'feature-history', labelKey: 'partStudio.tree.featureHistory', capability: 'featureHistory', icon: SvgClock },
 ];
 
 /**
@@ -180,11 +211,18 @@ export function FeatureTree({
   const [menu, setMenu] = React.useState<MenuState | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<TreeNode | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  // 段头三钮的 gated 引导对话框（D3：能力注册表路由的对话框状态）。
+  const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
 
   // 菜单开合：外部 mousedown / Escape 收合（画布菜单同口径）。
+  // M4-T8 收 M3 终审 T5-⑤（同款）：监听一次注册——挂载期一次到位，menu 经
+  // ref 取用，不随每次右键（menu 对象重建）重挂一对监听。
+  const menuRef = React.useRef<MenuState | null>(null);
+  menuRef.current = menu;
   React.useEffect(() => {
-    if (!menu) return undefined;
-    const close = () => setMenu(null);
+    const close = () => {
+      if (menuRef.current) setMenu(null);
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
     };
@@ -194,7 +232,8 @@ export function FeatureTree({
       window.removeEventListener('mousedown', close);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [menu]);
+    // 监听终身一次挂载；闭包内一律走 ref（意图在此注记，非遗漏依赖）。
+  }, []);
 
   const setActiveTreeTab = usePartStudioStore((s) => s.setActiveTreeTab);
 
@@ -205,6 +244,16 @@ export function FeatureTree({
     },
     [setActiveTreeTab],
   );
+
+  // 段头工具钮（D3）：能力注册表路由——gated → 能力引导对话框；full → 真实
+  // 动作接线位（三者今日均 gated，full 分支诚实占位）。
+  const handleSectionTool = React.useCallback((capability: string) => {
+    if (isGated(capability)) {
+      setGatedCapability(capability);
+      return;
+    }
+    console.warn(`[part-studio] 段头工具 ${capability} 未接线（full 直行通道）`);
+  }, []);
 
   const handleRowContextMenu = React.useCallback(
     (node: TreeNode, event: React.MouseEvent) => {
@@ -304,6 +353,30 @@ export function FeatureTree({
               >
                 ({rows.length})
               </span>
+              {/* 特征段头三工具钮（os-11 段头形态；D3）：插入元素/暂停重建/特征历史。 */}
+              {isFeatures && (
+                <div
+                  className="part-studio-tree__section-tools"
+                  role="group"
+                  aria-label={t('partStudio.tree.sectionToolsLabel')}
+                >
+                  {FEATURE_SECTION_TOOLS.map((tool) => {
+                    const Icon = tool.icon;
+                    return (
+                      <IconButton
+                        key={tool.id}
+                        size="small"
+                        styleType="borderless"
+                        label={t(tool.labelKey)}
+                        data-testid={`part-studio-tree-tool-${tool.id}`}
+                        onClick={() => handleSectionTool(tool.capability)}
+                      >
+                        <Icon />
+                      </IconButton>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             {!isCollapsed && (
               <ul className="part-studio-tree__list" data-testid={`part-studio-${section.id === 'features' ? 'feature' : 'part'}-list`}>
@@ -345,6 +418,7 @@ export function FeatureTree({
               setEditingId(menu.node.id);
             }}
           >
+            <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEdit /></span>
             {t('partStudio.tree.rename')}
           </button>
           <button
@@ -360,6 +434,7 @@ export function FeatureTree({
               }
             }}
           >
+            <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEditAll /></span>
             {t('partStudio.tree.edit')}
           </button>
           {isFeatureNode(menu.node) && (
@@ -379,6 +454,11 @@ export function FeatureTree({
                 }
               }}
             >
+              <span className="part-studio-menu-item-icon" aria-hidden="true">
+                {'isSuppressed' in menu.node && menu.node.isSuppressed
+                  ? <SvgVisibilityShow />
+                  : <SvgHideManuallySuppressed />}
+              </span>
               {'isSuppressed' in menu.node && menu.node.isSuppressed
                 ? t('partStudio.tree.unsuppress')
                 : t('partStudio.tree.suppress')}
@@ -394,6 +474,7 @@ export function FeatureTree({
               setMenu(null);
             }}
           >
+            <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgDelete /></span>
             {t('partStudio.tree.delete')}
           </button>
         </div>
@@ -441,6 +522,9 @@ export function FeatureTree({
           </div>
         </div>
       )}
+
+      {/* 段头三钮 gated 引导对话框（D3：能力注册表路由的引导面）。 */}
+      <CapabilityDialog capability={gatedCapability} onClose={() => setGatedCapability(null)} />
     </div>
   );
 }

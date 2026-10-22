@@ -24,7 +24,9 @@ import {
 
 /** spec §5 初始 gated 集合（材料/外观、曲面/曲线各两条，共 14）+ T5 登记 dependencies（共 15）
  * + T7 汉堡文档菜单（os-24）登记 moveDocument/restoreWorkspace/copyWorkspace/
- * updateWorkspace/workspaceProperties（共 20）。 */
+ * updateWorkspace/workspaceProperties（共 20）
+ * + M4-T8 D3 特征段头三钮（os-11 段头形态）登记 insertElement/pauseRebuild/
+ * featureHistory（共 23）。 */
 const EXPECTED_GATED_IDS = [
   'draft', // 拔模
   'shell', // 抽壳
@@ -46,10 +48,13 @@ const EXPECTED_GATED_IDS = [
   'copyWorkspace', // 复制工作区…（T7 汉堡菜单）
   'updateWorkspace', // 更新工作区…（T7 汉堡菜单）
   'workspaceProperties', // 工作区属性…（T7 汉堡菜单）
+  'insertElement', // 插入元素（M4-T8 D3 特征段头钮）
+  'pauseRebuild', // 暂停重建（M4-T8 D3 特征段头钮）
+  'featureHistory', // 特征历史（M4-T8 D3 特征段头钮）
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项（共 20，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项（共 23，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();
