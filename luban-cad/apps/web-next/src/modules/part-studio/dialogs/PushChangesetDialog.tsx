@@ -82,8 +82,10 @@ export function PushChangesetDialog({
     onClose();
   }, [isSubmitting, onClose]);
 
+  // setFocus（review-8 I-1 P2 补齐）：打开即焦点入对话框——Escape 关闭挂
+  // 对话框元素 onKeyDown，焦点不在其内则击键永不可达。
   return (
-    <Dialog isOpen={isOpen} onClose={handleClose} portal isDismissible>
+    <Dialog isOpen={isOpen} onClose={handleClose} portal isDismissible setFocus>
       <Dialog.Backdrop />
       <Dialog.Main
         styleType="default"

@@ -20,8 +20,10 @@ export interface CapabilityDialogProps {
 export function CapabilityDialog({ action, onClose }: CapabilityDialogProps): React.JSX.Element | null {
   const { t } = useTranslation();
 
+  // setFocus（review-8 I-1 P2 补齐）：打开即焦点入对话框——iTwinUI 的 Escape
+  // 关闭挂在对话框元素 onKeyDown 上，焦点不在其内则击键永不可达。
   return (
-    <Dialog isOpen={!!action} onClose={onClose} portal isDismissible>
+    <Dialog isOpen={!!action} onClose={onClose} portal isDismissible setFocus>
       <Dialog.Backdrop />
       <Dialog.Main
         styleType="default"

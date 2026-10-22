@@ -171,8 +171,10 @@ export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps)
         onRenamed={handleRenamed}
       />
 
-      {/* 工作区单位：毫米唯一可用；其余单位制占位（完整 UI 面）。 */}
-      <Dialog isOpen={unitsOpen} onClose={() => setUnitsOpen(false)} portal isDismissible>
+      {/* 工作区单位：毫米唯一可用；其余单位制占位（完整 UI 面）。setFocus
+          （review-8 I-1 P2 补齐）：打开即焦点入对话框——Escape 关闭挂对话框
+          元素 onKeyDown，焦点不在其内则击键永不可达。 */}
+      <Dialog isOpen={unitsOpen} onClose={() => setUnitsOpen(false)} portal isDismissible setFocus>
         <Dialog.Backdrop />
         <Dialog.Main
           styleType="default"

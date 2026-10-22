@@ -106,7 +106,11 @@ export interface CapabilityDialogProps {
   onClose: () => void;
 }
 
-/** 能力引导对话框（gated 点击后的引导面，文案取 CAPABILITY_GUIDANCE）。 */
+/** 能力引导对话框（gated 点击后的引导面，文案取 CAPABILITY_GUIDANCE）。
+ * 自研非 iTwinUI 对话框：setFocus 等价面在此手工落——ref 回调 focus() 打开即
+ * 焦点入对话框（React autoFocus 对 div 无效，commitMount 仅认表单元素；Escape
+ * dismissal 可达前提，review-8 I-1 P2 补齐），Escape onKeyDown 收合（同 iTwinUI
+ * Dialog closeOnEsc 口径）。 */
 export function CapabilityDialog({ capability, onClose }: CapabilityDialogProps): React.JSX.Element | null {
   const { t } = useTranslation();
   if (!capability) return null;
@@ -115,10 +119,15 @@ export function CapabilityDialog({ capability, onClose }: CapabilityDialogProps)
   return (
     <div className="part-studio-dialog-backdrop">
       <div
+        ref={(el) => el?.focus()}
         role="dialog"
         aria-modal="true"
         aria-label={t(guidance.titleKey)}
         className="part-studio-capability-dialog"
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onClose();
+        }}
       >
         <h2 className="part-studio-capability-dialog__title">{t(guidance.titleKey)}</h2>
         <p className="part-studio-capability-dialog__message">{t(guidance.messageKey)}</p>

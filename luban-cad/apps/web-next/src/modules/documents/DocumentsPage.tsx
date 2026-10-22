@@ -551,7 +551,9 @@ export function DocumentsPage(): React.JSX.Element {
         onClose={() => setShareTarget(null)}
       />
 
-      {/* 删除确认（危险操作 HITL；失败内联呈现错误，不静默） */}
+      {/* 删除确认（危险操作 HITL；失败内联呈现错误，不静默）。setFocus
+          （review-8 I-1 P2 补齐）：打开即焦点入对话框——Escape 关闭挂对话框
+          元素 onKeyDown，焦点不在其内则击键永不可达。 */}
       <Dialog
         isOpen={!!deleteTarget}
         onClose={() => {
@@ -560,6 +562,7 @@ export function DocumentsPage(): React.JSX.Element {
         }}
         portal
         isDismissible
+        setFocus
       >
         <Dialog.Backdrop />
         <Dialog.Main

@@ -127,6 +127,8 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     await user.click(await screen.findByRole('menuitem', { name: '新建文件夹' }));
     expect(await screen.findByText('功能即将推出')).toBeDefined();
     expect(screen.getByRole('button', { name: '知道了' })).toBeDefined();
+    // Escape dismissal 可达前提（review-8 I-1 P2 补齐）：打开即焦点入对话框。
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
   });
 
   it('顶栏：品牌 + 居中搜索框 + 用户菜单（我的帐户/深色模式/退出登录，os-03）', async () => {
@@ -230,6 +232,8 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     expect(await screen.findByText(/确定要删除文档「文档 A」吗/)).toBeDefined();
     expect(screen.getByRole('button', { name: '取消' })).toBeDefined();
     expect(screen.getByRole('button', { name: '删除' })).toBeDefined();
+    // Escape dismissal 可达前提（review-8 I-1 P2 补齐）：打开即焦点入对话框。
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
   });
 
   it('删除失败 → 内联错误呈现（不静默），对话框保持在场', async () => {

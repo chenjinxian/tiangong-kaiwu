@@ -405,7 +405,9 @@ export function DocumentDetailsPage(): React.JSX.Element {
         onClose={() => setIsShareOpen(false)}
       />
 
-      {/* 删除文档确认（危险操作 HITL；失败内联呈现，不静默） */}
+      {/* 删除文档确认（危险操作 HITL；失败内联呈现，不静默）。setFocus
+          （review-8 I-1 P2 补齐）：打开即焦点入对话框——Escape 关闭挂对话框
+          元素 onKeyDown，焦点不在其内则击键永不可达。 */}
       <Dialog
         isOpen={isDeleteDocOpen}
         onClose={() => {
@@ -413,6 +415,7 @@ export function DocumentDetailsPage(): React.JSX.Element {
           setIsDeleteDocOpen(false);
         }}
         portal
+        setFocus
         isDismissible
       >
         <Dialog.Backdrop />
@@ -453,7 +456,9 @@ export function DocumentDetailsPage(): React.JSX.Element {
         </Dialog.Main>
       </Dialog>
 
-      {/* 删除 iModel 确认（危险操作 HITL） */}
+      {/* 删除 iModel 确认（危险操作 HITL）。setFocus（review-8 I-1 P2 补齐）：
+          打开即焦点入对话框——Escape 关闭挂对话框元素 onKeyDown，焦点不在
+          其内则击键永不可达。 */}
       <Dialog
         isOpen={!!deleteImodelTarget}
         onClose={() => {
@@ -461,6 +466,7 @@ export function DocumentDetailsPage(): React.JSX.Element {
           setDeleteImodelTarget(null);
         }}
         portal
+        setFocus
         isDismissible
       >
         <Dialog.Backdrop />

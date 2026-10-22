@@ -456,7 +456,10 @@ describe('M4-T8 D3：特征段头三工具钮（os-11 段头形态）', () => {
     }
     // 点击 gated 项 → 能力引导对话框（能力注册表路由）。
     await user.click(within(tree).getByRole('button', { name: '插入元素' }));
-    expect(screen.getByRole('dialog', { name: '插入元素（规划中）' })).toBeDefined();
+    const capabilityDialog = screen.getByRole('dialog', { name: '插入元素（规划中）' });
+    // Escape dismissal 可达前提（review-8 I-1 P2 补齐）：打开即焦点入对话框
+    //（自研对话框无 iTwinUI setFocus——挂 autoFocus 等价面）。
+    expect(capabilityDialog.contains(document.activeElement)).toBe(true);
   });
 });
 

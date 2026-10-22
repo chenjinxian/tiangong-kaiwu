@@ -179,6 +179,8 @@ describe('DocumentMenuBar 动作路由（full 项）', () => {
     await user.click(within(menu).getByRole('menuitem', { name: '工作区单位…' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByRole('heading', { name: '工作区单位' })).toBeDefined();
+    // Escape dismissal 可达前提（review-8 I-1 P2 补齐）：打开即焦点入对话框。
+    expect(dialog.contains(document.activeElement)).toBe(true);
     const select = within(dialog).getByRole('combobox', { name: '长度单位' });
     expect((select as HTMLSelectElement).value).toBe('mm');
     const inch = within(dialog).getByRole('option', { name: '英寸 (in)' }) as HTMLOptionElement;

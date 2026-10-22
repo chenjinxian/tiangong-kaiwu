@@ -83,6 +83,8 @@ describe('PushChangesetDialog（M4 Task 7）', () => {
     const user = userEvent.setup();
     const { onConfirm } = renderDialog();
     const dialog = getDialog();
+    // Escape dismissal 可达前提（review-8 I-1 P2 补齐）：打开即焦点入对话框。
+    expect(dialog.contains(document.activeElement)).toBe(true);
     const input = within(dialog).getByLabelText(/版本描述/);
     const confirm = within(dialog).getByRole('button', { name: '推送' });
 

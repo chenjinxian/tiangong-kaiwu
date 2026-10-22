@@ -231,6 +231,8 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     await user.click(await screen.findByRole('button', { name: '删除' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/确定要删除文档「演示文档」吗/)).toBeDefined();
+    // Escape dismissal 可达前提（review-8 I-1 P2 补齐）：打开即焦点入对话框。
+    expect(dialog.contains(document.activeElement)).toBe(true);
     await user.click(within(dialog).getByRole('button', { name: '删除' }));
     await waitFor(() => expect(mocks.itwinsDelete).toHaveBeenCalledWith('itwin-1'));
     expect(await screen.findByTestId('documents-home')).toBeDefined();
@@ -244,6 +246,8 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     await user.click(within(menu).getByRole('menuitem', { name: '删除' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/确定要删除 iModel「楼层模型」吗/)).toBeDefined();
+    // Escape dismissal 可达前提（review-8 I-1 P2 补齐）：打开即焦点入对话框。
+    expect(dialog.contains(document.activeElement)).toBe(true);
     await user.click(within(dialog).getByRole('button', { name: '删除' }));
     await waitFor(() => expect(mocks.imodelsDelete).toHaveBeenCalledWith('im-1'));
   });
