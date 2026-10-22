@@ -38,11 +38,12 @@ import { usePartStudioStore } from '../index.js';
 import { CommandPalette } from '../ribbon/CommandPalette.js';
 import { Ribbon } from '../ribbon/Ribbon.js';
 
-/** store 复位：commandPalette 切片回缺省（isOpen 由用例自行置位）。 */
+/** store 复位：commandPalette/tool/dialog 切片回缺省（isOpen 由用例自行置位）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
     tool: { activeToolId: null },
     commandPalette: { isOpen: false, query: '', highlightEnabled: true },
+    dialog: { active: null },
   });
 }
 
@@ -102,12 +103,17 @@ describe('CommandPalette 输入过滤', () => {
 });
 
 describe('CommandPalette 激活路由', () => {
-  it('回车激活首匹配：IModelApp.tools.run(extrude) + 面板关闭', async () => {
+  it('回车激活首匹配：拉伸 → 特征对话框（new/extrude）+ 面板关闭（M4-T6 特例路由，同 newSketch 姿态）', async () => {
     const user = userEvent.setup();
     usePartStudioStore.setState({ commandPalette: { isOpen: true, query: '', highlightEnabled: true } });
     renderPalette();
     await user.type(screen.getByRole('textbox'), '拉伸{Enter}');
-    expect(mocks.toolsRun).toHaveBeenCalledWith('extrude');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'extrude',
+    });
     expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(false);
   });
 
@@ -173,12 +179,12 @@ describe('Ribbon 结构冒烟（27 工具 + 8 下拉 + 搜索触发钮）', () =
     expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
   });
 
-  it('full 工具（拉伸）点击 → tools.run(extrude) + 写 store 激活态', async () => {
+  it('full 工具（旋转）点击 → tools.run(revolve) + 写 store 激活态（拉伸已改道对话框，见 M4-T6）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
-    await user.click(screen.getByRole('button', { name: '拉伸' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('extrude');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('extrude');
+    await user.click(screen.getByRole('button', { name: '旋转' }));
+    expect(mocks.toolsRun).toHaveBeenCalledWith('revolve');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBe('revolve');
   });
 
   it('下拉飞菜单：加厚箭头展开子项，点击封闭 → tools.run(thickenClosed)', async () => {

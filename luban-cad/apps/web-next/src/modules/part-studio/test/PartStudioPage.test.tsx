@@ -101,6 +101,24 @@ vi.mock('@clients/auth/AuthSession.js', () => ({
   },
 }));
 
+// M4-T6：Session 内层挂 useFeatureSystem——RPC 面替身（空树/租约可得），
+// 隔离真实 LubanFeatureRpcInterface 的注册态依赖；hoisted 便于接线断言。
+const featureRpc = vi.hoisted(() => ({
+  getFeatureTree: vi.fn(async (_key: string) => []),
+  applyFeatureOp: vi.fn(
+    async (_key: string, _op: unknown, _sessionId: string): Promise<{ ok: boolean; featureId?: string }> =>
+      ({ ok: true, featureId: 'f-new' }),
+  ),
+  acquireWriteLease: vi.fn(async (_key: string, _sessionId: string) => ({ ok: true, holder: 'tester' })),
+  releaseWriteLease: vi.fn(async (_key: string, _sessionId: string) => undefined),
+}));
+
+vi.mock('@luban-cad/shared', () => ({
+  LubanFeatureRpcInterface: {
+    getClient: () => featureRpc,
+  },
+}));
+
 // 结构测试零查看器启动：useViewport 钉 ready 相位 + 假 viewport 实例、
 // useBriefcaseConnection 钉就绪连接（状态栏「已连接」与 M4-T2 接线断言依赖）。
 vi.mock('@luban-cad/viewer-next', () => ({
@@ -131,19 +149,26 @@ const IMODEL_DETAIL = {
 };
 
 // M4-T4 起连接替身需承载编辑作用域/事务桩（useEditingScope/useUndoRedo/
-// editorToolSettings 配置段全链真实参与）：
+// editorToolSettings 配置段全链真实参与）；M4-T6 起另承载特征系统面：
 //  - txns 事件桩 = BeEvent 兼容最小面（addListener 返回退订 + raise 直发）；
+//    onModelGeometryChanged 供 useFeatureDisplaySync 订阅；
 //  - editingScope/supportsGraphicalEditing/enterEditingScope 供作用域进入路径；
-//  - saveChanges 供顶栏保存代理断言；editorToolSettings 供类目/模型补全断言。
+//  - saveChanges 供顶栏保存代理断言；editorToolSettings 供类目/模型补全断言；
+//  - createQueryReader 供 FeatureTree 零件段物理元素查询（空集游标）。
 function makeTxnsStub() {
   const makeEvent = () => {
     const listeners = new Set<() => void>();
     return {
+      // BeEvent 兼容双面：addListener 返回退订（useFeatureDisplaySync 消费）、
+      // removeListener 显式移除（useFeatureSystem 退订）。
       addListener: (fn: () => void): (() => void) => {
         listeners.add(fn);
         return () => {
           listeners.delete(fn);
         };
+      },
+      removeListener: (fn: () => void): void => {
+        listeners.delete(fn);
       },
       raise: (): void => {
         for (const fn of [...listeners]) fn();
@@ -158,11 +183,13 @@ function makeTxnsStub() {
     onCommitted: makeEvent(),
     onAfterUndoRedo: makeEvent(),
     onChangesPushed: makeEvent(),
+    onModelGeometryChanged: makeEvent(),
   };
 }
 
 let FAKE_CONNECTION = {
   key: 'briefcase-key',
+  isReadonly: false,
   isBriefcaseConnection: () => true,
   txns: makeTxnsStub(),
   editingScope: undefined as unknown,
@@ -170,6 +197,8 @@ let FAKE_CONNECTION = {
   enterEditingScope: vi.fn(),
   saveChanges: vi.fn<(description?: string) => Promise<void>>().mockResolvedValue(undefined),
   editorToolSettings: { category: undefined, model: undefined },
+  // 零件段查询替身：空集（异步可迭代）。
+  createQueryReader: () => (async function* () { /* 空集 */ })(),
 };
 
 const FAKE_VIEWPORT = {
@@ -267,7 +296,7 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(topBar).getByRole('button', { name: '帮助' })).toBeDefined();
   });
 
-  it('左栏：竖图标条 + 双段树（特征段 / 零件段 + 默认 Part 1）', () => {
+  it('左栏：竖图标条 + 双段树（特征段 / 零件段；M4-T6 真数据源接线，假 Part 1 占位移除）', async () => {
     renderPage();
     const rail = screen.getByTestId('part-studio-icon-rail');
     expect(within(rail).getByRole('button', { name: '特征' })).toBeDefined();
@@ -277,8 +306,10 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(tree).getByRole('button', { name: '特征' })).toBeDefined();
     expect(within(tree).getByTestId('part-studio-feature-list')).toBeDefined();
     expect(within(tree).getByRole('button', { name: '零件' })).toBeDefined();
-    const partList = within(tree).getByTestId('part-studio-part-list');
-    expect(within(partList).getByText('Part 1')).toBeDefined();
+    // 空数据落定后两段均 empty 态（壳期「假 Part 1」占位随真数据源接线移除）；
+    // 读树/零件段查询异步，先过 loading 骨架。
+    expect(await within(tree).findByText('暂无特征')).toBeDefined();
+    expect(await within(tree).findByText('暂无零件')).toBeDefined();
   });
 
   it('双段树：段头点击收起列表并写 store tree.activeTab', async () => {
@@ -521,5 +552,40 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     await waitFor(() =>
       expect(viewerMocks.toggleProjectExtents).toHaveBeenCalledWith(FAKE_CONNECTION, true),
     );
+  });
+});
+
+describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框消费）', () => {
+  it('Session 内层挂 useFeatureSystem：RPC 读树（connection.key）+ 编辑作用域就绪后申请写租约', async () => {
+    renderPage();
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
+    await waitFor(() => expect(featureRpc.acquireWriteLease).toHaveBeenCalledWith('briefcase-key', expect.any(String)));
+  });
+
+  it('useFeatureDisplaySync 订阅几何变化（M4-T5 移植件的挂载位）', async () => {
+    // txns 事件桩的 addListener 经 spyOn 可观测：挂载即订阅（行为断言归
+    // useFeatureDisplaySync.test，此处钉「Session 已挂」的接线事实）。
+    const addListener = vi.spyOn(FAKE_CONNECTION.txns.onModelGeometryChanged, 'addListener');
+    renderPage();
+    await waitFor(() => expect(addListener).toHaveBeenCalled());
+  });
+
+  it('拉伸闭环（页级）：new/extrude 对话框提交 → applyFeatureOp 形状钉死 + 对话框关闭', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(featureRpc.acquireWriteLease).toHaveBeenCalled());
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+    });
+    const dialog = await screen.findByTestId('part-studio-feature-dialog');
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    await waitFor(() =>
+      expect(featureRpc.applyFeatureOp).toHaveBeenCalledWith(
+        'briefcase-key',
+        { kind: 'insertFeature', featureType: 'extrude', params: { profile: [], distance: 10 } },
+        expect.any(String),
+      ),
+    );
+    await waitFor(() => expect(usePartStudioStore.getState().dialog.active).toBeNull());
   });
 });

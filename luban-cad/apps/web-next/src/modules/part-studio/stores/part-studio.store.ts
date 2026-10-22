@@ -14,6 +14,7 @@
 import { create } from 'zustand';
 import type { StoreApi } from 'zustand';
 
+import type { LubanFeatureType } from '@luban-cad/shared';
 import type {
   CanvasSelection,
   DockTab,
@@ -55,8 +56,12 @@ export interface PartStudioActions {
   setCanvasSelection: (selection: readonly CanvasSelection[]) => void;
   hideNodes: (nodeIds: readonly string[]) => void;
   showNodes: (nodeIds: readonly string[]) => void;
-  // dialog 切片（T6：画布内联非模态对话框宿主寻址）
-  openFeatureDialog: (feature: { featureId: string; featureName: string; featureType: string }) => void;
+  // dialog 切片（T6：画布内联非模态对话框宿主寻址；M4-T6 扩 new/edit 双模式）
+  openFeatureDialog: (
+    feature:
+      | { mode: 'new'; featureType: LubanFeatureType }
+      | { mode: 'edit'; featureId: string; featureName: string; featureType: string },
+  ) => void;
   openSketchDialog: (sketchId?: string) => void;
   closeDialog: () => void;
   // viewOnly 切片（T7：仅查看模式切换）
@@ -206,9 +211,11 @@ function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvas
 }
 
 /**
- * dialog 切片：画布内联非模态对话框宿主寻址（T6）——feature=特征编辑
- * （树上「编辑…」路由）；sketch=新建草图（ribbon newSketch 激活路由，
- * sketchId 缺省 null——对话框确认时由宿主补 'sketch-active'）。
+ * dialog 切片：画布内联非模态对话框宿主寻址（T6；M4-T6 扩双模式）——
+ * feature=特征对话框（mode 'new'=ribbon「拉伸」创建路由，featureType 即提交
+ * op 的特征类型；mode 'edit'=树上「编辑…」路由，featureId 为宿主重挂 key）；
+ * sketch=新建草图（ribbon newSketch 激活路由，sketchId 缺省 null——对话框
+ * 确认时由宿主补 'sketch-active'）。
  */
 function createDialogSlice([set]: SliceCreator): { dialog: PartStudioDialogState } & Pick<PartStudioActions,
   'openFeatureDialog' | 'openSketchDialog' | 'closeDialog'> {

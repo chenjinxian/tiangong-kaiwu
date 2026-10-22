@@ -189,16 +189,36 @@ describe('canvas 切片（画布选择集 + 会话隐藏集，T5 收口 CanvasSe
   });
 });
 
-describe('dialog 切片（画布内联对话框宿主寻址，T6）', () => {
-  it('openFeatureDialog 记特征寻址三元组；openSketchDialog 记草图 id（缺省 null）', () => {
+describe('dialog 切片（画布内联对话框宿主寻址，T6；M4-T6 扩 new/edit 双模式）', () => {
+  it('openFeatureDialog new 模式：记 featureType（ribbon「拉伸」创建路由）', () => {
     const store = usePartStudioStore.getState();
-    store.openFeatureDialog({ featureId: 'ex1', featureName: 'Extrude 1', featureType: 'extrude' });
+    store.openFeatureDialog({ mode: 'new', featureType: 'extrude' });
     expect(usePartStudioStore.getState().dialog).toEqual({
       active: 'feature',
-      featureId: 'ex1',
-      featureName: 'Extrude 1',
+      mode: 'new',
       featureType: 'extrude',
     });
+  });
+
+  it('openFeatureDialog edit 模式：记 featureId + 名称/类型（树上「编辑…」路由）', () => {
+    const store = usePartStudioStore.getState();
+    store.openFeatureDialog({
+      mode: 'edit',
+      featureId: 'ex1',
+      featureName: '拉伸 1',
+      featureType: 'extrude',
+    });
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'edit',
+      featureId: 'ex1',
+      featureName: '拉伸 1',
+      featureType: 'extrude',
+    });
+  });
+
+  it('openSketchDialog 记草图 id（缺省 null）', () => {
+    const store = usePartStudioStore.getState();
     store.openSketchDialog();
     expect(usePartStudioStore.getState().dialog).toEqual({ active: 'sketch', sketchId: null });
     store.openSketchDialog('sketch-3');
@@ -207,7 +227,7 @@ describe('dialog 切片（画布内联对话框宿主寻址，T6）', () => {
 
   it('closeDialog 复位；互斥（后开者覆盖前者）', () => {
     const store = usePartStudioStore.getState();
-    store.openFeatureDialog({ featureId: 'ex1', featureName: 'Extrude 1', featureType: 'extrude' });
+    store.openFeatureDialog({ mode: 'new', featureType: 'fillet' });
     store.openSketchDialog('sketch-1');
     expect(usePartStudioStore.getState().dialog).toEqual({ active: 'sketch', sketchId: 'sketch-1' });
     store.closeDialog();

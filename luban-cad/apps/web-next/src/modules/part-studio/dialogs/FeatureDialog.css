@@ -115,6 +115,33 @@
   margin-block-end: -1px;
 }
 
+/* ── 提交错误就地 Alert（M4-T6 六态 error：失败不关闭，可改参重试）────── */
+.part-studio-feature-dialog__alert {
+  margin: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-negative, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-negative, var(--iui-color-background-hover));
+  color: var(--iui-color-text-negative, var(--iui-color-text));
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* ── 距离（M4-T6：insertFeature extrude 唯一可编辑量，常驻不折叠）──────── */
+.part-studio-feature-dialog__distance {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-feature-dialog__distance-label {
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  white-space: nowrap;
+}
+
 /* ── 芯片式实体选择框（os-31）────────────────────────────────────────── */
 .part-studio-feature-dialog__entities {
   display: flex;

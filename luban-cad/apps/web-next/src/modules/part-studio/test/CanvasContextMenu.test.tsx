@@ -234,12 +234,19 @@ describe('CanvasContextMenu 选中态（按拾取类型重构）', () => {
     expect(screen.getByRole('dialog', { name: '材料（规划中）' })).toBeDefined();
   });
 
-  it('feature 拾取：编辑特征 → tools.run(featureType)（extrude）', async () => {
+  it('feature 拾取：编辑特征 → FeatureDialog edit 宿主路由（M4-T6：既有特征编辑不经 tools.run/new 路由）', async () => {
     const user = userEvent.setup();
     setSelection([{ kind: 'feature', id: 'f1', label: 'Extrude 1', featureType: 'extrude' }]);
     renderMenu();
     await user.click(screen.getByRole('menuitem', { name: '编辑 Extrude 1…' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('extrude');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'edit',
+      featureId: 'f1',
+      featureName: 'Extrude 1',
+      featureType: 'extrude',
+    });
   });
 
   it('feature 拾取：显示依赖项 → gated 引导对话框（依赖项查看（规划中））', async () => {

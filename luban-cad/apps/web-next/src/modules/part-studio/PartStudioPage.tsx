@@ -44,7 +44,14 @@
  *
  * backendUrl 传同源（MS CORS 钉死 :5300，web-next :5310 走 vite 代理，见
  * vite.config.ts 注记；姿态同 DevViewerRoute），相位上供状态栏。ribbon/命令
- * 搜索（T4）挂顶栏下；树数据/特征对话框等 T5+ 接管。
+ * 搜索（T4）挂顶栏下。
+ *
+ * 拉伸闭环（M4-T6）：Session 内层挂 useFeatureSystem（编辑作用域就绪后
+ * enabled——树/applyOp 单实例，双挂载=双 sessionId 双写租约）+
+ * useFeatureDisplaySync（几何出现链收口）；树经 Sidebar props 直通（六态），
+ * 对话框提交面经 Canvas applyOp 直通——ribbon「拉伸」→ FeatureDialog(new/
+ * extrude) → insertFeature 落库 → onCommitted+refresh → 树新条目 → 显示同步
+ * 几何出现。
  */
 
 import React, { useCallback, useEffect } from 'react';
@@ -70,6 +77,8 @@ import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
+import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
+import { useFeatureSystem } from './hooks/useFeatureSystem.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/part-studio.store.js';
 import './PartStudioPage.css';
@@ -115,8 +124,21 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
 
   // 编辑作用域（M4-T4；Editor.tsx:322-371 忠实移植）：进入/复用/失败回查/
   // 卸载退出——hook 内部自治，页面只消费 isReady（editorToolSettings 配置段的
-  // 就绪门，T5+ 特征树/工具面复用）。
+  // 就绪门，特征系统/工具面复用）。
   const { isReady: isEditingScopeReady } = useEditingScope(connection ?? undefined, !viewOnly);
+
+  // 特征系统中枢（M4-T5 移植 + M4-T6 接线）：编辑作用域就绪后 enabled
+  //（viewOnly/readonly 连接被 useEditingScope 的 enabled 门拦截——单一裁决点，
+  // 勿二次判定）；树/loading/error/applyOp 经 props 直通 Sidebar（六态）与
+  // Canvas（对话框提交面）。单挂载铁律：双实例=双 sessionId=双写租约竞争。
+  const featureSystem = useFeatureSystem(connection ?? undefined, {
+    enabled: isEditingScopeReady,
+  });
+
+  // 特征显示同步（M4-T5 移植 + M4-T6 接线）：特征写入后的几何出现链收口——
+  // 绕过 GraphicalEditingScope 下 ModelChangeMonitor 的 guid 缓冲（BRep 显示
+  // bug 层③修复），与 useFeatureSystem 同层挂载。
+  useFeatureDisplaySync(connection ?? undefined);
 
   // 撤销/重做/保存（M4-T4；BriefcaseTxns 标准通道，禁旧自造 UndoManager）。
   const undoRedo = useUndoRedo(connection);
@@ -276,9 +298,15 @@ function PartStudioSession({ iTwinId, iModelId, connection }: PartStudioSessionP
       {/* 工具 ribbon（os-11 第二行）：27 工具 + 8 下拉 + 命令搜索触发钮。 */}
       <Ribbon />
       <div className="part-studio-body">
-        <PartStudioSidebar />
+        <PartStudioSidebar
+          entries={featureSystem.tree}
+          loading={featureSystem.loading}
+          error={featureSystem.error}
+          onRetry={featureSystem.refresh}
+          connection={connection ?? undefined}
+        />
         <div className="part-studio-main">
-          <PartStudioCanvas viewportRef={viewportRef} viewport={viewport} />
+          <PartStudioCanvas viewportRef={viewportRef} viewport={viewport} applyOp={featureSystem.applyOp} />
           <PartStudioDock />
         </div>
       </div>

@@ -132,7 +132,15 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'sidebar.rail.features', 'sidebar.rail.parts',
   'sidebar.rail.assemblies', 'sidebar.rail.import',
   'sidebar.tree.features', 'sidebar.tree.parts',
-  'sidebar.tree.emptyFeatures', 'sidebar.tree.defaultPart',
+  'sidebar.tree.emptyFeatures',
+  // M4 Task 6：真数据源接线，壳期「假 Part 1」占位键移除（M3 终审 T5-②③ 收口），
+  // 零件段 empty 态键接入；tree 六态/命名映射 + 对话框提交面键（loadFailed/retry/
+  // unnamedElement/featureTypes.*/distance*/submitSuccess 由消费组件与测试钉用）。
+  'sidebar.tree.emptyParts',
+  'tree.loadFailed', 'tree.retry', 'tree.unnamedElement',
+  'tree.featureTypes.extrude', 'tree.featureTypes.booleanAdd', 'tree.featureTypes.booleanSubtract',
+  'tree.featureTypes.fillet', 'tree.featureTypes.chamfer', 'tree.featureTypes.shell',
+  'featureDialog.distanceLabel', 'featureDialog.distanceInvalid', 'featureDialog.submitSuccess',
   'dock.tabs.toolSettings', 'dock.tabs.history', 'dock.tabs.display',
   'dock.placeholder',
   'tabs.fitView', 'tabs.newTab', 'tabs.partStudio',

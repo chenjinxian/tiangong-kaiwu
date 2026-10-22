@@ -2,22 +2,32 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * FeatureTree（M3 Task 5）：双段树（特征 + 零件，对齐 os-11 左栏）——
+ * FeatureTree（M3 Task 5；M4 Task 6 真数据源 + 六态完备）：双段树（特征 +
+ * 零件，对齐 os-11 左栏）——
  * - 顶部 TreeFilter 语法筛选框（os-20 文本对齐）；
  * - 特征段/零件段：段头按钮（点击写 store.tree.activeTab + 幂等收起，aria-expanded
  *   反映）+ 段头计数（os-11「特征 (17)」）+ 行列表；
+ * - 六态完备（M4-T6 拉伸闭环的树刷新呈现面）：特征段 loading 骨架（Session
+ *   useFeatureSystem.loading 透传）/ error 就地错误条 + 重试（refresh 直通）/
+ *   empty（「暂无特征」）；零件段 loading / error / empty（「暂无零件」）；
+ * - 零件段 = iModel 物理元素查询（`SELECT ECInstanceId, CodeValue FROM
+ *   BisCore.GeometricElement3d` 经 connection.createQueryReader）——诚实呈现
+ *   数量与名（CodeValue 缺失回退「未命名实体 {{id}}」），壳期「假 Part 1」
+ *   占位随真数据源接线移除（M3 终审 T5-②③ 收口）；特征刷新（entries 引用
+ *   变化）即重查（新特征落库 → 新实体出现）；
  * - 行（TreeRow）：名称 + 错误红显 + 抑制斜体 + 隐藏淡显；行点击选中（树→画布
  *   emphasize 联动的数据源），行右键菜单（os-15 子集：重命名/编辑…/抑制/
  *   删除 HITL）；
  * - T6 草图模式：活动草图行红显（os-30 树红显进行中草图，store.sketch 驱动
  *   传 TreeRow sketchActive）；
- * - 数据由 props 注入（useFeatureTree 派生；壳期空集回退占位「暂无特征 /
- *   Part 1」，T3 结构断言兼容）；变异出口为回调（onRename/onEdit/onSuppress/
- *   onDelete——RPC/react-query 变异层后续接线，壳期缺省 console.warn）。
+ * - 数据注入：entries（useFeatureSystem.tree 直通）经 useFeatureTree 映射；
+ *   变异出口为回调（onRename/onEdit/onSuppress/onDelete——RPC 变异层接线面）。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import type { BriefcaseConnection } from '@itwin/core-frontend';
+import type { FeatureTreeEntry } from '@luban-cad/shared';
 import { SvgChevronDown, SvgChevronRight } from '@itwin/itwinui-icons-react';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { useFeatureTree } from '../hooks/useFeatureTree.js';
@@ -28,13 +38,25 @@ import type { TreeNode } from './TreeRow.js';
 import { TreeRow } from './TreeRow.js';
 
 export interface FeatureTreeProps {
-  /** 特征段数据（缺省空集——壳期占位）。 */
-  features?: readonly FeatureNode[];
-  /** 零件段数据（缺省空集——壳期占位）。 */
-  parts?: readonly PartNode[];
-  /** 重命名提交（壳期缺省 console.warn；RPC 变异层接线后接管）。 */
+  /**
+   * 特征段原始条目（Session useFeatureSystem.tree 直通；缺省空集——empty 态，
+   * 壳期占位已随 M4-T6 真数据源接线移除）。
+   */
+  entries?: readonly FeatureTreeEntry[];
+  /** 特征段加载中（useFeatureSystem.loading 透传——骨架行）。 */
+  loading?: boolean;
+  /** 特征段加载失败文案（useFeatureSystem.error 透传——就地错误条 + 重试）。 */
+  error?: string;
+  /** 特征段错误重试（useFeatureSystem.refresh 直通）。 */
+  onRetry?: () => void;
+  /**
+   * 连接（零件段物理元素查询数据源；缺省=零件段 empty 态）。查询随特征刷新
+   *（entries 引用变化）重跑——新特征落库产生的实体如实出现。
+   */
+  connection?: BriefcaseConnection;
+  /** 重命名提交（缺省 console.warn；RPC 变异层接线后接管）。 */
   onRename?: (node: TreeNode, name: string) => void;
-  /** 编辑特征/零件（T6 FeatureDialog 接线口）。 */
+  /** 编辑特征/零件（FeatureDialog 宿主路由接口）。 */
   onEdit?: (node: TreeNode) => void;
   /** 抑制/取消抑制（特征段专属菜单项）。 */
   onSuppress?: (node: FeatureNode, suppressed: boolean) => void;
@@ -54,9 +76,86 @@ const TREE_SECTIONS: { id: TreeTab; labelKey: string; testidPrefix: string }[] =
   { id: 'parts', labelKey: 'partStudio.sidebar.tree.parts', testidPrefix: 'part-studio-part' },
 ];
 
+/**
+ * 零件段物理元素查询（诚实呈现）：全量 GeometricElement3d 的 ECInstanceId +
+ * CodeValue。查询失败不静默（就地错误条）；随特征刷新重跑（新实体出现）。
+ */
+function usePhysicalElements(connection: BriefcaseConnection | undefined, refreshToken: unknown): {
+  parts: PartNode[];
+  loading: boolean;
+  error?: string;
+} {
+  const { t } = useTranslation();
+  const [parts, setParts] = React.useState<PartNode[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (!connection) {
+      setParts([]);
+      setLoading(false);
+      setError(undefined);
+      return undefined;
+    }
+    let disposed = false;
+    setLoading(true);
+    setError(undefined);
+    void (async () => {
+      try {
+        const rows: PartNode[] = [];
+        // 诚实呈现数量与名：物理元素全量行（id + CodeValue）。
+        const reader = connection.createQueryReader(
+          'SELECT ECInstanceId, CodeValue FROM BisCore.GeometricElement3d',
+        );
+        for await (const row of reader) {
+          const id = String(row[0]);
+          const codeValue = row[1];
+          rows.push({
+            id,
+            name:
+              typeof codeValue === 'string' && codeValue !== ''
+                ? codeValue
+                : t('partStudio.tree.unnamedElement', { id }),
+            isHidden: false,
+          });
+        }
+        if (!disposed) {
+          setParts(rows);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!disposed) {
+          setError(err instanceof Error ? err.message : String(err));
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      disposed = true;
+    };
+    // refreshToken=特征段条目引用：新特征落库 → 树刷新 → 零件段重查。
+    //（web-next 未启用 exhaustive-deps 规则，依赖数组为手工口径，意图在此注记。）
+  }, [connection, refreshToken, t]);
+
+  return { parts, loading, error };
+}
+
+/** 段内加载骨架行（loading 态的统一呈现）。 */
+function SkeletonRows(): React.JSX.Element {
+  return (
+    <li className="part-studio-tree__loading" data-testid="part-studio-tree-loading" role="status">
+      <span className="part-studio-tree__loading-bar" aria-hidden="true" />
+      <span className="part-studio-tree__loading-bar part-studio-tree__loading-bar--short" aria-hidden="true" />
+    </li>
+  );
+}
+
 export function FeatureTree({
-  features,
-  parts,
+  entries,
+  loading,
+  error,
+  onRetry,
+  connection,
   onRename,
   onEdit,
   onSuppress,
@@ -65,7 +164,9 @@ export function FeatureTree({
   const { t } = useTranslation();
   const [filterInput, setFilterInput] = React.useState('');
   const filter = React.useMemo(() => parseTreeFilter(filterInput), [filterInput]);
-  const model = useFeatureTree({ features, parts, filter });
+  // 零件段查询（随特征刷新重跑：entries 引用即 refreshToken）。
+  const physical = usePhysicalElements(connection, entries);
+  const model = useFeatureTree({ entries, parts: physical.parts, filter });
   // 树→画布 emphasize 联动（hook 内 effect：selectedNodeIds → viewport）。
   useCanvasSelection();
   // T6 草图模式：活动草图行红显（os-30 树红显进行中草图）。
@@ -143,6 +244,40 @@ export function FeatureTree({
     />
   );
 
+  /** 段内态行序：loading 骨架 → 就地错误条 → 行/empty（六态统一出口）。 */
+  const renderSectionRows = (options: {
+    loading: boolean;
+    error?: string;
+    rows: readonly TreeNode[];
+    emptyText: string;
+    retryable?: boolean;
+  }): React.JSX.Element => {
+    const { loading: sectionLoading, error: sectionError, rows, emptyText, retryable } = options;
+    if (sectionLoading) return <SkeletonRows />;
+    if (sectionError) {
+      return (
+        <li className="part-studio-tree__error" role="alert" data-testid="part-studio-tree-error">
+          <span className="part-studio-tree__error-text">
+            {t('partStudio.tree.loadFailed', { message: sectionError })}
+          </span>
+          {retryable && onRetry && (
+            <button
+              type="button"
+              className="part-studio-tree__retry"
+              onClick={onRetry}
+            >
+              {t('partStudio.tree.retry')}
+            </button>
+          )}
+        </li>
+      );
+    }
+    if (rows.length === 0 && filterInput === '') {
+      return <li className="part-studio-tree__empty">{emptyText}</li>;
+    }
+    return <>{rows.map(renderRow)}</>;
+  };
+
   return (
     <div className="part-studio-tree" data-testid="part-studio-tree">
       <TreeFilter value={filterInput} onChange={setFilterInput} />
@@ -170,22 +305,22 @@ export function FeatureTree({
                 ({rows.length})
               </span>
             </div>
-            {!isCollapsed && isFeatures && (
-              <ul className="part-studio-tree__list" data-testid="part-studio-feature-list">
-                {rows.length === 0 && filterInput === '' ? (
-                  <li className="part-studio-tree__empty">{t('partStudio.sidebar.tree.emptyFeatures')}</li>
-                ) : (
-                  (rows as readonly FeatureNode[]).map(renderRow)
-                )}
-              </ul>
-            )}
-            {!isCollapsed && !isFeatures && (
-              <ul className="part-studio-tree__list" data-testid="part-studio-part-list">
-                {rows.length === 0 && filterInput === '' ? (
-                  <li className="part-studio-tree__part">{t('partStudio.sidebar.tree.defaultPart')}</li>
-                ) : (
-                  (rows as readonly PartNode[]).map(renderRow)
-                )}
+            {!isCollapsed && (
+              <ul className="part-studio-tree__list" data-testid={`part-studio-${section.id === 'features' ? 'feature' : 'part'}-list`}>
+                {isFeatures
+                  ? renderSectionRows({
+                      loading: loading ?? false,
+                      error,
+                      rows,
+                      emptyText: t('partStudio.sidebar.tree.emptyFeatures'),
+                      retryable: true,
+                    })
+                  : renderSectionRows({
+                      loading: physical.loading,
+                      error: physical.error,
+                      rows,
+                      emptyText: t('partStudio.sidebar.tree.emptyParts'),
+                    })}
               </ul>
             )}
           </section>

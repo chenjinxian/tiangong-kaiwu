@@ -13,6 +13,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import React from 'react';
 import type { FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
 import { useFeatureSystem } from '../hooks/useFeatureSystem.js';
 
@@ -267,6 +268,43 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('StrictMode 双挂载：acquire→release→acquire 无双租约泄漏（disposed 哨兵挡迟到回包；T5 交接挂单）', async () => {
+    const connection = createMockConnection();
+    // 第一次 acquire（首个挂载 effect）挂起不落定；第二次（StrictMode 重挂）即成。
+    let releaseFirst!: (value: { ok: boolean; holder?: string }) => void;
+    fakeClient.acquireWriteLease.mockImplementation(async (_key: string, _sessionId: string) => {
+      if (fakeClient.acquireWriteLease.mock.calls.length === 1) {
+        return new Promise<{ ok: boolean; holder?: string }>((resolve) => {
+          releaseFirst = resolve;
+        });
+      }
+      return { ok: true, holder: 'self' };
+    });
+
+    // main.tsx 以 StrictMode 包壳：挂载→清理→再挂载。同 hook 实例同 sessionId
+    //（useRef 跨 StrictMode 重挂保留）——acquire 两次、release 一次（首个 effect
+    // 的 cleanup），服务端语义=同 sessionId 幂等刷新 TTL，无第二个租约泄漏。
+    const { result, unmount } = renderHook(() => useFeatureSystem(connection as never), {
+      wrapper: React.StrictMode,
+    });
+
+    await waitFor(() => expect(fakeClient.acquireWriteLease).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fakeClient.releaseWriteLease).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.leaseOk).toBe(true));
+
+    // 首个挂载的迟到回包此刻才落定（拟拒收）：disposed 哨兵必须挡下，不得把
+    // 二次挂载已得的 leaseOk=true 翻回 false。
+    await act(async () => {
+      releaseFirst({ ok: false, holder: 'stale-page' });
+      await Promise.resolve();
+    });
+    expect(result.current.leaseOk).toBe(true);
+
+    unmount();
+    // 真卸载：二次挂载 effect 的 cleanup 再 release（两次清理各对应一次 effect 运行）。
+    expect(fakeClient.releaseWriteLease).toHaveBeenCalledTimes(2);
   });
 
   it('txns.onCommitted 触发 refresh（外部 changeset 亦刷新）', async () => {

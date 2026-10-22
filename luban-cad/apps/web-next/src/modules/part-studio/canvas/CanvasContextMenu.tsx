@@ -7,7 +7,7 @@
  * - 空白态：适应视图/顶/前/右/等轴测/显示设置（沿袭旧应用 EditorViewport
  *   空白态菜单；显示设置 → store dock display 页签展开）；
  * - 选中态按 primary.kind 重构（part/face/edge/feature/vertex）——os-12
- *   可落地子集：编辑特征（tools.run featureType）/显示依赖（gated）/隐藏
+ *   可落地子集：编辑特征（M4-T6 起 edit 模式 FeatureDialog 宿主路由）/显示依赖（gated）/隐藏
  *   （store.hiddenIds + viewport 隐藏）/缩放到合适大小/视图垂直于/删除
  *   （HITL 确认）；零件/面附加材料·外观·工程图 gated 项（完整 UI 面：照常
  *   可点 → 能力引导对话框）；
@@ -28,7 +28,7 @@ import {
   zoomToSelection,
 } from '../internal/viewport-actions.js';
 import type { StandardViewKind } from '../internal/viewport-actions.js';
-import { CapabilityDialog, useToolActivation } from '../ribbon/Ribbon.js';
+import { CapabilityDialog } from '../ribbon/Ribbon.js';
 import { usePartStudioStore } from '../stores/part-studio.store.js';
 import type { CanvasSelection } from '../types.js';
 
@@ -167,7 +167,7 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
   const setCanvasSelection = usePartStudioStore((s) => s.setCanvasSelection);
   const setDockTab = usePartStudioStore((s) => s.setDockTab);
   const openDock = usePartStudioStore((s) => s.openDock);
-  const { activate } = useToolActivation();
+  const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState(false);
   // 视口边缘钳制（终审 T5-④）：anchor 落在右/下边缘时菜单被截出视口外——
@@ -229,13 +229,24 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
           });
           return;
         case 'edit-feature': {
-          const featureType = primary?.featureType;
-          if (!featureType) {
+          // M4-T6：画布拾取的特征=既有特征——编辑路由走 edit 模式对话框（树上
+          // 「编辑…」同宿主同 key 寻址），不经 ribbon 的 new 路由（那是创建
+          // 语义，activate('extrude') 已改道 FeatureDialog new/extrude），
+          // 亦不经 tools.run（未接线伪 toolId）。
+          const picked = primary;
+          if (!picked?.featureType) {
             console.warn('[part-studio] 编辑特征缺少 featureType（选择集元数据不全）');
             onClose();
             return;
           }
-          runAndClose(() => void activate(featureType));
+          runAndClose(() => {
+            openFeatureDialog({
+              mode: 'edit',
+              featureId: picked.id,
+              featureName: selectionName(picked),
+              featureType: picked.featureType!,
+            });
+          });
           return;
         }
         case 'hide':
@@ -268,7 +279,7 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
           return;
       }
     },
-    [hideNodes, onClose, openDock, primary, runAndClose, selection, setDockTab, activate],
+    [hideNodes, onClose, openDock, primary, runAndClose, selection, setDockTab, openFeatureDialog],
   );
 
   const name = primary ? selectionName(primary) : '';

@@ -58,7 +58,8 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
-import type { CanvasSelection, FeatureNode } from '../index.js';
+import type { FeatureTreeEntry } from '@luban-cad/shared';
+import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { SketchDialog } from '../dialogs/SketchDialog.js';
@@ -135,9 +136,12 @@ function renderDialog(props: Partial<Parameters<typeof SketchDialog>[0]> = {}): 
   return { onConfirm, onCancel };
 }
 
-const SKETCH_FEATURES: FeatureNode[] = [
-  { id: 'sk1', name: 'Sketch 1', type: 'sketch', hasError: false, isSuppressed: false, isHidden: false },
-  { id: 'ex1', name: 'Extrude 1', type: 'extrude', hasError: false, isSuppressed: false, isHidden: false },
+// M4-T6：FeatureTree 数据源切 entries（useFeatureSystem.tree 同形）；sketch
+// 行经类型回退呈现原始 featureType（诚实呈现，未入 featureTypes 词库的类型
+// 不伪造本地化名）。
+const SKETCH_ENTRIES: FeatureTreeEntry[] = [
+  { id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
+  { id: 'ex1', featureType: 'extrude', orderKey: 2, suppressed: false, status: 0, params: {} },
 ];
 
 beforeEach(() => {
@@ -320,7 +324,7 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
   });
 
   it('树红显活动草图行（data-sketch-active），退出即消', () => {
-    render(<FeatureTree features={SKETCH_FEATURES} />);
+    render(<FeatureTree entries={SKETCH_ENTRIES} />);
     const row = screen.getByTestId('tree-row-sk1');
     expect(row.getAttribute('data-sketch-active')).toBeNull();
     act(() => {
@@ -339,6 +343,7 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     render(<PartStudioCanvas viewportRef={{ current: null }} />);
     act(() => {
       usePartStudioStore.getState().openFeatureDialog({
+        mode: 'edit',
         featureId: 'ex1',
         featureName: 'Extrude 1',
         featureType: 'extrude',

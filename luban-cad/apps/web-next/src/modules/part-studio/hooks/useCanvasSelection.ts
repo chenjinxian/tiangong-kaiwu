@@ -9,6 +9,9 @@
  * - 树 → 画布：`store.tree.selectedNodeIds` 变化 → effect 经
  *   `EmphasizeElements`（core-frontend 内建 FeatureOverrideProvider）高亮
  *   对应元素——树↔画布联动的树侧半流，无 viewport（壳期/测试态）静默跳过。
+ *   M4-T6 收 M3 终审 T5-①：emphasize key 改 JSON.stringify 稳定序列化
+ *  （join('') 拼串碰撞）+ 卸载清空 emphasize（ScreenViewport 生效后的残留
+ *   高亮是可见缺陷）。
  */
 
 import React from 'react';
@@ -36,20 +39,35 @@ export function useCanvasSelection(): CanvasSelectionApi {
   const emphasizedNodeIds = usePartStudioStore((s) => s.tree.selectedNodeIds);
 
   // 树 → 画布单向流：树选中变化 → viewport emphasize（FeatureOverrideProvider）。
-  const emphasizedKey = emphasizedNodeIds.join('');
+  // M4-T6 收 M3 终审 T5-①：key 用 JSON.stringify 稳定序列化（join('') 有拼串
+  // 碰撞——['a','bc'] 与 ['ab','c'] 同 key 不重跑）；卸载清空 emphasize（真实
+  // 视口接线后残留高亮成为可见缺陷）。清理走 EmphasizeElements.get（非
+  // getOrCreate——卸载路径不得反向创建实例）。
+  const emphasizedKey = JSON.stringify(emphasizedNodeIds);
   React.useEffect(() => {
     const viewport = IModelApp.viewManager?.selectedView;
     if (!viewport) return;
-    try {
+    const apply = (): void => {
       const emphasize = EmphasizeElements.getOrCreate(viewport);
       emphasize.clearEmphasizedElements(viewport);
       if (emphasizedNodeIds.length > 0) {
         emphasize.emphasizeElements([...emphasizedNodeIds], viewport, undefined, true);
       }
+    };
+    try {
+      apply();
     } catch (err) {
       console.warn('[part-studio] 树选中 emphasize 应用失败（无真实视口？）', err);
     }
-    // emphasizedKey 是 emphasizedNodeIds 的拼接代理（避免数组引用抖动重跑）。
+    return () => {
+      try {
+        EmphasizeElements.get(viewport)?.clearEmphasizedElements(viewport);
+      } catch {
+        // 连接/视口已释放（卸载竞态）——清理失败无需可见面。
+      }
+    };
+    // emphasizedKey 是 emphasizedNodeIds 的稳定序列化代理（避免数组引用抖动重跑）；
+    // 集合内容经 key 参与依赖，本体故意不入依赖（引用抖动豁免，原实现同口径）。
   }, [emphasizedKey]);
 
   const select = React.useCallback(

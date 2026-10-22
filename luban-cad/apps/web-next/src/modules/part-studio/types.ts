@@ -5,6 +5,8 @@
  * part-studio 模块契约类型（M3 Task 2）。
  */
 
+import type { LubanFeatureType } from '@luban-cad/shared';
+
 /** 画布拾取类型（spec §5 上下文敏感模型：右键菜单按 kind 重构）。 */
 export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature';
 
@@ -102,12 +104,17 @@ export interface PartStudioCanvasState {
 
 /**
  * dialog 切片——画布内联非模态对话框的宿主寻址（T6：FeatureDialog/SketchDialog
- * 由 PartStudioCanvas 按 active 渲染）。feature=特征编辑（树上「编辑…」/后续
- * 路由）；sketch=新建草图（ribbon newSketch 激活路由）。
+ * 由 PartStudioCanvas 按 active 渲染）。feature 段双模式（M4-T6 拉伸闭环）：
+ * - mode 'new'：ribbon「拉伸」创建路由（featureType 即提交 op 的特征类型）；
+ * - mode 'edit'：树上「编辑…」路由（featureId 为宿主 FeatureDialog 的
+ *   重挂 key——M3-T6 台账①根治本地态跨特征残留；featureName/featureType
+ *   供标题与后续 updateParams 路由）。
+ * sketch=新建草图（ribbon newSketch 激活路由）。
  */
 export type PartStudioDialogState =
   | { active: null }
-  | { active: 'feature'; featureId: string; featureName: string; featureType: string }
+  | { active: 'feature'; mode: 'new'; featureType: LubanFeatureType }
+  | { active: 'feature'; mode: 'edit'; featureId: string; featureName: string; featureType: string }
   | { active: 'sketch'; sketchId: string | null };
 
 /**

@@ -255,14 +255,25 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
     expect(document.activeElement).toBe(arrow);
   });
 
-  it('full 工具点击投 IModelApp.tools.run 并写 store；gated 工具开能力引导对话框', async () => {
+  it('full 工具点击投 IModelApp.tools.run 并写 store；拉伸改道特征对话框（M4-T6）；gated 工具开能力引导对话框', async () => {
     const user = userEvent.setup();
     renderPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
-    // full：拉伸（extrude 在册 full）。
+    // 拉伸特例路由（M4-T6）：开 FeatureDialog（new/extrude），不投 tools.run。
     await user.click(within(ribbon).getByRole('button', { name: '拉伸' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('extrude');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('extrude');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'extrude',
+    });
+    await user.click(
+      within(within(document.body).getByTestId('part-studio-feature-dialog')).getByRole('button', { name: '取消' }),
+    );
+    // full：旋转（revolve 在册 full）→ tools.run + 激活态。
+    await user.click(within(ribbon).getByRole('button', { name: '旋转' }));
+    expect(mocks.toolsRun).toHaveBeenCalledWith('revolve');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBe('revolve');
     // gated：拔模 → 能力引导对话框（不投 tools.run）。
     mocks.toolsRun.mockClear();
     await user.click(within(ribbon).getByRole('button', { name: '拔模' }));
@@ -354,7 +365,7 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     renderPage();
     act(() => {
       usePartStudioStore.getState().openFeatureDialog({
-        featureId: 'f1', featureName: '拉伸 1', featureType: 'extrude',
+        mode: 'edit', featureId: 'f1', featureName: '拉伸 1', featureType: 'extrude',
       });
     });
     const dialog = await screen.findByTestId('part-studio-feature-dialog');

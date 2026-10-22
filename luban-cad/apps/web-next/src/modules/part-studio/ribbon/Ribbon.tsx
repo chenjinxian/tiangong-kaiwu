@@ -12,7 +12,8 @@
  * full → IModelApp.tools.run（id 校准见 ribbon-registry 文件头）+
  * 写 store tool.activeToolId（主钮激活态）。T6 特例：newSketch 开 SketchDialog
  * （os-30 创建草图流程：平面选择+四开关，确认后进草图模式），真实 sketch
- * 工具接线前不经 tools.run。CapabilityDialog：gated 引导
+ * 工具接线前不经 tools.run。M4-T6 特例：extrude 开 FeatureDialog（new/extrude，
+ * 拉伸闭环入口）。CapabilityDialog：gated 引导
  * 面（CAPABILITY_GUIDANCE 文案；documents 模块的 CapabilityDialog 绑定
  * GatedCreateAction + documents 命名空间，不可复用，故 part-studio 自建）。
  *
@@ -54,17 +55,27 @@ export interface ToolActivation {
  * 否则写 store 激活态并投 IModelApp.tools.run。未接线命令（id 非真实
  * toolId）由 tools.run 返回 false/抛错打警告——后续里程碑接线。
  * T6：newSketch 例外路由——开 SketchDialog（os-30），不经 tools.run。
+ * M4-T6：extrude 例外路由——开 FeatureDialog（new/extrude，拉伸闭环入口：
+ * 提交走 useFeatureSystem.applyOp 的 insertFeature，非 PrimitiveTool），
+ * 同 newSketch 姿态；真实特征工具化（画布拾取预览）时再裁。
  */
 export function useToolActivation(): ToolActivation {
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
   const setActiveTool = usePartStudioStore((s) => s.setActiveTool);
   const openSketchDialog = usePartStudioStore((s) => s.openSketchDialog);
+  const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
 
   const activate = React.useCallback(async (id: string) => {
     if (id === 'newSketch') {
       // os-30：草图命令开 SketchDialog（平面选择+四开关，确认进草图模式）；
       // 真实 sketch 工具接线前不经 tools.run（接线时移除本特例）。
       openSketchDialog();
+      return;
+    }
+    if (id === 'extrude') {
+      // M4-T6 拉伸闭环入口：new/extrude 对话框（宿主 PartStudioCanvas 按
+      // dialog 寻址渲染 + 提交接 applyOp），不经 tools.run。
+      openFeatureDialog({ mode: 'new', featureType: 'extrude' });
       return;
     }
     const command = findRibbonCommand(id);
@@ -82,7 +93,7 @@ export function useToolActivation(): ToolActivation {
     } catch (err) {
       console.error(`[part-studio] 命令 ${id} 激活失败:`, err);
     }
-  }, [setActiveTool, openSketchDialog]);
+  }, [setActiveTool, openSketchDialog, openFeatureDialog]);
 
   const closeGatedDialog = React.useCallback(() => setGatedCapability(null), []);
 

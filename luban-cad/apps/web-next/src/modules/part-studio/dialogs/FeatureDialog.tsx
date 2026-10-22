@@ -2,7 +2,8 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * FeatureDialog（M3 Task 6）：特征编辑非模态内联面板（对齐 os-31）——
+ * FeatureDialog（M3 Task 6；M4 Task 6 提交接线）：特征编辑非模态内联面板
+ * （对齐 os-31）——
  * - 非模态：role=dialog + aria-modal=false + 无 backdrop 遮罩，画布区左上角
  *   内联定位（PartStudioCanvas 宿主）；对话框打开期间画布可持续拾取、
  *   视图可旋转缩放（os-31 采集对齐）；
@@ -12,18 +13,29 @@
  * - 芯片式实体选择框：初始实体（props 注入）渲染 chips + ×移除；快速拾取
  *   经 useCanvasSelection 把 store.canvas.selection 回流成 chips（按 id
  *   去重）——T5 选择驱动 hooks 的 T6 消费面（progress.md T5↔T6 一致）；
- * - 折叠段：方向（默认展开，正向/反向下拉）/起始偏移/对称（勾选）/拔模，
- *   aria-expanded 开合语义；
+ * - 距离 + 折叠段：距离（M4-T6 新增——insertFeature extrude 的唯一可编辑
+ *   量，默认 10）/方向（默认展开，正向/反向下拉）/起始偏移/对称（勾选）/
+ *   拔模，aria-expanded 开合语义；
  * - 底部：回滚滑杆（range，默认=上限；🟠 诚实降级——后端 OpLog 仅线性链，
  *   UI 先行）+ 成品按钮（=✓ 确认出口）+ ? 帮助（展开文案）。
  *
- * 纯展示 + 本地态：不写 store（会话态外置是宿主职责）；确认回传全量
- * FeatureDialogResult 给宿主（RPC 变异层接线口，壳期 console.warn）。
+ * 提交接线（M4-T6 拉伸闭环）：mode='new' 且 applyOp 在场时，✓/成品 →
+ * `applyOp({ kind: 'insertFeature', featureType, params: { profile: [],
+ * distance } })`（shared opDsl 语义「空 profile=拉伸基体」）；成功 → toast
+ *（IModelApp.notifications 标准通道，与保存错误面同管道）+ onConfirm（宿主
+ * closeDialog——组件不自销，受控口径）；失败 → 就地 Alert（六态 error），
+ * 对话框不关闭；提交中禁重入（两出口禁用）。非法距离校验先行（不发起 op）。
+ * applyOp 未接线（壳期）或 mode='edit'（updateParams 归特征对话框增强
+ * backlog）时确认回退纯 onConfirm（M3 语义保持）。方向/对称/拔模随载荷回传
+ * 但本版不进 op（shared ExtrudeParams 仅 profile/distance/sketchId——映射
+ * 归特征对话框增强单裁，见 useFeatureSystem 头注延后项）。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
+import type { FeatureOp, FeatureOpResult, LubanFeatureType } from '@luban-cad/shared';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import './FeatureDialog.css';
 
@@ -55,13 +67,23 @@ export interface FeatureDialogResult {
 }
 
 export interface FeatureDialogProps {
-  /** 特征名（标题=对话框可访问名，os-31「Extrude 1」）。 */
+  /** 特征名（标题=对话框可访问名，os-31「Extrude 1」；new 模式=类型标签）。 */
   featureName: string;
+  /**
+   * 提交模式（M4-T6）：'new'=创建（applyOp 在场即走 insertFeature 直提交）；
+   * 'edit'=既有特征（本版不提交，updateParams 归特征对话框增强 backlog）。
+   * 缺省 'edit'（纯展示壳期语义）。
+   */
+  mode?: 'new' | 'edit';
+  /** 特征类型（mode='new' 时 insertFeature 的 featureType）。 */
+  featureType?: LubanFeatureType;
+  /** op 提交面（Session useFeatureSystem.applyOp 直通；缺省=纯回调壳期语义）。 */
+  applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   /** 初始实体 chips（RPC 接线前由宿主注入；缺省空集）。 */
   entities?: readonly FeatureDialogEntity[];
   /** 回滚滑杆上限（默认 100；后端 OpLog 线性链接线后由宿主注入特征数）。 */
   rollbackMax?: number;
-  /** ✓/成品 确认出口（回传全量载荷）。 */
+  /** ✓/成品 确认出口（回传全量载荷；提交成功后由宿主 closeDialog）。 */
   onConfirm?: (result: FeatureDialogResult) => void;
   /** ✗ 取消出口。 */
   onCancel?: () => void;
@@ -88,10 +110,15 @@ const SECTIONS: readonly CollapsibleSection[] = [
 
 /**
  * 特征编辑对话框（非模态内联面板）。宿主经 onConfirm/onCancel 收合——
- * 组件不自销（受控口径，与 CapabilityDialog 一致）。
+ * 组件不自销（受控口径，与 CapabilityDialog 一致）；宿主挂
+ * `key={mode==='edit' ? featureId : 'new-'+featureType}`（M3-T6 台账①：
+ * 本地态跨特征复用残留的根治）。
  */
 export function FeatureDialog({
   featureName,
+  mode = 'edit',
+  featureType,
+  applyOp,
   entities,
   rollbackMax = 100,
   onConfirm,
@@ -103,6 +130,7 @@ export function FeatureDialog({
   const [resultType, setResultType] = React.useState<FeatureResultType>('solid');
   const [booleanScope, setBooleanScope] = React.useState<FeatureBooleanScope>('new');
   const [chips, setChips] = React.useState<FeatureDialogEntity[]>([...(entities ?? [])]);
+  const [distance, setDistance] = React.useState('10');
   const [direction, setDirection] = React.useState<FeatureDirection>('forward');
   const [startOffset, setStartOffset] = React.useState('');
   const [symmetric, setSymmetric] = React.useState(false);
@@ -115,6 +143,14 @@ export function FeatureDialog({
       boolean
     >,
   );
+  // 提交态（M4-T6）：提交中禁重入；错误就地 Alert（六态 error，对话框不关）。
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | undefined>(undefined);
+  // 卸载守卫：pending 期间宿主关闭（✗）后的迟到回包不得再 setState。
+  const aliveRef = React.useRef(true);
+  React.useEffect(() => () => {
+    aliveRef.current = false;
+  }, []);
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -143,9 +179,53 @@ export function FeatureDialog({
     rollback,
   }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, rollback]);
 
+  /**
+   * 确认出口：new + applyOp 在场 → insertFeature 直提交（拉伸闭环）；否则
+   * 纯 onConfirm 回传（壳期/edit 模式语义）。成功 → toast + onConfirm（宿主
+   * closeDialog）；失败/校验不过 → 就地 Alert，对话框不关闭。
+   */
   const handleConfirm = React.useCallback(() => {
-    onConfirm?.(buildResult());
-  }, [onConfirm, buildResult]);
+    if (submitting) return; // 禁重入
+    if (!(mode === 'new' && applyOp && featureType)) {
+      onConfirm?.(buildResult());
+      return;
+    }
+    const parsed = Number(distance);
+    if (distance.trim() === '' || !Number.isFinite(parsed) || parsed <= 0) {
+      setError(t('partStudio.featureDialog.distanceInvalid'));
+      return;
+    }
+    setError(undefined);
+    setSubmitting(true);
+    void (async () => {
+      let result: FeatureOpResult;
+      try {
+        result = await applyOp({
+          kind: 'insertFeature',
+          featureType,
+          // 空 profile = 拉伸基体（shared opDsl 语义；拾取寻址归特征对话框增强 backlog）。
+          params: { profile: [], distance: parsed },
+        });
+      } catch (err) {
+        // rpc-over-ipc 异常（连接断开等）——与拒收同面呈现，不静默。
+        result = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+      if (!aliveRef.current) return;
+      setSubmitting(false);
+      if (result.ok) {
+        // 成功 toast（notifications 标准通道）+ onConfirm（宿主 closeDialog）。
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(
+            OutputMessagePriority.Success,
+            t('partStudio.featureDialog.submitSuccess', { name: featureName }),
+          ),
+        );
+        onConfirm?.(buildResult());
+      } else {
+        setError(result.error);
+      }
+    })();
+  }, [submitting, mode, applyOp, featureType, distance, t, onConfirm, buildResult, featureName]);
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -156,6 +236,7 @@ export function FeatureDialog({
       role="dialog"
       aria-modal="false"
       aria-label={featureName}
+      aria-busy={submitting || undefined}
       className="part-studio-feature-dialog"
       data-testid="part-studio-feature-dialog"
     >
@@ -167,6 +248,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
+            disabled={submitting}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -229,6 +311,30 @@ export function FeatureDialog({
       </div>
 
       <div className="part-studio-feature-dialog__body">
+        {/* 提交错误就地 Alert（六态 error；失败不关闭可改参重试）。 */}
+        {error && (
+          <p role="alert" className="part-studio-feature-dialog__alert" data-testid="part-studio-feature-dialog-error">
+            {error}
+          </p>
+        )}
+
+        {/* 距离（M4-T6：insertFeature extrude 的唯一可编辑量；常驻不折叠）。 */}
+        <section className="part-studio-feature-dialog__distance">
+          <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
+            {t('partStudio.featureDialog.distanceLabel')}
+          </label>
+          <input
+            id="part-studio-feature-dialog-distance"
+            type="text"
+            inputMode="decimal"
+            aria-label={t('partStudio.featureDialog.distanceLabel')}
+            className="part-studio-feature-dialog__input"
+            value={distance}
+            disabled={submitting}
+            onChange={(event) => setDistance(event.target.value)}
+          />
+        </section>
+
         {/* 芯片式实体选择框（os-31）+ 快速拾取。 */}
         <section className="part-studio-feature-dialog__entities">
           <div className="part-studio-feature-dialog__entities-header">
@@ -350,6 +456,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
+            disabled={submitting}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

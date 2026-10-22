@@ -19,12 +19,13 @@
 
 import type { JSX } from 'react';
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   toolsRun: vi.fn(),
+  outputMessage: vi.fn(),
   /** 测试可改写：null=无 viewport（emphasize 效果静默跳过）。 */
   viewport: null as unknown,
 }));
@@ -33,10 +34,22 @@ vi.mock('@itwin/core-frontend', () => ({
   // Tool 基类桩：part-studio barrel → PartStudioPage → viewer-next 装饰件
   // （ToggleProjectExtentsTool extends Tool）模块加载期即需 Tool 存在。
   Tool: class {},
+  // M4-T6：成功 toast 构造 NotifyMessageDetails——钉形替身（briefMessage 可观测）。
+  NotifyMessageDetails: class {
+    priority: number;
+    briefMessage: string;
+    constructor(priority: number, briefMessage: string) {
+      this.priority = priority;
+      this.briefMessage = briefMessage;
+    }
+  },
+  OutputMessagePriority: { None: 0, Success: 1, Error: 10, Warning: 11, Info: 12 },
   IModelApp: {
     tools: {
       run: mocks.toolsRun,
     },
+    // M4-T6：提交成功 toast 走 notifications 通道（与保存错误面同款标准管道）。
+    notifications: { outputMessage: mocks.outputMessage },
     viewManager: {
       get selectedView() {
         return mocks.viewport;
@@ -54,6 +67,7 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
+import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
@@ -291,3 +305,150 @@ const _typeCheck: JSX.Element = (
   />
 );
 void _typeCheck;
+
+// ---------------------------------------------------------------------------
+// M4 Task 6：提交接线（拉伸闭环提交面）——new 模式 ✓/成品 → applyOp 形状钉死
+//（insertFeature/extrude/{profile:[],distance}，shared opDsl「空 profile=拉伸
+// 基体」语义）；成功 toast+onConfirm（宿主收合）；失败就地 Alert 六态 error
+// + 不关闭；提交中禁重入；applyOp 未接线回退纯回调（M3 壳期语义保持）；
+// edit 模式本版不提交（updateParams 归特征对话框增强 backlog）。
+// ---------------------------------------------------------------------------
+describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
+  /** 可编程 applyOp 替身（默认成功）。 */
+  function makeApplyOp(impl?: (op: FeatureOp) => FeatureOpResult) {
+    return vi.fn(async (op: FeatureOp): Promise<FeatureOpResult> =>
+      impl ? impl(op) : { ok: true, featureId: 'f-new' },
+    );
+  }
+
+  function renderSubmitDialog(applyOp: ReturnType<typeof makeApplyOp>, props: Partial<Parameters<typeof FeatureDialog>[0]> = {}) {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+        {...props}
+      />,
+    );
+    return { onConfirm, onCancel, applyOp };
+  }
+
+  beforeEach(() => {
+    mocks.outputMessage.mockClear();
+  });
+
+  it('✓确认 → applyOp 形状钉死（insertFeature/extrude/{profile:[],distance}）；成功 → onConfirm（宿主关闭）', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    const { onConfirm } = renderSubmitDialog(applyOp);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10 },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('距离输入进 op params（空 profile=拉伸基体，距离为唯一可编辑量）', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    renderSubmitDialog(applyOp);
+    const distance = screen.getByRole('textbox', { name: '距离' });
+    expect((distance as HTMLInputElement).value).toBe('10');
+    await user.clear(distance);
+    await user.type(distance, '42.5');
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 42.5 },
+    });
+  });
+
+  it('成功 → toast（notifications 通道，与保存错误面同款标准管道）', async () => {
+    const user = userEvent.setup();
+    renderSubmitDialog(makeApplyOp());
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
+    const details = mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string };
+    expect(details.briefMessage).toContain('拉伸');
+  });
+
+  it('失败 → 就地 Alert（六态 error），不调 onConfirm（对话框不关闭）', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp(() => ({ ok: false, error: '写租约被 other-page 持有' }));
+    const { onConfirm } = renderSubmitDialog(applyOp);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('写租约被 other-page 持有');
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('提交中禁重入：✓/成品 禁用，pending 期间再点不二次 applyOp', async () => {
+    const user = userEvent.setup();
+    let release!: (r: FeatureOpResult) => void;
+    const applyOp = vi.fn(
+      (_op: FeatureOp): Promise<FeatureOpResult> =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const { onConfirm } = renderSubmitDialog(applyOp as unknown as ReturnType<typeof makeApplyOp>);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    // pending：两出口均禁用，再点不重入（userEvent 对 disabled 钮不派发 click）。
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    release({ ok: true, featureId: 'f-new' });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('非法距离 → 校验 Alert 就地，不发起 applyOp', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    renderSubmitDialog(applyOp);
+    const distance = screen.getByRole('textbox', { name: '距离' });
+    await user.clear(distance);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('距离');
+  });
+
+  it('applyOp 未接线（壳期）→ 确认回退纯 onConfirm（M3 语义保持）', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(<FeatureDialog featureName="拉伸" mode="new" featureType="extrude" onConfirm={onConfirm} />);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('edit 模式：确认不发起 insertFeature（updateParams 接线归特征对话框增强 backlog），回退纯回调', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    const onConfirm = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="拉伸 1"
+        mode="edit"
+        featureType="extrude"
+        applyOp={applyOp}
+        onConfirm={onConfirm}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});

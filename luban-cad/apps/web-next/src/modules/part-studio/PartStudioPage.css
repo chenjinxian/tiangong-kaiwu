@@ -146,6 +146,66 @@
   font-size: var(--iui-font-size-0);
 }
 
+/* M4-T6 六态完备：loading 骨架（双条呼吸）+ error 就地错误条（重试钮）。 */
+.part-studio-tree__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-3xs, 2px);
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+}
+
+.part-studio-tree__loading-bar {
+  block-size: var(--iui-size-s, 12px);
+  inline-size: 70%;
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-hover);
+  animation: part-studio-tree-skeleton 1.2s ease-in-out infinite;
+}
+
+.part-studio-tree__loading-bar--short {
+  inline-size: 45%;
+}
+
+@keyframes part-studio-tree-skeleton {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.part-studio-tree__error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  margin: 0 var(--iui-size-2xs) var(--iui-size-2xs);
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-negative, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-negative, var(--iui-color-background-hover));
+  color: var(--iui-color-text-negative, var(--iui-color-text));
+  font-size: var(--iui-font-size-0);
+  overflow-wrap: anywhere;
+}
+
+.part-studio-tree__retry {
+  align-self: flex-start;
+  padding: 1px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-tree__retry:hover {
+  background: var(--iui-color-background-hover);
+}
+
 /* ── 画布 ─────────────────────────────────────────────────────────── */
 .part-studio-canvas {
   flex: 1;

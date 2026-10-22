@@ -30,7 +30,7 @@
       "features": "Features",
       "parts": "Parts",
       "emptyFeatures": "No features yet",
-      "defaultPart": "Part 1"
+      "emptyParts": "No parts yet"
     }
   },
   "dock": {
@@ -250,6 +250,9 @@
     "entitiesLabel": "Faces and sketch regions",
     "fastPick": "Quick pick",
     "removeEntity": "Remove {{label}}",
+    "distanceLabel": "Distance",
+    "distanceInvalid": "Enter a valid extrude distance (greater than 0)",
+    "submitSuccess": "{{name}} created",
     "sections": {
       "direction": "Direction",
       "startOffset": "Start offset",
@@ -333,7 +336,18 @@
     "deleteTitle": "Delete {{name}}",
     "deleteMessage": "{{name}} will be deleted from the model. This cannot be undone once committed.",
     "cancel": "Cancel",
-    "confirmDelete": "Delete"
+    "confirmDelete": "Delete",
+    "loadFailed": "Failed to load: {{message}}",
+    "retry": "Retry",
+    "unnamedElement": "Unnamed element {{id}}",
+    "featureTypes": {
+      "extrude": "Extrude",
+      "booleanAdd": "Union",
+      "booleanSubtract": "Subtract",
+      "fillet": "Fillet",
+      "chamfer": "Chamfer",
+      "shell": "Shell"
+    }
   },
   "featureSystem": {
     "notConnected": "iModel not connected",
