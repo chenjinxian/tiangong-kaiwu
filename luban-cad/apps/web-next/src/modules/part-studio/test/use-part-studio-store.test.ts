@@ -1,4 +1,4 @@
-// src/modules/part-studio/test/part-studio.store.test.ts
+// src/modules/part-studio/test/use-part-studio-store.test.ts
 //
 // M3 Task 2（brief Step 1）：part-studio 编辑器会话态 store——
 //  1) 初始态：五分切片（tree/dock/tool/sketch/commandPalette）缺省值
@@ -19,7 +19,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { PartStudioState } from '../types.js';
 
 /** 初始会话态快照（实现漂移时「初始态」用例即红，防静默改缺省）。 */

@@ -23,7 +23,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FeatureTreeEntry } from '@luban-cad/shared';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { FeatureNode, PartNode } from '../types.js';
 import type { TreeFilterQuery } from '../tree/TreeFilter.js';
 import { matchFeature, matchPart } from '../tree/TreeFilter.js';

@@ -15,7 +15,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { SvgCloseSmall } from '@itwin/itwinui-icons-react';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { allRibbonCommands } from './ribbon-registry.js';
 import type { RibbonCommand } from './ribbon-registry.js';
 import { CapabilityDialog, useToolActivation } from './Ribbon.js';

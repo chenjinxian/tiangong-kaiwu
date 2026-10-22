@@ -21,7 +21,7 @@ import { Badge, Button, ProgressRadial, Text } from '@itwin/itwinui-react';
 import { SvgSave, SvgUploadToCloud } from '@itwin/itwinui-icons-react';
 import type { Changeset } from '@clients/imodels/ImodelsClient.js';
 import { useChangesets } from '../hooks/useChangesets.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { DockTab } from '../types.js';
 import './PartStudioDock.css';
 

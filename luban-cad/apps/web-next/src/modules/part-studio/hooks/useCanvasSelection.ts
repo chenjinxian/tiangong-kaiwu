@@ -16,7 +16,7 @@
 
 import React from 'react';
 import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { CanvasSelection } from '../types.js';
 
 /** useCanvasSelection 出口。 */

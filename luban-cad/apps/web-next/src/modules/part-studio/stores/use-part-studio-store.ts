@@ -2,7 +2,12 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * part-studio 编辑器会话态 store（M3 Task 2）。
+ * part-studio 编辑器会话态 store（M3 Task 2；M4 Task 8 命名口径拍板）。
+ *
+ * 文件命名（M3 终审 §四 观察项的拍板落地）：hook 主导出文件=camelCase
+ * `use-*`（本文件主导出即 usePartStudioStore hook，与 viewer-next
+ * `use-viewport.ts` 同规）；测试文件同被测物改名（use-part-studio-store
+ * .test.ts，「测试=被测物.test.*」口径不变）。
  *
  * spec §3 五分法：编辑器会话态唯一归属 zustand；store 铁律「一 store 一
  * 职责」——本文件按职责拆五个切片（tree/dock/tool/sketch/commandPalette），

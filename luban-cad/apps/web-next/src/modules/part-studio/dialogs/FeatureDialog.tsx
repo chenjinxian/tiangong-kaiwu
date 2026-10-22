@@ -42,7 +42,7 @@ import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/c
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type { FeatureOp, FeatureOpResult, LubanFeatureType } from '@luban-cad/shared';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import './FeatureDialog.css';
 
 /** 结果类型页签（os-31：实体|曲面|薄壁）。 */

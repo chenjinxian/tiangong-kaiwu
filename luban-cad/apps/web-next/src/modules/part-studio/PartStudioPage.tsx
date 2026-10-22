@@ -90,7 +90,7 @@ import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 import { useFeatureSystem } from './hooks/useFeatureSystem.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
-import { usePartStudioStore } from './stores/part-studio.store.js';
+import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import './PartStudioPage.css';
 
 export function PartStudioPage(): React.JSX.Element {

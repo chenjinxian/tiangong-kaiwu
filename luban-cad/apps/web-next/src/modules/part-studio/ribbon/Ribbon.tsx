@@ -29,7 +29,7 @@ import { IconButton } from '@itwin/itwinui-react';
 import { SvgSearch } from '@itwin/itwinui-icons-react';
 import { IModelApp } from '@itwin/core-frontend';
 import { CAPABILITY_GUIDANCE, isGated } from '../internal/capabilities.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import {
   RIBBON_GROUP_ORDER,
   RIBBON_TOOLS,

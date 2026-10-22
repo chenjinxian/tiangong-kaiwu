@@ -13,8 +13,8 @@
  * 草图工具注册表（草图模式 ribbon 变身数据源）。
  */
 
-export { usePartStudioStore } from './stores/part-studio.store.js';
-export type { PartStudioActions, PartStudioStore } from './stores/part-studio.store.js';
+export { usePartStudioStore } from './stores/use-part-studio-store.js';
+export type { PartStudioActions, PartStudioStore } from './stores/use-part-studio-store.js';
 export {
   CAPABILITY_GUIDANCE,
   TOOL_CAPABILITIES,

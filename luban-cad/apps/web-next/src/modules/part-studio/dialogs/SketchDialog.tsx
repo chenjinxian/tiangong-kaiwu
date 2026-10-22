@@ -20,7 +20,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { SvgCheckmark, SvgClock, SvgClose } from '@itwin/itwinui-icons-react';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import './SketchDialog.css';
 
 /** 平面选项（下拉项寻址单位）。 */

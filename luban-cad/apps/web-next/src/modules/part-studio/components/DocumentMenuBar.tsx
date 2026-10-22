@@ -37,7 +37,7 @@ import { SvgMenu } from '@itwin/itwinui-icons-react';
 import { RenameDocumentDialog } from '@modules/documents';
 import { isGated } from '../internal/capabilities.js';
 import { CapabilityDialog } from '../ribbon/Ribbon.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import './DocumentMenuBar.css';
 
 export interface DocumentMenuBarProps {

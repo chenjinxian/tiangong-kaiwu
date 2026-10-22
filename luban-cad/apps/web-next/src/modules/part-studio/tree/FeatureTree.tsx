@@ -31,7 +31,7 @@ import type { FeatureTreeEntry } from '@luban-cad/shared';
 import { SvgChevronDown, SvgChevronRight } from '@itwin/itwinui-icons-react';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { useFeatureTree } from '../hooks/useFeatureTree.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { FeatureNode, PartNode, TreeTab } from '../types.js';
 import { TreeFilter, parseTreeFilter } from './TreeFilter.js';
 import type { TreeNode } from './TreeRow.js';

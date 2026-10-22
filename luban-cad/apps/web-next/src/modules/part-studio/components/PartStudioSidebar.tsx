@@ -29,7 +29,7 @@ import {
 } from '@itwin/itwinui-icons-react';
 import { FeatureTree } from '../tree/FeatureTree.js';
 import type { TreeNode } from '../tree/TreeRow.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface PartStudioSidebarProps {
   /** 特征段原始条目（Session useFeatureSystem.tree 直通；缺省空集）。 */

@@ -33,7 +33,7 @@ import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import { SketchDialog } from '../dialogs/SketchDialog.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface PartStudioCanvasProps {
   /** viewport 宿主 div ref（viewer-next useViewport 出口）。 */

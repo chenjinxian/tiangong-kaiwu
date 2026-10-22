@@ -29,7 +29,7 @@ import {
 } from '../internal/viewport-actions.js';
 import type { StandardViewKind } from '../internal/viewport-actions.js';
 import { CapabilityDialog } from '../ribbon/Ribbon.js';
-import { usePartStudioStore } from '../stores/part-studio.store.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { CanvasSelection } from '../types.js';
 
 /** 画布菜单动作（组件层路由到 viewport/store/HITL/能力引导）。 */
