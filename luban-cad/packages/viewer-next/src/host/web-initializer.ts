@@ -5,6 +5,11 @@
  * 移植自 `packages/web-viewer/src/WebInitializer.ts` 的 `initializeWeb()`（2026-10-21）：
  * 导出更名 `startViewer`/`stopViewer`，`hubUrl` 必填并用于 IModelsClient baseUrl；
  * AccuSnap 轮询补启提取至 `../tools/ensure-accusnap.ts`（语义不变）。
+ *
+ * web-next M4 Task 1（2026-10-22）：stopViewer 收归私有 `shutdownViewer`，新增
+ * `acquireViewer`/`releaseViewer` 模块级引用计数——多消费方（多页签/多视口）共享
+ * 同一 host 生命周期，计数 1→0 才真正 shutdown（M3 终审 T3-③「卸载无条件 stopViewer」
+ * 收口：先卸载方不再杀掉后挂载方的 host）；acquire 复用 startViewer 幂等体。
  */
 
 import { IModelApp, IpcApp, LocalhostIpcApp } from '@itwin/core-frontend';
@@ -150,9 +155,48 @@ export async function startViewer(options: StartViewerOptions): Promise<void> {
 }
 
 /**
- * Stop the iTwin.js viewer.
+ * 引用计数（模块级）：当前持有 viewer host 的消费方数量。
+ * 1→0 时执行 host shutdown；0 时的 release 是安全 no-op。
  */
-export async function stopViewer(): Promise<void> {
+let viewerRefCount = 0;
+
+/**
+ * Acquire the viewer host（引用计数 +1）并确保运行时已初始化。
+ *
+ * 内部复用 {@link startViewer} 幂等体：host 已就绪时只重配 RPC，不重复 startup。
+ * acquire 失败时回滚计数（失败方不持有 host），异常原样上抛。
+ */
+export async function acquireViewer(options: StartViewerOptions): Promise<void> {
+  viewerRefCount++;
+  try {
+    await startViewer(options);
+  } catch (err) {
+    viewerRefCount--;
+    throw err;
+  }
+}
+
+/**
+ * Release the viewer host（引用计数 -1）。
+ *
+ * 计数 1→0 才执行 host shutdown（IModelApp.shutdown）；仍有其它消费方时仅减计数。
+ * 计数已为 0 时安全 no-op（防重放卸载）。
+ */
+export async function releaseViewer(): Promise<void> {
+  if (viewerRefCount === 0) {
+    // eslint-disable-next-line no-console
+    console.warn('[WebInitializer] releaseViewer called without a matching acquireViewer — ignored');
+    return;
+  }
+  viewerRefCount--;
+  if (viewerRefCount > 0) return;
+  await shutdownViewer();
+}
+
+/**
+ * Shut down the iTwin.js viewer（原 stopViewer，私有——只经 releaseViewer 计数归零触发）。
+ */
+async function shutdownViewer(): Promise<void> {
   if (IModelApp.initialized) {
     try {
       await IModelApp.shutdown();

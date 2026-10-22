@@ -2,22 +2,24 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * useViewport（web-next M3 Task 3）：React 侧 viewport 宿主 hook——
+ * useViewport（web-next M3 Task 3；M4 Task 1 换引用计数接线）：React 侧 viewport 宿主 hook——
  * - 返回 `viewportRef`（div ref）：ScreenViewport 的挂载点；本 hook 只接线
- *   运行时（startViewer/stopViewer）并暴露相位，viewport 创建/连接/Tiling
- *   全链在 T5/T6 接管（届时在此 ref 上 create viewport，hook 出口相应扩
+ *   运行时（acquireViewer/releaseViewer）并暴露相位，viewport 创建/连接/Tiling
+ *   全链在 M4 Task 2 接管（届时在此 ref 上 create viewport，hook 出口相应扩
  *   viewport 实例/选择回调等）；
  * - 相位出口：`idle → starting → ready | error`——`ready` 表示
  *   LocalhostIpcApp.startup 已完成（IpcApp.isValid，RPC 客户端已配），
  *   供宿主页状态栏等做连接态呈现；
- * - 生命周期：挂载即 startViewer（幂等——StrictMode 双挂载/多页签切换均
- *   安全），卸载 stopViewer。backendUrl 同源姿态由消费方决定（web-next
+ * - 生命周期：挂载即 acquireViewer（幂等 startViewer + 模块级引用计数——
+ *   StrictMode 双挂载/多页签切换均安全），卸载 releaseViewer（计数 1→0 才
+ *   真正 shutdown——M3 终审 T3-③「卸载无条件 stopViewer」收口：先卸载方
+ *   不再杀掉后挂载方的 host）。backendUrl 同源姿态由消费方决定（web-next
  *   经 vite 代理直连 modeling-server 会被 CORS 拦，传 window.location.origin，
  *   见 apps/web-next vite.config.ts 注记）。
  */
 
 import { type RefObject, useEffect, useRef, useState } from 'react';
-import { startViewer, stopViewer } from '../host/web-initializer.js';
+import { acquireViewer, releaseViewer } from '../host/web-initializer.js';
 
 /** 运行时相位：idle（未起）→ starting → ready（IPC 就绪）| error。 */
 export type ViewportPhase = 'idle' | 'starting' | 'ready' | 'error';
@@ -49,7 +51,7 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
   useEffect(() => {
     let mounted = true;
     setPhase('starting');
-    startViewer({ backendUrl, hubUrl, accessToken })
+    acquireViewer({ backendUrl, hubUrl, accessToken })
       .then(() => {
         if (mounted) setPhase('ready');
       })
@@ -60,7 +62,7 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
       });
     return () => {
       mounted = false;
-      void stopViewer();
+      void releaseViewer();
     };
   }, [backendUrl, hubUrl, accessToken]);
 
