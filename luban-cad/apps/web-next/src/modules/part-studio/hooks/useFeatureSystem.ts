@@ -26,6 +26,8 @@
  * previewOp / resolveEdgeRef / resolveFaceRef / formModel——本版 extrude 走
  * `params: { profile: [], distance }` 直提交（shared opDsl 语义「空 profile=
  * 拉伸基体」）；拾取寻址与预览回 T6+ 特征对话框增强单裁。
+ * 挂账（T5 评审 Minor-4）：applyOp/getFeatureTree 沿旧源无特征级超时兜底
+ *（rpc-over-ipc 悬挂零反馈）；resolve* 回迁/特征对话框增强时一并裁决。
  *
  * 与旧实现的差异（诚实登记，勿静默）：
  *  - 上列延后面（旧接口五成员不随迁）；

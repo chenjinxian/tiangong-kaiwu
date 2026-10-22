@@ -71,7 +71,10 @@ const renderFeatureSystem = (connection: MockConnection | undefined, opts?: { en
 
 describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // resetAllMocks（非 clearAllMocks）：clear 只清调用记录，不清实现——
+    // 「租约被持续持有」用例的 mockImplementation（永拒）会跨用例泄漏。
+    // vitest 2+ 语义：reset 回到 vi.fn(impl) 的初始实现（基础替身不受损）。
+    vi.resetAllMocks();
     vi.useRealTimers();
   });
 
