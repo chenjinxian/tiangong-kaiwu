@@ -137,6 +137,12 @@ services:
       # 侧根治：/health* 全桶免疫 + auth/strict-auth 桶经桶级 skipIf 收敛到 /auth*，
       # 业务路由只剩 short(200/min)+long(2000/h)（可用 THROTTLER_*_LIMIT 环境变量调参）。
       # e2e 语义保留给 CI 独立测试栈（imodelhub 仓 docker-compose.relational.test.yaml）。
+      # 本地 e2e 压力调参（M5-T5）：web-next e2e 全套件 + MS 每连接 /auth/me 校验
+      # 同走 127.0.0.1 一只桶，200/min 实测不够 → 429 连坐 MS wsAuth（429 被当
+      # invalid 缓存 60s）→ 编辑器 WS 拒绝。经 hub 预留的 THROTTLER_*_LIMIT 调参
+      # 面透传；根 .env 缺省时保持官方 200/2000 不变（零行为漂移）。
+      THROTTLER_SHORT_LIMIT: ${THROTTLER_SHORT_LIMIT:-200}
+      THROTTLER_LONG_LIMIT: ${THROTTLER_LONG_LIMIT:-2000}
       APP_PORT: "4000"
       # CORS 白名单：默认 vite dev server(:5300) + nginx 单入口(:5301)；跨主机部署
       # 经根 .env 的 HUB_ALLOWED_ORIGINS 覆盖（2026-10-12 审计：原值钉死 localhost）
