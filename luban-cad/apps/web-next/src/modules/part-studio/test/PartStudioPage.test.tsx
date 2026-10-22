@@ -743,7 +743,9 @@ describe('M4-T8：waitForToolAdmin 5s 耗尽超时可见（不静默）', () => 
 // 本批把连接三态（下载中/失败/就绪）做进编辑器页呈现，并给断连时的推送对话框
 // 一个有声有色的收场（T7-②：收合 + notifications toast 说明，不无声消失）。
 describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送对话框断连兜底', () => {
-  const disconnectedMock = () => ({
+  // briefcase 打开中替身（connection=null + isLoading=true——T2-② 下载相位）；
+  // 断连兜底用例的「断开后重开中」中间态即同一相位（复用，见 T7-② 用例内注）。
+  const openingMock = () => ({
     connection: null as unknown,
     isLoading: true,
     error: null as Error | null,
@@ -775,7 +777,7 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
   });
 
   it('下载中：状态栏「正在打开文档…」+ 画布骨架覆盖层（五区在场不重排——零布局跳动）', () => {
-    viewerMocks.useBriefcaseConnection.mockReturnValue(disconnectedMock());
+    viewerMocks.useBriefcaseConnection.mockReturnValue(openingMock());
     renderPage();
     expect(within(screen.getByTestId('part-studio-status-bar')).getByText('正在打开文档…')).toBeDefined();
     expect(within(screen.getByTestId('part-studio-canvas')).getByTestId('part-studio-connection-loading')).toBeDefined();
@@ -784,6 +786,41 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     expect(screen.getByTestId('part-studio-sidebar')).toBeDefined();
     expect(screen.getByTestId('part-studio-dock')).toBeDefined();
     expect(screen.getByTestId('part-studio-status-bar')).toBeDefined();
+  });
+
+  it('viewport 创建失败（phase ready 但 error 在场）→ 画布错误面 + 状态栏连接失败（不被 host ready 掩盖）；briefcase 失败优先合流', async () => {
+    // 子类现场：briefcase 已就绪（连接在场），viewport 创建链失败——useViewport
+    // 只 setError 不翻相位，phase 恒 ready（T2 评审 Important：该子类此前残存
+    // 「已连接+黑屏」）。
+    viewerMocks.useViewport.mockReturnValue({
+      viewportRef: { current: null },
+      phase: 'ready',
+      error: 'No view state available',
+      viewport: undefined,
+    });
+    const { rerender } = renderPage();
+
+    // 画布错误面呈现 viewport 错误消息；状态栏失败态（ready 相位被 error 覆盖）。
+    const face = within(screen.getByTestId('part-studio-canvas')).getByTestId('part-studio-connection-error');
+    expect(within(face).getByText('No view state available')).toBeDefined();
+    expect(within(screen.getByTestId('part-studio-status-bar')).getByText('连接失败')).toBeDefined();
+
+    // 合流优先级与状态栏序一致：briefcase 失败在场 → 错误面取 briefcase 消息
+    //（viewport 消息退位——同屏两源只报更上游的失败因）。
+    viewerMocks.useBriefcaseConnection.mockReturnValue({
+      connection: null,
+      isLoading: false,
+      error: new Error('briefcase quota exceeded'),
+      saveChanges: vi.fn().mockResolvedValue(undefined),
+      pushChanges: vi.fn().mockResolvedValue(undefined),
+      pullChanges: vi.fn().mockResolvedValue(undefined),
+    });
+    await act(async () => {
+      await rerender(pageTree());
+    });
+    const mergedFace = within(screen.getByTestId('part-studio-canvas')).getByTestId('part-studio-connection-error');
+    expect(mergedFace.textContent).toContain('briefcase quota exceeded');
+    expect(mergedFace.textContent).not.toContain('No view state available');
   });
 
   it('T7-② 断连兜底：推送对话框开着时连接消失 → 对话框收合且 notifications toast 说明（不无声消失）', async () => {
@@ -797,8 +834,9 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     // 开对话框路径本身无 toast（兜底只在「开→断」跃迁发声）。
     expect(coreFrontendMocks.outputMessage).not.toHaveBeenCalled();
 
-    // 连接消失（页签切换重开连接的中间态）：mock 翻转 + rerender 驱动 hook 重查询。
-    viewerMocks.useBriefcaseConnection.mockReturnValue(disconnectedMock());
+    // 连接消失（页签切换重开连接的中间态——「断开后重开中」，同 openingMock
+    // 相位）：mock 翻转 + rerender 驱动 hook 重查询。
+    viewerMocks.useBriefcaseConnection.mockReturnValue(openingMock());
     await act(async () => {
       await rerender(pageTree());
     });
@@ -808,5 +846,22 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     await waitFor(() => expect(coreFrontendMocks.outputMessage).toHaveBeenCalledTimes(1));
     const details = coreFrontendMocks.outputMessage.mock.calls[0]?.[0] as { briefMessage: string };
     expect(details.briefMessage).toContain('连接已断开');
+
+    // Minor-1：翻回连接（重开完成）→ 对话框不复现——钉 setPushDialogOpen(false)
+    // 半边（开态不残留，否则连接恢复即幽灵复现），且兜底 toast 不补发（只
+    // 「开→断」跃迁发一次）。
+    viewerMocks.useBriefcaseConnection.mockReturnValue({
+      connection: FAKE_CONNECTION,
+      isLoading: false,
+      error: null,
+      saveChanges: vi.fn().mockResolvedValue(undefined),
+      pushChanges: vi.fn().mockResolvedValue(undefined),
+      pullChanges: vi.fn().mockResolvedValue(undefined),
+    });
+    await act(async () => {
+      await rerender(pageTree());
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull());
+    expect(coreFrontendMocks.outputMessage).toHaveBeenCalledTimes(1);
   });
 });

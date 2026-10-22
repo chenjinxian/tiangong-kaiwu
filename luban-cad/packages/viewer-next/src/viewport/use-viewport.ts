@@ -18,6 +18,10 @@
  * - 相位出口：`idle → starting → ready | error`——`ready` 表示
  *   LocalhostIpcApp.startup 已完成（IpcApp.isValid，RPC 客户端已配），
  *   供宿主页状态栏等做连接态呈现；
+ * - `error` 出口语义：视口创建链的可读失败消息（含 acquireViewer 拒绝与创建链
+ *   异常两个子类；后者 phase 可仍为 ready——消费方须按「error 在场即失败」
+ *   呈现，不得只看相位）。错误随链生灭：iModel 切换/卸载即清空（cleanup），
+ *   不跨链残留；
  * - 取消纪律：StrictMode 卸载后 async 创建链以 cancelled 哨兵短路，一律不 setState；
  *   清理纪律：dropViewport + dispose（上游 5.9 将 dispose 标记 deprecated，但视口
  *   销毁仍以 dispose+dropViewport 为正道，调用处 eslint-disable 并注记）。
@@ -155,6 +159,10 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
         activeViewportRef.current = undefined;
         setViewport(undefined);
       }
+      // 错误随链生灭（web-next M5-T2 评审 Important 承接）：创建链的 error 出口
+      // 归其所属链——tab 切换重开 iModel 时上一链的失败不得残留（消费方按
+      // error 呈现错误面/状态栏，陈旧错误会把健康的新链误报成失败）。
+      setError(null);
     };
   }, [iModel, viewportRef]);
 

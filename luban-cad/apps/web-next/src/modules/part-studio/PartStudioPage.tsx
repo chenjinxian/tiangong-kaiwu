@@ -71,7 +71,10 @@
  *   T2-② 缺陷本体即 ready 相位掩盖 briefcase 失败）；
  * - **诚实呈现**：错误面透传 error.message 原文；重试只给真实路径指引
  *   （关闭页签后重新打开文档），不放行不通的重试钮（hook 无重试入口，id 不变
- *   不重开）；
+ *   不重开）；viewport 创建失败是同族子类（useViewport 只 setError 不翻相位，
+ *   phase 可仍 ready）——画布错误面合流 `briefcase ?? viewportError`（briefcase
+ *   优先，与状态栏序一致），状态栏补 viewport error 分支不被 host ready 掩盖
+ *   （T2 评审 Important；viewer-next 侧错误随链生灭——iModel 切换清空不残留）；
  * - **T7-② 断连兜底**：推送对话框开着时连接消失（页签切换重开连接的中间态），
  *   `connection &&` 条件渲染会直卸载对话框——收合并经 IModelApp.notifications
  *   toast 说明（不无声消失；守卫保证只在「开→断」跃迁发声）。
@@ -154,7 +157,7 @@ function PartStudioSession({
   const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
   // 会话由 RequireAuth 门保证在场；token 静态传入（M3 雷②闭环：渲染期取一次，
   // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer-next 演进）。
-  const { viewportRef, phase, viewport } = useViewport({
+  const { viewportRef, phase, viewport, error: viewportError } = useViewport({
     backendUrl: window.location.origin,
     hubUrl: env.hubUrl,
     accessToken: AuthSession.getStoredAuth()?.accessToken,
@@ -195,6 +198,10 @@ function PartStudioSession({
     : connectionError
       ? String(connectionError)
       : null;
+  // 画布错误面合流（T2 评审 Important）：viewport 创建失败是同族子类——useViewport
+  // 只 setError 不翻相位（phase 可仍 ready，此前残存「已连接+黑屏」），与
+  // briefcase 失败同面呈现，briefcase 优先（与状态栏序一致：上游失败因优先）。
+  const canvasErrorMessage = connectionErrorMessage ?? viewportError;
 
   // 顶栏三回调 viewOnly 门（T4 评审 Minor-1）：与键盘保存同口径——仅查看态下
   // 三钮点击不触发（连接虽可写打开，编辑面已整体收口）。
@@ -415,7 +422,7 @@ function PartStudioSession({
             applyOp={featureSystem.applyOp}
             leaseOk={featureSystem.leaseOk}
             connectionLoading={connectionLoading}
-            connectionError={connectionErrorMessage}
+            connectionError={canvasErrorMessage}
           />
           <PartStudioDock
             iModelId={iModelId}
@@ -433,6 +440,7 @@ function PartStudioSession({
         connection={phase}
         briefcaseLoading={connectionLoading}
         briefcaseError={connectionErrorMessage}
+        viewportError={viewportError}
       />
       {/* 推送对话框（M4-T7）：顶栏「保存版本」钮与 dock「推送」钮的共享实例
           （确认走 connection.pushChanges；失败就地/成功 toast 归对话框自治）。 */}

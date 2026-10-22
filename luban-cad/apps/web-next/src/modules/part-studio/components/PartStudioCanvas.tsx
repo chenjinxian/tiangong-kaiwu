@@ -53,7 +53,7 @@ export interface PartStudioCanvasProps {
   leaseOk?: boolean;
   /** briefcase 打开中（M5-T2：Session 下传 isLoading——画布骨架覆盖层）。 */
   connectionLoading?: boolean;
-  /** briefcase 打开失败消息（M5-T2：Session 下传 error.message 原文——错误面透传；null=无失败）。 */
+  /** 连接失败消息（M5-T2：Session 合流下传——briefcase error 优先，viewport 创建失败兜底（T2 评审）；原文透传，null=无失败）。 */
   connectionError?: string | null;
 }
 

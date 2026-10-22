@@ -365,6 +365,30 @@ describe('useViewport 视口创建主链（M4 Task 2）', () => {
     expect(m.createViewportMock).not.toHaveBeenCalled();
   });
 
+  it('错误随链生灭：viewport 创建失败 → 切换 iModel 重走链成功 → 上一链错误清空（不污染新链相位呈现）', async () => {
+    // 上一链失败现场：无视图定义且 createDefaultView 拒绝。
+    const badView = makeFakeView();
+    const badIModel = makeFakeIModel();
+    primeDefaults(badView, makeFakeViewport(badIModel));
+    m.queryPropsMock.mockResolvedValue([]);
+    m.createDefaultViewMock.mockRejectedValue(new Error('no content'));
+
+    const { getByTestId, rerender } = render(<Harness iModel={badIModel} />);
+    await waitFor(() =>
+      expect(getByTestId('viewport-host').getAttribute('data-error')).toBe('No view state available'),
+    );
+
+    // 切换健康 iModel（tab 切换重开场景）：新链创建成功，上一链错误必须随链
+    // 终结清空——否则消费方（Session 错误面/状态栏）把健康链误报成失败。
+    const goodView = makeFakeView();
+    const goodIModel = makeFakeIModel();
+    const goodViewport = makeFakeViewport(goodIModel);
+    primeDefaults(goodView, goodViewport);
+    rerender(<Harness iModel={goodIModel} />);
+    await waitFor(() => expect(latestViewport).toBe(goodViewport));
+    expect(getByTestId('viewport-host').getAttribute('data-error')).toBe('');
+  });
+
   it('卸载 → dropViewport + dispose 恰一次', async () => {
     const fakeView = makeFakeView();
     const fakeIModel = makeFakeIModel();
