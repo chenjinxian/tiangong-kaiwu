@@ -348,3 +348,20 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
     expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams>();
   });
 });
+
+describe("M6-b v1.7 契约（extrude symmetric 对称拉伸——T3）", () => {
+  it("ExtrudeParams 带 symmetric 可构造（sketchId 与内联 profile 两模式同效）；缺省向后兼容", () => {
+    // sketchId 模式（Tutorial 2 主路径）：对称拉伸 depth=总深
+    const sketchMode: ExtrudeParams = { profile: [], distance: 3, sketchId: "sk-1", symmetric: true };
+    expect(sketchMode.symmetric).toBe(true);
+    // 内联 profile 模式：语义同效
+    const inlineMode: ExtrudeParams = { profile: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }], distance: 3, symmetric: true };
+    expect(inlineMode.symmetric).toBe(true);
+    // 旧载荷形态（无 symmetric 键）仍合法——缺省 false=单向拉伸（既有行为）
+    const legacy: ExtrudeParams = { profile: [], distance: 3, sketchId: "sk-1" };
+    expect(legacy.symmetric).toBeUndefined();
+    expectTypeOf<ExtrudeParams["symmetric"]>().toEqualTypeOf<boolean | undefined>();
+    // JSON 序列化往返保持（RPC 载荷形态）
+    expect(JSON.parse(JSON.stringify(sketchMode))).toEqual(sketchMode);
+  });
+});

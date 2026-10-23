@@ -13,6 +13,7 @@
  * 树草图行 params 内 plane 随 JSON 同步下发）。revolve/symmetric 等扩展与本次共用
  * v1.7 版本号（M6-b 计划 T2/T3 分批落字段）。
  * M6-b T2 落 revolve：LubanFeatureType +RevolveParams（草图面域绕草图内轴线旋转）。
+ * M6-b T3 落 symmetric：ExtrudeParams +symmetric（对称拉伸，depth 为总深）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -31,6 +32,9 @@ export interface ExtrudeParams {
   sketchId?: string;
   /** M6-a v1.6：sketchId 模式下选面域（SketchDto.regions 下标，面积降序）；缺省 0=最大面域。 */
   regionIndex?: number;
+  /** M6-b v1.7（T3）：对称拉伸——`distance` 为总深，实体沿拉伸方向两侧各半（跨 [−d/2, +d/2]，
+   * 中面=草图平面）；sketchId 模式语义与内联 profile 模式同效。缺省 false=单向拉伸（既有行为）。 */
+  symmetric?: boolean;
 }
 
 /** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */

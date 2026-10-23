@@ -20,8 +20,8 @@ const envExample = readFileSync(join(repoRoot, '.env.example'), 'utf8');
 
 describe('generate-env.ps1 $envMap', () => {
   it('owns BFF_UPSTREAM defaulting to the host MS (compose parity)', () => {
-    expect(envScript).toMatch(/'BFF_UPSTREAM'\s*=\s*'host\.docker\.internal:4001'/);
-    expect(compose).toContain('BFF_UPSTREAM:-host.docker.internal:4001');
+    expect(envScript).toMatch(/'BFF_UPSTREAM'\s*=\s*'host\.docker\.internal:5401'/);
+    expect(compose).toContain('BFF_UPSTREAM:-host.docker.internal:5401');
   });
 
   it('documents BFF_UPSTREAM in .env.example next to MS_UPSTREAM', () => {
