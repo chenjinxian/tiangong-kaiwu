@@ -8,6 +8,7 @@
  * RW2-T6 升 v1.4：chamfer 特征类型（ChamferMode 0..4 + 双值倒角参数）；
  * RW2-T7 升 v1.5：shell 特征类型（HollowFaces 抽壳：defaultDistance + 面拓扑 id 集 + distances）
  * + resolveFaceRef 面寻址 RPC（拾取面缓存子实体 id → 持久拓扑 id））。
+ * M6-a 升 v1.6：arc 实体 + regions 面域下发 + regionIndex + insertSketch plane。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -24,6 +25,8 @@ export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
   distance: number;
   sketchId?: string;
+  /** M6-a v1.6：sketchId 模式下选面域（SketchDto.regions 下标，面积降序）；缺省 0=最大面域。 */
+  regionIndex?: number;
 }
 
 /** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */
@@ -77,7 +80,7 @@ export type FeatureOp =
   | { kind: "reorderFeature"; featureId: string; to: number }  // to=目标序位（1 基）
   /** M2 T4.5：改草图约束尺寸（仅 distance/radius 类约束）→ 重解算 → 草图 params+几何流重写 → EDE 传播 */
   | { kind: "updateSketchConstraint"; sketchId: string; constraintId: number; value: number }
-  | { kind: "insertSketch"; entities: SketchEntityDto[]; constraints: SketchConstraintDto[] }
+  | { kind: "insertSketch"; entities: SketchEntityDto[]; constraints: SketchConstraintDto[]; plane?: SketchPlaneDto }
   | { kind: "updateSketch"; sketchId: string; entities: SketchEntityDto[]; constraints: SketchConstraintDto[] }
   /** RW2-T3 v1.3：删草图（守卫：被任一特征引用即拒收——服务端按 sketch→feature 边检查） */
   | { kind: "deleteSketch"; sketchId: string }
@@ -109,19 +112,36 @@ export type FeatureFormModel = Record<string, FeatureFormModelEntry>;
 /**
  * M3-b v1.2：草图实体/约束（solver-neutral，与后端 SolverTypes.ts 同形——两端同源维护，
  * 改一处必须同步另一处）。实体 id/引用为草图内局部编号（非 iModel ElementId）。
+ * M6-a v1.6 增 arc：center 引用 point id（与 circle 同）；startAngle/sweepAngle 为弧度制；
+ * radius/startAngle/sweepAngle 缺省 = 待后端解算；三点弧工具由前端换算为本形态后提交。
  */
 export type SketchEntityDto =
   | { kind: "point"; id: number; x?: number; y?: number }
   | { kind: "line"; id: number; p1: number; p2: number }
-  | { kind: "circle"; id: number; center: number; radius?: number };
+  | { kind: "circle"; id: number; center: number; radius?: number }
+  | { kind: "arc"; id: number; center: number; radius?: number; startAngle?: number; sweepAngle?: number };
 export interface SketchConstraintDto {
   kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius";
   id: number; refs: number[]; value?: number;
 }
 export type SketchSolveStatusDto = "ok" | "underconstrained" | "conflicting" | "failed";
 export interface SketchSolveStateDto { status: SketchSolveStatusDto; dof: number; failedConstraintIds: number[]; conflictingRank: number[]; redundant?: boolean }
-export interface SketchDto { id: string; entities: SketchEntityDto[]; constraints: SketchConstraintDto[]; solve: SketchSolveStateDto }
+/** M6-a v1.6：草图面域（几何流写回后经 sketchRegionsFrom 识别下发，面积降序）。
+ * regionIndex 语义 = 本数组下标。outerEntityIds=外环构成实体 id 集；holeEntityIds=孔环（可缺省）。 */
+export interface SketchRegionDto { area: number; outerEntityIds: number[]; holeEntityIds?: number[] }
+export interface SketchDto {
+  id: string;
+  entities: SketchEntityDto[];
+  constraints: SketchConstraintDto[];
+  solve: SketchSolveStateDto;
+  /** M6-a v1.6：草图面域集（可选——旧后端不下发时前端按无面域处理）。 */
+  regions?: SketchRegionDto[];
+}
 export interface SketchSummaryDto { id: string; entityCount: number; constraintCount: number }
+
+/** M6-a v1.6：草图平面（世界系米制；缺省=XY@z=0 保持 M3-b 语义）。
+ * 草图实体/解算仍在局部 2D（u,v）；特征求值时经本变换到世界系。 */
+export interface SketchPlaneDto { origin: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number }; xDir: { x: number; y: number; z: number } }
 
 export abstract class LubanFeatureRpcInterface extends RpcInterface {
   /**
@@ -131,7 +151,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.5.0";
+  public static interfaceVersion = "1.6.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

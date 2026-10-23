@@ -127,6 +127,8 @@ describe("op DSL v1 结构校验失败路径（非法 op 抛 OpDslParseError）"
     ["updateParams 缺 params", `op updateParams {"featureId":"f-1"}`],
     ["updateSketchConstraint.value 非 number", `op updateSketchConstraint {"sketchId":"s","constraintId":1,"value":"x"}`],
     ["insertSketch.entities 非数组", `op insertSketch {"entities":{},"constraints":[]}`],
+    ["insertSketch.plane 非对象（M6-a v1.6）", `op insertSketch {"entities":[],"constraints":[],"plane":1}`],
+    ["insertSketch.plane.origin.x 非 number（M6-a v1.6）", `op insertSketch {"entities":[],"constraints":[],"plane":{"origin":{"x":"0","y":0,"z":0},"normal":{"x":0,"y":0,"z":1},"xDir":{"x":1,"y":0,"z":0}}}`],
     ["reorderFeature.to 非 number", `op reorderFeature {"featureId":"f-1","to":"top"}`],
   ];
 
@@ -213,5 +215,35 @@ describe("op DSL v1 边界", () => {
       params: { profile: [], distance: 3, sketchId: "sk-1" },
     };
     expect(dslToOps(opsToDsl([op]))).toEqual([op]);
+  });
+});
+
+describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
+  const plane = {
+    origin: { x: 0, y: 0, z: 0.1 },
+    normal: { x: 0, y: 0, z: 1 },
+    xDir: { x: 1, y: 0, z: 0 },
+  };
+
+  it("带 plane 的 insertSketch 往返深等（plane 是声明字段，不再按未知键剥离）", () => {
+    const op: FeatureOp = {
+      kind: "insertSketch",
+      entities: [{ kind: "point", id: 1, x: 0, y: 0 }],
+      constraints: [],
+      plane,
+    };
+    expect(dslToOps(opsToDsl([op]))).toEqual([op]);
+  });
+
+  it("文本级稳定：带 plane 的 DSL parse 后再发射逐字一致", () => {
+    const dsl = opsToDsl([{ kind: "insertSketch", entities: [], constraints: [], plane }]);
+    expect(dsl).toContain('"plane"');
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("缺省不带 plane 的 DSL 文本形态与 M3-b 时期逐字一致（旧链不漂移）", () => {
+    const dsl = `op insertSketch {"entities":[],"constraints":[]}`;
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+    expect(dslToOps(dsl)).toEqual([{ kind: "insertSketch", entities: [], constraints: [] }]);
   });
 });

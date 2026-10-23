@@ -22,12 +22,15 @@ import type {
   SketchSolveStateDto,
   SketchDto,
   SketchSummaryDto,
+  // M6-a v1.6
+  SketchRegionDto,
+  SketchPlaneDto,
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.5.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.6.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -90,7 +93,7 @@ describe("M3-a v1.1 类型契约", () => {
 });
 
 describe("M3-b v1.2 草图契约", () => {
-  it("SketchEntityDto：point/line/circle 三变体（solver-neutral 形状）", () => {
+  it("SketchEntityDto：point/line/circle 三变体（solver-neutral 形状；arc 见 M6-a v1.6 块）", () => {
     const point: SketchEntityDto = { kind: "point", id: 1, x: 0, y: 0 };
     const line: SketchEntityDto = { kind: "line", id: 2, p1: 1, p2: 3 };
     const circle: SketchEntityDto = { kind: "circle", id: 3, center: 4, radius: 5 };
@@ -100,7 +103,7 @@ describe("M3-b v1.2 草图契约", () => {
     // 坐标/半径为可选（未解算实体允许缺省）
     const unsolvedPoint: SketchEntityDto = { kind: "point", id: 9 };
     expect(unsolvedPoint.id).toBe(9);
-    expectTypeOf<SketchEntityDto["kind"]>().toEqualTypeOf<"point" | "line" | "circle">();
+    expectTypeOf<SketchEntityDto["kind"]>().toEqualTypeOf<"point" | "line" | "circle" | "arc">();
   });
 
   it("SketchConstraintDto：kind 联合逐字 + refs/value 形状", () => {
@@ -238,5 +241,55 @@ describe("RW2-T7 v1.5 shell 契约", () => {
 
   it("v1.5 新增 resolveFaceRef RPC 方法挂在类原型", () => {
     expect(typeof LubanFeatureRpcInterface.prototype.resolveFaceRef).toBe("function");
+  });
+});
+
+describe("M6-a v1.6 契约（arc 实体 + regions 面域 + regionIndex + insertSketch plane）", () => {
+  it("arc DTO 可构造且 JSON 序列化往返字段保持（center 引用 point id；角度弧度制）", () => {
+    const arc: SketchEntityDto = { kind: "arc", id: 7, center: 1, radius: 2.5, startAngle: 0, sweepAngle: Math.PI / 2 };
+    const roundTripped = JSON.parse(JSON.stringify(arc)) as SketchEntityDto;
+    expect(roundTripped).toEqual(arc);
+    // 缺省形态（待后端解算）：radius/startAngle/sweepAngle 全省略仍合法
+    const unsolvedArc: SketchEntityDto = { kind: "arc", id: 8, center: 1 };
+    expect(JSON.parse(JSON.stringify(unsolvedArc))).toEqual(unsolvedArc);
+    expectTypeOf<Extract<SketchEntityDto, { kind: "arc" }>>().toEqualTypeOf<{
+      kind: "arc"; id: number; center: number; radius?: number; startAngle?: number; sweepAngle?: number;
+    }>();
+  });
+
+  it("SketchDto 带 regions 可构造；regions 缺省向后兼容（旧形态无 regions 仍编译通过）", () => {
+    const solve: SketchSolveStateDto = { status: "ok", dof: 0, failedConstraintIds: [], conflictingRank: [] };
+    const regions: SketchRegionDto[] = [
+      { area: 12.5, outerEntityIds: [2, 3, 4], holeEntityIds: [5] },
+      { area: 3, outerEntityIds: [6] },
+    ];
+    const withRegions: SketchDto = { id: "sk-1", entities: [], constraints: [], solve, regions };
+    expect(withRegions.regions?.[0]?.area).toBe(12.5);
+    expect(withRegions.regions?.[1]?.holeEntityIds).toBeUndefined();
+    // 旧后端形态：无 regions 字段仍是合法 SketchDto
+    const legacy: SketchDto = { id: "sk-2", entities: [], constraints: [], solve };
+    expect(legacy.regions).toBeUndefined();
+    expectTypeOf<SketchDto["regions"]>().toEqualTypeOf<SketchRegionDto[] | undefined>();
+  });
+
+  it("insertSketch op 带/不带 plane 均可构造（缺省=XY@z=0 保持 M3-b 语义）", () => {
+    const plane: SketchPlaneDto = {
+      origin: { x: 0, y: 0, z: 0.1 },
+      normal: { x: 0, y: 0, z: 1 },
+      xDir: { x: 1, y: 0, z: 0 },
+    };
+    const withPlane: FeatureOp = { kind: "insertSketch", entities: [], constraints: [], plane };
+    const withoutPlane: FeatureOp = { kind: "insertSketch", entities: [], constraints: [] };
+    expect(withPlane.kind).toBe("insertSketch");
+    expect(withoutPlane.kind).toBe("insertSketch");
+    expectTypeOf<Extract<FeatureOp, { kind: "insertSketch" }>["plane"]>().toEqualTypeOf<SketchPlaneDto | undefined>();
+  });
+
+  it("ExtrudeParams 带 regionIndex 可构造（sketchId 模式选面域；缺省 0=最大面域）", () => {
+    const withRegion: ExtrudeParams = { profile: [], distance: 5, sketchId: "sk-1", regionIndex: 2 };
+    const withoutRegion: ExtrudeParams = { profile: [], distance: 5, sketchId: "sk-1" };
+    expect(withRegion.regionIndex).toBe(2);
+    expect(withoutRegion.regionIndex).toBeUndefined();
+    expectTypeOf<ExtrudeParams["regionIndex"]>().toEqualTypeOf<number | undefined>();
   });
 });

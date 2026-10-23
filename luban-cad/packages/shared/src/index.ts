@@ -208,6 +208,8 @@ export type {
   ChamferParams,
   // RW2-T7 v1.5
   ShellParams,
+  // M6-a v1.6
+  SketchRegionDto, SketchPlaneDto,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

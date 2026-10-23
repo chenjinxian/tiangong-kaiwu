@@ -20,6 +20,9 @@
  * - 解析端结构校验（kind 白名单/featureType 白名单/字段形态/纯对象 payload），未知键剥离即规范化
  *   （对齐 zod 非严格对象语义）；params 深层校验不在本层——经 validate 注入（私有仓
  *   FeatureTypeRegistry 的 zod schema 由 modeling-server 侧接线，shared 包不依赖 zod）。
+ *
+ * M6-a v1.6 同步：insertSketch 增可选 plane（SketchPlaneDto：origin/normal/xDir 三向量，世界系米制）——
+ * 发射端恒写已携带的 plane，解析端按形态校验后透传（缺省不带，保持旧 DSL 文本逐字稳定）。
  */
 import type { FeatureOp, FeatureParams, LubanFeatureType } from "./rpc/LubanFeatureRpcInterface.js";
 
@@ -66,7 +69,10 @@ function opToLine(op: FeatureOp): string {
     case "updateSketchConstraint":
       return `op updateSketchConstraint ${JSON.stringify({ sketchId: op.sketchId, constraintId: op.constraintId, value: op.value })}`;
     case "insertSketch":
-      return `op insertSketch ${JSON.stringify({ entities: op.entities, constraints: op.constraints })}`;
+      // M6-a v1.6：plane 为可选声明字段——携带时恒写（往返恒等），缺省时保持旧文本形态
+      return `op insertSketch ${JSON.stringify(op.plane === undefined
+        ? { entities: op.entities, constraints: op.constraints }
+        : { entities: op.entities, constraints: op.constraints, plane: op.plane })}`;
     case "updateSketch":
       return `op updateSketch ${JSON.stringify({ sketchId: op.sketchId, entities: op.entities, constraints: op.constraints })}`;
     case "deleteSketch":
@@ -168,6 +174,11 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
     if (!isPlainObject(v)) throw err(`${name} 须为对象`);
     return v;
   };
+  /** M6-a v1.6：SketchPlaneDto 向量形态（{x,y,z} 全 number；世界系米制，深层正交性归内核/服务端裁决） */
+  const asVec3 = (v: unknown, name: string): { x: number; y: number; z: number } => {
+    const o = asObj(v, name);
+    return { x: asNum(o.x, `${name}.x`), y: asNum(o.y, `${name}.y`), z: asNum(o.z, `${name}.z`) };
+  };
   const noFeatureType = (): void => {
     if (featureType !== undefined) throw err("featureType 令牌仅 insertFeature 接受");
   };
@@ -195,9 +206,19 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
     case "updateSketchConstraint":
       noFeatureType();
       return { kind, sketchId: asStr(p.sketchId, "sketchId"), constraintId: asNum(p.constraintId, "constraintId"), value: asNum(p.value, "value") };
-    case "insertSketch":
+    case "insertSketch": {
       noFeatureType();
-      return { kind, entities: asArr(p.entities, "entities"), constraints: asArr(p.constraints, "constraints") } as unknown as FeatureOp;
+      const entities = asArr(p.entities, "entities");
+      const constraints = asArr(p.constraints, "constraints");
+      if (p.plane === undefined)
+        return { kind, entities, constraints } as unknown as FeatureOp;
+      // M6-a v1.6：plane 为声明字段（不再按未知键剥离），形态校验后透传
+      const plane = asObj(p.plane, "plane");
+      return {
+        kind, entities, constraints,
+        plane: { origin: asVec3(plane.origin, "plane.origin"), normal: asVec3(plane.normal, "plane.normal"), xDir: asVec3(plane.xDir, "plane.xDir") },
+      } as unknown as FeatureOp;
+    }
     case "updateSketch":
       noFeatureType();
       return { kind, sketchId: asStr(p.sketchId, "sketchId"), entities: asArr(p.entities, "entities"), constraints: asArr(p.constraints, "constraints") } as unknown as FeatureOp;
