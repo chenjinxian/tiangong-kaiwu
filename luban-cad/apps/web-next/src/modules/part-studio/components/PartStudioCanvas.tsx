@@ -19,6 +19,9 @@
  *   closeDialog；edit 模式确认在对话框内已禁用+提示（T6 评审 M-1）；
  *   M6-a T4 起 SketchDialog 同款接线（内部构 insertSketch op——真 sketchId
  *   入 store，宿主 onConfirm=收合透传）；
+ *   M6-a T6 起 FeatureDialog 拉伸走草图通道——Session 下传 sketches（树内
+ *   sketch 节点映射）+ connection（取 key 供 getSketch 面域读面），此处纯
+ *   透传（数据源裁决与门禁语义见 FeatureDialog 头注）；
  * - viewOnly 运行时切换（T6 评审 I-1）：store.viewOnly 置位即 closeDialog
  *   ——打开中的写面对话框整体收口（对话框宿主职责；「仅查看模式」是用户
  *   主动切换，收口语义保持 viewOnly 直读）；写动作门另走 canEdit（B2 只读
@@ -35,10 +38,11 @@
 import React from 'react';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ScreenViewport } from '@itwin/core-frontend';
+import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
+import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
@@ -61,6 +65,16 @@ export interface PartStudioCanvasProps {
    * 语义保持；生产宿主 Session 恒显式传参）。
    */
   canEdit?: boolean;
+  /**
+   * 可选草图集（M6-a T6 拉伸草图通道）：Session 自 useFeatureSystem.tree 过滤
+   * sketch 节点映射下传（数据源裁决见 FeatureDialog 头注）；直通 FeatureDialog。
+   */
+  sketches?: readonly FeatureDialogSketchOption[];
+  /**
+   * briefcase 连接（M6-a T6 面域读面）：取 key 下传 FeatureDialog
+   * （getSketch RPC 的寻址键）；缺省 undefined = 面域不可读（提交禁用）。
+   */
+  connection?: BriefcaseConnection;
   /** briefcase 打开中（M5-T2：Session 下传 isLoading——画布骨架覆盖层）。 */
   connectionLoading?: boolean;
   /** 连接失败消息（M5-T2：Session 合流下传——briefcase error 优先，viewport 创建失败兜底（T2 评审）；原文透传，null=无失败）。 */
@@ -78,6 +92,8 @@ export function PartStudioCanvas({
   applyOp,
   leaseOk,
   canEdit = true,
+  sketches,
+  connection,
   connectionLoading = false,
   connectionError = null,
 }: PartStudioCanvasProps): React.JSX.Element {
@@ -192,6 +208,8 @@ export function PartStudioCanvas({
           applyOp={applyOp}
           leaseOk={leaseOk}
           canEdit={canEdit}
+          sketches={sketches}
+          connectionKey={connection?.key}
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />

@@ -14,8 +14,14 @@
 //  6) 底部：回滚滑杆（range，默认=上限）+ 成品按钮（同 ✓ 确认出口）+ ?
 //     帮助（展开帮助文案）。
 //
+// M6-a T6（拉伸草图通道）：new/extrude 提交走 {sketchId, regionIndex,
+// profile:[]}（解「空 profile 死结」——T3 zod 拒收无 sketchId 的空 profile）：
+// 草图下拉+面域下拉（regions>1）/单面域自动 0/无草图无面域门禁/选中回显
+// chip/布尔类型不接通道（zod sketchId:z.never() 既有语义）。
+//
 // 定位：组件行为验收层；@itwin/core-frontend 模块级 mock（零真实查看器），
-// 真实 store/i18n 参与（setup.ts 全局词库兜底，zh-CN 基线）。
+// '@luban-cad/shared' 模块级 mock（getSketch 面域读面替身），真实 store/i18n
+// 参与（setup.ts 全局词库兜底，zh-CN 基线）。
 
 import type { JSX } from 'react';
 import React from 'react';
@@ -28,6 +34,18 @@ const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
   /** 测试可改写：null=无 viewport（emphasize 效果静默跳过）。 */
   viewport: null as unknown,
+}));
+
+// M6-a T6：面域读面 RPC 替身（getSketch——对话框选中草图后直调；其余用例
+// 不选草图即不触达，无需兜底实现）。
+const featureRpc = vi.hoisted(() => ({
+  getSketch: vi.fn(),
+}));
+
+vi.mock('@luban-cad/shared', () => ({
+  LubanFeatureRpcInterface: {
+    getClient: () => featureRpc,
+  },
 }));
 
 vi.mock('@itwin/core-frontend', () => ({
@@ -70,7 +88,7 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
-import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
+import type { FeatureOp, FeatureOpResult, SketchDto, SketchRegionDto } from '@luban-cad/shared';
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
@@ -352,11 +370,15 @@ describe('M5-T1 D-T9-5：Escape 关闭（document keydown 挂载期一次注册�
 });
 
 // ---------------------------------------------------------------------------
-// M4 Task 6：提交接线（拉伸闭环提交面）——new 模式 ✓/成品 → applyOp 形状钉死
-//（insertFeature/extrude/{profile:[],distance}，shared opDsl「空 profile=拉伸
-// 基体」语义）；成功 toast+onConfirm（宿主收合）；失败就地 Alert 六态 error
-// + 不关闭；提交中禁重入；applyOp 未接线回退纯回调（M3 壳期语义保持）；
-// edit 模式本版不提交（updateParams 归特征对话框增强 backlog）。
+// M4 Task 6：提交接线（拉伸闭环提交面）——new 模式 ✓/成品 → applyOp 直提交；
+// 成功 toast+onConfirm（宿主收合）；失败就地 Alert 六态 error + 不关闭；提交
+// 中禁重入；applyOp 未接线回退纯回调（M3 壳期语义保持）；edit 模式本版不提交
+//（updateParams 归特征对话框增强 backlog）。
+// M6-a T6 更新（合理变更）：extrude 载荷由裸 {profile:[],distance} 改走草图
+// 通道 {sketchId, regionIndex, profile:[]}——T3 zod 互斥语义（sketchId 在场
+// profile 须空）使裸空 profile 恒被拒收（「空 profile 死结」），原断言已失效；
+// 且草图通道未就绪（未选草图/面域未载）时 ✓ 禁用，故各提交用例先经
+// renderReadyDialog 备好通道。
 // M5 发布窗（B2 只读写门禁）：canEdit=false → ✓/成品 禁用 + 只读提示——原
 // T6 I-1 的 store.viewOnly 直读由宿主单点下传的 canEdit 接替（写动作语义
 // 与「仅查看」视图语义分线）。
@@ -386,28 +408,60 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     return { onConfirm, onCancel, applyOp };
   }
 
+  /** SketchDto 替身（对话框只消费 regions——面积降序语义由 T3 后端保证）。 */
+  function sketchDtoWith(regions: SketchRegionDto[]): SketchDto {
+    return {
+      id: 'sk-1',
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions,
+    };
+  }
+
+  /**
+   * 备好草图通道的提交对话框（M6-a T6）：注入单草图 + getSketch 面域替身并
+   * 选中——就绪判据 = 回显 chip 在场（面域读取已落定）。
+   */
+  async function renderReadyDialog(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+    regions: SketchRegionDto[] = [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+  ) {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith(regions));
+    const user = userEvent.setup();
+    const rendered = renderSubmitDialog(applyOp, {
+      sketches: [{ id: 'sk-1', label: '草图 1' }],
+      connectionKey: 'model-key',
+      ...props,
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    // 就绪判据：回显 chip 在场（单面域无 ·面域 后缀；多面域带序号）。
+    await screen.findByText(regions.length > 1 ? '草图 1 的面 · 面域 0' : '草图 1 的面');
+    return { user, ...rendered };
+  }
+
   beforeEach(() => {
     mocks.outputMessage.mockClear();
+    featureRpc.getSketch.mockReset();
   });
 
-  it('✓确认 → applyOp 形状钉死（insertFeature/extrude/{profile:[],distance}）；成功 → onConfirm（宿主关闭）', async () => {
-    const user = userEvent.setup();
+  it('✓确认 → applyOp 形状钉死（insertFeature/extrude/{sketchId,regionIndex,profile:[]}）；成功 → onConfirm（宿主关闭）', async () => {
     const applyOp = makeApplyOp();
-    const { onConfirm } = renderSubmitDialog(applyOp);
+    const { user, onConfirm } = await renderReadyDialog(applyOp);
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledTimes(1);
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10 },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0 },
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('距离输入进 op params（空 profile=拉伸基体，距离为唯一可编辑量）', async () => {
-    const user = userEvent.setup();
+  it('距离输入进 op params（sketchId/regionIndex 随行，距离为可编辑量）', async () => {
     const applyOp = makeApplyOp();
-    renderSubmitDialog(applyOp);
+    const { user } = await renderReadyDialog(applyOp);
     const distance = screen.getByRole('textbox', { name: '距离' });
     expect((distance as HTMLInputElement).value).toBe('10');
     await user.clear(distance);
@@ -416,13 +470,12 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 42.5 },
+      params: { profile: [], distance: 42.5, sketchId: 'sk-1', regionIndex: 0 },
     });
   });
 
   it('成功 → toast（notifications 通道，与保存错误面同款标准管道）', async () => {
-    const user = userEvent.setup();
-    renderSubmitDialog(makeApplyOp());
+    const { user } = await renderReadyDialog(makeApplyOp());
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
     const details = mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string };
@@ -430,9 +483,8 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
   });
 
   it('失败 → 就地 Alert（六态 error），不调 onConfirm（对话框不关闭）', async () => {
-    const user = userEvent.setup();
     const applyOp = makeApplyOp(() => ({ ok: false, error: '写租约被 other-page 持有' }));
-    const { onConfirm } = renderSubmitDialog(applyOp);
+    const { user, onConfirm } = await renderReadyDialog(applyOp);
     await user.click(screen.getByRole('button', { name: '确认' }));
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('写租约被 other-page 持有');
@@ -440,7 +492,6 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
   });
 
   it('提交中禁重入：✓/成品 禁用，pending 期间再点不二次 applyOp', async () => {
-    const user = userEvent.setup();
     let release!: (r: FeatureOpResult) => void;
     const applyOp = vi.fn(
       (_op: FeatureOp): Promise<FeatureOpResult> =>
@@ -448,7 +499,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
           release = resolve;
         }),
     );
-    const { onConfirm } = renderSubmitDialog(applyOp as unknown as ReturnType<typeof makeApplyOp>);
+    const { user, onConfirm } = await renderReadyDialog(applyOp as unknown as ReturnType<typeof makeApplyOp>);
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledTimes(1);
     // pending：两出口均禁用，再点不重入（userEvent 对 disabled 钮不派发 click）。
@@ -464,9 +515,8 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
   });
 
   it('非法距离 → 校验 Alert 就地，不发起 applyOp', async () => {
-    const user = userEvent.setup();
     const applyOp = makeApplyOp();
-    renderSubmitDialog(applyOp);
+    const { user } = await renderReadyDialog(applyOp);
     const distance = screen.getByRole('textbox', { name: '距离' });
     await user.clear(distance);
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -474,10 +524,22 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(screen.getByRole('alert').textContent).toContain('距离');
   });
 
-  it('applyOp 未接线（壳期）→ 确认回退纯 onConfirm（M3 语义保持）', async () => {
+  it('applyOp 未接线（壳期）→ 确认回退纯 onConfirm（M3 语义保持；无草图通道 UI）', async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();
-    render(<FeatureDialog featureName="拉伸" mode="new" featureType="extrude" onConfirm={onConfirm} />);
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        onConfirm={onConfirm}
+      />,
+    );
+    // 无 applyOp = 非草图通道（纯回调壳期）：无草图下拉、无门禁提示、✓ 可用。
+    expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
+    expect(screen.queryByTestId('part-studio-feature-dialog-no-sketch-hint')).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -531,10 +593,11 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(screen.queryByTestId('part-studio-feature-dialog-edit-hint')).toBeNull();
   });
 
-  it('leaseOk=false → 租约警示在场（不硬禁用），提交仍可达', async () => {
-    const user = userEvent.setup();
+  it('leaseOk=false → 租约警示在场（不硬禁用），通道就绪后提交仍可达', async () => {
     const applyOp = makeApplyOp();
-    renderSubmitDialog(applyOp, { leaseOk: false });
+    // M6-a T6：草图通道备好后断言「不硬禁用」（未就绪时 ✓ 因通道门禁禁用，
+    // 与租约警示无关——不能在该态断言 enabled）。
+    const { user } = await renderReadyDialog(applyOp, { leaseOk: false });
     const warning = screen.getByTestId('part-studio-feature-dialog-lease-warning');
     expect(warning.textContent).toContain('写租约被其他会话持有');
     // 提交面不因租约警示禁用（保留陈旧租约 35s 自愈路）。
@@ -577,5 +640,300 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(applyOp).not.toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M6-a T6：拉伸草图通道（sketchId + 面域拾取）——载荷构造/门禁/回显 chip/
+// 布尔不接通道。数据源裁决：草图列表=宿主树过滤下传（props），面域=对话框
+// 直调 getSketch（见 FeatureDialog 头注）；本 describe 用 getSketch 替身钉
+// RPC 消费面（connectionKey 寻址 + regions 面积降序数组下标=regionIndex）。
+// ---------------------------------------------------------------------------
+describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  function sketchDtoWith(regions: SketchRegionDto[], id = 'sk-1'): SketchDto {
+    return {
+      id,
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions,
+    };
+  }
+
+  beforeEach(() => {
+    featureRpc.getSketch.mockReset();
+  });
+
+  it('多面域：region 下拉在场（首项标最大）→ 选「面域 1」→ 载荷 regionIndex=1 + chip 带面域序', async () => {
+    featureRpc.getSketch.mockResolvedValue(
+      sketchDtoWith([
+        { area: 0.5, outerEntityIds: [1, 2, 3, 4] },
+        { area: 0.1, outerEntityIds: [5, 6] },
+      ]),
+    );
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    const onConfirm = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        onConfirm={onConfirm}
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    // 面域下拉现于 regions>1；面积读数去尾零（0.5 → "0.5"），首项=最大（regionIndex 缺省 0 的语义锚）。
+    const regionSelect = await screen.findByRole('combobox', { name: '面域' });
+    const regionOptions = within(regionSelect).getAllByRole('option');
+    expect(regionOptions[0]!.textContent).toBe('面域 0（最大，面积 0.5）');
+    expect(regionOptions[1]!.textContent).toBe('面域 1（面积 0.1）');
+    // 回显 chip 带 regionIndex（多面域形态）。
+    expect(screen.getByText('草图 1 的面 · 面域 0')).toBeDefined();
+    await user.selectOptions(regionSelect, '1');
+    expect(screen.getByText('草图 1 的面 · 面域 1')).toBeDefined();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 1 },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('单面域：自动 regionIndex=0 且不显示面域下拉（缺省语义无需选择）', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.0025, outerEntityIds: [1, 2, 3, 4] }]));
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面'); // 单面域 chip 无 ·面域 后缀
+    expect(screen.queryByRole('combobox', { name: '面域' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0 },
+    });
+  });
+
+  it('无草图：先创建草图提示 + ✓/成品 禁用，不发起 op（不再空 profile 裸奔）', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    const onConfirm = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        onConfirm={onConfirm}
+      />,
+    );
+    const hint = screen.getByTestId('part-studio-feature-dialog-no-sketch-hint');
+    expect(hint.textContent).toBe('先创建草图');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('已选草图未选（初始态）：提交禁用——通道未就绪不放行', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    // 占位项在场、未选中 → ✓ 禁用；getSketch 不应在未选草图时被调。
+    expect(screen.getByRole('combobox', { name: '草图' })).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(featureRpc.getSketch).not.toHaveBeenCalled();
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('草图无面域（regions 缺省/空）：草图无可拉伸面域提示 + 提交禁用', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith(undefined as unknown as SketchRegionDto[]));
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    const hint = await screen.findByTestId('part-studio-feature-dialog-no-region-hint');
+    expect(hint.textContent).toBe('草图无可拉伸面域');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('面域读取失败（RPC 异常）：就地 region-error alert + 提交禁用', async () => {
+    featureRpc.getSketch.mockRejectedValue(new Error('连接断开'));
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    const errorFace = await screen.findByTestId('part-studio-feature-dialog-region-error');
+    expect(errorFace.textContent).toContain('连接断开');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('连接键缺失：regionUnreadable 提示 + 提交禁用（不发起 RPC）', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    const errorFace = await screen.findByTestId('part-studio-feature-dialog-region-error');
+    expect(errorFace.textContent).toContain('无法读取草图面域');
+    expect(featureRpc.getSketch).not.toHaveBeenCalled();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('chip ×移除 = 清选择：草图下拉回占位、提交禁用、regions 清态', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
+    await user.click(screen.getByRole('button', { name: '移除 草图 1 的面' }));
+    expect(screen.queryByText('草图 1 的面')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: '面域' })).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('换草图重置面域序：sk-1 选面域 1 → 切 sk-2 回 regionIndex=0', async () => {
+    featureRpc.getSketch.mockImplementation(async (_key: string, sketchId: string) =>
+      sketchId === 'sk-1'
+        ? sketchDtoWith(
+            [
+              { area: 0.5, outerEntityIds: [1] },
+              { area: 0.1, outerEntityIds: [2] },
+            ],
+            'sk-1',
+          )
+        : sketchDtoWith(
+            [
+              { area: 0.2, outerEntityIds: [3] },
+              { area: 0.05, outerEntityIds: [4] },
+            ],
+            'sk-2',
+          ),
+    );
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[
+          { id: 'sk-1', label: '草图 1' },
+          { id: 'sk-2', label: '草图 2' },
+        ]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    const regionSelect = await screen.findByRole('combobox', { name: '面域' });
+    await user.selectOptions(regionSelect, '1');
+    expect(screen.getByText('草图 1 的面 · 面域 1')).toBeDefined();
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-2');
+    await screen.findByText('草图 2 的面 · 面域 0');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-2', regionIndex: 0 },
+    });
+  });
+
+  it('布尔类型（booleanAdd）不接草图通道：sketches 在场也无草图下拉/门禁，载荷仍 {profile:[],distance}（zod sketchId:z.never() 既有语义）', async () => {
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="并集"
+        mode="new"
+        featureType="booleanAdd"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
+    expect(screen.queryByTestId('part-studio-feature-dialog-no-sketch-hint')).toBeNull();
+    // 通用 chips + 快速拾取保持（非草图通道形态不动）。
+    expect(screen.getByRole('button', { name: '快速拾取' })).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertFeature',
+      featureType: 'booleanAdd',
+      params: { profile: [], distance: 10 },
+    });
+    expect(featureRpc.getSketch).not.toHaveBeenCalled();
   });
 });

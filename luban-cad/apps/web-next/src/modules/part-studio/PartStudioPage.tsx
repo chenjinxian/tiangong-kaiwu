@@ -61,7 +61,10 @@
  * useFeatureDisplaySync（几何出现链收口）；树经 Sidebar props 直通（六态），
  * 对话框提交面经 Canvas applyOp 直通——ribbon「拉伸」→ FeatureDialog(new/
  * extrude) → insertFeature 落库 → onCommitted+refresh → 树新条目 → 显示同步
- * 几何出现。
+ * 几何出现。M6-a T6 起提交载荷走草图通道（{sketchId, regionIndex,
+ * profile:[]}）——树内 sketch 节点经 mapFeatureEntries 映射成下拉选项随
+ * sketches 下传 Canvas，connection.key 随行供对话框 getSketch 面域读面
+ *（数据源裁决见 FeatureDialog 头注）。
  *
  * 版本历史/保存推送（M4-T7）：Session 内层持共享 PushChangesetDialog 实例——
  * 顶栏「保存版本」钮（T4 评审 Important-1 裁定：每 op 自动 saveChanges 下旧
@@ -116,6 +119,9 @@ import { CommandPalette } from './ribbon/CommandPalette.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
+// mapFeatureEntries（M6-a T6）：拉伸对话框草图下拉与特征树同源命名（复用
+// useFeatureTree 的条目→行映射纯函数，不复制命名逻辑）。
+import { mapFeatureEntries } from './hooks/useFeatureTree.js';
 import { useFeatureSystem } from './hooks/useFeatureSystem.js';
 import { usePermissions } from './hooks/usePermissions.js';
 import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
@@ -214,6 +220,23 @@ function PartStudioSession({
     registerSketchSystemAccessor(sketchSystem);
     return () => registerSketchSystemAccessor(undefined);
   }, [sketchSystem]);
+
+  // 拉伸对话框草图选项（M6-a T6 数据源裁决）：useFeatureSystem.tree 过滤
+  // sketch 节点 → mapFeatureEntries 同源命名（「草图 N」与树一致、orderKey
+  // 有序）→ {id,label} 下传 Canvas→FeatureDialog。树已在 onCommitted/
+  // onAfterUndoRedo 双订刷新（建/删草图自动跟随），不另开 listSketches 第二
+  // 数据通道（无序无名、需自建刷新订阅读——见 FeatureDialog 头注）。
+  const sketchOptions = React.useMemo(() => {
+    const typeLabel = (featureType: string): string => {
+      const key = `partStudio.tree.featureTypes.${featureType}`;
+      const label = t(key);
+      return label === key ? featureType : label; // 未知类型回退原始值（useFeatureTree 同口径）
+    };
+    return mapFeatureEntries(
+      featureSystem.tree.filter((entry) => entry.featureType === 'sketch'),
+      typeLabel,
+    ).map((node) => ({ id: node.id, label: node.name }));
+  }, [featureSystem.tree, t]);
 
   // 特征显示同步（M4-T5 移植 + M4-T6 接线）：特征写入后的几何出现链收口——
   // 绕过 GraphicalEditingScope 下 ModelChangeMonitor 的 guid 缓冲（BRep 显示
@@ -466,6 +489,8 @@ function PartStudioSession({
             canEdit={canEdit}
             applyOp={featureSystem.applyOp}
             leaseOk={featureSystem.leaseOk}
+            sketches={sketchOptions}
+            connection={connection ?? undefined}
             connectionLoading={connectionLoading}
             connectionError={canvasErrorMessage}
           />

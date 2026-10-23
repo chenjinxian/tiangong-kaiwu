@@ -58,6 +58,7 @@ export type {
   FeatureDialogEntity,
   FeatureDialogProps,
   FeatureDialogResult,
+  FeatureDialogSketchOption,
   FeatureDirection,
   FeatureResultType,
 } from './dialogs/FeatureDialog.js';

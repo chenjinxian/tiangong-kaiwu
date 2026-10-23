@@ -5,7 +5,9 @@
 //     `key={dialog.mode==='edit' ? dialog.featureId : 'new-'+dialog.featureType}`
 //     ——不同 featureId 切换时重挂（本地态不跨特征残留；M3-T6 台账①根治）；
 //  2) new/extrude 提交链：对话框确认 → 宿主下传的 applyOp（Session
-//     useFeatureSystem 直通）被调；✗ 取消 → closeDialog；
+//     useFeatureSystem 直通）被调；✗ 取消 → closeDialog；M6-a T6 起载荷走
+//     草图通道（sketches/connectionKey 透传 → {sketchId, regionIndex,
+//     profile:[]}，getSketch 面域读面替身）；
 //  3) sketch 寻址：SketchDialog 照旧按 dialog.active==='sketch' 渲染；
 //     M6-a T4 起 sketch 提交链同款接线（✓ → applyOp 收 insertSketch →
 //     真 sketchId 入 store → closeDialog；canEdit=false → ✓ 禁用）。
@@ -17,7 +19,19 @@ import type { RefObject } from 'react';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { BriefcaseConnection } from '@itwin/core-frontend';
 import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
+
+// M6-a T6：面域读面 RPC 替身（FeatureDialog 拉伸草图通道 getSketch 直调）。
+const featureRpc = vi.hoisted(() => ({
+  getSketch: vi.fn(),
+}));
+
+vi.mock('@luban-cad/shared', () => ({
+  LubanFeatureRpcInterface: {
+    getClient: () => featureRpc,
+  },
+}));
 
 const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
@@ -62,11 +76,18 @@ vi.mock('@itwin/core-frontend', () => ({
 import { usePartStudioStore } from '../index.js';
 import { PartStudioCanvas } from '../components/PartStudioCanvas.js';
 
-function renderCanvas(applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>): void {
+function renderCanvas(
+  applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>,
+  opts?: { sketches?: ReadonlyArray<{ id: string; label: string }>; connectionKey?: string },
+): void {
   render(
     <PartStudioCanvas
       viewportRef={{ current: null } as RefObject<HTMLDivElement>}
       applyOp={applyOp}
+      sketches={opts?.sketches}
+      connection={
+        opts?.connectionKey ? ({ key: opts.connectionKey } as unknown as BriefcaseConnection) : undefined
+      }
     />,
   );
 }
@@ -82,6 +103,7 @@ function resetStore(): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  featureRpc.getSketch.mockReset();
   mocks.viewport = null;
   resetStore();
 });
@@ -116,19 +138,30 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     expect(screen.queryByRole('dialog', { name: '拉伸 1' })).toBeNull();
   });
 
-  it('new 模式提交 → applyOp 直通（insertFeature/extrude）+ closeDialog', async () => {
+  it('new 模式提交 → applyOp 直通（insertFeature/extrude 草图通道——M6-a T6 sketches/connectionKey 透传生效）+ closeDialog', async () => {
     const user = userEvent.setup();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' }));
-    renderCanvas(applyOp);
+    // 宿主下传 sketches + connection.key → 对话框选中草图经 getSketch 拿面域 →
+    // 载荷 {sketchId, regionIndex, profile:[]}（M6-a T6 草图通道）。
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1',
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    });
+    renderCanvas(applyOp, { sketches: [{ id: 'sk-1', label: '草图 1' }], connectionKey: 'canvas-key' });
     act(() => {
       usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
     });
+    await user.selectOptions(withinDialog().getByRole('combobox', { name: '草图' }), 'sk-1');
+    await withinDialog().findByText('草图 1 的面'); // 面域读取落定（通道就绪）
     await user.click(withinDialog().getByRole('button', { name: '确认' }));
     await waitFor(() =>
       expect(applyOp).toHaveBeenCalledWith({
         kind: 'insertFeature',
         featureType: 'extrude',
-        params: { profile: [], distance: 10 },
+        params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0 },
       }),
     );
     // 成功 → 宿主收合（closeDialog）。

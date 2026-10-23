@@ -20,11 +20,33 @@
  *   UI 先行）+ 成品按钮（=✓ 确认出口）+ ? 帮助（展开文案）。
  *
  * 提交接线（M4-T6 拉伸闭环）：mode='new' 且 applyOp 在场时，✓/成品 →
- * `applyOp({ kind: 'insertFeature', featureType, params: { profile: [],
- * distance } })`（shared opDsl 语义「空 profile=拉伸基体」）；成功 → toast
+ * `applyOp({ kind: 'insertFeature', featureType, params })`；成功 → toast
  *（IModelApp.notifications 标准通道，与保存错误面同管道）+ onConfirm（宿主
  * closeDialog——组件不自销，受控口径）；失败 → 就地 Alert（六态 error），
  * 对话框不关闭；提交中禁重入（两出口禁用）。非法距离校验先行（不发起 op）。
+ *
+ * 拉伸草图通道（M6-a T6，解「空 profile 死结」的前端最后一环）：extrude 的
+ * 新建提交改走草图寻址——`params: { profile: [], distance, sketchId,
+ * regionIndex }`（shared v1.6 互斥语义：sketchId 在场时 profile 须空数组，
+ * 后端 zod 拒收裸空 profile）。数据源裁决（两路取内聚者）：
+ * - 草图列表 = 宿主（Session）自 useFeatureSystem.tree 过滤 featureType===
+ *   'sketch' 经 mapFeatureEntries 命名后 props 下传——树已在 onCommitted/
+ *   onAfterUndoRedo 双订刷新（建/删草图自动跟随、orderKey 有序、命名与特征
+ *   树同源），不另开 listSketches 第二数据通道（useSketchSystem 移植时同款
+ *   裁决：listSketches 摘要表无序无名，消费面未挂载不补）；
+ * - 面域 = 选中草图后对话框直调 getSketch(connectionKey, sketchId) 读
+ *   SketchRegionDto[]（面积降序，regionIndex=数组下标）——useSketchSystem
+ *   的读面钉死 store.sketch.activeSketchId（草图模式身份），对话框拾取任意
+ *   草图不属该通道（复用须劫持活动身份，误触草图模式变身语义），直调 RPC
+ *   即最小内聚面（读操作不涉写租约；代际守卫防慢响应覆写）。
+ * 交互（M6-a 最小形态，视口点击拾取归 M6-c）：草图下拉（多选一）+ 面域下拉
+ *（regions>1 才现——单面域自动 regionIndex=0）；选中回显 chip「{草图名} 的面」
+ *（多面域追加 ·面域 N，对齐采集规格「Sketch 1 的 面」chips 形态），×移除=
+ * 清选择。门禁（对齐 T3 zod 语义，不再空 profile 裸奔）：无草图 → 「先创建
+ * 草图」提示 + 提交禁用；regions 缺省/空 → 「草图无可拉伸面域」 + 禁用；
+ * 面域读取中/失败 → 禁用（失败经 role=alert 就地呈现）。仅 extrude 接
+ * sketchId——布尔类型按既有 zod 拒收语义不接（Registry booleanSchema
+ * sketchId:z.never()），非 extrude 特征类型走原 payload 不动。
  * applyOp 未接线（壳期/纯展示）时确认回退纯 onConfirm（M3 语义保持）；
  * mode='edit' 且 applyOp 在场（宿主已接提交面）时 ✓/成品 禁用 + 提示行
  *「该特征类型的参数编辑即将推出」（T6 评审 M-1：updateParams 归特征对话框
@@ -37,7 +59,7 @@
  *——提交入口不发起 applyOp，自然不进租约获取等待环（hub 权限缺陷下只读
  * briefcase 仍可被放行写 op，卡 aria-busy 40-65s 的现场即此门缺位；hook 层
  * 另有 useFeatureSystem readonly 前置拒收兜底，两层防御纵深）。方向/对称/拔模随载荷回传
- * 但本版不进 op（shared ExtrudeParams 仅 profile/distance/sketchId——映射
+ * 但本版不进 op（shared ExtrudeParams 的 symmetric 等扩展未定稿——映射
  * 归特征对话框增强单裁，见 useFeatureSystem 头注延后项）。
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
@@ -51,7 +73,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
-import type { FeatureOp, FeatureOpResult, LubanFeatureType } from '@luban-cad/shared';
+import type { FeatureOp, FeatureOpResult, LubanFeatureType, SketchRegionDto } from '@luban-cad/shared';
+import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import './FeatureDialog.css';
 
@@ -66,6 +89,12 @@ export type FeatureDirection = 'forward' | 'backward';
 
 /** 实体芯片（面和草图区域的寻址单位）。 */
 export interface FeatureDialogEntity {
+  id: string;
+  label: string;
+}
+
+/** 草图选项（M6-a T6 拉伸草图通道的下拉寻址单位——宿主自特征树 sketch 节点映射）。 */
+export interface FeatureDialogSketchOption {
   id: string;
   label: string;
 }
@@ -111,6 +140,19 @@ export interface FeatureDialogProps {
   canEdit?: boolean;
   /** 初始实体 chips（RPC 接线前由宿主注入；缺省空集）。 */
   entities?: readonly FeatureDialogEntity[];
+  /**
+   * 可选草图集（M6-a T6 拉伸草图通道）：宿主（Session）自 useFeatureSystem.tree
+   * 过滤 featureType==='sketch' 经 mapFeatureEntries 命名下传（「草图 N」与
+   * 特征树同源同名，树刷新自动跟随）。缺省空集 → 「先创建草图」提示 + 提交
+   * 禁用（T3 zod 语义：无 sketchId 的空 profile 裸奔被拒收，不再发放行）。
+   */
+  sketches?: readonly FeatureDialogSketchOption[];
+  /**
+   * iModel key（M6-a T6 面域读面）：选中草图后经 getSketch 拉
+   * SketchRegionDto[]（面积降序，regionIndex=数组下标）。缺省 undefined =
+   * 面域不可读（提交禁用 + 就地提示，不发起 RPC）。
+   */
+  connectionKey?: string;
   /** 回滚滑杆上限（默认 100；后端 OpLog 线性链接线后由宿主注入特征数）。 */
   rollbackMax?: number;
   /** ✓/成品 确认出口（回传全量载荷；提交成功后由宿主 closeDialog）。 */
@@ -138,6 +180,18 @@ const SECTIONS: readonly CollapsibleSection[] = [
   { id: 'draft', defaultExpanded: false },
 ];
 
+/** 草图选项缺省（M6-a T6：props 未接线/壳期空集——「先创建草图」门禁数据源；模块级常量防引用抖动）。 */
+const EMPTY_SKETCHES: readonly FeatureDialogSketchOption[] = [];
+
+/**
+ * 面积读数（M6-a T6）：内部米制 m²，toPrecision(3) 去尾零（0.0025 → "0.0025"、
+ * 3.14159 → "3.14"）——面域下拉的量级提示位，非精确读数（精确面积标注归
+ * M6-c 视口拾取交互单裁）。
+ */
+function formatArea(area: number): string {
+  return String(Number(area.toPrecision(3)));
+}
+
 /**
  * 特征编辑对话框（非模态内联面板）。宿主经 onConfirm/onCancel 收合——
  * 组件不自销（受控口径，与 CapabilityDialog 一致）；宿主挂
@@ -152,6 +206,8 @@ export function FeatureDialog({
   leaseOk,
   canEdit = true,
   entities,
+  sketches,
+  connectionKey,
   rollbackMax = 100,
   onConfirm,
   onCancel,
@@ -204,6 +260,67 @@ export function FeatureDialog({
   // 的假成功观感；applyOp 未接线（壳期/纯展示）保持 M3 纯回调语义。
   const editStandalone = mode === 'edit' && applyOp !== undefined;
 
+  // 拉伸草图通道（M6-a T6）：extrude 新建提交走 sketchId 寻址（数据源/门禁
+  // 裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
+  const sketchChannel = mode === 'new' && featureType === 'extrude' && applyOp !== undefined;
+  const sketchOptions = sketches ?? EMPTY_SKETCHES;
+  const [selectedSketchId, setSelectedSketchId] = React.useState('');
+  const [regionIndex, setRegionIndex] = React.useState(0);
+  // 面域读面（getSketch.regions——面积降序数组；undefined=未选/读取中）。
+  const [regions, setRegions] = React.useState<SketchRegionDto[] | undefined>(undefined);
+  const [regionsLoading, setRegionsLoading] = React.useState(false);
+  const [regionsError, setRegionsError] = React.useState<string | undefined>(undefined);
+  // 面域读取代际：换草图/换连接时 +1，慢响应过期即丢弃（useSketchSystem
+  // activeEpochRef 同款纪律——stale-clobber 防旧草图面域覆写新选择）。
+  const regionsEpochRef = React.useRef(0);
+
+  // 面域读面（对话框直调 getSketch RPC——裁决见文件头注）：读操作不涉写租约；
+  // 未选草图/连接缺失时清态（后者以就地提示诚实禁提交，不发起 RPC）。
+  React.useEffect(() => {
+    const epoch = ++regionsEpochRef.current;
+    if (!sketchChannel || selectedSketchId === '') {
+      setRegions(undefined);
+      setRegionsLoading(false);
+      setRegionsError(undefined);
+      return;
+    }
+    if (!connectionKey) {
+      setRegions(undefined);
+      setRegionsLoading(false);
+      setRegionsError(t('partStudio.featureDialog.regionUnreadable'));
+      return;
+    }
+    setRegionsLoading(true);
+    setRegionsError(undefined);
+    LubanFeatureRpcInterface.getClient()
+      .getSketch(connectionKey, selectedSketchId)
+      .then(
+        (sketch) => {
+          if (regionsEpochRef.current !== epoch) return; // 迟写丢弃（身份已切换）
+          setRegions(sketch?.regions ?? []); // regions 缺省（旧后端不下发）=无面域，禁提交
+          setRegionsLoading(false);
+        },
+        (err: unknown) => {
+          if (regionsEpochRef.current !== epoch) return;
+          setRegions([]);
+          setRegionsError(err instanceof Error ? err.message : String(err));
+          setRegionsLoading(false);
+        },
+      );
+  }, [sketchChannel, selectedSketchId, connectionKey, t]);
+
+  // 提交门（M6-a T6）：草图通道就绪 = 已选草图 ∧ 面域已载且非空 ∧ 未越界
+  //（regionIndex 越界防御：换草图瞬间旧值残留）。不就绪 → ✓/成品 禁用——
+  // T3 zod 拒收语义前置到 UI（无 sketchId 的空 profile 裸奔不再发放行）。
+  const regionCount = regions?.length ?? 0;
+  const sketchReady =
+    !sketchChannel ||
+    (selectedSketchId !== '' &&
+      !regionsLoading &&
+      regionsError === undefined &&
+      regionCount > 0 &&
+      regionIndex < regionCount);
+
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
     if (selection.length === 0) return;
@@ -218,6 +335,19 @@ export function FeatureDialog({
 
   const handleRemoveChip = React.useCallback((id: string) => {
     setChips((prev) => prev.filter((chip) => chip.id !== id));
+  }, []);
+
+  // 草图选择（M6-a T6）：换草图即重置面域序（regions 语义=该草图的面积降序
+  // 数组，旧下标不跨草图续用；读取中的过渡窗由 sketchReady 禁提交兜住）。
+  const handleSketchChange = React.useCallback((sketchId: string) => {
+    setSelectedSketchId(sketchId);
+    setRegionIndex(0);
+  }, []);
+
+  // 草图 chip ×移除 = 清选择（回到「选择草图…」占位，提交随 sketchReady 禁用）。
+  const handleRemoveSketchChip = React.useCallback(() => {
+    setSelectedSketchId('');
+    setRegionIndex(0);
   }, []);
 
   const buildResult = React.useCallback((): FeatureDialogResult => ({
@@ -243,6 +373,7 @@ export function FeatureDialog({
       onConfirm?.(buildResult());
       return;
     }
+    if (sketchChannel && !sketchReady) return; // 草图通道门禁（✓ 已禁用，此为防御兜底）
     const parsed = Number(distance);
     if (distance.trim() === '' || !Number.isFinite(parsed) || parsed <= 0) {
       setError(t('partStudio.featureDialog.distanceInvalid'));
@@ -256,8 +387,13 @@ export function FeatureDialog({
         result = await applyOp({
           kind: 'insertFeature',
           featureType,
-          // 空 profile = 拉伸基体（shared opDsl 语义；拾取寻址归特征对话框增强 backlog）。
-          params: { profile: [], distance: parsed },
+          // M6-a T6：extrude 走草图通道——{sketchId, regionIndex} 面域寻址 +
+          // 空 profile（shared v1.6 互斥语义：sketchId 在场时 profile 须空数组，
+          // 后端 sketchRegionsFrom 按面域数组产轮廓）；其余特征类型载荷不动
+          //（布尔类型 zod 拒收 sketchId——Registry booleanSchema，不接）。
+          params: sketchChannel
+            ? { profile: [], distance: parsed, sketchId: selectedSketchId, regionIndex }
+            : { profile: [], distance: parsed },
         });
       } catch (err) {
         // rpc-over-ipc 异常（连接断开等）——与拒收同面呈现，不静默。
@@ -278,7 +414,41 @@ export function FeatureDialog({
         setError(result.error);
       }
     })();
-  }, [submitting, canEdit, editStandalone, mode, applyOp, featureType, distance, t, onConfirm, buildResult, featureName]);
+  }, [
+    submitting,
+    canEdit,
+    editStandalone,
+    mode,
+    applyOp,
+    featureType,
+    sketchChannel,
+    sketchReady,
+    selectedSketchId,
+    regionIndex,
+    distance,
+    t,
+    onConfirm,
+    buildResult,
+    featureName,
+  ]);
+
+  // 选中回显 chip（M6-a T6）：「{草图名} 的面」（多面域追加 ·面域 N）——对齐
+  // 采集规格「Sketch 1 的 面」chips 形态；单面域不追加（regionIndex 恒 0 无信息量）。
+  const selectedSketch = sketchOptions.find((option) => option.id === selectedSketchId);
+  const sketchChipLabel = selectedSketch
+    ? regionCount > 1
+      ? t('partStudio.featureDialog.sketchFaceChipWithRegion', {
+          name: selectedSketch.label,
+          index: regionIndex,
+        })
+      : t('partStudio.featureDialog.sketchFaceChip', { name: selectedSketch.label })
+    : undefined;
+  // 面域下拉项（M6-a T6）：regions 面积降序（后端 sketchRegionsFrom 确定性排序
+  // 语义），首项标注最大（= regionIndex 缺省 0 的语义锚）。
+  const regionOptionLabel = (index: number, area: number): string =>
+    index === 0
+      ? t('partStudio.featureDialog.regionOptionLargest', { index, area: formatArea(area) })
+      : t('partStudio.featureDialog.regionOption', { index, area: formatArea(area) });
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -301,7 +471,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting || editStandalone || !canEdit}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -424,35 +594,133 @@ export function FeatureDialog({
           />
         </section>
 
-        {/* 芯片式实体选择框（os-31）+ 快速拾取。 */}
+        {/* 芯片式实体选择框（os-31）。M6-a T6 分叉：拉伸新建 = 草图通道——
+            草图下拉 + 面域下拉（regions>1 才现）+ 选中回显 chip（采集规格
+            「Sketch 1 的 面」形态）；无草图/无面域 → 诚实提示 + 提交禁用。
+            其余（edit/非 extrude/壳期）保持通用 chips + 快速拾取不动。 */}
         <section className="part-studio-feature-dialog__entities">
           <div className="part-studio-feature-dialog__entities-header">
             <span className="part-studio-feature-dialog__entities-label">
               {t('partStudio.featureDialog.entitiesLabel')}
             </span>
-            <button
-              type="button"
-              className="part-studio-feature-dialog__fast-pick"
-              onClick={handleFastPick}
-            >
-              {t('partStudio.featureDialog.fastPick')}
-            </button>
+            {!sketchChannel && (
+              <button
+                type="button"
+                className="part-studio-feature-dialog__fast-pick"
+                onClick={handleFastPick}
+              >
+                {t('partStudio.featureDialog.fastPick')}
+              </button>
+            )}
           </div>
-          <ul className="part-studio-feature-dialog__chips">
-            {chips.map((chip) => (
-              <li key={chip.id} className="part-studio-feature-dialog__chip">
-                <span className="part-studio-feature-dialog__chip-label">{chip.label}</span>
-                <button
-                  type="button"
-                  aria-label={t('partStudio.featureDialog.removeEntity', { label: chip.label })}
-                  className="part-studio-feature-dialog__chip-remove"
-                  onClick={() => handleRemoveChip(chip.id)}
+
+          {sketchChannel && sketchOptions.length === 0 ? (
+            /* 无草图门禁（M6-a T6）：先创建草图（不再发空 profile 裸奔）。 */
+            <p
+              role="note"
+              className="part-studio-feature-dialog__hint"
+              data-testid="part-studio-feature-dialog-no-sketch-hint"
+            >
+              {t('partStudio.featureDialog.noSketchHint')}
+            </p>
+          ) : null}
+
+          {sketchChannel && sketchOptions.length > 0 && (
+            <React.Fragment>
+              {/* 草图下拉（多选一；视口点击拾取归 M6-c 交互精化）。 */}
+              <select
+                aria-label={t('partStudio.featureDialog.sketchLabel')}
+                className="part-studio-feature-dialog__select"
+                value={selectedSketchId}
+                disabled={submitting}
+                onChange={(event) => handleSketchChange(event.target.value)}
+              >
+                <option value="" disabled>
+                  {t('partStudio.featureDialog.sketchPlaceholder')}
+                </option>
+                {sketchOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* 面域下拉（M6-a T6 最小形态）：regions>1 才现——单面域自动
+                  regionIndex=0（缺省语义），无需选择。 */}
+              {regions !== undefined && regionCount > 1 && (
+                <select
+                  aria-label={t('partStudio.featureDialog.regionLabel')}
+                  className="part-studio-feature-dialog__select"
+                  value={regionIndex}
+                  disabled={submitting}
+                  onChange={(event) => setRegionIndex(Number(event.target.value))}
                 >
-                  <SvgClose />
-                </button>
-              </li>
-            ))}
-          </ul>
+                  {regions.map((region, index) => (
+                    <option key={`region-${index}`} value={index}>
+                      {regionOptionLabel(index, region.area)}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* 选中回显 chip：「{草图名} 的面」+ regionIndex（多面域）；×=清选择。 */}
+              {selectedSketch && sketchChipLabel && (
+                <ul className="part-studio-feature-dialog__chips">
+                  <li className="part-studio-feature-dialog__chip">
+                    <span className="part-studio-feature-dialog__chip-label">{sketchChipLabel}</span>
+                    <button
+                      type="button"
+                      aria-label={t('partStudio.featureDialog.removeEntity', { label: sketchChipLabel })}
+                      className="part-studio-feature-dialog__chip-remove"
+                      onClick={handleRemoveSketchChip}
+                    >
+                      <SvgClose />
+                    </button>
+                  </li>
+                </ul>
+              )}
+
+              {/* 面域读取失败（RPC 异常/连接缺失）：就地 alert + 提交禁用。 */}
+              {regionsError && (
+                <p
+                  role="alert"
+                  className="part-studio-feature-dialog__alert"
+                  data-testid="part-studio-feature-dialog-region-error"
+                >
+                  {regionsError}
+                </p>
+              )}
+
+              {/* 无面域门禁（M6-a T6）：regions 缺省/空 → 草图无可拉伸面域。 */}
+              {!regionsError && regions !== undefined && regionCount === 0 && (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-no-region-hint"
+                >
+                  {t('partStudio.featureDialog.noRegionHint')}
+                </p>
+              )}
+            </React.Fragment>
+          )}
+
+          {!sketchChannel && (
+            <ul className="part-studio-feature-dialog__chips">
+              {chips.map((chip) => (
+                <li key={chip.id} className="part-studio-feature-dialog__chip">
+                  <span className="part-studio-feature-dialog__chip-label">{chip.label}</span>
+                  <button
+                    type="button"
+                    aria-label={t('partStudio.featureDialog.removeEntity', { label: chip.label })}
+                    className="part-studio-feature-dialog__chip-remove"
+                    onClick={() => handleRemoveChip(chip.id)}
+                  >
+                    <SvgClose />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {/* 折叠段：方向/起始偏移/对称/拔模（os-31）。 */}
@@ -545,7 +813,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting || editStandalone || !canEdit}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

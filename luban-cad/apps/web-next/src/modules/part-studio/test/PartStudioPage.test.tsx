@@ -133,14 +133,18 @@ vi.mock('@clients/auth/AuthSession.js', () => ({
 
 // M4-T6：Session 内层挂 useFeatureSystem——RPC 面替身（空树/租约可得），
 // 隔离真实 LubanFeatureRpcInterface 的注册态依赖；hoisted 便于接线断言。
+// M6-a T6 增 getSketch：FeatureDialog 拉伸草图通道的面域读面（选中草图后直调）。
 const featureRpc = vi.hoisted(() => ({
-  getFeatureTree: vi.fn(async (_key: string) => []),
+  // 返回型放宽为 unknown 形（hoisted 块内不做契约型标注——mockResolvedValue
+  // 注入树/草图替身时以 unknown 进出，消费方类型由真实 interface 契约保证）。
+  getFeatureTree: vi.fn(async (_key: string): Promise<unknown[]> => []),
   applyFeatureOp: vi.fn(
     async (_key: string, _op: unknown, _sessionId: string): Promise<{ ok: boolean; featureId?: string }> =>
       ({ ok: true, featureId: 'f-new' }),
   ),
   acquireWriteLease: vi.fn(async (_key: string, _sessionId: string) => ({ ok: true, holder: 'tester' })),
   releaseWriteLease: vi.fn(async (_key: string, _sessionId: string) => undefined),
+  getSketch: vi.fn(async (_key: string, _sketchId: string): Promise<unknown> => undefined),
 }));
 
 vi.mock('@luban-cad/shared', () => ({
@@ -792,19 +796,39 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
     await waitFor(() => expect(addListener).toHaveBeenCalled());
   });
 
-  it('拉伸闭环（页级）：new/extrude 对话框提交 → applyFeatureOp 形状钉死 + 对话框关闭', async () => {
+  it('拉伸闭环（页级）：new/extrude 对话框提交 → applyFeatureOp 形状钉死（M6-a T6 草图通道）+ 对话框关闭', async () => {
     const user = userEvent.setup();
+    // M6-a T6：树含 sketch 节点（Session 过滤映射成对话框下拉选项）+ getSketch
+    // 面域替身——载荷 {sketchId, regionIndex, profile:[]}（mockResolvedValueOnce：
+    // 挂载首跳吃树内草图，提交后 refresh 回落缺省空树，实现不跨用例渗漏）。
+    featureRpc.getFeatureTree.mockResolvedValueOnce([
+      { id: 'sk-1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
+    ]);
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1',
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    });
     renderPage();
     await waitFor(() => expect(featureRpc.acquireWriteLease).toHaveBeenCalled());
     act(() => {
       usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
     });
     const dialog = await screen.findByTestId('part-studio-feature-dialog');
+    // 选草图（树映射命名「草图 1」）→ 面单域自动 regionIndex=0 → 提交。
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: '草图' }), 'sk-1');
+    await within(dialog).findByText('草图 1 的面');
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     await waitFor(() =>
       expect(featureRpc.applyFeatureOp).toHaveBeenCalledWith(
         'briefcase-key',
-        { kind: 'insertFeature', featureType: 'extrude', params: { profile: [], distance: 10 } },
+        {
+          kind: 'insertFeature',
+          featureType: 'extrude',
+          params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0 },
+        },
         expect.any(String),
       ),
     );

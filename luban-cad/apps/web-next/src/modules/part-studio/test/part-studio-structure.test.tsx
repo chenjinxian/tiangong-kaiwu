@@ -549,7 +549,8 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     for (const label of ['新建', '加入', '移除', '相交']) {
       expect(within(scopeTabs).getByRole('tab', { name: label })).toBeDefined();
     }
-    expect(within(dialog).getByText('面和草图区域')).toBeDefined();
+    // M6-a T6：实体选择框标签对齐 Onshape 采集规格（「要拉伸的面和草图面域」）。
+    expect(within(dialog).getByText('要拉伸的面和草图面域')).toBeDefined();
     // ✗ 取消收合（非模态——画布锚点仍在场）。
     await user.click(within(dialog).getByRole('button', { name: '取消' }));
     expect(screen.queryByTestId('part-studio-feature-dialog')).toBeNull();

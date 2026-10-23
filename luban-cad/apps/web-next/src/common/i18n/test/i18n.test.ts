@@ -188,6 +188,12 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.confirm', 'featureDialog.cancel',
   'featureDialog.resultTypeTabs', 'featureDialog.booleanScopeTabs',
   'featureDialog.entitiesLabel', 'featureDialog.fastPick',
+  // M6-a T6：拉伸草图通道——草图下拉/面域下拉/无草图无面域门禁/选中回显 chip。
+  'featureDialog.sketchLabel', 'featureDialog.sketchPlaceholder',
+  'featureDialog.noSketchHint', 'featureDialog.regionLabel',
+  'featureDialog.regionOption', 'featureDialog.regionOptionLargest',
+  'featureDialog.noRegionHint', 'featureDialog.regionUnreadable',
+  'featureDialog.sketchFaceChip', 'featureDialog.sketchFaceChipWithRegion',
   'featureDialog.rollbackLabel', 'featureDialog.finish',
   'featureDialog.help', 'featureDialog.helpText',
   'sketchDialog.defaultTitle', 'sketchDialog.confirm', 'sketchDialog.cancel',
