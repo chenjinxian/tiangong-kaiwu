@@ -23,6 +23,11 @@
  *   能力引导对话框（capabilities.ts 单一真源；full 翻转后接真实路由）；
  * - T6 草图模式：活动草图行红显（os-30 树红显进行中草图，store.sketch 驱动
  *   传 TreeRow sketchActive）；
+ * - M6-a T7 草图节点编辑入口（Onshape 语义=双击进编辑）：sketch 节点双击 +
+ *   右键「编辑草图…」两路同义——enterSketch(node.id) 进草图模式（ribbon 变身/
+ *   覆盖层/红显全由既有 sketch 切片驱动）；通用「编辑…」（FeatureDialog 路由）
+ *   对 sketch 节点隐藏（草图不走特征对话框）；非 sketch 节点双击无行为（不动
+ *   既有面）；
  * - 数据注入：entries（useFeatureSystem.tree 直通）经 useFeatureTree 映射；
  *   变异出口为回调（onRename/onEdit/onSuppress/onDelete——RPC 变异层接线面）；
  * - 菜单监听一次注册（M4-T8 收 M3 终审 T5-⑤ 同款：挂载期一次到位，menu 经
@@ -40,6 +45,7 @@ import {
   SvgChevronRight,
   SvgClock,
   SvgDelete,
+  SvgDraw,
   SvgEdit,
   SvgEditAll,
   SvgHideManuallySuppressed,
@@ -54,7 +60,7 @@ import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { FeatureNode, PartNode, TreeTab } from '../types.js';
 import { TreeFilter, parseTreeFilter } from './TreeFilter.js';
 import type { TreeNode } from './TreeRow.js';
-import { TreeRow } from './TreeRow.js';
+import { isSketchNode, TreeRow } from './TreeRow.js';
 
 export interface FeatureTreeProps {
   /**
@@ -203,6 +209,9 @@ export function FeatureTree({
   // T6 草图模式：活动草图行红显（os-30 树红显进行中草图）。
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
+  // M6-a T7：草图节点编辑入口（双击+右键两路同义）——enterSketch 进草图模式，
+  // ribbon 变身/栅格覆盖层/树红显全由既有 sketch 切片消费面驱动。
+  const enterSketch = usePartStudioStore((s) => s.enterSketch);
 
   const [collapsed, setCollapsed] = React.useState<Record<TreeTab, boolean>>({
     features: false,
@@ -265,6 +274,26 @@ export function FeatureTree({
     [model],
   );
 
+  // M6-a T7：编辑既有草图 = 进草图模式编辑该草图（enterSketch 真 id）。
+  // 平面回显挂账（注释钉死）：enterSketch 恒归零 activeSketchPlane → 走契约缺省
+  // XY@z=0——草图平面无可读数据源（getSketch 的 SketchDto 无 plane 字段；树条目
+  // params 实测为 {entities,constraints}，后端 insertSketch 落库时 plane 未入列），
+  // 契约下发 plane（T3 私有仓 regions 下发同批挂账）后此处须补 setActiveSketchPlane。
+  const handleEditSketch = React.useCallback(
+    (node: TreeNode) => {
+      enterSketch(node.id);
+    },
+    [enterSketch],
+  );
+
+  // 双击路由（Onshape 语义=双击进编辑）：仅 sketch 节点有行为，非 sketch 节点不动。
+  const handleRowDoubleClick = React.useCallback(
+    (node: TreeNode) => {
+      if (isSketchNode(node)) handleEditSketch(node);
+    },
+    [handleEditSketch],
+  );
+
   const handleRename = React.useCallback(
     (node: TreeNode, name: string) => {
       setEditingId(null);
@@ -287,6 +316,7 @@ export function FeatureTree({
       sketchActive={sketchActive && activeSketchId === node.id}
       onSelect={(n) => model.selectNodes([n.id])}
       onContextMenu={handleRowContextMenu}
+      onDoubleClick={handleRowDoubleClick}
       editing={editingId === node.id}
       onCommitRename={handleRename}
       onCancelRename={() => setEditingId(null)}
@@ -421,22 +451,39 @@ export function FeatureTree({
             <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEdit /></span>
             {t('partStudio.tree.rename')}
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item"
-            onClick={() => {
-              setMenu(null);
-              if (onEdit) {
-                onEdit(menu.node);
-              } else {
-                console.warn(`[part-studio] 编辑 ${menu.node.name}（onEdit 未接线）`);
-              }
-            }}
-          >
-            <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEditAll /></span>
-            {t('partStudio.tree.edit')}
-          </button>
+          {/* M6-a T7：sketch 节点编辑入口=「编辑草图…」（进草图模式）；通用
+              「编辑…」（FeatureDialog 路由）对 sketch 节点隐藏——草图不走特征对话框。 */}
+          {isSketchNode(menu.node) ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              onClick={() => {
+                setMenu(null);
+                handleEditSketch(menu.node);
+              }}
+            >
+              <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgDraw /></span>
+              {t('partStudio.tree.editSketch')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              onClick={() => {
+                setMenu(null);
+                if (onEdit) {
+                  onEdit(menu.node);
+                } else {
+                  console.warn(`[part-studio] 编辑 ${menu.node.name}（onEdit 未接线）`);
+                }
+              }}
+            >
+              <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEditAll /></span>
+              {t('partStudio.tree.edit')}
+            </button>
+          )}
           {isFeatureNode(menu.node) && (
             <button
               type="button"

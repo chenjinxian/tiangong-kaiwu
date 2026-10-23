@@ -395,6 +395,7 @@
     "sectionToolsLabel": "Feature section tools",
     "rename": "Rename",
     "edit": "Edit…",
+    "editSketch": "Edit sketch…",
     "suppress": "Suppress",
     "unsuppress": "Unsuppress",
     "delete": "Delete",
@@ -411,7 +412,8 @@
       "booleanSubtract": "Subtract",
       "fillet": "Fillet",
       "chamfer": "Chamfer",
-      "shell": "Shell"
+      "shell": "Shell",
+      "sketch": "Sketch"
     }
   },
   "featureSystem": {

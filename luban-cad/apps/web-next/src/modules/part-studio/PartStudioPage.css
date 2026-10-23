@@ -987,6 +987,18 @@
   opacity: 0.5;
 }
 
+/* M6-a T7：草图节点行图标（SvgDraw 占位，M6-c UI 1:1 按采集 SVG 再校）。 */
+.part-studio-tree-row__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-inline-end: var(--iui-size-2xs);
+}
+
+.part-studio-tree-row__icon svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
 .part-studio-tree-row__input {
   inline-size: 100%;
   padding: var(--iui-size-2xs) var(--iui-size-xs);

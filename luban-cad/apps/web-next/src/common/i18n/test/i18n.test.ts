@@ -140,6 +140,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'tree.loadFailed', 'tree.retry', 'tree.unnamedElement',
   'tree.featureTypes.extrude', 'tree.featureTypes.booleanAdd', 'tree.featureTypes.booleanSubtract',
   'tree.featureTypes.fillet', 'tree.featureTypes.chamfer', 'tree.featureTypes.shell',
+  // M6-a T7：草图节点本地化（featureTypes.sketch）+ 树行编辑入口（编辑草图…）。
+  'tree.featureTypes.sketch', 'tree.editSketch',
   'featureDialog.distanceLabel', 'featureDialog.distanceInvalid', 'featureDialog.submitSuccess',
   // T6 评审 round 1：租约警示（I-2）+ edit 模式提示行（M-1）。
   'featureDialog.leaseBusy', 'featureDialog.editHint',

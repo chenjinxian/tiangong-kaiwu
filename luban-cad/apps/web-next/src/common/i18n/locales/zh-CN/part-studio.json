@@ -395,6 +395,7 @@
     "sectionToolsLabel": "特征段工具",
     "rename": "重命名",
     "edit": "编辑…",
+    "editSketch": "编辑草图…",
     "suppress": "抑制",
     "unsuppress": "取消抑制",
     "delete": "删除",
@@ -411,7 +412,8 @@
       "booleanSubtract": "差集",
       "fillet": "圆角",
       "chamfer": "倒角",
-      "shell": "抽壳"
+      "shell": "抽壳",
+      "sketch": "草图"
     }
   },
   "featureSystem": {

@@ -8,16 +8,25 @@
  * - 隐藏淡显（data-hidden，画布隐藏集叠加后的有效态）。
  * T6 增：活动草图红显（data-sketch-active——os-30 草图模式树红显进行中草图；
  * store.sketch 驱动，FeatureTree 传入）。
+ * M6-a T7 增：草图节点行图标（SvgDraw——iTwinUI 既有图标库中最贴近草图的
+ * 铅笔/绘制形，采集的 Onshape 草图 SVG 复用评估归 M6-c UI 1:1 再校）+
+ * 行双击路由（onDoubleClick——sketch 节点进草图模式，FeatureTree 裁决注入）。
  * 行点击选中（写 store.tree.selectedNodeIds → 画布 emphasize 联动）、行右键
  * 交 FeatureTree 弹菜单。重命名内联编辑态（editing）由 FeatureTree 驱动。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { SvgDraw } from '@itwin/itwinui-icons-react';
 import type { FeatureNode, PartNode } from '../types.js';
 
 /** 树行节点（特征段 | 零件段并集口径）。 */
 export type TreeNode = FeatureNode | PartNode;
+
+/** M6-a T7：草图节点判型（特征段且 type='sketch'——图标/双击/菜单三路共用）。 */
+export function isSketchNode(node: TreeNode): boolean {
+  return 'type' in node && node.type === 'sketch';
+}
 
 export interface TreeRowProps {
   node: TreeNode;
@@ -29,6 +38,8 @@ export interface TreeRowProps {
   onSelect: (node: TreeRowProps['node']) => void;
   /** 行右键（FeatureTree 打开上下文菜单）。 */
   onContextMenu: (node: TreeRowProps['node'], event: React.MouseEvent) => void;
+  /** 行双击（M6-a T7：sketch 节点进草图模式编辑；非 sketch 节点 FeatureTree 不注入）。 */
+  onDoubleClick?: (node: TreeRowProps['node']) => void;
   /** 重命名内联编辑态（null=非编辑；初始值=当前名）。 */
   editing: boolean;
   onCommitRename: (node: TreeNode, name: string) => void;
@@ -46,6 +57,7 @@ export function TreeRow({
   sketchActive = false,
   onSelect,
   onContextMenu,
+  onDoubleClick,
   editing,
   onCommitRename,
   onCancelRename,
@@ -114,7 +126,14 @@ export function TreeRow({
           aria-current={selected ? 'true' : undefined}
           onClick={() => onSelect(node)}
           onContextMenu={(event) => onContextMenu(node, event)}
+          onDoubleClick={onDoubleClick ? () => onDoubleClick(node) : undefined}
         >
+          {/* M6-a T7：草图节点行图标（SvgDraw 占位；M6-c 按采集 SVG 再校）。 */}
+          {isSketchNode(node) && (
+            <span className="part-studio-tree-row__icon" aria-hidden="true">
+              <SvgDraw />
+            </span>
+          )}
           <span className="part-studio-tree-row__name">{node.name}</span>
         </button>
       )}

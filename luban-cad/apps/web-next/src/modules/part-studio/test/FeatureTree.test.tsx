@@ -102,11 +102,12 @@ function partsConnection(
 
 type PartsConnection = ReturnType<typeof partsConnection>;
 
-/** store 复位：canvas/tree 切片回缺省（用例间互不渗漏）。 */
+/** store 复位：canvas/tree 切片回缺省（用例间互不渗漏；M6-a T7 起 sketch 切片同复位）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
+    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
   });
 }
 
@@ -475,5 +476,80 @@ describe('M4-T8 D5：树右键菜单项左置图标（os-15 V20）', () => {
       expect(icon, `菜单项「${itemEl.textContent}」缺图标`).not.toBeNull();
       expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
     }
+  });
+});
+
+// ── M6-a T7：草图节点本地化 + 编辑入口（双击/右键两路）─────────────────────
+
+/** M6-a T7：草图节点（featureType='sketch'）×2 + 对照特征节点。 */
+const SKETCH_TREE_ENTRIES: FeatureTreeEntry[] = [
+  { id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
+  { id: 'sk2', featureType: 'sketch', orderKey: 2, suppressed: false, status: 0, params: {} },
+  { id: 'ex9', featureType: 'extrude', orderKey: 3, suppressed: false, status: 0, params: {} },
+];
+
+describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击进编辑）', () => {
+  it('sketch 条目显示名走 i18n（草图 1/草图 2），非回退原始串；行图标在场', () => {
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    const tree = screen.getByTestId('part-studio-tree');
+    // featureTypes.sketch 入词库：同类型序号自增命名（草图 1/草图 2），非回退原始串。
+    expect(within(tree).getByText('草图 1')).toBeDefined();
+    expect(within(tree).getByText('草图 2')).toBeDefined();
+    expect(within(tree).queryByText('sketch 1')).toBeNull();
+    // 行图标（SvgDraw 占位，M6-c 再校）：svg 在场且 aria-hidden。
+    const icon = screen.getByTestId('tree-row-sk1').querySelector('.part-studio-tree-row__icon svg');
+    expect(icon).not.toBeNull();
+    expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
+    // 非 sketch 节点无图标（既有呈现面不变）。
+    expect(screen.getByTestId('tree-row-ex9').querySelector('.part-studio-tree-row__icon')).toBeNull();
+  });
+
+  it('双击 sketch 节点 → enterSketch 进草图模式（store 断言+行红显联动）；平面归零=契约缺省（回显挂账）', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    await user.dblClick(screen.getByTestId('tree-row-sk1'));
+    const sketch = usePartStudioStore.getState().sketch;
+    expect(sketch.isActive).toBe(true);
+    expect(sketch.activeSketchId).toBe('sk1');
+    // 平面回显挂账：enterSketch 恒归零（契约缺省 XY@z=0）——SketchDto/树条目
+    // params 均无 plane 下发，契约下发后须补 setActiveSketchPlane。
+    expect(sketch.activeSketchPlane).toBeNull();
+    // 树红显进行中草图（os-30 联动既有面）。
+    expect(screen.getByTestId('tree-row-sk1').getAttribute('data-sketch-active')).toBe('true');
+  });
+
+  it('双击非 sketch 节点 → 不进草图模式（既有行为不变）', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    await user.dblClick(screen.getByTestId('tree-row-ex9'));
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
+    expect(usePartStudioStore.getState().sketch.activeSketchId).toBeNull();
+  });
+
+  it('右键 sketch 节点：菜单有「编辑草图…」（带图标）、无「编辑…」；点击进草图模式', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk2'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const editSketch = within(menu).getByRole('menuitem', { name: '编辑草图…' });
+    // 通用「编辑…」（FeatureDialog 路由）对 sketch 节点隐藏——草图不走特征对话框。
+    expect(within(menu).queryByRole('menuitem', { name: '编辑…' })).toBeNull();
+    // 菜单项左置图标（os-15 V20 同口径）。
+    const icon = editSketch.querySelector('svg');
+    expect(icon).not.toBeNull();
+    expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
+    await user.click(editSketch);
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(true);
+    expect(usePartStudioStore.getState().sketch.activeSketchId).toBe('sk2');
+    // 菜单收合。
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('右键非 sketch 节点：菜单有「编辑…」、无「编辑草图…」（既有行为不变）', () => {
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex9'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).getByRole('menuitem', { name: '编辑…' })).toBeDefined();
+    expect(within(menu).queryByRole('menuitem', { name: '编辑草图…' })).toBeNull();
   });
 });
