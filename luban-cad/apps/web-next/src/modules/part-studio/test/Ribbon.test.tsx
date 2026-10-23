@@ -5,7 +5,8 @@
 //     featureType:'extrude' }（FeatureDialog 由画布宿主按 dialog 寻址渲染），
 //     不投 IModelApp.tools.run、不写 tool.activeToolId（同 newSketch→SketchDialog
 //     姿态：对话框流程非 PrimitiveTool 激活）；
-//  2) 其余 full 工具不回归：旋转点击仍投 tools.run + 写激活态；
+//  2) 其余 full 工具不回归：扫掠点击仍投 tools.run + 写激活态（旋转/圆角已
+//     同姿态改道对话框——M6-b T4/T6）；
 //  3) gated 工具（拔模）不回归：开能力引导对话框。
 //
 // 定位：激活路由验收层（此前 ribbon 结构/激活冒烟挂 CommandPalette.test.tsx，
@@ -67,7 +68,7 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
   });
 
-  it('其余 full 工具不回归：扫掠点击仍投 tools.run + 写激活态（旋转已改道对话框——M6-b T4）', async () => {
+  it('其余 full 工具不回归：扫掠点击仍投 tools.run + 写激活态（旋转/圆角已改道对话框——M6-b T4/T6）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '扫掠' }));
@@ -86,6 +87,19 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
       active: 'feature',
       mode: 'new',
       featureType: 'revolve',
+    });
+  });
+
+  it('M6-b T6：圆角（RoundEdges）点击改道 new/fillet 对话框（不经 tools.run 不写激活态——参数化特征链入口，拾取归对话框驱动）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '圆角' }));
+    expect(mocks.toolsRun).not.toHaveBeenCalledWith('RoundEdges');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'fillet',
     });
   });
 

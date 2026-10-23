@@ -146,6 +146,14 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'tree.featureTypes.revolve',
   'featureDialog.axisLabel', 'featureDialog.axisOption', 'featureDialog.noAxisHint',
   'featureDialog.fullRevolveLabel', 'featureDialog.angleLabel', 'featureDialog.angleInvalid',
+  // M6-b T6：fillet 通道——边标签/半径/切向延伸/添加边拾取/边 chips/门禁 +
+  // 拾取工具提示与解析失败 toast（filletPick.*）。
+  'featureDialog.filletEdgesLabel', 'featureDialog.radiusLabel', 'featureDialog.radiusInvalid',
+  'featureDialog.propagateSmoothLabel', 'featureDialog.addEdge', 'featureDialog.stopPick',
+  'featureDialog.pickingHint', 'featureDialog.noEdgesHint', 'featureDialog.noBodyHint',
+  'featureDialog.edgeUnpickable',
+  'featureDialog.edgeChip', 'featureDialog.removeEdge',
+  'filletPick.prompt', 'filletPick.resolveFailed',
   'featureDialog.distanceLabel', 'featureDialog.distanceInvalid', 'featureDialog.submitSuccess',
   // T6 评审 round 1：租约警示（I-2）+ edit 模式提示行（M-1）。
   'featureDialog.leaseBusy', 'featureDialog.editHint',

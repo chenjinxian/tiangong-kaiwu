@@ -201,6 +201,9 @@ importers:
       '@itwin/core-geometry':
         specifier: link:../../../itwinjs-core/core/geometry
         version: link:../../../itwinjs-core/core/geometry
+      '@itwin/editor-frontend':
+        specifier: link:../../packages/editor/frontend
+        version: link:../../packages/editor/frontend
       '@itwin/imodels-client-management':
         specifier: ^6.0.2
         version: 6.2.2
@@ -244,6 +247,9 @@ importers:
         specifier: ^5.0.0
         version: 5.0.15(@types/react@18.3.31)(immer@10.2.0)(react@18.3.1)(use-sync-external-store@1.7.0(react@18.3.1))
     devDependencies:
+      '@itwin/editor-common':
+        specifier: link:../../packages/editor/common
+        version: link:../../packages/editor/common
       '@itwin/eslint-plugin':
         specifier: ^6.0.0
         version: 6.1.0(eslint@9.39.5)(typescript@5.6.3)

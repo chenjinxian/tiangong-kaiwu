@@ -6,11 +6,14 @@
  * 下载 + WebGL）。五组断言各自独立导航（briefcase 重开走 MS「Closing existing
  * db」复用路径，连接等待带一次 reload 恢复——见 helpers.waitEditorReady）：
  *  1) 五区结构 + 连接就绪 + 特征树双段 + 顶栏编辑三钮干净态诚实禁用；
- *  2) ribbon 工具真激活：RoundEdges（真实 toolId）→ aria-pressed + console
- *     零「未启动/激活失败」警告（M4-T9 冒烟 S4 同口径）；
+ *  2) ribbon 工具真激活：SweepFaces（真实 toolId；M6-b T6 起圆角 RoundEdges
+ *     改道 new/fillet 对话框，探针换扫掠）→ aria-pressed + console 零「未启动/
+ *     激活失败」警告（M4-T9 冒烟 S4 同口径）；
  *  3) 页签管理器（「+」开合）；
  *  4) 汉堡文档菜单 11 项 + 工作区单位对话框（mm 唯一可用）；
- *  5) FeatureDialog 开合（拉伸 → 非模态面板 + 距离缺省 → ✗ 收合）。
+ *  5) FeatureDialog 开合（拉伸 → 非模态面板 + 距离缺省 → ✗ 收合）；
+ *     圆角通道（M6-b T6）：半径缺省 5 + 空边集禁提交（视口拾取链不自动断言
+ *     ——归 T7 真栈冒烟）。
  *
  * honest 边界（brief）：本页只测 UI 面与工具激活——**不做建模闭环断言**
  * （特征提交/撤销链归 T4 私有仓复测门）。
@@ -65,24 +68,24 @@ test('五区结构 + 连接就绪 + 特征树双段 + 编辑三钮干净态', as
   await expect(page.getByTestId('part-studio-save-button')).toBeDisabled();
 });
 
-test('ribbon 工具真激活：RoundEdges aria-pressed + 零未启动警告', async ({ page }) => {
+test('ribbon 工具真激活：SweepFaces aria-pressed + 零未启动警告（M6-b T6 起探针换扫掠——圆角改道对话框）', async ({ page }) => {
   const consoleMessages: string[] = [];
   page.on('console', (message) => {
     consoleMessages.push(`[${message.type()}] ${message.text()}`);
   });
 
-  const roundEdges = page.getByRole('button', { name: '圆角', exact: true });
-  await expect(roundEdges).toBeVisible();
-  await expect(roundEdges).toHaveAttribute('aria-pressed', 'false');
+  const sweep = page.getByRole('button', { name: '扫掠', exact: true });
+  await expect(sweep).toBeVisible();
+  await expect(sweep).toHaveAttribute('aria-pressed', 'false');
 
-  await roundEdges.click();
+  await sweep.click();
 
   // 真激活双证：store 写入（aria-pressed）+ tools.run 真启动（console 零警告）。
   // aria-pressed 先于 tools.run 落定——单证会放过假激活（M4-T9 S4 反证口径：
   // 「命令未启动」警告 = 假激活）。
-  await expect(roundEdges).toHaveAttribute('aria-pressed', 'true');
+  await expect(sweep).toHaveAttribute('aria-pressed', 'true');
   const warnings = consoleMessages.filter((text) => /未启动|激活失败/.test(text));
-  expect(warnings, `RoundEdges 激活不应有警告：\n${warnings.join('\n')}`).toHaveLength(0);
+  expect(warnings, `SweepFaces 激活不应有警告：\n${warnings.join('\n')}`).toHaveLength(0);
 });
 
 test('页签管理器开合（「+」入口）', async ({ page }) => {
@@ -131,6 +134,21 @@ test('FeatureDialog 开合：拉伸 → 非模态面板 + 距离缺省 → ✗ �
   await expect(dialog.getByRole('textbox', { name: '距离' })).toHaveValue('10');
 
   // ✗ 取消收合（不做建模闭环断言——那归 T4 私有仓复测门）
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(dialog).toBeHidden();
+});
+
+test('FeatureDialog 圆角通道（M6-b T6）：半径缺省 5 + 空边集禁提交 → ✗ 收合', async ({ page }) => {
+  await page.getByRole('button', { name: '圆角', exact: true }).click();
+  const dialog = page.getByTestId('part-studio-feature-dialog');
+  await expect(dialog).toBeVisible();
+  // 半径缺省 5（M6-b T6 裁决；距离区对 fillet 不适用——不在场）。
+  await expect(dialog.getByRole('textbox', { name: '半径' })).toHaveValue('5');
+  await expect(dialog.getByRole('textbox', { name: '距离' })).toBeHidden();
+  // 空边集门禁：✓/成品 禁用（视口拾取链不自动断言——归 T7 真栈冒烟）。
+  await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: '成品', exact: true })).toBeDisabled();
+
   await dialog.getByRole('button', { name: '取消', exact: true }).click();
   await expect(dialog).toBeHidden();
 });

@@ -49,10 +49,37 @@ const featureRpc = vi.hoisted(() => ({
   getSketch: vi.fn(),
 }));
 
+// M6-b T6：拾取工具模块替身（fillet 通道「添加边」动态 import 的落点——捕获
+// startFilletEdgePick 的 options 回调现场；editor 基座链不入测试图）。置顶层
+//（vi.mock 提升执行序，嵌套写法已弃用）。
+const pickMocks = vi.hoisted(() => {
+  interface Captured {
+    connectionKey?: string;
+    onEdgeAdded?: (ref: unknown) => void;
+    onEdgeRemoved?: (ref: unknown) => void;
+    onError?: (message: string) => void;
+    onEnded?: () => void;
+  }
+  return {
+    captured: undefined as Captured | undefined,
+    startFilletEdgePick: vi.fn(async (options: Captured) => {
+      pickMocks.captured = options;
+      return {
+        exitTool: pickMocks.exitTool,
+      };
+    }),
+    exitTool: vi.fn(async () => undefined),
+  };
+});
+
 vi.mock('@luban-cad/shared', () => ({
   LubanFeatureRpcInterface: {
     getClient: () => featureRpc,
   },
+}));
+
+vi.mock('../tools/modeling/FilletEdgePickTool.js', () => ({
+  startFilletEdgePick: pickMocks.startFilletEdgePick,
 }));
 
 vi.mock('@itwin/core-frontend', () => ({
@@ -1184,5 +1211,290 @@ describe('M6-b T4 extrude 对称平铺复选（Onshape 平铺形态；载荷已�
     renderDialog();
     expect(screen.getByRole('button', { name: '对称' }).getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByTestId('part-studio-feature-dialog-symmetric-flat')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M6-b T6：fillet 通道（F8——体边拾取，不走草图通道）。**对话框驱动拾取裁决**：
+// 「添加边」钮启动 FilletEdgePickTool（动态 import——本文件 mock 该工具模块替身
+// 捕获回调现场，editor 基座链不入测试图），工具每拾一条边（已即时换持久拓扑
+// id 对）回调 chips 增行，右键/Esc/再点钮结束拾取回对话框。覆盖：载荷构造
+//（多边/单边/半径/切向延伸）/chips 增删与无关键去重/空边集门禁/拾取态分叉
+//（✓ 禁用、Esc 只结束拾取、卸载守卫退工具）/无 body 与无连接诚实降级。
+// ---------------------------------------------------------------------------
+describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
+  const EDGE_1 = { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 1, entityId: 3 } };
+  const EDGE_2 = { faceA: { nodeId: 1, entityId: 4 }, faceB: { nodeId: 1, entityId: 5 } };
+  /** 模拟工具拾得一条边（换算完成后回调）。 */
+  function pickEdge(ref: { faceA: { nodeId: number; entityId: number }; faceB: { nodeId: number; entityId: number } }): void {
+    pickMocks.captured?.onEdgeAdded?.(ref);
+  }
+
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  beforeEach(() => {
+    pickMocks.captured = undefined;
+    pickMocks.startFilletEdgePick.mockClear();
+    pickMocks.exitTool.mockClear();
+  });
+
+  function renderFilletDialog(applyOp: ReturnType<typeof makeApplyOp>, props: Partial<Parameters<typeof FeatureDialog>[0]> = {}) {
+    const onConfirm = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="圆角"
+        mode="new"
+        featureType="fillet"
+        applyOp={applyOp}
+        connectionKey="model-key"
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+        {...props}
+      />,
+    );
+    return { onConfirm, applyOp };
+  }
+
+  it('初始形态：半径缺省 5 + 切向延伸勾选 + 添加边钮 + 空边集提示 + ✓/成品禁用 + 距离区不在场', () => {
+    renderFilletDialog(makeApplyOp());
+    expect((screen.getByRole('textbox', { name: '半径' }) as HTMLInputElement).value).toBe('5');
+    expect((screen.getByRole('checkbox', { name: '切向延伸' }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-add-edge')).toBeDefined();
+    expect(screen.queryByRole('button', { name: '快速拾取' })).toBeNull(); // 通用快速拾取不接
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // 距离量不适用
+    expect(screen.getByTestId('part-studio-feature-dialog-no-edges-hint').textContent).toBe('选择要圆角的边');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    // 草图通道不接（输入是体边非草画面域）。
+    expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
+  });
+
+  it('单边载荷：拾 1 边 → chip「边 1」→ 结束拾取 → ✓ 解禁 → 载荷 {radius:5, propagateSmooth:true, edges:[对]}', async () => {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1);
+    await screen.findByText('边 1');
+    // 拾取会话在场时 ✓ 保持禁用（提交须先结束拾取——对话框驱动流程）。
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    pickMocks.captured?.onEnded?.(); // 右键/Esc 结束拾取回对话框
+    await waitFor(() => expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'fillet',
+      params: { radius: 5, propagateSmooth: true, edges: [EDGE_1] },
+    });
+  });
+
+  it('多边载荷：拾 2 边 → 两 chips（序号 1/2）→ 结束拾取 → 载荷 edges 按拾取序全量透传', async () => {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_2);
+    pickEdge(EDGE_1);
+    await screen.findByText('边 2');
+    pickMocks.captured?.onEnded?.();
+    await waitFor(() => expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    const params = (applyOp.mock.calls[0]![0] as { params: { edges: unknown[] } }).params;
+    expect(params.edges).toEqual([EDGE_2, EDGE_1]); // 拾取序（契约面对序无关，透传即可）
+  });
+
+  it('半径与切向延伸进载荷：改 2.5 + 取消勾选 → {radius:2.5, propagateSmooth:false}', async () => {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1);
+    await screen.findByText('边 1');
+    pickMocks.captured?.onEnded?.();
+    await waitFor(() => expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    const radius = screen.getByRole('textbox', { name: '半径' });
+    await user.clear(radius);
+    await user.type(radius, '2.5');
+    await user.click(screen.getByRole('checkbox', { name: '切向延伸' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'fillet',
+      params: { radius: 2.5, propagateSmooth: false, edges: [EDGE_1] },
+    });
+  });
+
+  it('非法半径（0）→ 校验 Alert 就地，不发起 op', async () => {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1);
+    await screen.findByText('边 1');
+    pickMocks.captured?.onEnded?.();
+    await waitFor(() => expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    const radius = screen.getByRole('textbox', { name: '半径' });
+    await user.clear(radius);
+    await user.type(radius, '0');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(screen.getByRole('alert').textContent).toContain('圆角半径');
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('chips 去重（无关键面对序无关）：同一 ref 颠倒面对重拾 → 仍 1 chip', async () => {
+    const user = userEvent.setup();
+    renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1);
+    pickEdge({ faceA: { nodeId: 1, entityId: 3 }, faceB: { nodeId: 1, entityId: 2 } }); // 面对序颠倒=同边
+    await screen.findByText('边 1');
+    expect(screen.queryByText('边 2')).toBeNull();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('chip ×移除：删「边 1」→ 余下重排「边 2」→「边 1」；清空回禁提交', async () => {
+    const user = userEvent.setup();
+    renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1);
+    pickEdge(EDGE_2);
+    await screen.findByText('边 2');
+    pickMocks.captured?.onEnded?.(); // 结束拾取（×移除在非拾取态亦可，拾取态禁提交不禁改）
+    await waitFor(() => expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole('button', { name: '移除 边 1' }));
+    expect(screen.getByText('边 1')).toBeDefined(); // 原「边 2」重排为「边 1」
+    expect(screen.queryByText('边 2')).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(screen.getByRole('button', { name: '移除 边 1' }));
+    expect(screen.getByTestId('part-studio-feature-dialog-no-edges-hint')).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('拾取态：aria-pressed + 拾取提示 +「结束拾取」钮 + ✓ 禁用；点钮 → exitTool 回「添加边」', async () => {
+    const user = userEvent.setup();
+    renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    expect(pickMocks.captured?.connectionKey).toBe('model-key');
+    expect(screen.getByTestId('part-studio-feature-dialog-add-edge').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('part-studio-feature-dialog-picking-hint')).toBeDefined();
+    expect(screen.getByTestId('part-studio-feature-dialog-add-edge').textContent).toBe('结束拾取');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    // 再点钮 = 主动结束拾取（对话框驱动结束通道之一）。
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    expect(pickMocks.exitTool).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('part-studio-feature-dialog-add-edge').textContent).toBe('添加边');
+  });
+
+  it('拾取态 Escape 分叉：只结束拾取回对话框（onCancel 不调、exitTool 调）', async () => {
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="圆角"
+        mode="new"
+        featureType="fillet"
+        applyOp={makeApplyOp()}
+        connectionKey="model-key"
+        onConfirm={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(pickMocks.exitTool).toHaveBeenCalledTimes(1);
+    expect(onCancel).not.toHaveBeenCalled(); // 对话框不关——拾取分叉优先
+    expect(screen.getByTestId('part-studio-feature-dialog-add-edge').textContent).toBe('添加边');
+  });
+
+  it('非拾取态 Escape 不变：仍 onCancel（M5-T1 语义保持）', () => {
+    const onCancel = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="圆角"
+        mode="new"
+        featureType="fillet"
+        applyOp={makeApplyOp()}
+        connectionKey="model-key"
+        onConfirm={vi.fn()}
+        onCancel={onCancel}
+      />,
+    );
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(pickMocks.startFilletEdgePick).not.toHaveBeenCalled();
+  });
+
+  it('卸载守卫：拾取中对话框卸载（提交成功关闭等）→ exitTool 兜底不留孤儿会话', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <FeatureDialog
+        featureName="圆角"
+        mode="new"
+        featureType="fillet"
+        applyOp={makeApplyOp()}
+        connectionKey="model-key"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    unmount();
+    expect(pickMocks.exitTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('工具 onEnded 回调（右键自然退出）→ 回「添加边」态，chips 保留', async () => {
+    const user = userEvent.setup();
+    renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1);
+    await screen.findByText('边 1');
+    pickMocks.captured?.onEnded?.(); // 工具右键退出 → onEnded → stopPick
+    await waitFor(() => expect(screen.getByTestId('part-studio-feature-dialog-add-edge').textContent).toBe('添加边'));
+    expect(screen.getByText('边 1')).toBeDefined(); // chips 不随拾取会话结束丢失
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('工具 onError 回报 → toast（notifications 标准通道），chips 不增行', async () => {
+    const user = userEvent.setup();
+    renderFilletDialog(makeApplyOp());
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickMocks.captured?.onError?.('边未命中任何邻面对');
+    expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
+    expect((mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string }).briefMessage).toContain('边未命中任何邻面对');
+    expect(screen.queryByText('边 1')).toBeNull();
+  });
+
+  it('无 body 诚实降级：hasBodies=false → 拾取钮不出 + 先建实体提示 + 禁提交（空边集提示让位不双报）', () => {
+    renderFilletDialog(makeApplyOp(), { hasBodies: false });
+    expect(screen.getByTestId('part-studio-feature-dialog-no-body-hint').textContent).toContain('库中无实体');
+    expect(screen.queryByTestId('part-studio-feature-dialog-add-edge')).toBeNull();
+    expect(screen.queryByTestId('part-studio-feature-dialog-no-edges-hint')).toBeNull(); // 同一禁提交因，不双报
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('无连接诚实降级：connectionKey 缺省 → 拾取钮不出 + 不可拾提示（不发工具）', async () => {
+    render(
+      <FeatureDialog
+        featureName="圆角"
+        mode="new"
+        featureType="fillet"
+        applyOp={makeApplyOp()}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('part-studio-feature-dialog-edge-unpickable').textContent).toContain('建模服务未连接');
+    expect(screen.queryByTestId('part-studio-feature-dialog-add-edge')).toBeNull();
+    expect(pickMocks.startFilletEdgePick).not.toHaveBeenCalled();
   });
 });

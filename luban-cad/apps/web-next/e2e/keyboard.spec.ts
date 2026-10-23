@@ -75,7 +75,7 @@ test('纯键盘：Tab 到创建 → 建文档（焦点路径断言）', async ({
   });
 });
 
-test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活圆角 → Escape 分层', async ({ page }) => {
+test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活扫掠 → Escape 分层', async ({ page }) => {
   // 编辑器用例预算放大（T5 评审 M-4）：编辑器就绪链最坏 210s（waitEditorReady
   // 30+90+90）+ 前置导航，超全局 120s——慢栈下 timeout 会抢先吃掉 helper 的
   // 诊断文案。前一个用例（文档中心，无编辑器）不吃放大。
@@ -102,20 +102,21 @@ test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活圆角 → Escape �
   });
   await waitEditorReady(page);
 
-  // alt+/ 开命令搜索（焦点入输入框）→ 键入过滤 → Enter 激活首个命中（圆角）
+  // alt+/ 开命令搜索（焦点入输入框）→ 键入过滤 → Enter 激活首个命中（扫掠；
+  // M6-b T6 起圆角 RoundEdges 改道 new/fillet 对话框，键盘真激活探针换扫掠）
   await page.keyboard.press('Alt+Slash');
   const palette = page.getByRole('dialog', { name: '搜索工具' });
   await expect(palette).toBeVisible();
   await expect.poll(async () => (await readActiveElement(page)).tag).toBe('INPUT');
-  await page.keyboard.type('圆角');
+  await page.keyboard.type('扫掠');
   await page.keyboard.press('Enter');
 
   // 真激活双证（part-studio.spec 同口径）：store 写入（aria-pressed）+ console
   // 零「未启动/激活失败」——aria-pressed 先于 tools.run 落定，单证会放过假激活。
-  const roundEdges = page.getByRole('button', { name: '圆角', exact: true });
-  await expect(roundEdges).toHaveAttribute('aria-pressed', 'true');
+  const sweep = page.getByRole('button', { name: '扫掠', exact: true });
+  await expect(sweep).toHaveAttribute('aria-pressed', 'true');
   const activationWarnings = consoleWarnings.filter((text) => /未启动|激活失败/.test(text));
-  expect(activationWarnings, `键盘流 RoundEdges 激活不应有警告：\n${activationWarnings.join('\n')}`).toHaveLength(0);
+  expect(activationWarnings, `键盘流 SweepFaces 激活不应有警告：\n${activationWarnings.join('\n')}`).toHaveLength(0);
 
   // Escape 分层②：alt+~+t 和弦开页签管理器 → Escape 收
   await page.keyboard.press('Alt+Backquote');

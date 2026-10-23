@@ -79,6 +79,11 @@ export interface PartStudioCanvasProps {
    * （getSketch RPC 的寻址键）；缺省 undefined = 面域不可读（提交禁用）。
    */
   connection?: BriefcaseConnection;
+  /**
+   * 库内已有实体（M6-b T6 fillet 通道诚实降级门）：Session 自特征树判
+   * （body 产出型条目在场）下传 FeatureDialog；缺省 true（壳期/测试语义保持）。
+   */
+  hasBodies?: boolean;
   /** briefcase 打开中（M5-T2：Session 下传 isLoading——画布骨架覆盖层）。 */
   connectionLoading?: boolean;
   /** 连接失败消息（M5-T2：Session 合流下传——briefcase error 优先，viewport 创建失败兜底（T2 评审）；原文透传，null=无失败）。 */
@@ -104,6 +109,7 @@ export function PartStudioCanvas({
   canEdit = true,
   sketches,
   connection,
+  hasBodies = true,
   connectionLoading = false,
   connectionError = null,
   sketchSystem,
@@ -226,6 +232,7 @@ export function PartStudioCanvas({
           canEdit={canEdit}
           sketches={sketches}
           connectionKey={connection?.key}
+          hasBodies={hasBodies}
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />

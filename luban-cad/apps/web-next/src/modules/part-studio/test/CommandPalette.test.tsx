@@ -134,7 +134,7 @@ describe('CommandPalette 激活路由', () => {
     expect(screen.queryByRole('dialog', { name: '拔模（规划中）' })).toBeNull();
   });
 
-  it('点击结果激活：圆角 → tools.run(RoundEdges)', async () => {
+  it('点击结果激活：圆角 → 改道 new/fillet 对话框（M6-b T6，tools.run 不调用）', async () => {
     const user = userEvent.setup();
     usePartStudioStore.setState({ commandPalette: { isOpen: true, query: '', highlightEnabled: true } });
     renderPalette();
@@ -142,7 +142,23 @@ describe('CommandPalette 激活路由', () => {
     const first = screen.getAllByRole('button', { name: '圆角' })[0];
     expect(first).toBeDefined();
     await user.click(first!);
-    expect(mocks.toolsRun).toHaveBeenCalledWith('RoundEdges');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'fillet',
+    });
+    expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(false);
+  });
+
+  it('点击结果激活：扫掠 → tools.run(SweepFaces)（真实工具路由不回归；圆角已改道对话框）', async () => {
+    const user = userEvent.setup();
+    usePartStudioStore.setState({ commandPalette: { isOpen: true, query: '', highlightEnabled: true } });
+    renderPalette();
+    await user.type(screen.getByRole('textbox'), '扫掠');
+    const first = screen.getByRole('button', { name: '扫掠' });
+    await user.click(first);
+    expect(mocks.toolsRun).toHaveBeenCalledWith('SweepFaces');
     expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(false);
   });
 
@@ -182,7 +198,7 @@ describe('Ribbon 结构冒烟（27 工具 + 8 下拉 + 搜索触发钮）', () =
     expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
   });
 
-  it('full 工具（扫掠）点击 → tools.run(SweepFaces) + 写 store 激活态（拉伸/旋转已改道对话框，见 M4-T6/M6-b T4）', async () => {
+  it('full 工具（扫掠）点击 → tools.run(SweepFaces) + 写 store 激活态（拉伸/旋转/圆角已改道对话框，见 M4-T6/M6-b T4/T6）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '扫掠' }));

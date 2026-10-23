@@ -300,6 +300,18 @@
     "fullRevolveLabel": "Full revolve",
     "angleLabel": "Angle (degrees)",
     "angleInvalid": "Enter a valid revolve angle (greater than 0 and at most 360)",
+    "filletEdgesLabel": "Edges to fillet",
+    "radiusLabel": "Radius",
+    "radiusInvalid": "Enter a valid fillet radius (greater than 0)",
+    "propagateSmoothLabel": "Tangent propagation",
+    "addEdge": "Add edges",
+    "stopPick": "Finish picking",
+    "pickingHint": "Click edges to fillet in the canvas (click the same edge again to deselect); right-click or Esc to finish picking",
+    "noEdgesHint": "Select edges to fillet",
+    "noBodyHint": "No solid bodies in the library: create one by extrude or revolve before picking edges",
+    "edgeUnpickable": "Cannot pick edges: modeling service not connected",
+    "edgeChip": "Edge {{index}}",
+    "removeEdge": "Remove edge {{index}}",
     "distanceLabel": "Distance",
     "distanceInvalid": "Enter a valid extrude distance (greater than 0)",
     "submitSuccess": "{{name}} created",
@@ -320,6 +332,10 @@
     "finish": "Finish",
     "help": "Help",
     "helpText": "Pick faces or sketch regions in the canvas to add entities; ✓ commits the feature, ✗ discards changes."
+  },
+  "filletPick": {
+    "prompt": "Click edges to fillet in the canvas",
+    "resolveFailed": "Failed to resolve the edge reference"
   },
   "sketchDialog": {
     "defaultTitle": "Sketch",

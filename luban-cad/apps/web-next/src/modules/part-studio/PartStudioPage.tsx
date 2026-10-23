@@ -129,6 +129,10 @@ import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import './PartStudioPage.css';
 
+/** body 产出型特征类型（M6-b T6 hasBodies 判据：依附型特征 fillet/chamfer/shell
+ * 与 sketch 不产体，不计入）。 */
+const BODY_PRODUCING_FEATURE_TYPES = ['extrude', 'revolve', 'booleanAdd', 'booleanSubtract'] as const;
+
 export function PartStudioPage(): React.JSX.Element {
   const { iTwinId, iModelId } = useParams<{ iTwinId: string; iModelId: string }>();
   // 权限门（M5-T3 真实判定收编 M4 中期口径）：可编辑 = !viewOnly ∧ 权限
@@ -237,6 +241,17 @@ function PartStudioSession({
       typeLabel,
     ).map((node) => ({ id: node.id, label: node.name }));
   }, [featureSystem.tree, t]);
+
+  // 库内已有实体（M6-b T6 fillet 通道诚实降级门）：树内 body 产出型条目在场
+  //（拉伸/旋转/布尔并/差——sketch 与依附型特征不产体）。fillet 需在实体上拾边，
+  // 无体时「添加边」禁用+诚实提示（FeatureDialog hasBodies）。
+  const hasBodies = React.useMemo(
+    () =>
+      featureSystem.tree.some((entry) =>
+        (BODY_PRODUCING_FEATURE_TYPES as readonly string[]).includes(entry.featureType),
+      ),
+    [featureSystem.tree],
+  );
 
   // 特征显示同步（M4-T5 移植 + M4-T6 接线）：特征写入后的几何出现链收口——
   // 绕过 GraphicalEditingScope 下 ModelChangeMonitor 的 guid 缓冲（BRep 显示
@@ -497,6 +512,7 @@ function PartStudioSession({
             leaseOk={featureSystem.leaseOk}
             sketches={sketchOptions}
             connection={connection ?? undefined}
+            hasBodies={hasBodies}
             connectionLoading={connectionLoading}
             connectionError={canvasErrorMessage}
             sketchSystem={sketchSystem}

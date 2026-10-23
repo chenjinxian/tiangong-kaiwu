@@ -13,7 +13,9 @@
  * 写 store tool.activeToolId（主钮激活态）。T6 特例：newSketch 开 SketchDialog
  * （os-30 创建草图流程：平面选择+四开关，确认后进草图模式），真实 sketch
  * 工具接线前不经 tools.run。M4-T6 特例：extrude 开 FeatureDialog（new/extrude，
- * 拉伸闭环入口）。CapabilityDialog：gated 引导
+ * 拉伸闭环入口）。M6-b T4/T6 特例：revolve/RoundEdges（圆角）同姿态开
+ * FeatureDialog（参数化特征链入口；RoundEdges 直改工具虽仍在册，ribbon/命令
+ * 搜索入口已改道对话框——直改通道后续按需单裁入口）。CapabilityDialog：gated 引导
  * 面（CAPABILITY_GUIDANCE 文案；documents 模块的 CapabilityDialog 绑定
  * GatedCreateAction + documents 命名空间，不可复用，故 part-studio 自建）。
  *
@@ -58,6 +60,8 @@ export interface ToolActivation {
  * M4-T6：extrude 例外路由——开 FeatureDialog（new/extrude，拉伸闭环入口：
  * 提交走 useFeatureSystem.applyOp 的 insertFeature，非 PrimitiveTool），
  * 同 newSketch 姿态；真实特征工具化（画布拾取预览）时再裁。
+ * M6-b T4/T6：revolve/RoundEdges（圆角）例外路由——同姿态开 new 对话框
+ * （圆角经对话框「添加边」驱动 FilletEdgePickTool 拾取）。
  */
 export function useToolActivation(): ToolActivation {
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
@@ -82,6 +86,13 @@ export function useToolActivation(): ToolActivation {
       // M6-b T4 旋转闭环入口：new/revolve 对话框（M4-T6 同姿态——草图通道
       // 面域+轴拾取），不经 tools.run。
       openFeatureDialog({ mode: 'new', featureType: 'revolve' });
+      return;
+    }
+    if (id === 'RoundEdges') {
+      // M6-b T6 圆角闭环入口：new/fillet 对话框（M4-T6/T4 同姿态——参数化
+      // 特征链非直改工具；拾取归对话框「添加边」钮驱动 FilletEdgePickTool），
+      // 不经 tools.run。
+      openFeatureDialog({ mode: 'new', featureType: 'fillet' });
       return;
     }
     const command = findRibbonCommand(id);

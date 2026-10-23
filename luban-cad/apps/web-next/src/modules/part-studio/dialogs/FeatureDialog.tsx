@@ -68,6 +68,20 @@
  * symmetric，随 FeatureDialogResult.symmetric 回传不变；**载荷接线已收口**
  *（T3 契约 shared v1.7 ExtrudeParams.symmetric 落地后控制器接线：勾选才带
  * symmetric:true 键，缺省省略=载荷向后兼容）。
+ *
+ * fillet 通道（M6-b T6，F8——**不走草图通道**：输入是体边非草画面域）：半径
+ * 输入（缺省 5）+切向延伸复选（缺省 true，=FilletParams.propagateSmooth）+
+ * 边 chips 列表（「边 N」1 基序号+×移除，按 filletEdgeRefKey 无关键去重——
+ * 面对序无关）+「添加边」钮。**对话框驱动拾取裁决**：「添加边」启动
+ * FilletEdgePickTool（直构+run，动态 import——工具模块静态依赖 editor 基座
+ * 链，静态引入会强加给全部对话框消费方的 mock 面），工具每拾一条边（已即时
+ * resolveEdgeRef 换持久拓扑 id 对）回调 chips 增行，右键/Esc/再点钮结束拾取
+ * 回对话框。门禁：边集空→「选择要圆角的边」+✓禁用；半径≤0→就地 Alert（同
+ * 距离校验口径）；**无 body 诚实降级**——宿主 hasBodies=false（库里无实体）
+ * 时「添加边」禁用+提示先建实体。载荷
+ * `{radius, propagateSmooth, edges:[{faceA,faceB}...]}`（拓扑 id 对透传）；
+ * 距离量对 fillet 不适用（隐藏+校验跳过，revolve 同口径）。
+ *
  * applyOp 未接线（壳期/纯展示）时确认回退纯 onConfirm（M3 语义保持）；
  * mode='edit' 且 applyOp 在场（宿主已接提交面）时 ✓/成品 禁用 + 提示行
  *「该特征类型的参数编辑即将推出」（T6 评审 M-1：updateParams 归特征对话框
@@ -87,7 +101,8 @@
  * 对齐 canvas/CanvasContextMenu.tsx:226-234 模式（onCancel 经 ref 取用，
  * 不随 props 变化重挂）；IModelApp Escape 工具语义共存由 P1 波次放行传播
  *（viewer-next keyboard-shortcuts Escape 分支不拦断，浮层收合与工具取消
- * 两层语义并存）。
+ * 两层语义并存）。M6-b T6：拾取态下 Escape 分叉=只结束拾取（stopPick）不关
+ * 对话框——「Esc 结束拾取回对话框」语义优先于面板关闭。
  */
 
 import React from 'react';
@@ -97,12 +112,14 @@ import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type {
   FeatureOp,
   FeatureOpResult,
+  FilletEdgeRef,
   LubanFeatureType,
   SketchEntityDto,
   SketchRegionDto,
 } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
+import { filletEdgeRefKey } from '../tools/modeling/fillet-edge-ref.js';
 import './FeatureDialog.css';
 
 /** 结果类型页签（os-31：实体|曲面|薄壁）。 */
@@ -136,6 +153,8 @@ export interface FeatureDialogResult {
   symmetric: boolean;
   draft: string;
   rollback: number;
+  /** M6-b T6（fillet 通道）：已拾边集（持久拓扑 id 对；仅 fillet 通道携带）。 */
+  filletEdges?: readonly FilletEdgeRef[];
 }
 
 export interface FeatureDialogProps {
@@ -175,11 +194,19 @@ export interface FeatureDialogProps {
    */
   sketches?: readonly FeatureDialogSketchOption[];
   /**
-   * iModel key（M6-a T6 面域读面）：选中草图后经 getSketch 拉
-   * SketchRegionDto[]（面积降序，regionIndex=数组下标）。缺省 undefined =
-   * 面域不可读（提交禁用 + 就地提示，不发起 RPC）。
+   * iModel key（M6-a T6 面域读面 / M6-b T6 边拾取寻址）：选中草图后经 getSketch
+   * 拉 SketchRegionDto[]（面积降序，regionIndex=数组下标）；fillet 通道直通
+   * FilletEdgePickTool（resolveEdgeRef 寻址键）。缺省 undefined = 面域不可读
+   * / 边不可拾（提交禁用 + 就地提示，不发起 RPC）。
    */
   connectionKey?: string;
+  /**
+   * 库内已有实体（M6-b T6 fillet 通道诚实降级门）：宿主自特征树判
+   * （body 产出型条目在场：extrude/revolve/booleanAdd/booleanSubtract）——
+   * false 时「添加边」禁用 + 提示先建实体（无体可拾边，不发工具）。缺省 true
+   * （壳期/测试语义保持；生产宿主恒显式传参）。
+   */
+  hasBodies?: boolean;
   /** 回滚滑杆上限（默认 100；后端 OpLog 线性链接线后由宿主注入特征数）。 */
   rollbackMax?: number;
   /** ✓/成品 确认出口（回传全量载荷；提交成功后由宿主 closeDialog）。 */
@@ -238,6 +265,7 @@ export function FeatureDialog({
   entities,
   sketches,
   connectionKey,
+  hasBodies = true,
   rollbackMax = 100,
   onConfirm,
   onCancel,
@@ -280,9 +308,13 @@ export function FeatureDialog({
   // IModelApp Escape 工具语义共存——P1 波次已放行传播，两层语义并存）。
   const onCancelRef = React.useRef(onCancel);
   onCancelRef.current = onCancel;
+  // M6-b T6：Escape 出口经 ref 间接——拾取态下分叉为「只结束拾取」（回对话框
+  // 不关面板），分叉逻辑在 stopPick 定义后回填（渲染体内同步完成，先于任何
+  // 事件可达；缺省回落 onCancel 保持 M5-T1 语义）。
+  const onEscapeRef = React.useRef<() => void>(() => onCancelRef.current?.());
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancelRef.current?.();
+      if (event.key === 'Escape') onEscapeRef.current();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => {
@@ -300,6 +332,9 @@ export function FeatureDialog({
   const sketchChannel = mode === 'new' && (featureType === 'extrude' || featureType === 'revolve') && applyOp !== undefined;
   const revolveChannel = sketchChannel && featureType === 'revolve';
   const extrudeChannel = sketchChannel && featureType === 'extrude';
+  // fillet 通道（M6-b T6）：体边拾取非草画面域——不进草图通道；输入集=体上
+  // 拾得的边（持久拓扑 id 对），提交面同 applyOp。
+  const filletChannel = mode === 'new' && featureType === 'fillet' && applyOp !== undefined;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   const [regionIndex, setRegionIndex] = React.useState(0);
@@ -318,6 +353,85 @@ export function FeatureDialog({
   // 面域读取代际：换草图/换连接时 +1，慢响应过期即丢弃（useSketchSystem
   // activeEpochRef 同款纪律——stale-clobber 防旧草图面域覆写新选择）。
   const regionsEpochRef = React.useRef(0);
+
+  // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
+  const [radius, setRadius] = React.useState('5');
+  const [propagateSmooth, setPropagateSmooth] = React.useState(true);
+  const [filletEdges, setFilletEdges] = React.useState<FilletEdgeRef[]>([]);
+  // 拾取态：picking 供渲染（按钮切换/✓禁用），ref 镜像供 Escape 分叉（监听
+  // 终身一次挂载，不吃闭包旧态——与 onCancelRef 同纪律）；工具实例经 ref 持有
+  //（stop/卸载守卫时 exitTool，实例类型来自动态 import，不静态引入工具模块）。
+  const [picking, setPicking] = React.useState(false);
+  const pickingRef = React.useRef(false);
+  const pickToolRef = React.useRef<{ exitTool(): Promise<void> } | null>(null);
+
+  /** 结束拾取（三通道汇合：Esc 分叉/再点钮/卸载守卫；工具自然退出亦归此态）。 */
+  const stopPick = React.useCallback(() => {
+    if (!pickingRef.current) return;
+    pickingRef.current = false;
+    setPicking(false);
+    const tool = pickToolRef.current;
+    pickToolRef.current = null;
+    // 工具已被框架先行退出（Esc 经 startDefaultTool 替换）时 exitTool 为 no-op。
+    void tool?.exitTool();
+  }, []);
+
+  /** 添加边（M6-b T6）：动态 import 启动 FilletEdgePickTool（工具模块静态依赖
+   * editor 基座链，动态拆包见文件头注 fillet 通道裁决）；回调直改 chips。 */
+  const startPick = React.useCallback(() => {
+    if (pickingRef.current || !connectionKey) return;
+    pickingRef.current = true;
+    setPicking(true);
+    void (async () => {
+      let tool: { exitTool(): Promise<void> } | undefined = undefined;
+      try {
+        const { startFilletEdgePick } = await import('../tools/modeling/FilletEdgePickTool.js');
+        tool = await startFilletEdgePick({
+          connectionKey,
+          onEdgeAdded: (ref) =>
+            setFilletEdges((prev) =>
+              prev.some((edge) => filletEdgeRefKey(edge) === filletEdgeRefKey(ref)) ? prev : [...prev, ref],
+            ),
+          onEdgeRemoved: (ref) => {
+            const key = filletEdgeRefKey(ref);
+            setFilletEdges((prev) => prev.filter((edge) => filletEdgeRefKey(edge) !== key));
+          },
+          onError: (message) =>
+            IModelApp.notifications.outputMessage(
+              new NotifyMessageDetails(OutputMessagePriority.Error, message),
+            ),
+          onEnded: stopPick,
+        });
+      } catch {
+        tool = undefined; // 动态加载/安装异常与启动失败同面——回非拾取态不悬挂
+      }
+      pickToolRef.current = tool ?? null;
+      if (!tool) {
+        // 启动失败（视口不适配/宿主未就绪）——回非拾取态（诚实不悬挂）。
+        pickingRef.current = false;
+        setPicking(false);
+      }
+    })();
+  }, [connectionKey, stopPick]);
+
+  // 卸载守卫：对话框关闭/确认成功而拾取仍在场——退出工具不留孤儿拾取会话。
+  React.useEffect(() => {
+    return () => {
+      const tool = pickToolRef.current;
+      if (tool) {
+        pickingRef.current = false;
+        pickToolRef.current = null;
+        void tool.exitTool();
+      }
+    };
+  }, []);
+
+  // Escape 分叉回填（见上方 onEscapeRef 注记）：拾取态=只结束拾取回对话框。
+  onEscapeRef.current = () => {
+    if (pickingRef.current) stopPick();
+    else onCancelRef.current?.();
+  };
+
 
   // 面域读面（对话框直调 getSketch RPC——裁决见文件头注）：读操作不涉写租约；
   // 未选草图/连接缺失时清态（后者以就地提示诚实禁提交，不发起 RPC）。
@@ -390,6 +504,9 @@ export function FeatureDialog({
       regionCount > 0 &&
       regionIndex < regionCount &&
       (!revolveChannel || selectedAxisId !== undefined));
+  // 提交门（M6-b T6 fillet 追加）：已拾至少一条边（空边集禁提交——shared
+  // FilletParams.edges 非空语义前置）∧ 拾取会话已结束（会话在场时禁提交）。
+  const filletReady = !filletChannel || (filletEdges.length > 0 && !picking);
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -429,7 +546,9 @@ export function FeatureDialog({
     symmetric,
     draft,
     rollback,
-  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, rollback]);
+    // M6-b T6：仅 fillet 通道携带已拾边集（其余通道键缺省——既有钉形载荷不破）。
+    ...(filletChannel ? { filletEdges } : {}),
+  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, rollback, filletChannel, filletEdges]);
 
   /**
    * 确认出口：new + applyOp 在场 → insertFeature 直提交（拉伸闭环）；否则
@@ -444,12 +563,24 @@ export function FeatureDialog({
       return;
     }
     if (sketchChannel && !sketchReady) return; // 草图通道门禁（✓ 已禁用，此为防御兜底）
-    // 距离校验（extrude/通用路径；revolve 无距离量——旋转角/全周即参数，输入已隐藏）。
+    if (filletChannel && !filletReady) return; // fillet 通道门禁（空边集/拾取中——防御兜底）
+    // 距离校验（extrude/通用路径；revolve/fillet 无距离量——旋转角即参数/半径
+    // 各自独立校验，输入已隐藏）。
     let parsedDistance = 0;
-    if (!revolveChannel) {
+    if (!revolveChannel && !filletChannel) {
       parsedDistance = Number(distance);
       if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
         setError(t('partStudio.featureDialog.distanceInvalid'));
+        return;
+      }
+    }
+    // 半径校验（M6-b T6 fillet 通道）：内部米制直传（单位换算在显示层——
+    // architecture.md §四；缺省 5 与 Onshape 采集默认同量级）。
+    let parsedRadius = 0;
+    if (filletChannel) {
+      parsedRadius = Number(radius);
+      if (radius.trim() === '' || !Number.isFinite(parsedRadius) || parsedRadius <= 0) {
+        setError(t('partStudio.featureDialog.radiusInvalid'));
         return;
       }
     }
@@ -480,7 +611,16 @@ export function FeatureDialog({
           // M6-b T4：revolve 分支独立构造器——{sketchId, regionIndex,
           // axis, fullRevolve, angle?}（shared v1.7 RevolveParams；symmetric
           // 等 extrude 扩展不适用，对称载荷挂账见文件头注 T4-minor）。
-          params: revolveChannel
+          // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
+          // edges:[{faceA,faceB}...]}（拓扑 id 对透传，shared v1.1 既有契约；
+          // 无 profile/distance 语义）。
+          params: filletChannel
+            ? {
+                radius: parsedRadius,
+                propagateSmooth,
+                edges: filletEdges.map((edge) => ({ faceA: edge.faceA, faceB: edge.faceB })),
+              }
+            : revolveChannel
             ? {
                 profile: [],
                 sketchId: selectedSketchId,
@@ -531,6 +671,11 @@ export function FeatureDialog({
     sketchChannel,
     revolveChannel,
     sketchReady,
+    filletChannel,
+    filletReady,
+    filletEdges,
+    radius,
+    propagateSmooth,
     selectedSketchId,
     regionIndex,
     selectedAxisId,
@@ -589,7 +734,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -697,8 +842,9 @@ export function FeatureDialog({
 
         {/* 距离（M4-T6：insertFeature extrude 的唯一可编辑量；常驻不折叠）。
             M6-b T4：revolve 通道不适用（无距离量——全周/角度即参数），输入
-            隐藏、handleConfirm 跳过距离校验。 */}
-        {!revolveChannel && (
+            隐藏、handleConfirm 跳过距离校验。M6-b T6：fillet 通道同口径
+            （无距离量——半径即参数）。 */}
+        {!revolveChannel && !filletChannel && (
           <section className="part-studio-feature-dialog__distance">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
               {t('partStudio.featureDialog.distanceLabel')}
@@ -765,16 +911,50 @@ export function FeatureDialog({
           </React.Fragment>
         )}
 
+        {/* fillet 参数区（M6-b T6）：半径（缺省 5，米制直传）+切向延伸复选
+            （缺省 true = FilletParams.propagateSmooth）。独立构造器（见
+            handleConfirm fillet 分支）。 */}
+        {filletChannel && (
+          <React.Fragment>
+            <section className="part-studio-feature-dialog__distance">
+              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-radius">
+                {t('partStudio.featureDialog.radiusLabel')}
+              </label>
+              <input
+                id="part-studio-feature-dialog-radius"
+                type="text"
+                inputMode="decimal"
+                aria-label={t('partStudio.featureDialog.radiusLabel')}
+                className="part-studio-feature-dialog__input"
+                value={radius}
+                disabled={submitting}
+                onChange={(event) => setRadius(event.target.value)}
+              />
+            </section>
+            <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-propagate-smooth">
+              <input
+                type="checkbox"
+                checked={propagateSmooth}
+                onChange={(event) => setPropagateSmooth(event.target.checked)}
+              />
+              <span>{t('partStudio.featureDialog.propagateSmoothLabel')}</span>
+            </label>
+          </React.Fragment>
+        )}
+
         {/* 芯片式实体选择框（os-31）。M6-a T6 分叉：拉伸新建 = 草图通道——
             草图下拉 + 面域下拉（regions>1 才现）+ 选中回显 chip（采集规格
             「Sketch 1 的 面」形态）；无草图/无面域 → 诚实提示 + 提交禁用。
-            其余（edit/非 extrude/壳期）保持通用 chips + 快速拾取不动。 */}
+            M6-b T6 分叉：fillet 新建 = 边 chips + 添加边（对话框驱动拾取）。
+            其余（edit/非通道特征/壳期）保持通用 chips + 快速拾取不动。 */}
         <section className="part-studio-feature-dialog__entities">
           <div className="part-studio-feature-dialog__entities-header">
             <span className="part-studio-feature-dialog__entities-label">
-              {t('partStudio.featureDialog.entitiesLabel')}
+              {filletChannel
+                ? t('partStudio.featureDialog.filletEdgesLabel')
+                : t('partStudio.featureDialog.entitiesLabel')}
             </span>
-            {!sketchChannel && (
+            {!sketchChannel && !filletChannel && (
               <button
                 type="button"
                 className="part-studio-feature-dialog__fast-pick"
@@ -784,6 +964,89 @@ export function FeatureDialog({
               </button>
             )}
           </div>
+
+          {/* fillet 通道（M6-b T6）：无 body/无连接诚实降级 / 添加边拾取钮 /
+              拾取中提示 / 边 chips 列表（「边 N」+×移除）/ 空边集门禁。 */}
+          {filletChannel && (
+            <React.Fragment>
+              {!hasBodies ? (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-no-body-hint"
+                >
+                  {t('partStudio.featureDialog.noBodyHint')}
+                </p>
+              ) : !connectionKey ? (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-edge-unpickable"
+                >
+                  {t('partStudio.featureDialog.edgeUnpickable')}
+                </p>
+              ) : (
+                <React.Fragment>
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__fast-pick"
+                    data-testid="part-studio-feature-dialog-add-edge"
+                    aria-pressed={picking}
+                    disabled={submitting}
+                    onClick={picking ? stopPick : startPick}
+                  >
+                    {picking
+                      ? t('partStudio.featureDialog.stopPick')
+                      : t('partStudio.featureDialog.addEdge')}
+                  </button>
+                  {picking && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-picking-hint"
+                    >
+                      {t('partStudio.featureDialog.pickingHint')}
+                    </p>
+                  )}
+                </React.Fragment>
+              )}
+
+              {filletEdges.length > 0 && (
+                <ul className="part-studio-feature-dialog__chips" data-testid="part-studio-feature-dialog-edge-chips">
+                  {filletEdges.map((edge, index) => (
+                    <li key={filletEdgeRefKey(edge)} className="part-studio-feature-dialog__chip">
+                      <span className="part-studio-feature-dialog__chip-label">
+                        {t('partStudio.featureDialog.edgeChip', { index: index + 1 })}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={t('partStudio.featureDialog.removeEdge', { index: index + 1 })}
+                        className="part-studio-feature-dialog__chip-remove"
+                        disabled={submitting}
+                        onClick={() =>
+                          setFilletEdges((prev) => prev.filter((_, i) => i !== index))
+                        }
+                      >
+                        <SvgClose />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* 空边集门禁（M6-b T6）：「选择要圆角的边」+ ✓禁用（filletReady
+                  判据；无 body 提示在场时让位——同一禁提交因，不双报）。 */}
+              {hasBodies && filletEdges.length === 0 && (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-no-edges-hint"
+                >
+                  {t('partStudio.featureDialog.noEdgesHint')}
+                </p>
+              )}
+            </React.Fragment>
+          )}
 
           {sketchChannel && sketchOptions.length === 0 ? (
             /* 无草图门禁（M6-a T6）：先创建草图（不再发空 profile 裸奔）。 */
@@ -1018,7 +1281,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

@@ -300,6 +300,18 @@
     "fullRevolveLabel": "全方位",
     "angleLabel": "角度（度）",
     "angleInvalid": "请输入有效的旋转角度（大于 0 且不超过 360）",
+    "filletEdgesLabel": "要圆角的边",
+    "radiusLabel": "半径",
+    "radiusInvalid": "请输入有效的圆角半径（大于 0）",
+    "propagateSmoothLabel": "切向延伸",
+    "addEdge": "添加边",
+    "stopPick": "结束拾取",
+    "pickingHint": "在视口中点击要圆角的边（再次点击同一边可取消）；右键或 Esc 结束拾取",
+    "noEdgesHint": "选择要圆角的边",
+    "noBodyHint": "库中无实体：先拉伸或旋转创建实体，再拾取边",
+    "edgeUnpickable": "无法拾取边：建模服务未连接",
+    "edgeChip": "边 {{index}}",
+    "removeEdge": "移除 边 {{index}}",
     "distanceLabel": "距离",
     "distanceInvalid": "请输入有效的拉伸距离（大于 0）",
     "submitSuccess": "{{name}} 已创建",
@@ -320,6 +332,10 @@
     "finish": "成品",
     "help": "帮助",
     "helpText": "在画布中拾取面或草图区域以添加实体；✓ 提交特征，✗ 放弃更改。"
+  },
+  "filletPick": {
+    "prompt": "点击拾取要圆角的边",
+    "resolveFailed": "边引用解析失败"
   },
   "sketchDialog": {
     "defaultTitle": "草图",
