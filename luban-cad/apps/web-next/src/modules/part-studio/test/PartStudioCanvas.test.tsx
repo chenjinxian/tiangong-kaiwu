@@ -6,7 +6,9 @@
 //     ——不同 featureId 切换时重挂（本地态不跨特征残留；M3-T6 台账①根治）；
 //  2) new/extrude 提交链：对话框确认 → 宿主下传的 applyOp（Session
 //     useFeatureSystem 直通）被调；✗ 取消 → closeDialog；
-//  3) sketch 寻址：SketchDialog 照旧按 dialog.active==='sketch' 渲染。
+//  3) sketch 寻址：SketchDialog 照旧按 dialog.active==='sketch' 渲染；
+//     M6-a T4 起 sketch 提交链同款接线（✓ → applyOp 收 insertSketch →
+//     真 sketchId 入 store → closeDialog；canEdit=false → ✓ 禁用）。
 //
 // 定位：宿主接线验收层；@itwin/core-frontend 模块级 mock（零真实查看器），
 // 真实 store/i18n 参与（setup.ts 全局词库兜底，zh-CN 基线）。
@@ -152,6 +154,45 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     expect(screen.getByTestId('part-studio-sketch-dialog')).toBeDefined();
     await user.click(screen.getByRole('button', { name: '取消' }));
     expect(usePartStudioStore.getState().dialog.active).toBeNull();
+  });
+
+  it('sketch 提交链（M6-a T4）：✓ → applyOp 收 insertSketch（plane 缺省省略）+ 真 sketchId 入 store + closeDialog', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-new-1' }));
+    renderCanvas(applyOp);
+    act(() => {
+      usePartStudioStore.getState().openSketchDialog();
+    });
+    const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    await waitFor(() =>
+      expect(applyOp).toHaveBeenCalledWith({ kind: 'insertSketch', entities: [], constraints: [] }),
+    );
+    await waitFor(() =>
+      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-new-1' }),
+    );
+    await waitFor(() => expect(usePartStudioStore.getState().dialog.active).toBeNull());
+  });
+
+  it('sketch + canEdit=false（B2 只读写门禁下传）→ SketchDialog ✓ 禁用 + 只读提示，applyOp 未发起', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-1' }));
+    render(
+      <PartStudioCanvas
+        viewportRef={{ current: null } as RefObject<HTMLDivElement>}
+        applyOp={applyOp}
+        canEdit={false}
+      />,
+    );
+    act(() => {
+      usePartStudioStore.getState().openSketchDialog();
+    });
+    const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
+    expect(within(dialog).getByTestId('part-studio-sketch-dialog-readonly-hint')).toBeDefined();
+    const confirm = within(dialog).getByRole('button', { name: '确认' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    await user.click(confirm);
+    expect(applyOp).not.toHaveBeenCalled();
   });
 
   it('viewOnly 置位 → 打开中的写面对话框整体收口（I-1 宿主职责），回切编辑不复活；仅查看态下打开亦即收', async () => {

@@ -107,6 +107,31 @@
   line-height: 1.5;
 }
 
+/* ── 提交错误就地 Alert + 只读提示（M6-a T4；FeatureDialog 同款六态面）───── */
+.part-studio-sketch-dialog__alert {
+  margin: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-negative, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-negative, var(--iui-color-background-hover));
+  color: var(--iui-color-text-negative, var(--iui-color-text));
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.part-studio-sketch-dialog__hint {
+  margin: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-backdrop, var(--iui-color-background-hover));
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 /* ── 草图平面选择 + 快速拾取（os-30：蓝框 select）───────────────────────── */
 .part-studio-sketch-dialog__plane-row {
   display: flex;

@@ -192,6 +192,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'sketchDialog.planeLabel', 'sketchDialog.planePlaceholder', 'sketchDialog.fastPick',
   'sketchDialog.optionsGroup', 'sketchDialog.history', 'sketchDialog.help',
   'sketchDialog.helpText',
+  // M6-a T4：SketchDialog 只读写门禁提示（canEdit=false 时 ✓ 禁用的诚实呈现）。
+  'sketchDialog.readonlyHint',
   'sketch.constraintsOverlay',
   // M4 Task 5：特征系统中枢 hook（useFeatureSystem）applyOp 错误面键——
   // hook 回调内 i18next 直取（非组件 t()），漏键即渲染裸键名。

@@ -219,8 +219,9 @@ function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvas
  * dialog 切片：画布内联非模态对话框宿主寻址（T6；M4-T6 扩双模式）——
  * feature=特征对话框（mode 'new'=ribbon「拉伸」创建路由，featureType 即提交
  * op 的特征类型；mode 'edit'=树上「编辑…」路由，featureId 为宿主重挂 key）；
- * sketch=新建草图（ribbon newSketch 激活路由，sketchId 缺省 null——对话框
- * 确认时由宿主补 'sketch-active'）。
+ * sketch=新建草图（ribbon newSketch 激活路由，sketchId 缺省 null——M6-a T4
+ * 起对话框确认经 insertSketch RPC 返回真 sketchId 入 sketch 切片；壳期
+ *（applyOp 未接线）回退 'sketch-active' 占位寻址）。
  */
 function createDialogSlice([set]: SliceCreator): { dialog: PartStudioDialogState } & Pick<PartStudioActions,
   'openFeatureDialog' | 'openSketchDialog' | 'closeDialog'> {

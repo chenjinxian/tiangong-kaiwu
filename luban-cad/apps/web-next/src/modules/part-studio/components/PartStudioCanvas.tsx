@@ -17,6 +17,8 @@
  * - 提交链（M4-T6 拉伸闭环）：new 模式 ✓ → FeatureDialog 内部构 insertFeature
  *   op 经 applyOp（Session useFeatureSystem 直通）提交，成功回 onConfirm →
  *   closeDialog；edit 模式确认在对话框内已禁用+提示（T6 评审 M-1）；
+ *   M6-a T4 起 SketchDialog 同款接线（内部构 insertSketch op——真 sketchId
+ *   入 store，宿主 onConfirm=收合透传）；
  * - viewOnly 运行时切换（T6 评审 I-1）：store.viewOnly 置位即 closeDialog
  *   ——打开中的写面对话框整体收口（对话框宿主职责；「仅查看模式」是用户
  *   主动切换，收口语义保持 viewOnly 直读）；写动作门另走 canEdit（B2 只读
@@ -38,7 +40,6 @@ import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import { SketchDialog } from '../dialogs/SketchDialog.js';
-import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface PartStudioCanvasProps {
@@ -102,8 +103,10 @@ export function PartStudioCanvas({
     setAnchor({ x: event.clientX, y: event.clientY });
   }, []);
 
-  const handleSketchConfirm = React.useCallback((result: SketchDialogResult) => {
-    console.warn('[part-studio] 草图对话框确认（onConfirm 未接线——RPC 变异层后续接管）', result);
+  // M6-a T4：SketchDialog 内部接线 insertSketch RPC（applyOp/canEdit 直通——
+  // 提交态/就地错误/只读门禁归对话框自治，同 FeatureDialog 职责边界）；宿主
+  // 回调=确认成功后的收合透传。
+  const handleSketchConfirm = React.useCallback(() => {
     closeDialog();
   }, [closeDialog]);
 
@@ -188,6 +191,8 @@ export function PartStudioCanvas({
       {dialog.active === 'sketch' && (
         <SketchDialog
           sketchId={dialog.sketchId ?? undefined}
+          applyOp={applyOp}
+          canEdit={canEdit}
           onConfirm={handleSketchConfirm}
           onCancel={closeDialog}
         />

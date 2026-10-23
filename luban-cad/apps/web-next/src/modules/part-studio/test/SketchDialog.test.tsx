@@ -7,9 +7,14 @@
 //     （store.canvas.selection 主选择回流成动态选项并选中）；
 //  3) 四开关（os-30 勾选组）：禁用压印/显示约束/显示表达式/显示错误——
 //     默认仅「显示错误」勾选；全进确认载荷；
-//  4) ✓确认 → onConfirm 载荷 + store enterSketch（sketchId 缺省 'sketch-active'）；
-//     ✗取消 → onCancel + store exitSketch 复位；
+//  4) ✓确认 → onConfirm 载荷 + store enterSketch（M6-a T4 起：applyOp 在场
+//     → insertSketch RPC 真 sketchId 入 store 废 'sketch-active' 占位；壳期
+//     未接线回退 sketchId 缺省 'sketch-active'）；✗取消 → onCancel + store
+//     exitSketch 复位；
 //  5) 历史时钟钮 + ? 帮助（展开帮助文案）；
+//  6) M6-a T4（F1）：insertSketch op 接线——plane 三基准面映射（上视 XY/
+//     前视 XZ/右视 YZ）随 op 下发、非基准面省略 plane 键；ok:false/异常 →
+//     就地 Alert 不进草图；canEdit=false → ✓ 禁用+只读提示；提交中禁重入；
 //  6) 草图模式全 UI 变身（store.sketch 驱动）：
 //     - ribbon 切换为草图工具组（绘制/编辑/标注三组），特征工具组隐去，
 //       命令搜索触发钮禁用（os-30「search 框禁用」），退出草图按钮在场；
@@ -23,7 +28,7 @@
 
 import type { JSX } from 'react';
 import React from 'react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -61,11 +66,11 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
-import type { FeatureTreeEntry } from '@luban-cad/shared';
+import type { FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
-import { SketchDialog } from '../dialogs/SketchDialog.js';
+import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import { Ribbon } from '../ribbon/Ribbon.js';
 import { CommandPalette } from '../ribbon/CommandPalette.js';
 import { FeatureTree } from '../tree/FeatureTree.js';
@@ -262,7 +267,7 @@ describe('四开关（os-30 勾选组）', () => {
 });
 
 describe('确认/取消 ↔ store.sketch 联动', () => {
-  it('✓确认 → onConfirm 载荷 + enterSketch（缺省 id sketch-active）', async () => {
+  it('✓确认（壳期未接 applyOp）→ onConfirm 载荷 + enterSketch（sketchId prop 寻址）', async () => {
     const { onConfirm } = renderDialog({ sketchId: 'sketch-7' });
     await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
@@ -276,6 +281,124 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     expect(onCancel).toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
     expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null });
+  });
+});
+
+// M6-a T4（F1）：insertSketch RPC 接线——applyOp 在场时 ✓ → 空草图先建壳
+//（entities/constraints 空集）+ 平面映射随 op 下发；成功 → 真 sketchId 入
+// store（废 'sketch-active' 占位）；失败 → 就地 Alert，不进草图模式。
+describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
+  it('sketchPlaneFromOption：三基准面映射（上视 XY/前视 XZ/右视 YZ，origin 恒原点）', () => {
+    expect(sketchPlaneFromOption('top')).toEqual({
+      origin: { x: 0, y: 0, z: 0 },
+      normal: { x: 0, y: 0, z: 1 },
+      xDir: { x: 1, y: 0, z: 0 },
+    });
+    expect(sketchPlaneFromOption('front')).toEqual({
+      origin: { x: 0, y: 0, z: 0 },
+      normal: { x: 0, y: 1, z: 0 },
+      xDir: { x: 1, y: 0, z: 0 },
+    });
+    expect(sketchPlaneFromOption('right')).toEqual({
+      origin: { x: 0, y: 0, z: 0 },
+      normal: { x: 1, y: 0, z: 0 },
+      xDir: { x: 0, y: 1, z: 0 },
+    });
+  });
+
+  it('sketchPlaneFromOption：非基准面（拾取面 id/未选空串）→ undefined（op 省略 plane 键）', () => {
+    expect(sketchPlaneFromOption('face-8')).toBeUndefined();
+    expect(sketchPlaneFromOption('')).toBeUndefined();
+  });
+
+  it('✓（选前视）→ applyOp 收到 insertSketch op 带 plane（XZ 面）；真 sketchId 入 store 废占位串', async () => {
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-42' }));
+    const { onConfirm } = renderDialog({ applyOp });
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图平面' }), 'front');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertSketch',
+      entities: [],
+      constraints: [],
+      plane: {
+        origin: { x: 0, y: 0, z: 0 },
+        normal: { x: 0, y: 1, z: 0 },
+        xDir: { x: 1, y: 0, z: 0 },
+      },
+    });
+    // 成功 → 真 sketchId 入 store（enterSketch 真 id 断言）+ onConfirm 载荷照常。
+    await waitFor(() =>
+      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-42' }),
+    );
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('未选面 → op 省略 plane 键（契约缺省 XY@z=0）；成功照常建壳进草图', async () => {
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-7' }));
+    renderDialog({ applyOp });
+    await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toEqual({ kind: 'insertSketch', entities: [], constraints: [] });
+    await waitFor(() => expect(usePartStudioStore.getState().sketch.activeSketchId).toBe('sk-7'));
+  });
+
+  it('ok:false → 就地 Alert + 不进草图模式 + onConfirm 未调（不关框可改参重试）', async () => {
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: false, error: '约束求解失败' }));
+    const { onConfirm } = renderDialog({ applyOp });
+    await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('约束求解失败');
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null });
+    expect(onConfirm).not.toHaveBeenCalled();
+    // 对话框仍在场（不关框）。
+    expect(screen.getByRole('dialog', { name: '草图' })).toBeDefined();
+  });
+
+  it('applyOp 抛异常（rpc-over-ipc 断开）→ 同面就地 Alert，不静默', async () => {
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => {
+      throw new Error('ipc closed');
+    });
+    renderDialog({ applyOp });
+    await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('ipc closed');
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
+  });
+
+  it('canEdit=false（B2 只读写门禁）→ ✓ 禁用 + 只读提示 + applyOp 未发起', async () => {
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-1' }));
+    renderDialog({ applyOp, canEdit: false });
+    expect(screen.getByTestId('part-studio-sketch-dialog-readonly-hint')).toBeDefined();
+    const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    await userEvent.setup().click(confirm);
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
+  });
+
+  it('提交中禁重入：pending 期间双击 ✓ 仅一次 applyOp（aria-busy 呈提交态）', async () => {
+    let release: (result: FeatureOpResult) => void = () => undefined;
+    const applyOp = vi.fn(
+      (_op: FeatureOp): Promise<FeatureOpResult> =>
+        new Promise<FeatureOpResult>((resolve) => {
+          release = resolve;
+        }),
+    );
+    renderDialog({ applyOp });
+    const user = userEvent.setup();
+    const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
+    await user.click(confirm);
+    // 提交中：✓ 禁用 + aria-busy——第二击被 disabled/禁重入双保险吞掉。
+    expect(confirm.disabled).toBe(true);
+    expect(screen.getByRole('dialog', { name: '草图' }).getAttribute('aria-busy')).toBe('true');
+    await user.click(confirm);
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release({ ok: true, featureId: 'sk-9' });
+    });
+    await waitFor(() => expect(usePartStudioStore.getState().sketch.activeSketchId).toBe('sk-9'));
   });
 });
 
@@ -359,9 +482,10 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('画布宿主路：openSketchDialog（newSketch 路由）→ 内联 SketchDialog；✓确认进草图模式', async () => {
+  it('画布宿主路：openSketchDialog（newSketch 路由）→ 内联 SketchDialog；✓确认经 applyOp 建真草图进草图模式（M6-a T4）', async () => {
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-real-1' }));
     const user = userEvent.setup();
-    render(<PartStudioCanvas viewportRef={{ current: null }} />);
+    render(<PartStudioCanvas viewportRef={{ current: null }} applyOp={applyOp} />);
     // ribbon 激活路由：草图工具钮 → 开 SketchDialog（不经 tools.run）。
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '草图' }));
@@ -369,9 +493,13 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     expect(usePartStudioStore.getState().dialog.active).toBe('sketch');
     const dialog = screen.getByRole('dialog', { name: '草图' });
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
-    expect(usePartStudioStore.getState().sketch.isActive).toBe(true);
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    // M6-a T4：真 sketchId 入 store（废 'sketch-active' 占位串）。
+    await waitFor(() =>
+      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-real-1' }),
+    );
     // 对话框已提交收合（宿主 closeDialog）。
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('os-30「search 框禁用」：草图模式 alt+/ 不响应 + 进入草图强制收合面板', () => {
