@@ -35,7 +35,11 @@ export interface StoredAuth {
 // ============================================================================
 
 /** API 登录（经 baseURL 同源代理 → hub :5400；零 UI 表单零限流额度消耗）。
- * 端点/响应形状取证 AuthSession.login（token/refreshToken/tokenExpires/user）。 */
+ * 端点/响应形状取证 AuthSession.login（token/refreshToken/tokenExpires/user）。
+ * name 形状对齐 AuthSession.convertUser（D-T6-8）：hub 实为 firstName/lastName
+ *（name 缺席），按「name → firstName+lastName 拼装 → email → Unknown」取——
+ * 此前 `name ?? email` 直落 email，设置页钉版基线随之改名（重钉见
+ * readonly-gate-report）。 */
 export async function apiLogin(request: APIRequestContext): Promise<StoredAuth> {
   const response = await request.post('/auth/email/login', {
     data: { email: TEST_USER.email, password: TEST_USER.password },
@@ -47,7 +51,13 @@ export async function apiLogin(request: APIRequestContext): Promise<StoredAuth> 
     token: string;
     refreshToken: string;
     tokenExpires?: number;
-    user: { id: string | number; email: string | null; name?: string | null };
+    user: {
+      id: string | number;
+      email: string | null;
+      name?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+    };
   };
   return {
     accessToken: data.token,
@@ -56,7 +66,15 @@ export async function apiLogin(request: APIRequestContext): Promise<StoredAuth> 
     user: {
       id: String(data.user.id),
       email: data.user.email ?? '',
-      name: data.user.name ?? data.user.email ?? 'Unknown',
+      // 与 AuthSession.convertUser 逐语义对齐（|| 链：空串/缺席即落下一级，
+      // `??` 会让空拼装名钉死空串）。
+      name: data.user.name?.trim()
+        || [data.user.firstName, data.user.lastName]
+          .filter((part): part is string => Boolean(part))
+          .join(' ')
+          .trim()
+        || data.user.email
+        || 'Unknown',
     },
   };
 }

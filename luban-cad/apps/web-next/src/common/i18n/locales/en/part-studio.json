@@ -283,6 +283,7 @@
     "submitSuccess": "{{name}} created",
     "leaseBusy": "The write lease is held by another session; submitting will wait for the lease",
     "editHint": "Parameter editing for this feature type is coming soon",
+    "readonlyHint": "You have read-only permission; features cannot be submitted",
     "sections": {
       "direction": "Direction",
       "startOffset": "Start offset",
@@ -387,7 +388,8 @@
     "notConnected": "iModel not connected",
     "leaseHeldBy": "Write lease is held by {{holder}}",
     "leaseAcquireFailed": "Failed to acquire write lease",
-    "opTimeout": "Feature operation timed out: no RPC response within {{seconds}} s; check the modeling service connection and retry"
+    "opTimeout": "Feature operation timed out: no RPC response within {{seconds}} s; check the modeling service connection and retry",
+    "readonlyConnection": "Read-only session (iModel permission lacks write, or view-only mode is active): feature write operations are not allowed"
   },
   "treeFilter": {
     "placeholder": "Filter by name or type",

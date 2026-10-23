@@ -172,6 +172,27 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     });
     expect(screen.queryByTestId('part-studio-feature-dialog')).toBeNull();
   });
+
+  it('canEdit=false（B2 只读写门禁下传）→ 对话框 ✓ 禁用 + 只读提示（视图语义 viewOnly、写动作语义 canEdit 分线）', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' }));
+    render(
+      <PartStudioCanvas
+        viewportRef={{ current: null } as RefObject<HTMLDivElement>}
+        applyOp={applyOp}
+        canEdit={false}
+      />,
+    );
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+    });
+    // 权限只读下对话框不被收口（那是 viewOnly 语义）但提交面诚实关死。
+    const dialog = withinDialog().getByTestId('part-studio-feature-dialog');
+    expect(within(dialog).getByTestId('part-studio-feature-dialog-readonly-hint')).toBeDefined();
+    expect((within(dialog).getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
 });
 
 /** 在画布容器内查询（对话框渲染于 part-studio-canvas 内）。 */

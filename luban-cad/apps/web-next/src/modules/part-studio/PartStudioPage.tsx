@@ -20,7 +20,11 @@
  *   期间传 null options 关连接（旧应用竞态教训：首开定读写——权限未落定早开
  *   只读连接会因打开 effect deps 不含 readonly 而恒只读，保存必败），落定后
  *   再开；编辑面总门 canEdit = !viewOnly ∧ 权限 editable，props 单点下传
- *   Session（各编辑出口统一消费，下游不二次判定）；
+ *   Session（各编辑出口统一消费，下游不二次判定）。B2 只读写门禁（2026-10-23
+ *   发布窗）：canEdit 再下传 Canvas→FeatureDialog（写动作语义——✓ 禁用+诚实
+ *   提示，不进租约环）+ useFeatureSystem.applyOp readonly 前置拒收（hook 层
+ *   兜底防新调用点绕过 UI 门）；viewOnly（用户主动切「仅查看模式」）仍归
+ *   视图变身/菜单态语义，与写门分线；
  * - 内层 PartStudioSession：connection 作 iModel 下传 useViewport
  *   （BriefcaseConnection extends IModelConnection——ScreenViewport 创建/类目模型
  *   补全/内容感知取景全链在 viewer-next）→ viewport 下传 PartStudioCanvas +
@@ -435,9 +439,13 @@ function PartStudioSession({
           connection={connection ?? undefined}
         />
         <div className="part-studio-main">
+          {/* canEdit 直通画布对话框宿主（B2 只读写门禁）：权限只读下写面对话框
+              的 ✓ 提交面禁用+诚实提示，不进 useFeatureSystem 租约获取等待环
+             （hook 层另有 readonly 前置拒收兜底，两层防御纵深）。 */}
           <PartStudioCanvas
             viewportRef={viewportRef}
             viewport={viewport}
+            canEdit={canEdit}
             applyOp={featureSystem.applyOp}
             leaseOk={featureSystem.leaseOk}
             connectionLoading={connectionLoading}

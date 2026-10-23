@@ -18,6 +18,10 @@
 //    新树，放行首响应后被纪元丢弃（树仍为新树，loading 落定 false）；
 //  - 超时兜底：applyFeatureOp / getFeatureTree 永悬挂 → FEATURE_OP_TIMEOUT_MS
 //   (15s) 后超时 reject/置 error（RPC 悬挂不再永久 busy）。
+// M5 发布窗（B2 只读写门禁）追加断言面：
+//  - readonly 连接 applyOp 前置拒收（零租约获取零派发，i18n 只读错误）；
+//  - 同页双会话（StrictMode 双挂载）readonly 下 applyOp 即返——不进租约获取
+//    等待环、会话间零租约竞争（B2 aria-busy 40-65s 现场的 hook 级回归钉）。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
@@ -185,6 +189,68 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     renderFeatureSystem(connection, { enabled: true });
 
     await waitFor(() => expect(fakeClient.acquireWriteLease).toHaveBeenCalledTimes(1));
+  });
+
+  // ── M5 发布窗（B2 只读写门禁，hook 层防御纵深）──────────────────────────
+  // B2 现场：hub 权限缺陷致 E2E Seed 仅 webview → briefcase readonly（isReadonly）
+  // 打开，UI 门缺位时写 op 被放行进租约获取等待环（服务端租约表不校验 readonly，
+  // 双会话互持 → 35s 预算耗尽，aria-busy 40-65s）。hook 层门：readonly 下
+  // applyOp 前置拒收，零租约 IPC 零派发。
+
+  it('B2 只读写门禁：readonly 连接 applyOp 前置拒收（零租约获取零派发，i18n 只读错误）', async () => {
+    const connection = createMockConnection({ isReadonly: true });
+    const op: FeatureOp = { kind: 'deleteFeature', featureId: 'f1' };
+
+    const { result } = renderFeatureSystem(connection);
+    await waitFor(() => expect(result.current.tree).toEqual(fakeClient.makeTree()));
+
+    let applyResult: Awaited<ReturnType<typeof result.current.applyOp>> | undefined;
+    await act(async () => {
+      applyResult = await result.current.applyOp(op);
+    });
+
+    expect(applyResult).toEqual({
+      ok: false,
+      error: '只读会话（iModel 权限不含写或已切仅查看模式）：不可执行特征写操作',
+    });
+    expect(fakeClient.acquireWriteLease).not.toHaveBeenCalled();
+    expect(fakeClient.applyFeatureOp).not.toHaveBeenCalled();
+  });
+
+  it('B2 现场复刻：同页双会话（readonly，StrictMode 双挂载）——applyOp 即返不进租约环，会话间零租约竞争', async () => {
+    const connection = createMockConnection({ isReadonly: true });
+    const op: FeatureOp = { kind: 'insertFeature', featureType: 'extrude', params: { profile: [], distance: 10 } };
+    // 服务端租约表不校验 readonly（B2 自首④）：enabled 覆盖的租约生命周期照常
+    // 动作（裁决归调用方），两会话各自 acquire——正是 B2「互持租约互卡」的土壤。
+    fakeClient.acquireWriteLease.mockImplementation(async () => ({ ok: false, holder: 'twin-session' }));
+
+    const first = renderHook(() => useFeatureSystem(connection as never, { enabled: true }), {
+      wrapper: React.StrictMode,
+    });
+    const second = renderHook(() => useFeatureSystem(connection as never, { enabled: true }), {
+      wrapper: React.StrictMode,
+    });
+    // 租约生命周期动作全部落定（StrictMode 双挂载 acquire+release+acquire）。
+    await waitFor(() => expect(fakeClient.acquireWriteLease.mock.calls.length).toBeGreaterThanOrEqual(2));
+    const leaseCallsBeforeApply = fakeClient.acquireWriteLease.mock.calls.length;
+
+    let applyResult: Awaited<ReturnType<typeof second.result.current.applyOp>> | undefined;
+    const startedAt = Date.now();
+    await act(async () => {
+      applyResult = await second.result.current.applyOp(op);
+    });
+    const elapsedMs = Date.now() - startedAt;
+
+    // 前置拒收：即返（真时钟下 <5s；门禁缺位则 2s 一跳 × 35s 预算必超）+
+    // 零新增租约获取（不与 twin-session 竞争）+ 零派发。
+    expect(elapsedMs).toBeLessThan(5_000);
+    expect(applyResult?.ok).toBe(false);
+    expect((applyResult as { error: string }).error).toContain('只读会话');
+    expect(fakeClient.acquireWriteLease.mock.calls.length).toBe(leaseCallsBeforeApply);
+    expect(fakeClient.applyFeatureOp).not.toHaveBeenCalled();
+
+    first.unmount();
+    second.unmount();
   });
 
   it('租约被拒 → leaseOk=false，读树照常（只读降级不阻断）', async () => {

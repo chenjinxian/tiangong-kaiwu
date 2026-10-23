@@ -357,6 +357,9 @@ describe('M5-T1 D-T9-5：Escape 关闭（document keydown 挂载期一次注册�
 // 基体」语义）；成功 toast+onConfirm（宿主收合）；失败就地 Alert 六态 error
 // + 不关闭；提交中禁重入；applyOp 未接线回退纯回调（M3 壳期语义保持）；
 // edit 模式本版不提交（updateParams 归特征对话框增强 backlog）。
+// M5 发布窗（B2 只读写门禁）：canEdit=false → ✓/成品 禁用 + 只读提示——原
+// T6 I-1 的 store.viewOnly 直读由宿主单点下传的 canEdit 接替（写动作语义
+// 与「仅查看」视图语义分线）。
 // ---------------------------------------------------------------------------
 describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
   /** 可编程 applyOp 替身（默认成功）。 */
@@ -479,24 +482,53 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('viewOnly 置位 → 提交不可达（I-1 防御纵深：applyOp 与 onConfirm 均不发起）', async () => {
+  it('canEdit=false（B2 只读写门禁）→ ✓/成品 禁用 + 只读提示，applyOp 与 onConfirm 均不发起', async () => {
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
     const onConfirm = vi.fn();
-    usePartStudioStore.setState({ viewOnly: { isActive: true } });
+    const onCancel = vi.fn();
     render(
       <FeatureDialog
         featureName="拉伸"
         mode="new"
         featureType="extrude"
         applyOp={applyOp}
+        canEdit={false}
         onConfirm={onConfirm}
+        onCancel={onCancel}
       />,
     );
+    // 诚实提示 + 两出口禁用（不进租约获取等待环——提交入口即被拦）。
+    const hint = screen.getByTestId('part-studio-feature-dialog-readonly-hint');
+    expect(hint.textContent).toContain('当前为只读权限');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: '确认' }));
     await user.click(screen.getByRole('button', { name: '成品' }));
     expect(applyOp).not.toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
+    // ✗ 取消仍可达（禁用态下的关闭出口）。
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('canEdit=false → 租约警示不呈现（提交已禁用「等待租约」成谎报）；edit 模式下只读提示顶位（editHint 让位）', () => {
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸 1"
+        mode="edit"
+        featureType="extrude"
+        applyOp={applyOp}
+        leaseOk={false}
+        canEdit={false}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('part-studio-feature-dialog-lease-warning')).toBeNull();
+    expect(screen.getByTestId('part-studio-feature-dialog-readonly-hint')).toBeDefined();
+    expect(screen.queryByTestId('part-studio-feature-dialog-edit-hint')).toBeNull();
   });
 
   it('leaseOk=false → 租约警示在场（不硬禁用），提交仍可达', async () => {

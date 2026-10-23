@@ -28,6 +28,9 @@
 //      教训——首开定读写，权限未落定早开=恒只读），落定后以合流 readonly
 //     （viewOnly ∨ 权限只读）开；权限只读时编辑面整体收口（编辑作用域不
 //      进入 + 推送入口拦截）。
+// M5 发布窗（B2 只读写门禁批）——
+//  11) 权限只读下写面对话框提交面关死（canEdit 单点下传 Canvas→FeatureDialog，
+//      ✓ 禁用+只读提示，零 op/零租约 IPC——不进租约获取等待环）。
 //
 // 定位：五区结构存在性 + store 接线验收层；mock 口径与 document-details 结构
 // 测试一致——真实 store/hooks 参与，客户端（ItwinsClient / ImodelsClient /
@@ -573,6 +576,35 @@ describe('M5-T3 权限门（权限未载不开连接）+ briefcase readonly 三�
     })) as HTMLButtonElement;
     await user.click(save);
     expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull();
+  });
+
+  it('B2 只读写门禁（页级）：权限只读下拉伸对话框 ✓ 禁用+只读提示，提交不发起 op/租约', async () => {
+    // B2 现场：E2E Seed 对测试账号仅 imodels_webview → readonly 连接 +
+    // canEdit=false 单点下传 Canvas→FeatureDialog——提交入口被 UI 门拦死
+    //（此前可开对话框并提交，卡进租约获取等待环 aria-busy 40-65s）。
+    mocks.accessControlGetMyPermissions.mockResolvedValue(['imodels_webview']);
+    renderPage();
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith(
+        expect.objectContaining({ readonly: true }),
+      ),
+    );
+    // readonly 下特征系统租约生命周期不启动（enabled=isEditingScopeReady=false）。
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalled());
+
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+    });
+    const dialog = await screen.findByTestId('part-studio-feature-dialog');
+    expect(within(dialog).getByTestId('part-studio-feature-dialog-readonly-hint')).toBeDefined();
+    // 租约警示不谎报（提交已禁用，「等待租约」不成立）。
+    expect(within(dialog).queryByTestId('part-studio-feature-dialog-lease-warning')).toBeNull();
+    expect((within(dialog).getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+
+    const user = userEvent.setup();
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    expect(featureRpc.applyFeatureOp).not.toHaveBeenCalled();
+    expect(featureRpc.acquireWriteLease).not.toHaveBeenCalled();
   });
 });
 

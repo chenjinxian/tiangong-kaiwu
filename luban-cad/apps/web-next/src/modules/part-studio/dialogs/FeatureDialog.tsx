@@ -29,9 +29,14 @@
  * mode='edit' 且 applyOp 在场（宿主已接提交面）时 ✓/成品 禁用 + 提示行
  *「该特征类型的参数编辑即将推出」（T6 评审 M-1：updateParams 归特征对话框
  * 增强 backlog，消除「假成功」观感）。租约警示（T6 评审 I-2）：leaseOk=false
- * 时可视警示「提交将等待租约」，不硬禁用（保留陈旧租约 35s 自愈路）。
- * viewOnly 门（T6 评审 I-1 防御纵深）：store.viewOnly 置位时确认不可达
- *（宿主已整体收口写面对话框，此门兜底竞态帧）。方向/对称/拔模随载荷回传
+ * 时可视警示「提交将等待租约」，不硬禁用（保留陈旧租约 35s 自愈路；仅
+ * canEdit 时呈现——只读权限下禁用 ✓ 后该警示是谎报，只读提示顶位）。
+ * 只读写门禁（B2 发布窗实锤的前端根因，接替 T6 评审 I-1 的 store.viewOnly
+ * 直读）：宿主单点下传 canEdit（!viewOnly ∧ 权限 editable，PartStudioPage
+ * 合流），!canEdit 时 ✓/成品 禁用 + 诚实提示「当前为只读权限，无法提交特征」
+ *——提交入口不发起 applyOp，自然不进租约获取等待环（hub 权限缺陷下只读
+ * briefcase 仍可被放行写 op，卡 aria-busy 40-65s 的现场即此门缺位；hook 层
+ * 另有 useFeatureSystem readonly 前置拒收兜底，两层防御纵深）。方向/对称/拔模随载荷回传
  * 但本版不进 op（shared ExtrudeParams 仅 profile/distance/sketchId——映射
  * 归特征对话框增强单裁，见 useFeatureSystem 头注延后项）。
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
@@ -48,7 +53,6 @@ import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/c
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type { FeatureOp, FeatureOpResult, LubanFeatureType } from '@luban-cad/shared';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
-import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import './FeatureDialog.css';
 
 /** 结果类型页签（os-31：实体|曲面|薄壁）。 */
@@ -94,9 +98,17 @@ export interface FeatureDialogProps {
   /**
    * 写租约在持（Session useFeatureSystem.leaseOk 直通；T6 评审 I-2）——
    * false 且提交面在场时给可视警示「提交将等待租约」，**不硬禁用**（保留
-   * applyOp 陈旧租约 35s 自愈路）；缺省（未接线/壳期）不警示。
+   * applyOp 陈旧租约 35s 自愈路）；缺省（未接线/壳期）不警示。canEdit=false
+   * 时不呈现（只读权限下提交已禁用，「等待租约」是谎报——只读提示顶位）。
    */
   leaseOk?: boolean;
+  /**
+   * 编辑面总门（B2 只读写门禁，M5-T3 单点合流的下游消费）：宿主
+   *（PartStudioSession→Canvas）单点下传 !viewOnly ∧ 权限 editable——false 时
+   * ✓/成品 禁用 + 只读提示，提交入口不发起 applyOp（不进租约获取等待环）。
+   * 缺省 true（壳期/纯展示语义保持——无写路径可关；生产宿主恒显式传参）。
+   */
+  canEdit?: boolean;
   /** 初始实体 chips（RPC 接线前由宿主注入；缺省空集）。 */
   entities?: readonly FeatureDialogEntity[];
   /** 回滚滑杆上限（默认 100；后端 OpLog 线性链接线后由宿主注入特征数）。 */
@@ -138,6 +150,7 @@ export function FeatureDialog({
   featureType,
   applyOp,
   leaseOk,
+  canEdit = true,
   entities,
   rollbackMax = 100,
   onConfirm,
@@ -145,9 +158,6 @@ export function FeatureDialog({
 }: FeatureDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const { selection } = useCanvasSelection();
-  // 仅查看门（T6 评审 I-1 防御纵深）：viewOnly 置位时宿主已整体收口写面
-  // 对话框（PartStudioCanvas effect closeDialog），此门兜底竞态帧下的提交。
-  const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
 
   const [resultType, setResultType] = React.useState<FeatureResultType>('solid');
   const [booleanScope, setBooleanScope] = React.useState<FeatureBooleanScope>('new');
@@ -227,7 +237,7 @@ export function FeatureDialog({
    * closeDialog）；失败/校验不过 → 就地 Alert，对话框不关闭。
    */
   const handleConfirm = React.useCallback(() => {
-    if (submitting || viewOnly) return; // 禁重入 + 仅查看门（I-1 防御纵深）
+    if (submitting || !canEdit) return; // 禁重入 + 只读写门禁（B2：readonly 不进租约环）
     if (editStandalone) return; // M-1：edit 本版不提交（✓ 已禁用，此为防御兜底）
     if (!(mode === 'new' && applyOp && featureType)) {
       onConfirm?.(buildResult());
@@ -268,7 +278,7 @@ export function FeatureDialog({
         setError(result.error);
       }
     })();
-  }, [submitting, viewOnly, editStandalone, mode, applyOp, featureType, distance, t, onConfirm, buildResult, featureName]);
+  }, [submitting, canEdit, editStandalone, mode, applyOp, featureType, distance, t, onConfirm, buildResult, featureName]);
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -291,7 +301,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting || editStandalone}
+            disabled={submitting || editStandalone || !canEdit}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -362,8 +372,9 @@ export function FeatureDialog({
         )}
 
         {/* 租约警示（T6 评审 I-2）：活租约被他人持有时可视提示，不硬禁用——
-            applyOp 内置陈旧租约 35s 有限重试自愈路，禁用即堵死。 */}
-        {applyOp !== undefined && mode === 'new' && leaseOk === false && (
+            applyOp 内置陈旧租约 35s 有限重试自愈路，禁用即堵死。只读权限
+           （!canEdit）下不呈现：提交已被门禁禁用，「等待租约」成谎报。 */}
+        {applyOp !== undefined && mode === 'new' && leaseOk === false && canEdit && (
           <p
             role="note"
             className="part-studio-feature-dialog__lease-warning"
@@ -373,8 +384,20 @@ export function FeatureDialog({
           </p>
         )}
 
+        {/* 只读权限提示（B2 只读写门禁）：✓/成品 已禁用时的诚实呈现——
+            「只读」是比 editHint 更根本的不可提交因，顶位优先。 */}
+        {!canEdit && (
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint"
+            data-testid="part-studio-feature-dialog-readonly-hint"
+          >
+            {t('partStudio.featureDialog.readonlyHint')}
+          </p>
+        )}
+
         {/* edit 模式提示行（T6 评审 M-1）：参数编辑即将推出（✓ 已禁用）。 */}
-        {editStandalone && (
+        {canEdit && editStandalone && (
           <p
             role="note"
             className="part-studio-feature-dialog__hint"
@@ -522,7 +545,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting || editStandalone}
+            disabled={submitting || editStandalone || !canEdit}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

@@ -283,6 +283,7 @@
     "submitSuccess": "{{name}} 已创建",
     "leaseBusy": "写租约被其他会话持有，提交将等待租约",
     "editHint": "该特征类型的参数编辑即将推出",
+    "readonlyHint": "当前为只读权限，无法提交特征",
     "sections": {
       "direction": "方向",
       "startOffset": "起始偏移",
@@ -387,7 +388,8 @@
     "notConnected": "未连接 iModel",
     "leaseHeldBy": "写租约被 {{holder}} 持有",
     "leaseAcquireFailed": "写租约获取失败",
-    "opTimeout": "特征操作超时：RPC {{seconds}} 秒无响应，请检查建模服务连接后重试"
+    "opTimeout": "特征操作超时：RPC {{seconds}} 秒无响应，请检查建模服务连接后重试",
+    "readonlyConnection": "只读会话（iModel 权限不含写或已切仅查看模式）：不可执行特征写操作"
   },
   "treeFilter": {
     "placeholder": "按名称或类型筛选",

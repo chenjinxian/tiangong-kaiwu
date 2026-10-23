@@ -143,6 +143,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.distanceLabel', 'featureDialog.distanceInvalid', 'featureDialog.submitSuccess',
   // T6 评审 round 1：租约警示（I-2）+ edit 模式提示行（M-1）。
   'featureDialog.leaseBusy', 'featureDialog.editHint',
+  // M5 发布窗（B2 只读写门禁）：canEdit=false 的只读提示 + hook 层 readonly 拒收错误。
+  'featureDialog.readonlyHint', 'featureSystem.readonlyConnection',
   'dock.tabs.toolSettings', 'dock.tabs.history', 'dock.tabs.display',
   'dock.placeholder',
   // M4 Task 7：dock 版本历史真面板（changesets 六态 + 保存/推送动作钮）。

@@ -18,8 +18,10 @@
  *   op 经 applyOp（Session useFeatureSystem 直通）提交，成功回 onConfirm →
  *   closeDialog；edit 模式确认在对话框内已禁用+提示（T6 评审 M-1）；
  * - viewOnly 运行时切换（T6 评审 I-1）：store.viewOnly 置位即 closeDialog
- *   ——打开中的写面对话框整体收口（对话框宿主职责；对话框内另有 viewOnly
- *   提交门兜底，防御纵深）；
+ *   ——打开中的写面对话框整体收口（对话框宿主职责；「仅查看模式」是用户
+ *   主动切换，收口语义保持 viewOnly 直读）；写动作门另走 canEdit（B2 只读
+ *   写门禁：Session 单点下传直通 FeatureDialog，权限只读下 ✓ 禁用+诚实提示，
+ *   提交不进租约环——两条语义线切分，勿在下游混读）；
  * - store.sketch.isActive 驱动草图模式覆盖层：栅格（aria-hidden 纯视觉层）+
  *   约束（role=note 标签层）；
  * - 连接相位覆盖层（M5-T2）：briefcase 下载中骨架 / 失败错误面（Session 下传
@@ -51,6 +53,12 @@ export interface PartStudioCanvasProps {
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   /** 写租约在持（Session useFeatureSystem.leaseOk 直通；FeatureDialog 租约警示消费，T6 评审 I-2）。 */
   leaseOk?: boolean;
+  /**
+   * 编辑面总门（B2 只读写门禁，M5-T3 单点合流）：Session 直通 FeatureDialog——
+   * false 时 ✓ 禁用 + 只读提示，提交入口不发起 applyOp。缺省 true（测试/壳期
+   * 语义保持；生产宿主 Session 恒显式传参）。
+   */
+  canEdit?: boolean;
   /** briefcase 打开中（M5-T2：Session 下传 isLoading——画布骨架覆盖层）。 */
   connectionLoading?: boolean;
   /** 连接失败消息（M5-T2：Session 合流下传——briefcase error 优先，viewport 创建失败兜底（T2 评审）；原文透传，null=无失败）。 */
@@ -67,6 +75,7 @@ export function PartStudioCanvas({
   viewport,
   applyOp,
   leaseOk,
+  canEdit = true,
   connectionLoading = false,
   connectionError = null,
 }: PartStudioCanvasProps): React.JSX.Element {
@@ -78,9 +87,11 @@ export function PartStudioCanvas({
   const closeDialog = usePartStudioStore((s) => s.closeDialog);
   // T6：草图模式覆盖层开关（os-30 栅格/约束）。
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
-  // T6 评审 I-1：viewOnly 运行时切换 → 打开中的写面对话框整体收口（宿主职责；
-  // FeatureDialog 内另有 viewOnly 提交门兜底，防御纵深）。dialog.active 入参
-  // 兼盖「仅查看态下被打开」的对话框（打开即收）。
+  // T6 评审 I-1：viewOnly 运行时切换 → 打开中的写面对话框整体收口（宿主职责）。
+  // 语义线切分（B2 只读写门禁）：此处保持 store.viewOnly 直读——「仅查看模式」
+  // 是用户主动切换，收口/菜单态语义不吃权限；写动作门走 canEdit prop（下方
+  // 直通 FeatureDialog）。dialog.active 入参兼容盖「仅查看态下被打开」的对话框
+  //（打开即收）。
   const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
   React.useEffect(() => {
     if (viewOnly && dialog.active) closeDialog();
@@ -169,6 +180,7 @@ export function PartStudioCanvas({
           featureType={dialog.mode === 'edit' ? undefined : dialog.featureType}
           applyOp={applyOp}
           leaseOk={leaseOk}
+          canEdit={canEdit}
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />

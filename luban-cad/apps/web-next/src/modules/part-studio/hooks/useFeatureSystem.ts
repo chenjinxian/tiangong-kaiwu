@@ -31,6 +31,13 @@
  *   一并）套 `FEATURE_OP_TIMEOUT_MS`（15s，参照旧应用 RESOLVE_*_TIMEOUT_MS
  *   口径）Promise 超时竞速；超时 reject 经既有 error 通道呈现（树错误行/
  *   对话框就地 Alert），不再永久 busy。
+ * - 只读写门禁（M5 发布窗，B2 插桩定位的前端根因）：`connection.isReadonly`
+ *   时 applyOp **前置拒收**（i18n 只读错误，不发起 acquireWriteLease）——
+ *   只读 briefcase（hub 权限缺陷致 E2E Seed 仅 webview → M5-T3 正确地 readonly
+ *   开连接）下放行写 op 会卡进租约获取等待环（服务端租约表不校验 readonly，
+ *   双会话互相持租约 → 35s 预算耗尽，aria-busy 40-65s）。UI 层门在
+ *   FeatureDialog（宿主下传 canEdit，✓ 禁用）；此处是 hook 层防御纵深，
+ *   防未来新调用点绕过 UI 门。
  * - 树/错误/租约布尔为 hook 本地 state（服务端态禁拷贝进 zustand——spec §3）。
  *
  * **显式延后项（特征对话框增强 backlog，勿在本版补齐）**：
@@ -193,6 +200,13 @@ export function useFeatureSystem(
 
   const applyOp = useCallback(async (op: FeatureOp): Promise<FeatureOpResult> => {
     if (!connectionKey) return { ok: false, error: i18next.t('partStudio.featureSystem.notConnected') };
+    // 只读写门禁（B2 前端根因，hook 层防御纵深）：readonly 连接下写 op 前置
+    // 拒收——不发起 acquireWriteLease（服务端租约表不校验 readonly，放行即卡
+    // 35s 租约等待环）。FeatureDialog 的 canEdit 门是第一层，此门兜住绕过
+    // UI 的新调用点。
+    if (connection?.isReadonly) {
+      return { ok: false, error: i18next.t('partStudio.featureSystem.readonlyConnection') };
+    }
     const client = LubanFeatureRpcInterface.getClient();
     const sessionId = sessionIdRef.current;
     // 租约自愈（旧源同款纪律，见文件头注）：有限重试直至陈旧租约自然过期。
@@ -223,7 +237,7 @@ export function useFeatureSystem(
     const result = await withOpTimeout(client.applyFeatureOp(connectionKey, op, sessionId));
     if (result.ok) await refresh();
     return result;
-  }, [connectionKey, refresh]);
+  }, [connectionKey, connection, refresh]);
 
   return {
     tree,
