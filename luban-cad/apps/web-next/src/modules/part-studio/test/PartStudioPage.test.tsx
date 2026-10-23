@@ -70,6 +70,8 @@ const coreFrontendMocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
   // M4-T4：undo/redo 走 IModelApp.tools.run('Undo'/'Redo')（viewer-next 内置在册）。
   toolsRun: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
+  // M6-a T5：草图绘制工具注册面（registerSketchTools 经 initTools 懒引注册）。
+  toolsRegister: vi.fn(),
 }));
 
 vi.mock('@itwin/core-frontend', async (importOriginal) => {
@@ -82,7 +84,7 @@ vi.mock('@itwin/core-frontend', async (importOriginal) => {
       toolAdmin: { startDefaultTool: vi.fn() },
       viewManager: { selectedView: undefined },
       notifications: { outputMessage: coreFrontendMocks.outputMessage },
-      tools: { run: coreFrontendMocks.toolsRun },
+      tools: { run: coreFrontendMocks.toolsRun, register: coreFrontendMocks.toolsRegister },
     },
   };
 });
@@ -260,7 +262,7 @@ function resetStore(): void {
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     dock: { activeTab: 'toolSettings', isOpen: false },
     tool: { activeToolId: null },
-    sketch: { isActive: false, activeSketchId: null },
+    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     commandPalette: { isOpen: false, query: '', highlightEnabled: true },
     canvas: { selection: [], hiddenIds: [] },
     dialog: { active: null },

@@ -19,7 +19,7 @@
 import { create } from 'zustand';
 import type { StoreApi } from 'zustand';
 
-import type { LubanFeatureType } from '@luban-cad/shared';
+import type { LubanFeatureType, SketchPlaneDto } from '@luban-cad/shared';
 import type {
   CanvasSelection,
   DockTab,
@@ -51,6 +51,8 @@ export interface PartStudioActions {
   // sketch 切片
   enterSketch: (sketchId: string) => void;
   exitSketch: () => void;
+  /** M6-a T5：活动草图平面下发（SketchDialog 确认链 → 宿主 onConfirm 消费面调用）。 */
+  setActiveSketchPlane: (plane: SketchPlaneDto | null) => void;
   // commandPalette 切片
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
@@ -101,6 +103,8 @@ const initialTool: PartStudioToolState = {
 const initialSketch: PartStudioSketchState = {
   isActive: false,
   activeSketchId: null,
+  // M6-a T5：平面缺省 null=契约缺省 XY@z=0（见 types.ts 注）。
+  activeSketchPlane: null,
 };
 
 const initialCommandPalette: PartStudioCommandPaletteState = {
@@ -155,13 +159,19 @@ function createToolSlice([set]: SliceCreator): { tool: PartStudioToolState } & P
   };
 }
 
-/** sketch 切片：草图模式进出（活动草图 id 寻址树红显/对话框）。 */
-function createSketchSlice([set]: SliceCreator): { sketch: PartStudioSketchState } & Pick<PartStudioActions,
-  'enterSketch' | 'exitSketch'> {
+/** sketch 切片：草图模式进出（活动草图 id 寻址树红显/对话框）+ 平面下发（M6-a T5）。 */
+function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketchState } & Pick<PartStudioActions,
+  'enterSketch' | 'exitSketch' | 'setActiveSketchPlane'> {
   return {
     sketch: initialSketch,
-    enterSketch: (sketchId) => set({ sketch: { isActive: true, activeSketchId: sketchId } }),
+    // 进草图恒先归零平面（防上一草图会话的平面残留串场）；新建路径的平面随后由
+    // SketchDialog onConfirm 链 setActiveSketchPlane 下发（M6-a T5）。
+    enterSketch: (sketchId) => set({ sketch: { isActive: true, activeSketchId: sketchId, activeSketchPlane: null } }),
     exitSketch: () => set({ sketch: { ...initialSketch } }),
+    // 平面单设一跳（不并入 enterSketch）：T4 收口的 SketchDialog 内部先
+    // enterSketch(真 sketchId)、再经 onConfirm 回调把平面选项带出——宿主
+    // PartStudioCanvas 在 onConfirm 里映射下发；enterSketch 签名保持 T4 口径不动。
+    setActiveSketchPlane: (plane) => set({ sketch: { ...get().sketch, activeSketchPlane: plane } }),
   };
 }
 

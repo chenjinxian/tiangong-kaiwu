@@ -20,6 +20,9 @@ vi.mock('@itwin/core-frontend', () => ({
   IModelApp: { initialized: false, shutdown: shutdownMock, accuSnap: { enableSnap: vi.fn(), enableLocate: vi.fn() } },
   IpcApp: { isValid: false },
   LocalhostIpcApp: { startup: startupMock, buildUrlForSocket: (u: URL) => u },
+  // M6-a T5：SketchAccuSnap 的基类桩（class extends 在模块加载期求值——
+  // 缺桩则 web-initializer 的静态 import 链 TypeError）。
+  AccuSnap: class {},
 }));
 vi.mock('@itwin/core-common', () => ({
   BentleyCloudRpcManager: { initializeClient: initializeClientMock },
@@ -63,6 +66,13 @@ describe('startViewer（移植自 WebInitializer）', () => {
     await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
     const arg = startupMock.mock.calls[0][0];
     expect(arg.iModelApp.rpcInterfaces).toHaveLength(4);
+  });
+
+  it('M6-a T5：accuSnap 注入 SketchAccuSnap 实例（九模式捕捉子类，startup 官方注入点）', async () => {
+    await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
+    const arg = startupMock.mock.calls[0][0];
+    expect(arg.iModelApp.accuSnap).toBeDefined();
+    expect(typeof arg.iModelApp.accuSnap.getActiveSnapModes).toBe('function');
   });
 
   it('notifications 选项透传 IModelApp.startup（review-8 I-2 呈现桥的官方注入点）', async () => {

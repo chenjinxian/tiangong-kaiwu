@@ -19,7 +19,10 @@
  *  - 鲁班草图链 11 工具（绘制 3：SketchLineTool/SketchRectangleTool/
  *    SketchCircleTool + 约束 6：Coincident/Horizontal/Vertical/Parallel/
  *    Perpendicular/Equal + 尺寸 2：Distance/Radius，旧 features/sketch/tools/*）：
- *    web-next 草图模式（SketchDialog 后续里程碑）接线时移植；
+ *    **绘制面已由 M6-a T5 收口**——web-next 侧 tools/sketch/SketchCreateTool.ts
+ *    四件（Sketch.Line/Sketch.Rectangle/Sketch.CenterCircle/Sketch.Arc3Point，
+ *    含新增 3 点弧）经 registerSketchTools 在 PartStudioPage 注册（viewer-next
+ *    不反向依赖 app 模块）；约束 6 + 尺寸 2 挂账依旧（F3 约束/尺寸工具任务）。
  *  - 选择 5 工具（FenceSelect/SelectAll/Invert/ClearSelection/SelectByCategory，
  *    旧 src/core/tools/SelectionTools.ts）：简报未列——命令面板接线里程碑移植；
  *  - 剖切 2 工具（SectionByPlane/ClearSection，旧 src/core/section/SectionTools.ts）：

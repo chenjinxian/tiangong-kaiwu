@@ -6,7 +6,8 @@ export default defineConfig({
   optimizeDeps: {
     // link: 包不做预打包（brief 钉死项）；@itwin/core-frontend 为 DevViewerRoute
     // 就绪态回退读取通道，按 apps/web 先例排除（esm 产物源码直服）。
-    exclude: ['@luban-cad/viewer-next', '@luban-cad/shared', '@itwin/core-frontend'],
+    // M6-a T5：core-geometry/core-common 同 link: 口径一并排除（草图工具链依赖）。
+    exclude: ['@luban-cad/viewer-next', '@luban-cad/shared', '@itwin/core-frontend', '@itwin/core-geometry', '@itwin/core-common'],
   },
   server: {
     port: 5310,

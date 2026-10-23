@@ -113,6 +113,10 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
     });
 
     try {
+      // M6-a T5：SketchAccuSnap 懒引（ensureEditTools 同款口径——class extends
+      // AccuSnap 静态引出会把基类存在性强加给消费方的 core-frontend mock 面；
+      // 仅首次 startup 分支用到，懒引零运行时语义差异）。
+      const { SketchAccuSnap } = await import('../tools/sketch-accu-snap.js');
       // Initialize with LocalhostIpcApp (subclass of IModelApp).
       // This enables IpcApp.isValid = true, which is required for BriefcaseConnection.
       // The existing CheckpointConnection (read-only) path is unaffected.
@@ -123,6 +127,11 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
         },
         iModelApp: {
           rpcInterfaces,
+          // M6-a T5：AccuSnap 换 SketchAccuSnap 子类（九模式优先级表——草图
+          // 绘制链的端点/中点/圆心/交点捕捉面；应用级单例，全局捕捉面同步变宽，
+          // 边界见 tools/sketch-accu-snap.ts 头注）。仅首次 startup 分支生效
+          //（幂等重入沿用既有实例，与 notifications 注记同口径）。
+          accuSnap: new SketchAccuSnap(),
           // notifications 注入点（review-8 I-2）：IModelApp.ts:467 的
           // `opts.notifications ?? new NotificationManager()`——缺省 undefined
           // 时 core 兜底哑通道（行为不变）。仅在本 startup 分支生效；幂等重入

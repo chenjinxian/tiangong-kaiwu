@@ -5,7 +5,7 @@
  * part-studio 模块契约类型（M3 Task 2）。
  */
 
-import type { LubanFeatureType } from '@luban-cad/shared';
+import type { LubanFeatureType, SketchPlaneDto } from '@luban-cad/shared';
 
 /** 画布拾取类型（spec §5 上下文敏感模型：右键菜单按 kind 重构）。 */
 export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature';
@@ -83,6 +83,15 @@ export interface PartStudioToolState {
 export interface PartStudioSketchState {
   isActive: boolean;
   activeSketchId: string | null;
+  /**
+   * M6-a T5：活动草图平面（世界系米制三向量，SketchPlaneDto）。
+   * 数据源=SketchDialog 确认链（onConfirm → 宿主 PartStudioCanvas 经
+   * sketchPlaneFromOption 映射下发 setActiveSketchPlane）；绘制工具取点投影与
+   * AccuDraw 锁定以此为草图面。null=契约缺省 XY@z=0（insertSketch op 省略
+   * plane 键的同义语义，与后端 planeZ v1 一致；编辑既有草图的平面回显待契约
+   * 下发——SketchDto 暂无 plane 字段，登记为 v1.7 候选）。
+   */
+  activeSketchPlane: SketchPlaneDto | null;
 }
 
 /** commandPalette 切片——命令搜索面板（alt+/）开关 + 查询词 + ribbon 亮显。 */

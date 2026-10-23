@@ -57,6 +57,8 @@ const mocks = vi.hoisted(() => ({
   // M5-T3：iModel 级我的权限查询（briefcase readonly 合流的数据源）。
   accessControlGetMyPermissions: vi.fn(),
   toolsRun: vi.fn(),
+  // M6-a T5：草图绘制工具注册面（registerSketchTools 经 initTools 懒引注册）。
+  toolsRegister: vi.fn(),
   // M4-T9：IModelApp.notifications 呈现面捕获（toast 行为归对话框/页面测试，
   // 此处只需通道在场不抛）。
   outputMessage: vi.fn(),
@@ -148,7 +150,7 @@ vi.mock('@itwin/core-frontend', async (importOriginal) => {
       toolAdmin: { startDefaultTool: vi.fn() },
       viewManager: { selectedView: undefined },
       notifications: { outputMessage: mocks.outputMessage },
-      tools: { run: mocks.toolsRun },
+      tools: { run: mocks.toolsRun, register: mocks.toolsRegister },
     },
   };
 });
@@ -276,7 +278,7 @@ function resetStore(): void {
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     dock: { activeTab: 'toolSettings', isOpen: false },
     tool: { activeToolId: null },
-    sketch: { isActive: false, activeSketchId: null },
+    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     commandPalette: { isOpen: false, query: '', highlightEnabled: true },
     canvas: { selection: [], hiddenIds: [] },
     dialog: { active: null },

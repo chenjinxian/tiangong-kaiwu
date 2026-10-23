@@ -74,7 +74,7 @@ function renderCanvas(applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>): vo
 function resetStore(): void {
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
-    sketch: { isActive: false, activeSketchId: null },
+    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },
     viewOnly: { isActive: false },
   });
@@ -169,9 +169,44 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
       expect(applyOp).toHaveBeenCalledWith({ kind: 'insertSketch', entities: [], constraints: [] }),
     );
     await waitFor(() =>
-      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-new-1' }),
+      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-new-1', activeSketchPlane: null }),
     );
     await waitFor(() => expect(usePartStudioStore.getState().dialog.active).toBeNull());
+  });
+
+  it('M6-a T5：sketch 确认链平面下发——选「前视」确认 → activeSketchPlane=前视 XZ 面三向量', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-front-1' }));
+    renderCanvas(applyOp);
+    act(() => {
+      usePartStudioStore.getState().openSketchDialog();
+    });
+    const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
+    // 选基准面「前视」（下拉 value=front——sketchPlaneFromOption 的判别域）。
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: '草图平面' }), 'front');
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    await waitFor(() =>
+      expect(usePartStudioStore.getState().sketch).toEqual({
+        isActive: true,
+        activeSketchId: 'sk-front-1',
+        activeSketchPlane: {
+          origin: { x: 0, y: 0, z: 0 },
+          normal: { x: 0, y: 1, z: 0 },
+          xDir: { x: 1, y: 0, z: 0 },
+        },
+      }),
+    );
+    // op 侧 plane 同步下发（T4 口径不变）。
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertSketch',
+      entities: [],
+      constraints: [],
+      plane: {
+        origin: { x: 0, y: 0, z: 0 },
+        normal: { x: 0, y: 1, z: 0 },
+        xDir: { x: 1, y: 0, z: 0 },
+      },
+    });
   });
 
   it('sketch + canEdit=false（B2 只读写门禁下传）→ SketchDialog ✓ 禁用 + 只读提示，applyOp 未发起', async () => {

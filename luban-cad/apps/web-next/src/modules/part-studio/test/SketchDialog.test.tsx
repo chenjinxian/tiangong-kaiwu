@@ -123,7 +123,7 @@ function resetStore(): void {
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
-    sketch: { isActive: false, activeSketchId: null },
+    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },
     tool: { activeToolId: null },
     commandPalette: { isOpen: false, query: '', highlightEnabled: true },
@@ -271,7 +271,7 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     const { onConfirm } = renderDialog({ sketchId: 'sketch-7' });
     await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-7' });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-7', activeSketchPlane: null });
   });
 
   it('✗取消 → onCancel + exitSketch 复位（进行中草图退出）', async () => {
@@ -280,7 +280,7 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '取消' }));
     expect(onCancel).toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null });
   });
 });
 
@@ -330,7 +330,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     });
     // 成功 → 真 sketchId 入 store（enterSketch 真 id 断言）+ onConfirm 载荷照常。
     await waitFor(() =>
-      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-42' }),
+      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-42', activeSketchPlane: null }),
     );
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -350,7 +350,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('约束求解失败');
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null });
     expect(onConfirm).not.toHaveBeenCalled();
     // 对话框仍在场（不关框）。
     expect(screen.getByRole('dialog', { name: '草图' })).toBeDefined();
@@ -420,12 +420,13 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     expect(screen.getByRole('button', { name: '退出草图' })).toBeDefined();
   });
 
-  it('草图工具点击 → tools.run(sketchLine)；退出草图 → sketch 复位 + 特征 ribbon 还原', async () => {
+  it('草图工具点击 → tools.run(Sketch.Line)；退出草图 → sketch 复位 + 特征 ribbon 还原', async () => {
     usePartStudioStore.getState().enterSketch('sk1');
     const user = userEvent.setup();
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '线' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('sketchLine');
+    // M6-a T5：绘制 4 件占位 id 已校准为真 toolId（Sketch.Line 等，注册表头注）。
+    expect(mocks.toolsRun).toHaveBeenCalledWith('Sketch.Line');
     await user.click(screen.getByRole('button', { name: '退出草图' }));
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
     // ribbon 还原：特征工具组回来。
@@ -496,7 +497,7 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
     // M6-a T4：真 sketchId 入 store（废 'sketch-active' 占位串）。
     await waitFor(() =>
-      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-real-1' }),
+      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-real-1', activeSketchPlane: null }),
     );
     // 对话框已提交收合（宿主 closeDialog）。
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());

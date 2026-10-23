@@ -12,6 +12,12 @@
  * - capability 统一 'sketch'（草图编辑面 ✅，M3-b 已在旧应用落地；
  *   TOOL_CAPABILITIES 已登记，capabilities.test 钉死）。
  *
+ * M6-a T5（绘制 4 件接线）：sketchLine/sketchRectangle/sketchCircle/sketchArc
+ * 占位 id 校准为真 toolId——Sketch.Line/Sketch.Rectangle/Sketch.CenterCircle/
+ * Sketch.Arc3Point（tools/sketch/SketchCreateTool.ts，registerSketchTools 注册，
+ * Ribbon 激活路由 IModelApp.tools.run 直投真启动）。其余 8 件（样条/编辑 5/
+ * 标注 2）占位保留，T6+ 后续任务接线。
+ *
  * 图标：沿用 ribbon-registry 自制描边 SVG 同姿态（24×24，currentColor）。
  */
 
@@ -128,13 +134,13 @@ export const SKETCH_TOOL_GROUP_ORDER: readonly SketchRibbonGroup[] = [
   'sketchAnnotate',
 ];
 
-/** 12 草图工具注册表（id 接线前占位；真实 toolId 校准见文件头）。 */
+/** 12 草图工具注册表（绘制 4 件 id 已校准真 toolId（M6-a T5，见文件头）；其余占位待接）。 */
 export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
-  // 绘制 5
-  { id: 'sketchLine', icon: LineIcon, labelKey: 'partStudio.ribbon.sketchTools.line.label', capability: 'sketch', group: 'sketchDraw' },
-  { id: 'sketchRectangle', icon: RectangleIcon, labelKey: 'partStudio.ribbon.sketchTools.rectangle.label', capability: 'sketch', group: 'sketchDraw' },
-  { id: 'sketchCircle', icon: CircleIcon, labelKey: 'partStudio.ribbon.sketchTools.circle.label', capability: 'sketch', group: 'sketchDraw' },
-  { id: 'sketchArc', icon: ArcIcon, labelKey: 'partStudio.ribbon.sketchTools.arc.label', capability: 'sketch', group: 'sketchDraw' },
+  // 绘制 5（前 4 件 M6-a T5 接线真 toolId；样条占位）
+  { id: 'Sketch.Line', icon: LineIcon, labelKey: 'partStudio.ribbon.sketchTools.line.label', capability: 'sketch', group: 'sketchDraw' },
+  { id: 'Sketch.Rectangle', icon: RectangleIcon, labelKey: 'partStudio.ribbon.sketchTools.rectangle.label', capability: 'sketch', group: 'sketchDraw' },
+  { id: 'Sketch.CenterCircle', icon: CircleIcon, labelKey: 'partStudio.ribbon.sketchTools.circle.label', capability: 'sketch', group: 'sketchDraw' },
+  { id: 'Sketch.Arc3Point', icon: ArcIcon, labelKey: 'partStudio.ribbon.sketchTools.arc.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'sketchSpline', icon: SplineIcon, labelKey: 'partStudio.ribbon.sketchTools.spline.label', capability: 'sketch', group: 'sketchDraw' },
   // 编辑 5
   { id: 'sketchFillet', icon: SketchFilletIcon, labelKey: 'partStudio.ribbon.sketchTools.fillet.label', capability: 'sketch', group: 'sketchEdit' },

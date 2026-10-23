@@ -39,7 +39,8 @@ import type { ScreenViewport } from '@itwin/core-frontend';
 import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
-import { SketchDialog } from '../dialogs/SketchDialog.js';
+import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
+import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface PartStudioCanvasProps {
@@ -106,9 +107,16 @@ export function PartStudioCanvas({
   // M6-a T4：SketchDialog 内部接线 insertSketch RPC（applyOp/canEdit 直通——
   // 提交态/就地错误/只读门禁归对话框自治，同 FeatureDialog 职责边界）；宿主
   // 回调=确认成功后的收合透传。
-  const handleSketchConfirm = React.useCallback(() => {
+  // M6-a T5：确认链顺带下发草图平面——result.plane 选项 id 经
+  // sketchPlaneFromOption 映射为世界系三向量入 store.sketch.activeSketchPlane
+  //（绘制工具的取点投影/AccuDraw 锁定数据源；非基准面 id → undefined → null=
+  // 契约缺省 XY@z=0）。SketchDialog 已收口不改——平面经 onConfirm 载荷带出，
+  // 宿主此处接线。
+  const setActiveSketchPlane = usePartStudioStore((s) => s.setActiveSketchPlane);
+  const handleSketchConfirm = React.useCallback((result?: SketchDialogResult) => {
+    setActiveSketchPlane(result ? sketchPlaneFromOption(result.plane) ?? null : null);
     closeDialog();
-  }, [closeDialog]);
+  }, [closeDialog, setActiveSketchPlane]);
 
   // data-viewport-ready：M4-T2 视口下传锚点（结构断言/T5 适应视图接线前的就绪观测位）。
   return (

@@ -324,7 +324,36 @@
     "readonlyHint": "Read-only permission; cannot create a sketch"
   },
   "sketch": {
-    "constraintsOverlay": "Constraints"
+    "constraintsOverlay": "Constraints",
+    "create": {
+      "line": {
+        "firstPrompt": "Click to place the line start point",
+        "nextPrompt": "Click to place the line end point"
+      },
+      "rectangle": {
+        "firstPrompt": "Click to place the first corner of the rectangle",
+        "nextPrompt": "Click to place the opposite corner"
+      },
+      "circle": {
+        "firstPrompt": "Click to place the circle center",
+        "nextPrompt": "Click a point on the circle (sets radius)"
+      },
+      "arc": {
+        "firstPrompt": "Click to place the arc start point",
+        "nextPrompt": "Click to place the arc end point",
+        "thirdPrompt": "Click a point on the arc"
+      },
+      "toasts": {
+        "zeroSize": "Degenerate shape (zero length/area/radius); not submitted",
+        "colinearArc": "The three points are collinear or coincident; cannot build an arc, not submitted",
+        "systemNotReady": "Sketch system not ready; exit sketch mode and retry",
+        "updateFailed": "Sketch update failed"
+      }
+    },
+    "system": {
+      "featureSystemNotReady": "Feature system not ready",
+      "notOpen": "No sketch is currently open"
+    }
   },
   "palette": {
     "title": "Search tools",

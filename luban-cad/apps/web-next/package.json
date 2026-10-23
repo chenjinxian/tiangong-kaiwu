@@ -17,6 +17,8 @@
     "@itwin/itwinui-react": "^3.22.0",
     "@itwin/itwinui-icons-react": "^2.9.0",
     "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
+    "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry",
+    "@itwin/core-common": "link:../../../itwinjs-core/core/common",
     "@luban-cad/shared": "workspace:*",
     "@luban-cad/viewer-next": "workspace:*",
     "@tanstack/react-query": "^5.0.0",

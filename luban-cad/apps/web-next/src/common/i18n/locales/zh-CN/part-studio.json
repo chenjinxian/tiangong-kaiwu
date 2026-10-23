@@ -324,7 +324,36 @@
     "readonlyHint": "当前为只读权限，无法创建草图"
   },
   "sketch": {
-    "constraintsOverlay": "约束"
+    "constraintsOverlay": "约束",
+    "create": {
+      "line": {
+        "firstPrompt": "点击放置直线起点",
+        "nextPrompt": "点击放置直线终点"
+      },
+      "rectangle": {
+        "firstPrompt": "点击放置矩形第一个角点",
+        "nextPrompt": "点击放置矩形对角点"
+      },
+      "circle": {
+        "firstPrompt": "点击放置圆心",
+        "nextPrompt": "点击放置圆上一点（定半径）"
+      },
+      "arc": {
+        "firstPrompt": "点击放置圆弧起点",
+        "nextPrompt": "点击放置圆弧终点",
+        "thirdPrompt": "点击放置弧上一点"
+      },
+      "toasts": {
+        "zeroSize": "形状退化（零长度/零面积/零半径），未提交",
+        "colinearArc": "三点共线或有两点重合，无法构造圆弧，未提交",
+        "systemNotReady": "草图系统未就绪，请退出草图模式后重试",
+        "updateFailed": "草图更新失败"
+      }
+    },
+    "system": {
+      "featureSystemNotReady": "特征系统未就绪",
+      "notOpen": "当前没有打开的草图"
+    }
   },
   "palette": {
     "title": "搜索工具",

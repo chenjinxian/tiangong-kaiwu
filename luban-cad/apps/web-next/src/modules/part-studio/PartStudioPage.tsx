@@ -118,6 +118,7 @@ import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 import { useFeatureSystem } from './hooks/useFeatureSystem.js';
 import { usePermissions } from './hooks/usePermissions.js';
+import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import './PartStudioPage.css';
@@ -203,6 +204,16 @@ function PartStudioSession({
   const featureSystem = useFeatureSystem(connection ?? undefined, {
     enabled: isEditingScopeReady,
   });
+
+  // 草图系统（M6-a T5）：活动草图读面（store.sketch.activeSketchId 驱动）+
+  // updateSketch 写面（复用 featureSystem.applyOp——租约/只读门禁/刷新同源）。
+  // 模块级 accessor 注册：绘制工具经 IModelApp.tools.run 无参启动（M3-b 已知
+  // 坑——无选项注入通道），运行期 getSketchSystem() 取本实例；卸载注销。
+  const sketchSystem = useSketchSystem(connection ?? undefined, featureSystem);
+  useEffect(() => {
+    registerSketchSystemAccessor(sketchSystem);
+    return () => registerSketchSystemAccessor(undefined);
+  }, [sketchSystem]);
 
   // 特征显示同步（M4-T5 移植 + M4-T6 接线）：特征写入后的几何出现链收口——
   // 绕过 GraphicalEditingScope 下 ModelChangeMonitor 的 guid 缓冲（BRep 显示
@@ -377,6 +388,13 @@ function PartStudioSession({
 
       try {
         await ensureEditTools();
+        // M6-a T5：草图绘制 4 工具注册（Sketch.Line/Sketch.Rectangle/
+        // Sketch.CenterCircle/Sketch.Arc3Point）——web-next 侧注册（viewer-next
+        // 不反向依赖 app 模块）；懒引（viewer-next ensureEditTools 同款口径：
+        // 工具类 extends PrimitiveTool 静态引出会把基类存在性强加给 barrel
+        // 消费方的 core-frontend mock 面）；幂等，失败同 ensureEditTools 错误面。
+        const { registerSketchTools } = await import('./tools/sketch/SketchCreateTool.js');
+        registerSketchTools();
       } catch (err) {
         if (cancelled) return;
         // 工具注册失败必须可见（同旧应用口径：错误面吞掉 = 工具全灭且无诊断线索）

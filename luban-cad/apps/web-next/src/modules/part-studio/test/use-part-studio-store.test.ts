@@ -39,6 +39,8 @@ const INITIAL_STATE: PartStudioState = {
   sketch: {
     isActive: false,
     activeSketchId: null,
+    // M6-a T5：平面缺省 null=契约缺省 XY@z=0。
+    activeSketchPlane: null,
   },
   commandPalette: {
     isOpen: false,
@@ -131,11 +133,29 @@ describe('tool 切片（当前工具）', () => {
 });
 
 describe('sketch 切片（草图模式）', () => {
-  it('enterSketch 进草图模式并记活动草图，exitSketch 全复位', () => {
+  it('enterSketch 进草图模式并记活动草图（平面归零防串场），exitSketch 全复位', () => {
     usePartStudioStore.getState().enterSketch('sketch-9');
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9' });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9', activeSketchPlane: null });
     usePartStudioStore.getState().exitSketch();
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null });
+  });
+
+  it('M6-a T5：setActiveSketchPlane 下发平面；enterSketch 再进归零（不串上一会话）', () => {
+    const plane = {
+      origin: { x: 0, y: 0, z: 0 },
+      normal: { x: 0, y: 1, z: 0 },
+      xDir: { x: 1, y: 0, z: 0 },
+    };
+    usePartStudioStore.getState().enterSketch('sketch-1');
+    usePartStudioStore.getState().setActiveSketchPlane(plane);
+    expect(usePartStudioStore.getState().sketch.activeSketchPlane).toEqual(plane);
+    // 新会话归零（SketchDialog 确认链随后再下发新平面）。
+    usePartStudioStore.getState().enterSketch('sketch-2');
+    expect(usePartStudioStore.getState().sketch.activeSketchPlane).toBeNull();
+    // exitSketch 全复位含平面。
+    usePartStudioStore.getState().setActiveSketchPlane(plane);
+    usePartStudioStore.getState().exitSketch();
+    expect(usePartStudioStore.getState().sketch.activeSketchPlane).toBeNull();
   });
 });
 
