@@ -18,6 +18,8 @@
  *   负责）；成功 → 重取活动草图（后端重解算后的新坐标+解算状态）；拒收
  *   （ok:false）→ error 状态透出 + 原样返回，不抛异常——工具直接读
  *   FeatureOpResult（拒收文本含 dof/冲突 id，即工具的反馈通道）。
+ *   M6-b T5 增 applyConstraintValue：updateSketchConstraint op（尺寸内联
+ *   编辑通道，改值重解算），语义与 applyUpdate 同门禁/同透出口径。
  * - 代际防竞态保留（activeEpochRef）：活动身份切换/换连接时 +1，迟到的
  *   getSketch 解析发现代数过期即丢弃（stale-clobber 防覆写）。
  * - txns.onCommitted → refresh 保留（外部编辑通道如 updateSketchConstraint
@@ -56,6 +58,14 @@ export interface UseSketchSystem {
    * 冲突 id，即工具的反馈通道，不抛异常）。成功 → 重取 activeSketch。
    */
   applyUpdate(entities: SketchEntityDto[], constraints: SketchConstraintDto[]): Promise<FeatureOpResult>;
+  /**
+   * 改尺寸约束值（M6-b T5：SketchPanel 尺寸内联编辑通道）——
+   * updateSketchConstraint op（仅 distance/radius 类约束；后端改值重解算并
+   * 重写草图 params+几何流，EDE 传播由 op 自带）。就绪门禁/拒收透出语义与
+   * applyUpdate 同；成功 → 重取 activeSketch（后端重解算后的新坐标+解算
+   * 状态，代际防竞态由 refresh 自带）。
+   */
+  applyConstraintValue(constraintId: number, value: number): Promise<FeatureOpResult>;
   /** 重取活动草图现场解算。 */
   refresh(): Promise<void>;
 }
@@ -143,11 +153,35 @@ export function useSketchSystem(
     [fs, refresh, readActiveId],
   );
 
+  const applyConstraintValue = useCallback(
+    async (constraintId: number, value: number): Promise<FeatureOpResult> => {
+      if (!fs) return { ok: false, error: i18next.t('partStudio.sketch.system.featureSystemNotReady') };
+      const activeId = readActiveId();
+      if (!activeId) return { ok: false, error: i18next.t('partStudio.sketch.system.notOpen') };
+      let result: FeatureOpResult;
+      try {
+        result = await fs.applyOp({ kind: 'updateSketchConstraint', sketchId: activeId, constraintId, value });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(message);
+        return { ok: false, error: message };
+      }
+      if (!result.ok) {
+        setError(result.error);
+        return result;
+      }
+      await refresh();
+      return result;
+    },
+    [fs, refresh, readActiveId],
+  );
+
   return {
     activeSketch,
     loading,
     error,
     applyUpdate,
+    applyConstraintValue,
     refresh,
   };
 }

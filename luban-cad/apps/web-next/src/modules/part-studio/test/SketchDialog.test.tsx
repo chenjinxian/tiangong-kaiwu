@@ -91,8 +91,10 @@ function lookup(dict: unknown, dottedPath: string): unknown {
 }
 
 describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
-  it('12 工具在册：id 唯一、组序绘制→编辑→标注、组内排布有序', () => {
-    expect(SKETCH_RIBBON_TOOLS).toHaveLength(12);
+  it('18 工具在册：id 唯一、组序绘制→编辑→标注、组内排布有序', () => {
+    // M6-b T5：标注 2 占位（sketchDimension/sketchConstraint）按工具展开为
+    // 约束 6+尺寸 2 真 toolId，注册表 12→18（os-30 下拉 1:1 归 M6-c）。
+    expect(SKETCH_RIBBON_TOOLS).toHaveLength(18);
     const ids = SKETCH_RIBBON_TOOLS.map((tool) => tool.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(SKETCH_TOOL_GROUP_ORDER).toEqual(['sketchDraw', 'sketchEdit', 'sketchAnnotate']);
@@ -407,8 +409,9 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     usePartStudioStore.getState().enterSketch('sk1');
     render(<Ribbon />);
     expect(screen.getByRole('toolbar', { name: '草图工具' })).toBeDefined();
-    // 草图绘制工具在场（os-30 组：线/矩形/圆…）。
-    for (const name of ['线', '矩形', '圆', '尺寸', '约束']) {
+    // 草图绘制工具在场（os-30 组：线/矩形/圆…）；M6-b T5 标注组按工具展开
+    //（约束 6 + 尺寸 2 真 toolId，原「尺寸/约束」两占位钮已除名）。
+    for (const name of ['线', '矩形', '圆', '重合', '水平', '竖直', '距离', '半径']) {
       expect(screen.getByRole('button', { name })).toBeDefined();
     }
     // 特征工具组隐去（拉伸/抽壳只在特征 ribbon——草图组的圆角/镜像同名不同族，不作案据）。

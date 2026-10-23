@@ -255,8 +255,14 @@
       "offset": { "label": "Offset" },
       "mirror": { "label": "Mirror" },
       "text": { "label": "Text" },
-      "dimension": { "label": "Dimension" },
-      "constraint": { "label": "Constraint" }
+      "coincident": { "label": "Coincident" },
+      "horizontal": { "label": "Horizontal" },
+      "vertical": { "label": "Vertical" },
+      "parallel": { "label": "Parallel" },
+      "perpendicular": { "label": "Perpendicular" },
+      "equal": { "label": "Equal" },
+      "distance": { "label": "Distance" },
+      "radius": { "label": "Radius" }
     }
   },
   "featureDialog": {
@@ -369,6 +375,95 @@
     "system": {
       "featureSystemNotReady": "Feature system not ready",
       "notOpen": "No sketch is currently open"
+    },
+    "constraint": {
+      "prompts": {
+        "coincidentFirst": "Coincident: click the first point",
+        "coincidentSecond": "Coincident: click the second point",
+        "linearFirst": "{{label}} constraint: click a line, or two points in turn",
+        "linearPairSecond": "{{label}} constraint: click the second point",
+        "pairFirst": "{{label}} constraint: click the first line",
+        "pairSecond": "{{label}} constraint: click the second line",
+        "equalFirst": "Equal constraint: click a line or a circle",
+        "equalSecond": "Equal constraint: click a second {{kind}}"
+      },
+      "reject": {
+        "coincidentNeedsPoint": "The coincident constraint only accepts points (got {{actual}})",
+        "linearNeedsLineOrPoint": "The {{label}} constraint needs a line or a point (got {{actual}})",
+        "linearPairNeedsPoint": "The second entity of the {{label}} constraint must be a point (got {{actual}})",
+        "parallelNeedsLine": "The {{label}} constraint only accepts lines (got {{actual}})",
+        "equalNeedsLineOrCircle": "The equal constraint only accepts lines or circles (got {{actual}})",
+        "equalNoMixing": "Both entities of the equal constraint must be lines or both circles",
+        "slotMismatch": "Entity type does not fit a slot of this constraint"
+      }
+    },
+    "dimension": {
+      "prompts": {
+        "first": "{{label}} dimension: pick {{count}} {{slot}}",
+        "next": "{{label}} dimension: pick {{remaining}} more {{slot}}"
+      },
+      "reject": {
+        "slotMismatch": "The {{label}} dimension only accepts a {{slot}} (got {{actual}})"
+      }
+    },
+    "toasts": {
+      "notOpenOrEmpty": "No sketch is open (or it is empty); nothing to pick",
+      "noSolvedCoords": "No sketch entity can be resolved at the hit point",
+      "alreadyPicked": "That entity is already in the pick sequence",
+      "updateFailed": "Sketch update failed"
+    },
+    "vocabulary": {
+      "entityKinds": { "point": "point", "line": "line", "circle": "circle", "arc": "arc" },
+      "constraintKinds": {
+        "coincident": "Coincident",
+        "horizontal": "Horizontal",
+        "vertical": "Vertical",
+        "parallel": "Parallel",
+        "perpendicular": "Perpendicular",
+        "equal": "Equal",
+        "distance": "Distance",
+        "radius": "Radius"
+      },
+      "dimensionKinds": { "distance": "Distance", "radius": "Radius" }
+    },
+    "panel": {
+      "title": "Sketch",
+      "exit": "Exit sketch",
+      "finish": "Finish",
+      "sketchId": "Sketch {{id}}",
+      "loading": "Loading…",
+      "tabs": {
+        "elements": "Entities",
+        "constraints": "Constraints",
+        "dimensions": "Dimensions"
+      },
+      "solve": {
+        "dofZero": "Fully defined (0 DOF)",
+        "underconstrained": "Under defined ({{dof}} DOF)",
+        "conflicting": "Conflicting constraints",
+        "failed": "Solve failed",
+        "redundant": "Redundant constraints"
+      },
+      "constraintList": "Constraints ({{count}})",
+      "existingDimensions": "Dimensions ({{count}})",
+      "confirmDimensionTitle": "Enter dimension value",
+      "dimensionPlaceholder": "A value greater than 0",
+      "editDimensionTitle": "Click to edit the dimension value",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "empty": {
+        "notOpen": "Sketch not loaded",
+        "notOpenHint": "Enter sketch mode from the feature tree (Edit sketch) or the sketch dialog",
+        "noEntities": "No entities yet",
+        "noEntitiesHint": "Start drawing with the sketch tools",
+        "noConstraints": "No constraints yet",
+        "noDimensions": "No dimensions yet"
+      },
+      "errors": {
+        "invalidDimension": "The dimension value must be a number greater than 0",
+        "updateFailed": "Sketch update failed"
+      }
     }
   },
   "palette": {

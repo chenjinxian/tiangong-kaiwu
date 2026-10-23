@@ -3,7 +3,8 @@
  * Licensed under the MIT License.
  *
  * M6-a T5：useSketchSystem hook 单测——applyUpdate 载荷形态/就绪门禁/拒收透出/
- * 成功重取/代际防竞态。RPC 客户端经 getClient 桩替换（不触网络）。
+ * 成功重取/代际防竞态。M6-b T5 增 applyConstraintValue（updateSketchConstraint
+ * 通道）载荷与门禁口径。RPC 客户端经 getClient 桩替换（不触网络）。
  */
 import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
@@ -69,6 +70,62 @@ describe('M6-a T5：useSketchSystem', () => {
     const r2 = await result2.current.applyUpdate([], []);
     expect(r2.ok).toBe(false);
     expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('M6-b T5：applyConstraintValue → updateSketchConstraint op 载荷（sketchId+constraintId+value）+ 成功后重取', async () => {
+    stubRpcClient();
+    resetStore();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
+    const { result } = renderHook(() =>
+      useSketchSystem(connection as never, { applyOp } as never),
+    );
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await waitFor(() => expect(result.current.activeSketch?.id).toBe('sk-1'));
+    const callsBefore = (LubanFeatureRpcInterface.getClient().getSketch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    let opResult: FeatureOpResult | undefined;
+    await act(async () => {
+      opResult = await result.current.applyConstraintValue(6, 12);
+    });
+    expect(opResult?.ok).toBe(true);
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateSketchConstraint',
+      sketchId: 'sk-1',
+      constraintId: 6,
+      value: 12,
+    });
+    // 成功 → refresh 重取（后端改值重解算后的新现场）。
+    expect((LubanFeatureRpcInterface.getClient().getSketch as ReturnType<typeof vi.fn>).mock.calls.length)
+      .toBeGreaterThan(callsBefore);
+  });
+
+  it('M6-b T5：applyConstraintValue 就绪门禁/拒收透出与 applyUpdate 同口径', async () => {
+    stubRpcClient();
+    resetStore();
+    const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
+    // 无 fs → ok:false 不发起 RPC。
+    const { result } = renderHook(() => useSketchSystem(connection as never, undefined));
+    const r1 = await result.current.applyConstraintValue(6, 12);
+    expect(r1.ok).toBe(false);
+
+    // 拒收 → 原样返回不重取。
+    const applyOp = vi.fn(async (): Promise<FeatureOpResult> => ({ ok: false, error: 'radius must be positive' }));
+    const { result: result2 } = renderHook(() =>
+      useSketchSystem(connection as never, { applyOp } as never),
+    );
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await waitFor(() => expect(result2.current.activeSketch?.id).toBe('sk-1'));
+    let opResult: FeatureOpResult | undefined;
+    await act(async () => {
+      opResult = await result2.current.applyConstraintValue(7, -1);
+    });
+    expect(opResult).toEqual({ ok: false, error: 'radius must be positive' });
+    expect(result2.current.error).toBe('radius must be positive');
   });
 
   it('后端拒收（ok:false）→ error 透出原样返回，不重取', async () => {

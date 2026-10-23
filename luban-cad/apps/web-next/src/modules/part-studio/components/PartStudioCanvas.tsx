@@ -28,7 +28,9 @@
  *   写门禁：Session 单点下传直通 FeatureDialog，权限只读下 ✓ 禁用+诚实提示，
  *   提交不进租约环——两条语义线切分，勿在下游混读）；
  * - store.sketch.isActive 驱动草图模式覆盖层：栅格（aria-hidden 纯视觉层）+
- *   约束（role=note 标签层）；
+ *   约束（role=note 标签层）；M6-b T5 起并挂 SketchPanel（草图模式面板：
+ *   DOF 徽标/三清单/尺寸内联编辑/级联删除——Session 下传 sketchSystem，
+ *   挂载位裁决见 SketchPanel 文件头）；
  * - 连接相位覆盖层（M5-T2）：briefcase 下载中骨架 / 失败错误面（Session 下传
  *   isLoading/error，此前零消费）——绝对定位叠加在 viewport 上（零布局跳动）；
  *   错误面透传 error.message 原文 + 诚实重试路径指引（重开=切页签/重进，
@@ -45,6 +47,8 @@ import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
+import { SketchPanel } from './SketchPanel.js';
+import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface PartStudioCanvasProps {
@@ -79,6 +83,12 @@ export interface PartStudioCanvasProps {
   connectionLoading?: boolean;
   /** 连接失败消息（M5-T2：Session 合流下传——briefcase error 优先，viewport 创建失败兜底（T2 评审）；原文透传，null=无失败）。 */
   connectionError?: string | null;
+  /**
+   * 草图系统（M6-b T5：Session useSketchSystem 直通——SketchPanel 数据面）。
+   * 缺省 undefined = 面板不渲染（壳期/纯展示语义；生产宿主 Session 恒显式
+   * 传参）。挂载位裁决见 SketchPanel 文件头。
+   */
+  sketchSystem?: UseSketchSystem;
 }
 
 interface MenuAnchor {
@@ -96,6 +106,7 @@ export function PartStudioCanvas({
   connection,
   connectionLoading = false,
   connectionError = null,
+  sketchSystem,
 }: PartStudioCanvasProps): React.JSX.Element {
   const { t } = useTranslation();
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
@@ -188,6 +199,11 @@ export function PartStudioCanvas({
           </div>
         </React.Fragment>
       )}
+
+      {/* M6-b T5：草图模式面板（DOF 徽标/三清单/尺寸内联编辑/级联删除）——
+          画布左上覆盖层（挂载位裁决见 SketchPanel 文件头）。sketchSystem
+          缺省（壳期/纯展示）不渲染。 */}
+      {sketchActive && sketchSystem && <SketchPanel sketchSystem={sketchSystem} />}
 
       <CanvasContextMenu anchor={anchor} onClose={() => setAnchor(null)} />
 

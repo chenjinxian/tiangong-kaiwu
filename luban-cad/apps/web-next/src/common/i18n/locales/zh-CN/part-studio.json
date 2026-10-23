@@ -255,8 +255,14 @@
       "offset": { "label": "偏移" },
       "mirror": { "label": "镜像" },
       "text": { "label": "文本" },
-      "dimension": { "label": "尺寸" },
-      "constraint": { "label": "约束" }
+      "coincident": { "label": "重合" },
+      "horizontal": { "label": "水平" },
+      "vertical": { "label": "竖直" },
+      "parallel": { "label": "平行" },
+      "perpendicular": { "label": "垂直" },
+      "equal": { "label": "相等" },
+      "distance": { "label": "距离" },
+      "radius": { "label": "半径" }
     }
   },
   "featureDialog": {
@@ -369,6 +375,95 @@
     "system": {
       "featureSystemNotReady": "特征系统未就绪",
       "notOpen": "当前没有打开的草图"
+    },
+    "constraint": {
+      "prompts": {
+        "coincidentFirst": "重合：点击第一个点",
+        "coincidentSecond": "重合：点击第二个点",
+        "linearFirst": "{{label}}约束：点击一条线，或先后点击两个点",
+        "linearPairSecond": "{{label}}约束：点击第二个点",
+        "pairFirst": "{{label}}约束：点击第一条线",
+        "pairSecond": "{{label}}约束：点击第二条线",
+        "equalFirst": "相等约束：点击一条线或一个圆",
+        "equalSecond": "相等约束：点击第二个{{kind}}"
+      },
+      "reject": {
+        "coincidentNeedsPoint": "重合约束只能拾取点（当前为{{actual}}）",
+        "linearNeedsLineOrPoint": "{{label}}约束需要拾取线或点（当前为{{actual}}）",
+        "linearPairNeedsPoint": "{{label}}约束的第二个元素只能是点（当前为{{actual}}）",
+        "parallelNeedsLine": "{{label}}约束只能拾取线（当前为{{actual}}）",
+        "equalNeedsLineOrCircle": "相等约束只能拾取线或圆（当前为{{actual}}）",
+        "equalNoMixing": "相等约束的两个元素必须同为线或同为圆",
+        "slotMismatch": "元素类型不符合该约束的槽位要求"
+      }
+    },
+    "dimension": {
+      "prompts": {
+        "first": "{{label}}尺寸：拾取 {{count}} 个{{slot}}",
+        "next": "{{label}}尺寸：再拾取 {{remaining}} 个{{slot}}"
+      },
+      "reject": {
+        "slotMismatch": "{{label}}尺寸只能拾取{{slot}}（当前为{{actual}}）"
+      }
+    },
+    "toasts": {
+      "notOpenOrEmpty": "草图未打开或为空，无法拾取",
+      "noSolvedCoords": "命中处无可分辨的草图实体",
+      "alreadyPicked": "该实体已在拾取序列中",
+      "updateFailed": "草图更新失败"
+    },
+    "vocabulary": {
+      "entityKinds": { "point": "点", "line": "线", "circle": "圆", "arc": "弧" },
+      "constraintKinds": {
+        "coincident": "重合",
+        "horizontal": "水平",
+        "vertical": "竖直",
+        "parallel": "平行",
+        "perpendicular": "垂直",
+        "equal": "相等",
+        "distance": "距离",
+        "radius": "半径"
+      },
+      "dimensionKinds": { "distance": "距离", "radius": "半径" }
+    },
+    "panel": {
+      "title": "草图",
+      "exit": "退出草图",
+      "finish": "完成",
+      "sketchId": "草图 {{id}}",
+      "loading": "加载中…",
+      "tabs": {
+        "elements": "实体",
+        "constraints": "约束",
+        "dimensions": "尺寸"
+      },
+      "solve": {
+        "dofZero": "恰定（0 自由度）",
+        "underconstrained": "欠约束（{{dof}} 自由度）",
+        "conflicting": "约束矛盾",
+        "failed": "求解失败",
+        "redundant": "含冗余约束"
+      },
+      "constraintList": "约束（{{count}}）",
+      "existingDimensions": "尺寸（{{count}}）",
+      "confirmDimensionTitle": "输入尺寸值",
+      "dimensionPlaceholder": "大于 0 的数值",
+      "editDimensionTitle": "点击编辑尺寸值",
+      "confirm": "确认",
+      "cancel": "取消",
+      "delete": "删除",
+      "empty": {
+        "notOpen": "草图未加载",
+        "notOpenHint": "请从特征树「编辑草图」或草图对话框进入草图模式",
+        "noEntities": "暂无实体",
+        "noEntitiesHint": "用绘制工具开始绘制",
+        "noConstraints": "暂无约束",
+        "noDimensions": "暂无尺寸"
+      },
+      "errors": {
+        "invalidDimension": "尺寸值必须为大于 0 的数值",
+        "updateFailed": "草图更新失败"
+      }
     }
   },
   "palette": {

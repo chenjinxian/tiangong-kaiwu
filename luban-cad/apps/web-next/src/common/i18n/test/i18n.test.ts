@@ -207,6 +207,42 @@ const REQUIRED_PART_STUDIO_KEYS = [
   // M6-a T4：SketchDialog 只读写门禁提示（canEdit=false 时 ✓ 禁用的诚实呈现）。
   'sketchDialog.readonlyHint',
   'sketch.constraintsOverlay',
+  // M6-b T5：约束/尺寸工具×8 + SketchPanel——工具分阶段提示/槽位拒收/toast +
+  // 共享词表（实体/约束/尺寸种类名，工具与面板单源）+ 面板 chrome（DOF 徽标
+  // 四态/三清单页签/尺寸确认与内联编辑/级联删除/空态/错误）。
+  // ribbon.sketchTools.*（18 条）仍由 SketchDialog.test 数据驱动守卫。
+  'sketch.constraint.prompts.coincidentFirst', 'sketch.constraint.prompts.coincidentSecond',
+  'sketch.constraint.prompts.linearFirst', 'sketch.constraint.prompts.linearPairSecond',
+  'sketch.constraint.prompts.pairFirst', 'sketch.constraint.prompts.pairSecond',
+  'sketch.constraint.prompts.equalFirst', 'sketch.constraint.prompts.equalSecond',
+  'sketch.constraint.reject.coincidentNeedsPoint', 'sketch.constraint.reject.linearNeedsLineOrPoint',
+  'sketch.constraint.reject.linearPairNeedsPoint', 'sketch.constraint.reject.parallelNeedsLine',
+  'sketch.constraint.reject.equalNeedsLineOrCircle', 'sketch.constraint.reject.equalNoMixing',
+  'sketch.constraint.reject.slotMismatch',
+  'sketch.dimension.prompts.first', 'sketch.dimension.prompts.next',
+  'sketch.dimension.reject.slotMismatch',
+  'sketch.toasts.notOpenOrEmpty', 'sketch.toasts.noSolvedCoords',
+  'sketch.toasts.alreadyPicked', 'sketch.toasts.updateFailed',
+  'sketch.vocabulary.entityKinds.point', 'sketch.vocabulary.entityKinds.line',
+  'sketch.vocabulary.entityKinds.circle', 'sketch.vocabulary.entityKinds.arc',
+  'sketch.vocabulary.constraintKinds.coincident', 'sketch.vocabulary.constraintKinds.horizontal',
+  'sketch.vocabulary.constraintKinds.vertical', 'sketch.vocabulary.constraintKinds.parallel',
+  'sketch.vocabulary.constraintKinds.perpendicular', 'sketch.vocabulary.constraintKinds.equal',
+  'sketch.vocabulary.constraintKinds.distance', 'sketch.vocabulary.constraintKinds.radius',
+  'sketch.vocabulary.dimensionKinds.distance', 'sketch.vocabulary.dimensionKinds.radius',
+  'sketch.panel.title', 'sketch.panel.exit', 'sketch.panel.finish',
+  'sketch.panel.sketchId', 'sketch.panel.loading',
+  'sketch.panel.tabs.elements', 'sketch.panel.tabs.constraints', 'sketch.panel.tabs.dimensions',
+  'sketch.panel.solve.dofZero', 'sketch.panel.solve.underconstrained',
+  'sketch.panel.solve.conflicting', 'sketch.panel.solve.failed', 'sketch.panel.solve.redundant',
+  'sketch.panel.constraintList', 'sketch.panel.existingDimensions',
+  'sketch.panel.confirmDimensionTitle', 'sketch.panel.dimensionPlaceholder',
+  'sketch.panel.editDimensionTitle', 'sketch.panel.confirm', 'sketch.panel.cancel',
+  'sketch.panel.delete',
+  'sketch.panel.empty.notOpen', 'sketch.panel.empty.notOpenHint',
+  'sketch.panel.empty.noEntities', 'sketch.panel.empty.noEntitiesHint',
+  'sketch.panel.empty.noConstraints', 'sketch.panel.empty.noDimensions',
+  'sketch.panel.errors.invalidDimension', 'sketch.panel.errors.updateFailed',
   // M4 Task 5：特征系统中枢 hook（useFeatureSystem）applyOp 错误面键——
   // hook 回调内 i18next 直取（非组件 t()），漏键即渲染裸键名。
   'featureSystem.notConnected', 'featureSystem.leaseHeldBy', 'featureSystem.leaseAcquireFailed',

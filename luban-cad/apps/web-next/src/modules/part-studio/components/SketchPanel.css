@@ -1,0 +1,333 @@
+/* SketchPanel.css — 草图模式面板（M6-b T5）：画布左上覆盖层（非模态内联，
+ * 不遮画布——与 FeatureDialog/SketchDialog 同宿主同位风格，面板为草图模式
+ * 常驻面，画布对话框仅在会话相位出现）。全部走 iTwinUI 令牌（组件禁写裸
+ * 色值，见 PartStudioPage.css 文件头）。 */
+
+/* ── 面板骨架（absolute 钉画布左上，不遮罩）──────────────────────────── */
+.part-studio-sketch-panel {
+  position: absolute;
+  inset-block-start: var(--iui-size-xs);
+  inset-inline-start: var(--iui-size-xs);
+  z-index: 30;
+  inline-size: min(280px, calc(100% - var(--iui-size-l)));
+  max-block-size: calc(100% - var(--iui-size-l));
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-2, 0 2px 8px rgba(0, 0, 0, 0.2));
+}
+
+/* ── Header：返回 + 标题 + DOF/冗余徽标 + 完成 ────────────────────────── */
+.part-studio-sketch-panel__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  flex-wrap: wrap;
+}
+
+.part-studio-sketch-panel__exit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-2);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.part-studio-sketch-panel__exit:hover {
+  background: var(--iui-color-background-hover);
+  color: var(--iui-color-text);
+}
+
+.part-studio-sketch-panel__title {
+  font-size: var(--iui-font-size-1);
+  font-weight: 600;
+}
+
+/* DOF 徽标四态（恰定=positive / 欠约束=informational / 矛盾·失败=negative）
+ * + 冗余 warning 附加徽标。 */
+.part-studio-sketch-panel__badge {
+  padding: 0 var(--iui-size-2xs);
+  border-radius: var(--iui-border-radius-1);
+  font-size: var(--iui-font-size-0);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.part-studio-sketch-panel__badge[data-tone='positive'] {
+  background: var(--iui-color-background-positive, #e6f2e9);
+  color: var(--iui-color-text-positive, #208a3c);
+}
+
+.part-studio-sketch-panel__badge[data-tone='informational'] {
+  background: var(--iui-color-background-accent-muted, #e5f0fa);
+  color: var(--iui-color-text-accent, #0a6ebd);
+}
+
+.part-studio-sketch-panel__badge[data-tone='negative'] {
+  background: var(--iui-color-background-negative-muted, #f7e4e4);
+  color: var(--iui-color-text-negative, #d30b0b);
+}
+
+.part-studio-sketch-panel__badge[data-tone='warning'] {
+  background: var(--iui-color-background-warning-muted, #fdf3dd);
+  color: var(--iui-color-text-warning, #b15600);
+}
+
+.part-studio-sketch-panel__finish {
+  margin-inline-start: auto;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-positive, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text-positive, var(--iui-color-text));
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.part-studio-sketch-panel__finish:hover {
+  background: var(--iui-color-background-positive-muted, var(--iui-color-background-hover));
+}
+
+/* ── 子头：活动草图 id 标签（M3-b 草图切换器的 web-next 替代形态）────── */
+.part-studio-sketch-panel__subheader {
+  display: flex;
+  align-items: center;
+}
+
+.part-studio-sketch-panel__sketch-id {
+  color: var(--iui-color-text-muted);
+  font-family: var(--iui-font-mono, monospace);
+  font-size: var(--iui-font-size-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Tabs（三清单：实体/约束/尺寸）───────────────────────────────────── */
+.part-studio-sketch-panel__tabs {
+  display: flex;
+  border-block-end: 1px solid var(--iui-color-border);
+}
+
+.part-studio-sketch-panel__tab {
+  flex: 1;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  border-block-end: 2px solid transparent;
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-sketch-panel__tab:hover {
+  color: var(--iui-color-text);
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-sketch-panel__tab--active {
+  color: var(--iui-color-text-accent);
+  border-block-end-color: var(--iui-color-text-accent);
+  font-weight: 500;
+}
+
+/* ── 内容区（清单滚动）───────────────────────────────────────────────── */
+.part-studio-sketch-panel__content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  min-block-size: 0;
+}
+
+.part-studio-sketch-panel__section-title {
+  margin: 0;
+  font-size: var(--iui-font-size-0);
+  font-weight: 600;
+  color: var(--iui-color-text-muted);
+}
+
+.part-studio-sketch-panel__hint {
+  margin: 0;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+}
+
+.part-studio-sketch-panel__error {
+  margin: 0;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-negative, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-negative, var(--iui-color-background-hover));
+  color: var(--iui-color-text-negative, var(--iui-color-text));
+  font-size: var(--iui-font-size-0);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.part-studio-sketch-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-l) 0;
+  text-align: center;
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-sketch-panel__empty p {
+  margin: 0;
+}
+
+/* ── 清单行（实体/约束/尺寸共用；约束矛盾红标变体）──────────────────── */
+.part-studio-sketch-panel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid transparent;
+  border-radius: var(--iui-border-radius-1);
+}
+
+.part-studio-sketch-panel__row:hover {
+  background: var(--iui-color-background-hover);
+}
+
+/* 矛盾/失败红标（solve.failedConstraintIds/conflictingRank 命中，M3-b E-6）。 */
+.part-studio-sketch-panel__row--conflict {
+  background: var(--iui-color-background-negative-muted, var(--iui-color-background-hover));
+  border-color: var(--iui-color-border-negative, var(--iui-color-border));
+}
+
+.part-studio-sketch-panel__kind {
+  flex-shrink: 0;
+  padding: 0 var(--iui-size-2xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-sketch-panel__summary {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--iui-font-mono, monospace);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-sketch-panel__row-delete {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 22px;
+  block-size: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  cursor: pointer;
+}
+
+.part-studio-sketch-panel__row-delete svg {
+  inline-size: 12px;
+  block-size: 12px;
+}
+
+.part-studio-sketch-panel__row-delete:hover {
+  background: var(--iui-color-background-negative-muted, var(--iui-color-background-hover));
+  color: var(--iui-color-text-negative, var(--iui-color-text));
+}
+
+/* ── 尺寸候选值确认表单（dimensionCandidate 值确认桥）────────────────── */
+.part-studio-sketch-panel__candidate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  padding: var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border-accent, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+}
+
+.part-studio-sketch-panel__input {
+  inline-size: 100%;
+  padding: var(--iui-size-2xs);
+  border: 1px solid var(--iui-color-border-accent, var(--iui-color-border));
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  box-sizing: border-box;
+}
+
+.part-studio-sketch-panel__candidate-actions {
+  display: flex;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-sketch-panel__confirm,
+.part-studio-sketch-panel__cancel {
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-sketch-panel__confirm {
+  border-color: var(--iui-color-border-positive, var(--iui-color-border));
+  color: var(--iui-color-text-positive, var(--iui-color-text));
+}
+
+.part-studio-sketch-panel__confirm:hover,
+.part-studio-sketch-panel__cancel:hover {
+  background: var(--iui-color-background-hover);
+}
+
+/* ── 现有尺寸值（点击进内联编辑）─────────────────────────────────────── */
+.part-studio-sketch-panel__dimension-value {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 0 var(--iui-size-2xs);
+  border: none;
+  border-block-end: 1px dashed var(--iui-color-border);
+  background: transparent;
+  color: var(--iui-color-text);
+  font-family: var(--iui-font-mono, monospace);
+  font-size: var(--iui-font-size-1);
+  text-align: center;
+  cursor: pointer;
+}
+
+.part-studio-sketch-panel__dimension-value:hover {
+  border-block-end-color: var(--iui-color-border-accent, var(--iui-color-border));
+  color: var(--iui-color-text-accent);
+}

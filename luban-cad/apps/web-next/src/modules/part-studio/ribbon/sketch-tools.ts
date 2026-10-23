@@ -15,8 +15,15 @@
  * M6-a T5（绘制 4 件接线）：sketchLine/sketchRectangle/sketchCircle/sketchArc
  * 占位 id 校准为真 toolId——Sketch.Line/Sketch.Rectangle/Sketch.CenterCircle/
  * Sketch.Arc3Point（tools/sketch/SketchCreateTool.ts，registerSketchTools 注册，
- * Ribbon 激活路由 IModelApp.tools.run 直投真启动）。其余 8 件（样条/编辑 5/
- * 标注 2）占位保留，T6+ 后续任务接线。
+ * Ribbon 激活路由 IModelApp.tools.run 直投真启动）。
+ *
+ * M6-b T5（标注 8 件接线）：sketchDimension/sketchConstraint 两占位位替换为
+ * 约束 6+尺寸 2 真 toolId——Sketch.Constraint.{Coincident,Horizontal,Vertical,
+ * Parallel,Perpendicular,Equal} + Sketch.Dimension.{Distance,Radius}
+ *（tools/sketch/SketchAddConstraintTool.ts + SketchAddDimensionTool.ts，
+ * registerSketchConstraintTools/registerSketchDimensionTools 注册，同一激活
+ * 路由直投）。os-30 的「标注 2」按工具展开为 8 钮（1:1 下拉归 M6-c）。
+ * 其余 6 件（样条/编辑 5）占位保留，T6+ 后续任务接线。
  *
  * 图标：沿用 ribbon-registry 自制描边 SVG 同姿态（24×24，currentColor）。
  */
@@ -111,18 +118,57 @@ const TextIcon = icon(
   el('path', { d: 'M12 6v13' }),
 );
 
-/* 尺寸：尺寸线 + 箭头 + 标注。 */
-const DimensionIcon = icon(
+/* M6-b T5 标注 8 件图标（约束 6 + 尺寸 2）。 */
+
+/* 重合：两重叠点环。 */
+const CoincidentIcon = icon(
+  el('circle', { cx: 9.5, cy: 12, r: 3 }),
+  el('circle', { cx: 14.5, cy: 12, r: 3 }),
+);
+
+/* 水平：水平线段 + 端点。 */
+const HorizontalIcon = icon(
+  el('line', { x1: 4, y1: 12, x2: 20, y2: 12 }),
+  el('circle', { cx: 4, cy: 12, r: 1.2 }),
+  el('circle', { cx: 20, cy: 12, r: 1.2 }),
+);
+
+/* 竖直：竖直线段 + 端点。 */
+const VerticalIcon = icon(
+  el('line', { x1: 12, y1: 4, x2: 12, y2: 20 }),
+  el('circle', { cx: 12, cy: 4, r: 1.2 }),
+  el('circle', { cx: 12, cy: 20, r: 1.2 }),
+);
+
+/* 平行：双平行线段。 */
+const ParallelIcon = icon(
+  el('line', { x1: 4, y1: 9, x2: 20, y2: 9 }),
+  el('line', { x1: 4, y1: 15, x2: 20, y2: 15 }),
+);
+
+/* 垂直：直角。 */
+const PerpendicularIcon = icon(el('path', { d: 'M6 4v14h14' }));
+
+/* 等长：双线段 + 中点刻度。 */
+const EqualIcon = icon(
+  el('line', { x1: 4, y1: 9, x2: 20, y2: 9 }),
+  el('line', { x1: 4, y1: 15, x2: 20, y2: 15 }),
+  el('line', { x1: 12, y1: 7, x2: 12, y2: 11 }),
+  el('line', { x1: 12, y1: 13, x2: 12, y2: 17 }),
+);
+
+/* 距离尺寸：尺寸线 + 箭头 + 标注（原「尺寸」图标）。 */
+const DistanceIcon = icon(
   el('line', { x1: 4, y1: 17, x2: 20, y2: 17 }),
   el('path', { d: 'M7 14l-2 3 2 3M17 14l2 3-2 3' }),
   el('line', { x1: 12, y1: 6, x2: 12, y2: 17, strokeDasharray: '2 2' }),
 );
 
-/* 约束：两几何元素间的约束链（—○—）。 */
-const ConstraintIcon = icon(
-  el('line', { x1: 3, y1: 12, x2: 9, y2: 12 }),
-  el('circle', { cx: 12, cy: 12, r: 3 }),
-  el('line', { x1: 15, y1: 12, x2: 21, y2: 12 }),
+/* 半径尺寸：圆 + 半径线 + 圆心点。 */
+const RadiusIcon = icon(
+  el('circle', { cx: 12, cy: 12, r: 8 }),
+  el('line', { x1: 12, y1: 12, x2: 17.7, y2: 6.3 }),
+  el('circle', { cx: 12, cy: 12, r: 1.2 }),
 );
 
 // ── 注册表（os-30 组序：绘制 → 编辑 → 标注）────────────────────────────────
@@ -134,7 +180,7 @@ export const SKETCH_TOOL_GROUP_ORDER: readonly SketchRibbonGroup[] = [
   'sketchAnnotate',
 ];
 
-/** 12 草图工具注册表（绘制 4 件 id 已校准真 toolId（M6-a T5，见文件头）；其余占位待接）。 */
+/** 18 草图工具注册表（绘制 4 + 标注 8 已接线真 toolId——M6-a T5/M6-b T5，见文件头；其余占位待接）。 */
 export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   // 绘制 5（前 4 件 M6-a T5 接线真 toolId；样条占位）
   { id: 'Sketch.Line', icon: LineIcon, labelKey: 'partStudio.ribbon.sketchTools.line.label', capability: 'sketch', group: 'sketchDraw' },
@@ -148,7 +194,14 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   { id: 'sketchOffset', icon: OffsetIcon, labelKey: 'partStudio.ribbon.sketchTools.offset.label', capability: 'sketch', group: 'sketchEdit' },
   { id: 'sketchMirror', icon: SketchMirrorIcon, labelKey: 'partStudio.ribbon.sketchTools.mirror.label', capability: 'sketch', group: 'sketchEdit' },
   { id: 'sketchText', icon: TextIcon, labelKey: 'partStudio.ribbon.sketchTools.text.label', capability: 'sketch', group: 'sketchEdit' },
-  // 标注 2
-  { id: 'sketchDimension', icon: DimensionIcon, labelKey: 'partStudio.ribbon.sketchTools.dimension.label', capability: 'sketch', group: 'sketchAnnotate' },
-  { id: 'sketchConstraint', icon: ConstraintIcon, labelKey: 'partStudio.ribbon.sketchTools.constraint.label', capability: 'sketch', group: 'sketchAnnotate' },
+  // 标注 8（M6-b T5：约束 6 + 尺寸 2，占位 sketchConstraint/sketchDimension 两
+  // 位按工具展开——下拉 1:1 归 M6-c）
+  { id: 'Sketch.Constraint.Coincident', icon: CoincidentIcon, labelKey: 'partStudio.ribbon.sketchTools.coincident.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Constraint.Horizontal', icon: HorizontalIcon, labelKey: 'partStudio.ribbon.sketchTools.horizontal.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Constraint.Vertical', icon: VerticalIcon, labelKey: 'partStudio.ribbon.sketchTools.vertical.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Constraint.Parallel', icon: ParallelIcon, labelKey: 'partStudio.ribbon.sketchTools.parallel.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Constraint.Perpendicular', icon: PerpendicularIcon, labelKey: 'partStudio.ribbon.sketchTools.perpendicular.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Constraint.Equal', icon: EqualIcon, labelKey: 'partStudio.ribbon.sketchTools.equal.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Dimension.Distance', icon: DistanceIcon, labelKey: 'partStudio.ribbon.sketchTools.distance.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Dimension.Radius', icon: RadiusIcon, labelKey: 'partStudio.ribbon.sketchTools.radius.label', capability: 'sketch', group: 'sketchAnnotate' },
 ];

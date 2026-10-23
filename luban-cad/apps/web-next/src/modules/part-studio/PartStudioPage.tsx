@@ -418,6 +418,12 @@ function PartStudioSession({
         // 消费方的 core-frontend mock 面）；幂等，失败同 ensureEditTools 错误面。
         const { registerSketchTools } = await import('./tools/sketch/SketchCreateTool.js');
         registerSketchTools();
+        // M6-b T5：草图约束 6 工具（Sketch.Constraint.*）+ 尺寸 2 工具
+        //（Sketch.Dimension.*）——同款懒引+幂等（ribbon 标注组真 toolId 直投）。
+        const { registerSketchConstraintTools } = await import('./tools/sketch/SketchAddConstraintTool.js');
+        const { registerSketchDimensionTools } = await import('./tools/sketch/SketchAddDimensionTool.js');
+        registerSketchConstraintTools();
+        registerSketchDimensionTools();
       } catch (err) {
         if (cancelled) return;
         // 工具注册失败必须可见（同旧应用口径：错误面吞掉 = 工具全灭且无诊断线索）
@@ -493,6 +499,7 @@ function PartStudioSession({
             connection={connection ?? undefined}
             connectionLoading={connectionLoading}
             connectionError={canvasErrorMessage}
+            sketchSystem={sketchSystem}
           />
           <PartStudioDock
             iModelId={iModelId}

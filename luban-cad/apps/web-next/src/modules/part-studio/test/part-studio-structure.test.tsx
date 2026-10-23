@@ -90,6 +90,8 @@ const featureRpc = vi.hoisted(() => {
   ),
   acquireWriteLease: vi.fn(async (_key: string, _sessionId: string) => ({ ok: true, holder: 'tester' })),
   releaseWriteLease: vi.fn(async (_key: string, _sessionId: string) => undefined),
+  // M6-b T5：useSketchSystem 活动草图读面（SketchPanel 数据源；无活动草图 → undefined）。
+  getSketch: vi.fn(async (_key: string, _sketchId: string): Promise<unknown> => undefined),
   };
 });
 
