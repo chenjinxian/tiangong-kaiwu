@@ -445,10 +445,11 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
     await user.click(
       within(within(document.body).getByTestId('part-studio-feature-dialog')).getByRole('button', { name: '取消' }),
     );
-    // full：旋转（revolve 在册 full）→ tools.run + 激活态。
-    await user.click(within(ribbon).getByRole('button', { name: '旋转' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('revolve');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('revolve');
+    // full：扫掠（SweepFaces 在册 full）→ tools.run + 激活态
+    //（旋转已改道 new/revolve 对话框——M6-b T4，与拉伸 M4-T6 同姿态）。
+    await user.click(within(ribbon).getByRole('button', { name: '扫掠' }));
+    expect(mocks.toolsRun).toHaveBeenCalledWith('SweepFaces');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBe('SweepFaces');
     // gated：拔模 → 能力引导对话框（不投 tools.run）。
     mocks.toolsRun.mockClear();
     await user.click(within(ribbon).getByRole('button', { name: '拔模' }));

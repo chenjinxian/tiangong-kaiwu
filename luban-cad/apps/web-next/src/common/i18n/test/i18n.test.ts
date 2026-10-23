@@ -142,6 +142,10 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'tree.featureTypes.fillet', 'tree.featureTypes.chamfer', 'tree.featureTypes.shell',
   // M6-a T7：草图节点本地化（featureTypes.sketch）+ 树行编辑入口（编辑草图…）。
   'tree.featureTypes.sketch', 'tree.editSketch',
+  // M6-b T4：revolve 通道——树类型标签 + 轴下拉/无轴门禁/全方位/角度（度制）。
+  'tree.featureTypes.revolve',
+  'featureDialog.axisLabel', 'featureDialog.axisOption', 'featureDialog.noAxisHint',
+  'featureDialog.fullRevolveLabel', 'featureDialog.angleLabel', 'featureDialog.angleInvalid',
   'featureDialog.distanceLabel', 'featureDialog.distanceInvalid', 'featureDialog.submitSuccess',
   // T6 评审 round 1：租约警示（I-2）+ edit 模式提示行（M-1）。
   'featureDialog.leaseBusy', 'featureDialog.editHint',

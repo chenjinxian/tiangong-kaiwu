@@ -78,6 +78,12 @@ export function useToolActivation(): ToolActivation {
       openFeatureDialog({ mode: 'new', featureType: 'extrude' });
       return;
     }
+    if (id === 'revolve') {
+      // M6-b T4 旋转闭环入口：new/revolve 对话框（M4-T6 同姿态——草图通道
+      // 面域+轴拾取），不经 tools.run。
+      openFeatureDialog({ mode: 'new', featureType: 'revolve' });
+      return;
+    }
     const command = findRibbonCommand(id);
     const capability = command?.capability ?? id;
     if (isGated(capability)) {

@@ -182,12 +182,12 @@ describe('Ribbon 结构冒烟（27 工具 + 8 下拉 + 搜索触发钮）', () =
     expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
   });
 
-  it('full 工具（旋转）点击 → tools.run(revolve) + 写 store 激活态（拉伸已改道对话框，见 M4-T6）', async () => {
+  it('full 工具（扫掠）点击 → tools.run(SweepFaces) + 写 store 激活态（拉伸/旋转已改道对话框，见 M4-T6/M6-b T4）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
-    await user.click(screen.getByRole('button', { name: '旋转' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('revolve');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('revolve');
+    await user.click(screen.getByRole('button', { name: '扫掠' }));
+    expect(mocks.toolsRun).toHaveBeenCalledWith('SweepFaces');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBe('SweepFaces');
   });
 
   it('下拉飞菜单：加厚箭头展开子项，点击封闭 → tools.run(thickenClosed)', async () => {

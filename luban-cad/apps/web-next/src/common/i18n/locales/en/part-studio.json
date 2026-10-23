@@ -288,6 +288,12 @@
     "regionUnreadable": "Cannot read sketch regions: modeling service not connected",
     "sketchFaceChip": "Face of {{name}}",
     "sketchFaceChipWithRegion": "Face of {{name}} · region {{index}}",
+    "axisLabel": "Revolve axis",
+    "axisOption": "Line {{id}}",
+    "noAxisHint": "The sketch has no line to revolve around",
+    "fullRevolveLabel": "Full revolve",
+    "angleLabel": "Angle (degrees)",
+    "angleInvalid": "Enter a valid revolve angle (greater than 0 and at most 360)",
     "distanceLabel": "Distance",
     "distanceInvalid": "Enter a valid extrude distance (greater than 0)",
     "submitSuccess": "{{name}} created",
@@ -423,6 +429,7 @@
       "fillet": "Fillet",
       "chamfer": "Chamfer",
       "shell": "Shell",
+      "revolve": "Revolve",
       "sketch": "Sketch"
     }
   },

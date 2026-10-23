@@ -168,6 +168,14 @@
   white-space: nowrap;
 }
 
+/* ── 角度（M6-b T4 revolve 通道：UI 度制输入，载荷前转弧度）────────────── */
+.part-studio-feature-dialog__angle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
 /* ── 芯片式实体选择框（os-31）────────────────────────────────────────── */
 .part-studio-feature-dialog__entities {
   display: flex;

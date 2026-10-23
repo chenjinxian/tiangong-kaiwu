@@ -44,9 +44,30 @@
  *（多面域追加 ·面域 N，对齐采集规格「Sketch 1 的 面」chips 形态），×移除=
  * 清选择。门禁（对齐 T3 zod 语义，不再空 profile 裸奔）：无草图 → 「先创建
  * 草图」提示 + 提交禁用；regions 缺省/空 → 「草图无可拉伸面域」 + 禁用；
- * 面域读取中/失败 → 禁用（失败经 role=alert 就地呈现）。仅 extrude 接
- * sketchId——布尔类型按既有 zod 拒收语义不接（Registry booleanSchema
- * sketchId:z.never()），非 extrude 特征类型走原 payload 不动。
+ * 面域读取中/失败 → 禁用（失败经 role=alert 就地呈现）。布尔类型按既有 zod
+ * 拒收语义不接（Registry booleanSchema sketchId:z.never()），其余特征类型走
+ * 原 payload 不动。
+ *
+ * revolve 通道（M6-b T4，照 M6-a T6 拉伸通道同构复刻）：sketchChannel 扩
+ * revolve——草图/面域拾取两下拉全复用，revolve 分支增：
+ * - 轴选择：getSketch entities 过滤 kind==='line'（RevolveParams.axis 的
+ *   sketchEntityId 语义=草图内 line 实体 id）→ 下拉「线 {id}」（N=实体 id，
+ *   与载荷同值可对账；视图序号美化归 M6-c），缺省选第一条；无 line 实体 →
+ *   「草图无可用旋转轴」提示 + 提交禁用；
+ * - 全方位复选：fullRevolve 缺省 true（360° 满周）；取消勾选现角度输入——
+ *   **UI 度制（用户面单位裁决），载荷前 ×π/180 转弧度**（shared
+ *   RevolveParams.angle 契约 (0, 2π]，度制域 (0, 360]；180° → Math.PI 精度
+ *   由单测钉死）；
+ * - 载荷 `{profile: [], sketchId, regionIndex, axis: {sketchEntityId},
+ *   fullRevolve, angle?}`（angle 仅 !fullRevolve 携带）；距离量对 revolve
+ *   不适用——距离输入隐藏、距离校验跳过（revolve 分支独立构造器，extrude
+ *   通道载荷不动）。
+ *
+ * 对称复选（M6-b T4，extrude 通道）：Onshape 采集形态「对称」在折叠区外平铺
+ *（sketchChannel 下折叠段 symmetric 隐藏，平铺复选顶替）——state 即既有
+ * symmetric，随 FeatureDialogResult.symmetric 回传不变；**载荷接线已收口**
+ *（T3 契约 shared v1.7 ExtrudeParams.symmetric 落地后控制器接线：勾选才带
+ * symmetric:true 键，缺省省略=载荷向后兼容）。
  * applyOp 未接线（壳期/纯展示）时确认回退纯 onConfirm（M3 语义保持）；
  * mode='edit' 且 applyOp 在场（宿主已接提交面）时 ✓/成品 禁用 + 提示行
  *「该特征类型的参数编辑即将推出」（T6 评审 M-1：updateParams 归特征对话框
@@ -73,7 +94,13 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
-import type { FeatureOp, FeatureOpResult, LubanFeatureType, SketchRegionDto } from '@luban-cad/shared';
+import type {
+  FeatureOp,
+  FeatureOpResult,
+  LubanFeatureType,
+  SketchEntityDto,
+  SketchRegionDto,
+} from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import './FeatureDialog.css';
@@ -180,6 +207,9 @@ const SECTIONS: readonly CollapsibleSection[] = [
   { id: 'draft', defaultExpanded: false },
 ];
 
+/** 草图 line 实体（M6-b T4 revolve 轴候选：RevolveParams.axis.sketchEntityId 的寻址单位）。 */
+type SketchLineEntity = Extract<SketchEntityDto, { kind: 'line' }>;
+
 /** 草图选项缺省（M6-a T6：props 未接线/壳期空集——「先创建草图」门禁数据源；模块级常量防引用抖动）。 */
 const EMPTY_SKETCHES: readonly FeatureDialogSketchOption[] = [];
 
@@ -265,9 +295,11 @@ export function FeatureDialog({
   // 的假成功观感；applyOp 未接线（壳期/纯展示）保持 M3 纯回调语义。
   const editStandalone = mode === 'edit' && applyOp !== undefined;
 
-  // 拉伸草图通道（M6-a T6）：extrude 新建提交走 sketchId 寻址（数据源/门禁
-  // 裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
-  const sketchChannel = mode === 'new' && featureType === 'extrude' && applyOp !== undefined;
+  // 草图通道（M6-a T6 extrude / M6-b T4 revolve）：新建提交走 sketchId 寻址
+  //（数据源/门禁裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
+  const sketchChannel = mode === 'new' && (featureType === 'extrude' || featureType === 'revolve') && applyOp !== undefined;
+  const revolveChannel = sketchChannel && featureType === 'revolve';
+  const extrudeChannel = sketchChannel && featureType === 'extrude';
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   const [regionIndex, setRegionIndex] = React.useState(0);
@@ -275,6 +307,14 @@ export function FeatureDialog({
   const [regions, setRegions] = React.useState<SketchRegionDto[] | undefined>(undefined);
   const [regionsLoading, setRegionsLoading] = React.useState(false);
   const [regionsError, setRegionsError] = React.useState<string | undefined>(undefined);
+  // M6-b T4（revolve 通道）：getSketch.entities 原样留存（与 regions 同一
+  // 响应落定，无独立读取窗）；undefined=未选草图/读取中。
+  const [sketchEntities, setSketchEntities] = React.useState<SketchEntityDto[] | undefined>(undefined);
+  // M6-b T4（revolve 通道）：旋转轴选择——fullRevolve 缺省 true（满周）；
+  // 角度 UI 度制（用户面单位裁决），载荷前转弧度（见 handleConfirm 注记）。
+  const [selectedAxisId, setSelectedAxisId] = React.useState<number | undefined>(undefined);
+  const [fullRevolve, setFullRevolve] = React.useState(true);
+  const [angleDegrees, setAngleDegrees] = React.useState('360');
   // 面域读取代际：换草图/换连接时 +1，慢响应过期即丢弃（useSketchSystem
   // activeEpochRef 同款纪律——stale-clobber 防旧草图面域覆写新选择）。
   const regionsEpochRef = React.useRef(0);
@@ -285,12 +325,14 @@ export function FeatureDialog({
     const epoch = ++regionsEpochRef.current;
     if (!sketchChannel || selectedSketchId === '') {
       setRegions(undefined);
+      setSketchEntities(undefined);
       setRegionsLoading(false);
       setRegionsError(undefined);
       return;
     }
     if (!connectionKey) {
       setRegions(undefined);
+      setSketchEntities(undefined);
       setRegionsLoading(false);
       setRegionsError(t('partStudio.featureDialog.regionUnreadable'));
       return;
@@ -303,20 +345,42 @@ export function FeatureDialog({
         (sketch) => {
           if (regionsEpochRef.current !== epoch) return; // 迟写丢弃（身份已切换）
           setRegions(sketch?.regions ?? []); // regions 缺省（旧后端不下发）=无面域，禁提交
+          setSketchEntities(sketch?.entities ?? []); // M6-b T4：revolve 轴候选源（同响应落定）
           setRegionsLoading(false);
         },
         (err: unknown) => {
           if (regionsEpochRef.current !== epoch) return;
           setRegions([]);
+          setSketchEntities([]);
           setRegionsError(err instanceof Error ? err.message : String(err));
           setRegionsLoading(false);
         },
       );
   }, [sketchChannel, selectedSketchId, connectionKey, t]);
 
+  // 轴候选（M6-b T4 revolve 通道）：草图内 line 实体（sketchEntityId=实体 id，
+  // 载荷与下拉同值可对账）。非 revolve 通道不消费（extrude 无轴语义）。
+  const axisLines = React.useMemo<SketchLineEntity[]>(
+    () => (revolveChannel ? (sketchEntities ?? []).filter((e): e is SketchLineEntity => e.kind === 'line') : []),
+    [revolveChannel, sketchEntities],
+  );
+
+  // 轴缺省选第一条（任务规格）；换草图/实体集变化致选中失效时回落首条，无
+  // line（空数组）即清选（提交随 sketchReady 禁用 + 无轴提示呈现）。
+  React.useEffect(() => {
+    if (axisLines.length === 0) {
+      if (selectedAxisId !== undefined) setSelectedAxisId(undefined);
+      return;
+    }
+    if (selectedAxisId === undefined || !axisLines.some((line) => line.id === selectedAxisId)) {
+      setSelectedAxisId(axisLines[0]!.id);
+    }
+  }, [axisLines, selectedAxisId]);
+
   // 提交门（M6-a T6）：草图通道就绪 = 已选草图 ∧ 面域已载且非空 ∧ 未越界
   //（regionIndex 越界防御：换草图瞬间旧值残留）。不就绪 → ✓/成品 禁用——
   // T3 zod 拒收语义前置到 UI（无 sketchId 的空 profile 裸奔不再发放行）。
+  // M6-b T4（revolve 通道追加）：轴线已选（无 line 实体/未载 → 禁提交）。
   const regionCount = regions?.length ?? 0;
   const sketchReady =
     !sketchChannel ||
@@ -324,7 +388,8 @@ export function FeatureDialog({
       !regionsLoading &&
       regionsError === undefined &&
       regionCount > 0 &&
-      regionIndex < regionCount);
+      regionIndex < regionCount &&
+      (!revolveChannel || selectedAxisId !== undefined));
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -379,10 +444,26 @@ export function FeatureDialog({
       return;
     }
     if (sketchChannel && !sketchReady) return; // 草图通道门禁（✓ 已禁用，此为防御兜底）
-    const parsed = Number(distance);
-    if (distance.trim() === '' || !Number.isFinite(parsed) || parsed <= 0) {
-      setError(t('partStudio.featureDialog.distanceInvalid'));
-      return;
+    // 距离校验（extrude/通用路径；revolve 无距离量——旋转角/全周即参数，输入已隐藏）。
+    let parsedDistance = 0;
+    if (!revolveChannel) {
+      parsedDistance = Number(distance);
+      if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
+        setError(t('partStudio.featureDialog.distanceInvalid'));
+        return;
+      }
+    }
+    // 角度校验与换算（M6-b T4 revolve 且非全周）：UI 度制（用户面单位裁决）→
+    // 载荷弧度制（shared RevolveParams.angle 契约 (0, 2π]，度制域 (0, 360]）；
+    // 180° → Math.PI 的 π 精度由单测钉死。fullRevolve=true 时不带 angle 键。
+    let angleRadians: number | undefined;
+    if (revolveChannel && !fullRevolve) {
+      const degrees = Number(angleDegrees);
+      if (angleDegrees.trim() === '' || !Number.isFinite(degrees) || degrees <= 0 || degrees > 360) {
+        setError(t('partStudio.featureDialog.angleInvalid'));
+        return;
+      }
+      angleRadians = (degrees * Math.PI) / 180;
     }
     setError(undefined);
     setSubmitting(true);
@@ -396,9 +477,30 @@ export function FeatureDialog({
           // 空 profile（shared v1.6 互斥语义：sketchId 在场时 profile 须空数组，
           // 后端 sketchRegionsFrom 按面域数组产轮廓）；其余特征类型载荷不动
           //（布尔类型 zod 拒收 sketchId——Registry booleanSchema，不接）。
-          params: sketchChannel
-            ? { profile: [], distance: parsed, sketchId: selectedSketchId, regionIndex }
-            : { profile: [], distance: parsed },
+          // M6-b T4：revolve 分支独立构造器——{sketchId, regionIndex,
+          // axis, fullRevolve, angle?}（shared v1.7 RevolveParams；symmetric
+          // 等 extrude 扩展不适用，对称载荷挂账见文件头注 T4-minor）。
+          params: revolveChannel
+            ? {
+                profile: [],
+                sketchId: selectedSketchId,
+                regionIndex,
+                axis: { sketchEntityId: selectedAxisId! },
+                fullRevolve,
+                ...(angleRadians !== undefined ? { angle: angleRadians } : {}),
+              }
+            : sketchChannel
+              ? {
+                  profile: [],
+                  distance: parsedDistance,
+                  sketchId: selectedSketchId,
+                  regionIndex,
+                  // M6-b T3 契约（shared v1.7 ExtrudeParams.symmetric）落地后的
+                  // T4-minor 接线收口：对称复选勾选才带键（缺省省略=载荷向后
+                  // 兼容，既有钉形测试不破）。
+                  ...(symmetric ? { symmetric: true } : {}),
+                }
+              : { profile: [], distance: parsedDistance },
         });
       } catch (err) {
         // rpc-over-ipc 异常（连接断开等）——与拒收同面呈现，不静默。
@@ -427,9 +529,13 @@ export function FeatureDialog({
     applyOp,
     featureType,
     sketchChannel,
+    revolveChannel,
     sketchReady,
     selectedSketchId,
     regionIndex,
+    selectedAxisId,
+    fullRevolve,
+    angleDegrees,
     distance,
     t,
     onConfirm,
@@ -454,6 +560,13 @@ export function FeatureDialog({
     index === 0
       ? t('partStudio.featureDialog.regionOptionLargest', { index, area: formatArea(area) })
       : t('partStudio.featureDialog.regionOption', { index, area: formatArea(area) });
+
+  // 折叠段可见集（M6-b T4）：草图通道「对称」以平铺复选顶替（Onshape 采集
+  // 形态），折叠段 symmetric 隐藏防双复选绑同态；非通道（edit/布尔/壳期）不动。
+  const visibleSections = React.useMemo(
+    () => (sketchChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
+    [sketchChannel],
+  );
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -582,22 +695,75 @@ export function FeatureDialog({
           </p>
         )}
 
-        {/* 距离（M4-T6：insertFeature extrude 的唯一可编辑量；常驻不折叠）。 */}
-        <section className="part-studio-feature-dialog__distance">
-          <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
-            {t('partStudio.featureDialog.distanceLabel')}
+        {/* 距离（M4-T6：insertFeature extrude 的唯一可编辑量；常驻不折叠）。
+            M6-b T4：revolve 通道不适用（无距离量——全周/角度即参数），输入
+            隐藏、handleConfirm 跳过距离校验。 */}
+        {!revolveChannel && (
+          <section className="part-studio-feature-dialog__distance">
+            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
+              {t('partStudio.featureDialog.distanceLabel')}
+            </label>
+            <input
+              id="part-studio-feature-dialog-distance"
+              type="text"
+              inputMode="decimal"
+              aria-label={t('partStudio.featureDialog.distanceLabel')}
+              className="part-studio-feature-dialog__input"
+              value={distance}
+              disabled={submitting}
+              onChange={(event) => setDistance(event.target.value)}
+            />
+          </section>
+        )}
+
+        {/* 对称平铺复选（M6-b T4，extrude 通道）：Onshape 采集形态——「对称」
+            在折叠区外平铺（sketchChannel 下折叠段 symmetric 隐藏，见下方
+            visibleSections）。本版仅渲染+本地态（state 即既有 symmetric，随
+            onConfirm 载荷回传不变）；op 载荷不含 symmetric——ExtrudeParams
+            .symmetric 契约由并行 T3 落，落地后此处接线（T4-minor 挂账）。 */}
+        {extrudeChannel && (
+          <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-symmetric-flat">
+            <input
+              type="checkbox"
+              checked={symmetric}
+              onChange={(event) => setSymmetric(event.target.checked)}
+            />
+            <span>{t('partStudio.featureDialog.sections.symmetric')}</span>
           </label>
-          <input
-            id="part-studio-feature-dialog-distance"
-            type="text"
-            inputMode="decimal"
-            aria-label={t('partStudio.featureDialog.distanceLabel')}
-            className="part-studio-feature-dialog__input"
-            value={distance}
-            disabled={submitting}
-            onChange={(event) => setDistance(event.target.value)}
-          />
-        </section>
+        )}
+
+        {/* revolve 参数区（M6-b T4）：全方位复选（fullRevolve 缺省 true）+
+            角度输入（取消勾选才现；UI 度制，载荷前转弧度——见 handleConfirm）。
+            独立于 extrude 距离区（revolve 分支独立构造器）。 */}
+        {revolveChannel && (
+          <React.Fragment>
+            <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-full-revolve">
+              <input
+                type="checkbox"
+                checked={fullRevolve}
+                onChange={(event) => setFullRevolve(event.target.checked)}
+              />
+              <span>{t('partStudio.featureDialog.fullRevolveLabel')}</span>
+            </label>
+            {!fullRevolve && (
+              <section className="part-studio-feature-dialog__angle">
+                <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-angle">
+                  {t('partStudio.featureDialog.angleLabel')}
+                </label>
+                <input
+                  id="part-studio-feature-dialog-angle"
+                  type="text"
+                  inputMode="decimal"
+                  aria-label={t('partStudio.featureDialog.angleLabel')}
+                  className="part-studio-feature-dialog__input"
+                  value={angleDegrees}
+                  disabled={submitting}
+                  onChange={(event) => setAngleDegrees(event.target.value)}
+                />
+              </section>
+            )}
+          </React.Fragment>
+        )}
 
         {/* 芯片式实体选择框（os-31）。M6-a T6 分叉：拉伸新建 = 草图通道——
             草图下拉 + 面域下拉（regions>1 才现）+ 选中回显 chip（采集规格
@@ -668,6 +834,39 @@ export function FeatureDialog({
                 </select>
               )}
 
+              {/* 旋转轴下拉（M6-b T4 revolve 通道）：getSketch entities 过滤
+                  kind==='line'，选项「线 {id}」（id=草图内实体 id，与载荷
+                  axis.sketchEntityId 同值）；缺省首条（见轴缺省 effect）。
+                  revolve 专属——extrude 无轴语义不渲染。 */}
+              {revolveChannel && axisLines.length > 0 && (
+                <select
+                  aria-label={t('partStudio.featureDialog.axisLabel')}
+                  className="part-studio-feature-dialog__select"
+                  value={selectedAxisId ?? ''} /* ?? ''=恒受控（缺省 effect 落定前的过渡帧防 uncontrolled 警告；未选态提交由 sketchReady 拦） */
+                  disabled={submitting}
+                  onChange={(event) => setSelectedAxisId(Number(event.target.value))}
+                >
+                  {axisLines.map((line) => (
+                    <option key={`axis-${line.id}`} value={line.id}>
+                      {t('partStudio.featureDialog.axisOption', { id: line.id })}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* 无旋转轴门禁（M6-b T4）：选中草图读得实体集但无 line →
+                  「草图无可用旋转轴」提示 + 提交禁用（sketchReady 轴判据）。
+                  读取失败（regionsError）时让位错误 alert，不双报。 */}
+              {revolveChannel && !regionsError && sketchEntities !== undefined && axisLines.length === 0 && (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-no-axis-hint"
+                >
+                  {t('partStudio.featureDialog.noAxisHint')}
+                </p>
+              )}
+
               {/* 选中回显 chip：「{草图名} 的面」+ regionIndex（多面域）；×=清选择。 */}
               {selectedSketch && sketchChipLabel && (
                 <ul className="part-studio-feature-dialog__chips">
@@ -728,9 +927,10 @@ export function FeatureDialog({
           )}
         </section>
 
-        {/* 折叠段：方向/起始偏移/对称/拔模（os-31）。 */}
+        {/* 折叠段：方向/起始偏移/对称/拔模（os-31）。草图通道对称段隐藏
+            （M6-b T4：平铺复选顶替，见 visibleSections 注记）。 */}
         <div className="part-studio-feature-dialog__sections">
-          {SECTIONS.map((section) => {
+          {visibleSections.map((section) => {
             const isOpen = expanded[section.id];
             const label = t(`partStudio.featureDialog.sections.${section.id}`);
             return (

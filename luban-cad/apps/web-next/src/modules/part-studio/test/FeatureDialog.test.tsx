@@ -19,6 +19,13 @@
 // 草图下拉+面域下拉（regions>1）/单面域自动 0/无草图无面域门禁/选中回显
 // chip/布尔类型不接通道（zod sketchId:z.never() 既有语义）。
 //
+// M6-b T4（revolve 通道+对称平铺复选）：sketchChannel 扩 revolve——轴下拉
+//（getSketch entities 过滤 kind==='line'，「线 {id}」=载荷 axis.sketchEntityId
+// 同值，缺省首条）/无 line 门禁/全方位复选（缺省 true，取消 → 角度输入，UI
+// 度制 → 载荷前 ×π/180 转弧度）/载荷不含 distance；extrude 通道「对称」
+// Onshape 平铺形态复选（勾选才带 symmetric:true 键——T3 契约接线收口，
+// 缺省省略=载荷向后兼容）。
+//
 // 定位：组件行为验收层；@itwin/core-frontend 模块级 mock（零真实查看器），
 // '@luban-cad/shared' 模块级 mock（getSketch 面域读面替身），真实 store/i18n
 // 参与（setup.ts 全局词库兜底，zh-CN 基线）。
@@ -88,7 +95,7 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
-import type { FeatureOp, FeatureOpResult, SketchDto, SketchRegionDto } from '@luban-cad/shared';
+import type { FeatureOp, FeatureOpResult, SketchDto, SketchEntityDto, SketchRegionDto } from '@luban-cad/shared';
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
@@ -935,5 +942,247 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       params: { profile: [], distance: 10 },
     });
     expect(featureRpc.getSketch).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M6-b T4：revolve 通道（轴拾取+全方位/角度）——草图/面域拾取与 M6-a T6 同构
+//（数据源/门禁同源复用，其路径已在上一 describe 钉死不重复），revolve 分支增：
+// 轴下拉（getSketch entities 过滤 kind==='line'，选项「线 {id}」=载荷
+// axis.sketchEntityId 同值可对账，缺省首条）/无 line 门禁/全方位复选（缺省
+// true，取消 → 角度输入，UI 度制 → 载荷前 ×π/180 转弧度——shared
+// RevolveParams.angle 契约 (0, 2π]，180°→Math.PI 的 π 精度在此钉死）/
+// 载荷不含 distance（revolve 无距离量，输入隐藏+校验跳过）。
+// ---------------------------------------------------------------------------
+describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  /** revolve 用 SketchDto 替身：entities 与 regions 同响应下发（v1.7 getSketch）。 */
+  function revolveSketchDto(entities: SketchEntityDto[], regions: SketchRegionDto[], id = 'sk-1'): SketchDto {
+    return {
+      id,
+      entities,
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions,
+    };
+  }
+
+  /** 点/线混排的典型可旋转草图（线 id 3/4 可选为轴；点 id 1/2 为线端点引用）。 */
+  const LINED_SKETCH_ENTITIES: SketchEntityDto[] = [
+    { kind: 'point', id: 1, x: 0, y: 0 },
+    { kind: 'point', id: 2, x: 10, y: 0 },
+    { kind: 'line', id: 3, p1: 1, p2: 2 },
+    { kind: 'line', id: 4, p1: 2, p2: 1 },
+  ];
+  const ONE_REGION: SketchRegionDto[] = [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }];
+
+  /** 备好 revolve 通道的对话框：注入草图 + getSketch 替身并选中（就绪判据=回显 chip 在场）。 */
+  async function renderRevolveDialog(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    dto: SketchDto,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    featureRpc.getSketch.mockResolvedValue(dto);
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="旋转 1"
+        mode="new"
+        featureType="revolve"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        {...props}
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面'); // 面域已落定（entities 同响应到达）
+    return { user };
+  }
+
+  beforeEach(() => {
+    featureRpc.getSketch.mockReset();
+  });
+
+  it('全周缺省：轴下拉缺省首条（线 3）+ 全方位勾选（角度输入不在场）→ 载荷钉形（无 angle 键亦无 distance 键）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
+    const axisSelect = screen.getByRole('combobox', { name: '旋转轴' }) as HTMLSelectElement;
+    await waitFor(() => expect(axisSelect.value).toBe('3')); // 缺省首条 line
+    expect(within(axisSelect).getByRole('option', { name: '线 3' })).toBeDefined();
+    expect(within(axisSelect).getByRole('option', { name: '线 4' })).toBeDefined();
+    expect((screen.getByRole('checkbox', { name: '全方位' }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole('textbox', { name: '角度（度）' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'revolve',
+      params: { profile: [], sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 3 }, fullRevolve: true },
+    });
+  });
+
+  it('换轴进载荷：选「线 4」→ axis.sketchEntityId=4（id 与载荷同值可对账）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
+    await user.selectOptions(screen.getByRole('combobox', { name: '旋转轴' }), '4');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'revolve',
+      params: { profile: [], sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 4 }, fullRevolve: true },
+    });
+  });
+
+  it('角度换算 π 精度：取消全方位 → 角度输入现（缺省 360）→ 改 180 → 载荷 angle=Math.PI（fullRevolve=false）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
+    await user.click(screen.getByRole('checkbox', { name: '全方位' }));
+    const angle = screen.getByRole('textbox', { name: '角度（度）' }) as HTMLInputElement;
+    expect(angle.value).toBe('360');
+    await user.clear(angle);
+    await user.type(angle, '180');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'revolve',
+      params: {
+        profile: [],
+        sketchId: 'sk-1',
+        regionIndex: 0,
+        axis: { sketchEntityId: 3 },
+        fullRevolve: false,
+        angle: Math.PI,
+      },
+    });
+  });
+
+  it('角度换算 90° → Math.PI/2（弧度载荷契约的另一半锚点）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
+    await user.click(screen.getByRole('checkbox', { name: '全方位' }));
+    const angle = screen.getByRole('textbox', { name: '角度（度）' });
+    await user.clear(angle);
+    await user.type(angle, '90');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const params = (applyOp.mock.calls[0]![0] as { params: { angle?: number } }).params;
+    expect(params.angle).toBeCloseTo(Math.PI / 2, 15);
+  });
+
+  it('无 line 实体（仅圆）：无可用旋转轴提示 + 轴下拉不在场 + ✓/成品 禁用，不发起 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderRevolveDialog(
+      applyOp,
+      revolveSketchDto([{ kind: 'circle', id: 5, center: 1, radius: 5 }], ONE_REGION),
+    );
+    const hint = await screen.findByTestId('part-studio-feature-dialog-no-axis-hint');
+    expect(hint.textContent).toBe('草图无可用旋转轴');
+    expect(screen.queryByRole('combobox', { name: '旋转轴' })).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('非法角度（0 / 超 360 / 空）→ 校验 Alert 就地 + 不发起 op（弧度域 (0,2π] 的度制门）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
+    await user.click(screen.getByRole('checkbox', { name: '全方位' }));
+    const angle = screen.getByRole('textbox', { name: '角度（度）' });
+    for (const bad of ['0', '400', '']) {
+      await user.clear(angle);
+      if (bad !== '') await user.type(angle, bad);
+      await user.click(screen.getByRole('button', { name: '确认' }));
+      expect(screen.getByRole('alert').textContent).toContain('旋转角度');
+    }
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('revolve 通道无距离量：距离输入不在场；对称（平铺复选与折叠段）均不在场（revolve 分支独立构造器）', async () => {
+    const applyOp = makeApplyOp();
+    await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: '对称' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '对称' })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M6-b T4：extrude 对称平铺复选（Onshape 采集形态「对称」在折叠区外平铺）——
+// 渲染+本地态（state 即既有 symmetric，随 onConfirm 面板载荷回传不变）；
+// op 载荷接线已收口（控制器：T3 契约 shared v1.7 ExtrudeParams.symmetric
+// 落地后接线——勾选才带 symmetric:true 键，缺省省略=载荷向后兼容）。
+// 非通道对话框（edit/布尔/壳期）折叠段形态不动。
+// ---------------------------------------------------------------------------
+describe('M6-b T4 extrude 对称平铺复选（Onshape 平铺形态；载荷已接线）', () => {
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  async function renderReadyExtrudeDialog(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1',
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    });
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="拉伸 1"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+        {...props}
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
+    return { user, onConfirm };
+  }
+
+  beforeEach(() => {
+    featureRpc.getSketch.mockReset();
+  });
+
+  it('平铺复选在场（折叠区外）+ 折叠段「对称」隐藏（防双复选绑同态）', async () => {
+    await renderReadyExtrudeDialog(makeApplyOp());
+    expect(screen.getByTestId('part-studio-feature-dialog-symmetric-flat')).toBeDefined();
+    expect((screen.getByRole('checkbox', { name: '对称' }) as HTMLInputElement).checked).toBe(false);
+    expect(screen.queryByRole('button', { name: '对称' })).toBeNull();
+  });
+
+  it('勾选对称 → op 载荷含 symmetric:true（T3 契约接线收口），面板载荷仍回传 symmetric=true', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = await renderReadyExtrudeDialog(applyOp);
+    await user.click(screen.getByRole('checkbox', { name: '对称' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0, symmetric: true },
+    });
+    expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).symmetric).toBe(true);
+  });
+
+  it('非通道对话框（edit 模式）对称保持折叠段形态，平铺复选不在场（既有语义不动）', () => {
+    renderDialog();
+    expect(screen.getByRole('button', { name: '对称' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('part-studio-feature-dialog-symmetric-flat')).toBeNull();
   });
 });

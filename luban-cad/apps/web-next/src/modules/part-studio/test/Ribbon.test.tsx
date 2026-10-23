@@ -67,13 +67,26 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
   });
 
-  it('其余 full 工具不回归：旋转点击仍投 tools.run + 写激活态', async () => {
+  it('其余 full 工具不回归：扫掠点击仍投 tools.run + 写激活态（旋转已改道对话框——M6-b T4）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '扫掠' }));
+    expect(mocks.toolsRun).toHaveBeenCalledWith('SweepFaces');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBe('SweepFaces');
+    expect(usePartStudioStore.getState().dialog.active).toBeNull();
+  });
+
+  it('M6-b T4：旋转点击改道 new/revolve 对话框（不经 tools.run 不写激活态）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '旋转' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('revolve');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('revolve');
-    expect(usePartStudioStore.getState().dialog.active).toBeNull();
+    expect(mocks.toolsRun).not.toHaveBeenCalledWith('revolve');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'revolve',
+    });
   });
 
   it('gated 工具不回归：拔模点击开能力引导对话框', async () => {
