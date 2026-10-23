@@ -9,6 +9,9 @@
  * RW2-T7 升 v1.5：shell 特征类型（HollowFaces 抽壳：defaultDistance + 面拓扑 id 集 + distances）
  * + resolveFaceRef 面寻址 RPC（拾取面缓存子实体 id → 持久拓扑 id））。
  * M6-a 升 v1.6：arc 实体 + regions 面域下发 + regionIndex + insertSketch plane。
+ * M6-b 升 v1.7：SketchDto +plane（getSketch 回传落库平面——M6-a T7 挂账清偿；
+ * 树草图行 params 内 plane 随 JSON 同步下发）。revolve/symmetric 等扩展与本次共用
+ * v1.7 版本号（M6-b 计划 T2/T3 分批落字段）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -136,6 +139,10 @@ export interface SketchDto {
   solve: SketchSolveStateDto;
   /** M6-a v1.6：草图面域集（可选——旧后端不下发时前端按无面域处理）。 */
   regions?: SketchRegionDto[];
+  /** M6-b v1.7（T1）：落库草图平面回传（insertSketch op 携带的 plane 原样存取）。
+   * 可选——旧库/旧后端无 plane 时省略键，前端按缺省 XY@z=0 语义处理（与 insertSketch
+   * op 省略 plane 键同义）。 */
+  plane?: SketchPlaneDto;
 }
 export interface SketchSummaryDto { id: string; entityCount: number; constraintCount: number }
 
@@ -151,7 +158,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.6.0";
+  public static interfaceVersion = "1.7.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

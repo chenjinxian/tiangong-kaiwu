@@ -30,7 +30,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.6.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.7.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -291,5 +291,22 @@ describe("M6-a v1.6 契约（arc 实体 + regions 面域 + regionIndex + insertS
     expect(withRegion.regionIndex).toBe(2);
     expect(withoutRegion.regionIndex).toBeUndefined();
     expectTypeOf<ExtrudeParams["regionIndex"]>().toEqualTypeOf<number | undefined>();
+  });
+});
+
+describe("M6-b v1.7 契约（SketchDto.plane 落库回传——T1 plane 全链）", () => {
+  it("SketchDto 带 plane 可构造；plane 缺省向后兼容（旧形态无 plane 仍编译通过）", () => {
+    const solve: SketchSolveStateDto = { status: "ok", dof: 0, failedConstraintIds: [], conflictingRank: [] };
+    const plane: SketchPlaneDto = {
+      origin: { x: 0, y: 0, z: 0 },
+      normal: { x: 0, y: 1, z: 0 }, // Front 面
+      xDir: { x: 1, y: 0, z: 0 },
+    };
+    const withPlane: SketchDto = { id: "sk-1", entities: [], constraints: [], solve, plane };
+    expect(withPlane.plane?.normal.y).toBe(1);
+    // 旧库/旧后端形态：无 plane 字段仍是合法 SketchDto（缺省 XY@z=0 语义由消费方兜底）
+    const legacy: SketchDto = { id: "sk-2", entities: [], constraints: [], solve };
+    expect(legacy.plane).toBeUndefined();
+    expectTypeOf<SketchDto["plane"]>().toEqualTypeOf<SketchPlaneDto | undefined>();
   });
 });

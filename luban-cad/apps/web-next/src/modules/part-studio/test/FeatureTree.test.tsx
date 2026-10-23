@@ -481,11 +481,19 @@ describe('M4-T8 D5：树右键菜单项左置图标（os-15 V20）', () => {
 
 // ── M6-a T7：草图节点本地化 + 编辑入口（双击/右键两路）─────────────────────
 
-/** M6-a T7：草图节点（featureType='sketch'）×2 + 对照特征节点。 */
+/** M6-b T1：Front 基准面（后端树行 params.plane 回显的断言基准；SketchDialog sketchPlaneFromOption 同款三向量）。 */
+const FRONT_PLANE_DTO = {
+  origin: { x: 0, y: 0, z: 0 },
+  normal: { x: 0, y: 1, z: 0 },
+  xDir: { x: 1, y: 0, z: 0 },
+} as const;
+
+/** M6-a T7：草图节点（featureType='sketch'）×2 + 对照特征节点；M6-b T1 增带 plane 树行 sk3。 */
 const SKETCH_TREE_ENTRIES: FeatureTreeEntry[] = [
   { id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
   { id: 'sk2', featureType: 'sketch', orderKey: 2, suppressed: false, status: 0, params: {} },
   { id: 'ex9', featureType: 'extrude', orderKey: 3, suppressed: false, status: 0, params: {} },
+  { id: 'sk3', featureType: 'sketch', orderKey: 4, suppressed: false, status: 0, params: { plane: FRONT_PLANE_DTO } },
 ];
 
 describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击进编辑）', () => {
@@ -504,18 +512,44 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     expect(screen.getByTestId('tree-row-ex9').querySelector('.part-studio-tree-row__icon')).toBeNull();
   });
 
-  it('双击 sketch 节点 → enterSketch 进草图模式（store 断言+行红显联动）；平面归零=契约缺省（回显挂账）', async () => {
+  it('双击 sketch 节点 → enterSketch 进草图模式（store 断言+行红显联动）；无 plane 树行=契约缺省 XY@z=0', async () => {
     const user = userEvent.setup();
     render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
     await user.dblClick(screen.getByTestId('tree-row-sk1'));
     const sketch = usePartStudioStore.getState().sketch;
     expect(sketch.isActive).toBe(true);
     expect(sketch.activeSketchId).toBe('sk1');
-    // 平面回显挂账：enterSketch 恒归零（契约缺省 XY@z=0）——SketchDto/树条目
-    // params 均无 plane 下发，契约下发后须补 setActiveSketchPlane。
+    // M6-b T1：树行 params 无 plane（旧库/未携平面）→ null=契约缺省 XY@z=0（回显降级语义）。
     expect(sketch.activeSketchPlane).toBeNull();
     // 树红显进行中草图（os-30 联动既有面）。
     expect(screen.getByTestId('tree-row-sk1').getAttribute('data-sketch-active')).toBe('true');
+  });
+
+  it('M6-b T1：编辑入口回显树行 params.plane → activeSketchPlane（双击/右键两路同义+串场防御）', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    // 双击带平面草图行 → 落库真平面入 store（AccuDraw/绘制投影的消费面）
+    await user.dblClick(screen.getByTestId('tree-row-sk3'));
+    let sketch = usePartStudioStore.getState().sketch;
+    expect(sketch.isActive).toBe(true);
+    expect(sketch.activeSketchId).toBe('sk3');
+    expect(sketch.activeSketchPlane).toEqual(FRONT_PLANE_DTO);
+    // 串场防御：上一会话残留异面后，编辑无 plane 草图归零（enterSketch 先归零再回显的序保证）
+    act(() => {
+      usePartStudioStore.setState({ sketch: { isActive: false, activeSketchId: null, activeSketchPlane: FRONT_PLANE_DTO } });
+    });
+    await user.dblClick(screen.getByTestId('tree-row-sk1'));
+    sketch = usePartStudioStore.getState().sketch;
+    expect(sketch.activeSketchId).toBe('sk1');
+    expect(sketch.activeSketchPlane).toBeNull();
+    // 右键路与双击同义：带平面行经菜单进编辑 → 同一平面回显
+    act(() => { usePartStudioStore.getState().exitSketch(); });
+    fireEventContextMenu(screen.getByTestId('tree-row-sk3'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    await user.click(within(menu).getByRole('menuitem', { name: '编辑草图…' }));
+    sketch = usePartStudioStore.getState().sketch;
+    expect(sketch.isActive).toBe(true);
+    expect(sketch.activeSketchPlane).toEqual(FRONT_PLANE_DTO);
   });
 
   it('双击非 sketch 节点 → 不进草图模式（既有行为不变）', async () => {

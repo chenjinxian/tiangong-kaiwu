@@ -85,11 +85,12 @@ export interface PartStudioSketchState {
   activeSketchId: string | null;
   /**
    * M6-a T5：活动草图平面（世界系米制三向量，SketchPlaneDto）。
-   * 数据源=SketchDialog 确认链（onConfirm → 宿主 PartStudioCanvas 经
-   * sketchPlaneFromOption 映射下发 setActiveSketchPlane）；绘制工具取点投影与
-   * AccuDraw 锁定以此为草图面。null=契约缺省 XY@z=0（insertSketch op 省略
-   * plane 键的同义语义，与后端 planeZ v1 一致；编辑既有草图的平面回显待契约
-   * 下发——SketchDto 暂无 plane 字段，登记为 v1.7 候选）。
+   * 数据源两条：① SketchDialog 确认链（onConfirm → 宿主 PartStudioCanvas 经
+   * sketchPlaneFromOption 映射下发 setActiveSketchPlane）；② 树「编辑草图」入口
+   * （M6-b T1：FeatureTree.handleEditSketch 自树行 params.plane 回显——shared v1.7
+   * SketchDto.plane 落库回传链）。绘制工具取点投影与 AccuDraw 锁定以此为草图面。
+   * null=契约缺省 XY@z=0（insertSketch op 省略 plane 键的同义语义，与后端
+   * planeZ v1 一致）。
    */
   activeSketchPlane: SketchPlaneDto | null;
 }

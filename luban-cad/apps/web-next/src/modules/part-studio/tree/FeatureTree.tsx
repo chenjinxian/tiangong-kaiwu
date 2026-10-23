@@ -27,7 +27,8 @@
  *   右键「编辑草图…」两路同义——enterSketch(node.id) 进草图模式（ribbon 变身/
  *   覆盖层/红显全由既有 sketch 切片驱动）；通用「编辑…」（FeatureDialog 路由）
  *   对 sketch 节点隐藏（草图不走特征对话框）；非 sketch 节点双击无行为（不动
- *   既有面）；
+ *   既有面）；M6-b T1 起编辑入口回显树行 params.plane 到 activeSketchPlane
+ *   （进草图模式后 AccuDraw/绘制投影即用落库真平面——T7 平面归零挂账清偿）；
  * - 数据注入：entries（useFeatureSystem.tree 直通）经 useFeatureTree 映射；
  *   变异出口为回调（onRename/onEdit/onSuppress/onDelete——RPC 变异层接线面）；
  * - 菜单监听一次注册（M4-T8 收 M3 终审 T5-⑤ 同款：挂载期一次到位，menu 经
@@ -38,7 +39,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@itwin/itwinui-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { FeatureTreeEntry } from '@luban-cad/shared';
+import type { FeatureTreeEntry, SketchPlaneDto } from '@luban-cad/shared';
 import {
   SvgAdd,
   SvgChevronDown,
@@ -275,15 +276,20 @@ export function FeatureTree({
   );
 
   // M6-a T7：编辑既有草图 = 进草图模式编辑该草图（enterSketch 真 id）。
-  // 平面回显挂账（注释钉死）：enterSketch 恒归零 activeSketchPlane → 走契约缺省
-  // XY@z=0——草图平面无可读数据源（getSketch 的 SketchDto 无 plane 字段；树条目
-  // params 实测为 {entities,constraints}，后端 insertSketch 落库时 plane 未入列），
-  // 契约下发 plane（T3 私有仓 regions 下发同批挂账）后此处须补 setActiveSketchPlane。
+  // M6-b T1（挂账清偿）：平面回显自树行 params.plane 读（后端 insertSketch 落库
+  // params={entities,constraints,plane?}，getTree 草图行 params 随 JSON 下发）——
+  // enterSketch 恒归零 activeSketchPlane（防上一草图会话残留串场）后紧跟回显：
+  // 有 plane → setActiveSketchPlane(dto)，进草图模式后 AccuDraw/绘制投影即用真平面；
+  // 无 plane（旧库/未携平面）→ null=契约缺省 XY@z=0（与新建未选平面同语义）。
+  const setActiveSketchPlane = usePartStudioStore((s) => s.setActiveSketchPlane);
   const handleEditSketch = React.useCallback(
     (node: TreeNode) => {
+      const entry = entries?.find((e) => e.id === node.id);
+      const plane = (entry?.params as { plane?: SketchPlaneDto } | undefined)?.plane;
       enterSketch(node.id);
+      setActiveSketchPlane(plane ?? null);
     },
-    [enterSketch],
+    [enterSketch, setActiveSketchPlane, entries],
   );
 
   // 双击路由（Onshape 语义=双击进编辑）：仅 sketch 节点有行为，非 sketch 节点不动。
