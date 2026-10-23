@@ -192,9 +192,15 @@ importers:
       '@itwin/access-control-client':
         specifier: ^2.3.1
         version: 2.3.1
+      '@itwin/core-common':
+        specifier: link:../../../itwinjs-core/core/common
+        version: link:../../../itwinjs-core/core/common
       '@itwin/core-frontend':
         specifier: link:../../../itwinjs-core/core/frontend
         version: link:../../../itwinjs-core/core/frontend
+      '@itwin/core-geometry':
+        specifier: link:../../../itwinjs-core/core/geometry
+        version: link:../../../itwinjs-core/core/geometry
       '@itwin/imodels-client-management':
         specifier: ^6.0.2
         version: 6.2.2
