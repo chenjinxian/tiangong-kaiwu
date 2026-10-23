@@ -146,9 +146,16 @@ export function SketchDialog({
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>(undefined);
   // 卸载守卫（FeatureDialog 同款）：pending 期间宿主关闭（✗）后的迟到回包不得再 setState。
+  // StrictMode 正确形态（T8 真栈冒烟修正，原 `useEffect(() => () => {...})` 只挂
+  // cleanup 不重置——React 18 dev 双挂载（mount→cleanup→mount，ref 持久）后恒
+  // false，提交回包永远在 `if (!aliveRef.current) return` 早退：aria-busy 永挂、
+  // enterSketch 永不执行（jsdom 单测无双挂载故绿，dev 真栈必挂——M6-a T8 实录）。
   const aliveRef = React.useRef(true);
-  React.useEffect(() => () => {
-    aliveRef.current = false;
+  React.useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
   }, []);
 
   // 快速拾取：画布主选择成动态平面选项并选中（label 缺省回退 id）。

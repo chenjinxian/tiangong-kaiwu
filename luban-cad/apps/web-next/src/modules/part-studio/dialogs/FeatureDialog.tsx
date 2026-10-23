@@ -235,9 +235,14 @@ export function FeatureDialog({
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>(undefined);
   // 卸载守卫：pending 期间宿主关闭（✗）后的迟到回包不得再 setState。
+  // StrictMode 正确形态（T8 真栈冒烟修正，同 SketchDialog——原形态 dev 双挂载后
+  // 恒 false，提交回包永远早退：aria-busy 永挂、onConfirm 永不执行）。
   const aliveRef = React.useRef(true);
-  React.useEffect(() => () => {
-    aliveRef.current = false;
+  React.useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
   }, []);
   // Escape 关闭（M5-T1 D-T9-5）：自研非模态面板（非 iTwinUI Dialog）无官方
   // dismissal——document keydown 挂载期一次注册（Escape→onCancel），回调经
