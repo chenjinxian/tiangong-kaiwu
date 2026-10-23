@@ -216,7 +216,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   // 成功关闭反而超时）；拒收=对话框内 alert 现身（透出后端原文快速红）。
   await expect(
     page
-      .getByRole('button', { name: '退出草图' })
+      .getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' })
       .or(sketchDialog.getByTestId('part-studio-sketch-dialog-error')),
   ).toBeVisible({ timeout: 60_000 });
   // 拒收分辩用瞬时 count()（成功路径对话框已卸载，textContent 会等元素挂载干等到
@@ -229,7 +229,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
 
   // 草图模式变身双证（结构断言先行）+ 特征树草图节点落位（insertSketch 提交链）
   const sketchToolbar = page.getByRole('toolbar', { name: '草图工具' });
-  await expect(page.getByRole('button', { name: '退出草图' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' })).toBeVisible({ timeout: 15_000 });
   const lineButton = sketchToolbar.getByRole('button', { name: '线', exact: true });
   const arcButton = sketchToolbar.getByRole('button', { name: '圆弧', exact: true });
   // 首笔 op 预算放宽（60s）：applyOp 链=写租约获取→insertSketch→saveChanges→
@@ -295,7 +295,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await page.screenshot({ path: shotPath('t8-1-sketch-loop.png') });
 
   // ── 5) 退出草图 → 拉伸对话框（草图通道）──────────────────────────────
-  await page.getByRole('button', { name: '退出草图' }).click();
+  await page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' }).click();
   await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible();
 
   // 基线③：成体前的干净画布（拉伸对话框内联在画布上会入元素截图，须关框后取）
