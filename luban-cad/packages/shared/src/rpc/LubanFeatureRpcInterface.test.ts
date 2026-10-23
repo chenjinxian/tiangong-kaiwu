@@ -25,6 +25,8 @@ import type {
   // M6-a v1.6
   SketchRegionDto,
   SketchPlaneDto,
+  // M6-b v1.7（T2）
+  RevolveParams,
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
@@ -308,5 +310,41 @@ describe("M6-b v1.7 契约（SketchDto.plane 落库回传——T1 plane 全链�
     const legacy: SketchDto = { id: "sk-2", entities: [], constraints: [], solve };
     expect(legacy.plane).toBeUndefined();
     expectTypeOf<SketchDto["plane"]>().toEqualTypeOf<SketchPlaneDto | undefined>();
+  });
+});
+
+describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
+  it("revolve 已入特征类型联合（编译期逐字断言）", () => {
+    const t: LubanFeatureType = "revolve";
+    expect(t).toBe("revolve");
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve">();
+  });
+
+  it("RevolveParams：全周（angle 忽略）与部分角度（angle 必填形态）均可构造；regionIndex 缺省向后兼容", () => {
+    // 全周：360°（angle 键可省——服务端忽略）
+    const full: RevolveParams = { sketchId: "sk-1", axis: { sketchEntityId: 11 }, fullRevolve: true };
+    expect(full.fullRevolve).toBe(true);
+    expect(full.angle).toBeUndefined();
+    expect(full.regionIndex).toBeUndefined();
+    // 部分角度：angle 弧度制
+    const partial: RevolveParams = { sketchId: "sk-1", regionIndex: 0, axis: { sketchEntityId: 11 }, fullRevolve: false, angle: Math.PI };
+    expect(partial.angle).toBe(Math.PI);
+    expectTypeOf<RevolveParams>().toEqualTypeOf<{
+      sketchId: string;
+      regionIndex?: number;
+      axis: { sketchEntityId: number };
+      fullRevolve: boolean;
+      angle?: number;
+    }>();
+    // JSON 序列化往返保持（RPC 载荷形态）
+    expect(JSON.parse(JSON.stringify(partial))).toEqual(partial);
+  });
+
+  it("insertFeature op 携带 revolve params 可构造（FeatureParams 联合扩展回归锁）", () => {
+    const insert: FeatureOp = { kind: "insertFeature", featureType: "revolve", params: { sketchId: "sk-1", axis: { sketchEntityId: 11 }, fullRevolve: true } };
+    const update: FeatureOp = { kind: "updateParams", featureId: "f1", params: { sketchId: "sk-1", axis: { sketchEntityId: 11 }, fullRevolve: false, angle: Math.PI / 2 } };
+    expect(insert.featureType).toBe("revolve");
+    expect(update.kind).toBe("updateParams");
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams>();
   });
 });

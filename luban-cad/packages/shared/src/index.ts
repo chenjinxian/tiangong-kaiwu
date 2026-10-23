@@ -210,6 +210,8 @@ export type {
   ShellParams,
   // M6-a v1.6
   SketchRegionDto, SketchPlaneDto,
+  // M6-b v1.7（T2）
+  RevolveParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

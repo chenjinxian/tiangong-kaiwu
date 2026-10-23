@@ -12,12 +12,13 @@
  * M6-b 升 v1.7：SketchDto +plane（getSketch 回传落库平面——M6-a T7 挂账清偿；
  * 树草图行 params 内 plane 随 JSON 同步下发）。revolve/symmetric 等扩展与本次共用
  * v1.7 版本号（M6-b 计划 T2/T3 分批落字段）。
+ * M6-b T2 落 revolve：LubanFeatureType +RevolveParams（草图面域绕草图内轴线旋转）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 
-/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell";
+/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve） */
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -73,7 +74,20 @@ export interface ShellParams {
   distances: number | number[];
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams;
+/** M6-b v1.7（T2）：旋转参数——草图面域绕草图内轴线旋转成体。
+ * `axis` = 草图内 line 实体 id（须与面域共面——结构上草图线恒在草图面内，服务端求值期
+ * 守卫兜底）；`fullRevolve=true` 走 360° 全周（`angle` 忽略），否则 `angle` 弧度制必填。
+ * `regionIndex` 语义与 extrude 同（SketchDto.regions 下标，面积降序；缺省 0=最大面域）。
+ * v1 语义=只 NEW（新建体，不与上游布尔融合）——服务端裁决，见 modeling-server FeatureEngine。 */
+export interface RevolveParams {
+  sketchId: string;
+  regionIndex?: number;
+  axis: { sketchEntityId: number };
+  fullRevolve: boolean;
+  angle?: number;
+}
+
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams;
 
 export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
