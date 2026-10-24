@@ -269,6 +269,130 @@ function regionIndexByArea(
 // ============================================================================
 
 /** MS RPC 单操作（text 载体；返回值按 body JSON 直取）。 */
+/** 草图通道公共动作：拉伸钮→选草图→选面域→距离→对称→确认→等树行（成功=行
+ * 现身+对话框收合；拒收=就地 alert 原文抛出）。 */
+async function extrudeViaDialog(
+  page: Page,
+  dialog: ReturnType<Page['getByTestId']>,
+  featureList: ReturnType<Page['getByTestId']>,
+  sketchId: string,
+  regionIndex: number,
+  distance: string,
+  treeRowName: string,
+): Promise<void> {
+  await page.getByRole('button', { name: '拉伸', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
+  await expect(dialog.getByRole('combobox', { name: '面域' })).toBeVisible({ timeout: 20_000 });
+  await dialog.getByRole('combobox', { name: '面域' }).selectOption(String(regionIndex));
+  await dialog.getByLabel('距离').fill(distance);
+  await dialog
+    .getByTestId('part-studio-feature-dialog-symmetric-flat')
+    .locator('input')
+    .check();
+  await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
+  await dialog.getByRole('button', { name: '确认' }).click();
+  await expect(
+    featureList
+      .getByRole('button', { name: treeRowName })
+      .or(dialog.getByTestId('part-studio-feature-dialog-error')),
+  ).toBeVisible({ timeout: 90_000 });
+  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
+    throw new Error(
+      `${treeRowName} 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
+    );
+  }
+  await expect(dialog).toBeHidden({ timeout: 30_000 });
+}
+
+/** 树行存在且非错误态（part-studio-tree-row--error 类缺席=status 0 绿行）。 */
+async function expectTreeRowGreen(
+  featureList: ReturnType<Page['getByTestId']>,
+  name: string,
+): Promise<void> {
+  const row = featureList.getByRole('button', { name });
+  await expect(row).toBeVisible();
+  const cls = (await row.getAttribute('class')) ?? '';
+  expect(cls, `${name} 行应为绿（status 0），实得 class=${cls}`).not.toContain(
+    'part-studio-tree-row--error',
+  );
+}
+
+/** 等轴测+适应视图（右键画布菜单双连）。 */
+async function isoFitView(page: Page, cx: number, cy: number): Promise<void> {
+  await page.mouse.click(cx, cy + 120, { button: 'right' });
+  const solidMenu = page.getByRole('menu', { name: '画布菜单' });
+  await expect(solidMenu).toBeVisible();
+  await solidMenu.getByRole('menuitem', { name: '等轴测视图' }).click();
+  await expect(solidMenu).toBeHidden();
+  await page.mouse.click(cx, cy + 120, { button: 'right' });
+  await expect(solidMenu).toBeVisible();
+  await solidMenu.getByRole('menuitem', { name: '适应视图' }).click();
+  await expect(solidMenu).toBeHidden();
+}
+
+/** fillet 边拾取会话：圆角对话框→半径→添加边→投影点逐一 boresite 点击→
+ * 「添加边」钮 toggle 结束拾取（拾取态下该钮即 stopPick）。返回 chips 数。 */
+async function pickFilletEdges(
+  page: Page,
+  dialog: ReturnType<Page['getByTestId']>,
+  radius: string,
+  worldPoints: Array<{ x: number; y: number; z: number }>,
+  canvasBox: { x: number; y: number },
+): Promise<number> {
+  await page.getByRole('button', { name: '圆角', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('半径').fill(radius);
+  await dialog.getByTestId('part-studio-feature-dialog-add-edge').click();
+  await expect(dialog.getByTestId('part-studio-feature-dialog-picking-hint')).toBeVisible({
+    timeout: 15_000,
+  });
+  const picks = await page.evaluate(async (pts) => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as {
+      IModelApp: {
+        viewManager: {
+          getFirstOpenView(): {
+            worldToView(pt: { x: number; y: number; z: number }): { x: number; y: number };
+          };
+        };
+      };
+    };
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) throw new Error('无打开视口');
+    return pts.map((p) => {
+      const v = vp.worldToView(p);
+      return { x: v.x, y: v.y };
+    });
+  }, worldPoints);
+  for (const p of picks) {
+    const px = canvasBox.x + p.x;
+    const py = canvasBox.y + p.y;
+    await page.mouse.move(px - 15, py + 12);
+    await page.waitForTimeout(150);
+    await page.mouse.move(px, py);
+    await page.waitForTimeout(350); // boresite 运动定位窗口
+    await page.mouse.down();
+    await page.waitForTimeout(60);
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+  }
+  const chipCount = await dialog
+    .getByTestId('part-studio-feature-dialog-edge-chips')
+    .locator('li')
+    .count();
+  console.log(`[t7] fillet 边拾取 chips=${chipCount}/${worldPoints.length}`);
+  if (chipCount === 0) throw new Error('拾取 0 边');
+  // 结束拾取：再点「添加边」钮（拾取态下该钮即 stopPick 开关——对话框自治
+  // 通道，比 Esc/右键确定：Esc 经工具层分叉实测不达对话框 stopPick）。
+  await dialog.getByTestId('part-studio-feature-dialog-add-edge').click();
+  await expect(dialog.getByTestId('part-studio-feature-dialog-picking-hint')).toBeHidden({
+    timeout: 10_000,
+  });
+  return chipCount;
+}
+
+const BS = String.fromCharCode(92); // 反斜杠（dbKey 路径分隔；避免模板字面量转义歧义）
+
 async function msRpc(
   itwinId: string,
   imodelId: string,
@@ -611,4 +735,150 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
 
   // ── 全程零 console error ────────────────────────────────────────────
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
+});
+
+
+// ============================================================================
+// T7-B（路径 1 实证，控制器 2026-10-24 指派）：Fillet 1 紧跟 Extrude 1——
+// 纯盒上游阶段拾底座 4 条竖棱倒角，证明「非流形边（邻面数大于 2）」阻断只在
+// 拱/底座 Union 之后出现（对照 T7 冒烟的全链后置 fillet 红行）。链序裁决：
+// 建序直排（Sketch→E1→Fillet→E2→E3→R1），不走 reorderFeature——重排后
+// fillet 上游集变化=几何非恒等，v1 线性链守卫必拒收，建序直排是唯一稳路径。
+// 断言：6 节点全绿（无 --error 行）+零 console error；体积对拍归 scratch 探针
+// （期望 ≈352.613−2.814≈349.8cm³——非 ±1% 达标测试，复合面域修复归 M6-c）。
+// 拾取降级：竖棱 boresite 命中几条算几条（≥1 即机制成立，如实登记）。
+// ============================================================================
+test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 6 节点全绿', async ({
+  page,
+}) => {
+  test.slow();
+
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('pageerror', (error) => consoleErrors.push(`pageerror: ${error.message}`));
+
+  await openSeedImodelEditor(page);
+  await waitEditorReady(page);
+
+  const urlParts = new URL(page.url()).pathname.split('/').filter(Boolean);
+  const itwinId = urlParts[urlParts.length - 2] as string;
+  const imodelId = urlParts[urlParts.length - 1] as string;
+  const featureCount = page.getByTestId('part-studio-feature-count');
+  const featureList = page.getByTestId('part-studio-feature-list');
+  const dialog = page.getByTestId('part-studio-feature-dialog');
+
+  // L1：同款草图 RPC 直发（借页面在持会话；台账单独落文件）
+  const { op, axisLineId } = buildSketchOp();
+  const accessToken = readAccessToken();
+  const probeId = `t7b-probe-${Math.random().toString(36).slice(2)}`;
+  const dbKey = ['briefcase-cache', 'imodels', imodelId, 'briefcases', '2.bim'].join(BS);
+  const probe = (await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, probeId], accessToken)) as {
+    ok: boolean;
+    holder?: string;
+  };
+  const leaseSessionId = probe.ok ? probeId : (probe.holder ?? probeId);
+  if (probe.ok) {
+    await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, leaseSessionId], accessToken);
+  }
+  const insertRaw = await msRpc(
+    itwinId,
+    imodelId,
+    'applyFeatureOp',
+    [dbKey, op, leaseSessionId],
+    accessToken,
+  );
+  const result = insertRaw as { ok: boolean; featureId?: string; error?: string };
+  expect(result.ok, `insertSketch 被拒收：${result.error ?? ''}`).toBe(true);
+  const sketchId = result.featureId as string;
+  const sketch = (await msRpc(itwinId, imodelId, 'getSketch', [dbKey, sketchId], accessToken)) as {
+    regions?: Array<{ area: number }>;
+  };
+  const regions = sketch?.regions ?? [];
+  expect(regions.length).toBeGreaterThanOrEqual(3);
+  writeFileSync(
+    shotPath('tutorial2-reorder-regions.json'),
+    JSON.stringify({ imodelId, sketchId, axisLineId, regionCount: regions.length, regions }, null, 2),
+    'utf-8',
+  );
+  const idxBase = regionIndexByArea(regions, 1572.585);
+  const idxBand = regionIndexByArea(regions, 1153.56);
+  const idxLobe = regionIndexByArea(regions, 2298.36);
+  const idxRightRect = regionIndexByArea(regions, 725.775);
+
+  await expect(featureCount).toHaveText('(1)', { timeout: 60_000 });
+
+  // Extrude 1（纯盒阶段——fillet 的上游）
+  await extrudeViaDialog(page, dialog, featureList, sketchId, idxBase, '127', '拉伸 1');
+  await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
+
+  // 视图就位 + Fillet 1：纯盒 4 条竖棱（前后 2 + 轮廓 2）boresite 拾取
+  const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas boundingBox 不可得');
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await isoFitView(page, cx, cy);
+  await page.waitForTimeout(8_000); // tile 流送驻留
+  const chips = await pickFilletEdges(page, dialog, '5.08', [
+    { x: 41.275, y: 63.5, z: 0 },
+    { x: 41.275, y: -63.5, z: 0 },
+    { x: -41.275, y: 63.5, z: 0 },
+    { x: -41.275, y: -63.5, z: 0 },
+  ], box);
+  expect(chips, `纯盒竖棱拾取=${chips}/4（≥1 即机制成立，如实登记）`).toBeGreaterThanOrEqual(1);
+  await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
+  await dialog.getByRole('button', { name: '确认' }).click();
+  await expect(
+    featureList
+      .getByRole('button', { name: '圆角 1' })
+      .or(dialog.getByTestId('part-studio-feature-dialog-error')),
+  ).toBeVisible({ timeout: 120_000 });
+  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
+    throw new Error(
+      `圆角 1 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
+    );
+  }
+  await expect(featureCount).toHaveText('(3)', { timeout: 30_000 });
+  await expectTreeRowGreen(featureList, '圆角 1'); // status=0 绿行（对照全链后置的红行）
+  await page.screenshot({ path: shotPath('t7b-1-box-fillet.png') });
+
+  // 后续特征并入已倒角板（拱在中部不碰角圆角——union 预期无碍）
+  await extrudeViaDialog(page, dialog, featureList, sketchId, idxBand, '50.8', '拉伸 2');
+  await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
+  await expectTreeRowGreen(featureList, '拉伸 2');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, idxLobe, '15.875', '拉伸 3');
+  await expect(featureCount).toHaveText('(5)', { timeout: 30_000 });
+  await expectTreeRowGreen(featureList, '拉伸 3');
+  await page.getByRole('button', { name: '旋转', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
+  await expect(dialog.getByRole('combobox', { name: '面域' })).toBeVisible({ timeout: 20_000 });
+  await dialog.getByRole('combobox', { name: '面域' }).selectOption(String(idxRightRect));
+  await dialog.getByRole('combobox', { name: '旋转轴' }).selectOption(String(axisLineId));
+  await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
+  await dialog.getByRole('button', { name: '确认' }).click();
+  await expect(
+    featureList
+      .getByRole('button', { name: '旋转 1' })
+      .or(dialog.getByTestId('part-studio-feature-dialog-error')),
+  ).toBeVisible({ timeout: 120_000 });
+  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
+    throw new Error(
+      `旋转 1 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
+    );
+  }
+  await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
+
+  // 全链 6 节点全绿
+  for (const name of ['草图 1', '拉伸 1', '圆角 1', '拉伸 2', '拉伸 3', '旋转 1']) {
+    await expectTreeRowGreen(featureList, name);
+  }
+
+  await isoFitView(page, cx, cy);
+  await page.waitForTimeout(10_000);
+  await page.screenshot({ path: shotPath('t7b-2-final.png') });
+
+  expect(consoleErrors, `console error 应为空：${BS}n${consoleErrors.join(BS + 'n')}`).toHaveLength(0);
 });
