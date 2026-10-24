@@ -393,8 +393,8 @@ interface QueryBodyRequestProps {
 interface BodySubEntitiesRequestProps {
   /** What type of sub-entities to return, ex. faces of edge. */
   type: SubEntityType;
-  /** Option to return only first sub-entity of each body instead of all sub-entities. */
-  firstOnly?: true;
+  /** Option to return only first sub-entity of each body instead of all sub-entities (native side accepts any boolean; undefined is rejected). */
+  firstOnly?: boolean;
   /** Callback for result */
   onResult: SubEntityArrayFunction;
 }
@@ -508,6 +508,15 @@ interface EdgesFromIdRequestProps {
   onResult: SubEntityIdsFunction;
 }
 
+interface EdgesFromOwnIdRequestProps {
+  /** Node identifier of the edge to query */
+  nodeId: number;
+  /** Entity identifier of the edge to query (the edge's OWN id, as returned by topologyIdFromSubEntity for an edge) */
+  entityId: number;
+  /** Callback for result */
+  onResult: SubEntityIdsFunction;
+}
+
 interface AllTopologyIdsRequestProps {
   /** Callback for result */
   onResult: TopologyIdArrayFunction;
@@ -555,6 +564,7 @@ enum OperationType {
   EdgesFromId = 33,
   AllTopologyIds = 34,
   ValidateBody = 35,
+  EdgesFromOwnId = 36,
 }
 
 interface ElementGeometryCacheOperationRequestProps {
@@ -563,7 +573,7 @@ interface ElementGeometryCacheOperationRequestProps {
   /** Requested operation */
   op: OperationType;
   /** Parameters for operation */
-  params?: GeometrySummaryRequestProps | SubEntityGeometryRequestProps | SubEntityParameterRangeRequestProps | SubEntityEvaluateRequestProps | QuerySubEntityRequestProps | QueryBodyRequestProps | BodySubEntitiesRequestProps | ConnectedSubEntityRequestProps | LocateSubEntityRequestProps | LocateFaceRequestProps | ClosestSubEntityRequestProps | ClosestPointRequestProps | PointInsideRequestProps | TopologyIdFromSubEntityRequestProps | FacesFromIdRequestProps | EdgesFromIdRequestProps | AllTopologyIdsRequestProps | ValidateBodyRequestProps | BooleanOperationProps | SewSheetProps | ThickenSheetProps | CutProps | EmbossProps | ImprintProps | SweepPathProps | LoftProps | OffsetFacesProps | OffsetEdgesProps | HollowFacesProps | SweepFacesProps | SpinFacesProps | DeleteSubEntityProps | TransformSubEntityProps | BlendEdgesProps | ChamferEdgesProps;
+  params?: GeometrySummaryRequestProps | SubEntityGeometryRequestProps | SubEntityParameterRangeRequestProps | SubEntityEvaluateRequestProps | QuerySubEntityRequestProps | QueryBodyRequestProps | BodySubEntitiesRequestProps | ConnectedSubEntityRequestProps | LocateSubEntityRequestProps | LocateFaceRequestProps | ClosestSubEntityRequestProps | ClosestPointRequestProps | PointInsideRequestProps | TopologyIdFromSubEntityRequestProps | FacesFromIdRequestProps | EdgesFromIdRequestProps | EdgesFromOwnIdRequestProps | AllTopologyIdsRequestProps | ValidateBodyRequestProps | BooleanOperationProps | SewSheetProps | ThickenSheetProps | CutProps | EmbossProps | ImprintProps | SweepPathProps | LoftProps | OffsetFacesProps | OffsetEdgesProps | HollowFacesProps | SweepFacesProps | SpinFacesProps | DeleteSubEntityProps | TransformSubEntityProps | BlendEdgesProps | ChamferEdgesProps;
   /** Callback for result when element's geometry stream is requested in flatbuffer or graphic formats */
   onGeometry?: ElementGeometryFunction;
 }
@@ -775,7 +785,7 @@ export class SolidModelingCommand extends BasicManipulationCommand implements So
     return this.bodyQuery(id, index, QueryBody.CurvedFaceOrEdge);
   }
 
-  public async getBodySubEntities(id: Id64String, type: SubEntityType, firstOnly?: true): Promise<SubEntityProps[] | undefined> {
+  public async getBodySubEntities(id: Id64String, type: SubEntityType, firstOnly?: boolean): Promise<SubEntityProps[] | undefined> {
     let accepted: SubEntityProps[] | undefined;
     const onResult: SubEntityArrayFunction = (info: SubEntityProps[]): void => {
       accepted = info;
@@ -1060,8 +1070,10 @@ export class SolidModelingCommand extends BasicManipulationCommand implements So
     return this.doElementGeometryOperation(props, opts);
   }
 
-  /** Query the persistent topology id of a face identified by its cache sub-entity id (decimal string).
-   * @returns The (nodeId, entityId) pair for the face, or undefined if the operation failed (protocol error, not a face, etc.).
+  /** Query the persistent topology id of a face or edge identified by its cache sub-entity id (decimal string).
+   * For a face this is the face's (nodeId, entityId) assignment. For an edge (M6-d T1) this is the edge's
+   * OWN persistent id — stamped at creation, inherited by split pieces — NOT the adjacent-face-pair EdgeId.
+   * @returns The (nodeId, entityId) pair, or undefined if the operation failed (protocol error, not a face/edge, or the edge carries no own id).
    */
   public async topologyIdFromSubEntity(id: Id64String, subEntityId: string): Promise<TopologyIdProps | undefined> {
     let accepted: TopologyIdProps | undefined;
@@ -1100,6 +1112,23 @@ export class SolidModelingCommand extends BasicManipulationCommand implements So
     };
     const params: EdgesFromIdRequestProps = { faceIds, onResult };
     const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.EdgesFromId, params };
+    this.iModel[_nativeDb].elementGeometryCacheOperation(props);
+    return accepted;
+  }
+
+  /** Query the cache sub-entity ids of the edge carrying the supplied persistent edge id (M6-d T1, op 36).
+   * The edge id is the edge's OWN id — as returned by topologyIdFromSubEntity for an edge sub-entity —
+   * NOT the adjacent-face-pair EdgeId consumed by edgesFromId. A split edge's pieces all carry the same
+   * own id, so all pieces are returned (set semantics).
+   * @returns Decimal string ids directly usable as SubEntityProps.id, or undefined if no edge matched.
+   */
+  public async edgesFromOwnId(id: Id64String, nodeId: number, entityId: number): Promise<string[] | undefined> {
+    let accepted: string[] | undefined;
+    const onResult: SubEntityIdsFunction = (info: SubEntityIdsResponseProps): void => {
+      accepted = info.subEntityIds;
+    };
+    const params: EdgesFromOwnIdRequestProps = { nodeId, entityId, onResult };
+    const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.EdgesFromOwnId, params };
     this.iModel[_nativeDb].elementGeometryCacheOperation(props);
     return accepted;
   }

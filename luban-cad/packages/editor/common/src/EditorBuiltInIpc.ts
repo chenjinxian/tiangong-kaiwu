@@ -619,8 +619,8 @@ export interface SolidModelingCommandIpc extends EditCommandIpc {
   hasOnlyPlanarFaces(id: Id64String, index: number): Promise<boolean>;
   /** Return whether the supplied geometric primitive index is a body with any edge that is non-linear or any face that is non-planar */
   hasCurvedFaceOrEdge(id: Id64String, index: number): Promise<boolean>;
-  /** Get sub-entities of the requested type for the supplied element */
-  getBodySubEntities(id: Id64String, type: SubEntityType, firstOnly?: true): Promise<SubEntityProps[] | undefined>;
+  /** Get sub-entities of the requested type for the supplied element (firstOnly false enumerates all) */
+  getBodySubEntities(id: Id64String, type: SubEntityType, firstOnly?: boolean): Promise<SubEntityProps[] | undefined>;
   /** Get related sub-entities for the supplied sub-entity. For example, get the array of faces containing a supplied edge. */
   getConnectedSubEntities(id: Id64String, subEntity: SubEntityProps, type: SubEntityType, opts?: ConnectedSubEntityProps): Promise<SubEntityProps[] | undefined>;
   /** Identify face, edge, and vertex sub-entities from the supplied element by their proximity to a ray. */
