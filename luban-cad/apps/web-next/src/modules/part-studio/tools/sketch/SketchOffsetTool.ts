@@ -56,6 +56,7 @@ const PREVIEW_COLOR = ColorDef.from(0, 120, 215);
 
 export class SketchOffsetTool extends PrimitiveTool {
   public static override toolId = 'Sketch.Offset';
+  public static override namespace = 'LubanCad';
   public static override iconSpec = 'icon-offset';
 
   /** 交互相：pick=选起始实体；place=定侧定距（链已就绪）。 */
