@@ -16,10 +16,13 @@
  *
  * 持久寻址（M3-a 已知坑）：SubEntityProps.id 是**会话级 cache id**，工具退出
  * （onCleanup 全清元素几何缓存）即失效——拾得后**立即**经 resolveEdgeRef RPC
- * 换持久拓扑 id 对（FilletEdgeRef{faceA,faceB}，私有仓 FeatureRpcImpl 两两枚举
- * 面对命中 + 缓存竞态防御重建），换算成功才回调 onEdgeAdded；失败回调 onError
- * 并摘除高亮（不留「高亮在而 chips 无」的裂口）。cache id→ref 映射随拾取会话
- * 存活（removeSubEntity 反查回调 onEdgeRemoved——再点同边=取消该边）。
+ * 换持久拓扑 id 对（FilletEdgeRef{faceA,faceB}，私有仓 FeatureRpcImpl M6-d T3
+ * 起走邻接通道：getConnectedSubEntities 边→邻面直查，邻接面数==2 才放行换
+ * topologyIdFromSubEntity；>2=多面交界边（非流形）、≤1=片体边界边，均在拾取
+ * 时诚实拒收——取代旧两两枚举面对启发式的假阳性与 blend 中途整体回滚），
+ * 换算成功才回调 onEdgeAdded；失败回调 onError 并摘除高亮（不留「高亮在而
+ * chips 无」的裂口）。cache id→ref 映射随拾取会话存活（removeSubEntity 反查
+ * 回调 onEdgeRemoved——再点同边=取消该边）。
  *
  * 启动通道：**直构 + run()**（`new FilletEdgePickTool(options).run()`）——不走
  * IModelApp.tools.run(toolId)（无选项注入通道，M3-b 已知坑；旧应用
@@ -175,6 +178,10 @@ export class FilletEdgePickTool extends LocateSubEntityTool {
    * 拾得边 → 持久拓扑 id 对（resolveEdgeRef RPC；测试触达面——protected 供测试
    * 子类拓宽，同 SketchCreateTool.test 先例）。失败回调 onError 并返回
    * undefined（RPC 异常与拒收同面，不静默）。
+   *
+   * 拾取门禁裁决（M6-d T3 定案）：**不加拾取前邻接预检**——resolveEdgeRef 单点
+   * 已是诚实门禁（后端邻接通道直判 >2 拒收，文案原样经 onError 透出即 UI 文案），
+   * 拾取端再预检一次=双倍 RPC 且两处判定会漂移；拒收的诚实性由后端单点保证。
    */
   protected async resolvePickedEdge(elementId: ElementId, subEntityId: number): Promise<FilletEdgeRef | undefined> {
     const fallbackError = i18next.t('partStudio.filletPick.resolveFailed');

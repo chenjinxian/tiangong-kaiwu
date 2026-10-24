@@ -1699,9 +1699,9 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     renderFilletDialog(makeApplyOp());
     await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
     await waitFor(() => expect(pickMocks.captured).toBeDefined());
-    pickMocks.captured?.onError?.('边未命中任何邻面对');
+    pickMocks.captured?.onError?.('多面交界边（非流形，邻接面数 3），圆角不支持');
     expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
-    expect((mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string }).briefMessage).toContain('边未命中任何邻面对');
+    expect((mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string }).briefMessage).toContain('多面交界边（非流形，邻接面数 3），圆角不支持');
     expect(screen.queryByText('边 1')).toBeNull();
   });
 

@@ -146,11 +146,11 @@ describe('M6-b T6：resolvePickedEdge 换算管道（mock RPC 隔离）', () => 
     expect(callbacks.errors).toHaveLength(0);
   });
 
-  it('ok:false 带后端 error → 原文回报 onError，返回 undefined（不静默）', async () => {
+  it('ok:false 带后端 error → 原文回报 onError，返回 undefined（不静默；M6-d T3 后端文案=诚实拒收文案，拾取端原样透出）', async () => {
     const { tool, callbacks } = makeTool();
-    featureRpc.resolveEdgeRef.mockResolvedValue({ ok: false, error: '边未命中任何邻面对' });
+    featureRpc.resolveEdgeRef.mockResolvedValue({ ok: false, error: '多面交界边（非流形，邻接面数 3），圆角不支持' });
     expect(await tool.callResolve('0x1f', 5)).toBeUndefined();
-    expect(callbacks.errors).toEqual(['边未命中任何邻面对']);
+    expect(callbacks.errors).toEqual(['多面交界边（非流形，邻接面数 3），圆角不支持']);
   });
 
   it('ok:false 无 error → 本地化兜底文案（词表 filletPick.resolveFailed）', async () => {
