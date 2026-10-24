@@ -255,6 +255,50 @@
   color: var(--iui-color-text-negative, #d30b0b);
 }
 
+/* ── 面域多选 chips（M6-c T3：Onshape「面和草图面域」多选语义）───────────── */
+.part-studio-feature-dialog__region-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+}
+
+.part-studio-feature-dialog__region-actions {
+  display: flex;
+  flex-direction: row;
+  gap: var(--iui-size-2xs);
+}
+
+/* 多选 chip：点选切换选中态（aria-pressed）——未选=素底描边，选中=accent 着色
+ * 加粗（底色对齐既有 chip 家族的 accent-muted）。 */
+.part-studio-feature-dialog__region-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__region-chip:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-feature-dialog__region-chip[aria-pressed='true'] {
+  border-color: var(--iui-color-text-accent);
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  color: var(--iui-color-text-accent);
+  font-weight: 600;
+}
+
+.part-studio-feature-dialog__region-chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 /* ── 折叠段（方向/起始偏移/对称/拔模）──────────────────────────────────── */
 .part-studio-feature-dialog__sections {
   display: flex;

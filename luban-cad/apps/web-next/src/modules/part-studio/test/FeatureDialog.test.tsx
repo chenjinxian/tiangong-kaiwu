@@ -26,6 +26,15 @@
 // Onshape 平铺形态复选（勾选才带 symmetric:true 键——T3 契约接线收口，
 // 缺省省略=载荷向后兼容）。
 //
+// M6-c T3（复合面域多选，合理变更）：extrude 通道面域单选下拉升级为多选
+// chips（Onshape「面和草图面域」多选语义）——载荷由 {sketchId, regionIndex}
+// 改发 {sketchId, regions: number[]}（shared v1.8 ExtrudeParams.regions；
+// regionIndex 已 @deprecated 且 zod 与 regions 互斥拒收，故不再发该键——既有
+// extrude 钉形断言随载荷形态一并更新）。缺省选中 [0]=最大面域（v1.6 缺省
+// 语义锚同源）；全选/清空轻量操作；空选 →「选择至少一个面域」+ ✓ 禁用。
+// revolve 通道保持单选下拉 + regionIndex 载荷（裁决钉死：RevolveParams 未扩
+// regions——不越契约），钉形断言不动。
+//
 // 定位：组件行为验收层；@itwin/core-frontend 模块级 mock（零真实查看器），
 // '@luban-cad/shared' 模块级 mock（getSketch 面域读面替身），真实 store/i18n
 // 参与（setup.ts 全局词库兜底，zh-CN 基线）。
@@ -409,10 +418,12 @@ describe('M5-T1 D-T9-5：Escape 关闭（document keydown 挂载期一次注册�
 // 中禁重入；applyOp 未接线回退纯回调（M3 壳期语义保持）；edit 模式本版不提交
 //（updateParams 归特征对话框增强 backlog）。
 // M6-a T6 更新（合理变更）：extrude 载荷由裸 {profile:[],distance} 改走草图
-// 通道 {sketchId, regionIndex, profile:[]}——T3 zod 互斥语义（sketchId 在场
+// 通道 {sketchId, ...}——T3 zod 互斥语义（sketchId 在场
 // profile 须空）使裸空 profile 恒被拒收（「空 profile 死结」），原断言已失效；
 // 且草图通道未就绪（未选草图/面域未载）时 ✓ 禁用，故各提交用例先经
-// renderReadyDialog 备好通道。
+// renderReadyDialog 备好通道。M6-c T3 再更新：面域寻址 {sketchId, regionIndex}
+// → {sketchId, regions: number[]}（v1.8 多选数组；regionIndex @deprecated 且
+// zod 互斥拒收，不再发该键）。
 // M5 发布窗（B2 只读写门禁）：canEdit=false → ✓/成品 禁用 + 只读提示——原
 // T6 I-1 的 store.viewOnly 直读由宿主单点下传的 canEdit 接替（写动作语义
 // 与「仅查看」视图语义分线）。
@@ -480,7 +491,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     featureRpc.getSketch.mockReset();
   });
 
-  it('✓确认 → applyOp 形状钉死（insertFeature/extrude/{sketchId,regionIndex,profile:[]}）；成功 → onConfirm（宿主关闭）', async () => {
+  it('✓确认 → applyOp 形状钉死（insertFeature/extrude/{sketchId,regions,profile:[]}——M6-c T3 regions 多选数组）；成功 → onConfirm（宿主关闭）', async () => {
     const applyOp = makeApplyOp();
     const { user, onConfirm } = await renderReadyDialog(applyOp);
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -488,12 +499,12 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0 },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('距离输入进 op params（sketchId/regionIndex 随行，距离为可编辑量）', async () => {
+  it('距离输入进 op params（sketchId/regions 随行，距离为可编辑量）', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyDialog(applyOp);
     const distance = screen.getByRole('textbox', { name: '距离' });
@@ -504,7 +515,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 42.5, sketchId: 'sk-1', regionIndex: 0 },
+      params: { profile: [], distance: 42.5, sketchId: 'sk-1', regions: [0] },
     });
   });
 
@@ -681,7 +692,10 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
 // M6-a T6：拉伸草图通道（sketchId + 面域拾取）——载荷构造/门禁/回显 chip/
 // 布尔不接通道。数据源裁决：草图列表=宿主树过滤下传（props），面域=对话框
 // 直调 getSketch（见 FeatureDialog 头注）；本 describe 用 getSketch 替身钉
-// RPC 消费面（connectionKey 寻址 + regions 面积降序数组下标=regionIndex）。
+// RPC 消费面（connectionKey 寻址 + regions 面积降序数组）。
+// M6-c T3（合理变更）：面域选择由单选下拉升级为多选 chips——载荷 regions
+// 数组（regionIndex 不再发，v1.8 @deprecated + zod 互斥）；缺省 [0]=最大面域；
+// 全选/清空/空选门禁。
 // ---------------------------------------------------------------------------
 describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
   function makeApplyOp() {
@@ -702,7 +716,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     featureRpc.getSketch.mockReset();
   });
 
-  it('多面域：region 下拉在场（首项标最大）→ 选「面域 1」→ 载荷 regionIndex=1 + chip 带面域序', async () => {
+  it('多面域：chips 多选在场（缺省 [0]=最大面域选中态）→ 点「面域 1」→ 载荷 regions [0,1]（M6-c T3 多选语义）', async () => {
     featureRpc.getSketch.mockResolvedValue(
       sketchDtoWith([
         { area: 0.5, outerEntityIds: [1, 2, 3, 4] },
@@ -724,25 +738,120 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       />,
     );
     await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
-    // 面域下拉现于 regions>1；面积读数去尾零（0.5 → "0.5"），首项=最大（regionIndex 缺省 0 的语义锚）。
-    const regionSelect = await screen.findByRole('combobox', { name: '面域' });
-    const regionOptions = within(regionSelect).getAllByRole('option');
-    expect(regionOptions[0]!.textContent).toBe('面域 0（最大，面积 0.5）');
-    expect(regionOptions[1]!.textContent).toBe('面域 1（面积 0.1）');
-    // 回显 chip 带 regionIndex（多面域形态）。
-    expect(screen.getByText('草图 1 的面 · 面域 0')).toBeDefined();
-    await user.selectOptions(regionSelect, '1');
-    expect(screen.getByText('草图 1 的面 · 面域 1')).toBeDefined();
+    // 面域多选 chips 现于 regions>1；面积读数去尾零（0.5 → "0.5"），首项=最大
+    // 且缺省选中（[0]=v1.6 regionIndex 缺省 0 的语义锚同源）。
+    const chipsBox = await screen.findByTestId('part-studio-feature-dialog-region-chips');
+    const chip0 = within(chipsBox).getByRole('button', { name: '面域 0（最大，面积 0.5）' });
+    const chip1 = within(chipsBox).getByRole('button', { name: '面域 1（面积 0.1）' });
+    expect(chip0.getAttribute('aria-pressed')).toBe('true');
+    expect(chip1.getAttribute('aria-pressed')).toBe('false');
+    // 单选下拉不在场（M6-c T3：extrude 面域下拉已升级为多选 chips）。
+    expect(screen.queryByRole('combobox', { name: '面域' })).toBeNull();
+    // 回显 chip 不带 ·面域 N 后缀（选中态由 chips 自身 aria-pressed 呈现）。
+    expect(screen.getByText('草图 1 的面')).toBeDefined();
+    // 点选「面域 1」→ 选中集 [0,1]（升序）→ 载荷 regions 数组直出。
+    await user.click(chip1);
+    expect(chip1.getAttribute('aria-pressed')).toBe('true');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 1 },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1] },
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('单面域：自动 regionIndex=0 且不显示面域下拉（缺省语义无需选择）', async () => {
+  it('多面域钉形（[0,2] 两域）：三面域缺省 [0] → 点「面域 2」→ regions [0,2]；再点「面域 0」摘除 → regions [2]（点选切换）', async () => {
+    featureRpc.getSketch.mockResolvedValue(
+      sketchDtoWith([
+        { area: 0.5, outerEntityIds: [1] },
+        { area: 0.3, outerEntityIds: [2] },
+        { area: 0.1, outerEntityIds: [3] },
+      ]),
+    );
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    const chipsBox = await screen.findByTestId('part-studio-feature-dialog-region-chips');
+    const chip0 = within(chipsBox).getByRole('button', { name: '面域 0（最大，面积 0.5）' });
+    const chip2 = within(chipsBox).getByRole('button', { name: '面域 2（面积 0.1）' });
+    await user.click(chip2);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 2] },
+    });
+    // 再点已选 chip = 摘除（点选切换语义）；余集非空 → ✓ 保持可用。
+    await user.click(chip0);
+    expect(chip0.getAttribute('aria-pressed')).toBe('false');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[1]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [2] },
+    });
+  });
+
+  it('全选/清空流：清空 → 空选提示 + ✓ 禁用不发起 op；全选 → 三域全选中载荷 regions [0,1,2]', async () => {
+    featureRpc.getSketch.mockResolvedValue(
+      sketchDtoWith([
+        { area: 0.5, outerEntityIds: [1] },
+        { area: 0.3, outerEntityIds: [2] },
+        { area: 0.1, outerEntityIds: [3] },
+      ]),
+    );
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-region-chips');
+    // 清空 → 空选门禁（M6-c T3）：「选择至少一个面域」+ ✓/成品 禁用，不发起 op。
+    await user.click(screen.getByTestId('part-studio-feature-dialog-region-clear'));
+    expect(screen.getByTestId('part-studio-feature-dialog-no-region-selected-hint').textContent).toBe('选择至少一个面域');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    // 全选 → 三 chips 全按下 → ✓ 解禁 → 载荷 regions [0,1,2]（升序集语义）。
+    await user.click(screen.getByTestId('part-studio-feature-dialog-region-select-all'));
+    const chipsBox = screen.getByTestId('part-studio-feature-dialog-region-chips');
+    const chipList = within(chipsBox).getByRole('list');
+    for (const chip of within(chipList).getAllByRole('button')) {
+      expect(chip.getAttribute('aria-pressed')).toBe('true');
+    }
+    expect(screen.queryByTestId('part-studio-feature-dialog-no-region-selected-hint')).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1, 2] },
+    });
+  });
+
+  it('单面域：自动 regions [0] 且不显示面域 chips/下拉（缺省语义无需选择）', async () => {
     featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.0025, outerEntityIds: [1, 2, 3, 4] }]));
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
@@ -758,12 +867,13 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     );
     await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
     await screen.findByText('草图 1 的面'); // 单面域 chip 无 ·面域 后缀
+    expect(screen.queryByTestId('part-studio-feature-dialog-region-chips')).toBeNull();
     expect(screen.queryByRole('combobox', { name: '面域' })).toBeNull();
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0 },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
     });
   });
 
@@ -897,7 +1007,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp).not.toHaveBeenCalled();
   });
 
-  it('换草图重置面域序：sk-1 选面域 1 → 切 sk-2 回 regionIndex=0', async () => {
+  it('换草图重置面域选择：sk-1 选 [0,1] → 切 sk-2 回缺省 [0]（旧下标不跨草图续用）', async () => {
     featureRpc.getSketch.mockImplementation(async (_key: string, sketchId: string) =>
       sketchId === 'sk-1'
         ? sketchDtoWith(
@@ -931,16 +1041,20 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       />,
     );
     await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
-    const regionSelect = await screen.findByRole('combobox', { name: '面域' });
-    await user.selectOptions(regionSelect, '1');
-    expect(screen.getByText('草图 1 的面 · 面域 1')).toBeDefined();
+    const chips1 = await screen.findByTestId('part-studio-feature-dialog-region-chips');
+    await user.click(within(chips1).getByRole('button', { name: '面域 1（面积 0.1）' }));
+    expect(screen.getByText('草图 1 的面')).toBeDefined();
     await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-2');
-    await screen.findByText('草图 2 的面 · 面域 0');
+    await screen.findByText('草图 2 的面');
+    // 换草图后多选集回缺省 [0]：sk-2 的「面域 0」按下、「面域 1」未选。
+    const chips2 = screen.getByTestId('part-studio-feature-dialog-region-chips');
+    expect(within(chips2).getByRole('button', { name: '面域 0（最大，面积 0.2）' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(chips2).getByRole('button', { name: '面域 1（面积 0.05）' }).getAttribute('aria-pressed')).toBe('false');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-2', regionIndex: 0 },
+      params: { profile: [], distance: 10, sketchId: 'sk-2', regions: [0] },
     });
   });
 
@@ -1028,7 +1142,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
       />,
     );
     await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
-    await screen.findByText('草图 1 的面'); // 面域已落定（entities 同响应到达）
+    await screen.findByText(/草图 1 的面/); // 面域已落定（entities 同响应到达；多面域 chip 带 ·面域 后缀故用 regex）
     return { user };
   }
 
@@ -1063,6 +1177,40 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
       kind: 'insertFeature',
       featureType: 'revolve',
       params: { profile: [], sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 4 }, fullRevolve: true },
+    });
+  });
+
+  it('revolve 面域保持单选（M6-c T3 裁决钉形）：多面域仍出单选下拉（无多选 chips/全选/清空），载荷 regionIndex 透传（RevolveParams 未扩 regions——不越契约）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderRevolveDialog(
+      applyOp,
+      revolveSketchDto(LINED_SKETCH_ENTITIES, [
+        { area: 0.5, outerEntityIds: [1] },
+        { area: 0.1, outerEntityIds: [2] },
+      ]),
+    );
+    // 单选下拉在场（首项标最大）；extrude 的多选 UI（chips/全选/清空/空选提示）不越通道。
+    const regionSelect = await screen.findByRole('combobox', { name: '面域' });
+    expect(within(regionSelect).getByRole('option', { name: '面域 0（最大，面积 0.5）' })).toBeDefined();
+    expect(screen.queryByTestId('part-studio-feature-dialog-region-chips')).toBeNull();
+    expect(screen.queryByTestId('part-studio-feature-dialog-region-select-all')).toBeNull();
+    expect(screen.queryByTestId('part-studio-feature-dialog-region-clear')).toBeNull();
+    expect(screen.queryByTestId('part-studio-feature-dialog-no-region-selected-hint')).toBeNull();
+    // 回显 chip 带 ·面域 N 后缀（revolve 保留单选回显形态）。
+    expect(screen.getByText('草图 1 的面 · 面域 0')).toBeDefined();
+    await user.selectOptions(regionSelect, '1');
+    expect(screen.getByText('草图 1 的面 · 面域 1')).toBeDefined();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'revolve',
+      params: {
+        profile: [],
+        sketchId: 'sk-1',
+        regionIndex: 1,
+        axis: { sketchEntityId: 3 },
+        fullRevolve: true,
+      },
     });
   });
 
@@ -1202,7 +1350,7 @@ describe('M6-b T4 extrude 对称平铺复选（Onshape 平铺形态；载荷已�
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0, symmetric: true },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], symmetric: true },
     });
     expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).symmetric).toBe(true);
   });

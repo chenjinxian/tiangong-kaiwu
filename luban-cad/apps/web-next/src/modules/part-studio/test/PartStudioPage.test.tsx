@@ -799,7 +799,8 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
   it('拉伸闭环（页级）：new/extrude 对话框提交 → applyFeatureOp 形状钉死（M6-a T6 草图通道）+ 对话框关闭', async () => {
     const user = userEvent.setup();
     // M6-a T6：树含 sketch 节点（Session 过滤映射成对话框下拉选项）+ getSketch
-    // 面域替身——载荷 {sketchId, regionIndex, profile:[]}（mockResolvedValueOnce：
+    // 面域替身——载荷 {sketchId, regions, profile:[]}（M6-c T3：面域寻址升级为
+    // regions 多选数组，regionIndex 不再发；mockResolvedValueOnce：
     // 挂载首跳吃树内草图，提交后 refresh 回落缺省空树，实现不跨用例渗漏）。
     featureRpc.getFeatureTree.mockResolvedValueOnce([
       { id: 'sk-1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
@@ -817,7 +818,7 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
       usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
     });
     const dialog = await screen.findByTestId('part-studio-feature-dialog');
-    // 选草图（树映射命名「草图 1」）→ 面单域自动 regionIndex=0 → 提交。
+    // 选草图（树映射命名「草图 1」）→ 单面域自动 regions [0] → 提交。
     await user.selectOptions(within(dialog).getByRole('combobox', { name: '草图' }), 'sk-1');
     await within(dialog).findByText('草图 1 的面');
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
@@ -827,7 +828,7 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
         {
           kind: 'insertFeature',
           featureType: 'extrude',
-          params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0 },
+          params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
         },
         expect.any(String),
       ),

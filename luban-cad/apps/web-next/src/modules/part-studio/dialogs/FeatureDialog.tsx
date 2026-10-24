@@ -28,7 +28,8 @@
  * 拉伸草图通道（M6-a T6，解「空 profile 死结」的前端最后一环）：extrude 的
  * 新建提交改走草图寻址——`params: { profile: [], distance, sketchId,
  * regionIndex }`（shared v1.6 互斥语义：sketchId 在场时 profile 须空数组，
- * 后端 zod 拒收裸空 profile）。数据源裁决（两路取内聚者）：
+ * 后端 zod 拒收裸空 profile；M6-c T3 起面域寻址升级为 regions 多选数组，
+ * regionIndex 不再发——见下方 M6-c T3 段）。数据源裁决（两路取内聚者）：
  * - 草图列表 = 宿主（Session）自 useFeatureSystem.tree 过滤 featureType===
  *   'sketch' 经 mapFeatureEntries 命名后 props 下传——树已在 onCommitted/
  *   onAfterUndoRedo 双订刷新（建/删草图自动跟随、orderKey 有序、命名与特征
@@ -39,10 +40,10 @@
  *   的读面钉死 store.sketch.activeSketchId（草图模式身份），对话框拾取任意
  *   草图不属该通道（复用须劫持活动身份，误触草图模式变身语义），直调 RPC
  *   即最小内聚面（读操作不涉写租约；代际守卫防慢响应覆写）。
- * 交互（M6-a 最小形态，视口点击拾取归 M6-c）：草图下拉（多选一）+ 面域下拉
- *（regions>1 才现——单面域自动 regionIndex=0）；选中回显 chip「{草图名} 的面」
- *（多面域追加 ·面域 N，对齐采集规格「Sketch 1 的 面」chips 形态），×移除=
- * 清选择。门禁（对齐 T3 zod 语义，不再空 profile 裸奔）：无草图 → 「先创建
+ * 交互（M6-a 最小形态，视口点击拾取归 M6-c；面域选择形态 M6-c T3 起分叉——
+ * extrude 多选 chips / revolve 单选下拉，见下方 M6-c T3 段）：草图下拉
+ *（多选一）；选中回显 chip「{草图名} 的面」（revolve 多面域追加 ·面域 N，
+ * 对齐采集规格「Sketch 1 的 面」chips 形态），×移除=清选择。门禁（对齐 T3 zod 语义，不再空 profile 裸奔）：无草图 → 「先创建
  * 草图」提示 + 提交禁用；regions 缺省/空 → 「草图无可拉伸面域」 + 禁用；
  * 面域读取中/失败 → 禁用（失败经 role=alert 就地呈现）。布尔类型按既有 zod
  * 拒收语义不接（Registry booleanSchema sketchId:z.never()），其余特征类型走
@@ -62,6 +63,21 @@
  *   fullRevolve, angle?}`（angle 仅 !fullRevolve 携带）；距离量对 revolve
  *   不适用——距离输入隐藏、距离校验跳过（revolve 分支独立构造器，extrude
  *   通道载荷不动）。
+ *
+ * 复合面域多选（M6-c T3，shared v1.8 ExtrudeParams.regions——Onshape「面和
+ * 草图面域」多选语义，接替 M6-a T6 的面域单选下拉）：extrude 通道 regions>1
+ * 时渲染面域多选 chips（点选切换选中态 aria-pressed，样式对齐既有 chip 家族）
+ * +「全选/清空」轻量操作；缺省选中 [0]（=最大面域，v1.6 regionIndex 缺省 0
+ * 的语义锚同源）；单面域保持自动 [0]（无 UI）。选中态 `selectedRegions`
+ *（SketchDto.regions 面积降序下标，升序存储=载荷集语义确定性），载荷
+ * `{profile: [], distance, sketchId, regions: selectedRegions,
+ * ...(symmetric?{symmetric}:{})}`——**不再发 regionIndex**（shared v1.8 起
+ * @deprecated，服务端 zod 与 regions 互斥拒收）。门禁追加：selectedRegions
+ * 空（用户清空）→「选择至少一个面域」提示 + ✓ 禁用；regions 读取中/失败/空
+ * 既有门禁不动。revolve 通道保持单选下拉 + regionIndex 载荷
+ *（**裁决钉死：RevolveParams 未扩 regions——不越契约**；多面域旋转归后续
+ * 契约扩展单裁），回显 chip「· 面域 N」后缀亦仅 revolve 保留（extrude 的
+ * 面域选中态由多选 chips 自身 aria-pressed 呈现）。
  *
  * 对称复选（M6-b T4，extrude 通道）：Onshape 采集形态「对称」在折叠区外平铺
  *（sketchChannel 下折叠段 symmetric 隐藏，平铺复选顶替）——state 即既有
@@ -337,7 +353,13 @@ export function FeatureDialog({
   const filletChannel = mode === 'new' && featureType === 'fillet' && applyOp !== undefined;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
+  // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
+  // 不再消费此态，其面域选择走下方 selectedRegions 多选集）。
   const [regionIndex, setRegionIndex] = React.useState(0);
+  // M6-c T3（extrude 通道）：多面域选中集——SketchDto.regions 面积降序下标，
+  // 升序存储（载荷集语义确定性；后端重复下标按集去重幂等）。缺省 [0]=最大面域
+  //（v1.6 regionIndex 缺省 0 的语义锚同源），随面域读取落定回填。
+  const [selectedRegions, setSelectedRegions] = React.useState<number[]>([]);
   // 面域读面（getSketch.regions——面积降序数组；undefined=未选/读取中）。
   const [regions, setRegions] = React.useState<SketchRegionDto[] | undefined>(undefined);
   const [regionsLoading, setRegionsLoading] = React.useState(false);
@@ -440,6 +462,7 @@ export function FeatureDialog({
     if (!sketchChannel || selectedSketchId === '') {
       setRegions(undefined);
       setSketchEntities(undefined);
+      setSelectedRegions([]); // M6-c T3：多选集随身份清空（不跨草图残留）
       setRegionsLoading(false);
       setRegionsError(undefined);
       return;
@@ -447,6 +470,7 @@ export function FeatureDialog({
     if (!connectionKey) {
       setRegions(undefined);
       setSketchEntities(undefined);
+      setSelectedRegions([]);
       setRegionsLoading(false);
       setRegionsError(t('partStudio.featureDialog.regionUnreadable'));
       return;
@@ -460,12 +484,15 @@ export function FeatureDialog({
           if (regionsEpochRef.current !== epoch) return; // 迟写丢弃（身份已切换）
           setRegions(sketch?.regions ?? []); // regions 缺省（旧后端不下发）=无面域，禁提交
           setSketchEntities(sketch?.entities ?? []); // M6-b T4：revolve 轴候选源（同响应落定）
+          // M6-c T3：多选集缺省回填 [0]=最大面域（单/多面域同式；空集=无面域）。
+          setSelectedRegions((sketch?.regions?.length ?? 0) > 0 ? [0] : []);
           setRegionsLoading(false);
         },
         (err: unknown) => {
           if (regionsEpochRef.current !== epoch) return;
           setRegions([]);
           setSketchEntities([]);
+          setSelectedRegions([]);
           setRegionsError(err instanceof Error ? err.message : String(err));
           setRegionsLoading(false);
         },
@@ -491,10 +518,11 @@ export function FeatureDialog({
     }
   }, [axisLines, selectedAxisId]);
 
-  // 提交门（M6-a T6）：草图通道就绪 = 已选草图 ∧ 面域已载且非空 ∧ 未越界
-  //（regionIndex 越界防御：换草图瞬间旧值残留）。不就绪 → ✓/成品 禁用——
-  // T3 zod 拒收语义前置到 UI（无 sketchId 的空 profile 裸奔不再发放行）。
-  // M6-b T4（revolve 通道追加）：轴线已选（无 line 实体/未载 → 禁提交）。
+  // 提交门（M6-a T6；M6-c T3 面域判据分叉）：草图通道就绪 = 已选草图 ∧ 面域
+  // 已载且非空 ∧ 面域选择就绪——extrude=多选集非空（用户清空 →「选择至少一个
+  // 面域」+ ✓ 禁用）；revolve=单选序未越界（换草图瞬间旧值残留防御）∧ 轴线
+  // 已选。不就绪 → ✓/成品 禁用——T3 zod 拒收语义前置到 UI（无 sketchId 的空
+  // profile 裸奔不再发放行）。
   const regionCount = regions?.length ?? 0;
   const sketchReady =
     !sketchChannel ||
@@ -502,8 +530,9 @@ export function FeatureDialog({
       !regionsLoading &&
       regionsError === undefined &&
       regionCount > 0 &&
-      regionIndex < regionCount &&
-      (!revolveChannel || selectedAxisId !== undefined));
+      (revolveChannel
+        ? regionIndex < regionCount && selectedAxisId !== undefined
+        : selectedRegions.length > 0));
   // 提交门（M6-b T6 fillet 追加）：已拾至少一条边（空边集禁提交——shared
   // FilletParams.edges 非空语义前置）∧ 拾取会话已结束（会话在场时禁提交）。
   const filletReady = !filletChannel || (filletEdges.length > 0 && !picking);
@@ -524,18 +553,34 @@ export function FeatureDialog({
     setChips((prev) => prev.filter((chip) => chip.id !== id));
   }, []);
 
-  // 草图选择（M6-a T6）：换草图即重置面域序（regions 语义=该草图的面积降序
-  // 数组，旧下标不跨草图续用；读取中的过渡窗由 sketchReady 禁提交兜住）。
+  // 草图选择（M6-a T6）：换草图即重置面域选择（regions 语义=该草图的面积降序
+  // 数组，旧下标不跨草图续用；读取中的过渡窗由 sketchReady 禁提交兜住）——
+  // 单选序归零 + 多选集同步清空（M6-c T3：多选集不清则载荷会以新 sketchId 配
+  // 旧草图下标，读取 effect 落定前的过渡帧故须就地失效）。
   const handleSketchChange = React.useCallback((sketchId: string) => {
     setSelectedSketchId(sketchId);
     setRegionIndex(0);
+    setSelectedRegions([]);
   }, []);
 
   // 草图 chip ×移除 = 清选择（回到「选择草图…」占位，提交随 sketchReady 禁用）。
   const handleRemoveSketchChip = React.useCallback(() => {
     setSelectedSketchId('');
     setRegionIndex(0);
+    setSelectedRegions([]);
   }, []);
+
+  // 面域多选（M6-c T3 extrude 通道）：点 chip 切换选中态；升序存储（载荷集
+  // 语义确定性）；「全选/清空」轻量操作补全 Onshape 多选手感的两端。
+  const handleToggleRegion = React.useCallback((index: number) => {
+    setSelectedRegions((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index].sort((a, b) => a - b),
+    );
+  }, []);
+  const handleSelectAllRegions = React.useCallback(() => {
+    setSelectedRegions((regions ?? []).map((_, index) => index));
+  }, [regions]);
+  const handleClearRegions = React.useCallback(() => setSelectedRegions([]), []);
 
   const buildResult = React.useCallback((): FeatureDialogResult => ({
     resultType,
@@ -604,13 +649,17 @@ export function FeatureDialog({
         result = await applyOp({
           kind: 'insertFeature',
           featureType,
-          // M6-a T6：extrude 走草图通道——{sketchId, regionIndex} 面域寻址 +
-          // 空 profile（shared v1.6 互斥语义：sketchId 在场时 profile 须空数组，
-          // 后端 sketchRegionsFrom 按面域数组产轮廓）；其余特征类型载荷不动
+          // M6-a T6：extrude 走草图通道——{sketchId} 草图寻址 + 空 profile
+          //（shared 互斥语义：sketchId 在场时 profile 须空数组，后端
+          // sketchRegionsFrom 按面域数组产轮廓）；其余特征类型载荷不动
           //（布尔类型 zod 拒收 sketchId——Registry booleanSchema，不接）。
+          // M6-c T3：面域寻址升级——regions 多选数组直出（缺省 [0]=最大面域；
+          // 不再发 regionIndex——shared v1.8 起该键 @deprecated，服务端 zod 与
+          // regions 互斥拒收，同给两键即拒）。
           // M6-b T4：revolve 分支独立构造器——{sketchId, regionIndex,
-          // axis, fullRevolve, angle?}（shared v1.7 RevolveParams；symmetric
-          // 等 extrude 扩展不适用，对称载荷挂账见文件头注 T4-minor）。
+          // axis, fullRevolve, angle?}（shared v1.7 RevolveParams；**裁决钉死：
+          // RevolveParams 未扩 regions，revolve 保持单选 regionIndex 不越契约**；
+          // symmetric 等 extrude 扩展不适用，对称载荷挂账见文件头注 T4-minor）。
           // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
           // edges:[{faceA,faceB}...]}（拓扑 id 对透传，shared v1.1 既有契约；
           // 无 profile/distance 语义）。
@@ -634,7 +683,7 @@ export function FeatureDialog({
                   profile: [],
                   distance: parsedDistance,
                   sketchId: selectedSketchId,
-                  regionIndex,
+                  regions: [...selectedRegions],
                   // M6-b T3 契约（shared v1.7 ExtrudeParams.symmetric）落地后的
                   // T4-minor 接线收口：对称复选勾选才带键（缺省省略=载荷向后
                   // 兼容，既有钉形测试不破）。
@@ -678,6 +727,7 @@ export function FeatureDialog({
     propagateSmooth,
     selectedSketchId,
     regionIndex,
+    selectedRegions,
     selectedAxisId,
     fullRevolve,
     angleDegrees,
@@ -688,11 +738,13 @@ export function FeatureDialog({
     featureName,
   ]);
 
-  // 选中回显 chip（M6-a T6）：「{草图名} 的面」（多面域追加 ·面域 N）——对齐
-  // 采集规格「Sketch 1 的 面」chips 形态；单面域不追加（regionIndex 恒 0 无信息量）。
+  // 选中回显 chip（M6-a T6；M6-c T3 分叉）：「{草图名} 的面」——对齐采集规格
+  // 「Sketch 1 的 面」chips 形态；「· 面域 N」后缀仅 revolve 保留（单选下拉的
+  // 回显位），extrude 的面域选中态由多选 chips 自身 aria-pressed 呈现（后缀
+  // 表达不了集合）。
   const selectedSketch = sketchOptions.find((option) => option.id === selectedSketchId);
   const sketchChipLabel = selectedSketch
-    ? regionCount > 1
+    ? revolveChannel && regionCount > 1
       ? t('partStudio.featureDialog.sketchFaceChipWithRegion', {
           name: selectedSketch.label,
           index: regionIndex,
@@ -1079,9 +1131,55 @@ export function FeatureDialog({
                 ))}
               </select>
 
-              {/* 面域下拉（M6-a T6 最小形态）：regions>1 才现——单面域自动
-                  regionIndex=0（缺省语义），无需选择。 */}
-              {regions !== undefined && regionCount > 1 && (
+              {/* 面域选择（M6-a T6 最小形态 → M6-c T3 分叉）：extrude=多选 chips
+                  （regions>1 才现；点选切换 aria-pressed，缺省 [0]=最大面域；
+                  「全选/清空」轻量操作）——Onshape「面和草图面域」多选语义；
+                  revolve=单选下拉保持（**裁决钉死：RevolveParams 未扩 regions——
+                  不越契约**，载荷仍 regionIndex）。单面域两通道均自动 [0]（缺省
+                  语义无需选择，无 UI）。 */}
+              {regions !== undefined && regionCount > 1 && !revolveChannel && (
+                <div
+                  className="part-studio-feature-dialog__region-picker"
+                  data-testid="part-studio-feature-dialog-region-chips"
+                >
+                  <ul className="part-studio-feature-dialog__chips">
+                    {regions.map((region, index) => (
+                      <li key={`region-${index}`}>
+                        <button
+                          type="button"
+                          aria-pressed={selectedRegions.includes(index)}
+                          className="part-studio-feature-dialog__region-chip"
+                          disabled={submitting}
+                          onClick={() => handleToggleRegion(index)}
+                        >
+                          {regionOptionLabel(index, region.area)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="part-studio-feature-dialog__region-actions">
+                    <button
+                      type="button"
+                      className="part-studio-feature-dialog__fast-pick"
+                      data-testid="part-studio-feature-dialog-region-select-all"
+                      disabled={submitting}
+                      onClick={handleSelectAllRegions}
+                    >
+                      {t('partStudio.featureDialog.regionSelectAll')}
+                    </button>
+                    <button
+                      type="button"
+                      className="part-studio-feature-dialog__fast-pick"
+                      data-testid="part-studio-feature-dialog-region-clear"
+                      disabled={submitting}
+                      onClick={handleClearRegions}
+                    >
+                      {t('partStudio.featureDialog.regionClearAll')}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {regions !== undefined && regionCount > 1 && revolveChannel && (
                 <select
                   aria-label={t('partStudio.featureDialog.regionLabel')}
                   className="part-studio-feature-dialog__select"
@@ -1095,6 +1193,19 @@ export function FeatureDialog({
                     </option>
                   ))}
                 </select>
+              )}
+
+              {/* 空选门禁（M6-c T3）：extrude 多面域下用户清空全部选中 →
+                  「选择至少一个面域」提示 + ✓ 禁用（sketchReady extrude 判据）。
+                  revolve 无此态（单选下拉恒有值）。 */}
+              {!revolveChannel && !regionsError && regions !== undefined && regionCount > 0 && selectedRegions.length === 0 && (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-no-region-selected-hint"
+                >
+                  {t('partStudio.featureDialog.noRegionSelectedHint')}
+                </p>
               )}
 
               {/* 旋转轴下拉（M6-b T4 revolve 通道）：getSketch entities 过滤
@@ -1130,7 +1241,7 @@ export function FeatureDialog({
                 </p>
               )}
 
-              {/* 选中回显 chip：「{草图名} 的面」+ regionIndex（多面域）；×=清选择。 */}
+              {/* 选中回显 chip：「{草图名} 的面」（revolve 多面域 + regionIndex）；×=清选择。 */}
               {selectedSketch && sketchChipLabel && (
                 <ul className="part-studio-feature-dialog__chips">
                   <li className="part-studio-feature-dialog__chip">

@@ -204,6 +204,9 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.sketchLabel', 'featureDialog.sketchPlaceholder',
   'featureDialog.noSketchHint', 'featureDialog.regionLabel',
   'featureDialog.regionOption', 'featureDialog.regionOptionLargest',
+  // M6-c T3：复合面域多选 chips——全选/清空轻量操作 + 空选门禁提示。
+  'featureDialog.regionSelectAll', 'featureDialog.regionClearAll',
+  'featureDialog.noRegionSelectedHint',
   'featureDialog.noRegionHint', 'featureDialog.regionUnreadable',
   'featureDialog.sketchFaceChip', 'featureDialog.sketchFaceChipWithRegion',
   'featureDialog.rollbackLabel', 'featureDialog.finish',

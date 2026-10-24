@@ -93,7 +93,9 @@ export interface ShellParams {
  * `axis` = 草图内 line 实体 id（须与面域共面——结构上草图线恒在草图面内，服务端求值期
  * 守卫兜底）；`fullRevolve=true` 走 360° 全周（`angle` 忽略），否则 `angle` 弧度制必填。
  * `regionIndex` 语义与 extrude 同（SketchDto.regions 下标，面积降序；缺省 0=最大面域）。
- * v1 语义=只 NEW（新建体，不与上游布尔融合）——服务端裁决，见 modeling-server FeatureEngine。 */
+ * M6-c T2 起语义=ADD（Onshape Add 同语义：有上游=与上游布尔并为单一并集体——离群两体为
+ * 多 lump 单体，合法；无上游=新建体直出）。v1 的「只 NEW」挂账已清偿——服务端裁决见
+ * modeling-server AsyncFeatureEval.evaluateRevolveAsync 头注。 */
 export interface RevolveParams {
   sketchId: string;
   regionIndex?: number;

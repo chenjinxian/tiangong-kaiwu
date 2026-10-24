@@ -6,8 +6,8 @@
 //     ——不同 featureId 切换时重挂（本地态不跨特征残留；M3-T6 台账①根治）；
 //  2) new/extrude 提交链：对话框确认 → 宿主下传的 applyOp（Session
 //     useFeatureSystem 直通）被调；✗ 取消 → closeDialog；M6-a T6 起载荷走
-//     草图通道（sketches/connectionKey 透传 → {sketchId, regionIndex,
-//     profile:[]}，getSketch 面域读面替身）；
+//     草图通道（sketches/connectionKey 透传 → {sketchId, regions,
+//     profile:[]}——M6-c T3 面域寻址升级多选数组，getSketch 面域读面替身）；
 //  3) sketch 寻址：SketchDialog 照旧按 dialog.active==='sketch' 渲染；
 //     M6-a T4 起 sketch 提交链同款接线（✓ → applyOp 收 insertSketch →
 //     真 sketchId 入 store → closeDialog；canEdit=false → ✓ 禁用）。
@@ -142,7 +142,8 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     const user = userEvent.setup();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' }));
     // 宿主下传 sketches + connection.key → 对话框选中草图经 getSketch 拿面域 →
-    // 载荷 {sketchId, regionIndex, profile:[]}（M6-a T6 草图通道）。
+    // 载荷 {sketchId, regions, profile:[]}（M6-a T6 草图通道；M6-c T3 面域寻址
+    // 升级为 regions 多选数组，regionIndex 不再发）。
     featureRpc.getSketch.mockResolvedValue({
       id: 'sk-1',
       entities: [],
@@ -161,7 +162,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
       expect(applyOp).toHaveBeenCalledWith({
         kind: 'insertFeature',
         featureType: 'extrude',
-        params: { profile: [], distance: 10, sketchId: 'sk-1', regionIndex: 0 },
+        params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
       }),
     );
     // 成功 → 宿主收合（closeDialog）。

@@ -61,8 +61,8 @@
  * useFeatureDisplaySync（几何出现链收口）；树经 Sidebar props 直通（六态），
  * 对话框提交面经 Canvas applyOp 直通——ribbon「拉伸」→ FeatureDialog(new/
  * extrude) → insertFeature 落库 → onCommitted+refresh → 树新条目 → 显示同步
- * 几何出现。M6-a T6 起提交载荷走草图通道（{sketchId, regionIndex,
- * profile:[]}）——树内 sketch 节点经 mapFeatureEntries 映射成下拉选项随
+ * 几何出现。M6-a T6 起提交载荷走草图通道（M6-c T3 起面域寻址为 regions 多选
+ * 数组：{sketchId, regions, profile:[]}）——树内 sketch 节点经 mapFeatureEntries 映射成下拉选项随
  * sketches 下传 Canvas，connection.key 随行供对话框 getSketch 面域读面
  *（数据源裁决见 FeatureDialog 头注）。
  *
