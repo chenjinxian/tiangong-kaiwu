@@ -540,7 +540,6 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   const idxBand = regionIndexByArea(regions, 1153.56); // 拱形环带+喉部
   const idxLobe = regionIndexByArea(regions, 2298.36); // 拱肩环面（样条+大弧+左壁+底座顶）
   const idxRightRect = regionIndexByArea(regions, 725.775); // 旋转矩形轴右半（25.4×28.575）
-  const idxMidband = regionIndexByArea(regions, 483.87); // 中带（rect2 轴左 H1/H2 间）
   console.log(
     `[t7] 面域映射：base=${idxBase} band=${idxBand} lobe=${idxLobe} rightRect=${idxRightRect}`,
   );
@@ -557,11 +556,11 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
   await page.screenshot({ path: shotPath('t7-2-extrude1.png') });
 
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBand], '50.8', '拉伸 2');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBand, idxRightRect], '50.8', '拉伸 2');
   await expect(featureCount).toHaveText('(3)', { timeout: 30_000 });
   await page.screenshot({ path: shotPath('t7-3-extrude2.png') });
 
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxLobe, idxMidband], '15.875', '拉伸 3');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxLobe], '15.875', '拉伸 3');
   await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
   await page.screenshot({ path: shotPath('t7-4-extrude3.png') });
 
@@ -844,7 +843,7 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
   await page.screenshot({ path: shotPath('t7b-1-box-fillet.png') });
 
   // 后续特征并入已倒角板（拱在中部不碰角圆角——union 预期无碍）
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBand], '50.8', '拉伸 2');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBand, idxRightRect], '50.8', '拉伸 2');
   await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
   await expectTreeRowGreen(featureList, '拉伸 2');
   await extrudeViaDialog(page, dialog, featureList, sketchId, [idxLobe], '15.875', '拉伸 3');
