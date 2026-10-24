@@ -26,6 +26,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IModelApp } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
+import { LUBAN_INIT_TXN_DESCRIPTION } from '@luban-cad/shared';
+
+/** 初始化事务不可撤销（撤销=删 BodySolid/schema=库损坏向量）；undo() 执行入口
+ * 的同款守卫在 editor-frontend UndoTool（工具栏/快捷键/程序化单点封口）。 */
+const INIT_TXN_DESCRIPTION = LUBAN_INIT_TXN_DESCRIPTION;
 
 export interface UseUndoRedoResult {
   /** 撤销可用（BriefcaseTxns.isUndoPossible）。 */
@@ -68,13 +73,16 @@ export function useUndoRedo(connection: BriefcaseConnection | null): UseUndoRedo
     }
     const seq = ++querySeqRef.current;
     try {
-      const [undoPossible, redoPossible, pending] = await Promise.all([
+      const [undoPossible, redoPossible, pending, undoString] = await Promise.all([
         conn.txns.isUndoPossible(),
         conn.txns.isRedoPossible(),
         conn.txns.hasPendingTxns(),
+        // M6-c 后置：初始化事务不可撤销（新鲜空树 undo 恒启用的产品级缺陷——
+        // 待撤销事务=init 描述时 canUndo 翻假，执行入口由 UndoTool 同款守卫封口）。
+        conn.txns.getUndoString().catch(() => undefined),
       ]);
       if (seq !== querySeqRef.current) return;
-      setCanUndo(undoPossible);
+      setCanUndo(undoPossible && undoString !== INIT_TXN_DESCRIPTION);
       setCanRedo(redoPossible);
       setHasUnsavedChanges(pending);
     } catch {

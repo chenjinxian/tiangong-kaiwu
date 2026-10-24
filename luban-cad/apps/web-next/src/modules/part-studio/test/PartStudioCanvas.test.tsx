@@ -28,6 +28,7 @@ const featureRpc = vi.hoisted(() => ({
 }));
 
 vi.mock('@luban-cad/shared', () => ({
+  LUBAN_INIT_TXN_DESCRIPTION: 'partstudio init',
   LubanFeatureRpcInterface: {
     getClient: () => featureRpc,
   },

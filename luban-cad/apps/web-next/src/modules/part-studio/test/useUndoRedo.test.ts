@@ -56,6 +56,7 @@ type TxnsStub = {
   isUndoPossible: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
   isRedoPossible: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
   hasPendingTxns: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
+  getUndoString: ReturnType<typeof vi.fn<() => Promise<string>>>;
   onCommit: ReturnType<typeof makeEvent>;
   onCommitted: ReturnType<typeof makeEvent<[boolean, number]>>;
   onAfterUndoRedo: ReturnType<typeof makeEvent<[boolean]>>;
@@ -68,6 +69,8 @@ function makeTxns(): TxnsStub {
     isUndoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
     isRedoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
     hasPendingTxns: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    // M6-c 后置：init 事务守卫的查询面（缺省非 init 描述=普通可撤销事务）。
+    getUndoString: vi.fn<() => Promise<string>>().mockResolvedValue('feature op: insertFeature'),
     onCommit: makeEvent(),
     onCommitted: makeEvent<[boolean, number]>(),
     onAfterUndoRedo: makeEvent<[boolean]>(),
@@ -145,6 +148,27 @@ describe('useUndoRedo（BriefcaseTxns 标准通道）', () => {
       expect(result.current.hasUnsavedChanges).toBe(false);
     });
     expect(txns.isUndoPossible.mock.calls.length).toBeGreaterThan(queriesBefore);
+  });
+
+  it('M6-c 后置：待撤销事务=初始化（init 描述）→ canUndo 翻假（新鲜空树 undo 恒启用缺陷守卫）', async () => {
+    const txns = makeTxns();
+    txns.isUndoPossible.mockResolvedValue(true);
+    txns.getUndoString.mockResolvedValue('partstudio init');
+    const connection = makeConnection(txns);
+    const { result } = renderHook(() => useUndoRedo(connection));
+
+    await waitFor(() => {
+      // isUndoPossible=true 但待撤销的是 init 事务 → 按钮态翻假。
+      expect(result.current.canUndo).toBe(false);
+    });
+    // 普通事务描述恢复 canUndo。
+    txns.getUndoString.mockResolvedValue('feature op: insertFeature');
+    act(() => {
+      txns.onAfterUndoRedo.raise(false);
+    });
+    await waitFor(() => {
+      expect(result.current.canUndo).toBe(true);
+    });
   });
 
   it('onCommit（提交前置事件）：hasUnsavedChanges 置 true', async () => {

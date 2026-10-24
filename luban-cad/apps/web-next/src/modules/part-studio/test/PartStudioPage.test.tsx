@@ -148,6 +148,7 @@ const featureRpc = vi.hoisted(() => ({
 }));
 
 vi.mock('@luban-cad/shared', () => ({
+  LUBAN_INIT_TXN_DESCRIPTION: 'partstudio init',
   LubanFeatureRpcInterface: {
     getClient: () => featureRpc,
   },
@@ -216,6 +217,7 @@ function makeTxnsStub() {
   };
   return {
     isUndoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    getUndoString: vi.fn<() => Promise<string>>().mockResolvedValue('feature op: insertFeature'),
     isRedoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
     hasPendingTxns: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
     onCommit: makeEvent(),

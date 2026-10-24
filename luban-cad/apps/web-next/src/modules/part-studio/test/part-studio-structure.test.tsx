@@ -172,6 +172,7 @@ vi.mock('@luban-cad/viewer-next', () => ({
 
 // M4-T9：特征 RPC 接口钉形（真实 useFeatureSystem 消费 getClient）。
 vi.mock('@luban-cad/shared', () => ({
+  LUBAN_INIT_TXN_DESCRIPTION: 'partstudio init',
   LubanFeatureRpcInterface: {
     getClient: () => featureRpc,
   },
@@ -205,6 +206,7 @@ function makeTxnsStub() {
   };
   return {
     isUndoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+    getUndoString: vi.fn<() => Promise<string>>().mockResolvedValue('feature op: insertFeature'),
     isRedoPossible: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
     hasPendingTxns: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
     onCommit: makeEvent(),

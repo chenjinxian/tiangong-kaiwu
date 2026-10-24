@@ -234,3 +234,4 @@ export {
 // =============================================================================
 export { openCloudIpcChannel } from './OpenCloudIpcInterface.js';
 export type { OpenCloudIpcInterface, BriefcaseDownloadResult, CadFeatureRecord } from './OpenCloudIpcInterface.js';
+export { LUBAN_INIT_TXN_DESCRIPTION } from './constants.js';
