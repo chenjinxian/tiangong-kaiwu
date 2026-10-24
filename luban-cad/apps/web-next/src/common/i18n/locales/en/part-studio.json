@@ -425,6 +425,17 @@
         "slotMismatch": "The {{label}} dimension only accepts a {{slot}} (got {{actual}})"
       }
     },
+    "offset": {
+      "prompts": {
+        "pickChain": "Offset: click an entity to offset (joined entities extend the chain automatically)",
+        "confirmSide": "Offset: click to set the offset side and distance"
+      },
+      "toasts": {
+        "unsupportedKind": "Offset currently supports lines and arcs only",
+        "degenerateRadius": "Offset distance too large: an inward-offset arc would collapse to zero radius",
+        "zeroDistance": "Offset distance is zero; click away from the entity to set the offset"
+      }
+    },
     "toasts": {
       "notOpenOrEmpty": "No sketch is open (or it is empty); nothing to pick",
       "noSolvedCoords": "No sketch entity can be resolved at the hit point",

@@ -23,7 +23,11 @@
  *（tools/sketch/SketchAddConstraintTool.ts + SketchAddDimensionTool.ts，
  * registerSketchConstraintTools/registerSketchDimensionTools 注册，同一激活
  * 路由直投）。os-30 的「标注 2」按工具展开为 8 钮（1:1 下拉归 M6-c）。
- * 其余 6 件（样条/编辑 5）占位保留，T6+ 后续任务接线。
+ *
+ * M6-c T4（偏移接线）：sketchOffset 占位替换为真 toolId——Sketch.Offset
+ *（tools/sketch/SketchOffsetTool.ts，registerSketchOffsetTools 注册，同一
+ * 激活路由直投；选链→光标侧定方向→垂距定距→闭式造几何+约束展开）。
+ * 其余 5 件（样条/编辑 4）占位保留，T6+ 后续任务接线。
  *
  * 图标：沿用 ribbon-registry 自制描边 SVG 同姿态（24×24，currentColor）。
  */
@@ -191,7 +195,7 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   // 编辑 5
   { id: 'sketchFillet', icon: SketchFilletIcon, labelKey: 'partStudio.ribbon.sketchTools.fillet.label', capability: 'sketch', group: 'sketchEdit' },
   { id: 'sketchTrim', icon: TrimIcon, labelKey: 'partStudio.ribbon.sketchTools.trim.label', capability: 'sketch', group: 'sketchEdit' },
-  { id: 'sketchOffset', icon: OffsetIcon, labelKey: 'partStudio.ribbon.sketchTools.offset.label', capability: 'sketch', group: 'sketchEdit' },
+  { id: 'Sketch.Offset', icon: OffsetIcon, labelKey: 'partStudio.ribbon.sketchTools.offset.label', capability: 'sketch', group: 'sketchEdit' },
   { id: 'sketchMirror', icon: SketchMirrorIcon, labelKey: 'partStudio.ribbon.sketchTools.mirror.label', capability: 'sketch', group: 'sketchEdit' },
   { id: 'sketchText', icon: TextIcon, labelKey: 'partStudio.ribbon.sketchTools.text.label', capability: 'sketch', group: 'sketchEdit' },
   // 标注 8（M6-b T5：约束 6 + 尺寸 2，占位 sketchConstraint/sketchDimension 两

@@ -232,6 +232,11 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'sketch.constraint.reject.slotMismatch',
   'sketch.dimension.prompts.first', 'sketch.dimension.prompts.next',
   'sketch.dimension.reject.slotMismatch',
+  // M6-c T4：偏移工具（Sketch.Offset）——两相提示 + 三拒收文案（ribbon
+  // sketchTools.offset.label 由 SketchDialog.test 数据驱动守卫，不在此列）。
+  'sketch.offset.prompts.pickChain', 'sketch.offset.prompts.confirmSide',
+  'sketch.offset.toasts.unsupportedKind', 'sketch.offset.toasts.degenerateRadius',
+  'sketch.offset.toasts.zeroDistance',
   'sketch.toasts.notOpenOrEmpty', 'sketch.toasts.noSolvedCoords',
   'sketch.toasts.alreadyPicked', 'sketch.toasts.updateFailed',
   'sketch.vocabulary.entityKinds.point', 'sketch.vocabulary.entityKinds.line',

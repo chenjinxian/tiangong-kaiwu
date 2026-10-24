@@ -425,6 +425,17 @@
         "slotMismatch": "{{label}}尺寸只能拾取{{slot}}（当前为{{actual}}）"
       }
     },
+    "offset": {
+      "prompts": {
+        "pickChain": "偏移：点击选择要偏移的实体（相接实体自动扩展成链）",
+        "confirmSide": "偏移：点击确认偏移侧与距离"
+      },
+      "toasts": {
+        "unsupportedKind": "偏移暂只支持线和圆弧",
+        "degenerateRadius": "偏移距离过大：圆弧向内偏移后半径将归零",
+        "zeroDistance": "偏移距离为零，请点击实体以外位置确认偏移"
+      }
+    },
     "toasts": {
       "notOpenOrEmpty": "草图未打开或为空，无法拾取",
       "noSolvedCoords": "命中处无可分辨的草图实体",

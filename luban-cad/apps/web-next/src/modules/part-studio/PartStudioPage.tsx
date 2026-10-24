@@ -439,6 +439,9 @@ function PartStudioSession({
         const { registerSketchDimensionTools } = await import('./tools/sketch/SketchAddDimensionTool.js');
         registerSketchConstraintTools();
         registerSketchDimensionTools();
+        // M6-c T4：偏移工具（Sketch.Offset）——同款懒引+幂等（编辑组真 toolId）。
+        const { registerSketchOffsetTools } = await import('./tools/sketch/SketchOffsetTool.js');
+        registerSketchOffsetTools();
       } catch (err) {
         if (cancelled) return;
         // 工具注册失败必须可见（同旧应用口径：错误面吞掉 = 工具全灭且无诊断线索）
