@@ -32,7 +32,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.7.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.8.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -363,5 +363,29 @@ describe("M6-b v1.7 契约（extrude symmetric 对称拉伸——T3）", () => {
     expectTypeOf<ExtrudeParams["symmetric"]>().toEqualTypeOf<boolean | undefined>();
     // JSON 序列化往返保持（RPC 载荷形态）
     expect(JSON.parse(JSON.stringify(sketchMode))).toEqual(sketchMode);
+  });
+});
+
+describe("M6-c v1.8 契约（extrude regions 多面域选择——T1 复合面域拉伸）", () => {
+  it("ExtrudeParams 带 regions 数组可构造（多面域组合拉伸）；与 regionIndex/symmetric 正交组合", () => {
+    // Tutorial 2 E3 形态：双面域组合 + 对称拉伸
+    const dual: ExtrudeParams = { profile: [], distance: 15.875, sketchId: "sk-1", regions: [0, 2], symmetric: true };
+    expect(dual.regions).toEqual([0, 2]);
+    expect(dual.symmetric).toBe(true);
+    // 多面域与单面域简写互斥（服务端 zod 拒收同给两键——类型层不禁止，运行时契约在 Registry）
+    expectTypeOf<ExtrudeParams["regions"]>().toEqualTypeOf<number[] | undefined>();
+    // JSON 序列化往返保持（RPC 载荷形态）
+    expect(JSON.parse(JSON.stringify(dual))).toEqual(dual);
+  });
+
+  it("regions 缺省向后兼容：regionIndex 简写与全缺省（=[0] 最大面域）两旧形态均合法", () => {
+    // v1.7 旧形态：单面域简写（deprecated 但兼容保留一版）
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- 兼容路径契约钉（v1.8 起 deprecated）
+    const legacySingle: ExtrudeParams = { profile: [], distance: 5, sketchId: "sk-1", regionIndex: 2 };
+    expect(legacySingle.regions).toBeUndefined();
+    // 全缺省：无 regions 无 regionIndex → 服务端按 [0]=最大面域裁决（v1.6 以来既有行为）
+    const legacyDefault: ExtrudeParams = { profile: [], distance: 5, sketchId: "sk-1" };
+    expect(legacyDefault.regions).toBeUndefined();
+    expect(legacyDefault.regionIndex).toBeUndefined();
   });
 });

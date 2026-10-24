@@ -14,6 +14,9 @@
  * v1.7 版本号（M6-b 计划 T2/T3 分批落字段）。
  * M6-b T2 落 revolve：LubanFeatureType +RevolveParams（草图面域绕草图内轴线旋转）。
  * M6-b T3 落 symmetric：ExtrudeParams +symmetric（对称拉伸，depth 为总深）。
+ * M6-c 升 v1.8：ExtrudeParams +regions（多面域选择——Onshape「要拉伸的面和草图面域」多选语义，
+ * Tutorial 2 E3 双面域组合拉伸的体积缺口主因修复）；regionIndex 降级 deprecated（单面域简写，
+ * 兼容保留一版，服务端 zod 与 regions 互斥拒收）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -30,8 +33,16 @@ export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
   distance: number;
   sketchId?: string;
-  /** M6-a v1.6：sketchId 模式下选面域（SketchDto.regions 下标，面积降序）；缺省 0=最大面域。 */
+  /** @deprecated M6-c v1.8 起被 `regions` 取代（单面域简写）；兼容保留一版——服务端 zod
+   * superRefine 与 `regions` 互斥拒收（同给两键即拒，不做静默优先级）。
+   * 原 v1.6 语义：sketchId 模式下选面域（SketchDto.regions 下标，面积降序）；缺省 0=最大面域。 */
   regionIndex?: number;
+  /** M6-c v1.8：多面域选择——SketchDto.regions 下标数组（sketchRegionsFrom 面积降序，下标
+   * 语义与 regionIndex 同锚），Onshape「要拉伸的面和草图面域」多选语义（Tutorial 2 E3 双面域
+   * 组合拉伸）。仅 extrude + sketchId 模式语义（内联 profile 模式无面域可指）；数组元素同为
+   * 非负整数（形态校验），越界裁决在服务端 op 边界/求值层（面域数是库态语义，与 regionIndex
+   * 同口径）；重复下标按集语义去重（并集幂等）。缺省（与 regionIndex 皆不在场）=[0]=最大面域。 */
+  regions?: number[];
   /** M6-b v1.7（T3）：对称拉伸——`distance` 为总深，实体沿拉伸方向两侧各半（跨 [−d/2, +d/2]，
    * 中面=草图平面）；sketchId 模式语义与内联 profile 模式同效。缺省 false=单向拉伸（既有行为）。 */
   symmetric?: boolean;
@@ -176,7 +187,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.7.0";
+  public static interfaceVersion = "1.8.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
