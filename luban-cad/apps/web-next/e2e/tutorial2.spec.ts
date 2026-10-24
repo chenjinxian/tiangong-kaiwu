@@ -276,15 +276,20 @@ async function extrudeViaDialog(
   dialog: ReturnType<Page['getByTestId']>,
   featureList: ReturnType<Page['getByTestId']>,
   sketchId: string,
-  regionIndex: number,
+  regionIndices: number[],
   distance: string,
   treeRowName: string,
 ): Promise<void> {
   await page.getByRole('button', { name: '拉伸', exact: true }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
-  await expect(dialog.getByRole('combobox', { name: '面域' })).toBeVisible({ timeout: 20_000 });
-  await dialog.getByRole('combobox', { name: '面域' }).selectOption(String(regionIndex));
+  const chipBox = dialog.getByTestId('part-studio-feature-dialog-region-chips');
+  await expect(chipBox).toBeVisible({ timeout: 20_000 });
+  // 清空缺省 [0]（=最大面域），再按目标集点选（chips 点选切换 aria-pressed）
+  await dialog.getByTestId('part-studio-feature-dialog-region-clear').click();
+  for (const idx of regionIndices) {
+    await chipBox.getByRole('button', { name: new RegExp(`面域 ${idx}`) }).click();
+  }
   await dialog.getByLabel('距离').fill(distance);
   await dialog
     .getByTestId('part-studio-feature-dialog-symmetric-flat')
@@ -535,6 +540,7 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   const idxBand = regionIndexByArea(regions, 1153.56); // 拱形环带+喉部
   const idxLobe = regionIndexByArea(regions, 2298.36); // 拱肩环面（样条+大弧+左壁+底座顶）
   const idxRightRect = regionIndexByArea(regions, 725.775); // 旋转矩形轴右半（25.4×28.575）
+  const idxMidband = regionIndexByArea(regions, 483.87); // 中带（rect2 轴左 H1/H2 间）
   console.log(
     `[t7] 面域映射：base=${idxBase} band=${idxBand} lobe=${idxLobe} rightRect=${idxRightRect}`,
   );
@@ -547,46 +553,15 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   // ── L2：Extrude 1（NEW，面域=底座，127 对称——T4 对称接线首验）────────
   const dialog = page.getByTestId('part-studio-feature-dialog');
 
-  /** 草图通道公共动作：拉伸钮→选草图→选面域→距离→对称→确认→等树行。 */
-  async function extrudeViaDialog(
-    regionIndex: number,
-    distance: string,
-    treeRowName: string,
-  ): Promise<void> {
-    await page.getByRole('button', { name: '拉伸', exact: true }).click();
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
-    await expect(dialog.getByRole('combobox', { name: '面域' })).toBeVisible({ timeout: 20_000 });
-    await dialog.getByRole('combobox', { name: '面域' }).selectOption(String(regionIndex));
-    await dialog.getByLabel('距离').fill(distance);
-    await dialog
-      .getByTestId('part-studio-feature-dialog-symmetric-flat')
-      .locator('input')
-      .check();
-    await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
-    await dialog.getByRole('button', { name: '确认' }).click();
-    await expect(
-      featureList
-        .getByRole('button', { name: treeRowName })
-        .or(dialog.getByTestId('part-studio-feature-dialog-error')),
-    ).toBeVisible({ timeout: 90_000 });
-    if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
-      throw new Error(
-        `${treeRowName} 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
-      );
-    }
-    await expect(dialog).toBeHidden({ timeout: 30_000 });
-  }
-
-  await extrudeViaDialog(idxBase, '127', '拉伸 1');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBase], '127', '拉伸 1');
   await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
   await page.screenshot({ path: shotPath('t7-2-extrude1.png') });
 
-  await extrudeViaDialog(idxBand, '50.8', '拉伸 2');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBand], '50.8', '拉伸 2');
   await expect(featureCount).toHaveText('(3)', { timeout: 30_000 });
   await page.screenshot({ path: shotPath('t7-3-extrude2.png') });
 
-  await extrudeViaDialog(idxLobe, '15.875', '拉伸 3');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxLobe, idxMidband], '15.875', '拉伸 3');
   await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
   await page.screenshot({ path: shotPath('t7-4-extrude3.png') });
 
@@ -733,6 +708,30 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
     'utf-8',
   );
 
+
+
+  // ── UI 对齐走查（M6c-T6）：四截图 + 轴判型断言 ──────────────────────
+  // 橙色高亮（f3ad3e）=FeatureDialog 在场即全 body emphasize（FeatureTree
+  // editHighlightIds → useCanvasSelection；无需进入编辑态）。
+  await page.getByTestId('part-studio-ribbon').screenshot({ path: shotPath('t6-1-ribbon.png') });
+  await page.getByRole('button', { name: '拉伸', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
+  await expect(dialog.getByTestId('part-studio-feature-dialog-region-chips')).toBeVisible({ timeout: 20_000 });
+  await dialog.screenshot({ path: shotPath('t6-2-extrude-dialog.png') });
+  await page.waitForTimeout(2_000); // emphasize 生效帧
+  await page.getByTestId('part-studio-viewport').locator('canvas').first().screenshot({ path: shotPath('t6-3-edit-highlight.png') });
+  await dialog.getByRole('button', { name: '取消' }).click();
+  await page.getByRole('button', { name: '旋转', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
+  const axisSelect = dialog.getByRole('combobox', { name: '旋转轴' });
+  await expect(axisSelect).toBeVisible({ timeout: 20_000 });
+  const axisLabelText = await axisSelect.locator('option:checked').textContent();
+  console.log();
+  expect(axisLabelText ?? '', '轴判型命名应属竖直线/水平线/斜线族').toMatch(/竖直线|水平线|斜线/);
+  await dialog.screenshot({ path: shotPath('t6-4-revolve-axis.png') });
+  await dialog.getByRole('button', { name: '取消' }).click();
   // ── 全程零 console error ────────────────────────────────────────────
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
 });
@@ -810,7 +809,7 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
   await expect(featureCount).toHaveText('(1)', { timeout: 60_000 });
 
   // Extrude 1（纯盒阶段——fillet 的上游）
-  await extrudeViaDialog(page, dialog, featureList, sketchId, idxBase, '127', '拉伸 1');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBase], '127', '拉伸 1');
   await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
 
   // 视图就位 + Fillet 1：纯盒 4 条竖棱（前后 2 + 轮廓 2）boresite 拾取
@@ -845,10 +844,10 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
   await page.screenshot({ path: shotPath('t7b-1-box-fillet.png') });
 
   // 后续特征并入已倒角板（拱在中部不碰角圆角——union 预期无碍）
-  await extrudeViaDialog(page, dialog, featureList, sketchId, idxBand, '50.8', '拉伸 2');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBand], '50.8', '拉伸 2');
   await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
   await expectTreeRowGreen(featureList, '拉伸 2');
-  await extrudeViaDialog(page, dialog, featureList, sketchId, idxLobe, '15.875', '拉伸 3');
+  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxLobe], '15.875', '拉伸 3');
   await expect(featureCount).toHaveText('(5)', { timeout: 30_000 });
   await expectTreeRowGreen(featureList, '拉伸 3');
   await page.getByRole('button', { name: '旋转', exact: true }).click();
