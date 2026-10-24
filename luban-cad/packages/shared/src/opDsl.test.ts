@@ -24,7 +24,7 @@ const allKindsOps: FeatureOp[] = [
     kind: "insertFeature", featureType: "fillet",
     params: {
       radius: 2, propagateSmooth: true,
-      edges: [{ faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 3, entityId: 4 } } satisfies FilletEdgeRef],
+      edges: [{ edge: { nodeId: 1, entityId: 2 } } satisfies FilletEdgeRef], // M6-d v1.9：边自身 id 单引用
     },
   },
   { kind: "updateParams", featureId: "f-1", params: { profile: tri, distance: 7, sketchId: "sk-9" } },
@@ -166,7 +166,7 @@ describe("op DSL v1 规范化语义（对齐 zod 非严格对象剥离未知键�
 
 describe("op DSL v1 注入校验器（zod 接线位：私有仓 FeatureTypeRegistry）", () => {
   it("validate 按 op 下标逐 op 调用，可规范化（模拟 filletSchema .default(true) 补全）", () => {
-    const dsl = `op insertFeature fillet {"radius":2,"edges":[{"faceA":{"nodeId":1,"entityId":2},"faceB":{"nodeId":3,"entityId":4}}]}`;
+    const dsl = `op insertFeature fillet {"radius":2,"edges":[{"edge":{"nodeId":1,"entityId":2}}]}`;
     const seen: number[] = [];
     const ops = dslToOps(dsl, {
       validate: (op, index) => {

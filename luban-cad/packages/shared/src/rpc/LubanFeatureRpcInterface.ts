@@ -17,6 +17,11 @@
  * M6-c 升 v1.8：ExtrudeParams +regions（多面域选择——Onshape「要拉伸的面和草图面域」多选语义，
  * Tutorial 2 E3 双面域组合拉伸的体积缺口主因修复）；regionIndex 降级 deprecated（单面域简写，
  * 兼容保留一版，服务端 zod 与 regions 互斥拒收）。
+ * M6-d 升 v1.9：FilletEdgeRef 纯换为边自身持久 id 单引用 `{edge}`（面对对退役）——M6-d T1 起
+ * 内核边创建即赋号（AcisFaceIdAttrib 同款机制，布尔分裂子边继承），op31 对边回自身 id、op36
+ * edgesFromOwnId 按 id 直寻（分裂片集合多持）；resolveEdgeRef 产 `{edge}`，求值端
+ * edgesFromOwnId 直寻 blend（裂片随形全倒角）。旧面对引用 `{faceA,faceB}` 不兼容：服务端 zod
+ * 显式拒收（诚实文案），旧库 fillet/chamfer 特征重算走 status=1 诚实级联（dev 阶段先例同口径）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -51,8 +56,14 @@ export interface ExtrudeParams {
 /** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */
 export interface LubanTopologyId { nodeId: number; entityId: number }
 
-/** 边引用 = 两邻面拓扑 id 对（op33 EdgesFromId 的边寻址契约，恰 2 元素序无关） */
-export interface FilletEdgeRef { faceA: LubanTopologyId; faceB: LubanTopologyId }
+/**
+ * 边引用 = 边自身持久拓扑 id 单引用（M6-d v1.9 纯换，面对对退役）。
+ * `edge` = op31 topologyIdFromSubEntity 对**边子实体**回的边自身 id（创建即赋号，布尔分裂
+ * 子边继承同 id）；求值端 op36 edgesFromOwnId 按 id 直寻缓存边子实体——分裂片同 id 集合
+ * 多持，全部入 blend 集（裂片随形全倒角语义，M6-d T1 裁决）。旧面对形态 `{faceA,faceB}`
+ * 自 v1.9 起不兼容（服务端 zod 诚实拒收，不做静默转换）。
+ */
+export interface FilletEdgeRef { edge: LubanTopologyId }
 
 export interface FilletParams { radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }
 
@@ -63,7 +74,7 @@ export interface FilletParams { radius: number; propagateSmooth: boolean; edges:
  * Distances=values1/values2 双距离；DistanceAngle=values1 距离+values2 弧度角；
  * AngleDistance 反之）。values 允许标量（全部边同值）或等长于边集的数组（逐边值）——
  * 服务端求值器一律展开为等长数组喂内核（native 标量广播契约经 blendEdges 探针证伪不可信）。
- * edges 寻址与 fillet 完全同构（resolveEdgeRef 的 FilletEdgeRef 邻面对拓扑 id）。
+ * edges 寻址与 fillet 完全同构（M6-d v1.9 起 FilletEdgeRef=边自身持久 id 单引用，同批纯换）。
  */
 export interface ChamferParams {
   mode: number;
@@ -189,7 +200,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.8.0";
+  public static interfaceVersion = "1.9.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
@@ -203,7 +214,8 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
 
   /** M3-a v1.1：op 预览（不提交事务，回报受影响特征） */
   public async previewFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string): Promise<PreviewResult> { return this.forward(arguments); }
-  /** M3-a v1.1：拾取元素子实体 → 邻面对边引用（edgeRefs 表单值的寻址端点） */
+  /** M3-a v1.1：拾取元素子实体 → 边引用（edgeRefs 表单值的寻址端点；M6-d v1.9 起
+   * ref=边自身持久 id 单引用——邻接通道门禁 + op31 边语义换号，面对对已退役）。 */
   public async resolveEdgeRef(_iModelKey: string, _elementId: string, _subEntityId: number): Promise<{ ok: boolean; ref?: FilletEdgeRef; error?: string }> { return this.forward(arguments); }
   /** RW2-T7 v1.5：拾取元素面 → 持久拓扑 id（faceRefs/shell faces 表单值的寻址端点；op31 topologyIdFromSubEntity） */
   public async resolveFaceRef(_iModelKey: string, _elementId: string, _subEntityId: number): Promise<{ ok: boolean; ref?: LubanTopologyId; error?: string }> { return this.forward(arguments); }

@@ -61,8 +61,8 @@ function edgePick(cacheId: number): SubEntityLocationProps {
   return { subEntity: { type: SubEntityType.Edge, id: cacheId } };
 }
 
-const REF_A: FilletEdgeRef = { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 1, entityId: 3 } };
-const REF_B: FilletEdgeRef = { faceA: { nodeId: 1, entityId: 4 }, faceB: { nodeId: 1, entityId: 5 } };
+const REF_A: FilletEdgeRef = { edge: { nodeId: 1, entityId: 2 } };
+const REF_B: FilletEdgeRef = { edge: { nodeId: 1, entityId: 4 } };
 
 interface CapturedCallbacks {
   added: FilletEdgeRef[];
@@ -95,22 +95,23 @@ beforeEach(() => {
   featureRpc.resolveEdgeRef.mockReset();
 });
 
-describe('M6-b T6：filletEdgeRefKey 无关键（面对序无关）', () => {
-  it('面对序无关：{A,B} 与 {B,A} 同键（去重/反查共用）', () => {
-    const straight: FilletEdgeRef = { faceA: { nodeId: 7, entityId: 1 }, faceB: { nodeId: 7, entityId: 2 } };
-    const flipped: FilletEdgeRef = { faceA: { nodeId: 7, entityId: 2 }, faceB: { nodeId: 7, entityId: 1 } };
-    expect(filletEdgeRefKey(straight)).toBe(filletEdgeRefKey(flipped));
+describe('M6-d v1.9：filletEdgeRefKey 边自身 id 单键', () => {
+  it('同 id 同键：布尔分裂片同 id 多持=同一逻辑边（重拾分裂片即去重）', () => {
+    // 分裂片各自 op31 回同一自身 id（M6-d T1 裁决）——两片拾取两次仍同键。
+    const piece1: FilletEdgeRef = { edge: { nodeId: 7, entityId: 1 } };
+    const piece2: FilletEdgeRef = { edge: { nodeId: 7, entityId: 1 } };
+    expect(filletEdgeRefKey(piece1)).toBe(filletEdgeRefKey(piece2));
   });
 
-  it('不同边（共享一面的邻边）不同键', () => {
-    const e1: FilletEdgeRef = { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 1, entityId: 3 } };
-    const e2: FilletEdgeRef = { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 1, entityId: 9 } };
+  it('不同边不同键（原棱与邻棱）', () => {
+    const e1: FilletEdgeRef = { edge: { nodeId: 1, entityId: 2 } };
+    const e2: FilletEdgeRef = { edge: { nodeId: 1, entityId: 9 } };
     expect(filletEdgeRefKey(e1)).not.toBe(filletEdgeRefKey(e2));
   });
 
   it('nodeId 参与键：同 entityId 异 body 不撞键', () => {
-    const b1: FilletEdgeRef = { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 1, entityId: 3 } };
-    const b2: FilletEdgeRef = { faceA: { nodeId: 5, entityId: 2 }, faceB: { nodeId: 5, entityId: 3 } };
+    const b1: FilletEdgeRef = { edge: { nodeId: 1, entityId: 2 } };
+    const b2: FilletEdgeRef = { edge: { nodeId: 5, entityId: 2 } };
     expect(filletEdgeRefKey(b1)).not.toBe(filletEdgeRefKey(b2));
   });
 });

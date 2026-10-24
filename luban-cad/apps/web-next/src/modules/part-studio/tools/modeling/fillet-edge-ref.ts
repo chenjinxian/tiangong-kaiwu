@@ -1,8 +1,8 @@
 /**
  * Copyright (c) LubanCAD. All rights reserved.
  *
- * FilletEdgeRef 键控助手（M6-b T6）——**零依赖模块**（不改 shared 契约、不拉
- * editor 基座链）。
+ * FilletEdgeRef 键控助手（M6-b T6 引入；M6-d v1.9 随契约纯换为边自身 id 单键）——
+ * **零依赖模块**（不改 shared 契约、不拉 editor 基座链）。
  *
  * 独立成模块的裁决（同 sketch-tool-events.ts 的拆分理由）：FeatureDialog
  * （chips 去重/移除反查）需要本助手在**运行期**可用，而拾取工具模块
@@ -20,12 +20,10 @@ function topoKey(id: { nodeId: number; entityId: number }): string {
 }
 
 /**
- * 边引用的无关键：面对无序——{A,B} 与 {B,A} 是同一条边（resolveEdgeRef 契约
- * 注记「恰 2 元素序无关」），去重与移除反查共用本键（旧应用 useEdgeRefPicker
- * refKey 同构移植）。
+ * 边引用的无关键：边自身持久 id（M6-d v1.9 起契约 `{edge}`——布尔分裂片同 id
+ * 多持属同一逻辑边，重拾分裂片即同键去重；旧面对形态 `{faceA,faceB}` 已退役）。
+ * 去重与移除反查共用本键。
  */
 export function filletEdgeRefKey(ref: FilletEdgeRef): string {
-  const a = topoKey(ref.faceA);
-  const b = topoKey(ref.faceB);
-  return a < b ? `${a}~${b}` : `${b}~${a}`;
+  return topoKey(ref.edge);
 }

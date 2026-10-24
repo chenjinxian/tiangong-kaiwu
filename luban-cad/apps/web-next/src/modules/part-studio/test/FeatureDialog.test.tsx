@@ -1448,16 +1448,17 @@ describe('M6-b T4 extrude 对称平铺复选（Onshape 平铺形态；载荷已�
 // ---------------------------------------------------------------------------
 // M6-b T6：fillet 通道（F8——体边拾取，不走草图通道）。**对话框驱动拾取裁决**：
 // 「添加边」钮启动 FilletEdgePickTool（动态 import——本文件 mock 该工具模块替身
-// 捕获回调现场，editor 基座链不入测试图），工具每拾一条边（已即时换持久拓扑
-// id 对）回调 chips 增行，右键/Esc/再点钮结束拾取回对话框。覆盖：载荷构造
-//（多边/单边/半径/切向延伸）/chips 增删与无关键去重/空边集门禁/拾取态分叉
-//（✓ 禁用、Esc 只结束拾取、卸载守卫退工具）/无 body 与无连接诚实降级。
+// 捕获回调现场，editor 基座链不入测试图），工具每拾一条边（已即时换边自身持久
+// id 单引用，shared v1.9）回调 chips 增行，右键/Esc/再点钮结束拾取回对话框。
+// 覆盖：载荷构造（多边/单边/半径/切向延伸）/chips 增删与无关键去重/空边集门禁
+// /拾取态分叉（✓ 禁用、Esc 只结束拾取、卸载守卫退工具）/无 body 与无连接诚实降级。
 // ---------------------------------------------------------------------------
 describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
-  const EDGE_1 = { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 1, entityId: 3 } };
-  const EDGE_2 = { faceA: { nodeId: 1, entityId: 4 }, faceB: { nodeId: 1, entityId: 5 } };
+  // M6-d v1.9：FilletEdgeRef=边自身持久 id 单引用（面对对退役）。
+  const EDGE_1 = { edge: { nodeId: 1, entityId: 2 } };
+  const EDGE_2 = { edge: { nodeId: 1, entityId: 4 } };
   /** 模拟工具拾得一条边（换算完成后回调）。 */
-  function pickEdge(ref: { faceA: { nodeId: number; entityId: number }; faceB: { nodeId: number; entityId: number } }): void {
+  function pickEdge(ref: { edge: { nodeId: number; entityId: number } }): void {
     pickMocks.captured?.onEdgeAdded?.(ref);
   }
 
@@ -1575,13 +1576,13 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect(applyOp).not.toHaveBeenCalled();
   });
 
-  it('chips 去重（无关键面对序无关）：同一 ref 颠倒面对重拾 → 仍 1 chip', async () => {
+  it('chips 去重（边自身 id 单键）：同 id 重拾（布尔分裂片同 id 多持）→ 仍 1 chip', async () => {
     const user = userEvent.setup();
     renderFilletDialog(makeApplyOp());
     await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
     await waitFor(() => expect(pickMocks.captured).toBeDefined());
     pickEdge(EDGE_1);
-    pickEdge({ faceA: { nodeId: 1, entityId: 3 }, faceB: { nodeId: 1, entityId: 2 } }); // 面对序颠倒=同边
+    pickEdge({ edge: { nodeId: 1, entityId: 2 } }); // 分裂片 op31 回同一自身 id=同键
     await screen.findByText('边 1');
     expect(screen.queryByText('边 2')).toBeNull();
     expect(screen.getAllByRole('listitem')).toHaveLength(1);

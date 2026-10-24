@@ -32,7 +32,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.8.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.9.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -47,15 +47,14 @@ describe("M3-a v1.1 类型契约", () => {
     expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell">();
   });
 
-  it("FilletParams：邻面对边引用对（LubanTopologyId/FilletEdgeRef 形状）", () => {
-    const faceA: LubanTopologyId = { nodeId: 1, entityId: 2 };
-    const faceB: LubanTopologyId = { nodeId: 3, entityId: 4 };
-    const ref: FilletEdgeRef = { faceA, faceB };
+  it("FilletParams：边自身 id 单引用（M6-d v1.9 纯换；LubanTopologyId/FilletEdgeRef 形状）", () => {
+    const edge: LubanTopologyId = { nodeId: 1, entityId: 2 };
+    const ref: FilletEdgeRef = { edge };
     const params: FilletParams = { radius: 2, propagateSmooth: true, edges: [ref] };
     expect(params.radius).toBe(2);
     expect(params.propagateSmooth).toBe(true);
-    expect(params.edges).toEqual([{ faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 3, entityId: 4 } }]);
-    expectTypeOf<FilletEdgeRef>().toEqualTypeOf<{ faceA: LubanTopologyId; faceB: LubanTopologyId }>();
+    expect(params.edges).toEqual([{ edge: { nodeId: 1, entityId: 2 } }]);
+    expectTypeOf<FilletEdgeRef>().toEqualTypeOf<{ edge: LubanTopologyId }>();
     expectTypeOf<FilletParams>().toEqualTypeOf<{ radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }>();
   });
 
@@ -200,8 +199,8 @@ describe("RW2-T6 v1.4 chamfer 契约", () => {
     expect(t).toBe("chamfer");
   });
 
-  it("ChamferParams：mode + 双值（标量或逐边数组）+ 邻面对边引用形状", () => {
-    const ref: FilletEdgeRef = { faceA: { nodeId: 1, entityId: 2 }, faceB: { nodeId: 3, entityId: 4 } };
+  it("ChamferParams：mode + 双值（标量或逐边数组）+ 边自身 id 引用形状（v1.9 同批纯换）", () => {
+    const ref: FilletEdgeRef = { edge: { nodeId: 1, entityId: 2 } };
     const scalar: ChamferParams = { mode: 1, propagateSmooth: true, edges: [ref], values1: 0.1 };
     const dual: ChamferParams = { mode: 2, propagateSmooth: false, edges: [ref], values1: 0.1, values2: 0.2 };
     const perEdge: ChamferParams = { mode: 1, propagateSmooth: true, edges: [ref, ref], values1: [0.1, 0.2] };

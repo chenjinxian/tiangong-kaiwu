@@ -95,14 +95,15 @@
  * fillet 通道（M6-b T6，F8——**不走草图通道**：输入是体边非草画面域）：半径
  * 输入（缺省 5）+切向延伸复选（缺省 true，=FilletParams.propagateSmooth）+
  * 边 chips 列表（「边 N」1 基序号+×移除，按 filletEdgeRefKey 无关键去重——
- * 面对序无关）+「添加边」钮。**对话框驱动拾取裁决**：「添加边」启动
- * FilletEdgePickTool（直构+run，动态 import——工具模块静态依赖 editor 基座
- * 链，静态引入会强加给全部对话框消费方的 mock 面），工具每拾一条边（已即时
- * resolveEdgeRef 换持久拓扑 id 对）回调 chips 增行，右键/Esc/再点钮结束拾取
- * 回对话框。门禁：边集空→「选择要圆角的边」+✓禁用；半径≤0→就地 Alert（同
- * 距离校验口径）；**无 body 诚实降级**——宿主 hasBodies=false（库里无实体）
- * 时「添加边」禁用+提示先建实体。载荷
- * `{radius, propagateSmooth, edges:[{faceA,faceB}...]}`（拓扑 id 对透传）；
+ * 边自身 id 单键，M6-d v1.9 纯换）+「添加边」钮。**对话框驱动拾取裁决**：
+ * 「添加边」启动 FilletEdgePickTool（直构+run，动态 import——工具模块静态依赖
+ * editor 基座链，静态引入会强加给全部对话框消费方的 mock 面），工具每拾一条边
+ * （已即时 resolveEdgeRef 换边自身持久 id 单引用）回调 chips 增行，右键/Esc/
+ * 再点钮结束拾取回对话框。门禁：边集空→「选择要圆角的边」+✓禁用；半径≤0→
+ * 就地 Alert（同距离校验口径）；**无 body 诚实降级**——宿主 hasBodies=false
+ * （库里无实体）时「添加边」禁用+提示先建实体。载荷
+ * `{radius, propagateSmooth, edges:[{edge:{nodeId,entityId}}...]}`（边自身 id
+ * 透传，shared v1.9 契约；求值端 edgesFromOwnId 分裂片集合多持全入 blend）；
  * 距离量对 fillet 不适用（隐藏+校验跳过，revolve 同口径）。
  *
  * applyOp 未接线（壳期/纯展示）时确认回退纯 onConfirm（M3 语义保持）；
@@ -181,7 +182,7 @@ export interface FeatureDialogResult {
    *（M3 期同位的 rollback 滑杆已撤出——采集权威钉底栏=透明度，见文件头注。）
    */
   transparency: number;
-  /** M6-b T6（fillet 通道）：已拾边集（持久拓扑 id 对；仅 fillet 通道携带）。 */
+  /** M6-b T6（fillet 通道）：已拾边集（边自身持久 id 单引用，shared v1.9；仅 fillet 通道携带）。 */
   filletEdges?: readonly FilletEdgeRef[];
 }
 
@@ -722,13 +723,13 @@ export function FeatureDialog({
           // RevolveParams 未扩 regions，revolve 保持单选 regionIndex 不越契约**；
           // symmetric 等 extrude 扩展不适用，对称载荷挂账见文件头注 T4-minor）。
           // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
-          // edges:[{faceA,faceB}...]}（拓扑 id 对透传，shared v1.1 既有契约；
-          // 无 profile/distance 语义）。
+          // edges:[{edge:{nodeId,entityId}}...]}（边自身持久 id 透传，shared v1.9
+          // M6-d 纯换契约；无 profile/distance 语义）。
           params: filletChannel
             ? {
                 radius: parsedRadius,
                 propagateSmooth,
-                edges: filletEdges.map((edge) => ({ faceA: edge.faceA, faceB: edge.faceB })),
+                edges: filletEdges.map((edge) => ({ edge: edge.edge })),
               }
             : revolveChannel
             ? {
