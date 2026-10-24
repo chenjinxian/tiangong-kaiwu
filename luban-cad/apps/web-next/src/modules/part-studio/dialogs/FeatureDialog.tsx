@@ -16,8 +16,13 @@
  * - 距离 + 折叠段：距离（M4-T6 新增——insertFeature extrude 的唯一可编辑
  *   量，默认 10）/方向（默认展开，正向/反向下拉）/起始偏移/对称（勾选）/
  *   拔模，aria-expanded 开合语义；
- * - 底部：回滚滑杆（range，默认=上限；🟠 诚实降级——后端 OpLog 仅线性链，
- *   UI 先行）+ 成品按钮（=✓ 确认出口）+ ? 帮助（展开文案）。
+ * - 底部（M6-c T5 对齐采集规格 12-dialog-extrude-1.png：底部=透明度滑杆 +
+ *   成品 + ?）：透明度滑杆（0-100，缺省 0=不透明）+ 成品按钮（=✓ 确认出口，
+ *   M3 期即成品文案）+ ? 帮助（展开文案）。**透明度语义=预览透明度，🟠 挂账**——
+ *   本版无视觉预览通道（useFeatureSystem previewOp 延后，insertFeature 直提交
+ *   无预览帧），值仅本地态 + FeatureDialogResult.transparency 回传（接预览
+ *   通道时消费）；M3 期的回滚滑杆撤出对话框（采集权威：Onshape 回滚条在特征
+ *   树底部非对话框内——树回滚条归 backlog 单裁，不在本对话框复活）。
  *
  * 提交接线（M4-T6 拉伸闭环）：mode='new' 且 applyOp 在场时，✓/成品 →
  * `applyOp({ kind: 'insertFeature', featureType, params })`；成功 → toast
@@ -52,8 +57,10 @@
  * revolve 通道（M6-b T4，照 M6-a T6 拉伸通道同构复刻）：sketchChannel 扩
  * revolve——草图/面域拾取两下拉全复用，revolve 分支增：
  * - 轴选择：getSketch entities 过滤 kind==='line'（RevolveParams.axis 的
- *   sketchEntityId 语义=草图内 line 实体 id）→ 下拉「线 {id}」（N=实体 id，
- *   与载荷同值可对账；视图序号美化归 M6-c），缺省选第一条；无 line 实体 →
+ *   sketchEntityId 语义=草图内 line 实体 id）→ 下拉按几何判型命名（M6-c T5：
+ *   端点解算坐标判向——竖直线/水平线/斜线+同类 1 基序号，对齐 Onshape 采集
+ *   「线 3」美化语义；端点坐标缺失（未解算/旧后端）回退「线 {id}」——id 与
+ *   载荷同值可对账不丢），缺省选第一条；无 line 实体 →
  *   「草图无可用旋转轴」提示 + 提交禁用；
  * - 全方位复选：fullRevolve 缺省 true（360° 满周）；取消勾选现角度输入——
  *   **UI 度制（用户面单位裁决），载荷前 ×π/180 转弧度**（shared
@@ -168,7 +175,12 @@ export interface FeatureDialogResult {
   startOffset: string;
   symmetric: boolean;
   draft: string;
-  rollback: number;
+  /**
+   * 透明度滑杆读数（M6-c T5，0-100，缺省 0=不透明）——🟠 挂账：本版无视觉
+   * 预览通道（previewOp 延后），值仅回传不消费；接预览通道时作为预览帧透明度。
+   *（M3 期同位的 rollback 滑杆已撤出——采集权威钉底栏=透明度，见文件头注。）
+   */
+  transparency: number;
   /** M6-b T6（fillet 通道）：已拾边集（持久拓扑 id 对；仅 fillet 通道携带）。 */
   filletEdges?: readonly FilletEdgeRef[];
 }
@@ -223,8 +235,6 @@ export interface FeatureDialogProps {
    * （壳期/测试语义保持；生产宿主恒显式传参）。
    */
   hasBodies?: boolean;
-  /** 回滚滑杆上限（默认 100；后端 OpLog 线性链接线后由宿主注入特征数）。 */
-  rollbackMax?: number;
   /** ✓/成品 确认出口（回传全量载荷；提交成功后由宿主 closeDialog）。 */
   onConfirm?: (result: FeatureDialogResult) => void;
   /** ✗ 取消出口。 */
@@ -250,8 +260,57 @@ const SECTIONS: readonly CollapsibleSection[] = [
   { id: 'draft', defaultExpanded: false },
 ];
 
-/** 草图 line 实体（M6-b T4 revolve 轴候选：RevolveParams.axis.sketchEntityId 的寻址单位）。 */
-type SketchLineEntity = Extract<SketchEntityDto, { kind: 'line' }>;
+/**
+ * 旋转轴判型描述（M6-c T5）：线段按端点解算坐标判向 + 同类判型内 1 基序号——
+ * 下拉文案「竖直线/水平线/斜线 N」（对齐 Onshape 采集的轴命名语义，替代
+ * M6-b T4 的「线 {id}」裸 id 形态）。
+ */
+export interface AxisLineDescriptor {
+  /** 草图内 line 实体 id（=载荷 axis.sketchEntityId，同值可对账）。 */
+  id: number;
+  /** 判型：竖直（x 相等）/水平（y 相等）/斜线；端点坐标缺失=unknown。 */
+  kind: 'vertical' | 'horizontal' | 'slanted' | 'unknown';
+  /** 同类判型内的 1 基序号（unknown 不编号，UI 回退「线 {id}」）。 */
+  ordinal: number;
+}
+
+/** 判向容差（草图局部坐标，内部米制；sketch-offset-logic 链扩展同款 1e-6 纪律）。 */
+const AXIS_COORD_EPSILON = 1e-6;
+
+/**
+ * 旋转轴判型（M6-c T5，纯函数——FeatureDialog.test 直测）：按线段两端点的
+ * 解算坐标判竖直/水平/斜线。端点坐标任一缺失（未解算/旧后端不下发坐标）→
+ * unknown（UI 回退「线 {id}」，载荷寻址不受影响）。序号按实体集出现顺序计。
+ */
+export function classifyAxisLines(entities: readonly SketchEntityDto[]): AxisLineDescriptor[] {
+  const points = new Map<number, { x: number; y: number }>();
+  for (const entity of entities) {
+    if (entity.kind === 'point' && entity.x !== undefined && entity.y !== undefined) {
+      points.set(entity.id, { x: entity.x, y: entity.y });
+    }
+  }
+  const counters: Record<AxisLineDescriptor['kind'], number> = {
+    vertical: 0,
+    horizontal: 0,
+    slanted: 0,
+    unknown: 0,
+  };
+  const descriptors: AxisLineDescriptor[] = [];
+  for (const entity of entities) {
+    if (entity.kind !== 'line') continue;
+    const p1 = points.get(entity.p1);
+    const p2 = points.get(entity.p2);
+    let kind: AxisLineDescriptor['kind'] = 'unknown';
+    if (p1 !== undefined && p2 !== undefined) {
+      if (Math.abs(p1.x - p2.x) <= AXIS_COORD_EPSILON) kind = 'vertical';
+      else if (Math.abs(p1.y - p2.y) <= AXIS_COORD_EPSILON) kind = 'horizontal';
+      else kind = 'slanted';
+    }
+    counters[kind] += 1;
+    descriptors.push({ id: entity.id, kind, ordinal: counters[kind] });
+  }
+  return descriptors;
+}
 
 /** 草图选项缺省（M6-a T6：props 未接线/壳期空集——「先创建草图」门禁数据源；模块级常量防引用抖动）。 */
 const EMPTY_SKETCHES: readonly FeatureDialogSketchOption[] = [];
@@ -282,7 +341,6 @@ export function FeatureDialog({
   sketches,
   connectionKey,
   hasBodies = true,
-  rollbackMax = 100,
   onConfirm,
   onCancel,
 }: FeatureDialogProps): React.JSX.Element {
@@ -297,7 +355,8 @@ export function FeatureDialog({
   const [startOffset, setStartOffset] = React.useState('');
   const [symmetric, setSymmetric] = React.useState(false);
   const [draft, setDraft] = React.useState('');
-  const [rollback, setRollback] = React.useState(rollbackMax);
+  // 透明度滑杆（M6-c T5 对齐采集底栏；0=不透明。语义挂账见文件头注）。
+  const [transparency, setTransparency] = React.useState(0);
   const [helpOpen, setHelpOpen] = React.useState(false);
   const [expanded, setExpanded] = React.useState<Record<CollapsibleSection['id'], boolean>>(() =>
     Object.fromEntries(SECTIONS.map((s) => [s.id, s.defaultExpanded])) as Record<
@@ -499,10 +558,11 @@ export function FeatureDialog({
       );
   }, [sketchChannel, selectedSketchId, connectionKey, t]);
 
-  // 轴候选（M6-b T4 revolve 通道）：草图内 line 实体（sketchEntityId=实体 id，
-  // 载荷与下拉同值可对账）。非 revolve 通道不消费（extrude 无轴语义）。
-  const axisLines = React.useMemo<SketchLineEntity[]>(
-    () => (revolveChannel ? (sketchEntities ?? []).filter((e): e is SketchLineEntity => e.kind === 'line') : []),
+  // 轴候选（M6-b T4 revolve 通道；M6-c T5 判型升级）：草图内 line 实体按端点
+  // 解算坐标判型（classifyAxisLines——竖直/水平/斜线+同类序号；id 即载荷
+  // axis.sketchEntityId，同值可对账）。非 revolve 通道不消费（extrude 无轴语义）。
+  const axisLines = React.useMemo<AxisLineDescriptor[]>(
+    () => (revolveChannel ? classifyAxisLines(sketchEntities ?? []) : []),
     [revolveChannel, sketchEntities],
   );
 
@@ -590,10 +650,11 @@ export function FeatureDialog({
     startOffset,
     symmetric,
     draft,
-    rollback,
+    // M6-c T5：底部滑杆=透明度（采集对齐；预览消费挂账见文件头注）。
+    transparency,
     // M6-b T6：仅 fillet 通道携带已拾边集（其余通道键缺省——既有钉形载荷不破）。
     ...(filletChannel ? { filletEdges } : {}),
-  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, rollback, filletChannel, filletEdges]);
+  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, transparency, filletChannel, filletEdges]);
 
   /**
    * 确认出口：new + applyOp 在场 → insertFeature 直提交（拉伸闭环）；否则
@@ -757,6 +818,21 @@ export function FeatureDialog({
     index === 0
       ? t('partStudio.featureDialog.regionOptionLargest', { index, area: formatArea(area) })
       : t('partStudio.featureDialog.regionOption', { index, area: formatArea(area) });
+
+  // 轴下拉项（M6-c T5 判型命名）：竖直线/水平线/斜线+同类序号；unknown（端点
+  // 无解算坐标）回退「线 {id}」——载荷寻址（axis.sketchEntityId=id）不受影响。
+  const axisOptionLabel = (line: AxisLineDescriptor): string => {
+    switch (line.kind) {
+      case 'vertical':
+        return t('partStudio.featureDialog.axisOptionVertical', { index: line.ordinal });
+      case 'horizontal':
+        return t('partStudio.featureDialog.axisOptionHorizontal', { index: line.ordinal });
+      case 'slanted':
+        return t('partStudio.featureDialog.axisOptionSlanted', { index: line.ordinal });
+      default:
+        return t('partStudio.featureDialog.axisOption', { id: line.id });
+    }
+  };
 
   // 折叠段可见集（M6-b T4）：草图通道「对称」以平铺复选顶替（Onshape 采集
   // 形态），折叠段 symmetric 隐藏防双复选绑同态；非通道（edit/布尔/壳期）不动。
@@ -1208,10 +1284,11 @@ export function FeatureDialog({
                 </p>
               )}
 
-              {/* 旋转轴下拉（M6-b T4 revolve 通道）：getSketch entities 过滤
-                  kind==='line'，选项「线 {id}」（id=草图内实体 id，与载荷
-                  axis.sketchEntityId 同值）；缺省首条（见轴缺省 effect）。
-                  revolve 专属——extrude 无轴语义不渲染。 */}
+              {/* 旋转轴下拉（M6-b T4 revolve 通道；M6-c T5 判型命名）：选项
+                  「竖直线/水平线/斜线 N」（端点解算坐标判向；unknown 回退
+                  「线 {id}」——id=草图内实体 id，与载荷 axis.sketchEntityId
+                  同值）；缺省首条（见轴缺省 effect）。revolve 专属——extrude
+                  无轴语义不渲染。 */}
               {revolveChannel && axisLines.length > 0 && (
                 <select
                   aria-label={t('partStudio.featureDialog.axisLabel')}
@@ -1222,7 +1299,7 @@ export function FeatureDialog({
                 >
                   {axisLines.map((line) => (
                     <option key={`axis-${line.id}`} value={line.id}>
-                      {t('partStudio.featureDialog.axisOption', { id: line.id })}
+                      {axisOptionLabel(line)}
                     </option>
                   ))}
                 </select>
@@ -1372,20 +1449,21 @@ export function FeatureDialog({
         </div>
       </div>
 
-      {/* 底部：回滚滑杆 + 成品 + ?（os-31）。 */}
+      {/* 底部（M6-c T5 采集对齐 12-dialog-extrude-1.png）：透明度滑杆（无可见
+          标签，aria 供名）+ 成品 + ?。透明度=预览透明度语义（挂账：无预览通道，
+          值仅本地态+载荷回传——见文件头注）；M3 期回滚滑杆撤出（Onshape 回滚条
+          在特征树底部，归树 backlog 单裁）。 */}
       <footer className="part-studio-feature-dialog__footer">
-        <div className="part-studio-feature-dialog__rollback">
-          <span className="part-studio-feature-dialog__rollback-label">
-            {t('partStudio.featureDialog.rollbackLabel')}
-          </span>
+        <div className="part-studio-feature-dialog__transparency">
           <input
             type="range"
-            aria-label={t('partStudio.featureDialog.rollbackLabel')}
-            className="part-studio-feature-dialog__rollback-slider"
+            aria-label={t('partStudio.featureDialog.transparencyLabel')}
+            data-testid="part-studio-feature-dialog-transparency"
+            className="part-studio-feature-dialog__transparency-slider"
             min={0}
-            max={rollbackMax}
-            value={rollback}
-            onChange={(event) => setRollback(Number(event.target.value))}
+            max={100}
+            value={transparency}
+            onChange={(event) => setTransparency(Number(event.target.value))}
           />
         </div>
         <div className="part-studio-feature-dialog__footer-actions">

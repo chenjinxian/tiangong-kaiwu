@@ -175,6 +175,42 @@ describe('RIBBON_GROUP_ORDER 分组（os-11 分隔序）', () => {
       .map((tool: RibbonTool) => tool.group);
     expect(actualOrder).toEqual(sortedByGroup);
   });
+
+  // M6-c T5：分组序权威升级——diag-tools.json（2026-10-23 Tutorial 2 主工具栏
+  // 实测）的 11 组序逐组钉死。工具名取注册表 labelKey 的 zh 词库值，与采集
+  // 逐组对账；采集两处刻意缺席（撤消重做→顶栏、筋未注册——工具集不变裁决）
+  // 不入断言；surfaceCurve=本仓扩充组（采集无此组）单独断言钉末位。
+  const ONSHAPE_GROUP_SEQUENCE: ReadonlyArray<readonly [group: RibbonGroup, labels: readonly string[]]> = [
+    ['sketch', ['草图']],
+    ['create', ['拉伸', '旋转', '扫掠', '放样', '加厚']],
+    ['shape', ['圆角', '倒角', '拔模', '抽壳', '孔', '外部螺纹']],
+    ['pattern', ['线性阵列', '镜像']],
+    ['combine', ['布尔运算', '分割', '变换', '删除零件']],
+    ['directEdit', ['修改圆角', '删除面', '移动面', '替换面']],
+    ['reference', ['平面']],
+    ['frames', ['框架']],
+    ['sheetMetal', ['钣金模型']],
+    ['custom', ['添加自定义特征']],
+  ];
+
+  it('diag-tools.json 11 组序逐组对齐（组界+组内序，zh 可访问名）', () => {
+    const labelOf = (tool: RibbonTool): string => {
+      const localPath = tool.labelKey.replace(/^partStudio\./, '');
+      const value = lookup(zhPartStudio, localPath);
+      expect(typeof value).toBe('string');
+      return value as string;
+    };
+    for (const [group, labels] of ONSHAPE_GROUP_SEQUENCE) {
+      const tools = RIBBON_TOOLS.filter((tool) => tool.group === group);
+      expect(
+        tools.map(labelOf),
+        `分组 ${group} 的组内序与 diag-tools.json 不一致`,
+      ).toEqual([...labels]);
+    }
+    // 本仓扩充组：surfaceCurve 钉末位（采集主工具栏无此组）。
+    expect(RIBBON_TOOLS[RIBBON_TOOLS.length - 1]!.group).toBe('surfaceCurve');
+    expect(RIBBON_GROUP_ORDER[RIBBON_GROUP_ORDER.length - 1]).toBe('surfaceCurve');
+  });
 });
 
 describe('下拉飞菜单（8 个，os-20 子项清单）', () => {

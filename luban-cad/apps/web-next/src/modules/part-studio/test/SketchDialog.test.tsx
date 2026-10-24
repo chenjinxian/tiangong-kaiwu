@@ -77,6 +77,7 @@ import { FeatureTree } from '../tree/FeatureTree.js';
 import { PartStudioCanvas } from '../components/PartStudioCanvas.js';
 import { TOOL_CAPABILITIES } from '../internal/capabilities.js';
 import { SKETCH_TOOL_GROUP_ORDER, SKETCH_RIBBON_TOOLS } from '../ribbon/sketch-tools.js';
+import type { SketchRibbonTool } from '../ribbon/sketch-tools.js';
 import zhPartStudio from '../../../common/i18n/locales/zh-CN/part-studio.json';
 import enPartStudio from '../../../common/i18n/locales/en/part-studio.json';
 
@@ -102,6 +103,22 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
       (a, b) => SKETCH_TOOL_GROUP_ORDER.indexOf(a.group) - SKETCH_TOOL_GROUP_ORDER.indexOf(b.group),
     );
     expect(SKETCH_RIBBON_TOOLS.map((tool) => tool.id)).toEqual(ordered.map((tool) => tool.id));
+  });
+
+  // M6-c T5：组界与组内序权威=10-sketch-toolbar.json（2026-10-23 草图模式
+  // 实测）——绘制组含文本（线 矩形 圆 弧 样条 文本，采集序内插多边形/点未
+  // 注册），编辑组=圆角 修剪 偏移 镜像；标注组采集仅「尺寸 重合」两钮，本仓
+  // 按工具展开 8 件（约束 6 前置 + 尺寸 2，1:1 下拉归 M6-c 后续）。
+  it('10-sketch-toolbar.json 组内序对齐：绘制 6（文本归绘制组）/编辑 4/标注 8', () => {
+    const labelsOf = (group: SketchRibbonTool['group']): string[] =>
+      SKETCH_RIBBON_TOOLS
+        .filter((tool) => tool.group === group)
+        .map((tool) => lookup(zhPartStudio, tool.labelKey.replace(/^partStudio\./, '')) as string);
+    expect(labelsOf('sketchDraw')).toEqual(['线', '矩形', '圆', '圆弧', '样条', '文本']);
+    expect(labelsOf('sketchEdit')).toEqual(['圆角', '修剪', '偏移', '镜像']);
+    expect(labelsOf('sketchAnnotate')).toEqual([
+      '重合', '水平', '竖直', '平行', '垂直', '相等', '距离', '半径',
+    ]);
   });
 
   it('capability 统一 sketch（已入册 TOOL_CAPABILITIES）；labelKey 挂 partStudio.ribbon.* 且在 zh/en 词库存在', () => {

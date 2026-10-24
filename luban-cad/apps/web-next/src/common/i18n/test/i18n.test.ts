@@ -209,7 +209,11 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.noRegionSelectedHint',
   'featureDialog.noRegionHint', 'featureDialog.regionUnreadable',
   'featureDialog.sketchFaceChip', 'featureDialog.sketchFaceChipWithRegion',
-  'featureDialog.rollbackLabel', 'featureDialog.finish',
+  // M6-c T5：旋转轴按几何判型命名（竖直/水平/斜线+同类序号；axisOption 退为
+  // 无解算坐标时的回退）+ 底部滑杆对齐采集规格（透明度，替 M3 期回滚滑杆）。
+  'featureDialog.axisOptionVertical', 'featureDialog.axisOptionHorizontal',
+  'featureDialog.axisOptionSlanted',
+  'featureDialog.transparencyLabel', 'featureDialog.finish',
   'featureDialog.help', 'featureDialog.helpText',
   'sketchDialog.defaultTitle', 'sketchDialog.confirm', 'sketchDialog.cancel',
   'sketchDialog.planeLabel', 'sketchDialog.planePlaceholder', 'sketchDialog.fastPick',

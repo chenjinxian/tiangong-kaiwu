@@ -3,10 +3,17 @@
  * Licensed under the MIT License.
  *
  * part-studio 工具 ribbon 注册表（M3 Task 4）——ribbon 渲染层与命令搜索
- * 的唯一数据源（os-11/os-20 采集对齐）：
- * - 27 工具按 Onshape dom-toolbar.html command-id 顺序分组在册；8 个下拉
- *   飞菜单（加厚/圆角/拔模/线性阵列/变换/框架/钣金模型/曲面曲线组）携
- *   全量子项（os-20 txt 证据逐项对账）；
+ * 的唯一数据源（os-11/os-20 采集对齐；M6-c T5 分组序权威升级）：
+ * - 27 工具按 Onshape 主工具栏分组序在册——**分组序权威 = diag-tools.json
+ *  （2026-10-23 Tutorial 2 实测采集）：撤消重做｜草图｜拉伸 旋转 扫掠 放样
+ *   加厚▾｜圆角▾ 倒角 拔模▾ 筋 抽壳 孔 外部螺纹｜线性阵列▾ 镜像｜布尔运算
+ *   分割 变换▾ 删除零件｜修改圆角 删除面 移动面 替换面｜平面▾｜框架▾｜
+ *   钣金模型▾｜添加自定义特征**。两处刻意缺席（工具集不变裁决）：①撤消/重做
+ *   归顶栏操作簇（本仓 M4-T4 装配，不入 ribbon）；②筋（Rib）未注册（未接线
+ *   占位不入册）。surfaceCurve 组=本仓扩充（UI-INVENTORY §2.2 曲面/曲线大全，
+ *   Onshape 主工具栏无此独立组），钉在末位。8 个下拉飞菜单（加厚/圆角/拔模/
+ *   线性阵列/变换/框架/钣金模型/曲面曲线组）携全量子项（os-20 txt 证据逐项
+ *   对账）；
  * - id 校准原则（T2 挂账「gated toolId 暂定命名待 T4 校准」收口）：已有
  *   真实 iTwin 工具的 8 项沿用旧应用 toolId（CadToolbar.tsx 取证：
  *   SweepFaces/RoundEdges/ChamferEdges/DraftFaces/HollowFaces/CreateHole/
@@ -292,9 +299,11 @@ const SurfaceCurveIcon = icon(
   el('circle', { cx: 18, cy: 7, r: 1.5 }),
 );
 
-// ── 注册表（os-11 顺序；group 切换即分隔条）───────────────────────────────
+// ── 注册表（Onshape 主工具栏分组序——diag-tools.json 权威，见文件头；
+//    group 切换即分隔条）──────────────────────────────────────────────────
 
-/** 分组渲染顺序（os-11 toolset-seperator 切分）。 */
+/** 分组渲染顺序（os-11 toolset-seperator 切分序 = diag-tools.json 组界序；
+ *  surfaceCurve 为本仓扩充组钉末位）。 */
 export const RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
   'sketch',
   'create',

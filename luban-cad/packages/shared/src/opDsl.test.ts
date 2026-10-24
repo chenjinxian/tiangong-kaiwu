@@ -218,6 +218,32 @@ describe("op DSL v1 边界", () => {
   });
 });
 
+describe("op DSL × M6-c T5（FEATURE_TYPES 白名单补 revolve）", () => {
+  /** revolve 全参样本（shared v1.7 RevolveParams：sketchId 寻址 + regionIndex 单选 + 轴 + 全周/角度）。 */
+  const revolveOp: FeatureOp = {
+    kind: "insertFeature",
+    featureType: "revolve",
+    params: {
+      profile: [],
+      sketchId: "sk-1",
+      regionIndex: 0,
+      axis: { sketchEntityId: 3 },
+      fullRevolve: true,
+    },
+  };
+
+  it("M6-b T2 漏同步修复：`op insertFeature revolve {...}` 结构 parse 放行（不再误抛未知 featureType）", () => {
+    const dsl = opsToDsl([revolveOp]);
+    expect(dslToOps(dsl)).toEqual([revolveOp]);
+  });
+
+  it("revolve 往返恒等 + 文本级稳定（featureType 为裸令牌形态）", () => {
+    const dsl = opsToDsl([revolveOp]);
+    expect(dsl.startsWith("op insertFeature revolve {")).toBe(true);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+});
+
 describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
   const plane = {
     origin: { x: 0, y: 0, z: 0.1 },

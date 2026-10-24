@@ -176,11 +176,22 @@
   gap: var(--iui-size-2xs);
 }
 
-/* ── 芯片式实体选择框（os-31）────────────────────────────────────────── */
+/* ── 芯片式实体选择框（os-31）。M6-c T5 分组框视觉对齐：采集 12-dialog-*.png
+ * 的「要拉伸的面和草图面域」=带边框的字段框（选中含 chip 时浅 accent 底）——
+ * 标签行+chips 收进同一边框盒，读作 Onshape 的选择框字段。 ────────────────── */
 .part-studio-feature-dialog__entities {
   display: flex;
   flex-direction: column;
   gap: var(--iui-size-2xs);
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+}
+
+.part-studio-feature-dialog__entities:has(.part-studio-feature-dialog__chip) {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  border-color: var(--iui-color-text-accent);
 }
 
 .part-studio-feature-dialog__entities-header {
@@ -354,7 +365,8 @@
   cursor: pointer;
 }
 
-/* ── 底部：回滚滑杆 + 成品 + ?（os-31）────────────────────────────────── */
+/* ── 底部：透明度滑杆 + 成品 + ?（M6-c T5 采集对齐 12-dialog-extrude-1.png
+ * 底栏=透明度滑杆+成品+?；滑杆无可见标签——aria 供名「透明度」）────────────── */
 .part-studio-feature-dialog__footer {
   display: flex;
   flex-direction: row;
@@ -365,7 +377,7 @@
   padding-block-start: var(--iui-size-2xs);
 }
 
-.part-studio-feature-dialog__rollback {
+.part-studio-feature-dialog__transparency {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -374,12 +386,7 @@
   min-inline-size: 0;
 }
 
-.part-studio-feature-dialog__rollback-label {
-  color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-0);
-}
-
-.part-studio-feature-dialog__rollback-slider {
+.part-studio-feature-dialog__transparency-slider {
   flex: 1;
   min-inline-size: 0;
 }

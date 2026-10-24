@@ -11,10 +11,15 @@
  *   useFeatureSystem.loading 透传）/ error 就地错误条 + 重试（refresh 直通）/
  *   empty（「暂无特征」）；零件段 loading / error / empty（「暂无零件」）；
  * - 零件段 = iModel 物理元素查询（`SELECT ECInstanceId, CodeValue FROM
- *   BisCore.GeometricElement3d` 经 connection.createQueryReader）——诚实呈现
- *   数量与名（CodeValue 缺失回退「未命名实体 {{id}}」），壳期「假 Part 1」
- *   占位随真数据源接线移除（M3 终审 T5-②③ 收口）；特征刷新（entries 引用
- *   变化）即重查（新特征落库 → 新实体出现）；
+ *   BisCore.GeometricElement3d WHERE … NOT IN (SELECT … FROM LubanCAD.Sketch)`
+ *   经 connection.createQueryReader——M6-c T5 小项批：草图元素排除，零件数
+ *   语义对齐 Onshape「零件数」不含草图）——诚实呈现数量与名（CodeValue 缺失
+ *   回退「未命名实体 {{id}}」），壳期「假 Part 1」占位随真数据源接线移除
+ *  （M3 终审 T5-②③ 收口）；特征刷新（entries 引用变化）即重查（新特征落库
+ *   → 新实体出现）；
+ * - M6-c T5 视口编辑态：特征对话框在场 → 体集（零件段产物）经
+ *   useCanvasSelection extraEmphasizedIds 打 Onshape 橙高亮（采集规格
+ *   §视口交互最小通道；后续特征灰显挂账）；
  * - 行（TreeRow）：名称 + 错误红显 + 抑制斜体 + 隐藏淡显；行点击选中（树→画布
  *   emphasize 联动的数据源），行右键菜单（os-15 子集：重命名/编辑…/抑制/
  *   删除 HITL，每项左置图标——os-15 V20，M4-T8 D5 收口）；
@@ -115,9 +120,19 @@ const FEATURE_SECTION_TOOLS: { id: string; labelKey: string; capability: string;
 ];
 
 /**
- * 零件段物理元素查询（诚实呈现）：全量 GeometricElement3d 的 ECInstanceId +
- * CodeValue。查询失败不静默（就地错误条）；随特征刷新重跑（新实体出现）。
+ * 零件段物理元素查询（诚实呈现）：GeometricElement3d 排除草图元素（M6-c T5
+ * 小项批——LubanCAD.Sketch（后端 LubanCadSchema LubanSketch extends
+ * GeometricElement3d）是特征树的源节点非零件，Onshape「零件数」语义不含它）
+ * 后的 ECInstanceId + CodeValue。子查询排除要求库内已导入 LubanCAD schema
+ *（modeling-server FeatureService.ensureInitialized 对每个托管 iModel 首个
+ * RPC 即导入——本应用打开的 iModel 均满足；未满足时查询报错=零件段就地
+ * 错误条，诚实呈现不静默）。查询失败不静默（就地错误条）；随特征刷新重跑
+ *（新实体出现）。
  */
+const PARTS_QUERY =
+  'SELECT ECInstanceId, CodeValue FROM BisCore.GeometricElement3d ' +
+  'WHERE ECInstanceId NOT IN (SELECT ECInstanceId FROM LubanCAD.Sketch)';
+
 function usePhysicalElements(connection: BriefcaseConnection | undefined, refreshToken: unknown): {
   parts: PartNode[];
   loading: boolean;
@@ -141,10 +156,8 @@ function usePhysicalElements(connection: BriefcaseConnection | undefined, refres
     void (async () => {
       try {
         const rows: PartNode[] = [];
-        // 诚实呈现数量与名：物理元素全量行（id + CodeValue）。
-        const reader = connection.createQueryReader(
-          'SELECT ECInstanceId, CodeValue FROM BisCore.GeometricElement3d',
-        );
+        // 诚实呈现数量与名：物理元素行（id + CodeValue；草图元素 ECSQL 端排除）。
+        const reader = connection.createQueryReader(PARTS_QUERY);
         for await (const row of reader) {
           const id = String(row[0]);
           const codeValue = row[1];
@@ -206,7 +219,17 @@ export function FeatureTree({
   const physical = usePhysicalElements(connection, entries);
   const model = useFeatureTree({ entries, parts: physical.parts, filter });
   // 树→画布 emphasize 联动（hook 内 effect：selectedNodeIds → viewport）。
-  useCanvasSelection();
+  // M6-c T5 视口编辑态（采集规格 §视口交互的最小通道）：特征对话框在场时
+  // 当前特征作用的 body 橙色高亮（useCanvasSelection extraEmphasizedIds →
+  // EmphasizeElements.overrideElements Onshape 橙）。体集=零件段查询产物
+  //（草图已滤——单 BodySolid 架构下零件段即体集）；「后续特征半透明灰显」
+  // 挂账（per-feature 归属映射缺位，见 useCanvasSelection 头注）。
+  const featureDialogOpen = usePartStudioStore((s) => s.dialog.active === 'feature');
+  const editHighlightIds = React.useMemo(
+    () => (featureDialogOpen ? physical.parts.map((part) => part.id) : []),
+    [featureDialogOpen, physical.parts],
+  );
+  useCanvasSelection(editHighlightIds);
   // T6 草图模式：活动草图行红显（os-30 树红显进行中草图）。
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);

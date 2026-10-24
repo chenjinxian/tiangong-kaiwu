@@ -10,7 +10,9 @@
 //     FROM BisCore.GeometricElement3d 经 connection.createQueryReader，诚实
 //     呈现数量与名）；
 //  3) 行状态呈现/树↔画布联动（emphasize + 卸载清空）/右键菜单/TreeFilter 语法
-//     沿 M3 语义（M3 终审 T5-①：emphasize key 稳定序列化 + unmount 清理）。
+//     沿 M3 语义（M3 终审 T5-①：emphasize key 稳定序列化 + unmount 清理）；
+//     M6-c T5 增：零件段查询滤草图（LubanCAD.Sketch NOT IN 子查询）+ 特征
+//     编辑态体高亮（对话框在场 → 体集 Onshape 橙覆盖，extraEmphasizedIds 通道）。
 //
 // 定位：组件行为 + 纯函数验收层；@itwin/core-frontend 模块级 mock（零真实
 // 查看器），真实 store/i18n 参与（setup.ts 全局词库兜底，zh-CN 基线）。
@@ -25,6 +27,9 @@ const mocks = vi.hoisted(() => ({
   emphasizeElements: vi.fn(),
   clearEmphasizedElements: vi.fn(),
   hideElements: vi.fn(),
+  // M6-c T5：特征编辑态体高亮通道（Onshape 橙 color-only 覆盖）。
+  overrideElements: vi.fn(),
+  clearOverriddenElements: vi.fn(),
   /** 测试可改写：null=无 viewport（emphasize 效果静默跳过）。 */
   viewport: null as unknown,
 }));
@@ -48,17 +53,23 @@ vi.mock('@itwin/core-frontend', () => ({
   },
   EmphasizeElements: {
     // M4-T6 T5-①：卸载清理走 get（不 getOrCreate——不因清理而创建实例）。
-    get: () => ({ clearEmphasizedElements: mocks.clearEmphasizedElements }),
+    get: () => ({
+      clearEmphasizedElements: mocks.clearEmphasizedElements,
+      clearOverriddenElements: mocks.clearOverriddenElements,
+    }),
     getOrCreate: () => ({
       emphasizeElements: mocks.emphasizeElements,
       clearEmphasizedElements: mocks.clearEmphasizedElements,
       hideElements: mocks.hideElements,
+      overrideElements: mocks.overrideElements,
+      clearOverriddenElements: mocks.clearOverriddenElements,
     }),
   },
   // barrel 经 PartStudioPage 链式引入 viewport-actions（StandardViewId 顶层映射）。
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
+import { ColorDef, FeatureOverrideType } from '@itwin/core-common';
 import { usePartStudioStore } from '../index.js';
 import { matchFeature, matchPart, parseTreeFilter } from '../tree/TreeFilter.js';
 import { FeatureTree } from '../tree/FeatureTree.js';
@@ -102,12 +113,13 @@ function partsConnection(
 
 type PartsConnection = ReturnType<typeof partsConnection>;
 
-/** store 复位：canvas/tree 切片回缺省（用例间互不渗漏；M6-a T7 起 sketch 切片同复位）。 */
+/** store 复位：canvas/tree 切片回缺省（用例间互不渗漏；M6-a T7 起 sketch 切片同复位；M6-c T5 起 dialog 切片同复位）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
+    dialog: { active: null },
   });
 }
 
@@ -135,9 +147,13 @@ describe('FeatureTree 双段渲染（对齐 os-11；真数据源 entries）', ()
     // 段头计数（os-11「特征 (17)」）。
     expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(4)');
     expect(within(tree).getByTestId('part-studio-part-count').textContent).toBe('(2)');
-    // 查询形状钉死：物理元素全量（ECInstanceId + CodeValue）。
+    // 查询形状钉死：物理元素行（ECInstanceId + CodeValue），草图元素排除
+    //（M6-c T5 小项批：LubanCAD.Sketch 子查询 NOT IN——零件数语义不含草图）。
     expect(connection.createQueryReader).toHaveBeenCalledWith(
       expect.stringContaining('FROM BisCore.GeometricElement3d'),
+    );
+    expect(connection.createQueryReader).toHaveBeenCalledWith(
+      expect.stringContaining('NOT IN (SELECT ECInstanceId FROM LubanCAD.Sketch)'),
     );
   });
 
@@ -259,6 +275,46 @@ describe('树→画布联动单向流（树选中 → viewport emphasize；M4-T6
     expect(mocks.clearEmphasizedElements).not.toHaveBeenCalled();
     unmount();
     expect(mocks.clearEmphasizedElements).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M6-c T5：特征编辑态体高亮（采集规格 §视口交互的最小通道）——特征对话框
+// 在场 → 零件段体集（草图已滤）经 useCanvasSelection extraEmphasizedIds 打
+// Onshape 橙 color-only 覆盖；关闭/空集 → clearOverriddenElements 清场。
+// 「后续特征半透明灰显」挂账（per-feature 归属映射缺位）——见 useCanvasSelection 头注。
+// ---------------------------------------------------------------------------
+describe('特征编辑态体高亮（M6-c T5：对话框在场 → 体集 Onshape 橙覆盖）', () => {
+  /** FEATURE_EDIT_HIGHLIGHT_COLOR（真实 ColorDef——@itwin/core-common 未 mock，与 hook 同源取值）。 */
+  const ORANGE = ColorDef.from(0xf3, 0xad, 0x3e);
+  const COLOR_ONLY = FeatureOverrideType.ColorOnly;
+
+  it('对话框打开 → 体集 overrideElements 橙覆盖（replace 整集）；关闭 → clearOverriddenElements 清场', async () => {
+    mocks.viewport = { id: 'vp' };
+    const connection = partsConnection([['0x1', 'Part 1']]);
+    render(<FeatureTree entries={ENTRIES} connection={connection as never} />);
+    await waitFor(() =>
+      expect(within(screen.getByTestId('part-studio-part-list')).getByText('Part 1')).toBeDefined(),
+    );
+    expect(mocks.overrideElements).not.toHaveBeenCalled();
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+    });
+    await waitFor(() =>
+      expect(mocks.overrideElements).toHaveBeenCalledWith(['0x1'], { id: 'vp' }, ORANGE, COLOR_ONLY, true),
+    );
+    act(() => {
+      usePartStudioStore.getState().closeDialog();
+    });
+    await waitFor(() => expect(mocks.clearOverriddenElements).toHaveBeenCalled());
+    expect(mocks.overrideElements).toHaveBeenCalledTimes(1); // 关闭后不重复打覆盖
+  });
+
+  it('对话框未开 → 只清场不打覆盖（空集通道）', async () => {
+    mocks.viewport = { id: 'vp' };
+    render(<FeatureTree entries={ENTRIES} />);
+    await waitFor(() => expect(mocks.clearOverriddenElements).toHaveBeenCalled());
+    expect(mocks.overrideElements).not.toHaveBeenCalled();
   });
 });
 

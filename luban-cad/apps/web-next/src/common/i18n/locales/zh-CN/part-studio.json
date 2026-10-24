@@ -299,6 +299,9 @@
     "sketchFaceChipWithRegion": "{{name}} 的面 · 面域 {{index}}",
     "axisLabel": "旋转轴",
     "axisOption": "线 {{id}}",
+    "axisOptionVertical": "竖直线 {{index}}",
+    "axisOptionHorizontal": "水平线 {{index}}",
+    "axisOptionSlanted": "斜线 {{index}}",
     "noAxisHint": "草图无可用旋转轴",
     "fullRevolveLabel": "全方位",
     "angleLabel": "角度（度）",
@@ -331,7 +334,7 @@
       "forward": "正向",
       "backward": "反向"
     },
-    "rollbackLabel": "回滚",
+    "transparencyLabel": "透明度",
     "finish": "成品",
     "help": "帮助",
     "helpText": "在画布中拾取面或草图区域以添加实体；✓ 提交特征，✗ 放弃更改。"

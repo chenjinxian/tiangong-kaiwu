@@ -299,6 +299,9 @@
     "sketchFaceChipWithRegion": "Face of {{name}} · region {{index}}",
     "axisLabel": "Revolve axis",
     "axisOption": "Line {{id}}",
+    "axisOptionVertical": "Vertical line {{index}}",
+    "axisOptionHorizontal": "Horizontal line {{index}}",
+    "axisOptionSlanted": "Slanted line {{index}}",
     "noAxisHint": "The sketch has no line to revolve around",
     "fullRevolveLabel": "Full revolve",
     "angleLabel": "Angle (degrees)",
@@ -331,7 +334,7 @@
       "forward": "Forward",
       "backward": "Backward"
     },
-    "rollbackLabel": "Rollback",
+    "transparencyLabel": "Transparency",
     "finish": "Finish",
     "help": "Help",
     "helpText": "Pick faces or sketch regions in the canvas to add entities; ✓ commits the feature, ✗ discards changes."

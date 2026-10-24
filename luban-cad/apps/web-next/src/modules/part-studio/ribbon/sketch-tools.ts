@@ -4,7 +4,8 @@
  *
  * part-studio 草图模式工具注册表（M3 Task 6）——草图模式 ribbon 变身
  * （os-30：点「创建新草图」后工具 ribbon 整体切换为草图工具组）的数据源：
- * - 12 工具按 os-30 采集的三组排布（绘制 5 / 编辑 5 / 标注 2）；
+ * - 18 工具按采集三组排布（M6-c T5 起=绘制 6 / 编辑 4 / 标注 8——组界与组内
+ *   序权威=10-sketch-toolbar.json，见文件头 M6-c T5 段）；
  * - 与特征模式 RIBBON_TOOLS 分离注册：命令搜索（os-30 search 框禁用）与
  *   特征模式 palette 不索引草图工具；激活路由仍走 useToolActivation
  *   （未接线 toolId 由 tools.run 返回 false 打警告——真实草图工具接线时
@@ -28,6 +29,13 @@
  *（tools/sketch/SketchOffsetTool.ts，registerSketchOffsetTools 注册，同一
  * 激活路由直投；选链→光标侧定方向→垂距定距→闭式造几何+约束展开）。
  * 其余 5 件（样条/编辑 4）占位保留，T6+ 后续任务接线。
+ *
+ * M6-c T5（分组序对齐采集权威 10-sketch-toolbar.json——2026-10-23 草图模式
+ * 实测）：「文本」自编辑组移入绘制组（Onshape 绘制组序=线 拐角矩形 中心点圆
+ * 3点圆弧 内切多边形 样条 点 文本，编辑组=圆角 修剪 偏移 镜像 线性阵列
+ * 插入DXF——内切多边形/点/线性阵列/插入DXF 未注册，工具集不变只调组）。
+ * 标注组采集仅「尺寸 重合」两钮+下拉箭头，本仓按工具展开 8 件（1:1 下拉归
+ * M6-c 后续任务）。
  *
  * 图标：沿用 ribbon-registry 自制描边 SVG 同姿态（24×24，currentColor）。
  */
@@ -184,20 +192,21 @@ export const SKETCH_TOOL_GROUP_ORDER: readonly SketchRibbonGroup[] = [
   'sketchAnnotate',
 ];
 
-/** 18 草图工具注册表（绘制 4 + 标注 8 已接线真 toolId——M6-a T5/M6-b T5，见文件头；其余占位待接）。 */
+/** 18 草图工具注册表（绘制 4 + 标注 8 已接线真 toolId——M6-a T5/M6-b T5，见文件头；其余占位待接）。
+ *  组内序=10-sketch-toolbar.json 采集序（M6-c T5：文本归绘制组）。 */
 export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
-  // 绘制 5（前 4 件 M6-a T5 接线真 toolId；样条占位）
+  // 绘制 6（前 4 件 M6-a T5 接线真 toolId；样条/文本占位——采集序：样条→文本）
   { id: 'Sketch.Line', icon: LineIcon, labelKey: 'partStudio.ribbon.sketchTools.line.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'Sketch.Rectangle', icon: RectangleIcon, labelKey: 'partStudio.ribbon.sketchTools.rectangle.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'Sketch.CenterCircle', icon: CircleIcon, labelKey: 'partStudio.ribbon.sketchTools.circle.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'Sketch.Arc3Point', icon: ArcIcon, labelKey: 'partStudio.ribbon.sketchTools.arc.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'sketchSpline', icon: SplineIcon, labelKey: 'partStudio.ribbon.sketchTools.spline.label', capability: 'sketch', group: 'sketchDraw' },
-  // 编辑 5
+  { id: 'sketchText', icon: TextIcon, labelKey: 'partStudio.ribbon.sketchTools.text.label', capability: 'sketch', group: 'sketchDraw' },
+  // 编辑 4（采集序：圆角→修剪→偏移→镜像）
   { id: 'sketchFillet', icon: SketchFilletIcon, labelKey: 'partStudio.ribbon.sketchTools.fillet.label', capability: 'sketch', group: 'sketchEdit' },
   { id: 'sketchTrim', icon: TrimIcon, labelKey: 'partStudio.ribbon.sketchTools.trim.label', capability: 'sketch', group: 'sketchEdit' },
   { id: 'Sketch.Offset', icon: OffsetIcon, labelKey: 'partStudio.ribbon.sketchTools.offset.label', capability: 'sketch', group: 'sketchEdit' },
   { id: 'sketchMirror', icon: SketchMirrorIcon, labelKey: 'partStudio.ribbon.sketchTools.mirror.label', capability: 'sketch', group: 'sketchEdit' },
-  { id: 'sketchText', icon: TextIcon, labelKey: 'partStudio.ribbon.sketchTools.text.label', capability: 'sketch', group: 'sketchEdit' },
   // 标注 8（M6-b T5：约束 6 + 尺寸 2，占位 sketchConstraint/sketchDimension 两
   // 位按工具展开——下拉 1:1 归 M6-c）
   { id: 'Sketch.Constraint.Coincident', icon: CoincidentIcon, labelKey: 'partStudio.ribbon.sketchTools.coincident.label', capability: 'sketch', group: 'sketchAnnotate' },

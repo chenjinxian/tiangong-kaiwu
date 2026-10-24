@@ -11,8 +11,9 @@
 //     + 快速拾取（store.canvas.selection 回流成 chips，按 id 去重）；
 //  5) 折叠段：方向（默认展开，正向/反向下拉）/起始偏移/对称（勾选）/拔模，
 //     aria-expanded 开合语义，值进确认载荷；
-//  6) 底部：回滚滑杆（range，默认=上限）+ 成品按钮（同 ✓ 确认出口）+ ?
-//     帮助（展开帮助文案）。
+//  6) 底部：透明度滑杆（M6-c T5 采集对齐 12-dialog-extrude-1.png 底栏；0-100
+//     缺省 0，预览消费挂账）+ 成品按钮（同 ✓ 确认出口）+ ? 帮助（展开帮助
+//     文案）。
 //
 // M6-a T6（拉伸草图通道）：new/extrude 提交走 {sketchId, regionIndex,
 // profile:[]}（解「空 profile 死结」——T3 zod 拒收无 sketchId 的空 profile）：
@@ -20,11 +21,10 @@
 // chip/布尔类型不接通道（zod sketchId:z.never() 既有语义）。
 //
 // M6-b T4（revolve 通道+对称平铺复选）：sketchChannel 扩 revolve——轴下拉
-//（getSketch entities 过滤 kind==='line'，「线 {id}」=载荷 axis.sketchEntityId
-// 同值，缺省首条）/无 line 门禁/全方位复选（缺省 true，取消 → 角度输入，UI
-// 度制 → 载荷前 ×π/180 转弧度）/载荷不含 distance；extrude 通道「对称」
-// Onshape 平铺形态复选（勾选才带 symmetric:true 键——T3 契约接线收口，
-// 缺省省略=载荷向后兼容）。
+//（getSketch entities 过滤 kind==='line'，载荷 axis.sketchEntityId 同值，缺省
+// 首条）/无 line 门禁/全方位复选（缺省 true，取消 → 角度输入，UI 度制 → 载荷
+// 前 ×π/180 转弧度）/载荷不含 distance；extrude 通道「对称」Onshape 平铺形态
+// 复选（勾选才带 symmetric:true 键——T3 契约接线收口，缺省省略=载荷向后兼容）。
 //
 // M6-c T3（复合面域多选，合理变更）：extrude 通道面域单选下拉升级为多选
 // chips（Onshape「面和草图面域」多选语义）——载荷由 {sketchId, regionIndex}
@@ -34,6 +34,11 @@
 // 语义锚同源）；全选/清空轻量操作；空选 →「选择至少一个面域」+ ✓ 禁用。
 // revolve 通道保持单选下拉 + regionIndex 载荷（裁决钉死：RevolveParams 未扩
 // regions——不越契约），钉形断言不动。
+//
+// M6-c T5（UI 1:1 对齐批）：①轴下拉按几何判型命名——classifyAxisLines 纯函数
+//（端点解算坐标判竖直/水平/斜线+同类 1 基序号；坐标缺失回退「线 {id}」），
+// 载荷寻址（axis.sketchEntityId=id）不变；②底部滑杆回滚→透明度（载荷
+// rollback→transparency）。
 //
 // 定位：组件行为验收层；@itwin/core-frontend 模块级 mock（零真实查看器），
 // '@luban-cad/shared' 模块级 mock（getSketch 面域读面替身），真实 store/i18n
@@ -135,7 +140,7 @@ import type { FeatureOp, FeatureOpResult, SketchDto, SketchEntityDto, SketchRegi
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
-import { FeatureDialog } from '../dialogs/FeatureDialog.js';
+import { classifyAxisLines, FeatureDialog } from '../dialogs/FeatureDialog.js';
 
 /** store 复位：canvas/viewOnly 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
@@ -195,7 +200,7 @@ describe('FeatureDialog 非模态结构（os-31）', () => {
     expect(within(header as HTMLElement).getByRole('button', { name: '取消' })).toBeDefined();
   });
 
-  it('默认载荷：solid/new/entities 初始/direction=forward/偏移空/无对称/拔模空/回滚=上限', async () => {
+  it('默认载荷：solid/new/entities 初始/direction=forward/偏移空/无对称/拔模空/透明度=0', async () => {
     const { onConfirm } = renderDialog({ entities: ENTITIES });
     await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
     const expected: FeatureDialogResult = {
@@ -206,7 +211,7 @@ describe('FeatureDialog 非模态结构（os-31）', () => {
       startOffset: '',
       symmetric: false,
       draft: '',
-      rollback: 100,
+      transparency: 0,
     };
     expect(onConfirm).toHaveBeenCalledWith(expected);
   });
@@ -323,22 +328,22 @@ describe('折叠段（方向/起始偏移/对称/拔模）', () => {
   });
 });
 
-describe('底部（回滚滑杆 + 成品 + ?）', () => {
-  it('回滚滑杆在场：range 语义 + 默认=上限 100', () => {
+describe('底部（透明度滑杆 + 成品 + ?——M6-c T5 采集对齐 12-dialog-extrude-1.png）', () => {
+  it('透明度滑杆在场：range 语义 + 0-100 域 + 缺省 0（不透明）', () => {
     renderDialog();
-    const slider = screen.getByRole('slider', { name: '回滚' });
+    const slider = screen.getByRole('slider', { name: '透明度' });
     expect(slider.getAttribute('type')).toBe('range');
-    expect((slider as HTMLInputElement).value).toBe('100');
+    expect(slider.getAttribute('min')).toBe('0');
+    expect(slider.getAttribute('max')).toBe('100');
+    expect((slider as HTMLInputElement).value).toBe('0');
   });
 
-  it('拖滑杆改值进确认载荷；rollbackMax 可注入', async () => {
-    const { onConfirm } = renderDialog({ entities: [], rollbackMax: 7 });
-    const slider = screen.getByRole('slider', { name: '回滚' });
-    expect(slider.getAttribute('max')).toBe('7');
-    expect((slider as HTMLInputElement).value).toBe('7');
-    fireEvent.change(slider, { target: { value: '3' } });
+  it('拖透明度滑杆改值进确认载荷（预览消费挂账——载荷面先行钉形）', async () => {
+    const { onConfirm } = renderDialog({ entities: [] });
+    const slider = screen.getByRole('slider', { name: '透明度' });
+    fireEvent.change(slider, { target: { value: '60' } });
     await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
-    expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).rollback).toBe(3);
+    expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).transparency).toBe(60);
   });
 
   it('成品按钮=确认出口（同 ✓ 回传载荷）', async () => {
@@ -365,7 +370,6 @@ const _typeCheck: JSX.Element = (
   <FeatureDialog
     featureName="Extrude 2"
     entities={[{ id: 'e1', label: '面 1' }]}
-    rollbackMax={5}
     onConfirm={(result: FeatureDialogResult) => void result}
     onCancel={() => undefined}
   />
@@ -1150,13 +1154,14 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     featureRpc.getSketch.mockReset();
   });
 
-  it('全周缺省：轴下拉缺省首条（线 3）+ 全方位勾选（角度输入不在场）→ 载荷钉形（无 angle 键亦无 distance 键）', async () => {
+  it('全周缺省：轴下拉缺省首条（水平线 1=line 3）+ 判型命名 + 全方位勾选（角度输入不在场）→ 载荷钉形（无 angle 键亦无 distance 键）', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
     const axisSelect = screen.getByRole('combobox', { name: '旋转轴' }) as HTMLSelectElement;
     await waitFor(() => expect(axisSelect.value).toBe('3')); // 缺省首条 line
-    expect(within(axisSelect).getByRole('option', { name: '线 3' })).toBeDefined();
-    expect(within(axisSelect).getByRole('option', { name: '线 4' })).toBeDefined();
+    // M6-c T5 判型命名：两线端点 y 相等 → 水平线 1/水平线 2（id 与载荷同值可对账）。
+    expect(within(axisSelect).getByRole('option', { name: '水平线 1' })).toBeDefined();
+    expect(within(axisSelect).getByRole('option', { name: '水平线 2' })).toBeDefined();
     expect((screen.getByRole('checkbox', { name: '全方位' }) as HTMLInputElement).checked).toBe(true);
     expect(screen.queryByRole('textbox', { name: '角度（度）' })).toBeNull();
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -1168,7 +1173,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     });
   });
 
-  it('换轴进载荷：选「线 4」→ axis.sketchEntityId=4（id 与载荷同值可对账）', async () => {
+  it('换轴进载荷：选「水平线 2」（line 4）→ axis.sketchEntityId=4（id 与载荷同值可对账）', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
     await user.selectOptions(screen.getByRole('combobox', { name: '旋转轴' }), '4');
@@ -1285,6 +1290,83 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull();
     expect(screen.queryByRole('checkbox', { name: '对称' })).toBeNull();
     expect(screen.queryByRole('button', { name: '对称' })).toBeNull();
+  });
+
+  it('轴判型命名（M6-c T5）：竖直/水平/斜线同类分别编号；端点无解算坐标回退「线 {id}」（载荷寻址不变）', async () => {
+    const applyOp = makeApplyOp();
+    const mixed: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 2, y: 0 }, // 竖线端点
+      { kind: 'point', id: 2, x: 2, y: 5 },
+      { kind: 'point', id: 3, x: 0, y: 1 }, // 斜线端点
+      { kind: 'point', id: 4, x: 3, y: 1 }, // 与点 3 同 y（水平线）；与点 6 同 x（竖直线）
+      { kind: 'point', id: 5, x: 0, y: 9 },
+      { kind: 'point', id: 6, x: 3, y: 0 },
+      { kind: 'line', id: 10, p1: 1, p2: 2 }, // x 相等 → 竖直线 1
+      { kind: 'line', id: 11, p1: 1, p2: 3 }, // x/y 均不等 → 斜线 1
+      { kind: 'line', id: 12, p1: 3, p2: 4 }, // y 相等 → 水平线 1
+      { kind: 'line', id: 13, p1: 9, p2: 9 }, // 端点 id 9 不在实体集 → unknown（回退 线 13）
+      { kind: 'line', id: 14, p1: 4, p2: 6 }, // x 相等(3) → 竖直线 2
+    ];
+    const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(mixed, ONE_REGION));
+    const axisSelect = screen.getByRole('combobox', { name: '旋转轴' }) as HTMLSelectElement;
+    await waitFor(() => expect(axisSelect.value).toBe('10'));
+    expect(within(axisSelect).getByRole('option', { name: '竖直线 1' })).toBeDefined();
+    expect(within(axisSelect).getByRole('option', { name: '竖直线 2' })).toBeDefined();
+    expect(within(axisSelect).getByRole('option', { name: '水平线 1' })).toBeDefined();
+    expect(within(axisSelect).getByRole('option', { name: '斜线 1' })).toBeDefined();
+    expect(within(axisSelect).getByRole('option', { name: '线 13' })).toBeDefined();
+    // 判型只改文案不改寻址：选 unknown 项提交，载荷仍带实体 id。
+    await user.selectOptions(axisSelect, '13');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect((applyOp.mock.calls[0]![0] as { params: { axis: { sketchEntityId: number } } }).params.axis)
+      .toEqual({ sketchEntityId: 13 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M6-c T5：classifyAxisLines 纯函数单测（判向容差/序号计数/非线实体跳过）。
+// ---------------------------------------------------------------------------
+describe('classifyAxisLines（旋转轴判型纯函数，M6-c T5）', () => {
+  it('竖直/水平/斜线判向 + 同类 1 基序号（按出现序计）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 0, y: 0 },
+      { kind: 'point', id: 2, x: 0.001, y: 0 },
+      { kind: 'point', id: 3, x: 5, y: 5 },
+      { kind: 'line', id: 10, p1: 1, p2: 2 }, // y 相等 → 水平线 1
+      { kind: 'line', id: 11, p1: 1, p2: 3 }, // 斜线 1
+      { kind: 'line', id: 12, p1: 2, p2: 3 }, // 斜线 2
+    ];
+    expect(classifyAxisLines(entities)).toEqual([
+      { id: 10, kind: 'horizontal', ordinal: 1 },
+      { id: 11, kind: 'slanted', ordinal: 1 },
+      { id: 12, kind: 'slanted', ordinal: 2 },
+    ]);
+  });
+
+  it('容差 1e-6 内视为对齐（米制坐标浮点尾差）；超界即斜线', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 2, y: 0 },
+      { kind: 'point', id: 2, x: 2 + 1e-7, y: 9 }, // x 差 1e-7 < 1e-6 → 竖直
+      { kind: 'point', id: 3, x: 2 + 1e-3, y: 9 },
+      { kind: 'line', id: 10, p1: 1, p2: 2 },
+      { kind: 'line', id: 11, p1: 1, p2: 3 },
+    ];
+    const result = classifyAxisLines(entities);
+    expect(result[0]).toEqual({ id: 10, kind: 'vertical', ordinal: 1 });
+    expect(result[1]).toEqual({ id: 11, kind: 'slanted', ordinal: 1 });
+  });
+
+  it('端点坐标缺失/点实体缺席 → unknown（ordinal 独立计数）；非线实体不产出', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 0, y: 0 },
+      { kind: 'circle', id: 4, center: 1, radius: 5 },
+      { kind: 'line', id: 10, p1: 1, p2: 1 }, // 有坐标（重合点）→ 竖直（x 相等且 y 相等——x 判据先行）
+      { kind: 'line', id: 11, p1: 9, p2: 9 }, // 端点不在实体集 → unknown
+    ];
+    expect(classifyAxisLines(entities)).toEqual([
+      { id: 10, kind: 'vertical', ordinal: 1 },
+      { id: 11, kind: 'unknown', ordinal: 1 },
+    ]);
   });
 });
 
