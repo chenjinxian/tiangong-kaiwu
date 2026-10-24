@@ -50,9 +50,11 @@ Get-ChildItem -Path $scopeDirs -Directory | ForEach-Object {
       $top = Join-Path $topLevel "$scope\$($_.Name)"
       if (-not (Test-Path $top)) { return }  # 无顶层同名包：唯一实例，不动
 
-      # 版本一致性（package.json version）——分叉则警告保留
-      $nv = (Get-Content (Join-Path $nested 'package.json') | ConvertFrom-Json).version
-      $tv = (Get-Content (Join-Path $top 'package.json') | ConvertFrom-Json).version
+      # 版本一致性（package.json version）——分叉则警告保留。
+      # -Encoding UTF8 必带（2026-10-25 发布窗实测）：@luban-cad/* 包含中文注释字段
+      # （"//dependencies"），PS5.1 默认 ANSI 读会把多字节序列吃进引号 → JSON 解析炸。
+      $nv = (Get-Content -Encoding UTF8 (Join-Path $nested 'package.json') | ConvertFrom-Json).version
+      $tv = (Get-Content -Encoding UTF8 (Join-Path $top 'package.json') | ConvertFrom-Json).version
       if ($nv -ne $tv) {
         Write-Host "  ! 版本分叉保留: $nested (v$nv) ≠ 顶层 (v$tv)" -ForegroundColor Yellow
         $script:warned++
