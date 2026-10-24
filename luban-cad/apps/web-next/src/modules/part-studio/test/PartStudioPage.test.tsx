@@ -344,9 +344,12 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
   it('顶栏：面包屑 文档 → iTwin 名 → iModel 名 + 分支徽标 + 分享/用户菜单/帮助', async () => {
     renderPage();
     const topBar = screen.getByTestId('part-studio-top-bar');
-    expect(await screen.findByRole('button', { name: '文档' })).toBeDefined();
-    expect(await screen.findByRole('button', { name: '演示文档' })).toBeDefined();
-    expect(await screen.findByRole('button', { name: '楼层模型' })).toBeDefined();
+    // 并行慢 worker 下 react-query 落位可超缺省 1s 窗（M6c-T5 登记 flake）——
+    // 三个异步查找显式放大到 10s（确定性等待，非 sleep 竞速）。
+    const slow = { timeout: 10_000 };
+    expect(await screen.findByRole('button', { name: '文档' }, slow)).toBeDefined();
+    expect(await screen.findByRole('button', { name: '演示文档' }, slow)).toBeDefined();
+    expect(await screen.findByRole('button', { name: '楼层模型' }, slow)).toBeDefined();
     expect(within(topBar).getByText('Main')).toBeDefined();
     expect(within(topBar).getByRole('button', { name: '分享' })).toBeDefined();
     expect(within(topBar).getByRole('button', { name: '用户菜单' })).toBeDefined();
