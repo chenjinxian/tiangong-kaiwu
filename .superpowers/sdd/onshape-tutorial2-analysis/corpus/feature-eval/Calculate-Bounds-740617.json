@@ -1,0 +1,104 @@
+{
+ "id": "Calculate-Bounds-740617",
+ "docId": "2ce3e64026df1ac7e63b98bd",
+ "elementId": "ee8919ad0a28cec3b0740617",
+ "sourceMicroversion": "148e1dd6b7b186cb5bf9e994",
+ "libraryVersion": 2892,
+ "sketches": {
+  "F1dr7Yqmbt2sJ9U_0": {
+   "regions": [
+    {
+     "areaM2": 0.009032240000000007,
+     "id": "JGC"
+    }
+   ]
+  },
+  "FfZnWnsQnHH9lKK_1": {
+   "regions": [
+    {
+     "areaM2": 0.012788027003996286,
+     "id": "JJC"
+    },
+    {
+     "areaM2": 0.00011517299600371816,
+     "id": "JJG"
+    }
+   ]
+  },
+  "FD7taJv3Rm1tCTV_3": {
+   "regions": [
+    {
+     "areaM2": 0.004495811122355047,
+     "id": "JOC"
+    },
+    {
+     "areaM2": 0.0008819907628886054,
+     "id": "JOG"
+    }
+   ]
+  }
+ },
+ "volumeTimeline": [
+  {
+   "rollback": 1,
+   "featureId": "F1dr7Yqmbt2sJ9U_0",
+   "featureType": "newSketch",
+   "volumeM3": 0
+  },
+  {
+   "rollback": 2,
+   "featureId": "FvaGdWOkdmtYpEe_0",
+   "featureType": "extrude",
+   "volumeM3": 0.00022941889600000022
+  },
+  {
+   "rollback": 3,
+   "featureId": "FfZnWnsQnHH9lKK_1",
+   "featureType": "newSketch",
+   "volumeM3": 0.00022941889600000022
+  },
+  {
+   "rollback": 4,
+   "featureId": "FxDFjm3Zp0lsMU0_1",
+   "featureType": "extrude",
+   "volumeM3": 0.004127209526818068
+  },
+  {
+   "rollback": 5,
+   "featureId": "FsfZwGob08VCaxD_2",
+   "featureType": "chamfer",
+   "volumeM3": 0.0038166265169342875
+  },
+  {
+   "rollback": 6,
+   "featureId": "FhyQ6IL5k02AeV7_2",
+   "featureType": "transform",
+   "volumeM3": 0.003816626516934288
+  },
+  {
+   "rollback": 7,
+   "featureId": "FD7taJv3Rm1tCTV_3",
+   "featureType": "newSketch",
+   "volumeM3": 0.0038166265169342884
+  },
+  {
+   "rollback": 8,
+   "featureId": "FP6LpeVZYBf30Wm_3",
+   "featureType": "extrude",
+   "volumeM3": 0.004185436170224298
+  },
+  {
+   "rollback": 9,
+   "featureId": "FCJfZUlLcZCniJ1_2",
+   "featureType": "calculateBounds",
+   "volumeM3": 0.004185436170224297
+  },
+  {
+   "rollback": 10,
+   "featureId": "F2RoZrMDSnOXDqJ_2",
+   "featureType": "calculateBounds",
+   "volumeM3": 0.021410451448629617
+  }
+ ],
+ "collectedAt": "2026-10-25T12:09:38.030Z"
+}

@@ -1,0 +1,316 @@
+{
+ "id": "Cable-Wire-Routing---DO-NOT-COPY-use-Cus-a0620b",
+ "docId": "3599036701247d65f0106997",
+ "elementId": "af3be680979824ee83a0620b",
+ "sourceMicroversion": "7f269a0ff67280aeeddca247",
+ "libraryVersion": 3083,
+ "sketches": {
+  "FD7hljhANoW3Lpl_0": {
+   "regions": [
+    {
+     "areaM2": 0.00009999999999999983,
+     "id": "JGC"
+    },
+    {
+     "areaM2": 0.0006399999999999986,
+     "id": "JGG"
+    },
+    {
+     "areaM2": 0.0008080000000000003,
+     "id": "JGK"
+    }
+   ]
+  },
+  "FWuO3B6xrPJdkWH_3": {
+   "regions": [
+    {
+     "areaM2": 0.00020235428830090072,
+     "id": "JOC"
+    },
+    {
+     "areaM2": 0.00004531879886462662,
+     "id": "JOK"
+    }
+   ]
+  },
+  "FWOoybNAQ0IWesr_3": {
+   "regions": [
+    {
+     "areaM2": 0.0000780000000000002,
+     "id": "JSC"
+    }
+   ]
+  },
+  "FUWSsAhFQqeUaQJ_3": {
+   "regions": [
+    {
+     "areaM2": 0.000028274333882308148,
+     "id": "JWC"
+    },
+    {
+     "areaM2": 0.000028274333882308137,
+     "id": "JWG"
+    },
+    {
+     "areaM2": 0.000028274333882308148,
+     "id": "JWK"
+    },
+    {
+     "areaM2": 0.00000762,
+     "id": "JWO"
+    },
+    {
+     "areaM2": 0.00000762,
+     "id": "JWS"
+    }
+   ]
+  },
+  "FkDb3bS0zdlttBn_3": {
+   "regions": [
+    {
+     "areaM2": 6.25000000000001e-7,
+     "id": "JbC"
+    },
+    {
+     "areaM2": 6.250000000000059e-7,
+     "id": "JbG"
+    },
+    {
+     "areaM2": 6.250000000000008e-7,
+     "id": "JbK"
+    },
+    {
+     "areaM2": 6.24999999999992e-7,
+     "id": "JbO"
+    },
+    {
+     "areaM2": 6.250000000000071e-7,
+     "id": "JbS"
+    },
+    {
+     "areaM2": 6.250000000000011e-7,
+     "id": "JbW"
+    },
+    {
+     "areaM2": 6.249999999999924e-7,
+     "id": "Jba"
+    },
+    {
+     "areaM2": 6.249999999999941e-7,
+     "id": "Jbe"
+    },
+    {
+     "areaM2": 6.250000000000011e-7,
+     "id": "Jbi"
+    },
+    {
+     "areaM2": 6.250000000000059e-7,
+     "id": "Jbm"
+    },
+    {
+     "areaM2": 6.250000000000007e-7,
+     "id": "Jbq"
+    },
+    {
+     "areaM2": 6.24999999999992e-7,
+     "id": "Jbu"
+    },
+    {
+     "areaM2": 2.4999999999999957e-7,
+     "id": "Jb2"
+    },
+    {
+     "areaM2": 2.4999999999999957e-7,
+     "id": "Jb6"
+    },
+    {
+     "areaM2": 2.5000000000000047e-7,
+     "id": "Jb+"
+    }
+   ]
+  },
+  "FX9ZjHIcdOalIpE_4": {
+   "regions": [
+    {
+     "areaM2": 0.00003500000000000001,
+     "id": "JgG"
+    },
+    {
+     "areaM2": 0.0000545,
+     "id": "JgK"
+    },
+    {
+     "areaM2": 0.000005000000000000009,
+     "id": "JgO"
+    }
+   ]
+  },
+  "FFILGabLClDhnB2_4": {
+   "regions": [
+    {
+     "areaM2": 4.0322500000000224e-7,
+     "id": "JkC"
+    }
+   ]
+  }
+ },
+ "volumeTimeline": [
+  {
+   "rollback": 1,
+   "featureId": "FD7hljhANoW3Lpl_0",
+   "featureType": "newSketch",
+   "volumeM3": 0
+  },
+  {
+   "rollback": 2,
+   "featureId": "FQ3Bmx5lTOdcK9T_0",
+   "featureType": "revolve",
+   "volumeM3": 0.00019348859713949282
+  },
+  {
+   "rollback": 3,
+   "featureId": "FXOGu7NuPoz6UC4_1",
+   "featureType": "revolve",
+   "volumeM3": 0.00022757487743094198
+  },
+  {
+   "rollback": 4,
+   "featureId": "Fhbbvpa29ycTqfX_2",
+   "featureType": "revolve",
+   "volumeM3": 0.00039068636800532343
+  },
+  {
+   "rollback": 5,
+   "featureId": "FK3fuoGlTjjicEo_3",
+   "featureType": "fillet",
+   "volumeM3": 0.000388458431686056
+  },
+  {
+   "rollback": 6,
+   "featureId": "F9HRmUDfDB3hvIS_3",
+   "featureType": "chamfer",
+   "volumeM3": 0.00038708031970868134
+  },
+  {
+   "rollback": 7,
+   "featureId": "FD8O1soRMj2W1I7_3",
+   "featureType": "fillet",
+   "volumeM3": 0.0003883910546208864
+  },
+  {
+   "rollback": 8,
+   "featureId": "FWuO3B6xrPJdkWH_3",
+   "featureType": "newSketch",
+   "volumeM3": 0.00038839105462088635
+  },
+  {
+   "rollback": 9,
+   "featureId": "FIYsPEpyJCubsnk_3",
+   "featureType": "extrude",
+   "volumeM3": 0.0003901497768455074
+  },
+  {
+   "rollback": 10,
+   "featureId": "FWOoybNAQ0IWesr_3",
+   "featureType": "newSketch",
+   "volumeM3": 0.0003901497768455075
+  },
+  {
+   "rollback": 11,
+   "featureId": "FcCulSy9YcGrJ25_3",
+   "featureType": "extrude",
+   "volumeM3": 0.0003892137768455074
+  },
+  {
+   "rollback": 12,
+   "featureId": "FUWSsAhFQqeUaQJ_3",
+   "featureType": "newSketch",
+   "volumeM3": 0.0003892137768455075
+  },
+  {
+   "rollback": 13,
+   "featureId": "F0rTG271Y1X9Wh3_3",
+   "featureType": "extrude",
+   "volumeM3": 0.00038946393434962485
+  },
+  {
+   "rollback": 14,
+   "featureId": "FCWoVHcpyGWqJbb_3",
+   "featureType": "fillet",
+   "volumeM3": 0.0003894527024583314
+  },
+  {
+   "rollback": 15,
+   "featureId": "FkDb3bS0zdlttBn_3",
+   "featureType": "newSketch",
+   "volumeM3": 0.0003894527024583314
+  },
+  {
+   "rollback": 16,
+   "featureId": "FghFQNLjz03tjD5_3",
+   "featureType": "extrude",
+   "volumeM3": 0.0003894485774583315
+  },
+  {
+   "rollback": 17,
+   "featureId": "FyAFMsL24nkMurF_3",
+   "featureType": "compositePart",
+   "volumeM3": 0.0003894485774583314
+  },
+  {
+   "rollback": 18,
+   "featureId": "FX9ZjHIcdOalIpE_4",
+   "featureType": "newSketch",
+   "volumeM3": 0.0003894485774583314
+  },
+  {
+   "rollback": 19,
+   "featureId": "FmErk1XPn2PPusz_4",
+   "featureType": "extrude",
+   "volumeM3": 0.0003893428620410454
+  },
+  {
+   "rollback": 20,
+   "featureId": "FFILGabLClDhnB2_4",
+   "featureType": "newSketch",
+   "volumeM3": 0.0003893428620410455
+  },
+  {
+   "rollback": 21,
+   "featureId": "F55lVAcqHsrSPjm_4",
+   "featureType": "extrude",
+   "volumeM3": 0.00038934588622854696
+  },
+  {
+   "rollback": 22,
+   "featureId": "FxUMdQrDU2f5P7n_4",
+   "featureType": "chamfer",
+   "volumeM3": 0.00038934578515641876
+  },
+  {
+   "rollback": 23,
+   "featureId": "FnndiyWbQ3PP70R_4",
+   "featureType": "linearPattern",
+   "volumeM3": 0.0003893516313871625
+  },
+  {
+   "rollback": 24,
+   "featureId": "F8WnPFJJqsX3cFZ_4",
+   "featureType": "extrude",
+   "volumeM3": 0.0003895765496452166
+  },
+  {
+   "rollback": 25,
+   "featureId": "FnVhVFRbnzFynD4_4",
+   "featureType": "fillet",
+   "volumeM3": 0.0003895766945014562
+  },
+  {
+   "rollback": 26,
+   "featureId": "FijXULkVCPfNikb_4",
+   "featureType": "fillet",
+   "volumeM3": 0.00038957176842868387
+  }
+ ],
+ "collectedAt": "2026-10-25T12:08:40.952Z"
+}

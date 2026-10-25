@@ -1,0 +1,42 @@
+{
+ "id": "Arrows---Custom-feature-b729b3",
+ "docId": "b1d910f6c2407f9e1ec854e5",
+ "elementId": "004523717e1b848038b729b3",
+ "sourceMicroversion": "86c17f5dca11d2a4b634f37a",
+ "libraryVersion": 2878,
+ "sketches": {
+  "FhaRIPJee1Kfc9u_0": {
+   "regions": [
+    {
+     "areaM2": 0.00502654824574367,
+     "id": "JGC"
+    },
+    {
+     "areaM2": 0.0028274333882308137,
+     "id": "JGG"
+    }
+   ]
+  }
+ },
+ "volumeTimeline": [
+  {
+   "rollback": 1,
+   "featureId": "FhaRIPJee1Kfc9u_0",
+   "featureType": "newSketch",
+   "volumeM3": 0
+  },
+  {
+   "rollback": 2,
+   "featureId": "FjMf30Buc46eOfb_0",
+   "featureType": "extrude",
+   "volumeM3": 0.0005654866776461628
+  },
+  {
+   "rollback": 3,
+   "featureId": "F7bbg9CE0TkWD9Y_1",
+   "featureType": "arrow",
+   "volumeM3": 0.0005654866776461628
+  }
+ ],
+ "collectedAt": "2026-10-25T12:39:34.185Z"
+}

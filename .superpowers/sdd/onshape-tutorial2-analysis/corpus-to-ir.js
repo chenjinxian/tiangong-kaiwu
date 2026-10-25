@@ -18,11 +18,12 @@
 //    转出恒为正 sweep（我们的 arc DTO 正 sweep=CCW），无孔洞歧义。
 // 4. 无几何实体（BTMSketchPoint-158/Image/Text 126+21 处）不再误判 unsupported——点是辅助锚，跳过不计数。
 // 5. 面域选择裁决（Wave 1）：extrude entities 查询的 deterministicIds=Onshape 面域确定性 id（文档级
-//    不透明短码，如 "JGG"），无法映射到我们「面积降序」下标语义。诚实降级：
+//    不透明短码，如 "JGG"），无法静态映射到我们「面积降序」下标语义。诚实降级：
 //    - deterministicIds 空 → 语义=整张草图的全部面域 → IR regions:"all"（执行器运行期按
 //      sketchRegionsFrom 实际面域数全选——与我们 v1.8 regions 数组语义对齐）。
-//    - deterministicIds 非空 → 单面域但身份未知 → best-effort regions:[0]（最大面域）+ regionRisk
-//      标记（单面域草图时精确；多面域时可能错域——体积对拍会暴露，报告单列）。
+//    - deterministicIds 非空且尚无 sidecar → best-effort regions:[0]（最大面域）+ regionRisk。
+//    【v4 已升级】feature-eval sidecar 提供 id→areaM2 时生成 regionAreas，执行器按面积唯一
+//    直选；只有无法取得/无法唯一匹配时才回退上述 regionRisk 试拍，不再把短码当永久黑盒。
 // 6. 链截断语义（设计裁决 4）：newSketch/extrude(可解析)/revolve(可解析)之外的特征出现 → 该 PS
 //    降级 smoke（截断回放，建链不断言体积），stop 记录截断点。
 //
@@ -218,6 +219,34 @@ function queryStringId(qs) {
 }
 
 // ---------------------------------------------------------------------------
+// v4 sidecar 富化（feature-eval/*.json）：regionId→area 与 rollback→volume。
+// 原始 docs 不改写；键=docId/elementId，查不到时完全走 v3 既有 regionRisk 回退。
+// ---------------------------------------------------------------------------
+const featureEvalByKey = new Map();
+const FEATURE_EVAL_DIR = path.join(__dirname, 'corpus', 'feature-eval');
+if (fs.existsSync(FEATURE_EVAL_DIR)) {
+  for (const f of fs.readdirSync(FEATURE_EVAL_DIR).filter(f => f.endsWith('.json'))) {
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(FEATURE_EVAL_DIR, f), 'utf8'));
+      if (data.docId && data.elementId) featureEvalByKey.set(`${data.docId}/${data.elementId}`, data);
+    } catch (e) {
+      console.warn('忽略损坏的 feature-eval sidecar:', f, String(e).slice(0, 100));
+    }
+  }
+}
+
+/** 把 queries 上的 deterministicIds 全量翻译成面积；任何一个未知即整体回退（不部分猜测）。 */
+function areasForDeterministicIds(queries, sketchFeatureId, evalData) {
+  const ids = [...new Set((queries || []).flatMap(q => q.deterministicIds || []))];
+  if (!ids.length) return { ids, areas: undefined, resolved: false };
+  const regions = evalData && evalData.sketches && evalData.sketches[sketchFeatureId]
+    ? evalData.sketches[sketchFeatureId].regions : undefined;
+  const areas = ids.map(id => (regions || []).find(r => r.id === id)?.areaM2);
+  const resolved = areas.every(a => typeof a === 'number' && Number.isFinite(a) && a > 0);
+  return { ids, areas: resolved ? areas : undefined, resolved };
+}
+
+// ---------------------------------------------------------------------------
 // 主循环
 // ---------------------------------------------------------------------------
 const cases = [];
@@ -241,6 +270,7 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
     if (types.some(t => ECOSYSTEM.some(e => (t || '').startsWith(e)))) { stats.ecosystem++; continue; }
     if ((ps.massProperties.bodies || []).length !== 1) { stats.multiBody++; continue; }
     if (types.some(t => (t || '').startsWith('import'))) { stats.imported++; continue; }
+    const evalData = featureEvalByKey.get(`${d.id}/${ps.elementId}`);
 
     // ---- 链转换（顺序遍历；遇不可回放特征停链）----
     const dropped = { noParam: 0, nan: 0, degenerate: 0, aux: 0, unsupported: [] };
@@ -288,12 +318,16 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         const sketchIndex = sketchByKey.get(ep.targetIds[0]);
         if (sketchIndex === undefined) { stopChain(t, 'sketch-not-found'); break; }
         if (emptySketch.has(sketchIndex)) { stopChain(t, 'empty-sketch'); break; }
+        const entityQueries = (ft.parameters || []).find(p => p.parameterId === 'entities')?.queries || [];
+        const regionAreas = areasForDeterministicIds(entityQueries, ep.targetIds[0], evalData);
         ops.push({
           op: 'extrude', sketchIndex,
+          sourceFeatureId: ft.featureId,
           operation: ep.operation,
           distance: ep.has2nd ? ep.depth + ep.secondDepth : ep.depth, // 第二方向（反向侧）并入总跨
           regions: ep.regionRisk ? [0] : 'all',
-          regionRisk: ep.regionRisk,
+          regionRisk: ep.regionRisk && !regionAreas.resolved,
+          ...(regionAreas.resolved ? { regionAreas: regionAreas.areas } : {}),
         });
       } else if (t === REVOLVE) {
         const rp = revolveParams(ft);
@@ -334,13 +368,16 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         if (!ax) { stopChain(t, 'axis-unmapped'); break; }
         if (ax.sketchIndex !== sketchIndex) { stopChain(t, 'axis-cross-sketch'); break; }
         if (sketches[sketchIndex].entities[ax.entityIndex].kind !== 'line') { stopChain(t, 'axis-not-line'); break; }
+        const profileAreas = pq.featureId ? areasForDeterministicIds([pq], pq.featureId, evalData) : { resolved: false };
         ops.push({
           op: 'revolve', sketchIndex,
+          sourceFeatureId: ft.featureId,
           axisEntityIndex: ax.entityIndex,
           fullRevolve: rp.fullRevolve,
           ...(rp.fullRevolve ? {} : { angle: rp.angle }),
-          regionIndex: 0,           // 面域身份歧义 best-effort（最大面域）；full 模式执行器枚举试拍
-          regionRisk: true,
+          regionIndex: 0,           // 无面积锚时仍 best-effort；有则由执行器按面积唯一直选
+          regionRisk: !profileAreas.resolved,
+          ...(profileAreas.resolved ? { regionAreas: profileAreas.areas } : {}),
           profileEdges, profileDisambig,   // 留痕：imprint 派生边（直引时为空）+ ±1.0 侧选权重
         });
       } else if (IGNORED.has(t)) {
@@ -390,18 +427,21 @@ function caseOut(id, d, ps, sketches, ops, mode, vol, stop, types) {
     outSketches.push({ name: sketches[i].name, entities: sketches[i].entities });
   }
   const outOps = ops.map(o => ({ ...o, sketchIndex: remap.get(o.sketchIndex) }));
-  // 曲线轮廓标注（v3 固化，Wave 1 手工标注回收进管道）：full 用例任一被引用草图含圆/弧 →
-  // 内核 Sweep 圆弧细分地板（~29 段，偏差 −0.78%~−1.57%）→ 执行器放宽门 + known-floor 留痕。
+  // 曲线轮廓标注保留作安全网：Wave 2 已把直线路径改为精确 api_sweep_with_options，
+  // Arrows 偏差 −1.57%→0.0001%（详见 REPLAY-DESIGN Wave 2）；若后续新几何再现超差，
+  // 仍可按 knownCurveFloor 走 documented tolerance，而不是悄悄放宽全部门禁。
   const knownCurveFloor = mode === 'full' && outSketches.some(s =>
     s.entities.some(e => e.kind === 'circle' || e.kind === 'arc'));
+  const evalData = featureEvalByKey.get(`${d.id}/${ps.elementId}`);
   return {
-    id, doc: d.name.slice(0, 50), ps: ps.name,
+    id, docId: d.id, elementId: ps.elementId, doc: d.name.slice(0, 50), ps: ps.name,
     units: 'meter', mode,
     ...(mode === 'full' ? { expectedVolume: vol } : {}),
     bodyCount: 1,
     ...(knownCurveFloor ? { knownCurveFloor: true } : {}),
     sketches: outSketches,
     ops: outOps,
+    ...(evalData && evalData.volumeTimeline ? { volumeTimeline: evalData.volumeTimeline } : {}),
     ...(stop ? { stop } : {}),
     featureTypes: types,
   };

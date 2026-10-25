@@ -1,5 +1,7 @@
 {
  "id": "FeatureScript-Sculpt-Surface-e5d023",
+ "docId": "b8730d44070bc0466ad80444",
+ "elementId": "d31d352b7aa2783efde5d023",
  "doc": "FeatureScript Sculpt Surface",
  "ps": "Sculpt Face Example",
  "units": "meter",
@@ -82,12 +84,133 @@
   {
    "op": "extrude",
    "sketchIndex": 0,
+   "sourceFeatureId": "FyIgf73qxJbT1sY_0",
    "operation": "NEW",
    "distance": 0.07619999999999999,
    "regions": [
     0
    ],
-   "regionRisk": true
+   "regionRisk": false,
+   "regionAreas": [
+    0.0058287005701093,
+    0.0052997325209025
+   ]
+  }
+ ],
+ "volumeTimeline": [
+  {
+   "rollback": 1,
+   "featureId": "Fu5iwMGnoQeRZ71_0",
+   "featureType": "newSketch",
+   "volumeM3": 0
+  },
+  {
+   "rollback": 2,
+   "featureId": "FyIgf73qxJbT1sY_0",
+   "featureType": "extrude",
+   "volumeM3": 0.0008479866015350992
+  },
+  {
+   "rollback": 3,
+   "featureId": "FhMLF7rawXGoNcP_2",
+   "featureType": "sculptFace",
+   "volumeM3": 0.0008534032147209138
+  },
+  {
+   "rollback": 4,
+   "featureId": "FxzNhKtcY9TQClR_1",
+   "featureType": "newSketch",
+   "volumeM3": 0.0008534032147209138
+  },
+  {
+   "rollback": 5,
+   "featureId": "F0IIFPEMwRXGSIA_1",
+   "featureType": "extrude",
+   "volumeM3": 0.00488046120200269
+  },
+  {
+   "rollback": 6,
+   "featureId": "F8E8KgqzwLnjhEC_2",
+   "featureType": "sculptFace",
+   "volumeM3": 0.00492281080952975
+  },
+  {
+   "rollback": 7,
+   "featureId": "F3oNsTtB5JkaKfg_2",
+   "featureType": "sculptFace",
+   "volumeM3": 0.0049200175152024055
+  },
+  {
+   "rollback": 8,
+   "featureId": "FyfhLbLoxRMkVKj_2",
+   "featureType": "sculptFace",
+   "volumeM3": 0.004731937474128699
+  },
+  {
+   "rollback": 9,
+   "featureId": "FfDbVXHns1o9BrQ_2",
+   "featureType": "sculptFace",
+   "volumeM3": 0.0048818217167881
+  },
+  {
+   "rollback": 10,
+   "featureId": "FW1T0qUuIMwNKjq_2",
+   "featureType": "newSketch",
+   "volumeM3": 0.0048818217167881
+  },
+  {
+   "rollback": 11,
+   "featureId": "FJiK3h9PXSYhzDo_2",
+   "featureType": "extrude",
+   "volumeM3": 0.005798957557713962
+  },
+  {
+   "rollback": 12,
+   "featureId": "FRw8kfSB6bJ6goA_3",
+   "featureType": "newSketch",
+   "volumeM3": 0.005798957557713962
+  },
+  {
+   "rollback": 13,
+   "featureId": "FD9ATzXiqT8ERMj_3",
+   "featureType": "fillet",
+   "volumeM3": 0.005794787355358111
+  },
+  {
+   "rollback": 14,
+   "featureId": "FPFzbf3ZYJMqR0E_3",
+   "featureType": "sculptFace",
+   "volumeM3": 0.006421014577525511
+  },
+  {
+   "rollback": 15,
+   "featureId": "FmbfPlDeE8GpEMW_3",
+   "featureType": "sculptFace",
+   "volumeM3": 0.006685573587915478
+  },
+  {
+   "rollback": 16,
+   "featureId": "FwypsK835E5yH47_3",
+   "featureType": "sculptFace",
+   "volumeM3": 0.006432087528035851
+  },
+  {
+   "rollback": 17,
+   "featureId": "FgY6IC1L9MRjFxd_3",
+   "featureType": "sculptFace",
+   "volumeM3": 0.00693088722901284
+  },
+  {
+   "rollback": 18,
+   "featureId": "FM92L3svbB18NVC_3",
+   "featureType": "sculptFace",
+   "volumeM3": 0.007251212324712486
+  },
+  {
+   "rollback": 19,
+   "featureId": "FUX09eEt8XnmIQU_3",
+   "featureType": "sculptFace",
+   "volumeM3": 0.007203241661351142
   }
  ],
  "stop": {
