@@ -1,0 +1,118 @@
+{
+ "id": "FeatureScript-Sculpt-Surface-e5d023",
+ "doc": "FeatureScript Sculpt Surface",
+ "ps": "Sculpt Face Example",
+ "units": "meter",
+ "mode": "smoke",
+ "bodyCount": 1,
+ "sketches": [
+  {
+   "name": "Sketch 1",
+   "entities": [
+    {
+     "kind": "line",
+     "p1": [
+      0.038099999999999995,
+      -0.038099999999999995
+     ],
+     "p2": [
+      -0.038099999999999974,
+      -0.03810000000000001
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.03809999999999997,
+      0.03810000000000001
+     ],
+     "p2": [
+      -0.038099999999999995,
+      0.038099999999999995
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.03810000000000001,
+      -0.038099999999999974
+     ],
+     "p2": [
+      0.038099999999999995,
+      0.038099999999999995
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.038099999999999995,
+      -0.038099999999999995
+     ],
+     "p2": [
+      -0.03810000000000001,
+      0.038099999999999974
+     ],
+     "construction": false
+    },
+    {
+     "kind": "circle",
+     "center": [
+      0,
+      0
+     ],
+     "radius": 0.012700000000000001,
+     "construction": false
+    },
+    {
+     "kind": "circle",
+     "center": [
+      -0.03516656905412674,
+      -0.17752234637737274
+     ],
+     "radius": 0.043073576761988176,
+     "construction": false
+    }
+   ]
+  }
+ ],
+ "ops": [
+  {
+   "op": "extrude",
+   "sketchIndex": 0,
+   "operation": "NEW",
+   "distance": 0.07619999999999999,
+   "regions": [
+    0
+   ],
+   "regionRisk": true
+  }
+ ],
+ "stop": {
+  "featureType": "sculptFace",
+  "reason": "feature-not-wired"
+ },
+ "featureTypes": [
+  "newSketch",
+  "extrude",
+  "sculptFace",
+  "newSketch",
+  "extrude",
+  "sculptFace",
+  "sculptFace",
+  "sculptFace",
+  "sculptFace",
+  "newSketch",
+  "extrude",
+  "newSketch",
+  "fillet",
+  "sculptFace",
+  "sculptFace",
+  "sculptFace",
+  "sculptFace",
+  "sculptFace",
+  "sculptFace"
+ ]
+}

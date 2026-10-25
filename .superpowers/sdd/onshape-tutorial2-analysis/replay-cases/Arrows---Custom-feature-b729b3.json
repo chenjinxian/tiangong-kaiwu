@@ -1,0 +1,51 @@
+{
+ "id": "Arrows---Custom-feature-b729b3",
+ "doc": "Arrows - Custom feature",
+ "ps": "Helical Flow",
+ "units": "meter",
+ "mode": "full",
+ "expectedVolume": 0.0005654866776461628,
+ "bodyCount": 1,
+ "sketches": [
+  {
+   "name": "Sketch 1",
+   "entities": [
+    {
+     "kind": "circle",
+     "center": [
+      0,
+      0
+     ],
+     "radius": 0.04,
+     "construction": false
+    },
+    {
+     "kind": "circle",
+     "center": [
+      0,
+      0
+     ],
+     "radius": 0.05,
+     "construction": false
+    }
+   ]
+  }
+ ],
+ "ops": [
+  {
+   "op": "extrude",
+   "sketchIndex": 0,
+   "operation": "NEW",
+   "distance": 0.2,
+   "regions": [
+    0
+   ],
+   "regionRisk": true
+  }
+ ],
+ "featureTypes": [
+  "newSketch",
+  "extrude",
+  "arrow"
+ ]
+}

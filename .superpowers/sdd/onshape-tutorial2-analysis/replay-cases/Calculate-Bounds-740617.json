@@ -1,0 +1,91 @@
+{
+ "id": "Calculate-Bounds-740617",
+ "doc": "Calculate Bounds",
+ "ps": "Part Studio 1",
+ "units": "meter",
+ "mode": "smoke",
+ "bodyCount": 1,
+ "sketches": [
+  {
+   "name": "Sketch 1",
+   "entities": [
+    {
+     "kind": "line",
+     "p1": [
+      -0.15575075343811215,
+      0.12587836101350025
+     ],
+     "p2": [
+      -0.07221207945024488,
+      0.09547277027184833
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.1905000000000001,
+      0.03040559074165192
+     ],
+     "p2": [
+      -0.10696132601213282,
+      -6.938893903907228e-18
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.15575075343811215,
+      0.12587836101350025
+     ],
+     "p2": [
+      -0.1905000000000001,
+      0.030405590741651903
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.07221207945024488,
+      0.09547277027184835
+     ],
+     "p2": [
+      -0.10696132601213283,
+      -3.469446951953614e-18
+     ],
+     "construction": false
+    }
+   ]
+  }
+ ],
+ "ops": [
+  {
+   "op": "extrude",
+   "sketchIndex": 0,
+   "operation": "NEW",
+   "distance": 0.0254,
+   "regions": [
+    0
+   ],
+   "regionRisk": true
+  }
+ ],
+ "stop": {
+  "featureType": "extrude",
+  "reason": "targets-0-sketches"
+ },
+ "featureTypes": [
+  "newSketch",
+  "extrude",
+  "newSketch",
+  "extrude",
+  "chamfer",
+  "transform",
+  "newSketch",
+  "extrude",
+  "calculateBounds",
+  "calculateBounds"
+ ]
+}
