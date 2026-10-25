@@ -6,6 +6,7 @@
  "mode": "full",
  "expectedVolume": 0.0005654866776461628,
  "bodyCount": 1,
+ "knownCurveFloor": true,
  "sketches": [
   {
    "name": "Sketch 1",

@@ -23,8 +23,27 @@
 //      sketchRegionsFrom 实际面域数全选——与我们 v1.8 regions 数组语义对齐）。
 //    - deterministicIds 非空 → 单面域但身份未知 → best-effort regions:[0]（最大面域）+ regionRisk
 //      标记（单面域草图时精确；多面域时可能错域——体积对拍会暴露，报告单列）。
-// 6. 链截断语义（设计裁决 4）：newSketch/extrude(可解析)之外的特征（含 W1 已有面但执行器未接线的
-//    revolve/fillet 等）出现 → 该 PS 降级 smoke（截断回放，建链不断言体积），stop 记录截断点。
+// 6. 链截断语义（设计裁决 4）：newSketch/extrude(可解析)/revolve(可解析)之外的特征出现 → 该 PS
+//    降级 smoke（截断回放，建链不断言体积），stop 记录截断点。
+//
+// v3（2026-10-25，Wave 2 ①）revolve 接线：
+// 1. 【关键发现：轴查询可静态精确映射】BTMSketchCurveSegment-155 携带 `entityId`（长码
+//    "McPwp6kN-IiBK-HWLg-CgWs-7bWwRxVko9UJ" 形态），revolve 的 axis 查询
+//    `sketchEntityQuery(id+"…wireOp",EntityType.EDGE,"<长码>")` 的长码与语料线段的 entityId
+//    逐一相符（两 PS 全部 revolve 实证）——axis → 草图线实体下标是精确映射，非猜测。
+//    同理 profile 的 imprint 派生边查询（makeQuery IMPRINT FACE + derivedFrom EDGE 长码 +
+//    topologyDisambiguation ±1.0）也能映射到线段下标。
+// 2. 【仍歧义：面域身份】imprint face 的 ±1.0 侧选语义（边方向哪一侧）与直引草图的
+//    deterministicIds 短码（"JSC" 族，与 W1 extrude 的 "JGG" 同族）都无静态映射 → regionRisk
+//    + regionIndex 0（最大面域 best-effort），与 W1 extrude 同口径；full 模式由执行器做
+//    regionIndex 枚举试拍。profileEdges/disambig 记入 IR 留痕供后续精化。
+// 3. 参数映射（Onshape revolve parameters 全量实测，两 PS 4 特征）：operationType(NEW/ADD)、
+//    bodyType(SOLID)、endBound/startBound(BLIND)、fullRevolve(bool)、angle/angleBack
+//    （BTMParameterQuantity-147 expression 真值 "30.0*degree"）、symmetric(bool)、
+//    hasStartBound(bool)、oppositeDirection(bool)。fullRevolve=true 时 angle/angleBack 是
+//    相位拆分（30°+330°=360°，旋转起点偏置）——对全周体形状/体积无影响，忽略并记账；
+//    fullRevolve=false 时 angle 必须可解析、angleBack≠0 我方契约无对应 → 停链；
+//    symmetric 我方 RevolveParams 无对应 → 停链。
 const fs = require('fs');
 const path = require('path');
 
@@ -32,9 +51,10 @@ const DOCS = path.join(__dirname, 'corpus', 'docs');
 const OUT = path.join(__dirname, 'replay-cases');
 fs.mkdirSync(OUT, { recursive: true });
 
-// W1 可回放面（转换器能转出 ops 的特征）
+// 可回放面（转换器能转出 ops 的特征）
 const SKETCH = 'newSketch';
 const EXTRUDE = 'extrude';
+const REVOLVE = 'revolve';
 // 体积无关特征（注解/视图/变量——不改实体体积，回放时跳过）：
 // transform 仅当 transformType=TRANSLATION_3D（纯平移，位置不变体积）才忽略；
 // 其余 transform（COPY/ROTATION/SCALE/MATE_CONNECTORS）保守判停链。
@@ -122,11 +142,49 @@ function convertEntity(seg, dropped) {
 
 function convertSketch(ft, dropped) {
   const entities = [];
+  const entityIdToIdx = new Map(); // 段 entityId（长码）→ IR entities 下标（v3：axis/profile 边映射键）
   for (const seg of ft.entities || []) {
     const e = convertEntity(seg, dropped);
-    if (e && !e.construction) entities.push(e);
+    if (e && !e.construction) {
+      if (seg.entityId && !entityIdToIdx.has(seg.entityId)) entityIdToIdx.set(seg.entityId, entities.length);
+      entities.push(e);
+    }
   }
-  return entities;
+  return { entities, entityIdToIdx };
+}
+
+// ---------------------------------------------------------------------------
+// revolve 参数提取（v3）：parameters 全量形态见文件头注 v3 #3
+// ---------------------------------------------------------------------------
+/** 查询串里的 EDGE 长码（axis 直引 / imprint derivedFrom 共用形态）。 */
+function edgeIdsInQuery(q) {
+  const qs = typeof q.queryString === 'string' ? q.queryString : '';
+  return [...qs.matchAll(/EntityType\.EDGE,"([A-Za-z0-9\-]+)"/g)].map(m => m[1]);
+}
+/** imprint 派生边的 disambiguation 权重（±1.0；侧选语义不可静态解析，仅留痕）。 */
+function disambigInQuery(q) {
+  const qs = typeof q.queryString === 'string' ? q.queryString : '';
+  const m = qs.match(/\}\),\s*(-?[\d.]+)/);
+  return m ? parseFloat(m[1]) : undefined;
+}
+
+function revolveParams(ft) {
+  const P = {};
+  for (const prm of ft.parameters || []) if (prm.parameterId) P[prm.parameterId] = prm;
+  const fullRevolve = !!(P.fullRevolve && P.fullRevolve.value === true);
+  const angle = fullRevolve ? undefined : (P.angle ? parseQuantity(P.angle, 'angle') : null);
+  const angleBack = P.angleBack ? parseQuantity(P.angleBack, 'angle') : 0;
+  const axisQ = ((P.axis && P.axis.queries) || []);
+  const profileQ = ((P.entities && P.entities.queries) || []);
+  return {
+    operation: P.operationType ? P.operationType.value : undefined,
+    bodyType: P.bodyType ? P.bodyType.value : undefined,
+    endBound: P.endBound ? P.endBound.value : undefined,
+    hasStartBound: !!(P.hasStartBound && P.hasStartBound.value === true),
+    symmetric: !!(P.symmetric && P.symmetric.value === true),
+    fullRevolve, angle, angleBack,
+    axisQ, profileQ,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -188,22 +246,34 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
     const dropped = { noParam: 0, nan: 0, degenerate: 0, aux: 0, unsupported: [] };
     const sketches = [];               // 去重后的 IR 草图
     const sketchByKey = new Map();     // sketch featureId → sketches 下标
+    const sketchEntityIds = new Map(); // sketch featureId → 段 entityId→IR 下标（revolve 轴/边映射）
     const emptySketch = new Set();     // 转换后零实体的 sketch 下标
     const ops = [];
     let stop = null;
 
     const stopChain = (type, reason) => { if (!stop) stop = { featureType: type, reason }; };
 
+    /** 段 entityId → {sketchIndex, entityIndex}（全草图唯一命中；axis/profile 边映射共用）。 */
+    const resolveEntityId = (eid) => {
+      const hits = [];
+      for (const [fid, m] of sketchEntityIds) {
+        const idx = m.get(eid);
+        if (idx !== undefined) hits.push({ sketchIndex: sketchByKey.get(fid), entityIndex: idx });
+      }
+      return hits.length === 1 ? hits[0] : null;
+    };
+
     for (const ft of feats) {
       const t = ft.featureType || ft.type;
       if (t === SKETCH) {
-        const entities = convertSketch(ft, dropped);
+        const conv = convertSketch(ft, dropped);
         const key = ft.featureId;
         if (key && !sketchByKey.has(key)) {
           const idx = sketches.length;
-          if (entities.length === 0) emptySketch.add(idx);
-          sketches.push({ name: ft.name, featureId: key, entities });
+          if (conv.entities.length === 0) emptySketch.add(idx);
+          sketches.push({ name: ft.name, featureId: key, entities: conv.entities });
           sketchByKey.set(key, idx);
+          sketchEntityIds.set(key, conv.entityIdToIdx);
         }
       } else if (t === EXTRUDE) {
         const ep = extrudeParams(ft);
@@ -224,6 +294,54 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
           distance: ep.has2nd ? ep.depth + ep.secondDepth : ep.depth, // 第二方向（反向侧）并入总跨
           regions: ep.regionRisk ? [0] : 'all',
           regionRisk: ep.regionRisk,
+        });
+      } else if (t === REVOLVE) {
+        const rp = revolveParams(ft);
+        // 语义门槛（诚实记账，不做静默近似）
+        if (rp.operation !== 'NEW' && rp.operation !== 'ADD') { stopChain(t, 'operation-' + rp.operation); break; }
+        if (rp.bodyType !== 'SOLID') { stopChain(t, 'bodyType-' + rp.bodyType); break; }
+        if (rp.endBound !== 'BLIND') { stopChain(t, 'endBound-' + rp.endBound); break; }
+        if (rp.hasStartBound) { stopChain(t, 'hasStartBound'); break; }
+        if (rp.symmetric) { stopChain(t, 'symmetric-unsupported'); break; }
+        if (!rp.fullRevolve) {
+          if (rp.angle === null || rp.angle === undefined) { stopChain(t, 'angle-unparseable'); break; }
+          if (rp.angleBack !== 0) { stopChain(t, 'angleBack-unsupported'); break; }
+        }
+        // profile：直引单草图（面域身份未知→regionRisk）或 imprint 派生边（±1.0 侧选→regionRisk）
+        if (rp.profileQ.length !== 1) { stopChain(t, 'profile-queries-' + rp.profileQ.length); break; }
+        const pq = rp.profileQ[0];
+        let sketchIndex = undefined;
+        let profileEdges = [];
+        let profileDisambig = [];
+        if (pq.featureId) {
+          sketchIndex = sketchByKey.get(pq.featureId);
+        } else {
+          const eids = edgeIdsInQuery(pq);
+          const resolved = eids.map(resolveEntityId);
+          if (!eids.length || resolved.some(r => r === null)) { stopChain(t, 'profile-edge-unmapped'); break; }
+          if (new Set(resolved.map(r => r.sketchIndex)).size !== 1) { stopChain(t, 'profile-edges-cross-sketch'); break; }
+          sketchIndex = resolved[0].sketchIndex;
+          profileEdges = resolved.map(r => r.entityIndex);
+          profileDisambig = resolved.map(() => disambigInQuery(pq));
+        }
+        if (sketchIndex === undefined) { stopChain(t, 'sketch-not-found'); break; }
+        if (emptySketch.has(sketchIndex)) { stopChain(t, 'empty-sketch'); break; }
+        // axis：sketchEntityQuery EDGE 长码 → 段 entityId 精确映射（v3 关键发现）
+        if (rp.axisQ.length !== 1) { stopChain(t, 'axis-queries-' + rp.axisQ.length); break; }
+        const axEids = edgeIdsInQuery(rp.axisQ[0]);
+        if (axEids.length !== 1) { stopChain(t, 'axis-unmapped'); break; }
+        const ax = resolveEntityId(axEids[0]);
+        if (!ax) { stopChain(t, 'axis-unmapped'); break; }
+        if (ax.sketchIndex !== sketchIndex) { stopChain(t, 'axis-cross-sketch'); break; }
+        if (sketches[sketchIndex].entities[ax.entityIndex].kind !== 'line') { stopChain(t, 'axis-not-line'); break; }
+        ops.push({
+          op: 'revolve', sketchIndex,
+          axisEntityIndex: ax.entityIndex,
+          fullRevolve: rp.fullRevolve,
+          ...(rp.fullRevolve ? {} : { angle: rp.angle }),
+          regionIndex: 0,           // 面域身份歧义 best-effort（最大面域）；full 模式执行器枚举试拍
+          regionRisk: true,
+          profileEdges, profileDisambig,   // 留痕：imprint 派生边（直引时为空）+ ±1.0 侧选权重
         });
       } else if (IGNORED.has(t)) {
         if (t === 'transform') {
@@ -252,7 +370,7 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
       continue;
     }
     if (!ops.length) { stats.noExtrude++; continue; }
-    if (ops.some(o => o.op === 'extrude' && o.regionRisk)) regionRiskCount++;
+    if (ops.some(o => o.regionRisk)) regionRiskCount++;
     const id = slugOf(d.name, ps.elementId);
     cases.push(caseOut(id, d, ps, sketches, ops, 'full', vol, null, types));
     stats.full++;
@@ -272,11 +390,16 @@ function caseOut(id, d, ps, sketches, ops, mode, vol, stop, types) {
     outSketches.push({ name: sketches[i].name, entities: sketches[i].entities });
   }
   const outOps = ops.map(o => ({ ...o, sketchIndex: remap.get(o.sketchIndex) }));
+  // 曲线轮廓标注（v3 固化，Wave 1 手工标注回收进管道）：full 用例任一被引用草图含圆/弧 →
+  // 内核 Sweep 圆弧细分地板（~29 段，偏差 −0.78%~−1.57%）→ 执行器放宽门 + known-floor 留痕。
+  const knownCurveFloor = mode === 'full' && outSketches.some(s =>
+    s.entities.some(e => e.kind === 'circle' || e.kind === 'arc'));
   return {
     id, doc: d.name.slice(0, 50), ps: ps.name,
     units: 'meter', mode,
     ...(mode === 'full' ? { expectedVolume: vol } : {}),
     bodyCount: 1,
+    ...(knownCurveFloor ? { knownCurveFloor: true } : {}),
     sketches: outSketches,
     ops: outOps,
     ...(stop ? { stop } : {}),

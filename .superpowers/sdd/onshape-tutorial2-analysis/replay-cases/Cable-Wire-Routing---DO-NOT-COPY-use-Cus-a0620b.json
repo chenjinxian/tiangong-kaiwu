@@ -1,0 +1,271 @@
+{
+ "id": "Cable-Wire-Routing---DO-NOT-COPY-use-Cus-a0620b",
+ "doc": "Cable/Wire Routing - DO NOT COPY (use + Custom fea",
+ "ps": "Isomantle",
+ "units": "meter",
+ "mode": "smoke",
+ "bodyCount": 1,
+ "sketches": [
+  {
+   "name": "Sketch 1",
+   "entities": [
+    {
+     "kind": "line",
+     "p1": [
+      0.04799999999999995,
+      0.015000000000000003
+     ],
+     "p2": [
+      0.05799999999999993,
+      0.015000000000000003
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.05799999999999993,
+      0.015000000000000003
+     ],
+     "p2": [
+      0.05799999999999993,
+      -3.469446951953614e-18
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.05799999999999993,
+      0
+     ],
+     "p2": [
+      0.052999999999999936,
+      0
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.05299999999999993,
+      -3.469446951953614e-18
+     ],
+     "p2": [
+      0.05299999999999993,
+      0.009999999999999997
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.052999999999999936,
+      0.01
+     ],
+     "p2": [
+      0.047999999999999945,
+      0.009999999999999998
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.04799999999999995,
+      0.009999999999999998
+     ],
+     "p2": [
+      0.04799999999999995,
+      0.015
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.047999999999999945,
+      0.009999999999999995
+     ],
+     "p2": [
+      0.04799999999999995,
+      -0.06499999999999997
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.04799999999999995,
+      -0.06499999999999997
+     ],
+     "p2": [
+      0,
+      -0.06500000000000002
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0,
+      -0.06500000000000003
+     ],
+     "p2": [
+      0,
+      -0.07
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -4.85722573273506e-17,
+      -0.07
+     ],
+     "p2": [
+      0.05299999999999994,
+      -0.06999999999999998
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.05299999999999994,
+      -0.06999999999999998
+     ],
+     "p2": [
+      0.05299999999999992,
+      0.010000000000000009
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0,
+      -0.06500000000000002
+     ],
+     "p2": [
+      0,
+      -0.060000000000000026
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0,
+      -0.06000000000000002
+     ],
+     "p2": [
+      0.03999999999999995,
+      -0.059999999999999984
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.03999999999999995,
+      -0.059999999999999984
+     ],
+     "p2": [
+      0.03999999999999993,
+      0.0069999999999999785
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.03999999999999993,
+      0.006999999999999976
+     ],
+     "p2": [
+      0.04799999999999995,
+      0.015
+     ],
+     "construction": false
+    }
+   ]
+  }
+ ],
+ "ops": [
+  {
+   "op": "revolve",
+   "sketchIndex": 0,
+   "axisEntityIndex": 8,
+   "fullRevolve": true,
+   "regionIndex": 0,
+   "regionRisk": true,
+   "profileEdges": [
+    5
+   ],
+   "profileDisambig": [
+    1
+   ]
+  },
+  {
+   "op": "revolve",
+   "sketchIndex": 0,
+   "axisEntityIndex": 8,
+   "fullRevolve": true,
+   "regionIndex": 0,
+   "regionRisk": true,
+   "profileEdges": [
+    0
+   ],
+   "profileDisambig": [
+    -1
+   ]
+  },
+  {
+   "op": "revolve",
+   "sketchIndex": 0,
+   "axisEntityIndex": 8,
+   "fullRevolve": true,
+   "regionIndex": 0,
+   "regionRisk": true,
+   "profileEdges": [
+    4
+   ],
+   "profileDisambig": [
+    1
+   ]
+  }
+ ],
+ "stop": {
+  "featureType": "fillet",
+  "reason": "feature-not-wired"
+ },
+ "featureTypes": [
+  "newSketch",
+  "revolve",
+  "revolve",
+  "revolve",
+  "fillet",
+  "chamfer",
+  "fillet",
+  "newSketch",
+  "extrude",
+  "newSketch",
+  "extrude",
+  "newSketch",
+  "extrude",
+  "fillet",
+  "newSketch",
+  "extrude",
+  "compositePart",
+  "newSketch",
+  "extrude",
+  "newSketch",
+  "extrude",
+  "chamfer",
+  "linearPattern",
+  "extrude",
+  "fillet",
+  "fillet"
+ ]
+}
