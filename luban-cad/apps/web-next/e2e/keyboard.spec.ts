@@ -21,8 +21,8 @@ import {
   apiDeleteDocument,
   apiFindDocumentByName,
   focusViaTab,
+  getApiToken,
   gotoDocuments,
-  readAccessToken,
   readActiveElement,
   waitEditorReady,
 } from './helpers';
@@ -32,8 +32,9 @@ const KEYBOARD_DOC_NAME = `E2E-KB-${Date.now()}`;
 
 test.afterEach(async ({ request }) => {
   // 自清（幂等：文档不存在时 API 返回 null 不删）
-  const created = await apiFindDocumentByName(request, KEYBOARD_DOC_NAME, readAccessToken());
-  if (created) await apiDeleteDocument(request, created.id, readAccessToken());
+  const token = await getApiToken();
+  const created = await apiFindDocumentByName(request, KEYBOARD_DOC_NAME, token);
+  if (created) await apiDeleteDocument(request, created.id, token);
 });
 
 test('纯键盘：Tab 到创建 → 建文档（焦点路径断言）', async ({ page }) => {

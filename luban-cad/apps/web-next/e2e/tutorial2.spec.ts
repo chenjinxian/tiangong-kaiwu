@@ -34,12 +34,23 @@
  *   采集 y 上对应世界 z 上须提交 v=−y，否则零件上下颠倒（体积不变，形状镜像）。
  * - 拱肩样条（采集实体 f4982b6b，isConstruction=false 实几何）按三次贝塞尔
  *   16 段折线近似（本契约无样条实体；弦高 <0.05mm，面积偏差 <0.1%）。
+ * - M5-T4 门 S7/S8（发布窗复测）：T7 尾部在复合模型上执行「保存版本」推送
+ *   （pushChanges 真栈）→ 版本历史列出本次 changeset + 当前版本标记。失败
+ *   即门禁红——不降级不兜底。
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { openSeedImodelEditor, readAccessToken, waitEditorReady } from './helpers';
+import { collectConsoleErrors, getApiToken, openSeedImodelEditor, waitEditorReady } from './helpers';
+import { resetE2eSeed } from './seed';
+
+// M5-T4 隔离修复：T7/T7-B 在同一文件连续建模，前一用例会污染后一用例的
+// 特征计数与体积。每个用例开始前按名删旧建新种子库，等待 baseline initialized。
+test.beforeEach(async ({ request }) => {
+  test.setTimeout(600_000);
+  await resetE2eSeed(request, await getApiToken());
+});
 
 /** 留证目录（仓根 .superpowers/sdd/2026-10-23-tutorial2-full-chain/shots/）。 */
 const SHOTS_DIR = resolve(
@@ -454,11 +465,7 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   // 导航+就绪+建模链+内核求值远超全局 120s。
   test.slow();
 
-  const consoleErrors: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
-  });
-  page.on('pageerror', (error) => consoleErrors.push(`pageerror: ${error.message}`));
+  const consoleErrors = collectConsoleErrors(page);
 
   await openSeedImodelEditor(page);
   await waitEditorReady(page);
@@ -476,7 +483,7 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
 
   // ── L1：Sketch 1 RPC 直发（降级路径，登记）——MS HTTP face，Node 侧直调 ──
   const { op, axisLineId } = buildSketchOp();
-  const accessToken = readAccessToken();
+  const accessToken = await getApiToken();
 
   // 写租约：探测页面 useFeatureSystem 的在持会话（单持有者语义下第二会话
   // acquire 被拒，holder=在持者 user=其 sessionId）；借 holder 会话落 op
@@ -731,6 +738,31 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   expect(axisLabelText ?? '', '轴判型命名应属竖直线/水平线/斜线族').toMatch(/竖直线|水平线|斜线/);
   await dialog.screenshot({ path: shotPath('t6-4-revolve-axis.png') });
   await dialog.getByRole('button', { name: '取消' }).click();
+
+  // ── M5-T4 门 S7/S8：保存版本推送 → 版本历史（B1 pushChanges 修复后真栈）──
+  // 复合模型已建（5-6 特征、事务 pending），正是推送入口的真实前置。验证：
+  // 钮解锁（hasPendingTxns）→ 对话框 → pushChanges 成功收合 → 钮回落禁用
+  // → 版本历史列出本次 changeset + 当前版本标记。失败即门禁红（不兜底）。
+  const pushDescription = `M5-T4 复测推送 ${Date.now()}`;
+  const saveButton = page.getByTestId('part-studio-save-button');
+  await expect(saveButton).toBeEnabled({ timeout: 30_000 });
+  await saveButton.click();
+  const pushDialog = page.getByRole('dialog', { name: '保存版本' });
+  await expect(pushDialog).toBeVisible({ timeout: 15_000 });
+  await pushDialog.getByTestId('part-studio-push-description-input').fill(pushDescription);
+  await pushDialog.getByTestId('part-studio-push-confirm-button').click();
+  await expect(pushDialog).toBeHidden({ timeout: 60_000 });
+  await expect(saveButton).toBeDisabled({ timeout: 30_000 });
+  await page.getByTestId('part-studio-dock').getByRole('tab', { name: '版本历史' }).click();
+  const historyPanel = page.getByTestId('part-studio-dock-history');
+  await expect(historyPanel).toBeVisible();
+  const pushedRow = historyPanel.locator('[data-testid="part-studio-changeset-row"]', {
+    hasText: pushDescription,
+  });
+  await expect(pushedRow).toHaveCount(1, { timeout: 30_000 });
+  await expect(pushedRow).toContainText('当前版本');
+  console.log(`[t7] 推送与版本历史闭环：${pushDescription}`);
+
   // ── 全程零 console error ────────────────────────────────────────────
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
 });
@@ -751,11 +783,7 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
 }) => {
   test.slow();
 
-  const consoleErrors: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
-  });
-  page.on('pageerror', (error) => consoleErrors.push(`pageerror: ${error.message}`));
+  const consoleErrors = collectConsoleErrors(page);
 
   await openSeedImodelEditor(page);
   await waitEditorReady(page);
@@ -769,7 +797,7 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
 
   // L1：同款草图 RPC 直发（借页面在持会话；台账单独落文件）
   const { op, axisLineId } = buildSketchOp();
-  const accessToken = readAccessToken();
+  const accessToken = await getApiToken();
   const probeId = `t7b-probe-${Math.random().toString(36).slice(2)}`;
   const dbKey = ['briefcase-cache', 'imodels', imodelId, 'briefcases', '2.bim'].join(BS);
   const probe = (await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, probeId], accessToken)) as {

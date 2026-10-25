@@ -11,13 +11,13 @@
 
 import { expect, test } from '@playwright/test';
 import { E2E_IMODEL_NAME, SEED_PROJECT_NAME } from './fixtures';
-import { apiFindDocumentByName, gotoRoute, loginWithSession, readAccessToken } from './helpers';
+import { apiFindDocumentByName, getApiToken, gotoRoute, loginWithSession } from './helpers';
 
 let seedProjectId = '';
 
 test.beforeAll(async ({ request }) => {
   // 种子项目按名定位（auth.setup 已保证在场）
-  const hit = await apiFindDocumentByName(request, SEED_PROJECT_NAME, readAccessToken());
+  const hit = await apiFindDocumentByName(request, SEED_PROJECT_NAME, await getApiToken());
   if (!hit) throw new Error(`种子项目 ${SEED_PROJECT_NAME} 不在场（auth.setup 自愈失败？）`);
   seedProjectId = hit.id;
 });

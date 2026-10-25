@@ -117,9 +117,19 @@ export function readSessionFile(): StoredAuth | null {
 }
 
 /** spec 侧取产物 access token（API 自建/清理通道鉴权；setup 先行为前提）。
- * 优先进程内共享会话（单飞刷新后的最新值），回落产物文件。 */
+ * 优先进程内共享会话（单飞刷新后的最新值），回落产物文件。
+ * @deprecated 同步读不触发续命：长套件（>15min token TTL）后段会拿到过期 token。
+ *   新代码用 `getApiToken()`；既有同步调用点按批迁移（M5-T4 复跑实测半程团灭）。 */
 export function readAccessToken(): string {
   return (sharedSession ?? readSessionFile())?.accessToken ?? '';
+}
+
+/** 取可用于 API 调用的 access token（将过期则在 Node 侧单飞刷新并回写产物）。
+ * 所有 beforeAll/beforeEach 里的 API 自建/清理/种子重置必须先走这里——否则
+ * 套件跑到后段（token TTL 15min）时 readAccessToken() 给出过期 token，API 401
+ * 表现为用例在准备阶段秒挂。 */
+export async function getApiToken(): Promise<string> {
+  return (await getSharedSession()).accessToken;
 }
 
 // ============================================================================
@@ -162,8 +172,12 @@ async function getSharedSession(): Promise<StoredAuth> {
       body: JSON.stringify({ refreshToken: current.refreshToken }),
     });
     if (!response.ok) {
+      // 注意：Node 原生 fetch 的 Response 是属性（ok: boolean / status: number），
+      // 不是 Playwright APIResponse 的方法。M5-T4 全量复跑实测：写成 status()
+      // 会在 token 将过期触发的刷新路径上抛 TypeError，随后每个用例在会话注入
+      // 阶段秒挂（表现为半程团灭，非产品缺陷）。
       throw new Error(
-        `共享会话刷新失败：HTTP ${response.status()}（refreshToken 已被其他进程旋转？重跑 setup project）`,
+        `共享会话刷新失败：HTTP ${response.status}（refreshToken 已被其他进程旋转？重跑 setup project）`,
       );
     }
     const data = (await response.json()) as { token: string; refreshToken: string; tokenExpires?: number };
@@ -231,6 +245,30 @@ export async function gotoRoute(page: Page, url: string, anchorTestId: string): 
 export async function gotoDocuments(page: Page, filter?: string): Promise<void> {
   await loginWithSession(page);
   await gotoRoute(page, filter ? `/documents?filter=${filter}` : '/documents', 'documents-route');
+}
+
+// ============================================================================
+// console 门禁采集（M5-T4 全量复跑实证）
+// ============================================================================
+
+/** 外部字体 CDN：无代理环境下偶发 ERR_CONNECTION_TIMED_OUT（fonts.gstatic.com
+ * 实测 trace 定位）。字体加载失败由系统回退字体兜底，不属应用 console 错误——
+ * 门禁仍对应用自身错误零容忍，只豁免这类「资源加载失败 + 外部字体域」条目。 */
+const EXTERNAL_FONT_HOSTS = ['fonts.gstatic.com', 'fonts.googleapis.com'];
+
+/** 挂 console/pageerror 采集器并返回错误数组（spec 尾部断言长度 0）。 */
+export function collectConsoleErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() !== 'error') return;
+    const url = message.location()?.url ?? '';
+    if (message.text().startsWith('Failed to load resource')
+      && EXTERNAL_FONT_HOSTS.some((host) => url.includes(host)))
+      return;
+    errors.push(message.text());
+  });
+  page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
+  return errors;
 }
 
 // ============================================================================

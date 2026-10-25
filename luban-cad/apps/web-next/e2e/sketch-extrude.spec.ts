@@ -33,7 +33,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
-import { openSeedImodelEditor, waitEditorReady } from './helpers';
+import { collectConsoleErrors, openSeedImodelEditor, waitEditorReady } from './helpers';
 
 /** 留证目录（仓根 .superpowers/sdd/2026-10-23-tutorial2-sketch-chain/shots/）。 */
 const SHOTS_DIR = resolve(
@@ -190,11 +190,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   test.slow();
 
   // 全程 console error 收集（测试尾断言零；pageerror=未捕获异常一并入账）。
-  const consoleErrors: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
-  });
-  page.on('pageerror', (error) => consoleErrors.push(`pageerror: ${error.message}`));
+  const consoleErrors = collectConsoleErrors(page);
 
   await openSeedImodelEditor(page);
   await waitEditorReady(page);

@@ -25,13 +25,14 @@ import { expect, test, type Page } from '@playwright/test';
 import { E2E_IMODEL_NAME, SEED_PROJECT_NAME } from './fixtures';
 import {
   apiFindDocumentByName,
+  getApiToken,
   gotoDocuments,
   gotoRoute,
   loginWithSession,
   openSeedImodelEditor,
-  readAccessToken,
   waitEditorReady,
 } from './helpers';
+import { resetE2eSeed } from './seed';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -39,13 +40,17 @@ let seedProjectId = '';
 
 test.beforeAll(async ({ request }) => {
   // 种子项目按名定位（auth.setup 已保证在场；详情/编辑器两用例导航键）
-  const hit = await apiFindDocumentByName(request, SEED_PROJECT_NAME, readAccessToken());
+  const hit = await apiFindDocumentByName(request, SEED_PROJECT_NAME, await getApiToken());
   if (!hit) throw new Error(`种子项目 ${SEED_PROJECT_NAME} 不在场（auth.setup 自愈失败？）`);
   seedProjectId = hit.id;
 });
 
-/** 钉版定妆：亮色 + 中文显式落默认存储（addInitScript 先于应用代码执行）。 */
+/** 钉版定妆：亮色 + 中文显式落默认存储（addInitScript 先于应用代码执行）。
+ * 同时拦断外部字体 CDN：无代理环境下 fonts.gstatic.com 时通时断，同一页面
+ * 「字体加载成功/失败」会把回退字形差异钉进截图（M5-T4 全量复跑实测 1% 抖动）。
+ * 钉版一律走浏览器回退字体=确定性渲染；应用自身字体策略不改。 */
 async function pinLightZh(page: Page): Promise<void> {
+  await page.route(/https?:\/\/fonts\.(gstatic|googleapis)\.com\//, (route) => route.abort());
   await page.addInitScript(() => {
     localStorage.setItem('luban-next-theme', 'light');
     localStorage.setItem('luban-next-lang', 'zh-CN');
@@ -88,11 +93,14 @@ test('视觉钉版：文档详情（亮色）', async ({ page }) => {
   await expect(page).toHaveScreenshot('document-details-light.png');
 });
 
-test('视觉钉版：编辑器五区只读态（亮色，画布 mask）', async ({ page }) => {
+test('视觉钉版：编辑器五区只读态（亮色，画布 mask）', async ({ page, request }) => {
   // 编辑器用例预算放大（T8 评审 M-3，对齐 part-studio/keyboard 同款）：同链
   // openSeedImodelEditor + waitEditorReady 最坏 ~300s > 全局 120s，慢栈下
-  // timeout 会抢先吃掉 helper 诊断文案。test.slow() 三倍化（360s）兜底。
-  test.slow();
+  // timeout 会抢先吃掉 helper 诊断文案。再叠种子重置（M5-T4 全量复跑实测：
+  // tutorial2 等前序 spec 会给 E2E Seed 留 6 个特征，本钉版按干净种子态钉，
+  // 不重置即变成执行顺序依赖）——预算直接给 600s。
+  test.setTimeout(600_000);
+  await resetE2eSeed(request, await getApiToken());
   await pinLightZh(page);
   await openSeedImodelEditor(page);
   await waitEditorReady(page);

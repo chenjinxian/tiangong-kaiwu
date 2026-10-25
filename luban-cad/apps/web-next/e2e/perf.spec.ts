@@ -34,7 +34,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { E2E_IMODEL_NAME, SEED_PROJECT_NAME } from './fixtures';
-import { apiFindDocumentByName, authHeaders, gotoDocuments, loginWithSession, readAccessToken } from './helpers';
+import { apiFindDocumentByName, authHeaders, getApiToken, gotoDocuments, loginWithSession } from './helpers';
 
 /** ② PASS 底线：p95 帧间隔 ≤18.2ms（≈55fps；目标 60fps=p95≈16.7ms）。 */
 const SCROLL_P95_MS_MAX = 18.2;
@@ -172,7 +172,7 @@ test.describe('性能门禁 ①：编辑器首帧', () => {
   let editorUrl = '';
 
   test.beforeAll(async ({ request }) => {
-    const token = readAccessToken();
+    const token = await getApiToken();
     const project = await apiFindDocumentByName(request, SEED_PROJECT_NAME, token);
     if (!project) throw new Error(`种子项目 ${SEED_PROJECT_NAME} 不在场（auth.setup 自愈失败？）`);
     const listResponse = await request.get(`/imodels?iTwinId=${project.id}&$top=100`, {
@@ -289,7 +289,7 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
 
   test.beforeAll(async ({ request }) => {
     test.setTimeout(180_000);
-    const token = readAccessToken();
+    const token = await getApiToken();
     const headers = authHeaders(token);
 
     // 崩溃遗留兜清（上一轮 afterAll 未跑的 perf-seed-*；单页 $top=200，>200
@@ -323,7 +323,7 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
   });
 
   test.afterAll(async ({ request }) => {
-    const headers = authHeaders(readAccessToken());
+    const headers = authHeaders(await getApiToken());
     for (const id of seededIds) {
       await request.delete(`/itwins/${id}`, { headers });
       await new Promise((resolve) => setTimeout(resolve, 20));

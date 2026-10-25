@@ -22,17 +22,15 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test as setup } from '@playwright/test';
-import { E2E_IMODEL_NAME, SEED_PROJECT_NAME } from './fixtures';
 import {
-  apiFindDocumentByName,
   apiLogin,
   apiMeOk,
   apiRefresh,
-  authHeaders,
   readSessionFile,
   SESSION_FILE,
   type StoredAuth,
 } from './helpers';
+import { resetE2eSeed } from './seed';
 
 setup('authenticate', async ({ request }) => {
   // 轮询预算放大：baseline 正常 ~35s，最坏走 webhook-agent recovery checker
@@ -56,57 +54,11 @@ setup('authenticate', async ({ request }) => {
   }
   expect(auth.accessToken, 'setup 应持有可用 access token').toBeTruthy();
 
-  // 2) 种子项目自愈（按名定位，缺失重建——栈 seed 未跑时套件自立）
-  let seedProject = await apiFindDocumentByName(request, SEED_PROJECT_NAME, auth.accessToken);
-  if (!seedProject) {
-    const created = await request.post('/itwins', {
-      headers: authHeaders(auth.accessToken),
-      data: { displayName: SEED_PROJECT_NAME, class: 'Project' },
-    });
-    expect(created.status(), `种子项目缺失且自愈重建失败：HTTP ${created.status()}`).toBe(201);
-    seedProject = ((await created.json()) as { iTwin: { id: string } }).iTwin;
-  }
+  // 2) E2E Seed 自管库重置（数据态自治；人工调试库零接触）。
+  //    逻辑已抽至 seed.ts，供同文件多个建模用例在各自 beforeEach 复用。
+  await resetE2eSeed(request, auth.accessToken);
 
-  // 3) E2E Seed 自管库：按名删旧建新（数据态自治；人工调试库零接触）
-  const listResponse = await request.get(`/imodels?iTwinId=${seedProject.id}&$top=100`, {
-    headers: authHeaders(auth.accessToken),
-  });
-  expect(listResponse.ok(), 'iModel 列表查询失败').toBeTruthy();
-  const { iModels } = (await listResponse.json()) as {
-    iModels?: Array<{ id: string; displayName?: string; name?: string; state?: string }>;
-  };
-  for (const imodel of iModels ?? []) {
-    if ((imodel.displayName ?? imodel.name) !== E2E_IMODEL_NAME) continue;
-    const deleted = await request.delete(`/imodels/${imodel.id}`, {
-      headers: authHeaders(auth.accessToken),
-    });
-    expect(deleted.status(), `E2E Seed 旧库删除失败：HTTP ${deleted.status()}`).toBe(204);
-  }
-
-  const created = await request.post('/imodels', {
-    headers: authHeaders(auth.accessToken),
-    data: { iTwinId: seedProject.id, name: E2E_IMODEL_NAME },
-  });
-  expect(created.status(), `E2E Seed 创建失败：HTTP ${created.status()}`).toBe(201);
-  const seedImodel = ((await created.json()) as { iModel: { id: string } }).iModel;
-
-  // 轮询 initialized（5s × 110 ≈ 9.2min 上限；failed/missingFiles 即失败）
-  let state = 'unknown';
-  for (let i = 0; i < 110; i++) {
-    const detail = await request.get(`/imodels/${seedImodel.id}`, {
-      headers: authHeaders(auth.accessToken),
-    });
-    const body = (await detail.json()) as { iModel?: { state?: string } };
-    state = body.iModel?.state ?? 'unknown';
-    if (state === 'initialized') break;
-    if (state === 'failed' || state === 'missingFiles') {
-      throw new Error(`E2E Seed baseline 终态 ${state}（查 docker compose logs webhook-agent）`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-  }
-  expect(state, `E2E Seed 未在预算内 initialized（最后 state=${state}）`).toBe('initialized');
-
-  // 4) 产物落盘（setup ↔ 消费方唯一交接面）
+  // 3) 产物落盘（setup ↔ 消费方唯一交接面）
   mkdirSync('playwright/.auth', { recursive: true });
   writeFileSync(
     SESSION_FILE,
