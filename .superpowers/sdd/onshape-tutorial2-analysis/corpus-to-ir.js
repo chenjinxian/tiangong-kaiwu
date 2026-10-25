@@ -45,6 +45,18 @@
 //    相位拆分（30°+330°=360°，旋转起点偏置）——对全周体形状/体积无影响，忽略并记账；
 //    fullRevolve=false 时 angle 必须可解析、angleBack≠0 我方契约无对应 → 停链；
 //    symmetric 我方 RevolveParams 无对应 → 停链。
+// v5（2026-10-26，Wave 3）fillet/chamfer 接线：
+// 1. 边引用可静态解析形态（Isomantle 实证）：`makeQuery(id+"<源特征>.opRevolve",
+//    "SWEPT_EDGE",…)` + `originalSetDisambiguation([sketchEntityQuery(…wireOp,
+//    EntityType.EDGE,"<段长码>"), …])`。一条查询通常携 **2 条相邻草图边**——被选中的
+//    是二者**共享顶点**绕轴扫出的圆边（ORIGINAL_DEPENDENCY 去歧义语义）。三处独立
+//    体积实证（fillet 1 / chamfer 1 双查询 / fillet 2）偏差 ≤9.2e-13 m³。
+// 2. `qCompressed(...)` 形态（Fillet 5/6/7、Chamfer 2）不可静态解析 → 诚实停链
+//    edge-query-unresolvable，不猜。
+// 3. 参数：fillet radius + tangentPropagation→propagateSmooth；chamfer
+//    EQUAL_OFFSETS→mode 1(Length)、TWO_OFFSETS→mode 2(Distances)、
+//    OFFSET_ANGLE→mode 3(DistanceAngle)；oppositeDirection/variable radius/
+//    非 CIRCULAR 截面 → 停链。边引用只接受源特征为已接线 revolve（其他源 → 停链）。
 const fs = require('fs');
 const path = require('path');
 
@@ -56,6 +68,8 @@ fs.mkdirSync(OUT, { recursive: true });
 const SKETCH = 'newSketch';
 const EXTRUDE = 'extrude';
 const REVOLVE = 'revolve';
+const FILLET = 'fillet';
+const CHAMFER = 'chamfer';
 // 体积无关特征（注解/视图/变量——不改实体体积，回放时跳过）：
 // transform 仅当 transformType=TRANSLATION_3D（纯平移，位置不变体积）才忽略；
 // 其余 transform（COPY/ROTATION/SCALE/MATE_CONNECTORS）保守判停链。
@@ -189,6 +203,95 @@ function revolveParams(ft) {
 }
 
 // ---------------------------------------------------------------------------
+// fillet / chamfer 参数提取（v5）
+//
+// 可静态解析的边引用形态（Isomantle 实证）：entities.queries[] 每条
+//   makeQuery(id+"<featureId>.opRevolve","SWEPT_EDGE",EntityType.EDGE,
+//     {"disambiguationData":[originalSetDisambiguation([sketchEntityQuery(
+//       id+"<sketchFeatureId>.wireOp",EntityType.EDGE,"<段 entityId 长码>")])]})
+// → 源回转特征 + 草图段长码。qCompressed(...) 形态（Fillet 2/Fillet 5）不可静态
+// 解析 → 诚实停链 edge-query-unresolvable。
+// 端点语义（三处独立体积实证，偏差 ≤9.2e-13 m³）：SWEPT_EDGE 取草图段**终点**
+// （p2）绕轴扫出的圆边，不是起点侧。执行器按该圆几何匹配 body 边。
+// ---------------------------------------------------------------------------
+function paramMap(ft) {
+  const P = {};
+  for (const prm of ft.parameters || []) if (prm.parameterId) P[prm.parameterId] = prm;
+  return P;
+}
+
+/** entities 查询 → { sourceFeatureId, kind, entityLongIds[] }；不可解析返回 null。
+ * 一条查询可携 2 条草图边（ORIGINAL_DEPENDENCY 去歧义）——见 resolveEdgeVertex。 */
+function edgeRefFromQuery(q) {
+  const qs = typeof q.queryString === 'string' ? q.queryString : '';
+  if (!qs.includes('makeQuery(')) return null;
+  const src = qs.match(/id\+"([A-Za-z0-9_-]+)\.op(\w+)"/);
+  const kind = qs.match(/makeQuery\([^,]+,\s*"([A-Z_]+)"/);
+  const entityLongIds = [...qs.matchAll(/sketchEntityQuery\(id\+"[^"]+\.wireOp",\s*EntityType\.EDGE,\s*"([^"]+)"/g)]
+    .map((m) => m[1]);
+  if (!src || !kind || entityLongIds.length === 0) return null;
+  return { sourceFeatureId: src[1], sourceOp: src[2], kind: kind[1], entityLongIds };
+}
+
+/** 去歧义草图边集 → 被扫出的顶点。1 条边取终点（p2）；≥2 条边取唯一公共端点
+ * （ORIGINAL_DEPENDENCY 语义：相邻两棱共享的顶点绕轴扫出圆边——Isomantle 三处
+ * 独立体积实证）。无唯一公共点 → null（诚实停链）。 */
+function resolveEdgeVertex(entities, entityIndices) {
+  const endpointsOf = (e) => [e.p1, e.p2];
+  if (entityIndices.length === 1) return { vertex: entities[entityIndices[0]].p2, from: 'end' };
+  const key = (p) => `${Math.round(p[0] * 1e9)}:${Math.round(p[1] * 1e9)}`;
+  const counts = new Map();
+  for (const idx of entityIndices) {
+    for (const p of endpointsOf(entities[idx])) {
+      const k = key(p);
+      const cur = counts.get(k);
+      counts.set(k, cur ? { p, n: cur.n + 1 } : { p, n: 1 });
+    }
+  }
+  const shared = [...counts.values()].filter((v) => v.n >= 2);
+  if (shared.length !== 1) return null;
+  return { vertex: shared[0].p, from: 'shared' };
+}
+
+function filletParams(ft) {
+  const P = paramMap(ft);
+  const radius = P.radius ? parseQuantity(P.radius, 'length') : null;
+  return {
+    radius,
+    propagateSmooth: !!(P.tangentPropagation && P.tangentPropagation.value === true),
+    isVariable: !!(P.isVariable && P.isVariable.value === true),
+    crossSection: P.crossSection ? P.crossSection.value : 'CIRCULAR',
+    queries: (P.entities && P.entities.queries) || [],
+  };
+}
+
+function chamferParams(ft) {
+  const P = paramMap(ft);
+  const type = P.chamferType ? P.chamferType.value : undefined;
+  let mode;
+  let values1;
+  let values2;
+  if (type === 'EQUAL_OFFSETS') {
+    mode = 1; // 内核 Length：单距离
+    values1 = P.width ? parseQuantity(P.width, 'length') : null;
+  } else if (type === 'TWO_OFFSETS') {
+    mode = 2; // 内核 Distances：双距离
+    values1 = P.width1 ? parseQuantity(P.width1, 'length') : null;
+    values2 = P.width2 ? parseQuantity(P.width2, 'length') : null;
+  } else if (type === 'OFFSET_ANGLE') {
+    mode = 3; // 内核 DistanceAngle：距离 + 角度（弧度）
+    values1 = P.width ? parseQuantity(P.width, 'length') : null;
+    values2 = P.angle ? parseQuantity(P.angle, 'angle') : null;
+  }
+  return {
+    type, mode, values1, values2,
+    oppositeDirection: !!(P.oppositeDirection && P.oppositeDirection.value === true),
+    propagateSmooth: !!(P.tangentPropagation && P.tangentPropagation.value === true),
+    queries: (P.entities && P.entities.queries) || [],
+  };
+}
+
+// ---------------------------------------------------------------------------
 // extrude 参数提取（v2 修复 #1）：expression 真值
 // ---------------------------------------------------------------------------
 function extrudeParams(ft) {
@@ -276,7 +379,9 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
     const dropped = { noParam: 0, nan: 0, degenerate: 0, aux: 0, unsupported: [] };
     const sketches = [];               // 去重后的 IR 草图
     const sketchByKey = new Map();     // sketch featureId → sketches 下标
+    const sketchKeyByIdx = [];         // sketches 下标 → sketch featureId
     const sketchEntityIds = new Map(); // sketch featureId → 段 entityId→IR 下标（revolve 轴/边映射）
+    const revolveByFeatureId = new Map(); // 回转 sourceFeatureId → {sketchIndex, axisEntityIndex}（v5 边引用）
     const emptySketch = new Set();     // 转换后零实体的 sketch 下标
     const ops = [];
     let stop = null;
@@ -303,6 +408,7 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
           if (conv.entities.length === 0) emptySketch.add(idx);
           sketches.push({ name: ft.name, featureId: key, entities: conv.entities });
           sketchByKey.set(key, idx);
+          sketchKeyByIdx[idx] = key;
           sketchEntityIds.set(key, conv.entityIdToIdx);
         }
       } else if (t === EXTRUDE) {
@@ -380,6 +486,56 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
           ...(profileAreas.resolved ? { regionAreas: profileAreas.areas } : {}),
           profileEdges, profileDisambig,   // 留痕：imprint 派生边（直引时为空）+ ±1.0 侧选权重
         });
+        revolveByFeatureId.set(ft.featureId, { sketchIndex, axisEntityIndex: ax.entityIndex });
+      } else if (t === FILLET || t === CHAMFER) {
+        const pp = t === FILLET ? filletParams(ft) : chamferParams(ft);
+        // 语义门槛（诚实记账，不做静默近似）
+        if (t === FILLET) {
+          if (pp.radius === null || !(pp.radius > 0)) { stopChain(t, 'radius-unparseable'); break; }
+          if (pp.isVariable) { stopChain(t, 'variable-radius'); break; }
+          if (pp.crossSection !== 'CIRCULAR') { stopChain(t, 'crossSection-' + pp.crossSection); break; }
+        } else {
+          if (!pp.mode) { stopChain(t, 'chamferType-' + (pp.type || '?')); break; }
+          if (pp.values1 === null || !(pp.values1 > 0)) { stopChain(t, 'width-unparseable'); break; }
+          if (pp.mode >= 2 && (pp.values2 === null || !(pp.values2 > 0))) { stopChain(t, 'width2-unparseable'); break; }
+          if (pp.oppositeDirection) { stopChain(t, 'opposite-direction'); break; }
+        }
+        if (!pp.queries.length) { stopChain(t, 'edge-queries-0'); break; }
+        const edgeRefs = [];
+        let bad = null;
+        for (const q of pp.queries) {
+          const ref = edgeRefFromQuery(q);
+          if (!ref) { bad = 'edge-query-unresolvable'; break; }
+          if (ref.kind !== 'SWEPT_EDGE') { bad = 'edge-query-' + ref.kind; break; }
+          const src = revolveByFeatureId.get(ref.sourceFeatureId);
+          if (!src) { bad = 'edge-source-not-revolve'; break; }
+          const idMap = sketchEntityIds.get(sketchKeyByIdx[src.sketchIndex]);
+          const entityIndices = ref.entityLongIds.map((eid) => idMap?.get(eid));
+          if (entityIndices.some((i) => i === undefined)) { bad = 'edge-entity-unmapped'; break; }
+          if (entityIndices.some((i) => sketches[src.sketchIndex].entities[i].kind !== 'line')) {
+            bad = 'edge-entity-not-line'; break;
+          }
+          const resolved = resolveEdgeVertex(sketches[src.sketchIndex].entities, entityIndices);
+          if (!resolved) { bad = 'edge-vertex-ambiguous'; break; }
+          edgeRefs.push({
+            sourceFeatureId: ref.sourceFeatureId,
+            sketchIndex: src.sketchIndex,
+            axisEntityIndex: src.axisEntityIndex,
+            vertex: resolved.vertex,
+            vertexFrom: resolved.from,
+          });
+        }
+        if (bad) { stopChain(t, bad); break; }
+        ops.push({
+          op: t,
+          sketchIndex: edgeRefs[0].sketchIndex,
+          sourceFeatureId: ft.featureId,
+          propagateSmooth: pp.propagateSmooth,
+          ...(t === FILLET
+            ? { radius: pp.radius }
+            : { mode: pp.mode, values1: pp.values1, ...(pp.values2 !== undefined ? { values2: pp.values2 } : {}) }),
+          edgeRefs,
+        });
       } else if (IGNORED.has(t)) {
         if (t === 'transform') {
           const tt = (ft.parameters || []).find(p => p.parameterId === 'transformType');
@@ -417,8 +573,8 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
 function slugOf(s, id) { return (s || 'unnamed').replace(/[^\w一-龥-]+/g, '-').slice(0, 40) + '-' + String(id).slice(-6); }
 
 function caseOut(id, d, ps, sketches, ops, mode, vol, stop, types) {
-  // 只下发被 ops 引用的草图（未引用的构造草图不下发）
-  const used = new Set(ops.map(o => o.sketchIndex));
+  // 只下发被 ops 引用的草图（未引用的构造草图不下发；v5 边引用草图一并计入）
+  const used = new Set(ops.flatMap(o => [o.sketchIndex, ...(o.edgeRefs || []).map(r => r.sketchIndex)]));
   const remap = new Map(); let n = 0;
   const outSketches = [];
   for (let i = 0; i < sketches.length; i++) {
@@ -426,7 +582,11 @@ function caseOut(id, d, ps, sketches, ops, mode, vol, stop, types) {
     remap.set(i, n++);
     outSketches.push({ name: sketches[i].name, entities: sketches[i].entities });
   }
-  const outOps = ops.map(o => ({ ...o, sketchIndex: remap.get(o.sketchIndex) }));
+  const outOps = ops.map(o => ({
+    ...o,
+    sketchIndex: remap.get(o.sketchIndex),
+    ...(o.edgeRefs ? { edgeRefs: o.edgeRefs.map(r => ({ ...r, sketchIndex: remap.get(r.sketchIndex) })) } : {}),
+  }));
   // 曲线轮廓标注保留作安全网：Wave 2 已把直线路径改为精确 api_sweep_with_options，
   // Arrows 偏差 −1.57%→0.0001%（详见 REPLAY-DESIGN Wave 2）；若后续新几何再现超差，
   // 仍可按 knownCurveFloor 走 documented tolerance，而不是悄悄放宽全部门禁。

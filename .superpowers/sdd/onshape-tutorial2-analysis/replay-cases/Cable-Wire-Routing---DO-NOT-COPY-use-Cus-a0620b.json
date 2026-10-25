@@ -192,6 +192,59 @@
      "construction": false
     }
    ]
+  },
+  {
+   "name": "Sketch 2",
+   "entities": [
+    {
+     "kind": "line",
+     "p1": [
+      -0.014999999999999998,
+      0.05699999999999994
+     ],
+     "p2": [
+      0.015000000000000001,
+      0.05699999999999994
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.014999999999999998,
+      0.04874423042781569
+     ],
+     "p2": [
+      0.015000000000000001,
+      0.04874423042781569
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.014999999999999994,
+      0.05699999999999994
+     ],
+     "p2": [
+      -0.014999999999999993,
+      0.04874423042781569
+     ],
+     "construction": false
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.015000000000000005,
+      0.05699999999999994
+     ],
+     "p2": [
+      0.015000000000000006,
+      0.04874423042781569
+     ],
+     "construction": false
+    }
+   ]
   }
  ],
  "ops": [
@@ -239,6 +292,83 @@
    "profileDisambig": [
     1
    ]
+  },
+  {
+   "op": "fillet",
+   "sketchIndex": 0,
+   "sourceFeatureId": "FK3fuoGlTjjicEo_3",
+   "propagateSmooth": true,
+   "radius": 0.02,
+   "edgeRefs": [
+    {
+     "sourceFeatureId": "FQ3Bmx5lTOdcK9T_0",
+     "sketchIndex": 0,
+     "axisEntityIndex": 8,
+     "vertex": [
+      0.03999999999999993,
+      0.006999999999999976
+     ],
+     "vertexFrom": "shared"
+    }
+   ]
+  },
+  {
+   "op": "chamfer",
+   "sketchIndex": 0,
+   "sourceFeatureId": "F9HRmUDfDB3hvIS_3",
+   "propagateSmooth": true,
+   "mode": 1,
+   "values1": 0.002,
+   "edgeRefs": [
+    {
+     "sourceFeatureId": "FXOGu7NuPoz6UC4_1",
+     "sketchIndex": 0,
+     "axisEntityIndex": 8,
+     "vertex": [
+      0.05799999999999993,
+      0.015000000000000003
+     ],
+     "vertexFrom": "shared"
+    },
+    {
+     "sourceFeatureId": "Fhbbvpa29ycTqfX_2",
+     "sketchIndex": 0,
+     "axisEntityIndex": 8,
+     "vertex": [
+      0.05299999999999994,
+      -0.06999999999999998
+     ],
+     "vertexFrom": "shared"
+    }
+   ]
+  },
+  {
+   "op": "fillet",
+   "sketchIndex": 0,
+   "sourceFeatureId": "FD8O1soRMj2W1I7_3",
+   "propagateSmooth": true,
+   "radius": 0.005,
+   "edgeRefs": [
+    {
+     "sourceFeatureId": "FQ3Bmx5lTOdcK9T_0",
+     "sketchIndex": 0,
+     "axisEntityIndex": 8,
+     "vertex": [
+      0.03999999999999995,
+      -0.059999999999999984
+     ],
+     "vertexFrom": "shared"
+    }
+   ]
+  },
+  {
+   "op": "extrude",
+   "sketchIndex": 1,
+   "sourceFeatureId": "FIYsPEpyJCubsnk_3",
+   "operation": "ADD",
+   "distance": 0.012,
+   "regions": "all",
+   "regionRisk": false
   }
  ],
  "volumeTimeline": [
@@ -400,8 +530,8 @@
   }
  ],
  "stop": {
-  "featureType": "fillet",
-  "reason": "feature-not-wired"
+  "featureType": "extrude",
+  "reason": "operation-REMOVE"
  },
  "featureTypes": [
   "newSketch",

@@ -33,6 +33,80 @@ function minimalDoc() {
   };
 }
 
+// ---------------------------------------------------------------------------
+// v5：fillet/chamfer 边引用 IR（可读 makeQuery → 草图顶点；qCompressed → 停链）
+// ---------------------------------------------------------------------------
+const REV_ID = 'Frev_0';
+const SKETCH_V5 = 'Fsk_0';
+
+function v5Doc(filletQuery) {
+  const seg = (entityId, x1, y1, x2, y2) => ({
+    btType: 'BTMSketchCurveSegment-155', entityId,
+    startParam: 0, endParam: 1,
+    geometry: { btType: 'BTCurveGeometryLine-117', pntX: x1, pntY: y1, dirX: x2 - x1, dirY: y2 - y1 },
+  });
+  return {
+    name: 'v5 synthetic', id: 'v5-doc', status: 'ok',
+    partStudios: [{
+      elementId: 'v5-element', name: 'PS',
+      massProperties: { volume: 0.0004, bodies: [{ name: '-all-', volume: 0.0004 }] },
+      features: { features: [
+        { btType: 'BTMSketch-151', featureType: 'newSketch', featureId: SKETCH_V5, name: 'Sketch 1',
+          entities: [seg('e1', 0.04, -0.06, 0.04, 0.007), seg('e2', 0.04, 0.007, 0.048, 0.015)],
+          parameters: [] },
+        { btType: 'BTMFeature-134', featureType: 'revolve', featureId: REV_ID, name: 'Revolve 1', parameters: [
+          { parameterId: 'operationType', value: 'NEW' }, { parameterId: 'bodyType', value: 'SOLID' },
+          { parameterId: 'endBound', value: 'BLIND' }, { parameterId: 'fullRevolve', value: true },
+          { parameterId: 'entities', queries: [{ featureId: SKETCH_V5 }] },
+          { parameterId: 'axis', queries: [{ queryString: `query=sketchEntityQuery(id+"${SKETCH_V5}.wireOp",EntityType.EDGE,"e1")` }] },
+        ] },
+        { btType: 'BTMFeature-134', featureType: 'fillet', featureId: 'Ffil_0', name: 'Fillet 1', parameters: [
+          { parameterId: 'entities', queries: [{ queryString: filletQuery }] },
+          { parameterId: 'radius', expression: '2 mm', value: 0 },
+          { parameterId: 'tangentPropagation', value: true },
+          { parameterId: 'isVariable', value: false },
+          { parameterId: 'crossSection', value: 'CIRCULAR' },
+        ] },
+      ] },
+    }],
+  };
+}
+
+function runConverterOn(doc) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'corpus-ir-v5-'));
+  fs.mkdirSync(path.join(tmp, 'corpus', 'docs'), { recursive: true });
+  fs.copyFileSync(CONVERTER, path.join(tmp, 'corpus-to-ir.js'));
+  fs.writeFileSync(path.join(tmp, 'corpus', 'docs', 'v5.json'), JSON.stringify(doc));
+  execFileSync(process.execPath, [path.join(tmp, 'corpus-to-ir.js')], { cwd: tmp, stdio: 'pipe' });
+  const files = fs.readdirSync(path.join(tmp, 'replay-cases')).filter((f) => f.endsWith('.json'));
+  const c = files.length ? JSON.parse(fs.readFileSync(path.join(tmp, 'replay-cases', files[0]), 'utf8')) : undefined;
+  fs.rmSync(tmp, { recursive: true, force: true });
+  return c;
+}
+
+test('v5：可读 makeQuery 的 fillet → 共享顶点边引用 + 半径', () => {
+  const q = `query=makeQuery(id+"${REV_ID}.opRevolve","SWEPT_EDGE",EntityType.EDGE,{"disambiguationData":[originalSetDisambiguation([sketchEntityQuery(id+"${SKETCH_V5}.wireOp",EntityType.EDGE,"e1"),sketchEntityQuery(id+"${SKETCH_V5}.wireOp",EntityType.EDGE,"e2")])]})`;
+  const c = runConverterOn(v5Doc(q));
+  assert.ok(c, '应产出用例');
+  const fillet = c.ops.find((o) => o.op === 'fillet');
+  assert.ok(fillet, '应含 fillet op');
+  assert.equal(fillet.radius, 0.002);
+  assert.equal(fillet.propagateSmooth, true);
+  assert.equal(fillet.edgeRefs.length, 1);
+  assert.equal(fillet.edgeRefs[0].sourceFeatureId, REV_ID);
+  assert.equal(fillet.edgeRefs[0].vertexFrom, 'shared');
+  assert.deepEqual(fillet.edgeRefs[0].vertex, [0.04, 0.007]);
+});
+
+test('v5：qCompressed 边查询 → 诚实停链 edge-query-unresolvable（保留已建链）', () => {
+  const q = 'query=qCompressed(1.0,"%B5$QueryM6S12$disambiguationDataA1M2S12$disambiguationTypeS13$ORIGINAL_DEPENDENCYS9$originalsA1C0M5Sa$entityTypeBa$EntityTypeS4$EDGESb$h")';
+  const c = runConverterOn(v5Doc(q));
+  assert.ok(c, '截断链应产出 smoke 用例');
+  assert.equal(c.mode, 'smoke');
+  assert.deepEqual(c.stop, { featureType: 'fillet', reason: 'edge-query-unresolvable' });
+  assert.equal(c.ops.filter((o) => o.op === 'fillet').length, 0);
+});
+
 test('转换器把 regionId→area 与 rollback→volume sidecar 接入 IR', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'corpus-ir-v3-'));
   try {
