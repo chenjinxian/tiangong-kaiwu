@@ -321,6 +321,7 @@
     "distanceLabel": "Distance",
     "distanceInvalid": "Enter a valid extrude distance (greater than 0)",
     "submitSuccess": "{{name}} created",
+    "submitEvalFailed": "{{name}} committed but evaluation failed: {{message}} — feature added to tree, geometry not generated",
     "leaseBusy": "The write lease is held by another session; submitting will wait for the lease",
     "editHint": "Parameter editing for this feature type is coming soon",
     "readonlyHint": "You have read-only permission; features cannot be submitted",

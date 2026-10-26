@@ -760,13 +760,27 @@ export function FeatureDialog({
       if (!aliveRef.current) return;
       setSubmitting(false);
       if (result.ok) {
-        // 成功 toast（notifications 标准通道）+ onConfirm（宿主 closeDialog）。
-        IModelApp.notifications.outputMessage(
-          new NotifyMessageDetails(
-            OutputMessagePriority.Success,
-            t('partStudio.featureDialog.submitSuccess', { name: featureName }),
-          ),
-        );
+        if (result.evalFailed) {
+          // v1.10（B4）：op 已提交但求值失败（失败级联=行入树+保旧几何）——警告
+          // 呈现非成功 toast；对话框照常收合（特征已在树上，失败态由树呈现）。
+          IModelApp.notifications.outputMessage(
+            new NotifyMessageDetails(
+              OutputMessagePriority.Warning,
+              t('partStudio.featureDialog.submitEvalFailed', {
+                name: featureName,
+                message: result.evalError ?? '',
+              }),
+            ),
+          );
+        } else {
+          // 成功 toast（notifications 标准通道）+ onConfirm（宿主 closeDialog）。
+          IModelApp.notifications.outputMessage(
+            new NotifyMessageDetails(
+              OutputMessagePriority.Success,
+              t('partStudio.featureDialog.submitSuccess', { name: featureName }),
+            ),
+          );
+        }
         onConfirm?.(buildResult());
       } else {
         setError(result.error);

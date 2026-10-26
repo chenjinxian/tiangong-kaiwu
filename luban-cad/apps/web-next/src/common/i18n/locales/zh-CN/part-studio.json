@@ -321,6 +321,7 @@
     "distanceLabel": "距离",
     "distanceInvalid": "请输入有效的拉伸距离（大于 0）",
     "submitSuccess": "{{name}} 已创建",
+    "submitEvalFailed": "{{name}} 已提交但求值失败：{{message}}——特征已入特征树，几何未生成",
     "leaseBusy": "写租约被其他会话持有，提交将等待租约",
     "editHint": "该特征类型的参数编辑即将推出",
     "readonlyHint": "当前为只读权限，无法提交特征",
