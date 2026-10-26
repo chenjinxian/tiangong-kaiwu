@@ -20,7 +20,8 @@
       0
      ],
      "radius": 0.04,
-     "construction": false
+     "construction": false,
+     "entityId": "QF0RhmLtFtsu"
     },
     {
      "kind": "circle",
@@ -29,7 +30,8 @@
       0
      ],
      "radius": 0.05,
-     "construction": false
+     "construction": false,
+     "entityId": "nFFjua2nqgKg"
     }
    ]
   }

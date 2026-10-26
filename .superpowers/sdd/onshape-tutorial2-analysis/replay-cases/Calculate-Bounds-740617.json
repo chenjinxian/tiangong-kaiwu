@@ -21,7 +21,8 @@
       -0.07221207945024488,
       0.09547277027184833
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "XTSwFpY0-5Ak2-AoPX-lJuR-cULEC41GomLu.bottom"
     },
     {
      "kind": "line",
@@ -33,7 +34,8 @@
       -0.10696132601213282,
       -6.938893903907228e-18
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "XTSwFpY0-5Ak2-AoPX-lJuR-cULEC41GomLu.top"
     },
     {
      "kind": "line",
@@ -45,7 +47,8 @@
       -0.1905000000000001,
       0.030405590741651903
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "XTSwFpY0-5Ak2-AoPX-lJuR-cULEC41GomLu.left"
     },
     {
      "kind": "line",
@@ -57,7 +60,8 @@
       -0.10696132601213283,
       -3.469446951953614e-18
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "XTSwFpY0-5Ak2-AoPX-lJuR-cULEC41GomLu.right"
     }
    ]
   }

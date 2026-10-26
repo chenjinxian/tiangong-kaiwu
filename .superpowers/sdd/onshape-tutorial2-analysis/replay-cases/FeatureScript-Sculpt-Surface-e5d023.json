@@ -21,7 +21,8 @@
       -0.038099999999999974,
       -0.03810000000000001
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "zwSIzwbb-AOyY-niux-Pitb-3bOdJdjsZ0bl.bottom"
     },
     {
      "kind": "line",
@@ -33,7 +34,8 @@
       -0.038099999999999995,
       0.038099999999999995
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "zwSIzwbb-AOyY-niux-Pitb-3bOdJdjsZ0bl.top"
     },
     {
      "kind": "line",
@@ -45,7 +47,8 @@
       0.038099999999999995,
       0.038099999999999995
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "zwSIzwbb-AOyY-niux-Pitb-3bOdJdjsZ0bl.left"
     },
     {
      "kind": "line",
@@ -57,7 +60,8 @@
       -0.03810000000000001,
       0.038099999999999974
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "zwSIzwbb-AOyY-niux-Pitb-3bOdJdjsZ0bl.right"
     },
     {
      "kind": "circle",
@@ -66,7 +70,8 @@
       0
      ],
      "radius": 0.012700000000000001,
-     "construction": false
+     "construction": false,
+     "entityId": "Umpj2D9U-hT2s-t9iQ-QaJD-oYRY2lVt6LTQ"
     },
     {
      "kind": "circle",
@@ -75,7 +80,8 @@
       -0.17752234637737274
      ],
      "radius": 0.043073576761988176,
-     "construction": false
+     "construction": false,
+     "entityId": "jMeYIn9P-JwED-D5lX-GXqR-6LyeGSScENL3"
     }
    ]
   }

@@ -21,7 +21,8 @@
       0.05799999999999993,
       0.015000000000000003
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "nSu0I1FK-urid-AQKj-uQs5-dkjM9R05lHCo"
     },
     {
      "kind": "line",
@@ -33,7 +34,8 @@
       0.05799999999999993,
       -3.469446951953614e-18
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "chQru6XW-uFMp-y86m-WSwL-1GcvqqJ1TBcT"
     },
     {
      "kind": "line",
@@ -45,7 +47,8 @@
       0.052999999999999936,
       0
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "h42FJMKq-QxKE-B1p0-NyW6-sK7zNdjs2oXs"
     },
     {
      "kind": "line",
@@ -57,7 +60,8 @@
       0.05299999999999993,
       0.009999999999999997
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "8lzQDpiM-uuPz-pGb0-NXw8-uG00u9SxT8P7"
     },
     {
      "kind": "line",
@@ -69,7 +73,8 @@
       0.047999999999999945,
       0.009999999999999998
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "1i7mUbNT-1CRk-wrSL-ZxN4-6KA6x7Jg8rfK"
     },
     {
      "kind": "line",
@@ -81,7 +86,8 @@
       0.04799999999999995,
       0.015
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "pHfMf5ik-zNZo-0QBM-PLZL-FIaZstQl2ve7"
     },
     {
      "kind": "line",
@@ -93,7 +99,8 @@
       0.04799999999999995,
       -0.06499999999999997
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "VnLt5eaU-J4MS-1EaK-nW78-0X9GLtMytZQZ"
     },
     {
      "kind": "line",
@@ -105,7 +112,8 @@
       0,
       -0.06500000000000002
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "xYKFoWek-EhbO-LqWV-tPU4-0RITXXnqFxRg"
     },
     {
      "kind": "line",
@@ -117,7 +125,8 @@
       0,
       -0.07
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "McPwp6kN-IiBK-HWLg-CgWs-7bWwRxVko9UJ"
     },
     {
      "kind": "line",
@@ -129,7 +138,8 @@
       0.05299999999999994,
       -0.06999999999999998
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "mZm90ihs-8XpK-WD7V-uWwD-WWeM2PGRxgAu"
     },
     {
      "kind": "line",
@@ -141,7 +151,8 @@
       0.05299999999999992,
       0.010000000000000009
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "nOkdQMAZ-x30L-K15w-tJw0-eudXiP1Rnx0I"
     },
     {
      "kind": "line",
@@ -153,7 +164,8 @@
       0,
       -0.060000000000000026
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "5HZFS38b-0Y8K-yxC4-GErX-n5ecHDOXjv8X"
     },
     {
      "kind": "line",
@@ -165,7 +177,8 @@
       0.03999999999999995,
       -0.059999999999999984
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "OMNaoCgi-Sk4p-DhfC-9ZxE-A8hhQoijmjuu"
     },
     {
      "kind": "line",
@@ -177,7 +190,8 @@
       0.03999999999999993,
       0.0069999999999999785
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "MudIGfZ8-Mo4t-6ZP3-huXe-P116EeSwv2gA"
     },
     {
      "kind": "line",
@@ -189,7 +203,8 @@
       0.04799999999999995,
       0.015
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "iMyCn01J-NJEn-hQ9M-lpJE-jE5h5jmbRXCa"
     }
    ]
   },
@@ -206,7 +221,8 @@
       0.015000000000000001,
       0.05699999999999994
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "UGuLieYr6aR6.bottom"
     },
     {
      "kind": "line",
@@ -218,7 +234,8 @@
       0.015000000000000001,
       0.04874423042781569
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "UGuLieYr6aR6.top"
     },
     {
      "kind": "line",
@@ -230,7 +247,8 @@
       -0.014999999999999993,
       0.04874423042781569
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "UGuLieYr6aR6.left"
     },
     {
      "kind": "line",
@@ -242,7 +260,8 @@
       0.015000000000000006,
       0.04874423042781569
      ],
-     "construction": false
+     "construction": false,
+     "entityId": "UGuLieYr6aR6.right"
     }
    ]
   }
@@ -301,6 +320,7 @@
    "radius": 0.02,
    "edgeRefs": [
     {
+     "kind": "vertex",
      "sourceFeatureId": "FQ3Bmx5lTOdcK9T_0",
      "sketchIndex": 0,
      "axisEntityIndex": 8,
@@ -321,6 +341,7 @@
    "values1": 0.002,
    "edgeRefs": [
     {
+     "kind": "vertex",
      "sourceFeatureId": "FXOGu7NuPoz6UC4_1",
      "sketchIndex": 0,
      "axisEntityIndex": 8,
@@ -331,6 +352,7 @@
      "vertexFrom": "shared"
     },
     {
+     "kind": "vertex",
      "sourceFeatureId": "Fhbbvpa29ycTqfX_2",
      "sketchIndex": 0,
      "axisEntityIndex": 8,
@@ -350,6 +372,7 @@
    "radius": 0.005,
    "edgeRefs": [
     {
+     "kind": "vertex",
      "sourceFeatureId": "FQ3Bmx5lTOdcK9T_0",
      "sketchIndex": 0,
      "axisEntityIndex": 8,
@@ -531,7 +554,7 @@
  ],
  "stop": {
   "featureType": "extrude",
-  "reason": "operation-REMOVE"
+  "reason": "endBound-UP_TO_SURFACE"
  },
  "featureTypes": [
   "newSketch",
