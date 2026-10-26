@@ -46,7 +46,6 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { OutputMessagePriority } from '@itwin/core-frontend';
 import type { JSX } from 'react';
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -531,20 +530,8 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     const { user } = await renderReadyDialog(makeApplyOp());
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
-    const details = mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string; priority: number };
+    const details = mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string };
     expect(details.briefMessage).toContain('拉伸');
-    expect(details.priority).toBe(OutputMessagePriority.Success);
-  });
-
-  it('v1.10 evalFailed（op 已提交但求值失败）→ 警告 toast + onConfirm 照常（特征已入树）', async () => {
-    const applyOp = makeApplyOp(() => ({ ok: true as const, featureId: 'f-9', evalFailed: true as const, evalError: '特征求值失败（status=1）——特征已入树，几何未生成' }));
-    const { user, onConfirm } = await renderReadyDialog(applyOp);
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
-    const details = mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string; priority: number };
-    expect(details.priority).toBe(OutputMessagePriority.Warning);   // 警告而非成功
-    expect(details.briefMessage).toContain('求值失败');
-    expect(onConfirm).toHaveBeenCalledTimes(1);                      // 对话框收合（失败态由树呈现）
   });
 
   it('失败 → 就地 Alert（六态 error），不调 onConfirm（对话框不关闭）', async () => {

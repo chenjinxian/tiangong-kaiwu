@@ -98,7 +98,7 @@ beforeEach(() => {
 });
 
 describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
-  it('未点开页签：body 不渲染；工具设置占位；显示设置=真面板（渲染对齐阶段 2）', async () => {
+  it('未点开页签：body 不渲染；工具设置/显示设置仍占位', async () => {
     const user = userEvent.setup();
     renderDock();
     expect(screen.queryByTestId('part-studio-dock-body')).toBeNull();
@@ -108,9 +108,8 @@ describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
     expect(toContainText(within(dock).getByTestId('part-studio-dock-body'), '内容即将推出')).toBe(true);
 
     await user.click(within(dock).getByRole('tab', { name: '显示设置' }));
-    // 显示设置真面板（2026-10-26 阶段 2）：五态模式选择器在场（壳期占位到此兑现）
-    expect(within(dock).getByTestId('part-studio-display-settings-mode')).toBeDefined();
-    // 面板页签不发起 changesets 查询。
+    expect(toContainText(within(dock).getByTestId('part-studio-dock-body'), '内容即将推出')).toBe(true);
+    // 占位页签不发起 changesets 查询。
     expect(mocks.listChangesets).not.toHaveBeenCalled();
   });
 

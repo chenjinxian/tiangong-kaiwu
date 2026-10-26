@@ -25,7 +25,6 @@ import type { Changeset } from '@clients/imodels/ImodelsClient.js';
 import { useChangesets } from '../hooks/useChangesets.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { DockTab } from '../types.js';
-import { DisplaySettingsPanel } from './DisplaySettingsPanel.js';
 import './PartStudioDock.css';
 
 /** 停靠页签在册（id 即 DockTab；labelKey 指向 partStudio.dock.tabs.*）。 */
@@ -117,11 +116,8 @@ export function PartStudioDock({
               onSave={onSave}
               onPush={onPush}
             />
-          ) : activeTab === 'display' ? (
-            /* 显示设置真面板（渲染对齐阶段 2，2026-10-26）——壳期占位到此兑现。 */
-            <DisplaySettingsPanel />
           ) : (
-            /* 壳期占位：工具设置真实面板 T8+ 接管。 */
+            /* 壳期占位：工具设置/显示设置真实面板 T8+ 接管。 */
             <Text isMuted>{t('partStudio.dock.placeholder')}</Text>
           )}
         </div>

@@ -140,14 +140,8 @@ export interface FeatureTreeEntry {
   params: unknown;
 }
 
-/**
- * v1.10（2026-10-26，B4 登记 ok:true 吞内核失败根治）：op 已提交（行入树、
- * txn save、失败级联语义=特征 status=1+body 保旧几何）但**目标特征求值失败**
- * 时，成功分支带 `evalFailed`——消费方按警告呈现（非成功 toast），不得把
- * op 视为拒收（行已落库，undo 语义照常）。缺省=求值健康，向后兼容。
- */
 export type FeatureOpResult =
-  | { ok: true; featureId?: string; evalFailed?: true; evalError?: string }
+  | { ok: true; featureId?: string }
   | { ok: false; error: string };
 
 /** M3-a：预览结果（HITL 预览→确认→提交；不落库，仅回报受影响特征及内核状态码） */
