@@ -95,7 +95,7 @@ npx playwright test e2e/documents.spec.ts                # 单 e2e（在 luban-c
 
 0. 首次运行先生成密钥配置：`powershell -File scripts/generate-env.ps1`（幂等；后端服务的 `.env` 均读仓库根这一份，密钥缺失会拒启）
 1. `powershell -File scripts/fetch-backend.ps1`（拉 GHCR 镜像 + MS 产物到 `dist-backend\`；已就位可跳过）
-2. `docker compose up -d`（根 docker-compose.yml：Postgres/Azurite/Redis/Maildev + imodelhub:5400 + webhook-agent:5402（均 GHCR 镜像）+ web（**本仓 build = `luban-cad/apps/web-next`**，M5-T9 切换冲刺起；构建上下文=仓库根，见 `.dockerignore`）+ nginx:5301 单域名入口；宿主端口登记见 `docs/PORTS.md`）
+2. `docker compose up -d`（根 docker-compose.yml：Postgres/Azurite/Redis/Maildev + imodelhub:5400 + webhook-agent:5402（均 GHCR 镜像）+ web（**本仓 build = `luban-cad/apps/web-next`**，M5-T9 切换冲刺起；构建上下文=仓库根，见 `.dockerignore`；**不随 fetch-backend/compose pull 更新——web-next/itwinjs-core 源有更新须 `powershell -File scripts/rebuild-web.ps1` 重建镜像（B2，verify-stack Step E 会报告陈旧）**）+ nginx:5301 单域名入口；宿主端口登记见 `docs/PORTS.md`）
 3. modeling-server 为宿主进程（link: 依赖+本地编译原生库不可入 Linux 容器——`scripts/start-ms-host.ps1 -Detach`，默认产物模式跑 `dist-backend\`）
 4. `powershell -File scripts/verify-stack.ps1` 全栈验收（health×5 → iTwin/iModel/baseline 数据链 → WS cookie 握手 → dev-build 横幅）
 

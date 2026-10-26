@@ -2,7 +2,7 @@
 # verify-stack.ps1 — 天工开物统一栈（根 docker-compose.yml）验收脚本
 #
 # 全栈一键验收：health 探针 → 服务账号登录 → iTwin/iModel/baseline 数据链
-# → WS cookie 握手 → 原生库 dev-build 横幅 → 汇总表 + 退出码。
+# → WS cookie 握手 → 原生库 dev-build 横幅 → web 镜像陈旧检测 → 汇总表 + 退出码。
 #
 # 用法:
 #   powershell -File scripts/verify-stack.ps1                    # 全量（含 baseline 数据链，最慢 ~5min）
@@ -40,6 +40,12 @@
 #   iModelJsNodeAddon/api_package/ts/src/NativeLibrary.ts 在加载本地编译二进制时打印；
 #   宿主 MS 先查 %TEMP%\luban-cad-modeling-server.log(.err)（start-ms-host.ps1 -Detach 重定向），
 #   找不到再回退 `docker compose logs modeling-server`（--profile container 形态），报告命中来源。
+#
+# web 镜像陈旧检测（Step E，B2 2026-10-26）: compose 的 web 是本仓 build（非 GHCR
+#   拉取），fetch-backend 的 compose pull 不更新它——镜像可能停在旧源。比对镜像
+#   OCI revision 标签（rebuild-web.ps1 注入）与当前 HEAD sha，无标签时退化为
+#   Created vs 最新 web 源提交时间；陈旧打黄色 WARN 提示 scripts/rebuild-web.ps1，
+#   不扣退出码（诚实报告而非硬门，功能是否受损由 A-D 判定）。
 # ============================================================
 [CmdletBinding()]
 param(
@@ -66,14 +72,17 @@ if ($Base -like 'https:*') {
 # ============================================================
 $Script:Rows = New-Object System.Collections.Generic.List[object]
 $Script:FatalFails = 0
+$Script:Warns = 0
 
 function Add-Check {
-    param([string]$Step, [string]$Name, [bool]$Ok, [string]$Detail, [switch]$NonFatal)
-    $label = if ($Ok) { 'OK  ' } else { 'FAIL' }
-    $Script:Rows.Add([pscustomobject]@{ Step = $Step; Result = $label.Trim(); Check = $Name; Detail = $Detail })
-    $color = if ($Ok) { 'Green' } else { 'Red' }
+    # -Warn: 黄色警示行（部署卫生类问题，不扣退出码——诚实报告而非硬门）
+    param([string]$Step, [string]$Name, [bool]$Ok, [string]$Detail, [switch]$NonFatal, [switch]$Warn)
+    $label = if ($Warn) { 'WARN' } elseif ($Ok) { 'OK' } else { 'FAIL' }
+    $Script:Rows.Add([pscustomobject]@{ Step = $Step; Result = $label; Check = $Name; Detail = $Detail })
+    $color = if ($Warn) { 'Yellow' } elseif ($Ok) { 'Green' } else { 'Red' }
     Write-Host ("  [{0}] {1}  {2}" -f $label, $Name, $Detail) -ForegroundColor $color
-    if (-not $Ok -and -not $NonFatal) { $Script:FatalFails++ }
+    if ($Warn) { $Script:Warns++ }
+    elseif (-not $Ok -and -not $NonFatal) { $Script:FatalFails++ }
 }
 
 # ============================================================
@@ -483,6 +492,98 @@ if (-not $msHealthy) {
 }
 
 # ============================================================
+# Step E —— web 镜像陈旧检测（B2 2026-10-26；WARN 不扣退出码）
+#   compose 的 web 是本仓 build（非 GHCR 拉取），fetch-backend 的 compose
+#   pull 不更新它——后端发布后镜像可能停在旧源（当日实证：镜像停 10-23、
+#   源已到 10-26；e2e 跑 :5300 vite dev 永远看不见）。判据（标签优先）：
+#   1) 镜像 OCI 标签 org.opencontainers.image.revision == 当前 HEAD sha → 新鲜
+#      （标签是唯一权威证据，不看 Created——buildkit 缓存命中导出的镜像
+#      Created 会停在首次构建时刻，拿它比时间必误报，2026-10-26 实测）
+#   2) 标签存在但 ≠ HEAD（或为手工 build 的 unknown）→ 陈旧
+#   3) 无标签（本检查上线前的旧镜像）→ 退化为时间比较：
+#      镜像 Created < 最新 web 源提交（apps/web-next + packages + itwinjs-core，
+#      三者都是镜像构建输入）
+#   陈旧只 WARN 提示 rebuild-web.ps1，不阻断验收——镜像陈旧属部署卫生问题，
+#   功能是否受损由 A-D 判定。
+# ============================================================
+Write-Host ''
+Write-Host '== Step E: web 镜像陈旧检测 ==' -ForegroundColor Cyan
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Add-Check 'E' 'web 镜像陈旧检测' $true 'docker 不在 PATH —— 跳过（栈验收不受影响）' -Warn
+} else {
+    # PS5.1 + $ErrorActionPreference='Stop' 下原生命令的 stderr 会抛
+    # NativeCommandError（compose 对缺 .env 的 :? 变量插值报错走的就是
+    # stderr）——降压执行并吞掉 stderr，失败一律交给降级分支
+    function Get-NativeOut {
+        param([scriptblock]$Cmd)
+        $eap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $out = @(& $Cmd 2>$null)
+            if ($LASTEXITCODE -ne 0) { return @() }
+            return ,$out
+        } finally { $ErrorActionPreference = $eap }
+    }
+
+    # --- 定位镜像：compose 文件钉死 name: tiangong-kaiwu → 镜像 = <name>-web:latest
+    #     （tag 恒指向最新一次 build，正是陈旧检测要评的对象）；compose ps 的
+    #     IMAGE 列作 fallback——但 containerd image store 下它可能给 sha256 摘要
+    #     （按 manifest 摘要 inspect 会 miss），摘要值跳过 ---
+    $psImg = [string](@(Get-NativeOut { docker compose ps --format '{{.Image}}' web })[0])
+    if ($psImg -like 'sha256:*') { $psImg = '' }
+    $candidates = @('tiangong-kaiwu-web:latest', $psImg) | Where-Object { $_ }
+
+    # --- 镜像 Created + revision 标签：走 JSON 不走 --format——Go 模板里内嵌双引号
+    #     会被 PS5.1 原生参数传递剥掉（实测 "function \"org\" not defined" 坑） ---
+    $img = $null
+    $imgRefUsed = ''
+    foreach ($c in $candidates) {
+        $jsonText = (Get-NativeOut { docker image inspect $c }) -join "`n"
+        if ($jsonText) {
+            try { $img = @((ConvertFrom-Json $jsonText) | Select-Object -First 1)[0] } catch { }
+            if ($img) { $imgRefUsed = $c; break }
+        }
+    }
+    if (-not $img) {
+        Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 $($candidates -join ' / ') 不存在或读取失败（尚未 build——scripts/rebuild-web.ps1）" -Warn
+    } else {
+        $imgCreated = $null
+        # docker 的 Created 带纳秒小数（9 位），.NET 解析上限 7 位——截齐再 Parse
+        try { $imgCreated = [DateTimeOffset]::Parse((([string]$img.Created) -replace '\.(\d{7})\d+', '.$1'), [Globalization.CultureInfo]::InvariantCulture) } catch { }
+        $imgLabel = [string]$img.Config.Labels.'org.opencontainers.image.revision'
+        $imgCreatedText = if ($imgCreated) { $imgCreated.ToLocalTime().ToString('yyyy-MM-dd HH:mm') } else { '?' }
+
+        # --- 源侧：HEAD sha + 最新 web 源提交时间（apps/web-next + packages +
+        #     itwinjs-core 三者都是镜像构建输入；非 git 检出优雅降级为只报告） ---
+        $headSha = [string](@(Get-NativeOut { git -C $RepoRoot rev-parse HEAD })[0])
+        $srcLine = [string](@(Get-NativeOut { git -C $RepoRoot log -1 --format='%H|%cI' -- luban-cad/apps/web-next luban-cad/packages itwinjs-core })[0])
+        $srcTime = $null
+        if ($srcLine -match '^[0-9a-f]{40}\|(.+)$') {
+            try { $srcTime = [DateTimeOffset]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture) } catch { }
+        }
+        $srcTimeText = if ($srcTime) { $srcTime.ToLocalTime().ToString('yyyy-MM-dd HH:mm') } else { '?' }
+        $labelSha = if ($imgLabel.Length -ge 12) { $imgLabel.Substring(0, 12) } else { $imgLabel }
+        $headShort = if ($headSha.Length -ge 12) { $headSha.Substring(0, 12) } else { $headSha }
+
+        if (-not $imgCreated) {
+            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 Created 解析失败：$($img.Created)" -Warn
+        } elseif (-not $headSha -or -not $srcTime) {
+            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 $imgRefUsed 构建于 $imgCreatedText（非 git 检出或 git 不可用，仅报告不比较）"
+        } elseif ($imgLabel -and $imgLabel -ne 'unknown' -and $imgLabel -eq $headSha) {
+            # 标签即 HEAD 钦定证据——不再看 Created：buildkit 缓存命中导出的镜像
+            # config Created 会停在首次构建时刻（2026-10-26 实测），拿它比时间会误报
+            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 revision 与当前 HEAD 一致（$headShort，Created $imgCreatedText）"
+        } elseif ($imgLabel -and $imgLabel -ne 'unknown') {
+            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 revision $labelSha ≠ 当前 HEAD $headShort（构建于 $imgCreatedText，源提交 $srcTimeText）——scripts/rebuild-web.ps1 重建" -Warn
+        } elseif ($imgCreated -lt $srcTime) {
+            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像构建 $imgCreatedText 早于最新 web 源提交 $srcTimeText（无 revision 标签）——scripts/rebuild-web.ps1 重建" -Warn
+        } else {
+            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像构建 $imgCreatedText ≥ 最新 web 源提交 $srcTimeText（无 revision 标签，按时间比较）"
+        }
+    }
+}
+
+# ============================================================
 # 汇总 + 退出码
 # ============================================================
 Write-Host ''
@@ -495,10 +596,15 @@ $display = $Script:Rows | ForEach-Object {
 $display | Format-Table -AutoSize | Out-String -Width 200 | ForEach-Object { Write-Host $_ }
 
 $okCount = @($Script:Rows | Where-Object { $_.Result -eq 'OK' }).Count
+$warnCount = @($Script:Rows | Where-Object { $_.Result -eq 'WARN' }).Count
 $total = $Script:Rows.Count
 if ($Script:FatalFails -gt 0) {
     Write-Host ("结果: {0}/{1} 项通过，{2} 项致命失败 → 退出码 1" -f $okCount, $total, $Script:FatalFails) -ForegroundColor Red
     exit 1
+}
+if ($warnCount -gt 0) {
+    Write-Host ("结果: {0}/{1} 项通过，{2} 项警告（部署卫生提示，不扣退出码）→ 退出码 0" -f $okCount, $total, $warnCount) -ForegroundColor Yellow
+    exit 0
 }
 Write-Host ("结果: {0}/{1} 项全部通过 → 退出码 0" -f $okCount, $total) -ForegroundColor Green
 exit 0

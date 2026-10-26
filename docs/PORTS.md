@@ -13,7 +13,7 @@
 | 服务 | 宿主端口 | 容器/进程内端口 | 配置位置 |
 |---|---|---|---|
 | Web 前端（Vite dev） | **5300** | 5300（Vite） | `apps/web-next/vite.config.ts` `server.port`——**C2 退役（2026-10-26）起 web-next 迁入 :5300**（apps/web 已删除；过渡期 :5310 废止）。HUB CORS 白名单见 `generate-env.ps1` |
-| web 静态容器（nginx 后端） | 不发布 | 3000（容器内） | **M5-T9 起构建面 = `luban-cad/apps/web-next`**（`web-next/web-nginx.conf` + `web-next/Dockerfile`，compose `web` 服务本地 build）；经外层 nginx :5301 暴露 |
+| web 静态容器（nginx 后端） | 不发布 | 3000（容器内） | **M5-T9 起构建面 = `luban-cad/apps/web-next`**（`web-next/web-nginx.conf` + `web-next/Dockerfile`，compose `web` 服务本地 build）；经外层 nginx :5301 暴露。**镜像不随 fetch-backend 更新——源有更新跑 `scripts/rebuild-web.ps1`（B2，verify-stack Step E 报告陈旧）** |
 | Nginx 单入口 | **5301** | 80 | 根 `docker-compose.yml` `nginx.ports` |
 | imodelhub-services (HUB) | **5400** | 4000 | compose `imodelhub.ports`；`APP_PORT=4000` 不变 |
 | modeling-server (MS，宿主进程) | **5401** | 5401 | 根 `.env` `PORT=5401`；`scripts/start-ms-host.ps1` 读取 |

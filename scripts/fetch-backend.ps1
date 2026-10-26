@@ -11,14 +11,21 @@
 # 幂等：可重复执行（--clobber 覆盖旧 tgz，解压与拉取均覆盖旧产物）。
 #
 # 用法: powershell -File scripts/fetch-backend.ps1 [-RepoRoot <仓库根>] [-PublicRepo <owner/repo>]
+#       [-LocalArtifact <本地产物 tgz>] [-RebuildWeb]
 # 依赖: gh CLI（登录且对 $PublicRepo 的 Releases 有读权限）、docker、
 #       Windows 10+ 自带 tar。
+#
+# 【web 镜像注记（B2，2026-10-26）】compose 的 web 前端是**本仓 build**（非
+# GHCR 拉取），compose pull 不更新它——拉完产物若 web-next/itwinjs-core 源有
+# 更新，镜像会停在旧源。默认行为不变（尾部提示一行）；-RebuildWeb 联动执行
+# scripts/rebuild-web.ps1 重建。
 # ============================================================
 [CmdletBinding()]
 param(
   [string]$RepoRoot = 'D:\Github\tiangong-kaiwu',
   [string]$PublicRepo = 'chenjinxian/tiangong-kaiwu',
-  [string]$LocalArtifact = ''  # 本地模式：直接指向本地产物 tgz（跳过 gh release download）
+  [string]$LocalArtifact = '',  # 本地模式：直接指向本地产物 tgz（跳过 gh release download）
+  [switch]$RebuildWeb           # 拉取成功后联动重建本仓 web 镜像（opt-in；默认只提示，外部验证者零新负担）
 )
 $ErrorActionPreference = 'Stop'
 $dest = Join-Path $RepoRoot 'dist-backend'
@@ -73,3 +80,11 @@ if (-not (Test-Path (Join-Path $dest 'modeling-server\dist\main.js'))) {
 & (Join-Path $PSScriptRoot 'dedupe-artifact-deps.ps1') -MsDir (Join-Path $dest 'modeling-server')
 
 Write-Host "==> 完成: $dest\modeling-server\（start-ms-host.ps1 直接可跑）" -ForegroundColor Green
+
+# web 镜像收尾（B2）：web 是本仓 build，compose pull 不覆盖——后端发布 ≠ web 镜像更新
+if ($RebuildWeb) {
+  Write-Host "==> 联动重建 web 镜像（-RebuildWeb）..." -ForegroundColor Cyan
+  & (Join-Path $PSScriptRoot 'rebuild-web.ps1')
+} else {
+  Write-Host "==> 提示: web 前端为本仓构建镜像（compose pull 不更新它），源有更新请跑 scripts/rebuild-web.ps1（或本脚本 -RebuildWeb 联动）" -ForegroundColor Yellow
+}
