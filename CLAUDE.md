@@ -119,6 +119,8 @@ npx playwright test e2e/documents.spec.ts                # 单 e2e（在 luban-c
 - **本机 pnpm 版本**：lockfile 是 lockfileVersion 9.0（pnpm 9/10 时代）；pnpm 12 的默认供应链策略（minimumReleaseAge）会拒绝安装。本机 pnpm 未全局安装，用 `corepack pnpm@10 install`。
 - **modeling-server 首启报 `@luban-cad/shared` 无 dist/**：link: 包需先构建一次 `cd luban-cad/packages/shared && pnpm build`（tsc），再启动 modeling-server（2026-09-26 实测）。（私有仓 luban-backend 适用，见其 README）
 - **link: 项目禁用 `pnpm add`**：modeling-server/webhook-agent 的 `link:../itwinjs-core/*` 会被静默重解析为 registry 包（2026-09-26 实测）。加依赖须手改 package.json + `corepack pnpm@10 install --no-frozen-lockfile`，并核对 lockfile 的 `link:` 计数不变。（私有仓 luban-backend 适用，见其 README）
+- **hub 镜像内容被宿主 dist 挂载遮蔽**（2026-10-27 实证）：compose 的 imodelhub 曾挂 `D:\Github\imodelhub-services\dist:/usr/src/app/dist:ro`（10-23 临时补丁）——镜像 ID 是新的、容器实跑宿主旧产物，发布内容静默失效。**hub 内容一律以 GHCR 镜像为准，禁止挂宿主 dist**；`verify-stack.ps1` Step F 对该挂载做硬检查（FAIL），并核对镜像 OCI revision 与 hub HEAD。
+- **按 URL 推送后跟踪引用不更新**：`git push git@github.com:...`（HTTPS 被重置时的一次性 SSH URL）成功但 `origin/*` 不前进，`git status` 会误报 ahead——补 `git fetch <url> <branch>:refs/remotes/origin/<branch>` 同步。
 
 ## 文档锚点
 
