@@ -496,7 +496,7 @@ if (-not $msHealthy) {
 #   compose 的 web 是本仓 build（非 GHCR 拉取），fetch-backend 的 compose
 #   pull 不更新它——后端发布后镜像可能停在旧源（当日实证：镜像停 10-23、
 #   源已到 10-26；e2e 跑 :5300 vite dev 永远看不见）。判据（标签优先）：
-#   1) 镜像 OCI 标签 org.opencontainers.image.revision == 当前 HEAD sha → 新鲜
+#   1) 镜像 OCI 标签 org.opencontainers.image.revision == 最新 web 源提交 sha → 新鲜
 #      （标签是唯一权威证据，不看 Created——buildkit 缓存命中导出的镜像
 #      Created 会停在首次构建时刻，拿它比时间必误报，2026-10-26 实测）
 #   2) 标签存在但 ≠ HEAD（或为手工 build 的 unknown）→ 陈旧
@@ -553,13 +553,15 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         $imgLabel = [string]$img.Config.Labels.'org.opencontainers.image.revision'
         $imgCreatedText = if ($imgCreated) { $imgCreated.ToLocalTime().ToString('yyyy-MM-dd HH:mm') } else { '?' }
 
-        # --- 源侧：HEAD sha + 最新 web 源提交时间（apps/web-next + packages +
-        #     itwinjs-core 三者都是镜像构建输入；非 git 检出优雅降级为只报告） ---
-        $headSha = [string](@(Get-NativeOut { git -C $RepoRoot rev-parse HEAD })[0])
+        # --- 源侧：最新 web 源提交 sha + 时间（apps/web-next + packages +
+        #     itwinjs-core 三者都是镜像构建输入；非 git 检出优雅降级为只报告）。
+        #     口径不是仓库 HEAD——docs/scripts 等非 web 提交不应判旧（2026-10-27）---
         $srcLine = [string](@(Get-NativeOut { git -C $RepoRoot log -1 --format='%H|%cI' -- luban-cad/apps/web-next luban-cad/packages itwinjs-core })[0])
+        $headSha = ''
         $srcTime = $null
-        if ($srcLine -match '^[0-9a-f]{40}\|(.+)$') {
-            try { $srcTime = [DateTimeOffset]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture) } catch { }
+        if ($srcLine -match '^([0-9a-f]{40})\|(.+)$') {
+            $headSha = $Matches[1]
+            try { $srcTime = [DateTimeOffset]::Parse($Matches[2], [Globalization.CultureInfo]::InvariantCulture) } catch { }
         }
         $srcTimeText = if ($srcTime) { $srcTime.ToLocalTime().ToString('yyyy-MM-dd HH:mm') } else { '?' }
         $labelSha = if ($imgLabel.Length -ge 12) { $imgLabel.Substring(0, 12) } else { $imgLabel }
@@ -570,11 +572,11 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         } elseif (-not $headSha -or -not $srcTime) {
             Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 $imgRefUsed 构建于 $imgCreatedText（非 git 检出或 git 不可用，仅报告不比较）"
         } elseif ($imgLabel -and $imgLabel -ne 'unknown' -and $imgLabel -eq $headSha) {
-            # 标签即 HEAD 钦定证据——不再看 Created：buildkit 缓存命中导出的镜像
+            # 标签即源提交钦定证据——不再看 Created：buildkit 缓存命中导出的镜像
             # config Created 会停在首次构建时刻（2026-10-26 实测），拿它比时间会误报
-            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 revision 与当前 HEAD 一致（$headShort，Created $imgCreatedText）"
+            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 revision 与最新 web 源提交一致（$headShort，Created $imgCreatedText）"
         } elseif ($imgLabel -and $imgLabel -ne 'unknown') {
-            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 revision $labelSha ≠ 当前 HEAD $headShort（构建于 $imgCreatedText，源提交 $srcTimeText）——scripts/rebuild-web.ps1 重建" -Warn
+            Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 revision $labelSha ≠ 最新 web 源提交 $headShort（构建于 $imgCreatedText，源提交 $srcTimeText）——scripts/rebuild-web.ps1 重建" -Warn
         } elseif ($imgCreated -lt $srcTime) {
             Add-Check 'E' 'web 镜像陈旧检测' $true "镜像构建 $imgCreatedText 早于最新 web 源提交 $srcTimeText（无 revision 标签）——scripts/rebuild-web.ps1 重建" -Warn
         } else {
