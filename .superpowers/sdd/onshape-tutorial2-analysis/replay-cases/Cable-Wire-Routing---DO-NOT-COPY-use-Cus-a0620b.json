@@ -206,7 +206,98 @@
      "construction": false,
      "entityId": "iMyCn01J-NJEn-hQ9M-lpJE-jE5h5jmbRXCa"
     }
-   ]
+   ],
+   "plane": {
+    "origin": [
+     0,
+     0,
+     0
+    ],
+    "x": [
+     1,
+     0,
+     0
+    ],
+    "normal": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "name": "Sketch 2",
+   "entities": [
+    {
+     "kind": "line",
+     "p1": [
+      -0.014999999999999998,
+      0.05699999999999994
+     ],
+     "p2": [
+      0.015000000000000001,
+      0.05699999999999994
+     ],
+     "construction": false,
+     "entityId": "UGuLieYr6aR6.bottom"
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.014999999999999998,
+      0.04874423042781569
+     ],
+     "p2": [
+      0.015000000000000001,
+      0.04874423042781569
+     ],
+     "construction": false,
+     "entityId": "UGuLieYr6aR6.top"
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.014999999999999994,
+      0.05699999999999994
+     ],
+     "p2": [
+      -0.014999999999999993,
+      0.04874423042781569
+     ],
+     "construction": false,
+     "entityId": "UGuLieYr6aR6.left"
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.015000000000000005,
+      0.05699999999999994
+     ],
+     "p2": [
+      0.015000000000000006,
+      0.04874423042781569
+     ],
+     "construction": false,
+     "entityId": "UGuLieYr6aR6.right"
+    }
+   ],
+   "plane": {
+    "origin": [
+     0,
+     -0.06999999999999999,
+     0
+    ],
+    "x": [
+     1,
+     0,
+     0
+    ],
+    "normal": [
+     0,
+     -1,
+     0
+    ]
+   }
   }
  ],
  "ops": [
@@ -326,6 +417,16 @@
      "vertexFrom": "shared"
     }
    ]
+  },
+  {
+   "op": "extrude",
+   "sketchIndex": 1,
+   "sourceFeatureId": "FIYsPEpyJCubsnk_3",
+   "operation": "ADD",
+   "distance": 0.012,
+   "oppositeDirection": true,
+   "regions": "all",
+   "regionRisk": false
   }
  ],
  "volumeTimeline": [
@@ -488,7 +589,7 @@
  ],
  "stop": {
   "featureType": "extrude",
-  "reason": "sketch-plane-derived"
+  "reason": "endBound-UP_TO_SURFACE"
  },
  "featureTypes": [
   "newSketch",

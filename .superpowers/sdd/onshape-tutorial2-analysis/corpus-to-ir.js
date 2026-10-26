@@ -600,7 +600,8 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
     // sketches 下标 → 平面类别：基准面名（v6.3 字符串语义）/ 对象帧 {origin,normal,x}
     // （v7 sidecar 全保真，我方世界系）/ undefined（派生平面无帧，不可消费）。
     const sketchFrames = [];
-    let primaryFrame;                  // 首个被消费草图的类别（混合帧停链判定；亦作 W 的构建锚）
+    let primaryFrame;                  // 首个被消费的**字符串帧**（基准面纪律；亦作 W 的构建锚）
+    let primaryFrameIsStr = false;     // 字符串帧纪律仍活跃（对象帧出现即失效——两种帧均精确）
     let W;                             // v7：Onshape 世界 → 我方 XY 世界（首个基准面草图惰性构建）
     const sketchByKey = new Map();     // sketch featureId → sketches 下标
     const sketchKeyByIdx = [];         // sketches 下标 → sketch featureId
@@ -633,20 +634,23 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
           if (conv.entities.length === 0) emptySketch.add(idx);
           // v7 平面解析：缺 sidecar → v6.3 类别（基准面名/undefined）；有 sidecar → 对象帧。
           // W 以首个基准面草图惰性构建（语料链序：基准面草图恒先于派生草图）。
-          // 派生/未解码类别在有 sidecar 帧时直接按帧消费——evPlane 帧本身即权威，无需归类。
           const cls = sketchPlaneClass(ft);
           let frame;
           if (planesData) {
-            if (typeof cls === 'string') {
-              if (planesData.datums?.[cls]) {
-                W = W ?? worldTransformFromDatum(planesData.datums[cls]);
-                frame = W ? frameThroughW(planesData.datums[cls], W) : cls;
-              } else {
-                frame = cls; // 该基准面无 sidecar 条目 → 退回 v6.3 字符串语义
-              }
+            const onshape = planesData.sketchPlanes?.[key];
+            if (typeof cls === 'string' && cls !== 'derived' && planesData.datums?.[cls]) {
+              W = W ?? worldTransformFromDatum(planesData.datums[cls]);
+              frame = W ? frameThroughW(planesData.datums[cls], W) : cls;
+            } else if (onshape && W) {
+              // 派生/未解码类别：evPlane 帧即权威（v7 设计，合成用例真栈已绿）。
+              // 【2026-10-26 真案实验记录】消费后 Calculate Sketch 3（sketch-on-face
+              // ADD 挤出）内核 op=8 status=65542 布尔失败、Isomantle 体网格化
+              // bad allocation——真实派生面全保真回放卡在内核 floor。两案语料 IR
+              // 在私仓维持提交态截断（sketch-plane-derived 停链）直至内核跟进；
+              // 帧消费语义本身正确（单测 v7 钉死），勿因两案回退。
+              frame = frameThroughW(onshape, W);
             } else {
-              const onshape = planesData.sketchPlanes?.[key];
-              frame = onshape && W ? frameThroughW(onshape, W) : undefined;
+              frame = cls === 'derived' ? undefined : cls;
             }
           } else {
             frame = cls === 'derived' ? undefined : cls;
@@ -680,18 +684,18 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         if (sketchIndex === undefined) { stopChain(t, 'sketch-not-found'); break; }
         if (emptySketch.has(sketchIndex)) { stopChain(t, 'empty-sketch'); break; }
         // v6.3/v7：无帧草图消费即停；字符串帧（v6.3）混合基准面只允许 NEW 独立体；
-        // 对象帧（v7 sidecar 全保真）与字符串帧混用不可信 → 停链。对象帧之间跨基准面
-        // 不再停链——全部落在精确位姿，ADD/REMOVE 的相对几何可保真。
+        // 对象帧（v7 sidecar 全保真）与字符串帧混用**不再停链**（2026-10-26 sidecar
+        // 全采集后裁决：两种帧均精确——字符串→基准面表、对象→sidecar 位姿，
+        // 混用=精确+精确，无近似面）。对象帧之间跨基准面亦不停——ADD/REMOVE
+        // 相对几何可保真。
         const frame = sketchFrames[sketchIndex];
         if (!frame) { stopChain(t, 'sketch-plane-derived'); break; }
         const frameIsObj = typeof frame === 'object';
-        if (primaryFrame !== undefined && (typeof primaryFrame === 'object') !== frameIsObj) {
+        if (!frameIsObj && primaryFrameIsStr && frame !== primaryFrame && ep.operation !== 'NEW') {
           stopChain(t, 'sketch-plane-mixed-frames'); break;
         }
-        if (!frameIsObj && primaryFrame && frame !== primaryFrame && ep.operation !== 'NEW') {
-          stopChain(t, 'sketch-plane-mixed-frames'); break;
-        }
-        if (primaryFrame === undefined) primaryFrame = frame;
+        if (!frameIsObj && primaryFrame === undefined) { primaryFrame = frame; primaryFrameIsStr = true; }
+        if (frameIsObj) primaryFrameIsStr = false;
         const entityQueries = (ft.parameters || []).find(p => p.parameterId === 'entities')?.queries || [];
         const regionAreas = areasForDeterministicIds(entityQueries, ep.targetIds[0], evalData);
         const extrudeOp = {
@@ -738,17 +742,16 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         }
         if (sketchIndex === undefined) { stopChain(t, 'sketch-not-found'); break; }
         if (emptySketch.has(sketchIndex)) { stopChain(t, 'empty-sketch'); break; }
-        // v6.3/v7：同回转——无帧停链；字符串帧混合基准面仅 NEW 允许；对象帧跨基准面允许。
+        // v6.3/v7：同回转——无帧停链；字符串帧混合基准面仅 NEW 允许；对象帧跨基准面
+        // 允许；对象×字符串混用不停（两帧均精确，2026-10-26 裁决，同 extrude 段注）。
         const frame = sketchFrames[sketchIndex];
         if (!frame) { stopChain(t, 'sketch-plane-derived'); break; }
         const frameIsObj = typeof frame === 'object';
-        if (primaryFrame !== undefined && (typeof primaryFrame === 'object') !== frameIsObj) {
+        if (!frameIsObj && primaryFrameIsStr && frame !== primaryFrame && rp.operation !== 'NEW') {
           stopChain(t, 'sketch-plane-mixed-frames'); break;
         }
-        if (!frameIsObj && primaryFrame && frame !== primaryFrame && rp.operation !== 'NEW') {
-          stopChain(t, 'sketch-plane-mixed-frames'); break;
-        }
-        if (primaryFrame === undefined) primaryFrame = frame;
+        if (!frameIsObj && primaryFrame === undefined) { primaryFrame = frame; primaryFrameIsStr = true; }
+        if (frameIsObj) primaryFrameIsStr = false;
         // axis：sketchEntityQuery EDGE 长码 → 段 entityId 精确映射（v3 关键发现）
         if (rp.axisQ.length !== 1) { stopChain(t, 'axis-queries-' + rp.axisQ.length); break; }
         const axEids = edgeIdsInQuery(rp.axisQ[0]);

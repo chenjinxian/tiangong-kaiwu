@@ -39,10 +39,14 @@ const TARGETS = [
   },
 ];
 
-/** 数组化 lambda 主体：res = [[fid, origin, normal, x], ...]（FS append；无 map 赋值）。 */
+/** 行=map（对齐 probe-region-eval 成功形态）：{fid, ox..xz} 标量分量；
+ *  零 FS 内运行时拼接、无 returns 标注（Vector/meter 除法触发 UNITS_MISMATCH_3ARGS）。 */
 function planeArrayBody(items) {
-  return items.map((i) => `  var p_${i.fid.replace(/[^A-Za-z0-9_]/g, '')} = evPlane(context, { "plane": qCompressed(1.0, "${i.payload}", makeId("")) });
-  res = append(res, ["${i.fid}", p_${i.fid.replace(/[^A-Za-z0-9_]/g, '')}.origin / meter, p_${i.fid.replace(/[^A-Za-z0-9_]/g, '')}.normal / meter, p_${i.fid.replace(/[^A-Za-z0-9_]/g, '')}.x / meter]);`).join('\n');
+  return items.map((i) => {
+    const v = i.fid.replace(/[^A-Za-z0-9_]/g, '');
+    return `  var p_${v} = evPlane(context, { "face" : qCompressed(1.0, "${i.payload}", makeId("")) });
+  result = append(result, { "fid" : "${i.fid}", "ox" : p_${v}.origin[0] / meter, "oy" : p_${v}.origin[1] / meter, "oz" : p_${v}.origin[2] / meter, "nx" : p_${v}.normal[0], "ny" : p_${v}.normal[1], "nz" : p_${v}.normal[2], "xx" : p_${v}.x[0] / meter, "xy" : p_${v}.x[1] / meter, "xz" : p_${v}.x[2] / meter });`;
+  }).join('\n');
 }
 
 (async () => {
@@ -121,18 +125,20 @@ function planeArrayBody(items) {
         const doc = JSON.parse(fs.readFileSync(path.join(docsDir, docFile), 'utf8'));
         const ps = doc.partStudios.find((p) => p.elementId === t.elementId);
 
-        // 基准面帧（1 POST，回滚 -1）
+        // 基准面帧（1 POST，回滚 -1）。JS 展开三面（零 FS 内拼接）+ 标量分量行。
         const datumRes = await evalFeatureScript(t.docId, t.elementId, info.wid,
-          `function(context is Context, queries) returns array {
-  var res = [];
-  for (var name in ["Front", "Top", "Right"]) {
-    var p = evPlane(context, { "plane": dummyQuery(makeId(name + ".planeOp"), EntityType.FACE) });
-    res = append(res, [name, p.origin / meter, p.normal / meter, p.x / meter]);
-  }
-  return res;
+          `function(context is Context, queries) {
+  var result = [];
+  var pF = evPlane(context, { "face" : qCreatedBy(makeId("Front"), EntityType.FACE) });
+  result = append(result, { "name" : "Front", "ox" : pF.origin[0] / meter, "oy" : pF.origin[1] / meter, "oz" : pF.origin[2] / meter, "nx" : pF.normal[0], "ny" : pF.normal[1], "nz" : pF.normal[2], "xx" : pF.x[0] / meter, "xy" : pF.x[1] / meter, "xz" : pF.x[2] / meter });
+  var pT = evPlane(context, { "face" : qCreatedBy(makeId("Top"), EntityType.FACE) });
+  result = append(result, { "name" : "Top", "ox" : pT.origin[0] / meter, "oy" : pT.origin[1] / meter, "oz" : pT.origin[2] / meter, "nx" : pT.normal[0], "ny" : pT.normal[1], "nz" : pT.normal[2], "xx" : pT.x[0] / meter, "xy" : pT.x[1] / meter, "xz" : pT.x[2] / meter });
+  var pR = evPlane(context, { "face" : qCreatedBy(makeId("Right"), EntityType.FACE) });
+  result = append(result, { "name" : "Right", "ox" : pR.origin[0] / meter, "oy" : pR.origin[1] / meter, "oz" : pR.origin[2] / meter, "nx" : pR.normal[0], "ny" : pR.normal[1], "nz" : pR.normal[2], "xx" : pR.x[0] / meter, "xy" : pR.x[1] / meter, "xz" : pR.x[2] / meter });
+  return result;
 }`, -1);
         const datums = {};
-        for (const row of datumRes.result) datums[row[0]] = { origin: row[1], normal: row[2], x: row[3] };
+        for (const row of datumRes.result) datums[row.name] = { origin: [row.ox, row.oy, row.oz], normal: [row.nx, row.ny, row.nz], x: [row.xx, row.xy, row.xz] };
         console.log('datums:', JSON.stringify(datums).slice(0, 400));
 
         // 派生平面：逐回滚点 1 POST（同点多草图合并请求）
@@ -149,12 +155,12 @@ function planeArrayBody(items) {
         for (const [rb, items] of byRb) {
           try {
             const res = await evalFeatureScript(t.docId, t.elementId, info.wid,
-              `function(context is Context, queries) returns array {
-  var res = [];
+              `function(context is Context, queries) {
+  var result = [];
 ${planeArrayBody(items)}
-  return res;
+  return result;
 }`, rb);
-            for (const row of res.result) sketchPlanes[row[0]] = { origin: row[1], normal: row[2], x: row[3] };
+            for (const row of res.result) sketchPlanes[row.fid] = { origin: [row.ox, row.oy, row.oz], normal: [row.nx, row.ny, row.nz], x: [row.xx, row.xy, row.xz] };
             console.log(`rb=${rb}:`, items.map((i) => i.fid).join(','), 'ok');
           } catch (e) {
             console.log(`rb=${rb} 失败:`, String(e.message).slice(0, 200));

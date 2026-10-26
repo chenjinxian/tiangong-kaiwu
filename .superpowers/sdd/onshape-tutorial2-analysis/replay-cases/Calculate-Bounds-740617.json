@@ -63,7 +63,24 @@
      "construction": false,
      "entityId": "XTSwFpY0-5Ak2-AoPX-lJuR-cULEC41GomLu.right"
     }
-   ]
+   ],
+   "plane": {
+    "origin": [
+     0,
+     0,
+     0
+    ],
+    "x": [
+     1,
+     0,
+     0
+    ],
+    "normal": [
+     0,
+     0,
+     1
+    ]
+   }
   },
   {
    "name": "Sketch 2",
@@ -133,7 +150,56 @@
      "construction": false,
      "entityId": "iRVgKMVQ-CQwZ-kTnI-hpkv-4okMDZmfQPee"
     }
-   ]
+   ],
+   "plane": {
+    "origin": [
+     0,
+     0,
+     0
+    ],
+    "x": [
+     1,
+     0,
+     0
+    ],
+    "normal": [
+     0,
+     -1,
+     0
+    ]
+   }
+  },
+  {
+   "name": "Sketch 3",
+   "entities": [
+    {
+     "kind": "circle",
+     "center": [
+      -0.02236325293779373,
+      0.01720355451107025
+     ],
+     "radius": 0.041373995528724096,
+     "construction": false,
+     "entityId": "ACBofXikf7TG"
+    }
+   ],
+   "plane": {
+    "origin": [
+     0.05443126015718744,
+     -2.7755575615628914e-17,
+     0.05715
+    ],
+    "x": [
+     0.819152044288992,
+     0,
+     -0.5735764363510459
+    ],
+    "normal": [
+     0.5735764363510459,
+     0,
+     0.819152044288992
+    ]
+   }
   }
  ],
  "ops": [
@@ -193,6 +259,21 @@
      "sketchEntityId": "9RlTxNGB-aYtg-8oNk-UPzV-2RffdIrJay6m.bottom",
      "side": "left"
     }
+   ]
+  },
+  {
+   "op": "extrude",
+   "sketchIndex": 2,
+   "sourceFeatureId": "FP6LpeVZYBf30Wm_3",
+   "operation": "ADD",
+   "distance": 0.06857999999999999,
+   "regions": [
+    0
+   ],
+   "regionRisk": false,
+   "regionAreas": [
+    0.004495811122355047,
+    0.0008819907628886054
    ]
   }
  ],
@@ -259,8 +340,8 @@
   }
  ],
  "stop": {
-  "featureType": "extrude",
-  "reason": "sketch-plane-derived"
+  "featureType": "calculateBounds",
+  "reason": "feature-not-wired"
  },
  "featureTypes": [
   "newSketch",
