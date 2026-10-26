@@ -66,8 +66,19 @@
   color: var(--iui-color-text-positive, #208a3c);
 }
 
-.part-studio-feature-dialog__confirm:hover {
+/* 悬停反馈门到 enabled（B3）：:hover 对 disabled 元素仍匹配——不门则禁用钮
+ * 照样给悬停变色，「看起来可点」缺陷的一半。 */
+.part-studio-feature-dialog__confirm:enabled:hover {
   background: var(--iui-color-background-hover);
+}
+
+/* 禁用态（B3 缺陷修复）：本面板是原生 <button>（非 iTwinUI Button），没有库
+ * disabled 变体可「自然生效」——✓ 的绿色是自定义规则钉住的，禁用后原样呈现。
+ * 落库的禁用图标色令牌 + not-allowed 指针，观感对齐 PushChangesetDialog 的
+ * iTwinUI Button 禁用态。enabled 外观（绿✓）不动。 */
+.part-studio-feature-dialog__confirm:disabled {
+  color: var(--iui-color-icon-disabled, var(--iui-color-text-muted));
+  cursor: not-allowed;
 }
 
 .part-studio-feature-dialog__cancel {
@@ -218,8 +229,16 @@
   cursor: pointer;
 }
 
-.part-studio-feature-dialog__fast-pick:hover {
+/* 悬停反馈门到 enabled（B3 同款：禁用/提交中不给悬停反馈）。 */
+.part-studio-feature-dialog__fast-pick:enabled:hover {
   background: var(--iui-color-background-hover);
+}
+
+/* 禁用态（B3 同款）：提交中禁用的轻量钮（添加边/全选/清空）同需视觉降级
+ *（原生 button 无库 disabled 变体；半透明=同文件 __region-chip:disabled 口径）。 */
+.part-studio-feature-dialog__fast-pick:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .part-studio-feature-dialog__chips {
@@ -262,8 +281,15 @@
   block-size: 10px;
 }
 
-.part-studio-feature-dialog__chip-remove:hover {
+/* 悬停反馈门到 enabled（B3 同款：提交中不给悬停变红）。 */
+.part-studio-feature-dialog__chip-remove:enabled:hover {
   color: var(--iui-color-text-negative, #d30b0b);
+}
+
+/* 禁用态（B3 同款）：提交中禁用的 chip 移除钮视觉降级。 */
+.part-studio-feature-dialog__chip-remove:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ── 面域多选 chips（M6-c T3：Onshape「面和草图面域」多选语义）───────────── */
@@ -409,8 +435,20 @@
   cursor: pointer;
 }
 
-.part-studio-feature-dialog__finish:hover {
+/* 悬停反馈门到 enabled（B3 同款：禁用/提交中不给悬停变色）。 */
+.part-studio-feature-dialog__finish:enabled:hover {
   background: var(--iui-color-text-accent-hover, var(--iui-color-text-accent));
+}
+
+/* 禁用态（B3 缺陷修复——缺陷主体）：成品=accent 蓝底高亮钮，原生 <button>
+ * 无库 disabled 变体，禁用后蓝底白字+pointer 指针原样呈现（demo 09-extrude
+ * 实测「草图无可拉伸面域」门禁下看起来可点实际点不动）。落库的 disabled
+ * 底/字色令牌——观感对齐 PushChangesetDialog 的 iTwinUI high-visibility
+ * Button 禁用态（灰底灰字）。enabled 外观（蓝底白字）不动。 */
+.part-studio-feature-dialog__finish:disabled {
+  background: var(--iui-color-background-disabled, var(--iui-color-background-hover));
+  color: var(--iui-color-text-disabled, var(--iui-color-text-muted));
+  cursor: not-allowed;
 }
 
 .part-studio-feature-dialog__help {

@@ -44,6 +44,8 @@
 // '@luban-cad/shared' 模块级 mock（getSketch 面域读面替身），真实 store/i18n
 // 参与（setup.ts 全局词库兜底，zh-CN 基线）。
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { JSX } from 'react';
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -1728,5 +1730,50 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-edge-unpickable').textContent).toContain('建模服务未连接');
     expect(screen.queryByTestId('part-studio-feature-dialog-add-edge')).toBeNull();
     expect(pickMocks.startFilletEdgePick).not.toHaveBeenCalled();
+  });
+});
+
+// ── B3 禁用钮视觉钉（2026-10-26 全流程演示缺陷）────────────────────────────
+// 根因：本面板是原生 <button>（非 iTwinUI Button），自定义 CSS 钉住了 enabled
+// 外观（成品=accent 蓝底/✓=绿）却无 :disabled 规则，禁用后原样呈现 + hover
+// 反馈仍在——「看起来可点实际点不动」。修复=纯 CSS 层（:disabled 规则 + hover
+// 门到 :enabled），无 DOM/类/属性增量，jsdom 断不了——样式层钉子按仓内既有
+// CSS 文本断言先例（styles/test/onshape-skin.test.ts 的 ruleBlock）落在文本层。
+
+const featureDialogCss = readFileSync(resolve(__dirname, '../dialogs/FeatureDialog.css'), 'utf8');
+
+/** 取选择器所属规则体（单层大括号；本仓 CSS 无嵌套——同 onshape-skin.test）。
+ * 入参=未转义选择器（helper 内做一次正则转义，勿预转义）。 */
+function cssRuleBlock(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, String.fromCharCode(92) + '$&');
+  const match = featureDialogCss.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`));
+  if (!match) throw new Error(`rule not found: ${selector}`);
+  return match[1] ?? '';
+}
+
+describe('B3 禁用钮视觉（成品/✓ 禁用态不再「蓝底高亮可点」）', () => {
+  it('成品（__finish）禁用 → 落库 disabled 底/字色令牌（非 accent 蓝）+ not-allowed 指针', () => {
+    const block = cssRuleBlock('.part-studio-feature-dialog__finish:disabled');
+    expect(block).toContain('var(--iui-color-background-disabled');
+    expect(block).toContain('var(--iui-color-text-disabled');
+    expect(block).toContain('cursor: not-allowed');
+    expect(block).not.toContain('--iui-color-text-accent');
+  });
+
+  it('✓（__confirm）禁用 → 库 disabled 图标色 + not-allowed 指针（enabled 绿✓不动）', () => {
+    const block = cssRuleBlock('.part-studio-feature-dialog__confirm:disabled');
+    expect(block).toContain('var(--iui-color-icon-disabled');
+    expect(block).toContain('cursor: not-allowed');
+    // enabled 规则（os-31 绿✓）保持原样——修复只动禁用态。
+    const enabled = cssRuleBlock('.part-studio-feature-dialog__confirm');
+    expect(enabled).toContain('--iui-color-text-positive');
+  });
+
+  it('悬停反馈门到 enabled：__finish/__confirm 不再有会命中禁用态的裸 :hover 规则', () => {
+    // :hover 对 disabled 元素仍匹配——禁用钮给悬停变色即「看起来可点」的另一半。
+    expect(featureDialogCss).not.toContain('.part-studio-feature-dialog__finish:hover');
+    expect(featureDialogCss).not.toContain('.part-studio-feature-dialog__confirm:hover');
+    expect(featureDialogCss).toContain('.part-studio-feature-dialog__finish:enabled:hover');
+    expect(featureDialogCss).toContain('.part-studio-feature-dialog__confirm:enabled:hover');
   });
 });
