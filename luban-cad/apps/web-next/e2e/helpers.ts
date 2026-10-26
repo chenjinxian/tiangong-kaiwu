@@ -298,11 +298,16 @@ export async function openSeedImodelEditor(page: Page): Promise<void> {
  * 连接等待为显式轮询：连接中/正在打开文档…为正常过渡态；「连接失败」按应用
  * 自面的恢复路径（关闭页签重开 ≡ reload）给至多两次重开机会——M4-T9 观察#8 的
  * 启动竞态（页面坍缩仅剩错误文本，dev StrictMode 双启噪音）实测偶发，重开即愈；
- * 真实打不开则预算耗尽如实红。 */
+ * 真实打不开则预算耗尽如实红。
+ *
+ * 【2026-10-26 发布日 e2e 产物模式复跑教训】负载窗口下（同机构建+双栈重建），
+ * 固定 90s 死线会在两次重开进行中被耗尽——重开各含 3s 驻留 + 30s 可见等待 +
+ * 过渡态轮询，实测需要 ~2 分钟。每次重开顺延 +60s 死线（预算语义不变：仍是
+ * 「两次重开」，只是不让重开自身的耗时吃掉判定时间）。 */
 export async function waitEditorReady(page: Page): Promise<void> {
   await expect(page.getByTestId('part-studio-page')).toBeVisible({ timeout: 30_000 });
   const status = page.getByTestId('part-studio-status-connection');
-  const deadline = Date.now() + 90_000;
+  let deadline = Date.now() + 90_000;
   let reloads = 0;
   for (;;) {
     const text = (await status.textContent()) ?? '';
@@ -312,6 +317,7 @@ export async function waitEditorReady(page: Page): Promise<void> {
     // 重载前小驻留，让上一连接的释放先落地。
     if (text === '连接失败' && reloads < 2) {
       reloads += 1;
+      deadline += 60_000;
       await page.waitForTimeout(3000);
       await page.reload();
       await expect(page.getByTestId('part-studio-page')).toBeVisible({ timeout: 30_000 });
