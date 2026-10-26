@@ -74,7 +74,7 @@ function v5Doc(filletQuery) {
   };
 }
 
-function runConverterOn(doc, evalData) {
+function runConverterOn(doc, evalData, planesData) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'corpus-ir-v5-'));
   fs.mkdirSync(path.join(tmp, 'corpus', 'docs'), { recursive: true });
   fs.copyFileSync(CONVERTER, path.join(tmp, 'corpus-to-ir.js'));
@@ -83,6 +83,10 @@ function runConverterOn(doc, evalData) {
   if (evalData) {
     fs.mkdirSync(path.join(tmp, 'corpus', 'feature-eval'), { recursive: true });
     fs.writeFileSync(path.join(tmp, 'corpus', 'feature-eval', 'case.json'), JSON.stringify(evalData));
+  }
+  if (planesData) {
+    fs.mkdirSync(path.join(tmp, 'corpus', 'sketch-planes'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'corpus', 'sketch-planes', 'case.json'), JSON.stringify(planesData));
   }
   execFileSync(process.execPath, [path.join(tmp, 'corpus-to-ir.js')], { cwd: tmp, stdio: 'pipe' });
   const files = fs.readdirSync(path.join(tmp, 'replay-cases')).filter((f) => f.endsWith('.json'));
@@ -583,4 +587,83 @@ test('v6.3：混合基准面的 ADD/REMOVE 依赖既有体几何 → sketch-plan
     assert.deepEqual(c.stop, { featureType: 'extrude', reason: 'sketch-plane-mixed-frames' });
     assert.deepEqual(c.ops.map((o) => o.sourceFeatureId), ['X1']);
   }
+});
+
+// ---------------------------------------------------------------------------
+// v7：sketch-planes sidecar 全保真——基准面 W 刚体映射 + 派生平面帧下发 + oppositeDirection
+// ---------------------------------------------------------------------------
+/** planeDoc 的 sidecar 版：sketchPlane 参数沿用 v6.3 fixture，另需 docId/elementId 对齐。 */
+function v7Doc({ secondPlane = Q_DERIVED, secondOperation = 'NEW', opposite = false } = {}) {
+  const doc = planeDoc(Q_TOP, secondPlane, secondOperation);
+  doc.id = 'v7-doc';
+  doc.partStudios[0].elementId = 'v7-element';
+  const x2 = doc.partStudios[0].features.features[3];
+  if (opposite) x2.parameters.push({ parameterId: 'oppositeDirection', value: true });
+  return doc;
+}
+const V7_PLANES = {
+  docId: 'v7-doc', elementId: 'v7-element',
+  datums: { Top: { origin: [0, 0, 0], normal: [0, 0, 1], x: [1, 0, 0] } },
+  sketchPlanes: {
+    S2: { origin: [0.1, 0.2, 0.3], normal: [0, 0, 1], x: [1, 0, 0] },
+  },
+};
+
+test('v7：sidecar 恒等基准面 → 派生平面帧原样下发；oppositeDirection 透传', () => {
+  const c = runConverterOn(v7Doc({ opposite: true }), undefined, V7_PLANES);
+  assert.ok(c, '应产出用例');
+  assert.equal(c.mode, 'full');
+  assert.equal(c.stop, undefined);
+  const s2 = c.sketches[1];
+  assert.ok(s2.plane, '派生平面草图应携 plane');
+  assert.deepEqual(s2.plane, { origin: [0.1, 0.2, 0.3], x: [1, 0, 0], normal: [0, 0, 1] });
+  const x2 = c.ops.find((o) => o.sourceFeatureId === 'X2');
+  assert.equal(x2.oppositeDirection, true);
+  const x1 = c.ops.find((o) => o.sourceFeatureId === 'X1');
+  assert.equal(x1.oppositeDirection, undefined, '缺省 false 不下发');
+});
+
+test('v7：旋转基准面 → W 刚体映射（R 行=基准面 x/y/n；t=−R·o）', () => {
+  // Top：x_d=(0,0,1), n_d=(0,1,0), y_d=n×x=(1,0,0)。派生帧 (1,2,3) → o'=(3,1,2)；
+  // x'=(1,0,0)→(0,1,0)；n'=(0,1,0)→(0,0,1)。
+  const planes = {
+    docId: 'v7-doc', elementId: 'v7-element',
+    datums: { Top: { origin: [0, 0, 0], normal: [0, 1, 0], x: [0, 0, 1] } },
+    sketchPlanes: { S2: { origin: [1, 2, 3], normal: [0, 1, 0], x: [1, 0, 0] } },
+  };
+  const c = runConverterOn(v7Doc(), undefined, planes);
+  assert.ok(c, '应产出用例');
+  const s2 = c.sketches[1];
+  assert.ok(s2.plane, 'W 变换后应携 plane');
+  assert.deepEqual(s2.plane.origin.map((x) => +x.toFixed(12)), [3, 1, 2]);
+  assert.deepEqual(s2.plane.x.map((x) => +x.toFixed(12)), [0, 1, 0]);
+  assert.deepEqual(s2.plane.normal.map((x) => +x.toFixed(12)), [0, 0, 1]);
+});
+
+test('v7：sidecar 无该草图平面条目 → 仍诚实停链 sketch-plane-derived', () => {
+  const planes = { docId: 'v7-doc', elementId: 'v7-element', datums: { Front: { origin: [0, 0, 0], normal: [0, 0, 1], x: [1, 0, 0] } }, sketchPlanes: {} };
+  const c = runConverterOn(v7Doc(), undefined, planes);
+  assert.ok(c, '截断链应产出 smoke 用例');
+  assert.equal(c.mode, 'smoke');
+  assert.deepEqual(c.stop, { featureType: 'extrude', reason: 'sketch-plane-derived' });
+});
+
+test('v7：对象帧跨基准面 ADD 放行（全保真升级 v6.3 的混合帧停链）', () => {
+  const planes = {
+    docId: 'v7-doc', elementId: 'v7-element',
+    datums: {
+      Top: { origin: [0, 0, 0], normal: [0, 0, 1], x: [1, 0, 0] },
+      Front: { origin: [0, 0, 0], normal: [0, 1, 0], x: [1, 0, 0] },
+    },
+    sketchPlanes: {},
+  };
+  const doc = planeDoc(Q_TOP, Q_FRONT_COMPRESSED, 'ADD');
+  doc.id = 'v7-doc';
+  doc.partStudios[0].elementId = 'v7-element';
+  const c = runConverterOn(doc, undefined, planes);
+  assert.ok(c, '应产出用例');
+  assert.equal(c.mode, 'full');
+  assert.equal(c.stop, undefined, '对象帧全保真下混合基准面 ADD 不再停链');
+  assert.equal(c.sketches[0].plane.normal.join(','), '0,0,1');
+  assert.equal(c.sketches[1].plane.normal.join(','), '0,1,0');
 });

@@ -431,6 +431,8 @@ function extrudeParams(ft) {
     depth, has2nd, secondDepth, flip2nd,
     // v7：symmetric（仅 true 时下发 IR）。depth 语义=总深，与我方 ±d/2 一致。
     symmetric: !!(P.symmetric && P.symmetric.value === true),
+    // v8：沿 −n 拉伸（Isomantle Extrude 1 实证）。执行器以翻转平面+镜像 v 等价表达。
+    oppositeDirection: !!(P.oppositeDirection && P.oppositeDirection.value === true),
     hasDraft: !!(P.hasDraft && P.hasDraft.value === true),
     targetIds, regionRisk,
   };
@@ -453,8 +455,14 @@ function queryStringId(qs) {
 // 面/边派生平面（ORIGINAL_DEPENDENCY/derivedFrom/SWEPT_FACE 等）在 Onshape 内部有
 // 独立 2D 帧，语料不携带该帧，无法保真复现 → 返回 undefined，消费该草图时停链。
 // 缺省 sketchPlane（合成用例/旧数据）按 Front 处理，保持既有契约不变。
+//
+// v7（sketch-on-face planes）：corpus/sketch-planes/*.json sidecar（probe-sketch-planes.js
+// 经 Onshape evPlane 采集的权威帧）出现时升级为**全保真**——基准面帧建 W 刚体映射
+// （Onshape 世界 → 我方 XY 世界），派生平面帧经 W 变换后随草图 IR 下发（plane 字段）。
+// 此后混合基准面不再依赖 NEW 独立体豁免——所有草图都落在精确位姿。sidecar 缺席时
+// 保持 v6.3 语义（基准面=恒等 2D、派生=停链），既有用例与合成测试零改动。
 // ---------------------------------------------------------------------------
-function sketchPlaneFrame(ft) {
+function sketchPlaneClass(ft) {
   const q = (ft.parameters || []).find(p => p.parameterId === 'sketchPlane')?.queries?.[0];
   if (!q || typeof q.queryString !== 'string' || !q.queryString) return 'Front';
   let dsl = q.queryString;
@@ -464,10 +472,57 @@ function sketchPlaneFrame(ft) {
     dsl = dec.dsl;
   }
   // 派生平面即使词面上提到基准面也不当作可定位平面（不猜）。
-  if (/ORIGINAL_DEPENDENCY|derivedFrom/.test(dsl)) return undefined;
+  if (/ORIGINAL_DEPENDENCY|derivedFrom/.test(dsl)) return 'derived';
   const m = dsl.match(/(Front|Top|Right)\.?planeOp/);
   if (!m) return undefined;
   return /(?:dummyQuery|DUMMY)/.test(dsl) ? m[1] : undefined;
+}
+
+/** v6.3 兼容包装：无 sidecar 时的平面类别（基准面名 | undefined=派生/不可解码）。 */
+function sketchPlaneFrame(ft) {
+  const cls = sketchPlaneClass(ft);
+  return cls === 'derived' ? undefined : cls;
+}
+
+// ---- v7 三维向量小工具（W 变换专用；语料米制） ----
+const vCross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const vDot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const vNorm = (a) => {
+  const m = Math.hypot(a[0], a[1], a[2]);
+  return m < 1e-12 ? null : [a[0] / m, a[1] / m, a[2] / m];
+};
+
+/** 基准面 Onshape 帧 → W 刚体映射（Onshape 世界 → 我方 XY 世界）。
+ * W(p) = R·p + t，R 的三行 = 基准面 (x, y=n×x, normal) —— 即「基准面草图 2D (u,v) →
+ * 我方 (u,v,0)、法向 → +Z」。正交性/右手性校验不过返回 null（停链，不猜）。 */
+function worldTransformFromDatum(datum) {
+  if (!datum || !Array.isArray(datum.origin) || !Array.isArray(datum.normal) || !Array.isArray(datum.x)) return null;
+  const x = vNorm(datum.x);
+  const n = vNorm(datum.normal);
+  if (!x || !n) return null;
+  const y = vCross(n, x);
+  const yn = vNorm(y);
+  if (!yn || Math.abs(vDot(x, n)) > 1e-9 || Math.abs(vDot(x, yn)) > 1e-9) return null;
+  const t = [-vDot(x, datum.origin), -vDot(yn, datum.origin), -vDot(n, datum.origin)];
+  return { x, y: yn, n, t };
+}
+
+/** Onshape 帧 → 我方帧（经基准面 W）。任意输入不正交/缺字段返回 null。 */
+function frameThroughW(frameOnshape, W) {
+  if (!frameOnshape || !W) return null;
+  const rot = (v) => {
+    const vn = vNorm(v);
+    return vn ? [vDot(W.x, vn), vDot(W.y, vn), vDot(W.n, vn)] : null;
+  };
+  const o = [
+    vDot(W.x, frameOnshape.origin) + W.t[0],
+    vDot(W.y, frameOnshape.origin) + W.t[1],
+    vDot(W.n, frameOnshape.origin) + W.t[2],
+  ];
+  const x = rot(frameOnshape.x);
+  const n = rot(frameOnshape.normal);
+  if (!x || !n || Math.abs(vDot(x, n)) > 1e-9) return null;
+  return { origin: o, x, normal: n };
 }
 
 // ---------------------------------------------------------------------------
@@ -483,6 +538,20 @@ if (fs.existsSync(FEATURE_EVAL_DIR)) {
       if (data.docId && data.elementId) featureEvalByKey.set(`${data.docId}/${data.elementId}`, data);
     } catch (e) {
       console.warn('忽略损坏的 feature-eval sidecar:', f, String(e).slice(0, 100));
+    }
+  }
+}
+
+// v7：sketch-planes sidecar（probe-sketch-planes.js 采集的 evPlane 权威帧）。
+const sketchPlanesByKey = new Map();
+const SKETCH_PLANES_DIR = path.join(__dirname, 'corpus', 'sketch-planes');
+if (fs.existsSync(SKETCH_PLANES_DIR)) {
+  for (const f of fs.readdirSync(SKETCH_PLANES_DIR).filter(f => f.endsWith('.json'))) {
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(SKETCH_PLANES_DIR, f), 'utf8'));
+      if (data.docId && data.elementId) sketchPlanesByKey.set(`${data.docId}/${data.elementId}`, data);
+    } catch (e) {
+      console.warn('忽略损坏的 sketch-planes sidecar:', f, String(e).slice(0, 100));
     }
   }
 }
@@ -523,12 +592,16 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
     if ((ps.massProperties.bodies || []).length !== 1) { stats.multiBody++; continue; }
     if (types.some(t => (t || '').startsWith('import'))) { stats.imported++; continue; }
     const evalData = featureEvalByKey.get(`${d.id}/${ps.elementId}`);
+    const planesData = sketchPlanesByKey.get(`${d.id}/${ps.elementId}`);
 
     // ---- 链转换（顺序遍历；遇不可回放特征停链）----
     const dropped = { noParam: 0, nan: 0, degenerate: 0, aux: 0, unsupported: [] };
     const sketches = [];               // 去重后的 IR 草图
-    const sketchFrames = [];           // sketches 下标 → 基准面帧（undefined=派生平面，不可消费）
-    let primaryFrame;                  // 首个被消费草图的基准面（混合帧 ADD/REMOVE 停链判定）
+    // sketches 下标 → 平面类别：基准面名（v6.3 字符串语义）/ 对象帧 {origin,normal,x}
+    // （v7 sidecar 全保真，我方世界系）/ undefined（派生平面无帧，不可消费）。
+    const sketchFrames = [];
+    let primaryFrame;                  // 首个被消费草图的类别（混合帧停链判定；亦作 W 的构建锚）
+    let W;                             // v7：Onshape 世界 → 我方 XY 世界（首个基准面草图惰性构建）
     const sketchByKey = new Map();     // sketch featureId → sketches 下标
     const sketchKeyByIdx = [];         // sketches 下标 → sketch featureId
     const sketchEntityIds = new Map(); // sketch featureId → 段 entityId→IR 下标（revolve 轴/边映射）
@@ -558,8 +631,29 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         if (key && !sketchByKey.has(key)) {
           const idx = sketches.length;
           if (conv.entities.length === 0) emptySketch.add(idx);
-          sketches.push({ name: ft.name, featureId: key, entities: conv.entities });
-          sketchFrames.push(sketchPlaneFrame(ft));
+          // v7 平面解析：缺 sidecar → v6.3 类别（基准面名/undefined）；有 sidecar → 对象帧。
+          // W 以首个基准面草图惰性构建（语料链序：基准面草图恒先于派生草图）。
+          // 派生/未解码类别在有 sidecar 帧时直接按帧消费——evPlane 帧本身即权威，无需归类。
+          const cls = sketchPlaneClass(ft);
+          let frame;
+          if (planesData) {
+            if (typeof cls === 'string') {
+              if (planesData.datums?.[cls]) {
+                W = W ?? worldTransformFromDatum(planesData.datums[cls]);
+                frame = W ? frameThroughW(planesData.datums[cls], W) : cls;
+              } else {
+                frame = cls; // 该基准面无 sidecar 条目 → 退回 v6.3 字符串语义
+              }
+            } else {
+              const onshape = planesData.sketchPlanes?.[key];
+              frame = onshape && W ? frameThroughW(onshape, W) : undefined;
+            }
+          } else {
+            frame = cls === 'derived' ? undefined : cls;
+          }
+          sketches.push({ name: ft.name, featureId: key, entities: conv.entities,
+            ...(frame && typeof frame === 'object' ? { plane: frame } : {}) });
+          sketchFrames.push(frame);
           sketchByKey.set(key, idx);
           sketchKeyByIdx[idx] = key;
           sketchEntityIds.set(key, conv.entityIdToIdx);
@@ -585,14 +679,19 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         const sketchIndex = sketchByKey.get(ep.targetIds[0]);
         if (sketchIndex === undefined) { stopChain(t, 'sketch-not-found'); break; }
         if (emptySketch.has(sketchIndex)) { stopChain(t, 'empty-sketch'); break; }
-        // v6.3：派生平面草图无法定位（消费即停）；混合基准面只允许 NEW 独立体，
-        // ADD/REMOVE 依赖既有体几何 → 停链（各基准面的相对位姿在本回放里不可保真）。
+        // v6.3/v7：无帧草图消费即停；字符串帧（v6.3）混合基准面只允许 NEW 独立体；
+        // 对象帧（v7 sidecar 全保真）与字符串帧混用不可信 → 停链。对象帧之间跨基准面
+        // 不再停链——全部落在精确位姿，ADD/REMOVE 的相对几何可保真。
         const frame = sketchFrames[sketchIndex];
         if (!frame) { stopChain(t, 'sketch-plane-derived'); break; }
-        if (primaryFrame && frame !== primaryFrame && ep.operation !== 'NEW') {
+        const frameIsObj = typeof frame === 'object';
+        if (primaryFrame !== undefined && (typeof primaryFrame === 'object') !== frameIsObj) {
           stopChain(t, 'sketch-plane-mixed-frames'); break;
         }
-        if (!primaryFrame) primaryFrame = frame;
+        if (!frameIsObj && primaryFrame && frame !== primaryFrame && ep.operation !== 'NEW') {
+          stopChain(t, 'sketch-plane-mixed-frames'); break;
+        }
+        if (primaryFrame === undefined) primaryFrame = frame;
         const entityQueries = (ft.parameters || []).find(p => p.parameterId === 'entities')?.queries || [];
         const regionAreas = areasForDeterministicIds(entityQueries, ep.targetIds[0], evalData);
         const extrudeOp = {
@@ -601,6 +700,7 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
           operation: ep.operation,
           distance: ep.has2nd ? ep.depth + ep.secondDepth : ep.depth, // 第二方向（反向侧）并入总跨
           ...(ep.symmetric ? { symmetric: true } : {}), // v7：仅 true 下发（缺省省略）
+          ...(ep.oppositeDirection ? { oppositeDirection: true } : {}), // v8：沿 −n 拉伸
           regions: ep.regionRisk ? [0] : 'all',
           regionRisk: ep.regionRisk && !regionAreas.resolved,
           ...(regionAreas.resolved ? { regionAreas: regionAreas.areas } : {}),
@@ -638,13 +738,17 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         }
         if (sketchIndex === undefined) { stopChain(t, 'sketch-not-found'); break; }
         if (emptySketch.has(sketchIndex)) { stopChain(t, 'empty-sketch'); break; }
-        // v6.3：同拉伸——派生平面停链；混合基准面仅 NEW 允许。
+        // v6.3/v7：同回转——无帧停链；字符串帧混合基准面仅 NEW 允许；对象帧跨基准面允许。
         const frame = sketchFrames[sketchIndex];
         if (!frame) { stopChain(t, 'sketch-plane-derived'); break; }
-        if (primaryFrame && frame !== primaryFrame && rp.operation !== 'NEW') {
+        const frameIsObj = typeof frame === 'object';
+        if (primaryFrame !== undefined && (typeof primaryFrame === 'object') !== frameIsObj) {
           stopChain(t, 'sketch-plane-mixed-frames'); break;
         }
-        if (!primaryFrame) primaryFrame = frame;
+        if (!frameIsObj && primaryFrame && frame !== primaryFrame && rp.operation !== 'NEW') {
+          stopChain(t, 'sketch-plane-mixed-frames'); break;
+        }
+        if (primaryFrame === undefined) primaryFrame = frame;
         // axis：sketchEntityQuery EDGE 长码 → 段 entityId 精确映射（v3 关键发现）
         if (rp.axisQ.length !== 1) { stopChain(t, 'axis-queries-' + rp.axisQ.length); break; }
         const axEids = edgeIdsInQuery(rp.axisQ[0]);
@@ -855,7 +959,8 @@ function caseOut(id, d, ps, sketches, ops, mode, vol, stop, types) {
   for (let i = 0; i < sketches.length; i++) {
     if (!used.has(i)) continue;
     remap.set(i, n++);
-    outSketches.push({ name: sketches[i].name, entities: sketches[i].entities });
+    outSketches.push({ name: sketches[i].name, entities: sketches[i].entities,
+      ...(sketches[i].plane ? { plane: sketches[i].plane } : {}) }); // v7：显式平面随 IR 下发
   }
   const outOps = ops.map(o => ({
     ...o,
