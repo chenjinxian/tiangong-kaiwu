@@ -41,12 +41,16 @@ function fakeViewport() {
     __viewFlags: { toJSON: () => Record<string, unknown> };
     viewFlags: { toJSON: () => Record<string, unknown> };
     antialiasSamples: number;
+    invalidateScene: () => void;
+    __invalidated: number;
     view: { displayStyle: unknown };
   } = {
     __viewFlags: { toJSON: () => ({ renderMode: 6, lighting: true }) },
     get viewFlags() { return vp.__viewFlags; },
     set viewFlags(v: { toJSON: () => Record<string, unknown> }) { vp.__viewFlags = v; },
     antialiasSamples: 1,
+    __invalidated: 0,
+    invalidateScene() { vp.__invalidated += 1; },
     view: { displayStyle: Object.create(DisplayStyle3dState.prototype, {
       settings: { value: settings },
     }) },
@@ -84,6 +88,12 @@ describe('render-profile：Onshape 视觉基线应用', () => {
     const { vp } = fakeViewport();
     applyRenderProfile(vp as never, []);
     expect(vp.antialiasSamples).toBe(ANTIALIAS_SAMPLES);
+  });
+
+  it('应用后 invalidateScene 恰一次（settings 字典直改的失效补刀——红探针实证必需）', () => {
+    const { vp } = fakeViewport();
+    applyRenderProfile(vp as never, []);
+    expect(vp.__invalidated).toBe(1);
   });
 
   it('幂等：重复应用写入同值不叠加', () => {

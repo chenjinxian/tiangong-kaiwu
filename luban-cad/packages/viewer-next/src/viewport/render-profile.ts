@@ -82,4 +82,13 @@ export function applyRenderProfile(viewport: ScreenViewport, subCategoryIds: rea
 
   // 5) MSAA 热设（power-of-2；写 OnScreenTarget 并 invalidateRenderPlan）。
   viewport.antialiasSamples = ANTIALIAS_SAMPLES;
+
+  // 6) settings 直改的字典类写入（subCategoryOvr）不走 onDisplayStyleChanged
+  //    事件链——显式失效场景，否则覆写不进渲染（2026-10-26 红探针实证：无失效
+  //    时零红像素；顺带揭开「白模」真源=baseline whiteOnWhiteReversal 把缺省黑
+  //    面在白底反白）。
+  viewport.invalidateScene();
+
+  // eslint-disable-next-line no-console
+  console.log('[render-profile] applied:', subCategoryIds.length, 'subcategories, MSAA', ANTIALIAS_SAMPLES);
 }
