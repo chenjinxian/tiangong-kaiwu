@@ -181,6 +181,10 @@ services:
       AUTH_REFRESH_SECRET: ${AUTH_REFRESH_SECRET:?generate-env 需补 AUTH_REFRESH_SECRET (re-run scripts/generate-env.ps1)}
       AUTH_FORGOT_SECRET: ${AUTH_FORGOT_SECRET:?generate-env 需补 AUTH_FORGOT_SECRET (re-run scripts/generate-env.ps1)}
       AUTH_CONFIRM_EMAIL_SECRET: ${AUTH_CONFIRM_EMAIL_SECRET:?generate-env 需补 AUTH_CONFIRM_EMAIL_SECRET (re-run scripts/generate-env.ps1)}
+      # refresh 有效期显式透传 30d（audit P1#5）：不透传会落到镜像烘焙 .env 的
+      # 旧默认 3650d；HUB 应用侧生产启动闸（>90d 拒启，audit P1#2/#5 防御纵深）
+      # 也要求该值就位。存量 refresh 令牌随值变化失效，重新登录即可。
+      AUTH_REFRESH_TOKEN_EXPIRES_IN: ${AUTH_REFRESH_TOKEN_EXPIRES_IN:-30d}
       WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET missing in root .env}
       SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:?IMODELHUB_ADMIN_PASSWORD missing in root .env (run scripts/generate-env.ps1)}
     depends_on:
@@ -192,6 +196,10 @@ services:
         condition: service_healthy
       maildev:
         condition: service_started
+    # 【2026-10-27 退役】2026-10-23 的本地修补挂载（宿主 dist 覆盖镜像 dist）
+    # 已删除：镜像分发恢复后该挂载会让容器跑宿主旧 dist、使发布镜像内容失效
+    # （no-store 修复上线验证时实锤：镜像新而运行产物停在 10-25）。hub 内容
+    # 一律以 GHCR 镜像为准。
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health/live"]
       interval: 30s
