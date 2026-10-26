@@ -64,6 +64,76 @@
      "entityId": "XTSwFpY0-5Ak2-AoPX-lJuR-cULEC41GomLu.right"
     }
    ]
+  },
+  {
+   "name": "Sketch 2",
+   "entities": [
+    {
+     "kind": "line",
+     "p1": [
+      -0.060677054869459845,
+      0.06350000000000008
+     ],
+     "p2": [
+      0.0663229451305401,
+      0.0635000000000001
+     ],
+     "construction": false,
+     "entityId": "9RlTxNGB-aYtg-8oNk-UPzV-2RffdIrJay6m.bottom"
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.060677054869459845,
+      -0.0381
+     ],
+     "p2": [
+      0.0663229451305401,
+      -0.0381
+     ],
+     "construction": false,
+     "entityId": "9RlTxNGB-aYtg-8oNk-UPzV-2RffdIrJay6m.top"
+    },
+    {
+     "kind": "line",
+     "p1": [
+      -0.060677054869459845,
+      0.0635
+     ],
+     "p2": [
+      -0.060677054869459845,
+      -0.03810000000000001
+     ],
+     "construction": false,
+     "entityId": "9RlTxNGB-aYtg-8oNk-UPzV-2RffdIrJay6m.left"
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.0663229451305401,
+      0.06349999999999999
+     ],
+     "p2": [
+      0.0663229451305401,
+      -0.038099999999999995
+     ],
+     "construction": false,
+     "entityId": "9RlTxNGB-aYtg-8oNk-UPzV-2RffdIrJay6m.right"
+    },
+    {
+     "kind": "line",
+     "p1": [
+      0.048185465444915254,
+      0.06349999999999997
+     ],
+     "p2": [
+      0.06632294513054011,
+      0.05079999999999998
+     ],
+     "construction": false,
+     "entityId": "iRVgKMVQ-CQwZ-kTnI-hpkv-4okMDZmfQPee"
+    }
+   ]
   }
  ],
  "ops": [
@@ -79,6 +149,50 @@
    "regionRisk": false,
    "regionAreas": [
     0.009032240000000007
+   ]
+  },
+  {
+   "op": "extrude",
+   "sketchIndex": 1,
+   "sourceFeatureId": "FxDFjm3Zp0lsMU0_1",
+   "operation": "NEW",
+   "distance": 0.30479999999999996,
+   "symmetric": true,
+   "regions": [
+    0
+   ],
+   "regionRisk": false,
+   "regionAreas": [
+    0.012788027003996286
+   ]
+  },
+  {
+   "op": "chamfer",
+   "sketchIndex": 1,
+   "sourceFeatureId": "FsfZwGob08VCaxD_2",
+   "propagateSmooth": true,
+   "mode": 2,
+   "values1": 0.0635,
+   "values2": 0.0254,
+   "edgeRefs": [
+    {
+     "kind": "cap-edge",
+     "sourceFeatureId": "FxDFjm3Zp0lsMU0_1",
+     "isStart": false,
+     "sketchEntityId": "iRVgKMVQ-CQwZ-kTnI-hpkv-4okMDZmfQPee"
+    },
+    {
+     "kind": "cap-edge",
+     "sourceFeatureId": "FxDFjm3Zp0lsMU0_1",
+     "isStart": true,
+     "sketchEntityId": "iRVgKMVQ-CQwZ-kTnI-hpkv-4okMDZmfQPee"
+    },
+    {
+     "kind": "swept-edge",
+     "sourceFeatureId": "FxDFjm3Zp0lsMU0_1",
+     "sketchEntityId": "9RlTxNGB-aYtg-8oNk-UPzV-2RffdIrJay6m.bottom",
+     "side": "left"
+    }
    ]
   }
  ],
@@ -146,7 +260,7 @@
  ],
  "stop": {
   "featureType": "extrude",
-  "reason": "targets-0-sketches"
+  "reason": "sketch-plane-derived"
  },
  "featureTypes": [
   "newSketch",

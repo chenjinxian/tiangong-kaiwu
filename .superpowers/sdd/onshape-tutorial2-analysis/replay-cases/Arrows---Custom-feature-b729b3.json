@@ -43,6 +43,7 @@
    "sourceFeatureId": "FjMf30Buc46eOfb_0",
    "operation": "NEW",
    "distance": 0.2,
+   "symmetric": true,
    "regions": [
     0
    ],

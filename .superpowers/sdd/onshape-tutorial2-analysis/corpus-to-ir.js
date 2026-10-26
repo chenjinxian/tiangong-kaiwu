@@ -77,6 +77,37 @@
 //    在默认草图平面近似下不可保真，放行会让 Fillet 5 的 CAP_EDGE 在错误几何上不可匹配
 //    （执行器已实证）；故 Isomantle 必须在 Extrude 2 严格停链 endBound-UP_TO_SURFACE。
 //    REMOVE 入 IR 与 cap-edge/entityId 能力保留，供未来 BLIND REMOVE 语料使用。
+// v7（2026-10-26，Wave 3）Calculate Extrude 2：imprint 面驱动 + symmetric：
+// 1. queryStringId 兼容名字两侧无空格的 `id+"<featureId>.wireOp"` / `.imprint` / `.opXxx"`
+//    形态（v2 正则要求 `id + "` 带空格，Calculate 实证为 `id+"FfZ….wireOp"`），
+//    捕获后取**第一个 `.` 之前**的纯 featureId（featureId 本身不含点）。
+//    Extrude 2 的 entities 查询无 featureId：Sketch 2 的 imprint 面（`.imprint`/IMPRINT），
+//    归一后唯一命中已建草图 → 照常按该草图处理；确定性 id（JJC）由 sidecar 面积锚定，
+//    regionAreas=[0.012788027003996286]，regionRisk=false（无需面域试拍）。
+// 2. extrude IR 增加 symmetric（仅参数 true 时下发；缺省省略）。Onshape symmetric=true 的
+//    depth 是**总深**，与我方 ExtrudeParams 的 ±distance/2 语义一致，不折半。
+//    Calculate Extrude 2：NEW/SOLID/BLIND/symmetric/12 in → distance=0.3048 m。
+// 3. calculateBounds 从 IGNORED 移出 → 停链 feature-not-wired：它创建包围盒体，改变总体积
+//    （Calculate 文档第二条 calculateBounds 使总体积 0.0041854→0.0214104 m³），继续忽略会
+//    让用例误判 full 且污染金标准。
+// v8（2026-10-26，Wave 3）Chamfer 1（Calculate）边引用接线：
+// 1. 可读查询的 CAP_EDGE（源为已建 extrude）→ cap-edge ref：originalSetDisambiguation 的
+//    EDGE 长码映射到源拉伸草图 IR 实体（精确 entityId 优先，其次前缀唯一命中）；
+//    isStart 从 queryString 的 `"isStart":true|false` 解析（缺省 false）。
+//    Calculate q0：源 Extrude 2 + 斜线 iRVg… + isStart=false（+z 盖边）。
+// 2. 压缩查询的 CAP_EDGE 维持 v6 通路（源 extrude）；新增 SWEPT_EDGE（源 extrude）→
+//    swept-edge ref：token 经最长前缀回映为草图实体（q2 → 9RlTx….bottom），
+//    并从 DSL 的 `$left|$right|$top|$bottom` 最后一次出现取端点侧 side hint
+//    （q2 → left，即底边左端点；无 hint 则省略，执行器试两端）。
+//    【正则实证】side 后直接粘结构码（`$leftR4R5…`），t/R 同为单词字符 → `\b` 不成立；
+//    改用「右侧非小写字母」界定，否则 side 恒缺失。
+// 3. 同一 fillet/chamfer 可混合 vertex / cap-edge / swept-edge refs；cap/swept 之间只要求
+//    同源（执行器契约），不再要求同 isStart（q0/q1 分别取 +z/−z 盖边，本就异侧）。
+//    Calculate Chamfer 1：TWO_OFFSETS → mode 2，values1=2.5in(0.0635)、values2=1in(0.0254)，
+//    3 个 refs；其后 Extrude 3（ADD）+ calculateBounds 停链。
+// 4. transform 补入 IGNORED（原注释已声明「仅 TRANSLATION_3D 放行」，集合却漏项）：
+//    Calculate Transform 2=TRANSLATION_3D → 跳过；其余 transform 仍在分支内停链。
+//    否则链会误断在 Extrude 3 之前，到不了 calculateBounds。
 const fs = require('fs');
 const path = require('path');
 const { decodeQCompressed, parseEdgeQuery } = require('./qcompressed-lib.js');
@@ -96,7 +127,11 @@ const CHAMFER = 'chamfer';
 // 其余 transform（COPY/ROTATION/SCALE/MATE_CONNECTORS）保守判停链。
 const IGNORED = new Set(['arrow', 'surfaceTextWrapped', 'tagProfile', 'partName',
   'cPlane', 'mateConnector', 'fitSpline', 'threePoint', 'assignVariable', 'queryVariable',
-  'simplifiedRep', 'calculateBounds', 'partNumber']);
+  'simplifiedRep', 'partNumber',
+  // v8：transform 按上方口径入集合（仅 TRANSLATION_3D 放行；其余在分支内停链）。
+  // 此前遗漏导致 Calculate 的纯平移 Transform 2 被误判 feature-not-wired，链断在
+  // Extrude 3 之前。
+  'transform']);
 // 生态特征（出现即整 PS 标记 ecosystem，不回放）
 const ECOSYSTEM = ['wire', 'harness', 'mold', 'sheetMetal', 'Beam', 'SpurGear', 'planetary'];
 
@@ -225,19 +260,25 @@ function revolveParams(ft) {
 }
 
 // ---------------------------------------------------------------------------
-// fillet / chamfer 参数提取（v5/v6）
+// fillet / chamfer 参数提取（v5/v6/v8）
 //
 // 边引用两条通路（entities.queries[] 逐条）：
-// 1) 可读 makeQuery（v5，Isomantle 实证）：
+// 1) 可读 makeQuery（v5，Isomantle 实证；v8 扩展 CAP_EDGE）：
 //   makeQuery(id+"<featureId>.opRevolve","SWEPT_EDGE",EntityType.EDGE,
 //     {"disambiguationData":[originalSetDisambiguation([sketchEntityQuery(
 //       id+"<sketchFeatureId>.wireOp",EntityType.EDGE,"<段 entityId 长码>")])]})
 //    → 源回转特征 + 草图段长码。端点语义（三处独立体积实证，偏差 ≤9.2e-13 m³）：
 //    SWEPT_EDGE 取草图段**终点**（p2）绕轴扫出的圆边，不是起点侧。
+//   v8：同一形态的 queryType=CAP_EDGE + 源 `.opExtrude`（Calculate Chamfer 1 q0）
+//    → cap-edge 引用（isStart 取自 `"isStart":true|false`，缺省 false）；EDGE 长码
+//    映射到源拉伸草图 IR 实体（精确 entityId 优先，其次前缀唯一命中）。
 // 2) qCompressed（v6）：qcompressed-lib.js 解码（%B5$ 内联 / &hex$ zlib），
-//    parseEdgeQuery 只接受唯一源 op；本转换器只消费 CAP_EDGE + 源 Extrude →
-//    cap-edge 引用（sourceFeatureId + isStart + sketchEntityId）。sketchEntityId 由
-//    query token 对源拉伸草图 IR 实体的 entityId 做最长前缀回映（v6.1 精确映射）。
+//    parseEdgeQuery 只接受唯一源 op；本转换器消费源 Extrude 的：
+//    - CAP_EDGE → cap-edge 引用（sourceFeatureId + isStart + sketchEntityId）；
+//    - SWEPT_EDGE（v8）→ swept-edge 引用（sourceFeatureId + sketchEntityId + side?）；
+//    sketchEntityId 由 query token 对源拉伸草图 IR 实体的 entityId 做最长前缀回映
+//    （v6.1 精确映射）；swept-edge 的 side 取 DSL 内 `$left|$right|$top|$bottom`
+//    最后一次出现（q2 → left），无 hint 则省略。
 //    其他查询类型 → 停链 edge-query-<type>；多源/解不出 → edge-query-unresolvable；
 //    短码无匹配/歧义 → edge-sketch-entity-unmapped。
 // ---------------------------------------------------------------------------
@@ -247,8 +288,9 @@ function paramMap(ft) {
   return P;
 }
 
-/** entities 查询 → { sourceFeatureId, kind, entityLongIds[] }；不可解析返回 null。
- * 一条查询可携 2 条草图边（ORIGINAL_DEPENDENCY 去歧义）——见 resolveEdgeVertex。 */
+/** entities 查询 → { sourceFeatureId, sourceOp, kind, entityLongIds[], isStart }；
+ * 不可解析返回 null。一条查询可携 2 条草图边（ORIGINAL_DEPENDENCY 去歧义）——
+ * 见 resolveEdgeVertex。isStart 供可读 CAP_EDGE 选盖侧（v8），缺省 false。 */
 function edgeRefFromQuery(q) {
   const qs = typeof q.queryString === 'string' ? q.queryString : '';
   if (!qs.includes('makeQuery(')) return null;
@@ -257,7 +299,34 @@ function edgeRefFromQuery(q) {
   const entityLongIds = [...qs.matchAll(/sketchEntityQuery\(id\+"[^"]+\.wireOp",\s*EntityType\.EDGE,\s*"([^"]+)"/g)]
     .map((m) => m[1]);
   if (!src || !kind || entityLongIds.length === 0) return null;
-  return { sourceFeatureId: src[1], sourceOp: src[2], kind: kind[1], entityLongIds };
+  const start = qs.match(/"isStart"\s*:\s*(true|false)/);
+  return {
+    sourceFeatureId: src[1], sourceOp: src[2], kind: kind[1], entityLongIds,
+    isStart: start ? start[1] === 'true' : false,
+  };
+}
+
+/** 可读 CAP_EDGE 的 EDGE 长码 → 源拉伸草图 IR 实体 entityId（v8）。
+ * 先精确匹配段 entityId；否则按前缀双向唯一匹配（语料标签 `.top` 或消歧后缀）。
+ * 无命中/歧义 → null（调用方停链，不猜）。 */
+function resolveReadableSketchEntityId(entities, longId) {
+  const usable = entities.filter((e) => typeof e.entityId === 'string' && e.entityId);
+  const exact = usable.filter((e) => e.entityId === longId);
+  if (exact.length === 1) return exact[0].entityId;
+  if (exact.length > 1) return null;
+  const hits = usable.filter((e) => e.entityId.startsWith(longId) || longId.startsWith(e.entityId));
+  return hits.length === 1 ? hits[0].entityId : null;
+}
+
+/** 压缩 SWEPT_EDGE 的端点侧 hint（v8）：DSL 内 `$left|$right|$top|$bottom` 的最后一次
+ * 出现。注意语料里 side 后直接粘结构码（`$leftR4R5…`；t/R 都是单词字符，`\b` 不成立，
+ * 任务单的 `\b` 形态在此语料上匹配不到），故用「后面不是小写字母」作右界。
+ * 实体 id 标签用 `.` 连接（`.bottom`），不是 `$` 结构键，不会被误识别。
+ * 无 hint → undefined（执行器会试线段两端）。 */
+function sweptSideInDsl(dsl) {
+  if (typeof dsl !== 'string') return undefined;
+  const hits = [...dsl.matchAll(/\$(left|right|top|bottom)(?![a-z])/g)];
+  return hits.length ? hits[hits.length - 1][1] : undefined;
 }
 
 /** CAP_EDGE query token（含 R4R5R6R7 等消歧后缀）→ 源拉伸草图实体 entityId（最长前缀）。
@@ -360,15 +429,45 @@ function extrudeParams(ft) {
     bodyType: P.bodyType ? P.bodyType.value : undefined,
     endBound: P.endBound ? P.endBound.value : undefined,
     depth, has2nd, secondDepth, flip2nd,
+    // v7：symmetric（仅 true 时下发 IR）。depth 语义=总深，与我方 ±d/2 一致。
+    symmetric: !!(P.symmetric && P.symmetric.value === true),
     hasDraft: !!(P.hasDraft && P.hasDraft.value === true),
     targetIds, regionRisk,
   };
 }
 // queryString 兜底（个别语料 featureId 为 null，id 内嵌在 queryStatement 里）
+// v7：名字两侧空格可有可无（Calculate 实证 `id+"FfZ….wireOp"`）；捕获物可能是
+// `"<featureId>.wireOp"` / `"<featureId>.imprint"` / `"<featureId>.opExtrude"`，
+// 取第一个 `.` 之前的纯 featureId。无后缀（如 `id + "F1dr…_0"`）原样返回。
 function queryStringId(qs) {
   if (typeof qs !== 'string') return undefined;
-  const m = qs.match(/id \+ "([^"]+)"/);
-  return m ? m[1] : undefined;
+  const m = qs.match(/id\s*\+\s*"([^"]+)"/);
+  return m ? m[1].replace(/\..*$/, '') : undefined;
+}
+
+// ---------------------------------------------------------------------------
+// v6.3 草图平面类别（2026-10-26，Calculate Extrude 3 实证）：
+// 语料 newSketch 的 sketchPlane 是**查询**而非显式平面。基准面（Front/Top/Right 的
+// dummyQuery，可读或 qCompressed 形态）的 2D 坐标系可整体刚性映射到我方 XY——同一
+// 基准面的所有草图共享同一映射，体积/相对几何均保真（Calculate/Sculpt 全 Top 即此情形）。
+// 面/边派生平面（ORIGINAL_DEPENDENCY/derivedFrom/SWEPT_FACE 等）在 Onshape 内部有
+// 独立 2D 帧，语料不携带该帧，无法保真复现 → 返回 undefined，消费该草图时停链。
+// 缺省 sketchPlane（合成用例/旧数据）按 Front 处理，保持既有契约不变。
+// ---------------------------------------------------------------------------
+function sketchPlaneFrame(ft) {
+  const q = (ft.parameters || []).find(p => p.parameterId === 'sketchPlane')?.queries?.[0];
+  if (!q || typeof q.queryString !== 'string' || !q.queryString) return 'Front';
+  let dsl = q.queryString;
+  if (dsl.includes('qCompressed')) {
+    const dec = decodeQCompressed(dsl);
+    if (!dec) return undefined;
+    dsl = dec.dsl;
+  }
+  // 派生平面即使词面上提到基准面也不当作可定位平面（不猜）。
+  if (/ORIGINAL_DEPENDENCY|derivedFrom/.test(dsl)) return undefined;
+  const m = dsl.match(/(Front|Top|Right)\.?planeOp/);
+  if (!m) return undefined;
+  return /(?:dummyQuery|DUMMY)/.test(dsl) ? m[1] : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -428,6 +527,8 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
     // ---- 链转换（顺序遍历；遇不可回放特征停链）----
     const dropped = { noParam: 0, nan: 0, degenerate: 0, aux: 0, unsupported: [] };
     const sketches = [];               // 去重后的 IR 草图
+    const sketchFrames = [];           // sketches 下标 → 基准面帧（undefined=派生平面，不可消费）
+    let primaryFrame;                  // 首个被消费草图的基准面（混合帧 ADD/REMOVE 停链判定）
     const sketchByKey = new Map();     // sketch featureId → sketches 下标
     const sketchKeyByIdx = [];         // sketches 下标 → sketch featureId
     const sketchEntityIds = new Map(); // sketch featureId → 段 entityId→IR 下标（revolve 轴/边映射）
@@ -458,6 +559,7 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
           const idx = sketches.length;
           if (conv.entities.length === 0) emptySketch.add(idx);
           sketches.push({ name: ft.name, featureId: key, entities: conv.entities });
+          sketchFrames.push(sketchPlaneFrame(ft));
           sketchByKey.set(key, idx);
           sketchKeyByIdx[idx] = key;
           sketchEntityIds.set(key, conv.entityIdToIdx);
@@ -475,10 +577,22 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         if (ep.endBound !== 'BLIND') { stopChain(t, 'endBound-' + ep.endBound); break; }
         if (ep.hasDraft) { stopChain(t, 'hasDraft'); break; }
         if (ep.has2nd && ep.flip2nd) { stopChain(t, 'secondDirection-flipped'); break; }
+        // v7：imprint 面驱动（Calculate Extrude 2）——entities 查询无 featureId，queryString
+        // 为 `id+"<sketch>.wireOp"` + `id+"<sketch>.imprint"`；归一后若唯一命中已建草图，
+        // 与 qSketchRegion 直引等价处理（面域身份由 deterministicIds→sidecar 面积锚定）。
+        // 命中非草图/无命中仍走下方 sketch-not-found 停链，不猜。
         if (ep.targetIds.length !== 1) { stopChain(t, 'targets-' + ep.targetIds.length + '-sketches'); break; }
         const sketchIndex = sketchByKey.get(ep.targetIds[0]);
         if (sketchIndex === undefined) { stopChain(t, 'sketch-not-found'); break; }
         if (emptySketch.has(sketchIndex)) { stopChain(t, 'empty-sketch'); break; }
+        // v6.3：派生平面草图无法定位（消费即停）；混合基准面只允许 NEW 独立体，
+        // ADD/REMOVE 依赖既有体几何 → 停链（各基准面的相对位姿在本回放里不可保真）。
+        const frame = sketchFrames[sketchIndex];
+        if (!frame) { stopChain(t, 'sketch-plane-derived'); break; }
+        if (primaryFrame && frame !== primaryFrame && ep.operation !== 'NEW') {
+          stopChain(t, 'sketch-plane-mixed-frames'); break;
+        }
+        if (!primaryFrame) primaryFrame = frame;
         const entityQueries = (ft.parameters || []).find(p => p.parameterId === 'entities')?.queries || [];
         const regionAreas = areasForDeterministicIds(entityQueries, ep.targetIds[0], evalData);
         const extrudeOp = {
@@ -486,6 +600,7 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
           sourceFeatureId: ft.featureId,
           operation: ep.operation,
           distance: ep.has2nd ? ep.depth + ep.secondDepth : ep.depth, // 第二方向（反向侧）并入总跨
+          ...(ep.symmetric ? { symmetric: true } : {}), // v7：仅 true 下发（缺省省略）
           regions: ep.regionRisk ? [0] : 'all',
           regionRisk: ep.regionRisk && !regionAreas.resolved,
           ...(regionAreas.resolved ? { regionAreas: regionAreas.areas } : {}),
@@ -523,6 +638,13 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         }
         if (sketchIndex === undefined) { stopChain(t, 'sketch-not-found'); break; }
         if (emptySketch.has(sketchIndex)) { stopChain(t, 'empty-sketch'); break; }
+        // v6.3：同拉伸——派生平面停链；混合基准面仅 NEW 允许。
+        const frame = sketchFrames[sketchIndex];
+        if (!frame) { stopChain(t, 'sketch-plane-derived'); break; }
+        if (primaryFrame && frame !== primaryFrame && rp.operation !== 'NEW') {
+          stopChain(t, 'sketch-plane-mixed-frames'); break;
+        }
+        if (!primaryFrame) primaryFrame = frame;
         // axis：sketchEntityQuery EDGE 长码 → 段 entityId 精确映射（v3 关键发现）
         if (rp.axisQ.length !== 1) { stopChain(t, 'axis-queries-' + rp.axisQ.length); break; }
         const axEids = edgeIdsInQuery(rp.axisQ[0]);
@@ -559,42 +681,80 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
         }
         if (!pp.queries.length) { stopChain(t, 'edge-queries-0'); break; }
         const edgeRefs = [];
-        let capSource = null; // cap-edge 源拉伸（同源同侧校验 + op.sketchIndex 回填）
+        // v8：cap-edge / swept-edge 的源拉伸（同源校验 + op.sketchIndex 回填）。
+        // vertex（源 revolve）不参与同源校验——执行器分区消费两类引用。
+        let edgeSource = null;
         let bad = null;
+        /** cap-edge/swept-edge 必须同源（执行器契约）；首次记录源拉伸草图下标。
+         * 不再要求同 isStart：Calculate q0/q1 分别取 +z/−z 盖边，本就异侧。 */
+        const noteEdgeSource = (sourceFeatureId, srcOp) => {
+          if (edgeSource && edgeSource.sourceFeatureId !== sourceFeatureId) return false;
+          if (!edgeSource) edgeSource = { sourceFeatureId, sketchIndex: srcOp.sketchIndex };
+          return true;
+        };
         for (const q of pp.queries) {
-          // 通路 1：可读 makeQuery（源 revolve + 草图段长码 → ORIGINAL_DEPENDENCY 顶点）
+          // 通路 1：可读 makeQuery
           const ref = edgeRefFromQuery(q);
           if (ref) {
-            if (ref.kind !== 'SWEPT_EDGE') { bad = 'edge-query-' + ref.kind; break; }
-            const src = revolveByFeatureId.get(ref.sourceFeatureId);
-            if (!src) { bad = 'edge-source-not-revolve'; break; }
-            const idMap = sketchEntityIds.get(sketchKeyByIdx[src.sketchIndex]);
-            const entityIndices = ref.entityLongIds.map((eid) => idMap?.get(eid));
-            if (entityIndices.some((i) => i === undefined)) { bad = 'edge-entity-unmapped'; break; }
-            if (entityIndices.some((i) => sketches[src.sketchIndex].entities[i].kind !== 'line')) {
-              bad = 'edge-entity-not-line'; break;
+            if (ref.kind === 'SWEPT_EDGE') {
+              // v5：源 revolve + 2 条相邻草图边 → 共享顶点绕轴扫出的圆边
+              const src = revolveByFeatureId.get(ref.sourceFeatureId);
+              if (!src) { bad = 'edge-source-not-revolve'; break; }
+              const idMap = sketchEntityIds.get(sketchKeyByIdx[src.sketchIndex]);
+              const entityIndices = ref.entityLongIds.map((eid) => idMap?.get(eid));
+              if (entityIndices.some((i) => i === undefined)) { bad = 'edge-entity-unmapped'; break; }
+              if (entityIndices.some((i) => sketches[src.sketchIndex].entities[i].kind !== 'line')) {
+                bad = 'edge-entity-not-line'; break;
+              }
+              const resolved = resolveEdgeVertex(sketches[src.sketchIndex].entities, entityIndices);
+              if (!resolved) { bad = 'edge-vertex-ambiguous'; break; }
+              edgeRefs.push({
+                kind: 'vertex',
+                sourceFeatureId: ref.sourceFeatureId,
+                sketchIndex: src.sketchIndex,
+                axisEntityIndex: src.axisEntityIndex,
+                vertex: resolved.vertex,
+                vertexFrom: resolved.from,
+              });
+              continue;
             }
-            const resolved = resolveEdgeVertex(sketches[src.sketchIndex].entities, entityIndices);
-            if (!resolved) { bad = 'edge-vertex-ambiguous'; break; }
-            edgeRefs.push({
-              kind: 'vertex',
-              sourceFeatureId: ref.sourceFeatureId,
-              sketchIndex: src.sketchIndex,
-              axisEntityIndex: src.axisEntityIndex,
-              vertex: resolved.vertex,
-              vertexFrom: resolved.from,
-            });
-            continue;
+            if (ref.kind === 'CAP_EDGE') {
+              // v8：源 extrude + 盖边草图实体长码 → cap-edge（q0：isStart=false → +z 盖）。
+              // 源非 Extrude → 停链；源未入 IR / REMOVE → 停链（执行器无对应通道）。
+              if (ref.sourceOp !== 'Extrude') { bad = 'edge-query-source-' + ref.sourceOp; break; }
+              const srcOp = extrudeByFeatureId.get(ref.sourceFeatureId);
+              if (!srcOp) { bad = 'edge-source-not-wired'; break; }
+              if (srcOp.operation === 'REMOVE') { bad = 'edge-source-remove'; break; }
+              const srcSketch = sketches[srcOp.sketchIndex];
+              const mappedIds = ref.entityLongIds
+                .map((eid) => resolveReadableSketchEntityId(srcSketch.entities, eid));
+              if (!mappedIds.length || mappedIds.some((eid) => eid === null)) {
+                bad = 'edge-sketch-entity-unmapped'; break;
+              }
+              if (!noteEdgeSource(ref.sourceFeatureId, srcOp)) { bad = 'edge-cap-refs-inconsistent'; break; }
+              for (const eid of mappedIds) {
+                edgeRefs.push({
+                  kind: 'cap-edge',
+                  sourceFeatureId: ref.sourceFeatureId,
+                  isStart: ref.isStart,
+                  sketchEntityId: eid,
+                });
+              }
+              continue;
+            }
+            bad = 'edge-query-' + ref.kind; break;
           }
           // 通路 2：qCompressed（内联 %B5$ / zlib &hex$）→ 唯一源 op + 外层查询类型
           const decoded = decodeQCompressed(q.queryString);
           const parsed = decoded && parseEdgeQuery(decoded.dsl);
           if (!parsed) { bad = 'edge-query-unresolvable'; break; }
-          if (parsed.queryType !== 'CAP_EDGE') { bad = 'edge-query-' + parsed.queryType; break; }
+          if (parsed.queryType !== 'CAP_EDGE' && parsed.queryType !== 'SWEPT_EDGE') {
+            bad = 'edge-query-' + parsed.queryType; break;
+          }
           if (parsed.sourceOp !== 'Extrude') { bad = 'edge-query-source-' + parsed.sourceOp; break; }
           const srcOp = extrudeByFeatureId.get(parsed.sourceFeatureId);
           if (!srcOp) { bad = 'edge-source-not-wired'; break; }
-          // 执行器 CAP_EDGE 通道明确拒绝 REMOVE 源（booleanSubtract 无「新生盖边」快照）
+          // 执行器边通道明确拒绝 REMOVE 源（booleanSubtract 无「新生盖边」快照）
           if (srcOp.operation === 'REMOVE') { bad = 'edge-source-remove'; break; }
           // v6：query token → 源拉伸草图实体 entityId（最长前缀，见 resolveSketchEntityId）。
           // 无匹配/等长歧义 → 停链，不把短码当黑盒交给执行器猜。
@@ -603,29 +763,36 @@ for (const f of fs.readdirSync(DOCS).filter(f => f.endsWith('.json'))) {
           if (!mappedIds.length || mappedIds.some((eid) => eid === null)) {
             bad = 'edge-sketch-entity-unmapped'; break;
           }
-          // 同一 fillet/chamfer 的 CAP_EDGE 引用必须同源同侧（执行器契约）
-          if (capSource && (capSource.sourceFeatureId !== parsed.sourceFeatureId
-            || capSource.isStart !== parsed.isStart)) { bad = 'edge-cap-refs-inconsistent'; break; }
-          capSource = {
-            sourceFeatureId: parsed.sourceFeatureId,
-            isStart: parsed.isStart,
-            sketchIndex: srcOp.sketchIndex,
-          };
-          // cap-edge：源特征 + 起始盖侧 + 草图实体 entityId（精确映射）；仍不携 sketchIndex。
-          for (const eid of mappedIds) {
-            edgeRefs.push({
-              kind: 'cap-edge',
-              sourceFeatureId: parsed.sourceFeatureId,
-              isStart: parsed.isStart,
-              sketchEntityId: eid,
-            });
+          if (!noteEdgeSource(parsed.sourceFeatureId, srcOp)) { bad = 'edge-cap-refs-inconsistent'; break; }
+          if (parsed.queryType === 'CAP_EDGE') {
+            // cap-edge：源特征 + 起始盖侧 + 草图实体 entityId；不携 sketchIndex。
+            for (const eid of mappedIds) {
+              edgeRefs.push({
+                kind: 'cap-edge',
+                sourceFeatureId: parsed.sourceFeatureId,
+                isStart: parsed.isStart,
+                sketchEntityId: eid,
+              });
+            }
+          } else {
+            // v8 swept-edge：源拉伸草图实体 + 端点侧 hint（q2：底边 + left）。
+            // side 缺省省略 → 执行器会试线段两端。
+            const side = sweptSideInDsl(decoded.dsl);
+            for (const eid of mappedIds) {
+              edgeRefs.push({
+                kind: 'swept-edge',
+                sourceFeatureId: parsed.sourceFeatureId,
+                sketchEntityId: eid,
+                ...(side ? { side } : {}),
+              });
+            }
           }
         }
         if (bad) { stopChain(t, bad); break; }
-        // op 自身 sketchIndex：vertex 引用取草图下标；纯 cap-edge 回填源拉伸草图
+        // op 自身 sketchIndex：vertex 引用取草图下标；纯 cap/swept-edge 回填源拉伸草图
         // （IR 契约「草图先于引用」；caseOut 的 used/remap 因此不会写出 undefined）。
         const opSketchIndex = edgeRefs.find((r) => r.sketchIndex !== undefined)?.sketchIndex
-          ?? capSource?.sketchIndex;
+          ?? edgeSource?.sketchIndex;
         ops.push({
           op: t,
           sketchIndex: opSketchIndex,
