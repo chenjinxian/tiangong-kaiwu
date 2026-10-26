@@ -46,7 +46,7 @@ describe('QueryErrorBridge（handleQueryBridgeError）', () => {
     // jsdom 不实现 navigation：以 plain object 顶替 location（writable），
     // window.location.href 赋值可截获断言；afterEach 恢复原 descriptor。
     Object.defineProperty(window, 'location', {
-      value: { href: 'http://localhost:5310/documents' },
+      value: { href: 'http://localhost:5300/documents' },
       writable: true,
       configurable: true,
     });
@@ -70,7 +70,7 @@ describe('QueryErrorBridge（handleQueryBridgeError）', () => {
     expect(getValidAccessTokenMock).toHaveBeenCalledTimes(1);
     expect(query.fetch).toHaveBeenCalledTimes(1);
     expect(clearAuthMock).not.toHaveBeenCalled();
-    expect(window.location.href).toBe('http://localhost:5310/documents');
+    expect(window.location.href).toBe('http://localhost:5300/documents');
   });
 
   // ② 重放再 401 → 清场跳 /login

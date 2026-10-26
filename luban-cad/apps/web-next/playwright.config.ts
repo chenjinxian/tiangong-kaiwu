@@ -3,8 +3,8 @@
  * Licensed under the MIT License.
  *
  * web-next e2e 独立 config（M5-T5，切换门禁第 1 条「七页 e2e 全绿」的载体）：
- * - baseURL :5310（web-next dev server，vite.config.ts 同端口；webServer 复用
- *   在场实例——常态开发态 dev 已在跑，不重复起进程）；
+ * - baseURL :5300（web-next dev server，vite.config.ts 同端口——C2 退役迁入，
+ *   过渡期 :5310 已废；webServer 复用在场实例——常态开发态 dev 已在跑，不重复起进程）；
  * - workers=1 + retries 0（红即真红；编辑器用例共享 MS briefcase/WebGL 资源，
  *   串行是旧应用 2026-10-03 实测纪律，web-next 沿用）；
  * - projects：setup（auth.setup.ts，API 取 token 零限流消耗）→ chromium 依赖
@@ -34,7 +34,7 @@ export default defineConfig({
   reporter: 'list',
 
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5310',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5300',
     locale: 'zh-CN',
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
@@ -70,7 +70,7 @@ export default defineConfig({
 
   webServer: {
     command: 'corepack pnpm@10 dev',
-    url: 'http://localhost:5310',
+    url: 'http://localhost:5300',
     // 常态开发态复用在场 dev server（M5-T5 口径）；CI 恒新起（T5 评审 M-5：
     // 切换冲刺后 CI 形态临近，陈旧 dev server 被静默复用会吃假绿——旧应用
     // apps/web 同口径 `!process.env.CI`）。

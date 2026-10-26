@@ -194,7 +194,7 @@ services:
   web:
     build:
       context: ..
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/web-next/Dockerfile
       args:
         - VITE_API_URL=http://localhost:5401
         - VITE_IMODELHUB_URL=http://localhost:5400

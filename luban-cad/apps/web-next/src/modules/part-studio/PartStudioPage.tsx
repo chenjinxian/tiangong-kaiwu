@@ -52,7 +52,7 @@
  * - editorToolSettings 配置段（Editor.tsx:200-235 移植）：viewport+connection+
  *   scope 就绪后校准默认类目/模型 + 空间视图默认开项目范围装饰件。
  *
- * backendUrl 传同源（MS CORS 钉死 :5300，web-next :5310 走 vite 代理，见
+ * backendUrl 传同源（MS CORS 钉死 :5300，dev 恒走 vite 代理，见
  * vite.config.ts 注记；姿态同 DevViewerRoute），相位上供状态栏。ribbon/命令
  * 搜索（T4）挂顶栏下。
  *

@@ -58,6 +58,5 @@ itwinjs-core/ui/*
 **/playwright-report
 **/test-results
 **/briefcase-cache
-luban-cad/apps/web/azure-pipelines
 modeling-server/briefcase-cache
 webhook-agent/briefcase-cache

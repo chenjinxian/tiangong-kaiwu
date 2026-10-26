@@ -8,7 +8,7 @@
  *   `luban-next-auth`，零登录请求零限流消耗；AuthSession.getStoredAuth 直读
  *   该键，RequireAuth 门即放行）；表单实时登录仅 login.spec 保留一轮。
  * - 导航/编辑器就绪/种子数据定位集中于此，spec 不内嵌选择器细节。
- * - 自建数据走 API（/itwins、/imodels，同源 :5310 代理到 hub :5400），
+ * - 自建数据走 API（/itwins、/imodels，同源 :5300 代理到 hub :5400），
  *   用例自建自清，不依赖手工种子。
  */
 

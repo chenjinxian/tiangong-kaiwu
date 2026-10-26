@@ -18,7 +18,7 @@
 #      缺失时 SPA 回退返回 index.html 当 JS——worker 静默死亡、几何渲染
 #      不出（2026-10-09/2026-10-22 两代实证）；在场但漂移 = worker 与 lib/esm
 #      主包版本错配，同类炸面。文件本体由 apps/web-next/public/scripts/
-#      提供（vite publicDir 随构建拷贝，dev :5310 同路受益），快照源 =
+#      提供（vite publicDir 随构建拷贝，dev :5300 同路受益），快照源 =
 #      itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js——
 #      **itwinjs-core 上游同步/重编译后须重拷对齐**（同 apps/web 先例，
 #      已登记 UPSTREAM_SYNC 检查单）。此断言防「public/ 被误删仍构建成功」

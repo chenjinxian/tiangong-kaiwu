@@ -10,7 +10,9 @@ export default defineConfig({
     exclude: ['@luban-cad/viewer-next', '@luban-cad/shared', '@itwin/core-frontend', '@itwin/core-geometry', '@itwin/core-common'],
   },
   server: {
-    port: 5310,
+    // C2 退役（2026-10-26）：web-next 迁入 :5300（apps/web 删除，docs/PORTS.md 既定方案；
+    // 过渡期暂驻的 :5310 退役）。
+    port: 5300,
     strictPort: true,
     proxy: {
       '/auth': { target: 'http://localhost:5400', changeOrigin: true, secure: false },
@@ -21,9 +23,9 @@ export default defineConfig({
       '/files': { target: 'http://localhost:5400', changeOrigin: true, secure: false },
       // M3-T1：modeling-server (:5401) 同源代理。MS 的 CORS 单源钉死
       // FRONTEND_URL=http://localhost:5300（dist-backend/modeling-server/dist/
-      // main.js cors({ origin: config.FRONTEND_URL })），web-next :5310 直连
-      // HTTP/WS 必被拦——改走同源代理，DevViewerRoute 的 backendUrl 相应
-      // 改传 window.location.origin。前缀取证于 main.js Express 注册：
+      // main.js cors({ origin: config.FRONTEND_URL })）——C2 迁入 :5300 后 dev 恰与
+      // 钉死值同源，但同源代理姿态仍保持（部署形态恒经代理，不做 dev 直连特例）。
+      // 前缀取证于 main.js Express 注册：
       // - /ipc（express-ws，LocalhostIpcHost 的 BriefcaseConnection 通道，
       //   viewer-next buildUrlForSocket 拼 ws://<origin>/ipc）；
       // - /ws（进度广播通道，verifyClient 同样鉴 JWT）；

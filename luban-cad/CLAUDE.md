@@ -11,7 +11,7 @@
 
 ## 功能状态
 
-> **路径口径（2026-10-23 M5-T9 切换冲刺起）**：正选前端 = `apps/web-next/`（模块在 `src/modules/*`）；表中 `features/*` 路径属 `apps/web`（**退役待删**——切换门禁全绿+用户确认后删除，删除前仅作移植参考，勿改勿新增）。
+> **路径口径（2026-10-23 M5-T9 切换冲刺起；2026-10-26 C2 退役收口）**：正选前端 = `apps/web-next/`（模块在 `src/modules/*`）；旧 `apps/web` 已删除（退役门禁：M5-T4 源码模式 31/31 + backend-20261026 产物模式 e2e 绿 + 用户确认；历史移植参考查 git 历史）。
 
 | 模块 | 路径 | 状态 |
 |------|------|------|
@@ -48,7 +48,7 @@
 # 2. 安装依赖并构建（首次或改动 itwinjs-core 后先跑 rush build --to …，见根 CLAUDE.md；
 #    全新检出还需先构建 workspace 基座包——见 apps/web-next/README.md「先 build 后 dev」）
 cd luban-cad && pnpm install
-cd apps/web-next && pnpm dev     # 前端 dev :5310（:5300 归属 web-next，apps/web 退役时迁入；栈内部署经 nginx :5301）
+cd apps/web-next && pnpm dev     # 前端 dev :5300（C2 退役迁入；栈内部署经 nginx :5301）
 
 # 3. 后台服务（源码在**仓外私有仓 luban-backend**，公开仓不检出也能跑：
 #    公开仓走产物分发——scripts/fetch-backend.ps1 拉 Releases 产物后
@@ -56,7 +56,7 @@ cd apps/web-next && pnpm dev     # 前端 dev :5310（:5300 归属 web-next，ap
 #    docker compose 容器跑 :5402。源码 dev 见该私有仓 README）
 ```
 
-访问 http://localhost:5310
+访问 http://localhost:5300
 
 ## 核心服务
 
@@ -130,4 +130,4 @@ cd apps/web-next && pnpm dev     # 前端 dev :5310（:5300 归属 web-next，ap
 tail -f /tmp/luban-cad/*.log
 ```
 
-*最后更新: 2026-10-23*
+*最后更新: 2026-10-26*
