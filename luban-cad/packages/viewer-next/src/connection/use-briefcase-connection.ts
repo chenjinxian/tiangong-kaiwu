@@ -103,6 +103,21 @@ export function useBriefcaseConnection(
         }
       }
 
+      // IpcApp 就绪门（2026-10-26 生产 bundle 实证竞态）：头注「前置：已 startup」
+      // 此前只靠 useViewport 挂载效应序 + 权限查询耗时「偶然」成立——dev :5300
+      // 一直绿，生产 bundle（:5301）权限解析快于 WS 握手时 downloadBriefcase 先于
+      // IpcApp._ipc 就位，makeIpcProxy 代理首调即抛 "Expected value to be defined"
+      // 且 error 终态不可自愈。显式轮询 isValid（60s 封顶：冷会话含 WS+原生库
+      // 装载，比 30s 稳；acquireViewer 由 useViewport 并行推进，此处只等不启）。
+      for (let i = 0; i < 600 && !IpcApp.isValid; i++) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (!IpcApp.isValid) {
+        setError(new Error('LocalhostIpcApp startup 未就绪（60s）——检查 /ipc WebSocket 连通'));
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
 

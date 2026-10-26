@@ -34,7 +34,9 @@ const {
 }));
 
 vi.mock('@itwin/core-frontend', () => ({
-  IpcApp: { makeIpcProxy: makeIpcProxyMock },
+  // isValid: true——2026-10-26 open 前置 IpcApp 就绪门（生产 bundle 竞态修复）的
+  // 测试姿态：mock 恒就绪，门零等待直接过（门自身的等待/超时语义由真实栈覆盖）。
+  IpcApp: { makeIpcProxy: makeIpcProxyMock, isValid: true },
   BriefcaseConnection: { openFile: openFileMock },
 }));
 vi.mock('@luban-cad/shared', () => ({ openCloudIpcChannel: 'open-cloud-ipc' }));
