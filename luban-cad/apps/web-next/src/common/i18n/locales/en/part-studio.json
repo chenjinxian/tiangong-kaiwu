@@ -677,5 +677,23 @@
       "title": "Feature history (on the roadmap)",
       "message": "A feature regeneration history viewer is on the LubanCAD roadmap and is not available in this version yet."
     }
+  },
+  "displaySettingsPanel": {
+    "modeLabel": "Display mode",
+    "mode": {
+      "shaded": "Shaded (with edges)",
+      "shadedNoEdges": "Shaded without edges",
+      "shadedHiddenEdges": "Shaded with hidden edges",
+      "hiddenRemoved": "Hidden edges removed",
+      "hiddenVisible": "Hidden edges visible"
+    },
+    "translucentGap": "Translucent mode not yet supported (no global translucency channel in renderer)",
+    "perspective": "Perspective view",
+    "fov": "Field of view",
+    "ao": "Ambient occlusion",
+    "aoIntensity": "Occlusion intensity",
+    "edgeWidth": "Edge width",
+    "edgeColor": "Edge color",
+    "noViewport": "Viewport not ready — open a model first"
   }
 }

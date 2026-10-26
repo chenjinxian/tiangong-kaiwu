@@ -677,5 +677,23 @@
       "title": "特征历史（规划中）",
       "message": "特征重生成历史查看已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
     }
+  },
+  "displaySettingsPanel": {
+    "modeLabel": "显示模式",
+    "mode": {
+      "shaded": "着色（含边线）",
+      "shadedNoEdges": "着色（不含边线）",
+      "shadedHiddenEdges": "着色（含隐藏边）",
+      "hiddenRemoved": "隐藏边移除",
+      "hiddenVisible": "隐藏边可见"
+    },
+    "translucentGap": "半透明模式暂不支持（渲染引擎无全局半透明通道）",
+    "perspective": "透视视图",
+    "fov": "视场角",
+    "ao": "环境光遮蔽",
+    "aoIntensity": "遮蔽强度",
+    "edgeWidth": "边线宽度",
+    "edgeColor": "边线颜色",
+    "noViewport": "视口未就绪——打开模型后可用"
   }
 }
