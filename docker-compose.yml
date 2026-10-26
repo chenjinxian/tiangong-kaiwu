@@ -4,9 +4,10 @@
 # 用法：
 #   0) 仓库根 .env 就位（powershell -File scripts/generate-env.ps1）
 #   1) powershell -File scripts/fetch-backend.ps1   # MS 产物（Releases tgz → dist-backend\）+ GHCR 镜像（compose pull）
+#      （web 不在此列：web 是本仓 build，源有更新须 scripts/rebuild-web.ps1 重建——B2）
 #   2) docker compose up -d
 #   3) powershell -File scripts/start-ms-host.ps1 -Detach   # 宿主 MS :5401（产物模式，见下）
-#   4) powershell -File scripts/verify-stack.ps1    # 全栈验收
+#   4) powershell -File scripts/verify-stack.ps1    # 全栈验收（Step E 报告 web 镜像陈旧态）
 #   入口 http://localhost:5301/（nginx 宿主 :5301 / 容器内 :80 单入口）
 #
 # 【tile 云缓存（2026-10-11）】MS 默认把生成的 tiles 上传 Azurite（容器名=iModelId，
@@ -245,6 +246,9 @@ services:
   #   静态服务段；publicPath 铁律断言 dist/scripts/parse-imdl-worker.js 在场）。
   #   旧镜像 ghcr.io/chenjinxian/luban-web:latest（apps/web 产物）退役——
   #   apps/web 删除（门禁全绿+用户确认）后 GHCR 管线随其一并停发。
+  #   【B2 2026-10-26】本服务**不随 fetch-backend/compose pull 更新**（非 GHCR
+  #   拉取）——web-next/itwinjs-core 源有更新须 scripts/rebuild-web.ps1 重建
+  #   （verify-stack Step E 比对镜像 revision 标签/Created 与源提交，陈旧打 WARN）。
   # ------------------------------------------------------------
   web:
     build:

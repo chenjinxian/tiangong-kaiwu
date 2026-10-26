@@ -35,6 +35,13 @@
 # linked 包的依赖，hoisted 平铺 + /build/node_modules 回退软链
 # 让 itwinjs 真实路径的向上查找命中依赖。
 # ============================================================
+# 源版本内嵌（B2 2026-10-26）：rebuild-web.ps1 经 `docker compose build
+# --build-arg GIT_COMMIT=<sha>` 注入（手工 compose build 未注入时留缺省
+# unknown）。只进运行段 LABEL 元数据，不参与任何 RUN——层缓存不受影响
+# （构建缓存命中与有无 GIT_COMMIT 无关）。verify-stack.ps1 Step E 用该标签
+# 做镜像陈旧检测；无标签/unknown 时退化为「镜像 Created vs 最新源提交」时间比较。
+ARG GIT_COMMIT=unknown
+
 # 构建段 base=node:22-alpine（M5-T9 brief 钉死；本机构建缓存常驻——旧镜像的
 # node:20-bookworm-slim 需外网拉取。构建面纯 JS 工具链（pnpm/vite/tsc/esbuild
 # 有 musl 变体），无 glibc 依赖）
@@ -129,6 +136,9 @@ RUN corepack pnpm@10 -r --filter @luban-cad/web-next... run build \
 
 # ---------- 运行阶段：nginx 静态服务 ----------
 FROM nginx:alpine
+# ARG 需在本段重声明才能进 LABEL（全局 ARG 不跨 stage 可见）
+ARG GIT_COMMIT=unknown
+LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 COPY luban-cad/apps/web-next/web-nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /build/luban-cad/apps/web-next/dist /usr/share/nginx/html
 EXPOSE 3000
