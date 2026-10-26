@@ -584,6 +584,105 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 }
 
 # ============================================================
+# Step F —— hub 镜像陈旧 + dist 挂载遮蔽检测（2026-10-27）
+#   10-27 实锤：compose 的 imodelhub 曾带宿主 dist 挂载覆盖
+#   /usr/src/app/dist——镜像 ID 是新的、容器实跑 10-25 旧产物，发布内容
+#   静默失效。本步两判据：
+#   1) 运行容器不得有 Destination=/usr/src/app/dist 的挂载（**FAIL**，
+#      属发布内容正确性问题，不是卫生提示）；
+#   2) 镜像 OCI revision 标签 == imodelhub-services HEAD（标签优先；
+#      unknown/缺失时退化为镜像 Created vs hub HEAD 提交时间）——陈旧
+#      只 WARN，提示重发 hub 镜像。
+#   hub 仓未检出时只做挂载检查（标签仍可报告）。
+# ============================================================
+Write-Host ''
+Write-Host '== Step F: hub 镜像与挂载检查 ==' -ForegroundColor Cyan
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Add-Check 'F' 'hub 镜像与挂载检查' $true 'docker 不在 PATH —— 跳过（栈验收不受影响）' -Warn
+} else {
+    function Get-HubNativeOut {
+        param([scriptblock]$Cmd)
+        $eap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $out = @(& $Cmd 2>$null)
+            if ($LASTEXITCODE -ne 0) { return @() }
+            return ,$out
+        } finally { $ErrorActionPreference = $eap }
+    }
+
+    Push-Location $RepoRoot
+    try {
+        $hubCid = [string](@(Get-HubNativeOut { docker compose ps -q imodelhub })[0])
+    } finally { Pop-Location }
+
+    if (-not $hubCid) {
+        Add-Check 'F' 'hub dist 挂载检查' $true 'hub 容器未运行（Step A 已判定）——跳过挂载/陈旧比较' -Warn
+    } else {
+        $container = $null
+        $inspectJson = (Get-HubNativeOut { docker inspect $hubCid }) -join "`n"
+        if ($inspectJson) {
+            try { $container = @((ConvertFrom-Json $inspectJson) | Select-Object -First 1)[0] } catch { }
+        }
+
+        $distMounts = @()
+        if ($container) {
+            $distMounts = @($container.Mounts | Where-Object { $_.Destination -eq '/usr/src/app/dist' })
+        }
+        if ($distMounts.Count -gt 0) {
+            $mountSrc = ($distMounts | ForEach-Object { $_.Source }) -join '; '
+            Add-Check 'F' 'hub dist 挂载检查' $false "容器挂载 $mountSrc → /usr/src/app/dist ——镜像内容被遮蔽；删除 compose 该挂载后 force-recreate"
+        } else {
+            Add-Check 'F' 'hub dist 挂载检查' $true '无宿主 dist 覆盖挂载（hub 内容来自镜像）'
+        }
+
+        $hubRoot = Join-Path (Split-Path -Parent $RepoRoot) 'imodelhub-services'
+        $hubHead = ''
+        $hubTime = $null
+        if (Test-Path (Join-Path $hubRoot '.git')) {
+            $hubHead = [string](@(Get-HubNativeOut { git -C $hubRoot rev-parse HEAD })[0])
+            $hubLine = [string](@(Get-HubNativeOut { git -C $hubRoot log -1 --format='%H|%cI' })[0])
+            if ($hubLine -match '^[0-9a-f]{40}\|(.+)$') {
+                try { $hubTime = [DateTimeOffset]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture) } catch { }
+            }
+        }
+
+        $imgName = 'ghcr.io/chenjinxian/imodelhub:latest'
+        if ($container -and $container.Config.Image) { $imgName = [string]$container.Config.Image }
+        $img = $null
+        $imgJson = (Get-HubNativeOut { docker image inspect $imgName }) -join "`n"
+        if ($imgJson) {
+            try { $img = @((ConvertFrom-Json $imgJson) | Select-Object -First 1)[0] } catch { }
+        }
+
+        if (-not $img) {
+            Add-Check 'F' 'hub 镜像陈旧检测' $true "镜像 $imgName 读取失败——跳过" -Warn
+        } else {
+            $imgCreated = $null
+            try { $imgCreated = [DateTimeOffset]::Parse((([string]$img.Created) -replace '\.(\d{7})\d+', '.$1'), [Globalization.CultureInfo]::InvariantCulture) } catch { }
+            $imgLabel = [string]$img.Config.Labels.'org.opencontainers.image.revision'
+            $createdText = if ($imgCreated) { $imgCreated.ToLocalTime().ToString('yyyy-MM-dd HH:mm') } else { '?' }
+            $hubShort = if ($hubHead.Length -ge 12) { $hubHead.Substring(0, 12) } else { $hubHead }
+            $labelShort = if ($imgLabel.Length -ge 12) { $imgLabel.Substring(0, 12) } else { $imgLabel }
+
+            if (-not (Test-Path (Join-Path $hubRoot '.git'))) {
+                Add-Check 'F' 'hub 镜像陈旧检测' $true "hub 仓未检出（$hubRoot）——镜像 $imgName 构建于 $createdText，仅报告" -Warn
+            } elseif ($imgLabel -and $imgLabel -ne 'unknown' -and $imgLabel -eq $hubHead) {
+                Add-Check 'F' 'hub 镜像陈旧检测' $true "镜像 revision 与 hub HEAD 一致（$hubShort，Created $createdText）"
+            } elseif ($imgLabel -and $imgLabel -ne 'unknown') {
+                Add-Check 'F' 'hub 镜像陈旧检测' $true "镜像 revision $labelShort ≠ hub HEAD $hubShort（Created $createdText，源提交 $(if ($hubTime) { $hubTime.ToLocalTime().ToString('yyyy-MM-dd HH:mm') } else { '?' })）——重发 hub 镜像" -Warn
+            } elseif ($imgCreated -and $hubTime -and $imgCreated -lt $hubTime) {
+                Add-Check 'F' 'hub 镜像陈旧检测' $true "镜像构建 $createdText 早于 hub HEAD 提交 $($hubTime.ToLocalTime().ToString('yyyy-MM-dd HH:mm'))（无 revision 标签）——重发 hub 镜像" -Warn
+            } elseif ($imgCreated -and $hubTime) {
+                Add-Check 'F' 'hub 镜像陈旧检测' $true "镜像构建 $createdText ≥ hub HEAD 提交（无 revision 标签，按时间比较）"
+            } else {
+                Add-Check 'F' 'hub 镜像陈旧检测' $true "镜像 $imgName 无可用 revision/时间信息——仅报告" -Warn
+            }
+        }
+    }
+}
+
+# ============================================================
 # 汇总 + 退出码
 # ============================================================
 Write-Host ''
