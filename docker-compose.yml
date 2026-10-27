@@ -150,8 +150,15 @@ services:
       THROTTLER_SHORT_LIMIT: ${THROTTLER_SHORT_LIMIT:-200}
       THROTTLER_LONG_LIMIT: ${THROTTLER_LONG_LIMIT:-2000}
       APP_PORT: "4000"
+      # audit W1-I6：Express trust proxy 「信任跳数」透传。0 = 不信任任何代理
+      # （直连部署）；1 = 只信任紧邻 nginx 一跳（默认，匹配本栈形态）。hub 侧
+      # 校验层只接受 0..10 整数（布尔 true 会盲信任意 XFF，已拒）。
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       # CORS 白名单：默认 vite dev server(:5300) + nginx 单入口(:5301)；跨主机部署
-      # 经根 .env 的 HUB_ALLOWED_ORIGINS 覆盖（2026-10-12 审计：原值钉死 localhost）
+      # 经根 .env 的 HUB_ALLOWED_ORIGINS 覆盖（2026-10-12 审计：原值钉死 localhost）。
+      # 条目口径（W1-I6）：精确 origin（全等），或显式 `^...$` 锚定正则；未锚定
+      # 条目按字面精确匹配（若当正则用，会被 `https://app.example.com.evil.test`
+      # 式前缀拼接绕过）。NODE_ENV=development 只额外放行 loopback，不再无条件全开。
       ALLOWED_ORIGINS: ${HUB_ALLOWED_ORIGINS:-http://localhost:5300,http://localhost:5301,http://localhost:5310}
       # 栈内无 Jaeger/OTLP collector，停用空转导出（默认开且指向 localhost:4318）
       TRACING_ENABLED: "false"
@@ -301,9 +308,11 @@ services:
       # 宿主形态（默认）host.docker.internal:5401（MS 是宿主进程）；
       # 容器形态（--profile container）改 http://modeling-server:4001
       MS_UPSTREAM: ${BFF_MS_UPSTREAM:-http://host.docker.internal:5401}
-      # 宿主形态（默认，hub 源码模式）host.docker.internal:5400；
-      # hub 容器形态改 http://imodelhub:4000
-      HUB_UPSTREAM: ${BFF_HUB_UPSTREAM:-http://host.docker.internal:5400}
+      # hub 一律为容器（compose 权威栈）→ 容器网络直连 imodelhub:4000。
+      # 旧默认 host.docker.internal:5400 属宿主源码模式遗留：2026-10-27 起
+      # hub 仅回环发布，宿主路径只剩 Docker Desktop SNAT（客户端真实 IP 失真），
+      # 不再作为缺省（W1-I6）。宿主源码模式调试时显式设 BFF_HUB_UPSTREAM。
+      HUB_UPSTREAM: ${BFF_HUB_UPSTREAM:-http://imodelhub:4000}
       # CORS 白名单：vite dev server(:5300) + nginx 单入口(:5301)
       ALLOWED_ORIGINS: ${BFF_ALLOWED_ORIGINS:-http://localhost:5300,http://localhost:5301}
       RATE_LIMIT_MAX: ${BFF_RATE_LIMIT_MAX:-100}

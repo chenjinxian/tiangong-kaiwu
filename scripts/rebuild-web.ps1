@@ -20,10 +20,13 @@
 #     itwinjs-core 后须先 rush build 再跑本脚本，lib/ 是构建输入）。
 #   - 构建时注入 GIT_COMMIT 构建参数 → 镜像 OCI 标签
 #     org.opencontainers.image.revision（verify-stack.ps1 Step E 陈旧检测
-#     消费）。注入值 = **最新 web 源提交**（apps/web-next + packages +
-#     itwinjs-core），不是仓库 HEAD——docs/scripts 等非 web 提交不会把镜像
-#     判旧（2026-10-27 口径修正）；手工 `docker compose build web` 未注入时
-#     标签为 unknown，此时检测退化为「镜像 Created 时间 vs 最新 web 源提交时间」比较。
+#     消费）。注入值 = **最新 web 源提交**（W1-I5：`luban-cad` + `itwinjs-core`
+#     两个整目录——Dockerfile 复制整个 luban-cad/，并消费其 pnpm-lock.yaml /
+#     package.json / pnpm-workspace.yaml / docker-closure.cjs，只盯
+#     apps/web-next + packages 会漏构建输入），不是仓库 HEAD——docs/scripts 等
+#     非 web 提交不会把镜像判旧（2026-10-27 口径修正）；手工
+#     `docker compose build web` 未注入时标签为 unknown，此时检测退化为
+#     「镜像 Created 时间 vs 最新 web 源提交时间」比较。
 #   - fetch-backend.ps1 -RebuildWeb 可在拉取后端产物后联动执行本脚本。
 # ============================================================
 [CmdletBinding()]
@@ -53,8 +56,9 @@ if (-not (Test-Path $workerSrc)) {
 # --- 注入源版本（OCI 标签 org.opencontainers.image.revision）---
 $gitSha = 'unknown'
 try {
-    # 与 verify-stack Step E 同口径：最新 web 源提交（非仓库 HEAD）
-    $gitSha = [string](& git -C $RepoRoot log -1 --format='%H' -- luban-cad/apps/web-next luban-cad/packages itwinjs-core 2>$null)
+    # 与 verify-stack Step E 同口径：最新 web 源提交（W1-I5：luban-cad +
+    # itwinjs-core 两个整目录，均为镜像构建输入；非仓库 HEAD）
+    $gitSha = [string](& git -C $RepoRoot log -1 --format='%H' -- luban-cad itwinjs-core 2>$null)
 } catch { }
 if (-not $gitSha -or $LASTEXITCODE -ne 0) { $gitSha = 'unknown' }
 $shaShort = if ($gitSha.Length -ge 12) { $gitSha.Substring(0, 12) } else { $gitSha }

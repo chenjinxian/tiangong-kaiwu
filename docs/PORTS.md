@@ -39,12 +39,23 @@ AZURITE_HOST=127.0.0.1:10500
 AZURE_BLOB_ENDPOINT=http://azurite:10000/devstoreaccount1   # 容器内不变
 AZURE_BLOB_PUBLIC_HOST=127.0.0.1:10500                       # 宿主 MS 预签名 URL 改写目标
 MS_UPSTREAM=host.docker.internal:5401
-HUB_UPSTREAM=host.docker.internal:5400
+HUB_UPSTREAM=imodelhub:4000                                  # 容器网络直连 hub（W1-I6）
 WA_MODELING_SERVER_URL=http://host.docker.internal:5401
 BFF_UPSTREAM=host.docker.internal:5401                       # 启用 BFF 改 luban-bff:5403
 HUB_ALLOWED_ORIGINS=http://localhost:5300,http://localhost:5301
 BFF_ALLOWED_ORIGINS=http://localhost:5300,http://localhost:5301
 ```
+
+> **HUB_UPSTREAM 口径（2026-10-27，W1-I6）**：hub 只发布在宿主 **127.0.0.1:5400**
+> （仅回环），容器内一律经 compose 网络 `imodelhub:4000` 访问。走
+> `host.docker.internal:5400` 的宿主机路径在 Docker Desktop 下会经过 NAT/SNAT：
+> hub 看到的来源是网关地址而非真实客户端，客户端 IP / `TRUST_PROXY` 跳数
+> 口径失真——仅宿主源码模式临时调试时才显式覆盖，不作为缺省。
+>
+> **CORS 条目口径**：`HUB_ALLOWED_ORIGINS` 条目只接受精确 origin（字符串全等）
+> 或显式 `^...$` 锚定正则；未锚定的值按字面精确匹配（不会被当正则）。HUB 在
+> `NODE_ENV=development` 下只额外放行 loopback（localhost / 127.0.0.1，任意
+> 端口），不再无条件放开任意来源。
 
 ## 访问入口
 

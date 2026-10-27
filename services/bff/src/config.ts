@@ -5,7 +5,7 @@
 export interface BffConfig {
   /** modeling-server upstream origin, e.g. http://host.docker.internal:5401 */
   msUpstream: string;
-  /** imodelhub-services upstream origin (HUB nine prefixes), e.g. http://host.docker.internal:5400 */
+  /** imodelhub-services upstream origin (HUB nine prefixes), e.g. http://imodelhub:4000 (compose network) */
   hubUpstream: string;
   /** hub token-validation endpoint (full URL, e.g. ${hubUpstream}/auth/me) */
   authUrl: string;
@@ -22,7 +22,9 @@ export interface BffConfig {
 const DEFAULTS = {
   port: 5403,
   msUpstream: 'http://host.docker.internal:5401',
-  hubUpstream: 'http://host.docker.internal:5400',
+  // W1-I6: hub now always runs as the compose container and publishes only on
+  // loopback; reach it over the compose network, not the Docker Desktop gateway.
+  hubUpstream: 'http://imodelhub:4000',
   allowedOrigins: 'http://localhost:5300,http://localhost:5301',
   rateLimitMax: 100,
   rateLimitWindowMs: 900_000, // 15 min

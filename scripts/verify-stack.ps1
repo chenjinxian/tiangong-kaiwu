@@ -43,9 +43,12 @@
 #
 # web 镜像陈旧检测（Step E，B2 2026-10-26）: compose 的 web 是本仓 build（非 GHCR
 #   拉取），fetch-backend 的 compose pull 不更新它——镜像可能停在旧源。比对镜像
-#   OCI revision 标签（rebuild-web.ps1 注入）与当前 HEAD sha，无标签时退化为
+#   OCI revision 标签（rebuild-web.ps1 注入）与最新 web 源提交 sha，无标签时退化为
 #   Created vs 最新 web 源提交时间；陈旧打黄色 WARN 提示 scripts/rebuild-web.ps1，
 #   不扣退出码（诚实报告而非硬门，功能是否受损由 A-D 判定）。
+#   源范围（W1-I5）：`luban-cad` + `itwinjs-core` 两个整目录——Dockerfile 复制
+#   整个 luban-cad/ 并消费其 pnpm-lock.yaml / package.json / pnpm-workspace.yaml /
+#   docker-closure.cjs，只盯 apps/web-next + packages 会漏掉这些构建输入。
 # ============================================================
 [CmdletBinding()]
 param(
@@ -501,8 +504,8 @@ if (-not $msHealthy) {
 #      Created 会停在首次构建时刻，拿它比时间必误报，2026-10-26 实测）
 #   2) 标签存在但 ≠ HEAD（或为手工 build 的 unknown）→ 陈旧
 #   3) 无标签（本检查上线前的旧镜像）→ 退化为时间比较：
-#      镜像 Created < 最新 web 源提交（apps/web-next + packages + itwinjs-core，
-#      三者都是镜像构建输入）
+#      镜像 Created < 最新 web 源提交（W1-I5：luban-cad + itwinjs-core 整目录，
+#      均为镜像构建输入）
 #   陈旧只 WARN 提示 rebuild-web.ps1，不阻断验收——镜像陈旧属部署卫生问题，
 #   功能是否受损由 A-D 判定。
 # ============================================================
@@ -553,10 +556,12 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         $imgLabel = [string]$img.Config.Labels.'org.opencontainers.image.revision'
         $imgCreatedText = if ($imgCreated) { $imgCreated.ToLocalTime().ToString('yyyy-MM-dd HH:mm') } else { '?' }
 
-        # --- 源侧：最新 web 源提交 sha + 时间（apps/web-next + packages +
-        #     itwinjs-core 三者都是镜像构建输入；非 git 检出优雅降级为只报告）。
+        # --- 源侧：最新 web 源提交 sha + 时间（W1-I5：luban-cad + itwinjs-core
+        #     两个整目录——Dockerfile 复制整个 luban-cad/，并消费 pnpm-lock.yaml /
+        #     package.json / pnpm-workspace.yaml / docker-closure.cjs；只盯
+        #     apps/web-next + packages 会误判「新鲜」。非 git 检出优雅降级为只报告）。
         #     口径不是仓库 HEAD——docs/scripts 等非 web 提交不应判旧（2026-10-27）---
-        $srcLine = [string](@(Get-NativeOut { git -C $RepoRoot log -1 --format='%H|%cI' -- luban-cad/apps/web-next luban-cad/packages itwinjs-core })[0])
+        $srcLine = [string](@(Get-NativeOut { git -C $RepoRoot log -1 --format='%H|%cI' -- luban-cad itwinjs-core })[0])
         $headSha = ''
         $srcTime = $null
         if ($srcLine -match '^([0-9a-f]{40})\|(.+)$') {
