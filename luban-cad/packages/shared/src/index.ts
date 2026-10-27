@@ -214,6 +214,8 @@ export type {
   RevolveParams,
   // M7 v1.10（boolean 草图驱动）
   BooleanParams,
+  // B2 v1.11（loft 多截面放样）
+  LoftParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

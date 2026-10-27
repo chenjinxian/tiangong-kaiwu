@@ -88,6 +88,14 @@ export function useToolActivation(): ToolActivation {
       openFeatureDialog({ mode: 'new', featureType: 'revolve' });
       return;
     }
+    if (id === 'loft') {
+      // B2 loft 闭环入口：new/loft 对话框（双截面草图选择器——参数化特征链，
+      // 首版两平行截面）。ribbon 注册表的 'loft' 无对应注册工具（伪 toolId：
+      // 真实 LoftProfiles 工具 id 不同且为直改通道），点击原会静默 run 失败——
+      // 特例改道对话框（同 extrude/revolve 姿态）。
+      openFeatureDialog({ mode: 'new', featureType: 'loft' });
+      return;
+    }
     if (id === 'RoundEdges') {
       // M6-b T6 圆角闭环入口：new/fillet 对话框（M4-T6/T4 同姿态——参数化
       // 特征链非直改工具；拾取归对话框「添加边」钮驱动 FilletEdgePickTool），

@@ -308,6 +308,10 @@
     "fullRevolveLabel": "Full revolve",
     "angleLabel": "Angle (degrees)",
     "angleInvalid": "Enter a valid revolve angle (greater than 0 and at most 360)",
+    "loftSectionsLabel": "Section sketches",
+    "loftSectionLabel": "Section sketch {{index}}",
+    "loftNeedsTwoSketchesHint": "Loft needs two sketches: create at least two sketches first",
+    "loftDuplicateHint": "The two section sketches must be different",
     "filletEdgesLabel": "Edges to fillet",
     "radiusLabel": "Radius",
     "radiusInvalid": "Enter a valid fillet radius (greater than 0)",
@@ -561,6 +565,7 @@
       "chamfer": "Chamfer",
       "shell": "Shell",
       "revolve": "Revolve",
+      "loft": "Loft",
       "sketch": "Sketch"
     }
   },

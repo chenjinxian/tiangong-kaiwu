@@ -144,6 +144,10 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'tree.featureTypes.sketch', 'tree.editSketch',
   // M6-b T4：revolve 通道——树类型标签 + 轴下拉/无轴门禁/全方位/角度（度制）。
   'tree.featureTypes.revolve',
+  // B2 v1.11：loft 树类型标签 + 双截面选择器（截面草图 1/2、两草图门禁/同草图提示）。
+  'tree.featureTypes.loft',
+  'featureDialog.loftSectionsLabel', 'featureDialog.loftSectionLabel',
+  'featureDialog.loftNeedsTwoSketchesHint', 'featureDialog.loftDuplicateHint',
   'featureDialog.axisLabel', 'featureDialog.axisOption', 'featureDialog.noAxisHint',
   'featureDialog.fullRevolveLabel', 'featureDialog.angleLabel', 'featureDialog.angleInvalid',
   // M6-b T6：fillet 通道——边标签/半径/切向延伸/添加边拾取/边 chips/门禁 +

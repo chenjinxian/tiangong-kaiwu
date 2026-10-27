@@ -449,6 +449,11 @@ export function FeatureDialog({
   // fillet 通道（M6-b T6）：体边拾取非草画面域——不进草图通道；输入集=体上
   // 拾得的边（持久拓扑 id 对），提交面同 applyOp。
   const filletChannel = mode === 'new' && featureType === 'fillet' && applyOp !== undefined;
+  // B2 loft 通道（首版两平行截面）：**双截面草图**选择器——不走 sketchChannel
+  //（loft 无面域读取：服务端每草图取最大面域；载荷 {sketchIds, bodyType:'SOLID'}）。
+  // ribbon 现有 'loft' 条目无注册工具（伪 toolId，见 Ribbon.tsx 注记），入口改道
+  // 本对话框；guides/端条件/sections UI 首版不做。
+  const loftChannel = mode === 'new' && featureType === 'loft' && applyOp !== undefined;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
@@ -473,6 +478,10 @@ export function FeatureDialog({
   // 面域读取代际：换草图/换连接时 +1，慢响应过期即丢弃（useSketchSystem
   // activeEpochRef 同款纪律——stale-clobber 防旧草图面域覆写新选择）。
   const regionsEpochRef = React.useRef(0);
+  // B2 loft 通道：两截面草图选择（LoftParams.sketchIds 二元组；两键均选且互不相同
+  // 才可提交——同草图重复是退化放样，服务端 zod 同口径拒收）。
+  const [loftSketchA, setLoftSketchA] = React.useState('');
+  const [loftSketchB, setLoftSketchB] = React.useState('');
 
   // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
   const [radius, setRadius] = React.useState('5');
@@ -635,6 +644,11 @@ export function FeatureDialog({
   // 提交门（M6-b T6 fillet 追加）：已拾至少一条边（空边集禁提交——shared
   // FilletParams.edges 非空语义前置）∧ 拾取会话已结束（会话在场时禁提交）。
   const filletReady = !filletChannel || (filletEdges.length > 0 && !picking);
+  // 提交门（B2 loft）：两截面均已选且互不相同（三元组退化语义前置到 UI；
+  // 草图不足两张由 loftNeedsTwo 提示 + 同判据禁用兜住）。
+  const loftNeedsTwo = loftChannel && sketchOptions.length < 2;
+  const loftDuplicate = loftChannel && loftSketchA !== '' && loftSketchA === loftSketchB;
+  const loftReady = !loftChannel || (loftSketchA !== '' && loftSketchB !== '' && !loftDuplicate);
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -709,11 +723,12 @@ export function FeatureDialog({
     }
     if (sketchChannel && !sketchReady) return; // 草图通道门禁（✓ 已禁用，此为防御兜底）
     if (filletChannel && !filletReady) return; // fillet 通道门禁（空边集/拾取中——防御兜底）
+    if (loftChannel && !loftReady) return; // loft 通道门禁（两截面未选/同草图——防御兜底）
     if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
-    // 距离校验（extrude/通用路径；revolve/fillet 无距离量——旋转角即参数/半径
-    // 各自独立校验，输入已隐藏）。
+    // 距离校验（extrude/通用路径；revolve/fillet/loft 无距离量——旋转角即参数/
+    // 半径即参数/放样无扫掠距离，输入已隐藏）。
     let parsedDistance = 0;
-    if (!revolveChannel && !filletChannel) {
+    if (!revolveChannel && !filletChannel && !loftChannel) {
       parsedDistance = Number(distance);
       if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
         setError(t('partStudio.featureDialog.distanceInvalid'));
@@ -768,7 +783,14 @@ export function FeatureDialog({
           // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
           // edges:[{edge:{nodeId,entityId}}...]}（边自身持久 id 透传，shared v1.9
           // M6-d 纯换契约；无 profile/distance 语义）。
-          params: filletChannel
+          params: loftChannel
+            ? {
+                // B2 loft（shared v1.11 LoftParams）：两截面草图二元组 + 实体类型。
+                // 无 distance/profile/regions/guides 键（首版范围裁决）。
+                sketchIds: [loftSketchA, loftSketchB],
+                bodyType: 'SOLID',
+              }
+            : filletChannel
             ? {
                 radius: parsedRadius,
                 propagateSmooth,
@@ -844,6 +866,10 @@ export function FeatureDialog({
     filletEdges,
     radius,
     propagateSmooth,
+    loftChannel,
+    loftReady,
+    loftSketchA,
+    loftSketchB,
     selectedSketchId,
     regionIndex,
     selectedRegions,
@@ -895,8 +921,8 @@ export function FeatureDialog({
   // 折叠段可见集（M6-b T4）：草图通道「对称」以平铺复选顶替（Onshape 采集
   // 形态），折叠段 symmetric 隐藏防双复选绑同态；非通道（edit/布尔/壳期）不动。
   const visibleSections = React.useMemo(
-    () => (sketchChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
-    [sketchChannel],
+    () => (sketchChannel || loftChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
+    [sketchChannel, loftChannel],
   );
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
@@ -920,7 +946,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || booleanUpstreamMissing}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || booleanUpstreamMissing}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -1064,7 +1090,7 @@ export function FeatureDialog({
             M6-b T4：revolve 通道不适用（无距离量——全周/角度即参数），输入
             隐藏、handleConfirm 跳过距离校验。M6-b T6：fillet 通道同口径
             （无距离量——半径即参数）。 */}
-        {!revolveChannel && !filletChannel && (
+        {!revolveChannel && !filletChannel && !loftChannel && (
           <section className="part-studio-feature-dialog__distance">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
               {t('partStudio.featureDialog.distanceLabel')}
@@ -1172,9 +1198,11 @@ export function FeatureDialog({
             <span className="part-studio-feature-dialog__entities-label">
               {filletChannel
                 ? t('partStudio.featureDialog.filletEdgesLabel')
-                : t('partStudio.featureDialog.entitiesLabel')}
+                : loftChannel
+                  ? t('partStudio.featureDialog.loftSectionsLabel')
+                  : t('partStudio.featureDialog.entitiesLabel')}
             </span>
-            {!sketchChannel && !filletChannel && (
+            {!sketchChannel && !filletChannel && !loftChannel && (
               <button
                 type="button"
                 className="part-studio-feature-dialog__fast-pick"
@@ -1264,6 +1292,67 @@ export function FeatureDialog({
                 >
                   {t('partStudio.featureDialog.noEdgesHint')}
                 </p>
+              )}
+            </React.Fragment>
+          )}
+
+          {/* B2 loft 通道：双截面草图选择器（首版两平行截面——每草图取最大面域）。
+              草图不足两张 → 诚实提示 + 提交禁用；两键互不相同（同草图重复=退化放样，
+              服务端 zod 同口径拒收）。无 guides/端条件/sections UI。 */}
+          {loftChannel && (
+            <React.Fragment>
+              {sketchOptions.length < 2 ? (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-loft-needs-two-hint"
+                >
+                  {t('partStudio.featureDialog.loftNeedsTwoSketchesHint')}
+                </p>
+              ) : (
+                <React.Fragment>
+                  <select
+                    aria-label={t('partStudio.featureDialog.loftSectionLabel', { index: 1 })}
+                    className="part-studio-feature-dialog__select"
+                    value={loftSketchA}
+                    disabled={submitting}
+                    onChange={(event) => setLoftSketchA(event.target.value)}
+                  >
+                    <option value="" disabled>
+                      {t('partStudio.featureDialog.sketchPlaceholder')}
+                    </option>
+                    {sketchOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label={t('partStudio.featureDialog.loftSectionLabel', { index: 2 })}
+                    className="part-studio-feature-dialog__select"
+                    value={loftSketchB}
+                    disabled={submitting}
+                    onChange={(event) => setLoftSketchB(event.target.value)}
+                  >
+                    <option value="" disabled>
+                      {t('partStudio.featureDialog.sketchPlaceholder')}
+                    </option>
+                    {sketchOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {loftDuplicate && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-loft-duplicate-hint"
+                    >
+                      {t('partStudio.featureDialog.loftDuplicateHint')}
+                    </p>
+                  )}
+                </React.Fragment>
               )}
             </React.Fragment>
           )}
@@ -1451,7 +1540,7 @@ export function FeatureDialog({
             </React.Fragment>
           )}
 
-          {!sketchChannel && (
+          {!sketchChannel && !loftChannel && (
             <ul className="part-studio-feature-dialog__chips">
               {chips.map((chip) => (
                 <li key={chip.id} className="part-studio-feature-dialog__chip">
@@ -1562,7 +1651,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || booleanUpstreamMissing}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || booleanUpstreamMissing}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

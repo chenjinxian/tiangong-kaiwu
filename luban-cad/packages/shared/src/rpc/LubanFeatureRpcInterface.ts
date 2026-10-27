@@ -28,12 +28,17 @@
  * 语料 REMOVE 映射依赖）逐字保留：BooleanParams 以 sketchId 在场为判别，服务端 zod 与
  * 内联 profile 互斥拒收（同给即拒）。特征类型名不变（booleanAdd/booleanSubtract），
  * operation 与类型名互为真源（booleanAdd⇔unite、booleanSubtract⇔subtract，服务端 zod 一致性拒收）。
+ * B2 升 v1.11：loft 放样——LoftParams（两张截面草图 sketchIds 二元组 + 可选 sections +
+ * bodyType:'SOLID'）。首版只做**两个平行草图截面**（无 guides/端条件；sections 为保留键，
+ * 求值不消费）；求值走 BRepGeometryOperation.Loft=9 的 entryArray（两截面外环 Loop），
+ * 单 body 写回。特征类型名 `loft`。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 
-/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve";
+/** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
+ * B2 v1.11 增 loft） */
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -81,6 +86,23 @@ export interface BooleanParams {
   regions?: number[];
   distance: number;
   operation: "unite" | "subtract";
+}
+
+/**
+ * loft 放样参数（B2 v1.11）：两个草图截面沿世界系放样成单一实体。
+ * - `sketchIds`：**恰好两张**草图元素 id 的二元组（单草图/同草图重复由服务端 zod 拒收——
+ *   放样至少需要两个截面；同一草图两次是退化放样，无正解）。
+ * - `sections`：保留键（分段数）——首版求值不消费（无 guides/端条件，见下）；形态校验
+ *   只做正整数，未来扩「多段插值」时启用。
+ * - `bodyType`：首版只产实体（`'SOLID'`；曲面/薄壁放样不在此契约内）。
+ * 求值语义（服务端）：每张草图取最大面域（regions[0]）外环，经草图 plane 变换到世界系，
+ * 两 Loop 作 entryArray 送 BRepGeometryOperation.Loft=9；有上游时与上游 Unite（ADD 语义，
+ * 同 revolve），单 body 写回。截面须平行（首版守卫，内核裁决兜底）。
+ */
+export interface LoftParams {
+  sketchIds: [string, string];
+  sections?: number;
+  bodyType: "SOLID";
 }
 
 /** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */
@@ -145,7 +167,7 @@ export interface RevolveParams {
   angle?: number;
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams;
 
 export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
@@ -230,7 +252,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.10.0";
+  public static interfaceVersion = "1.11.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

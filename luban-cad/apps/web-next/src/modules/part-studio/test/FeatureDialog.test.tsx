@@ -1566,6 +1566,95 @@ describe('M6-b T4 extrude 对称平铺复选（Onshape 平铺形态；载荷已�
 });
 
 // ---------------------------------------------------------------------------
+// B2 Task 2：loft 通道（双截面草图选择器——最小入口）。
+// 首版只做两平行截面（LoftParams.sketchIds 二元组 + bodyType:'SOLID'；无 guides/
+// end conditions/sections UI）。两个独立下拉（截面草图 1/2），门禁=两键均已选且
+// 互不相同；载荷无 distance/profile/regions 键。ribbon 入口：现有 'loft' id 无
+// 注册工具（伪 toolId），Ribbon 特例改道本对话框（见 Ribbon.tsx）。
+// ---------------------------------------------------------------------------
+describe('B2 loft 通道（双截面草图选择器）', () => {
+  const SKETCHES = [
+    { id: 'sk-1', label: '草图 1' },
+    { id: 'sk-2', label: '草图 2' },
+  ];
+
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  function renderLoftDialog(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="放样"
+        mode="new"
+        featureType="loft"
+        applyOp={applyOp}
+        sketches={SKETCHES}
+        connectionKey="model-key"
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+        {...props}
+      />,
+    );
+    return { user, onConfirm };
+  }
+
+  it('初始形态：两个截面下拉在场、距离输入不在场、✓/成品禁用（未选截面）', () => {
+    renderLoftDialog(makeApplyOp());
+    expect(screen.getByRole('combobox', { name: '截面草图 1' })).toBeDefined();
+    expect(screen.getByRole('combobox', { name: '截面草图 2' })).toBeDefined();
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // loft 无距离量
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('选两张不同草图 → 载荷 {sketchIds:[a,b], bodyType:"SOLID"}（无 distance/profile/regions 键）→ onConfirm', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = renderLoftDialog(applyOp);
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 1' }), 'sk-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 2' }), 'sk-2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'loft',
+      params: { sketchIds: ['sk-1', 'sk-2'], bodyType: 'SOLID' },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('同一草图两次 → 提示 + 提交禁用，不发起 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderLoftDialog(applyOp);
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 1' }), 'sk-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 2' }), 'sk-1');
+    expect(screen.getByTestId('part-studio-feature-dialog-loft-duplicate-hint')).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('草图不足两张 → 需要两张截面草图提示 + 提交禁用（不发 op）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderLoftDialog(applyOp, { sketches: [{ id: 'sk-1', label: '草图 1' }] });
+    expect(screen.getByTestId('part-studio-feature-dialog-loft-needs-two-hint')).toBeDefined();
+    expect(screen.queryByRole('combobox', { name: '截面草图 1' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('edit 模式/壳期不渲染 loft 选择器（new + applyOp 才进入通道）', () => {
+    renderDialog({ featureType: 'loft' });
+    expect(screen.queryByRole('combobox', { name: '截面草图 1' })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // M6-b T6：fillet 通道（F8——体边拾取，不走草图通道）。**对话框驱动拾取裁决**：
 // 「添加边」钮启动 FilletEdgePickTool（动态 import——本文件 mock 该工具模块替身
 // 捕获回调现场，editor 基座链不入测试图），工具每拾一条边（已即时换边自身持久

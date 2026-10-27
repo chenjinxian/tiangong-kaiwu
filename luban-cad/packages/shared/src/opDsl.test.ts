@@ -244,6 +244,25 @@ describe("op DSL × M6-c T5（FEATURE_TYPES 白名单补 revolve）", () => {
   });
 });
 
+describe("op DSL × B2 v1.11（FEATURE_TYPES 白名单补 loft）", () => {
+  /** loft 全参样本（shared v1.11 LoftParams：两张截面草图 + 可选 sections + SOLID）。 */
+  const loftOp: FeatureOp = {
+    kind: "insertFeature",
+    featureType: "loft",
+    params: { sketchIds: ["sk-1", "sk-2"], sections: 2, bodyType: "SOLID" },
+  };
+
+  it("`op insertFeature loft {...}` 结构 parse 放行（白名单与 LubanFeatureType 全集对齐）", () => {
+    expect(dslToOps(opsToDsl([loftOp]))).toEqual([loftOp]);
+  });
+
+  it("loft 往返恒等 + 文本级稳定", () => {
+    const dsl = opsToDsl([loftOp]);
+    expect(dsl.startsWith("op insertFeature loft {")).toBe(true);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+});
+
 describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
   const plane = {
     origin: { x: 0, y: 0, z: 0.1 },
