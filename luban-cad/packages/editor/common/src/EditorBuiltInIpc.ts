@@ -48,14 +48,16 @@ export interface BasicManipulationCommandIpc extends EditCommandIpc {
   transformPlacement(ids: CompressedId64Set, transform: TransformProps): Promise<IModelStatus>;
   rotatePlacement(ids: CompressedId64Set, matrix: Matrix3dProps, aboutCenter: boolean): Promise<IModelStatus>;
 
-  /** Create a mirrored copy of a geometric element across a world-space plane.
-   * The source element is left unchanged (keep-original semantics, matching the parametric mirror feature).
-   * The copy is inserted into the same model/category; its geometry is stored relative to an identity placement
-   * (world coordinates). Only BRep solid geometry is supported in v1 - other displayable geometry is rejected.
-   * @param elementId Source element to mirror.
+  /** Mirror a geometric element across a world-space plane, **in place**.
+   * The element's geometry becomes `Unite(original, mirrored)` — keep-original semantics: the original
+   * material is retained inside the same element (matching the parametric mirror feature, which also
+   * reconciles the inverted standalone mirrored body via the original-first Unite). The element placement
+   * is unchanged (the world plane is converted into element-local space). Only BRep **solid** geometry is
+   * supported in v1; other displayable geometry and non-solid BRep bodies are rejected.
+   * @param elementId Element to mirror (updated in place; not copied).
    * @param planePoint A point on the mirror plane (world coordinates).
    * @param planeNormal The plane normal (world coordinates, non-degenerate; not required to be unit length).
-   * @returns The id of the newly inserted mirrored element.
+   * @returns The id of the updated element — same as `elementId`.
    */
   mirrorElement(elementId: Id64String, planePoint: XYZProps, planeNormal: XYZProps): Promise<Id64String>;
 

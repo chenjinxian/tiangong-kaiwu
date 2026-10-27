@@ -159,7 +159,9 @@ export class MirrorElementsTool extends PrimitiveTool {
 
       // 调用 RPC 执行镜像操作（B4 修复：basicManipulation 命令一次、逐元素 callEditMethod——
       // 旧实现把 mirrorElement 载荷塞进 startEditCommand 构造参数，后端无此方法=空操作）。
-      // 语义=保留原体的镜像副本（与参数化 mirror 特征一致）；BRep 实体几何（v1 范围）。
+      // 语义=**就地并入镜像体**（元素几何变成 Unite(原体, 镜像体)，原体材料保留在同一元素内；
+      // placement 不变、返回同一元素 id——与参数化 mirror 特征一致；单独镜像副本会内翻，
+      // 当前原生面无实体反倒向通道）。BRep 实体几何（v1 范围）。
       // 事务在 finishEditCommand 之前显式 saveChanges（EditCommand 默认 requestFinish 会
       // abandon 未保存事务——不显式保存则空跑）。
       const rpc = OpenCloudRpcInterface.getClient();

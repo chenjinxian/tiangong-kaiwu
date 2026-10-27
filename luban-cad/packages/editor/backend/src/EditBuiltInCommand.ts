@@ -180,6 +180,9 @@ export class BasicManipulationCommand extends EditCommand implements BasicManipu
         const brep = ElementGeometry.toBRep(entry, true);
         if (!brep || !brep.data)
           throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: BRep entry without entity data on ${elementId}`);
+        // 非实体（Sheet/Wire）拒收——与参数化 mirror 同口径：并集语义只对实体成立。
+        if (BRepEntity.Type.Solid !== brep.type)
+          throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: only BRep solid geometry is supported (type=${brep.type}) on ${elementId}`);
         const base = undefined === brep.transform ? Transform.createIdentity() : Transform.fromJSON(brep.transform);
         const mirroredEntry = ElementGeometry.fromBRep({ ...brep, transform: mirror.multiplyTransformTransform(base).toJSON() });
         if (!mirroredEntry)
@@ -204,7 +207,12 @@ export class BasicManipulationCommand extends EditCommand implements BasicManipu
     if (status !== IModelStatus.Success || undefined === unionEntries || 0 === unionEntries.length)
       throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: kernel Unite failed on ${elementId} (status=${status})`);
     const props = this.iModel.elements.getElementProps<GeometricElement3dProps>({ id: elementId });
-    props.elementGeometryBuilderParams = { entryArray: [...passthrough, ...unionEntries] };
+    // viewIndependent 是几何流头标志（ElementGeometryInfo 回读）——重写 builderParams 时保留，
+    // 否则镜像一次会把「朝向观察者」的元素静默改为世界朝向。
+    props.elementGeometryBuilderParams = {
+      entryArray: [...passthrough, ...unionEntries],
+      ...(geometry.viewIndependent ? { viewIndependent: true } : {}),
+    };
     await this.iModel.locks.acquireLocks({ exclusive: elementId });
     this.beginEditing();
     applyDirectEditGuard(this.iModel, elementId, "updateGeometricElement", props);
