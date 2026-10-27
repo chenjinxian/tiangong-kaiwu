@@ -35,3 +35,16 @@
 
 - 默认 6/6 不回归；opt-in 全保真绿（体积 0.0001%、7/7、stop UP_TO_SURFACE）。
 - 计划/记忆记录：C0 0/10 + ADD/NEW 死区分；C1-C3 暂停；C4 门已就位。
+
+## C4 实现结果（2026-10-27，私有仓本地 commit）
+
+- `ba1b6a7`：`corpus/full/...-full.json`（11,873B，仅 id 变化）+ `CORPUS_REPLAY_FULL_FIDELITY=1`
+  非递归装载 + NEW≡ADD 注释。
+- `4f81c13`：门禁硬化——full 目录缺失/为空 fail-loud、跨目录重复 id 守卫、full case
+  `timelineChecks===7` 与 stop `endBound-UP_TO_SURFACE` 硬断言、`-t` 说明修正。
+- 验证：默认 **6/6**（40.47s，full 不装载）；`CORPUS_REPLAY_FULL_FIDELITY=1` 全套 **7/7**
+  （84.73s，full case 45.66s，0.0001%，7/7，stop UP_TO_SURFACE）。
+- **规范门命令**：`CORPUS_REPLAY_FULL_FIDELITY=1 npx vitest run src/feature/CorpusReplay.test.ts --no-coverage`
+  （不要只靠 `-t` 选择器；env 未设时选择器可能 0 命中而绿色）。
+- 剩余 minor：full case 仍为 `mode:"smoke"`（前缀体积路径，非 full expectedVolume）；
+  invariants 以 `-full` id 后缀/硬编码 7 绑定，语料扩容时需泛化。
