@@ -18,7 +18,7 @@
 // M6-a T6（拉伸草图通道）：new/extrude 提交走 {sketchId, regionIndex,
 // profile:[]}（解「空 profile 死结」——T3 zod 拒收无 sketchId 的空 profile）：
 // 草图下拉+面域下拉（regions>1）/单面域自动 0/无草图无面域门禁/选中回显
-// chip/布尔类型不接通道（zod sketchId:z.never() 既有语义）。
+// chip。M7 v1.10 起布尔类型也走本通道（BooleanParams），见该 describe 末两条用例。
 //
 // M6-b T4（revolve 通道+对称平铺复选）：sketchChannel 扩 revolve——轴下拉
 //（getSketch entities 过滤 kind==='line'，载荷 axis.sketchEntityId 同值，缺省
@@ -1065,7 +1065,11 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     });
   });
 
-  it('布尔类型（booleanAdd）不接草图通道：sketches 在场也无草图下拉/门禁，载荷仍 {profile:[],distance}（zod sketchId:z.never() 既有语义）', async () => {
+  // M7 v1.10（合理变更，接替 M6-a 的「布尔不接通道」旧裁决）：布尔类型改走草图通道——
+  // shared BooleanParams（sketchId/regions/distance/operation）落地后，booleanAdd/booleanSubtract
+  // 的 UI 输入=草画面域；内联 profile 布尔路径仅服务 API/语料（对话框不再生成该形态）。
+  it('布尔类型（booleanAdd）走草图通道（M7 v1.10）：未选草图禁提交；载荷 {sketchId, regions, distance, operation:unite}', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
     render(
@@ -1078,18 +1082,67 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
-    expect(screen.queryByTestId('part-studio-feature-dialog-no-sketch-hint')).toBeNull();
-    // 通用 chips + 快速拾取保持（非草图通道形态不动）。
-    expect(screen.getByRole('button', { name: '快速拾取' })).toBeDefined();
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    // 草图通道形态：草图下拉在场（旧布尔直出的通用 chips/快速拾取不越通道）。
+    expect(screen.getByRole('combobox', { name: '草图' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: '快速拾取' })).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    // 选中草图（单面域自动 [0]）→ 提交草图驱动布尔载荷
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'booleanAdd',
-      params: { profile: [], distance: 10 },
+      params: { sketchId: 'sk-1', distance: 10, regions: [0], operation: 'unite' },
     });
-    expect(featureRpc.getSketch).not.toHaveBeenCalled();
+  });
+
+  // M7 v1.10：布尔作用域页签映射到 featureType（extrude 对话框内切换）：
+  // 新建→extrude（既有载荷，symmetric 键语义不动）/ 加入→booleanAdd / 移除→booleanSubtract；
+  // 相交无后端特征类型（M7 首版不支持），保持不映射（不静默降级为并集——本版页签仍为回传元数据）。
+  it('布尔作用域映射 featureType（M7 v1.10）：加入→booleanAdd(unite) / 移除→booleanSubtract(subtract) / 新建→extrude 原载荷', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
+
+    await user.click(screen.getByRole('tab', { name: '加入' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'booleanAdd',
+      params: { sketchId: 'sk-1', distance: 10, regions: [0], operation: 'unite' },
+    });
+
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'booleanSubtract',
+      params: { sketchId: 'sk-1', distance: 10, regions: [0], operation: 'subtract' },
+    });
+
+    await user.click(screen.getByRole('tab', { name: '新建' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+    });
+    expect(applyOp).toHaveBeenCalledTimes(3);
   });
 });
 

@@ -22,6 +22,12 @@
  * edgesFromOwnId 按 id 直寻（分裂片集合多持）；resolveEdgeRef 产 `{edge}`，求值端
  * edgesFromOwnId 直寻 blend（裂片随形全倒角）。旧面对引用 `{faceA,faceB}` 不兼容：服务端 zod
  * 显式拒收（诚实文案），旧库 fillet/chamfer 特征重算走 status=1 诚实级联（dev 阶段先例同口径）。
+ * M7 升 v1.10：布尔草图驱动——BooleanParams（sketchId + regionIndex/regions + distance +
+ * operation）单列接口（不塞进 ExtrudeParams：布尔是「以草画面域为工具体、与上游布尔」的独立
+ * 语义，掺进拉伸参数会把两条形态的互斥裁决挤进同一接口）。内联 profile 布尔旧路径（M1 起，
+ * 语料 REMOVE 映射依赖）逐字保留：BooleanParams 以 sketchId 在场为判别，服务端 zod 与
+ * 内联 profile 互斥拒收（同给即拒）。特征类型名不变（booleanAdd/booleanSubtract），
+ * operation 与类型名互为真源（booleanAdd⇔unite、booleanSubtract⇔subtract，服务端 zod 一致性拒收）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -31,8 +37,8 @@ export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "f
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
- * （互斥语义，Registry 层 zod 校验锁死）。仅 extrude 接受此字段——布尔类型按类型拒收
- * （Registry booleanSchema，M2 终审 I2；显式支持归 M2-UX 单裁）。
+ * （互斥语义，Registry 层 zod 校验锁死）。本接口的 sketchId 仅 extrude 语义；布尔草图驱动在
+ * M7 v1.10 起走独立的 BooleanParams（不共用本接口——见其注），服务端按类型字段集校验。
  */
 export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
@@ -51,6 +57,30 @@ export interface ExtrudeParams {
   /** M6-b v1.7（T3）：对称拉伸——`distance` 为总深，实体沿拉伸方向两侧各半（跨 [−d/2, +d/2]，
    * 中面=草图平面）；sketchId 模式语义与内联 profile 模式同效。缺省 false=单向拉伸（既有行为）。 */
   symmetric?: boolean;
+}
+
+/**
+ * 布尔草图驱动参数（M7 v1.10）：草图面域作工具体，与上游特征输出布尔。
+ * - `sketchId`：草图元素 id；`profile` 键**不得同时出现**（内联 profile 旧路径与草图驱动
+ *   两形态互斥——Registry zod superRefine 拒收，无静默优先级）。
+ * - `regions`/`regionIndex`：面域选择（SketchDto.regions 下标，面积降序；语义与
+ *   ExtrudeParams 同锚：regions 多选优先、regionIndex 为单面域简写，两键同给拒收；
+ *   两键皆缺省=[0]=最大面域）。
+ * - `distance`：工具体拉伸距离（正值）；工具体=草画面域沿草图法向扫掠 distance。
+ * - `operation`：布尔运算——必须与特征类型名一致（booleanAdd⇔`unite`、
+ *   booleanSubtract⇔`subtract`；服务端 zod 一致性拒收，类型名即真源）。
+ * 求值通道与 extrude 草图驱动同源（FeatureEngine sketchId 消费口），差异只在末步
+ * operation=Unite/Subtract（注册表 booleanOp）。UI 的布尔作用域页签映射：加入→booleanAdd、
+ * 移除→booleanSubtract（相交无后端类型，M7 首版不支持）。
+ */
+export interface BooleanParams {
+  sketchId: string;
+  /** @deprecated M7 v1.10 起降级为单面域简写（与 ExtrudeParams.regionIndex 同口径）：多面域用
+   * `regions`，两键同给由 zod 拒收（无静默优先级）。 */
+  regionIndex?: number;
+  regions?: number[];
+  distance: number;
+  operation: "unite" | "subtract";
 }
 
 /** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */
@@ -115,7 +145,7 @@ export interface RevolveParams {
   angle?: number;
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams;
 
 export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
@@ -200,7 +230,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.9.0";
+  public static interfaceVersion = "1.10.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

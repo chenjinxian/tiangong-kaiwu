@@ -50,9 +50,17 @@
  *（多选一）；选中回显 chip「{草图名} 的面」（revolve 多面域追加 ·面域 N，
  * 对齐采集规格「Sketch 1 的 面」chips 形态），×移除=清选择。门禁（对齐 T3 zod 语义，不再空 profile 裸奔）：无草图 → 「先创建
  * 草图」提示 + 提交禁用；regions 缺省/空 → 「草图无可拉伸面域」 + 禁用；
- * 面域读取中/失败 → 禁用（失败经 role=alert 就地呈现）。布尔类型按既有 zod
- * 拒收语义不接（Registry booleanSchema sketchId:z.never()），其余特征类型走
- * 原 payload 不动。
+ * 面域读取中/失败 → 禁用（失败经 role=alert 就地呈现）。布尔类型 M7 v1.10 起
+ * 同样走草图通道（见下方 v1.10 段），其余特征类型走原 payload 不动。
+ *
+ * 布尔草图驱动（M7 v1.10，shared BooleanParams——首个里程碑）：布尔作用域页签
+ * 映射 featureType（`booleanScopeFeatureType`：加入→booleanAdd、移除→
+ * booleanSubtract；新建=基础类型，相交无后端特征类型保持不映射——页签值仍经
+ * FeatureDialogResult 回传宿主，不静默降级）。映射仅作用于基础类型为
+ * extrude/boolean* 的对话框（revolve/fillet 无草画面域工具体语义）。布尔通道
+ * 复用拉伸通道的草图/面域拾取 UI（本次不做任意面拾取——保留下拉/多选 chips），
+ * 载荷 `{sketchId, distance, regions, operation}`（无 profile 键——与内联 profile
+ * 旧路径互斥，服务端 zod 拒收 mixed 形态）；symmetric 对布尔不适用（隐藏+不进载荷）。
  *
  * revolve 通道（M6-b T4，照 M6-a T6 拉伸通道同构复刻）：sketchChannel 扩
  * revolve——草图/面域拾取两下拉全复用，revolve 分支增：
@@ -248,6 +256,18 @@ const RESULT_TYPES: readonly FeatureResultType[] = ['solid', 'surface', 'thinWal
 /** 布尔作用域页签序（os-31）。 */
 const BOOLEAN_SCOPES: readonly FeatureBooleanScope[] = ['new', 'add', 'remove', 'intersect'];
 
+/**
+ * 布尔作用域 → 特征类型（M7 v1.10）：加入→booleanAdd、移除→booleanSubtract
+ *（shared BooleanParams 草图驱动——operation 由类型名映射，unite/subtract）。
+ * 新建=基础特征类型（无映射）；相交无后端特征类型（M7 首版不支持，保持不映射——
+ * 页签仍随 FeatureDialogResult.booleanScope 回传宿主，不静默降级为并集）。
+ */
+export function booleanScopeFeatureType(scope: FeatureBooleanScope): LubanFeatureType | undefined {
+  if (scope === 'add') return 'booleanAdd';
+  if (scope === 'remove') return 'booleanSubtract';
+  return undefined;
+}
+
 /** 折叠段定义（方向默认展开——主参数段；余者折叠）。 */
 interface CollapsibleSection {
   id: 'direction' | 'startOffset' | 'symmetric' | 'draft';
@@ -403,11 +423,21 @@ export function FeatureDialog({
   // 的假成功观感；applyOp 未接线（壳期/纯展示）保持 M3 纯回调语义。
   const editStandalone = mode === 'edit' && applyOp !== undefined;
 
-  // 草图通道（M6-a T6 extrude / M6-b T4 revolve）：新建提交走 sketchId 寻址
+  // 布尔作用域 → 提交特征类型（M7 v1.10）：仅拉伸/布尔对话框参与映射（revolve/fillet
+  // 无草画面域工具体语义，页签保持元数据回传）；加入→booleanAdd、移除→booleanSubtract。
+  const booleanScopeMapped =
+    featureType === 'extrude' || featureType === 'booleanAdd' || featureType === 'booleanSubtract'
+      ? booleanScopeFeatureType(booleanScope)
+      : undefined;
+  const effectiveFeatureType = booleanScopeMapped ?? featureType;
+  // 草图通道（M6-a T6 extrude / M6-b T4 revolve；M7 v1.10 扩布尔）：新建提交走 sketchId 寻址
   //（数据源/门禁裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
-  const sketchChannel = mode === 'new' && (featureType === 'extrude' || featureType === 'revolve') && applyOp !== undefined;
-  const revolveChannel = sketchChannel && featureType === 'revolve';
-  const extrudeChannel = sketchChannel && featureType === 'extrude';
+  const booleanChannel =
+    mode === 'new' && (effectiveFeatureType === 'booleanAdd' || effectiveFeatureType === 'booleanSubtract') && applyOp !== undefined;
+  const sketchChannel =
+    mode === 'new' && (effectiveFeatureType === 'extrude' || effectiveFeatureType === 'revolve' || booleanChannel) && applyOp !== undefined;
+  const revolveChannel = sketchChannel && effectiveFeatureType === 'revolve';
+  const extrudeChannel = sketchChannel && effectiveFeatureType === 'extrude';
   // fillet 通道（M6-b T6）：体边拾取非草画面域——不进草图通道；输入集=体上
   // 拾得的边（持久拓扑 id 对），提交面同 applyOp。
   const filletChannel = mode === 'new' && featureType === 'fillet' && applyOp !== undefined;
@@ -710,7 +740,10 @@ export function FeatureDialog({
       try {
         result = await applyOp({
           kind: 'insertFeature',
-          featureType,
+          // M7 v1.10：布尔作用域映射后的提交类型（新建=基础类型；加入/移除=booleanAdd/
+          // booleanSubtract）。外层门禁已确保 featureType 在场，effectiveFeatureType 随之非空
+          //（`!` 收窄：布尔映射只在基础类型为 extrude/boolean* 时产生）。
+          featureType: effectiveFeatureType!,
           // M6-a T6：extrude 走草图通道——{sketchId} 草图寻址 + 空 profile
           //（shared 互斥语义：sketchId 在场时 profile 须空数组，后端
           // sketchRegionsFrom 按面域数组产轮廓）；其余特征类型载荷不动
@@ -739,6 +772,17 @@ export function FeatureDialog({
                 axis: { sketchEntityId: selectedAxisId! },
                 fullRevolve,
                 ...(angleRadians !== undefined ? { angle: angleRadians } : {}),
+              }
+            // M7 v1.10：草图驱动布尔（shared BooleanParams）——operation 由映射后的类型名
+            // 唯一决定（booleanAdd⇔unite / booleanSubtract⇔subtract，服务端 zod 一致性拒收）；
+            // 无 profile 键（与内联 profile 旧路径互斥）；面域多选语义与 extrude 同锚。
+            // symmetric 不适用（BooleanParams 无该键，工具体沿草图法向单向扫掠）。
+            : booleanChannel
+            ? {
+                sketchId: selectedSketchId,
+                distance: parsedDistance,
+                regions: [...selectedRegions],
+                operation: effectiveFeatureType === 'booleanAdd' ? 'unite' : 'subtract',
               }
             : sketchChannel
               ? {
@@ -779,7 +823,9 @@ export function FeatureDialog({
     mode,
     applyOp,
     featureType,
+    effectiveFeatureType,
     sketchChannel,
+    booleanChannel,
     revolveChannel,
     sketchReady,
     filletChannel,

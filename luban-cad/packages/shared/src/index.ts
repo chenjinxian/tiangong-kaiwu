@@ -212,6 +212,8 @@ export type {
   SketchRegionDto, SketchPlaneDto,
   // M6-b v1.7（T2）
   RevolveParams,
+  // M7 v1.10（boolean 草图驱动）
+  BooleanParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

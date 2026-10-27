@@ -27,12 +27,14 @@ import type {
   SketchPlaneDto,
   // M6-b v1.7（T2）
   RevolveParams,
+  // M7 v1.10
+  BooleanParams,
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.9.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.10.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -58,8 +60,8 @@ describe("M3-a v1.1 类型契约", () => {
     expectTypeOf<FilletParams>().toEqualTypeOf<{ radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }>();
   });
 
-  it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams；新 FeatureOp 变体可构造", () => {
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams>();
+  it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams；新 FeatureOp 变体可构造", () => {
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams>();
     const insertFillet: FeatureOp = { kind: "insertFeature", featureType: "fillet", params: { radius: 1, propagateSmooth: false, edges: [] } };
     const insertChamfer: FeatureOp = { kind: "insertFeature", featureType: "chamfer", params: { mode: 1, propagateSmooth: true, edges: [], values1: 0.1 } };
     const insertShell: FeatureOp = { kind: "insertFeature", featureType: "shell", params: { defaultDistance: 0.1, faces: [{ nodeId: 1, entityId: 2 }], distances: 0 } };
@@ -344,7 +346,37 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
     const update: FeatureOp = { kind: "updateParams", featureId: "f1", params: { sketchId: "sk-1", axis: { sketchEntityId: 11 }, fullRevolve: false, angle: Math.PI / 2 } };
     expect(insert.featureType).toBe("revolve");
     expect(update.kind).toBe("updateParams");
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams>();
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams>();
+  });
+});
+
+describe("M7 v1.10 契约（boolean 草图驱动——BooleanParams）", () => {
+  it("BooleanParams：sketchId/regions/distance/operation 形状；operation 为 unite|subtract 字面量联合", () => {
+    const single: BooleanParams = { sketchId: "sk-1", distance: 5, operation: "subtract" };
+    const multi: BooleanParams = { sketchId: "sk-1", regions: [0, 2], distance: 5, operation: "unite" };
+    expect(single.operation).toBe("subtract");
+    expect(single.regions).toBeUndefined();
+    expect(multi.regions).toEqual([0, 2]);
+    expectTypeOf<BooleanParams>().toEqualTypeOf<{
+      sketchId: string;
+      regionIndex?: number;
+      regions?: number[];
+      distance: number;
+      operation: "unite" | "subtract";
+    }>();
+    // JSON 序列化往返保持（RPC 载荷形态）
+    expect(JSON.parse(JSON.stringify(multi))).toEqual(multi);
+  });
+
+  it("insertFeature op 携带布尔草图参数可构造（featureType 名不变：booleanAdd/booleanSubtract，operation 映射类型）", () => {
+    const add: FeatureOp = { kind: "insertFeature", featureType: "booleanAdd", params: { sketchId: "sk-1", distance: 2, operation: "unite" } };
+    const subtract: FeatureOp = {
+      kind: "updateParams", featureId: "f1",
+      params: { sketchId: "sk-1", regions: [1], distance: 3, operation: "subtract" },
+    };
+    expect(add.featureType).toBe("booleanAdd");
+    expect(subtract.kind).toBe("updateParams");
+    expect((subtract.params as BooleanParams).operation).toBe("subtract");
   });
 });
 
