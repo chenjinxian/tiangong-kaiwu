@@ -45,6 +45,16 @@
  * 整个上游体复制 count 份（**含原件**）并 Union 成单一 body；linear 沿世界 X/Y/Z 位移
  * k*spacing，circular 绕世界 Z 过原点转 k*step（整周 360：step=angle/count 无重叠；
  * 部分角：step=angle/(count-1)，首末实例夹住总角）。特征类型名 `pattern`。
+ * B6 M-A3.1 升 v1.15：NEW-body 契约就绪（body 生命周期 + 显式目标 + body 读面）——
+ *  - `ExtrudeParams.newBody?`（仅 extrude 消费：true=新建独立 body，不与上游 Unite；
+ *    缺省 false=既有 ADD 语义逐字不变）；
+ *  - `BodyRef`/`BodyInfo`：body 身份/读面形状（bodyKey=body 元素 id；active/sourceFeatureId/
+ *    authored/name 为生命周期读面）；
+ *  - `LubanFeatureRpcInterface.getBodies`（只读；authored body，含 consumed 的 active=false）；
+ *  - `FeatureOp.insertFeature.targetBodyId?`（N>1 模型 regular insert 的显式目标 body；
+ *    `newBody:true` 时它是**锚定链** body，不是新建体；缺省保持 N≤1 legacy 路径）。
+ *    删除 op 的目标 body 不在本版共享契约内（M3.2 接线时随 UI 契约再裁决）。
+ *  - 无 web UI 接线（M3.2）：web 可用 1.15 类型但暂不消费新字段。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -75,6 +85,34 @@ export interface ExtrudeParams {
   /** M6-b v1.7（T3）：对称拉伸——`distance` 为总深，实体沿拉伸方向两侧各半（跨 [−d/2, +d/2]，
    * 中面=草图平面）；sketchId 模式语义与内联 profile 模式同效。缺省 false=单向拉伸（既有行为）。 */
   symmetric?: boolean;
+  /** B6 M-A3.1 v1.15：NEW-body——true 时拉伸结果写入**新建的独立 body**（求值器返回工具几何本身，
+   * 不与上游 Unite；旧 body 的原边/几何保持不变，新特征仍以既有链尾为依赖/排序锚点）。
+   * 缺省 false=既有 ADD 语义（有上游=Unite，逐字不变）。仅 extrude 消费；`updateParams` 不得
+   * 翻转本键（服务端诚实拒收——请删除特征后重建）。 */
+  newBody?: boolean;
+}
+
+/**
+ * body 引用（B6 M-A3.1 v1.15）：bodyKey = body 元素（LubanCAD.BodySolid）的 ECInstanceId。
+ * 元素 id 在冷重开/原生 undo/redo 下稳定；硬删除后不复用（生命周期走软删除保 id）。
+ * 本版只作为契约形状（body boolean/显式 bodyRef 输入在后续里程碑接线）。
+ */
+export interface BodyRef { bodyKey: string }
+
+/**
+ * body 读面（B6 M-A3.1 v1.15，`getBodies` 条目）：
+ * - `bodyKey`：body 元素 id（同 BodyRef）；
+ * - `name`：生命周期名称（服务端 marker；旧库缺省=元素 userLabel）；
+ * - `active`：false = 已被消费/软删除（元素与 id 保留，几何保留；不可作写目标）；
+ * - `sourceFeatureId`：驱动该 body 的唯一特征（无源/消费态省略）；
+ * - `authored`：生命周期托管 body（直改副本/orphan 不在读面）。
+ */
+export interface BodyInfo {
+  bodyKey: string;
+  name?: string;
+  active: boolean;
+  sourceFeatureId?: string;
+  authored?: boolean;
 }
 
 /**
@@ -246,7 +284,10 @@ export interface RevolveParams {
 export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams;
 
 export type FeatureOp =
-  | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
+  /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
+   * （authored/active；缺省在 N≤1 走 legacy 默认体）。`params.newBody===true` 时它是**锚定链**
+   * body（新体由本 op 创建，不写入该 body）；无 target 时锚定全局链尾。 */
+  | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams; targetBodyId?: string }
   | { kind: "updateParams"; featureId: string; params: FeatureParams }
   | { kind: "deleteFeature"; featureId: string }
   | { kind: "setFeatureSuppressed"; featureId: string; suppressed: boolean }
@@ -328,7 +369,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.14.0";
+  public static interfaceVersion = "1.15.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
@@ -354,4 +395,8 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
   public async getSketch(_iModelKey: string, _sketchId: string): Promise<SketchDto | undefined> { return this.forward(arguments); }
   /** M3-b v1.2：列 iModel 内全部草图（摘要读面） */
   public async listSketches(_iModelKey: string): Promise<SketchSummaryDto[]> { return this.forward(arguments); }
+
+  /** B6 M-A3.1 v1.15：body 读面（只读，无租约门禁）——authored body（含 consumed 的 active=false），
+   * 按 bodyKey 升序；直改副本/orphan 不在读面。M3.2 的树/参数面板消费。 */
+  public async getBodies(_iModelKey: string): Promise<BodyInfo[]> { return this.forward(arguments); }
 }

@@ -222,6 +222,8 @@ export type {
   MirrorParams,
   // B5 v1.14（pattern PART 级阵列）
   PatternParams,
+  // B6 M-A3.1 v1.15（NEW-body / body 读面）
+  BodyRef, BodyInfo,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

@@ -37,12 +37,15 @@ import type {
   MirrorParams,
   // B5 v1.14
   PatternParams,
+  // B6 M-A3.1 v1.15
+  BodyRef,
+  BodyInfo,
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.14.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.15.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -477,6 +480,62 @@ describe("B5 v1.14 契约（pattern PART 级阵列——PatternParams）", () =>
     const update: FeatureOp = { kind: "updateParams", featureId: "f1", params: { kind: "circular", count: 4, angle: 180, axis: "Z" } };
     expect(insert.featureType).toBe("pattern");
     expect((update.params as PatternParams).kind).toBe("circular");
+  });
+});
+
+describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", () => {
+  it("ExtrudeParams.newBody 可选布尔；缺省向后兼容（旧载荷无键仍合法）；JSON 往返保持", () => {
+    const withNew: ExtrudeParams = { profile: [], distance: 3, sketchId: "sk-1", newBody: true };
+    const inlineNew: ExtrudeParams = { profile: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }], distance: 2, newBody: true };
+    const legacy: ExtrudeParams = { profile: [], distance: 3, sketchId: "sk-1" };
+    expect(withNew.newBody).toBe(true);
+    expect(inlineNew.newBody).toBe(true);
+    expect(legacy.newBody).toBeUndefined();
+    expectTypeOf<ExtrudeParams["newBody"]>().toEqualTypeOf<boolean | undefined>();
+    expect(JSON.parse(JSON.stringify(withNew))).toEqual(withNew);
+  });
+
+  it("BodyRef 形状（bodyKey 单键）与 BodyInfo（active/sourceFeatureId/authored/name 可选面）", () => {
+    const ref: BodyRef = { bodyKey: "0x15" };
+    const active: BodyInfo = { bodyKey: "0x15", name: "Body 1", active: true, sourceFeatureId: "0x16", authored: true };
+    const consumed: BodyInfo = { bodyKey: "0x18", active: false, authored: true };
+    expect(ref.bodyKey).toBe("0x15");
+    expect(active.sourceFeatureId).toBe("0x16");
+    expect(consumed.active).toBe(false);
+    expectTypeOf<BodyRef>().toEqualTypeOf<{ bodyKey: string }>();
+    expectTypeOf<BodyInfo>().toEqualTypeOf<{
+      bodyKey: string;
+      name?: string;
+      active: boolean;
+      sourceFeatureId?: string;
+      authored?: boolean;
+    }>();
+    // JSON 序列化往返保持（RPC 载荷形态）
+    expect(JSON.parse(JSON.stringify(active))).toEqual(active);
+    expect(JSON.parse(JSON.stringify(consumed))).toEqual(consumed);
+  });
+
+  it("FeatureOp.insertFeature 增可选 targetBodyId（N>1 regular insert 显式目标；N≤1 legacy 可缺省）", () => {
+    const targeted: FeatureOp = {
+      kind: "insertFeature", featureType: "extrude", params: { profile: [], distance: 1 }, targetBodyId: "0x18",
+    };
+    const legacy: FeatureOp = { kind: "insertFeature", featureType: "extrude", params: { profile: [], distance: 1 } };
+    const newBody: FeatureOp = {
+      kind: "insertFeature", featureType: "extrude", params: { profile: [], distance: 1, newBody: true }, targetBodyId: "0x15",
+    };
+    expect(targeted.targetBodyId).toBe("0x18");
+    expect(legacy.targetBodyId).toBeUndefined();
+    expect((newBody.params as ExtrudeParams).newBody).toBe(true);
+    expectTypeOf<Extract<FeatureOp, { kind: "insertFeature" }>>().toEqualTypeOf<{
+      kind: "insertFeature";
+      featureType: LubanFeatureType;
+      params: FeatureParams;
+      targetBodyId?: string;
+    }>();
+  });
+
+  it("v1.15 新增 getBodies RPC 方法挂在类原型（只读 body 读面）", () => {
+    expect(typeof LubanFeatureRpcInterface.prototype.getBodies).toBe("function");
   });
 });
 
