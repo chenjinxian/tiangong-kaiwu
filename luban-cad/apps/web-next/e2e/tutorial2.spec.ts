@@ -274,7 +274,7 @@ function regionIndexByArea(
 // 走不通（IpcSession 响应关联依赖页面运行时的会话内部态，探针实证请求帧离站
 // 后无回声），改 Node 侧直调 MS 的 HTTP RPC 面（/rpc/metadata 证实该面在册）：
 // POST {MS}/LubanCAD/v1.0/mode/primary/context/{itwin}/imodel/{imodel}/changeset/0/
-//   LubanFeatureRpcInterface-1.7.0-{op}，text 载体 body=JSON 参数数组，
+//   LubanFeatureRpcInterface-1.14.0-{op}，text 载体 body=JSON 参数数组，
 //   CSRF 双提交（GET /rpc/metadata 取 csrf-token cookie + X-CSRF-Token 头）+
 //   X-Correlation-Id 等活动头。前端不经此面是路由选择，MS 侧在册即契约面。
 // ============================================================================
@@ -424,7 +424,7 @@ async function msRpc(
   const stamp = Date.now().toString(16).padStart(12, '0');
   const url =
     `${MS}/LubanCAD/v1.0/mode/primary/context/${itwinId}/imodel/${imodelId}` +
-    `/changeset/0/LubanFeatureRpcInterface-1.7.0-${operation}`;
+    `/changeset/0/LubanFeatureRpcInterface-1.14.0-${operation}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {

@@ -6,9 +6,9 @@
  * 下载 + WebGL）。五组断言各自独立导航（briefcase 重开走 MS「Closing existing
  * db」复用路径，连接等待带一次 reload 恢复——见 helpers.waitEditorReady）：
  *  1) 五区结构 + 连接就绪 + 特征树双段 + 顶栏编辑三钮干净态诚实禁用；
- *  2) ribbon 工具真激活：SweepFaces（真实 toolId；M6-b T6 起圆角 RoundEdges
- *     改道 new/fillet 对话框，探针换扫掠）→ aria-pressed + console 零「未启动/
- *     激活失败」警告（M4-T9 冒烟 S4 同口径）；
+ *  2) ribbon 工具真激活：ChamferEdges（真实 toolId；M6-b T6 起圆角 RoundEdges
+ *     改道 new/fillet、B3 起扫掠 SweepFaces 改道 new/sweep 对话框，探针换倒角）
+ *     → aria-pressed + console 零「未启动/激活失败」警告（M4-T9 冒烟 S4 同口径）；
  *  3) 页签管理器（「+」开合）；
  *  4) 汉堡文档菜单 11 项 + 工作区单位对话框（mm 唯一可用）；
  *  5) FeatureDialog 开合（拉伸 → 非模态面板 + 距离缺省 → ✗ 收合）；
@@ -68,24 +68,24 @@ test('五区结构 + 连接就绪 + 特征树双段 + 编辑三钮干净态', as
   await expect(page.getByTestId('part-studio-save-button')).toBeDisabled();
 });
 
-test('ribbon 工具真激活：SweepFaces aria-pressed + 零未启动警告（M6-b T6 起探针换扫掠——圆角改道对话框）', async ({ page }) => {
+test('ribbon 工具真激活：ChamferEdges aria-pressed + 零未启动警告（圆角/扫掠均已改道对话框）', async ({ page }) => {
   const consoleMessages: string[] = [];
   page.on('console', (message) => {
     consoleMessages.push(`[${message.type()}] ${message.text()}`);
   });
 
-  const sweep = page.getByRole('button', { name: '扫掠', exact: true });
-  await expect(sweep).toBeVisible();
-  await expect(sweep).toHaveAttribute('aria-pressed', 'false');
+  const chamfer = page.getByRole('button', { name: '倒角', exact: true });
+  await expect(chamfer).toBeVisible();
+  await expect(chamfer).toHaveAttribute('aria-pressed', 'false');
 
-  await sweep.click();
+  await chamfer.click();
 
   // 真激活双证：store 写入（aria-pressed）+ tools.run 真启动（console 零警告）。
   // aria-pressed 先于 tools.run 落定——单证会放过假激活（M4-T9 S4 反证口径：
   // 「命令未启动」警告 = 假激活）。
-  await expect(sweep).toHaveAttribute('aria-pressed', 'true');
+  await expect(chamfer).toHaveAttribute('aria-pressed', 'true');
   const warnings = consoleMessages.filter((text) => /未启动|激活失败/.test(text));
-  expect(warnings, `SweepFaces 激活不应有警告：\n${warnings.join('\n')}`).toHaveLength(0);
+  expect(warnings, `ChamferEdges 激活不应有警告：\n${warnings.join('\n')}`).toHaveLength(0);
 });
 
 test('页签管理器开合（「+」入口）', async ({ page }) => {
