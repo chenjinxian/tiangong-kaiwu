@@ -1604,11 +1604,13 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     return { user, onConfirm };
   }
 
-  it('初始形态：两个截面下拉在场、距离输入不在场、✓/成品禁用（未选截面）', () => {
+  it('初始形态：两个截面下拉在场、距离输入不在场、平行提示在场、✓/成品禁用（未选截面）', () => {
     renderLoftDialog(makeApplyOp());
     expect(screen.getByRole('combobox', { name: '截面草图 1' })).toBeDefined();
     expect(screen.getByRole('combobox', { name: '截面草图 2' })).toBeDefined();
     expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // loft 无距离量
+    // 首版范围提示：两张截面须平行（服务端 op 边界同口径拒收）。
+    expect(screen.getByTestId('part-studio-feature-dialog-loft-parallel-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -1635,6 +1637,34 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 2' }), 'sk-1');
     expect(screen.getByTestId('part-studio-feature-dialog-loft-duplicate-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('对话框打开期间删除已选草图（sketches 缩水）→ 陈旧选择提示 + 提交禁用，不留陈旧 id 放行', async () => {
+    const applyOp = makeApplyOp();
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    const shared = {
+      featureName: '放样',
+      mode: 'new' as const,
+      featureType: 'loft' as const,
+      applyOp,
+      connectionKey: 'model-key',
+      onConfirm,
+      onCancel: vi.fn(),
+    };
+    const { rerender } = render(
+      <FeatureDialog {...shared} sketches={[...SKETCHES, { id: 'sk-3', label: '草图 3' }]} />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 1' }), 'sk-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 2' }), 'sk-2');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    // 删除 sk-1（剩 2 张：sk-2/sk-3）——loftNeedsTwo 不触发，但已选 id 已失活 → sketch 选项存活判据拦下。
+    rerender(<FeatureDialog {...shared} sketches={[{ id: 'sk-2', label: '草图 2' }, { id: 'sk-3', label: '草图 3' }]} />);
+    expect(screen.getByTestId('part-studio-feature-dialog-loft-stale-hint')).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: '成品' }));
     expect(applyOp).not.toHaveBeenCalled();
   });

@@ -312,6 +312,8 @@
     "loftSectionLabel": "Section sketch {{index}}",
     "loftNeedsTwoSketchesHint": "Loft needs two sketches: create at least two sketches first",
     "loftDuplicateHint": "The two section sketches must be different",
+    "loftSelectionStaleHint": "A selected section sketch no longer exists; select again",
+    "loftParallelHint": "This first version requires the two section sketches to be parallel",
     "filletEdgesLabel": "Edges to fillet",
     "radiusLabel": "Radius",
     "radiusInvalid": "Enter a valid fillet radius (greater than 0)",

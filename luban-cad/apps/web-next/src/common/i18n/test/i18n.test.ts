@@ -148,6 +148,7 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'tree.featureTypes.loft',
   'featureDialog.loftSectionsLabel', 'featureDialog.loftSectionLabel',
   'featureDialog.loftNeedsTwoSketchesHint', 'featureDialog.loftDuplicateHint',
+  'featureDialog.loftSelectionStaleHint', 'featureDialog.loftParallelHint',
   'featureDialog.axisLabel', 'featureDialog.axisOption', 'featureDialog.noAxisHint',
   'featureDialog.fullRevolveLabel', 'featureDialog.angleLabel', 'featureDialog.angleInvalid',
   // M6-b T6：fillet 通道——边标签/半径/切向延伸/添加边拾取/边 chips/门禁 +

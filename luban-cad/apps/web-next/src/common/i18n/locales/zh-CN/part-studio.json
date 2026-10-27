@@ -312,6 +312,8 @@
     "loftSectionLabel": "截面草图 {{index}}",
     "loftNeedsTwoSketchesHint": "放样需要两张草图：请先创建至少两张草图",
     "loftDuplicateHint": "两张截面草图不能相同",
+    "loftSelectionStaleHint": "已选截面草图已不存在，请重新选择",
+    "loftParallelHint": "首版放样要求两张截面草图平行",
     "filletEdgesLabel": "要圆角的边",
     "radiusLabel": "半径",
     "radiusInvalid": "请输入有效的圆角半径（大于 0）",

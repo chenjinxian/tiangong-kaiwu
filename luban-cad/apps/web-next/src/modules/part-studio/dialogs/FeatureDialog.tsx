@@ -644,11 +644,17 @@ export function FeatureDialog({
   // 提交门（M6-b T6 fillet 追加）：已拾至少一条边（空边集禁提交——shared
   // FilletParams.edges 非空语义前置）∧ 拾取会话已结束（会话在场时禁提交）。
   const filletReady = !filletChannel || (filletEdges.length > 0 && !picking);
-  // 提交门（B2 loft）：两截面均已选且互不相同（三元组退化语义前置到 UI；
-  // 草图不足两张由 loftNeedsTwo 提示 + 同判据禁用兜住）。
+  // 提交门（B2 loft）：两截面均已选、互不相同、**且仍存在于实时草图选项**——
+  // 非模态对话框打开期间删除已选草图（sketches 缩水）不得留下陈旧 id 放行提交
+  //（loftNeedsTwo/loftSelectionStale 均入就绪判据；服务端 zod/存在性检查兜底）。
   const loftNeedsTwo = loftChannel && sketchOptions.length < 2;
   const loftDuplicate = loftChannel && loftSketchA !== '' && loftSketchA === loftSketchB;
-  const loftReady = !loftChannel || (loftSketchA !== '' && loftSketchB !== '' && !loftDuplicate);
+  const loftSelectionStale = loftChannel && loftSketchA !== '' && loftSketchB !== ''
+    && (!sketchOptions.some((option) => option.id === loftSketchA)
+      || !sketchOptions.some((option) => option.id === loftSketchB));
+  const loftReady = !loftChannel
+    || (!loftNeedsTwo && !loftDuplicate && !loftSelectionStale
+      && loftSketchA !== '' && loftSketchB !== '');
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -1352,6 +1358,23 @@ export function FeatureDialog({
                       {t('partStudio.featureDialog.loftDuplicateHint')}
                     </p>
                   )}
+                  {loftSelectionStale && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-loft-stale-hint"
+                    >
+                      {t('partStudio.featureDialog.loftStaleSelectionHint')}
+                    </p>
+                  )}
+                  {/* 首版范围提示（服务端 op 边界对不平行截面同口径拒收）。 */}
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-loft-parallel-hint"
+                  >
+                    {t('partStudio.featureDialog.loftParallelHint')}
+                  </p>
                 </React.Fragment>
               )}
             </React.Fragment>
