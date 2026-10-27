@@ -6,7 +6,10 @@
 // 同源移植自 apps/web/features/modeling/MirrorElementsTool.ts（web-next M4-T3；
 // 类名/toolId 不改——Agent 复用规约）。等价改写同 DraftFacesTool 头注：动态
 // import 收敛静态导入；app 级 i18n 改包内 toolMessage。镜像走
-// basicManipulation/mirrorElement 后端命令（逐元素 startEditCommand）。
+// basicManipulation/mirrorElement 后端命令（B4：一次 startEditCommand + 逐元素
+// callEditMethod + saveChanges + finishEditCommand——旧 startEditCommand 载荷形态
+// 后端无对应方法=空操作，已修）。参数化特征链入口另由 ribbon 改道 FeatureDialog
+//（MirrorElements 工具本体保留为直改通道，按需单裁入口）。
 // 2026-10-22 随 editor 模块收编迁入本包（@itwin/editor-frontend）src/luban/
 // modeling/。
 
@@ -154,29 +157,30 @@ export class MirrorElementsTool extends PrimitiveTool {
         throw new Error('Editing requires a briefcase connection');
       }
 
-      // 调用 RPC 执行镜像操作
+      // 调用 RPC 执行镜像操作（B4 修复：basicManipulation 命令一次、逐元素 callEditMethod——
+      // 旧实现把 mirrorElement 载荷塞进 startEditCommand 构造参数，后端无此方法=空操作）。
+      // 语义=保留原体的镜像副本（与参数化 mirror 特征一致）；BRep 实体几何（v1 范围）。
+      // 事务在 finishEditCommand 之前显式 saveChanges（EditCommand 默认 requestFinish 会
+      // abandon 未保存事务——不显式保存则空跑）。
       const rpc = OpenCloudRpcInterface.getClient();
+      const planePoint = {
+        x: this._planePoint.x,
+        y: this._planePoint.y,
+        z: this._planePoint.z,
+      };
+      const planeNormal = {
+        x: this._planeNormal.x,
+        y: this._planeNormal.y,
+        z: this._planeNormal.z,
+      };
 
-      // 对每个选中的元素执行镜像
-      for (const elementId of this._selectedElements) {
-        await rpc.startEditCommand(
-          'basicManipulation',
-          iModel.key,
-          'mirrorElement',
-          {
-            elementId,
-            planePoint: {
-              x: this._planePoint.x,
-              y: this._planePoint.y,
-              z: this._planePoint.z,
-            },
-            planeNormal: {
-              x: this._planeNormal.x,
-              y: this._planeNormal.y,
-              z: this._planeNormal.z,
-            },
-          }
-        );
+      await rpc.startEditCommand('basicManipulation', iModel.key);
+      try {
+        for (const elementId of this._selectedElements)
+          await rpc.callEditMethod('mirrorElement', elementId, planePoint, planeNormal);
+        await rpc.callEditMethod('saveChanges', 'mirror elements');
+      } finally {
+        await rpc.finishEditCommand();
       }
 
       IModelApp.notifications.outputMessage(

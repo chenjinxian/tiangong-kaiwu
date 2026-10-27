@@ -138,6 +138,12 @@
  * 草图不足两张 → 诚实提示 + 提交禁用。首版无 twist/scale/lock/guides UI（范围裁决）。
  * ribbon 入口：SweepFaces 虽是真实直改工具 id，但参数化特征链入口改道本对话框
  *（与 extrude/revolve/loft/fillet 同姿态，见 Ribbon.tsx 注）。
+ * mirror 通道（B4 v1.13）：世界平面下拉（XY/YZ/XZ——**过世界原点**，首版无任意面/
+ * 基准面引用）+ 范围提示；载荷 `{plane, keepOriginal:true}`（字面量真值——首版恒保留
+ * 原体并与镜像体 Unite，由服务端「原体在前、镜像体在后」的并集次序归正法向）。
+ * 无上游实体（hasBodies=false）→ 诚实提示 + 提交禁用（requiresUpstream；后端 op
+ * 边界同口径拒收）。距离/草图/chips 输入一律隐藏（镜像无这些量）；ribbon 的
+ * MirrorElements 为真实直改工具 id，参数化特征链入口特例改道本对话框。
  *
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
@@ -157,6 +163,7 @@ import type {
   FeatureOpResult,
   FilletEdgeRef,
   LubanFeatureType,
+  MirrorParams,
   SketchEntityDto,
   SketchRegionDto,
 } from '@luban-cad/shared';
@@ -250,9 +257,9 @@ export interface FeatureDialogProps {
   connectionKey?: string;
   /**
    * 库内已有实体（M6-b T6 fillet 通道诚实降级门）：宿主自特征树判
-   * （body 产出型条目在场：extrude/revolve/booleanAdd/booleanSubtract）——
-   * false 时「添加边」禁用 + 提示先建实体（无体可拾边，不发工具）。缺省 true
-   * （壳期/测试语义保持；生产宿主恒显式传参）。
+   * （body 产出型条目在场：extrude/revolve/booleanAdd/booleanSubtract/loft/sweep/mirror）——
+   * false 时「添加边」禁用 + 提示先建实体（无体可拾边，不发工具）；mirror 通道
+   * 同门（无上游实体可镜像）。缺省 true（壳期/测试语义保持；生产宿主恒显式传参）。
    */
   hasBodies?: boolean;
   /** ✓/成品 确认出口（回传全量载荷；提交成功后由宿主 closeDialog）。 */
@@ -469,6 +476,12 @@ export function FeatureDialog({
   // 工具 id，但参数化特征链入口特例改道本对话框（见 Ribbon.tsx 注）；twist/scale/lock/
   // guides UI 首版不做。
   const sweepChannel = mode === 'new' && featureType === 'sweep' && applyOp !== undefined;
+  // B4 v1.13 mirror 通道：世界平面三选一（XY/YZ/XZ）+ keepOriginal 恒 true（首版保留原体
+  // 并与镜像体 Unite）。无草图/面域/边拾取输入——参数只有平面；上游体由服务端特征链供给
+  //（requiresUpstream——无实体时 UI 先挡 + 后端 op 边界同口径拒收）。ribbon 的 MirrorElements
+  // 是真实直改工具 id，但参数化特征链入口特例改道本对话框（见 Ribbon.tsx 注）。
+  const mirrorChannel = mode === 'new' && featureType === 'mirror' && applyOp !== undefined;
+  const mirrorUpstreamMissing = mirrorChannel && !hasBodies;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
@@ -501,6 +514,8 @@ export function FeatureDialog({
   // 扫掠/同平面路径，服务端 zod 同口径拒收）。
   const [sweepProfileSketchId, setSweepProfileSketchId] = React.useState('');
   const [sweepPathSketchId, setSweepPathSketchId] = React.useState('');
+  // B4 mirror 通道：镜像平面（世界系过原点；缺省 XZ=法向 Y，与 Onshape 默认前视镜像同锚）。
+  const [mirrorPlane, setMirrorPlane] = React.useState<MirrorParams['plane']>('XZ');
 
   // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
   const [radius, setRadius] = React.useState('5');
@@ -762,10 +777,11 @@ export function FeatureDialog({
     if (loftChannel && !loftReady) return; // loft 通道门禁（两截面未选/同草图——防御兜底）
     if (sweepChannel && !sweepReady) return; // sweep 通道门禁（轮廓/路径未选/同草图——防御兜底）
     if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
-    // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep 无距离量——旋转角即参数/
-    // 半径即参数/放样无扫掠距离/扫掠无扫掠距离，输入已隐藏）。
+    if (mirrorUpstreamMissing) return; // mirror 上游门禁（无实体可镜像——✓ 已禁用，防御兜底）
+    // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep/mirror 无距离量——旋转角即参数/
+    // 半径即参数/放样无扫掠距离/扫掠无扫掠距离/镜像无距离，输入已隐藏）。
     let parsedDistance = 0;
-    if (!revolveChannel && !filletChannel && !loftChannel && !sweepChannel) {
+    if (!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel) {
       parsedDistance = Number(distance);
       if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
         setError(t('partStudio.featureDialog.distanceInvalid'));
@@ -820,7 +836,14 @@ export function FeatureDialog({
           // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
           // edges:[{edge:{nodeId,entityId}}...]}（边自身持久 id 透传，shared v1.9
           // M6-d 纯换契约；无 profile/distance 语义）。
-          params: sweepChannel
+          params: mirrorChannel
+            ? {
+                // B4 mirror（shared v1.13 MirrorParams）：世界平面三选一 + keepOriginal 字面量
+                // true（首版恒保留原体并与镜像体 Unite）。无 distance/profile/regions/草图键。
+                plane: mirrorPlane,
+                keepOriginal: true,
+              }
+            : sweepChannel
             ? {
                 // B3 sweep（shared v1.12 SweepParams）：轮廓草图 + 路径草图 + 实体类型。
                 // 无 distance/profile/regions/twist/scale/lock/guides 键（首版范围裁决）。
@@ -904,6 +927,9 @@ export function FeatureDialog({
     sketchChannel,
     booleanChannel,
     booleanUpstreamMissing,
+    mirrorChannel,
+    mirrorUpstreamMissing,
+    mirrorPlane,
     revolveChannel,
     sketchReady,
     filletChannel,
@@ -970,8 +996,8 @@ export function FeatureDialog({
   // 折叠段可见集（M6-b T4）：草图通道「对称」以平铺复选顶替（Onshape 采集
   // 形态），折叠段 symmetric 隐藏防双复选绑同态；非通道（edit/布尔/壳期）不动。
   const visibleSections = React.useMemo(
-    () => (sketchChannel || loftChannel || sweepChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
-    [sketchChannel, loftChannel, sweepChannel],
+    () => (sketchChannel || loftChannel || sweepChannel || mirrorChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
+    [sketchChannel, loftChannel, sweepChannel, mirrorChannel],
   );
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
@@ -995,7 +1021,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || !sweepReady || booleanUpstreamMissing}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -1139,7 +1165,7 @@ export function FeatureDialog({
             M6-b T4：revolve 通道不适用（无距离量——全周/角度即参数），输入
             隐藏、handleConfirm 跳过距离校验。M6-b T6：fillet 通道同口径
             （无距离量——半径即参数）。 */}
-        {!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && (
+        {!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && (
           <section className="part-studio-feature-dialog__distance">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
               {t('partStudio.featureDialog.distanceLabel')}
@@ -1247,13 +1273,15 @@ export function FeatureDialog({
             <span className="part-studio-feature-dialog__entities-label">
               {filletChannel
                 ? t('partStudio.featureDialog.filletEdgesLabel')
-                : sweepChannel
-                  ? t('partStudio.featureDialog.sweepSketchesLabel')
-                  : loftChannel
-                    ? t('partStudio.featureDialog.loftSectionsLabel')
-                    : t('partStudio.featureDialog.entitiesLabel')}
+                : mirrorChannel
+                  ? t('partStudio.featureDialog.mirrorPlaneLabel')
+                  : sweepChannel
+                    ? t('partStudio.featureDialog.sweepSketchesLabel')
+                    : loftChannel
+                      ? t('partStudio.featureDialog.loftSectionsLabel')
+                      : t('partStudio.featureDialog.entitiesLabel')}
             </span>
-            {!sketchChannel && !filletChannel && !loftChannel && !sweepChannel && (
+            {!sketchChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && (
               <button
                 type="button"
                 className="part-studio-feature-dialog__fast-pick"
@@ -1343,6 +1371,45 @@ export function FeatureDialog({
                 >
                   {t('partStudio.featureDialog.noEdgesHint')}
                 </p>
+              )}
+            </React.Fragment>
+          )}
+
+          {/* B4 mirror 通道：世界平面下拉（XY/YZ/XZ——过世界原点；首版无任意面/基准面引用）。
+              无上游实体 → 诚实提示 + 提交禁用（requiresUpstream；后端 op 边界同口径拒收）。
+              keepOriginal 恒 true（首版保留原体并与镜像体 Unite），无额外输入。 */}
+          {mirrorChannel && (
+            <React.Fragment>
+              {mirrorUpstreamMissing ? (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-mirror-needs-body-hint"
+                >
+                  {t('partStudio.featureDialog.mirrorNeedsBodyHint')}
+                </p>
+              ) : (
+                <React.Fragment>
+                  <select
+                    aria-label={t('partStudio.featureDialog.mirrorPlaneLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value={mirrorPlane}
+                    disabled={submitting}
+                    onChange={(event) => setMirrorPlane(event.target.value as MirrorParams['plane'])}
+                  >
+                    <option value="XY">{t('partStudio.featureDialog.mirrorPlaneOptions.XY')}</option>
+                    <option value="YZ">{t('partStudio.featureDialog.mirrorPlaneOptions.YZ')}</option>
+                    <option value="XZ">{t('partStudio.featureDialog.mirrorPlaneOptions.XZ')}</option>
+                  </select>
+                  {/* 首版范围提示（世界平面 + 保留原体；服务端保持同一语义）。 */}
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-mirror-scope-hint"
+                  >
+                    {t('partStudio.featureDialog.mirrorScopeHint')}
+                  </p>
+                </React.Fragment>
               )}
             </React.Fragment>
           )}
@@ -1687,7 +1754,7 @@ export function FeatureDialog({
             </React.Fragment>
           )}
 
-          {!sketchChannel && !loftChannel && !sweepChannel && (
+          {!sketchChannel && !loftChannel && !sweepChannel && !mirrorChannel && (
             <ul className="part-studio-feature-dialog__chips">
               {chips.map((chip) => (
                 <li key={chip.id} className="part-studio-feature-dialog__chip">
@@ -1798,7 +1865,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || !sweepReady || booleanUpstreamMissing}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

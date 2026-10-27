@@ -48,6 +48,17 @@ export interface BasicManipulationCommandIpc extends EditCommandIpc {
   transformPlacement(ids: CompressedId64Set, transform: TransformProps): Promise<IModelStatus>;
   rotatePlacement(ids: CompressedId64Set, matrix: Matrix3dProps, aboutCenter: boolean): Promise<IModelStatus>;
 
+  /** Create a mirrored copy of a geometric element across a world-space plane.
+   * The source element is left unchanged (keep-original semantics, matching the parametric mirror feature).
+   * The copy is inserted into the same model/category; its geometry is stored relative to an identity placement
+   * (world coordinates). Only BRep solid geometry is supported in v1 - other displayable geometry is rejected.
+   * @param elementId Source element to mirror.
+   * @param planePoint A point on the mirror plane (world coordinates).
+   * @param planeNormal The plane normal (world coordinates, non-degenerate; not required to be unit length).
+   * @returns The id of the newly inserted mirrored element.
+   */
+  mirrorElement(elementId: Id64String, planePoint: XYZProps, planeNormal: XYZProps): Promise<Id64String>;
+
   /** Create and insert a new geometric element.
    * @param props Properties for the new [GeometricElement]($backend)
    * @see [GeometryStream]($docs/learning/common/geometrystream.md), [ElementGeometry]($common)

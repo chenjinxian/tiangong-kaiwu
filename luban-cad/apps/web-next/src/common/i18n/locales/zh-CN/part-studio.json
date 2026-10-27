@@ -321,6 +321,14 @@
     "sweepDuplicateHint": "轮廓草图与路径草图不能相同",
     "sweepSelectionStaleHint": "已选草图已不存在，请重新选择",
     "sweepPathHint": "首版扫掠要求路径草图恰为一条直线（曲线/多段路径暂不支持）",
+    "mirrorPlaneLabel": "镜像平面",
+    "mirrorPlaneOptions": {
+      "XY": "XY 平面（法向 Z）",
+      "YZ": "YZ 平面（法向 X）",
+      "XZ": "XZ 平面（法向 Y）"
+    },
+    "mirrorScopeHint": "首版仅支持过世界原点的 XY/YZ/XZ 平面，并保留原体（与镜像体合并）",
+    "mirrorNeedsBodyHint": "镜像需要上游实体：请先创建至少一个实体特征",
     "filletEdgesLabel": "要圆角的边",
     "radiusLabel": "半径",
     "radiusInvalid": "请输入有效的圆角半径（大于 0）",
@@ -576,6 +584,7 @@
       "revolve": "旋转",
       "loft": "放样",
       "sweep": "扫掠",
+      "mirror": "镜像",
       "sketch": "草图"
     }
   },

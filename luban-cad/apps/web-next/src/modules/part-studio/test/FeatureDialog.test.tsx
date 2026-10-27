@@ -1809,6 +1809,84 @@ describe('B3 sweep 通道（轮廓草图 + 路径草图双选择器）', () => {
 });
 
 // ---------------------------------------------------------------------------
+// B4 Task 4：mirror 通道（世界平面三选一——最小入口）。
+// 首版只做过世界原点的 XY/YZ/XZ 平面 + keepOriginal 字面量 true（保留原体并与镜像体
+// Unite；无任意面/基准面引用）。载荷 {plane, keepOriginal:true}，无 distance/profile/
+// regions/草图键；无上游实体（hasBodies=false）→ 诚实提示 + 提交禁用。
+// ribbon 入口：MirrorElements 是真实直改工具 id，Ribbon 特例改道本对话框。
+// ---------------------------------------------------------------------------
+describe('B4 mirror 通道（世界平面三选一）', () => {
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  function renderMirrorDialog(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="镜像"
+        mode="new"
+        featureType="mirror"
+        applyOp={applyOp}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+        {...props}
+      />,
+    );
+    return { user, onConfirm };
+  }
+
+  it('初始形态：平面下拉在场（缺省 XZ）、距离输入不在场、范围提示在场、✓/成品可用（有体）', () => {
+    renderMirrorDialog(makeApplyOp());
+    const select = screen.getByRole('combobox', { name: '镜像平面' }) as HTMLSelectElement;
+    expect(select.value).toBe('XZ');
+    expect(screen.getByRole('option', { name: 'XY 平面（法向 Z）' })).toBeDefined();
+    expect(screen.getByRole('option', { name: 'YZ 平面（法向 X）' })).toBeDefined();
+    expect(screen.getByRole('option', { name: 'XZ 平面（法向 Y）' })).toBeDefined();
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // mirror 无距离量
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-scope-hint')).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('选择 YZ 平面 → 载荷 {plane:"YZ", keepOriginal:true}（无 distance/profile/regions 键）→ onConfirm', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = renderMirrorDialog(applyOp);
+    await user.selectOptions(screen.getByRole('combobox', { name: '镜像平面' }), 'YZ');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'mirror',
+      params: { plane: 'YZ', keepOriginal: true },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('无上游实体（hasBodies=false）→ 需要上游实体提示 + 提交禁用 + 不渲染平面下拉/不发起 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderMirrorDialog(applyOp, { hasBodies: false });
+    // 断言渲染文案而非仅 testid（i18n 键名 spelling 钉死——缺键处理器会原样吐 key）。
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-needs-body-hint').textContent)
+      .toBe('镜像需要上游实体：请先创建至少一个实体特征');
+    expect(screen.queryByRole('combobox', { name: '镜像平面' })).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('edit 模式/壳期不渲染 mirror 平面下拉（new + applyOp 才进入通道）', () => {
+    renderDialog({ featureType: 'mirror' });
+    expect(screen.queryByRole('combobox', { name: '镜像平面' })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // M6-b T6：fillet 通道（F8——体边拾取，不走草图通道）。**对话框驱动拾取裁决**：
 // 「添加边」钮启动 FilletEdgePickTool（动态 import——本文件 mock 该工具模块替身
 // 捕获回调现场，editor 基座链不入测试图），工具每拾一条边（已即时换边自身持久

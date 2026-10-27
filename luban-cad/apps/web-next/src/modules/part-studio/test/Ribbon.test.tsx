@@ -107,6 +107,19 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     });
   });
 
+  it('B4：镜像（MirrorElements）点击改道 new/mirror 对话框（参数化特征链入口——不经 tools.run 不写激活态）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '镜像' }));
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'mirror',
+    });
+  });
+
   it('M6-b T6：圆角（RoundEdges）点击改道 new/fillet 对话框（不经 tools.run 不写激活态——参数化特征链入口，拾取归对话框驱动）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);

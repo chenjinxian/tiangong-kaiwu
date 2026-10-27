@@ -218,6 +218,8 @@ export type {
   LoftParams,
   // B3 v1.12（sweep 轮廓沿路径）
   SweepParams,
+  // B4 v1.13（mirror 平面镜像）
+  MirrorParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

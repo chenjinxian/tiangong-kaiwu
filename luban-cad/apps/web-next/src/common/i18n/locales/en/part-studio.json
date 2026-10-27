@@ -321,6 +321,14 @@
     "sweepDuplicateHint": "The profile sketch and path sketch must be different",
     "sweepSelectionStaleHint": "A selected sketch no longer exists; select again",
     "sweepPathHint": "This first version requires the path sketch to be exactly one straight line",
+    "mirrorPlaneLabel": "Mirror plane",
+    "mirrorPlaneOptions": {
+      "XY": "XY plane (normal Z)",
+      "YZ": "YZ plane (normal X)",
+      "XZ": "XZ plane (normal Y)"
+    },
+    "mirrorScopeHint": "This first version supports only the world-origin XY/YZ/XZ planes and keeps the original body (united with the mirrored body)",
+    "mirrorNeedsBodyHint": "Mirror needs an upstream body: create at least one solid feature first",
     "filletEdgesLabel": "Edges to fillet",
     "radiusLabel": "Radius",
     "radiusInvalid": "Enter a valid fillet radius (greater than 0)",
@@ -576,6 +584,7 @@
       "revolve": "Revolve",
       "loft": "Loft",
       "sweep": "Sweep",
+      "mirror": "Mirror",
       "sketch": "Sketch"
     }
   },

@@ -282,6 +282,25 @@ describe("op DSL × B3 v1.12（FEATURE_TYPES 白名单补 sweep）", () => {
   });
 });
 
+describe("op DSL × B4 v1.13（FEATURE_TYPES 白名单补 mirror）", () => {
+  /** mirror 全参样本（shared v1.13 MirrorParams：世界平面 + keepOriginal 字面量 true）。 */
+  const mirrorOp: FeatureOp = {
+    kind: "insertFeature",
+    featureType: "mirror",
+    params: { plane: "XZ", keepOriginal: true },
+  };
+
+  it("`op insertFeature mirror {...}` 结构 parse 放行（白名单与 LubanFeatureType 全集对齐）", () => {
+    expect(dslToOps(opsToDsl([mirrorOp]))).toEqual([mirrorOp]);
+  });
+
+  it("mirror 往返恒等 + 文本级稳定", () => {
+    const dsl = opsToDsl([mirrorOp]);
+    expect(dsl.startsWith("op insertFeature mirror {")).toBe(true);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+});
+
 describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
   const plane = {
     origin: { x: 0, y: 0, z: 0.1 },

@@ -105,6 +105,14 @@ export function useToolActivation(): ToolActivation {
       openFeatureDialog({ mode: 'new', featureType: 'sweep' });
       return;
     }
+    if (id === 'MirrorElements') {
+      // B4 mirror 闭环入口：new/mirror 对话框（世界平面 XY/YZ/XZ + 保留原体 Unite——
+      // 参数化特征链，首版不支持任意面/基准面）。MirrorElements 是 editor 直改工具的
+      // 真实 toolId（其 basicManipulation/mirrorElement 通道此前为空操作），参数化
+      // 特征链入口不走直改通道——特例改道对话框（与 extrude/revolve/loft/sweep 同姿态）。
+      openFeatureDialog({ mode: 'new', featureType: 'mirror' });
+      return;
+    }
     if (id === 'RoundEdges') {
       // M6-b T6 圆角闭环入口：new/fillet 对话框（M4-T6/T4 同姿态——参数化
       // 特征链非直改工具；拾取归对话框「添加边」钮驱动 FilletEdgePickTool），

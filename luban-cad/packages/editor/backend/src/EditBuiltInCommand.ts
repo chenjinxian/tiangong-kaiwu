@@ -8,9 +8,9 @@
 
 
 import { BentleyStatus, CompressedId64Set, DbOpcode, DbResult, Guid, Id64, Id64Arg, Id64String, IModelStatus } from "@itwin/core-bentley";
-import { Matrix3d, Matrix3dProps, Point3d, Range3d, Range3dProps, Transform, TransformProps, XYZProps, YawPitchRollAngles } from "@itwin/core-geometry";
-import { _nativeDb, BriefcaseDb, GeometricElement, IModelDb, IpcHost } from "@itwin/core-backend";
-import { BRepEntity, ColorDefProps, DynamicGraphicsRequest3dProps, EcefLocation, EcefLocationProps, ElementGeometry, ElementGeometryBuilderParams, ElementGeometryDataEntry, ElementGeometryFunction, ElementGeometryInfo, ElementGeometryRequest, FilePropertyProps, GeometricElementProps, GeometryPartProps, IModelError, Placement3dProps } from "@itwin/core-common";
+import { Matrix3d, Matrix3dProps, Point3d, Range3d, Range3dProps, Transform, TransformProps, Vector3d, XYZProps, YawPitchRollAngles } from "@itwin/core-geometry";
+import { _nativeDb, BriefcaseDb, GeometricElement, GeometricElement3d, IModelDb, IpcHost } from "@itwin/core-backend";
+import { BRepEntity, BRepGeometryInfo, BRepGeometryOperation, ColorDefProps, DynamicGraphicsRequest3dProps, EcefLocation, EcefLocationProps, ElementGeometry, ElementGeometryBuilderParams, ElementGeometryDataEntry, ElementGeometryFunction, ElementGeometryInfo, ElementGeometryOpcode, ElementGeometryRequest, FilePropertyProps, GeometricElement3dProps, GeometricElementProps, GeometryPartProps, IModelError, Placement3dProps } from "@itwin/core-common";
 import { BasicManipulationCommandIpc, BlendEdgesProps, BooleanOperationProps, BRepEntityType, ChamferEdgesProps, ConnectedSubEntityProps, CutProps, DeleteSubEntityProps, EdgeParameterRangeProps, editorBuiltInCmdIds, ElementGeometryCacheFilter, ElementGeometryResultOptions, ElementGeometryResultProps, EmbossProps, EvaluatedEdgeProps, EvaluatedFaceProps, EvaluatedVertexProps, FaceParameterRangeProps, FlatBufferGeometryFilter, HollowFacesProps, ImprintProps, LocateSubEntityProps, LoftProps, OffsetEdgesProps, OffsetFacesProps, PointInsideResultProps, SewSheetProps, SolidModelingCommandIpc, SpinFacesProps, SubEntityAppearanceProps, SubEntityGeometryProps, SubEntityLocationProps, SubEntityProps, SubEntityType, SweepFacesProps, SweepPathProps, ThickenSheetProps, TransformSubEntityProps } from "@itwin/editor-common";
 import { EditCommand } from "./EditCommand";
 
@@ -124,6 +124,92 @@ export class BasicManipulationCommand extends EditCommand implements BasicManipu
     }
 
     return IModelStatus.Success;
+  }
+
+  /** Mirror a geometric element across a world-space plane, in place (B4 Task 4).
+   *
+   * Keep-original semantics: the element's geometry becomes Unite(original, mirrored) — the
+   * original material is retained inside the same element and the reflection is added, matching
+   * the parametric mirror feature (keepOriginal:true).
+   *
+   * 【为何并集而非「镜像副本」】（B4 spike 实证）：单独镜像体是内翻体——BRep entry 的
+   * entityTransform 带负行列式，网格有符号体积 −V、法向翻转；把该体单独写回元素会渲染
+   * 内翻。内核在当前原生面没有「反转实体朝向」的暴露（AcisModify::ReverseOrientation
+   * 仅片体门禁），而 **原体在前 Unite 镜像体**由 ACIS 归正（+2V、单 mesh）——参数化
+   * mirror 求值器同款次序（见 AsyncFeatureEval.evaluateMirrorAsync 头注）。
+   *
+   * 坐标空间：反射平面由世界系转入元素**局部系**（Placement 仅刚体），源与镜像条目均
+   * 留在局部系并集，元素 placement 不变——不引入世界坐标与恒等 placement 的混用。
+   * v1 仅支持 BRep 实体几何；其它 displayable 条目（曲线/part 引用等）诚实拒收。
+   */
+  public async mirrorElement(elementId: Id64String, planePoint: XYZProps, planeNormal: XYZProps): Promise<Id64String> {
+    const element = this.iModel.elements.getElement<GeometricElement3d>(elementId);
+    // 注：不以 placement.isValid 作门——该谓词要求已计算 bbox，纯 placement 更新后为 null
+    //（放置本身仍可逆）；无几何元素由 requestElementGeometry 空回包拒收，可逆性由 inverse 判。
+    const worldPoint = Point3d.fromJSON(planePoint);
+    const worldNormal = Vector3d.fromJSON(planeNormal);
+    if (!worldNormal.normalizeInPlace())
+      throw new IModelError(DbResult.BE_SQLITE_ERROR, "mirrorElement: degenerate plane normal");
+    // 世界平面 → 元素局部系（placement 为刚体变换：点走全变换，方向只走旋转）。
+    const worldToLocal = element.placement.transform.inverse();
+    if (undefined === worldToLocal)
+      throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: element ${elementId} placement is not invertible`);
+    const point = worldToLocal.multiplyPoint3d(worldPoint);
+    const normal = worldToLocal.matrix.multiplyVector(worldNormal);
+    if (!normal.normalizeInPlace())
+      throw new IModelError(DbResult.BE_SQLITE_ERROR, "mirrorElement: degenerate plane normal in element space");
+    // 反射矩阵 R = I − 2·n·nᵀ（负行列式）；平移 t = 2·(p·n)·n
+    const reflection = Matrix3d.createIdentity();
+    const c = [normal.x, normal.y, normal.z];
+    for (let row = 0; row < 3; row++)
+      for (let col = 0; col < 3; col++)
+        reflection.setAt(row, col, (row === col ? 1 : 0) - 2 * c[row] * c[col]);
+    const dot = point.x * normal.x + point.y * normal.y + point.z * normal.z;
+    const mirror = Transform.createOriginAndMatrix(
+      Point3d.create(2 * dot * normal.x, 2 * dot * normal.y, 2 * dot * normal.z),
+      reflection,
+    );
+    const geometry = await this.requestElementGeometry(elementId);
+    if (undefined === geometry || 0 === geometry.entryArray.length)
+      throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: element ${elementId} has no geometry`);
+    const sourceGeometry: ElementGeometryDataEntry[] = [];
+    const mirroredGeometry: ElementGeometryDataEntry[] = [];
+    const passthrough: ElementGeometryDataEntry[] = [];
+    for (const entry of geometry.entryArray) {
+      if (ElementGeometryOpcode.BRep === entry.opcode) {
+        const brep = ElementGeometry.toBRep(entry, true);
+        if (!brep || !brep.data)
+          throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: BRep entry without entity data on ${elementId}`);
+        const base = undefined === brep.transform ? Transform.createIdentity() : Transform.fromJSON(brep.transform);
+        const mirroredEntry = ElementGeometry.fromBRep({ ...brep, transform: mirror.multiplyTransformTransform(base).toJSON() });
+        if (!mirroredEntry)
+          throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: failed to encode mirrored BRep on ${elementId}`);
+        sourceGeometry.push(entry);
+        mirroredGeometry.push(mirroredEntry);
+      } else if (ElementGeometry.isDisplayableEntry(entry)) {
+        throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: only BRep solid geometry is supported (opcode=${entry.opcode})`);
+      } else {
+        passthrough.push(entry); // 外观/几何参数条目原样保留
+      }
+    }
+    if (0 === mirroredGeometry.length)
+      throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: element ${elementId} has no BRep solid geometry`);
+    // 并集次序钉死：原体在前（target）、镜像体在后——反序会使并集体整体内翻（spike 实证）。
+    let unionEntries: ElementGeometryDataEntry[] | undefined;
+    const status = this.iModel.createBRepGeometry({
+      operation: BRepGeometryOperation.Unite,
+      entryArray: [...sourceGeometry, ...mirroredGeometry],
+      onResult: (info: BRepGeometryInfo) => { unionEntries = info.entryArray; },
+    });
+    if (status !== IModelStatus.Success || undefined === unionEntries || 0 === unionEntries.length)
+      throw new IModelError(DbResult.BE_SQLITE_ERROR, `mirrorElement: kernel Unite failed on ${elementId} (status=${status})`);
+    const props = this.iModel.elements.getElementProps<GeometricElement3dProps>({ id: elementId });
+    props.elementGeometryBuilderParams = { entryArray: [...passthrough, ...unionEntries] };
+    await this.iModel.locks.acquireLocks({ exclusive: elementId });
+    this.beginEditing();
+    applyDirectEditGuard(this.iModel, elementId, "updateGeometricElement", props);
+    this.txn.updateElement(props);
+    return elementId;
   }
 
   public async insertGeometricElement(props: GeometricElementProps): Promise<Id64String> {
