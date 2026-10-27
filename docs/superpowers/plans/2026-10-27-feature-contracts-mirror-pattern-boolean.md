@@ -157,3 +157,16 @@
 - 测试：shared 112、web 685、private 259+8 skip；两仓 tsc/lint 绿。**未推送**。
 - 剩余：upstream-ADD 测试、updateParams 守卫测试、`sections` 惰性、语料前缀回放、
   真栈 synthetic（发布窗）。
+
+## Task 3 实现结果（B3 sweep，2026-10-27 本地）
+
+- public `00c6960` + `2083bdb`；private `044f3b9` + `3a8bc93`。
+- `SweepParams { profileSketchId; pathSketchId; bodyType:'SOLID' }`（v1.12）；`Sweep=8`
+  entryArray=[profile,path]，单 body；路径=恰一条直线、方向与轮廓法向点积 >1e-6、
+  无孔轮廓、无额外曲线；apply/preview 事务前拒收，eval 复用。
+- 合成验收：圆半径 1、直线长 5 → 体积 5π ±1%、bbox 正确、单 BRep；斜向路径正例；
+  同/平行面异草图路径、含孔、多曲线、多段路径均诚实拒收。
+- UI：双草图选择器（轮廓/路径）+ 最小入口/ribbon 改接；测试 shared 116、MS 272+8 skip、
+  web 855；tsc/lint 绿。**未推送**。
+- 剩余：upstream-ADD/multi-lump 测试、真栈与语料（Mold-Die 生态不可回放）、
+  updateParams 孔洞复查、测试顺序/重复块。
