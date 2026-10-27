@@ -1662,7 +1662,10 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
     // 删除 sk-1（剩 2 张：sk-2/sk-3）——loftNeedsTwo 不触发，但已选 id 已失活 → sketch 选项存活判据拦下。
     rerender(<FeatureDialog {...shared} sketches={[{ id: 'sk-2', label: '草图 2' }, { id: 'sk-3', label: '草图 3' }]} />);
-    expect(screen.getByTestId('part-studio-feature-dialog-loft-stale-hint')).toBeDefined();
+    // 断言渲染文案而非仅 testid（复审：key 拼错时 i18n 无缺键处理器会原样吐 key，
+    // 只查 testid 会漏绿——此断言钉 i18n 键名与词库 spelling 一致）。
+    expect(screen.getByTestId('part-studio-feature-dialog-loft-stale-hint').textContent)
+      .toBe('已选截面草图已不存在，请重新选择');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: '成品' }));

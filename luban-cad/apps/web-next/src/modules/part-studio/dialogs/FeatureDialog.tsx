@@ -1364,7 +1364,7 @@ export function FeatureDialog({
                       className="part-studio-feature-dialog__hint"
                       data-testid="part-studio-feature-dialog-loft-stale-hint"
                     >
-                      {t('partStudio.featureDialog.loftStaleSelectionHint')}
+                      {t('partStudio.featureDialog.loftSelectionStaleHint')}
                     </p>
                   )}
                   {/* 首版范围提示（服务端 op 边界对不平行截面同口径拒收）。 */}
