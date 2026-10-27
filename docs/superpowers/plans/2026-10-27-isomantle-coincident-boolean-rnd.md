@@ -126,3 +126,18 @@ Expected: `ops[6]` 后 `elementGeometryRequest` 抛 `bad allocation` / 94220；`
 3. 「工具与尾端面近相切」由 IR 坐标推导，未用精确面距验证。
 4. 原 ADD/NEW 对照无效：`operation` 字段当前是死字段，必须先做 Task 0.2。
 5. 失败 op 是全保真前缀最后一条（`ops[6]`），不是文档最后特征；不要误把后续 `UP_TO_SURFACE` 当失败点。
+
+## C0 结果（2026-10-27，已执行）
+
+- **全保真 op[6] 10/10 绿**：`applyOp` 30–43 ms、`elementGeometryRequest` 成功、体积偏差
+  0.0001%；`bad allocation`/94220/65542 一次未现；单次 86–130 s、峰值 RSS ~2.2 GB。
+  默认 6/6 已还原，私仓工作区干净。
+- **ADD/NEW 对照无效**：`CorpusReplay.test.ts:798` 仅对 `REMOVE` 路由；NEW 与 ADD 同落
+  `extrude`，引擎按 `upstreamEntries.length` 决定 Unite（`FeatureEngine.ts:267-272`）；
+  同一 IR 仅改 operation 的 ADD/NEW 插桩行逐字节相同。`operation` 在执行层只对 REMOVE 有意义。
+- 当前环境 `iTwinBRepCore.dll`（2026-10-26 22:11，含 native `399a2ff26` B4 修复）下失败不可复现；
+  无旧 DLL 可做 A/B，故「新 DLL 已修复」为推断而非因果证明。
+- **Phase 1 修订**：C1–C3（facet/restore/所有权/布尔容差/上游复杂度二分）以「可重复失败」为前提，
+  当前前提不成立，**暂停/关闭**；C4 改为「全保真回归门（opt-in 或默认）+ NEW/ADD 语义归一/
+  文档化」；真正的后续是越过 `endBound-UP_TO_SURFACE` 或实现多体 NEW 语义（特征/体模型层）。
+- 原始证据：`.superpowers/sdd/2026-10-27-isomantle-c0-repro/task-{1,2}-report.md`。
