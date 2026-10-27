@@ -43,8 +43,8 @@
  * B5 升 v1.14：pattern PART/body 级阵列——PatternParams（kind/count/spacing?/angle?/axis）。
  * 首版只做 **PART/body pattern**（FEATURE pattern / 任意轴引用 / 曲线阵列明确不支持）：
  * 整个上游体复制 count 份（**含原件**）并 Union 成单一 body；linear 沿世界 X/Y/Z 位移
- * k*spacing，circular 绕世界 Z 过原点转 k*angle/count 度（360 整周无重叠）。特征类型名
- * `pattern`。
+ * k*spacing，circular 绕世界 Z 过原点转 k*step（整周 360：step=angle/count 无重叠；
+ * 部分角：step=angle/(count-1)，首末实例夹住总角）。特征类型名 `pattern`。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -161,11 +161,12 @@ export interface MirrorParams {
  * pattern PART/body 级阵列参数（B5 v1.14）：**整个上游体**复制 count 份（含原件）并
  * Union 成单一 body。
  * - `kind`：`'linear' | 'circular'`。
- * - `count`：实例总数（**含原件**），整数 ≥2。
+ * - `count`：实例总数（**含原件**），整数 2..1000（上限防误输入/裸 RPC 构造海量实例）。
  * - `spacing`：仅 linear（必填）——沿 `axis` 的实例间距（>0）；实例 k 位移 k*spacing。
  * - `angle`：仅 circular（必填）——度制总角 (0,360]；绕**世界 Z 过原点**，实例 k 角度
- *   k*angle/count（360 时整周无重叠；部分角时末实例与原件间隔 angle/count——与既有
- *   PatternTools 的 angle/count 步进同锚）。
+ *   k*step：**整周 360 → step=angle/count**（无重叠闭合）；**部分角 < 360 →
+ *   step=angle/(count-1)**（首末实例夹住「总角度」；count=2 即 0 与 angle——与 Onshape
+ *   PART circular pattern 的 count-includes-seed 语义对齐）。
  * - `axis`：世界轴 `'X'|'Y'|'Z'`；linear 三轴可选，circular 首版只 `'Z'`（**须显式
  *   'Z'**，其它值服务端 zod 拒收——不静默忽略）。
  * 两形态键集互斥：linear 不得携带 angle、circular 不得携带 spacing（同给即拒，无静默

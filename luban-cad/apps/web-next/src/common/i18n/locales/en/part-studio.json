@@ -345,9 +345,9 @@
       "Y": "Y axis",
       "Z": "Z axis"
     },
-    "patternScopeHint": "This first version supports PART/body patterns only: instances include the original and are united into one body; circular patterns rotate about the world Z axis through the origin with instance angle = total angle / count",
+    "patternScopeHint": "This first version supports PART/body patterns only: instances include the original and are united into one body; circular patterns rotate about the world Z axis through the origin (step = total angle / count for 360°, or total angle / (count−1) for a partial angle)",
     "patternNeedsBodyHint": "Pattern needs an upstream body: create at least one solid feature first",
-    "patternCountInvalid": "Instance count must be an integer of at least 2 (including the original)",
+    "patternCountInvalid": "Instance count must be an integer between 2 and 1000 (including the original)",
     "patternSpacingInvalid": "Spacing must be a positive number",
     "patternAngleInvalid": "Total angle must be in (0, 360] degrees",
     "filletEdgesLabel": "Edges to fillet",

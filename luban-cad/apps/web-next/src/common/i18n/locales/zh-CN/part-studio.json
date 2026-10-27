@@ -345,9 +345,9 @@
       "Y": "Y 轴",
       "Z": "Z 轴"
     },
-    "patternScopeHint": "首版仅支持实体（PART）级阵列：实例含原件并 Union 为单一体；圆周绕世界 Z 轴过原点、实例角度=总角/数量",
+    "patternScopeHint": "首版仅支持实体（PART）级阵列：实例含原件并 Union 为单一体；圆周绕世界 Z 轴过原点（360° 时步进=总角/数量，部分角时步进=总角/(数量−1)）",
     "patternNeedsBodyHint": "阵列需要上游实体：请先创建至少一个实体特征",
-    "patternCountInvalid": "实例数量须为不小于 2 的整数（含原件）",
+    "patternCountInvalid": "实例数量须为 2–1000 的整数（含原件）",
     "patternSpacingInvalid": "间距须为正数",
     "patternAngleInvalid": "总角度须在 (0, 360] 度之间",
     "filletEdgesLabel": "要圆角的边",

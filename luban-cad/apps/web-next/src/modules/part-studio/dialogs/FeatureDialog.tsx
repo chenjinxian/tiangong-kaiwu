@@ -148,8 +148,9 @@
  * count（含原件，≥2）+ spacing（仅 linear，>0）/ angle（仅 circular，(0,360] 度）+
  * axis（linear 世界 X/Y/Z；circular 锁定世界 Z——与服务端 zod 同口径）。
  * 载荷 `{kind, count, spacing?|angle?, axis}`（PatternParams；两形态键互斥，不发送
- * 对方形态的键）。圆周实例角度=k*angle/count（360 整周无重叠——与既有 PatternTools
- * 步进同锚）。无上游实体（hasBodies=false）→ 诚实提示 + 提交禁用（requiresUpstream；
+ * 对方形态的键）。圆周实例角度=k*step：整周 360 → step=angle/count（无重叠闭合）；
+ * 部分角 → step=angle/(count-1)（首末实例夹住「总角度」）。无上游实体
+ *（hasBodies=false）→ 诚实提示 + 提交禁用（requiresUpstream；
  * 后端 op 边界同口径拒收）。距离/草图/chips 输入一律隐藏；首版无 FEATURE pattern /
  * 任意轴引用 / 曲线阵列（范围裁决）。
  *
@@ -271,9 +272,10 @@ export interface FeatureDialogProps {
   connectionKey?: string;
   /**
    * 库内已有实体（M6-b T6 fillet 通道诚实降级门）：宿主自特征树判
-   * （body 产出型条目在场：extrude/revolve/booleanAdd/booleanSubtract/loft/sweep/mirror）——
-   * false 时「添加边」禁用 + 提示先建实体（无体可拾边，不发工具）；mirror 通道
-   * 同门（无上游实体可镜像）。缺省 true（壳期/测试语义保持；生产宿主恒显式传参）。
+   * （body 产出型条目在场：extrude/revolve/booleanAdd/booleanSubtract/loft/sweep/
+   * mirror/pattern）——false 时「添加边」禁用 + 提示先建实体（无体可拾边，不发工具）；
+   * mirror/pattern 通道同门（无上游实体可镜像/阵列）。缺省 true（壳期/测试语义保持；
+   * 生产宿主恒显式传参）。
    */
   hasBodies?: boolean;
   /** ✓/成品 确认出口（回传全量载荷；提交成功后由宿主 closeDialog）。 */
@@ -731,7 +733,7 @@ export function FeatureDialog({
   // 提交门（B5 pattern）：count 须为 ≥2 的整数；linear spacing >0；circular angle
   // (0,360] 度——与服务端 zod 同域（UI 先挡 + 后端 txn 前拒收双层防御）。
   const patternCountNumber = Number(patternCount);
-  const patternCountValid = Number.isInteger(patternCountNumber) && patternCountNumber >= 2;
+  const patternCountValid = Number.isInteger(patternCountNumber) && patternCountNumber >= 2 && patternCountNumber <= 1000; // M1：与 zod 同域 2..1000
   const patternSpacingNumber = Number(patternSpacing);
   const patternSpacingValid = Number.isFinite(patternSpacingNumber) && patternSpacingNumber > 0;
   const patternAngleNumber = Number(patternAngle);
@@ -906,7 +908,8 @@ export function FeatureDialog({
                   }
                 : {
                     // 圆周阵列：绕世界 Z 过原点；axis 恒 'Z'（UI 锁定 + 服务端 zod 同口径）。
-                    // angle 度制 (0,360]；实例角度=k*angle/count。无 spacing 键。
+                    // angle 度制 (0,360]；实例角度=k*step（360→angle/count；部分角→
+                    // angle/(count-1)，首末夹总角）。无 spacing 键。
                     kind: 'circular' as const,
                     count: patternCountNumber,
                     angle: patternAngleNumber,

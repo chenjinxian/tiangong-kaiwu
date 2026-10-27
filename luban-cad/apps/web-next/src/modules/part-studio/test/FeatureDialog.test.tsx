@@ -1980,8 +1980,9 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
 
   it('非法数值 → 字段级诚实文案 + 不发起 op（count<2 / 非整数、spacing<=0、angle 越界）', async () => {
     const cases: Array<{ field: string; value: string; message: string }> = [
-      { field: '实例数量（含原件）', value: '1', message: '实例数量须为不小于 2 的整数（含原件）' },
-      { field: '实例数量（含原件）', value: '2.5', message: '实例数量须为不小于 2 的整数（含原件）' },
+      { field: '实例数量（含原件）', value: '1', message: '实例数量须为 2–1000 的整数（含原件）' },
+      { field: '实例数量（含原件）', value: '2.5', message: '实例数量须为 2–1000 的整数（含原件）' },
+      { field: '实例数量（含原件）', value: '1001', message: '实例数量须为 2–1000 的整数（含原件）' }, // M1 上限
       { field: '间距', value: '0', message: '间距须为正数' },
     ];
     for (const c of cases) {

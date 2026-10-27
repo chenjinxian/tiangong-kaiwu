@@ -316,9 +316,11 @@ Isomantle 由 v3 的「3 revolve smoke」升级为跨 fillet/chamfer 的前缀�
 
 ### 诚实边界（本波不可达，均实证）
 
-- **mirror / pattern / booleanBodies**：shared 契约无对应 FeatureParams（仅
-  extrude/revolve/fillet/chamfer/shell）；且 76 个带体积语料中这些特征的链均为
-  importForeign 坯料/生态链或无体积——**契约与语料双阻断**，不是本轮能靠转换器解决。
+- **mirror / pattern / booleanBodies**（2026-10-25 记录，2026-10-27 更新）：当时 shared
+  契约无对应 FeatureParams（仅 extrude/revolve/fillet/chamfer/shell），且 76 个带体积语料
+  中这些特征的链均为 importForeign 坯料/生态链或无体积——契约与语料双阻断。**B4（mirror
+  v1.13）与 B5（pattern v1.14）已补契约**，契约缺口解除；语料仍不可回放，原因分类登记见
+  文末「v7」节（mirror 8 例 / pattern 17 例）。
 - **Calculate Bounds 的 chamfer**：Extrude 2 为**面域拉伸**（entities query 无 sketch
   featureId → `targets-0-sketches`），需先做 face-based extrude 产品能力，chamfer 不可达。
 - **Fillet 5/6/7、Chamfer 2**：qCompressed 边查询不可静态解析。
@@ -455,3 +457,32 @@ Isomantle 由 v3 的「3 revolve smoke」升级为跨 fillet/chamfer 的前缀�
 跑 `probe-sketch-planes.js`（Calculate Sketch 3 + Isomantle 6 派生面 + 三基准面帧）→
 `corpus-to-ir.js` 重新生成（预期 Calculate 4 ops 止于 calculateBounds、Isomantle 7 ops 止于
 Extrude 2 UP_TO_SURFACE）→ 拷贝私有仓 corpus → CorpusReplay 全套验收。
+
+## v7（2026-10-27，B4/B5）：mirror / pattern 契约已落地——语料仍不可回放（登记）
+
+B4 起 mirror（shared v1.13）与 B5 起 pattern（shared v1.14，**PART/body 级**）已有
+FeatureParams；下述阻断中「shared 契约缺口」已解除，剩余为**语义/上游链**类。两批均
+**不尝试回放**（控制器裁决：只登记原因）。
+
+### mirror（8 例，全部不可回放）
+
+| 原因类 | 例数 | 说明（逐例见 B4 任务报告 §5） |
+|---|---|---|
+| 任意面/基准面引用 | 8 | v1 契约仅世界 XY/YZ/XZ 平面；语料 mirrorPlane 全为面/基准面 query（dummyQuery/planeOp） |
+| FEATURE/PART + NEW 新体语义 | 8 | Onshape `MirrorType=FEATURE` 或 `PART` + `NewBodyOperationType=NEW`；v1=整条上游体 + 保留原体 Unite |
+| 上游链依赖未支持特征 | 8 | importForeign 导入体、FeatureScript Beam/Frame/wireMesh、moveFace、booleanBodies、compositePart、split、配置相关 suppression |
+
+例：LCD（FEATURE/NEW + 面 plane + moveFace）、FeatureScript Beams Table/Custom Frame/
+Weldment/Go Kart（PART/NEW + FS Beam/Frame + 面 plane）、VEX Mecanum Wheel（importForeign +
+配置 suppression + booleanBodies/moveFace/circularPattern）。
+
+### pattern（17 例 = linearPattern 5 + circularPattern 6 + surfacePattern 5 + fillPattern 1）
+
+| 原因类 | 例数 | 说明（逐例见 B5 任务报告 §4） |
+|---|---|---|
+| FEATURE pattern 不在首版契约 | 4 | Isomantle Linear 1、Terminal Block Linear 3、Wire Mesh Linear 1/Circular 1——v1 仅 PART/body pattern |
+| PART pattern 链不可保真构建 / NEW 语义 | 7 | Terminal Block Linear 1/2、FeatureScript Beams Cross Frame、VEX V5 四轮：importForeign / FS Beam / moveFace / booleanBodies / 变量 `#Count`；且 `operationType=NEW`（独立新体，非整上游体并集） |
+| 面级 FS surface/fill pattern | 6 | FeatureScript Surface Pattern 1-5（`surfacePattern` uCount/vCount/gridAngle + bool ADD/SUBTRACT/NEW_BODIES；链含 loft/thicken/splitPart/draft）、Sheet Metal Parts Fill pattern（HEX 钣金面填充） |
+
+结论：v1.14 PART/body pattern 契约只覆盖「世界轴整条上游体的线性/圆周实例并集」；语料中的
+pattern 均为 FEATURE 级或面级 FS 特征，且 PART 例的上游链含未支持特征——全部不可回放。

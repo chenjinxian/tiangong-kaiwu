@@ -2,8 +2,9 @@
 //
 // M4 Task 6（brief Step 1）：画布宿主的对话框寻址渲染——
 //  1) T6-① key 必办：FeatureDialog 挂
-//     `key={dialog.mode==='edit' ? dialog.featureId : 'new-'+dialog.featureType}`
+//     `key={mode==='edit' ? featureId : 'new-'+featureType+(patternKind ? '-'+patternKind : '')}`
 //     ——不同 featureId 切换时重挂（本地态不跨特征残留；M3-T6 台账①根治）；
+//     B5：pattern 的 kind 参与 key（linear/circular 两入口互切重挂）；
 //  2) new/extrude 提交链：对话框确认 → 宿主下传的 applyOp（Session
 //     useFeatureSystem 直通）被调；✗ 取消 → closeDialog；M6-a T6 起载荷走
 //     草图通道（sketches/connectionKey 透传 → {sketchId, regions,
@@ -125,6 +126,21 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     expect(screen.getByRole('dialog', { name: '拉伸 2' })).toBeDefined();
     expect(withinDialog().queryByRole('textbox', { name: '拔模' })).toBeNull();
     expect(withinDialog().getByRole('button', { name: '拔模' }).getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('B5：patternKind 参与 key —— pattern linear→circular 两入口切换重挂（kind 初值生效）', () => {
+    // pattern 通道需 applyOp 在场（new + applyOp 才是参数化特征入口）。
+    renderCanvas(vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })));
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'pattern', patternKind: 'linear' });
+    });
+    expect((withinDialog().getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement).value).toBe('linear');
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'pattern', patternKind: 'circular' });
+    });
+    // 同 featureType 但 key 含 kind → 重挂后 useState 初值取 circular（非旧态残留）。
+    expect((withinDialog().getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement).value).toBe('circular');
+    expect((withinDialog().getByRole('combobox', { name: '方向轴' }) as HTMLSelectElement).value).toBe('Z');
   });
 
   it('new 模式与 edit 模式 key 不同族（new-extrude），互不串挂', async () => {

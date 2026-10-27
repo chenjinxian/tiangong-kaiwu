@@ -12,8 +12,10 @@
  * T6：
  * - store.dialog 驱动 FeatureDialog（特征编辑，os-31）/ SketchDialog（新建
  *   草图，os-30）在画布左上角内联渲染（非模态——画布持续可交互）；
- * - FeatureDialog 挂 `key={mode==='edit' ? featureId : 'new-'+featureType}`
- *  （M3-T6 台账①根治：不同特征切换即重挂，本地态不跨特征残留）；
+ * - FeatureDialog 挂 `key={mode==='edit' ? featureId : 'new-'+featureType+
+ *   (patternKind ? '-'+patternKind : '')}`（M3-T6 台账①根治：不同特征切换即重挂，
+ *   本地态不跨特征残留；B5：pattern 的 kind 参与寻址——linear/circular 两入口互切
+ *   须重挂，否则对话框 useState 初值不随 props 变化）；
  * - 提交链（M4-T6 拉伸闭环）：new 模式 ✓ → FeatureDialog 内部构 insertFeature
  *   op 经 applyOp（Session useFeatureSystem 直通）提交，成功回 onConfirm →
  *   closeDialog；edit 模式确认在对话框内已禁用+提示（T6 评审 M-1）；
