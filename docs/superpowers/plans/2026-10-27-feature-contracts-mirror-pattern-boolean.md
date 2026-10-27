@@ -113,11 +113,23 @@
 
 **前置**：Task 4/5 的变换原语稳定；单 body 模型改造方案评审通过。
 
-- [ ] **6.1 Spike 架构**：`LubanBodySolid` 单元素 → 多 body 的 schema/EDE/UDL 影响面；输出迁移与回滚方案。
-- [ ] **6.2 compositePart 最小里程碑**：no-op 元数据特征 `{ bodies: LubanTopologyId[]; closed: boolean }`，status=0 入树，让语料链越过；不做几何合并。
-- [ ] **6.3 body boolean**：`BooleanBodiesParams { tools: bodyRef[]; targets: bodyRef[]; operation: 'unite'|'subtract'|'intersect'; keepTools: boolean }`；新增 bodyRef 表单种类 + resolveBodyRef。
-- [ ] **6.4 真多体写回**：多 body 树、可见性、保存/撤销、回放执行器。
-- [ ] **验收**：33 例 booleanBodies/4 例 compositePart 语料中至少 1 例从停链转为可回放；默认 CorpusReplay 不回归。
+- [x] **6.1 Spike 架构（2026-10-27 完成）**：`LubanBodySolid` 单元素 → 多 body 的 schema/EDE/UDL 影响面；输出迁移与回滚方案。见下方「Task 6.1 spike 结论」。
+- [ ] **6.2 compositePart 最小里程碑（暂缓；仅契约完整性 fallback）**：no-op 元数据特征 `{ bodies: BodyRef[]; closed: boolean }`，status=0 入树；**须 body-driving**（`bodyDriver=false` 已撤回）+ 只读 `getBodies` 折入 + compositePart 后下游特征测试；不做几何合并。
+- [ ] **6.3 body boolean（前置改为 NEW-body + body 身份）**：`BooleanBodiesParams { tools: BodyRef[]; targets: BodyRef[]; operation; keepTools }`；真实前置是能生成第二个 body 的 NEW-body 语义 + bodyRef 解析，不是先做 6.4 树/可见性。
+- [ ] **6.4 真多体写回（先做 1–2 周最小 A spike）**：两 body 元素 + getBodies/bodyKey=elementId + 逐 body 投影/写回 + 逐 body carrier/串行化 + 合成两体冷重建/undo；通过后再做多 body 树、可见性、保存/撤销、回放执行器。
+- [ ] **验收（2026-10-27 spike 修订）**：默认 CorpusReplay 6/6 不回归；合成 `sketch→extrude→compositePart（含下游特征）` 可回放；合成两体 body boolean 夹具；真实 33 例 booleanBodies / 4 例 compositePart 逐例登记阻断原因，**不承诺真实语料转绿**（独立复核 0/33、0/4）。
+
+### Task 6.1 spike 结论（2026-10-27，Revision 2，独立复审 decision-grade）
+
+- 报告：`.superpowers/sdd/2026-10-27-b6-multibody-spike/task-1-report.md`；复审：同目录 `task-1-review.md`。
+- **主推荐 Pivot，6.2 现在不开工**：最小 A spike（1–2 周，回答逐 body 投影/载体/两体冷重建/undo）→ NEW-body + `getBodies`/body 身份 → 合成两体 body boolean；暂缓 compositePart 与 importForeign。
+- **单 body 是应用层约定**（schema 无唯一约束）：`queryBodySolid LIMIT 1`、单 `bodyId` ctx、`writeBody` 串接全部 source cache、单 carrier、单输出引擎；测试耦合 156 处/28 文件。
+- **语料不可达**：33 booleanBodies 节点/29 PS 全被 importForeign/生态过滤（0 clean）；4 compositePart 中 3 例过滤，唯一原生 Isomantle 停在其前 8 个未接线特征、后还有 `linearPattern`（23/26）——0/33、0/4。
+- **无第二 body 生成源**：B1–B5 有上游必 Unite，NEW≡ADD 是执行层死区分；body boolean 需先有 NEW-body（或 importForeign，后者 129 特征/0 几何 blob，属 XL 独立项目）。
+- **表达层**：A（每 body 一个 `GeometricElement3d` + bodyKey=elementId）是唯一满足逐 body 可见性/选择的路线；B（单元素多 BRep）仅内部语义，历史 fillet 风险证据降级 `[I]/[S]`；C（容器 schema）无增量收益，D 不选。
+- **修正版 6.2 仅契约完整性 fallback**（S/M，4–8 人日）：compositePart **body-driving**（旧 `bodyDriver=false` 会留陈旧 `prev→body`、下游插入后双 source 重复几何）、`getBodies` 必须折入、合成测试须含 compositePart 后的下游特征并断言每 body 一 source/单 BRep/体积 bbox 不变。
+- **直改 PatternTools 泄漏**：复制 `LubanBodySolid` 且无 D7 标记，当前 ribbon 已改道参数化对话框，属 latent/historical；A 迁移前须审计并清理/收编多 BodySolid 副本。
+- **需顺手修**：`booleanBodies` ribbon 是死点击命令（capability full、无注册工具）；`queryBodySolid LIMIT 1` 无 ORDER BY；FeatureTree 零件查询无 model/category 过滤。
 
 ## 验收与发布
 
