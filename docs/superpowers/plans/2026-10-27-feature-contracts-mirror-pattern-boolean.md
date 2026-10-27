@@ -144,3 +144,16 @@
   相交页签禁用并提示。
 - 未推送（两仓本地 commit）；剩余 minor：cold/suppressed 上游同类吞错（既有）、禁用页签视觉、
   multi-region/regionIndex 端到端测试、测试顺序/租约。
+
+## Task 2 实现结果（B2 loft，2026-10-27 本地）
+
+- public `595c4bf` + `5164c0c` + `8144281`；private `697b01a` + `78920b5` + `3bd0b1c`。
+- `LoftParams { sketchIds: [string,string]; sections?; bodyType:'SOLID' }`（v1.11）；两平行截面、
+  单 body；`BRepGeometryOperation.Loft=9` entryArray；zod 拒收单/重复/非 SOLID。
+- 合成验收：两平行矩形 → 解析体积 14/3 ±1%、bbox 三轴双侧 [0,2]、单 BRep；
+  非平行在 apply/preview **事务前**拒收；holes 走 eval 诚实失败（前体保留）。
+- UI：FeatureDialog 双草图选择器 + 最小入口；ribbon 伪 `loft` toolId 改接真对话框；
+  陈旧选择/重复/两草图缺失均有门禁与提示。
+- 测试：shared 112、web 685、private 259+8 skip；两仓 tsc/lint 绿。**未推送**。
+- 剩余：upstream-ADD 测试、updateParams 守卫测试、`sections` 惰性、语料前缀回放、
+  真栈 synthetic（发布窗）。
