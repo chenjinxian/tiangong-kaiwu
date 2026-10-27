@@ -197,3 +197,33 @@
   未尝试 replay。
 - 剩余：任意面/基准面引用、`keepOriginal:false`（需 native 实体反倒向暴露）、非 BRep
   曲线镜像、真栈合成（发布窗重发产物）。
+
+## Task 5 实现结果（B5 pattern，2026-10-27 本地）
+
+- public `45e21fc384`（shared v1.14 + FeatureDialog/ribbon/i18n）+ `46e7bda4d7`（复审修复：
+  hybrid 步进/REPLAY-DESIGN/count 上限/注释/remount 用例）；private `5a1c21c`（registry/
+  schema/evaluator + PatternFlow）+ `071254e`（复审修复：I1/I2 + M1–M5）。
+- **Spike（先验证后实现）**：entryArray BRep `entityTransform` 平移/旋转可行；N 实例一次
+  Unite 得单 BRep/单 Polyface。线性 3× spacing 10 → 有符号体积 24、bbox [0,22]；偏轴盒
+  圆周 3× → 24、bbox 与解析一致；旋转 det=+1 不翻绕序；互不接触实例的并集为多 lump 单
+  body（合法形态）。无 native 改动需求。
+- `PatternParams { kind:'linear'|'circular'; count; spacing?; angle?; axis }`（v1.14）；
+  首版仅 PART/body：linear 沿世界 X/Y/Z、实例 k 位移 `k*spacing`；circular 绕世界 Z 过
+  原点、`count` 含原件、`0<angle≤360`；步进 **整周 360 → angle/count，部分角 →
+  angle/(count-1)**（首末夹总角）；count 2..1000；两形态键集互斥；整条上游体实例并集
+  写回单 body（体积 count×；重叠实例按布尔去重）。
+- MS：注册表 patternSchema/formFields；`evaluatePatternAsync` 逐 BRep 条目重编码
+  `entityTransform` 后一次 Unite；apply/preview **事务前**同一文案拒收：无上游、链尾
+  status≠0/缓存缺失、非 BRep/非实体；求值层兜底 count/spacing/angle/axis。复审 I2 修复
+  堵住了「上游缓存缺失 → ok:true + status=1 死特征」B1 类回归（真实失败 fillet 复现）。
+- UI：FeatureDialog kind/count/spacing/angle/axis + 上游门禁 + 字段级错误；Ribbon 下拉
+  伪 id `circularPattern` → 真 toolId `CircularPattern`（改道参数化对话框）；`curvePattern`
+  无工具/后端面，翻能力引导；`BODY_PRODUCING_FEATURE_TYPES` + pattern。
+- 验收：PatternFlow 16/16（线性 3× → 24；圆周 360/部分角；updateParams 重求值；无上游/
+  非 BRep/Sheet/上游不可用拒收；多 BRep 32；非恒等基组合；count 1001 拒收）；MS feature
+  302+8 skip；shared 124；web 874；editor PatternTools 9/9；三仓 tsc 绿（web lint clean）。
+- 语料 17 例（linear 5 + circular 6 + surface 5 + fill 1）**全部不可回放**：FEATURE
+  pattern 不在首版契约；PART/NEW 独立新体语义 + 链内 importForeign/FS/moveFace 等未支持
+  特征；surface/fill 为面级 FS。原因已登记 REPLAY-DESIGN v7（含 B4 8 例）。**未推送**。
+- 剩余：FEATURE pattern/任意轴引用/曲线阵列/per-instance 变换；真栈合成（发布窗重发
+  shared dist + MS 产物 + web，v1.14.0 须同发）；严格 360 才整周闭合；cap 内成本线性。
