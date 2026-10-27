@@ -184,6 +184,7 @@
       "thread": { "label": "外部螺纹" },
       "linearPattern": { "label": "线性阵列" },
       "mirror": { "label": "镜像" },
+      "pattern": { "label": "阵列" },
       "boolean": { "label": "布尔运算" },
       "splitPart": { "label": "分割" },
       "transform": { "label": "变换" },
@@ -329,6 +330,26 @@
     },
     "mirrorScopeHint": "首版仅支持过世界原点的 XY/YZ/XZ 平面，并保留原体（与镜像体合并）",
     "mirrorNeedsBodyHint": "镜像需要上游实体：请先创建至少一个实体特征",
+    "patternParametersLabel": "阵列参数",
+    "patternKindLabel": "阵列类型",
+    "patternKindOptions": {
+      "linear": "线性阵列",
+      "circular": "圆周阵列"
+    },
+    "patternCountLabel": "实例数量（含原件）",
+    "patternSpacingLabel": "间距",
+    "patternAngleLabel": "总角度（度）",
+    "patternAxisLabel": "方向轴",
+    "patternAxisOptions": {
+      "X": "X 轴",
+      "Y": "Y 轴",
+      "Z": "Z 轴"
+    },
+    "patternScopeHint": "首版仅支持实体（PART）级阵列：实例含原件并 Union 为单一体；圆周绕世界 Z 轴过原点、实例角度=总角/数量",
+    "patternNeedsBodyHint": "阵列需要上游实体：请先创建至少一个实体特征",
+    "patternCountInvalid": "实例数量须为不小于 2 的整数（含原件）",
+    "patternSpacingInvalid": "间距须为正数",
+    "patternAngleInvalid": "总角度须在 (0, 360] 度之间",
     "filletEdgesLabel": "要圆角的边",
     "radiusLabel": "半径",
     "radiusInvalid": "请输入有效的圆角半径（大于 0）",
@@ -585,6 +606,7 @@
       "loft": "放样",
       "sweep": "扫掠",
       "mirror": "镜像",
+      "pattern": "阵列",
       "sketch": "草图"
     }
   },
@@ -703,6 +725,10 @@
     "featureHistory": {
       "title": "特征历史（规划中）",
       "message": "特征重生成历史查看已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "curvePattern": {
+      "title": "曲线阵列（规划中）",
+      "message": "曲线阵列已在鲁班CAD 路线图中登记，当前版本仅支持实体（PART）级的线性与圆周阵列，后续里程碑提供。"
     }
   },
   "displaySettingsPanel": {

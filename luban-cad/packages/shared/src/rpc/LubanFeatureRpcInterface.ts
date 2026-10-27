@@ -40,13 +40,18 @@
  * B4 升 v1.13：mirror 平面镜像——MirrorParams（世界平面 XY/YZ/XZ + keepOriginal:true）。
  * 首版仅世界平面（过原点，无任意面/基准面引用）；整条上游体按平面反射后与上游 Unite
  *（保留原体），单 body / 多 lump 写回。特征类型名 `mirror`。
+ * B5 升 v1.14：pattern PART/body 级阵列——PatternParams（kind/count/spacing?/angle?/axis）。
+ * 首版只做 **PART/body pattern**（FEATURE pattern / 任意轴引用 / 曲线阵列明确不支持）：
+ * 整个上游体复制 count 份（**含原件**）并 Union 成单一 body；linear 沿世界 X/Y/Z 位移
+ * k*spacing，circular 绕世界 Z 过原点转 k*angle/count 度（360 整周无重叠）。特征类型名
+ * `pattern`。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
- * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror";
+ * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern） */
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -152,6 +157,29 @@ export interface MirrorParams {
   keepOriginal: true;
 }
 
+/**
+ * pattern PART/body 级阵列参数（B5 v1.14）：**整个上游体**复制 count 份（含原件）并
+ * Union 成单一 body。
+ * - `kind`：`'linear' | 'circular'`。
+ * - `count`：实例总数（**含原件**），整数 ≥2。
+ * - `spacing`：仅 linear（必填）——沿 `axis` 的实例间距（>0）；实例 k 位移 k*spacing。
+ * - `angle`：仅 circular（必填）——度制总角 (0,360]；绕**世界 Z 过原点**，实例 k 角度
+ *   k*angle/count（360 时整周无重叠；部分角时末实例与原件间隔 angle/count——与既有
+ *   PatternTools 的 angle/count 步进同锚）。
+ * - `axis`：世界轴 `'X'|'Y'|'Z'`；linear 三轴可选，circular 首版只 `'Z'`（**须显式
+ *   'Z'**，其它值服务端 zod 拒收——不静默忽略）。
+ * 两形态键集互斥：linear 不得携带 angle、circular 不得携带 spacing（同给即拒，无静默
+ * 优先级）。首版**不支持 FEATURE pattern / 任意轴引用 / 曲线阵列 / per-instance 变换**；
+ * 非 BRep/非实体上游由服务端诚实拒收。互不接触的实例并集为多 lump 单 body（合法产物）。
+ */
+export interface PatternParams {
+  kind: "linear" | "circular";
+  count: number;
+  spacing?: number;
+  angle?: number;
+  axis: "X" | "Y" | "Z";
+}
+
 /** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */
 export interface LubanTopologyId { nodeId: number; entityId: number }
 
@@ -214,7 +242,7 @@ export interface RevolveParams {
   angle?: number;
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams;
 
 export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
@@ -299,7 +327,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.13.0";
+  public static interfaceVersion = "1.14.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

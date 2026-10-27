@@ -219,7 +219,13 @@ export function PartStudioCanvas({
           不泄漏进下一单）。 */}
       {dialog.active === 'feature' && (
         <FeatureDialog
-          key={dialog.mode === 'edit' ? dialog.featureId : `new-${dialog.featureType}`}
+          key={
+            dialog.mode === 'edit'
+              ? dialog.featureId
+              // B5：pattern 的 kind 参与寻址——同 featureType 的 linear/circular 两入口
+              // 互切须重挂（否则 useState 初值不随 props 变化，仍停留旧 kind）。
+              : `new-${dialog.featureType}${dialog.patternKind !== undefined ? `-${dialog.patternKind}` : ''}`
+          }
           featureName={
             dialog.mode === 'edit'
               ? dialog.featureName
@@ -227,6 +233,7 @@ export function PartStudioCanvas({
           }
           mode={dialog.mode}
           featureType={dialog.mode === 'edit' ? undefined : dialog.featureType}
+          initialPatternKind={dialog.mode === 'edit' ? undefined : dialog.patternKind}
           applyOp={applyOp}
           leaseOk={leaseOk}
           canEdit={canEdit}

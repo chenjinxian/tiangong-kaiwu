@@ -21,6 +21,9 @@
  *   IModelApp.tools.run 即可真激活；其余未接线命令用 Onshape command-id
  *   （newSketch/extrude/…/USER_FEATURES），后续里程碑接线时替换或映射；
  *   B3 注：SweepFaces 虽仍是真实直改工具 id，但参数化特征链入口已在
+ *   B5 注：LinearPattern/CircularPattern（下拉子项）同姿态改道 new/pattern 对话框
+ *   （PART/body 级参数化阵列——count/spacing/angle/axis）；curvePattern 无工具/后端面，
+ *   capability 翻 gated（点击走能力引导，不再伪 toolId 静默失败）。
  *   useToolActivation 特例改道 new/sweep 对话框（同 extrude/revolve/loft/
  *   RoundEdges 姿态；直改通道后续按需单裁入口）；
  * - capability 维度消费 internal/capabilities（gated 照常可点 → 能力引导
@@ -430,7 +433,12 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     capability: 'linearPattern',
     group: 'pattern',
     dropdownItems: [
-      { id: 'circularPattern', icon: LinearPatternIcon, labelKey: 'partStudio.ribbon.items.circularPattern.label', capability: 'circularPattern' },
+      // B5：子项 id 校准为 register-edit-tools.ts 登记的真实直改 toolId
+      // （CircularPattern）——旧 'circularPattern' 为伪 id（tools.run 静默失败）；
+      // 主钮/子项均由 useToolActivation 改道参数化 new/pattern 对话框。
+      { id: 'CircularPattern', icon: LinearPatternIcon, labelKey: 'partStudio.ribbon.items.circularPattern.label', capability: 'circularPattern' },
+      // 曲线阵列无对应工具/后端面（首版 pattern 仅 PART 级线性/圆周）——capability
+      // 已翻 gated：点击开能力引导对话框，不再静默假启动。
       { id: 'curvePattern', icon: LinearPatternIcon, labelKey: 'partStudio.ribbon.items.curvePattern.label', capability: 'curvePattern' },
     ],
   },

@@ -220,6 +220,8 @@ export type {
   SweepParams,
   // B4 v1.13（mirror 平面镜像）
   MirrorParams,
+  // B5 v1.14（pattern PART 级阵列）
+  PatternParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

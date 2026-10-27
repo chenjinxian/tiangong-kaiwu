@@ -113,6 +113,21 @@ export function useToolActivation(): ToolActivation {
       openFeatureDialog({ mode: 'new', featureType: 'mirror' });
       return;
     }
+    if (id === 'LinearPattern') {
+      // B5 pattern 闭环入口：new/pattern 对话框（PART/body 级线性阵列——count 含原件、
+      // spacing>0、世界 X/Y/Z）。LinearPattern 是真实直改工具 id（逐元素复制），参数化
+      // 特征链入口不走直改——特例改道对话框（与 SweepFaces/MirrorElements 同姿态；直改
+      // 通道保留在册，后续按需单裁入口）。
+      openFeatureDialog({ mode: 'new', featureType: 'pattern', patternKind: 'linear' });
+      return;
+    }
+    if (id === 'CircularPattern') {
+      // B5 圆周阵列入口（ribbon 下拉子项）：同 new/pattern 对话框、初始 kind=circular。
+      // 子项 id 已校准为 register-edit-tools 登记的真实直改 toolId（旧 'circularPattern'
+      // 为伪 id——tools.run 静默失败）；参数化入口改道对话框，不投直改工具。
+      openFeatureDialog({ mode: 'new', featureType: 'pattern', patternKind: 'circular' });
+      return;
+    }
     if (id === 'RoundEdges') {
       // M6-b T6 圆角闭环入口：new/fillet 对话框（M4-T6/T4 同姿态——参数化
       // 特征链非直改工具；拾取归对话框「添加边」钮驱动 FilletEdgePickTool），

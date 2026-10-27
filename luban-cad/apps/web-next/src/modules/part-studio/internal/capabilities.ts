@@ -34,9 +34,9 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   loft: 'full', // 放样
   thicken: 'full', // 加厚（含封闭变体）
   hole: 'full', // 孔
-  linearPattern: 'full', // 线性阵列
-  circularPattern: 'full', // 环形阵列
-  curvePattern: 'full', // 曲线阵列
+  linearPattern: 'full', // 线性阵列（B5 起参数化 PART 级入口）
+  circularPattern: 'full', // 环形阵列（B5 起参数化 PART 级入口）
+  curvePattern: 'gated', // 曲线阵列（B5：无工具/后端面——首版 pattern 仅线性/圆周，翻 gated 诚实引导）
   mirror: 'full', // 镜像
   boolean: 'full', // 布尔运算
   splitPart: 'full', // 分割
@@ -130,4 +130,5 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   insertElement: guidanceFor('insertElement'),
   pauseRebuild: guidanceFor('pauseRebuild'),
   featureHistory: guidanceFor('featureHistory'),
+  curvePattern: guidanceFor('curvePattern'),
 };

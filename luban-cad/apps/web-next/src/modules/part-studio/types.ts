@@ -5,7 +5,7 @@
  * part-studio 模块契约类型（M3 Task 2）。
  */
 
-import type { LubanFeatureType, SketchPlaneDto } from '@luban-cad/shared';
+import type { LubanFeatureType, PatternParams, SketchPlaneDto } from '@luban-cad/shared';
 
 /** 画布拾取类型（spec §5 上下文敏感模型：右键菜单按 kind 重构）。 */
 export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature';
@@ -123,7 +123,9 @@ export interface PartStudioCanvasState {
  */
 export type PartStudioDialogState =
   | { active: null }
-  | { active: 'feature'; mode: 'new'; featureType: LubanFeatureType }
+  /** B5：patternKind 为 ribbon 入口的初始阵列类型（LinearPattern→linear、CircularPattern→circular）；
+   * 对话框内仍可自由切换（参数化特征载荷 kind 以对话框当前值为准）。 */
+  | { active: 'feature'; mode: 'new'; featureType: LubanFeatureType; patternKind?: PatternParams['kind'] }
   | { active: 'feature'; mode: 'edit'; featureId: string; featureName: string; featureType: string }
   | { active: 'sketch'; sketchId: string | null };
 

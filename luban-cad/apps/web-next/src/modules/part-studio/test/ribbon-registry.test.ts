@@ -86,7 +86,7 @@ const EXPECTED_DROPDOWNS: Record<string, string[]> = {
   thicken: ['thickenClosed'], // 加厚/封闭
   RoundEdges: ['faceBlend'], // 圆角/面混合
   DraftFaces: ['bodyDraft'], // 拔模/主体拔模
-  LinearPattern: ['circularPattern', 'curvePattern'], // 线性/环形/曲线阵列
+  LinearPattern: ['CircularPattern', 'curvePattern'], // 线性/环形（真实直改 toolId）/曲线阵列
   transform: ['wrap', 'decal'], // 变换/包覆/印花
   frame: ['frameTrim', 'gusset', 'endCap', 'cutList'], // 框架/框架修剪/角撑板/端盖/切割清单
   sheetMetalStart: [ // 钣金模型（UI-INVENTORY §2.2 全 13 项）

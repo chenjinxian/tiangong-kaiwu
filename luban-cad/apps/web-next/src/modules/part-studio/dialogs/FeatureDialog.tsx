@@ -144,6 +144,14 @@
  * 无上游实体（hasBodies=false）→ 诚实提示 + 提交禁用（requiresUpstream；后端 op
  * 边界同口径拒收）。距离/草图/chips 输入一律隐藏（镜像无这些量）；ribbon 的
  * MirrorElements 为真实直改工具 id，参数化特征链入口特例改道本对话框。
+ * pattern 通道（B5 v1.14）：**PART/body 级阵列**——kind（linear/circular）下拉 +
+ * count（含原件，≥2）+ spacing（仅 linear，>0）/ angle（仅 circular，(0,360] 度）+
+ * axis（linear 世界 X/Y/Z；circular 锁定世界 Z——与服务端 zod 同口径）。
+ * 载荷 `{kind, count, spacing?|angle?, axis}`（PatternParams；两形态键互斥，不发送
+ * 对方形态的键）。圆周实例角度=k*angle/count（360 整周无重叠——与既有 PatternTools
+ * 步进同锚）。无上游实体（hasBodies=false）→ 诚实提示 + 提交禁用（requiresUpstream；
+ * 后端 op 边界同口径拒收）。距离/草图/chips 输入一律隐藏；首版无 FEATURE pattern /
+ * 任意轴引用 / 曲线阵列（范围裁决）。
  *
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
@@ -164,6 +172,7 @@ import type {
   FilletEdgeRef,
   LubanFeatureType,
   MirrorParams,
+  PatternParams,
   SketchEntityDto,
   SketchRegionDto,
 } from '@luban-cad/shared';
@@ -223,6 +232,11 @@ export interface FeatureDialogProps {
   mode?: 'new' | 'edit';
   /** 特征类型（mode='new' 时 insertFeature 的 featureType）。 */
   featureType?: LubanFeatureType;
+  /**
+   * B5 pattern 通道初始阵列类型（ribbon 入口寻址：LinearPattern→'linear'、
+   * CircularPattern→'circular'；缺省 'linear'）。对话框内 kind 下拉仍可自由切换。
+   */
+  initialPatternKind?: PatternParams['kind'];
   /** op 提交面（Session useFeatureSystem.applyOp 直通；缺省=纯回调壳期语义）。 */
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   /**
@@ -373,6 +387,7 @@ export function FeatureDialog({
   featureName,
   mode = 'edit',
   featureType,
+  initialPatternKind,
   applyOp,
   leaseOk,
   canEdit = true,
@@ -482,6 +497,11 @@ export function FeatureDialog({
   // 是真实直改工具 id，但参数化特征链入口特例改道本对话框（见 Ribbon.tsx 注）。
   const mirrorChannel = mode === 'new' && featureType === 'mirror' && applyOp !== undefined;
   const mirrorUpstreamMissing = mirrorChannel && !hasBodies;
+  // B5 v1.14 pattern 通道：PART/body 级阵列（kind=linear/circular；count 含原件）。
+  // 无草图/面域/边拾取输入——参数只有 kind/count/spacing?/angle?/axis；上游体由服务端
+  // 特征链供给（requiresUpstream——无实体时 UI 先挡 + 后端 op 边界同口径拒收）。
+  const patternChannel = mode === 'new' && featureType === 'pattern' && applyOp !== undefined;
+  const patternUpstreamMissing = patternChannel && !hasBodies;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
@@ -516,6 +536,14 @@ export function FeatureDialog({
   const [sweepPathSketchId, setSweepPathSketchId] = React.useState('');
   // B4 mirror 通道：镜像平面（世界系过原点；缺省 XZ=法向 Y，与 Onshape 默认前视镜像同锚）。
   const [mirrorPlane, setMirrorPlane] = React.useState<MirrorParams['plane']>('XZ');
+  // B5 pattern 通道：kind（ribbon 入口可指定初始值）+ count（含原件，缺省 3）+
+  // spacing（linear 缺省 10）/ angle（circular 缺省 360°）+ axis（linear 缺省 X；
+  // circular 锁定 Z，见下方载荷/渲染）。
+  const [patternKind, setPatternKind] = React.useState<PatternParams['kind']>(initialPatternKind ?? 'linear');
+  const [patternCount, setPatternCount] = React.useState('3');
+  const [patternSpacing, setPatternSpacing] = React.useState('10');
+  const [patternAngle, setPatternAngle] = React.useState('360');
+  const [patternAxis, setPatternAxis] = React.useState<PatternParams['axis']>('X');
 
   // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
   const [radius, setRadius] = React.useState('5');
@@ -700,6 +728,20 @@ export function FeatureDialog({
   const sweepReady = !sweepChannel
     || (!sweepNeedsTwo && !sweepDuplicate && !sweepSelectionStale
       && sweepProfileSketchId !== '' && sweepPathSketchId !== '');
+  // 提交门（B5 pattern）：count 须为 ≥2 的整数；linear spacing >0；circular angle
+  // (0,360] 度——与服务端 zod 同域（UI 先挡 + 后端 txn 前拒收双层防御）。
+  const patternCountNumber = Number(patternCount);
+  const patternCountValid = Number.isInteger(patternCountNumber) && patternCountNumber >= 2;
+  const patternSpacingNumber = Number(patternSpacing);
+  const patternSpacingValid = Number.isFinite(patternSpacingNumber) && patternSpacingNumber > 0;
+  const patternAngleNumber = Number(patternAngle);
+  const patternAngleValid = Number.isFinite(patternAngleNumber) && patternAngleNumber > 0 && patternAngleNumber <= 360;
+  // ✓/成品统一禁用面（各通道门禁 + 上游门禁；两处按钮同源防漂移）。pattern 的数值
+  // 非法不在此禁用——提交时给字段级诚实文案（同 extrude distance 的既有手感：
+  // 数字域错误在确认出口报，而非静默灰化）。
+  const submitDisabled = submitting || editStandalone || !canEdit || !sketchReady || !filletReady
+    || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
+    || patternUpstreamMissing;
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -778,10 +820,26 @@ export function FeatureDialog({
     if (sweepChannel && !sweepReady) return; // sweep 通道门禁（轮廓/路径未选/同草图——防御兜底）
     if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
     if (mirrorUpstreamMissing) return; // mirror 上游门禁（无实体可镜像——✓ 已禁用，防御兜底）
-    // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep/mirror 无距离量——旋转角即参数/
-    // 半径即参数/放样无扫掠距离/扫掠无扫掠距离/镜像无距离，输入已隐藏）。
+    if (patternUpstreamMissing) return; // pattern 上游门禁（无实体可阵列——✓ 已禁用，防御兜底）
+    // B5 pattern 参数校验：按当前形态给具体文案（count/spacing/angle——与服务端 zod 同域）。
+    if (patternChannel) {
+      if (!patternCountValid) {
+        setError(t('partStudio.featureDialog.patternCountInvalid'));
+        return;
+      }
+      if (patternKind === 'linear' && !patternSpacingValid) {
+        setError(t('partStudio.featureDialog.patternSpacingInvalid'));
+        return;
+      }
+      if (patternKind === 'circular' && !patternAngleValid) {
+        setError(t('partStudio.featureDialog.patternAngleInvalid'));
+        return;
+      }
+    }
+    // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep/mirror/pattern 无距离量——旋转角即参数/
+    // 半径即参数/放样无扫掠距离/扫掠无扫掠距离/镜像无距离/阵列无距离，输入已隐藏）。
     let parsedDistance = 0;
-    if (!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel) {
+    if (!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel) {
       parsedDistance = Number(distance);
       if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
         setError(t('partStudio.featureDialog.distanceInvalid'));
@@ -836,7 +894,25 @@ export function FeatureDialog({
           // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
           // edges:[{edge:{nodeId,entityId}}...]}（边自身持久 id 透传，shared v1.9
           // M6-d 纯换契约；无 profile/distance 语义）。
-          params: mirrorChannel
+          params: patternChannel
+            ? (patternKind === 'linear'
+                ? {
+                    // B5 pattern（shared v1.14 PatternParams）：PART/body 线性阵列——
+                    // count 含原件 + spacing>0 + 世界轴。无 angle 键（两形态键集互斥）。
+                    kind: 'linear' as const,
+                    count: patternCountNumber,
+                    spacing: patternSpacingNumber,
+                    axis: patternAxis,
+                  }
+                : {
+                    // 圆周阵列：绕世界 Z 过原点；axis 恒 'Z'（UI 锁定 + 服务端 zod 同口径）。
+                    // angle 度制 (0,360]；实例角度=k*angle/count。无 spacing 键。
+                    kind: 'circular' as const,
+                    count: patternCountNumber,
+                    angle: patternAngleNumber,
+                    axis: 'Z' as const,
+                  })
+            : mirrorChannel
             ? {
                 // B4 mirror（shared v1.13 MirrorParams）：世界平面三选一 + keepOriginal 字面量
                 // true（首版恒保留原体并与镜像体 Unite）。无 distance/profile/regions/草图键。
@@ -866,7 +942,9 @@ export function FeatureDialog({
               }
             : revolveChannel
             ? {
-                profile: [],
+                // 注：不带 profile 键（RevolveParams 契约无此字段；后端 zod 会剥离——
+                // B5 起 PatternParams 也带 axis，三元上下文按 axis 收窄后该冗余键触发
+                // 过配检查，顺带对齐契约）。
                 sketchId: selectedSketchId,
                 regionIndex,
                 axis: { sketchEntityId: selectedAxisId! },
@@ -930,6 +1008,16 @@ export function FeatureDialog({
     mirrorChannel,
     mirrorUpstreamMissing,
     mirrorPlane,
+    patternChannel,
+    patternUpstreamMissing,
+    patternKind,
+    patternCountNumber,
+    patternCountValid,
+    patternSpacingNumber,
+    patternSpacingValid,
+    patternAngleNumber,
+    patternAngleValid,
+    patternAxis,
     revolveChannel,
     sketchReady,
     filletChannel,
@@ -996,8 +1084,8 @@ export function FeatureDialog({
   // 折叠段可见集（M6-b T4）：草图通道「对称」以平铺复选顶替（Onshape 采集
   // 形态），折叠段 symmetric 隐藏防双复选绑同态；非通道（edit/布尔/壳期）不动。
   const visibleSections = React.useMemo(
-    () => (sketchChannel || loftChannel || sweepChannel || mirrorChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
-    [sketchChannel, loftChannel, sweepChannel, mirrorChannel],
+    () => (sketchChannel || loftChannel || sweepChannel || mirrorChannel || patternChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
+    [sketchChannel, loftChannel, sweepChannel, mirrorChannel, patternChannel],
   );
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
@@ -1021,7 +1109,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing}
+            disabled={submitDisabled}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -1165,7 +1253,7 @@ export function FeatureDialog({
             M6-b T4：revolve 通道不适用（无距离量——全周/角度即参数），输入
             隐藏、handleConfirm 跳过距离校验。M6-b T6：fillet 通道同口径
             （无距离量——半径即参数）。 */}
-        {!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && (
+        {!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel && (
           <section className="part-studio-feature-dialog__distance">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
               {t('partStudio.featureDialog.distanceLabel')}
@@ -1273,15 +1361,17 @@ export function FeatureDialog({
             <span className="part-studio-feature-dialog__entities-label">
               {filletChannel
                 ? t('partStudio.featureDialog.filletEdgesLabel')
-                : mirrorChannel
-                  ? t('partStudio.featureDialog.mirrorPlaneLabel')
-                  : sweepChannel
-                    ? t('partStudio.featureDialog.sweepSketchesLabel')
-                    : loftChannel
-                      ? t('partStudio.featureDialog.loftSectionsLabel')
-                      : t('partStudio.featureDialog.entitiesLabel')}
+                : patternChannel
+                  ? t('partStudio.featureDialog.patternParametersLabel')
+                  : mirrorChannel
+                    ? t('partStudio.featureDialog.mirrorPlaneLabel')
+                    : sweepChannel
+                      ? t('partStudio.featureDialog.sweepSketchesLabel')
+                      : loftChannel
+                        ? t('partStudio.featureDialog.loftSectionsLabel')
+                        : t('partStudio.featureDialog.entitiesLabel')}
             </span>
-            {!sketchChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && (
+            {!sketchChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel && (
               <button
                 type="button"
                 className="part-studio-feature-dialog__fast-pick"
@@ -1408,6 +1498,108 @@ export function FeatureDialog({
                     data-testid="part-studio-feature-dialog-mirror-scope-hint"
                   >
                     {t('partStudio.featureDialog.mirrorScopeHint')}
+                  </p>
+                </React.Fragment>
+              )}
+            </React.Fragment>
+          )}
+
+          {/* B5 pattern 通道：PART/body 级阵列参数——kind（linear/circular）+ count
+              （含原件，≥2）+ spacing（linear，>0）/ angle（circular，(0,360] 度）+
+              axis（linear 世界 X/Y/Z；circular 锁定 Z）。无上游实体 → 诚实提示 +
+              提交禁用（requiresUpstream；后端 op 边界同口径拒收）。 */}
+          {patternChannel && (
+            <React.Fragment>
+              {patternUpstreamMissing ? (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-pattern-needs-body-hint"
+                >
+                  {t('partStudio.featureDialog.patternNeedsBodyHint')}
+                </p>
+              ) : (
+                <React.Fragment>
+                  <select
+                    aria-label={t('partStudio.featureDialog.patternKindLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value={patternKind}
+                    disabled={submitting}
+                    onChange={(event) => {
+                      const kind = event.target.value as PatternParams['kind'];
+                      setPatternKind(kind);
+                      // 圆周首版仅世界 Z：切换即锁定（切回线性保留 Z 亦合法）。
+                      if (kind === 'circular') setPatternAxis('Z');
+                    }}
+                  >
+                    <option value="linear">{t('partStudio.featureDialog.patternKindOptions.linear')}</option>
+                    <option value="circular">{t('partStudio.featureDialog.patternKindOptions.circular')}</option>
+                  </select>
+                  <section className="part-studio-feature-dialog__distance">
+                    <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-count">
+                      {t('partStudio.featureDialog.patternCountLabel')}
+                    </label>
+                    <input
+                      id="part-studio-feature-dialog-pattern-count"
+                      type="text"
+                      inputMode="numeric"
+                      aria-label={t('partStudio.featureDialog.patternCountLabel')}
+                      className="part-studio-feature-dialog__input"
+                      value={patternCount}
+                      disabled={submitting}
+                      onChange={(event) => setPatternCount(event.target.value)}
+                    />
+                  </section>
+                  {patternKind === 'linear' ? (
+                    <section className="part-studio-feature-dialog__distance">
+                      <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-spacing">
+                        {t('partStudio.featureDialog.patternSpacingLabel')}
+                      </label>
+                      <input
+                        id="part-studio-feature-dialog-pattern-spacing"
+                        type="text"
+                        inputMode="decimal"
+                        aria-label={t('partStudio.featureDialog.patternSpacingLabel')}
+                        className="part-studio-feature-dialog__input"
+                        value={patternSpacing}
+                        disabled={submitting}
+                        onChange={(event) => setPatternSpacing(event.target.value)}
+                      />
+                    </section>
+                  ) : (
+                    <section className="part-studio-feature-dialog__angle">
+                      <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-angle">
+                        {t('partStudio.featureDialog.patternAngleLabel')}
+                      </label>
+                      <input
+                        id="part-studio-feature-dialog-pattern-angle"
+                        type="text"
+                        inputMode="decimal"
+                        aria-label={t('partStudio.featureDialog.patternAngleLabel')}
+                        className="part-studio-feature-dialog__input"
+                        value={patternAngle}
+                        disabled={submitting}
+                        onChange={(event) => setPatternAngle(event.target.value)}
+                      />
+                    </section>
+                  )}
+                  <select
+                    aria-label={t('partStudio.featureDialog.patternAxisLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value={patternKind === 'circular' ? 'Z' : patternAxis}
+                    disabled={submitting || patternKind === 'circular'}
+                    onChange={(event) => setPatternAxis(event.target.value as PatternParams['axis'])}
+                  >
+                    <option value="X">{t('partStudio.featureDialog.patternAxisOptions.X')}</option>
+                    <option value="Y">{t('partStudio.featureDialog.patternAxisOptions.Y')}</option>
+                    <option value="Z">{t('partStudio.featureDialog.patternAxisOptions.Z')}</option>
+                  </select>
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-pattern-scope-hint"
+                  >
+                    {t('partStudio.featureDialog.patternScopeHint')}
                   </p>
                 </React.Fragment>
               )}
@@ -1754,7 +1946,7 @@ export function FeatureDialog({
             </React.Fragment>
           )}
 
-          {!sketchChannel && !loftChannel && !sweepChannel && !mirrorChannel && (
+          {!sketchChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel && (
             <ul className="part-studio-feature-dialog__chips">
               {chips.map((chip) => (
                 <li key={chip.id} className="part-studio-feature-dialog__chip">
@@ -1865,7 +2057,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing}
+            disabled={submitDisabled}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

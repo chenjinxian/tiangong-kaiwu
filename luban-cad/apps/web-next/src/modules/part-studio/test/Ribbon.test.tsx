@@ -120,6 +120,45 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     });
   });
 
+  it('B5：线性阵列（LinearPattern）点击改道 new/pattern 对话框（初值 kind=linear——不经 tools.run 不写激活态）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '线性阵列' }));
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'pattern',
+      patternKind: 'linear',
+    });
+  });
+
+  it('B5：下拉子项环形阵列（CircularPattern：真实直改 toolId 校准）改道 new/pattern 对话框初值 kind=circular', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '线性阵列 ▾' }));
+    await user.click(screen.getByRole('menuitem', { name: '环形阵列' }));
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'pattern',
+      patternKind: 'circular',
+    });
+  });
+
+  it('B5：曲线阵列无工具/后端面 → capability gated 引导（不投伪 toolId、不静默失败）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '线性阵列 ▾' }));
+    await user.click(screen.getByRole('menuitem', { name: '曲线阵列' }));
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+    expect(screen.getByRole('dialog').textContent).toContain('曲线阵列（规划中）');
+  });
+
   it('M6-b T6：圆角（RoundEdges）点击改道 new/fillet 对话框（不经 tools.run 不写激活态——参数化特征链入口，拾取归对话框驱动）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);

@@ -19,7 +19,7 @@
 import { create } from 'zustand';
 import type { StoreApi } from 'zustand';
 
-import type { LubanFeatureType, SketchPlaneDto } from '@luban-cad/shared';
+import type { LubanFeatureType, PatternParams, SketchPlaneDto } from '@luban-cad/shared';
 import type {
   CanvasSelection,
   DockTab,
@@ -66,7 +66,7 @@ export interface PartStudioActions {
   // dialog 切片（T6：画布内联非模态对话框宿主寻址；M4-T6 扩 new/edit 双模式）
   openFeatureDialog: (
     feature:
-      | { mode: 'new'; featureType: LubanFeatureType }
+      | { mode: 'new'; featureType: LubanFeatureType; patternKind?: PatternParams['kind'] }
       | { mode: 'edit'; featureId: string; featureName: string; featureType: string },
   ) => void;
   openSketchDialog: (sketchId?: string) => void;

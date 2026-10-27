@@ -35,12 +35,14 @@ import type {
   SweepParams,
   // B4 v1.13
   MirrorParams,
+  // B5 v1.14
+  PatternParams,
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.13.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.14.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -52,7 +54,7 @@ describe("M3-a v1.1 类型契约", () => {
   it("fillet 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "fillet";
     expect(t).toBe("fillet");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern">();
   });
 
   it("FilletParams：边自身 id 单引用（M6-d v1.9 纯换；LubanTopologyId/FilletEdgeRef 形状）", () => {
@@ -67,7 +69,7 @@ describe("M3-a v1.1 类型契约", () => {
   });
 
   it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams；新 FeatureOp 变体可构造", () => {
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams>();
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams>();
     const insertFillet: FeatureOp = { kind: "insertFeature", featureType: "fillet", params: { radius: 1, propagateSmooth: false, edges: [] } };
     const insertChamfer: FeatureOp = { kind: "insertFeature", featureType: "chamfer", params: { mode: 1, propagateSmooth: true, edges: [], values1: 0.1 } };
     const insertShell: FeatureOp = { kind: "insertFeature", featureType: "shell", params: { defaultDistance: 0.1, faces: [{ nodeId: 1, entityId: 2 }], distances: 0 } };
@@ -324,7 +326,7 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
   it("revolve 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "revolve";
     expect(t).toBe("revolve");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern">();
   });
 
   it("RevolveParams：全周（angle 忽略）与部分角度（angle 必填形态）均可构造；regionIndex 缺省向后兼容", () => {
@@ -352,7 +354,7 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
     const update: FeatureOp = { kind: "updateParams", featureId: "f1", params: { sketchId: "sk-1", axis: { sketchEntityId: 11 }, fullRevolve: false, angle: Math.PI / 2 } };
     expect(insert.featureType).toBe("revolve");
     expect(update.kind).toBe("updateParams");
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams>();
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams>();
   });
 });
 
@@ -360,7 +362,7 @@ describe("B2 v1.11 契约（loft 多截面放样——LoftParams）", () => {
   it("loft 已入特征类型联合 + LoftParams 形状（sketchIds 二元组 / sections 可选 / bodyType SOLID）", () => {
     const t: LubanFeatureType = "loft";
     expect(t).toBe("loft");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern">();
     const minimal: LoftParams = { sketchIds: ["sk-1", "sk-2"], bodyType: "SOLID" };
     const withSections: LoftParams = { sketchIds: ["sk-1", "sk-2"], sections: 2, bodyType: "SOLID" };
     expect(minimal.sketchIds).toEqual(["sk-1", "sk-2"]);
@@ -389,7 +391,7 @@ describe("B3 v1.12 契约（sweep 轮廓沿路径——SweepParams）", () => {
   it("sweep 已入特征类型联合 + SweepParams 形状（轮廓草图/路径草图 + bodyType SOLID）", () => {
     const t: LubanFeatureType = "sweep";
     expect(t).toBe("sweep");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern">();
     const params: SweepParams = { profileSketchId: "sk-profile", pathSketchId: "sk-path", bodyType: "SOLID" };
     expect(params.profileSketchId).toBe("sk-profile");
     expect(params.pathSketchId).toBe("sk-path");
@@ -417,7 +419,7 @@ describe("B4 v1.13 契约（mirror 平面镜像——MirrorParams）", () => {
   it("mirror 已入特征类型联合 + MirrorParams 形状（世界平面三选一 + keepOriginal 字面量 true）", () => {
     const t: LubanFeatureType = "mirror";
     expect(t).toBe("mirror");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern">();
     const params: MirrorParams = { plane: "XZ", keepOriginal: true };
     expect(params.plane).toBe("XZ");
     expect(params.keepOriginal).toBe(true);
@@ -437,6 +439,44 @@ describe("B4 v1.13 契约（mirror 平面镜像——MirrorParams）", () => {
     const update: FeatureOp = { kind: "updateParams", featureId: "f1", params: { plane: "YZ", keepOriginal: true } };
     expect(insert.featureType).toBe("mirror");
     expect((update.params as MirrorParams).plane).toBe("YZ");
+  });
+});
+
+describe("B5 v1.14 契约（pattern PART 级阵列——PatternParams）", () => {
+  it("pattern 已入特征类型联合 + PatternParams 形状（kind/count/spacing?/angle?/axis）", () => {
+    const t: LubanFeatureType = "pattern";
+    expect(t).toBe("pattern");
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern">();
+    // 线性：count 含原件、spacing 沿 axis（世界 X/Y/Z）
+    const linear: PatternParams = { kind: "linear", count: 3, spacing: 10, axis: "X" };
+    expect(linear.kind).toBe("linear");
+    expect(linear.count).toBe(3);
+    expect(linear.spacing).toBe(10);
+    expect(linear.axis).toBe("X");
+    // 圆周：绕世界 Z 过原点，angle 度制 (0,360]（count 含原件）
+    const circular: PatternParams = { kind: "circular", count: 4, angle: 360, axis: "Z" };
+    expect(circular.angle).toBe(360);
+    expectTypeOf<PatternParams>().toEqualTypeOf<{
+      kind: "linear" | "circular";
+      count: number;
+      spacing?: number;
+      angle?: number;
+      axis: "X" | "Y" | "Z";
+    }>();
+    // JSON 序列化往返保持（RPC 载荷形态）
+    expect(JSON.parse(JSON.stringify(linear))).toEqual(linear);
+    expect(JSON.parse(JSON.stringify(circular))).toEqual(circular);
+    const axes: PatternParams["axis"][] = ["X", "Y", "Z"];
+    expect(axes).toEqual(["X", "Y", "Z"]);
+    const kinds: PatternParams["kind"][] = ["linear", "circular"];
+    expect(kinds).toEqual(["linear", "circular"]);
+  });
+
+  it("insertFeature/updateParams op 携带 pattern params 可构造（FeatureParams 联合扩展回归锁）", () => {
+    const insert: FeatureOp = { kind: "insertFeature", featureType: "pattern", params: { kind: "linear", count: 3, spacing: 10, axis: "X" } };
+    const update: FeatureOp = { kind: "updateParams", featureId: "f1", params: { kind: "circular", count: 4, angle: 180, axis: "Z" } };
+    expect(insert.featureType).toBe("pattern");
+    expect((update.params as PatternParams).kind).toBe("circular");
   });
 });
 

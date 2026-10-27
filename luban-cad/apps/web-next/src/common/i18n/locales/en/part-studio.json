@@ -184,6 +184,7 @@
       "thread": { "label": "External thread" },
       "linearPattern": { "label": "Linear pattern" },
       "mirror": { "label": "Mirror" },
+      "pattern": { "label": "Pattern" },
       "boolean": { "label": "Boolean" },
       "splitPart": { "label": "Split" },
       "transform": { "label": "Transform" },
@@ -329,6 +330,26 @@
     },
     "mirrorScopeHint": "This first version supports only the world-origin XY/YZ/XZ planes and keeps the original body (united with the mirrored body)",
     "mirrorNeedsBodyHint": "Mirror needs an upstream body: create at least one solid feature first",
+    "patternParametersLabel": "Pattern parameters",
+    "patternKindLabel": "Pattern type",
+    "patternKindOptions": {
+      "linear": "Linear pattern",
+      "circular": "Circular pattern"
+    },
+    "patternCountLabel": "Instance count (including original)",
+    "patternSpacingLabel": "Spacing",
+    "patternAngleLabel": "Total angle (degrees)",
+    "patternAxisLabel": "Axis",
+    "patternAxisOptions": {
+      "X": "X axis",
+      "Y": "Y axis",
+      "Z": "Z axis"
+    },
+    "patternScopeHint": "This first version supports PART/body patterns only: instances include the original and are united into one body; circular patterns rotate about the world Z axis through the origin with instance angle = total angle / count",
+    "patternNeedsBodyHint": "Pattern needs an upstream body: create at least one solid feature first",
+    "patternCountInvalid": "Instance count must be an integer of at least 2 (including the original)",
+    "patternSpacingInvalid": "Spacing must be a positive number",
+    "patternAngleInvalid": "Total angle must be in (0, 360] degrees",
     "filletEdgesLabel": "Edges to fillet",
     "radiusLabel": "Radius",
     "radiusInvalid": "Enter a valid fillet radius (greater than 0)",
@@ -585,6 +606,7 @@
       "loft": "Loft",
       "sweep": "Sweep",
       "mirror": "Mirror",
+      "pattern": "Pattern",
       "sketch": "Sketch"
     }
   },
@@ -703,6 +725,10 @@
     "featureHistory": {
       "title": "Feature history (on the roadmap)",
       "message": "A feature regeneration history viewer is on the LubanCAD roadmap and is not available in this version yet."
+    },
+    "curvePattern": {
+      "title": "Curve pattern (on the roadmap)",
+      "message": "Curve pattern is on the LubanCAD roadmap. This version supports only PART/body-level linear and circular patterns; curve patterns will follow in a later milestone."
     }
   },
   "displaySettingsPanel": {

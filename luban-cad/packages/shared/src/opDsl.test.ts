@@ -301,6 +301,25 @@ describe("op DSL × B4 v1.13（FEATURE_TYPES 白名单补 mirror）", () => {
   });
 });
 
+describe("op DSL × B5 v1.14（FEATURE_TYPES 白名单补 pattern）", () => {
+  /** pattern 全参样本（shared v1.14 PatternParams：线性 PART 阵列）。 */
+  const patternOp: FeatureOp = {
+    kind: "insertFeature",
+    featureType: "pattern",
+    params: { kind: "linear", count: 3, spacing: 10, axis: "X" },
+  };
+
+  it("`op insertFeature pattern {...}` 结构 parse 放行（白名单与 LubanFeatureType 全集对齐）", () => {
+    expect(dslToOps(opsToDsl([patternOp]))).toEqual([patternOp]);
+  });
+
+  it("pattern 往返恒等 + 文本级稳定", () => {
+    const dsl = opsToDsl([patternOp]);
+    expect(dsl.startsWith("op insertFeature pattern {")).toBe(true);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+});
+
 describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
   const plane = {
     origin: { x: 0, y: 0, z: 0.1 },

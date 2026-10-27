@@ -1290,7 +1290,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'revolve',
-      params: { profile: [], sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 3 }, fullRevolve: true },
+      params: { sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 3 }, fullRevolve: true },
     });
   });
 
@@ -1302,7 +1302,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'revolve',
-      params: { profile: [], sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 4 }, fullRevolve: true },
+      params: { sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 4 }, fullRevolve: true },
     });
   });
 
@@ -1331,7 +1331,6 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
       kind: 'insertFeature',
       featureType: 'revolve',
       params: {
-        profile: [],
         sketchId: 'sk-1',
         regionIndex: 1,
         axis: { sketchEntityId: 3 },
@@ -1353,7 +1352,6 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
       kind: 'insertFeature',
       featureType: 'revolve',
       params: {
-        profile: [],
         sketchId: 'sk-1',
         regionIndex: 0,
         axis: { sketchEntityId: 3 },
@@ -1883,6 +1881,148 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
   it('edit 模式/壳期不渲染 mirror 平面下拉（new + applyOp 才进入通道）', () => {
     renderDialog({ featureType: 'mirror' });
     expect(screen.queryByRole('combobox', { name: '镜像平面' })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B5 Task 5：pattern 通道（PART/body 级阵列——kind/count/spacing/angle/axis）。
+// 首版只做 PART pattern：实例含原件、全部 Union 成单 body；linear 沿世界 X/Y/Z
+// （count≥2、spacing>0），circular 绕世界 Z 过原点（count≥2、0<angle≤360，
+// 实例角度=k*angle/count）。载荷 {kind, count, spacing?|angle?, axis}——两形态键
+// 互斥（不发送对方形态的键）；circular axis 恒 'Z'（服务端 zod 同口径）。
+// ribbon 入口：LinearPattern→initialPatternKind='linear'、CircularPattern→'circular'
+// （均为 useToolActivation 改道参数化对话框；直改工具保留在册）。
+// ---------------------------------------------------------------------------
+describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  function renderPatternDialog(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    const rendered = render(
+      <FeatureDialog
+        featureName="阵列"
+        mode="new"
+        featureType="pattern"
+        applyOp={applyOp}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+        {...props}
+      />,
+    );
+    return { user, onConfirm, unmount: rendered.unmount };
+  }
+
+  it('初始形态（linear）：类型下拉缺省线性、count=3、spacing=10、axis=X；无 angle/距离输入；✓/成品可用', () => {
+    renderPatternDialog(makeApplyOp());
+    const kind = screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement;
+    expect(kind.value).toBe('linear');
+    expect(screen.getByRole('option', { name: '线性阵列' })).toBeDefined();
+    expect(screen.getByRole('option', { name: '圆周阵列' })).toBeDefined();
+    expect((screen.getByRole('textbox', { name: '实例数量（含原件）' }) as HTMLInputElement).value).toBe('3');
+    expect((screen.getByRole('textbox', { name: '间距' }) as HTMLInputElement).value).toBe('10');
+    expect((screen.getByRole('combobox', { name: '方向轴' }) as HTMLSelectElement).value).toBe('X');
+    expect(screen.queryByRole('textbox', { name: '总角度（度）' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // pattern 无距离量
+    expect(screen.getByTestId('part-studio-feature-dialog-pattern-scope-hint')).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('线性提交：载荷 {kind:"linear", count:3, spacing:10, axis:"X"}（无 angle 键）→ onConfirm', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = renderPatternDialog(applyOp);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'linear', count: 3, spacing: 10, axis: 'X' },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('切换圆周：angle 输入出现、spacing 消失、axis 锁定 Z；载荷 {kind:"circular", count:4, angle:180, axis:"Z"}（无 spacing 键）', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = renderPatternDialog(applyOp);
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    expect(screen.queryByRole('textbox', { name: '间距' })).toBeNull();
+    const angle = screen.getByRole('textbox', { name: '总角度（度）' }) as HTMLInputElement;
+    expect(angle.value).toBe('360');
+    const axis = screen.getByRole('combobox', { name: '方向轴' }) as HTMLSelectElement;
+    expect(axis.value).toBe('Z');
+    expect(axis.disabled).toBe(true);
+    await user.clear(screen.getByRole('textbox', { name: '实例数量（含原件）' }));
+    await user.type(screen.getByRole('textbox', { name: '实例数量（含原件）' }), '4');
+    await user.clear(angle);
+    await user.type(angle, '180');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'circular', count: 4, angle: 180, axis: 'Z' },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('ribbon 入口 initialPatternKind="circular" → 初始即圆周形态（angle 在场、spacing 不在场、axis=Z 锁定）', () => {
+    renderPatternDialog(makeApplyOp(), { initialPatternKind: 'circular' });
+    expect((screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement).value).toBe('circular');
+    expect(screen.getByRole('textbox', { name: '总角度（度）' })).toBeDefined();
+    expect(screen.queryByRole('textbox', { name: '间距' })).toBeNull();
+    expect((screen.getByRole('combobox', { name: '方向轴' }) as HTMLSelectElement).value).toBe('Z');
+  });
+
+  it('非法数值 → 字段级诚实文案 + 不发起 op（count<2 / 非整数、spacing<=0、angle 越界）', async () => {
+    const cases: Array<{ field: string; value: string; message: string }> = [
+      { field: '实例数量（含原件）', value: '1', message: '实例数量须为不小于 2 的整数（含原件）' },
+      { field: '实例数量（含原件）', value: '2.5', message: '实例数量须为不小于 2 的整数（含原件）' },
+      { field: '间距', value: '0', message: '间距须为正数' },
+    ];
+    for (const c of cases) {
+      const applyOp = makeApplyOp();
+      const { user, onConfirm, unmount } = renderPatternDialog(applyOp);
+      const input = screen.getByRole('textbox', { name: c.field });
+      await user.clear(input);
+      await user.type(input, c.value);
+      await user.click(screen.getByRole('button', { name: '确认' }));
+      expect(screen.getByRole('alert').textContent).toBe(c.message);
+      expect(applyOp).not.toHaveBeenCalled();
+      expect(onConfirm).not.toHaveBeenCalled();
+      unmount(); // 每个 case 独立现场，防错误态残留
+    }
+    // angle 越界（圆周形态）
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp);
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    const angle = screen.getByRole('textbox', { name: '总角度（度）' });
+    await user.clear(angle);
+    await user.type(angle, '361');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(screen.getByRole('alert').textContent).toBe('总角度须在 (0, 360] 度之间');
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('无上游实体（hasBodies=false）→ 需要上游实体提示 + 提交禁用 + 不渲染参数控件/不发起 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, { hasBodies: false });
+    expect(screen.getByTestId('part-studio-feature-dialog-pattern-needs-body-hint').textContent)
+      .toBe('阵列需要上游实体：请先创建至少一个实体特征');
+    expect(screen.queryByRole('combobox', { name: '阵列类型' })).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('edit 模式/壳期不渲染 pattern 参数控件（new + applyOp 才进入通道）', () => {
+    renderDialog({ featureType: 'pattern' });
+    expect(screen.queryByRole('combobox', { name: '阵列类型' })).toBeNull();
   });
 });
 
