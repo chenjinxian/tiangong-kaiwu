@@ -131,3 +131,16 @@
 2. loft/sweep 的 entry-array 通道仅由上游 core-backend 测试证明，必须在 MS StandaloneDb 重新钉死。
 3. Onshape pattern 样本多为 FEATURE pattern；首版 PART pattern 对语料覆盖率提升有限。
 4. body boolean/compositePart 依赖多体架构，属本计划最大不确定项，先 spike 再承诺。
+
+## Task 1 实现结果（B1 boolean，2026-10-27 本地）
+
+- public `d0d133c`（shared v1.10 BooleanParams + FeatureDialog 映射）+ `ac44dab`（无上游门禁/相交禁用）；
+  private `aa45267`（schema/两步制/sketchId 求值）+ `2f08ce3`（op 边界无上游拒收）。
+- 契约：`BooleanParams { sketchId, regionIndex?, regions?, distance, operation }`；与内联 profile
+  互斥；operation⇔featureType 一致；内联布尔旧路径保留。
+- 验证：shared 108；web FeatureDialog 80、part-studio 668、i18n 10；MS feature 250+8 skip；
+  三仓 tsc/lint 均绿。**真栈 synthetic 延后到发布窗**（MS 需重建产物/重启）。
+- 复审修复：sketch-only 选加入/移除 不再产生 ok:true+status=1 死特征（MS 边界拒收 + UI 禁用/提示）；
+  相交页签禁用并提示。
+- 未推送（两仓本地 commit）；剩余 minor：cold/suppressed 上游同类吞错（既有）、禁用页签视觉、
+  multi-region/regionIndex 端到端测试、测试顺序/租约。
