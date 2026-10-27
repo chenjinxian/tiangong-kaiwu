@@ -20,6 +20,9 @@
  *   MirrorElements/LinearPattern）——useToolActivation 直投
  *   IModelApp.tools.run 即可真激活；其余未接线命令用 Onshape command-id
  *   （newSketch/extrude/…/USER_FEATURES），后续里程碑接线时替换或映射；
+ *   B3 注：SweepFaces 虽仍是真实直改工具 id，但参数化特征链入口已在
+ *   useToolActivation 特例改道 new/sweep 对话框（同 extrude/revolve/loft/
+ *   RoundEdges 姿态；直改通道后续按需单裁入口）；
  * - capability 维度消费 internal/capabilities（gated 照常可点 → 能力引导
  *   对话框；本注册表引用的 capability 键已全量入册 TOOL_CAPABILITIES）；
  * - 图标：官方 @itwin/itwin-icons 无对应字形，自制描边 SVG（旧应用

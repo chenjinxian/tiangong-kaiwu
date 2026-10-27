@@ -15,7 +15,8 @@
  * 工具接线前不经 tools.run。M4-T6 特例：extrude 开 FeatureDialog（new/extrude，
  * 拉伸闭环入口）。M6-b T4/T6 特例：revolve/RoundEdges（圆角）同姿态开
  * FeatureDialog（参数化特征链入口；RoundEdges 直改工具虽仍在册，ribbon/命令
- * 搜索入口已改道对话框——直改通道后续按需单裁入口）。CapabilityDialog：gated 引导
+ * 搜索入口已改道对话框——直改通道后续按需单裁入口）。B3：SweepFaces（扫掠）
+ * 同姿态改道 new/sweep 对话框（轮廓+路径双草图通道）。CapabilityDialog：gated 引导
  * 面（CAPABILITY_GUIDANCE 文案；documents 模块的 CapabilityDialog 绑定
  * GatedCreateAction + documents 命名空间，不可复用，故 part-studio 自建）。
  *
@@ -94,6 +95,14 @@ export function useToolActivation(): ToolActivation {
       // 真实 LoftProfiles 工具 id 不同且为直改通道），点击原会静默 run 失败——
       // 特例改道对话框（同 extrude/revolve 姿态）。
       openFeatureDialog({ mode: 'new', featureType: 'loft' });
+      return;
+    }
+    if (id === 'SweepFaces') {
+      // B3 sweep 闭环入口：new/sweep 对话框（轮廓草图 + 路径草图双选择器——参数化
+      // 特征链，首版单闭合轮廓沿单直线路径）。SweepFaces 是 editor 直改工具的真实
+      // toolId（面扫掠），但参数化特征链入口不走直改通道——特例改道对话框
+      //（与 extrude/revolve/loft/fillet 同姿态；直改入口后续按需单裁）。
+      openFeatureDialog({ mode: 'new', featureType: 'sweep' });
       return;
     }
     if (id === 'RoundEdges') {

@@ -31,12 +31,14 @@ import type {
   BooleanParams,
   // B2 v1.11
   LoftParams,
+  // B3 v1.12
+  SweepParams,
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.11.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.12.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -48,7 +50,7 @@ describe("M3-a v1.1 类型契约", () => {
   it("fillet 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "fillet";
     expect(t).toBe("fillet");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep">();
   });
 
   it("FilletParams：边自身 id 单引用（M6-d v1.9 纯换；LubanTopologyId/FilletEdgeRef 形状）", () => {
@@ -63,7 +65,7 @@ describe("M3-a v1.1 类型契约", () => {
   });
 
   it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams；新 FeatureOp 变体可构造", () => {
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams>();
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams>();
     const insertFillet: FeatureOp = { kind: "insertFeature", featureType: "fillet", params: { radius: 1, propagateSmooth: false, edges: [] } };
     const insertChamfer: FeatureOp = { kind: "insertFeature", featureType: "chamfer", params: { mode: 1, propagateSmooth: true, edges: [], values1: 0.1 } };
     const insertShell: FeatureOp = { kind: "insertFeature", featureType: "shell", params: { defaultDistance: 0.1, faces: [{ nodeId: 1, entityId: 2 }], distances: 0 } };
@@ -320,7 +322,7 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
   it("revolve 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "revolve";
     expect(t).toBe("revolve");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep">();
   });
 
   it("RevolveParams：全周（angle 忽略）与部分角度（angle 必填形态）均可构造；regionIndex 缺省向后兼容", () => {
@@ -348,7 +350,7 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
     const update: FeatureOp = { kind: "updateParams", featureId: "f1", params: { sketchId: "sk-1", axis: { sketchEntityId: 11 }, fullRevolve: false, angle: Math.PI / 2 } };
     expect(insert.featureType).toBe("revolve");
     expect(update.kind).toBe("updateParams");
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams>();
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams>();
   });
 });
 
@@ -356,7 +358,7 @@ describe("B2 v1.11 契约（loft 多截面放样——LoftParams）", () => {
   it("loft 已入特征类型联合 + LoftParams 形状（sketchIds 二元组 / sections 可选 / bodyType SOLID）", () => {
     const t: LubanFeatureType = "loft";
     expect(t).toBe("loft");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep">();
     const minimal: LoftParams = { sketchIds: ["sk-1", "sk-2"], bodyType: "SOLID" };
     const withSections: LoftParams = { sketchIds: ["sk-1", "sk-2"], sections: 2, bodyType: "SOLID" };
     expect(minimal.sketchIds).toEqual(["sk-1", "sk-2"]);
@@ -378,6 +380,34 @@ describe("B2 v1.11 契约（loft 多截面放样——LoftParams）", () => {
     };
     expect(insert.featureType).toBe("loft");
     expect((insert.params as LoftParams).sketchIds).toHaveLength(2);
+  });
+});
+
+describe("B3 v1.12 契约（sweep 轮廓沿路径——SweepParams）", () => {
+  it("sweep 已入特征类型联合 + SweepParams 形状（轮廓草图/路径草图 + bodyType SOLID）", () => {
+    const t: LubanFeatureType = "sweep";
+    expect(t).toBe("sweep");
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep">();
+    const params: SweepParams = { profileSketchId: "sk-profile", pathSketchId: "sk-path", bodyType: "SOLID" };
+    expect(params.profileSketchId).toBe("sk-profile");
+    expect(params.pathSketchId).toBe("sk-path");
+    expect(params.bodyType).toBe("SOLID");
+    expectTypeOf<SweepParams>().toEqualTypeOf<{
+      profileSketchId: string;
+      pathSketchId: string;
+      bodyType: "SOLID";
+    }>();
+    // JSON 序列化往返保持（RPC 载荷形态）
+    expect(JSON.parse(JSON.stringify(params))).toEqual(params);
+  });
+
+  it("insertFeature op 携带 sweep params 可构造（FeatureParams 联合扩展回归锁）", () => {
+    const insert: FeatureOp = {
+      kind: "insertFeature", featureType: "sweep",
+      params: { profileSketchId: "sk-profile", pathSketchId: "sk-path", bodyType: "SOLID" },
+    };
+    expect(insert.featureType).toBe("sweep");
+    expect((insert.params as SweepParams).pathSketchId).toBe("sk-path");
   });
 });
 

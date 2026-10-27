@@ -1688,6 +1688,127 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
 });
 
 // ---------------------------------------------------------------------------
+// B3 Task 3：sweep 通道（轮廓草图 + 路径草图双选择器——最小入口）。
+// 首版只做单闭合轮廓沿单条直线路径（SweepParams.profileSketchId/pathSketchId +
+// bodyType:'SOLID'；无 twist/scale/lock/guides UI）。两个独立下拉（轮廓草图/路径草图），
+// 门禁=两键均已选且互不相同、且仍存在于实时草图选项；载荷无 distance/profile/regions 键。
+// ribbon 入口：SweepFaces 虽是真实直改工具 id，但参数化特征链入口改道本对话框
+//（与 loft/extrude/revolve 同姿态，见 Ribbon.tsx）。
+// ---------------------------------------------------------------------------
+describe('B3 sweep 通道（轮廓草图 + 路径草图双选择器）', () => {
+  const SKETCHES = [
+    { id: 'sk-profile', label: '草图 1' },
+    { id: 'sk-path', label: '草图 2' },
+  ];
+
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  function renderSweepDialog(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="扫掠"
+        mode="new"
+        featureType="sweep"
+        applyOp={applyOp}
+        sketches={SKETCHES}
+        connectionKey="model-key"
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+        {...props}
+      />,
+    );
+    return { user, onConfirm };
+  }
+
+  it('初始形态：轮廓/路径两个下拉在场、距离输入不在场、直线路径提示在场、✓/成品禁用（未选草图）', () => {
+    renderSweepDialog(makeApplyOp());
+    expect(screen.getByRole('combobox', { name: '轮廓草图' })).toBeDefined();
+    expect(screen.getByRole('combobox', { name: '路径草图' })).toBeDefined();
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // sweep 无距离量
+    // 首版范围提示：路径草图须为一条直线（服务端 op 边界同口径拒收）。
+    expect(screen.getByTestId('part-studio-feature-dialog-sweep-path-hint')).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('选轮廓 + 路径 → 载荷 {profileSketchId, pathSketchId, bodyType:"SOLID"}（无 distance/profile/regions 键）→ onConfirm', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = renderSweepDialog(applyOp);
+    await user.selectOptions(screen.getByRole('combobox', { name: '轮廓草图' }), 'sk-profile');
+    await user.selectOptions(screen.getByRole('combobox', { name: '路径草图' }), 'sk-path');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'sweep',
+      params: { profileSketchId: 'sk-profile', pathSketchId: 'sk-path', bodyType: 'SOLID' },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('同一草图作为轮廓与路径 → 提示 + 提交禁用，不发起 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderSweepDialog(applyOp);
+    await user.selectOptions(screen.getByRole('combobox', { name: '轮廓草图' }), 'sk-profile');
+    await user.selectOptions(screen.getByRole('combobox', { name: '路径草图' }), 'sk-profile');
+    expect(screen.getByTestId('part-studio-feature-dialog-sweep-duplicate-hint').textContent)
+      .toBe('轮廓草图与路径草图不能相同');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('对话框打开期间删除已选草图（sketches 缩水）→ 陈旧选择提示 + 提交禁用，不留陈旧 id 放行', async () => {
+    const applyOp = makeApplyOp();
+    const user = userEvent.setup();
+    const shared = {
+      featureName: '扫掠',
+      mode: 'new' as const,
+      featureType: 'sweep' as const,
+      applyOp,
+      connectionKey: 'model-key',
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+    };
+    const { rerender } = render(
+      <FeatureDialog {...shared} sketches={[...SKETCHES, { id: 'sk-3', label: '草图 3' }]} />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '轮廓草图' }), 'sk-profile');
+    await user.selectOptions(screen.getByRole('combobox', { name: '路径草图' }), 'sk-path');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    // 删除 sk-path（剩 2 张：sk-profile/sk-3）——needsTwo 不触发，但已选 id 已失活 → 存活判据拦下。
+    rerender(<FeatureDialog {...shared} sketches={[{ id: 'sk-profile', label: '草图 1' }, { id: 'sk-3', label: '草图 3' }]} />);
+    expect(screen.getByTestId('part-studio-feature-dialog-sweep-stale-hint').textContent)
+      .toBe('已选草图已不存在，请重新选择');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('草图不足两张 → 需要两张草图提示 + 提交禁用（不发 op，不出下拉）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderSweepDialog(applyOp, { sketches: [{ id: 'sk-profile', label: '草图 1' }] });
+    expect(screen.getByTestId('part-studio-feature-dialog-sweep-needs-two-hint')).toBeDefined();
+    expect(screen.queryByRole('combobox', { name: '轮廓草图' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('edit 模式/壳期不渲染 sweep 选择器（new + applyOp 才进入通道）', () => {
+    renderDialog({ featureType: 'sweep' });
+    expect(screen.queryByRole('combobox', { name: '轮廓草图' })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // M6-b T6：fillet 通道（F8——体边拾取，不走草图通道）。**对话框驱动拾取裁决**：
 // 「添加边」钮启动 FilletEdgePickTool（动态 import——本文件 mock 该工具模块替身
 // 捕获回调现场，editor 基座链不入测试图），工具每拾一条边（已即时换边自身持久

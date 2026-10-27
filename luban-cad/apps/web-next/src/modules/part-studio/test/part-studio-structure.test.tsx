@@ -434,7 +434,7 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
     expect(document.activeElement).toBe(arrow);
   });
 
-  it('full 工具点击投 IModelApp.tools.run 并写 store；拉伸改道特征对话框（M4-T6）；gated 工具开能力引导对话框', async () => {
+  it('拉伸/扫掠改道特征对话框（M4-T6/B3）；full 工具投 tools.run；gated 工具开能力引导对话框', async () => {
     const user = userEvent.setup();
     renderPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
@@ -449,11 +449,22 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
     await user.click(
       within(within(document.body).getByTestId('part-studio-feature-dialog')).getByRole('button', { name: '取消' }),
     );
-    // full：扫掠（SweepFaces 在册 full）→ tools.run + 激活态
-    //（旋转已改道 new/revolve 对话框——M6-b T4，与拉伸 M4-T6 同姿态）。
+    // B3：扫掠（SweepFaces 真实 toolId）改道 new/sweep 特征对话框（参数化特征链
+    // 入口——旋转/放样/圆角同姿态）。
     await user.click(within(ribbon).getByRole('button', { name: '扫掠' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('SweepFaces');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('SweepFaces');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'sweep',
+    });
+    await user.click(
+      within(within(document.body).getByTestId('part-studio-feature-dialog')).getByRole('button', { name: '取消' }),
+    );
+    // full：倒角（ChamferEdges 在册 full，无对话框特例）→ tools.run + 激活态。
+    await user.click(within(ribbon).getByRole('button', { name: '倒角' }));
+    expect(mocks.toolsRun).toHaveBeenCalledWith('ChamferEdges');
+    expect(usePartStudioStore.getState().tool.activeToolId).toBe('ChamferEdges');
     // gated：拔模 → 能力引导对话框（不投 tools.run）。
     mocks.toolsRun.mockClear();
     await user.click(within(ribbon).getByRole('button', { name: '拔模' }));

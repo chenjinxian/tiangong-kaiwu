@@ -131,7 +131,7 @@ import './PartStudioPage.css';
 
 /** body 产出型特征类型（M6-b T6 hasBodies 判据：依附型特征 fillet/chamfer/shell
  * 与 sketch 不产体，不计入）。 */
-const BODY_PRODUCING_FEATURE_TYPES = ['extrude', 'revolve', 'booleanAdd', 'booleanSubtract', 'loft'] as const;
+const BODY_PRODUCING_FEATURE_TYPES = ['extrude', 'revolve', 'booleanAdd', 'booleanSubtract', 'loft', 'sweep'] as const;
 
 export function PartStudioPage(): React.JSX.Element {
   const { iTwinId, iModelId } = useParams<{ iTwinId: string; iModelId: string }>();

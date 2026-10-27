@@ -216,6 +216,8 @@ export type {
   BooleanParams,
   // B2 v1.11（loft 多截面放样）
   LoftParams,
+  // B3 v1.12（sweep 轮廓沿路径）
+  SweepParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

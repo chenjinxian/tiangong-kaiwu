@@ -130,6 +130,15 @@
  * 另有 useFeatureSystem readonly 前置拒收兜底，两层防御纵深）。方向/对称/拔模随载荷回传
  * 但本版不进 op（shared ExtrudeParams 的 symmetric 等扩展未定稿——映射
  * 归特征对话框增强单裁，见 useFeatureSystem 头注延后项）。
+ * sweep 通道（B3 v1.12）：**双草图选择器 + 语义分叉**——轮廓草图（闭合截面，服务端
+ * 取最大面域外环）与路径草图（须恰为一条直线，服务端 op 边界 txn 之前拒收非线/零长）
+ * 两个独立下拉（aria 文案「轮廓草图 / 路径草图」明确区分，不用几何序号）；载荷
+ * `{profileSketchId, pathSketchId, bodyType:'SOLID'}`（无 distance/profile/regions 键）。
+ * 门禁：两张草图均已选、互不相同、且仍存在于实时草图选项（删草图后不得留陈旧 id 放行）；
+ * 草图不足两张 → 诚实提示 + 提交禁用。首版无 twist/scale/lock/guides UI（范围裁决）。
+ * ribbon 入口：SweepFaces 虽是真实直改工具 id，但参数化特征链入口改道本对话框
+ *（与 extrude/revolve/loft/fillet 同姿态，见 Ribbon.tsx 注）。
+ *
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
  * 对齐 canvas/CanvasContextMenu.tsx:226-234 模式（onCancel 经 ref 取用，
@@ -454,6 +463,12 @@ export function FeatureDialog({
   // ribbon 现有 'loft' 条目无注册工具（伪 toolId，见 Ribbon.tsx 注记），入口改道
   // 本对话框；guides/端条件/sections UI 首版不做。
   const loftChannel = mode === 'new' && featureType === 'loft' && applyOp !== undefined;
+  // B3 sweep 通道（首版单闭合轮廓沿单直线路径）：**双草图选择器**——不走 sketchChannel
+  //（sweep 无面域读取：服务端轮廓取最大面域、路径须恰一条直线；载荷
+  // {profileSketchId, pathSketchId, bodyType:'SOLID'}）。ribbon 的 SweepFaces 为真实直改
+  // 工具 id，但参数化特征链入口特例改道本对话框（见 Ribbon.tsx 注）；twist/scale/lock/
+  // guides UI 首版不做。
+  const sweepChannel = mode === 'new' && featureType === 'sweep' && applyOp !== undefined;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
@@ -482,6 +497,10 @@ export function FeatureDialog({
   // 才可提交——同草图重复是退化放样，服务端 zod 同口径拒收）。
   const [loftSketchA, setLoftSketchA] = React.useState('');
   const [loftSketchB, setLoftSketchB] = React.useState('');
+  // B3 sweep 通道：轮廓草图 + 路径草图（两键均选且互不相同才可提交——同草图是退化
+  // 扫掠/同平面路径，服务端 zod 同口径拒收）。
+  const [sweepProfileSketchId, setSweepProfileSketchId] = React.useState('');
+  const [sweepPathSketchId, setSweepPathSketchId] = React.useState('');
 
   // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
   const [radius, setRadius] = React.useState('5');
@@ -655,6 +674,17 @@ export function FeatureDialog({
   const loftReady = !loftChannel
     || (!loftNeedsTwo && !loftDuplicate && !loftSelectionStale
       && loftSketchA !== '' && loftSketchB !== '');
+  // 提交门（B3 sweep）：轮廓与路径均已选、互不相同、**且仍存在于实时草图选项**——
+  // 非模态对话框打开期间删除已选草图（sketches 缩水）不得留下陈旧 id 放行提交
+  //（服务端 zod/存在性检查兜底）。
+  const sweepNeedsTwo = sweepChannel && sketchOptions.length < 2;
+  const sweepDuplicate = sweepChannel && sweepProfileSketchId !== '' && sweepProfileSketchId === sweepPathSketchId;
+  const sweepSelectionStale = sweepChannel && sweepProfileSketchId !== '' && sweepPathSketchId !== ''
+    && (!sketchOptions.some((option) => option.id === sweepProfileSketchId)
+      || !sketchOptions.some((option) => option.id === sweepPathSketchId));
+  const sweepReady = !sweepChannel
+    || (!sweepNeedsTwo && !sweepDuplicate && !sweepSelectionStale
+      && sweepProfileSketchId !== '' && sweepPathSketchId !== '');
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -730,11 +760,12 @@ export function FeatureDialog({
     if (sketchChannel && !sketchReady) return; // 草图通道门禁（✓ 已禁用，此为防御兜底）
     if (filletChannel && !filletReady) return; // fillet 通道门禁（空边集/拾取中——防御兜底）
     if (loftChannel && !loftReady) return; // loft 通道门禁（两截面未选/同草图——防御兜底）
+    if (sweepChannel && !sweepReady) return; // sweep 通道门禁（轮廓/路径未选/同草图——防御兜底）
     if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
-    // 距离校验（extrude/通用路径；revolve/fillet/loft 无距离量——旋转角即参数/
-    // 半径即参数/放样无扫掠距离，输入已隐藏）。
+    // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep 无距离量——旋转角即参数/
+    // 半径即参数/放样无扫掠距离/扫掠无扫掠距离，输入已隐藏）。
     let parsedDistance = 0;
-    if (!revolveChannel && !filletChannel && !loftChannel) {
+    if (!revolveChannel && !filletChannel && !loftChannel && !sweepChannel) {
       parsedDistance = Number(distance);
       if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
         setError(t('partStudio.featureDialog.distanceInvalid'));
@@ -789,7 +820,15 @@ export function FeatureDialog({
           // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
           // edges:[{edge:{nodeId,entityId}}...]}（边自身持久 id 透传，shared v1.9
           // M6-d 纯换契约；无 profile/distance 语义）。
-          params: loftChannel
+          params: sweepChannel
+            ? {
+                // B3 sweep（shared v1.12 SweepParams）：轮廓草图 + 路径草图 + 实体类型。
+                // 无 distance/profile/regions/twist/scale/lock/guides 键（首版范围裁决）。
+                profileSketchId: sweepProfileSketchId,
+                pathSketchId: sweepPathSketchId,
+                bodyType: 'SOLID',
+              }
+            : loftChannel
             ? {
                 // B2 loft（shared v1.11 LoftParams）：两截面草图二元组 + 实体类型。
                 // 无 distance/profile/regions/guides 键（首版范围裁决）。
@@ -876,6 +915,10 @@ export function FeatureDialog({
     loftReady,
     loftSketchA,
     loftSketchB,
+    sweepChannel,
+    sweepReady,
+    sweepProfileSketchId,
+    sweepPathSketchId,
     selectedSketchId,
     regionIndex,
     selectedRegions,
@@ -927,8 +970,8 @@ export function FeatureDialog({
   // 折叠段可见集（M6-b T4）：草图通道「对称」以平铺复选顶替（Onshape 采集
   // 形态），折叠段 symmetric 隐藏防双复选绑同态；非通道（edit/布尔/壳期）不动。
   const visibleSections = React.useMemo(
-    () => (sketchChannel || loftChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
-    [sketchChannel, loftChannel],
+    () => (sketchChannel || loftChannel || sweepChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
+    [sketchChannel, loftChannel, sweepChannel],
   );
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
@@ -952,7 +995,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || booleanUpstreamMissing}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || !sweepReady || booleanUpstreamMissing}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -1096,7 +1139,7 @@ export function FeatureDialog({
             M6-b T4：revolve 通道不适用（无距离量——全周/角度即参数），输入
             隐藏、handleConfirm 跳过距离校验。M6-b T6：fillet 通道同口径
             （无距离量——半径即参数）。 */}
-        {!revolveChannel && !filletChannel && !loftChannel && (
+        {!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && (
           <section className="part-studio-feature-dialog__distance">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
               {t('partStudio.featureDialog.distanceLabel')}
@@ -1204,11 +1247,13 @@ export function FeatureDialog({
             <span className="part-studio-feature-dialog__entities-label">
               {filletChannel
                 ? t('partStudio.featureDialog.filletEdgesLabel')
-                : loftChannel
-                  ? t('partStudio.featureDialog.loftSectionsLabel')
-                  : t('partStudio.featureDialog.entitiesLabel')}
+                : sweepChannel
+                  ? t('partStudio.featureDialog.sweepSketchesLabel')
+                  : loftChannel
+                    ? t('partStudio.featureDialog.loftSectionsLabel')
+                    : t('partStudio.featureDialog.entitiesLabel')}
             </span>
-            {!sketchChannel && !filletChannel && !loftChannel && (
+            {!sketchChannel && !filletChannel && !loftChannel && !sweepChannel && (
               <button
                 type="button"
                 className="part-studio-feature-dialog__fast-pick"
@@ -1374,6 +1419,85 @@ export function FeatureDialog({
                     data-testid="part-studio-feature-dialog-loft-parallel-hint"
                   >
                     {t('partStudio.featureDialog.loftParallelHint')}
+                  </p>
+                </React.Fragment>
+              )}
+            </React.Fragment>
+          )}
+
+          {/* B3 sweep 通道：轮廓草图 + 路径草图双选择器（首版单闭合轮廓沿单直线路径）。
+              草图不足两张 → 诚实提示 + 提交禁用；两键互不相同（同草图=退化扫掠/同平面
+              路径，服务端 zod 同口径拒收）。路径直线语义由服务端 op 边界守卫兜底，
+              前端只做范围提示（不做草图几何读取——路径合法性不需要面域读面）。 */}
+          {sweepChannel && (
+            <React.Fragment>
+              {sketchOptions.length < 2 ? (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-sweep-needs-two-hint"
+                >
+                  {t('partStudio.featureDialog.sweepNeedsTwoSketchesHint')}
+                </p>
+              ) : (
+                <React.Fragment>
+                  <select
+                    aria-label={t('partStudio.featureDialog.sweepProfileLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value={sweepProfileSketchId}
+                    disabled={submitting}
+                    onChange={(event) => setSweepProfileSketchId(event.target.value)}
+                  >
+                    <option value="" disabled>
+                      {t('partStudio.featureDialog.sketchPlaceholder')}
+                    </option>
+                    {sketchOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label={t('partStudio.featureDialog.sweepPathLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value={sweepPathSketchId}
+                    disabled={submitting}
+                    onChange={(event) => setSweepPathSketchId(event.target.value)}
+                  >
+                    <option value="" disabled>
+                      {t('partStudio.featureDialog.sketchPlaceholder')}
+                    </option>
+                    {sketchOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {sweepDuplicate && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-sweep-duplicate-hint"
+                    >
+                      {t('partStudio.featureDialog.sweepDuplicateHint')}
+                    </p>
+                  )}
+                  {sweepSelectionStale && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-sweep-stale-hint"
+                    >
+                      {t('partStudio.featureDialog.sweepSelectionStaleHint')}
+                    </p>
+                  )}
+                  {/* 首版范围提示（服务端 op 边界对非直线/零长路径同口径拒收）。 */}
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-sweep-path-hint"
+                  >
+                    {t('partStudio.featureDialog.sweepPathHint')}
                   </p>
                 </React.Fragment>
               )}
@@ -1563,7 +1687,7 @@ export function FeatureDialog({
             </React.Fragment>
           )}
 
-          {!sketchChannel && !loftChannel && (
+          {!sketchChannel && !loftChannel && !sweepChannel && (
             <ul className="part-studio-feature-dialog__chips">
               {chips.map((chip) => (
                 <li key={chip.id} className="part-studio-feature-dialog__chip">
@@ -1674,7 +1798,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || booleanUpstreamMissing}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || !loftReady || !sweepReady || booleanUpstreamMissing}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

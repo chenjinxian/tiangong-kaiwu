@@ -32,13 +32,18 @@
  * bodyType:'SOLID'）。首版只做**两个平行草图截面**（无 guides/端条件；sections 为保留键，
  * 求值不消费）；求值走 BRepGeometryOperation.Loft=9 的 entryArray（两截面外环 Loop），
  * 单 body 写回。特征类型名 `loft`。
+ * B3 升 v1.12：sweep 扫掠——SweepParams（轮廓草图 profileSketchId + 路径草图 pathSketchId +
+ * bodyType:'SOLID'）。首版只做**单闭合轮廓沿单条直线路径**（无 twist/scale/lock/guides；
+ * 路径草图须恰为一条直线且长度非零，op 边界 txn 之前诚实拒收）；求值走
+ * BRepGeometryOperation.Sweep=8 的 entryArray（[剖面外环 Loop, 路径 LineSegment3d]），
+ * 单 body 写回。特征类型名 `sweep`。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
- * B2 v1.11 增 loft） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft";
+ * B2 v1.11 增 loft；B3 v1.12 增 sweep） */
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -105,6 +110,25 @@ export interface LoftParams {
   bodyType: "SOLID";
 }
 
+/**
+ * sweep 扫掠参数（B3 v1.12）：单闭合轮廓沿单条直线路径扫掠成单一实体。
+ * - `profileSketchId`：轮廓草图——首版取该草图最大面域（regions[0]）外环；含孔截面
+ *   诚实拒收（同 loft 首版口径，不做静默丢孔降级）。
+ * - `pathSketchId`：路径草图——首版**须恰为一条直线**且长度非零（服务端 op 边界
+ *   txn 之前拒收，文案见 SketchRegions.resolveSweepPath）；无弧/多段/闭合路径。
+ * - `bodyType`：首版只产实体（`'SOLID'`；曲面/薄壁扫掠不在此契约内）。
+ * 求值语义（服务端）：轮廓外环经草图 plane 变换到世界系、路径直线经其草图 plane
+ * 变换到世界系，两条目作 entryArray 送 BRepGeometryOperation.Sweep=8；有上游时与
+ * 上游 Unite（ADD 语义，同 revolve/loft），单 body 写回。
+ * 首版范围裁决（B3 控制器）：无 twist/scale/lock/guides；profile 与 path 不得是同一
+ * 草图（同平面路径退化，服务端 zod 拒收）。
+ */
+export interface SweepParams {
+  profileSketchId: string;
+  pathSketchId: string;
+  bodyType: "SOLID";
+}
+
 /** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */
 export interface LubanTopologyId { nodeId: number; entityId: number }
 
@@ -167,7 +191,7 @@ export interface RevolveParams {
   angle?: number;
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams;
 
 export type FeatureOp =
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams }
@@ -252,7 +276,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.11.0";
+  public static interfaceVersion = "1.12.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

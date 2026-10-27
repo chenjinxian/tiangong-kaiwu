@@ -263,6 +263,25 @@ describe("op DSL × B2 v1.11（FEATURE_TYPES 白名单补 loft）", () => {
   });
 });
 
+describe("op DSL × B3 v1.12（FEATURE_TYPES 白名单补 sweep）", () => {
+  /** sweep 全参样本（shared v1.12 SweepParams：轮廓草图 + 路径草图 + SOLID）。 */
+  const sweepOp: FeatureOp = {
+    kind: "insertFeature",
+    featureType: "sweep",
+    params: { profileSketchId: "sk-profile", pathSketchId: "sk-path", bodyType: "SOLID" },
+  };
+
+  it("`op insertFeature sweep {...}` 结构 parse 放行（白名单与 LubanFeatureType 全集对齐）", () => {
+    expect(dslToOps(opsToDsl([sweepOp]))).toEqual([sweepOp]);
+  });
+
+  it("sweep 往返恒等 + 文本级稳定", () => {
+    const dsl = opsToDsl([sweepOp]);
+    expect(dsl.startsWith("op insertFeature sweep {")).toBe(true);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+});
+
 describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
   const plane = {
     origin: { x: 0, y: 0, z: 0.1 },

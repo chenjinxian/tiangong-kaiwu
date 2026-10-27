@@ -68,13 +68,17 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
   });
 
-  it('其余 full 工具不回归：扫掠点击仍投 tools.run + 写激活态（旋转/圆角已改道对话框——M6-b T4/T6）', async () => {
+  it('B3：扫掠（SweepFaces）点击改道 new/sweep 对话框（参数化特征链入口——不经 tools.run 不写激活态）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '扫掠' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('SweepFaces');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('SweepFaces');
-    expect(usePartStudioStore.getState().dialog.active).toBeNull();
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'sweep',
+    });
   });
 
   it('M6-b T4：旋转点击改道 new/revolve 对话框（不经 tools.run 不写激活态）', async () => {

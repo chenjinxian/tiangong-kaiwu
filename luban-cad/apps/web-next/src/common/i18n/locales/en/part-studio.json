@@ -314,6 +314,13 @@
     "loftDuplicateHint": "The two section sketches must be different",
     "loftSelectionStaleHint": "A selected section sketch no longer exists; select again",
     "loftParallelHint": "This first version requires the two section sketches to be parallel",
+    "sweepSketchesLabel": "Profile and path sketches",
+    "sweepProfileLabel": "Profile sketch",
+    "sweepPathLabel": "Path sketch",
+    "sweepNeedsTwoSketchesHint": "Sweep needs two sketches: create a profile sketch and a path sketch first",
+    "sweepDuplicateHint": "The profile sketch and path sketch must be different",
+    "sweepSelectionStaleHint": "A selected sketch no longer exists; select again",
+    "sweepPathHint": "This first version requires the path sketch to be exactly one straight line",
     "filletEdgesLabel": "Edges to fillet",
     "radiusLabel": "Radius",
     "radiusInvalid": "Enter a valid fillet radius (greater than 0)",
@@ -568,6 +575,7 @@
       "shell": "Shell",
       "revolve": "Revolve",
       "loft": "Loft",
+      "sweep": "Sweep",
       "sketch": "Sketch"
     }
   },

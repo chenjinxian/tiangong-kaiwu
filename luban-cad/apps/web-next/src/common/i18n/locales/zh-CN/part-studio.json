@@ -314,6 +314,13 @@
     "loftDuplicateHint": "两张截面草图不能相同",
     "loftSelectionStaleHint": "已选截面草图已不存在，请重新选择",
     "loftParallelHint": "首版放样要求两张截面草图平行",
+    "sweepSketchesLabel": "轮廓与路径草图",
+    "sweepProfileLabel": "轮廓草图",
+    "sweepPathLabel": "路径草图",
+    "sweepNeedsTwoSketchesHint": "扫掠需要两张草图：请先创建轮廓草图与路径草图",
+    "sweepDuplicateHint": "轮廓草图与路径草图不能相同",
+    "sweepSelectionStaleHint": "已选草图已不存在，请重新选择",
+    "sweepPathHint": "首版扫掠要求路径草图恰为一条直线（曲线/多段路径暂不支持）",
     "filletEdgesLabel": "要圆角的边",
     "radiusLabel": "半径",
     "radiusInvalid": "请输入有效的圆角半径（大于 0）",
@@ -568,6 +575,7 @@
       "shell": "抽壳",
       "revolve": "旋转",
       "loft": "放样",
+      "sweep": "扫掠",
       "sketch": "草图"
     }
   },
