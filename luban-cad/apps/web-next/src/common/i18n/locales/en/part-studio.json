@@ -281,6 +281,8 @@
       "remove": "Remove",
       "intersect": "Intersect"
     },
+    "booleanNoBodyHint": "Boolean operations need an existing solid: create one by extrude or revolve first",
+    "booleanIntersectUnsupported": "Intersect is not supported yet",
     "entitiesLabel": "Faces and sketch regions to extrude",
     "fastPick": "Quick pick",
     "removeEntity": "Remove {{label}}",

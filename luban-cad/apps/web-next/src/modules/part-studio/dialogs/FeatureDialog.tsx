@@ -55,12 +55,14 @@
  *
  * 布尔草图驱动（M7 v1.10，shared BooleanParams——首个里程碑）：布尔作用域页签
  * 映射 featureType（`booleanScopeFeatureType`：加入→booleanAdd、移除→
- * booleanSubtract；新建=基础类型，相交无后端特征类型保持不映射——页签值仍经
- * FeatureDialogResult 回传宿主，不静默降级）。映射仅作用于基础类型为
- * extrude/boolean* 的对话框（revolve/fillet 无草画面域工具体语义）。布尔通道
- * 复用拉伸通道的草图/面域拾取 UI（本次不做任意面拾取——保留下拉/多选 chips），
- * 载荷 `{sketchId, distance, regions, operation}`（无 profile 键——与内联 profile
+ * booleanSubtract；新建=基础类型）。映射仅作用于基础类型为 extrude/boolean* 的
+ * 对话框（revolve/fillet 无草画面域工具体语义）。布尔通道复用拉伸通道的草图/
+ * 面域拾取 UI（本次不做任意面拾取——保留下拉/多选 chips），载荷
+ * `{sketchId, distance, regions, operation}`（无 profile 键——与内联 profile
  * 旧路径互斥，服务端 zod 拒收 mixed 形态）；symmetric 对布尔不适用（隐藏+不进载荷）。
+ * 上游门禁（B1 复审 Important）：布尔特征 requiresUpstream=true，无实体（hasBodies=false）
+ * 时加入/移除页签禁用 + 提交禁用 + 诚实提示（后端 op 边界同口径拒收，双层防御）；
+ * 相交无后端特征类型，提交态页签禁用 + 提示（不可静默降级为并集）。
  *
  * revolve 通道（M6-b T4，照 M6-a T6 拉伸通道同构复刻）：sketchChannel 扩
  * revolve——草图/面域拾取两下拉全复用，revolve 分支增：
@@ -259,8 +261,8 @@ const BOOLEAN_SCOPES: readonly FeatureBooleanScope[] = ['new', 'add', 'remove', 
 /**
  * 布尔作用域 → 特征类型（M7 v1.10）：加入→booleanAdd、移除→booleanSubtract
  *（shared BooleanParams 草图驱动——operation 由类型名映射，unite/subtract）。
- * 新建=基础特征类型（无映射）；相交无后端特征类型（M7 首版不支持，保持不映射——
- * 页签仍随 FeatureDialogResult.booleanScope 回传宿主，不静默降级为并集）。
+ * 新建=基础特征类型（无映射）；相交无后端特征类型（M7 首版不支持）——提交态
+ * 对话框里该页签**禁用**（B1 复审：不可静默降级为并集；纯展示/壳期仍可回传元数据）。
  */
 export function booleanScopeFeatureType(scope: FeatureBooleanScope): LubanFeatureType | undefined {
   if (scope === 'add') return 'booleanAdd';
@@ -425,10 +427,11 @@ export function FeatureDialog({
 
   // 布尔作用域 → 提交特征类型（M7 v1.10）：仅拉伸/布尔对话框参与映射（revolve/fillet
   // 无草画面域工具体语义，页签保持元数据回传）；加入→booleanAdd、移除→booleanSubtract。
-  const booleanScopeMapped =
-    featureType === 'extrude' || featureType === 'booleanAdd' || featureType === 'booleanSubtract'
-      ? booleanScopeFeatureType(booleanScope)
-      : undefined;
+  const booleanScopeCapable =
+    mode === 'new' &&
+    (featureType === 'extrude' || featureType === 'booleanAdd' || featureType === 'booleanSubtract') &&
+    applyOp !== undefined;
+  const booleanScopeMapped = booleanScopeCapable ? booleanScopeFeatureType(booleanScope) : undefined;
   const effectiveFeatureType = booleanScopeMapped ?? featureType;
   // 草图通道（M6-a T6 extrude / M6-b T4 revolve；M7 v1.10 扩布尔）：新建提交走 sketchId 寻址
   //（数据源/门禁裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
@@ -438,6 +441,11 @@ export function FeatureDialog({
     mode === 'new' && (effectiveFeatureType === 'extrude' || effectiveFeatureType === 'revolve' || booleanChannel) && applyOp !== undefined;
   const revolveChannel = sketchChannel && effectiveFeatureType === 'revolve';
   const extrudeChannel = sketchChannel && effectiveFeatureType === 'extrude';
+  // 布尔上游门禁（B1 复审 Important）：布尔特征 requiresUpstream=true，无上游时后端
+  // 只会把失败吞成 status=1 死节点（op 仍 ok:true）——UI 侧先挡：无实体时禁用
+  // 加入/移除页签与提交（诚实提示），后端 op 边界另有同口径拒收（双层防御）。
+  const booleanScopeNoBody = booleanScopeCapable && !hasBodies;
+  const booleanUpstreamMissing = booleanChannel && !hasBodies;
   // fillet 通道（M6-b T6）：体边拾取非草画面域——不进草图通道；输入集=体上
   // 拾得的边（持久拓扑 id 对），提交面同 applyOp。
   const filletChannel = mode === 'new' && featureType === 'fillet' && applyOp !== undefined;
@@ -701,6 +709,7 @@ export function FeatureDialog({
     }
     if (sketchChannel && !sketchReady) return; // 草图通道门禁（✓ 已禁用，此为防御兜底）
     if (filletChannel && !filletReady) return; // fillet 通道门禁（空边集/拾取中——防御兜底）
+    if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
     // 距离校验（extrude/通用路径；revolve/fillet 无距离量——旋转角即参数/半径
     // 各自独立校验，输入已隐藏）。
     let parsedDistance = 0;
@@ -746,8 +755,9 @@ export function FeatureDialog({
           featureType: effectiveFeatureType!,
           // M6-a T6：extrude 走草图通道——{sketchId} 草图寻址 + 空 profile
           //（shared 互斥语义：sketchId 在场时 profile 须空数组，后端
-          // sketchRegionsFrom 按面域数组产轮廓）；其余特征类型载荷不动
-          //（布尔类型 zod 拒收 sketchId——Registry booleanSchema，不接）。
+          // sketchRegionsFrom 按面域数组产轮廓）。M7 v1.10：布尔草图驱动独立
+          // 分支见下方 booleanChannel（{sketchId, distance, regions, operation}，
+          // 无 profile 键）；revolve/fillet 各有独立构造器。
           // M6-c T3：面域寻址升级——regions 多选数组直出（缺省 [0]=最大面域；
           // 不再发 regionIndex——shared v1.8 起该键 @deprecated，服务端 zod 与
           // regions 互斥拒收，同给两键即拒）。
@@ -826,6 +836,7 @@ export function FeatureDialog({
     effectiveFeatureType,
     sketchChannel,
     booleanChannel,
+    booleanUpstreamMissing,
     revolveChannel,
     sketchReady,
     filletChannel,
@@ -909,7 +920,7 @@ export function FeatureDialog({
             type="button"
             aria-label={t('partStudio.featureDialog.confirm')}
             className="part-studio-feature-dialog__confirm"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || booleanUpstreamMissing}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -953,21 +964,34 @@ export function FeatureDialog({
           aria-label={t('partStudio.featureDialog.booleanScopeTabs')}
           className="part-studio-feature-dialog__tablist"
         >
-          {BOOLEAN_SCOPES.map((scope) => (
-            <button
-              key={scope}
-              type="button"
-              role="tab"
-              aria-selected={booleanScope === scope}
-              className={[
-                'part-studio-feature-dialog__tab',
-                booleanScope === scope ? 'part-studio-feature-dialog__tab--active' : '',
-              ].filter(Boolean).join(' ')}
-              onClick={() => setBooleanScope(scope)}
-            >
-              {t(`partStudio.featureDialog.booleanScopes.${scope}`)}
-            </button>
-          ))}
+          {BOOLEAN_SCOPES.map((scope) => {
+            // 提交态禁用（B1 复审）：①相交无后端特征类型，禁用防静默并集；
+            // ②无实体时加入/移除无上游，禁用防「成功 toast + status=1 死特征」。
+            const scopeDisabled =
+              booleanScopeCapable &&
+              (scope === 'intersect' || (booleanScopeNoBody && (scope === 'add' || scope === 'remove')));
+            const scopeDisabledHint =
+              scope === 'intersect'
+                ? t('partStudio.featureDialog.booleanIntersectUnsupported')
+                : t('partStudio.featureDialog.booleanNoBodyHint');
+            return (
+              <button
+                key={scope}
+                type="button"
+                role="tab"
+                aria-selected={booleanScope === scope}
+                disabled={scopeDisabled}
+                title={scopeDisabled ? scopeDisabledHint : undefined}
+                className={[
+                  'part-studio-feature-dialog__tab',
+                  booleanScope === scope ? 'part-studio-feature-dialog__tab--active' : '',
+                ].filter(Boolean).join(' ')}
+                onClick={() => setBooleanScope(scope)}
+              >
+                {t(`partStudio.featureDialog.booleanScopes.${scope}`)}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1001,6 +1025,27 @@ export function FeatureDialog({
             data-testid="part-studio-feature-dialog-readonly-hint"
           >
             {t('partStudio.featureDialog.readonlyHint')}
+          </p>
+        )}
+
+        {/* 布尔上游门禁 / 相交不支持提示（B1 复审 Important/Minor）——禁用页签的可见原因，
+            不静默降级：无实体时布尔无上游，相交无后端特征类型。 */}
+        {booleanScopeNoBody && (
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint"
+            data-testid="part-studio-feature-dialog-boolean-no-body-hint"
+          >
+            {t('partStudio.featureDialog.booleanNoBodyHint')}
+          </p>
+        )}
+        {booleanScopeCapable && (
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint"
+            data-testid="part-studio-feature-dialog-intersect-unsupported-hint"
+          >
+            {t('partStudio.featureDialog.booleanIntersectUnsupported')}
           </p>
         )}
 
@@ -1517,7 +1562,7 @@ export function FeatureDialog({
           <button
             type="button"
             className="part-studio-feature-dialog__finish"
-            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady}
+            disabled={submitting || editStandalone || !canEdit || !sketchReady || !filletReady || booleanUpstreamMissing}
             onClick={handleConfirm}
           >
             {t('partStudio.featureDialog.finish')}

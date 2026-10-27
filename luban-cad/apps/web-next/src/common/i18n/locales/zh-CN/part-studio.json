@@ -281,6 +281,8 @@
       "remove": "移除",
       "intersect": "相交"
     },
+    "booleanNoBodyHint": "布尔操作需要已有实体：先拉伸或旋转创建实体",
+    "booleanIntersectUnsupported": "相交暂不支持",
     "entitiesLabel": "要拉伸的面和草图面域",
     "fastPick": "快速拾取",
     "removeEntity": "移除 {{label}}",

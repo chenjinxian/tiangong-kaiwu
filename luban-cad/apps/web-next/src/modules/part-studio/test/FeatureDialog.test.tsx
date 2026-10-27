@@ -1116,6 +1116,13 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
+    // B1 复审 Minor：相交无后端类型 → 提交态页签禁用 + 「暂不支持」提示（不可静默并集）；
+    // 有实体时加入/移除可用。
+    expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-intersect-unsupported-hint').textContent).toContain('相交暂不支持');
+    expect((screen.getByRole('tab', { name: '加入' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(false);
+
     await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
     await screen.findByText('草图 1 的面');
 
@@ -1143,6 +1150,64 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
     });
     expect(applyOp).toHaveBeenCalledTimes(3);
+  });
+
+  // B1 复审 Important：布尔 requiresUpstream——无实体（sketch-only 模型）时加入/移除
+  // 无上游，后端只会落 status=1 死特征（op 仍 ok:true）。UI 侧禁用页签 + 提示，确认
+  // 仍提交合法 extrude（不产生死特征）。
+  it('无实体（hasBodies=false）：加入/移除/相交页签禁用 + 诚实提示；确认仍提交 extrude（不产生布尔死特征）', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        hasBodies={false}
+      />,
+    );
+    expect((screen.getByRole('tab', { name: '加入' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-boolean-no-body-hint').textContent).toContain('布尔操作需要已有实体');
+    expect(screen.getByTestId('part-studio-feature-dialog-intersect-unsupported-hint')).toBeDefined();
+    // 草图通道仍可用（extrude 合法路径）：选草图 → 确认提交 extrude。
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+    });
+  });
+
+  it('无实体 + 直接 booleanAdd：布尔通道提交禁用 + 诚实提示（不发 op，杜绝 ok:true+status=1 死特征）', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
+    const user = userEvent.setup();
+    const applyOp = makeApplyOp();
+    render(
+      <FeatureDialog
+        featureName="并集"
+        mode="new"
+        featureType="booleanAdd"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        hasBodies={false}
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
+    expect(screen.getByTestId('part-studio-feature-dialog-boolean-no-body-hint').textContent).toContain('布尔操作需要已有实体');
+    const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    await user.click(confirm);
+    expect(applyOp).not.toHaveBeenCalled();
   });
 });
 

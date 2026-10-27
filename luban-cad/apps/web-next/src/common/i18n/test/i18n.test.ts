@@ -199,6 +199,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'topBar.edit.saveFailed',
   'featureDialog.confirm', 'featureDialog.cancel',
   'featureDialog.resultTypeTabs', 'featureDialog.booleanScopeTabs',
+  // M7 v1.10（B1 复审）：布尔上游门禁 / 相交不支持的诚实提示。
+  'featureDialog.booleanNoBodyHint', 'featureDialog.booleanIntersectUnsupported',
   'featureDialog.entitiesLabel', 'featureDialog.fastPick',
   // M6-a T6：拉伸草图通道——草图下拉/面域下拉/无草图无面域门禁/选中回显 chip。
   'featureDialog.sketchLabel', 'featureDialog.sketchPlaceholder',
