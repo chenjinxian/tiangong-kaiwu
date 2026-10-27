@@ -170,3 +170,30 @@
   web 855；tsc/lint 绿。**未推送**。
 - 剩余：upstream-ADD/multi-lump 测试、真栈与语料（Mold-Die 生态不可回放）、
   updateParams 孔洞复查、测试顺序/重复块。
+
+## Task 4 实现结果（B4 mirror，2026-10-27 本地）
+
+- public `8b47038`；private `698de8e`。
+- **Spike（先验证后实现）**：entryArray BRep `entityTransform` 反射**可行**（内核以 BODY
+  transform 装回）；单镜像体是内翻体（有符号体积 −V），**原体在前 Unite 镜像体归正
+  （+2V 单 mesh）**，反序整体内翻（−2V）——并集次序钉死。editor op23
+  `transformSubEntities` 为 native stub（恒 ERROR）；`Placement3d` 只收 YPR（det=+1），
+  负行列式不可表示 → 参数化 mirror 走反射 transform + Unite。
+- `MirrorParams { plane:'XY'|'YZ'|'XZ'; keepOriginal:true }`（v1.13）；首版仅过世界原点
+  主平面，整上游体反射后与上游 Unite（保留原体），单 body/多 lump 写回；无任意面/基准面
+  引用；无上游/非 BRep displayable/非实体诚实拒收（apply/preview txn 前同文案）。
+- UI：FeatureDialog 镜像平面下拉 + 上游门禁 + 范围提示；Ribbon `MirrorElements` 改道
+  参数化入口；tree 标签 zh/en。
+- **直改空操作修复**：`basicManipulation/mirrorElement` 落地——就地
+  `Unite(原体, 镜像体)`（世界平面转元素局部系）+ D7 直改守卫 + 仅 BRep 实体；
+  MirrorElementsTool 由「startEditCommand 塞载荷」改为 start → 逐元素 callEditMethod →
+  save → finish。
+- 验收：盒 [0,2]³ 绕 XZ → 有符号体积 16、bbox y∈[−2,2] 对称、单 BRep；YZ/XY
+  updateParams 重求值；无上游 apply+preview 拒收不入树；直改同元素 2× 体积 + 守卫命中。
+  测试 shared 120、web 860、MS feature 283+8 skip、editor frontend 35；tsc/build 绿。**未推送**。
+- 语料 8 例**全部不可回放**（mirrorPlane 为任意面/基准面查询；MirrorType
+  FEATURE/PART + NewBodyOperationType NEW 新体语义；上游 importForeign/FeatureScript
+  Beam/Frame/splitJoint/booleanBodies/moveFace/compositePart 或配置相关）——仅登记原因，
+  未尝试 replay。
+- 剩余：任意面/基准面引用、`keepOriginal:false`（需 native 实体反倒向暴露）、非 BRep
+  曲线镜像、真栈合成（发布窗重发产物）。
