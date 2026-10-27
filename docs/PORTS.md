@@ -15,7 +15,7 @@
 | Web 前端（Vite dev） | **5300** | 5300（Vite） | `apps/web-next/vite.config.ts` `server.port`——**C2 退役（2026-10-26）起 web-next 迁入 :5300**（apps/web 已删除；过渡期 :5310 废止）。HUB CORS 白名单见 `generate-env.ps1` |
 | web 静态容器（nginx 后端） | 不发布 | 3000（容器内） | **M5-T9 起构建面 = `luban-cad/apps/web-next`**（`web-next/web-nginx.conf` + `web-next/Dockerfile`，compose `web` 服务本地 build）；经外层 nginx :5301 暴露。**镜像不随 fetch-backend 更新——源有更新跑 `scripts/rebuild-web.ps1`（B2，verify-stack Step E 报告陈旧）** |
 | Nginx 单入口 | **5301** | 80 | 根 `docker-compose.yml` `nginx.ports` |
-| imodelhub-services (HUB) | **5400** | 4000 | compose `imodelhub.ports`；`APP_PORT=4000` 不变 |
+| imodelhub-services (HUB) | **5400**（仅 127.0.0.1 回环） | 4000 | compose `imodelhub.ports`（**2026-10-27 起只绑定回环**：宿主 MS/verify-stack 可直连，nginx 走容器网络 `imodelhub:4000`；禁止 0.0.0.0 发布——直连客户端可伪造 XFF 绕过限流）；`APP_PORT=4000` 不变 |
 | modeling-server (MS，宿主进程) | **5401** | 5401 | 根 `.env` `PORT=5401`；`scripts/start-ms-host.ps1` 读取 |
 | webhook-agent (WA) | **5402** | 4002 | compose `webhook-agent.ports`；`PORT=4002` 不变 |
 | BFF（luban-bff） | 不发布 | **5403** | `services/bff/src/config.ts`、compose `PORT=5403`、Dockerfile `EXPOSE` |

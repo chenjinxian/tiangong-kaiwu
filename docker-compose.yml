@@ -131,7 +131,10 @@ services:
   imodelhub:
     image: ghcr.io/chenjinxian/imodelhub:latest
     ports:
-      - "0.0.0.0:5400:4000"
+      # 仅回环发布（2026-10-27 审计 P2-02 配套）：宿主 MS/verify-stack 仍可
+      # localhost:5400 直连；nginx 走容器网络 imodelhub:4000（见 HUB_UPSTREAM）。
+      # 禁止再发布到 0.0.0.0——直连客户端可轮换 X-Forwarded-For 绕过登录限流。
+      - "127.0.0.1:5400:4000"
     environment:
       NODE_ENV: production
       # 【2026-10-12 审计 P0 修复】TEST_MODE 已移除：限流正式生效。
@@ -335,9 +338,10 @@ services:
       # BFF 未启用行为不变）；启用 BFF（本栈启用面）= 根 .env/shell 显式设
       # BFF_UPSTREAM=luban-bff:5403；双形态见 deploy/default.conf.template 头注释
       BFF_UPSTREAM: ${BFF_UPSTREAM:-host.docker.internal:5401}
-      # HUB 九前缀上游：默认直达 hub（宿主形态）；hub 容器形态改
-      # imodelhub:4000；全量经 BFF 透传改 luban-bff:5403（双跳，见 bff 注记）
-      HUB_UPSTREAM: ${HUB_UPSTREAM:-host.docker.internal:5400}
+      # HUB 九前缀上游：容器网络直连 hub（2026-10-27 起；hub 仅回环发布，
+      # 宿主形态的 host.docker.internal:5400 不再可用）。全量经 BFF 透传
+      # 改 luban-bff:5403（双跳，见 bff 注记）
+      HUB_UPSTREAM: ${HUB_UPSTREAM:-imodelhub:4000}
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/default.conf.template:/etc/nginx/templates/default.conf.template:ro

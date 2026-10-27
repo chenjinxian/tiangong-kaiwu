@@ -37,7 +37,7 @@ $envMap = [ordered]@{
   'MODELING_SERVER_URL'      = 'http://localhost:5401'      # WA 宿主直连调试用
   'AZURITE_HOST'             = '127.0.0.1:10500'            # 宿主 MS 访问 Azurite
   'MS_UPSTREAM'              = 'host.docker.internal:5401'
-  'HUB_UPSTREAM'             = 'host.docker.internal:5400'
+  'HUB_UPSTREAM'             = 'imodelhub:4000'
   'WA_MODELING_SERVER_URL'   = 'http://host.docker.internal:5401'
   'HUB_ALLOWED_ORIGINS'      = 'http://localhost:5300,http://localhost:5301'  # 5300=web-next dev（C2 退役迁入）；5301=nginx 单入口
   'BFF_ALLOWED_ORIGINS'      = 'http://localhost:5300,http://localhost:5301'

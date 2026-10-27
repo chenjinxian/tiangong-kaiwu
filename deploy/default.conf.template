@@ -11,8 +11,9 @@
 #         modeling-server:4001（--profile container，同 MS_UPSTREAM 容器形态）
 #         启用 BFF         : luban-bff:5403（compose 栈经根 .env/shell 显式设置）
 #       HUB_UPSTREAM（imodelhub 上游——RW1-T3 参数化，原为 9 处硬编码）
-#         宿主形态（默认）: host.docker.internal:5400
-#         容器形态        : imodelhub:4000
+#         默认（2026-10-27 起）: imodelhub:4000（hub 仅回环发布，
+#                               宿主 host.docker.internal:5400 不再可用）
+#         全量经 BFF            : luban-bff:5403（双跳）
 #       envsubst 在 nginx 解析前完成 —— proxy_pass 为静态地址，
 #       无需 resolver。
 #
