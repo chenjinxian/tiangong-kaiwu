@@ -114,14 +114,17 @@ export interface LoftParams {
  * sweep 扫掠参数（B3 v1.12）：单闭合轮廓沿单条直线路径扫掠成单一实体。
  * - `profileSketchId`：轮廓草图——首版取该草图最大面域（regions[0]）外环；含孔截面
  *   诚实拒收（同 loft 首版口径，不做静默丢孔降级）。
- * - `pathSketchId`：路径草图——首版**须恰为一条直线**且长度非零（服务端 op 边界
- *   txn 之前拒收，文案见 SketchRegions.resolveSweepPath）；无弧/多段/闭合路径。
+ * - `pathSketchId`：路径草图——首版**曲线实体恰为一条直线**（含圆/弧/多段/闭合均拒收）
+ *   且长度非零、**方向须沿轮廓平面法向有非零投影**（路径落于轮廓平面内=退化扫掠，内核
+ *   会退化出零体积 sheet）——服务端 op 边界 txn 之前拒收，文案见
+ *   SketchRegions.resolveSweepPathForProfile；一般倾斜/斜交直线路径合法。
  * - `bodyType`：首版只产实体（`'SOLID'`；曲面/薄壁扫掠不在此契约内）。
  * 求值语义（服务端）：轮廓外环经草图 plane 变换到世界系、路径直线经其草图 plane
  * 变换到世界系，两条目作 entryArray 送 BRepGeometryOperation.Sweep=8；有上游时与
  * 上游 Unite（ADD 语义，同 revolve/loft），单 body 写回。
  * 首版范围裁决（B3 控制器）：无 twist/scale/lock/guides；profile 与 path 不得是同一
- * 草图（同平面路径退化，服务端 zod 拒收）。
+ * 草图（同 id 由 zod 拒收——同一草图不能同时充当轮廓与路径；不同草图但同/平行平面的
+ * 面内路径另由方向守卫拒收，两处文案不混用）。
  */
 export interface SweepParams {
   profileSketchId: string;
