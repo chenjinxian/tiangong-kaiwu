@@ -349,62 +349,23 @@ test('真栈：extrude newBody 两体 → getBodies/树 → consumed 隐藏 → 
   const tree = await getTree();
   expect(tree.find((r) => r.id === newBodyFeatureId)?.status, 'undo 后 newBody 特征应恢复 status=0').toBe(0);
 
-  // 已知后端行为（MS 1.16，Task 3 报告登记；非 web 可修）：deleteFeature 会
-  // cache.delete(featureId)；首次 undo 后本页 onAfterUndoRedo 自动 refresh 的
-  // 首个读 RPC 触发 FeatureService.ensureWarm 冷重建（rebuildAll 写体 + commit，
-  // MS 日志 engine.rebuildAll{written=2}+notifyCommit 实证）——新事务清空原生
-  // redo 栈。故**首个** delete→undo 的 redo 在本栈不可达（人类同路径亦然）。
-  // warmAttemptedKeys 一次性标记随该重建落位：后续同一库的 delete→undo 不再
-  // 重建/commit。此处以 disabled 作缺陷哨兵（后端修复时翻红，提示把 redo 断言
-  // 回填本段）；redo 语义由下方第二个 NEW-body 的完整 undo/redo/undo 覆盖。
-  await expect(redo).toBeDisabled({ timeout: 90_000 });
-  console.log('[newbody] 树删除 undo → 两体恢复（首个 undo 的 redo 被 ensureWarm 冷重建 commit 清除，登记）');
-
-  // ── 第二个 NEW-body（body3）：delete/undo/redo 全程（redo 真栈覆盖）──
-  // 与首个 NEW-body 同一 deleteFeature/HITL/零件树/隐藏/原生 undo 通道；区别只在
-  // 一次性 warm 标记已落位 → undo 后不再冷却重建，redo 栈保留。RPC 只用于建体
-  // 与检查点读，同步全走 UI（行数/隐藏集）。
-  const sketchC = await insertSketch(rectangleSketch(8, 0, 10, 2), xyPlane(0), '草图 C');
-  const newBody3FeatureId = await apply({
-    kind: 'insertFeature', featureType: 'extrude',
-    params: { profile: [], distance: 1, sketchId: sketchC, regions: [0], newBody: true },
-  }, 'extrude newBody body3');
-  const bodiesWith3 = await getBodies();
-  const body3 = bodiesWith3.find((b) => b.sourceFeatureId === newBody3FeatureId);
-  expect(body3, '第三个 newBody feature 应驱动一个 active body').toBeTruthy();
-  const body3Key = body3!.bodyKey;
-  const body3FeatureRow = page.getByTestId(`tree-row-${newBody3FeatureId}`);
-  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(3);
-  await expect(body3FeatureRow).toBeVisible({ timeout: 90_000 });
-
-  await deleteFeatureViaTree(newBody3FeatureId);
-  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
-  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body3Key);
-
-  await expect(undo).toBeEnabled({ timeout: 90_000 });
-  await undo.click();
-  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(3);
-  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body3Key);
-  await expect(body3FeatureRow).toBeVisible({ timeout: 90_000 });
-  const restored3 = await getBodies();
-  expect(restored3.find((b) => b.bodyKey === body3Key)?.active, 'undo 后 body3 应恢复 active').toBe(true);
-
+  // #45 修复：MS 读刷新（getFeatureTree/getBodies → ensureInitialized）在 redo
+  // 栈存在时不再触发 rebuildAll 冷重建 commit——首个 delete→undo 后 redo 必须可达。
   await expect(redo).toBeEnabled({ timeout: 90_000 });
   await redo.click();
-  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
-  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body3Key);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(1);
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body2!.bodyKey);
+  const afterRedo = await getBodies();
+  expect(afterRedo.find((b) => b.bodyKey === body2!.bodyKey)?.active, 'redo 后 body2 应再次 consumed').toBe(false);
+  console.log('[newbody] 树删除 undo → redo → 再消费（#45 修复后首个 redo 可达）');
+
+  // 回退到两体基线（后续 fillet 需要 body2 active/入树）。
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
-  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(3);
-  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body3Key);
-  await expect(body3FeatureRow).toBeVisible({ timeout: 90_000 });
-  console.log('[newbody] 第二 NEW-body 树删除 undo/redo/undo OK（redo 真栈可达）');
-
-  // 清理第三体（不影响两体基线与 fillet 拾边；consumed 常驻但不入树/不入框）。
-  await deleteFeatureViaTree(newBody3FeatureId);
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
-  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body3Key);
-  console.log('[newbody] body3 清理完成（两体基线恢复）');
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body2!.bodyKey);
+  await expect(newBodyRow).toBeVisible({ timeout: 90_000 });
+  console.log('[newbody] 第二 undo 恢复两体基线');
 
   // ── 非默认体 fillet 真栈：拾 body2 边 → target 自动 owner；body2.sourceFeatureId=fillet ──
   // 等轴测 + 适应视图（两条盒体都入框；选择已在上段清空 → 空白态菜单）。
