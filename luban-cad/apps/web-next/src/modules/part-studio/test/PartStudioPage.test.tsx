@@ -230,11 +230,37 @@ function makeTxnsStub() {
   };
 }
 
+// B6 M-A5 T1：画布 body 选中桥（useCanvasBodySelection）的 SelectionSet 最小桩
+// ——空 elements + BeEvent 兼容 onChanged（addListener 返回退订；raise 直发）。
+// 本文件所有用例的 body 读面缺省空集、选择集缺省空 → 等值守卫不写 store，
+// 不改变既有断言面。
+function makeSelectionSetStub() {
+  const listeners = new Set<() => void>();
+  return {
+    elements: new Set<string>(),
+    onChanged: {
+      addListener: (fn: () => void): (() => void) => {
+        listeners.add(fn);
+        return () => {
+          listeners.delete(fn);
+        };
+      },
+      removeListener: (fn: () => void): void => {
+        listeners.delete(fn);
+      },
+      raise: (): void => {
+        for (const fn of [...listeners]) fn();
+      },
+    },
+  };
+}
+
 let FAKE_CONNECTION = {
   key: 'briefcase-key',
   isReadonly: false,
   isBriefcaseConnection: () => true,
   txns: makeTxnsStub(),
+  selectionSet: makeSelectionSetStub(),
   editingScope: undefined as unknown,
   supportsGraphicalEditing: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
   enterEditingScope: vi.fn(),

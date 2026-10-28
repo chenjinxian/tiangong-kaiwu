@@ -116,6 +116,7 @@ import { PartStudioTabs } from './components/PartStudioTabs.js';
 import { PushChangesetDialog } from './dialogs/PushChangesetDialog.js';
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
+import { useCanvasBodySelection } from './hooks/useCanvasBodySelection.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
@@ -211,6 +212,15 @@ function PartStudioSession({
   const featureSystem = useFeatureSystem(connection ?? undefined, {
     enabled: isEditingScopeReady,
   });
+
+  // 画布 body 选中桥（B6 M-A5 T1）：connection.selectionSet（画布 pick 权威源）
+  // → store.canvas.selection（kind='part'）单点挂载——右键菜单/对话框既有消费面
+  // 零改动复用。bodies 仅在读面成功（bodiesLoaded）后下传；undefined=legacy
+  // 回退，hook 不接管选择集（不清旧值）。双挂载=双写选择集，勿在下游再挂。
+  useCanvasBodySelection(
+    connection ?? undefined,
+    featureSystem.bodiesLoaded ? featureSystem.bodies : undefined,
+  );
 
   // 草图系统（M6-a T5）：活动草图读面（store.sketch.activeSketchId 驱动）+
   // updateSketch 写面（复用 featureSystem.applyOp——租约/只读门禁/刷新同源）。
