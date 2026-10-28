@@ -601,6 +601,7 @@
     "deleteMessage": "将从模型中删除 {{name}}。该操作提交后不可撤销。",
     "cancel": "取消",
     "confirmDelete": "删除",
+    "deleteUnavailable": "实体已不可用，无法删除",
     "readonlyHint": "当前为只读权限，无法删除"
   },
   "tree": {

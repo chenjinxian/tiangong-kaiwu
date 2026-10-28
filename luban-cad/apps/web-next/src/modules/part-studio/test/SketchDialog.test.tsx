@@ -4,7 +4,8 @@
 //  1) SketchDialog 非模态：role=dialog + aria-modal=false + 无 backdrop；标题
 //     = 草图名（props sketchName 缺省「草图」）；
 //  2) 草图平面选择：下拉（缺省基准面 上视/前视/右视 + 占位项）+ 快速拾取
-//     （store.canvas.selection 主选择回流成动态选项并选中）；
+//     （仅 kind='face' 的 store.canvas.selection 主选择回流成动态选项并选中；
+//     part/edge/vertex/feature 主选择不添选项、不改所选——F2）；
 //  3) 四开关（os-30 勾选组）：禁用压印/显示约束/显示表达式/显示错误——
 //     默认仅「显示错误」勾选；全进确认载荷；
 //  4) ✓确认 → onConfirm 载荷 + store enterSketch（M6-a T4 起：applyOp 在场
@@ -252,6 +253,29 @@ describe('草图平面选择（select + 快速拾取）', () => {
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect((onConfirm.mock.calls[0]![0] as SketchDialogResult).plane).toBe('face-8');
   });
+
+  // F2 终审修复：快速拾取仅接受 kind='face'——part/edge/vertex/feature 主选择
+  // 不是平面（选中桥新写入的 body 选择不得被误当草图平面），不添选项、不改
+  // 当前所选平面。
+  it.each(['part', 'edge', 'vertex', 'feature'] as const)(
+    '快速拾取仅接受 face：%s 主选择 → 不添选项、所选平面不变',
+    async (kind) => {
+      const label = `选中 ${kind}`;
+      setSelection([{ kind, id: `sel-${kind}`, label }]);
+      const { onConfirm } = renderDialog();
+      const user = userEvent.setup();
+      const select = screen.getByRole('combobox', { name: '草图平面' }) as HTMLSelectElement;
+      // 先选基准面「前视」——快速拾取不得把它改掉。
+      await user.selectOptions(select, 'front');
+      await user.click(screen.getByRole('button', { name: '快速拾取' }));
+      expect(select.value).toBe('front');
+      expect(within(select).queryByRole('option', { name: label })).toBeNull();
+      expect(within(select).queryByRole('option', { name: `sel-${kind}` })).toBeNull();
+      // 确认载荷里的平面仍是前视（未被非面选择覆盖）。
+      await user.click(screen.getByRole('button', { name: '确认' }));
+      expect((onConfirm.mock.calls[0]![0] as SketchDialogResult).plane).toBe('front');
+    },
+  );
 });
 
 describe('四开关（os-30 勾选组）', () => {

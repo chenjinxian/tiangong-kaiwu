@@ -601,6 +601,7 @@
     "deleteMessage": "{{name}} will be deleted from the model. This cannot be undone once committed.",
     "cancel": "Cancel",
     "confirmDelete": "Delete",
+    "deleteUnavailable": "The body is no longer available; it cannot be deleted",
     "readonlyHint": "Read-only permission; cannot delete"
   },
   "tree": {

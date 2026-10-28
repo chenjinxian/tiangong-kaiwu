@@ -171,7 +171,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'tree.deleteSuccess', 'tree.deleteFailed',
   'tree.suppressSuccess', 'tree.suppressFailed',
   'tree.noSourceFeature', 'tree.readonlyHint',
-  'canvasMenu.readonlyHint',
+  // F1 终审修复：画布 part 删除未命中 active authored body 的诚实拒收 toast。
+  'canvasMenu.deleteUnavailable', 'canvasMenu.readonlyHint',
   // B6 M-A4.2a：body boolean 通道——树标签/新对话框标题 + 字段/门禁/提示/错误。
   'tree.featureTypes.booleanBodies', 'ribbon.tools.booleanBodies.label',
   'featureDialog.booleanBodiesParametersLabel', 'featureDialog.booleanBodiesTargetLabel',

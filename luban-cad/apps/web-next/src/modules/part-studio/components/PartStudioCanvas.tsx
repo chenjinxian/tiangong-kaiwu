@@ -27,7 +27,9 @@
  * - B6 M-A5 T2 画布 body 删除接线：Task 1 选中桥（kind='part'）落地后画布
  *   删除不再是死路——onDelete 仅接受命中 active authored body 的 part 选择项，
  *   以 sourceFeatureId 走 deleteFeature（targetBodyId=bodyKey）；无源 → Error
- *   toast「实体无驱动源，无法删除」；!canEdit → 菜单删除项禁用 + 回调拒收；
+ *   toast「实体无驱动源，无法删除」；未命中 active authored body（陈旧/被消费
+ *   id）→ Error toast「实体已不可用，无法删除」（F1 终审修复，不再静默 no-op）；
+ *   !canEdit → 菜单删除项禁用 + 回调拒收；
  * - viewOnly 运行时切换（T6 评审 I-1）：store.viewOnly 置位即 closeDialog
  *   ——打开中的写面对话框整体收口（对话框宿主职责；「仅查看模式」是用户
  *   主动切换，收口语义保持 viewOnly 直读）；写动作门另走 canEdit（B2 只读
@@ -188,6 +190,8 @@ export function PartStudioCanvas({
    * 仅接受 `kind='part'` 且 id 命中 active authored body 的选择项：
    * - 取 BodyInfo.sourceFeatureId，applyOp(deleteFeature{featureId=源, targetBodyId=bodyKey})；
    * - 无 sourceFeatureId → Error toast「实体无驱动源，无法删除」，不发 op；
+   * - 未命中 active authored body（陈旧/已被消费的选择 id）→ Error toast
+   *   「实体已不可用，无法删除」，不发 op（不猜测，但也不静默——F1 终审修复）；
    * - 非 part 选择项不进入 body 删除（feature 选择不来自画布桥；保持既有未接线语义）；
    * - !canEdit → 防御性拒收（菜单「删除」已禁用，HITL 不打开）；
    * - 成功/失败 toast 与树删除同口径；不乐观改树（refresh 归 applyOp 内 onCommitted）。
@@ -202,7 +206,15 @@ export function PartStudioCanvas({
       const body = bodies?.find(
         (candidate) => candidate.bodyKey === primary.id && candidate.active && candidate.authored !== false,
       );
-      if (!body) return; // 未命中 active authored body：不猜测（不停留在死路）
+      if (!body) {
+        // 未命中 active authored body（选择桥残留的陈旧 id / body 已被消费）：
+        // 不猜测，但也不静默——诚实 Error toast（F1 终审修复；此前的静默
+        // no-op 让用户看到「删除无反应」的死路）。
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(OutputMessagePriority.Error, t('partStudio.canvasMenu.deleteUnavailable')),
+        );
+        return;
+      }
       if (!body.sourceFeatureId) {
         IModelApp.notifications.outputMessage(
           new NotifyMessageDetails(OutputMessagePriority.Error, t('partStudio.tree.noSourceFeature')),

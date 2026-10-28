@@ -191,7 +191,13 @@ export interface CanvasContextMenuProps {
   /** 菜单锚点（视口 client 坐标）；null=关闭（常驻挂载，右键驱动开合）。 */
   anchor: { x: number; y: number } | null;
   onClose: () => void;
-  /** 删除确认提交（HITL 出口；B6 M-A5 T2 起 PartStudioCanvas 接 body 删除）。 */
+  /**
+   * 删除确认提交（HITL 出口；B6 M-A5 T2 起 PartStudioCanvas 接 body 删除）。
+   * 守卫注记：画布 body 删除接线当前只处理 `kind='part'` 选择——face/edge/
+   * vertex 选择落进本回调后不产生删除动作。未来面/边删除需各自的 owner 映射
+   *（面→所属体、边→相邻体），不得复用 body 删除通道（F3 终审注记，无行为
+   * 变更）。
+   */
   onDelete?: (selection: readonly CanvasSelection[]) => void;
   /**
    * B6 M-A5 T2：编辑面总门（canEdit 单点合流直通）。false 时「删除」项保持

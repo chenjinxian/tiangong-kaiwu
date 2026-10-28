@@ -6,7 +6,9 @@
  * - 非模态内联面板（同 Extrude 对话框位：画布区左上角，aria-modal=false +
  *   无 backdrop）；
  * - 草图平面选择：下拉（缺省基准面 上视/前视/右视 + 占位项）+ 快速拾取
- *   （useCanvasSelection 主选择成动态选项并选中）；
+ *   （仅 `kind='face'` 的 useCanvasSelection 主选择成动态选项并选中；part/
+ *   edge/vertex/feature 主选择不是平面——不添选项、不改当前所选，防选中桥
+ *   新写入的 body 选择被误当草图平面）；
  * - 四开关勾选组（os-30）：禁用压印/显示约束/显示表达式/显示错误——默认
  *   仅「显示错误」勾选；
  * - ✓确认/✗取消 + 历史时钟 + ? 帮助（展开文案）。
@@ -158,9 +160,10 @@ export function SketchDialog({
     };
   }, []);
 
-  // 快速拾取：画布主选择成动态平面选项并选中（label 缺省回退 id）。
+  // 快速拾取：仅面选择可作草图平面（F2 终审修复）——part/edge/vertex/feature
+  // 主选择不是平面，不添加选项、不改当前所选（label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
-    if (!primary) return;
+    if (!primary || primary.kind !== 'face') return;
     const picked: SketchPlaneOption = { id: primary.id, label: primary.label ?? primary.id };
     setPickedPlanes((prev) => (prev.some((option) => option.id === picked.id) ? prev : [...prev, picked]));
     setPlane(picked.id);

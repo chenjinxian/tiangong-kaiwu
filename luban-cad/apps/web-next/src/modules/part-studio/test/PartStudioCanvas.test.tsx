@@ -346,6 +346,8 @@ function actOpenEdit(featureId: string, featureName: string): void {
 }
 
 // ── B6 M-A5 T2：画布 body 删除接线（Task 1 选中桥落地后不留死路）────────────
+// F1 终审修复：part 选择未命中 active authored body（陈旧/被消费 id）不再静默
+// no-op —— Error toast「实体已不可用，无法删除」+ 零 applyOp。
 
 /** body 读面替身：Base（有源）/ NoSource（无源）/ Consumed（inactive）。 */
 const CANVAS_BODIES: BodyInfo[] = [
@@ -440,16 +442,32 @@ describe('B6 M-A5 T2：画布 part 删除接线（deleteFeature + sourceFeatureI
     expect(mocks.outputMessage).not.toHaveBeenCalled();
   });
 
-  it('part 选择未命中 active authored body（inactive/未知 id）→ 静默 no-op（不猜测）', async () => {
+  it('part 选择未命中 active authored body（inactive/未知 id）→ Error toast「实体已不可用，无法删除」，不发 op', async () => {
     const user = userEvent.setup();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
     renderCanvas(applyOp, { bodies: CANVAS_BODIES });
+    // inactive 的 Consumed（0x22）：选择桥残留的陈旧 id——不猜测，但也不静默。
     act(() => {
       usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: '0x22', label: 'Consumed' }]);
     });
     await confirmCanvasDelete(user, 'Consumed');
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalledTimes(1));
+    const details = mocks.outputMessage.mock.calls[0]?.[0] as { priority: number; briefMessage: string };
+    expect(details.priority).toBe(10); // OutputMessagePriority.Error
+    expect(details.briefMessage).toBe('实体已不可用，无法删除');
     expect(applyOp).not.toHaveBeenCalled();
-    expect(mocks.outputMessage).not.toHaveBeenCalled();
+    // 未知 id 同面拒收（同一选择桥残留语义）。
+    mocks.outputMessage.mockClear();
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: '0xdead', label: 'Ghost' }]);
+    });
+    await confirmCanvasDelete(user, 'Ghost');
+    await waitFor(() =>
+      expect((mocks.outputMessage.mock.calls.at(-1)?.[0] as { briefMessage: string }).briefMessage).toBe(
+        '实体已不可用，无法删除',
+      ),
+    );
+    expect(applyOp).not.toHaveBeenCalled();
   });
 
   it('canEdit=false：删除项 disabled + title，点击不打开 HITL；applyOp 未发起', async () => {
