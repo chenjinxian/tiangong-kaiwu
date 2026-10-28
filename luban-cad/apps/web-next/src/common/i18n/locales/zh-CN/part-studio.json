@@ -600,7 +600,8 @@
     "deleteTitle": "删除 {{name}}",
     "deleteMessage": "将从模型中删除 {{name}}。该操作提交后不可撤销。",
     "cancel": "取消",
-    "confirmDelete": "删除"
+    "confirmDelete": "删除",
+    "readonlyHint": "当前为只读权限，无法删除"
   },
   "tree": {
     "contextMenuLabel": "特征菜单",
@@ -623,6 +624,14 @@
     "unnamedElement": "未命名实体 {{id}}",
     "defaultBodyName": "实体 {{index}}",
     "bodiesReadFailed": "实体读取失败：{{message}}（当前显示为兼容零件列表）",
+    "hideBody": "隐藏实体",
+    "showBody": "显示实体",
+    "deleteSuccess": "已删除 {{name}}",
+    "deleteFailed": "删除失败：{{message}}",
+    "suppressSuccess": "已更新 {{name}} 的抑制状态",
+    "suppressFailed": "抑制操作失败：{{message}}",
+    "noSourceFeature": "实体无驱动源，无法删除",
+    "readonlyHint": "当前为只读权限，无法执行此操作",
     "featureTypes": {
       "extrude": "拉伸",
       "booleanAdd": "并集",

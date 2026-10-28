@@ -24,6 +24,10 @@
  *   M6-a T6 起 FeatureDialog 拉伸走草图通道——Session 下传 sketches（树内
  *   sketch 节点映射）+ connection（取 key 供 getSketch 面域读面），此处纯
  *   透传（数据源裁决与门禁语义见 FeatureDialog 头注）；
+ * - B6 M-A5 T2 画布 body 删除接线：Task 1 选中桥（kind='part'）落地后画布
+ *   删除不再是死路——onDelete 仅接受命中 active authored body 的 part 选择项，
+ *   以 sourceFeatureId 走 deleteFeature（targetBodyId=bodyKey）；无源 → Error
+ *   toast「实体无驱动源，无法删除」；!canEdit → 菜单删除项禁用 + 回调拒收；
  * - viewOnly 运行时切换（T6 评审 I-1）：store.viewOnly 置位即 closeDialog
  *   ——打开中的写面对话框整体收口（对话框宿主职责；「仅查看模式」是用户
  *   主动切换，收口语义保持 viewOnly 直读）；写动作门另走 canEdit（B2 只读
@@ -42,9 +46,15 @@
 import React from 'react';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  IModelApp,
+  NotifyMessageDetails,
+  OutputMessagePriority,
+} from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
+import type { CanvasSelection } from '../types.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
@@ -67,8 +77,10 @@ export interface PartStudioCanvasProps {
   leaseOk?: boolean;
   /**
    * 编辑面总门（B2 只读写门禁，M5-T3 单点合流）：Session 直通 FeatureDialog——
-   * false 时 ✓ 禁用 + 只读提示，提交入口不发起 applyOp。缺省 true（测试/壳期
-   * 语义保持；生产宿主 Session 恒显式传参）。
+   * false 时 ✓ 禁用 + 只读提示，提交入口不发起 applyOp。B6 M-A5 T2 起同门直通
+   * CanvasContextMenu（「删除」项 disabled + title，HITL 不打开）与画布 body
+   * 删除回调（防御性拒收）。缺省 true（测试/壳期语义保持；生产宿主 Session
+   * 恒显式传参）。
    */
   canEdit?: boolean;
   /**
@@ -171,6 +183,66 @@ export function PartStudioCanvas({
     closeDialog();
   }, [closeDialog, setActiveSketchPlane]);
 
+  /**
+   * B6 M-A5 T2：画布 body 删除接线（Task 1 选中桥落地后不留死路）。删除回调
+   * 仅接受 `kind='part'` 且 id 命中 active authored body 的选择项：
+   * - 取 BodyInfo.sourceFeatureId，applyOp(deleteFeature{featureId=源, targetBodyId=bodyKey})；
+   * - 无 sourceFeatureId → Error toast「实体无驱动源，无法删除」，不发 op；
+   * - 非 part 选择项不进入 body 删除（feature 选择不来自画布桥；保持既有未接线语义）；
+   * - !canEdit → 防御性拒收（菜单「删除」已禁用，HITL 不打开）；
+   * - 成功/失败 toast 与树删除同口径；不乐观改树（refresh 归 applyOp 内 onCommitted）。
+   */
+  const handleCanvasDelete = React.useCallback(
+    async (selection: readonly CanvasSelection[]): Promise<void> => {
+      if (!canEdit) return;
+      // 主选择在尾（菜单模型同口径：selection[selection.length-1]）——仅 part
+      // 主选择进入 body 删除；feature/face/edge 选择保持既有未接线语义。
+      const primary = selection[selection.length - 1];
+      if (!primary || primary.kind !== 'part') return;
+      const body = bodies?.find(
+        (candidate) => candidate.bodyKey === primary.id && candidate.active && candidate.authored !== false,
+      );
+      if (!body) return; // 未命中 active authored body：不猜测（不停留在死路）
+      if (!body.sourceFeatureId) {
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(OutputMessagePriority.Error, t('partStudio.tree.noSourceFeature')),
+        );
+        return;
+      }
+      if (!applyOp) {
+        console.warn(`[part-studio] 删除实体 ${primary.id}（applyOp 未接线）`);
+        return;
+      }
+      const name = body.name ?? primary.label ?? primary.id;
+      try {
+        const result = await applyOp({
+          kind: 'deleteFeature',
+          featureId: body.sourceFeatureId,
+          targetBodyId: body.bodyKey,
+        });
+        if (result.ok) {
+          IModelApp.notifications.outputMessage(
+            new NotifyMessageDetails(OutputMessagePriority.Success, t('partStudio.tree.deleteSuccess', { name })),
+          );
+        } else {
+          IModelApp.notifications.outputMessage(
+            new NotifyMessageDetails(OutputMessagePriority.Error, t('partStudio.tree.deleteFailed', { message: result.error })),
+          );
+        }
+      } catch (err) {
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(
+            OutputMessagePriority.Error,
+            t('partStudio.tree.deleteFailed', {
+              message: err instanceof Error ? err.message : String(err),
+            }),
+          ),
+        );
+      }
+    },
+    [applyOp, bodies, canEdit, t],
+  );
+
   // data-viewport-ready：M4-T2 视口下传锚点（结构断言/T5 适应视图接线前的就绪观测位）。
   return (
     <div
@@ -231,7 +303,12 @@ export function PartStudioCanvas({
           缺省（壳期/纯展示）不渲染。 */}
       {sketchActive && sketchSystem && <SketchPanel sketchSystem={sketchSystem} />}
 
-      <CanvasContextMenu anchor={anchor} onClose={() => setAnchor(null)} />
+      <CanvasContextMenu
+        anchor={anchor}
+        onClose={() => setAnchor(null)}
+        onDelete={handleCanvasDelete}
+        canEdit={canEdit}
+      />
 
       {/* T6 内联非模态对话框（os-30/os-31：画布左上角，不遮罩画布）。
           M4-T6 T6-①：key 按模式寻址——edit=featureId（跨特征切换重挂，本地态

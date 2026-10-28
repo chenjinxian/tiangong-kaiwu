@@ -25,7 +25,13 @@
  *   显式下传并作为 effect 依赖（I3：viewport 晚于 getBodies 创建/重建时重跑）；
  *   无 viewport 静默跳过（壳期/测试）；read surface 不可用时不接管 neverDrawn；
  * - 删除 HITL 回调第二参 = deleteFeature.targetBodyId（getBodies.sourceFeatureId
- *   反查唯一源；无映射 undefined）——删除 op 本版仍未接线（契约就绪）；
+ *   反查唯一源；无映射 undefined）。B6 M-A5 T2 起 PartStudioSidebar 以
+ *   applyOp 接线真删除/抑制（成功后 toast 归 Sidebar；树不乐观改，刷新走
+ *   applyOp 内 onCommitted）；canEdit=false 时删除/抑制菜单项禁用+可见 title，
+ *   handlers 防御性拒收；
+ * - B6 M-A5 T2 零件行守卫：part 行右键菜单只显示 隐藏/显示（会话态 store
+ *   hideNodes/showNodes，不直接触 EmphasizeElements）；TreeRow 尾部 eye 同通道，
+ *   aria-pressed=有效隐藏态；不进入 edit/delete/suppress/rename 特征路径；
  * - M6-c T5 视口编辑态：特征对话框在场 → 体集（零件段产物）经
  *   useCanvasSelection extraEmphasizedIds 打 Onshape 橙高亮（采集规格
  *   §视口交互最小通道；后续特征灰显挂账）；
@@ -66,6 +72,7 @@ import {
   SvgEditAll,
   SvgHideManuallySuppressed,
   SvgPause,
+  SvgVisibilityHide,
   SvgVisibilityShow,
 } from '@itwin/itwinui-icons-react';
 import { CapabilityDialog } from '../ribbon/Ribbon.js';
@@ -76,7 +83,7 @@ import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { FeatureNode, PartNode, TreeTab } from '../types.js';
 import { TreeFilter, parseTreeFilter } from './TreeFilter.js';
 import type { TreeNode } from './TreeRow.js';
-import { isSketchNode, TreeRow } from './TreeRow.js';
+import { isFeatureNode, isNodeHidden, isSketchNode, TreeRow } from './TreeRow.js';
 
 export interface FeatureTreeProps {
   /**
@@ -126,9 +133,15 @@ export interface FeatureTreeProps {
    * 删除提交（HITL 确认后调用）。第二参=deleteFeature.targetBodyId 契约值：
    * 由 `deleteTargetBodyIdForFeature`（getBodies.sourceFeatureId 反查）得出；
    * 无唯一源映射时为 undefined（N>1 时后端诚实拒收，绝不猜测目标）。宿主接线
-   * 删除 op 时必须原样透传（本版删除入口仍未接线，仅契约就绪）。
+   * 删除 op 时必须原样透传（B6 M-A5 T2 起 PartStudioSidebar 实现真 op 载荷）。
    */
   onDelete?: (node: TreeNode, targetBodyId?: string) => void;
+  /**
+   * B6 M-A5 T2：编辑面总门（canEdit 单点合流直通）。false 时删除/抑制菜单项
+   * 保持渲染但 disabled（可见 title 提示），handlers 防御性拒收；隐藏/显示
+   * （会话态）不受影响。缺省 true（测试/壳期语义；生产宿主恒显式传参）。
+   */
+  canEdit?: boolean;
 }
 
 interface MenuState {
@@ -293,6 +306,7 @@ export function FeatureTree({
   onEdit,
   onSuppress,
   onDelete,
+  canEdit = true,
 }: FeatureTreeProps): React.JSX.Element {
   const { t } = useTranslation();
   const [filterInput, setFilterInput] = React.useState('');
@@ -366,6 +380,17 @@ export function FeatureTree({
   // M6-a T7：草图节点编辑入口（双击+右键两路同义）——enterSketch 进草图模式，
   // ribbon 变身/栅格覆盖层/树红显全由既有 sketch 切片消费面驱动。
   const enterSketch = usePartStudioStore((s) => s.enterSketch);
+  // B6 M-A5 T2：逐 body 可见性走会话态 store（hide/show 单一通道）——不直接触
+  // EmphasizeElements；consumed∪manual neverDrawn effect 按 hiddenIds 重算。
+  const hideNodes = usePartStudioStore((s) => s.hideNodes);
+  const showNodes = usePartStudioStore((s) => s.showNodes);
+  const handleToggleVisibility = React.useCallback(
+    (node: TreeNode) => {
+      if (isNodeHidden(node)) showNodes([node.id]);
+      else hideNodes([node.id]);
+    },
+    [hideNodes, showNodes],
+  );
 
   const [collapsed, setCollapsed] = React.useState<Record<TreeTab, boolean>>({
     features: false,
@@ -465,8 +490,6 @@ export function FeatureTree({
     [onRename],
   );
 
-  const isFeatureNode = (node: TreeNode): node is FeatureNode => 'isSuppressed' in node;
-
   const renderRow = (node: TreeNode): React.JSX.Element => (
     <TreeRow
       key={node.id}
@@ -479,6 +502,7 @@ export function FeatureTree({
       editing={editingId === node.id}
       onCommitRename={handleRename}
       onCancelRename={() => setEditingId(null)}
+      onToggleVisibility={handleToggleVisibility}
     />
   );
 
@@ -515,6 +539,10 @@ export function FeatureTree({
     }
     return <>{rows.map(renderRow)}</>;
   };
+
+  // 右键菜单当前行（窄化载体：分支内/闭包内一律用它，避免 menu.node 的
+  // 联合型在回调中失去窄化——part 行守卫与特征项分别收敛到 PartNode/FeatureNode）。
+  const menuNode = menu?.node;
 
   return (
     <div className="part-studio-tree" data-testid="part-studio-tree">
@@ -616,8 +644,10 @@ export function FeatureTree({
         );
       })}
 
-      {/* 行右键菜单（os-15 子集：重命名/编辑…/抑制/删除）。 */}
-      {menu && (
+      {/* 行右键菜单（os-15 子集：重命名/编辑…/抑制/删除）。
+          B6 M-A5 T2 零件行守卫：part 行只显示 隐藏/显示——不进入 edit/delete/
+          suppress/rename 特征路径（禁止把 bodyKey 当 featureId 误路由）。 */}
+      {menu && menuNode && (isFeatureNode(menuNode) ? (
         <div
           className="part-studio-tree-menu"
           role="menu"
@@ -631,7 +661,7 @@ export function FeatureTree({
             className="part-studio-tree-menu__item"
             onClick={() => {
               setMenu(null);
-              setEditingId(menu.node.id);
+              setEditingId(menuNode.id);
             }}
           >
             <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEdit /></span>
@@ -639,14 +669,14 @@ export function FeatureTree({
           </button>
           {/* M6-a T7：sketch 节点编辑入口=「编辑草图…」（进草图模式）；通用
               「编辑…」（FeatureDialog 路由）对 sketch 节点隐藏——草图不走特征对话框。 */}
-          {isSketchNode(menu.node) ? (
+          {isSketchNode(menuNode) ? (
             <button
               type="button"
               role="menuitem"
               className="part-studio-tree-menu__item"
               onClick={() => {
                 setMenu(null);
-                handleEditSketch(menu.node);
+                handleEditSketch(menuNode);
               }}
             >
               <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgDraw /></span>
@@ -660,9 +690,9 @@ export function FeatureTree({
               onClick={() => {
                 setMenu(null);
                 if (onEdit) {
-                  onEdit(menu.node);
+                  onEdit(menuNode);
                 } else {
-                  console.warn(`[part-studio] 编辑 ${menu.node.name}（onEdit 未接线）`);
+                  console.warn(`[part-studio] 编辑 ${menuNode.name}（onEdit 未接线）`);
                 }
               }}
             >
@@ -670,40 +700,43 @@ export function FeatureTree({
               {t('partStudio.tree.edit')}
             </button>
           )}
-          {isFeatureNode(menu.node) && (
-            <button
-              type="button"
-              role="menuitem"
-              className="part-studio-tree-menu__item"
-              onClick={() => {
-                const node = menu.node;
-                setMenu(null);
-                if (isFeatureNode(node)) {
-                  if (onSuppress) {
-                    onSuppress(node, !node.isSuppressed);
-                  } else {
-                    console.warn(`[part-studio] ${node.isSuppressed ? '取消抑制' : '抑制'} ${node.name}（onSuppress 未接线）`);
-                  }
-                }
-              }}
-            >
-              <span className="part-studio-menu-item-icon" aria-hidden="true">
-                {'isSuppressed' in menu.node && menu.node.isSuppressed
-                  ? <SvgVisibilityShow />
-                  : <SvgHideManuallySuppressed />}
-              </span>
-              {'isSuppressed' in menu.node && menu.node.isSuppressed
-                ? t('partStudio.tree.unsuppress')
-                : t('partStudio.tree.suppress')}
-            </button>
-          )}
+          {/* 抑制/取消抑制（仅特征段可路由；part 行已被外层守卫分流）。 */}
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            // B6 M-A5 T2：canEdit=false 保持渲染但禁用（可见 title 提示）；
+            // 点击处理器同步防御性拒收（双保险，不发 applyOp）。
+            disabled={!canEdit}
+            title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
+            onClick={() => {
+              if (!canEdit) return;
+              setMenu(null);
+              if (onSuppress) {
+                onSuppress(menuNode, !menuNode.isSuppressed);
+              } else {
+                console.warn(`[part-studio] ${menuNode.isSuppressed ? '取消抑制' : '抑制'} ${menuNode.name}（onSuppress 未接线）`);
+              }
+            }}
+          >
+            <span className="part-studio-menu-item-icon" aria-hidden="true">
+              {menuNode.isSuppressed ? <SvgVisibilityShow /> : <SvgHideManuallySuppressed />}
+            </span>
+            {menuNode.isSuppressed
+              ? t('partStudio.tree.unsuppress')
+              : t('partStudio.tree.suppress')}
+          </button>
           <div className="part-studio-tree-menu__separator" role="separator" />
           <button
             type="button"
             role="menuitem"
             className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
+            // B6 M-A5 T2：canEdit=false → 禁用品（title 提示），HITL 不打开。
+            disabled={!canEdit}
+            title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
             onClick={() => {
-              setPendingDelete(menu.node);
+              if (!canEdit) return;
+              setPendingDelete(menuNode);
               setMenu(null);
             }}
           >
@@ -711,7 +744,34 @@ export function FeatureTree({
             {t('partStudio.tree.delete')}
           </button>
         </div>
-      )}
+      ) : (
+        /* B6 M-A5 T2 零件行菜单：只显示 隐藏/显示——不进入 edit/delete/
+           suppress/rename 特征路径（禁止把 bodyKey 当 featureId 误路由）。 */
+        <div
+          className="part-studio-tree-menu"
+          role="menu"
+          aria-label={t('partStudio.tree.contextMenuLabel')}
+          style={{ left: menu.x, top: menu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            onClick={() => {
+              setMenu(null);
+              handleToggleVisibility(menuNode);
+            }}
+          >
+            <span className="part-studio-menu-item-icon" aria-hidden="true">
+              {isNodeHidden(menuNode) ? <SvgVisibilityShow /> : <SvgVisibilityHide />}
+            </span>
+            {isNodeHidden(menuNode)
+              ? t('partStudio.tree.showBody')
+              : t('partStudio.tree.hideBody')}
+          </button>
+        </div>
+      ))}
 
       {/* 删除 HITL 确认（预览=目标具名提示；确认后才提交 onDelete）。 */}
       {pendingDelete && (
@@ -742,6 +802,9 @@ export function FeatureTree({
                 onClick={() => {
                   const node = pendingDelete;
                   setPendingDelete(null);
+                  // B6 M-A5 T2：canEdit=false 防御性拒收（菜单项已禁用，此处兜底
+                  // 程序化/竞态路径——绝不发起删除回调）。
+                  if (!canEdit) return;
                   if (onDelete) {
                     // B6 M-A3.2a：第二参=deleteFeature.targetBodyId（getBodies.sourceFeatureId
                     // 反查；无唯一源映射=undefined，N>1 由后端诚实拒收）。

@@ -414,6 +414,37 @@ describe('M4-T8 T5-⑥：占位 kind 治理（每项真实 kind，不借道 show
   });
 });
 
+// ── B6 M-A5 T2：canEdit=false 删除入口关死（HITL 不打开）────────────────────
+
+describe('B6 M-A5 T2：canEdit=false 删除项禁用（title 提示，HITL 不打开）', () => {
+  it('part 选中：删除项保持渲染但 disabled + title；点击无 HITL/无 onDelete', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    setSelection([{ kind: 'part', id: 'p1', label: 'Part 1' }]);
+    render(<CanvasContextMenu anchor={ANCHOR} onClose={vi.fn()} onDelete={onDelete} canEdit={false} />);
+    const menu = screen.getByRole('menu', { name: '画布菜单' });
+    const del = within(menu).getByRole('menuitem', { name: '删除 Part 1' }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    expect(del.getAttribute('title')).toBe('当前为只读权限，无法删除');
+    await user.click(del);
+    expect(screen.queryByRole('dialog', { name: '删除 Part 1' })).toBeNull();
+    expect(onDelete).not.toHaveBeenCalled();
+    // 非写面菜单项不受门限：隐藏仍可点。
+    expect((within(menu).getByRole('menuitem', { name: '隐藏 Part 1' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('canEdit 缺省 true：删除项可点（既有 HITL 语义不变）', async () => {
+    const user = userEvent.setup();
+    setSelection([{ kind: 'part', id: 'p1', label: 'Part 1' }]);
+    renderMenu();
+    const menu = screen.getByRole('menu', { name: '画布菜单' });
+    const del = within(menu).getByRole('menuitem', { name: '删除 Part 1' }) as HTMLButtonElement;
+    expect(del.disabled).toBe(false);
+    await user.click(del);
+    expect(screen.getByRole('dialog', { name: '删除 Part 1' })).toBeDefined();
+  });
+});
+
 describe('M4-T8 T5-⑤：菜单监听一次注册（anchor 变化不重挂）', () => {
   it('两次 anchor 更新不重挂 window mousedown/keydown 监听（挂载期一次到位）', () => {
     const addSpy = vi.spyOn(window, 'addEventListener');

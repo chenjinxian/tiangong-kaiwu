@@ -600,7 +600,8 @@
     "deleteTitle": "Delete {{name}}",
     "deleteMessage": "{{name}} will be deleted from the model. This cannot be undone once committed.",
     "cancel": "Cancel",
-    "confirmDelete": "Delete"
+    "confirmDelete": "Delete",
+    "readonlyHint": "Read-only permission; cannot delete"
   },
   "tree": {
     "contextMenuLabel": "Feature menu",
@@ -623,6 +624,14 @@
     "unnamedElement": "Unnamed element {{id}}",
     "defaultBodyName": "Body {{index}}",
     "bodiesReadFailed": "Failed to load bodies: {{message}} (showing the legacy parts list)",
+    "hideBody": "Hide body",
+    "showBody": "Show body",
+    "deleteSuccess": "Deleted {{name}}",
+    "deleteFailed": "Delete failed: {{message}}",
+    "suppressSuccess": "Suppression updated for {{name}}",
+    "suppressFailed": "Suppression update failed: {{message}}",
+    "noSourceFeature": "The body has no driving feature; it cannot be deleted",
+    "readonlyHint": "Read-only permission; this action is unavailable",
     "featureTypes": {
       "extrude": "Extrude",
       "booleanAdd": "Union",

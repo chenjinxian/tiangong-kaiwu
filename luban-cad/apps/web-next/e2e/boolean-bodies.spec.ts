@@ -235,9 +235,11 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   const body1Key = body1!.bodyKey;
   const body2Key = body2!.bodyKey;
 
+  // B6 M-A5 T2：part 行尾有逐 body eye 钮——按主行 class 计数
+  //（getByRole('button') 会翻倍）。
   const partList = page.getByTestId('part-studio-part-list');
   const featureList = page.getByTestId('part-studio-feature-list');
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
   console.log(`[boolean] bodies body1=${body1Key} body2=${body2Key}`);
 
   const openBooleanDialog = async (): Promise<ReturnType<typeof page.getByTestId>> => {
@@ -272,7 +274,7 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   // ── 第一轮：unite（消费 body2）─────────────────────────────────────────────
   let dialog = await openBooleanDialog();
   await selectBoolean(dialog, body1Key, body2Key, 'unite', false);
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(1);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(1);
   await expect(featureList.getByRole('button', { name: '布尔 1' })).toBeVisible({ timeout: 90_000 });
 
   let after = await getBodies();
@@ -291,7 +293,7 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   const undo = page.getByTestId('part-studio-undo-button');
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body2Key);
   const restored = await getBodies();
   expect(restored.find((b) => b.sourceFeatureId === extrudeA)?.bodyKey, 'undo 后 body1 源恢复').toBe(body1Key);
@@ -302,18 +304,18 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   const redo = page.getByTestId('part-studio-redo-button');
   await expect(redo).toBeEnabled({ timeout: 90_000 });
   await redo.click();
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(1);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(1);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).toContain(body2Key);
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body2Key);
   console.log('[boolean] redo/undo 往返 OK');
 
   // ── 第二轮：subtract + keepTools=true（不消费）───────────────────────────
   dialog = await openBooleanDialog();
   await selectBoolean(dialog, body1Key, body2Key, 'subtract', true);
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
   await expect(featureList.getByRole('button', { name: '布尔 1' })).toBeVisible({ timeout: 90_000 });
   const treeAtSubtract = await getTree();
   const booleanSubtract = treeAtSubtract.find((r) => r.featureType === 'booleanBodies' && r.status === 0);
@@ -351,11 +353,11 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   const body3 = bodiesFor3.find((b) => b.sourceFeatureId === extrudeC);
   expect(body3, 'body3 应由 extrudeC 驱动').toBeTruthy();
   const body3Key = body3!.bodyKey;
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(3);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(3);
 
   dialog = await openBooleanDialog();
   await selectBoolean(dialog, body1Key, body3Key, 'unite', false);
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
   await expect(featureList.getByRole('button', { name: '布尔 2' })).toBeVisible({ timeout: 90_000 });
   const bodiesAfterSecond = await getBodies();
   const targetAfterSecond = bodiesAfterSecond.find((b) => b.bodyKey === body1Key);
@@ -378,11 +380,11 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   // 第二轮 undo/redo：三体 ↔ 两体
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(3);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(3);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body3Key);
   await expect(redo).toBeEnabled({ timeout: 90_000 });
   await redo.click();
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).toContain(body3Key);
   console.log('[boolean] 第二轮 undo/redo OK');
 

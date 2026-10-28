@@ -191,8 +191,14 @@ export interface CanvasContextMenuProps {
   /** 菜单锚点（视口 client 坐标）；null=关闭（常驻挂载，右键驱动开合）。 */
   anchor: { x: number; y: number } | null;
   onClose: () => void;
-  /** 删除确认提交（HITL 出口；后端删除接线后接管）。 */
+  /** 删除确认提交（HITL 出口；B6 M-A5 T2 起 PartStudioCanvas 接 body 删除）。 */
   onDelete?: (selection: readonly CanvasSelection[]) => void;
+  /**
+   * B6 M-A5 T2：编辑面总门（canEdit 单点合流直通）。false 时「删除」项保持
+   * 渲染但 disabled（可见 title 提示），点击不打开 HITL；其余菜单项
+   * （视图/隐藏/gated 引导）不受影响。缺省 true（测试/壳期语义）。
+   */
+  canEdit?: boolean;
 }
 
 /** 选中实体显示名（label 缺省回退 id）。 */
@@ -200,7 +206,12 @@ function selectionName(entry: CanvasSelection): string {
   return entry.label ?? entry.id;
 }
 
-export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMenuProps): React.JSX.Element | null {
+export function CanvasContextMenu({
+  anchor,
+  onClose,
+  onDelete,
+  canEdit = true,
+}: CanvasContextMenuProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const selection = usePartStudioStore((s) => s.canvas.selection);
   const hideNodes = usePartStudioStore((s) => s.hideNodes);
@@ -319,6 +330,9 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
           runAndClose(viewNormalToSelection);
           return;
         case 'delete':
+          // B6 M-A5 T2：canEdit=false 防御性拒收（菜单项已禁用，此处兜底——
+          // HITL 不打开，删除回调不可能发起）。
+          if (!canEdit) return;
           onClose();
           setPendingDelete(true);
           return;
@@ -337,7 +351,7 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
           return;
       }
     },
-    [hideNodes, onClose, openDock, primary, runAndClose, selection, setDockTab, openFeatureDialog],
+    [canEdit, hideNodes, onClose, openDock, primary, runAndClose, selection, setDockTab, openFeatureDialog],
   );
 
   const name = primary ? selectionName(primary) : '';
@@ -371,6 +385,9 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
             className="part-studio-capability-dialog__danger"
             onClick={() => {
               setPendingDelete(false);
+              // B6 M-A5 T2：canEdit=false 防御性拒收（HITL 本不应打开；兜底
+              // 程序化路径），不发删除回调。
+              if (!canEdit) return;
               if (onDelete) {
                 onDelete(selection);
               } else {
@@ -407,15 +424,21 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
         style={{ left: position.x, top: position.y }}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        {entries.map((entry, index) =>
-          entry === 'separator' ? (
-            <div key={`sep-${index}`} className="part-studio-canvas-menu__separator" role="separator" />
-          ) : (
+        {entries.map((entry, index) => {
+          if (entry === 'separator') {
+            return <div key={`sep-${index}`} className="part-studio-canvas-menu__separator" role="separator" />;
+          }
+          // B6 M-A5 T2：canEdit=false 时「删除」保持渲染但禁用（可见 title
+          // 提示）；其余项（视图/隐藏/gated 引导）不受写门限制。
+          const deleteDisabled = entry.action.kind === 'delete' && !canEdit;
+          return (
             <button
               key={entry.id}
               type="button"
               role="menuitem"
               className="part-studio-canvas-menu__item"
+              disabled={deleteDisabled}
+              title={deleteDisabled ? t('partStudio.canvasMenu.readonlyHint') : undefined}
               onClick={() => handleItemClick(entry)}
             >
               <span className="part-studio-menu-item-icon" aria-hidden="true">
@@ -423,8 +446,8 @@ export function CanvasContextMenu({ anchor, onClose, onDelete }: CanvasContextMe
               </span>
               {entry.usesName ? t(entry.labelKey, { name }) : t(entry.labelKey)}
             </button>
-          ),
-        )}
+          );
+        })}
       </div>
 
       {deleteDialog}

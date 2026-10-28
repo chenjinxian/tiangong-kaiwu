@@ -17,11 +17,11 @@
 // 真实 store/i18n 参与（setup.ts 全局词库兜底，zh-CN 基线）。
 
 import type { RefObject } from 'react';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 
 // M6-a T6：面域读面 RPC 替身（FeatureDialog 拉伸草图通道 getSketch 直调）。
 const featureRpc = vi.hoisted(() => ({
@@ -80,13 +80,20 @@ import { PartStudioCanvas } from '../components/PartStudioCanvas.js';
 
 function renderCanvas(
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>,
-  opts?: { sketches?: ReadonlyArray<{ id: string; label: string }>; connectionKey?: string },
+  opts?: {
+    sketches?: ReadonlyArray<{ id: string; label: string }>;
+    connectionKey?: string;
+    bodies?: readonly BodyInfo[];
+    canEdit?: boolean;
+  },
 ): void {
   render(
     <PartStudioCanvas
       viewportRef={{ current: null } as RefObject<HTMLDivElement>}
       applyOp={applyOp}
       sketches={opts?.sketches}
+      bodies={opts?.bodies}
+      canEdit={opts?.canEdit ?? true}
       connection={
         opts?.connectionKey ? ({ key: opts.connectionKey } as unknown as BriefcaseConnection) : undefined
       }
@@ -337,3 +344,127 @@ function actOpenEdit(featureId: string, featureName: string): void {
     });
   });
 }
+
+// ── B6 M-A5 T2：画布 body 删除接线（Task 1 选中桥落地后不留死路）────────────
+
+/** body 读面替身：Base（有源）/ NoSource（无源）/ Consumed（inactive）。 */
+const CANVAS_BODIES: BodyInfo[] = [
+  { bodyKey: '0x15', name: 'Base', active: true, authored: true, sourceFeatureId: 'ex1' },
+  { bodyKey: '0x20', name: 'NoSource', active: true, authored: true },
+  { bodyKey: '0x22', name: 'Consumed', active: false, authored: true, sourceFeatureId: 'ex9' },
+];
+
+/** 画布右键 → 点删除项 → HITL 确认（body 删除链的宿主集成路径）。 */
+async function confirmCanvasDelete(user: ReturnType<typeof userEvent.setup>, name: string): Promise<void> {
+  fireEvent.contextMenu(screen.getByTestId('part-studio-canvas'), { clientX: 40, clientY: 50 });
+  await user.click(screen.getByRole('menuitem', { name: `删除 ${name}` }));
+  const dialog = screen.getByRole('dialog', { name: `删除 ${name}` });
+  await user.click(within(dialog).getByRole('button', { name: '删除' }));
+}
+
+describe('B6 M-A5 T2：画布 part 删除接线（deleteFeature + sourceFeatureId）', () => {
+  it('part 选择（命中 active authored body）→ applyOp 精确载荷（featureId=source，targetBodyId=bodyKey）+ 成功 toast', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    renderCanvas(applyOp, { bodies: CANVAS_BODIES });
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: '0x15', label: 'Base' }]);
+    });
+    await confirmCanvasDelete(user, 'Base');
+    await waitFor(() =>
+      expect(applyOp).toHaveBeenCalledWith({
+        kind: 'deleteFeature',
+        featureId: 'ex1',
+        targetBodyId: '0x15',
+      }),
+    );
+    // 成功 toast（树删除同口径）+ 选择集清空（既有 HITL 语义）。
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalled());
+    const details = mocks.outputMessage.mock.calls.at(-1)?.[0] as { priority: number; briefMessage: string };
+    expect(details.priority).toBe(1); // OutputMessagePriority.Success
+    expect(details.briefMessage).toBe('已删除 Base');
+    expect(usePartStudioStore.getState().canvas.selection).toHaveLength(0);
+  });
+
+  it('无 sourceFeatureId → Error toast「实体无驱动源，无法删除」，不发 op', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    renderCanvas(applyOp, { bodies: CANVAS_BODIES });
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: '0x20', label: 'NoSource' }]);
+    });
+    await confirmCanvasDelete(user, 'NoSource');
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalledTimes(1));
+    const details = mocks.outputMessage.mock.calls[0]?.[0] as { priority: number; briefMessage: string };
+    expect(details.priority).toBe(10); // OutputMessagePriority.Error
+    expect(details.briefMessage).toBe('实体无驱动源，无法删除');
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('失败结果 → Error toast 含 result.error（不乐观改树）；异常 → Error toast 含异常消息', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi
+      .fn<(op: FeatureOp) => Promise<FeatureOpResult>>()
+      .mockResolvedValueOnce({ ok: false, error: 'feature not found' })
+      .mockRejectedValueOnce(new Error('rpc boom'));
+    renderCanvas(applyOp, { bodies: CANVAS_BODIES });
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: '0x15', label: 'Base' }]);
+    });
+    await confirmCanvasDelete(user, 'Base');
+    await waitFor(() =>
+      expect((mocks.outputMessage.mock.calls.at(-1)?.[0] as { briefMessage: string }).briefMessage).toContain(
+        'feature not found',
+      ),
+    );
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: '0x15', label: 'Base' }]);
+    });
+    await confirmCanvasDelete(user, 'Base');
+    await waitFor(() =>
+      expect((mocks.outputMessage.mock.calls.at(-1)?.[0] as { briefMessage: string }).briefMessage).toContain(
+        'rpc boom',
+      ),
+    );
+  });
+
+  it('非 part 选择项（edge）不进入 body 删除（无 op / 无 toast）', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    renderCanvas(applyOp, { bodies: CANVAS_BODIES });
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'edge', id: 'e1', label: '边 1' }]);
+    });
+    await confirmCanvasDelete(user, '边 1');
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(mocks.outputMessage).not.toHaveBeenCalled();
+  });
+
+  it('part 选择未命中 active authored body（inactive/未知 id）→ 静默 no-op（不猜测）', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    renderCanvas(applyOp, { bodies: CANVAS_BODIES });
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: '0x22', label: 'Consumed' }]);
+    });
+    await confirmCanvasDelete(user, 'Consumed');
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(mocks.outputMessage).not.toHaveBeenCalled();
+  });
+
+  it('canEdit=false：删除项 disabled + title，点击不打开 HITL；applyOp 未发起', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    renderCanvas(applyOp, { bodies: CANVAS_BODIES, canEdit: false });
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: '0x15', label: 'Base' }]);
+    });
+    fireEvent.contextMenu(screen.getByTestId('part-studio-canvas'), { clientX: 40, clientY: 50 });
+    const del = screen.getByRole('menuitem', { name: '删除 Base' }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    expect(del.getAttribute('title')).toBe('当前为只读权限，无法删除');
+    await user.click(del);
+    expect(screen.queryByRole('dialog', { name: '删除 Base' })).toBeNull();
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+});

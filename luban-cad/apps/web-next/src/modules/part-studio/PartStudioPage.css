@@ -945,6 +945,48 @@
   block-size: 14px;
 }
 
+/* B6 M-A5 T2：行 wrapper（主行按钮 + 尾部 eye）——按钮不可嵌套，eye 与主行
+   按钮同级；主行按钮保持既有 class/testid/可访问名，wrapper 只承担横排与
+   行级 hover。 */
+.part-studio-tree-row-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-3xs, 2px);
+  inline-size: 100%;
+  border-radius: var(--iui-border-radius-1);
+}
+
+/* 行级 hover 覆盖 eye 区（主行按钮自身 hover 仍在；下方透明化避免双层叠色）。 */
+.part-studio-tree-row-wrapper:hover {
+  background: var(--iui-color-background-hover);
+}
+
+/* 选中行 hover 保持选中底色（wrapper 与主行按钮同源 accent muted）。 */
+.part-studio-tree-row-wrapper:has(> .part-studio-tree-row--selected):hover {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+}
+
+.part-studio-tree-row-wrapper > .part-studio-tree-row {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
+.part-studio-tree-row-wrapper:hover > .part-studio-tree-row:hover {
+  background: transparent;
+}
+
+/* eye 常显（隐藏态沿用行淡显语义；点击走 store 会话隐藏集）。 */
+.part-studio-tree-row__visibility {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.part-studio-tree-row__visibility:hover,
+.part-studio-tree-row__visibility[aria-pressed='true'] {
+  opacity: 1;
+}
+
 .part-studio-tree-row {
   display: flex;
   flex-direction: row;

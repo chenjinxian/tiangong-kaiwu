@@ -165,6 +165,13 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.filletTargetBody', 'featureDialog.filletMixedBodies',
   'featureDialog.filletOwnerInvalid', 'featureDialog.unownedTargetHint',
   'tree.defaultBodyName', 'tree.bodiesReadFailed',
+  // B6 M-A5 T2：树变异接线 + 逐 body 可见性——eye 隐藏/显示/菜单项文案、
+  // 删除/抑制成功失败 toast、无驱动源拒收、只读提示（侧栏 + 画布菜单）。
+  'tree.hideBody', 'tree.showBody',
+  'tree.deleteSuccess', 'tree.deleteFailed',
+  'tree.suppressSuccess', 'tree.suppressFailed',
+  'tree.noSourceFeature', 'tree.readonlyHint',
+  'canvasMenu.readonlyHint',
   // B6 M-A4.2a：body boolean 通道——树标签/新对话框标题 + 字段/门禁/提示/错误。
   'tree.featureTypes.booleanBodies', 'ribbon.tools.booleanBodies.label',
   'featureDialog.booleanBodiesParametersLabel', 'featureDialog.booleanBodiesTargetLabel',

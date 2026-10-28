@@ -776,6 +776,122 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
   });
 });
 
+// ── B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门 ───────────────────
+// 零件行（PartNode）不得进入特征变异路径（edit/delete/suppress/rename）——
+// bodyKey 不是 featureId。eye 走 store 会话隐藏集（hideNodes/showNodes），
+// aria-pressed=有效隐藏态；canEdit=false 只关写面（删除/抑制），隐藏/显示仍可用。
+
+describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () => {
+  it('part 行右键菜单只显示 隐藏实体（无 重命名/编辑/抑制/删除）', () => {
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).getAllByRole('menuitem')).toHaveLength(1);
+    expect(within(menu).getByRole('menuitem', { name: '隐藏实体' })).toBeDefined();
+    for (const name of ['重命名', '编辑…', '抑制', '删除', '编辑草图…']) {
+      expect(within(menu).queryByRole('menuitem', { name })).toBeNull();
+    }
+    // 右键仍先选中该行（既有语义不变）。
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['0x15']);
+  });
+
+  it('eye 仅 part 行渲染；点击隐藏→显示走 store.hiddenIds 且不触发行选中', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    // 特征行无 eye（逐 body 可见性专属零件段）。
+    expect(screen.queryByTestId('tree-row-visibility-ex1')).toBeNull();
+    const eye = screen.getByTestId('tree-row-visibility-0x15');
+    expect(eye.getAttribute('aria-pressed')).toBe('false');
+    // iTwinUI IconButton 的 label 落为视觉隐藏文本（可访问名），非 aria-label 直写。
+    expect(eye.textContent).toContain('隐藏实体');
+    await user.click(eye);
+    // 会话隐藏集写入（FeatureTree 的 consumed∪manual neverDrawn effect 消费）。
+    expect(usePartStudioStore.getState().canvas.hiddenIds).toContain('0x15');
+    // 行选中不因 eye 点击发生（stopPropagation + 与主行按钮同级）。
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+    // 隐藏态呈现：data-hidden + aria-pressed + eye 标签翻转。
+    const row = screen.getByTestId('tree-row-0x15');
+    expect(row.getAttribute('data-hidden')).toBe('true');
+    const eyeHidden = screen.getByTestId('tree-row-visibility-0x15');
+    expect(eyeHidden.getAttribute('aria-pressed')).toBe('true');
+    expect(eyeHidden.textContent).toContain('显示实体');
+    // 再点恢复可见（showNodes 通道）。
+    await user.click(eyeHidden);
+    expect(usePartStudioStore.getState().canvas.hiddenIds).not.toContain('0x15');
+    expect(screen.getByTestId('tree-row-0x15').getAttribute('data-hidden')).toBeNull();
+    expect(screen.getByTestId('tree-row-visibility-0x15').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('part 行右键 隐藏/显示 与 eye 同 store 通道', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '隐藏实体' }));
+    expect(usePartStudioStore.getState().canvas.hiddenIds).toContain('0x15');
+    // 已隐藏行的菜单项翻转为 显示实体；点击恢复。
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    await user.click(within(menu).getByRole('menuitem', { name: '显示实体' }));
+    expect(usePartStudioStore.getState().canvas.hiddenIds).not.toContain('0x15');
+  });
+
+  it('canEdit=false：删除/抑制保持渲染但 disabled（title 提示），HITL 不打开、不回调；隐藏/显示仍可用', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    const onSuppress = vi.fn();
+    render(
+      <FeatureTree
+        entries={ENTRIES}
+        bodies={BODIES}
+        canEdit={false}
+        onDelete={onDelete}
+        onSuppress={onSuppress}
+      />,
+    );
+    fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
+    const del = screen.getByRole('menuitem', { name: '删除' }) as HTMLButtonElement;
+    const suppress = screen.getByRole('menuitem', { name: '抑制' }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    expect(suppress.disabled).toBe(true);
+    expect(del.getAttribute('title')).toBe('当前为只读权限，无法执行此操作');
+    expect(suppress.getAttribute('title')).toBe('当前为只读权限，无法执行此操作');
+    // 点击禁用品无反应：HITL 不打开、抑制回调不触发。
+    await user.click(del);
+    await user.click(suppress);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(onSuppress).not.toHaveBeenCalled();
+    // 会话态隐藏/显示不受写门限制（eye 仍可用）。
+    await user.click(screen.getByTestId('tree-row-visibility-0x15'));
+    expect(usePartStudioStore.getState().canvas.hiddenIds).toContain('0x15');
+  });
+
+  it('主行按钮可访问名不变；双击 part 行无行为（既有语义保持）', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    // 主行按钮仍可按名称定位（eye 标签不污染行名）。
+    const row = screen.getByRole('button', { name: 'Base' });
+    expect(row.getAttribute('data-testid')).toBe('tree-row-0x15');
+    expect(row.className).toContain('part-studio-tree-row');
+    await user.dblClick(row);
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
+  });
+
+  it('删除 HITL 确认遇 canEdit 竞态翻转 → 防御性拒收（不回调）', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} onDelete={onDelete} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
+    await user.click(screen.getByRole('menuitem', { name: '删除' }));
+    expect(screen.getByRole('dialog', { name: '删除 拉伸 1' })).toBeDefined();
+    // 对话框在场时权限翻转（canEdit=false）→ 确认按钮兜底拒收。
+    rerender(<FeatureTree entries={ENTRIES} bodies={BODIES} onDelete={onDelete} canEdit={false} />);
+    const dialog = screen.getByRole('dialog', { name: '删除 拉伸 1' });
+    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+});
+
 // ── B6 M-A4.2a：booleanBodies 特征树标签（词库入册，非回退原始串）────────────
 
 describe('B6 M-A4.2a：booleanBodies 树行本地化', () => {

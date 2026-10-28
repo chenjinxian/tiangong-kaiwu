@@ -217,9 +217,10 @@ test('真栈：extrude newBody 两体 → getBodies/树 → consumed 隐藏 → 
   expect(body2!.bodyKey).toBeTruthy();
   console.log(`[newbody] bodies=${bodies.map((b) => `${b.bodyKey}:${b.active}`).join(',')}`);
 
-  // 页面零件树两行（getBodies active authored）
+  // 页面零件树两行（getBodies active authored）。B6 M-A5 T2 起行尾有逐 body
+  // eye 钮——按主行 class 计数（getByRole('button') 会翻倍）。
   const partList = page.getByTestId('part-studio-part-list');
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
 
   // 删除 newBody feature（targetBodyId 指向 body2）→ consumed、树一行、几何 hidden
   const del = await msRpc(
@@ -229,7 +230,7 @@ test('真栈：extrude newBody 两体 → getBodies/树 → consumed 隐藏 → 
   );
   expect((del as { ok: boolean; error?: string }).ok, `delete newBody: ${(del as { error?: string }).error ?? ''}`).toBe(true);
   await expect.poll(async () => (await getBodies()).filter((b) => b.active).length, { timeout: 90_000 }).toBe(1);
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(1);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(1);
 
   const hidden = await page.evaluate(async () => {
     const cf = (await import('/@id/@itwin/core-frontend')) as {
@@ -249,7 +250,7 @@ test('真栈：extrude newBody 两体 → getBodies/树 → consumed 隐藏 → 
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
   await expect.poll(async () => (await getBodies()).filter((b) => b.active).length, { timeout: 90_000 }).toBe(2);
-  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
   const hiddenAfterUndo = await page.evaluate(async () => {
     const cf = (await import('/@id/@itwin/core-frontend')) as {
       IModelApp: { viewManager: { getFirstOpenView(): unknown } };

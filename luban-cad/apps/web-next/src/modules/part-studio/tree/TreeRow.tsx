@@ -13,11 +13,21 @@
  * 行双击路由（onDoubleClick——sketch 节点进草图模式，FeatureTree 裁决注入）。
  * 行点击选中（写 store.tree.selectedNodeIds → 画布 emphasize 联动）、行右键
  * 交 FeatureTree 弹菜单。重命名内联编辑态（editing）由 FeatureTree 驱动。
+ *
+ * B6 M-A5 T2：行结构改为 wrapper（div）包主行按钮 + 尾部逐 body 可见性 eye
+ * （IconButton——按钮不可嵌套，eye 与主行按钮同级）。主行按钮保持原
+ * data-testid/class/可访问名与点击/右键/双击语义；eye 仅 part 行渲染，
+ * aria-pressed=有效隐藏态，点击 stopPropagation 不触发主行选中。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { SvgDraw } from '@itwin/itwinui-icons-react';
+import { IconButton } from '@itwin/itwinui-react';
+import {
+  SvgDraw,
+  SvgVisibilityHide,
+  SvgVisibilityShow,
+} from '@itwin/itwinui-icons-react';
 import type { FeatureNode, PartNode } from '../types.js';
 
 /** 树行节点（特征段 | 零件段并集口径）。 */
@@ -26,6 +36,23 @@ export type TreeNode = FeatureNode | PartNode;
 /** M6-a T7：草图节点判型（特征段且 type='sketch'——图标/双击/菜单三路共用）。 */
 export function isSketchNode(node: TreeNode): boolean {
   return 'type' in node && node.type === 'sketch';
+}
+
+/**
+ * 特征节点判型（FeatureNode 持 type/isSuppressed；PartNode 无 type）。
+ * 菜单分支用**正谓词**（isFeatureNode）而非反向判型：PartNode 结构上是
+ * FeatureNode 的宽化子型，`!('type' in node)` 的否定分支会被 TS 排成 never。
+ */
+export function isFeatureNode(node: TreeNode): node is FeatureNode {
+  return 'type' in node;
+}
+
+/**
+ * B6 M-A5 T2：part 行判型（FeatureNode 持 type；PartNode 无 type）。
+ * part 行守卫判据：eye 仅在 part 行渲染（菜单分支走 isFeatureNode）。
+ */
+export function isPartNode(node: TreeNode): node is PartNode {
+  return !('type' in node);
 }
 
 export interface TreeRowProps {
@@ -44,6 +71,12 @@ export interface TreeRowProps {
   editing: boolean;
   onCommitRename: (node: TreeNode, name: string) => void;
   onCancelRename: () => void;
+  /**
+   * B6 M-A5 T2：逐 body 可见性切换（仅 part 行渲染 eye；FeatureTree 注入
+   * hideNodes/showNodes 会话态通道——不直接触 EmphasizeElements，由 FeatureTree
+   * 的 consumed∪manual neverDrawn effect 重算）。
+   */
+  onToggleVisibility?: (node: TreeNode) => void;
 }
 
 /** 节点有效隐藏态（data-hidden 呈现依据）。 */
@@ -61,11 +94,14 @@ export function TreeRow({
   editing,
   onCommitRename,
   onCancelRename,
+  onToggleVisibility,
 }: TreeRowProps): React.JSX.Element {
   const { t } = useTranslation();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const suppressed = 'isSuppressed' in node && node.isSuppressed;
   const errored = 'hasError' in node && !!node.hasError;
+  const hidden = isNodeHidden(node);
+  const partRow = isPartNode(node);
 
   React.useEffect(() => {
     if (editing) {
@@ -89,7 +125,7 @@ export function TreeRow({
     selected ? 'part-studio-tree-row--selected' : '',
     errored ? 'part-studio-tree-row--error' : '',
     suppressed ? 'part-studio-tree-row--suppressed' : '',
-    isNodeHidden(node) ? 'part-studio-tree-row--hidden' : '',
+    hidden ? 'part-studio-tree-row--hidden' : '',
     sketchActive ? 'part-studio-tree-row--sketch-active' : '',
   ]
     .filter(Boolean)
@@ -115,27 +151,47 @@ export function TreeRow({
           }}
         />
       ) : (
-        <button
-          type="button"
-          className={className}
-          data-testid={`tree-row-${node.id}`}
-          data-error={errored ? 'true' : undefined}
-          data-suppressed={suppressed ? 'true' : undefined}
-          data-hidden={isNodeHidden(node) ? 'true' : undefined}
-          data-sketch-active={sketchActive ? 'true' : undefined}
-          aria-current={selected ? 'true' : undefined}
-          onClick={() => onSelect(node)}
-          onContextMenu={(event) => onContextMenu(node, event)}
-          onDoubleClick={onDoubleClick ? () => onDoubleClick(node) : undefined}
-        >
-          {/* M6-a T7：草图节点行图标（SvgDraw 占位；M6-c 按采集 SVG 再校）。 */}
-          {isSketchNode(node) && (
-            <span className="part-studio-tree-row__icon" aria-hidden="true">
-              <SvgDraw />
-            </span>
+        <div className="part-studio-tree-row-wrapper">
+          <button
+            type="button"
+            className={className}
+            data-testid={`tree-row-${node.id}`}
+            data-error={errored ? 'true' : undefined}
+            data-suppressed={suppressed ? 'true' : undefined}
+            data-hidden={hidden ? 'true' : undefined}
+            data-sketch-active={sketchActive ? 'true' : undefined}
+            aria-current={selected ? 'true' : undefined}
+            onClick={() => onSelect(node)}
+            onContextMenu={(event) => onContextMenu(node, event)}
+            onDoubleClick={onDoubleClick ? () => onDoubleClick(node) : undefined}
+          >
+            {/* M6-a T7：草图节点行图标（SvgDraw 占位；M6-c 按采集 SVG 再校）。 */}
+            {isSketchNode(node) && (
+              <span className="part-studio-tree-row__icon" aria-hidden="true">
+                <SvgDraw />
+              </span>
+            )}
+            <span className="part-studio-tree-row__name">{node.name}</span>
+          </button>
+          {/* B6 M-A5 T2：逐 body 可见性 eye（仅 part 行；按钮不可嵌套——与主行
+              按钮同级）。stopPropagation 保证不触发行选中。 */}
+          {partRow && onToggleVisibility && (
+            <IconButton
+              size="small"
+              styleType="borderless"
+              className="part-studio-tree-row__visibility"
+              label={t(hidden ? 'partStudio.tree.showBody' : 'partStudio.tree.hideBody')}
+              data-testid={`tree-row-visibility-${node.id}`}
+              aria-pressed={hidden}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleVisibility(node);
+              }}
+            >
+              {hidden ? <SvgVisibilityHide /> : <SvgVisibilityShow />}
+            </IconButton>
           )}
-          <span className="part-studio-tree-row__name">{node.name}</span>
-        </button>
+        </div>
       )}
     </li>
   );
