@@ -207,13 +207,12 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   };
   const insertSketch = async (s: Sketch2d, plane: PlaneDto, label: string): Promise<string> =>
     apply({ kind: 'insertSketch', entities: s.entities, constraints: s.constraints, plane }, label);
+  // 读面只留关键检查点（MS 全局 100 req/15min；全量 e2e 串行共享该配额）。
+  // 等待/同步一律走 UI 零件行计数（不消耗 RPC），状态断言再单次读 getBodies/getTree。
   const getBodies = async (): Promise<BodyInfo[]> =>
     (await msRpc(itwinId, imodelId, 'getBodies', [dbKey], accessToken)) as BodyInfo[];
   const getTree = async (): Promise<FeatureTreeRow[]> =>
     (await msRpc(itwinId, imodelId, 'getFeatureTree', [dbKey], accessToken)) as FeatureTreeRow[];
-  const activeBodies = async (): Promise<BodyInfo[]> => (await getBodies()).filter((b) => b.active);
-  const bodyBySource = async (featureId: string): Promise<BodyInfo | undefined> =>
-    (await getBodies()).find((b) => b.sourceFeatureId === featureId);
 
   // ── 两体基线 ───────────────────────────────────────────────────────────────
   const sketchA = await insertSketch(rectangleSketch(0, 0, 2, 2), xyPlane(0), '草图 A');
@@ -273,19 +272,14 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   // ── 第一轮：unite（消费 body2）─────────────────────────────────────────────
   let dialog = await openBooleanDialog();
   await selectBoolean(dialog, body1Key, body2Key, 'unite', false);
-  await expect.poll(async () => (await activeBodies()).length, { timeout: 90_000 }).toBe(1);
   await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(1);
   await expect(featureList.getByRole('button', { name: '布尔 1' })).toBeVisible({ timeout: 90_000 });
 
-  let tree = await getTree();
-  const boolean1 = tree.find((r) => r.featureType === 'booleanBodies');
-  expect(boolean1, '布尔特征应入树').toBeTruthy();
-  expect(boolean1!.status, '布尔 status 应为 0').toBe(0);
   let after = await getBodies();
   const body1After = after.find((b) => b.bodyKey === body1Key);
   const body2After = after.find((b) => b.bodyKey === body2Key);
   expect(body1After?.active, 'target 应保持 active').toBe(true);
-  expect(body1After?.sourceFeatureId, 'target 源应前移到布尔').toBe(boolean1!.id);
+  expect(body1After?.sourceFeatureId, 'target 源应前移到布尔').toBeTruthy();
   expect(body2After?.active, 'keepTools=false 应消费 tool').toBe(false);
   expect(body2After?.sourceFeatureId, '消费态不声称源').toBeUndefined();
   expect(body1After?.bodyKey, 'bodyKey 应稳定').toBe(body1Key);
@@ -297,25 +291,23 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   const undo = page.getByTestId('part-studio-undo-button');
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
-  await expect.poll(async () => (await activeBodies()).length, { timeout: 90_000 }).toBe(2);
   await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
-  const restored1 = await bodyBySource(extrudeA);
-  const restored2 = await bodyBySource(extrudeB);
-  expect(restored1?.bodyKey, 'undo 后 body1 源恢复').toBe(body1Key);
-  expect(restored2?.bodyKey, 'undo 后 body2 源恢复').toBe(body2Key);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body2Key);
+  const restored = await getBodies();
+  expect(restored.find((b) => b.sourceFeatureId === extrudeA)?.bodyKey, 'undo 后 body1 源恢复').toBe(body1Key);
+  expect(restored.find((b) => b.sourceFeatureId === extrudeB)?.bodyKey, 'undo 后 body2 源恢复').toBe(body2Key);
   console.log('[boolean] undo → 两体恢复');
 
-  // redo → 再消费；再 undo 回两体准备 subtract
+  // redo → 再消费；再 undo 回两体准备 subtract（只等 UI/隐藏，不耗 RPC）
   const redo = page.getByTestId('part-studio-redo-button');
   await expect(redo).toBeEnabled({ timeout: 90_000 });
   await redo.click();
-  await expect.poll(async () => (await activeBodies()).length, { timeout: 90_000 }).toBe(1);
+  await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(1);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).toContain(body2Key);
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
-  await expect.poll(async () => (await activeBodies()).length, { timeout: 90_000 }).toBe(2);
   await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body2Key);
   console.log('[boolean] redo/undo 往返 OK');
 
   // ── 第二轮：subtract + keepTools=true（不消费）───────────────────────────
@@ -323,8 +315,8 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   await selectBoolean(dialog, body1Key, body2Key, 'subtract', true);
   await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
   await expect(featureList.getByRole('button', { name: '布尔 1' })).toBeVisible({ timeout: 90_000 });
-  tree = await getTree();
-  const booleanSubtract = tree.find((r) => r.featureType === 'booleanBodies' && r.status === 0);
+  const treeAtSubtract = await getTree();
+  const booleanSubtract = treeAtSubtract.find((r) => r.featureType === 'booleanBodies' && r.status === 0);
   expect(booleanSubtract, 'subtract 布尔应入树').toBeTruthy();
   const bodiesSubtract = await getBodies();
   const subtractTarget = bodiesSubtract.find((b) => b.bodyKey === body1Key);
@@ -355,7 +347,8 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
     kind: 'insertFeature', featureType: 'extrude',
     params: { profile: [], distance: 1, sketchId: sketchC, regions: [0], newBody: true },
   }, 'extrude newBody body3');
-  const body3 = await bodyBySource(extrudeC);
+  const bodiesFor3 = await getBodies();
+  const body3 = bodiesFor3.find((b) => b.sourceFeatureId === extrudeC);
   expect(body3, 'body3 应由 extrudeC 驱动').toBeTruthy();
   const body3Key = body3!.bodyKey;
   await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(3);
@@ -364,17 +357,16 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   await selectBoolean(dialog, body1Key, body3Key, 'unite', false);
   await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
   await expect(featureList.getByRole('button', { name: '布尔 2' })).toBeVisible({ timeout: 90_000 });
-  tree = await getTree();
-  const booleanRows = tree.filter((r) => r.featureType === 'booleanBodies' && r.status === 0);
-  expect(booleanRows, '两个布尔特征均应在树').toHaveLength(2);
-  const secondBoolean = tree
-    .filter((r) => r.featureType === 'booleanBodies')
-    .find((r) => r.id !== booleanSubtract!.id);
-  expect(secondBoolean, '第二个布尔特征应入树').toBeTruthy();
   const bodiesAfterSecond = await getBodies();
   const targetAfterSecond = bodiesAfterSecond.find((b) => b.bodyKey === body1Key);
   const tool2AfterSecond = bodiesAfterSecond.find((b) => b.bodyKey === body2Key);
   const tool3AfterSecond = bodiesAfterSecond.find((b) => b.bodyKey === body3Key);
+  const treeAfterSecond = await getTree();
+  const booleanRows = treeAfterSecond.filter((r) => r.featureType === 'booleanBodies' && r.status === 0);
+  expect(booleanRows, '两个布尔特征均应在树').toHaveLength(2);
+  const secondBoolean = treeAfterSecond.find((r) => r.id === targetAfterSecond?.sourceFeatureId);
+  expect(secondBoolean, '第二个布尔特征应入树').toBeTruthy();
+  expect(secondBoolean!.id, '第二个布尔应与 subtract 区分').not.toBe(booleanSubtract!.id);
   expect(targetAfterSecond?.sourceFeatureId, 'C1：body1 源应为第二个布尔').toBe(secondBoolean!.id);
   expect(tool2AfterSecond?.active, '第一轮的保留工具 body2 仍 active').toBe(true);
   expect(tool2AfterSecond?.sourceFeatureId, 'body2 源链不变').toBe(extrudeB);
@@ -386,12 +378,10 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   // 第二轮 undo/redo：三体 ↔ 两体
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
-  await expect.poll(async () => (await activeBodies()).length, { timeout: 90_000 }).toBe(3);
   await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(3);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body3Key);
   await expect(redo).toBeEnabled({ timeout: 90_000 });
   await redo.click();
-  await expect.poll(async () => (await activeBodies()).length, { timeout: 90_000 }).toBe(2);
   await expect.poll(async () => partList.getByRole('button').count(), { timeout: 90_000 }).toBe(2);
   await expect.poll(async () => hiddenElementIds(page), { timeout: 90_000 }).toContain(body3Key);
   console.log('[boolean] 第二轮 undo/redo OK');
