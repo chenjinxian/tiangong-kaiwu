@@ -9,18 +9,17 @@
  *     emptyAll + 收合
  *   → 树删除 UI（B6 M-A5 T2）：newBody 特征行右键「删除」→ HITL 确认 →
  *     body2 consumed、树一行、几何 hide → 原生 undo → 两体恢复、hide 清除
- *   → 第二个 NEW-body（body3）同款树删除 → consumed → undo → redo → undo
- *     （原生 redo 覆盖；见下文「redo 可达性」）→ 清理 body3
+ *   → 首个 delete 的原生 redo → body2 再消费 → undo 恢复两体基线
+ *     （#45 修复后可达；见下）
  *   → 非默认体 fillet（真栈拾边）→ 抑制/取消抑制（行 data-suppressed 往返、
  *     无失败 toast）。
  *
- * redo 可达性（MS 1.16 实证，Task 3 报告登记为后端缺陷、非 web 可修）：
- * deleteFeature 会 cache.delete(featureId)；**首个** delete→undo 后本页
- * onAfterUndoRedo 自动 refresh 的首个读 RPC 触发 FeatureService.ensureWarm
- * 冷重建（rebuildAll 写体 + commit → 新事务清空原生 redo 栈），故首个 undo 的
- * redo 不可达（以 disabled 哨兵登记，后端修复时翻红提示回填）。ensureWarm 的
- * 一次性 warmAttemptedKeys 标记随该重建落位：同库后续 delete→undo 不再重建，
- * redo 全程可用——第二个 NEW-body 的 undo/redo/undo 因此可真栈覆盖。
+ * #45（MS backend-20261028c）：deleteFeature 会 cache.delete(featureId)；
+ * 首次 undo 后本页 onAfterUndoRedo 自动 refresh 的首个读 RPC 曾触发
+ * FeatureService.ensureWarm 冷重建（rebuildAll 写体 + commit → 新事务清空
+ * 原生 redo 栈）。修复后读初始化路径在 redo 栈存在时跳过重建，写路径强制
+ * 补缓存；本 spec 直接断言首删 undo→redo→undo，不再用 disabled 哨兵或
+ * 第二个 NEW-body 变通。
  *
  * 读面纪律（MS 全局 100 req/15min）：等待/同步一律走 UI（零件行数/隐藏集/
  * 行属性），getBodies/getTree 只在关键检查点单次读。
@@ -189,7 +188,7 @@ async function hiddenElementIds(page: Page): Promise<string[]> {
   });
 }
 
-test('真栈：extrude newBody 两体 → getBodies/树 → consumed 隐藏 → undo', async ({ page, request }) => {
+test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo → fillet 抑制', async ({ page, request }) => {
   test.setTimeout(900_000);
   const consoleErrors = collectConsoleErrors(page);
   const accessToken = await getApiToken();
