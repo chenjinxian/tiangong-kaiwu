@@ -2718,3 +2718,212 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     expect(checkbox.disabled).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// B6 M-A4.2a：body boolean（booleanBodies）对话框
+//  - target 单选（active authored；consumed 不入选项）+ tools 多选（active
+//    authored；目标行常态禁用，冲突态可解选）；载荷 {targets:[{bodyKey}],
+//    tools:[{bodyKey}...], operation, keepTools}——op 层**不带 targetBodyId**
+//    （M4.1 planBooleanInsert：params.targets 为目标唯一真源，重复给值须一致）；
+//  - operation unite/subtract（intersect 选项禁用+提示，不静默降级）；
+//  - keepTools 缺省 false（消费提示）；true → I3 工具链锁提示（编辑工具体需先删布尔）；
+//  - 门禁：<2 active authored body / bodiesLoading / 读面不可用 / tools 空 /
+//    target 在 tools / canEdit / lease；失败就地 alert，成功 toast+onConfirm。
+// ---------------------------------------------------------------------------
+describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
+  const BODY_1: BodyInfo = { bodyKey: '0x15', name: 'Body 1', active: true, authored: true, sourceFeatureId: 'f1' };
+  const BODY_2: BodyInfo = { bodyKey: '0x18', name: 'Body 2', active: true, authored: true, sourceFeatureId: 'f2' };
+  const BODY_3: BodyInfo = { bodyKey: '0x1b', name: 'Body 3', active: true, authored: true, sourceFeatureId: 'f3' };
+  const BODY_CONSUMED: BodyInfo = { bodyKey: '0x20', name: 'Consumed', active: false, authored: true };
+  const THREE_BODIES = [BODY_1, BODY_2, BODY_3];
+
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  function renderBooleanDialog(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    const onConfirm = vi.fn();
+    const rendered = render(
+      <FeatureDialog
+        featureName="布尔运算"
+        mode="new"
+        featureType="booleanBodies"
+        applyOp={applyOp}
+        bodies={THREE_BODIES}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+        {...props}
+      />,
+    );
+    return { onConfirm, unmount: () => rendered.unmount() };
+  }
+
+  const confirmButton = (): HTMLButtonElement =>
+    screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
+
+  const booleanCreateOp = (call: unknown): Extract<FeatureOp, { kind: 'insertFeature' }> =>
+    call as Extract<FeatureOp, { kind: 'insertFeature' }>;
+
+  beforeEach(() => {
+    featureRpc.getSketch.mockReset();
+  });
+
+  it('字段与缺省：目标实体单选（consumed 不入选项/目标行禁用）、工具多选、运算缺省并集（相交禁用+提示）、保留工具体缺省未勾+消费提示', () => {
+    renderBooleanDialog(makeApplyOp(), { bodies: [...THREE_BODIES, BODY_CONSUMED] });
+    const target = screen.getByRole('combobox', { name: '目标实体' }) as HTMLSelectElement;
+    expect(target.value).toBe('0x15');
+    expect(within(target).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Body 1', 'Body 2', 'Body 3',
+    ]);
+    // 目标行常态禁用（不可选为目标工具）；其余可勾选。
+    expect((screen.getByRole('checkbox', { name: 'Body 1' }) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('checkbox', { name: 'Body 2' }) as HTMLInputElement).disabled).toBe(false);
+    // 工具列表不渲染 consumed body。
+    expect(screen.queryByRole('checkbox', { name: 'Consumed' })).toBeNull();
+    const operation = screen.getByRole('combobox', { name: '运算' }) as HTMLSelectElement;
+    expect(operation.value).toBe('unite');
+    expect((within(operation).getByRole('option', { name: '相交' }) as HTMLOptionElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-boolean-intersect-hint').textContent).toContain('相交暂不支持');
+    const keepTools = screen.getByRole('checkbox', { name: '保留工具体' }) as HTMLInputElement;
+    expect(keepTools.checked).toBe(false);
+    expect(screen.getByTestId('part-studio-feature-dialog-boolean-consume-hint').textContent).toContain('消费');
+    expect(screen.queryByTestId('part-studio-feature-dialog-boolean-tool-lock-hint')).toBeNull();
+    // 初始无工具 → 禁提交 + 空选提示。
+    expect(confirmButton().disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-boolean-tools-missing-hint')).toBeDefined();
+    // 仅本通道的布尔控件在场：不渲染通用手动目标下拉/通用 chips（同一 aria 名不歧义）。
+    expect(screen.getAllByRole('combobox', { name: '目标实体' })).toHaveLength(1);
+  });
+
+  it('载荷：targets/tools/operation/keepTools 精确形状；不发 op 层 targetBodyId（params.targets 唯一真源）；成功 toast+onConfirm', async () => {
+    const applyOp = makeApplyOp();
+    const { onConfirm } = renderBooleanDialog(applyOp);
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByRole('combobox', { name: '目标实体' }), '0x1b');
+    await user.click(screen.getByRole('checkbox', { name: 'Body 1' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Body 2' }));
+    expect(confirmButton().disabled).toBe(false);
+    await user.click(confirmButton());
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(booleanCreateOp(applyOp.mock.calls[0]![0])).toEqual({
+      kind: 'insertFeature',
+      featureType: 'booleanBodies',
+      params: {
+        targets: [{ bodyKey: '0x1b' }],
+        tools: [{ bodyKey: '0x15' }, { bodyKey: '0x18' }],
+        operation: 'unite',
+        keepTools: false,
+      },
+    });
+    // op 层无 targetBodyId 键（目标只经 params.targets 表达）。
+    expect('targetBodyId' in (applyOp.mock.calls[0]![0] as object)).toBe(false);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(mocks.outputMessage).toHaveBeenCalledTimes(1); // 成功 toast（不静默）
+  });
+
+  it('tools ≥1 且无重复：反复点选同一行不产生重复项；清空后禁提交', async () => {
+    const applyOp = makeApplyOp();
+    renderBooleanDialog(applyOp);
+    const user = userEvent.setup();
+    const body2 = screen.getByRole('checkbox', { name: 'Body 2' });
+    await user.click(body2);
+    await user.click(body2); // 取消
+    expect(confirmButton().disabled).toBe(true);
+    await user.click(body2); // 选中
+    await user.click(body2); // 取消
+    await user.click(body2); // 再次选中
+    await user.click(confirmButton());
+    const op = booleanCreateOp(applyOp.mock.calls[0]![0]);
+    expect((op.params as { tools: unknown[] }).tools).toEqual([{ bodyKey: '0x18' }]);
+  });
+
+  it('互斥：目标改为已选工具 → 字段级错误 + 禁提交；改回目标即恢复（冲突行可解选）', async () => {
+    renderBooleanDialog(makeApplyOp());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('checkbox', { name: 'Body 2' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: '目标实体' }), '0x18');
+    expect(screen.getByTestId('part-studio-feature-dialog-boolean-target-in-tools').textContent).toContain('不能同时');
+    expect(confirmButton().disabled).toBe(true);
+    // 冲突态的目标行保持可点（否则无法解选）——取消后错误消失、可提交。
+    const conflictRow = screen.getByRole('checkbox', { name: 'Body 2' }) as HTMLInputElement;
+    expect(conflictRow.checked).toBe(true);
+    expect(conflictRow.disabled).toBe(false);
+    await user.selectOptions(screen.getByRole('combobox', { name: '目标实体' }), '0x15');
+    expect(screen.queryByTestId('part-studio-feature-dialog-boolean-target-in-tools')).toBeNull();
+    expect(confirmButton().disabled).toBe(false);
+  });
+
+  it('operation=subtract / keepTools=true 进载荷；keepTools=true 呈现 I3 工具链锁提示（消费提示让位）', async () => {
+    const applyOp = makeApplyOp();
+    renderBooleanDialog(applyOp);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('checkbox', { name: 'Body 2' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: '运算' }), 'subtract');
+    await user.click(screen.getByRole('checkbox', { name: '保留工具体' }));
+    expect(screen.getByTestId('part-studio-feature-dialog-boolean-tool-lock-hint').textContent).toContain('删除该布尔');
+    expect(screen.queryByTestId('part-studio-feature-dialog-boolean-consume-hint')).toBeNull();
+    await user.click(confirmButton());
+    expect(booleanCreateOp(applyOp.mock.calls[0]![0])).toEqual({
+      kind: 'insertFeature',
+      featureType: 'booleanBodies',
+      params: {
+        targets: [{ bodyKey: '0x15' }],
+        tools: [{ bodyKey: '0x18' }],
+        operation: 'subtract',
+        keepTools: true,
+      },
+    });
+  });
+
+  it('<2 active authored body（consumed 不计）→ 至少两体提示 + 禁提交（不渲染字段、不发 op）', () => {
+    const applyOp = makeApplyOp();
+    renderBooleanDialog(applyOp, { bodies: [BODY_1, BODY_CONSUMED] });
+    expect(screen.getByTestId('part-studio-feature-dialog-boolean-needs-two-hint').textContent).toContain('至少两个活动实体');
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
+    expect(confirmButton().disabled).toBe(true);
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('bodiesLoading → 既有读取中提示 + 禁提交（N 未定不发放行）', () => {
+    const applyOp = makeApplyOp();
+    renderBooleanDialog(applyOp, { bodiesLoading: true });
+    expect(screen.getByTestId('part-studio-feature-dialog-bodies-loading-hint')).toBeDefined();
+    expect(confirmButton().disabled).toBe(true);
+  });
+
+  it('读面不可用（bodies undefined）→ 通道不可用提示（含错误原文）+ 禁提交（不发 op）', () => {
+    const applyOp = makeApplyOp();
+    renderBooleanDialog(applyOp, { bodies: undefined, bodiesError: 'init race' });
+    const hint = screen.getByTestId('part-studio-feature-dialog-boolean-bodies-unavailable');
+    expect(hint.textContent).toContain('实体列表不可用');
+    expect(hint.textContent).toContain('init race');
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
+    expect(confirmButton().disabled).toBe(true);
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('canEdit=false → 确认禁用 + 只读提示（租约警示不谎报）；leaseOk=false（可编辑）→ 可视租约警示', () => {
+    const readOnly = renderBooleanDialog(makeApplyOp(), { canEdit: false });
+    expect(confirmButton().disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-readonly-hint')).toBeDefined();
+    expect(screen.queryByTestId('part-studio-feature-dialog-lease-warning')).toBeNull();
+    readOnly.unmount();
+
+    renderBooleanDialog(makeApplyOp(), { leaseOk: false });
+    expect(screen.getByTestId('part-studio-feature-dialog-lease-warning')).toBeDefined();
+  });
+
+  it('提交失败/拒收 → 就地 alert（不静默、对话框不关闭、不 onConfirm）', async () => {
+    const applyOp = vi.fn(async (): Promise<FeatureOpResult> => ({ ok: false, error: '布尔求值失败' }));
+    const { onConfirm } = renderBooleanDialog(applyOp);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('checkbox', { name: 'Body 2' }));
+    await user.click(confirmButton());
+    expect(screen.getByTestId('part-studio-feature-dialog-error').textContent).toContain('布尔求值失败');
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByTestId('part-studio-feature-dialog')).toBeDefined();
+  });
+});

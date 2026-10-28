@@ -176,6 +176,21 @@
  *   手动 target 下拉保留给无拾取耦合的 insert 通道（extrude/revolve/boolean/loft/
  *   sweep/mirror/pattern）。
  *
+ * body boolean 通道（B6 M-A4.2a，shared 1.16 BooleanBodiesParams）：
+ * - 输入 = getBodies 读面（宿主下传 bodies 的 active authored 子集，consumed/
+ *   orphan 不入选项）：**target 单选**（缺省首个）+ **tools 多选**（目标行常态禁用；
+ *   若目标后来被改成已选工具，冲突行保持可点以便解选）+ operation（unite/subtract；
+ *   intersect 选项禁用+提示，与服务端 v1 拒收同口径，不静默降级）+ keepTools
+ *   （缺省 false=成功后消费工具；true=保留并给出 I3 源链锁提示——编辑被引用的
+ *   工具实体须先删除该布尔特征）。
+ * - 载荷 `{targets:[{bodyKey}], tools:[{bodyKey}...], operation, keepTools}`；目标
+ *   只经 params.targets（M4.1 planBooleanInsert 的唯一真源）——op 层**不发**
+ *   targetBodyId（通用手动目标下拉对本通道关闭），避免双来源/不一致拒收。
+ * - 门禁：<2 active authored body / bodiesLoading / 读面不可用（含无连接）/
+ *   tools 空 / target 在 tools → 禁提交 + 字段级/整面提示；canEdit/lease 沿用
+ *   既有门；失败就地 alert、成功 toast 与既有提交面同管道。草图布尔
+ *   （booleanAdd/booleanSubtract）通道不受影响。
+ *
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
  * 对齐 canvas/CanvasContextMenu.tsx:226-234 模式（onCancel 经 ref 取用，
@@ -191,6 +206,7 @@ import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/c
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type {
   BodyInfo,
+  BooleanBodiesParams,
   FeatureOp,
   FeatureOpResult,
   FilletEdgeRef,
@@ -568,6 +584,14 @@ export function FeatureDialog({
   // 特征链供给（requiresUpstream——无实体时 UI 先挡 + 后端 op 边界同口径拒收）。
   const patternChannel = mode === 'new' && featureType === 'pattern' && applyOp !== undefined;
   const patternUpstreamMissing = patternChannel && !hasBodies;
+  // B6 M-A4.2a body boolean 通道（shared 1.16 BooleanBodiesParams）：以 body 为
+  // 操作对象——target 单选 + tools 多选（均取 getBodies 的 active authored 读面），
+  // operation unite/subtract（v1 服务端拒 intersect），keepTools 决定成功后是否
+  // 消费工具。载荷目标只经 params.targets（M4.1 planBooleanInsert：params 是唯一
+  // 真源；op 层 targetBodyId 可选且不一致会被拒——本通道不发）。**与 M7 的草图
+  // 布尔（booleanAdd/booleanSubtract 页签/通道）互不相干，后者保持原样。**
+  const booleanBodiesChannel =
+    mode === 'new' && featureType === 'booleanBodies' && applyOp !== undefined;
   // ── B6 M-A3.2a：newBody / target body（body-producing 特征）─────────────────
   // extrude 新建实体结构键（new 模式=用户勾选；edit 模式由落库 params 回显且
   // 禁用——结构键不可翻转）；N>1 的目标实体选择（值进 op.targetBodyId）。
@@ -639,11 +663,14 @@ export function FeatureDialog({
     applyOp !== undefined &&
     (effectiveFeatureType === 'chamfer' || effectiveFeatureType === 'shell');
   // 手动 target 下拉只保留给「无拾取耦合」的 insert 通道；fillet/chamfer/shell 排除。
+  // B6 M-A4.2a：booleanBodies 的 target 走通道内自管选择并进 params.targets
+  //（不是 op.targetBodyId）——排除通用下拉，避免双选择器/错载荷面。
   const manualTargetChannel =
     insertTargetChannel &&
     effectiveFeatureType !== 'fillet' &&
     effectiveFeatureType !== 'chamfer' &&
-    effectiveFeatureType !== 'shell';
+    effectiveFeatureType !== 'shell' &&
+    effectiveFeatureType !== 'booleanBodies';
   // newBody 时无需 target（无 target 的 newBody 后端允许——锚定全局链尾）。
   const targetSelectorVisible =
     manualTargetChannel && bodies !== undefined && activeBodies.length > 1 && !effectiveNewBody;
@@ -654,9 +681,12 @@ export function FeatureDialog({
   const bodiesPending = insertTargetChannel && bodiesLoading === true;
   // I1：读面不可用（初次失败且未在刷新）→ target 无从确定，insert 提交禁用 + 可见提示。
   // Minor 2：勾选 newBody 时无需 target（后端允许无 target 的新体）——豁免本门。
+  // B6 M-A4.2a：booleanBodies 自带通道级读面门（booleanBodiesUnavailable，含
+  // 无连接/无 bodiesError 的不可用态）——通用门让位，避免同一禁提交因双报。
   const newBodyReadExempt = extrudeChannel && effectiveNewBody;
   const bodiesReadFailed =
-    insertTargetChannel && bodies === undefined && bodiesLoading !== true
+    insertTargetChannel && effectiveFeatureType !== 'booleanBodies'
+    && bodies === undefined && bodiesLoading !== true
     && bodiesError !== undefined && !newBodyReadExempt;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
@@ -700,6 +730,53 @@ export function FeatureDialog({
   const [patternSpacing, setPatternSpacing] = React.useState('10');
   const [patternAngle, setPatternAngle] = React.useState('360');
   const [patternAxis, setPatternAxis] = React.useState<PatternParams['axis']>('X');
+  // B6 M-A4.2a booleanBodies 通道：target 键 + tools 键集 + operation + keepTools。
+  // target 缺省 ''（生效值回落首个 active authored body）；tools 以键集维护
+  //（点选切换天然去重——载荷再按 activeBodies 序归一，无重复项）。
+  const [booleanTargetKey, setBooleanTargetKey] = React.useState('');
+  const [booleanToolKeys, setBooleanToolKeys] = React.useState<string[]>([]);
+  const [booleanOperation, setBooleanOperation] =
+    React.useState<BooleanBodiesParams['operation']>('unite');
+  const [booleanKeepTools, setBooleanKeepTools] = React.useState(false);
+  // 生效目标：选中键仍在读面则用它，否则回落首个 active authored body。
+  const booleanEffectiveTargetKey = activeBodies.some((body) => body.bodyKey === booleanTargetKey)
+    ? booleanTargetKey
+    : (activeBodies[0]?.bodyKey ?? '');
+  // 生效工具：只保留仍在读面中的键，按 activeBodies 序归一（载荷确定/无重复）。
+  const booleanEffectiveToolKeys = React.useMemo(
+    () => activeBodies
+      .filter((body) => booleanToolKeys.includes(body.bodyKey))
+      .map((body) => body.bodyKey),
+    [activeBodies, booleanToolKeys],
+  );
+  // 门禁（对齐 M4.1 planBooleanInsert 的 op 边界语义，UI 先挡 + 后端同口径拒收）：
+  // <2 active authored body / 读面刷新中 / 读面不可用 / tools 空 / target 在 tools。
+  const booleanBodiesNeedsTwo =
+    booleanBodiesChannel && bodies !== undefined && activeBodies.length < 2;
+  const booleanBodiesUnavailable =
+    booleanBodiesChannel && bodies === undefined && bodiesLoading !== true;
+  const booleanBodiesToolsMissing =
+    booleanBodiesChannel && booleanEffectiveToolKeys.length === 0;
+  const booleanBodiesTargetInTools =
+    booleanBodiesChannel && booleanEffectiveTargetKey !== ''
+    && booleanEffectiveToolKeys.includes(booleanEffectiveTargetKey);
+  const booleanBodiesReady =
+    !booleanBodiesChannel
+    || (bodies !== undefined
+      && bodiesLoading !== true
+      && activeBodies.length >= 2
+      && booleanEffectiveTargetKey !== ''
+      && booleanEffectiveToolKeys.length >= 1
+      && !booleanBodiesTargetInTools);
+  const handleBooleanTargetChange = React.useCallback((bodyKey: string) => {
+    setBooleanTargetKey(bodyKey);
+  }, []);
+  // 点选切换（目标行常态禁用——冲突态保持可点以便解选，见渲染注记）。
+  const handleToggleBooleanTool = React.useCallback((bodyKey: string) => {
+    setBooleanToolKeys((prev) =>
+      prev.includes(bodyKey) ? prev.filter((key) => key !== bodyKey) : [...prev, bodyKey],
+    );
+  }, []);
 
   // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
   const [radius, setRadius] = React.useState('5');
@@ -910,7 +987,9 @@ export function FeatureDialog({
     // 通道（chamfer/shell）一律禁提交，绝不回落默认 target。
     || bodiesPending || bodiesReadFailed
     || filletTargetError !== undefined || unownedTargetChannel
-    || (targetSelectorVisible && effectiveTargetBodyKey === '');
+    || (targetSelectorVisible && effectiveTargetBodyKey === '')
+    // B6 M-A4.2a：body boolean 通道门禁（体不足/读面不可用/工具空/目标在工具）。
+    || !booleanBodiesReady;
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -992,6 +1071,7 @@ export function FeatureDialog({
     if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
     if (mirrorUpstreamMissing) return; // mirror 上游门禁（无实体可镜像——✓ 已禁用，防御兜底）
     if (patternUpstreamMissing) return; // pattern 上游门禁（无实体可阵列——✓ 已禁用，防御兜底）
+    if (booleanBodiesChannel && !booleanBodiesReady) return; // 体布尔通道门禁（体不足/工具空/目标在工具——防御兜底）
     // B6 M-A3.2a：读面刷新中（N 未知）不派发；N>1 目标必选（禁止无 target 的 regular insert）。
     if (bodiesPending || bodiesReadFailed) return;
     if (filletTargetError !== undefined || unownedTargetChannel) return;
@@ -1014,7 +1094,8 @@ export function FeatureDialog({
     // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep/mirror/pattern 无距离量——旋转角即参数/
     // 半径即参数/放样无扫掠距离/扫掠无扫掠距离/镜像无距离/阵列无距离，输入已隐藏）。
     let parsedDistance = 0;
-    if (!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel) {
+    if (!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel
+      && !patternChannel && !booleanBodiesChannel) {
       parsedDistance = Number(distance);
       if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
         setError(t('partStudio.featureDialog.distanceInvalid'));
@@ -1133,6 +1214,18 @@ export function FeatureDialog({
                 fullRevolve,
                 ...(angleRadians !== undefined ? { angle: angleRadians } : {}),
               }
+            // B6 M-A4.2a：body boolean（shared 1.16 BooleanBodiesParams）——
+            // target/tools 均为 BodyRef（bodyKey=getBodies[].bodyKey）；target 恰 1、
+            // tools ≥1 且与 target 互斥（booleanBodiesReady 已前置）；keepTools 显式
+            // 布尔（false=成功后工具被消费）。目标只经 params.targets——op 层不带
+            // targetBodyId（M4.1 planBooleanInsert：params 唯一真源，不一致值被拒）。
+            : booleanBodiesChannel
+            ? {
+                targets: [{ bodyKey: booleanEffectiveTargetKey }],
+                tools: booleanEffectiveToolKeys.map((bodyKey) => ({ bodyKey })),
+                operation: booleanOperation,
+                keepTools: booleanKeepTools,
+              }
             // M7 v1.10：草图驱动布尔（shared BooleanParams）——operation 由映射后的类型名
             // 唯一决定（booleanAdd⇔unite / booleanSubtract⇔subtract，服务端 zod 一致性拒收）；
             // 无 profile 键（与内联 profile 旧路径互斥）；面域多选语义与 extrude 同锚。
@@ -1207,6 +1300,13 @@ export function FeatureDialog({
     patternAngleNumber,
     patternAngleValid,
     patternAxis,
+    // B6 M-A4.2a：booleanBodies 载荷面。
+    booleanBodiesChannel,
+    booleanBodiesReady,
+    booleanEffectiveTargetKey,
+    booleanEffectiveToolKeys,
+    booleanOperation,
+    booleanKeepTools,
     revolveChannel,
     sketchReady,
     filletChannel,
@@ -1278,6 +1378,12 @@ export function FeatureDialog({
         return t('partStudio.featureDialog.axisOption', { id: line.id });
     }
   };
+
+  // body 选项名（getBodies.name；缺省「实体 N」——目标下拉/零件段同款命名）。
+  const bodyOptionLabel = (body: BodyInfo, index: number): string =>
+    body.name && body.name.trim() !== ''
+      ? body.name
+      : t('partStudio.tree.defaultBodyName', { index: index + 1 });
 
   // 折叠段可见集（M6-b T4）：草图通道「对称」以平铺复选顶替（Onshape 采集
   // 形态），折叠段 symmetric 隐藏防双复选绑同态；非通道（edit/布尔/壳期）不动。
@@ -1473,7 +1579,8 @@ export function FeatureDialog({
             M6-b T4：revolve 通道不适用（无距离量——全周/角度即参数），输入
             隐藏、handleConfirm 跳过距离校验。M6-b T6：fillet 通道同口径
             （无距离量——半径即参数）。 */}
-        {!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel && (
+        {!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel
+          && !patternChannel && !booleanBodiesChannel && (
           <section className="part-studio-feature-dialog__distance">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
               {t('partStudio.featureDialog.distanceLabel')}
@@ -1596,7 +1703,9 @@ export function FeatureDialog({
         <section className="part-studio-feature-dialog__entities">
           <div className="part-studio-feature-dialog__entities-header">
             <span className="part-studio-feature-dialog__entities-label">
-              {filletChannel
+              {booleanBodiesChannel
+                ? t('partStudio.featureDialog.booleanBodiesParametersLabel')
+                : filletChannel
                 ? t('partStudio.featureDialog.filletEdgesLabel')
                 : patternChannel
                   ? t('partStudio.featureDialog.patternParametersLabel')
@@ -1608,7 +1717,8 @@ export function FeatureDialog({
                         ? t('partStudio.featureDialog.loftSectionsLabel')
                         : t('partStudio.featureDialog.entitiesLabel')}
             </span>
-            {!sketchChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel && (
+            {!sketchChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel
+              && !patternChannel && !booleanBodiesChannel && (
               <button
                 type="button"
                 className="part-studio-feature-dialog__fast-pick"
@@ -1644,9 +1754,7 @@ export function FeatureDialog({
               >
                 {activeBodies.map((body, index) => (
                   <option key={body.bodyKey} value={body.bodyKey}>
-                    {body.name && body.name.trim() !== ''
-                      ? body.name
-                      : t('partStudio.tree.defaultBodyName', { index: index + 1 })}
+                    {bodyOptionLabel(body, index)}
                   </option>
                 ))}
               </select>
@@ -1690,6 +1798,177 @@ export function FeatureDialog({
             >
               {t('partStudio.featureDialog.unownedTargetHint')}
             </p>
+          )}
+
+          {/* B6 M-A4.2a：body boolean 通道——target 单选（active authored，缺省首个）+
+              tools 多选（active authored；目标行常态禁用；冲突态保持可点以便解选）+
+              operation（unite/subtract；intersect 禁用+提示）+ keepTools（缺省 false；
+              消费提示 / true → I3 工具链锁提示）。读面不可用/体不足为整面门禁，
+              不渲染半残字段。 */}
+          {booleanBodiesChannel && (
+            booleanBodiesUnavailable ? (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-boolean-bodies-unavailable"
+              >
+                {bodiesError !== undefined
+                  ? t('partStudio.featureDialog.bodiesUnavailableHint', { message: bodiesError })
+                  : t('partStudio.featureDialog.booleanBodiesUnavailableHint')}
+              </p>
+            ) : booleanBodiesNeedsTwo ? (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-boolean-needs-two-hint"
+              >
+                {t('partStudio.featureDialog.booleanBodiesNeedsTwoHint')}
+              </p>
+            ) : bodies === undefined ? (
+              // 读面刷新中（bodies 尚未落定）——全局 bodiesLoading 提示已呈现，
+              // 此处不渲染半残字段（N 未知）。
+              null
+            ) : (
+              <React.Fragment>
+                <section className="part-studio-feature-dialog__distance">
+                  <label
+                    className="part-studio-feature-dialog__distance-label"
+                    htmlFor="part-studio-feature-dialog-boolean-target"
+                  >
+                    {t('partStudio.featureDialog.booleanBodiesTargetLabel')}
+                  </label>
+                  <select
+                    id="part-studio-feature-dialog-boolean-target"
+                    aria-label={t('partStudio.featureDialog.booleanBodiesTargetLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value={booleanEffectiveTargetKey}
+                    disabled={submitting}
+                    onChange={(event) => handleBooleanTargetChange(event.target.value)}
+                  >
+                    {activeBodies.map((body, index) => (
+                      <option key={body.bodyKey} value={body.bodyKey}>
+                        {bodyOptionLabel(body, index)}
+                      </option>
+                    ))}
+                  </select>
+                </section>
+
+                <div
+                  role="group"
+                  aria-label={t('partStudio.featureDialog.booleanBodiesToolsLabel')}
+                  data-testid="part-studio-feature-dialog-boolean-tools"
+                >
+                  <span className="part-studio-feature-dialog__entities-label">
+                    {t('partStudio.featureDialog.booleanBodiesToolsLabel')}
+                  </span>
+                  {activeBodies.map((body, index) => {
+                    const isTarget = body.bodyKey === booleanEffectiveTargetKey;
+                    const checked = booleanEffectiveToolKeys.includes(body.bodyKey);
+                    return (
+                      <label
+                        key={body.bodyKey}
+                        className="part-studio-feature-dialog__checkbox"
+                        data-testid={`part-studio-feature-dialog-boolean-tool-${body.bodyKey}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          // 目标行不可再选为工具；但已是工具时（无 pruned 的冲突态）
+                          // 保持可点，否则用户无法解选（错误面见下方 alert）。
+                          disabled={submitting || (isTarget && !checked)}
+                          onChange={() => handleToggleBooleanTool(body.bodyKey)}
+                        />
+                        <span>{bodyOptionLabel(body, index)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {booleanBodiesTargetInTools ? (
+                  <p
+                    role="alert"
+                    className="part-studio-feature-dialog__alert"
+                    data-testid="part-studio-feature-dialog-boolean-target-in-tools"
+                  >
+                    {t('partStudio.featureDialog.booleanBodiesTargetInToolsError')}
+                  </p>
+                ) : booleanBodiesToolsMissing ? (
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-boolean-tools-missing-hint"
+                  >
+                    {t('partStudio.featureDialog.booleanBodiesToolsMissingHint')}
+                  </p>
+                ) : null}
+
+                <section className="part-studio-feature-dialog__distance">
+                  <label
+                    className="part-studio-feature-dialog__distance-label"
+                    htmlFor="part-studio-feature-dialog-boolean-operation"
+                  >
+                    {t('partStudio.featureDialog.booleanBodiesOperationLabel')}
+                  </label>
+                  <select
+                    id="part-studio-feature-dialog-boolean-operation"
+                    aria-label={t('partStudio.featureDialog.booleanBodiesOperationLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value={booleanOperation}
+                    disabled={submitting}
+                    onChange={(event) =>
+                      setBooleanOperation(event.target.value as BooleanBodiesParams['operation'])}
+                  >
+                    <option value="unite">
+                      {t('partStudio.featureDialog.booleanBodiesOperationOptions.unite')}
+                    </option>
+                    <option value="subtract">
+                      {t('partStudio.featureDialog.booleanBodiesOperationOptions.subtract')}
+                    </option>
+                    {/* v1 服务端拒收 intersect（shared 1.16 契约保留）——禁用不降级。 */}
+                    <option value="intersect" disabled>
+                      {t('partStudio.featureDialog.booleanBodiesOperationOptions.intersect')}
+                    </option>
+                  </select>
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-boolean-intersect-hint"
+                  >
+                    {t('partStudio.featureDialog.booleanBodiesIntersectHint')}
+                  </p>
+                </section>
+
+                <label
+                  className="part-studio-feature-dialog__checkbox"
+                  data-testid="part-studio-feature-dialog-boolean-keep-tools"
+                >
+                  <input
+                    type="checkbox"
+                    checked={booleanKeepTools}
+                    disabled={submitting}
+                    onChange={(event) => setBooleanKeepTools(event.target.checked)}
+                  />
+                  <span>{t('partStudio.featureDialog.booleanBodiesKeepToolsLabel')}</span>
+                </label>
+                {/* 消费语义（false）/ I3 工具链锁（true）二选一提示——不静默。 */}
+                {booleanKeepTools ? (
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-boolean-tool-lock-hint"
+                  >
+                    {t('partStudio.featureDialog.booleanBodiesToolLockHint')}
+                  </p>
+                ) : (
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-boolean-consume-hint"
+                  >
+                    {t('partStudio.featureDialog.booleanBodiesConsumeHint')}
+                  </p>
+                )}
+              </React.Fragment>
+            )
           )}
 
           {/* fillet 通道（M6-b T6）：无 body/无连接诚实降级 / 添加边拾取钮 /
@@ -2259,7 +2538,8 @@ export function FeatureDialog({
             </React.Fragment>
           )}
 
-          {!sketchChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel && (
+          {!sketchChannel && !loftChannel && !sweepChannel && !mirrorChannel && !patternChannel
+            && !booleanBodiesChannel && (
             <ul className="part-studio-feature-dialog__chips">
               {chips.map((chip) => (
                 <li key={chip.id} className="part-studio-feature-dialog__chip">

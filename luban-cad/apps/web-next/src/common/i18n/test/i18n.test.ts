@@ -165,6 +165,16 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.filletTargetBody', 'featureDialog.filletMixedBodies',
   'featureDialog.filletOwnerInvalid', 'featureDialog.unownedTargetHint',
   'tree.defaultBodyName', 'tree.bodiesReadFailed',
+  // B6 M-A4.2a：body boolean 通道——树标签/新对话框标题 + 字段/门禁/提示/错误。
+  'tree.featureTypes.booleanBodies', 'ribbon.tools.booleanBodies.label',
+  'featureDialog.booleanBodiesParametersLabel', 'featureDialog.booleanBodiesTargetLabel',
+  'featureDialog.booleanBodiesToolsLabel', 'featureDialog.booleanBodiesOperationLabel',
+  'featureDialog.booleanBodiesOperationOptions.unite', 'featureDialog.booleanBodiesOperationOptions.subtract',
+  'featureDialog.booleanBodiesOperationOptions.intersect',
+  'featureDialog.booleanBodiesIntersectHint', 'featureDialog.booleanBodiesKeepToolsLabel',
+  'featureDialog.booleanBodiesConsumeHint', 'featureDialog.booleanBodiesToolLockHint',
+  'featureDialog.booleanBodiesNeedsTwoHint', 'featureDialog.booleanBodiesUnavailableHint',
+  'featureDialog.booleanBodiesToolsMissingHint', 'featureDialog.booleanBodiesTargetInToolsError',
   'featureDialog.distanceLabel', 'featureDialog.distanceInvalid', 'featureDialog.submitSuccess',
   // T6 评审 round 1：租约警示（I-2）+ edit 模式提示行（M-1）。
   'featureDialog.leaseBusy', 'featureDialog.editHint',

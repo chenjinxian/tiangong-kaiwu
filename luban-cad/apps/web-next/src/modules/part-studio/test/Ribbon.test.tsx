@@ -172,6 +172,19 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     });
   });
 
+  it('B6 M-A4.2a：布尔运算（booleanBodies）点击改道 new/booleanBodies 对话框（不再 tools.run 假启动）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '布尔运算' }));
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'booleanBodies',
+    });
+  });
+
   it('gated 工具不回归：拔模点击开能力引导对话框', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);

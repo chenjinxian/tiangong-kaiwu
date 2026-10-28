@@ -16,7 +16,10 @@
  * 拉伸闭环入口）。M6-b T4/T6 特例：revolve/RoundEdges（圆角）同姿态开
  * FeatureDialog（参数化特征链入口；RoundEdges 直改工具虽仍在册，ribbon/命令
  * 搜索入口已改道对话框——直改通道后续按需单裁入口）。B3：SweepFaces（扫掠）
- * 同姿态改道 new/sweep 对话框（轮廓+路径双草图通道）。CapabilityDialog：gated 引导
+ * 同姿态改道 new/sweep 对话框（轮廓+路径双草图通道）。B6 M-A4.2a：booleanBodies
+ * （布尔运算，原「capability full 但 tools.run 无注册工具」的死命令）改道
+ * new/booleanBodies 对话框（target/tools bodyRefs + operation + keepTools），
+ * 不再假启动；M7 草图布尔页签通道不变。CapabilityDialog：gated 引导
  * 面（CAPABILITY_GUIDANCE 文案；documents 模块的 CapabilityDialog 绑定
  * GatedCreateAction + documents 命名空间，不可复用，故 part-studio 自建）。
  *
@@ -133,6 +136,15 @@ export function useToolActivation(): ToolActivation {
       // 特征链非直改工具；拾取归对话框「添加边」钮驱动 FilletEdgePickTool），
       // 不经 tools.run。
       openFeatureDialog({ mode: 'new', featureType: 'fillet' });
+      return;
+    }
+    if (id === 'booleanBodies') {
+      // B6 M-A4.2a 体布尔闭环入口：new/booleanBodies 对话框（target 单选 +
+      // tools 多选 + operation + keepTools，提交 insertFeature；shared 1.16
+      // BooleanBodiesParams）。此前是死命令（capability full 但 tools.run 无
+      // 注册工具、静默失败）——改道参数化对话框，不再假启动。M7 草图布尔
+      // （booleanAdd/booleanSubtract 页签）保持原通道不变。
+      openFeatureDialog({ mode: 'new', featureType: 'booleanBodies' });
       return;
     }
     const command = findRibbonCommand(id);

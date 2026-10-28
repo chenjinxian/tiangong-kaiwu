@@ -20,7 +20,7 @@ import {
   waitEditorReady,
 } from './helpers';
 
-const RPC_VERSION = '1.15.0';
+const RPC_VERSION = '1.16.0';
 const BS = String.fromCharCode(92);
 let scratchProjectId = '';
 

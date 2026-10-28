@@ -17,7 +17,7 @@
  *
  * 版本约束：URL 中 LubanFeatureRpcInterface-<version> 必须与
  * `luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts` 的
- * interfaceVersion 同步（当前 1.15.0；B6 M-A3.1/M-A3.2 覆盖新 RPC）。契约升版时此常量与 tutorial2 的 msRpc
+ * interfaceVersion 同步（当前 1.16.0；B6 M-A4.1/M-A4.2 覆盖 body boolean RPC）。契约升版时此常量与 tutorial2 的 msRpc
  * 一并更新；失败会以 HTTP 非 2xx 明确报红。
  */
 
@@ -44,7 +44,7 @@ test.afterAll(async ({ request }) => {
   }
 });
 
-const FEATURE_RPC_VERSION = '1.15.0';
+const FEATURE_RPC_VERSION = '1.16.0';
 const BS = String.fromCharCode(92); // dbKey 反斜杠（避免模板字面量转义歧义）
 
 interface Sketch2d {

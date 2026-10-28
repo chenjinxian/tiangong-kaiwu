@@ -775,3 +775,34 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     expect(within(menu).queryByRole('menuitem', { name: '编辑草图…' })).toBeNull();
   });
 });
+
+// ── B6 M-A4.2a：booleanBodies 特征树标签（词库入册，非回退原始串）────────────
+
+describe('B6 M-A4.2a：booleanBodies 树行本地化', () => {
+  const BOOLEAN_ENTRIES: FeatureTreeEntry[] = [
+    {
+      id: 'bb1',
+      featureType: 'booleanBodies',
+      orderKey: 1,
+      suppressed: false,
+      status: 0,
+      params: { targets: [{ bodyKey: '0x15' }], tools: [{ bodyKey: '0x18' }], operation: 'unite', keepTools: false },
+    },
+  ];
+
+  it('booleanBodies 条目显示名走 i18n（布尔 1），未知类型回退原始串（对照）', () => {
+    render(
+      <FeatureTree
+        entries={[
+          ...BOOLEAN_ENTRIES,
+          // 对照：未入 featureTypes 词库的类型仍诚实回退原始 featureType（既有口径）。
+          { id: 'mystery', featureType: 'mysteryFeature', orderKey: 2, suppressed: false, status: 0, params: {} },
+        ]}
+      />,
+    );
+    const tree = screen.getByTestId('part-studio-tree');
+    expect(within(tree).getByText('布尔 1')).toBeDefined();
+    expect(within(tree).queryByText('booleanBodies 1')).toBeNull();
+    expect(within(tree).getByText('mysteryFeature 1')).toBeDefined();
+  });
+});
