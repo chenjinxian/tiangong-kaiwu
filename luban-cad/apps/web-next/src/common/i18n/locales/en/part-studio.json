@@ -367,6 +367,7 @@
     "newBodyLabel": "New body",
     "targetBodyLabel": "Target body",
     "bodiesLoadingHint": "Loading bodies: submitting is disabled until the body list is available",
+    "bodiesUnavailableHint": "Body list unavailable ({{message}}): the target body cannot be determined, so submission is disabled. Retry from the Parts section.",
     "submitSuccess": "{{name}} created",
     "submitEvalFailed": "{{name}} committed but evaluation failed: {{message}} — feature added to tree, geometry not generated",
     "leaseBusy": "The write lease is held by another session; submitting will wait for the lease",
@@ -599,6 +600,7 @@
     "retry": "Retry",
     "unnamedElement": "Unnamed element {{id}}",
     "defaultBodyName": "Body {{index}}",
+    "bodiesReadFailed": "Failed to load bodies: {{message}} (showing the legacy parts list)",
     "featureTypes": {
       "extrude": "Extrude",
       "booleanAdd": "Union",

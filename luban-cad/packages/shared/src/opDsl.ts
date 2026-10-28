@@ -10,7 +10,9 @@
  * - kind：FeatureOp 判别联合的 10 分支判别键；
  * - featureType：仅 insertFeature 接受（必填）；updateParams 的参数 schema 双键定位
  *   （kind+featureType）由服务端按 featureId 解析，DSL 层不重复承载（往返恒等不丢信息）；
- * - payload：insertFeature 直接为 params 对象，其余 kind 为 op 除 kind/featureType 外全部字段的 JSON（紧凑单行）；
+ * - payload：insertFeature 缺省直接为 params 对象；携带 targetBodyId（B6 M-A3.2a）时
+ *   为 `{params,targetBodyId}` 包装（旧文本零漂移）；其余 kind 为 op 除
+ *   kind/featureType 外全部字段的 JSON（紧凑单行）；
  * - 注释：`//` 后内容解析即丢弃、发射不产注释——往返只对 op 语义恒等（选型记录见 RW2-T5 报告）；
  *   剥离须字符串感知（JSON 字符串值内的 // 不视为注释起点）。
  *
@@ -60,11 +62,16 @@ export function opsToDsl(ops: FeatureOp[]): string {
 function opToLine(op: FeatureOp): string {
   switch (op.kind) {
     case "insertFeature":
-      return `op insertFeature ${op.featureType} ${JSON.stringify(op.params)}`;
+      // B6 M-A3.2a：N>1 显式目标与 params 同载；缺省保持旧裸 params 文本（零漂移）。
+      return op.targetBodyId === undefined
+        ? `op insertFeature ${op.featureType} ${JSON.stringify(op.params)}`
+        : `op insertFeature ${op.featureType} ${JSON.stringify({ params: op.params, targetBodyId: op.targetBodyId })}`;
     case "updateParams":
       return `op updateParams ${JSON.stringify({ featureId: op.featureId, params: op.params })}`;
     case "deleteFeature":
-      return `op deleteFeature ${JSON.stringify({ featureId: op.featureId })}`;
+      return `op deleteFeature ${JSON.stringify(op.targetBodyId === undefined
+        ? { featureId: op.featureId }
+        : { featureId: op.featureId, targetBodyId: op.targetBodyId })}`;
     case "setFeatureSuppressed":
       return `op setFeatureSuppressed ${JSON.stringify({ featureId: op.featureId, suppressed: op.suppressed })}`;
     case "reorderFeature":
@@ -192,14 +199,25 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
         throw err("须带 featureType（双键 kind+featureType 定位 schema）");
       if (!FEATURE_TYPES.includes(featureType as LubanFeatureType))
         throw err(`未知 featureType: ${featureType}（合法: ${FEATURE_TYPES.join("/")}）`);
-      return { kind, featureType: featureType as LubanFeatureType, params: p as unknown as FeatureParams };
+      // B6 M-A3.2a：带 target 的包装 payload（{params,targetBodyId}）；缺省裸 params。
+      const targetBodyId = p.targetBodyId === undefined ? undefined : asStr(p.targetBodyId, "targetBodyId");
+      const params = "params" in p ? asObj(p.params, "params") : p;
+      return {
+        kind, featureType: featureType as LubanFeatureType, params: params as unknown as FeatureParams,
+        ...(targetBodyId === undefined ? {} : { targetBodyId }),
+      };
     }
     case "updateParams":
       noFeatureType();
       return { kind, featureId: asStr(p.featureId, "featureId"), params: asObj(p.params, "params") as unknown as FeatureParams };
-    case "deleteFeature":
+    case "deleteFeature": {
       noFeatureType();
-      return { kind, featureId: asStr(p.featureId, "featureId") };
+      const targetBodyId = p.targetBodyId === undefined ? undefined : asStr(p.targetBodyId, "targetBodyId");
+      return {
+        kind, featureId: asStr(p.featureId, "featureId"),
+        ...(targetBodyId === undefined ? {} : { targetBodyId }),
+      };
+    }
     case "setFeatureSuppressed":
       noFeatureType();
       return { kind, featureId: asStr(p.featureId, "featureId"), suppressed: asBool(p.suppressed, "suppressed") };

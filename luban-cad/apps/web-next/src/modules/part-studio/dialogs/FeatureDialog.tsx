@@ -159,13 +159,14 @@
  *   （缺省省略=既有 ADD 语义）；edit 模式自 initialParams 回显落库值且**禁用**——
  *   结构键不可经 updateParams 翻转（服务端诚实拒收）；FeatureDialogResult.newBody
  *   仅在 true 时回传，未来 updateParams 接线必须原样保留；
- * - 目标实体下拉：仅 body-producing 特征（BODY_PRODUCING_FEATURE_TYPES：extrude/
- *   revolve/boolean/loft/sweep/mirror/pattern）且 getBodies 读面已就绪、active
- *   authored body>1 时渲染（consumed/orphan 不入选项）；值进 **op.targetBodyId**
+ * - 目标实体下拉：**所有可提交的 insertFeature 通道**（I2：extrude/revolve/boolean/
+ *   loft/sweep/mirror/pattern + fillet/chamfer/shell 等依附型——后端 planInsert 对
+ *   每个非 newBody insert 在 N>1 时同口径要求 targetBodyId）且 getBodies 读面已就绪、
+ *   active authored body>1 时渲染（consumed/orphan 不入选项）；值进 **op.targetBodyId**
  *   （不在 params）。newBody 勾选时隐藏且不发 target（新体由本 op 创建；无 target
  *   的 newBody 由后端锚定全局链尾）。单 body/读面不可用不发 target（legacy）；
- * - 读面刷新中（bodiesLoading）body-producing 提交禁用 + 诚实提示——N 未知时
- *   不得发无 target 的 regular insert（后端 op 边界同口径拒收）。
+ * - 读面刷新中（bodiesLoading）或读面不可用（bodiesError）→ insert 提交禁用 + 诚实
+ *   提示——N 未知时不得发无 target 的 regular insert（后端 op 边界同口径拒收）。
  *
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
@@ -192,7 +193,6 @@ import type {
   SketchRegionDto,
 } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
-import { BODY_PRODUCING_FEATURE_TYPES } from '../types.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { filletEdgeRefKey } from '../tools/modeling/fillet-edge-ref.js';
 import './FeatureDialog.css';
@@ -302,12 +302,17 @@ export interface FeatureDialogProps {
   /**
    * B6 M-A3.2a：body 读面（Session useFeatureSystem.bodies 直通，仅在该连接成功
    * 读过 getBodies 时下传；undefined=读面不可用 → 不做 target 选择，保持 legacy
-   * 载荷）。>1 个 active authored body 时对 body-producing 特征显示目标实体下拉；
-   * 值以 `targetBodyId` 进 insertFeature op（不是 params）。
+   * 载荷）。>1 个 active authored body 时对所有 insertFeature 通道（含 fillet/chamfer/
+   * shell）显示目标实体下拉；值以 `targetBodyId` 进 insertFeature op（不是 params）。
    */
   bodies?: readonly BodyInfo[];
   /** body 读面刷新中（提交禁用 + 诚实提示——N 未知时不得发无 target 的 regular insert）。 */
   bodiesLoading?: boolean;
+  /**
+   * body 读面失败（I1）：读面不可用（bodies undefined）时 insert 的 target 无从确定
+   * ——提交禁用 + 诚实提示（零件段错误条提供重试出口）。
+   */
+  bodiesError?: string;
   /**
    * B6 M-A3.2a：既有特征落库 params（mode='edit' 由宿主自特征树行下传）。
    * 仅消费结构键 `newBody`：回显复选框且禁用（翻转=语义变更，服务端拒收）；
@@ -446,6 +451,7 @@ export function FeatureDialog({
   hasBodies = true,
   bodies,
   bodiesLoading,
+  bodiesError,
   initialParams,
   onConfirm,
   onCancel,
@@ -568,21 +574,24 @@ export function FeatureDialog({
     () => (bodies ?? EMPTY_BODIES).filter((body) => body.active && body.authored !== false),
     [bodies],
   );
-  // body-producing 通道（extrude/revolve/boolean/loft/sweep/mirror/pattern）且读面在场：
-  // N>1 时必须显式 target（后端 op 边界同口径拒收无 target 的 regular insert）。
-  const bodyProducingChannel =
+  // I2：**所有**可提交的 insertFeature 通道都需要 target 能力——后端 planInsert 对
+  // 每个非 newBody insert 在 N>1 时同口径要求 targetBodyId（fillet/chamfer/shell 等
+  // 依附型特征也不例外，只是它们不产新体）。newBody 唯一的例外（新体由本 op 创建）。
+  const insertTargetChannel =
     mode === 'new' &&
     applyOp !== undefined &&
-    effectiveFeatureType !== undefined &&
-    BODY_PRODUCING_FEATURE_TYPES.includes(effectiveFeatureType);
-  const targetBodyReadable = bodyProducingChannel && bodies !== undefined;
-  // newBody 时无需 target（新体由本 op 创建；无 target 的 newBody 后端允许——锚定全局链尾）。
-  const targetSelectorVisible = targetBodyReadable && activeBodies.length > 1 && !effectiveNewBody;
+    effectiveFeatureType !== undefined;
+  // newBody 时无需 target（无 target 的 newBody 后端允许——锚定全局链尾）。
+  const targetSelectorVisible =
+    insertTargetChannel && bodies !== undefined && activeBodies.length > 1 && !effectiveNewBody;
   const effectiveTargetBodyKey = activeBodies.some((body) => body.bodyKey === targetBodyKey)
     ? targetBodyKey
     : (activeBodies[0]?.bodyKey ?? '');
-  // 读面刷新中：N 未知 → body-producing 提交挂起（不得发无 target 的 regular insert）。
-  const bodiesPending = bodyProducingChannel && bodiesLoading === true;
+  // 读面刷新中：N 未知 → insert 提交挂起（不得发无 target 的 regular insert）。
+  const bodiesPending = insertTargetChannel && bodiesLoading === true;
+  // I1：读面不可用（初次失败且未在刷新）→ target 无从确定，insert 提交禁用 + 可见提示。
+  const bodiesReadFailed =
+    insertTargetChannel && bodies === undefined && bodiesLoading !== true && bodiesError !== undefined;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
@@ -823,8 +832,10 @@ export function FeatureDialog({
   const submitDisabled = submitting || editStandalone || !canEdit || !sketchReady || !filletReady
     || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
     || patternUpstreamMissing
-    // B6 M-A3.2a：读面刷新中（N 未知）禁提交；目标下拉在场时必须已有有效目标。
-    || bodiesPending || (targetSelectorVisible && effectiveTargetBodyKey === '');
+    // B6 M-A3.2a：读面刷新中（N 未知）/读面不可用（target 无从确定）禁提交；
+    // 目标下拉在场时必须已有有效目标。
+    || bodiesPending || bodiesReadFailed
+    || (targetSelectorVisible && effectiveTargetBodyKey === '');
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -907,7 +918,7 @@ export function FeatureDialog({
     if (mirrorUpstreamMissing) return; // mirror 上游门禁（无实体可镜像——✓ 已禁用，防御兜底）
     if (patternUpstreamMissing) return; // pattern 上游门禁（无实体可阵列——✓ 已禁用，防御兜底）
     // B6 M-A3.2a：读面刷新中（N 未知）不派发；N>1 目标必选（禁止无 target 的 regular insert）。
-    if (bodiesPending) return;
+    if (bodiesPending || bodiesReadFailed) return;
     if (targetSelectorVisible && effectiveTargetBodyKey === '') return;
     // B5 pattern 参数校验：按当前形态给具体文案（count/spacing/angle——与服务端 zod 同域）。
     if (patternChannel) {
@@ -1142,6 +1153,7 @@ export function FeatureDialog({
     targetSelectorVisible,
     effectiveTargetBodyKey,
     bodiesPending,
+    bodiesReadFailed,
     t,
     onConfirm,
     buildResult,
@@ -1316,6 +1328,16 @@ export function FeatureDialog({
             data-testid="part-studio-feature-dialog-bodies-loading-hint"
           >
             {t('partStudio.featureDialog.bodiesLoadingHint')}
+          </p>
+        )}
+        {/* I1：读面不可用（初次失败）——target 无从确定，提交禁用；零件段错误条可重试。 */}
+        {bodiesReadFailed && (
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint"
+            data-testid="part-studio-feature-dialog-bodies-unavailable-hint"
+          >
+            {t('partStudio.featureDialog.bodiesUnavailableHint', { message: bodiesError })}
           </p>
         )}
 

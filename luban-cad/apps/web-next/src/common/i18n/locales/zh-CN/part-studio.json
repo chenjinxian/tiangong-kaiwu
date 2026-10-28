@@ -367,6 +367,7 @@
     "newBodyLabel": "新建实体",
     "targetBodyLabel": "目标实体",
     "bodiesLoadingHint": "正在读取实体列表：读取完成前不可提交",
+    "bodiesUnavailableHint": "实体列表不可用（{{message}}）：无法确定目标实体，暂时不能提交；请在零件段重试。",
     "submitSuccess": "{{name}} 已创建",
     "submitEvalFailed": "{{name}} 已提交但求值失败：{{message}}——特征已入特征树，几何未生成",
     "leaseBusy": "写租约被其他会话持有，提交将等待租约",
@@ -599,6 +600,7 @@
     "retry": "重试",
     "unnamedElement": "未命名实体 {{id}}",
     "defaultBodyName": "实体 {{index}}",
+    "bodiesReadFailed": "实体读取失败：{{message}}（当前显示为兼容零件列表）",
     "featureTypes": {
       "extrude": "拉伸",
       "booleanAdd": "并集",

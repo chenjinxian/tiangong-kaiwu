@@ -510,10 +510,12 @@ function PartStudioSession({
           onRetry={featureSystem.refresh}
           connection={connection ?? undefined}
           // B6 M-A3.2a：读面仅在成功读取后下传（初次失败/未就绪 → 树回退 legacy
-          // 物理查询；成功过则保留最近值 + bodiesError 就地呈现）。
+          // 物理查询；I1：初次失败也下传 bodiesError → 可见错误条 + 重试，不静默）。
+          // I3：viewport 显式下传 → consumed 隐藏随晚到/重建视口重跑。
           bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
           bodiesLoading={featureSystem.bodiesLoading}
-          bodiesError={featureSystem.bodiesLoaded ? featureSystem.bodiesError : undefined}
+          bodiesError={featureSystem.bodiesError}
+          viewport={viewport ?? undefined}
         />
         <div className="part-studio-main">
           {/* canEdit 直通画布对话框宿主（B2 只读写门禁）：权限只读下写面对话框
@@ -530,6 +532,7 @@ function PartStudioSession({
             hasBodies={hasBodies}
             bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
             bodiesLoading={featureSystem.bodiesLoading}
+            bodiesError={featureSystem.bodiesError}
             featureParams={editFeatureParams}
             connectionLoading={connectionLoading}
             connectionError={canvasErrorMessage}

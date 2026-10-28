@@ -138,6 +138,8 @@ const featureRpc = vi.hoisted(() => ({
   // 返回型放宽为 unknown 形（hoisted 块内不做契约型标注——mockResolvedValue
   // 注入树/草图替身时以 unknown 进出，消费方类型由真实 interface 契约保证）。
   getFeatureTree: vi.fn(async (_key: string): Promise<unknown[]> => []),
+  // B6 M-A3.2a：body 读面（缺省空集；I1 用例覆写为初次失败）。
+  getBodies: vi.fn(async (_key: string): Promise<unknown[]> => []),
   applyFeatureOp: vi.fn(
     async (_key: string, _op: unknown, _sessionId: string): Promise<{ ok: boolean; featureId?: string }> =>
       ({ ok: true, featureId: 'f-new' }),
@@ -260,6 +262,10 @@ const FAKE_VIEWPORT = {
     modelSelector: { models: ['model-1'] },
   },
   invalidateScene: vi.fn(),
+  // B6 M-A3.2a I3：FeatureTree consumed 隐藏 effect 经真 viewport 下传后触达
+  // EmphasizeElements 的 provider 注册面（桩必须可被 getOrCreate 注册）。
+  findFeatureOverrideProviderOfType: vi.fn(() => undefined),
+  addFeatureOverrideProvider: vi.fn(),
 };
 
 /** store 复位：八切片回缺省（结构用例间互不渗漏）。 */
@@ -791,6 +797,19 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
     renderPage();
     await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
     await waitFor(() => expect(featureRpc.acquireWriteLease).toHaveBeenCalledWith('briefcase-key', expect.any(String)));
+  });
+
+  it('I1：body 读面初次失败可见（错误条 + 重试，不静默回退）', async () => {
+    const user = userEvent.setup();
+    featureRpc.getBodies.mockRejectedValueOnce(new Error('init race'));
+    renderPage();
+    const warning = await screen.findByTestId('part-studio-part-read-surface-error');
+    expect(warning.textContent).toContain('init race');
+    const callsBefore = featureRpc.getBodies.mock.calls.length;
+    await user.click(within(warning).getByRole('button', { name: '重试' }));
+    await waitFor(() =>
+      expect(featureRpc.getBodies.mock.calls.length).toBeGreaterThan(callsBefore),
+    );
   });
 
   it('useFeatureDisplaySync 订阅几何变化（M4-T5 移植件的挂载位）', async () => {

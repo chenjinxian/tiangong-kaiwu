@@ -248,6 +248,9 @@ const FAKE_VIEWPORT = {
     modelSelector: { models: ['model-1'] },
   },
   invalidateScene: vi.fn(),
+  // B6 M-A3.2a I3：viewport 下传后 FeatureTree 的 EmphasizeElements provider 注册面。
+  findFeatureOverrideProviderOfType: vi.fn(() => undefined),
+  addFeatureOverrideProvider: vi.fn(),
 };
 
 // 视口挂载点接线断言的数据面：useViewport 出口 ref（渲染后应指向

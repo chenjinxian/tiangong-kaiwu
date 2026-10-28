@@ -93,6 +93,8 @@ export interface PartStudioCanvasProps {
   bodies?: readonly BodyInfo[];
   /** body 读面刷新中（FeatureDialog 提交通道挂起 + 诚实提示）。 */
   bodiesLoading?: boolean;
+  /** body 读面失败（FeatureDialog 读面不可用时禁用 insert + 诚实提示）。 */
+  bodiesError?: string;
   /**
    * B6 M-A3.2a：edit 模式既有特征落库 params（Session 自特征树行反查）——
    * FeatureDialog 回显结构键 newBody（不可翻转）。
@@ -126,6 +128,7 @@ export function PartStudioCanvas({
   hasBodies = true,
   bodies,
   bodiesLoading,
+  bodiesError,
   featureParams,
   connectionLoading = false,
   connectionError = null,
@@ -259,6 +262,7 @@ export function PartStudioCanvas({
           hasBodies={hasBodies}
           bodies={bodies}
           bodiesLoading={bodiesLoading}
+          bodiesError={bodiesError}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           onConfirm={closeDialog}
           onCancel={closeDialog}

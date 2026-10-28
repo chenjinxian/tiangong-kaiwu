@@ -232,6 +232,23 @@ describe('B6 M-A3.2a 零件段 = authored active body（getBodies 读面）', ()
     expect(connection.createQueryReader).not.toHaveBeenCalled();
   });
 
+  it('body 读面初次失败（未 loaded）→ legacy 行保留的同时显示可见错误 + 重试（不静默回退）', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    const connection = partsConnection([['p1', 'Part 1']]);
+    render(
+      <FeatureTree entries={[]} connection={connection as never} bodiesError="init race" onRetry={onRetry} />,
+    );
+    const warning = await screen.findByTestId('part-studio-part-read-surface-error');
+    expect(warning.textContent).toContain('init race');
+    // legacy 行仍诚实呈现（回退不是静默的：错误条与行同时在場）。
+    expect(
+      within(screen.getByTestId('part-studio-part-list')).getByText('Part 1'),
+    ).toBeDefined();
+    await user.click(within(warning).getByRole('button', { name: '重试' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   it('bodiesError（读面刷新失败）→ 零件段就地错误条（重试走同一 refresh 出口）', async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
@@ -271,6 +288,16 @@ describe('B6 M-A3.2a 零件段 = authored active body（getBodies 读面）', ()
     render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
     expect(mocks.hideElements).not.toHaveBeenCalled();
     expect(mocks.clearHiddenElements).not.toHaveBeenCalled();
+  });
+
+  it('viewport 晚于 getBodies 出现 → 应用 consumed hide（I3：effect 依赖真 viewport）', async () => {
+    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    expect(mocks.hideElements).not.toHaveBeenCalled();
+    const lateViewport = { id: 'late-vp' };
+    rerender(<FeatureTree entries={ENTRIES} bodies={BODIES} viewport={lateViewport as never} />);
+    await waitFor(() =>
+      expect(mocks.hideElements).toHaveBeenCalledWith(['0x18'], lateViewport, true),
+    );
   });
 });
 

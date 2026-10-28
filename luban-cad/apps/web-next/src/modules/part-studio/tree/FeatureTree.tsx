@@ -21,8 +21,9 @@
  * - consumed body 几何视口隐藏（M-A3.2a）：active=false 的 body 虽保留元素仍会
  *   被渲染——EmphasizeElements.hideElements(neverDrawn) 整集重建 =
  *   consumed ∪ store.canvas.hiddenIds（手动隐藏），撤销恢复 active / 手动隐藏
- *   变化均按最新并集重算；并集空时 clearHiddenElements 恢复可见。无 viewport
- *   静默跳过（壳期/测试）；read surface 不可用时不接管 neverDrawn；
+ *   变化均按最新并集重算；并集空时 clearHiddenElements 恢复可见。视口由 Session
+ *   显式下传并作为 effect 依赖（I3：viewport 晚于 getBodies 创建/重建时重跑）；
+ *   无 viewport 静默跳过（壳期/测试）；read surface 不可用时不接管 neverDrawn；
  * - 删除 HITL 回调第二参 = deleteFeature.targetBodyId（getBodies.sourceFeatureId
  *   反查唯一源；无映射 undefined）——删除 op 本版仍未接线（契约就绪）；
  * - M6-c T5 视口编辑态：特征对话框在场 → 体集（零件段产物）经
@@ -52,7 +53,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@itwin/itwinui-react';
 import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
-import type { BriefcaseConnection } from '@itwin/core-frontend';
+import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto } from '@luban-cad/shared';
 import {
   SvgAdd,
@@ -104,8 +105,17 @@ export interface FeatureTreeProps {
   bodies?: readonly BodyInfo[];
   /** body 读面加载中（零件段骨架；读面未就绪时不抢先发 legacy 查询）。 */
   bodiesLoading?: boolean;
-  /** body 读面刷新失败（零件段就地错误条，重试走 onRetry=同一 refresh 出口）。 */
+  /**
+   * body 读面失败（I1）：初次失败时在 legacy 行旁显示可见错误条 + 重试（不静默回退）；
+   * 已加载后的刷新失败 → 就地错误条。重试走 onRetry=同一 refresh 出口。
+   */
   bodiesError?: string;
+  /**
+   * 视口（I3）：consumed 隐藏 effect 依赖真 viewport——viewport 晚于 getBodies 创建/
+   * 重建时必须重跑隐藏。生产宿主（PartStudioSession）显式下传；缺省回退
+   * `IModelApp.viewManager.selectedView`（壳期/测试语义）。
+   */
+  viewport?: ScreenViewport;
   /** 重命名提交（缺省 console.warn；RPC 变异层接线后接管）。 */
   onRename?: (node: TreeNode, name: string) => void;
   /** 编辑特征/零件（FeatureDialog 宿主路由接口）。 */
@@ -244,9 +254,10 @@ export function activeBodyParts(
 
 /**
  * 删除特征的 targetBodyId 映射（B6 M-A3.2a）：getBodies.sourceFeatureId 反查
- * **唯一驱动源**。newBody 特征恒命中；普通链特征仅当它是该 body 的唯一源时命中
- *（多源 body 的服务端读面省略 sourceFeatureId——多体删除的普通链特征本版无
- * UI 删除入口，契约保留、后端诚实拒收）。无命中=undefined，绝不猜测。
+ * **唯一驱动源**。健康态下每个 body 的链尾就是其唯一源（applyInsert 每次把
+ * `feature→body` 重连 + 清旧 `prev→body`），而删除入口只对链尾开放——因此
+ * 所有可删特征（newBody 与普通链尾）均能命中。多源/悬挂病理态服务端读面省略
+ * sourceFeatureId → undefined（绝不猜测；N>1 由后端诚实拒收）。
  */
 export function deleteTargetBodyIdForFeature(
   bodies: readonly BodyInfo[] | undefined,
@@ -277,6 +288,7 @@ export function FeatureTree({
   bodies,
   bodiesLoading,
   bodiesError,
+  viewport,
   onRename,
   onEdit,
   onSuppress,
@@ -303,6 +315,8 @@ export function FeatureTree({
     : bodiesLoading === true
       ? undefined
       : physical.error;
+  // I1：读面初次失败（未 loaded）不得静默回退——legacy 行照常 + 可见错误条与重试。
+  const bodiesReadFailed = bodies === undefined && bodiesLoading !== true && bodiesError !== undefined;
   const model = useFeatureTree({ entries, parts, filter });
   // 树→画布 emphasize 联动（hook 内 effect：selectedNodeIds → viewport）。
   // M6-c T5 视口编辑态（采集规格 §视口交互的最小通道）：特征对话框在场时
@@ -331,19 +345,21 @@ export function FeatureTree({
   const manualHiddenKey = React.useMemo(() => JSON.stringify(manualHiddenIds), [manualHiddenIds]);
   React.useEffect(() => {
     if (consumedBodiesKey === null) return; // 读面不可用：不接管 neverDrawn（legacy 回退）
-    const viewport = IModelApp.viewManager?.selectedView;
-    if (!viewport) return;
+    // I3：viewport 是 effect 依赖（真下传优先）——getBodies 先于 viewport 创建时，
+    // viewport 出现后重跑并应用隐藏；重建/切换视口同理。壳期无下传时回退 selectedView。
+    const targetViewport = viewport ?? IModelApp.viewManager?.selectedView;
+    if (!targetViewport) return;
     const consumed = JSON.parse(consumedBodiesKey) as string[];
     const manual = JSON.parse(manualHiddenKey) as string[];
     const union = [...new Set([...consumed, ...manual])];
     try {
-      const emphasize = EmphasizeElements.getOrCreate(viewport);
-      if (union.length > 0) emphasize.hideElements(union, viewport, true);
-      else emphasize.clearHiddenElements(viewport);
+      const emphasize = EmphasizeElements.getOrCreate(targetViewport);
+      if (union.length > 0) emphasize.hideElements(union, targetViewport, true);
+      else emphasize.clearHiddenElements(targetViewport);
     } catch (err) {
       console.warn('[part-studio] consumed body 隐藏应用失败（无真实视口？）', err);
     }
-  }, [consumedBodiesKey, manualHiddenKey]);
+  }, [consumedBodiesKey, manualHiddenKey, viewport]);
   // T6 草图模式：活动草图行红显（os-30 树红显进行中草图）。
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
@@ -561,14 +577,39 @@ export function FeatureTree({
                       emptyText: t('partStudio.sidebar.tree.emptyFeatures'),
                       retryable: true,
                     })
-                  : renderSectionRows({
-                      loading: partsLoading,
-                      error: partsError,
-                      rows,
-                      emptyText: t('partStudio.sidebar.tree.emptyParts'),
-                      // body 读面错误复用特征段 onRetry（同一 refresh 同时刷树+bodies）。
-                      retryable: bodies !== undefined && onRetry !== undefined,
-                    })}
+                  : (
+                    <>
+                      {/* I1：读面初次失败的可见错误 + 重试（legacy 回退不再静默）。 */}
+                      {bodiesReadFailed && (
+                        <li
+                          className="part-studio-tree__error"
+                          role="alert"
+                          data-testid="part-studio-part-read-surface-error"
+                        >
+                          <span className="part-studio-tree__error-text">
+                            {t('partStudio.tree.bodiesReadFailed', { message: bodiesError })}
+                          </span>
+                          {onRetry && (
+                            <button
+                              type="button"
+                              className="part-studio-tree__retry"
+                              onClick={onRetry}
+                            >
+                              {t('partStudio.tree.retry')}
+                            </button>
+                          )}
+                        </li>
+                      )}
+                      {renderSectionRows({
+                        loading: partsLoading,
+                        error: partsError,
+                        rows,
+                        emptyText: t('partStudio.sidebar.tree.emptyParts'),
+                        // body 读面错误复用特征段 onRetry（同一 refresh 同时刷树+bodies）。
+                        retryable: bodies !== undefined && onRetry !== undefined,
+                      })}
+                    </>
+                  )}
               </ul>
             )}
           </section>

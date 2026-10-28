@@ -56,8 +56,9 @@
  *  - `FeatureOp.deleteFeature.targetBodyId?`（B6 M-A3.2a 增：N>1 模型删除特征显式目标 body，
  *    与 insertFeature 同锚；缺省保持 N≤1 legacy 路径。服务端 planDelete 自 M-A3.1 R1 起
  *    已按真实 FeatureDrives 目标推导并接受本字段——共享面补齐后类型可达，版本不二次升）。
- *  - 无 web UI 接线（M3.2）：web 可用 1.15 类型但暂不消费新字段。
- * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
+ *  - M-A3.2a 起 web 消费上述新字段：getBodies 零件树/目标实体选择、insertFeature.newBody、
+ *    insert + delete 的 targetBodyId（删除入口宿主接线仍归 M3.2b）。
+ * 消费方：modeling-server FeatureRpcImpl（服务端）、web-next part-studio（树/对话框）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 

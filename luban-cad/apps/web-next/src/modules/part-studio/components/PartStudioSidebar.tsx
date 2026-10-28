@@ -19,7 +19,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@itwin/itwinui-react';
-import type { BriefcaseConnection } from '@itwin/core-frontend';
+import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureTreeEntry } from '@luban-cad/shared';
 import {
   SvgCopy,
@@ -46,8 +46,10 @@ export interface PartStudioSidebarProps {
   bodies?: readonly BodyInfo[];
   /** body 读面加载中（零件段骨架）。 */
   bodiesLoading?: boolean;
-  /** body 读面刷新失败（零件段就地错误条）。 */
+  /** body 读面失败（初次失败可见错误+重试；已加载后刷新失败就地错误条）。 */
   bodiesError?: string;
+  /** 视口（I3：consumed 隐藏 effect 依赖真 viewport，晚到/重建须重跑）。 */
+  viewport?: ScreenViewport;
 }
 
 /** 图标条类别槽（壳期占位；labelKey 指向 partStudio.sidebar.rail.*）。 */
@@ -67,6 +69,7 @@ export function PartStudioSidebar({
   bodies,
   bodiesLoading,
   bodiesError,
+  viewport,
 }: PartStudioSidebarProps): React.JSX.Element {
   const { t } = useTranslation();
   // 图标条选中态：壳期本地态（类别槽尚未接 ribbon；T4 起与工具类别联动）。
@@ -124,6 +127,7 @@ export function PartStudioSidebar({
         bodies={bodies}
         bodiesLoading={bodiesLoading}
         bodiesError={bodiesError}
+        viewport={viewport}
         onEdit={handleEdit}
       />
     </aside>

@@ -2489,6 +2489,14 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     });
   });
 
+  it('读面初次失败（bodies 不可用）→ body-producing 提交禁用 + 诚实提示（不发无 target 的 insert）', async () => {
+    const applyOp = makeApplyOp();
+    await renderReadyExtrude(applyOp, { bodiesError: 'init race' });
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-bodies-unavailable-hint')).toBeDefined();
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
   it('读面刷新中（bodiesLoading）→ 提交禁用 + 诚实提示（未知 N 不得发无 target 的 regular insert）', async () => {
     const applyOp = makeApplyOp();
     await renderReadyExtrude(applyOp, { bodies: ACTIVE_TWO, bodiesLoading: true });
@@ -2497,7 +2505,7 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     expect(applyOp).not.toHaveBeenCalled();
   });
 
-  it('仅 body-producing 特征显示目标实体（mirror N>1 → 显示且载荷带 target；fillet → 不显示）', async () => {
+  it('所有可提交 insertFeature 通道 N>1 均显示目标实体（mirror/fillet 含依附型）；单 body 不显示', async () => {
     const applyOp = makeApplyOp();
     const user = userEvent.setup();
     const mirror = render(
@@ -2522,13 +2530,30 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     });
     mirror.unmount();
 
-    render(
+    // I2：fillet 依附上游体，但后端 planInsert 对**所有**非 newBody insert 的 N>1 都要求
+    // targetBodyId——N>1 必须显示目标选择器（否则无法提交）。
+    const filletMulti = render(
       <FeatureDialog
         featureName="圆角"
         mode="new"
         featureType="fillet"
         applyOp={applyOp}
         bodies={ACTIVE_TWO}
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: '目标实体' })).toBeDefined();
+    expect(screen.queryByRole('checkbox', { name: '新建实体' })).toBeNull();
+    filletMulti.unmount();
+
+    // 单 body：无 target（legacy 载荷）。
+    render(
+      <FeatureDialog
+        featureName="圆角"
+        mode="new"
+        featureType="fillet"
+        applyOp={applyOp}
+        bodies={[BODY_1]}
         onConfirm={vi.fn()}
       />,
     );

@@ -320,6 +320,46 @@ describe("op DSL × B5 v1.14（FEATURE_TYPES 白名单补 pattern）", () => {
   });
 });
 
+describe("op DSL × B6 M-A3.2a（targetBodyId 双向）", () => {
+  it("insertFeature + targetBodyId 往返深等（包装 payload {params,targetBodyId}）+ 文本再发射稳定", () => {
+    const op: FeatureOp = {
+      kind: "insertFeature",
+      featureType: "extrude",
+      params: { profile: [], distance: 1, newBody: true },
+      targetBodyId: "0x15",
+    };
+    const dsl = opsToDsl([op]);
+    expect(dsl).toContain('"targetBodyId":"0x15"');
+    expect(dsl).toContain('"params":{');
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("insertFeature 无 target 的旧文本形态逐字不变（payload 仍是裸 params）", () => {
+    const dsl = opsToDsl([{ kind: "insertFeature", featureType: "extrude", params: { profile: [], distance: 1 } }]);
+    expect(dsl).toBe('op insertFeature extrude {"profile":[],"distance":1}');
+    expect(dsl).not.toContain('"params":');
+    expect(dslToOps(dsl)).toEqual([
+      { kind: "insertFeature", featureType: "extrude", params: { profile: [], distance: 1 } },
+    ]);
+  });
+
+  it("deleteFeature + targetBodyId 往返深等；缺省文本逐字不变（旧链零漂移）", () => {
+    const op: FeatureOp = { kind: "deleteFeature", featureId: "f-1", targetBodyId: "0x18" };
+    expect(dslToOps(opsToDsl([op]))).toEqual([op]);
+    expect(opsToDsl(dslToOps(opsToDsl([op])))).toBe(opsToDsl([op]));
+    expect(opsToDsl([{ kind: "deleteFeature", featureId: "f-1" }]))
+      .toBe('op deleteFeature {"featureId":"f-1"}');
+  });
+
+  it("targetBodyId 形态校验：非 string 拒收（insert 包装与 delete 两路）", () => {
+    expect(() => dslToOps('op deleteFeature {"featureId":"f-1","targetBodyId":42}'))
+      .toThrow(/targetBodyId/);
+    expect(() => dslToOps('op insertFeature extrude {"params":{"profile":[],"distance":1},"targetBodyId":42}'))
+      .toThrow(/targetBodyId/);
+  });
+});
+
 describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
   const plane = {
     origin: { x: 0, y: 0, z: 0.1 },
