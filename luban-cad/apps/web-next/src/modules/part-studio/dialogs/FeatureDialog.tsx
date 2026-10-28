@@ -752,7 +752,7 @@ export function FeatureDialog({
   // 门禁（对齐 M4.1 planBooleanInsert 的 op 边界语义，UI 先挡 + 后端同口径拒收）：
   // <2 active authored body / 读面刷新中 / 读面不可用 / tools 空 / target 在 tools。
   const booleanBodiesNeedsTwo =
-    booleanBodiesChannel && bodies !== undefined && activeBodies.length < 2;
+    booleanBodiesChannel && bodies !== undefined && bodiesLoading !== true && activeBodies.length < 2;
   const booleanBodiesUnavailable =
     booleanBodiesChannel && bodies === undefined && bodiesLoading !== true;
   const booleanBodiesToolsMissing =
@@ -1429,64 +1429,70 @@ export function FeatureDialog({
         </div>
       </header>
 
-      {/* 布尔作用域双页签（os-31）。 */}
-      <div className="part-studio-feature-dialog__tabs">
-        <div
-          role="tablist"
-          aria-label={t('partStudio.featureDialog.resultTypeTabs')}
-          className="part-studio-feature-dialog__tablist"
-        >
-          {RESULT_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              role="tab"
-              aria-selected={resultType === type}
-              className={[
-                'part-studio-feature-dialog__tab',
-                resultType === type ? 'part-studio-feature-dialog__tab--active' : '',
-              ].filter(Boolean).join(' ')}
-              onClick={() => setResultType(type)}
-            >
-              {t(`partStudio.featureDialog.resultTypes.${type}`)}
-            </button>
-          ))}
-        </div>
-        <div
-          role="tablist"
-          aria-label={t('partStudio.featureDialog.booleanScopeTabs')}
-          className="part-studio-feature-dialog__tablist"
-        >
-          {BOOLEAN_SCOPES.map((scope) => {
-            // 提交态禁用（B1 复审）：①相交无后端特征类型，禁用防静默并集；
-            // ②无实体时加入/移除无上游，禁用防「成功 toast + status=1 死特征」。
-            const scopeDisabled =
-              booleanScopeCapable &&
-              (scope === 'intersect' || (booleanScopeNoBody && (scope === 'add' || scope === 'remove')));
-            const scopeDisabledHint =
-              scope === 'intersect'
-                ? t('partStudio.featureDialog.booleanIntersectUnsupported')
-                : t('partStudio.featureDialog.booleanNoBodyHint');
-            return (
+      {/* 布尔作用域双页签（os-31）。**booleanBodies（体布尔）不渲染**：该通道的
+          结果类型/布尔作用域均由 M4.1 契约固定（实体 + unite/subtract），遗留页签
+          全部惰性；尤其「相交」页签在体布尔下可点却不会改变 operation，会误导用户
+          以为提交了相交（实际仍 unite）——体布尔的相交仅由下方 operation 下拉的
+          禁用选项表达，杜绝静默降级。 */}
+      {featureType !== 'booleanBodies' && (
+        <div className="part-studio-feature-dialog__tabs">
+          <div
+            role="tablist"
+            aria-label={t('partStudio.featureDialog.resultTypeTabs')}
+            className="part-studio-feature-dialog__tablist"
+          >
+            {RESULT_TYPES.map((type) => (
               <button
-                key={scope}
+                key={type}
                 type="button"
                 role="tab"
-                aria-selected={booleanScope === scope}
-                disabled={scopeDisabled}
-                title={scopeDisabled ? scopeDisabledHint : undefined}
+                aria-selected={resultType === type}
                 className={[
                   'part-studio-feature-dialog__tab',
-                  booleanScope === scope ? 'part-studio-feature-dialog__tab--active' : '',
+                  resultType === type ? 'part-studio-feature-dialog__tab--active' : '',
                 ].filter(Boolean).join(' ')}
-                onClick={() => setBooleanScope(scope)}
+                onClick={() => setResultType(type)}
               >
-                {t(`partStudio.featureDialog.booleanScopes.${scope}`)}
+                {t(`partStudio.featureDialog.resultTypes.${type}`)}
               </button>
-            );
-          })}
+            ))}
+          </div>
+          <div
+            role="tablist"
+            aria-label={t('partStudio.featureDialog.booleanScopeTabs')}
+            className="part-studio-feature-dialog__tablist"
+          >
+            {BOOLEAN_SCOPES.map((scope) => {
+              // 提交态禁用（B1 复审）：①相交无后端特征类型，禁用防静默并集；
+              // ②无实体时加入/移除无上游，禁用防「成功 toast + status=1 死特征」。
+              const scopeDisabled =
+                booleanScopeCapable &&
+                (scope === 'intersect' || (booleanScopeNoBody && (scope === 'add' || scope === 'remove')));
+              const scopeDisabledHint =
+                scope === 'intersect'
+                  ? t('partStudio.featureDialog.booleanIntersectUnsupported')
+                  : t('partStudio.featureDialog.booleanNoBodyHint');
+              return (
+                <button
+                  key={scope}
+                  type="button"
+                  role="tab"
+                  aria-selected={booleanScope === scope}
+                  disabled={scopeDisabled}
+                  title={scopeDisabled ? scopeDisabledHint : undefined}
+                  className={[
+                    'part-studio-feature-dialog__tab',
+                    booleanScope === scope ? 'part-studio-feature-dialog__tab--active' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => setBooleanScope(scope)}
+                >
+                  {t(`partStudio.featureDialog.booleanScopes.${scope}`)}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="part-studio-feature-dialog__body">
         {/* 提交错误就地 Alert（六态 error；失败不关闭可改参重试）。 */}

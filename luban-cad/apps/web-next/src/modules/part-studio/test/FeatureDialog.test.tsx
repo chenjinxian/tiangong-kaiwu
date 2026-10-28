@@ -2798,6 +2798,25 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     expect(screen.getAllByRole('combobox', { name: '目标实体' })).toHaveLength(1);
   });
 
+  it('不渲染遗留结果类型/布尔作用域页签：「相交」不可点选（防静默提交 unite）', async () => {
+    const applyOp = makeApplyOp();
+    renderBooleanDialog(applyOp);
+    const user = userEvent.setup();
+    // 体布尔的结果类型固定为实体、运算由 operation 下拉唯一决定——遗留页签整体不渲染。
+    expect(screen.queryByRole('tablist', { name: '结果类型' })).toBeNull();
+    expect(screen.queryByRole('tablist', { name: '布尔作用域' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: '相交' })).toBeNull();
+    // operation 下拉中的「相交」仍是禁用态（不静默降级），唯一可提交运算为并集。
+    const operation = screen.getByRole('combobox', { name: '运算' }) as HTMLSelectElement;
+    expect((within(operation).getByRole('option', { name: '相交' }) as HTMLOptionElement).disabled).toBe(true);
+    await user.click(screen.getByRole('checkbox', { name: 'Body 2' }));
+    await user.click(confirmButton());
+    expect(booleanCreateOp(applyOp.mock.calls[0]![0]).params).toMatchObject({
+      operation: 'unite',
+      tools: [{ bodyKey: '0x18' }],
+    });
+  });
+
   it('载荷：targets/tools/operation/keepTools 精确形状；不发 op 层 targetBodyId（params.targets 唯一真源）；成功 toast+onConfirm', async () => {
     const applyOp = makeApplyOp();
     const { onConfirm } = renderBooleanDialog(applyOp);
@@ -2891,6 +2910,13 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     const applyOp = makeApplyOp();
     renderBooleanDialog(applyOp, { bodiesLoading: true });
     expect(screen.getByTestId('part-studio-feature-dialog-bodies-loading-hint')).toBeDefined();
+    expect(confirmButton().disabled).toBe(true);
+  });
+
+  it('bodiesLoading 且旧读面 <2 → 只报读取中，不误报「至少两体」（N 未定）', () => {
+    renderBooleanDialog(makeApplyOp(), { bodies: [BODY_1], bodiesLoading: true });
+    expect(screen.getByTestId('part-studio-feature-dialog-bodies-loading-hint')).toBeDefined();
+    expect(screen.queryByTestId('part-studio-feature-dialog-boolean-needs-two-hint')).toBeNull();
     expect(confirmButton().disabled).toBe(true);
   });
 
