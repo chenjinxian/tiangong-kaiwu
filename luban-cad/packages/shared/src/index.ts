@@ -224,6 +224,8 @@ export type {
   PatternParams,
   // B6 M-A3.1 v1.15（NEW-body / body 读面）
   BodyRef, BodyInfo,
+  // B6 M-A4.1 v1.16（body boolean）
+  BooleanBodiesParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

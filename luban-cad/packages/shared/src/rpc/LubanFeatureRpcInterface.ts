@@ -58,13 +58,24 @@
  *    已按真实 FeatureDrives 目标推导并接受本字段——共享面补齐后类型可达，版本不二次升）。
  *  - M-A3.2a 起 web 消费上述新字段：getBodies 零件树/目标实体选择、insertFeature.newBody、
  *    insert + delete 的 targetBodyId（删除入口宿主接线仍归 M3.2b）。
+ * B6 M-A4.1 升 v1.16：body boolean 契约就绪（backend/contract only，UI/ribbon 归 M4.2）——
+ *  - `LubanFeatureType` + `booleanBodies`；`BooleanBodiesParams`
+ *    （`targets`/`tools` BodyRef 数组 + `operation: "unite"|"subtract"|"intersect"` + `keepTools`）；
+ *  - v1 收窄（服务端 zod/op 边界诚实拒收，契约类型面保留全形）：`targets` 恰 1、`tools` ≥1、
+ *    两集互斥、无重复、`intersect` 暂不可执行（与 B1「相交页签禁用」同口径）；
+ *  - 求值语义（服务端）：target ∪/− tools 写回 target（单 BRep）；成功且 `keepTools=false` 时
+ *    tools 软删除（active=false，元素/几何保留，可撤销）；失败不消费、target 保留最后几何。
+ *  - 无新 RPC 方法（沿用 insertFeature/updateParams/deleteFeature/getBodies；bodyKey 即
+ *    `getBodies[].bodyKey`）。**注意**：booleanBodies 的 params 是结构语义键——`updateParams`
+ *    不改变 targets/tools/operation（服务端诚实拒收；换 body 请删除特征后重建）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web-next part-studio（树/对话框）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
- * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern";
+ * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern；
+ * B6 M-A4.1 v1.16 增 booleanBodies（body boolean）） */
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -116,6 +127,26 @@ export interface BodyInfo {
   active: boolean;
   sourceFeatureId?: string;
   authored?: boolean;
+}
+
+/**
+ * body boolean 参数（B6 M-A4.1 v1.16）：以 body（而非上游链）为操作对象——target 体与 tool 体
+ * 经 `BodyRef`（bodyKey=`getBodies[].bodyKey`）寻址，运算结果写回 target（目标链尾）。
+ * - `targets`：v1 **恰 1 个**（语料也只有 0/1 target；多 target 服务端诚实拒收）。
+ * - `tools`：≥1；v1 全部按 bodyKey 升序作为 kernel tools（target 恒在前）。
+ * - `operation`：`unite | subtract | intersect`；**v1 契约保留但服务端拒收 `intersect`**
+ *   （与 B1「相交页签禁用」同口径，不做静默降级）。
+ * - `keepTools`：false=成功后 tools 软删除（`active=false`，元素/几何/id 保留，可撤销）；
+ *   true=tools 保留为独立 body。**失败（内核/空结果/缓存缺失）一律不消费**，target 保留最后几何。
+ * - 结构语义键：`updateParams` 不得改本 params（targets/tools/operation 变更需删除特征后重建）；
+ *   服务端 apply+preview 同文案拒收。
+ * - v1 约束：targets∩tools=∅、无重复 bodyKey、全部 body 必须 authored/active/有唯一源特征。
+ */
+export interface BooleanBodiesParams {
+  targets: BodyRef[];
+  tools: BodyRef[];
+  operation: "unite" | "subtract" | "intersect";
+  keepTools: boolean;
 }
 
 /**
@@ -284,7 +315,7 @@ export interface RevolveParams {
   angle?: number;
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams;
 
 export type FeatureOp =
   /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
@@ -375,7 +406,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.15.0";
+  public static interfaceVersion = "1.16.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
