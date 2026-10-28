@@ -166,7 +166,15 @@
  *   （不在 params）。newBody 勾选时隐藏且不发 target（新体由本 op 创建；无 target
  *   的 newBody 由后端锚定全局链尾）。单 body/读面不可用不发 target（legacy）；
  * - 读面刷新中（bodiesLoading）或读面不可用（bodiesError）→ insert 提交禁用 + 诚实
- *   提示——N 未知时不得发无 target 的 regular insert（后端 op 边界同口径拒收）。
+ *   提示——N 未知时不得发无 target 的 regular insert（后端 op 边界同口径拒收）；
+ *   例外：勾选 newBody 无需 target，读面失败时仍可提交（Minor 2）。
+ * - **Critical 1（fillet target 与拾取边耦合）**：fillet/chamfer/shell 不再显示手动
+ *   target 下拉。fillet 的 `targetBodyId` 由**拾取边的父元素 id**（=getBodies.bodyKey）
+ *   自动推导：所有边必须属于同一个 active authored body；跨体、孤儿/消费态 owner 或
+ *   缺少 owner → 显式错误 + 禁提交（绝不回落默认 body1）。N≤1 保持 legacy 不发 target。
+ *   chamfer/shell 的工具体/owner 通道未接线（gated）→ 一律禁提交（不默认）。
+ *   手动 target 下拉保留给无拾取耦合的 insert 通道（extrude/revolve/boolean/loft/
+ *   sweep/mirror/pattern）。
  *
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
@@ -581,17 +589,75 @@ export function FeatureDialog({
     mode === 'new' &&
     applyOp !== undefined &&
     effectiveFeatureType !== undefined;
+  // ── Critical 1：fillet/chamfer/shell 的 target 不能手动选 ──────────────────
+  // fillet：target 由**拾取边的父体**自动推导（owner=拾取元素 id=getBodies.bodyKey）。
+  // 混合体/孤儿/消费态 owner → 显式错误 + 禁提交，绝不回落默认 target。
+  // chamfer/shell：工具体/picker 未接线，无法提供 owner → 禁提交（不默认）。
+  // 拾取边 + 父体 elementId 原子成对（Critical 1）：去重键含 owner——两 body 的边
+  // 即使 refKey（边自身 id）碰撞也不会互相覆盖；跨体即混合错误，绝不错体提交。
+  const [filletPicks, setFilletPicks] = React.useState<Array<{ ref: FilletEdgeRef; ownerElementId: string }>>([]);
+  const filletEdges = React.useMemo(() => filletPicks.map((pick) => pick.ref), [filletPicks]);
+  const activeBodyKeys = React.useMemo(
+    () => new Set(activeBodies.map((body) => body.bodyKey)),
+    [activeBodies],
+  );
+  const filletOwnerIds = React.useMemo(
+    () => filletPicks.map((pick) => pick.ownerElementId),
+    [filletPicks],
+  );
+  const filletOwnersValidated = filletChannel && bodies !== undefined && filletEdges.length > 0;
+  const filletMissingOwner = filletOwnersValidated
+    ? filletOwnerIds.find((owner) => owner === undefined || !activeBodyKeys.has(owner))
+    : undefined;
+  const filletDistinctOwners = React.useMemo(
+    () => [...new Set(filletOwnerIds.filter((owner): owner is string => owner !== undefined))],
+    [filletOwnerIds],
+  );
+  const filletMixedOwners = filletOwnersValidated && filletDistinctOwners.length > 1;
+  const filletDerivedTargetBodyId =
+    filletOwnersValidated && !filletMissingOwner && !filletMixedOwners && filletDistinctOwners.length === 1
+      ? filletDistinctOwners[0]
+      : undefined;
+  const filletTargetError = !filletOwnersValidated
+    ? undefined
+    : filletMissingOwner !== undefined
+      ? t('partStudio.featureDialog.filletOwnerInvalid', { bodyKey: filletMissingOwner ?? '?' })
+      : filletMixedOwners
+        ? t('partStudio.featureDialog.filletMixedBodies')
+        : undefined;
+  const filletDerivedBody = filletDerivedTargetBodyId === undefined
+    ? undefined
+    : activeBodies.find((body) => body.bodyKey === filletDerivedTargetBodyId);
+  // N>1 时 fillet 必须发自动推导的 target；N≤1 保持 legacy（不发 target）。
+  const filletAutomaticTargetId =
+    filletChannel && bodies !== undefined && activeBodies.length > 1 && filletTargetError === undefined
+      ? filletDerivedTargetBodyId
+      : undefined;
+  // chamfer/shell：owner 通道未接线 → 一律禁提交（gated；不落默认 target）。
+  const unownedTargetChannel =
+    mode === 'new' &&
+    applyOp !== undefined &&
+    (effectiveFeatureType === 'chamfer' || effectiveFeatureType === 'shell');
+  // 手动 target 下拉只保留给「无拾取耦合」的 insert 通道；fillet/chamfer/shell 排除。
+  const manualTargetChannel =
+    insertTargetChannel &&
+    effectiveFeatureType !== 'fillet' &&
+    effectiveFeatureType !== 'chamfer' &&
+    effectiveFeatureType !== 'shell';
   // newBody 时无需 target（无 target 的 newBody 后端允许——锚定全局链尾）。
   const targetSelectorVisible =
-    insertTargetChannel && bodies !== undefined && activeBodies.length > 1 && !effectiveNewBody;
+    manualTargetChannel && bodies !== undefined && activeBodies.length > 1 && !effectiveNewBody;
   const effectiveTargetBodyKey = activeBodies.some((body) => body.bodyKey === targetBodyKey)
     ? targetBodyKey
     : (activeBodies[0]?.bodyKey ?? '');
   // 读面刷新中：N 未知 → insert 提交挂起（不得发无 target 的 regular insert）。
   const bodiesPending = insertTargetChannel && bodiesLoading === true;
   // I1：读面不可用（初次失败且未在刷新）→ target 无从确定，insert 提交禁用 + 可见提示。
+  // Minor 2：勾选 newBody 时无需 target（后端允许无 target 的新体）——豁免本门。
+  const newBodyReadExempt = extrudeChannel && effectiveNewBody;
   const bodiesReadFailed =
-    insertTargetChannel && bodies === undefined && bodiesLoading !== true && bodiesError !== undefined;
+    insertTargetChannel && bodies === undefined && bodiesLoading !== true
+    && bodiesError !== undefined && !newBodyReadExempt;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
@@ -638,7 +704,6 @@ export function FeatureDialog({
   // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
   const [radius, setRadius] = React.useState('5');
   const [propagateSmooth, setPropagateSmooth] = React.useState(true);
-  const [filletEdges, setFilletEdges] = React.useState<FilletEdgeRef[]>([]);
   // 拾取态：picking 供渲染（按钮切换/✓禁用），ref 镜像供 Escape 分叉（监听
   // 终身一次挂载，不吃闭包旧态——与 onCancelRef 同纪律）；工具实例经 ref 持有
   //（stop/卸载守卫时 exitTool，实例类型来自动态 import，不静态引入工具模块）。
@@ -669,13 +734,21 @@ export function FeatureDialog({
         const { startFilletEdgePick } = await import('../tools/modeling/FilletEdgePickTool.js');
         tool = await startFilletEdgePick({
           connectionKey,
-          onEdgeAdded: (ref) =>
-            setFilletEdges((prev) =>
-              prev.some((edge) => filletEdgeRefKey(edge) === filletEdgeRefKey(ref)) ? prev : [...prev, ref],
-            ),
-          onEdgeRemoved: (ref) => {
-            const key = filletEdgeRefKey(ref);
-            setFilletEdges((prev) => prev.filter((edge) => filletEdgeRefKey(edge) !== key));
+          onEdgeAdded: (ref, ownerElementId) => {
+            // Critical 1：owner=拾取元素 id（=getBodies.bodyKey）；去重键含 owner，
+            // 跨体同 refKey 不折叠（否则会丢失混合体错误、造成错体 target）。
+            const key = `${ownerElementId}:${filletEdgeRefKey(ref)}`;
+            setFilletPicks((prev) =>
+              prev.some((pick) => `${pick.ownerElementId}:${filletEdgeRefKey(pick.ref)}` === key)
+                ? prev
+                : [...prev, { ref, ownerElementId }],
+            );
+          },
+          onEdgeRemoved: (ref, ownerElementId) => {
+            const key = `${ownerElementId}:${filletEdgeRefKey(ref)}`;
+            setFilletPicks((prev) =>
+              prev.filter((pick) => `${pick.ownerElementId}:${filletEdgeRefKey(pick.ref)}` !== key),
+            );
           },
           onError: (message) =>
             IModelApp.notifications.outputMessage(
@@ -833,8 +906,10 @@ export function FeatureDialog({
     || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
     || patternUpstreamMissing
     // B6 M-A3.2a：读面刷新中（N 未知）/读面不可用（target 无从确定）禁提交；
-    // 目标下拉在场时必须已有有效目标。
+    // 目标下拉在场时必须已有有效目标；Critical 1：边跨体/孤儿 owner 或无 owner
+    // 通道（chamfer/shell）一律禁提交，绝不回落默认 target。
     || bodiesPending || bodiesReadFailed
+    || filletTargetError !== undefined || unownedTargetChannel
     || (targetSelectorVisible && effectiveTargetBodyKey === '');
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
@@ -919,6 +994,7 @@ export function FeatureDialog({
     if (patternUpstreamMissing) return; // pattern 上游门禁（无实体可阵列——✓ 已禁用，防御兜底）
     // B6 M-A3.2a：读面刷新中（N 未知）不派发；N>1 目标必选（禁止无 target 的 regular insert）。
     if (bodiesPending || bodiesReadFailed) return;
+    if (filletTargetError !== undefined || unownedTargetChannel) return;
     if (targetSelectorVisible && effectiveTargetBodyKey === '') return;
     // B5 pattern 参数校验：按当前形态给具体文案（count/spacing/angle——与服务端 zod 同域）。
     if (patternChannel) {
@@ -967,6 +1043,12 @@ export function FeatureDialog({
       }
       angleRadians = (degrees * Math.PI) / 180;
     }
+    // Critical 1：fillet 的 target 只来自拾取边父体（N>1）；其余通道来自手动下拉。
+    const opTargetBodyId = filletChannel
+      ? filletAutomaticTargetId
+      : targetSelectorVisible && effectiveTargetBodyKey !== ''
+        ? effectiveTargetBodyKey
+        : undefined;
     setError(undefined);
     setSubmitting(true);
     void (async () => {
@@ -1078,10 +1160,9 @@ export function FeatureDialog({
                 }
               : { profile: [], distance: parsedDistance },
           // B6 M-A3.2a：N>1 的显式目标 body 在 op 层（不在 params）；N≤1/newBody
-          // 缺省不发（legacy/全局链尾语义由后端裁决）。
-          ...(targetSelectorVisible && effectiveTargetBodyKey !== ''
-            ? { targetBodyId: effectiveTargetBodyKey }
-            : {}),
+          // 缺省不发（legacy/全局链尾语义由后端裁决）。Critical 1：fillet 的值=
+          // 拾取边父体（filletAutomaticTargetId），不是任何默认值。
+          ...(opTargetBodyId === undefined ? {} : { targetBodyId: opTargetBodyId }),
         });
       } catch (err) {
         // rpc-over-ipc 异常（连接断开等）——与拒收同面呈现，不静默。
@@ -1154,6 +1235,9 @@ export function FeatureDialog({
     effectiveTargetBodyKey,
     bodiesPending,
     bodiesReadFailed,
+    filletAutomaticTargetId,
+    filletTargetError,
+    unownedTargetChannel,
     t,
     onConfirm,
     buildResult,
@@ -1537,7 +1621,8 @@ export function FeatureDialog({
 
           {/* B6 M-A3.2a：目标实体（N>1 active authored body 的显式写目标）——
               值进 op.targetBodyId（不是 params）；newBody 时隐藏（新体由本 op 创建）。
-              仅 body-producing 特征渲染；单 body/读面不可用保持 legacy 载荷。 */}
+              手动选择仅给无拾取耦合的 insert 通道；fillet/chamfer/shell 走下方
+              自动推导/禁用（Critical 1）。单 body/读面不可用保持 legacy 载荷。 */}
           {targetSelectorVisible && (
             <section
               className="part-studio-feature-dialog__distance"
@@ -1566,6 +1651,45 @@ export function FeatureDialog({
                 ))}
               </select>
             </section>
+          )}
+
+          {/* Critical 1：fillet 的 target 按拾取边父体自动确定（只读显示）；跨体/
+              孤儿/消费态 owner → 显式错误 + 禁提交，绝不回落默认 body。 */}
+          {filletChannel && bodies !== undefined && activeBodies.length > 1 && (
+            filletTargetError !== undefined ? (
+              <p
+                role="alert"
+                className="part-studio-feature-dialog__alert"
+                data-testid="part-studio-feature-dialog-fillet-target-error"
+              >
+                {filletTargetError}
+              </p>
+            ) : filletDerivedBody ? (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-fillet-target-body"
+              >
+                {t('partStudio.featureDialog.filletTargetBody', {
+                  name: filletDerivedBody.name && filletDerivedBody.name.trim() !== ''
+                    ? filletDerivedBody.name
+                    : t('partStudio.tree.defaultBodyName', {
+                        index: activeBodies.indexOf(filletDerivedBody) + 1,
+                      }),
+                })}
+              </p>
+            ) : null
+          )}
+
+          {/* chamfer/shell：工具体/owner 通道未接线（gated）——显式禁提交，不默认 target。 */}
+          {unownedTargetChannel && (
+            <p
+              role="note"
+              className="part-studio-feature-dialog__hint"
+              data-testid="part-studio-feature-dialog-unowned-target-hint"
+            >
+              {t('partStudio.featureDialog.unownedTargetHint')}
+            </p>
           )}
 
           {/* fillet 通道（M6-b T6）：无 body/无连接诚实降级 / 添加边拾取钮 /
@@ -1616,8 +1740,11 @@ export function FeatureDialog({
 
               {filletEdges.length > 0 && (
                 <ul className="part-studio-feature-dialog__chips" data-testid="part-studio-feature-dialog-edge-chips">
-                  {filletEdges.map((edge, index) => (
-                    <li key={filletEdgeRefKey(edge)} className="part-studio-feature-dialog__chip">
+                  {filletPicks.map((pick, index) => (
+                    <li
+                      key={`${pick.ownerElementId}:${filletEdgeRefKey(pick.ref)}`}
+                      className="part-studio-feature-dialog__chip"
+                    >
                       <span className="part-studio-feature-dialog__chip-label">
                         {t('partStudio.featureDialog.edgeChip', { index: index + 1 })}
                       </span>
@@ -1626,9 +1753,9 @@ export function FeatureDialog({
                         aria-label={t('partStudio.featureDialog.removeEdge', { index: index + 1 })}
                         className="part-studio-feature-dialog__chip-remove"
                         disabled={submitting}
-                        onClick={() =>
-                          setFilletEdges((prev) => prev.filter((_, i) => i !== index))
-                        }
+                        onClick={() => {
+                          setFilletPicks((prev) => prev.filter((_, i) => i !== index));
+                        }}
                       >
                         <SvgClose />
                       </button>

@@ -64,9 +64,14 @@ function edgePick(cacheId: number): SubEntityLocationProps {
 const REF_A: FilletEdgeRef = { edge: { nodeId: 1, entityId: 2 } };
 const REF_B: FilletEdgeRef = { edge: { nodeId: 1, entityId: 4 } };
 
+interface CapturedCallbackEntry {
+  ref: FilletEdgeRef;
+  ownerElementId: string;
+}
+
 interface CapturedCallbacks {
-  added: FilletEdgeRef[];
-  removed: FilletEdgeRef[];
+  added: CapturedCallbackEntry[];
+  removed: CapturedCallbackEntry[];
   errors: string[];
   ended: number;
 }
@@ -81,8 +86,8 @@ function makeTool(impl?: (elementId: string, subEntityId: number) => Promise<{ o
   const callbacks: CapturedCallbacks = { added: [], removed: [], errors: [], ended: 0 };
   const tool = new TestablePickTool({
     connectionKey: 'model-key',
-    onEdgeAdded: (ref) => callbacks.added.push(ref),
-    onEdgeRemoved: (ref) => callbacks.removed.push(ref),
+    onEdgeAdded: (ref, ownerElementId) => callbacks.added.push({ ref, ownerElementId }),
+    onEdgeRemoved: (ref, ownerElementId) => callbacks.removed.push({ ref, ownerElementId }),
     onError: (message) => callbacks.errors.push(message),
     onEnded: () => {
       callbacks.ended += 1;
@@ -171,14 +176,27 @@ describe('M6-b T6：resolvePickedEdge 换算管道（mock RPC 隔离）', () => 
 });
 
 describe('M6-b T6：add/remove 回调映射（cache id → ref 反查）', () => {
-  it('拾得→onEdgeAdded；再点同边移除→onEdgeRemoved（同 ref 回传）', async () => {
+  it('拾得→onEdgeAdded（含父元素 id）；再点同边移除→onEdgeRemoved（同 ref+owner 回传）', async () => {
     let call = 0;
     const { tool, callbacks } = makeTool(() => Promise.resolve({ ok: true, ref: call++ === 0 ? REF_A : REF_B }));
     await tool.callAdd('0x1f', edgePick(5));
-    expect(callbacks.added).toEqual([REF_A]);
+    expect(callbacks.added).toEqual([{ ref: REF_A, ownerElementId: '0x1f' }]);
     expect(callbacks.removed).toHaveLength(0);
     await tool.callRemove('0x1f', edgePick(5));
-    expect(callbacks.removed).toEqual([REF_A]);
+    expect(callbacks.removed).toEqual([{ ref: REF_A, ownerElementId: '0x1f' }]);
+  });
+
+  it('Critical 1：owner=拾取元素 id（两条边分属不同体 → owner 各自回传）', async () => {
+    let call = 0;
+    const { tool, callbacks } = makeTool(() => Promise.resolve({ ok: true, ref: call++ === 0 ? REF_A : REF_B }));
+    await tool.callAdd('0x15', edgePick(5));
+    await tool.callAdd('0x18', edgePick(6));
+    expect(callbacks.added).toEqual([
+      { ref: REF_A, ownerElementId: '0x15' },
+      { ref: REF_B, ownerElementId: '0x18' },
+    ]);
+    await tool.callRemove('0x18', edgePick(6));
+    expect(callbacks.removed).toEqual([{ ref: REF_B, ownerElementId: '0x18' }]);
   });
 
   it('换算失败：onError 回报且不 onEdgeAdded；随后移除（高亮回落）不误发 onEdgeRemoved', async () => {
@@ -206,6 +224,6 @@ describe('M6-b T6：add/remove 回调映射（cache id → ref 反查）', () =>
     await tool.callAdd('0x1f', edgePick(6));
     expect(callbacks.added).toHaveLength(2);
     await tool.callRemove('0x1f'); // 基座 chooseNextHit 的 pop-last 形态
-    expect(callbacks.removed).toEqual([REF_A]);
+    expect(callbacks.removed).toEqual([{ ref: REF_A, ownerElementId: '0x1f' }]);
   });
 });

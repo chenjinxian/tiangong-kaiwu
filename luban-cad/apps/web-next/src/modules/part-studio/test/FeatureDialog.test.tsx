@@ -71,8 +71,8 @@ const featureRpc = vi.hoisted(() => ({
 const pickMocks = vi.hoisted(() => {
   interface Captured {
     connectionKey?: string;
-    onEdgeAdded?: (ref: unknown) => void;
-    onEdgeRemoved?: (ref: unknown) => void;
+    onEdgeAdded?: (ref: unknown, ownerElementId: string) => void;
+    onEdgeRemoved?: (ref: unknown, ownerElementId: string) => void;
     onError?: (message: string) => void;
     onEnded?: () => void;
   }
@@ -2039,9 +2039,20 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
   // M6-d v1.9：FilletEdgeRef=边自身持久 id 单引用（面对对退役）。
   const EDGE_1 = { edge: { nodeId: 1, entityId: 2 } };
   const EDGE_2 = { edge: { nodeId: 1, entityId: 4 } };
-  /** 模拟工具拾得一条边（换算完成后回调）。 */
-  function pickEdge(ref: { edge: { nodeId: number; entityId: number } }): void {
-    pickMocks.captured?.onEdgeAdded?.(ref);
+  // Critical 1：owner=拾取元素 id（getBodies.bodyKey）。
+  const FILLET_BODY_1: BodyInfo = { bodyKey: '0x15', name: 'Body 1', active: true, authored: true, sourceFeatureId: 'f1' };
+  const FILLET_BODY_2: BodyInfo = { bodyKey: '0x18', name: 'Body 2', active: true, authored: true, sourceFeatureId: 'f2' };
+  const FILLET_BODY_CONSUMED: BodyInfo = { bodyKey: '0x20', name: 'Body 3', active: false, authored: true };
+  const FILLET_BODIES_TWO = [FILLET_BODY_1, FILLET_BODY_2];
+  /**
+   * 模拟工具拾得一条边（换算完成后回调）。ownerElementId 缺省 `0x15`（单 body
+   * 测试现场）；Critical 1 用例显式传所属 body。
+   */
+  function pickEdge(
+    ref: { edge: { nodeId: number; entityId: number } },
+    ownerElementId = '0x15',
+  ): void {
+    pickMocks.captured?.onEdgeAdded?.(ref, ownerElementId);
   }
 
   function makeApplyOp() {
@@ -2056,7 +2067,7 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
 
   function renderFilletDialog(applyOp: ReturnType<typeof makeApplyOp>, props: Partial<Parameters<typeof FeatureDialog>[0]> = {}) {
     const onConfirm = vi.fn();
-    render(
+    const rendered = render(
       <FeatureDialog
         featureName="圆角"
         mode="new"
@@ -2068,7 +2079,7 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
         {...props}
       />,
     );
-    return { onConfirm, applyOp };
+    return { onConfirm, applyOp, unmount: rendered.unmount };
   }
 
   it('初始形态：半径缺省 5 + 切向延伸勾选 + 添加边钮 + 空边集提示 + ✓/成品禁用 + 距离区不在场', () => {
@@ -2118,6 +2129,100 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     await user.click(screen.getByRole('button', { name: '成品' }));
     const params = (applyOp.mock.calls[0]![0] as { params: { edges: unknown[] } }).params;
     expect(params.edges).toEqual([EDGE_2, EDGE_1]); // 拾取序（契约面对序无关，透传即可）
+  });
+
+  // ── Critical 1：target 由拾取边父体自动推导（不默认 body1）─────────────────
+
+  it('N=2：拾 body2 的边 → targetBodyId=body2（无手动下拉；只读显示目标体）', async () => {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp(), { bodies: FILLET_BODIES_TWO });
+    // 手动 target 下拉不存在（自动推导语义）。
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1, '0x18');
+    await screen.findByText('边 1');
+    expect(screen.getByTestId('part-studio-feature-dialog-fillet-target-body').textContent)
+      .toContain('Body 2');
+    pickMocks.captured?.onEnded?.();
+    await waitFor(() => expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'fillet',
+      targetBodyId: '0x18',
+      params: { radius: 5, propagateSmooth: true, edges: [EDGE_1] },
+    });
+  });
+
+  it('边跨两个 body → 显式错误 + 禁提交（不回落默认 target，零 op）', async () => {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp(), { bodies: FILLET_BODIES_TWO });
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1, '0x15');
+    pickEdge(EDGE_2, '0x18');
+    await screen.findByText('边 2');
+    pickMocks.captured?.onEnded?.();
+    const alert = await screen.findByTestId('part-studio-feature-dialog-fillet-target-error');
+    expect(alert.textContent).toContain('跨多个实体');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('跨 body 同 refKey（边 id 碰撞）→ 不折叠，仍判混合并禁提交', async () => {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp(), { bodies: FILLET_BODIES_TWO });
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1, '0x15');
+    pickEdge({ edge: { nodeId: 1, entityId: 2 } }, '0x18'); // 同 refKey、异 owner
+    await screen.findByText('边 2');
+    pickMocks.captured?.onEnded?.();
+    expect((await screen.findByTestId('part-studio-feature-dialog-fillet-target-error')).textContent)
+      .toContain('跨多个实体');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('owner 非 active authored body（未知/消费态）→ 显式错误 + 禁提交（零 op）', async () => {
+    for (const owner of ['0x99', '0x20']) {
+      const user = userEvent.setup();
+      const { applyOp, unmount } = renderFilletDialog(makeApplyOp(), {
+        bodies: [...FILLET_BODIES_TWO, FILLET_BODY_CONSUMED],
+      });
+      await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+      await waitFor(() => expect(pickMocks.captured).toBeDefined());
+      pickEdge(EDGE_1, owner);
+      await screen.findByText('边 1');
+      pickMocks.captured?.onEnded?.();
+      const alert = await screen.findByTestId('part-studio-feature-dialog-fillet-target-error');
+      expect(alert.textContent).toContain(owner);
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+      await user.click(screen.getByRole('button', { name: '确认' }));
+      expect(applyOp).not.toHaveBeenCalled();
+      unmount();
+      pickMocks.captured = undefined;
+    }
+  });
+
+  it('N=1：即使拾到唯一 body 的边也保持 legacy（不发 targetBodyId）', async () => {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp(), { bodies: [FILLET_BODY_1] });
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1, '0x15');
+    await screen.findByText('边 1');
+    pickMocks.captured?.onEnded?.();
+    await waitFor(() => expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'fillet',
+      params: { radius: 5, propagateSmooth: true, edges: [EDGE_1] },
+    });
   });
 
   it('半径与切向延伸进载荷：改 2.5 + 取消勾选 → {radius:2.5, propagateSmooth:false}', async () => {
@@ -2497,6 +2602,20 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     expect(applyOp).not.toHaveBeenCalled();
   });
 
+  it('读面不可用但勾选 newBody → 仍可提交（newBody 无需 target；Minor 2）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodiesError: 'init race' });
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('checkbox', { name: '新建实体' }));
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], newBody: true },
+    });
+  });
+
   it('读面刷新中（bodiesLoading）→ 提交禁用 + 诚实提示（未知 N 不得发无 target 的 regular insert）', async () => {
     const applyOp = makeApplyOp();
     await renderReadyExtrude(applyOp, { bodies: ACTIVE_TWO, bodiesLoading: true });
@@ -2505,7 +2624,7 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     expect(applyOp).not.toHaveBeenCalled();
   });
 
-  it('所有可提交 insertFeature 通道 N>1 均显示目标实体（mirror/fillet 含依附型）；单 body 不显示', async () => {
+  it('无拾取耦合的 insert 通道 N>1 显示手动目标；fillet/chamfer/shell 不显示手动目标', async () => {
     const applyOp = makeApplyOp();
     const user = userEvent.setup();
     const mirror = render(
@@ -2530,8 +2649,7 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     });
     mirror.unmount();
 
-    // I2：fillet 依附上游体，但后端 planInsert 对**所有**非 newBody insert 的 N>1 都要求
-    // targetBodyId——N>1 必须显示目标选择器（否则无法提交）。
+    // Critical 1：fillet 的 target 只能由拾取边父体自动推导——不渲染手动下拉。
     const filletMulti = render(
       <FeatureDialog
         featureName="圆角"
@@ -2542,23 +2660,27 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
         onConfirm={vi.fn()}
       />,
     );
-    expect(screen.getByRole('combobox', { name: '目标实体' })).toBeDefined();
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
     expect(screen.queryByRole('checkbox', { name: '新建实体' })).toBeNull();
     filletMulti.unmount();
 
-    // 单 body：无 target（legacy 载荷）。
-    render(
-      <FeatureDialog
-        featureName="圆角"
-        mode="new"
-        featureType="fillet"
-        applyOp={applyOp}
-        bodies={[BODY_1]}
-        onConfirm={vi.fn()}
-      />,
-    );
-    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
-    expect(screen.queryByRole('checkbox', { name: '新建实体' })).toBeNull();
+    // chamfer/shell：owner 通道未接线 → 不显示手动下拉 + 禁提交提示。
+    for (const featureType of ['chamfer', 'shell'] as const) {
+      const gated = render(
+        <FeatureDialog
+          featureName={featureType}
+          mode="new"
+          featureType={featureType}
+          applyOp={applyOp}
+          bodies={ACTIVE_TWO}
+          onConfirm={vi.fn()}
+        />,
+      );
+      expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
+      expect(screen.getByTestId('part-studio-feature-dialog-unowned-target-hint')).toBeDefined();
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+      gated.unmount();
+    }
   });
 
   it('edit 模式：落库 params.newBody 回显为勾选且禁用（结构键不可翻转）；确认载荷保留 newBody', async () => {

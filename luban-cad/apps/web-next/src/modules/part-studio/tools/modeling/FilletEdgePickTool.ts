@@ -20,7 +20,8 @@
  * shared v1.9 纯换；私有仓 FeatureRpcImpl 走邻接通道门禁：getConnectedSubEntities
  * 边→邻面直查，邻接面数==2 才放行 op31 topologyIdFromSubEntity 换**边自身 id**
  * 〔T1 起边创建即赋号，布尔分裂子边继承〕；>2=多面交界边（非流形）、≤1=片体
- * 边界边，均在拾取时诚实拒收），换算成功才回调 onEdgeAdded；失败回调 onError
+ * 边界边，均在拾取时诚实拒收），换算成功才回调 onEdgeAdded（含父元素 id——
+ * Critical 1 的 fillet target 自动推导依据）；失败回调 onError
  * 并摘除高亮（不留「高亮在而 chips 无」的裂口）。cache id→ref 映射随拾取会话
  * 存活（removeSubEntity 反查回调 onEdgeRemoved——再点同边=取消该边）。
  *
@@ -50,10 +51,13 @@ type ElementId = string;
 export interface FilletEdgePickToolOptions {
   /** iModel key（resolveEdgeRef RPC 寻址键；FeatureDialog connectionKey 直通）。 */
   connectionKey: string;
-  /** 每拾得一条边（已换持久拓扑 id 对）——对话框 chips 增行。 */
-  onEdgeAdded?: (ref: FilletEdgeRef) => void;
-  /** 已拾边被取消（再点同边）——对话框 chips 减行（按 refKey 反查）。 */
-  onEdgeRemoved?: (ref: FilletEdgeRef) => void;
+  /**
+   * 每拾得一条边（已换持久拓扑 id 对）+ 父元素 id（=getBodies.bodyKey）——
+   * 对话框 chips 增行，并按 owner 自动推导 fillet 的 targetBodyId（Critical 1）。
+   */
+  onEdgeAdded?: (ref: FilletEdgeRef, ownerElementId: ElementId) => void;
+  /** 已拾边被取消（再点同边）——对话框 chips 减行（按 refKey 反查）+ owner 同步移除。 */
+  onEdgeRemoved?: (ref: FilletEdgeRef, ownerElementId: ElementId) => void;
   /** 边引用换算失败等错误回报（对话框 toast 呈现；文案已本地化）。 */
   onError?: (message: string) => void;
   /** 拾取会话结束（右键/Esc/宿主 stop 触发工具退出）——对话框回非拾取态。 */
@@ -137,7 +141,8 @@ export class FilletEdgePickTool extends LocateSubEntityTool {
       return;
     }
     this._pickRefs.set(pickKey(id, props.subEntity.id), ref);
-    this._options.onEdgeAdded?.(ref);
+    // Critical 1：owner=拾取元素 id（体元素；getBodies.bodyKey 同值）。
+    this._options.onEdgeAdded?.(ref, id);
   }
 
   /** 移除一条已拾边（再点同边）：反查映射回报 onEdgeRemoved（chips 减行）。 */
@@ -152,7 +157,7 @@ export class FilletEdgePickTool extends LocateSubEntityTool {
     const ref = this._pickRefs.get(key);
     if (undefined === ref) return; // 外来移除/失败回退路径——无可减行
     this._pickRefs.delete(key);
-    this._options.onEdgeRemoved?.(ref);
+    this._options.onEdgeRemoved?.(ref, id);
   }
 
   /** 右键=结束拾取（对话框驱动裁决；不沿用基座右键换.hit 语义）。 */

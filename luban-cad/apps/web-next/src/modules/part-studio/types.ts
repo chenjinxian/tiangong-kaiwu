@@ -9,9 +9,10 @@ import type { LubanFeatureType, PatternParams, SketchPlaneDto } from '@luban-cad
 
 /**
  * body 产出型特征（B6 M-A3.2a 单一真源）：这些特征的 insert 在 N>1 authored active
- * body 时必须显式 targetBodyId（后端 op 边界同口径），UI 的目标实体选择器只对它们
- * 渲染；fillet/chamfer/shell 依附上游体、sketch 不产体，均不参与目标选择。
- * 消费方：PartStudioSession（hasBodies 判定）+ FeatureDialog（target 选择器）。
+ * body 时必须显式 targetBodyId（后端 op 边界同口径）。**本常量不驱动 target UI**
+ * （R1/Critical 1 后：手动 target 下拉给无拾取耦合的 insert 通道，fillet 按拾取边
+ * 父体自动推导，chamfer/shell 禁提交）——仅作为 PartStudioSession `hasBodies`
+ * 的 legacy 回退判据（body 读面不可用时树内是否有产体特征）。
  */
 export const BODY_PRODUCING_FEATURE_TYPES: readonly LubanFeatureType[] = [
   'extrude',
