@@ -4,14 +4,29 @@
  * 场景（自建独立 iModel，避开共享 Seed）：
  *   草图 A → extrude body1 → 草图 B → extrude(newBody) body2
  *   → getBodies 两个 active authored body；页面树两行
- *   → 删除 body2 的 newBody feature（RPC，targetBodyId）→ body2 consumed、树一行、几何 hide
- *   → 原生 undo → body2 active、树两行、hide 清除。
+ *   → 逐 body eye：隐藏 body2（data-hidden + EmphasizeElements neverDrawn）→ 显示
+ *   → 程序化 SelectionSet 桥：replace([body2Key]) → 画布菜单出 part 删除项 →
+ *     emptyAll + 收合
+ *   → 树删除 UI（B6 M-A5 T2）：newBody 特征行右键「删除」→ HITL 确认 →
+ *     body2 consumed、树一行、几何 hide → 原生 undo → 两体恢复、hide 清除
+ *   → 第二个 NEW-body（body3）同款树删除 → consumed → undo → redo → undo
+ *     （原生 redo 覆盖；见下文「redo 可达性」）→ 清理 body3
+ *   → 非默认体 fillet（真栈拾边）→ 抑制/取消抑制（行 data-suppressed 往返、
+ *     无失败 toast）。
  *
- * 该用例同时覆盖首开并发（全新 iModel 首次打开）与 1.15 getBodies RPC；
- * 非默认体 fillet 的 UI 路由由 FeatureDialog/private T9c 单测覆盖（真栈边拾取另批）。
+ * redo 可达性（MS 1.16 实证，Task 3 报告登记为后端缺陷、非 web 可修）：
+ * deleteFeature 会 cache.delete(featureId)；**首个** delete→undo 后本页
+ * onAfterUndoRedo 自动 refresh 的首个读 RPC 触发 FeatureService.ensureWarm
+ * 冷重建（rebuildAll 写体 + commit → 新事务清空原生 redo 栈），故首个 undo 的
+ * redo 不可达（以 disabled 哨兵登记，后端修复时翻红提示回填）。ensureWarm 的
+ * 一次性 warmAttemptedKeys 标记随该重建落位：同库后续 delete→undo 不再重建，
+ * redo 全程可用——第二个 NEW-body 的 undo/redo/undo 因此可真栈覆盖。
+ *
+ * 读面纪律（MS 全局 100 req/15min）：等待/同步一律走 UI（零件行数/隐藏集/
+ * 行属性），getBodies/getTree 只在关键检查点单次读。
  */
 
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import {
   authHeaders,
   collectConsoleErrors,
@@ -160,6 +175,20 @@ async function createScratchImodel(
   return { itwinId, imodelId };
 }
 
+/** 视口 neverDrawn 当前集（consumed ∪ 手动隐藏；undefined→[]）。纯前端读，不耗 RPC。 */
+async function hiddenElementIds(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as {
+      IModelApp: { viewManager: { getFirstOpenView(): unknown } };
+      EmphasizeElements: { get(vp: unknown): { getHiddenElements(vp: unknown): Iterable<string> | undefined } | undefined };
+    };
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    const ee = cf.EmphasizeElements.get(vp);
+    const set = ee?.getHiddenElements(vp);
+    return set ? Array.from(set).map(String) : [];
+  });
+}
+
 test('真栈：extrude newBody 两体 → getBodies/树 → consumed 隐藏 → undo', async ({ page, request }) => {
   test.setTimeout(900_000);
   const consoleErrors = collectConsoleErrors(page);
@@ -221,69 +250,172 @@ test('真栈：extrude newBody 两体 → getBodies/树 → consumed 隐藏 → 
   // eye 钮——按主行 class 计数（getByRole('button') 会翻倍）。
   const partList = page.getByTestId('part-studio-part-list');
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
+  // 画布菜单项名与桥同口径：label=BodyInfo.name ?? bodyKey（selectionName）。
+  const body2Name = body2!.name ?? body2!.bodyKey;
+  const body2Row = page.getByTestId(`tree-row-${body2!.bodyKey}`);
+  const body2Eye = page.getByTestId(`tree-row-visibility-${body2!.bodyKey}`);
 
-  // 删除 newBody feature（targetBodyId 指向 body2）→ consumed、树一行、几何 hidden
-  const del = await msRpc(
-    itwinId, imodelId, 'applyFeatureOp',
-    [dbKey, { kind: 'deleteFeature', featureId: newBodyFeatureId, targetBodyId: body2!.bodyKey }, leaseSessionId],
-    accessToken,
-  );
-  expect((del as { ok: boolean; error?: string }).ok, `delete newBody: ${(del as { error?: string }).error ?? ''}`).toBe(true);
-  await expect.poll(async () => (await getBodies()).filter((b) => b.active).length, { timeout: 90_000 }).toBe(1);
-  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(1);
+  // ── eye hide/show（B6 M-A5 T2 逐 body 可见性）：store.hiddenIds → neverDrawn 并集 ──
+  await expect(body2Eye).toHaveAttribute('aria-pressed', 'false');
+  await body2Eye.click();
+  await expect(body2Row).toHaveAttribute('data-hidden', 'true');
+  await expect(body2Eye).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body2!.bodyKey);
+  await body2Eye.click();
+  await expect(body2Row).not.toHaveAttribute('data-hidden', 'true');
+  await expect(body2Eye).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body2!.bodyKey);
+  console.log('[newbody] eye hide/show OK');
 
-  const hidden = await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
-      IModelApp: { viewManager: { getFirstOpenView(): unknown } };
-      EmphasizeElements: { get(vp: unknown): { getHiddenElements(vp: unknown): Iterable<string> | undefined } | undefined };
-    };
-    const vp = cf.IModelApp.viewManager.getFirstOpenView();
-    const ee = cf.EmphasizeElements.get(vp);
-    const set = ee?.getHiddenElements(vp);
-    return set ? Array.from(set) : [];
-  });
-  expect(hidden.map(String), 'consumed body2 应进入 neverDrawn').toContain(body2!.bodyKey);
-  console.log(`[newbody] hidden=${hidden.join(',')}`);
-
-  // 原生 undo → active 恢复、树两行、hide 清除
-  const undo = page.getByTestId('part-studio-undo-button');
-  await expect(undo).toBeEnabled({ timeout: 90_000 });
-  await undo.click();
-  await expect.poll(async () => (await getBodies()).filter((b) => b.active).length, { timeout: 90_000 }).toBe(2);
-  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
-  const hiddenAfterUndo = await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
-      IModelApp: { viewManager: { getFirstOpenView(): unknown } };
-      EmphasizeElements: { get(vp: unknown): { getHiddenElements(vp: unknown): Iterable<string> | undefined } | undefined };
-    };
-    const vp = cf.IModelApp.viewManager.getFirstOpenView();
-    const ee = cf.EmphasizeElements.get(vp);
-    const set = ee?.getHiddenElements(vp);
-    return set ? Array.from(set) : [];
-  });
-  expect(hiddenAfterUndo.map(String), 'undo 后 body2 不应仍 hidden').not.toContain(body2!.bodyKey);
-
-  // 树中 newBody 特征 status=0（删除前已落库；undo 后恢复）
-  const tree = await getTree();
-  expect(tree.find((r) => r.id === newBodyFeatureId)?.status).toBe(0);
-
-  // ── 非默认体 fillet 真栈：拾 body2 边 → target 自动 owner；body2.sourceFeatureId=fillet ──
+  // 画布几何与坐标（选择桥 / 等轴测 / fillet 拾边共用）。
   const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
   const cb = await canvas.boundingBox();
   if (!cb) throw new Error('canvas boundingBox 不可得');
   const cx = cb.x + cb.width / 2;
   const cy = cb.y + cb.height / 2;
+  const canvasMenu = page.getByRole('menu', { name: '画布菜单' });
 
-  // 等轴测 + 适应视图（两条盒体都入框）
+  // ── 程序化 selection bridge（T1）：selectionSet.replace → store part 选择 ──
+  // 右键画布 → part 菜单「删除 {body2}」在列（证明桥已写入 store；不新增 RPC）。
+  await page.evaluate(async (bodyKey) => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as {
+      IModelApp: {
+        viewManager: {
+          getFirstOpenView(): {
+            iModel: { selectionSet: { replace(ids: string[]): void; emptyAll(): void } };
+          } | undefined;
+        };
+      };
+    };
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) throw new Error('无打开视口');
+    vp.iModel.selectionSet.replace([bodyKey]);
+  }, body2!.bodyKey);
+  // 桥 onChanged 同步写 store；留一帧 React 提交（菜单读 store 快照）。
+  await page.waitForTimeout(150);
   await page.mouse.click(cx, cy + 120, { button: 'right' });
-  const menu = page.getByRole('menu', { name: '画布菜单' });
-  await expect(menu).toBeVisible();
-  await menu.getByRole('menuitem', { name: '等轴测视图' }).click();
-  await expect(menu).toBeHidden();
+  await expect(canvasMenu).toBeVisible();
+  await expect(canvasMenu.getByRole('menuitem', { name: `删除 ${body2Name}`, exact: true })).toBeVisible();
+  await expect(canvasMenu.getByRole('menuitem', { name: `隐藏 ${body2Name}`, exact: true })).toBeVisible();
+  await page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as {
+      IModelApp: {
+        viewManager: {
+          getFirstOpenView(): { iModel: { selectionSet: { emptyAll(): void } } } | undefined;
+        };
+      };
+    };
+    cf.IModelApp.viewManager.getFirstOpenView()?.iModel.selectionSet.emptyAll();
+  });
+  await page.keyboard.press('Escape');
+  await expect(canvasMenu).toBeHidden();
+  console.log(`[newbody] selection bridge → 画布 part 菜单 OK（${body2Name}）`);
+
+  // ── 树删除 UI（T2）：特征行右键「删除」→ HITL 确认（dialog 作用域） ──
+  const featureMenu = page.getByRole('menu', { name: '特征菜单' });
+  const newBodyRow = page.getByTestId(`tree-row-${newBodyFeatureId}`);
+  // 单点删除通道：右键特征行 → 「特征菜单」删除 → HITL 在 dialog 作用域确认。
+  const deleteFeatureViaTree = async (featureId: string): Promise<void> => {
+    const row = page.getByTestId(`tree-row-${featureId}`);
+    const name = ((await row.textContent()) ?? '').trim();
+    await row.click({ button: 'right' });
+    await expect(featureMenu).toBeVisible();
+    await featureMenu.getByRole('menuitem', { name: '删除', exact: true }).click();
+    // dialog 作用域点「删除」——避免命中菜单同名项（菜单已收合，收窄仍是纪律）。
+    const dialog = page.getByRole('dialog', { name: `删除 ${name}` });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: '删除', exact: true }).click();
+    await expect(dialog).toBeHidden();
+  };
+  await deleteFeatureViaTree(newBodyFeatureId);
+
+  // 同步走 UI（零件行数/隐藏集），状态断言用单次 RPC 读（限流预算）。
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(1);
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body2!.bodyKey);
+  const afterDelete = await getBodies();
+  expect(afterDelete.find((b) => b.bodyKey === body2!.bodyKey)?.active, 'UI 删除后 body2 应 consumed').toBe(false);
+  console.log('[newbody] 树删除 UI（HITL）→ body2 consumed、树一行、hide 生效');
+
+  // 原生 undo → 两体恢复、树两行、hide 清除、特征行恢复
+  const undo = page.getByTestId('part-studio-undo-button');
+  const redo = page.getByTestId('part-studio-redo-button');
+  await expect(undo).toBeEnabled({ timeout: 90_000 });
+  await undo.click();
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body2!.bodyKey);
+  await expect(newBodyRow).toBeVisible({ timeout: 90_000 });
+  const restored = await getBodies();
+  expect(restored.find((b) => b.bodyKey === body2!.bodyKey)?.active, 'undo 后 body2 应恢复 active').toBe(true);
+  const tree = await getTree();
+  expect(tree.find((r) => r.id === newBodyFeatureId)?.status, 'undo 后 newBody 特征应恢复 status=0').toBe(0);
+
+  // 已知后端行为（MS 1.16，Task 3 报告登记；非 web 可修）：deleteFeature 会
+  // cache.delete(featureId)；首次 undo 后本页 onAfterUndoRedo 自动 refresh 的
+  // 首个读 RPC 触发 FeatureService.ensureWarm 冷重建（rebuildAll 写体 + commit，
+  // MS 日志 engine.rebuildAll{written=2}+notifyCommit 实证）——新事务清空原生
+  // redo 栈。故**首个** delete→undo 的 redo 在本栈不可达（人类同路径亦然）。
+  // warmAttemptedKeys 一次性标记随该重建落位：后续同一库的 delete→undo 不再
+  // 重建/commit。此处以 disabled 作缺陷哨兵（后端修复时翻红，提示把 redo 断言
+  // 回填本段）；redo 语义由下方第二个 NEW-body 的完整 undo/redo/undo 覆盖。
+  await expect(redo).toBeDisabled({ timeout: 90_000 });
+  console.log('[newbody] 树删除 undo → 两体恢复（首个 undo 的 redo 被 ensureWarm 冷重建 commit 清除，登记）');
+
+  // ── 第二个 NEW-body（body3）：delete/undo/redo 全程（redo 真栈覆盖）──
+  // 与首个 NEW-body 同一 deleteFeature/HITL/零件树/隐藏/原生 undo 通道；区别只在
+  // 一次性 warm 标记已落位 → undo 后不再冷却重建，redo 栈保留。RPC 只用于建体
+  // 与检查点读，同步全走 UI（行数/隐藏集）。
+  const sketchC = await insertSketch(rectangleSketch(8, 0, 10, 2), xyPlane(0), '草图 C');
+  const newBody3FeatureId = await apply({
+    kind: 'insertFeature', featureType: 'extrude',
+    params: { profile: [], distance: 1, sketchId: sketchC, regions: [0], newBody: true },
+  }, 'extrude newBody body3');
+  const bodiesWith3 = await getBodies();
+  const body3 = bodiesWith3.find((b) => b.sourceFeatureId === newBody3FeatureId);
+  expect(body3, '第三个 newBody feature 应驱动一个 active body').toBeTruthy();
+  const body3Key = body3!.bodyKey;
+  const body3FeatureRow = page.getByTestId(`tree-row-${newBody3FeatureId}`);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(3);
+  await expect(body3FeatureRow).toBeVisible({ timeout: 90_000 });
+
+  await deleteFeatureViaTree(newBody3FeatureId);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body3Key);
+
+  await expect(undo).toBeEnabled({ timeout: 90_000 });
+  await undo.click();
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(3);
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body3Key);
+  await expect(body3FeatureRow).toBeVisible({ timeout: 90_000 });
+  const restored3 = await getBodies();
+  expect(restored3.find((b) => b.bodyKey === body3Key)?.active, 'undo 后 body3 应恢复 active').toBe(true);
+
+  await expect(redo).toBeEnabled({ timeout: 90_000 });
+  await redo.click();
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body3Key);
+  await expect(undo).toBeEnabled({ timeout: 90_000 });
+  await undo.click();
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(3);
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).not.toContain(body3Key);
+  await expect(body3FeatureRow).toBeVisible({ timeout: 90_000 });
+  console.log('[newbody] 第二 NEW-body 树删除 undo/redo/undo OK（redo 真栈可达）');
+
+  // 清理第三体（不影响两体基线与 fillet 拾边；consumed 常驻但不入树/不入框）。
+  await deleteFeatureViaTree(newBody3FeatureId);
+  await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body3Key);
+  console.log('[newbody] body3 清理完成（两体基线恢复）');
+
+  // ── 非默认体 fillet 真栈：拾 body2 边 → target 自动 owner；body2.sourceFeatureId=fillet ──
+  // 等轴测 + 适应视图（两条盒体都入框；选择已在上段清空 → 空白态菜单）。
   await page.mouse.click(cx, cy + 120, { button: 'right' });
-  await expect(menu).toBeVisible();
-  await menu.getByRole('menuitem', { name: '适应视图' }).click();
-  await expect(menu).toBeHidden();
+  await expect(canvasMenu).toBeVisible();
+  await canvasMenu.getByRole('menuitem', { name: '等轴测视图' }).click();
+  await expect(canvasMenu).toBeHidden();
+  await page.mouse.click(cx, cy + 120, { button: 'right' });
+  await expect(canvasMenu).toBeVisible();
+  await canvasMenu.getByRole('menuitem', { name: '适应视图' }).click();
+  await expect(canvasMenu).toBeHidden();
 
   // 世界点（body2 盒 [4,6]×[0,2]×[0,2] 的竖边/顶边中点）投影后 boresite 点击
   const projected = await page.evaluate(async (points) => {
@@ -340,6 +472,25 @@ test('真栈：extrude newBody 两体 → getBodies/树 → consumed 隐藏 → 
   const byFeature = afterFilletBodies.find((b) => b.sourceFeatureId === filletRow!.id);
   expect(byFeature, 'fillet 应驱动一个 body').toBeTruthy();
   expect(byFeature!.bodyKey, 'fillet 目标应为拾边的 body2（非默认 body1）').toBe(body2!.bodyKey);
+
+  // ── fillet 抑制/取消抑制（T2 树菜单 → applyOp setFeatureSuppressed）──
+  // 行 data-suppressed 由服务端 getFeatureTree 刷新驱动（非乐观改树）：属性在
+  // 即证明 op 落库；同时排除失败 toast（失败路径不发刷新）。
+  const filletRowLocator = page.getByTestId(`tree-row-${filletRow!.id}`);
+  await expect(filletRowLocator).toBeVisible({ timeout: 90_000 });
+  await filletRowLocator.click({ button: 'right' });
+  await expect(featureMenu).toBeVisible();
+  await featureMenu.getByRole('menuitem', { name: '抑制', exact: true }).click();
+  await expect(filletRowLocator).toHaveAttribute('data-suppressed', 'true', { timeout: 90_000 });
+  await expect(page.getByText('抑制操作失败')).toHaveCount(0);
+  console.log('[newbody] fillet 抑制 OK');
+
+  await filletRowLocator.click({ button: 'right' });
+  await expect(featureMenu).toBeVisible();
+  await featureMenu.getByRole('menuitem', { name: '取消抑制', exact: true }).click();
+  await expect(filletRowLocator).not.toHaveAttribute('data-suppressed', 'true', { timeout: 90_000 });
+  await expect(page.getByText('抑制操作失败')).toHaveCount(0);
+  console.log('[newbody] fillet 取消抑制 OK');
 
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
 });
