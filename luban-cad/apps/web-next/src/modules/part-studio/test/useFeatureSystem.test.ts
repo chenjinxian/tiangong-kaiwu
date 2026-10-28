@@ -26,19 +26,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
-import type { FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
 import { FEATURE_OP_TIMEOUT_MS, useFeatureSystem } from '../hooks/useFeatureSystem.js';
 
 // ---------------------------------------------------------------------------
-// LubanFeatureRpcInterface.getClient() 可编程替身（本版子集四方法）
+// LubanFeatureRpcInterface.getClient() 可编程替身（本版子集五方法；M-A3.2a 增 getBodies）
 // ---------------------------------------------------------------------------
 const fakeClient = vi.hoisted(() => {
   const makeTree = (): FeatureTreeEntry[] => [
     { id: 'f1', featureType: 'extrude', orderKey: 1, suppressed: false, status: 0, params: {} },
   ];
+  const makeBodies = (): BodyInfo[] => [
+    { bodyKey: '0x15', name: 'Body 1', active: true, authored: true, sourceFeatureId: 'f1' },
+  ];
   return {
     makeTree,
+    makeBodies,
     getFeatureTree: vi.fn(async (_key: string): Promise<FeatureTreeEntry[]> => makeTree()),
+    // B6 M-A3.2a：body 读面（与树同刷新）。
+    getBodies: vi.fn(async (_key: string): Promise<BodyInfo[]> => makeBodies()),
     // 返回型宽化到契约联合（旧源 as const 字面量型在 mockResolvedValueOnce 改写
     // 拒收分支时与 strict tsc 相抵——web-next build 门含 tsc --noEmit 全量测）。
     applyFeatureOp: vi.fn(async (_key: string, _op: FeatureOp, _sessionId: string): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f2' })),
@@ -432,6 +438,103 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
 
     unmount();
     expect(connection.txns.onAfterUndoRedo.removeListener).toHaveBeenCalled();
+  });
+
+  // ── B6 M-A3.2a：body 读面（getBodies 与树同刷新）──────────────────────────
+
+  it('mount 经 getBodies(connection.key) 读 body 读面（bodies/bodiesLoaded 就绪）', async () => {
+    const connection = createMockConnection();
+
+    const { result } = renderFeatureSystem(connection);
+
+    expect(result.current.bodies).toEqual([]);
+    expect(result.current.bodiesLoaded).toBe(false);
+    await waitFor(() => expect(result.current.bodiesLoaded).toBe(true));
+    expect(fakeClient.getBodies).toHaveBeenCalledWith('test-model.bim');
+    expect(result.current.bodies).toEqual(fakeClient.makeBodies());
+    expect(result.current.bodiesError).toBeUndefined();
+    expect(result.current.bodiesLoading).toBe(false);
+  });
+
+  it('onCommitted / onAfterUndoRedo 同时刷新树与 bodies（同一 refresh 通道）', async () => {
+    const connection = createMockConnection();
+
+    const { result } = renderFeatureSystem(connection);
+    await waitFor(() => expect(fakeClient.getBodies).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      connection.emitCommitted();
+    });
+    await waitFor(() => expect(fakeClient.getBodies).toHaveBeenCalledTimes(2));
+
+    act(() => {
+      connection.emitAfterUndoRedo(true);
+    });
+    await waitFor(() => expect(fakeClient.getBodies).toHaveBeenCalledTimes(3));
+    expect(result.current.bodiesLoaded).toBe(true);
+  });
+
+  it('applyOp 成功后 refresh 同时重读 bodies（消费态 active=false 随树刷新落到读面）', async () => {
+    const connection = createMockConnection();
+    const consumed: BodyInfo[] = [
+      { bodyKey: '0x15', name: 'Body 1', active: true, authored: true, sourceFeatureId: 'f1' },
+      { bodyKey: '0x18', name: 'Body 2', active: false, authored: true },
+    ];
+    fakeClient.getBodies.mockResolvedValueOnce(fakeClient.makeBodies()).mockResolvedValue(consumed);
+
+    const { result } = renderFeatureSystem(connection);
+    await waitFor(() => expect(result.current.bodiesLoaded).toBe(true));
+    const before = fakeClient.getBodies.mock.calls.length;
+
+    await act(async () => {
+      await result.current.applyOp({ kind: 'deleteFeature', featureId: 'f2', targetBodyId: '0x18' });
+    });
+
+    await waitFor(() => expect(fakeClient.getBodies.mock.calls.length).toBeGreaterThan(before));
+    await waitFor(() => expect(result.current.bodies).toEqual(consumed));
+  });
+
+  it('getBodies 失败与树错误隔离：树照常落定，bodiesError 单独呈现（不翻树 error/loading）', async () => {
+    const connection = createMockConnection();
+    fakeClient.getBodies.mockRejectedValueOnce(new Error('getBodies boom'));
+
+    const { result } = renderFeatureSystem(connection);
+
+    await waitFor(() => expect(result.current.bodiesLoading).toBe(false));
+    expect(result.current.tree).toEqual(fakeClient.makeTree());
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.bodiesLoaded).toBe(false);
+    expect(result.current.bodiesError).toContain('getBodies boom');
+  });
+
+  it('getBodies 超时同样落定（bodiesLoading 不永久 busy）', async () => {
+    const connection = createMockConnection();
+    fakeClient.getBodies.mockImplementation(() => new Promise<BodyInfo[]>(() => undefined));
+
+    vi.useFakeTimers();
+    try {
+      const { result } = renderFeatureSystem(connection);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.bodiesLoading).toBe(true);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FEATURE_OP_TIMEOUT_MS);
+      });
+      expect(result.current.bodiesLoading).toBe(false);
+      expect(result.current.bodiesError).toContain('超时');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('无连接：bodies 空集、bodiesLoaded=false、零 getBodies RPC', () => {
+    const { result } = renderFeatureSystem(undefined);
+
+    expect(result.current.bodies).toEqual([]);
+    expect(result.current.bodiesLoaded).toBe(false);
+    expect(fakeClient.getBodies).not.toHaveBeenCalled();
   });
 
   it('T5-①：慢响应纪元守卫——首个 getFeatureTree 悬挂，第二次 refresh 先返回新树，放行首响应后树仍为新树', async () => {

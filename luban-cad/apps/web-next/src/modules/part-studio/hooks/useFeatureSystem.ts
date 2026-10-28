@@ -17,6 +17,11 @@
  *   onCommitted——M4 终审 MS 日志实证，undo/redo 后树不刷新；双订口径照
  *   官方 ModelChangeMonitor，vendored BriefcaseConnection.ts:124-128——
  *   onCommitted 与 onAfterUndoRedo 并列 addListener）；
+ * - B6 M-A3.2a body 读面：每次 refresh 并行调 `getBodies(connection.key)`，与树
+ *   同一刷新时机（onCommitted/onAfterUndoRedo/applyOp 成功/手动 refresh）——
+ *   消费方（零件段/目标 body 选择器）不另开第二数据通道。两路错误隔离（body
+ *   读面失败不拖住树）；`bodiesLoaded` 标记当前连接是否成功读到过读面（false=
+ *   消费方回退 legacy 物理元素查询，仅 MS<1.15/读面故障时可达）。
  * - applyOp 租约自愈（2026-10-11）：前页/重载残留的陈旧租约要等服务端
  *   WriteLease 30s TTL 自然过期，而 op 是一次性派发——落在陈旧窗口内即被拒
  *   且无人重放。op 前显式重取（同 sessionId 幂等刷新 TTL），未得手则有限
@@ -58,6 +63,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import {
+  type BodyInfo,
   type FeatureOp,
   type FeatureOpResult,
   type FeatureTreeEntry,
@@ -103,6 +109,16 @@ export interface UseFeatureSystem {
   tree: FeatureTreeEntry[];
   loading: boolean;
   error?: string;
+  /**
+   * B6 M-A3.2a：body 读面（getBodies 直通；含 consumed 的 active=false）。
+   * 与树同一 refresh 通道（onCommitted/onAfterUndoRedo/applyOp 成功/手动 refresh），
+   * 消费方按 active/authored 过滤（树/目标选择器）。刷新失败保留上一次成功值。
+   */
+  bodies: BodyInfo[];
+  bodiesLoading: boolean;
+  /** 当前连接是否已成功读到过 body 读面（false=读面不可用，消费方回退 legacy 物理查询）。 */
+  bodiesLoaded: boolean;
+  bodiesError?: string;
   leaseOk: boolean;
   refresh(): Promise<void>;
   /** 成功后自动 refresh；失败仅返回错误结果不刷新 */
@@ -121,6 +137,15 @@ export function useFeatureSystem(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [leaseOk, setLeaseOk] = useState(false);
+  // B6 M-A3.2a：body 读面——与树同 refresh 通道；bodiesLoadedKey 记录成功读取的
+  // 连接（换连接后须重新成功一次才视为读面可用，防旧库 body 列表串场）。
+  const [bodies, setBodies] = useState<BodyInfo[]>([]);
+  // 有连接时首帧即视为「读面进行中」：零件段先骨架、不抢跑 legacy 全量查询
+  //（refresh effect 落定后转 false；读面不可用才回退 legacy）。
+  const [bodiesLoading, setBodiesLoading] = useState<boolean>(!!connectionKey);
+  const [bodiesError, setBodiesError] = useState<string | undefined>(undefined);
+  const [bodiesLoadedKey, setBodiesLoadedKey] = useState<string | undefined>(undefined);
+  const bodiesLoaded = !!connectionKey && bodiesLoadedKey === connectionKey;
   // refresh 纪元序号（M5-T1 T5-①）：慢响应晚到按序号丢弃——照抄
   // useUndoRedo.ts:69,76 的 querySeqRef 模式（ref 持有，乱序响应丢弃）。
   const refreshSeqRef = useRef(0);
@@ -129,22 +154,50 @@ export function useFeatureSystem(
     const seq = ++refreshSeqRef.current;
     if (!connectionKey) {
       setTree([]);
+      setLoading(false);
+      setError(undefined);
+      setBodies([]);
+      setBodiesLoading(false);
+      setBodiesError(undefined);
+      setBodiesLoadedKey(undefined);
       return;
     }
+    const client = LubanFeatureRpcInterface.getClient();
     setLoading(true);
-    try {
-      const entries = await withOpTimeout(
-        LubanFeatureRpcInterface.getClient().getFeatureTree(connectionKey),
-      );
-      if (seq !== refreshSeqRef.current) return; // 晚到响应按纪元丢弃（不得覆盖新树）
-      setTree(entries);
-      setError(undefined);
-    } catch (err) {
-      if (seq !== refreshSeqRef.current) return; // 过期请求的失败亦不得覆盖新态
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      if (seq === refreshSeqRef.current) setLoading(false); // 只有最新一跳有权收 loading
-    }
+    setBodiesLoading(true);
+    // 树与 body 读面并行、各自落定（bodies 失败不拖住树呈现；两路共用纪元守卫，
+    // 晚到响应一律丢弃）。两路都 await，refresh 仍是「全部落定」语义（applyOp
+    // 成功后的自动刷新因此不会只等树）。
+    const treeCall = (async () => {
+      try {
+        const entries = await withOpTimeout(client.getFeatureTree(connectionKey));
+        if (seq !== refreshSeqRef.current) return; // 晚到响应按纪元丢弃（不得覆盖新树）
+        setTree(entries);
+        setError(undefined);
+      } catch (err) {
+        if (seq !== refreshSeqRef.current) return; // 过期请求的失败亦不得覆盖新态
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (seq === refreshSeqRef.current) setLoading(false); // 只有最新一跳有权收 loading
+      }
+    })();
+    const bodiesCall = (async () => {
+      try {
+        const next = await withOpTimeout(client.getBodies(connectionKey));
+        if (seq !== refreshSeqRef.current) return;
+        setBodies(next);
+        setBodiesError(undefined);
+        setBodiesLoadedKey(connectionKey);
+      } catch (err) {
+        if (seq !== refreshSeqRef.current) return;
+        // 读面失败隔离于树错误（树/对话框不受阻）；保留上一次成功值供树渲染，
+        // bodiesLoaded 语义由 bodiesLoadedKey 决定（初次失败=读面不可用）。
+        setBodiesError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (seq === refreshSeqRef.current) setBodiesLoading(false);
+      }
+    })();
+    await Promise.all([treeCall, bodiesCall]);
   }, [connectionKey]);
 
   // 初始/换连接加载特征树
@@ -243,6 +296,10 @@ export function useFeatureSystem(
     tree,
     loading,
     error,
+    bodies,
+    bodiesLoading,
+    bodiesLoaded,
+    bodiesError,
     leaseOk,
     refresh,
     applyOp,

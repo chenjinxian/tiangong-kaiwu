@@ -364,6 +364,9 @@
     "removeEdge": "移除 边 {{index}}",
     "distanceLabel": "距离",
     "distanceInvalid": "请输入有效的拉伸距离（大于 0）",
+    "newBodyLabel": "新建实体",
+    "targetBodyLabel": "目标实体",
+    "bodiesLoadingHint": "正在读取实体列表：读取完成前不可提交",
     "submitSuccess": "{{name}} 已创建",
     "submitEvalFailed": "{{name}} 已提交但求值失败：{{message}}——特征已入特征树，几何未生成",
     "leaseBusy": "写租约被其他会话持有，提交将等待租约",
@@ -595,6 +598,7 @@
     "loadFailed": "加载失败: {{message}}",
     "retry": "重试",
     "unnamedElement": "未命名实体 {{id}}",
+    "defaultBodyName": "实体 {{index}}",
     "featureTypes": {
       "extrude": "拉伸",
       "booleanAdd": "并集",

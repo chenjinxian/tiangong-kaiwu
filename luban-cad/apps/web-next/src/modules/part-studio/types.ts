@@ -7,6 +7,23 @@
 
 import type { LubanFeatureType, PatternParams, SketchPlaneDto } from '@luban-cad/shared';
 
+/**
+ * body 产出型特征（B6 M-A3.2a 单一真源）：这些特征的 insert 在 N>1 authored active
+ * body 时必须显式 targetBodyId（后端 op 边界同口径），UI 的目标实体选择器只对它们
+ * 渲染；fillet/chamfer/shell 依附上游体、sketch 不产体，均不参与目标选择。
+ * 消费方：PartStudioSession（hasBodies 判定）+ FeatureDialog（target 选择器）。
+ */
+export const BODY_PRODUCING_FEATURE_TYPES: readonly LubanFeatureType[] = [
+  'extrude',
+  'revolve',
+  'booleanAdd',
+  'booleanSubtract',
+  'loft',
+  'sweep',
+  'mirror',
+  'pattern',
+];
+
 /** 画布拾取类型（spec §5 上下文敏感模型：右键菜单按 kind 重构）。 */
 export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature';
 

@@ -20,7 +20,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@itwin/itwinui-react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { FeatureTreeEntry } from '@luban-cad/shared';
+import type { BodyInfo, FeatureTreeEntry } from '@luban-cad/shared';
 import {
   SvgCopy,
   SvgFolderImport,
@@ -40,8 +40,14 @@ export interface PartStudioSidebarProps {
   error?: string;
   /** 特征段错误重试（useFeatureSystem.refresh 直通）。 */
   onRetry?: () => void;
-  /** 连接（零件段 iModel 物理元素查询数据源；缺省=零件段 empty 态）。 */
+  /** 连接（legacy 零件段物理元素查询数据源；body 读面不可用时回退）。 */
   connection?: BriefcaseConnection;
+  /** B6 M-A3.2a：body 读面（仅连接成功读过 getBodies 时下传；undefined=legacy 回退）。 */
+  bodies?: readonly BodyInfo[];
+  /** body 读面加载中（零件段骨架）。 */
+  bodiesLoading?: boolean;
+  /** body 读面刷新失败（零件段就地错误条）。 */
+  bodiesError?: string;
 }
 
 /** 图标条类别槽（壳期占位；labelKey 指向 partStudio.sidebar.rail.*）。 */
@@ -52,7 +58,16 @@ const RAIL_ITEMS = [
   { id: 'import', labelKey: 'partStudio.sidebar.rail.import', icon: <SvgFolderImport key="icon" /> },
 ] as const;
 
-export function PartStudioSidebar({ entries, loading, error, onRetry, connection }: PartStudioSidebarProps): React.JSX.Element {
+export function PartStudioSidebar({
+  entries,
+  loading,
+  error,
+  onRetry,
+  connection,
+  bodies,
+  bodiesLoading,
+  bodiesError,
+}: PartStudioSidebarProps): React.JSX.Element {
   const { t } = useTranslation();
   // 图标条选中态：壳期本地态（类别槽尚未接 ribbon；T4 起与工具类别联动）。
   const [activeRail, setActiveRail] = React.useState<string>('features');
@@ -106,6 +121,9 @@ export function PartStudioSidebar({ entries, loading, error, onRetry, connection
         error={error}
         onRetry={onRetry}
         connection={connection}
+        bodies={bodies}
+        bodiesLoading={bodiesLoading}
+        bodiesError={bodiesError}
         onEdit={handleEdit}
       />
     </aside>

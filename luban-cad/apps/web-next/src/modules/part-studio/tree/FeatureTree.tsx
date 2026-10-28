@@ -10,13 +10,21 @@
  * - 六态完备（M4-T6 拉伸闭环的树刷新呈现面）：特征段 loading 骨架（Session
  *   useFeatureSystem.loading 透传）/ error 就地错误条 + 重试（refresh 直通）/
  *   empty（「暂无特征」）；零件段 loading / error / empty（「暂无零件」）；
- * - 零件段 = iModel 物理元素查询（`SELECT ECInstanceId, CodeValue FROM
- *   BisCore.GeometricElement3d WHERE … NOT IN (SELECT … FROM LubanCAD.Sketch)`
- *   经 connection.createQueryReader——M6-c T5 小项批：草图元素排除，零件数
- *   语义对齐 Onshape「零件数」不含草图）——诚实呈现数量与名（CodeValue 缺失
- *   回退「未命名实体 {{id}}」），壳期「假 Part 1」占位随真数据源接线移除
- *  （M3 终审 T5-②③ 收口）；特征刷新（entries 引用变化）即重查（新特征落库
- *   → 新实体出现）；
+ * - 零件段（B6 M-A3.2a 起）= **authored active body**（useFeatureSystem.bodies /
+ *   getBodies 读面直通）：名称取 BodyInfo.name（缺省「实体 N」）、身份=bodyKey；
+ *   consumed（active=false）与 direct-edit orphan 不入树；不再跑
+ *   `BisCore.GeometricElement3d` 全量查询（不显示其它模型/引用/副本）。读面
+ *   加载中→骨架（不抢先发 legacy 查询）；读面不可用（MS<1.15/初次失败）→
+ *   回退 legacy 物理元素查询（M6-c T5 草图排除口径保持——发布门禁要求 MS
+ *   minor ≥ web minor，正常栈不走回退）。特征刷新（entries 引用变化）与 body
+ *   读面同一 refresh 通道；
+ * - consumed body 几何视口隐藏（M-A3.2a）：active=false 的 body 虽保留元素仍会
+ *   被渲染——EmphasizeElements.hideElements(neverDrawn) 整集重建 =
+ *   consumed ∪ store.canvas.hiddenIds（手动隐藏），撤销恢复 active / 手动隐藏
+ *   变化均按最新并集重算；并集空时 clearHiddenElements 恢复可见。无 viewport
+ *   静默跳过（壳期/测试）；read surface 不可用时不接管 neverDrawn；
+ * - 删除 HITL 回调第二参 = deleteFeature.targetBodyId（getBodies.sourceFeatureId
+ *   反查唯一源；无映射 undefined）——删除 op 本版仍未接线（契约就绪）；
  * - M6-c T5 视口编辑态：特征对话框在场 → 体集（零件段产物）经
  *   useCanvasSelection extraEmphasizedIds 打 Onshape 橙高亮（采集规格
  *   §视口交互最小通道；后续特征灰显挂账）；
@@ -43,8 +51,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@itwin/itwinui-react';
+import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { FeatureTreeEntry, SketchPlaneDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto } from '@luban-cad/shared';
 import {
   SvgAdd,
   SvgChevronDown,
@@ -81,18 +90,35 @@ export interface FeatureTreeProps {
   /** 特征段错误重试（useFeatureSystem.refresh 直通）。 */
   onRetry?: () => void;
   /**
-   * 连接（零件段物理元素查询数据源；缺省=零件段 empty 态）。查询随特征刷新
-   *（entries 引用变化）重跑——新特征落库产生的实体如实出现。
+   * 连接（legacy 零件段物理元素查询数据源；仅在 body 读面不可用时使用）。
+   * 查询随特征刷新（entries 引用变化）重跑——新特征落库产生的实体如实出现。
    */
   connection?: BriefcaseConnection;
+  /**
+   * B6 M-A3.2a：body 读面（Session useFeatureSystem.bodies 直通，仅在该连接成功
+   * 读过 getBodies 时下传）。在场时零件段=**authored active body**（名称取
+   * BodyInfo.name，缺省「实体 N」）；consumed/orphan 不入树；legacy 物理元素
+   * 全量查询不再发起。undefined=读面不可用 → 回退 legacy 查询（MS<1.15/读面故障，
+   * 发布门禁要求 MS minor ≥ web minor，正常栈不会走此回退）。
+   */
+  bodies?: readonly BodyInfo[];
+  /** body 读面加载中（零件段骨架；读面未就绪时不抢先发 legacy 查询）。 */
+  bodiesLoading?: boolean;
+  /** body 读面刷新失败（零件段就地错误条，重试走 onRetry=同一 refresh 出口）。 */
+  bodiesError?: string;
   /** 重命名提交（缺省 console.warn；RPC 变异层接线后接管）。 */
   onRename?: (node: TreeNode, name: string) => void;
   /** 编辑特征/零件（FeatureDialog 宿主路由接口）。 */
   onEdit?: (node: TreeNode) => void;
   /** 抑制/取消抑制（特征段专属菜单项）。 */
   onSuppress?: (node: FeatureNode, suppressed: boolean) => void;
-  /** 删除提交（HITL 确认后调用；后端删除接线后接管）。 */
-  onDelete?: (node: TreeNode) => void;
+  /**
+   * 删除提交（HITL 确认后调用）。第二参=deleteFeature.targetBodyId 契约值：
+   * 由 `deleteTargetBodyIdForFeature`（getBodies.sourceFeatureId 反查）得出；
+   * 无唯一源映射时为 undefined（N>1 时后端诚实拒收，绝不猜测目标）。宿主接线
+   * 删除 op 时必须原样透传（本版删除入口仍未接线，仅契约就绪）。
+   */
+  onDelete?: (node: TreeNode, targetBodyId?: string) => void;
 }
 
 interface MenuState {
@@ -133,7 +159,11 @@ const PARTS_QUERY =
   'SELECT ECInstanceId, CodeValue FROM BisCore.GeometricElement3d ' +
   'WHERE ECInstanceId NOT IN (SELECT ECInstanceId FROM LubanCAD.Sketch)';
 
-function usePhysicalElements(connection: BriefcaseConnection | undefined, refreshToken: unknown): {
+function usePhysicalElements(
+  connection: BriefcaseConnection | undefined,
+  refreshToken: unknown,
+  enabled = true,
+): {
   parts: PartNode[];
   loading: boolean;
   error?: string;
@@ -144,7 +174,9 @@ function usePhysicalElements(connection: BriefcaseConnection | undefined, refres
   const [error, setError] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
-    if (!connection) {
+    // B6 M-A3.2a：body 读面在场/加载中时本 legacy 查询整体停用（不显示其它模型/
+    // 引用/副本；读面不可用时才回退，保持既有行为）。
+    if (!enabled || !connection) {
       setParts([]);
       setLoading(false);
       setError(undefined);
@@ -186,9 +218,44 @@ function usePhysicalElements(connection: BriefcaseConnection | undefined, refres
     };
     // refreshToken=特征段条目引用：新特征落库 → 树刷新 → 零件段重查。
     //（web-next 未启用 exhaustive-deps 规则，依赖数组为手工口径，意图在此注记。）
-  }, [connection, refreshToken, t]);
+  }, [connection, refreshToken, enabled, t]);
 
   return { parts, loading, error };
+}
+
+/**
+ * body 读面 → 零件段行（B6 M-A3.2a）：只取 **active ∧ authored** body（consumed
+ * 已消费、authored=false 的防御形态都不入树）；名称取 BodyInfo.name，缺省按
+ * active 列表序「实体 N」；id=bodyKey（元素 id，跨冷重开/undo 稳定，名称不是身份）。
+ * 纯函数（单测直测），不触 RPC。
+ */
+export function activeBodyParts(
+  bodies: readonly BodyInfo[],
+  defaultBodyName: (index: number) => string,
+): PartNode[] {
+  return bodies
+    .filter((body) => body.active && body.authored !== false)
+    .map((body, index) => ({
+      id: body.bodyKey,
+      name: body.name && body.name.trim() !== '' ? body.name : defaultBodyName(index + 1),
+      isHidden: false,
+    }));
+}
+
+/**
+ * 删除特征的 targetBodyId 映射（B6 M-A3.2a）：getBodies.sourceFeatureId 反查
+ * **唯一驱动源**。newBody 特征恒命中；普通链特征仅当它是该 body 的唯一源时命中
+ *（多源 body 的服务端读面省略 sourceFeatureId——多体删除的普通链特征本版无
+ * UI 删除入口，契约保留、后端诚实拒收）。无命中=undefined，绝不猜测。
+ */
+export function deleteTargetBodyIdForFeature(
+  bodies: readonly BodyInfo[] | undefined,
+  featureId: string,
+): string | undefined {
+  if (!bodies) return undefined;
+  return bodies.find(
+    (body) => body.active && body.authored !== false && body.sourceFeatureId === featureId,
+  )?.bodyKey;
 }
 
 /** 段内加载骨架行（loading 态的统一呈现）。 */
@@ -207,6 +274,9 @@ export function FeatureTree({
   error,
   onRetry,
   connection,
+  bodies,
+  bodiesLoading,
+  bodiesError,
   onRename,
   onEdit,
   onSuppress,
@@ -215,9 +285,25 @@ export function FeatureTree({
   const { t } = useTranslation();
   const [filterInput, setFilterInput] = React.useState('');
   const filter = React.useMemo(() => parseTreeFilter(filterInput), [filterInput]);
+  // B6 M-A3.2a：body 读面在场 → 零件段=active authored body；读面加载中 → 骨架
+  // （不抢先跑 legacy 全量查询）；读面不可用（MS<1.15/初次失败）→ legacy 回退。
+  const bodyParts = React.useMemo(
+    () => (bodies === undefined ? undefined : activeBodyParts(bodies, (index) => t('partStudio.tree.defaultBodyName', { index }))),
+    [bodies, t],
+  );
+  const legacyPartsEnabled = bodies === undefined && !bodiesLoading;
   // 零件段查询（随特征刷新重跑：entries 引用即 refreshToken）。
-  const physical = usePhysicalElements(connection, entries);
-  const model = useFeatureTree({ entries, parts: physical.parts, filter });
+  const physical = usePhysicalElements(connection, entries, legacyPartsEnabled);
+  const parts = bodyParts ?? physical.parts;
+  const partsLoading = bodies !== undefined
+    ? bodiesLoading ?? false
+    : bodiesLoading === true || physical.loading;
+  const partsError = bodies !== undefined
+    ? bodiesError
+    : bodiesLoading === true
+      ? undefined
+      : physical.error;
+  const model = useFeatureTree({ entries, parts, filter });
   // 树→画布 emphasize 联动（hook 内 effect：selectedNodeIds → viewport）。
   // M6-c T5 视口编辑态（采集规格 §视口交互的最小通道）：特征对话框在场时
   // 当前特征作用的 body 橙色高亮（useCanvasSelection extraEmphasizedIds →
@@ -226,10 +312,38 @@ export function FeatureTree({
   // 挂账（per-feature 归属映射缺位，见 useCanvasSelection 头注）。
   const featureDialogOpen = usePartStudioStore((s) => s.dialog.active === 'feature');
   const editHighlightIds = React.useMemo(
-    () => (featureDialogOpen ? physical.parts.map((part) => part.id) : []),
-    [featureDialogOpen, physical.parts],
+    () => (featureDialogOpen ? parts.map((part) => part.id) : []),
+    [featureDialogOpen, parts],
   );
   useCanvasSelection(editHighlightIds);
+
+  // B6 M-A3.2a：consumed body 几何视口隐藏（持久元素仍会被渲染——树过滤不够）。
+  // neverDrawn 集 = consumed body ∪ store.canvas.hiddenIds（手动隐藏），replace=true
+  // 整集重建：撤销恢复 active / 手动隐藏/取消隐藏后都按最新并集重算；并集空时
+  // clearHiddenElements 令撤销后的 body 重新可见。无 viewport（壳期/测试）静默跳过。
+  const consumedBodiesKey = React.useMemo(
+    () => (bodies === undefined
+      ? null
+      : JSON.stringify(bodies.filter((body) => !body.active).map((body) => body.bodyKey))),
+    [bodies],
+  );
+  const manualHiddenIds = usePartStudioStore((s) => s.canvas.hiddenIds);
+  const manualHiddenKey = React.useMemo(() => JSON.stringify(manualHiddenIds), [manualHiddenIds]);
+  React.useEffect(() => {
+    if (consumedBodiesKey === null) return; // 读面不可用：不接管 neverDrawn（legacy 回退）
+    const viewport = IModelApp.viewManager?.selectedView;
+    if (!viewport) return;
+    const consumed = JSON.parse(consumedBodiesKey) as string[];
+    const manual = JSON.parse(manualHiddenKey) as string[];
+    const union = [...new Set([...consumed, ...manual])];
+    try {
+      const emphasize = EmphasizeElements.getOrCreate(viewport);
+      if (union.length > 0) emphasize.hideElements(union, viewport, true);
+      else emphasize.clearHiddenElements(viewport);
+    } catch (err) {
+      console.warn('[part-studio] consumed body 隐藏应用失败（无真实视口？）', err);
+    }
+  }, [consumedBodiesKey, manualHiddenKey]);
   // T6 草图模式：活动草图行红显（os-30 树红显进行中草图）。
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
@@ -448,10 +562,12 @@ export function FeatureTree({
                       retryable: true,
                     })
                   : renderSectionRows({
-                      loading: physical.loading,
-                      error: physical.error,
+                      loading: partsLoading,
+                      error: partsError,
                       rows,
                       emptyText: t('partStudio.sidebar.tree.emptyParts'),
+                      // body 读面错误复用特征段 onRetry（同一 refresh 同时刷树+bodies）。
+                      retryable: bodies !== undefined && onRetry !== undefined,
                     })}
               </ul>
             )}
@@ -586,7 +702,9 @@ export function FeatureTree({
                   const node = pendingDelete;
                   setPendingDelete(null);
                   if (onDelete) {
-                    onDelete(node);
+                    // B6 M-A3.2a：第二参=deleteFeature.targetBodyId（getBodies.sourceFeatureId
+                    // 反查；无唯一源映射=undefined，N>1 由后端诚实拒收）。
+                    onDelete(node, deleteTargetBodyIdForFeature(bodies, node.id));
                   } else {
                     console.warn(`[part-studio] 删除 ${node.name}（onDelete 未接线）`);
                   }

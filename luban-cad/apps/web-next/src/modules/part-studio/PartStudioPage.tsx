@@ -127,11 +127,8 @@ import { usePermissions } from './hooks/usePermissions.js';
 import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
+import { BODY_PRODUCING_FEATURE_TYPES } from './types.js';
 import './PartStudioPage.css';
-
-/** body 产出型特征类型（M6-b T6 hasBodies 判据：依附型特征 fillet/chamfer/shell
- * 与 sketch 不产体，不计入）。 */
-const BODY_PRODUCING_FEATURE_TYPES = ['extrude', 'revolve', 'booleanAdd', 'booleanSubtract', 'loft', 'sweep', 'mirror', 'pattern'] as const;
 
 export function PartStudioPage(): React.JSX.Element {
   const { iTwinId, iModelId } = useParams<{ iTwinId: string; iModelId: string }>();
@@ -242,16 +239,26 @@ function PartStudioSession({
     ).map((node) => ({ id: node.id, label: node.name }));
   }, [featureSystem.tree, t]);
 
-  // 库内已有实体（M6-b T6 fillet 通道诚实降级门）：树内 body 产出型条目在场
-  //（拉伸/旋转/布尔并/差——sketch 与依附型特征不产体）。fillet 需在实体上拾边，
-  // 无体时「添加边」禁用+诚实提示（FeatureDialog hasBodies）。
+  // 库内已有实体（M6-b T6 fillet 通道诚实降级门；B6 M-A3.2a 起优先真读面）：
+  // body 读面有 active authored body → true；读面不可用（MS<1.15/故障）回退
+  // 树内 body 产出型条目在场判定（原口径）。fillet 需在实体上拾边，无体时
+  // 「添加边」禁用+诚实提示（FeatureDialog hasBodies）。
   const hasBodies = React.useMemo(
     () =>
+      featureSystem.bodies.some((body) => body.active && body.authored !== false) ||
       featureSystem.tree.some((entry) =>
         (BODY_PRODUCING_FEATURE_TYPES as readonly string[]).includes(entry.featureType),
       ),
-    [featureSystem.tree],
+    [featureSystem.bodies, featureSystem.tree],
   );
+
+  // B6 M-A3.2a：edit 模式 FeatureDialog 的落库 params（结构键 newBody 回显——
+  // 复选框禁用不翻转；updateParams 接线时必须原样保留）。树行即真源（同 refresh 通道）。
+  const activeDialog = usePartStudioStore((s) => s.dialog);
+  const editFeatureParams = React.useMemo(() => {
+    if (activeDialog.active !== 'feature' || activeDialog.mode !== 'edit') return undefined;
+    return featureSystem.tree.find((entry) => entry.id === activeDialog.featureId)?.params;
+  }, [activeDialog, featureSystem.tree]);
 
   // 特征显示同步（M4-T5 移植 + M4-T6 接线）：特征写入后的几何出现链收口——
   // 绕过 GraphicalEditingScope 下 ModelChangeMonitor 的 guid 缓冲（BRep 显示
@@ -502,6 +509,11 @@ function PartStudioSession({
           error={featureSystem.error}
           onRetry={featureSystem.refresh}
           connection={connection ?? undefined}
+          // B6 M-A3.2a：读面仅在成功读取后下传（初次失败/未就绪 → 树回退 legacy
+          // 物理查询；成功过则保留最近值 + bodiesError 就地呈现）。
+          bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
+          bodiesLoading={featureSystem.bodiesLoading}
+          bodiesError={featureSystem.bodiesLoaded ? featureSystem.bodiesError : undefined}
         />
         <div className="part-studio-main">
           {/* canEdit 直通画布对话框宿主（B2 只读写门禁）：权限只读下写面对话框
@@ -516,6 +528,9 @@ function PartStudioSession({
             sketches={sketchOptions}
             connection={connection ?? undefined}
             hasBodies={hasBodies}
+            bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
+            bodiesLoading={featureSystem.bodiesLoading}
+            featureParams={editFeatureParams}
             connectionLoading={connectionLoading}
             connectionError={canvasErrorMessage}
             sketchSystem={sketchSystem}

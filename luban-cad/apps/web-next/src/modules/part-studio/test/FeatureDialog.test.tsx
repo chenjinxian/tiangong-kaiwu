@@ -139,7 +139,7 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
-import type { FeatureOp, FeatureOpResult, SketchDto, SketchEntityDto, SketchRegionDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, SketchDto, SketchEntityDto, SketchRegionDto } from '@luban-cad/shared';
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
@@ -2355,5 +2355,219 @@ describe('B3 禁用钮视觉（成品/✓ 禁用态不再「蓝底高亮可点�
     expect(featureDialogCss).not.toContain('.part-studio-feature-dialog__confirm:hover');
     expect(featureDialogCss).toContain('.part-studio-feature-dialog__finish:enabled:hover');
     expect(featureDialogCss).toContain('.part-studio-feature-dialog__confirm:enabled:hover');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B6 M-A3.2a：extrude newBody + >1 authored body 的 target 选择
+//  - extrude 「新建实体」复选：勾选才在 params 带 newBody:true（未勾省略）；
+//  - N>1 active authored body → 目标实体下拉（默认首个；值进 op.targetBodyId，
+//    不进 params）；newBody 时隐藏且不发 target；
+//  - 单 body 无需 target（legacy 载荷逐字保持）；
+//  - 仅 body-producing 特征显示 target；fillet 等依附型不显示；
+//  - edit 模式从落库 params 回显 newBody（结构键，复选框禁用，结果载荷保留）。
+// ---------------------------------------------------------------------------
+describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
+  const BODY_1: BodyInfo = { bodyKey: '0x15', name: 'Body 1', active: true, authored: true, sourceFeatureId: 'f1' };
+  const BODY_2: BodyInfo = { bodyKey: '0x18', name: 'Body 2', active: true, authored: true, sourceFeatureId: 'f2' };
+  const BODY_CONSUMED: BodyInfo = { bodyKey: '0x20', name: 'Body 3', active: false, authored: true };
+  const ACTIVE_TWO: BodyInfo[] = [BODY_1, BODY_2];
+  const WITH_CONSUMED: BodyInfo[] = [BODY_1, BODY_2, BODY_CONSUMED];
+
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  function singleRegionSketch(): SketchDto {
+    return {
+      id: 'sk-1',
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    };
+  }
+
+  /** 就绪的 extrude 提交对话框（单面域自动 [0]；回显 chip 落定即就绪）。 */
+  async function renderReadyExtrude(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    featureRpc.getSketch.mockResolvedValue(singleRegionSketch());
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        onConfirm={onConfirm}
+        {...props}
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
+    return { user, onConfirm };
+  }
+
+  beforeEach(() => {
+    featureRpc.getSketch.mockReset();
+  });
+
+  it('单 body（N≤1）：无目标实体下拉、无 targetBodyId；勾选新建实体 → params.newBody=true（未勾省略）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodies: [BODY_1] });
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
+    const checkbox = screen.getByRole('checkbox', { name: '新建实体' }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+    });
+    // 勾选后 → newBody:true（仅在勾选时带键）。
+    await user.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[1]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], newBody: true },
+    });
+  });
+
+  it('N>1 active authored body：目标实体下拉（consumed 不入选项）；默认首个；值进 op.targetBodyId 不进 params', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodies: WITH_CONSUMED });
+    const select = screen.getByRole('combobox', { name: '目标实体' }) as HTMLSelectElement;
+    expect(select.value).toBe('0x15');
+    expect(within(select).getByRole('option', { name: 'Body 1' })).toBeDefined();
+    expect(within(select).getByRole('option', { name: 'Body 2' })).toBeDefined();
+    expect(within(select).queryByRole('option', { name: 'Body 3' })).toBeNull();
+    await user.selectOptions(select, '0x18');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      targetBodyId: '0x18',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+    });
+  });
+
+  it('newBody 勾选：目标实体下拉隐藏、不携带 targetBodyId（新体由本 op 创建）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodies: ACTIVE_TWO });
+    expect(screen.getByRole('combobox', { name: '目标实体' })).toBeDefined();
+    await user.click(screen.getByRole('checkbox', { name: '新建实体' }));
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], newBody: true },
+    });
+  });
+
+  it('布尔作用域映射（加入→booleanAdd）N>1：仍显示目标实体且载荷 targetBodyId；newBody 复选隐藏（仅 extrude 新建）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodies: ACTIVE_TWO });
+    expect(screen.getByRole('checkbox', { name: '新建实体' })).toBeDefined();
+    await user.click(screen.getByRole('tab', { name: '加入' }));
+    // 映射后 effectiveFeatureType=booleanAdd：不属 extrude 新建通道 → 复选隐藏。
+    expect(screen.queryByRole('checkbox', { name: '新建实体' })).toBeNull();
+    expect(screen.getByRole('combobox', { name: '目标实体' })).toBeDefined();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'booleanAdd',
+      targetBodyId: '0x15',
+      params: { sketchId: 'sk-1', distance: 10, regions: [0], operation: 'unite' },
+    });
+  });
+
+  it('读面刷新中（bodiesLoading）→ 提交禁用 + 诚实提示（未知 N 不得发无 target 的 regular insert）', async () => {
+    const applyOp = makeApplyOp();
+    await renderReadyExtrude(applyOp, { bodies: ACTIVE_TWO, bodiesLoading: true });
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-bodies-loading-hint')).toBeDefined();
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('仅 body-producing 特征显示目标实体（mirror N>1 → 显示且载荷带 target；fillet → 不显示）', async () => {
+    const applyOp = makeApplyOp();
+    const user = userEvent.setup();
+    const mirror = render(
+      <FeatureDialog
+        featureName="镜像"
+        mode="new"
+        featureType="mirror"
+        applyOp={applyOp}
+        bodies={ACTIVE_TWO}
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: '目标实体' })).toBeDefined();
+    // 非 extrude：无「新建实体」复选。
+    expect(screen.queryByRole('checkbox', { name: '新建实体' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'mirror',
+      targetBodyId: '0x15',
+      params: { plane: 'XZ', keepOriginal: true },
+    });
+    mirror.unmount();
+
+    render(
+      <FeatureDialog
+        featureName="圆角"
+        mode="new"
+        featureType="fillet"
+        applyOp={applyOp}
+        bodies={ACTIVE_TWO}
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: '新建实体' })).toBeNull();
+  });
+
+  it('edit 模式：落库 params.newBody 回显为勾选且禁用（结构键不可翻转）；确认载荷保留 newBody', async () => {
+    const onConfirm = vi.fn();
+    render(
+      <FeatureDialog
+        featureName="拉伸 1"
+        mode="edit"
+        featureType="extrude"
+        initialParams={{ profile: [], distance: 5, sketchId: 'sk-1', regions: [0], newBody: true }}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />,
+    );
+    const checkbox = screen.getByRole('checkbox', { name: '新建实体' }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    expect(checkbox.disabled).toBe(true);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ newBody: true }));
+  });
+
+  it('edit 模式无落库 newBody：复选框未勾选（不静默翻转/伪造）', () => {
+    render(
+      <FeatureDialog
+        featureName="拉伸 1"
+        mode="edit"
+        featureType="extrude"
+        initialParams={{ profile: [], distance: 5, sketchId: 'sk-1', regions: [0] }}
+        onConfirm={vi.fn()}
+      />,
+    );
+    const checkbox = screen.getByRole('checkbox', { name: '新建实体' }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    expect(checkbox.disabled).toBe(true);
   });
 });

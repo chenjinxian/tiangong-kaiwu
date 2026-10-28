@@ -537,6 +537,31 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
   it("v1.15 新增 getBodies RPC 方法挂在类原型（只读 body 读面）", () => {
     expect(typeof LubanFeatureRpcInterface.prototype.getBodies).toBe("function");
   });
+
+  // B6 M-A3.2a：deleteFeature 的目标 body 契约（M3.1 报告 §6.4 的 M3.2 前置）。
+  // 与 insertFeature 对齐：N>1 删除特征须显式 targetBodyId；N≤1 legacy 可缺省。
+  it("FeatureOp.deleteFeature 增可选 targetBodyId（N>1 删除显式目标；N≤1 legacy 可缺省）", () => {
+    const targeted: FeatureOp = { kind: "deleteFeature", featureId: "f1", targetBodyId: "0x18" };
+    const legacy: FeatureOp = { kind: "deleteFeature", featureId: "f1" };
+    expect(targeted.targetBodyId).toBe("0x18");
+    expect(legacy.targetBodyId).toBeUndefined();
+    expectTypeOf<Extract<FeatureOp, { kind: "deleteFeature" }>>().toEqualTypeOf<{
+      kind: "deleteFeature";
+      featureId: string;
+      targetBodyId?: string;
+    }>();
+    // JSON 序列化往返保持（RPC 载荷形态；缺省键不出现）
+    expect(JSON.parse(JSON.stringify(targeted))).toEqual(targeted);
+    expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
+    // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版）。
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.15.0");
+  });
+
+  it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
+    type InsertTarget = Extract<FeatureOp, { kind: "insertFeature" }>["targetBodyId"];
+    type DeleteTarget = Extract<FeatureOp, { kind: "deleteFeature" }>["targetBodyId"];
+    expectTypeOf<DeleteTarget>().toEqualTypeOf<InsertTarget>();
+  });
 });
 
 describe("M7 v1.10 契约（boolean 草图驱动——BooleanParams）", () => {

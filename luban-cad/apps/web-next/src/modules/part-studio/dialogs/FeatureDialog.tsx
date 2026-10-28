@@ -154,6 +154,19 @@
  * 后端 op 边界同口径拒收）。距离/草图/chips 输入一律隐藏；首版无 FEATURE pattern /
  * 任意轴引用 / 曲线阵列（范围裁决）。
  *
+ * newBody / 目标实体（B6 M-A3.2a，shared v1.15）：
+ * - extrude 通道「新建实体」复选（new 模式）：勾选才在 params 带 `newBody:true`
+ *   （缺省省略=既有 ADD 语义）；edit 模式自 initialParams 回显落库值且**禁用**——
+ *   结构键不可经 updateParams 翻转（服务端诚实拒收）；FeatureDialogResult.newBody
+ *   仅在 true 时回传，未来 updateParams 接线必须原样保留；
+ * - 目标实体下拉：仅 body-producing 特征（BODY_PRODUCING_FEATURE_TYPES：extrude/
+ *   revolve/boolean/loft/sweep/mirror/pattern）且 getBodies 读面已就绪、active
+ *   authored body>1 时渲染（consumed/orphan 不入选项）；值进 **op.targetBodyId**
+ *   （不在 params）。newBody 勾选时隐藏且不发 target（新体由本 op 创建；无 target
+ *   的 newBody 由后端锚定全局链尾）。单 body/读面不可用不发 target（legacy）；
+ * - 读面刷新中（bodiesLoading）body-producing 提交禁用 + 诚实提示——N 未知时
+ *   不得发无 target 的 regular insert（后端 op 边界同口径拒收）。
+ *
  * Escape 关闭（M5-T1 D-T9-5）：非 iTwinUI Dialog 的自研面板吃不到官方
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
  * 对齐 canvas/CanvasContextMenu.tsx:226-234 模式（onCancel 经 ref 取用，
@@ -168,6 +181,7 @@ import { useTranslation } from 'react-i18next';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type {
+  BodyInfo,
   FeatureOp,
   FeatureOpResult,
   FilletEdgeRef,
@@ -178,6 +192,7 @@ import type {
   SketchRegionDto,
 } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
+import { BODY_PRODUCING_FEATURE_TYPES } from '../types.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { filletEdgeRefKey } from '../tools/modeling/fillet-edge-ref.js';
 import './FeatureDialog.css';
@@ -220,6 +235,12 @@ export interface FeatureDialogResult {
   transparency: number;
   /** M6-b T6（fillet 通道）：已拾边集（边自身持久 id 单引用，shared v1.9；仅 fillet 通道携带）。 */
   filletEdges?: readonly FilletEdgeRef[];
+  /**
+   * B6 M-A3.2a（extrude）：新建实体结构键回传（仅 true 时携带）。new 模式=复选
+   * 当前值；edit 模式=落库 params.newBody 的回显值（结构键不可翻转，复选框禁用）。
+   * updateParams 若在本结果基础上构造载荷，必须原样保留该键（否则服务端诚实拒收）。
+   */
+  newBody?: boolean;
 }
 
 export interface FeatureDialogProps {
@@ -278,6 +299,21 @@ export interface FeatureDialogProps {
    * 生产宿主恒显式传参）。
    */
   hasBodies?: boolean;
+  /**
+   * B6 M-A3.2a：body 读面（Session useFeatureSystem.bodies 直通，仅在该连接成功
+   * 读过 getBodies 时下传；undefined=读面不可用 → 不做 target 选择，保持 legacy
+   * 载荷）。>1 个 active authored body 时对 body-producing 特征显示目标实体下拉；
+   * 值以 `targetBodyId` 进 insertFeature op（不是 params）。
+   */
+  bodies?: readonly BodyInfo[];
+  /** body 读面刷新中（提交禁用 + 诚实提示——N 未知时不得发无 target 的 regular insert）。 */
+  bodiesLoading?: boolean;
+  /**
+   * B6 M-A3.2a：既有特征落库 params（mode='edit' 由宿主自特征树行下传）。
+   * 仅消费结构键 `newBody`：回显复选框且禁用（翻转=语义变更，服务端拒收）；
+   * updateParams 接线时必须原样保留该键（本版 edit 提交仍禁用）。
+   */
+  initialParams?: unknown;
   /** ✓/成品 确认出口（回传全量载荷；提交成功后由宿主 closeDialog）。 */
   onConfirm?: (result: FeatureDialogResult) => void;
   /** ✗ 取消出口。 */
@@ -370,6 +406,17 @@ export function classifyAxisLines(entities: readonly SketchEntityDto[]): AxisLin
 /** 草图选项缺省（M6-a T6：props 未接线/壳期空集——「先创建草图」门禁数据源；模块级常量防引用抖动）。 */
 const EMPTY_SKETCHES: readonly FeatureDialogSketchOption[] = [];
 
+/** body 读面缺省（M-A3.2a：未接线/不可用时不做 target 选择）。 */
+const EMPTY_BODIES: readonly BodyInfo[] = [];
+
+/**
+ * 落库 params 的 newBody 结构键读取（B6 M-A3.2a）：只有显式 true 才算勾选；
+ * 非对象/缺键/false 均 false（不伪造、不静默翻转）。
+ */
+export function readStoredNewBody(params: unknown): boolean {
+  return typeof params === 'object' && params !== null && (params as { newBody?: unknown }).newBody === true;
+}
+
 /**
  * 面积读数（M6-a T6）：内部米制 m²，toPrecision(3) 去尾零（0.0025 → "0.0025"、
  * 3.14159 → "3.14"）——面域下拉的量级提示位，非精确读数（精确面积标注归
@@ -397,6 +444,9 @@ export function FeatureDialog({
   sketches,
   connectionKey,
   hasBodies = true,
+  bodies,
+  bodiesLoading,
+  initialParams,
   onConfirm,
   onCancel,
 }: FeatureDialogProps): React.JSX.Element {
@@ -504,6 +554,35 @@ export function FeatureDialog({
   // 特征链供给（requiresUpstream——无实体时 UI 先挡 + 后端 op 边界同口径拒收）。
   const patternChannel = mode === 'new' && featureType === 'pattern' && applyOp !== undefined;
   const patternUpstreamMissing = patternChannel && !hasBodies;
+  // ── B6 M-A3.2a：newBody / target body（body-producing 特征）─────────────────
+  // extrude 新建实体结构键（new 模式=用户勾选；edit 模式由落库 params 回显且
+  // 禁用——结构键不可翻转）；N>1 的目标实体选择（值进 op.targetBodyId）。
+  const [newBody, setNewBody] = React.useState<boolean>(() => readStoredNewBody(initialParams));
+  const [targetBodyKey, setTargetBodyKey] = React.useState('');
+  // 结构键生效值：new 模式=本地复选；edit 模式=落库 params 回显（禁用，绝不翻转）。
+  const effectiveNewBody = mode === 'edit' ? readStoredNewBody(initialParams) : newBody;
+  // 复选可见面：new=extrude 提交通道；edit=extrude 既有特征（只读回显）。
+  const newBodyVisible = mode === 'edit' ? featureType === 'extrude' : extrudeChannel;
+  // active authored body（consumed/orphan 不作写目标；服务端 getBodies 亦只回 authored）。
+  const activeBodies = React.useMemo(
+    () => (bodies ?? EMPTY_BODIES).filter((body) => body.active && body.authored !== false),
+    [bodies],
+  );
+  // body-producing 通道（extrude/revolve/boolean/loft/sweep/mirror/pattern）且读面在场：
+  // N>1 时必须显式 target（后端 op 边界同口径拒收无 target 的 regular insert）。
+  const bodyProducingChannel =
+    mode === 'new' &&
+    applyOp !== undefined &&
+    effectiveFeatureType !== undefined &&
+    BODY_PRODUCING_FEATURE_TYPES.includes(effectiveFeatureType);
+  const targetBodyReadable = bodyProducingChannel && bodies !== undefined;
+  // newBody 时无需 target（新体由本 op 创建；无 target 的 newBody 后端允许——锚定全局链尾）。
+  const targetSelectorVisible = targetBodyReadable && activeBodies.length > 1 && !effectiveNewBody;
+  const effectiveTargetBodyKey = activeBodies.some((body) => body.bodyKey === targetBodyKey)
+    ? targetBodyKey
+    : (activeBodies[0]?.bodyKey ?? '');
+  // 读面刷新中：N 未知 → body-producing 提交挂起（不得发无 target 的 regular insert）。
+  const bodiesPending = bodyProducingChannel && bodiesLoading === true;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
   const [selectedSketchId, setSelectedSketchId] = React.useState('');
   // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
@@ -743,7 +822,9 @@ export function FeatureDialog({
   // 数字域错误在确认出口报，而非静默灰化）。
   const submitDisabled = submitting || editStandalone || !canEdit || !sketchReady || !filletReady
     || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
-    || patternUpstreamMissing;
+    || patternUpstreamMissing
+    // B6 M-A3.2a：读面刷新中（N 未知）禁提交；目标下拉在场时必须已有有效目标。
+    || bodiesPending || (targetSelectorVisible && effectiveTargetBodyKey === '');
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -802,7 +883,9 @@ export function FeatureDialog({
     transparency,
     // M6-b T6：仅 fillet 通道携带已拾边集（其余通道键缺省——既有钉形载荷不破）。
     ...(filletChannel ? { filletEdges } : {}),
-  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, transparency, filletChannel, filletEdges]);
+    // B6 M-A3.2a：extrude 结构键回传（仅 true 时携带；edit 模式=落库落值回显）。
+    ...(newBodyVisible && effectiveNewBody ? { newBody: true } : {}),
+  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, transparency, filletChannel, filletEdges, newBodyVisible, effectiveNewBody]);
 
   /**
    * 确认出口：new + applyOp 在场 → insertFeature 直提交（拉伸闭环）；否则
@@ -823,6 +906,9 @@ export function FeatureDialog({
     if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
     if (mirrorUpstreamMissing) return; // mirror 上游门禁（无实体可镜像——✓ 已禁用，防御兜底）
     if (patternUpstreamMissing) return; // pattern 上游门禁（无实体可阵列——✓ 已禁用，防御兜底）
+    // B6 M-A3.2a：读面刷新中（N 未知）不派发；N>1 目标必选（禁止无 target 的 regular insert）。
+    if (bodiesPending) return;
+    if (targetSelectorVisible && effectiveTargetBodyKey === '') return;
     // B5 pattern 参数校验：按当前形态给具体文案（count/spacing/angle——与服务端 zod 同域）。
     if (patternChannel) {
       if (!patternCountValid) {
@@ -975,8 +1061,16 @@ export function FeatureDialog({
                   // T4-minor 接线收口：对称复选勾选才带键（缺省省略=载荷向后
                   // 兼容，既有钉形测试不破）。
                   ...(symmetric ? { symmetric: true } : {}),
+                  // B6 M-A3.2a：新建实体结构键——勾选才带键（缺省省略；后端缺省
+                  // false=既有 ADD 语义逐字不变）。
+                  ...(effectiveNewBody ? { newBody: true } : {}),
                 }
               : { profile: [], distance: parsedDistance },
+          // B6 M-A3.2a：N>1 的显式目标 body 在 op 层（不在 params）；N≤1/newBody
+          // 缺省不发（legacy/全局链尾语义由后端裁决）。
+          ...(targetSelectorVisible && effectiveTargetBodyKey !== ''
+            ? { targetBodyId: effectiveTargetBodyKey }
+            : {}),
         });
       } catch (err) {
         // rpc-over-ipc 异常（连接断开等）——与拒收同面呈现，不静默。
@@ -1043,6 +1137,11 @@ export function FeatureDialog({
     fullRevolve,
     angleDegrees,
     distance,
+    // B6 M-A3.2a：newBody/target 载荷面。
+    effectiveNewBody,
+    targetSelectorVisible,
+    effectiveTargetBodyKey,
+    bodiesPending,
     t,
     onConfirm,
     buildResult,
@@ -1208,6 +1307,18 @@ export function FeatureDialog({
           </p>
         )}
 
+        {/* B6 M-A3.2a：body 读面刷新中——N 未知，body-producing 提交挂起（不得发
+            无 target 的 regular insert）；读面就绪即自动解除。 */}
+        {bodiesPending && (
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint"
+            data-testid="part-studio-feature-dialog-bodies-loading-hint"
+          >
+            {t('partStudio.featureDialog.bodiesLoadingHint')}
+          </p>
+        )}
+
         {/* 只读权限提示（B2 只读写门禁）：✓/成品 已禁用时的诚实呈现——
             「只读」是比 editHint 更根本的不可提交因，顶位优先。 */}
         {!canEdit && (
@@ -1287,6 +1398,23 @@ export function FeatureDialog({
               onChange={(event) => setSymmetric(event.target.checked)}
             />
             <span>{t('partStudio.featureDialog.sections.symmetric')}</span>
+          </label>
+        )}
+
+        {/* B6 M-A3.2a：extrude「新建实体」复选（结构键）——勾选才在 params 带
+            newBody:true；edit 模式回显落库值且禁用（翻转=语义变更，服务端拒收）。 */}
+        {newBodyVisible && (
+          <label
+            className="part-studio-feature-dialog__checkbox"
+            data-testid="part-studio-feature-dialog-new-body"
+          >
+            <input
+              type="checkbox"
+              checked={effectiveNewBody}
+              disabled={mode === 'edit' || submitting}
+              onChange={(event) => setNewBody(event.target.checked)}
+            />
+            <span>{t('partStudio.featureDialog.newBodyLabel')}</span>
           </label>
         )}
 
@@ -1384,6 +1512,39 @@ export function FeatureDialog({
               </button>
             )}
           </div>
+
+          {/* B6 M-A3.2a：目标实体（N>1 active authored body 的显式写目标）——
+              值进 op.targetBodyId（不是 params）；newBody 时隐藏（新体由本 op 创建）。
+              仅 body-producing 特征渲染；单 body/读面不可用保持 legacy 载荷。 */}
+          {targetSelectorVisible && (
+            <section
+              className="part-studio-feature-dialog__distance"
+              data-testid="part-studio-feature-dialog-target-body"
+            >
+              <label
+                className="part-studio-feature-dialog__distance-label"
+                htmlFor="part-studio-feature-dialog-target-body"
+              >
+                {t('partStudio.featureDialog.targetBodyLabel')}
+              </label>
+              <select
+                id="part-studio-feature-dialog-target-body"
+                aria-label={t('partStudio.featureDialog.targetBodyLabel')}
+                className="part-studio-feature-dialog__select"
+                value={effectiveTargetBodyKey}
+                disabled={submitting}
+                onChange={(event) => setTargetBodyKey(event.target.value)}
+              >
+                {activeBodies.map((body, index) => (
+                  <option key={body.bodyKey} value={body.bodyKey}>
+                    {body.name && body.name.trim() !== ''
+                      ? body.name
+                      : t('partStudio.tree.defaultBodyName', { index: index + 1 })}
+                  </option>
+                ))}
+              </select>
+            </section>
+          )}
 
           {/* fillet 通道（M6-b T6）：无 body/无连接诚实降级 / 添加边拾取钮 /
               拾取中提示 / 边 chips 列表（「边 N」+×移除）/ 空边集门禁。 */}

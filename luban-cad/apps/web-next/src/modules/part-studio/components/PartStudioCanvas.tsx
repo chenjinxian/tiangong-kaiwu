@@ -43,7 +43,7 @@ import React from 'react';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
@@ -86,6 +86,18 @@ export interface PartStudioCanvasProps {
    * （body 产出型条目在场）下传 FeatureDialog；缺省 true（壳期/测试语义保持）。
    */
   hasBodies?: boolean;
+  /**
+   * B6 M-A3.2a：body 读面（Session useFeatureSystem.bodies 直通，仅成功读取后
+   * 下传）——FeatureDialog 的 N>1 目标实体选择/newBody 决策数据源。
+   */
+  bodies?: readonly BodyInfo[];
+  /** body 读面刷新中（FeatureDialog 提交通道挂起 + 诚实提示）。 */
+  bodiesLoading?: boolean;
+  /**
+   * B6 M-A3.2a：edit 模式既有特征落库 params（Session 自特征树行反查）——
+   * FeatureDialog 回显结构键 newBody（不可翻转）。
+   */
+  featureParams?: unknown;
   /** briefcase 打开中（M5-T2：Session 下传 isLoading——画布骨架覆盖层）。 */
   connectionLoading?: boolean;
   /** 连接失败消息（M5-T2：Session 合流下传——briefcase error 优先，viewport 创建失败兜底（T2 评审）；原文透传，null=无失败）。 */
@@ -112,6 +124,9 @@ export function PartStudioCanvas({
   sketches,
   connection,
   hasBodies = true,
+  bodies,
+  bodiesLoading,
+  featureParams,
   connectionLoading = false,
   connectionError = null,
   sketchSystem,
@@ -242,6 +257,9 @@ export function PartStudioCanvas({
           sketches={sketches}
           connectionKey={connection?.key}
           hasBodies={hasBodies}
+          bodies={bodies}
+          bodiesLoading={bodiesLoading}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />

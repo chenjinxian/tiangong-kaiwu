@@ -21,12 +21,14 @@ import type { JSX } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { FeatureTreeEntry } from '@luban-cad/shared';
+import type { BodyInfo, FeatureTreeEntry } from '@luban-cad/shared';
 
 const mocks = vi.hoisted(() => ({
   emphasizeElements: vi.fn(),
   clearEmphasizedElements: vi.fn(),
   hideElements: vi.fn(),
+  // B6 M-A3.2a：consumed body 几何隐藏/撤销恢复（neverDrawn 集重建）。
+  clearHiddenElements: vi.fn(),
   // M6-c T5：特征编辑态体高亮通道（Onshape 橙 color-only 覆盖）。
   overrideElements: vi.fn(),
   clearOverriddenElements: vi.fn(),
@@ -61,6 +63,7 @@ vi.mock('@itwin/core-frontend', () => ({
       emphasizeElements: mocks.emphasizeElements,
       clearEmphasizedElements: mocks.clearEmphasizedElements,
       hideElements: mocks.hideElements,
+      clearHiddenElements: mocks.clearHiddenElements,
       overrideElements: mocks.overrideElements,
       clearOverriddenElements: mocks.clearOverriddenElements,
     }),
@@ -72,7 +75,7 @@ vi.mock('@itwin/core-frontend', () => ({
 import { ColorDef, FeatureOverrideType } from '@itwin/core-common';
 import { usePartStudioStore } from '../index.js';
 import { matchFeature, matchPart, parseTreeFilter } from '../tree/TreeFilter.js';
-import { FeatureTree } from '../tree/FeatureTree.js';
+import { deleteTargetBodyIdForFeature, FeatureTree } from '../tree/FeatureTree.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 
 /**
@@ -84,6 +87,18 @@ const ENTRIES: FeatureTreeEntry[] = [
   { id: 'ex2', featureType: 'extrude', orderKey: 2, suppressed: false, status: 0, params: {} },
   { id: 'ch1', featureType: 'chamfer', orderKey: 3, suppressed: false, status: 1, params: {} },
   { id: 'ex3', featureType: 'extrude', orderKey: 4, suppressed: true, status: 0, params: {} },
+];
+
+/**
+ * body 读面替身（getBodies 同形；M-A3.2a）：active authored 才入零件段。
+ * - 0x15 Base（ex1 驱动）；0x18 consumed（旧，删除后 active=false）；
+ * - 0x20 无 name → 缺省「实体 N」（按 active 列表序）；0x22 authored=false（orphan 防御）。
+ */
+const BODIES: BodyInfo[] = [
+  { bodyKey: '0x15', name: 'Base', active: true, authored: true, sourceFeatureId: 'ex1' },
+  { bodyKey: '0x18', name: 'Old body', active: false, authored: true },
+  { bodyKey: '0x20', active: true, authored: true, sourceFeatureId: 'ex2' },
+  { bodyKey: '0x22', name: 'Orphan', active: true, authored: false },
 ];
 
 /** 零件段查询替身（createQueryReader 异步可迭代；诚实呈现行数组）。 */
@@ -187,6 +202,95 @@ describe('FeatureTree 双段渲染（对齐 os-11；真数据源 entries）', ()
     usePartStudioStore.setState((s) => ({ canvas: { ...s.canvas, hiddenIds: ['ex1'] } }));
     render(<FeatureTree entries={ENTRIES} />);
     expect(screen.getByTestId('tree-row-ex1').getAttribute('data-hidden')).toBe('true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B6 M-A3.2a：零件段 = authored active body（getBodies 读面）+ consumed 几何隐藏
+// ---------------------------------------------------------------------------
+describe('B6 M-A3.2a 零件段 = authored active body（getBodies 读面）', () => {
+  it('只显示 active/authored body；consumed/orphan 排除；名称取 BodyInfo.name（缺省 实体 N）；legacy 物理查询不发起', async () => {
+    const connection = partsConnection([['p1', 'Part 1']]);
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} connection={connection as never} />);
+    const tree = screen.getByTestId('part-studio-tree');
+    const partsList = within(tree).getByTestId('part-studio-part-list');
+    await waitFor(() => expect(within(partsList).getByText('Base')).toBeDefined());
+    // consumed（Old body）与 authored=false（Orphan）都不入零件段。
+    expect(within(partsList).queryByText('Old body')).toBeNull();
+    expect(within(partsList).queryByText('Orphan')).toBeNull();
+    // 无 name → 缺省「实体 N」（N=active authored 列表序）。
+    expect(within(partsList).getByText('实体 2')).toBeDefined();
+    expect(within(tree).getByTestId('part-studio-part-count').textContent).toBe('(2)');
+    // 读面在场时不再跑 BisCore.GeometricElement3d 全量查询（不显示其它模型/副本）。
+    expect(connection.createQueryReader).not.toHaveBeenCalled();
+  });
+
+  it('bodiesLoading（读面未就绪）→ 零件段骨架，legacy 物理查询不抢先发起', () => {
+    const connection = partsConnection([['p1', 'Part 1']]);
+    render(<FeatureTree entries={[]} bodiesLoading connection={connection as never} />);
+    expect(within(screen.getByTestId('part-studio-tree')).getByTestId('part-studio-tree-loading')).toBeDefined();
+    expect(connection.createQueryReader).not.toHaveBeenCalled();
+  });
+
+  it('bodiesError（读面刷新失败）→ 零件段就地错误条（重试走同一 refresh 出口）', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    render(<FeatureTree entries={[]} bodies={[]} bodiesError="getBodies boom" onRetry={onRetry} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('getBodies boom');
+    await user.click(within(alert).getByRole('button', { name: '重试' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('consumed 几何视口隐藏；与手动隐藏并集；undo 恢复 active 后重新可见', async () => {
+    mocks.viewport = { id: 'vp' };
+    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    // 首次：仅 consumed body（0x18）进 neverDrawn（replace=true 重建集）。
+    await waitFor(() => expect(mocks.hideElements).toHaveBeenCalledWith(['0x18'], { id: 'vp' }, true));
+    // 手动隐藏 0x15（store.hiddenIds）→ 并集重算，用户隐藏不被 consumed 通道吞掉。
+    act(() => {
+      usePartStudioStore.setState((s) => ({ canvas: { ...s.canvas, hiddenIds: ['0x15'] } }));
+    });
+    await waitFor(() =>
+      expect(mocks.hideElements).toHaveBeenLastCalledWith(['0x18', '0x15'], { id: 'vp' }, true),
+    );
+    // undo 恢复 active（0x18 active=true）且无手动隐藏 → 清 neverDrawn 重新可见。
+    act(() => {
+      usePartStudioStore.setState((s) => ({ canvas: { ...s.canvas, hiddenIds: [] } }));
+    });
+    rerender(
+      <FeatureTree
+        entries={ENTRIES}
+        bodies={BODIES.map((body) => (body.bodyKey === '0x18' ? { ...body, active: true } : body))}
+      />,
+    );
+    await waitFor(() => expect(mocks.clearHiddenElements).toHaveBeenCalledWith({ id: 'vp' }));
+  });
+
+  it('无 viewport（壳期/测试态）→ 隐藏效果静默跳过，不抛错', () => {
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    expect(mocks.hideElements).not.toHaveBeenCalled();
+    expect(mocks.clearHiddenElements).not.toHaveBeenCalled();
+  });
+});
+
+describe('B6 M-A3.2a delete target 映射（getBodies.sourceFeatureId 契约）', () => {
+  it('feature→active authored body 唯一源映射；consumed/无源/未提供 → undefined', () => {
+    expect(deleteTargetBodyIdForFeature(BODIES, 'ex1')).toBe('0x15');
+    expect(deleteTargetBodyIdForFeature(BODIES, 'ex2')).toBe('0x20');
+    expect(deleteTargetBodyIdForFeature(BODIES, 'ch1')).toBeUndefined();
+    expect(deleteTargetBodyIdForFeature(undefined, 'ex1')).toBeUndefined();
+  });
+
+  it('HITL 删除回调第二参携带 targetBodyId（无映射时 undefined——N>1 由后端诚实拒收）', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} onDelete={onDelete} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
+    await user.click(screen.getByRole('menuitem', { name: '删除' }));
+    const dialog = screen.getByRole('dialog', { name: '删除 拉伸 1' });
+    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'ex1' }), '0x15');
   });
 });
 
@@ -369,7 +473,8 @@ describe('树上右键菜单（对齐 os-15 子集：重命名/编辑/抑制/删
     await user.click(screen.getByRole('menuitem', { name: '删除' }));
     dialog = screen.getByRole('dialog', { name: '删除 拉伸 2' });
     await user.click(within(dialog).getByRole('button', { name: '删除' }));
-    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'ex2' }));
+    // B6 M-A3.2a：无 body 读面 → 第二参 undefined（N≤1 legacy 不需 target）。
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'ex2' }), undefined);
   });
 
   it('重命名 → 行内编辑：Enter 提交 onRename / Escape 取消', async () => {

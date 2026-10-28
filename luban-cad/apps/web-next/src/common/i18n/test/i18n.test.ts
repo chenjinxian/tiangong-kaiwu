@@ -159,6 +159,10 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.edgeUnpickable',
   'featureDialog.edgeChip', 'featureDialog.removeEdge',
   'filletPick.prompt', 'filletPick.resolveFailed',
+  // B6 M-A3.2a：newBody 复选 + 目标实体选择 + body 读面加载提示；零件段 body 缺省名。
+  'featureDialog.newBodyLabel', 'featureDialog.targetBodyLabel',
+  'featureDialog.bodiesLoadingHint',
+  'tree.defaultBodyName',
   'featureDialog.distanceLabel', 'featureDialog.distanceInvalid', 'featureDialog.submitSuccess',
   // T6 评审 round 1：租约警示（I-2）+ edit 模式提示行（M-1）。
   'featureDialog.leaseBusy', 'featureDialog.editHint',

@@ -52,8 +52,10 @@
  *    authored/name 为生命周期读面）；
  *  - `LubanFeatureRpcInterface.getBodies`（只读；authored body，含 consumed 的 active=false）；
  *  - `FeatureOp.insertFeature.targetBodyId?`（N>1 模型 regular insert 的显式目标 body；
- *    `newBody:true` 时它是**锚定链** body，不是新建体；缺省保持 N≤1 legacy 路径）。
- *    删除 op 的目标 body 不在本版共享契约内（M3.2 接线时随 UI 契约再裁决）。
+ *    `newBody:true` 时它是**锚定链** body，不是新建体；缺省保持 N≤1 legacy 路径）；
+ *  - `FeatureOp.deleteFeature.targetBodyId?`（B6 M-A3.2a 增：N>1 模型删除特征显式目标 body，
+ *    与 insertFeature 同锚；缺省保持 N≤1 legacy 路径。服务端 planDelete 自 M-A3.1 R1 起
+ *    已按真实 FeatureDrives 目标推导并接受本字段——共享面补齐后类型可达，版本不二次升）。
  *  - 无 web UI 接线（M3.2）：web 可用 1.15 类型但暂不消费新字段。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、前端 feature 面板（M3）。
  */
@@ -289,7 +291,10 @@ export type FeatureOp =
    * body（新体由本 op 创建，不写入该 body）；无 target 时锚定全局链尾。 */
   | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams; targetBodyId?: string }
   | { kind: "updateParams"; featureId: string; params: FeatureParams }
-  | { kind: "deleteFeature"; featureId: string }
+  /** `targetBodyId`（B6 M-A3.2a v1.15）：N>1 模型删除特征的显式目标 body（authored/active；
+   * 缺省在 N≤1 走 legacy 路径）。服务端只把它作**门禁令牌**并校验与特征真实 body 边一致；
+   * 绝不消费该字段指向的 body（软删除资格只认特征自己的 FeatureDrives 目标）。 */
+  | { kind: "deleteFeature"; featureId: string; targetBodyId?: string }
   | { kind: "setFeatureSuppressed"; featureId: string; suppressed: boolean }
   | { kind: "reorderFeature"; featureId: string; to: number }  // to=目标序位（1 基）
   /** M2 T4.5：改草图约束尺寸（仅 distance/radius 类约束）→ 重解算 → 草图 params+几何流重写 → EDE 传播 */
