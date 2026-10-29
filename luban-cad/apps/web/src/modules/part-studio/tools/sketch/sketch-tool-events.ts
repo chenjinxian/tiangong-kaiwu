@@ -5,7 +5,7 @@
  *
  * 语义骨架移植自退役仓 apps/web/features/sketch/tools/SketchAddDimensionTool.ts
  * （M3-b T5 裁决 E-4）的 sketchToolEvents——SolidModelingToolBase 的
- * solidModelingEvents 同构极简发射器。web-next 拆独立模块的裁决：SketchPanel
+ * solidModelingEvents 同构极简发射器。web 拆独立模块的裁决：SketchPanel
  * （画布覆盖层）只消费事件面，若从 SketchAddDimensionTool 导入会把
  * `class extends PrimitiveTool` 的基类存在性强加给面板消费方（core-frontend
  * 必须先于面板可加载——M6-a T5 懒引裁决的同款理由），故桥独立成零依赖模块，

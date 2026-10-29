@@ -1,6 +1,6 @@
 // src/modules/part-studio/test/useEditorKeyboard.test.ts
 //
-// M4 Task 4：编辑器键盘 hook 单元测试。控制器裁定（T3 交接单）：viewer-next
+// M4 Task 4：编辑器键盘 hook 单元测试。控制器裁定（T3 交接单）：viewer
 // registerDefaultShortcuts 已绑 Ctrl+Z/Ctrl+Y（真实 'Undo'/'Redo' toolId）——
 // 本 hook 只补 Ctrl+S 保存，**不得二次绑定 undo/redo 键**（否则工具双跑）。
 // 断言面：
@@ -8,7 +8,7 @@
 //     另存为）；
 //  2) editable 焦点门（INPUT/TEXTAREA/contentEditable）：不派发；
 //  3) enabled=false：不派发；
-//  4) Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y：本 hook **不**处理（viewer-next 快捷键
+//  4) Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y：本 hook **不**处理（viewer 快捷键
 //     通道独占）——save 不被调、默认行为不被拦；
 //  5) 卸载摘除监听。
 
@@ -33,7 +33,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('useEditorKeyboard（仅 Ctrl+S——undo/redo 归 viewer-next 快捷键）', () => {
+describe('useEditorKeyboard（仅 Ctrl+S——undo/redo 归 viewer 快捷键）', () => {
   it('Ctrl+S：save 调用 + preventDefault', () => {
     const save = vi.fn();
     renderHook(() => useEditorKeyboard(true, { save }));
@@ -110,7 +110,7 @@ describe('useEditorKeyboard（仅 Ctrl+S——undo/redo 归 viewer-next 快捷�
     const ctrlY = pressKey({ key: 'y', ctrlKey: true });
 
     expect(save).not.toHaveBeenCalled();
-    // 默认行为不被拦：拦截权归 viewer-next registerDefaultShortcuts 独占。
+    // 默认行为不被拦：拦截权归 viewer registerDefaultShortcuts 独占。
     expect(ctrlZ.defaultPrevented).toBe(false);
     expect(ctrlShiftZ.defaultPrevented).toBe(false);
     expect(ctrlY.defaultPrevented).toBe(false);

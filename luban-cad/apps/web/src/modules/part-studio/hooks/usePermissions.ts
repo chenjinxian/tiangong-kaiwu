@@ -3,7 +3,7 @@
  *
  * usePermissions（M5 Task 3）：iModel 权限判定 hook（react-query）——旧
  * `apps/web/features/imodel/hooks/useIModelPermission.ts`（语义权威源）
- * 的 web-next 移植，接口形态按 brief 重写为 `{ mode, isLoading }`：
+ * 的 web 移植，接口形态按 brief 重写为 `{ mode, isLoading }`：
  * - 数据通道：`AccessControlClient.getMyIModelPermissions`（官方 imodels SDK
  *   `userPermissions.get` = imodels-v2 `GET /imodels/{id}/permissions`）。旧
  *   hook 手写 fetch 打的 `/itwins/:t/imodels/:m/permission` 路由 hub **已实现**

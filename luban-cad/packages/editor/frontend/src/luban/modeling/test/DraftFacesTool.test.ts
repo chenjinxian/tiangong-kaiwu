@@ -1,4 +1,4 @@
-// DraftFacesTool（web-next M4 Task 3 移植验收）——拔模面工具行为子集：
+// DraftFacesTool（web M4 Task 3 移植验收）——拔模面工具行为子集：
 //  1) toolId/iconSpec/namespace 钉死（Agent 复用规约：同 toolId 禁第二套）；
 //  2) 面过滤：wantSubEntityType 只收 Face + geometryCacheFilter 面/实体通道；
 //  3) 右键完成选择 → startEditCommand('solidModeling', key, 'draftFaces', payload)

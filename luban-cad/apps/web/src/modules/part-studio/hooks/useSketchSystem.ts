@@ -2,7 +2,7 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * useSketchSystem（web-next M6-a T5）：草图系统数据 hook——退役仓
+ * useSketchSystem（web M6-a T5）：草图系统数据 hook——退役仓
  * apps/web/features/sketch/hooks/useSketchSystem.ts（M3-b）的**精简移植**。
  *
  * 与 M3-b 的差异（诚实登记）：
@@ -24,7 +24,7 @@
  *   getSketch 解析发现代数过期即丢弃（stale-clobber 防覆写）。
  * - txns.onCommitted → refresh 保留（外部编辑通道如 updateSketchConstraint
  *   可改写草图）。
- * - i18n：web-next 词桶默认 ns（partStudio.sketch.system.*），i18next 单例
+ * - i18n：web 词桶默认 ns（partStudio.sketch.system.*），i18next 单例
  *   直取（同 useFeatureSystem 口径）。
  *
  * **模块级 accessor**（registerSketchSystemAccessor/getSketchSystem）：

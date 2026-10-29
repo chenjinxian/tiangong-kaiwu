@@ -38,8 +38,8 @@
  *   registerSketchSystemAccessor/getSketchSystem）——`IModelApp.tools.run(id)`
  *   无参启动无选项注入通道（M3-b 已知坑：AI/键盘路径无 setOptions），宿主
  *   PartStudioSession 挂载 useSketchSystem 时注册。toast 走
- *   IModelApp.notifications.outputMessage（web-next 呈现桥 ViewerNotifications
- *   → iTwinUI toaster）；outputPrompt 仍为官方提示通道但 web-next 呈现面
+ *   IModelApp.notifications.outputMessage（web 呈现桥 ViewerNotifications
+ *   → iTwinUI toaster）；outputPrompt 仍为官方提示通道但 web 呈现面
  *   未接线（桥文件头诚实登记），提示语照常发出待呈现面补齐。
  */
 
@@ -532,7 +532,7 @@ export class SketchArc3PointTool extends SketchCreateTool {
 /**
  * 注册草图绘制 4 工具（M6-a T5；幂等——模块级 flag）。
  * 注册点=PartStudioPage 工具注册编排（ensureEditTools 之后同 try 块，失败同面
- * 呈现）；不放 viewer-next 注册表——viewer-next 不反向依赖 app 模块
+ * 呈现）；不放 viewer 注册表——viewer 不反向依赖 app 模块
  * （register-edit-tools.ts 头注挂账的「鲁班草图链绘制 3 件」由本函数收口，
  * arc 为 M6-a 新增第 4 件）。
  */

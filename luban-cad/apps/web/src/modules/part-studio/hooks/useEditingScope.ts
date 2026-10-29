@@ -2,7 +2,7 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * useEditingScope（web-next M4 Task 4）：GraphicalEditingScope 进入/退出 hook——
+ * useEditingScope（web M4 Task 4）：GraphicalEditingScope 进入/退出 hook——
  * 旧应用 `apps/web/src/pages/Editor/Editor.tsx:322-371` 忠实移植：
  * - 进入序：existingScope 复用（在场且未 dispose 则不重复 enter）→
  *   `supportsGraphicalEditing()` → `enterEditingScope()`；

@@ -28,7 +28,7 @@
  *   usePermissions（旧 useIModelPermission.determineEditorMode 移植位），
  *   数据层不夹带裁决。
  *
- * 前缀注：web-next vite 代理已有 `/accesscontrol`（对照 deploy/
+ * 前缀注：web vite 代理已有 `/accesscontrol`（对照 deploy/
  * default.conf.template 九前缀清单，本任务无需补代理）。
  */
 

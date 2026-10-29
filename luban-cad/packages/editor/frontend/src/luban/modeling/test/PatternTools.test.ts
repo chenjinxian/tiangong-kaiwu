@@ -1,4 +1,4 @@
-// PatternTools（web-next M4 Task 3 移植验收）——
+// PatternTools（web M4 Task 3 移植验收）——
 //  1) ID 收集回归（RW2-T3 子集移植自旧应用 apps/web/features/modeling/
 //     PatternTools.test.ts）：doTransformedCopy 必须把「每个副本」的新 id 全部
 //     收进 newIds（旧实现循环外只收末个，replaceAgenda 漏选其余副本）；

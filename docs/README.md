@@ -30,7 +30,7 @@
 | [iTwin.js-Tools-Complete-Reference.md](./iTwin.js-Tools-Complete-Reference.md) | iTwin.js 工具完整参考 |
 | [ITWINJS_CORE_MODIFICATIONS.md](./ITWINJS_CORE_MODIFICATIONS.md) | iTwin.js Core 修改记录 |
 | [web-realstack-probes.md](./web-realstack-probes.md) | 前端真实栈探针标准动作（发布前必跑） |
-| [native-typings-drift-2026-10-26.md](./native-typings-drift-2026-10-26.md) | 原生库 typings 漂移记录（最新一期；历史各期同目录） |
+| [native-typings-drift-2026-10-11.md](./native-typings-drift-2026-10-11.md) | 原生库 typings 漂移记录（历史记录） |
 
 ### 部署与运维
 | 文档 | 说明 |

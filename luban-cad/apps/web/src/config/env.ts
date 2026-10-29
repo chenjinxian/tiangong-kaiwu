@@ -8,7 +8,7 @@
  * 白名单拒（/documents 列表全挂的根因）。VITE_HUB_URL 仍可显式覆盖。
  */
 function defaultHubUrl(): string {
-  // SSR/非 DOM 守卫：web-next 为纯 SPA，仅防 Node 直跑（测试态 jsdom 有 window）。
+  // SSR/非 DOM 守卫：web 为纯 SPA，仅防 Node 直跑（测试态 jsdom 有 window）。
   if (typeof window === 'undefined') return '';
   return window.location.origin;
 }

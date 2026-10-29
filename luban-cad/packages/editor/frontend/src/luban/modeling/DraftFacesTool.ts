@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-// 同源移植自 apps/web/features/modeling/DraftFacesTool.ts（web-next M4-T3；
+// 同源移植自 apps/web/features/modeling/DraftFacesTool.ts（web M4-T3；
 // 类名/toolId 不改——Agent 复用规约「同 toolId 禁第二套」）。两处等价改写：
 //  1) 动态 `new (await import('@itwin/core-frontend')).NotifyMessageDetails(...)`
 //     收敛为静态导入（行为同）；2) app 级 i18n 改包内 toolMessage（见同目录

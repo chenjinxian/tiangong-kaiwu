@@ -68,7 +68,7 @@
  *  - 无新 RPC 方法（沿用 insertFeature/updateParams/deleteFeature/getBodies；bodyKey 即
  *    `getBodies[].bodyKey`）。**注意**：booleanBodies 的 params 是结构语义键——`updateParams`
  *    不改变 targets/tools/operation（服务端诚实拒收；换 body 请删除特征后重建）。
- * 消费方：modeling-server FeatureRpcImpl（服务端）、web-next part-studio（树/对话框）。
+ * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
 

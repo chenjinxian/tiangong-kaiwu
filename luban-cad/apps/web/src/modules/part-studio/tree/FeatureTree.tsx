@@ -240,7 +240,7 @@ function usePhysicalElements(
       disposed = true;
     };
     // refreshToken=特征段条目引用：新特征落库 → 树刷新 → 零件段重查。
-    //（web-next 未启用 exhaustive-deps 规则，依赖数组为手工口径，意图在此注记。）
+    //（web 未启用 exhaustive-deps 规则，依赖数组为手工口径，意图在此注记。）
   }, [connection, refreshToken, enabled, t]);
 
   return { parts, loading, error };

@@ -80,7 +80,7 @@ powershell -File scripts/verify-stack.ps1     # ⑤ 全栈验收(输出全绿即
 
 ### 2. 首次注册与建库
 
-1. 打开 http://localhost/ → 注册(任意邮箱;注册成功即登录,确认邮件进栈内 Maildev 无需理会)。
+1. 打开 http://localhost:5301/ → 注册(任意邮箱;注册成功即登录,确认邮件进栈内 Maildev 无需理会)。
 2. 「新建项目」→ 进入项目 →「新建 iModel」→ 等卡片变为「已初始化」(baseline 由后台自动生成,通常 <1 分钟;卡住可用卡片上的「重试」)。
 3. 点「打开工作空间」进编辑器。
 

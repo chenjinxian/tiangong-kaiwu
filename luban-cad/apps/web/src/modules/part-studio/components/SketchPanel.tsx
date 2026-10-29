@@ -6,7 +6,7 @@
  *
  * 语义骨架移植自退役仓 apps/web/features/sketch/components/SketchPanel.tsx
  * （M3-b T4.7，溯源注记）。与 M3-b 的差异（诚实登记）：
- * - 挂载位换芯：M3-b 面板替换左侧特征树（EditorSidePanel 二选一）；web-next
+ * - 挂载位换芯：M3-b 面板替换左侧特征树（EditorSidePanel 二选一）；web
  *   挂 **PartStudioCanvas 画布左上覆盖层**（sketch.isActive 驱动条件渲染，
  *   非模态不遮画布——与栅格/约束覆盖层、FeatureDialog/SketchDialog 同宿主
  *   同姿态）。裁决依据：PartStudioCanvas 已是草图模式覆盖层宿主（零布局
@@ -14,10 +14,10 @@
  *   设置/版本历史/显示设置三页签且缺省收起，内嵌需新增页签+开合态耦合；
  *   左栏树保持在场（特征树↔草图联动：树红显活动草图行）。
  * - 身份源换位：M3-b 的 openSketch/closeSketch/createSketch/sketches 摘要表
- *   不随迁（web-next 活动身份=store 草图切片，新建走 SketchDialog 的
+ *   不随迁（web 活动身份=store 草图切片，新建走 SketchDialog 的
  *   insertSketch 直通）——退出=exitSketch 复位 + startDefaultTool 停活动
  *   工具；草图切换器/新建按钮以「活动草图 id 静态标签」替代。
- * - 尺寸值编辑换 op：M3-b 走 applyUpdate 整体覆写改 value；web-next 走
+ * - 尺寸值编辑换 op：M3-b 走 applyUpdate 整体覆写改 value；web 走
  *   **updateSketchConstraint op**（applyConstraintValue——后端改值重解算并
  *   重写草图 params+几何流，EDE 传播由 op 自带）；editSubmitting 守卫防
  *   Enter+blur 双提交（M3-b 同款）。
@@ -131,7 +131,7 @@ function solveBadgeState(solve: SketchSolveStateDto, label: (key: string, params
     return { tone: 'positive', text: label('partStudio.sketch.panel.solve.dofZero') };
   }
   // ok+dof>0 与 underconstrained 同为信息态（求解成功但欠约束——M3-b 把该
-  // 组合误落 failed 红标，web-next 按 dof 诚实呈现）。
+  // 组合误落 failed 红标，web 按 dof 诚实呈现）。
   if (solve.status === 'ok' || solve.status === 'underconstrained') {
     return { tone: 'informational', text: label('partStudio.sketch.panel.solve.underconstrained', { dof: solve.dof }) };
   }

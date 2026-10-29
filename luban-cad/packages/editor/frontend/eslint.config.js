@@ -1,6 +1,6 @@
 const iTwinPlugin = require("@itwin/eslint-plugin");
 // 2026-10-22 收编 luban-cad：原配置指向 rush 工作区的 ../../common/config/eslint/
-// eslint.config.base（pnpm workspace 不可达）——改为自包含（对齐 viewer-next 形态）。
+// eslint.config.base（pnpm workspace 不可达）——改为自包含（对齐 viewer 形态）。
 
 module.exports = [
   {

@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-// 同源移植自 apps/web/features/modeling/SolidModelingToolBase.ts（web-next M4-T3；
+// 同源移植自 apps/web/features/modeling/SolidModelingToolBase.ts（web M4-T3；
 // 类名/接口名不改——Agent 复用规约）。RoundEdgesTool/ChamferEdgesTool/
 // HollowFacesTool（editor-frontend 内置）不经此基类；本基类当前仅被移植件
 // DraftFacesTool 继承。
@@ -32,7 +32,7 @@ export interface SolidModelingToolBaseOptions {
 
 /**
  * 实体建模工具基类 - 提供边/面选择的通用逻辑
- * （web-next 当前仅移植件 DraftFacesTool 继承此类）
+ * （web 当前仅移植件 DraftFacesTool 继承此类）
  */
 export abstract class SolidModelingToolBase<
   TOptions extends SolidModelingToolBaseOptions = SolidModelingToolBaseOptions,

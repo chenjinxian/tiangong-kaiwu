@@ -1,7 +1,7 @@
 /**
  * Copyright (c) LubanCAD. All rights reserved.
  *
- * useFeatureDisplaySync（web-next M4 Task 5）：特征显示同步 hook——旧应用
+ * useFeatureDisplaySync（web M4 Task 5）：特征显示同步 hook——旧应用
  * `apps/web/features/editor/useFeatureDisplaySync.ts`（BRep 显示 bug 层③修复，
  * 2026-10-09 定案）**忠实移植**。消费方：PartStudioSession 内层挂载（与
  * useFeatureSystem 同层——特征写入后的几何出现链收口）。
@@ -92,7 +92,7 @@ export function useFeatureDisplaySync(connection: BriefcaseConnection | undefine
           needsLateLoad.push(change.id);
         }
       }
-      // 诊断日志沿旧源（web-next eslint 未启 no-console，无需 disable 指令）。
+      // 诊断日志沿旧源（web eslint 未启 no-console，无需 disable 指令）。
       console.log('[FeatureDisplaySync] guid changed:', modelIds.join(','), 'disposed:', disposed, 'lateLoad:', needsLateLoad.length);
       if (needsLateLoad.length > 0) {
         void (async () => {

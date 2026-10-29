@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *
  * 会话层（移植自 apps/web features/auth/services/auth/client.ts 的
- * login/refresh/单飞逻辑，按 web-next 架构适配）：
+ * login/refresh/单飞逻辑，按 web 架构适配）：
  * - 存储收敛为 sessionStorage 单键 `luban-next-auth`（旧应用 tokens/user 双键
  *   + 同源 cookie 镜像 + localStorage 清尾，全部不移植——cookie 镜像的 WS
  *   鉴权职责在新架构由 startViewer 的 token query 参数承担，见 Task 7）；

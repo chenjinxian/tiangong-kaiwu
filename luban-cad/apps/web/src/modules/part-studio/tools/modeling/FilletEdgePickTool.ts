@@ -44,7 +44,7 @@ import i18next from 'i18next';
 import type { FilletEdgeRef } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 
-/** 元素 id（core-bentley Id64String 的字符串别名——web-next 未直依 core-bentley，取同构别名）。 */
+/** 元素 id（core-bentley Id64String 的字符串别名——web 未直依 core-bentley，取同构别名）。 */
 type ElementId = string;
 
 /** 拾取会话选项（对话框驱动：回调由 FeatureDialog 注入）。 */

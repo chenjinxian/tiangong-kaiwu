@@ -17,7 +17,7 @@
     "lint": "eslint --max-warnings 0 \"src/**/*.ts\" 1>&2"
   },
   "//dependencies": [
-    "@itwin/core-* / @itwin/editor-common 以 link: 直连源码目录（同 viewer-next 形态，不经 npm registry）；",
+    "@itwin/core-* / @itwin/editor-common 以 link: 直连源码目录（同 viewer 形态，不经 npm registry）；",
     "本包为 luban-cad 第一方建模基座（建模功能的修改/新增都在此做），上游 itwinjs-core 不再携带 editor/。",
     "私有仓 modeling-server 的 @itwin/editor-backend link: 路径更新至 luban-cad/packages/editor/backend（挂账）。"
   ],

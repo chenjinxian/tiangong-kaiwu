@@ -66,7 +66,7 @@ import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface PartStudioCanvasProps {
-  /** viewport 宿主 div ref（viewer-next useViewport 出口）。 */
+  /** viewport 宿主 div ref（viewer useViewport 出口）。 */
   viewportRef: RefObject<HTMLDivElement>;
   /** ScreenViewport 实例（M4-T2 起 Page 下传；T5 适应视图/T6 内联对话框消费位）。 */
   viewport?: ScreenViewport;

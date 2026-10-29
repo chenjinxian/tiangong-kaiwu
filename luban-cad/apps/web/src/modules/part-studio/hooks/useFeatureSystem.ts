@@ -1,7 +1,7 @@
 /**
  * Copyright (c) LubanCAD. All rights reserved.
  *
- * useFeatureSystem（web-next M4 Task 5）：特征系统中枢 hook——旧应用
+ * useFeatureSystem（web M4 Task 5）：特征系统中枢 hook——旧应用
  * `apps/web/features/editor/hooks/useFeatureSystem.ts`（M3-a 权威源）**子集
  * 忠实移植**：特征树读取 + 写租约生命周期 + op 提交 + 事务后自动刷新。
  * 消费方：PartStudioSession 内层挂载（connection prop 所在层；T6 拉伸闭环
@@ -53,8 +53,8 @@
  * 与旧实现的差异（诚实登记，勿静默）：
  *  - 上列延后面（旧接口五成员不随迁）；
  *  - M5-T1 新增面（旧源没有）：onAfterUndoRedo 双订、refresh 纪元守卫、
- *    特征级超时兜底（均 web-next M4 冒烟暴露的呈现链缺口，终审给定案）；
- *  - i18n：旧源引 `shared/i18n` 的 editor ns；web-next 词桶挂默认 translation
+ *    特征级超时兜底（均 web M4 冒烟暴露的呈现链缺口，终审给定案）；
+ *  - i18n：旧源引 `shared/i18n` 的 editor ns；web 词桶挂默认 translation
  *    ns（`partStudio.featureSystem.*`，见 @common/i18n），经 i18next 单例直取
  *   （AppProviders 首帧 initI18n 门 + 测试 setup 兜底，回调内取词不吃闭包旧语）。
  */

@@ -90,7 +90,7 @@ export class ImodelsClient {
 
   /**
    * iModel 的 changeset 列表（全量表示；官方迭代器自动翻页，收拢为数组）。
-   * 版本历史面板数据源（web-next M4-T7；官方
+   * 版本历史面板数据源（web M4-T7；官方
    * `changesets.getRepresentationList`——旧应用 useChangesets.ts 同通道）。
    */
   public async listChangesets(iModelId: string): Promise<Changeset[]> {

@@ -67,7 +67,7 @@ export function PartStudioTabs({
 
   // alt+~+t 和弦热键（os-33 底栏标注键位；M4-T8 收 M3 终审 T7-①）：Alt+~
   // 挂弦，下一击 t 开页签管理器（第二击不要求 Alt 仍按住——和弦语义非三键
-  // 同时；任一其他击键解除挂弦）。可编辑焦点内不派发（viewer-next 键位守卫
+  // 同时；任一其他击键解除挂弦）。可编辑焦点内不派发（viewer 键位守卫
   // 同口径：INPUT/TEXTAREA/SELECT/contentEditable）。
   React.useEffect(() => {
     const isEditableTarget = (target: EventTarget | null): boolean => {

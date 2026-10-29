@@ -177,7 +177,7 @@ export interface PartStudioViewOnlyState {
 
 /**
  * part-studio 编辑器会话态聚合（spec §3 五分法：编辑器会话态唯一归属
- * zustand；服务端态归 react-query、运行时态归 viewer-next，不进本类型）。
+ * zustand；服务端态归 react-query、运行时态归 viewer，不进本类型）。
  */
 export interface PartStudioState {
   tree: PartStudioTreeState;

@@ -9,10 +9,10 @@
  *
  * 与旧实现的差异（适配裁决）：
  * - 入参 iTwin → doc（DocumentSummary，Task 4 UI 契约）；
- * - toast 反馈（useAppToast）→ 成员页内联状态条（web-next 暂无全局 toast
+ * - toast 反馈（useAppToast）→ 成员页内联状态条（web 暂无全局 toast
  *   设施，成功/失败在成员页顶部 Alert 呈现，语义等价可测）；
  * - queryKeys 集中注册表 → 本组件内联键（['documents','share',...]，
- *   web-next 暂无 queryKeys 注册表）；
+ *   web 暂无 queryKeys 注册表）；
  * - 成员 id 非 UUID 时禁用改角色/移除（hub PATCH/DELETE 走 ParseUUIDPipe，
  *   非 UUID id 必 400——旧应用同口径 inline 说明）。
  */

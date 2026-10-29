@@ -195,7 +195,7 @@
  * dismissal 处方——document keydown（Escape→onCancel）挂载期一次注册，
  * 对齐 canvas/CanvasContextMenu.tsx:226-234 模式（onCancel 经 ref 取用，
  * 不随 props 变化重挂）；IModelApp Escape 工具语义共存由 P1 波次放行传播
- *（viewer-next keyboard-shortcuts Escape 分支不拦断，浮层收合与工具取消
+ *（viewer keyboard-shortcuts Escape 分支不拦断，浮层收合与工具取消
  * 两层语义并存）。M6-b T6：拾取态下 Escape 分叉=只结束拾取（stopPick）不关
  * 对话框——「Esc 结束拾取回对话框」语义优先于面板关闭。
  */

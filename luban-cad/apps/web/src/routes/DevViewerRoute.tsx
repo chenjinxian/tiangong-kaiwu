@@ -9,7 +9,7 @@ import { acquireViewer, releaseViewer } from '@luban-cad/viewer';
  * - email/password 登录钮 → `AuthSession.login` 落会话（M0 尚无认证 UI，brief Step 4 钉死的便捷入口）；
  * - 「启动查看器」→ `acquireViewer({ backendUrl: window.location.origin, hubUrl: env.hubUrl, accessToken })`
  *   （M3-T1：MS CORS 钉死 :5300，直连姿态不做 dev 特例——backendUrl 传同源，
- *   viewer-next 拼出 ws://<origin>/ipc 走 vite 代理转发 MS :5401；env.msUrl 仅作展示）
+ *   viewer 拼出 ws://<origin>/ipc 走 vite 代理转发 MS :5401；env.msUrl 仅作展示）
  *   → 轮询 `IModelApp.toolAdmin`（50ms×30s，对齐旧 `apps/web useEditorInitialization`）；
  * - 「停止查看器」→ `releaseViewer()`（M4-T1 引用计数：与 acquireViewer 成对持有——
  *   单点直调 release 会因计数归 0 前的守卫变 no-op，须与启动同配对）；

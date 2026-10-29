@@ -13,7 +13,7 @@
  *  - {@link ToasterNotificationManager}：经 useViewport → acquireViewer →
  *    IModelApp.startup 的**官方注入点**（IModelAppOptions.notifications）替换
  *    哑通道——outputMessage 转发给已注册 sink，无 sink 回退基类。注入点在
- *    viewer-next host（本包零 UI 依赖），呈现知识在 app 层；
+ *    viewer host（本包零 UI 依赖），呈现知识在 app 层；
  *  - {@link ViewerNotificationsBridge}：AppProviders 的 iTwinUI ThemeProvider
  *    内层挂载（useToaster 依赖其内部 ToastProvider context），把 useToaster
  *    注册为 sink。渲染 iTwinUI toast：priority 映射 Error/Fatal→negative、

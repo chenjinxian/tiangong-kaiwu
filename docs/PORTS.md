@@ -26,7 +26,7 @@
 | Redis（仅源码模式参考） | **56379** | 6379 | 同上 |
 | Maildev SMTP（仅源码模式参考） | **11025** | 1025 | 同上 |
 | Maildev UI（仅源码模式参考） | **11080** | 1080 | 同上 |
-| Vite preview | **5302** | 5302 | `luban-cad/apps/web/vite.config.ts` `preview.port` |
+| Vite preview | **4173** | 4173 | Vite 默认值；`luban-cad/apps/web/vite.config.ts` 未配置 `preview.port` |
 
 ## 关键环境变量（根 `.env`）
 

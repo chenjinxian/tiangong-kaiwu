@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-// 同源移植自 apps/web/features/modeling/MirrorElementsTool.ts（web-next M4-T3；
+// 同源移植自 apps/web/features/modeling/MirrorElementsTool.ts（web M4-T3；
 // 类名/toolId 不改——Agent 复用规约）。等价改写同 DraftFacesTool 头注：动态
 // import 收敛静态导入；app 级 i18n 改包内 toolMessage。镜像走
 // basicManipulation/mirrorElement 后端命令（B4：一次 startEditCommand + 逐元素

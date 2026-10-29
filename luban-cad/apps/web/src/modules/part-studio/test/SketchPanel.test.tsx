@@ -441,7 +441,7 @@ describe('M6-b T5：退出与空态', () => {
     expect(screen.getByRole('alert').textContent).toBe('connection lost');
   });
 
-  it('活动草图 id 静态标签（M3-b 切换器的 web-next 替代形态）', () => {
+  it('活动草图 id 静态标签（M3-b 切换器的 web 替代形态）', () => {
     renderPanel(makeSketchSystem());
     expect(screen.getByTestId('sketch-panel-sketch-id').textContent).toContain('sk-1');
   });

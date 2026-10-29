@@ -17,7 +17,7 @@
     "test:watch": "vitest"
   },
   "//dependencies": [
-    "@itwin/core-* / @itwin/editor-common 以 link: 直连 itwinjs-core 源码目录（同 viewer-next 形态，不经 npm registry）；",
+    "@itwin/core-* / @itwin/editor-common 以 link: 直连 itwinjs-core 源码目录（同 viewer 形态，不经 npm registry）；",
     "@luban-cad/shared 为 workspace 内包——src/luban/ 鲁班自研工具经 OpenCloudRpcInterface 走建模后台。",
     "上游 itwinjs-core 不再携带 editor/（2026-10-22 收编裁决）；上游同步后 subtree 会带回 editor/，须删除（docs/UPSTREAM_SYNC.md 检查单）。"
   ],

@@ -20,8 +20,8 @@
  * - 运行依赖：**模块级 accessor** getSketchSystem()（M6-a T5 同款——
  *   `IModelApp.tools.run(id)` 无参启动无选项注入通道，宿主 PartStudioSession
  *   挂载 useSketchSystem 时注册）；toast 走 IModelApp.notifications
- *   .outputMessage（web-next 呈现桥 ViewerNotifications → iTwinUI toaster）；
- *   outputPrompt 仍为官方提示通道但 web-next 呈现面未接线（SketchCreateTool
+ *   .outputMessage（web 呈现桥 ViewerNotifications → iTwinUI toaster）；
+ *   outputPrompt 仍为官方提示通道但 web 呈现面未接线（SketchCreateTool
  *   文件头同注记），提示语照常发出待呈现面补齐。
  *
  * 铁律保留（M3-b）：约束满槽**直接提交**（与尺寸工具的「事件桥移交面板」

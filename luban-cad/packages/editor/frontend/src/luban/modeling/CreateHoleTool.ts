@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-// 同源移植自 apps/web/features/modeling/CreateHoleTool.ts（web-next M4-T3；
+// 同源移植自 apps/web/features/modeling/CreateHoleTool.ts（web M4-T3；
 // 类名/toolId 不改——Agent 复用规约）。等价改写同 DraftFacesTool 头注：动态
 // import 收敛静态导入；app 级 i18n 改包内 toolMessage。
 // 2026-10-22 随 editor 模块收编迁入本包（@itwin/editor-frontend）src/luban/

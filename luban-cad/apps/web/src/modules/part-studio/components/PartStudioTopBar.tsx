@@ -150,7 +150,7 @@ export function PartStudioTopBar({
       actions={[
         // 撤销/重做/保存版本三钮组（M4-T4，os-11 操作簇头部）：状态由页面层
         // useUndoRedo（BriefcaseTxns 标准通道）驱动——undo/redo 点击投标准工具
-        // 'Undo'/'Redo'（viewer-next 注册表在册、快捷键同源）；第三钮 M4-T7
+        // 'Undo'/'Redo'（viewer 注册表在册、快捷键同源）；第三钮 M4-T7
         // 演进为「保存版本」推送入口（无可推送内容诚实禁用）；props 缺省 =
         // 未接线，三钮诚实禁用。
         <IconButton

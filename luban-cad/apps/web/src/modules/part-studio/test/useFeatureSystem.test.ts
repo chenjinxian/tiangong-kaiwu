@@ -46,7 +46,7 @@ const fakeClient = vi.hoisted(() => {
     // B6 M-A3.2a：body 读面（与树同刷新）。
     getBodies: vi.fn(async (_key: string): Promise<BodyInfo[]> => makeBodies()),
     // 返回型宽化到契约联合（旧源 as const 字面量型在 mockResolvedValueOnce 改写
-    // 拒收分支时与 strict tsc 相抵——web-next build 门含 tsc --noEmit 全量测）。
+    // 拒收分支时与 strict tsc 相抵——web build 门含 tsc --noEmit 全量测）。
     applyFeatureOp: vi.fn(async (_key: string, _op: FeatureOp, _sessionId: string): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f2' })),
     acquireWriteLease: vi.fn(async (_key: string, _sessionId: string): Promise<{ ok: boolean; holder?: string }> => ({ ok: true, holder: 'tester' })),
     releaseWriteLease: vi.fn(async (_key: string, _sessionId: string): Promise<void> => undefined),

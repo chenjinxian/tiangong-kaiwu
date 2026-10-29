@@ -1,4 +1,4 @@
-// CreateHoleTool（web-next M4 Task 3 移植验收）——打孔工具行为子集：
+// CreateHoleTool（web M4 Task 3 移植验收）——打孔工具行为子集：
 //  1) toolId/iconSpec/namespace 钉死 + requireWriteableTarget=true（写位门）；
 //  2) 装载即 initLocateElements(true, false, 'face')（面上拾取定位）+ 提示可见；
 //  3) 首点只记位置零 RPC；再次 data 点击 / 右键 → startEditCommand(

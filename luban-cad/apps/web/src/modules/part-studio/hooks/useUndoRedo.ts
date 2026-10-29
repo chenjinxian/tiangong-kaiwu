@@ -2,7 +2,7 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * useUndoRedo（web-next M4 Task 4）：撤销/重做/保存状态机——**BriefcaseTxns
+ * useUndoRedo（web M4 Task 4）：撤销/重做/保存状态机——**BriefcaseTxns
  * 标准通道**（控制器裁定；禁止移植旧应用自造 UndoManager，apps/web/src/core/
  * undo/* 不引）：
  * - 状态口径：`connection.txns.isUndoPossible()/isRedoPossible()/hasPendingTxns()`
@@ -12,11 +12,11 @@
  *   `onChangesPushed`（推送清 pending 场景重查询）。P0 教训（saveChanges 循环：
  *   status 行写同值短路）——纯布尔态 + 事件驱动，无轮询无臆测口径；
  * - undo()/redo()：`IModelApp.tools.run('Undo'/'Redo')`（editor-frontend 内置
- *   UndoTool/RedoTool，viewer-next 注册表在册、快捷键已绑）——事务语义由 core
+ *   UndoTool/RedoTool，viewer 注册表在册、快捷键已绑）——事务语义由 core
  *   管理，本 hook 只发标准工具；重入护栏防连点双跑；
  * - saveChanges()：代理 `connection.saveChanges(description)`（上游 5.9 标记
  *   deprecated，本仓编辑管道硬约束仍走 BriefcaseTxns/saveChanges——见
- *   viewer-next useBriefcaseConnection 同款注释），isSaving 驱动顶栏加载态；
+ *   viewer useBriefcaseConnection 同款注释），isSaving 驱动顶栏加载态；
  *   完成态由 onCommitted 事件回流（不在本 hook 手工翻转业务布尔）。
  *
  * 连接衍生布尔（canUndo/canRedo/hasUnsavedChanges/isSaving）为 hook 本地态：
@@ -148,7 +148,7 @@ export function useUndoRedo(connection: BriefcaseConnection | null): UseUndoRedo
     try {
       // 上游 5.9 对 saveChanges 标记 deprecated（指向 EditCommand 方法）；本仓
       // 编辑管道硬约束事务仍走 BriefcaseTxns/saveChanges（luban-cad/CLAUDE.md
-      // 铁律 1），保持 T1 连接层同款口径（web-next eslint 未启 no-deprecated
+      // 铁律 1），保持 T1 连接层同款口径（web eslint 未启 no-deprecated
       // 规则，免 disable 指令）。
       await conn.saveChanges(description);
     } finally {

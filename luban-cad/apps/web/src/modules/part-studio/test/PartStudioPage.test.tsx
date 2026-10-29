@@ -34,7 +34,7 @@
 //
 // 定位：五区结构存在性 + store 接线验收层；mock 口径与 document-details 结构
 // 测试一致——真实 store/hooks 参与，客户端（ItwinsClient / ImodelsClient /
-// AuthSession）与 viewer-next（useViewport/useBriefcaseConnection/
+// AuthSession）与 viewer（useViewport/useBriefcaseConnection/
 // applyViewportBackground）模块级 mock（零真实请求/零查看器）。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -68,7 +68,7 @@ const viewerMocks = vi.hoisted(() => ({
 // StandardViewId/EmphasizeElements…）走真实模块。
 const coreFrontendMocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
-  // M4-T4：undo/redo 走 IModelApp.tools.run('Undo'/'Redo')（viewer-next 内置在册）。
+  // M4-T4：undo/redo 走 IModelApp.tools.run('Undo'/'Redo')（viewer 内置在册）。
   toolsRun: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
   // M6-a T5：草图绘制工具注册面（registerSketchTools 经 initTools 懒引注册）。
   toolsRegister: vi.fn(),
@@ -354,7 +354,7 @@ beforeEach(() => {
   FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(false);
   FAKE_CONNECTION.txns.isRedoPossible.mockResolvedValue(false);
   FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(false);
-  // viewer-next mock 桩：连接就绪 + viewport 就位（M4-T2 接线断言的数据面）。
+  // viewer mock 桩：连接就绪 + viewport 就位（M4-T2 接线断言的数据面）。
   viewerMocks.useBriefcaseConnection.mockReturnValue({
     connection: FAKE_CONNECTION,
     isLoading: false,
@@ -652,7 +652,7 @@ describe('M5-T3 权限门（权限未载不开连接）+ briefcase readonly 三�
 });
 
 describe('M4-T3 工具注册编排（Editor.tsx:262-309 序移植）', () => {
-  it('phase ready → waitForToolAdmin 通过 → ensureEditTools 恰一次（幂等在 viewer-next flag）', async () => {
+  it('phase ready → waitForToolAdmin 通过 → ensureEditTools 恰一次（幂等在 viewer flag）', async () => {
     renderPage();
     await waitFor(() => expect(viewerMocks.ensureEditTools).toHaveBeenCalledTimes(1));
   });

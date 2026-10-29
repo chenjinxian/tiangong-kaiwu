@@ -27,7 +27,7 @@
  *   视图变身/菜单态语义，与写门分线；
  * - 内层 PartStudioSession：connection 作 iModel 下传 useViewport
  *   （BriefcaseConnection extends IModelConnection——ScreenViewport 创建/类目模型
- *   补全/内容感知取景全链在 viewer-next）→ viewport 下传 PartStudioCanvas +
+ *   补全/内容感知取景全链在 viewer）→ viewport 下传 PartStudioCanvas +
  *   Onshape 底色接线（applyViewportBackground + MutationObserver 监听
  *   documentElement[data-theme]，同旧 Editor.tsx 姿态——不用 useTheme，页面测试
  *   无 ThemeProvider）；
@@ -48,7 +48,7 @@
  *   useUndoRedo（BriefcaseTxns 标准通道：txns 三查询 + onCommit/onCommitted/
  *   onAfterUndoRedo/onChangesPushed 事件驱动布尔；undo/redo 投内置工具
  *   'Undo'/'Redo'）、useEditorKeyboard（只补 Ctrl+S——undo/redo/Delete/
- *   Escape 键位 viewer-next registerDefaultShortcuts 独占，勿二次绑定）；
+ *   Escape 键位 viewer registerDefaultShortcuts 独占，勿二次绑定）；
  * - editorToolSettings 配置段（Editor.tsx:200-235 移植）：viewport+connection+
  *   scope 就绪后校准默认类目/模型 + 空间视图默认开项目范围装饰件。
  *
@@ -86,7 +86,7 @@
  *   不重开）；viewport 创建失败是同族子类（useViewport 只 setError 不翻相位，
  *   phase 可仍 ready）——画布错误面合流 `briefcase ?? viewportError`（briefcase
  *   优先，与状态栏序一致），状态栏补 viewport error 分支不被 host ready 掩盖
- *   （T2 评审 Important；viewer-next 侧错误随链生灭——iModel 切换清空不残留）；
+ *   （T2 评审 Important；viewer 侧错误随链生灭——iModel 切换清空不残留）；
  * - **T7-② 断连兜底**：推送对话框开着时连接消失（页签切换重开连接的中间态），
  *   `connection &&` 条件渲染会直卸载对话框——收合并经 IModelApp.notifications
  *   toast 说明（不无声消失；守卫保证只在「开→断」跃迁发声）。
@@ -187,7 +187,7 @@ function PartStudioSession({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   // 会话由 RequireAuth 门保证在场；token 静态传入（M3 雷②闭环：渲染期取一次，
-  // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer-next 演进）。
+  // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer 演进）。
   const { viewportRef, phase, viewport, error: viewportError } = useViewport({
     backendUrl: window.location.origin,
     hubUrl: env.hubUrl,
@@ -365,7 +365,7 @@ function PartStudioSession({
     );
   }, [connection, pushDialogOpen, t]);
 
-  // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer-next
+  // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer
   // registerDefaultShortcuts 独占（T3 交接裁定：二次绑定 = 工具双跑）。
   useEditorKeyboard(canEdit, { save: handleSave });
 
@@ -448,8 +448,8 @@ function PartStudioSession({
       try {
         await ensureEditTools();
         // M6-a T5：草图绘制 4 工具注册（Sketch.Line/Sketch.Rectangle/
-        // Sketch.CenterCircle/Sketch.Arc3Point）——web-next 侧注册（viewer-next
-        // 不反向依赖 app 模块）；懒引（viewer-next ensureEditTools 同款口径：
+        // Sketch.CenterCircle/Sketch.Arc3Point）——web 侧注册（viewer
+        // 不反向依赖 app 模块）；懒引（viewer ensureEditTools 同款口径：
         // 工具类 extends PrimitiveTool 静态引出会把基类存在性强加给 barrel
         // 消费方的 core-frontend mock 面）；幂等，失败同 ensureEditTools 错误面。
         const { registerSketchTools } = await import('./tools/sketch/SketchCreateTool.js');

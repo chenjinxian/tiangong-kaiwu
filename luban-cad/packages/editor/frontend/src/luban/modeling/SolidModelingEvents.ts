@@ -3,9 +3,9 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-// 同源移植自 apps/web/features/modeling/SolidModelingEvents.ts（web-next M4-T3；
+// 同源移植自 apps/web/features/modeling/SolidModelingEvents.ts（web M4-T3；
 // 类名/事件名不改——Agent 复用规约）。DraftFacesTool 经 SolidModelingToolBase
-// 消费 draftComplete 事件面（web-next 面板尚未订阅，事件照发不悬空）。
+// 消费 draftComplete 事件面（web 面板尚未订阅，事件照发不悬空）。
 
 import type { SubEntityLocationProps } from '@itwin/editor-common';
 

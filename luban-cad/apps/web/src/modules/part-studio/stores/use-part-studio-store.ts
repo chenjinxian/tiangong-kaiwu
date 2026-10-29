@@ -5,7 +5,7 @@
  * part-studio 编辑器会话态 store（M3 Task 2；M4 Task 8 命名口径拍板）。
  *
  * 文件命名（M3 终审 §四 观察项的拍板落地）：hook 主导出文件=camelCase
- * `use-*`（本文件主导出即 usePartStudioStore hook，与 viewer-next
+ * `use-*`（本文件主导出即 usePartStudioStore hook，与 viewer
  * `use-viewport.ts` 同规）；测试文件同被测物改名（use-part-studio-store
  * .test.ts，「测试=被测物.test.*」口径不变）。
  *
@@ -13,7 +13,7 @@
  * 职责」——本文件按职责拆五个切片（tree/dock/tool/sketch/commandPalette），
  * 各切片独立 createXxxSlice 定义、单一 create 组合；消费面走 selector
  * 订阅（`usePartStudioStore(s => s.tree.activeTab)`），保证重渲染粒度。
- * 服务端态（react-query）与运行时态（viewer-next hooks）严禁入本 store。
+ * 服务端态（react-query）与运行时态（viewer hooks）严禁入本 store。
  */
 
 import { create } from 'zustand';

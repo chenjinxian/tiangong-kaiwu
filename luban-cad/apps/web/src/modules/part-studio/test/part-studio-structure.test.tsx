@@ -29,7 +29,7 @@
 //
 // 定位：结构层总账（与各任务单测互补——单测钉行为，本文件钉「整页装配后
 // 所有锚点同时在场」）。mock 口径同 PartStudioPage.test.tsx M4 基线（客户端/
-// viewer-next 模块级 mock + 连接/视口替身 FAKE_CONNECTION/FAKE_VIEWPORT +
+// viewer 模块级 mock + 连接/视口替身 FAKE_CONNECTION/FAKE_VIEWPORT +
 // 特征 RPC 钉形——真实 store/hooks/i18n 参与，零真实请求/零查看器）；
 // @itwin/core-frontend 用 importOriginal 摊平（真实类/常量保留，IModelApp 钉
 // 就绪态 + tools.run/notifications 可观测）。
@@ -64,7 +64,7 @@ const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
 }));
 
-// M4-T9：viewer-next 桩从 M3 壳口径（null 连接/无视口）升级为可控钉形——
+// M4-T9：viewer 桩从 M3 壳口径（null 连接/无视口）升级为可控钉形——
 // M4 真连接组合（PartStudioSession 双层 + 编辑三钮 + 特征系统）整页参与。
 const viewerMocks = vi.hoisted(() => ({
   useViewport: vi.fn(),
@@ -157,7 +157,7 @@ vi.mock('@itwin/core-frontend', async (importOriginal) => {
   };
 });
 
-// viewer-next 钉形：连接/视口相位由 beforeEach 按用例钉（缺省 ready +
+// viewer 钉形：连接/视口相位由 beforeEach 按用例钉（缺省 ready +
 // FAKE_VIEWPORT，见下方 M4 基线段）。
 vi.mock('@luban-cad/viewer', () => ({
   useViewport: viewerMocks.useViewport,
@@ -340,7 +340,7 @@ beforeEach(() => {
   FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(false);
   FAKE_CONNECTION.txns.isRedoPossible.mockResolvedValue(false);
   FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(false);
-  // M4-T9 viewer-next 桩：连接就绪（真实 useUndoRedo/useEditingScope/
+  // M4-T9 viewer 桩：连接就绪（真实 useUndoRedo/useEditingScope/
   // useFeatureSystem 参与的 M4 基线）+ viewport 就位 + ready 相位。
   viewerMocks.useBriefcaseConnection.mockReturnValue({
     connection: FAKE_CONNECTION as unknown as never,
@@ -697,7 +697,7 @@ describe('M4 收官锚点总账（T9）', () => {
 
   it('视口挂载点接线：useViewport.viewportRef 即 part-studio-viewport DOM 节点 + viewport 就位 data-viewport-ready=true', () => {
     renderPage();
-    // ref 身份断言：画布挂载点 div 就是 useViewport 出口 ref 的宿主（viewer-next
+    // ref 身份断言：画布挂载点 div 就是 useViewport 出口 ref 的宿主（viewer
     // ScreenViewport 创建的挂载目标——jsdom 下可钉 DOM 接线事实）。
     const mount = screen.getByTestId('part-studio-viewport');
     expect(VIEWPORT_REF.current).toBe(mount);

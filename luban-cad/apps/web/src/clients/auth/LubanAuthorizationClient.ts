@@ -13,7 +13,7 @@ import { ApiClientError } from '../http/ApiClientError.js';
 /**
  * 结构镜像 `@itwin/core-common` 的 `AuthorizationClient`（`AccessToken` 在
  * @itwin/core-bentley 中就是 `string` 类型别名，故本接口与该接口逐成员兼容）。
- * web-next 尚未引入 @itwin/core-common 依赖（Task 7 的 viewer-next 才 link:），
+ * web 尚未引入 @itwin/core-common 依赖（Task 7 的 viewer 才 link:），
  * 待引入后把本镜像替换为真包 import 即可，类体零改动。
  */
 interface AuthorizationClient {

@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *--------------------------------------------------------------------------------------------*/
 
-// 同源移植自 apps/web/features/modeling/PatternTools.ts（web-next M4-T3；类名/
+// 同源移植自 apps/web/features/modeling/PatternTools.ts（web M4-T3；类名/
 // toolId 不改——Agent 复用规约）。等价改写：app 级 i18n 改包内 toolMessage（见
 // 同目录 messages.ts 头注）。阵列走前端直改通道（basicManipulationIpc.
 // insertGeometricElement）+ CopyElementsTool 事务管理；RW2-T3 ID 收集语义

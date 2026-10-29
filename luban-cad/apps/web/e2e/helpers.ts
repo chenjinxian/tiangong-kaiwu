@@ -2,7 +2,7 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * e2e 共通 helper（web-next 版，形态对齐 apps/web/e2e/helpers.ts 的
+ * e2e 共通 helper（web 版，形态对齐 apps/web/e2e/helpers.ts 的
  * 会话注入纪律）：
  * - 常规 spec 标准登录 = loginWithSession（auth.setup 产物注入 sessionStorage
  *   `luban-next-auth`，零登录请求零限流消耗；AuthSession.getStoredAuth 直读
@@ -19,7 +19,7 @@ import { E2E_IMODEL_NAME, SEED_PROJECT_NAME, TEST_USER } from './fixtures';
 
 /** auth.setup 产物（setup 与消费方的唯一交接面）。 */
 export const SESSION_FILE = 'playwright/.auth/session.json';
-/** web-next 会话键（AuthSession.SESSION_KEY 同名）。 */
+/** web 会话键（AuthSession.SESSION_KEY 同名）。 */
 export const AUTH_STORAGE_KEY = 'luban-next-auth';
 
 /** sessionStorage `luban-next-auth` 的存储形状（src/clients/auth/AuthSession.ts）。 */

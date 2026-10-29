@@ -2,10 +2,10 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * PushChangesetDialog（web-next M4 Task 7）：推送对话框——本地变更打包为
+ * PushChangesetDialog（web M4 Task 7）：推送对话框——本地变更打包为
  * changeset 推送到 iModel hub 前的描述录入面（旧应用
  * features/version-control/components/PushChangesetDialog.tsx 形态移植，模态
- * iTwinUI Dialog 壳改走 web-next 既有 Dialog.Backdrop/Main 契约）：
+ * iTwinUI Dialog 壳改走 web 既有 Dialog.Backdrop/Main 契约）：
  * - 描述必填：空/纯空白确认钮禁用（trim 口径，不发起推送）；
  * - onConfirm 为 **Promise 通道**（宿主接 `connection.pushChanges(description)`）
  *   ——成功：IModelApp.notifications 成功 toast（标准管道，与 FeatureDialog

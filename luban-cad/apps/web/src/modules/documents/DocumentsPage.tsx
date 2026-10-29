@@ -246,7 +246,7 @@ export function DocumentsPage(): React.JSX.Element {
         { id: doc.id, favorite: !wasFavorite },
         {
           onError: (mutationError) => {
-            // web-next 暂无全局 toast 设施——失败态 console 留痕（旧应用 toast 的降级）。
+            // web 暂无全局 toast 设施——失败态 console 留痕（旧应用 toast 的降级）。
             console.error(t('documents.states.favoriteFailed'), mutationError);
           },
         },

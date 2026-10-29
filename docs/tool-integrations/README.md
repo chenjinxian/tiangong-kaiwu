@@ -60,7 +60,7 @@ await IModelApp.tools.run('Markup.Line');
 
 ## 完整工具列表
 
-详见 [iTwin.js 工具完整参考](./iTwin.js-Tools-Complete-Reference.md)
+详见 [iTwin.js 工具完整参考](../iTwin.js-Tools-Complete-Reference.md)
 
 ---
 

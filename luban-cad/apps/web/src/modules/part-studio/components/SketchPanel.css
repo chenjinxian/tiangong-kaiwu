@@ -103,7 +103,7 @@
   background: var(--iui-color-background-positive-muted, var(--iui-color-background-hover));
 }
 
-/* ── 子头：活动草图 id 标签（M3-b 草图切换器的 web-next 替代形态）────── */
+/* ── 子头：活动草图 id 标签（M3-b 草图切换器的 web 替代形态）────── */
 .part-studio-sketch-panel__subheader {
   display: flex;
   align-items: center;

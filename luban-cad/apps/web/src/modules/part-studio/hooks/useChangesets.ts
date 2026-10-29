@@ -2,7 +2,7 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * useChangesets（web-next M4 Task 7）：版本历史数据源 hook（react-query）——
+ * useChangesets（web M4 Task 7）：版本历史数据源 hook（react-query）——
  * - 数据通道：`ImodelsClient.listChangesets`（官方
  *   `@itwin/imodels-client-management` changesets.getRepresentationList，
  *   迭代器自动翻页收拢为数组——旧应用 useChangesets.ts:48 同通道，仅状态

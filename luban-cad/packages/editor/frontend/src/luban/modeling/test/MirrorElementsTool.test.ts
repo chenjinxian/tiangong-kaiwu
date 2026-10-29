@@ -1,4 +1,4 @@
-// MirrorElementsTool（web-next M4 Task 3 移植验收；B4 修复直改空操作）——镜像工具行为子集：
+// MirrorElementsTool（web M4 Task 3 移植验收；B4 修复直改空操作）——镜像工具行为子集：
 //  1) toolId/iconSpec/namespace 钉死 + requireWriteableTarget=true；
 //  2) 三步状态机 select → plane-point → plane-normal（data 点击推进）；
 //  3) 镜像 RPC 序列：startEditCommand('basicManipulation', key) 一次 → 逐元素
