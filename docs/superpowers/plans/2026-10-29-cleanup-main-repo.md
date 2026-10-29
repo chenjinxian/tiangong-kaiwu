@@ -611,11 +611,25 @@ git commit -m "docs: 收敛当前文档并删除已完成历史计划"
 
 **Files:**
 - Modify: `docs/MIGRATION-2026-10-29.md`（记录结果）
+- Modify: `docs/README.md`, root `README.md`, `docs/PORTS.md`,
+  `docs/tool-integrations/README.md`（Task 6 doc nits）
 - Possibly fix paths discovered by tests only.
 
 **Interfaces:** none.
 
-- [ ] **Step 1: Full unit/build/lint**
+- [ ] **Step 1: Fix Task 6 docs nits**
+
+- `docs/README.md`: replace the `./native-typings-drift-2026-10-26.md` link
+  with the tracked `./native-typings-drift-2026-10-11.md` and change the
+  description to `历史记录`; do not link an ignored/nonexistent file.
+- root `README.md` line with `http://localhost/` → `http://localhost:5301/`.
+- `docs/PORTS.md` Vite preview row: replace the stale `5302` claim with
+  `4173` (Vite default; no `preview.port` is configured).
+- `docs/tool-integrations/README.md`: change
+  `./iTwin.js-Tools-Complete-Reference.md` to
+  `../iTwin.js-Tools-Complete-Reference.md`.
+
+- [ ] **Step 2: Full unit/build/lint**
 
 ```powershell
 Set-Location 'D:\Github\tiangong-kaiwu\luban-cad'
@@ -631,22 +645,28 @@ The pre-existing `@luban-cad/shared` lint debt (38 errors) is explicitly recorde
 as a baseline exception in `MIGRATION-2026-10-29.md`; do not claim `pnpm -r lint`
 green and do not drive-by rewrites in shared here. No old package importers in lockfile.
 
-- [ ] **Step 2: Stale scan**
+- [ ] **Step 3: Stale scan and active comment sweep**
 
 ```powershell
 Set-Location 'D:\Github\tiangong-kaiwu'
-rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer|open-cloud-cad" \
-  README.md CLAUDE.md docs luban-cad --glob '!docs/HISTORY.md' \
-  --glob '!docs/MIGRATION-2026-10-29.md' --glob '!**/node_modules/**'
+rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer|open-cloud-cad" `
+  README.md CLAUDE.md docs luban-cad `
+  --glob '!docs/HISTORY.md' --glob '!docs/MIGRATION-2026-10-29.md' `
+  --glob '!docs/superpowers/**' --glob '!**/node_modules/**'
 ```
 
 Expected: zero hits except explicitly documented exceptions. Allow:
+- root `CLAUDE.md` line documenting `open-cloud-cad` deletion
 - branch name `web-next-m0` in historical/release text
 - `luban-next-*` browser storage keys
 - `:5310` in CORS negative tests
 - historical content in `docs/HISTORY.md` / migration record
 
-- [ ] **Step 3: Rebuild web image and verify stack**
+If the scan reports old names in active `luban-cad` comments, replace them with
+`web`/`viewer` (comments only, no runtime literals). Do not edit
+`docs/superpowers/**` in this task.
+
+- [ ] **Step 4: Rebuild web image and verify stack**
 
 Restart MS for a clean rate window, then:
 
@@ -659,7 +679,7 @@ powershell -NoProfile -File scripts/verify-stack.ps1
 
 Expected: image build from `luban-cad/apps/web/Dockerfile`, verify 17/17.
 
-- [ ] **Step 4: Full e2e**
+- [ ] **Step 5: Full e2e**
 
 ```powershell
 Set-Location 'D:\Github\tiangong-kaiwu\luban-cad\apps\web'
@@ -670,7 +690,7 @@ corepack pnpm@10 exec playwright test
 Expected: 34/34 in a clean rate window. If transient briefcase stall, rerun the
 failed spec once; record result.
 
-- [ ] **Step 5: Final record and commit**
+- [ ] **Step 6: Final record and commit**
 
 Append to `docs/MIGRATION-2026-10-29.md`:
 
@@ -679,7 +699,8 @@ Append to `docs/MIGRATION-2026-10-29.md`:
 
 - 删除：apps/web 残留、worktree、死包、旧脚本、fork 旧应用、历史文档。
 - 改名：apps/web-next → apps/web；viewer-next → viewer。
-- 门禁：web unit 957/957；build/lint；e2e 34/34；verify 17/17。
+- 门禁：web unit 957/957；build；e2e 34/34；verify 17/17；viewer/app lint 绿。
+- 既存例外：`@luban-cad/shared` 38 个 lint 错误为清理前基线，未在本轮扩大修复。
 - 例外：acis-solid-kernel 保持原样；分支名与存储键未改名。
 ```
 
