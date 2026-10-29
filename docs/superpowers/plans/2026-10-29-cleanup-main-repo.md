@@ -474,6 +474,8 @@ git commit -m "chore(itwinjs): 删除 fork 内旧应用拷贝并登记同步检�
   `2026-10-29-project-cleanup-design.md`
 - Delete: `docs/DEEP_ANALYSIS.md`, `docs/E2E_TEST_REPORT.md`,
   `docs/RELEASE-backend-20261027b.md`
+- Delete: `luban-cad/docker-compose.yml`（旧 dev 参考，引用已删除的
+  `luban-cad/Dockerfile`/后端源码；根 compose 为权威）
 - Rename: `docs/web-next-realstack-probes.md` → `docs/web-realstack-probes.md`
 - Rename: `docs/superpowers/specs/2026-10-21-web-next-onshape-parity-design.md`
   → `2026-10-21-web-onshape-parity-design.md`
@@ -481,7 +483,12 @@ git commit -m "chore(itwinjs): 删除 fork 内旧应用拷贝并登记同步检�
 - Modify: root `README.md`, `CLAUDE.md`, `docs/README.md`, `docs/ROADMAP.md`,
   `docs/Architecture.md`, `docs/Deployment-Guide.md`, `docs/PORTS.md`,
   `docs/UPSTREAM_SYNC.md`, `docs/ITWINJS_CORE_MODIFICATIONS.md`,
-  `luban-cad/README.md`, `luban-cad/CLAUDE.md`, `docs/tool-integrations/*`
+  `luban-cad/README.md`, `luban-cad/CLAUDE.md`, `docs/tool-integrations/*`,
+  root `.env.example`（删除 `web-next :5310` 注释，只保留 5300/5301）
+- Modify active code comments: `luban-cad/apps/web/e2e/perf.spec.ts`,
+  `luban-cad/apps/web/e2e/FLAKES.md`, `luban-cad/apps/web/Dockerfile`
+  (removed `luban-cad/Dockerfile` self-reference), viewer lineage comments,
+  `luban-cad/packages/editor/frontend/src/luban/modeling/messages.ts`
 
 **Interfaces:** none.
 
@@ -525,8 +532,15 @@ Get-ChildItem docs/superpowers/specs -File |
 
 ```powershell
 git rm docs/DEEP_ANALYSIS.md docs/E2E_TEST_REPORT.md docs/RELEASE-backend-20261027b.md
+git rm luban-cad/docker-compose.yml
 git mv docs/web-next-realstack-probes.md docs/web-realstack-probes.md
 ```
+
+Update root `.env.example` line 43: replace
+`# HUB_ALLOWED_ORIGINS=http://localhost:5300,http://localhost:5301,http://localhost:5310`
+with `# HUB_ALLOWED_ORIGINS=http://localhost:5300,http://localhost:5301`
+and remove the `web-next dev :5310` phrase. Keep the container-internal `:3000`
+line; it is not a host CORS value.
 
 - [ ] **Step 4: Create HISTORY index**
 
