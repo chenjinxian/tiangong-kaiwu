@@ -146,7 +146,7 @@ e2e 基建说明:种子模型由测试自管(每轮自动重置);登录走会话
 - 官方 API 契约对照:`docs/api-specs/*.json`
 - 已删除文档历史索引:`docs/HISTORY.md`
 - 文档总索引:`docs/README.md`
-- 愿景/路线图/能力矩阵:platform-docs(文档总仓,仓外)
+- 愿景/路线图/能力矩阵:本仓 `docs/ROADMAP.md` 与代码/测试实测
 
 ## 许可与边界
 

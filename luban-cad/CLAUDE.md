@@ -1,11 +1,11 @@
 # 鲁班CAD（LubanCAD）开发准则
 
-**天工开物平台 AI 生成式 CAD 产品。** 跨仓战略见 platform-docs（天工开物文档总仓，仓外）。
+**天工开物平台 AI 生成式 CAD 产品。** 平台文档与当前结构以本仓 `docs/` 为准。
 
 ## 铁律
 
 1. **复用优先**：工具类功能继承 iTwin.js 标准基类（`ElementSetTool`/`PrimitiveTool`/`CopyElementsTool`…）；编辑走 `basicManipulationIpc`；事务走 `BriefcaseTxns`/`saveChanges`（可撤销硬约束）
-2. **状态诚实**：能力声明带标记 ✅/🟠/⚪/❌，以 platform-docs/STATUS.md 为锚
+2. **状态诚实**：能力声明带标记 ✅/🟠/⚪/❌，以本仓 `docs/` 与代码/测试实测为锚
 3. **AI 工具注册规约**：Agent 复用现有 `toolId`，禁止第二套建模 API；破坏性操作走 HITL（预览→确认→提交）
 4. **品牌**：产品名 鲁班CAD（LubanCAD）；生成物 = 真形（BRep）；约束 = 绳墨
 
@@ -28,7 +28,7 @@
 | Version Control | `apps/web/src/modules/part-studio/hooks/useChangesets.ts` + `dialogs/PushChangesetDialog.tsx` | 🟠 Changeset/Named Version 可用；冲突检测 🟠（mock 数据）、冲突解决 ⚪（no-op 标记） |
 | **Pattern (阵列)** | `packages/viewer/src/tools/register-edit-tools.ts`（LinearPattern/CircularPattern 注册；`basicManipulationIpc.insertGeometricElement` 直改通道） | ✅ 线性/圆形阵列（ID 收集 bug 已修+回归测试，RW2-T3） |
 
-完整能力矩阵见 platform-docs/STATUS.md（状态标记：✅/🟠/⚪/❌）
+完整能力矩阵以上表与代码/测试实测为准（状态标记：✅/🟠/⚪/❌）
 
 ## 阵列工具 (Pattern Tools)
 
@@ -111,7 +111,7 @@ cd apps/web && pnpm dev          # 前端 dev :5300（栈内部署经 nginx :530
 - Agent 工具必须复用现有 `toolId`（registerTools.ts 已注册项），禁止新建第二套建模 API
 - Agent 操作与人工操作同权，必须走 BriefcaseTxns/saveChanges 事务管道（可撤销）
 - 破坏性操作必须提供 HITL 确认流（预览→确认→提交）
-- 架构详见 platform-docs/AI-ARCHITECTURE.md
+- 架构规约见本节与 `../docs/Architecture.md`
 
 ## 文档
 
@@ -121,7 +121,7 @@ cd apps/web && pnpm dev          # 前端 dev :5300（栈内部署经 nginx :530
 | [docs/Architecture.md](../docs/Architecture.md) | 系统架构 |
 | [docs/ROADMAP.md](../docs/ROADMAP.md) | 演进路线 |
 | [docs/ITWINJS_CORE_MODIFICATIONS.md](../docs/ITWINJS_CORE_MODIFICATIONS.md) | 上游修改记录 |
-| platform-docs/STATUS.md（仓外文档总仓） | 全平台能力矩阵 |
+| [docs/README.md](../docs/README.md) | 文档总索引 |
 
 ## 调试
 

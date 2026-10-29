@@ -1,6 +1,6 @@
 # 约束求解器深度对比分析
 
-> ⚠️ **历史存档（2026-04，含已知事实错误）**：本文已被 `platform-docs/CONSTRAINT-STRATEGY.md`（2026-09-23 重评估）取代。已知错误：① "SolveSpace GCS: MIT 许可" 有误（实为 GPL-3.0 系 ⚠️ 待核验）——但 2026-09-23 用户定案许可退出选型，该事实仅作合规手续依据；② "ACIS 3D DCM（Spatial Corp）" 双重混淆（3D DCM 属 D-Cubed/Siemens 且 ACIS 不含 GCS——见新文档 §1 事实核查）；③ 文末 "推荐 SolveSpace GCS (WASM)" 经再评估**被重新采纳为主选**（libslvs 形态，见 CONSTRAINT-STRATEGY.md §0）。保留供追溯。
+> ⚠️ **历史存档（2026-04，含已知事实错误）**：本文已被 2026-09-23 重评估取代；重评估文档未随本轮整理保留，结论以当前代码与 `docs/ROADMAP.md` 为准。已知错误：① "SolveSpace GCS: MIT 许可" 有误（实为 GPL-3.0 系 ⚠️ 待核验）——但 2026-09-23 用户定案许可退出选型，该事实仅作合规手续依据；② "ACIS 3D DCM（Spatial Corp）" 双重混淆（3D DCM 属 D-Cubed/Siemens 且 ACIS 不含 GCS）；③ 文末 "推荐 SolveSpace GCS (WASM)" 经再评估被重新采纳为主选（libslvs 形态，实际选型以当前代码为准）。保留供追溯。
 
 ## 概述
 
@@ -10,7 +10,7 @@
 - **FreeCAD Sketcher**: 开源，LGPL
 - **LEDAS LGS**: 商业/开源双许可
 
-> **决策输出**：本文仅为选型输入材料；最终内核/约束路线（G0/G1/G2 门结论、路线推荐、换路线触发条件）以 platform-docs/KERNEL-STRATEGY.md 为准——文中"SolveSpace GCS 推荐"为 2026-04 结论，现行推荐已更新为 FreeCAD GCS 移植路线。
+> **决策输出**：本文仅为选型输入材料；最终内核/约束路线以当前代码与 `docs/ROADMAP.md` 为准——文中"SolveSpace GCS 推荐"为 2026-04 结论。
 
 ---
 

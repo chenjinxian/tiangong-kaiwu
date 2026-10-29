@@ -1,6 +1,6 @@
 # 天工开物平台文档目录（docs/）
 
-本文档目录位于 tiangong-kaiwu 仓根部，包含鲁班CAD 应用与平台工程的技术文档和参考资料。
+本文档目录位于 tiangong-kaiwu 仓根部，是项目唯一文档根，包含鲁班CAD 应用与平台工程的技术文档和参考资料。
 
 ---
 
@@ -12,15 +12,14 @@
 | [CLAUDE.md](../CLAUDE.md) | 平台总仓主文档：仓库布局、构建/测试命令、上游同步规约 |
 | [README.md](../README.md) | 平台介绍与架构分工 |
 | [luban-cad/CLAUDE.md](../luban-cad/CLAUDE.md) | 鲁班CAD 开发准则（复用优先/工具生命周期/AI 工具注册规约） |
-| platform-docs/STATUS.md | 全平台能力现状矩阵（仓外文档总仓，状态权威锚点） |
 
 ### 架构与设计
 | 文档 | 说明 |
 |------|------|
 | [Architecture.md](./Architecture.md) | 系统架构详细设计 |
-| [ROADMAP.md](./ROADMAP.md) | 路线图索引（指向全程序路线图与 platform-docs/ROADMAP.md） |
+| [ROADMAP.md](./ROADMAP.md) | 路线图索引（指向全程序路线图） |
 | [SKETCH-CONSTRAINT-WORKFLOW.md](./SKETCH-CONSTRAINT-WORKFLOW.md) | 草图约束工作流程（设计稿） |
-| [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（选型输入；决策见 platform-docs/KERNEL-STRATEGY.md） |
+| [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |
 | [baseline-reliability-design.md](./baseline-reliability-design.md) | Baseline 可靠性设计 |
 | [IMODEL_AUTO_RECOVERY_DESIGN.md](./IMODEL_AUTO_RECOVERY_DESIGN.md) | iModel 初始化失败自动修复设计 |
 
@@ -44,7 +43,7 @@
 | 文档 | 说明 |
 |------|------|
 | [RELEASE-backend-20261028c.md](./RELEASE-backend-20261028c.md) | 最新后端发布说明 |
-| [MIGRATION-2026-10-29.md](./MIGRATION-2026-10-29.md) | 2026-10-29 七仓整理迁移记录 |
+| [MIGRATION-2026-10-29.md](./MIGRATION-2026-10-29.md) | 2026-10-29 项目总目录整理迁移记录 |
 | [HISTORY.md](./HISTORY.md) | 已删除文档历史索引 |
 
 ### 子目录
@@ -66,6 +65,6 @@
 
 ---
 
-现行能力状态以 platform-docs/STATUS.md 为准（状态标记：✅/🟠/⚪/❌）。
+现行能力状态以本目录保留文档与代码/测试实测为准（状态标记：✅/🟠/⚪/❌）。
 
 *最后更新: 2026-10-29（文档收敛；删除已完成历史计划与旧审计报告）*

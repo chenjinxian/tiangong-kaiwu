@@ -1,15 +1,17 @@
-# 2026-10-29 七仓整理迁移记录
+# 2026-10-29 项目总目录整理迁移记录
 
-- 范围：tiangong-kaiwu、luban-backend、imodelhub-services、platform-docs、imodel-native、DanQing。
+- 范围：tiangong-kaiwu（项目总目录）、luban-backend、imodelhub-services、imodel-native、DanQing；acis-solid-kernel 仅审计不修改。
+- platform-docs：已按用户裁决整仓删除（不迁移内容）；主仓 `docs/` 为唯一文档根。
 - 结构：apps/web-next → apps/web；packages/viewer-next → packages/viewer。
 - 包名：@luban-cad/web-next → @luban-cad/web；@luban-cad/viewer-next → @luban-cad/viewer。
 - 删除：viewer-core、web-viewer、config、旧脚本、itwinjs-core/open-cloud-cad。
 - 例外：分支 web-next-m0 与浏览器存储键 luban-next-* 暂不改名。
-- 恢复：所有删除内容从 Git 历史恢复，索引见 docs/HISTORY.md。
+- 恢复：仓内删除内容从 Git 历史恢复，索引见 docs/HISTORY.md；platform-docs 为仓外独立目录，不保留恢复索引。
 
 ## 执行结果
 
 - 删除：apps/web 残留、worktree、死包、旧脚本、fork 旧应用、历史文档。
+- platform-docs：本地仓整仓删除（HEAD `830f2ad`，无远端配置）；被中止的 2026-10-29 文档改写未提交，已一并丢弃；主仓所有 `platform-docs` 引用已收敛。
 - 改名：apps/web-next → apps/web；viewer-next → viewer。
 - 门禁：web unit 957/957；workspace build 绿；e2e 34/34；verify 17/17；viewer/app lint 绿。
 - e2e 稳定化：文档详情视觉钉版仅 mask iModel 卡片「创建于」日期文本（不遮整卡），仅重钉 `document-details-light.png`；种子重建/跨日日期漂移不再影响视觉门禁（修复前 33/34，日期字形差 13 px）。

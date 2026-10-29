@@ -45,7 +45,6 @@ $repos = @(
   'D:\Github\tiangong-kaiwu',
   'D:\Github\luban-backend',
   'D:\Github\imodelhub-services',
-  'D:\Github\platform-docs',
   'D:\Github\imodel-native',
   'D:\Github\DanQing'
 )
@@ -57,7 +56,7 @@ foreach ($repo in $repos) {
 }
 ```
 
-Expected: main clean at `142cda8`; backend/hub/platform-docs/imodel-native/DanQing clean;
+Expected: main clean at `142cda8`; backend/hub/imodel-native/DanQing clean;
 acis not included. Create local tags only:
 
 ```powershell
@@ -109,9 +108,9 @@ untracked/ignored); `apps/web-next/node_modules` and `dist-backend` still exist.
 Create `docs/MIGRATION-2026-10-29.md`:
 
 ```markdown
-# 2026-10-29 七仓整理迁移记录
+# 2026-10-29 项目总目录整理迁移记录
 
-- 范围：tiangong-kaiwu、luban-backend、imodelhub-services、platform-docs、imodel-native、DanQing。
+- 范围：tiangong-kaiwu（项目总目录）、luban-backend、imodelhub-services、imodel-native、DanQing；platform-docs 已删除。
 - 结构：apps/web-next → apps/web；packages/viewer-next → packages/viewer。
 - 包名：@luban-cad/web-next → @luban-cad/web；@luban-cad/viewer-next → @luban-cad/viewer。
 - 删除：viewer-core、web-viewer、config、旧脚本、itwinjs-core/open-cloud-cad。
@@ -578,8 +577,7 @@ Apply these exact facts:
 - no current doc may say `apps/web-next`, `web-next`, `viewer-next`,
   `viewer-core`, `web-viewer`, `open-cloud-cad` as active paths
 - `ROADMAP.md` becomes a short index pointing to
-  `docs/superpowers/specs/2026-09-28-cad-full-program-roadmap.md` and
-  `platform-docs/ROADMAP.md`
+  `docs/superpowers/specs/2026-09-28-cad-full-program-roadmap.md`
 - `README.md`/`luban-cad/README.md` use the new package tree and commands
 - `docs/web-realstack-probes.md` uses current paths/ports
 - `docs/UPSTREAM_SYNC.md` repository-model row for the deleted old app is

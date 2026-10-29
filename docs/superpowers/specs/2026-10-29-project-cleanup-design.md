@@ -1,10 +1,10 @@
-# 全面整理与清理设计（七仓）
+# 全面整理与清理设计（项目总目录 + 四个关联仓）
 
 - 日期：2026-10-29
-- 状态：spec 已确认；执行计划已生成，待执行
+- 状态：spec 已确认；执行中（platform-docs 已按用户裁决删除）
 - 性质：跨仓结构整理、命名统一、过时内容删除、生成物清理
-- 范围：核心七仓（见 §2）；acis-solid-kernel 仅审计，不修改
-- 原则：不 push、不建 Release；每阶段独立本地提交；删除以 Git 历史为准
+- 范围：tiangong-kaiwu（项目总目录）+ luban-backend、imodelhub-services、imodel-native、DanQing（见 §2）；acis-solid-kernel 仅审计，不修改
+- 原则：不 push、不建 Release；每阶段独立本地提交；仓内删除以 Git 历史为准
 
 ## 1. 目标与非目标
 
@@ -17,7 +17,7 @@
    - `@luban-cad/viewer-next` → `@luban-cad/viewer`
 2. 删除无消费者的旧 viewer/config 包、失效脚本和旧应用历史拷贝。
 3. 清理生成残留、已合并 worktree、token 会话文件和可重建构建产物。
-4. 统一七个自有仓的当前文档、端口、路径、品牌和状态口径。
+4. 统一项目总目录与关联自有仓的当前文档、端口、路径、品牌和状态口径。
 5. 删除已完成/过时的计划、旧审计、旧分析；每个仓保留一个 `HISTORY.md` 索引，
    旧内容从 Git 历史恢复。
 6. 清理后所有纳入仓库的 `git status` 为 clean；acis 例外保持原样。
@@ -37,12 +37,14 @@
 
 纳入：
 
-1. `D:\Github\tiangong-kaiwu`（含 `luban-cad`、`itwinjs-core`）
+1. `D:\Github\tiangong-kaiwu`（项目总目录，含 `luban-cad`、`itwinjs-core`）
 2. `D:\Github\luban-backend`
 3. `D:\Github\imodelhub-services`
-4. `D:\Github\platform-docs`
-5. `D:\Github\imodel-native`
-6. `D:\Github\DanQing`
+4. `D:\Github\imodel-native`
+5. `D:\Github\DanQing`
+
+`D:\Github\platform-docs`：按用户裁决于 2026-10-29 整仓删除，不迁移内容；
+主仓 `docs/` 成为唯一文档根。
 
 排除：
 
@@ -61,6 +63,7 @@
 | worktree | 两个 `.claude/worktrees` 分支已包含在当前 HEAD，删除工作树与本地分支 |
 | token 残留 | `luban-cad/apps/web/playwright/.auth` 随旧 app 残留一起删除 |
 | 构建产物 | 回收 `imodel-native/out/cmake`、`DanQing/build`、`luban-backend/dist-out+staging` |
+| platform-docs | 整仓删除，不迁移内容；主仓 `docs/` 为唯一文档根 |
 | acis | 完全保留，包括 `.diag` |
 | 保留资产 | `node_modules`、`dist-backend`、`.superpowers`、Rush `common/temp`、itwinjs `lib` |
 | 推送 | 不 push、不建 Release |
@@ -92,7 +95,7 @@ luban-cad/
 
 ### Phase 0：基线与安全
 
-- 记录七仓 HEAD、分支、`git status`。
+- 记录纳入仓 HEAD、分支、`git status`。
 - 在纳入仓打本地标签 `pre-cleanup-2026-10-29`（仅本地，不 push）。
 - 确认 `.claude/worktrees` 两个分支都已包含在当前 HEAD；移除工作树和本地分支。
 - 删除前列出目标路径、大小、`git ls-files` 状态；禁止 `git clean -fdx` 全仓盲扫。
@@ -193,8 +196,8 @@ luban-cad/
 - `docs/RELEASE-backend-20261027b.md`
 - `docs/superpowers` 除活跃清单外的 34 份 plans 与 13 份 specs；逐项由执行计划列出
 
-`docs/ROADMAP.md` 重写为当前路线索引，不再复制平台分期全文；平台分期指向
-`platform-docs/ROADMAP.md`。新增 `docs/HISTORY.md`，只保留里程碑索引和 Git 恢复提示。
+`docs/ROADMAP.md` 重写为当前路线索引，不再复制平台分期全文。新增
+`docs/HISTORY.md`，只保留里程碑索引和 Git 恢复提示。
 
 ### Phase 4：luban-backend
 
@@ -259,22 +262,12 @@ luban-cad/
 - `npm run test:unit`、`npm run lint`、`npm run build`；端口相关单测。
 - 若环境允许，跑 e2e/relational Docker；未跑需在 HISTORY/执行结果记录。
 
-### Phase 6：platform-docs / imodel-native / DanQing
+### Phase 6：imodel-native / DanQing
 
 **platform-docs**
 
-- 重写 `STATUS.md`：当前七仓能力、端口、包名、测试基线；删除 9-22 旧
-  `open-cloud-cad/apps/web` 口径。
-- 更新 `README.md`、`ROADMAP.md`、`VISION.md`、`AI-ARCHITECTURE.md`、
-  `KERNEL-STRATEGY.md`、`CONSTRAINT-STRATEGY.md`、`ECOSYSTEM.md`、`AGENTS.md`：
-  - 当前品牌：天工开物 / 鲁班CAD / 真形 / 绳墨
-  - 当前前端：`luban-cad/apps/web`
-  - 当前端口：5300/5301/5400/5401/5402
-  - 当前工具数以代码注册表为准，不再沿用 64/27 旧数
-- 删除 `analysis/2026-09-22-*.md` 的全部 11 份旧快照和与 STATUS 重复的旧矩阵；
-  在删除前把仍有效的关键事实（端口、内核/求解器边界、客户端 SDK 版本）并入
-  `STATUS.md`/`ECOSYSTEM.md`，再新增 `analysis/HISTORY.md` 一行式索引。
-- `analysis/HISTORY.md` 只记录每份旧快照的主题、日期和 Git 恢复路径，不再复制正文。
+按用户裁决整仓删除，不迁移内容；主仓 `docs/` 成为唯一文档根。
+原计划的 STATUS/历史快照改写取消，被中止的未提交改动一并丢弃。
 
 **imodel-native**
 
@@ -340,7 +333,7 @@ luban-cad/
 
 ## 9. 交付物
 
-- 六仓清理后的代码/文档与本地提交；acis 不变。
+- 纳入仓清理后的代码/文档与本地提交；platform-docs 已删除；acis 不变。
 - 主仓 `docs/HISTORY.md` 与各仓 `HISTORY.md`。
 - 一份执行结果记录：删除清单、回收容量、改名映射、验证结果、残余项。
 - 不 push、不建 Release；由用户逐次决定。
@@ -350,5 +343,5 @@ luban-cad/
 - `luban-cad/apps/web` 与 `packages/viewer` 为唯一命名，旧名在活跃代码/配置/文档零命中。
 - 死包、失效脚本、旧应用拷贝、旧计划/审计、生成物按清单删除。
 - 主仓全量单测/build/e2e/verify 全绿；backend/hub 各自门禁全绿。
-- 六仓 `git status` clean；acis 明确例外。
-- 所有删除内容可从 Git 历史恢复；`HISTORY.md` 提供索引。
+- 纳入仓 `git status` clean；platform-docs 已删除；acis 明确例外。
+- 仓内删除内容可从 Git 历史恢复；`HISTORY.md` 提供索引。

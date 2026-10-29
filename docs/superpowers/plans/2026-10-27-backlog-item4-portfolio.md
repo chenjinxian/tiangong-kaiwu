@@ -35,7 +35,7 @@
 - native/私有仓改动：`vitest` + `tsc --noEmit`；native 另跑 gtest 双套件。
 - 涉及发布面：私有仓 `build-images/publish` 重发；总仓 `verify-stack.ps1` **17/17**。
 - 涉及用户可见行为：至少一条真栈用例；语料回放不可回放项必须登记原因。
-- 文档：计划/进度/验收记录入 `.superpowers/sdd/` 或 `docs/superpowers/plans/`；能力矩阵同步（platform-docs STATUS 需去 9-22 陈旧口径）。
+- 文档：计划/进度/验收记录入 `.superpowers/sdd/` 或 `docs/superpowers/plans/`；能力矩阵同步以本仓 `docs/` 与代码/测试实测为准。
 
 ## 里程碑节奏（建议）
 

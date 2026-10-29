@@ -4,7 +4,7 @@
 
 - 日期：2026-09-28
 - 地位：本仓 CAD 程序线的**任务总清单**。架构裁决以 `2026-09-27-cad-feature-system-decision-record.md` 为准；机制证据以 `2026-09-27-cad-feature-system-evidence-base.md` 为准；v1 设计以 `2026-09-27-feature-system-imodel-architecture-design.md` 为准。
-- 与 `docs/ROADMAP.md` 的关系：平台分期（Phase 0–3）一事一源仍归 platform-docs；本文是**技术任务分解**，其中 Phase 2 的技术路线（CadFeature 骨架复用、FreeCAD GCS 移植）已被 2026-09-27 裁决取代（骨架全部重做、SolveSpace 过渡+绳墨自研）。
+- 与 `docs/ROADMAP.md` 的关系：平台分期（Phase 0–3）不再外置；本文是**技术任务分解**，其中 Phase 2 的技术路线（CadFeature 骨架复用、FreeCAD GCS 移植）已被 2026-09-27 裁决取代（骨架全部重做、SolveSpace 过渡+绳墨自研）。
 - 排期约定：不给绝对日期；规模为相对 T-shirt（S=天级 / M=周级 / L=月级 / XL=季级以上），一切推断带 ⚠️。
 - 状态标记：✅ 已存在 / 🔨 待开发（技术路线已通）/ 🔬 待自研（长线研究性）/ 📁 留档（论证可行、暂不实现）
 

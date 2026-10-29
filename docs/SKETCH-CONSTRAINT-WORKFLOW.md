@@ -1,6 +1,6 @@
 # 草图约束求解器 - 使用流程与数据存储设计
 
-> 状态：设计稿（2026-04；2026-09-22 校对）——草图现状为自由绘制、未接约束服务（见 [ROADMAP.md](./ROADMAP.md) Phase 2）；MongoDB/SolveSpace WASM 均为本文设计提案，求解器选型一事一源归 platform-docs/KERNEL-STRATEGY.md。
+> 状态：设计稿（2026-04；2026-09-22 校对）——草图现状为自由绘制、未接约束服务（见 [ROADMAP.md](./ROADMAP.md) Phase 2）；MongoDB/SolveSpace WASM 均为本文设计提案，求解器选型以当前代码与文档为准。
 
 ## 核心概念
 

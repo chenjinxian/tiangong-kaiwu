@@ -17,6 +17,7 @@ git show <commit>:<path>
 | 旧架构/审计 | docs/DEEP_ANALYSIS.md、docs/E2E_TEST_REPORT.md | 已删除 |
 | 旧发布说明 | docs/RELEASE-backend-20261027b.md | 已删除；现行发布说明见 `docs/RELEASE-backend-20261028c.md` |
 | 旧 dev 编排 | luban-cad/docker-compose.yml、luban-cad/docker-compose.dev.yml | 已删除；后端源码（modeling-server/webhook-agent）迁至私有仓 `luban-backend`，dev 编排的 `../modeling-server` 等构建上下文不复存在；根 `docker-compose.yml` 为唯一部署权威 |
+| 平台文档总仓 | `D:\Github\platform-docs`（仓外目录） | 2026-10-29 整仓删除（HEAD `830f2ad`，无远端配置）；内容不迁移，主仓 `docs/` 为唯一文档根 |
 
 > 历史文档中的旧目录名（`apps/web-next`、`viewer-next`、`viewer-core`、`web-viewer` 等）
 > 只描述当时状态，不代表当前结构。当前结构见根 `README.md` 与 `luban-cad/README.md`。
