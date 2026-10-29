@@ -7,7 +7,7 @@ import { AuthSession } from '@clients/auth/AuthSession.js';
 
 const acquireViewerMock = vi.fn().mockResolvedValue(undefined);
 const releaseViewerMock = vi.fn().mockResolvedValue(undefined);
-vi.mock('@luban-cad/viewer-next', () => ({
+vi.mock('@luban-cad/viewer', () => ({
   acquireViewer: (...a: unknown[]) => acquireViewerMock(...a),
   releaseViewer: (...a: unknown[]) => releaseViewerMock(...a),
 }));

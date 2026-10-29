@@ -159,7 +159,7 @@ vi.mock('@itwin/core-frontend', async (importOriginal) => {
 
 // viewer-next 钉形：连接/视口相位由 beforeEach 按用例钉（缺省 ready +
 // FAKE_VIEWPORT，见下方 M4 基线段）。
-vi.mock('@luban-cad/viewer-next', () => ({
+vi.mock('@luban-cad/viewer', () => ({
   useViewport: viewerMocks.useViewport,
   useBriefcaseConnection: viewerMocks.useBriefcaseConnection,
   applyViewportBackground: viewerMocks.applyViewportBackground,

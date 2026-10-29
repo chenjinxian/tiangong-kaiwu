@@ -9,7 +9,7 @@
  * 视口/样式层用结构替身（本包测试惯例：零真实渲染）。
  */
 import { describe, expect, it } from 'vitest';
-import { ColorDef, HiddenLine, SubCategoryOverride, ViewFlags } from '@itwin/core-common';
+import { HiddenLine, SubCategoryOverride, ViewFlags } from '@itwin/core-common';
 import { DisplayStyle3dState } from '@itwin/core-frontend';
 import {
   ANTIALIAS_SAMPLES,

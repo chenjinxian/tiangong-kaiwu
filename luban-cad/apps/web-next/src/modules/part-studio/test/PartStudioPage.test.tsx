@@ -158,7 +158,7 @@ vi.mock('@luban-cad/shared', () => ({
 
 // 结构测试零查看器启动：useViewport 钉 ready 相位 + 假 viewport 实例、
 // useBriefcaseConnection 钉就绪连接（状态栏「已连接」与 M4-T2 接线断言依赖）。
-vi.mock('@luban-cad/viewer-next', () => ({
+vi.mock('@luban-cad/viewer', () => ({
   useViewport: viewerMocks.useViewport,
   useBriefcaseConnection: viewerMocks.useBriefcaseConnection,
   applyViewportBackground: viewerMocks.applyViewportBackground,

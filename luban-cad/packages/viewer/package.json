@@ -1,7 +1,7 @@
 {
-  "name": "@luban-cad/viewer-next",
+  "name": "@luban-cad/viewer",
   "version": "0.1.0",
-  "description": "Next-generation viewer host for LubanCAD (web-next M0): iTwin.js startup sequence, RPC wiring, AccuSnap lifecycle",
+  "description": "Viewer host for LubanCAD: iTwin.js startup sequence, RPC wiring, AccuSnap lifecycle",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

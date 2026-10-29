@@ -4,11 +4,11 @@
 # 与 apps/web 的 luban-cad/Dockerfile 同构（link: 源码消费的容器化方案已在
 # 旧镜像上验证），差异四处：
 #   1. 构建段 base=node:22-alpine（下方注）；构建过滤面 --filter
-#      @luban-cad/web-next...（shared → viewer-next → web-next 拓扑序；
+#      @luban-cad/web-next...（shared → viewer → web-next 拓扑序；
 #      editor-frontend 不重建——其 lib/ 由宿主预构建、随 context 进入镜像，
 #      与旧镜像同口径）
 #   2. docker-closure 走查起点：web-next 的 link: 闭包（apps/web-next +
-#      shared + viewer-next + editor/frontend + editor/common）
+#      shared + viewer + editor/frontend + editor/common）
 #   3. workspace 根 node_modules 的 link: 兜底 farm（M5-T9 实测新增，见
 #      该 RUN 注：现行 pnpm hoisted 不再把 link: 依赖平铺到根）
 #   4. 构建后硬断言 dist/scripts/parse-imdl-worker.js 在场且与
@@ -91,7 +91,7 @@ RUN corepack pnpm@10 install --frozen-lockfile --config.node-linker=hoisted
 ENV CLOSURE_REPO_ROOT=/build
 RUN { (cd apps/web-next && node ../../docker-closure.cjs --emit); \
       (cd packages/shared && node ../../docker-closure.cjs --emit); \
-      (cd packages/viewer-next && node ../../docker-closure.cjs --emit); \
+      (cd packages/viewer && node ../../docker-closure.cjs --emit); \
       (cd packages/editor/frontend && node ../../docker-closure.cjs --emit); \
       (cd packages/editor/common && node ../../docker-closure.cjs --emit); \
     } | tr ' ' '\n' | sed '/^$/d' | sort -u > /tmp/closure-add.txt \
@@ -121,9 +121,9 @@ RUN mkdir -p /build/luban-cad/node_modules \
       fi; \
     done \
  && test -e /build/luban-cad/node_modules/@itwin/core-bentley \
- && test -e /build/luban-cad/node_modules/@luban-cad/viewer-next
+ && test -e /build/luban-cad/node_modules/@luban-cad/viewer
 
-# 依拓扑序构建 web-next 及其 workspace 依赖（shared → viewer-next → web-next），
+# 依拓扑序构建 web-next 及其 workspace 依赖（shared → viewer → web-next），
 # 构建后硬断言 worker 快照在静态根且与 core/frontend/lib/public 源逐字节一致
 # （publicPath 铁律 + 字节对齐守卫：文件在场但漂移 = worker 与 lib/esm 主包
 # 版本错配，同样静默炸在 tile 解码——两文件同 context 同源，不存在合法

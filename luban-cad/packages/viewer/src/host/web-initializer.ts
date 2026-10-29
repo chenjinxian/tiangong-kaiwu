@@ -116,7 +116,7 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
       // M6-a T5：SketchAccuSnap 懒引（ensureEditTools 同款口径——class extends
       // AccuSnap 静态引出会把基类存在性强加给消费方的 core-frontend mock 面；
       // 仅首次 startup 分支用到，懒引零运行时语义差异）。
-      const { SketchAccuSnap } = await import('../tools/sketch-accu-snap.js');
+      const { SketchAccuSnap: sketchAccuSnapClass } = await import('../tools/sketch-accu-snap.js');
       // Initialize with LocalhostIpcApp (subclass of IModelApp).
       // This enables IpcApp.isValid = true, which is required for BriefcaseConnection.
       // The existing CheckpointConnection (read-only) path is unaffected.
@@ -131,7 +131,7 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
           // 绘制链的端点/中点/圆心/交点捕捉面；应用级单例，全局捕捉面同步变宽，
           // 边界见 tools/sketch-accu-snap.ts 头注）。仅首次 startup 分支生效
           //（幂等重入沿用既有实例，与 notifications 注记同口径）。
-          accuSnap: new SketchAccuSnap(),
+          accuSnap: new sketchAccuSnapClass(),
           // notifications 注入点（review-8 I-2）：IModelApp.ts:467 的
           // `opts.notifications ?? new NotificationManager()`——缺省 undefined
           // 时 core 兜底哑通道（行为不变）。仅在本 startup 分支生效；幂等重入
@@ -148,10 +148,7 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
           // contentRange 是 Imdl v9 中心化坐标系的合法值（props.location 负责去中心化），flags
           // 全开（0x1d）下选择/绘制/渲染全链正常；重开空屏的唯一根因是初始相机取景空 extents
           // （useViewport 内容感知取景已修）。故保持上游默认 flags，不加覆盖。
-          // Type cast: @itwin/imodels-access-frontend (npm 6.x) implements its own
-          // bundled FrontendHubAccess identity, structurally identical to
-          // core-frontend's (link: 5.14.0-dev) — cross-copy assignment fails tsc only.
-          hubAccess: new FrontendIModelsAccess(iModelClient) as never,
+          hubAccess: new FrontendIModelsAccess(iModelClient),
           // 静态资源（imdl worker 等）就在 web 容器静态根——`/workspace/default/` 前缀
           // 会让 iTwin.js 拼出 `<origin>/workspace/default/scripts/parse-imdl-worker.js`，
           // 落到 SPA 回退返回 index.html（worker 解码器 404），几何渲染不出（2026-10-09 实证）。

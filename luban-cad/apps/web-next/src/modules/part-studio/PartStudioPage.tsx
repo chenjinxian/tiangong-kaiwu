@@ -102,7 +102,7 @@ import {
   toggleProjectExtents,
   useBriefcaseConnection,
   useViewport,
-} from '@luban-cad/viewer-next';
+} from '@luban-cad/viewer';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';

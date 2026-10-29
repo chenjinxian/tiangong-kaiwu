@@ -142,8 +142,7 @@ describe('acquireViewer/releaseViewer（引用计数，M4 Task 1）', () => {
     );
     const first = acquireViewer(VIEWER_OPTIONS);
     const second = acquireViewer(VIEWER_OPTIONS);
-    await Promise.resolve();
-    expect(startupMock).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(startupMock).toHaveBeenCalledTimes(1), { timeout: 3000 });
     releaseStartup();
     await Promise.all([first, second]);
     expect(startupMock).toHaveBeenCalledTimes(1);

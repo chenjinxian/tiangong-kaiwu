@@ -18,7 +18,7 @@
 | Auth | web-next：`apps/web-next/src/modules/authentication/`（旧：`features/auth/`） | ✅ JWT 认证 |
 | iTwin | web-next：`apps/web-next/src/modules/documents/`（项目管理与文档中心同页）（旧：`features/itwin/`） | ✅ 项目管理 |
 | iModel | web-next：`apps/web-next/src/modules/documents/` + `document-details/`（旧：`features/imodel/`） | ✅ 模型管理 |
-| Editor | web-next：`apps/web-next/src/modules/part-studio/`（编辑器页：ribbon/特征树/参数面板/状态栏五区）+ 基座包 `packages/viewer-next`（iTwin 启动序列/RPC）+ `packages/editor/frontend`（第一方建模基座，2026-10-22 收编）（旧：`features/editor/`） | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口）；**web-next 侧真实后端全链路冒烟待 T4 解封（私有仓 pushChanges 修复+产物重发）** |
+| Editor | web-next：`apps/web-next/src/modules/part-studio/`（编辑器页：ribbon/特征树/参数面板/状态栏五区）+ 基座包 `packages/viewer`（iTwin 启动序列/RPC）+ `packages/editor/frontend`（第一方建模基座，2026-10-22 收编）（旧：`features/editor/`） | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口）；**web-next 侧真实后端全链路冒烟待 T4 解封（私有仓 pushChanges 修复+产物重发）** |
 | Sketch | `features/sketch/` | ✅ 草图编辑（M3-b：线/矩形/圆绘制+约束/尺寸工具链+DOF/矛盾面板+先试算后提交） |
 | Modeling | `features/modeling/` | 🟠 实体建模（阵列走前端直改通道）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService） |
 | Markup | `features/markup/` | ❌ 降级占位（`@itwin/core-markup` 依赖未配置——启用前需先补 workspace 依赖解析，T2.3 裁决：不预引依赖，等真实需求） |

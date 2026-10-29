@@ -21,7 +21,7 @@
     "@itwin/core-common": "link:../../../itwinjs-core/core/common",
     "@itwin/editor-frontend": "link:../../packages/editor/frontend",
     "@luban-cad/shared": "workspace:*",
-    "@luban-cad/viewer-next": "workspace:*",
+    "@luban-cad/viewer": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "i18next": "^21.9.1",
     "i18next-browser-languagedetector": "^6.1.2",

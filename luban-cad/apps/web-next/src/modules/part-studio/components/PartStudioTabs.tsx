@@ -18,7 +18,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@itwin/itwinui-react';
 import { SvgAdd, SvgFitToView } from '@itwin/itwinui-icons-react';
-import type { ViewportPhase } from '@luban-cad/viewer-next';
+import type { ViewportPhase } from '@luban-cad/viewer';
 import { TabManagerDialog } from '../tabs/TabManagerDialog.js';
 
 export interface PartStudioTabsProps {

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button, Input } from '@itwin/itwinui-react';
 import { AuthSession, type AuthUser } from '@clients/auth/AuthSession.js';
 import { env } from '@config/env.js';
-import { acquireViewer, releaseViewer } from '@luban-cad/viewer-next';
+import { acquireViewer, releaseViewer } from '@luban-cad/viewer';
 
 /**
  * Dev 专用查看器冒烟页（M0 真实栈验证载体，非产品页）：
