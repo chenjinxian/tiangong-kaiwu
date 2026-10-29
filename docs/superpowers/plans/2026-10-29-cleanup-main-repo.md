@@ -209,6 +209,10 @@ git commit -m "chore(luban-cad): 删除无消费者 viewer/config 包与失效�
 - Modify: `luban-cad/apps/web-next/vite.config.ts`
 - Modify: `luban-cad/apps/web-next/Dockerfile`
 - Modify: `luban-cad/pnpm-lock.yaml`（install）
+- Fix (pre-existing viewer debt carried from Task 2):
+  - `luban-cad/packages/viewer-next/src/host/test/web-initializer.test.ts`
+  - `luban-cad/packages/viewer-next/src/host/web-initializer.ts`
+  - `luban-cad/packages/viewer-next/src/viewport/test/render-profile.test.ts`
 - Test: viewer package + app unit/build
 
 **Interfaces:**
@@ -240,7 +244,30 @@ foreach ($f in $files) {
 Expected: only the lockfile may retain old text until Step 3; all source/test/vite/Docker
 references use `@luban-cad/viewer`.
 
-- [ ] **Step 3: Regenerate lock and test**
+- [ ] **Step 3: Fix carried viewer test/lint debt**
+
+In `packages/viewer/src/host/web-initializer.ts`:
+- At the lazy import, alias the class to a camelCase local:
+  `const { SketchAccuSnap: sketchAccuSnapClass } = await import('../tools/sketch-accu-snap.js');`
+  and use `accuSnap: new sketchAccuSnapClass()`.
+- Remove the unnecessary `as never` on `new FrontendIModelsAccess(iModelClient)`.
+- In `packages/viewer/src/viewport/test/render-profile.test.ts`, remove the unused
+  `ColorDef` import.
+- In `packages/viewer/src/host/test/web-initializer.test.ts`, replace the single-tick
+  `await Promise.resolve(); expect(startupMock)...` at the concurrency test with:
+  ```ts
+  await vi.waitFor(() => expect(startupMock).toHaveBeenCalledTimes(1), { timeout: 3000 });
+  ```
+  Keep the second assertion after both acquires.
+
+Run:
+```powershell
+corepack pnpm@10 --filter @luban-cad/viewer test
+corepack pnpm@10 --filter @luban-cad/viewer lint
+```
+Expected: 11/11 (or all current viewer tests) pass; viewer lint 0 errors.
+
+- [ ] **Step 4: Regenerate lock and test**
 
 ```powershell
 Set-Location 'D:\Github\tiangong-kaiwu\luban-cad'
@@ -254,7 +281,7 @@ corepack pnpm@10 --filter @luban-cad/web-next test
 
 Expected: viewer build/tests green; app typecheck + 957 tests green.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```powershell
 git add -A
@@ -576,10 +603,13 @@ $env:CI = 'true'
 corepack pnpm@10 install --frozen-lockfile
 corepack pnpm@10 -r build
 corepack pnpm@10 -r test
-corepack pnpm@10 -r lint
+corepack pnpm@10 --filter @luban-cad/web --filter @luban-cad/viewer lint
 ```
 
-Expected: green; app 957 tests; no old package importers in lockfile.
+Expected: build/workspace tests green; app 957 tests; viewer test fixed by Task 3.
+The pre-existing `@luban-cad/shared` lint debt (38 errors) is explicitly recorded
+as a baseline exception in `MIGRATION-2026-10-29.md`; do not claim `pnpm -r lint`
+green and do not drive-by rewrites in shared here. No old package importers in lockfile.
 
 - [ ] **Step 2: Stale scan**
 
