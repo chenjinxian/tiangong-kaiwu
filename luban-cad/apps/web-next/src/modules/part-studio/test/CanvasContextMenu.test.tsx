@@ -85,7 +85,7 @@ function makeViewport(): Record<string, unknown> {
 /** store 复位：canvas/tree/dock 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
-    canvas: { selection: [], hiddenIds: [] },
+    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     dock: { activeTab: 'toolSettings', isOpen: false },
   });

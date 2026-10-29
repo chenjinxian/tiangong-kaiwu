@@ -131,7 +131,7 @@ type PartsConnection = ReturnType<typeof partsConnection>;
 /** store 复位：canvas/tree 切片回缺省（用例间互不渗漏；M6-a T7 起 sketch 切片同复位；M6-c T5 起 dialog 切片同复位）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
-    canvas: { selection: [], hiddenIds: [] },
+    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },

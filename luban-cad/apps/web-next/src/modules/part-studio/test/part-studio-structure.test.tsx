@@ -287,7 +287,7 @@ function resetStore(): void {
     tool: { activeToolId: null },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     commandPalette: { isOpen: false, query: '', highlightEnabled: true },
-    canvas: { selection: [], hiddenIds: [] },
+    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
     dialog: { active: null },
     viewOnly: { isActive: false },
   });

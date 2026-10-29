@@ -216,10 +216,14 @@ function PartStudioSession({
   // 画布 body 选中桥（B6 M-A5 T1）：connection.selectionSet（画布 pick 权威源）
   // → store.canvas.selection（kind='part'）单点挂载——右键菜单/对话框既有消费面
   // 零改动复用。bodies 仅在读面成功（bodiesLoaded）后下传；undefined=legacy
-  // 回退，hook 不接管选择集（不清旧值）。双挂载=双写选择集，勿在下游再挂。
+  // 回退，hook 不接管选择集（不清旧值）。M-A5.2 T1：仅 body 模式启用——
+  // face/edge 子实体选择由工具自管、不写 SelectionSet，桥必须退订。
+  // 双挂载=双写选择集，勿在下游再挂。
+  const selectionMode = usePartStudioStore((s) => s.canvas.selectionMode);
   useCanvasBodySelection(
     connection ?? undefined,
     featureSystem.bodiesLoaded ? featureSystem.bodies : undefined,
+    selectionMode === 'body',
   );
 
   // 草图系统（M6-a T5）：活动草图读面（store.sketch.activeSketchId 驱动）+

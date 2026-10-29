@@ -50,6 +50,7 @@ const INITIAL_STATE: PartStudioState = {
   canvas: {
     selection: [],
     hiddenIds: [],
+    selectionMode: 'body',
   },
   dialog: {
     active: null,
@@ -206,6 +207,21 @@ describe('canvas 切片（画布选择集 + 会话隐藏集，T5 收口 CanvasSe
     expect(usePartStudioStore.getState().canvas.hiddenIds).toEqual(['a', 'b', 'c']);
     store.showNodes(['b']);
     expect(usePartStudioStore.getState().canvas.hiddenIds).toEqual(['a', 'c']);
+  });
+
+  // M-A5.2 T1：选择模式是 canvas 切片的一部分——切模式清空画布选择
+  // （body↔face/edge 选择集语义不同，跨模式残留会误路由右键菜单）；
+  // 树选中不受影响（子实体选择不写 SelectionSet/树）；同模式幂等不重写。
+  it('setSelectionMode 切模式清空 canvas 选择，树选中不动；同模式幂等', () => {
+    const store = usePartStudioStore.getState();
+    store.setCanvasSelection([{ kind: 'part', id: '0x15', label: 'Body 1' }]);
+    store.setSelectedNodeIds(['feature-1']);
+    store.setSelectionMode('face');
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('face');
+    expect(usePartStudioStore.getState().canvas.selection).toEqual([]);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['feature-1']);
+    store.setSelectionMode('face');
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('face');
   });
 });
 

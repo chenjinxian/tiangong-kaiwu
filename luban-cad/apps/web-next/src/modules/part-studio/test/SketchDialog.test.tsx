@@ -141,7 +141,7 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
 /** store 复位：canvas/tree/sketch/dialog 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
-    canvas: { selection: [], hiddenIds: [] },
+    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },

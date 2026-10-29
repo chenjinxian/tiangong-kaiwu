@@ -103,7 +103,7 @@ function renderCanvas(
 
 function resetStore(): void {
   usePartStudioStore.setState({
-    canvas: { selection: [], hiddenIds: [] },
+    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },
     viewOnly: { isActive: false },

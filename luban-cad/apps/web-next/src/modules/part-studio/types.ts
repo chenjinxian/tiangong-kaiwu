@@ -5,7 +5,12 @@
  * part-studio 模块契约类型（M3 Task 2）。
  */
 
-import type { LubanFeatureType, PatternParams, SketchPlaneDto } from '@luban-cad/shared';
+import type {
+  LubanFeatureType,
+  LubanTopologyId,
+  PatternParams,
+  SketchPlaneDto,
+} from '@luban-cad/shared';
 
 /**
  * body 产出型特征（B6 M-A3.2a 单一真源）：这些特征的 insert 在 N>1 authored active
@@ -29,11 +34,20 @@ export const BODY_PRODUCING_FEATURE_TYPES: readonly LubanFeatureType[] = [
 export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature';
 
 /**
+ * 画布选择模式（M-A5.2 T1）：body=实体级选择（既有 SelectionSet 桥接管）；
+ * face/edge=子实体选择（工具自管拾取，不写 SelectionSet——见
+ * useCanvasBodySelection 的 enabled 门）。
+ */
+export type CanvasSelectionMode = 'body' | 'face' | 'edge';
+
+/**
  * 画布选择集条目——viewport pick → store 回流的寻址单位
  *（选择驱动 UI：ribbon 组重排/高亮、画布右键按 kind 重构的依据）。
  * T5 定宿主（T2 挂账「CanvasSelection 无宿主」收口）：存 store.canvas
  * .selection；label/featureType 为可选显示/路由元数据（featureType 是
  * 「编辑特征」路由 tools.run 的目标 toolId）。
+ * M-A5.2 T1：face/edge 条目携带宿主 body + 持久拓扑 id（子实体选择不经
+ * SelectionSet，由工具写入）。
  */
 export interface CanvasSelection {
   kind: CanvasSelectionKind;
@@ -42,6 +56,10 @@ export interface CanvasSelection {
   label?: string;
   /** kind=feature 时的特征类型（edit 模式 FeatureDialog 的寻址元数据，如 extrude）。 */
   featureType?: string;
+  /** face/edge 必填：所属 BodySolid 元素 id（=getBodies.bodyKey）。 */
+  ownerBodyKey?: string;
+  /** face/edge 持久拓扑 id（edge=ref.edge；face=resolveFaceRef.ref）。 */
+  topologyId?: LubanTopologyId;
 }
 
 /** 特征条目（双段树特征段视图模型；数据由消费方注入——壳期空集，RPC 接线后走 react-query）。 */
@@ -122,12 +140,14 @@ export interface PartStudioCommandPaletteState {
   highlightEnabled: boolean;
 }
 
-/** canvas 切片——画布选择集（viewport pick → store 回流）+ 会话隐藏集。 */
+/** canvas 切片——画布选择集（viewport pick → store 回流）+ 会话隐藏集 + 选择模式。 */
 export interface PartStudioCanvasState {
   /** 画布选择集（右键菜单按 primary.kind 重构的依据；T6 viewport pick 接线后写入）。 */
   selection: readonly CanvasSelection[];
   /** 隐藏集（画布菜单「隐藏」的会话记录；FeatureOverrideProvider 消费、:hidden 叠加）。 */
   hiddenIds: readonly string[];
+  /** 选择模式（M-A5.2 T1）：body 走既有 SelectionSet 桥；face/edge 由工具自管。 */
+  selectionMode: CanvasSelectionMode;
 }
 
 /**

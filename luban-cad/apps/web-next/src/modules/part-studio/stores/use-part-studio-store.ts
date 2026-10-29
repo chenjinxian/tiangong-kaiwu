@@ -22,6 +22,7 @@ import type { StoreApi } from 'zustand';
 import type { LubanFeatureType, PatternParams, SketchPlaneDto } from '@luban-cad/shared';
 import type {
   CanvasSelection,
+  CanvasSelectionMode,
   DockTab,
   PartStudioCanvasState,
   PartStudioCommandPaletteState,
@@ -59,10 +60,11 @@ export interface PartStudioActions {
   toggleCommandPalette: () => void;
   setCommandPaletteQuery: (query: string) => void;
   setPaletteHighlight: (enabled: boolean) => void;
-  // canvas 切片（T5：viewport pick → store 回流的寻址单位宿主）
+  // canvas 切片（T5：viewport pick → store 回流的寻址单位宿主；M-A5.2 T1 增选择模式）
   setCanvasSelection: (selection: readonly CanvasSelection[]) => void;
   hideNodes: (nodeIds: readonly string[]) => void;
   showNodes: (nodeIds: readonly string[]) => void;
+  setSelectionMode: (mode: CanvasSelectionMode) => void;
   // dialog 切片（T6：画布内联非模态对话框宿主寻址；M4-T6 扩 new/edit 双模式）
   openFeatureDialog: (
     feature:
@@ -116,6 +118,7 @@ const initialCommandPalette: PartStudioCommandPaletteState = {
 const initialCanvas: PartStudioCanvasState = {
   selection: [],
   hiddenIds: [],
+  selectionMode: 'body',
 };
 
 const initialDialog: PartStudioDialogState = { active: null };
@@ -206,9 +209,9 @@ export const usePartStudioStore = create<PartStudioStore>()((...args) => ({
   ...createViewOnlySlice(args),
 }));
 
-/** canvas 切片：画布选择集（pick 回流宿主）+ 会话隐藏集。 */
+/** canvas 切片：画布选择集（pick 回流宿主）+ 会话隐藏集 + 选择模式（M-A5.2 T1）。 */
 function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvasState } & Pick<PartStudioActions,
-  'setCanvasSelection' | 'hideNodes' | 'showNodes'> {
+  'setCanvasSelection' | 'hideNodes' | 'showNodes' | 'setSelectionMode'> {
   return {
     canvas: initialCanvas,
     setCanvasSelection: (selection) => set({ canvas: { ...get().canvas, selection: [...selection] } }),
@@ -221,6 +224,13 @@ function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvas
       const canvas = get().canvas;
       const dropping = new Set(nodeIds);
       set({ canvas: { ...canvas, hiddenIds: canvas.hiddenIds.filter((id) => !dropping.has(id)) } });
+    },
+    // 切模式清空画布选择（body↔face/edge 条目语义不同，跨模式残留会误路由）；
+    // 树选中不动（子实体选择不写 SelectionSet、不回写树）；同模式幂等不重写。
+    setSelectionMode: (mode) => {
+      const canvas = get().canvas;
+      if (canvas.selectionMode === mode) return;
+      set({ canvas: { ...canvas, selectionMode: mode, selection: [] } });
     },
   };
 }
