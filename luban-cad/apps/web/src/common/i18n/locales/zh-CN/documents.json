@@ -160,8 +160,7 @@
       "removeSuccess": "成员已移除",
       "removeFailed": "移除失败，请重试",
       "roleUpdated": "角色已更新",
-      "roleUpdateFailed": "角色更新失败，请重试",
-      "manageUnavailable": "当前 hub 版本暂不支持修改或移除该成员"
+      "roleUpdateFailed": "角色更新失败，请重试"
     },
     "invite": {
       "emailLabel": "邮箱地址",

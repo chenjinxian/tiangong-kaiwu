@@ -42,15 +42,14 @@ export interface UpdateUserMemberRequest {
   roleIds?: string[];
 }
 
-/** PATCH 响应的 member 原始形态（roleIds 数组形态，与 ITwinMember 不同形）。 */
+/** PATCH 响应的 member 形态（P2-15 起与列表同形：行 UUID + roles join）。 */
 export interface UserMemberPatchResult {
   id: string;
-  iTwinId: string;
-  userId: string;
-  email?: string;
-  roleIds: string[];
-  createdAt?: string;
-  modifiedAt?: string;
+  email: string;
+  givenName?: string;
+  surname?: string;
+  organization?: string;
+  roles: ITwinMemberRole[];
 }
 
 export interface ITwinRole {

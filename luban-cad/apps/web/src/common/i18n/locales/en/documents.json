@@ -160,8 +160,7 @@
       "removeSuccess": "Member removed",
       "removeFailed": "Failed to remove member. Please retry.",
       "roleUpdated": "Role updated",
-      "roleUpdateFailed": "Failed to update role. Please retry.",
-      "manageUnavailable": "This hub version cannot change or remove this member yet"
+      "roleUpdateFailed": "Failed to update role. Please retry."
     },
     "invite": {
       "emailLabel": "Email address",

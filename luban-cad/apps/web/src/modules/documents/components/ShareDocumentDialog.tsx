@@ -54,10 +54,6 @@ export interface ShareDocumentDialogProps {
 type ShareTab = 'members' | 'invite' | 'link';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// 现 hub 的 GET members/users 返回 id=userId（邀请场景为 email），而 PATCH/DELETE
-// 走 ParseUUIDPipe——非 UUID id 的改角色/移除必然 400（imodelhub backlog）。
-// 前端对这类成员显式降级：禁用操作 + inline 说明，避免把必然失败呈现为「请重试」。
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function ShareDocumentDialog({
   doc,
@@ -260,51 +256,41 @@ export function ShareDocumentDialog({
                   </div>
                 ) : (
                   <div className="share-members-list">
-                    {members.map((member) => {
-                      const manageable = UUID_PATTERN.test(member.id);
-                      return (
-                        <div key={member.id} className="share-member">
-                          <div className="share-member__info">
-                            <Text className="share-member__email">{member.email}</Text>
-                            <div className="share-member__meta">
-                              {roleOptions.length > 0 ? (
-                                <Select
-                                  native
-                                  size="small"
-                                  aria-label={t('documents.shareDialog.members.roleLabel')}
-                                  value={member.roles[0]?.id ?? ''}
-                                  options={[
-                                    { value: '', label: t('documents.shareDialog.members.noRole') },
-                                    ...roleOptions,
-                                  ]}
-                                  onChange={(value) => handleRoleChange(member, value)}
-                                  disabled={!manageable}
-                                />
-                              ) : (
-                                <Text variant="small">
-                                  {member.roles.map((role) => role.displayName).filter(Boolean).join(', ')
-                                    || t('documents.shareDialog.members.noRole')}
-                                </Text>
-                              )}
-                            </div>
-                            {!manageable && (
-                              <Text variant="small" className="share-hint-text">
-                                {t('documents.shareDialog.members.manageUnavailable')}
+                    {members.map((member) => (
+                      <div key={member.id} className="share-member">
+                        <div className="share-member__info">
+                          <Text className="share-member__email">{member.email}</Text>
+                          <div className="share-member__meta">
+                            {roleOptions.length > 0 ? (
+                              <Select
+                                native
+                                size="small"
+                                aria-label={t('documents.shareDialog.members.roleLabel')}
+                                value={member.roles[0]?.id ?? ''}
+                                options={[
+                                  { value: '', label: t('documents.shareDialog.members.noRole') },
+                                  ...roleOptions,
+                                ]}
+                                onChange={(value) => handleRoleChange(member, value)}
+                              />
+                            ) : (
+                              <Text variant="small">
+                                {member.roles.map((role) => role.displayName).filter(Boolean).join(', ')
+                                  || t('documents.shareDialog.members.noRole')}
                               </Text>
                             )}
                           </div>
-                          <IconButton
-                            size="small"
-                            styleType="borderless"
-                            onClick={() => setRemoveTarget(member)}
-                            label={t('documents.shareDialog.members.remove')}
-                            disabled={!manageable}
-                          >
-                            <SvgDelete />
-                          </IconButton>
                         </div>
-                      );
-                    })}
+                        <IconButton
+                          size="small"
+                          styleType="borderless"
+                          onClick={() => setRemoveTarget(member)}
+                          label={t('documents.shareDialog.members.remove')}
+                        >
+                          <SvgDelete />
+                        </IconButton>
+                      </div>
+                    ))}
                   </div>
                 )}
               </Tabs.Panel>
