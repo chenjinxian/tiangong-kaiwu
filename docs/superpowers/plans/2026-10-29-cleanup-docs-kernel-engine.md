@@ -170,16 +170,18 @@ foreach ($repo in $repos) {
   "=== $repo ==="
   rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer|open-cloud-cad|Zokei|platform-docs" `
     $repo --glob '!**/node_modules/**' --glob '!**/.git/**' --glob '!**/third_party/**' `
-    --glob '!**/HISTORY.md' --glob '!**/MIGRATION-2026-10-29.md' 2>$null |
+    --glob '!**/HISTORY.md' --glob '!**/MIGRATION-2026-10-29.md' `
+    --glob '!**/docs/superpowers/**' 2>$null |
     Select-Object -First 20
 }
 ```
 
-Expected: zero active hits. Allowed exceptions:
+Expected: zero active hits in code/config/current docs. Allowed exceptions:
 - `luban-next-*` browser storage keys
 - branch `web-next-m0`
 - CORS negative test `:5310`
 - HISTORY/migration history lines
+- retained `docs/superpowers` design/plan records (historical text)
 
 - [ ] **Step 2: Record final status**
 
