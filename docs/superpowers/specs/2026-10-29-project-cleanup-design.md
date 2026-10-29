@@ -3,8 +3,8 @@
 - 日期：2026-10-29
 - 状态：执行完成（2026-10-29；platform-docs 已按用户裁决删除）
 - 性质：跨仓结构整理、命名统一、过时内容删除、生成物清理
-- 范围：tiangong-kaiwu（项目总目录）+ luban-backend、imodelhub-services、imodel-native、DanQing（见 §2）；acis-solid-kernel 仅审计，不修改
-- 原则：不 push、不建 Release；每阶段独立本地提交；仓内删除以 Git 历史为准
+- 范围：tiangong-kaiwu（项目总目录）+ luban-backend、imodelhub-services、imodel-native、DanQing（见 §2）
+- 原则（执行期）：不 push、不建 Release；每阶段独立本地提交；仓内删除以 Git 历史为准。执行完成后按用户指示推送/发布（见 MIGRATION）
 
 ## 1. 目标与非目标
 
@@ -20,11 +20,10 @@
 4. 统一项目总目录与关联自有仓的当前文档、端口、路径、品牌和状态口径。
 5. 删除已完成/过时的计划、旧审计、旧分析；每个仓保留一个 `HISTORY.md` 索引，
    旧内容从 Git 历史恢复。
-6. 清理后所有纳入仓库的 `git status` 为 clean；acis 例外保持原样。
+6. 清理后所有纳入仓库的 `git status` 为 clean。
 
 ### 非目标
 
-- 不改 acis-solid-kernel 的研究源码、基线、探针或 `.diag`。
 - 不改 itwinjs-core 上游同步策略以外的最小 fork 修改。
 - 不改业务功能；除端口/配置纠偏和锁文件重生成外，不新增功能。
 - 不删除 `node_modules`、`dist-backend`、`.superpowers`、Rush `common/temp`、
@@ -48,8 +47,6 @@
 
 排除：
 
-- `D:\Github\acis-solid-kernel`：研究仓，773 项工作区改动保持原样；`.diag` 4.2 GB
-  也保留，不纳入自动清理。
 - 官方 SDK、样本仓、第三方上游、`decompiled_*`、`forensics` 等辅助目录。
 
 ## 3. 已确认决策
@@ -64,9 +61,8 @@
 | token 残留 | `luban-cad/apps/web/playwright/.auth` 随旧 app 残留一起删除 |
 | 构建产物 | 回收 `imodel-native/out/cmake`、`DanQing/build`、`luban-backend/dist-out+staging` |
 | platform-docs | 整仓删除，不迁移内容；主仓 `docs/` 为唯一文档根 |
-| acis | 完全保留，包括 `.diag` |
 | 保留资产 | `node_modules`、`dist-backend`、`.superpowers`、Rush `common/temp`、itwinjs `lib` |
-| 推送 | 不 push、不建 Release |
+| 推送（执行期） | 不 push、不建 Release；完成后按用户指示执行 |
 
 ## 4. 目标结构
 
@@ -318,7 +314,6 @@ luban-cad/
    测试负例 `:5310`、容器内部 `web:3000`
 6. **imodel-native / DanQing**：仅文档/生成物变更；不重编译，记录延后；
    若后续构建，按各仓基线命令执行
-7. **acis**：不运行、不修改；`git status` 保持原状并在最终报告登记
 
 ## 8. 安全、回滚与失败处理
 
@@ -333,15 +328,15 @@ luban-cad/
 
 ## 9. 交付物
 
-- 纳入仓清理后的代码/文档与本地提交；platform-docs 已删除；acis 不变。
+- 纳入仓清理后的代码/文档与本地提交；platform-docs 已删除。
 - 主仓 `docs/HISTORY.md` 与各仓 `HISTORY.md`。
 - 一份执行结果记录：删除清单、回收容量、改名映射、验证结果、残余项。
-- 不 push、不建 Release；由用户逐次决定。
+- 执行期不 push、不建 Release；完成后由用户逐次决定（见 MIGRATION）。
 
 ## 10. 验收定义
 
 - `luban-cad/apps/web` 与 `packages/viewer` 为唯一命名，旧名在活跃代码/配置/文档零命中。
 - 死包、失效脚本、旧应用拷贝、旧计划/审计、生成物按清单删除。
 - 主仓全量单测/build/e2e/verify 全绿；backend/hub 各自门禁全绿。
-- 纳入仓 `git status` clean；platform-docs 已删除；acis 明确例外。
+- 纳入仓 `git status` clean；platform-docs 已删除。
 - 仓内删除内容可从 Git 历史恢复；`HISTORY.md` 提供索引。

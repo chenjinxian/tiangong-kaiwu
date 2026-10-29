@@ -6,15 +6,30 @@
 
 ## 定位
 
-借助图形建模平台(itwinjs-core 底层逻辑 + 丹青渲染引擎)实现的**生成式 CAD**:文生 3D,且生成的是**可用于工业制造的真实 BRep**(真形),不是通用大模型的 Mesh 玩具。
+基于 iTwin.js 图形建模平台实现的前端 CAD 产品:参数化特征、草图约束、云协同与可撤销编辑,生成物是**可用于工业制造的真实 BRep**(真形),不是通用文生 3D 的 Mesh。公开的 [丹青(DanQing)](https://github.com/chenjinxian/DanQing) 是独立的大体量渲染引擎项目,尚未接入本应用。
 
 本仓(`luban-cad/`)是产品应用侧:前端宿主 + 共享包 + 建模基座。建模后台与 webhook 代理的源码在私有仓,本应用经其发布产物运行(见根 README 的起栈流程)。
+
+## 能力亮点
+
+- **真 BRep 参数化特征**:特征树、参数面板、拉伸/圆角/抑制/排序/试算预览,生成物是实体而非 Mesh。
+- **草图约束闭环**:线/矩形/圆绘制 + 约束/尺寸 + DOF/矛盾面板 + 先试算后提交。
+- **多体与体布尔(推进中)**:NEW-body、body boolean、逐 body 可见性/选择链已落地,面/边选择与性能护栏在推进。
+- **云端协同**:Changeset 推送/历史、写租约、语义 undo/redo、checkpoint/baseline 云化。
+- **公开可构建**:`apps/web` 与 `packages/{viewer,editor,shared}` 可独立构建；`shared`/`viewer`/`editor-frontend` 有单元测试。当前应用渲染使用 iTwin.js；[DanQing](https://github.com/chenjinxian/DanQing) 是独立公开引擎（尚未接入本应用）。
+
+## 适用场景
+
+- 工业零件/装配的参数化设计与特征编辑;
+- 云端协同设计、版本历史与撤销/重做;
+- AI+CAD 研究:Agent 复用现有 toolId,破坏性操作走 HITL;
+- 学习/二次开发:iTwin.js 编辑器、viewer 基座与前端模块。
 
 ## 组件关系
 
 - 生成几何 → **真形(TrueForm)内核**(私有仓,自主研发,终局替换现有 BRep 实现层)
 - 约束求解 → **绳墨(ShengMo)**(私有仓,自主研发)
-- 渲染 → **丹青(DanQing)**(纯客户端图形引擎:大体量渲染 × 实时高质量渲染/全平台)
+- 渲染 → 当前应用使用 **iTwin.js 渲染栈**;公开的 **[丹青(DanQing)](https://github.com/chenjinxian/DanQing)** 是大体量渲染/全平台方向的独立引擎(尚未接入本应用)
 - 数据/事务 → iModel(iModel IO/ECSQL/变更追踪,经 itwinjs-core fork)
 
 ## 目录结构

@@ -5,8 +5,19 @@
 > **Visibility: PUBLIC(开源)**
 > 命名家族(2026-09-23 终版):平台 **天工开物** / 产品 **鲁班CAD(LubanCAD)** / 几何内核 **真形(TrueForm)** / 约束求解器 **绳墨(ShengMo)**。
 > 产品口吻:*说出要什么,鲁班给你真形。*
+>
+> **公开边界**：本仓、`luban-cad` 与 [DanQing](https://github.com/chenjinxian/DanQing) 公开；`luban-backend`、`imodelhub-services`、`imodel-native`、真形/绳墨为私有仓。公开仓可直接体验、提 Issue 和参与前端/渲染层开发。
 
 ---
+
+## 项目亮点
+
+- **真 BRep，而非 Mesh**：生成物是可用于制造的实体模型；特征树、草图、参数与变更历史统一承载在 iModel 中。
+- **参数化特征闭环**：拉伸、圆角、抑制、排序、试算预览；草图线/矩形/圆 + 约束/尺寸 + DOF/矛盾面板。
+- **多体与体布尔（推进中）**：NEW-body、body boolean、逐 body 可见性与选择链已落地，面/边选择与性能护栏在推进。
+- **云端协同数据链**：Changeset 推送/历史、写租约、语义 undo/redo、checkpoint/baseline 云化。
+- **大规模数字孪生渲染**：公开的 [DanQing](https://github.com/chenjinxian/DanQing) 纯客户端图形引擎，10km / 169,920 瓦片桥梁模型打开至首帧 2.25s，LOD 流式细化。
+- **可参与的开源面**：前端 `luban-cad/apps/web`、基座包 `packages/{viewer,editor,shared}` 与 iTwin.js fork 可独立构建；`shared`/`viewer`/`editor-frontend` 有单元测试；DanQing 是独立公开仓。
 
 ## 这是什么
 
@@ -24,6 +35,16 @@
 | 版本协同 | ✅ Changeset 提交/推送/历史时间线、命名版本;冲突解决 ⚪ 规划中 |
 | 数据通道 | ✅ Tile 云缓存(生成即上传对象存储,浏览器同源直取)、checkpoint/baseline 云化 |
 | AI 工具 | 🟠 Agent 复用现有 toolId 注册面,破坏性操作走 HITL(预览→确认→提交) |
+
+## 适用场景
+
+| 场景 | 能做什么 |
+|---|---|
+| 工业零件/装配设计 | 参数化特征建模、草图约束、圆角/抑制/排序、多体与体布尔（推进中） |
+| 云端协同设计 | 项目/模型管理、Changeset 版本、写租约、撤销/重做、推送与历史 |
+| AI+CAD 研究 | Agent 复用现有建模 toolId，破坏性操作走 HITL；生成式流程逐步开放 |
+| 数字孪生/大模型浏览 | 通过 DanQing 的 tile 流式与渲染能力浏览桥梁、工厂、建筑等大体量模型 |
+| 学习/二次开发 | 前端、viewer/editor 基座、iTwin.js fork 可独立构建（shared/viewer/editor-frontend 有单测）；DanQing 是独立公开引擎 |
 
 ## 架构速览
 
@@ -147,6 +168,21 @@ e2e 基建说明:种子模型由测试自管(每轮自动重置);登录走会话
 - 已删除文档历史索引:`docs/HISTORY.md`
 - 文档总索引:`docs/README.md`
 - 愿景/路线图/能力矩阵:本仓 `docs/ROADMAP.md` 与代码/测试实测
+
+## 相关公开项目
+
+| 项目 | 内容 |
+|---|---|
+| [DanQing](https://github.com/chenjinxian/DanQing) | 纯客户端图形引擎：itwinjs 级 tile 流式 + Filament 级渲染，支持大体量 BIM/数字孪生模型 |
+| [DanQing-Data](https://github.com/chenjinxian/DanQing-Data) | 公开演示模型数据包（桥梁、厂房、住宅等） |
+| [Releases](https://github.com/chenjinxian/tiangong-kaiwu/releases) | 清理里程碑、后端产物说明与前端镜像信息 |
+
+## 参与公开项目
+
+- 前端与基座包：从 `luban-cad/apps/web` 或 `packages/{viewer,editor,shared}` 开始，按 [luban-cad/CLAUDE.md](luban-cad/CLAUDE.md) 的工具生命周期与测试要求提交。
+- 渲染引擎：从 [DanQing](https://github.com/chenjinxian/DanQing) 的 README/Quick start 开始，按该仓 README/CLAUDE.md 的参考保真规则提交。
+- Issue/PR 优先描述“可复现步骤 + 期望行为 + 环境”；涉及界面变化请附截图或录屏。
+- 私有后端/内核不在本仓开放；公开仓通过 Releases/GHCR 消费其产物。
 
 ## 许可与边界
 

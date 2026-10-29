@@ -4,7 +4,7 @@
 
 **Goal:** 清理 imodel-native 与 DanQing 的生成物和过期文档，完成跨仓最终扫描，并把结果记录到项目总目录。
 
-**Architecture:** platform-docs 已按用户裁决整仓删除，主仓 `docs/` 成为唯一文档根；本计划只处理 imodel-native/DanQing 的生成物与过期文档，不改源码；acis-solid-kernel 完全排除。最后在主仓做跨仓 stale 扫描和状态记录。
+**Architecture:** platform-docs 已按用户裁决整仓删除，主仓 `docs/` 成为唯一文档根；本计划只处理 imodel-native/DanQing 的生成物与过期文档，不改源码。最后在主仓做跨仓 stale 扫描和状态记录。
 
 **Tech Stack:** Markdown、PowerShell、CMake 构建树（仅删除，不重编译）、Git。
 
@@ -13,10 +13,9 @@
 ## Global Constraints
 
 - platform-docs 已整仓删除（不迁移内容）；不得再引用该目录，当前文档根为 `D:\Github\tiangong-kaiwu\docs`。
-- 不改 acis-solid-kernel，包括 `.diag` 和 773 项工作区改动。
 - 不改 imodel-native/DanQing 源码；只删生成物、过期文档、合并当前文档。
 - 不重编译 native/DanQing；删除构建树后记录“下次构建前需重新配置”。
-- 不 push、不建 Release；每仓独立本地 commit。
+- 执行期不 push、不建 Release；每仓独立本地 commit；完成后按用户指示推送/发布（见 MIGRATION）。
 - 当前端口：web 5300/5301、hub 5400（容器 4000）、MS 5401、WA 5402。
 - 当前前端路径：`luban-cad/apps/web`；旧名只允许出现在 HISTORY/迁移记录。
 
@@ -198,10 +197,9 @@ Append to `D:\Github\tiangong-kaiwu\docs\MIGRATION-2026-10-29.md`:
 | imodel-native | out/cmake + 历史计划 | git status clean |
 | DanQing | build + DTA 文档收敛 | git status clean |
 | platform-docs | 整仓删除，不迁移内容 | 本地目录不存在 |
-| acis-solid-kernel | **未修改**（研究脏区保留） | 原状 |
 
-- 未 push、未建 Release。
-- 例外：分支 `web-next-m0`、存储键 `luban-next-*`、acis 工作区。
+- 已按用户指示推送五仓并创建轻量 Release（见 MIGRATION）。
+- 例外：分支 `web-next-m0`、存储键 `luban-next-*`。
 ```
 
 - [ ] **Step 3: Commit**
@@ -218,6 +216,5 @@ git commit -m "docs: 记录 2026-10-29 项目总目录整理结果"
 
 - Spec coverage: platform-docs deletion already completed; imodel-native (T1),
   DanQing (T2), cross-repo scan/result (T3).
-- acis is explicitly untouched; build outputs limited to listed trees.
 - No source edits in native/DanQing; no rebuild claimed.
 - Ports and names match the spec; history indexes preserve recovery paths.

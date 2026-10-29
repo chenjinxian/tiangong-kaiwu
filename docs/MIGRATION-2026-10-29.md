@@ -1,6 +1,6 @@
 # 2026-10-29 项目总目录整理迁移记录
 
-- 范围：tiangong-kaiwu（项目总目录）、luban-backend、imodelhub-services、imodel-native、DanQing；acis-solid-kernel 仅审计不修改。
+- 范围：tiangong-kaiwu（项目总目录）、luban-backend、imodelhub-services、imodel-native、DanQing。
 - platform-docs：已按用户裁决整仓删除（不迁移内容）；主仓 `docs/` 为唯一文档根。
 - 结构：apps/web-next → apps/web；packages/viewer-next → packages/viewer。
 - 包名：@luban-cad/web-next → @luban-cad/web；@luban-cad/viewer-next → @luban-cad/viewer。
@@ -16,7 +16,7 @@
 - 门禁：web unit 957/957；workspace build 绿；e2e 34/34；verify 17/17；viewer/app lint 绿。
 - e2e 稳定化：文档详情视觉钉版仅 mask iModel 卡片「创建于」日期文本（不遮整卡），仅重钉 `document-details-light.png`；种子重建/跨日日期漂移不再影响视觉门禁（修复前 33/34，日期字形差 13 px）。
 - 既存例外：`@luban-cad/shared` 38 个 lint 错误为清理前基线，未在本轮扩大修复。
-- 例外：acis-solid-kernel 保持原样；分支名与存储键未改名。
+- 例外：分支名与存储键未改名。
 - 旧命名残留：历史/证据文档与 `.superpowers` 物理目录路径（docs/HISTORY、ITWINJS_CORE_MODIFICATIONS、UPSTREAM_SYNC、web-realstack-probes 及 `e2e/perf.spec.ts` 证据根）保留旧名；另有保留的 `docs/superpowers` 设计/计划历史文本含旧名（parity 设计、全程序路线图、清理计划等），已在相关文档加顶注说明历史口径。active 代码注释已清零。
 
 ## 终审清扫修复（2026-10-29）
@@ -41,9 +41,8 @@
 | imodel-native | `out/cmake` 15.5 GiB、缓存、20 份历史计划/spec 删除；`docs/HISTORY.md`；悬空引用改 Git 索引 | git clean；任务复审 Approved |
 | DanQing | `build` 37.08 GB、测试输出/macro、4 份旧 DTA 文档删除；`docs/HISTORY.md`；README/CLAUDE 悬空引用改 Git 索引 | git clean；任务复审 Approved |
 | platform-docs | 整仓删除，不迁移内容 | 本地目录不存在；无远端配置 |
-| acis-solid-kernel | **未修改**（研究脏区保留） | 原状 |
 
 - 跨仓 stale 扫描：backend/hub/native/DanQing 当前代码/配置零命中；主仓仅保留已删除说明、历史台账/同步检查单、`.superpowers` 证据物理路径与上游外部 `web-viewer` 教程/包名等 documented exceptions。证据：`.superpowers/sdd/2026-10-29-cleanup-docs-kernel-engine/final-stale-scan.txt`。
-- 未 push、未建 Release；所有提交均为本地提交。
+- 发布状态：五个仓已推送（主仓 `main` `c8d9336`、backend `f938814`、hub `af9f92e`、native `408f162e`、DanQing `95381fbe`）；已创建轻量 Release `cleanup-2026-10-29`（不含产物，Latest 仍为 `backend-20261028c`）。
 - 回收量级：backend ~11.45 GiB + native ~15.5 GiB + DanQing ~37.09 GB + 主仓 worktree/旧应用等 ~0.8 GiB。
 - 残余：`@luban-cad/shared` 38 个 lint 错误为既存基线；DanQing 阶段计划保留为取证台账；imodel-native 源码注释仍引用已删文档（不改源码约束）；web 镜像 revision 停在 `8e201b2`（此后无 web 源变更，未重建）。

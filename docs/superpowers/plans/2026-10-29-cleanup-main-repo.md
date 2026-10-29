@@ -12,8 +12,8 @@
 
 ## Global Constraints
 
-- 只处理 `D:\Github\tiangong-kaiwu`；不改 acis-solid-kernel。
-- 不 push、不建 Release；每任务本地 commit。
+- 只处理 `D:\Github\tiangong-kaiwu`。
+- 执行期不 push、不建 Release；每任务本地 commit；完成后按用户指示推送/发布（见 MIGRATION）。
 - 删除以 Git 历史为准；不保留旧计划/旧审计正文。
 - 保留 `node_modules`、`dist-backend`、`.superpowers`、Rush `common/temp`、`itwinjs-core/core/*/lib`。
 - 最终目标名称：`apps/web`、`@luban-cad/web`、`packages/viewer`、`@luban-cad/viewer`。
@@ -56,8 +56,8 @@ foreach ($repo in $repos) {
 }
 ```
 
-Expected: main clean at `142cda8`; backend/hub/imodel-native/DanQing clean;
-acis not included. Create local tags only:
+Expected: main clean at `142cda8`; backend/hub/imodel-native/DanQing clean.
+Create local tags only:
 
 ```powershell
 foreach ($repo in $repos) {
@@ -699,7 +699,7 @@ Append to `docs/MIGRATION-2026-10-29.md`:
 - 改名：apps/web-next → apps/web；viewer-next → viewer。
 - 门禁：web unit 957/957；build；e2e 34/34；verify 17/17；viewer/app lint 绿。
 - 既存例外：`@luban-cad/shared` 38 个 lint 错误为清理前基线，未在本轮扩大修复。
-- 例外：acis-solid-kernel 保持原样；分支名与存储键未改名。
+- 例外：分支名与存储键未改名。
 ```
 
 ```powershell

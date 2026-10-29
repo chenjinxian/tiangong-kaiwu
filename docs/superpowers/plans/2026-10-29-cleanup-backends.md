@@ -16,7 +16,7 @@
 - 不恢复 TEST_MODE；不动迁移历史。
 - `:5310` 只保留在 CORS 负例测试。
 - 不改 `.env` 私密值；只改 example/default。
-- 不 push、不建 Release；每任务本地 commit。
+- 执行期不 push、不建 Release；每任务本地 commit；完成后按用户指示推送/发布（见 MIGRATION）。
 - 删除前确认路径存在；不删除数据库迁移。
 
 ---
