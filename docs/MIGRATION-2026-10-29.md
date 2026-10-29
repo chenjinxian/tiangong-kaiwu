@@ -11,7 +11,7 @@
 ## 执行结果
 
 - 删除：apps/web 残留、worktree、死包、旧脚本、fork 旧应用、历史文档。
-- platform-docs：本地仓整仓删除（HEAD `830f2ad`，无远端配置）；被中止的 2026-10-29 文档改写未提交，已一并丢弃；主仓所有 `platform-docs` 引用已收敛。
+- platform-docs：本地仓整仓删除（HEAD `830f2ad`，无远端配置）；被中止的 2026-10-29 文档改写未提交，已一并丢弃；主仓当前文档不再引用该目录（历史记录除外）。
 - 改名：apps/web-next → apps/web；viewer-next → viewer。
 - 门禁：web unit 957/957；workspace build 绿；e2e 34/34；verify 17/17；viewer/app lint 绿。
 - e2e 稳定化：文档详情视觉钉版仅 mask iModel 卡片「创建于」日期文本（不遮整卡），仅重钉 `document-details-light.png`；种子重建/跨日日期漂移不再影响视觉门禁（修复前 33/34，日期字形差 13 px）。

@@ -1,11 +1,11 @@
 # 鲁班CAD（LubanCAD）开发准则
 
-**天工开物平台 AI 生成式 CAD 产品。** 平台文档与当前结构以本仓 `docs/` 为准。
+**天工开物平台 AI 生成式 CAD 产品。** 平台文档与当前结构以主仓 `docs/` 为准。
 
 ## 铁律
 
 1. **复用优先**：工具类功能继承 iTwin.js 标准基类（`ElementSetTool`/`PrimitiveTool`/`CopyElementsTool`…）；编辑走 `basicManipulationIpc`；事务走 `BriefcaseTxns`/`saveChanges`（可撤销硬约束）
-2. **状态诚实**：能力声明带标记 ✅/🟠/⚪/❌，以本仓 `docs/` 与代码/测试实测为锚
+2. **状态诚实**：能力声明带标记 ✅/🟠/⚪/❌，以主仓 `docs/` 与代码/测试实测为锚
 3. **AI 工具注册规约**：Agent 复用现有 `toolId`，禁止第二套建模 API；破坏性操作走 HITL（预览→确认→提交）
 4. **品牌**：产品名 鲁班CAD（LubanCAD）；生成物 = 真形（BRep）；约束 = 绳墨
 
