@@ -1,7 +1,7 @@
 # 全面整理与清理设计（项目总目录 + 四个关联仓）
 
 - 日期：2026-10-29
-- 状态：spec 已确认；执行中（platform-docs 已按用户裁决删除）
+- 状态：执行完成（2026-10-29；platform-docs 已按用户裁决删除）
 - 性质：跨仓结构整理、命名统一、过时内容删除、生成物清理
 - 范围：tiangong-kaiwu（项目总目录）+ luban-backend、imodelhub-services、imodel-native、DanQing（见 §2）；acis-solid-kernel 仅审计，不修改
 - 原则：不 push、不建 Release；每阶段独立本地提交；仓内删除以 Git 历史为准

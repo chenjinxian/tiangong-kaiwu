@@ -29,4 +29,21 @@
 - 旧应用路径（`features/imodel`、`features/sketch`）标注历史/已退役，不复活旧目录。
 - `docs/ITWINJS_CORE_MODIFICATIONS.md` 基准更新为 upstream master `8bdef3e3cd`（5.15.0-dev.2；`@bentley/imodeljs-native` 5.15.5）。
 - e2e 注释自引用修正（`fixtures.ts`、`helpers.ts`、`playwright.config.ts` 改指旧应用（已删除））。
-- 验证：`docker compose config` 通过；`scripts/verify-stack.ps1` **17/17**；web unit **957/957**；web 镜像 revision 与源提交 `8e201b203d48` 一致（未重建）。e2e 沿用上一门禁 **34/34**（本轮仅改 e2e 注释，未重跑）。
+- 验证：`docker compose config` 通过；`scripts/verify-stack.ps1` **17/17**；web unit **957/957**；web 镜像 revision 停在 `8e201b203d48`（此后仅文档提交，未重建）。e2e 沿用上一门禁 **34/34**（本轮仅改 e2e 注释，未重跑）。
+
+## 最终整理结果（2026-10-29）
+
+| 仓库 | 结果 | 验证 |
+|---|---|---|
+| tiangong-kaiwu | `apps/web`/`packages/viewer` 统一命名；死包、旧应用、fork 旧拷贝、历史文档清理；platform-docs 引用收敛 | web unit 957/957、workspace build 绿、e2e 34/34、verify 17/17；viewer/app lint 绿 |
+| luban-backend | `FRONTEND_URL` 5300、editor 构建改 luban-cad pnpm、release/历史文档与 `dist-out`/`staging` 清理（~11.45 GiB） | MS 604+8、WA 46、build 绿；lint 246/22、83/3 为既存基线；终审 2 Important 已修并复审 Approved |
+| imodelhub-services | `APP_PORT=4000`/前端 5300、k6 根路径、坏脚本/文档/coverage 清理 | unit 794/794、lint/build 绿；终审 2 Important 已修并复审 Approved |
+| imodel-native | `out/cmake` 15.5 GiB、缓存、20 份历史计划/spec 删除；`docs/HISTORY.md`；悬空引用改 Git 索引 | git clean；任务复审 Approved |
+| DanQing | `build` 37.08 GB、测试输出/macro、4 份旧 DTA 文档删除；`docs/HISTORY.md`；README/CLAUDE 悬空引用改 Git 索引 | git clean；任务复审 Approved |
+| platform-docs | 整仓删除，不迁移内容 | 本地目录不存在；无远端配置 |
+| acis-solid-kernel | **未修改**（研究脏区保留） | 原状 |
+
+- 跨仓 stale 扫描：backend/hub/native/DanQing 当前代码/配置零命中；主仓仅保留已删除说明、历史台账/同步检查单、`.superpowers` 证据物理路径与上游外部 `web-viewer` 教程/包名等 documented exceptions。证据：`.superpowers/sdd/2026-10-29-cleanup-docs-kernel-engine/final-stale-scan.txt`。
+- 未 push、未建 Release；所有提交均为本地提交。
+- 回收量级：backend ~11.45 GiB + native ~15.5 GiB + DanQing ~37.09 GB + 主仓 worktree/旧应用等 ~0.8 GiB。
+- 残余：`@luban-cad/shared` 38 个 lint 错误为既存基线；DanQing 阶段计划保留为取证台账；imodel-native 源码注释仍引用已删文档（不改源码约束）；web 镜像 revision 停在 `8e201b2`（此后仅文档提交，未重建）。
