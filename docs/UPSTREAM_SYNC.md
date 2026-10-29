@@ -14,7 +14,7 @@
 | `tiangong-kaiwu`（本仓） | **唯一 git 仓库**（origin: `chenjinxian/tiangong-kaiwu`） |
 | `itwinjs-core/` | 依赖库源码 = iTwin 官方 + 自定义改动；以 subtree-squash 与上游同步 |
 | `luban-cad/` | 鲁班CAD 应用目录（由冻结历史拷贝迁出，link: 消费 itwinjs-core 源码） |
-| itwinjs-core 内的历史拷贝目录（旧品牌名） | 冻结存档，保持原样、勿改勿引用 |
+| itwinjs-core 内的历史拷贝目录（旧品牌名 `open-cloud-cad/`） | **已于 2026-10-29 删除**（fork 本地整理，非上游修改；可从 Git 历史恢复）。同步若带回须再删，见下方「旧应用拷贝检查单」 |
 
 上游远程：本仓 `upstream` = `https://github.com/iTwin/itwinjs-core.git`。
 
@@ -117,7 +117,8 @@ luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合�
    `test-apps/display-test-app/package.json` 里 `@itwin/editor-*: workspace:*` 三行删除
    （上游带回；不删则 rush update 因 workspace 依赖无对应项目而失败。这两处源码仍
    import @itwin/editor——它们只是上游本地测试壳，fork 内不再可编译，属已知搁置）。
-   `open-cloud-cad/`（冻结历史拷贝，非 rush 项目）不用管。
+   `open-cloud-cad/`（旧品牌历史拷贝，非 rush 项目）已于 2026-10-29 删除；
+   若上游同步带回须再删，见下方「旧应用拷贝检查单」。
 4. **`rush update`**（`CI=true`，非交互环境）重新生成 lockfile——上游 lockfile 含 editor
    importer 而目录已删，**「lockfile 取上游逐字节一致」原则自本日起对 lockfile 失效**：
    冲突时照旧先取上游版，随后必须紧跟本步重生成。
@@ -129,6 +130,11 @@ luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合�
 ## imdl worker 快照检查单（2026-10-23 起，每次同步必办）
 
 - **重拷 web-next worker 快照**：`cp itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js luban-cad/apps/web-next/public/scripts/`（源=`core/frontend/lib/public/scripts/`；worker 与 lib/esm 主包须同轮构建成对，上游同步/rush 重编译后不重拷即版本漂移——`apps/web-next/Dockerfile` 构建尾有 cmp 字节对齐断言，漂移即构建红；同 apps/web 先例，机理见 `luban-cad/apps/web-next/README.md`「public/scripts」节）。
+
+## 旧应用拷贝检查单（2026-10-29 起，每次同步必办）
+
+- 同步后检查 `itwinjs-core/open-cloud-cad/`：该目录是本 fork 已删除的旧品牌应用历史拷贝，
+  不属于上游 rush/workspace；若上游同步带回，直接再次删除并记录。
 
 ## 同步记录
 
@@ -197,7 +203,8 @@ luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合�
 
 - **本仓是唯一仓库**；对 `itwinjs-core/` 源码的修改要最小化，并记录在
   `docs/ITWINJS_CORE_MODIFICATIONS.md`（仓库根 docs/）
-- 应用代码在 `luban-cad/`；itwinjs-core 内的历史拷贝目录仅作存档，保持原样
+- 应用代码在 `luban-cad/`；itwinjs-core 内的历史拷贝目录已于 2026-10-29 删除
+  （fork 本地整理），同步若带回须再删，见「旧应用拷贝检查单」
 - 保持 `common/config/rush/pnpm-lock.yaml` 与上游逐字节一致是「随时同步」的关键
   ——不要为应用再生成锁文件。**例外（2026-10-22 起）**：editor/ 收编 luban-cad 后，
   每轮同步删目录后须 `rush update` 重生成 lockfile（见「editor/ 收编检查单」第 4 条）；
