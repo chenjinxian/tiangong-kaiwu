@@ -230,7 +230,9 @@ async validateIModel(@Param('id') id: string): Promise<ValidationReport> {
 
 ### 7. 前端状态显示
 
-#### 实现位置: `luban-cad/apps/web/features/imodel/components/IModelStatus.tsx`
+#### 实现位置（历史/已退役路径）: `luban-cad/apps/web/features/imodel/components/IModelStatus.tsx`
+
+> 历史/已退役路径：`features/` 属于 2026-10-26 已退役的旧应用结构；当前 `luban-cad/apps/web` 为模块化目录（`src/modules/...`），无同名组件。本段仅保留设计记录，不作为当前实现位置。
 
 ```typescript
 /**
@@ -270,19 +272,27 @@ export function IModelStatus({ imodel }: { imodel: IModel }) {
 ## 部署检查清单
 
 ### 启动前检查
-```bash
-# 1. 检查服务依赖
-curl http://localhost:4000/health  # imodelhub-services
-curl http://localhost:4001/health  # modeling-server
-curl http://localhost:4002/health  # webhook-agent
-curl http://localhost:10000/       # Azurite
 
-# 2. 检查 webhook 订阅
-curl http://localhost:4000/webhooks -H "Authorization: Bearer $TOKEN"
-
-# 3. 检查死信队列深度
-curl http://localhost:4000/admin/webhooks/dead-letter/stats
+```powershell
+# 全栈验收（唯一权威：health×5 + iTwin/iModel/baseline 数据链 + WS cookie 握手 + 原生库横幅，目标 17/17）
+powershell -NoProfile -File scripts/verify-stack.ps1
 ```
+
+```bash
+# 手动 quick check（当前宿主端口）
+curl http://localhost:5400/health  # imodelhub-services
+curl http://localhost:5401/health  # modeling-server
+curl http://localhost:5402/health  # webhook-agent
+curl http://localhost:10500/       # Azurite
+
+# 检查 webhook 订阅
+curl http://localhost:5400/webhooks -H "Authorization: Bearer $TOKEN"
+
+# 检查死信队列深度
+curl http://localhost:5400/admin/webhooks/dead-letter/stats
+```
+
+> 历史端点（不可运行）：`4000/4001/4002/10000` 是旧宿主发布端口，已随 2026-10-20 端口迁移退役；当前对应 `5400/5401/5402/10500`。
 
 ### 监控指标
 - `webhook_delivery_latency`: Webhook 发送延迟
@@ -320,10 +330,10 @@ curl http://localhost:4000/admin/webhooks/dead-letter/stats
    - `POST /imodels/admin/repair/:id` - 单个修复
    - `GET /imodels/admin/compensation-status` - 查看补偿任务状态
 
-3. **健康检查脚本**
-   - 文件: `scripts/health-check.sh`
-   - 一键检查所有服务健康状态
-   - 检查 orphaned iModels 数量
+3. **全栈验收脚本**
+   - 文件: `scripts/verify-stack.ps1`（根仓；旧 `luban-cad/scripts/health-check.sh` 已随端口迁移退役删除）
+   - 一键检查 health×5 + iTwin/iModel/baseline 数据链 + WS cookie 握手 + 原生库横幅
+   - 退出码非 0 即失败（部署前/后门禁）
 
 ### 待实施 ⏳
 

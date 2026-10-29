@@ -1,5 +1,7 @@
 # web-next：luban-cad 前端全面重写设计（Onshape 1:1 对标）
 
+> 执行状态（2026-10-29）：本设计已执行。当前前端为 `luban-cad/apps/web`（原 `apps/web-next`），viewer 为 `luban-cad/packages/viewer`。文中“删除 apps/web”指 2026-10-26 已退役的旧应用，不是当前 `apps/web`。
+
 - 日期：2026-10-21
 - 状态：已评审（六节设计 + 四条修正，用户逐节确认）
 - 证据基线：`.superpowers/sdd/2026-10-15-rw4-frontend-ia/onshape-audit/`（38 截图 + 15 aria 快照 + 4 DOM + 工具条 title 清单），总清单 `UI-INVENTORY.md`

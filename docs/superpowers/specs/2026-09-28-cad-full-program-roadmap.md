@@ -1,5 +1,7 @@
 # 鲁班CAD 全程序开发任务地图（参数化特征建模 → AI 文生3D）
 
+> 历史口径（2026-10-29）：本文是历史任务地图，正文中的前端/包名（如 `web-next`、`viewer-next`、`viewer-core`）只描述当时规划；当前结构为 `luban-cad/apps/web` + `luban-cad/packages/viewer`，见 `docs/MIGRATION-2026-10-29.md`。
+
 - 日期：2026-09-28
 - 地位：本仓 CAD 程序线的**任务总清单**。架构裁决以 `2026-09-27-cad-feature-system-decision-record.md` 为准；机制证据以 `2026-09-27-cad-feature-system-evidence-base.md` 为准；v1 设计以 `2026-09-27-feature-system-imodel-architecture-design.md` 为准。
 - 与 `docs/ROADMAP.md` 的关系：平台分期（Phase 0–3）一事一源仍归 platform-docs；本文是**技术任务分解**，其中 Phase 2 的技术路线（CadFeature 骨架复用、FreeCAD GCS 移植）已被 2026-09-27 裁决取代（骨架全部重做、SolveSpace 过渡+绳墨自研）。

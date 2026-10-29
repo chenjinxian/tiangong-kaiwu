@@ -253,45 +253,21 @@ server {
 
 ## 健康检查
 
-### 使用健康检查脚本（推荐）
+### 全栈验收脚本（推荐，唯一权威）
 
-项目提供 `scripts/health-check.sh` 脚本，一键检查所有服务状态：
+健康检查统一使用根仓 `scripts/verify-stack.ps1`（health×5 → iTwin/iModel/baseline 数据链 → WS cookie 握手 → 原生库 dev-build 横幅 → web 镜像陈旧检测）：
 
-```bash
-# 运行健康检查
-./scripts/health-check.sh
+```powershell
+# 全量（含 baseline 数据链，最慢 ~5min）
+powershell -NoProfile -File scripts/verify-stack.ps1
 
-# 输出示例：
-# ==========================================
-# LubanCAD - Health Check
-# ==========================================
-#
-# 1. Core Services
-# ----------------
-# Checking imodelhub-services... ✓ OK
-# Checking modeling-server... ✓ OK
-# Checking webhook-agent... ✓ OK
-# Checking Azurite... ✓ OK
-#
-# 2. Webhook Configuration
-# ------------------------
-# Checking webhook-agent recent events... ✓ OK (events received: 5)
-#
-# 3. Orphaned iModels Check
-# -------------------------
-# Checking compensation job status... ✓ OK (no pending repairs)
-#
-# 4. Database Status
-# ------------------
-# Checking database... ✓ OK (connected)
-#
-# ==========================================
-# Summary
-# ==========================================
-# All checks passed!
+# 快速模式（跳过数据链）
+powershell -NoProfile -File scripts/verify-stack.ps1 -SkipBaseline
 ```
 
-**部署前必须运行**，确保所有服务健康。
+**部署前/后必须运行**，目标 17/17 全绿；退出码非 0 即失败。
+
+> 旧的 `scripts/health-check.sh`（`luban-cad/scripts`，硬编码已退役的 4000/4001/4002/10000 宿主端口）已删除，不再可用。
 
 ### 手动服务状态检查
 
@@ -403,7 +379,7 @@ kill -9 <PID>
    - 查看浏览器控制台错误
 
 4. **iModel 卡在"初始化中"**
-   - 检查 webhook-agent 是否运行: `./scripts/health-check.sh`
+   - 检查 webhook-agent 是否运行: `powershell -NoProfile -File scripts/verify-stack.ps1 -SkipBaseline`
    - 查看补偿任务状态: `curl http://localhost:5400/imodels/admin/compensation-status -H "X-API-Key: internal-api-key-for-webhook-agent"`
    - 手动触发修复: `curl -X POST http://localhost:5400/imodels/admin/repair/{id} -H "X-API-Key: internal-api-key-for-webhook-agent"`
 

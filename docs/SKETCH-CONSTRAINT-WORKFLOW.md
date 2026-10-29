@@ -579,7 +579,9 @@ export class SketchSolverService {
 ### 前端集成
 
 ```typescript
-// luban-cad/apps/web/features/sketch/hooks/useSketchConstraints.ts
+// （历史/已退役路径）luban-cad/apps/web/features/sketch/hooks/useSketchConstraints.ts
+// 注：features/ 属 2026-10-26 已退役的旧应用结构；当前草图代码在
+// luban-cad/apps/web/src/modules/part-studio/tools/sketch/，本段为设计提案。
 
 import { useCallback, useState } from 'react';
 import { useIModelConnection } from '@itwin/core-frontend';

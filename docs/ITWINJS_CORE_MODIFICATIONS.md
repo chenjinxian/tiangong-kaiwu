@@ -6,10 +6,10 @@
 > `docs/MIGRATION-2026-10-29.md`。
 
 **最后更新**: 2026-10-29
-**基准**: upstream master 41fc5f3a81（5.14.0-dev.15）
-**汇总**: 20 个文件，+10,963 行 / -58 行（不含 `luban-cad/` 与 lockfile）
+**基准**: upstream master 8bdef3e3cd（5.15.0-dev.2；`@bentley/imodeljs-native` 5.15.5；2026-10-03 同步后基线）
+**汇总**: 20 个文件，+10,963 行 / -58 行（2026-09-22 基线快照；5.15 同步后未重算，以逐文件明细为准；不含 `luban-cad/` 与 lockfile）
 
-**统计口径**: `git diff master...dev/luban-cad --stat -- ':!luban-cad' ':!common/config/rush/pnpm-lock.yaml'`（2026-09-22 实测）。汇总的 +10,963/-58 为插入/删除行；逐文件括号数字为 `--stat` 变更行数（增+删），两者关系：各文件变更行合计 11,021 = 10,963 + 58。
+**统计口径**: `git diff master...dev/luban-cad --stat -- ':!luban-cad' ':!common/config/rush/pnpm-lock.yaml'`（2026-09-22 实测；旧分支名属历史口径）。汇总的 +10,963/-58 为插入/删除行；逐文件括号数字为 `--stat` 变更行数（增+删），两者关系：各文件变更行合计 11,021 = 10,963 + 58。
 
 ---
 

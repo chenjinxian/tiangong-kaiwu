@@ -22,11 +22,13 @@
 | Azurite Blob | **10500** | 10000 | compose `ports: 10500:10000` |
 | Azurite Queue | **10501** | 10001 | compose `ports: 10501:10001` |
 | Azurite Table | **10502** | 10002 | compose `ports: 10502:10002` |
-| PostgreSQL（仅源码模式参考） | **55432** | 5432 | `luban-cad/docker-compose.dev.yml`（根 compose 为部署权威） |
-| Redis（仅源码模式参考） | **56379** | 6379 | 同上 |
-| Maildev SMTP（仅源码模式参考） | **11025** | 1025 | 同上 |
-| Maildev UI（仅源码模式参考） | **11080** | 1080 | 同上 |
+| PostgreSQL / Redis / Maildev（栈内互通） | 不发布 | 5432 / 6379 / 1025、1080 | 根 `docker-compose.yml`（部署权威）；旧 `luban-cad/docker-compose.dev.yml`（宿主 55432/56379/11025/11080）已于 2026-10-29 退役 |
 | Vite preview | **4173** | 4173 | Vite 默认值；`luban-cad/apps/web/vite.config.ts` 未配置 `preview.port` |
+
+> **旧源码模式编排退役（2026-10-29）**：`luban-cad/docker-compose.dev.yml` 已删除。
+> 后端源码（modeling-server / webhook-agent）已迁至私有仓 `luban-backend`，该文件
+> 引用的 `../modeling-server`、`../webhook-agent`、`../../imodelhub-services` 构建
+> 上下文不复存在；根 `docker-compose.yml` 为唯一部署权威，后端源码调试见私有仓 README。
 
 ## 关键环境变量（根 `.env`）
 

@@ -159,7 +159,7 @@ services:
       # 条目口径（W1-I6）：精确 origin（全等），或显式 `^...$` 锚定正则；未锚定
       # 条目按字面精确匹配（若当正则用，会被 `https://app.example.com.evil.test`
       # 式前缀拼接绕过）。NODE_ENV=development 只额外放行 loopback，不再无条件全开。
-      ALLOWED_ORIGINS: ${HUB_ALLOWED_ORIGINS:-http://localhost:5300,http://localhost:5301,http://localhost:5310}
+      ALLOWED_ORIGINS: ${HUB_ALLOWED_ORIGINS:-http://localhost:5300,http://localhost:5301}
       # 栈内无 Jaeger/OTLP collector，停用空转导出（默认开且指向 localhost:4318）
       TRACING_ENABLED: "false"
       # 网络拓扑（容器名互通）

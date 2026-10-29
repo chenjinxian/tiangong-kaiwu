@@ -2,7 +2,7 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * e2e 共通 helper（web 版，形态对齐 apps/web/e2e/helpers.ts 的
+ * e2e 共通 helper（web 版，形态对齐旧应用（已删除）的 e2e/helpers.ts 的
  * 会话注入纪律）：
  * - 常规 spec 标准登录 = loginWithSession（auth.setup 产物注入 sessionStorage
  *   `luban-next-auth`，零登录请求零限流消耗；AuthSession.getStoredAuth 直读

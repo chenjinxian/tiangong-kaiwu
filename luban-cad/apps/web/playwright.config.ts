@@ -10,7 +10,7 @@
  * - projects：setup（auth.setup.ts，API 取 token 零限流消耗）→ chromium 依赖
  *   setup——消费方经 helpers.loginWithSession 注入 sessionStorage
  *   `luban-next-auth`（M3-T8/M4-T9 会话注入手法，MS 登录限流 100/15min）；
- * - 中文断言稳定：locale 钉 zh-CN（i18n navigator 探测落中文，同 apps/web 口径）。
+ * - 中文断言稳定：locale 钉 zh-CN（i18n navigator 探测落中文，同旧应用（已删除）口径）。
  */
 
 import { defineConfig, devices } from '@playwright/test';
