@@ -1,7 +1,7 @@
 # 全面整理与清理设计（七仓）
 
 - 日期：2026-10-29
-- 状态：设计已确认，待 spec 复核 → 执行计划
+- 状态：spec 已确认；执行计划已生成，待执行
 - 性质：跨仓结构整理、命名统一、过时内容删除、生成物清理
 - 范围：核心七仓（见 §2）；acis-solid-kernel 仅审计，不修改
 - 原则：不 push、不建 Release；每阶段独立本地提交；删除以 Git 历史为准
@@ -176,10 +176,13 @@ luban-cad/
     `2026-09-27-cad-feature-system-evidence-base.md`、
     `2026-09-28-cad-full-program-roadmap.md`、
     `2026-10-21-web-onshape-parity-design.md`、
-    `2026-10-29-m-a5.2-subentity-selection-perf-design.md`
+    `2026-10-29-m-a5.2-subentity-selection-perf-design.md`、
+    `2026-10-29-project-cleanup-design.md`
   - plans：`2026-10-27-backlog-item4-portfolio.md`、
     `2026-10-27-hub-p2-p3-backlog.md`、`2026-10-29-subentity-selection.md`、
-    `2026-10-29-multibody-perf-guard.md`
+    `2026-10-29-multibody-perf-guard.md`、
+    `2026-10-29-cleanup-main-repo.md`、`2026-10-29-cleanup-backends.md`、
+    `2026-10-29-cleanup-docs-kernel-engine.md`
 
 删除（已完成的计划/旧文档）：
 
@@ -188,7 +191,7 @@ luban-cad/
 - `docs/DEEP_ANALYSIS.md`
 - `docs/E2E_TEST_REPORT.md`
 - `docs/RELEASE-backend-20261027b.md`
-- `docs/superpowers` 除活跃清单外的 37 份 plans 与 14 份 specs；逐项由执行计划列出
+- `docs/superpowers` 除活跃清单外的 34 份 plans 与 13 份 specs；逐项由执行计划列出
 
 `docs/ROADMAP.md` 重写为当前路线索引，不再复制平台分期全文；平台分期指向
 `platform-docs/ROADMAP.md`。新增 `docs/HISTORY.md`，只保留里程碑索引和 Git 恢复提示。
@@ -284,8 +287,11 @@ luban-cad/
 
 - 删除 `build/`（约 37 GB）、`output-shaders-test`、`saved-views-test`、
   `macro-*.macro`；不碰 `third_party`、`.claude`、源码。
-- DTA 矩阵 4 份合并为最新 `2026-10-24` 一份；删除 3 份旧矩阵；新增或更新
-  `docs/HISTORY.md`。
+- DTA 旧矩阵/统计 4 份（`DisplayTestApp-view页面差距矩阵.md`、
+  `DTA功能对照与专业化分析-2026-09-30.md`、
+  `DTA一致性审计台账-2026-10-07.md`、`DTA功能对照统计-2026-10-07.md`）
+  合并为最新 `DTA与DanQing-DebugInfo逐视图对比-2026-10-24.md` 一份；
+  删除这 4 份；新增或更新 `docs/HISTORY.md`。
 - 当前文档无旧 web 引用；只做过期文档合并。
 - 构建删除后不立即重编译；下次构建前按 README 重新配置，执行结果记录该延后项。
 
