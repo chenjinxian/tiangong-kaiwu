@@ -15,7 +15,8 @@
  *   时序像素不可钉（canvas 真实在场由 waitEditorReady 断言兜住，几何内容归
  *   渲染域不归视觉域）；
  * - 数据面钉当前真实栈态（种子项目与调试库同框如实）——种子每轮重置同形；
- *   跨日「已修改」日期文本漂移属已知张力（重钉基线即可，不视为回归）；
+ *   iModel 卡片「创建于」日期文本按 mask 遮蔽（仅日期文本、不遮整卡），
+ *   视觉门禁与跨日日期漂移解耦；
  * - 会话注入零登录（helpers.loginWithSession）；主题/语言经 addInitScript
  *   显式钉 light/zh-CN（读存储是应用合法代码路径，防开发态 localStorage
  *   残留读入污染基线）。
@@ -89,8 +90,11 @@ test('视觉钉版：文档详情（亮色）', async ({ page }) => {
   // 真实数据锚点：种子库卡片在列（iModel 网格渲染完成）
   const seedCard = page.locator('.imodel-card', { hasText: E2E_IMODEL_NAME });
   await expect(seedCard).toBeVisible({ timeout: 20_000 });
+  // 创建日期随种子每轮重建变化（跨日漂移）：仅遮蔽日期文本，其余卡片内容照钉
+  const createdMeta = page.locator('.imodel-card').getByText(/创建于/);
+  await expect(createdMeta.first()).toBeVisible();
   await settleFonts(page);
-  await expect(page).toHaveScreenshot('document-details-light.png');
+  await expect(page).toHaveScreenshot('document-details-light.png', { mask: [createdMeta] });
 });
 
 test('视觉钉版：编辑器五区只读态（亮色，画布 mask）', async ({ page, request }) => {

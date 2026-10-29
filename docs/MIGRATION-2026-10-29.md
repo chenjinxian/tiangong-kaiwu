@@ -11,8 +11,8 @@
 
 - 删除：apps/web 残留、worktree、死包、旧脚本、fork 旧应用、历史文档。
 - 改名：apps/web-next → apps/web；viewer-next → viewer。
-- 门禁：web unit 957/957；workspace build 绿；verify 17/17；viewer/app lint 绿。
-- e2e：33/34。唯一红为 `visual.spec.ts`「视觉钉版：文档详情（亮色）」——种子 iModel 创建日期随当日重建漂移（基线 2026年10月28日 vs 实际 2026年10月29日，13 px / 0.01%，差异仅日期字形）；定向单测重试一次仍红（确定性数据漂移，非本轮代码回归，未重钉基线、不掩盖）。
+- 门禁：web unit 957/957；workspace build 绿；e2e 34/34；verify 17/17；viewer/app lint 绿。
+- e2e 稳定化：文档详情视觉钉版仅 mask iModel 卡片「创建于」日期文本（不遮整卡），仅重钉 `document-details-light.png`；种子重建/跨日日期漂移不再影响视觉门禁（修复前 33/34，日期字形差 13 px）。
 - 既存例外：`@luban-cad/shared` 38 个 lint 错误为清理前基线，未在本轮扩大修复。
 - 例外：acis-solid-kernel 保持原样；分支名与存储键未改名。
 - 旧命名残留：仅历史/证据文档与 `.superpowers` 物理目录路径（docs/HISTORY、ITWINJS_CORE_MODIFICATIONS、UPSTREAM_SYNC、web-realstack-probes 及 `e2e/perf.spec.ts` 证据根）保留旧名；active 代码注释已清零。
