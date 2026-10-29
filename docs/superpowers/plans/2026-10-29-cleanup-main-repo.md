@@ -582,6 +582,12 @@ Apply these exact facts:
   `platform-docs/ROADMAP.md`
 - `README.md`/`luban-cad/README.md` use the new package tree and commands
 - `docs/web-realstack-probes.md` uses current paths/ports
+- `docs/UPSTREAM_SYNC.md` repository-model row for the deleted old app is
+  prefixed `(已删除)` so it cannot be mistaken for an active directory
+- `luban-cad/CLAUDE.md` removes the `start-all.sh` debug hint and any
+  `viewer-core`/`web-viewer`/`config` package references
+- delete `luban-cad/docker-compose.yml`; update any docs that cite it
+- root `.env.example` removes the `web-next :5310` comment
 
 Use `rg` to find active docs with old names:
 
