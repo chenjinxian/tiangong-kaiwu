@@ -203,6 +203,14 @@
   opacity: 0.32;
 }
 
+/* P2-05：认证图片经 blob URL 进入元素型 thumbnail，同样铺满缩略图区。 */
+.documents-grid [class*='tile-thumbnail'] .document-tile__thumb-img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* iTwinUI 3.22 的 tile-name/content 在本组合下 padding-inline 实际为 0
  * （实测名称紧贴卡片左缘）——补回 Onshape 卡片内边距 */
 .documents-grid [class*='tile-name'],

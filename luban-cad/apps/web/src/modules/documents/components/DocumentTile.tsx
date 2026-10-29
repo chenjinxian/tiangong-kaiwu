@@ -13,6 +13,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { DropdownMenu, IconButton, Tile } from '@itwin/itwinui-react';
 import { SvgDocument, SvgMoreVertical, SvgStar, SvgStarHollow } from '@itwin/itwinui-icons-react';
+import { DocumentThumbnail } from './DocumentThumbnail.js';
 import type { DocumentSummary } from '../types.js';
 
 export interface DocumentTileProps {
@@ -45,7 +46,13 @@ export function DocumentTile({
       // Onshape 卡片口径：主行=修改时间，meta=所有者
       description={modifiedLabel}
       metadata={doc.owner}
-      thumbnail={doc.thumbnailUrl ?? <SvgDocument className="document-tile__placeholder" />}
+      thumbnail={
+        <DocumentThumbnail
+          url={doc.thumbnailUrl}
+          className="document-tile__thumb-img"
+          fallback={<SvgDocument className="document-tile__placeholder" />}
+        />
+      }
       rightIcon={
         // 快捷操作不触发名称导航
         <div

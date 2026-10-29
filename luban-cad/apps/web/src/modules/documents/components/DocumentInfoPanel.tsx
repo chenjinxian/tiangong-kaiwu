@@ -23,6 +23,7 @@ import {
 } from '@itwin/itwinui-react';
 import { SvgDocument } from '@itwin/itwinui-icons-react';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
+import { DocumentThumbnail } from './DocumentThumbnail.js';
 import type { DocumentSummary } from '../types.js';
 
 /** 官方 ITwin 类型未声明、hub 实际输出的描述字段（防御性宽类型）。 */
@@ -64,11 +65,11 @@ export function DocumentInfoPanel({
       <InformationPanelBody>
         <div className="documents-info-body">
           <div className="documents-info-thumb">
-            {doc.thumbnailUrl ? (
-              <img className="documents-info-thumb__img" src={doc.thumbnailUrl} alt="" />
-            ) : (
-              <SvgDocument className="documents-info-thumb__icon" />
-            )}
+            <DocumentThumbnail
+              url={doc.thumbnailUrl}
+              className="documents-info-thumb__img"
+              fallback={<SvgDocument className="documents-info-thumb__icon" />}
+            />
           </div>
           <Text variant="title" as="h3" className="documents-info-name">
             {doc.name}

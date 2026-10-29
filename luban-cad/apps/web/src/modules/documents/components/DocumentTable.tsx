@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { DropdownMenu, IconButton, Table, Tag } from '@itwin/itwinui-react';
 import { SvgDocument, SvgMoreVertical } from '@itwin/itwinui-icons-react';
 import type { Column, TableState } from '@itwin/itwinui-react/react-table';
+import { DocumentThumbnail } from './DocumentThumbnail.js';
 import type { DocumentSort, DocumentSummary } from '../types.js';
 
 /** Table 行数据（type 而非 interface——react-table 泛型约束
@@ -62,11 +63,11 @@ export function DocumentTable({
         accessor: 'name',
         Cell: ({ row }) => (
           <span className="documents-name-cell">
-            {row.original.doc.thumbnailUrl ? (
-              <img className="documents-thumb-img" src={row.original.doc.thumbnailUrl} alt="" />
-            ) : (
-              <SvgDocument className="documents-thumb-icon" />
-            )}
+            <DocumentThumbnail
+              url={row.original.doc.thumbnailUrl}
+              className="documents-thumb-img"
+              fallback={<SvgDocument className="documents-thumb-icon" />}
+            />
             <span className="documents-name-text">{row.original.name}</span>
           </span>
         ),
