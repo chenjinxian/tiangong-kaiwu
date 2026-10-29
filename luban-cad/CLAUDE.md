@@ -11,22 +11,22 @@
 
 ## 功能状态
 
-> **路径口径（2026-10-23 M5-T9 切换冲刺起；2026-10-26 C2 退役收口）**：正选前端 = `apps/web-next/`（模块在 `src/modules/*`）；旧 `apps/web` 已删除（退役门禁：M5-T4 源码模式 31/31 + backend-20261026 产物模式 e2e 绿 + 用户确认；历史移植参考查 git 历史）。
+> **路径口径（2026-10-29 收敛）**：正选前端 = `apps/web/`（包名 `@luban-cad/web`，模块在 `src/modules/*`）；基座包 `packages/viewer`（`@luban-cad/viewer`）+ `packages/editor`（第一方建模基座）。历史结构变更见 `../docs/MIGRATION-2026-10-29.md`。
 
 | 模块 | 路径 | 状态 |
 |------|------|------|
-| Auth | web-next：`apps/web-next/src/modules/authentication/`（旧：`features/auth/`） | ✅ JWT 认证 |
-| iTwin | web-next：`apps/web-next/src/modules/documents/`（项目管理与文档中心同页）（旧：`features/itwin/`） | ✅ 项目管理 |
-| iModel | web-next：`apps/web-next/src/modules/documents/` + `document-details/`（旧：`features/imodel/`） | ✅ 模型管理 |
-| Editor | web-next：`apps/web-next/src/modules/part-studio/`（编辑器页：ribbon/特征树/参数面板/状态栏五区）+ 基座包 `packages/viewer`（iTwin 启动序列/RPC）+ `packages/editor/frontend`（第一方建模基座，2026-10-22 收编）（旧：`features/editor/`） | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口）；**web-next 侧真实后端全链路冒烟待 T4 解封（私有仓 pushChanges 修复+产物重发）** |
-| Sketch | `features/sketch/` | ✅ 草图编辑（M3-b：线/矩形/圆绘制+约束/尺寸工具链+DOF/矛盾面板+先试算后提交） |
-| Modeling | `features/modeling/` | 🟠 实体建模（阵列走前端直改通道）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService） |
-| Markup | `features/markup/` | ❌ 降级占位（`@itwin/core-markup` 依赖未配置——启用前需先补 workspace 依赖解析，T2.3 裁决：不预引依赖，等真实需求） |
-| Measurement | `features/measurement/` | ✅ 测量工具 |
-| View Clip | `features/view-clip/` | ✅ 视图裁剪 |
-| AccuDraw | `features/accudraw/` | ✅ 精确绘图 |
-| Version Control | `features/version-control/` | 🟠 Changeset/Named Version 可用；冲突检测 🟠（mock 数据）、冲突解决 ⚪（no-op 标记） |
-| **Pattern (阵列)** | `features/modeling/PatternTools.ts`（前端 `basicManipulationIpc.insertGeometricElement` 直改通道；后端 PatternCommand 死码已删 RW2-T3，全私有仓零引用） | ✅ 线性/圆形阵列（ID 收集 bug 已修+回归测试，RW2-T3） |
+| Auth | `apps/web/src/modules/authentication/` | ✅ JWT 认证 |
+| iTwin | `apps/web/src/modules/documents/`（项目管理与文档中心同页） | ✅ 项目管理 |
+| iModel | `apps/web/src/modules/documents/` + `document-details/` | ✅ 模型管理 |
+| Editor | `apps/web/src/modules/part-studio/`（编辑器页：ribbon/特征树/参数面板/状态栏五区）+ 基座包 `packages/viewer`（iTwin 启动序列/RPC）+ `packages/editor/frontend`（第一方建模基座，2026-10-22 收编） | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口） |
+| Sketch | `apps/web/src/modules/part-studio/tools/sketch/` | ✅ 草图编辑（M3-b：线/矩形/圆绘制+约束/尺寸工具链+DOF/矛盾面板+先试算后提交） |
+| Modeling | `apps/web/src/modules/part-studio/tools/modeling/` + `packages/viewer/src/tools/register-edit-tools.ts` | 🟠 实体建模（阵列走前端直改通道）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService） |
+| Markup | —（无模块；工具未注册） | ❌ 降级占位（`@itwin/core-markup` 依赖未配置——启用前需先补 workspace 依赖解析，T2.3 裁决：不预引依赖，等真实需求） |
+| Measurement | `packages/viewer/src/tools/register-edit-tools.ts`（注册 core-frontend 测量工具） | ✅ 测量工具 |
+| View Clip | `packages/viewer/src/tools/register-edit-tools.ts`（注册 core-frontend 裁剪工具） | ✅ 视图裁剪 |
+| AccuDraw | `packages/viewer/src/tools/sketch-accu-snap.ts` + core-frontend AccuDraw | ✅ 精确绘图 |
+| Version Control | `apps/web/src/modules/part-studio/hooks/useChangesets.ts` + `dialogs/PushChangesetDialog.tsx` | 🟠 Changeset/Named Version 可用；冲突检测 🟠（mock 数据）、冲突解决 ⚪（no-op 标记） |
+| **Pattern (阵列)** | `packages/viewer/src/tools/register-edit-tools.ts`（LinearPattern/CircularPattern 注册；`basicManipulationIpc.insertGeometricElement` 直改通道） | ✅ 线性/圆形阵列（ID 收集 bug 已修+回归测试，RW2-T3） |
 
 完整能力矩阵见 platform-docs/STATUS.md（状态标记：✅/🟠/⚪/❌）
 
@@ -46,9 +46,9 @@
 ```bash
 # 1. 启动基础设施（本地 iModel 管理平台及其 Postgres/Azurite/Redis，仓外项目，见其自带编排）
 # 2. 安装依赖并构建（首次或改动 itwinjs-core 后先跑 rush build --to …，见根 CLAUDE.md；
-#    全新检出还需先构建 workspace 基座包——见 apps/web-next/README.md「先 build 后 dev」）
+#    全新检出还需先构建 workspace 基座包——见 apps/web/README.md「先 build 后 dev」）
 cd luban-cad && pnpm install
-cd apps/web-next && pnpm dev     # 前端 dev :5300（C2 退役迁入；栈内部署经 nginx :5301）
+cd apps/web && pnpm dev          # 前端 dev :5300（栈内部署经 nginx :5301）
 
 # 3. 后台服务（源码在**仓外私有仓 luban-backend**，公开仓不检出也能跑：
 #    公开仓走产物分发——scripts/fetch-backend.ps1 拉 Releases 产物后
@@ -125,9 +125,9 @@ cd apps/web-next && pnpm dev     # 前端 dev :5300（C2 退役迁入；栈内�
 
 ## 调试
 
-```bash
-# 查看日志（start-all.sh 启动时）
-tail -f /tmp/luban-cad/*.log
+```powershell
+# MS 宿主日志（start-ms-host.ps1 启动时写入）
+Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 ```
 
-*最后更新: 2026-10-26*
+*最后更新: 2026-10-29（路径/端口收敛到 apps/web + packages/{shared,viewer,editor}）*

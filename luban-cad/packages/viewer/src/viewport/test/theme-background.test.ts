@@ -1,7 +1,7 @@
-// theme-background（web-next M4 Task 2）：Onshape 式视口底色纯函数验收——
+// theme-background（M4 Task 2）：Onshape 式视口底色纯函数验收——
 //  亮色 (242,244,247) / 暗色 (38,38,38)（旧 Editor.tsx:243-260 实测值），
 //  色值按 ColorDef 的 0xTTBBGGRR 编码钉死（防实现与断言同式互证）。
-//  data-theme 的 MutationObserver 接线在消费侧（apps/web-next），不在本模块。
+//  data-theme 的 MutationObserver 接线在消费侧（apps/web），不在本模块。
 
 import { describe, expect, it, vi } from 'vitest';
 import { applyViewportBackground, type ViewportTheme } from '../theme-background.js';

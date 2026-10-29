@@ -222,7 +222,7 @@ git commit -m "test(ms): M-A5.2 127-body 服务端性能基准"
 ### Task 2: Web 真栈 multibody 探针（opt-in）
 
 **Files:**
-- Create: `D:\Github\tiangong-kaiwu\luban-cad\apps\web-next\e2e\multibody-perf.spec.ts`
+- Create: `D:\Github\tiangong-kaiwu\luban-cad\apps\web\e2e\multibody-perf.spec.ts`
 - Reference: `e2e/perf.spec.ts:48-73`（evidence writer）、`:357-386`（rAF collector）、
   `e2e/newbody.spec.ts:97-175`（msRpc / scratch iModel）
 
@@ -486,7 +486,7 @@ test('多体基线：tree/edit/fit/FPS/tile（opt-in）', async ({ page, request
 
 Restart MS for a clean 100 req/15min window, then:
 ```bash
-cd luban-cad/apps/web-next
+cd luban-cad/apps/web
 PERF_MULTIBODY=1 CI=true corepack pnpm@10 exec playwright test e2e/multibody-perf.spec.ts
 ```
 Expected: PASS; capture `MULTIBODY_WEB_PERF {...}` and the evidence file. If a
@@ -496,7 +496,7 @@ do not move a threshold beyond 2× the first measured value without justificatio
 - [ ] **Step 3: Commit spec**
 
 ```bash
-git add luban-cad/apps/web-next/e2e/multibody-perf.spec.ts
+git add luban-cad/apps/web/e2e/multibody-perf.spec.ts
 git commit -m "test(e2e): M-A5.2 多体性能探针（opt-in N=20）"
 ```
 
@@ -524,7 +524,7 @@ Do not commit raw evidence JSON; only the summary markdown with numbers.
 - [ ] **Step 2: Run regression gates**
 
 ```bash
-cd luban-cad/apps/web-next
+cd luban-cad/apps/web
 CI=true corepack pnpm@10 test
 CI=true corepack pnpm@10 exec tsc --noEmit
 CI=true corepack pnpm@10 lint

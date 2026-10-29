@@ -60,7 +60,7 @@ powershell -File scripts/verify-stack.ps1            # 4) 全栈验收
 | imodelhub | **GHCR 镜像** `ghcr.io/chenjinxian/imodelhub:latest`（构建在私有仓 luban-backend） |
 | webhook-agent | **GHCR 镜像** `ghcr.io/chenjinxian/luban-webhook-agent:latest`（构建在私有仓 luban-backend） |
 | modeling-server | **GitHub Releases 产物** `modeling-server-win-x64-*.tgz`（`scripts/fetch-backend.ps1` 解压到 `dist-backend\`，`scripts/start-ms-host.ps1` 宿主运行） |
-| web | 本仓构建（`luban-cad/Dockerfile`） |
+| web | 本仓构建（`luban-cad/apps/web/Dockerfile`） |
 | postgres / redis / maildev / azurite / nginx | 官方镜像 |
 
 ### Webhook-Agent 为什么是必需的？
@@ -172,7 +172,7 @@ docker compose down
 
 ### docker-compose.yml（部署权威：仓库根 `docker-compose.yml`，后端零 build）
 
-compose 内 **8 个服务**，镜像来源如下；MS 不占 compose 服务位（宿主进程）：
+compose 内 **9 个服务**，镜像来源如下；MS 不占 compose 服务位（宿主进程）：
 
 | 服务 | 来源 | 端口 |
 |---|---|---|
@@ -182,7 +182,8 @@ compose 内 **8 个服务**，镜像来源如下；MS 不占 compose 服务位�
 | azurite | 官方 `mcr.microsoft.com/azure-storage/azurite` | 宿主 10500-10502（容器内 10000-10002） |
 | imodelhub | **GHCR** `ghcr.io/chenjinxian/imodelhub:latest` | 宿主 5400（容器内 4000） |
 | webhook-agent | **GHCR** `ghcr.io/chenjinxian/luban-webhook-agent:latest` | 宿主 5402（容器内 4002） |
-| web | **GHCR** `ghcr.io/chenjinxian/luban-web:latest` | 栈内 3000（仅经 nginx 5301 暴露） |
+| web | **本仓构建** `luban-cad/apps/web/Dockerfile`（构建上下文=仓库根） | 栈内 3000（仅经 nginx 5301 暴露） |
+| bff | **本仓构建** `services/bff`（可选；未启用时 nginx 直连宿主 MS） | 容器内 5403 |
 | nginx | 官方 `nginx:alpine`（单域名入口） | 宿主 5301（容器内 80） |
 | modeling-server | **非 compose 服务**：宿主进程，`scripts/start-ms-host.ps1` 跑 `dist-backend\` 产物 | 宿主 5401 |
 
@@ -573,5 +574,5 @@ npm run migration:run
 
 ---
 
-*文档版本: 2.3*
-*最后更新: 2026-10-01（后端私有化：新增「统一部署链路」generate-env → fetch-backend → compose up → start-ms-host → verify-stack；imodelhub/webhook-agent 标注 GHCR 镜像来源，MS 改 Releases 产物宿主运行；删除示意 compose 与仓内后端 dev 指引）*
+*文档版本: 2.4*
+*最后更新: 2026-10-29（前端目录收敛为 `luban-cad/apps/web`；web 镜像为本地构建，修正 compose 服务计数与 bff 行）*

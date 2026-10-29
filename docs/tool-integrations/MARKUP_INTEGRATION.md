@@ -2,6 +2,9 @@
 
 **预计工作量**: 2-3 天
 
+> **路径口径（2026-10-29）**：文中 `features/...` 片段为历史集成方案示意；当前前端宿主为
+> `luban-cad/apps/web`（模块在 `src/modules/*`），查看器/工具基座为 `luban-cad/packages/viewer`。
+
 **功能范围**: 红线批注、审阅、测量标注
 
 ---
@@ -491,7 +494,7 @@ export function registerMarkupTools(): void {
 ### 2.2 添加到 Viewer
 
 ```typescript
-// luban-cad/packages/viewer-core/src/components/ViewerWithUI.tsx
+// 应用层查看器组合（示意；当前宿主见 luban-cad/apps/web/src/modules/part-studio）
 import { useMarkupManager } from '../features/markup/hooks/useMarkupManager';
 import { MarkupToolbar } from '../features/markup/components/MarkupToolbar';
 import { MarkupSessionsPanel } from '../features/markup/components/MarkupSessionsPanel';

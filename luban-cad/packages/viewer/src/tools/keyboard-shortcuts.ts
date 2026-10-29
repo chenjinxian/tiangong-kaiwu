@@ -1,7 +1,7 @@
 /**
  * Copyright (c) LubanCAD. All rights reserved. Licensed under the MIT License.
  *
- * registerDefaultShortcuts 子集移植（web-next M4 Task 3；源 apps/web/src/core/
+ * registerDefaultShortcuts 子集移植（M4 Task 3；源旧应用 src/core/
  * shortcuts/KeyboardManager.ts）——brief 钉死：仅 Undo/Redo/Delete/Escape 相关键
  * 位，全表（Ctrl+A 选择/视图单键 f r p z w/s）移植延后。
  *
@@ -14,7 +14,7 @@
  *    KeyboardManager）处理，回调式 deleteSelected()——此处绑注册在册的标准
  *    DeleteElementsTool（选择集语义同源，不引第二套删除 API）；
  *  - 派发接线：旧 KeyboardManager 需 app 侧 useEditorKeyboard 调
- *    handleKeyDown(e)——web-next 由本模块自挂 window 监听（幂等；T4 的
+ *    handleKeyDown(e)——现由本模块自挂 window 监听（幂等；T4 的
  *    useEditorKeyboard 只补 Ctrl+S 等 app 性行为，Undo/Redo/Delete/Escape 勿
  *    二次绑定避免双跑）；INPUT/TEXTAREA/contentEditable 焦点守卫（旧 Delete
  *    守卫同口径，扩至全键位）；

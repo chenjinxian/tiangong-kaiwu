@@ -29,7 +29,7 @@
 
 ```
 浏览器(React 18 + Vite)
-   │ 同源 :80
+   │ 同源入口 :5301(容器内 nginx :80;开发态直连 :5300)
    ▼
 nginx(单入口)─┬─ /api /ws /ipc ─→ modeling-server :5401(建模宿主:Briefcase/编辑管道/RPC/原生几何内核)
               ├─ /auth /itwins /imodels… ─→ iModelHub :5400(元数据中枢:用户/项目/模型/changeset/锁/权限)
@@ -46,7 +46,7 @@ nginx(单入口)─┬─ /api /ws /ipc ─→ modeling-server :5401(建模宿�
 | 目录 | 内容 |
 |---|---|
 | `itwinjs-core/` | vendored iTwin.js fork(git-subtree 谱系,上游可同步) |
-| `luban-cad/` | 鲁班CAD 应用(pnpm workspace:`apps/web` + `packages/*` + `modules/*`) |
+| `luban-cad/` | 鲁班CAD 应用(pnpm workspace:`apps/web`(前端宿主,包名 `@luban-cad/web`) + `packages/{shared,viewer,editor}`) |
 | `scripts/` | 起栈/验收/产物获取脚本 |
 | `docs/` | 架构、上游修改台账、同步史、API 契约对照 |
 
@@ -60,7 +60,7 @@ nginx(单入口)─┬─ /api /ws /ipc ─→ modeling-server :5401(建模宿�
 |---|---|---|
 | Node.js | ≥ 20(实测 v24) | 自带 corepack |
 | pnpm | `corepack pnpm@10`(勿全局装 pnpm 12) | 锁文件格式要求 |
-| Docker Desktop | 任意近期版 | 栈内 6 容器 |
+| Docker Desktop | 任意近期版 | 起栈用容器 |
 | PowerShell | 5.1+ 均可 | 脚本入口 |
 
 ### 1. 四条命令起栈
@@ -71,12 +71,12 @@ powershell -File scripts/generate-env.ps1     # ① 生成根 .env(幂等;密钥
 powershell -File scripts/fetch-backend.ps1    # ② 拉 MS 产物(Releases)+ GHCR 镜像
 docker compose up -d                          # ③ 起栈:Postgres/Azurite/Redis/Maildev + HUB/WA/web/nginx
 powershell -File scripts/start-ms-host.ps1 -Detach   # ④ 建模宿主 MS :5401
-powershell -File scripts/verify-stack.ps1     # ⑤ 全栈验收(应 14/14)
+powershell -File scripts/verify-stack.ps1     # ⑤ 全栈验收(输出全绿即通过)
 ```
 
 > 起栈要点:① 只需跑一次;② 网络拉镜像慢属正常;④ MS 是**宿主进程**(原生库不可入 Linux 容器),不是 docker 服务;⑤ 是权威验收——绿则栈可用。
 
-**访问入口**:http://localhost/(nginx 单域名)。
+**访问入口**:http://localhost:5301(nginx 单域名入口)。
 
 ### 2. 首次注册与建库
 
@@ -102,7 +102,7 @@ powershell -File scripts/verify-stack.ps1     # ⑤ 全栈验收(应 14/14)
 
 ```powershell
 cd luban-cad/apps/web
-node demo-flow.mjs    # 可见浏览器 15 幕:登录→建项目/模型→拉伸→改参→草图→圆角选边→重开→健康审计
+node demo-full-flow.cjs    # 可见浏览器全流程:登录→建项目/模型→拉伸→改参→草图→圆角选边→重开→健康审计
 ```
 
 ## 测试
@@ -113,7 +113,7 @@ cd luban-cad/apps/web && corepack pnpm@10 test          # vitest 全量
 
 # e2e(需栈在跑 + 前端 dev server)
 cd luban-cad/apps/web && corepack pnpm@10 dev           # 终端 A:起 vite :5300
-corepack pnpm@10 test:e2e                               # 终端 B:Playwright 53 用例(约 10 分钟)
+corepack pnpm@10 test:e2e                               # 终端 B:Playwright 全量 e2e(需真实栈,约 10 分钟)
 ```
 
 e2e 基建说明:种子模型由测试自管(每轮自动重置);登录走会话注入避开限流;worker=1 串行(编辑器并发开库有已知抖动)。
@@ -144,6 +144,8 @@ e2e 基建说明:种子模型由测试自管(每轮自动重置);登录走会话
 - fork 改动台账:`docs/ITWINJS_CORE_MODIFICATIONS.md`
 - 上游同步史:`docs/UPSTREAM_SYNC.md`
 - 官方 API 契约对照:`docs/api-specs/*.json`
+- 已删除文档历史索引:`docs/HISTORY.md`
+- 文档总索引:`docs/README.md`
 - 愿景/路线图/能力矩阵:platform-docs(文档总仓,仓外)
 
 ## 许可与边界

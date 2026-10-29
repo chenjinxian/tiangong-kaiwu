@@ -2,14 +2,14 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * useViewport（web-next M3 Task 3 接线；M4 Task 2 扩 ScreenViewport 创建主链）：
+ * useViewport（M3 Task 3 接线；M4 Task 2 扩 ScreenViewport 创建主链）：
  * React 侧 viewport 宿主 hook——
  * - 返回 `viewportRef`（div ref）：ScreenViewport 的挂载点；挂载即 acquireViewer
  *   （幂等 startViewer + 模块级引用计数——StrictMode 双挂载/多页签切换均安全），
  *   卸载 releaseViewer（计数 1→0 才真正 shutdown）；backendUrl 同源姿态由消费方
- *   决定（web-next 经 vite 代理直连 modeling-server 会被 CORS 拦，传
- *   window.location.origin，见 apps/web-next vite.config.ts 注记）；
- * - `iModel` 就位后创建 ScreenViewport（移植自旧 viewer-core useViewport.ts 全链，
+ *   决定（apps/web 经 vite 代理直连 modeling-server 会被 CORS 拦，传
+ *   window.location.origin，见 apps/web/vite.config.ts 注记）；
+ * - `iModel` 就位后创建 ScreenViewport（移植自旧查看器包 useViewport.ts 全链（旧包已删除），
  *   2026-10-22；该文件为本实现的权威参照）：getDefaultViewState（views.queryProps
  *   →load，Default 命名视图优先，缺省 ViewCreator3d.createDefaultView）→
  *   ensureViewHasCategoriesAndModels → ScreenViewport.create → viewManager.addViewport
@@ -45,7 +45,7 @@ import { applyRenderProfile } from './render-profile.js';
 export type ViewportPhase = 'idle' | 'starting' | 'ready' | 'error';
 
 export interface UseViewportOptions {
-  /** Backend RPC URL（modeling-server；web-next 传同源代理地址） */
+  /** Backend RPC URL（modeling-server；apps/web 传同源代理地址） */
   backendUrl: string;
   /** iModelHub URL（imodelhub-services） */
   hubUrl: string;
@@ -169,7 +169,7 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
         activeViewportRef.current = undefined;
         setViewport(undefined);
       }
-      // 错误随链生灭（web-next M5-T2 评审 Important 承接）：创建链的 error 出口
+      // 错误随链生灭（M5-T2 评审 Important 承接）：创建链的 error 出口
       // 归其所属链——tab 切换重开 iModel 时上一链的失败不得残留（消费方按
       // error 呈现错误面/状态栏，陈旧错误会把健康的新链误报成失败）。
       setError(null);
@@ -180,7 +180,7 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
 }
 
 /**
- * Get default view state from iModel（移植自旧 viewer-core useViewport.ts）
+ * Get default view state from iModel（移植自旧查看器包 useViewport.ts）
  */
 async function getDefaultViewState(iModel: IModelConnection): Promise<ViewState | undefined> {
   // Get view definitions from iModel

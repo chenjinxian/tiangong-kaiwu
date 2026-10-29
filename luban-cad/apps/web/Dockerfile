@@ -1,8 +1,8 @@
 # ============================================================
 # LubanCAD web（@luban-cad/web）镜像 —— M5-T9 切换冲刺
 #
-# 与旧 apps/web 的 luban-cad/Dockerfile 同构（link: 源码消费的容器化方案已在
-# 旧镜像上验证），差异四处：
+# 与历史 luban-cad/Dockerfile（已删除，沿用其 link: 源码消费容器化方案）
+# 同构，差异四处：
 #   1. 构建段 base=node:22-alpine（下方注）；构建过滤面 --filter
 #      @luban-cad/web...（shared → viewer → web 拓扑序；
 #      editor-frontend 不重建——其 lib/ 由宿主预构建、随 context 进入镜像，
@@ -20,8 +20,8 @@
 #      主包版本错配，同类炸面。文件本体由 apps/web/public/scripts/
 #      提供（vite publicDir 随构建拷贝，dev :5300 同路受益），快照源 =
 #      itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js——
-#      **itwinjs-core 上游同步/重编译后须重拷对齐**（同旧 apps/web 先例，
-#      已登记 UPSTREAM_SYNC 检查单）。此断言防「public/ 被误删仍构建成功」
+#      **itwinjs-core 上游同步/重编译后须重拷对齐**（已登记 UPSTREAM_SYNC
+#      检查单）。此断言防「public/ 被误删仍构建成功」
 #      与「快照陈旧仍构建成功」两类静默绿。
 #
 # 构建上下文必须是【仓库根】（.dockerignore 白名单裁剪）：web 经

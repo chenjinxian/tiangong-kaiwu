@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 只改 `luban-cad/apps/web-next`；不改 shared/private/schema/MS；无新依赖。
+- 只改 `luban-cad/apps/web`；不改 shared/private/schema/MS；无新依赖。
 - 边选择复用现有 `resolveEdgeRef`；边界/非流形边不可选，不泛化契约。
 - 面/边删除、面级特征编辑、持久子实体 overlay 均不在本计划。
 - 子实体选择不经 `SelectionSet`；`useCanvasBodySelection` 只在 body 模式订阅。
@@ -27,12 +27,12 @@
 ### Task 1: 选择模型、模式 store 与 body 桥门控
 
 **Files:**
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/types.ts`
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/stores/use-part-studio-store.ts`
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/hooks/useCanvasBodySelection.ts`
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/PartStudioPage.tsx`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/use-part-studio-store.test.ts`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/useCanvasBodySelection.test.ts`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/types.ts`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/stores/use-part-studio-store.ts`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/hooks/useCanvasBodySelection.ts`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/PartStudioPage.tsx`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/use-part-studio-store.test.ts`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/useCanvasBodySelection.test.ts`
 - Test resets (10 files): `CanvasContextMenu.test.tsx`, `FeatureTree.test.tsx`,
   `PartStudioCanvas.test.tsx`, `FeatureDialog.test.tsx`, `PartStudioSidebar.test.tsx`,
   `PartStudioPage.test.tsx`, `part-studio-structure.test.tsx`, `SketchDialog.test.tsx`,
@@ -66,7 +66,7 @@ it('setSelectionMode 切模式清空 canvas 选择，树选中不动；同模式
 
 Run:
 ```bash
-cd luban-cad/apps/web-next
+cd luban-cad/apps/web
 CI=true corepack pnpm@10 exec vitest run src/modules/part-studio/test/use-part-studio-store.test.ts -t "setSelectionMode"
 ```
 Expected: FAIL (`setSelectionMode is not a function`).
@@ -246,7 +246,7 @@ in the ten test files listed above. Do not change production call sites.
 - [ ] **Step 7: Run tests + tsc + lint**
 
 ```bash
-cd luban-cad/apps/web-next
+cd luban-cad/apps/web
 CI=true corepack pnpm@10 exec vitest run src/modules/part-studio/test/use-part-studio-store.test.ts src/modules/part-studio/test/useCanvasBodySelection.test.ts
 CI=true corepack pnpm@10 exec tsc --noEmit
 CI=true corepack pnpm@10 lint
@@ -256,11 +256,11 @@ Expected: PASS / exit 0.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add luban-cad/apps/web-next/src/modules/part-studio/types.ts \
-  luban-cad/apps/web-next/src/modules/part-studio/stores/use-part-studio-store.ts \
-  luban-cad/apps/web-next/src/modules/part-studio/hooks/useCanvasBodySelection.ts \
-  luban-cad/apps/web-next/src/modules/part-studio/PartStudioPage.tsx \
-  luban-cad/apps/web-next/src/modules/part-studio/test
+git add luban-cad/apps/web/src/modules/part-studio/types.ts \
+  luban-cad/apps/web/src/modules/part-studio/stores/use-part-studio-store.ts \
+  luban-cad/apps/web/src/modules/part-studio/hooks/useCanvasBodySelection.ts \
+  luban-cad/apps/web/src/modules/part-studio/PartStudioPage.tsx \
+  luban-cad/apps/web/src/modules/part-studio/test
 git commit -m "feat(web): M-A5.2 选择模式状态 + body 桥门控"
 ```
 
@@ -269,10 +269,10 @@ git commit -m "feat(web): M-A5.2 选择模式状态 + body 桥门控"
 ### Task 2: SubEntitySelectTool（面/边拾取 + 持久 ref）
 
 **Files:**
-- Create: `luban-cad/apps/web-next/src/modules/part-studio/tools/modeling/SubEntitySelectTool.ts`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/SubEntitySelectTool.test.ts`
-- Modify: `luban-cad/apps/web-next/src/common/i18n/locales/zh-CN/part-studio.json`
-- Modify: `luban-cad/apps/web-next/src/common/i18n/locales/en/part-studio.json`
+- Create: `luban-cad/apps/web/src/modules/part-studio/tools/modeling/SubEntitySelectTool.ts`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/SubEntitySelectTool.test.ts`
+- Modify: `luban-cad/apps/web/src/common/i18n/locales/zh-CN/part-studio.json`
+- Modify: `luban-cad/apps/web/src/common/i18n/locales/en/part-studio.json`
 
 **Interfaces:**
 - Consumes: `CanvasSelection`, `CanvasSelectionMode`, `LubanTopologyId`,
@@ -575,10 +575,10 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add luban-cad/apps/web-next/src/modules/part-studio/tools/modeling/SubEntitySelectTool.ts \
-  luban-cad/apps/web-next/src/modules/part-studio/test/SubEntitySelectTool.test.ts \
-  luban-cad/apps/web-next/src/common/i18n/locales/zh-CN/part-studio.json \
-  luban-cad/apps/web-next/src/common/i18n/locales/en/part-studio.json
+git add luban-cad/apps/web/src/modules/part-studio/tools/modeling/SubEntitySelectTool.ts \
+  luban-cad/apps/web/src/modules/part-studio/test/SubEntitySelectTool.test.ts \
+  luban-cad/apps/web/src/common/i18n/locales/zh-CN/part-studio.json \
+  luban-cad/apps/web/src/common/i18n/locales/en/part-studio.json
 git commit -m "feat(web): M-A5.2 面/边子实体拾取工具"
 ```
 
@@ -587,9 +587,9 @@ git commit -m "feat(web): M-A5.2 面/边子实体拾取工具"
 ### Task 3: 模式生命周期 hook
 
 **Files:**
-- Create: `luban-cad/apps/web-next/src/modules/part-studio/hooks/useSubEntitySelection.ts`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/useSubEntitySelection.test.tsx`
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/PartStudioPage.tsx`
+- Create: `luban-cad/apps/web/src/modules/part-studio/hooks/useSubEntitySelection.ts`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/useSubEntitySelection.test.tsx`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/PartStudioPage.tsx`
 
 **Interfaces:**
 - Consumes: `SubEntitySelectTool` / `startSubEntitySelect`.
@@ -829,9 +829,9 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add luban-cad/apps/web-next/src/modules/part-studio/hooks/useSubEntitySelection.ts \
-  luban-cad/apps/web-next/src/modules/part-studio/test/useSubEntitySelection.test.tsx \
-  luban-cad/apps/web-next/src/modules/part-studio/PartStudioPage.tsx
+git add luban-cad/apps/web/src/modules/part-studio/hooks/useSubEntitySelection.ts \
+  luban-cad/apps/web/src/modules/part-studio/test/useSubEntitySelection.test.tsx \
+  luban-cad/apps/web/src/modules/part-studio/PartStudioPage.tsx
 git commit -m "feat(web): M-A5.2 子实体选择模式生命周期"
 ```
 
@@ -840,14 +840,14 @@ git commit -m "feat(web): M-A5.2 子实体选择模式生命周期"
 ### Task 4: Ribbon「选择」模式按钮 + i18n
 
 **Files:**
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/ribbon/ribbon-registry.ts`
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/ribbon/Ribbon.tsx`
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/internal/capabilities.ts`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/ribbon/ribbon-registry.ts`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/ribbon/Ribbon.tsx`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts`
 - Modify: i18n zh/en `part-studio.json`
-- Modify: `luban-cad/apps/web-next/src/common/i18n/test/i18n.test.ts`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/ribbon-registry.test.ts`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/Ribbon.test.tsx`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/CommandPalette.test.tsx`
+- Modify: `luban-cad/apps/web/src/common/i18n/test/i18n.test.ts`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/ribbon-registry.test.ts`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/Ribbon.test.tsx`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/CommandPalette.test.tsx`
 
 **Interfaces:**
 - Produces: `RibbonGroup` 增加 `'selection'`；`RIBBON_TOOLS` 增加
@@ -1006,10 +1006,10 @@ git add ... && git commit -m "feat(web): M-A5.2 选择面/边 ribbon 模式"
 ### Task 5: owner-aware 右键菜单与宿主动作
 
 **Files:**
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/canvas/CanvasContextMenu.tsx`
-- Modify: `luban-cad/apps/web-next/src/modules/part-studio/components/PartStudioCanvas.tsx`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/CanvasContextMenu.test.tsx`
-- Test: `luban-cad/apps/web-next/src/modules/part-studio/test/PartStudioCanvas.test.tsx`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/canvas/CanvasContextMenu.tsx`
+- Modify: `luban-cad/apps/web/src/modules/part-studio/components/PartStudioCanvas.tsx`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/CanvasContextMenu.test.tsx`
+- Test: `luban-cad/apps/web/src/modules/part-studio/test/PartStudioCanvas.test.tsx`
 - Test: i18n keys + required list (same files as Task 4)
 
 **Interfaces:**
@@ -1283,7 +1283,7 @@ git add ... && git commit -m "feat(web): M-A5.2 面/边 owner 菜单与安全动
 ### Task 6: 真栈 e2e + 全量门禁 + 文档
 
 **Files:**
-- Modify: `luban-cad/apps/web-next/e2e/newbody.spec.ts`
+- Modify: `luban-cad/apps/web/e2e/newbody.spec.ts`
 - Modify: `docs/superpowers/plans/2026-10-29-subentity-selection.md`（result section）
 - Possibly i18n/selector fixes discovered by the true stack.
 
@@ -1439,7 +1439,7 @@ callback), so the subsequent selection-set clear is belt-and-braces.
 - [ ] **Step 2: Run targeted e2e**
 
 ```bash
-cd luban-cad/apps/web-next
+cd luban-cad/apps/web
 CI=true corepack pnpm@10 exec playwright test e2e/newbody.spec.ts
 ```
 Expected: 2/2 pass. If a face/edge coordinate misses, log projected points and

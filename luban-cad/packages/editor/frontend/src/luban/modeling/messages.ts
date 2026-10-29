@@ -1,21 +1,21 @@
 /**
  * Copyright (c) LubanCAD. All rights reserved. Licensed under the MIT License.
  *
- * 移植工具的双语提示词表（web-next M4 Task 3）。
+ * 移植工具的双语提示词表（M4 Task 3，2026-10-22 随 editor 模块收编迁入）。
  *
- * 包边界裁决：旧应用工具文案走 app 级 i18next（apps/web/shared/i18n，editor ns，
- * `i18n.t('modelingTools.*', { ns: 'editor' })`）；viewer-next 是 app 无关的
+ * 包边界裁决：旧应用工具文案走 app 级 i18next（旧 apps/web 的 shared/i18n，
+ * editor ns，`i18n.t('modelingTools.*', { ns: 'editor' })`）；本包是 app 无关的
  * link: 包，不能反向依赖 app 的 i18n 单例——故在包内自带最小词表（键名与旧
  * editor.json 逐键一致，迁移零改写），插值用同款 `{{param}}` 语法。语言取
- * web-next 的持久化键 `luban-next-lang`（缺省 zh-CN；host 可用
+ * `@luban-cad/web` 的持久化键 `luban-next-lang`（缺省 zh-CN；host 可用
  * setToolMessagesLanguage 显式钉死）。全量回归 app 级 i18n 时只需把本模块
  * 换成 resolver 注入（backlog，勿静默遗忘）。
  *
  * 2026-10-22 随 editor 模块收编迁入本包（@itwin/editor-frontend）src/luban/
- * modeling/（原 viewer-next src/tools/messages.ts，消费方仅同批随迁的建模工具）。
+ * modeling/（原 packages/viewer 的 tools/messages.ts，消费方仅同批随迁的建模工具）。
  */
 
-/** 词表语言（与 web-next AppLanguage 同域：zh-CN | en）。 */
+/** 词表语言（与 @luban-cad/web AppLanguage 同域：zh-CN | en）。 */
 export type ToolMessagesLanguage = 'zh-CN' | 'en';
 
 /** 单条词目（`{{param}}` 插值；与 i18next 默认插值语法一致）。 */
@@ -71,7 +71,7 @@ const EN: Catalog = {
 
 const CATALOGS: Record<ToolMessagesLanguage, Catalog> = { 'zh-CN': ZH_CN, en: EN };
 
-/** web-next 语言持久化键（apps/web-next common/i18n 同源；包内只读不写）。 */
+/** 语言持久化键（apps/web 的 src/common/i18n 同源；包内只读不写）。 */
 const LANGUAGE_STORAGE_KEY = 'luban-next-lang';
 
 let override: ToolMessagesLanguage | undefined;

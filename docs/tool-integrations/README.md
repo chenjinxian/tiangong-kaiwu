@@ -2,6 +2,10 @@
 
 本文档说明 iTwin.js 工具在 LubanCAD 中的集成状态。
 
+> **路径口径（2026-10-29）**：各集成方案中的 `features/...` 代码片段为历史方案示意，
+> 不代表当前目录。当前前端宿主为 `luban-cad/apps/web`（模块在 `src/modules/*`），
+> 查看器/工具基座为 `luban-cad/packages/viewer`，建模基座为 `luban-cad/packages/editor`。
+
 ---
 
 ## 集成状态概览
@@ -21,7 +25,7 @@
 
 ## 工具注册
 
-所有工具在 `features/editor/registerTools.ts` 中统一注册：
+所有工具当前经 `luban-cad/packages/viewer/src/tools/register-edit-tools.ts` 统一注册（下为历史方案示意）：
 
 ```typescript
 // 视图工具

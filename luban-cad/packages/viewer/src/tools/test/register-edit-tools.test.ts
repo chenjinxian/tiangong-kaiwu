@@ -1,4 +1,4 @@
-// register-edit-tools（web-next M4 Task 3）：ensureEditTools 注册表验收——
+// register-edit-tools（M4 Task 3）：ensureEditTools 注册表验收——
 //  1) 注册序同旧应用 registerTools.ts（视图 7 → 基元 5 → 草图原生 6 → 变换 4
 //     +Undo/Redo → 面边/布尔/阵列 13 → 测量 6 → 裁剪 5 → 装饰 1）——完整 toolId
 //     序列钉死（含 8 个 M3 校准真实 toolId：SweepFaces/RoundEdges/ChamferEdges/
@@ -11,7 +11,7 @@
 // 携真实 toolId 静态量）；project-extents-decoration 为被测真件（其 toolId 是
 // 真静态量）；@luban-cad/shared 零真实 RPC。工厂内不可引用模块作用域绑定
 // （vi.mock 提升先于模块体求值）——桩表全数收进 vi.hoisted。
-// 2026-10-22 editor 模块收编：四个移植工具自 viewer-next src/tools/modeling/
+// 2026-10-22 editor 模块收编：四个移植工具自旧查看器包 src/tools/modeling/
 // 迁入 @itwin/editor-frontend src/luban/modeling/，注册表改从其导出面导入——
 // 本测试的 '@itwin/editor-frontend' mock 桩表随之收编五桩（DraftFaces/
 // CreateHole/MirrorElements/LinearPattern/CircularPattern；toolId 真值由随迁
@@ -168,7 +168,7 @@ const EXPECTED_TOOL_IDS: readonly string[] = [
   'Measure.Distance', 'Measure.Location', 'Measure.AreaByPoints', 'Measure.Length', 'Measure.Area', 'Measure.Volume',
   // 裁剪 5（core-frontend）
   'ViewClip.Clear', 'ViewClip.ByPlane', 'ViewClip.ByShape', 'ViewClip.ByRange', 'ViewClip.ByElement',
-  // 装饰（viewer-next T2 移植件；ACS/网格装饰未移植——注册表头注登记）
+  // 装饰（查看器包 T2 移植件；ACS/网格装饰未移植——注册表头注登记）
   'ToggleProjectExtents',
 ];
 

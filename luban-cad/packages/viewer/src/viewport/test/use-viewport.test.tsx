@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 //
-// useViewport（web-next M3 Task 3 接线 + M4 Task 2 扩 ScreenViewport 创建主链）：
+// useViewport（M3 Task 3 接线 + M4 Task 2 扩 ScreenViewport 创建主链）：
 //  A) host 接线（M4 Task 1 既有口径）——挂载 → acquireViewer 以入参选项启动；
 //     卸载 → releaseViewer；acquireViewer 拒绝 → error 相位；
-//  B) 视口创建主链（M4 Task 2，移植自旧 viewer-core useViewport.ts 全链）——
+//  B) 视口创建主链（M4 Task 2，移植自旧查看器包 useViewport.ts 全链）——
 //     iModel 就位 → getDefaultViewState（queryProps→load，Default 命名视图优先）→
 //     类目/模型补全 → ScreenViewport.create → addViewport → setupViewCategoriesAndModels
 //     （BRep 不渲染两断点：ModelState 显式 load + drop/add 触发 refs 重建）→
@@ -142,7 +142,7 @@ let logSpy: ReturnType<typeof vi.spyOn>;
 
 function Harness({ iModel, notifications }: { iModel?: IModelConnection; notifications?: unknown }) {
   const { viewportRef, phase, error, viewport } = useViewport({
-    backendUrl: 'http://localhost:5310',
+    backendUrl: 'http://localhost:5300',
     hubUrl: 'http://localhost:5400',
     accessToken: 'jwt-x',
     iModel,
@@ -182,7 +182,7 @@ describe('useViewport host 接线（M4 Task 1 既有口径）', () => {
     render(<Harness />);
     // acquireViewer 是 host 面（StartViewerOptions，无 iModel 键）——iModel 属视口创建链入参
     expect(m.acquireViewerMock).toHaveBeenCalledWith({
-      backendUrl: 'http://localhost:5310',
+      backendUrl: 'http://localhost:5300',
       hubUrl: 'http://localhost:5400',
       accessToken: 'jwt-x',
       notifications: undefined,

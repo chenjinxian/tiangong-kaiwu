@@ -2,8 +2,8 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * useBriefcaseConnection（web-next M4 Task 1）：可写编辑连接 hook——语义逐行移植自
- * 旧应用 `packages/viewer-core/src/hooks/useBriefcaseConnection.ts`（2026-10-22）：
+ * useBriefcaseConnection（M4 Task 1）：可写编辑连接 hook——语义逐行移植自
+ * 旧应用查看器包的 `useBriefcaseConnection.ts`（2026-10-22；旧包已删除）：
  * - 打开流：`openCloud.downloadBriefcase(iTwinId, iModelId, readonly)`（后端定位/下载
  *   .bim）→ `BriefcaseConnection.openFile({ fileName, readonly, key: fileName })`
  *   （key=fileName 供后端 findByFilename 兼容；openFile 自身触发 openBriefcase IPC）；

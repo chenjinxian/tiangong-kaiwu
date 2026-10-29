@@ -1,5 +1,5 @@
 const iTwinPlugin = require("@itwin/eslint-plugin");
-// 注：web-viewer 的同款配置指向 ../../../common/config/eslint/...（luban-cad 下无此
+// 注：旧查看器包的同款配置指向 ../../../common/config/eslint/...（luban-cad 下无此
 // 目录，属复制 apps/web 路径时丢了 itwinjs-core 段——packages 下三个包同病）。
 // 此处对齐 apps/web 的实际可用路径。
 const eslintBaseConfig = require("../../../itwinjs-core/common/config/eslint/eslint.config.base");

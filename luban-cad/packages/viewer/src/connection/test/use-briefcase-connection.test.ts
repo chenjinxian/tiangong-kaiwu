@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 //
-// useBriefcaseConnection（web-next M4 Task 1）：旧 viewer-core 同名 hook 移植验收——
+// useBriefcaseConnection（M4 Task 1）：旧查看器包同名 hook 移植验收——
 //  1) options=null：零 IPC，connection 恒 null；
 //  2) 正常流：downloadBriefcase(iTwinId,iModelId,readonly) → openFile({fileName,readonly,key}) → connection 就位；
 //  3) 卸载 close 恰一次 + isClosing 重入保护（连卸两次只关一次）；
 //  4) saveChanges/pushChanges/pullChanges 代理到 connection 同名方法（未就绪时 no-op）；
 //  5) downloadBriefcase/openFile 拒绝 → error 就位、connection 恒 null、isLoading 归 false。
 //
-// mock 口径与旧 viewer-core useBriefcaseConnection.test.ts 同族：core-frontend 与
+// mock 口径与旧查看器包 useBriefcaseConnection.test.ts 同族：core-frontend 与
 // @luban-cad/shared 模块级 mock（零真实 IPC），hook 本体的状态机语义真实参与。
 
 import { act, renderHook } from '@testing-library/react';
@@ -77,7 +77,7 @@ beforeEach(() => {
   closeMock.mockResolvedValue(undefined);
 });
 
-describe('useBriefcaseConnection（移植自 viewer-core）', () => {
+describe('useBriefcaseConnection（移植自旧查看器包）', () => {
   it('options=null：零 IPC，connection 恒 null', async () => {
     const { result } = renderHook(() => useBriefcaseConnection(null));
     await flushAsync();

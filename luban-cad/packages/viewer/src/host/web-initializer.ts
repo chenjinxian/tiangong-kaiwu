@@ -2,16 +2,16 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 移植自 `packages/web-viewer/src/WebInitializer.ts` 的 `initializeWeb()`（2026-10-21）：
+ * 移植自旧查看器包的 `WebInitializer.ts` 之 `initializeWeb()`（2026-10-21；旧包已删除）：
  * 导出更名 `startViewer`/`stopViewer`，`hubUrl` 必填并用于 IModelsClient baseUrl；
  * AccuSnap 轮询补启提取至 `../tools/ensure-accusnap.ts`（语义不变）。
  *
- * web-next M4 Task 1（2026-10-22）：stopViewer 收归私有 `shutdownViewer`，新增
+ * M4 Task 1（2026-10-22）：stopViewer 收归私有 `shutdownViewer`，新增
  * `acquireViewer`/`releaseViewer` 模块级引用计数——多消费方（多页签/多视口）共享
  * 同一 host 生命周期，计数 1→0 才真正 shutdown（M3 终审 T3-③「卸载无条件 stopViewer」
  * 收口：先卸载方不再杀掉后挂载方的 host）；acquire 复用 startViewer 幂等体。
  *
- * web-next M4 Task 2（2026-10-22）：startViewer 加 in-flight promise 去重——并发
+ * M4 Task 2（2026-10-22）：startViewer 加 in-flight promise 去重——并发
  * acquire 共享同一 startup promise（startup 恰一次）；release 归零的 shutdown 在途
  * 时，新 acquire 等它落定再重新 startup——防「release 归零 shutdown 进行中 + 新
  * acquire」交错拿到假就绪（IpcApp.isValid 未翻转、host 随即 shutdown）。
@@ -38,7 +38,7 @@ export interface StartViewerOptions {
    * IModelApp.startup 的官方注入点（IModelAppOptions.notifications）替换 core
    * 缺省的哑通道基类（outputMessage 空实现，工具/连接错误面对用户不可见）。
    * 缺省不注入（哑通道兜底，行为同旧）；仅在真正 startup 的分支生效（幂等重入
-   * 分支沿用既有实例——host 生命期内实例不变）。web-next 传 iTwinUI toaster 桥
+   * 分支沿用既有实例——host 生命期内实例不变）。apps/web 传 iTwinUI toaster 桥
    * （app 层 ViewerNotifications），本包不引 UI 依赖。
    */
   notifications?: NotificationManager;

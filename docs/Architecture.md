@@ -81,7 +81,7 @@
 modeling-server 采用单端口架构，HTTP API 和 WebSocket 共享同一端口（`modeling-server/src/main.ts:126-146`）：
 - 简化配置和部署
 - 避免跨域问题
-- WebSocket Upgrade 统一 JWT 校验（`verifyClient`，`modeling-server/src/main.ts:131-143`）；RPC 路由鉴权缺失为已知安全债（见 DEEP_ANALYSIS §8.1）
+- WebSocket Upgrade 统一 JWT 校验（`verifyClient`，`modeling-server/src/main.ts:131-143`）；RPC 路由鉴权缺失为已知安全债（历史分析原文已删除，索引见 `docs/HISTORY.md`）
 
 ### 3. Feature-Based 组织
 前端按功能模块组织代码：
@@ -260,7 +260,7 @@ ws.onmessage = (event) => {
 - 用于 iTwin.js BriefcaseConnection
 - 本地 IPC over WebSocket
 
-**升级鉴权**: `/ws` 与 `/ipc` 的 WebSocket Upgrade 均经 `verifyClient` JWT 校验（`modeling-server/src/main.ts:131-143`）；RPC 路由 `/:title/:version/mode/*` 无鉴权（`modeling-server/src/main.ts:214-231`，安全债见 DEEP_ANALYSIS §8.1）。
+**升级鉴权**: `/ws` 与 `/ipc` 的 WebSocket Upgrade 均经 `verifyClient` JWT 校验（`modeling-server/src/main.ts:131-143`）；RPC 路由 `/:title/:version/mode/*` 无鉴权（`modeling-server/src/main.ts:214-231`，历史分析原文已删除，索引见 `docs/HISTORY.md`）。
 
 ## 数据流
 
@@ -487,7 +487,7 @@ Docker Compose（根 docker-compose.yml）:
   - postgres / redis / maildev / azurite   基础设施
   - imodelhub      ← GHCR 镜像 ghcr.io/chenjinxian/imodelhub
   - webhook-agent  ← GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent
-  - web            本仓构建（luban-cad/Dockerfile）
+  - web            本仓构建（luban-cad/apps/web/Dockerfile）
   - nginx          :80 统一入口
 
 宿主进程（不在 compose 内）:
@@ -498,4 +498,4 @@ Docker Compose（根 docker-compose.yml）:
 ---
 
 *文档版本: 3.3*
-*最后更新: 2026-10-01（后端私有化：modeling-server/webhook-agent 源码迁私有仓 luban-backend，本仓改产物消费；部署链路改 generate-env → fetch-backend → compose up → start-ms-host → verify-stack）*
+*最后更新: 2026-10-29（前端目录收敛为 `luban-cad/apps/web`，web 镜像 Dockerfile 路径同步；后端私有化/部署链路沿用 2026-10-01 口径）*

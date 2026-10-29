@@ -2,11 +2,11 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * ProjectExtentsDecoration（web-next M4 Task 2，D4 必办挂账）——iModel 项目范围
+ * ProjectExtentsDecoration（M4 Task 2，D4 必办挂账）——iModel 项目范围
  * 线框盒装饰件（基于 @itwin/frontend-devtools 实现）。同源移植自旧应用
  * apps/web/src/core/decorations/ProjectExtentsDecoration.ts（类名/toolId 不变，
  * Agent 复用规约「同 toolId 禁第二套」）；接线纪律：编辑会话就绪后默认开启
- * （旧 Editor.tsx:232-234 姿态，web-next 由 M4-T4 落），开关用 toggleProjectExtents。
+ * （旧 Editor.tsx:232-234 姿态，apps/web 由 M4-T4 落），开关用 toggleProjectExtents。
  */
 
 import { type AxisAlignedBox3d, ColorDef, LinePixels } from '@itwin/core-common';

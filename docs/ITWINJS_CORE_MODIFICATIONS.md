@@ -1,6 +1,11 @@
 # iTwin.js Core 修改记录（真实台账）
 
-**最后更新**: 2026-09-22
+> **命名口径（2026-10-29）**：本台账按时间追加，历史条目中的旧目录名（`web-next`、
+> `viewer-next`、`viewer-core`、`web-viewer` 等）只描述当时状态；当前结构为
+> `luban-cad/apps/web` + `luban-cad/packages/{shared,viewer,editor}`，见
+> `docs/MIGRATION-2026-10-29.md`。
+
+**最后更新**: 2026-10-29
 **基准**: upstream master 41fc5f3a81（5.14.0-dev.15）
 **汇总**: 20 个文件，+10,963 行 / -58 行（不含 `luban-cad/` 与 lockfile）
 

@@ -14,7 +14,7 @@
 | `tiangong-kaiwu`（本仓） | **唯一 git 仓库**（origin: `chenjinxian/tiangong-kaiwu`） |
 | `itwinjs-core/` | 依赖库源码 = iTwin 官方 + 自定义改动；以 subtree-squash 与上游同步 |
 | `luban-cad/` | 鲁班CAD 应用目录（由冻结历史拷贝迁出，link: 消费 itwinjs-core 源码） |
-| itwinjs-core 内的历史拷贝目录（旧品牌名 `open-cloud-cad/`） | **已于 2026-10-29 删除**（fork 本地整理，非上游修改；可从 Git 历史恢复）。同步若带回须再删，见下方「旧应用拷贝检查单」 |
+| **（已删除）** itwinjs-core 内的历史拷贝目录（旧品牌名 `open-cloud-cad/`） | **已于 2026-10-29 删除**（fork 本地整理，非上游修改；可从 Git 历史恢复）。同步若带回须再删，见下方「旧应用拷贝检查单」 |
 
 上游远程：本仓 `upstream` = `https://github.com/iTwin/itwinjs-core.git`。
 
@@ -37,14 +37,14 @@ bash scripts/sync-from-upstream.sh   # 于仓库根目录执行
 任何 `rush update` / `pnpm install` 重装 node_modules 后，替换会被还原——itwinjs-core rush 现场
 已由 `rush.json` eventHooks.postRushInstall 自动重跑（2026-10-11 接线，fork 本地改动，
 同步冲突取上游后重新追加，见 docs/ITWINJS_CORE_MODIFICATIONS.md §5）；其余现场（luban-cad/
-后端私有仓）需手动重跑。后端启动无 "using dev build from …" banner 即已回退官方二进制。详见
-`docs/superpowers/specs/2026-09-26-imodeljs-native-local-replacement-design.md`。
+后端私有仓）需手动重跑。后端启动无 "using dev build from …" banner 即已回退官方二进制。
+（替换方案历史设计原文已删除，索引见 `docs/HISTORY.md`。）
 REST 契约以 `docs/api-specs/`（官方 iTwin Platform OpenAPI 规格）为对照基准；SDK 面
 必须官方形状，自研扩展路由须挂在官方资源下并显式标注。
 
 统一部署（根 docker-compose.yml）：重建 itwinjs-core 后需 ①重跑
-`scripts/replace-imodeljs-native.ps1`（宿主 MS 原生库）②容器形态在用时
-`docker compose --profile container build modeling-server` 与 `docker compose build web`。
+`scripts/replace-imodeljs-native.ps1`（宿主 MS 原生库）②`docker compose build web`
+（web 镜像按本仓源码构建；MS 为宿主进程，非 compose 服务）。
 
 ## 手动流程
 
@@ -129,7 +129,7 @@ luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合�
 
 ## imdl worker 快照检查单（2026-10-23 起，每次同步必办）
 
-- **重拷 web-next worker 快照**：`cp itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js luban-cad/apps/web-next/public/scripts/`（源=`core/frontend/lib/public/scripts/`；worker 与 lib/esm 主包须同轮构建成对，上游同步/rush 重编译后不重拷即版本漂移——`apps/web-next/Dockerfile` 构建尾有 cmp 字节对齐断言，漂移即构建红；同 apps/web 先例，机理见 `luban-cad/apps/web-next/README.md`「public/scripts」节）。
+- **重拷 web worker 快照**：`cp itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js luban-cad/apps/web/public/scripts/`（源=`core/frontend/lib/public/scripts/`；worker 与 lib/esm 主包须同轮构建成对，上游同步/rush 重编译后不重拷即版本漂移——`apps/web/Dockerfile` 构建尾有 cmp 字节对齐断言，漂移即构建红；机理见 `luban-cad/apps/web/README.md`「public/scripts」节）。
 
 ## 旧应用拷贝检查单（2026-10-29 起，每次同步必办）
 

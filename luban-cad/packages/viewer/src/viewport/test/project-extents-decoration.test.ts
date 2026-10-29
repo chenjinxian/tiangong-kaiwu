@@ -1,4 +1,4 @@
-// project-extents-decoration（web-next M4 Task 2，D4 必办挂账）：项目范围线框盒
+// project-extents-decoration（M4 Task 2，D4 必办挂账）：项目范围线框盒
 // 装饰件移植验收——toggle 开关状态机 + decorate 绘制行为 + toolId 钉死（Agent
 // 复用规约：同 toolId 禁第二套，类名/toolId 与旧应用一致）。
 // mock 口径：@itwin/core-frontend 模块级 mock（viewManager.addDecorator 可观测、

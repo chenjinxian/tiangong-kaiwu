@@ -48,8 +48,8 @@ const SEED_PREFIX = 'perf-seed-';
 /** 本轮证据目录：run-<UTC 时间戳> 子目录——同轮两探针归档一处，跨轮永不覆盖。 */
 const RUN_STAMP = new Date().toISOString().replace(/[:.]/g, '-');
 
-/** 本文件位置（web-next 是 ESM 包——__dirname 不可用，锚 import.meta.url，
- * M-6：非 apps/web-next cwd 起跑也写对地方）。 */
+/** 本文件位置（apps/web 是 ESM 包——__dirname 不可用，锚 import.meta.url，
+ * M-6：非 apps/web cwd 起跑也写对地方）。 */
 const SPEC_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 /** 证据根（锚定本文件位置；PERF_EVIDENCE_DIR 可整体改指向）。 */

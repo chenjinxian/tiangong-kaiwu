@@ -8,7 +8,7 @@
 
 借助图形建模平台(itwinjs-core 底层逻辑 + 丹青渲染引擎)实现的**生成式 CAD**:文生 3D,且生成的是**可用于工业制造的真实 BRep**(真形),不是通用大模型的 Mesh 玩具。
 
-本仓(`luban-cad/`)是产品应用侧:前端宿主 + 共享包 + 引擎模块。建模后台与 webhook 代理的源码在私有仓,本应用经其发布产物运行(见根 README 的起栈流程)。
+本仓(`luban-cad/`)是产品应用侧:前端宿主 + 共享包 + 建模基座。建模后台与 webhook 代理的源码在私有仓,本应用经其发布产物运行(见根 README 的起栈流程)。
 
 ## 组件关系
 
@@ -21,21 +21,20 @@
 
 ```
 luban-cad/
-├── apps/web/            # 前端宿主(React 18 + Vite)
-│   ├── app/             #   引导/Provider/路由表(入口 main.tsx → App.tsx)
-│   ├── src/pages/       #   页面实体(Documents/ITwinDetail/Editor/Login/Settings…)
-│   ├── features/        #   功能模块(editor/sketch/modeling/measurement/version-control…)
-│   ├── shared/          #   服务客户端与公共件
-│   └── e2e/             #   Playwright(53 用例,种子库自管每轮重置)
-├── packages/
-│   ├── shared/          #   @luban-cad/shared:前后端共享 RPC 接口与 DTO
-│   ├── viewer-core/     #   briefcase 连接/视口/hub 访问等编辑器基建
-│   ├── web-viewer/      #   WebInitializer(IModelApp 启动/RPC 注册/AccuSnap)
-│   └── config/          #   共享工程配置
-└── modules/             #   core/ui 模块
+├── apps/web/                 # 前端宿主(React 18 + Vite + Playwright;包名 @luban-cad/web)
+│   ├── src/app/              #   引导/Provider/错误边界/路由守卫(入口 main.tsx → App.tsx)
+│   ├── src/modules/          #   领域模块(authentication/documents/document-details/part-studio/settings)
+│   ├── src/clients/          #   官方 iTwin REST 客户端封装
+│   ├── src/{common,config,routes,styles}/
+│   ├── e2e/                  #   Playwright(按页 spec + 键盘流/视觉钉版/性能探针;种子库自管每轮重置)
+│   └── demo-full-flow.cjs    #   全流程演示脚本(可见浏览器)
+└── packages/
+    ├── shared/               #   @luban-cad/shared:前后端共享 RPC 接口与 DTO
+    ├── viewer/               #   @luban-cad/viewer:iTwin 启动序列/RPC/工具与视口基座
+    └── editor/               #   @itwin/editor-*:第一方建模基座(2026-10-22 自 fork 收编)
 ```
 
-底座 itwinjs-core 以 `link:` 源码方式消费;自定义改动台账见根 `docs/ITWINJS_CORE_MODIFICATIONS.md`。
+底座 itwinjs-core 以 `link:` 源码方式消费;自定义改动台账见根 `docs/ITWINJS_CORE_MODIFICATIONS.md`。历史结构变更见根 `docs/MIGRATION-2026-10-29.md`。
 
 ## 功能状态(节选)
 
@@ -58,15 +57,15 @@ luban-cad/
 cd luban-cad
 corepack pnpm@10 install        # 勿用 pnpm 12(锁文件格式不兼容)
 cd apps/web
-corepack pnpm@10 dev            # 前端 :3000(代理 /auth /itwins /imodels…→:4000;MS 直连 :4001)
+corepack pnpm@10 dev            # 前端 :5300(vite 同源代理 /auth /itwins /imodels…→hub :5400;/ipc /ws /rpc /api→MS :5401)
 ```
 
 | 命令(apps/web 内) | 用途 |
 |---|---|
-| `pnpm test` | vitest 单测全量(约 600 用例) |
-| `pnpm test:e2e` | Playwright 53 用例(需栈+vite dev;workers=1) |
+| `pnpm test` | vitest 单测全量 |
+| `pnpm test:e2e` | Playwright 全量 e2e(需真实栈 + 前端 dev;workers=1) |
 | `pnpm build` / `pnpm lint` | 生产构建 / eslint |
-| `node demo-flow.mjs` | 24 幕全流程演示(可见浏览器;四类型特征建链→倒序改参→撤销/抑制→重开终审;圆角选边含 DIAG 仪器) |
+| `node demo-full-flow.cjs` | 全流程演示(可见浏览器;默认打 nginx :5301 部署形态) |
 
 改动 `itwinjs-core/` 源码后需 Rush 重建(`node common/scripts/install-run-rush.js build --to <包>`),否则应用端看不到效果;改动 `packages/shared` 后需 `pnpm build` 该包(后端 link: 消费其 dist)。
 

@@ -1,14 +1,14 @@
-# web-next 真实栈探针标准动作（发布前必跑）
+# web 真实栈探针标准动作（发布前必跑）
 
 - 建立日期：2026-10-23（M5-T8，承接 M4 终审 §五 P2「真实栈探针清单制度化」）
-- 适用面：`luban-cad/apps/web-next`（web-next 重写线，:5310）；切换/发布门禁的标准动作清单
-- 资产定位：探针脚本**原地保留**在 `.superpowers/sdd/<战役>/shots/`（git-ignored，跨 workspace 只读引用，不搬移）；本文是它们的清单化索引——散落 .mjs 从「一次性脚本」升格为「可复跑资产」。`.superpowers/` 属 git-ignored 证据区，**本文所引脚本不随仓分发**；复跑须在同机证据区在场的前提下进行，缺现场时按本文「脚本要点」重建。
+- 适用面：`luban-cad/apps/web`（前端宿主，:5300）；切换/发布门禁的标准动作清单
+- 资产定位：探针脚本**原地保留**在 `.superpowers/sdd/<战役>/shots/`（git-ignored，跨 workspace 只读引用，不搬移）；本文是它们的清单化索引——散落 .mjs 从「一次性脚本」升格为「可复跑资产」。`.superpowers/` 属 git-ignored 证据区，**本文所引脚本不随仓分发**；复跑须在同机证据区在场的前提下进行，缺现场时按本文「脚本要点」重建。证据路径中的 `web-next` 是历史战役目录名（物理目录未改名），不代表当前代码目录（当前为 `luban-cad/apps/web`）。
 
 ## 头注：「jsdom 绿 ≠ 真实可用」
 
 M4 实测学费：结构测试 19 绿 vs 真实栈冒烟 6 缺陷（Escape 全 app 死效、notifications 哑通道、undo/redo 呈现断链、pushChanges 未实现等全部在 jsdom 全绿下漏网——jsdom 无真实 keydown 传播链、无 core-frontend 真单例、无 MS briefcase/IPC）。**三层测试（jsdom 单测 / e2e 七页 / 真实栈探针）中只有本文六组探针直接消费真实栈（hub :5400 + MS :5401 + 真浏览器）**。
 
-- **发布前必跑**：web-next 切换/发布门禁每轮必过本文六组；六组全 PASS（或失败项全部有在案缺陷登记且非本波次引入）方为绿。
+- **发布前必跑**：web 切换/发布门禁每轮必过本文六组；六组全 PASS（或失败项全部有在案缺陷登记且非本波次引入）方为绿。
 - **诚实纪律**：探针断即登记断点与证据，不弱化断言凑绿（M4-T9 铁律）；性能门禁不达标如实红，不调阈值（perf.md 纪律）。
 
 ---
@@ -20,10 +20,10 @@ M4 实测学费：结构测试 19 绿 vs 真实栈冒烟 6 缺陷（Escape 全 a
 docker compose up -d
 # 2) MS 宿主 :5401（产物模式）
 powershell -File scripts/start-ms-host.ps1 -Detach
-# 3) 全栈验收（health×5 → 数据链 → WS cookie 握手 → dev-build 横幅）——14/14 方可继续
+# 3) 全栈验收（health×5 → 数据链 → WS cookie 握手 → dev-build 横幅）——全绿方可继续
 powershell -File scripts/verify-stack.ps1
-# 4) web-next dev :5310（探针全部打 :5310；建议新起——长会话 dev server 有整页空白前科，见 §7）
-cd luban-cad/apps/web-next && corepack pnpm@10 dev
+# 4) web dev :5300（探针全部打 :5300；建议新起——长会话 dev server 有整页空白前科，见 §7）
+cd luban-cad/apps/web && corepack pnpm@10 dev
 ```
 
 ### 会话注入（两通道）
@@ -32,7 +32,7 @@ cd luban-cad/apps/web-next && corepack pnpm@10 dev
 
 | 通道 | 用法 | 会话缓存 |
 |---|---|---|
-| e2e 套件内 | `helpers.loginWithSession(page)`——消费 `auth.setup.ts` API 取 token 产物 | `apps/web-next/playwright/.auth/session.json` |
+| e2e 套件内 | `helpers.loginWithSession(page)`——消费 `auth.setup.ts` API 取 token 产物 | `apps/web/playwright/.auth/session.json` |
 | 裸探针（.mjs） | `p1fix-session-helper.mjs` 的 `getSession()`——独立缓存，**不与套件共用**（防 refresh 旋转互毒，见 §7-③） | `.superpowers/sdd/2026-10-22-web-next-m4-part-studio-connection/shots/p1fix-session.json` |
 
 裸探针驱动的公共形态（借 apps/web 的 @playwright/test 驱动）：
@@ -40,7 +40,7 @@ cd luban-cad/apps/web-next && corepack pnpm@10 dev
 ```js
 const requireFromWeb = createRequire('D:/Github/tiangong-kaiwu/luban-cad/apps/web/package.json');
 const { chromium } = requireFromWeb('@playwright/test');
-// … getSession() → page.addInitScript 注入 sessionStorage 'luban-next-auth' → page.goto(:5310/documents/<itwinId>/<imodelId>)
+// … getSession() → page.addInitScript 注入 sessionStorage 'luban-next-auth' → page.goto(:5300/documents/<itwinId>/<imodelId>)
 ```
 
 ### auth 限流预算（T5 评审 I-1 运营约束，切换期高频复跑必读）
@@ -70,7 +70,7 @@ hub 实测限流（IP+email 双桶）：**注册 3/h、登录 5/15min**（forgot
 | 脚本 | 快速复测版 `.superpowers/sdd/2026-10-22-web-next-m4-part-studio-connection/shots/p1fix-escape-probe.mjs`（①②③，树菜单两轮）；6 目标全量版 `t9-smoke.mjs` P2 段；缺陷发现史 `review8-escape-probe{,2,3}.mjs`（2026-10-22 review-8 的取证序列，留档不复跑） |
 | 复现 | `node p1fix-escape-probe.mjs`（exit 0=全收合）；全量版跑 `node t9-smoke.mjs`（P2 段） |
 | PASS 判据 | 每目标：开 → `Escape` ×1 → 对应 menu/dialog 计数 0（`waitForTimeout(400)` 落定后取数）；树菜单两轮连续通过（防首关后复开不关）；FeatureDialog 走 `aria-modal=false` 非模态面板同样 Escape 可收 |
-| 缺陷背景 | review-8 I-1（P1）：`viewer-next/src/tools/keyboard-shortcuts.ts` window 捕获段 `preventDefault+stopPropagation` 把 Escape 在抵达一切冒泡段 dismissal 处理器前杀死（全 app 死效）+ iTwinUI Dialog 缺省不夺焦（TabManagerDialog 焦点不在对话框内则 onKeyDown 永不可达）。修复=p1-fix 波（去拦断 + `setFocus` 三对话框）；jsdom 对照用例 4 条先红后绿在库 |
+| 缺陷背景 | review-8 I-1（P1）：`packages/viewer/src/tools/keyboard-shortcuts.ts` window 捕获段 `preventDefault+stopPropagation` 把 Escape 在抵达一切冒泡段 dismissal 处理器前杀死（全 app 死效）+ iTwinUI Dialog 缺省不夺焦（TabManagerDialog 焦点不在对话框内则 onKeyDown 永不可达）。修复=p1-fix 波（去拦断 + `setFocus` 三对话框）；jsdom 对照用例 4 条先红后绿在库 |
 | 最近结果 | **2026-10-22 PASS**——p1fix-escape-probe 修复复测 `{"treeMenuEscape":0,"treeMenuEscapeRound2":0,"canvasMenuEscape":0,"tabManagerDialogEscape":0}`；6 目标全量版（t9 P2 段）修复前最后一轮 FAIL=缺陷现场实证，修复后整段归入 §5 冒烟复跑 |
 
 ## §3 toast 可见性（notifications 呈现桥）
@@ -80,7 +80,7 @@ hub 实测限流（IP+email 双桶）：**注册 3/h、登录 5/15min**（forgot
 | 脚本 | `.superpowers/sdd/2026-10-22-web-next-m4-part-studio-connection/shots/p1fix-notifications-probe.mjs`（I-2 修复复测）；真实调用点捕获版 `t9-smoke.mjs` P3 段（S5/S7 真实 outputMessage 优先，合成直发兜底且如实标注「合成源」） |
 | 复现 | `node p1fix-notifications-probe.mjs`（产物 `p1fix-notifications-log.json` + `p1fix-notifications-toast.png`） |
 | PASS 判据 | ①注入面：运行中 `IModelApp.notifications.constructor.name === 'ToasterNotificationManager'`（缺省是 core 哑通道 `NotificationManager`——outputMessage 空实现，一切消息不可见）；②呈现面：经 `IModelApp.notifications.outputMessage(new NotifyMessageDetails(Error/Warning, …))` 发消息 → `[class*="toast"]` 落 DOM（negative/warning 类别齐）→ 截图。业务链路（工具激活失败/推送结果）由 §5 冒烟 S5/S7 捕获真实 toast 兜证 |
-| 缺陷背景 | review-8 I-2（P1）：core-frontend `NotificationManager.outputMessage` 空实现且无子类注册——registrationFailed、FeatureDialog/PushChangesetDialog 消息、工具错误面全部静默。修复=viewer-next `StartViewerOptions.notifications` 官方注入点透传 + app 层 `ViewerNotifications.tsx` 四件套（ToasterNotificationManager/单例/Bridge/priority→toast 类别映射） |
+| 缺陷背景 | review-8 I-2（P1）：core-frontend `NotificationManager.outputMessage` 空实现且无子类注册——registrationFailed、FeatureDialog/PushChangesetDialog 消息、工具错误面全部静默。修复=`packages/viewer` 的 `StartViewerOptions.notifications` 官方注入点透传 + app 层 `ViewerNotifications.tsx` 四件套（ToasterNotificationManager/单例/Bridge/priority→toast 类别映射） |
 | 最近结果 | **2026-10-22 PASS**——managerName=ToasterNotificationManager；Error→negative + Warning→warning 双 toast 落 DOM（`p1fix-notifications-log.json`） |
 
 ## §4 树刷新 / undo 呈现（特征链可视化闭环）
@@ -107,8 +107,8 @@ hub 实测限流（IP+email 双桶）：**注册 3/h、登录 5/15min**（forgot
 
 | 项 | 内容 |
 |---|---|
-| 脚本 | `luban-cad/apps/web-next/e2e/perf.spec.ts`（**常驻 Playwright spec**，非 .mjs）——①编辑器首帧 <5s（goto→「已连接」+canvas 在场 ≡ waitEditorReady 双锚；rAF in-page 采样；锚点=canvas 挂载/建帧完成，**非 tile 几何首帧**；三跑取中位）②Documents 百行滚动帧率（API 自建 100 行 perf-seed-* → rAF 采样 → p95 帧间隔） |
-| 复现 | `cd luban-cad/apps/web-next && corepack pnpm@10 exec playwright test e2e/perf.spec.ts`。**门禁轮纪律（T7）**：新起 dev server（吃真冷载+防长会话劣化）+ 整文件执行（编辑器用例在文件内先跑=冷值纪律进结构）+ fresh browser context 每跑 |
+| 脚本 | `luban-cad/apps/web/e2e/perf.spec.ts`（**常驻 Playwright spec**，非 .mjs）——①编辑器首帧 <5s（goto→「已连接」+canvas 在场 ≡ waitEditorReady 双锚；rAF in-page 采样；锚点=canvas 挂载/建帧完成，**非 tile 几何首帧**；三跑取中位）②Documents 百行滚动帧率（API 自建 100 行 perf-seed-* → rAF 采样 → p95 帧间隔） |
+| 复现 | `cd luban-cad/apps/web && corepack pnpm@10 exec playwright test e2e/perf.spec.ts`。**门禁轮纪律（T7）**：新起 dev server（吃真冷载+防长会话劣化）+ 整文件执行（编辑器用例在文件内先跑=冷值纪律进结构）+ fresh browser context 每跑 |
 | PASS 判据 | ①首帧中位 <5000ms（硬门）；②滚动 p95 ≤18.2ms（≈55fps 底线；60fps 目标 p95≈16.7ms）。**零阈值调整**——不达标如实红，登记 perf.md 判定与瓶颈分析 |
 | 证据链纪律（T7 评审 C-1/I-1） | 证据落 `<仓根>/.superpowers/sdd/2026-10-22-web-next-m5-cutover-sprint/perf-samples/run-<UTC 时间戳>/`——**每轮独立子目录永不覆盖**（固定文件名曾被全套件回归重跑静默覆盖门禁轮证据=v1 证据链断裂根因）；`PERF_EVIDENCE_DIR` 可整体改指向；路径锚 `import.meta.url` 非 cwd。**隔离复跑防自污染**：全套件回归会连带重跑本探针，门禁轮证据必须来自独立轮（新起 dev server + 单独跑本文件），不得引用回归轮数据充当门禁证据 |
 | 最近结果 | **2026-10-22 双 PASS**（T7 v2 门禁轮，run-2026-10-22T19-41-54-981Z）：滚动 p95 **16.8ms**（366 样本，≥18.2ms ×0 零掉帧，锁死 60Hz vsync）；首帧中位 **3932ms**<5s（余量 21.4%；冷 2224/热 3932·4171——T8 评审 M-1 订正：三跑原值以门禁轮 `perf-samples/run-…/editor-first-frame.json` 为准）。已知风险在案：D-T7-3 后续访惩罚 ~1.7-2s 机制未钉死，热中位带 3.6-4.7s 摆幅 ±12%——慢 CI 余量收窄，钉死后收紧协议不动阈值。登记全文 `​.superpowers/sdd/2026-10-22-web-next-m5-cutover-sprint/perf.md`（v2；v1 数字作废） |

@@ -5,11 +5,11 @@ export { ensureAccuSnap } from './tools/ensure-accusnap.js';
 // 注入 startup——不静态引出（ensureEditTools 同款口径：class extends AccuSnap
 // 会把基类存在性强加给每个 barrel 消费方的 core-frontend mock 面）。
 // M3 Task 3：React 宿主 hook——viewport 挂载 ref + 运行时接线；M4 Task 2 起
-// 扩 ScreenViewport 创建主链（web-next PartStudioCanvas 经 viewportRef/viewport 消费）。
+// 扩 ScreenViewport 创建主链（apps/web PartStudioCanvas 经 viewportRef/viewport 消费）。
 export { useViewport } from './viewport/use-viewport.js';
 export type { UseViewportOptions, UseViewportResult, ViewportPhase } from './viewport/use-viewport.js';
 // M4 Task 2：Onshape 式视口底色（纯应用函数；data-theme 的 MutationObserver
-// 接线在消费侧 apps/web-next PartStudioPage）。
+// 接线在消费侧 apps/web PartStudioPage）。
 export { applyViewportBackground } from './viewport/theme-background.js';
 export type { ViewportTheme } from './viewport/theme-background.js';
 // M4 Task 2：项目范围装饰件（D4 必办挂账；ToggleProjectExtentsTool 供 T3 注册表）。

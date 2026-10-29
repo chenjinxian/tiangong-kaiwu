@@ -1,8 +1,8 @@
 /**
  * Copyright (c) LubanCAD. All rights reserved. Licensed under the MIT License.
  *
- * web-next 编辑工具注册表（web-next M4 Task 3）——旧应用
- * apps/web/features/editor/registerTools.ts registerAllTools() 的同源裁剪移植：
+ * 编辑工具注册表（M4 Task 3）——旧应用
+ * features/editor/registerTools.ts registerAllTools() 的同源裁剪移植：
  * `EditTools.initialize()` 前置 + 按旧表分组序注册 + registerDefaultShortcuts
  * 子集（见 keyboard-shortcuts.ts）。分组序一处对调已登记：旧表裁剪 5 在测量 6
  * 之前，新表按简报钉序（测量 6 → 裁剪 5）对调。幂等：模块级 flag，仅成功后
@@ -19,20 +19,20 @@
  *  - 鲁班草图链 11 工具（绘制 3：SketchLineTool/SketchRectangleTool/
  *    SketchCircleTool + 约束 6：Coincident/Horizontal/Vertical/Parallel/
  *    Perpendicular/Equal + 尺寸 2：Distance/Radius，旧 features/sketch/tools/*）：
- *    **绘制面已由 M6-a T5 收口**——web-next 侧 tools/sketch/SketchCreateTool.ts
+ *    **绘制面已由 M6-a T5 收口**——apps/web 侧 tools/sketch/SketchCreateTool.ts
  *    四件（Sketch.Line/Sketch.Rectangle/Sketch.CenterCircle/Sketch.Arc3Point，
- *    含新增 3 点弧）经 registerSketchTools 在 PartStudioPage 注册（viewer-next
+ *    含新增 3 点弧）经 registerSketchTools 在 PartStudioPage 注册（packages/viewer
  *    不反向依赖 app 模块）；约束 6 + 尺寸 2 挂账依旧（F3 约束/尺寸工具任务）。
  *  - 选择 5 工具（FenceSelect/SelectAll/Invert/ClearSelection/SelectByCategory，
  *    旧 src/core/tools/SelectionTools.ts）：简报未列——命令面板接线里程碑移植；
  *  - 剖切 2 工具（SectionByPlane/ClearSection，旧 src/core/section/SectionTools.ts）：
  *    同上挂账；
  *  - 装饰 3 工具（ToggleACS/ToggleGrid/GridSettings，旧 src/core/decorations/*）：
- *    ToggleProjectExtents 已由 viewer-next M4-T2 移植并在册，其余挂账；
+ *    ToggleProjectExtents 已由 M4-T2 移植并在册，其余挂账；
  *  - 动画 2（CameraWalk/FlyToSelection）与渲染 3（SetRenderMode/ToggleAO/
  *    ToggleShadows，旧 src/core/animation|rendering/*）：挂账同上；
  *  - `tools.run('AccuDraw.SessionToggle')`（旧表顺手启动项）：AccuDraw 工具族
- *    未入注册表，跳过；AccuSnap snap/locate 使能已由 viewer-next
+ *    未入注册表，跳过；AccuSnap snap/locate 使能已由本包
  *    ensureAccuSnap（M4-T2）覆盖；
  *  - 旧 useUndoManager（旧 src/core/undo/UndoManager）：M4-T4 走 BriefcaseTxns
  *    标准通道（connection.txns + tools.run('Undo'/'Redo')），不移植。
@@ -63,7 +63,7 @@ import {
   ChamferEdgesTool,
   // —— 以下 5 项为 M4-T3 移植四工具（DraftFaces/CreateHole/MirrorElements/
   //    LinearPattern/CircularPattern），2026-10-22 随 editor 模块收编由
-  //    viewer-next src/tools/modeling/ 迁入 @itwin/editor-frontend src/luban/
+  //    旧查看器包 src/tools/modeling/ 迁入 @itwin/editor-frontend src/luban/
   //    modeling/，改从其导出面供给（建模功能归位第一方建模基座）——
   CircularPatternTool,
   CopyElementsTool,
@@ -186,7 +186,7 @@ function registerAllTools(): void {
   IModelApp.tools.register(ViewClipByRangeTool);
   IModelApp.tools.register(ViewClipByElementTool);
 
-  // ── 装饰（viewer-next 移植件；ACS/网格装饰见头注挂账）────────────────────
+  // ── 装饰（查看器包移植件；ACS/网格装饰见头注挂账）────────────────────
   IModelApp.tools.register(ToggleProjectExtentsTool);
 
   // ── 快捷键子集（Undo/Redo/Delete/Escape；全表移植延后）──────────────────
