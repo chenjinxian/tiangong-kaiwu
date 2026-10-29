@@ -19,7 +19,7 @@
 - 最终目标名称：`apps/web`、`@luban-cad/web`、`packages/viewer`、`@luban-cad/viewer`。
 - 分支名 `web-next-m0` 不改；浏览器存储键 `luban-next-*` 不改。
 - e2e 需要干净的 MS 100 req/15min 窗口；全量前重启 MS。
-- main 仓当前基线：`84e7c6e`（cleanup spec）；工作区 clean 后开始。
+- main 仓当前基线：`142cda8`（cleanup plans）；工作区 clean 后开始。
 
 ---
 
@@ -57,7 +57,7 @@ foreach ($repo in $repos) {
 }
 ```
 
-Expected: main clean at `84e7c6e`; backend/hub/platform-docs/imodel-native/DanQing clean;
+Expected: main clean at `142cda8`; backend/hub/platform-docs/imodel-native/DanQing clean;
 acis not included. Create local tags only:
 
 ```powershell
