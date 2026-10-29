@@ -173,8 +173,6 @@ services:
       MAIL_PORT: "1025"
       AZURE_BLOB_ENDPOINT: http://azurite:10000/devstoreaccount1
       AZURITE_BLOB_ENDPOINT: http://azurite:10000/devstoreaccount1
-      AZURITE_QUEUE_ENDPOINT: http://azurite:10001/devstoreaccount1
-      AZURITE_TABLE_ENDPOINT: http://azurite:10002/devstoreaccount1
       AZURITE_ACCOUNT_NAME: devstoreaccount1
       AZURITE_ACCOUNT_KEY: ${AZURITE_ACCOUNT_KEY:-Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==}
       AZURE_ACCOUNT_NAME: devstoreaccount1
@@ -196,6 +194,10 @@ services:
       # 也要求该值就位。存量 refresh 令牌随值变化失效，重新登录即可。
       AUTH_REFRESH_TOKEN_EXPIRES_IN: ${AUTH_REFRESH_TOKEN_EXPIRES_IN:-30d}
       WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SECRET:?WEBHOOK_SECRET missing in root .env}
+      # Webhook seed 自 P1#31 起为显式开关；栈内用容器名回调（容器内 4002，非宿主 5402）。
+      # WEB_AGENT_URL 同时供 baseline/process 调用。
+      WEB_AGENT_URL: http://webhook-agent:4002
+      WEBHOOK_SEED_CALLBACK_URL: http://webhook-agent:4002/webhook/events
       SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:?IMODELHUB_ADMIN_PASSWORD missing in root .env (run scripts/generate-env.ps1)}
     depends_on:
       postgres:

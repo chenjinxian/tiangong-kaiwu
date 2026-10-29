@@ -1,5 +1,12 @@
 # Webhook 配置说明
 
+> **当前行为（2026-10-30，P1#31）**：imodelhub 的 webhook seed 已改为**显式开关**，不再按 `NODE_ENV` 隐式创建。
+>
+> - 开启方式二选一：`WEBHOOK_SEED_ENABLED=true`，或给 `WEBHOOK_SEED_CALLBACK_URL`（桶内栈用 `http://webhook-agent:4002/webhook/events`）。
+> - seed 以 callback URL 幂等；重复执行不重复创建。
+> - 生产环境启用时，`WEBHOOK_SIGNING_SECRET` 缺失或为公开默认值（`change-this-secret-in-production` 等）会**拒绝执行**；必须使用根 `generate-env.ps1` 生成的随机密钥。
+> - 根 `docker-compose.yml` 已为 hub 容器设置上述回调与 `WEB_AGENT_URL`；升级 hub 镜像后无需手工建订阅。下方手工 SQL 仅作旧镜像/离线兜底。
+
 ## 问题背景
 
 iModelHub Services 和 Webhook Agent 之间需要共享同一个 Webhook Secret 来验证签名。如果两者不匹配，iModel 初始化会失败。
@@ -99,7 +106,7 @@ cd webhook-agent && node dist/main.js
 
 ### 步骤 4: 创建新的 webhook subscription
 
-重启 imodelhub-services 时会自动创建新的 subscription。
+重启 imodelhub-services 时，只有显式配置 `WEBHOOK_SEED_ENABLED=true` 或 `WEBHOOK_SEED_CALLBACK_URL` 才会创建/复用订阅；根 compose 已配置后者。旧镜像或未配置时，可用下方手工 SQL 兜底。
 
 或者手动创建：
 
