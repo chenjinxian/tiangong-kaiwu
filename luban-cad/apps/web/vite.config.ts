@@ -10,7 +10,7 @@ export default defineConfig({
     exclude: ['@luban-cad/viewer', '@luban-cad/shared', '@itwin/core-frontend', '@itwin/core-geometry', '@itwin/core-common'],
   },
   server: {
-    // C2 退役（2026-10-26）：web-next 迁入 :5300（apps/web 删除，docs/PORTS.md 既定方案；
+    // C2 退役（2026-10-26）：新 web 迁入 :5300（旧 apps/web 删除，docs/PORTS.md 既定方案；
     // 过渡期暂驻的 :5310 退役）。
     port: 5300,
     strictPort: true,
@@ -27,7 +27,7 @@ export default defineConfig({
       // 钉死值同源，但同源代理姿态仍保持（部署形态恒经代理，不做 dev 直连特例）。
       // 前缀取证于 main.js Express 注册：
       // - /ipc（express-ws，LocalhostIpcHost 的 BriefcaseConnection 通道，
-      //   viewer-next buildUrlForSocket 拼 ws://<origin>/ipc）；
+      //   viewer buildUrlForSocket 拼 ws://<origin>/ipc）；
       // - /ws（进度广播通道，verifyClient 同样鉴 JWT）；
       // - /rpc/metadata（OpenAPI bootstrap，HTTP）；
       // - /api/*（/api/imodels/:id/progress 等用户态查询面）。

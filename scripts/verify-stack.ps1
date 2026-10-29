@@ -48,7 +48,7 @@
 #   不扣退出码（诚实报告而非硬门，功能是否受损由 A-D 判定）。
 #   源范围（W1-I5）：`luban-cad` + `itwinjs-core` 两个整目录——Dockerfile 复制
 #   整个 luban-cad/ 并消费其 pnpm-lock.yaml / package.json / pnpm-workspace.yaml /
-#   docker-closure.cjs，只盯 apps/web-next + packages 会漏掉这些构建输入。
+#   docker-closure.cjs，只盯 apps/web + packages 会漏掉这些构建输入。
 # ============================================================
 [CmdletBinding()]
 param(
@@ -559,7 +559,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         # --- 源侧：最新 web 源提交 sha + 时间（W1-I5：luban-cad + itwinjs-core
         #     两个整目录——Dockerfile 复制整个 luban-cad/，并消费 pnpm-lock.yaml /
         #     package.json / pnpm-workspace.yaml / docker-closure.cjs；只盯
-        #     apps/web-next + packages 会误判「新鲜」。非 git 检出优雅降级为只报告）。
+        #     apps/web + packages 会误判「新鲜」。非 git 检出优雅降级为只报告）。
         #     口径不是仓库 HEAD——docs/scripts 等非 web 提交不应判旧（2026-10-27）---
         $srcLine = [string](@(Get-NativeOut { git -C $RepoRoot log -1 --format='%H|%cI' -- luban-cad itwinjs-core })[0])
         $headSha = ''

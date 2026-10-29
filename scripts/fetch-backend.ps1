@@ -16,7 +16,7 @@
 #       Windows 10+ 自带 tar。
 #
 # 【web 镜像注记（B2，2026-10-26）】compose 的 web 前端是**本仓 build**（非
-# GHCR 拉取），compose pull 不更新它——拉完产物若 web-next/itwinjs-core 源有
+# GHCR 拉取），compose pull 不更新它——拉完产物若 web/itwinjs-core 源有
 # 更新，镜像会停在旧源。默认行为不变（尾部提示一行）；-RebuildWeb 联动执行
 # scripts/rebuild-web.ps1 重建。
 # ============================================================

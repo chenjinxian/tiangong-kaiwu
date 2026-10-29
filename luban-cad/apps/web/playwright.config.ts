@@ -2,11 +2,11 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * web-next e2e 独立 config（M5-T5，切换门禁第 1 条「七页 e2e 全绿」的载体）：
- * - baseURL :5300（web-next dev server，vite.config.ts 同端口——C2 退役迁入，
+ * web e2e 独立 config（M5-T5，切换门禁第 1 条「七页 e2e 全绿」的载体）：
+ * - baseURL :5300（web dev server，vite.config.ts 同端口——C2 退役迁入，
  *   过渡期 :5310 已废；webServer 复用在场实例——常态开发态 dev 已在跑，不重复起进程）；
  * - workers=1 + retries 0（红即真红；编辑器用例共享 MS briefcase/WebGL 资源，
- *   串行是旧应用 2026-10-03 实测纪律，web-next 沿用）；
+ *   串行是旧应用 2026-10-03 实测纪律，web 沿用）；
  * - projects：setup（auth.setup.ts，API 取 token 零限流消耗）→ chromium 依赖
  *   setup——消费方经 helpers.loginWithSession 注入 sessionStorage
  *   `luban-next-auth`（M3-T8/M4-T9 会话注入手法，MS 登录限流 100/15min）；

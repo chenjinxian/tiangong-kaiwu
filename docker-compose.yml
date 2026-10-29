@@ -22,7 +22,7 @@
 #   host.docker.internal:5401 访问本进程。
 #   imodelhub / webhook-agent 为 GHCR 预构建镜像（镜像构建属私有仓
 #   luban-backend 的事务，不进本仓）；本 compose 的 build: 仅 bff 与 web
-#   （web=M5-T9 切换冲刺起本仓构建 web-next，上下文=仓库根）。
+#   （web=M5-T9 切换冲刺起本仓构建 web，上下文=仓库根）。
 #
 # 【imodeljs 原生库范围注记 —— spec §4.4 / module-governance 2026-10-11】
 #   scripts/replace-imodeljs-native.ps1 的本地 imodeljs.node 替换**仅属宿主 Windows
@@ -38,7 +38,7 @@
 #   imodelhub                              本地 iModel 管理平台 :5400（GHCR 镜像，容器内 4000）
 #   webhook-agent                          :5402（GHCR 镜像，容器内 4002）
 #   bff                                    栈内 :5403 BFF 薄层（本仓 build——Ruling 见服务注记）
-#   web                                    前端静态 :3000（仅栈内；本仓 build=web-next，
+#   web                                    前端静态 :3000（仅栈内；本仓 build=web，
 #                                          M5-T9 切换冲刺起接管）
 #   nginx                                  统一入口 :5301（容器内 80）
 #   modeling-server                        宿主 :5401（start-ms-host.ps1 拉起，非 compose 服务）
@@ -143,7 +143,7 @@ services:
       # 侧根治：/health* 全桶免疫 + auth/strict-auth 桶经桶级 skipIf 收敛到 /auth*，
       # 业务路由只剩 short(200/min)+long(2000/h)（可用 THROTTLER_*_LIMIT 环境变量调参）。
       # e2e 语义保留给 CI 独立测试栈（imodelhub 仓 docker-compose.relational.test.yaml）。
-      # 本地 e2e 压力调参（M5-T5）：web-next e2e 全套件 + MS 每连接 /auth/me 校验
+      # 本地 e2e 压力调参（M5-T5）：web e2e 全套件 + MS 每连接 /auth/me 校验
       # 同走 127.0.0.1 一只桶，200/min 实测不够 → 429 连坐 MS wsAuth（429 被当
       # invalid 缓存 60s）→ 编辑器 WS 拒绝。经 hub 预留的 THROTTLER_*_LIMIT 调参
       # 面透传；根 .env 缺省时保持官方 200/2000 不变（零行为漂移）。
@@ -255,23 +255,23 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # web 前端（栈内 :3000，经 nginx 单入口暴露）—— 本仓 build = web-next
+  # web 前端（栈内 :3000，经 nginx 单入口暴露）—— 本仓 build = web
   #
-  # 【M5-T9 切换冲刺（2026-10-23）】web-next 接管 :5300/:5301：构建上下文=
-  #   仓库根（web-next 经 pnpm link: 消费 itwinjs-core 源码 + 宿主 rush 产物
+  # 【M5-T9 切换冲刺（2026-10-23）】web 接管 :5300/:5301：构建上下文=
+  #   仓库根（web 经 pnpm link: 消费 itwinjs-core 源码 + 宿主 rush 产物
   #   lib/，.dockerignore 白名单裁剪 context），Dockerfile 在
-  #   luban-cad/apps/web-next/Dockerfile（node:22-alpine 构建段 → nginx:alpine
+  #   luban-cad/apps/web/Dockerfile（node:22-alpine 构建段 → nginx:alpine
   #   静态服务段；publicPath 铁律断言 dist/scripts/parse-imdl-worker.js 在场）。
-  #   旧镜像 ghcr.io/chenjinxian/luban-web:latest（apps/web 产物）退役——
-  #   apps/web 删除（门禁全绿+用户确认）后 GHCR 管线随其一并停发。
+  #   旧镜像 ghcr.io/chenjinxian/luban-web:latest（旧 apps/web 产物）退役——
+  #   旧 apps/web 删除（门禁全绿+用户确认）后 GHCR 管线随其一并停发。
   #   【B2 2026-10-26】本服务**不随 fetch-backend/compose pull 更新**（非 GHCR
-  #   拉取）——web-next/itwinjs-core 源有更新须 scripts/rebuild-web.ps1 重建
+  #   拉取）——web/itwinjs-core 源有更新须 scripts/rebuild-web.ps1 重建
   #   （verify-stack Step E 比对镜像 revision 标签/Created 与源提交，陈旧打 WARN）。
   # ------------------------------------------------------------
   web:
     build:
       context: .
-      dockerfile: luban-cad/apps/web-next/Dockerfile
+      dockerfile: luban-cad/apps/web/Dockerfile
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
       interval: 15s

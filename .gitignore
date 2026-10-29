@@ -2,7 +2,6 @@
 node_modules/
 dist/
 lib/
-!luban-cad/apps/web/shared/lib/
 coverage/
 *.tsbuildinfo
 *.log

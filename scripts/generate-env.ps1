@@ -39,7 +39,7 @@ $envMap = [ordered]@{
   'MS_UPSTREAM'              = 'host.docker.internal:5401'
   'HUB_UPSTREAM'             = 'imodelhub:4000'
   'WA_MODELING_SERVER_URL'   = 'http://host.docker.internal:5401'
-  'HUB_ALLOWED_ORIGINS'      = 'http://localhost:5300,http://localhost:5301'  # 5300=web-next dev（C2 退役迁入）；5301=nginx 单入口
+  'HUB_ALLOWED_ORIGINS'      = 'http://localhost:5300,http://localhost:5301'  # 5300=web dev（C2 退役迁入）；5301=nginx 单入口
   'BFF_ALLOWED_ORIGINS'      = 'http://localhost:5300,http://localhost:5301'
   'WEBHOOK_SECRET'           = New-Hex 32
   'AUTH_JWT_SECRET'          = New-Hex 32

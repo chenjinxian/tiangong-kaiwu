@@ -1,12 +1,12 @@
 ﻿# ============================================================
-# rebuild-web.ps1 — 重建 compose web 镜像（本仓 build = luban-cad/apps/web-next）
+# rebuild-web.ps1 — 重建 compose web 镜像（本仓 build = luban-cad/apps/web）
 #
 # 背景（B2，2026-10-26 实证缺口）：根 docker-compose.yml 的 web 服务是
 # **本仓 build**（构建上下文=仓库根），不是 GHCR 拉取——后端发布流水线
 # （fetch-backend.ps1 的 Releases tgz + docker compose pull）不更新它。
 # 没人重建时镜像停在旧源（当日实测：镜像停 10-23、源已到 10-26；e2e 全绿
 # 是因为 e2e 跑 :5300 vite dev 源，永远看不到镜像陈旧）。C2 退役
-# （apps/web 删除、web-next 迁 :5300）后此缺口影响放大。本脚本一条命令补齐：
+# （旧 apps/web 删除、新 web 迁 :5300）后此缺口影响放大。本脚本一条命令补齐：
 #
 # 用法:
 #   powershell -File scripts/rebuild-web.ps1               # 带缓存增量重建（常态）
@@ -15,7 +15,7 @@
 # 说明:
 #   - 只 build 不 up：在跑的 web 容器不受影响；新镜像生效需随后
 #     `docker compose up -d web`（nginx 依赖 web healthy，会自动跟上）。
-#   - 构建上下文 = 本脚本所在仓库根（.dockerignore 白名单裁剪；web-next 经
+#   - 构建上下文 = 本脚本所在仓库根（.dockerignore 白名单裁剪；web 经
 #     pnpm link: 消费 itwinjs-core 源码 + 宿主 rush 产物 lib/——改了
 #     itwinjs-core 后须先 rush build 再跑本脚本，lib/ 是构建输入）。
 #   - 构建时注入 GIT_COMMIT 构建参数 → 镜像 OCI 标签
@@ -23,7 +23,7 @@
 #     消费）。注入值 = **最新 web 源提交**（W1-I5：`luban-cad` + `itwinjs-core`
 #     两个整目录——Dockerfile 复制整个 luban-cad/，并消费其 pnpm-lock.yaml /
 #     package.json / pnpm-workspace.yaml / docker-closure.cjs，只盯
-#     apps/web-next + packages 会漏构建输入），不是仓库 HEAD——docs/scripts 等
+#     apps/web + packages 会漏构建输入），不是仓库 HEAD——docs/scripts 等
 #     非 web 提交不会把镜像判旧（2026-10-27 口径修正）；手工
 #     `docker compose build web` 未注入时标签为 unknown，此时检测退化为
 #     「镜像 Created 时间 vs 最新 web 源提交时间」比较。
@@ -41,9 +41,9 @@ $env:PATH = "C:\Program Files\Docker\Docker\resources\bin;$env:PATH"  # Docker D
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw 'docker 不在 PATH —— 先启动 Docker Desktop（或重开终端让 PATH 生效）'
 }
-$dockerfile = Join-Path $RepoRoot 'luban-cad\apps\web-next\Dockerfile'
+$dockerfile = Join-Path $RepoRoot 'luban-cad\apps\web\Dockerfile'
 if (-not (Test-Path $dockerfile)) {
-    throw "web Dockerfile 不存在: $dockerfile —— 本脚本只适用于含 apps/web-next 的检出"
+    throw "web Dockerfile 不存在: $dockerfile —— 本脚本只适用于含 apps/web 的检出"
 }
 # 构建上下文硬输入：itwinjs-core 宿主 rush 产物 lib/（worker 字节断言的比对源）。
 # worktree/浅检出常无 lib/（git 不跟踪构建产物）——提前给出可操作报错，别等
