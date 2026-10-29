@@ -194,7 +194,7 @@ luban-cad/
 - `docs/DEEP_ANALYSIS.md`
 - `docs/E2E_TEST_REPORT.md`
 - `docs/RELEASE-backend-20261027b.md`
-- `docs/superpowers` 除活跃清单外的 34 份 plans 与 13 份 specs；逐项由执行计划列出
+- `docs/superpowers` 除活跃清单外的 37 份 plans 与 13 份 specs；逐项由执行计划列出
 
 `docs/ROADMAP.md` 重写为当前路线索引，不再复制平台分期全文。新增
 `docs/HISTORY.md`，只保留里程碑索引和 Git 恢复提示。

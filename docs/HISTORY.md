@@ -21,3 +21,6 @@ git show <commit>:<path>
 
 > 历史文档中的旧目录名（`apps/web-next`、`viewer-next`、`viewer-core`、`web-viewer` 等）
 > 只描述当时状态，不代表当前结构。当前结构见根 `README.md` 与 `luban-cad/README.md`。
+
+其余已删除计划/设计可按 `git log --all -- docs/superpowers/` 枚举；本索引只列主题级条目，
+恢复单篇时使用 `git show <删除前提交>:<path>`。
