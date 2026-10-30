@@ -1858,7 +1858,7 @@ git commit -m "feat(web): WorkspaceRef 类型与解析"
 - [ ] **Step 1: 写失败测试**
 
 ```tsx
-import { renderHook } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { useWorkspaceRef } from '../use-workspace-ref.js';
