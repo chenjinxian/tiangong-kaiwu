@@ -44,8 +44,12 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { collectConsoleErrors, getApiToken, openSeedImodelEditor, waitEditorReady } from './helpers';
 import { resetE2eSeed } from './seed';
+
+/** MS RPC 操作路径版本：取自 shared 契约（禁止硬编码——契约升版自动跟随，测试与 MS 不漂移）。 */
+const FEATURE_RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
 
 // M5-T4 隔离修复：T7/T7-B 在同一文件连续建模，前一用例会污染后一用例的
 // 特征计数与体积。每个用例开始前按名删旧建新种子库，等待 baseline initialized。
@@ -276,7 +280,8 @@ function regionIndexByArea(
 // 走不通（IpcSession 响应关联依赖页面运行时的会话内部态，探针实证请求帧离站
 // 后无回声），改 Node 侧直调 MS 的 HTTP RPC 面（/rpc/metadata 证实该面在册）：
 // POST {MS}/LubanCAD/v1.0/mode/primary/context/{itwin}/imodel/{imodel}/changeset/0/
-//   LubanFeatureRpcInterface-1.16.0-{op}，text 载体 body=JSON 参数数组，
+//   LubanFeatureRpcInterface-{interfaceVersion}-{op}（版本取自 @luban-cad/shared），
+//   text 载体 body=JSON 参数数组，
 //   CSRF 双提交（GET /rpc/metadata 取 csrf-token cookie + X-CSRF-Token 头）+
 //   X-Correlation-Id 等活动头。前端不经此面是路由选择，MS 侧在册即契约面。
 // ============================================================================
@@ -426,7 +431,7 @@ async function msRpc(
   const stamp = Date.now().toString(16).padStart(12, '0');
   const url =
     `${MS}/LubanCAD/v1.0/mode/primary/context/${itwinId}/imodel/${imodelId}` +
-    `/changeset/0/LubanFeatureRpcInterface-1.16.0-${operation}`;
+    `/changeset/0/LubanFeatureRpcInterface-${FEATURE_RPC_VERSION}-${operation}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {

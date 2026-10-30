@@ -1,0 +1,19 @@
+// 测试包含型类型检查（Task 4 review Minor 1）：主 tsconfig 排除 *.test.ts，
+// Vitest 默认不做类型检查——本配置纳入测试文件并 noEmit，专供 `pnpm test:types`
+// （expectTypeOf 断言真正被 tsc 校验）。构建产物仍由 tsconfig.json 生成。
+//
+// 范围说明：当前只纳入 Feature RPC 契约测试（本任务新增 expectTypeOf 的载体）。
+// 全量 src/**/*.test.ts 暂不可行——其余测试存在本任务之外的既有类型债（缺 @types/node
+// 导致 node:* 无法解析、openapiGenerator.test 引入 rootDir 外的 scripts/ 等），
+// 不在本 spike 修复（见 task-4-report.md「Concerns」）。扩范围时改 include 即可。
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "outDir": "./dist-typecheck"
+  },
+  "include": ["src/rpc/LubanFeatureRpcInterface.test.ts"],
+  "exclude": ["node_modules", "dist", "dist-typecheck"]
+}

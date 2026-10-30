@@ -15,13 +15,13 @@
  * - 与 tutorial2 的 L1 通道同源：MS BentleyCloud wire、text 载体、CSRF 双提交、
  *   X-Correlation-Id；dbKey = briefcase 相对路径，租约借用页面在持会话。
  *
- * 版本约束：URL 中 LubanFeatureRpcInterface-<version> 必须与
- * `luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts` 的
- * interfaceVersion 同步（当前 1.16.0；B6 M-A4.1/M-A4.2 覆盖 body boolean RPC）。契约升版时此常量与 tutorial2 的 msRpc
- * 一并更新；失败会以 HTTP 非 2xx 明确报红。
+ * 版本约束：URL 中 LubanFeatureRpcInterface-<version> 直接取自 `@luban-cad/shared`
+ * 的 `LubanFeatureRpcInterface.interfaceVersion`（运行时导入，禁止硬编码——
+ * 契约升版自动跟随，测试与 MS 不会版本漂移）。版本不匹配会以 HTTP 非 2xx 明确报红。
  */
 
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import {
   authHeaders,
   collectConsoleErrors,
@@ -44,7 +44,8 @@ test.afterAll(async ({ request }) => {
   }
 });
 
-const FEATURE_RPC_VERSION = '1.16.0';
+/** RPC 操作路径版本取自共享契约（禁止硬编码——契约升版自动跟随）。 */
+const FEATURE_RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
 const BS = String.fromCharCode(92); // dbKey 反斜杠（避免模板字面量转义歧义）
 
 interface Sketch2d {
@@ -156,7 +157,7 @@ async function getRpcMeta(): Promise<RpcMeta> {
   return rpcMeta;
 }
 
-/** MS HTTP RPC 单操作（text 载体；与 tutorial2.msRpc 同 wire，版本对齐 v1.14）。 */
+/** MS HTTP RPC 单操作（text 载体；与 tutorial2.msRpc 同 wire，版本取 shared interfaceVersion）。 */
 async function msRpc(
   itwinId: string,
   imodelId: string,

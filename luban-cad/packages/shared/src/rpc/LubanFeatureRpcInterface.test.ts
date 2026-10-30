@@ -11,6 +11,7 @@ import type {
   FeatureParams,
   FeatureOp,
   PreviewResult,
+  FeatureTreeEntry,
   FeatureFormField,
   FeatureFormFieldKind,
   FeatureFormModelEntry,

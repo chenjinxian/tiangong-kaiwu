@@ -26,6 +26,7 @@
  */
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import {
   authHeaders,
   collectConsoleErrors,
@@ -34,7 +35,8 @@ import {
   waitEditorReady,
 } from './helpers';
 
-const RPC_VERSION = '1.16.0';
+/** RPC 操作路径版本取自共享契约（禁止硬编码——契约升版自动跟随，测试与 MS 不漂移）。 */
+const RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
 const BS = String.fromCharCode(92);
 let scratchProjectId = '';
 

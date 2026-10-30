@@ -10,6 +10,7 @@
     "dev": "tsc --watch",
     "lint": "eslint \"src/**/*.ts\" 1>&2",
     "test": "vitest run",
+    "test:types": "tsc -p tsconfig.test.json",
     "test:watch": "vitest"
   },
   "dependencies": {

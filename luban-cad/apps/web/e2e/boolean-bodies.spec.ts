@@ -10,11 +10,13 @@
  *   → RPC 建 body3 → UI 连续布尔（target=body1 链前驱为布尔）→ body3 消费
  *   → undo/redo 第二轮 → 三/两体与隐藏同步。
  *
- * 该用例同时覆盖首开并发（全新 iModel 首次打开）与 1.16 getBodies/booleanBodies RPC；
+ * 该用例同时覆盖首开并发（全新 iModel 首次打开）与 getBodies/booleanBodies RPC
+ * （1.16 引入；URL 版本由 shared interfaceVersion 提供）；
  * body boolean 的对话框单测见 FeatureDialog.test.tsx。
  */
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import {
   authHeaders,
   collectConsoleErrors,
@@ -23,7 +25,8 @@ import {
   waitEditorReady,
 } from './helpers';
 
-const RPC_VERSION = '1.16.0';
+/** RPC 操作路径版本取自共享契约（禁止硬编码——契约升版自动跟随，测试与 MS 不漂移）。 */
+const RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
 const BS = String.fromCharCode(92);
 let scratchProjectId = '';
 
