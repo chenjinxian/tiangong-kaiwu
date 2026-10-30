@@ -496,15 +496,15 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | hub 类型 | `npx tsc --noEmit -p tsconfig.json` | 0 错误 |
 | hub 构建 | `npm run build` | 0 错误 |
 | hub 单测 | `npx jest --config ./test/jest-unit.json --runInBand`（全量） | 124 suites / **1122 tests PASS**（基线 123/1104） |
-| hub 镜像 | `docker build -t imodelhub-services:p0-final .`；`docker run --rm --entrypoint npm … --version` | 构建成功；runtime `npm 11.21.1`（未推 registry） |
-| hub 聚焦 e2e | `E2E_BASE_URL=http://localhost:5400 npx jest --config ./test/jest-e2e.json --runInBand test/itwins.e2e-spec.ts test/integration/authorization.e2e-spec.ts test/integration/smoke-crud.e2e-spec.ts` | **3 suites / 44 tests PASS** |
+| hub 镜像 | `docker build --build-arg GIT_COMMIT=46c10e2 … -t ghcr.io/chenjinxian/imodelhub:{backend-20261030,latest} .`；`docker push` | 构建成功；runtime `npm 11.21.1`；已发布 GHCR `backend-20261030` + `latest`，digest `sha256:b85d9a88…`，OCI revision `46c10e2` |
+| hub 聚焦 e2e | `E2E_BASE_URL=http://localhost:5400 npx jest --config ./test/jest-e2e.json --runInBand test/itwins.e2e-spec.ts test/integration/authorization.e2e-spec.ts test/integration/smoke-crud.e2e-spec.ts` | **3 suites / 44 tests PASS**（发布镜像 pull + force-recreate 后复跑） |
 | web 镜像构建 | `powershell -File scripts/rebuild-web.ps1` | 成功（GIT_COMMIT=126f9bfd55）；修复 worker 快照 CRLF 与 editor 闭包路径后构建通过，镜像已 `docker compose up -d web` 生效 |
-| 全栈 verify-stack | `powershell -File scripts/verify-stack.ps1`（web 镜像重建后） | **16/17 OK，1 WARN，退出码 0**；Step B 数据链（subClass-only 创建 iTwin → iModel → baseline initialized → 清理）、Step E web 新鲜度、Step F 挂载均 OK；唯一 WARN 为本地 hub 构建无 OCI revision（非发布镜像） |
+| 全栈 verify-stack | `powershell -File scripts/verify-stack.ps1`（发布 hub 镜像重建容器后） | **17/17 OK，退出码 0**；Step B 数据链（subClass-only 创建 iTwin → iModel → baseline initialized → 清理）、Step E web 新鲜度、Step F 挂载与 OCI revision（= hub HEAD `46c10e2`）全部 OK |
 | taxonomy 实栈（修复后） | 直连 hub :5400（服务账号） | subClass-only `Portfolio` → `Thing/Portfolio`；legacy `subclass:'Project'` → `Endeavor/Project`；`subclass:'Building'` → 422；显式 `Thing/Project` → 400；测试行已清理 |
 | iModel 授权实栈 | 直连 hub :5400（服务账号） | `PATCH /imodels/:id {iTwinId}` → 422 且归属不变；`POST /imodels` 非 UUID body iTwinId → 400；测试行已清理 |
-| 未跑 | 全量 web Playwright（限流预算）；镜像 push/publish（本轮明确禁止；发布顺序见 §8.6） |
+| 未跑 | 全量 web Playwright（限流预算） |
 
-> 本地 hub 容器用新镜像重建以跑 e2e（`docker compose up -d --no-deps --force-recreate imodelhub`），Postgres 数据保留；本地 `ghcr.io/chenjinxian/imodelhub:latest` tag 被本地构建覆盖（未推送 registry）。web 容器已用新镜像重建并部署（`docker compose up -d web`），Step E 通过；聚焦 e2e 仍用 vite dev :5300 承载新代码。
+> hub 发布与本地验证：`docker compose pull imodelhub` 拉取已发布镜像 → `docker compose up -d --no-deps --force-recreate imodelhub`，Postgres 数据保留；容器镜像 digest 与 push digest 一致（`sha256:b85d9a88…`），OCI revision 与 hub HEAD 一致。web 容器已用新镜像重建并部署（`docker compose up -d web`），Step E 通过；聚焦 e2e 仍用 vite dev :5300 承载新代码。
 
 > web 镜像重建暴露两处主分支既有构建门禁（非 P0 逻辑引入）：`luban-cad/apps/web/public/scripts/parse-imdl-worker.js` 在 Windows 检出为 CRLF，Dockerfile 与 itwinjs-core lib 的 `cmp` 字节断言失败——已按 README 从 lib 重拷为 LF，并用 `.gitattributes` 的 `-text` 钉死；editor 收编到 `packages/editor/{frontend,common}` 后闭包脚本仍用 `../../`，解析到不存在的 `packages/docker-closure.cjs`——已改为 `../../../`（提交 126f9bf / 99a777c）。
 

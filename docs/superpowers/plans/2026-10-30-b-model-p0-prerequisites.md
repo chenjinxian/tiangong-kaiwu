@@ -2022,7 +2022,7 @@ Expected: 全绿；hub e2e 在本地 Postgres 可用时执行。
 - 打开编辑器，创建特征 → 点「保存版本」→ 填名称 → 保存 → 版本历史出现该 Named Version。
 - 截图存档到 `docs/superpowers/plans/assets/2026-10-30-p0/`（若该目录不存在则创建），命名 `named-version.png`、`imodel-states.png`。
 
-实测（**历史证据**，final fix wave 之前的载荷形态）：hub 本地镜像重建 + 迁移成功；UI 新建文档网络载荷含 `class:"Endeavor"`, `subClass:"Project"` → 201；`GET /itwins` 返回 Endeavor/Project；陌生账号 POST /imodels 403；PATCH state 422 且状态不变。web 聚焦 e2e 17/17 PASS；Named Version「P0 收口验证 V1」经 hub API 与版本历史双重确认。截图命名：`documents-list-endeavor-project.png`、`documents-list-ui-create.png`、`imodel-state-badge.png`、`save-version-dialog.png`、`named-version-history.png`。失败态徽标以单测证据为准（未构造真实失败 iModel）。未跑：全量 web Playwright、verify-stack.ps1（final fix wave 后已补跑 verify-stack：16/17 OK、1 WARN 为本地 hub 镜像无 OCI revision；全量 web Playwright 仍未跑）。
+实测（**历史证据**，final fix wave 之前的载荷形态）：hub 本地镜像重建 + 迁移成功；UI 新建文档网络载荷含 `class:"Endeavor"`, `subClass:"Project"` → 201；`GET /itwins` 返回 Endeavor/Project；陌生账号 POST /imodels 403；PATCH state 422 且状态不变。web 聚焦 e2e 17/17 PASS；Named Version「P0 收口验证 V1」经 hub API 与版本历史双重确认。截图命名：`documents-list-endeavor-project.png`、`documents-list-ui-create.png`、`imodel-state-badge.png`、`save-version-dialog.png`、`named-version-history.png`。失败态徽标以单测证据为准（未构造真实失败 iModel）。未跑：全量 web Playwright、verify-stack.ps1（final fix wave 后已补跑 verify-stack：hub 镜像发布后 17/17 OK；全量 web Playwright 仍未跑）。
 
 > final fix wave 注记（终审 C1）：web 创建载荷此后改为 subClass-only，上段
 > 的显式 `class:"Endeavor"` 只代表当时的页面载荷；hub 侧 `GET /itwins`
