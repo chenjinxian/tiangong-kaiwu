@@ -91,6 +91,16 @@
  * - 半图 degraded（physModelId=''）由 P2.4 后端扩展列出；恢复删除走 HITL 并
  *   与注册表使用同一会话。
  *
+ * **B-model P2.5（active-scope 视口过滤 + 重取景）**：
+ * - B active scope 的 `physModelId` 经 `activePhysModelId` props 下传 Session，
+ *   以 `[physModelId]` 传给 `useViewport.activeModelIds`——viewer 只显示该
+ *   PhysicalModel（隐藏 scope 几何不可见/不可拾取），切页签（URL-only）时原地
+ *   换白名单并重取景，**不重建 BriefcaseConnection/viewport**；A 传 undefined
+ *   保持 legacy 全模型行为；damaged/未解析 scope 不把 iModel 交给视口（既有
+ *   门禁），绝不回落全模型；
+ * - editorToolSettings 模型校准在 B 钉死 active physModelId（工具写目标不得落
+ *   到隐藏 scope 的模型）；A 只读不进入编辑作用域，配置段不执行（既有行为）。
+ *
  * 连接失败 UX（M5-T2）：briefcase 的 isLoading/error 两出口（M4-T2 落地后一直
  * 零消费）接入呈现链——连接三态（下载中/失败/就绪）从此在编辑器页可见：
  * - **呈现层位（T2 定序纪律裁量）**：useBriefcaseConnection 仍钉外层（「为何
@@ -264,6 +274,11 @@ export function PartStudioPage(): React.JSX.Element {
   // 编辑面总门：B（可写会话）∧ scope 已解析为完整 scope（A 恒 false）。
   const scopeReady = scope.plan.kind === 'ready' || scope.plan.kind === 'a';
   const canEdit = writableSession && scope.plan.kind === 'ready';
+  // P2.5：B active scope 的物理模型 id——视口只显示它、editorToolSettings 钉它；
+  // A（plan 'a'）/未解析/半图 = undefined（A 由 viewer legacy 全模型分支接管，
+  // 半图不把 iModel 交给视口——绝不回落全模型）。
+  const activePhysModelId =
+    scope.plan.kind === 'ready' ? scope.plan.studio.physModelId : undefined;
   // 注册表写门（P2.4 半图恢复 + F4 + R4）：B 可写会话 ∧ 列表已落定且不在加载
   // ∧ resolver 自动 create 不在途/不在 create 态——列表竞态或自动建默认 scope
   // 期间禁止「+」/rename/delete（防两个默认 scope）。
@@ -300,6 +315,7 @@ export function PartStudioPage(): React.JSX.Element {
       session={session}
       scopeReady={scopeReady}
       scope={scope}
+      activePhysModelId={activePhysModelId}
       studios={partStudios.studios}
       studiosLoading={partStudios.isLoading}
       studiosError={partStudios.error}
@@ -339,6 +355,8 @@ interface PartStudioSessionProps {
   scopeReady: boolean;
   /** scope 解析状态机（横幅/恢复面/重试）。 */
   scope: PartStudioScopeState;
+  /** B active scope 的物理模型 id（P2.5 视口过滤/工具写目标）；A/未解析 = undefined。 */
+  activePhysModelId?: string;
   studios: PartStudioInfo[];
   studiosLoading: boolean;
   studiosError?: string;
@@ -365,6 +383,7 @@ function PartStudioSession({
   session,
   scopeReady,
   scope,
+  activePhysModelId,
   studios,
   studiosLoading,
   studiosError,
@@ -382,11 +401,20 @@ function PartStudioSession({
   // P2.4 视口门：B 文档 scope 解析完成前不把 iModel 交给 useViewport（不装载
   // 任何 scope 的图形；解析后随 `?model=` 变化由 P2.5 做 active-scope 过滤）。
   // A 旧文档 scopeReady 恒真（模式落定后），沿用既有全模型视图。
+  // P2.5：B active scope 传白名单 `[activePhysModelId]`（viewer 只显示该
+  // PhysicalModel，切页签原地换白名单+重取景，不重建 connection/viewport）；
+  // A = undefined（legacy 全模型）。memo 稳定数组身份（viewer 以内容签名做
+  // 依赖，此处仍避免无谓变更）。
+  const activeModelIds = React.useMemo(
+    () => (activePhysModelId ? [activePhysModelId] : undefined),
+    [activePhysModelId],
+  );
   const { viewportRef, phase, viewport, error: viewportError } = useViewport({
     backendUrl: window.location.origin,
     hubUrl: env.hubUrl,
     accessToken: AuthSession.getStoredAuth()?.accessToken,
     iModel: scopeReady ? connection ?? undefined : undefined,
+    activeModelIds,
     // notifications 呈现桥（review-8 I-2）：官方注入点换掉 core 缺省哑通道，
     // registrationFailed/超时面/工具错误经 iTwinUI toaster 可见（app 生命期
     // 单例——稳定身份，不构成重 acquire 触发面）。
@@ -640,12 +668,20 @@ function PartStudioSession({
       }
     }
 
-    // 校准并更新模型（2d 取 baseModel；3d 空间视图取模型选择器首个）。
-    if (settings.model === undefined || !view.viewsModel(settings.model)) {
-      settings.model = undefined;
-      if (view.is2d()) {
+    // 校准并更新模型（P2.5）：
+    // - B active scope：工具写目标钉死 active physModelId——视口已只选它，工具
+    //   不得把写落到隐藏 scope 的物理模型；旧 settings 残留（切页签前值）同校；
+    // - A legacy / 未过滤（activePhysModelId 缺省）：2d 取 baseModel；3d 空间
+    //   视图取模型选择器首个（既有行为不变）。
+    if (view.is2d()) {
+      if (settings.model === undefined || !view.viewsModel(settings.model)) {
         settings.model = view.baseModelId;
-      } else if (view.isSpatialView()) {
+      }
+    } else if (view.isSpatialView()) {
+      if (activePhysModelId) {
+        settings.model = activePhysModelId;
+      } else if (settings.model === undefined || !view.viewsModel(settings.model)) {
+        settings.model = undefined;
         for (const modId of view.modelSelector.models) {
           settings.model = modId;
           break;
@@ -657,7 +693,7 @@ function PartStudioSession({
     if (view.isSpatialView()) {
       toggleProjectExtents(conn, true);
     }
-  }, [viewport, connection, isEditingScopeReady]);
+  }, [viewport, connection, isEditingScopeReady, activePhysModelId]);
 
   // 工具注册编排（M4-T3；旧 Editor.tsx:262-309 序忠实移植）：host 就绪
   //（phase ready = LocalhostIpcApp.startup 完成）→ waitForToolAdmin 轮询

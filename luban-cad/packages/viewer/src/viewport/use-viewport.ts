@@ -25,6 +25,16 @@
  * - 取消纪律：StrictMode 卸载后 async 创建链以 cancelled 哨兵短路，一律不 setState；
  *   清理纪律：dropViewport + dispose（上游 5.9 将 dispose 标记 deprecated，但视口
  *   销毁仍以 dispose+dropViewport 为正道，调用处 eslint-disable 并注记）。
+ *
+ * **B-model P2.5（active-scope 过滤）**：`activeModelIds` 可选白名单——
+ * - `undefined`（缺省）= A 旧文档 legacy 全模型行为（选择器只增不减，取景取全模型联合）；
+ * - 数组 = 只显示白名单内的 PhysicalModel（B 文档 active Part Studio 的 physModelId）：
+ *   视图既有 selector 中白名单外的模型会被移除（隐藏 scope 的几何不可见/不可拾取），
+ *   只加载 active 模型并按它重新取景；
+ * - 空数组 = 无活动模型（damaged/未解析 scope）——**绝不回落全模型**。
+ * 白名单内容变化时**原地**重建模型选择（drop+add 触发 refs 重建）并重取景，
+ * 不重建 ScreenViewport、不重开 BriefcaseConnection；以内容签名（而非数组身份）
+ * 为依赖，父级无关重渲染不触发重复 fit。
  */
 
 import { type RefObject, useEffect, useRef, useState } from 'react';
@@ -60,6 +70,13 @@ export interface UseViewportOptions {
    * 依赖面内，实例换新会触发重 acquire。
    */
   notifications?: NotificationManager;
+  /**
+   * 活动物理模型白名单（B-model P2.5）：B 文档 active Part Studio 的
+   * `physModelId`。`undefined` = legacy 全模型（A 旧文档）；空数组 = 无活动模型
+   * （damaged/未解析 scope，绝不回落全模型）。内容变化时视口原地切换模型选择
+   * 并重新取景——不重建 viewport/连接。
+   */
+  activeModelIds?: readonly string[];
 }
 
 export interface UseViewportResult {
@@ -74,13 +91,21 @@ export interface UseViewportResult {
 }
 
 export function useViewport(options: UseViewportOptions): UseViewportResult {
-  const { backendUrl, hubUrl, accessToken, iModel, notifications } = options;
+  const { backendUrl, hubUrl, accessToken, iModel, notifications, activeModelIds } = options;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<ViewportPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [viewport, setViewport] = useState<ScreenViewport | undefined>(undefined);
   // 活跃 viewport 引用（state 之外）：清理路径需同步 drop+dispose
   const activeViewportRef = useRef<ScreenViewport | undefined>(undefined);
+  // P2.5：白名单以内容签名参与依赖；最新数组存 ref（父级新数组身份不触发重取景）。
+  const activeModelKey = modelIdsKey(activeModelIds);
+  const activeModelIdsRef = useRef<readonly string[] | undefined>(activeModelIds);
+  activeModelIdsRef.current = activeModelIds;
+  // 已应用过滤的 (viewport, key)：创建链与切 scope effect 共用，避免重复 fit。
+  const appliedFilterRef = useRef<{ viewport: ScreenViewport; key: string | null } | null>(null);
+  // 过滤代际：切 scope 快速连发时只让最新一次落定最终状态。
+  const filterSeqRef = useRef(0);
 
   useEffect(() => {
     let mounted = true;
@@ -114,7 +139,8 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
 
     const setupViewport = async (): Promise<void> => {
       try {
-        const view = await getDefaultViewState(iModel);
+        // 创建链用当下最新白名单（ref 读取；渲染期同步，见上）。
+        const view = await getDefaultViewState(iModel, activeModelIdsRef.current);
         if (cancelled) return;
 
         if (!view) {
@@ -136,8 +162,10 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
         IModelApp.viewManager.addViewport(newViewport);
 
         // IMPORTANT: Ensure all available categories and models are displayed
-        // This is required for editing tools to work properly
-        await setupViewCategoriesAndModels(newViewport);
+        // This is required for editing tools to work properly（P2.5：B 只显示
+        // active scope 的物理模型，A 保持全模型）。
+        const appliedModelIds = activeModelIdsRef.current;
+        await setupViewCategoriesAndModels(newViewport, appliedModelIds);
 
         // Onshape 视觉基线（2026-10-26 渲染对齐阶段 1）：可见深灰边线 + 灯光
         // 重配 + 全类别中灰哑光覆盖 + MSAA——存量库/新库一致生效（详见 render-profile.ts）。
@@ -147,6 +175,10 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
         } catch {
           // 画像应用失败不阻断视口（基线观感缺位，功能链不受影响）
         }
+
+        // 记录已应用的过滤签名（链内用的就是这一份白名单；中途切 scope 由下方
+        // filter effect 依据签名差异补应用）。
+        appliedFilterRef.current = { viewport: newViewport, key: modelIdsKey(appliedModelIds) };
 
         // 补齐链在卸载后落定：清理已 drop+dispose 并复位 state——不得再写 state
         if (cancelled) return;
@@ -176,13 +208,157 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
     };
   }, [iModel, viewportRef]);
 
+  // P2.5：active scope 切换（B 页签）——同一 iModel/连接下原地切换模型选择并
+  // 重取景。依赖面 = viewport 实例 + 白名单内容签名：无关重渲染不触发；A
+  // （签名 null）在创建链已按全模型配置，首跑即命中「已应用」直接返回。
+  // 创建链在途时切 scope：链落定 setViewport 会再触发本 effect，按签名差异补应用。
+  useEffect(() => {
+    const activeViewport = activeViewportRef.current;
+    if (!activeViewport) return;
+    const applied = appliedFilterRef.current;
+    if (applied?.viewport === activeViewport && applied.key === activeModelKey) return;
+
+    const seq = ++filterSeqRef.current;
+    const isCurrent = (): boolean => seq === filterSeqRef.current;
+    const ids = activeModelIdsRef.current;
+    void applyActiveModelFilter(activeViewport, ids, isCurrent)
+      .then(() => {
+        if (!isCurrent()) return;
+        appliedFilterRef.current = { viewport: activeViewport, key: modelIdsKey(ids) };
+      })
+      .catch(() => {
+        // 过滤失败不翻 error（与取景失败同口径）：维持既有视图，不阻断编辑面。
+      });
+  }, [viewport, activeModelKey]);
+
   return { viewportRef, phase, error, viewport };
+}
+
+/** 白名单内容签名：undefined（A 全模型）与空数组（无活动模型）严格区分。 */
+function modelIdsKey(activeModelIds: readonly string[] | undefined): string | null {
+  return activeModelIds === undefined ? null : JSON.stringify(activeModelIds);
+}
+
+/**
+ * 解析视图应显示的物理模型集合（P2.5）：
+ * - `undefined` = 不过滤（A legacy 全模型）；
+ * - 数组 = 与 iModel 实际 PhysicalModel 求交（注册表 physModelId 不在库中时
+ *   结果为空——绝不回落全模型）。
+ */
+function resolveVisibleModelIds(
+  allModelIds: readonly string[],
+  activeModelIds: readonly string[] | undefined,
+): string[] {
+  if (activeModelIds === undefined) return [...allModelIds];
+  const active = new Set(activeModelIds);
+  return allModelIds.filter((id) => active.has(id));
+}
+
+/**
+ * 同步 ModelSelector：`dropOthers=true`（B）先移除白名单外既有条目——保存的
+ * 视图可能含全部模型，active scope 切换/首次打开都必须清掉隐藏 scope 的几何；
+ * A（false）依赖 legacy 行为，只增不减。
+ */
+interface ModelSelectorDiff {
+  added: string[];
+  dropped: string[];
+}
+
+function syncModelSelector(
+  view: SpatialViewState,
+  visibleModelIds: readonly string[],
+  dropOthers: boolean,
+): ModelSelectorDiff {
+  const dropped: string[] = [];
+  if (dropOthers) {
+    const visible = new Set(visibleModelIds);
+    const stale = [...view.modelSelector.models].filter((id) => !visible.has(id));
+    if (stale.length > 0) {
+      view.modelSelector.dropModels(stale);
+      dropped.push(...stale);
+    }
+  }
+  const added = visibleModelIds.filter((id) => !view.modelSelector.has(id));
+  if (added.length > 0) view.modelSelector.addModels(added);
+  return { added, dropped };
+}
+
+/** 内容感知取景：按给定模型的联合范围（后端 ECSQL 查询，不依赖 tile 时序）。 */
+async function fitViewToModelRanges(
+  viewport: ScreenViewport,
+  modelIds: readonly string[],
+): Promise<void> {
+  // 无可见模型（damaged/未解析 scope）：不取景，保留空视图——避免回退 projectExtents。
+  if (modelIds.length === 0) return;
+  try {
+    const ranges = await viewport.iModel.models.queryModelRanges([...modelIds]);
+    const union = new Range3d();
+    for (const r of ranges) union.extendRange(Range3d.fromJSON(r));
+    if (!union.isNull) {
+      viewport.view.lookAtViewAlignedVolume(union, viewport.viewRect.aspect);
+      viewport.synchWithView({});
+      // eslint-disable-next-line no-console
+      console.log('[useViewport] Content-aware fit:', JSON.stringify(union.toJSON()));
+    }
+  } catch {
+    // 后端查询不可用——维持既有取景（projectExtents 兜底）
+  }
+}
+
+/**
+ * 原地应用 active-scope 模型白名单（P2.5）：清白名单外模型 → 补入/加载 active
+ * 模型（drop+add 触发 SpatialTileTreeReferences 重建）→ 按 active 模型联合范围
+ * 重取景 → invalidateScene。不重建 viewport、不重开连接。
+ * `isCurrent` 代际守卫：切 scope 连发时被更新的应用取代即不再落定中间态。
+ */
+async function applyActiveModelFilter(
+  viewport: ScreenViewport,
+  activeModelIds: readonly string[] | undefined,
+  isCurrent: () => boolean,
+): Promise<void> {
+  const view = viewport.view;
+  if (!(view instanceof SpatialViewState)) return;
+
+  const iModel = viewport.iModel;
+  const allModelIds = await queryAllPhysicalModelIds(iModel);
+  if (!isCurrent()) return;
+
+  const visibleModelIds = resolveVisibleModelIds(allModelIds, activeModelIds);
+  syncModelSelector(view, visibleModelIds, activeModelIds !== undefined);
+
+  const unloaded = visibleModelIds.filter((id) => !iModel.models.getLoaded(id));
+  if (unloaded.length > 0) {
+    await iModel.models.load(unloaded);
+    if (!isCurrent()) return;
+    // load 完成（渲染循环可能已跑过）→ drop+add 触发 refs 重建（BRep 断点②）
+    view.modelSelector.dropModels(unloaded);
+    view.modelSelector.addModels(unloaded);
+    // eslint-disable-next-line no-console
+    console.log('[useViewport] Loaded', unloaded.length, 'active-scope models + rebuilt refs');
+  }
+
+  viewport.synchWithView();
+  // 范围查询在同步选择后（不依赖 tile 加载时序）；无模型时不取景。
+  await fitViewToModelRanges(viewport, visibleModelIds);
+  if (!isCurrent()) return;
+  viewport.invalidateScene();
+  // eslint-disable-next-line no-console
+  console.log(
+    '[useViewport] Active scope models:',
+    visibleModelIds.length,
+    'of',
+    allModelIds.length,
+  );
 }
 
 /**
  * Get default view state from iModel（移植自旧查看器包 useViewport.ts）
+ * P2.5：按 activeModelIds 只把 active scope 的物理模型放进视图（undefined=全模型）。
  */
-async function getDefaultViewState(iModel: IModelConnection): Promise<ViewState | undefined> {
+async function getDefaultViewState(
+  iModel: IModelConnection,
+  activeModelIds: readonly string[] | undefined,
+): Promise<ViewState | undefined> {
   // Get view definitions from iModel
   const viewSpecs = await iModel.views.queryProps({});
   if (viewSpecs.length > 0) {
@@ -196,7 +372,7 @@ async function getDefaultViewState(iModel: IModelConnection): Promise<ViewState 
     // For spatial views, ensure we have all categories and models
     // This is critical for editing tools to work properly
     if (view instanceof SpatialViewState) {
-      await ensureViewHasCategoriesAndModels(view, iModel);
+      await ensureViewHasCategoriesAndModels(view, iModel, activeModelIds);
     }
 
     return view;
@@ -209,7 +385,7 @@ async function getDefaultViewState(iModel: IModelConnection): Promise<ViewState 
 
     // Ensure view has categories and models for editing tools
     if (view instanceof SpatialViewState) {
-      await ensureViewHasCategoriesAndModels(view, iModel);
+      await ensureViewHasCategoriesAndModels(view, iModel, activeModelIds);
     }
 
     return view;
@@ -223,7 +399,11 @@ async function getDefaultViewState(iModel: IModelConnection): Promise<ViewState 
  * This is critical for editing tools to work properly.
  * Following display-test-app's pattern (IdPicker.ts)
  */
-async function ensureViewHasCategoriesAndModels(view: SpatialViewState, iModel: IModelConnection): Promise<void> {
+async function ensureViewHasCategoriesAndModels(
+  view: SpatialViewState,
+  iModel: IModelConnection,
+  activeModelIds: readonly string[] | undefined,
+): Promise<void> {
   // Query for available categories and add them to the view
   const categoryIds = await queryAllSpatialCategoryIds(iModel);
   if (categoryIds.length > 0) {
@@ -236,19 +416,17 @@ async function ensureViewHasCategoriesAndModels(view: SpatialViewState, iModel: 
     console.log('[useViewport] Added', categoryIds.length, 'categories to view');
   }
 
-  // Query for available models and add them to the view
-  const modelIds = await queryAllPhysicalModelIds(iModel);
-  if (modelIds.length > 0) {
-    for (const modId of modelIds) {
-      if (!view.modelSelector.has(modId)) {
-        view.modelSelector.addModels([modId]);
-      }
-    }
+  // Query for available models and add only the active scope's ones (P2.5).
+  const allModelIds = await queryAllPhysicalModelIds(iModel);
+  const modelIds = resolveVisibleModelIds(allModelIds, activeModelIds);
+  if (allModelIds.length > 0) {
+    // B：保存的视图可能已含全部模型——先清掉白名单外条目（隐藏 scope 不可见）。
+    syncModelSelector(view, modelIds, activeModelIds !== undefined);
     // ModelState 必须显式加载（addModels 不会触发加载；未加载的 model 不建 tile tree——见 setupViewCategoriesAndModels 同款注释）
     const unloaded = modelIds.filter((id) => !iModel.models.getLoaded(id));
     if (unloaded.length > 0) await iModel.models.load(unloaded);
     // eslint-disable-next-line no-console
-    console.log('[useViewport] Added', modelIds.length, 'models to view');
+    console.log('[useViewport] Added', modelIds.length, 'of', allModelIds.length, 'models to view');
   }
 }
 
@@ -305,8 +483,13 @@ async function queryAllPhysicalModelIds(iModel: IModelConnection): Promise<strin
 /**
  * Setup viewport with all categories and models for editing.
  * Called after viewport is created to ensure editing tools work.
+ * P2.5：B（activeModelIds 有值）只把 active scope 的物理模型放进选择器并取景；
+ * A（undefined）保持 legacy 全模型行为。
  */
-async function setupViewCategoriesAndModels(viewport: ScreenViewport): Promise<void> {
+async function setupViewCategoriesAndModels(
+  viewport: ScreenViewport,
+  activeModelIds: readonly string[] | undefined,
+): Promise<void> {
   const view = viewport.view;
   if (!(view instanceof SpatialViewState)) {
     return;
@@ -325,15 +508,12 @@ async function setupViewCategoriesAndModels(viewport: ScreenViewport): Promise<v
     }
   }
 
-  // Get all models and ensure they're in the view
-  const modelIds = await queryAllPhysicalModelIds(iModel);
-  const newlyAdded: string[] = [];
-  for (const modId of modelIds) {
-    if (!view.modelSelector.has(modId)) {
-      view.modelSelector.addModels([modId]);
-      newlyAdded.push(modId);
-    }
-  }
+  // Get all physical models, keep only the active scope's ones (P2.5)。
+  // 保存的视图可能已含全部模型：B 下白名单外条目必须移除（隐藏 scope 的几何
+  // 不可见/不可拾取）；A 保持 legacy 只增不减。
+  const allModelIds = await queryAllPhysicalModelIds(iModel);
+  const modelIds = resolveVisibleModelIds(allModelIds, activeModelIds);
+  const diff = syncModelSelector(view, modelIds, activeModelIds !== undefined);
 
   // CRITICAL（BRep 显示 bug 主断点修复，2026-10-09）：
   // 1) ModelState 必须显式加载——viewport 的 SpatialTileTreeReferences.updateModels 只为
@@ -351,9 +531,17 @@ async function setupViewCategoriesAndModels(viewport: ScreenViewport): Promise<v
     console.log('[useViewport] Loaded', unloadedModels.length, 'unloaded models + rebuilt refs');
   }
 
-  if (categoriesChanged || newlyAdded.length > 0) {
+  if (categoriesChanged || diff.added.length > 0 || diff.dropped.length > 0) {
     // eslint-disable-next-line no-console
-    console.log('[useViewport] View updated with', categoryIds.length, 'categories and', modelIds.length, 'models');
+    console.log(
+      '[useViewport] View updated with',
+      categoryIds.length,
+      'categories and',
+      modelIds.length,
+      'of',
+      allModelIds.length,
+      'models',
+    );
     // Sync the viewport with the updated view state
     viewport.synchWithView();
   }
@@ -362,17 +550,6 @@ async function setupViewCategoriesAndModels(viewport: ScreenViewport): Promise<v
   // 米级特征内容——初始视图/「适应」在 tile 树加载前取景时 computeFitRange 回退
   // projectExtents → 相机落在一公里外，几何小到不可见。模型进 selector 后按模型范围
   // 联合集（后端 ECSQL 查询，不依赖 tile 加载时序）取景；查询失败/空范围维持原行为。
-  try {
-    const ranges = await iModel.models.queryModelRanges(modelIds);
-    const union = new Range3d();
-    for (const r of ranges) union.extendRange(Range3d.fromJSON(r));
-    if (!union.isNull) {
-      viewport.view.lookAtViewAlignedVolume(union, viewport.viewRect.aspect);
-      viewport.synchWithView({});
-      // eslint-disable-next-line no-console
-      console.log('[useViewport] Content-aware fit:', JSON.stringify(union.toJSON()));
-    }
-  } catch {
-    // 后端查询不可用——维持既有取景（projectExtents 兜底）
-  }
+  // P2.5：B 只按 active 模型取景；无模型（damaged/空）不取景。
+  await fitViewToModelRanges(viewport, modelIds);
 }

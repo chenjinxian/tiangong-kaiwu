@@ -42,7 +42,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   itwinsGet: vi.fn(),
@@ -450,6 +450,9 @@ beforeEach(() => {
   viewerMocks.ensureEditTools.mockReset().mockResolvedValue(undefined);
   // M4-T4：连接替身桩复位（作用域进入成功路径 + 干净事务态）。exit 按真实
   // 契约回 Promise（卸载退出链 .catch 依赖）。
+  // P2.5：editorToolSettings 是可变桩对象——跨用例复位，防上一用例写入的
+  // model/category 值渗漏（clearAllMocks 不还原属性值）。
+  FAKE_CONNECTION.editorToolSettings = { category: undefined, model: undefined };
   FAKE_CONNECTION.supportsGraphicalEditing.mockResolvedValue(true);
   FAKE_CONNECTION.enterEditingScope.mockResolvedValue({
     isDisposed: false,
@@ -1742,5 +1745,106 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// ── B-model P2.5：active-scope 视口过滤 + editorToolSettings 模型钉死 ────────
+describe('B-model P2.5：active scope 视口过滤', () => {
+  const STUDIO_2 = {
+    id: 'ps-2', name: 'Part Studio 2', order: 2, defModelId: 'def-2', physModelId: 'phys-2',
+  };
+  const HALF = {
+    id: 'half-1', name: 'half-1', order: 0, defModelId: 'def-half', physModelId: '',
+  };
+
+  interface ViewportOptionsProbe {
+    iModel?: unknown;
+    activeModelIds?: readonly string[];
+  }
+
+  const lastViewportOptions = (): ViewportOptionsProbe =>
+    (viewerMocks.useViewport.mock.calls.at(-1)?.[0] ?? {}) as ViewportOptionsProbe;
+
+  const isSpatialViewMock = FAKE_VIEWPORT.view.isSpatialView as ReturnType<typeof vi.fn>;
+
+  afterEach(() => {
+    // 空间视图开关是共享桩的持久实现——复位，防渗漏到后续文件/用例。
+    isSpatialViewMock.mockReturnValue(false);
+  });
+
+  it('B scope ready：useViewport 收 activeModelIds=[active physModelId]；iModel 同一连接', async () => {
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, STUDIO_2]);
+    await renderReadyPage();
+    await waitFor(() => expect(lastViewportOptions().activeModelIds).toEqual(['phys-1']));
+    expect(lastViewportOptions().iModel).toBe(FAKE_CONNECTION);
+  });
+
+  it('切页签只换白名单：phys-1 → phys-2，仍接同一连接/iModel（不新建 BriefcaseConnection）', async () => {
+    const user = userEvent.setup();
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, STUDIO_2]);
+    await renderReadyPage();
+    await waitFor(() => expect(lastViewportOptions().activeModelIds).toEqual(['phys-1']));
+    const connectionOptionsBefore = viewerMocks.useBriefcaseConnection.mock.calls
+      .map((call) => call[0])
+      .filter((options) => options !== null)
+      .at(-1);
+
+    await user.click(screen.getByRole('tab', { name: 'Part Studio 2' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-2'),
+    );
+    await waitFor(() => expect(lastViewportOptions().activeModelIds).toEqual(['phys-2']));
+    expect(lastViewportOptions().iModel).toBe(FAKE_CONNECTION);
+
+    const connectionOptionsAfter = viewerMocks.useBriefcaseConnection.mock.calls
+      .map((call) => call[0])
+      .filter((options) => options !== null)
+      .at(-1);
+    expect(connectionOptionsAfter).toEqual(connectionOptionsBefore);
+  });
+
+  it('A 旧文档：activeModelIds 缺省（legacy 全模型行为不变）', async () => {
+    renderAPage('/documents/itwin-1/im-1');
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
+    expect(lastViewportOptions().iModel).toBe(FAKE_CONNECTION);
+    expect(lastViewportOptions().activeModelIds).toBeUndefined();
+  });
+
+  it('B 无完整 scope（半图 damaged）：视口不接 iModel/不收白名单（不回落全模型）', async () => {
+    featureRpc.listPartStudios.mockResolvedValue([HALF]);
+    renderPage('/documents/itwin-1/im-1?model=half-1');
+    expect(await screen.findByTestId('part-studio-scope-damaged')).toBeDefined();
+    // 等 scope 解析落定（多拍）后，视口仍不得收到连接。
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(lastViewportOptions().iModel).toBeUndefined();
+    expect(lastViewportOptions().activeModelIds ?? undefined).toBeUndefined();
+  });
+
+  it('editorToolSettings：B active scope 钉死 active physModelId（selector 内其他模型不参与）', async () => {
+    const user = userEvent.setup();
+    isSpatialViewMock.mockReturnValue(true);
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, STUDIO_2]);
+    renderPage();
+    // 视图 selector 仅含 model-1（旧视图/未被过滤前的形态）——B 下仍须钉 phys-1。
+    await waitFor(() => expect(FAKE_CONNECTION.editorToolSettings.model).toBe('phys-1'));
+    expect(FAKE_CONNECTION.editorToolSettings.model).not.toBe('model-1');
+
+    // 切页签 → 重校准到新 scope 的 physModelId。
+    await user.click(screen.getByRole('tab', { name: 'Part Studio 2' }));
+    await waitFor(() => expect(FAKE_CONNECTION.editorToolSettings.model).toBe('phys-2'));
+  });
+
+  it('editorToolSettings：A 旧文档不进入编辑作用域 → 不写校准值（legacy 全模型视图由 viewer 维持）', async () => {
+    isSpatialViewMock.mockReturnValue(true);
+    renderAPage('/documents/itwin-1/im-1');
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
+    // A 只读（canEdit=false）→ useEditingScope enabled=false → 配置段不执行；
+    // 既有行为保持（模型列表=viewer legacy 全模型 selector，不被页面改写）。
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(FAKE_CONNECTION.editorToolSettings.model).toBeUndefined();
   });
 });
