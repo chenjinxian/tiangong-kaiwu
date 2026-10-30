@@ -271,7 +271,7 @@ iTwin: Thing/Portfolio "园区"
 | **P4 收口** | 切换 IA；删除 A 兼容层（或长期保留只读）；更新文档与 ADR | 全量 e2e/视觉/verify-stack 绿 |
 
 > **P1 实际结果（2026-10-30）**：**Go（qualified，门禁修订，待 owner 签字）**。隔离（2+ Part Studio
-> 特征/树/体/orderKey/oplog；**final-fix HEAD** 全 `src/feature` 48 files / **443 passed** / 8 skipped）
+> 特征/树/体/orderKey/oplog；**final-fix2 HEAD** 全 `src/feature` 49 files / **447 passed** / 8 skipped）
 > + 性能（10 studio 五项阈值全过；`StandaloneDb`/native + 后端读面代理；阈值仅日志比对、测试不断言）
 > + Named Version（metadata-only）/ iModel 级共享（`isSecured` + ACL；写实际 Manage-only；
 > final-fix 收紧列表泄漏/删除与授权边界/内容资源维度，final-fix2 再收口 checkpoint 重复路由与
@@ -492,12 +492,12 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 > undo E2E 补齐。
 > 1) 隔离 **Go**：2+ Part Studio 特征/树/体/orderKey/oplog 隔离；scope 套件 **25 cases**（含
 > final-fix 的文档模式/并发初始化/引擎遍历/跨 studio 目标守卫）。**backend 代码 HEAD `14e5fe6` /
-> docs HEAD `140131b`；final-fix 轮在其上复跑全 `src/feature`：48 files / 443 passed / 8 skipped**
+> docs HEAD `140131b`；final-fix2 轮在其上复跑全 `src/feature`：49 files / 447 passed / 8 skipped**
 > （`CI=true corepack pnpm@10 exec vitest run src/feature`，exit 0）；Task 9 时点为 436 passed /
 > 8 skipped，Task 4 收口基线为 421 passed / 8 skipped。8 个 skipped 均为 `debug-tail-root.test.ts`
 > 的 `debug-tail-root` 探针；四个单工作室回归文件 `FeatureService.test.ts` / `FeatureUndo.test.ts` /
-> `MultiBodyFoundation.test.ts` / `FeatureSync.test.ts` 均包含在 443 内。final-fix 的精确代码提交
-> 见 `git log`（报告 `final-fix-report.md` 列明）。
+> `MultiBodyFoundation.test.ts` / `FeatureSync.test.ts` 均包含在 447 内。final-fix/final-fix2 的精确
+> 代码提交见 `git log`（报告 `final-fix-report.md` / `final-fix2-report.md` 列明）。
 > 2) **未按原定 Transformation 路径验证**：`@itwin/imodel-transformer@0.4.3` peer `^3.6 || ^4.0`，
 > 本仓 core 为 `5.15.0-dev.2`，且加依赖违反 lockfile 约束，故探针 **NOT RUN**。替代路径为**参数重放 +
 > `rebuildAll`**：11/11 迁移测试通过；主链体积 15.9989259816 vs 15.9989259816、direct-edit 体积
@@ -604,7 +604,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 2026-10-30 | 本 ADR 提出：B 为目标、C 为过渡、P1 spike 后 go/no-go | 待决策 |
 | 2026-10-30 | 用户认可 **B 方向**；按 C 过渡；P1 spike 作为迁移门禁 | **已接受** |
 | 2026-10-30 | P0 四项前置完成（Named Version / 状态诚实化 / taxonomy / WorkspaceRef）；验证证据见下 | **完成**（进入 P1 spike） |
-| 2026-10-30 | **P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**。四个验收轴：①隔离 Go（2+ Part Studio 特征/树/体/orderKey/oplog + 跨 studio by-id 写守卫 + legacy 回归；scope **25 cases**；**final-fix HEAD 48 files / 443 passed / 8 skipped**，Task 9 时点 436、Task 4 基线 421；8 skips 为 `debug-tail-root` 探针）；②迁移 qualified Go（**修订**：参数重放 + `rebuildAll` 替代 Transformation；11/11 tests，主链体积 15.9989259816 vs 15.9989259816、direct-edit 体积 16 vs 16、failed-tail 8 vs 8、boolean 12 再生 + 8 consumed + 8 suppressed；**bbox 相等对复制类体非独立证据**；**Transformation NOT RUN**，**不宣称无损**）；③性能 Go（受限：`StandaloneDb`/native + 后端读面代理；10 studio init 145.1 ms / tree 1.3 ms / insert P95 8.8 ms / rebuild P95 6.1 ms / switch P95 0.3 ms；阈值仅人工比对日志，**非 CI 回归预算**）；④Named Version **metadata-only** + iModel 级共享 Go（**修订**：共享写实际 Manage-only；`isSecured` + ACL；非成员 403 → 显式 Read 200；无 checkpoint/缩略图/计数/事件；final-fix 收紧列表元数据/管理权边界/内容资源维度）。撤销决策 **A**：最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init-floor E2E **NOT RUN**。若按原四项门禁字面执行，本记录应读作 defer/No-Go。证据与全部限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径，本公开仓无此文件）与 `final-fix-report.md` | **待 owner 签字（qualified Go；非字面四项全过）** |
+| 2026-10-30 | **P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**。四个验收轴：①隔离 Go（2+ Part Studio 特征/树/体/orderKey/oplog + 跨 studio by-id 写守卫 + legacy 回归；scope **25 cases**；**final-fix2 HEAD 49 files / 447 passed / 8 skipped**，Task 9 时点 436、Task 4 基线 421；8 skips 为 `debug-tail-root` 探针）；②迁移 qualified Go（**修订**：参数重放 + `rebuildAll` 替代 Transformation；11/11 tests，主链体积 15.9989259816 vs 15.9989259816、direct-edit 体积 16 vs 16、failed-tail 8 vs 8、boolean 12 再生 + 8 consumed + 8 suppressed；**bbox 相等对复制类体非独立证据**；**Transformation NOT RUN**，**不宣称无损**）；③性能 Go（受限：`StandaloneDb`/native + 后端读面代理；10 studio init 145.1 ms / tree 1.3 ms / insert P95 8.8 ms / rebuild P95 6.1 ms / switch P95 0.3 ms；阈值仅人工比对日志，**非 CI 回归预算**）；④Named Version **metadata-only** + iModel 级共享 Go（**修订**：共享写实际 Manage-only；`isSecured` + ACL；非成员 403 → 显式 Read 200；无 checkpoint/缩略图/计数/事件；final-fix 收紧列表元数据/管理权边界/内容资源维度）。撤销决策 **A**：最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init-floor E2E **NOT RUN**。若按原四项门禁字面执行，本记录应读作 defer/No-Go。证据与全部限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径，本公开仓无此文件）与 `final-fix-report.md` | **待 owner 签字（qualified Go；非字面四项全过）** |
 
 > **最终验证计数（2026-10-30 final-fix2）**：backend final-fix 基线为代码 HEAD `14e5fe6` / docs HEAD
 > `140131b`，其全 `src/feature` 为 48 files / 443 passed / 8 skipped（Task 9 时点 436、Task 4 基线
