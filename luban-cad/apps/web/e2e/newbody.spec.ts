@@ -41,11 +41,14 @@ import {
   getFeatureTreeRpc,
   openSeedImodelEditor,
 } from './helpers';
-import { resetBModelSeed } from './seed';
+import { resetBModelSeed, type SeedImodelRef } from './seed';
+
+// L3：reset 返回的同一组 id 交给 open，避免各自按名解析。
+let bSeed: SeedImodelRef | undefined;
 
 test.beforeEach(async ({ request }) => {
   test.setTimeout(900_000);
-  await resetBModelSeed(request, await getApiToken());
+  bSeed = await resetBModelSeed(request, await getApiToken());
 });
 
 interface Sketch2d { entities: unknown[]; constraints: unknown[] }
@@ -110,7 +113,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   const consoleErrors = collectConsoleErrors(page);
   const accessToken = await getApiToken();
   // B 种子：helper 等 ?model= scope + 编辑器就绪；dbKey 取自已打开 briefcase。
-  const ctx = await openSeedImodelEditor(page);
+  const ctx = await openSeedImodelEditor(page, bSeed);
   console.log(`[newbody] B scope=${ctx.scopeId} dbKey=${ctx.dbKey}`);
 
   const lease = await borrowWriteLease(ctx, accessToken, 'newbody');

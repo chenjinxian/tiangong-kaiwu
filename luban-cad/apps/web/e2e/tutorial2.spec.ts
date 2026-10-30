@@ -57,14 +57,17 @@ import {
   getSketchRpc,
   openSeedImodelEditor,
 } from './helpers';
-import { resetBModelSeed } from './seed';
+import { resetBModelSeed, type SeedImodelRef } from './seed';
 
 // M5-T4 隔离修复（P2.6a 迁 B 种子）：T7/T7-B 在同一文件连续建模，前一用例会
 // 污染后一用例的特征计数与体积。每个用例开始前按名删旧建新 B 种子库，等待
 // baseline initialized（默认 Part Studio 由首开编辑器解析器创建）。
+// L3：reset 返回的同一组 id 交给 open，避免各自按名解析。
+let bSeed: SeedImodelRef | undefined;
+
 test.beforeEach(async ({ request }) => {
   test.setTimeout(900_000);
-  await resetBModelSeed(request, await getApiToken());
+  bSeed = await resetBModelSeed(request, await getApiToken());
 });
 
 /** 留证目录（仓根 .superpowers/sdd/2026-10-23-tutorial2-full-chain/shots/）。 */
@@ -433,7 +436,7 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
 
   // P2.6a：B 种子编辑器（helper 等 ?model= scope + 编辑器就绪）；ctx 携带
   // itwinId/imodelId/scopeId/dbKey（dbKey 取自已打开 briefcase）。
-  const ctx = await openSeedImodelEditor(page);
+  const ctx = await openSeedImodelEditor(page, bSeed);
   console.log(`[t7] B seed scope=${ctx.scopeId} dbKey=${ctx.dbKey}`);
 
   const featureCount = page.getByTestId('part-studio-feature-count');
@@ -721,7 +724,7 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
   const consoleErrors = collectConsoleErrors(page);
 
   // P2.6a：B 种子编辑器（helper 等 ?model= scope + 编辑器就绪）。
-  const ctx = await openSeedImodelEditor(page);
+  const ctx = await openSeedImodelEditor(page, bSeed);
   const featureCount = page.getByTestId('part-studio-feature-count');
   const featureList = page.getByTestId('part-studio-feature-list');
   const dialog = page.getByTestId('part-studio-feature-dialog');

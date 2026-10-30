@@ -191,15 +191,16 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   // 导航（~90s 最坏）+ 就绪（~210s 最坏）+ 建模链 + tile 等待远超全局 120s。
   test.slow();
 
-  // P2.6a：每例重置 B 种子（干净特征计数 + 新 dbKey 规避上一页面的写租约 TTL）。
+  // P2.6a：每例重置 B 种子（干净特征计数 + 新 dbKey 规避上一页面的写租约 TTL）；
+  // reset 返回的同一组 id 交给 open（L3）。
   test.setTimeout(900_000);
-  await resetBModelSeed(request, await getApiToken());
+  const bSeed = await resetBModelSeed(request, await getApiToken());
 
   // 全程 console error 收集（测试尾断言零；pageerror=未捕获异常一并入账）。
   const consoleErrors = collectConsoleErrors(page);
 
   // P2.6a：B 种子编辑器（helper 已等 ?model= scope + 连接/画布就绪）。
-  await openSeedImodelEditor(page);
+  await openSeedImodelEditor(page, bSeed);
 
   const featureCount = page.getByTestId('part-studio-feature-count');
   const featureList = page.getByTestId('part-studio-feature-list');

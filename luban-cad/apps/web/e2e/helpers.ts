@@ -324,22 +324,57 @@ async function hubGet<T>(path: string, accessToken: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+/**
+ * 按名唯一匹配（种子安全策略，P2.6a review L3/L7）：同名 0 项返回 undefined，
+ * 1 项返回该项，**≥2 项抛错**——绝不在重复名之间任取第一个（reset 与 open 若
+ * 各自随机命中不同行，会造成「重置了一个库、测试打开另一个库」的假绿）。
+ */
+export function uniqueMatch<T>(
+  rows: readonly T[],
+  nameOf: (row: T) => string | undefined,
+  target: string,
+  label: string,
+): T | undefined {
+  const hits = rows.filter((row) => nameOf(row) === target);
+  if (hits.length > 1) {
+    const ids = hits
+      .map((row) => (row as { id?: string }).id ?? '<no-id>')
+      .join(', ');
+    throw new Error(
+      `${label}「${target}」存在 ${hits.length} 个同名项（${ids}）——种子名必须唯一；` +
+        '请人工清理重复项后重跑（不自动择一，防 reset/open 指向不同行）',
+    );
+  }
+  return hits[0];
+}
+
+/** 种子列表统一分页上限（hub clampTop max=200；所有种子查询/重置同口径）。 */
+export const SEED_PAGE_SIZE = 200;
+
 /** 按名解析种子项目/库 id（不建数、不重置；auth.setup 保证在场）。 */
 export async function resolveSeedImodelIds(kind: 'A' | 'B'): Promise<SeedImodelIds> {
   const accessToken = await getApiToken();
   const projectName = kind === 'B' ? B_SEED_PROJECT_NAME : SEED_PROJECT_NAME;
   const imodelName = kind === 'B' ? B_SEED_IMODEL_NAME : E2E_IMODEL_NAME;
   const projects = await hubGet<{ iTwins?: Array<{ id: string; displayName?: string }> }>(
-    '/itwins?subClass=Project&$top=200',
+    `/itwins?subClass=Project&$top=${SEED_PAGE_SIZE}`,
     accessToken,
   );
-  const project = (projects.iTwins ?? []).find((itwin) => itwin.displayName === projectName);
+  const project = uniqueMatch(
+    projects.iTwins ?? [],
+    (itwin) => itwin.displayName,
+    projectName,
+    '种子项目',
+  );
   if (!project) throw new Error(`种子项目 ${projectName} 不在场（auth.setup 自愈失败？）`);
   const list = await hubGet<{
     iModels?: Array<{ id: string; displayName?: string; name?: string }>;
-  }>(`/imodels?iTwinId=${project.id}&$top=100`, accessToken);
-  const imodel = (list.iModels ?? []).find(
-    (candidate) => (candidate.displayName ?? candidate.name) === imodelName,
+  }>(`/imodels?iTwinId=${project.id}&$top=${SEED_PAGE_SIZE}`, accessToken);
+  const imodel = uniqueMatch(
+    list.iModels ?? [],
+    (candidate) => candidate.displayName ?? candidate.name,
+    imodelName,
+    '种子库',
   );
   if (!imodel) throw new Error(`种子库 ${imodelName} 不在场（auth.setup 自愈失败？）`);
   return { itwinId: project.id, imodelId: imodel.id };
@@ -388,10 +423,25 @@ async function scopeBannerText(page: Page): Promise<string> {
   return '<无 scope 横幅>';
 }
 
+/** MS 健康/配额诊断（打开失败时一并进错误文案；M2 的额度等待归 P2.6c）。 */
+async function msHealthHint(): Promise<string> {
+  try {
+    const response = await fetch(`${MS_BASE}/health`);
+    const body = (await response.text()).slice(0, 160);
+    return `MS health=${response.status}${response.status === 429 ? ` (${body})` : ''}`;
+  } catch {
+    return 'MS health=<unreachable>';
+  }
+}
+
 /**
  * 打开任意 B 文档编辑器并等待解析器落位到完整 `?model=` scope + 编辑器就绪。
  * 适用于共享 B 种子与直连规格自建/自管 B 文档（项目须带 B 标记，否则解析器按
  * A 只读处理，永远没有 `?model=`）。
+ *
+ * 失败诊断包含 URL / scope 横幅 / MS health：M1 的「正在打开文档…」停滞既可能
+ * 是 baseline 传播竞态，也可能是 MS 100 req/15min 配额 429；错误串先给出事实，
+ * 不在 helper 内自动等待配额（M2 归 P2.6c）。
  */
 export async function openBModelEditor(
   page: Page,
@@ -403,12 +453,14 @@ export async function openBModelEditor(
     await waitEditorReady(page);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${message}；URL=${page.url()}；scope=${await scopeBannerText(page)}`);
+    throw new Error(
+      `${message}；URL=${page.url()}；scope=${await scopeBannerText(page)}；${await msHealthHint()}`,
+    );
   }
   const scopeId = readModelScopeId(page);
   if (!scopeId) {
     throw new Error(
-      `B 编辑器未落到 ?model= scope（URL=${page.url()}；${await scopeBannerText(page)}）`,
+      `B 编辑器未落到 ?model= scope（URL=${page.url()}；${await scopeBannerText(page)}；${await msHealthHint()}）`,
     );
   }
   const dbKey = (await readBriefcaseKey(page)) ?? briefcaseDbKey(ids.imodelId);
@@ -420,26 +472,36 @@ export async function openBModelEditor(
  * scopeId, dbKey}`。B 种子首开时解析器创建默认 `Part Studio 1` 并 replace 到
  * `?model=<uuid>`；本 helper 等到该 URL + 连接/画布就绪才返回。
  *
+ * `ids` 可传入 reset 返回的同一组项目/库 id（L3：reset 与 open 必须指向同一行，
+ * 避免各自按名解析在重复名/分页边缘命中不同对象）；省略时按名唯一解析。
+ *
  * 注意：flag 关时 B 项目不出现在文档中心 A 列表（P2.1 rollback 语义），故入口
  * 为直连 URL；UI 路径打开归 P2.6c（flag/视觉）。
  */
-export async function openSeedImodelEditor(page: Page): Promise<BSeedEditorContext> {
-  return openBModelEditor(page, await resolveSeedImodelIds('B'));
+export async function openSeedImodelEditor(
+  page: Page,
+  ids?: SeedImodelIds,
+): Promise<BSeedEditorContext> {
+  return openBModelEditor(page, ids ?? (await resolveSeedImodelIds('B')));
 }
 
 /**
  * A 旧文档编辑器 helper（只读规格专用）：打开未标记 A 种子库，返回项目/库 id。
  * 不等待 `?model=`（A 永不产生 scope），但等连接/画布就绪以承接只读读面断言。
+ * `ids` 语义同 `openSeedImodelEditor`（可选传入 reset 结果）。
  */
-export async function openLegacySeedEditor(page: Page): Promise<LegacySeedEditorContext> {
-  const ids = await resolveSeedImodelIds('A');
+export async function openLegacySeedEditor(
+  page: Page,
+  ids?: SeedImodelIds,
+): Promise<LegacySeedEditorContext> {
+  const target = ids ?? (await resolveSeedImodelIds('A'));
   await loginWithSession(page);
-  await gotoRoute(page, `/documents/${ids.itwinId}/${ids.imodelId}`, 'part-studio-page');
+  await gotoRoute(page, `/documents/${target.itwinId}/${target.imodelId}`, 'part-studio-page');
   await waitEditorReady(page);
   if (new URL(page.url()).searchParams.has('model')) {
     throw new Error(`A 旧文档编辑器不应携带 ?model=（URL=${page.url()}）`);
   }
-  return { ...ids, kind: 'A' };
+  return { ...target, kind: 'A' };
 }
 
 /** 编辑器就绪双门：状态栏「已连接」（briefcase 打开 + IPC host ready 相位合流）
@@ -487,18 +549,18 @@ export async function waitEditorReady(page: Page): Promise<void> {
 // 自建数据（自建自清）
 // ============================================================================
 
-/** 按名定位文档（hub iTwin），返回 id；缺失返回 null。 */
+/** 按名定位文档（hub iTwin），返回 id；缺失返回 null；同名 ≥2 抛错（L3 唯一性）。 */
 export async function apiFindDocumentByName(
   request: APIRequestContext,
   name: string,
   accessToken: string,
 ): Promise<{ id: string } | null> {
-  const response = await request.get('/itwins?subClass=Project&$top=100', {
+  const response = await request.get(`/itwins?subClass=Project&$top=${SEED_PAGE_SIZE}`, {
     headers: authHeaders(accessToken),
   });
   if (!response.ok()) throw new Error(`文档列表查询失败：HTTP ${response.status()}`);
   const { iTwins } = (await response.json()) as { iTwins?: Array<{ id: string; displayName?: string }> };
-  const hit = iTwins?.find((itwin) => itwin.displayName === name);
+  const hit = uniqueMatch(iTwins ?? [], (itwin) => itwin.displayName, name, '文档');
   return hit ? { id: hit.id } : null;
 }
 

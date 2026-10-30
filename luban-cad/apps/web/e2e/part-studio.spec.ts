@@ -25,19 +25,21 @@
 
 import { expect, test } from '@playwright/test';
 import { getApiToken, openLegacySeedEditor, openSeedImodelEditor } from './helpers';
-import { resetBModelSeed } from './seed';
+import { resetBModelSeed, type SeedImodelRef } from './seed';
 
 test.describe('B 种子编辑器（默认 Part Studio）', () => {
+  // L3：reset 返回的同一组 id 交给 open，避免各自按名解析。
+  let bSeed: SeedImodelRef | undefined;
   test.beforeEach(async ({ page, request }) => {
     // 每例重置 B 种子（新 iModel ⇒ 新 dbKey）：上一例页面关闭后其写租约仍可能
     // 在 30s TTL 内占住旧 dbKey，新页面会因租约 holder 未释放而无法建默认 scope
     // /新建页签（实跑复现：同文件第 4 例「+」停在 1 页签）。
     test.setTimeout(900_000);
-    await resetBModelSeed(request, await getApiToken());
-    // 编辑器用例预算放大（T5 评审 M-4）：重置 baseline + 导航（含 scope 解析/
-    // 默认创建 ~90s 最坏）+ 连接/画布（210s 最坏）远超全局 120s——统一 900s
-    // 上限，避免慢栈下 timeout 抢先吃掉 helper 诊断文案。
-    await openSeedImodelEditor(page);
+    bSeed = await resetBModelSeed(request, await getApiToken());
+    // 编辑器用例预算放大（T5 评审 M-4）：重置 baseline（含 15s 传播 settle）+
+    // 导航（含 scope 解析/默认创建 ~90s 最坏）+ 连接/画布（210s 最坏）远超全局
+    // 120s——统一 900s 上限，避免慢栈下 timeout 抢先吃掉 helper 诊断文案。
+    await openSeedImodelEditor(page, bSeed);
   });
 
   test('五区结构 + 连接就绪 + 特征树双段 + 编辑三钮干净态', async ({ page }) => {

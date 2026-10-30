@@ -11,15 +11,20 @@
  *   详情页真实数据锚点；行为与 P2.6 前逐字一致（只按名删 E2E Seed，人工调试库
  *   零接触）。
  * - B-model 种子（`E2E B 项目` / `E2E B Seed`）：项目创建时带
- *   `data.luban.modelMode='B'` 标记（读模型唯一裁决点见
+ *   `data.luban = { modelMode:'B', schemaVersion:1 }` 标记（读模型唯一裁决点见
  *   `src/clients/itwins/types.ts#isBModelItwin`）；默认 Part Studio 不在此处
  *   创建——第一次编辑器打开时由解析器经注册表创建（helpers.openSeedImodelEditor
  *   从 `?model=` 派生 scope）。
  *
- * 安全纪律：
- * - 一律按名定位；删除只命中本种子名下的 iModel（同项目内人工库不碰）。
- * - B 项目若已存在但**未带标记**（例如人工误建同名项目），绝不删改未知数据：
- *   抛错要求人工清理（hub 的 PATCH /itwins 不支持改 `data`，无法原地补标记）。
+ * 安全纪律（P2.6a review L3/L4/L7）：
+ * - 一律按名定位，列表统一 `$top=200`（hub clampTop 上限）；同名项 ≥2 直接抛错，
+ *   绝不任取第一个（reset/open 各自择行会「重置一个库、打开另一个库」）。
+ * - 删除只命中本种子名下的 iModel（同项目内人工库不碰）；重复名不删，先红。
+ * - B 项目标记必须**精确**匹配 P2.1 形态（modelMode='B' 且 schemaVersion=1）；
+ *   未标记/版本不符视为人工同名项目，不删改未知数据，直接红（hub 的
+ *   PATCH /itwins 不支持改 `data`，无法原地补标记）。
+ * - 重置返回的 `{itwinId, imodelId}` 应原样传给 open helper（openSeedImodelEditor/
+ *   openBModelEditor 的可选 ids），保证 reset 与 open 指向同一行。
  */
 
 import { expect, type APIRequestContext } from '@playwright/test';
@@ -30,7 +35,12 @@ import {
   E2E_IMODEL_NAME,
   SEED_PROJECT_NAME,
 } from './fixtures';
-import { apiFindDocumentByName, authHeaders } from './helpers';
+import {
+  apiFindDocumentByName,
+  authHeaders,
+  SEED_PAGE_SIZE,
+  uniqueMatch,
+} from './helpers';
 
 /** 种子项目 + 其下种子 iModel 的 id（A/B 通用；B 另有 scope 由 helpers 派生）。 */
 export interface SeedImodelRef {
@@ -38,7 +48,32 @@ export interface SeedImodelRef {
   imodelId: string;
 }
 
-/** 按名确保种子项目在场；缺失时自愈重建（A：未标记；B：带标记）。 */
+/**
+ * baseline 传播窗（M1）：hub 把 iModel 状态置为 `initialized` 先于 CloudSqlite
+ * blob 在 Azurite 侧完全可读。旧 scratch 构造器（boolean-bodies/newbody/
+ * feature-contracts）实测：initialized 后立即打开会卡在 briefcase 下载
+ * （MS 日志停在 Downloading briefcase，hub/Azurite 请求均 200/201）。先前这些
+ * 构造器固定驻留 15s 规避；种子路径必须保留同等 guard，否则 per-test reset →
+ * 立即 open 正是该竞态。
+ */
+export const SEED_BASELINE_SETTLE_MS = 15_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * 精确 P2.1 B 标记（L4）：`data.luban.modelMode === 'B'` **且**
+ * `data.luban.schemaVersion === 1`。纯函数，供 seed 自检与回归测试共用。
+ */
+export function hasExactBModelMarker(data: Record<string, unknown> | undefined): boolean {
+  const luban = data?.luban;
+  if (!luban || typeof luban !== 'object') return false;
+  const marker = luban as Record<string, unknown>;
+  return marker.modelMode === 'B' && marker.schemaVersion === 1;
+}
+
+/** 按名确保种子项目在场；缺失时自愈重建（A：未标记；B：带标记）。同名 ≥2 抛错。 */
 async function ensureSeedProject(
   request: APIRequestContext,
   accessToken: string,
@@ -69,43 +104,45 @@ async function readItwinData(
   return body.iTwin?.data;
 }
 
-/** B 项目必须带 B 标记；未标记视为人工同名项目——不删改，直接红。 */
+/** B 项目必须带**精确** P2.1 标记；否则视为人工同名项目——不删改，直接红（L4）。 */
 async function assertBModelProject(
   request: APIRequestContext,
   accessToken: string,
   itwinId: string,
 ): Promise<void> {
   const data = await readItwinData(request, accessToken, itwinId);
-  const luban = data?.luban;
-  const modelMode =
-    luban && typeof luban === 'object'
-      ? (luban as Record<string, unknown>).modelMode
-      : undefined;
-  if (modelMode !== 'B') {
+  if (!hasExactBModelMarker(data)) {
     throw new Error(
-      `B 种子项目 ${B_SEED_PROJECT_NAME}（${itwinId}）未带 data.luban.modelMode='B' 标记——` +
+      `B 种子项目 ${B_SEED_PROJECT_NAME}（${itwinId}）未带精确标记 ` +
+        `data.luban={modelMode:'B',schemaVersion:1}（实得 ${JSON.stringify(data?.luban)}）——` +
         '拒绝删改未知同名项目；请人工删除该项目后重跑 auth.setup',
     );
   }
 }
 
-/** 按名重置项目内的种子 iModel（删旧建新 + 轮询 baseline initialized）。 */
+/** 按名重置项目内的种子 iModel（删旧建新 + 轮询 initialized + baseline settle）。 */
 async function resetSeedImodel(
   request: APIRequestContext,
   accessToken: string,
   itwinId: string,
   imodelName: string,
 ): Promise<string> {
-  const listResponse = await request.get(`/imodels?iTwinId=${itwinId}&$top=100`, {
+  const listResponse = await request.get(`/imodels?iTwinId=${itwinId}&$top=${SEED_PAGE_SIZE}`, {
     headers: authHeaders(accessToken),
   });
   expect(listResponse.ok(), 'iModel 列表查询失败').toBeTruthy();
   const { iModels } = (await listResponse.json()) as {
     iModels?: Array<{ id: string; displayName?: string; name?: string; state?: string }>;
   };
-  for (const imodel of iModels ?? []) {
-    if ((imodel.displayName ?? imodel.name) !== imodelName) continue;
-    const deleted = await request.delete(`/imodels/${imodel.id}`, {
+  // L3：同名重复不删（否则可能误删人工库/另一行），先红要求人工清理。
+  const existing = uniqueMatch(
+    iModels ?? [],
+    (imodel) => imodel.displayName ?? imodel.name,
+    imodelName,
+    '种子库',
+  );
+  if (existing) {
+    const deleted = await request.delete(`/imodels/${existing.id}`, {
       headers: authHeaders(accessToken),
     });
     expect(deleted.status(), `种子旧库删除失败（${imodelName}）：HTTP ${deleted.status()}`).toBe(204);
@@ -131,15 +168,20 @@ async function resetSeedImodel(
         `种子 ${imodelName} baseline 终态 ${state}（查 docker compose logs webhook-agent）`,
       );
     }
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await sleep(5000);
   }
   expect(state, `种子 ${imodelName} 未在预算内 initialized（最后 state=${state}）`).toBe('initialized');
+
+  // M1：initialized ≠ blob 可读。固定 settle 15s（旧 scratch 构造器同口径），
+  // 防 per-test reset → 立即 open 的 briefcase 下载停滞。
+  await sleep(SEED_BASELINE_SETTLE_MS);
   return seedImodel.id;
 }
 
 /**
  * A 旧文档种子重置（未标记项目 + `E2E Seed`）。
  * 保留给 A 只读规格/文档中心/详情页；编辑规格一律用 `resetBModelSeed`。
+ * 返回值应传给 open helper（L3：同一行）。
  */
 export async function resetE2eSeed(
   request: APIRequestContext,
@@ -151,9 +193,10 @@ export async function resetE2eSeed(
 }
 
 /**
- * B-model 种子重置（标记项目 + `E2E B Seed`）。
- * 项目缺失时带标记自愈创建；已存在则校验标记（不满足即红，见文件头安全纪律）。
+ * B-model 种子重置（精确标记项目 + `E2E B Seed`）。
+ * 项目缺失时带标记自愈创建；已存在则校验精确标记（不满足即红，见文件头安全纪律）。
  * 默认 Part Studio 不预建——首开编辑器由解析器创建，scope id 由 helpers 派生。
+ * 返回值应传给 `openSeedImodelEditor(page, ids)`（L3：reset/open 同一行）。
  */
 export async function resetBModelSeed(
   request: APIRequestContext,

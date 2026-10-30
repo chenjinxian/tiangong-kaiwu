@@ -83,13 +83,14 @@ test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活倒角 → Escape �
   // 30+90+90）+ 前置导航，超全局 120s——慢栈下 timeout 会抢先吃掉 helper 的
   // 诊断文案。前一个用例（文档中心，无编辑器）不吃放大。
   test.setTimeout(900_000);
-  // P2.6a：B 种子每轮重置（干净状态 + 新 dbKey 规避上一页面的写租约 TTL）。
-  await resetBModelSeed(request, await getApiToken());
+  // P2.6a：B 种子每轮重置（干净状态 + 新 dbKey 规避上一页面的写租约 TTL）；
+  // reset 返回的同一组 id 交给 open（L3）。
+  const bSeed = await resetBModelSeed(request, await getApiToken());
 
   // P2.6a：B 种子项目在 flag 关时**不出现**在文档中心 A 列表（P2.1 rollback
   // 语义），故编辑器入口由 helper 直连 URL（B 解析器落位 `?model=` scope）；
   // 键盘纪律从编辑器内开始。UI 路径的键盘导航在 P2.6c flag/视觉波次恢复。
-  await openSeedImodelEditor(page);
+  await openSeedImodelEditor(page, bSeed);
   await expect(page).toHaveURL(/[?&]model=/);
 
   // 编辑器就绪：连接 + 视口（helper 已等；此处只接管激活警告采集）。

@@ -30,14 +30,17 @@ import {
   getFeatureTreeRpc,
   openSeedImodelEditor,
 } from './helpers';
-import { resetBModelSeed } from './seed';
+import { resetBModelSeed, type SeedImodelRef } from './seed';
 
 // P2.6a：数据面=共享 B 种子（项目带 data.luban.modelMode='B'）。每例 beforeEach
 // 重置种子（直发 6 张草图 + 7 个特征，残留不得污染后续用例）；直连 RPC 一律
 // 携带首开解析器落位的 Part Studio scope（applyFeatureOp 第 4 参）。
+// L3：reset 返回的同一组 id 交给 open，避免各自按名解析。
+let bSeed: SeedImodelRef | undefined;
+
 test.beforeEach(async ({ request }) => {
   test.setTimeout(900_000);
-  await resetBModelSeed(request, await getApiToken());
+  bSeed = await resetBModelSeed(request, await getApiToken());
 });
 
 interface Sketch2d {
@@ -141,7 +144,7 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
   const consoleErrors = collectConsoleErrors(page);
   const accessToken = await getApiToken();
   // B 种子：helper 等 ?model= scope + 编辑器就绪；dbKey 取自已打开 briefcase。
-  const ctx = await openSeedImodelEditor(page);
+  const ctx = await openSeedImodelEditor(page, bSeed);
   expect(page.url()).toContain(`/documents/${ctx.itwinId}/${ctx.imodelId}`);
   console.log(`[release] B scope=${ctx.scopeId} dbKey=${ctx.dbKey}`);
 

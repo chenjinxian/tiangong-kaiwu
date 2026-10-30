@@ -14,7 +14,8 @@
  * 只读规格）与 B-model（`E2E B 项目` 带 data.luban.modelMode='B' / `E2E B Seed`）
  * 两个种子项目缺失则建、自管库**按名删旧建新每轮重置**（旧应用 2026-10-11 同纪律）
  * ——编辑器用例的干净事务态/特征计数依赖每轮重置；重置后轮询 baseline
- * initialized（webhook 正常 ~35s/库，最坏走 recovery checker 数分钟，预算 900s）。
+ * initialized（webhook 正常 ~35s/库，最坏走 recovery checker 数分钟，预算
+ * 1_300_000ms：2×550s 轮询 + 2×15s settle + 余量）。
  * B 种子的默认 Part Studio 不预建：首开编辑器由解析器创建（scope 随 URL 派生）。
  * 其余 hub 数据零接触；需要新数据的用例自建自清（API）。
  *
@@ -37,8 +38,9 @@ import { resetE2eSeeds } from './seed';
 setup('authenticate', async ({ request }) => {
   // 轮询预算放大：baseline 正常 ~35s/库，最坏走 webhook-agent recovery checker
   // （实测 2026-10-23 一轮 >4.6min——栈负载高时排队）。P2.6a 起 A+B 双种子
-  // 串行重置，预算 900s。
-  setup.setTimeout(900_000);
+  // 串行重置：每个种子轮询上限 110×5s=550s + baseline settle 15s，两库最坏
+  // 1130s；预算 1_300_000ms 覆盖最坏链并留 auth/网络余量（L5）。
+  setup.setTimeout(1_300_000);
 
   // 1) 取会话：缓存复用 → refresh 续命 → 真实登录（仅末级耗限流额度）。
   //    refresh 401（refreshToken 已被其他进程旋转）不致命——降级真实登录。

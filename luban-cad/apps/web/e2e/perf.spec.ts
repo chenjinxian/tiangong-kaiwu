@@ -175,7 +175,7 @@ test.describe('性能门禁 ①：编辑器首帧', () => {
     const token = await getApiToken();
     const project = await apiFindDocumentByName(request, SEED_PROJECT_NAME, token);
     if (!project) throw new Error(`种子项目 ${SEED_PROJECT_NAME} 不在场（auth.setup 自愈失败？）`);
-    const listResponse = await request.get(`/imodels?iTwinId=${project.id}&$top=100`, {
+    const listResponse = await request.get(`/imodels?iTwinId=${project.id}&$top=200`, {
       headers: authHeaders(token),
     });
     expect(listResponse.ok(), 'iModel 列表查询失败').toBeTruthy();
