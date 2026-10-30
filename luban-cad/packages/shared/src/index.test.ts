@@ -41,8 +41,8 @@ describe('Shared package exports', () => {
     const iTwin: ITwin = {
       id: 'test',
       displayName: 'Test',
-      class: 'Project',
-      subClass: 'ConstructionProject',
+      class: 'Endeavor',
+      subClass: 'Project',
       status: 'Active',
       createdDateTime: new Date().toISOString(),
       lastModifiedDateTime: new Date().toISOString(),
@@ -108,8 +108,8 @@ describe('Shared package exports', () => {
     const project: Project = {
       id: 'test',
       displayName: 'Test',
-      class: 'Project',
-      subClass: 'Building',
+      class: 'Endeavor',
+      subClass: 'Project',
       status: 'Active',
       createdDateTime: new Date().toISOString(),
       lastModifiedDateTime: new Date().toISOString(),
