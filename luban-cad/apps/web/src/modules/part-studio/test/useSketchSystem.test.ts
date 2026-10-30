@@ -8,6 +8,8 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import React from 'react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import type { FeatureOp, FeatureOpResult, SketchDto } from '@luban-cad/shared';
 import { useSketchSystem } from '../hooks/useSketchSystem.js';
@@ -32,15 +34,41 @@ function resetStore(): void {
   });
 }
 
+/** B-model v1.17：hook 经 useWorkspaceRef 读路由 `?model=`——必须在 Router 内渲染。 */
+const LEGACY_PATH = '/documents/twin-1/im-1';
+
+function routerWrapper(path: string) {
+  // 本文件是 .ts（非 .tsx）：以 createElement 组 Router 壳，不引 JSX。
+  return ({ children }: { children?: React.ReactNode }): React.JSX.Element =>
+    React.createElement(
+      MemoryRouter,
+      { initialEntries: [path] },
+      React.createElement(
+        Routes,
+        null,
+        React.createElement(Route, {
+          path: '/documents/:iTwinId/:iModelId',
+          element: React.createElement(React.Fragment, null, children),
+        }),
+      ),
+    );
+}
+
+function renderSketchSystem(
+  connection: unknown,
+  fs: Parameters<typeof useSketchSystem>[1],
+  path: string = LEGACY_PATH,
+) {
+  return renderHook(() => useSketchSystem(connection as never, fs), { wrapper: routerWrapper(path) });
+}
+
 describe('M6-a T5：useSketchSystem', () => {
   it('applyUpdate → updateSketch op 载荷形态（sketchId=store 活动 id）+ 成功后重取活动草图', async () => {
     stubRpcClient();
     resetStore();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
     const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
-    const { result } = renderHook(() =>
-      useSketchSystem(connection as never, { applyOp } as never),
-    );
+    const { result } = renderSketchSystem(connection, { applyOp } as never);
     act(() => {
       usePartStudioStore.getState().enterSketch('sk-1');
     });
@@ -59,14 +87,12 @@ describe('M6-a T5：useSketchSystem', () => {
     stubRpcClient();
     resetStore();
     const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
-    const { result } = renderHook(() => useSketchSystem(connection as never, undefined));
+    const { result } = renderSketchSystem(connection, undefined);
     const r1 = await result.current.applyUpdate([], []);
     expect(r1.ok).toBe(false);
 
     const applyOp = vi.fn(async (): Promise<FeatureOpResult> => ({ ok: true }));
-    const { result: result2 } = renderHook(() =>
-      useSketchSystem(connection as never, { applyOp } as never),
-    );
+    const { result: result2 } = renderSketchSystem(connection, { applyOp } as never);
     const r2 = await result2.current.applyUpdate([], []);
     expect(r2.ok).toBe(false);
     expect(applyOp).not.toHaveBeenCalled();
@@ -77,9 +103,7 @@ describe('M6-a T5：useSketchSystem', () => {
     resetStore();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
     const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
-    const { result } = renderHook(() =>
-      useSketchSystem(connection as never, { applyOp } as never),
-    );
+    const { result } = renderSketchSystem(connection, { applyOp } as never);
     act(() => {
       usePartStudioStore.getState().enterSketch('sk-1');
     });
@@ -107,15 +131,13 @@ describe('M6-a T5：useSketchSystem', () => {
     resetStore();
     const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
     // 无 fs → ok:false 不发起 RPC。
-    const { result } = renderHook(() => useSketchSystem(connection as never, undefined));
+    const { result } = renderSketchSystem(connection, undefined);
     const r1 = await result.current.applyConstraintValue(6, 12);
     expect(r1.ok).toBe(false);
 
     // 拒收 → 原样返回不重取。
     const applyOp = vi.fn(async (): Promise<FeatureOpResult> => ({ ok: false, error: 'radius must be positive' }));
-    const { result: result2 } = renderHook(() =>
-      useSketchSystem(connection as never, { applyOp } as never),
-    );
+    const { result: result2 } = renderSketchSystem(connection, { applyOp } as never);
     act(() => {
       usePartStudioStore.getState().enterSketch('sk-1');
     });
@@ -133,9 +155,7 @@ describe('M6-a T5：useSketchSystem', () => {
     resetStore();
     const applyOp = vi.fn(async (): Promise<FeatureOpResult> => ({ ok: false, error: 'conflicting dof=3' }));
     const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
-    const { result } = renderHook(() =>
-      useSketchSystem(connection as never, { applyOp } as never),
-    );
+    const { result } = renderSketchSystem(connection, { applyOp } as never);
     act(() => {
       usePartStudioStore.getState().enterSketch('sk-1');
     });
@@ -149,5 +169,32 @@ describe('M6-a T5：useSketchSystem', () => {
     expect(opResult).toEqual({ ok: false, error: 'conflicting dof=3' });
     expect(result.current.error).toBe('conflicting dof=3');
     expect((LubanFeatureRpcInterface.getClient().getSketch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(getSketchCallsBefore);
+  });
+
+  // ── B-model v1.17：Part Studio scope（路由 ?model=） ──────────────────────
+
+  it('?model= 在场：getSketch 携带 Part Studio scope', async () => {
+    stubRpcClient();
+    resetStore();
+    const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
+    const { result } = renderSketchSystem(connection, undefined, '/documents/twin-1/im-1?model=ps-1');
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await waitFor(() => expect(result.current.activeSketch?.id).toBe('sk-1'));
+    expect(LubanFeatureRpcInterface.getClient().getSketch).toHaveBeenCalledWith('conn-1', 'sk-1', 'ps-1');
+  });
+
+  it('legacy 路由（无 ?model=）getSketch 省略 scope 实参（旧调用 arity 钉死）', async () => {
+    stubRpcClient();
+    resetStore();
+    const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
+    const { result } = renderSketchSystem(connection, undefined);
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await waitFor(() => expect(result.current.activeSketch?.id).toBe('sk-1'));
+    const calls = (LubanFeatureRpcInterface.getClient().getSketch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls[0]).toHaveLength(2);
   });
 });

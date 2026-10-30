@@ -62,6 +62,11 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
+// B-model v1.17：画布宿主内的 FeatureDialog 经 useWorkspaceRef 读路由 ?model=（本文件无 Router；legacy 形态）。
+vi.mock('@common/workspace/use-workspace-ref.js', () => ({
+  useWorkspaceRef: () => null,
+}));
+
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import { buildCanvasMenu, CanvasContextMenu, clampMenuPosition } from '../canvas/CanvasContextMenu.js';

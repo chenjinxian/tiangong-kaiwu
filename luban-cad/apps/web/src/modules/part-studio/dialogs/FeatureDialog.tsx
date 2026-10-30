@@ -217,6 +217,7 @@ import type {
   SketchRegionDto,
 } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
+import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { filletEdgeRefKey } from '../tools/modeling/fillet-edge-ref.js';
 import './FeatureDialog.css';
@@ -482,6 +483,9 @@ export function FeatureDialog({
 }: FeatureDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const { selection } = useCanvasSelection();
+  // B-model v1.17：活动 Part Studio id（文档路由 `?model=`）——面域读面 getSketch 的可选 scope。
+  // 缺省（legacy 路由/壳期）不传参数（旧 arity 与后端 legacy 读面逐字不变）。
+  const partStudioId = useWorkspaceRef()?.modelId;
 
   const [resultType, setResultType] = React.useState<FeatureResultType>('solid');
   const [booleanScope, setBooleanScope] = React.useState<FeatureBooleanScope>('new');
@@ -886,8 +890,9 @@ export function FeatureDialog({
     }
     setRegionsLoading(true);
     setRegionsError(undefined);
+    const scopeArgs: [] | [string] = partStudioId === undefined ? [] : [partStudioId];
     LubanFeatureRpcInterface.getClient()
-      .getSketch(connectionKey, selectedSketchId)
+      .getSketch(connectionKey, selectedSketchId, ...scopeArgs)
       .then(
         (sketch) => {
           if (regionsEpochRef.current !== epoch) return; // 迟写丢弃（身份已切换）
@@ -906,7 +911,7 @@ export function FeatureDialog({
           setRegionsLoading(false);
         },
       );
-  }, [sketchChannel, selectedSketchId, connectionKey, t]);
+  }, [sketchChannel, selectedSketchId, connectionKey, partStudioId, t]);
 
   // 轴候选（M6-b T4 revolve 通道；M6-c T5 判型升级）：草图内 line 实体按端点
   // 解算坐标判型（classifyAxisLines——竖直/水平/斜线+同类序号；id 即载荷

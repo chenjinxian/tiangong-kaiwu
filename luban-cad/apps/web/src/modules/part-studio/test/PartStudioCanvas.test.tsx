@@ -35,6 +35,11 @@ vi.mock('@luban-cad/shared', () => ({
   },
 }));
 
+// B-model v1.17：FeatureDialog 经 useWorkspaceRef 读路由 ?model=（本文件无 Router；legacy 形态）。
+vi.mock('@common/workspace/use-workspace-ref.js', () => ({
+  useWorkspaceRef: () => null,
+}));
+
 const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
   viewport: null as unknown,

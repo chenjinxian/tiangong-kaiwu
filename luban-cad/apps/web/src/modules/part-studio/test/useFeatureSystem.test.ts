@@ -26,6 +26,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
 import { FEATURE_OP_TIMEOUT_MS, useFeatureSystem } from '../hooks/useFeatureSystem.js';
 
@@ -98,8 +99,40 @@ function createMockConnection({ isReadonly = false }: { isReadonly?: boolean } =
 
 type MockConnection = ReturnType<typeof createMockConnection>;
 
-const renderFeatureSystem = (connection: MockConnection | undefined, opts?: { enabled?: boolean }) =>
-  renderHook(() => useFeatureSystem(connection as never, opts));
+/**
+ * B-model v1.17：hook 经 useWorkspaceRef 读路由 `?model=`——测试须在 Router 内
+ * 渲染（legacy 路径无 query，scope 实参必须省略）。
+ */
+const LEGACY_PATH = '/documents/twin-1/im-1';
+
+function routerWrapper(path: string) {
+  // 本文件是 .ts（非 .tsx）：以 createElement 组 Router 壳，不引 JSX。
+  return ({ children }: { children?: React.ReactNode }): React.JSX.Element =>
+    React.createElement(
+      MemoryRouter,
+      { initialEntries: [path] },
+      React.createElement(
+        Routes,
+        null,
+        React.createElement(Route, {
+          path: '/documents/:iTwinId/:iModelId',
+          element: React.createElement(React.Fragment, null, children),
+        }),
+      ),
+    );
+}
+
+function strictRouterWrapper(path: string) {
+  const Router = routerWrapper(path);
+  return ({ children }: { children?: React.ReactNode }): React.JSX.Element =>
+    React.createElement(React.StrictMode, null, React.createElement(Router, null, children));
+}
+
+const renderFeatureSystem = (
+  connection: MockConnection | undefined,
+  opts?: { enabled?: boolean },
+  path: string = LEGACY_PATH,
+) => renderHook(() => useFeatureSystem(connection as never, opts), { wrapper: routerWrapper(path) });
 
 describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
   beforeEach(() => {
@@ -120,6 +153,42 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     expect(fakeClient.getFeatureTree).toHaveBeenCalledWith('test-model.bim');
     expect(result.current.tree).toEqual(fakeClient.makeTree());
     expect(result.current.error).toBeUndefined();
+  });
+
+  // ── B-model v1.17：Part Studio scope（路由 ?model=） ──────────────────────
+
+  it('?model= 在场：getFeatureTree/getBodies/applyFeatureOp 均携带 Part Studio scope', async () => {
+    const connection = createMockConnection();
+    const { result } = renderFeatureSystem(connection, undefined, '/documents/twin-1/im-1?model=ps-1');
+
+    await waitFor(() => expect(result.current.bodiesLoaded).toBe(true));
+    expect(fakeClient.getFeatureTree).toHaveBeenCalledWith('test-model.bim', 'ps-1');
+    expect(fakeClient.getBodies).toHaveBeenCalledWith('test-model.bim', 'ps-1');
+
+    const op: FeatureOp = { kind: 'deleteFeature', featureId: 'f1' };
+    await act(async () => {
+      await result.current.applyOp(op);
+    });
+    expect(fakeClient.applyFeatureOp).toHaveBeenCalledWith(
+      'test-model.bim',
+      op,
+      expect.any(String),
+      'ps-1',
+    );
+  });
+
+  it('legacy 路由（无 ?model=）省略 scope 实参（旧调用 arity 钉死，不得多发 undefined）', async () => {
+    const connection = createMockConnection();
+    const { result } = renderFeatureSystem(connection);
+
+    await waitFor(() => expect(result.current.bodiesLoaded).toBe(true));
+    expect(fakeClient.getFeatureTree.mock.calls[0]).toHaveLength(1);
+    expect(fakeClient.getBodies.mock.calls[0]).toHaveLength(1);
+
+    await act(async () => {
+      await result.current.applyOp({ kind: 'deleteFeature', featureId: 'f1' });
+    });
+    expect(fakeClient.applyFeatureOp.mock.calls[0]).toHaveLength(3);
   });
 
   it('无连接保持 idle（零 RPC、空树、leaseOk=false）', () => {
@@ -231,10 +300,10 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     fakeClient.acquireWriteLease.mockImplementation(async () => ({ ok: false, holder: 'twin-session' }));
 
     const first = renderHook(() => useFeatureSystem(connection as never, { enabled: true }), {
-      wrapper: React.StrictMode,
+      wrapper: strictRouterWrapper(LEGACY_PATH),
     });
     const second = renderHook(() => useFeatureSystem(connection as never, { enabled: true }), {
-      wrapper: React.StrictMode,
+      wrapper: strictRouterWrapper(LEGACY_PATH),
     });
     // 租约生命周期动作全部落定（StrictMode 双挂载 acquire+release+acquire）。
     await waitFor(() => expect(fakeClient.acquireWriteLease.mock.calls.length).toBeGreaterThanOrEqual(2));
@@ -380,7 +449,7 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     //（useRef 跨 StrictMode 重挂保留）——acquire 两次、release 一次（首个 effect
     // 的 cleanup），服务端语义=同 sessionId 幂等刷新 TTL，无第二个租约泄漏。
     const { result, unmount } = renderHook(() => useFeatureSystem(connection as never), {
-      wrapper: React.StrictMode,
+      wrapper: strictRouterWrapper(LEGACY_PATH),
     });
 
     await waitFor(() => expect(fakeClient.acquireWriteLease).toHaveBeenCalledTimes(2));

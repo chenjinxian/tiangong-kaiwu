@@ -69,6 +69,7 @@ import {
   type FeatureTreeEntry,
   LubanFeatureRpcInterface,
 } from '@luban-cad/shared';
+import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 
 /** 写租约续期间隔（与后端 WriteLease 租期配套：10s 一跳） */
 const LEASE_RENEW_INTERVAL_MS = 10_000;
@@ -132,6 +133,9 @@ export function useFeatureSystem(
   const enabled = opts?.enabled ?? (!!connection && !connection.isReadonly);
   const sessionIdRef = useRef<string>(crypto.randomUUID());
   const connectionKey = connection?.key;
+  // B-model v1.17：活动 Part Studio id（文档路由 `?model=`）——读/写 RPC 的可选 scope。
+  // 缺省（legacy 路由/A 模式）不传参数（保持旧调用 arity 与后端 legacy 服务键）。
+  const partStudioId = useWorkspaceRef()?.modelId;
 
   const [tree, setTree] = useState<FeatureTreeEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -163,6 +167,8 @@ export function useFeatureSystem(
       return;
     }
     const client = LubanFeatureRpcInterface.getClient();
+    // 省略 vs 显式 undefined：旧调用方/测试按 arity 断言——无 scope 时不得多发实参。
+    const scopeArgs: [] | [string] = partStudioId === undefined ? [] : [partStudioId];
     setLoading(true);
     setBodiesLoading(true);
     // 树与 body 读面并行、各自落定（bodies 失败不拖住树呈现；两路共用纪元守卫，
@@ -170,7 +176,7 @@ export function useFeatureSystem(
     // 成功后的自动刷新因此不会只等树）。
     const treeCall = (async () => {
       try {
-        const entries = await withOpTimeout(client.getFeatureTree(connectionKey));
+        const entries = await withOpTimeout(client.getFeatureTree(connectionKey, ...scopeArgs));
         if (seq !== refreshSeqRef.current) return; // 晚到响应按纪元丢弃（不得覆盖新树）
         setTree(entries);
         setError(undefined);
@@ -183,7 +189,7 @@ export function useFeatureSystem(
     })();
     const bodiesCall = (async () => {
       try {
-        const next = await withOpTimeout(client.getBodies(connectionKey));
+        const next = await withOpTimeout(client.getBodies(connectionKey, ...scopeArgs));
         if (seq !== refreshSeqRef.current) return;
         setBodies(next);
         setBodiesError(undefined);
@@ -198,7 +204,7 @@ export function useFeatureSystem(
       }
     })();
     await Promise.all([treeCall, bodiesCall]);
-  }, [connectionKey]);
+  }, [connectionKey, partStudioId]);
 
   // 初始/换连接加载特征树
   useEffect(() => {
@@ -262,6 +268,7 @@ export function useFeatureSystem(
     }
     const client = LubanFeatureRpcInterface.getClient();
     const sessionId = sessionIdRef.current;
+    const scopeArgs: [] | [string] = partStudioId === undefined ? [] : [partStudioId];
     // 租约自愈（旧源同款纪律，见文件头注）：有限重试直至陈旧租约自然过期。
     const deadline = Date.now() + LEASE_OP_ACQUIRE_BUDGET_MS;
     let holder: string | undefined;
@@ -287,10 +294,10 @@ export function useFeatureSystem(
     }
     // 超时套接（M5-T1 超时兜底）：内核悬挂 → 15s 后以 i18n 超时错误 reject，
     // 经消费方（FeatureDialog 就地 Alert）既有错误面呈现。
-    const result = await withOpTimeout(client.applyFeatureOp(connectionKey, op, sessionId));
+    const result = await withOpTimeout(client.applyFeatureOp(connectionKey, op, sessionId, ...scopeArgs));
     if (result.ok) await refresh();
     return result;
-  }, [connectionKey, connection, refresh]);
+  }, [connectionKey, connection, refresh, partStudioId]);
 
   return {
     tree,

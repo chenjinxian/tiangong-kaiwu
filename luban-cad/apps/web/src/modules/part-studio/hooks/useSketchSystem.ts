@@ -47,6 +47,7 @@ import {
 } from '@luban-cad/shared';
 import type { UseFeatureSystem } from './useFeatureSystem.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 
 export interface UseSketchSystem {
   /** 当前活动草图（getSketch 读面，含现场解算状态；未进草图模式为 undefined）。 */
@@ -75,6 +76,9 @@ export function useSketchSystem(
   fs: UseFeatureSystem | undefined,
 ): UseSketchSystem {
   const connectionKey = connection?.key;
+  // B-model v1.17：活动 Part Studio id（文档路由 `?model=`）——getSketch 可选 scope。
+  // 缺省（legacy 路由）不传参数（旧调用 arity/后端 legacy 读面逐字不变）。
+  const partStudioId = useWorkspaceRef()?.modelId;
   // 活动身份源=store 草图切片（SketchDialog enterSketch 真 id / exitSketch 归零）。
   const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
 
@@ -99,7 +103,8 @@ export function useSketchSystem(
     }
     setLoading(true);
     try {
-      const sketch = await LubanFeatureRpcInterface.getClient().getSketch(connectionKey, activeId);
+      const scopeArgs: [] | [string] = partStudioId === undefined ? [] : [partStudioId];
+      const sketch = await LubanFeatureRpcInterface.getClient().getSketch(connectionKey, activeId, ...scopeArgs);
       // 迟写丢弃：await 期间身份已切换/退出草图/换连接 → 不得覆写新态。
       if (activeEpochRef.current !== epoch) return;
       setActiveSketch(sketch);
@@ -111,7 +116,7 @@ export function useSketchSystem(
     } finally {
       if (activeEpochRef.current === epoch) setLoading(false);
     }
-  }, [connectionKey, readActiveId]);
+  }, [connectionKey, readActiveId, partStudioId]);
 
   // 身份/连接切换加载（身份归零=退出草图 → 清活动草图；代际推进防迟写覆写）
   useEffect(() => {

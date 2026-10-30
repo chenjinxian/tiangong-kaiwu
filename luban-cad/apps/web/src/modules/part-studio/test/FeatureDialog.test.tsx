@@ -65,6 +65,16 @@ const featureRpc = vi.hoisted(() => ({
   getSketch: vi.fn(),
 }));
 
+// B-model v1.17：FeatureDialog 经 useWorkspaceRef 读文档路由 `?model=`（Part Studio scope）。
+// 组件被大量非 Router 单测直接渲染——以可改写替身模拟「有/无 ?model=」两形态。
+const workspaceRef = vi.hoisted(() => ({ modelId: undefined as string | undefined }));
+vi.mock('@common/workspace/use-workspace-ref.js', () => ({
+  useWorkspaceRef: () =>
+    workspaceRef.modelId === undefined
+      ? null
+      : { iTwinId: 'twin-1', iModelId: 'im-1', modelId: workspaceRef.modelId },
+}));
+
 // M6-b T6：拾取工具模块替身（fillet 通道「添加边」动态 import 的落点——捕获
 // startFilletEdgePick 的 options 回调现场；editor 基座链不入测试图）。置顶层
 //（vi.mock 提升执行序，嵌套写法已弃用）。
@@ -181,6 +191,7 @@ function renderDialog(props: Partial<Parameters<typeof FeatureDialog>[0]> = {}):
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.viewport = null;
+  workspaceRef.modelId = undefined; // 缺省 legacy 路由（无 ?model=）
   resetStore();
 });
 
@@ -766,6 +777,45 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1] },
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  // ── B-model v1.17：面域读面 Part Studio scope（路由 ?model=） ─────────────
+
+  it('?model= 在场：getSketch 携带 Part Studio scope', async () => {
+    workspaceRef.modelId = 'ps-1';
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={makeApplyOp()}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
+    expect(featureRpc.getSketch).toHaveBeenCalledWith('model-key', 'sk-1', 'ps-1');
+  });
+
+  it('legacy 路由（无 ?model=）getSketch 省略 scope 实参（旧调用 arity 钉死）', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={makeApplyOp()}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByText('草图 1 的面');
+    expect(featureRpc.getSketch.mock.calls[0]).toHaveLength(2);
   });
 
   it('多面域钉形（[0,2] 两域）：三面域缺省 [0] → 点「面域 2」→ regions [0,2]；再点「面域 0」摘除 → regions [2]（点选切换）', async () => {

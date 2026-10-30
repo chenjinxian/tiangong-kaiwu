@@ -47,7 +47,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.16.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.17.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -555,8 +555,8 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     // JSON 序列化往返保持（RPC 载荷形态；缺省键不出现）
     expect(JSON.parse(JSON.stringify(targeted))).toEqual(targeted);
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
-    // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.16.0");
+    // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数单独升版）。
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.17.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -681,5 +681,54 @@ describe("B6 M-A4.1 v1.16 契约（body boolean——BooleanBodiesParams）", ()
     expect((insert.params as BooleanBodiesParams).targets[0].bodyKey).toBe("0x15");
     expect((update.params as BooleanBodiesParams).keepTools).toBe(true);
     expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams>();
+  });
+});
+
+describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", () => {
+  it("scope 参数可选：旧调用与新调用签名都合法（六个读/写方法同口径）", () => {
+    expectTypeOf<LubanFeatureRpcInterface["getFeatureTree"]>().toBeCallableWith("conn-1");
+    expectTypeOf<LubanFeatureRpcInterface["getFeatureTree"]>().toBeCallableWith("conn-1", "ps-1");
+    expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith(
+      "conn-1",
+      { kind: "undo" },
+      "sess-1",
+    );
+    expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith(
+      "conn-1",
+      { kind: "undo" },
+      "sess-1",
+      "ps-1",
+    );
+    expectTypeOf<LubanFeatureRpcInterface["previewFeatureOp"]>().toBeCallableWith(
+      "conn-1",
+      { kind: "redo" },
+      "sess-1",
+    );
+    expectTypeOf<LubanFeatureRpcInterface["previewFeatureOp"]>().toBeCallableWith(
+      "conn-1",
+      { kind: "redo" },
+      "sess-1",
+      "ps-1",
+    );
+    expectTypeOf<LubanFeatureRpcInterface["getSketch"]>().toBeCallableWith("conn-1", "sk-1");
+    expectTypeOf<LubanFeatureRpcInterface["getSketch"]>().toBeCallableWith("conn-1", "sk-1", "ps-1");
+    expectTypeOf<LubanFeatureRpcInterface["listSketches"]>().toBeCallableWith("conn-1");
+    expectTypeOf<LubanFeatureRpcInterface["listSketches"]>().toBeCallableWith("conn-1", "ps-1");
+    expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1");
+    expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
+  });
+
+  it("scope 为末尾可选 string（不得为必填——旧调用兼容是硬约束）", () => {
+    type TreeFn = LubanFeatureRpcInterface["getFeatureTree"];
+    expectTypeOf<Parameters<TreeFn>[0]>().toEqualTypeOf<string>();
+    expectTypeOf<Parameters<TreeFn>[1]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ReturnType<TreeFn>>().toEqualTypeOf<Promise<FeatureTreeEntry[]>>();
+    // 写面：第 4 位是可选 scope（旧三参调用仍合法）
+    type ApplyFn = LubanFeatureRpcInterface["applyFeatureOp"];
+    expectTypeOf<Parameters<ApplyFn>[3]>().toEqualTypeOf<string | undefined>();
+  });
+
+  it("版本升 1.17.0（可选参数不破坏旧调用，但 URL 操作路径随版本变化）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.17.0");
   });
 });

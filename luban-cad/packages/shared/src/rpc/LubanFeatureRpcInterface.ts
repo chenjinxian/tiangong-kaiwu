@@ -68,6 +68,12 @@
  *  - 无新 RPC 方法（沿用 insertFeature/updateParams/deleteFeature/getBodies；bodyKey 即
  *    `getBodies[].bodyKey`）。**注意**：booleanBodies 的 params 是结构语义键——`updateParams`
  *    不改变 targets/tools/operation（服务端诚实拒收；换 body 请删除特征后重建）。
+ * B-model P1 spike 升 v1.17：可选 Part Studio scope——`getFeatureTree`/`applyFeatureOp`/
+ * `previewFeatureOp`/`getSketch`/`listSketches`/`getBodies` 末尾增可选 `partStudioId`。
+ * 缺省（legacy 路由/旧调用）= 原单工作室行为逐字不变；在场时服务端按该 studio 的
+ * def/phys model 分区解析（B-model ADR-0001）。**旧客户端兼容**：参数可选，省略即旧调用；
+ * legacy 客户端在含 scoped 分区的库上写 op 会被服务端诚实拒收（防止跨 studio 重排/串链），
+ * 错误文案指引携带 partStudioId 重试。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -406,20 +412,22 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.16.0";
+  public static interfaceVersion = "1.17.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
     return RpcManager.getClientForInterface(LubanFeatureRpcInterface);
   }
 
-  public async getFeatureTree(_iModelKey: string): Promise<FeatureTreeEntry[]> { return this.forward(arguments); }
-  public async applyFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string): Promise<FeatureOpResult> { return this.forward(arguments); }
+  /** B-model v1.17：可选 `partStudioId`——缺省=legacy 单工作室读面（旧行为逐字）。 */
+  public async getFeatureTree(_iModelKey: string, _partStudioId?: string): Promise<FeatureTreeEntry[]> { return this.forward(arguments); }
+  /** B-model v1.17：可选 `partStudioId`——缺省=legacy 写路径（含 legacy 写保护：库内有 scoped 分区即拒收）。 */
+  public async applyFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string, _partStudioId?: string): Promise<FeatureOpResult> { return this.forward(arguments); }
   public async acquireWriteLease(_iModelKey: string, _sessionId: string, _user?: string): Promise<{ ok: boolean; holder?: string }> { return this.forward(arguments); }
   public async releaseWriteLease(_iModelKey: string, _sessionId: string): Promise<void> { return this.forward(arguments); }
 
-  /** M3-a v1.1：op 预览（不提交事务，回报受影响特征） */
-  public async previewFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string): Promise<PreviewResult> { return this.forward(arguments); }
+  /** M3-a v1.1：op 预览（不提交事务，回报受影响特征）；B-model v1.17 可选 `partStudioId`（缺省=legacy 读面） */
+  public async previewFeatureOp(_iModelKey: string, _op: FeatureOp, _sessionId: string, _partStudioId?: string): Promise<PreviewResult> { return this.forward(arguments); }
   /** M3-a v1.1：拾取元素子实体 → 边引用（edgeRefs 表单值的寻址端点；M6-d v1.9 起
    * ref=边自身持久 id 单引用——邻接通道门禁 + op31 边语义换号，面对对已退役）。 */
   public async resolveEdgeRef(_iModelKey: string, _elementId: string, _subEntityId: number): Promise<{ ok: boolean; ref?: FilletEdgeRef; error?: string }> { return this.forward(arguments); }
@@ -428,12 +436,12 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
   /** M3-a v1.1：按特征类型取参数表单模型（前端动态渲染） */
   public async getFeatureFormModel(_iModelKey: string): Promise<FeatureFormModel> { return this.forward(arguments); }
 
-  /** M3-b v1.2：读单张草图（实体+约束+解算状态；不存在返回 undefined） */
-  public async getSketch(_iModelKey: string, _sketchId: string): Promise<SketchDto | undefined> { return this.forward(arguments); }
-  /** M3-b v1.2：列 iModel 内全部草图（摘要读面） */
-  public async listSketches(_iModelKey: string): Promise<SketchSummaryDto[]> { return this.forward(arguments); }
+  /** M3-b v1.2：读单张草图（实体+约束+解算状态；不存在返回 undefined）；B-model v1.17 可选 `partStudioId` */
+  public async getSketch(_iModelKey: string, _sketchId: string, _partStudioId?: string): Promise<SketchDto | undefined> { return this.forward(arguments); }
+  /** M3-b v1.2：列 iModel 内全部草图（摘要读面）；B-model v1.17 可选 `partStudioId`（缺省=legacy 全库读面） */
+  public async listSketches(_iModelKey: string, _partStudioId?: string): Promise<SketchSummaryDto[]> { return this.forward(arguments); }
 
   /** B6 M-A3.1 v1.15：body 读面（只读，无租约门禁）——authored body（含 consumed 的 active=false），
    * 按 bodyKey 升序；直改副本/orphan 不在读面。M3.2 的树/参数面板消费。 */
-  public async getBodies(_iModelKey: string): Promise<BodyInfo[]> { return this.forward(arguments); }
+  public async getBodies(_iModelKey: string, _partStudioId?: string): Promise<BodyInfo[]> { return this.forward(arguments); }
 }

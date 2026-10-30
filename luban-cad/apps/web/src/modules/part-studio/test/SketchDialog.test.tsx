@@ -39,6 +39,11 @@ const mocks = vi.hoisted(() => ({
   viewport: null as unknown,
 }));
 
+// B-model v1.17：画布宿主路的 FeatureDialog 经 useWorkspaceRef 读路由 ?model=（本文件无 Router；legacy 形态）。
+vi.mock('@common/workspace/use-workspace-ref.js', () => ({
+  useWorkspaceRef: () => null,
+}));
+
 vi.mock('@itwin/core-frontend', () => ({
   // Tool 基类桩：part-studio barrel → PartStudioPage → viewer 装饰件
   // （ToggleProjectExtentsTool extends Tool）模块加载期即需 Tool 存在。
