@@ -7,7 +7,7 @@
  * - 顶栏：LC 品牌（回 /documents）+ HeaderBreadcrumbs（文档 → 当前文档名）
  *   + 刷新 + 主题切换 + 用户菜单（我的帐户/深色模式/退出登录，os-03）；
  * - hero（DocumentHero）：Surface + 项目大图 + 名称 + 状态 Tag + 创建/更新
- *   时间 + iModel 计数 + 同步指示（存在未初始化 iModel 时）+ 操作区
+ *   时间 + iModel 计数 + 同步指示（存在待初始化/等待重试 iModel 时）+ 操作区
  *   （新建 iModel / 分享 / 删除）；
  * - 内容：轻量计数行 + iModel 卡片网格（ImodelCardGrid；空态引导创建）；
  * - 对话框：CreateImodelDialog（名称必填 + 描述可选）/ 删除文档确认
@@ -107,8 +107,12 @@ export function DocumentDetailsPage(): React.JSX.Element {
     },
   });
 
-  /** 存在未初始化 iModel → hero 同步指示（列表自动刷新由失效驱动）。 */
-  const syncing = React.useMemo(() => imodels.some((im) => !im.initialized), [imodels]);
+  /** 存在待初始化/等待重试 iModel → hero 同步指示（列表自动刷新由失效驱动）。
+   *  失败/缺文件/未知不呈现「同步中」（现状诚实：失败不是进行中）。 */
+  const syncing = React.useMemo(
+    () => imodels.some((im) => im.state === 'notInitialized' || im.state === 'retryScheduled'),
+    [imodels],
+  );
 
   const formatDate = React.useCallback(
     (value: string | null | undefined): string | null => {

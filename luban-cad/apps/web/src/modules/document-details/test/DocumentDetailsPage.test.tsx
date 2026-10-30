@@ -91,7 +91,8 @@ const IMODELS = [
     displayName: '结构模型',
     name: '结构模型',
     description: null,
-    state: 'notInitialized',
+    // P0 Task 2：失败态不得伪装「初始化中」（四态徽标验收基线）。
+    state: 'initializationFailed',
     createdDateTime: '2026-10-03T08:00:00.0000000+00:00',
     lastChangesetPushDateTime: null,
     iTwinId: 'itwin-1',
@@ -171,9 +172,22 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     expect(screen.getByRole('button', { name: '删除' })).toBeDefined();
   });
 
-  it('存在未初始化 iModel → hero 同步指示', async () => {
+  // P0 Task 2（四态徽标 + 同步口径）：失败/缺文件不呈现「同步中」，
+  // 仅 notInitialized / retryScheduled 驱动 hero 同步指示。
+  it('初始化失败显示失败徽标，且不显示同步中', async () => {
     renderPage();
-    expect(await screen.findByText('同步中')).toBeDefined();
+    expect(await screen.findByText('初始化失败')).toBeDefined();
+    expect(screen.queryByText('同步中')).toBeNull();
+  });
+
+  it('初始化中显示初始化中徽标，并显示同步中', async () => {
+    mocks.imodelsList.mockResolvedValue([
+      IMODELS[0],
+      { ...IMODELS[1], state: 'notInitialized' },
+    ]);
+    renderPage();
+    expect(await screen.findByText('初始化中')).toBeDefined();
+    expect(screen.getByText('同步中')).toBeDefined();
   });
 
   it('iModel 卡片网格：名称/描述/初始化徽标/创建时间/打开工作空间', async () => {
@@ -183,9 +197,10 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     expect(screen.getByText('结构模型')).toBeDefined();
     expect(screen.getByText('一层平面布局')).toBeDefined();
     expect(screen.getByText('暂无描述')).toBeDefined();
-    // 初始化徽标：已初始化 ×1 + 初始化中 ×1
+    // 初始化徽标：已初始化 ×1 + 初始化失败 ×1（失败态不得显示「初始化中」）。
     expect(screen.getByText('已初始化')).toBeDefined();
-    expect(screen.getByText('初始化中')).toBeDefined();
+    expect(screen.getByText('初始化失败')).toBeDefined();
+    expect(screen.queryByText('初始化中')).toBeNull();
     // 每张卡一个「打开工作空间」
     expect(screen.getAllByRole('button', { name: '打开工作空间' })).toHaveLength(2);
     // 卡片创建时间（metadata）

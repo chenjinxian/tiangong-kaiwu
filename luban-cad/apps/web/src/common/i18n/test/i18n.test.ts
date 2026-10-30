@@ -101,6 +101,9 @@ const REQUIRED_DOCUMENT_DETAIL_KEYS = [
   'detail.card.open', 'detail.card.moreActions', 'detail.card.initialized',
   'detail.card.initializing', 'detail.card.noDescription', 'detail.card.untitled',
   'detail.card.deleteTitle', 'detail.card.deleteMessage',
+  // P0 Task 2：四态徽标文案键（失败/缺文件/等待重试/未知不得复用「初始化中」）。
+  'detail.card.initializationFailed', 'detail.card.missingFiles',
+  'detail.card.retryScheduled', 'detail.card.unknownState',
   'detail.empty.title', 'detail.empty.description',
 ] as const;
 

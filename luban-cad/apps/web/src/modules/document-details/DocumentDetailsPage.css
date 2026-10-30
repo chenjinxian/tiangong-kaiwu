@@ -222,6 +222,19 @@
   background: var(--iui-color-text-warning);
 }
 
+/* P0 Task 2 四态徽标：失败/缺文件=红，等待重试=琥珀，未知=灰。 */
+.imodel-card__badge-dot--failed {
+  background: var(--iui-color-icon-negative);
+}
+
+.imodel-card__badge-dot--retry {
+  background: var(--iui-color-icon-warning);
+}
+
+.imodel-card__badge-dot--unknown {
+  background: var(--iui-color-icon-muted);
+}
+
 .imodel-card__quick-actions {
   display: flex;
   align-items: center;

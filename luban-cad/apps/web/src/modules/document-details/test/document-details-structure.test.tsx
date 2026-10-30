@@ -83,7 +83,8 @@ const IMODELS = [
     displayName: '结构模型',
     name: '结构模型',
     description: null,
-    state: 'notInitialized',
+    // P0 Task 2：失败态徽标锚点（四态徽标结构验收）。
+    state: 'initializationFailed',
     createdDateTime: '2026-10-03T08:00:00.0000000+00:00',
     lastChangesetPushDateTime: null,
     iTwinId: 'itwin-1',
@@ -145,9 +146,9 @@ describe('DocumentDetailsPage 结构断言（M2 Task 8，关键区域存在性�
     expect(within(grid).getByText('楼层模型')).toBeDefined();
     expect(within(grid).getByText('结构模型')).toBeDefined();
     expect(within(grid).getByText('一层平面布局')).toBeDefined();
-    // 初始化徽标：已初始化 ×1 + 初始化中 ×1；每卡一个「打开工作空间」。
+    // 初始化徽标：已初始化 ×1 + 初始化失败 ×1；每卡一个「打开工作空间」。
     expect(within(grid).getByText('已初始化')).toBeDefined();
-    expect(within(grid).getByText('初始化中')).toBeDefined();
+    expect(within(grid).getByText('初始化失败')).toBeDefined();
     expect(within(grid).getAllByRole('button', { name: '打开工作空间' })).toHaveLength(2);
   });
 
