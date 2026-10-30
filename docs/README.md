@@ -17,7 +17,7 @@
 | 文档 | 说明 |
 |------|------|
 | [Architecture.md](./Architecture.md) | 系统架构详细设计 |
-| [adr/0001-itwin-imodel-data-model.md](./adr/0001-itwin-imodel-data-model.md) | ADR：iTwin/iModel 数据模型与“文档—页签”信息架构（**已接受**；P0 前置完成；**P1 spike 完成：Go（qualified）**，见 ADR §14） |
+| [adr/0001-itwin-imodel-data-model.md](./adr/0001-itwin-imodel-data-model.md) | ADR：iTwin/iModel 数据模型与“文档—页签”信息架构（**已接受**；P0 前置完成；**P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**，见 ADR §11/§14） |
 | [ROADMAP.md](./ROADMAP.md) | 路线图索引（指向全程序路线图） |
 | [SKETCH-CONSTRAINT-WORKFLOW.md](./SKETCH-CONSTRAINT-WORKFLOW.md) | 草图约束工作流程（设计稿） |
 | [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |
@@ -69,4 +69,4 @@
 
 现行能力状态以本目录保留文档与代码/测试实测为准（状态标记：✅/🟠/⚪/❌）。
 
-*最后更新: 2026-10-29（文档收敛；删除已完成历史计划与旧审计报告）*
+*最后更新: 2026-10-30（P1 spike 收口；ADR 门禁修订与状态同步）*

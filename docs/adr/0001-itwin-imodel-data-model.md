@@ -1,7 +1,7 @@
 # ADR-0001: iTwin / iModel 数据模型与“文档—页签”信息架构
 
 - **状态**：已接受（Accepted，2026-10-30：认可 B 方向，采用 C 过渡，P1 spike 作为迁移门禁；
-  **2026-10-30 P1 spike 完成：Go（qualified，带限定）**，见 §14）
+  **2026-10-30 P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**，见 §11/§14）
 - **日期**：2026-10-30
 - **决策范围**：鲁班CAD 的领域数据模型、文档中心 IA、Part Studio 页签模型，以及 CAM/BIM 扩展方向
 - **关联文档**：
@@ -18,8 +18,15 @@
 - **过渡 C**：旧数据保留 A 兼容，新文档走 B，前端先引入 `WorkspaceRef` 抽象。
 - **前置三项**：Named Version、iModel 状态诚实化、iTwin 官方 taxonomy。
 - **Go/No-Go**：P1 spike 四项全过才迁移；否则维持 A，不启动全量迁移。**2026-10-30 实测结果：
-  Go（qualified）**——隔离/性能/Named Version+共享 Go；撤销决策 A（文档级、init floor 限定，生产
-  E2E NOT RUN）；迁移以参数重放 + `rebuildAll` qualified Go（Transformation 探针 NOT RUN）。详见 §14。
+  Go（qualified）**——隔离（Go）；性能（Go，但仅 `StandaloneDb`/native 与后端读面代理，限制见
+  §11 与 spike 文档「性能·诚实限制」）；Named Version + 共享（Go，但 Named Version **metadata-only**、
+  共享写权限实际 **Manage-only**，限制见 §11 与 spike 文档「Named Version / 共享·诚实限制」）；撤销
+  决策 A（文档级、init floor 限定，生产 E2E NOT RUN）；迁移以参数重放 + `rebuildAll` qualified Go
+  （Transformation 探针 NOT RUN）。
+- **门禁修订（必须明示）**：上述 **qualified Go 是对原四项门禁的 amendment，不是字面四项全过**：
+  Transformation → 参数重放 + `rebuildAll`；Named Version → metadata-only；共享 → Manage-only 写。
+  **需产品 owner 明示签字接受**。若按原门禁字面执行，本记录应读作 **defer/No-Go**，直至 transformer
+  探针与生产 BriefcaseDb/IPC undo E2E 补齐。详见 §11、§14。
 
 ---
 
@@ -184,6 +191,10 @@
    - iModel Transformation 能把一个含特征/几何的旧 Part Studio 迁入目标 Model，并保持引用可解析；
    - 5–10 个 Part Studio 同一 iModel 的打开/切换/tile 性能可接受；
    - Named Version + 文档级共享可用。
+   - **P1 注记（2026-10-30）**：原第 2 项（iModel Transformation）**未执行（NOT RUN）**；
+     P1 已验证路径是**参数重放 + `rebuildAll`**（qualified Go）。`@itwin/imodel-transformer@0.4.3`
+     的 peer 为 `^3.6 || ^4.0`，本仓 core 为 `5.15.0-dev.2`，且加依赖违反 lockfile 约束；若要把
+     Transformation 纳入后续计划，必须先做**显式依赖决策**（升级/替换/经批准的 lockfile 例外）。
 4. **如果 spike 失败，或产品决定 6–12 个月内不做多页签/装配/CAM**：退回 A，保留 `WorkspaceRef` 抽象，记录后续 ADR；不要围绕 A 继续加深“页签 = iModel”的耦合。
 5. **无论 A/B，先补齐三项前置能力**：
    - **Named Version**（前端客户端 + UI + 发布流程）；
@@ -254,17 +265,19 @@ iTwin: Thing/Portfolio "园区"
 | 阶段 | 内容 | 出口标准 |
 |---|---|---|
 | **P0 前置** | Named Version 客户端/UI；iModel 状态诚实化；iTwin taxonomy 归一；`WorkspaceRef` 抽象 | 新能力有测试；旧 UI 不回归 |
-| **P1 Spike** | 特征多 Part Studio 作用域；Transformation 迁移样例；性能测试；Named Version/共享 | 四项 spike 全过，形成报告 |
+| **P1 Spike** | 特征多 Part Studio 作用域；迁移验证（**P1 实际：参数重放 + `rebuildAll`；Transformation NOT RUN**）；性能测试；Named Version/共享 | 四项 spike 全过，形成报告（**实际为 qualified Go，见下方注记**） |
 | **P2 新文档走 B** | 新文档 = iModel；Part Studio = Model；文档中心读取 B；A 旧文档只读兼容 | 新文档全链 e2e 绿；旧文档可打开 |
 | **P3 旧数据迁移** | 惰性迁移或批量迁移；保留源 iModel 归档；校验几何/特征/引用 | 迁移工具可重跑；抽样校验通过 |
 | **P4 收口** | 切换 IA；删除 A 兼容层（或长期保留只读）；更新文档与 ADR | 全量 e2e/视觉/verify-stack 绿 |
 
-> **P1 实际结果（2026-10-30）**：**Go（qualified）**。隔离（2+ Part Studio 特征/树/体/orderKey/
-> oplog）+ 性能（10 studio 五项阈值全过）+ Named Version（元数据）/iModel 级共享（`isSecured` + ACL）
-> 实测通过；撤销决策 **A**（最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC +
-> init floor E2E **NOT RUN**）；迁移以**参数重放 + `rebuildAll`** qualified Go（transformer 探针
-> **NOT RUN**，不得宣称无损）。证据与限定见私有仓 `luban-backend` 的
-> `docs/feature-multi-partstudio-spike.md`（仓外私仓路径；本公开仓不包含该文件，故无相对链接）。
+> **P1 实际结果（2026-10-30）**：**Go（qualified，门禁修订，待 owner 签字）**。隔离（2+ Part Studio
+> 特征/树/体/orderKey/oplog；最终 HEAD 全 `src/feature` 48 files / 436 passed / 8 skipped）+ 性能
+> （10 studio 五项阈值全过；`StandaloneDb`/native + 后端读面代理）+ Named Version（metadata-only）/
+> iModel 级共享（`isSecured` + ACL；写实际 Manage-only）实测通过；撤销决策 **A**（最新 studio init
+> 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init floor E2E **NOT RUN**）；迁移以**参数
+> 重放 + `rebuildAll`** qualified Go（transformer 探针 **NOT RUN**，不得宣称无损）。证据与限定见私有仓
+> `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径；本公开仓不包含该文件，
+> 故无相对链接）。
 
 ### 8.2.1 实施现实核对（2026-10-30 取证）
 
@@ -298,11 +311,16 @@ iTwin: Thing/Portfolio "园区"
 4. 校验：特征数、体数、体积/包围盒、关键引用、几何抽样；失败则回滚到源 iModel。
 5. 迁移工具必须幂等、可重跑、可分批；先 dry-run，再灰度。
 
+> **P1 注记（2026-10-30）**：本节第 2 步是**原始计划**，P1 **未**按 Transformation 执行（**NOT RUN**）。
+> 已验证路径为**参数重放 + `rebuildAll`**（10/10 tests，qualified Go）；Transformation 的依赖
+> （peer `^3.6 || ^4.0` vs core `5.15.0-dev.2`）与 lockfile 约束仍是未决项，纳入计划前须先做显式
+> 依赖决策。
+
 ### 8.4 私有仓工作（luban-backend / imodelhub-services）
 
 | 仓库/服务 | 工作 | 规模 |
 |---|---|---|
-| `modeling-server` FeatureService | 多 Part Studio 作用域（查询/求值/undo/op DSL）；迁移 CLI/Transformer 接线 | M–L |
+| `modeling-server` FeatureService | 多 Part Studio 作用域（查询/求值/undo/op DSL）；迁移 CLI/Transformation 接线（**P1 注记：Transformation NOT RUN；先做显式依赖决策**） | M–L |
 | `modeling-server` Briefcase/Tile | 一个 iModel 多 Model 的打开/切换/tile 性能验证与缓存优化 | M |
 | `imodelhub-services` | 官方 iTwin `class/subClass/parentId`；Named Version 端点/状态；iModel 状态粒度；iModel 级权限（`isSecured`） | M |
 | `webhook-agent` | changeset 事件按文档 iModel 聚合；迁移后事件链路验证 | S |
@@ -320,7 +338,7 @@ iTwin: Thing/Portfolio "园区"
 | Part Studio | TabBar 读 Model 列表；切页签不新建连接；树/特征按 Model 作用域；文档级共享/版本 | M–L |
 | 测试 | 多页签、迁移、双模、权限、性能 | M |
 
-### 8.6 发布顺序 runbook（P0 终审 + P1 RPC 1.17 门）
+### 8.6 发布顺序 runbook（P0 终审 + P1 发布门：RPC 1.17 原子同发 + 混合写模式）
 
 **支持路径是先 hub 后 web**（滚动升级窗口内旧 web 对新 hub、新 web 对旧 hub
 各自可运行，但这不是受支持的长期形态）：
@@ -342,12 +360,13 @@ iTwin: Thing/Portfolio "园区"
 4. **全量 verify-stack**（health → 数据链 → WS → dev-build 横幅；Step E/F
    双镜像新鲜度）。
 
-**P1 新增发布门（RPC 1.17，强制）**：
+**P1 新增发布门（RPC 1.17 原子同发 + 混合写模式，强制）**：
 
 5. **RPC 1.17.0 原子同发（禁止版本 skew）**：`LubanFeatureRpcInterface.interfaceVersion =
    "1.17.0"` 内嵌在 RPC URL 操作路径中——新 web（1.17.0）连旧 MS（1.16.0）会寻址失败，反之新 MS
    对旧操作路径同样不映射。发布必须：
-   - 用 `@luban-cad/shared` **1.17.0** 重建 modeling-server 产物（`dist-backend`）；
+   - 用 **RPC 契约 1.17.0** 的 `@luban-cad/shared` 源码重建 modeling-server 产物（`dist-backend`）；
+     注意 1.17.0 是 `LubanFeatureRpcInterface.interfaceVersion`，不是 npm 包版本（shared 包仍为 1.0.0）；
    - 用**同一提交**重建 web 镜像（`scripts/rebuild-web.ps1`）；
    - e2e 的 RPC 版本路径从 shared interface **运行时派生**（禁止硬编码）。
    滚动窗口内不存在受支持的 1.17/1.16 交叉形态。
@@ -442,21 +461,35 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 **Go**：四项全过 → 按 P2–P4 执行 B。
 **No-go**：任一失败 → 维持 A，保留抽象层，记录后续 ADR；不启动全量迁移。
 
-> **2026-10-30 实测结果（Go，qualified，带偏离说明）**：
-> 1) 隔离 **Go**（2+ Part Studio 特征/树/体/orderKey/oplog 隔离；scope 套件 19 cases；全 feature
-> 421 passed / 8 skipped 基线）。
-> 2) **未按原定 Transformation 路径验证**：`@itwin/imodel-transformer@0.4.3` peer 只到 core 4，
-> 本仓 core 为 5.15.0-dev.2，且加依赖违反 lockfile 约束，故探针 **NOT RUN**。替代路径为**参数重放 +
-> `rebuildAll`**：10/10 迁移测试通过，主链体积 15.9989259816/15.9989259816、direct-edit 16/16、
-> failed-tail 8/8、boolean 12 再生 + 8 consumed + 8 suppressed，bbox 差全 0；**不宣称无损**（空目标、
-> 跨 iModel、源静默、外部引用剔除等限制见 spike 文档）。
-> 3) 性能 **Go**：10 studio init 145.1 ms、tree 1.3 ms、insert P50/P95 7.2/8.8 ms、rebuild 5.9/6.1 ms、
-> switch 0.3/0.3 ms，五项阈值全过；测量层为进程内 StandaloneDb/native（非 UI 首帧、非 CI 预算）。
-> 4) Named Version **元数据** + iModel 级共享 **Go**：非成员 reader 403 → 显式 Read 200 且可见版本、
-> reader POST 403；**不宣称 checkpoint/缩略图/计数/事件**。
+> **2026-10-30 实测结果（Go，qualified，带门禁修订与偏离说明）**：
+> **这不是字面四项全过。** 本判定是**对原四项门禁的修订（amendment）**：Transformation → 参数重放 +
+> `rebuildAll`；Named Version → metadata-only；共享 → Manage-only 写。**需产品 owner 明示签字接受**；
+> 若按原门禁字面执行，本记录应读作 **defer/No-Go**，直至 transformer 探针与生产 BriefcaseDb/IPC
+> undo E2E 补齐。
+> 1) 隔离 **Go**：2+ Part Studio 特征/树/体/orderKey/oplog 隔离；scope 套件 19 cases。**最终 HEAD
+> （backend `14e5fe6`）全 `src/feature`：48 files / 436 passed / 8 skipped**（`CI=true corepack pnpm@10
+> exec vitest run src/feature`，exit 0，143s）；Task 4 收口基线为 421 passed / 8 skipped。8 个 skipped
+> 均为 `debug-tail-root.test.ts` 的 `debug-tail-root` 探针；四个单工作室回归文件
+> `FeatureService.test.ts` / `FeatureUndo.test.ts` / `MultiBodyFoundation.test.ts` /
+> `FeatureSync.test.ts` 均包含在 436 内。
+> 2) **未按原定 Transformation 路径验证**：`@itwin/imodel-transformer@0.4.3` peer `^3.6 || ^4.0`，
+> 本仓 core 为 `5.15.0-dev.2`，且加依赖违反 lockfile 约束，故探针 **NOT RUN**。替代路径为**参数重放 +
+> `rebuildAll`**：10/10 迁移测试通过；主链体积 15.9989259816 vs 15.9989259816、direct-edit 体积
+> **16 vs 16**（网格化体积值，非比例）、failed-tail 体积 8 vs 8、boolean 12 再生 + 8 consumed +
+> 8 suppressed，bbox 差全 0；**不宣称无损**（空目标、跨 iModel、源静默、外部引用剔除、同库跨
+> studio/legacy 目标、suppressed-standard/B-shape、validation-failure recovery 等限制见 spike 文档）。
+> 3) 性能 **Go（受限）**：10 studio init 145.1 ms、tree 1.3 ms、insert P50/P95 7.2/8.8 ms、
+> rebuild 5.9/6.1 ms、switch 0.3/0.3 ms，五项阈值全过；测量层为进程内 `StandaloneDb`/native，
+> switch 仅**后端读面代理**（非 UI 首帧、无 tile/rasterization），单机单次、轻负载，**不是 CI 回归预算**。
+> 4) Named Version **metadata-only** + iModel 级共享 **Go（受限）**：非成员 reader 403 → 显式 Read 200
+> 且可见版本、reader POST 403；**不宣称 checkpoint/缩略图/计数/事件**；写权限实际 **Manage-only**
+> （显式 Write 惰性），iTwin Admin/Editor 绕过 `isSecured`。详见 spike 文档「诚实限制」。
 > **撤销决策 A**：原生 undo 为文档级；可撤范围为**最新 studio init 之上**，位于更晚 studio init 之下
 > 的编辑不可达；**不承诺页签级 undo**。生产 BriefcaseDb/IPC + init-floor E2E **NOT RUN**（deferred）。
 > **未跑**：全量 web Playwright、发布镜像 e2e、Transformation、生产 undo E2E。
+> **公共仓/ hub 计数（已有记录，Task 9 未复跑）**：shared 141/141、web 1011/1011（Task 4 收口，
+> 此后公共仓仅文档改动）；hub unit 126 suites / 1147 tests、secured e2e 18/18、Named Version +
+> secured 21/21、itwins/authorization/smoke-crud 44/44（Task 8a/8 收口）。
 
 ---
 
@@ -505,7 +538,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 2026-10-30 | 本 ADR 提出：B 为目标、C 为过渡、P1 spike 后 go/no-go | 待决策 |
 | 2026-10-30 | 用户认可 **B 方向**；按 C 过渡；P1 spike 作为迁移门禁 | **已接受** |
 | 2026-10-30 | P0 四项前置完成（Named Version / 状态诚实化 / taxonomy / WorkspaceRef）；验证证据见下 | **完成**（进入 P1 spike） |
-| 2026-10-30 | **P1 spike 完成：Go（qualified）**。四个验收轴：①隔离 Go（2+ Part Studio 特征/树/体/orderKey/oplog + 跨 studio by-id 写守卫 + legacy 回归；scope 19 cases / 全 feature 421 passed 基线）；②迁移 qualified Go（参数重放 + `rebuildAll`，10/10 tests，体积/bbox 差 0；**Transformation 探针 NOT RUN**，**不宣称无损**）；③性能 Go（10 studio 五项阈值全过，init 145.1 ms / tree 1.3 ms / insert P95 8.8 ms / rebuild P95 6.1 ms / switch P95 0.3 ms；StandaloneDb/native 代理，非 CI 预算）；④Named Version 元数据 + iModel 级共享 Go（`isSecured` + ACL；非成员 403 → 显式 Read 200；无 checkpoint/缩略图/计数/事件）。撤销决策 **A**：最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init-floor E2E **NOT RUN**。证据与全部限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径，本公开仓无此文件） | **完成（qualified Go；进入 P2 前须接受限定与发布门）** |
+| 2026-10-30 | **P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**。四个验收轴：①隔离 Go（2+ Part Studio 特征/树/体/orderKey/oplog + 跨 studio by-id 写守卫 + legacy 回归；scope 19 cases；**最终 HEAD 48 files / 436 passed / 8 skipped**，Task 4 基线 421；8 skips 为 `debug-tail-root` 探针）；②迁移 qualified Go（**修订**：参数重放 + `rebuildAll` 替代 Transformation；10/10 tests，主链体积 15.9989259816 vs 15.9989259816、direct-edit 体积 16 vs 16、failed-tail 8 vs 8、boolean 12 再生 + 8 consumed + 8 suppressed，bbox 差 0；**Transformation NOT RUN**，**不宣称无损**）；③性能 Go（受限：`StandaloneDb`/native + 后端读面代理；10 studio init 145.1 ms / tree 1.3 ms / insert P95 8.8 ms / rebuild P95 6.1 ms / switch P95 0.3 ms，非 CI 预算）；④Named Version **metadata-only** + iModel 级共享 Go（**修订**：共享写实际 Manage-only；`isSecured` + ACL；非成员 403 → 显式 Read 200；无 checkpoint/缩略图/计数/事件）。撤销决策 **A**：最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init-floor E2E **NOT RUN**。若按原四项门禁字面执行，本记录应读作 defer/No-Go。证据与全部限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径，本公开仓无此文件） | **待 owner 签字（qualified Go；非字面四项全过）** |
 
 ### P0 收口验证证据（2026-10-30）
 
