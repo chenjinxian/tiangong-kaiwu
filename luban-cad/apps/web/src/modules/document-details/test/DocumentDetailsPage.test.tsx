@@ -28,8 +28,10 @@ const mocks = vi.hoisted(() => ({
   imodelsList: vi.fn(),
   imodelsGet: vi.fn(),
   imodelsCreate: vi.fn(),
+  imodelsCreatePending: vi.fn(),
   imodelsDelete: vi.fn(),
   imodelsUpdate: vi.fn(),
+  imodelsSetSecured: vi.fn(),
   imodelsListFavorites: vi.fn(),
   imodelsAddFavorite: vi.fn(),
   imodelsRemoveFavorite: vi.fn(),
@@ -46,8 +48,10 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
     list = mocks.imodelsList;
     get = mocks.imodelsGet;
     create = mocks.imodelsCreate;
+    createPending = mocks.imodelsCreatePending;
     delete = mocks.imodelsDelete;
     update = mocks.imodelsUpdate;
+    setSecured = mocks.imodelsSetSecured;
     listFavorites = mocks.imodelsListFavorites;
     addFavorite = mocks.imodelsAddFavorite;
     removeFavorite = mocks.imodelsRemoveFavorite;
@@ -184,9 +188,11 @@ beforeEach(() => {
     isSecured: true,
   });
   mocks.imodelsCreate.mockResolvedValue({ id: 'im-3' });
+  mocks.imodelsCreatePending.mockResolvedValue({ id: 'im-3' });
   mocks.itwinsDelete.mockResolvedValue(undefined);
   mocks.imodelsDelete.mockResolvedValue(undefined);
   mocks.imodelsUpdate.mockResolvedValue({ id: 'im-1' });
+  mocks.imodelsSetSecured.mockResolvedValue(undefined);
   mocks.imodelsListFavorites.mockResolvedValue([]);
   mocks.imodelsAddFavorite.mockResolvedValue(undefined);
   mocks.imodelsRemoveFavorite.mockResolvedValue(undefined);
@@ -277,7 +283,7 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     expect(await screen.findByTestId('editor-route')).toBeDefined();
   });
 
-  it('「新建 iModel」→ 创建对话框（名称必填 + 描述可选）→ ImodelsClient.create', async () => {
+  it('「新建 iModel」→ 创建对话框（名称必填 + 描述可选）→ ImodelsClient.createPending', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
@@ -287,11 +293,12 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     await user.type(screen.getByLabelText(/描述/), '新模型描述');
     await user.click(screen.getByRole('button', { name: '创建' }));
     await waitFor(() =>
-      expect(mocks.imodelsCreate).toHaveBeenCalledWith('itwin-1', {
+      expect(mocks.imodelsCreatePending).toHaveBeenCalledWith('itwin-1', {
         name: '新模型',
         description: '新模型描述',
       }),
     );
+    expect(mocks.imodelsCreate).not.toHaveBeenCalled();
   });
 
   // 终审 I3：新建 iModel 权限门（iTwin imodels_manage）——Viewer 无创建动作；
@@ -339,7 +346,7 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
 
   it('创建 403 → 专属 i18n 文案（不是服务端英文权限串）', async () => {
     const user = userEvent.setup();
-    mocks.imodelsCreate.mockRejectedValue(
+    mocks.imodelsCreatePending.mockRejectedValue(
       new ApiClientError({
         status: 403,
         code: 'IMODELS_REQUEST_FAILED',
@@ -362,7 +369,7 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
     await user.click(await screen.findByRole('button', { name: '创建' }));
     expect(await screen.findByText('请输入 iModel 名称')).toBeDefined();
-    expect(mocks.imodelsCreate).not.toHaveBeenCalled();
+    expect(mocks.imodelsCreatePending).not.toHaveBeenCalled();
   });
 
   it('hero「删除」→ 确认对话框 → ItwinsClient.delete → 返回 /documents', async () => {
@@ -401,12 +408,28 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
 
     expect(await screen.findByText('分享文档')).toBeDefined();
     // B 分支：isSecured 已读（im-1 默认 isSecured=true）且权限用户查询已发。
-    expect(await screen.findByText('此文档已启用访问控制，仅下列用户可访问。')).toBeDefined();
+    expect(
+      await screen.findByText(
+        '此文档已启用访问控制：仅下列授权用户可访问（iTwin owner/Admin/Editor 仍可绕过）。',
+      ),
+    ).toBeDefined();
     await waitFor(() => expect(mocks.imodelsListUserPermissions).toHaveBeenCalledWith('im-1'));
     // 不声称链接分享（hub 无 iModel 链接分享通道）。
     expect(screen.queryByRole('tab', { name: '分享链接' })).toBeNull();
     expect(screen.getByRole('tab', { name: '成员 (0)' })).toBeDefined();
     expect(screen.getByRole('tab', { name: '邀请成员' })).toBeDefined();
+  });
+
+  it('Viewer（无 imodels_manage）：B 卡片菜单只有收藏（无 rename/share/delete）', async () => {
+    mocks.getITwinPermissions.mockResolvedValue(['imodels_webview']);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click((await screen.findAllByRole('button', { name: '更多操作' }))[0]!);
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('menuitem', { name: '收藏' })).toBeDefined();
+    expect(within(menu).queryByRole('menuitem', { name: '重命名' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '分享' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '删除' })).toBeNull();
   });
 
   it('顶栏：用户菜单（我的帐户/深色模式/退出登录）', async () => {
@@ -520,7 +543,7 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     expect(screen.queryByRole('button', { name: '新建 iModel' })).toBeNull();
   });
 
-  it('B 文档创建成功：POST /imodels → 轮询至 initialized → 才进入编辑器', async () => {
+  it('B 文档创建成功：createPending（不等待）→ 轮询至 initialized → 才进入编辑器', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
@@ -528,14 +551,16 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     await user.click(screen.getByRole('button', { name: '创建' }));
 
     await waitFor(() =>
-      expect(mocks.imodelsCreate).toHaveBeenCalledWith('itwin-1', { name: '新文档' }),
+      expect(mocks.imodelsCreatePending).toHaveBeenCalledWith('itwin-1', { name: '新文档' }),
     );
+    // 不得依赖官方 createEmpty 的内部 5 分钟等待。
+    expect(mocks.imodelsCreate).not.toHaveBeenCalled();
     // 只有 initialized 才导航（GET /imodels/im-3 默认返回 initialized）。
     await waitFor(() => expect(mocks.imodelsGet).toHaveBeenCalledWith('im-3'));
     expect(await screen.findByTestId('editor-route')).toBeDefined();
   });
 
-  it('B 文档创建初始化失败：显示重试、不删除、不导航；重试成功后才进入编辑器', async () => {
+  it('B 文档创建初始化失败：显示「再次检查」、不删除、不导航且重试不重复 POST', async () => {
     mocks.imodelsGet.mockResolvedValueOnce({
       ...IMODELS[0],
       id: 'im-3',
@@ -549,18 +574,70 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
 
     expect(await screen.findByText('文档初始化失败')).toBeDefined();
     expect(screen.getByText(/不会自动删除/)).toBeDefined();
+    expect(screen.getByText(/不会重建文档/)).toBeDefined();
     expect(screen.queryByTestId('editor-route')).toBeNull(); // 仍在详情页
     expect(mocks.imodelsDelete).not.toHaveBeenCalled();
 
-    // 重试：第二次 GET 返回 initialized → 导航。
+    // 重试：第二次 GET 返回 initialized → 导航；仍只有一次 POST。
     mocks.imodelsGet.mockResolvedValue({
       ...IMODELS[0],
       id: 'im-3',
       state: 'initialized',
     });
-    await user.click(screen.getByRole('button', { name: '重试' }));
+    await user.click(screen.getByRole('button', { name: '再次检查' }));
     expect(await screen.findByTestId('editor-route')).toBeDefined();
     expect(mocks.imodelsDelete).not.toHaveBeenCalled();
+    expect(mocks.imodelsCreatePending).toHaveBeenCalledTimes(1);
+    expect(mocks.imodelsCreate).not.toHaveBeenCalled();
+  });
+
+  it('创建 POST 在途时关闭：不导航/不轮询/不写幽灵失败态；列表仍刷新', async () => {
+    const pending = deferred<{ id: string }>();
+    mocks.imodelsCreatePending.mockReturnValue(pending.promise);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
+    await user.type(await screen.findByLabelText(/iModel 名称/), '慢文档');
+    await user.click(screen.getByRole('button', { name: '创建' }));
+
+    // 创建在途：Escape 关闭（允许取消）。
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    pending.resolve({ id: 'im-3' });
+    await waitFor(() => expect(mocks.imodelsCreatePending).toHaveBeenCalledTimes(1));
+    // 关闭后不轮询、不导航；列表仍被失效刷新（POST 已成功建库）。
+    await waitFor(() => expect(mocks.imodelsList.mock.calls.length).toBeGreaterThan(1));
+    expect(mocks.imodelsGet).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('editor-route')).toBeNull();
+
+    // 重开不显示上一轮幽灵失败态。
+    await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
+    expect(screen.queryByText('文档初始化失败')).toBeNull();
+  });
+
+  it('轮询期间关闭：abort 后迟到的 initialized 不导航、不写失败态', async () => {
+    mocks.imodelsCreatePending.mockResolvedValue({ id: 'im-3' });
+    const pendingGet = deferred<Record<string, unknown>>();
+    mocks.imodelsGet.mockReturnValue(pendingGet.promise);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
+    await user.type(await screen.findByLabelText(/iModel 名称/), '等待文档');
+    await user.click(screen.getByRole('button', { name: '创建' }));
+
+    await waitFor(() => expect(mocks.imodelsGet).toHaveBeenCalledWith('im-3'));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    pendingGet.resolve({ ...IMODELS[0], id: 'im-3', state: 'initialized' });
+    await waitFor(() => expect(mocks.imodelsGet).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('editor-route')).toBeNull();
+
+    // 重开不显示上一轮的 waiting/failed 幽灵态。
+    await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
+    expect(screen.queryByText('文档已创建，正在初始化…')).toBeNull();
+    expect(screen.queryByText('文档初始化失败')).toBeNull();
   });
 
   it('B 文档重命名：卡片菜单 → ImodelsClient.update({name})（不是 iTwin update）', async () => {

@@ -105,7 +105,8 @@ const REQUIRED_DOCUMENT_DETAIL_KEYS = [
   // P2.3：B 文档创建后的初始化等待/失败重试 + A 旧文档只读横幅。
   'detail.create.initializing', 'detail.create.initializationFailed',
   'detail.create.missingFiles', 'detail.create.timeout', 'detail.create.statusQueryFailed',
-  'detail.create.retry', 'detail.create.retryHint', 'detail.create.close',
+  'detail.create.retry', 'detail.create.checkAgain', 'detail.create.retryHint',
+  'detail.create.terminalRetryHint', 'detail.create.close',
   'detail.legacy.bannerTitle', 'detail.legacy.bannerDescription',
   'detail.card.open', 'detail.card.moreActions', 'detail.card.initialized',
   'detail.card.initializing', 'detail.card.noDescription', 'detail.card.untitled',

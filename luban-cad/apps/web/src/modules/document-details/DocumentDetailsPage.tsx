@@ -169,14 +169,16 @@ export function DocumentDetailsPage(): React.JSX.Element {
     [imodels],
   );
 
-  /** 新建 iModel 权限门（终审 I3）：仅 `imodels_manage` 放行；权限未落定
-   *  或查询失败一律 fail-closed（不呈现启用态创建入口，避免诱导 403）。
-   *  A 旧文档只读——恒不可创建。 */
-  const canCreateImodel =
+  /** 写操作权限门（终审 I3 / P2.3 F5）：仅 `imodels_manage` 放行；权限未落定
+   *  或查询失败一律 fail-closed——创建/重命名/分享/删除及分享面板的
+   *  grant/revoke 全部收口（收藏是自助操作，不受此门限制）。
+   *  A 旧文档只读——恒不可写。 */
+  const canManage =
     isBModel &&
     !isPermissionLoading &&
     !permissionError &&
     iTwinPermissions.includes('imodels_manage');
+  const canCreateImodel = canManage;
 
   const formatDate = React.useCallback(
     (value: string | null | undefined): string | null => {
@@ -513,14 +515,18 @@ export function DocumentDetailsPage(): React.JSX.Element {
             formatCreated={formatCreated}
             onOpen={handleOpenImodel}
             isOpenDisabled={(imodel) => imodel.state !== 'initialized'}
-            onRename={setRenameTarget}
+            onRename={canManage ? setRenameTarget : undefined}
             onToggleFavorite={handleToggleFavorite}
             isFavorite={(id) => favoriteIds.has(id)}
-            onShare={setShareTarget}
-            onDelete={(imodel) => {
-              setDeleteImodelError('');
-              setDeleteImodelTarget(imodel);
-            }}
+            onShare={canManage ? setShareTarget : undefined}
+            onDelete={
+              canManage
+                ? (imodel) => {
+                    setDeleteImodelError('');
+                    setDeleteImodelTarget(imodel);
+                  }
+                : undefined
+            }
           />
         ) : (
           // A 旧文档：只读网格——可打开查看，无写操作菜单。
@@ -554,6 +560,7 @@ export function DocumentDetailsPage(): React.JSX.Element {
       <ShareDocumentDialog
         doc={shareDoc}
         imodelId={shareTarget?.id}
+        canManageShare={canManage}
         isOpen={!!shareTarget}
         onClose={() => setShareTarget(null)}
       />

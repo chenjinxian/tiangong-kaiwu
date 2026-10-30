@@ -408,4 +408,57 @@ describe('ImodelsClient（官方 IModelsClient 封装）', () => {
       message: 'forbidden',
     });
   });
+
+  // ---- P2.3 fix round 1：非等待创建与 isSecured 写入 ----
+
+  it('createPending：POST /imodels（不等待）并解析 {iModel.id}', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ iModel: { id: 'im-new', state: 'notInitialized' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ImodelsClient();
+
+    await expect(
+      client.createPending('twin-1', { name: '新文档', description: 'd' }),
+    ).resolves.toEqual({ id: 'im-new' });
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toBe(`${env.hubUrl}/imodels`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      iTwinId: 'twin-1',
+      name: '新文档',
+      description: 'd',
+    });
+    // 不得调用官方 createEmpty（其内部会等待最长 5 分钟）。
+    expect(official.createEmpty).not.toHaveBeenCalled();
+  });
+
+  it('createPending：响应缺 iModel.id → ApiClientError（不返回半成品）', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ iModel: {} }),
+    }));
+    const client = new ImodelsClient();
+
+    await expect(client.createPending('twin-1', { name: 'x' })).rejects.toMatchObject({
+      name: 'ApiClientError',
+      status: 500,
+      code: 'IMODELS_CREATE_NO_ID',
+    });
+  });
+
+  it('setSecured：PATCH /imodels/:id body {isSecured}（官方 update 会丢该字段）', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ImodelsClient();
+
+    await expect(client.setSecured('im-1', true)).resolves.toBeUndefined();
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toBe(`${env.hubUrl}/imodels/im-1`);
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body as string)).toEqual({ isSecured: true });
+  });
 });

@@ -149,6 +149,10 @@
   "shareDialog": {
     "title": "分享文档",
     "close": "关闭",
+    "projectLevel": {
+      "title": "项目级分享（全部文档）",
+      "description": "此操作通过项目成员权限授予访问，作用于该项目的全部文档；单个文档的访问控制请在文档详情页的分享中设置。"
+    },
     "tabs": {
       "members": "成员 ({{count}})",
       "invite": "邀请成员",
@@ -192,8 +196,26 @@
       "hint": "仅拥有文档访问权限的用户可打开此链接"
     },
     "b": {
-      "secured": "此文档已启用访问控制，仅下列用户可访问。",
-      "notSecured": "此文档未启用访问控制：项目成员均可访问，下列授权在启用后生效。",
+      "secured": "此文档已启用访问控制：仅下列授权用户可访问（iTwin owner/Admin/Editor 仍可绕过）。",
+      "notSecured": "当前由项目角色控制",
+      "notSecuredDescription": "项目成员均可访问此文档。启用文档访问控制后，仅下列授权用户（及 iTwin owner/Admin/Editor）可访问。",
+      "loadingState": "正在读取文档访问状态…",
+      "imodelLoadFailed": "文档访问状态加载失败",
+      "membersLoadFailed": "项目成员加载失败",
+      "manageRequired": "需要 imodels_manage 权限才能管理文档访问。",
+      "restrictAccess": "限制访问",
+      "restrictTitle": "限制文档访问",
+      "restrictMessage": "启用文档访问控制后，只有下列被授权的用户以及 iTwin owner/Admin/Editor 可访问；未列出的项目成员将失去访问权限。",
+      "restrictConfirm": "启用访问控制",
+      "restoreAccess": "恢复项目级访问",
+      "restoreTitle": "恢复项目级访问",
+      "restoreMessage": "恢复项目级访问后，该项目所有成员都将可访问此文档；显式授权列表保留但不再生效。",
+      "restoreConfirm": "恢复项目级访问",
+      "securedChangeSuccess": "文档访问控制已更新",
+      "securedChangeFailed": "更新访问控制失败，请重试",
+      "unresolvedOption": "{{email}}（账号未解析）",
+      "unresolvedUser": "账号未解析（待注册），无法授予文档权限。",
+      "inviteUnresolved": "已加入项目成员，但该邮箱尚未注册，无法授予文档权限：{{email}}",
       "loadFailed": "权限加载失败",
       "empty": "暂无授权用户",
       "emptyHint": "在「邀请成员」页签中授权项目成员",
@@ -255,12 +277,14 @@
       "timeout": "等待初始化超时",
       "statusQueryFailed": "初始化状态查询失败，请重试。",
       "retry": "重试",
-      "retryHint": "文档已创建，可重试等待初始化；不会自动删除。",
+      "checkAgain": "再次检查",
+      "retryHint": "文档已创建，可重试等待初始化；不会自动删除，也不会重复创建。",
+      "terminalRetryHint": "再次检查只会轮询初始化状态，不会重建文档，也不会自动删除；若仍失败，请删除后重新创建。",
       "close": "关闭"
     },
     "legacy": {
       "bannerTitle": "旧版文档（只读）",
-      "bannerDescription": "此文档由经典 A 模型创建，当前为只读视图；可查看信息并打开模型，写入操作已停用。"
+      "bannerDescription": "本页的文档管理操作已停用；打开模型后仍可编辑，直到编辑器只读模式上线。"
     },
     "card": {
       "open": "打开工作空间",

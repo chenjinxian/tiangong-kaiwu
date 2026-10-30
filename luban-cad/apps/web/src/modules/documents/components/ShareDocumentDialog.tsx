@@ -63,6 +63,12 @@ export interface ShareDocumentDialogProps {
    * 缺席（A 旧文档、B 项目容器）→ 既有 iTwin 通道。
    */
   imodelId?: string | null;
+  /**
+   * 当前用户是否可管理该文档访问（iTwin `imodels_manage`，fail-closed）。
+   * 仅 B 文档分支消费；A / 项目容器分享保持既有 iTwin 行为。
+   * 默认 false（未显式授权的调用方不得看到可写分享控件）。
+   */
+  canManageShare?: boolean;
 }
 
 type ShareTab = 'members' | 'invite' | 'link';
@@ -70,7 +76,7 @@ type ShareTab = 'members' | 'invite' | 'link';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ShareDocumentDialog(props: ShareDocumentDialogProps): React.JSX.Element | null {
-  const { doc, isOpen, onClose, imodelId } = props;
+  const { doc, isOpen, onClose, imodelId, canManageShare = false } = props;
   if (!doc) return null;
   const isBModelShare = doc.mode === 'B' && !!imodelId;
   if (isBModelShare) {
@@ -80,6 +86,7 @@ export function ShareDocumentDialog(props: ShareDocumentDialogProps): React.JSX.
         imodelId={imodelId}
         isOpen={isOpen}
         onClose={onClose}
+        canManageShare={canManageShare}
       />
     );
   }
@@ -247,6 +254,18 @@ function ITwinShareDialog({
         >
           <Dialog.TitleBar titleText={t('documents.shareDialog.title')} />
           <Dialog.Content>
+            {/* P2.3 F7：B 项目容器走 iTwin 项目级分享（不是 iModel ACL）——
+                明确标注作用域，避免与文档级访问控制混淆。 */}
+            {doc.mode === 'B' && (
+              <Alert type="informational" className="share-alert">
+                <Text variant="small" className="share-project-level__title">
+                  {t('documents.shareDialog.projectLevel.title')}
+                </Text>
+                <Text variant="small">
+                  {t('documents.shareDialog.projectLevel.description')}
+                </Text>
+              </Alert>
+            )}
             <Tabs.Wrapper
               value={activeTab}
               onValueChange={(value) => setActiveTab(value as ShareTab)}
@@ -492,16 +511,29 @@ function displayedLevel(permission: ImodelUserPermission): AccessLevel {
   return values.some((value) => value === 'manage' || value === 'owner') ? 'manage' : 'read';
 }
 
+/**
+ * 真实授权 userId（P2.3 F1）：必须是解析后的 users.id（数字串）。
+ * hub 对未注册受邀人保留 email 回退值——email 形式的 userId 永远命中不了
+ * iModel ACL；调用方必须禁止授权并如实提示，绝不能显示成功。
+ */
+function resolvedUserIdOf(member: { userId?: string } | null | undefined): string | null {
+  const value = member?.userId?.trim();
+  if (!value || value.includes('@')) return null;
+  return value;
+}
+
 function BShareDialog({
   doc,
   imodelId,
   isOpen,
   onClose,
+  canManageShare,
 }: {
   doc: DocumentSummary;
   imodelId: string;
   isOpen: boolean;
   onClose: () => void;
+  canManageShare: boolean;
 }): React.JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -514,6 +546,7 @@ function BShareDialog({
   const [inviteError, setInviteError] = React.useState('');
   const [statusMessage, setStatusMessage] = React.useState<{ kind: 'positive' | 'negative'; text: string } | null>(null);
   const [revokeTarget, setRevokeTarget] = React.useState<ImodelUserPermission | null>(null);
+  const [securedTarget, setSecuredTarget] = React.useState<boolean | null>(null);
 
   const imodelQuery = useQuery({
     queryKey: ['documents', 'share', 'imodel', imodelId],
@@ -536,8 +569,10 @@ function BShareDialog({
     staleTime: 30 * 1000,
   });
 
-  const isSecured =
-    ((imodelQuery.data as (IModel & { isSecured?: boolean }) | undefined)?.isSecured) === true;
+  const imodel = imodelQuery.data as (IModel & { isSecured?: boolean }) | undefined;
+  const securedKnown = imodel !== undefined && !imodelQuery.isError;
+  const isSecured = imodel?.isSecured === true;
+  const canManageAccess = canManageShare && securedKnown && isSecured;
 
   const permissions = permissionsQuery.data ?? [];
   const members = membersQuery.data ?? [];
@@ -545,6 +580,11 @@ function BShareDialog({
   const invalidatePermissions = React.useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['documents', 'share', 'imodel-permissions', imodelId] });
   }, [imodelId, queryClient]);
+
+  const invalidateAccessState = React.useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['documents', 'share', 'imodel', imodelId] });
+    invalidatePermissions();
+  }, [imodelId, queryClient, invalidatePermissions]);
 
   const grantMutation = useMutation({
     mutationFn: (input: { userId: string; level: AccessLevel }) =>
@@ -559,19 +599,28 @@ function BShareDialog({
   const inviteMutation = useMutation({
     mutationFn: async (input: { email: string; level: AccessLevel }) => {
       const member = await addUserMember(projectId, { email: input.email, roleIds: [] });
-      await new ImodelsClient().grantPermission(imodelId, levelPayload(member.id, input.level));
-      return member;
+      const userId = resolvedUserIdOf(member);
+      // 未注册账号：只加项目成员，绝不写无效的 iModel 授权行。
+      if (!userId) return { member, granted: false as const };
+      await new ImodelsClient().grantPermission(imodelId, levelPayload(userId, input.level));
+      return { member, granted: true as const };
     },
-    onSuccess: (member) => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ['documents', 'share', 'members', projectId] });
       invalidatePermissions();
       setEmail('');
-      setInviteError('');
-      setStatusMessage({
-        kind: 'positive',
-        text: t('documents.shareDialog.b.addedAndGranted', { email: member.email }),
-      });
-      setActiveTab('members');
+      if (result.granted) {
+        setInviteError('');
+        setStatusMessage({
+          kind: 'positive',
+          text: t('documents.shareDialog.b.addedAndGranted', { email: result.member.email }),
+        });
+        setActiveTab('members');
+        return;
+      }
+      setInviteError(
+        t('documents.shareDialog.b.inviteUnresolved', { email: result.member.email }),
+      );
     },
     onError: (error) =>
       setInviteError(error instanceof Error ? error.message : t('documents.shareDialog.b.grantFailed')),
@@ -587,6 +636,24 @@ function BShareDialog({
     onError: () => setStatusMessage({ kind: 'negative', text: t('documents.shareDialog.b.revokeFailed') }),
   });
 
+  const setSecuredMutation = useMutation({
+    mutationFn: (next: boolean) => new ImodelsClient().setSecured(imodelId, next),
+    onSuccess: () => {
+      // isSecured 变更会改变整页语义（grant 是否生效、成员可达性）——
+      // 同时失效状态与权限列表查询。
+      invalidateAccessState();
+      setSecuredTarget(null);
+      setStatusMessage({
+        kind: 'positive',
+        text: t('documents.shareDialog.b.securedChangeSuccess'),
+      });
+    },
+    onError: () => {
+      setSecuredTarget(null);
+      setStatusMessage({ kind: 'negative', text: t('documents.shareDialog.b.securedChangeFailed') });
+    },
+  });
+
   // 切换目标文档时重置页签/状态。
   React.useEffect(() => {
     setActiveTab('members');
@@ -596,11 +663,14 @@ function BShareDialog({
     setInviteError('');
     setStatusMessage(null);
     setRevokeTarget(null);
+    setSecuredTarget(null);
   }, [imodelId]);
 
   const memberFor = React.useCallback(
-    (userId: string): ITwinMember | undefined =>
-      members.find((member) => member.id === userId || member.email === userId),
+    (key: string): ITwinMember | undefined =>
+      members.find(
+        (member) => member.userId === key || member.id === key || member.email === key,
+      ),
     [members],
   );
 
@@ -610,13 +680,14 @@ function BShareDialog({
     [memberFor],
   );
 
-  /** 已授权的成员标识集合（成员行 id 或 email 形式的 userId）。 */
+  /** 已授权的成员标识集合（真实 userId / 成员行 id / email 全部参与匹配）。 */
   const grantedKeys = React.useMemo(() => {
     const keys = new Set<string>();
     for (const permission of permissions) {
       keys.add(permission.userId);
       const member = memberFor(permission.userId);
       if (member) {
+        if (member.userId) keys.add(member.userId);
         keys.add(member.id);
         keys.add(member.email);
       }
@@ -625,9 +696,19 @@ function BShareDialog({
   }, [permissions, memberFor]);
 
   const grantableMembers = React.useMemo(
-    () => members.filter((member) => !grantedKeys.has(member.id) && !grantedKeys.has(member.email)),
+    () =>
+      members.filter(
+        (member) =>
+          !grantedKeys.has(member.id) &&
+          !grantedKeys.has(member.email) &&
+          (!member.userId || !grantedKeys.has(member.userId)),
+      ),
     [members, grantedKeys],
   );
+
+  const selectedMember =
+    grantableMembers.find((member) => member.id === selectedMemberId) ?? null;
+  const selectedUserId = resolvedUserIdOf(selectedMember);
 
   const handleClose = React.useCallback(() => {
     setActiveTab('members');
@@ -636,15 +717,17 @@ function BShareDialog({
     setInviteError('');
     setStatusMessage(null);
     setRevokeTarget(null);
+    setSecuredTarget(null);
     onClose();
   }, [onClose]);
 
   const handleGrant = React.useCallback(() => {
-    if (!selectedMemberId) return;
-    grantMutation.mutate({ userId: selectedMemberId, level });
-  }, [selectedMemberId, level, grantMutation]);
+    if (!selectedUserId || !canManageAccess) return;
+    grantMutation.mutate({ userId: selectedUserId, level });
+  }, [selectedUserId, canManageAccess, level, grantMutation]);
 
   const handleInvite = React.useCallback(() => {
+    if (!canManageAccess) return;
     const trimmed = email.trim();
     if (!trimmed) {
       setInviteError(t('documents.shareDialog.invite.emailRequired'));
@@ -655,7 +738,7 @@ function BShareDialog({
       return;
     }
     inviteMutation.mutate({ email: trimmed, level });
-  }, [email, level, inviteMutation, t]);
+  }, [canManageAccess, email, level, inviteMutation, t]);
 
   const membersTabLabel = t('documents.shareDialog.tabs.members', { count: permissions.length });
 
@@ -680,11 +763,46 @@ function BShareDialog({
               </Tabs.TabList>
 
               <Tabs.Panel value="members" className="share-tab-panel">
-                {imodelQuery.data !== undefined && (
+                {imodelQuery.isLoading ? (
+                  <div className="share-members-loading">
+                    <ProgressRadial size="small" indeterminate />
+                    <Text variant="small">{t('documents.shareDialog.b.loadingState')}</Text>
+                  </div>
+                ) : imodelQuery.isError ? (
+                  <Alert type="negative" className="share-alert">
+                    <Text variant="small">{t('documents.shareDialog.b.imodelLoadFailed')}</Text>
+                    <Button styleType="default" onClick={() => void imodelQuery.refetch()}>
+                      {t('documents.shareDialog.members.retry')}
+                    </Button>
+                  </Alert>
+                ) : (
                   <Alert type={isSecured ? 'informational' : 'warning'} className="share-alert">
-                    {isSecured
-                      ? t('documents.shareDialog.b.secured')
-                      : t('documents.shareDialog.b.notSecured')}
+                    <Text variant="small" className="share-project-level__title">
+                      {isSecured
+                        ? t('documents.shareDialog.b.secured')
+                        : t('documents.shareDialog.b.notSecured')}
+                    </Text>
+                    {!isSecured && (
+                      <Text variant="small">
+                        {t('documents.shareDialog.b.notSecuredDescription')}
+                      </Text>
+                    )}
+                    {canManageShare && (
+                      <Button
+                        styleType="default"
+                        size="small"
+                        onClick={() => setSecuredTarget(!isSecured)}
+                      >
+                        {isSecured
+                          ? t('documents.shareDialog.b.restoreAccess')
+                          : t('documents.shareDialog.b.restrictAccess')}
+                      </Button>
+                    )}
+                  </Alert>
+                )}
+                {!canManageShare && (
+                  <Alert type="warning" className="share-alert">
+                    {t('documents.shareDialog.b.manageRequired')}
                   </Alert>
                 )}
                 {statusMessage && (
@@ -732,6 +850,7 @@ function BShareDialog({
                         <IconButton
                           size="small"
                           styleType="borderless"
+                          disabled={!canManageAccess || revokeMutation.isPending}
                           onClick={() => setRevokeTarget(permission)}
                           label={t('documents.shareDialog.b.revoke')}
                         >
@@ -746,26 +865,48 @@ function BShareDialog({
               <Tabs.Panel value="invite" className="share-tab-panel">
                 {inviteError && <Alert type="negative" className="share-alert">{inviteError}</Alert>}
 
-                <div className="share-invite-role">
-                  <Label>{t('documents.shareDialog.b.memberSelect')}</Label>
-                  {grantableMembers.length > 0 ? (
-                    <Select
-                      native
-                      aria-label={t('documents.shareDialog.b.memberSelect')}
-                      value={selectedMemberId}
-                      options={[
-                        { value: '', label: t('documents.shareDialog.b.memberSelect') },
-                        ...grantableMembers.map((member) => ({ value: member.id, label: member.email })),
-                      ]}
-                      onChange={(value) => setSelectedMemberId(value)}
-                      disabled={grantMutation.isPending}
-                    />
-                  ) : (
-                    <Text variant="small" className="share-hint-text">
-                      {t('documents.shareDialog.b.noMembers')}
-                    </Text>
-                  )}
-                </div>
+                {membersQuery.isError ? (
+                  <div className="share-members-empty">
+                    <Alert type="negative" className="share-alert">
+                      {t('documents.shareDialog.b.membersLoadFailed')}
+                    </Alert>
+                    <Button styleType="default" onClick={() => void membersQuery.refetch()}>
+                      {t('documents.shareDialog.members.retry')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="share-invite-role">
+                    <Label>{t('documents.shareDialog.b.memberSelect')}</Label>
+                    {grantableMembers.length > 0 ? (
+                      <Select
+                        native
+                        aria-label={t('documents.shareDialog.b.memberSelect')}
+                        value={selectedMemberId}
+                        options={[
+                          { value: '', label: t('documents.shareDialog.b.memberSelect') },
+                          ...grantableMembers.map((member) => ({
+                            value: member.id,
+                            label: resolvedUserIdOf(member)
+                              ? member.email
+                              : t('documents.shareDialog.b.unresolvedOption', { email: member.email }),
+                          })),
+                        ]}
+                        onChange={(value) => setSelectedMemberId(value)}
+                        disabled={grantMutation.isPending}
+                      />
+                    ) : (
+                      <Text variant="small" className="share-hint-text">
+                        {t('documents.shareDialog.b.noMembers')}
+                      </Text>
+                    )}
+                  </div>
+                )}
+
+                {selectedMember && !selectedUserId && (
+                  <Alert type="warning" className="share-alert">
+                    {t('documents.shareDialog.b.unresolvedUser')}
+                  </Alert>
+                )}
 
                 <div className="share-invite-role">
                   <Label>{t('documents.shareDialog.b.levelLabel')}</Label>
@@ -778,7 +919,7 @@ function BShareDialog({
                       { value: 'manage', label: t('documents.shareDialog.b.levelManage') },
                     ]}
                     onChange={(value) => setLevel(value as AccessLevel)}
-                    disabled={grantMutation.isPending}
+                    disabled={!canManageAccess || grantMutation.isPending}
                   />
                 </div>
 
@@ -786,7 +927,7 @@ function BShareDialog({
                   styleType="high-visibility"
                   onClick={handleGrant}
                   loading={grantMutation.isPending}
-                  disabled={grantMutation.isPending || !selectedMemberId}
+                  disabled={!canManageAccess || grantMutation.isPending || !selectedUserId}
                   startIcon={<SvgAdd />}
                 >
                   {t('documents.shareDialog.b.grant')}
@@ -806,13 +947,13 @@ function BShareDialog({
                     setEmail(event.target.value);
                     setInviteError('');
                   }}
-                  disabled={inviteMutation.isPending}
+                  disabled={!canManageAccess || inviteMutation.isPending}
                 />
                 <Button
                   styleType="high-visibility"
                   onClick={handleInvite}
                   loading={inviteMutation.isPending}
-                  disabled={inviteMutation.isPending || !email.trim()}
+                  disabled={!canManageAccess || inviteMutation.isPending || !email.trim()}
                   startIcon={<SvgAdd />}
                 >
                   {t('documents.shareDialog.b.inviteAndGrant')}
@@ -868,6 +1009,63 @@ function BShareDialog({
               disabled={revokeMutation.isPending}
             >
               {t('documents.shareDialog.b.revokeConfirm')}
+            </Button>
+          </Dialog.ButtonBar>
+        </Dialog.Main>
+      </Dialog>
+
+      {/* isSecured HITL：限制访问（true）/ 恢复项目级访问（false）。 */}
+      <Dialog
+        isOpen={securedTarget !== null}
+        onClose={() => setSecuredTarget(null)}
+        portal
+        isDismissible
+        setFocus
+      >
+        <Dialog.Backdrop />
+        <Dialog.Main
+          styleType="default"
+          title={
+            securedTarget === true
+              ? t('documents.shareDialog.b.restrictTitle')
+              : t('documents.shareDialog.b.restoreTitle')
+          }
+          className="share-remove-dialog"
+        >
+          <Dialog.TitleBar
+            titleText={
+              securedTarget === true
+                ? t('documents.shareDialog.b.restrictTitle')
+                : t('documents.shareDialog.b.restoreTitle')
+            }
+          />
+          <Dialog.Content>
+            <Text>
+              {securedTarget === true
+                ? t('documents.shareDialog.b.restrictMessage')
+                : t('documents.shareDialog.b.restoreMessage')}
+            </Text>
+          </Dialog.Content>
+          <Dialog.ButtonBar>
+            <Button
+              styleType="default"
+              onClick={() => setSecuredTarget(null)}
+              disabled={setSecuredMutation.isPending}
+            >
+              {t('documents.shareDialog.members.cancel')}
+            </Button>
+            <Button
+              styleType="high-visibility"
+              onClick={() => {
+                if (securedTarget === null) return;
+                setSecuredMutation.mutate(securedTarget);
+              }}
+              loading={setSecuredMutation.isPending}
+              disabled={setSecuredMutation.isPending}
+            >
+              {securedTarget === true
+                ? t('documents.shareDialog.b.restrictConfirm')
+                : t('documents.shareDialog.b.restoreConfirm')}
             </Button>
           </Dialog.ButtonBar>
         </Dialog.Main>

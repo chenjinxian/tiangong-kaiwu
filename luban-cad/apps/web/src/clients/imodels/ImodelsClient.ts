@@ -79,7 +79,10 @@ export class ImodelsClient {
     );
   }
 
-  /** 新建空 iModel（name 必填、description 可选）。 */
+  /** 新建空 iModel（name 必填、description 可选）。
+   *  **注意**：官方 `createEmpty` 内部会 POST 后轮询创建 operation（最长 5
+   *  分钟）才 resolve，失败时抛错且错误体不含 iModel id。B 文档创建流程需要
+   *  「拿到 id 后自己限时轮询 + 可无重复重试」，用 `createPending` 代替。 */
   public create(iTwinId: string, input: CreateImodelInput): Promise<IModel> {
     return this.invoke(() =>
       this.client.iModels.createEmpty({
@@ -87,6 +90,47 @@ export class ImodelsClient {
         iModelProperties: { iTwinId, ...input },
       })
     );
+  }
+
+  /**
+   * 新建 iModel 但**不等待初始化**（P2.3 F3）：hub `POST /imodels` 返回
+   * `{ iModel }`（state=notInitialized）；只取 id，初始化轮询交给
+   * `waitForImodelInitialized`（60s cap，失败可对同一 id 重试，绝不重复 POST）。
+   */
+  public async createPending(
+    iTwinId: string,
+    input: CreateImodelInput,
+  ): Promise<{ id: string }> {
+    const response = await this.hubFetch('/imodels', {
+      method: 'POST',
+      body: JSON.stringify({
+        iTwinId,
+        name: input.name,
+        ...(input.description ? { description: input.description } : {}),
+      }),
+    });
+    const body = (await response.json()) as { iModel?: { id?: string } };
+    const id = body.iModel?.id;
+    if (!id) {
+      throw new ApiClientError({
+        status: 500,
+        code: 'IMODELS_CREATE_NO_ID',
+        message: 'iModel create response missing iModel.id',
+      });
+    }
+    return { id };
+  }
+
+  /**
+   * 设置 iModel 访问控制开关（P2.3 F2）。官方 `iModels.update` 的请求体只
+   * 序列化 name/description/extent（isSecured 会被丢弃），必须走 hub PATCH。
+   * 服务端要求 iTwin manage/owner。
+   */
+  public async setSecured(id: string, isSecured: boolean): Promise<void> {
+    await this.hubFetch(`/imodels/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isSecured }),
+    });
   }
 
   /** 更新 iModel（官方 updateiModel 增量语义；B 文档重命名走此通道）。 */
@@ -152,6 +196,7 @@ export class ImodelsClient {
   /**
    * iModel 的显式用户权限列表（GET /imodels/:id/permissions/users）。
    * hub 返回 `{data, hasNextPage}` 无限分页——按 page/limit 翻页收拢。
+   * **上限 20 页 × 200 = 4000 行**（静默截断；当前规模足够，超出需改分页 UI）。
    * 身份映射（userId → 邮箱）由分享对话框结合 iTwin 成员面完成。
    */
   public async listUserPermissions(id: string): Promise<ImodelUserPermission[]> {

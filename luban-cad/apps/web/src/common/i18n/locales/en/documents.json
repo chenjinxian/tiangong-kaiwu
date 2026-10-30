@@ -149,6 +149,10 @@
   "shareDialog": {
     "title": "Share document",
     "close": "Close",
+    "projectLevel": {
+      "title": "Project-level share (all documents)",
+      "description": "This shares project membership and applies to every document in the project. Configure per-document access from the document details page."
+    },
     "tabs": {
       "members": "Members ({{count}})",
       "invite": "Invite",
@@ -192,8 +196,26 @@
       "hint": "Only users with document access can open this link"
     },
     "b": {
-      "secured": "This document has access control enabled. Only the users below can access it.",
-      "notSecured": "Access control is not enabled: all project members can access this document. Grants below take effect once it is enabled.",
+      "secured": "This document has access control enabled: only the granted users below can access it (iTwin owner/Admin/Editor still bypass).",
+      "notSecured": "Currently controlled by project roles",
+      "notSecuredDescription": "All project members can access this document. Once document access control is enabled, only the users granted below (and iTwin owner/Admin/Editor) can access it.",
+      "loadingState": "Reading document access state…",
+      "imodelLoadFailed": "Failed to load document access state",
+      "membersLoadFailed": "Failed to load project members",
+      "manageRequired": "imodels_manage permission is required to manage document access.",
+      "restrictAccess": "Restrict access",
+      "restrictTitle": "Restrict document access",
+      "restrictMessage": "After enabling document access control, only the users granted below and iTwin owner/Admin/Editor can access this document; unlisted project members will lose access.",
+      "restrictConfirm": "Enable access control",
+      "restoreAccess": "Restore project-level access",
+      "restoreTitle": "Restore project-level access",
+      "restoreMessage": "Restoring project-level access lets every project member access this document; explicit grants are kept but no longer take effect.",
+      "restoreConfirm": "Restore project-level access",
+      "securedChangeSuccess": "Document access control updated",
+      "securedChangeFailed": "Failed to update access control. Please retry.",
+      "unresolvedOption": "{{email}} (account unresolved)",
+      "unresolvedUser": "The account is unresolved (not registered yet); document access cannot be granted.",
+      "inviteUnresolved": "Added as a project member, but the email is not registered yet, so document access cannot be granted: {{email}}",
       "loadFailed": "Failed to load permissions",
       "empty": "No users have been granted access",
       "emptyHint": "Grant access to project members in the Invite tab",
@@ -255,12 +277,14 @@
       "timeout": "Timed out waiting for initialization",
       "statusQueryFailed": "Failed to query initialization status. Please retry.",
       "retry": "Retry",
-      "retryHint": "The document was created. You can retry initialization; it will not be deleted automatically.",
+      "checkAgain": "Check again",
+      "retryHint": "The document was created. You can retry initialization; it will not be deleted or duplicated.",
+      "terminalRetryHint": "Checking again only polls the initialization state; the document is not recreated or deleted automatically. If it keeps failing, delete it and create a new one.",
       "close": "Close"
     },
     "legacy": {
       "bannerTitle": "Legacy document (read-only)",
-      "bannerDescription": "This document was created in the classic A model and is now read-only. You can inspect it and open its models, but write actions are disabled."
+      "bannerDescription": "Document-management actions are disabled on this page. The model can still be edited after opening it, until editor read-only mode ships."
     },
     "card": {
       "open": "Open workspace",

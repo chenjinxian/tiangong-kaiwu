@@ -26,7 +26,14 @@ export interface ITwinMemberRole {
 }
 
 export interface ITwinMember {
+  /** 成员行 PK（PATCH/DELETE members/users/:memberId 使用）。 */
   id: string;
+  /**
+   * 真实用户 id（hub P2.3 F1：users.id 的数字串）。iModel 显式权限的 grant/
+   * revoke 必须用此值，**不得**用成员行 id。
+   * 未注册受邀人保留 email 回退值——调用方按 `includes('@')` 识别为未解析。
+   */
+  userId?: string;
   email: string;
   roles: ITwinMemberRole[];
 }
