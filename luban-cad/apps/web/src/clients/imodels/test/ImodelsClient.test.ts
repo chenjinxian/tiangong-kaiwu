@@ -15,6 +15,9 @@
 //     封装层 for-await 收拢为 IModel[]；官方 reject 的 IModelsError
 //     （{ code, statusCode?, message }）映射为 ApiClientError（status 三元组
 //     契约，与 itwins 封装同姿态）。
+//  3) Task 3（B-model P0 前置）：Named Version 通道——listNamedVersions 走
+//     `namedVersions.getRepresentationList`（迭代器收拢），createNamedVersion 走
+//     `namedVersions.create({ iModelId, namedVersionProperties })`。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from '@config/env.js';
 import { AuthSession } from '../../auth/AuthSession.js';
@@ -30,6 +33,9 @@ const official = vi.hoisted(() => ({
   delete: vi.fn(),
   // T7：changesets 列表通道（与 iModels.getRepresentationList 分立，断言互不混淆）。
   changesetsGetRepresentationList: vi.fn(),
+  // Task 3：Named Version 通道（与 changesets 通道分立）。
+  namedVersionsGetRepresentationList: vi.fn(),
+  namedVersionsCreate: vi.fn(),
 }));
 
 vi.mock('@itwin/imodels-client-management', async (importOriginal) => {
@@ -51,6 +57,12 @@ vi.mock('@itwin/imodels-client-management', async (importOriginal) => {
       public get changesets() {
         return {
           getRepresentationList: official.changesetsGetRepresentationList,
+        };
+      }
+      public get namedVersions() {
+        return {
+          getRepresentationList: official.namedVersionsGetRepresentationList,
+          create: official.namedVersionsCreate,
         };
       }
     },
@@ -217,5 +229,34 @@ describe('ImodelsClient（官方 IModelsClient 封装）', () => {
       status: 404,
       code: 'IMODELS_REQUEST_FAILED',
     });
+  });
+
+  // ---- Task 3：Named Version 通道（官方 namedVersions 操作）----
+
+  it('listNamedVersions(iModelId)：namedVersions.getRepresentationList，迭代器收拢为数组', async () => {
+    const items = [{ id: 'nv-1', name: 'V1', changesetId: 'cs-2' }];
+    official.namedVersionsGetRepresentationList.mockReturnValue(asyncIterableOf(items));
+    const client = new ImodelsClient();
+
+    await expect(client.listNamedVersions('im-1')).resolves.toEqual(items);
+    expect(official.namedVersionsGetRepresentationList).toHaveBeenCalledWith(
+      expect.objectContaining({ iModelId: 'im-1' }),
+    );
+  });
+
+  it('createNamedVersion：namedVersions.create({ iModelId, namedVersionProperties })', async () => {
+    const created = { id: 'nv-2', name: 'V2', changesetId: 'cs-3' };
+    official.namedVersionsCreate.mockResolvedValue(created);
+    const client = new ImodelsClient();
+
+    await expect(
+      client.createNamedVersion('im-1', { name: 'V2', changesetId: 'cs-3' }),
+    ).resolves.toEqual(created);
+    expect(official.namedVersionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        iModelId: 'im-1',
+        namedVersionProperties: { name: 'V2', changesetId: 'cs-3' },
+      }),
+    );
   });
 });

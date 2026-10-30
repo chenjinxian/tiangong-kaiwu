@@ -22,3 +22,10 @@ export interface CreateImodelInput {
   name: string;
   description?: string;
 }
+
+/** 创建 Named Version 的入参（changesetId 必填：本产品不命名 baseline）。 */
+export interface CreateNamedVersionInput {
+  name: string;
+  description?: string;
+  changesetId: string;
+}

@@ -13,6 +13,9 @@
  * - 列表走 `iModels.getRepresentationList`（全量表示，官方返回
  *   EntityListIterator 异步迭代器，内部自动翻页），封装层 for-await 收拢为
  *   `IModel[]`；brief 之 `query({...})` 为旧版猜测，以实测 .d.ts 为准；
+ * - Named Version 通道（B-model P0 前置）：`namedVersions.getRepresentationList`
+ *   同上收拢为 `NamedVersion[]`；`namedVersions.create` 直通封装层入参
+ *   （changesetId 必填：本产品不命名 baseline）；
  * - 官方错误通道是 reject `IModelsError`（`{ code, statusCode?, message }`，
  *   经 `isIModelsApiError` 判定），映射为 ApiClientError（status/code/i18nKey
  *   三元组契约，与 itwins 封装同姿态）；非官方错误（网络层等）原样上抛
@@ -27,14 +30,15 @@ import type {
   AuthorizationCallback,
   Changeset,
   IModel,
+  NamedVersion,
 } from '@itwin/imodels-client-management';
 import { env } from '@config/env.js';
 import { AuthSession } from '../auth/AuthSession.js';
 import { ApiClientError } from '../http/ApiClientError.js';
-import type { CreateImodelInput } from './types.js';
+import type { CreateImodelInput, CreateNamedVersionInput } from './types.js';
 
-/** 官方 Changeset 实体类型直通 re-export（版本历史消费面唯一类型入口）。 */
-export type { Changeset };
+/** 官方 Changeset / NamedVersion 实体类型直通 re-export（版本历史消费面唯一类型入口）。 */
+export type { Changeset, NamedVersion };
 
 export class ImodelsClient {
   private readonly client: IModelsClient;
@@ -105,6 +109,35 @@ export class ImodelsClient {
       }
       return changesets;
     });
+  }
+
+  /** iModel 的 Named Version 列表（全量表示；官方迭代器自动翻页）。 */
+  public async listNamedVersions(iModelId: string): Promise<NamedVersion[]> {
+    return this.invoke(async () => {
+      const iterator = this.client.namedVersions.getRepresentationList({
+        authorization: this.authorization(),
+        iModelId,
+      });
+      const versions: NamedVersion[] = [];
+      for await (const version of iterator) {
+        versions.push(version);
+      }
+      return versions;
+    });
+  }
+
+  /** 在指定 changeset 上创建 Named Version。 */
+  public createNamedVersion(
+    iModelId: string,
+    input: CreateNamedVersionInput,
+  ): Promise<NamedVersion> {
+    return this.invoke(() =>
+      this.client.namedVersions.create({
+        authorization: this.authorization(),
+        iModelId,
+        namedVersionProperties: input,
+      }),
+    );
   }
 
   // ---- authorization / 错误裁决 ----
