@@ -197,11 +197,19 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'dock.history.listLabel', 'dock.history.empty', 'dock.history.current',
   'dock.history.noDescription', 'dock.history.loadFailed', 'dock.history.retry',
   'dock.history.save', 'dock.history.unpushed', 'dock.history.push',
+  // B-model P0 Task 5：版本历史面板命名版本分组标题。
+  'dock.history.namedVersions',
   // M4 Task 7：推送对话框（描述必填 + 成功 toast/失败就地；旧应用
-  // PushChangesetDialog 形态移植，「保存版本」语义对齐 Onshape 版本模型）。
+  // PushChangesetDialog 形态移植；B-model P0 Task 5 起标题改「推送变更」，
+  // 与顶栏「保存版本」→ Named Version 对话框语义分离）。
   'pushChangeset.title', 'pushChangeset.descriptionLabel', 'pushChangeset.required',
   'pushChangeset.descriptionPlaceholder', 'pushChangeset.cancel', 'pushChangeset.confirm',
   'pushChangeset.pushing', 'pushChangeset.success', 'pushChangeset.pushFailed',
+  // B-model P0 Task 5：创建 Named Version 对话框（名称必填 + 成功 toast/失败就地）。
+  'namedVersion.title', 'namedVersion.nameLabel', 'namedVersion.namePlaceholder',
+  'namedVersion.descriptionLabel', 'namedVersion.descriptionPlaceholder',
+  'namedVersion.required', 'namedVersion.cancel', 'namedVersion.confirm',
+  'namedVersion.saving', 'namedVersion.success', 'namedVersion.failed',
   'tabs.fitView', 'tabs.newTab', 'tabs.partStudio',
   'status.connection', 'status.connecting', 'status.connected', 'status.connectionFailed',
   'status.editMode', 'status.editModePart',

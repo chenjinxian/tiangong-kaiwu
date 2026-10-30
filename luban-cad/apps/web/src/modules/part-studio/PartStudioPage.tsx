@@ -66,13 +66,15 @@
  * sketches 下传 Canvas，connection.key 随行供对话框 getSketch 面域读面
  *（数据源裁决见 FeatureDialog 头注）。
  *
- * 版本历史/保存推送（M4-T7）：Session 内层持共享 PushChangesetDialog 实例——
- * 顶栏「保存版本」钮（T4 评审 Important-1 裁定：每 op 自动 saveChanges 下旧
- * 「保存」钮 no-op 提交永不回落，改推送入口）与 dock「推送」钮同开此对话框；
- * 确认走 `connection.pushChanges(description)`（本地 Txns 打包 changeset 上
- * hub），成功后失效 `['part-studio','changesets']` 刷新 dock 面板，收点 =
- * onChangesPushed 事件（useUndoRedo 已订）驱动 hasPendingTxns 归 false。
- * dock「保存」钮与 Ctrl+S 键位保留 saveChanges 本地兜底语义（与推送分离）。
+ * 版本历史/保存推送（M4-T7；B-model P0 Task 5 语义分线）：Session 内层持两个
+ * 对话框——顶栏「保存版本」钮开 CreateNamedVersionDialog（useNamedVersionActions：
+ * 有未保存变更先 `connection.pushChanges(name)` 再以返回 changeset id 创建
+ * Named Version；干净态直接命名最新 changeset；hub 仅元数据命名，不生成
+ * checkpoint/缩略图），dock「推送」钮仍开 PushChangesetDialog（纯推送：
+ * `connection.pushChanges(description)`，成功后失效 `['part-studio','changesets']`
+ * 刷新 dock 面板，收点 = onChangesPushed 事件（useUndoRedo 已订）驱动
+ * hasPendingTxns 归 false）。dock「保存」钮与 Ctrl+S 键位保留 saveChanges
+ * 本地兜底语义（与推送分离）。
  *
  * 连接失败 UX（M5-T2）：briefcase 的 isLoading/error 两出口（M4-T2 落地后一直
  * 零消费）接入呈现链——连接三态（下载中/失败/就绪）从此在编辑器页可见：
@@ -114,6 +116,7 @@ import { PartStudioCanvas } from './components/PartStudioCanvas.js';
 import { PartStudioDock } from './components/PartStudioDock.js';
 import { PartStudioTabs } from './components/PartStudioTabs.js';
 import { PushChangesetDialog } from './dialogs/PushChangesetDialog.js';
+import { CreateNamedVersionDialog } from './dialogs/CreateNamedVersionDialog.js';
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
 import { useCanvasBodySelection } from './hooks/useCanvasBodySelection.js';
@@ -124,6 +127,7 @@ import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 // useFeatureTree 的条目→行映射纯函数，不复制命名逻辑）。
 import { mapFeatureEntries } from './hooks/useFeatureTree.js';
 import { useFeatureSystem } from './hooks/useFeatureSystem.js';
+import { useNamedVersionActions } from './hooks/useNamedVersionActions.js';
 import { usePermissions } from './hooks/usePermissions.js';
 import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
@@ -282,6 +286,15 @@ function PartStudioSession({
   // 撤销/重做/保存（M4-T4；BriefcaseTxns 标准通道，禁旧自造 UndoManager）。
   const undoRedo = useUndoRedo(connection);
 
+  // 保存版本动作（B-model P0 Task 5）：顶栏「保存版本」对话框的提交通道——
+  // 有未保存变更先 pushChanges 再命名；干净态直接命名最新 changeset（hub
+  // Named Version 仅元数据，不生成 checkpoint/缩略图，见 hook 注记）。
+  const namedVersionActions = useNamedVersionActions(
+    iModelId,
+    connection ?? undefined,
+    undoRedo.hasUnsavedChanges,
+  );
+
   // 连接相位呈现（M5-T2）：briefcase 下载中/失败两态此前零消费——连接失败时
   // 状态栏走 useViewport ready 相位显示「已连接」、画布永不出图（M4 终审
   // T2-②）。错误消息原地格式化一次（画布错误面透传原文；状态栏只取失败布尔），
@@ -327,11 +340,19 @@ function PartStudioSession({
     });
   }, [canEdit, undoRedo, t]);
 
-  // 保存版本入口（M4-T7；T4 评审 Important-1 承接）：顶栏「保存版本」钮与
-  // dock「推送」钮共同开共享推送对话框（连接缺失/canEdit 门拦截——连接未就绪
-  // 时无可推送内容，诚实不响应）。
-  const [pushDialogOpen, setPushDialogOpen] = React.useState(false);
+  // 保存版本入口（B-model P0 Task 5；M4-T7 语义分线）：顶栏「保存版本」钮开
+  // Named Version 对话框（干净态也可命名当前 changeset；连接缺失/canEdit 门
+  // 拦截——连接未就绪时无可命名内容，诚实不响应）。
+  const [createVersionOpen, setCreateVersionOpen] = React.useState(false);
   const handleSaveVersion = useCallback(() => {
+    if (!canEdit || !connection) return;
+    setCreateVersionOpen(true);
+  }, [canEdit, connection]);
+
+  // dock「推送」入口（M4-T7 保留）：仅推送本地变更（PushChangesetDialog），
+  // 与顶栏 Named Version 命名语义分离（T4 评审 I-1 的 dock 侧分工不变）。
+  const [pushDialogOpen, setPushDialogOpen] = React.useState(false);
+  const handlePush = useCallback(() => {
     if (!canEdit || !connection) return;
     setPushDialogOpen(true);
   }, [canEdit, connection]);
@@ -350,20 +371,22 @@ function PartStudioSession({
   );
 
   // T7-②（M5-T2）断连兜底：连接消失（页签切换重开连接的中间态/异常退出）而
-  // 推送对话框仍开着时，`connection &&` 条件渲染会直卸载对话框（无声消失，无
-  // 交代）——此处收合并经 notifications 通道说明（与保存失败/推送成功 toast
-  // 同管道，诚实呈现不静默）。守卫保证只在「开→断」跃迁发声：首挂（对话框未
-  // 开）与正常关闭（connection 在场）均不响。
+  // 推送/Named Version 对话框仍开着时，`connection &&` 条件渲染会直卸载推送
+  // 对话框（无声消失，无交代）——此处两个对话框一并收合并经 notifications
+  // 通道说明（与保存失败/推送成功 toast 同管道，诚实呈现不静默）。守卫保证
+  // 只在「开→断」跃迁发声：首挂（对话框未开）与正常关闭（connection 在场）
+  // 均不响。
   useEffect(() => {
-    if (connection || !pushDialogOpen) return;
+    if (connection || (!pushDialogOpen && !createVersionOpen)) return;
     setPushDialogOpen(false);
+    setCreateVersionOpen(false);
     IModelApp.notifications.outputMessage(
       new NotifyMessageDetails(
         OutputMessagePriority.Warning,
         t('partStudio.pushChangeset.disconnected'),
       ),
     );
-  }, [connection, pushDialogOpen, t]);
+  }, [connection, pushDialogOpen, createVersionOpen, t]);
 
   // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer
   // registerDefaultShortcuts 独占（T3 交接裁定：二次绑定 = 工具双跑）。
@@ -510,6 +533,8 @@ function PartStudioSession({
         canUndo={undoRedo.canUndo}
         canRedo={undoRedo.canRedo}
         hasUnsavedChanges={undoRedo.hasUnsavedChanges}
+        // B-model P0 Task 5：干净态也可命名当前 changeset（canEdit ∧ 连接就绪）。
+        canSaveVersion={canEdit && !!connection}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onSave={handleSaveVersion}
@@ -562,7 +587,7 @@ function PartStudioSession({
             hasUnsavedChanges={undoRedo.hasUnsavedChanges}
             isSaving={undoRedo.isSaving}
             onSave={handleSave}
-            onPush={handleSaveVersion}
+            onPush={handlePush}
           />
         </div>
       </div>
@@ -574,8 +599,8 @@ function PartStudioSession({
         briefcaseError={connectionErrorMessage}
         viewportError={viewportError}
       />
-      {/* 推送对话框（M4-T7）：顶栏「保存版本」钮与 dock「推送」钮的共享实例
-          （确认走 connection.pushChanges；失败就地/成功 toast 归对话框自治）。 */}
+      {/* 推送对话框（M4-T7；B-model P0 Task 5 起仅归 dock「推送」钮）：确认走
+          connection.pushChanges；失败就地/成功 toast 归对话框自治。 */}
       {connection && (
         <PushChangesetDialog
           isOpen={pushDialogOpen}
@@ -583,6 +608,13 @@ function PartStudioSession({
           onConfirm={handlePushConfirm}
         />
       )}
+      {/* Named Version 对话框（B-model P0 Task 5）：顶栏「保存版本」钮的提交面
+          ——有未保存变更先 pushChanges 再命名，干净态命名最新 changeset。 */}
+      <CreateNamedVersionDialog
+        isOpen={createVersionOpen}
+        onClose={() => setCreateVersionOpen(false)}
+        onConfirm={namedVersionActions.createNamedVersion}
+      />
       {/* 命令搜索面板：页面级常驻挂载（alt+/ 热键经 store 驱动开合）。 */}
       <CommandPalette />
     </div>

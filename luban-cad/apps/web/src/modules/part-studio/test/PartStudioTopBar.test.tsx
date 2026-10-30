@@ -134,6 +134,20 @@ describe('PartStudioTopBar 撤销/重做/保存三钮组（M4 Task 4）', () => 
     expect(isDisabled(save)).toBe(false);
   });
 
+  // B-model P0 Task 5：canSaveVersion 显式门——干净态也可命名当前 changeset
+  //（缺省未传时仍回退 hasUnsavedChanges，上一条「干净态禁用」用例保持）。
+  it('canSaveVersion=true：干净态保存版本钮可用（命名当前 changeset）', () => {
+    renderTopBar({ hasUnsavedChanges: false, canSaveVersion: true });
+    const { save } = getEditorButtons();
+    expect(isDisabled(save)).toBe(false);
+  });
+
+  it('canSaveVersion=false 显式关闭：即使有未推送变更也禁用（显式门优先于回退）', () => {
+    renderTopBar({ hasUnsavedChanges: true, canSaveVersion: false });
+    const { save } = getEditorButtons();
+    expect(isDisabled(save)).toBe(true);
+  });
+
   it('点击：undo/redo/保存版本 各调对应回调', async () => {
     const user = userEvent.setup();
     const onUndo = vi.fn();

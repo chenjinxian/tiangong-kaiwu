@@ -48,11 +48,12 @@
       "retry": "重试",
       "save": "保存",
       "unpushed": "未推送",
-      "push": "推送"
+      "push": "推送",
+      "namedVersions": "命名版本"
     }
   },
   "pushChangeset": {
-    "title": "保存版本",
+    "title": "推送变更",
     "descriptionLabel": "版本描述",
     "required": "必填",
     "descriptionPlaceholder": "例如：修复底座尺寸、添加圆角特征",
@@ -62,6 +63,19 @@
     "success": "版本已推送到云端",
     "pushFailed": "推送失败: {{message}}",
     "disconnected": "连接已断开，保存版本对话框已关闭"
+  },
+  "namedVersion": {
+    "title": "保存版本",
+    "nameLabel": "版本名称",
+    "namePlaceholder": "例如：V1.0 设计冻结",
+    "descriptionLabel": "版本描述",
+    "descriptionPlaceholder": "可选",
+    "required": "必填",
+    "cancel": "取消",
+    "confirm": "保存",
+    "saving": "保存中…",
+    "success": "版本已保存",
+    "failed": "保存失败: {{message}}"
   },
   "tabs": {
     "fitView": "适应视图",

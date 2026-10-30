@@ -24,8 +24,8 @@
 //     part-studio-status-connection 三相位映射）、视口挂载点接线
 //     （useViewport.viewportRef 即 part-studio-viewport DOM 节点 +
 //     data-viewport-ready）、特征树真数据钩子（useFeatureSystem.tree 条目
-//     落树 + 零件段物理元素查询）、PushChangesetDialog 挂载（描述/确认锚点
-//     + pushChanges 通道）。
+//     落树 + 零件段物理元素查询）、CreateNamedVersionDialog 挂载（名称/描述
+//     锚点 + 命名通道；B-model P0 Task 5 起顶栏「保存版本」走命名语义）。
 //
 // 定位：结构层总账（与各任务单测互补——单测钉行为，本文件钉「整页装配后
 // 所有锚点同时在场」）。mock 口径同 PartStudioPage.test.tsx M4 基线（客户端/
@@ -54,6 +54,9 @@ const mocks = vi.hoisted(() => ({
   imodelsList: vi.fn(),
   // M4-T9：版本历史数据源（PushChangesetDialog 挂载锚点的面板查询通道）。
   imodelsListChangesets: vi.fn(),
+  // B-model P0 Task 5：Named Version 通道（顶栏保存版本 + dock 命名版本列表）。
+  imodelsCreateNamedVersion: vi.fn(),
+  imodelsListNamedVersions: vi.fn(),
   // M5-T3：iModel 级我的权限查询（briefcase readonly 合流的数据源）。
   accessControlGetMyPermissions: vi.fn(),
   toolsRun: vi.fn(),
@@ -112,6 +115,8 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
     get = mocks.imodelsGet;
     list = mocks.imodelsList;
     listChangesets = mocks.imodelsListChangesets;
+    createNamedVersion = mocks.imodelsCreateNamedVersion;
+    listNamedVersions = mocks.imodelsListNamedVersions;
     create = vi.fn();
     delete = vi.fn();
   },
@@ -319,6 +324,9 @@ beforeEach(() => {
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
   // M4-T9：dock 版本历史查询零真实请求（默认空集）。
   mocks.imodelsListChangesets.mockResolvedValue([]);
+  // B-model P0 Task 5：Named Version 通道零真实请求（默认空列表/成功创建）。
+  mocks.imodelsListNamedVersions.mockResolvedValue([]);
+  mocks.imodelsCreateNamedVersion.mockResolvedValue({ id: 'nv-new', name: 'NV', changesetId: 'cs-new' });
   // M5-T3：权限查询缺省=创建者权限组（editable）——canEdit 门全开，本文件的
   // 锚点断言不因权限查询相位漂移。
   mocks.accessControlGetMyPermissions.mockResolvedValue([
@@ -644,7 +652,7 @@ describe('M4 收官锚点总账（T9）', () => {
     (button as HTMLButtonElement).disabled === true
     || button.getAttribute('aria-disabled') === 'true';
 
-  it('顶栏 undo/redo/saveVersion 三钮锚点在场；干净事务态诚实禁用，txns 解锁后撤销投标准工具 Undo', async () => {
+  it('顶栏 undo/redo/saveVersion 三钮锚点在场；干净态 undo/redo 禁用、保存版本可用，txns 解锁后撤销投标准工具 Undo', async () => {
     const user = userEvent.setup();
     renderPage();
     const topBar = screen.getByTestId('part-studio-top-bar');
@@ -658,7 +666,10 @@ describe('M4 收官锚点总账（T9）', () => {
     const undo = within(topBar).getByTestId('part-studio-undo-button');
     const save = within(topBar).getByTestId('part-studio-save-button');
     expect(isDisabled(undo)).toBe(true);
-    expect(isDisabled(save)).toBe(true);
+    // B-model P0 Task 5：保存版本钮由 canSaveVersion（canEdit ∧ 连接）驱动——
+    // 干净态也可命名当前 changeset，故不随 hasPendingTxns 回落禁用（权限查询
+    // 落定前 canEdit 占位只读 → 等门开）。
+    await waitFor(() => expect(isDisabled(save)).toBe(false));
 
     // 事件驱动解锁（BriefcaseTxns 标准通道）：txns 查询桩翻真 + 重查询事件。
     FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(true);
@@ -727,23 +738,32 @@ describe('M4 收官锚点总账（T9）', () => {
     expect(within(tree).getByTestId('part-studio-part-count').textContent).toBe('(1)');
   });
 
-  it('PushChangesetDialog 挂载：未推送变更解锁「保存版本」钮 → 点击挂载推送对话框（描述/确认锚点 + pushChanges 通道）', async () => {
+  it('CreateNamedVersionDialog 挂载：保存版本钮（干净态可用）→ 点击挂载命名对话框（名称/描述锚点 + 命名通道）', async () => {
     const user = userEvent.setup();
-    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    mocks.imodelsListChangesets.mockResolvedValue([
+      { id: 'cs-2', index: 2, description: '初始', displayName: 'cs2', pushDateTime: '2026-10-20T09:00:00Z' },
+    ]);
     renderPage();
     const save = screen.getByTestId('part-studio-save-button');
     await waitFor(() => expect(isDisabled(save)).toBe(false));
     await user.click(save);
 
-    // 对话框挂载锚点：保存版本对话框 + 描述输入 + 确认钮 testid 在场。
+    // 对话框挂载锚点：Named Version 对话框 + 名称/描述输入 + 保存钮在场。
     const dialog = await screen.findByRole('dialog', { name: '保存版本' });
-    expect(within(dialog).getByTestId('part-studio-push-description-input')).toBeDefined();
-    const confirm = within(dialog).getByTestId('part-studio-push-confirm-button');
-    // 描述必填：空描述诚实禁用（推送不发起；iTwinUI 美观禁用同口径）。
+    expect(within(dialog).getByTestId('part-studio-version-name-input')).toBeDefined();
+    expect(within(dialog).getByTestId('part-studio-version-description-input')).toBeDefined();
+    const confirm = within(dialog).getByRole('button', { name: '保存' });
+    // 名称必填：空名诚实禁用（不发起命名；iTwinUI 美观禁用同口径）。
     expect(isDisabled(confirm)).toBe(true);
-    await user.type(within(dialog).getByTestId('part-studio-push-description-input'), 'M4 冒烟锚点');
+    await user.type(within(dialog).getByTestId('part-studio-version-name-input'), 'M4 冒烟锚点');
     await user.click(confirm);
-    // 确认走 connection.pushChanges 标准通道（M4-T7 裁定的收敛入口）。
-    await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('M4 冒烟锚点'));
+    // 干净态：命名最新 changeset（listChangesets 取 index 最大），不 push。
+    await waitFor(() =>
+      expect(mocks.imodelsCreateNamedVersion).toHaveBeenCalledWith('im-1', {
+        name: 'M4 冒烟锚点',
+        changesetId: 'cs-2',
+      }),
+    );
+    expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
   });
 });

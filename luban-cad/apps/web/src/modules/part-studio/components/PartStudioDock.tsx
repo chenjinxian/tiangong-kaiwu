@@ -6,8 +6,10 @@
  * 应用 EditorDockPanel 三类，DockTab='toolSettings' | 'history' | 'display'）——
  * - 三页签条常驻（os-11 右缘条带）；点击页签写 store dock.activeTab 并展开内容，
  *   再点活动页签收合（toggleDock 语义）；
- * - 版本历史页签（M4-T7 真数据）：changesets 官方 SDK 列表（index/描述/日期，
- *   useChangesets react-query 通道）+ 当前版本标记（connection.changeset.id
+ * - 版本历史页签（M4-T7 真数据；B-model P0 Task 5 增命名版本分组）：
+ *   Named Versions 列表（useNamedVersions 通道；仅名称/描述——hub 仅元数据
+ *   命名，不宣称 checkpoint/缩略图）+ changesets 官方 SDK 列表（index/描述/
+ *   日期，useChangesets react-query 通道）+ 当前版本标记（connection.changeset.id
  *   比对）+「保存」钮（saveChanges 本地兜底，hasUnsavedChanges 徽标/门）+
  *   「推送」钮（宿主开共享 PushChangesetDialog——T4 评审 I-1 裁定的
  *   「保存→版本」收敛入口）；六态完备：loading 骨架 / error（就地错误条 +
@@ -23,6 +25,7 @@ import { Badge, Button, ProgressRadial, Text } from '@itwin/itwinui-react';
 import { SvgSave, SvgUploadToCloud } from '@itwin/itwinui-icons-react';
 import type { Changeset } from '@clients/imodels/ImodelsClient.js';
 import { useChangesets } from '../hooks/useChangesets.js';
+import { useNamedVersions } from '../hooks/useNamedVersions.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { DockTab } from '../types.js';
 import './PartStudioDock.css';
@@ -149,6 +152,9 @@ function ChangesetsPanel({
 }: ChangesetsPanelProps): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const { changesets, isLoading, error, refetch } = useChangesets(iModelId);
+  // B-model P0 Task 5：Named Versions 列表（hub 仅元数据命名——行内只呈现
+  // 名称/描述，不宣称 checkpoint/缩略图；空集不渲染分组，六态语义不变）。
+  const { namedVersions } = useNamedVersions(iModelId);
 
   // 本地化短日期（官方 pushDateTime ISO 串 → 语言感知显示；解析失败诚实回退原串）。
   const formatDate = React.useCallback(
@@ -167,6 +173,21 @@ function ChangesetsPanel({
   return (
     <div className="part-studio-dock-history" data-testid="part-studio-dock-history">
       <div className="part-studio-dock-history__content">
+        {namedVersions.length > 0 && (
+          <div className="part-studio-dock-history__named" data-testid="part-studio-named-versions">
+            <Text isMuted>{t('partStudio.dock.history.namedVersions')}</Text>
+            <ul>
+              {namedVersions.map((version) => (
+                <li key={version.id} data-testid="part-studio-named-version-row">
+                  <span className="part-studio-dock-history__description">{version.name}</span>
+                  {version.description && (
+                    <span className="part-studio-dock-history__date">{version.description}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {isLoading ? (
           <div className="part-studio-dock-history__loading" data-testid="part-studio-changesets-loading">
             <div className="part-studio-tree__loading-bar" />

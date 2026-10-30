@@ -48,11 +48,12 @@
       "retry": "Retry",
       "save": "Save",
       "unpushed": "Unpushed",
-      "push": "Push"
+      "push": "Push",
+      "namedVersions": "Named versions"
     }
   },
   "pushChangeset": {
-    "title": "Save version",
+    "title": "Push changes",
     "descriptionLabel": "Version description",
     "required": "Required",
     "descriptionPlaceholder": "e.g. Fix base dimensions, add fillet features",
@@ -62,6 +63,19 @@
     "success": "Version pushed to the hub",
     "pushFailed": "Push failed: {{message}}",
     "disconnected": "Connection lost — the save version dialog has been closed"
+  },
+  "namedVersion": {
+    "title": "Save version",
+    "nameLabel": "Version name",
+    "namePlaceholder": "e.g. V1.0 design freeze",
+    "descriptionLabel": "Version description",
+    "descriptionPlaceholder": "Optional",
+    "required": "Required",
+    "cancel": "Cancel",
+    "confirm": "Save",
+    "saving": "Saving…",
+    "success": "Version saved",
+    "failed": "Save failed: {{message}}"
   },
   "tabs": {
     "fitView": "Fit to view",

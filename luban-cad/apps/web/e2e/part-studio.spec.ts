@@ -5,7 +5,8 @@
  * Part Studio 编辑器页 e2e（M5-T5，会话注入零登录；真实栈：MS :5401 briefcase
  * 下载 + WebGL）。五组断言各自独立导航（briefcase 重开走 MS「Closing existing
  * db」复用路径，连接等待带一次 reload 恢复——见 helpers.waitEditorReady）：
- *  1) 五区结构 + 连接就绪 + 特征树双段 + 顶栏编辑三钮干净态诚实禁用；
+ *  1) 五区结构 + 连接就绪 + 特征树双段 + 顶栏编辑三钮干净态（undo/redo 禁用、
+ *     保存版本可用——B-model P0 Task 5 起干净态也可命名当前 changeset）；
  *  2) ribbon 工具真激活：ChamferEdges（真实 toolId；M6-b T6 起圆角 RoundEdges
  *     改道 new/fillet、B3 起扫掠 SweepFaces 改道 new/sweep 对话框，探针换倒角）
  *     → aria-pressed + console 零「未启动/激活失败」警告（M4-T9 冒烟 S4 同口径）；
@@ -61,11 +62,31 @@ test('五区结构 + 连接就绪 + 特征树双段 + 编辑三钮干净态', as
   }
   await expect(page.getByRole('tab', { name: 'Part Studio 1' })).toBeVisible();
 
-  // 顶栏编辑三钮（干净事务态诚实禁用——无可撤销/重做/未推送内容；每轮种子
-  // 重置保证此前提，见 auth.setup）
+  // 顶栏编辑三钮（干净事务态：undo/redo 诚实禁用——无可撤销/重做内容；保存
+  // 版本可用——B-model P0 Task 5 起干净态也可命名当前 changeset，不再随
+  // hasPendingTxns 回落禁用）。每轮种子重置保证此前提，见 auth.setup。
   await expect(page.getByTestId('part-studio-undo-button')).toBeDisabled();
   await expect(page.getByTestId('part-studio-redo-button')).toBeDisabled();
-  await expect(page.getByTestId('part-studio-save-button')).toBeDisabled();
+  await expect(page.getByTestId('part-studio-save-button')).toBeEnabled();
+});
+
+test('保存版本：干净态命名当前 changeset', async ({ page }) => {
+  // beforeEach 已 openSeedImodelEditor + waitEditorReady；E2E Seed 每轮重置，
+  // 干净事务态下 hasUnsavedChanges=false，保存版本走「最新 changeset 命名」路径。
+  await expect(page.getByTestId('part-studio-save-button')).toBeEnabled();
+  await page.getByTestId('part-studio-save-button').click();
+
+  const dialog = page.getByRole('dialog', { name: '保存版本' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('版本名称').fill('E2E V1');
+  await dialog.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByText('版本已保存')).toBeVisible();
+
+  // 打开版本历史面板，确认 Named Version 行出现。
+  await page.getByRole('tab', { name: '版本历史' }).click();
+  const named = page.getByTestId('part-studio-named-versions');
+  await expect(named).toBeVisible();
+  await expect(named.getByText('E2E V1')).toBeVisible();
 });
 
 test('ribbon 工具真激活：ChamferEdges aria-pressed + 零未启动警告（圆角/扫掠均已改道对话框）', async ({ page }) => {

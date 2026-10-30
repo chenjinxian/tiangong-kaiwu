@@ -19,12 +19,26 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ listChangesets: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  listChangesets: vi.fn(),
+  // B-model P0 Task 5：Named Versions 数据面（hook 级 mock——本文件只验收
+  // 面板呈现，查询语义归 useNamedVersions.test）。
+  namedVersions: [] as { id: string; name: string; description?: string }[],
+}));
 
 vi.mock('@clients/imodels/ImodelsClient.js', () => ({
   ImodelsClient: class {
     listChangesets = mocks.listChangesets;
   },
+}));
+
+vi.mock('../hooks/useNamedVersions.js', () => ({
+  useNamedVersions: () => ({
+    namedVersions: mocks.namedVersions,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }));
 
 import { usePartStudioStore } from '../index.js';
@@ -95,6 +109,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   resetStore();
   mocks.listChangesets.mockResolvedValue(CHANGESETS);
+  mocks.namedVersions = [];
 });
 
 describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
@@ -205,6 +220,19 @@ describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
     const busyBody = await openHistoryTab(user);
     const busySave = await within(busyBody).findByTestId('part-studio-dock-save-button');
     expect(isDisabled(busySave)).toBe(true);
+  });
+
+  // B-model P0 Task 5：Named Versions 分组（元数据命名行——名称/描述直通）。
+  it('命名版本分组：Named Versions 行可见（V1），空集不渲染分组', async () => {
+    const user = userEvent.setup();
+    mocks.namedVersions = [{ id: 'nv-1', name: 'V1' }];
+    renderDock();
+    const body = await openHistoryTab(user);
+
+    const named = await within(body).findByTestId('part-studio-named-versions');
+    expect(toContainText(named, '命名版本')).toBe(true);
+    expect(within(named).getByText('V1')).toBeDefined();
+    expect(within(named).getAllByTestId('part-studio-named-version-row')).toHaveLength(1);
   });
 
   it('「推送」钮：hasUnsavedChanges 门控；点击调 onPush（宿主开推送对话框）', async () => {

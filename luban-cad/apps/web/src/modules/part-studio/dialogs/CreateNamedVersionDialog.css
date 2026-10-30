@@ -1,0 +1,13 @@
+/* CreateNamedVersionDialog.css — 创建 Named Version 对话框（B-model P0 Task 5）：
+   名称/描述输入列排 + 必填标注。 */
+
+.part-studio-version-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-s);
+  min-width: 320px;
+}
+.part-studio-version-dialog__required {
+  color: var(--iui-color-text-negative);
+  margin-inline-start: var(--iui-size-2xs);
+}

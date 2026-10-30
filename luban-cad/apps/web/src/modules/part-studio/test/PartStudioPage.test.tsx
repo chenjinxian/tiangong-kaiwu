@@ -50,6 +50,9 @@ const mocks = vi.hoisted(() => ({
   imodelsList: vi.fn(),
   // M4-T7：版本历史数据源（dock 真面板的查询通道）。
   imodelsListChangesets: vi.fn(),
+  // B-model P0 Task 5：Named Version 通道（顶栏保存版本 + dock 命名版本列表）。
+  imodelsCreateNamedVersion: vi.fn(),
+  imodelsListNamedVersions: vi.fn(),
   // M5-T3：iModel 级我的权限查询（briefcase readonly 合流的数据源）。
   accessControlGetMyPermissions: vi.fn(),
 }));
@@ -106,6 +109,8 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
     get = mocks.imodelsGet;
     list = mocks.imodelsList;
     listChangesets = mocks.imodelsListChangesets;
+    createNamedVersion = mocks.imodelsCreateNamedVersion;
+    listNamedVersions = mocks.imodelsListNamedVersions;
     create = vi.fn();
     delete = vi.fn();
   },
@@ -334,6 +339,9 @@ beforeEach(() => {
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
   // M4-T7：dock 版本历史查询零真实请求（页面级测试默认空集）。
   mocks.imodelsListChangesets.mockResolvedValue([]);
+  // B-model P0 Task 5：Named Version 通道零真实请求（默认空列表/成功创建）。
+  mocks.imodelsListNamedVersions.mockResolvedValue([]);
+  mocks.imodelsCreateNamedVersion.mockResolvedValue({ id: 'nv-new', name: 'NV', changesetId: 'cs-new' });
   // M5-T3：权限查询缺省=创建者权限组（editable）——既有用例的「briefcase
   // 可写打开」前提；权限门/合流用例在用例内改写返回值。
   mocks.accessControlGetMyPermissions.mockResolvedValue([
@@ -688,7 +696,7 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     expect(FAKE_CONNECTION.supportsGraphicalEditing).toHaveBeenCalledTimes(1);
   });
 
-  it('顶栏三钮：缺省干净事务态全禁用；事件驱动可解锁', async () => {
+  it('顶栏三钮：干净事务态 undo/redo 禁用、保存版本可用（命名当前 changeset）；事件驱动可解锁', async () => {
     const user = userEvent.setup();
     renderPage();
     const topBar = screen.getByTestId('part-studio-top-bar');
@@ -702,7 +710,10 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     const save = within(topBar).getByRole('button', { name: '保存版本' });
     expect(isDisabled(undo)).toBe(true);
     expect(isDisabled(redo)).toBe(true);
-    expect(isDisabled(save)).toBe(true);
+    // B-model P0 Task 5：保存版本钮由 canSaveVersion 门驱动（canEdit ∧ 连接就绪）
+    //——干净态也可命名当前 changeset，不再随 hasPendingTxns 回落禁用。权限查询
+    // 落定前 canEdit 占位只读 → 等门开。
+    await waitFor(() => expect(isDisabled(save)).toBe(false));
 
     // undo 可能 + 有未推送变更（txns 查询桩翻真）→ 事件驱动重查询后钮解锁。
     FAKE_CONNECTION.txns.isUndoPossible.mockResolvedValue(true);
@@ -717,7 +728,7 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     expect(coreFrontendMocks.toolsRun).toHaveBeenCalledWith('Undo');
   });
 
-  it('保存版本入口（T4 评审 I-1 演进）：点击开推送对话框，确认走 connection.pushChanges（不再本地 saveChanges）', async () => {
+  it('保存版本入口（B-model P0 Task 5）：点击开 Named Version 对话框，有未保存变更先 pushChanges 再以 changeset id 命名', async () => {
     const user = userEvent.setup();
     FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
     renderPage();
@@ -726,14 +737,24 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     await waitFor(() => expect(save.disabled).toBe(false));
     await user.click(save);
 
-    // 推送对话框就位（描述必填 + 确认回传 pushChanges）。
+    // Named Version 对话框就位（名称必填 + 确认回传 draft）。
     const dialog = await screen.findByRole('dialog', { name: '保存版本' });
-    const input = within(dialog).getByLabelText(/版本描述/);
-    await user.type(input, '第一次推送');
-    await user.click(within(dialog).getByRole('button', { name: '推送' }));
+    const confirm = within(dialog).getByRole('button', { name: '保存' });
+    expect(
+      (confirm as HTMLButtonElement).disabled === true
+        || confirm.getAttribute('aria-disabled') === 'true',
+    ).toBe(true);
+    await user.type(within(dialog).getByLabelText(/版本名称/), 'V1');
+    await user.type(within(dialog).getByLabelText(/版本描述/), 'first');
+    await user.click(confirm);
 
+    await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('V1'));
     await waitFor(() =>
-      expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('第一次推送'),
+      expect(mocks.imodelsCreateNamedVersion).toHaveBeenCalledWith('im-1', {
+        name: 'V1',
+        description: 'first',
+        changesetId: 'cs-new',
+      }),
     );
     // 顶栏不再是本地 saveChanges 通道（no-op 提交已除名）。
     expect(FAKE_CONNECTION.saveChanges).not.toHaveBeenCalled();
@@ -742,9 +763,12 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('推送收敛点：推送成功后 txns 查询刷新 → hasPendingTxns 归 false（保存版本钮回落禁用）', async () => {
+  it('干净态命名：无未保存变更 → 不 push，命名 index 最大 changeset；完成后保存版本钮仍可用', async () => {
     const user = userEvent.setup();
-    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    mocks.imodelsListChangesets.mockResolvedValue([
+      { id: 'cs-1', index: 1, description: '初始', displayName: 'cs1', pushDateTime: '2026-10-19T09:00:00Z' },
+      { id: 'cs-2', index: 2, description: '加圆角', displayName: 'cs2', pushDateTime: '2026-10-20T09:00:00Z' },
+    ]);
     renderPage();
     const topBar = screen.getByTestId('part-studio-top-bar');
     const save = (await within(topBar).findByRole('button', { name: '保存版本' })) as HTMLButtonElement;
@@ -752,22 +776,20 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
 
     await user.click(save);
     const dialog = await screen.findByRole('dialog', { name: '保存版本' });
-    await user.type(within(dialog).getByLabelText(/版本描述/), '收敛验证');
-    await user.click(within(dialog).getByRole('button', { name: '推送' }));
-    await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalled());
+    await user.type(within(dialog).getByLabelText(/版本名称/), '收敛验证');
+    await user.click(within(dialog).getByRole('button', { name: '保存' }));
 
-    // onChangesPushed 事件（useUndoRedo 已订）驱动重查询：txns 桩翻假 → 钮禁用。
-    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(false);
-    act(() => {
-      FAKE_CONNECTION.txns.onChangesPushed.raise();
-    });
-    await waitFor(() => {
-      const settled = screen.getByTestId('part-studio-save-button');
-      expect(
-        (settled as HTMLButtonElement).disabled === true
-          || settled.getAttribute('aria-disabled') === 'true',
-      ).toBe(true);
-    });
+    await waitFor(() =>
+      expect(mocks.imodelsCreateNamedVersion).toHaveBeenCalledWith('im-1', {
+        name: '收敛验证',
+        changesetId: 'cs-2',
+      }),
+    );
+    // 干净态命名不 push。
+    expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
+    // B-model P0 Task 5：命名成功后保存版本钮仍可用（干净态可继续命名当前 changeset）。
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(save.disabled).toBe(false);
   });
 
   it('viewOnly 激活：三钮即使解锁点击也不触发（回调门与键盘保存同口径）', async () => {
@@ -789,14 +811,19 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     const redo = within(topBar).getByRole('button', { name: '重做' });
     const save = within(topBar).getByRole('button', { name: '保存版本' });
     await waitFor(() => expect(undo.getAttribute('aria-disabled')).not.toBe('true'));
-    await waitFor(() => expect(save.getAttribute('aria-disabled')).not.toBe('true'));
+    // B-model P0 Task 5：保存版本钮由 canSaveVersion（canEdit ∧ 连接）直接禁用
+    //——viewOnly 下即使 txns 有未推送变更也不解锁。
+    expect(
+      (save as HTMLButtonElement).disabled === true
+        || save.getAttribute('aria-disabled') === 'true',
+    ).toBe(true);
 
     await user.click(undo);
     await user.click(redo);
     await user.click(save);
     expect(coreFrontendMocks.toolsRun).not.toHaveBeenCalled();
     expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
-    // viewOnly 门拦截推送入口：对话框不开。
+    // viewOnly 门拦截保存版本入口：对话框不开。
     expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull();
   });
 
@@ -921,7 +948,9 @@ describe('M4-T7 版本历史真面板接线（dock 数据源 + 推送对话框�
     const push = await within(dock).findByTestId('part-studio-dock-push-button');
     await user.click(push);
 
-    const dialog = await screen.findByRole('dialog', { name: '保存版本' });
+    // B-model P0 Task 5：dock「推送」仍开 PushChangesetDialog（标题「推送变更」，
+    // 与顶栏「保存版本」Named Version 对话框语义分离）。
+    const dialog = await screen.findByRole('dialog', { name: '推送变更' });
     await user.type(within(dialog).getByLabelText(/版本描述/), 'dock 推送');
     await user.click(within(dialog).getByRole('button', { name: '推送' }));
     await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('dock 推送'));

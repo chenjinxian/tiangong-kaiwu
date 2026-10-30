@@ -63,9 +63,10 @@ function renderDialog(props: Partial<Parameters<typeof PushChangesetDialog>[0]> 
   return { onConfirm, onClose };
 }
 
-/** 对话框句柄（role=dialog，可访问名=标题「保存版本」）。 */
+/** 对话框句柄（role=dialog，可访问名=标题「推送变更」；B-model P0 Task 5 起
+ * 推送对话框标题与顶栏「保存版本」（Named Version 对话框）语义分离）。 */
 function getDialog(): HTMLElement {
-  return screen.getByRole('dialog', { name: '保存版本' });
+  return screen.getByRole('dialog', { name: '推送变更' });
 }
 
 /** iTwinUI 禁用口径：button[disabled] 或 aria-disabled（美观禁用）。 */

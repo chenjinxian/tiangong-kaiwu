@@ -13,10 +13,11 @@
  *   canUndo/canRedo/hasUnsavedChanges 驱动 disabled；未接线（props 缺省）时
  *   三钮诚实禁用。T4 评审 Important-1 演进（M4-T7 承接）：本应用工具链每 op
  *   自动 saveChanges，旧「保存」钮点击为 no-op 提交永不回落——第三钮改为
- *   「保存版本」推送入口（点击由宿主开 PushChangesetDialog，确认走
- *   connection.pushChanges；onChangesPushed 事件驱动 hasPendingTxns 归 false
- *   = 收敛点），图标/tooltip 相应对齐 Onshape 版本模型；本地兜底 saveChanges
- *   语义下沉 dock「保存」钮与 Ctrl+S；
+ *   「保存版本」入口，图标/tooltip 对齐 Onshape 版本模型；本地兜底 saveChanges
+ *   语义下沉 dock「保存」钮与 Ctrl+S。B-model P0 Task 5 起第三钮开
+ *   CreateNamedVersionDialog（canSaveVersion 门：干净态也可命名当前 changeset；
+ *   有未保存变更先 pushChanges 再命名），PushChangesetDialog 退居 dock「推送」
+ *   专用；
  * - 分享钮（T7 接共享对话框——复用 documents 模块 ShareDocumentDialog，
  *   跨模块经 @modules/documents barrel）+ 帮助钮 + 用户菜单
  *   （我的帐户/深色模式/退出登录，os-03 同口径）。
@@ -62,11 +63,15 @@ export interface PartStudioTopBarProps {
   canRedo?: boolean;
   /** 有未推送本地变更（hasPendingTxns 口径；保存版本钮门——无可推送内容即禁用）。 */
   hasUnsavedChanges?: boolean;
+  /** 保存版本可用性（B-model P0 Task 5）：干净态也可命名当前 changeset，
+   * 由页面层以 canEdit ∧ connection 就绪传入；缺省回退 hasUnsavedChanges，
+   * 保持既有测试/调用语义（未接线诚实禁用）。 */
+  canSaveVersion?: boolean;
   /** 撤销回调（IModelApp.tools.run('Undo') 通道由页面层持有）。 */
   onUndo?: () => void;
   /** 重做回调。 */
   onRedo?: () => void;
-  /** 保存版本回调（宿主开推送对话框；pushChanges 通道由页面层持有）。 */
+  /** 保存版本回调（宿主开 Named Version 对话框；命名/pushChanges 通道由页面层持有）。 */
   onSave?: () => void;
 }
 
@@ -76,6 +81,7 @@ export function PartStudioTopBar({
   canUndo = false,
   canRedo = false,
   hasUnsavedChanges = false,
+  canSaveVersion,
   onUndo,
   onRedo,
   onSave,
@@ -150,9 +156,9 @@ export function PartStudioTopBar({
       actions={[
         // 撤销/重做/保存版本三钮组（M4-T4，os-11 操作簇头部）：状态由页面层
         // useUndoRedo（BriefcaseTxns 标准通道）驱动——undo/redo 点击投标准工具
-        // 'Undo'/'Redo'（viewer 注册表在册、快捷键同源）；第三钮 M4-T7
-        // 演进为「保存版本」推送入口（无可推送内容诚实禁用）；props 缺省 =
-        // 未接线，三钮诚实禁用。
+        // 'Undo'/'Redo'（viewer 注册表在册、快捷键同源）；第三钮 M4-T7 演进为
+        // 「保存版本」入口，B-model P0 Task 5 起开 Named Version 对话框
+        //（canSaveVersion 门；props 缺省 = 未接线，三钮诚实禁用）。
         <IconButton
           key="undo"
           label={t('partStudio.topBar.edit.undo')}
@@ -180,7 +186,7 @@ export function PartStudioTopBar({
           label={t('partStudio.topBar.edit.saveVersion')}
           styleType="borderless"
           className="part-studio-edit-button"
-          disabled={!hasUnsavedChanges}
+          disabled={!(canSaveVersion ?? hasUnsavedChanges)}
           onClick={onSave}
           data-testid="part-studio-save-button"
         >

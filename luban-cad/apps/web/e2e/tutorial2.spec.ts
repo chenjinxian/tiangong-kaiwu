@@ -34,9 +34,11 @@
  *   采集 y 上对应世界 z 上须提交 v=−y，否则零件上下颠倒（体积不变，形状镜像）。
  * - 拱肩样条（采集实体 f4982b6b，isConstruction=false 实几何）按三次贝塞尔
  *   16 段折线近似（本契约无样条实体；弦高 <0.05mm，面积偏差 <0.1%）。
- * - M5-T4 门 S7/S8（发布窗复测）：T7 尾部在复合模型上执行「保存版本」推送
- *   （pushChanges 真栈）→ 版本历史列出本次 changeset + 当前版本标记。失败
- *   即门禁红——不降级不兜底。
+ * - M5-T4 门 S7/S8（发布窗复测；B-model P0 Task 5 改写）：T7 尾部在复合模型上
+ *   执行「保存版本」（顶栏开 CreateNamedVersionDialog：有未保存变更先
+ *   pushChanges 再以返回 changeset id 创建 Named Version）→ 版本历史列出该
+ *   命名版本；对话框关闭后保存版本钮仍可用（干净态可继续命名当前 changeset）。
+ *   dock「推送」仍走 PushChangesetDialog（纯推送）。失败即门禁红——不降级不兜底。
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -739,29 +741,26 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   await dialog.screenshot({ path: shotPath('t6-4-revolve-axis.png') });
   await dialog.getByRole('button', { name: '取消' }).click();
 
-  // ── M5-T4 门 S7/S8：保存版本推送 → 版本历史（B1 pushChanges 修复后真栈）──
-  // 复合模型已建（5-6 特征、事务 pending），正是推送入口的真实前置。验证：
-  // 钮解锁（hasPendingTxns）→ 对话框 → pushChanges 成功收合 → 钮回落禁用
-  // → 版本历史列出本次 changeset + 当前版本标记。失败即门禁红（不兜底）。
+  // ── M5-T4 门 S7/S8（B-model P0 Task 5 改写）：保存版本命名 → 版本历史 ──
+  // 复合模型已建（5-6 特征、事务 pending），正是保存版本入口的真实前置。
+  // 顶栏「保存版本」开 CreateNamedVersionDialog：有未保存变更 → 先 pushChanges
+  // 再以返回的 changeset id 创建 Named Version（hub 仅元数据命名，不生成
+  // checkpoint/缩略图）。验证：对话框 → 成功 toast → 版本历史出现该 Named
+  // Version；对话框关闭后钮仍可用（干净态可继续命名当前 changeset）。
+  // 失败即门禁红（不兜底）。
   const pushDescription = `M5-T4 复测推送 ${Date.now()}`;
   const saveButton = page.getByTestId('part-studio-save-button');
   await expect(saveButton).toBeEnabled({ timeout: 30_000 });
   await saveButton.click();
-  const pushDialog = page.getByRole('dialog', { name: '保存版本' });
-  await expect(pushDialog).toBeVisible({ timeout: 15_000 });
-  await pushDialog.getByTestId('part-studio-push-description-input').fill(pushDescription);
-  await pushDialog.getByTestId('part-studio-push-confirm-button').click();
-  await expect(pushDialog).toBeHidden({ timeout: 60_000 });
-  await expect(saveButton).toBeDisabled({ timeout: 30_000 });
+  const versionDialog = page.getByRole('dialog', { name: '保存版本' });
+  await expect(versionDialog).toBeVisible({ timeout: 15_000 });
+  await versionDialog.getByLabel('版本名称').fill(pushDescription);
+  await versionDialog.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByText('版本已保存')).toBeVisible({ timeout: 60_000 });
+  await expect(saveButton).toBeEnabled({ timeout: 30_000 });
   await page.getByTestId('part-studio-dock').getByRole('tab', { name: '版本历史' }).click();
-  const historyPanel = page.getByTestId('part-studio-dock-history');
-  await expect(historyPanel).toBeVisible();
-  const pushedRow = historyPanel.locator('[data-testid="part-studio-changeset-row"]', {
-    hasText: pushDescription,
-  });
-  await expect(pushedRow).toHaveCount(1, { timeout: 30_000 });
-  await expect(pushedRow).toContainText('当前版本');
-  console.log(`[t7] 推送与版本历史闭环：${pushDescription}`);
+  await expect(page.getByTestId('part-studio-named-versions').getByText(pushDescription)).toBeVisible();
+  console.log(`[t7] 保存版本（Named Version）与版本历史闭环：${pushDescription}`);
 
   // ── 全程零 console error ────────────────────────────────────────────
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
