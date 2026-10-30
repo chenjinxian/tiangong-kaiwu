@@ -425,5 +425,25 @@ iTwin: Thing/Portfolio "园区"
 |---|---|---|
 | 2026-10-30 | 本 ADR 提出：B 为目标、C 为过渡、P1 spike 后 go/no-go | 待决策 |
 | 2026-10-30 | 用户认可 **B 方向**；按 C 过渡；P1 spike 作为迁移门禁 | **已接受** |
+| 2026-10-30 | P0 四项前置完成（Named Version / 状态诚实化 / taxonomy / WorkspaceRef）；验证证据见下 | **完成**（进入 P1 spike） |
+
+### P0 收口验证证据（2026-10-30）
+
+| 项 | 结果 |
+|---|---|
+| 公共仓 shared | `npx tsc` 0；`npx vitest run` 7 files / 138 tests PASS |
+| 公共仓 web | `npx tsc --noEmit` 0；`npx vitest run` 72 files / 995 tests PASS；`npx eslint "src/**/*.ts*"` 0 |
+| modeling-server（私有仓源码） | `pnpm build` 0；`vitest run` 63 files / 604 passed, 8 skipped（lint 基线 246 errors，本任务不设门禁） |
+| hub 源码 | `npm run test:unit` 123 suites / 1104 tests PASS；`npm run build` 0 |
+| hub 实栈 e2e（聚焦） | `authorization` + `smoke-crud` 2 suites / 29 tests PASS（`E2E_BASE_URL=http://localhost:5400`） |
+| hub 迁移 | 本地镜像重建后启动迁移：`AddOfficialITwinClassEnum` / `NormalizeITwinTaxonomy` / `AddITwinGeography` 均 executed successfully |
+| taxonomy 实栈 | `GET /itwins` 返回 `class:"Endeavor"`, `subClass:"Project"`（含新建文档与既有 demo 行）；DB 分布 Endeavor/Project 4391、Account/Account 3 |
+| 权限与状态诚实 | 陌生账号 `POST /imodels` → 403（requires imodels_manage）；`PATCH /imodels/:id {state}` → 422 `state is server-managed and cannot be set by clients`，state 保持 notInitialized |
+| web 实栈 e2e（聚焦） | `documents` + `document-details` + `part-studio` + `tutorial2` 17/17 PASS（3.0m，setup 重置 E2E Seed） |
+| Named Version 实栈 | 编辑器保存「P0 收口验证 V1」→ hub `GET /imodels/:id/namedversions` 200 返回该名（changesetIndex 2）；版本历史面板同步显示 |
+| 截图 | `docs/superpowers/plans/assets/2026-10-30-p0/`：documents-list-endeavor-project.png、imodel-state-badge.png、save-version-dialog.png、named-version-history.png |
+| 未跑 | 全量 web Playwright（只跑四个目标 spec，避免撞限流预算）；`verify-stack.ps1`（不在本任务范围） |
+
+> 收口注记：hub 本地镜像构建使用临时 `Dockerfile.local` 引导 npm 11 —— 仓内 `package-lock.json` 为 npm 11 生成，`Dockerfile` 的 node:22.21.1-alpine 自带 npm 10.9.4 报 lockfile out-of-sync（缺 conventional-commits-parser@6.4.0 / meow@13.2.0）；临时文件已删，未推镜像。MS 宿主按计划以产物模式（dist-backend）重启；其中 `@luban-cad/shared` 为静态拷贝，但 MS 不导入 taxonomy，故不影响本项验证。
 
 > 本文只做架构决策记录，不包含代码改动。P0 前置项可以在 UI 波次中先行落地；B 的全量迁移必须在 P1 spike 通过后另行排期。

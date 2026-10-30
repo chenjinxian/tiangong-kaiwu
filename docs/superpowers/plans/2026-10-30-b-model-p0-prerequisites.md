@@ -1966,7 +1966,7 @@ git commit -m "refactor(web): Part Studio 经 WorkspaceRef 取参"
 - Modify: `docs/adr/0001-itwin-imodel-data-model.md`（决策记录追加 P0 完成状态）
 - Modify: `docs/superpowers/plans/2026-10-30-b-model-p0-prerequisites.md`（勾选）
 
-- [ ] **Step 1: 公共仓全量验证**
+- [x] **Step 1: 公共仓全量验证**
 
 ```bash
 cd D:/Github/tiangong-kaiwu/luban-cad/packages/shared
@@ -1980,7 +1980,9 @@ npx eslint "src/**/*.ts*"
 
 Expected: 全绿。若既有基线有已知失败，记录失败清单与原因，不得声称全绿。
 
-- [ ] **Step 2: 私有仓验证**
+实测（2026-10-30）：shared tsc 0 + 7 files/138 tests PASS；web tsc 0 + 72 files/995 tests PASS + eslint 0。
+
+- [x] **Step 2: 私有仓验证**
 
 ```bash
 cd D:/Github/luban-backend/modeling-server
@@ -1995,7 +1997,9 @@ npm run build
 
 Expected: 全绿；hub e2e 在本地 Postgres 可用时执行。
 
-- [ ] **Step 3: 真实栈验证（需栈运行）**
+实测：MS build 0 + 63 files/604 passed, 8 skipped（lint 基线 246 errors，未设门禁）；hub unit 123 suites/1104 tests PASS + build 0。MS 宿主已按产物模式重启，:5401 health 200。
+
+- [x] **Step 3: 真实栈验证（需栈运行）**
 
 - 启动/确认栈：`docker compose up -d` + `scripts/start-ms-host.ps1 -Detach`。
 - 打开文档中心，确认：
@@ -2004,7 +2008,9 @@ Expected: 全绿；hub e2e 在本地 Postgres 可用时执行。
 - 打开编辑器，创建特征 → 点「保存版本」→ 填名称 → 保存 → 版本历史出现该 Named Version。
 - 截图存档到 `docs/superpowers/plans/assets/2026-10-30-p0/`（若该目录不存在则创建），命名 `named-version.png`、`imodel-states.png`。
 
-- [ ] **Step 4: 更新 ADR 与计划状态**
+实测：hub 本地镜像重建 + 迁移成功；`GET /itwins` 返回 Endeavor/Project；陌生账号 POST /imodels 403；PATCH state 422 且状态不变。web 聚焦 e2e 17/17 PASS；Named Version「P0 收口验证 V1」经 hub API 与版本历史双重确认。截图命名：`documents-list-endeavor-project.png`、`imodel-state-badge.png`、`save-version-dialog.png`、`named-version-history.png`。失败态徽标以单测证据为准（未构造真实失败 iModel）。未跑：全量 web Playwright、verify-stack.ps1。
+
+- [x] **Step 4: 更新 ADR 与计划状态**
 
 在 ADR 第 14 节追加：
 
@@ -2014,7 +2020,9 @@ Expected: 全绿；hub e2e 在本地 Postgres 可用时执行。
 
 在本计划每个任务末尾勾选 `- [x]`。
 
-- [ ] **Step 5: 提交**
+实测：ADR §14 已追加决策行与「P0 收口验证证据」表（含计数、实栈检查、未跑项与镜像构建注记）。
+
+- [x] **Step 5: 提交**
 
 ```bash
 cd D:/Github/tiangong-kaiwu
