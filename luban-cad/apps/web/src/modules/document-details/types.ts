@@ -7,6 +7,15 @@
  * internal/imodels.mapper.ts；iTwin 详情映射见 hooks/useImodels.ts。
  */
 
+/** iModel 初始化状态（官方两态 + 本地 hub 恢复状态；未知值归 unknown）。 */
+export type ImodelState =
+  | 'initialized'
+  | 'notInitialized'
+  | 'initializationFailed'
+  | 'missingFiles'
+  | 'retryScheduled'
+  | 'unknown';
+
 /** iModel 卡片条目（UI 层形状，映射自官方 IModel 全量表示）。 */
 export interface ImodelSummary {
   id: string;
@@ -14,7 +23,9 @@ export interface ImodelSummary {
   name: string;
   /** 官方 description 可空——UI 空值回退「暂无描述」。 */
   description: string;
-  /** state==='initialized'（官方 IModelState 小写串比对，大小写不敏感）。 */
+  /** 归一化状态（大小写不敏感；未知值 unknown）。 */
+  state: ImodelState;
+  /** 派生字段：state==='initialized'（保留兼容旧消费）。 */
   initialized: boolean;
   /** ISO 时间串直透（IModel.createdDateTime，缺席为空串）。 */
   createdAt: string;

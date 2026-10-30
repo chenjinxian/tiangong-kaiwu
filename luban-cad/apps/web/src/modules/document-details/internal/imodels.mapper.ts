@@ -7,8 +7,9 @@
  * - id 直映；name ← displayName ?? name（官方 MinimalIModel 注释：
  *   displayName 对应 name 属性，双读兜底）；
  * - description ← description ?? ''（官方可空，UI 空值回退「暂无描述」在卡片侧）；
- * - initialized ← state 小写串比对 'initialized'（官方 IModelState 枚举，
- *   本地 hub 可能直出原始串——大小写不敏感防双边）；
+ * - state ← normalizeImodelState(state)（大小写不敏感；官方 IModelState 枚举，
+ *   本地 hub 可能直出原始串）；
+ * - initialized ← state === 'initialized'（派生字段，保留兼容旧消费）；
  * - createdAt ← createdDateTime；
  * - updatedAt 裁决链：`lastChangesetPushDateTime ?? createdDateTime ?? null`。
  *
@@ -19,14 +20,31 @@
  */
 
 import type { IModel } from '@itwin/imodels-client-management';
-import type { ImodelSummary } from '../types.js';
+import type { ImodelState, ImodelSummary } from '../types.js';
+
+const STATE_BY_LOWERCASE: Record<string, ImodelState> = {
+  initialized: 'initialized',
+  notinitialized: 'notInitialized',
+  // hub iModelState 实际枚举：Failed / MissingFiles（见 imodel-state.enum.ts）。
+  failed: 'initializationFailed',
+  initializationfailed: 'initializationFailed',
+  missingfiles: 'missingFiles',
+  retryscheduled: 'retryScheduled',
+};
+
+/** 官方 IModelState 与本仓扩展状态的统一归一化；未知值不猜测。 */
+export function normalizeImodelState(raw: unknown): ImodelState {
+  return STATE_BY_LOWERCASE[String(raw ?? '').toLowerCase()] ?? 'unknown';
+}
 
 export function toImodelSummary(imodel: IModel): ImodelSummary {
+  const state = normalizeImodelState((imodel as IModel & { state?: string }).state);
   return {
     id: imodel.id ?? '',
     name: imodel.displayName ?? imodel.name ?? '',
     description: imodel.description ?? '',
-    initialized: String(imodel.state ?? '').toLowerCase() === 'initialized',
+    state,
+    initialized: state === 'initialized',
     createdAt: imodel.createdDateTime ?? '',
     updatedAt: imodel.lastChangesetPushDateTime ?? imodel.createdDateTime ?? null,
   };
