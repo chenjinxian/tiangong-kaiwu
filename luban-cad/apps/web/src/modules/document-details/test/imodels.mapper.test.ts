@@ -21,6 +21,9 @@ describe('normalizeImodelState', () => {
     ['retryScheduled', 'retryScheduled'],
     ['somethingElse', 'unknown'],
     [undefined, 'unknown'],
+    [null, 'unknown'],
+    [['initialized'], 'unknown'],
+    ['constructor', 'unknown'],
   ] as const)('maps %s -> %s', (input, expected) => {
     expect(normalizeImodelState(input)).toBe(expected);
   });

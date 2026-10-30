@@ -22,19 +22,25 @@
 import type { IModel } from '@itwin/imodels-client-management';
 import type { ImodelState, ImodelSummary } from '../types.js';
 
-const STATE_BY_LOWERCASE: Record<string, ImodelState> = {
-  initialized: 'initialized',
-  notinitialized: 'notInitialized',
+const STATE_BY_LOWERCASE = new Map<string, ImodelState>([
+  ['initialized', 'initialized'],
+  ['notinitialized', 'notInitialized'],
   // hub iModelState 实际枚举：Failed / MissingFiles（见 imodel-state.enum.ts）。
-  failed: 'initializationFailed',
-  initializationfailed: 'initializationFailed',
-  missingfiles: 'missingFiles',
-  retryscheduled: 'retryScheduled',
-};
+  ['failed', 'initializationFailed'],
+  ['initializationfailed', 'initializationFailed'],
+  ['missingfiles', 'missingFiles'],
+  ['retryscheduled', 'retryScheduled'],
+]);
 
-/** 官方 IModelState 与本仓扩展状态的统一归一化；未知值不猜测。 */
+/**
+ * 官方 IModelState 与本仓扩展状态的统一归一化；未知值不猜测。
+ * 仅接受字符串（非字符串不做强制转换，防 `['initialized']` 被 String() 误判）；
+ * Map 查找天然只认自有键，无原型链键（'constructor'/'__proto__'）外泄。
+ */
 export function normalizeImodelState(raw: unknown): ImodelState {
-  return STATE_BY_LOWERCASE[String(raw ?? '').toLowerCase()] ?? 'unknown';
+  return typeof raw === 'string'
+    ? (STATE_BY_LOWERCASE.get(raw.toLowerCase()) ?? 'unknown')
+    : 'unknown';
 }
 
 export function toImodelSummary(imodel: IModel): ImodelSummary {
