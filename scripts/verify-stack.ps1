@@ -24,7 +24,7 @@
 #
 # 数据链（-SkipBaseline 跳过；请求形状对照 imodelhub-services DTO）:
 #   POST /auth/email/login {email,password}          → {token, refreshToken, tokenExpires, user}
-#   POST /itwins            {displayName,class}      → {iTwin:{id}}        （CreateiTwinDto 必填仅 displayName）
+#   POST /itwins            {displayName,subClass}   → {iTwin:{id}}        （CreateiTwinDto 必填仅 displayName；class 由 subClass 派生）
 #   POST /imodels           {iTwinId,name}           → {iModel:{id,state}} （creationMode 缺省 empty → HUB 发
 #                                                       IMODEL_CREATED(needBaseline)；漏收则 WA recovery checker
 #                                                       每 RECOVERY_CHECK_INTERVAL_MINUTES(默认5) 分钟兜底 requeue）

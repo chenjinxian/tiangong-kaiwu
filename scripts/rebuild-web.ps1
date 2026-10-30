@@ -52,6 +52,17 @@ $workerSrc = Join-Path $RepoRoot 'itwinjs-core\core\frontend\lib\public\scripts\
 if (-not (Test-Path $workerSrc)) {
     throw "构建上下文缺少 itwinjs-core 宿主 rush 产物 lib/（$workerSrc 不存在）——请在完整检出的仓库根执行；若刚改过 itwinjs-core，先 node common/scripts/install-run-rush.js build --to @itwin/core-frontend"
 }
+# 快照自愈（终审 N1）：既有 Windows 检出可能仍留着 CRLF 版快照（Git 不会因
+# .gitattributes 自动重写未变更的文件），Dockerfile 的 cmp 字节断言会在构建
+# 中途失败。构建前按 lib 源做一次哈希比对，不一致就重拷——构建输入恒与
+# 宿主 rush 产物逐字节一致；重拷后如产生真实内容差异，git status 会显示，
+# 由维护者决定是否提交。
+$workerSnapshot = Join-Path $RepoRoot 'luban-cad\apps\web\public\scripts\parse-imdl-worker.js'
+$snapshotHash = if (Test-Path $workerSnapshot) { (Get-FileHash -LiteralPath $workerSnapshot -Algorithm SHA256).Hash } else { '' }
+if ($snapshotHash -ne (Get-FileHash -LiteralPath $workerSrc -Algorithm SHA256).Hash) {
+    Copy-Item -LiteralPath $workerSrc -Destination $workerSnapshot -Force
+    Write-Host '==> 已从 itwinjs-core lib 重拷 parse-imdl-worker.js 快照（字节对齐）' -ForegroundColor Yellow
+}
 
 # --- 注入源版本（OCI 标签 org.opencontainers.image.revision）---
 $gitSha = 'unknown'
