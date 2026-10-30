@@ -78,7 +78,11 @@
  * `listPartStudios`/`createPartStudio`/`renamePartStudio`/`deletePartStudio`（P2.3/P2.4 消费）。
  * `listPartStudios` 是纯读（不初始化、不建分区、空文档=[]；P1 spike 的无元数据 scoped 标签
  * 以 name=id 列出）；`createPartStudio` 是唯一创建者（空/scoped 文档可建，legacy/mixed/unknown
- * 诚实拒收）；`renamePartStudio` 只改元数据；`deletePartStudio` 拒绝删除最后一个 scope。
+ * 诚实拒收）；`renamePartStudio` 只改元数据；`deletePartStudio` 拒绝删除最后一个**完整** scope。
+ * **写方法 sessionId 必填**（1.18 尚未发布，不保留旧两/三参调用面）：注册表 create/rename/delete
+ * 与 applyFeatureOp 同受写租约约束——调用方须先 acquireWriteLease，服务端 assertHeld 通过才写。
+ * **删除持久性（P2.2 修复轮 Critical）**：delete 在同一事务写持久 tombstone；该 scope 的惰性
+ * 初始化与后续读/写一律拒收，绝不复活已删 scope（`listPartStudios` 也不列 tombstone）。
  * 上面的六个可选 scope 方法逐字不变——注册表不改变旧调用面。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
@@ -450,18 +454,21 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * B-model P2.2 v1.18：创建 Part Studio（唯一创建者）——显式初始化 def/phys model + init
    * BodySolid，并在 def 分区 JsonProperties.luban.partStudio 写注册表元数据。
    * 空/scoped 文档可建；legacy/mixed/unknown 文档诚实拒收；名称 trim 后非空且 ≤120 字符。
+   * `sessionId` 必填且须持有该 iModel 的写租约（assertHeld 失败→拒收，不建任何东西）。
    */
-  public async createPartStudio(_iModelKey: string, _name: string, _sessionId?: string): Promise<PartStudioInfo> { return this.forward(arguments); }
+  public async createPartStudio(_iModelKey: string, _name: string, _sessionId: string): Promise<PartStudioInfo> { return this.forward(arguments); }
   /**
    * B-model P2.2 v1.18：重命名 Part Studio（仅改元数据；id/order/createdAt 保持）。
-   * 不存在/legacy scope 诚实拒收；名称校验同 createPartStudio。
+   * 不存在/legacy scope 诚实拒收；名称校验同 createPartStudio；`sessionId` 必填且须持写租约。
    */
-  public async renamePartStudio(_iModelKey: string, _partStudioId: string, _name: string): Promise<PartStudioInfo> { return this.forward(arguments); }
+  public async renamePartStudio(_iModelKey: string, _partStudioId: string, _name: string, _sessionId: string): Promise<PartStudioInfo> { return this.forward(arguments); }
   /**
-   * B-model P2.2 v1.18：删除 Part Studio（只删本 scope 的 features/sketches/bodies/def+phys
-   * models/分区；共享 SpatialCategory 与其它 scope 不受影响）。**最后一个 scope 拒删**（抛错）。
+   * B-model P2.2 v1.18：删除 Part Studio（只删本 scope 的 features/sketches/bodies/OpLog/
+   * def+phys models/分区；共享 SpatialCategory 与其它 scope 不受影响）。**最后一个完整 scope
+   * 拒删**（抛错）；**同一事务写持久 tombstone**——已删 scope 的惰性初始化/读写不得复活。
+   * `sessionId` 必填且须持写租约。
    */
-  public async deletePartStudio(_iModelKey: string, _partStudioId: string): Promise<void> { return this.forward(arguments); }
+  public async deletePartStudio(_iModelKey: string, _partStudioId: string, _sessionId: string): Promise<void> { return this.forward(arguments); }
 
   /** B-model v1.17：可选 `partStudioId`——缺省=legacy 单工作室读面（旧行为逐字）。 */
   public async getFeatureTree(_iModelKey: string, _partStudioId?: string): Promise<FeatureTreeEntry[]> { return this.forward(arguments); }

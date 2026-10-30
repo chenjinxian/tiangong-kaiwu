@@ -732,7 +732,7 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
     expectTypeOf<Parameters<ApplyFn>[3]>().toEqualTypeOf<string | undefined>();
   });
 
-  it("版本升 1.17.0（可选参数不破坏旧调用，但 URL 操作路径随版本变化；P2.2 再升 1.18.0）", () => {
+  it("版本 1.18.0（P2.2 注册表升版；v1.17 可选 scope 参数保持旧调用兼容）", () => {
     expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
   });
 });
@@ -758,12 +758,11 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     }>();
   });
 
-  it("四方法签名：list/create/rename/delete（create 的 sessionId 可选；delete 返回 Promise<void>）", () => {
+  it("四方法签名：list/create/rename/delete（写方法 sessionId 必填；delete 返回 Promise<void>）", () => {
     expectTypeOf<LubanFeatureRpcInterface["listPartStudios"]>().toBeCallableWith("conn-1");
-    expectTypeOf<LubanFeatureRpcInterface["createPartStudio"]>().toBeCallableWith("conn-1", "Part Studio 1");
     expectTypeOf<LubanFeatureRpcInterface["createPartStudio"]>().toBeCallableWith("conn-1", "Part Studio 1", "sess-1");
-    expectTypeOf<LubanFeatureRpcInterface["renamePartStudio"]>().toBeCallableWith("conn-1", "ps-1", "Renamed");
-    expectTypeOf<LubanFeatureRpcInterface["deletePartStudio"]>().toBeCallableWith("conn-1", "ps-1");
+    expectTypeOf<LubanFeatureRpcInterface["renamePartStudio"]>().toBeCallableWith("conn-1", "ps-1", "Renamed", "sess-1");
+    expectTypeOf<LubanFeatureRpcInterface["deletePartStudio"]>().toBeCallableWith("conn-1", "ps-1", "sess-1");
     type ListFn = LubanFeatureRpcInterface["listPartStudios"];
     type CreateFn = LubanFeatureRpcInterface["createPartStudio"];
     type RenameFn = LubanFeatureRpcInterface["renamePartStudio"];
@@ -771,12 +770,21 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<Parameters<ListFn>[0]>().toEqualTypeOf<string>();
     expectTypeOf<ReturnType<ListFn>>().toEqualTypeOf<Promise<PartStudioInfo[]>>();
     expectTypeOf<Parameters<CreateFn>[1]>().toEqualTypeOf<string>();
-    expectTypeOf<Parameters<CreateFn>[2]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<Parameters<CreateFn>[2]>().toEqualTypeOf<string>(); // 必填（1.18 未发布；写租约约束）
     expectTypeOf<ReturnType<CreateFn>>().toEqualTypeOf<Promise<PartStudioInfo>>();
     expectTypeOf<Parameters<RenameFn>[1]>().toEqualTypeOf<string>();
     expectTypeOf<Parameters<RenameFn>[2]>().toEqualTypeOf<string>();
+    expectTypeOf<Parameters<RenameFn>[3]>().toEqualTypeOf<string>();
     expectTypeOf<ReturnType<RenameFn>>().toEqualTypeOf<Promise<PartStudioInfo>>();
+    expectTypeOf<Parameters<DeleteFn>[2]>().toEqualTypeOf<string>();
     expectTypeOf<ReturnType<DeleteFn>>().toEqualTypeOf<Promise<void>>();
+    // 编译期硬钉：少传 sessionId 不可调用（@ts-expect-error 未被使用即编译失败）
+    // @ts-expect-error -- createPartStudio 的 sessionId 必填
+    expectTypeOf<LubanFeatureRpcInterface["createPartStudio"]>().toBeCallableWith("conn-1", "Part Studio 1");
+    // @ts-expect-error -- renamePartStudio 的 sessionId 必填
+    expectTypeOf<LubanFeatureRpcInterface["renamePartStudio"]>().toBeCallableWith("conn-1", "ps-1", "Renamed");
+    // @ts-expect-error -- deletePartStudio 的 sessionId 必填
+    expectTypeOf<LubanFeatureRpcInterface["deletePartStudio"]>().toBeCallableWith("conn-1", "ps-1");
   });
 
   it("四方法挂在类原型；可选 scope 的旧方法签名不变（注册表不改变旧调用面）", () => {
