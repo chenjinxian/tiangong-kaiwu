@@ -274,7 +274,9 @@ iTwin: Thing/Portfolio "园区"
 > 特征/树/体/orderKey/oplog；**final-fix HEAD** 全 `src/feature` 48 files / **443 passed** / 8 skipped）
 > + 性能（10 studio 五项阈值全过；`StandaloneDb`/native + 后端读面代理；阈值仅日志比对、测试不断言）
 > + Named Version（metadata-only）/ iModel 级共享（`isSecured` + ACL；写实际 Manage-only；
-> final-fix 收紧列表泄漏/删除与授权边界/内容资源维度）实测通过；撤销决策 **A**（最新 studio init
+> final-fix 收紧列表泄漏/删除与授权边界/内容资源维度，final-fix2 再收口 checkpoint 重复路由与
+> 列表分页可达性）**unit-tested；hub route e2e PASSED**（2026-10-30 本地重建镜像实栈，见 §11/§14；
+> **发布镜像 e2e 仍为强制门、NOT RUN**）；撤销决策 **A**（最新 studio init
 > 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init floor E2E **NOT RUN**）；迁移以**参数
 > 重放 + `rebuildAll`** qualified Go（transformer 探针 **NOT RUN**，不得宣称无损；bbox 相等对复制类体
 > 非独立证据）。证据与限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`
@@ -383,9 +385,12 @@ iTwin: Thing/Portfolio "园区"
    既有 mixed 文档只保证「不再恶化」（不修复/不清理/不归并）。生产/迁移必须一次性择一模式，
    不得声称混合模式可用。
 7. **全量 web Playwright（P2 前必跑）**：七页 + 键盘流 + 视觉钉版 + 性能探针，需真实栈。
-   `test:e2e` 默认基址是 docker/CI 的 `:4000`；直打宿主栈（MS :5401 / hub :5400 / nginx :5301）
-   时显式设 `E2E_BASE_URL`（例如 `http://localhost:5301` 或 hub 的 `http://localhost:5400`），
-   该 override 必须写进发布 runbook。
+   web 侧基址变量是 **`PLAYWRIGHT_BASE_URL`**，缺省 `http://localhost:5300`（`apps/web` 的
+   `pnpm dev`）；走栈内 nginx :5301 时显式覆盖为该地址。该 override 必须写进发布 runbook。
+7b. **hub e2e 基址（本地/发布镜像必跑）**：hub 的 secured/ACL/named-version/authorization/
+   smoke-crud e2e 直打已部署 hub，基址变量是 **`E2E_BASE_URL`**，缺省
+   `http://localhost:4000`（docker/CI 容器内端口）；直打宿主栈用
+   `http://localhost:5400`。它与 web Playwright 的 `PLAYWRIGHT_BASE_URL` 是两套变量，不得混用。
 8. **发布镜像 hub e2e（必跑）**：hub 的 secured/ACL/named-version 等 e2e 必须在 **GHCR 发布
    镜像**（而非本地重建镜像）上复跑；本地镜像结果不作为发布证据（OCI revision 须与 hub HEAD 一致）。
 9. **生产 BriefcaseDb/IPC + init-floor undo E2E（P2 前必跑）**：`StandaloneDb` raw native 探针
@@ -512,18 +517,42 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 > （显式 Write 惰性），iTwin Admin/Editor 绕过 `isSecured`。final-fix 的 F3/F4/F5 收紧：secured 元数据
 > 不在列表泄漏；显式 iModel Manage 不能关安全/删库/改授权（须 iTwin manage/owner）；内容路由按
 > changesets/briefcases/locks/versions 维度判等级（versions-only Read 不解锁 baseline/changeset 内容）。
-> 详见 spike 文档与 `final-fix-report.md`。
+> **final-fix2（2026-10-30）**：删除 `GET /imodels/:id/briefcases/:briefcaseId/checkpoint` 的重复
+> 注册（旧处理器缺 `imodelResource: 'briefcases'` 且先注册、会遮蔽 canonical 路由）；列表分页按
+> **原始页**是否填满推进 `_links.next`，并在链接中保留 `iTwinId`/`$orderby` 等集合参数。
+> **hub route e2e（本地重建镜像 `271e5ec`，含上述修复）5 suites / 70 tests PASS**：
+> `imodel-secured`、`named-version-sharing`、`itwins`、`authorization`、`smoke-crud`
+> （`E2E_BASE_URL=http://localhost:5400`，2026-10-30）。
+> 详见 spike 文档与 `final-fix-report.md`/`final-fix2-report.md`。
 > **撤销决策 A**：原生 undo 为文档级；可撤范围为**最新 studio init 之上**，位于更晚 studio init 之下
 > 的编辑不可达；**不承诺页签级 undo**。生产 BriefcaseDb/IPC + init-floor E2E **NOT RUN**（deferred）。
-> **未跑**：全量 web Playwright、发布镜像 e2e、Transformation、生产 undo E2E（均为强制发布门，见 §8.6）。
+> **未跑**：全量 web Playwright、**发布镜像** hub e2e（本地重建镜像 hub e2e 已跑）、Transformation、
+> 生产 undo E2E（均为强制发布门，见 §8.6）。
 > **scope 传入状态（final review Minor 3）**：`WorkspaceRef.modelId`/`?model=` 的 UI/路由生产端
 > **尚未接线**——生产 web 目前绝不发送 `?model=`，全部特征 RPC 走 legacy（无 scope）路径；scope 走查
 > 仅由单测/`--list` 覆盖，**没有真栈 e2e**。这是 P2 待办，不得表述为「多 Tab scope 已端到端可用」。
 > **公共仓/ hub 计数**：shared **141/141**（`test` 已改为 type-check + vitest 聚合）、web **1011/1011**
-> （final-fix 仅文档/脚本改动）；hub unit **127 suites / 1161 tests**（final-fix HEAD）、tsc/nest build
-> clean。**hub secured e2e（F3/F4/F5 新用例）与 itwins/authorization/smoke-crud 回归：NOT RUN**——
-> 本地 Docker/WSL 引擎在重建 hub 镜像时失去响应（环境故障，非代码失败）；Docker 恢复后必须补跑，
-> 命令见 `final-fix-report.md`。
+> （final-fix 仅文档/脚本改动）；hub unit **128 suites / 1166 tests**（final-fix2 HEAD）、tsc/nest build
+> clean。**hub route e2e（final-fix2，本地重建镜像 `271e5ec`）：5 suites / 70 tests PASS**
+> （secured/named-version-sharing/itwins/authorization/smoke-crud；`E2E_BASE_URL=http://localhost:5400`）。
+> 此前 final-fix 轮因本地 Docker/WSL 引擎失去响应未跑；该环境故障已排除。**发布镜像 e2e 仍未跑**
+> （强制门 8，见 §8.6）；命令见 `final-fix2-report.md`。
+
+> **残余与产品决策（final review F1/F2/F4，2026-10-30）**：
+> - **F2（spike 残余，未关闭）**：同库 init/预热/category 已按底层 `db.key` 串行，但
+>   「写 op 的 EditTxn 与另一服务读触发 init 的 EditTxn」这一更窄窗口未覆盖（写侧仍仅靠
+>   iModel 级写租约串行；日常读不再开 EditTxn）。并发首次初始化 / cold-warm 竞态仍是 spike
+>   残余，P2 前须以 init 互斥或显式重试补强；不得宣称并发首启已完全安全。
+> - **F1（迁移目标模式守卫，已补）**：`replayPartStudio` 写目标前调用
+>   `detectFeatureDocumentMode`；目标文档为 `mixed`/`unknown`，或目标 scope 与既有分区模式
+>   不一致（legacy↔scoped）时拒跑，避免迁移制造 mixed 文档。已补 4 个纯逻辑单测（迁移
+>   11/11 仍通过；**迁移真栈未重跑**）。既有 mixed 文档仍只「不再恶化」，无自动迁移/归并。
+> - **F4（产品决策，未改代码）**：clone/fork 当前按路由的 iModel `manage` 判定（secured 下
+>   为四维取最大，任一维度 Manage 即满足），跨 iTwin 落点另需目标 iTwin `imodels_manage`。
+>   因此**显式 iModel Manage 受让人可把文档 clone/fork 到自有 iTwin，等价于导出内容**。
+>   产品需裁决「Manage 是否含导出权」；若否，clone/fork 应改走
+>   `checkITwinManageForIModel`（与删库/安全开关同口径）。在此之前不得把 clone/fork 宣传为
+>   「受限共享下的安全边界」。
 
 ---
 
@@ -577,14 +606,17 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 2026-10-30 | P0 四项前置完成（Named Version / 状态诚实化 / taxonomy / WorkspaceRef）；验证证据见下 | **完成**（进入 P1 spike） |
 | 2026-10-30 | **P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**。四个验收轴：①隔离 Go（2+ Part Studio 特征/树/体/orderKey/oplog + 跨 studio by-id 写守卫 + legacy 回归；scope **25 cases**；**final-fix HEAD 48 files / 443 passed / 8 skipped**，Task 9 时点 436、Task 4 基线 421；8 skips 为 `debug-tail-root` 探针）；②迁移 qualified Go（**修订**：参数重放 + `rebuildAll` 替代 Transformation；11/11 tests，主链体积 15.9989259816 vs 15.9989259816、direct-edit 体积 16 vs 16、failed-tail 8 vs 8、boolean 12 再生 + 8 consumed + 8 suppressed；**bbox 相等对复制类体非独立证据**；**Transformation NOT RUN**，**不宣称无损**）；③性能 Go（受限：`StandaloneDb`/native + 后端读面代理；10 studio init 145.1 ms / tree 1.3 ms / insert P95 8.8 ms / rebuild P95 6.1 ms / switch P95 0.3 ms；阈值仅人工比对日志，**非 CI 回归预算**）；④Named Version **metadata-only** + iModel 级共享 Go（**修订**：共享写实际 Manage-only；`isSecured` + ACL；非成员 403 → 显式 Read 200；无 checkpoint/缩略图/计数/事件；final-fix 收紧列表元数据/管理权边界/内容资源维度）。撤销决策 **A**：最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init-floor E2E **NOT RUN**。若按原四项门禁字面执行，本记录应读作 defer/No-Go。证据与全部限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径，本公开仓无此文件）与 `final-fix-report.md` | **待 owner 签字（qualified Go；非字面四项全过）** |
 
-> **最终验证计数（2026-10-30）**：backend **代码 HEAD `14e5fe6` / docs HEAD `140131b`**；final-fix
-> 轮在其上复跑全 `src/feature` **48 files / 443 passed / 8 skipped**（Task 9 时点 436 passed；Task 4
-> 基线 421 passed；8 skips 为 `debug-tail-root` 探针；四个单工作室回归文件 `FeatureService` /
-> `FeatureUndo` / `MultiBodyFoundation` / `FeatureSync` 均含在内）；公共仓 shared **141/141**
-> （`test` 已含 type-check）、web **1011/1011**（final-fix 仅文档/脚本改动）；hub `imodelhub-services`
-> unit **127 suites / 1161 tests**（final-fix HEAD）、secured e2e 用例已扩充（F3/F4/F5；**执行受本地
-> Docker/WSL 故障阻碍，NOT RUN**，见 `final-fix-report.md`）、Named Version + secured、itwins/
-> authorization/smoke-crud 回归待 Docker 恢复后复跑（Task 8a/8 时点分别 18/18、21/21、44/44）。
+> **最终验证计数（2026-10-30 final-fix2）**：backend final-fix 基线为代码 HEAD `14e5fe6` / docs HEAD
+> `140131b`，其全 `src/feature` 为 48 files / 443 passed / 8 skipped（Task 9 时点 436、Task 4 基线
+> 421；8 skips 为 `debug-tail-root` 探针）。final-fix2 在 backend HEAD `1daacd1` 新增迁移目标模式守卫
+> 4 cases，全 `src/feature` 复跑 **49 files / 447 passed / 8 skipped**（exit 0）；聚焦
+> `PartStudioMigration.mode.test.ts` + `PartStudioMigration.test.ts` **15/15 PASS**、tsc 0、eslint 0。
+> 公共仓 shared **141/141**（`test` 已含 type-check）、web **1011/1011**
+> （final-fix 仅文档/脚本改动；final-fix2 未改前端）；hub `imodelhub-services` unit
+> **128 suites / 1166 tests PASS**（final-fix2 HEAD `122acbf`）、tsc/nest build clean；
+> **hub route e2e（本地重建镜像 `271e5ec`）5 suites / 70 tests PASS**（secured/named-version-sharing/
+> itwins/authorization/smoke-crud，`E2E_BASE_URL=http://localhost:5400`）。**发布镜像 e2e 仍 NOT RUN**
+> （强制门 8）。
 
 ### P0 收口验证证据（2026-10-30）
 
@@ -627,5 +659,23 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 > hub 发布与本地验证：`docker compose pull imodelhub` 拉取已发布镜像 → `docker compose up -d --no-deps --force-recreate imodelhub`，Postgres 数据保留；容器镜像 digest 与 push digest 一致（`sha256:b85d9a88…`），OCI revision 与 hub HEAD 一致。web 容器已用新镜像重建并部署（`docker compose up -d web`），Step E 通过；聚焦 e2e 仍用 vite dev :5300 承载新代码。
 
 > web 镜像重建暴露两处主分支既有构建门禁（非 P0 逻辑引入）：`luban-cad/apps/web/public/scripts/parse-imdl-worker.js` 在 Windows 检出为 CRLF，Dockerfile 与 itwinjs-core lib 的 `cmp` 字节断言失败——已按 README 从 lib 重拷为 LF，并用 `.gitattributes` 的 `-text` 钉死；editor 收编到 `packages/editor/{frontend,common}` 后闭包脚本仍用 `../../`，解析到不存在的 `packages/docker-closure.cjs`——已改为 `../../../`（提交 126f9bf / 99a777c）。
+
+### final-fix2 验证证据（2026-10-30 final re-review）
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| hub 类型 | `npx tsc --noEmit -p tsconfig.json` | 0 错误 |
+| hub 构建 | `npm run build` | 0 错误 |
+| hub 单测 | `npx jest --config ./test/jest-unit.json --runInBand --coverage=false`（全量） | **128 suites / 1166 tests PASS**（final-fix 基线 127/1161；新增分页 4 + F5 路由回归 1） |
+| hub 本地镜像 | `docker build --build-arg GIT_COMMIT=271e5ec… -t ghcr.io/chenjinxian/imodelhub:latest .` | 构建成功；本地镜像 ID `sha256:f934d963…`，OCI revision **`271e5ec`**（含 F5 checkpoint 重复路由删除 + F3 原始页分页/查询参数保留） |
+| hub 实栈 e2e（本地重建镜像） | `E2E_BASE_URL=http://localhost:5400 npx jest --config ./test/jest-e2e.json --runInBand test/integration/imodel-secured.e2e-spec.ts test/integration/named-version-sharing.e2e-spec.ts test/itwins.e2e-spec.ts test/integration/authorization.e2e-spec.ts test/integration/smoke-crud.e2e-spec.ts` | **5 suites / 70 tests PASS，exit 0**（24.9 s；含 F5 briefcase checkpoint 403/放行 与 F3 隐藏项占首页后的分页可达性） |
+| 后端迁移模式守卫 | `vitest run src/feature/PartStudioMigration.mode.test.ts src/feature/PartStudioMigration.test.ts` | **15/15 PASS**（模式守卫 4 + 既有迁移 11）；全 `src/feature` **49 files / 447 passed / 8 skipped**，exit 0；tsc 0；eslint 0 |
+| 发布镜像 hub e2e | — | **NOT RUN**（强制发布门 8；本地镜像结果不作发布证据） |
+| 全量 web Playwright | — | **NOT RUN**（强制发布门 7） |
+| 生产 BriefcaseDb/IPC + init-floor undo E2E | — | **NOT RUN**（强制发布门 9） |
+| `verify-stack.ps1` | — | **NOT RUN**（本轮仅聚焦 hub e2e；发布前必跑） |
+
+> 本轮未改前端代码，故未重跑 public tsc/web 测试；hub 代码 HEAD `122acbf`（运行镜像 revision `271e5ec`，其后仅加测试）、backend `1daacd1`、public 以本文提交为准。
+> F2（并发首启/cold-warm 窄窗口）与 F4（clone/fork 导出权）仍分别作为 spike 残余与产品决策记录在 §11；F1 的迁移目标模式守卫已补。
 
 > 本文只做架构决策记录，不包含代码改动。P0 前置项可以在 UI 波次中先行落地；B 的全量迁移必须在 P1 spike 通过后另行排期。
