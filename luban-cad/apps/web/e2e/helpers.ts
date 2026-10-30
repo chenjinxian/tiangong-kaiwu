@@ -385,22 +385,41 @@ export function readModelScopeId(page: Page): string | null {
   return new URL(page.url()).searchParams.get('model');
 }
 
-/** 读已打开 briefcase 的 connection.key（≡ MS 侧 dbKey）；失败返回 null。 */
-async function readBriefcaseKey(page: Page): Promise<string | null> {
+/** 已打开 briefcase 的可观测身份（P2.6b2：连接键稳定性 + 只读/可写连接门）。 */
+export interface OpenBriefcaseInfo {
+  /** `IModelConnection.key` ≡ MS 侧 dbKey（downloadBriefcase.fileName）。 */
+  key: string | null;
+  /** 连接打开模式是否只读（A legacy=true；B 可写=false）。 */
+  isReadonly: boolean | null;
+}
+
+/** 读已打开 briefcase 的 connection.key + 只读位；失败返回 null 字段。 */
+export async function readOpenBriefcaseInfo(page: Page): Promise<OpenBriefcaseInfo> {
   try {
     return await page.evaluate(async () => {
       const cf = (await import('/@id/@itwin/core-frontend')) as {
         IModelApp: {
           viewManager: {
-            getFirstOpenView(): { iModel: { key?: string } } | undefined;
+            getFirstOpenView(): {
+              iModel: { key?: string; isReadonly?: boolean };
+            } | undefined;
           };
         };
       };
-      return cf.IModelApp.viewManager.getFirstOpenView()?.iModel.key ?? null;
+      const iModel = cf.IModelApp.viewManager.getFirstOpenView()?.iModel;
+      return {
+        key: iModel?.key ?? null,
+        isReadonly: typeof iModel?.isReadonly === 'boolean' ? iModel.isReadonly : null,
+      };
     });
   } catch {
-    return null;
+    return { key: null, isReadonly: null };
   }
+}
+
+/** 读已打开 briefcase 的 connection.key（≡ MS 侧 dbKey）；失败返回 null。 */
+async function readBriefcaseKey(page: Page): Promise<string | null> {
+  return (await readOpenBriefcaseInfo(page)).key;
 }
 
 /** scope 横幅诊断面（B 解析失败时把可读文案带进 helper 错误）。 */
