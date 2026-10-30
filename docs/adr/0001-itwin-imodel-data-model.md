@@ -278,7 +278,8 @@ iTwin: Thing/Portfolio "园区"
 > 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init floor E2E **NOT RUN**）；迁移以**参数
 > 重放 + `rebuildAll`** qualified Go（transformer 探针 **NOT RUN**，不得宣称无损；bbox 相等对复制类体
 > 非独立证据）。证据与限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`
-> （仓外私仓路径；本公开仓不包含该文件，故无相对链接）与 `final-fix-report.md`。
+> （仓外私仓路径；本公开仓不包含该文件，故无相对链接）与 `final-fix-report.md`（位于 SDD 工作目录
+> `.superpowers/sdd/2026-10-30-b-model-p1-spike/`；该目录按约定不入库，故本文只作名称引用）。
 
 ### 8.2.1 实施现实核对（2026-10-30 取证）
 
