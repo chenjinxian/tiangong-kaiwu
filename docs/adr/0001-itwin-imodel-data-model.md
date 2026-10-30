@@ -361,7 +361,7 @@ iTwin: Thing/Portfolio "园区"
 4. **全量 verify-stack**（health → 数据链 → WS → dev-build 横幅；Step E/F
    双镜像新鲜度）。
 
-**P1 新增发布门（RPC 1.17 原子同发 + 混合写模式，强制）**：
+**P1 新增发布门（RPC 1.17 同发 + 混合写模式 + 最终验收门，强制）**：
 
 5. **RPC 1.17.0 原子同发（禁止版本 skew）**：`LubanFeatureRpcInterface.interfaceVersion =
    "1.17.0"` 内嵌在 RPC URL 操作路径中。**兼容性方向（final review Minor 1 修正）**：
