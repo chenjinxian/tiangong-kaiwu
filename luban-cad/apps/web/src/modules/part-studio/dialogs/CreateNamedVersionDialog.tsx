@@ -40,12 +40,17 @@ export function CreateNamedVersionDialog({
   const [submitError, setSubmitError] = React.useState('');
 
   // 开合切换时复位本地态（重开即净面，宿主可复用同实例）。
+  // 重开（false→true）清陈旧错误：提交在途时宿主可强制收合（T7-② 断连 effect
+  // 直接翻 isOpen），随后 promise 的 catch 才落 setSubmitError——若不清，下次
+  // 打开会显示「保存失败」而本次根本未发起提交。
   React.useEffect(() => {
     if (!isOpen) {
       setName('');
       setDescription('');
       setSubmitError('');
       setIsSubmitting(false);
+    } else {
+      setSubmitError('');
     }
   }, [isOpen]);
 
@@ -79,8 +84,23 @@ export function CreateNamedVersionDialog({
     }
   }, [trimmedName, trimmedDescription, isSubmitting, onConfirm, onClose, t]);
 
+  // 提交中禁收合（Escape/背板/X 全关）：onConfirm（pushChanges + createNamedVersion）
+  // 在途时关闭会让操作无声继续、成功 toast 在「取消」后出现；T7-② 断连强制收合
+  // 的陈旧错误则由上面的重开清面兜底。注意成功路径另行直调 onClose（此时
+  // isSubmitting 仍为 true，不能走本守卫）。
+  const handleClose = React.useCallback(() => {
+    if (isSubmitting) return;
+    onClose();
+  }, [isSubmitting, onClose]);
+
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} portal isDismissible setFocus>
+    <Dialog
+      isOpen={isOpen}
+      onClose={handleClose}
+      portal
+      isDismissible={!isSubmitting}
+      setFocus
+    >
       <Dialog.Backdrop />
       <Dialog.Main
         styleType="default"
@@ -119,7 +139,7 @@ export function CreateNamedVersionDialog({
           </div>
         </Dialog.Content>
         <Dialog.ButtonBar>
-          <Button styleType="default" onClick={onClose} disabled={isSubmitting}>
+          <Button styleType="default" onClick={handleClose} disabled={isSubmitting}>
             {t('partStudio.namedVersion.cancel')}
           </Button>
           <Button
