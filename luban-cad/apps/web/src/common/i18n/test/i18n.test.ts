@@ -329,6 +329,7 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'scope.createFailed', 'scope.retryCreate', 'scope.damagedTitle', 'scope.damagedHint',
   'scope.recoveryTitle', 'scope.recoveryHint', 'scope.noStudios',
   'aMode.banner',
+  'connection.readonlyOpened', 'connection.reload',
   // M3 Task 7：页签管理器（os-33）+ 汉堡文档菜单（os-24）chrome 键——
   // capabilities.*（20 条）由 capabilities.test.ts 数据驱动守卫。
   // P2.4 起页签管理器数据面=Part Studio 注册表（iModel 列表/筛选/预览键退役）。

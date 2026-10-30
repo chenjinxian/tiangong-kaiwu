@@ -175,7 +175,9 @@
   },
   "connection": {
     "errorTitle": "文档打开失败",
-    "errorHint": "请关闭此页签后重新打开文档重试；若持续失败，请检查网络与建模服务状态。"
+    "errorHint": "请关闭此页签后重新打开文档重试；若持续失败，请检查网络与建模服务状态。",
+    "readonlyOpened": "已以只读方式打开此文档：编辑与保存不会生效。请刷新页面以可写方式重新打开。",
+    "reload": "刷新页面"
   },
   "tools": {
     "registrationFailed": "工具注册失败: {{message}}",

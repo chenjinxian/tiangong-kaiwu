@@ -201,11 +201,13 @@ export function PartStudioPage(): React.JSX.Element {
   // 早开只读 → 权限解析 editable 但 effect 不重跑 → 连接恒只读保存失败」。
   // 合流单点：readonly = viewOnly ∨ 权限只读 ∨ A 旧文档（A 只读打开，P2.4）。
   // B/A 未定（标记查询在途）同样关连接：首开定读写，不得先按 A/B 误开。
-  // P2.4 F9：marker 查询失败不得硬阻断打开——mode 未知时以 **readonly** 打开
-  // （保守：无写面、无 B/A 敏感动作），同时 scope 错误横幅给出重试；marker
-  // 仍在途则继续等（首开定读写，不得先猜 A/B）。
+  // P2.4 F9 / fix round 2 R1：marker 未定/失败时**不打开**连接（options null +
+  // scope 错误横幅重试）——`useBriefcaseConnection` 首开定读写且 readonly 不入
+  // effect 依赖，保守只读打开会在 marker 稍后成功时留下不可升级的只读连接
+  // （UI 可编辑但所有写必败）。待 mode 已知后再首开；R1 的兜底见下方
+  // readonlyBlocked（权限/连接相位漂移时阻塞写 UI 并提示刷新）。
   const briefcase = useBriefcaseConnection(
-    iTwinId && iModelId && !permissions.isLoading && (mode !== undefined || !!modeError)
+    iTwinId && iModelId && !permissions.isLoading && mode !== undefined
       ? {
           iTwinId,
           iModelId,
@@ -216,8 +218,20 @@ export function PartStudioPage(): React.JSX.Element {
 
   // 共享编辑会话（P2.4；P2.2 审查 Important）：sessionId/iModelKey/租约生命周期
   // 单点持有——useFeatureSystem、注册表写方法、默认 scope 创建共用。
-  // 可写会话 = B ∧ !viewOnly ∧ 权限 editable（A 只读：不申请写租约）。
-  const writableSession = mode === 'B' && !viewOnly && permissions.mode === 'editable';
+  // 可写会话 = B ∧ !viewOnly ∧ 权限 editable ∧ **连接确实可写**（R1）——
+  // 首开只读的连接（权限/模式相位漂移）绝不按可写对待：不取租约、不开写 UI、
+  // 不自动 create；下方阻塞横幅提示刷新。
+  const connectionReadonly = briefcase.connection?.isReadonly === true;
+  const writableSession =
+    mode === 'B' && !viewOnly && permissions.mode === 'editable' && !connectionReadonly;
+  /** R1：上下文应可写但连接以只读打开（首开定读写、readonly 不参与重开）——
+   *  唯一出口是整页刷新；期间所有写面收口并显示阻塞提示（不撒谎）。 */
+  const readonlyBlocked =
+    mode === 'B' &&
+    !viewOnly &&
+    permissions.mode === 'editable' &&
+    !permissions.isLoading &&
+    connectionReadonly;
   const session = useEditorSession(briefcase.connection ?? undefined, {
     enabled: writableSession,
   });
@@ -250,9 +264,15 @@ export function PartStudioPage(): React.JSX.Element {
   // 编辑面总门：B（可写会话）∧ scope 已解析为完整 scope（A 恒 false）。
   const scopeReady = scope.plan.kind === 'ready' || scope.plan.kind === 'a';
   const canEdit = writableSession && scope.plan.kind === 'ready';
-  // 注册表写门（P2.4 半图恢复 + F4）：B 可写会话 ∧ 注册表列表已落定且不在
-  // 加载——列表未定时禁止「+」/rename/delete（防列表竞态产生重复默认 scope）。
-  const canManageStudios = writableSession && partStudios.loaded && !partStudios.isLoading;
+  // 注册表写门（P2.4 半图恢复 + F4 + R4）：B 可写会话 ∧ 列表已落定且不在加载
+  // ∧ resolver 自动 create 不在途/不在 create 态——列表竞态或自动建默认 scope
+  // 期间禁止「+」/rename/delete（防两个默认 scope）。
+  const canManageStudios =
+    writableSession &&
+    partStudios.loaded &&
+    !partStudios.isLoading &&
+    !scope.isCreating &&
+    scope.plan.kind !== 'create';
   // 分享门（P2.4 F2）：iTwin RBAC（grant/revoke/setSecured 服务端口径）。
   const canManageShare =
     !itwinPermissions.isLoading &&
@@ -273,6 +293,7 @@ export function PartStudioPage(): React.JSX.Element {
       canManageStudios={canManageStudios}
       canManageShare={canManageShare}
       canManageDocument={canManageDocument}
+      readonlyBlocked={readonlyBlocked}
       connection={briefcase.connection}
       connectionLoading={briefcase.isLoading}
       connectionError={briefcase.error}
@@ -305,6 +326,8 @@ interface PartStudioSessionProps {
   canManageShare: boolean;
   /** B 文档重命名门（iModel IMODELS_MANAGE；F2 拆源）。 */
   canManageDocument: boolean;
+  /** R1：上下文可写但连接以只读打开（首开定读写）——写面收口 + 刷新提示。 */
+  readonlyBlocked: boolean;
   connection: BriefcaseConnection | null;
   /** briefcase 打开中（M5-T2 isLoading 消费：画布骨架 + 状态栏「正在打开文档…」）。 */
   connectionLoading: boolean;
@@ -335,6 +358,7 @@ function PartStudioSession({
   canManageStudios,
   canManageShare,
   canManageDocument,
+  readonlyBlocked,
   connection,
   connectionLoading,
   connectionError,
@@ -754,6 +778,22 @@ function PartStudioSession({
           data-testid="part-studio-readonly-banner"
         >
           {t('partStudio.aMode.banner')}
+        </div>
+      )}
+      {readonlyBlocked && (
+        <div
+          role="alert"
+          className="part-studio-scope-banner part-studio-scope-banner--error"
+          data-testid="part-studio-readonly-reopen"
+        >
+          <span>{t('partStudio.connection.readonlyOpened')}</span>
+          <button
+            type="button"
+            className="part-studio-scope-banner__action"
+            onClick={() => window.location.reload()}
+          >
+            {t('partStudio.connection.reload')}
+          </button>
         </div>
       )}
       {mode !== 'A' && (scope.plan.kind === 'detecting' || scope.plan.kind === 'waiting' || scope.plan.kind === 'redirect') && (

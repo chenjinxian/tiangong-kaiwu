@@ -158,17 +158,21 @@ export function usePartStudioScope(args: UsePartStudioScopeArgs): PartStudioScop
     planKindRef.current = plan.kind;
   }, [plan.kind]);
 
-  const mountedRef = useRef(true);
+  // R2：StrictMode 双挂载哨兵必须 **setup 置真、cleanup 置假**（仓库既有形态：
+  // DevViewerRoute.tsx / SketchDialog.tsx）。若用 useRef(true)+仅 cleanup，dev
+  // StrictMode 的 setup→cleanup→setup 会让哨兵恒 false，create 拒收被静默吞掉。
+  // 在途 attempt 的 runId 不在此失效：StrictMode 的第二轮 setup 靠 inFlight 门
+  // 直接复用第一轮 attempt（ref 跨双挂载保留），结果仍可落位。
+  const mountedRef = useRef(false);
   const runIdRef = useRef(0);
   /** 在途 create（防同一拍叠加第二次；写成功后的 list 抖动不得重开）。 */
   const inFlightRef = useRef(false);
-  useEffect(
-    () => () => {
-      mountedRef.current = false; // 仅 unmount 取消后续状态落位
-      runIdRef.current += 1;
-    },
-    [],
-  );
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // create：同一「规划签名 + 重试令牌」只尝试一次；成功/失败都不自动重放。
   const createSignature = [

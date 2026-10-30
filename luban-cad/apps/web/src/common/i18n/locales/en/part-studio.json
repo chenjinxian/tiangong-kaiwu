@@ -175,7 +175,9 @@
   },
   "connection": {
     "errorTitle": "Failed to open document",
-    "errorHint": "Close this tab and reopen the document to retry; if it keeps failing, check your network and the modeling service."
+    "errorHint": "Close this tab and reopen the document to retry; if it keeps failing, check your network and the modeling service.",
+    "readonlyOpened": "This document was opened read-only; edits and saves will not take effect. Reload the page to reopen it with write access.",
+    "reload": "Reload page"
   },
   "tools": {
     "registrationFailed": "Tool registration failed: {{message}}",

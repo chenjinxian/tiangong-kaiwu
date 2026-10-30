@@ -96,6 +96,26 @@ describe('usePartStudios 读面', () => {
     expect(result.current.loaded).toBe(false);
   });
 
+  it('R3：切换 iModelKey 后新列表失败——旧文档 studios 不对外可见', async () => {
+    rpc.listPartStudios
+      .mockResolvedValueOnce(STUDIOS)
+      .mockRejectedValueOnce(new Error('new doc list down'));
+    const { result, rerender } = renderHook(
+      ({ key }: { key: string }) =>
+        usePartStudios('itwin-1', 'im-1', makeSession({ iModelKey: key })),
+      { initialProps: { key: 'key-1' } },
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.studios).toHaveLength(3);
+
+    rerender({ key: 'key-2' });
+    await waitFor(() => expect(result.current.error).toContain('new doc list down'));
+    expect(result.current.loaded).toBe(true);
+    // 新 key 的失败列表不得让旧文档 studios 驱动 redirect/tabs。
+    expect(result.current.studios).toEqual([]);
+    expect(rpc.listPartStudios).toHaveBeenLastCalledWith('key-2');
+  });
+
   it('列表失败：error 原文 + loaded=true（解析器可呈现错误，不自动 create）', async () => {
     rpc.listPartStudios.mockRejectedValue(new Error('registry down'));
     const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', makeSession()));

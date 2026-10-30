@@ -71,7 +71,12 @@ export function usePartStudios(
   const [error, setError] = useState<string | undefined>(undefined);
   // 已落定的 iModelKey（首跳成功/失败都算）；切换连接/文档即失效 → 解析器等待。
   const [loadedKey, setLoadedKey] = useState<string | undefined>(undefined);
+  // R3：列表数据的所属 key——切换 iModel（路由复用、同一 iTwin 下前后退）时，
+  // 新 key 的列表未落定前**不得**把上一文档的 studios 当作当前列表（尤其新
+  // list 失败时）。只有 studiosKey === 当前 iModelKey 的数据才对外可见。
+  const [studiosKey, setStudiosKey] = useState<string | undefined>(undefined);
   const loaded = !!iModelKey && loadedKey === iModelKey;
+  const visibleStudios = !!iModelKey && studiosKey === iModelKey ? studios : [];
   const seqRef = useRef(0);
   // 写纪元（P2.4 F4）：create/rename/remove 成功后 +1——此前发出、尚未落定的
   // list 响应一律丢弃，防 stale list 覆盖本地写结果（重复默认 scope 的根因）。
@@ -82,6 +87,7 @@ export function usePartStudios(
     const writeEpoch = writeEpochRef.current;
     if (!enabled) {
       setStudios([]);
+      setStudiosKey(undefined);
       setIsLoading(false);
       setError(undefined);
       setLoadedKey(undefined);
@@ -91,6 +97,7 @@ export function usePartStudios(
       // 连接未就绪：停在「在途」等 connection.key 落位（不得当空文档处理）。
       setIsLoading(true);
       setLoadedKey(undefined);
+      setStudiosKey(undefined);
       return;
     }
     setIsLoading(true);
@@ -100,6 +107,7 @@ export function usePartStudios(
       // P2.4 F7：直接采用服务端顺序（后端按 metadata.order + 分区 ECInstanceId
       // BigInt 排序）；前端不重排，避免 tie-break 口径漂移改变「第一个完整 scope」。
       setStudios(list);
+      setStudiosKey(iModelKey);
       setError(undefined);
       setLoadedKey(iModelKey);
     } catch (err) {
@@ -150,6 +158,7 @@ export function usePartStudios(
       );
       // 先本地落位（解析器/导航可立即就绪），随后以服务端顺序刷新替换。
       setStudios((prev) => [...prev.filter((s) => s.id !== created.id), created]);
+      setStudiosKey(target.iModelKey);
       setError(undefined);
       invalidateAndRefresh();
       return created;
@@ -167,6 +176,7 @@ export function usePartStudios(
         target.sessionId,
       );
       setStudios((prev) => prev.map((studio) => (studio.id === renamed.id ? renamed : studio)));
+      setStudiosKey(target.iModelKey);
       invalidateAndRefresh();
       return renamed;
     },
@@ -182,10 +192,13 @@ export function usePartStudios(
         target.sessionId,
       );
       setStudios((prev) => prev.filter((studio) => studio.id !== partStudioId));
+      setStudiosKey(target.iModelKey);
       invalidateAndRefresh();
     },
     [requireWritable, invalidateAndRefresh],
   );
 
-  return { studios, isLoading, loaded, error, create, rename, remove, refresh };
+  // R3：对外只暴露「属于当前 iModelKey」的列表（切换文档瞬间即空，旧文档
+  // 列表不得驱动 redirect/tabs；新 list 失败时由 error+空列表呈现错误面）。
+  return { studios: visibleStudios, isLoading, loaded, error, create, rename, remove, refresh };
 }
