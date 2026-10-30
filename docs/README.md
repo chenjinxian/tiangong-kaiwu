@@ -17,6 +17,7 @@
 | 文档 | 说明 |
 |------|------|
 | [Architecture.md](./Architecture.md) | 系统架构详细设计 |
+| [adr/0001-itwin-imodel-data-model.md](./adr/0001-itwin-imodel-data-model.md) | ADR：iTwin/iModel 数据模型与“文档—页签”信息架构（提议，待决策） |
 | [ROADMAP.md](./ROADMAP.md) | 路线图索引（指向全程序路线图） |
 | [SKETCH-CONSTRAINT-WORKFLOW.md](./SKETCH-CONSTRAINT-WORKFLOW.md) | 草图约束工作流程（设计稿） |
 | [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |
@@ -49,6 +50,7 @@
 ### 子目录
 | 目录 | 说明 |
 |------|------|
+| [adr/](./adr/) | 架构决策记录（ADR） |
 | [superpowers/specs/](./superpowers/specs/) | 保留的设计记录（架构裁决/全程序路线图/parity 设计/清理设计） |
 | [superpowers/plans/](./superpowers/plans/) | 保留的执行计划（item4 组合/hub backlog/M-A5.2 计划/本轮清理计划） |
 | [tool-integrations/](./tool-integrations/) | 工具集成方案与状态 |
