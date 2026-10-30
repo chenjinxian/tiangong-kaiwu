@@ -70,11 +70,11 @@ async function dataPoint(page, x, y) {
   //      上轮悬挂草图 → 本轮 草图 2，拉伸选 草图 1 = 空库 regions=0） ──
   const IMODEL_NAME = '演示库-' + new Date().toISOString().slice(11, 19).replace(/:/g, '');
   let proj = null;
-  const listRes = await context.request.get(`${BASE}/itwins?class=Project&$top=100`, { headers: H });
+  const listRes = await context.request.get(`${BASE}/itwins?subClass=Project&$top=100`, { headers: H });
   proj = ((await listRes.json()).iTwins || []).find((p) => p.displayName === PROJ);
   console.log('[demo] 项目:', proj ? `已存在 ${proj.id.slice(0, 8)}…` : '未找到');
   if (!proj) {
-    const created = await context.request.post(`${BASE}/itwins`, { headers: H, data: { displayName: PROJ, class: 'Project' } });
+    const created = await context.request.post(`${BASE}/itwins`, { headers: H, data: { displayName: PROJ, class: 'Endeavor', subClass: 'Project' } });
     const cb = await created.json();
     proj = cb.iTwin;
     if (!proj?.id) throw new Error(`项目创建失败 ${created.status()}: ${JSON.stringify(cb).slice(0, 200)}`);

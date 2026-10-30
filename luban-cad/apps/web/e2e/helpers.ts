@@ -342,7 +342,7 @@ export async function apiFindDocumentByName(
   name: string,
   accessToken: string,
 ): Promise<{ id: string } | null> {
-  const response = await request.get('/itwins?class=Project&$top=100', {
+  const response = await request.get('/itwins?subClass=Project&$top=100', {
     headers: authHeaders(accessToken),
   });
   if (!response.ok()) throw new Error(`文档列表查询失败：HTTP ${response.status()}`);

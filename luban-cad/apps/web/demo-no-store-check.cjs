@@ -66,7 +66,7 @@ const NAME = 'no-store验收-' + Date.now().toString().slice(-6);
     // 经 API 建新项目（写响应不参与浏览器缓存）
     const created = await context.request.post(`${BASE}/itwins`, {
       headers: { ...H, 'Content-Type': 'application/json' },
-      data: { displayName: NAME, class: 'Project' },
+      data: { displayName: NAME, class: 'Endeavor', subClass: 'Project' },
     });
     const cb = await created.json();
     createdId = cb.iTwin?.id;

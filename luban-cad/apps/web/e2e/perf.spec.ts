@@ -294,7 +294,7 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
 
     // 崩溃遗留兜清（上一轮 afterAll 未跑的 perf-seed-*；单页 $top=200，>200
     // 项目时更早遗留可能不在页内——已知边缘，登记 perf.md M-7）
-    const existing = await request.get('/itwins?class=Project&$top=200', { headers });
+    const existing = await request.get('/itwins?subClass=Project&$top=200', { headers });
     expect(existing.ok(), '遗留文档列表查询失败').toBeTruthy();
     const { iTwins } = (await existing.json()) as { iTwins?: Array<{ id: string; displayName?: string }> };
     const leftovers = (iTwins ?? []).filter((t) => t.displayName?.startsWith(SEED_PREFIX));
