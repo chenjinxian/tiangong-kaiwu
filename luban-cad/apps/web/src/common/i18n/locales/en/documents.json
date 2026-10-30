@@ -190,6 +190,30 @@
       "copy": "Copy link",
       "copied": "Copied",
       "hint": "Only users with document access can open this link"
+    },
+    "b": {
+      "secured": "This document has access control enabled. Only the users below can access it.",
+      "notSecured": "Access control is not enabled: all project members can access this document. Grants below take effect once it is enabled.",
+      "loadFailed": "Failed to load permissions",
+      "empty": "No users have been granted access",
+      "emptyHint": "Grant access to project members in the Invite tab",
+      "levelLabel": "Document permission",
+      "levelRead": "Read",
+      "levelManage": "Manage",
+      "memberSelect": "Select a project member",
+      "noMembers": "No project members available to grant",
+      "grant": "Grant",
+      "grantSuccess": "Access granted",
+      "grantFailed": "Failed to grant access. Please retry.",
+      "inviteAndGrant": "Add and grant",
+      "inviteHint": "Add the person to the project first, then grant document access.",
+      "addedAndGranted": "Member added and document access granted: {{email}}",
+      "revoke": "Revoke access",
+      "revokeTitle": "Revoke document access",
+      "revokeMessage": "Revoke document access for {{name}}?",
+      "revokeConfirm": "Revoke",
+      "revokeSuccess": "Access revoked",
+      "revokeFailed": "Failed to revoke access. Please retry."
     }
   },
   "detail": {
@@ -224,7 +248,19 @@
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "Enter a description (optional)",
       "failed": "Failed to create. Please retry.",
-      "forbidden": "You do not have permission to create iModels in this document (imodels_manage required)"
+      "forbidden": "You do not have permission to create iModels in this document (imodels_manage required)",
+      "initializing": "Document created. Initializing…",
+      "initializationFailed": "Document initialization failed",
+      "missingFiles": "Document files are missing",
+      "timeout": "Timed out waiting for initialization",
+      "statusQueryFailed": "Failed to query initialization status. Please retry.",
+      "retry": "Retry",
+      "retryHint": "The document was created. You can retry initialization; it will not be deleted automatically.",
+      "close": "Close"
+    },
+    "legacy": {
+      "bannerTitle": "Legacy document (read-only)",
+      "bannerDescription": "This document was created in the classic A model and is now read-only. You can inspect it and open its models, but write actions are disabled."
     },
     "card": {
       "open": "Open workspace",

@@ -16,13 +16,25 @@ export interface ImodelCardGridProps {
   /** 「创建于 …」格式化（父组件按当前语言格式化，卡片直出）。 */
   formatCreated: (imodel: ImodelSummary) => string;
   onOpen: (imodel: ImodelSummary) => void;
-  onDelete: (imodel: ImodelSummary) => void;
+  /** B 文档：未 initialized 禁止打开（父组件裁决；A 旧文档不传 = 恒可打开）。 */
+  isOpenDisabled?: (imodel: ImodelSummary) => boolean;
+  /** 写操作回调（P2.3 B 文档）；全体缺席 = 只读网格（A 旧文档详情）。 */
+  onRename?: (imodel: ImodelSummary) => void;
+  onToggleFavorite?: (imodel: ImodelSummary) => void;
+  isFavorite?: (id: string) => boolean;
+  onShare?: (imodel: ImodelSummary) => void;
+  onDelete?: (imodel: ImodelSummary) => void;
 }
 
 export function ImodelCardGrid({
   imodels,
   formatCreated,
   onOpen,
+  isOpenDisabled,
+  onRename,
+  onToggleFavorite,
+  isFavorite,
+  onShare,
   onDelete,
 }: ImodelCardGridProps): React.JSX.Element {
   return (
@@ -33,7 +45,14 @@ export function ImodelCardGrid({
           imodel={imodel}
           createdLabel={formatCreated(imodel)}
           onOpen={() => onOpen(imodel)}
-          onDelete={() => onDelete(imodel)}
+          openDisabled={isOpenDisabled?.(imodel) ?? false}
+          onRename={onRename ? () => onRename(imodel) : undefined}
+          onToggleFavorite={
+            onToggleFavorite ? () => onToggleFavorite(imodel) : undefined
+          }
+          isFavorite={isFavorite?.(imodel.id) ?? false}
+          onShare={onShare ? () => onShare(imodel) : undefined}
+          onDelete={onDelete ? () => onDelete(imodel) : undefined}
         />
       ))}
     </div>

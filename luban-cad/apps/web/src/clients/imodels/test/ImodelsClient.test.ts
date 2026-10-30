@@ -31,11 +31,16 @@ const official = vi.hoisted(() => ({
   getSingle: vi.fn(),
   createEmpty: vi.fn(),
   delete: vi.fn(),
+  update: vi.fn(),
   // T7：changesets 列表通道（与 iModels.getRepresentationList 分立，断言互不混淆）。
   changesetsGetRepresentationList: vi.fn(),
   // Task 3：Named Version 通道（与 changesets 通道分立）。
   namedVersionsGetRepresentationList: vi.fn(),
   namedVersionsCreate: vi.fn(),
+  // P2.3：收藏通道（B 文档卡片收藏）。
+  favoriteGetRepresentationList: vi.fn(),
+  favoriteAdd: vi.fn(),
+  favoriteRemove: vi.fn(),
 }));
 
 vi.mock('@itwin/imodels-client-management', async (importOriginal) => {
@@ -52,6 +57,14 @@ vi.mock('@itwin/imodels-client-management', async (importOriginal) => {
           getSingle: official.getSingle,
           createEmpty: official.createEmpty,
           delete: official.delete,
+          update: official.update,
+        };
+      }
+      public get favoriteIModels() {
+        return {
+          getRepresentationList: official.favoriteGetRepresentationList,
+          add: official.favoriteAdd,
+          remove: official.favoriteRemove,
         };
       }
       public get changesets() {
@@ -91,6 +104,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
@@ -258,5 +272,140 @@ describe('ImodelsClient（官方 IModelsClient 封装）', () => {
         namedVersionProperties: { name: 'V2', changesetId: 'cs-3' },
       }),
     );
+  });
+
+  // ---- P2.3：B 文档操作（rename / favorite）与 iModel 权限面 ----
+
+  it('update(id, {name})：iModels.update({ authorization, iModelId, iModelProperties })', async () => {
+    const updated = { id: 'im-1', name: '新名字' };
+    official.update.mockResolvedValue(updated);
+    const client = new ImodelsClient();
+
+    await expect(client.update('im-1', { name: '新名字' })).resolves.toEqual(updated);
+    expect(official.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        iModelId: 'im-1',
+        iModelProperties: { name: '新名字' },
+      }),
+    );
+  });
+
+  it('listFavorites(iTwinId)：favoriteIModels.getRepresentationList，迭代器收拢为数组', async () => {
+    const items = [{ id: 'im-1', name: 'A' }];
+    official.favoriteGetRepresentationList.mockReturnValue(asyncIterableOf(items));
+    const client = new ImodelsClient();
+
+    await expect(client.listFavorites('twin-1')).resolves.toEqual(items);
+    expect(official.favoriteGetRepresentationList).toHaveBeenCalledWith(
+      expect.objectContaining({ urlParams: { iTwinId: 'twin-1' } }),
+    );
+    expect(official.getRepresentationList).not.toHaveBeenCalled();
+  });
+
+  it('addFavorite / removeFavorite 走官方 favoriteIModels.add/remove({iModelId})', async () => {
+    official.favoriteAdd.mockResolvedValue(undefined);
+    official.favoriteRemove.mockResolvedValue(undefined);
+    const client = new ImodelsClient();
+
+    await expect(client.addFavorite('im-1')).resolves.toBeUndefined();
+    await expect(client.removeFavorite('im-1')).resolves.toBeUndefined();
+    expect(official.favoriteAdd).toHaveBeenCalledWith(expect.objectContaining({ iModelId: 'im-1' }));
+    expect(official.favoriteRemove).toHaveBeenCalledWith(expect.objectContaining({ iModelId: 'im-1' }));
+  });
+
+  it('listUserPermissions(id)：GET /imodels/:id/permissions/users（Bearer），返回 data 行', async () => {
+    const rows = [
+      {
+        id: 'perm-1',
+        iModelId: 'im-1',
+        userId: 'member-1',
+        role: 'user',
+        briefcasesLevel: 'read',
+        changesetsLevel: 'read',
+        versionsLevel: 'read',
+        locksLevel: 'read',
+      },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: rows, hasNextPage: false }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ImodelsClient();
+
+    await expect(client.listUserPermissions('im-1')).resolves.toEqual(rows);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toBe(`${env.hubUrl}/imodels/im-1/permissions/users?limit=200&page=1`);
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it('listUserPermissions 跟随 hasNextPage 翻页并合并', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: 'p1' }], hasNextPage: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ id: 'p2' }], hasNextPage: false }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ImodelsClient();
+
+    await expect(client.listUserPermissions('im-1')).resolves.toEqual([{ id: 'p1' }, { id: 'p2' }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[1]![0] as string)).toContain('page=2');
+  });
+
+  it('grantPermission(id, input)：POST /imodels/:id/permissions/grant，body 原样透传', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ImodelsClient();
+    const input = {
+      userId: 'member-1',
+      role: 'admin' as const,
+      briefcasesLevel: 'manage' as const,
+      changesetsLevel: 'manage' as const,
+      versionsLevel: 'manage' as const,
+      locksLevel: 'manage' as const,
+    };
+
+    await expect(client.grantPermission('im-1', input)).resolves.toBeUndefined();
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toBe(`${env.hubUrl}/imodels/im-1/permissions/grant`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual(input);
+  });
+
+  it('revokePermission(id, userId)：DELETE /imodels/:id/permissions/users/:userId', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ImodelsClient();
+
+    await expect(client.revokePermission('im-1', 'member-1')).resolves.toBeUndefined();
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit];
+    expect(url).toBe(`${env.hubUrl}/imodels/im-1/permissions/users/member-1`);
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('权限面非 2xx → ApiClientError（status/code 三元组）', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      headers: { get: () => null },
+      json: async () => ({ message: 'forbidden', code: 'FORBIDDEN' }),
+    }));
+    const client = new ImodelsClient();
+
+    await expect(client.grantPermission('im-1', { userId: 'u' })).rejects.toMatchObject({
+      name: 'ApiClientError',
+      status: 403,
+      code: 'FORBIDDEN',
+      message: 'forbidden',
+    });
   });
 });

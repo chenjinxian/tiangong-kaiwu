@@ -16,6 +16,8 @@ export type ImodelState =
   | 'retryScheduled'
   | 'unknown';
 
+import type { DocumentMode } from '@modules/documents';
+
 /** iModel 卡片条目（UI 层形状，映射自官方 IModel 全量表示）。 */
 export interface ImodelSummary {
   id: string;
@@ -27,6 +29,8 @@ export interface ImodelSummary {
   state: ImodelState;
   /** 派生字段：state==='initialized'（保留兼容旧消费）。 */
   initialized: boolean;
+  /** hub 超集字段（官方 IModel 未声明）：是否启用显式访问控制。 */
+  isSecured: boolean;
   /** ISO 时间串直透（IModel.createdDateTime，缺席为空串）。 */
   createdAt: string;
   /** 裁决链：`lastChangesetPushDateTime ?? createdDateTime`，双缺席为 null。 */
@@ -37,6 +41,8 @@ export interface ImodelSummary {
 export interface DocumentDetail {
   id: string;
   name: string;
+  /** B/A 模型标记：从已加载 iTwin 的 `data.luban.modelMode` 派生（与 flag 无关）。 */
+  mode: DocumentMode;
   /** hub 详情超集字段，缺席为空串。 */
   description: string;
   /** ITwin.status 缺席回退「活跃」（页面侧裁决，见 DocumentDetailsPage）。 */

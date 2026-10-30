@@ -58,6 +58,32 @@
   animation: document-details-spin 1s linear infinite;
 }
 
+/* ── A 旧文档只读横幅（P2.3） ─────────────────────────────────────── */
+.document-details-readonly-banner {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-2xs);
+  margin: var(--iui-size-m) var(--iui-size-m) 0;
+}
+
+.document-details-readonly-banner__title {
+  font-weight: var(--iui-font-weight-semibold);
+}
+
+/* ── B 文档初始化等待（创建对话框） ───────────────────────────────── */
+.document-details-init-waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--iui-size-s);
+  margin-block-end: var(--iui-size-s);
+}
+
+.document-details-dialog__hint {
+  display: block;
+  margin-block-end: var(--iui-size-s);
+}
+
 /* ── Hero ─────────────────────────────────────────────────────────── */
 .document-details-hero {
   flex-shrink: 0;

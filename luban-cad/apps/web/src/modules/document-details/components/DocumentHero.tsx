@@ -34,9 +34,12 @@ export interface DocumentHeroProps {
    *  查询失败时父组件传 false（fail-closed）——创建入口不渲染，Viewer
    *  在 hero 看不到创建动作。 */
   canCreateImodel: boolean;
-  onCreateImodel: () => void;
-  onShare: () => void;
-  onDelete: () => void;
+  onCreateImodel?: () => void;
+  /** 分享入口（仅 A 旧语义存在；B 文档分享按 iModel 粒度在卡片菜单）。
+   *  只读页不传 → 不渲染。 */
+  onShare?: () => void;
+  /** 删除项目（B 项目可写）；A 旧文档只读不传。 */
+  onDelete?: () => void;
 }
 
 export function DocumentHero({
@@ -92,31 +95,37 @@ export function DocumentHero({
           <Text className="document-details-hero__description">{description}</Text>
         )}
       </div>
-      <div className="document-details-hero__actions">
-        {canCreateImodel && (
-          <Button
-            styleType="high-visibility"
-            startIcon={<SvgAdd />}
-            onClick={onCreateImodel}
-          >
-            {t('documents.detail.actions.createIModel')}
-          </Button>
-        )}
-        <IconButton
-          label={t('documents.actions.share')}
-          styleType="default"
-          onClick={onShare}
-        >
-          <SvgShare />
-        </IconButton>
-        <IconButton
-          label={t('documents.actions.delete')}
-          styleType="default"
-          onClick={onDelete}
-        >
-          <SvgDelete />
-        </IconButton>
-      </div>
+      {(canCreateImodel || onShare || onDelete) && (
+        <div className="document-details-hero__actions">
+          {canCreateImodel && (
+            <Button
+              styleType="high-visibility"
+              startIcon={<SvgAdd />}
+              onClick={onCreateImodel}
+            >
+              {t('documents.detail.actions.createIModel')}
+            </Button>
+          )}
+          {onShare && (
+            <IconButton
+              label={t('documents.actions.share')}
+              styleType="default"
+              onClick={onShare}
+            >
+              <SvgShare />
+            </IconButton>
+          )}
+          {onDelete && (
+            <IconButton
+              label={t('documents.actions.delete')}
+              styleType="default"
+              onClick={onDelete}
+            >
+              <SvgDelete />
+            </IconButton>
+          )}
+        </div>
+      )}
     </Surface>
   );
 }

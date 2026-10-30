@@ -29,7 +29,7 @@ vi.mock('@clients/itwins/ItwinsClient.js', () => ({
   },
 }));
 
-import { useImodels } from '../hooks/useImodels.js';
+import { useImodels, waitForImodelInitialized } from '../hooks/useImodels.js';
 
 /** 官方 IModel 全量表示的测试最小形状（mapper 只读子集）。 */
 const IMODELS = [
@@ -109,5 +109,100 @@ describe('useImodels isFetching（终审 I3）', () => {
     second.resolve([]);
     await waitFor(() => expect(result.current.isFetching).toBe(false));
     expect(result.current.imodels).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P2.3：B 文档创建后的初始化等待（poll GET /imodels/:id，封顶）。
+// 通过注入 get/sleep 驱动真实循环（不 patch 计时器）。
+// ---------------------------------------------------------------------------
+
+function imodelWithState(state: string) {
+  return {
+    id: 'im-new',
+    displayName: '新文档',
+    name: '新文档',
+    description: null,
+    state,
+    createdDateTime: '2026-10-30T00:00:00.0000000+00:00',
+    lastChangesetPushDateTime: null,
+    iTwinId: 'itwin-1',
+  };
+}
+
+describe('waitForImodelInitialized（B 文档初始化轮询）', () => {
+  it('notInitialized → notInitialized → initialized：轮询至 initialized 即停', async () => {
+    const states = ['notInitialized', 'notInitialized', 'initialized'];
+    const get = vi.fn(async () => imodelWithState(states[Math.min(get.mock.calls.length - 1, states.length - 1)]!));
+    const sleep = vi.fn(async () => {});
+
+    const result = await waitForImodelInitialized('im-new', {
+      get: get as never,
+      sleep,
+      intervalMs: 25,
+      maxAttempts: 10,
+    });
+
+    expect(result.status).toBe('initialized');
+    if (result.status !== 'initialized') throw new Error('expected initialized');
+    expect(result.imodel).toMatchObject({ id: 'im-new', state: 'initialized' });
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(get).toHaveBeenNthCalledWith(1, 'im-new');
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(25);
+  });
+
+  it('initialized 首查即返回（不 sleep）', async () => {
+    const get = vi.fn(async () => imodelWithState('initialized'));
+    const sleep = vi.fn(async () => {});
+
+    const result = await waitForImodelInitialized('im-new', { get: get as never, sleep });
+
+    expect(result.status).toBe('initialized');
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('initializationFailed / missingFiles 立即终止为 failed（不是无限等待）', async () => {
+    for (const state of ['initializationFailed', 'missingFiles']) {
+      const get = vi.fn(async () => imodelWithState(state));
+      const sleep = vi.fn(async () => {});
+      const result = await waitForImodelInitialized('im-new', { get: get as never, sleep });
+      expect(result.status).toBe('failed');
+      if (result.status !== 'failed') throw new Error('expected failed');
+      expect(result.imodel.state).toBe(state);
+      expect(get).toHaveBeenCalledTimes(1);
+      expect(sleep).not.toHaveBeenCalled();
+    }
+  });
+
+  it('达到 maxAttempts 仍未 initialized → timeout（不伪造 initialized）', async () => {
+    const get = vi.fn(async () => imodelWithState('notInitialized'));
+    const sleep = vi.fn(async () => {});
+
+    const result = await waitForImodelInitialized('im-new', {
+      get: get as never,
+      sleep,
+      maxAttempts: 3,
+    });
+
+    expect(result.status).toBe('timeout');
+    if (result.status !== 'timeout') throw new Error('expected timeout');
+    expect(result.imodel?.state).toBe('notInitialized');
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it('GET 失败 → error（界面承接重试，不静默吞掉）', async () => {
+    const boom = new Error('hub boom');
+    const get = vi.fn(async () => {
+      throw boom;
+    });
+
+    const result = await waitForImodelInitialized('im-new', { get: get as never });
+
+    expect(result.status).toBe('error');
+    if (result.status !== 'error') throw new Error('expected error');
+    expect(result.error).toBe(boom);
   });
 });

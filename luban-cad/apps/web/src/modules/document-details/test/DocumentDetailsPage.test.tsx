@@ -26,8 +26,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // 客户端方法 mock 统一经 vi.hoisted 声明（用例要驱动 reject/resolve 注入）。
 const mocks = vi.hoisted(() => ({
   imodelsList: vi.fn(),
+  imodelsGet: vi.fn(),
   imodelsCreate: vi.fn(),
   imodelsDelete: vi.fn(),
+  imodelsUpdate: vi.fn(),
+  imodelsListFavorites: vi.fn(),
+  imodelsAddFavorite: vi.fn(),
+  imodelsRemoveFavorite: vi.fn(),
+  imodelsListUserPermissions: vi.fn(),
+  imodelsGrantPermission: vi.fn(),
+  imodelsRevokePermission: vi.fn(),
   itwinsGet: vi.fn(),
   itwinsDelete: vi.fn(),
   getITwinPermissions: vi.fn(),
@@ -36,9 +44,16 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@clients/imodels/ImodelsClient.js', () => ({
   ImodelsClient: class {
     list = mocks.imodelsList;
-    get = vi.fn();
+    get = mocks.imodelsGet;
     create = mocks.imodelsCreate;
     delete = mocks.imodelsDelete;
+    update = mocks.imodelsUpdate;
+    listFavorites = mocks.imodelsListFavorites;
+    addFavorite = mocks.imodelsAddFavorite;
+    removeFavorite = mocks.imodelsRemoveFavorite;
+    listUserPermissions = mocks.imodelsListUserPermissions;
+    grantPermission = mocks.imodelsGrantPermission;
+    revokePermission = mocks.imodelsRevokePermission;
   },
 }));
 
@@ -82,6 +97,7 @@ vi.mock('../../documents/internal/share.api.js', () => ({
 
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ApiClientError } from '@clients/http/ApiClientError.js';
+import { B_MODEL_DATA } from '@clients/itwins/types.js';
 import { DocumentDetailsPage } from '../DocumentDetailsPage.js';
 
 /** 官方 IModel 全量表示的测试最小形状（mapper 只读子集，其余字段不参与）。 */
@@ -109,12 +125,24 @@ const IMODELS = [
   },
 ];
 
-/** 本地 hub iTwin 详情（createdAt/updatedAt/lastModifiedDateTime 为 hub 超集字段）。 */
+/** 本地 hub iTwin 详情（createdAt/updatedAt/lastModifiedDateTime 为 hub 超集字段）。
+ *  P2.3：B 项目标记决定详情页分支（与 feature flag 无关）。 */
 const ITWIN_DETAIL = {
   id: 'itwin-1',
   displayName: '演示文档',
   status: 'Active',
   description: '演示项目描述',
+  createdDateTime: '2026-10-01T08:00:00.0000000+00:00',
+  lastModifiedDateTime: '2026-10-20T12:30:00.0000000+00:00',
+  data: B_MODEL_DATA,
+};
+
+/** A 旧文档（未标记）——只读语义。 */
+const LEGACY_ITWIN_DETAIL = {
+  id: 'itwin-1',
+  displayName: '旧文档',
+  status: 'Active',
+  description: '旧版文档描述',
   createdDateTime: '2026-10-01T08:00:00.0000000+00:00',
   lastModifiedDateTime: '2026-10-20T12:30:00.0000000+00:00',
 };
@@ -149,9 +177,22 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.itwinsGet.mockResolvedValue(ITWIN_DETAIL);
   mocks.imodelsList.mockResolvedValue(IMODELS);
+  // 初始化等待的默认终态：created 即 initialized（成功路径零 sleep）。
+  mocks.imodelsGet.mockResolvedValue({
+    ...IMODELS[0],
+    id: 'im-3',
+    isSecured: true,
+  });
   mocks.imodelsCreate.mockResolvedValue({ id: 'im-3' });
   mocks.itwinsDelete.mockResolvedValue(undefined);
   mocks.imodelsDelete.mockResolvedValue(undefined);
+  mocks.imodelsUpdate.mockResolvedValue({ id: 'im-1' });
+  mocks.imodelsListFavorites.mockResolvedValue([]);
+  mocks.imodelsAddFavorite.mockResolvedValue(undefined);
+  mocks.imodelsRemoveFavorite.mockResolvedValue(undefined);
+  mocks.imodelsListUserPermissions.mockResolvedValue([]);
+  mocks.imodelsGrantPermission.mockResolvedValue(undefined);
+  mocks.imodelsRevokePermission.mockResolvedValue(undefined);
   // 默认 Admin/Editor 语义：具备 imodels_manage（新建入口可见）。
   mocks.getITwinPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
 });
@@ -178,9 +219,10 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     expect(screen.getAllByText(/创建于/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/更新于/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('2 个 iModel').length).toBeGreaterThanOrEqual(2);
-    // 操作区
+    // 操作区（B 项目：新建 iModel + 删除项目；分享按文档粒度在卡片菜单，
+    // 不提供项目级分享——避免回落 iTwin 分享通道）
     expect(screen.getByRole('button', { name: '新建 iModel' })).toBeDefined();
-    expect(screen.getByRole('button', { name: '分享' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: '分享' })).toBeNull();
     expect(screen.getByRole('button', { name: '删除' })).toBeDefined();
   });
 
@@ -350,14 +392,21 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     await waitFor(() => expect(mocks.imodelsDelete).toHaveBeenCalledWith('im-1'));
   });
 
-  it('hero「分享」→ 分享对话框（复用 documents 模块三页签）', async () => {
+  it('B 文档卡片「分享」→ iModel 权限对话框（读 isSecured + 权限用户；无链接页签）', async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: '分享' }));
+    await user.click((await screen.findAllByRole('button', { name: '更多操作' }))[0]!);
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: '分享' }));
+
     expect(await screen.findByText('分享文档')).toBeDefined();
+    // B 分支：isSecured 已读（im-1 默认 isSecured=true）且权限用户查询已发。
+    expect(await screen.findByText('此文档已启用访问控制，仅下列用户可访问。')).toBeDefined();
+    await waitFor(() => expect(mocks.imodelsListUserPermissions).toHaveBeenCalledWith('im-1'));
+    // 不声称链接分享（hub 无 iModel 链接分享通道）。
+    expect(screen.queryByRole('tab', { name: '分享链接' })).toBeNull();
     expect(screen.getByRole('tab', { name: '成员 (0)' })).toBeDefined();
     expect(screen.getByRole('tab', { name: '邀请成员' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: '分享链接' })).toBeDefined();
   });
 
   it('顶栏：用户菜单（我的帐户/深色模式/退出登录）', async () => {
@@ -431,5 +480,128 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     expect(await screen.findByText('hub boom')).toBeDefined();
     expect(screen.getByRole('button', { name: '重试' })).toBeDefined();
     expect(screen.getByRole('button', { name: '返回文档列表' })).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // P2.3：B 标记分支（与 flag 无关——直接 URL 也绝不回落 A 语义）
+  // -------------------------------------------------------------------------
+  it('B 标记详情：即使未读取 feature flag 也按 B 项目语义渲染（可写）', async () => {
+    // 本文件不 mock useBModelEnabled；页面分支必须只由 itwin.data.luban.modelMode 派生。
+    renderPage();
+    expect(await screen.findByRole('heading', { name: '演示文档' })).toBeDefined();
+    expect(screen.getByRole('button', { name: '新建 iModel' })).toBeDefined();
+    expect(screen.queryByTestId('legacy-readonly-banner')).toBeNull();
+  });
+
+  it('A 旧文档（未标记）：只读横幅 + 无新建/删除/分享/重命名写操作；仍可打开模型', async () => {
+    mocks.itwinsGet.mockResolvedValue(LEGACY_ITWIN_DETAIL);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByTestId('legacy-readonly-banner')).toBeDefined();
+    expect(screen.getByText('旧版文档（只读）')).toBeDefined();
+    // 无任何写入口（hero + 空态/卡片菜单）
+    expect(screen.queryByRole('button', { name: '新建 iModel' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '分享' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '删除' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '更多操作' })).toBeNull();
+    // 只读仍可打开模型（A 旧文档读路径不变）
+    const openButtons = await screen.findAllByRole('button', { name: '打开工作空间' });
+    expect(openButtons).toHaveLength(2);
+    await user.click(openButtons[0]!);
+    expect(await screen.findByTestId('editor-route')).toBeDefined();
+  });
+
+  it('A 旧文档空态：不渲染创建入口（只读）', async () => {
+    mocks.itwinsGet.mockResolvedValue(LEGACY_ITWIN_DETAIL);
+    mocks.imodelsList.mockResolvedValue([]);
+    renderPage();
+    expect(await screen.findByText('暂无 iModel')).toBeDefined();
+    expect(screen.queryByRole('button', { name: '新建 iModel' })).toBeNull();
+  });
+
+  it('B 文档创建成功：POST /imodels → 轮询至 initialized → 才进入编辑器', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
+    await user.type(await screen.findByLabelText(/iModel 名称/), '新文档');
+    await user.click(screen.getByRole('button', { name: '创建' }));
+
+    await waitFor(() =>
+      expect(mocks.imodelsCreate).toHaveBeenCalledWith('itwin-1', { name: '新文档' }),
+    );
+    // 只有 initialized 才导航（GET /imodels/im-3 默认返回 initialized）。
+    await waitFor(() => expect(mocks.imodelsGet).toHaveBeenCalledWith('im-3'));
+    expect(await screen.findByTestId('editor-route')).toBeDefined();
+  });
+
+  it('B 文档创建初始化失败：显示重试、不删除、不导航；重试成功后才进入编辑器', async () => {
+    mocks.imodelsGet.mockResolvedValueOnce({
+      ...IMODELS[0],
+      id: 'im-3',
+      state: 'initializationFailed',
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
+    await user.type(await screen.findByLabelText(/iModel 名称/), '坏文档');
+    await user.click(screen.getByRole('button', { name: '创建' }));
+
+    expect(await screen.findByText('文档初始化失败')).toBeDefined();
+    expect(screen.getByText(/不会自动删除/)).toBeDefined();
+    expect(screen.queryByTestId('editor-route')).toBeNull(); // 仍在详情页
+    expect(mocks.imodelsDelete).not.toHaveBeenCalled();
+
+    // 重试：第二次 GET 返回 initialized → 导航。
+    mocks.imodelsGet.mockResolvedValue({
+      ...IMODELS[0],
+      id: 'im-3',
+      state: 'initialized',
+    });
+    await user.click(screen.getByRole('button', { name: '重试' }));
+    expect(await screen.findByTestId('editor-route')).toBeDefined();
+    expect(mocks.imodelsDelete).not.toHaveBeenCalled();
+  });
+
+  it('B 文档重命名：卡片菜单 → ImodelsClient.update({name})（不是 iTwin update）', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click((await screen.findAllByRole('button', { name: '更多操作' }))[0]!);
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: '重命名' }));
+
+    const input = await screen.findByLabelText(/文档名称/);
+    await user.clear(input);
+    await user.type(input, '改名文档');
+    await user.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => expect(mocks.imodelsUpdate).toHaveBeenCalledWith('im-1', { name: '改名文档' }));
+  });
+
+  it('B 文档收藏/取消收藏：走官方 favoriteIModels 封装（不是 iTwin 收藏）', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click((await screen.findAllByRole('button', { name: '更多操作' }))[0]!);
+    let menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: '收藏' }));
+    await waitFor(() => expect(mocks.imodelsAddFavorite).toHaveBeenCalledWith('im-1'));
+
+    // 收藏列表命中后菜单显示「取消收藏」→ remove。
+    mocks.imodelsListFavorites.mockResolvedValue([IMODELS[0]]);
+    await user.click(screen.getByRole('button', { name: '刷新' }));
+    await waitFor(() => expect(mocks.imodelsListFavorites).toHaveBeenCalled());
+    await user.click((await screen.findAllByRole('button', { name: '更多操作' }))[0]!);
+    menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: '取消收藏' }));
+    await waitFor(() => expect(mocks.imodelsRemoveFavorite).toHaveBeenCalledWith('im-1'));
+  });
+
+  it('B 文档未初始化：禁止打开编辑器（只有 initialized 可打开）', async () => {
+    mocks.imodelsList.mockResolvedValue([
+      { ...IMODELS[0], state: 'notInitialized' },
+    ]);
+    renderPage();
+    const open = await screen.findByRole('button', { name: '打开工作空间' });
+    expect(open.hasAttribute('disabled') || open.getAttribute('aria-disabled') === 'true').toBe(true);
   });
 });

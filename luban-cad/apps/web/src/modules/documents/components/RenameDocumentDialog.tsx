@@ -19,6 +19,11 @@ export interface RenameDocumentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onRenamed: () => void;
+  /**
+   * 自定义重命名提交（P2.3）：B 文档 = ImodelsClient.update(id, {name})；
+   * 缺席 = A 旧文档 ItwinsClient.update(id, {displayName})。
+   */
+  onRenameSubmit?: (doc: DocumentSummary, name: string) => Promise<void>;
 }
 
 export function RenameDocumentDialog({
@@ -26,6 +31,7 @@ export function RenameDocumentDialog({
   isOpen,
   onClose,
   onRenamed,
+  onRenameSubmit,
 }: RenameDocumentDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -42,8 +48,14 @@ export function RenameDocumentDialog({
   }, [doc]);
 
   const renameMutation = useMutation({
-    mutationFn: (input: { id: string; displayName: string }) =>
-      new ItwinsClient().update(input.id, { displayName: input.displayName }),
+    mutationFn: async (input: { id: string; name: string }) => {
+      if (onRenameSubmit) {
+        if (!doc) throw new Error('rename target missing');
+        await onRenameSubmit(doc, input.name);
+        return;
+      }
+      await new ItwinsClient().update(input.id, { displayName: input.name });
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
@@ -62,7 +74,7 @@ export function RenameDocumentDialog({
     setNameError('');
     setSubmitError('');
     try {
-      await renameMutation.mutateAsync({ id: doc.id, displayName: name.trim() });
+      await renameMutation.mutateAsync({ id: doc.id, name: name.trim() });
       onRenamed();
       handleClose();
     } catch (error) {

@@ -40,4 +40,10 @@ describe('toImodelSummary state', () => {
     expect(toImodelSummary(raw('initialized')).initialized).toBe(true);
     expect(toImodelSummary(raw('retryScheduled')).initialized).toBe(false);
   });
+
+  it('reads hub isSecured superset field (P2.3 share)', () => {
+    expect(toImodelSummary(raw('initialized')).isSecured).toBe(false);
+    const secured = { ...raw('initialized'), isSecured: true } as unknown as IModel;
+    expect(toImodelSummary(secured).isSecured).toBe(true);
+  });
 });

@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
+  bModelEnabled: false,
 }));
 
 vi.mock('@clients/itwins/ItwinsClient.js', () => ({
@@ -20,6 +21,12 @@ vi.mock('@clients/itwins/ItwinsClient.js', () => ({
   },
 }));
 
+// P2.3：flag 开 → B 项目载荷；flag 关 → 逐字节既有 A 载荷（brief 绑定条款）。
+vi.mock('../hooks/useBModelEnabled.js', () => ({
+  useBModelEnabled: () => mocks.bModelEnabled,
+}));
+
+import { B_MODEL_DATA } from '@clients/itwins/types.js';
 import { CreateDocumentDialog } from '../components/CreateDocumentDialog.js';
 
 function renderDialog(props: { onCreated?: () => void; onClose?: () => void } = {}) {
@@ -38,6 +45,7 @@ function renderDialog(props: { onCreated?: () => void; onClose?: () => void } = 
 beforeEach(() => {
   mocks.create.mockReset();
   mocks.create.mockResolvedValue({ id: 'itwin-new', displayName: '新文档' });
+  mocks.bModelEnabled = false;
 });
 
 describe('CreateDocumentDialog 创建载荷（subClass-only）', () => {
@@ -72,5 +80,33 @@ describe('CreateDocumentDialog 创建载荷（subClass-only）', () => {
     });
     const payload = mocks.create.mock.calls[0]![0] as Record<string, unknown>;
     expect(payload).not.toHaveProperty('class');
+  });
+
+  it('flag 关：载荷不带 data（既有 A 行为逐字节不变）', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(await screen.findByLabelText(/文档名称/), '旧文档');
+    await user.click(screen.getByRole('button', { name: '创建' }));
+
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+    const payload = mocks.create.mock.calls[0]![0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('data');
+  });
+
+  it('flag 开：B 项目创建载荷带 data.luban.modelMode=\'B\'', async () => {
+    mocks.bModelEnabled = true;
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(await screen.findByLabelText(/文档名称/), 'B 项目');
+    await user.click(screen.getByRole('button', { name: '创建' }));
+
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+    expect(mocks.create).toHaveBeenCalledWith({
+      displayName: 'B 项目',
+      subClass: 'Project',
+      data: B_MODEL_DATA,
+    });
   });
 });

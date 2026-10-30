@@ -44,13 +44,16 @@ export function normalizeImodelState(raw: unknown): ImodelState {
 }
 
 export function toImodelSummary(imodel: IModel): ImodelSummary {
-  const state = normalizeImodelState((imodel as IModel & { state?: string }).state);
+  // hub 超集字段（官方 IModel 类型未声明）——宽类型读取收口在本 mapper。
+  const raw = imodel as IModel & { state?: string; isSecured?: boolean };
+  const state = normalizeImodelState(raw.state);
   return {
     id: imodel.id ?? '',
     name: imodel.displayName ?? imodel.name ?? '',
     description: imodel.description ?? '',
     state,
     initialized: state === 'initialized',
+    isSecured: raw.isSecured === true,
     createdAt: imodel.createdDateTime ?? '',
     updatedAt: imodel.lastChangesetPushDateTime ?? imodel.createdDateTime ?? null,
   };

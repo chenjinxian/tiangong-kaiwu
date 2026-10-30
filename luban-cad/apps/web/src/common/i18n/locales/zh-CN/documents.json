@@ -190,6 +190,30 @@
       "copy": "复制链接",
       "copied": "已复制",
       "hint": "仅拥有文档访问权限的用户可打开此链接"
+    },
+    "b": {
+      "secured": "此文档已启用访问控制，仅下列用户可访问。",
+      "notSecured": "此文档未启用访问控制：项目成员均可访问，下列授权在启用后生效。",
+      "loadFailed": "权限加载失败",
+      "empty": "暂无授权用户",
+      "emptyHint": "在「邀请成员」页签中授权项目成员",
+      "levelLabel": "文档权限",
+      "levelRead": "只读",
+      "levelManage": "管理",
+      "memberSelect": "选择项目成员",
+      "noMembers": "暂无可授权的项目成员",
+      "grant": "授权",
+      "grantSuccess": "已授权",
+      "grantFailed": "授权失败，请重试",
+      "inviteAndGrant": "添加并授权",
+      "inviteHint": "先加入项目成员，再授予文档权限。",
+      "addedAndGranted": "已添加成员并授予文档权限：{{email}}",
+      "revoke": "撤销授权",
+      "revokeTitle": "撤销文档授权",
+      "revokeMessage": "确定要撤销 {{name}} 的文档权限吗？",
+      "revokeConfirm": "撤销",
+      "revokeSuccess": "已撤销授权",
+      "revokeFailed": "撤销失败，请重试"
     }
   },
   "detail": {
@@ -224,7 +248,19 @@
       "descriptionLabel": "描述",
       "descriptionPlaceholder": "输入描述（可选）",
       "failed": "创建失败，请重试",
-      "forbidden": "没有权限在此文档中创建 iModel（需要 imodels_manage 权限）"
+      "forbidden": "没有权限在此文档中创建 iModel（需要 imodels_manage 权限）",
+      "initializing": "文档已创建，正在初始化…",
+      "initializationFailed": "文档初始化失败",
+      "missingFiles": "文档文件缺失",
+      "timeout": "等待初始化超时",
+      "statusQueryFailed": "初始化状态查询失败，请重试。",
+      "retry": "重试",
+      "retryHint": "文档已创建，可重试等待初始化；不会自动删除。",
+      "close": "关闭"
+    },
+    "legacy": {
+      "bannerTitle": "旧版文档（只读）",
+      "bannerDescription": "此文档由经典 A 模型创建，当前为只读视图；可查看信息并打开模型，写入操作已停用。"
     },
     "card": {
       "open": "打开工作空间",

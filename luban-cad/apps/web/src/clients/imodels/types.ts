@@ -29,3 +29,38 @@ export interface CreateNamedVersionInput {
   description?: string;
   changesetId: string;
 }
+
+/** `ImodelsClient.update` 入参：官方 EditableIModelProperties 子集（至少一项）。 */
+export interface UpdateImodelInput {
+  name?: string;
+  description?: string;
+}
+
+/** hub iModel 权限等级（imodelhub-services imodels/domain/permission.ts）。 */
+export type ImodelPermissionLevel = 'none' | 'read' | 'write' | 'manage' | 'owner';
+
+/** hub iModel 权限角色（同上；与四维 level 正交）。 */
+export type ImodelPermissionRole = 'guest' | 'user' | 'admin' | 'owner';
+
+/** 显式 iModel 用户权限行（GET /imodels/:id/permissions/users）。 */
+export interface ImodelUserPermission {
+  id: string;
+  iModelId: string;
+  userId: string;
+  role?: ImodelPermissionRole;
+  briefcasesLevel?: ImodelPermissionLevel;
+  changesetsLevel?: ImodelPermissionLevel;
+  versionsLevel?: ImodelPermissionLevel;
+  locksLevel?: ImodelPermissionLevel;
+  grantedBy?: string;
+}
+
+/** 授权入参（POST /imodels/:id/permissions/grant）。 */
+export interface GrantImodelPermissionInput {
+  userId: string;
+  role?: ImodelPermissionRole;
+  briefcasesLevel?: ImodelPermissionLevel;
+  changesetsLevel?: ImodelPermissionLevel;
+  versionsLevel?: ImodelPermissionLevel;
+  locksLevel?: ImodelPermissionLevel;
+}

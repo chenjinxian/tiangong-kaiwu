@@ -8,12 +8,19 @@
  *   + 刷新 + 主题切换 + 用户菜单（我的帐户/深色模式/退出登录，os-03）；
  * - hero（DocumentHero）：Surface + 项目大图 + 名称 + 状态 Tag + 创建/更新
  *   时间 + iModel 计数 + 同步指示（存在待初始化/等待重试 iModel 时）+ 操作区
- *   （新建 iModel / 分享 / 删除）；
+ *   （B 项目：新建 iModel / 删除项目；A 旧文档只读无操作）；
  * - 内容：轻量计数行 + iModel 卡片网格（ImodelCardGrid；空态引导创建）；
- * - 对话框：CreateImodelDialog（名称必填 + 描述可选）/ 删除文档确认
- *   （ItwinsClient.delete → 返回 /documents）/ 删除 iModel 确认
- *   （ImodelsClient.delete → 失效网格）/ ShareDocumentDialog
- *   （复用 documents 模块，三页签成员/邀请/链接）。
+ * - 对话框：CreateImodelDialog（名称必填 + 描述可选；B 文档轮询初始化）/
+ *   删除文档确认（ItwinsClient.delete → 返回 /documents）/ 删除 iModel 确认
+ *   （ImodelsClient.delete → 失效网格）/ RenameDocumentDialog（B：iModels.update）/
+ *   ShareDocumentDialog（B 文档：iModel 权限；A/项目容器：iTwin 成员）。
+ *
+ * P2.3 B/A 分支（rollback 安全）：分支只认已加载 iTwin 的
+ * `data.luban.modelMode`（useDocumentDetail 派生 `document.mode`），**不看
+ * feature flag**——flag 关时直接 URL 打开 B 项目也绝不会回落 legacy A 语义。
+ * A 旧文档（未标记）一律只读：只读横幅 + 无新建/删除/分享/重命名入口，
+ * 但保留 iModel 列表与「打开工作空间」读路径。B 项目中的 iModel 即「文档」：
+ * 重命名/删除/收藏/分享全部走 iModel API（不是 iTwin）。
  *
  * 数据面：useDocumentDetail + useImodels + useITwinPermissions（本模块
  * hooks）；三态裁决——详情加载中整页加载态；详情错误 NonIdealState
@@ -29,9 +36,10 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  Alert,
   Avatar,
   Button,
   Dialog,
@@ -59,7 +67,11 @@ import {
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
-import { ShareDocumentDialog, type DocumentSummary } from '@modules/documents';
+import {
+  RenameDocumentDialog,
+  ShareDocumentDialog,
+  type DocumentSummary,
+} from '@modules/documents';
 import { useTheme } from '@app/providers/ThemeContext.js';
 import { useDocumentDetail, useImodels } from './hooks/useImodels.js';
 import { useITwinPermissions } from './hooks/useITwinPermissions.js';
@@ -102,11 +114,17 @@ export function DocumentDetailsPage(): React.JSX.Element {
   } = useITwinPermissions(iTwinId);
 
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
-  const [isShareOpen, setIsShareOpen] = React.useState(false);
+  const [shareTarget, setShareTarget] = React.useState<ImodelSummary | null>(null);
+  const [renameTarget, setRenameTarget] = React.useState<ImodelSummary | null>(null);
   const [isDeleteDocOpen, setIsDeleteDocOpen] = React.useState(false);
   const [deleteDocError, setDeleteDocError] = React.useState('');
   const [deleteImodelTarget, setDeleteImodelTarget] = React.useState<ImodelSummary | null>(null);
   const [deleteImodelError, setDeleteImodelError] = React.useState('');
+
+  // P2.3：B/A 分支只认已加载 iTwin 的项目标记（`data.luban.modelMode`），
+  // 与 feature flag 无关——直接 URL 打开 B 项目在 flag 关（rollback）下也
+  // 不会回落 legacy A 语义。
+  const isBModel = document?.mode === 'B';
 
   const deleteDocMutation = useMutation({
     mutationFn: (id: string) => new ItwinsClient().delete(id),
@@ -119,6 +137,31 @@ export function DocumentDetailsPage(): React.JSX.Element {
     },
   });
 
+  // B 文档收藏集合（官方 favoriteIModels 通道；A 只读不查询）。
+  const favoritesQuery = useQuery({
+    queryKey: ['documents', 'imodel-favorites', iTwinId],
+    queryFn: () => new ImodelsClient().listFavorites(iTwinId ?? ''),
+    enabled: isBModel && !!iTwinId,
+    staleTime: 30 * 1000,
+  });
+
+  const favoriteMutation = useMutation({
+    mutationFn: (input: { id: string; favorite: boolean }) =>
+      input.favorite
+        ? new ImodelsClient().addFavorite(input.id)
+        : new ImodelsClient().removeFavorite(input.id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['documents', 'imodel-favorites', iTwinId],
+      });
+    },
+  });
+
+  const favoriteIds = React.useMemo(
+    () => new Set((favoritesQuery.data ?? []).map((imodel) => imodel.id)),
+    [favoritesQuery.data],
+  );
+
   /** 存在待初始化/等待重试 iModel → hero 同步指示（列表自动刷新由失效驱动）。
    *  失败/缺文件/未知不呈现「同步中」（现状诚实：失败不是进行中）。 */
   const syncing = React.useMemo(
@@ -127,8 +170,10 @@ export function DocumentDetailsPage(): React.JSX.Element {
   );
 
   /** 新建 iModel 权限门（终审 I3）：仅 `imodels_manage` 放行；权限未落定
-   *  或查询失败一律 fail-closed（不呈现启用态创建入口，避免诱导 403）。 */
+   *  或查询失败一律 fail-closed（不呈现启用态创建入口，避免诱导 403）。
+   *  A 旧文档只读——恒不可创建。 */
   const canCreateImodel =
+    isBModel &&
     !isPermissionLoading &&
     !permissionError &&
     iTwinPermissions.includes('imodels_manage');
@@ -169,10 +214,13 @@ export function DocumentDetailsPage(): React.JSX.Element {
   // -----------------------------------------------------------------------
   const handleBack = React.useCallback(() => navigate('/documents'), [navigate]);
 
+  const refetchFavorites = favoritesQuery.refetch;
+
   const handleRefresh = React.useCallback(() => {
     refetchDoc();
     refetchImodels();
-  }, [refetchDoc, refetchImodels]);
+    if (isBModel) void refetchFavorites();
+  }, [refetchDoc, refetchImodels, isBModel, refetchFavorites]);
 
   const handleLogout = React.useCallback(async () => {
     await AuthSession.logout();
@@ -181,11 +229,40 @@ export function DocumentDetailsPage(): React.JSX.Element {
 
   const handleOpenImodel = React.useCallback(
     (imodel: ImodelSummary) => {
+      // B 文档只有 initialized 才可进入编辑器（创建流程同口径）。
+      if (isBModel && imodel.state !== 'initialized') return;
       if (iTwinId && imodel.id) {
         navigate(`/documents/${iTwinId}/${imodel.id}`);
       }
     },
-    [navigate, iTwinId],
+    [navigate, iTwinId, isBModel],
+  );
+
+  /** B 文档创建：仅 initialized 后回调（CreateImodelDialog 已轮询）——
+   *  刷新列表并进入编辑器；默认 Part Studio 由 P2.4 编辑器解析器创建。 */
+  const handleDocumentCreated = React.useCallback(
+    (imodel: ImodelSummary) => {
+      refetchImodels();
+      refetchDoc();
+      if (iTwinId && imodel.id) {
+        navigate(`/documents/${iTwinId}/${imodel.id}`);
+      }
+    },
+    [refetchImodels, refetchDoc, navigate, iTwinId],
+  );
+
+  const handleToggleFavorite = React.useCallback(
+    (imodel: ImodelSummary) => {
+      favoriteMutation.mutate({ id: imodel.id, favorite: !favoriteIds.has(imodel.id) });
+    },
+    [favoriteMutation, favoriteIds],
+  );
+
+  const handleRenameSubmit = React.useCallback(
+    async (target: DocumentSummary, nextName: string) => {
+      await new ImodelsClient().update(target.id, { name: nextName });
+    },
+    [],
   );
 
   const handleDeleteDocConfirm = React.useCallback(async () => {
@@ -258,20 +335,25 @@ export function DocumentDetailsPage(): React.JSX.Element {
   }
 
   // document 在场（docError 缺席或已有缓存数据）——正常渲染。
-  // P2.1 只补契约字段：详情页的 B/A 分支（iModel 文档列表 / 只读旧语义）属
-  // P2.3；共享对话框本任务不消费 mode（成员/链接仍走 iTwin），故占位 A。
-  const shareDoc: DocumentSummary | null = document
-    ? {
-        id: document.id,
-        name: document.name,
-        owner: '',
-        role: '',
-        createdAt: document.createdAt,
-        modifiedAt: document.updatedAt ?? document.createdAt,
-        mode: 'A',
-        projectId: document.id,
-      }
-    : null;
+  // P2.3（P2.1 F5 承接）：分享摘要的 mode 从已加载 iTwin 的真实标记派生，
+  // 不再硬编码 'A'；B 文档分享目标是具体 iModel（卡片菜单），id = iModel id，
+  // projectId = 项目 iTwin id。B 项目容器不做项目级分享（无 iModel 目标）。
+  const toDocumentSummary = (imodel: ImodelSummary): DocumentSummary | null =>
+    document
+      ? {
+          id: imodel.id,
+          name: imodel.name,
+          owner: '',
+          role: '',
+          createdAt: imodel.createdAt,
+          modifiedAt: imodel.updatedAt ?? imodel.createdAt,
+          mode: document.mode,
+          projectId: document.id,
+        }
+      : null;
+
+  const shareDoc: DocumentSummary | null = shareTarget ? toDocumentSummary(shareTarget) : null;
+  const renameDoc: DocumentSummary | null = renameTarget ? toDocumentSummary(renameTarget) : null;
 
   return (
     <div className="document-details-page">
@@ -351,6 +433,21 @@ export function DocumentDetailsPage(): React.JSX.Element {
         ]}
       />
 
+      {/* A 旧文档只读横幅（P2.3）：直接 URL 打开未标记 iTwin 时也绝不提供
+          legacy 写入口（新建 iModel / 删除 / 分享 / 重命名）。 */}
+      {document && !isBModel && (
+        <Alert
+          type="informational"
+          className="document-details-readonly-banner"
+          data-testid="legacy-readonly-banner"
+        >
+          <Text variant="small" className="document-details-readonly-banner__title">
+            {t('documents.detail.legacy.bannerTitle')}
+          </Text>
+          <Text variant="small">{t('documents.detail.legacy.bannerDescription')}</Text>
+        </Alert>
+      )}
+
       {/* Hero — Surface + 大图 + 名称 + 状态 Tag + 元信息 + 操作区 */}
       {document && (
         <DocumentHero
@@ -363,12 +460,15 @@ export function DocumentDetailsPage(): React.JSX.Element {
           imodelCount={imodels.length}
           syncing={syncing}
           canCreateImodel={canCreateImodel}
-          onCreateImodel={() => setIsCreateOpen(true)}
-          onShare={() => setIsShareOpen(true)}
-          onDelete={() => {
-            setDeleteDocError('');
-            setIsDeleteDocOpen(true);
-          }}
+          onCreateImodel={isBModel ? () => setIsCreateOpen(true) : undefined}
+          onDelete={
+            isBModel
+              ? () => {
+                  setDeleteDocError('');
+                  setIsDeleteDocOpen(true);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -395,6 +495,7 @@ export function DocumentDetailsPage(): React.JSX.Element {
             actions={
               // 权限门（终审 I3）：无 imodels_manage / 权限未落定 → 空态不呈现
               // 创建入口（Viewer 无创建动作；不诱导注定 403 的提交）。
+              // A 旧文档只读 → canCreateImodel 恒 false。
               canCreateImodel ? (
                 <Button
                   styleType="high-visibility"
@@ -406,35 +507,55 @@ export function DocumentDetailsPage(): React.JSX.Element {
               ) : undefined
             }
           />
-        ) : (
+        ) : isBModel ? (
           <ImodelCardGrid
             imodels={imodels}
             formatCreated={formatCreated}
             onOpen={handleOpenImodel}
+            isOpenDisabled={(imodel) => imodel.state !== 'initialized'}
+            onRename={setRenameTarget}
+            onToggleFavorite={handleToggleFavorite}
+            isFavorite={(id) => favoriteIds.has(id)}
+            onShare={setShareTarget}
             onDelete={(imodel) => {
               setDeleteImodelError('');
               setDeleteImodelTarget(imodel);
             }}
           />
+        ) : (
+          // A 旧文档：只读网格——可打开查看，无写操作菜单。
+          <ImodelCardGrid
+            imodels={imodels}
+            formatCreated={formatCreated}
+            onOpen={handleOpenImodel}
+          />
         )}
       </div>
 
-      {/* 新建 iModel */}
+      {/* 新建 iModel（B 文档：仅 initialized 后进入编辑器） */}
       <CreateImodelDialog
         iTwinId={iTwinId ?? ''}
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onCreated={() => {
-          refetchDoc();
-          refetchImodels();
-        }}
+        onCreated={handleDocumentCreated}
       />
 
-      {/* 分享（复用 documents 模块三页签对话框） */}
+      {/* B 文档重命名（iModels.update；A 页无重命名入口，保持只读） */}
+      <RenameDocumentDialog
+        key={renameTarget?.id}
+        doc={renameDoc}
+        isOpen={!!renameTarget}
+        onClose={() => setRenameTarget(null)}
+        onRenamed={refetchImodels}
+        onRenameSubmit={isBModel ? handleRenameSubmit : undefined}
+      />
+
+      {/* 分享：B 文档 → iModel 权限通道（imodelId）；A/容器 → iTwin 通道 */}
       <ShareDocumentDialog
         doc={shareDoc}
-        isOpen={isShareOpen}
-        onClose={() => setIsShareOpen(false)}
+        imodelId={shareTarget?.id}
+        isOpen={!!shareTarget}
+        onClose={() => setShareTarget(null)}
       />
 
       {/* 删除文档确认（危险操作 HITL；失败内联呈现，不静默）。setFocus

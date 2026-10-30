@@ -9,6 +9,10 @@
  * `subClass` 并自行缺省 `class:'Project'`，新 web 不炸；新 hub 则派生
  * `Endeavor/Project`。编号透传 hub（白名单未知字段时由服务端静默剥离）。
  * 成功 invalidate 列表并回调父组件。
+ *
+ * P2.3 B-model：`VITE_B_MODEL_ENABLED==='true'`（useBModelEnabled 单点）时
+ * 创建载荷附加 `data: B_MODEL_DATA`（iTwin=项目 / iModel=文档）；flag 关
+ * 严格维持既有 A 载荷（无 data 键，绝不创建 B 项目）。
  */
 
 import React from 'react';
@@ -17,7 +21,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ITwinSubClass } from '@itwin/itwins-client';
 import { Button, Dialog, LabeledInput, Text } from '@itwin/itwinui-react';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
+import { B_MODEL_DATA } from '@clients/itwins/types.js';
 import type { CreateItwinInput } from '@clients/itwins/types.js';
+import { useBModelEnabled } from '../hooks/useBModelEnabled.js';
 
 export interface CreateDocumentDialogProps {
   isOpen: boolean;
@@ -32,6 +38,9 @@ export function CreateDocumentDialog({
 }: CreateDocumentDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  // P2.3：flag 开 → 新项目按 B-model 标记创建（iTwin=项目 / iModel=文档）；
+  // flag 关 → 严格维持既有 A 载荷（无 data 键，不得创建 B 项目）。
+  const bModelEnabled = useBModelEnabled();
 
   const [name, setName] = React.useState('');
   const [number, setNumber] = React.useState('');
@@ -71,6 +80,9 @@ export function CreateDocumentDialog({
       displayName: name.trim(),
       subClass: ITwinSubClass.Project,
     };
+    if (bModelEnabled) {
+      input.data = B_MODEL_DATA;
+    }
     const trimmedNumber = number.trim();
     if (trimmedNumber) {
       input.number = trimmedNumber;
@@ -82,7 +94,7 @@ export function CreateDocumentDialog({
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t('documents.create.failed'));
     }
-  }, [name, number, createMutation, onCreated, handleClose, t]);
+  }, [name, number, bModelEnabled, createMutation, onCreated, handleClose, t]);
 
   return (
     <Dialog isOpen={isOpen} onClose={handleClose} portal isDismissible>

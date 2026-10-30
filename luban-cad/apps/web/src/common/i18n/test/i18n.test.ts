@@ -102,6 +102,11 @@ const REQUIRED_DOCUMENT_DETAIL_KEYS = [
   'detail.create.descriptionLabel', 'detail.create.failed',
   // ADR-0001 P0 终审 I3：403（imodels_manage 守卫）专属文案键。
   'detail.create.forbidden',
+  // P2.3：B 文档创建后的初始化等待/失败重试 + A 旧文档只读横幅。
+  'detail.create.initializing', 'detail.create.initializationFailed',
+  'detail.create.missingFiles', 'detail.create.timeout', 'detail.create.statusQueryFailed',
+  'detail.create.retry', 'detail.create.retryHint', 'detail.create.close',
+  'detail.legacy.bannerTitle', 'detail.legacy.bannerDescription',
   'detail.card.open', 'detail.card.moreActions', 'detail.card.initialized',
   'detail.card.initializing', 'detail.card.noDescription', 'detail.card.untitled',
   'detail.card.deleteTitle', 'detail.card.deleteMessage',

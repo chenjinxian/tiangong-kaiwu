@@ -21,6 +21,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   imodelsList: vi.fn(),
+  imodelsGet: vi.fn(),
   imodelsCreate: vi.fn(),
   itwinsGet: vi.fn(),
   getITwinPermissions: vi.fn(),
@@ -29,9 +30,16 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@clients/imodels/ImodelsClient.js', () => ({
   ImodelsClient: class {
     list = mocks.imodelsList;
-    get = vi.fn();
+    get = mocks.imodelsGet;
     create = mocks.imodelsCreate;
     delete = vi.fn();
+    update = vi.fn();
+    listFavorites = vi.fn().mockResolvedValue([]);
+    addFavorite = vi.fn();
+    removeFavorite = vi.fn();
+    listUserPermissions = vi.fn().mockResolvedValue([]);
+    grantPermission = vi.fn();
+    revokePermission = vi.fn();
   },
 }));
 
@@ -74,6 +82,7 @@ vi.mock('../../documents/internal/share.api.js', () => ({
   removeUserMember: vi.fn(),
 }));
 
+import { B_MODEL_DATA } from '@clients/itwins/types.js';
 import { DocumentDetailsPage } from '../DocumentDetailsPage.js';
 
 /** 官方 IModel 全量表示的测试最小形状（mapper 只读子集，其余字段不参与）。 */
@@ -108,6 +117,7 @@ const ITWIN_DETAIL = {
   description: '演示项目描述',
   createdDateTime: '2026-10-01T08:00:00.0000000+00:00',
   lastModifiedDateTime: '2026-10-20T12:30:00.0000000+00:00',
+  data: B_MODEL_DATA,
 };
 
 function renderPage() {
@@ -128,6 +138,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.itwinsGet.mockResolvedValue(ITWIN_DETAIL);
   mocks.imodelsList.mockResolvedValue(IMODELS);
+  mocks.imodelsGet.mockResolvedValue({ ...IMODELS[0], isSecured: true });
   mocks.imodelsCreate.mockResolvedValue({ id: 'im-3' });
   mocks.getITwinPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
 });
@@ -139,7 +150,7 @@ describe('DocumentDetailsPage 结构断言（M2 Task 8，关键区域存在性�
     expect((await screen.findAllByText('演示文档')).length).toBeGreaterThanOrEqual(2);
   });
 
-  it('hero：名称/状态/时间/计数 + 操作区（新建 iModel/分享/删除）', async () => {
+  it('hero：名称/状态/时间/计数 + 操作区（新建 iModel/删除；分享在文档卡片）', async () => {
     renderPage();
     expect(await screen.findByRole('heading', { name: '演示文档' })).toBeDefined();
     expect(screen.getByText('Active')).toBeDefined();
@@ -147,8 +158,9 @@ describe('DocumentDetailsPage 结构断言（M2 Task 8，关键区域存在性�
     expect(screen.getAllByText(/更新于/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('2 个 iModel').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole('button', { name: '新建 iModel' })).toBeDefined();
-    expect(screen.getByRole('button', { name: '分享' })).toBeDefined();
     expect(screen.getByRole('button', { name: '删除' })).toBeDefined();
+    // B 项目不提供项目级分享（分享按 iModel 文档粒度）。
+    expect(screen.queryByRole('button', { name: '分享' })).toBeNull();
   });
 
   it('iModel 卡片网格：imodel-card-grid 锚点 + 卡片要素', async () => {
