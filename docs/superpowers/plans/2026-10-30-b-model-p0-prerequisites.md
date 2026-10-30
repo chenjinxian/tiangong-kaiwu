@@ -1367,8 +1367,10 @@ git commit -m "feat(web): 新建文档传官方 iTwin class/subClass"
 - Modify: `src/itwins/infrastructure/persistence/relational/entities/itwin.entity.ts`（geo 字段）
 - Modify: `src/itwins/dto/itwin-response.dto.ts`（geo 字段）
 - Modify: `src/imodels/imodels.controller.ts`（POST /imodels 权限守卫）
+- Modify: `src/imodels/dto/update-imodel.dto.ts`（移除客户端可写 `state`）
 - Modify: `test/itwins.e2e-spec.ts`（或现有 itwins 测试）
 - Modify: `test/integration/authorization.e2e-spec.ts`（POST /imodels 越权 403）
+- Modify: `test/integration/smoke-crud.e2e-spec.ts`（PATCH state 被拒）
 
 **Interfaces:**
 - Produces: `enum iTwinClass { Account='Account', Thing='Thing', Endeavor='Endeavor' }`
@@ -1498,6 +1500,20 @@ it('非成员不能在他人 iTwin 下创建 iModel（403）', async () => {
     .set('Authorization', `Bearer ${strangerToken}`)
     .send({ iTwinId: otherUserItwinId, name: 'evil' })
     .expect(403);
+});
+```
+
+- [ ] **Step 2c: 禁止客户端写 iModel state**
+
+`update-imodel.dto.ts` 移除 `state` 字段（或加 `@IsEmpty()` 拒绝），保留实体/响应只读。补测试：
+
+```ts
+it('客户端 PATCH state 被拒（422/400），不得伪造 initialized', async () => {
+  await request(server)
+    .patch(`/imodels/${iModelId}`)
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({ state: 'initialized' })
+    .expect((res) => expect([400, 422]).toContain(res.status));
 });
 ```
 
