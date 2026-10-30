@@ -92,8 +92,8 @@ ENV CLOSURE_REPO_ROOT=/build
 RUN { (cd apps/web && node ../../docker-closure.cjs --emit); \
       (cd packages/shared && node ../../docker-closure.cjs --emit); \
       (cd packages/viewer && node ../../docker-closure.cjs --emit); \
-      (cd packages/editor/frontend && node ../../docker-closure.cjs --emit); \
-      (cd packages/editor/common && node ../../docker-closure.cjs --emit); \
+      (cd packages/editor/frontend && node ../../../docker-closure.cjs --emit); \
+      (cd packages/editor/common && node ../../../docker-closure.cjs --emit); \
     } | tr ' ' '\n' | sed '/^$/d' | sort -u > /tmp/closure-add.txt \
  && (test -s /tmp/closure-add.txt \
      && xargs corepack pnpm@10 add -w --config.node-linker=hoisted < /tmp/closure-add.txt \
