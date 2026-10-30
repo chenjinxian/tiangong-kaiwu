@@ -24,8 +24,8 @@ describe('ITwin type', () => {
       displayName: 'Test Project',
       number: 'TP-001',
       status: 'Active',
-      class: 'Project',
-      subClass: 'ConstructionProject',
+      class: 'Endeavor',
+      subClass: 'Project',
       createdDateTime: new Date().toISOString(),
       lastModifiedDateTime: new Date().toISOString(),
       createdBy: 'user-1',
@@ -35,15 +35,31 @@ describe('ITwin type', () => {
     expect(iTwin.id).toBe('test-itwin-id');
     expect(iTwin.displayName).toBe('Test Project');
     expect(iTwin.status).toBe('Active');
-    expect(iTwin.class).toBe('Project');
+    expect(iTwin.class).toBe('Endeavor');
+  });
+
+  it('should accept official iTwin taxonomy literals', () => {
+    const official: ITwin = {
+      id: 'official',
+      displayName: 'Official',
+      class: 'Endeavor',
+      subClass: 'Project',
+      status: 'Active',
+      createdDateTime: new Date().toISOString(),
+      lastModifiedDateTime: new Date().toISOString(),
+      createdBy: 'user-1',
+      lastModifiedBy: 'user-1',
+    };
+    expect(official.class).toBe('Endeavor');
+    expect(official.subClass).toBe('Project');
   });
 
   it('should allow optional fields', () => {
     const iTwin: ITwin = {
       id: 'test-itwin-id',
       displayName: 'Test Project',
-      class: 'Project',
-      subClass: 'ConstructionProject',
+      class: 'Endeavor',
+      subClass: 'Project',
       status: 'Active',
       createdDateTime: new Date().toISOString(),
       lastModifiedDateTime: new Date().toISOString(),
@@ -70,8 +86,8 @@ describe('CreateITwinRequest type', () => {
     const request: CreateITwinRequest = {
       displayName: 'New Project',
       number: 'NP-001',
-      class: 'Project',
-      subClass: 'Building',
+      class: 'Endeavor',
+      subClass: 'Project',
     };
 
     expect(request.displayName).toBe('New Project');
@@ -178,8 +194,8 @@ describe('ITwinListResponse type', () => {
         {
           id: '1',
           displayName: 'Project 1',
-          class: 'Project',
-          subClass: 'ConstructionProject',
+          class: 'Endeavor',
+          subClass: 'Project',
           status: 'Active',
           createdDateTime: new Date().toISOString(),
           lastModifiedDateTime: new Date().toISOString(),

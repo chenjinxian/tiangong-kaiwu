@@ -40,50 +40,17 @@ export interface ITwin {
   isFavorite?: boolean;
 }
 
-/**
- * iTwin class enum
- * Maps to: itwins-client ITwinClass
- */
-export type ITwinClass = 'Project' | 'Asset' | 'Portfolio';
+/** 官方 iTwin class（iTwins API v1）。 */
+export type ITwinClass = 'Account' | 'Thing' | 'Endeavor';
 
-/**
- * iTwin subclass enum
- * Maps to: itwins-client ITwinSubClass
- */
+/** 官方 iTwin subClass（iTwins API v1）。 */
 export type ITwinSubClass =
-  | 'ConstructionProject'
-  | 'Folder'
-  | 'Facility'
-  | 'CompoundFacility'
-  | 'Building'
-  | 'Campus'
-  | 'Bridge'
-  | 'Road'
-  | 'Rail'
-  | 'Tunnel'
-  | 'Dam'
-  | 'WaterTreatmentPlant'
-  | 'WaterDistributionSystem'
-  | 'Landscape'
-  | 'Mine'
-  | 'OilAndGasFacility'
-  | 'Well'
-  | 'Agriculture'
-  | 'Park'
-  | 'RecreationArea'
-  | 'Structure'
-  | 'WindFarm'
-  | 'SolarFarm'
-  | 'PowerPlant'
-  | 'TransmissionLine'
-  | 'Substation'
-  | 'Stream'
-  | 'River'
-  | 'Coastline'
-  | 'Lake'
-  | 'Wetland'
-  | 'City'
-  | 'National';
+  | 'Account'
+  | 'Portfolio'
+  | 'Asset'
+  | 'Program'
+  | 'Project'
+  | 'WorkPackage';
 
 /**
  * iTwin status enum
