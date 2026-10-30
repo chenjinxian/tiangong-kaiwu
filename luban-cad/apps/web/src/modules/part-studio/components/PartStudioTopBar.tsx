@@ -21,6 +21,10 @@
  * - 分享钮（T7 接共享对话框——复用 documents 模块 ShareDocumentDialog，
  *   跨模块经 @modules/documents barrel）+ 帮助钮 + 用户菜单
  *   （我的帐户/深色模式/退出登录，os-03 同口径）。
+ * - **B-model P2.4（P2.1 F5 承接）**：`mode` 由页面按 iTwin 标记派生——B 文档
+ *   分享传 B `DocumentSummary`（iModel id + project id）+ `imodelId` +
+ *   `canManageShare`（iModel 权限对话；不会回落 A iTwin 通道）；汉堡菜单同步
+ *   以 iModel 名为文档名（重命名走 ImodelsClient.update）。
  */
 
 import React from 'react';
@@ -50,13 +54,18 @@ import {
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
-import { ShareDocumentDialog } from '@modules/documents';
+import { ShareDocumentDialog, type DocumentMode, type DocumentSummary } from '@modules/documents';
 import { useTheme } from '@app/providers/ThemeContext.js';
 import { DocumentMenuBar } from './DocumentMenuBar.js';
 
 export interface PartStudioTopBarProps {
   iTwinId: string;
   iModelId: string;
+  /** B/A 文档上下文（P2.1 F5 承接 / P2.4）：B=分享/重命名走 iModel 通道；
+   *  A=旧 iTwin 通道。缺省 A 保持旧调用语义。 */
+  mode?: DocumentMode;
+  /** B 文档分享管理门（iModel `imodels_manage`，fail-closed）。 */
+  canManageShare?: boolean;
   /** 撤销可用（BriefcaseTxns.isUndoPossible）；缺省 false（未接线诚实禁用）。 */
   canUndo?: boolean;
   /** 重做可用（BriefcaseTxns.isRedoPossible）；缺省 false。 */
@@ -80,6 +89,8 @@ export interface PartStudioTopBarProps {
 export function PartStudioTopBar({
   iTwinId,
   iModelId,
+  mode = 'A',
+  canManageShare = false,
   canUndo = false,
   canRedo = false,
   hasUnsavedChanges = false,
@@ -111,6 +122,37 @@ export function PartStudioTopBar({
 
   const [shareOpen, setShareOpen] = React.useState(false);
 
+  /**
+   * 分享目标（P2.1 F5 承接 / P2.4 DoD）：B 文档 = iModel 级 ACL（doc.id=iModelId、
+   * projectId=iTwinId、mode='B'）；A 旧文档 = iTwin 通道。真实模式由页面按 iTwin
+   * 标记注入，不再回落硬编码 A。useMemo 钉引用（对话框打开态不因父级重渲染重置）。
+   */
+  const shareDoc = React.useMemo<DocumentSummary>(
+    () => mode === 'B'
+      ? {
+          id: iModelId,
+          name: imodelName,
+          owner: '',
+          role: '',
+          createdAt: '',
+          modifiedAt: null,
+          mode: 'B',
+          projectId: iTwinId,
+          projectName: itwinName,
+        }
+      : {
+          id: iTwinId,
+          name: itwinName,
+          owner: '',
+          role: '',
+          createdAt: '',
+          modifiedAt: null,
+          mode: 'A',
+          projectId: iTwinId,
+        },
+    [mode, iTwinId, iModelId, itwinName, imodelName],
+  );
+
   const handleLogout = React.useCallback(async () => {
     await AuthSession.logout();
     navigate('/login');
@@ -129,8 +171,15 @@ export function PartStudioTopBar({
           >
             {t('common.app.name')}
           </HeaderLogo>
-          {/* 汉堡文档菜单（os-24：品牌右侧、文档名之前）。 */}
-          <DocumentMenuBar iTwinId={iTwinId} documentName={itwinName} />
+          {/* 汉堡文档菜单（os-24：品牌右侧、文档名之前）；B 文档名=iModel 名，
+              重命名走 ImodelsClient.update（P2.1 F5 承接）。 */}
+          <DocumentMenuBar
+            iTwinId={iTwinId}
+            iModelId={iModelId}
+            mode={mode}
+            documentName={mode === 'B' ? imodelName : itwinName}
+            canManage={canManageShare}
+          />
         </>
       }
       breadcrumbs={
@@ -241,20 +290,13 @@ export function PartStudioTopBar({
         </DropdownMenu>,
       ]}
       />
-      {/* 共享对话框（T7）：复用 documents 模块 ShareDocumentDialog——共享当前
-          文档（iTwin）的成员/邀请/链接三页签（跨模块经 @modules/documents barrel）。 */}
+      {/* 共享对话框（T7；P2.4 B/A 分流）：B 文档 = iModel 级权限（成员/邀请，
+          无链接分享；canManageShare=imodels_manage fail-closed）；A = iTwin
+          成员/邀请/链接三页签（旧行为不变）。 */}
       <ShareDocumentDialog
-        doc={{
-          id: iTwinId,
-          name: itwinName,
-          owner: '',
-          role: '',
-          createdAt: '',
-          modifiedAt: null,
-          // 编辑器上下文仍是 A 旧语义（B 项目 scope 归 P2.4）；P2.1 只补契约字段。
-          mode: 'A',
-          projectId: iTwinId,
-        }}
+        doc={shareDoc}
+        imodelId={mode === 'B' ? iModelId : undefined}
+        canManageShare={mode === 'B' ? canManageShare : undefined}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
       />

@@ -15,6 +15,12 @@
  * - gated 项（移至…/还原…/复制…/更新…/工作区属性…/打印…）照常可点，
  *   点击开能力引导对话框（CapabilityDialog，spec §5 完整 UI 面）。
  *
+ * B-model P2.4（P2.1 F5 承接）：`mode` 由页面按 iTwin 标记派生——B 文档的
+ * 「重命名文档」= iModel 重命名（ImodelsClient.update，doc id=iModelId、
+ * projectId=iTwinId），受 `canManage`（iModel imodels_manage，fail-closed）门禁；
+ * A 旧文档保持 ItwinsClient.update 旧通道。B 文档分享在顶栏走 iModel ACL，
+ * 不会回落 iTwin 通道。
+ *
  * 挂账：工作区单位暂只支持毫米（内核单位制跟随里程碑）；「切换到仅查看
  * 模式」的 ribbon 只读态消费面后续波次（本版 store 会话态 + 菜单态落地）。
  */
@@ -34,17 +40,24 @@ import {
   Text,
 } from '@itwin/itwinui-react';
 import { SvgMenu } from '@itwin/itwinui-icons-react';
-import { RenameDocumentDialog } from '@modules/documents';
+import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
+import { RenameDocumentDialog, type DocumentMode } from '@modules/documents';
 import { isGated } from '../internal/capabilities.js';
 import { CapabilityDialog } from '../ribbon/Ribbon.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import './DocumentMenuBar.css';
 
 export interface DocumentMenuBarProps {
-  /** 当前文档（iTwin）id——重命名落库/详细信息路由寻址。 */
+  /** 当前 iTwin（A 文档 id；B 文档的 projectId/详细信息路由寻址）。 */
   iTwinId: string;
-  /** 当前文档名（重命名对话框预填值；顶栏面包屑查询到位后传入）。 */
+  /** 当前 iModel id（仅 B；重命名文档=iModel 名称）。 */
+  iModelId?: string;
+  /** B/A 文档上下文（P2.1 F5 承接 / P2.4 DoD）：缺省 A 保持旧调用语义。 */
+  mode?: DocumentMode;
+  /** 当前文档名（重命名对话框预填值；B=iModel 名，A=iTwin 名）。 */
   documentName: string;
+  /** B 文档重命名授权（iModel `imodels_manage`，fail-closed；A 忽略）。 */
+  canManage?: boolean;
 }
 
 /** 工作区单位可选项（mm=唯一可用；其余单位制占位 disabled——完整 UI 面）。 */
@@ -55,7 +68,13 @@ const UNIT_OPTIONS: readonly { value: 'mm' | 'in' | 'cm' | 'm'; disabled: boolea
   { value: 'm', disabled: true },
 ];
 
-export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps): React.JSX.Element {
+export function DocumentMenuBar({
+  iTwinId,
+  iModelId,
+  mode = 'A',
+  documentName,
+  canManage = true,
+}: DocumentMenuBarProps): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -83,17 +102,26 @@ export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps)
    */
   const renameDoc = React.useMemo(
     () => ({
-      id: iTwinId,
+      // B 文档 = iModel（id=iModelId、projectId=iTwinId）；A 旧文档 = iTwin。
+      id: mode === 'B' ? (iModelId ?? '') : iTwinId,
       name: documentName,
       owner: '',
       role: '',
       createdAt: '',
       modifiedAt: null,
-      // A 旧语义占位（B 项目分支归 P2.4）；P2.1 契约字段必填。
-      mode: 'A' as const,
+      mode,
       projectId: iTwinId,
     }),
-    [iTwinId, documentName],
+    [mode, iTwinId, iModelId, documentName],
+  );
+
+  /** B 文档重命名 = ImodelsClient.update（iModel name）；A = 对话框缺省 ItwinsClient。 */
+  const handleRenameSubmit = React.useCallback(
+    async (_doc: { id: string }, name: string): Promise<void> => {
+      if (mode !== 'B' || !iModelId) return;
+      await new ImodelsClient().update(iModelId, { name });
+    },
+    [mode, iModelId],
   );
 
   /** gated 项点击路由：开能力引导（不导航，不落库）。 */
@@ -109,7 +137,11 @@ export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps)
   }, [queryClient]);
 
   const menuItems = [
-    <MenuItem key="rename" onClick={() => setRenameOpen(true)}>
+    <MenuItem
+      key="rename"
+      disabled={mode === 'B' && !canManage}
+      onClick={() => setRenameOpen(true)}
+    >
       {t('partStudio.documentMenu.rename')}
     </MenuItem>,
     <MenuItem key="move" onClick={() => handleGated('moveDocument')}>
@@ -166,12 +198,14 @@ export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps)
       </DropdownMenu>
 
       {/* 重命名文档：复用 documents 模块对话框（跨模块 barrel 消费；doc 经
-          useMemo 钉引用，父级重渲染不误重置输入框）。 */}
+          useMemo 钉引用，父级重渲染不误重置输入框）。B 文档经 onRenameSubmit
+          走 iModel 通道；A 文档缺省 = ItwinsClient.update（旧行为）。 */}
       <RenameDocumentDialog
         doc={renameDoc}
         isOpen={renameOpen}
         onClose={() => setRenameOpen(false)}
         onRenamed={handleRenamed}
+        onRenameSubmit={mode === 'B' ? handleRenameSubmit : undefined}
       />
 
       {/* 工作区单位：毫米唯一可用；其余单位制占位（完整 UI 面）。setFocus

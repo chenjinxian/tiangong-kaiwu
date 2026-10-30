@@ -93,6 +93,8 @@ const featureRpc = vi.hoisted(() => {
   ),
   acquireWriteLease: vi.fn(async (_key: string, _sessionId: string) => ({ ok: true, holder: 'tester' })),
   releaseWriteLease: vi.fn(async (_key: string, _sessionId: string) => undefined),
+  // B-model P2.4：注册表读面（scope 解析/页签数据源）。
+  listPartStudios: vi.fn(async (_key: string): Promise<unknown[]> => []),
   // M6-b T5：useSketchSystem 活动草图读面（SketchPanel 数据源；无活动草图 → undefined）。
   getSketch: vi.fn(async (_key: string, _sketchId: string): Promise<unknown> => undefined),
   };
@@ -186,8 +188,17 @@ vi.mock('@luban-cad/shared', () => ({
 import { usePartStudioStore } from '../index.js';
 import { PartStudioPage } from '../PartStudioPage.js';
 
-const ITWIN_DETAIL = { id: 'itwin-1', displayName: '演示文档', status: 'Active' };
+// B-model P2.4：默认夹具 = B 项目（编辑/注册表锚点仅在 B 文档开放）。
+const ITWIN_DETAIL = {
+  id: 'itwin-1',
+  displayName: '演示文档',
+  status: 'Active',
+  data: { luban: { modelMode: 'B', schemaVersion: 1 } },
+};
 const IMODEL_DETAIL = { id: 'im-1', displayName: '楼层模型', name: '楼层模型', iTwinId: 'itwin-1' };
+const STUDIO_1 = {
+  id: 'ps-1', name: 'Part Studio 1', order: 1, defModelId: 'def-1', physModelId: 'phys-1',
+};
 
 // ── M4-T9 连接/视口替身（PartStudioPage.test 同构；真实 hooks 参与下的最小
 //    连接桩：txns 事件 BeEvent 兼容双面 + 物理元素查询游标 + 推送/保存代理）──
@@ -306,7 +317,7 @@ function renderPage(): ReturnType<typeof render> {
   return render(
     <QueryClientProvider client={queryClient}>
       <IuiThemeProvider>
-        <MemoryRouter initialEntries={['/documents/itwin-1/im-1']}>
+        <MemoryRouter initialEntries={['/documents/itwin-1/im-1?model=ps-1']}>
           <Routes>
             <Route path="/documents/:iTwinId/:iModelId" element={<PartStudioPage />} />
           </Routes>
@@ -316,12 +327,24 @@ function renderPage(): ReturnType<typeof render> {
   );
 }
 
+/** B 页 + 等 scope 解析落定（canEdit 门开 = 保存版本钮可用）。 */
+async function renderReadyPage(): Promise<ReturnType<typeof render>> {
+  const rendered = renderPage();
+  await waitFor(() => {
+    const save = screen.getByTestId('part-studio-save-button') as HTMLButtonElement;
+    expect(save.disabled === false && save.getAttribute('aria-disabled') !== 'true').toBe(true);
+  }, { timeout: 10_000 });
+  return rendered;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   resetStore();
   mocks.itwinsGet.mockResolvedValue(ITWIN_DETAIL);
   mocks.imodelsGet.mockResolvedValue(IMODEL_DETAIL);
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
+  // B 文档注册表：URL ?model=ps-1 命中完整 scope → 编辑面开放。
+  featureRpc.listPartStudios.mockResolvedValue([STUDIO_1]);
   // M4-T9：dock 版本历史查询零真实请求（默认空集）。
   mocks.imodelsListChangesets.mockResolvedValue([]);
   // B-model P0 Task 5：Named Version 通道零真实请求（默认空列表/成功创建）。
@@ -400,7 +423,7 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
 
   it('8 下拉锚点在场（data-testid + 箭头钮 aria-haspopup=menu），变换飞菜单展开子项（portal 逃逸到 body 外）', async () => {
     const user = userEvent.setup();
-    renderPage();
+    await renderReadyPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
     for (const id of EXPECTED_DROPDOWN_IDS) {
       expect(
@@ -429,7 +452,7 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
 
   it('飞菜单键盘导航：ArrowDown 聚焦子项 + Escape 收合并还焦点（DropdownMenu，终审 T4-③）', async () => {
     const user = userEvent.setup();
-    renderPage();
+    await renderReadyPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
     const arrow = within(ribbon).getByRole('button', { name: '变换 ▾' });
     await user.click(arrow);
@@ -447,7 +470,7 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
 
   it('拉伸/扫掠改道特征对话框（M4-T6/B3）；full 工具投 tools.run；gated 工具开能力引导对话框', async () => {
     const user = userEvent.setup();
-    renderPage();
+    await renderReadyPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
     // 拉伸特例路由（M4-T6）：开 FeatureDialog（new/extrude），不投 tools.run。
     await user.click(within(ribbon).getByRole('button', { name: '拉伸' }));
@@ -586,7 +609,7 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
 
   it('SketchDialog：四开关在场，✓ 确认进草图模式（ribbon 变身 + 栅格/约束覆盖层）', async () => {
     const user = userEvent.setup();
-    renderPage();
+    await renderReadyPage();
     // ribbon「草图」主钮 → SketchDialog（os-30 创建草图流程）。
     await user.click(
       within(screen.getByTestId('part-studio-ribbon')).getByRole('button', { name: '草图' }),
@@ -611,14 +634,17 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     expect(screen.queryByTestId('sketch-grid-overlay')).toBeNull();
   });
 
-  it('TabManagerDialog：「+」打开（列表承载当前 iTwin 的 iModel）', async () => {
+  it('TabManagerDialog（P2.4）：alt+~+t 打开，列表承载注册表 Part Studio（非 iModel）', async () => {
     const user = userEvent.setup();
-    renderPage();
-    const strip = screen.getByTestId('part-studio-tab-strip');
-    await user.click(within(strip).getByRole('button', { name: '新建页签' }));
+    await renderReadyPage();
+    fireEvent.keyDown(window, { altKey: true, key: '~' });
+    fireEvent.keyDown(window, { key: 't' });
     const dialog = await screen.findByRole('dialog', { name: '页签管理器' });
     const list = await within(dialog).findByRole('list', { name: '页签列表' });
-    expect(await within(list).findByText('楼层模型')).toBeDefined();
+    expect(await within(list).findByText('Part Studio 1')).toBeDefined();
+    // 旧 iModel 列表数据面退役：不得出现当前 iModel 名。
+    expect(within(list).queryByText('楼层模型')).toBeNull();
+    expect(within(list).getByText('Part Studio 1').closest('li')?.getAttribute('aria-current')).toBe('true');
     await user.click(within(dialog).getByRole('button', { name: '关闭' }));
     expect(screen.queryByRole('dialog', { name: '页签管理器' })).toBeNull();
   });
@@ -654,7 +680,7 @@ describe('M4 收官锚点总账（T9）', () => {
 
   it('顶栏 undo/redo/saveVersion 三钮锚点在场；干净态 undo/redo 禁用、保存版本可用，txns 解锁后撤销投标准工具 Undo', async () => {
     const user = userEvent.setup();
-    renderPage();
+    await renderReadyPage();
     const topBar = screen.getByTestId('part-studio-top-bar');
     // testid 钉形（结构不变式）+ 可访问名钉形（os-11 操作簇：撤消/重做/保存版本）。
     expect(within(topBar).getByTestId('part-studio-undo-button')).toBeDefined();
@@ -743,7 +769,7 @@ describe('M4 收官锚点总账（T9）', () => {
     mocks.imodelsListChangesets.mockResolvedValue([
       { id: 'cs-2', index: 2, description: '初始', displayName: 'cs2', pushDateTime: '2026-10-20T09:00:00Z' },
     ]);
-    renderPage();
+    await renderReadyPage();
     const save = screen.getByTestId('part-studio-save-button');
     await waitFor(() => expect(isDisabled(save)).toBe(false));
     await user.click(save);

@@ -29,6 +29,7 @@ import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
 import { FEATURE_OP_TIMEOUT_MS, useFeatureSystem } from '../hooks/useFeatureSystem.js';
+import { useEditorSession } from '../hooks/useEditorSession.js';
 
 // ---------------------------------------------------------------------------
 // LubanFeatureRpcInterface.getClient() 可编程替身（本版子集五方法；M-A3.2a 增 getBodies）
@@ -128,11 +129,25 @@ function strictRouterWrapper(path: string) {
     React.createElement(React.StrictMode, null, React.createElement(Router, null, children));
 }
 
+/**
+ * P2.4：useFeatureSystem 不再自持 sessionId/租约——测试壳以真实
+ * useEditorSession 提供共享会话（与生产 PartStudioPage 同构），opts.enabled
+ * 控制会话租约生命周期（读面仍由 readEnabled 独立控制，旧语义不变）。
+ */
+function useFeatureSystemHarness(
+  connection: MockConnection | undefined,
+  opts?: { enabled?: boolean },
+): ReturnType<typeof useFeatureSystem> {
+  const sessionEnabled = opts?.enabled ?? (!!connection && !connection.isReadonly);
+  const session = useEditorSession(connection as never, { enabled: sessionEnabled });
+  return useFeatureSystem(connection as never, session);
+}
+
 const renderFeatureSystem = (
   connection: MockConnection | undefined,
   opts?: { enabled?: boolean },
   path: string = LEGACY_PATH,
-) => renderHook(() => useFeatureSystem(connection as never, opts), { wrapper: routerWrapper(path) });
+) => renderHook(() => useFeatureSystemHarness(connection, opts), { wrapper: routerWrapper(path) });
 
 describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
   beforeEach(() => {
@@ -299,10 +314,10 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     // 动作（裁决归调用方），两会话各自 acquire——正是 B2「互持租约互卡」的土壤。
     fakeClient.acquireWriteLease.mockImplementation(async () => ({ ok: false, holder: 'twin-session' }));
 
-    const first = renderHook(() => useFeatureSystem(connection as never, { enabled: true }), {
+    const first = renderHook(() => useFeatureSystemHarness(connection, { enabled: true }), {
       wrapper: strictRouterWrapper(LEGACY_PATH),
     });
-    const second = renderHook(() => useFeatureSystem(connection as never, { enabled: true }), {
+    const second = renderHook(() => useFeatureSystemHarness(connection, { enabled: true }), {
       wrapper: strictRouterWrapper(LEGACY_PATH),
     });
     // 租约生命周期动作全部落定（StrictMode 双挂载 acquire+release+acquire）。
@@ -448,7 +463,7 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     // main.tsx 以 StrictMode 包壳：挂载→清理→再挂载。同 hook 实例同 sessionId
     //（useRef 跨 StrictMode 重挂保留）——acquire 两次、release 一次（首个 effect
     // 的 cleanup），服务端语义=同 sessionId 幂等刷新 TTL，无第二个租约泄漏。
-    const { result, unmount } = renderHook(() => useFeatureSystem(connection as never), {
+    const { result, unmount } = renderHook(() => useFeatureSystemHarness(connection), {
       wrapper: strictRouterWrapper(LEGACY_PATH),
     });
 

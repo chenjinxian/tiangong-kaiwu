@@ -320,17 +320,24 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureSystem.notConnected', 'featureSystem.leaseHeldBy', 'featureSystem.leaseAcquireFailed',
   // M5 Task 1：特征 RPC 超时兜底错误键（useFeatureSystem withOpTimeout）。
   'featureSystem.opTimeout',
+  // B-model P2.4：scope 解析/半图恢复/A 只读横幅 + 真页签 chrome 键。
+  'tabs.newPartStudio', 'tabs.menu', 'tabs.rename', 'tabs.delete', 'tabs.damaged',
+  'tabs.renameTitle', 'tabs.renameNameLabel', 'tabs.renameSubmit', 'tabs.renameFailed',
+  'tabs.deleteTitle', 'tabs.deleteConfirm', 'tabs.deleteSubmit', 'tabs.deleteFailed',
+  'tabs.createFailed', 'tabs.cancel',
+  'scope.notReady', 'scope.loading', 'scope.loadFailed', 'scope.retry',
+  'scope.createFailed', 'scope.retryCreate', 'scope.damagedTitle', 'scope.damagedHint',
+  'scope.recoveryTitle', 'scope.recoveryHint', 'scope.noStudios',
+  'aMode.banner',
   // M3 Task 7：页签管理器（os-33）+ 汉堡文档菜单（os-24）chrome 键——
   // capabilities.*（20 条）由 capabilities.test.ts 数据驱动守卫。
+  // P2.4 起页签管理器数据面=Part Studio 注册表（iModel 列表/筛选/预览键退役）。
   'tabManager.title', 'tabManager.listLabel', 'tabManager.shortcut',
-  'tabManager.searchPlaceholder', 'tabManager.clear', 'tabManager.filterLabel',
-  'tabManager.filters.all', 'tabManager.filters.partStudio',
-  'tabManager.filters.assembly', 'tabManager.filters.tutorial',
+  'tabManager.searchPlaceholder', 'tabManager.clear',
   'tabManager.viewList', 'tabManager.viewGrid', 'tabManager.openAs',
-  'tabManager.empty', 'tabManager.loading', 'tabManager.loadFailed', 'tabManager.retry',
-  'tabManager.previewLabel', 'tabManager.noPreview', 'tabManager.close',
-  'tabManager.kindLabels.partStudio', 'tabManager.kindLabels.assembly',
-  'tabManager.kindLabels.tutorial',
+  'tabManager.empty', 'tabManager.noStudios', 'tabManager.loading', 'tabManager.loadFailed', 'tabManager.retry',
+  'tabManager.close', 'tabManager.damaged',
+  'tabManager.kindLabels.partStudio',
   'documentMenu.open',
   'documentMenu.rename', 'documentMenu.move', 'documentMenu.details',
   'documentMenu.restoreWorkspace', 'documentMenu.copyWorkspace',

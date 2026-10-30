@@ -20,14 +20,19 @@ import { allRibbonCommands } from './ribbon-registry.js';
 import type { RibbonCommand } from './ribbon-registry.js';
 import { CapabilityDialog, useToolActivation } from './Ribbon.js';
 
-export function CommandPalette(): React.JSX.Element | null {
+export interface CommandPaletteProps {
+  /** 只读总门（P2.4）：false 时写命令激活不派发（gated 信息面仍可开引导）。 */
+  canEdit?: boolean;
+}
+
+export function CommandPalette({ canEdit = true }: CommandPaletteProps = {}): React.JSX.Element | null {
   const { t } = useTranslation();
   const palette = usePartStudioStore((s) => s.commandPalette);
   const closeCommandPalette = usePartStudioStore((s) => s.closeCommandPalette);
   const setCommandPaletteQuery = usePartStudioStore((s) => s.setCommandPaletteQuery);
   const setPaletteHighlight = usePartStudioStore((s) => s.setPaletteHighlight);
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
-  const { activate, gatedCapability, closeGatedDialog } = useToolActivation();
+  const { activate, gatedCapability, closeGatedDialog } = useToolActivation(canEdit);
   const [activeIndex, setActiveIndex] = React.useState(0);
 
   // os-30「search 框禁用」：进入草图模式强制收合命令搜索。

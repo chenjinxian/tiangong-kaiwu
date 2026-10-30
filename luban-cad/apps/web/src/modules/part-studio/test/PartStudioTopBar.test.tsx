@@ -13,7 +13,7 @@
 // 定位：组件行为验收层；mock 口径与 DocumentMenuBar.test 一致（真实 i18n/store，
 // 客户端模块级 mock，零真实请求/零查看器）。
 
-import type React from 'react';
+import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -37,9 +37,35 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
     get = vi.fn().mockResolvedValue({ id: 'im-1', displayName: '楼层模型' });
     list = vi.fn();
     create = vi.fn();
+    update = vi.fn();
     delete = vi.fn();
   },
 }));
+
+// P2.1 F5 承接 / P2.4 DoD：分享目标注入面可观测——真实 ShareDocumentDialog
+// 的网络面不属本组件测试（B/A 分流判定在 prop 形状）。
+vi.mock('@modules/documents', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    ShareDocumentDialog: (props: {
+      doc: { id: string; mode: string; projectId: string } | null;
+      imodelId?: string | null;
+      canManageShare?: boolean;
+      isOpen: boolean;
+    }) =>
+      props.isOpen
+        ? React.createElement('div', {
+            'data-testid': 'share-dialog-stub',
+            'data-doc-id': props.doc?.id,
+            'data-mode': props.doc?.mode,
+            'data-project-id': props.doc?.projectId,
+            'data-imodel-id': props.imodelId ?? '',
+            'data-can-manage': String(props.canManageShare ?? false),
+          })
+        : null,
+  };
+});
 
 vi.mock('@clients/auth/AuthSession.js', () => ({
   AuthSession: {
@@ -189,5 +215,39 @@ describe('M4-T8 T3-②：help-button 死类清理', () => {
     const topBar = screen.getByTestId('part-studio-top-bar');
     const help = within(topBar).getByRole('button', { name: '帮助' });
     expect(help.className).not.toContain('part-studio-help-button');
+  });
+});
+
+// ── B-model P2.4（P2.1 F5 承接）：分享目标按 B/A 上下文分流 ─────────────────
+describe('B/A 分享模式派生（P2.1 F5）', () => {
+  it('B 文档：分享传 B DocumentSummary（iModel id + project id）+ imodelId + canManageShare', async () => {
+    const user = userEvent.setup();
+    renderTopBar({ mode: 'B', canManageShare: true });
+    await user.click(screen.getByRole('button', { name: '分享' }));
+    const stub = screen.getByTestId('share-dialog-stub');
+    expect(stub.getAttribute('data-mode')).toBe('B');
+    expect(stub.getAttribute('data-doc-id')).toBe('im-1');
+    expect(stub.getAttribute('data-project-id')).toBe('itwin-9');
+    expect(stub.getAttribute('data-imodel-id')).toBe('im-1');
+    expect(stub.getAttribute('data-can-manage')).toBe('true');
+  });
+
+  it('B 文档无 imodels_manage：canManageShare=false（fail-closed，不回退 A 通道）', async () => {
+    const user = userEvent.setup();
+    renderTopBar({ mode: 'B' });
+    await user.click(screen.getByRole('button', { name: '分享' }));
+    const stub = screen.getByTestId('share-dialog-stub');
+    expect(stub.getAttribute('data-mode')).toBe('B');
+    expect(stub.getAttribute('data-can-manage')).toBe('false');
+  });
+
+  it('A 旧文档（缺省）：分享仍走 iTwin 通道（doc id=iTwinId、无 imodelId）', async () => {
+    const user = userEvent.setup();
+    renderTopBar();
+    await user.click(screen.getByRole('button', { name: '分享' }));
+    const stub = screen.getByTestId('share-dialog-stub');
+    expect(stub.getAttribute('data-mode')).toBe('A');
+    expect(stub.getAttribute('data-doc-id')).toBe('itwin-9');
+    expect(stub.getAttribute('data-imodel-id')).toBe('');
   });
 });

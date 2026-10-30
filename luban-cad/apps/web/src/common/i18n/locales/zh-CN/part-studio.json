@@ -80,7 +80,38 @@
   "tabs": {
     "fitView": "适应视图",
     "newTab": "新建页签",
-    "partStudio": "Part Studio 1"
+    "newPartStudio": "新建 Part Studio",
+    "partStudio": "Part Studio 1",
+    "menu": "Part Studio 操作",
+    "rename": "重命名 Part Studio",
+    "delete": "删除 Part Studio",
+    "damaged": "已损坏",
+    "renameTitle": "重命名 Part Studio",
+    "renameNameLabel": "名称",
+    "renameSubmit": "保存",
+    "renameFailed": "重命名失败：{{message}}",
+    "deleteTitle": "删除 Part Studio",
+    "deleteConfirm": "确定删除「{{name}}」？此操作不可撤销，删除后 id 不会被重建。",
+    "deleteSubmit": "删除",
+    "deleteFailed": "删除失败：{{message}}",
+    "createFailed": "创建 Part Studio 失败：{{message}}",
+    "cancel": "取消"
+  },
+  "scope": {
+    "notReady": "Part Studio 上下文未就绪（文档 {{documentId}}）",
+    "loading": "正在解析 Part Studio…",
+    "loadFailed": "Part Studio 列表加载失败：{{message}}",
+    "retry": "重试",
+    "createFailed": "默认 Part Studio 创建失败：{{message}}",
+    "retryCreate": "重试创建",
+    "damagedTitle": "损坏的 Part Studio",
+    "damagedHint": "「{{name}}」缺少物理模型，无法打开；请删除该页签后继续。",
+    "recoveryTitle": "发现损坏的 Part Studio",
+    "recoveryHint": "文档中的 Part Studio 数据不完整，已停止自动创建默认页签。请删除损坏项后重试。",
+    "noStudios": "文档中没有 Part Studio"
+  },
+  "aMode": {
+    "banner": "旧版 A 文档：只读模式，不支持 Part Studio 页签与参数化编辑。"
   },
   "tabManager": {
     "title": "页签管理器",
@@ -88,27 +119,18 @@
     "shortcut": "页签管理器 (alt+~+t)",
     "searchPlaceholder": "搜索页签",
     "clear": "清除",
-    "filterLabel": "筛选",
-    "filters": {
-      "all": "全部",
-      "partStudio": "Part Studio",
-      "assembly": "装配体",
-      "tutorial": "教程"
-    },
     "viewList": "列表视图",
     "viewGrid": "网格视图",
     "openAs": "以打开",
     "empty": "无匹配页签",
+    "noStudios": "暂无 Part Studio",
     "loading": "加载中…",
     "loadFailed": "页签列表加载失败",
     "retry": "重试",
-    "previewLabel": "所选元素预览",
-    "noPreview": "没有预览图像",
     "close": "关闭",
+    "damaged": "损坏",
     "kindLabels": {
-      "partStudio": "Part Studio",
-      "assembly": "装配体",
-      "tutorial": "教程"
+      "partStudio": "Part Studio"
     }
   },
   "documentMenu": {

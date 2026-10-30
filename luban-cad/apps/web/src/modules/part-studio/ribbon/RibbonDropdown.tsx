@@ -28,9 +28,11 @@ export interface RibbonDropdownProps {
   active: boolean;
   /** 命令搜索亮显（palette 查询命中，os-23「亮显工具栏中的工具」）。 */
   highlighted: boolean;
+  /** 只读总门（P2.4）：主钮/子项禁用（gated 由 Ribbon 侧判定，不传本门）。 */
+  disabled?: boolean;
 }
 
-export function RibbonDropdown({ tool, onActivate, active, highlighted }: RibbonDropdownProps): React.JSX.Element {
+export function RibbonDropdown({ tool, onActivate, active, highlighted, disabled = false }: RibbonDropdownProps): React.JSX.Element {
   const { t } = useTranslation();
   const label = t(tool.labelKey);
   const MainIcon = tool.icon;
@@ -40,7 +42,7 @@ export function RibbonDropdown({ tool, onActivate, active, highlighted }: Ribbon
   const menuItems = (tool.dropdownItems ?? []).map((item) => {
     const ItemIcon = item.icon;
     return (
-      <MenuItem key={item.id} icon={<ItemIcon />} onClick={() => onActivate(item.id)}>
+      <MenuItem key={item.id} icon={<ItemIcon />} disabled={disabled} onClick={() => onActivate(item.id)}>
         {t(item.labelKey)}
       </MenuItem>
     );
@@ -62,6 +64,7 @@ export function RibbonDropdown({ tool, onActivate, active, highlighted }: Ribbon
         title={tool.shortcut ? `${label} (${tool.shortcut})` : label}
         aria-pressed={active}
         className={toolClass}
+        disabled={disabled}
         onClick={() => onActivate(tool.id)}
       >
         <MainIcon />

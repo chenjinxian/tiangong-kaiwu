@@ -54,6 +54,8 @@ export interface UsePermissionsOptions {
 export interface UsePermissionsResult {
   /** 编辑模式（加载中为不可信占位 readonly——以 isLoading 为门禁）。 */
   mode: PermissionMode;
+  /** 原始权限组（P2.4：编辑器分享门 `imodels_manage` 消费；缺席=[]）。 */
+  permissions: string[];
   /** 查询在途（首载未落定；iModelId 缺席/后台重查询为假）。 */
   isLoading: boolean;
   /** 查询错误（原样上抛，403/其余的错误裁决见 mode；呈现归消费方裁量）。 */
@@ -88,6 +90,7 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
 
   return {
     mode,
+    permissions: query.data ?? [],
     // v5 isLoading = isPending && isFetching：首载未落定为真；禁用（缺参）与
     // 有缓存的后台重查询为假——门禁只在「从未落定」期间关连接。
     isLoading: query.isLoading,

@@ -28,6 +28,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   itwinsUpdate: vi.fn(),
+  imodelsUpdate: vi.fn(),
 }));
 
 vi.mock('@clients/itwins/ItwinsClient.js', () => ({
@@ -47,6 +48,7 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
     get = vi.fn();
     list = vi.fn();
     create = vi.fn();
+    update = mocks.imodelsUpdate;
     delete = vi.fn();
   },
 }));
@@ -88,12 +90,14 @@ function LocationProbe(): JSX.Element {
   return <output data-testid="location-probe">{location.pathname}</output>;
 }
 
-function renderMenu(): ReturnType<typeof render> {
+function renderMenu(
+  props: Partial<Parameters<typeof DocumentMenuBar>[0]> = {},
+): ReturnType<typeof render> {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`/documents/${ITWIN_ID}/im-1`]}>
-        <DocumentMenuBar iTwinId={ITWIN_ID} documentName={DOC_NAME} />
+        <DocumentMenuBar iTwinId={ITWIN_ID} documentName={DOC_NAME} {...props} />
         <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -109,6 +113,7 @@ async function openMenu(user: ReturnType<typeof userEvent.setup>): Promise<HTMLE
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.itwinsUpdate.mockResolvedValue({ id: ITWIN_ID, displayName: '新名字' });
+  mocks.imodelsUpdate.mockResolvedValue({ id: 'im-1', displayName: '新名字' });
   usePartStudioStore.setState({ viewOnly: { isActive: false } });
 });
 
@@ -258,5 +263,32 @@ describe('PartStudioTopBar 集成（汉堡 + 分享钮）', () => {
     expect(tabs[0]?.textContent).toMatch(/^成员/);
     expect(within(dialog).getByRole('tab', { name: '邀请成员' })).toBeDefined();
     expect(within(dialog).getByRole('tab', { name: '分享链接' })).toBeDefined();
+  });
+});
+
+// ── B-model P2.4（P2.1 F5 承接）：B/A 重命名分流 ────────────────────────────
+describe('B/A 重命名模式派生（P2.1 F5）', () => {
+  it('B 文档：重命名走 ImodelsClient.update（iModel id + name），不碰 iTwin', async () => {
+    const user = userEvent.setup();
+    renderMenu({ mode: 'B', iModelId: 'im-1', documentName: '楼层模型', canManage: true });
+    const menu = await openMenu(user);
+    await user.click(within(menu).getByRole('menuitem', { name: '重命名文档' }));
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByLabelText('文档名称') as HTMLInputElement;
+    expect(input.value).toBe('楼层模型');
+    await user.clear(input);
+    await user.type(input, '新 iModel 名');
+    await user.click(within(dialog).getByRole('button', { name: '保存' }));
+    expect(mocks.imodelsUpdate).toHaveBeenCalledWith('im-1', { name: '新 iModel 名' });
+    expect(mocks.itwinsUpdate).not.toHaveBeenCalled();
+  });
+
+  it('B 文档无 imodels_manage：重命名项禁用（不回落 iTwin 通道）', async () => {
+    const user = userEvent.setup();
+    renderMenu({ mode: 'B', iModelId: 'im-1', documentName: '楼层模型', canManage: false });
+    const menu = await openMenu(user);
+    const rename = within(menu).getByRole('menuitem', { name: '重命名文档' });
+    expect(rename.getAttribute('aria-disabled')).toBe('true');
+    expect(mocks.itwinsUpdate).not.toHaveBeenCalled();
   });
 });

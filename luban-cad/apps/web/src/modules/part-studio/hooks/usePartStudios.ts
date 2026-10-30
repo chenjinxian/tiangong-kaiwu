@@ -1,0 +1,180 @@
+/**
+ * Copyright (c) LubanCAD. All rights reserved.
+ * Licensed under the MIT License.
+ *
+ * usePartStudios（B-model P2.4）：Part Studio 注册表数据/写入口（RPC 1.18）。
+ *
+ * - 读：`listPartStudios(iModelKey)` 纯读（不初始化、不建分区；空文档=[]）。
+ *   B 文档才启用（A 模式 enabled=false → 零 registry 调用，状态恒空）。
+ * - 写：create/rename/remove 全部经共享 `EditorSession`——同一 `sessionId` +
+ *   同一 `iModelKey`（`connection.key`），先 `session.acquire()` 确认持有写租约
+ *   （服务端 assertHeld 先于任何 EditTxn；P2.2 审查 Important）。禁止另起会话
+ *   或空 session 调 registry：租约被他人持有 → 抛服务端 holder 语义错误。
+ * - `refresh` 纪元守卫：慢响应晚到按序号丢弃（useFeatureSystem 同口径）。
+ * - 半图恢复（P2.2 交接）：list 的 degraded 条目由后端以 `physModelId === ''`
+ *   标记（P2.4 FeatureService 扩展）——本 hook 原样透传，UI 据此显示损坏态且
+ *   绝不把这类条目当可打开 scope；写入口不为其提供 rename（后端亦拒收）。
+ *
+ * 服务端态归 hook 本地 state（spec §3：禁拷贝进 zustand）。错误原样上抛给 UI
+ * （删除最后一个完整 scope 的服务端拒绝、租约 holder 等文案不得吞掉）。
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import i18next from 'i18next';
+import {
+  type PartStudioInfo,
+  LubanFeatureRpcInterface,
+} from '@luban-cad/shared';
+import { LEASE_OP_ACQUIRE_RETRY_MS, type EditorSession } from './useEditorSession.js';
+
+/** 注册表写方法取租约预算：编辑器打开时生命周期已持有租约，正常即取即回；
+ *  仅换连接/前页残留窗口需要等待（不占用 op 的 35s 自愈预算）。 */
+export const REGISTRY_LEASE_ACQUIRE_BUDGET_MS = 10_000;
+
+export interface UsePartStudiosOptions {
+  /** B 文档才为真；false = A 模式/无 B 上下文 → 零 registry 调用。 */
+  enabled?: boolean;
+}
+
+export interface UsePartStudios {
+  studios: PartStudioInfo[];
+  isLoading: boolean;
+  /**
+   * 当前 iModelKey 的首次列表已落定（成功或失败）。解析器**必须**以此判空：
+   * 首帧/mode 翻转那一帧 isLoading 可能尚未来得及置真——不得把「未加载」
+   * 误判成空文档而自动 create（P2.4 竞态）。
+   */
+  loaded: boolean;
+  error?: string;
+  create(name: string): Promise<PartStudioInfo>;
+  rename(partStudioId: string, name: string): Promise<PartStudioInfo>;
+  remove(partStudioId: string): Promise<void>;
+  refresh(): Promise<void>;
+}
+
+/** 注册表排序（与后端同口径：order 升序、同序按 id）——本地增量更新后保序。 */
+export function sortPartStudios(studios: readonly PartStudioInfo[]): PartStudioInfo[] {
+  return [...studios].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+}
+
+export function usePartStudios(
+  iTwinId: string | undefined,
+  iModelId: string | undefined,
+  session: EditorSession,
+  opts?: UsePartStudiosOptions,
+): UsePartStudios {
+  const enabled = opts?.enabled ?? true;
+  const iModelKey = session.iModelKey;
+  const active = enabled && !!iModelKey;
+  const documentId = iModelId ?? iTwinId ?? '';
+
+  const [studios, setStudios] = useState<PartStudioInfo[]>([]);
+  // 有 key 时首帧即视为「列表在途」（解析器不得把首帧误判成空文档而自动 create）。
+  const [isLoading, setIsLoading] = useState<boolean>(active);
+  const [error, setError] = useState<string | undefined>(undefined);
+  // 已落定的 iModelKey（首跳成功/失败都算）；切换连接/文档即失效 → 解析器等待。
+  const [loadedKey, setLoadedKey] = useState<string | undefined>(undefined);
+  const loaded = !!iModelKey && loadedKey === iModelKey;
+  const seqRef = useRef(0);
+
+  const refresh = useCallback(async (): Promise<void> => {
+    const seq = ++seqRef.current;
+    if (!enabled) {
+      setStudios([]);
+      setIsLoading(false);
+      setError(undefined);
+      setLoadedKey(undefined);
+      return;
+    }
+    if (!iModelKey) {
+      // 连接未就绪：停在「在途」等 connection.key 落位（不得当空文档处理）。
+      setIsLoading(true);
+      setLoadedKey(undefined);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const list = await LubanFeatureRpcInterface.getClient().listPartStudios(iModelKey);
+      if (seq !== seqRef.current) return; // 晚到响应按纪元丢弃
+      setStudios(sortPartStudios(list));
+      setError(undefined);
+      setLoadedKey(iModelKey);
+    } catch (err) {
+      if (seq !== seqRef.current) return;
+      setError(err instanceof Error ? err.message : String(err));
+      setLoadedKey(iModelKey);
+    } finally {
+      if (seq === seqRef.current) setIsLoading(false);
+    }
+  }, [enabled, iModelKey]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  /** 注册表写前门禁：B 上下文 + 连接 key + 持有共享会话的写租约。 */
+  const requireWritable = useCallback(async (): Promise<{ iModelKey: string; sessionId: string }> => {
+    if (!enabled || !iModelKey) {
+      throw new Error(i18next.t('partStudio.scope.notReady', { documentId }));
+    }
+    const lease = await session.acquire({
+      budgetMs: REGISTRY_LEASE_ACQUIRE_BUDGET_MS,
+      retryMs: LEASE_OP_ACQUIRE_RETRY_MS,
+    });
+    if (!lease.ok) {
+      throw new Error(
+        lease.holder
+          ? i18next.t('partStudio.featureSystem.leaseHeldBy', { holder: lease.holder })
+          : i18next.t('partStudio.featureSystem.leaseAcquireFailed'),
+      );
+    }
+    return { iModelKey, sessionId: session.sessionId };
+  }, [enabled, iModelKey, session, documentId]);
+
+  const create = useCallback(
+    async (name: string): Promise<PartStudioInfo> => {
+      const target = await requireWritable();
+      const created = await LubanFeatureRpcInterface.getClient().createPartStudio(
+        target.iModelKey,
+        name,
+        target.sessionId,
+      );
+      setStudios((prev) => sortPartStudios([...prev.filter((s) => s.id !== created.id), created]));
+      setError(undefined);
+      return created;
+    },
+    [requireWritable],
+  );
+
+  const rename = useCallback(
+    async (partStudioId: string, name: string): Promise<PartStudioInfo> => {
+      const target = await requireWritable();
+      const renamed = await LubanFeatureRpcInterface.getClient().renamePartStudio(
+        target.iModelKey,
+        partStudioId,
+        name,
+        target.sessionId,
+      );
+      setStudios((prev) =>
+        sortPartStudios(prev.map((studio) => (studio.id === renamed.id ? renamed : studio))),
+      );
+      return renamed;
+    },
+    [requireWritable],
+  );
+
+  const remove = useCallback(
+    async (partStudioId: string): Promise<void> => {
+      const target = await requireWritable();
+      await LubanFeatureRpcInterface.getClient().deletePartStudio(
+        target.iModelKey,
+        partStudioId,
+        target.sessionId,
+      );
+      setStudios((prev) => prev.filter((studio) => studio.id !== partStudioId));
+    },
+    [requireWritable],
+  );
+
+  return { studios, isLoading, loaded, error, create, rename, remove, refresh };
+}

@@ -41,7 +41,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type React from 'react';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -146,12 +146,17 @@ const featureRpc = vi.hoisted(() => ({
   // B6 M-A3.2a：body 读面（缺省空集；I1 用例覆写为初次失败）。
   getBodies: vi.fn(async (_key: string): Promise<unknown[]> => []),
   applyFeatureOp: vi.fn(
-    async (_key: string, _op: unknown, _sessionId: string): Promise<{ ok: boolean; featureId?: string }> =>
+    async (_key: string, _op: unknown, _sessionId: string, _partStudioId?: string): Promise<{ ok: boolean; featureId?: string }> =>
       ({ ok: true, featureId: 'f-new' }),
   ),
   acquireWriteLease: vi.fn(async (_key: string, _sessionId: string) => ({ ok: true, holder: 'tester' })),
   releaseWriteLease: vi.fn(async (_key: string, _sessionId: string) => undefined),
   getSketch: vi.fn(async (_key: string, _sketchId: string): Promise<unknown> => undefined),
+  // B-model P2.4：注册表（usePartStudios——scope 解析/页签/写方法）。
+  listPartStudios: vi.fn(async (_key: string): Promise<unknown[]> => []),
+  createPartStudio: vi.fn(async (_key: string, _name: string, _sessionId: string): Promise<unknown> => undefined),
+  renamePartStudio: vi.fn(async (_key: string, _id: string, _name: string, _sessionId: string): Promise<unknown> => undefined),
+  deletePartStudio: vi.fn(async (_key: string, _id: string, _sessionId: string): Promise<void> => undefined),
 }));
 
 vi.mock('@luban-cad/shared', () => ({
@@ -182,10 +187,23 @@ import { viewerNotifications } from '@app/providers/ViewerNotifications.js';
 // 同一实例——vi.mock 工厂与测试文件共享模块图）。
 import { IModelApp } from '@itwin/core-frontend';
 
+// B-model P2.4：默认夹具 = B 项目（marker data.luban.modelMode='B'）——编辑链
+// 仅在 B 文档开放（A 旧文档只读）；A 专用用例经 renderAPage 覆写标记。
 const ITWIN_DETAIL = {
   id: 'itwin-1',
   displayName: '演示文档',
   status: 'Active',
+  data: { luban: { modelMode: 'B', schemaVersion: 1 } },
+};
+
+const A_ITWIN_DETAIL = { id: 'itwin-1', displayName: '演示文档', status: 'Active' };
+
+const STUDIO_1 = {
+  id: 'ps-1',
+  name: 'Part Studio 1',
+  order: 1,
+  defModelId: 'def-1',
+  physModelId: 'phys-1',
 };
 
 const IMODEL_DETAIL = {
@@ -313,21 +331,53 @@ function resetStore(): void {
   });
 }
 
-function pageTree(): React.JSX.Element {
+/** 路由探针（P2.4：页签切换/默认创建只换 URL 的断言面）。 */
+function LocationProbe(): React.JSX.Element {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  return (
+    <>
+      <output data-testid="location-probe">{`${location.pathname}${location.search}`}</output>
+      <output data-testid="navigation-type">{navigationType}</output>
+    </>
+  );
+}
+
+function pageTree(entry = '/documents/itwin-1/im-1?model=ps-1'): React.JSX.Element {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/documents/itwin-1/im-1']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/documents/:iTwinId/:iModelId" element={<PartStudioPage />} />
         </Routes>
+        <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
-function renderPage(): ReturnType<typeof render> {
-  return render(pageTree());
+function renderPage(entry?: string): ReturnType<typeof render> {
+  return render(pageTree(entry));
+}
+
+/** A 旧文档页（无 marker）：只读面用例。 */
+function renderAPage(entry = '/documents/itwin-1/im-1'): ReturnType<typeof render> {
+  mocks.itwinsGet.mockResolvedValue(A_ITWIN_DETAIL);
+  return render(pageTree(entry));
+}
+
+/**
+ * B 页 + 等 scope 解析落定（编辑面开放 = 顶栏「保存版本」钮可用）。
+ * P2.4 起 canEdit 需 marker→list→scope ready 三跳，编辑交互用例先等门开。
+ */
+async function renderReadyPage(entry?: string): Promise<ReturnType<typeof render>> {
+  const rendered = renderPage(entry);
+  await waitFor(() => {
+    const save = screen.getByTestId('part-studio-save-button') as HTMLButtonElement;
+    expect(save.disabled === false && save.getAttribute('aria-disabled') !== 'true').toBe(true);
+  }, { timeout: 10_000 });
+  return rendered;
 }
 
 beforeEach(() => {
@@ -335,6 +385,8 @@ beforeEach(() => {
   resetStore();
   mocks.itwinsGet.mockResolvedValue(ITWIN_DETAIL);
   mocks.imodelsGet.mockResolvedValue(IMODEL_DETAIL);
+  // B 文档注册表：缺省一个完整 scope（URL ?model=ps-1 命中 → scope ready）。
+  featureRpc.listPartStudios.mockResolvedValue([STUDIO_1]);
   // T7 页签管理器（底部「+」开合）：列表查询零真实请求。
   mocks.imodelsList.mockResolvedValue([IMODEL_DETAIL]);
   // M4-T7：dock 版本历史查询零真实请求（页面级测试默认空集）。
@@ -455,19 +507,31 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(dock).queryByTestId('part-studio-dock-body')).toBeNull();
   });
 
-  it('页签条：适应视图钮 + 「+」（T7 开页签管理器）+ 活动页签 Part Studio 1', async () => {
+  it('页签条（P2.4）：活动页签=注册表 scope；「+」创建默认 Part Studio 并导航', async () => {
     const user = userEvent.setup();
-    renderPage();
+    const created = {
+      id: 'ps-new', name: 'Part Studio 2', order: 2, defModelId: 'def-2', physModelId: 'phys-2',
+    };
+    featureRpc.createPartStudio.mockResolvedValueOnce(created);
+    await renderReadyPage();
     const strip = screen.getByTestId('part-studio-tab-strip');
     expect(within(strip).getByRole('button', { name: '适应视图' })).toBeDefined();
-    const newTabButton = within(strip).getByRole('button', { name: '新建页签' });
-    // T7 起「+」启用（os-33 页签管理器入口；T3 壳期禁用位收口）。
+    // 活动页签来自注册表列表（?model=ps-1）。
+    const activeTab = within(strip).getByRole('tab', { name: 'Part Studio 1' });
+    expect(activeTab.getAttribute('aria-selected')).toBe('true');
+    // 「+」= 创建默认名称 Part Studio（共享会话 + connection.key），成功后换 URL。
+    const newTabButton = within(strip).getByRole('button', { name: '新建 Part Studio' });
     expect(newTabButton.getAttribute('aria-disabled')).not.toBe('true');
     await user.click(newTabButton);
-    // 页签管理器对话框打开（底栏快捷键标注为其结构锚点）。
-    expect(await screen.findByText('页签管理器 (alt+~+t)')).toBeDefined();
-    const tab = within(strip).getByRole('tab', { name: 'Part Studio 1' });
-    expect(tab.getAttribute('aria-selected')).toBe('true');
+    expect(featureRpc.createPartStudio).toHaveBeenCalledWith(
+      'briefcase-key',
+      'Part Studio 1',
+      expect.any(String),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-new'),
+    );
+    expect(within(strip).getByRole('tab', { name: 'Part Studio 2' }).getAttribute('aria-selected')).toBe('true');
   });
 
   it('状态栏：连接态（useViewport ready → 已连接）+ 编辑模式 + 单位 + 视图类型', () => {
@@ -848,7 +912,8 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
 describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框消费）', () => {
   it('Session 内层挂 useFeatureSystem：RPC 读树（connection.key）+ 编辑作用域就绪后申请写租约', async () => {
     renderPage();
-    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
+    // P2.4：B 文档 URL 带 ?model=ps-1——读树携带 scope；租约会话与 scope 无关。
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key', 'ps-1'));
     await waitFor(() => expect(featureRpc.acquireWriteLease).toHaveBeenCalledWith('briefcase-key', expect.any(String)));
   });
 
@@ -908,6 +973,7 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
           params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
         },
         expect.any(String),
+        'ps-1',
       ),
     );
     await waitFor(() => expect(usePartStudioStore.getState().dialog.active).toBeNull());
@@ -1120,5 +1186,186 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull());
     expect(coreFrontendMocks.outputMessage).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── B-model P2.4：scope 解析 / A 只读 / 租约共享 / URL 切换不重连 ─────────────
+describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
+  const STUDIO_2 = {
+    id: 'ps-2', name: 'Part Studio 2', order: 2, defModelId: 'def-2', physModelId: 'phys-2',
+  };
+  const HALF = {
+    id: 'half-1', name: 'half-1', order: 0, defModelId: 'def-half', physModelId: '',
+  };
+
+  const locationText = (): string => screen.getByTestId('location-probe').textContent ?? '';
+  const navigationType = (): string => screen.getByTestId('navigation-type').textContent ?? '';
+
+  it('A 旧文档（未标记）：只读横幅 + 只读连接 + 零 registry + 编辑面收口', async () => {
+    renderAPage('/documents/itwin-1/im-1');
+    expect(await screen.findByTestId('part-studio-readonly-banner')).toBeDefined();
+    // 只读打开（A 语义）：权限 editable 也强制 readonly。
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith({
+        iTwinId: 'itwin-1',
+        iModelId: 'im-1',
+        readonly: true,
+      }),
+    );
+    // 零 Part Studio 注册表调用（A 不列/不建/不写）。
+    expect(featureRpc.listPartStudios).not.toHaveBeenCalled();
+    expect(featureRpc.createPartStudio).not.toHaveBeenCalled();
+    expect(featureRpc.acquireWriteLease).not.toHaveBeenCalled();
+    // legacy 读面照常（无 ?model= → 省略 scope 实参）。
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
+    // 编辑面整体收口：不进编辑作用域、保存版本禁用、「+」禁用。
+    expect(FAKE_CONNECTION.enterEditingScope).not.toHaveBeenCalled();
+    const save = screen.getByTestId('part-studio-save-button') as HTMLButtonElement;
+    expect(save.disabled || save.getAttribute('aria-disabled') === 'true').toBe(true);
+    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
+    // legacy 单页签仍在。
+    expect(screen.getByRole('tab', { name: 'Part Studio 1' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('B 文档无 ?model=：列表空 → 创建默认 Part Studio 1（共享租约）→ replace 导航', async () => {
+    featureRpc.listPartStudios.mockResolvedValue([]);
+    const created = {
+      id: 'ps-created', name: 'Part Studio 1', order: 1, defModelId: 'def-new', physModelId: 'phys-new',
+    };
+    featureRpc.createPartStudio.mockResolvedValueOnce(created);
+    renderPage('/documents/itwin-1/im-1');
+    await waitFor(() =>
+      expect(featureRpc.createPartStudio).toHaveBeenCalledWith('briefcase-key', 'Part Studio 1', expect.any(String)),
+    );
+    // pre-editor create 先取同一会话租约（assertHeld 前提）。
+    await waitFor(() => expect(featureRpc.acquireWriteLease).toHaveBeenCalled());
+    const sessionIds = new Set([
+      ...featureRpc.acquireWriteLease.mock.calls.map((call) => call[1] as string),
+      featureRpc.createPartStudio.mock.calls.at(-1)?.[2] as string,
+    ]);
+    expect(sessionIds.size).toBe(1);
+    // replace 导航（默认 scope 解析不得留历史步）。
+    await waitFor(() => expect(locationText()).toContain('?model=ps-created'));
+    expect(navigationType()).toBe('REPLACE');
+    // 解析完成后读树携带新 scope。
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key', 'ps-created'));
+  });
+
+  it('B 文档非法 ?model=：回落到第一个完整 scope（replace，不创建）', async () => {
+    featureRpc.listPartStudios.mockResolvedValue([HALF, STUDIO_1, STUDIO_2]);
+    renderPage('/documents/itwin-1/im-1?model=missing');
+    await waitFor(() => expect(locationText()).toContain('?model=ps-1'));
+    expect(navigationType()).toBe('REPLACE');
+    expect(featureRpc.createPartStudio).not.toHaveBeenCalled();
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key', 'ps-1'));
+  });
+
+  it('B 文档仅半图条目（无完整 scope）：显示恢复/删除入口，绝不自动 create', async () => {
+    featureRpc.listPartStudios.mockResolvedValue([HALF]);
+    renderPage('/documents/itwin-1/im-1');
+    expect(await screen.findByTestId('part-studio-scope-recovery')).toBeDefined();
+    await waitFor(() => expect(featureRpc.listPartStudios).toHaveBeenCalled());
+    expect(featureRpc.createPartStudio).not.toHaveBeenCalled();
+    expect(screen.getByTestId('part-studio-damaged-delete-half-1')).toBeDefined();
+    // 视口/特征读面保持门禁（不读任何 scope 的树）。
+    expect(featureRpc.getFeatureTree).not.toHaveBeenCalled();
+    // 删除最后一个半图后列表为空 → 解析器创建全新默认 scope（P2.4：允许；
+    // 墓碑 id 不重建，新 scope 是新 UUID）。
+    featureRpc.createPartStudio.mockResolvedValueOnce({
+      id: 'ps-fresh', name: 'Part Studio 1', order: 1, defModelId: 'def-fresh', physModelId: 'phys-fresh',
+    });
+    // 恢复删除走 HITL：确认前后端零写；确认后走同一会话的 deletePartStudio。
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('part-studio-damaged-delete-half-1'));
+    const dialog = await screen.findByRole('dialog', { name: '删除 Part Studio' });
+    expect(featureRpc.deletePartStudio).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+    await waitFor(() =>
+      expect(featureRpc.deletePartStudio).toHaveBeenCalledWith('briefcase-key', 'half-1', expect.any(String)),
+    );
+  });
+
+  it('B 文档只读（仅 webview）+ 空文档：不自动 create（诚实空态、零租约/零写）', async () => {
+    mocks.accessControlGetMyPermissions.mockResolvedValue(['imodels_webview']);
+    featureRpc.listPartStudios.mockResolvedValue([]);
+    renderPage('/documents/itwin-1/im-1');
+    expect(await screen.findByTestId('part-studio-scope-empty')).toBeDefined();
+    expect(featureRpc.createPartStudio).not.toHaveBeenCalled();
+    expect(featureRpc.acquireWriteLease).not.toHaveBeenCalled();
+    expect(locationText()).not.toContain('?model=');
+  });
+
+  it('B 文档活动 scope 为半图（?model=half-1）：损坏横幅，不读特征树', async () => {
+    featureRpc.listPartStudios.mockResolvedValue([HALF, STUDIO_1]);
+    renderPage('/documents/itwin-1/im-1?model=half-1');
+    expect(await screen.findByTestId('part-studio-scope-damaged')).toBeDefined();
+    expect(screen.getByTestId('part-studio-damaged-delete')).toBeDefined();
+    expect(featureRpc.createPartStudio).not.toHaveBeenCalled();
+    expect(featureRpc.getFeatureTree).not.toHaveBeenCalled();
+    expect(locationText()).toContain('?model=half-1');
+  });
+
+  it('页签切换只换 URL：不重建连接（connection.key 稳定，读树用同一 key + 新 scope）', async () => {
+    const user = userEvent.setup();
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, STUDIO_2]);
+    await renderReadyPage();
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key', 'ps-1'));
+    const optionsBefore = viewerMocks.useBriefcaseConnection.mock.calls
+      .map((call) => call[0])
+      .filter((options) => options !== null)
+      .at(-1);
+    await user.click(screen.getByRole('tab', { name: 'Part Studio 2' }));
+    await waitFor(() => expect(locationText()).toContain('?model=ps-2'));
+    expect(navigationType()).toBe('PUSH');
+    // 同一连接实例/键：切换后读树仍走 briefcase-key + 新 scope。
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key', 'ps-2'));
+    const optionsAfter = viewerMocks.useBriefcaseConnection.mock.calls
+      .map((call) => call[0])
+      .filter((options) => options !== null)
+      .at(-1);
+    expect(optionsAfter).toEqual(optionsBefore);
+    // 视口仍接同一连接（useViewport 的 iModel 未换实例）。
+    expect((viewerMocks.useViewport.mock.calls.at(-1)?.[0] as { iModel: unknown }).iModel).toBe(FAKE_CONNECTION);
+  });
+
+  it('注册表写方法与 useFeatureSystem 共用同一 sessionId + iModelKey（租约共享）', async () => {
+    const user = userEvent.setup();
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1]);
+    // applyOp 通道需要草图轮廓（同「拉伸闭环」用例的提交路径）。
+    featureRpc.getFeatureTree.mockResolvedValueOnce([
+      { id: 'sk-1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
+    ]);
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1',
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    });
+    await renderReadyPage();
+    await waitFor(() => expect(featureRpc.acquireWriteLease).toHaveBeenCalled());
+    // applyOp 通道（FeatureDialog 提交）用会话 id。
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+    });
+    const dialog = await screen.findByTestId('part-studio-feature-dialog');
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: '草图' }), 'sk-1');
+    await within(dialog).findByText('草图 1 的面');
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(featureRpc.applyFeatureOp).toHaveBeenCalled());
+    const applySessionId = featureRpc.applyFeatureOp.mock.calls.at(-1)?.[2] as string;
+    const applyScope = featureRpc.applyFeatureOp.mock.calls.at(-1)?.[3];
+    expect(applyScope).toBe('ps-1');
+    // 注册表写通道（create）用同一 id/key。
+    const created = {
+      id: 'ps-shared', name: 'Part Studio 1', order: 1, defModelId: 'd', physModelId: 'p',
+    };
+    featureRpc.createPartStudio.mockResolvedValueOnce(created);
+    await user.click(screen.getByRole('button', { name: '新建 Part Studio' }));
+    await waitFor(() => expect(featureRpc.createPartStudio).toHaveBeenCalled());
+    const [, , createSessionId] = featureRpc.createPartStudio.mock.calls.at(-1) as [string, string, string];
+    expect(createSessionId).toBe(applySessionId);
+    expect(featureRpc.createPartStudio.mock.calls.at(-1)?.[0]).toBe('briefcase-key');
   });
 });

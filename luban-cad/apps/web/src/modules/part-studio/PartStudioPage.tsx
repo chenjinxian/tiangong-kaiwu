@@ -76,6 +76,21 @@
  * hasPendingTxns 归 false）。dock「保存」钮与 Ctrl+S 键位保留 saveChanges
  * 本地兜底语义（与推送分离）。
  *
+ * **B-model P2.4（编辑器 scope 解析 + 真页签 + URL 生产者 + A 只读）**：
+ * - B/A 由 iTwin 标记（`isBModelItwin`）派生（旗标关时直连 B 文档仍是 B）；
+ *   B 才开注册表，A 零 registry 调用且只读打开（readonly=true）+ 只读横幅；
+ * - 共享编辑会话（useEditorSession）：sessionId/iModelKey/租约单点——
+ *   useFeatureSystem 与 usePartStudios（create/rename/delete）及默认 scope 的
+ *   pre-editor create 共用同一 id（P2.2 审查 Important）；
+ * - scope 解析（usePartStudioScope）：?model= 完整→打开；非法/缺省→第一个
+ *   完整 scope（replace 导航）；空文档→创建默认 Part Studio 1（共享租约）后
+ *   replace；仅半图→恢复/删除面，绝不自动 create；
+ * - 门禁：scope 解析前 useFeatureSystem readEnabled=false（零读 RPC）、
+ *   useViewport 不收 iModel；页签切换只换 URL（workspaceRefPath），路由不变
+ *   → BriefcaseConnection 不重建；
+ * - 半图 degraded（physModelId=''）由 P2.4 后端扩展列出；恢复删除走 HITL 并
+ *   与注册表使用同一会话。
+ *
  * 连接失败 UX（M5-T2）：briefcase 的 isLoading/error 两出口（M4-T2 落地后一直
  * 零消费）接入呈现链——连接三态（下载中/失败/就绪）从此在编辑器页可见：
  * - **呈现层位（T2 定序纪律裁量）**：useBriefcaseConnection 仍钉外层（「为何
@@ -96,7 +111,9 @@
 
 import React, { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { Button, Dialog, Text } from '@itwin/itwinui-react';
 import {
   applyViewportBackground,
   ensureEditTools,
@@ -104,10 +121,15 @@ import {
   useBriefcaseConnection,
   useViewport,
 } from '@luban-cad/viewer';
+import type { PartStudioInfo } from '@luban-cad/shared';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';
+import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
+import { isBModelItwin } from '@clients/itwins/types.js';
+import type { DocumentMode } from '@modules/documents';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
+import { workspaceRefPath } from '@common/workspace/workspace-ref.js';
 import { env } from '@config/env.js';
 import { viewerNotifications } from '@app/providers/ViewerNotifications.js';
 import { PartStudioTopBar } from './components/PartStudioTopBar.js';
@@ -126,8 +148,15 @@ import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 // mapFeatureEntries（M6-a T6）：拉伸对话框草图下拉与特征树同源命名（复用
 // useFeatureTree 的条目→行映射纯函数，不复制命名逻辑）。
 import { mapFeatureEntries } from './hooks/useFeatureTree.js';
+import { useEditorSession, type EditorSession } from './hooks/useEditorSession.js';
 import { useFeatureSystem } from './hooks/useFeatureSystem.js';
 import { useNamedVersionActions } from './hooks/useNamedVersionActions.js';
+import { usePartStudios } from './hooks/usePartStudios.js';
+import {
+  DEFAULT_PART_STUDIO_NAME,
+  usePartStudioScope,
+  type PartStudioScopeState,
+} from './hooks/usePartStudioScope.js';
 import { usePermissions } from './hooks/usePermissions.js';
 import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
@@ -139,32 +168,108 @@ export function PartStudioPage(): React.JSX.Element {
   const workspaceRef = useWorkspaceRef();
   const iTwinId = workspaceRef?.iTwinId;
   const iModelId = workspaceRef?.iModelId;
+  const requestedModelId = workspaceRef?.modelId;
+  const navigate = useNavigate();
   // 权限门（M5-T3 真实判定收编 M4 中期口径）：可编辑 = !viewOnly ∧ 权限
   // editable（viewOnly=store 仅查看切片；权限=iModel 级我的权限查询）。
   const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
   const permissions = usePermissions({ iTwinId: iTwinId ?? null, iModelId: iModelId ?? null });
+
+  // B/A 文档上下文（P2.4 第 3 条裁决）：由 iTwin 标记派生（isBModelItwin），
+  // **不看 VITE_B_MODEL_ENABLED 旗标**——旗标关闭时直连 B 文档仍按 B 解析。
+  // queryKey 与顶栏面包屑同键（React Query 去重，不重复请求）。
+  const itwinQuery = useQuery({
+    queryKey: ['part-studio', 'breadcrumb', 'itwin', iTwinId ?? ''],
+    queryFn: () => new ItwinsClient().get(iTwinId as string),
+    enabled: !!iTwinId,
+  });
+  const mode: DocumentMode | undefined = itwinQuery.data
+    ? (isBModelItwin(itwinQuery.data) ? 'B' : 'A')
+    : undefined;
+  const modeError = itwinQuery.isError
+    ? (itwinQuery.error instanceof Error ? itwinQuery.error.message : String(itwinQuery.error))
+    : undefined;
+
   // 权限门接线（旧应用竞态教训——必须遵守）：useBriefcaseConnection 首开定
   // 读写（打开 effect deps 不含 readonly），故权限 isLoading 期间传 null
   // options 关连接（零 IPC），落定后再以合流 readonly 开——否则「权限未载
   // 早开只读 → 权限解析 editable 但 effect 不重跑 → 连接恒只读保存失败」。
-  // 合流单点：readonly = viewOnly ∨ 权限只读。
+  // 合流单点：readonly = viewOnly ∨ 权限只读 ∨ A 旧文档（A 只读打开，P2.4）。
+  // B/A 未定（标记查询在途）同样关连接：首开定读写，不得先按 A/B 误开。
   const briefcase = useBriefcaseConnection(
-    iTwinId && iModelId && !permissions.isLoading
-      ? { iTwinId, iModelId, readonly: viewOnly || permissions.mode === 'readonly' }
+    iTwinId && iModelId && !permissions.isLoading && mode !== undefined
+      ? {
+          iTwinId,
+          iModelId,
+          readonly: viewOnly || permissions.mode === 'readonly' || mode === 'A',
+        }
       : null,
   );
-  // 编辑面单点门（Session 各编辑出口统一消费；加载中 mode 不可信占位
-  // readonly → 编辑面先收口，落定 editable 后随查询重渲染放行）。
-  const canEdit = !viewOnly && permissions.mode === 'editable';
+
+  // 共享编辑会话（P2.4；P2.2 审查 Important）：sessionId/iModelKey/租约生命周期
+  // 单点持有——useFeatureSystem、注册表写方法、默认 scope 创建共用。
+  // 可写会话 = B ∧ !viewOnly ∧ 权限 editable（A 只读：不申请写租约）。
+  const writableSession = mode === 'B' && !viewOnly && permissions.mode === 'editable';
+  const session = useEditorSession(briefcase.connection ?? undefined, {
+    enabled: writableSession,
+  });
+
+  // Part Studio 注册表（B only；A enabled=false → 零 registry 调用）。
+  const partStudios = usePartStudios(iTwinId, iModelId, session, { enabled: mode === 'B' });
+
+  const navigateToModel = useCallback(
+    (modelId: string | undefined, replace: boolean): void => {
+      if (!iTwinId || !iModelId) return;
+      navigate(workspaceRefPath({ iTwinId, iModelId, modelId }), { replace });
+    },
+    [navigate, iTwinId, iModelId],
+  );
+
+  // scope 解析状态机（缺省/非法 model、半图恢复、默认 create）。
+  const scope = usePartStudioScope({
+    mode,
+    modeError,
+    requestedId: requestedModelId,
+    studios: partStudios.studios,
+    isLoading: partStudios.isLoading,
+    loaded: partStudios.loaded,
+    error: partStudios.error,
+    canWrite: writableSession,
+    create: partStudios.create,
+    navigateToModel,
+  });
+
+  // 编辑面总门：B（可写会话）∧ scope 已解析为完整 scope（A 恒 false）。
+  const scopeReady = scope.plan.kind === 'ready' || scope.plan.kind === 'a';
+  const canEdit = writableSession && scope.plan.kind === 'ready';
+  // 注册表写门（P2.4 半图恢复）：只看 B 可写会话，不要求 scope 完整——损坏
+  // scope 的删除/恢复与用户主动创建新 scope 必须可达（canEdit 只关几何编辑）。
+  // 分享管理门（B 文档 iModel ACL；A 分支不消费）。
+  const canManageShare = permissions.permissions.includes('imodels_manage');
 
   return (
     <PartStudioSession
       iTwinId={iTwinId ?? ''}
       iModelId={iModelId ?? ''}
+      mode={mode}
       canEdit={canEdit}
+      canManageStudios={writableSession}
+      canManageShare={canManageShare}
       connection={briefcase.connection}
       connectionLoading={briefcase.isLoading}
       connectionError={briefcase.error}
+      session={session}
+      scopeReady={scopeReady}
+      scope={scope}
+      studios={partStudios.studios}
+      studiosLoading={partStudios.isLoading}
+      studiosError={partStudios.error}
+      activeModelId={requestedModelId}
+      onRetryStudios={partStudios.refresh}
+      onCreateStudio={() => partStudios.create(DEFAULT_PART_STUDIO_NAME)}
+      onRenameStudio={partStudios.rename}
+      onDeleteStudio={partStudios.remove}
+      onRetryMode={() => void itwinQuery.refetch()}
     />
   );
 }
@@ -172,33 +277,71 @@ export function PartStudioPage(): React.JSX.Element {
 interface PartStudioSessionProps {
   iTwinId: string;
   iModelId: string;
-  /** 编辑面总门（M5-T3 单点合流）：!viewOnly ∧ 权限 editable——编辑作用域/
-   * undo/redo/保存/推送/键盘出口统一消费，勿在下游二次判定。 */
+  /** B/A 文档上下文（P2.1 F5 承接；undefined=标记查询在途）。 */
+  mode: DocumentMode | undefined;
+  /** 编辑面总门：B ∧ !viewOnly ∧ 权限 editable ∧ scope 已解析（A 恒 false）。 */
   canEdit: boolean;
+  /** 注册表写门（B ∧ !viewOnly ∧ 权限 editable；不要求 scope 完整——半图恢复）。 */
+  canManageStudios: boolean;
+  /** B 文档分享管理门（imodels_manage）。 */
+  canManageShare: boolean;
   connection: BriefcaseConnection | null;
   /** briefcase 打开中（M5-T2 isLoading 消费：画布骨架 + 状态栏「正在打开文档…」）。 */
   connectionLoading: boolean;
   /** briefcase 打开失败（M5-T2 error 消费：画布错误面 + 状态栏失败态；成功/进行中恒 null）。 */
   connectionError: Error | null;
+  /** 共享编辑会话（useEditorSession；feature 系统/注册表写方法共用）。 */
+  session: EditorSession;
+  /** scope 解析完成且可打开（A 恒真；B 活动 scope 完整）/ 视口与特征读面门。 */
+  scopeReady: boolean;
+  /** scope 解析状态机（横幅/恢复面/重试）。 */
+  scope: PartStudioScopeState;
+  studios: PartStudioInfo[];
+  studiosLoading: boolean;
+  studiosError?: string;
+  activeModelId?: string;
+  onRetryStudios: () => Promise<void>;
+  onCreateStudio: () => Promise<PartStudioInfo>;
+  onRenameStudio: (partStudioId: string, name: string) => Promise<PartStudioInfo>;
+  onDeleteStudio: (partStudioId: string) => Promise<void>;
+  onRetryMode: () => void;
 }
 
 function PartStudioSession({
   iTwinId,
   iModelId,
+  mode,
   canEdit,
+  canManageStudios,
+  canManageShare,
   connection,
   connectionLoading,
   connectionError,
+  session,
+  scopeReady,
+  scope,
+  studios,
+  studiosLoading,
+  studiosError,
+  activeModelId,
+  onRetryStudios,
+  onCreateStudio,
+  onRenameStudio,
+  onDeleteStudio,
+  onRetryMode,
 }: PartStudioSessionProps): React.JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   // 会话由 RequireAuth 门保证在场；token 静态传入（M3 雷②闭环：渲染期取一次，
   // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer 演进）。
+  // P2.4 视口门：B 文档 scope 解析完成前不把 iModel 交给 useViewport（不装载
+  // 任何 scope 的图形；解析后随 `?model=` 变化由 P2.5 做 active-scope 过滤）。
+  // A 旧文档 scopeReady 恒真（模式落定后），沿用既有全模型视图。
   const { viewportRef, phase, viewport, error: viewportError } = useViewport({
     backendUrl: window.location.origin,
     hubUrl: env.hubUrl,
     accessToken: AuthSession.getStoredAuth()?.accessToken,
-    iModel: connection ?? undefined,
+    iModel: scopeReady ? connection ?? undefined : undefined,
     // notifications 呈现桥（review-8 I-2）：官方注入点换掉 core 缺省哑通道，
     // registrationFailed/超时面/工具错误经 iTwinUI toaster 可见（app 生命期
     // 单例——稳定身份，不构成重 acquire 触发面）。
@@ -215,8 +358,10 @@ function PartStudioSession({
   //（viewOnly/readonly 连接被 useEditingScope 的 enabled 门拦截——单一裁决点，
   // 勿二次判定）；树/loading/error/applyOp 经 props 直通 Sidebar（六态）与
   // Canvas（对话框提交面）。单挂载铁律：双实例=双 sessionId=双写租约竞争。
-  const featureSystem = useFeatureSystem(connection ?? undefined, {
-    enabled: isEditingScopeReady,
+  // P2.4：session 共享（同一 sessionId/iModelKey/租约）；readEnabled 门保证 B
+  // 文档 scope 解析前零读 RPC（尤其不得先读 legacy 树）。
+  const featureSystem = useFeatureSystem(connection ?? undefined, session, {
+    readEnabled: scopeReady,
   });
 
   // 画布 body 选中桥（B6 M-A5 T1）：connection.selectionSet（画布 pick 权威源）
@@ -350,6 +495,28 @@ function PartStudioSession({
     if (!canEdit || !connection) return;
     setCreateVersionOpen(true);
   }, [canEdit, connection]);
+
+  // 半图恢复删除（P2.4）：恢复横幅/损坏横幅的删除入口走 HITL 确认；删除后
+  // usePartStudios 本地列表更新 → 解析器重规划（有完整 scope 切第一个；全空
+  // 则创建新默认 scope；墓碑 id 永不重建）。
+  const [damagedDeleteTarget, setDamagedDeleteTarget] = React.useState<PartStudioInfo | null>(null);
+  const [damagedDeleteError, setDamagedDeleteError] = React.useState<string | null>(null);
+  const [isDeletingDamaged, setIsDeletingDamaged] = React.useState(false);
+  const handleDeleteDamaged = useCallback(async (): Promise<void> => {
+    if (!damagedDeleteTarget) return;
+    setIsDeletingDamaged(true);
+    setDamagedDeleteError(null);
+    try {
+      await onDeleteStudio(damagedDeleteTarget.id);
+      setDamagedDeleteTarget(null);
+    } catch (err) {
+      setDamagedDeleteError(
+        t('partStudio.tabs.deleteFailed', { message: err instanceof Error ? err.message : String(err) }),
+      );
+    } finally {
+      setIsDeletingDamaged(false);
+    }
+  }, [damagedDeleteTarget, onDeleteStudio, t]);
 
   // dock「推送」入口（M4-T7 保留）：仅推送本地变更（PushChangesetDialog），
   // 与顶栏 Named Version 命名语义分离（T4 评审 I-1 的 dock 侧分工不变）。
@@ -532,6 +699,8 @@ function PartStudioSession({
       <PartStudioTopBar
         iTwinId={iTwinId}
         iModelId={iModelId}
+        mode={mode ?? 'A'}
+        canManageShare={canManageShare}
         canUndo={undoRedo.canUndo}
         canRedo={undoRedo.canRedo}
         hasUnsavedChanges={undoRedo.hasUnsavedChanges}
@@ -541,8 +710,125 @@ function PartStudioSession({
         onRedo={handleRedo}
         onSave={handleSaveVersion}
       />
+      {/* scope 横幅（P2.4）：A 只读 / B 解析中 / 错误 / 半图恢复 / 默认创建。 */}
+      {mode === 'A' && (
+        <div
+          role="status"
+          className="part-studio-scope-banner"
+          data-testid="part-studio-readonly-banner"
+        >
+          {t('partStudio.aMode.banner')}
+        </div>
+      )}
+      {mode !== 'A' && (scope.plan.kind === 'detecting' || scope.plan.kind === 'waiting' || scope.plan.kind === 'redirect') && (
+        <div
+          role="status"
+          className="part-studio-scope-banner"
+          data-testid="part-studio-scope-loading"
+        >
+          {t('partStudio.scope.loading')}
+        </div>
+      )}
+      {mode !== 'A' && scope.plan.kind === 'error' && (
+        <div role="alert" className="part-studio-scope-banner part-studio-scope-banner--error" data-testid="part-studio-scope-error">
+          <span>
+            {mode === undefined
+              ? scope.plan.error
+              : t('partStudio.scope.loadFailed', { message: scope.plan.error })}
+          </span>
+          <button
+            type="button"
+            className="part-studio-scope-banner__action"
+            onClick={() => {
+              if (mode === undefined) onRetryMode();
+              else void onRetryStudios();
+            }}
+          >
+            {t('partStudio.scope.retry')}
+          </button>
+        </div>
+      )}
+      {mode === 'B' && scope.plan.kind === 'empty' && (
+        <div
+          role="status"
+          className="part-studio-scope-banner"
+          data-testid="part-studio-scope-empty"
+        >
+          {t('partStudio.scope.noStudios')}
+        </div>
+      )}
+      {mode === 'B' && scope.plan.kind === 'create' && (
+        <div
+          role={scope.createError ? 'alert' : 'status'}
+          className={`part-studio-scope-banner${scope.createError ? ' part-studio-scope-banner--error' : ''}`}
+          data-testid="part-studio-scope-create"
+        >
+          {scope.createError ? (
+            <>
+              <span>{t('partStudio.scope.createFailed', { message: scope.createError })}</span>
+              <button
+                type="button"
+                className="part-studio-scope-banner__action"
+                onClick={scope.retryCreate}
+              >
+                {t('partStudio.scope.retryCreate')}
+              </button>
+            </>
+          ) : (
+            <span>{t('partStudio.scope.loading')}</span>
+          )}
+        </div>
+      )}
+      {mode === 'B' && scope.plan.kind === 'recovery' && (
+        <div
+          role="alert"
+          className="part-studio-scope-banner part-studio-scope-banner--warning"
+          data-testid="part-studio-scope-recovery"
+        >
+          <span>{t('partStudio.scope.recoveryHint')}</span>
+          <span className="part-studio-scope-banner__list">
+            {scope.plan.damaged.map((studio) => (
+              <button
+                key={studio.id}
+                type="button"
+                className="part-studio-scope-banner__action"
+                data-testid={`part-studio-damaged-delete-${studio.id}`}
+                disabled={!canManageStudios}
+                onClick={() => {
+                  setDamagedDeleteTarget(studio);
+                  setDamagedDeleteError(null);
+                }}
+              >
+                {t('partStudio.tabs.delete')}: {studio.name}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
+      {mode === 'B' && scope.plan.kind === 'damaged' && (
+        <div
+          role="alert"
+          className="part-studio-scope-banner part-studio-scope-banner--warning"
+          data-testid="part-studio-scope-damaged"
+        >
+          <span>{t('partStudio.scope.damagedHint', { name: scope.plan.studio.name })}</span>
+          <button
+            type="button"
+            className="part-studio-scope-banner__action"
+            data-testid="part-studio-damaged-delete"
+            disabled={!canManageStudios}
+            onClick={() => {
+              if (scope.plan.kind !== 'damaged') return;
+              setDamagedDeleteTarget(scope.plan.studio);
+              setDamagedDeleteError(null);
+            }}
+          >
+            {t('partStudio.tabs.delete')}
+          </button>
+        </div>
+      )}
       {/* 工具 ribbon（os-11 第二行）：27 工具 + 8 下拉 + 命令搜索触发钮。 */}
-      <Ribbon />
+      <Ribbon canEdit={canEdit} />
       <div className="part-studio-body">
         <PartStudioSidebar
           entries={featureSystem.tree}
@@ -596,11 +882,54 @@ function PartStudioSession({
       <PartStudioTabs
         iTwinId={iTwinId}
         iModelId={iModelId}
+        mode={mode ?? 'A'}
+        studios={studios}
+        activeModelId={activeModelId}
+        studiosLoading={studiosLoading}
+        studiosError={studiosError ?? null}
+        canEdit={canManageStudios}
+        onCreate={onCreateStudio}
+        onRename={async (studioId, name) => {
+          await onRenameStudio(studioId, name);
+        }}
+        onDelete={onDeleteStudio}
+        onRetryStudios={() => void onRetryStudios()}
         connection={phase}
         briefcaseLoading={connectionLoading}
         briefcaseError={connectionErrorMessage}
         viewportError={viewportError}
       />
+      {/* 半图删除 HITL（P2.4 恢复入口）：确认后才调 registry（墓碑写入）。 */}
+      <Dialog
+        isOpen={damagedDeleteTarget !== null}
+        onClose={() => setDamagedDeleteTarget(null)}
+        portal
+        isDismissible
+      >
+        <Dialog.Backdrop />
+        <Dialog.Main styleType="default" title={t('partStudio.tabs.deleteTitle')}>
+          <Dialog.TitleBar titleText={t('partStudio.tabs.deleteTitle')} />
+          <Dialog.Content>
+            <Text variant="body">
+              {t('partStudio.tabs.deleteConfirm', { name: damagedDeleteTarget?.name ?? '' })}
+            </Text>
+            {damagedDeleteError && <Text color="negative" variant="small">{damagedDeleteError}</Text>}
+          </Dialog.Content>
+          <Dialog.ButtonBar>
+            <Button styleType="default" onClick={() => setDamagedDeleteTarget(null)} disabled={isDeletingDamaged}>
+              {t('partStudio.tabs.cancel')}
+            </Button>
+            <Button
+              styleType="high-visibility"
+              onClick={() => void handleDeleteDamaged()}
+              disabled={isDeletingDamaged}
+              loading={isDeletingDamaged}
+            >
+              {t('partStudio.tabs.deleteSubmit')}
+            </Button>
+          </Dialog.ButtonBar>
+        </Dialog.Main>
+      </Dialog>
       {/* 推送对话框（M4-T7；B-model P0 Task 5 起仅归 dock「推送」钮）：确认走
           connection.pushChanges；失败就地/成功 toast 归对话框自治。 */}
       {connection && (
@@ -618,7 +947,7 @@ function PartStudioSession({
         onConfirm={namedVersionActions.createNamedVersion}
       />
       {/* 命令搜索面板：页面级常驻挂载（alt+/ 热键经 store 驱动开合）。 */}
-      <CommandPalette />
+      <CommandPalette canEdit={canEdit} />
     </div>
   );
 }

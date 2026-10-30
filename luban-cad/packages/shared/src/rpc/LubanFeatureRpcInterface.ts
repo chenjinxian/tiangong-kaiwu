@@ -152,6 +152,10 @@ export interface BodyInfo {
  * - `name`：用户可见名称（创建/重命名时 trim，非空且 ≤120 字符）。
  * - `order`：创建序（注册表创建从 1 递增；无元数据的 P1 标签按 0 呈现）。
  * - `defModelId`/`physModelId`：该 scope 的 def/phys model 的 ECInstanceId（字符串）。
+ *   **B-model P2.4 半图扩展**：`listPartStudios` 对「只有 def 分区、缺 phys model」的
+ *   degraded scope 返回 `physModelId === ''`（name=id、order 0；其余字段照常）——UI 以空
+ *   phys 为唯一判据显示「损坏的 Part Studio」恢复/删除入口，**绝不可当作可打开 scope**
+ *   （open 需完整 scope；rename 对该 scope 服务端拒收；删除不受最后一个完整 scope 守卫阻断）。
  */
 export interface PartStudioInfo {
   id: string;

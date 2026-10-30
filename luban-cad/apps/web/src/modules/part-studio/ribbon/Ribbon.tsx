@@ -67,13 +67,19 @@ export interface ToolActivation {
  * M6-b T4/T6：revolve/RoundEdges（圆角）例外路由——同姿态开 new 对话框
  * （圆角经对话框「添加边」驱动 FilletEdgePickTool 拾取）。
  */
-export function useToolActivation(): ToolActivation {
+export function useToolActivation(canEdit = true): ToolActivation {
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
   const setActiveTool = usePartStudioStore((s) => s.setActiveTool);
   const openSketchDialog = usePartStudioStore((s) => s.openSketchDialog);
   const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
 
   const activate = React.useCallback(async (id: string) => {
+    // P2.4 A 只读/权限只读总门：所有写工具/特征对话框入口不响应（gated 能力
+    // 引导属纯信息面，仍放行到下方 isGated 分支）。
+    if (!canEdit) {
+      const command = findRibbonCommand(id);
+      if (!isGated(command?.capability ?? id)) return;
+    }
     if (id === 'newSketch') {
       // os-30：草图命令开 SketchDialog（平面选择+四开关，确认进草图模式）；
       // 真实 sketch 工具接线前不经 tools.run（接线时移除本特例）。
@@ -162,7 +168,7 @@ export function useToolActivation(): ToolActivation {
     } catch (err) {
       console.error(`[part-studio] 命令 ${id} 激活失败:`, err);
     }
-  }, [setActiveTool, openSketchDialog, openFeatureDialog]);
+  }, [setActiveTool, openSketchDialog, openFeatureDialog, canEdit]);
 
   const closeGatedDialog = React.useCallback(() => setGatedCapability(null), []);
 
@@ -219,11 +225,13 @@ interface RibbonButtonModel {
 }
 
 /** 单工具按钮（无下拉变体的工具；草图/特征模式共用）。 */
-function RibbonToolButton({ tool, onActivate, active, highlighted }: {
+function RibbonToolButton({ tool, onActivate, active, highlighted, disabled = false }: {
   tool: RibbonButtonModel;
   onActivate: (id: string) => void;
   active: boolean;
   highlighted: boolean;
+  /** 只读总门（P2.4 A 文档/权限只读）：写工具钮禁用（gated 信息面不算）。 */
+  disabled?: boolean;
 }): React.JSX.Element {
   const { t } = useTranslation();
   const label = t(tool.labelKey);
@@ -241,6 +249,7 @@ function RibbonToolButton({ tool, onActivate, active, highlighted }: {
       title={tool.shortcut ? `${label} (${tool.shortcut})` : label}
       aria-pressed={active}
       className={className}
+      disabled={disabled}
       onClick={() => onActivate(tool.id)}
     >
       <Icon />
@@ -253,9 +262,15 @@ function RibbonToolButton({ tool, onActivate, active, highlighted }: {
  * T6 草图模式（os-30）：sketch.isActive → 整体切换为草图工具组 + 搜索禁用
  * + 退出草图钮。
  */
-export function Ribbon(): React.JSX.Element {
+export interface RibbonProps {
+  /** 只读总门（P2.4）：false 时写工具钮禁用且激活不派发；gated 信息面仍可点。
+   *  缺省 true（独立组件测试/旧调用语义）。 */
+  canEdit?: boolean;
+}
+
+export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element {
   const { t } = useTranslation();
-  const { activate, gatedCapability, closeGatedDialog } = useToolActivation();
+  const { activate, gatedCapability, closeGatedDialog } = useToolActivation(canEdit);
   const activeToolId = usePartStudioStore((s) => s.tool.activeToolId);
   const palette = usePartStudioStore((s) => s.commandPalette);
   const toggleCommandPalette = usePartStudioStore((s) => s.toggleCommandPalette);
@@ -295,6 +310,7 @@ export function Ribbon(): React.JSX.Element {
                     onActivate={activate}
                     active={activeToolId === tool.id}
                     highlighted={false}
+                    disabled={!canEdit}
                   />
                 ))}
               </div>
@@ -313,14 +329,17 @@ export function Ribbon(): React.JSX.Element {
                 role="group"
                 aria-label={t(`partStudio.ribbon.groups.${group}`)}
               >
-                {tools.map((tool) =>
-                  tool.dropdownItems ? (
+                {tools.map((tool) => {
+                  // 只读总门：full 写工具禁用；gated 项仅信息引导，保持可点（完整 UI 面）。
+                  const disabled = !canEdit && !isGated(tool.capability);
+                  return tool.dropdownItems ? (
                     <RibbonDropdown
                       key={tool.id}
                       tool={tool}
                       onActivate={activate}
                       active={activeToolId === tool.id}
                       highlighted={highlightIds?.has(tool.id) ?? false}
+                      disabled={disabled}
                     />
                   ) : (
                     <RibbonToolButton
@@ -329,9 +348,10 @@ export function Ribbon(): React.JSX.Element {
                       onActivate={activate}
                       active={activeToolId === tool.id}
                       highlighted={highlightIds?.has(tool.id) ?? false}
+                      disabled={disabled}
                     />
-                  ),
-                )}
+                  );
+                })}
               </div>
             );
           })}

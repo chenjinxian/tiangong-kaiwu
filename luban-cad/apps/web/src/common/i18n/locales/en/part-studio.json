@@ -80,7 +80,38 @@
   "tabs": {
     "fitView": "Fit to view",
     "newTab": "New tab",
-    "partStudio": "Part Studio 1"
+    "newPartStudio": "New Part Studio",
+    "partStudio": "Part Studio 1",
+    "menu": "Part Studio actions",
+    "rename": "Rename Part Studio",
+    "delete": "Delete Part Studio",
+    "damaged": "Damaged",
+    "renameTitle": "Rename Part Studio",
+    "renameNameLabel": "Name",
+    "renameSubmit": "Save",
+    "renameFailed": "Rename failed: {{message}}",
+    "deleteTitle": "Delete Part Studio",
+    "deleteConfirm": "Delete \"{{name}}\"? This cannot be undone, and the id will not be recreated.",
+    "deleteSubmit": "Delete",
+    "deleteFailed": "Delete failed: {{message}}",
+    "createFailed": "Failed to create Part Studio: {{message}}",
+    "cancel": "Cancel"
+  },
+  "scope": {
+    "notReady": "Part Studio context is not ready (document {{documentId}})",
+    "loading": "Resolving Part Studio…",
+    "loadFailed": "Failed to load Part Studios: {{message}}",
+    "retry": "Retry",
+    "createFailed": "Failed to create the default Part Studio: {{message}}",
+    "retryCreate": "Retry creation",
+    "damagedTitle": "Damaged Part Studio",
+    "damagedHint": "\"{{name}}\" has no physical model and cannot be opened. Delete this tab to continue.",
+    "recoveryTitle": "Damaged Part Studios found",
+    "recoveryHint": "The document's Part Studio data is incomplete, so creating a default tab was stopped. Delete the damaged entries and retry.",
+    "noStudios": "No Part Studios in this document"
+  },
+  "aMode": {
+    "banner": "Legacy A document: read-only. Part Studio tabs and parametric editing are not available."
   },
   "tabManager": {
     "title": "Tab manager",
@@ -88,27 +119,18 @@
     "shortcut": "Tab manager (alt+~+t)",
     "searchPlaceholder": "Search tabs",
     "clear": "Clear",
-    "filterLabel": "Filter",
-    "filters": {
-      "all": "All",
-      "partStudio": "Part Studio",
-      "assembly": "Assembly",
-      "tutorial": "Tutorial"
-    },
     "viewList": "List view",
     "viewGrid": "Grid view",
     "openAs": "Open as",
     "empty": "No matching tabs",
+    "noStudios": "No Part Studios",
     "loading": "Loading…",
     "loadFailed": "Failed to load tabs",
     "retry": "Retry",
-    "previewLabel": "Selected element preview",
-    "noPreview": "No preview image",
     "close": "Close",
+    "damaged": "Damaged",
     "kindLabels": {
-      "partStudio": "Part Studio",
-      "assembly": "Assembly",
-      "tutorial": "Tutorial"
+      "partStudio": "Part Studio"
     }
   },
   "documentMenu": {

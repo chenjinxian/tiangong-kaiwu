@@ -44,6 +44,13 @@
  *   FeatureDialog（宿主下传 canEdit，✓ 禁用）；此处是 hook 层防御纵深，
  *   防未来新调用点绕过 UI 门。
  * - 树/错误/租约布尔为 hook 本地 state（服务端态禁拷贝进 zustand——spec §3）。
+ * - **B-model P2.4（P2.2 审查 Important）**：sessionId 与写租约生命周期不再由本
+ *   hook 私有持有，改为消费 `useEditorSession` 的共享会话（`session.sessionId` /
+ *   `session.iModelKey` / `session.leaseOk` / `session.acquire`）——与
+ *   `usePartStudios`（注册表写方法）和默认 scope 的 pre-editor create 共用同一
+ *   id + 同一库键；本 hook 自建第二会话会踩服务端租约竞争（单挂载铁律的延续）。
+ * - **读面就绪门（P2.4）**：`opts.readEnabled=false` 时 refresh 不发任何 RPC
+ *   （B 文档 scope 解析前不得先读 legacy 树）；解析完成置真后自动补读。
  *
  * **显式延后项（特征对话框增强 backlog，勿在本版补齐）**：
  * previewOp / resolveEdgeRef / resolveFaceRef / formModel——本版 extrude 走
@@ -70,40 +77,23 @@ import {
   LubanFeatureRpcInterface,
 } from '@luban-cad/shared';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
+import {
+  LEASE_OP_ACQUIRE_BUDGET_MS,
+  LEASE_OP_ACQUIRE_RETRY_MS,
+  type EditorSession,
+} from './useEditorSession.js';
+import { FEATURE_OP_TIMEOUT_MS, withOpTimeout } from './feature-rpc.js';
 
-/** 写租约续期间隔（与后端 WriteLease 租期配套：10s 一跳） */
-const LEASE_RENEW_INTERVAL_MS = 10_000;
-/** op 派发前的租约自愈窗口：须大于服务端 WriteLease 30s TTL（陈旧租约自然过期），留余量。 */
-const LEASE_OP_ACQUIRE_BUDGET_MS = 35_000;
-const LEASE_OP_ACQUIRE_RETRY_MS = 2_000;
+// 超时常量/包装为 P2.4 抽出的共享件；此处转出保持既有测试与消费方的导入面。
+export { FEATURE_OP_TIMEOUT_MS };
 
-/**
- * 特征 RPC 特征级超时（M5-T1，清偿 T5 评审 Minor-4 挂账）：rpc-over-ipc 悬挂
- * 零反馈的兜底口径——getFeatureTree 与 applyFeatureOp（含 op 路租约预取）均套；
- * 参照旧应用 RESOLVE_*_TIMEOUT_MS（15s）量级。
- */
-export const FEATURE_OP_TIMEOUT_MS = 15_000;
-
-/**
- * 特征 RPC 超时包装：悬挂 15s 即以 i18n 超时错误 reject（经既有 error 通道
- * 呈现），不再永久 busy；正常落定/先期失败照常透传并撤钟。
- */
-function withOpTimeout<T>(invoke: Promise<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(i18next.t('partStudio.featureSystem.opTimeout', { seconds: FEATURE_OP_TIMEOUT_MS / 1000 })));
-    }, FEATURE_OP_TIMEOUT_MS);
-    invoke.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err: unknown) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
+/** useFeatureSystem 选项（P2.4：session 共享 + 读面就绪门）。 */
+export interface UseFeatureSystemOptions {
+  /**
+   * 读面就绪门（P2.4）：false 时不发任何读 RPC（B 文档 scope 解析前不得先读
+   * legacy 树）；缺省 true（A 模式/既有调用语义）。
+   */
+  readEnabled?: boolean;
 }
 
 export interface UseFeatureSystem {
@@ -128,11 +118,14 @@ export interface UseFeatureSystem {
 
 export function useFeatureSystem(
   connection: BriefcaseConnection | undefined,
-  opts?: { enabled?: boolean },
+  session: EditorSession,
+  opts?: UseFeatureSystemOptions,
 ): UseFeatureSystem {
-  const enabled = opts?.enabled ?? (!!connection && !connection.isReadonly);
-  const sessionIdRef = useRef<string>(crypto.randomUUID());
-  const connectionKey = connection?.key;
+  // P2.4：sessionId/iModelKey/租约生命周期归 useEditorSession（共享单点）；
+  // 本 hook 不再自建会话（双会话=双租约竞争）。
+  const connectionKey = session.iModelKey;
+  const sessionId = session.sessionId;
+  const readEnabled = opts?.readEnabled ?? true;
   // B-model v1.17：活动 Part Studio id（文档路由 `?model=`）——读/写 RPC 的可选 scope。
   // 缺省（legacy 路由/A 模式）不传参数（保持旧调用 arity 与后端 legacy 服务键）。
   const partStudioId = useWorkspaceRef()?.modelId;
@@ -140,13 +133,15 @@ export function useFeatureSystem(
   const [tree, setTree] = useState<FeatureTreeEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
-  const [leaseOk, setLeaseOk] = useState(false);
+  // 租约态归共享 session（P2.4；本 hook 不再自持租约）。
+  const leaseOk = session.leaseOk;
   // B6 M-A3.2a：body 读面——与树同 refresh 通道；bodiesLoadedKey 记录成功读取的
   // 连接（换连接后须重新成功一次才视为读面可用，防旧库 body 列表串场）。
   const [bodies, setBodies] = useState<BodyInfo[]>([]);
-  // 有连接时首帧即视为「读面进行中」：零件段先骨架、不抢跑 legacy 全量查询
-  //（refresh effect 落定后转 false；读面不可用才回退 legacy）。
-  const [bodiesLoading, setBodiesLoading] = useState<boolean>(!!connectionKey);
+  // 有连接且读面就绪时首帧即视为「读面进行中」：零件段先骨架、不抢跑 legacy
+  // 全量查询（refresh effect 落定后转 false；读面不可用才回退 legacy）。
+  // P2.4：读面未就绪（B scope 解析前）不置 loading——否则骨架永挂。
+  const [bodiesLoading, setBodiesLoading] = useState<boolean>(!!connectionKey && readEnabled);
   const [bodiesError, setBodiesError] = useState<string | undefined>(undefined);
   const [bodiesLoadedKey, setBodiesLoadedKey] = useState<string | undefined>(undefined);
   const bodiesLoaded = !!connectionKey && bodiesLoadedKey === connectionKey;
@@ -156,6 +151,13 @@ export function useFeatureSystem(
 
   const refresh = useCallback(async () => {
     const seq = ++refreshSeqRef.current;
+    // P2.4 读面就绪门：B 文档 scope 解析前不得发任何读 RPC（尤其 legacy 读面）；
+    // 解析完成 readEnabled 翻真 → effect 补读。
+    if (!readEnabled) {
+      setLoading(false);
+      setBodiesLoading(false);
+      return;
+    }
     if (!connectionKey) {
       setTree([]);
       setLoading(false);
@@ -204,7 +206,7 @@ export function useFeatureSystem(
       }
     })();
     await Promise.all([treeCall, bodiesCall]);
-  }, [connectionKey, partStudioId]);
+  }, [connectionKey, partStudioId, readEnabled]);
 
   // 初始/换连接加载特征树
   useEffect(() => {
@@ -228,34 +230,8 @@ export function useFeatureSystem(
     };
   }, [connection, refresh]);
 
-  // 写租约生命周期：acquire → 10s renew → release（unmount/失能）
-  useEffect(() => {
-    if (!connectionKey || !enabled) return;
-    const client = LubanFeatureRpcInterface.getClient();
-    const sessionId = sessionIdRef.current;
-    let disposed = false;
-
-    const acquire = async () => {
-      try {
-        const result = await client.acquireWriteLease(connectionKey, sessionId);
-        if (!disposed) setLeaseOk(result.ok);
-      } catch {
-        if (!disposed) setLeaseOk(false);
-      }
-    };
-
-    void acquire();
-    const renewTimer = setInterval(() => {
-      void acquire();
-    }, LEASE_RENEW_INTERVAL_MS);
-
-    return () => {
-      disposed = true;
-      clearInterval(renewTimer);
-      setLeaseOk(false);
-      void client.releaseWriteLease(connectionKey, sessionId).catch(() => undefined);
-    };
-  }, [connectionKey, enabled]);
+  // 注：写租约生命周期（acquire → 10s renew → release）已上提 useEditorSession
+  //（P2.4 共享会话）；本 hook 只消费 session.leaseOk / session.acquire。
 
   const applyOp = useCallback(async (op: FeatureOp): Promise<FeatureOpResult> => {
     if (!connectionKey) return { ok: false, error: i18next.t('partStudio.featureSystem.notConnected') };
@@ -267,37 +243,27 @@ export function useFeatureSystem(
       return { ok: false, error: i18next.t('partStudio.featureSystem.readonlyConnection') };
     }
     const client = LubanFeatureRpcInterface.getClient();
-    const sessionId = sessionIdRef.current;
     const scopeArgs: [] | [string] = partStudioId === undefined ? [] : [partStudioId];
     // 租约自愈（旧源同款纪律，见文件头注）：有限重试直至陈旧租约自然过期。
-    const deadline = Date.now() + LEASE_OP_ACQUIRE_BUDGET_MS;
-    let holder: string | undefined;
-    for (;;) {
-      try {
-        // 超时套接（M5-T1）：预取悬挂=自愈预算永不兑现的同款死态，一并兜底；
-        // 超时按网络抖动语义窗口内重试，预算耗尽照常报错（不永久 busy）。
-        const lease = await withOpTimeout(client.acquireWriteLease(connectionKey, sessionId));
-        if (lease.ok) break;
-        holder = lease.holder;
-      } catch {
-        holder = undefined; // 网络抖动：窗口内照常重试
-      }
-      if (Date.now() >= deadline) {
-        return {
-          ok: false,
-          error: holder
-            ? i18next.t('partStudio.featureSystem.leaseHeldBy', { holder })
-            : i18next.t('partStudio.featureSystem.leaseAcquireFailed'),
-        };
-      }
-      await new Promise((resolve) => setTimeout(resolve, LEASE_OP_ACQUIRE_RETRY_MS));
+    // P2.4：acquire 归共享 session（同一 sessionId + iModelKey，与注册表写方法共用）。
+    const lease = await session.acquire({
+      budgetMs: LEASE_OP_ACQUIRE_BUDGET_MS,
+      retryMs: LEASE_OP_ACQUIRE_RETRY_MS,
+    });
+    if (!lease.ok) {
+      return {
+        ok: false,
+        error: lease.holder
+          ? i18next.t('partStudio.featureSystem.leaseHeldBy', { holder: lease.holder })
+          : i18next.t('partStudio.featureSystem.leaseAcquireFailed'),
+      };
     }
     // 超时套接（M5-T1 超时兜底）：内核悬挂 → 15s 后以 i18n 超时错误 reject，
     // 经消费方（FeatureDialog 就地 Alert）既有错误面呈现。
     const result = await withOpTimeout(client.applyFeatureOp(connectionKey, op, sessionId, ...scopeArgs));
     if (result.ok) await refresh();
     return result;
-  }, [connectionKey, connection, refresh, partStudioId]);
+  }, [connectionKey, connection, refresh, partStudioId, session, sessionId]);
 
   return {
     tree,
