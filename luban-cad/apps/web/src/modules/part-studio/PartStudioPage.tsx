@@ -95,7 +95,6 @@
  */
 
 import React, { useCallback, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -108,6 +107,7 @@ import {
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';
+import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 import { env } from '@config/env.js';
 import { viewerNotifications } from '@app/providers/ViewerNotifications.js';
 import { PartStudioTopBar } from './components/PartStudioTopBar.js';
@@ -136,7 +136,9 @@ import { BODY_PRODUCING_FEATURE_TYPES } from './types.js';
 import './PartStudioPage.css';
 
 export function PartStudioPage(): React.JSX.Element {
-  const { iTwinId, iModelId } = useParams<{ iTwinId: string; iModelId: string }>();
+  const workspaceRef = useWorkspaceRef();
+  const iTwinId = workspaceRef?.iTwinId;
+  const iModelId = workspaceRef?.iModelId;
   // 权限门（M5-T3 真实判定收编 M4 中期口径）：可编辑 = !viewOnly ∧ 权限
   // editable（viewOnly=store 仅查看切片；权限=iModel 级我的权限查询）。
   const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
