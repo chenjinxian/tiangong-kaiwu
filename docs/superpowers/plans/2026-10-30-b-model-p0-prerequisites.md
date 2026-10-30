@@ -1694,6 +1694,54 @@ git commit -m "feat(itwins): 官方 iTwin class/subClass taxonomy 与迁移"
 
 ---
 
+### Task 8b: 迁移后 e2e/demo 查询 taxonomy 收口
+
+**Files:**
+- Modify: `luban-cad/apps/web/e2e/helpers.ts:345`
+- Modify: `luban-cad/apps/web/e2e/perf.spec.ts:297`
+- Modify: `luban-cad/apps/web/demo-full-flow.cjs:73,77`
+- Modify: `luban-cad/apps/web/demo-no-store-check.cjs:69`
+
+**背景（Task 7 审查发现）**：Task 8 的 hub enum 迁移后，`?class=Project` 查询会 400 或返回零行；而 `auth.setup.ts → seed.ts → apiFindDocumentByName` 是全部 e2e 的 setup 链，`visual/document-details/keyboard/perf` 都依赖它。当前不能改，因为迁移前 legacy 行的 `subclass=''`，`?subClass=Project` 查不到；必须在 Task 8 迁移完成后同窗口更新。
+
+- [ ] **Step 1: 改查询与 demo 创建载荷**
+
+- `e2e/helpers.ts:345`：`GET /itwins?class=Project&$top=100` → `GET /itwins?subClass=Project&$top=100`。
+- `e2e/perf.spec.ts:297`：同样改为 `?subClass=Project`。
+- `demo-full-flow.cjs:73,77`：创建载荷 `class:'Project'` → `class:'Endeavor', subClass:'Project'`；查询 `class=Project` → `subClass=Project`。
+- `demo-no-store-check.cjs:69`：同样更新。
+
+- [ ] **Step 2: 清零验证**
+
+```bash
+cd D:/Github/tiangong-kaiwu/luban-cad/apps/web
+grep -rn "class=Project\|class: 'Project'" e2e *.cjs
+```
+
+Expected: 0 命中。
+
+- [ ] **Step 3: 真实栈 e2e（Task 8 hub 迁移 + 镜像重建后）**
+
+```bash
+cd D:/Github/tiangong-kaiwu/luban-cad/apps/web
+npx playwright test e2e/documents.spec.ts e2e/part-studio.spec.ts --grep "登录|文档|保存版本"
+```
+
+Expected: PASS；若栈不可用，记录未跑，交 Task 11。
+
+- [ ] **Step 4: 提交**
+
+```bash
+cd D:/Github/tiangong-kaiwu
+git add luban-cad/apps/web/e2e/helpers.ts \
+  luban-cad/apps/web/e2e/perf.spec.ts \
+  luban-cad/apps/web/demo-full-flow.cjs \
+  luban-cad/apps/web/demo-no-store-check.cjs
+git commit -m "fix(web): e2e/demo taxonomy 查询对齐官方 subClass"
+```
+
+---
+
 ### Task 9: `WorkspaceRef` 类型与解析
 
 **Files:**
