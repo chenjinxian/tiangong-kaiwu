@@ -12,9 +12,10 @@
 //  8) 行菜单 → 共享对话框（成员/邀请成员/分享链接 三页签）。
 //
 // 定位：Task 5 DocumentsPage.test.tsx 行为深测之外的「关键区域存在性」
-// 验收层（M2 DoD 6 结构断言落档）；mock 口径与其一致——useDocuments 出口
-// 契约 {documents,isLoading,error}，网络面（ItwinsClient / share.api /
-// AuthSession）模块级 mock，结构测试零真实请求。
+// 验收层（M2 DoD 6 结构断言落档）；mock 口径与其一致——P2.1 useDocuments
+// 出口契约 {documents, projects, legacyDocuments, isLoading, isFetching,
+// error}（本文件走 flag 缺省关：projects 空、legacyDocuments 全 A）；网络面
+// （ItwinsClient / share.api / AuthSession）模块级 mock，结构测试零真实请求。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
@@ -62,10 +63,12 @@ const DOCS = [
   {
     id: 'doc-1', name: '文档 A', owner: 'user-9', role: 'Project',
     createdAt: '2026-10-01T08:00:00.0000000+00:00', modifiedAt: '2026-10-20T12:30:00.0000000+00:00',
+    mode: 'A', projectId: 'doc-1',
   },
   {
     id: 'doc-2', name: '文档 B', owner: 'user-8', role: 'Project',
     createdAt: '2026-10-02T08:00:00.0000000+00:00', modifiedAt: null,
+    mode: 'A', projectId: 'doc-2',
   },
 ];
 

@@ -36,7 +36,8 @@
   "projects": {
     "title": "项目",
     "count": "{{count}} 个项目",
-    "empty": "暂无项目"
+    "empty": "暂无项目",
+    "searchEmpty": "未找到匹配项目"
   },
   "mode": {
     "b": "B"

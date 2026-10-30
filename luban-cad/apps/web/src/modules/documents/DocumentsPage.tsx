@@ -82,6 +82,9 @@ import './DocumentsPage.css';
 /** 双视图偏好（Onshape 文档中心 IA：表格/网格记忆）。 */
 const VIEW_STORAGE_KEY = 'luban-next-documents-view';
 
+/** 稳定空数组（F4）：flag 关时 B 区数据源不逐渲染换引用。 */
+const NO_DOCUMENTS: DocumentSummary[] = [];
+
 function readStoredView(): DocumentsView {
   try {
     return localStorage.getItem(VIEW_STORAGE_KEY) === 'table' ? 'table' : 'tile';
@@ -106,10 +109,9 @@ export function DocumentsPage(): React.JSX.Element {
 
   const { filter, setFilter } = useDocumentFilters();
   // P2.1：flag 开 → /documents 双区（B 项目 + A 旧文档）；flag 关 → 今日的单区
-  // DOM（B 区不渲染，A 区消费全量 documents，逐字旧行为）。
+  // DOM（B 区不渲染；hook 已把 B 标记 iTwin 排除在 legacy 列表之外）。
   const bModelEnabled = useBModelEnabled();
-  const { documents, projects, legacyDocuments, isLoading, isFetching, error } =
-    useDocuments(filter);
+  const { projects, legacyDocuments, isLoading, isFetching, error } = useDocuments(filter);
   // 收藏集合常开（favorites 档即真值；其余档星标状态也须真实——旧应用
   // useFavoriteITwinsQuery(true) 同口径；同 queryKey 与列表查询去重）。
   const { documents: favoriteDocuments } = useDocuments('favorites');
@@ -151,9 +153,14 @@ export function DocumentsPage(): React.JSX.Element {
   // -----------------------------------------------------------------------
   const isSearching = searchQuery.trim().length > 0;
 
-  // A 区数据源：flag 关 = 全量 documents（旧行为）；flag 开 = legacy 子集。
-  const legacySource = bModelEnabled ? legacyDocuments : documents;
-  const projectSource = bModelEnabled ? projects : [];
+  // A 区恒消费 legacy 分区（F1）：flag 关时 hook 已把 B 标记 iTwin 排除在
+  // legacyDocuments/documents 之外——此处**不得**回退到全量 documents。
+  const legacySource = legacyDocuments;
+  // F3 裁定（单文档中心筛选语义）：B 区沿用当前侧栏筛选，不另起全量查询——
+  //  - public 档恒空是既有 hub 公开字段缺口（非 P2.1 范围）；
+  //  - shared 档出现他人 B 项目属「共享项目」正确语义。
+  // P2.3 不得把 B 区重解释为独立全量项目列表。
+  const projectSource = bModelEnabled ? projects : NO_DOCUMENTS;
 
   // 搜索（当前区）→ 排序（受控态统一驱动 Table 表头与工具条排序菜单）。
   const searchAndSort = React.useCallback(
@@ -547,8 +554,10 @@ export function DocumentsPage(): React.JSX.Element {
             >
               <div className="documents-toolbar">
                 <div className="documents-toolbar__title">
+                  {/* F6：搜索态复用 A 区语义（搜索标题/no-results），
+                      避免「0 个项目 / 暂无项目」被读成项目丢失。 */}
                   <Text variant="title" as="h2">
-                    {t('documents.projects.title')}
+                    {isSearching ? sectionTitle : t('documents.projects.title')}
                   </Text>
                   <Text variant="small" className="documents-toolbar__count">
                     {t('documents.projects.count', { count: visibleProjects.length })}
@@ -557,7 +566,9 @@ export function DocumentsPage(): React.JSX.Element {
               </div>
               {visibleProjects.length === 0 ? (
                 <Text className="documents-projects__empty">
-                  {t('documents.projects.empty')}
+                  {isSearching
+                    ? t('documents.projects.searchEmpty')
+                    : t('documents.projects.empty')}
                 </Text>
               ) : view === 'table' ? (
                 <DocumentTable

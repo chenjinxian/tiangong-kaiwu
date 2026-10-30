@@ -10,9 +10,10 @@
 //  7) 行菜单 → 共享对话框（成员/邀请成员/分享链接 三页签）+ 删除确认对话框；
 //  8) 行菜单「打开」→ /documents/:iTwinId 路由跳转。
 //
-// 数据面：mock useDocuments（Task 4 出口契约 {documents,isLoading,error}），
+// 数据面：mock useDocuments（P2.1 出口契约 {documents, projects,
+// legacyDocuments, isLoading, isFetching, error}）+ useBModelEnabled（flag 单点）；
 // 网络面（ItwinsClient / share.api / AuthSession.logout）全部模块级 mock，
-// 结构测试零真实请求。
+// 结构测试零真实请求。真实分区逻辑的页面级集成回归见 DocumentsPage.flag-off.test.tsx。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -400,6 +401,34 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     expect(within(projectsSection).getByText('0 个项目')).toBeDefined();
     expect(within(projectsSection).getByText('暂无项目')).toBeDefined();
     expect(screen.getByText('文档 A')).toBeDefined();
+  });
+
+  it('flag 开 + 搜索仅命中 A：B 区切搜索态并显示「未找到匹配项目」', async () => {
+    mockUseBModelEnabled.mockReturnValue(true);
+    mockUseDocuments.mockReturnValue({
+      documents: [B_PROJECT, ...DOCS],
+      projects: [B_PROJECT],
+      legacyDocuments: DOCS,
+      isLoading: false,
+      error: null,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByRole('searchbox'), '文档 A');
+
+    const projectsSection = screen.getByTestId('projects-section');
+    // 标题复用 A 区搜索语义（不是恒「项目」）
+    expect(
+      within(projectsSection).getByRole('heading', { name: '搜索："文档 A"' }),
+    ).toBeDefined();
+    expect(within(projectsSection).getByText('0 个项目')).toBeDefined();
+    // 空态区分搜索未命中 vs 真无项目
+    expect(within(projectsSection).getByText('未找到匹配项目')).toBeDefined();
+    expect(within(projectsSection).queryByText('暂无项目')).toBeNull();
+    // A 区命中，B 项目被搜索过滤
+    expect(screen.getByText('文档 A')).toBeDefined();
+    expect(screen.queryByText('B 项目一')).toBeNull();
   });
 
   it('flag 开：选中 B 项目 → 详情侧栏显示所属项目（B 专属信息）', async () => {

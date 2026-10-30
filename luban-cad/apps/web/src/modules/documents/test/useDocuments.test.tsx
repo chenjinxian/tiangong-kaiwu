@@ -116,15 +116,15 @@ describe('useDocuments 取数契约（M5-T7 perf 实测修正）', () => {
 });
 
 describe('useDocuments B/A 读模型（P2.1）', () => {
-  it('flag 关（缺省）：projects 为空，legacyDocuments === documents（旧行为）', async () => {
+  it('flag 关（缺省）：只返回 A——B 标记 iTwin 绝不进 documents/legacyDocuments', async () => {
     mocks.itwinsList.mockResolvedValue([...ITWINS, B_PROJECT]);
     const { result } = renderHook(() => useDocuments('my'), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    // documents 仍是全量过滤列表（收藏/搜索/兼容消费面不变）
-    expect(result.current.documents.map((doc) => doc.id)).toEqual(['doc-1', 'proj-b']);
-    // flag 关：B 标记也只按旧行为混在 documents 里，不分区
+    // rollback 安全（F1）：flag 关时 documents 收敛为 A-only，B 不进 legacy 流
+    expect(result.current.documents.map((doc) => doc.id)).toEqual(['doc-1']);
     expect(result.current.projects).toEqual([]);
+    expect(result.current.legacyDocuments.map((doc) => doc.id)).toEqual(['doc-1']);
     expect(result.current.legacyDocuments).toBe(result.current.documents);
   });
 
@@ -145,7 +145,7 @@ describe('useDocuments B/A 读模型（P2.1）', () => {
     expect(result.current.legacyDocuments.every((doc) => doc.mode === 'A')).toBe(true);
   });
 
-  it("flag 只认字符串 'true'：'1'/'TRUE'/缺省均为关", async () => {
+  it("flag 只认字符串 'true'：'1'/'TRUE'/缺省均为关（A-only）", async () => {
     for (const raw of ['1', 'TRUE', 'false', '']) {
       vi.stubEnv('VITE_B_MODEL_ENABLED', raw);
       mocks.itwinsList.mockResolvedValue([...ITWINS, B_PROJECT]);
@@ -154,9 +154,26 @@ describe('useDocuments B/A 读模型（P2.1）', () => {
       });
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(result.current.projects, `VITE_B_MODEL_ENABLED=${raw}`).toEqual([]);
-      expect(result.current.legacyDocuments.length).toBe(2);
+      expect(result.current.legacyDocuments.length, `VITE_B_MODEL_ENABLED=${raw}`).toBe(1);
+      expect(result.current.documents.length, `VITE_B_MODEL_ENABLED=${raw}`).toBe(1);
       unmount();
     }
+  });
+
+  it('F4：同 data/flag 下 projects/legacyDocuments 引用稳定（memo，不逐渲染新数组）', async () => {
+    vi.stubEnv('VITE_B_MODEL_ENABLED', 'true');
+    mocks.itwinsList.mockResolvedValue([...ITWINS, B_PROJECT]);
+    const { result, rerender } = renderHook(() => useDocuments('my'), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const projects = result.current.projects;
+    const legacyDocuments = result.current.legacyDocuments;
+    rerender();
+    rerender();
+    expect(result.current.projects).toBe(projects);
+    expect(result.current.legacyDocuments).toBe(legacyDocuments);
   });
 
   it("favorites 档兼容：既有 useDocuments('favorites') 调用方只读 documents，flag 开也照旧", async () => {
@@ -167,5 +184,6 @@ describe('useDocuments B/A 读模型（P2.1）', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.documents.map((doc) => doc.id)).toEqual(['doc-1', 'doc-2', 'proj-b']);
     expect(result.current.projects.map((doc) => doc.id)).toEqual(['proj-b']);
+    expect(result.current.legacyDocuments.map((doc) => doc.id)).toEqual(['doc-1', 'doc-2']);
   });
 });

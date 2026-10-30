@@ -11,12 +11,14 @@
  *   isFetching 首载与 refetch 期间恒真——刷新钮禁用/旋转信号；isLoading
  *   仅首载为真，刷新期间恒假，终审 I3 改由 isFetching 驱动，否则刷新钮永不
  *   转圈）；
- * - B/A 双区（P2.1，加法式，不破坏既有消费方）：`documents` 仍为全量过滤
- *   列表（收藏/搜索/兼容面照旧）；`projects` = mode B 子集、`legacyDocuments`
- *   = mode A 子集。flag 关时 `projects=[]`、`legacyDocuments===documents`
- *   （旧行为逐字保持）。
+ * - B/A 双区（P2.1，rollback 安全）：**无论 flag 开关都先分区**——
+ *   `legacyDocuments` = 非 B 子集、`projects` = flag 开时的 B 子集（关时恒空）。
+ *   flag 开：`documents` 保持全量（收藏/搜索/兼容面）；flag 关：`documents`
+ *   收敛为 A-only（plan Step 1「flag 关时只返回 A」，B 标记 iTwin 绝不进入
+ *   legacy 列表/详情路径）。
  */
 
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
@@ -24,12 +26,15 @@ import { useBModelEnabled } from './useBModelEnabled.js';
 import { toDocumentSummary } from '../internal/documents.mapper.js';
 import type { DocumentFilter, DocumentSummary } from '../types.js';
 
+/** 稳定空数组：flag 关的 projects / 查询未就绪时的 data 兜底共用（F4）。 */
+const EMPTY_DOCUMENTS: DocumentSummary[] = [];
+
 export interface UseDocumentsResult {
-  /** 全量过滤列表（既有消费方兼容面：收藏集合/搜索/详情联动）。 */
+  /** 兼容出口：flag 开 = 全量过滤列表；flag 关 = A-only（见文件头注）。 */
   documents: DocumentSummary[];
-  /** B 项目子集（flag 关恒空）。 */
+  /** B 项目子集（flag 关恒空，稳定空数组引用）。 */
   projects: DocumentSummary[];
-  /** A 旧文档子集（flag 关 === documents）。 */
+  /** A 旧文档子集（恒为分区结果，与 flag 无关）。 */
   legacyDocuments: DocumentSummary[];
   isLoading: boolean;
   isFetching: boolean;
@@ -42,10 +47,14 @@ export function useDocuments(filter: DocumentFilter): UseDocumentsResult {
     queryKey: ['documents', filter],
     queryFn: () => fetchDocuments(filter),
   });
-  const documents = query.data ?? [];
-  const { projects, legacyDocuments } = classifyDocuments(documents, bModelEnabled);
+  const allDocuments = query.data ?? EMPTY_DOCUMENTS;
+  // F4：分类结果按 (data, flag) memo——下游可见列表/排序 memo 不吃新引用。
+  const { projects, legacyDocuments } = React.useMemo(
+    () => classifyDocuments(allDocuments, bModelEnabled),
+    [allDocuments, bModelEnabled],
+  );
   return {
-    documents,
+    documents: bModelEnabled ? allDocuments : legacyDocuments,
     projects,
     legacyDocuments,
     isLoading: query.isPending,
@@ -54,16 +63,15 @@ export function useDocuments(filter: DocumentFilter): UseDocumentsResult {
   };
 }
 
-/** B/A 分区（P2.1）：flag 关 = 旧行为（全量归 A、B 区空）。 */
+/** B/A 分区（P2.1）：分区与 flag 无关；flag 只决定 B 子集是否暴露。 */
 export function classifyDocuments(
   documents: DocumentSummary[],
   bModelEnabled: boolean,
 ): Pick<UseDocumentsResult, 'projects' | 'legacyDocuments'> {
-  if (!bModelEnabled) {
-    return { projects: [], legacyDocuments: documents };
-  }
   return {
-    projects: documents.filter((doc) => doc.mode === 'B'),
+    projects: bModelEnabled
+      ? documents.filter((doc) => doc.mode === 'B')
+      : EMPTY_DOCUMENTS,
     legacyDocuments: documents.filter((doc) => doc.mode !== 'B'),
   };
 }

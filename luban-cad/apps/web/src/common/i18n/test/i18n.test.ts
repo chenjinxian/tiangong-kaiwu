@@ -70,7 +70,7 @@ const REQUIRED_DOCUMENT_KEYS = [
   'capability.title', 'capability.confirm',
   'section.count', 'section.searchResults',
   // B-model P2.1：/documents 双区（B 项目区 + A 旧文档区）与模式徽标。
-  'projects.title', 'projects.count', 'projects.empty', 'mode.b',
+  'projects.title', 'projects.count', 'projects.empty', 'projects.searchEmpty', 'mode.b',
   'actions.refresh', 'actions.retry', 'actions.clearSearch', 'actions.open', 'actions.details',
   'actions.rename', 'actions.favorite', 'actions.unfavorite', 'actions.share', 'actions.delete',
   'search.placeholder', 'search.noResults', 'search.noResultsHint',

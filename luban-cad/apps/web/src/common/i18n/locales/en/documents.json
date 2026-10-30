@@ -36,7 +36,8 @@
   "projects": {
     "title": "Projects",
     "count": "{{count}} projects",
-    "empty": "No projects yet"
+    "empty": "No projects yet",
+    "searchEmpty": "No matching projects"
   },
   "mode": {
     "b": "B"
