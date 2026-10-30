@@ -1785,6 +1785,8 @@ describe('B-model P2.5：active scope 视口过滤', () => {
   afterEach(() => {
     // 空间视图开关是共享桩的持久实现——复位，防渗漏到后续文件/用例。
     isSpatialViewMock.mockReturnValue(false);
+    // R3：活动工具桩复位。
+    delete (IModelApp.toolAdmin as unknown as { activeTool?: unknown }).activeTool;
   });
 
   it('B scope ready：useViewport 收 activeModelIds=[active physModelId]；iModel 同一连接', async () => {
@@ -1917,5 +1919,72 @@ describe('B-model P2.5：active scope 视口过滤', () => {
     await waitFor(() => expect(FAKE_CONNECTION.selectionSet.elements.size).toBe(0));
     expect(usePartStudioStore.getState().canvas.selection).toEqual([]);
     expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+  });
+
+  it('R4：无关重渲染/undo 不清空选择（F1 effect 仅 scope/过滤变化触发）', async () => {
+    // body 读面回同一实体：undo 刷新时 body 桥不会把 store 选择重算为空
+    // （本用例只验证 F1 effect 的 deps 边界，不掺 P2.4 读面语义）。
+    featureRpc.getBodies.mockResolvedValue([
+      { bodyKey: 'body-ps1', name: 'Body', active: true, authored: true },
+    ]);
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1]);
+    const rendered = await renderReadyPage();
+    act(() => {
+      FAKE_CONNECTION.selectionSet.replace(['body-ps1']);
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: 'body-ps1', label: 'Body' }]);
+      usePartStudioStore.getState().setSelectedNodeIds(['feat-ps1']);
+    });
+
+    // 无关 store 变化 + undo 事件驱动的刷新（deps 不变）→ 不得清空。
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+      FAKE_CONNECTION.txns.onAfterUndoRedo.raise();
+    });
+    await act(async () => {
+      rendered.rerender(pageTree('/documents/itwin-1/im-1?model=ps-1'));
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-1'),
+    );
+
+    expect([...FAKE_CONNECTION.selectionSet.elements]).toEqual(['body-ps1']);
+    expect(usePartStudioStore.getState().canvas.selection).toHaveLength(1);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['feat-ps1']);
+  });
+
+  it('R2：过滤失败以非阻断提示条呈现——画布错误面/状态栏连接态不误报', async () => {
+    viewerMocks.useViewport.mockReturnValue({
+      viewportRef: { current: null },
+      phase: 'ready',
+      error: null,
+      viewport: FAKE_VIEWPORT,
+      appliedModelKey: undefined,
+      filterError: 'ECSQL 查询失败；已暂时隐藏全部模型以避免显示错误 scope。切换页签可重试。',
+    });
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1]);
+    renderPage();
+
+    const banner = await screen.findByTestId('part-studio-model-filter-error');
+    expect(banner.textContent).toContain('ECSQL');
+    // 连接/文档状态保持正常：状态栏「已连接」，画布无连接错误面。
+    expect(within(screen.getByTestId('part-studio-status-bar')).getByText('已连接')).toBeDefined();
+    expect(screen.queryByTestId('part-studio-connection-error')).toBeNull();
+  });
+
+  it('R3：scope 切换取消活动工具（Move agenda 不得跨页签提交）', async () => {
+    const user = userEvent.setup();
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, STUDIO_2]);
+    await renderReadyPage();
+    const toolAdmin = IModelApp.toolAdmin as unknown as {
+      activeTool?: unknown;
+      startDefaultTool: ReturnType<typeof vi.fn>;
+    };
+    toolAdmin.activeTool = { toolId: 'Move' };
+
+    await user.click(screen.getByRole('tab', { name: 'Part Studio 2' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-2'),
+    );
+    await waitFor(() => expect(toolAdmin.startDefaultTool).toHaveBeenCalled());
   });
 });

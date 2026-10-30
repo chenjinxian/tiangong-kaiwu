@@ -102,7 +102,11 @@
  *   到隐藏 scope 的模型）；A 只读不进入编辑作用域，配置段不执行（既有行为）；
  * - **选择集隔离（fix round 1 F1）**：scope/连接切换与视口过滤落定
  *   （`appliedModelKey`）时清空 `connection.selectionSet` + store 画布/树选择——
- *   旧 scope 元素不得经 Delete/Move 等元素集工具被无确认操作。
+ *   旧 scope 元素不得经 Delete/Move 等元素集工具被无确认操作；
+ * - **R2/R3（fix round 2）**：过滤失败走 viewer 独立 `filterError` 通道，页面以
+ *   非阻断提示条呈现（不清空画布错误面、不把状态栏误报为连接失败）；同一
+ *   scope/连接切换 effect 退出活动工具（`toolAdmin.startDefaultTool`），防旧
+ *   scope 已装载的 Move/Rotate agenda 跨页签提交。
  *
  * 连接失败 UX（M5-T2）：briefcase 的 isLoading/error 两出口（M4-T2 落地后一直
  * 零消费）接入呈现链——连接三态（下载中/失败/就绪）从此在编辑器页可见：
@@ -418,6 +422,7 @@ function PartStudioSession({
     viewport,
     error: viewportError,
     appliedModelKey,
+    filterError: modelFilterError,
   } = useViewport({
     backendUrl: window.location.origin,
     hubUrl: env.hubUrl,
@@ -473,6 +478,13 @@ function PartStudioSession({
     const store = usePartStudioStore.getState();
     store.setCanvasSelection([]);
     store.setSelectedNodeIds([]);
+    // R3：元素集工具（Move/Rotate 等）在 install 时把 selectionSet 拷贝进 agenda，
+    // emptyAll 不撤销已装载的 agenda——scope 变化/过滤落定必须退出活动工具，
+    // 防旧 scope 的操作跨页签提交（真栈工具层验证归 P2.6）。
+    const toolAdmin = IModelApp.initialized ? IModelApp.toolAdmin : undefined;
+    if (toolAdmin?.activeTool) {
+      void toolAdmin.startDefaultTool();
+    }
   }, [connection, iModelId, activeModelId, appliedModelKey]);
 
   // 草图系统（M6-a T5）：活动草图读面（store.sketch.activeSketchId 驱动）+
@@ -838,6 +850,17 @@ function PartStudioSession({
           data-testid="part-studio-readonly-banner"
         >
           {t('partStudio.aMode.banner')}
+        </div>
+      )}
+      {/* R2：active-scope 物理模型查询失败——非阻断提示条（连接/文档本身正常，
+          不得映射为画布「文档打开失败」或状态栏「连接失败」）。 */}
+      {mode === 'B' && modelFilterError && (
+        <div
+          role="alert"
+          className="part-studio-scope-banner part-studio-scope-banner--warning"
+          data-testid="part-studio-model-filter-error"
+        >
+          <span>{t('partStudio.scope.modelFilterFailed', { message: modelFilterError })}</span>
         </div>
       )}
       {readonlyBlocked && (

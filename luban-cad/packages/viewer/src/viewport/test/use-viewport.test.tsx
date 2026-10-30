@@ -155,6 +155,7 @@ function primeDefaults(
 let latestViewport: ScreenViewport | undefined;
 let latestPhase = '';
 let latestError = '';
+let latestFilterError: string | null = null;
 let latestAppliedModelKey: string | null | undefined;
 // console.log 静音 spy（实现内有进度日志；经变量持有以便 afterEach 恢复）
 let logSpy: ReturnType<typeof vi.spyOn>;
@@ -168,7 +169,7 @@ function Harness({
   notifications?: unknown;
   activeModelIds?: readonly string[];
 }) {
-  const { viewportRef, phase, error, viewport, appliedModelKey } = useViewport({
+  const { viewportRef, phase, error, viewport, appliedModelKey, filterError } = useViewport({
     backendUrl: 'http://localhost:5300',
     hubUrl: 'http://localhost:5400',
     accessToken: 'jwt-x',
@@ -179,6 +180,7 @@ function Harness({
   latestViewport = viewport;
   latestPhase = phase;
   latestError = error ?? '';
+  latestFilterError = filterError;
   latestAppliedModelKey = appliedModelKey;
   return (
     <div
@@ -186,6 +188,7 @@ function Harness({
       data-testid="viewport-host"
       data-phase={phase}
       data-error={error ?? ''}
+      data-filter-error={filterError ?? ''}
       data-applied-key={appliedModelKey === undefined ? '' : appliedModelKey ?? 'all'}
     />
   );
@@ -208,6 +211,7 @@ beforeEach(() => {
   latestViewport = undefined;
   latestPhase = '';
   latestError = '';
+  latestFilterError = null;
   latestAppliedModelKey = undefined;
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 });
@@ -753,8 +757,12 @@ describe('useViewport active-scope 过滤（P2.5）', () => {
       <Harness iModel={fakeIModel} activeModelIds={['model-1']} />,
     );
     await waitFor(() => expect(latestViewport).toBe(fakeViewport));
-    await waitFor(() => expect(latestError).toContain('物理模型'));
-    expect(getByTestId('viewport-host').getAttribute('data-error')).toContain('物理模型');
+    await waitFor(() => expect(latestFilterError).toContain('ECSQL'));
+    expect(getByTestId('viewport-host').getAttribute('data-filter-error')).toContain('ECSQL');
+    // R2：过滤失败走独立通道——连接/文档错误通道保持干净（消费方不得显示
+    // 「连接失败/文档打开失败」）。
+    expect(latestError).toBe('');
+    expect(getByTestId('viewport-host').getAttribute('data-error')).toBe('');
     // fail-closed：无可见模型、不取景、未标记已应用（不可静默到刷新才恢复）。
     expect(selectedModelsOf(fakeView)).toEqual([]);
     expect(m.lookAtVolumeMock).not.toHaveBeenCalled();
@@ -769,7 +777,7 @@ describe('useViewport active-scope 过滤（P2.5）', () => {
     });
     await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-2']));
     await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
-    await waitFor(() => expect(latestError).toBe(''));
+    await waitFor(() => expect(latestFilterError).toBeNull());
   });
 
   it('F3：失败后切回原 scope 不得命中陈旧「已应用」签名（fail-closed 清空后必须重建）', async () => {
@@ -793,7 +801,7 @@ describe('useViewport active-scope 过滤（P2.5）', () => {
     await act(async () => {
       rerender(<Harness iModel={fakeIModel} activeModelIds={['model-3']} />);
     });
-    await waitFor(() => expect(latestError).toContain('物理模型'));
+    await waitFor(() => expect(latestFilterError).toContain('ECSQL'));
     expect(selectedModelsOf(fakeView)).toEqual([]);
     expect(latestAppliedModelKey).toBeUndefined();
 
@@ -805,7 +813,7 @@ describe('useViewport active-scope 过滤（P2.5）', () => {
     });
     await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-2']));
     await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
-    expect(latestError).toBe('');
+    expect(latestFilterError).toBeNull();
   });
 
   it('F3：A legacy（activeModelIds 缺省）物理模型查询失败保持旧行为（视同空、不报错）', async () => {
@@ -825,7 +833,81 @@ describe('useViewport active-scope 过滤（P2.5）', () => {
     await waitFor(() => expect(latestViewport).toBe(fakeViewport));
     await flushAsync();
     expect(latestError).toBe('');
+    expect(latestFilterError).toBeNull();
     expect(m.lookAtVolumeMock).not.toHaveBeenCalled();
+  });
+
+  it('R1：K1 → K2（apply 在途）→ 切回 K1——在途 K2 作废，K1 重新落定（selector/取景/签名）', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    // 预加载：K2 的 apply 直接停在 range 查询（竞态窗口的最长停留点）。
+    m.getLoadedMock.mockReturnValue(true);
+
+    const { rerender } = render(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
+    await waitFor(() => expect(lastFitRange().toJSON()).toEqual(RANGES['model-2']));
+
+    let releaseK2!: () => void;
+    m.queryModelRangesMock.mockImplementation(async (ids: string[]) => {
+      if (ids.join(',') === 'model-3') {
+        return new Promise((resolve) => {
+          releaseK2 = () => resolve([RANGES['model-3']]);
+        });
+      }
+      return ids.map((id) => RANGES[id]);
+    });
+
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-3']} />);
+    });
+    await waitFor(() => expect(releaseK2).toBeDefined());
+
+    // 快速切回已应用的 K1：不得 early-return 放任 K2 落定。
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    });
+    await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-2']));
+    await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
+    expect(lastFitRange().toJSON()).toEqual(RANGES['model-2']);
+
+    // 放行晚到的 K2：不得改写 selector/相机/已应用签名。
+    const fits = m.lookAtVolumeMock.mock.calls.length;
+    releaseK2();
+    await flushAsync();
+    expect(selectedModelsOf(fakeView)).toEqual(['model-2']);
+    expect(m.lookAtVolumeMock).toHaveBeenCalledTimes(fits);
+    expect(lastFitRange().toJSON()).toEqual(RANGES['model-2']);
+    expect(latestAppliedModelKey).toBe('["model-2"]');
+  });
+
+  it('R1：切换中 model load 拒绝（catch 路径）→ 陈旧签名作废；切回原 scope 重建', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+
+    const { rerender } = render(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
+
+    // K2 的 ModelState.load 拒绝 → apply promise 拒绝走 catch。
+    m.loadModelsMock.mockRejectedValueOnce(new Error('load down'));
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-3']} />);
+    });
+    await waitFor(() => expect(latestFilterError).toContain('ECSQL'));
+    // catch 必须作废旧签名（否则切回 model-2 会命中陈旧「已应用」跳过重建）。
+    expect(latestAppliedModelKey).toBeUndefined();
+
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    });
+    await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-2']));
+    await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
+    expect(latestFilterError).toBeNull();
   });
 
   it('F4：iModel 切换后晚到的过滤（load 期间）不再操作已 dispose 的 viewport', async () => {

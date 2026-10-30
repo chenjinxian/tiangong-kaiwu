@@ -108,7 +108,8 @@
     "damagedHint": "\"{{name}}\" has no physical model and cannot be opened. Delete this tab to continue.",
     "recoveryTitle": "Damaged Part Studios found",
     "recoveryHint": "The document's Part Studio data is incomplete, so creating a default tab was stopped. Delete the damaged entries and retry.",
-    "noStudios": "No Part Studios in this document"
+    "noStudios": "No Part Studios in this document",
+    "modelFilterFailed": "Unable to display the current Part Studio's models: {{message}}"
   },
   "aMode": {
     "banner": "Legacy A document: read-only. Part Studio tabs and parametric editing are not available."

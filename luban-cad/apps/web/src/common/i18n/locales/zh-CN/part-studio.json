@@ -108,7 +108,8 @@
     "damagedHint": "「{{name}}」缺少物理模型，无法打开；请删除该页签后继续。",
     "recoveryTitle": "发现损坏的 Part Studio",
     "recoveryHint": "文档中的 Part Studio 数据不完整，已停止自动创建默认页签。请删除损坏项后重试。",
-    "noStudios": "文档中没有 Part Studio"
+    "noStudios": "文档中没有 Part Studio",
+    "modelFilterFailed": "无法显示当前 Part Studio 的模型：{{message}}"
   },
   "aMode": {
     "banner": "旧版 A 文档：只读模式，不支持 Part Studio 页签与参数化编辑。"

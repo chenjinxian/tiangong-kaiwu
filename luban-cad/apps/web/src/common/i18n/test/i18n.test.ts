@@ -328,6 +328,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'scope.notReady', 'scope.loading', 'scope.loadFailed', 'scope.retry',
   'scope.createFailed', 'scope.retryCreate', 'scope.damagedTitle', 'scope.damagedHint',
   'scope.recoveryTitle', 'scope.recoveryHint', 'scope.noStudios',
+  // P2.5 fix round 2（R2）：过滤失败非阻断提示条（连接/文档状态不再误报）。
+  'scope.modelFilterFailed',
   'aMode.banner',
   'connection.readonlyOpened', 'connection.reload',
   // M3 Task 7：页签管理器（os-33）+ 汉堡文档菜单（os-24）chrome 键——

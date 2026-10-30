@@ -35,6 +35,12 @@
  * 白名单内容变化时**原地**重建模型选择（drop+add 触发 refs 重建）并重取景，
  * 不重建 ScreenViewport、不重开 BriefcaseConnection；以内容签名（而非数组身份）
  * 为依赖，父级无关重渲染不触发重复 fit。
+ * - R1（fix round 2）：在途 apply 以 pending key 记账——切回「已应用」key 时若
+ *   存在其它 key 的在途 apply，必须 ++seq 作废它并重放当前 key（否则旧 apply
+ *   晚到会把视口落成错误 scope 且 deps 不再变化）；失败/catch 一律作废已应用
+ *   签名与 appliedModelKey。
+ * - R2（fix round 2）：过滤失败走独立 `filterError` 结果通道（不计入连接/打开
+ *   失败的 `error`），消费方以非阻断提示呈现，连接态不误报。
  */
 
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
@@ -55,9 +61,11 @@ import { applyRenderProfile } from './render-profile.js';
 export type ViewportPhase = 'idle' | 'starting' | 'ready' | 'error';
 
 /** F3：B 物理模型查询失败（ECSQL/IPC）的用户可见消息——fail-closed 清空选择器
- *  但不冒充「空 Part Studio」，也不把失败标记为已应用（不静默到刷新为止）。 */
+ *  但不冒充「空 Part Studio」，也不把失败标记为已应用（不静默到刷新为止）。
+ *  R2：走独立的 `filterError` 通道（非连接/打开失败的 error），由消费方以非阻断
+ *  提示呈现；连接与文档状态仍正常。 */
 const MODEL_FILTER_FAILURE_MESSAGE =
-  '无法读取 Active Part Studio 的物理模型列表（ECSQL 查询失败）：已隐藏全部模型以避免显示错误 scope；请切换页签或重试。';
+  'ECSQL 查询失败；已暂时隐藏全部模型以避免显示错误 scope。切换页签可重试。';
 
 export interface UseViewportOptions {
   /** Backend RPC URL（modeling-server；apps/web 传同源代理地址） */
@@ -100,6 +108,13 @@ export interface UseViewportResult {
    * 过滤落定前」的 lag 窗口（期间旧 scope 几何仍可被 pick）。
    */
   appliedModelKey: string | null | undefined;
+  /**
+   * active-scope 物理模型查询失败的可读消息（P2.5 R2 独立通道）：
+   * - 连接/文档本身正常（不在 `error` / 状态栏「连接失败」里），由消费方以
+   *   非阻断提示条呈现；
+   * - 失败期间视口 fail-closed（不显示任何模型），成功应用后自动清空。
+   */
+  filterError: string | null;
 }
 
 export function useViewport(options: UseViewportOptions): UseViewportResult {
@@ -110,6 +125,8 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
   const [viewport, setViewport] = useState<ScreenViewport | undefined>(undefined);
   // 已落定过滤签名（P2.5 F1：消费方据此在过滤落定后再清一次选择集）。
   const [appliedModelKey, setAppliedModelKey] = useState<string | null | undefined>(undefined);
+  // R2：过滤失败独立错误通道（连接/打开错误仍走 error）。
+  const [filterError, setFilterError] = useState<string | null>(null);
   // 活跃 viewport 引用（state 之外）：清理路径需同步 drop+dispose
   const activeViewportRef = useRef<ScreenViewport | undefined>(undefined);
   // P2.5：白名单以内容签名参与依赖；最新数组存 ref（父级新数组身份不触发重取景）。
@@ -118,22 +135,17 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
   activeModelIdsRef.current = activeModelIds;
   // 已应用过滤的 (viewport, key)：创建链与切 scope effect 共用，避免重复 fit。
   const appliedFilterRef = useRef<{ viewport: ScreenViewport; key: string | null } | null>(null);
+  // R1：在途 apply 的 (viewport, key)——用于识别「切回已应用 key 但有另一个
+  // key 的在途 apply」并作废它（否则旧 apply 晚到会把视口落成错误 scope）。
+  const pendingFilterRef = useRef<{ viewport: ScreenViewport; key: string | null } | null>(null);
   // 过滤代际：切 scope 快速连发时只让最新一次落定最终状态；iModel 切换/卸载
   // 同样递增（F4），晚到的 apply 不再操作已 dispose 的 viewport。
   const filterSeqRef = useRef(0);
-  // 本 hook 自己呈现的「物理模型查询失败」错误（F3）：成功应用时只清这一条，
-  // 不覆盖创建链的其它错误（如 No view state available）。
-  const filterErrorRef = useRef<string | null>(null);
   const reportFilterFailure = useCallback((): void => {
-    filterErrorRef.current = MODEL_FILTER_FAILURE_MESSAGE;
-    setError(MODEL_FILTER_FAILURE_MESSAGE);
+    setFilterError(MODEL_FILTER_FAILURE_MESSAGE);
   }, []);
   const clearFilterFailure = useCallback((): void => {
-    if (filterErrorRef.current === null) return;
-    const message = filterErrorRef.current;
-    filterErrorRef.current = null;
-    // 只清本 hook 自己写入的错误；创建链的其它错误保持原样。
-    setError((current) => (current === message ? null : current));
+    setFilterError(null);
   }, []);
 
   useEffect(() => {
@@ -248,7 +260,8 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
       // apply 不再对已 dispose 的 viewport 取景/失效场景，也不回写 appliedFilterRef。
       filterSeqRef.current += 1;
       appliedFilterRef.current = null;
-      filterErrorRef.current = null;
+      pendingFilterRef.current = null;
+      setFilterError(null);
       setAppliedModelKey(undefined);
       if (activeViewportRef.current) {
         IModelApp.viewManager.dropViewport(activeViewportRef.current);
@@ -271,8 +284,18 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
   useEffect(() => {
     const activeViewport = activeViewportRef.current;
     if (!activeViewport) return;
+
     const applied = appliedFilterRef.current;
-    if (applied?.viewport === activeViewport && applied.key === activeModelKey) return;
+    const pending = pendingFilterRef.current;
+    // R1：已应用 key 命中时仍需检查在途 apply——K1（已应用）→ K2（apply 在途）
+    // →快速切回 K1 时，若直接 early-return，K2 的 apply 仍是「最新代际」，
+    // 落定后会把 selector/相机置为 K2 且 deps 不再变化（视口长期停在错误
+    // scope）。有冲突在途 apply 时必须 ++seq 作废它并重放当前 key。
+    const appliedIsCurrent =
+      applied?.viewport === activeViewport && applied.key === activeModelKey;
+    const pendingConflicts =
+      !!pending && pending.viewport === activeViewport && pending.key !== activeModelKey;
+    if (appliedIsCurrent && !pendingConflicts) return;
 
     const seq = ++filterSeqRef.current;
     // F4：代际 + viewport 存活双守卫——iModel 切换/卸载后晚到的 apply 一律作废。
@@ -280,9 +303,11 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
       seq === filterSeqRef.current && activeViewportRef.current === activeViewport;
     const ids = activeModelIdsRef.current;
     const key = modelIdsKey(ids);
+    pendingFilterRef.current = { viewport: activeViewport, key };
     void applyActiveModelFilter(activeViewport, ids, isCurrent)
       .then((appliedOk) => {
         if (!isCurrent()) return;
+        pendingFilterRef.current = null;
         if (!appliedOk) {
           // F3：查询失败——fail-closed 已清空选择器，但不标记已应用（错误可见，
           // 下次切 scope 重试）。旧签名必须作废：否则切回原 scope 会命中陈旧
@@ -297,11 +322,17 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
         setAppliedModelKey(key);
       })
       .catch(() => {
-        if (isCurrent()) reportFilterFailure();
+        // R1：apply 内 model load 等拒绝的 catch 路径同样必须作废陈旧签名，
+        // 否则切回旧 scope 会命中「已应用」而跳过重建（selector 停在新 scope）。
+        if (!isCurrent()) return;
+        pendingFilterRef.current = null;
+        appliedFilterRef.current = null;
+        setAppliedModelKey(undefined);
+        reportFilterFailure();
       });
   }, [viewport, activeModelKey, reportFilterFailure, clearFilterFailure]);
 
-  return { viewportRef, phase, error, viewport, appliedModelKey };
+  return { viewportRef, phase, error, viewport, appliedModelKey, filterError };
 }
 
 /** 白名单内容签名：undefined（A 全模型）与空数组（无活动模型）严格区分。 */
