@@ -540,6 +540,13 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 2026-10-30 | P0 四项前置完成（Named Version / 状态诚实化 / taxonomy / WorkspaceRef）；验证证据见下 | **完成**（进入 P1 spike） |
 | 2026-10-30 | **P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**。四个验收轴：①隔离 Go（2+ Part Studio 特征/树/体/orderKey/oplog + 跨 studio by-id 写守卫 + legacy 回归；scope 19 cases；**最终 HEAD 48 files / 436 passed / 8 skipped**，Task 4 基线 421；8 skips 为 `debug-tail-root` 探针）；②迁移 qualified Go（**修订**：参数重放 + `rebuildAll` 替代 Transformation；10/10 tests，主链体积 15.9989259816 vs 15.9989259816、direct-edit 体积 16 vs 16、failed-tail 8 vs 8、boolean 12 再生 + 8 consumed + 8 suppressed，bbox 差 0；**Transformation NOT RUN**，**不宣称无损**）；③性能 Go（受限：`StandaloneDb`/native + 后端读面代理；10 studio init 145.1 ms / tree 1.3 ms / insert P95 8.8 ms / rebuild P95 6.1 ms / switch P95 0.3 ms，非 CI 预算）；④Named Version **metadata-only** + iModel 级共享 Go（**修订**：共享写实际 Manage-only；`isSecured` + ACL；非成员 403 → 显式 Read 200；无 checkpoint/缩略图/计数/事件）。撤销决策 **A**：最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init-floor E2E **NOT RUN**。若按原四项门禁字面执行，本记录应读作 defer/No-Go。证据与全部限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径，本公开仓无此文件） | **待 owner 签字（qualified Go；非字面四项全过）** |
 
+> **最终验证计数（2026-10-30）**：backend `14e5fe6` 全 `src/feature` **48 files / 436 passed /
+> 8 skipped**（Task 4 基线 421 passed；8 skips 为 `debug-tail-root` 探针；四个单工作室回归文件
+> `FeatureService` / `FeatureUndo` / `MultiBodyFoundation` / `FeatureSync` 均含在内）；公共仓
+> shared **141/141**、web **1011/1011**（Task 4 收口，此后仅文档改动）；hub `imodelhub-services`
+> unit **126 suites / 1147 tests**、secured e2e **18/18**、Named Version + secured **21/21**、
+> itwins/authorization/smoke-crud **44/44**（Task 8a/8 收口）。
+
 ### P0 收口验证证据（2026-10-30）
 
 | 项 | 结果 |
