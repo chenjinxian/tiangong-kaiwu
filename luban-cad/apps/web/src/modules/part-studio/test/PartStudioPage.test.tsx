@@ -286,8 +286,23 @@ function makeTxnsStub() {
 // 不改变既有断言面。
 function makeSelectionSetStub() {
   const listeners = new Set<() => void>();
+  const raise = (): void => {
+    for (const fn of [...listeners]) fn();
+  };
+  const elements = new Set<string>();
   return {
-    elements: new Set<string>(),
+    elements,
+    /** P2.5 F1：scope 切换/过滤落定后的选择集清空（真实 SelectionSet.emptyAll）。 */
+    emptyAll: vi.fn((): void => {
+      elements.clear();
+      raise();
+    }),
+    /** 测试播种选择集（真实 SelectionSet.replace）。 */
+    replace: vi.fn((ids: readonly string[]): void => {
+      elements.clear();
+      ids.forEach((id) => elements.add(id));
+      raise();
+    }),
     onChanged: {
       addListener: (fn: () => void): (() => void) => {
         listeners.add(fn);
@@ -298,9 +313,7 @@ function makeSelectionSetStub() {
       removeListener: (fn: () => void): void => {
         listeners.delete(fn);
       },
-      raise: (): void => {
-        for (const fn of [...listeners]) fn();
-      },
+      raise,
     },
   };
 }
@@ -453,6 +466,8 @@ beforeEach(() => {
   // P2.5：editorToolSettings 是可变桩对象——跨用例复位，防上一用例写入的
   // model/category 值渗漏（clearAllMocks 不还原属性值）。
   FAKE_CONNECTION.editorToolSettings = { category: undefined, model: undefined };
+  // P2.5 F1：选择集是共享可变桩——跨用例清空，防播种残留。
+  FAKE_CONNECTION.selectionSet.elements.clear();
   FAKE_CONNECTION.supportsGraphicalEditing.mockResolvedValue(true);
   FAKE_CONNECTION.enterEditingScope.mockResolvedValue({
     isDisposed: false,
@@ -1779,28 +1794,21 @@ describe('B-model P2.5：active scope 视口过滤', () => {
     expect(lastViewportOptions().iModel).toBe(FAKE_CONNECTION);
   });
 
-  it('切页签只换白名单：phys-1 → phys-2，仍接同一连接/iModel（不新建 BriefcaseConnection）', async () => {
+  it('切页签只换白名单：phys-1 → phys-2，视口/连接仍为同一 iModel 实例', async () => {
     const user = userEvent.setup();
     featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, STUDIO_2]);
     await renderReadyPage();
     await waitFor(() => expect(lastViewportOptions().activeModelIds).toEqual(['phys-1']));
-    const connectionOptionsBefore = viewerMocks.useBriefcaseConnection.mock.calls
-      .map((call) => call[0])
-      .filter((options) => options !== null)
-      .at(-1);
 
     await user.click(screen.getByRole('tab', { name: 'Part Studio 2' }));
     await waitFor(() =>
       expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-2'),
     );
     await waitFor(() => expect(lastViewportOptions().activeModelIds).toEqual(['phys-2']));
+    // F5：iModel 同一实例是 mock 层能给出的最强证据；真实连接计数（WS/MS
+    // 日志不新增连接）归 P2.6 §5.3 硬门。options 深等在每次渲染天然相等，
+    // 不再作为「没有第二条连接」的断言。
     expect(lastViewportOptions().iModel).toBe(FAKE_CONNECTION);
-
-    const connectionOptionsAfter = viewerMocks.useBriefcaseConnection.mock.calls
-      .map((call) => call[0])
-      .filter((options) => options !== null)
-      .at(-1);
-    expect(connectionOptionsAfter).toEqual(connectionOptionsBefore);
   });
 
   it('A 旧文档：activeModelIds 缺省（legacy 全模型行为不变）', async () => {
@@ -1846,5 +1854,68 @@ describe('B-model P2.5：active scope 视口过滤', () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(FAKE_CONNECTION.editorToolSettings.model).toBeUndefined();
+  });
+
+  it('F1 选择集隔离：ps-1 选中 body → 切 ps-2 → selectionSet/store 立即清空（Delete/Move 无 ps-1 目标）', async () => {
+    const user = userEvent.setup();
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, STUDIO_2]);
+    await renderReadyPage();
+
+    // 播种 ps-1 body 选择（画布 pick 的权威源 = connection.selectionSet；
+    // store 选择为 UI 映射）。bodies 读面缺省空集，桥会即时重算 store——
+    // 先 replace 再写 store，确保播种值不被同步抹掉。
+    act(() => {
+      FAKE_CONNECTION.selectionSet.replace(['body-ps1']);
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: 'body-ps1', label: 'Body ps-1' }]);
+      usePartStudioStore.getState().setSelectedNodeIds(['feat-ps1']);
+    });
+    expect(FAKE_CONNECTION.selectionSet.elements.size).toBe(1);
+
+    await user.click(screen.getByRole('tab', { name: 'Part Studio 2' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-2'),
+    );
+
+    // 元素集工具（DeleteElementsTool/Move）的唯一输入是 selectionSet——切换后
+    // 必须为空（隐藏 ps-1 实体不得被无确认操作），store 画布/树选择同步清空。
+    await waitFor(() => expect(FAKE_CONNECTION.selectionSet.elements.size).toBe(0));
+    expect([...FAKE_CONNECTION.selectionSet.elements]).not.toContain('body-ps1');
+    expect(usePartStudioStore.getState().canvas.selection).toEqual([]);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+  });
+
+  it('F1 lag 窗口：切 scope 后过滤落定（appliedModelKey 变化）再清一次选择集', async () => {
+    const user = userEvent.setup();
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, STUDIO_2]);
+    const rendered = await renderReadyPage();
+    await user.click(screen.getByRole('tab', { name: 'Part Studio 2' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-2'),
+    );
+
+    // 模拟「切换清空之后、视口过滤落定之前」pick 到几何（旧 scope 仍渲染的
+    // lag 窗口）——选择集再次被播种。
+    act(() => {
+      FAKE_CONNECTION.selectionSet.replace(['body-lag']);
+      usePartStudioStore.getState().setCanvasSelection([{ kind: 'part', id: 'body-lag', label: 'Lag body' }]);
+      usePartStudioStore.getState().setSelectedNodeIds(['node-lag']);
+    });
+    expect(FAKE_CONNECTION.selectionSet.elements.size).toBe(1);
+
+    // viewer 过滤落定：appliedModelKey 从 undefined → 新签名。
+    viewerMocks.useViewport.mockReturnValue({
+      viewportRef: { current: null },
+      phase: 'ready',
+      error: null,
+      viewport: FAKE_VIEWPORT,
+      appliedModelKey: '["phys-2"]',
+    });
+    await act(async () => {
+      rendered.rerender(pageTree('/documents/itwin-1/im-1?model=ps-2'));
+    });
+
+    await waitFor(() => expect(FAKE_CONNECTION.selectionSet.elements.size).toBe(0));
+    expect(usePartStudioStore.getState().canvas.selection).toEqual([]);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
   });
 });

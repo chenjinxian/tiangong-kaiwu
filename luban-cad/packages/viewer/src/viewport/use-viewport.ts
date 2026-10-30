@@ -37,7 +37,7 @@
  * 为依赖，父级无关重渲染不触发重复 fit。
  */
 
-import { type RefObject, useEffect, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import {
   IModelApp,
   type IModelConnection,
@@ -53,6 +53,11 @@ import { applyRenderProfile } from './render-profile.js';
 
 /** 运行时相位：idle（未起）→ starting → ready（IPC 就绪）| error。 */
 export type ViewportPhase = 'idle' | 'starting' | 'ready' | 'error';
+
+/** F3：B 物理模型查询失败（ECSQL/IPC）的用户可见消息——fail-closed 清空选择器
+ *  但不冒充「空 Part Studio」，也不把失败标记为已应用（不静默到刷新为止）。 */
+const MODEL_FILTER_FAILURE_MESSAGE =
+  '无法读取 Active Part Studio 的物理模型列表（ECSQL 查询失败）：已隐藏全部模型以避免显示错误 scope；请切换页签或重试。';
 
 export interface UseViewportOptions {
   /** Backend RPC URL（modeling-server；apps/web 传同源代理地址） */
@@ -88,6 +93,13 @@ export interface UseViewportResult {
   error: string | null;
   /** ScreenViewport 实例（iModel 就位且创建链完成后；卸载/取消即 undefined）。 */
   viewport: ScreenViewport | undefined;
+  /**
+   * 已落定的 active-scope 过滤签名（P2.5 F1 承接）：`undefined` = 尚未应用
+   * （如模型查询失败、创建链未完成）；`null` = A legacy 全模型；`string` = B
+   * 白名单内容签名。消费方在它变化时再清一次选择集——覆盖「切 scope 后、
+   * 过滤落定前」的 lag 窗口（期间旧 scope 几何仍可被 pick）。
+   */
+  appliedModelKey: string | null | undefined;
 }
 
 export function useViewport(options: UseViewportOptions): UseViewportResult {
@@ -96,6 +108,8 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
   const [phase, setPhase] = useState<ViewportPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [viewport, setViewport] = useState<ScreenViewport | undefined>(undefined);
+  // 已落定过滤签名（P2.5 F1：消费方据此在过滤落定后再清一次选择集）。
+  const [appliedModelKey, setAppliedModelKey] = useState<string | null | undefined>(undefined);
   // 活跃 viewport 引用（state 之外）：清理路径需同步 drop+dispose
   const activeViewportRef = useRef<ScreenViewport | undefined>(undefined);
   // P2.5：白名单以内容签名参与依赖；最新数组存 ref（父级新数组身份不触发重取景）。
@@ -104,8 +118,23 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
   activeModelIdsRef.current = activeModelIds;
   // 已应用过滤的 (viewport, key)：创建链与切 scope effect 共用，避免重复 fit。
   const appliedFilterRef = useRef<{ viewport: ScreenViewport; key: string | null } | null>(null);
-  // 过滤代际：切 scope 快速连发时只让最新一次落定最终状态。
+  // 过滤代际：切 scope 快速连发时只让最新一次落定最终状态；iModel 切换/卸载
+  // 同样递增（F4），晚到的 apply 不再操作已 dispose 的 viewport。
   const filterSeqRef = useRef(0);
+  // 本 hook 自己呈现的「物理模型查询失败」错误（F3）：成功应用时只清这一条，
+  // 不覆盖创建链的其它错误（如 No view state available）。
+  const filterErrorRef = useRef<string | null>(null);
+  const reportFilterFailure = useCallback((): void => {
+    filterErrorRef.current = MODEL_FILTER_FAILURE_MESSAGE;
+    setError(MODEL_FILTER_FAILURE_MESSAGE);
+  }, []);
+  const clearFilterFailure = useCallback((): void => {
+    if (filterErrorRef.current === null) return;
+    const message = filterErrorRef.current;
+    filterErrorRef.current = null;
+    // 只清本 hook 自己写入的错误；创建链的其它错误保持原样。
+    setError((current) => (current === message ? null : current));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -164,21 +193,42 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
         // IMPORTANT: Ensure all available categories and models are displayed
         // This is required for editing tools to work properly（P2.5：B 只显示
         // active scope 的物理模型，A 保持全模型）。
+        // F4：链内每跳后校验 viewport 仍存活（iModel 切换/卸载即放弃后续副作用）。
+        const isAlive = (): boolean =>
+          !cancelled && activeViewportRef.current === newViewport;
         const appliedModelIds = activeModelIdsRef.current;
-        await setupViewCategoriesAndModels(newViewport, appliedModelIds);
+        const modelsApplied = await setupViewCategoriesAndModels(
+          newViewport,
+          appliedModelIds,
+          isAlive,
+        );
+        if (!isAlive()) return;
 
         // Onshape 视觉基线（2026-10-26 渲染对齐阶段 1）：可见深灰边线 + 灯光
         // 重配 + 全类别中灰哑光覆盖 + MSAA——存量库/新库一致生效（详见 render-profile.ts）。
         try {
           const subCategoryIds = await queryAllSubCategoryIds(iModel);
-          applyRenderProfile(newViewport, subCategoryIds);
+          if (isAlive()) applyRenderProfile(newViewport, subCategoryIds);
         } catch {
           // 画像应用失败不阻断视口（基线观感缺位，功能链不受影响）
         }
 
-        // 记录已应用的过滤签名（链内用的就是这一份白名单；中途切 scope 由下方
-        // filter effect 依据签名差异补应用）。
-        appliedFilterRef.current = { viewport: newViewport, key: modelIdsKey(appliedModelIds) };
+        if (!isAlive()) return;
+        if (modelsApplied) {
+          // 记录已应用的过滤签名（链内用的就是这一份白名单；中途切 scope 由
+          // 下方 filter effect 依据签名差异补应用）。
+          appliedFilterRef.current = { viewport: newViewport, key: modelIdsKey(appliedModelIds) };
+          clearFilterFailure();
+          setAppliedModelKey(modelIdsKey(appliedModelIds));
+        } else {
+          // F3：B 物理模型查询失败——fail-closed（setup 已清空 selector）且
+          // 不标记已应用；错误经视口 error 通道呈现（画布错误面）。
+          // appliedFilterRef 置空：selector 已被清空，旧「已应用」签名不再成立
+          //（否则切回旧 scope 会命中陈旧签名而跳过重建）。
+          appliedFilterRef.current = null;
+          setAppliedModelKey(undefined);
+          reportFilterFailure();
+        }
 
         // 补齐链在卸载后落定：清理已 drop+dispose 并复位 state——不得再写 state
         if (cancelled) return;
@@ -194,6 +244,12 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
 
     return () => {
       cancelled = true;
+      // F4：生命周期失效——作废在途过滤（代际 +1），清已应用签名；晚到的
+      // apply 不再对已 dispose 的 viewport 取景/失效场景，也不回写 appliedFilterRef。
+      filterSeqRef.current += 1;
+      appliedFilterRef.current = null;
+      filterErrorRef.current = null;
+      setAppliedModelKey(undefined);
       if (activeViewportRef.current) {
         IModelApp.viewManager.dropViewport(activeViewportRef.current);
         // eslint-disable-next-line @typescript-eslint/no-deprecated
@@ -206,7 +262,7 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
       // error 呈现错误面/状态栏，陈旧错误会把健康的新链误报成失败）。
       setError(null);
     };
-  }, [iModel, viewportRef]);
+  }, [iModel, viewportRef, clearFilterFailure, reportFilterFailure]);
 
   // P2.5：active scope 切换（B 页签）——同一 iModel/连接下原地切换模型选择并
   // 重取景。依赖面 = viewport 实例 + 白名单内容签名：无关重渲染不触发；A
@@ -219,19 +275,33 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
     if (applied?.viewport === activeViewport && applied.key === activeModelKey) return;
 
     const seq = ++filterSeqRef.current;
-    const isCurrent = (): boolean => seq === filterSeqRef.current;
+    // F4：代际 + viewport 存活双守卫——iModel 切换/卸载后晚到的 apply 一律作废。
+    const isCurrent = (): boolean =>
+      seq === filterSeqRef.current && activeViewportRef.current === activeViewport;
     const ids = activeModelIdsRef.current;
+    const key = modelIdsKey(ids);
     void applyActiveModelFilter(activeViewport, ids, isCurrent)
-      .then(() => {
+      .then((appliedOk) => {
         if (!isCurrent()) return;
-        appliedFilterRef.current = { viewport: activeViewport, key: modelIdsKey(ids) };
+        if (!appliedOk) {
+          // F3：查询失败——fail-closed 已清空选择器，但不标记已应用（错误可见，
+          // 下次切 scope 重试）。旧签名必须作废：否则切回原 scope 会命中陈旧
+          // 「已应用」而跳过重建。
+          appliedFilterRef.current = null;
+          setAppliedModelKey(undefined);
+          reportFilterFailure();
+          return;
+        }
+        appliedFilterRef.current = { viewport: activeViewport, key };
+        clearFilterFailure();
+        setAppliedModelKey(key);
       })
       .catch(() => {
-        // 过滤失败不翻 error（与取景失败同口径）：维持既有视图，不阻断编辑面。
+        if (isCurrent()) reportFilterFailure();
       });
-  }, [viewport, activeModelKey]);
+  }, [viewport, activeModelKey, reportFilterFailure, clearFilterFailure]);
 
-  return { viewportRef, phase, error, viewport };
+  return { viewportRef, phase, error, viewport, appliedModelKey };
 }
 
 /** 白名单内容签名：undefined（A 全模型）与空数组（无活动模型）严格区分。 */
@@ -283,15 +353,21 @@ function syncModelSelector(
   return { added, dropped };
 }
 
-/** 内容感知取景：按给定模型的联合范围（后端 ECSQL 查询，不依赖 tile 时序）。 */
+/**
+ * 内容感知取景：按给定模型的联合范围（后端 ECSQL 查询，不依赖 tile 时序）。
+ * F2：`isCurrent` 在范围查询返回后、相机写入前复查——快速连切时旧 scope 的
+ * 晚到结果不得覆盖新 scope 的取景。
+ */
 async function fitViewToModelRanges(
   viewport: ScreenViewport,
   modelIds: readonly string[],
+  isCurrent: () => boolean,
 ): Promise<void> {
   // 无可见模型（damaged/未解析 scope）：不取景，保留空视图——避免回退 projectExtents。
   if (modelIds.length === 0) return;
   try {
     const ranges = await viewport.iModel.models.queryModelRanges([...modelIds]);
+    if (!isCurrent()) return;
     const union = new Range3d();
     for (const r of ranges) union.extendRange(Range3d.fromJSON(r));
     if (!union.isNull) {
@@ -309,19 +385,32 @@ async function fitViewToModelRanges(
  * 原地应用 active-scope 模型白名单（P2.5）：清白名单外模型 → 补入/加载 active
  * 模型（drop+add 触发 SpatialTileTreeReferences 重建）→ 按 active 模型联合范围
  * 重取景 → invalidateScene。不重建 viewport、不重开连接。
- * `isCurrent` 代际守卫：切 scope 连发时被更新的应用取代即不再落定中间态。
+ * `isCurrent` 代际 + viewport 存活守卫：切 scope 连发/换库/卸载后被取代的
+ * apply 不再落定中间态。
+ * @returns true = 已应用；false = 被取代或物理模型查询失败（B fail-closed 时
+ *   已清空 selector，调用方不得记 appliedFilterRef）。
  */
 async function applyActiveModelFilter(
   viewport: ScreenViewport,
   activeModelIds: readonly string[] | undefined,
   isCurrent: () => boolean,
-): Promise<void> {
+): Promise<boolean> {
   const view = viewport.view;
-  if (!(view instanceof SpatialViewState)) return;
+  if (!(view instanceof SpatialViewState)) return true;
 
   const iModel = viewport.iModel;
   const allModelIds = await queryAllPhysicalModelIds(iModel);
-  if (!isCurrent()) return;
+  if (!isCurrent()) return false;
+
+  if (allModelIds === undefined) {
+    // F3：查询失败 ≠ 空 scope。A legacy 视同空（旧行为，不动选择器）；
+    // B fail-closed：清空选择器以免残留/显示错误 scope，但不标记已应用。
+    if (activeModelIds === undefined) return true;
+    syncModelSelector(view, [], true);
+    viewport.synchWithView();
+    viewport.invalidateScene();
+    return false;
+  }
 
   const visibleModelIds = resolveVisibleModelIds(allModelIds, activeModelIds);
   syncModelSelector(view, visibleModelIds, activeModelIds !== undefined);
@@ -329,7 +418,7 @@ async function applyActiveModelFilter(
   const unloaded = visibleModelIds.filter((id) => !iModel.models.getLoaded(id));
   if (unloaded.length > 0) {
     await iModel.models.load(unloaded);
-    if (!isCurrent()) return;
+    if (!isCurrent()) return false;
     // load 完成（渲染循环可能已跑过）→ drop+add 触发 refs 重建（BRep 断点②）
     view.modelSelector.dropModels(unloaded);
     view.modelSelector.addModels(unloaded);
@@ -337,10 +426,12 @@ async function applyActiveModelFilter(
     console.log('[useViewport] Loaded', unloaded.length, 'active-scope models + rebuilt refs');
   }
 
+  // F2/F4：load 是最后一跳 await；写相机/同步前复查代际与 viewport 存活。
+  if (!isCurrent()) return false;
   viewport.synchWithView();
   // 范围查询在同步选择后（不依赖 tile 加载时序）；无模型时不取景。
-  await fitViewToModelRanges(viewport, visibleModelIds);
-  if (!isCurrent()) return;
+  await fitViewToModelRanges(viewport, visibleModelIds, isCurrent);
+  if (!isCurrent()) return false;
   viewport.invalidateScene();
   // eslint-disable-next-line no-console
   console.log(
@@ -349,6 +440,7 @@ async function applyActiveModelFilter(
     'of',
     allModelIds.length,
   );
+  return true;
 }
 
 /**
@@ -418,6 +510,9 @@ async function ensureViewHasCategoriesAndModels(
 
   // Query for available models and add only the active scope's ones (P2.5).
   const allModelIds = await queryAllPhysicalModelIds(iModel);
+  // F3：查询失败（undefined）≠ 空 scope。A legacy 视同空；B 不在此处动视图
+  // （视口尚未创建），交给 setupViewCategoriesAndModels 做 fail-closed + 报错。
+  if (allModelIds === undefined) return;
   const modelIds = resolveVisibleModelIds(allModelIds, activeModelIds);
   if (allModelIds.length > 0) {
     // B：保存的视图可能已含全部模型——先清掉白名单外条目（隐藏 scope 不可见）。
@@ -465,9 +560,11 @@ async function queryAllSubCategoryIds(iModel: IModelConnection): Promise<string[
 }
 
 /**
- * Query for all PhysicalModel IDs in the iModel
+ * Query for all PhysicalModel IDs in the iModel.
+ * F3：查询失败返回 `undefined`（与「确实没有 PhysicalModel」= `[]` 区分）——
+ * B 路径据此 fail-closed（不显示任何模型、不标记已应用、错误可见）。
  */
-async function queryAllPhysicalModelIds(iModel: IModelConnection): Promise<string[]> {
+async function queryAllPhysicalModelIds(iModel: IModelConnection): Promise<string[] | undefined> {
   try {
     const query = `SELECT ECInstanceId FROM BisCore.PhysicalModel`;
     const rows: string[] = [];
@@ -476,7 +573,7 @@ async function queryAllPhysicalModelIds(iModel: IModelConnection): Promise<strin
     }
     return rows;
   } catch {
-    return [];
+    return undefined;
   }
 }
 
@@ -489,10 +586,11 @@ async function queryAllPhysicalModelIds(iModel: IModelConnection): Promise<strin
 async function setupViewCategoriesAndModels(
   viewport: ScreenViewport,
   activeModelIds: readonly string[] | undefined,
-): Promise<void> {
+  isAlive: () => boolean,
+): Promise<boolean> {
   const view = viewport.view;
   if (!(view instanceof SpatialViewState)) {
-    return;
+    return true;
   }
 
   // Query and add all categories/models (they may have been added to iModel after view was saved)
@@ -500,6 +598,7 @@ async function setupViewCategoriesAndModels(
 
   // Get all categories and ensure they're in the view
   const categoryIds = await queryAllSpatialCategoryIds(iModel);
+  if (!isAlive()) return false;
   let categoriesChanged = false;
   for (const catId of categoryIds) {
     if (!view.categorySelector.has(catId)) {
@@ -512,6 +611,19 @@ async function setupViewCategoriesAndModels(
   // 保存的视图可能已含全部模型：B 下白名单外条目必须移除（隐藏 scope 的几何
   // 不可见/不可拾取）；A 保持 legacy 只增不减。
   const allModelIds = await queryAllPhysicalModelIds(iModel);
+  if (!isAlive()) return false;
+
+  if (allModelIds === undefined) {
+    if (activeModelIds === undefined) {
+      // A legacy：查询失败视同空（旧行为）——不动视图、不取景。
+      return true;
+    }
+    // F3：B fail-closed——清空选择器（绝不显示错误 scope），错误由调用方呈现。
+    syncModelSelector(view, [], true);
+    viewport.synchWithView();
+    return false;
+  }
+
   const modelIds = resolveVisibleModelIds(allModelIds, activeModelIds);
   const diff = syncModelSelector(view, modelIds, activeModelIds !== undefined);
 
@@ -524,6 +636,7 @@ async function setupViewCategoriesAndModels(
   const unloadedModels = modelIds.filter((id) => !iModel.models.getLoaded(id));
   if (unloadedModels.length > 0) {
     await iModel.models.load(unloadedModels);
+    if (!isAlive()) return false;
     // load 完成（此刻渲染循环可能已跑过首帧）→ drop+add 已加载的 model 触发 refs 重建
     view.modelSelector.dropModels(unloadedModels);
     view.modelSelector.addModels(unloadedModels);
@@ -551,5 +664,6 @@ async function setupViewCategoriesAndModels(
   // projectExtents → 相机落在一公里外，几何小到不可见。模型进 selector 后按模型范围
   // 联合集（后端 ECSQL 查询，不依赖 tile 加载时序）取景；查询失败/空范围维持原行为。
   // P2.5：B 只按 active 模型取景；无模型（damaged/空）不取景。
-  await fitViewToModelRanges(viewport, modelIds);
+  await fitViewToModelRanges(viewport, modelIds, isAlive);
+  return true;
 }

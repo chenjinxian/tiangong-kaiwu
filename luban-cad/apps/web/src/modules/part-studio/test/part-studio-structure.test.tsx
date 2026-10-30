@@ -245,6 +245,16 @@ const FAKE_CONNECTION = {
   pushChanges: vi.fn<(description: string) => Promise<{ id: string; index: number }>>()
     .mockResolvedValue({ id: 'cs-new', index: 3 }),
   changeset: { id: 'cs-2', index: 2 },
+  // P2.5 F1：scope 切换清空选择集的连接面（结构测试无真实选择语义，最小桩）。
+  selectionSet: {
+    elements: new Set<string>(),
+    emptyAll: vi.fn(),
+    onChanged: {
+      addListener: (): (() => void) => () => undefined,
+      removeListener: (): void => undefined,
+      raise: (): void => undefined,
+    },
+  },
   editorToolSettings: { category: undefined, model: undefined },
   // M5-T1（D-T9-4 层2）：useFeatureDisplaySync 的 undo/redo 全量失效扫
   // connection.tiles（可迭代；空集=零 extant tree）。

@@ -154,6 +154,8 @@ function primeDefaults(
 // hook 出口的 viewport 逐渲染采样（renderHook 不可挂 div，用宿主组件采样）。
 let latestViewport: ScreenViewport | undefined;
 let latestPhase = '';
+let latestError = '';
+let latestAppliedModelKey: string | null | undefined;
 // console.log 静音 spy（实现内有进度日志；经变量持有以便 afterEach 恢复）
 let logSpy: ReturnType<typeof vi.spyOn>;
 
@@ -166,7 +168,7 @@ function Harness({
   notifications?: unknown;
   activeModelIds?: readonly string[];
 }) {
-  const { viewportRef, phase, error, viewport } = useViewport({
+  const { viewportRef, phase, error, viewport, appliedModelKey } = useViewport({
     backendUrl: 'http://localhost:5300',
     hubUrl: 'http://localhost:5400',
     accessToken: 'jwt-x',
@@ -176,7 +178,17 @@ function Harness({
   });
   latestViewport = viewport;
   latestPhase = phase;
-  return <div ref={viewportRef} data-testid="viewport-host" data-phase={phase} data-error={error ?? ''} />;
+  latestError = error ?? '';
+  latestAppliedModelKey = appliedModelKey;
+  return (
+    <div
+      ref={viewportRef}
+      data-testid="viewport-host"
+      data-phase={phase}
+      data-error={error ?? ''}
+      data-applied-key={appliedModelKey === undefined ? '' : appliedModelKey ?? 'all'}
+    />
+  );
 }
 
 /** 推进宏任务队列，让 hook 内 async 创建链走完（act 包裹防 act 告警）。 */
@@ -195,6 +207,8 @@ beforeEach(() => {
   m.loadModelsMock.mockResolvedValue(undefined);
   latestViewport = undefined;
   latestPhase = '';
+  latestError = '';
+  latestAppliedModelKey = undefined;
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 });
 
@@ -502,6 +516,20 @@ describe('useViewport active-scope 过滤（P2.5）', () => {
     return m.lookAtVolumeMock.mock.calls.at(-1)?.[0] as Range3d;
   }
 
+  /** 指定参数模式的首次/末次调用序（invocationCallOrder；找不到返回 undefined）。 */
+  function firstCallOrder(fn: ReturnType<typeof vi.fn>, ids: string[]): number | undefined {
+    const index = fn.mock.calls.findIndex((args) => (args[0] as string[])?.join(',') === ids.join(','));
+    return index < 0 ? undefined : fn.mock.invocationCallOrder[index];
+  }
+  function lastCallOrder(fn: ReturnType<typeof vi.fn>, ids: string[]): number | undefined {
+    for (let i = fn.mock.calls.length - 1; i >= 0; i -= 1) {
+      if ((fn.mock.calls[i][0] as string[])?.join(',') === ids.join(',')) {
+        return fn.mock.invocationCallOrder[i];
+      }
+    }
+    return undefined;
+  }
+
   it('B active scope：只显示 activeModelIds 内模型（视图既有其他模型被移除）、只加载它并按它取景', async () => {
     const fakeView = makeFakeView(['model-1', 'model-3']);
     const fakeIModel = makeFakeIModel();
@@ -547,6 +575,48 @@ describe('useViewport active-scope 过滤（P2.5）', () => {
     expect(m.loadModelsMock).toHaveBeenCalledWith(['model-3']);
     // 场景失效（scope 切换必须重绘）
     expect(m.invalidateSceneMock).toHaveBeenCalled();
+    expect(latestAppliedModelKey).toBe('["model-3"]');
+
+    // F5：切换路径的 load 后 drop+add（refs 重建）及顺序——load → drop →
+    // add（末次）→ queryModelRanges → lookAt。删掉 drop/add 时真机切 scope
+    // 会因 SpatialRefs 缓存不重建而无 tile。
+    const loadOrder = firstCallOrder(m.loadModelsMock, ['model-3']);
+    const dropOrder = firstCallOrder(m.dropModelsMock, ['model-3']);
+    const addOrder = lastCallOrder(m.addModelsMock, ['model-3']);
+    const rangesOrder = firstCallOrder(m.queryModelRangesMock, ['model-3']);
+    const fitOrder = m.lookAtVolumeMock.mock.invocationCallOrder.at(-1);
+    expect(loadOrder).toBeDefined();
+    expect(dropOrder).toBeDefined();
+    expect(addOrder).toBeDefined();
+    expect(rangesOrder).toBeDefined();
+    expect(dropOrder as number).toBeGreaterThan(loadOrder as number);
+    expect(addOrder as number).toBeGreaterThan(dropOrder as number);
+    expect(rangesOrder as number).toBeGreaterThan(addOrder as number);
+    expect(fitOrder as number).toBeGreaterThan(rangesOrder as number);
+  });
+
+  it('切到已加载模型：只 add 不 load（selector 变化本身触发 refs 重建）+ 重取景', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    // 预加载：切换不需要 ModelState.load，只靠 addModels 触发 refs 重建。
+    m.getLoadedMock.mockReturnValue(true);
+
+    const { rerender } = render(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    await waitFor(() => expect(latestViewport).toBe(fakeViewport));
+    await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-2']));
+    expect(m.loadModelsMock).not.toHaveBeenCalled();
+
+    rerender(<Harness iModel={fakeIModel} activeModelIds={['model-3']} />);
+    await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-3']));
+    await waitFor(() => expect(lastFitRange().toJSON()).toEqual(RANGES['model-3']));
+
+    expect(m.loadModelsMock).not.toHaveBeenCalled();
+    expect(m.dropModelsMock).toHaveBeenCalledWith(['model-2']);
+    expect(m.addModelsMock).toHaveBeenCalledWith(['model-3']);
+    expect(m.queryModelRangesMock).toHaveBeenLastCalledWith(['model-3']);
   });
 
   it('同一白名单内容重渲染不重复取景（无关渲染不触发 fit 循环）', async () => {
@@ -619,5 +689,186 @@ describe('useViewport active-scope 过滤（P2.5）', () => {
     await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual([]));
     await flushAsync();
     expect(m.lookAtVolumeMock).toHaveBeenCalledTimes(fitCallsBefore);
+  });
+
+  it('F2：快速连切且 range 响应乱序——被取代的旧 scope 不得覆盖新 scope 取景', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    // 预加载：切换跳过 load，直接进 range 查询（复现竞态窗口）。
+    m.getLoadedMock.mockReturnValue(true);
+
+    const { rerender } = render(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    await waitFor(() => expect(latestViewport).toBe(fakeViewport));
+    await waitFor(() => expect(lastFitRange().toJSON()).toEqual(RANGES['model-2']));
+
+    // 切换期间挂起两次 range 查询，手工乱序放行。
+    const pending = new Map<string, (ranges: unknown) => void>();
+    m.queryModelRangesMock.mockImplementation(
+      async (ids: string[]) => new Promise((resolve) => {
+        pending.set(ids.join(','), resolve);
+      }),
+    );
+
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-3']} />);
+    });
+    await waitFor(() => expect(pending.has('model-3')).toBe(true));
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-1']} />);
+    });
+    await waitFor(() => expect(pending.has('model-1')).toBe(true));
+
+    // 新 scope（model-1）先返回 → 取景；旧 scope（model-3）晚到必须被丢弃。
+    const fitsBefore = m.lookAtVolumeMock.mock.calls.length;
+    pending.get('model-1')?.([RANGES['model-1']]);
+    await flushAsync();
+    expect(m.lookAtVolumeMock).toHaveBeenCalledTimes(fitsBefore + 1);
+    expect(lastFitRange().toJSON()).toEqual(RANGES['model-1']);
+
+    pending.get('model-3')?.([RANGES['model-3']]);
+    await flushAsync();
+    expect(m.lookAtVolumeMock).toHaveBeenCalledTimes(fitsBefore + 1);
+    expect(lastFitRange().toJSON()).toEqual(RANGES['model-1']);
+    expect(selectedModelsOf(fakeView)).toEqual(['model-1']);
+  });
+
+  it('F3：B 物理模型 ECSQL 失败 → fail-closed 清空 + 错误可见 + 不标记已应用；恢复后重试成功', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    // 仅 PhysicalModel 查询失败（类目查询照常）。
+    m.queryReaderMock.mockImplementation((query: string) => {
+      if (query.includes('PhysicalModel')) throw new Error('ecsql down');
+      return (async function* () {
+        for (const id of CATEGORY_IDS) yield [id];
+      })();
+    });
+
+    const { getByTestId, rerender } = render(
+      <Harness iModel={fakeIModel} activeModelIds={['model-1']} />,
+    );
+    await waitFor(() => expect(latestViewport).toBe(fakeViewport));
+    await waitFor(() => expect(latestError).toContain('物理模型'));
+    expect(getByTestId('viewport-host').getAttribute('data-error')).toContain('物理模型');
+    // fail-closed：无可见模型、不取景、未标记已应用（不可静默到刷新才恢复）。
+    expect(selectedModelsOf(fakeView)).toEqual([]);
+    expect(m.lookAtVolumeMock).not.toHaveBeenCalled();
+    expect(latestAppliedModelKey).toBeUndefined();
+    expect(getByTestId('viewport-host').getAttribute('data-applied-key')).toBe('');
+
+    // 恢复 ECSQL（模拟瞬时故障）→ 切 scope 触发重试 → 应用成功、错误清除。
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    });
+    await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-2']));
+    await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
+    await waitFor(() => expect(latestError).toBe(''));
+  });
+
+  it('F3：失败后切回原 scope 不得命中陈旧「已应用」签名（fail-closed 清空后必须重建）', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    m.getLoadedMock.mockReturnValue(true);
+
+    const { rerender } = render(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
+
+    // 切到 model-3 时 ECSQL 失败 → fail-closed 清空；旧 ["model-2"] 签名必须作废。
+    m.queryReaderMock.mockImplementation((query: string) => {
+      if (query.includes('PhysicalModel')) throw new Error('ecsql down');
+      return (async function* () {
+        for (const id of CATEGORY_IDS) yield [id];
+      })();
+    });
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-3']} />);
+    });
+    await waitFor(() => expect(latestError).toContain('物理模型'));
+    expect(selectedModelsOf(fakeView)).toEqual([]);
+    expect(latestAppliedModelKey).toBeUndefined();
+
+    // 恢复后切回 model-2：不得因陈旧签名匹配而跳过重建。
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    });
+    await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-2']));
+    await waitFor(() => expect(latestAppliedModelKey).toBe('["model-2"]'));
+    expect(latestError).toBe('');
+  });
+
+  it('F3：A legacy（activeModelIds 缺省）物理模型查询失败保持旧行为（视同空、不报错）', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    m.queryReaderMock.mockImplementation((query: string) => {
+      if (query.includes('PhysicalModel')) throw new Error('ecsql down');
+      return (async function* () {
+        for (const id of CATEGORY_IDS) yield [id];
+      })();
+    });
+
+    render(<Harness iModel={fakeIModel} activeModelIds={undefined} />);
+    await waitFor(() => expect(latestViewport).toBe(fakeViewport));
+    await flushAsync();
+    expect(latestError).toBe('');
+    expect(m.lookAtVolumeMock).not.toHaveBeenCalled();
+  });
+
+  it('F4：iModel 切换后晚到的过滤（load 期间）不再操作已 dispose 的 viewport', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport, ALL_MODELS);
+    primeRanges();
+    // 缺省 getLoaded=false：切换会走 load；先让首链 load 正常完成。
+
+    const { rerender } = render(<Harness iModel={fakeIModel} activeModelIds={['model-2']} />);
+    await waitFor(() => expect(selectedModelsOf(fakeView)).toEqual(['model-2']));
+
+    let releaseLoad!: () => void;
+    m.loadModelsMock.mockImplementation(
+      async () => new Promise<void>((resolve) => {
+        releaseLoad = resolve;
+      }),
+    );
+
+    await act(async () => {
+      rerender(<Harness iModel={fakeIModel} activeModelIds={['model-3']} />);
+    });
+    await waitFor(() => expect(m.loadModelsMock).toHaveBeenCalledWith(['model-3']));
+    // load 在途时切换 iModel（视口拆除）——快照副作用次数。
+    const dropCalls = m.dropModelsMock.mock.calls.length;
+    const addCalls = m.addModelsMock.mock.calls.length;
+    const syncCalls = m.synchWithViewMock.mock.calls.length;
+    const invalidateCalls = m.invalidateSceneMock.mock.calls.length;
+    const fitCalls = m.lookAtVolumeMock.mock.calls.length;
+    await act(async () => {
+      rerender(<Harness iModel={undefined} />);
+    });
+    expect(latestViewport).toBeUndefined();
+
+    releaseLoad();
+    await flushAsync();
+
+    // 晚到 load 落定：不得再 drop/add refs、不得 synch/invalidate/fit。
+    expect(m.dropModelsMock).toHaveBeenCalledTimes(dropCalls);
+    expect(m.addModelsMock).toHaveBeenCalledTimes(addCalls);
+    expect(m.synchWithViewMock).toHaveBeenCalledTimes(syncCalls);
+    expect(m.invalidateSceneMock).toHaveBeenCalledTimes(invalidateCalls);
+    expect(m.lookAtVolumeMock).toHaveBeenCalledTimes(fitCalls);
   });
 });

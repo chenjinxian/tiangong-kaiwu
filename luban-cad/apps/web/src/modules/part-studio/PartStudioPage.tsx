@@ -99,7 +99,10 @@
  *   保持 legacy 全模型行为；damaged/未解析 scope 不把 iModel 交给视口（既有
  *   门禁），绝不回落全模型；
  * - editorToolSettings 模型校准在 B 钉死 active physModelId（工具写目标不得落
- *   到隐藏 scope 的模型）；A 只读不进入编辑作用域，配置段不执行（既有行为）。
+ *   到隐藏 scope 的模型）；A 只读不进入编辑作用域，配置段不执行（既有行为）；
+ * - **选择集隔离（fix round 1 F1）**：scope/连接切换与视口过滤落定
+ *   （`appliedModelKey`）时清空 `connection.selectionSet` + store 画布/树选择——
+ *   旧 scope 元素不得经 Delete/Move 等元素集工具被无确认操作。
  *
  * 连接失败 UX（M5-T2）：briefcase 的 isLoading/error 两出口（M4-T2 落地后一直
  * 零消费）接入呈现链——连接三态（下载中/失败/就绪）从此在编辑器页可见：
@@ -409,7 +412,13 @@ function PartStudioSession({
     () => (activePhysModelId ? [activePhysModelId] : undefined),
     [activePhysModelId],
   );
-  const { viewportRef, phase, viewport, error: viewportError } = useViewport({
+  const {
+    viewportRef,
+    phase,
+    viewport,
+    error: viewportError,
+    appliedModelKey,
+  } = useViewport({
     backendUrl: window.location.origin,
     hubUrl: env.hubUrl,
     accessToken: AuthSession.getStoredAuth()?.accessToken,
@@ -450,6 +459,21 @@ function PartStudioSession({
     featureSystem.bodiesLoaded ? featureSystem.bodies : undefined,
     selectionMode === 'body',
   );
+
+  // P2.5 F1：scope/连接切换必须清空元素集选择。`selectionSet` 按连接持有——
+  // 切页签（仅换 URL、复用同一 BriefcaseConnection）后旧 scope 的元素仍留在
+  // 选择集里；DeleteElementsTool（requireAcceptForSelectionSetOperation=false）/
+  // Move 等元素集工具会无确认地操作**隐藏 scope** 的实体。viewer 只把旧模型
+  // 移出可见 selector（不可见/不可拾取），但不会替本页清选择集。
+  // 两道清：activeModelId/iModel/connection 变化立即清；`appliedModelKey`
+  // （viewer 过滤落定签名）变化再清一次——覆盖「切 scope 后、过滤落定前」
+  // 的 lag 窗口内用户 pick 到旧 scope 几何的播种路径。
+  useEffect(() => {
+    connection?.selectionSet.emptyAll();
+    const store = usePartStudioStore.getState();
+    store.setCanvasSelection([]);
+    store.setSelectedNodeIds([]);
+  }, [connection, iModelId, activeModelId, appliedModelKey]);
 
   // 草图系统（M6-a T5）：活动草图读面（store.sketch.activeSketchId 驱动）+
   // updateSketch 写面（复用 featureSystem.applyOp——租约/只读门禁/刷新同源）。
