@@ -15,6 +15,7 @@
 //  2) 返回映射：官方 ITwinsAPIResponse<T> { data?, status, error? } 解包为 T；
 //     error/status>=400 映射为 ApiClientError（status 三元组契约）。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ITwinClass } from '@itwin/itwins-client';
 import { env } from '@config/env.js';
 import { AuthSession } from '../../auth/AuthSession.js';
 import { ItwinsClient } from '../ItwinsClient.js';
@@ -96,7 +97,8 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
     official.createiTwin.mockResolvedValue({ data, status: 201 });
     const client = new ItwinsClient();
 
-    await expect(client.create({ displayName: 'N', class: 'Thing' })).resolves.toEqual(data);
+    // 官方 ITwinClass 是 TS 字符串枚举（非字面量联合）——夹具字面量须标注类型。
+    await expect(client.create({ displayName: 'N', class: 'Thing' as ITwinClass })).resolves.toEqual(data);
     expect(official.createiTwin).toHaveBeenCalledWith(BEARER_TOKEN, { displayName: 'N', class: 'Thing' });
   });
 
