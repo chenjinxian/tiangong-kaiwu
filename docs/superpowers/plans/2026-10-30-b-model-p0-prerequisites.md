@@ -1300,7 +1300,7 @@ git commit -m "refactor(shared): iTwin taxonomy 对齐官方 class/subClass"
 
 ---
 
-### Task 7: 前端创建 iTwin 传官方 class/subClass
+### Task 7: 前端创建 iTwin 只传官方 subClass（hub 派生 class）
 
 **Files:**
 - Modify: `luban-cad/apps/web/src/clients/itwins/types.ts`
@@ -1318,16 +1318,17 @@ git commit -m "refactor(shared): iTwin taxonomy 对齐官方 class/subClass"
 
 - [ ] **Step 1: 写失败测试**
 
-在创建文档的现有测试中（`DocumentsPage.test.tsx` 或独立 dialog 测试）断言：
+在创建文档的现有测试中（`DocumentsPage.test.tsx` 或独立 dialog 测试）断言
+载荷**只含** subClass（P0 终审修正：class 缺席由 hub 派生；见 Step 4c）：
 
 ```ts
 expect(createMock).toHaveBeenCalledWith(
   expect.objectContaining({
     displayName: '新文档',
-    class: 'Endeavor',
     subClass: 'Project',
   }),
 );
+expect(createMock.mock.calls[0]![0]).not.toHaveProperty('class');
 ```
 
 - [ ] **Step 2: 跑测试确认失败**
@@ -1355,13 +1356,13 @@ export interface CreateItwinInput {
 }
 ```
 
-`CreateDocumentDialog.tsx` 的 `handleSubmit`：
+`CreateDocumentDialog.tsx` 的 `handleSubmit`（P0 终审后的最终形态——不发送
+class，服务端从 subClass 派生 Endeavor）：
 
 ```ts
-const input: CreateDocumentInput = {
+const input: CreateItwinInput = {
   displayName: name.trim(),
-  class: 'Endeavor',
-  subClass: 'Project',
+  subClass: ITwinSubClass.Project,
 };
 ```
 
@@ -1377,7 +1378,8 @@ Expected: PASS。
 
 - [ ] **Step 4b: 更新 e2e 种子/用例的 iTwin 创建载荷**
 
-hub taxonomy 迁移后 `class:'Project'` 不再是合法值；以下五处必须改为官方 `{ class: 'Endeavor', subClass: 'Project' }`，否则 e2e 种子/用例在 Task 8 后必红：
+hub taxonomy 迁移后 `class:'Project'` 不再是合法值；以下五处改为只发
+`{ subClass: 'Project' }`（P0 终审修正；class 由 hub 派生）：
 
 - `e2e/seed.ts:20`
 - `e2e/boolean-bodies.spec.ts:138`
@@ -1387,17 +1389,29 @@ hub taxonomy 迁移后 `class:'Project'` 不再是合法值；以下五处必须
 
 ```ts
 // 旧：data: { displayName: ..., class: 'Project' }
-data: { displayName: ..., class: 'Endeavor', subClass: 'Project' }
+data: { displayName: ..., subClass: 'Project' }
 ```
 
 验证：
 
 ```bash
 cd D:/Github/tiangong-kaiwu/luban-cad/apps/web
-grep -rn "class: 'Project'" e2e
+grep -rn "class: 'Endeavor'" e2e
 ```
 
-Expected: 0 命中（该字符串只允许出现在历史文档/迁移说明中）。
+Expected: 0 命中（该字符串只允许出现在历史文档/显式成对 API 测试中）。
+
+- [ ] **Step 4c: 最终修复波（final fix wave）——服务端派生 + 滚动升级载荷**
+
+终审 C1 复核把 Task 7 的“class+subClass 显式成对”载荷收敛为 **subClass-only**：
+新 web 只发 `subClass:'Project'`，hub 从 subClass 派生 class（Project →
+Endeavor）；pre-P0 hub 的白名单剥离未知 `subClass` 并缺省 `class:'Project'`，
+滚动升级窗口内两边都能建项目。同步更新了 `CreateDocumentDialog` 头注、
+`CreateItwinInput` 注释、DocumentsPage/Dialog 断言（`not.toHaveProperty('class')`），
+以及 brief 未列出的工具脚本写入方：`scripts/verify-stack.ps1`（原
+`class='Project'` → `subClass='Project'`，新 hub 会对旧值 422）、
+`luban-cad/apps/web/demo-full-flow.cjs`、`demo-no-store-check.cjs`。
+显式 `class`+`subClass` 成对仅保留在直接测 hub/API 的测试与 shared 类型夹具中。
 
 - [ ] **Step 5: 提交**
 
@@ -1708,8 +1722,8 @@ git commit -m "feat(itwins): 官方 iTwin class/subClass taxonomy 与迁移"
 
 - `e2e/helpers.ts:345`：`GET /itwins?class=Project&$top=100` → `GET /itwins?subClass=Project&$top=100`。
 - `e2e/perf.spec.ts:297`：同样改为 `?subClass=Project`。
-- `demo-full-flow.cjs:73,77`：创建载荷 `class:'Project'` → `class:'Endeavor', subClass:'Project'`；查询 `class=Project` → `subClass=Project`。
-- `demo-no-store-check.cjs:69`：同样更新。
+- `demo-full-flow.cjs:73,77`：创建载荷 `class:'Project'` → `subClass:'Project'`（final fix wave 后不发送 class，由 hub 派生）；查询 `class=Project` → `subClass=Project`。
+- `demo-no-store-check.cjs:69`：同样更新（subClass-only）。
 
 - [ ] **Step 2: 清零验证**
 
@@ -2003,12 +2017,16 @@ Expected: 全绿；hub e2e 在本地 Postgres 可用时执行。
 
 - 启动/确认栈：`docker compose up -d` + `scripts/start-ms-host.ps1 -Detach`。
 - 打开文档中心，确认：
-  - 新建文档成功，且请求载荷含 `class: 'Endeavor'`, `subClass: 'Project'`（DevTools/Network 或 hub 日志）。
+  - 新建文档成功，且请求载荷含 `subClass: 'Project'` 且**不含** `class`（final fix wave 后；服务端派生 Endeavor；DevTools/Network 或 hub 日志）。
   - 文档详情页的 iModel 徽标对 `initialized` 显示「已初始化」；手动构造失败态（可用测试 fixture / mock）显示「初始化失败」且不显示「同步中」。
 - 打开编辑器，创建特征 → 点「保存版本」→ 填名称 → 保存 → 版本历史出现该 Named Version。
 - 截图存档到 `docs/superpowers/plans/assets/2026-10-30-p0/`（若该目录不存在则创建），命名 `named-version.png`、`imodel-states.png`。
 
-实测：hub 本地镜像重建 + 迁移成功；UI 新建文档网络载荷含 `class:"Endeavor"`, `subClass:"Project"` → 201；`GET /itwins` 返回 Endeavor/Project；陌生账号 POST /imodels 403；PATCH state 422 且状态不变。web 聚焦 e2e 17/17 PASS；Named Version「P0 收口验证 V1」经 hub API 与版本历史双重确认。截图命名：`documents-list-endeavor-project.png`、`documents-list-ui-create.png`、`imodel-state-badge.png`、`save-version-dialog.png`、`named-version-history.png`。失败态徽标以单测证据为准（未构造真实失败 iModel）。未跑：全量 web Playwright、verify-stack.ps1。
+实测（**历史证据**，final fix wave 之前的载荷形态）：hub 本地镜像重建 + 迁移成功；UI 新建文档网络载荷含 `class:"Endeavor"`, `subClass:"Project"` → 201；`GET /itwins` 返回 Endeavor/Project；陌生账号 POST /imodels 403；PATCH state 422 且状态不变。web 聚焦 e2e 17/17 PASS；Named Version「P0 收口验证 V1」经 hub API 与版本历史双重确认。截图命名：`documents-list-endeavor-project.png`、`documents-list-ui-create.png`、`imodel-state-badge.png`、`save-version-dialog.png`、`named-version-history.png`。失败态徽标以单测证据为准（未构造真实失败 iModel）。未跑：全量 web Playwright、verify-stack.ps1。
+
+> final fix wave 注记（终审 C1）：web 创建载荷此后改为 subClass-only，上段
+> 的显式 `class:"Endeavor"` 只代表当时的页面载荷；hub 侧 `GET /itwins`
+> 回显 Endeavor/Project 不变。
 
 - [x] **Step 4: 更新 ADR 与计划状态**
 
@@ -2038,7 +2056,7 @@ git commit -m "docs: P0 前置验证收口（Named Version/状态/taxonomy/Works
 
 - [ ] `ImodelSummary.state` 存在，四态 mapper 单测通过；失败态不再显示「初始化中」。
 - [ ] 前端 `ImodelsClient` 有 `listNamedVersions`/`createNamedVersion`，hook + 对话框 + 保存版本流程单测通过；真实栈 e2e 通过。
-- [ ] `packages/shared` 的 `ITwinClass/ITwinSubClass` 与官方一致；`apps/web` 创建文档传 `class: 'Endeavor'`, `subClass: 'Project'`。
+- [ ] `packages/shared` 的 `ITwinClass/ITwinSubClass` 与官方一致；`apps/web` 创建文档只传 `subClass: 'Project'`（class 由 hub 派生 Endeavor；final fix wave C1）。
 - [ ] hub 本地库迁移后 `GET /itwins` 返回官方 class/subClass；`npm run test:unit`/`build` 绿。
 - [ ] `WorkspaceRef` 类型/解析/hook 单测通过；`PartStudioPage` 行为不变（A 模式）。
 - [ ] 公共仓 `npx vitest run`、`npx tsc --noEmit`、`npx eslint` 全绿（或记录既有基线失败）。

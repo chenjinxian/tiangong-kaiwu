@@ -74,7 +74,7 @@ async function dataPoint(page, x, y) {
   proj = ((await listRes.json()).iTwins || []).find((p) => p.displayName === PROJ);
   console.log('[demo] 项目:', proj ? `已存在 ${proj.id.slice(0, 8)}…` : '未找到');
   if (!proj) {
-    const created = await context.request.post(`${BASE}/itwins`, { headers: H, data: { displayName: PROJ, class: 'Endeavor', subClass: 'Project' } });
+    const created = await context.request.post(`${BASE}/itwins`, { headers: H, data: { displayName: PROJ, subClass: 'Project' } });
     const cb = await created.json();
     proj = cb.iTwin;
     if (!proj?.id) throw new Error(`项目创建失败 ${created.status()}: ${JSON.stringify(cb).slice(0, 200)}`);

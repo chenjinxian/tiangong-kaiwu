@@ -265,9 +265,11 @@ if ($SkipBaseline) {
         $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
         $authHeaders = @{ Authorization = "Bearer $($auth.Token)" }
 
-        # --- create iTwin（CreateiTwinDto 必填仅 displayName） ---
+        # --- create iTwin（CreateiTwinDto 必填仅 displayName；subClass-only
+        #     载荷——class 由 hub 派生 Project → Endeavor；旧 class='Project'
+        #     在 P0 taxonomy 后是非法 class 值，新 hub 会 422） ---
         $r = Invoke-StackHttp -Method Post -Uri "$Base/itwins" -TimeoutSec 30 -Headers $authHeaders `
-            -Body ((@{ displayName = "verify-stack-$stamp"; class = 'Project' } | ConvertTo-Json -Compress))
+            -Body ((@{ displayName = "verify-stack-$stamp"; subClass = 'Project' } | ConvertTo-Json -Compress))
         $json = Convert-JsonSafe $r.Body
         $itwinId = $null
         if ($r.StatusCode -eq 201 -and $json -and $json.iTwin -and $json.iTwin.id) {

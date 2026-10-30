@@ -62,7 +62,7 @@
     "pushing": "Pushing…",
     "success": "Version pushed to the hub",
     "pushFailed": "Push failed: {{message}}",
-    "disconnected": "Connection lost — the save version dialog has been closed"
+    "disconnected": "Connection lost — the dialog has been closed"
   },
   "namedVersion": {
     "title": "Save version",

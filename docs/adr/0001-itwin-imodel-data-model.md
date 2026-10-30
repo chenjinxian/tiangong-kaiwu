@@ -262,7 +262,7 @@ iTwin: Thing/Portfolio "园区"
 - **Named Version 后端是“元数据 CRUD”**：hub 端点已存在，但创建不自动生成 checkpoint/缩略图、`namedVersionCount` 不递增、`NamedVersionCreated` 事件未 emit。P0 只交付“命名 + 列表”；完整发布快照列入 P1/backlog。
 - **iModel state 实际枚举**：`initialized / notInitialized / failed / missingFiles`（`imodel-state.enum.ts`），没有 `initializationFailed/retryScheduled`；前端需按实际枚举映射（`failed → 初始化失败`，`missingFiles → 文件缺失`），不得把 `failed` 显示成“初始化中”。
 - **iModel 级权限 `isSecured` 未实现**：hub 只有 iTwin 级 RBAC 强制；legacy `imodel_permissions` 表存在但数据面未强制。P1 的“文档级共享”必须先补 `isSecured`/iModel ACL，或降级为 iTwin 级共享并在 P1 报告记 No-Go。
-- **`POST /imodels` 缺 iTwin 权限守卫**：当前仅 JWT，任意登录用户可在任意 iTwin 下建 iModel；P0 执行计划已包含修复（`@RequirePermission(IMODELS_MANAGE, itwinParam)` + 403 e2e）。
+- **`POST /imodels` 缺 iTwin 权限守卫**：**已由 P0 修复**——`@RequirePermission(IMODELS_MANAGE, { bodyItwinParam: 'iTwinId' })` + `ResourceAccessGuard`，非成员/Viewer 建 iModel → 403；body 的 `iTwinId` 非 UUID → 400（先于授权查询，避免 Postgres uuid 列 22P02 变 500）。同一 P0 收口补了相邻面：`PATCH /imodels/:id` 拒绝 `iTwinId`（422，归属不可改）；`templateId`/`sourceiModelId` 创建要求源 iModel 所属 iTwin 的 `imodels_webview`；`clone`/`fork` 的 `targetITwinId` 与源不同时要求目标 iTwin 的 `imodels_manage`。
 - **MS 无 iModel Transformation 依赖**：`@itwin/imodel-transformer@0.4.3` 的 peer 只到 core 4，本仓 core 5.15-dev；P1 迁移以 **参数重放 + `rebuildAll`** 为主，手工 Element 复制仅用于 direct-edit body 等无法重算的场景，transformer 只做时间盒探针。
 
 ### 8.2 技术步骤（B）
@@ -309,6 +309,45 @@ iTwin: Thing/Portfolio "园区"
 | 文档中心 | iTwin=项目、iModel=文档；筛选/列/详情页调整 | M |
 | Part Studio | TabBar 读 Model 列表；切页签不新建连接；树/特征按 Model 作用域；文档级共享/版本 | M–L |
 | 测试 | 多页签、迁移、双模、权限、性能 | M |
+
+### 8.6 发布顺序 runbook（P0 终审）
+
+**支持路径是先 hub 后 web**（滚动升级窗口内旧 web 对新 hub、新 web 对旧 hub
+各自可运行，但这不是受支持的长期形态）：
+
+1. **发布 hub 镜像**（含 taxonomy 迁移 `AddOfficialITwinClassEnum` →
+   `NormalizeITwinTaxonomy` → `AddITwinGeography`），本地/远端构建后推送并
+   更新部署。hub 的 Dockerfile 必须显式安装 **npm 11**（当前钉
+   `npm@11.21.1`）再 `npm ci`：仓内 `package-lock.json` 由 npm 11 生成，
+   `node:22.21.1-alpine` 自带的 npm 10.9.4 会报 lockfile out-of-sync
+   （缺 `conventional-commits-parser@6.4.0` / `meow@13.2.0`）——builder 与
+   runtime 两段都要装。
+2. **verify-stack Step F**：核对 hub 容器实际镜像的 OCI revision 与 hub
+   HEAD 一致（防「镜像 ID 新、容器跑旧产物/旧挂载」；Step F 对宿主 dist
+   挂载做硬 FAIL）。此时迁移已执行，旧 `class:'Project'` 行已归一为
+   `Endeavor/Project`。
+3. **重建 web 镜像**（`scripts/rebuild-web.ps1`；仅 hub 发布不会更新 web
+   镜像）。web 新建文档载荷只发 `subClass:'Project'`，class 由 hub 派生
+   （Project → Endeavor）。
+4. **全量 verify-stack**（health → 数据链 → WS → dev-build 横幅；Step E/F
+   双镜像新鲜度）。
+
+**禁止**把 web 分支合并/重建后对着 pre-P0 hub 作为受支持路径发布——尽管
+subClass-only 载荷在旧 hub 上可工作（旧白名单剥掉未知 `subClass`、class
+缺省 `Project`），taxonomy 归一/状态诚实化等 P0 面仍未生效。新 web 对旧
+hub 的兼容只用于**发布窗口内的短暂交叉**。
+
+**subClass → class 派生规则**（hub 单一实现，
+`src/itwins/domain/itwin-taxonomy.ts`）：
+
+| subClass | 派生 class |
+|---|---|
+| `Account` | `Account` |
+| `Asset` / `Portfolio` | `Thing` |
+| `Project` / `Program` / `WorkPackage` | `Endeavor` |
+
+create/update 都按此派生：显式 `class` 与派生值不符 → 400（非法对不落库）；
+legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符串 → 422。
 
 ---
 
@@ -437,13 +476,30 @@ iTwin: Thing/Portfolio "园区"
 | hub 源码 | `npm run test:unit` 123 suites / 1104 tests PASS；`npm run build` 0 |
 | hub 实栈 e2e（聚焦） | `authorization` + `smoke-crud` 2 suites / 29 tests PASS（`E2E_BASE_URL=http://localhost:5400`） |
 | hub 迁移 | 本地镜像重建后启动迁移：`AddOfficialITwinClassEnum` / `NormalizeITwinTaxonomy` / `AddITwinGeography` 均 executed successfully |
-| taxonomy 实栈 | UI 新建文档网络载荷 `{"displayName":"P0 UI 新建文档 …","class":"Endeavor","subClass":"Project"}` → 201；`GET /itwins` 返回 `class:"Endeavor"`, `subClass:"Project"`（含新建与既有 demo 行）；DB 分布 Endeavor/Project 4391、Account/Account 3 |
+| taxonomy 实栈 | **历史载荷**（final fix wave 前）：UI 新建文档网络载荷 `{"displayName":"P0 UI 新建文档 …","class":"Endeavor","subClass":"Project"}` → 201；`GET /itwins` 返回 `class:"Endeavor"`, `subClass:"Project"`（含新建与既有 demo 行）；DB 分布 Endeavor/Project 4391、Account/Account 3。此后 web 载荷改为 subClass-only（§8.6） |
 | 权限与状态诚实 | 陌生账号 `POST /imodels` → 403（requires imodels_manage）；`PATCH /imodels/:id {state}` → 422 `state is server-managed and cannot be set by clients`，state 保持 notInitialized |
 | web 实栈 e2e（聚焦） | `documents` + `document-details` + `part-studio` + `tutorial2` 17/17 PASS（3.0m，setup 重置 E2E Seed） |
 | Named Version 实栈 | 编辑器保存「P0 收口验证 V1」→ hub `GET /imodels/:id/namedversions` 200 返回该名（changesetIndex 2）；版本历史面板同步显示 |
 | 截图 | `docs/superpowers/plans/assets/2026-10-30-p0/`：documents-list-endeavor-project.png、documents-list-ui-create.png（UI 新建后）、imodel-state-badge.png、save-version-dialog.png、named-version-history.png |
 | 未跑 | 全量 web Playwright（只跑四个目标 spec，避免撞限流预算）；`verify-stack.ps1`（不在本任务范围） |
 
-> 收口注记：hub 本地镜像构建使用临时 `Dockerfile.local` 引导 npm 11 —— 仓内 `package-lock.json` 为 npm 11 生成，`Dockerfile` 的 node:22.21.1-alpine 自带 npm 10.9.4 报 lockfile out-of-sync（缺 conventional-commits-parser@6.4.0 / meow@13.2.0）；临时文件已删，未推镜像。MS 宿主按计划以产物模式（dist-backend）重启；其中 `@luban-cad/shared` 为静态拷贝，但 MS 不导入 taxonomy，故不影响本项验证。
+> 收口注记：hub 本地镜像构建当时用临时 `Dockerfile.local` 引导 npm 11 —— 仓内 `package-lock.json` 为 npm 11 生成，`Dockerfile` 的 node:22.21.1-alpine 自带 npm 10.9.4 报 lockfile out-of-sync（缺 conventional-commits-parser@6.4.0 / meow@13.2.0）。**final fix wave 已把 `npm@11.21.1` 显式安装写进 `Dockerfile` 的 builder 与 runtime 两段**（§8.6），临时文件方案不再需要。MS 宿主按计划以产物模式（dist-backend）重启；其中 `@luban-cad/shared` 为静态拷贝，但 MS 不导入 taxonomy，故不影响本项验证。
+
+### 最终修复波验证证据（2026-10-30 final fix wave）
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| 公共仓 web 类型 | `cd luban-cad/apps/web && npx tsc --noEmit` | 0 错误 |
+| 公共仓 web 单测 | `npx vitest run`（全量） | 73 files / **1005 tests PASS**（基线 72/995） |
+| 公共仓 web lint | `npx eslint`（全部触碰文件） | 0 错误 |
+| 公共仓 web 聚焦 e2e | `npx playwright test e2e/documents.spec.ts e2e/document-details.spec.ts`（hub 新镜像 :5400 + vite dev :5300） | **8/8 PASS** |
+| hub 类型 | `npx tsc --noEmit -p tsconfig.json` | 0 错误 |
+| hub 构建 | `npm run build` | 0 错误 |
+| hub 单测 | `npx jest --config ./test/jest-unit.json --runInBand`（全量） | 124 suites / **1122 tests PASS**（基线 123/1104） |
+| hub 镜像 | `docker build -t imodelhub-services:p0-final .`；`docker run --rm --entrypoint npm … --version` | 构建成功；runtime `npm 11.21.1`（未推 registry） |
+| hub 聚焦 e2e | `E2E_BASE_URL=http://localhost:5400 npx jest --config ./test/jest-e2e.json --runInBand test/itwins.e2e-spec.ts test/integration/authorization.e2e-spec.ts test/integration/smoke-crud.e2e-spec.ts` | **3 suites / 44 tests PASS** |
+| 未跑 | 全量 web Playwright（限流预算）；`verify-stack.ps1`（控制器在终审后执行）；镜像 push/publish（本轮明确禁止） |
+
+> 本地 hub 容器用新镜像重建以跑 e2e（`docker compose up -d --no-deps --force-recreate imodelhub`），Postgres 数据保留；本地 `ghcr.io/chenjinxian/imodelhub:latest` tag 被本地构建覆盖（未推送 registry）。web 容器未重建（聚焦 e2e 用 vite dev :5300 承载新代码）。
 
 > 本文只做架构决策记录，不包含代码改动。P0 前置项可以在 UI 波次中先行落地；B 的全量迁移必须在 P1 spike 通过后另行排期。

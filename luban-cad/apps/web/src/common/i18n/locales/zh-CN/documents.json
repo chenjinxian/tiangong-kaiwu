@@ -213,7 +213,8 @@
       "nameRequired": "请输入 iModel 名称",
       "descriptionLabel": "描述",
       "descriptionPlaceholder": "输入描述（可选）",
-      "failed": "创建失败，请重试"
+      "failed": "创建失败，请重试",
+      "forbidden": "没有权限在此文档中创建 iModel（需要 imodels_manage 权限）"
     },
     "card": {
       "open": "打开工作空间",

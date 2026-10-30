@@ -7,10 +7,11 @@
  *   （brief 钉死项——官方 `ITwin` 是唯一事实形状，禁止本地另造）；
  * - `ListItwinsParams` / `CreateItwinInput` 为封装层入参：前者是官方
  *   `ITwinsQueryArg` 的 top/skip 分页子集（封装层暂不暴露 search/filter），
- *   后者钉死 create 的最小必填形状（displayName 必填；class/subClass 走
- *   官方 `ITwinClass`/`ITwinSubClass` 枚举——hub taxonomy 迁移后
- *   `class:'Project'` 不再是合法值，建项目必须显式 Endeavor/Project；
- *   update 的入参直接用 `Partial<ITwin>`）。
+ *   后者钉死 create 的最小必填形状（displayName 必填；subClass 走官方
+ *   `ITwinSubClass` 枚举）。`class` 可选：调用方通常只发 subClass，由 hub
+ *   从 subClass 派生 class（Account→Account；Asset/Portfolio→Thing；
+ *   Project/Program/WorkPackage→Endeavor），服务端会校验显式成对时的
+ *   合法组合；update 的入参直接用 `Partial<ITwin>`）。
  */
 
 export type {
@@ -29,7 +30,8 @@ export interface ListItwinsParams {
   skip?: number;
 }
 
-/** `ItwinsClient.create` 入参：官方 iTwin 最小形状 + class/subClass 枚举钉死。 */
+/** `ItwinsClient.create` 入参：官方 iTwin 最小形状 + subClass 枚举钉死。
+ *  `class` 可省略（服务端由 subClass 派生，并拒绝不合法组合）。 */
 export interface CreateItwinInput {
   displayName: string;
   class?: ITwinClass;

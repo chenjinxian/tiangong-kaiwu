@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   imodelsList: vi.fn(),
   imodelsCreate: vi.fn(),
   itwinsGet: vi.fn(),
+  getITwinPermissions: vi.fn(),
 }));
 
 vi.mock('@clients/imodels/ImodelsClient.js', () => ({
@@ -40,6 +41,15 @@ vi.mock('@clients/itwins/ItwinsClient.js', () => ({
     delete = vi.fn();
     create = vi.fn();
     update = vi.fn();
+  },
+}));
+
+// 终审 I3：新建 iModel 权限门——iTwin 级权限查询 mock（默认具备 manage，
+// 本文件只做结构存在性断言；Viewer/加载中/失败分支由 DocumentDetailsPage.test
+// 覆盖）。
+vi.mock('@clients/access-control/AccessControlClient.js', () => ({
+  AccessControlClient: class {
+    getITwinPermissions = mocks.getITwinPermissions;
   },
 }));
 
@@ -119,6 +129,7 @@ beforeEach(() => {
   mocks.itwinsGet.mockResolvedValue(ITWIN_DETAIL);
   mocks.imodelsList.mockResolvedValue(IMODELS);
   mocks.imodelsCreate.mockResolvedValue({ id: 'im-3' });
+  mocks.getITwinPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
 });
 
 describe('DocumentDetailsPage 结构断言（M2 Task 8，关键区域存在性）', () => {

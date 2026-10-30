@@ -7,6 +7,8 @@
  * 成功失效 ['documents','imodels'] 前缀（网格 + hero 计数自动刷新）
  * 并回调父组件关闭；失败内联呈现错误并保持对话框在场承接重试
  * （与 CreateDocumentDialog / RenameDocumentDialog 同口径）。
+ * 403（hub imodels_manage 守卫）映射为专属文案
+ * `documents.detail.create.forbidden`（终审 I3）。
  */
 
 import React from 'react';
@@ -14,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button, Dialog, LabeledInput, Text } from '@itwin/itwinui-react';
 import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
+import { ApiClientError } from '@clients/http/ApiClientError.js';
 
 export interface CreateImodelDialogProps {
   iTwinId: string;
@@ -70,6 +73,13 @@ export function CreateImodelDialog({
       onCreated();
       handleClose();
     } catch (error) {
+      // 403（hub imodels_manage 守卫拒绝）映射为专属 i18n 文案——服务端原始
+      // message 是英文权限串，不是用户可读的拒绝理由（终审 I3 兜底；正常路径
+      // 已由详情页权限门挡在入口）。
+      if (error instanceof ApiClientError && error.status === 403) {
+        setSubmitError(t('documents.detail.create.forbidden'));
+        return;
+      }
       setSubmitError(error instanceof Error ? error.message : t('documents.detail.create.failed'));
     }
   }, [name, description, createMutation, onCreated, handleClose, t]);

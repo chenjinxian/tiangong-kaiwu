@@ -15,10 +15,16 @@
  *   （ImodelsClient.delete → 失效网格）/ ShareDocumentDialog
  *   （复用 documents 模块，三页签成员/邀请/链接）。
  *
- * 数据面：useDocumentDetail + useImodels（本模块 hooks）；三态裁决——
- * 详情加载中整页加载态；详情错误 NonIdealState（重试/返回）；iModel
- * 列表独立 loading 只影响网格区（hero 计数用已知数据照常渲染；网格区
- * loading 门先于空态——初载不闪「暂无 iModel」，零布局跳动违例，I4）。
+ * 数据面：useDocumentDetail + useImodels + useITwinPermissions（本模块
+ * hooks）；三态裁决——详情加载中整页加载态；详情错误 NonIdealState
+ * （重试/返回）；iModel 列表独立 loading 只影响网格区（hero 计数用已知
+ * 数据照常渲染；网格区 loading 门先于空态——初载不闪「暂无 iModel」，
+ * 零布局跳动违例，I4）。
+ *
+ * 新建 iModel 授权门（终审 I3）：hub `POST /imodels` 要求目标 iTwin 上的
+ * `imodels_manage`。权限未落定 / 查询失败 / 不含该权限时 fail-closed——
+ * hero 与空态都不渲染启用态创建入口（Viewer 看不到创建动作；403 另在
+ * CreateImodelDialog 内映射为专属 i18n 文案兜底）。
  */
 
 import React from 'react';
@@ -56,6 +62,7 @@ import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
 import { ShareDocumentDialog, type DocumentSummary } from '@modules/documents';
 import { useTheme } from '@app/providers/ThemeContext.js';
 import { useDocumentDetail, useImodels } from './hooks/useImodels.js';
+import { useITwinPermissions } from './hooks/useITwinPermissions.js';
 import type { ImodelSummary } from './types.js';
 import { DocumentHero } from './components/DocumentHero.js';
 import { ImodelCardGrid } from './components/ImodelCardGrid.js';
@@ -88,6 +95,11 @@ export function DocumentDetailsPage(): React.JSX.Element {
     isFetching: isImodelsFetching,
     refetch: refetchImodels,
   } = useImodels(iTwinId);
+  const {
+    permissions: iTwinPermissions,
+    isLoading: isPermissionLoading,
+    error: permissionError,
+  } = useITwinPermissions(iTwinId);
 
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
   const [isShareOpen, setIsShareOpen] = React.useState(false);
@@ -113,6 +125,13 @@ export function DocumentDetailsPage(): React.JSX.Element {
     () => imodels.some((im) => im.state === 'notInitialized' || im.state === 'retryScheduled'),
     [imodels],
   );
+
+  /** 新建 iModel 权限门（终审 I3）：仅 `imodels_manage` 放行；权限未落定
+   *  或查询失败一律 fail-closed（不呈现启用态创建入口，避免诱导 403）。 */
+  const canCreateImodel =
+    !isPermissionLoading &&
+    !permissionError &&
+    iTwinPermissions.includes('imodels_manage');
 
   const formatDate = React.useCallback(
     (value: string | null | undefined): string | null => {
@@ -339,6 +358,7 @@ export function DocumentDetailsPage(): React.JSX.Element {
           updatedLabel={updatedLabel}
           imodelCount={imodels.length}
           syncing={syncing}
+          canCreateImodel={canCreateImodel}
           onCreateImodel={() => setIsCreateOpen(true)}
           onShare={() => setIsShareOpen(true)}
           onDelete={() => {
@@ -369,13 +389,17 @@ export function DocumentDetailsPage(): React.JSX.Element {
             heading={t('documents.detail.empty.title')}
             description={t('documents.detail.empty.description')}
             actions={
-              <Button
-                styleType="high-visibility"
-                startIcon={<SvgAdd />}
-                onClick={() => setIsCreateOpen(true)}
-              >
-                {t('documents.detail.actions.createIModel')}
-              </Button>
+              // 权限门（终审 I3）：无 imodels_manage / 权限未落定 → 空态不呈现
+              // 创建入口（Viewer 无创建动作；不诱导注定 403 的提交）。
+              canCreateImodel ? (
+                <Button
+                  styleType="high-visibility"
+                  startIcon={<SvgAdd />}
+                  onClick={() => setIsCreateOpen(true)}
+                >
+                  {t('documents.detail.actions.createIModel')}
+                </Button>
+              ) : undefined
             }
           />
         ) : (

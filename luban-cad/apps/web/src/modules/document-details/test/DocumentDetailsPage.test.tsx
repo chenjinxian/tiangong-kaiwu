@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   imodelsDelete: vi.fn(),
   itwinsGet: vi.fn(),
   itwinsDelete: vi.fn(),
+  getITwinPermissions: vi.fn(),
 }));
 
 vi.mock('@clients/imodels/ImodelsClient.js', () => ({
@@ -47,6 +48,14 @@ vi.mock('@clients/itwins/ItwinsClient.js', () => ({
     delete = mocks.itwinsDelete;
     create = vi.fn();
     update = vi.fn();
+  },
+}));
+
+// 终审 I3：新建 iModel 权限门——iTwin 级权限查询模块级 mock（默认授予
+// imodels_manage，既有创建用例不变；Viewer/加载中/查询失败用例按需覆盖）。
+vi.mock('@clients/access-control/AccessControlClient.js', () => ({
+  AccessControlClient: class {
+    getITwinPermissions = mocks.getITwinPermissions;
   },
 }));
 
@@ -72,6 +81,7 @@ vi.mock('../../documents/internal/share.api.js', () => ({
 }));
 
 import { AuthSession } from '@clients/auth/AuthSession.js';
+import { ApiClientError } from '@clients/http/ApiClientError.js';
 import { DocumentDetailsPage } from '../DocumentDetailsPage.js';
 
 /** 官方 IModel 全量表示的测试最小形状（mapper 只读子集，其余字段不参与）。 */
@@ -142,6 +152,8 @@ beforeEach(() => {
   mocks.imodelsCreate.mockResolvedValue({ id: 'im-3' });
   mocks.itwinsDelete.mockResolvedValue(undefined);
   mocks.imodelsDelete.mockResolvedValue(undefined);
+  // 默认 Admin/Editor 语义：具备 imodels_manage（新建入口可见）。
+  mocks.getITwinPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
 });
 
 describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => {
@@ -178,6 +190,15 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     renderPage();
     expect(await screen.findByText('初始化失败')).toBeDefined();
     expect(screen.queryByText('同步中')).toBeNull();
+  });
+
+  it('缺文件（missingFiles）显示「文件缺失」徽标，且不显示「初始化中」', async () => {
+    mocks.imodelsList.mockResolvedValue([
+      { ...IMODELS[0], state: 'missingFiles' },
+    ]);
+    renderPage();
+    expect(await screen.findByText('文件缺失')).toBeDefined();
+    expect(screen.queryByText('初始化中')).toBeNull();
   });
 
   it('初始化中显示初始化中徽标，并显示同步中', async () => {
@@ -229,6 +250,68 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
         description: '新模型描述',
       }),
     );
+  });
+
+  // 终审 I3：新建 iModel 权限门（iTwin imodels_manage）——Viewer 无创建动作；
+  // 权限未落定/查询失败 fail-closed；403 映射专属 i18n 文案。
+  it('Viewer（无 imodels_manage）：hero 与空态均不渲染新建入口', async () => {
+    mocks.getITwinPermissions.mockResolvedValue(['imodels_webview']);
+    mocks.imodelsList.mockResolvedValue([]);
+    renderPage();
+
+    expect(await screen.findByText('暂无 iModel')).toBeDefined();
+    expect(screen.queryByRole('button', { name: '新建 iModel' })).toBeNull();
+  });
+
+  it('Viewer（无 imodels_manage）：有 iModel 时 hero 仍无新建入口', async () => {
+    mocks.getITwinPermissions.mockResolvedValue(['imodels_webview']);
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: '演示文档' })).toBeDefined();
+    await screen.findByText('楼层模型');
+    expect(screen.queryByRole('button', { name: '新建 iModel' })).toBeNull();
+  });
+
+  it('Editor/Admin（含 imodels_manage）：新建入口可见', async () => {
+    mocks.getITwinPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: '新建 iModel' })).toBeDefined();
+  });
+
+  it('权限未落定（loading）：不渲染启用态新建入口', async () => {
+    mocks.getITwinPermissions.mockReturnValue(new Promise(() => { /* 悬挂 */ }));
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: '演示文档' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: '新建 iModel' })).toBeNull();
+  });
+
+  it('权限查询失败：fail-closed（不渲染新建入口）', async () => {
+    mocks.getITwinPermissions.mockRejectedValue(new Error('permission boom'));
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: '演示文档' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: '新建 iModel' })).toBeNull();
+  });
+
+  it('创建 403 → 专属 i18n 文案（不是服务端英文权限串）', async () => {
+    const user = userEvent.setup();
+    mocks.imodelsCreate.mockRejectedValue(
+      new ApiClientError({
+        status: 403,
+        code: 'IMODELS_REQUEST_FAILED',
+        message: 'You do not have permission to access this resource (requires imodels_manage)',
+      }),
+    );
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: '新建 iModel' }));
+    await user.type(await screen.findByLabelText(/iModel 名称/), '新模型');
+    await user.click(screen.getByRole('button', { name: '创建' }));
+
+    expect(
+      await screen.findByText('没有权限在此文档中创建 iModel（需要 imodels_manage 权限）'),
+    ).toBeDefined();
   });
 
   it('创建对话框：名称必填校验（空名不提交）', async () => {

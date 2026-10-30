@@ -98,6 +98,8 @@ const REQUIRED_DOCUMENT_DETAIL_KEYS = [
   'detail.states.retry', 'detail.states.back',
   'detail.create.title', 'detail.create.nameLabel', 'detail.create.nameRequired',
   'detail.create.descriptionLabel', 'detail.create.failed',
+  // ADR-0001 P0 终审 I3：403（imodels_manage 守卫）专属文案键。
+  'detail.create.forbidden',
   'detail.card.open', 'detail.card.moreActions', 'detail.card.initialized',
   'detail.card.initializing', 'detail.card.noDescription', 'detail.card.untitled',
   'detail.card.deleteTitle', 'detail.card.deleteMessage',

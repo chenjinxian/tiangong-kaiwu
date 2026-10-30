@@ -213,7 +213,8 @@
       "nameRequired": "Please enter an iModel name",
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "Enter a description (optional)",
-      "failed": "Failed to create. Please retry."
+      "failed": "Failed to create. Please retry.",
+      "forbidden": "You do not have permission to create iModels in this document (imodels_manage required)"
     },
     "card": {
       "open": "Open workspace",

@@ -61,7 +61,9 @@ export interface PartStudioTopBarProps {
   canUndo?: boolean;
   /** 重做可用（BriefcaseTxns.isRedoPossible）；缺省 false。 */
   canRedo?: boolean;
-  /** 有未推送本地变更（hasPendingTxns 口径；保存版本钮门——无可推送内容即禁用）。 */
+  /** 有未推送本地变更（hasPendingTxns 口径）。保存版本钮的实际门禁是
+   *  `canSaveVersion ?? hasUnsavedChanges`（见下方 disabled 表达式与注释）——
+   *  本字段仅在 canSaveVersion 缺省（未接线/旧调用）时作为回退门。 */
   hasUnsavedChanges?: boolean;
   /** 保存版本可用性（B-model P0 Task 5）：干净态也可命名当前 changeset，
    * 由页面层以 canEdit ∧ connection 就绪传入；缺省回退 hasUnsavedChanges，

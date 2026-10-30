@@ -125,7 +125,7 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     expect(screen.getByLabelText(/文档编号/)).toBeDefined();
   });
 
-  it('新建文档提交 → 创建载荷带官方 class/subClass（Endeavor/Project）', async () => {
+  it('新建文档提交 → 创建载荷仅发 subClass（class 由 hub 派生）', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole('button', { name: '创建' }));
@@ -133,17 +133,20 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     await user.type(await screen.findByLabelText(/文档名称/), '新文档');
     // 侧栏「创建」大钮与对话框提交钮同名——提交钮以 dialog 作用域取。
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建' }));
-    // hub taxonomy 迁移后 class:'Project' 非合法值：创建必须显式传官方
-    // Endeavor/Project 二元组（ADR-0001 P0），否则服务端按缺省拒绝/错分。
+    // ADR-0001 P0 滚动升级契约：新 web 只发 subClass:'Project'，class 由
+    // hub 派生（Project → Endeavor）。显式 class 会让 pre-P0 hub 无法按
+    // 老缺省路径建项目，且新 hub 需再校验二元组——故断言 class 缺席。
     await waitFor(() => {
-      expect(itwinsCreateMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          displayName: '新文档',
-          class: 'Endeavor',
-          subClass: 'Project',
-        }),
-      );
+      expect(itwinsCreateMock).toHaveBeenCalledTimes(1);
     });
+    const payload = itwinsCreateMock.mock.calls[0]![0] as Record<string, unknown>;
+    expect(payload).toEqual(
+      expect.objectContaining({
+        displayName: '新文档',
+        subClass: 'Project',
+      }),
+    );
+    expect(payload).not.toHaveProperty('class');
   });
 
   it('创建菜单 🟠 项 → 能力引导对话框（完整 UI 面，照常可点）', async () => {

@@ -17,7 +17,9 @@ export async function resetE2eSeed(request: APIRequestContext, accessToken: stri
   if (!seedProject) {
     const created = await request.post('/itwins', {
       headers: authHeaders(accessToken),
-      data: { displayName: SEED_PROJECT_NAME, class: 'Endeavor', subClass: 'Project' },
+      // subClass-only：class 由 hub 派生（Project → Endeavor）；pre-P0 hub
+      // 剥离未知 subClass 并缺省 class，种子在滚动升级窗口内同样可建。
+      data: { displayName: SEED_PROJECT_NAME, subClass: 'Project' },
     });
     expect(created.status(), `种子项目缺失且自愈重建失败：HTTP ${created.status()}`).toBe(201);
     seedProject = ((await created.json()) as { iTwin: { id: string } }).iTwin;

@@ -310,7 +310,6 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
         headers,
         data: {
           displayName: `${SEED_PREFIX}${String(i).padStart(3, '0')}`,
-          class: 'Endeavor',
           subClass: 'Project',
         },
       });

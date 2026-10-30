@@ -62,7 +62,7 @@
     "pushing": "推送中…",
     "success": "版本已推送到云端",
     "pushFailed": "推送失败: {{message}}",
-    "disconnected": "连接已断开，保存版本对话框已关闭"
+    "disconnected": "连接已断开，对话框已关闭"
   },
   "namedVersion": {
     "title": "保存版本",
