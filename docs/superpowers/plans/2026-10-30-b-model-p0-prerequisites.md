@@ -661,7 +661,8 @@ git commit -m "feat(web): Named Version 查询 hook"
 - Modify: `luban-cad/apps/web/src/modules/part-studio/test/PartStudioDock.test.tsx`
 - Modify: `luban-cad/apps/web/src/common/i18n/locales/{zh-CN,en}/part-studio.json`
 - Modify: `luban-cad/apps/web/src/common/i18n/test/i18n.test.ts`
-- Modify: `luban-cad/apps/web/e2e/part-studio.spec.ts`（新增真实栈用例）
+- Modify: `luban-cad/apps/web/e2e/part-studio.spec.ts`（新增真实栈用例 + 更新既有“保存版本”干净态断言）
+- Modify: `luban-cad/apps/web/e2e/tutorial2.spec.ts`（既有保存版本流程改用新 Named Version 对话框）
 
 **Interfaces:**
 - Consumes: `ImodelsClient.createNamedVersion`（Task 3）、`ImodelsClient.listChangesets`（既有）、`BriefcaseConnection.pushChanges(description): Promise<ChangesetIndexAndId>`（iTwin.js core）
@@ -1173,13 +1174,42 @@ npx playwright test e2e/part-studio.spec.ts --grep "保存版本"
 
 Expected: PASS（若栈未起，先按 `docs/Architecture.md` 启动；此步不得跳过宣称完成）。
 
+- [ ] **Step 8b: 改写既有 e2e 的“保存版本”语义**
+
+顶栏“保存版本”已从 PushChangesetDialog 改为 CreateNamedVersionDialog；必须同步两条既有断言，否则 e2e 必红：
+
+1. `e2e/part-studio.spec.ts:68` 的干净态三钮断言：`part-studio-save-button` 由 `toBeDisabled()` 改为 `toBeEnabled()`（保存版本始终可命名当前 changeset；undo/redo 仍禁用）。
+2. `e2e/tutorial2.spec.ts:747-760` 的保存版本流程：改为打开新对话框、填“版本名称”、保存、断言成功 toast + 版本历史出现该 Named Version；对话框关闭后保存钮仍为 enabled（干净态可继续命名当前 changeset），不再是 `toBeDisabled()`。dock“推送”路径仍由 `PushChangesetDialog` 覆盖，不动。
+
+```ts
+// tutorial2.spec.ts 片段（替换原 push dialog 交互）
+await expect(saveButton).toBeEnabled({ timeout: 30_000 });
+await saveButton.click();
+const versionDialog = page.getByRole('dialog', { name: '保存版本' });
+await expect(versionDialog).toBeVisible({ timeout: 15_000 });
+await versionDialog.getByLabel('版本名称').fill(pushDescription);
+await versionDialog.getByRole('button', { name: '保存' }).click();
+await expect(page.getByText('版本已保存')).toBeVisible({ timeout: 60_000 });
+await expect(saveButton).toBeEnabled({ timeout: 30_000 });
+await page.getByTestId('part-studio-dock').getByRole('tab', { name: '版本历史' }).click();
+await expect(page.getByTestId('part-studio-named-versions').getByText(pushDescription)).toBeVisible();
+```
+
+```bash
+cd D:/Github/tiangong-kaiwu/luban-cad/apps/web
+npx playwright test e2e/part-studio.spec.ts e2e/tutorial2.spec.ts --grep "保存版本|三钮|T7 冒烟"
+```
+
+Expected: PASS；若栈不可用，记录未跑，不得宣称通过。
+
 - [ ] **Step 9: 提交**
 
 ```bash
 cd D:/Github/tiangong-kaiwu
 git add luban-cad/apps/web/src/modules/part-studio \
   luban-cad/apps/web/src/common/i18n \
-  luban-cad/apps/web/e2e/part-studio.spec.ts
+  luban-cad/apps/web/e2e/part-studio.spec.ts \
+  luban-cad/apps/web/e2e/tutorial2.spec.ts
 git commit -m "feat(web): 保存版本——推送 changeset 后创建 Named Version"
 ```
 
@@ -1276,6 +1306,11 @@ git commit -m "refactor(shared): iTwin taxonomy 对齐官方 class/subClass"
 - Modify: `luban-cad/apps/web/src/clients/itwins/types.ts`
 - Modify: `luban-cad/apps/web/src/modules/documents/components/CreateDocumentDialog.tsx`
 - Modify: `luban-cad/apps/web/src/modules/documents/test/DocumentsPage.test.tsx`（或 CreateDocumentDialog 现有测试）
+- Modify: `luban-cad/apps/web/e2e/seed.ts`
+- Modify: `luban-cad/apps/web/e2e/boolean-bodies.spec.ts`
+- Modify: `luban-cad/apps/web/e2e/feature-contracts.spec.ts`
+- Modify: `luban-cad/apps/web/e2e/newbody.spec.ts`
+- Modify: `luban-cad/apps/web/e2e/perf.spec.ts`
 
 **Interfaces:**
 - Consumes: 官方 `ITwinClass` / `ITwinSubClass`（`@itwin/itwins-client`）
@@ -1340,13 +1375,42 @@ npx tsc --noEmit
 
 Expected: PASS。
 
+- [ ] **Step 4b: 更新 e2e 种子/用例的 iTwin 创建载荷**
+
+hub taxonomy 迁移后 `class:'Project'` 不再是合法值；以下五处必须改为官方 `{ class: 'Endeavor', subClass: 'Project' }`，否则 e2e 种子/用例在 Task 8 后必红：
+
+- `e2e/seed.ts:20`
+- `e2e/boolean-bodies.spec.ts:138`
+- `e2e/feature-contracts.spec.ts:210`
+- `e2e/newbody.spec.ts:149`
+- `e2e/perf.spec.ts:311`
+
+```ts
+// 旧：data: { displayName: ..., class: 'Project' }
+data: { displayName: ..., class: 'Endeavor', subClass: 'Project' }
+```
+
+验证：
+
+```bash
+cd D:/Github/tiangong-kaiwu/luban-cad/apps/web
+grep -rn "class: 'Project'" e2e
+```
+
+Expected: 0 命中（该字符串只允许出现在历史文档/迁移说明中）。
+
 - [ ] **Step 5: 提交**
 
 ```bash
 cd D:/Github/tiangong-kaiwu
 git add luban-cad/apps/web/src/clients/itwins/types.ts \
   luban-cad/apps/web/src/modules/documents/components/CreateDocumentDialog.tsx \
-  luban-cad/apps/web/src/modules/documents/test
+  luban-cad/apps/web/src/modules/documents/test \
+  luban-cad/apps/web/e2e/seed.ts \
+  luban-cad/apps/web/e2e/boolean-bodies.spec.ts \
+  luban-cad/apps/web/e2e/feature-contracts.spec.ts \
+  luban-cad/apps/web/e2e/newbody.spec.ts \
+  luban-cad/apps/web/e2e/perf.spec.ts
 git commit -m "feat(web): 新建文档传官方 iTwin class/subClass"
 ```
 
