@@ -17,7 +17,7 @@
 | 文档 | 说明 |
 |------|------|
 | [Architecture.md](./Architecture.md) | 系统架构详细设计 |
-| [adr/0001-itwin-imodel-data-model.md](./adr/0001-itwin-imodel-data-model.md) | ADR：iTwin/iModel 数据模型与“文档—页签”信息架构（**已接受**；P0 前置完成，P1 spike 计划中） |
+| [adr/0001-itwin-imodel-data-model.md](./adr/0001-itwin-imodel-data-model.md) | ADR：iTwin/iModel 数据模型与“文档—页签”信息架构（**已接受**；P0 前置完成；**P1 spike 完成：Go（qualified）**，见 ADR §14） |
 | [ROADMAP.md](./ROADMAP.md) | 路线图索引（指向全程序路线图） |
 | [SKETCH-CONSTRAINT-WORKFLOW.md](./SKETCH-CONSTRAINT-WORKFLOW.md) | 草图约束工作流程（设计稿） |
 | [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |

@@ -1,6 +1,7 @@
 # ADR-0001: iTwin / iModel 数据模型与“文档—页签”信息架构
 
-- **状态**：已接受（Accepted，2026-10-30：认可 B 方向，采用 C 过渡，P1 spike 作为迁移门禁）
+- **状态**：已接受（Accepted，2026-10-30：认可 B 方向，采用 C 过渡，P1 spike 作为迁移门禁；
+  **2026-10-30 P1 spike 完成：Go（qualified，带限定）**，见 §14）
 - **日期**：2026-10-30
 - **决策范围**：鲁班CAD 的领域数据模型、文档中心 IA、Part Studio 页签模型，以及 CAM/BIM 扩展方向
 - **关联文档**：
@@ -16,7 +17,9 @@
 - **目标 B**：iTwin = 项目/产品/资产，iModel = 文档，Model = Part Studio/Assembly/Process。
 - **过渡 C**：旧数据保留 A 兼容，新文档走 B，前端先引入 `WorkspaceRef` 抽象。
 - **前置三项**：Named Version、iModel 状态诚实化、iTwin 官方 taxonomy。
-- **Go/No-Go**：P1 spike 四项全过才迁移；否则维持 A，不启动全量迁移。
+- **Go/No-Go**：P1 spike 四项全过才迁移；否则维持 A，不启动全量迁移。**2026-10-30 实测结果：
+  Go（qualified）**——隔离/性能/Named Version+共享 Go；撤销决策 A（文档级、init floor 限定，生产
+  E2E NOT RUN）；迁移以参数重放 + `rebuildAll` qualified Go（Transformation 探针 NOT RUN）。详见 §14。
 
 ---
 
@@ -256,14 +259,21 @@ iTwin: Thing/Portfolio "园区"
 | **P3 旧数据迁移** | 惰性迁移或批量迁移；保留源 iModel 归档；校验几何/特征/引用 | 迁移工具可重跑；抽样校验通过 |
 | **P4 收口** | 切换 IA；删除 A 兼容层（或长期保留只读）；更新文档与 ADR | 全量 e2e/视觉/verify-stack 绿 |
 
+> **P1 实际结果（2026-10-30）**：**Go（qualified）**。隔离（2+ Part Studio 特征/树/体/orderKey/
+> oplog）+ 性能（10 studio 五项阈值全过）+ Named Version（元数据）/iModel 级共享（`isSecured` + ACL）
+> 实测通过；撤销决策 **A**（最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC +
+> init floor E2E **NOT RUN**）；迁移以**参数重放 + `rebuildAll`** qualified Go（transformer 探针
+> **NOT RUN**，不得宣称无损）。证据与限定见私有仓 `luban-backend` 的
+> `docs/feature-multi-partstudio-spike.md`（仓外私仓路径；本公开仓不包含该文件，故无相对链接）。
+
 ### 8.2.1 实施现实核对（2026-10-30 取证）
 
 - **Part Studio 不是单个 BIS Model**：现有 LubanCAD 结构是 `DefinitionModel`（Feature/OpLog 定义）+ `PhysicalModel`（BodySolid/Sketch）+ dictionary 中的 OpLog 元素。ADR 的 “Model = Part Studio” 应理解为 **Part Studio scope（一对 def/phys Model）**，不是新增 `PartStudio` EC 类；若要严格单 Model，需要 schema 改造。
 - **Named Version 后端是“元数据 CRUD”**：hub 端点已存在，但创建不自动生成 checkpoint/缩略图、`namedVersionCount` 不递增、`NamedVersionCreated` 事件未 emit。P0 只交付“命名 + 列表”；完整发布快照列入 P1/backlog。
 - **iModel state 实际枚举**：`initialized / notInitialized / failed / missingFiles`（`imodel-state.enum.ts`），没有 `initializationFailed/retryScheduled`；前端需按实际枚举映射（`failed → 初始化失败`，`missingFiles → 文件缺失`），不得把 `failed` 显示成“初始化中”。
-- **iModel 级权限 `isSecured` 未实现**：hub 只有 iTwin 级 RBAC 强制；legacy `imodel_permissions` 表存在但数据面未强制。P1 的“文档级共享”必须先补 `isSecured`/iModel ACL，或降级为 iTwin 级共享并在 P1 报告记 No-Go。
+- **iModel 级权限 `isSecured` 未实现**：hub 只有 iTwin 级 RBAC 强制；legacy `imodel_permissions` 表存在但数据面未强制。P1 的“文档级共享”必须先补 `isSecured`/iModel ACL，或降级为 iTwin 级共享并在 P1 报告记 No-Go。**（P1 Task 8a 已实现最小 `isSecured` + iModel ACL；实测见 §14 与 spike 文档。）**
 - **`POST /imodels` 缺 iTwin 权限守卫**：**已由 P0 修复**——`@RequirePermission(IMODELS_MANAGE, { bodyItwinParam: 'iTwinId' })` + `ResourceAccessGuard`，非成员/Viewer 建 iModel → 403；body 的 `iTwinId` 非 UUID → 400（先于授权查询，避免 Postgres uuid 列 22P02 变 500）。同一 P0 收口补了相邻面：`PATCH /imodels/:id` 拒绝 `iTwinId`（422，归属不可改）；`templateId`/`sourceiModelId` 创建要求源 iModel 所属 iTwin 的 `imodels_webview`；`clone`/`fork` 的 `targetITwinId` 与源不同时要求目标 iTwin 的 `imodels_manage`。
-- **MS 无 iModel Transformation 依赖**：`@itwin/imodel-transformer@0.4.3` 的 peer 只到 core 4，本仓 core 5.15-dev；P1 迁移以 **参数重放 + `rebuildAll`** 为主，手工 Element 复制仅用于 direct-edit body 等无法重算的场景，transformer 只做时间盒探针。
+- **MS 无 iModel Transformation 依赖**：`@itwin/imodel-transformer@0.4.3` 的 peer 只到 core 4，本仓 core 5.15-dev；P1 迁移以 **参数重放 + `rebuildAll`** 为主，手工 Element 复制仅用于 direct-edit body 等无法重算的场景，transformer 只做时间盒探针。**（P1 结果：transformer 探针 NOT RUN——peer `^3.6 || ^4.0` vs core `5.15.0-dev.2`，且加依赖违反 lockfile 约束；主路径不依赖 transformer。）**
 
 ### 8.2 技术步骤（B）
 
@@ -310,7 +320,7 @@ iTwin: Thing/Portfolio "园区"
 | Part Studio | TabBar 读 Model 列表；切页签不新建连接；树/特征按 Model 作用域；文档级共享/版本 | M–L |
 | 测试 | 多页签、迁移、双模、权限、性能 | M |
 
-### 8.6 发布顺序 runbook（P0 终审）
+### 8.6 发布顺序 runbook（P0 终审 + P1 RPC 1.17 门）
 
 **支持路径是先 hub 后 web**（滚动升级窗口内旧 web 对新 hub、新 web 对旧 hub
 各自可运行，但这不是受支持的长期形态）：
@@ -331,6 +341,20 @@ iTwin: Thing/Portfolio "园区"
    （Project → Endeavor）。
 4. **全量 verify-stack**（health → 数据链 → WS → dev-build 横幅；Step E/F
    双镜像新鲜度）。
+
+**P1 新增发布门（RPC 1.17，强制）**：
+
+5. **RPC 1.17.0 原子同发（禁止版本 skew）**：`LubanFeatureRpcInterface.interfaceVersion =
+   "1.17.0"` 内嵌在 RPC URL 操作路径中——新 web（1.17.0）连旧 MS（1.16.0）会寻址失败，反之新 MS
+   对旧操作路径同样不映射。发布必须：
+   - 用 `@luban-cad/shared` **1.17.0** 重建 modeling-server 产物（`dist-backend`）；
+   - 用**同一提交**重建 web 镜像（`scripts/rebuild-web.ps1`）；
+   - e2e 的 RPC 版本路径从 shared interface **运行时派生**（禁止硬编码）。
+   滚动窗口内不存在受支持的 1.17/1.16 交叉形态。
+6. **混合 legacy + scoped 写不支持**：同一 iModel 内出现任一 scoped Part Studio 分区后，无
+   `partStudioId` 的 legacy 写 op（含 undo）在事务/`ensureWarm` 之前拒收（`applyFeatureOp` 双层门）。
+   残留：`previewFeatureOp` 未加门（web 未接线）；`reparameterizeBody` 不在 `applyFeatureOp` 面内、
+   legacy 语义无 guard（web 无出口）。生产/迁移必须一次性择一模式，不得声称混合模式可用。
 
 **禁止**把 web 分支合并/重建后对着 pre-P0 hub 作为受支持路径发布——尽管
 subClass-only 载荷在旧 hub 上可工作（旧白名单剥掉未知 `subClass`、class
@@ -418,13 +442,29 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 **Go**：四项全过 → 按 P2–P4 执行 B。
 **No-go**：任一失败 → 维持 A，保留抽象层，记录后续 ADR；不启动全量迁移。
 
+> **2026-10-30 实测结果（Go，qualified，带偏离说明）**：
+> 1) 隔离 **Go**（2+ Part Studio 特征/树/体/orderKey/oplog 隔离；scope 套件 19 cases；全 feature
+> 421 passed / 8 skipped 基线）。
+> 2) **未按原定 Transformation 路径验证**：`@itwin/imodel-transformer@0.4.3` peer 只到 core 4，
+> 本仓 core 为 5.15.0-dev.2，且加依赖违反 lockfile 约束，故探针 **NOT RUN**。替代路径为**参数重放 +
+> `rebuildAll`**：10/10 迁移测试通过，主链体积 15.9989259816/15.9989259816、direct-edit 16/16、
+> failed-tail 8/8、boolean 12 再生 + 8 consumed + 8 suppressed，bbox 差全 0；**不宣称无损**（空目标、
+> 跨 iModel、源静默、外部引用剔除等限制见 spike 文档）。
+> 3) 性能 **Go**：10 studio init 145.1 ms、tree 1.3 ms、insert P50/P95 7.2/8.8 ms、rebuild 5.9/6.1 ms、
+> switch 0.3/0.3 ms，五项阈值全过；测量层为进程内 StandaloneDb/native（非 UI 首帧、非 CI 预算）。
+> 4) Named Version **元数据** + iModel 级共享 **Go**：非成员 reader 403 → 显式 Read 200 且可见版本、
+> reader POST 403；**不宣称 checkpoint/缩略图/计数/事件**。
+> **撤销决策 A**：原生 undo 为文档级；可撤范围为**最新 studio init 之上**，位于更晚 studio init 之下
+> 的编辑不可达；**不承诺页签级 undo**。生产 BriefcaseDb/IPC + init-floor E2E **NOT RUN**（deferred）。
+> **未跑**：全量 web Playwright、发布镜像 e2e、Transformation、生产 undo E2E。
+
 ---
 
 ## 12. 开放问题
 
-1. **撤销粒度**：文档级 undo 还是活动页签级 undo？Onshape 是活动页签语义；B 下需要 op 日志按 `partStudioId` 过滤。
-2. **写者租约**：D8 是单写者会话租约；B 下一个 briefcase 覆盖多页签，租约仍按文档还是按页签？
-3. **文档级共享**：共享 iModel（文档）还是 iTwin（项目）？机密制造页签是否用 `isSecured` 单独隔离？
+1. **撤销粒度**：文档级 undo 还是活动页签级 undo？Onshape 是活动页签语义；B 下需要 op 日志按 `partStudioId` 过滤。**（P1 已决：决策 A——文档级 undo，限定最新 studio init 之上；页签级 undo 另立项。）**
+2. **写者租约**：D8 是单写者会话租约；B 下一个 briefcase 覆盖多页签，租约仍按文档还是按页签？**（P1 决策：租约仍为 iModel 级。）**
+3. **文档级共享**：共享 iModel（文档）还是 iTwin（项目）？机密制造页签是否用 `isSecured` 单独隔离？**（P1 实测：iModel 级 `isSecured` + ACL 可用；Named Version 仍 metadata-only。）**
 4. **CAM 边界**：Manufacturing iModel 与 Design iModel 是否同一 iTwin？设计变更后刀路失效的判定用 Changed Elements 还是应用层 diff？
 5. **BIM 层级**：本地 hub 是否要实现 Portfolio/Program/WorkPackage，还是先只做 Project/Asset 两层？
 6. **旧数据保留策略**：迁移后源 iModel 保留多久？是否永久只读归档？
@@ -465,6 +505,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 2026-10-30 | 本 ADR 提出：B 为目标、C 为过渡、P1 spike 后 go/no-go | 待决策 |
 | 2026-10-30 | 用户认可 **B 方向**；按 C 过渡；P1 spike 作为迁移门禁 | **已接受** |
 | 2026-10-30 | P0 四项前置完成（Named Version / 状态诚实化 / taxonomy / WorkspaceRef）；验证证据见下 | **完成**（进入 P1 spike） |
+| 2026-10-30 | **P1 spike 完成：Go（qualified）**。四个验收轴：①隔离 Go（2+ Part Studio 特征/树/体/orderKey/oplog + 跨 studio by-id 写守卫 + legacy 回归；scope 19 cases / 全 feature 421 passed 基线）；②迁移 qualified Go（参数重放 + `rebuildAll`，10/10 tests，体积/bbox 差 0；**Transformation 探针 NOT RUN**，**不宣称无损**）；③性能 Go（10 studio 五项阈值全过，init 145.1 ms / tree 1.3 ms / insert P95 8.8 ms / rebuild P95 6.1 ms / switch P95 0.3 ms；StandaloneDb/native 代理，非 CI 预算）；④Named Version 元数据 + iModel 级共享 Go（`isSecured` + ACL；非成员 403 → 显式 Read 200；无 checkpoint/缩略图/计数/事件）。撤销决策 **A**：最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init-floor E2E **NOT RUN**。证据与全部限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径，本公开仓无此文件） | **完成（qualified Go；进入 P2 前须接受限定与发布门）** |
 
 ### P0 收口验证证据（2026-10-30）
 
