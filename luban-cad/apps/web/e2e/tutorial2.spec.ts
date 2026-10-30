@@ -8,6 +8,10 @@
  * Revolve 1（全周，绕轴线）→ Fillet 1（R5.08，边拾取尽力）→ 体积金标准对拍
  * 归 scratch 探针（本 spec 落库+截图+regions 台账，探针脚本不入库）。
  *
+ * P2.6a：数据面迁到 **B 种子**（`E2E B 项目` / `E2E B Seed`）——每例 beforeEach
+ * 重置种子，首开编辑器由解析器创建默认 Part Studio；RPC 直发携带该 scope
+ * （applyFeatureOp 第 4 参 / getSketch 第 3 参），UI 对话框天然作用于活动 scope。
+ *
  * 分层（降级预案如实登记）：
  * - L1 Sketch 1 走 RPC 直发（insertSketch 完整 entities/constraints/plane——
  *   【降级登记】UI 绘制链已由 sketch-extrude.spec（线+弧闭环）与 M6-a T5/T8
@@ -44,18 +48,23 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { LubanFeatureRpcInterface } from '@luban-cad/shared';
-import { collectConsoleErrors, getApiToken, openSeedImodelEditor, waitEditorReady } from './helpers';
-import { resetE2eSeed } from './seed';
+import type { FeatureOp } from '@luban-cad/shared';
+import {
+  applyFeatureOpRpc,
+  borrowWriteLease,
+  collectConsoleErrors,
+  getApiToken,
+  getSketchRpc,
+  openSeedImodelEditor,
+} from './helpers';
+import { resetBModelSeed } from './seed';
 
-/** MS RPC 操作路径版本：取自 shared 契约（禁止硬编码——契约升版自动跟随，测试与 MS 不漂移）。 */
-const FEATURE_RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
-
-// M5-T4 隔离修复：T7/T7-B 在同一文件连续建模，前一用例会污染后一用例的
-// 特征计数与体积。每个用例开始前按名删旧建新种子库，等待 baseline initialized。
+// M5-T4 隔离修复（P2.6a 迁 B 种子）：T7/T7-B 在同一文件连续建模，前一用例会
+// 污染后一用例的特征计数与体积。每个用例开始前按名删旧建新 B 种子库，等待
+// baseline initialized（默认 Part Studio 由首开编辑器解析器创建）。
 test.beforeEach(async ({ request }) => {
-  test.setTimeout(600_000);
-  await resetE2eSeed(request, await getApiToken());
+  test.setTimeout(900_000);
+  await resetBModelSeed(request, await getApiToken());
 });
 
 /** 留证目录（仓根 .superpowers/sdd/2026-10-23-tutorial2-full-chain/shots/）。 */
@@ -414,58 +423,6 @@ async function pickFilletEdges(
   return chipCount;
 }
 
-const BS = String.fromCharCode(92); // 反斜杠（dbKey 路径分隔；避免模板字面量转义歧义）
-
-async function msRpc(
-  itwinId: string,
-  imodelId: string,
-  operation: string,
-  args: unknown[],
-  accessToken: string,
-): Promise<unknown> {
-  const MS = 'http://localhost:5401';
-  const meta = await fetch(`${MS}/rpc/metadata`);
-  const setCookie = meta.headers.get('set-cookie') ?? '';
-  const csrf = /csrf-token=([^;]+)/.exec(setCookie)?.[1] ?? '';
-  const csrfHeader = meta.headers.get('x-csrf-token') ?? csrf;
-  const stamp = Date.now().toString(16).padStart(12, '0');
-  const url =
-    `${MS}/LubanCAD/v1.0/mode/primary/context/${itwinId}/imodel/${imodelId}` +
-    `/changeset/0/LubanFeatureRpcInterface-${FEATURE_RPC_VERSION}-${operation}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain',
-      Authorization: `Bearer ${accessToken}`,
-      'X-CSRF-Token': csrfHeader,
-      Cookie: `csrf-token=${csrf}`,
-      'X-Correlation-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
-      'X-Application-Id': 'LubanCAD',
-      'X-Application-Version': 'v1.0',
-      'X-Session-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
-    },
-    // HTTP RPC 只发送参数数组；操作名在 URL path 中。客户端 `forward` 已 pop
-    // operation，不能把它再塞进 body——可选尾参 partStudioId 会把它误当 scope。
-    body: JSON.stringify(args),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`MS RPC ${operation} HTTP ${res.status}: ${text.slice(0, 200)}`);
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text) as unknown;
-  } catch {
-    throw new Error(`MS RPC ${operation} 响应非 JSON：${text.slice(0, 200)}`);
-  }
-  // text 载体响应形态容错：裸值 | {result} 包裹 | 序列化数组
-  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'result' in parsed
-    && !('ok' in (parsed as Record<string, unknown>))) {
-    return (parsed as { result: unknown }).result;
-  }
-  return parsed;
-}
-
 test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude×3/Revolve UI + Fillet 边拾取尽力）', async ({
   page,
 }) => {
@@ -474,16 +431,10 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
 
   const consoleErrors = collectConsoleErrors(page);
 
-  await openSeedImodelEditor(page);
-  await waitEditorReady(page);
-
-  // URL /documents/:itwinId/:imodelId 末段=iModelId（种子库每轮重置、id 逐轮
-  // 变化——MS 侧 dbKey 另按 briefcase 文件路径，见下方 dbKey 构造）。
-  const urlParts = new URL(page.url()).pathname.split('/').filter(Boolean);
-  const itwinId = urlParts[urlParts.length - 2] as string;
-  const imodelId = urlParts[urlParts.length - 1] as string;
-  expect(itwinId).toMatch(/^[0-9a-f-]{36}$/);
-  expect(imodelId).toMatch(/^[0-9a-f-]{36}$/);
+  // P2.6a：B 种子编辑器（helper 等 ?model= scope + 编辑器就绪）；ctx 携带
+  // itwinId/imodelId/scopeId/dbKey（dbKey 取自已打开 briefcase）。
+  const ctx = await openSeedImodelEditor(page);
+  console.log(`[t7] B seed scope=${ctx.scopeId} dbKey=${ctx.dbKey}`);
 
   const featureCount = page.getByTestId('part-studio-feature-count');
   const featureList = page.getByTestId('part-studio-feature-list');
@@ -495,35 +446,14 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   // 写租约：探测页面 useFeatureSystem 的在持会话（单持有者语义下第二会话
   // acquire 被拒，holder=在持者 user=其 sessionId）；借 holder 会话落 op
   //（assertHeld 按会话匹配），页面续期语义归页面（借用会话不 release）。
-  const probeId = `t7-probe-${Math.random().toString(36).slice(2)}`;
-  // dbKey=后端打开登记键=briefcase 文件相对路径（useBriefcaseConnection
-  // 「Connection opened: briefcase-cache\imodels\….bim」同字面——页面 ipc
-  // 路径的 connection.key 即此值），HTTP 直调须同键。
-  const dbKey = `briefcase-cache\\imodels\\${imodelId}\\briefcases\\2.bim`;
-  const probe = (await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, probeId], accessToken)) as {
-    ok: boolean;
-    holder?: string;
-  };
-  const leaseSessionId = probe.ok ? probeId : (probe.holder ?? probeId);
-  if (probe.ok) {
-    await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, leaseSessionId], accessToken);
-  }
-  console.log(`[t7] 租约：borrowed=${!probe.ok}（session=${leaseSessionId.slice(0, 8)}…）`);
-
-  const insertRaw = await msRpc(
-    itwinId,
-    imodelId,
-    'applyFeatureOp',
-    [dbKey, op, leaseSessionId],
-    accessToken,
-  );
-  const result = insertRaw as { ok: boolean; featureId?: string; error?: string };
-  expect(result.ok, `insertSketch 被拒收：${result.error ?? JSON.stringify(insertRaw).slice(0, 200)}`).toBe(true);
+  const lease = await borrowWriteLease(ctx, accessToken, 't7');
+  const result = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
+  expect(result.ok, `insertSketch 被拒收：${result.error ?? JSON.stringify(result).slice(0, 200)}`).toBe(true);
   const sketchId = result.featureId as string;
   expect(sketchId).toBeTruthy();
 
   // T1 全链证据：plane 回读=Front（normal +Y / xDir +X）；面域 ≥3
-  const sketch = (await msRpc(itwinId, imodelId, 'getSketch', [dbKey, sketchId], accessToken)) as {
+  const sketch = (await getSketchRpc(ctx, sketchId, accessToken)) as {
     plane?: { normal: { y: number }; xDir: { x: number } };
     regions?: Array<{ area: number; outerEntityIds: number[]; holeEntityIds?: number[] }>;
     entities: unknown[];
@@ -538,13 +468,14 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
 
   // regions 台账（面积降序；面域→特征映射表进报告）
   const ledger = {
-    imodelId,
+    imodelId: ctx.imodelId,
+    scopeId: ctx.scopeId,
     sketchId,
     axisLineId,
     plane: sketch?.plane,
     regionCount: regions.length,
     regions,
-    lease: { borrowed: !probe.ok, sessionId: leaseSessionId },
+    lease: { borrowed: lease.borrowed, sessionId: lease.sessionId },
   };
   writeFileSync(shotPath('tutorial2-regions.json'), JSON.stringify(ledger, null, 2), 'utf-8');
   console.log(`[t7] regions=${JSON.stringify(regions.map((r, i) => ({ i, area: Number(r.area.toFixed(2)) })))}`);
@@ -789,12 +720,8 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
 
   const consoleErrors = collectConsoleErrors(page);
 
-  await openSeedImodelEditor(page);
-  await waitEditorReady(page);
-
-  const urlParts = new URL(page.url()).pathname.split('/').filter(Boolean);
-  const itwinId = urlParts[urlParts.length - 2] as string;
-  const imodelId = urlParts[urlParts.length - 1] as string;
+  // P2.6a：B 种子编辑器（helper 等 ?model= scope + 编辑器就绪）。
+  const ctx = await openSeedImodelEditor(page);
   const featureCount = page.getByTestId('part-studio-feature-count');
   const featureList = page.getByTestId('part-studio-feature-list');
   const dialog = page.getByTestId('part-studio-feature-dialog');
@@ -802,34 +729,18 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
   // L1：同款草图 RPC 直发（借页面在持会话；台账单独落文件）
   const { op, axisLineId } = buildSketchOp();
   const accessToken = await getApiToken();
-  const probeId = `t7b-probe-${Math.random().toString(36).slice(2)}`;
-  const dbKey = ['briefcase-cache', 'imodels', imodelId, 'briefcases', '2.bim'].join(BS);
-  const probe = (await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, probeId], accessToken)) as {
-    ok: boolean;
-    holder?: string;
-  };
-  const leaseSessionId = probe.ok ? probeId : (probe.holder ?? probeId);
-  if (probe.ok) {
-    await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, leaseSessionId], accessToken);
-  }
-  const insertRaw = await msRpc(
-    itwinId,
-    imodelId,
-    'applyFeatureOp',
-    [dbKey, op, leaseSessionId],
-    accessToken,
-  );
-  const result = insertRaw as { ok: boolean; featureId?: string; error?: string };
+  const lease = await borrowWriteLease(ctx, accessToken, 't7b');
+  const result = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
   expect(result.ok, `insertSketch 被拒收：${result.error ?? ''}`).toBe(true);
   const sketchId = result.featureId as string;
-  const sketch = (await msRpc(itwinId, imodelId, 'getSketch', [dbKey, sketchId], accessToken)) as {
+  const sketch = (await getSketchRpc(ctx, sketchId, accessToken)) as {
     regions?: Array<{ area: number }>;
   };
   const regions = sketch?.regions ?? [];
   expect(regions.length).toBeGreaterThanOrEqual(3);
   writeFileSync(
     shotPath('tutorial2-reorder-regions.json'),
-    JSON.stringify({ imodelId, sketchId, axisLineId, regionCount: regions.length, regions }, null, 2),
+    JSON.stringify({ imodelId: ctx.imodelId, scopeId: ctx.scopeId, sketchId, axisLineId, regionCount: regions.length, regions }, null, 2),
     'utf-8',
   );
   const idxBase = regionIndexByArea(regions, 1572.585);
@@ -910,5 +821,5 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
   await page.waitForTimeout(10_000);
   await page.screenshot({ path: shotPath('t7b-2-final.png') });
 
-  expect(consoleErrors, `console error 应为空：${BS}n${consoleErrors.join(BS + 'n')}`).toHaveLength(0);
+  expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
 });

@@ -9,7 +9,7 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { SEED_PROJECT_NAME } from './fixtures';
+import { B_SEED_PROJECT_NAME, SEED_PROJECT_NAME } from './fixtures';
 import { gotoDocuments } from './helpers';
 
 /** 侧栏作用域：星标钮（收藏）等卡片按钮与导航项同名，禁全局 byRole。 */
@@ -28,6 +28,9 @@ test('筛选切换：默认我的文档真实数据（≥1 文档）→ 最近 �
     timeout: 20_000,
   });
   await expect(page.getByText(/个文档/)).toBeVisible();
+  // P2.6a rollback 门：flag 关时 B 标记种子项目绝不进入 A 列表（P2.1 F1）。
+  // B 项目列表/视觉断言归 P2.6c（需 flag/视觉波次）。
+  await expect(page.getByRole('button', { name: B_SEED_PROJECT_NAME })).toHaveCount(0);
 
   // 切「最近打开过的」：分区标题/URL 联动（recents 集真实查询，不假设空/非空）
   await sidebar(page).getByRole('button', { name: '最近打开过的' }).click();

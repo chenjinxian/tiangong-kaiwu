@@ -15,7 +15,21 @@
 import { dirname } from 'node:path';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { E2E_IMODEL_NAME, SEED_PROJECT_NAME, TEST_USER } from './fixtures';
+import { LubanFeatureRpcInterface } from '@luban-cad/shared';
+import type {
+  BodyInfo,
+  FeatureOp,
+  FeatureOpResult,
+  FeatureTreeEntry,
+  SketchDto,
+} from '@luban-cad/shared';
+import {
+  B_SEED_IMODEL_NAME,
+  B_SEED_PROJECT_NAME,
+  E2E_IMODEL_NAME,
+  SEED_PROJECT_NAME,
+  TEST_USER,
+} from './fixtures';
 
 /** auth.setup 产物（setup 与消费方的唯一交接面）。 */
 export const SESSION_FILE = 'playwright/.auth/session.json';
@@ -272,23 +286,160 @@ export function collectConsoleErrors(page: Page): string[] {
 }
 
 // ============================================================================
-// 导航：文档中心 → 编辑器
+// 导航：种子编辑器（B-model / A legacy）
 // ============================================================================
 
-/** 经 UI 路径进入种子库编辑器：项目卡 → iModel 卡「打开工作空间」→ 等就绪。 */
-export async function openSeedImodelEditor(page: Page): Promise<void> {
-  await gotoDocuments(page, 'my');
-  // 项目卡：Tile 内嵌以项目名命名的 button（无 a[href]，旧应用同构）
-  const projectTile = page.getByRole('button', { name: SEED_PROJECT_NAME }).first();
-  await expect(projectTile).toBeVisible({ timeout: 20_000 });
-  await projectTile.click();
-  await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 20_000 });
+/** 种子项目 + 其下种子 iModel 的 id。 */
+export interface SeedImodelIds {
+  itwinId: string;
+  imodelId: string;
+}
 
-  // iModel 卡按名锁定（「测试项目」内还有人工调试库，禁 .first() 取位）
-  const seedCard = page.locator('.imodel-card', { hasText: E2E_IMODEL_NAME });
-  await expect(seedCard).toBeVisible({ timeout: 20_000 });
-  await seedCard.getByRole('button', { name: '打开工作空间' }).click();
-  await page.waitForURL(/\/documents\/[^/]+\/[^/]+$/, { timeout: 30_000 });
+/**
+ * B 编辑器上下文：iModel + 活动 Part Studio scope + MS briefcase key。
+ * `scopeId` = 解析器落位的 `?model=`（默认 Part Studio 由首开编辑器创建）；
+ * 直连 RPC 规格必须把它作为 applyFeatureOp/getFeatureTree/getBodies/getSketch
+ * 的末参，**禁止**回落 legacy（无 scope）读写。
+ */
+export interface BSeedEditorContext extends SeedImodelIds {
+  scopeId: string;
+  /** MS 侧打开登记键（RPC 首参）——取自已打开 briefcase 的 connection.key，
+   *  取不到时回退同式路径（见 `briefcaseDbKey`）。 */
+  dbKey: string;
+}
+
+/** A 旧文档编辑器上下文（只读；无 registry/scope）。 */
+export interface LegacySeedEditorContext extends SeedImodelIds {
+  kind: 'A';
+}
+
+/** MS dbKey 同式回退（useBriefcaseConnection 的 key = downloadBriefcase.fileName）。 */
+export function briefcaseDbKey(imodelId: string): string {
+  return ['briefcase-cache', 'imodels', imodelId, 'briefcases', '2.bim'].join('\\');
+}
+
+async function hubGet<T>(path: string, accessToken: string): Promise<T> {
+  const response = await fetch(`${HUB_BASE}${path}`, { headers: authHeaders(accessToken) });
+  if (!response.ok) throw new Error(`hub ${path} 查询失败：HTTP ${response.status}`);
+  return (await response.json()) as T;
+}
+
+/** 按名解析种子项目/库 id（不建数、不重置；auth.setup 保证在场）。 */
+export async function resolveSeedImodelIds(kind: 'A' | 'B'): Promise<SeedImodelIds> {
+  const accessToken = await getApiToken();
+  const projectName = kind === 'B' ? B_SEED_PROJECT_NAME : SEED_PROJECT_NAME;
+  const imodelName = kind === 'B' ? B_SEED_IMODEL_NAME : E2E_IMODEL_NAME;
+  const projects = await hubGet<{ iTwins?: Array<{ id: string; displayName?: string }> }>(
+    '/itwins?subClass=Project&$top=200',
+    accessToken,
+  );
+  const project = (projects.iTwins ?? []).find((itwin) => itwin.displayName === projectName);
+  if (!project) throw new Error(`种子项目 ${projectName} 不在场（auth.setup 自愈失败？）`);
+  const list = await hubGet<{
+    iModels?: Array<{ id: string; displayName?: string; name?: string }>;
+  }>(`/imodels?iTwinId=${project.id}&$top=100`, accessToken);
+  const imodel = (list.iModels ?? []).find(
+    (candidate) => (candidate.displayName ?? candidate.name) === imodelName,
+  );
+  if (!imodel) throw new Error(`种子库 ${imodelName} 不在场（auth.setup 自愈失败？）`);
+  return { itwinId: project.id, imodelId: imodel.id };
+}
+
+/** 读 URL 的活动 scope（全局唯一事实源；`?model=` 由解析器/页签生产者写）。 */
+export function readModelScopeId(page: Page): string | null {
+  return new URL(page.url()).searchParams.get('model');
+}
+
+/** 读已打开 briefcase 的 connection.key（≡ MS 侧 dbKey）；失败返回 null。 */
+async function readBriefcaseKey(page: Page): Promise<string | null> {
+  try {
+    return await page.evaluate(async () => {
+      const cf = (await import('/@id/@itwin/core-frontend')) as {
+        IModelApp: {
+          viewManager: {
+            getFirstOpenView(): { iModel: { key?: string } } | undefined;
+          };
+        };
+      };
+      return cf.IModelApp.viewManager.getFirstOpenView()?.iModel.key ?? null;
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** scope 横幅诊断面（B 解析失败时把可读文案带进 helper 错误）。 */
+async function scopeBannerText(page: Page): Promise<string> {
+  const testIds = [
+    'part-studio-scope-error',
+    'part-studio-scope-create',
+    'part-studio-scope-recovery',
+    'part-studio-scope-damaged',
+    'part-studio-scope-empty',
+    'part-studio-scope-loading',
+  ];
+  for (const testId of testIds) {
+    const locator = page.getByTestId(testId);
+    if ((await locator.count()) > 0) {
+      const text = ((await locator.first().textContent()) ?? '').trim();
+      if (text) return `${testId}: ${text}`;
+    }
+  }
+  return '<无 scope 横幅>';
+}
+
+/**
+ * 打开任意 B 文档编辑器并等待解析器落位到完整 `?model=` scope + 编辑器就绪。
+ * 适用于共享 B 种子与直连规格自建/自管 B 文档（项目须带 B 标记，否则解析器按
+ * A 只读处理，永远没有 `?model=`）。
+ */
+export async function openBModelEditor(
+  page: Page,
+  ids: SeedImodelIds,
+): Promise<BSeedEditorContext> {
+  await loginWithSession(page);
+  await gotoRoute(page, `/documents/${ids.itwinId}/${ids.imodelId}`, 'part-studio-page');
+  try {
+    await waitEditorReady(page);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${message}；URL=${page.url()}；scope=${await scopeBannerText(page)}`);
+  }
+  const scopeId = readModelScopeId(page);
+  if (!scopeId) {
+    throw new Error(
+      `B 编辑器未落到 ?model= scope（URL=${page.url()}；${await scopeBannerText(page)}）`,
+    );
+  }
+  const dbKey = (await readBriefcaseKey(page)) ?? briefcaseDbKey(ids.imodelId);
+  return { ...ids, scopeId, dbKey };
+}
+
+/**
+ * 主编辑 helper（P2.6a）：打开 **B 种子** 编辑器，返回 `{itwinId, imodelId,
+ * scopeId, dbKey}`。B 种子首开时解析器创建默认 `Part Studio 1` 并 replace 到
+ * `?model=<uuid>`；本 helper 等到该 URL + 连接/画布就绪才返回。
+ *
+ * 注意：flag 关时 B 项目不出现在文档中心 A 列表（P2.1 rollback 语义），故入口
+ * 为直连 URL；UI 路径打开归 P2.6c（flag/视觉）。
+ */
+export async function openSeedImodelEditor(page: Page): Promise<BSeedEditorContext> {
+  return openBModelEditor(page, await resolveSeedImodelIds('B'));
+}
+
+/**
+ * A 旧文档编辑器 helper（只读规格专用）：打开未标记 A 种子库，返回项目/库 id。
+ * 不等待 `?model=`（A 永不产生 scope），但等连接/画布就绪以承接只读读面断言。
+ */
+export async function openLegacySeedEditor(page: Page): Promise<LegacySeedEditorContext> {
+  const ids = await resolveSeedImodelIds('A');
+  await loginWithSession(page);
+  await gotoRoute(page, `/documents/${ids.itwinId}/${ids.imodelId}`, 'part-studio-page');
+  await waitEditorReady(page);
+  if (new URL(page.url()).searchParams.has('model')) {
+    throw new Error(`A 旧文档编辑器不应携带 ?model=（URL=${page.url()}）`);
+  }
+  return { ...ids, kind: 'A' };
 }
 
 /** 编辑器就绪双门：状态栏「已连接」（briefcase 打开 + IPC host ready 相位合流）
@@ -366,6 +517,177 @@ export async function apiDeleteDocument(
 /** hub REST 鉴权头（API 自建/清理通道专用；页面内请求由官方 SDK 自带头负责）。 */
 export function authHeaders(accessToken: string): Record<string, string> {
   return { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+}
+
+// ============================================================================
+// MS HTTP RPC（scope-aware 直连通道——发布窗真栈规格共用）
+// ============================================================================
+
+/** 宿主 modeling-server 直连基址（vite 代理同目标；Node 侧调用不走浏览器）。 */
+const MS_BASE = 'http://localhost:5401';
+/** RPC 操作路径版本取自共享契约（禁止硬编码——契约升版自动跟随，测试与 MS 不漂移）。 */
+const FEATURE_RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
+
+interface RpcMeta {
+  csrfHeader: string;
+  csrf: string;
+}
+let rpcMeta: RpcMeta | undefined;
+
+/** CSRF 元数据（/rpc/metadata 只取一次；双提交 token）。 */
+export async function getRpcMeta(): Promise<RpcMeta> {
+  if (rpcMeta) return rpcMeta;
+  const res = await fetch(`${MS_BASE}/rpc/metadata`);
+  const setCookie = res.headers.get('set-cookie') ?? '';
+  const csrf = /csrf-token=([^;]+)/.exec(setCookie)?.[1] ?? '';
+  rpcMeta = { csrfHeader: res.headers.get('x-csrf-token') ?? csrf, csrf };
+  return rpcMeta;
+}
+
+/**
+ * MS HTTP RPC 直调（BentleyCloud wire：POST text 载体 + CSRF 双提交 + 活动头）。
+ * 参数一律原样进 body 数组——操作名在 URL path；可选 scope 参数按共享契约位置
+ * 追加（如 applyFeatureOp 的 `partStudioId` 是第 4 参）。
+ */
+export async function msRpc(
+  itwinId: string,
+  imodelId: string,
+  operation: string,
+  args: unknown[],
+  accessToken: string,
+): Promise<unknown> {
+  const { csrfHeader, csrf } = await getRpcMeta();
+  const stamp = Date.now().toString(16).padStart(12, '0');
+  const url =
+    `${MS_BASE}/LubanCAD/v1.0/mode/primary/context/${itwinId}/imodel/${imodelId}` +
+    `/changeset/0/LubanFeatureRpcInterface-${FEATURE_RPC_VERSION}-${operation}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain',
+      Authorization: `Bearer ${accessToken}`,
+      'X-CSRF-Token': csrfHeader,
+      Cookie: `csrf-token=${csrf}`,
+      'X-Correlation-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
+      'X-Application-Id': 'LubanCAD',
+      'X-Application-Version': 'v1.0',
+      'X-Session-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
+    },
+    body: JSON.stringify(args),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`MS RPC ${operation} HTTP ${res.status}: ${text.slice(0, 240)}`);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch {
+    throw new Error(`MS RPC ${operation} 响应非 JSON：${text.slice(0, 240)}`);
+  }
+  // text 载体响应形态容错：裸值 | {result} 包裹 | 序列化数组
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'result' in parsed
+    && !('ok' in (parsed as Record<string, unknown>))) {
+    return (parsed as { result: unknown }).result;
+  }
+  return parsed;
+}
+
+/** 写租约借用（页面在持会话：探测 holder 并沿用——单持有者语义，租约不另发）。 */
+export interface WriteLease {
+  sessionId: string;
+  borrowed: boolean;
+}
+
+export async function borrowWriteLease(
+  ctx: Pick<BSeedEditorContext, 'itwinId' | 'imodelId' | 'dbKey'>,
+  accessToken: string,
+  label: string,
+): Promise<WriteLease> {
+  const probeId = `${label}-probe-${Math.random().toString(36).slice(2)}`;
+  const probe = (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'acquireWriteLease',
+    [ctx.dbKey, probeId],
+    accessToken,
+  )) as { ok: boolean; holder?: string };
+  const sessionId = probe.ok ? probeId : (probe.holder ?? probeId);
+  if (probe.ok) {
+    await msRpc(
+      ctx.itwinId,
+      ctx.imodelId,
+      'acquireWriteLease',
+      [ctx.dbKey, sessionId],
+      accessToken,
+    );
+  }
+  return { sessionId, borrowed: !probe.ok };
+}
+
+/**
+ * 带 scope 的特征 op（第 4 参 `partStudioId`）。B 文档必须显式传 scope：缺省
+ * legacy 写路径在含 scoped 分区的库上会被服务端诚实拒收（v1.17 契约）。
+ * `scopeId` 可覆写以驱动同库另一 Part Studio（b-model-undo 的 ps-2 构造）。
+ */
+export async function applyFeatureOpRpc(
+  ctx: BSeedEditorContext,
+  op: FeatureOp,
+  lease: WriteLease,
+  accessToken: string,
+  scopeId: string = ctx.scopeId,
+): Promise<FeatureOpResult> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'applyFeatureOp',
+    [ctx.dbKey, op, lease.sessionId, scopeId],
+    accessToken,
+  )) as FeatureOpResult;
+}
+
+/** 带 scope 的特征树读面（第 2 参 `partStudioId`）。 */
+export async function getFeatureTreeRpc(
+  ctx: BSeedEditorContext,
+  accessToken: string,
+  scopeId: string = ctx.scopeId,
+): Promise<FeatureTreeEntry[]> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'getFeatureTree',
+    [ctx.dbKey, scopeId],
+    accessToken,
+  )) as FeatureTreeEntry[];
+}
+
+/** 带 scope 的 body 读面。 */
+export async function getBodiesRpc(
+  ctx: BSeedEditorContext,
+  accessToken: string,
+  scopeId: string = ctx.scopeId,
+): Promise<BodyInfo[]> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'getBodies',
+    [ctx.dbKey, scopeId],
+    accessToken,
+  )) as BodyInfo[];
+}
+
+/** 带 scope 的草图读面（第 3 参 `partStudioId`）。 */
+export async function getSketchRpc(
+  ctx: BSeedEditorContext,
+  sketchId: string,
+  accessToken: string,
+  scopeId: string = ctx.scopeId,
+): Promise<SketchDto | undefined> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'getSketch',
+    [ctx.dbKey, sketchId, scopeId],
+    accessToken,
+  )) as SketchDto | undefined;
 }
 
 // ============================================================================

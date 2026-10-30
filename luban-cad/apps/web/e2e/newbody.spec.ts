@@ -1,7 +1,12 @@
 /**
  * 发布窗真栈：NEW-body 生命周期 + 零件树/getBodies/consumed 隐藏 + 原生 undo。
  *
- * 场景（自建独立 iModel，避开共享 Seed）：
+ * P2.6a：数据面迁到 **B 种子**（`E2E B 项目` / `E2E B Seed`，项目带
+ * data.luban.modelMode='B'）——每例 beforeEach 重置种子，首开编辑器由解析器
+ * 创建默认 Part Studio；直连 RPC 一律携带该 scope（applyFeatureOp 第 4 参 /
+ * getBodies/getFeatureTree 第 2 参），不再走 legacy 无 scope 读写。
+ *
+ * 场景：
  *   草图 A → extrude body1 → 草图 B → extrude(newBody) body2
  *   → getBodies 两个 active authored body；页面树两行
  *   → 逐 body eye：隐藏 body2（data-hidden + EmphasizeElements neverDrawn）→ 显示
@@ -25,29 +30,22 @@
  * 行属性），getBodies/getTree 只在关键检查点单次读。
  */
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { LubanFeatureRpcInterface } from '@luban-cad/shared';
+import { expect, test, type Page } from '@playwright/test';
+import type { FeatureOp } from '@luban-cad/shared';
 import {
-  authHeaders,
+  applyFeatureOpRpc,
+  borrowWriteLease,
   collectConsoleErrors,
   getApiToken,
-  loginWithSession,
-  waitEditorReady,
+  getBodiesRpc,
+  getFeatureTreeRpc,
+  openSeedImodelEditor,
 } from './helpers';
+import { resetBModelSeed } from './seed';
 
-/** RPC 操作路径版本取自共享契约（禁止硬编码——契约升版自动跟随，测试与 MS 不漂移）。 */
-const RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
-const BS = String.fromCharCode(92);
-let scratchProjectId = '';
-
-test.afterAll(async ({ request }) => {
-  if (!scratchProjectId) return;
-  try {
-    const token = await getApiToken();
-    await request.delete(`/itwins/${scratchProjectId}`, { headers: authHeaders(token) });
-  } catch (error) {
-    console.warn(`[newbody] 清理独立项目失败（${scratchProjectId}）：`, error);
-  }
+test.beforeEach(async ({ request }) => {
+  test.setTimeout(900_000);
+  await resetBModelSeed(request, await getApiToken());
 });
 
 interface Sketch2d { entities: unknown[]; constraints: unknown[] }
@@ -93,89 +91,6 @@ const xyPlane = (z: number): PlaneDto => ({
   xDir: { x: 1, y: 0, z: 0 },
 });
 
-interface RpcMeta { csrfHeader: string; csrf: string }
-let rpcMeta: RpcMeta | undefined;
-
-async function getRpcMeta(): Promise<RpcMeta> {
-  if (rpcMeta) return rpcMeta;
-  const res = await fetch('http://localhost:5401/rpc/metadata');
-  const setCookie = res.headers.get('set-cookie') ?? '';
-  const csrf = /csrf-token=([^;]+)/.exec(setCookie)?.[1] ?? '';
-  rpcMeta = { csrfHeader: res.headers.get('x-csrf-token') ?? csrf, csrf };
-  return rpcMeta;
-}
-
-async function msRpc(
-  itwinId: string,
-  imodelId: string,
-  operation: string,
-  args: unknown[],
-  accessToken: string,
-): Promise<unknown> {
-  const { csrfHeader, csrf } = await getRpcMeta();
-  const stamp = Date.now().toString(16).padStart(12, '0');
-  const url =
-    `http://localhost:5401/LubanCAD/v1.0/mode/primary/context/${itwinId}/imodel/${imodelId}` +
-    `/changeset/0/LubanFeatureRpcInterface-${RPC_VERSION}-${operation}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain',
-      Authorization: `Bearer ${accessToken}`,
-      'X-CSRF-Token': csrfHeader,
-      Cookie: `csrf-token=${csrf}`,
-      'X-Correlation-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
-      'X-Application-Id': 'LubanCAD',
-      'X-Application-Version': 'v1.0',
-      'X-Session-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
-    },
-    body: JSON.stringify(args),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`MS RPC ${operation} HTTP ${res.status}: ${text.slice(0, 240)}`);
-  const parsed = JSON.parse(text) as unknown;
-  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'result' in parsed
-    && !('ok' in (parsed as Record<string, unknown>))) {
-    return (parsed as { result: unknown }).result;
-  }
-  return parsed;
-}
-
-async function createScratchImodel(
-  request: APIRequestContext,
-  accessToken: string,
-): Promise<{ itwinId: string; imodelId: string }> {
-  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const project = await request.post('/itwins', {
-    headers: authHeaders(accessToken),
-    data: { displayName: `两体发布窗-${stamp}`, subClass: 'Project' },
-  });
-  expect(project.status(), `项目创建失败：HTTP ${project.status()}`).toBe(201);
-  const itwinId = ((await project.json()) as { iTwin: { id: string } }).iTwin.id;
-  scratchProjectId = itwinId;
-
-  const created = await request.post('/imodels', {
-    headers: authHeaders(accessToken),
-    data: { iTwinId: itwinId, name: `NewBody-${stamp}` },
-  });
-  expect(created.status(), `iModel 创建失败：HTTP ${created.status()}`).toBe(201);
-  const imodelId = ((await created.json()) as { iModel: { id: string } }).iModel.id;
-
-  let state = 'unknown';
-  for (let i = 0; i < 110; i++) {
-    const detail = await request.get(`/imodels/${imodelId}`, { headers: authHeaders(accessToken) });
-    state = ((await detail.json()) as { iModel?: { state?: string } }).iModel?.state ?? 'unknown';
-    if (state === 'initialized') break;
-    if (state === 'failed' || state === 'missingFiles')
-      throw new Error(`baseline 终态 ${state}`);
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-  }
-  expect(state, `iModel 未 initialized（最后 ${state}）`).toBe('initialized');
-  // baseline 传播窗（同 feature-contracts）。
-  await new Promise((resolve) => setTimeout(resolve, 15_000));
-  return { itwinId, imodelId };
-}
-
 /** 视口 neverDrawn 当前集（consumed ∪ 手动隐藏；undefined→[]）。纯前端读，不耗 RPC。 */
 async function hiddenElementIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
@@ -190,41 +105,29 @@ async function hiddenElementIds(page: Page): Promise<string[]> {
   });
 }
 
-test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo → fillet 抑制', async ({ page, request }) => {
+test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo → fillet 抑制', async ({ page }) => {
   test.setTimeout(900_000);
   const consoleErrors = collectConsoleErrors(page);
   const accessToken = await getApiToken();
-  const { itwinId, imodelId } = await createScratchImodel(request, accessToken);
+  // B 种子：helper 等 ?model= scope + 编辑器就绪；dbKey 取自已打开 briefcase。
+  const ctx = await openSeedImodelEditor(page);
+  console.log(`[newbody] B scope=${ctx.scopeId} dbKey=${ctx.dbKey}`);
 
-  await loginWithSession(page);
-  await page.goto(`/documents/${itwinId}/${imodelId}`);
-  await waitEditorReady(page);
-
-  const dbKey = `briefcase-cache${BS}imodels${BS}${imodelId}${BS}briefcases${BS}2.bim`;
-  const probeId = `newbody-probe-${Math.random().toString(36).slice(2)}`;
-  const probe = (await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, probeId], accessToken)) as {
-    ok: boolean;
-    holder?: string;
-  };
-  const leaseSessionId = probe.ok ? probeId : (probe.holder ?? probeId);
-  if (probe.ok)
-    await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, leaseSessionId], accessToken);
-  console.log(`[newbody] lease borrowed=${!probe.ok}`);
+  const lease = await borrowWriteLease(ctx, accessToken, 'newbody');
+  console.log(`[newbody] lease borrowed=${lease.borrowed}`);
 
   const apply = async (op: Record<string, unknown>, label: string): Promise<string> => {
-    const raw = await msRpc(itwinId, imodelId, 'applyFeatureOp', [dbKey, op, leaseSessionId], accessToken);
-    const r = raw as { ok: boolean; featureId?: string; error?: string };
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(raw).slice(0, 300)}`).toBe(true);
+    const r = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
+    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
     expect(r.featureId, `${label} 无 featureId`).toBeTruthy();
     console.log(`[newbody] ${label} OK ${r.featureId!.slice(0, 8)}…`);
     return r.featureId!;
   };
   const insertSketch = async (s: Sketch2d, plane: PlaneDto, label: string): Promise<string> =>
     apply({ kind: 'insertSketch', entities: s.entities, constraints: s.constraints, plane }, label);
-  const getBodies = async (): Promise<BodyInfo[]> =>
-    (await msRpc(itwinId, imodelId, 'getBodies', [dbKey], accessToken)) as BodyInfo[];
+  const getBodies = async (): Promise<BodyInfo[]> => (await getBodiesRpc(ctx, accessToken)) as BodyInfo[];
   const getTree = async (): Promise<FeatureTreeRow[]> =>
-    (await msRpc(itwinId, imodelId, 'getFeatureTree', [dbKey], accessToken)) as FeatureTreeRow[];
+    (await getFeatureTreeRpc(ctx, accessToken)) as FeatureTreeRow[];
 
   // body1
   const sketchA = await insertSketch(rectangleSketch(0, 0, 2, 2), xyPlane(0), '草图 A');

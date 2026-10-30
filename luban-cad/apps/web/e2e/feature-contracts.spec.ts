@@ -20,33 +20,25 @@
  * 契约升版自动跟随，测试与 MS 不会版本漂移）。版本不匹配会以 HTTP 非 2xx 明确报红。
  */
 
-import { expect, test, type APIRequestContext } from '@playwright/test';
-import { LubanFeatureRpcInterface } from '@luban-cad/shared';
+import { expect, test } from '@playwright/test';
+import type { FeatureOp } from '@luban-cad/shared';
 import {
-  authHeaders,
+  applyFeatureOpRpc,
+  borrowWriteLease,
   collectConsoleErrors,
   getApiToken,
-  loginWithSession,
-  waitEditorReady,
+  getFeatureTreeRpc,
+  openSeedImodelEditor,
 } from './helpers';
+import { resetBModelSeed } from './seed';
 
-// 本用例自建自清独立项目/iModel（不占用共享 E2E Seed）：直发 6 张草图 + 7 个特征，
-// 不能让残留污染后续共享种子用例；项目名唯一，afterAll 级联删除。
-let scratchProjectId = '';
-
-test.afterAll(async ({ request }) => {
-  if (!scratchProjectId) return;
-  try {
-    const token = await getApiToken();
-    await request.delete(`/itwins/${scratchProjectId}`, { headers: authHeaders(token) });
-  } catch (error) {
-    console.warn(`[release] 清理独立项目失败（${scratchProjectId}）：`, error);
-  }
+// P2.6a：数据面=共享 B 种子（项目带 data.luban.modelMode='B'）。每例 beforeEach
+// 重置种子（直发 6 张草图 + 7 个特征，残留不得污染后续用例）；直连 RPC 一律
+// 携带首开解析器落位的 Part Studio scope（applyFeatureOp 第 4 参）。
+test.beforeEach(async ({ request }) => {
+  test.setTimeout(900_000);
+  await resetBModelSeed(request, await getApiToken());
 });
-
-/** RPC 操作路径版本取自共享契约（禁止硬编码——契约升版自动跟随）。 */
-const FEATURE_RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
-const BS = String.fromCharCode(92); // dbKey 反斜杠（避免模板字面量转义歧义）
 
 interface Sketch2d {
   entities: unknown[];
@@ -144,133 +136,26 @@ const FRONT_PLANE: PlaneDto = {
   xDir: { x: 1, y: 0, z: 0 },
 };
 
-interface RpcMeta { csrfHeader: string; csrf: string }
-let rpcMeta: RpcMeta | undefined;
-
-/** CSRF 双提交元数据（每次 RPC 重新 GET /rpc/metadata 会翻倍请求数并触发 MS 限流）。 */
-async function getRpcMeta(): Promise<RpcMeta> {
-  if (rpcMeta) return rpcMeta;
-  const res = await fetch('http://localhost:5401/rpc/metadata');
-  const setCookie = res.headers.get('set-cookie') ?? '';
-  const csrf = /csrf-token=([^;]+)/.exec(setCookie)?.[1] ?? '';
-  rpcMeta = { csrfHeader: res.headers.get('x-csrf-token') ?? csrf, csrf };
-  return rpcMeta;
-}
-
-/** MS HTTP RPC 单操作（text 载体；与 tutorial2.msRpc 同 wire，版本取 shared interfaceVersion）。 */
-async function msRpc(
-  itwinId: string,
-  imodelId: string,
-  operation: string,
-  args: unknown[],
-  accessToken: string,
-): Promise<unknown> {
-  const MS = 'http://localhost:5401';
-  const { csrfHeader, csrf } = await getRpcMeta();
-  const stamp = Date.now().toString(16).padStart(12, '0');
-  const url =
-    `${MS}/LubanCAD/v1.0/mode/primary/context/${itwinId}/imodel/${imodelId}` +
-    `/changeset/0/LubanFeatureRpcInterface-${FEATURE_RPC_VERSION}-${operation}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain',
-      Authorization: `Bearer ${accessToken}`,
-      'X-CSRF-Token': csrfHeader,
-      Cookie: `csrf-token=${csrf}`,
-      'X-Correlation-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
-      'X-Application-Id': 'LubanCAD',
-      'X-Application-Version': 'v1.0',
-      'X-Session-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
-    },
-    body: JSON.stringify(args),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`MS RPC ${operation} HTTP ${res.status}: ${text.slice(0, 240)}`);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text) as unknown;
-  } catch {
-    throw new Error(`MS RPC ${operation} 响应非 JSON：${text.slice(0, 240)}`);
-  }
-  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'result' in parsed
-    && !('ok' in (parsed as Record<string, unknown>))) {
-    return (parsed as { result: unknown }).result;
-  }
-  return parsed;
-}
-
-/** 自建独立项目 + iModel，等待 baseline initialized（不触碰共享 E2E Seed）。 */
-async function createScratchImodel(
-  request: APIRequestContext,
-  accessToken: string,
-): Promise<{ itwinId: string; imodelId: string }> {
-  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const project = await request.post('/itwins', {
-    headers: authHeaders(accessToken),
-    data: { displayName: `发布窗合成-${stamp}`, subClass: 'Project' },
-  });
-  expect(project.status(), `发布窗项目创建失败：HTTP ${project.status()}`).toBe(201);
-  const itwinId = ((await project.json()) as { iTwin: { id: string } }).iTwin.id;
-  scratchProjectId = itwinId;
-
-  const created = await request.post('/imodels', {
-    headers: authHeaders(accessToken),
-    data: { iTwinId: itwinId, name: `FeatureContracts-${stamp}` },
-  });
-  expect(created.status(), `发布窗 iModel 创建失败：HTTP ${created.status()}`).toBe(201);
-  const imodelId = ((await created.json()) as { iModel: { id: string } }).iModel.id;
-
-  let state = 'unknown';
-  for (let i = 0; i < 110; i++) {
-    const detail = await request.get(`/imodels/${imodelId}`, { headers: authHeaders(accessToken) });
-    state = ((await detail.json()) as { iModel?: { state?: string } }).iModel?.state ?? 'unknown';
-    if (state === 'initialized') break;
-    if (state === 'failed' || state === 'missingFiles')
-      throw new Error(`发布窗 iModel baseline 终态 ${state}（查 docker compose logs webhook-agent）`);
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-  }
-  expect(state, `发布窗 iModel 未在预算内 initialized（最后 state=${state}）`).toBe('initialized');
-  // baseline 状态置位与 CloudSqlite blob 可完整读取存在短暂传播窗口：实测新建 iModel
-  // 立即打开会卡在 briefcase 下载（MS 日志停在 Downloading briefcase，hub/Azurite 请求
-  // 均 200/201；种子库因 setup→用例间隔数分钟而无此竞态）。留 15s 让 baseline 完全落地。
-  await new Promise((resolve) => setTimeout(resolve, 15_000));
-  return { itwinId, imodelId };
-}
-
-test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/pattern）', async ({ page, request }) => {
+test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/pattern）', async ({ page }) => {
   test.setTimeout(900_000); // 8 次内核求值 + 树刷新 + undo/redo；真实内核冷启动预算
   const consoleErrors = collectConsoleErrors(page);
   const accessToken = await getApiToken();
-  const { itwinId, imodelId } = await createScratchImodel(request, accessToken);
+  // B 种子：helper 等 ?model= scope + 编辑器就绪；dbKey 取自已打开 briefcase。
+  const ctx = await openSeedImodelEditor(page);
+  expect(page.url()).toContain(`/documents/${ctx.itwinId}/${ctx.imodelId}`);
+  console.log(`[release] B scope=${ctx.scopeId} dbKey=${ctx.dbKey}`);
 
-  await loginWithSession(page);
-  await page.goto(`/documents/${itwinId}/${imodelId}`);
-  await waitEditorReady(page);
-  expect(page.url()).toContain(`/documents/${itwinId}/${imodelId}`);
-
-  const dbKey = `briefcase-cache${BS}imodels${BS}${imodelId}${BS}briefcases${BS}2.bim`;
-
-  // 写租约：探测页面在持会话（同 tutorial2 L1 通道）；借用 holder 会话落 op。
-  const probeId = `feature-release-probe-${Math.random().toString(36).slice(2)}`;
-  const probe = (await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, probeId], accessToken)) as {
-    ok: boolean;
-    holder?: string;
-  };
-  const leaseSessionId = probe.ok ? probeId : (probe.holder ?? probeId);
-  if (probe.ok)
-    await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, leaseSessionId], accessToken);
-  console.log(`[release] 租约 borrowed=${!probe.ok} session=${leaseSessionId.slice(0, 8)}…`);
+  const lease = await borrowWriteLease(ctx, accessToken, 'feature-release');
+  console.log(`[release] 租约 borrowed=${lease.borrowed} session=${lease.sessionId.slice(0, 8)}…`);
 
   const getTree = async (): Promise<FeatureTreeRow[]> =>
-    (await msRpc(itwinId, imodelId, 'getFeatureTree', [dbKey], accessToken)) as FeatureTreeRow[];
+    (await getFeatureTreeRpc(ctx, accessToken)) as FeatureTreeRow[];
 
   /** 已落特征（末尾统一读一次树验 status=0；逐步 getTree 会把 MS RPC 打到限流）。 */
   const applied: Array<{ id: string; label: string }> = [];
   const applyFeature = async (op: Record<string, unknown>, label: string): Promise<string> => {
-    const raw = await msRpc(itwinId, imodelId, 'applyFeatureOp', [dbKey, op, leaseSessionId], accessToken);
-    const r = raw as { ok: boolean; featureId?: string; error?: string };
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(raw).slice(0, 300)}`).toBe(true);
+    const r = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
+    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
     expect(r.featureId, `${label} 未返回 featureId`).toBeTruthy();
     applied.push({ id: r.featureId!, label });
     console.log(`[release] ${label} OK id=${r.featureId!.slice(0, 8)}…`);
@@ -278,15 +163,13 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
   };
 
   const insertSketch = async (sketch: Sketch2d, plane: PlaneDto, label: string): Promise<string> => {
-    const raw = await msRpc(
-      itwinId,
-      imodelId,
-      'applyFeatureOp',
-      [dbKey, { kind: 'insertSketch', entities: sketch.entities, constraints: sketch.constraints, plane }, leaseSessionId],
+    const r = await applyFeatureOpRpc(
+      ctx,
+      { kind: 'insertSketch', entities: sketch.entities, constraints: sketch.constraints, plane } as unknown as FeatureOp,
+      lease,
       accessToken,
     );
-    const r = raw as { ok: boolean; featureId?: string; error?: string };
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(raw).slice(0, 300)}`).toBe(true);
+    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
     expect(r.featureId, `${label} 未返回 sketchId`).toBeTruthy();
     console.log(`[release] ${label} OK id=${r.featureId!.slice(0, 8)}…`);
     return r.featureId!;

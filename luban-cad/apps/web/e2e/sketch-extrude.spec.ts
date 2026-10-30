@@ -10,8 +10,9 @@
  * 撤销回 1 节点 → 重做回 2 节点；全程零 console error。
  *
  * 实现要点（既有基建复用，禁凭记忆写选择器）：
- * - 导航/就绪：helpers.openSeedImodelEditor + waitEditorReady（WS 挂起 reload
- *   重试、连接失败两次重开、canvas 真实在场门——M4-T9 教训全在内）。
+ * - 导航/就绪：helpers.openSeedImodelEditor（P2.6a 起 = B 种子 + `?model=`
+ *   scope 解析门 + 内部 waitEditorReady：WS 挂起 reload 重试、连接失败两次
+ *   重开、canvas 真实在场门——M4-T9 教训全在内）。
  * - 画图点击：canvas boundingBox 中心区固定屏幕位；线水平 ~300px；弧三点击=
  *   线终点像素→线起点像素→中点外挑 ~80px。**闭环由构造保证**：同会话内工具
  *   事件管道的像素→世界映射自洽，同一像素映回同一草图面点，弧端点精确落在线
@@ -33,7 +34,8 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
-import { collectConsoleErrors, openSeedImodelEditor, waitEditorReady } from './helpers';
+import { collectConsoleErrors, getApiToken, openSeedImodelEditor } from './helpers';
+import { resetBModelSeed } from './seed';
 
 /** 留证目录（仓根 .superpowers/sdd/2026-10-23-tutorial2-sketch-chain/shots/）。 */
 const SHOTS_DIR = resolve(
@@ -185,15 +187,19 @@ async function dataPoint(page: Page, x: number, y: number): Promise<void> {
   await page.waitForTimeout(300);
 }
 
-test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', async ({ page }) => {
+test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', async ({ page, request }) => {
   // 导航（~90s 最坏）+ 就绪（~210s 最坏）+ 建模链 + tile 等待远超全局 120s。
   test.slow();
+
+  // P2.6a：每例重置 B 种子（干净特征计数 + 新 dbKey 规避上一页面的写租约 TTL）。
+  test.setTimeout(900_000);
+  await resetBModelSeed(request, await getApiToken());
 
   // 全程 console error 收集（测试尾断言零；pageerror=未捕获异常一并入账）。
   const consoleErrors = collectConsoleErrors(page);
 
+  // P2.6a：B 种子编辑器（helper 已等 ?model= scope + 连接/画布就绪）。
   await openSeedImodelEditor(page);
-  await waitEditorReady(page);
 
   const featureCount = page.getByTestId('part-studio-feature-count');
   const featureList = page.getByTestId('part-studio-feature-list');

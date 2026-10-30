@@ -1,7 +1,13 @@
 /**
  * 发布窗真栈：B6 M-A4 body boolean 全链。
  *
- * 场景（自建独立 iModel，避开共享 Seed）：
+ * P2.6a：数据面迁到 **B 种子**（`E2E B 项目` / `E2E B Seed`，项目带
+ * data.luban.modelMode='B'）——每例 beforeEach 重置种子，首开编辑器由解析器
+ * 创建默认 Part Studio；直连 RPC 一律携带该 scope（applyFeatureOp 第 4 参 /
+ * getBodies/getFeatureTree 第 2 参），**不再走 legacy 无 scope 读写**。
+ * （原「自建独立 A iModel」在 A 只读语义下不可写。）
+ *
+ * 场景：
  *   草图 A → extrude body1 → 草图 B → extrude(newBody) body2
  *   → UI 体布尔 unite（消费 body2）→ 树/零件行/consumed 隐藏/bodyKey 稳定
  *   → 原生 undo → 两体恢复；redo → 再消费；undo 回到两体
@@ -15,29 +21,22 @@
  * body boolean 的对话框单测见 FeatureDialog.test.tsx。
  */
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { LubanFeatureRpcInterface } from '@luban-cad/shared';
+import { expect, test, type Page } from '@playwright/test';
+import type { FeatureOp } from '@luban-cad/shared';
 import {
-  authHeaders,
+  applyFeatureOpRpc,
+  borrowWriteLease,
   collectConsoleErrors,
   getApiToken,
-  loginWithSession,
-  waitEditorReady,
+  getBodiesRpc,
+  getFeatureTreeRpc,
+  openSeedImodelEditor,
 } from './helpers';
+import { resetBModelSeed } from './seed';
 
-/** RPC 操作路径版本取自共享契约（禁止硬编码——契约升版自动跟随，测试与 MS 不漂移）。 */
-const RPC_VERSION = LubanFeatureRpcInterface.interfaceVersion;
-const BS = String.fromCharCode(92);
-let scratchProjectId = '';
-
-test.afterAll(async ({ request }) => {
-  if (!scratchProjectId) return;
-  try {
-    const token = await getApiToken();
-    await request.delete(`/itwins/${scratchProjectId}`, { headers: authHeaders(token) });
-  } catch (error) {
-    console.warn(`[boolean] 清理独立项目失败（${scratchProjectId}）：`, error);
-  }
+test.beforeEach(async ({ request }) => {
+  test.setTimeout(900_000);
+  await resetBModelSeed(request, await getApiToken());
 });
 
 interface Sketch2d { entities: unknown[]; constraints: unknown[] }
@@ -83,89 +82,6 @@ const xyPlane = (z: number): PlaneDto => ({
   xDir: { x: 1, y: 0, z: 0 },
 });
 
-interface RpcMeta { csrfHeader: string; csrf: string }
-let rpcMeta: RpcMeta | undefined;
-
-async function getRpcMeta(): Promise<RpcMeta> {
-  if (rpcMeta) return rpcMeta;
-  const res = await fetch('http://localhost:5401/rpc/metadata');
-  const setCookie = res.headers.get('set-cookie') ?? '';
-  const csrf = /csrf-token=([^;]+)/.exec(setCookie)?.[1] ?? '';
-  rpcMeta = { csrfHeader: res.headers.get('x-csrf-token') ?? csrf, csrf };
-  return rpcMeta;
-}
-
-async function msRpc(
-  itwinId: string,
-  imodelId: string,
-  operation: string,
-  args: unknown[],
-  accessToken: string,
-): Promise<unknown> {
-  const { csrfHeader, csrf } = await getRpcMeta();
-  const stamp = Date.now().toString(16).padStart(12, '0');
-  const url =
-    `http://localhost:5401/LubanCAD/v1.0/mode/primary/context/${itwinId}/imodel/${imodelId}` +
-    `/changeset/0/LubanFeatureRpcInterface-${RPC_VERSION}-${operation}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain',
-      Authorization: `Bearer ${accessToken}`,
-      'X-CSRF-Token': csrfHeader,
-      Cookie: `csrf-token=${csrf}`,
-      'X-Correlation-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
-      'X-Application-Id': 'LubanCAD',
-      'X-Application-Version': 'v1.0',
-      'X-Session-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
-    },
-    body: JSON.stringify(args),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`MS RPC ${operation} HTTP ${res.status}: ${text.slice(0, 240)}`);
-  const parsed = JSON.parse(text) as unknown;
-  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'result' in parsed
-    && !('ok' in (parsed as Record<string, unknown>))) {
-    return (parsed as { result: unknown }).result;
-  }
-  return parsed;
-}
-
-async function createScratchImodel(
-  request: APIRequestContext,
-  accessToken: string,
-): Promise<{ itwinId: string; imodelId: string }> {
-  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const project = await request.post('/itwins', {
-    headers: authHeaders(accessToken),
-    data: { displayName: `体布尔发布窗-${stamp}`, subClass: 'Project' },
-  });
-  expect(project.status(), `项目创建失败：HTTP ${project.status()}`).toBe(201);
-  const itwinId = ((await project.json()) as { iTwin: { id: string } }).iTwin.id;
-  scratchProjectId = itwinId;
-
-  const created = await request.post('/imodels', {
-    headers: authHeaders(accessToken),
-    data: { iTwinId: itwinId, name: `Boolean-${stamp}` },
-  });
-  expect(created.status(), `iModel 创建失败：HTTP ${created.status()}`).toBe(201);
-  const imodelId = ((await created.json()) as { iModel: { id: string } }).iModel.id;
-
-  let state = 'unknown';
-  for (let i = 0; i < 110; i++) {
-    const detail = await request.get(`/imodels/${imodelId}`, { headers: authHeaders(accessToken) });
-    state = ((await detail.json()) as { iModel?: { state?: string } }).iModel?.state ?? 'unknown';
-    if (state === 'initialized') break;
-    if (state === 'failed' || state === 'missingFiles')
-      throw new Error(`baseline 终态 ${state}`);
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-  }
-  expect(state, `iModel 未 initialized（最后 ${state}）`).toBe('initialized');
-  // baseline 传播窗（同 feature-contracts/newbody）。
-  await new Promise((resolve) => setTimeout(resolve, 15_000));
-  return { itwinId, imodelId };
-}
-
 async function hiddenElementIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
     const cf = (await import('/@id/@itwin/core-frontend')) as {
@@ -179,31 +95,21 @@ async function hiddenElementIds(page: Page): Promise<string[]> {
   });
 }
 
-test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/undo/redo/bodyKey/I3', async ({ page, request }) => {
+test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/undo/redo/bodyKey/I3', async ({ page }) => {
   test.setTimeout(1_200_000);
   const consoleErrors = collectConsoleErrors(page);
   const accessToken = await getApiToken();
-  const { itwinId, imodelId } = await createScratchImodel(request, accessToken);
+  // B 种子：helper 等解析器落位 ?model= scope + 编辑器就绪；返回的 dbKey 取自
+  // 已打开 briefcase（connection.key）。
+  const ctx = await openSeedImodelEditor(page);
+  console.log(`[boolean] B scope=${ctx.scopeId} dbKey=${ctx.dbKey}`);
 
-  await loginWithSession(page);
-  await page.goto(`/documents/${itwinId}/${imodelId}`);
-  await waitEditorReady(page);
-
-  const dbKey = `briefcase-cache${BS}imodels${BS}${imodelId}${BS}briefcases${BS}2.bim`;
-  const probeId = `boolean-probe-${Math.random().toString(36).slice(2)}`;
-  const probe = (await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, probeId], accessToken)) as {
-    ok: boolean;
-    holder?: string;
-  };
-  const leaseSessionId = probe.ok ? probeId : (probe.holder ?? probeId);
-  if (probe.ok)
-    await msRpc(itwinId, imodelId, 'acquireWriteLease', [dbKey, leaseSessionId], accessToken);
-  console.log(`[boolean] lease borrowed=${!probe.ok}`);
+  const lease = await borrowWriteLease(ctx, accessToken, 'boolean');
+  console.log(`[boolean] lease borrowed=${lease.borrowed}`);
 
   const apply = async (op: Record<string, unknown>, label: string): Promise<string> => {
-    const raw = await msRpc(itwinId, imodelId, 'applyFeatureOp', [dbKey, op, leaseSessionId], accessToken);
-    const r = raw as { ok: boolean; featureId?: string; error?: string };
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(raw).slice(0, 300)}`).toBe(true);
+    const r = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
+    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
     expect(r.featureId, `${label} 无 featureId`).toBeTruthy();
     console.log(`[boolean] ${label} OK ${r.featureId!.slice(0, 8)}…`);
     return r.featureId!;
@@ -212,10 +118,9 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
     apply({ kind: 'insertSketch', entities: s.entities, constraints: s.constraints, plane }, label);
   // 读面只留关键检查点（MS 全局 100 req/15min；全量 e2e 串行共享该配额）。
   // 等待/同步一律走 UI 零件行计数（不消耗 RPC），状态断言再单次读 getBodies/getTree。
-  const getBodies = async (): Promise<BodyInfo[]> =>
-    (await msRpc(itwinId, imodelId, 'getBodies', [dbKey], accessToken)) as BodyInfo[];
+  const getBodies = async (): Promise<BodyInfo[]> => (await getBodiesRpc(ctx, accessToken)) as BodyInfo[];
   const getTree = async (): Promise<FeatureTreeRow[]> =>
-    (await msRpc(itwinId, imodelId, 'getFeatureTree', [dbKey], accessToken)) as FeatureTreeRow[];
+    (await getFeatureTreeRpc(ctx, accessToken)) as FeatureTreeRow[];
 
   // ── 两体基线 ───────────────────────────────────────────────────────────────
   const sketchA = await insertSketch(rectangleSketch(0, 0, 2, 2), xyPlane(0), '草图 A');
@@ -333,13 +238,14 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   console.log('[boolean] subtract + keepTools=true → 两体均 active');
 
   // I3：保留工具 body 的源链锁定——regular insert 定向 body2 被后端拒收。
-  const locked = (await msRpc(
-    itwinId, imodelId, 'applyFeatureOp',
-    [dbKey, {
+  const locked = (await applyFeatureOpRpc(
+    ctx,
+    {
       kind: 'insertFeature', featureType: 'extrude',
       params: { profile: [], distance: 1, sketchId: sketchA, regions: [0] },
       targetBodyId: body2Key,
-    }, leaseSessionId],
+    } as unknown as FeatureOp,
+    lease,
     accessToken,
   )) as { ok: boolean; error?: string };
   expect(locked.ok, '保留工具 body 应拒绝 regular insert').toBe(false);

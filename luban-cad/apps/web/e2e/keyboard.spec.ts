@@ -3,9 +3,11 @@
  * Licensed under the MIT License.
  *
  * 纯键盘流 e2e（M5-T5，切换门禁第 2 条）：登录注入 → Tab 走焦到「创建」→
- * 键盘建文档 → 键盘开 iModel → 进编辑器 → alt+/ 命令搜索真激活工具 →
- * Escape 分层收合。**全程禁 mouse**：交互只走 page.keyboard（Enter/Tab/
- * Escape/热键）；焦点路径逐步断言（document.activeElement 可观测面）。
+ * 键盘建文档（A 旧文档，自建自清）；编辑器段（P2.6a）由 helper 直连 B 种子 →
+ * alt+/ 命令搜索真激活工具 → Escape 分层收合。**交互禁 mouse**：交互只走
+ * page.keyboard（Enter/Tab/Escape/热键）；焦点路径逐步断言
+ * （document.activeElement 可观测面）。B 种子入口未走 UI 列表的原因见
+ * 第二用例注（flag 关 B 项目不在 A 列表）。
  *
  * 自首（honest 边界）：文档中心→编辑器跨页长路径的卡片级焦点锚定用
  * locator.focus() 程序化置焦（Tile 卡片深藏在长 tab 序中，Tab 走焦从页首
@@ -16,16 +18,16 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { E2E_IMODEL_NAME, SEED_PROJECT_NAME } from './fixtures';
 import {
   apiDeleteDocument,
   apiFindDocumentByName,
   focusViaTab,
   getApiToken,
   gotoDocuments,
+  openSeedImodelEditor,
   readActiveElement,
-  waitEditorReady,
 } from './helpers';
+import { resetBModelSeed } from './seed';
 
 /** 键盘流自建文档名（ASCII 前缀防 GBK 链路污染；时间戳防跨轮撞名）。 */
 const KEYBOARD_DOC_NAME = `E2E-KB-${Date.now()}`;
@@ -76,32 +78,25 @@ test('纯键盘：Tab 到创建 → 建文档（焦点路径断言）', async ({
   });
 });
 
-test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活倒角 → Escape 分层', async ({ page }) => {
+test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活倒角 → Escape 分层', async ({ page, request }) => {
   // 编辑器用例预算放大（T5 评审 M-4）：编辑器就绪链最坏 210s（waitEditorReady
   // 30+90+90）+ 前置导航，超全局 120s——慢栈下 timeout 会抢先吃掉 helper 的
   // 诊断文案。前一个用例（文档中心，无编辑器）不吃放大。
-  test.slow();
-  await gotoDocuments(page, 'my');
+  test.setTimeout(900_000);
+  // P2.6a：B 种子每轮重置（干净状态 + 新 dbKey 规避上一页面的写租约 TTL）。
+  await resetBModelSeed(request, await getApiToken());
 
-  // 键盘激活种子项目卡（Enter 导航详情页；焦点锚定见文件头自首）
-  const projectCard = page.getByRole('button', { name: SEED_PROJECT_NAME }).first();
-  await projectCard.focus();
-  await page.keyboard.press('Enter');
-  await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 20_000 });
+  // P2.6a：B 种子项目在 flag 关时**不出现**在文档中心 A 列表（P2.1 rollback
+  // 语义），故编辑器入口由 helper 直连 URL（B 解析器落位 `?model=` scope）；
+  // 键盘纪律从编辑器内开始。UI 路径的键盘导航在 P2.6c flag/视觉波次恢复。
+  await openSeedImodelEditor(page);
+  await expect(page).toHaveURL(/[?&]model=/);
 
-  // 键盘打开 E2E Seed（「打开工作空间」钮 Enter）
-  const seedCard = page.locator('.imodel-card', { hasText: E2E_IMODEL_NAME });
-  await expect(seedCard).toBeVisible({ timeout: 20_000 });
-  await seedCard.getByRole('button', { name: '打开工作空间' }).focus();
-  await page.keyboard.press('Enter');
-  await page.waitForURL(/\/documents\/[^/]+\/[^/]+$/, { timeout: 30_000 });
-
-  // 编辑器就绪：连接 + 视口（真实栈 briefcase/WebGL）
+  // 编辑器就绪：连接 + 视口（helper 已等；此处只接管激活警告采集）。
   const consoleWarnings: string[] = [];
   page.on('console', (message) => {
     consoleWarnings.push(`[${message.type()}] ${message.text()}`);
   });
-  await waitEditorReady(page);
 
   // alt+/ 开命令搜索（焦点入输入框）→ 键入过滤 → Enter 激活首个命中（倒角；
   // M6-b T6 起圆角 RoundEdges 改道 new/fillet、B3 起扫掠 SweepFaces 改道
