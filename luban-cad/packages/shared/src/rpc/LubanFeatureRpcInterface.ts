@@ -74,6 +74,12 @@
  * def/phys model 分区解析（B-model ADR-0001）。**旧客户端兼容**：参数可选，省略即旧调用；
  * legacy 客户端在含 scoped 分区的库上写 op 会被服务端诚实拒收（防止跨 studio 重排/串链），
  * 错误文案指引携带 partStudioId 重试。
+ * B-model P2.2 升 v1.18：Part Studio 注册表——`PartStudioInfo` +
+ * `listPartStudios`/`createPartStudio`/`renamePartStudio`/`deletePartStudio`（P2.3/P2.4 消费）。
+ * `listPartStudios` 是纯读（不初始化、不建分区、空文档=[]；P1 spike 的无元数据 scoped 标签
+ * 以 name=id 列出）；`createPartStudio` 是唯一创建者（空/scoped 文档可建，legacy/mixed/unknown
+ * 诚实拒收）；`renamePartStudio` 只改元数据；`deletePartStudio` 拒绝删除最后一个 scope。
+ * 上面的六个可选 scope 方法逐字不变——注册表不改变旧调用面。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -133,6 +139,22 @@ export interface BodyInfo {
   active: boolean;
   sourceFeatureId?: string;
   authored?: boolean;
+}
+
+/**
+ * Part Studio 注册表条目（B-model P2.2 v1.18；P2.3/P2.4 页签消费）。
+ * - `id`：注册表创建的 scope id 是 UUID；P1 spike 遗留的 metadata-less 分区沿用其标签后缀
+ *   （如 `ps-1`），列表以 `name=id` 呈现，保证旧 e2e/直连 RPC 可继续寻址。
+ * - `name`：用户可见名称（创建/重命名时 trim，非空且 ≤120 字符）。
+ * - `order`：创建序（注册表创建从 1 递增；无元数据的 P1 标签按 0 呈现）。
+ * - `defModelId`/`physModelId`：该 scope 的 def/phys model 的 ECInstanceId（字符串）。
+ */
+export interface PartStudioInfo {
+  id: string;
+  name: string;
+  order: number;
+  defModelId: string;
+  physModelId: string;
 }
 
 /**
@@ -412,12 +434,34 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.17.0";
+  public static interfaceVersion = "1.18.0";
 
   /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
     return RpcManager.getClientForInterface(LubanFeatureRpcInterface);
   }
+
+  /**
+   * B-model P2.2 v1.18：列 Part Studio 注册表（纯读——不初始化、不建分区；空文档=[]）。
+   * 顺序=metadata.order 升序、同序按分区 ECInstanceId；无元数据的 P1 标签 name=id/order=0。
+   */
+  public async listPartStudios(_iModelKey: string): Promise<PartStudioInfo[]> { return this.forward(arguments); }
+  /**
+   * B-model P2.2 v1.18：创建 Part Studio（唯一创建者）——显式初始化 def/phys model + init
+   * BodySolid，并在 def 分区 JsonProperties.luban.partStudio 写注册表元数据。
+   * 空/scoped 文档可建；legacy/mixed/unknown 文档诚实拒收；名称 trim 后非空且 ≤120 字符。
+   */
+  public async createPartStudio(_iModelKey: string, _name: string, _sessionId?: string): Promise<PartStudioInfo> { return this.forward(arguments); }
+  /**
+   * B-model P2.2 v1.18：重命名 Part Studio（仅改元数据；id/order/createdAt 保持）。
+   * 不存在/legacy scope 诚实拒收；名称校验同 createPartStudio。
+   */
+  public async renamePartStudio(_iModelKey: string, _partStudioId: string, _name: string): Promise<PartStudioInfo> { return this.forward(arguments); }
+  /**
+   * B-model P2.2 v1.18：删除 Part Studio（只删本 scope 的 features/sketches/bodies/def+phys
+   * models/分区；共享 SpatialCategory 与其它 scope 不受影响）。**最后一个 scope 拒删**（抛错）。
+   */
+  public async deletePartStudio(_iModelKey: string, _partStudioId: string): Promise<void> { return this.forward(arguments); }
 
   /** B-model v1.17：可选 `partStudioId`——缺省=legacy 单工作室读面（旧行为逐字）。 */
   public async getFeatureTree(_iModelKey: string, _partStudioId?: string): Promise<FeatureTreeEntry[]> { return this.forward(arguments); }

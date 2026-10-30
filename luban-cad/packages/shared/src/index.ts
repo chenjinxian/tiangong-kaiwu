@@ -226,6 +226,8 @@ export type {
   BodyRef, BodyInfo,
   // B6 M-A4.1 v1.16（body boolean）
   BooleanBodiesParams,
+  // B-model P2.2 v1.18（Part Studio 注册表）
+  PartStudioInfo,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

@@ -43,12 +43,14 @@ import type {
   BodyInfo,
   // B6 M-A4.1 v1.16
   BooleanBodiesParams,
+  // B-model P2.2 v1.18
+  PartStudioInfo,
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.17.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
   });
 
   it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
@@ -556,8 +558,9 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     // JSON 序列化往返保持（RPC 载荷形态；缺省键不出现）
     expect(JSON.parse(JSON.stringify(targeted))).toEqual(targeted);
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
-    // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数单独升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.17.0");
+    // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
+    // P2.2 v1.18 为注册表升版）。
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -729,7 +732,63 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
     expectTypeOf<Parameters<ApplyFn>[3]>().toEqualTypeOf<string | undefined>();
   });
 
-  it("版本升 1.17.0（可选参数不破坏旧调用，但 URL 操作路径随版本变化）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.17.0");
+  it("版本升 1.17.0（可选参数不破坏旧调用，但 URL 操作路径随版本变化；P2.2 再升 1.18.0）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
+  });
+});
+
+describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
+  it("PartStudioInfo 精确形状（id/name/order/defModelId/physModelId）；JSON 往返保持", () => {
+    const info: PartStudioInfo = {
+      id: "3f5a2c4e-8b7d-4a1e-9f0b-2c6d8e1a4b5c",
+      name: "Part Studio 1",
+      order: 1,
+      defModelId: "0x20000000001",
+      physModelId: "0x20000000002",
+    };
+    expect(info.name).toBe("Part Studio 1");
+    expect(info.order).toBe(1);
+    expect(JSON.parse(JSON.stringify(info))).toEqual(info);
+    expectTypeOf<PartStudioInfo>().toEqualTypeOf<{
+      id: string;
+      name: string;
+      order: number;
+      defModelId: string;
+      physModelId: string;
+    }>();
+  });
+
+  it("四方法签名：list/create/rename/delete（create 的 sessionId 可选；delete 返回 Promise<void>）", () => {
+    expectTypeOf<LubanFeatureRpcInterface["listPartStudios"]>().toBeCallableWith("conn-1");
+    expectTypeOf<LubanFeatureRpcInterface["createPartStudio"]>().toBeCallableWith("conn-1", "Part Studio 1");
+    expectTypeOf<LubanFeatureRpcInterface["createPartStudio"]>().toBeCallableWith("conn-1", "Part Studio 1", "sess-1");
+    expectTypeOf<LubanFeatureRpcInterface["renamePartStudio"]>().toBeCallableWith("conn-1", "ps-1", "Renamed");
+    expectTypeOf<LubanFeatureRpcInterface["deletePartStudio"]>().toBeCallableWith("conn-1", "ps-1");
+    type ListFn = LubanFeatureRpcInterface["listPartStudios"];
+    type CreateFn = LubanFeatureRpcInterface["createPartStudio"];
+    type RenameFn = LubanFeatureRpcInterface["renamePartStudio"];
+    type DeleteFn = LubanFeatureRpcInterface["deletePartStudio"];
+    expectTypeOf<Parameters<ListFn>[0]>().toEqualTypeOf<string>();
+    expectTypeOf<ReturnType<ListFn>>().toEqualTypeOf<Promise<PartStudioInfo[]>>();
+    expectTypeOf<Parameters<CreateFn>[1]>().toEqualTypeOf<string>();
+    expectTypeOf<Parameters<CreateFn>[2]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ReturnType<CreateFn>>().toEqualTypeOf<Promise<PartStudioInfo>>();
+    expectTypeOf<Parameters<RenameFn>[1]>().toEqualTypeOf<string>();
+    expectTypeOf<Parameters<RenameFn>[2]>().toEqualTypeOf<string>();
+    expectTypeOf<ReturnType<RenameFn>>().toEqualTypeOf<Promise<PartStudioInfo>>();
+    expectTypeOf<ReturnType<DeleteFn>>().toEqualTypeOf<Promise<void>>();
+  });
+
+  it("四方法挂在类原型；可选 scope 的旧方法签名不变（注册表不改变旧调用面）", () => {
+    expect(typeof LubanFeatureRpcInterface.prototype.listPartStudios).toBe("function");
+    expect(typeof LubanFeatureRpcInterface.prototype.createPartStudio).toBe("function");
+    expect(typeof LubanFeatureRpcInterface.prototype.renamePartStudio).toBe("function");
+    expect(typeof LubanFeatureRpcInterface.prototype.deletePartStudio).toBe("function");
+    expectTypeOf<LubanFeatureRpcInterface["getFeatureTree"]>().toBeCallableWith("conn-1");
+    expectTypeOf<LubanFeatureRpcInterface["getFeatureTree"]>().toBeCallableWith("conn-1", "ps-1");
+    expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
+    expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
+    expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
   });
 });
