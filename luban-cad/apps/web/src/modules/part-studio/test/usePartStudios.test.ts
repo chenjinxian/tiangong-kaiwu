@@ -59,12 +59,13 @@ beforeEach(() => {
 });
 
 describe('usePartStudios 读面', () => {
-  it('mount 经 listPartStudios(iModelKey) 读取并按 order/id 排序；loaded=true', async () => {
+  it('mount 经 listPartStudios(iModelKey) 读取并原样采用服务端顺序（F7 不重排）', async () => {
     rpc.listPartStudios.mockResolvedValue(STUDIOS);
     const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', makeSession()));
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(rpc.listPartStudios).toHaveBeenCalledWith('key-1');
-    expect(result.current.studios.map((s) => s.id)).toEqual(['half-1', 'ps-1', 'ps-2']);
+    // F7：服务端已按 order + 分区 ECInstanceId BigInt 排序；前端不得再排。
+    expect(result.current.studios.map((s) => s.id)).toEqual(['ps-2', 'ps-1', 'half-1']);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.error).toBeUndefined();
   });
@@ -111,12 +112,15 @@ describe('usePartStudios 写方法（共享会话/租约）', () => {
       id: 'ps-new', name: 'Part Studio 1', order: 1, defModelId: 'dn', physModelId: 'pn',
     };
     rpc.createPartStudio.mockResolvedValue(created);
+    // 写后 refresh 的服务端权威列表（含新条目）。
+    rpc.listPartStudios.mockResolvedValueOnce([]).mockResolvedValue([created]);
     const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', session));
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
     await act(async () => {
       await result.current.create('Part Studio 1');
     });
+    await waitFor(() => expect(result.current.studios.map((s) => s.id)).toContain('ps-new'));
     expect(session.acquire).toHaveBeenCalled();
     expect(rpc.createPartStudio).toHaveBeenCalledWith('key-1', 'Part Studio 1', 'sess-1');
     expect(result.current.studios.map((s) => s.id)).toContain('ps-new');
@@ -150,13 +154,17 @@ describe('usePartStudios 写方法（共享会话/租约）', () => {
       id: 'ps-1', name: '新名', order: 1, defModelId: 'd1', physModelId: 'p1',
     };
     rpc.renamePartStudio.mockResolvedValue(renamed);
+    // 写后 refresh 返回重命名后的权威列表。
+    rpc.listPartStudios
+      .mockResolvedValueOnce(STUDIOS)
+      .mockResolvedValue([renamed, ...STUDIOS.filter((s) => s.id !== 'ps-1')]);
     const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', makeSession()));
     await waitFor(() => expect(result.current.loaded).toBe(true));
     await act(async () => {
       await result.current.rename('ps-1', '新名');
     });
     expect(rpc.renamePartStudio).toHaveBeenCalledWith('key-1', 'ps-1', '新名', 'sess-1');
-    expect(result.current.studios.find((s) => s.id === 'ps-1')?.name).toBe('新名');
+    await waitFor(() => expect(result.current.studios.find((s) => s.id === 'ps-1')?.name).toBe('新名'));
   });
 
   it('remove：服务端拒绝（最后一个完整 scope）原样上抛且本地状态不变', async () => {
@@ -172,13 +180,43 @@ describe('usePartStudios 写方法（共享会话/租约）', () => {
     expect(result.current.studios.map((s) => s.id)).toEqual(before);
   });
 
-  it('remove 成功：本地过滤该 scope', async () => {
-    rpc.listPartStudios.mockResolvedValue(STUDIOS);
+  it('remove 成功：本地过滤该 scope（写后权威列表同步）', async () => {
+    rpc.listPartStudios
+      .mockResolvedValueOnce(STUDIOS)
+      .mockResolvedValue(STUDIOS.filter((s) => s.id !== 'ps-2'));
     const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', makeSession()));
     await waitFor(() => expect(result.current.loaded).toBe(true));
     await act(async () => {
       await result.current.remove('ps-2');
     });
-    expect(result.current.studios.map((s) => s.id)).toEqual(['half-1', 'ps-1']);
+    await waitFor(() => expect(result.current.studios.map((s) => s.id)).toEqual(['ps-1', 'half-1']));
+  });
+
+  it('F4：写后 stale list 响应被写纪元丢弃，不得覆盖本地 create（不重复默认 scope）', async () => {
+    // 首跳 list 挂起（响应将晚于 create 返回服务器空列表）；写后 refresh 取权威列表。
+    let resolveStaleList!: (list: PartStudioInfo[]) => void;
+    const staleList = new Promise<PartStudioInfo[]>((resolve) => {
+      resolveStaleList = resolve;
+    });
+    const created: PartStudioInfo = {
+      id: 'ps-new', name: 'Part Studio 1', order: 1, defModelId: 'dn', physModelId: 'pn',
+    };
+    rpc.listPartStudios
+      .mockReturnValueOnce(staleList)
+      .mockResolvedValue([created]);
+    rpc.createPartStudio.mockResolvedValue(created);
+    const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', makeSession()));
+    await act(async () => {
+      await result.current.create('Part Studio 1');
+    });
+    expect(result.current.studios.map((s) => s.id)).toContain('ps-new');
+    // 晚到的旧 list（create 之前处理的空结果）不得清掉本地 create。
+    await act(async () => {
+      resolveStaleList([]);
+      await Promise.resolve();
+    });
+    expect(result.current.studios.map((s) => s.id)).toContain('ps-new');
+    // 写后 refresh 已重取服务端权威列表。
+    await waitFor(() => expect(rpc.listPartStudios.mock.calls.length).toBeGreaterThanOrEqual(2));
   });
 });

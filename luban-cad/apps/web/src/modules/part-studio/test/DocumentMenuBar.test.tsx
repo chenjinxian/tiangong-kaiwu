@@ -97,7 +97,8 @@ function renderMenu(
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`/documents/${ITWIN_ID}/im-1`]}>
-        <DocumentMenuBar iTwinId={ITWIN_ID} documentName={DOC_NAME} {...props} />
+        {/* 旧用例按 A 语义书写（P2.4 F1 起 undefined 不再回落 A，必须显式给）。 */}
+        <DocumentMenuBar iTwinId={ITWIN_ID} mode="A" documentName={DOC_NAME} {...props} />
         <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -236,7 +237,7 @@ describe('PartStudioTopBar 集成（汉堡 + 分享钮）', () => {
     return render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[`/documents/${ITWIN_ID}/im-1`]}>
-          <PartStudioTopBar iTwinId={ITWIN_ID} iModelId="im-1" />
+          <PartStudioTopBar iTwinId={ITWIN_ID} iModelId="im-1" mode="A" />
           <LocationProbe />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -290,5 +291,17 @@ describe('B/A 重命名模式派生（P2.1 F5）', () => {
     const rename = within(menu).getByRole('menuitem', { name: '重命名文档' });
     expect(rename.getAttribute('aria-disabled')).toBe('true');
     expect(mocks.itwinsUpdate).not.toHaveBeenCalled();
+  });
+
+  it('marker 未定/失败（mode undefined）：重命名禁用，绝不回落 ItwinsClient.update（F1）', async () => {
+    const user = userEvent.setup();
+    renderMenu({ mode: undefined });
+    const menu = await openMenu(user);
+    const rename = within(menu).getByRole('menuitem', { name: '重命名文档' });
+    expect(rename.getAttribute('aria-disabled')).toBe('true');
+    await user.click(rename);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mocks.itwinsUpdate).not.toHaveBeenCalled();
+    expect(mocks.imodelsUpdate).not.toHaveBeenCalled();
   });
 });

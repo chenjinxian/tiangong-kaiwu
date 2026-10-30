@@ -48,7 +48,8 @@ function renderTabs(options?: {
   return render(
     <MemoryRouter initialEntries={[`/documents/${ITWIN_ID}/${IMODEL_ID}?model=ps-1`]}>
       <PartStudioTabs
-        mode={options?.mode ?? 'B'}
+        // 'mode' in options：保留显式 undefined（marker 未定）语义。
+        mode={options && 'mode' in options ? options.mode : 'B'}
         iTwinId={ITWIN_ID}
         iModelId={IMODEL_ID}
         studios={options?.studios ?? STUDIOS}
@@ -136,6 +137,14 @@ describe('创建（「+」= 默认名称）', () => {
     const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
     expect(screen.queryByTestId('part-studio-tab-actions')).toBeNull();
+  });
+
+  it('mode 未定/失败：不渲染 legacy 页签、动作菜单缺席、「+」禁用（F1）', () => {
+    renderTabs({ mode: undefined, studios: [] });
+    expect(screen.queryByRole('tab')).toBeNull();
+    expect(screen.queryByTestId('part-studio-tab-actions')).toBeNull();
+    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
   });
 });
 

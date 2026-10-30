@@ -36,7 +36,7 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -65,6 +65,7 @@ import {
   SvgSun,
 } from '@itwin/itwinui-icons-react';
 import { AuthSession } from '@clients/auth/AuthSession.js';
+import { AccessControlClient } from '@clients/access-control/AccessControlClient.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
 import {
@@ -169,16 +170,56 @@ export function DocumentDetailsPage(): React.JSX.Element {
     [imodels],
   );
 
-  /** 写操作权限门（终审 I3 / P2.3 F5）：仅 `imodels_manage` 放行；权限未落定
-   *  或查询失败一律 fail-closed——创建/重命名/分享/删除及分享面板的
-   *  grant/revoke 全部收口（收藏是自助操作，不受此门限制）。
-   *  A 旧文档只读——恒不可写。 */
-  const canManage =
+  /**
+   * iTwin 级写门（终审 I3 / P2.3 F5 / P2.4 F2）：分享管理（grant/revoke/
+   * setSecured）与新建/删除 iModel 由 hub 的 iTwin RBAC 校验
+   * （`checkITwinManageForIModel`）——只认 iTwin `imodels_manage`，显式 iModel
+   * Manage 行不满足。权限未落定/查询失败一律 fail-closed。
+   */
+  const canManageITwin =
     isBModel &&
     !isPermissionLoading &&
     !permissionError &&
     iTwinPermissions.includes('imodels_manage');
-  const canCreateImodel = canManage;
+  const canCreateImodel = canManageITwin;
+
+  /**
+   * 重命名门（P2.4 F2 拆源）：`PATCH /imodels/:id` 走 **iModel** IMODELS_MANAGE
+   * （secured 时显式 Manage 行可行），与分享的 iTwin 门源不同。iTwin 管理员
+   * 免逐文档查询；非 iTwin 管理员按卡片查询 iModel 权限，fail-closed（查询中/
+   * 失败/无 manage → 不呈现重命名）。B 之外的 A 旧文档无重命名入口。
+   */
+  const renameImodelIds = React.useMemo(
+    () =>
+      isBModel && !isPermissionLoading && !canManageITwin
+        ? imodels.map((imodel) => imodel.id)
+        : [],
+    [isBModel, isPermissionLoading, canManageITwin, imodels],
+  );
+  const renamePermissionQueries = useQueries({
+    queries: renameImodelIds.map((imodelId) => ({
+      queryKey: ['document-details', 'imodel-permissions', imodelId],
+      queryFn: () => new AccessControlClient().getMyIModelPermissions(imodelId),
+      enabled: renameImodelIds.length > 0,
+      staleTime: 60 * 1000,
+    })),
+  });
+  const renameManageIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    renamePermissionQueries.forEach((query, index) => {
+      const permissions = query.data as string[] | undefined;
+      const imodelId = renameImodelIds[index];
+      // fail-closed：只有明确返回含 imodels_manage 的数据才放行。
+      if (imodelId && query.isSuccess && permissions?.includes('imodels_manage')) {
+        ids.add(imodelId);
+      }
+    });
+    return ids;
+  }, [renamePermissionQueries, renameImodelIds]);
+  const canRenameImodel = React.useCallback(
+    (imodelId: string): boolean => canManageITwin || renameManageIds.has(imodelId),
+    [canManageITwin, renameManageIds],
+  );
 
   const formatDate = React.useCallback(
     (value: string | null | undefined): string | null => {
@@ -515,12 +556,13 @@ export function DocumentDetailsPage(): React.JSX.Element {
             formatCreated={formatCreated}
             onOpen={handleOpenImodel}
             isOpenDisabled={(imodel) => imodel.state !== 'initialized'}
-            onRename={canManage ? setRenameTarget : undefined}
+            onRename={setRenameTarget}
+            isRenameAllowed={(imodel) => canRenameImodel(imodel.id)}
             onToggleFavorite={handleToggleFavorite}
             isFavorite={(id) => favoriteIds.has(id)}
-            onShare={canManage ? setShareTarget : undefined}
+            onShare={canManageITwin ? setShareTarget : undefined}
             onDelete={
-              canManage
+              canManageITwin
                 ? (imodel) => {
                     setDeleteImodelError('');
                     setDeleteImodelTarget(imodel);
@@ -560,7 +602,7 @@ export function DocumentDetailsPage(): React.JSX.Element {
       <ShareDocumentDialog
         doc={shareDoc}
         imodelId={shareTarget?.id}
-        canManageShare={canManage}
+        canManageShare={canManageITwin}
         isOpen={!!shareTarget}
         onClose={() => setShareTarget(null)}
       />

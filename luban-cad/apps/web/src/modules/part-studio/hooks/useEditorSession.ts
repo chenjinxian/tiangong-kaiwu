@@ -29,7 +29,7 @@
  *   同款），不产生第二个租约。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { withOpTimeout } from './feature-rpc.js';
@@ -136,5 +136,11 @@ export function useEditorSession(
     };
   }, [iModelKey, enabled, acquire, sessionId]);
 
-  return { sessionId, iModelKey, leaseOk, acquire, release };
+  // 返回对象钉引用（P2.4 F3）：会话对象是跨 hook 依赖面——每次渲染新对象会让
+  // usePartStudios 的写回调重建、进而抖动 resolver 的 create effect。只有会话
+  // 实质字段变化才换引用。
+  return useMemo(
+    () => ({ sessionId, iModelKey, leaseOk, acquire, release }),
+    [sessionId, iModelKey, leaseOk, acquire, release],
+  );
 }

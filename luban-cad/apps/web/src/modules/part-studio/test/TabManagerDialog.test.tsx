@@ -52,7 +52,8 @@ function renderDialog(options?: {
   return render(
     <MemoryRouter initialEntries={[`/documents/${ITWIN_ID}/${IMODEL_ID}?model=ps-1`]}>
       <TabManagerDialog
-        mode={options?.mode ?? 'B'}
+        // 'mode' in options：保留显式 undefined（marker 未定）语义。
+        mode={options && 'mode' in options ? options.mode : 'B'}
         iTwinId={ITWIN_ID}
         iModelId={IMODEL_ID}
         studios={options?.studios ?? STUDIOS}
@@ -144,6 +145,12 @@ describe('TabManagerDialog 结构（os-33 外观，Part Studio 数据面）', ()
     fireEvent.change(screen.getByPlaceholderText('搜索页签'), { target: { value: '不存在' } });
     expect(screen.getByText('无匹配页签')).toBeDefined();
     fourth.unmount();
+  });
+
+  it('mode 未定（marker 在途/失败）：不列 legacy 页签，显示解析中（F1）', async () => {
+    renderDialog({ mode: undefined });
+    expect(await screen.findByTestId('tab-manager-unknown-mode')).toBeDefined();
+    expect(screen.queryByText('Part Studio 1')).toBeNull();
   });
 
   it('isOpen=false 渲染空（宿主常驻挂载，状态驱动开合）', () => {

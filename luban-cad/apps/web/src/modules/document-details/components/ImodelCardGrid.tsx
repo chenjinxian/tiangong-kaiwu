@@ -20,6 +20,11 @@ export interface ImodelCardGridProps {
   isOpenDisabled?: (imodel: ImodelSummary) => boolean;
   /** 写操作回调（P2.3 B 文档）；全体缺席 = 只读网格（A 旧文档详情）。 */
   onRename?: (imodel: ImodelSummary) => void;
+  /**
+   * 逐文档重命名门（P2.4 F2 拆源）：rename 服务端要求 iModel IMODELS_MANAGE，
+   * 与分享的 iTwin 门不同。缺席=由 onRename 存在性统一裁决（旧调用语义）。
+   */
+  isRenameAllowed?: (imodel: ImodelSummary) => boolean;
   onToggleFavorite?: (imodel: ImodelSummary) => void;
   isFavorite?: (id: string) => boolean;
   onShare?: (imodel: ImodelSummary) => void;
@@ -32,6 +37,7 @@ export function ImodelCardGrid({
   onOpen,
   isOpenDisabled,
   onRename,
+  isRenameAllowed,
   onToggleFavorite,
   isFavorite,
   onShare,
@@ -46,7 +52,11 @@ export function ImodelCardGrid({
           createdLabel={formatCreated(imodel)}
           onOpen={() => onOpen(imodel)}
           openDisabled={isOpenDisabled?.(imodel) ?? false}
-          onRename={onRename ? () => onRename(imodel) : undefined}
+          onRename={
+            onRename && (isRenameAllowed?.(imodel) ?? true)
+              ? () => onRename(imodel)
+              : undefined
+          }
           onToggleFavorite={
             onToggleFavorite ? () => onToggleFavorite(imodel) : undefined
           }

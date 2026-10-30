@@ -130,6 +130,7 @@ import { isBModelItwin } from '@clients/itwins/types.js';
 import type { DocumentMode } from '@modules/documents';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 import { workspaceRefPath } from '@common/workspace/workspace-ref.js';
+import { useITwinPermissions } from '@common/permissions/use-itwin-permissions.js';
 import { env } from '@config/env.js';
 import { viewerNotifications } from '@app/providers/ViewerNotifications.js';
 import { PartStudioTopBar } from './components/PartStudioTopBar.js';
@@ -174,6 +175,10 @@ export function PartStudioPage(): React.JSX.Element {
   // editable（viewOnly=store 仅查看切片；权限=iModel 级我的权限查询）。
   const viewOnly = usePartStudioStore((s) => s.viewOnly.isActive);
   const permissions = usePermissions({ iTwinId: iTwinId ?? null, iModelId: iModelId ?? null });
+  // P2.4 F2：分享管理门=iTwin RBAC（服务端 grant/revoke/setSecured 只认它）；
+  // 重命名门=iModel 权限（PATCH /imodels/:id 的 IMODELS_MANAGE）。两个门源
+  // 不可互换；未落定/查询失败一律 fail-closed。
+  const itwinPermissions = useITwinPermissions(iTwinId);
 
   // B/A 文档上下文（P2.4 第 3 条裁决）：由 iTwin 标记派生（isBModelItwin），
   // **不看 VITE_B_MODEL_ENABLED 旗标**——旗标关闭时直连 B 文档仍按 B 解析。
@@ -196,12 +201,15 @@ export function PartStudioPage(): React.JSX.Element {
   // 早开只读 → 权限解析 editable 但 effect 不重跑 → 连接恒只读保存失败」。
   // 合流单点：readonly = viewOnly ∨ 权限只读 ∨ A 旧文档（A 只读打开，P2.4）。
   // B/A 未定（标记查询在途）同样关连接：首开定读写，不得先按 A/B 误开。
+  // P2.4 F9：marker 查询失败不得硬阻断打开——mode 未知时以 **readonly** 打开
+  // （保守：无写面、无 B/A 敏感动作），同时 scope 错误横幅给出重试；marker
+  // 仍在途则继续等（首开定读写，不得先猜 A/B）。
   const briefcase = useBriefcaseConnection(
-    iTwinId && iModelId && !permissions.isLoading && mode !== undefined
+    iTwinId && iModelId && !permissions.isLoading && (mode !== undefined || !!modeError)
       ? {
           iTwinId,
           iModelId,
-          readonly: viewOnly || permissions.mode === 'readonly' || mode === 'A',
+          readonly: viewOnly || permissions.mode === 'readonly' || mode !== 'B',
         }
       : null,
   );
@@ -242,10 +250,19 @@ export function PartStudioPage(): React.JSX.Element {
   // 编辑面总门：B（可写会话）∧ scope 已解析为完整 scope（A 恒 false）。
   const scopeReady = scope.plan.kind === 'ready' || scope.plan.kind === 'a';
   const canEdit = writableSession && scope.plan.kind === 'ready';
-  // 注册表写门（P2.4 半图恢复）：只看 B 可写会话，不要求 scope 完整——损坏
-  // scope 的删除/恢复与用户主动创建新 scope 必须可达（canEdit 只关几何编辑）。
-  // 分享管理门（B 文档 iModel ACL；A 分支不消费）。
-  const canManageShare = permissions.permissions.includes('imodels_manage');
+  // 注册表写门（P2.4 半图恢复 + F4）：B 可写会话 ∧ 注册表列表已落定且不在
+  // 加载——列表未定时禁止「+」/rename/delete（防列表竞态产生重复默认 scope）。
+  const canManageStudios = writableSession && partStudios.loaded && !partStudios.isLoading;
+  // 分享门（P2.4 F2）：iTwin RBAC（grant/revoke/setSecured 服务端口径）。
+  const canManageShare =
+    !itwinPermissions.isLoading &&
+    !itwinPermissions.error &&
+    itwinPermissions.permissions.includes('imodels_manage');
+  // 重命名门（P2.4 F2）：iModel IMODELS_MANAGE（PATCH /imodels/:id 口径）。
+  const canManageDocument =
+    !permissions.isLoading &&
+    !permissions.error &&
+    permissions.permissions.includes('imodels_manage');
 
   return (
     <PartStudioSession
@@ -253,8 +270,9 @@ export function PartStudioPage(): React.JSX.Element {
       iModelId={iModelId ?? ''}
       mode={mode}
       canEdit={canEdit}
-      canManageStudios={writableSession}
+      canManageStudios={canManageStudios}
       canManageShare={canManageShare}
+      canManageDocument={canManageDocument}
       connection={briefcase.connection}
       connectionLoading={briefcase.isLoading}
       connectionError={briefcase.error}
@@ -283,8 +301,10 @@ interface PartStudioSessionProps {
   canEdit: boolean;
   /** 注册表写门（B ∧ !viewOnly ∧ 权限 editable；不要求 scope 完整——半图恢复）。 */
   canManageStudios: boolean;
-  /** B 文档分享管理门（imodels_manage）。 */
+  /** B 文档分享管理门（iTwin RBAC imodels_manage；F2 拆源）。 */
   canManageShare: boolean;
+  /** B 文档重命名门（iModel IMODELS_MANAGE；F2 拆源）。 */
+  canManageDocument: boolean;
   connection: BriefcaseConnection | null;
   /** briefcase 打开中（M5-T2 isLoading 消费：画布骨架 + 状态栏「正在打开文档…」）。 */
   connectionLoading: boolean;
@@ -314,6 +334,7 @@ function PartStudioSession({
   canEdit,
   canManageStudios,
   canManageShare,
+  canManageDocument,
   connection,
   connectionLoading,
   connectionError,
@@ -362,6 +383,7 @@ function PartStudioSession({
   // 文档 scope 解析前零读 RPC（尤其不得先读 legacy 树）。
   const featureSystem = useFeatureSystem(connection ?? undefined, session, {
     readEnabled: scopeReady,
+    scopeMode: mode,
   });
 
   // 画布 body 选中桥（B6 M-A5 T1）：connection.selectionSet（画布 pick 权威源）
@@ -381,11 +403,24 @@ function PartStudioSession({
   // updateSketch 写面（复用 featureSystem.applyOp——租约/只读门禁/刷新同源）。
   // 模块级 accessor 注册：绘制工具经 IModelApp.tools.run 无参启动（M3-b 已知
   // 坑——无选项注入通道），运行期 getSketchSystem() 取本实例；卸载注销。
-  const sketchSystem = useSketchSystem(connection ?? undefined, featureSystem);
+  const sketchSystem = useSketchSystem(connection ?? undefined, featureSystem, {
+    // P2.4 F5/F6：只读/scope 未解析/ A 一律零 getSketch；B 才携带 scope。
+    readEnabled: canEdit,
+    scopeMode: mode,
+  });
   useEffect(() => {
     registerSketchSystemAccessor(sketchSystem);
     return () => registerSketchSystemAccessor(undefined);
   }, [sketchSystem]);
+
+  // P2.4 F5：文档/scope 切换或离开编辑器时复位模块级草图 store——旧
+  // activeSketchId 不得带进新文档/新 scope（防解析前 legacy getSketch 与
+  // 草图模式残留）。store 是模块单例，可在 effect 内直取动作。
+  useEffect(() => {
+    const exitSketch = (): void => usePartStudioStore.getState().exitSketch();
+    exitSketch();
+    return exitSketch;
+  }, [iModelId, activeModelId]);
 
   // 拉伸对话框草图选项（M6-a T6 数据源裁决）：useFeatureSystem.tree 过滤
   // sketch 节点 → mapFeatureEntries 同源命名（「草图 N」与树一致、orderKey
@@ -699,8 +734,9 @@ function PartStudioSession({
       <PartStudioTopBar
         iTwinId={iTwinId}
         iModelId={iModelId}
-        mode={mode ?? 'A'}
+        mode={mode}
         canManageShare={canManageShare}
+        canManageDocument={canManageDocument}
         canUndo={undoRedo.canUndo}
         canRedo={undoRedo.canRedo}
         hasUnsavedChanges={undoRedo.hasUnsavedChanges}
@@ -882,7 +918,7 @@ function PartStudioSession({
       <PartStudioTabs
         iTwinId={iTwinId}
         iModelId={iModelId}
-        mode={mode ?? 'A'}
+        mode={mode}
         studios={studios}
         activeModelId={activeModelId}
         studiosLoading={studiosLoading}

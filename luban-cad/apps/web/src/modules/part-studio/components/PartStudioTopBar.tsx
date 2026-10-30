@@ -61,11 +61,15 @@ import { DocumentMenuBar } from './DocumentMenuBar.js';
 export interface PartStudioTopBarProps {
   iTwinId: string;
   iModelId: string;
-  /** B/A 文档上下文（P2.1 F5 承接 / P2.4）：B=分享/重命名走 iModel 通道；
-   *  A=旧 iTwin 通道。缺省 A 保持旧调用语义。 */
+  /**
+   * B/A 文档上下文（P2.1 F5 承接 / P2.4 F1）：**undefined = marker 未定/失败**——
+   * 此时分享/重命名禁用，绝不回落 A iTwin 通道（B 文档的分享/改名不得误伤项目）。
+   */
   mode?: DocumentMode;
-  /** B 文档分享管理门（iModel `imodels_manage`，fail-closed）。 */
+  /** 分享管理门：**iTwin** RBAC `imodels_manage`（服务端 grant/revoke/setSecured 口径，F2）。 */
   canManageShare?: boolean;
+  /** 重命名门：**iModel** `imodels_manage`（PATCH /imodels/:id 口径，F2）。 */
+  canManageDocument?: boolean;
   /** 撤销可用（BriefcaseTxns.isUndoPossible）；缺省 false（未接线诚实禁用）。 */
   canUndo?: boolean;
   /** 重做可用（BriefcaseTxns.isRedoPossible）；缺省 false。 */
@@ -89,8 +93,9 @@ export interface PartStudioTopBarProps {
 export function PartStudioTopBar({
   iTwinId,
   iModelId,
-  mode = 'A',
+  mode,
   canManageShare = false,
+  canManageDocument = false,
   canUndo = false,
   canRedo = false,
   hasUnsavedChanges = false,
@@ -127,31 +132,36 @@ export function PartStudioTopBar({
    * projectId=iTwinId、mode='B'）；A 旧文档 = iTwin 通道。真实模式由页面按 iTwin
    * 标记注入，不再回落硬编码 A。useMemo 钉引用（对话框打开态不因父级重渲染重置）。
    */
-  const shareDoc = React.useMemo<DocumentSummary>(
-    () => mode === 'B'
-      ? {
-          id: iModelId,
-          name: imodelName,
-          owner: '',
-          role: '',
-          createdAt: '',
-          modifiedAt: null,
-          mode: 'B',
-          projectId: iTwinId,
-          projectName: itwinName,
-        }
-      : {
-          id: iTwinId,
-          name: itwinName,
-          owner: '',
-          role: '',
-          createdAt: '',
-          modifiedAt: null,
-          mode: 'A',
-          projectId: iTwinId,
-        },
-    [mode, iTwinId, iModelId, itwinName, imodelName],
-  );
+  const shareDoc = React.useMemo<DocumentSummary | null>(() => {
+    // F1：mode 未定/失败时**不构造任何 A 通道文档**——分享钮禁用，杜绝“未知
+    // 当 A”把 B 文档操作送进 iTwin 项目 ACL。
+    if (mode === 'B') {
+      return {
+        id: iModelId,
+        name: imodelName,
+        owner: '',
+        role: '',
+        createdAt: '',
+        modifiedAt: null,
+        mode: 'B',
+        projectId: iTwinId,
+        projectName: itwinName,
+      };
+    }
+    if (mode === 'A') {
+      return {
+        id: iTwinId,
+        name: itwinName,
+        owner: '',
+        role: '',
+        createdAt: '',
+        modifiedAt: null,
+        mode: 'A',
+        projectId: iTwinId,
+      };
+    }
+    return null;
+  }, [mode, iTwinId, iModelId, itwinName, imodelName]);
 
   const handleLogout = React.useCallback(async () => {
     await AuthSession.logout();
@@ -178,7 +188,7 @@ export function PartStudioTopBar({
             iModelId={iModelId}
             mode={mode}
             documentName={mode === 'B' ? imodelName : itwinName}
-            canManage={canManageShare}
+            canManage={canManageDocument}
           />
         </>
       }
@@ -251,6 +261,10 @@ export function PartStudioTopBar({
           styleType="high-visibility"
           startIcon={<SvgShare />}
           className="part-studio-share-button"
+          // F1/F2：mode 未定 → 禁用；B 文档分享管理 = iTwin manage（服务端口径），
+          // 仅 iModel Manage 的受让人不得看到必然 403 的分享管理入口。
+          disabled={!shareDoc || (mode === 'B' && !canManageShare)}
+          data-testid="part-studio-share-button"
           onClick={() => setShareOpen(true)}
         >
           {t('partStudio.topBar.share')}
@@ -297,7 +311,7 @@ export function PartStudioTopBar({
         doc={shareDoc}
         imodelId={mode === 'B' ? iModelId : undefined}
         canManageShare={mode === 'B' ? canManageShare : undefined}
-        isOpen={shareOpen}
+        isOpen={shareOpen && !!shareDoc}
         onClose={() => setShareOpen(false)}
       />
     </>

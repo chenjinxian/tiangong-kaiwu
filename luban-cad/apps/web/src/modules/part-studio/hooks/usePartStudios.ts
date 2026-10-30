@@ -52,11 +52,6 @@ export interface UsePartStudios {
   refresh(): Promise<void>;
 }
 
-/** 注册表排序（与后端同口径：order 升序、同序按 id）——本地增量更新后保序。 */
-export function sortPartStudios(studios: readonly PartStudioInfo[]): PartStudioInfo[] {
-  return [...studios].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-}
-
 export function usePartStudios(
   iTwinId: string | undefined,
   iModelId: string | undefined,
@@ -64,7 +59,9 @@ export function usePartStudios(
   opts?: UsePartStudiosOptions,
 ): UsePartStudios {
   const enabled = opts?.enabled ?? true;
-  const iModelKey = session.iModelKey;
+  // 只依赖共享会话的稳定字段（P2.4 F3）：整个 session 对象参与依赖会让写回调
+  // 在父级每次重渲染时重建，抖动 resolver 的 create effect。
+  const { sessionId, iModelKey, acquire } = session;
   const active = enabled && !!iModelKey;
   const documentId = iModelId ?? iTwinId ?? '';
 
@@ -76,9 +73,13 @@ export function usePartStudios(
   const [loadedKey, setLoadedKey] = useState<string | undefined>(undefined);
   const loaded = !!iModelKey && loadedKey === iModelKey;
   const seqRef = useRef(0);
+  // 写纪元（P2.4 F4）：create/rename/remove 成功后 +1——此前发出、尚未落定的
+  // list 响应一律丢弃，防 stale list 覆盖本地写结果（重复默认 scope 的根因）。
+  const writeEpochRef = useRef(0);
 
   const refresh = useCallback(async (): Promise<void> => {
     const seq = ++seqRef.current;
+    const writeEpoch = writeEpochRef.current;
     if (!enabled) {
       setStudios([]);
       setIsLoading(false);
@@ -95,12 +96,14 @@ export function usePartStudios(
     setIsLoading(true);
     try {
       const list = await LubanFeatureRpcInterface.getClient().listPartStudios(iModelKey);
-      if (seq !== seqRef.current) return; // 晚到响应按纪元丢弃
-      setStudios(sortPartStudios(list));
+      if (seq !== seqRef.current || writeEpoch !== writeEpochRef.current) return; // 晚到/stale 丢弃
+      // P2.4 F7：直接采用服务端顺序（后端按 metadata.order + 分区 ECInstanceId
+      // BigInt 排序）；前端不重排，避免 tie-break 口径漂移改变「第一个完整 scope」。
+      setStudios(list);
       setError(undefined);
       setLoadedKey(iModelKey);
     } catch (err) {
-      if (seq !== seqRef.current) return;
+      if (seq !== seqRef.current || writeEpoch !== writeEpochRef.current) return;
       setError(err instanceof Error ? err.message : String(err));
       setLoadedKey(iModelKey);
     } finally {
@@ -117,7 +120,7 @@ export function usePartStudios(
     if (!enabled || !iModelKey) {
       throw new Error(i18next.t('partStudio.scope.notReady', { documentId }));
     }
-    const lease = await session.acquire({
+    const lease = await acquire({
       budgetMs: REGISTRY_LEASE_ACQUIRE_BUDGET_MS,
       retryMs: LEASE_OP_ACQUIRE_RETRY_MS,
     });
@@ -128,8 +131,14 @@ export function usePartStudios(
           : i18next.t('partStudio.featureSystem.leaseAcquireFailed'),
       );
     }
-    return { iModelKey, sessionId: session.sessionId };
-  }, [enabled, iModelKey, session, documentId]);
+    return { iModelKey, sessionId };
+  }, [enabled, iModelKey, acquire, sessionId, documentId]);
+
+  /** 写后收口：使在途 list 失效并重取服务端权威列表（顺序/元数据）。 */
+  const invalidateAndRefresh = useCallback((): void => {
+    writeEpochRef.current += 1;
+    void refresh();
+  }, [refresh]);
 
   const create = useCallback(
     async (name: string): Promise<PartStudioInfo> => {
@@ -139,11 +148,13 @@ export function usePartStudios(
         name,
         target.sessionId,
       );
-      setStudios((prev) => sortPartStudios([...prev.filter((s) => s.id !== created.id), created]));
+      // 先本地落位（解析器/导航可立即就绪），随后以服务端顺序刷新替换。
+      setStudios((prev) => [...prev.filter((s) => s.id !== created.id), created]);
       setError(undefined);
+      invalidateAndRefresh();
       return created;
     },
-    [requireWritable],
+    [requireWritable, invalidateAndRefresh],
   );
 
   const rename = useCallback(
@@ -155,12 +166,11 @@ export function usePartStudios(
         name,
         target.sessionId,
       );
-      setStudios((prev) =>
-        sortPartStudios(prev.map((studio) => (studio.id === renamed.id ? renamed : studio))),
-      );
+      setStudios((prev) => prev.map((studio) => (studio.id === renamed.id ? renamed : studio)));
+      invalidateAndRefresh();
       return renamed;
     },
-    [requireWritable],
+    [requireWritable, invalidateAndRefresh],
   );
 
   const remove = useCallback(
@@ -172,8 +182,9 @@ export function usePartStudios(
         target.sessionId,
       );
       setStudios((prev) => prev.filter((studio) => studio.id !== partStudioId));
+      invalidateAndRefresh();
     },
-    [requireWritable],
+    [requireWritable, invalidateAndRefresh],
   );
 
   return { studios, isLoading, loaded, error, create, rename, remove, refresh };

@@ -76,6 +76,7 @@ import {
   type FeatureTreeEntry,
   LubanFeatureRpcInterface,
 } from '@luban-cad/shared';
+import type { DocumentMode } from '@modules/documents';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 import {
   LEASE_OP_ACQUIRE_BUDGET_MS,
@@ -91,9 +92,15 @@ export { FEATURE_OP_TIMEOUT_MS };
 export interface UseFeatureSystemOptions {
   /**
    * 读面就绪门（P2.4）：false 时不发任何读 RPC（B 文档 scope 解析前不得先读
-   * legacy 树）；缺省 true（A 模式/既有调用语义）。
+   * legacy 树）并清空上一读面（F8：damaged/recovery 不得展示旧 scope 内容）；
+   * 缺省 true（A 模式/既有调用语义）。
    */
   readEnabled?: boolean;
+  /**
+   * B/A 裁决（P2.4 F6）：'A' 时恒省略 scope 实参（忽略手工 URL `?model=`）；
+   * 'B' 时携带 URL scope；undefined（旧调用/测试）保持“URL 有则携带”旧语义。
+   */
+  scopeMode?: DocumentMode;
 }
 
 export interface UseFeatureSystem {
@@ -128,7 +135,10 @@ export function useFeatureSystem(
   const readEnabled = opts?.readEnabled ?? true;
   // B-model v1.17：活动 Part Studio id（文档路由 `?model=`）——读/写 RPC 的可选 scope。
   // 缺省（legacy 路由/A 模式）不传参数（保持旧调用 arity 与后端 legacy 服务键）。
-  const partStudioId = useWorkspaceRef()?.modelId;
+  // P2.4 F6：scopeMode='A' 恒省略（A 文档手工 ?model= 不得进入 legacy 读/写）；
+  // undefined 保持旧调用（测试/旧消费方）语义。
+  const urlModelId = useWorkspaceRef()?.modelId;
+  const partStudioId = opts?.scopeMode === 'A' ? undefined : urlModelId;
 
   const [tree, setTree] = useState<FeatureTreeEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -152,9 +162,15 @@ export function useFeatureSystem(
   const refresh = useCallback(async () => {
     const seq = ++refreshSeqRef.current;
     // P2.4 读面就绪门：B 文档 scope 解析前不得发任何读 RPC（尤其 legacy 读面）；
-    // 解析完成 readEnabled 翻真 → effect 补读。
+    // 解析完成 readEnabled 翻真 → effect 补读。F8：失能即清空读面，damaged/
+    // recovery 不展示上一 scope 的树/body/错误（bodiesLoaded 也必须归零）。
     if (!readEnabled) {
+      setTree([]);
+      setError(undefined);
       setLoading(false);
+      setBodies([]);
+      setBodiesError(undefined);
+      setBodiesLoadedKey(undefined);
       setBodiesLoading(false);
       return;
     }

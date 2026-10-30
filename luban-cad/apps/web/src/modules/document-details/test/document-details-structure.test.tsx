@@ -58,6 +58,8 @@ vi.mock('@clients/itwins/ItwinsClient.js', () => ({
 vi.mock('@clients/access-control/AccessControlClient.js', () => ({
   AccessControlClient: class {
     getITwinPermissions = mocks.getITwinPermissions;
+    // P2.4 F2：rename 门=iModel 权限（结构文件缺省无 manage，fail-closed）。
+    getMyIModelPermissions = vi.fn().mockResolvedValue([]);
   },
 }));
 

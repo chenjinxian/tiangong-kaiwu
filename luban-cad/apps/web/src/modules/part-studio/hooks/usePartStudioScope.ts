@@ -70,7 +70,9 @@ export function planPartStudioScope(args: PlanPartStudioScopeArgs): PartStudioSc
     return args.modeError ? { kind: 'error', error: args.modeError } : { kind: 'detecting' };
   }
   if (args.mode === 'A') return { kind: 'a' };
-  if (args.error) return { kind: 'error', error: args.error };
+  // 有已知 scope 时列表刷新失败不推翻当前解析（写后刷新/post-write refresh 的
+  // 短暂失败不得把已打开 scope 打成错误页）；仅「无任何数据」才呈现 list 错误。
+  if (args.error && args.studios.length === 0) return { kind: 'error', error: args.error };
   // 首载未落定（含 mode 翻转后列表 effect 尚未置 loading 的那一帧、连接未就绪）
   // 绝不是「空文档」——判空只认 loaded。
   if (!args.loaded) return { kind: 'waiting' };
@@ -139,6 +141,35 @@ export function usePartStudioScope(args: UsePartStudioScopeArgs): PartStudioScop
     navigateToModel(plan.target.id, true);
   }, [plan, navigateToModel]);
 
+  // ── create attempt（P2.4 F3：取消只归 unmount/离开 create，不随渲染抖动）──
+  // create/navigate 以 ref 持有最新身份；effect deps 只含「何时尝试」——
+  // 父级重渲染不再 cleanup 在途 RPC，真实拒收才能落进 setCreateError。
+  const createRef = useRef(create);
+  const navigateRef = useRef(navigateToModel);
+  useEffect(() => {
+    createRef.current = create;
+  }, [create]);
+  useEffect(() => {
+    navigateRef.current = navigateToModel;
+  }, [navigateToModel]);
+
+  const planKindRef = useRef(plan.kind);
+  useEffect(() => {
+    planKindRef.current = plan.kind;
+  }, [plan.kind]);
+
+  const mountedRef = useRef(true);
+  const runIdRef = useRef(0);
+  /** 在途 create（防同一拍叠加第二次；写成功后的 list 抖动不得重开）。 */
+  const inFlightRef = useRef(false);
+  useEffect(
+    () => () => {
+      mountedRef.current = false; // 仅 unmount 取消后续状态落位
+      runIdRef.current += 1;
+    },
+    [],
+  );
+
   // create：同一「规划签名 + 重试令牌」只尝试一次；成功/失败都不自动重放。
   const createSignature = [
     args.mode ?? '',
@@ -149,35 +180,44 @@ export function usePartStudioScope(args: UsePartStudioScopeArgs): PartStudioScop
   ].join('|');
   useEffect(() => {
     if (plan.kind !== 'create') {
-      // 离开 create 态（成功/列表变化）后复位错误；重新进入空文档仍可再建。
+      // 离开 create 态：作废在途 attempt 的结果落位；重新进入空文档仍可再建。
+      runIdRef.current += 1;
+      inFlightRef.current = false;
       createAttemptRef.current = null;
       setCreateError(undefined);
+      setIsCreating(false);
       return;
     }
-    if (createAttemptRef.current === createSignature) return;
+    if (inFlightRef.current || createAttemptRef.current === createSignature) return;
     createAttemptRef.current = createSignature;
-    let cancelled = false;
+    inFlightRef.current = true;
+    const runId = ++runIdRef.current;
     setIsCreating(true);
     setCreateError(undefined);
     void (async () => {
       try {
-        const created = await create(DEFAULT_PART_STUDIO_NAME);
-        if (cancelled) return;
+        const created = await createRef.current(DEFAULT_PART_STUDIO_NAME);
+        if (!mountedRef.current || runIdRef.current !== runId) return;
         // 本地列表已更新 → 下一跳规划为 redirect/ready；显式导航仍给出（replace）。
-        navigateToModel(created.id, true);
+        navigateRef.current(created.id, true);
       } catch (err) {
-        if (cancelled) return;
-        setCreateError(err instanceof Error ? err.message : String(err));
+        // 真实拒收必须落位（即使规划因列表刷新短暂离开 create——写失败才是
+        // 用户需要看见的事实；只有 unmount 才丢弃）。
+        if (mountedRef.current && runIdRef.current === runId) {
+          setCreateError(err instanceof Error ? err.message : String(err));
+        }
       } finally {
-        if (!cancelled) setIsCreating(false);
+        if (mountedRef.current && runIdRef.current === runId) {
+          inFlightRef.current = false;
+          setIsCreating(false);
+        }
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [plan.kind, createSignature, create, navigateToModel, studios]);
+    // 无 cleanup：允许父级重渲染/依赖抖动，取消只由上面两支与 unmount 处理。
+  }, [plan.kind, createSignature, createNonce, isLoading, studios]);
 
   const retryCreate = useCallback(() => {
+    if (inFlightRef.current) return;
     createAttemptRef.current = null;
     setCreateNonce((nonce) => nonce + 1);
   }, []);

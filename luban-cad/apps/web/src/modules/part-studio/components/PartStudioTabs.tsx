@@ -39,7 +39,10 @@ import { workspaceRefPath } from '@common/workspace/workspace-ref.js';
 import { TabManagerDialog } from '../tabs/TabManagerDialog.js';
 
 export interface PartStudioTabsProps {
-  /** B=注册表页签；A=legacy 单页签（缺省 A，兼容旧调用/单测）。 */
+  /**
+   * B=注册表页签；A=legacy 单页签；**undefined=marker 未定/失败**——不渲染
+   * legacy 页签动作、不回落 A 语义（F1）；「+」与操作菜单同时禁用。
+   */
   mode?: DocumentMode;
   /** 当前 iTwin（workspaceRefPath 生产者/页签管理器寻址）。 */
   iTwinId: string;
@@ -83,7 +86,7 @@ function connectionKey(
 }
 
 export function PartStudioTabs({
-  mode = 'A',
+  mode,
   iTwinId,
   iModelId,
   studios = [],
@@ -300,16 +303,18 @@ export function PartStudioTabs({
                   </button>
                 );
               })
-            : (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected
-                  className="part-studio-tab part-studio-tab--active"
-                >
-                  {t('partStudio.tabs.partStudio')}
-                </button>
-              )}
+            : mode === 'A'
+              ? (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected
+                    className="part-studio-tab part-studio-tab--active"
+                  >
+                    {t('partStudio.tabs.partStudio')}
+                  </button>
+                )
+              : null}
         </div>
       </div>
 

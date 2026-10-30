@@ -47,6 +47,7 @@ import {
 } from '@luban-cad/shared';
 import type { UseFeatureSystem } from './useFeatureSystem.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+import type { DocumentMode } from '@modules/documents';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 
 export interface UseSketchSystem {
@@ -71,14 +72,26 @@ export interface UseSketchSystem {
   refresh(): Promise<void>;
 }
 
+export interface UseSketchSystemOptions {
+  /** 读面就绪门（P2.4 F5）：false 时零 getSketch 且清活动草图——scope 解析前
+   *  绝不发 legacy 读面；缺省 true（既有调用/测试语义）。 */
+  readEnabled?: boolean;
+  /** B/A 裁决（P2.4 F6）：'A' 恒省略 scope（忽略手工 ?model=）。 */
+  scopeMode?: DocumentMode;
+}
+
 export function useSketchSystem(
   connection: BriefcaseConnection | undefined,
   fs: UseFeatureSystem | undefined,
+  opts?: UseSketchSystemOptions,
 ): UseSketchSystem {
   const connectionKey = connection?.key;
+  const readEnabled = opts?.readEnabled ?? true;
   // B-model v1.17：活动 Part Studio id（文档路由 `?model=`）——getSketch 可选 scope。
   // 缺省（legacy 路由）不传参数（旧调用 arity/后端 legacy 读面逐字不变）。
-  const partStudioId = useWorkspaceRef()?.modelId;
+  // P2.4 F6：A 模式恒省略（手工 ?model= 不进入 legacy 读）。
+  const urlModelId = useWorkspaceRef()?.modelId;
+  const partStudioId = opts?.scopeMode === 'A' ? undefined : urlModelId;
   // 活动身份源=store 草图切片（SketchDialog enterSketch 真 id / exitSketch 归零）。
   const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
 
@@ -95,6 +108,14 @@ export function useSketchSystem(
 
   const refresh = useCallback(async () => {
     const epoch = ++activeEpochRef.current;
+    // P2.4 F5：scope 解析完成前不得发 getSketch（尤其 legacy 读面）——清空活动
+    // 草图身份呈现，等待 readEnabled 翻真后由 effect 补读。
+    if (!readEnabled) {
+      setActiveSketch(undefined);
+      setError(undefined);
+      setLoading(false);
+      return;
+    }
     const activeId = readActiveId();
     if (!connectionKey || !activeId) {
       setActiveSketch(undefined);
@@ -116,7 +137,7 @@ export function useSketchSystem(
     } finally {
       if (activeEpochRef.current === epoch) setLoading(false);
     }
-  }, [connectionKey, readActiveId, partStudioId]);
+  }, [connectionKey, readActiveId, partStudioId, readEnabled]);
 
   // 身份/连接切换加载（身份归零=退出草图 → 清活动草图；代际推进防迟写覆写）
   useEffect(() => {

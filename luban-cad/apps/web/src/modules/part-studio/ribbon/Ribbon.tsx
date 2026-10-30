@@ -340,6 +340,7 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
                       active={activeToolId === tool.id}
                       highlighted={highlightIds?.has(tool.id) ?? false}
                       disabled={disabled}
+                      readOnly={!canEdit}
                     />
                   ) : (
                     <RibbonToolButton

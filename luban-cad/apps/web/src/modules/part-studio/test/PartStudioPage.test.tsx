@@ -38,14 +38,15 @@
 // applyViewportBackground）模块级 mock（零真实请求/零查看器）。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type React from 'react';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import React from 'react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   itwinsGet: vi.fn(),
+  itwinsUpdate: vi.fn(),
   imodelsGet: vi.fn(),
   imodelsList: vi.fn(),
   // M4-T7：版本历史数据源（dock 真面板的查询通道）。
@@ -55,6 +56,8 @@ const mocks = vi.hoisted(() => ({
   imodelsListNamedVersions: vi.fn(),
   // M5-T3：iModel 级我的权限查询（briefcase readonly 合流的数据源）。
   accessControlGetMyPermissions: vi.fn(),
+  // P2.4 F2：iTwin 级权限（分享管理门源，与 iModel 权限分离）。
+  accessControlGetITwinPermissions: vi.fn(),
 }));
 
 const viewerMocks = vi.hoisted(() => ({
@@ -97,7 +100,7 @@ vi.mock('@clients/itwins/ItwinsClient.js', () => ({
     get = mocks.itwinsGet;
     list = vi.fn();
     create = vi.fn();
-    update = vi.fn();
+    update = mocks.itwinsUpdate;
     delete = vi.fn();
     listFavorites = vi.fn();
     listRecents = vi.fn();
@@ -121,9 +124,33 @@ vi.mock('@clients/imodels/ImodelsClient.js', () => ({
 vi.mock('@clients/access-control/AccessControlClient.js', () => ({
   AccessControlClient: class {
     getMyIModelPermissions = mocks.accessControlGetMyPermissions;
-    getITwinPermissions = vi.fn();
+    getITwinPermissions = mocks.accessControlGetITwinPermissions;
   },
 }));
+
+// P2.4 F2：分享对话框注入面可观测（B/A 文档身份 + 门源），网络面不属页面测试。
+vi.mock('@modules/documents', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    ShareDocumentDialog: (props: {
+      doc: { id: string; mode: string; projectId: string } | null;
+      imodelId?: string | null;
+      canManageShare?: boolean;
+      isOpen: boolean;
+    }) =>
+      props.isOpen
+        ? React.createElement('div', {
+            'data-testid': 'share-dialog-stub',
+            'data-doc-id': props.doc?.id,
+            'data-mode': props.doc?.mode,
+            'data-project-id': props.doc?.projectId,
+            'data-imodel-id': props.imodelId ?? '',
+            'data-can-manage': String(props.canManageShare ?? false),
+          })
+        : null,
+  };
+});
 
 vi.mock('@clients/auth/AuthSession.js', () => ({
   AuthSession: {
@@ -401,6 +428,11 @@ beforeEach(() => {
     'imodels_read',
     'imodels_write',
   ]);
+  // P2.4 F2：iTwin 权限缺省=管理员（分享门开；与 iModel 写权限互不替代）。
+  mocks.accessControlGetITwinPermissions.mockResolvedValue([
+    'imodels_manage',
+    'imodels_webview',
+  ]);
   // M4-T3：注册编排桩复位（mockReset 清实现，重挂成功缺省）。
   viewerMocks.ensureEditTools.mockReset().mockResolvedValue(undefined);
   // M4-T4：连接替身桩复位（作用域进入成功路径 + 干净事务态）。exit 按真实
@@ -513,6 +545,8 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
       id: 'ps-new', name: 'Part Studio 2', order: 2, defModelId: 'def-2', physModelId: 'phys-2',
     };
     featureRpc.createPartStudio.mockResolvedValueOnce(created);
+    // 写后 refresh 返回含新 scope 的权威列表（真栈语义）。
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, created]);
     await renderReadyPage();
     const strip = screen.getByTestId('part-studio-tab-strip');
     expect(within(strip).getByRole('button', { name: '适应视图' })).toBeDefined();
@@ -1228,11 +1262,46 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     expect(screen.getByRole('tab', { name: 'Part Studio 1' }).getAttribute('aria-selected')).toBe('true');
   });
 
+  it('A 只读写尝试（F10）：Ribbon/命令搜索/dock 保存推送全部无效（零 tools.run/零对话框）', async () => {
+    const user = userEvent.setup();
+    renderAPage('/documents/itwin-1/im-1');
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
+
+    // Ribbon full 写工具禁用 → 点击不开 FeatureDialog、不投 tools.run。
+    const extrude = screen.getByRole('button', { name: '拉伸' }) as HTMLButtonElement;
+    expect(extrude.disabled || extrude.getAttribute('aria-disabled') === 'true').toBe(true);
+    await user.click(extrude);
+    expect(screen.queryByTestId('part-studio-feature-dialog')).toBeNull();
+    expect(coreFrontendMocks.toolsRun).not.toHaveBeenCalled();
+
+    // 命令搜索可开，但激活写命令不派发（canEdit=false 门）。
+    fireEvent.keyDown(window, { key: '/', altKey: true });
+    const palette = await screen.findByRole('dialog', { name: '搜索工具' });
+    await user.type(within(palette).getByRole('textbox'), '拉伸');
+    const results = within(palette).getByRole('list');
+    await user.click(within(results).getByRole('button', { name: '拉伸' }));
+    expect(coreFrontendMocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog.active).toBeNull();
+    fireEvent.keyDown(window, { key: '/', altKey: true });
+
+    // dock 保存/推送禁用（canEdit 门）——按钮位于版本历史面板内。
+    await user.click(
+      within(screen.getByTestId('part-studio-dock')).getByRole('tab', { name: '版本历史' }),
+    );
+    const dockSave = screen.getByTestId('part-studio-dock-save-button') as HTMLButtonElement;
+    const dockPush = screen.getByTestId('part-studio-dock-push-button') as HTMLButtonElement;
+    expect(dockSave.disabled || dockSave.getAttribute('aria-disabled') === 'true').toBe(true);
+    expect(dockPush.disabled || dockPush.getAttribute('aria-disabled') === 'true').toBe(true);
+    expect(FAKE_CONNECTION.saveChanges).not.toHaveBeenCalled();
+    expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
+  });
+
   it('B 文档无 ?model=：列表空 → 创建默认 Part Studio 1（共享租约）→ replace 导航', async () => {
-    featureRpc.listPartStudios.mockResolvedValue([]);
     const created = {
       id: 'ps-created', name: 'Part Studio 1', order: 1, defModelId: 'def-new', physModelId: 'phys-new',
     };
+    // 首列空 → 创建；写后 refresh 返回含新 scope 的权威列表。
+    featureRpc.listPartStudios.mockResolvedValueOnce([]).mockResolvedValue([created]);
     featureRpc.createPartStudio.mockResolvedValueOnce(created);
     renderPage('/documents/itwin-1/im-1');
     await waitFor(() =>
@@ -1367,5 +1436,191 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     const [, , createSessionId] = featureRpc.createPartStudio.mock.calls.at(-1) as [string, string, string];
     expect(createSessionId).toBe(applySessionId);
     expect(featureRpc.createPartStudio.mock.calls.at(-1)?.[0]).toBe('briefcase-key');
+  });
+
+  // ── fix round 1：F1 marker 未定/失败、F2 门源拆、F3 create 失败、F4/F5/F6 ──
+
+  it('F1 marker 在途：分享/重命名/legacy 页签禁用，零 registry、连接不开（不猜 A）', async () => {
+    const user = userEvent.setup();
+    mocks.itwinsGet.mockReturnValue(new Promise(() => { /* 挂起 marker */ }));
+    renderPage('/documents/itwin-1/im-1?model=ps-1');
+    const share = screen.getByTestId('part-studio-share-button') as HTMLButtonElement;
+    expect(share.disabled || share.getAttribute('aria-disabled') === 'true').toBe(true);
+    await user.click(within(screen.getByTestId('part-studio-top-bar')).getByRole('button', { name: '文档菜单' }));
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('menuitem', { name: '重命名文档' }).getAttribute('aria-disabled')).toBe('true');
+    expect(within(screen.getByTestId('part-studio-tab-strip')).queryByRole('tab')).toBeNull();
+    expect(featureRpc.listPartStudios).not.toHaveBeenCalled();
+    expect(mocks.itwinsUpdate).not.toHaveBeenCalled();
+    // marker 在途：连接 options 仍为 null（首开不猜读写）。
+    expect(viewerMocks.useBriefcaseConnection.mock.calls.at(-1)?.[0]).toBeNull();
+  });
+
+  it('F1/F9 marker 失败：错误横幅 + 只读打开连接；分享/重命名禁用且不调 ItwinsClient.update', async () => {
+    const user = userEvent.setup();
+    mocks.itwinsGet.mockRejectedValue(new Error('itwins down'));
+    renderPage('/documents/itwin-1/im-1?model=ps-1');
+    expect(await screen.findByTestId('part-studio-scope-error')).toBeDefined();
+    expect(screen.getByText(/itwins down/)).toBeDefined();
+    // F9：marker 失败不再硬阻断打开——以 readonly 打开（保守无写面）。
+    await waitFor(() =>
+      expect(viewerMocks.useBriefcaseConnection).toHaveBeenLastCalledWith({
+        iTwinId: 'itwin-1',
+        iModelId: 'im-1',
+        readonly: true,
+      }),
+    );
+    const share = screen.getByTestId('part-studio-share-button') as HTMLButtonElement;
+    expect(share.disabled || share.getAttribute('aria-disabled') === 'true').toBe(true);
+    await user.click(within(screen.getByTestId('part-studio-top-bar')).getByRole('button', { name: '文档菜单' }));
+    const menu = await screen.findByRole('menu');
+    const rename = within(menu).getByRole('menuitem', { name: '重命名文档' });
+    expect(rename.getAttribute('aria-disabled')).toBe('true');
+    await user.click(rename);
+    expect(mocks.itwinsUpdate).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('share-dialog-stub')).toBeNull();
+    expect(featureRpc.listPartStudios).not.toHaveBeenCalled();
+    expect(featureRpc.createPartStudio).not.toHaveBeenCalled();
+  });
+
+  it('F2 门源拆：仅 iModel Manage（无 iTwin manage）→ 分享禁用、重命名可用', async () => {
+    const user = userEvent.setup();
+    mocks.accessControlGetMyPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
+    mocks.accessControlGetITwinPermissions.mockResolvedValue(['imodels_webview']);
+    await renderReadyPage();
+    const share = screen.getByTestId('part-studio-share-button') as HTMLButtonElement;
+    expect(share.disabled || share.getAttribute('aria-disabled') === 'true').toBe(true);
+    await user.click(within(screen.getByTestId('part-studio-top-bar')).getByRole('button', { name: '文档菜单' }));
+    const menu = await screen.findByRole('menu');
+    const rename = within(menu).getByRole('menuitem', { name: '重命名文档' });
+    expect(rename.getAttribute('aria-disabled')).not.toBe('true');
+  });
+
+  it('F2 门源拆：iTwin manage → 分享可用；iModel 无 manage → 重命名禁用', async () => {
+    const user = userEvent.setup();
+    mocks.accessControlGetMyPermissions.mockResolvedValue(['imodels_webview', 'imodels_read']);
+    mocks.accessControlGetITwinPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
+    renderPage();
+    await waitFor(() => {
+      const share = screen.getByTestId('part-studio-share-button') as HTMLButtonElement;
+      expect(share.disabled === false && share.getAttribute('aria-disabled') !== 'true').toBe(true);
+    });
+    await user.click(screen.getByTestId('part-studio-share-button'));
+    const stub = await screen.findByTestId('share-dialog-stub');
+    expect(stub.getAttribute('data-mode')).toBe('B');
+    expect(stub.getAttribute('data-can-manage')).toBe('true');
+    await user.click(within(screen.getByTestId('part-studio-top-bar')).getByRole('button', { name: '文档菜单' }));
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('menuitem', { name: '重命名文档' }).getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('F3：默认 scope 创建拒收不被父级重渲染取消——错误条 + 重试成功', async () => {
+    const user = userEvent.setup();
+    featureRpc.listPartStudios.mockResolvedValue([]);
+    let rejectCreate!: (error: Error) => void;
+    const pendingCreate = new Promise<never>((_resolve, reject) => {
+      rejectCreate = reject;
+    });
+    featureRpc.createPartStudio.mockReturnValue(pendingCreate);
+    const { rerender } = renderPage('/documents/itwin-1/im-1');
+    await waitFor(() => expect(featureRpc.createPartStudio).toHaveBeenCalled());
+    // 模拟父级重渲染（旧实现会在此 cleanup 掉在途 create，吞掉失败）。
+    rerender(pageTree('/documents/itwin-1/im-1'));
+    await act(async () => {
+      rejectCreate(new Error('lease busy'));
+      await Promise.resolve();
+    });
+    const banner = await screen.findByTestId('part-studio-scope-create');
+    expect(banner.textContent).toContain('lease busy');
+    expect(within(banner).getByRole('button', { name: '重试创建' })).toBeDefined();
+
+    const created = {
+      id: 'ps-retried', name: 'Part Studio 1', order: 1, defModelId: 'def-r', physModelId: 'phys-r',
+    };
+    featureRpc.createPartStudio.mockResolvedValueOnce(created);
+    featureRpc.listPartStudios.mockResolvedValue([created]);
+    await user.click(within(banner).getByRole('button', { name: '重试创建' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-retried'),
+    );
+  });
+
+  it('F4：注册表列表未落定时「+」禁用（防重复默认 scope）', () => {
+    featureRpc.listPartStudios.mockReturnValue(new Promise(() => { /* 挂起 list */ }));
+    renderPage('/documents/itwin-1/im-1?model=ps-1');
+    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
+  });
+
+  it('F5：scope 解析前不发 getSketch；切换页签复位草图 store（跨 scope 不串身份）', async () => {
+    const user = userEvent.setup();
+    featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, {
+      id: 'ps-2', name: 'Part Studio 2', order: 2, defModelId: 'def-2', physModelId: 'phys-2',
+    }]);
+    renderPage('/documents/itwin-1/im-1?model=ps-1');
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key', 'ps-1'));
+    await act(async () => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+      await Promise.resolve();
+    });
+    // 切换 scope：store 草图切片复位，且不因旧 activeSketchId 读 sketch。
+    featureRpc.getSketch.mockClear();
+    await user.click(screen.getByRole('tab', { name: 'Part Studio 2' }));
+    await waitFor(() => expect(screen.getByTestId('location-probe').textContent).toContain('?model=ps-2'));
+    await waitFor(() => expect(usePartStudioStore.getState().sketch.isActive).toBe(false));
+    expect(featureRpc.getSketch).not.toHaveBeenCalled();
+  });
+
+  it('F5：B scope 解析前（list 在途）即使 store 有活动草图也不发 getSketch', async () => {
+    featureRpc.listPartStudios.mockReturnValue(new Promise(() => { /* 挂起 */ }));
+    renderPage('/documents/itwin-1/im-1');
+    await act(async () => {
+      usePartStudioStore.getState().enterSketch('sk-legacy');
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    expect(featureRpc.getSketch).not.toHaveBeenCalled();
+  });
+
+  it('F6：A 文档 URL 带手工 ?model= 时 legacy 读面仍省略 scope 实参', async () => {
+    renderAPage('/documents/itwin-1/im-1?model=ps-stray');
+    await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
+    expect(featureRpc.getFeatureTree).not.toHaveBeenCalledWith('briefcase-key', 'ps-stray');
+    expect(featureRpc.getSketch).not.toHaveBeenCalled();
+  });
+
+  it('flag 关（VITE_B_MODEL_ENABLED=false）直连 B 文档仍按 B 解析（marker 唯一裁决源）', async () => {
+    vi.stubEnv('VITE_B_MODEL_ENABLED', 'false');
+    try {
+      await renderReadyPage();
+      expect(featureRpc.listPartStudios).toHaveBeenCalledWith('briefcase-key');
+      expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key', 'ps-1');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('页面级租约拒绝：自动 create 显示 holder 错误且不派发 createPartStudio', async () => {
+    vi.useFakeTimers();
+    try {
+      featureRpc.listPartStudios.mockResolvedValue([]);
+      featureRpc.acquireWriteLease.mockResolvedValue({ ok: false, holder: 'other-tab' });
+      renderPage('/documents/itwin-1/im-1');
+      // 分拍推进：每拍同时冲刷 microtask/渲染，让 list→resolver→create→租约重试
+      // 链在假时钟下逐跳落定（单拍 advance 会停在 create 尚未启动的一帧）。
+      for (let i = 0; i < 6; i += 1) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(2_500);
+        });
+      }
+      expect(featureRpc.createPartStudio).not.toHaveBeenCalled();
+      const banner = screen.getByTestId('part-studio-scope-create');
+      expect(banner.textContent).toContain('other-tab');
+      expect(within(banner).getByRole('button', { name: '重试创建' })).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

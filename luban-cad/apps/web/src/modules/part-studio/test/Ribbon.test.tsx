@@ -13,7 +13,7 @@
 // 本任务拉伸特例路由新增独立文件）。@itwin/core-frontend 模块级 mock，真实
 // store/i18n 参与（setup.ts 全局词库兜底，zh-CN 基线）。
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -191,5 +191,35 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     await user.click(screen.getByRole('button', { name: '拔模' }));
     expect(mocks.toolsRun).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
+  });
+});
+
+describe('P2.4 只读总门（canEdit=false）', () => {
+  it('写工具禁用；gated 信息面仍可点', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon canEdit={false} />);
+    const extrude = screen.getByRole('button', { name: '拉伸' }) as HTMLButtonElement;
+    expect(extrude.disabled || extrude.getAttribute('aria-disabled') === 'true').toBe(true);
+    // gated 拔模仍可开能力引导（信息面）。
+    await user.click(screen.getByRole('button', { name: '拔模' }));
+    expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+  });
+
+  it('F11：飞菜单子项按各自 capability 裁决（gated 子项可用、full 子项禁用）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon canEdit={false} />);
+    const ribbon = screen.getByTestId('part-studio-ribbon');
+    const main = within(ribbon).getByRole('button', { name: '线性阵列' }) as HTMLButtonElement;
+    expect(main.disabled || main.getAttribute('aria-disabled') === 'true').toBe(true);
+    await user.click(within(ribbon).getByRole('button', { name: '线性阵列 ▾' }));
+    const menu = within(document.body).getByRole('menu', { name: '线性阵列' });
+    const circular = within(menu).getByRole('menuitem', { name: '环形阵列' });
+    const curve = within(menu).getByRole('menuitem', { name: '曲线阵列' });
+    expect(circular.getAttribute('aria-disabled')).toBe('true');
+    expect(curve.getAttribute('aria-disabled')).not.toBe('true');
+    await user.click(curve);
+    expect(screen.getByRole('dialog', { name: '曲线阵列（规划中）' })).toBeDefined();
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
   });
 });

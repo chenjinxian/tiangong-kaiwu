@@ -232,22 +232,31 @@ describe('B/A 分享模式派生（P2.1 F5）', () => {
     expect(stub.getAttribute('data-can-manage')).toBe('true');
   });
 
-  it('B 文档无 imodels_manage：canManageShare=false（fail-closed，不回退 A 通道）', async () => {
+  it('B 文档无 iTwin manage：分享入口禁用（fail-closed，不回退 A 通道）', async () => {
     const user = userEvent.setup();
     renderTopBar({ mode: 'B' });
-    await user.click(screen.getByRole('button', { name: '分享' }));
-    const stub = screen.getByTestId('share-dialog-stub');
-    expect(stub.getAttribute('data-mode')).toBe('B');
-    expect(stub.getAttribute('data-can-manage')).toBe('false');
+    const share = screen.getByTestId('part-studio-share-button') as HTMLButtonElement;
+    expect(share.disabled || share.getAttribute('aria-disabled') === 'true').toBe(true);
+    await user.click(share);
+    expect(screen.queryByTestId('share-dialog-stub')).toBeNull();
   });
 
-  it('A 旧文档（缺省）：分享仍走 iTwin 通道（doc id=iTwinId、无 imodelId）', async () => {
+  it('A 旧文档（mode=A）：分享仍走 iTwin 通道（doc id=iTwinId、无 imodelId）', async () => {
     const user = userEvent.setup();
-    renderTopBar();
+    renderTopBar({ mode: 'A' });
     await user.click(screen.getByRole('button', { name: '分享' }));
     const stub = screen.getByTestId('share-dialog-stub');
     expect(stub.getAttribute('data-mode')).toBe('A');
     expect(stub.getAttribute('data-doc-id')).toBe('itwin-9');
     expect(stub.getAttribute('data-imodel-id')).toBe('');
+  });
+
+  it('marker 未定/失败（mode undefined）：分享钮禁用，绝不注入 A iTwin 文档（F1）', async () => {
+    const user = userEvent.setup();
+    renderTopBar();
+    const share = screen.getByTestId('part-studio-share-button') as HTMLButtonElement;
+    expect(share.disabled || share.getAttribute('aria-disabled') === 'true').toBe(true);
+    await user.click(share);
+    expect(screen.queryByTestId('share-dialog-stub')).toBeNull();
   });
 });

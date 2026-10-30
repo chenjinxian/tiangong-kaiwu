@@ -41,6 +41,8 @@ const mocks = vi.hoisted(() => ({
   itwinsGet: vi.fn(),
   itwinsDelete: vi.fn(),
   getITwinPermissions: vi.fn(),
+  // P2.4 F2：rename 门=iModel 权限（与 iTwin 分享门分离）。
+  getIModelPermissions: vi.fn(),
 }));
 
 vi.mock('@clients/imodels/ImodelsClient.js', () => ({
@@ -75,6 +77,7 @@ vi.mock('@clients/itwins/ItwinsClient.js', () => ({
 vi.mock('@clients/access-control/AccessControlClient.js', () => ({
   AccessControlClient: class {
     getITwinPermissions = mocks.getITwinPermissions;
+    getMyIModelPermissions = mocks.getIModelPermissions;
   },
 }));
 
@@ -181,6 +184,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.itwinsGet.mockResolvedValue(ITWIN_DETAIL);
   mocks.imodelsList.mockResolvedValue(IMODELS);
+  // P2.4 F2：rename 门走 iModel 权限；缺省无 manage（Viewer 用例 fail-closed）。
+  mocks.getIModelPermissions.mockResolvedValue([]);
   // 初始化等待的默认终态：created 即 initialized（成功路径零 sleep）。
   mocks.imodelsGet.mockResolvedValue({
     ...IMODELS[0],
@@ -428,6 +433,19 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     const menu = await screen.findByRole('menu');
     expect(within(menu).getByRole('menuitem', { name: '收藏' })).toBeDefined();
     expect(within(menu).queryByRole('menuitem', { name: '重命名' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '分享' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '删除' })).toBeNull();
+  });
+
+  it('F2 拆源：仅 iModel Manage（无 iTwin manage）→ 重命名可见，分享/删除不可见', async () => {
+    mocks.getITwinPermissions.mockResolvedValue(['imodels_webview']);
+    mocks.getIModelPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
+    const user = userEvent.setup();
+    renderPage();
+    // 逐卡片 iModel 权限查询异步落定 → 重命名项出现。
+    await user.click((await screen.findAllByRole('button', { name: '更多操作' }))[0]!);
+    const menu = await screen.findByRole('menu');
+    expect(await within(menu).findByRole('menuitem', { name: '重命名' })).toBeDefined();
     expect(within(menu).queryByRole('menuitem', { name: '分享' })).toBeNull();
     expect(within(menu).queryByRole('menuitem', { name: '删除' })).toBeNull();
   });

@@ -18,6 +18,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { DropdownMenu, IconButton, MenuItem } from '@itwin/itwinui-react';
 import { SvgChevronDown } from '@itwin/itwinui-icons-react';
+import { isGated } from '../internal/capabilities.js';
 import type { RibbonTool } from './ribbon-registry.js';
 
 export interface RibbonDropdownProps {
@@ -28,21 +29,36 @@ export interface RibbonDropdownProps {
   active: boolean;
   /** 命令搜索亮显（palette 查询命中，os-23「亮显工具栏中的工具」）。 */
   highlighted: boolean;
-  /** 只读总门（P2.4）：主钮/子项禁用（gated 由 Ribbon 侧判定，不传本门）。 */
+  /** 主钮只读门（P2.4）：按父 capability 裁决（full 写工具禁用；gated 父保持可点）。 */
   disabled?: boolean;
+  /** 只读态（P2.4 F11）：子项按各自 capability 裁决——gated 子项仍可打开能力引导。 */
+  readOnly?: boolean;
 }
 
-export function RibbonDropdown({ tool, onActivate, active, highlighted, disabled = false }: RibbonDropdownProps): React.JSX.Element {
+export function RibbonDropdown({
+  tool,
+  onActivate,
+  active,
+  highlighted,
+  disabled = false,
+  readOnly = false,
+}: RibbonDropdownProps): React.JSX.Element {
   const { t } = useTranslation();
   const label = t(tool.labelKey);
   const MainIcon = tool.icon;
 
   // 菜单子项模型 → iTwinUI MenuItem（点击自动收合：DropdownMenu
-  // closeOnItemClick 缺省 true）。
+  // closeOnItemClick 缺省 true）。F11：disabled 逐子项按 capability 计算，
+  // 不继承父工具的只读门（父 full 的飞菜单里可能有 gated 信息面）。
   const menuItems = (tool.dropdownItems ?? []).map((item) => {
     const ItemIcon = item.icon;
     return (
-      <MenuItem key={item.id} icon={<ItemIcon />} disabled={disabled} onClick={() => onActivate(item.id)}>
+      <MenuItem
+        key={item.id}
+        icon={<ItemIcon />}
+        disabled={readOnly && !isGated(item.capability)}
+        onClick={() => onActivate(item.id)}
+      >
         {t(item.labelKey)}
       </MenuItem>
     );

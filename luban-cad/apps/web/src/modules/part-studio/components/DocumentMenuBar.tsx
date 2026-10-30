@@ -52,11 +52,14 @@ export interface DocumentMenuBarProps {
   iTwinId: string;
   /** 当前 iModel id（仅 B；重命名文档=iModel 名称）。 */
   iModelId?: string;
-  /** B/A 文档上下文（P2.1 F5 承接 / P2.4 DoD）：缺省 A 保持旧调用语义。 */
+  /**
+   * B/A 文档上下文（P2.1 F5 承接 / P2.4 F1）：undefined = marker 未定/失败——
+   * 「重命名文档」禁用，绝不回落 ItwinsClient.update（B 文档改名不得误改项目）。
+   */
   mode?: DocumentMode;
   /** 当前文档名（重命名对话框预填值；B=iModel 名，A=iTwin 名）。 */
   documentName: string;
-  /** B 文档重命名授权（iModel `imodels_manage`，fail-closed；A 忽略）。 */
+  /** B 文档重命名授权（**iModel** `imodels_manage`，F2 拆源；A 忽略）。 */
   canManage?: boolean;
 }
 
@@ -71,9 +74,9 @@ const UNIT_OPTIONS: readonly { value: 'mm' | 'in' | 'cm' | 'm'; disabled: boolea
 export function DocumentMenuBar({
   iTwinId,
   iModelId,
-  mode = 'A',
+  mode,
   documentName,
-  canManage = true,
+  canManage = false,
 }: DocumentMenuBarProps): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -100,8 +103,10 @@ export function DocumentMenuBar({
    * RenameDocumentDialog 的 useEffect([doc]) 在 doc 引用变化时重置输入框；
    * 父级重渲染（面包屑查询回填等）若每次构造新对象会误重置用户输入。
    */
-  const renameDoc = React.useMemo(
-    () => ({
+  const renameDoc = React.useMemo(() => {
+    // F1：mode 未定/失败不构造文档目标——菜单项禁用，绝不构造 A iTwin 目标。
+    if (mode === undefined) return null;
+    return {
       // B 文档 = iModel（id=iModelId、projectId=iTwinId）；A 旧文档 = iTwin。
       id: mode === 'B' ? (iModelId ?? '') : iTwinId,
       name: documentName,
@@ -111,9 +116,8 @@ export function DocumentMenuBar({
       modifiedAt: null,
       mode,
       projectId: iTwinId,
-    }),
-    [mode, iTwinId, iModelId, documentName],
-  );
+    };
+  }, [mode, iTwinId, iModelId, documentName]);
 
   /** B 文档重命名 = ImodelsClient.update（iModel name）；A = 对话框缺省 ItwinsClient。 */
   const handleRenameSubmit = React.useCallback(
@@ -139,7 +143,8 @@ export function DocumentMenuBar({
   const menuItems = [
     <MenuItem
       key="rename"
-      disabled={mode === 'B' && !canManage}
+      // F1：mode 未定/失败一律禁用（不回落 A 通道）；B 文档另受 iModel manage 门。
+      disabled={mode === undefined || (mode === 'B' && !canManage)}
       onClick={() => setRenameOpen(true)}
     >
       {t('partStudio.documentMenu.rename')}

@@ -57,7 +57,7 @@ export function filterPartStudios(
 }
 
 export interface TabManagerDialogProps {
-  /** B 文档=注册表页签；A 旧文档=单页签只读。 */
+  /** B 文档=注册表页签；A 旧文档=单页签只读；undefined=marker 未定（不列 legacy）。 */
   mode?: DocumentMode;
   iTwinId: string;
   iModelId: string;
@@ -72,7 +72,7 @@ export interface TabManagerDialogProps {
 }
 
 export function TabManagerDialog({
-  mode = 'A',
+  mode,
   iTwinId,
   iModelId,
   studios = [],
@@ -189,11 +189,17 @@ export function TabManagerDialog({
             </div>
           </div>
 
-          {/* 列表：A=单页签；B=注册表 Part Studio（活动项 aria-current）。 */}
+          {/* 列表：A=单页签；B=注册表 Part Studio（活动项 aria-current）；mode
+              未定（marker 在途/失败）→ 不列 legacy（F1），只显示解析中。 */}
           {mode === 'A' ? (
             <ul role="list" aria-label={t('partStudio.tabManager.listLabel')} className="tab-manager-list" data-view={view}>
               {legacyRow}
             </ul>
+          ) : mode === undefined ? (
+            <div className="tab-manager-status" data-testid="tab-manager-unknown-mode">
+              <ProgressRadial size="small" indeterminate />
+              <Text variant="small">{t('partStudio.scope.loading')}</Text>
+            </div>
           ) : isLoading ? (
             <div className="tab-manager-status">
               <ProgressRadial size="small" indeterminate />

@@ -136,16 +136,19 @@ function strictRouterWrapper(path: string) {
  */
 function useFeatureSystemHarness(
   connection: MockConnection | undefined,
-  opts?: { enabled?: boolean },
+  opts?: { enabled?: boolean; readEnabled?: boolean; scopeMode?: 'A' | 'B' },
 ): ReturnType<typeof useFeatureSystem> {
   const sessionEnabled = opts?.enabled ?? (!!connection && !connection.isReadonly);
   const session = useEditorSession(connection as never, { enabled: sessionEnabled });
-  return useFeatureSystem(connection as never, session);
+  return useFeatureSystem(connection as never, session, {
+    readEnabled: opts?.readEnabled,
+    scopeMode: opts?.scopeMode,
+  });
 }
 
 const renderFeatureSystem = (
   connection: MockConnection | undefined,
-  opts?: { enabled?: boolean },
+  opts?: { enabled?: boolean; readEnabled?: boolean; scopeMode?: 'A' | 'B' },
   path: string = LEGACY_PATH,
 ) => renderHook(() => useFeatureSystemHarness(connection, opts), { wrapper: routerWrapper(path) });
 
@@ -190,6 +193,41 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
       expect.any(String),
       'ps-1',
     );
+  });
+
+  it('F6：scopeMode=A 时即使 URL 带 ?model= 也恒省略 scope（A 不进入 legacy scoped 读）', async () => {
+    const connection = createMockConnection();
+    const { result } = renderFeatureSystem(
+      connection,
+      { scopeMode: 'A' },
+      '/documents/twin-1/im-1?model=stray-scope',
+    );
+    await waitFor(() => expect(result.current.bodiesLoaded).toBe(true));
+    expect(fakeClient.getFeatureTree).toHaveBeenCalledWith('test-model.bim');
+    expect(fakeClient.getBodies).toHaveBeenCalledWith('test-model.bim');
+    expect(fakeClient.getFeatureTree).not.toHaveBeenCalledWith('test-model.bim', 'stray-scope');
+  });
+
+  it('F8：readEnabled 翻 false 清空树/bodies/错误/loaded（damaged/recovery 不展示旧 scope）', async () => {
+    const connection = createMockConnection();
+    const { result, rerender } = renderHook(
+      ({ readEnabled }: { readEnabled: boolean }) =>
+        useFeatureSystemHarness(connection, { readEnabled }),
+      {
+        initialProps: { readEnabled: true },
+        wrapper: routerWrapper('/documents/twin-1/im-1?model=ps-1'),
+      },
+    );
+    await waitFor(() => expect(result.current.bodiesLoaded).toBe(true));
+    expect(result.current.tree).toHaveLength(1);
+    expect(result.current.bodies).toHaveLength(1);
+
+    rerender({ readEnabled: false });
+    await waitFor(() => expect(result.current.tree).toEqual([]));
+    expect(result.current.bodies).toEqual([]);
+    expect(result.current.bodiesLoaded).toBe(false);
+    expect(result.current.bodiesError).toBeUndefined();
+    expect(result.current.error).toBeUndefined();
   });
 
   it('legacy 路由（无 ?model=）省略 scope 实参（旧调用 arity 钉死，不得多发 undefined）', async () => {

@@ -58,8 +58,11 @@ function renderSketchSystem(
   connection: unknown,
   fs: Parameters<typeof useSketchSystem>[1],
   path: string = LEGACY_PATH,
+  opts?: Parameters<typeof useSketchSystem>[2],
 ) {
-  return renderHook(() => useSketchSystem(connection as never, fs), { wrapper: routerWrapper(path) });
+  return renderHook(() => useSketchSystem(connection as never, fs, opts), {
+    wrapper: routerWrapper(path),
+  });
 }
 
 describe('M6-a T5：useSketchSystem', () => {
@@ -196,5 +199,38 @@ describe('M6-a T5：useSketchSystem', () => {
     await waitFor(() => expect(result.current.activeSketch?.id).toBe('sk-1'));
     const calls = (LubanFeatureRpcInterface.getClient().getSketch as ReturnType<typeof vi.fn>).mock.calls;
     expect(calls[0]).toHaveLength(2);
+  });
+
+  // ── P2.4 F5/F6：读面门 + A 恒省略 scope ────────────────────────────────
+  it('F5：readEnabled=false 时零 getSketch（活动身份保留但不读 legacy 面）', async () => {
+    stubRpcClient();
+    resetStore();
+    const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
+    const { result } = renderSketchSystem(connection, undefined, LEGACY_PATH, { readEnabled: false });
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(LubanFeatureRpcInterface.getClient().getSketch).not.toHaveBeenCalled();
+    expect(result.current.activeSketch).toBeUndefined();
+  });
+
+  it('F6：scopeMode=A 时 ?model= 仍省略 scope（A 不进入 legacy scoped 读）', async () => {
+    stubRpcClient();
+    resetStore();
+    const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
+    const { result } = renderSketchSystem(
+      connection,
+      undefined,
+      '/documents/twin-1/im-1?model=stray',
+      { scopeMode: 'A' },
+    );
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await waitFor(() => expect(result.current.activeSketch?.id).toBe('sk-1'));
+    expect(LubanFeatureRpcInterface.getClient().getSketch).toHaveBeenCalledWith('conn-1', 'sk-1');
   });
 });
