@@ -1,0 +1,5 @@
+# Docker 构建字节断言：apps/web/public/scripts/parse-imdl-worker.js 必须与
+# itwinjs-core/core/frontend/lib/public/scripts/parse-imdl-worker.js 逐字节一致。
+# Windows checkout（core.autocrlf=true）默认会把该快照转成 CRLF，导致
+# Dockerfile 的 cmp 断言失败；此规则钉死“不转换”，保证任何平台检出都是 LF。
+luban-cad/apps/web/public/scripts/parse-imdl-worker.js -text
