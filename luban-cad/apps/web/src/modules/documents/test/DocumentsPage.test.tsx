@@ -15,7 +15,7 @@
 // 结构测试零真实请求。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,15 +26,19 @@ vi.mock('../hooks/useDocuments.js', () => ({
 }));
 
 // hoisted：vi.mock 工厂提升执行，工厂内引用顶层 const 会撞 TDZ——
-// 共享 delete mock 须经 vi.hoisted 声明（删除失败反馈用例要驱动它 reject）。
-const { itwinsDeleteMock } = vi.hoisted(() => ({ itwinsDeleteMock: vi.fn() }));
+// 共享 create/delete mock 须经 vi.hoisted 声明（create 供载荷断言，
+// delete 供删除失败反馈用例驱动 reject）。
+const { itwinsCreateMock, itwinsDeleteMock } = vi.hoisted(() => ({
+  itwinsCreateMock: vi.fn(),
+  itwinsDeleteMock: vi.fn(),
+}));
 
 vi.mock('@clients/itwins/ItwinsClient.js', () => ({
   // 类字段箭头函数：每实例一份 vi.fn，互不影响（get 供详情侧栏描述查询）；
-  // delete 例外—— hoist 共享，供用例注入 reject。
+  // create/delete 例外—— hoist 共享，供载荷断言与 reject 注入。
   ItwinsClient: class {
     get = vi.fn().mockResolvedValue({ id: 'doc-1', displayName: '文档 A', description: '' });
-    create = vi.fn();
+    create = itwinsCreateMock;
     update = vi.fn();
     delete = itwinsDeleteMock;
   },
@@ -87,6 +91,7 @@ function renderPage() {
 beforeEach(() => {
   mockUseDocuments.mockReturnValue({ documents: DOCS, isLoading: false, error: null });
   // 默认 resolved（undefined）；个别用例注入 reject。
+  itwinsCreateMock.mockReset();
   itwinsDeleteMock.mockReset();
 });
 
@@ -118,6 +123,27 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     // LabeledInput 的 label↔input 关联（InputGrid 自动 htmlFor）——getByLabelText 可直取。
     expect(await screen.findByLabelText(/文档名称/)).toBeDefined();
     expect(screen.getByLabelText(/文档编号/)).toBeDefined();
+  });
+
+  it('新建文档提交 → 创建载荷带官方 class/subClass（Endeavor/Project）', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: '创建' }));
+    await user.click(await screen.findByRole('menuitem', { name: '新建文档' }));
+    await user.type(await screen.findByLabelText(/文档名称/), '新文档');
+    // 侧栏「创建」大钮与对话框提交钮同名——提交钮以 dialog 作用域取。
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建' }));
+    // hub taxonomy 迁移后 class:'Project' 非合法值：创建必须显式传官方
+    // Endeavor/Project 二元组（ADR-0001 P0），否则服务端按缺省拒绝/错分。
+    await waitFor(() => {
+      expect(itwinsCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          displayName: '新文档',
+          class: 'Endeavor',
+          subClass: 'Project',
+        }),
+      );
+    });
   });
 
   it('创建菜单 🟠 项 → 能力引导对话框（完整 UI 面，照常可点）', async () => {

@@ -146,7 +146,7 @@ async function createScratchImodel(
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const project = await request.post('/itwins', {
     headers: authHeaders(accessToken),
-    data: { displayName: `两体发布窗-${stamp}`, class: 'Project' },
+    data: { displayName: `两体发布窗-${stamp}`, class: 'Endeavor', subClass: 'Project' },
   });
   expect(project.status(), `项目创建失败：HTTP ${project.status()}`).toBe(201);
   const itwinId = ((await project.json()) as { iTwin: { id: string } }).iTwin.id;

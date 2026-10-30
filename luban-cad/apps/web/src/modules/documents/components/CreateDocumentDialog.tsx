@@ -3,19 +3,19 @@
  * Licensed under the MIT License.
  *
  * CreateDocumentDialog（Task 5）：新建文档对话框——名称（必填）+ 编号（可选）
- * → ItwinsClient.create。编号透传 hub（白名单未知字段时由服务端静默剥离，
- * 与旧应用 subclass 字段同姿态）。成功 invalidate 列表并回调父组件。
+ * → ItwinsClient.create。创建载荷显式钉死官方 taxonomy
+ * `class:'Endeavor', subClass:'Project'`（ADR-0001 P0：hub 迁移后
+ * `class:'Project'` 不再是合法值）；编号透传 hub（白名单未知字段时由
+ * 服务端静默剥离）。成功 invalidate 列表并回调父组件。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ITwinClass, ITwinSubClass } from '@itwin/itwins-client';
 import { Button, Dialog, LabeledInput, Text } from '@itwin/itwinui-react';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import type { CreateItwinInput } from '@clients/itwins/types.js';
-
-/** 入参在 CreateItwinInput 之上透传 number（hub ITwin 官方字段）。 */
-type CreateDocumentInput = CreateItwinInput & { number?: string };
 
 export interface CreateDocumentDialogProps {
   isOpen: boolean;
@@ -37,7 +37,7 @@ export function CreateDocumentDialog({
   const [submitError, setSubmitError] = React.useState('');
 
   const createMutation = useMutation({
-    mutationFn: (input: CreateDocumentInput) => new ItwinsClient().create(input),
+    mutationFn: (input: CreateItwinInput) => new ItwinsClient().create(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
@@ -62,7 +62,13 @@ export function CreateDocumentDialog({
     }
     setNameError('');
     setSubmitError('');
-    const input: CreateDocumentInput = { displayName: name.trim() };
+    // 官方类型是 TS 字符串枚举（非字面量联合），载荷须取枚举成员；
+    // 运行期值即 'Endeavor' / 'Project'（与 hub 官方 taxonomy 逐字一致）。
+    const input: CreateItwinInput = {
+      displayName: name.trim(),
+      class: ITwinClass.Endeavor,
+      subClass: ITwinSubClass.Project,
+    };
     const trimmedNumber = number.trim();
     if (trimmedNumber) {
       input.number = trimmedNumber;

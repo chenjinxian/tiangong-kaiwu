@@ -308,7 +308,11 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
     for (let i = 0; i < SEED_DOC_COUNT; i++) {
       const created = await request.post('/itwins', {
         headers,
-        data: { displayName: `${SEED_PREFIX}${String(i).padStart(3, '0')}`, class: 'Project' },
+        data: {
+          displayName: `${SEED_PREFIX}${String(i).padStart(3, '0')}`,
+          class: 'Endeavor',
+          subClass: 'Project',
+        },
       });
       expect(created.status(), `种子文档 #${i} 创建失败`).toBe(201);
       seededIds.push(((await created.json()) as { iTwin: { id: string } }).iTwin.id);
