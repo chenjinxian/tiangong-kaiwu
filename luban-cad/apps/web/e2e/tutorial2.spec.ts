@@ -444,9 +444,9 @@ async function msRpc(
       'X-Application-Version': 'v1.0',
       'X-Session-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
     },
-    // BentleyCloud wire：客户端包装层把操作名追加为末位参数（RpcRegistry
-    // .interceptOperation 同构），服务端按末位弹出定位 operation。
-    body: JSON.stringify([...args, operation]),
+    // HTTP RPC 只发送参数数组；操作名在 URL path 中。客户端 `forward` 已 pop
+    // operation，不能把它再塞进 body——可选尾参 partStudioId 会把它误当 scope。
+    body: JSON.stringify(args),
   });
   const text = await res.text();
   if (!res.ok) {

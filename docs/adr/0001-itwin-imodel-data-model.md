@@ -393,8 +393,12 @@ iTwin: Thing/Portfolio "园区"
    `http://localhost:5400`。它与 web Playwright 的 `PLAYWRIGHT_BASE_URL` 是两套变量，不得混用。
 8. **发布镜像 hub e2e（必跑）**：hub 的 secured/ACL/named-version 等 e2e 必须在 **GHCR 发布
    镜像**（而非本地重建镜像）上复跑；本地镜像结果不作为发布证据（OCI revision 须与 hub HEAD 一致）。
-9. **生产 BriefcaseDb/IPC + init-floor undo E2E（P2 前必跑）**：`StandaloneDb` raw native 探针
-   不等价于生产 Briefcase IPC undo 栈；须在真实宿主 MS + 前端会话下验证 init-safe floor 与 redo。
+9. **生产 BriefcaseDb/IPC + init-floor undo E2E（P2 前必跑；P2.0 已通过）**：`StandaloneDb` raw native
+   探针不等价于生产 Briefcase IPC undo 栈；须在真实宿主 MS + 前端会话下验证 init-safe floor 与 redo。
+   **P2.0 证据（2026-10-30）**：`luban-cad/apps/web/e2e/b-model-undo.spec.ts` **1/1 PASS（37.3s）**，
+   真实 hub + 宿主 MS + 浏览器；覆盖「更晚 studio init 抬高 floor（其下编辑不可达）」「活动页签是
+   ps-1 时文档级 undo 先撤 ps-2 的最新编辑」「init 处 Undo 禁用」「redo 恢复与新编辑清空 redo」。
+   双 scope 的第二个 scope 由 scoped RPC 初始化（P2.4 前无 UI 创建入口，按计划标注）。
 10. **`test:types` 接入聚合测试命令（必做）**：public shared 的 `test` 脚本现为
     `tsc -p tsconfig.test.json && vitest run`（type-check 先行），`test:types` 保留独立入口；
     CI/发布门必须跑聚合命令，避免类型回归绕过门禁。
@@ -671,11 +675,26 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | hub 实栈 e2e（本地重建镜像） | `E2E_BASE_URL=http://localhost:5400 npx jest --config ./test/jest-e2e.json --runInBand test/integration/imodel-secured.e2e-spec.ts test/integration/named-version-sharing.e2e-spec.ts test/itwins.e2e-spec.ts test/integration/authorization.e2e-spec.ts test/integration/smoke-crud.e2e-spec.ts` | **5 suites / 70 tests PASS，exit 0**（24.9 s；含 F5 briefcase checkpoint 403/放行 与 F3 隐藏项占首页后的分页可达性） |
 | 后端迁移模式守卫 | `vitest run src/feature/PartStudioMigration.mode.test.ts src/feature/PartStudioMigration.test.ts` | **15/15 PASS**（模式守卫 4 + 既有迁移 11）；全 `src/feature` **49 files / 447 passed / 8 skipped**，exit 0；tsc 0；eslint 0 |
 | 发布镜像 hub e2e | — | **NOT RUN**（强制发布门 8；本地镜像结果不作发布证据） |
-| 全量 web Playwright | — | **NOT RUN**（强制发布门 7） |
-| 生产 BriefcaseDb/IPC + init-floor undo E2E | — | **NOT RUN**（强制发布门 9） |
+| 全量 web Playwright | — | P1 final-fix2 时 **NOT RUN**；**P2.0 已补跑 36/36 PASS（7.2m）**，见下节 |
+| 生产 BriefcaseDb/IPC + init-floor undo E2E | — | P1 final-fix2 时 **NOT RUN**；**P2.0 已补跑 1/1 PASS（37.3s）**，见下节 |
 | `verify-stack.ps1` | — | **NOT RUN**（本轮仅聚焦 hub e2e；发布前必跑） |
 
 > 本轮未改前端代码，故未重跑 public tsc/web 测试；hub 代码 HEAD `122acbf`（运行镜像 revision `271e5ec`，其后仅加测试）、backend `1daacd1`、public 以本文提交为准。
 > F2（并发首启/cold-warm 窄窗口）与 F4（clone/fork 导出权）仍分别作为 spike 残余与产品决策记录在 §11；F1 的迁移目标模式守卫已补。
+
+### P2.0 入口门证据（2026-10-30）
+
+| 项 | 命令 / 场景 | 结果 |
+|---|---|---|
+| 全量 web Playwright | `corepack pnpm@10 exec playwright test`（`apps/web`；真实 hub :5400 + 宿主 MS :5401 + Vite :5300） | **36 passed / 0 failed（7.2m）** |
+| 生产 Briefcase/IPC + init-floor undo | `playwright test e2e/b-model-undo.spec.ts` | **1 passed（37.3s）**；init floor / 文档级 undo / redo 清空按决策 A |
+| 直连 RPC 回归 | `boolean-bodies`（2）、`feature-contracts`/`newbody`/`tutorial2`（5） | **7/7 PASS**；HTTP RPC body 只发参数数组，操作名仅在 URL path |
+| 视觉钉版 | 文档网格按种子名过滤；编辑器遮蔽全部 canvas | **6/6 PASS**，快照随同款提交更新 |
+| 限流注记 | 首次全量在 `boolean-bodies` 撞 **429**（`retryAfter=472s`） | 非代码失败；重启本地 MS 源码进程清空内存计数后全绿 |
+| 基址/复用注记 | 全量使用 `reuseExistingServer`（未设 `CI=true`） | 本机待验实例即 :5300 dev；CI/发布环境仍按 `CI=true` 全新起服 |
+
+> P2.0 修复的两处基线缺陷：e2e `msRpc` 曾把操作名追加进 HTTP body（被新增可选 `partStudioId`
+> 误当 scope，触发 legacy 写守卫）；视觉文档网格依赖前序 spec 的临时项目、编辑器只遮第一个 canvas。
+> 两者均为测试载体问题，不涉及生产代码。P2.0 后才开始 P2.1 的功能实现。
 
 > 本文只做架构决策记录，不包含代码改动。P0 前置项可以在 UI 波次中先行落地；B 的全量迁移必须在 P1 spike 通过后另行排期。

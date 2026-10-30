@@ -119,7 +119,7 @@ async function msRpc(
       'X-Application-Version': 'v1.0',
       'X-Session-Id': `7e19b6a0-0000-4000-8000-${stamp}`,
     },
-    body: JSON.stringify([...args, operation]),
+    body: JSON.stringify(args),
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`MS RPC ${operation} HTTP ${res.status}: ${text.slice(0, 240)}`);

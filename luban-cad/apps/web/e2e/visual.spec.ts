@@ -75,6 +75,9 @@ test('视觉钉版：登录页（亮色）', async ({ page }) => {
 test('视觉钉版：文档中心网格（亮色）', async ({ page }) => {
   await pinLightZh(page);
   await gotoDocuments(page);
+  // 全量套件前序 spec 会在同一 E2E 库留下临时项目；按种子名过滤，钉版只看种子态。
+  const search = page.getByRole('searchbox');
+  await search.fill(SEED_PROJECT_NAME);
   // 真实数据锚点：种子项目在列（网格卡片渲染完成）
   await expect(page.getByRole('button', { name: SEED_PROJECT_NAME }).first()).toBeVisible({
     timeout: 20_000,
@@ -110,11 +113,12 @@ test('视觉钉版：编辑器五区只读态（亮色，画布 mask）', async 
   await waitEditorReady(page);
   // 权限门只读态如实钉（M5-T5 D-T5-1 在案，brief 纪律：写工具激活态截图
   // 以只读态为准）；canvas 区 mask（瓦片流送像素不可钉，见文件头注）
-  const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
-  await expect(canvas).toBeVisible();
+  const canvases = page.getByTestId('part-studio-viewport').locator('canvas');
+  await expect(canvases.first()).toBeVisible();
   await settleFonts(page);
   await expect(page).toHaveScreenshot('editor-read-only-light.png', {
-    mask: [canvas],
+    // 编辑器可能叠加多个 canvas（主视口/选区/网格覆盖层）；全部 mask，视觉门只钉 UI 铬。
+    mask: await canvases.all(),
     maskColor: 'rgb(255, 255, 255)',
   });
 });
