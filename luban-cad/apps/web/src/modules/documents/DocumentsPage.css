@@ -136,6 +136,31 @@
   gap: var(--iui-size-2xs);
 }
 
+/* ── B 项目区（B-model P2.1；flag 关不渲染，旧 DOM 不变） ───────────── */
+.documents-projects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iui-size-s);
+  min-height: 0;
+}
+
+/* B 项目区不吞掉 A 旧文档区：网格/表格最多 40vh（内部滚动）。 */
+.documents-projects .documents-grid,
+.documents-projects .documents-table {
+  max-block-size: 40vh;
+}
+
+.documents-projects__empty {
+  color: var(--iui-color-text-muted);
+}
+
+/* 卡片 meta：所有者 + B 模式徽标并排。 */
+.document-tile__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+}
+
 /* 刷新图标旋转 */
 .documents-spin {
   animation: documents-spin 1s linear infinite;

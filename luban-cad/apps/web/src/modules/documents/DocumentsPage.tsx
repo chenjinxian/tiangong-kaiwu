@@ -58,6 +58,7 @@ import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import { useTheme } from '@app/providers/ThemeContext.js';
 import { useDocuments } from './hooks/useDocuments.js';
+import { useBModelEnabled } from './hooks/useBModelEnabled.js';
 import { useDocumentFilters } from './hooks/useDocumentFilters.js';
 import type {
   DocumentFilter,
@@ -104,7 +105,11 @@ export function DocumentsPage(): React.JSX.Element {
   const user = AuthSession.getStoredAuth()?.user;
 
   const { filter, setFilter } = useDocumentFilters();
-  const { documents, isLoading, isFetching, error } = useDocuments(filter);
+  // P2.1：flag 开 → /documents 双区（B 项目 + A 旧文档）；flag 关 → 今日的单区
+  // DOM（B 区不渲染，A 区消费全量 documents，逐字旧行为）。
+  const bModelEnabled = useBModelEnabled();
+  const { documents, projects, legacyDocuments, isLoading, isFetching, error } =
+    useDocuments(filter);
   // 收藏集合常开（favorites 档即真值；其余档星标状态也须真实——旧应用
   // useFavoriteITwinsQuery(true) 同口径；同 queryKey 与列表查询去重）。
   const { documents: favoriteDocuments } = useDocuments('favorites');
@@ -146,40 +151,70 @@ export function DocumentsPage(): React.JSX.Element {
   // -----------------------------------------------------------------------
   const isSearching = searchQuery.trim().length > 0;
 
-  const visibleDocuments = React.useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const filtered = query
-      ? documents.filter((doc) => doc.name.toLowerCase().includes(query))
-      : documents;
-    const dir = sort.desc ? -1 : 1;
-    return [...filtered].sort((a, b) => {
-      if (sort.id === 'name') {
-        return dir * a.name.localeCompare(b.name, i18n.language, { sensitivity: 'base' });
-      }
-      return dir * (parseDate(sort.id === 'createdAt' ? a.createdAt : a.modifiedAt)
-        - parseDate(sort.id === 'createdAt' ? b.createdAt : b.modifiedAt));
-    });
-  }, [documents, searchQuery, sort, i18n.language]);
+  // A 区数据源：flag 关 = 全量 documents（旧行为）；flag 开 = legacy 子集。
+  const legacySource = bModelEnabled ? legacyDocuments : documents;
+  const projectSource = bModelEnabled ? projects : [];
 
-  const rows = React.useMemo<DocumentRow[]>(() => {
-    const unnamed = t('documents.states.unnamed');
-    return visibleDocuments.map((doc) => {
-      const created = parseDate(doc.createdAt);
-      return {
-        id: doc.id,
-        name: doc.name || unnamed,
-        owner: doc.owner,
-        role: doc.role,
-        createdAt: created,
-        modifiedAt: parseDate(doc.modifiedAt) || created,
-        doc,
-      };
-    });
-  }, [visibleDocuments, t]);
+  // 搜索（当前区）→ 排序（受控态统一驱动 Table 表头与工具条排序菜单）。
+  const searchAndSort = React.useCallback(
+    (items: DocumentSummary[]): DocumentSummary[] => {
+      const query = searchQuery.trim().toLowerCase();
+      const filtered = query
+        ? items.filter((doc) => doc.name.toLowerCase().includes(query))
+        : items;
+      const dir = sort.desc ? -1 : 1;
+      return [...filtered].sort((a, b) => {
+        if (sort.id === 'name') {
+          return dir * a.name.localeCompare(b.name, i18n.language, { sensitivity: 'base' });
+        }
+        return dir * (parseDate(sort.id === 'createdAt' ? a.createdAt : a.modifiedAt)
+          - parseDate(sort.id === 'createdAt' ? b.createdAt : b.modifiedAt));
+      });
+    },
+    [searchQuery, sort, i18n.language],
+  );
+
+  const visibleDocuments = React.useMemo(
+    () => searchAndSort(legacySource),
+    [legacySource, searchAndSort],
+  );
+  const visibleProjects = React.useMemo(
+    () => searchAndSort(projectSource),
+    [projectSource, searchAndSort],
+  );
+
+  const toRows = React.useCallback(
+    (items: DocumentSummary[]): DocumentRow[] => {
+      const unnamed = t('documents.states.unnamed');
+      return items.map((doc) => {
+        const created = parseDate(doc.createdAt);
+        return {
+          id: doc.id,
+          name: doc.name || unnamed,
+          owner: doc.owner,
+          role: doc.role,
+          createdAt: created,
+          modifiedAt: parseDate(doc.modifiedAt) || created,
+          doc,
+        };
+      });
+    },
+    [t],
+  );
+
+  const rows = React.useMemo<DocumentRow[]>(
+    () => toRows(visibleDocuments),
+    [toRows, visibleDocuments],
+  );
+  const projectRows = React.useMemo<DocumentRow[]>(
+    () => toRows(visibleProjects),
+    [toRows, visibleProjects],
+  );
 
   const selectedDoc = React.useMemo(
-    () => visibleDocuments.find((doc) => doc.id === selectedId) ?? null,
-    [visibleDocuments, selectedId],
+    () =>
+      [...visibleProjects, ...visibleDocuments].find((doc) => doc.id === selectedId) ?? null,
+    [visibleProjects, visibleDocuments, selectedId],
   );
 
   const formatDate = React.useCallback(
@@ -501,6 +536,55 @@ export function DocumentsPage(): React.JSX.Element {
         />
 
         <main className="documents-main">
+          {/* P2.1：B 项目区（仅 flag 开渲染；flag 关 DOM 与旧版逐字一致）——
+              位于 A 旧文档区之上，消费 useDocuments 的 projects 子集，B
+              项目不再混入下方 A 区。 */}
+          {bModelEnabled && !isLoading && !error && (
+            <section
+              className="documents-projects"
+              data-testid="projects-section"
+              aria-label={t('documents.projects.title')}
+            >
+              <div className="documents-toolbar">
+                <div className="documents-toolbar__title">
+                  <Text variant="title" as="h2">
+                    {t('documents.projects.title')}
+                  </Text>
+                  <Text variant="small" className="documents-toolbar__count">
+                    {t('documents.projects.count', { count: visibleProjects.length })}
+                  </Text>
+                </div>
+              </div>
+              {visibleProjects.length === 0 ? (
+                <Text className="documents-projects__empty">
+                  {t('documents.projects.empty')}
+                </Text>
+              ) : view === 'table' ? (
+                <DocumentTable
+                  rows={projectRows}
+                  sort={sort}
+                  emptyContent={null}
+                  formatDate={formatDate}
+                  buildMenuItems={buildMenuItems}
+                  onSortChange={setSort}
+                  onRowClick={(doc) => setSelectedId(doc.id)}
+                  onRowOpen={openDocument}
+                  isSelected={(id) => selectedId === id}
+                />
+              ) : (
+                <DocumentGrid
+                  documents={visibleProjects}
+                  isFavorite={(id) => favoriteIds.has(id)}
+                  isSelected={(id) => selectedId === id}
+                  formatModified={formatModified}
+                  buildMenuItems={buildMenuItems}
+                  onOpen={openDocument}
+                  onToggleFavorite={toggleFavorite}
+                />
+              )}
+            </section>
+          )}
+
           <DocumentToolbar
             title={sectionTitle}
             count={visibleDocuments.length}

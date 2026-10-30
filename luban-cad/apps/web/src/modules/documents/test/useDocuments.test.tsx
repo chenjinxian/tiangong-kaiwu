@@ -10,7 +10,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   itwinsList: vi.fn(),
@@ -59,6 +59,17 @@ const ITWINS = [
   },
 ];
 
+/** B 项目 iTwin：data.luban.modelMode='B'（P2.1 标记；未标记一律 A）。 */
+const B_PROJECT = {
+  id: 'proj-b',
+  displayName: 'B 项目',
+  createdBy: 'user-9',
+  type: 'Project',
+  subClass: 'Project',
+  createdDateTime: '2026-10-03T08:00:00.0000000+00:00',
+  data: { luban: { modelMode: 'B', schemaVersion: 1 } },
+};
+
 function createWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -69,6 +80,10 @@ function createWrapper() {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.itwinsList.mockResolvedValue(ITWINS);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('useDocuments 取数契约（M5-T7 perf 实测修正）', () => {
@@ -97,5 +112,60 @@ describe('useDocuments 取数契约（M5-T7 perf 实测修正）', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(mocks.itwinsList).toHaveBeenCalledWith({ top: 200 });
     expect(result.current.documents.map((doc) => doc.id)).toEqual(['doc-2']);
+  });
+});
+
+describe('useDocuments B/A 读模型（P2.1）', () => {
+  it('flag 关（缺省）：projects 为空，legacyDocuments === documents（旧行为）', async () => {
+    mocks.itwinsList.mockResolvedValue([...ITWINS, B_PROJECT]);
+    const { result } = renderHook(() => useDocuments('my'), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // documents 仍是全量过滤列表（收藏/搜索/兼容消费面不变）
+    expect(result.current.documents.map((doc) => doc.id)).toEqual(['doc-1', 'proj-b']);
+    // flag 关：B 标记也只按旧行为混在 documents 里，不分区
+    expect(result.current.projects).toEqual([]);
+    expect(result.current.legacyDocuments).toBe(result.current.documents);
+  });
+
+  it('flag 开：projects = mode B 子集，legacyDocuments = mode A 子集，documents 仍全量', async () => {
+    vi.stubEnv('VITE_B_MODEL_ENABLED', 'true');
+    mocks.itwinsList.mockResolvedValue([...ITWINS, B_PROJECT]);
+    const { result } = renderHook(() => useDocuments('my'), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.documents.map((doc) => doc.id)).toEqual(['doc-1', 'proj-b']);
+    expect(result.current.projects.map((doc) => doc.id)).toEqual(['proj-b']);
+    expect(result.current.projects[0]).toMatchObject({
+      mode: 'B',
+      projectId: 'proj-b',
+      projectName: 'B 项目',
+    });
+    expect(result.current.legacyDocuments.map((doc) => doc.id)).toEqual(['doc-1']);
+    expect(result.current.legacyDocuments.every((doc) => doc.mode === 'A')).toBe(true);
+  });
+
+  it("flag 只认字符串 'true'：'1'/'TRUE'/缺省均为关", async () => {
+    for (const raw of ['1', 'TRUE', 'false', '']) {
+      vi.stubEnv('VITE_B_MODEL_ENABLED', raw);
+      mocks.itwinsList.mockResolvedValue([...ITWINS, B_PROJECT]);
+      const { result, unmount } = renderHook(() => useDocuments('my'), {
+        wrapper: createWrapper(),
+      });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(result.current.projects, `VITE_B_MODEL_ENABLED=${raw}`).toEqual([]);
+      expect(result.current.legacyDocuments.length).toBe(2);
+      unmount();
+    }
+  });
+
+  it("favorites 档兼容：既有 useDocuments('favorites') 调用方只读 documents，flag 开也照旧", async () => {
+    vi.stubEnv('VITE_B_MODEL_ENABLED', 'true');
+    mocks.listFavorites.mockResolvedValue([...ITWINS, B_PROJECT]);
+    const { result } = renderHook(() => useDocuments('favorites'), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.documents.map((doc) => doc.id)).toEqual(['doc-1', 'doc-2', 'proj-b']);
+    expect(result.current.projects.map((doc) => doc.id)).toEqual(['proj-b']);
   });
 });

@@ -89,6 +89,9 @@ export function DocumentMenuBar({ iTwinId, documentName }: DocumentMenuBarProps)
       role: '',
       createdAt: '',
       modifiedAt: null,
+      // A 旧语义占位（B 项目分支归 P2.4）；P2.1 契约字段必填。
+      mode: 'A' as const,
+      projectId: iTwinId,
     }),
     [iTwinId, documentName],
   );

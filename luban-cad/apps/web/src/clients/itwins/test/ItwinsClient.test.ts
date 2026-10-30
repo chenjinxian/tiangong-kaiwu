@@ -102,6 +102,18 @@ describe('ItwinsClient（官方 ITwinsAccessClient 封装）', () => {
     expect(official.createiTwin).toHaveBeenCalledWith(BEARER_TOKEN, { displayName: 'N', class: 'Thing' });
   });
 
+  it('create 透传 data（B 项目标记；官方 ITwin 类型未声明，hub 持久化）', async () => {
+    official.createiTwin.mockResolvedValue({ data: { id: 'proj-b' }, status: 201 });
+    const client = new ItwinsClient();
+    const data = { luban: { modelMode: 'B', schemaVersion: 1 } };
+
+    await client.create({ displayName: 'B 项目', data });
+    expect(official.createiTwin).toHaveBeenCalledWith(
+      BEARER_TOKEN,
+      { displayName: 'B 项目', data },
+    );
+  });
+
   it('update(id, partial)：updateiTwin(token, id, partial)', async () => {
     const data = { id: 'a', displayName: 'Renamed' };
     official.updateiTwin.mockResolvedValue({ data, status: 200 });

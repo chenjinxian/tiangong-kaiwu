@@ -25,6 +25,13 @@ vi.mock('../hooks/useDocuments.js', () => ({
   useDocuments: (...args: unknown[]) => mockUseDocuments(...args),
 }));
 
+// B-model P2.1：flag 由 useBModelEnabled 单点读取（env 在测试里不可直改，
+// 模块 mock 是控制器裁定的测试口径）。缺省 false = 旧 DOM。
+const mockUseBModelEnabled = vi.fn();
+vi.mock('../hooks/useBModelEnabled.js', () => ({
+  useBModelEnabled: () => mockUseBModelEnabled(),
+}));
+
 // hoisted：vi.mock 工厂提升执行，工厂内引用顶层 const 会撞 TDZ——
 // 共享 create/delete mock 须经 vi.hoisted 声明（create 供载荷断言，
 // delete 供删除失败反馈用例驱动 reject）。
@@ -70,12 +77,21 @@ const DOCS = [
   {
     id: 'doc-1', name: '文档 A', owner: 'user-9', role: 'Project',
     createdAt: '2026-10-01T08:00:00.0000000+00:00', modifiedAt: '2026-10-20T12:30:00.0000000+00:00',
+    mode: 'A', projectId: 'doc-1',
   },
   {
     id: 'doc-2', name: '文档 B', owner: 'user-8', role: 'Project',
     createdAt: '2026-10-02T08:00:00.0000000+00:00', modifiedAt: null,
+    mode: 'A', projectId: 'doc-2',
   },
 ];
+
+/** B 项目（iTwin.data.luban.modelMode='B'——P2.1 读模型产物）。 */
+const B_PROJECT = {
+  id: 'proj-b', name: 'B 项目一', owner: 'user-9', role: 'Project',
+  createdAt: '2026-10-03T08:00:00.0000000+00:00', modifiedAt: null,
+  mode: 'B', projectId: 'proj-b', projectName: 'B 项目一',
+};
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -89,7 +105,10 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  mockUseDocuments.mockReturnValue({ documents: DOCS, isLoading: false, error: null });
+  mockUseBModelEnabled.mockReturnValue(false);
+  mockUseDocuments.mockReturnValue({
+    documents: DOCS, projects: [], legacyDocuments: DOCS, isLoading: false, error: null,
+  });
   // 默认 resolved（undefined）；个别用例注入 reject。
   itwinsCreateMock.mockReset();
   itwinsDeleteMock.mockReset();
@@ -194,7 +213,8 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     // isLoading(isPending) 仅首载为真——只给 isFetching 才能覆盖「有缓存数据的
     // refetch 期间」；isRefreshing 改接 isFetching 前，本用例刷新钮即不禁用不转圈。
     mockUseDocuments.mockReturnValue({
-      documents: DOCS, isLoading: false, isFetching: true, error: null,
+      documents: DOCS, projects: [], legacyDocuments: DOCS,
+      isLoading: false, isFetching: true, error: null,
     });
     renderPage();
     const refreshBtn = screen.getByRole('button', { name: '刷新' });
@@ -316,15 +336,90 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
   });
 
   it('空态：当前筛选无文档 → 引导文案', () => {
-    mockUseDocuments.mockReturnValue({ documents: [], isLoading: false, error: null });
+    mockUseDocuments.mockReturnValue({
+      documents: [], projects: [], legacyDocuments: [], isLoading: false, error: null,
+    });
     renderPage();
     expect(screen.getByText('暂无文档')).toBeDefined();
     expect(screen.getByText('创建您的第一个文档')).toBeDefined();
   });
 
   it('加载态：加载中文案', () => {
-    mockUseDocuments.mockReturnValue({ documents: [], isLoading: true, error: null });
+    mockUseDocuments.mockReturnValue({
+      documents: [], projects: [], legacyDocuments: [], isLoading: true, error: null,
+    });
     renderPage();
     expect(screen.getByText('加载文档中…')).toBeDefined();
+  });
+
+  // ---------------------------------------------------------------------
+  // B-model P2.1：flag 开 = B 项目区 + A 旧文档双区；flag 关 = 今日 DOM。
+  // ---------------------------------------------------------------------
+  it('flag 关（缺省）：无 B 项目区，DOM/操作与旧版一致', () => {
+    renderPage();
+    expect(screen.queryByTestId('projects-section')).toBeNull();
+    expect(screen.getByRole('heading', { name: '我的文档' })).toBeDefined();
+    expect(screen.getByText('2 个文档')).toBeDefined();
+    expect(screen.getByText('文档 A')).toBeDefined();
+    expect(screen.getByText('文档 B')).toBeDefined();
+  });
+
+  it('flag 开：B 项目区在 A 旧文档区之上，B 不重复、A 计数不含 B', () => {
+    mockUseBModelEnabled.mockReturnValue(true);
+    mockUseDocuments.mockReturnValue({
+      documents: [B_PROJECT, ...DOCS],
+      projects: [B_PROJECT],
+      legacyDocuments: DOCS,
+      isLoading: false,
+      error: null,
+    });
+    renderPage();
+
+    const projectsSection = screen.getByTestId('projects-section');
+    expect(within(projectsSection).getByRole('heading', { name: '项目' })).toBeDefined();
+    expect(within(projectsSection).getByText('1 个项目')).toBeDefined();
+    expect(within(projectsSection).getByText('B 项目一')).toBeDefined();
+    // B 项目只在 B 区出现一次（A 区只消费 legacyDocuments）
+    expect(screen.getAllByText('B 项目一')).toHaveLength(1);
+
+    const legacyHeading = screen.getByRole('heading', { name: '我的文档' });
+    expect(
+      projectsSection.compareDocumentPosition(legacyHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText('文档 A')).toBeDefined();
+    expect(screen.getByText('文档 B')).toBeDefined();
+    // A 区计数只算旧文档（2 个），不含 B 项目
+    expect(screen.getByText('2 个文档')).toBeDefined();
+  });
+
+  it('flag 开且无 B 项目：B 区仍在场（诚实空态），A 区照旧', () => {
+    mockUseBModelEnabled.mockReturnValue(true);
+    renderPage();
+
+    const projectsSection = screen.getByTestId('projects-section');
+    expect(within(projectsSection).getByText('0 个项目')).toBeDefined();
+    expect(within(projectsSection).getByText('暂无项目')).toBeDefined();
+    expect(screen.getByText('文档 A')).toBeDefined();
+  });
+
+  it('flag 开：选中 B 项目 → 详情侧栏显示所属项目（B 专属信息）', async () => {
+    mockUseBModelEnabled.mockReturnValue(true);
+    mockUseDocuments.mockReturnValue({
+      documents: [B_PROJECT, ...DOCS],
+      projects: [B_PROJECT],
+      legacyDocuments: DOCS,
+      isLoading: false,
+      error: null,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: '列表视图' }));
+    const projectsSection = screen.getByTestId('projects-section');
+    await user.click(within(projectsSection).getByText('B 项目一'));
+
+    expect(await screen.findByText('所属项目')).toBeDefined();
+    // 面板名称 + 项目值均为 B 项目名（另有 B 区表格单元）
+    expect(screen.getAllByText('B 项目一').length).toBeGreaterThanOrEqual(2);
   });
 });

@@ -69,6 +69,8 @@ export function DocumentTable({
               fallback={<SvgDocument className="documents-thumb-icon" />}
             />
             <span className="documents-name-text">{row.original.name}</span>
+            {/* P2.1：B 项目在名称列带模式徽标（A 旧文档不变） */}
+            {row.original.doc.mode === 'B' && <Tag>{t('documents.mode.b')}</Tag>}
           </span>
         ),
       },

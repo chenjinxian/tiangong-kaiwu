@@ -9,6 +9,9 @@
 /** 侧栏筛选档位（URL `?filter=` 的合法值集合，见 internal/documents.constants.ts）。 */
 export type DocumentFilter = 'recent' | 'favorites' | 'my' | 'shared' | 'public';
 
+/** 数据模型代际：B = 新项目（iTwin=项目 / iModel=文档）；A = 旧文档。 */
+export type DocumentMode = 'A' | 'B';
+
 /** 文档列表条目（UI 层形状，映射自官方 ITwin）。 */
 export interface DocumentSummary {
   id: string;
@@ -19,6 +22,12 @@ export interface DocumentSummary {
   role: string;
   /** ISO 时间串直透（ITwin.createdDateTime，缺席为空串）。 */
   createdAt: string;
+  /** B/A 模型标记：`itwin.data.luban.modelMode==='B'` 为 B，未标记为 A。 */
+  mode: DocumentMode;
+  /** 项目 id（iTwin id；A 旧文档即文档自身，B 项目即项目容器）。 */
+  projectId: string;
+  /** B 项目名（仅 mode='B' 产出；A 旧文档无项目层级）。 */
+  projectName?: string;
   /**
    * 裁决链：`lastModifiedDateTime ?? createdDateTime`，双缺席为 null
    * （UI 显示「—」）。注意：官方 ITwin 类型未声明 lastModifiedDateTime，

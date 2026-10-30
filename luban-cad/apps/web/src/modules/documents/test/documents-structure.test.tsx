@@ -81,7 +81,10 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  mockUseDocuments.mockReturnValue({ documents: DOCS, isLoading: false, error: null });
+  // P2.1 读模型新增 projects/legacyDocuments（flag 缺省关：全是旧文档）。
+  mockUseDocuments.mockReturnValue({
+    documents: DOCS, projects: [], legacyDocuments: DOCS, isLoading: false, error: null,
+  });
 });
 
 describe('DocumentsPage 结构断言（M2 Task 8，关键区域存在性）', () => {

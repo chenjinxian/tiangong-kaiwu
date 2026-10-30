@@ -33,6 +33,14 @@
     "count": "{{count}} documents",
     "searchResults": "Search: \"{{query}}\""
   },
+  "projects": {
+    "title": "Projects",
+    "count": "{{count}} projects",
+    "empty": "No projects yet"
+  },
+  "mode": {
+    "b": "B"
+  },
   "actions": {
     "refresh": "Refresh",
     "retry": "Retry",
@@ -97,6 +105,7 @@
     "title": "Details",
     "owner": "Owner",
     "role": "Role",
+    "project": "Project",
     "createdAt": "Created",
     "modifiedAt": "Modified",
     "description": "Description",

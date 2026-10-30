@@ -9,9 +9,11 @@
  */
 
 export { useDocuments } from './hooks/useDocuments.js';
+export { useBModelEnabled } from './hooks/useBModelEnabled.js';
 export { useDocumentFilters } from './hooks/useDocumentFilters.js';
 export type {
   DocumentFilter,
+  DocumentMode,
   DocumentSort,
   DocumentSortId,
   DocumentSummary,

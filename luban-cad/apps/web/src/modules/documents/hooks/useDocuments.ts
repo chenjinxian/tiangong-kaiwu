@@ -6,35 +6,65 @@
  * - queryKey `['documents', filter]`——筛选即缓存键，切换侧栏自动命中/取新；
  * - 内部按 filter 分流取数（recent/favorites 走官方专用端点；my/shared 走
  *   list({top:200}) 后按 createdBy 与当前用户比对；public 见下方裁决）；
- * - 出口收敛为 `{ documents, isLoading, isFetching, error }`（documents 恒为数组，
- *   避免调用方对 undefined 分支防御；isFetching 首载与 refetch 期间恒真——
- *   刷新钮禁用/旋转信号；isLoading 仅首载为真，刷新期间恒假，终审 I3
- *   改由 isFetching 驱动，否则刷新钮永不转圈）。
+ * - 出口收敛为 `{ documents, projects, legacyDocuments, isLoading, isFetching,
+ *   error }`（documents 恒为数组，避免调用方对 undefined 分支防御；
+ *   isFetching 首载与 refetch 期间恒真——刷新钮禁用/旋转信号；isLoading
+ *   仅首载为真，刷新期间恒假，终审 I3 改由 isFetching 驱动，否则刷新钮永不
+ *   转圈）；
+ * - B/A 双区（P2.1，加法式，不破坏既有消费方）：`documents` 仍为全量过滤
+ *   列表（收藏/搜索/兼容面照旧）；`projects` = mode B 子集、`legacyDocuments`
+ *   = mode A 子集。flag 关时 `projects=[]`、`legacyDocuments===documents`
+ *   （旧行为逐字保持）。
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
+import { useBModelEnabled } from './useBModelEnabled.js';
 import { toDocumentSummary } from '../internal/documents.mapper.js';
 import type { DocumentFilter, DocumentSummary } from '../types.js';
 
 export interface UseDocumentsResult {
+  /** 全量过滤列表（既有消费方兼容面：收藏集合/搜索/详情联动）。 */
   documents: DocumentSummary[];
+  /** B 项目子集（flag 关恒空）。 */
+  projects: DocumentSummary[];
+  /** A 旧文档子集（flag 关 === documents）。 */
+  legacyDocuments: DocumentSummary[];
   isLoading: boolean;
   isFetching: boolean;
   error: unknown;
 }
 
 export function useDocuments(filter: DocumentFilter): UseDocumentsResult {
+  const bModelEnabled = useBModelEnabled();
   const query = useQuery({
     queryKey: ['documents', filter],
     queryFn: () => fetchDocuments(filter),
   });
+  const documents = query.data ?? [];
+  const { projects, legacyDocuments } = classifyDocuments(documents, bModelEnabled);
   return {
-    documents: query.data ?? [],
+    documents,
+    projects,
+    legacyDocuments,
     isLoading: query.isPending,
     isFetching: query.isFetching,
     error: query.error,
+  };
+}
+
+/** B/A 分区（P2.1）：flag 关 = 旧行为（全量归 A、B 区空）。 */
+export function classifyDocuments(
+  documents: DocumentSummary[],
+  bModelEnabled: boolean,
+): Pick<UseDocumentsResult, 'projects' | 'legacyDocuments'> {
+  if (!bModelEnabled) {
+    return { projects: [], legacyDocuments: documents };
+  }
+  return {
+    projects: documents.filter((doc) => doc.mode === 'B'),
+    legacyDocuments: documents.filter((doc) => doc.mode !== 'B'),
   };
 }
 

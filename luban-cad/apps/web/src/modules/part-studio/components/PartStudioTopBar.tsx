@@ -251,6 +251,9 @@ export function PartStudioTopBar({
           role: '',
           createdAt: '',
           modifiedAt: null,
+          // 编辑器上下文仍是 A 旧语义（B 项目 scope 归 P2.4）；P2.1 只补契约字段。
+          mode: 'A',
+          projectId: iTwinId,
         }}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}

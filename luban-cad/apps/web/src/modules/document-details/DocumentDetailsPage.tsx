@@ -258,6 +258,8 @@ export function DocumentDetailsPage(): React.JSX.Element {
   }
 
   // document 在场（docError 缺席或已有缓存数据）——正常渲染。
+  // P2.1 只补契约字段：详情页的 B/A 分支（iModel 文档列表 / 只读旧语义）属
+  // P2.3；共享对话框本任务不消费 mode（成员/链接仍走 iTwin），故占位 A。
   const shareDoc: DocumentSummary | null = document
     ? {
         id: document.id,
@@ -266,6 +268,8 @@ export function DocumentDetailsPage(): React.JSX.Element {
         role: '',
         createdAt: document.createdAt,
         modifiedAt: document.updatedAt ?? document.createdAt,
+        mode: 'A',
+        projectId: document.id,
       }
     : null;
 

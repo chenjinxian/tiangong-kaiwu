@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { DropdownMenu, IconButton, Tile } from '@itwin/itwinui-react';
+import { DropdownMenu, IconButton, Tag, Tile } from '@itwin/itwinui-react';
 import { SvgDocument, SvgMoreVertical, SvgStar, SvgStarHollow } from '@itwin/itwinui-icons-react';
 import { DocumentThumbnail } from './DocumentThumbnail.js';
 import type { DocumentSummary } from '../types.js';
@@ -43,9 +43,19 @@ export function DocumentTile({
     <Tile
       className="document-tile"
       name={doc.name}
-      // Onshape 卡片口径：主行=修改时间，meta=所有者
+      // Onshape 卡片口径：主行=修改时间，meta=所有者；B 项目附模式徽标
+      // （P2.1 双区读模型，flag 关闭时 B 标记文档不存在——旧 DOM 不变）。
       description={modifiedLabel}
-      metadata={doc.owner}
+      metadata={
+        doc.mode === 'B' ? (
+          <span className="document-tile__meta">
+            {doc.owner}
+            <Tag>{t('documents.mode.b')}</Tag>
+          </span>
+        ) : (
+          doc.owner
+        )
+      }
       thumbnail={
         <DocumentThumbnail
           url={doc.thumbnailUrl}

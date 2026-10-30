@@ -46,7 +46,10 @@ export class ItwinsClient {
     return this.unwrap(response);
   }
 
-  /** 新建项目。 */
+  /** 新建项目。
+   *  `input.data`（本地 hub 自由 JSON，官方 ITwin 类型未声明）原样透传——
+   *  官方 SDK 对入参整体 JSON 序列化进 POST body；B 项目标记即经此字段
+   *  落库（见 types.ts `B_MODEL_DATA`），宽类型收窄只在这一处。 */
   public async create(input: CreateItwinInput): Promise<ITwin> {
     const accessToken = await this.bearerToken();
     const response = await this.accessClient.createiTwin(accessToken, input as ITwin);

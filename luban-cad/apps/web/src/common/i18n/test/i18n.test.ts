@@ -69,6 +69,8 @@ const REQUIRED_DOCUMENT_KEYS = [
   'createMenu.importFile', 'createMenu.importFrom', 'createMenu.labelTag',
   'capability.title', 'capability.confirm',
   'section.count', 'section.searchResults',
+  // B-model P2.1：/documents 双区（B 项目区 + A 旧文档区）与模式徽标。
+  'projects.title', 'projects.count', 'projects.empty', 'mode.b',
   'actions.refresh', 'actions.retry', 'actions.clearSearch', 'actions.open', 'actions.details',
   'actions.rename', 'actions.favorite', 'actions.unfavorite', 'actions.share', 'actions.delete',
   'search.placeholder', 'search.noResults', 'search.noResultsHint',
@@ -77,7 +79,7 @@ const REQUIRED_DOCUMENT_KEYS = [
   'view.tile', 'view.table',
   'table.name', 'table.owner', 'table.role', 'table.createdAt', 'table.modifiedAt', 'table.rowActions',
   'info.title', 'info.owner', 'info.role', 'info.createdAt', 'info.modifiedAt',
-  'info.description', 'info.noDescription',
+  'info.description', 'info.noDescription', 'info.project',
   'deleteDialog.title', 'deleteDialog.message', 'deleteDialog.cancel', 'deleteDialog.confirm',
   'create.title', 'create.nameLabel', 'create.nameRequired', 'create.submit', 'create.cancel',
   'rename.title', 'rename.nameLabel', 'rename.submit', 'rename.cancel',

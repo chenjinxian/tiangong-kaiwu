@@ -39,7 +39,9 @@ const DOC = {
   role: 'Project',
   createdAt: '2026-10-01T08:00:00.0000000+00:00',
   modifiedAt: null,
-};
+  mode: 'A',
+  projectId: 'doc-1',
+} as const;
 
 /** 详情页 hook 探针：只挂查询，不渲染 UI。 */
 function DetailHarness({ id }: { id: string }): null {

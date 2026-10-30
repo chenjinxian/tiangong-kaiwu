@@ -33,6 +33,14 @@
     "count": "{{count}} 个文档",
     "searchResults": "搜索：\"{{query}}\""
   },
+  "projects": {
+    "title": "项目",
+    "count": "{{count}} 个项目",
+    "empty": "暂无项目"
+  },
+  "mode": {
+    "b": "B"
+  },
   "actions": {
     "refresh": "刷新",
     "retry": "重试",
@@ -97,6 +105,7 @@
     "title": "详情",
     "owner": "所有者",
     "role": "角色",
+    "project": "所属项目",
     "createdAt": "创建时间",
     "modifiedAt": "更新时间",
     "description": "描述",

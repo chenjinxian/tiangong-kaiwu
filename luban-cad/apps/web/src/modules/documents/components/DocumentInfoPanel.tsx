@@ -79,6 +79,12 @@ export function DocumentInfoPanel({
             <dd>{doc.owner || '—'}</dd>
             <dt>{t('documents.info.role')}</dt>
             <dd>{doc.role || '—'}</dd>
+            {doc.mode === 'B' && (
+              <>
+                <dt>{t('documents.info.project')}</dt>
+                <dd>{doc.projectName || doc.projectId || '—'}</dd>
+              </>
+            )}
             <dt>{t('documents.info.createdAt')}</dt>
             <dd>{formatDate(doc.createdAt)}</dd>
             <dt>{t('documents.info.modifiedAt')}</dt>
