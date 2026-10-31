@@ -4,6 +4,7 @@
 *--------------------------------------------------------------------------------------------*/
 export * from "./EditorIpc";
 export * from "./EditorBuiltInIpc";
+export * from "./AuthoredBodyGuard";
 
 /** @docs-package-description
  * The editor-common package contains common functionality for editing iModels.

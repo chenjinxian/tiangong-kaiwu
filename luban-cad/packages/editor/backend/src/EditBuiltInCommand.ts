@@ -7,11 +7,11 @@
  */
 
 
-import { BentleyStatus, CompressedId64Set, DbOpcode, DbResult, Guid, Id64, Id64Arg, Id64String, IModelStatus } from "@itwin/core-bentley";
+import { BentleyStatus, CompressedId64Set, DbResult, Id64, Id64Arg, Id64String, IModelStatus } from "@itwin/core-bentley";
 import { Matrix3d, Matrix3dProps, Point3d, Range3d, Range3dProps, Transform, TransformProps, Vector3d, XYZProps, YawPitchRollAngles } from "@itwin/core-geometry";
-import { _nativeDb, BriefcaseDb, GeometricElement, GeometricElement3d, IModelDb, IpcHost } from "@itwin/core-backend";
-import { BRepEntity, BRepGeometryInfo, BRepGeometryOperation, ColorDefProps, DynamicGraphicsRequest3dProps, EcefLocation, EcefLocationProps, ElementGeometry, ElementGeometryBuilderParams, ElementGeometryDataEntry, ElementGeometryFunction, ElementGeometryInfo, ElementGeometryOpcode, ElementGeometryRequest, FilePropertyProps, GeometricElement3dProps, GeometricElementProps, GeometryPartProps, IModelError, Placement3dProps } from "@itwin/core-common";
-import { BasicManipulationCommandIpc, BlendEdgesProps, BooleanOperationProps, BRepEntityType, ChamferEdgesProps, ConnectedSubEntityProps, CutProps, DeleteSubEntityProps, EdgeParameterRangeProps, editorBuiltInCmdIds, ElementGeometryCacheFilter, ElementGeometryResultOptions, ElementGeometryResultProps, EmbossProps, EvaluatedEdgeProps, EvaluatedFaceProps, EvaluatedVertexProps, FaceParameterRangeProps, FlatBufferGeometryFilter, HollowFacesProps, ImprintProps, LocateSubEntityProps, LoftProps, OffsetEdgesProps, OffsetFacesProps, PointInsideResultProps, SewSheetProps, SolidModelingCommandIpc, SpinFacesProps, SubEntityAppearanceProps, SubEntityGeometryProps, SubEntityLocationProps, SubEntityProps, SubEntityType, SweepFacesProps, SweepPathProps, ThickenSheetProps, TransformSubEntityProps } from "@itwin/editor-common";
+import { _nativeDb, GeometricElement, GeometricElement3d, IModelDb } from "@itwin/core-backend";
+import { BRepEntity, BRepGeometryInfo, BRepGeometryOperation, ColorDefProps, DynamicGraphicsRequest3dProps, EcefLocationProps, ElementGeometry, ElementGeometryBuilderParams, ElementGeometryDataEntry, ElementGeometryFunction, ElementGeometryInfo, ElementGeometryOpcode, ElementGeometryRequest, FilePropertyProps, GeometricElement3dProps, GeometricElementProps, GeometryPartProps, IModelError, Placement3dProps } from "@itwin/core-common";
+import { AUTHORED_BODY_DELETE_BLOCKED_MESSAGE, BasicManipulationCommandIpc, BlendEdgesProps, BooleanOperationProps, BRepEntityType, ChamferEdgesProps, ConnectedSubEntityProps, CutProps, DeleteSubEntityProps, EdgeParameterRangeProps, editorBuiltInCmdIds, ElementGeometryCacheFilter, ElementGeometryResultOptions, ElementGeometryResultProps, EmbossProps, EvaluatedEdgeProps, EvaluatedFaceProps, EvaluatedVertexProps, FaceParameterRangeProps, FlatBufferGeometryFilter, HollowFacesProps, ImprintProps, isAuthoredBodyProps, LocateSubEntityProps, LoftProps, OffsetEdgesProps, OffsetFacesProps, PointInsideResultProps, SewSheetProps, SolidModelingCommandIpc, SpinFacesProps, SubEntityAppearanceProps, SubEntityGeometryProps, SubEntityLocationProps, SubEntityProps, SubEntityType, SweepFacesProps, SweepPathProps, ThickenSheetProps, TransformSubEntityProps } from "@itwin/editor-common";
 import { EditCommand } from "./EditCommand";
 
 // ---------------------------------------------------------------------------
@@ -68,6 +68,16 @@ export class BasicManipulationCommand extends EditCommand implements BasicManipu
 
   public async deleteElements(ids: CompressedId64Set): Promise<IModelStatus> {
     const idSet = CompressedId64Set.decompressSet(ids);
+    // P2.8 后端不变量（P2.6d 前端守卫的强制面）：basicManipulation 直删 authored
+    // LubanCAD BodySolid 会拆特征图根（init BodySolid 缺失 → getBodies 500）。前端
+    // DeleteElementsTool 的守卫只覆盖工具路径；Agent/脚本/RPC 直调可绕过。这里在
+    // 任何锁/事务/删除之前拒绝；内部特征删除（deletePartStudio/迁移）走
+    // FeatureService/EditTxn，不经过本命令，不受影响。
+    for (const id of idSet) {
+      const props = this.iModel.elements.tryGetElementProps(id);
+      if (props && isAuthoredBodyProps(props))
+        throw new Error(AUTHORED_BODY_DELETE_BLOCKED_MESSAGE);
+    }
     await this.iModel.locks.acquireLocks({ exclusive: idSet });
     this.beginEditing();
 
@@ -1021,8 +1031,10 @@ export class SolidModelingCommand extends BasicManipulationCommand implements So
       }
 
       if (undefined !== tools) {
+        // P2.8 lint：显式 EditTxn（上方 insert/update 已 beginEditing）替代 deprecated
+        // iModel.elements.deleteElement 隐式事务；语义等价（工具的临时体清理）。
         for (const toolId of Id64.iterable(tools))
-          this.iModel.elements.deleteElement(toolId);
+          this.txn.deleteElement(toolId);
       }
     }
 
