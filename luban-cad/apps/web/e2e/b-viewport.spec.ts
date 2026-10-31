@@ -196,11 +196,17 @@ async function readViewport(page: Page): Promise<ViewportProbe> {
 
 /** 页面内读 part-studio store（选择集清空门的第二权威面）。 */
 async function readStore(page: Page): Promise<StoreProbe> {
-  return page.evaluate(async () => {
-    const mod = (await import(
-      '/src/modules/part-studio/stores/use-part-studio-store.ts'
-    )) as any;
-    const state = mod.usePartStudioStore.getState();
+  return page.evaluate(() => {
+    // P2.8：生产安全 app hook（VITE_E2E_HOOKS=true 时由 store 模块挂载），
+    // 替代发布镜像不可用的 dev-only `/src/...use-part-studio-store.ts`。
+    const app = (window as any).__lubanE2EApp;
+    if (!app?.usePartStudioStore) {
+      throw new Error(
+        'E2E app hook 不可用：请以 VITE_E2E_HOOKS=true 运行（源码 e2e 由 playwright.config ' +
+          'webServer.env 注入；发布镜像用 rebuild-web.ps1 -BModelEnabled true -E2EHooks true 构建）',
+      );
+    }
+    const state = app.usePartStudioStore.getState();
     return {
       canvasSelection: (state.canvas?.selection ?? []).map((entry: any) => String(entry.id)),
       treeSelection: [...(state.tree?.selectedNodeIds ?? [])],
@@ -1068,7 +1074,8 @@ test.describe('P2.5 真栈视口门', () => {
     await expectActiveScope(page, k1.id);
     const k1Probe = await expectViewportScope(page, k1.physModelId, 'K1');
     expect(k1Probe.isSpatial, 'B 默认视图必须是 SpatialViewState').toBe(true);
-    expect(k1Probe.viewClass).toBe('SpatialViewState');
+    // 生产 bundle 会压缩类名（SpatialViewState → 短名）；语义断言用官方
+    // `isSpatialView()`（上方），`viewClass` 仅作日志诊断，不再钉类名字符串。
     // gate：registry physModelId ≡ 已加载 ModelState id（selector 唯一条目）
     expect(k1Probe.selectorModels, 'K1 selector 应恰为 ps-1 物理模型').toEqual([k1.physModelId]);
     expect(k1Probe.loadedModels, 'K1 已加载 ModelState 应包含 ps-1 physModelId').toContain(

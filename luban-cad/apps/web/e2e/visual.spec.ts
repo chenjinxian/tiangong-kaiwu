@@ -159,8 +159,16 @@ test('视觉钉版：登录页（亮色）', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByTestId('signin-route')).toBeVisible();
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible();
+  // P2.8：hero 的 HUB 端点展示 env.hubUrl（缺省=当前 origin）——:5300 源码
+  // dev 与 :5301 发布镜像 origin 不同，遮蔽该运行时值（面板背景 #f5f5f5），
+  // 让同一基线同时适用于 source 与 release-image 全量套件。
+  const hubEndpoint = page.locator('.signin-hero__token-value');
+  await expect(hubEndpoint).toBeVisible();
   await settleFonts(page);
-  await expect(page).toHaveScreenshot('login-light.png');
+  await expect(page).toHaveScreenshot('login-light.png', {
+    mask: [hubEndpoint],
+    maskColor: 'rgb(245, 245, 245)',
+  });
 });
 
 test('视觉钉版：文档中心网格（亮色，flag-on B/A 双区）', async ({ page }) => {

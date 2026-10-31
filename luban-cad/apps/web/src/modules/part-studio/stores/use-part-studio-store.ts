@@ -209,6 +209,15 @@ export const usePartStudioStore = create<PartStudioStore>()((...args) => ({
   ...createViewOnlySlice(args),
 }));
 
+// P2.8：E2E 观测面（仅构建期 VITE_E2E_HOOKS=true 挂载；发布镜像缺省关闭）。
+// e2e 原用 dev-only 的 `/src/.../use-part-studio-store.ts` 动态导入读取选择桥，
+// 发布镜像没有源码路径；store 属 app 状态，不放进 viewer 的 window.__lubanE2E。
+if (import.meta.env.VITE_E2E_HOOKS === 'true' && typeof window !== 'undefined') {
+  (window as unknown as {
+    __lubanE2EApp?: { usePartStudioStore: typeof usePartStudioStore };
+  }).__lubanE2EApp = { usePartStudioStore };
+}
+
 /** canvas 切片：画布选择集（pick 回流宿主）+ 会话隐藏集 + 选择模式（M-A5.2 T1）。 */
 function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvasState } & Pick<PartStudioActions,
   'setCanvasSelection' | 'hideNodes' | 'showNodes' | 'setSelectionMode'> {
