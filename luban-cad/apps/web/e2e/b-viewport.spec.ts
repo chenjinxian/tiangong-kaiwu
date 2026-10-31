@@ -42,6 +42,10 @@
  *     - load 失败：先 `models.unload(K2 phys)`，再包装 `models.load` 对 K2 拒绝
  *       → 走 useViewport `.catch` 分支（pending/applied 清理），同样非阻断、
  *       连接不变、K2 ModelState 未加载；恢复后 K1→K2 自愈并成功加载。
+ * 12) C6（P2.6d）：选中 authored body 后按全局 Delete → DeleteElementsTool 守卫
+ *     在 EditCommand/事务之前拒绝（bilingual warning），body/特征/changeset/
+ *     txns 面不变、`getBodies` 仍 200（不产生 init BodySolid 缺失）；非 body
+ *     删除照旧；画布 HITL deleteFeature（D2 newBody）仍工作。
  *
  * 明确 NOT RUN（附理由，见 task-P2.6b3-report.md）：
  *  - **damaged 半图无全模型**（正式 NOT RUN，待控制者裁定）：已尝试用**受支持
@@ -201,6 +205,19 @@ async function readStore(page: Page): Promise<StoreProbe> {
       canvasSelection: (state.canvas?.selection ?? []).map((entry: any) => String(entry.id)),
       treeSelection: [...(state.tree?.selectedNodeIds ?? [])],
       activeToolId: state.tool?.activeToolId ?? null,
+    };
+  });
+}
+
+/** 页面内读 briefcase 事务面（C6 守卫「不发事务」的真栈观测；走 /ipc WS）。 */
+async function readTxnState(page: Page): Promise<{ pending: boolean; undo: boolean }> {
+  return page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    if (!vp?.iModel?.txns) throw new Error('txns：viewport/iModel 未就绪');
+    return {
+      pending: await vp.iModel.txns.hasPendingTxns(),
+      undo: await vp.iModel.txns.isUndoPossible(),
     };
   });
 }
@@ -1288,7 +1305,7 @@ test.describe('P2.5 真栈视口门', () => {
   // ==========================================================================
   // 测试 2：选择集/工具跨页签隔离 + R4（无关渲染/undo 保留选择）+ 写目标
   // ==========================================================================
-  test('选择集与工具跨页签隔离、R4 选择保留、写目标只落 active scope', async ({
+  test('选择集与工具跨页签隔离、R4 选择保留、写目标只落 active scope、C6 全局 Delete 守卫', async ({
     page,
     request,
   }) => {
@@ -1394,6 +1411,38 @@ test.describe('P2.5 真栈视口门', () => {
       'DeleteElements',
     );
     expect(toolRuns, '空选择 Move 必须真实派发 MoveElements').toContain('MoveElements');
+
+    // ── C6（P2.6d）：全局 Delete 选中 authored body → 守卫拒绝（bilingual
+    //    warning / 零事务 / getBodies 仍 200 且 body 不变；不破坏 init BodySolid）。
+    await selectBodyViaCanvas(page, k2.physModelId, body2.bodyKey, 'C6-K2');
+    const treeC6 = await readTree(ctx, token, k2.id);
+    const bodiesC6 = await getBodiesRpc(ctx, token, k2.id);
+    const csC6 = await latestChangeset(request, ctx.imodelId, token);
+    const txC6 = await readTxnState(page);
+    await page.keyboard.press('Delete');
+    const bodyGuardWarning = page.getByText(/bodies are managed by the feature tree/i);
+    await expect(bodyGuardWarning).toBeVisible({ timeout: 20_000 });
+    // warning 后给刷新/toaster 一跳；逐项验证零副作用。
+    await page.waitForTimeout(1000);
+    const bodiesC6After = await getBodiesRpc(ctx, token, k2.id); // 必须 200（不抛）
+    expect(
+      bodiesC6After.filter((body) => body.active).map((body) => body.bodyKey),
+      'C6 守卫后 body 必须原样（getBodies 200）',
+    ).toEqual(bodiesC6.filter((body) => body.active).map((body) => body.bodyKey));
+    expect(await readTree(ctx, token, k2.id), 'C6 守卫后特征树必须原样').toEqual(treeC6);
+    expect(await readTxnState(page), 'C6 守卫不得产生事务（pending/undo 面）').toEqual(txC6);
+    const csC6After = await latestChangeset(request, ctx.imodelId, token);
+    expect({
+      count: csC6After.count,
+      index: csC6After.lastIndex,
+      id: csC6After.lastId,
+    }, 'C6 守卫不得产生 changeset').toEqual({
+      count: csC6.count,
+      index: csC6.lastIndex,
+      id: csC6.lastId,
+    });
+    console.log('[b-viewport] C6 global-Delete guard: warning + zero transaction OK');
+    await setSelectionSet(page, []);
     await removeToolRunProbe(page);
     expect(await readSelectionSet(page), 'Delete/Move 后 selectionSet 必须为空').toHaveLength(0);
     expect((await readStore(page)).canvasSelection, 'Delete/Move 后 store 选择必须为空').toHaveLength(0);
