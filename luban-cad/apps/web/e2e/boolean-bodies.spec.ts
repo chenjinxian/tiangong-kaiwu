@@ -25,6 +25,7 @@ import { expect, test, type Page } from '@playwright/test';
 import type { FeatureOp } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
+  assertFeatureOpOk,
   borrowWriteLease,
   collectConsoleErrors,
   getApiToken,
@@ -112,7 +113,7 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
 
   const apply = async (op: Record<string, unknown>, label: string): Promise<string> => {
     const r = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
+    assertFeatureOpOk(r, label);
     expect(r.featureId, `${label} 无 featureId`).toBeTruthy();
     console.log(`[boolean] ${label} OK ${r.featureId!.slice(0, 8)}…`);
     return r.featureId!;

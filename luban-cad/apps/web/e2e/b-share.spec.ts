@@ -273,6 +273,7 @@ async function ensureShareMember(
     // 复用（不删再建）：hub 删除成员是软删且 (iTwinId,userId) 唯一约束
     // 不排除软删行——重复「删→加」会 500 duplicate key（P2.6b1 实测）。
     const member = existing[0];
+    if (!member) throw new Error('成员列表长度=1 却取不到首行（noUncheckedIndexedAccess 守卫）');
     validate(member, '已存在成员');
     console.log(
       `[A6] member DTO(reuse): id=${member.id} userId=${member.userId} email=${member.email} ` +
@@ -293,14 +294,15 @@ async function ensureShareMember(
     );
   }
   const posted = ((await created.json()) as { members?: MemberRow[] }).members?.[0];
-  expect(posted, '添加成员响应应携带 member').toBeTruthy();
-  validate(posted as MemberRow, 'POST 响应');
+  if (!posted) throw new Error('添加成员响应应携带 member');
+  validate(posted, 'POST 响应');
 
   const listed = (await listMembers(request, token, projectId)).filter(
     (m) => m.email === user.email,
   );
   expect(listed, '成员列表应恰有一行 B（固定测试邮箱）').toHaveLength(1);
   const member = listed[0];
+  if (!member) throw new Error('成员列表应恰有一行 B，但取不到首行');
   validate(member, 'GET 列表');
   console.log(
     `[A6] member DTO: id=${member.id} userId=${member.userId} email=${member.email} ` +

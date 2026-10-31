@@ -80,9 +80,9 @@ function decodePng(buf: Buffer): Snapshot {
     if (type === 'IHDR') {
       width = data.readUInt32BE(0);
       height = data.readUInt32BE(4);
-      bitDepth = data[8];
-      colorType = data[9];
-      interlace = data[12];
+      bitDepth = data.readUInt8(8);
+      colorType = data.readUInt8(9);
+      interlace = data.readUInt8(12);
     } else if (type === 'IDAT') {
       idat.push(Buffer.from(data));
     } else if (type === 'IEND') {
@@ -101,12 +101,15 @@ function decodePng(buf: Buffer): Snapshot {
   const data = new Uint8Array(height * stride);
   let read = 0;
   for (let y = 0; y < height; y++) {
-    const filter = raw[read++];
+    const filter = raw.readUInt8(read);
+    read += 1;
     for (let x = 0; x < stride; x++) {
-      const rawByte = raw[read++];
-      const left = x >= bpp ? data[y * stride + x - bpp] : 0;
-      const up = y > 0 ? data[(y - 1) * stride + x] : 0;
-      const upLeft = y > 0 && x >= bpp ? data[(y - 1) * stride + x - bpp] : 0;
+      const rawByte = raw.readUInt8(read);
+      read += 1;
+      // noUncheckedIndexedAccess：下标在循环边界内按构造必存在；`?? 0` 仅用于收窄。
+      const left = x >= bpp ? (data[y * stride + x - bpp] ?? 0) : 0;
+      const up = y > 0 ? (data[(y - 1) * stride + x] ?? 0) : 0;
+      const upLeft = y > 0 && x >= bpp ? (data[(y - 1) * stride + x - bpp] ?? 0) : 0;
       let value: number;
       switch (filter) {
         case 0:
@@ -164,7 +167,7 @@ function changedPixels(
     for (let x = x0; x <= x1; x++) {
       const index = y * a.width * a.bpp + x * a.bpp;
       for (let c = 0; c < 3; c++) {
-        if (Math.abs(a.data[index + c] - b.data[index + c]) > threshold) {
+        if (Math.abs((a.data[index + c] ?? 0) - (b.data[index + c] ?? 0)) > threshold) {
           changed += 1;
           break;
         }

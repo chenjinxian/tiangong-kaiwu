@@ -31,6 +31,7 @@ import { B_MODEL_MARKER } from './fixtures';
 import { SEED_BASELINE_SETTLE_MS } from './seed';
 import {
   applyFeatureOpRpc,
+  assertFeatureOpOk,
   authHeaders,
   borrowWriteLease,
   collectConsoleErrors,
@@ -163,7 +164,7 @@ test('生产 IPC：双 scope 文档级 undo、init floor 与 redo 清空', async
       accessToken,
       scope,
     );
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
+    assertFeatureOpOk(r, label);
     expect(r.featureId, `${label} 无 featureId`).toBeTruthy();
     console.log(`[b-undo] ${label} OK scope=${scope} ${r.featureId!.slice(0, 8)}…`);
     return r.featureId!;

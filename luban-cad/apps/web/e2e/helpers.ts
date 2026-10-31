@@ -124,7 +124,9 @@ export async function apiRefresh(
 export function readSessionFile(): StoredAuth | null {
   try {
     const payload = JSON.parse(readFileSync(SESSION_FILE, 'utf-8')) as Record<string, string>;
-    return JSON.parse(payload[AUTH_STORAGE_KEY]) as StoredAuth;
+    const stored = payload[AUTH_STORAGE_KEY];
+    if (!stored) return null;
+    return JSON.parse(stored) as StoredAuth;
   } catch {
     return null;
   }
@@ -221,10 +223,10 @@ async function getSharedSession(): Promise<StoredAuth> {
 export async function loginWithSession(page: Page): Promise<void> {
   const session = await getSharedSession();
   await page.addInitScript(
-    ([key, value]) => {
+    ({ key, value }: { key: string; value: string }) => {
       sessionStorage.setItem(key, value);
     },
-    [AUTH_STORAGE_KEY, JSON.stringify(session)],
+    { key: AUTH_STORAGE_KEY, value: JSON.stringify(session) },
   );
   await page.route('**/auth/refresh', async (route) => {
     const fresh = await getSharedSession();
@@ -753,6 +755,20 @@ export async function applyFeatureOpRpc(
     [ctx.dbKey, op, lease.sessionId, scopeId],
     accessToken,
   )) as FeatureOpResult;
+}
+
+/**
+ * 断言特征 op 成功并收窄判别联合：`FeatureOpResult` 的 ok 分支无 `error`、
+ * 失败分支无 `featureId`（e2e tsc 门禁发现的既有隐患——原先各 spec 直接
+ * `r.error`/`r.featureId`，运行时只在单侧成立）。失败详情沿用原诊断口径。
+ */
+export function assertFeatureOpOk(
+  result: FeatureOpResult,
+  label: string,
+): asserts result is Extract<FeatureOpResult, { ok: true }> {
+  const detail = result.ok ? '' : (result.error ?? JSON.stringify(result).slice(0, 300));
+  expect(result.ok, `${label} 被拒收：${detail}`).toBe(true);
+  if (!result.ok) throw new Error(`${label} 被拒收：${detail}`); // expect 失败已抛出；此行仅向 TS 收窄
 }
 
 /** 带 scope 的特征树读面（第 2 参 `partStudioId`）。 */

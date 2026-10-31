@@ -79,6 +79,7 @@ import type {
 import { resetBModelSeed, type SeedImodelRef } from './seed';
 import {
   applyFeatureOpRpc,
+  assertFeatureOpOk,
   authHeaders,
   borrowWriteLease,
   collectConsoleErrors,
@@ -631,10 +632,7 @@ async function applyOp(
   label: string,
 ): Promise<string> {
   const result = await applyFeatureOpRpc(ctx, op, lease, token, scopeId);
-  expect(
-    result.ok,
-    `${label} 被拒收（scope=${scopeId}）：${result.error ?? JSON.stringify(result).slice(0, 300)}`,
-  ).toBe(true);
+  assertFeatureOpOk(result, `${label}（scope=${scopeId}）`);
   expect(result.featureId, `${label} 未返回 featureId`).toBeTruthy();
   return result.featureId as string;
 }

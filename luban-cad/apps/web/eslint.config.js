@@ -15,7 +15,9 @@ const tsParser = pluginRequire('@typescript-eslint/parser');
 
 export default [
   {
-    files: ['src/**/*.{ts,tsx}'],
+    // P2.8 残项：e2e specs / playwright.config.ts 一并纳入 parser 覆盖，
+    // 否则 `pnpm lint` 只解析 src，e2e 语法错误要到跑真栈才暴露。
+    files: ['src/**/*.{ts,tsx}', 'e2e/**/*.ts', 'playwright.config.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } },

@@ -51,6 +51,7 @@ import { expect, test, type Page } from '@playwright/test';
 import type { FeatureOp } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
+  assertFeatureOpOk,
   borrowWriteLease,
   collectConsoleErrors,
   getApiToken,
@@ -451,7 +452,7 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
   //（assertHeld 按会话匹配），页面续期语义归页面（借用会话不 release）。
   const lease = await borrowWriteLease(ctx, accessToken, 't7');
   const result = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
-  expect(result.ok, `insertSketch 被拒收：${result.error ?? JSON.stringify(result).slice(0, 200)}`).toBe(true);
+  assertFeatureOpOk(result, 'insertSketch');
   const sketchId = result.featureId as string;
   expect(sketchId).toBeTruthy();
 
@@ -734,7 +735,7 @@ test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 
   const accessToken = await getApiToken();
   const lease = await borrowWriteLease(ctx, accessToken, 't7b');
   const result = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
-  expect(result.ok, `insertSketch 被拒收：${result.error ?? ''}`).toBe(true);
+  assertFeatureOpOk(result, 'insertSketch');
   const sketchId = result.featureId as string;
   const sketch = (await getSketchRpc(ctx, sketchId, accessToken)) as {
     regions?: Array<{ area: number }>;

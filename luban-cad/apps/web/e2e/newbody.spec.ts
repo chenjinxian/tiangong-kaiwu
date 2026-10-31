@@ -34,6 +34,7 @@ import { expect, test, type Page } from '@playwright/test';
 import type { FeatureOp } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
+  assertFeatureOpOk,
   borrowWriteLease,
   collectConsoleErrors,
   getApiToken,
@@ -121,7 +122,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
 
   const apply = async (op: Record<string, unknown>, label: string): Promise<string> => {
     const r = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
+    assertFeatureOpOk(r, label);
     expect(r.featureId, `${label} 无 featureId`).toBeTruthy();
     console.log(`[newbody] ${label} OK ${r.featureId!.slice(0, 8)}…`);
     return r.featureId!;

@@ -21,3 +21,16 @@ worker；该文件缺席时 SPA 回退返回 index.html 当 JS——worker 静�
 同步/重编译后须重拷对齐**（worker 与 lib/esm 主包版本漂移同病）。生产镜像
 在 `apps/web/Dockerfile` 构建尾有硬断言（dist 缺该文件即构建失败）。
 
+## 测试与 e2e 类型门禁
+
+- `pnpm test`：Vitest 单测。
+- `pnpm typecheck:e2e`：Playwright specs + `playwright.config.ts` 的 tsc 门禁。
+  主 `tsconfig.json` 只 include `src`/`vite.config.ts`，e2e 不在 `pnpm build`
+  覆盖面内；本命令用 `tsconfig.e2e.json`（复用严格选项，全局 types 切 node）。
+  改 e2e/helpers 后须单独跑，避免拼写/契约漂移要到真栈才暴露。
+- `pnpm test:e2e`：先跑上述 tsc 门禁，再跑 Playwright 真栈（前置与配额见根
+  CLAUDE.md；设置 `PLAYWRIGHT_BASE_URL` 时测已部署产物，否则自起/复用 :5300
+  dev server）。仅跑 Playwright 本身可用 `pnpm exec playwright test`。
+- `pnpm lint`：覆盖 `src/**` + `e2e/**` + `playwright.config.ts`（e2e 至少过
+  TS parser；细则规则仍主要面向 src）。
+

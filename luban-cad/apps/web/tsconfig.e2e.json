@@ -1,0 +1,11 @@
+{
+  // e2e 专用类型检查（P2.8 残项）：主 tsconfig 只 include src/vite.config.ts，
+  // Playwright specs 与 config 长期不在 tsc 覆盖面内（拼写/签名漂移只能在跑真栈时暴露）。
+  // 这里复用 src 的严格选项，仅把全局 types 换成 node（process/Buffer 等）。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}

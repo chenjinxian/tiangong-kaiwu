@@ -24,6 +24,7 @@ import { expect, test } from '@playwright/test';
 import type { FeatureOp } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
+  assertFeatureOpOk,
   borrowWriteLease,
   collectConsoleErrors,
   getApiToken,
@@ -158,7 +159,7 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
   const applied: Array<{ id: string; label: string }> = [];
   const applyFeature = async (op: Record<string, unknown>, label: string): Promise<string> => {
     const r = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
+    assertFeatureOpOk(r, label);
     expect(r.featureId, `${label} 未返回 featureId`).toBeTruthy();
     applied.push({ id: r.featureId!, label });
     console.log(`[release] ${label} OK id=${r.featureId!.slice(0, 8)}…`);
@@ -172,7 +173,7 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
       lease,
       accessToken,
     );
-    expect(r.ok, `${label} 被拒收：${r.error ?? JSON.stringify(r).slice(0, 300)}`).toBe(true);
+    assertFeatureOpOk(r, label);
     expect(r.featureId, `${label} 未返回 sketchId`).toBeTruthy();
     console.log(`[release] ${label} OK id=${r.featureId!.slice(0, 8)}…`);
     return r.featureId!;
