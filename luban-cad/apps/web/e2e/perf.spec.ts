@@ -41,7 +41,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { B_SEED_IMODEL_NAME, B_SEED_PROJECT_NAME } from './fixtures';
 import { authHeaders, getApiToken, gotoDocuments, loginWithSession } from './helpers';
-import { resetBModelSeed } from './seed';
+import { resetBModelSeed, SEED_RESET_TIMEOUT_MS } from './seed';
 
 /** ② PASS 底线：p95 帧间隔 ≤18.2ms（≈55fps；目标 60fps=p95≈16.7ms）。 */
 const SCROLL_P95_MS_MAX = 18.2;
@@ -186,7 +186,9 @@ test.describe('性能门禁 ①：编辑器首帧', () => {
     // `Part Studio 1` 后才把 iModel 交给视口），#2/#3 热态复访同一 scope。
     // 不重置则「前序 spec 是否已在该种子建过 Part Studio」会改变首跑冷值
     //（全量套件顺序依赖），门禁失实。
-    test.setTimeout(300_000);
+    // P2.6c2 F4：预算按单种子重置最坏链（550s 轮询 + 15s settle）给，原 300s
+    // 会抢在 seed helper 诊断前超时。
+    test.setTimeout(SEED_RESET_TIMEOUT_MS);
     const token = await getApiToken();
     const bSeed = await resetBModelSeed(request, token);
     const detail = await request.get(`/imodels/${bSeed.imodelId}`, {

@@ -93,6 +93,20 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
 
   const rpcInterfaces = [OpenCloudRpcInterface, LubanFeatureRpcInterface, IModelReadRpcInterface, IModelTileRpcInterface];
 
+  // P2.6c2 发布级修复（重载崩溃实证）：RPC client 必须在 host startup **之前**注册。
+  // `LocalhostIpcApp.startup` 的第一句就把 `IpcApp.isValid` 置真（_ipc 赋值），而
+  // IModelApp.startup 完成要 ~1s；useBriefcaseConnection 只看 isValid，缓存的
+  // briefcase 可在该窗口内打开连接，随后 useEditorSession 的 effect 调
+  // `LubanFeatureRpcInterface.getClient()` —— 旧代码在 startup 尾部才
+  // `initializeClient`，于是抛 "RPC interface ... is not initialized" 并被 React
+  // 路由 ErrorBoundary 整页接管（B 文档每次 reload 的时序彩票；e2e 表现为
+  // 状态栏消失后 helper 挂起）。initializeClient 幂等且不依赖 IModelApp 实例
+  // （标准 iTwin.js 用法即先 initializeClient 再 startup），提前到此处关闭竞态。
+  BentleyCloudRpcManager.initializeClient(
+    { info: { title: 'LubanCAD', version: 'v1.0' }, uriPrefix: backendUrl },
+    rpcInterfaces,
+  );
+
   if (!IpcApp.isValid) {
     // eslint-disable-next-line no-console
     console.log('[WebInitializer] Initializing LubanCAD Web Viewer...');
@@ -196,11 +210,7 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
     console.warn('[WebInitializer] AccuSnap polling error:', err);
   });
 
-  // Always configure RPC client (idempotent - safe to call multiple times)
-  BentleyCloudRpcManager.initializeClient(
-    { info: { title: 'LubanCAD', version: 'v1.0' }, uriPrefix: backendUrl },
-    rpcInterfaces,
-  );
+  // RPC client 在 startup 前已注册（见函数头部竞态注记）；此处不再重复调用。
 
   // eslint-disable-next-line no-console
   console.log('Web viewer initialized successfully');

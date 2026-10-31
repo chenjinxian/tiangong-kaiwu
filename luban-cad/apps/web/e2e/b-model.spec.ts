@@ -51,6 +51,7 @@ import {
   waitEditorReady,
   type BSeedEditorContext,
 } from './helpers';
+import { SEED_BASELINE_SETTLE_MS } from './seed';
 
 /** 本文件创建的唯一 B 文档（afterAll 按 id 清理；不触碰种子库）。 */
 let createdImodelId = '';
@@ -191,6 +192,13 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   expect(detailResponse.ok(), 'GET /imodels/:id 应 200').toBeTruthy();
   const detailBody = (await detailResponse.json()) as { iModel?: { state?: string } };
   expect(detailBody.iModel?.state, '进入编辑器时文档应为 initialized').toBe('initialized');
+
+  // P2.6b2 F2（P2.6c2 承接）：hub 把 state 置 initialized 先于 baseline blob 在
+  // Azurite 完全可读（seed.ts M1 竞态）。本链新建的文档由 UI 在 initialized 后
+  // 立即导航打开，正落在该窗口——慢栈下 briefcase 下载可能停滞。等传播窗后
+  // reload 一次，让被测首开从 settled 状态起步（seed 重置路径同款 15s guard）。
+  await page.waitForTimeout(SEED_BASELINE_SETTLE_MS);
+  await page.reload();
 
   // ── 2) 解析器默认 Part Studio + 可写连接 ────────────────────────────────
   await waitEditorReadyDiagnosed(page);

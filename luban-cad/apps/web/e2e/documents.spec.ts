@@ -21,7 +21,7 @@ import {
   readOpenBriefcaseInfo,
   waitEditorReady,
 } from './helpers';
-import { resetBModelSeed } from './seed';
+import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed';
 
 /** 侧栏作用域：星标钮（收藏）等卡片按钮与导航项同名，禁全局 byRole。 */
 function sidebar(page: import('@playwright/test').Page) {
@@ -149,7 +149,9 @@ test('B 项目 UI 入口：文档中心 B 区 → 详情 → 打开工作空间�
   // 从列表卡片进入详情、再经「打开工作空间」进编辑器（不再只有直连 URL）。
   // B 种子先重置：干净库 + 新 dbKey（旧页面写租约 TTL 30s 不跨轮），并让
   // 解析器在本轮首开时创建默认 `Part Studio 1`（页签名确定性）。
-  test.setTimeout(900_000);
+  // P2.6c2 F4：预算 = 单种子重置最坏链 + UI 打开/断言余量（原 900s 仅比
+  // 重置最坏 565s + 打开最坏 ~300s 的合计多 35s，慢栈下无余量）。
+  test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
   const bSeed = await resetBModelSeed(request, await getApiToken());
   await gotoDocuments(page);
 

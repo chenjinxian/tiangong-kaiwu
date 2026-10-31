@@ -4,7 +4,9 @@
 //    acquire 失败回滚计数（M3 终审 T3-③「卸载无条件 stopViewer」收口）；
 //  - in-flight promise 去重（M4 Task 2，控制器裁定）：并发 acquire 共享同一 startup
 //    promise（恰一次）；release 归零 shutdown 在途时新 acquire 等它落定再重新
-//    startup（不落 shutdown 窗口拿假就绪）。
+//    startup（不落 shutdown 窗口拿假就绪）；
+//  - P2.6c2 reload 竞态回归：BentleyCloudRpcManager.initializeClient 必须先于
+//    LocalhostIpcApp.startup 执行（IpcApp.isValid 在 startup 首句即翻转）。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -66,6 +68,21 @@ describe('startViewer（移植自 WebInitializer）', () => {
     await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
     const arg = startupMock.mock.calls[0][0];
     expect(arg.iModelApp.rpcInterfaces).toHaveLength(4);
+  });
+
+  it('P2.6c2 回归：RPC client 先于 host startup 注册（reload 竞态）', async () => {
+    // LocalhostIpcApp.startup 首句即置 IpcApp.isValid；若 RPC 注册在其后，
+    // 缓存 briefcase 可在 startup 完成前打开连接并触发 getClient() 崩溃
+    // （"RPC interface ... is not initialized"，b-model reload 实测）。
+    const order: string[] = [];
+    initializeClientMock.mockImplementationOnce(() => {
+      order.push('initializeClient');
+    });
+    startupMock.mockImplementationOnce(async () => {
+      order.push('startup');
+    });
+    await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
+    expect(order).toEqual(['initializeClient', 'startup']);
   });
 
   it('M6-a T5：accuSnap 注入 SketchAccuSnap 实例（九模式捕捉子类，startup 官方注入点）', async () => {

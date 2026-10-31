@@ -5,11 +5,12 @@
  * - 五关键状态 toHaveScreenshot @1440×900，亮色起底：登录页 / 文档中心网格 /
  *   文档详情（A 只读）/ 编辑器五区（A 只读）/ 设置页；P2.6c1 追加第 6 张
  *   「B 默认页签编辑器」——B/A 双 IA 模式各有可评估钉面（画布仍 mask）；
- * - **运行前提（P2.6c1）：dev server 以 `VITE_B_MODEL_ENABLED=true` 启动**
+ * - **运行前提（P2.6c2 F1）：dev server 以 `VITE_B_MODEL_ENABLED=true` 启动**
  *   （文档中心渲染 B 项目区；flag 关时 B 种子不在列表——rollback 面由
  *   `DocumentsPage.flag-off.test` 单测覆盖）。快照基线只对 flag-on 环境有效。
- *   精确启动命令（PowerShell，:5300 复用给 Playwright webServer）：
- *     `$env:VITE_B_MODEL_ENABLED='true'; Set-Location luban-cad/apps/web; corepack pnpm@10 dev`
+ *   flag-on 由 `playwright.config.ts` 的 `webServer.env` 注入：`CI=true`（或
+ *   无在场服务时的冷启动）由 Playwright 自己起的 dev server 必带该变量；
+ *   本地复用在场的旧服务时，该服务须自行以 flag-on 启动（否则 B 区用例如实红）。
  * - 首跑 `corepack pnpm@10 test:e2e --update-snapshots` 建基线（快照落
  *   e2e/__screenshots__/，luban-cad/.gitignore 豁免行放行入库）；此后每次
  *   套件运行即对照——差异红即真红，属预期改版时随同款提交 --update-snapshots；
@@ -49,11 +50,12 @@ import {
   loginWithSession,
   openLegacySeedEditor,
   openSeedImodelEditor,
+  readOpenBriefcaseInfo,
   SEED_PAGE_SIZE,
   uniqueMatch,
   waitEditorReady,
 } from './helpers';
-import { resetBModelSeed, resetE2eSeed } from './seed';
+import { resetBModelSeed, resetE2eSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -221,8 +223,9 @@ test('视觉钉版：编辑器五区 A 只读态（亮色，画布 mask）', asy
   // openLegacySeedEditor + waitEditorReady 最坏 ~300s > 全局 120s，慢栈下
   // timeout 会抢先吃掉 helper 诊断文案。再叠种子重置（M5-T4 全量复跑实测：
   // 前序 spec 会给种子留特征，本钉版按干净种子态钉，不重置即变成执行顺序
-  // 依赖）——预算直接给 600s。
-  test.setTimeout(600_000);
+  // 依赖）。P2.6c2 F4：预算 = 单种子重置最坏链（550s 轮询 + 15s settle）
+  // + 打开/截图余量（原固定 600s 仅比重置链多 35s，未含打开预算）。
+  test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
   // P2.6c1：只读五区钉 A 旧文档（P2.4 起 A 只读打开 + 只读横幅 + 无 scope
   // 页签），**不再**钉可写 B 种子（B 默认页签钉面见下一用例）。
   const aSeed = await resetE2eSeed(request, await getApiToken());
@@ -233,6 +236,24 @@ test('视觉钉版：编辑器五区 A 只读态（亮色，画布 mask）', asy
   // 以只读态为准）；canvas 区 mask（瓦片流送像素不可钉，见文件头注）
   await expect(page.getByTestId('part-studio-readonly-banner')).toBeVisible();
   await expect(page.getByTestId('part-studio-viewport').locator('canvas').first()).toBeVisible();
+  // P2.6c2 F3：连接级只读位显式断言（不只靠横幅/快照像素）；树两段的异步
+  // 读面（特征/零件）落定后再截图——零件段来自 getBodies/物理元素查询，慢栈
+  // 下可能晚于 canvas，提前截图会把「暂无零件」钉进/钉出基线。
+  const aInfo = await readOpenBriefcaseInfo(page);
+  expect(aInfo.key, 'A 文档应打开 briefcase').toBeTruthy();
+  expect(aInfo.isReadonly, 'A 文档连接必须以只读模式打开').toBe(true);
+  await expect(page.getByTestId('part-studio-feature-count')).toHaveText('(0)', {
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByTestId('part-studio-feature-list').getByText('暂无特征'),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('part-studio-part-count')).toHaveText('(0)', {
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByTestId('part-studio-part-list').getByText('暂无零件'),
+  ).toBeVisible({ timeout: 60_000 });
   await settleFonts(page);
   await expect(page).toHaveScreenshot('editor-read-only-light.png', {
     // 编辑器可能叠加多个 canvas（主视口/选区/网格覆盖层）；全部 mask，视觉门只钉 UI 铬。
@@ -245,7 +266,8 @@ test('视觉钉版：编辑器五区 B 默认页签（亮色，画布 mask）', 
   // P2.6c1：第六张钉面——B 可评估编辑器默认态（解析器自动创建的 `Part Studio 1`
   // 页签 + 可写 ribbon）。B 种子每次重建（新 dbKey 规避陈旧写租约，P2.6a 纪律），
   // 保证页签名与空特征树不随执行顺序漂移。
-  test.setTimeout(600_000);
+  // P2.6c2 F4：预算 = 单种子重置最坏链 + 打开/截图余量（原 600s 仅比重置链多 35s）。
+  test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
   const bSeed = await resetBModelSeed(request, await getApiToken());
   await pinLightZh(page);
   await openSeedImodelEditor(page, bSeed);
@@ -256,6 +278,23 @@ test('视觉钉版：编辑器五区 B 默认页签（亮色，画布 mask）', 
   await expect(tabStrip.getByRole('tab').first()).toHaveText('Part Studio 1');
   await expect(tabStrip.getByRole('tab').first()).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('part-studio-viewport').locator('canvas').first()).toBeVisible();
+  // P2.6c2 F3：连接级可写位显式断言；零件段（getBodies 异步读面）落定后再截图
+  // ——快照声明 `零件 (1) Body 1`，未等待时慢栈可能截到 `零件 (0) / 暂无零件`。
+  const bInfo = await readOpenBriefcaseInfo(page);
+  expect(bInfo.key, 'B 文档应打开 briefcase').toBeTruthy();
+  expect(bInfo.isReadonly, 'B 文档连接应为可写').toBe(false);
+  await expect(page.getByTestId('part-studio-feature-count')).toHaveText('(0)', {
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByTestId('part-studio-feature-list').getByText('暂无特征'),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('part-studio-part-count')).toHaveText('(1)', {
+    timeout: 60_000,
+  });
+  await expect(
+    page.getByTestId('part-studio-part-list').getByRole('button', { name: 'Body 1', exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
   await settleFonts(page);
   await expect(page).toHaveScreenshot('editor-b-default-light.png', {
     mask: await page.getByTestId('part-studio-viewport').locator('canvas').all(),

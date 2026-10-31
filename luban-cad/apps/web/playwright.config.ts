@@ -71,9 +71,14 @@ export default defineConfig({
   webServer: {
     command: 'corepack pnpm@10 dev',
     url: 'http://localhost:5300',
+    // P2.6c2 F1：flag-on 环境进配置（不再靠人工 env/注释）。Playwright 的
+    // webServer.env 与 process.env 合并后传给子进程；冷启动/CI 起的 dev server
+    // 必带该变量（文档中心 B 区、B 视觉/性能/UI 入口断言的前提）。
+    env: { VITE_B_MODEL_ENABLED: 'true' },
     // 常态开发态复用在场 dev server（M5-T5 口径）；CI 恒新起（T5 评审 M-5：
     // 切换冲刺后 CI 形态临近，陈旧 dev server 被静默复用会吃假绿——旧应用
-    // apps/web 同口径 `!process.env.CI`）。
+    // apps/web 同口径 `!process.env.CI`）。复用的旧服务须自行以
+    // VITE_B_MODEL_ENABLED=true 起（否则 flag-on 用例如实红，不是假绿）。
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

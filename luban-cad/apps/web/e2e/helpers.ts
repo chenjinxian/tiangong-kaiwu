@@ -543,7 +543,18 @@ export async function waitEditorReady(page: Page): Promise<void> {
   let deadline = Date.now() + 90_000;
   let reloads = 0;
   for (;;) {
-    const text = (await status.textContent()) ?? '';
+    // P2.6c2：状态栏 textContent 默认无超时——页面被 ErrorBoundary 整页接管
+    // （如 RPC 未初始化崩溃）时会挂到用例总预算（实测 25min），把真红拖成
+    // 「挂起」。5s 不可读即快速失败并把错误面文案带进诊断。
+    let text: string;
+    try {
+      text = (await status.textContent({ timeout: 5_000 })) ?? '';
+    } catch {
+      const bodyText = await page.locator('body').innerText().catch(() => '');
+      throw new Error(
+        `编辑器状态栏不可读（页面崩溃/导航离开？）：${bodyText.replace(/\s+/g, ' ').slice(0, 300)}`,
+      );
+    }
     if (text === '已连接') break;
     // 失败即重开（应用自面恢复路径），至多两次：一次重载可能再入启动竞态
     // （前一 context 的 MS 侧 db 释放/StrictMode 双启噪音），留二次机会；

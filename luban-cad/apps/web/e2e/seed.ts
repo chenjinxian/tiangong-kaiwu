@@ -58,6 +58,19 @@ export interface SeedImodelRef {
  */
 export const SEED_BASELINE_SETTLE_MS = 15_000;
 
+/**
+ * 单次种子重置的最坏预算（P2.6c2 F4）：`resetSeedImodel` 轮询 110×5s=550s
+ * + baseline settle 15s = 565s；再加列表/删除/创建/网络余量。所有
+ * `reset*Seed` 调用点的 `test.setTimeout` 必须 ≥ 本值——低于最坏链时超时会
+ * 抢在 helper 诊断之前（且可能停在「已删旧库、未 settle」的中间态）。
+ * auth.setup 的双种子预算 1_300_000ms 覆盖 2×最坏链（2×565s=1130s）+
+ * 认证/网络余量；单种子调用点统一用本值（1_200_000ms）留足余量。
+ */
+export const SEED_RESET_TIMEOUT_MS = 1_200_000;
+
+/** 种子重置 + 一次编辑器首开/UI 路径的用例预算（reset 最坏 + 打开余量）。 */
+export const SEED_AND_OPEN_TIMEOUT_MS = SEED_RESET_TIMEOUT_MS + 300_000;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
