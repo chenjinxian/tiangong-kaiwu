@@ -19,9 +19,10 @@
  *   acquire→release→acquire 幂等）；换连接只换 iModelKey，不换身份；
  * - `enabled` 缺省 `!!connection && !connection.isReadonly`；调用方可用
  *   `opts.enabled` 覆盖（editability 由调用者裁决，hook 只按裁决结果动作）；
- * - 生命周期 effect：enabled 时立即 acquire，10s 续租，unmount/失能 release；
- *   租约被拒 → `leaseOk:false`，UI 降级只读，但读面不被阻断（读面归
- *   useFeatureSystem）；
+ * - 生命周期 effect：enabled 时立即 acquire，10s 续租，unmount/失能/pagehide
+ *   release；reload 不触发 React unmount，pagehide 尽力释放避免旧页租约占满
+ *   30s TTL（失败由服务端 TTL 兜底）；租约被拒 → `leaseOk:false`，UI 降级
+ *   只读，但读面不被阻断（读面归 useFeatureSystem）；
  * - `acquire({budgetMs,retryMs})`：有限重试自愈陈旧租约（前页/重载残留租约要
  *   等服务端 WriteLease 30s TTL 自然过期；op 一次性派发落在陈旧窗口会永久被
  *   拒且无人重放）。预算耗尽返回 `{ok:false, holder}`，由调用方给 holder 报错；
@@ -128,11 +129,25 @@ export function useEditorSession(
       void renew();
     }, LEASE_RENEW_INTERVAL_MS);
 
+    // reload/关闭不触发 React unmount（P2.6a 实测）：仅靠 effect cleanup 会让旧
+    // session 租约占满 30s TTL，重载后首个写操作被陈旧 holder 拒绝。pagehide 是
+    // 浏览器仍允许发起 RPC 的最后时机，尽力释放（失败吞掉，服务端 TTL 仍兜底）。
+    // 监听器只作用于本 effect 的生命周期，SPA 路由卸载由 cleanup 释放。
+    const releaseLease = (): void => {
+      void client.releaseWriteLease(iModelKey, sessionId).catch(() => undefined);
+    };
+    const onPageHide = (): void => {
+      setLeaseOk(false);
+      releaseLease();
+    };
+    window.addEventListener('pagehide', onPageHide);
+
     return () => {
       disposed = true;
       clearInterval(renewTimer);
+      window.removeEventListener('pagehide', onPageHide);
       setLeaseOk(false);
-      void client.releaseWriteLease(iModelKey, sessionId).catch(() => undefined);
+      releaseLease();
     };
   }, [iModelKey, enabled, acquire, sessionId]);
 

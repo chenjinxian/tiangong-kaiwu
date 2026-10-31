@@ -267,6 +267,32 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     expect(fakeClient.releaseWriteLease).toHaveBeenCalledWith('test-model.bim', expect.any(String));
   });
 
+  it('pagehide 释放租约（reload 不触发 unmount 的陈旧 holder 修复）', async () => {
+    const connection = createMockConnection();
+
+    const { result, unmount } = renderFeatureSystem(connection);
+    await waitFor(() => expect(fakeClient.acquireWriteLease).toHaveBeenCalledTimes(1));
+    expect(result.current.leaseOk).toBe(true);
+    expect(fakeClient.releaseWriteLease).not.toHaveBeenCalled();
+
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+
+    await waitFor(() => expect(fakeClient.releaseWriteLease).toHaveBeenCalledTimes(1));
+    expect(fakeClient.releaseWriteLease).toHaveBeenCalledWith('test-model.bim', expect.any(String));
+    await waitFor(() => expect(result.current.leaseOk).toBe(false));
+
+    unmount();
+    // pagehide 监听随 effect cleanup 移除；卸载 cleanup 自身再释放一次。
+    expect(fakeClient.releaseWriteLease).toHaveBeenCalledTimes(2);
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    await Promise.resolve();
+    expect(fakeClient.releaseWriteLease).toHaveBeenCalledTimes(2);
+  });
+
   it('enabled 期间每 10s 续租', async () => {
     const connection = createMockConnection();
 

@@ -335,11 +335,10 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   const reloadedInfo = await readOpenBriefcaseInfo(page);
   expect(reloadedInfo.key, 'reload 后应重新打开同一 briefcase').toBe(openInfo.key);
 
-  // reload 不触发 React unmount → 前页写租约靠 30s TTL 自然过期（P2.6a 实测
-  // 陈旧 holder 会拒 registry 写）。实测（P2.6b2）：去掉本等待后点「+」页签数
-  // 停在 1（registry acquire 10s 预算耗尽，就地报错）；等满 TTL 后同一路径通过。
-  // 这是产品写租约语义下的确定性前置，不是断言放宽——「+」仍必须成功换 scope。
-  await page.waitForTimeout(30_000);
+  // P2.8 残项（pagehide 释放租约）：reload 不触发 React unmount，旧实现靠 30s
+  // TTL 自然过期（P2.6b2 实测：去掉等待后「+」在 registry 10s 预算内失败）。
+  // useEditorSession 现于 pagehide 释放旧 session 租约；「+」应直接成功，不再
+  // 等待 TTL。本用例即该回归钉——失败意味着释放未送达或 acquire 预算不足。
 
   // ── 5)「+」第二个 Part Studio → 页签切换 → 连接键稳定 ──────────────────
   const ipcBeforeSwitch = [...ipcSockets];
