@@ -23,34 +23,45 @@
  *  6) 活动 Move/Rotate 跨页签：工具在切 scope 时被默认工具替换（R3 真栈），
  *     切后补完整手势也不得提交 ps-1 变更。
  *  7) R4 真栈：无关渲染（invalidateScene）与文档级 undo/redo 不得清掉选择。
- *  8) 快速 K1→K2→K1（K2 apply 未落定）×20：URL/可见模型/相机/settings 全 K1，
- *     无错误横幅/console 错误。为使「K2 apply 在途」可确定复现，本用例在页面内
- *     给 `iModel.createQueryReader` 注入 300ms 延迟（测试侧插桩，不改产品代码；
- *     覆盖 P2.5 R1 的 pending-conflict 分支）。
+ *  8) 快速 K1→K2→K1 ×20：页面内给 `createQueryReader` 注入 600ms 延迟并记录
+ *     每查询 start/end 事件；**等 K2 的查询确实在途**（end=0）才点回 K1，切回
+ *     后等全部延迟查询落定，再以 4×100ms 稳定窗断言 URL/selector/settings/相机
+ *     仍为 K1。事件证据要求「K2 查询在点回 K1 后才结束」+「K1 重放查询已启动」
+ *     ——旧 d2e2d939d2 的 early-return 会让 K2 apply 晚到翻车，本门必红。
  *  9) 写目标落 active：切到 ps-2 后经生产 UI 插入草图 → 仅 ps-2 树 +1，
  *     ps-1 树逐字不变。
- * 10) 12 次页签切换无 console/pageerror；旧 scope 的 tile RPC **停止**（页面内
- *     包装 `IModelTileRpcInterface` 客户端记录 treeId/contentId，切到 K2 落定后
- *     清点窗口内不再出现 ps-1 物理模型 id）；JS heap 采样无线性增长迹象
- *     （CDP 强制 GC 后 4 次采样，末次不超首次数倍）。
- * 11) 失败注入：页面内让 `createQueryReader` 抛错（ECSQL 查询失败）→ 非阻断
- *     `part-studio-model-filter-error` 提示条可见、状态栏仍「已连接」、无画布
- *     「文档打开失败」面、selector fail-closed 清空；恢复后下一次切 scope 自愈。
+ * 10) 12 次页签切换：**每跳**断言 selector/settings/相机基线/视口身份/
+ *     connection.key/WS URL 列表（health.connectedClients 采首尾）；无
+ *     console/pageerror。旧 scope 的 tile RPC **停止**（页面内包装
+ *     `IModelTileRpcInterface` 客户端记录 treeId/contentId，K3 首次显示产生
+ *     K3 请求证明探针有效，切回后零旧 scope 请求；探针在 finally 解包）。
+ *     JS heap：CDP GC 后 4 次采样（末次 ≤ 首次 + 32MB，仅「迹象」非泄漏证明）。
+ * 11) 失败注入两条路径：
+ *     - ECSQL 失败：`createQueryReader` 抛错 → 非阻断横幅、状态栏「已连接」、
+ *       无画布连接错误面、selector fail-closed 清空；下次切 scope 自愈。
+ *     - load 失败：先 `models.unload(K2 phys)`，再包装 `models.load` 对 K2 拒绝
+ *       → 走 useViewport `.catch` 分支（pending/applied 清理），同样非阻断、
+ *       连接不变、K2 ModelState 未加载；恢复后 K1→K2 自愈并成功加载。
  *
  * 明确 NOT RUN（附理由，见 task-P2.6b3-report.md）：
- *  - **damaged 半图无全模型**：需要服务端构造「只有 def 分区、缺 phys model」的
- *    半图 iModel；公开 UI/RPC 无创建入口，构造需私有仓后端改库（生产 hack），
- *    故不在本文件伪造。半图分支已有单测（planPartStudioScope / viewer 过滤）
- *    覆盖；真栈 damaged 门留 P2.6c/后续。
- *  - **load 失败变体**：`iModel.models.load` 拒绝路径与 ECSQL 失败共用
- *    `filterError` 通道；本次只注入 ECSQL（更贴近查询失败的真实入口）。load
- *    拒绝的失败注入需在 model 首次加载窗口内精确打桩，残项记录。
- *  - **A legacy 全模型视觉**：A 种子是空 iModel（无 PhysicalModel），「全模型」
- *    逐字不可观测；本文件不重复造 A 栈，直接复用既有 A 只读冒烟
- *    `b-model.spec.ts`「打开 A 种子…」（实测命令见报告）。
+ *  - **damaged 半图无全模型**（正式 NOT RUN，待控制者裁定）：已尝试用**受支持
+ *    的可写 briefcase 编辑通道**构造——`basicManipulationIpc.deleteElements`
+ *    （DELETE 工具同一命令）对 `LubanPhysicalPartition:<scope>` / 其
+ *    `BisCore.PhysicalModel` 调用后端 `EditTxn.deleteElement`，真实栈实测抛
+ *    `Error deleting element`（model/partition 同 ECInstanceId，模型元素不可经
+ *    deleteElement 删除）。前端/编辑 IPC 没有 `EditTxn.deleteModel` 的暴露面
+ *    （BasicManipulation/SolidModeling/IModelRead/Tile RPC 均无 deleteModel）；
+ *    直接改库属不支持 hack，未做。构造半图需要**后端命令扩展**（backend
+ *    surgery）→ 本门 NOT RUN，报告请求控制者正式接受。
+ *  - **A legacy 全模型视觉**：A 种子为空库（0 PhysicalModel），「全模型」逐字
+ *    不可观测；A 全模型分支（activeModelIds=undefined → 全 selector）已在
+ *    viewer 单测覆盖。本文件只复用既有 A 只读冒烟（只读横幅/连接/写入口/
+ *    零写请求），**不声明 A 全模型视觉门**；A 视觉基线归 P2.6c visual。
  *
  * 纪律：每用例前 `resetBModelSeed`（新 dbKey 规避 30s 陈旧写租约）；无隐藏
- * skip、无弱化断言；只做聚焦文件，不并入全量（P2.6c）。MS 直连 HTTP RPC 很少
+ * skip、无弱化断言；只做聚焦文件，不并入全量（P2.6c）。e2e 文件**不被**
+ * web `tsc --noEmit`/`pnpm lint` 覆盖（tsconfig include=src，lint=src/**）——
+ * 仅 Playwright/esbuild 运行时转译；报告如实标注。MS 直连 HTTP RPC 很少
  * （registry 1 次/用例 + 若干树/体读面），UI/RPC 走 WS 不吃 100/15min 配额。
  */
 
@@ -116,7 +127,23 @@ interface StoreProbe {
 
 interface TileCall { method: string; text: string; t: number }
 
-/** 页面内读视口权威状态（模型选择器/相机/settings/工具/对象身份）。 */
+/** 测试侧 ECSQL 延迟（快速切回门：保证 K2 apply 在途；恢复后无影响）。 */
+const QUERY_DELAY_MS = 600;
+
+interface QueryEvent { id: number; start: number; end: number; failed: boolean }
+
+/** 页面内给当前 ScreenViewport 打身份标（必须在第一次 readViewport 前调用）。 */
+async function tagViewport(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) throw new Error('tagViewport：viewport 未就绪');
+    (window as any).__e2eVpRef = vp;
+  });
+}
+
+/** 页面内读视口权威状态（模型选择器/相机/settings/工具/对象身份）。
+ * `sameViewport` 只在调用方先 `tagViewport` 后才有意义——首次读取不再自证。 */
 async function readViewport(page: Page): Promise<ViewportProbe> {
   return page.evaluate(async () => {
     const cf = (await import('/@id/@itwin/core-frontend')) as any;
@@ -136,7 +163,6 @@ async function readViewport(page: Page): Promise<ViewportProbe> {
         viewRect: null,
       };
     }
-    if (!w.__e2eVpRef) w.__e2eVpRef = vp;
     const view = vp.view;
     const vec = (v: any): { x: number; y: number; z: number } => ({ x: v.x, y: v.y, z: v.z });
     const camera = typeof view.getExtents === 'function'
@@ -149,7 +175,7 @@ async function readViewport(page: Page): Promise<ViewportProbe> {
       : null;
     return {
       hasViewport: true,
-      sameViewport: w.__e2eVpRef === vp,
+      sameViewport: !!w.__e2eVpRef && w.__e2eVpRef === vp,
       viewClass: view?.constructor?.name ?? '',
       isSpatial: typeof view?.isSpatialView === 'function' ? view.isSpatialView() : false,
       selectorModels: Array.from(view.modelSelector?.models ?? []),
@@ -179,12 +205,14 @@ async function readStore(page: Page): Promise<StoreProbe> {
   });
 }
 
-/** 页面内读 `selectionSet.elements`（每连接权威选择源）。 */
+/** 页面内读 `selectionSet.elements`（每连接权威选择源）；无视口即抛错，
+ * 防「selector 读面失败 → [] → 空选择断言空过」。 */
 async function readSelectionSet(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
     const cf = (await import('/@id/@itwin/core-frontend')) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
-    return Array.from(vp?.iModel?.selectionSet?.elements ?? []).map(String);
+    if (!vp?.iModel?.selectionSet) throw new Error('selectionSet：viewport/iModel 未就绪');
+    return Array.from(vp.iModel.selectionSet.elements).map(String);
   });
 }
 
@@ -234,21 +262,60 @@ async function projectModelCenter(
   }, physModelId);
 }
 
+/** 页面内把已知 world 点投影为 view 坐标（CSS px，canvas 左上原点）。 */
+async function projectWorldPoint(page: Page, world: Vec3): Promise<Vec3> {
+  return page.evaluate(async (point: Vec3) => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) throw new Error('投影：viewport 未就绪');
+    const view = vp.worldToView(point);
+    return { x: view.x, y: view.y, z: view.z };
+  }, world);
+}
+
+/** 页面内读所有 LubanCAD.Sketch 的 Model.Id（写目标落点的元素级证据；
+ * 页面 RPC 走 /ipc WS，不消耗 MS HTTP 100/15min 配额）。 */
+async function readSketchModelIds(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) throw new Error('sketch 模型读面：viewport 未就绪');
+    const ids: string[] = [];
+    for await (const row of vp.iModel.createQueryReader(
+      'SELECT Model.Id FROM LubanCAD.Sketch',
+    )) {
+      ids.push(String(row[0]));
+    }
+    return ids;
+  });
+}
+
 /** 页面内读某 body 元素的 props（Move/Delete 提交检测：placement/source 不变）。 */
-async function readElementProps(page: Page, elementId: string): Promise<unknown> {
-  return page.evaluate(async (id: string) => {
+async function readElementProps(page: Page, elementId: string): Promise<Record<string, unknown>> {
+  const props = await page.evaluate(async (id: string) => {
     const cf = (await import('/@id/@itwin/core-frontend')) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('元素读面：viewport 未就绪');
     const elements = vp.iModel.elements;
     // 上游 5.x API：Elements.loadProps(id) / getProps(id)；旧名 getElementProps 已不存在。
-    if (typeof elements.loadProps === 'function') return elements.loadProps(id);
-    if (typeof elements.getProps === 'function') return (await elements.getProps([id]))[0];
+    if (typeof elements.loadProps === 'function') return (await elements.loadProps(id)) ?? null;
+    if (typeof elements.getProps === 'function') return (await elements.getProps([id]))[0] ?? null;
     throw new Error('元素读面 API 不可用（loadProps/getProps 均缺失）');
   }, elementId);
+  // 非空门（review F6）：API 静默返回 undefined 时不得让 props 基线空过。
+  if (!props || typeof props !== 'object') {
+    throw new Error(`元素读面返回空（${elementId}）——loadProps/getProps 静默失败`);
+  }
+  if ((props as Record<string, unknown>).id !== elementId) {
+    throw new Error(
+      `元素读面 id 不匹配（请求 ${elementId}，实得 ${String((props as Record<string, unknown>).id)}）`,
+    );
+  }
+  return props as Record<string, unknown>;
 }
 
-/** 页面内安装 tile RPC 记录（包装 IModelTileRpcInterface 客户端实例）。 */
+/** 页面内安装 tile RPC 记录（包装 IModelTileRpcInterface 客户端实例）。
+ * 原方法存 `__e2eTileOrig`，`removeTileProbe` 在 finally 解包。 */
 async function installTileProbe(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const cc = (await import('/@id/@itwin/core-common')) as any;
@@ -256,11 +323,13 @@ async function installTileProbe(page: Page): Promise<void> {
     if (w.__e2eTileProbeInstalled) return;
     const client = cc.IModelTileRpcInterface.getClient();
     w.__e2eTileCalls = [];
+    w.__e2eTileOrig = {};
     const methods = ['requestTileTreeProps', 'generateTileContent', 'retrieveTileContent'];
     for (const name of methods) {
       const original = client[name];
       if (typeof original !== 'function') continue;
       const bound = original.bind(client);
+      w.__e2eTileOrig[name] = bound;
       client[name] = (...args: any[]) => {
         try {
           w.__e2eTileCalls.push({
@@ -278,6 +347,22 @@ async function installTileProbe(page: Page): Promise<void> {
   });
 }
 
+/** 解包 tile RPC 客户端并清掉记录（finally 纪律）。 */
+async function removeTileProbe(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const cc = (await import('/@id/@itwin/core-common')) as any;
+    const w = window as any;
+    const client = cc.IModelTileRpcInterface.getClient();
+    const originals = w.__e2eTileOrig as Record<string, (...args: any[]) => unknown> | undefined;
+    if (originals) {
+      for (const [name, fn] of Object.entries(originals)) client[name] = fn;
+    }
+    delete w.__e2eTileOrig;
+    delete w.__e2eTileCalls;
+    delete w.__e2eTileProbeInstalled;
+  });
+}
+
 async function readTileCalls(page: Page): Promise<TileCall[]> {
   return page.evaluate(() => ((window as any).__e2eTileCalls ?? []) as TileCall[]);
 }
@@ -288,9 +373,11 @@ async function clearTileCalls(page: Page): Promise<void> {
   });
 }
 
-/** 页面内安装 ECSQL 查询延迟/失败注入（测试侧插桩；可恢复）。 */
+/** 页面内安装 ECSQL 查询延迟/失败注入（测试侧插桩；可恢复）。
+ * delay 模式同时记录每个查询的 start/end 事件——快速切回门用它证明 K2 apply
+ * 的查询在点回 K1 时确实在途，并在延迟窗后仍停在 K1。 */
 async function setQueryInjection(page: Page, mode: 'none' | 'delay' | 'throw'): Promise<void> {
-  await page.evaluate(async (injectionMode: 'none' | 'delay' | 'throw') => {
+  await page.evaluate(async ({ injectionMode, delayMs }: { injectionMode: 'none' | 'delay' | 'throw'; delayMs: number }) => {
     const cf = (await import('/@id/@itwin/core-frontend')) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('查询注入：viewport 未就绪');
@@ -308,44 +395,149 @@ async function setQueryInjection(page: Page, mode: 'none' | 'delay' | 'throw'): 
       };
       return;
     }
-    iModel.createQueryReader = (query: string) => (async function* () {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      // 调用时再取原始实现，恢复后新查询不被旧闭包拖慢。
-      const inner = (w.__e2eQueryOrig as (q: string) => any)(query);
-      for await (const row of inner) yield row;
-    })();
-  }, mode);
+    w.__e2eQueryEvents = [];
+    w.__e2eQuerySeq = 0;
+    iModel.createQueryReader = (query: string) => {
+      const event = { id: ++w.__e2eQuerySeq, start: 0, end: 0, failed: false };
+      w.__e2eQueryEvents.push(event);
+      return (async function* () {
+        event.start = performance.now();
+        try {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          // 调用时再取原始实现，恢复后新查询不被旧闭包拖慢。
+          const inner = (w.__e2eQueryOrig as (q: string) => any)(query);
+          for await (const row of inner) yield row;
+        } catch (error) {
+          event.failed = true;
+          throw error;
+        } finally {
+          event.end = performance.now();
+        }
+      })();
+    };
+  }, { injectionMode: mode, delayMs: QUERY_DELAY_MS });
+}
+
+async function readQueryEvents(page: Page): Promise<QueryEvent[]> {
+  return page.evaluate(() => ((window as any).__e2eQueryEvents ?? []) as QueryEvent[]);
+}
+
+async function clearQueryEvents(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (window as any).__e2eQueryEvents = [];
+    (window as any).__e2eQuerySeq = 0;
+  });
+}
+
+/** 页面内包装 iModel.models.load：对目标物理模型 id 拒绝（load 失败变体）。
+ * 原实现由 `__e2eModelsLoadOrig` 保存；`restoreModelsLoad` 在 finally 解包。 */
+async function injectModelsLoadFailure(page: Page, targetPhysModelId: string): Promise<void> {
+  await page.evaluate(async (target: string) => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) throw new Error('models.load 注入：viewport 未就绪');
+    const models = vp.iModel.models;
+    const w = window as any;
+    if (!w.__e2eModelsLoadOrig) w.__e2eModelsLoadOrig = models.load.bind(models);
+    const original = w.__e2eModelsLoadOrig as (ids: any) => Promise<void>;
+    models.load = async (ids: any) => {
+      const list = typeof ids === 'string' ? [ids] : Array.from(ids as Iterable<string>);
+      if (list.includes(target)) throw new Error(`E2E injected model load failure: ${target}`);
+      return original(ids);
+    };
+  }, targetPhysModelId);
+}
+
+async function restoreModelsLoad(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    const w = window as any;
+    if (vp && w.__e2eModelsLoadOrig) vp.iModel.models.load = w.__e2eModelsLoadOrig;
+    delete w.__e2eModelsLoadOrig;
+  });
+}
+
+/** 页面内包装 IModelApp.tools.run，记录快捷键/UI 实际派发的 toolId（dispatch 证据）。
+ * `__e2eToolRunOrig` 由 removeToolRunProbe/clearPageProbes 恢复。 */
+async function installToolRunProbe(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const w = window as any;
+    if (w.__e2eToolRunOrig) return;
+    w.__e2eToolRuns = [];
+    const original = cf.IModelApp.tools.run.bind(cf.IModelApp.tools);
+    w.__e2eToolRunOrig = original;
+    cf.IModelApp.tools.run = (id: string, ...args: any[]) => {
+      w.__e2eToolRuns.push(id);
+      return original(id, ...args);
+    };
+  });
+}
+
+async function readToolRuns(page: Page): Promise<string[]> {
+  return page.evaluate(() => ((window as any).__e2eToolRuns ?? []) as string[]);
+}
+
+async function removeToolRunProbe(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const w = window as any;
+    if (w.__e2eToolRunOrig) cf.IModelApp.tools.run = w.__e2eToolRunOrig;
+    delete w.__e2eToolRunOrig;
+    delete w.__e2eToolRuns;
+  });
+}
+
+/** 页面级探针清理（finally）：移除视口身份标/查询原始引用/事件日志，并恢复
+ * tools.run 包装。ECSQL/tile/models.load 的显式恢复由各自 finally 负责。 */
+async function clearPageProbes(page: Page): Promise<void> {
+  if (page.isClosed()) return;
+  await page.evaluate(async () => {
+    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const w = window as any;
+    if (w.__e2eToolRunOrig) cf.IModelApp.tools.run = w.__e2eToolRunOrig;
+    delete w.__e2eVpRef;
+    delete w.__e2eQueryOrig;
+    delete w.__e2eQueryEvents;
+    delete w.__e2eQuerySeq;
+    delete w.__e2eModelsLoadOrig;
+    delete w.__e2eToolRunOrig;
+    delete w.__e2eToolRuns;
+  }).catch(() => undefined);
 }
 
 async function readHeap(page: Page): Promise<number> {
-  return page.evaluate(() => (performance as any).memory?.usedJSHeapSize ?? 0);
+  const bytes = await page.evaluate(() => (performance as any).memory?.usedJSHeapSize ?? 0);
+  // 非空门（review F6）：无 performance.memory 时采样 0 会让泄漏门恒真。
+  if (!bytes) throw new Error('performance.memory 不可用（heap 采样不可解释）');
+  return bytes;
 }
 
 async function forceGc(page: Page): Promise<void> {
+  // Chromium-only 门禁；CDP 不可用必须显式红（不静默吞）。
+  const session = await page.context().newCDPSession(page);
   try {
-    const session = await page.context().newCDPSession(page);
     await session.send('HeapProfiler.collectGarbage');
+  } finally {
     await session.detach();
-  } catch {
-    // CDP 不可用（非 Chromium）不影响功能断言——采样值仅作泄漏迹象报告
   }
 }
 
-async function msHealth(): Promise<{ status: number; connectedClients: number | null }> {
+async function msHealth(): Promise<{ status: number; connectedClients: number }> {
+  const response = await fetch('http://localhost:5401/health');
+  const body = await response.text();
+  let connectedClients: number | null = null;
   try {
-    const response = await fetch('http://localhost:5401/health');
-    const body = await response.text();
-    let connectedClients: number | null = null;
-    try {
-      const parsed = JSON.parse(body) as { websocket?: { connectedClients?: number } };
-      connectedClients = parsed.websocket?.connectedClients ?? null;
-    } catch {
-      // 非 JSON 健康面
-    }
-    return { status: response.status, connectedClients };
+    const parsed = JSON.parse(body) as { websocket?: { connectedClients?: number } };
+    connectedClients = parsed.websocket?.connectedClients ?? null;
   } catch {
-    return { status: -1, connectedClients: null };
+    // 非 JSON 健康面 → 下面显式红
   }
+  if (connectedClients === null) {
+    throw new Error(`MS health 缺 websocket.connectedClients（HTTP ${response.status}）：${body.slice(0, 200)}`);
+  }
+  return { status: response.status, connectedClients };
 }
 
 // ============================================================================
@@ -437,7 +629,7 @@ async function createBody(
   token: string,
   scopeId: string,
   label: string,
-  rect: { x0: number; y0: number; x1: number; y1: number; distance: number },
+  rect: { x0: number; y0: number; x1: number; y1: number; distance: number; newBody?: boolean },
 ): Promise<BodySetup> {
   const sketch = rectangleSketch(rect.x0, rect.y0, rect.x1, rect.y1);
   const sketchId = await applyOp(
@@ -461,15 +653,22 @@ async function createBody(
     {
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: rect.distance, sketchId, regions: [0] },
+      params: {
+        profile: [],
+        distance: rect.distance,
+        sketchId,
+        regions: [0],
+        ...(rect.newBody ? { newBody: true } : {}),
+      },
     } as unknown as FeatureOp,
     `${label} 拉伸`,
   );
   const bodies = await getBodiesRpc(ctx, token, scopeId);
-  expect(bodies.length, `${label} 拉伸后应有 1 个 body`).toBe(1);
+  const authored = bodies.find((body) => body.sourceFeatureId === extrudeId && body.active);
+  expect(authored, `${label} 拉伸应驱动一个 active body`).toBeTruthy();
   console.log(
     `[b-viewport] ${label} scope=${scopeId} sketch=${sketchId.slice(0, 8)}… ` +
-      `extrude=${extrudeId.slice(0, 8)}… body=${bodies[0]!.bodyKey}`,
+      `extrude=${extrudeId.slice(0, 8)}… body=${authored!.bodyKey}`,
   );
   return { sketchId, extrudeId, bodies };
 }
@@ -518,13 +717,10 @@ interface TwoStudioWorld {
   token: string;
   ctx: BSeedEditorContext;
   lease: WriteLease;
-  studios: PartStudioInfo[];
   k1: PartStudioInfo;
   k2: PartStudioInfo;
   body1: BodyInfo;
   body2: BodyInfo;
-  tree1: FeatureTreeEntry[];
-  tree2: FeatureTreeEntry[];
 }
 
 async function openTwoStudioWorld(
@@ -547,9 +743,10 @@ async function openTwoStudioWorld(
   expect(k1.physModelId, `${label} K1 physModelId`).toMatch(/^\S+$/);
 
   // ps-1 体：原点 2×2×1。
-  await createBody(ctx, lease, token, k1Id, `${label} ps-1`, {
+  const setup1 = await createBody(ctx, lease, token, k1Id, `${label} ps-1`, {
     x0: 0, y0: 0, x1: 2, y1: 2, distance: 1,
   });
+  const body1 = setup1.bodies[0]!;
   const featureCount = page.getByTestId('part-studio-feature-count');
   const partList = page.getByTestId('part-studio-part-list');
   await expect(featureCount).toHaveText('(2)', { timeout: 90_000 });
@@ -578,34 +775,17 @@ async function openTwoStudioWorld(
   expect(k2.physModelId).not.toBe(k1.physModelId);
 
   // ps-2 体：明显不同的位置（x≈42），尺寸也不同（4×3×2）。
-  await createBody(ctx, lease, token, k2Id as string, `${label} ps-2`, {
+  const setup2 = await createBody(ctx, lease, token, k2Id as string, `${label} ps-2`, {
     x0: 40, y0: 0, x1: 44, y1: 3, distance: 2,
   });
+  const body2 = setup2.bodies[0]!;
   await expect(featureCount).toHaveText('(2)', { timeout: 90_000 });
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), {
     timeout: 90_000,
   }).toBe(1);
-
-  const bodies1 = await getBodiesRpc(ctx, token, k1Id);
-  const bodies2 = await getBodiesRpc(ctx, token, k2Id as string);
-  expect(bodies1.length).toBe(1);
-  expect(bodies2.length).toBe(1);
-  const body1 = bodies1[0]!;
-  const body2 = bodies2[0]!;
   expect(body1.bodyKey).not.toBe(body2.bodyKey);
 
-  return {
-    token,
-    ctx,
-    lease,
-    studios,
-    k1,
-    k2,
-    body1,
-    body2,
-    tree1: await readTree(ctx, token, k1Id),
-    tree2: await readTree(ctx, token, k2Id as string),
-  };
+  return { token, ctx, lease, k1, k2, body1, body2 };
 }
 
 /** 等 URL + 页签选中落到目标 scope（UI 权威）。 */
@@ -619,7 +799,7 @@ async function expectActiveScope(page: Page, scopeId: string): Promise<void> {
   );
 }
 
-/** 等视口过滤落定：selector 恰为目标 phys 模型 + settings 校准 + 相机可用。 */
+/** 等视口过滤落定：selector 恰为目标 phys 模型 + settings 校准 + 相机/视口可用。 */
 async function expectViewportScope(
   page: Page,
   physModelId: string,
@@ -633,12 +813,36 @@ async function expectViewportScope(
     `${physModelId}|${physModelId}`,
   );
   const probe = (last ?? (await readViewport(page))) as ViewportProbe;
+  expect(probe.hasViewport, `${label}：viewport 必须存在`).toBe(true);
+  expect(probe.camera, `${label}：相机状态必须可读（非空过）`).toBeTruthy();
+  expect(probe.sameViewport, `${label}：视口实例必须仍是打标实例`).toBe(true);
   console.log(
     `[b-viewport] ${label} selector=[${probe.selectorModels.join(',')}] ` +
       `settings=${probe.settingsModel} view=${probe.viewClass} ` +
       `camera.origin=${JSON.stringify(probe.camera?.origin)} extents=${JSON.stringify(probe.camera?.extents)}`,
   );
   return probe;
+}
+
+/** 稳定窗：连续 `samples` 次（间隔 100ms）都必须停在目标 scope（selector/
+ * settings/URL/相机），用于证明延迟窗结束后没有被迟到的旧 apply 翻盘。 */
+async function expectStableScope(
+  page: Page,
+  scopeId: string,
+  physModelId: string,
+  camera: CameraState | null,
+  label: string,
+  samples = 6,
+): Promise<void> {
+  for (let i = 0; i < samples; i++) {
+    const probe = await readViewport(page);
+    expect(readModelScopeId(page), `${label} 稳定窗 #${i + 1}：URL`).toBe(scopeId);
+    expect(probe.selectorModels, `${label} 稳定窗 #${i + 1}：selector`).toEqual([physModelId]);
+    expect(probe.settingsModel, `${label} 稳定窗 #${i + 1}：settings`).toBe(physModelId);
+    expect(probe.sameViewport, `${label} 稳定窗 #${i + 1}：视口身份`).toBe(true);
+    expectCameraSame(probe.camera, camera, `${label} 稳定窗 #${i + 1}`);
+    if (i < samples - 1) await page.waitForTimeout(100);
+  }
 }
 
 function tab(page: Page, scopeId: string) {
@@ -674,6 +878,22 @@ async function gesture(page: Page): Promise<void> {
   // 双保险：Enter 完成仍在进行的元素集工具。
   await page.keyboard.press('Enter');
   await page.waitForTimeout(500);
+}
+
+/** 真实画布点击选中指定 body（投影中心 + selectionSet 轮询）。 */
+async function selectBodyViaCanvas(
+  page: Page,
+  physModelId: string,
+  bodyKey: string,
+  label: string,
+): Promise<void> {
+  const proj = await projectModelCenter(page, physModelId);
+  await clickCanvas(page, proj.view);
+  await expect.poll(async () => (await readSelectionSet(page)).join(','), {
+    timeout: 20_000,
+    intervals: [200, 500],
+  }).toBe(bodyKey);
+  expect((await readStore(page)).canvasSelection, `${label}：store 选择桥`).toContain(bodyKey);
 }
 
 /** 相机取景到某元素（用于「隐藏 scope 的几何即便在视野内也不可拾取」）。 */
@@ -767,6 +987,10 @@ async function toolAcrossSwitch(
   // 属既有行为（P2.5 review R5 Minor）。
   console.log(`[b-viewport] ${label} 跨页签后 activeTool=${afterTool} store.tool=${ribbonTool}`);
 
+  // 切 scope 后、手势前必须清空（这是隔离门的断言点）；手势后若默认 Select
+  // 选中 K2 体属合法用户选择，不再断言空（review F9）。
+  expect(await readSelectionSet(page), `${label} 切 scope 后选择集必须为空`).toHaveLength(0);
+
   // 若工具未被真正取消，这两跳手势足以完成一次 Move/Rotate 提交。
   await gesture(page);
   await page.waitForTimeout(800);
@@ -780,7 +1004,7 @@ async function toolAcrossSwitch(
     { count: csAfter.count, index: csAfter.lastIndex, id: csAfter.lastId },
     `${label} 不得产生新 changeset`,
   ).toEqual({ count: csBefore.count, index: csBefore.lastIndex, id: csBefore.lastId });
-  expect(await readSelectionSet(page), `${label} 切 scope 后选择集必须为空`).toHaveLength(0);
+  await setSelectionSet(page, []);
 }
 
 // ============================================================================
@@ -811,6 +1035,10 @@ test.describe('P2.5 真栈视口门', () => {
     const world = await openTwoStudioWorld(page, seed, 'viewport');
     const { ctx, k1, k2, body1, body2 } = world;
 
+    // 视口身份基线：先打标，之后所有 sameViewport 断言才是真断言（review F4）。
+    await tagViewport(page);
+
+    try {
     // ── A) 初始在 K2（造数后）；切回 K1 建立基线与连接身份 ────────────────
     const healthBefore = await msHealth();
     expect(healthBefore.status, `MS health 应为 200（实际 ${healthBefore.status}）`).toBe(200);
@@ -822,8 +1050,6 @@ test.describe('P2.5 真栈视口门', () => {
     await tab(page, k1.id).click();
     await expectActiveScope(page, k1.id);
     const k1Probe = await expectViewportScope(page, k1.physModelId, 'K1');
-    expect(k1Probe.hasViewport).toBe(true);
-    expect(k1Probe.sameViewport, '视口实例必须存在且未重建').toBe(true);
     expect(k1Probe.isSpatial, 'B 默认视图必须是 SpatialViewState').toBe(true);
     expect(k1Probe.viewClass).toBe('SpatialViewState');
     // gate：registry physModelId ≡ 已加载 ModelState id（selector 唯一条目）
@@ -877,7 +1103,6 @@ test.describe('P2.5 真栈视口门', () => {
     await tab(page, k2.id).click();
     await expectActiveScope(page, k2.id);
     const k2Probe = await expectViewportScope(page, k2.physModelId, 'K2');
-    expect(k2Probe.sameViewport, '切 scope 不得重建 ScreenViewport').toBe(true);
     expect(k2Probe.selectorModels, 'K2 selector 应恰为 ps-2 物理模型').toEqual([k2.physModelId]);
     expect(k2Probe.selectorModels).not.toContain(k1.physModelId);
     expect(k2Probe.loadedModels, 'K2 已加载 ModelState 应包含 ps-2 physModelId').toContain(
@@ -931,7 +1156,6 @@ test.describe('P2.5 真栈视口门', () => {
     await expectActiveScope(page, k1.id);
     const k1Back = await expectViewportScope(page, k1.physModelId, 'K1-back');
     expectCameraSame(k1Back.camera, k1Camera, '切回 K1 相机');
-    expect(k1Back.sameViewport).toBe(true);
     const infoAfter = await readOpenBriefcaseInfo(page);
     expect(infoAfter.key, '切 scope 后 connection.key 必须不变').toBe(infoBefore.key);
     expect(infoAfter.isReadonly).toBe(false);
@@ -1007,35 +1231,58 @@ test.describe('P2.5 真栈视口门', () => {
     ).toHaveLength(0);
     console.log(`[b-viewport] K1 静默窗 tile 请求=${quietCalls.length}（K3 命中=${k3Tiles.length}）`);
 
-    // ── E) 12 次页签切换：无错误 + 无线性内存增长迹象 ─────────────────────
+    // tile 探针取证完毕 → 解包（12 次循环/heap 不带插桩；finally 仍兜底）。
+    await removeTileProbe(page);
+    await clearTileCalls(page).catch(() => undefined);
+
+    // ── E) 12 次页签切换：每跳 selector/settings/相机/视口身份/连接键/WS 全断言
     await forceGc(page);
     const heapSamples: number[] = [await readHeap(page)];
     for (let i = 0; i < 12; i++) {
       const target = i % 2 === 0 ? k2 : k1;
+      const targetCamera = target.id === k1.id ? k1Camera : k2Camera;
       await tab(page, target.id).click();
       await expectActiveScope(page, target.id);
-      await expectViewportScope(page, target.physModelId, `switch-${i + 1}`);
+      const probe = await expectViewportScope(page, target.physModelId, `switch-${i + 1}`);
+      expectCameraSame(probe.camera, targetCamera, `switch-${i + 1} 相机`);
+      expect(probe.sameViewport, `switch-${i + 1} 视口身份`).toBe(true);
+      const info = await readOpenBriefcaseInfo(page);
+      expect(info.key, `switch-${i + 1} connection.key`).toBe(infoBefore.key);
+      expect(info.isReadonly).toBe(false);
+      expect(socketUrls, `switch-${i + 1} 不得新建 IPC/进度 WS`).toEqual(socketsBefore);
       if ((i + 1) % 4 === 0) {
         await forceGc(page);
         heapSamples.push(await readHeap(page));
       }
     }
-    // 12 次偶数 → 末态 K1（起点 K1 → K2）；再断言一次收口。
+    // 12 次偶数 → 末态 K1（起点 K1 → K2）；稳定窗收口。
     await expectActiveScope(page, k1.id);
-    await expectViewportScope(page, k1.physModelId, 'switch-final-K1');
+    await expectStableScope(page, k1.id, k1.physModelId, k1Camera, 'switch-final-K1');
     const finalInfo = await readOpenBriefcaseInfo(page);
     expect(finalInfo.key).toBe(infoBefore.key);
     expect(await readSelectionSet(page)).toHaveLength(0);
+    const healthFinal = await msHealth();
+    expect(healthFinal.status).toBe(200);
+    expect(
+      healthFinal.connectedClients,
+      '12 次切换后 connectedClients 必须仍等于初始值',
+    ).toBe(healthBefore.connectedClients);
     expect(consoleErrors, `12 次切换不得有 console/page 错误：\n${consoleErrors.join('\n')}`).toEqual([]);
 
-    const heapFirst = heapSamples[0] ?? 0;
-    const heapLast = heapSamples[heapSamples.length - 1] ?? 0;
+    expect(heapSamples.length, 'GC 后 4 个采样点').toBe(4);
+    expect(heapSamples[0]!, 'heap 采样非空（performance.memory 可用）').toBeGreaterThan(0);
+    const heapFirst = heapSamples[0]!;
+    const heapLast = heapSamples[heapSamples.length - 1]!;
     console.log(
       `[b-viewport] heap 采样(MB)=[${heapSamples.map((value) => (value / 1048576).toFixed(1)).join(', ')}]`,
     );
-    // 粗门（防明显线性泄漏）：末次采样不超过首次 3 倍 + 64MB；12 次切换的
-    // tile 树/两 scope 缓存本就常驻，绝对增长允许一个宽松上限。
-    expect(heapLast).toBeLessThanOrEqual(heapFirst * 3 + 64 * 1024 * 1024);
+    // 粗门（review §6：heap 只是「迹象」不是泄漏证明）：CDP GC 后末次采样
+    // 不得超过首次 + 32MB；两 scope tile 缓存常驻，留宽松绝对上限。
+    expect(heapLast).toBeLessThanOrEqual(heapFirst + 32 * 1024 * 1024);
+    } finally {
+      await removeTileProbe(page).catch(() => undefined);
+      await clearPageProbes(page).catch(() => undefined);
+    }
   });
 
   // ==========================================================================
@@ -1050,8 +1297,10 @@ test.describe('P2.5 真栈视口门', () => {
 
     const consoleErrors = collectConsoleErrors(page);
     const world = await openTwoStudioWorld(page, seed, 'isolation');
-    const { ctx, k1, k2, body1, token } = world;
+    const { ctx, k1, k2, body1, body2, token } = world;
+    await tagViewport(page);
 
+    try {
     // ── A) K1 基线（树/元素 props/真实 pick）────────────────────────────────
     await tab(page, k1.id).click();
     await expectActiveScope(page, k1.id);
@@ -1086,20 +1335,18 @@ test.describe('P2.5 真栈视口门', () => {
     const undo = page.getByTestId('part-studio-undo-button');
     await expect(undo).toBeEnabled({ timeout: 60_000 });
     await undo.click();
-    await expect.poll(async () => (await readTree(ctx, token, k2.id)).length, {
-      timeout: 60_000,
-      intervals: [500, 1000],
-    }).toBe(1);
+    // 单个提交事件后的确定性短驻留；只读一次 HTTP RPC（不做高频 poll——
+    // MS 100/15min 配额下每次 poll 都是直连请求）。
+    await page.waitForTimeout(1500);
+    expect((await readTree(ctx, token, k2.id)).length, 'undo 后 ps-2 树 -1').toBe(1);
     expect(await readSelectionSet(page), 'undo 后 ps-1 选择必须保留').toEqual([
       body1.bodyKey,
     ]);
     const redo = page.getByTestId('part-studio-redo-button');
     await expect(redo).toBeEnabled({ timeout: 60_000 });
     await redo.click();
-    await expect.poll(async () => (await readTree(ctx, token, k2.id)).length, {
-      timeout: 60_000,
-      intervals: [500, 1000],
-    }).toBe(2);
+    await page.waitForTimeout(1500);
+    expect((await readTree(ctx, token, k2.id)).length, 'redo 后 ps-2 树恢复').toBe(2);
     expect(await readSelectionSet(page), 'redo 后 ps-1 选择必须保留').toEqual([
       body1.bodyKey,
     ]);
@@ -1126,6 +1373,7 @@ test.describe('P2.5 真栈视口门', () => {
       timeout: 20_000,
     }).toBe(0);
 
+    await installToolRunProbe(page);
     await page.keyboard.press('Delete');
     await page.waitForTimeout(700);
     const emptyMoveStarted = await page.evaluate(async () => {
@@ -1140,6 +1388,13 @@ test.describe('P2.5 真栈视口门', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(700);
     console.log(`[b-viewport] 空选择 Move 启动返回=${emptyMoveStarted}`);
+    expect(emptyMoveStarted, '空选择 Move 工具必须真实启动（dispatch 证据）').toBe(true);
+    const toolRuns = await readToolRuns(page);
+    expect(toolRuns, '全局 Delete 快捷键必须真实派发 DeleteElements').toContain(
+      'DeleteElements',
+    );
+    expect(toolRuns, '空选择 Move 必须真实派发 MoveElements').toContain('MoveElements');
+    await removeToolRunProbe(page);
     expect(await readSelectionSet(page), 'Delete/Move 后 selectionSet 必须为空').toHaveLength(0);
     expect((await readStore(page)).canvasSelection, 'Delete/Move 后 store 选择必须为空').toHaveLength(0);
 
@@ -1153,12 +1408,175 @@ test.describe('P2.5 真栈视口门', () => {
     expect((await getBodiesRpc(ctx, token, k1.id)).map((body) => body.bodyKey)).toEqual([
       body1.bodyKey,
     ]);
-    await expect.poll(async () => {
-      const summary = await latestChangeset(request, ctx.imodelId, token);
-      return `${summary.count}|${summary.lastIndex}|${summary.lastId}`;
-    }, { timeout: 30_000 }).toBe(
-      `${csBeforeIsolation.count}|${csBeforeIsolation.lastIndex}|${csBeforeIsolation.lastId}`,
+    await page.waitForTimeout(1000);
+    const csAfterIsolation = await latestChangeset(request, ctx.imodelId, token);
+    expect({
+      count: csAfterIsolation.count,
+      index: csAfterIsolation.lastIndex,
+      id: csAfterIsolation.lastId,
+    }, 'Delete/Move 不得产生新 changeset').toEqual({
+      count: csBeforeIsolation.count,
+      index: csBeforeIsolation.lastIndex,
+      id: csBeforeIsolation.lastId,
+    });
+
+    // ── D2) 正控制：生产画布菜单的“删除”（HITL → deleteFeature）在可消费的
+    //        **newBody** 上确实生效（active body 减少/特征减少，undo 恢复）。
+    // 注意：
+    //  - 不使用全局 Delete 快捷键——实测它走 DeleteElementsTool 直接删
+    //    BodySolid 元素，破坏 Part Studio 图不变量（getBodies 500），属产品
+    //    直改/快捷键路径的独立 hazard（已记报告）。
+    //  - 首体（newBody=false）的 deleteFeature 按服务端语义**不消费** body
+    //    （planDelete.consumeBody 仅 newBody；保留主几何），故正控制改用
+    //    同 scope 的 newBody 体（可真实消费）。
+    const partRows = page.getByTestId('part-studio-part-list').locator('.part-studio-tree-row');
+    const extra = await createBody(ctx, world.lease, token, k2.id, 'D2 newBody', {
+      x0: 50, y0: 0, x1: 53, y1: 2, distance: 1, newBody: true,
+    });
+    const extraBody = extra.bodies.find((body) => body.sourceFeatureId === extra.extrudeId);
+    expect(extraBody, 'newBody 体应由新 extrude 驱动').toBeTruthy();
+    await expect(partRows).toHaveCount(2, { timeout: 90_000 });
+    // 切出再切回 K2：按两体联合范围重取景（newBody 在 x≈51.5，原相机只框了
+    // 首体 x=40..44；不重取景则点击点可能在视锥外）。
+    await tab(page, k1.id).click();
+    await expectActiveScope(page, k1.id);
+    await expectViewportScope(page, k1.physModelId, 'D2-K1-refit');
+    await tab(page, k2.id).click();
+    await expectActiveScope(page, k2.id);
+    await expectViewportScope(page, k2.physModelId, 'D2-K2-refit');
+    await expect(partRows).toHaveCount(2, { timeout: 60_000 });
+    const k2TreeBeforeDelete = await readTree(ctx, token, k2.id);
+
+    const projExtra = await projectWorldPoint(page, { x: 51.5, y: 1, z: 0.5 });
+    await clickCanvas(page, projExtra);
+    await expect.poll(async () => (await readSelectionSet(page)).join(','), {
+      timeout: 20_000,
+    }).toBe(extraBody!.bodyKey);
+    console.log(`[b-viewport] D2 selected newBody=${extraBody!.bodyKey}`);
+    const canvas2 = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box2 = await canvas2.boundingBox();
+    if (!box2) throw new Error('D2：canvas boundingBox 不可得');
+    // 真实 contextmenu 事件（应用打开菜单的同一入口）；不派发 mousedown/up——
+    // 原生右击会被默认工具的 mousedown 清选择，菜单退化为空选择分支。
+    await page.evaluate(
+      ({ x, y }: { x: number; y: number }) => {
+        const canvas = document.querySelector(
+          '[data-testid="part-studio-viewport"] canvas',
+        );
+        if (!canvas) throw new Error('D2：canvas 不存在');
+        canvas.dispatchEvent(
+          new MouseEvent('contextmenu', {
+            bubbles: true,
+            cancelable: true,
+            clientX: x,
+            clientY: y,
+            button: 2,
+          }),
+        );
+      },
+      { x: box2.x + projExtra.x, y: box2.y + projExtra.y },
     );
+    const canvasMenu = page.getByRole('menu', { name: '画布菜单' });
+    await expect(canvasMenu).toBeVisible({ timeout: 20_000 });
+    console.log('[b-viewport] D2 menu visible');
+    // 原生 mousedown 的 window 收合监听会在 Playwright 逐 mousedown/up 派发时
+    // 先关菜单；用 DOM click 触发同一 React onClick（真实菜单项处理器）后
+    // 再走 HITL，避开收合时序（不是绕过产品逻辑）。
+    const menuClick = await page.evaluate(() => {
+      const menu = document.querySelector('.part-studio-canvas-menu');
+      const items = Array.from(
+        menu?.querySelectorAll('[role="menuitem"]') ?? [],
+      ) as HTMLElement[];
+      const texts = items.map((el) => (el.textContent ?? '').trim());
+      const target = items.find((el) => (el.textContent ?? '').trim().startsWith('删除 '));
+      if (!target) return { found: false, texts };
+      target.click();
+      return { found: true, texts };
+    });
+    console.log(
+      `[b-viewport] D2 menu items=${JSON.stringify(menuClick.texts)} clicked=${menuClick.found}`,
+    );
+    expect(
+      menuClick.found,
+      `画布菜单应含“删除 <name>”项（实得 ${JSON.stringify(menuClick.texts)}）`,
+    ).toBe(true);
+    const deleteDialog = page.getByRole('dialog', { name: /^删除 / });
+    await expect(deleteDialog).toBeVisible({ timeout: 20_000 });
+    console.log('[b-viewport] D2 dialog visible');
+    await deleteDialog
+      .getByRole('button', { name: '删除', exact: true })
+      .click({ timeout: 10_000 });
+    console.log('[b-viewport] D2 dialog confirmed');
+    // 等删除 op 的真实结果 toast（成功/失败）——不能只看行数（刷新 loading
+    // 期间行数也会是 0，会假过）。失败则把服务端原文抛出来。
+    const deleteSuccess = page.getByText(/^已删除 /);
+    const deleteFailure = page.getByText(/^删除失败：/);
+    await expect(deleteSuccess.or(deleteFailure)).toBeVisible({ timeout: 60_000 });
+    if ((await deleteFailure.count()) > 0) {
+      throw new Error(`画布删除被拒收：${await deleteFailure.first().textContent()}`);
+    }
+    await page.waitForTimeout(700);
+    await expect(partRows).toHaveCount(1, { timeout: 30_000 });
+    // getBodies 含 consumed（active=false）历史体——删除门的判据是 active 集。
+    const bodiesAfterDelete = await getBodiesRpc(ctx, token, k2.id);
+    console.log(`[b-viewport] D2 bodies after delete=${JSON.stringify(bodiesAfterDelete)}`);
+    expect(
+      bodiesAfterDelete.filter((body) => body.active).map((body) => body.bodyKey),
+      '删除后 active body 只剩首体',
+    ).toEqual([body2.bodyKey]);
+    expect(
+      (await readTree(ctx, token, k2.id)).length,
+      '画布删除应移除驱动特征（树节点减少）',
+    ).toBeLessThan(k2TreeBeforeDelete.length);
+    expect(await readTree(ctx, token, k1.id), '正控制 Delete 不得触碰 ps-1').toEqual(tree1Before);
+    await expect(page.getByTestId('part-studio-undo-button')).toBeEnabled({ timeout: 60_000 });
+    await page.getByTestId('part-studio-undo-button').click();
+    await expect(partRows).toHaveCount(2, { timeout: 60_000 });
+    const bodiesRestored = await getBodiesRpc(ctx, token, k2.id);
+    expect(
+      bodiesRestored.filter((body) => body.active).map((body) => body.bodyKey).sort(),
+      'undo 后 active body 集恢复',
+    ).toEqual([body2.bodyKey, extraBody!.bodyKey].sort());
+    expect(await readTree(ctx, token, k2.id), 'undo 后特征树恢复').toEqual(k2TreeBeforeDelete);
+    console.log('[b-viewport] D2 undo restored');
+    await setSelectionSet(page, []);
+
+    // ── D3) 正控制：未取消的 Move 手势确实提交（placement 变化），undo 还原。
+    //        证明 R3 中“切页签后补手势足以提交”的前提成立。
+    await tab(page, k1.id).click();
+    await expectActiveScope(page, k1.id);
+    await expectViewportScope(page, k1.physModelId, 'D3-K1');
+    await selectBodyViaCanvas(page, k1.physModelId, body1.bodyKey, 'D3-K1');
+    console.log('[b-viewport] D3 selected body1');
+    const propsBeforeMove = await readElementProps(page, body1.bodyKey);
+    const moveStarted = await page.evaluate(async () => {
+      const cf = (await import('/@id/@itwin/core-frontend')) as any;
+      return (await cf.IModelApp.tools.run('MoveElements')) as boolean;
+    });
+    expect(moveStarted, '正控制 Move 工具必须启动').toBe(true);
+    await expect.poll(async () => (await readViewport(page)).activeToolId, {
+      timeout: 20_000,
+      intervals: [100, 250],
+    }).toBe('MoveElements');
+    await gesture(page);
+    console.log('[b-viewport] D3 gesture sent');
+    await page.waitForTimeout(1_200);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    const propsAfterMove = await readElementProps(page, body1.bodyKey);
+    expect(
+      propsAfterMove,
+      '未取消的 Move 手势必须真正提交（body placement/props 变化）',
+    ).not.toEqual(propsBeforeMove);
+    expect(await readTree(ctx, token, k1.id), 'Move 直改不改 ps-1 特征树').toEqual(tree1Before);
+    await expect(page.getByTestId('part-studio-undo-button')).toBeEnabled({ timeout: 60_000 });
+    await page.getByTestId('part-studio-undo-button').click();
+    console.log('[b-viewport] D3 undo clicked');
+    await expect.poll(async () => JSON.stringify(await readElementProps(page, body1.bodyKey)), {
+      timeout: 60_000,
+      intervals: [500, 1000],
+    }).toBe(JSON.stringify(propsBeforeMove));
+    await setSelectionSet(page, []);
 
     // ── E) 活动 Move/Rotate 跨页签：不得提交 ps-1 变更（R3 真栈）──────────
     await toolAcrossSwitch(
@@ -1172,6 +1590,10 @@ test.describe('P2.5 真栈视口门', () => {
     await tab(page, k2.id).click();
     await expectActiveScope(page, k2.id);
     await expectViewportScope(page, k2.physModelId, 'W-K2');
+    const k2TreeBeforeWrite = (await readTree(ctx, token, k2.id)).length;
+    const sketchModelsBefore = await readSketchModelIds(page);
+    const sketchesInK2Before = sketchModelsBefore.filter((id) => id === k2.physModelId).length;
+    const sketchesInK1Before = sketchModelsBefore.filter((id) => id === k1.physModelId).length;
     await page.getByRole('button', { name: '草图', exact: true }).click();
     const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(sketchDialog).toBeVisible();
@@ -1191,16 +1613,27 @@ test.describe('P2.5 真栈视口门', () => {
       );
     }
     const featureCount = page.getByTestId('part-studio-feature-count');
-    await expect(featureCount).toHaveText('(3)', { timeout: 60_000 });
+    await expect(featureCount).toHaveText(`(${k2TreeBeforeWrite + 1})`, { timeout: 60_000 });
     await exitSketchButton.click();
     await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible();
 
     const tree2AfterWrite = await readTree(ctx, token, k2.id);
-    expect(tree2AfterWrite.length, 'ps-2 树应 +1（草图 3）').toBe(3);
+    expect(tree2AfterWrite.length, 'ps-2 树应 +1（新草图）').toBe(k2TreeBeforeWrite + 1);
     expect(await readTree(ctx, token, k1.id), '写目标不得落 ps-1（树逐字不变）').toEqual(
       tree1Before,
     );
     expect(readModelScopeId(page), '写后 URL 仍为 ps-2').toBe(k2.id);
+    // F13：元素级写目标——新 Sketch 元素的 Model.Id 必须落在 ps-2 physModelId，
+    // 且 ps-1 的 sketch 计数逐字不变（不是只看树长度/settings 校准值）。
+    const sketchModelsAfter = await readSketchModelIds(page);
+    expect(
+      sketchModelsAfter.filter((id) => id === k2.physModelId).length,
+      '新草图必须落在 ps-2 物理模型',
+    ).toBe(sketchesInK2Before + 1);
+    expect(
+      sketchModelsAfter.filter((id) => id === k1.physModelId).length,
+      'ps-1 物理模型 sketch 计数不变',
+    ).toBe(sketchesInK1Before);
 
     await tab(page, k1.id).click();
     await expectActiveScope(page, k1.id);
@@ -1209,9 +1642,12 @@ test.describe('P2.5 真栈视口门', () => {
     await tab(page, k2.id).click();
     await expectActiveScope(page, k2.id);
     await expectViewportScope(page, k2.physModelId, 'W-K2-back');
-    await expect(featureCount).toHaveText('(3)', { timeout: 30_000 });
+    await expect(featureCount).toHaveText(`(${k2TreeBeforeWrite + 1})`, { timeout: 30_000 });
 
     expect(consoleErrors, `隔离/写目标用例不得有 console/page 错误：\n${consoleErrors.join('\n')}`).toEqual([]);
+    } finally {
+      await clearPageProbes(page).catch(() => undefined);
+    }
   });
 
   // ==========================================================================
@@ -1225,7 +1661,9 @@ test.describe('P2.5 真栈视口门', () => {
     const world = await openTwoStudioWorld(page, seed, 'rapid');
     const { ctx, k1, k2 } = world;
     const filterBanner = page.getByTestId('part-studio-model-filter-error');
+    await tagViewport(page);
 
+    try {
     await tab(page, k1.id).click();
     await expectActiveScope(page, k1.id);
     const baseline = await expectViewportScope(page, k1.physModelId, 'R-K1');
@@ -1233,29 +1671,54 @@ test.describe('P2.5 真栈视口门', () => {
     expect(cameraK1, 'K1 基线相机').toBeTruthy();
     await expect(filterBanner).toHaveCount(0);
 
-    // 注入 300ms ECSQL 延迟：K2 的 filter apply 在切回 K1 时必然在途，覆盖
-    // P2.5 R1 的 pending-conflict 作废 + 当前 key 重放分支。
+    // R1 门（review F1）：把 ECSQL 查询延迟 600ms，并在 K2 的查询**确实在途**
+    // （事件 start / end=0）后才点回 K1。切回后必须等全部延迟查询落定，再在
+    // 稳定窗里断言仍为 K1——旧 d2e2d939d2 的 early-return 会让 K2 apply 在
+    // 延迟窗后落成 K2（selector/相机翻车），本门会红。事件日志同时证明：
+    //  - K2 查询在点回 K1 时仍未结束（end > k1ClickAt）；
+    //  - K1 的重放查询确实启动（pending-conflict 分支被执行）。
     await setQueryInjection(page, 'delay');
     try {
       for (let i = 0; i < 20; i++) {
+        await clearQueryEvents(page);
+        const beforeK2 = await page.evaluate(() => performance.now());
         await tab(page, k2.id).click();
         await expect(page).toHaveURL(new RegExp(`[?&]model=${k2.id}`), { timeout: 10_000 });
-        // 让 K2 的 filter effect 进入延迟查询，再立即切回 K1。
-        await page.waitForTimeout(40);
+
+        let inFlight: QueryEvent | null = null;
+        await expect.poll(async () => {
+          const events = await readQueryEvents(page);
+          inFlight = events.find((event) => event.start >= beforeK2 && event.end === 0) ?? null;
+          return !!inFlight;
+        }, { timeout: 10_000, intervals: [20, 50, 100] }).toBe(true);
+        const k2EventId = inFlight!.id;
+
+        const k1ClickAt = await page.evaluate(() => performance.now());
         await tab(page, k1.id).click();
         await expect(page).toHaveURL(new RegExp(`[?&]model=${k1.id}`), { timeout: 10_000 });
         await expect(tab(page, k1.id)).toHaveAttribute('aria-selected', 'true', {
           timeout: 10_000,
         });
 
-        let probe: ViewportProbe | null = null;
+        // 等本拍所有延迟查询落定（K2 在途 + K1 重放），再断言终态。
         await expect.poll(async () => {
-          probe = await readViewport(page);
-          return `${probe.selectorModels.join(',')}|${probe.settingsModel ?? ''}`;
-        }, { timeout: 30_000, intervals: [200, 500] }).toBe(
-          `${k1.physModelId}|${k1.physModelId}`,
-        );
-        expectCameraSame(probe!.camera, cameraK1, `第 ${i + 1} 次切回 K1 相机`);
+          const events = await readQueryEvents(page);
+          return events.length >= 2 && events.every((event) => event.end > 0);
+        }, { timeout: 15_000, intervals: [100, 200, 500] }).toBe(true);
+        const events = await readQueryEvents(page);
+        const k2Event = events.find((event) => event.id === k2EventId);
+        expect(k2Event, `第 ${i + 1} 拍：K2 apply 查询事件必须在册`).toBeTruthy();
+        expect(
+          k2Event!.end,
+          `第 ${i + 1} 拍：K2 apply 必须晚于点回 K1 才落定（在途证据）`,
+        ).toBeGreaterThan(k1ClickAt);
+        expect(
+          events.filter((event) => event.start >= k1ClickAt).length,
+          `第 ${i + 1} 拍：K1 pending-conflict 重放查询必须启动`,
+        ).toBeGreaterThanOrEqual(1);
+
+        // 稳定窗（延迟窗后 4×100ms）：不得被迟到的 K2 apply 翻盘。
+        await expectStableScope(page, k1.id, k1.physModelId, cameraK1, `R-${i + 1}`, 4);
         expect(await filterBanner.count(), `第 ${i + 1} 次切回不得出现过滤失败横幅`).toBe(0);
         await expect(page.getByTestId('part-studio-tabs-error')).toHaveCount(0);
         if (i % 5 === 4) {
@@ -1265,6 +1728,7 @@ test.describe('P2.5 真栈视口门', () => {
     } finally {
       await setQueryInjection(page, 'none');
     }
+    await clearQueryEvents(page).catch(() => undefined);
 
     await expectActiveScope(page, k1.id);
     const finalProbe = await expectViewportScope(page, k1.physModelId, 'R-final-K1');
@@ -1298,8 +1762,8 @@ test.describe('P2.5 真栈视口门', () => {
     await expect(filterBanner).toHaveCount(0, { timeout: 30_000 });
     // 观察（非阻断）：提示条占用布局高度 → 恢复当拍取景按「提示条仍在」的
     // 视口尺寸计算，横幅消失后不补一次 fit，故相机与无横幅基线有小幅差异。
-    // 相机权威门在 20 次快速切回循环（无横幅布局）中逐次断言；此处只要求
-    // 相机有效，并在横幅消失后的下一轮 K1 复访再钉回基线。
+    // 相机权威门在 20 次快速切回循环（无横幅布局）中逐次断言；此处只在
+    // 横幅消失后的下一轮 K1 复访再钉回基线。
     console.log(
       `[b-viewport] 失败恢复当拍相机 origin=${JSON.stringify(recoveredK1.camera?.origin)} ` +
         `extents=${JSON.stringify(recoveredK1.camera?.extents)}`,
@@ -1316,6 +1780,51 @@ test.describe('P2.5 真栈视口门', () => {
     const recoveredK1Again = await expectViewportScope(page, k1.physModelId, 'R-recover-K1-again');
     expectCameraSame(recoveredK1Again.camera, cameraK1, '失败注入自愈后的 K1 相机');
 
+    // ── load 失败变体（review F3）：K2 模型先 unload（保证 load 路径必经），
+    //    再包装 iModel.models.load 对 K2 phys 抛错。走 useViewport catch 分支
+    //    （与 ECSQL 的 appliedOk=false 分支不同），同样必须非阻断并自愈。
+    expect(
+      await page.evaluate(async (target: string) => {
+        const cf = (await import('/@id/@itwin/core-frontend')) as any;
+        const vp = cf.IModelApp.viewManager.getFirstOpenView();
+        vp.iModel.models.unload(target);
+        return vp.iModel.models.getLoaded(target) === undefined;
+      }, k2.physModelId),
+      'load 注入前提：K2 ModelState 必须已 unload',
+    ).toBe(true);
+    await injectModelsLoadFailure(page, k2.physModelId);
+    try {
+      await tab(page, k2.id).click();
+      await expectActiveScope(page, k2.id);
+      await expect(filterBanner).toBeVisible({ timeout: 30_000 });
+      await expect(filterBanner).toContainText('已暂时隐藏全部模型');
+      await expect(page.getByTestId('part-studio-status-connection')).toHaveText('已连接');
+      await expect(page.getByTestId('part-studio-connection-error')).toHaveCount(0);
+      const loadFailedProbe = await readViewport(page);
+      expect(loadFailedProbe.sameViewport, 'load 失败不得重建视口').toBe(true);
+      expect(
+        loadFailedProbe.loadedModels,
+        'load 失败时 K2 ModelState 必须仍未加载',
+      ).not.toContain(k2.physModelId);
+      const info = await readOpenBriefcaseInfo(page);
+      expect(info.key, 'load 失败不得重开连接').toBe(world.ctx.dbKey);
+    } finally {
+      await restoreModelsLoad(page);
+    }
+    // 下一次切 scope 自愈：K1 → K2，K2 模型成功加载并取景。
+    await tab(page, k1.id).click();
+    await expectActiveScope(page, k1.id);
+    await expectViewportScope(page, k1.physModelId, 'L-recover-K1');
+    await expect(filterBanner).toHaveCount(0, { timeout: 30_000 });
+    await tab(page, k2.id).click();
+    await expectActiveScope(page, k2.id);
+    const loadRecovered = await expectViewportScope(page, k2.physModelId, 'L-recover-K2');
+    expect(loadRecovered.loadedModels, '自愈后 K2 ModelState 必须已加载').toContain(k2.physModelId);
+    await expect(filterBanner).toHaveCount(0, { timeout: 30_000 });
+
     expect(consoleErrors, `失败注入用例不得有 console/page 错误：\n${consoleErrors.join('\n')}`).toEqual([]);
+    } finally {
+      await clearPageProbes(page).catch(() => undefined);
+    }
   });
 });
