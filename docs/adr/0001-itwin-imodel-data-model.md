@@ -2,12 +2,13 @@
 
 - **状态**：已接受（Accepted，2026-10-30：认可 B 方向，采用 C 过渡，P1 spike 作为迁移门禁；
   **2026-10-30 P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**，见 §11/§14）。
-  **2026-10-31 P2 实现完成（qualified；发布门为部分 NOT RUN/受限，不得表述为全过）**：
+  **2026-10-31 P2 实现完成（qualified；P2.8 已修复 reload token 与镜像观测面）**：
   B 新文档 + 多 Part Studio 页签 + RPC 1.18 原子同发已在本地栈验收（verify-stack **17/17**；
-  源码全量 Playwright **49/49**；发布 web 镜像有效子集 **19/19**）；但**发布镜像全量 e2e 因
-  e2e 开发态 `/@id/` 动态导入不适用**、**发布镜像 hub e2e NOT RUN**（未授权发布）、
-  **reload b-model `waitEditorReady` 失败（曾目视 `Invalid iModelToken` 横幅，但原始 artifact 未保留、未复现、cause unconfirmed）**，
-  且多项产品残项为 waiver/backlog。逐项见 §15。
+  源码全量 Playwright **49/49**；**发布源镜像 + 测试观测面全量 Playwright 49/49（15.4m，0 crash）**）；
+  `Invalid iModelToken` 已定根因并修复（briefcase fallback routing token + 有界重试 + 动态 JWT），
+  `/@id/` 已由 `VITE_E2E_HOOKS` 门控的 `window.__lubanE2E` 观测面替代。**发布镜像 hub e2e 仍
+  NOT RUN**（未授权发布）；发布前须重建 MS 产物（新 `LubanRpcInterface`）与 hook-off 生产镜像，
+  且多项产品残项为 waiver/backlog。逐项见 §15/§15.8。
 - **日期**：2026-10-30
 - **决策范围**：鲁班CAD 的领域数据模型、文档中心 IA、Part Studio 页签模型，以及 CAM/BIM 扩展方向
 - **关联文档**：
@@ -829,7 +830,9 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 （window 未设 → 900000ms）；生产默认 100/15min 已另行聚焦行使（上表），且运行后 MS 已以
 生产默认重启（`start-ms-host.ps1 -Detach`，health 200）。**该覆盖不影响发布代码默认值。**
 
-### 15.4 发布镜像新发现问题（P2.8 前置）
+### 15.4 发布镜像新发现问题（P2.7 历史记录；P2.8 已修复，见 §15.8）
+
+> 以下 1–3 为 P2.7 当时的发现与原始证据（保留历史）；P2.8 的处理、根因与复验见 §15.8。
 
 1. **e2e 开发态 `/@id/` 导入**（确定性）：`e2e/helpers.ts:400`、`b-viewport.spec.ts` 等以
    `page.evaluate(import('/@id/@itwin/core-frontend'))` 读 IModelApp；该 URL 仅 Vite dev server
@@ -884,20 +887,77 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | reload 后 30s 写租约 UX（unmount 不释放） | **backlog** | `b-model.spec.ts:338-342`；产品侧未修 | web | pagehide/卸载释放租约或缩短 TTL + 重取 |
 | e2e 未纳入 web tsc/lint | **backlog** | `tsconfig.include=["src","vite.config.ts"]`；eslint 仅 `src/**` | web | 独立 e2e tsconfig/eslint 并接入聚合门 |
 | 发布镜像 hub e2e | **NOT RUN** | 未获发布/推送授权；本地镜像 25b2b42 结果不作发布证据；A6 发布镜像链同样 NOT RUN | release owner | 发布授权后对 GHCR 镜像复跑 5 suites + A6 两用户链 |
-| e2e `/@id/` 开发态导入（新） | **backlog/fix** | 15.4.1；发布镜像全量套件不成立 | web/e2e | 生产安全只读 test hook 或 DOM/testid 观测面 |
-| 发布镜像全量轮 crash-class（1 `Target crashed` + 7 `worker 0xC0000142`） | **backlog/observation** | 归档 `e2e-image-full.log`；与 `/@id/` 分开记录；疑本地浏览器/runner 可靠性，非产品断言 | web/e2e | 干净环境复跑并归档；P2.8 全量镜像门重跑时区分 crash 与产品失败 |
-| reload b-model `waitEditorReady` 失败（曾目视 `Invalid iModelToken` 横幅，原始 artifact 未保留） | **fix required（P2.8）** | 15.4.2；归档全量日志仅 canvas 超时；横幅 observed once、截图/error-context/trace 未保留；聚焦未复现；cause unconfirmed | web/viewer | 负载下复现并归档原始 banner/trace；启动时序门（IPC/IModelApp 就绪后再 registry RPC）或显式 token/有界重试 |
+| e2e `/@id/` 开发态导入（新） | **fixed（P2.8）** | 15.4.1；P2.8：`window.__lubanE2E`（`VITE_E2E_HOOKS` 门控）+ 32 处替换 + app store hook；发布源镜像全量 49/49 | web/e2e | 保持生产 hook off；见 §15.8 |
+| 发布镜像全量轮 crash-class（1 `Target crashed` + 7 `worker 0xC0000142`） | **not reproduced（P2.8）** | 干净重启 + hook 镜像全量 **49/49，0 crash**；P2.7 归档保留为历史 | web/e2e | 保持观察；发布门槛以新全量证据为准 |
+| reload b-model `waitEditorReady` 失败（曾目视 `Invalid iModelToken` 横幅，原始 artifact 未保留） | **fixed（P2.8）** | 15.4.2/§15.8：briefcase open 后 `RpcManager.setIModel` + `usePartStudios` 有界重试 + 动态 JWT；镜像 b-model 全链通过（原始 one-off artifact 仍未归档） | web/viewer | 保持回归用例；发布前重建产物 |
 | MS 429 不记录（F2） | **backlog** | 配额证据只能取客户端状态码；P2.7 已按此取证 | backend | 429 分支 `logger.warn`/计数器 |
 | 限流 env 覆盖无启动告警/文档（F3） | **backlog** | 生产同样生效；默认值有单测锁定 | backend | 启动打印 resolved 配置 + `.env.example` |
 | F4/F7 最终轮命令/env/探针/dist 证据归档 | **fixed（P2.7）** | 本记录 15.2/15.3 + `evidence-p27/environment.txt` | release | 保持随每轮发布归档 |
-| 登录视觉 origin 相关（新） | **backlog** | 15.4.3；30 px 差异 | e2e | 参数化/mask origin 或按基址分套基线 |
+| 登录视觉 origin 相关（新） | **fixed（P2.8）** | mask `.signin-hero__token-value`（#f5f5f5）+ 重钉 `login-light.png`；:5301 全量通过 | e2e | 保持基址无关基线 |
+| MS 产物需随命名/P2.8 重建（`LubanRpcInterface`/`luban-ipc`） | **release prerequisite** | P2.7 `backend-20261031-p27` 仍实现旧 interfaceName；本地 MS 以源码构建验证；新产物未建 | release/backend | 重建 MS 产物并重新归档 hash/provenance；不得用旧产物发布 |
+| 生产镜像必须 hook-off | **release prerequisite** | P2.8 全量使用 `-BModelEnabled true -E2EHooks true` 测试镜像（revision `b80bd24ff1c3`）；该镜像不是生产产物 | release/web | `rebuild-web.ps1 -BModelEnabled true`（不带 `-E2EHooks`）重建生产镜像 |
+| Azurite tile cache 404 console 噪声 | **test exemption + backlog** | `collectConsoleErrors` 精确豁免 `/azurite/.../tiles/` 的 404（预期 miss→native 回退）；其它 404 仍红 | web/e2e | 可选消除 console 噪声；不得扩大豁免范围 |
+| 测试专用限流覆盖（P2.8 最终轮 2000） | **disclosed test-only** | 最终镜像全量 `LUBAN_RPC_RATE_LIMIT_MAX=2000`（window 900000）；生产默认 100/15min 已恢复（MS health 200） | test/backend | 全量发布门沿用覆盖并披露；默认值不改 |
 | M2 自动 429 等待未实现 | **backlog** | 全量仍需 env 覆盖；默认 100/15min 不适合长套件 | web/backend | 客户端 429 有界等待 + 干净窗口策略 |
 
 ### 15.7 NOT RUN（不得写成通过）
 
 - **发布镜像 hub e2e**（GHCR 发布镜像）与 **A6 两用户授权链的发布镜像复跑**：未发布授权 → NOT RUN。
 - **A all-model 视觉**、**damaged 半图真栈门**：夹具缺失 → NOT RUN/waiver（15.6）。
-- **发布镜像全量 Playwright**：**NOT VALID**——归档实况 **18 passed / 18 failed / 13 did not run**；
-  失败含 9 个 `/@id/` 载体、1 个 b-model canvas 超时、8 个 crash-class（15.3/15.4）。
-- **生产 undo E2E 的镜像 spec 判定**：功能断言通过，spec 因 console 断言判 FAIL → 不写 PASS。
+- **发布镜像全量 Playwright（P2.7 归档）**：**NOT VALID**——18 passed / 18 failed / 13 did not run
+  （9 个 `/@id/` 载体、1 个 b-model canvas 超时、8 个 crash-class，15.3/15.4）。
+  **P2.8 复验（发布源镜像 + 测试观测面，revision `b80bd24ff1c3`）：49/49（15.4m，0 crash）**，见 §15.8；
+  生产 hook-off 镜像不承载 editor-spec 观测面（hook 仅在 E2E 构建开启），生产发布仍以
+  verify-stack/有效子集 + 产物重建门验收。
+- **生产 undo E2E 的镜像 spec 判定**：P2.8 全量镜像 **PASS**（`b-model-undo.spec.ts`）；
+  P2.7 的 console 断言 FAIL 属 `/@id/` 载体，已由 hook 消除。
 - 未 push / 未 merge / 未发布任何镜像或 Release（待 owner 明确授权）。
+
+### 15.8 P2.8 结果（2026-10-31）
+
+**根因与修复**
+
+1. **reload `Invalid iModelToken`**：`BentleyCloudRpcProtocol.supplyPathForOperation` 对无路由
+   token 的 operation 抛错；`listPartStudios(iModelKey)` 无 `IModelRpcProps` 参数，依赖
+   `RpcOperation.fallbackToken`；IPC `BriefcaseConnection.openFile` 路径（不同于非 IPC
+   `CheckpointConnection`）未调用 `RpcManager.setIModel`。P2.8：briefcase open 后、暴露给
+   React 前同步 `RpcManager.setIModel(conn)`；`usePartStudios` 仅对 `Invalid iModelToken` 做
+   3 次有界重试（100/300ms），其它错误不重试。原始 one-off artifact 仍未归档，但代码路径、
+   单测与镜像 b-model 全链通过共同验证修复。
+2. **静态 JWT（15 分钟过期）**：viewer 原捕获一次 stored accessToken 并永久返回。改为
+   `StartViewerOptions.getAccessToken` provider（WS 取初值；RPC/tile 每请求经
+   `IModelApp.authorizationClient` 重取）；PartStudioPage/DevViewerRoute 传稳定的
+   `AuthSession.getValidAccessToken` 回调（AuthSession 单飞刷新）。静态 `accessToken` 保留兼容。
+3. **镜像观测面**：viewer 在 `VITE_E2E_HOOKS=true` 时挂 `window.__lubanE2E`
+   （coreFrontend/coreCommon）；app 在同样门控下挂 `window.__lubanE2EApp`
+   （part-studio store）。e2e 32 处 `/@id/` + 1 处 `/src/` 导入全部替换；Playwright
+   `webServer.env` 注入；Dockerfile/`rebuild-web.ps1 -E2EHooks`（缺省关，发布镜像不得开启）。
+4. **镜像测试假设**：生产 bundle 压缩 `SpatialViewState` 类名 → 用官方
+   `view.isSpatialView()`（类名仅日志）；Azurite tile cache 未命中产生预期 404 →
+   `collectConsoleErrors` 精确豁免 `/azurite/.../tiles/` 路径；登录 hero 展示 `env.hubUrl`
+   （=当前 origin）→ mask `.signin-hero__token-value` 并重钉基线（mask 后重钉，非单纯 `-u`）。
+
+**证据**
+
+- viewer **9 files / 91 passed**；web **79 files / 1154 passed** + `tsc` + vite build + lint 0；
+  shared **144**；editor **43**；backend build + RPC/IPC **27** + feature **459 passed / 8 skipped**。
+- 源码聚焦 e2e（hook）：`b-model.spec.ts -g "A 旧文档只读"` + setup **2 passed**（51.5s）。
+- **发布源镜像（`-BModelEnabled true -E2EHooks true`，revision `b80bd24ff1c3`）全量 Playwright：
+  49 passed（15.4m），0 failed / 0 did not run / 0 worker crash**
+  （`evidence-p28-image-full-r2.log`）。首轮（旧镜像/旧测试）45 passed / 4 failed / 0 crash；
+  4 项均为测试载体，已修复（`b80bd24ff1c3`）。
+- verify-stack **17/17**（MS 生产默认限流恢复后；Step E revision b80bd24）。
+- **测试专用限流覆盖**：最终镜像全量使用 `LUBAN_RPC_RATE_LIMIT_MAX=2000`（window 900000ms）
+  以容纳重复全量；运行后 MS 已以生产默认 100/15min 重启（health 200）。生产默认值未改。
+- 首轮无 crash-class；P2.7 的 8 crash 在干净重启 + hook 后未复现（保持观察，不宣称永久消除）。
+
+**发布前置/残项**
+
+- **MS 产物**：必须重建（新 `LubanRpcInterface`/`luban-ipc` 线上契约；P2.7
+  `backend-20261031-p27` 产物仍实现旧名，不兼容）。
+- **生产镜像**：必须以 `-E2EHooks` 缺省（off）重建；P2.8 全量所用镜像带测试 hook，
+  不得作为生产产物。
+- **发布镜像 hub e2e / A6**：仍 **NOT RUN**（未授权发布）。
+- 登录视觉 origin 已 mask + 重钉；tile cache 404 为精确测试豁免（建议后续消除 console 噪声）；
+  全量 Playwright 仍需测试专用限流覆盖并披露。
+- 未 push / 未 merge / 未 publish。
