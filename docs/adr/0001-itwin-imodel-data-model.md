@@ -989,6 +989,20 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   行索引守卫、PNG 解码 `noUncheckedIndexedAccess` 边界（`Buffer.readUInt8`/`?? 0`）；
   新增 `@types/node` devDependency。验证：tsc 0、lint 0、web build 0、聚焦源码 e2e
   （setup + documents）**2 passed**。
-- **仍待**：MS 产物重建 / hook-off 生产镜像 / 发布镜像 hub e2e 与 A6（未授权）；
-  30s 写租约 UX；baseline 传播竞态；A all-model 视觉与 damaged 半图夹具；
-  tile cache 404 console 噪声；EC schema 迁移；历史文档旧目录名。
+- **本地发布前置（2026-11-01，未发布）**：
+  - MS 产物 `backend-20261101-p28`（178,560,782 B，SHA256
+    `B2769D3867865ADD9FC12841E89C52D0976E3F103106F25BDE86BA73C9B5F2EE`；
+    RPC 契约 1.18.0；native provenance 5.15.5 / head `d29cf7e49fc2` /
+    `fallback=True`）已安装 `dist-backend/` 并以**产物模式**重启。日志
+    `LubanIpcHandler registered on channel: luban-ipc`、`LubanRpcInterface registered`、
+    `LubanFeatureRpcInterface registered`、`RPC rate limit: 100 req / 900000 ms per IP
+    (production default)`；`/rpc/metadata` 仅新名（无 OpenCloud）。旧 p27 产物保留为历史但
+    **不兼容**。
+  - 生产 web 镜像（B on、E2E hooks off）revision `aaef49627604`，`tiangong-kaiwu-web:latest`
+    已部署且健康；测试观测镜像保留为 `tiangong-kaiwu-web:e2e-hooks-b80bd24ff1c3`。
+    `verify-stack.ps1` **17/17**（Step D native fallback；Step E revision aaef496）。
+  - 新产物下的聚焦源码 e2e `A 旧文档只读`（setup + 1）**2 passed**（1.0m）。
+  - 历史文档旧名扫描：除删除记录/迁移记录/上游检查单与持久化 schema 例外外，无活跃指引；
+    该项关闭。
+- **仍待**：发布镜像 hub e2e 与 A6（未授权）；30s 写租约 UX；baseline 传播竞态；
+  A all-model 视觉与 damaged 半图夹具；tile cache 404 console 噪声；EC schema 迁移。
