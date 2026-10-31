@@ -128,7 +128,7 @@ http.createServer(app) + enableWs(app, server, ...)   // main.ts:126-146
 **核心组件**:
 - `LocalhostIpcHost`: iTwin.js IPC 主机
 - `BentleyCloudRpcManager`: RPC 管理器
-- `OpenCloudRpcInterface`: 自定义 RPC 接口
+- `LubanRpcInterface`: 自定义 RPC 接口
 - `EditCommandAdmin`: 编辑器命令管理
 
 **初始化流程**:
@@ -210,7 +210,7 @@ const response = await fetch('http://localhost:5400/itwins', {
 使用 Bentley Cloud RPC 协议：
 
 ```typescript
-const rpcClient = BentleyCloudRpcManager.getClient(OpenCloudRpcInterface);
+const rpcClient = BentleyCloudRpcManager.getClient(LubanRpcInterface);
 const briefcase = await rpcClient.acquireBriefcase(iModelId);
 ```
 
@@ -221,7 +221,7 @@ Content-Type: application/json
 
 {
   "operation": {
-    "interfaceName": "OpenCloudRpcInterface",
+    "interfaceName": "LubanRpcInterface",
     "interfaceVersion": "1.0.0",
     "operationName": "acquireBriefcase",
     "requestId": "uuid"
@@ -346,7 +346,7 @@ pushChanges() [RPC]
 
 - **开关**：MS `TILE_CACHE_STORAGE=azurite`(默认)/`local`(回退 native `.Tiles` sqlite)。
 - **改写接缝**：MS `PublicUrlTileStorage`(私仓 `modeling-server/src/tile/`)startup 后包装 `IModelHost.tileStorage`,只改 `getDownloadConfig` 的 baseUrl。
-- **容器**：Azurite 容器名 = iModelId,开库时 `OpenCloudIpcHandler._doDownloadBriefcase` 顶端 `initialize`(幂等,失败不阻断开库)。
+- **容器**：Azurite 容器名 = iModelId,开库时 `LubanIpcHandler._doDownloadBriefcase` 顶端 `initialize`(幂等,失败不阻断开库)。
 - **本地 .Tiles 缓存**：配置云缓存后上游自动禁用(`setMaxTileCacheSize(0)`)。
 - **密钥**:MS 新增必填 `AZURITE_ACCOUNT_KEY`(generate-env.ps1 已生成 well-known key;存量环境重跑脚本)。
 - **已知边界**：孤儿 blob 无清理(changeset 推进/删 iModel 后旧 tiles 残留),清理 agent 另行立项。
@@ -429,8 +429,8 @@ modeling-server 启用 CSRF 保护：
 
 ### 添加新的 RPC 方法
 
-1. 在 `OpenCloudRpcInterface` 添加方法声明
-2. 在 `OpenCloudRpcImpl` 实现方法
+1. 在 `LubanRpcInterface` 添加方法声明
+2. 在 `LubanRpcImpl` 实现方法
 3. 前端通过 RPC client 调用
 
 ### 添加新的 Webhook 处理器

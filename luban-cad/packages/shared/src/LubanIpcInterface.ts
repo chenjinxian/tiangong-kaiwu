@@ -11,7 +11,7 @@
 import type { Changeset } from './projects/types.js';
 
 /** IPC channel name for LubanCAD custom operations */
-export const openCloudIpcChannel = "open-cloud-ipc";
+export const lubanIpcChannel = "luban-ipc";
 
 /** Result returned after briefcase is located/downloaded on the backend */
 export interface BriefcaseDownloadResult {
@@ -38,7 +38,7 @@ export interface CadFeatureRecord {
 }
 
 /** Custom IPC interface for LubanCAD backend operations */
-export interface OpenCloudIpcInterface {
+export interface LubanIpcInterface {
   /**
    * Locate a cached briefcase or download a new one from iModelHub.
    *
@@ -48,7 +48,9 @@ export interface OpenCloudIpcInterface {
   downloadBriefcase(iTwinId: string, iModelId: string, readonly?: boolean): Promise<BriefcaseDownloadResult>;
 
   /**
-   * Ensure the OpenCloudCAD EC schema is imported into the briefcase iModel.
+   * Ensure the LubanCAD feature EC schema is imported into the briefcase iModel.
+   * The persisted schema name/alias is the legacy `OpenCloudCAD`/`ocad` in
+   * existing iModels; do not rename without a data migration.
    * Idempotent — safe to call multiple times.
    * @param fileName Absolute path to the .bim file
    */

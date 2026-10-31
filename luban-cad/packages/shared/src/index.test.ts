@@ -15,9 +15,9 @@ import {
   type CreateIModelRequest,
   type CreateITwinRequest,
   type IModel,
-  openCloudIpcChannel,
-  type OpenCloudIpcInterface,
-  OpenCloudRpcInterface,
+  lubanIpcChannel,
+  type LubanIpcInterface,
+  LubanRpcInterface,
   type ITwin,
   type ITwinListResponse,
   type UpdateITwinRequest,
@@ -31,9 +31,9 @@ import {
 } from './index.js';
 
 describe('Shared package exports', () => {
-  it('should export OpenCloudRpcInterface', () => {
-    expect(OpenCloudRpcInterface).toBeDefined();
-    expect(OpenCloudRpcInterface.interfaceName).toBe('OpenCloudRpcInterface');
+  it('should export LubanRpcInterface', () => {
+    expect(LubanRpcInterface).toBeDefined();
+    expect(LubanRpcInterface.interfaceName).toBe('LubanRpcInterface');
   });
 
   it('should export all ITwin types', () => {
@@ -146,8 +146,8 @@ describe('Shared package exports', () => {
   });
 
   it('should export IPC interface types and channel constant', () => {
-    const channel: string = openCloudIpcChannel;
-    expect(channel).toBe('open-cloud-ipc');
+    const channel: string = lubanIpcChannel;
+    expect(channel).toBe('luban-ipc');
 
     const result: BriefcaseDownloadResult = {
       fileName: '/path/to/file.bim',

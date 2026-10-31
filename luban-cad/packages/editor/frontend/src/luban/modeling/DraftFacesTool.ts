@@ -8,7 +8,7 @@
 //  1) 动态 `new (await import('@itwin/core-frontend')).NotifyMessageDetails(...)`
 //     收敛为静态导入（行为同）；2) app 级 i18n 改包内 toolMessage（见同目录
 // messages.ts 头注）。startEditCommand 第 3 参起为 'draftFaces' 后端命令
-// 载荷（OpenCloudRpcInterface.startEditCommand 变参契约）。
+// 载荷（LubanRpcInterface.startEditCommand 变参契约）。
 // 2026-10-22 随 editor 模块收编迁入本包（@itwin/editor-frontend）src/luban/
 // modeling/。
 
@@ -16,7 +16,7 @@ import { SubEntityLocationProps, SubEntityType } from '@itwin/editor-common';
 import { SolidModelingToolBase, SolidModelingToolBaseOptions } from './SolidModelingToolBase';
 import type { SolidModelingEventMap } from './SolidModelingEvents';
 import { type BeButtonEvent, EventHandled, IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
-import { OpenCloudRpcInterface } from '@luban-cad/shared';
+import { LubanRpcInterface } from '@luban-cad/shared';
 import { toolMessage } from './messages';
 
 export interface DraftFacesToolOptions extends SolidModelingToolBaseOptions {
@@ -133,7 +133,7 @@ export class DraftFacesTool extends SolidModelingToolBase<DraftFacesToolOptions>
       const faceIndices = this._selectedEntities.map(entity => entity.subEntity.index);
 
       // 调用 RPC 执行拔模操作
-      const rpc = OpenCloudRpcInterface.getClient();
+      const rpc = LubanRpcInterface.getClient();
 
       // 使用 startEditCommand 启动编辑命令
       await rpc.startEditCommand(

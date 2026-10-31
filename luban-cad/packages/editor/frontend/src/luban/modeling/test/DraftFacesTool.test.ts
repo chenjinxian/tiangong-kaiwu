@@ -49,7 +49,7 @@ vi.mock('../../../ElementGeometryTool', () => ({
 }));
 
 vi.mock('@luban-cad/shared', () => ({
-  OpenCloudRpcInterface: { getClient: mocks.getClientMock },
+  LubanRpcInterface: { getClient: mocks.getClientMock },
 }));
 
 import { IModelApp } from '@itwin/core-frontend';

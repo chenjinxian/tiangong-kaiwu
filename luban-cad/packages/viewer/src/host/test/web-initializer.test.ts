@@ -32,7 +32,7 @@ vi.mock('@itwin/core-common', () => ({
   IModelTileRpcInterface: class {},
 }));
 vi.mock('@luban-cad/shared', () => ({
-  OpenCloudRpcInterface: class {},
+  LubanRpcInterface: class {},
   LubanFeatureRpcInterface: class {},
 }));
 vi.mock('@itwin/editor-frontend', () => ({ EditTools: { initialize: vi.fn() } }));
@@ -64,7 +64,7 @@ describe('startViewer（移植自 WebInitializer）', () => {
     expect(arg.iModelApp.authorizationClient).toBeDefined();
   });
 
-  it('rpcInterfaces 含 4 通道（OpenCloud/Feature/Read/Tile）', async () => {
+  it('rpcInterfaces 含 4 通道（Luban/Feature/Read/Tile）', async () => {
     await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
     const arg = startupMock.mock.calls[0][0];
     expect(arg.iModelApp.rpcInterfaces).toHaveLength(4);

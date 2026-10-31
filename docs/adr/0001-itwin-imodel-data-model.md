@@ -641,7 +641,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | iModel 状态展示 | `document-details/internal/imodels.mapper.ts:29`；`docs/IMODEL_AUTO_RECOVERY_DESIGN.md:42-74` |
 | 遗留 iTwin 枚举 | `luban-cad/packages/shared/src/projects/types.ts:47,53-86` |
 | BFF 仅网关 | `services/bff/src/app.ts:21-32,82-86`；`proxy.ts:15,43` |
-| acquireBriefcase RPC 为桩 | `dist-backend/modeling-server/dist/rpc/OpenCloudRpcImpl.js:29-40` |
+| acquireBriefcase RPC 为桩 | `dist-backend/modeling-server/dist/rpc/LubanRpcImpl.js:29-40` |
 | iModel 创建/baseline 流 | `docs/Architecture.md:145-158,267-298` |
 | 编辑/push 流 | `docs/Architecture.md:300-331` |
 | Tile 缓存边界 | `docs/Architecture.md:333-352` |

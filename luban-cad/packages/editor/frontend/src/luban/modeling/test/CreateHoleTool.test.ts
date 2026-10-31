@@ -36,7 +36,7 @@ vi.mock('@itwin/core-frontend', () => ({
 }));
 
 vi.mock('@luban-cad/shared', () => ({
-  OpenCloudRpcInterface: { getClient: mocks.getClientMock },
+  LubanRpcInterface: { getClient: mocks.getClientMock },
 }));
 
 import { type BeButtonEvent, IModelApp } from '@itwin/core-frontend';

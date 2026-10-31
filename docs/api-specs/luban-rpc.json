@@ -3,12 +3,12 @@
   "info": {
     "title": "LubanCAD RpcInterface Contracts",
     "version": "1.0.0",
-    "description": "Machine-generated from packages/shared RpcInterface definitions (scripts/generate-openapi.ts).\nDo not edit by hand; regenerate via `pnpm gen:openapi` and commit the result.\n\nExcluded from v1 (registered):\n- OpenCloudIpcInterface: non-RpcInterface IPC channel (IpcApp open-cloud-ipc), not HTTP-addressable.\n- Server-side zod registry (luban-backend FeatureTypeRegistry) op parameter schemas: later wave."
+    "description": "Machine-generated from packages/shared RpcInterface definitions (scripts/generate-openapi.ts).\nDo not edit by hand; regenerate via `pnpm gen:openapi` and commit the result.\n\nExcluded from v1 (registered):\n- LubanIpcInterface: non-RpcInterface IPC channel (IpcApp luban-ipc), not HTTP-addressable.\n- Server-side zod registry (luban-backend FeatureTypeRegistry) op parameter schemas: later wave."
   },
   "paths": {
-    "/OpenCloudRpcInterface-1.0.0/acquireBriefcase": {
+    "/LubanRpcInterface-1.0.0/acquireBriefcase": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-acquireBriefcase",
+        "operationId": "LubanRpcInterface-1.0.0-acquireBriefcase",
         "summary": "Acquire a briefcase for an iModel This operation requires BriefcaseDb access on the backend",
         "requestBody": {
           "required": true,
@@ -52,9 +52,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/releaseBriefcase": {
+    "/LubanRpcInterface-1.0.0/releaseBriefcase": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-releaseBriefcase",
+        "operationId": "LubanRpcInterface-1.0.0-releaseBriefcase",
         "summary": "Release a briefcase",
         "requestBody": {
           "required": true,
@@ -94,9 +94,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/pullChangesets": {
+    "/LubanRpcInterface-1.0.0/pullChangesets": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-pullChangesets",
+        "operationId": "LubanRpcInterface-1.0.0-pullChangesets",
         "summary": "Pull changesets for a briefcase",
         "requestBody": {
           "required": true,
@@ -146,9 +146,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/pushChanges": {
+    "/LubanRpcInterface-1.0.0/pushChanges": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-pushChanges",
+        "operationId": "LubanRpcInterface-1.0.0-pushChanges",
         "summary": "Push changes to an iModel",
         "requestBody": {
           "required": true,
@@ -198,9 +198,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/compareChangesets": {
+    "/LubanRpcInterface-1.0.0/compareChangesets": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-compareChangesets",
+        "operationId": "LubanRpcInterface-1.0.0-compareChangesets",
         "summary": "Compare two changesets and return differences",
         "requestBody": {
           "required": true,
@@ -250,9 +250,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/readExternalSavedViews": {
+    "/LubanRpcInterface-1.0.0/readExternalSavedViews": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-readExternalSavedViews",
+        "operationId": "LubanRpcInterface-1.0.0-readExternalSavedViews",
         "summary": "Read external saved views from file Reference: display-test-app implementation",
         "requestBody": {
           "required": true,
@@ -296,9 +296,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/writeExternalSavedViews": {
+    "/LubanRpcInterface-1.0.0/writeExternalSavedViews": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-writeExternalSavedViews",
+        "operationId": "LubanRpcInterface-1.0.0-writeExternalSavedViews",
         "summary": "Write external saved views to file",
         "requestBody": {
           "required": true,
@@ -338,9 +338,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/readExternalCameraPaths": {
+    "/LubanRpcInterface-1.0.0/readExternalCameraPaths": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-readExternalCameraPaths",
+        "operationId": "LubanRpcInterface-1.0.0-readExternalCameraPaths",
         "summary": "Read external camera paths from file",
         "requestBody": {
           "required": true,
@@ -384,9 +384,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/writeExternalCameraPaths": {
+    "/LubanRpcInterface-1.0.0/writeExternalCameraPaths": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-writeExternalCameraPaths",
+        "operationId": "LubanRpcInterface-1.0.0-writeExternalCameraPaths",
         "summary": "Write external camera paths to file",
         "requestBody": {
           "required": true,
@@ -426,9 +426,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/exportIModel": {
+    "/LubanRpcInterface-1.0.0/exportIModel": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-exportIModel",
+        "operationId": "LubanRpcInterface-1.0.0-exportIModel",
         "summary": "Export iModel to GLTF format Returns file content as bytes",
         "requestBody": {
           "required": true,
@@ -479,9 +479,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/getConfiguration": {
+    "/LubanRpcInterface-1.0.0/getConfiguration": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-getConfiguration",
+        "operationId": "LubanRpcInterface-1.0.0-getConfiguration",
         "summary": "Get application configuration from backend",
         "requestBody": {
           "required": true,
@@ -532,9 +532,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/terminate": {
+    "/LubanRpcInterface-1.0.0/terminate": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-terminate",
+        "operationId": "LubanRpcInterface-1.0.0-terminate",
         "summary": "Terminate backend (for graceful shutdown)",
         "requestBody": {
           "required": true,
@@ -565,9 +565,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/startEditCommand": {
+    "/LubanRpcInterface-1.0.0/startEditCommand": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-startEditCommand",
+        "operationId": "LubanRpcInterface-1.0.0-startEditCommand",
         "summary": "Start an edit command on the backend This integrates with",
         "requestBody": {
           "required": true,
@@ -616,9 +616,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/callEditMethod": {
+    "/LubanRpcInterface-1.0.0/callEditMethod": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-callEditMethod",
+        "operationId": "LubanRpcInterface-1.0.0-callEditMethod",
         "summary": "Call a method on the active edit command",
         "requestBody": {
           "required": true,
@@ -664,9 +664,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/finishEditCommand": {
+    "/LubanRpcInterface-1.0.0/finishEditCommand": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-finishEditCommand",
+        "operationId": "LubanRpcInterface-1.0.0-finishEditCommand",
         "summary": "Finish the current edit command",
         "requestBody": {
           "required": true,
@@ -704,9 +704,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/detectConflicts": {
+    "/LubanRpcInterface-1.0.0/detectConflicts": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-detectConflicts",
+        "operationId": "LubanRpcInterface-1.0.0-detectConflicts",
         "summary": "Detect conflicts before pulling changesets. Checks for conflicts between local pending changes and remote changesets.",
         "requestBody": {
           "required": true,
@@ -750,9 +750,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/resolveConflicts": {
+    "/LubanRpcInterface-1.0.0/resolveConflicts": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-resolveConflicts",
+        "operationId": "LubanRpcInterface-1.0.0-resolveConflicts",
         "summary": "Resolve conflicts after detection. Applies the specified resolutions to conflicts and prepares for pull.",
         "requestBody": {
           "required": true,
@@ -796,9 +796,9 @@
         }
       }
     },
-    "/OpenCloudRpcInterface-1.0.0/hasLocalChanges": {
+    "/LubanRpcInterface-1.0.0/hasLocalChanges": {
       "post": {
-        "operationId": "OpenCloudRpcInterface-1.0.0-hasLocalChanges",
+        "operationId": "LubanRpcInterface-1.0.0-hasLocalChanges",
         "summary": "Check if there are local pending changes that haven't been pushed.",
         "requestBody": {
           "required": true,
@@ -845,9 +845,10 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/getFeatureTree": {
+    "/LubanFeatureRpcInterface-1.18.0/listPartStudios": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-getFeatureTree",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-listPartStudios",
+        "summary": "B-model P2.2 v1.18：列 Part Studio 注册表（纯读——不初始化、不建分区；空文档=[]）。 顺序=metadata.order 升序、同序按分区 ECInstanceId；无元数据的 P1 标签 name=id/order=0。",
         "requestBody": {
           "required": true,
           "description": "Positional parameters: iModelKey",
@@ -857,6 +858,210 @@
                 "type": "array",
                 "items": {
                   "anyOf": [
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PartStudioInfo"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.18.0/createPartStudio": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.18.0-createPartStudio",
+        "summary": "B-model P2.2 v1.18：创建 Part Studio（唯一创建者）——显式初始化 def/phys model + init BodySolid，并在 def 分区 JsonProperties.luban.partStudio 写注册表元数据。 空/scoped 文档可建；legacy/mixed/unknown 文档诚实拒收；名称 trim 后非空且 ≤120 字符。 `sessionId` 必填且须持有该 iModel 的写租约（assertHeld 失败→拒收，不建任何东西）。",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, name, sessionId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartStudioInfo"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.18.0/renamePartStudio": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.18.0-renamePartStudio",
+        "summary": "B-model P2.2 v1.18：重命名 Part Studio（仅改元数据；id/order/createdAt 保持）。 不存在/legacy scope 诚实拒收；名称校验同 createPartStudio；`sessionId` 必填且须持写租约。",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, partStudioId, name, sessionId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartStudioInfo"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.18.0/deletePartStudio": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.18.0-deletePartStudio",
+        "summary": "B-model P2.2 v1.18：删除 Part Studio（只删本 scope 的 features/sketches/bodies/OpLog/ def+phys models/分区；共享 SpatialCategory 与其它 scope 不受影响）。**最后一个完整 scope 拒删**（抛错）；**同一事务写持久 tombstone**——已删 scope 的惰性初始化/读写不得复活。 `sessionId` 必填且须持写租约。",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, partStudioId, sessionId",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.18.0/getFeatureTree": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.18.0-getFeatureTree",
+        "summary": "B-model v1.17：可选 `partStudioId`——缺省=legacy 单工作室读面（旧行为逐字）。",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, partStudioId?",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
                     {
                       "type": "string"
                     }
@@ -893,12 +1098,13 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/applyFeatureOp": {
+    "/LubanFeatureRpcInterface-1.18.0/applyFeatureOp": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-applyFeatureOp",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-applyFeatureOp",
+        "summary": "B-model v1.17：可选 `partStudioId`——缺省=legacy 写路径（含 legacy 写保护：库内有 scoped 分区即拒收）。",
         "requestBody": {
           "required": true,
-          "description": "Positional parameters: iModelKey, op, sessionId",
+          "description": "Positional parameters: iModelKey, op, sessionId, partStudioId?",
           "content": {
             "application/json": {
               "schema": {
@@ -910,6 +1116,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/FeatureOp"
+                    },
+                    {
+                      "type": "string"
                     },
                     {
                       "type": "string"
@@ -944,9 +1153,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/acquireWriteLease": {
+    "/LubanFeatureRpcInterface-1.18.0/acquireWriteLease": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-acquireWriteLease",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-acquireWriteLease",
         "requestBody": {
           "required": true,
           "description": "Positional parameters: iModelKey, sessionId, user?",
@@ -1006,9 +1215,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/releaseWriteLease": {
+    "/LubanFeatureRpcInterface-1.18.0/releaseWriteLease": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-releaseWriteLease",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-releaseWriteLease",
         "requestBody": {
           "required": true,
           "description": "Positional parameters: iModelKey, sessionId",
@@ -1047,13 +1256,13 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/previewFeatureOp": {
+    "/LubanFeatureRpcInterface-1.18.0/previewFeatureOp": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-previewFeatureOp",
-        "summary": "M3-a v1.1：op 预览（不提交事务，回报受影响特征）",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-previewFeatureOp",
+        "summary": "M3-a v1.1：op 预览（不提交事务，回报受影响特征）；B-model v1.17 可选 `partStudioId`（缺省=legacy 读面）",
         "requestBody": {
           "required": true,
-          "description": "Positional parameters: iModelKey, op, sessionId",
+          "description": "Positional parameters: iModelKey, op, sessionId, partStudioId?",
           "content": {
             "application/json": {
               "schema": {
@@ -1065,6 +1274,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/FeatureOp"
+                    },
+                    {
+                      "type": "string"
                     },
                     {
                       "type": "string"
@@ -1099,10 +1311,10 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/resolveEdgeRef": {
+    "/LubanFeatureRpcInterface-1.18.0/resolveEdgeRef": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-resolveEdgeRef",
-        "summary": "M3-a v1.1：拾取元素子实体 → 邻面对边引用（edgeRefs 表单值的寻址端点）",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-resolveEdgeRef",
+        "summary": "M3-a v1.1：拾取元素子实体 → 边引用（edgeRefs 表单值的寻址端点；M6-d v1.9 起 ref=边自身持久 id 单引用——邻接通道门禁 + op31 边语义换号，面对对已退役）。",
         "requestBody": {
           "required": true,
           "description": "Positional parameters: iModelKey, elementId, subEntityId",
@@ -1165,9 +1377,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/resolveFaceRef": {
+    "/LubanFeatureRpcInterface-1.18.0/resolveFaceRef": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-resolveFaceRef",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-resolveFaceRef",
         "summary": "RW2-T7 v1.5：拾取元素面 → 持久拓扑 id（faceRefs/shell faces 表单值的寻址端点；op31 topologyIdFromSubEntity）",
         "requestBody": {
           "required": true,
@@ -1231,9 +1443,9 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/getFeatureFormModel": {
+    "/LubanFeatureRpcInterface-1.18.0/getFeatureFormModel": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-getFeatureFormModel",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-getFeatureFormModel",
         "summary": "M3-a v1.1：按特征类型取参数表单模型（前端动态渲染）",
         "requestBody": {
           "required": true,
@@ -1277,19 +1489,22 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/getSketch": {
+    "/LubanFeatureRpcInterface-1.18.0/getSketch": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-getSketch",
-        "summary": "M3-b v1.2：读单张草图（实体+约束+解算状态；不存在返回 undefined）",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-getSketch",
+        "summary": "M3-b v1.2：读单张草图（实体+约束+解算状态；不存在返回 undefined）；B-model v1.17 可选 `partStudioId`",
         "requestBody": {
           "required": true,
-          "description": "Positional parameters: iModelKey, sketchId",
+          "description": "Positional parameters: iModelKey, sketchId, partStudioId?",
           "content": {
             "application/json": {
               "schema": {
                 "type": "array",
                 "items": {
                   "anyOf": [
+                    {
+                      "type": "string"
+                    },
                     {
                       "type": "string"
                     },
@@ -1331,19 +1546,22 @@
         }
       }
     },
-    "/LubanFeatureRpcInterface-1.5.0/listSketches": {
+    "/LubanFeatureRpcInterface-1.18.0/listSketches": {
       "post": {
-        "operationId": "LubanFeatureRpcInterface-1.5.0-listSketches",
-        "summary": "M3-b v1.2：列 iModel 内全部草图（摘要读面）",
+        "operationId": "LubanFeatureRpcInterface-1.18.0-listSketches",
+        "summary": "M3-b v1.2：列 iModel 内全部草图（摘要读面）；B-model v1.17 可选 `partStudioId`（缺省=legacy 全库读面）",
         "requestBody": {
           "required": true,
-          "description": "Positional parameters: iModelKey",
+          "description": "Positional parameters: iModelKey, partStudioId?",
           "content": {
             "application/json": {
               "schema": {
                 "type": "array",
                 "items": {
                   "anyOf": [
+                    {
+                      "type": "string"
+                    },
                     {
                       "type": "string"
                     }
@@ -1362,6 +1580,58 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/SketchSummaryDto"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/LubanFeatureRpcInterface-1.18.0/getBodies": {
+      "post": {
+        "operationId": "LubanFeatureRpcInterface-1.18.0-getBodies",
+        "summary": "B6 M-A3.1 v1.15：body 读面（只读，无租约门禁）——authored body（含 consumed 的 active=false）， 按 bodyKey 升序；直改副本/orphan 不在读面。M3.2 的树/参数面板消费。",
+        "requestBody": {
+          "required": true,
+          "description": "Positional parameters: iModelKey, partStudioId?",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BodyInfo"
                   }
                 }
               }
@@ -1653,6 +1923,33 @@
           "resolvedCount"
         ]
       },
+      "PartStudioInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "order": {
+            "type": "number"
+          },
+          "defModelId": {
+            "type": "string"
+          },
+          "physModelId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "order",
+          "defModelId",
+          "physModelId"
+        ]
+      },
       "FeatureTreeEntry": {
         "type": "object",
         "properties": {
@@ -1701,11 +1998,20 @@
                   "booleanSubtract",
                   "fillet",
                   "chamfer",
-                  "shell"
+                  "shell",
+                  "revolve",
+                  "loft",
+                  "sweep",
+                  "mirror",
+                  "pattern",
+                  "booleanBodies"
                 ]
               },
               "params": {
                 "$ref": "#/components/schemas/FeatureParams"
+              },
+              "targetBodyId": {
+                "type": "string"
               }
             },
             "required": [
@@ -1746,6 +2052,9 @@
                 ]
               },
               "featureId": {
+                "type": "string"
+              },
+              "targetBodyId": {
                 "type": "string"
               }
             },
@@ -1844,6 +2153,9 @@
                 "items": {
                   "$ref": "#/components/schemas/SketchConstraintDto"
                 }
+              },
+              "plane": {
+                "$ref": "#/components/schemas/SketchPlaneDto"
               }
             },
             "required": [
@@ -2007,16 +2319,12 @@
       "FilletEdgeRef": {
         "type": "object",
         "properties": {
-          "faceA": {
-            "$ref": "#/components/schemas/LubanTopologyId"
-          },
-          "faceB": {
+          "edge": {
             "$ref": "#/components/schemas/LubanTopologyId"
           }
         },
         "required": [
-          "faceA",
-          "faceB"
+          "edge"
         ]
       },
       "LubanTopologyId": {
@@ -2060,6 +2368,15 @@
           },
           "solve": {
             "$ref": "#/components/schemas/SketchSolveStateDto"
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SketchRegionDto"
+            }
+          },
+          "plane": {
+            "$ref": "#/components/schemas/SketchPlaneDto"
           }
         },
         "required": [
@@ -2086,6 +2403,30 @@
           "id",
           "entityCount",
           "constraintCount"
+        ]
+      },
+      "BodyInfo": {
+        "type": "object",
+        "properties": {
+          "bodyKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "sourceFeatureId": {
+            "type": "string"
+          },
+          "authored": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bodyKey",
+          "active"
         ]
       },
       "BriefcaseLinks": {
@@ -2281,6 +2622,27 @@
           },
           {
             "$ref": "#/components/schemas/ShellParams"
+          },
+          {
+            "$ref": "#/components/schemas/RevolveParams"
+          },
+          {
+            "$ref": "#/components/schemas/BooleanParams"
+          },
+          {
+            "$ref": "#/components/schemas/LoftParams"
+          },
+          {
+            "$ref": "#/components/schemas/SweepParams"
+          },
+          {
+            "$ref": "#/components/schemas/MirrorParams"
+          },
+          {
+            "$ref": "#/components/schemas/PatternParams"
+          },
+          {
+            "$ref": "#/components/schemas/BooleanBodiesParams"
           }
         ]
       },
@@ -2360,6 +2722,37 @@
               "id",
               "center"
             ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "arc"
+                ]
+              },
+              "id": {
+                "type": "number"
+              },
+              "center": {
+                "type": "number"
+              },
+              "radius": {
+                "type": "number"
+              },
+              "startAngle": {
+                "type": "number"
+              },
+              "sweepAngle": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "center"
+            ]
           }
         ]
       },
@@ -2396,6 +2789,73 @@
           "kind",
           "id",
           "refs"
+        ]
+      },
+      "SketchPlaneDto": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ]
+          },
+          "normal": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ]
+          },
+          "xDir": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "z"
+            ]
+          }
+        },
+        "required": [
+          "origin",
+          "normal",
+          "xDir"
         ]
       },
       "FeatureFormModelEntry": {
@@ -2450,6 +2910,30 @@
           "conflictingRank"
         ]
       },
+      "SketchRegionDto": {
+        "type": "object",
+        "properties": {
+          "area": {
+            "type": "number"
+          },
+          "outerEntityIds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "holeEntityIds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "area",
+          "outerEntityIds"
+        ]
+      },
       "PropertyDifference": {
         "type": "object",
         "properties": {
@@ -2491,6 +2975,21 @@
           },
           "sketchId": {
             "type": "string"
+          },
+          "regionIndex": {
+            "type": "number"
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "symmetric": {
+            "type": "boolean"
+          },
+          "newBody": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2601,6 +3100,205 @@
           "distances"
         ]
       },
+      "RevolveParams": {
+        "type": "object",
+        "properties": {
+          "sketchId": {
+            "type": "string"
+          },
+          "regionIndex": {
+            "type": "number"
+          },
+          "axis": {
+            "type": "object",
+            "properties": {
+              "sketchEntityId": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "sketchEntityId"
+            ]
+          },
+          "fullRevolve": {
+            "type": "boolean"
+          },
+          "angle": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "sketchId",
+          "axis",
+          "fullRevolve"
+        ]
+      },
+      "BooleanParams": {
+        "type": "object",
+        "properties": {
+          "sketchId": {
+            "type": "string"
+          },
+          "regionIndex": {
+            "type": "number"
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "distance": {
+            "type": "number"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "unite",
+              "subtract"
+            ]
+          }
+        },
+        "required": [
+          "sketchId",
+          "distance",
+          "operation"
+        ]
+      },
+      "LoftParams": {
+        "type": "object",
+        "properties": {
+          "sketchIds": {
+            "type": "object"
+          },
+          "sections": {
+            "type": "number"
+          },
+          "bodyType": {
+            "type": "string",
+            "enum": [
+              "SOLID"
+            ]
+          }
+        },
+        "required": [
+          "sketchIds",
+          "bodyType"
+        ]
+      },
+      "SweepParams": {
+        "type": "object",
+        "properties": {
+          "profileSketchId": {
+            "type": "string"
+          },
+          "pathSketchId": {
+            "type": "string"
+          },
+          "bodyType": {
+            "type": "string",
+            "enum": [
+              "SOLID"
+            ]
+          }
+        },
+        "required": [
+          "profileSketchId",
+          "pathSketchId",
+          "bodyType"
+        ]
+      },
+      "MirrorParams": {
+        "type": "object",
+        "properties": {
+          "plane": {
+            "type": "string",
+            "enum": [
+              "XY",
+              "YZ",
+              "XZ"
+            ]
+          },
+          "keepOriginal": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "plane",
+          "keepOriginal"
+        ]
+      },
+      "PatternParams": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "linear",
+              "circular"
+            ]
+          },
+          "count": {
+            "type": "number"
+          },
+          "spacing": {
+            "type": "number"
+          },
+          "angle": {
+            "type": "number"
+          },
+          "axis": {
+            "type": "string",
+            "enum": [
+              "X",
+              "Y",
+              "Z"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "count",
+          "axis"
+        ]
+      },
+      "BooleanBodiesParams": {
+        "type": "object",
+        "properties": {
+          "targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BodyRef"
+            }
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BodyRef"
+            }
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "unite",
+              "subtract",
+              "intersect"
+            ]
+          },
+          "keepTools": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "targets",
+          "tools",
+          "operation",
+          "keepTools"
+        ]
+      },
       "FeatureFormField": {
         "type": "object",
         "properties": {
@@ -2630,19 +3328,32 @@
           "label",
           "kind"
         ]
+      },
+      "BodyRef": {
+        "type": "object",
+        "properties": {
+          "bodyKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "bodyKey"
+        ]
       }
     }
   },
   "x-luban-excluded": [
     {
-      "interface": "OpenCloudIpcInterface",
-      "file": "luban-cad/packages/shared/src/OpenCloudIpcInterface.ts",
+      "interface": "LubanIpcInterface",
+      "file": "luban-cad/packages/shared/src/LubanIpcInterface.ts",
       "reason": "非 RpcInterface 形态（IpcApp 自定义 IPC 通道），v1 显式排除"
     }
   ],
   "x-luban-sources": [
-    "luban-cad/packages/shared/src/rpc/OpenCloudRpcInterface.ts",
+    "luban-cad/packages/shared/src/rpc/LubanRpcInterface.ts",
     "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts"
   ],
-  "x-luban-warnings": []
+  "x-luban-warnings": [
+    "unsupported type syntax '[string, string]' — emitted as free-form object"
+  ]
 }

@@ -4,7 +4,7 @@
  *
  * useBriefcaseConnection（M4 Task 1）：可写编辑连接 hook——语义逐行移植自
  * 旧应用查看器包的 `useBriefcaseConnection.ts`（2026-10-22；旧包已删除）：
- * - 打开流：`openCloud.downloadBriefcase(iTwinId, iModelId, readonly)`（后端定位/下载
+ * - 打开流：`lubanIpc.downloadBriefcase(iTwinId, iModelId, readonly)`（后端定位/下载
  *   .bim）→ `BriefcaseConnection.openFile({ fileName, readonly, key: fileName })`
  *   （key=fileName 供后端 findByFilename 兼容；openFile 自身触发 openBriefcase IPC）；
  * - options=null 短路：零 IPC，并关既有连接（权限未载前防竞态的调用姿态与旧应用一致）；
@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BriefcaseConnection, IpcApp } from '@itwin/core-frontend';
-import { openCloudIpcChannel, type OpenCloudIpcInterface } from '@luban-cad/shared';
+import { lubanIpcChannel, type LubanIpcInterface } from '@luban-cad/shared';
 
 export interface UseBriefcaseConnectionOptions {
   iTwinId: string;
@@ -123,8 +123,8 @@ export function useBriefcaseConnection(
 
       try {
         // Step 1：后端定位（或下载）briefcase
-        const openCloud = IpcApp.makeIpcProxy<OpenCloudIpcInterface>(openCloudIpcChannel);
-        const result = await openCloud.downloadBriefcase(iTwinId, iModelId, readonly);
+        const lubanIpc = IpcApp.makeIpcProxy<LubanIpcInterface>(lubanIpcChannel);
+        const result = await lubanIpc.downloadBriefcase(iTwinId, iModelId, readonly);
 
         if (cancelled) return;
 

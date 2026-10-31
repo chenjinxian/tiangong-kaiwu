@@ -23,7 +23,7 @@ import { IModelApp, IpcApp, LocalhostIpcApp, type NotificationManager } from '@i
 import { FrontendIModelsAccess } from '@itwin/imodels-access-frontend';
 import { BentleyCloudRpcManager, IModelReadRpcInterface, IModelTileRpcInterface } from '@itwin/core-common';
 import { IModelsClient } from '@itwin/imodels-client-management';
-import { LubanFeatureRpcInterface, OpenCloudRpcInterface } from '@luban-cad/shared';
+import { LubanFeatureRpcInterface, LubanRpcInterface } from '@luban-cad/shared';
 import { ensureAccuSnap } from '../tools/ensure-accusnap.js';
 
 export interface StartViewerOptions {
@@ -91,7 +91,7 @@ export async function startViewer(options: StartViewerOptions): Promise<void> {
 async function doStartViewer(options: StartViewerOptions): Promise<void> {
   const { backendUrl, hubUrl, accessToken, notifications } = options;
 
-  const rpcInterfaces = [OpenCloudRpcInterface, LubanFeatureRpcInterface, IModelReadRpcInterface, IModelTileRpcInterface];
+  const rpcInterfaces = [LubanRpcInterface, LubanFeatureRpcInterface, IModelReadRpcInterface, IModelTileRpcInterface];
 
   // P2.6c2 发布级修复（重载崩溃实证）：RPC client 必须在 host startup **之前**注册。
   // `LocalhostIpcApp.startup` 的第一句就把 `IpcApp.isValid` 置真（_ipc 赋值），而

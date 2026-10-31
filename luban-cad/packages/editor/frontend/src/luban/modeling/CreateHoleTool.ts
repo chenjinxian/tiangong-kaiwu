@@ -11,7 +11,7 @@
 
 import { BeButtonEvent, EventHandled, IModelApp, NotifyMessageDetails, OutputMessagePriority, PrimitiveTool } from '@itwin/core-frontend';
 import { Point3d } from '@itwin/core-geometry';
-import { OpenCloudRpcInterface } from '@luban-cad/shared';
+import { LubanRpcInterface } from '@luban-cad/shared';
 import { toolMessage } from './messages';
 
 /**
@@ -101,7 +101,7 @@ export class CreateHoleTool extends PrimitiveTool {
       }
 
       // 调用 RPC 执行打孔操作
-      const rpc = OpenCloudRpcInterface.getClient();
+      const rpc = LubanRpcInterface.getClient();
 
       // 使用 startEditCommand 启动编辑命令
       await rpc.startEditCommand(

@@ -53,7 +53,7 @@ describe("LubanFeatureRpcInterface", () => {
     expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
   });
 
-  it("提供 getClient 静态入口（同 OpenCloudRpcInterface 模式）", () => {
+  it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
     expect(typeof LubanFeatureRpcInterface.getClient).toBe("function");
   });
 });

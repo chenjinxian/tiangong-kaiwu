@@ -250,7 +250,7 @@ interface SketchElement extends GeometricElement2d {
   
   // 自定义属性 - 关联到外部约束数据
   jsonProperties: {
-    openCloudCad: {
+    luban: {
       sketchId: string;           // 引用 MongoDB 中的约束定义
       featureId: string;          // 属于哪个 Feature
       version: number;            // 约束版本号

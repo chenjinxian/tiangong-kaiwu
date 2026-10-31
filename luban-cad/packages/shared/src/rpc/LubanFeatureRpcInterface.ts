@@ -439,12 +439,12 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * 接口名必须是干净标识符：BentleyCloudRpcProtocol 的 URL 操作路径按 "-" 与 "/"
    * 切分解析（itwinjs-core BentleyCloudRpcProtocol.getOperationFromPath），
    * "luban-cad/features-v1" 这类带 "/" "-" 的名字永远无法被 HTTP RPC 寻址
-   * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 OpenCloudRpcInterface 惯例。
+   * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
   public static interfaceVersion = "1.18.0";
 
-  /** 前端消费方入口（同 OpenCloudRpcInterface.getClient 模式） */
+  /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
     return RpcManager.getClientForInterface(LubanFeatureRpcInterface);
   }

@@ -39,7 +39,7 @@ vi.mock('@itwin/core-frontend', () => ({
   IpcApp: { makeIpcProxy: makeIpcProxyMock, isValid: true },
   BriefcaseConnection: { openFile: openFileMock },
 }));
-vi.mock('@luban-cad/shared', () => ({ openCloudIpcChannel: 'open-cloud-ipc' }));
+vi.mock('@luban-cad/shared', () => ({ lubanIpcChannel: 'luban-ipc' }));
 
 import {
   useBriefcaseConnection,

@@ -132,7 +132,7 @@ vi.mock('@itwin/editor-frontend', () => {
 });
 
 vi.mock('@luban-cad/shared', () => ({
-  OpenCloudRpcInterface: { getClient: vi.fn() },
+  LubanRpcInterface: { getClient: vi.fn() },
 }));
 
 import type * as EditToolsRegistry from '../register-edit-tools.js';

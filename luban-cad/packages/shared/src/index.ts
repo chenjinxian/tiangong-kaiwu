@@ -195,7 +195,7 @@ export type {
 // =============================================================================
 // RPC Interface
 // =============================================================================
-export { OpenCloudRpcInterface } from './rpc/OpenCloudRpcInterface.js';
+export { LubanRpcInterface } from './rpc/LubanRpcInterface.js';
 export { LubanFeatureRpcInterface } from './rpc/LubanFeatureRpcInterface.js';
 export type {
   LubanFeatureType, ExtrudeParams, FeatureOp, FeatureTreeEntry, FeatureOpResult,
@@ -240,14 +240,14 @@ export type { OpDslValidator, OpDslParseOptions } from './opDsl.js';
 // Error Types
 // =============================================================================
 export {
-  OpenCloudCADError,
-  OpenCloudCADErrorCode,
-  isOpenCloudCADError,
-} from './errors/OpenCloudCADError.js';
+  LubanCADError,
+  LubanCADErrorCode,
+  isLubanCADError,
+} from './errors/LubanCADError.js';
 
 // =============================================================================
 // IPC Interface
 // =============================================================================
-export { openCloudIpcChannel } from './OpenCloudIpcInterface.js';
-export type { OpenCloudIpcInterface, BriefcaseDownloadResult, CadFeatureRecord } from './OpenCloudIpcInterface.js';
+export { lubanIpcChannel } from './LubanIpcInterface.js';
+export type { LubanIpcInterface, BriefcaseDownloadResult, CadFeatureRecord } from './LubanIpcInterface.js';
 export { LUBAN_INIT_TXN_DESCRIPTION } from './constants.js';

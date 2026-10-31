@@ -2,20 +2,20 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Tests for OpenCloudRpcInterface
+ * Tests for LubanRpcInterface
  */
 
 import { describe, expect, it } from 'vitest';
-import { OpenCloudRpcInterface } from './OpenCloudRpcInterface.js';
+import { LubanRpcInterface } from './LubanRpcInterface.js';
 import type { Briefcase, Changeset } from '../projects/types.js';
 
-describe('OpenCloudRpcInterface', () => {
+describe('LubanRpcInterface', () => {
   it('should have correct interface name', () => {
-    expect(OpenCloudRpcInterface.interfaceName).toBe('OpenCloudRpcInterface');
+    expect(LubanRpcInterface.interfaceName).toBe('LubanRpcInterface');
   });
 
   it('should have correct interface version', () => {
-    expect(OpenCloudRpcInterface.interfaceVersion).toBe('1.0.0');
+    expect(LubanRpcInterface.interfaceVersion).toBe('1.0.0');
   });
 });
 

@@ -24,9 +24,9 @@ import type {
  *
  * Note: User/Project management uses iModelHub Services REST API directly
  */
-export abstract class OpenCloudRpcInterface extends RpcInterface {
+export abstract class LubanRpcInterface extends RpcInterface {
   /** The immutable name of the interface */
-  public static readonly interfaceName = 'OpenCloudRpcInterface';
+  public static readonly interfaceName = 'LubanRpcInterface';
 
   /** The version of the interface */
   public static interfaceVersion = '1.0.0';
@@ -35,8 +35,8 @@ export abstract class OpenCloudRpcInterface extends RpcInterface {
   public static types = () => [];
 
   /** Get the client instance */
-  public static getClient(): OpenCloudRpcInterface {
-    return RpcManager.getClientForInterface(OpenCloudRpcInterface);
+  public static getClient(): LubanRpcInterface {
+    return RpcManager.getClientForInterface(LubanRpcInterface);
   }
 
   // =============================================================================

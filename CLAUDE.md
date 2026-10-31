@@ -28,7 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 运行流水线
 
 - **前端**（React 18 + Vite）：`luban-cad/apps/web/`（包名 `@luban-cad/web`，dev :5300），按模块分目录（`src/modules/{authentication,documents,document-details,part-studio,settings}` + `clients/`（官方 iTwin REST 客户端封装））；查看器/建模基座包为 `packages/viewer`（`@luban-cad/viewer`）与 `packages/editor`（`@itwin/editor-*` 第一方）。dev server :5300；vite 代理把 `/auth`、`/itwins`、`/imodels` 等九前缀代理到 imodelhub-services(:5400)、`/ipc`、`/ws`、`/rpc`、`/api` 代理到 modeling-server(:5401)（MS CORS 钉死 :5300，同源代理姿态，见 `apps/web/vite.config.ts` 注记）。栈内部署形态 = compose `web` 服务本仓 build（`apps/web/Dockerfile`）经 nginx :5301 单入口。
-- **建模后台**（:5401，宿主进程）：源码在私有仓 `luban-backend` 的 modeling-server；本仓以**产物**运行（`dist-backend\` + `scripts/start-ms-host.ps1` 产物模式）：`LocalhostIpcHost`（取代 IModelHost，WebSocket IPC 支撑 BriefcaseConnection）+ `OpenCloudRpcImpl` + 自定义 IPC handler（`OpenCloudIpcHandler`、`AppFunctionIpcHandler`）+ `EditCommandAdmin` 注册内置编辑命令。
+- **建模后台**（:5401，宿主进程）：源码在私有仓 `luban-backend` 的 modeling-server；本仓以**产物**运行（`dist-backend\` + `scripts/start-ms-host.ps1` 产物模式）：`LocalhostIpcHost`（取代 IModelHost，WebSocket IPC 支撑 BriefcaseConnection）+ `LubanRpcImpl` + 自定义 IPC handler（`LubanIpcHandler`、`AppFunctionIpcHandler`）+ `EditCommandAdmin` 注册内置编辑命令。
 - **编辑管道（硬约束）**：工具继承 iTwin.js 标准基类（`ElementSetTool`/`PrimitiveTool`/`CopyElementsTool`）→ 编辑走 `basicManipulationIpc` → 事务走 `BriefcaseTxns`/`saveChanges`（**可撤销是硬约束**）。AI Agent 工具必须复用现有 `toolId`，禁止第二套建模 API；破坏性操作走 HITL（预览→确认→提交）。
 - **Webhook 管道**：iTwin 平台 → webhook-agent(:5402，验签，GHCR 镜像) → modeling-server(:5401，宿主产物) → 前端轮询；webhook-agent 另负责生成 baseline（CloudSqlite）上传 Azurite。
 
@@ -87,7 +87,7 @@ powershell -File scripts/replace-imodeljs-native.ps1            # release 为默
 ### 单测试 / 单 e2e
 
 ```bash
-npx vitest run src/rpc/OpenCloudRpcImpl.test.ts          # 单测（在该包目录内）
+npx vitest run src/rpc/LubanRpcImpl.test.ts          # 单测（在该包目录内）
 npx playwright test e2e/documents.spec.ts                # 单 e2e（在 luban-cad/apps/web 内）
 ```
 

@@ -9,7 +9,7 @@
  * Error codes for LubanCAD operations
  * Maps to: imodels-client IModelsErrorCode
  */
-export type OpenCloudCADErrorCode =
+export type LubanCADErrorCode =
   // Authentication errors
   | 'Unauthorized'
   | 'TokenExpired'
@@ -58,11 +58,11 @@ export type OpenCloudCADErrorCode =
  * Standard error structure for LubanCAD
  * Maps to: imodels-client IModelsError
  */
-export class OpenCloudCADError extends Error {
+export class LubanCADError extends Error {
   /**
    * Error code categorizing the error
    */
-  public readonly code: OpenCloudCADErrorCode;
+  public readonly code: LubanCADErrorCode;
 
   /**
    * HTTP status code (if applicable)
@@ -80,14 +80,14 @@ export class OpenCloudCADError extends Error {
   public readonly originalError?: Error;
 
   constructor(params: {
-    code: OpenCloudCADErrorCode;
+    code: LubanCADErrorCode;
     message: string;
     statusCode?: number;
     details?: Record<string, unknown>;
     originalError?: Error;
   }) {
     super(params.message);
-    this.name = 'OpenCloudCADError';
+    this.name = 'LubanCADError';
     this.code = params.code;
     this.statusCode = params.statusCode;
     this.details = params.details;
@@ -97,14 +97,14 @@ export class OpenCloudCADError extends Error {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ErrorConstructor = Error as any;
     if (ErrorConstructor.captureStackTrace) {
-      ErrorConstructor.captureStackTrace(this, OpenCloudCADError);
+      ErrorConstructor.captureStackTrace(this, LubanCADError);
     }
   }
 
   /**
    * Check if this is a specific error type
    */
-  public isCode(code: OpenCloudCADErrorCode): boolean {
+  public isCode(code: LubanCADErrorCode): boolean {
     return this.code === code;
   }
 
@@ -152,10 +152,10 @@ export class OpenCloudCADError extends Error {
 }
 
 /**
- * Type guard to check if an error is an OpenCloudCADError
+ * Type guard to check if an error is an LubanCADError
  */
-export function isOpenCloudCADError(error: unknown): error is OpenCloudCADError {
-  return error instanceof OpenCloudCADError;
+export function isLubanCADError(error: unknown): error is LubanCADError {
+  return error instanceof LubanCADError;
 }
 
 /**
@@ -165,12 +165,12 @@ export function createErrorFromResponse(
   statusCode: number,
   responseData: unknown,
   originalError?: Error
-): OpenCloudCADError {
+): LubanCADError {
   const data = responseData as Record<string, unknown>;
   const message = (data?.message as string) || (data?.error as string) || 'Unknown error';
 
   // Map HTTP status codes to error codes
-  let code: OpenCloudCADErrorCode = 'Unknown';
+  let code: LubanCADErrorCode = 'Unknown';
 
   switch (statusCode) {
     case 400:
@@ -202,7 +202,7 @@ export function createErrorFromResponse(
       break;
   }
 
-  return new OpenCloudCADError({
+  return new LubanCADError({
     code,
     message,
     statusCode,

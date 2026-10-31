@@ -15,7 +15,7 @@
 
 import { BeButtonEvent, EventHandled, IModelApp, NotifyMessageDetails, OutputMessagePriority, PrimitiveTool } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
-import { OpenCloudRpcInterface } from '@luban-cad/shared';
+import { LubanRpcInterface } from '@luban-cad/shared';
 import { toolMessage } from './messages';
 
 /**
@@ -164,7 +164,7 @@ export class MirrorElementsTool extends PrimitiveTool {
       // 当前原生面无实体反倒向通道）。BRep 实体几何（v1 范围）。
       // 事务在 finishEditCommand 之前显式 saveChanges（EditCommand 默认 requestFinish 会
       // abandon 未保存事务——不显式保存则空跑）。
-      const rpc = OpenCloudRpcInterface.getClient();
+      const rpc = LubanRpcInterface.getClient();
       const planePoint = {
         x: this._planePoint.x,
         y: this._planePoint.y,

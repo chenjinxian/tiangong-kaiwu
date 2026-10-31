@@ -16,7 +16,7 @@
  *     Record<K,V> → object+additionalProperties；Uint8Array → string/byte；unknown/any → 空 schema
  *
  * 显式排除（v1 登记）：
- *   - OpenCloudIpcInterface：非 RpcInterface 形态（IpcApp 自定义 IPC 通道 open-cloud-ipc），不走
+ *   - LubanIpcInterface：非 RpcInterface 形态（IpcApp 自定义 IPC 通道 luban-ipc），不走
  *     BentleyCloudRpcProtocol HTTP 寻址，不进本契约
  *   - 服务端 zod 注册表（私有仓 luban-backend FeatureTypeRegistry）的 op 参数 schema：v1 不接入，
  *     后续波次（RW3 AI 服务总线前置）再并轨
@@ -512,7 +512,7 @@ function buildDocument(
         'Do not edit by hand; regenerate via `pnpm gen:openapi` and commit the result.',
         '',
         'Excluded from v1 (registered):',
-        '- OpenCloudIpcInterface: non-RpcInterface IPC channel (IpcApp open-cloud-ipc), not HTTP-addressable.',
+        '- LubanIpcInterface: non-RpcInterface IPC channel (IpcApp luban-ipc), not HTTP-addressable.',
         '- Server-side zod registry (luban-backend FeatureTypeRegistry) op parameter schemas: later wave.',
       ].join('\n'),
     },
@@ -520,8 +520,8 @@ function buildDocument(
     components: { schemas },
     'x-luban-excluded': [
       {
-        interface: 'OpenCloudIpcInterface',
-        file: 'luban-cad/packages/shared/src/OpenCloudIpcInterface.ts',
+        interface: 'LubanIpcInterface',
+        file: 'luban-cad/packages/shared/src/LubanIpcInterface.ts',
         reason: '非 RpcInterface 形态（IpcApp 自定义 IPC 通道），v1 显式排除',
       },
     ],
@@ -553,7 +553,7 @@ export function generateOpenApiFromFiles(files: string[]): Schema {
 /** CLI 入口：生成 docs/api-specs/luban-rpc.json */
 function main(): void {
   const defaultFiles = [
-    path.join(repoRoot, 'luban-cad', 'packages', 'shared', 'src', 'rpc', 'OpenCloudRpcInterface.ts'),
+    path.join(repoRoot, 'luban-cad', 'packages', 'shared', 'src', 'rpc', 'LubanRpcInterface.ts'),
     path.join(repoRoot, 'luban-cad', 'packages', 'shared', 'src', 'rpc', 'LubanFeatureRpcInterface.ts'),
   ];
   const files = process.argv.slice(2);
