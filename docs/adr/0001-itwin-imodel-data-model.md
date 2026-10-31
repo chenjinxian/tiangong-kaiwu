@@ -982,6 +982,13 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   security+guard **19**；feature **459 passed / 8 skipped**；MS 重启 health 200（F3 日志见上）；
   聚焦源码 e2e A 只读 **2 passed**（56.8s）。
 - **提交**：public `5e86e5a118`；backend `9a4efd8`。**未 push / 未 merge / 未 publish**。
+- **e2e tsc/lint 门禁**（public `aaef496276`）：新增 `apps/web/tsconfig.e2e.json`
+  （沿用严格选项、全局 types 换 node）+ `typecheck:e2e`；`test:e2e` 先 typecheck 再跑；
+  `lint` 覆盖 `e2e/**/*.ts` 与 `playwright.config.ts`。门禁暴露并修复既有隐患：
+  `FeatureOpResult` 判别联合直取（shared `assertFeatureOpOk`，6 个 spec）、b-share
+  行索引守卫、PNG 解码 `noUncheckedIndexedAccess` 边界（`Buffer.readUInt8`/`?? 0`）；
+  新增 `@types/node` devDependency。验证：tsc 0、lint 0、web build 0、聚焦源码 e2e
+  （setup + documents）**2 passed**。
 - **仍待**：MS 产物重建 / hook-off 生产镜像 / 发布镜像 hub e2e 与 A6（未授权）；
-  30s 写租约 UX；baseline 传播竞态；A all-model 视觉与 damaged 半图夹具；e2e tsc/lint；
+  30s 写租约 UX；baseline 传播竞态；A all-model 视觉与 damaged 半图夹具；
   tile cache 404 console 噪声；EC schema 迁移；历史文档旧目录名。
