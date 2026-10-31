@@ -753,13 +753,14 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 
 - **P2 功能实现完成（qualified）**：B 新文档（iModel=文档）+ 多 Part Studio 注册表/页签/视口 +
   A 旧文档只读兼容 + RPC 1.18 原子同发。源码侧全量门已绿；**发布门未全过**（见 15.3/15.4）。
-- **public**：`feat/b-model-p2`，BASE `ac0c2e8d5e`；构建/开关配置提交
-  **`4b01fff54bea`**（Dockerfile `VITE_B_MODEL_ENABLED` build-arg、`rebuild-web.ps1
-  -BModelEnabled`、Playwright 外部基址跳过 :5300 webServer）+ 本文档提交。**未 push/merge**。
+- **public**：`feat/b-model-p2`，BASE `ac0c2e8d5e`；P2.7 提交 **`4b01fff54bea`**（Dockerfile
+  `VITE_B_MODEL_ENABLED` build-arg、`rebuild-web.ps1 -BModelEnabled`、Playwright 外部基址跳过
+  :5300 webServer）、**`4b36c36e1b`**（ADR §15 首版）、**`b30ae8f`**（干净产物 hash/物化证据）；
+  其后仅文档同步。**未 push/merge**。
 - **backend**：`feat/b-model-p2`，BASE `1c5d950`（RPC 限流 env 覆盖、注册表/半图实现）；
   P2.7 提交 **`989c2d6`**（native Delivery 回退 + junction 穿透删除修复 + RPC 版本打印）、
   **`168bba2`**（editor-backend 物化为真实目录、排除 node_modules）、**`9c02e61`**
-  （`docs/b-model-p2-record.md`）。**未 push**。
+  （`docs/b-model-p2-record.md`）、**`e5cb5f5`**（干净产物 hash/物化更新）。**未 push**。
 - **hub**：`feat/b-model-p2` @ **`25b2b42328ac813b7fa6e27308488c5c0540377f`**（P2.3 成员
   `userId`/邮箱解析）。P2.7 未改 hub、未发布、未 push。
 - 证据目录（**不入库**，SDD 工作目录）：`.superpowers/sdd/2026-10-30-b-model-p2/evidence-p27/`
