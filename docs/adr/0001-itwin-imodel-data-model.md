@@ -757,7 +757,9 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   **`4b01fff54bea`**（Dockerfile `VITE_B_MODEL_ENABLED` build-arg、`rebuild-web.ps1
   -BModelEnabled`、Playwright 外部基址跳过 :5300 webServer）+ 本文档提交。**未 push/merge**。
 - **backend**：`feat/b-model-p2`，BASE `1c5d950`（RPC 限流 env 覆盖、注册表/半图实现）；
-  P2.7 新增构建脚本修复 + `docs/b-model-p2-record.md`（本文档提交同轮）。**未 push**。
+  P2.7 提交 **`989c2d6`**（native Delivery 回退 + junction 穿透删除修复 + RPC 版本打印）、
+  **`168bba2`**（editor-backend 物化为真实目录、排除 node_modules）、**`9c02e61`**
+  （`docs/b-model-p2-record.md`）。**未 push**。
 - **hub**：`feat/b-model-p2` @ **`25b2b42328ac813b7fa6e27308488c5c0540377f`**（P2.3 成员
   `userId`/邮箱解析）。P2.7 未改 hub、未发布、未 push。
 - 证据目录（**不入库**，SDD 工作目录）：`.superpowers/sdd/2026-10-30-b-model-p2/evidence-p27/`
@@ -769,7 +771,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 产物 | 标识 / 证据 |
 |---|---|
 | public shared | `dist/rpc/LubanFeatureRpcInterface.js` `interfaceVersion = "1.18.0"`；`test` **7 files / 144 passed** |
-| MS 产物 | tag `backend-20261031-p27`；tgz **268,345,432 B**，sha256 **`E04CB3240E03A310A4B6C813DFB5EE48044D6EA0D369D70149A1606DDD68203B`**；产物树 RPC **1.18.0**；`@bentley/imodeljs-native` `{"dev-build":true}`；dist 0 个 `.map`；`fetch-backend.ps1 -LocalArtifact` 安装到 `dist-backend\modeling-server` |
+| MS 产物 | tag `backend-20261031-p27`；tgz **265,649,231 B**，sha256 **`2808121687779E644F2EC8AA48A22608F3D008929EC4C08FAF7811ACB37DC5B4`**；产物树 RPC **1.18.0**；`@bentley/imodeljs-native` `{"dev-build":true}`；dist 0 个 `.map`；`editor-backend` 为真实目录副本（排除 `node_modules`）；`fetch-backend.ps1 -LocalArtifact` 安装到 `dist-backend\modeling-server` |
 | MS 运行形态 | 宿主产物模式（`start-ms-host.ps1 -Detach`）；日志横幅 `using dev build from …\@bentley\imodeljs-native` |
 | web 镜像（本地） | `tiangong-kaiwu-web:latest`；镜像 Id `sha256:23639beaf380b21f4aff87daf86cdf9f57a245b0b6fef471b7286286868b272f`；`org.opencontainers.image.revision=4b01fff54beadcda0c13f589d8be62068a72db5b`；**`org.opencontainers.image.b-model-enabled=true`** |
 | hub 镜像（本地） | `ghcr.io/chenjinxian/imodelhub:latest`；Id `sha256:1663b22ab79059f6fac25d53a9a6d2162519db5d49bc9af95abcdfa0fa7095ea`；revision `25b2b42…`；**仅本地，未发布** |
@@ -778,22 +780,25 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 1. `imodel-native` 的 cmake `Delivery` 目录可缺失（本机已清理）；旧脚本将其作为硬前提导致构建中止。
    现改为：Delivery 缺失时回退 itwinjs-core store 内的 dev build，并**硬校验**
    `devbuild.json` 的 `dev-build=true`（否则拒绝，防静默回退官方二进制）。
-2. **Junction 穿透删除缺陷（实测）**：旧去重步骤对 `node_modules/@itwin/editor-backend`（npm 对
-   `file:` 依赖建 Junction）执行 `Remove-Item`，穿透删除了 public 工作区
-   `luban-cad/packages/editor/backend/node_modules/@itwin/core-backend` 的真实 link，导致源码侧
-   vitest `Cannot find package '@itwin/core-backend'`。现仅在 editor-backend 为真实目录时删除嵌套
-   副本；Junction/symlink 目标属于源仓、禁止触碰。本次已恢复被删 link（Junction，目标
-   `itwinjs-core/core/backend`），backend `src/feature` 复跑 **50 files / 459 passed / 8 skipped**。
+2. **Junction 穿透删除 / 产物嵌套依赖（实测，已修）**：旧去重步骤对
+   `node_modules/@itwin/editor-backend`（npm 对 `file:` 依赖建 Junction）执行 `Remove-Item`，穿透
+   删除了 public 工作区 `luban-cad/packages/editor/backend/node_modules/@itwin/core-backend` 的
+   真实 link，导致源码侧 vitest `Cannot find package '@itwin/core-backend'`。仅“跳过删除”仍会让
+   `tar --dereference` 把 Junction 目标的嵌套 `node_modules` 带进产物（第二份 `@itwin` 实例）。
+   现把 Junction 替换为**真实目录副本并排除 `node_modules`**（backend `168bba2`）：包代码进产物，
+   依赖统一由顶层解析（单实例），且绝不再触碰源仓。本次已恢复被删 link（Junction，目标
+   `itwinjs-core/core/backend`），backend `src/feature` 复跑 **50 files / 459 passed / 8 skipped**；
+   产物内 `editor-backend/node_modules` 不存在、无嵌套 core-backend。
 3. 打包前打印产物树 RPC 契约版本（发布记录可直接核对）。
 
 ### 15.3 验证结果（精确）
 
 | 门 | 命令 / 环境 | 结果 |
 |---|---|---|
-| verify-stack | `powershell -File scripts/verify-stack.ps1`（MS 产物 + web 镜像 :5301 + 本地 hub 25b2b42） | **17/17 OK，exit 0**；Step B 建 iTwin/iModel → baseline `initialized` → 清理；Step C WS 101 + 无凭证 401；Step D dev-build 横幅；Step E web revision `4b01fff54bea`；Step F hub revision `25b2b42` 且无宿主 dist 挂载 |
+| verify-stack | `powershell -File scripts/verify-stack.ps1`（MS 产物 + web 镜像 :5301 + 本地 hub 25b2b42） | **17/17 OK，exit 0**；Step B 建 iTwin/iModel → baseline `initialized` → 清理；Step C WS 101 + 无凭证 401；Step D dev-build 横幅；Step E web revision `4b01fff54bea`；Step F hub revision `25b2b42` 且无宿主 dist 挂载。**clean artifact 重装后复跑仍 17/17**（`verify-stack-p27-clean-artifact.log` / `-final-clean.log`） |
 | 默认配额（聚焦） | 后端 `vitest run src/middleware/security.test.ts` **15/15**；MS 以生产默认重启；1 次 warmup + 110 次 `GET /health` | **99×200 + 11×429**；首个 429 在探针 **100**（含 warmup 共 **100** 次放行）；429 body `RATE_LIMIT_EXCEEDED`、`retryAfter=890`；MS 日志 0 条 429（**F2：不记录**） |
 | 源码全量 Playwright | P2.6c2 `CI=true`，:5300 dev（**`LUBAN_RPC_RATE_LIMIT_MAX=1000` 测试覆盖**） | **49 passed（17.5m）**，0 failed / 0 skipped / 0 flaky |
-| 发布镜像有效子集 | `CI=true PLAYWRIGHT_BASE_URL=http://localhost:5301 playwright test auth login settings seed-safety document-details b-share documents visual --grep-invert "B 项目 UI 入口\|编辑器五区\|登录页"`（MS 覆盖 1000） | **19 passed（1.1m），EXIT=0**；含 **A6 两真实用户分享链**（本地 hub 25b2b42）、文档中心/详情 B/A、设置、种子安全、3 张非 origin 视觉钉版 |
+| 发布镜像有效子集 | `CI=true PLAYWRIGHT_BASE_URL=http://localhost:5301 playwright test auth login settings seed-safety document-details b-share documents visual --grep-invert "B 项目 UI 入口\|编辑器五区\|登录页"`（MS 覆盖 1000） | **19 passed（1.1m），EXIT=0**；含 **A6 两真实用户分享链**（本地 hub 25b2b42）、文档中心/详情 B/A、设置、种子安全、3 张非 origin 视觉钉版；clean artifact 重装后复跑仍 **19/19** |
 | 发布镜像全量 Playwright | 同基址全量 | **不成立（NOT VALID，已停止）**：editor specs 使用 Vite 开发态 `import('/@id/@itwin/core-frontend')`（helpers/specs 多处），镜像返回 SPA `index.html` → MIME/dynamic-import 错误。部分轮 21/49 已出现 8 个此类失败（b-viewport/boolean-bodies/feature-contracts/b-model 读连接/b-model-undo/documents B UI 入口）。**不得把源码 49/49 外推为镜像全量通过。** |
 | 发布镜像生产 undo E2E | `b-model-undo.spec.ts` 于 :5301 | **功能链全部通过**（A below floor / B,C above floor / 文档级 undo / init floor / redo / 新编辑清空 redo）；**最终 `consoleErrors` 断言 FAIL**，唯一错误是同一 `/@id/` MIME 问题 → **判 FAIL（测试载体），不判产品 undo 失败** |
 | 发布镜像 b-model 全链 | `b-model.spec.ts -g "B 全链"` 于 :5301 | **FAIL（间歇）**：一次全量轮在 reload 后 `waitEditorReady` 失败，页面横幅 *Part Studio 列表加载失败：Invalid iModelToken for RPC operation request*，视口未挂载、MS health 200；聚焦复跑未复现（改为 e2e helper 的 `/@id/` 导入失败）。**新残项，未根因**（15.4） |
