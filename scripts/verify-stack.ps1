@@ -488,7 +488,21 @@ if (-not $msHealthy) {
     if ($foundIn) {
         $line = "$foundLine".Trim()
         if ($line.Length -gt 120) { $line = $line.Substring(0, 120) + '...' }
-        Add-Check 'D' 'MS dev-build 横幅' $true "命中于 $foundIn ：$line"
+        # P2.7 复审：横幅只证明“dev build”，不证明版本/来源。读取产物内 provenance，
+        # 把版本/HEAD/fallback 一并报告（缺失只提示，不改变横幅门）。
+        $provPath = Join-Path $RepoRoot 'dist-backend\modeling-server\node_modules\@bentley\imodeljs-native\native-provenance.json'
+        $provDetail = '；provenance 缺失（旧产物）'
+        if (Test-Path $provPath) {
+            try {
+                $prov = Get-Content -Raw -LiteralPath $provPath | ConvertFrom-Json
+                $head = [string]$prov.imodelNativeHead
+                $headShort = if ($head.Length -ge 12) { $head.Substring(0, 12) } else { $head }
+                $provDetail = "；native=$($prov.nativeVersion) head=$headShort fallback=$($prov.fallbackRequired)"
+            } catch {
+                $provDetail = '；provenance 读取失败'
+            }
+        }
+        Add-Check 'D' 'MS dev-build 横幅' $true "命中于 $foundIn ：$line$provDetail"
     } else {
         $dockerNote = if (Get-Command docker -ErrorAction SilentlyContinue) { '' } else { '（docker 不在 PATH，容器形态日志未查）' }
         $detail = "宿主日志 %TEMP%\luban-cad-modeling-server.log 与容器日志均无 '$banner' $dockerNote —— 重装 node_modules 后需重跑 scripts/replace-imodeljs-native.ps1 并重启 MS"
