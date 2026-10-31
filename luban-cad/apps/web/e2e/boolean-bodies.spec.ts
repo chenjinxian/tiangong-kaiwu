@@ -87,7 +87,7 @@ const xyPlane = (z: number): PlaneDto => ({
 
 async function hiddenElementIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: { viewManager: { getFirstOpenView(): unknown } };
       EmphasizeElements: { get(vp: unknown): { getHiddenElements(vp: unknown): Iterable<string> | undefined } | undefined };
     };

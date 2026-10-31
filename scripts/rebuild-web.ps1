@@ -13,6 +13,7 @@
 #   powershell -File scripts/rebuild-web.ps1 -NoCache                     # 全量无缓存重建
 #   powershell -File scripts/rebuild-web.ps1 -BModelEnabled true          # P2 rollout：B 双区 UI 开
 #   powershell -File scripts/rebuild-web.ps1 -BModelEnabled false         # P2 rollback：回 A UI，B 数据保留
+#   powershell -File scripts/rebuild-web.ps1 -BModelEnabled true -E2EHooks true  # E2E 测试镜像（挂 window.__lubanE2E；发布镜像勿用）
 #
 # B-model 开关（P2 D9 / P2.7）：`VITE_B_MODEL_ENABLED` 是**构建期** Vite 变量，
 # 静态 web 无运行期 env——切换必须重建镜像，不存在「只重启容器换 flag」的路径。
@@ -41,7 +42,10 @@ param(
     [switch]$NoCache,
     # 构建期 B-model 开关：'' = 产品缺省（off）；'true' = B rollout；'false' = 显式回滚。
     [ValidateSet('', 'true', 'false')]
-    [string]$BModelEnabled = ''
+    [string]$BModelEnabled = '',
+    # 构建期 E2E 观测面开关：'' = 产品缺省关；'true' = 挂 window.__lubanE2E 的测试镜像。
+    [ValidateSet('', 'true', 'false')]
+    [string]$E2EHooks = ''
 )
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -86,17 +90,19 @@ $shaShort = if ($gitSha.Length -ge 12) { $gitSha.Substring(0, 12) } else { $gitS
 
 # --build-arg 需 compose v2.6+；旧版优雅降级（不注入，标签留 Dockerfile 缺省 unknown）
 $canBuildArg = (& docker compose build --help | Out-String) -match '--build-arg'
-if (-not $canBuildArg -and $BModelEnabled -ne '') {
-    throw "compose 过旧（不支持 --build-arg）——无法注入 VITE_B_MODEL_ENABLED=$BModelEnabled；拒绝静默退回 flag-off 构建"
+if (-not $canBuildArg -and ($BModelEnabled -ne '' -or $E2EHooks -ne '')) {
+    throw "compose 过旧（不支持 --build-arg）——无法注入 VITE_B_MODEL_ENABLED / VITE_E2E_HOOKS；拒绝静默退回"
 }
 
 $flagLabel = if ($BModelEnabled -eq '') { 'unset（产品缺省关）' } else { $BModelEnabled }
-Write-Host "==> docker compose build web（GIT_COMMIT=$shaShort；VITE_B_MODEL_ENABLED=$flagLabel$(if (-not $canBuildArg) { '；compose 过旧不注入标签/开关' })）..." -ForegroundColor Cyan
+$e2eLabel = if ($E2EHooks -eq '') { 'unset（关闭）' } else { $E2EHooks }
+Write-Host "==> docker compose build web（GIT_COMMIT=$shaShort；VITE_B_MODEL_ENABLED=$flagLabel；VITE_E2E_HOOKS=$e2eLabel$(if (-not $canBuildArg) { '；compose 过旧不注入标签/开关' })）..." -ForegroundColor Cyan
 $composeArgs = @('compose', 'build')
 if ($NoCache) { $composeArgs += '--no-cache' }
 if ($canBuildArg) {
     if ($gitSha -ne 'unknown') { $composeArgs += @('--build-arg', "GIT_COMMIT=$gitSha") }
     $composeArgs += @('--build-arg', "VITE_B_MODEL_ENABLED=$BModelEnabled")
+    $composeArgs += @('--build-arg', "VITE_E2E_HOOKS=$E2EHooks")
 }
 $composeArgs += 'web'
 
@@ -109,16 +115,23 @@ try {
 # 构建标签自证（P2.7）：镜像 LABEL 必须与请求的 flag 一致，否则发布记录/回滚会读错开关。
 $imgJson = (& docker image inspect tiangong-kaiwu-web:latest 2>$null) -join "`n"
 $actualFlag = $null
+$actualE2E = $null
 if ($imgJson) {
     try { $actualFlag = [string](@(ConvertFrom-Json $imgJson)[0].Config.Labels.'org.opencontainers.image.b-model-enabled') } catch { }
+    try { $actualE2E = [string](@(ConvertFrom-Json $imgJson)[0].Config.Labels.'org.opencontainers.image.e2e-hooks') } catch { }
 }
 if ($null -ne $actualFlag -and $actualFlag -ne $BModelEnabled) {
     Write-Warning "镜像 LABEL org.opencontainers.image.b-model-enabled='$actualFlag' ≠ 请求 '$BModelEnabled'（镜像可能被并发构建覆盖）"
 } elseif ($null -ne $actualFlag) {
     Write-Host "==> 镜像 B-model 开关 LABEL 自证: '$actualFlag'" -ForegroundColor Green
 }
+if ($null -ne $actualE2E -and $actualE2E -ne $E2EHooks) {
+    Write-Warning "镜像 LABEL org.opencontainers.image.e2e-hooks='$actualE2E' ≠ 请求 '$E2EHooks'（镜像可能被并发构建覆盖）"
+} elseif ($null -ne $actualE2E) {
+    Write-Host "==> 镜像 E2E hooks LABEL 自证: '$actualE2E'" -ForegroundColor Green
+}
 
-Write-Host "==> 完成: web 镜像已重建（GIT_COMMIT=$shaShort；VITE_B_MODEL_ENABLED=$flagLabel$(if ($canBuildArg) { '' } else { '；compose 过旧未注入标签/开关' })）。" -ForegroundColor Green
+Write-Host "==> 完成: web 镜像已重建（GIT_COMMIT=$shaShort；VITE_B_MODEL_ENABLED=$flagLabel；VITE_E2E_HOOKS=$e2eLabel$(if ($canBuildArg) { '' } else { '；compose 过旧未注入标签/开关' })）。" -ForegroundColor Green
 Write-Host '    在跑的 web 容器未动——新镜像生效: docker compose up -d web'
 Write-Host '    回滚: 以 -BModelEnabled false 重建并 docker compose up -d web（B 数据保留，A UI 不变）'
 Write-Host '    验收: powershell -File scripts/verify-stack.ps1（Step E 报告镜像陈旧态）'

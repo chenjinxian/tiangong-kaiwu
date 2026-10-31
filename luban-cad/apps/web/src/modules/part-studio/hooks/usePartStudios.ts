@@ -31,6 +31,16 @@ import { LEASE_OP_ACQUIRE_RETRY_MS, type EditorSession } from './useEditorSessio
  *  仅换连接/前页残留窗口需要等待（不占用 op 的 35s 自愈预算）。 */
 export const REGISTRY_LEASE_ACQUIRE_BUDGET_MS = 10_000;
 
+/** reload 时 registry RPC 可能早于 RPC fallback routing token 就位（P2.8 实测：
+ *  BentleyCloudRpcProtocol 抛 "Invalid iModelToken for RPC operation request"）。
+ *  有界重试自愈该瞬时窗口；其它错误不重试。 */
+const LIST_RETRY_DELAYS_MS = [100, 300] as const;
+
+function isInvalidIModelTokenError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('Invalid iModelToken');
+}
+
 export interface UsePartStudiosOptions {
   /** B 文档才为真；false = A 模式/无 B 上下文 → 零 registry 调用。 */
   enabled?: boolean;
@@ -102,7 +112,23 @@ export function usePartStudios(
     }
     setIsLoading(true);
     try {
-      const list = await LubanFeatureRpcInterface.getClient().listPartStudios(iModelKey);
+      let list: PartStudioInfo[] = [];
+      let succeeded = false;
+      let lastError: unknown = new Error('listPartStudios failed');
+      for (let attempt = 0; attempt <= LIST_RETRY_DELAYS_MS.length; attempt++) {
+        try {
+          list = await LubanFeatureRpcInterface.getClient().listPartStudios(iModelKey);
+          succeeded = true;
+          break;
+        } catch (err) {
+          lastError = err;
+          if (attempt === LIST_RETRY_DELAYS_MS.length || !isInvalidIModelTokenError(err)) break;
+          if (seq !== seqRef.current || writeEpoch !== writeEpochRef.current) return;
+          await new Promise((resolve) => setTimeout(resolve, LIST_RETRY_DELAYS_MS[attempt]));
+          if (seq !== seqRef.current || writeEpoch !== writeEpochRef.current) return;
+        }
+      }
+      if (!succeeded) throw lastError;
       if (seq !== seqRef.current || writeEpoch !== writeEpochRef.current) return; // 晚到/stale 丢弃
       // P2.4 F7：直接采用服务端顺序（后端按 metadata.order + 分区 ECInstanceId
       // BigInt 排序）；前端不重排，避免 tie-break 口径漂移改变「第一个完整 scope」。

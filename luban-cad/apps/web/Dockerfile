@@ -49,6 +49,11 @@ ARG GIT_COMMIT=unknown
 # 注意：静态 web 无运行期 env，切换 flag 必须重建镜像（rollback = flag-off 重建）。
 ARG VITE_B_MODEL_ENABLED=
 
+# P2.8 E2E 观测面开关（构建期）：仅 E2E 测试镜像置 true；生产/发布镜像缺省空=关闭。
+# 开启时 viewer 在 window.__lubanE2E 暴露 core-frontend/core-common，供 Playwright
+# 页面内观测（替代 dev-only /@id/ 动态导入）。发布构建不得开启。
+ARG VITE_E2E_HOOKS=
+
 # 构建段 base=node:22-alpine（M5-T9 brief 钉死；本机构建缓存常驻——旧镜像的
 # node:20-bookworm-slim 需外网拉取。构建面纯 JS 工具链（pnpm/vite/tsc/esbuild
 # 有 musl 变体），无 glibc 依赖）
@@ -57,7 +62,9 @@ FROM node:22-alpine AS builder
 # 全局 ARG 不跨 stage 可见；本段重声明并以 ENV 暴露给 Vite（loadEnv 读取
 # process.env 的 VITE_* 前缀并覆盖 .env 文件）。空串 = 产品缺省关。
 ARG VITE_B_MODEL_ENABLED
-ENV VITE_B_MODEL_ENABLED=${VITE_B_MODEL_ENABLED}
+ARG VITE_E2E_HOOKS
+ENV VITE_B_MODEL_ENABLED=${VITE_B_MODEL_ENABLED} \
+    VITE_E2E_HOOKS=${VITE_E2E_HOOKS}
 
 ENV CI=true \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
@@ -151,8 +158,10 @@ FROM nginx:alpine
 # ARG 需在本段重声明才能进 LABEL（全局 ARG 不跨 stage 可见）
 ARG GIT_COMMIT=unknown
 ARG VITE_B_MODEL_ENABLED=
+ARG VITE_E2E_HOOKS=
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 LABEL org.opencontainers.image.b-model-enabled="${VITE_B_MODEL_ENABLED}"
+LABEL org.opencontainers.image.e2e-hooks="${VITE_E2E_HOOKS}"
 COPY luban-cad/apps/web/web-nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /build/luban-cad/apps/web/dist /usr/share/nginx/html
 EXPOSE 3000

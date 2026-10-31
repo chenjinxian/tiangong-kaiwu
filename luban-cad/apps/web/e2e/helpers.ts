@@ -395,9 +395,20 @@ export interface OpenBriefcaseInfo {
 
 /** 读已打开 briefcase 的 connection.key + 只读位；失败返回 null 字段。 */
 export async function readOpenBriefcaseInfo(page: Page): Promise<OpenBriefcaseInfo> {
+  // P2.8：e2e 观测面替代 dev-only /@id/；未以 VITE_E2E_HOOKS=true 构建/启动时
+  // 快速失败（不要吞成 null——那会把载体配置错误伪装成产品失败）。
+  const hookAvailable = await page
+    .evaluate(() => Boolean((window as any).__lubanE2E))
+    .catch(() => false);
+  if (!hookAvailable) {
+    throw new Error(
+      'E2E hook 不可用：请以 VITE_E2E_HOOKS=true 运行（源码 e2e 由 playwright.config webServer.env 注入；' +
+        '发布镜像用 rebuild-web.ps1 -BModelEnabled true -E2EHooks true 构建）',
+    );
+  }
   try {
     return await page.evaluate(async () => {
-      const cf = (await import('/@id/@itwin/core-frontend')) as {
+      const cf = ((window as any).__lubanE2E?.coreFrontend) as {
         IModelApp: {
           viewManager: {
             getFirstOpenView(): {

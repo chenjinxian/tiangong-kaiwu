@@ -64,6 +64,22 @@ describe('startViewer（移植自 WebInitializer）', () => {
     expect(arg.iModelApp.authorizationClient).toBeDefined();
   });
 
+  it('P2.8：getAccessToken 动态提供者——WS 用初值，RPC 每次取新值（过期刷新）', async () => {
+    let token = 'jwt-1';
+    const provider = vi.fn(async () => token);
+    await startViewer({
+      backendUrl: 'http://localhost:5401',
+      hubUrl: 'http://localhost:5400',
+      getAccessToken: provider,
+    });
+    const arg = startupMock.mock.calls[0][0];
+    expect(String(arg.localhostIpcApp.socketUrl)).toContain('token=jwt-1');
+    expect(await arg.iModelApp.authorizationClient.getAccessToken()).toBe('jwt-1');
+    token = 'jwt-2';
+    expect(await arg.iModelApp.authorizationClient.getAccessToken()).toBe('jwt-2');
+    expect(provider).toHaveBeenCalledTimes(3);
+  });
+
   it('rpcInterfaces 含 4 通道（Luban/Feature/Read/Tile）', async () => {
     await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
     const arg = startupMock.mock.calls[0][0];

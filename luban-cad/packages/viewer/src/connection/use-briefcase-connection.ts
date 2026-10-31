@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BriefcaseConnection, IpcApp } from '@itwin/core-frontend';
+import { RpcManager } from '@itwin/core-common';
 import { lubanIpcChannel, type LubanIpcInterface } from '@luban-cad/shared';
 
 export interface UseBriefcaseConnectionOptions {
@@ -140,6 +141,14 @@ export function useBriefcaseConnection(
           void conn.close();
           return;
         }
+
+        // P2.8 reload 修复：为字符串键 RPC（注册表 listPartStudios 等）设置 RPC
+        // 路由 fallback token。BriefcaseConnection.openFile 的 IPC 路径不像
+        // CheckpointConnection 那样调用 RpcManager.setIModel；若注册表 RPC 在首个
+        // fallback token 出现前发出，BentleyCloudRpcProtocol.supplyPathForOperation
+        // 会抛 "Invalid iModelToken for RPC operation request"（reload 时序彩票）。
+        // 必须在把 connection 暴露给 React 之前同步设置。
+        RpcManager.setIModel(conn);
 
         connectionRef.current = conn;
         setConnection(conn);

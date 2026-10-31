@@ -383,7 +383,7 @@ async function pickFilletEdges(
     timeout: 15_000,
   });
   const picks = await page.evaluate(async (pts) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: {
         viewManager: {
           getFirstOpenView(): {
@@ -571,7 +571,7 @@ test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude
 
     // 拾取点=底座板上表面 4 条边中点的视口投影（确定性投影，非盲点）。
     const picks = await page.evaluate(async () => {
-      const cf = (await import('/@id/@itwin/core-frontend')) as {
+      const cf = ((window as any).__lubanE2E?.coreFrontend) as {
         IModelApp: {
           viewManager: {
             getFirstOpenView(): {

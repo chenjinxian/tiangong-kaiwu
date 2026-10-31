@@ -139,7 +139,7 @@ interface QueryEvent { id: number; start: number; end: number; failed: boolean }
 /** 页面内给当前 ScreenViewport 打身份标（必须在第一次 readViewport 前调用）。 */
 async function tagViewport(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('tagViewport：viewport 未就绪');
     (window as any).__e2eVpRef = vp;
@@ -150,7 +150,7 @@ async function tagViewport(page: Page): Promise<void> {
  * `sameViewport` 只在调用方先 `tagViewport` 后才有意义——首次读取不再自证。 */
 async function readViewport(page: Page): Promise<ViewportProbe> {
   return page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     const w = window as any;
     if (!vp) {
@@ -212,7 +212,7 @@ async function readStore(page: Page): Promise<StoreProbe> {
 /** 页面内读 briefcase 事务面（C6 守卫「不发事务」的真栈观测；走 /ipc WS）。 */
 async function readTxnState(page: Page): Promise<{ pending: boolean; undo: boolean }> {
   return page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp?.iModel?.txns) throw new Error('txns：viewport/iModel 未就绪');
     return {
@@ -226,7 +226,7 @@ async function readTxnState(page: Page): Promise<{ pending: boolean; undo: boole
  * 防「selector 读面失败 → [] → 空选择断言空过」。 */
 async function readSelectionSet(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp?.iModel?.selectionSet) throw new Error('selectionSet：viewport/iModel 未就绪');
     return Array.from(vp.iModel.selectionSet.elements).map(String);
@@ -236,7 +236,7 @@ async function readSelectionSet(page: Page): Promise<string[]> {
 /** 页面内注入/清空 selectionSet（模拟陈旧/外部选择；真实 UI pick 另测）。 */
 async function setSelectionSet(page: Page, ids: string[]): Promise<void> {
   await page.evaluate(async (elementIds: string[]) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('selectionSet 注入：viewport 未就绪');
     if (elementIds.length === 0) vp.iModel.selectionSet.emptyAll();
@@ -250,7 +250,7 @@ async function projectModelCenter(
   physModelId: string,
 ): Promise<{ world: Vec3; view: Vec3; npc: Vec3; rawRange: unknown }> {
   return page.evaluate(async (modelId: string) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('投影：viewport 未就绪');
     const ranges = await vp.iModel.models.queryModelRanges([modelId]);
@@ -282,7 +282,7 @@ async function projectModelCenter(
 /** 页面内把已知 world 点投影为 view 坐标（CSS px，canvas 左上原点）。 */
 async function projectWorldPoint(page: Page, world: Vec3): Promise<Vec3> {
   return page.evaluate(async (point: Vec3) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('投影：viewport 未就绪');
     const view = vp.worldToView(point);
@@ -294,7 +294,7 @@ async function projectWorldPoint(page: Page, world: Vec3): Promise<Vec3> {
  * 页面 RPC 走 /ipc WS，不消耗 MS HTTP 100/15min 配额）。 */
 async function readSketchModelIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('sketch 模型读面：viewport 未就绪');
     const ids: string[] = [];
@@ -310,7 +310,7 @@ async function readSketchModelIds(page: Page): Promise<string[]> {
 /** 页面内读某 body 元素的 props（Move/Delete 提交检测：placement/source 不变）。 */
 async function readElementProps(page: Page, elementId: string): Promise<Record<string, unknown>> {
   const props = await page.evaluate(async (id: string) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('元素读面：viewport 未就绪');
     const elements = vp.iModel.elements;
@@ -335,7 +335,7 @@ async function readElementProps(page: Page, elementId: string): Promise<Record<s
  * 原方法存 `__e2eTileOrig`，`removeTileProbe` 在 finally 解包。 */
 async function installTileProbe(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const cc = (await import('/@id/@itwin/core-common')) as any;
+    const cc = ((window as any).__lubanE2E?.coreCommon) as any;
     const w = window as any;
     if (w.__e2eTileProbeInstalled) return;
     const client = cc.IModelTileRpcInterface.getClient();
@@ -367,7 +367,7 @@ async function installTileProbe(page: Page): Promise<void> {
 /** 解包 tile RPC 客户端并清掉记录（finally 纪律）。 */
 async function removeTileProbe(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const cc = (await import('/@id/@itwin/core-common')) as any;
+    const cc = ((window as any).__lubanE2E?.coreCommon) as any;
     const w = window as any;
     const client = cc.IModelTileRpcInterface.getClient();
     const originals = w.__e2eTileOrig as Record<string, (...args: any[]) => unknown> | undefined;
@@ -395,7 +395,7 @@ async function clearTileCalls(page: Page): Promise<void> {
  * 的查询在点回 K1 时确实在途，并在延迟窗后仍停在 K1。 */
 async function setQueryInjection(page: Page, mode: 'none' | 'delay' | 'throw'): Promise<void> {
   await page.evaluate(async ({ injectionMode, delayMs }: { injectionMode: 'none' | 'delay' | 'throw'; delayMs: number }) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('查询注入：viewport 未就绪');
     const iModel = vp.iModel;
@@ -450,7 +450,7 @@ async function clearQueryEvents(page: Page): Promise<void> {
  * 原实现由 `__e2eModelsLoadOrig` 保存；`restoreModelsLoad` 在 finally 解包。 */
 async function injectModelsLoadFailure(page: Page, targetPhysModelId: string): Promise<void> {
   await page.evaluate(async (target: string) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('models.load 注入：viewport 未就绪');
     const models = vp.iModel.models;
@@ -467,7 +467,7 @@ async function injectModelsLoadFailure(page: Page, targetPhysModelId: string): P
 
 async function restoreModelsLoad(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     const w = window as any;
     if (vp && w.__e2eModelsLoadOrig) vp.iModel.models.load = w.__e2eModelsLoadOrig;
@@ -479,7 +479,7 @@ async function restoreModelsLoad(page: Page): Promise<void> {
  * `__e2eToolRunOrig` 由 removeToolRunProbe/clearPageProbes 恢复。 */
 async function installToolRunProbe(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const w = window as any;
     if (w.__e2eToolRunOrig) return;
     w.__e2eToolRuns = [];
@@ -498,7 +498,7 @@ async function readToolRuns(page: Page): Promise<string[]> {
 
 async function removeToolRunProbe(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const w = window as any;
     if (w.__e2eToolRunOrig) cf.IModelApp.tools.run = w.__e2eToolRunOrig;
     delete w.__e2eToolRunOrig;
@@ -511,7 +511,7 @@ async function removeToolRunProbe(page: Page): Promise<void> {
 async function clearPageProbes(page: Page): Promise<void> {
   if (page.isClosed()) return;
   await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const w = window as any;
     if (w.__e2eToolRunOrig) cf.IModelApp.tools.run = w.__e2eToolRunOrig;
     delete w.__e2eVpRef;
@@ -916,7 +916,7 @@ async function selectBodyViaCanvas(
 /** 相机取景到某元素（用于「隐藏 scope 的几何即便在视野内也不可拾取」）。 */
 async function zoomToElement(page: Page, elementId: string): Promise<void> {
   await page.evaluate(async (id: string) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     const vp = cf.IModelApp.viewManager.getFirstOpenView();
     if (!vp) throw new Error('zoomToElement：viewport 未就绪');
     await vp.zoomToElements([id], {});
@@ -981,7 +981,7 @@ async function toolAcrossSwitch(
     timeout: 20_000,
   }).toBe(bodyKey);
   const started = await page.evaluate(async (id: string) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as any;
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     return cf.IModelApp.tools.run(id) as Promise<boolean>;
   }, toolId);
   expect(started, `${label} 工具 ${toolId} 应成功启动`).toBe(true);
@@ -1337,7 +1337,7 @@ test.describe('P2.5 真栈视口门', () => {
 
     // ── B) R4：无关渲染（invalidateScene）不得清空选择 ──────────────────────
     await page.evaluate(async () => {
-      const cf = (await import('/@id/@itwin/core-frontend')) as any;
+      const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
       cf.IModelApp.viewManager.getFirstOpenView()?.invalidateScene();
     });
     await page.waitForTimeout(700);
@@ -1394,7 +1394,7 @@ test.describe('P2.5 真栈视口门', () => {
     await page.keyboard.press('Delete');
     await page.waitForTimeout(700);
     const emptyMoveStarted = await page.evaluate(async () => {
-      const cf = (await import('/@id/@itwin/core-frontend')) as any;
+      const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
       try {
         return await (cf.IModelApp.tools.run('MoveElements') as Promise<boolean>);
       } catch {
@@ -1599,7 +1599,7 @@ test.describe('P2.5 真栈视口门', () => {
     console.log('[b-viewport] D3 selected body1');
     const propsBeforeMove = await readElementProps(page, body1.bodyKey);
     const moveStarted = await page.evaluate(async () => {
-      const cf = (await import('/@id/@itwin/core-frontend')) as any;
+      const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
       return (await cf.IModelApp.tools.run('MoveElements')) as boolean;
     });
     expect(moveStarted, '正控制 Move 工具必须启动').toBe(true);
@@ -1834,7 +1834,7 @@ test.describe('P2.5 真栈视口门', () => {
     //    （与 ECSQL 的 appliedOk=false 分支不同），同样必须非阻断并自愈。
     expect(
       await page.evaluate(async (target: string) => {
-        const cf = (await import('/@id/@itwin/core-frontend')) as any;
+        const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
         const vp = cf.IModelApp.viewManager.getFirstOpenView();
         vp.iModel.models.unload(target);
         return vp.iModel.models.getLoaded(target) === undefined;

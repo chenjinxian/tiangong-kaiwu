@@ -25,14 +25,22 @@ import { BentleyCloudRpcManager, IModelReadRpcInterface, IModelTileRpcInterface 
 import { IModelsClient } from '@itwin/imodels-client-management';
 import { LubanFeatureRpcInterface, LubanRpcInterface } from '@luban-cad/shared';
 import { ensureAccuSnap } from '../tools/ensure-accusnap.js';
+import { installE2EHooks } from './e2e-hooks.js';
 
 export interface StartViewerOptions {
   /** Backend RPC URL（modeling-server） */
   backendUrl: string;
   /** iModelHub URL（imodelhub-services） */
   hubUrl: string;
-  /** Access token for WebSocket authentication */
+  /** Access token for WebSocket authentication（静态值；由 getAccessToken 接管时忽略） */
   accessToken?: string;
+  /**
+   * 动态 access token 提供者（裸 JWT，不含 "Bearer "）——启动时取一次用于 WS
+   * 握手；之后 RPC/tile 每次经 IModelApp.authorizationClient 重新取值，支持
+   * AuthSession 单飞刷新（P2.8：替代 15 分钟即过期的静态 token）。消费方须传
+   * 稳定身份（useCallback），避免 useViewport 重 acquire。
+   */
+  getAccessToken?: () => Promise<string>;
   /**
    * 自定义 NotificationManager（review-8 I-2：notifications 呈现桥）——经
    * IModelApp.startup 的官方注入点（IModelAppOptions.notifications）替换 core
@@ -89,7 +97,9 @@ export async function startViewer(options: StartViewerOptions): Promise<void> {
 }
 
 async function doStartViewer(options: StartViewerOptions): Promise<void> {
-  const { backendUrl, hubUrl, accessToken, notifications } = options;
+  // P2.8：E2E 观测面（仅 VITE_E2E_HOOKS=true 生效；生产镜像缺省关闭）。
+  installE2EHooks();
+  const { backendUrl, hubUrl, accessToken, getAccessToken, notifications } = options;
 
   const rpcInterfaces = [LubanRpcInterface, LubanFeatureRpcInterface, IModelReadRpcInterface, IModelTileRpcInterface];
 
@@ -114,9 +124,11 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
     console.log(`[WebInitializer] iModelHub URL: ${hubUrl}`);
 
     const socketUrl = LocalhostIpcApp.buildUrlForSocket(new URL(backendUrl));
-    // Append access token for WebSocket authentication
-    if (accessToken) {
-      socketUrl.searchParams.set('token', accessToken);
+    // WS 握手 token：动态提供者优先（这里取一次初值；之后的 RPC/tile 请求由
+    // authorizationClient 每次重取，token 过期可经 AuthSession 单飞刷新）。
+    const socketToken = getAccessToken ? await getAccessToken() : accessToken;
+    if (socketToken) {
+      socketUrl.searchParams.set('token', socketToken);
     }
     // eslint-disable-next-line no-console
     console.log(`[WebInitializer] IPC WebSocket URL: ${socketUrl.toString()}`);
@@ -170,13 +182,19 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
           // tile/原生 RPC 通道（IModelTileRpcInterface 等 checkToken=true 的接口）要求前端提供
           // authorizationClient 取 access token 放请求头；缺失则 tile 请求根本发不出（2026-10-09 实证：
           // MS 日志零 tile 请求痕迹，几何渲染不出）。此处把 WS 用的同一 token 接上。
-          ...(accessToken
+          ...(getAccessToken
             ? {
                 authorizationClient: {
-                  getAccessToken: async () => accessToken,
+                  getAccessToken: async () => getAccessToken(),
                 },
               }
-            : {}),
+            : accessToken
+              ? {
+                  authorizationClient: {
+                    getAccessToken: async () => accessToken,
+                  },
+                }
+              : {}),
         },
       });
 
@@ -198,6 +216,12 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
     console.log(`[WebInitializer] IModelApp.initialized: ${IModelApp.initialized}`);
     // eslint-disable-next-line no-console
     console.log(`[WebInitializer] IModelApp.toolAdmin: ${IModelApp.toolAdmin ? 'Available' : 'NOT AVAILABLE'}`);
+  }
+
+  // 幂等重入分支不重跑 startup；动态 token 提供者仍须接管 RPC/tile 授权
+  // （静态 accessToken 在 15 分钟窗口后无法刷新，RPC 会以过期 token 恒失败）。
+  if (getAccessToken) {
+    IModelApp.authorizationClient = { getAccessToken: async () => getAccessToken() };
   }
 
   // Note: EditTools.initialize() is called from the editor shell after IModelApp is fully initialized

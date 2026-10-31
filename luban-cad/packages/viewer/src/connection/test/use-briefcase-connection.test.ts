@@ -23,6 +23,7 @@ const {
   saveChangesMock,
   pushChangesMock,
   pullChangesMock,
+  setIModelMock,
 } = vi.hoisted(() => ({
   makeIpcProxyMock: vi.fn(),
   downloadBriefcaseMock: vi.fn(),
@@ -31,6 +32,7 @@ const {
   saveChangesMock: vi.fn(),
   pushChangesMock: vi.fn(),
   pullChangesMock: vi.fn(),
+  setIModelMock: vi.fn(),
 }));
 
 vi.mock('@itwin/core-frontend', () => ({
@@ -40,6 +42,7 @@ vi.mock('@itwin/core-frontend', () => ({
   BriefcaseConnection: { openFile: openFileMock },
 }));
 vi.mock('@luban-cad/shared', () => ({ lubanIpcChannel: 'luban-ipc' }));
+vi.mock('@itwin/core-common', () => ({ RpcManager: { setIModel: setIModelMock } }));
 
 import {
   useBriefcaseConnection,
@@ -104,6 +107,14 @@ describe('useBriefcaseConnection（移植自旧查看器包）', () => {
       key: '/cache/abc/briefcases/42.bim',
       readonly: false,
     });
+  });
+
+  it('P2.8：openFile 后先设置 RPC fallback routing token（reload Invalid iModelToken）', async () => {
+    const { result } = renderHook(() => useBriefcaseConnection(OPTIONS));
+    await flushAsync();
+    expect(setIModelMock).toHaveBeenCalledTimes(1);
+    expect(setIModelMock).toHaveBeenCalledWith(mockConnection);
+    expect(result.current.connection).toBe(mockConnection);
   });
 
   it('readonly 透传 downloadBriefcase 与 openFile', async () => {

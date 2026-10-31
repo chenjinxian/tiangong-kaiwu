@@ -403,8 +403,11 @@ function PartStudioSession({
 }: PartStudioSessionProps): React.JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  // 会话由 RequireAuth 门保证在场；token 静态传入（M3 雷②闭环：渲染期取一次，
-  // 与 DevViewerRoute 同姿态；动态续接的 token 刷新闭环在 viewer 演进）。
+  // P2.8：动态 access token provider（裸 JWT；AuthSession 在 <5min 时单飞刷新）。
+  // useCallback 稳定身份——useViewport 的 acquire effect 依赖它，换新会重 acquire。
+  const getValidAccessToken = React.useCallback(() => AuthSession.getValidAccessToken(), []);
+  // 会话由 RequireAuth 门保证在场；token 由动态 provider 接管（P2.8：原渲染期
+  // 静态取一次，长会话 15min 后 viewer RPC/tile 恒用过期 token）。
   // P2.4 视口门：B 文档 scope 解析完成前不把 iModel 交给 useViewport（不装载
   // 任何 scope 的图形；解析后随 `?model=` 变化由 P2.5 做 active-scope 过滤）。
   // A 旧文档 scopeReady 恒真（模式落定后），沿用既有全模型视图。
@@ -426,7 +429,7 @@ function PartStudioSession({
   } = useViewport({
     backendUrl: window.location.origin,
     hubUrl: env.hubUrl,
-    accessToken: AuthSession.getStoredAuth()?.accessToken,
+    getAccessToken: getValidAccessToken,
     iModel: scopeReady ? connection ?? undefined : undefined,
     activeModelIds,
     // notifications 呈现桥（review-8 I-2）：官方注入点换掉 core 缺省哑通道，

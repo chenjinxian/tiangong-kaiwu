@@ -97,7 +97,7 @@ const xyPlane = (z: number): PlaneDto => ({
 /** 视口 neverDrawn 当前集（consumed ∪ 手动隐藏；undefined→[]）。纯前端读，不耗 RPC。 */
 async function hiddenElementIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: { viewManager: { getFirstOpenView(): unknown } };
       EmphasizeElements: { get(vp: unknown): { getHiddenElements(vp: unknown): Iterable<string> | undefined } | undefined };
     };
@@ -185,7 +185,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   // ── 程序化 selection bridge（T1）：selectionSet.replace → store part 选择 ──
   // 右键画布 → part 菜单「删除 {body2}」在列（证明桥已写入 store；不新增 RPC）。
   await page.evaluate(async (bodyKey) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: {
         viewManager: {
           getFirstOpenView(): {
@@ -205,7 +205,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect(canvasMenu.getByRole('menuitem', { name: `删除 ${body2Name}`, exact: true })).toBeVisible();
   await expect(canvasMenu.getByRole('menuitem', { name: `隐藏 ${body2Name}`, exact: true })).toBeVisible();
   await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: {
         viewManager: {
           getFirstOpenView(): { iModel: { selectionSet: { emptyAll(): void } } } | undefined;
@@ -287,7 +287,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
 
   // 世界点（body2 盒 [4,6]×[0,2]×[0,2] 的竖边/顶边中点）投影后 boresite 点击
   const projected = await page.evaluate(async (points) => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: { viewManager: { getFirstOpenView(): { worldToView(p: { x: number; y: number; z: number }): { x: number; y: number } } | undefined } };
     };
     const vp = cf.IModelApp.viewManager.getFirstOpenView();

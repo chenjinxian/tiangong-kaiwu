@@ -7,7 +7,7 @@ import { acquireViewer, releaseViewer } from '@luban-cad/viewer';
 /**
  * Dev 专用查看器冒烟页（M0 真实栈验证载体，非产品页）：
  * - email/password 登录钮 → `AuthSession.login` 落会话（M0 尚无认证 UI，brief Step 4 钉死的便捷入口）；
- * - 「启动查看器」→ `acquireViewer({ backendUrl: window.location.origin, hubUrl: env.hubUrl, accessToken })`
+ * - 「启动查看器」→ `acquireViewer({ backendUrl: window.location.origin, hubUrl: env.hubUrl, getAccessToken })`
  *   （M3-T1：MS CORS 钉死 :5300，直连姿态不做 dev 特例——backendUrl 传同源，
  *   viewer 拼出 ws://<origin>/ipc 走 vite 代理转发 MS :5401；env.msUrl 仅作展示）
  *   → 轮询 `IModelApp.toolAdmin`（50ms×30s，对齐旧 `apps/web useEditorInitialization`）；
@@ -115,7 +115,7 @@ export function DevViewerRoute(): React.JSX.Element {
         await acquireViewer({
           backendUrl: window.location.origin,
           hubUrl: env.hubUrl,
-          accessToken: AuthSession.getStoredAuth()?.accessToken,
+          getAccessToken: () => AuthSession.getValidAccessToken(),
         });
       } catch (error) {
         if (mountedRef.current) {

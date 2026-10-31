@@ -83,7 +83,10 @@ export default defineConfig({
     // P2.6c2 F1：flag-on 环境进配置（不再靠人工 env/注释）。Playwright 的
     // webServer.env 与 process.env 合并后传给子进程；冷启动/CI 起的 dev server
     // 必带该变量（文档中心 B 区、B 视觉/性能/UI 入口断言的前提）。
-    env: { VITE_B_MODEL_ENABLED: 'true' },
+    // P2.8：VITE_E2E_HOOKS=true 在源码 e2e dev server 挂载 window.__lubanE2E，
+    // 替代 dev-only 的 /@id/ 动态导入；发布镜像需以 rebuild-web.ps1 -E2EHooks true
+    // 构建测试镜像（生产/发布镜像缺省关闭该开关）。
+    env: { VITE_B_MODEL_ENABLED: 'true', VITE_E2E_HOOKS: 'true' },
     // 常态开发态复用在场 dev server（M5-T5 口径）；CI 恒新起（T5 评审 M-5：
     // 切换冲刺后 CI 形态临近，陈旧 dev server 被静默复用会吃假绿——旧应用
     // apps/web 同口径 `!process.env.CI`）。复用的旧服务须自行以

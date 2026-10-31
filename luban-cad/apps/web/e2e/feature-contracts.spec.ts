@@ -246,7 +246,7 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
 
   // ── 9) BodySolid 恰 1 个（单 body 不变量；顺带守住直改副本/多体泄漏）──────
   const bodyCount = await page.evaluate(async () => {
-    const cf = (await import('/@id/@itwin/core-frontend')) as {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: {
         viewManager: {
           getFirstOpenView(): {

@@ -72,8 +72,10 @@ export interface UseViewportOptions {
   backendUrl: string;
   /** iModelHub URL（imodelhub-services） */
   hubUrl: string;
-  /** Access token for WebSocket authentication */
+  /** Access token for WebSocket authentication（静态值；由 getAccessToken 接管时忽略） */
   accessToken?: string;
+  /** 动态 access token 提供者（裸 JWT；优先于 accessToken；消费方传稳定身份） */
+  getAccessToken?: () => Promise<string>;
   /** 已就位的 iModel 连接（BriefcaseConnection extends IModelConnection）；就位且挂载点在 DOM 后创建 ScreenViewport */
   iModel?: IModelConnection;
   /**
@@ -118,7 +120,7 @@ export interface UseViewportResult {
 }
 
 export function useViewport(options: UseViewportOptions): UseViewportResult {
-  const { backendUrl, hubUrl, accessToken, iModel, notifications, activeModelIds } = options;
+  const { backendUrl, hubUrl, accessToken, getAccessToken, iModel, notifications, activeModelIds } = options;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<ViewportPhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +153,13 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
   useEffect(() => {
     let mounted = true;
     setPhase('starting');
-    acquireViewer({ backendUrl, hubUrl, accessToken, notifications })
+    acquireViewer({
+      backendUrl,
+      hubUrl,
+      accessToken,
+      ...(getAccessToken ? { getAccessToken } : {}),
+      notifications,
+    })
       .then(() => {
         if (mounted) setPhase('ready');
       })
@@ -166,7 +174,7 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
     };
     // notifications 在依赖面内但要求消费方传稳定实例（app 生命期单例）——身份
     // 恒定即不构成重 acquire 触发面；undefined 缺省路径同理。
-  }, [backendUrl, hubUrl, accessToken, notifications]);
+  }, [backendUrl, hubUrl, accessToken, getAccessToken, notifications]);
 
   useEffect(() => {
     // 挂载点尚未进 DOM / iModel 未就位：暂不创建（iModel 就位后 effect 重跑）

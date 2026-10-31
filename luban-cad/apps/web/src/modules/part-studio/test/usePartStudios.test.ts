@@ -123,6 +123,34 @@ describe('usePartStudios 读面', () => {
     expect(result.current.error).toContain('registry down');
     expect(result.current.isLoading).toBe(false);
   });
+
+  it('P2.8：Invalid iModelToken 瞬时错误有界重试后成功', async () => {
+    rpc.listPartStudios
+      .mockRejectedValueOnce(new Error('Invalid iModelToken for RPC operation request'))
+      .mockRejectedValueOnce(new Error('Invalid iModelToken for RPC operation request'))
+      .mockResolvedValueOnce(STUDIOS);
+    const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', makeSession()));
+    await waitFor(() => expect(result.current.loaded).toBe(true), { timeout: 3000 });
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.studios).toHaveLength(3);
+    expect(rpc.listPartStudios).toHaveBeenCalledTimes(3);
+  });
+
+  it('P2.8：Invalid iModelToken 持续失败只重试 3 次（有界）', async () => {
+    rpc.listPartStudios.mockRejectedValue(new Error('Invalid iModelToken for RPC operation request'));
+    const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', makeSession()));
+    await waitFor(() => expect(result.current.loaded).toBe(true), { timeout: 3000 });
+    expect(result.current.error).toContain('Invalid iModelToken');
+    expect(rpc.listPartStudios).toHaveBeenCalledTimes(3);
+  });
+
+  it('P2.8：非 Invalid iModelToken 错误不重试（一次即失败）', async () => {
+    rpc.listPartStudios.mockRejectedValueOnce(new Error('registry down'));
+    const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', makeSession()));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.error).toContain('registry down');
+    expect(rpc.listPartStudios).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('usePartStudios 写方法（共享会话/租约）', () => {
