@@ -882,7 +882,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | new-document baseline 传播竞态（state=initialized 先于 blob 可读；e2e 15s settle/reload） | **waiver（P2）+ backlog** | `e2e/seed.ts:52-59`、`b-model.spec.ts:196-201`；首开覆盖已让渡；15s 不可删；镜像轮另见 reload iModelToken 竞态（独立） | hub + web | 原子 baseline 可见性（state 仅在 blob 可读后置 initialized）或客户端有界重试；P3 前完成 |
 | A all-model 视觉 NOT RUN | **waiver** | A 种子空 iModel（0 PhysicalModel）；A 编辑器 canvas 全 mask | web/e2e | 几何-bearing A 夹具或 viewer 集成/像素测试 |
 | damaged 半图真栈门 NOT RUN | **waiver** | P2.6b3 C4：需 def 分区缺失 phys model 的半图库；公开 UI/RPC 无入口 | backend + e2e | 后端 test fixture（`deleteModel` harness）/受租约约束 test-only 命令 |
-| 后端直接 `deleteElements(BodySolid)` 不变量 | **waiver + backlog** | P2.6d 前端全局 Delete 守卫已关用户路径（零事务、getBodies 200）；后端仍接受任意客户端删除，缺 init BodySolid 时 `getBodies` 500 | backend | 后端守卫/自愈 init BodySolid；不得把前端守卫当后端不变量 |
+| 后端直接 `deleteElements(BodySolid)` 不变量 | **fixed（P2.8 残项清理，2026-11-01）** | P2.6d 前端守卫 + P2.8 后端 `BasicManipulationCommand.deleteElements` 在任何锁/事务前据 editor-common 共享谓词拒删；内部特征删除走 FeatureService/EditTxn 不受影响；modeling-server guard test + feature 459/8 | backend | 保持共享谓词与两端测试；不得把前端守卫当后端不变量 |
 | A 详情视觉基线钉人工调试 iModels + hero 日期 | **waiver** | `visual.spec.ts:199-222`（同项目 6 个人工调试库同框，日期 mask） | e2e | 隔离夹具项目 |
 | reload 后 30s 写租约 UX（unmount 不释放） | **backlog** | `b-model.spec.ts:338-342`；产品侧未修 | web | pagehide/卸载释放租约或缩短 TTL + 重取 |
 | e2e 未纳入 web tsc/lint | **backlog** | `tsconfig.include=["src","vite.config.ts"]`；eslint 仅 `src/**` | web | 独立 e2e tsconfig/eslint 并接入聚合门 |
@@ -890,8 +890,9 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | e2e `/@id/` 开发态导入（新） | **fixed（P2.8）** | 15.4.1；P2.8：`window.__lubanE2E`（`VITE_E2E_HOOKS` 门控）+ 32 处替换 + app store hook；发布源镜像全量 49/49 | web/e2e | 保持生产 hook off；见 §15.8 |
 | 发布镜像全量轮 crash-class（1 `Target crashed` + 7 `worker 0xC0000142`） | **not reproduced（P2.8）** | 干净重启 + hook 镜像全量 **49/49，0 crash**；P2.7 归档保留为历史 | web/e2e | 保持观察；发布门槛以新全量证据为准 |
 | reload b-model `waitEditorReady` 失败（曾目视 `Invalid iModelToken` 横幅，原始 artifact 未保留） | **fixed（P2.8）** | 15.4.2/§15.8：briefcase open 后 `RpcManager.setIModel` + `usePartStudios` 有界重试 + 动态 JWT；镜像 b-model 全链通过（原始 one-off artifact 仍未归档） | web/viewer | 保持回归用例；发布前重建产物 |
-| MS 429 不记录（F2） | **backlog** | 配额证据只能取客户端状态码；P2.7 已按此取证 | backend | 429 分支 `logger.warn`/计数器 |
-| 限流 env 覆盖无启动告警/文档（F3） | **backlog** | 生产同样生效；默认值有单测锁定 | backend | 启动打印 resolved 配置 + `.env.example` |
+| MS 429 不记录（F2） | **fixed（P2.8 残项清理）** | 每 IP/窗口首次 429 `logger.warn`（method/url/max/window/retryAfter）+ security test；配额证据不再只依赖客户端状态码 | backend | 保持 warn-once 防刷屏 |
+| 限流 env 覆盖无启动告警/文档（F3） | **fixed（P2.8 残项清理）** | MS 启动打印 `RPC rate limit: <max> req / <window> ms per IP (env override|production default)`；`.env.example` 增加两键；默认值未改 | backend | 保持启动日志 |
+| editor backend lint 既有 6 errors | **fixed（P2.8 残项清理）** | 未用 import 清理；deprecated `iModel.elements.deleteElement` → 显式 `this.txn.deleteElement`（insert/update 已 beginEditing）；editor backend lint 0 | editor | 保持 lint 门 |
 | F4/F7 最终轮命令/env/探针/dist 证据归档 | **fixed（P2.7）** | 本记录 15.2/15.3 + `evidence-p27/environment.txt` | release | 保持随每轮发布归档 |
 | 登录视觉 origin 相关（新） | **fixed（P2.8）** | mask `.signin-hero__token-value`（#f5f5f5）+ 重钉 `login-light.png`；:5301 全量通过 | e2e | 保持基址无关基线 |
 | MS 产物需随命名/P2.8 重建（`LubanRpcInterface`/`luban-ipc`） | **release prerequisite** | P2.7 `backend-20261031-p27` 仍实现旧 interfaceName；本地 MS 以源码构建验证；新产物未建 | release/backend | 重建 MS 产物并重新归档 hash/provenance；不得用旧产物发布 |
@@ -961,3 +962,26 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 - 登录视觉 origin 已 mask + 重钉；tile cache 404 为精确测试豁免（建议后续消除 console 噪声）；
   全量 Playwright 仍需测试专用限流覆盖并披露。
 - 未 push / 未 merge / 未 publish。
+
+### 15.9 残项清理（2026-11-01）
+
+- **F2（MS 429 不记录）**：每 IP/窗口首次 429 记录 `logger.warn`（method/url/max/
+  window/retryAfter；warn-once 防刷屏）；`security.test.ts` 覆盖。
+- **F3（限流 env 覆盖无启动告警/文档）**：MS 启动打印 resolved 限流配置
+  (`RPC rate limit: 100 req / 900000 ms per IP (production default)` 实测)；
+  公开仓 `.env.example` 增加 `LUBAN_RPC_RATE_LIMIT_MAX/WINDOW_MS` 注释项；默认值未改。
+- **后端 BodySolid 删除不变量**：前端 P2.6d 谓词/文案上收 `editor-common`
+  (`AuthoredBodyGuard.ts`)，`BasicManipulationCommand.deleteElements` 在任何锁/事务前拒删
+  authored `LubanCAD:BodySolid`（Agent/脚本/RPC 直调不再能拆图根）；内部
+  `deletePartStudio`/迁移走 FeatureService/EditTxn，不受影响。modeling-server 新增
+  `BasicManipulationDeleteGuard.test.ts`（authored 拒/显式 orphan 与非 body 放行）。
+- **editor backend lint**：清理 6 个既有错误（未用 `DbOpcode`/`Guid`/`BriefcaseDb`/
+  `IpcHost`/`EcefLocation`；deprecated 隐式 `iModel.elements.deleteElement` →
+  显式 `this.txn.deleteElement`，调用点上方 insert/update 已 `beginEditing`）；lint 0。
+- **验证**：editor common/backend/frontend build + lint 0；frontend **43**；backend build；
+  security+guard **19**；feature **459 passed / 8 skipped**；MS 重启 health 200（F3 日志见上）；
+  聚焦源码 e2e A 只读 **2 passed**（56.8s）。
+- **提交**：public `5e86e5a118`；backend `9a4efd8`。**未 push / 未 merge / 未 publish**。
+- **仍待**：MS 产物重建 / hook-off 生产镜像 / 发布镜像 hub e2e 与 A6（未授权）；
+  30s 写租约 UX；baseline 传播竞态；A all-model 视觉与 damaged 半图夹具；e2e tsc/lint；
+  tile cache 404 console 噪声；EC schema 迁移；历史文档旧目录名。
