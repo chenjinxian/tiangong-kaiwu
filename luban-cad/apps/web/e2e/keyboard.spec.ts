@@ -6,8 +6,9 @@
  * 键盘建文档（A 旧文档，自建自清）；编辑器段（P2.6a）由 helper 直连 B 种子 →
  * alt+/ 命令搜索真激活工具 → Escape 分层收合。**交互禁 mouse**：交互只走
  * page.keyboard（Enter/Tab/Escape/热键）；焦点路径逐步断言
- * （document.activeElement 可观测面）。B 种子入口未走 UI 列表的原因见
- * 第二用例注（flag 关 B 项目不在 A 列表）。
+ * （document.activeElement 可观测面）。flag-on 后 B 种子的列表→详情→编辑器
+ * UI 入口由 documents.spec（P2.6c1 用例）覆盖；本文件保持直连以聚焦编辑器内
+ * 的键盘纪律（见第二用例注）。
  *
  * 自首（honest 边界）：文档中心→编辑器跨页长路径的卡片级焦点锚定用
  * locator.focus() 程序化置焦（Tile 卡片深藏在长 tab 序中，Tab 走焦从页首
@@ -87,9 +88,10 @@ test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活倒角 → Escape �
   // reset 返回的同一组 id 交给 open（L3）。
   const bSeed = await resetBModelSeed(request, await getApiToken());
 
-  // P2.6a：B 种子项目在 flag 关时**不出现**在文档中心 A 列表（P2.1 rollback
-  // 语义），故编辑器入口由 helper 直连 URL（B 解析器落位 `?model=` scope）；
-  // 键盘纪律从编辑器内开始。UI 路径的键盘导航在 P2.6c flag/视觉波次恢复。
+  // P2.6c1：flag-on 后 B 种子出现在文档中心 B 区，列表→详情→编辑器的 UI 入口
+  // 由 documents.spec 覆盖；本用例保持 helper 直连 URL（B 解析器落位
+  // `?model=` scope），键盘纪律从编辑器内开始（焦点序断言不受列表滚动/虚拟
+  // 渲染噪声干扰）。
   await openSeedImodelEditor(page, bSeed);
   await expect(page).toHaveURL(/[?&]model=/);
 

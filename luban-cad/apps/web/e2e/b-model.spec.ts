@@ -7,9 +7,9 @@
  * B 全链（生产 UI 路径，无 RPC 造数）：
  *  1) B 种子项目详情页 →「新建 iModel」对话框 → 浏览器 `POST /imodels`
  *    （P2.3 F3/F4：只 POST 一次，UI 自己轮询到 initialized 才进编辑器）；
- *      **flag 关限制**：`VITE_B_MODEL_ENABLED` 关时 B 项目不在 `/documents`
- *      列表（documents.spec 已钉死该 rollback 面），故按种子项目 id 直连详情页
- *      ——不伪造项目列表，也不改 flag；
+ *      **P2.6c1 flag-on**：e2e 环境以 `VITE_B_MODEL_ENABLED=true` 启动，B 项目
+ *      在 `/documents` 的 B 区可见（本链先做真实列表断言）；列表→详情的 UI 入口
+ *      由 documents.spec 覆盖，本链仍按种子 id 直连详情页以缩短路径；
  *  2) 打开文档 → P2.4 解析器创建默认 `Part Studio 1` 并 replace 到 `?model=`；
  *  3) 草图（上视 + 线 2 击 + 3 点弧 3 击闭环，sketch-extrude.spec 同款
  *     构造：弧端点=线端点像素，同一会话像素→草图面映射自洽）→ 拉伸 →
@@ -140,10 +140,14 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
 
   await loginWithSession(page);
 
-  // ── 1) B 种子项目详情页（flag 关：B 项目不在 /documents 列表，直连 id）────
-  // 先钉死 flag 关的真实列表面（B 项目缺席——不是伪造列表），再按 id 直连。
+  // ── 1) B 种子项目详情页（flag-on：B 项目在文档中心 B 区，详情直连）────
+  // 先钉 flag-on 的真实列表面（B 种子项目在 B 区——不是伪造列表）；本链后续
+  // 要测「详情页新建 iModel」，直接按 id 进入详情页（列表→详情的 UI 路径由
+  // documents.spec 的 P2.6c1 用例覆盖）。
   await gotoRoute(page, '/documents', 'documents-route');
-  await expect(page.getByRole('button', { name: B_SEED_PROJECT_NAME })).toHaveCount(0);
+  await expect(
+    page.getByTestId('projects-section').getByRole('button', { name: B_SEED_PROJECT_NAME }).first(),
+  ).toBeVisible({ timeout: 20_000 });
   await gotoRoute(page, `/documents/${bSeed.itwinId}`, 'document-details-route');
   await expect(page.getByTestId('legacy-readonly-banner')).toHaveCount(0);
   const createButton = page.getByRole('button', { name: '新建 iModel' }).first();

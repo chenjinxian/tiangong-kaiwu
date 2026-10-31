@@ -494,8 +494,9 @@ export async function openBModelEditor(
  * `ids` 可传入 reset 返回的同一组项目/库 id（L3：reset 与 open 必须指向同一行，
  * 避免各自按名解析在重复名/分页边缘命中不同对象）；省略时按名唯一解析。
  *
- * 注意：flag 关时 B 项目不出现在文档中心 A 列表（P2.1 rollback 语义），故入口
- * 为直连 URL；UI 路径打开归 P2.6c（flag/视觉）。
+ * 注意：本 helper 一律直连 URL（编辑器规格的稳定入口，不依赖列表渲染/排序）。
+ * flag-on 后 B 项目已在文档中心 B 区可见，列表→详情的 UI 入口由
+ * documents.spec 的 P2.6c1 用例覆盖。
  */
 export async function openSeedImodelEditor(
   page: Page,

@@ -5,7 +5,11 @@
  *
  * ① 编辑器首帧 <5s（**文件内先跑**——冷值纪律进结构：门禁轮须新起 dev server
  *    后整文件执行，编辑器先跑才吃真冷载；滚动页会预热共享模块图，反序则冷标
- *    签失实，T7 首轮实测教训）：page.goto 编辑器 URL 起 → 状态栏「已连接」+
+ *    签失实，T7 首轮实测教训）：**P2.6c1 起被测面 = B 种子默认 scope**（可写
+ *    B 文档；beforeAll 重置 B 种子 ⇒ 首跑即真实首开路径：解析器创建默认
+ *    `Part Studio 1` 后才交出 iModel 给视口）。A 只读种子不再是首帧被测面
+ *    （A 不产生 scope，测的是 legacy 壳，不覆盖 B 的可评估路径）。
+ *    page.goto 编辑器 URL 起 → 状态栏「已连接」+
  *    视口挂载点 canvas 在场（≡ helpers.waitEditorReady 双锚，rAF 粒度 in-page
  *    采样；**锚点=canvas 挂载/建帧完成，非 tile 几何首帧**——只读空种子库上
  *    是视口壳就绪，先于首个 tile 绘制）止——performance.now 差值（timeOrigin=
@@ -16,7 +20,9 @@
  *    connect（briefcase 打开+IPC host）/ viewport（canvas 建帧）。
  *
  * ② Documents 百行滚动帧率：API 自建 100 个 perf-seed-* 文档（自建自清，
- *    afterAll 清理 + beforeAll 清理崩溃遗留）→ 列表视图渲染 ≥100 行 →
+ *    afterAll 清理 + beforeAll 清理崩溃遗留）→ flag-on 双区（B 项目区 + A 旧
+ *    文档区）同屏：滚动负载锚 **A 旧文档区表格**（`.documents-body`，百行主体），
+ *    B 区真实在场并单独计数（不得因双区把 strict 选择器打红）→ 列表视图渲染 ≥100 行 →
  *    page.evaluate 内 requestAnimationFrame 时间戳序列采样（采样窗含轮间
  *    空闲帧，p95 有被稀释的理论面——登记 perf.md M-8），mouse.wheel 驱动
  *    滚动（下到底 + 回顶，≥2 屏；样本不足自动重臂补轮 ≤3 轮）→ 帧间隔
@@ -33,8 +39,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { E2E_IMODEL_NAME, SEED_PROJECT_NAME } from './fixtures';
-import { apiFindDocumentByName, authHeaders, getApiToken, gotoDocuments, loginWithSession } from './helpers';
+import { B_SEED_IMODEL_NAME, B_SEED_PROJECT_NAME } from './fixtures';
+import { authHeaders, getApiToken, gotoDocuments, loginWithSession } from './helpers';
+import { resetBModelSeed } from './seed';
 
 /** ② PASS 底线：p95 帧间隔 ≤18.2ms（≈55fps；目标 60fps=p95≈16.7ms）。 */
 const SCROLL_P95_MS_MAX = 18.2;
@@ -106,6 +113,8 @@ interface EditorPhases {
   resourceCount: number;
   /** 采样终止时最后连接态文本（失败/超时诊断用）。 */
   lastStatus: string;
+  /** 采样终止时 URL（B 首跑应已 replace 到 `?model=`；留证不参与判门）。 */
+  finalUrl?: string;
 }
 
 interface PerfProbeState {
@@ -172,22 +181,24 @@ test.describe('性能门禁 ①：编辑器首帧', () => {
   let editorUrl = '';
 
   test.beforeAll(async ({ request }) => {
+    // P2.6c1：被测面 = B 种子默认 scope。重置 B 种子（删旧建新 + 15s baseline
+    // settle）⇒ 三跑从同一确定性起点出发：首跑=真实首开（解析器创建默认
+    // `Part Studio 1` 后才把 iModel 交给视口），#2/#3 热态复访同一 scope。
+    // 不重置则「前序 spec 是否已在该种子建过 Part Studio」会改变首跑冷值
+    //（全量套件顺序依赖），门禁失实。
+    test.setTimeout(300_000);
     const token = await getApiToken();
-    const project = await apiFindDocumentByName(request, SEED_PROJECT_NAME, token);
-    if (!project) throw new Error(`种子项目 ${SEED_PROJECT_NAME} 不在场（auth.setup 自愈失败？）`);
-    const listResponse = await request.get(`/imodels?iTwinId=${project.id}&$top=200`, {
+    const bSeed = await resetBModelSeed(request, token);
+    const detail = await request.get(`/imodels/${bSeed.imodelId}`, {
       headers: authHeaders(token),
     });
-    expect(listResponse.ok(), 'iModel 列表查询失败').toBeTruthy();
-    const { iModels } = (await listResponse.json()) as {
-      iModels?: Array<{ id: string; displayName?: string; name?: string; state?: string }>;
-    };
-    const seed = (iModels ?? []).find((m) => (m.displayName ?? m.name) === E2E_IMODEL_NAME);
-    if (!seed) throw new Error(`种子库 ${E2E_IMODEL_NAME} 不在场`);
-    if (seed.state !== 'initialized') {
-      throw new Error(`种子库未 initialized（state=${seed.state}）——首帧测量前提不成立`);
+    expect(detail.ok(), 'B 种子详情查询失败').toBeTruthy();
+    const body = (await detail.json()) as { iModel?: { state?: string; displayName?: string; name?: string } };
+    const state = body.iModel?.state;
+    if (state !== 'initialized') {
+      throw new Error(`B 种子未 initialized（state=${state}）——首帧测量前提不成立`);
     }
-    editorUrl = `/documents/${project.id}/${seed.id}`;
+    editorUrl = `/documents/${bSeed.itwinId}/${bSeed.imodelId}`;
   });
 
   /** 单跑 = fresh browser context（语义=真实每访成本，I-1）：新 page 即新
@@ -217,7 +228,8 @@ test.describe('性能门禁 ①：编辑器首帧', () => {
           timedOut = true;
         }
         const state = await readPerfState(page);
-        if (state.result) return state.result;
+        // 记录采样终止 URL（B 文档 resolver 的 replace 结果；?model= 在场留证）
+        if (state.result) return { ...state.result, finalUrl: page.url() };
         if (timedOut) {
           throw new Error(
             `编辑器首帧采样等待超时（150s；最后连接态=${state.lastStatus}，failed=${state.failed}）`,
@@ -250,12 +262,32 @@ test.describe('性能门禁 ①：编辑器首帧', () => {
     const median = totals[1]!;
     const warmRuns = runs.slice(1);
     const warmMedian = [...warmRuns.map((r) => r.finalMs)].sort((a, b) => a - b)[0]!;
+    // 被测面自证：三跑都落 B 默认 scope（resolver replace 的 ?model=），不是
+    // legacy 壳——否则「B 首帧」名不副实。
+    const scopeIds = runs.map((r) => {
+      try {
+        return r.finalUrl ? new URL(r.finalUrl).searchParams.get('model') : null;
+      } catch {
+        return null;
+      }
+    });
+    expect(
+      scopeIds.every((id) => !!id),
+      `B 首帧测量未落到 ?model= scope（finalUrls=${runs.map((r) => r.finalUrl ?? '<none>').join(' | ')}）`,
+    ).toBeTruthy();
 
     const file = writeEvidence('editor-first-frame.json', {
       gate: 'editor-first-frame',
       capturedAt: new Date().toISOString(),
       protocol: 'fresh browser context per run（真实每访语义，T7 评审 I-1）',
       editorUrl,
+      measuredDocument: {
+        kind: 'B',
+        project: B_SEED_PROJECT_NAME,
+        imodel: B_SEED_IMODEL_NAME,
+        scopeIds,
+        note: 'B 种子 beforeAll 重置：首跑含解析器默认 Part Studio 创建（真实首开）',
+      },
       thresholds: { medianMsMax: EDITOR_FIRST_FRAME_MS_MAX },
       verdict: median < EDITOR_FIRST_FRAME_MS_MAX ? 'PASS' : 'FAIL',
       medianFinalMs: median,
@@ -337,15 +369,30 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
     test.setTimeout(240_000);
     await gotoDocuments(page); // 默认档=我的文档（种子全 createdBy 当前用户）
 
-    // 列表视图（表格行=滚动负载形态；网格卡片是另一形态不属本门禁口径）
+    // P2.6c1 flag-on 双区：B 项目区真实渲染（B 种子一行）——记录/断言，但百行
+    // 滚动负载锚 A 旧文档区（B 区只有种子行，不构成滚动主体）。
+    const projectsSection = page.getByTestId('projects-section');
+    await expect(projectsSection).toBeVisible({ timeout: 20_000 });
+    await expect(
+      projectsSection.getByText(B_SEED_PROJECT_NAME).first(),
+    ).toBeVisible({ timeout: 20_000 });
+
+    // 列表视图（表格行=滚动负载形态；网格卡片是另一形态不属本门禁口径）。
+    // 双区同屏时 `.documents-table` 命中两张表——行/滚动容器一律限定 A 区
+    // `.documents-body`（strict mode 与口径双重要求）。
     await page.getByRole('button', { name: '列表视图' }).click();
-    const rows = page.locator('.documents-table .documents-table-row');
+    const rows = page.locator('.documents-body .documents-table .documents-table-row');
     await expect(rows.first()).toBeVisible({ timeout: 20_000 });
     await expect.poll(async () => rows.count(), { timeout: 30_000 }).toBeGreaterThanOrEqual(SEED_DOC_COUNT);
     const rowCount = await rows.count();
+    const bSectionRowCount = await projectsSection.locator('.documents-table-row').count();
+    expect(
+      bSectionRowCount,
+      'B 项目区应至少渲染 B 种子一行（flag-on 双区；B 区不并入百行口径）',
+    ).toBeGreaterThanOrEqual(1);
 
     // 滚动容器须有 ≥2 屏可滚量（门禁口径：驱动 ≥2 屏）
-    const scroller = page.locator('.documents-table');
+    const scroller = page.locator('.documents-body .documents-table');
     const scrollMetrics = await scroller.evaluate((el) => ({
       scrollHeight: el.scrollHeight,
       clientHeight: el.clientHeight,
@@ -391,7 +438,7 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
     // wheel 驱动（真实输入路径）：下到底 → 回顶
     async function wheelPass(direction: 1 | -1): Promise<void> {
       const box = await scroller.boundingBox();
-      if (!box) throw new Error('.documents-table 无 boundingBox（表格不可见？）');
+      if (!box) throw new Error('.documents-body .documents-table 无 boundingBox（表格不可见？）');
       await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 300));
       for (let tick = 0; tick < 400; tick++) {
         await page.mouse.wheel(0, direction * 240);
@@ -444,6 +491,8 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
       viewport: page.viewportSize(),
       rowCount,
       seededDocs: SEED_DOC_COUNT,
+      rowScope: 'A 旧文档区（.documents-body）；flag-on B 区单独计数不入百行口径',
+      bSection: { visible: true, seedProject: B_SEED_PROJECT_NAME, rowCount: bSectionRowCount },
       scroll: {
         scrollablePx,
         clientHeight: scrollMetrics.clientHeight,
