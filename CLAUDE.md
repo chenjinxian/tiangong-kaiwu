@@ -129,4 +129,5 @@ npx playwright test e2e/documents.spec.ts                # 单 e2e（在 luban-c
 - 详细开发准则（工具生命周期/检查清单/AI 注册规约）：`luban-cad/CLAUDE.md`
 - 宿主端口登记（53xx/54xx 专用段，避开 itwinjs-core）：`docs/PORTS.md`
 - 上游同步史与冲突处理经验：`docs/UPSTREAM_SYNC.md`
+- 命名迁移（2026-10-31，OpenCloud→LubanCAD；含线上契约与持久化 schema 例外）：`docs/NAMING-2026-10-31.md`
 - 已删除文档历史索引：`docs/HISTORY.md`；当前文档总索引：`docs/README.md`

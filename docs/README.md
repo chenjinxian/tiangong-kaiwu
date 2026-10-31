@@ -45,6 +45,7 @@
 |------|------|
 | [RELEASE-backend-20261028c.md](./RELEASE-backend-20261028c.md) | 最新后端发布说明 |
 | [MIGRATION-2026-10-29.md](./MIGRATION-2026-10-29.md) | 2026-10-29 项目总目录整理迁移记录 |
+| [NAMING-2026-10-31.md](./NAMING-2026-10-31.md) | 2026-10-31 OpenCloud→LubanCAD 命名迁移（线上契约/持久化 schema 例外/验证） |
 | [HISTORY.md](./HISTORY.md) | 已删除文档历史索引 |
 
 ### 子目录
