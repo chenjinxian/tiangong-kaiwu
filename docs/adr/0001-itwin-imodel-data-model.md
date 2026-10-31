@@ -6,7 +6,8 @@
   B 新文档 + 多 Part Studio 页签 + RPC 1.18 原子同发已在本地栈验收（verify-stack **17/17**；
   源码全量 Playwright **49/49**；发布 web 镜像有效子集 **19/19**）；但**发布镜像全量 e2e 因
   e2e 开发态 `/@id/` 动态导入不适用**、**发布镜像 hub e2e NOT RUN**（未授权发布）、
-  **reload `Invalid iModelToken` 偶发未根因**，且多项产品残项为 waiver/backlog。逐项见 §15。
+  **reload b-model `waitEditorReady` 失败（曾目视 `Invalid iModelToken` 横幅，但原始 artifact 未保留、未复现、cause unconfirmed）**，
+  且多项产品残项为 waiver/backlog。逐项见 §15。
 - **日期**：2026-10-30
 - **决策范围**：鲁班CAD 的领域数据模型、文档中心 IA、Part Studio 页签模型，以及 CAM/BIM 扩展方向
 - **关联文档**：
@@ -616,7 +617,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 8. **Part Studio scope 的 UI/路由生产端（P2）**：**P2 已关闭（源码侧）**——TabBar/解析器/URL
    `?model=` 生产端接线，`b-model`/`b-viewport`/`b-model-undo` 真栈 e2e 覆盖（源码全量 49/49）。
    遗留：发布镜像上 editor specs 因 e2e 开发态 `/@id/` 导入不能全量复跑（§8.6 gate 14、§15），
-   以及 reload 下偶发 `Invalid iModelToken` 待根因（§15 新残项）。
+   以及 reload 后 b-model `waitEditorReady` 失败待根因（曾目视 `Invalid iModelToken` 横幅，原始
+   artifact 未保留、未复现；§15 新残项）。
 
 ---
 
@@ -654,7 +656,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 2026-10-30 | 用户认可 **B 方向**；按 C 过渡；P1 spike 作为迁移门禁 | **已接受** |
 | 2026-10-30 | P0 四项前置完成（Named Version / 状态诚实化 / taxonomy / WorkspaceRef）；验证证据见下 | **完成**（进入 P1 spike） |
 | 2026-10-30 | **P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**。四个验收轴：①隔离 Go（2+ Part Studio 特征/树/体/orderKey/oplog + 跨 studio by-id 写守卫 + legacy 回归；scope **25 cases**；**final-fix2 HEAD 49 files / 447 passed / 8 skipped**，Task 9 时点 436、Task 4 基线 421；8 skips 为 `debug-tail-root` 探针）；②迁移 qualified Go（**修订**：参数重放 + `rebuildAll` 替代 Transformation；11/11 tests，主链体积 15.9989259816 vs 15.9989259816、direct-edit 体积 16 vs 16、failed-tail 8 vs 8、boolean 12 再生 + 8 consumed + 8 suppressed；**bbox 相等对复制类体非独立证据**；**Transformation NOT RUN**，**不宣称无损**）；③性能 Go（受限：`StandaloneDb`/native + 后端读面代理；10 studio init 145.1 ms / tree 1.3 ms / insert P95 8.8 ms / rebuild P95 6.1 ms / switch P95 0.3 ms；阈值仅人工比对日志，**非 CI 回归预算**）；④Named Version **metadata-only** + iModel 级共享 Go（**修订**：共享写实际 Manage-only；`isSecured` + ACL；非成员 403 → 显式 Read 200；无 checkpoint/缩略图/计数/事件；final-fix 收紧列表元数据/管理权边界/内容资源维度）。撤销决策 **A**：最新 studio init 之上的文档级 undo，不承诺页签级；生产 Briefcase/IPC + init-floor E2E **NOT RUN**。若按原四项门禁字面执行，本记录应读作 defer/No-Go。证据与全部限定见私有仓 `luban-backend` 的 `docs/feature-multi-partstudio-spike.md`（仓外私仓路径，本公开仓无此文件）与 `final-fix-report.md` | **待 owner 签字（qualified Go；非字面四项全过）** |
-| 2026-10-31 | **P2 实现完成（qualified；发布门部分 NOT RUN/受限）**：B 新文档（iModel=文档）+ 多 Part Studio 注册表/页签/视口 + RPC 1.18 原子同发；源码全量 Playwright **49/49**、verify-stack **17/17**、发布 web 镜像（flag-on，revision `4b01fff54bea`）有效子集 **19/19**、生产 undo 功能链通过（镜像 spec 的 console 终断言被 e2e 开发态 `/@id/` 导入打断）；默认 100/15min 配额已行使（100 允许后 429）。**未关闭**：发布镜像 hub e2e NOT RUN、发布镜像全量 e2e 不成立（e2e 开发态导入）、reload `Invalid iModelToken` 偶发、§15 的产品 waiver/backlog。**不得表述为发布门全过。** | **完成（源码/本地栈）；发布收口待 owner 签字与 §15 处置** |
+| 2026-10-31 | **P2 实现完成（qualified；发布门部分 NOT RUN/受限）**：B 新文档（iModel=文档）+ 多 Part Studio 注册表/页签/视口 + RPC 1.18 原子同发；源码全量 Playwright **49/49**、verify-stack **17/17**、发布 web 镜像（flag-on，revision `4b01fff54bea`）有效子集 **19/19**、生产 undo 功能链通过（镜像 spec 的 console 终断言被 e2e 开发态 `/@id/` 导入打断）；默认 100/15min 配额已行使（100 允许后 429）。**未关闭**：发布镜像 hub e2e NOT RUN、发布镜像全量 e2e NOT VALID（18/18/13 实况；e2e 开发态导入 + crash-class）、reload b-model `waitEditorReady` 失败（目视 `Invalid iModelToken` 横幅但原始 artifact 未保留）、§15 的产品 waiver/backlog。**不得表述为发布门全过。** | **完成（源码/本地栈）；发布收口待 owner 签字与 §15 处置** |
 
 > **最终验证计数（2026-10-30 final-fix2）**：backend final-fix 基线为代码 HEAD `14e5fe6` / docs HEAD
 > `140131b`，其全 `src/feature` 为 48 files / 443 passed / 8 skipped（Task 9 时点 436、Task 4 基线
@@ -755,54 +757,72 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   A 旧文档只读兼容 + RPC 1.18 原子同发。源码侧全量门已绿；**发布门未全过**（见 15.3/15.4）。
 - **public**：`feat/b-model-p2`，BASE `ac0c2e8d5e`；P2.7 提交 **`4b01fff54bea`**（Dockerfile
   `VITE_B_MODEL_ENABLED` build-arg、`rebuild-web.ps1 -BModelEnabled`、Playwright 外部基址跳过
-  :5300 webServer）、**`4b36c36e1b`**（ADR §15 首版）、**`b30ae8f`**（干净产物 hash/物化证据）；
-  其后仅文档同步。**未 push/merge**。
+  :5300 webServer）、**`4b36c36e1b`**（ADR §15 首版）、**`b30ae8f`**、**`2b251595f8`**、
+  **`c42efdd052`**（干净产物 hash/undo 证据）、**`fc24b4c56c`**（verify-stack Step D 报告
+  native provenance），以及本 ADR/plan 的 fix-round 证据修正提交（见 `git log`）。
+  **未 push/merge**。
 - **backend**：`feat/b-model-p2`，BASE `1c5d950`（RPC 限流 env 覆盖、注册表/半图实现）；
   P2.7 提交 **`989c2d6`**（native Delivery 回退 + junction 穿透删除修复 + RPC 版本打印）、
-  **`168bba2`**（editor-backend 物化为真实目录、排除 node_modules）、**`9c02e61`**
-  （`docs/b-model-p2-record.md`）、**`e5cb5f5`**（干净产物 hash/物化更新）。**未 push**。
+  **`168bba2`**（editor-backend 物化）、**`9c02e61`**、**`e5cb5f5`**（干净产物 hash/物化更新）、
+  **`3624a85`**（复审 fix round：native provenance + 全部 link 包物化 + tgz core-common
+  唯一断言 + LinkType 守卫）、**`66748a8`**（P2 记录修订）。**未 push**。
+- **复审包注记**：`review-public-0d6ffe1..4b36c36.diff` 与
+  `review-backend-1c5d950..9c02e61.diff` **早于上述 live 修复**（尤其 265,649,231 B /
+  `2808121687…` 旧产物、skip-only junction 修复）；最终证据以本 ADR/报告与
+  `evidence-p27/` 的硬化产物（178,553,408 B / `DBB79D6B…`）为准。
 - **hub**：`feat/b-model-p2` @ **`25b2b42328ac813b7fa6e27308488c5c0540377f`**（P2.3 成员
   `userId`/邮箱解析）。P2.7 未改 hub、未发布、未 push。
 - 证据目录（**不入库**，SDD 工作目录）：`.superpowers/sdd/2026-10-30-b-model-p2/evidence-p27/`
-  （`environment.txt`、`verify-stack-p27.log`、`quota-*.json`、`e2e-image-*.log`、
-  `p27-rebuild-web.log`、`web-image-inspect.json` 等）与 `task-P2.7-report.md`。
+  （`environment.txt`、`verify-stack-p27*.log`、`quota-*.json`、`e2e-image-*.log`、
+  `p27-build-ms-dist-hardened.log`、`p27-install-artifact-hardened.log`、
+  `p27-ms-startup-hardened*.log`、`p27-rebuild-web.log`、`web-image-inspect.json`、
+  `undo-clean-artifact/` 等）与 `task-P2.7-report.md`。
 
 ### 15.2 构建产物（本地；未发布）
 
 | 产物 | 标识 / 证据 |
 |---|---|
 | public shared | `dist/rpc/LubanFeatureRpcInterface.js` `interfaceVersion = "1.18.0"`；`test` **7 files / 144 passed** |
-| MS 产物 | tag `backend-20261031-p27`；tgz **265,649,231 B**，sha256 **`2808121687779E644F2EC8AA48A22608F3D008929EC4C08FAF7811ACB37DC5B4`**；产物树 RPC **1.18.0**；`@bentley/imodeljs-native` `{"dev-build":true}`；dist 0 个 `.map`；`editor-backend` 为真实目录副本（排除 `node_modules`）；`fetch-backend.ps1 -LocalArtifact` 安装到 `dist-backend\modeling-server` |
+| MS 产物 | tag `backend-20261031-p27`；tgz **178,553,408 B**，sha256 **`DBB79D6B637C143701DD76EFBE039EC2090A79014764EB0316F38AE0680CD35F`**；产物树 RPC **1.18.0**；native dev build + `native-provenance.json`（version **5.15.5** / head **`d29cf7e49fc2`** / required tag `v5.15.5` = `64a0718d1dc7` / **explicit store fallback=true** / freshness `store-predates-head`）；dist 0 个 `.map`；**7 个顶层 link 包**（含 `@luban-cad/shared` / `@itwin/editor-backend`）物化为真实目录（排除 `node_modules`）；tgz 断言 `@itwin/core-common` **1 份**、`@luban-cad/shared` 无 `node_modules`；`fetch-backend.ps1 -LocalArtifact` 安装到 `dist-backend\modeling-server` |
 | MS 运行形态 | 宿主产物模式（`start-ms-host.ps1 -Detach`）；日志横幅 `using dev build from …\@bentley\imodeljs-native` |
 | web 镜像（本地） | `tiangong-kaiwu-web:latest`；镜像 Id `sha256:23639beaf380b21f4aff87daf86cdf9f57a245b0b6fef471b7286286868b272f`；`org.opencontainers.image.revision=4b01fff54beadcda0c13f589d8be62068a72db5b`；**`org.opencontainers.image.b-model-enabled=true`** |
 | hub 镜像（本地） | `ghcr.io/chenjinxian/imodelhub:latest`；Id `sha256:1663b22ab79059f6fac25d53a9a6d2162519db5d49bc9af95abcdfa0fa7095ea`；revision `25b2b42…`；**仅本地，未发布** |
 
-构建脚本修复（backend `scripts/build-ms-dist.ps1`）：
-1. `imodel-native` 的 cmake `Delivery` 目录可缺失（本机已清理）；旧脚本将其作为硬前提导致构建中止。
-   现改为：Delivery 缺失时回退 itwinjs-core store 内的 dev build，并**硬校验**
-   `devbuild.json` 的 `dev-build=true`（否则拒绝，防静默回退官方二进制）。
-2. **Junction 穿透删除 / 产物嵌套依赖（实测，已修）**：旧去重步骤对
-   `node_modules/@itwin/editor-backend`（npm 对 `file:` 依赖建 Junction）执行 `Remove-Item`，穿透
-   删除了 public 工作区 `luban-cad/packages/editor/backend/node_modules/@itwin/core-backend` 的
-   真实 link，导致源码侧 vitest `Cannot find package '@itwin/core-backend'`。仅“跳过删除”仍会让
-   `tar --dereference` 把 Junction 目标的嵌套 `node_modules` 带进产物（第二份 `@itwin` 实例）。
-   现把 Junction 替换为**真实目录副本并排除 `node_modules`**（backend `168bba2`）：包代码进产物，
-   依赖统一由顶层解析（单实例），且绝不再触碰源仓。本次已恢复被删 link（Junction，目标
-   `itwinjs-core/core/backend`），backend `src/feature` 复跑 **50 files / 459 passed / 8 skipped**；
-   产物内 `editor-backend/node_modules` 不存在、无嵌套 core-backend。
-3. 打包前打印产物树 RPC 契约版本（发布记录可直接核对）。
+构建脚本硬化（backend `scripts/build-ms-dist.ps1`，P2.7 复审 fix round）：
+1. **Native Delivery 回退不再静默**：Delivery 缺失或 store dev build 早于 imodel-native HEAD 时，
+   必须显式 `-AllowStoreNativeFallback`，否则构建失败；同时硬校验 store package 版本 ==
+   store 目录版本、`devbuild.json` 的 `dev-build=true`、required tag `v<版本>` 存在且是
+   imodel-native HEAD 的祖先、store devbuild 不早于 required tag。解析并打印
+   version/HEAD/describe/tag/tag commit/store mtime/HEAD time/fallback，写入产物
+   `native-provenance.json`。本次：**5.15.5**，HEAD `d29cf7e49fc2`，required tag `v5.15.5`
+   （commit `64a0718d1dc7`，2026-10-02），store devbuild **2026-10-26** 早于 HEAD
+   （2026-10-29，220 commits）→ `fallbackRequired=true`，已显式授权；**不得把“dev-build 横幅”
+   当作版本/新鲜度证明**。
+2. **所有顶层 link/file: 依赖物化**（不只 editor-backend）：npm 对 link/file 依赖建
+   Junction/Symlink，`tar --dereference` 会把目标的嵌套 `node_modules` 带进产物；旧步骤直接
+   `Remove-Item` 还会穿透删除公开仓 workspace 的真实 link（实测 editor-backend 的
+   core-backend）。现遍历 `node_modules` 顶层（含 `@scope/*`）的 link 目录，替换为真实目录
+   副本并**排除 `node_modules`**（本次 7 个：core-backend/core-bentley/core-common/
+   core-geometry/editor-backend/editor-common/@luban-cad/shared），依赖统一由顶层解析。
+   打包后对 tgz 清单断言：`@itwin/core-common` **恰好 1 份**、`@luban-cad/shared` 无
+   `node_modules`；本次通过。清除产物中的 21,107 个 shared 嵌套条目与
+   core-backend/editor-common/shared 三处重复 core-common。
+3. **嵌套 core-backend 删除加 LinkType/reparse 守卫**：仅当父 editor-backend 为真实目录时处理
+   嵌套副本；嵌套项若是链接只删链接本身（不触达目标），真实副本才递归删除。
+4. 打包前打印产物树 RPC 契约版本；`native-provenance.json` 由 `verify-stack` Step D 读取并
+   在结果中显示 `native/head/fallback`。
 
 ### 15.3 验证结果（精确）
 
 | 门 | 命令 / 环境 | 结果 |
 |---|---|---|
-| verify-stack | `powershell -File scripts/verify-stack.ps1`（MS 产物 + web 镜像 :5301 + 本地 hub 25b2b42） | **17/17 OK，exit 0**；Step B 建 iTwin/iModel → baseline `initialized` → 清理；Step C WS 101 + 无凭证 401；Step D dev-build 横幅；Step E web revision `4b01fff54bea`；Step F hub revision `25b2b42` 且无宿主 dist 挂载。**clean artifact 重装后复跑仍 17/17**（`verify-stack-p27-clean-artifact.log` / `-final-clean.log`） |
+| verify-stack | `powershell -File scripts/verify-stack.ps1`（MS 产物 + web 镜像 :5301 + 本地 hub 25b2b42） | **17/17 OK，exit 0**；Step B 建 iTwin/iModel → baseline `initialized` → 清理；Step C WS 101 + 无凭证 401；Step D dev-build 横幅；Step E web revision `4b01fff54bea`；Step F hub revision `25b2b42` 且无宿主 dist 挂载。**clean artifact 重装后复跑仍 17/17**（`verify-stack-p27-clean-artifact.log` / `-final-clean.log`）；**硬化产物（178,553,408 B / `DBB79D6B…`）重装后复跑 17/17**，Step D 显示 `native=5.15.5 head=d29cf7e49fc2 fallback=True`（`verify-stack-p27-hardened.log` / `-hardened-final.log`） |
 | 默认配额（聚焦） | 后端 `vitest run src/middleware/security.test.ts` **15/15**；MS 以生产默认重启；1 次 warmup + 110 次 `GET /health` | **99×200 + 11×429**；首个 429 在探针 **100**（含 warmup 共 **100** 次放行）；429 body `RATE_LIMIT_EXCEEDED`、`retryAfter=890`；MS 日志 0 条 429（**F2：不记录**） |
 | 源码全量 Playwright | P2.6c2 `CI=true`，:5300 dev（**`LUBAN_RPC_RATE_LIMIT_MAX=1000` 测试覆盖**） | **49 passed（17.5m）**，0 failed / 0 skipped / 0 flaky |
-| 发布镜像有效子集 | `CI=true PLAYWRIGHT_BASE_URL=http://localhost:5301 playwright test auth login settings seed-safety document-details b-share documents visual --grep-invert "B 项目 UI 入口\|编辑器五区\|登录页"`（MS 覆盖 1000） | **19 passed（1.1m），EXIT=0**；含 **A6 两真实用户分享链**（本地 hub 25b2b42）、文档中心/详情 B/A、设置、种子安全、3 张非 origin 视觉钉版；clean artifact 重装后复跑仍 **19/19** |
-| 发布镜像全量 Playwright | 同基址全量 | **不成立（NOT VALID，已停止）**：editor specs 使用 Vite 开发态 `import('/@id/@itwin/core-frontend')`（helpers/specs 多处），镜像返回 SPA `index.html` → MIME/dynamic-import 错误。部分轮 21/49 已出现 8 个此类失败（b-viewport/boolean-bodies/feature-contracts/b-model 读连接/b-model-undo/documents B UI 入口）。**不得把源码 49/49 外推为镜像全量通过。** |
+| 发布镜像有效子集 | `CI=true PLAYWRIGHT_BASE_URL=http://localhost:5301 playwright test auth login settings seed-safety document-details b-share documents visual --grep-invert "B 项目 UI 入口\|编辑器五区\|登录页"`（MS 覆盖 1000） | **19 passed（1.1m），EXIT=0**；含 **A6 两真实用户分享链**（本地 hub 25b2b42）、文档中心/详情 B/A、设置、种子安全、3 张非 origin 视觉钉版；clean artifact 重装后复跑仍 **19/19**；**硬化产物复跑 19/19**（`e2e-image-valid-subset-hardened.log`） |
+| 发布镜像全量 Playwright | `CI=true PLAYWRIGHT_BASE_URL=http://localhost:5301 playwright test` | **NOT VALID（归档日志 `e2e-image-full.log`：18 passed / 18 failed / 13 did not run，8.5m）**。18 失败拆分：**9 个 `/@id/` 载体**（6 直接 dynamic-import：b-viewport×3 / boolean-bodies / feature-contracts / newbody；2 helper `readOpenBriefcaseInfo` 返回 null：b-model A 只读 / documents B UI 入口；1 b-model-undo console 断言被同一 MIME 文本触发）；**1 个 b-model B 全链 `waitEditorReady` canvas 超时**（原始 banner/截图未保留，见 15.4.2）；**8 个 crash-class**（1 `browserContext.newPage: Target crashed` + 7 `worker process exited unexpectedly (code=3221225794)`，含 perf / seed-safety / settings / sketch-extrude / tutorial2；登录视觉在**本次全量轮**是 worker crash，未进入像素比较——独立 22-test 子集轮的登录视觉失败是 origin 文本差，见 15.4.3）。**不得把源码 49/49 外推为镜像全量通过；crash-class 与 `/@id/` 分开记录。** |
 | 发布镜像生产 undo E2E | `b-model-undo.spec.ts` 于 :5301 | **功能链全部通过**（A below floor / B,C above floor / 文档级 undo / init floor / redo / 新编辑清空 redo）；**最终 `consoleErrors` 断言 FAIL**，唯一错误是同一 `/@id/` MIME 问题 → **判 FAIL（测试载体），不判产品 undo 失败**。clean artifact 复跑同样（50.1s，功能链 OK、console 断言 FAIL；`e2e-image-undo-clean-artifact.log` + `undo-clean-artifact/`） |
-| 发布镜像 b-model 全链 | `b-model.spec.ts -g "B 全链"` 于 :5301 | **FAIL（间歇）**：一次全量轮在 reload 后 `waitEditorReady` 失败，页面横幅 *Part Studio 列表加载失败：Invalid iModelToken for RPC operation request*，视口未挂载、MS health 200；聚焦复跑未复现（改为 e2e helper 的 `/@id/` 导入失败）。**新残项，未根因**（15.4） |
+| 发布镜像 b-model 全链 | `b-model.spec.ts -g "B 全链"` 于 :5301 | **FAIL**：归档全量日志仅显示 reload 后 `waitEditorReady` canvas 超时（`e2e-image-full.log:146-166`），视口未挂载（MS health 200）；作者当时目视到页面横幅 *Part Studio 列表加载失败：Invalid iModelToken for RPC operation request*，但**原始截图/error-context/trace 未保留**；聚焦复跑未复现（改为 e2e helper 的 `/@id/` 导入失败）。**记录为“observed once, artifact not retained, not reproduced”；root cause unconfirmed**；P2.8 仍按 reload 失败 blocker 处理。 |
 | 源码静态/单测 | web `tsc`/`eslint`/`vitest`；viewer `tsc`/`vitest`；shared `test`；backend `src/feature` | web **79 files / 1151 passed**（tsc 0、lint 0）；viewer **8 files / 87 passed**（tsc 0）；shared **144 passed**；backend **50 files / 459 passed / 8 skipped** |
 
 **测试专用限流覆盖披露**：源码全量与镜像 e2e 均使用 `LUBAN_RPC_RATE_LIMIT_MAX=1000`
@@ -813,18 +833,23 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 
 1. **e2e 开发态 `/@id/` 导入**（确定性）：`e2e/helpers.ts:400`、`b-viewport.spec.ts` 等以
    `page.evaluate(import('/@id/@itwin/core-frontend'))` 读 IModelApp；该 URL 仅 Vite dev server
-   可解析。镜像全量套件因此不成立。修复方向：产品侧在测试构建暴露只读 hook，或 e2e 改为
-   DOM/testid 可观测面；**不得用忽略 console 错误掩盖**。
-2. **reload 后偶发 `Invalid iModelToken`**（间歇，未根因）：全量轮 b-model 新文档 reload 后
-   Part Studio 列表 RPC 在前端 `BentleyCloudRpcProtocol.supplyPathForOperation` 抛错
-   （`operation.policy.token(request)` 无 token），视口不挂载；聚焦复跑未复现。疑点：
-   BriefcaseConnection 打开后、IModelApp/IPC RPC 传输就绪前，`listPartStudios`（仅字符串
-   iModelKey、无 `IModelRpcProps` 参数）落到 HTTP RPC 且 `RpcOperation.fallbackToken` 未设置
-   （BriefcaseConnection 不调用 `RpcManager.setIModel`；仅 CheckpointConnection 会）。需在
-   P2.8 以启动时序门/重试或显式 token 供给修复，并在负载下复现验证。
+   可解析。镜像全量套件因此不成立。**归档全量日志实况：18 passed / 18 failed / 13 did not run
+   （8.5m）**；18 失败 = 9 个 `/@id/` 载体 + 1 个 b-model canvas 超时 + 8 个 crash-class
+   （1 `Target crashed` + 7 `worker process exited unexpectedly (code=3221225794)`）。crash-class
+   是独立的 runner/browser 可靠性问题，不得归因于 `/@id/`。修复方向：产品侧在测试构建暴露
+   只读 hook，或 e2e 改为 DOM/testid 可观测面；**不得用忽略 console 错误掩盖**。
+2. **reload 后 b-model `waitEditorReady` 失败（P2.8 blocker；cause unconfirmed）**：归档全量
+   日志只有 canvas 超时（`e2e-image-full.log:146-166`），无 banner 原文。作者当时目视到页面横幅
+   *Part Studio 列表加载失败：Invalid iModelToken for RPC operation request*，但**原始截图/
+   error-context/trace 未保留**；聚焦复跑未复现（改为 `/@id/` helper 失败）。因此：
+   **“observed once, artifact not retained, not reproduced”**；不得把 `supplyPathForOperation`
+   无 token / `RpcOperation.fallbackToken` 未设置写成已证根因（仅作 P2.8 待验证假设）。
+   P2.8 仍按 reload 失败 blocker 处理：负载下复现 + 归档原始 banner/trace + 启动时序门/
+   显式 token/有界重试。
 3. **登录页视觉钉版是 origin 相关**：页面展示 `HUB 端点` 为当前 origin；基线按 :5300 钉，
    :5301 差 **30 px（0.01%）**。属测试夹具问题；镜像视觉门须排除该用例或把 origin 参数化，
-   **不得 `-u` 重钉掩盖**。
+   **不得 `-u` 重钉掩盖**。注意：**全量轮的登录视觉失败是 worker crash（未执行像素比较）**，
+   本条 30 px 差异来自独立 22-test 子集轮，两者不可混写。
 
 ### 15.5 Rollout / Rollback（P2）
 
@@ -860,7 +885,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | e2e 未纳入 web tsc/lint | **backlog** | `tsconfig.include=["src","vite.config.ts"]`；eslint 仅 `src/**` | web | 独立 e2e tsconfig/eslint 并接入聚合门 |
 | 发布镜像 hub e2e | **NOT RUN** | 未获发布/推送授权；本地镜像 25b2b42 结果不作发布证据；A6 发布镜像链同样 NOT RUN | release owner | 发布授权后对 GHCR 镜像复跑 5 suites + A6 两用户链 |
 | e2e `/@id/` 开发态导入（新） | **backlog/fix** | 15.4.1；发布镜像全量套件不成立 | web/e2e | 生产安全只读 test hook 或 DOM/testid 观测面 |
-| reload `Invalid iModelToken` 偶发（新） | **fix required（P2.8）** | 15.4.2；一次全量轮复现截图/文案，聚焦未复现；未根因 | web/viewer | 启动时序门（IPC/IModelApp 就绪后再 registry RPC）或显式 token/重试；负载下复现 |
+| 发布镜像全量轮 crash-class（1 `Target crashed` + 7 `worker 0xC0000142`） | **backlog/observation** | 归档 `e2e-image-full.log`；与 `/@id/` 分开记录；疑本地浏览器/runner 可靠性，非产品断言 | web/e2e | 干净环境复跑并归档；P2.8 全量镜像门重跑时区分 crash 与产品失败 |
+| reload b-model `waitEditorReady` 失败（曾目视 `Invalid iModelToken` 横幅，原始 artifact 未保留） | **fix required（P2.8）** | 15.4.2；归档全量日志仅 canvas 超时；横幅 observed once、截图/error-context/trace 未保留；聚焦未复现；cause unconfirmed | web/viewer | 负载下复现并归档原始 banner/trace；启动时序门（IPC/IModelApp 就绪后再 registry RPC）或显式 token/有界重试 |
 | MS 429 不记录（F2） | **backlog** | 配额证据只能取客户端状态码；P2.7 已按此取证 | backend | 429 分支 `logger.warn`/计数器 |
 | 限流 env 覆盖无启动告警/文档（F3） | **backlog** | 生产同样生效；默认值有单测锁定 | backend | 启动打印 resolved 配置 + `.env.example` |
 | F4/F7 最终轮命令/env/探针/dist 证据归档 | **fixed（P2.7）** | 本记录 15.2/15.3 + `evidence-p27/environment.txt` | release | 保持随每轮发布归档 |
@@ -871,6 +897,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 
 - **发布镜像 hub e2e**（GHCR 发布镜像）与 **A6 两用户授权链的发布镜像复跑**：未发布授权 → NOT RUN。
 - **A all-model 视觉**、**damaged 半图真栈门**：夹具缺失 → NOT RUN/waiver（15.6）。
-- **发布镜像全量 Playwright**：因 e2e 开发态 `/@id/` 导入不成立（15.3/15.4）→ NOT VALID。
+- **发布镜像全量 Playwright**：**NOT VALID**——归档实况 **18 passed / 18 failed / 13 did not run**；
+  失败含 9 个 `/@id/` 载体、1 个 b-model canvas 超时、8 个 crash-class（15.3/15.4）。
 - **生产 undo E2E 的镜像 spec 判定**：功能断言通过，spec 因 console 断言判 FAIL → 不写 PASS。
 - 未 push / 未 merge / 未发布任何镜像或 Release（待 owner 明确授权）。
