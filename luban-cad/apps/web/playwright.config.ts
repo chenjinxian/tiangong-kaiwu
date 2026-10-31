@@ -15,6 +15,15 @@
 
 import { defineConfig, devices } from '@playwright/test';
 
+/**
+ * 发布产物 e2e（P2.7）：显式设置 `PLAYWRIGHT_BASE_URL`（如栈内 nginx
+ * `http://localhost:5301`）时，测试对象是外部已部署的 web，不再自起/复用
+ * :5300 dev server——webServer 的 url 固定 :5300，外部基址下自起一个
+ * **不被测试** 的 dev server 只会增加资源与时序噪声，且其失败会阻断发布
+ * 产物验证。未设置时行为完全不变（本地 dev :5300 + 复用/自起）。
+ */
+const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+
 export default defineConfig({
   testDir: './e2e',
 
@@ -34,7 +43,7 @@ export default defineConfig({
   reporter: 'list',
 
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5300',
+    baseURL: externalBaseUrl || 'http://localhost:5300',
     locale: 'zh-CN',
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
@@ -68,7 +77,7 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
+  webServer: externalBaseUrl ? undefined : {
     command: 'corepack pnpm@10 dev',
     url: 'http://localhost:5300',
     // P2.6c2 F1：flag-on 环境进配置（不再靠人工 env/注释）。Playwright 的

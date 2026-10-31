@@ -42,10 +42,22 @@
 # 做镜像陈旧检测；无标签/unknown 时退化为「镜像 Created vs 最新源提交」时间比较。
 ARG GIT_COMMIT=unknown
 
+# B-model 功能开关（P2 D9 / P2.7 rollout）：Vite 构建期注入，缺省空 = 产品缺省关。
+# 发布/回滚一律经 scripts/rebuild-web.ps1 -BModelEnabled true|false 显式选择，
+# **不得改代码缺省**（useBModelEnabled 只认字符串 'true'）。运行段以
+# org.opencontainers.image.b-model-enabled LABEL 留痕，供发布记录与回滚核对。
+# 注意：静态 web 无运行期 env，切换 flag 必须重建镜像（rollback = flag-off 重建）。
+ARG VITE_B_MODEL_ENABLED=
+
 # 构建段 base=node:22-alpine（M5-T9 brief 钉死；本机构建缓存常驻——旧镜像的
 # node:20-bookworm-slim 需外网拉取。构建面纯 JS 工具链（pnpm/vite/tsc/esbuild
 # 有 musl 变体），无 glibc 依赖）
 FROM node:22-alpine AS builder
+
+# 全局 ARG 不跨 stage 可见；本段重声明并以 ENV 暴露给 Vite（loadEnv 读取
+# process.env 的 VITE_* 前缀并覆盖 .env 文件）。空串 = 产品缺省关。
+ARG VITE_B_MODEL_ENABLED
+ENV VITE_B_MODEL_ENABLED=${VITE_B_MODEL_ENABLED}
 
 ENV CI=true \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
@@ -138,7 +150,9 @@ RUN corepack pnpm@10 -r --filter @luban-cad/web... run build \
 FROM nginx:alpine
 # ARG 需在本段重声明才能进 LABEL（全局 ARG 不跨 stage 可见）
 ARG GIT_COMMIT=unknown
+ARG VITE_B_MODEL_ENABLED=
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
+LABEL org.opencontainers.image.b-model-enabled="${VITE_B_MODEL_ENABLED}"
 COPY luban-cad/apps/web/web-nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /build/luban-cad/apps/web/dist /usr/share/nginx/html
 EXPOSE 3000
