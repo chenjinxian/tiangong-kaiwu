@@ -5,6 +5,8 @@
  * Tests for project types (aligned with SDK patterns)
  */
 
+/* eslint-disable id-denylist, @typescript-eslint/naming-convention -- 官方 REST 契约字段（number/_links）测试夹具 */
+
 import { describe, expect, it } from 'vitest';
 import type {
   Briefcase,

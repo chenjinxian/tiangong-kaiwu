@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 // Test that all exports are available - sorted alphabetically
+// eslint-disable-next-line @itwin/no-internal-barrel-imports -- 测试目的即验证包级 barrel 导出
 import {
   type Briefcase,
   type BriefcaseDownloadResult,
@@ -15,13 +16,14 @@ import {
   type CreateIModelRequest,
   type CreateITwinRequest,
   type IModel,
+  type ITwin,
+  type ITwinListResponse,
   lubanIpcChannel,
   type LubanIpcInterface,
   LubanRpcInterface,
-  type ITwin,
-  type ITwinListResponse,
   type UpdateITwinRequest,
-  // Backward compatibility aliases
+  // Backward compatibility aliases（单独分组，故不接主列表字母序）
+  // eslint-disable-next-line sort-imports -- 兼容别名分组
   type BriefcaseInfo,
   type ChangesetInfo,
   type CreateProjectRequest,
@@ -56,6 +58,7 @@ describe('Shared package exports', () => {
     const _updateRequest: UpdateITwinRequest = { displayName: 'Updated' };
     const _listResponse: ITwinListResponse = {
       iTwins: [],
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- 官方 iTwins REST JSON 字段
       _links: { self: { href: 'http://api/itwins' } },
     };
     void _createRequest;
@@ -103,6 +106,8 @@ describe('Shared package exports', () => {
     expect(changeset.id).toBe('test');
   });
 
+  // 该用例专门验证旧命名别名仍可用——引用 deprecated 别名即测试目的。
+  /* eslint-disable @typescript-eslint/no-deprecated -- 兼容别名契约测试 */
   it('should support backward compatibility aliases', () => {
     // Project should work as alias for ITwin
     const project: Project = {
@@ -123,6 +128,7 @@ describe('Shared package exports', () => {
     const _updateRequest: UpdateProjectRequest = { displayName: 'Updated' };
     const _searchResult: ProjectSearchResult = {
       iTwins: [],
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- 官方 iTwins REST JSON 字段
       _links: { self: { href: 'http://api/itwins' } },
     };
     void _createRequest;
@@ -144,10 +150,13 @@ describe('Shared package exports', () => {
     void _briefcase;
     void _changeset;
   });
+  /* eslint-enable @typescript-eslint/no-deprecated */
 
   it('should export IPC interface types and channel constant', () => {
     const channel: string = lubanIpcChannel;
     expect(channel).toBe('luban-ipc');
+    const ipcInterface: LubanIpcInterface | undefined = undefined;
+    void ipcInterface;
 
     const result: BriefcaseDownloadResult = {
       fileName: '/path/to/file.bim',

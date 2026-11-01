@@ -1,3 +1,4 @@
+/* eslint-disable sort-imports, no-duplicate-imports -- 导入成员/值类型分列按契约版本分组（v1.x 注释锚定） */
 import { describe, expect, it, expectTypeOf } from "vitest";
 import { LubanFeatureRpcInterface } from "./LubanFeatureRpcInterface.js";
 import type {
@@ -304,6 +305,7 @@ describe("M6-a v1.6 契约（arc 实体 + regions 面域 + regionIndex + insertS
     expectTypeOf<Extract<FeatureOp, { kind: "insertSketch" }>["plane"]>().toEqualTypeOf<SketchPlaneDto | undefined>();
   });
 
+  /* eslint-disable @typescript-eslint/no-deprecated -- 兼容旧形态契约测试（regionIndex） */
   it("ExtrudeParams 带 regionIndex 可构造（sketchId 模式选面域；缺省 0=最大面域）", () => {
     const withRegion: ExtrudeParams = { profile: [], distance: 5, sketchId: "sk-1", regionIndex: 2 };
     const withoutRegion: ExtrudeParams = { profile: [], distance: 5, sketchId: "sk-1" };
@@ -311,6 +313,7 @@ describe("M6-a v1.6 契约（arc 实体 + regions 面域 + regionIndex + insertS
     expect(withoutRegion.regionIndex).toBeUndefined();
     expectTypeOf<ExtrudeParams["regionIndex"]>().toEqualTypeOf<number | undefined>();
   });
+  /* eslint-enable @typescript-eslint/no-deprecated */
 });
 
 describe("M6-b v1.7 契约（SketchDto.plane 落库回传——T1 plane 全链）", () => {
@@ -629,9 +632,9 @@ describe("M6-c v1.8 契约（extrude regions 多面域选择——T1 复合面�
     expect(JSON.parse(JSON.stringify(dual))).toEqual(dual);
   });
 
+  /* eslint-disable @typescript-eslint/no-deprecated -- 兼容旧形态契约测试（regionIndex） */
   it("regions 缺省向后兼容：regionIndex 简写与全缺省（=[0] 最大面域）两旧形态均合法", () => {
     // v1.7 旧形态：单面域简写（deprecated 但兼容保留一版）
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- 兼容路径契约钉（v1.8 起 deprecated）
     const legacySingle: ExtrudeParams = { profile: [], distance: 5, sketchId: "sk-1", regionIndex: 2 };
     expect(legacySingle.regions).toBeUndefined();
     // 全缺省：无 regions 无 regionIndex → 服务端按 [0]=最大面域裁决（v1.6 以来既有行为）
@@ -639,6 +642,7 @@ describe("M6-c v1.8 契约（extrude regions 多面域选择——T1 复合面�
     expect(legacyDefault.regions).toBeUndefined();
     expect(legacyDefault.regionIndex).toBeUndefined();
   });
+  /* eslint-enable @typescript-eslint/no-deprecated */
 });
 
 describe("B6 M-A4.1 v1.16 契约（body boolean——BooleanBodiesParams）", () => {

@@ -11,6 +11,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+// eslint-disable-next-line @itwin/import-within-package -- 测试对象是仓库根脚本（公开契约生成器），非包运行时依赖
 import { generateOpenApiFromFiles } from '../../../../../scripts/generate-openapi.js';
 
 const FIXTURE_TYPES = `

@@ -94,13 +94,14 @@ export class LubanCADError extends Error {
     this.originalError = params.originalError;
 
     // Maintain proper stack trace in V8 environments
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ErrorConstructor = Error as any;
-    if (ErrorConstructor.captureStackTrace) {
-      ErrorConstructor.captureStackTrace(this, LubanCADError);
+    const errorConstructor = Error as any;
+    if (errorConstructor.captureStackTrace) {
+      errorConstructor.captureStackTrace(this, LubanCADError);
     }
   }
 
+  // 公共错误分类 API 以方法形态发布（前后端共用），改成访问器属破坏性变更。
+  /* eslint-disable @itwin/prefer-get -- 公共 API 形态稳定 */
   /**
    * Check if this is a specific error type
    */
@@ -135,6 +136,7 @@ export class LubanCADError extends Error {
   public isRetryableError(): boolean {
     return ['NetworkError', 'Timeout', 'InternalServerError'].includes(this.code);
   }
+  /* eslint-enable @itwin/prefer-get */
 
   /**
    * Create a simple error representation for logging

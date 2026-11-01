@@ -10,4 +10,16 @@ module.exports = [
     ...iTwinPlugin.configs.iTwinjsRecommendedConfig,
   },
   ...eslintBaseConfig,
+  {
+    // tsconfig.json 排除了 *.test.ts（构建产物纯净），而 iTwinjsRecommendedConfig
+    // 把 parserOptions.project 钉在它上面——测试文件会报 "not found in project"。
+    // 测试改用仅含类型信息的 tsconfig.lint.json（纳入全量 src，不参与构建）。
+    files: ["**/*.test.ts"],
+    languageOptions: {
+      parserOptions: {
+        project: "./tsconfig.lint.json",
+        tsconfigRootDir: __dirname,
+      },
+    },
+  },
 ];

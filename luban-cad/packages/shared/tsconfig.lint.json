@@ -1,0 +1,15 @@
+// 仅供 ESLint 类型感知解析使用（不参与构建；tsconfig.json 为纯净产物排除了
+// *.test.ts，iTwin 推荐配置的 parserOptions.project 指向它会让测试文件报
+// "file was not found in any of the provided project(s)"）。
+// 这里纳入全部 src（含测试），只提供类型信息；包内既有的测试类型债
+// （缺 @types/node、openapiGenerator.test 引 rootDir 外 scripts/）不阻断 lint。
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "dist-typecheck"]
+}

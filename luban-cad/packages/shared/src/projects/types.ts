@@ -6,6 +6,8 @@
  * Following patterns from @itwin/itwins-client and @itwin/imodels-client
  */
 
+/* eslint-disable id-denylist, @typescript-eslint/naming-convention -- 官方 iTwin/iModels REST JSON 契约：字段 number、_links 必须逐字对齐 docs/api-specs；改名即破坏线上契约 */
+
 // =============================================================================
 // iTwin (Project) Types - Aligned with @itwin/itwins-client
 // Source: /imodelhub-services/docs/itwins.json

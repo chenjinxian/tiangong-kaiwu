@@ -5,9 +5,9 @@
 
 import { RpcInterface, RpcManager } from '@itwin/core-common';
 import type {
-  BriefcaseInfo,
+  Briefcase,
+  Changeset,
   ChangesetComparisonResult,
-  ChangesetInfo,
   ConflictDetectionResult,
   DetectConflictsRequest,
   ResolveConflictsRequest,
@@ -47,7 +47,7 @@ export abstract class LubanRpcInterface extends RpcInterface {
    * Acquire a briefcase for an iModel
    * This operation requires BriefcaseDb access on the backend
    */
-  public async acquireBriefcase(_iModelId: string): Promise<BriefcaseInfo> {
+  public async acquireBriefcase(_iModelId: string): Promise<Briefcase> {
     return this.forward(arguments);
   }
 
@@ -61,7 +61,7 @@ export abstract class LubanRpcInterface extends RpcInterface {
   /**
    * Pull changesets for a briefcase
    */
-  public async pullChangesets(_iModelId: string, _briefcaseId: number): Promise<ChangesetInfo[]> {
+  public async pullChangesets(_iModelId: string, _briefcaseId: number): Promise<Changeset[]> {
     return this.forward(arguments);
   }
 
@@ -72,7 +72,7 @@ export abstract class LubanRpcInterface extends RpcInterface {
     _iModelId: string,
     _briefcaseId: number,
     _description: string
-  ): Promise<ChangesetInfo> {
+  ): Promise<Changeset> {
     return this.forward(arguments);
   }
 

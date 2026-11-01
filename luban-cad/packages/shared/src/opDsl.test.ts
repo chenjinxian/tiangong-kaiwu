@@ -12,7 +12,7 @@
  *  - 边界：空链 / 单行 / 多行 / 空行与注释行混排 / CRLF。
  */
 import { describe, expect, it } from "vitest";
-import { dslToOps, opsToDsl, OpDslParseError } from "./opDsl.js";
+import { dslToOps, OpDslParseError, opsToDsl } from "./opDsl.js";
 import type { FeatureOp, FilletEdgeRef } from "./rpc/LubanFeatureRpcInterface.js";
 
 const tri = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }];
