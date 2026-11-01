@@ -1525,3 +1525,15 @@ selector fixes separately.
   `6e2517ced3c49fa30d4e00b7b55501782ed332d21da177d5532ac7f3baea87be`）已带上
   429 `Retry-After` 头和 `facesFromId`/`edgesFromOwnId` IPC；p28c/p29 被取代。
   **本地产物，未创建 Release/GHCR 发布**。
+
+### Backlog（native，2026-11-01）
+
+- **DeleteSubEntities SUCCESS 共面分裂种子**：web/命令通道已就绪
+  （`subentity-delete.ts` + `facesFromId`/`edgesFromOwnId`），普通盒体负路径已
+  钉死；SUCCESS 需要 native/几何侧构造共面分裂面（邻面可生长补洞）。owner：
+  native/geometry；依据：imodel-native
+  `docs/reference/compare/DeleteSubEntitiesOperation.md`（Task 14/15 挂起项）。
+  该项不阻塞 web 侧接线与负路径回归。
+- **Native Delivery 从 HEAD 重建**：见 `docs/NATIVE-REBUILD.md`；当前 MS 产物
+  为显式 store fallback（`fallbackRequired=true`），`release-gate.ps1` 缺省 FAIL，
+  仅在 `-AllowNativeFallback` 下作为 qualified 发布。

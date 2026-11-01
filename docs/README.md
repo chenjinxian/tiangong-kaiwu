@@ -36,6 +36,7 @@
 | 文档 | 说明 |
 |------|------|
 | [Deployment-Guide.md](./Deployment-Guide.md) | 部署指南 |
+| [NATIVE-REBUILD.md](./NATIVE-REBUILD.md) | Native Delivery 从 HEAD 重建 runbook（发布 provenance 硬门禁） |
 | [PORTS.md](./PORTS.md) | 宿主端口登记（单一事实源） |
 | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) | 上游同步指南 |
 | [WEBHOOK_CONFIG.md](./WEBHOOK_CONFIG.md) | Webhook 密钥配置说明 |

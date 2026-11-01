@@ -23,7 +23,9 @@ hash / native provenance / 限流姿态 / web·hub 镜像标签，并可串联
       - `fallbackRequired=false` 为干净发布；
       - `fallbackRequired=true`（store devbuild 早于 imodel-native HEAD）时，构建
         必须显式 `-AllowStoreNativeFallback`，发布记录写明 version/head/fallback；
-      - **`using dev build from …` 横幅不是版本/新鲜度证明**，不得作为通过依据。
+      - **`using dev build from …` 横幅不是版本/新鲜度证明**，不得作为通过依据；
+        完整重建步骤见 [`docs/NATIVE-REBUILD.md`](./NATIVE-REBUILD.md)，`release-gate.ps1`
+        缺省对 `fallbackRequired=true` FAIL。
 - [ ] web 生产镜像：`powershell -File scripts/rebuild-web.ps1 -BModelEnabled true`
       （**不带** `-E2EHooks`）；镜像 LABEL `b-model-enabled=true`。
 - [ ] hub / webhook-agent 镜像来自 GHCR 同 tag；hub 不得挂宿主 `dist`（verify-stack
