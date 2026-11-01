@@ -147,6 +147,24 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # ---------- Azurite tile cache miss：404 → 204 哨兵 ----------
+    # 冷缓存时 SDK 先探测 tile blob，Azurite 404 会被浏览器无条件记为
+    # `Failed to load resource`，无法从 JS 抑制。把 tiles 路径的 404 改写为 204，
+    # viewer 的 MissAwareFetchCloudStorage 把 204/404 视为 miss 并回退原生生成；
+    # 其它 Azurite 404 仍原样透传（不得扩大豁免）。
+    location ~ ^/azurite/[^/]+/[^/]+/tiles/ {
+        rewrite ^/azurite/(.*)$ /$1 break;
+        proxy_pass http://azurite:10000;
+        proxy_set_header Host $host;
+        proxy_buffering off;
+        proxy_intercept_errors on;
+        error_page 404 = @tile_miss;
+    }
+    location @tile_miss {
+        add_header Cache-Control "no-store" always;
+        return 204;
+    }
+
     # ---------- Azurite 直传（前缀剥除，同 vite rewrite） ----------
     location /azurite/ {
         proxy_pass http://azurite:10000/;

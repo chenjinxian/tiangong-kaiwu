@@ -37,6 +37,26 @@ export default defineConfig({
       '/ws': { target: 'ws://localhost:5401', ws: true, changeOrigin: true, secure: false },
       '/rpc': { target: 'http://localhost:5401', changeOrigin: true, secure: false },
       '/api': { target: 'http://localhost:5401', changeOrigin: true, secure: false },
+      // P2.8 tile cache：与部署 nginx 同构——tiles 路径的 Azurite 404 改写为
+      // 204 哨兵，viewer MissAwareFetchCloudStorage 视 204/404 为 miss 回退原生。
+      // 其它 Azurite 404 原样透传。
+      '/azurite': {
+        target: 'http://localhost:10500',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/azurite/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
+            if (proxyRes.statusCode === 404 && /\/tiles\//.test(req.url ?? '')) {
+              proxyRes.statusCode = 204;
+              proxyRes.statusMessage = 'No Content';
+              delete proxyRes.headers['content-length'];
+              delete proxyRes.headers['content-type'];
+              proxyRes.headers['cache-control'] = 'no-store';
+            }
+          });
+        },
+      },
     },
   },
   resolve: {

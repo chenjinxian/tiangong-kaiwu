@@ -268,6 +268,9 @@ importers:
       '@itwin/imodels-client-management':
         specifier: ^6.0.2
         version: 6.2.2
+      '@itwin/object-storage-core':
+        specifier: ^3.1.3
+        version: 3.1.3
       '@luban-cad/shared':
         specifier: workspace:*
         version: link:../shared
@@ -831,6 +834,17 @@ packages:
   '@itwin/access-control-client@2.3.1':
     resolution: {integrity: sha512-DEp2QIJH6VzbMFWkdTEvgvYRKsRxtS05WzWysU9OBroB6NxP01HFQAvWXyYeRy3zQ7OBhsh19OqI/cNsRxLweA==}
 
+  '@itwin/cloud-agnostic-core@3.1.3':
+    resolution: {integrity: sha512-fzLHoCmawn4T+/87lbmHpCdEFG2Ljf+vlf5r1h5/xp/3o3pc+AUp7FQohV31rXpabr2y3kecgDJkyyHtKAN0TQ==}
+    peerDependencies:
+      inversify: ^7.5.2
+      reflect-metadata: ^0.2.2
+    peerDependenciesMeta:
+      inversify:
+        optional: true
+      reflect-metadata:
+        optional: true
+
   '@itwin/eslint-plugin@6.1.0':
     resolution: {integrity: sha512-4HDfTmenGSQfL8o8Cr1tKavF2ZQsKEjF31e8pZUPv4QMUZCTr5Gt+lALNLPO4huRJo9e5rasUB/vq0MCBD0t4Q==}
     engines: {node: ^20.11.0 || ^22.0.0 || ^24.0.0}
@@ -877,6 +891,17 @@ packages:
       react-dom: '>=17.0.0'
     peerDependenciesMeta:
       '@stratakit/mui':
+        optional: true
+
+  '@itwin/object-storage-core@3.1.3':
+    resolution: {integrity: sha512-yAmKKg6t55kkYDXsjEGfiiTllOnbVX0tLkEJSPggKeWP7UrQKJOaC8X3gfVN893jSa2oanzittgnrpPIPHzMTw==}
+    peerDependencies:
+      inversify: ^7.5.2
+      reflect-metadata: ^0.2.2
+    peerDependenciesMeta:
+      inversify:
+        optional: true
+      reflect-metadata:
         optional: true
 
   '@jridgewell/gen-mapping@0.3.13':
@@ -3596,6 +3621,8 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
+  '@itwin/cloud-agnostic-core@3.1.3': {}
+
   '@itwin/eslint-plugin@6.1.0(eslint@9.39.5)(typescript@5.6.3)':
     dependencies:
       '@typescript-eslint/eslint-plugin': 8.70.1(@typescript-eslint/parser@8.70.1(eslint@9.39.5)(typescript@5.6.3))(eslint@9.39.5)(typescript@5.6.3)
@@ -3666,6 +3693,14 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       react-table: 7.8.0(react@18.3.1)
+
+  '@itwin/object-storage-core@3.1.3':
+    dependencies:
+      '@itwin/cloud-agnostic-core': 3.1.3
+      axios: 1.20.0
+    transitivePeerDependencies:
+      - debug
+      - supports-color
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

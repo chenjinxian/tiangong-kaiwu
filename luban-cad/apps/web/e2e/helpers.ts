@@ -272,13 +272,11 @@ export async function gotoDocuments(page: Page, filter?: string): Promise<void> 
  * 门禁仍对应用自身错误零容忍，只豁免这类「资源加载失败 + 外部字体域」条目。 */
 const EXTERNAL_FONT_HOSTS = ['fonts.gstatic.com', 'fonts.googleapis.com'];
 
-/** Azurite tile 云缓存未命中：SDK 先 GET blob（404）再回退 native tile 生成——
- * 浏览器把该 404 记为 Failed to load resource，属预期缓存 miss（非应用错误，
- * 几何仍由回退路径正常生成）。只豁免 `/azurite/devstoreaccount1/<id>/tiles/`
- * 路径的 404；其它资源/应用错误仍零容忍。 */
-const TILE_CACHE_404_PATH = /\/azurite\/devstoreaccount1\/[^/]+\/tiles\//;
-
-/** 挂 console/pageerror 采集器并返回错误数组（spec 尾部断言长度 0）。 */
+/** 挂 console/pageerror 采集器并返回错误数组（spec 尾部断言长度 0）。
+ *
+ * P2.8：tile cache miss 由部署代理改写为 204 哨兵 + MissAwareFetchCloudStorage
+ * 回退原生，浏览器不再产生 Azurite 404 console 条目；因此这里**没有** tile 404
+ * 豁免——任何 4xx/资源错误都保持红色。 */
 export function collectConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('console', (message) => {
@@ -286,7 +284,6 @@ export function collectConsoleErrors(page: Page): string[] {
     const url = message.location()?.url ?? '';
     if (message.text().startsWith('Failed to load resource')) {
       if (EXTERNAL_FONT_HOSTS.some((host) => url.includes(host))) return;
-      if (message.text().includes('404') && TILE_CACHE_404_PATH.test(url)) return;
     }
     errors.push(message.text());
   });
