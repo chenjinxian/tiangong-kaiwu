@@ -49,14 +49,10 @@ export interface SeedImodelRef {
 }
 
 /**
- * baseline 传播窗（M1）：hub 把 iModel 状态置为 `initialized` 先于 CloudSqlite
- * blob 在 Azurite 侧完全可读。旧 scratch 构造器（boolean-bodies/newbody/
- * feature-contracts）实测：initialized 后立即打开会卡在 briefcase 下载
- * （MS 日志停在 Downloading briefcase，hub/Azurite 请求均 200/201）。先前这些
- * 构造器固定驻留 15s 规避；种子路径必须保留同等 guard，否则 per-test reset →
- * 立即 open 正是该竞态。
+ * P2.8：baseline 传播竞态已由 webhook-agent 的确认前可读回读关闭（manifest +
+ * 全部 block 下载验证通过后才 POST /baselinefile）。`initialized` 现在蕴含
+ * 「CloudSqlite 容器可读」，seed/scratch 构造器不再需要 15s 传播窗。
  */
-export const SEED_BASELINE_SETTLE_MS = 15_000;
 
 /**
  * 单次种子重置的最坏预算（P2.6c2 F4）：`resetSeedImodel` 轮询 110×5s=550s
@@ -184,10 +180,7 @@ async function resetSeedImodel(
     await sleep(5000);
   }
   expect(state, `种子 ${imodelName} 未在预算内 initialized（最后 state=${state}）`).toBe('initialized');
-
-  // M1：initialized ≠ blob 可读。固定 settle 15s（旧 scratch 构造器同口径），
-  // 防 per-test reset → 立即 open 的 briefcase 下载停滞。
-  await sleep(SEED_BASELINE_SETTLE_MS);
+  // P2.8：WA 确认前回读 manifest/blocks；initialized 即可立即 open（无 settle）。
   return seedImodel.id;
 }
 

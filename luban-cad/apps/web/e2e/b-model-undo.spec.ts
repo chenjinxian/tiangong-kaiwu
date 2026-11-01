@@ -28,7 +28,6 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import type { FeatureOp } from '@luban-cad/shared';
 import { B_MODEL_MARKER } from './fixtures';
-import { SEED_BASELINE_SETTLE_MS } from './seed';
 import {
   applyFeatureOpRpc,
   assertFeatureOpOk,
@@ -132,9 +131,7 @@ async function createScratchImodel(
     await new Promise((resolve) => setTimeout(resolve, 5000));
   }
   expect(state, `iModel 未 initialized（最后 ${state}）`).toBe('initialized');
-  // M1 baseline 传播窗：initialized 状态先于 CloudSqlite blob 可读，立即打开会
-  // 卡在 briefcase 下载。与 seed.ts `SEED_BASELINE_SETTLE_MS` 同一常量/口径。
-  await new Promise((resolve) => setTimeout(resolve, SEED_BASELINE_SETTLE_MS));
+  // P2.8：WA 确认前回读 manifest/blocks；initialized 即可立即打开（无 settle）。
   return { itwinId, imodelId };
 }
 
