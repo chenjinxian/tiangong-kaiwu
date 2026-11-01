@@ -30,6 +30,15 @@ export const B_SEED_PROJECT_NAME = 'E2E B 项目';
 /** B-model 种子 iModel 名（默认 Part Studio 由首次编辑器打开创建）。 */
 export const B_SEED_IMODEL_NAME = 'E2E B Seed';
 
+/** P2.8 夹具：A 几何（非 B 项目；fromBaseline 上传，画布非空）。 */
+export const A_FIXTURE_PROJECT_NAME = 'E2E A 几何夹具';
+export const A_FIXTURE_IMODEL_NAME = 'E2E A Geometry';
+/** P2.8 夹具：B 半图（B 标记项目；def-only scope → recovery/damaged 面）。 */
+export const B_HALF_GRAPH_PROJECT_NAME = 'E2E B 半图夹具';
+export const B_HALF_GRAPH_IMODEL_NAME = 'E2E B Half Graph';
+/** 夹具 .bim 相对 apps/web 的目录（由 backend scripts/generate-e2e-fixtures.ts 生成并提交）。 */
+export const FIXTURE_DIR = 'e2e/imodel-fixtures';
+
 /**
  * B 项目标记（wire 形态；读取侧唯一裁决点在
  * `src/clients/itwins/types.ts#isBModelItwin`——这里只是 e2e 侧按同一契约造数，

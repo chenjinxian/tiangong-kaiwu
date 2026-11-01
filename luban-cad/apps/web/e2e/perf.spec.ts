@@ -181,13 +181,13 @@ test.describe('性能门禁 ①：编辑器首帧', () => {
   let editorUrl = '';
 
   test.beforeAll(async ({ request }) => {
-    // P2.6c1：被测面 = B 种子默认 scope。重置 B 种子（删旧建新 + 15s baseline
+    // P2.6c1：被测面 = B 种子默认 scope。重置 B 种子（删旧建新；P2.8 起无
     // settle）⇒ 三跑从同一确定性起点出发：首跑=真实首开（解析器创建默认
     // `Part Studio 1` 后才把 iModel 交给视口），#2/#3 热态复访同一 scope。
     // 不重置则「前序 spec 是否已在该种子建过 Part Studio」会改变首跑冷值
     //（全量套件顺序依赖），门禁失实。
-    // P2.6c2 F4：预算按单种子重置最坏链（550s 轮询 + 15s settle）给，原 300s
-    // 会抢在 seed helper 诊断前超时。
+    // P2.6c2 F4：预算按单种子重置最坏链（550s 轮询，P2.8 起无 settle）给，
+    // 原 300s 会抢在 seed helper 诊断前超时。
     test.setTimeout(SEED_RESET_TIMEOUT_MS);
     const token = await getApiToken();
     const bSeed = await resetBModelSeed(request, token);

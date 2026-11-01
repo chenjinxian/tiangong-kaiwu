@@ -36,7 +36,7 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
     // /新建页签（实跑复现：同文件第 4 例「+」停在 1 页签）。
     test.setTimeout(900_000);
     bSeed = await resetBModelSeed(request, await getApiToken());
-    // 编辑器用例预算放大（T5 评审 M-4）：重置 baseline（含 15s 传播 settle）+
+    // 编辑器用例预算放大（T5 评审 M-4）：重置 baseline（P2.8 起无 settle）+
     // 导航（含 scope 解析/默认创建 ~90s 最坏）+ 连接/画布（210s 最坏）远超全局
     // 120s——统一 900s 上限，避免慢栈下 timeout 抢先吃掉 helper 诊断文案。
     await openSeedImodelEditor(page, bSeed);

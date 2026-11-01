@@ -27,6 +27,8 @@
  *   openBModelEditor 的可选 ids），保证 reset 与 open 指向同一行。
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { expect, type APIRequestContext } from '@playwright/test';
 import {
   B_MODEL_MARKER,
@@ -55,12 +57,12 @@ export interface SeedImodelRef {
  */
 
 /**
- * 单次种子重置的最坏预算（P2.6c2 F4）：`resetSeedImodel` 轮询 110×5s=550s
- * + baseline settle 15s = 565s；再加列表/删除/创建/网络余量。所有
- * `reset*Seed` 调用点的 `test.setTimeout` 必须 ≥ 本值——低于最坏链时超时会
- * 抢在 helper 诊断之前（且可能停在「已删旧库、未 settle」的中间态）。
- * auth.setup 的双种子预算 1_300_000ms 覆盖 2×最坏链（2×565s=1130s）+
- * 认证/网络余量；单种子调用点统一用本值（1_200_000ms）留足余量。
+ * 单次种子重置的最坏预算（P2.6c2 F4，P2.8 删除 settle 后修正）：`resetSeedImodel`
+ * 轮询 110×5s=550s；再加列表/删除/创建/网络余量。所有 `reset*Seed` 调用点的
+ * `test.setTimeout` 必须 ≥ 本值——低于最坏链时超时会抢在 helper 诊断之前（且可能
+ * 停在「已删旧库、未初始化」的中间态）。auth.setup 的双种子预算 1_300_000ms
+ * 覆盖 2×最坏链（2×550s=1100s）+ 认证/网络余量；单种子调用点统一用本值
+ * （1_200_000ms）留足余量。
  */
 export const SEED_RESET_TIMEOUT_MS = 1_200_000;
 
@@ -129,7 +131,7 @@ async function assertBModelProject(
   }
 }
 
-/** 按名重置项目内的种子 iModel（删旧建新 + 轮询 initialized + baseline settle）。 */
+/** 按名重置项目内的种子 iModel（删旧建新 + 轮询 initialized；P2.8 起无 settle 等待）。 */
 async function resetSeedImodel(
   request: APIRequestContext,
   accessToken: string,
@@ -216,6 +218,122 @@ export async function resetBModelSeed(
   );
   await assertBModelProject(request, accessToken, itwinId);
   const imodelId = await resetSeedImodel(request, accessToken, itwinId, B_SEED_IMODEL_NAME);
+  return { itwinId, imodelId };
+}
+
+/**
+ * P2.8 夹具种子：按 fromBaseline 上传一个已提交的 .bim，并由 webhook-agent
+ * `/baseline/process` 转成 CloudSqlite baseline。用于 A 几何/半图真栈门。
+ *
+ * 依赖：hub `POST /imodels {creationMode:'fromBaseline', baselineFile.size}` →
+ * `baselinefile/upload` presigned PUT（host 重写到宿主 127.0.0.1:10500）→
+ * `baselinefile` 确认 → WA 转换/回读 → 轮询 initialized。
+ */
+export async function resetFixtureImodel(
+  request: APIRequestContext,
+  accessToken: string,
+  opts: {
+    projectName: string;
+    imodelName: string;
+    bModel?: boolean;
+    fixturePath: string;
+  },
+): Promise<SeedImodelRef> {
+  const itwinId = await ensureSeedProject(
+    request,
+    accessToken,
+    opts.projectName,
+    opts.bModel ? B_MODEL_MARKER : undefined,
+  );
+  if (opts.bModel) {
+    const data = await readItwinData(request, accessToken, itwinId);
+    if (!hasExactBModelMarker(data)) {
+      throw new Error(
+        `夹具项目 ${opts.projectName}（${itwinId}）未带精确 B 标记——拒绝删改未知同名项目`,
+      );
+    }
+  }
+
+  const listResponse = await request.get(`/imodels?iTwinId=${itwinId}&$top=${SEED_PAGE_SIZE}`, {
+    headers: authHeaders(accessToken),
+  });
+  expect(listResponse.ok(), '夹具 iModel 列表查询失败').toBeTruthy();
+  const { iModels } = (await listResponse.json()) as {
+    iModels?: Array<{ id: string; displayName?: string; name?: string }>;
+  };
+  const existing = uniqueMatch(
+    iModels ?? [],
+    (imodel) => imodel.displayName ?? imodel.name,
+    opts.imodelName,
+    '夹具库',
+  );
+  if (existing) {
+    const deleted = await request.delete(`/imodels/${existing.id}`, {
+      headers: authHeaders(accessToken),
+    });
+    expect(deleted.status(), `夹具旧库删除失败（${opts.imodelName}）：HTTP ${deleted.status()}`).toBe(204);
+  }
+
+  const bytes = readFileSync(resolve(opts.fixturePath));
+  const created = await request.post('/imodels', {
+    headers: authHeaders(accessToken),
+    data: {
+      iTwinId: itwinId,
+      name: opts.imodelName,
+      creationMode: 'fromBaseline',
+      baselineFile: { size: bytes.length },
+    },
+  });
+  expect(created.status(), `夹具创建失败（${opts.imodelName}）：HTTP ${created.status()}`).toBe(201);
+  const imodelId = ((await created.json()) as { iModel: { id: string } }).iModel.id;
+
+  const initiate = await request.post(`/imodels/${imodelId}/baselinefile/upload`, {
+    headers: authHeaders(accessToken),
+    data: { fileName: 'baseline.bim', fileSize: bytes.length },
+  });
+  expect(initiate.ok(), `夹具 baseline 上传初始化失败：HTTP ${initiate.status()}`).toBeTruthy();
+  const uploadInfo = (await initiate.json()) as { uploadUrl: string; filePath: string };
+
+  // hub 的 presigned URL 以容器网络 host 签发（azurite:10000）；宿主 e2e 重写到发布口。
+  const uploadUrl = new URL(uploadInfo.uploadUrl);
+  uploadUrl.protocol = 'http:';
+  uploadUrl.host = '127.0.0.1:10500';
+  const put = await request.put(uploadUrl.toString(), {
+    data: bytes,
+    headers: { 'x-ms-blob-type': 'BlockBlob' },
+  });
+  expect(put.ok(), `夹具 baseline PUT 失败：HTTP ${put.status()}`).toBeTruthy();
+
+  const complete = await request.post(`/imodels/${imodelId}/baselinefile`, {
+    headers: authHeaders(accessToken),
+    data: { fileName: 'baseline.bim', fileSize: bytes.length },
+  });
+  expect(complete.ok(), `夹具 baseline 确认失败：HTTP ${complete.status()}`).toBeTruthy();
+
+  // 原始 .bim → CloudSqlite 由 WA 转换（hub 不再自动触发用户 baseline 转换）。
+  const processed = await request.post('http://localhost:5402/baseline/process', {
+    data: {
+      iModelId: imodelId,
+      iTwinId: itwinId,
+      sourceBlobPath: uploadInfo.filePath,
+      fileSize: bytes.length,
+    },
+  });
+  // 202=本次受理；200=hub 已先一步触发同一 iModel 的转换（WA 单飞返回
+  // "Already being processed"）。两者都进入下面的 initialized 轮询。
+  expect([200, 202], `WA baseline 转换请求失败：HTTP ${processed.status()}`).toContain(processed.status());
+
+  let state = 'unknown';
+  for (let i = 0; i < 110; i++) {
+    const detail = await request.get(`/imodels/${imodelId}`, { headers: authHeaders(accessToken) });
+    state = ((await detail.json()) as { iModel?: { state?: string } }).iModel?.state ?? 'unknown';
+    if (state === 'initialized') break;
+    if (state === 'failed' || state === 'missingFiles') {
+      throw new Error(`夹具 ${opts.imodelName} baseline 终态 ${state}（查 docker compose logs webhook-agent）`);
+    }
+    await sleep(5000);
+  }
+  expect(state, `夹具 ${opts.imodelName} 未在预算内 initialized（最后 state=${state}）`).toBe('initialized');
   return { itwinId, imodelId };
 }
 

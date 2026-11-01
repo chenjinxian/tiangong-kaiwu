@@ -555,6 +555,14 @@ export async function openLegacySeedEditor(
  * 过渡态轮询，实测需要 ~2 分钟。每次重开顺延 +60s 死线（预算语义不变：仍是
  * 「两次重开」，只是不让重开自身的耗时吃掉判定时间）。 */
 export async function waitEditorReady(page: Page): Promise<void> {
+  await waitEditorConnected(page);
+  await expect(
+    page.getByTestId('part-studio-viewport').locator('canvas').first(),
+  ).toBeVisible({ timeout: 90_000 });
+}
+
+/** 连接就绪（状态栏「已连接」）但不要求 canvas——damaged/recovery 半图没有视口。 */
+export async function waitEditorConnected(page: Page): Promise<void> {
   await expect(page.getByTestId('part-studio-page')).toBeVisible({ timeout: 30_000 });
   const status = page.getByTestId('part-studio-status-connection');
   let deadline = Date.now() + 90_000;
@@ -588,9 +596,6 @@ export async function waitEditorReady(page: Page): Promise<void> {
     }
     await page.waitForTimeout(500);
   }
-  await expect(
-    page.getByTestId('part-studio-viewport').locator('canvas').first(),
-  ).toBeVisible({ timeout: 90_000 });
 }
 
 // ============================================================================
