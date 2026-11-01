@@ -5,7 +5,12 @@
  * Custom IPC interface for LubanCAD briefcase operations.
  *
  * IpcApp.appFunctionIpc already handles openBriefcase/saveChanges/pushChanges/pullChanges.
- * This interface adds only the initial download step that NativeApp would normally handle.
+ * This interface adds only the initial download step that NativeApp would normally handle,
+ * plus the physical-assembly helpers used by the editor.
+ *
+ * The former CadFeature EC-schema history API (legacy `OpenCloudCAD`/`ocad`) was
+ * retired on 2026-11-01: feature history is persisted by FeatureService in the
+ * LubanCAD schema, and the legacy path had no callers and no local data to migrate.
  */
 
 import type { Changeset } from './projects/types.js';
@@ -23,20 +28,6 @@ export interface BriefcaseDownloadResult {
   changeset: Pick<Changeset, 'id' | 'index'>;
 }
 
-/** A single feature entry in the CAD feature history */
-export interface CadFeatureRecord {
-  /** Element ID of the CadFeature record in the iModel */
-  id: string;
-  /** Feature type key, e.g. "Extrude", "Revolve", "Boolean.Unite" */
-  featureType: string;
-  /** JSON-serialized feature parameters */
-  params: string;
-  /** Display order */
-  order: number;
-  /** Whether this feature is suppressed (temporarily disabled) */
-  suppressed?: boolean;
-}
-
 /** Custom IPC interface for LubanCAD backend operations */
 export interface LubanIpcInterface {
   /**
@@ -46,61 +37,6 @@ export interface LubanIpcInterface {
    * BriefcaseConnection.openFile({ fileName }) which triggers openBriefcase IPC.
    */
   downloadBriefcase(iTwinId: string, iModelId: string, readonly?: boolean): Promise<BriefcaseDownloadResult>;
-
-  /**
-   * Ensure the LubanCAD feature EC schema is imported into the briefcase iModel.
-   * The persisted schema name/alias is the legacy `OpenCloudCAD`/`ocad` in
-   * existing iModels; do not rename without a data migration.
-   * Idempotent — safe to call multiple times.
-   * @param fileName Absolute path to the .bim file
-   */
-  ensureCadSchema(fileName: string): Promise<void>;
-
-  /**
-   * Insert a CadFeature record into the iModel.
-   * @param fileName Absolute path to the .bim file
-   * @param featureType Feature type key, e.g. "Extrude"
-   * @param params JSON-serialized parameters
-   * @returns The new CadFeature element ID
-   */
-  createFeature(fileName: string, featureType: string, params: string): Promise<string>;
-
-  /**
-   * List all CadFeature records in the iModel.
-   * @param fileName Absolute path to the .bim file
-   */
-  listFeatures(fileName: string): Promise<CadFeatureRecord[]>;
-
-  /**
-   * Delete a CadFeature record from the iModel.
-   * @param fileName Absolute path to the .bim file
-   * @param featureId Element ID of the CadFeature to delete
-   */
-  deleteFeature(fileName: string, featureId: string): Promise<void>;
-
-  /**
-   * Update a CadFeature record in the iModel.
-   * @param fileName Absolute path to the .bim file
-   * @param featureId Element ID of the CadFeature to update
-   * @param updates Object containing fields to update (featureType, params)
-   */
-  updateFeature(fileName: string, featureId: string, updates: { featureType?: string; params?: string }): Promise<void>;
-
-  /**
-   * Suppress or unsuppress a CadFeature record.
-   * @param fileName Absolute path to the .bim file
-   * @param featureId Element ID of the CadFeature
-   * @param suppressed Whether the feature should be suppressed
-   */
-  setFeatureSuppressed(fileName: string, featureId: string, suppressed: boolean): Promise<void>;
-
-  /**
-   * Reorder a CadFeature by moving it to a new position.
-   * @param fileName Absolute path to the .bim file
-   * @param featureId Element ID of the CadFeature to move
-   * @param newOrder The new order index (0-based)
-   */
-  reorderFeature(fileName: string, featureId: string, newOrder: number): Promise<void>;
 
   /**
    * Create a new PhysicalPartition + PhysicalModel (assembly) under the root Subject.

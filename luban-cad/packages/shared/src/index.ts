@@ -249,5 +249,5 @@ export {
 // IPC Interface
 // =============================================================================
 export { lubanIpcChannel } from './LubanIpcInterface.js';
-export type { LubanIpcInterface, BriefcaseDownloadResult, CadFeatureRecord } from './LubanIpcInterface.js';
+export type { LubanIpcInterface, BriefcaseDownloadResult } from './LubanIpcInterface.js';
 export { LUBAN_INIT_TXN_DESCRIPTION } from './constants.js';
