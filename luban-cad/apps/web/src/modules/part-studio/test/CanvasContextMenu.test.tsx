@@ -70,6 +70,7 @@ vi.mock('@common/workspace/use-workspace-ref.js', () => ({
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import { buildCanvasMenu, CanvasContextMenu, clampMenuPosition } from '../canvas/CanvasContextMenu.js';
+import type { CanvasMenuItem } from '../canvas/CanvasContextMenu.js';
 import { PartStudioCanvas } from '../components/PartStudioCanvas.js';
 
 /** 造一个带视口方法的 fake selectedView。 */
@@ -102,8 +103,19 @@ function setSelection(selection: readonly CanvasSelection[]): void {
 
 const ANCHOR = { x: 32, y: 48 };
 
-function renderMenu(onClose = vi.fn(), onDelete = vi.fn()): ReturnType<typeof render> {
-  return render(<CanvasContextMenu anchor={ANCHOR} onClose={onClose} onDelete={onDelete} />);
+function renderMenu(
+  onClose = vi.fn(),
+  onDelete = vi.fn(),
+  onSelectOwner?: (bodyKey: string) => void,
+): ReturnType<typeof render> {
+  return render(
+    <CanvasContextMenu
+      anchor={ANCHOR}
+      onClose={onClose}
+      onDelete={onDelete}
+      onSelectOwner={onSelectOwner}
+    />,
+  );
 }
 
 beforeEach(() => {
@@ -159,20 +171,43 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
     expect(items.find((i) => i.id === 'show-dependencies')?.capability).toBe('dependencies');
   });
 
-  it('face 拾取 → 无编辑特征；含面外观 gated 与删除', () => {
-    const ids = (buildCanvasMenu([{ kind: 'face', id: 'face-1', label: '面 1' }]).filter(
-      (e) => e !== 'separator',
-    ) as Array<{ id: string; capability?: string }>).map((i) => i.id);
-    expect(ids).toEqual(['hide', 'zoom-to-fit', 'view-normal-to', 'appearance-for-face', 'delete']);
+  it('face 拾取 → 隐藏所属实体/选中所属实体/面外观 gated/禁用删除', () => {
+    const menu = buildCanvasMenu([
+      { kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18', topologyId: { nodeId: 1, entityId: 3 } },
+    ]);
+    const items = menu.filter((entry): entry is CanvasMenuItem => entry !== 'separator');
+    expect(items.map((entry) => entry.id)).toEqual([
+      'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner', 'appearance-for-face', 'delete',
+    ]);
+    expect(items[0]!.labelKey).toBe('partStudio.canvasMenu.hideOwner');
+    expect(items.find((entry) => entry.id === 'select-owner')!.action).toEqual({
+      kind: 'select-owner', bodyKey: '0x18',
+    });
+    expect(items.find((entry) => entry.id === 'delete')).toMatchObject({
+      disabled: true,
+      disabledReasonKey: 'partStudio.canvasMenu.faceEdgeDeleteUnsupported',
+    });
   });
 
-  it('edge/vertex 拾取 → 精简集（无 gated 项）', () => {
-    for (const kind of ['edge', 'vertex'] as const) {
-      const ids = (buildCanvasMenu([{ kind, id: 'e1', label: '边 1' }]).filter(
-        (e) => e !== 'separator',
-      ) as Array<{ id: string }>).map((i) => i.id);
-      expect(ids).toEqual(['hide', 'zoom-to-fit', 'view-normal-to', 'delete']);
-    }
+  it('edge 拾取 → owner 组 + 选择所属实体 + 禁用删除', () => {
+    const menu = buildCanvasMenu([
+      { kind: 'edge', id: 'edge:2:5', ownerBodyKey: '0x19', topologyId: { nodeId: 2, entityId: 5 } },
+    ]);
+    const items = menu.filter((entry): entry is CanvasMenuItem => entry !== 'separator');
+    expect(items.map((entry) => entry.id)).toEqual([
+      'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner', 'delete',
+    ]);
+    expect(items.find((entry) => entry.id === 'select-owner')!.action).toEqual({
+      kind: 'select-owner', bodyKey: '0x19',
+    });
+    expect(items.find((entry) => entry.id === 'delete')).toMatchObject({ disabled: true });
+  });
+
+  it('vertex 拾取 → 精简集（无 owner 动作，保持旧四项链）', () => {
+    const ids = (buildCanvasMenu([{ kind: 'vertex', id: 'v1', label: '顶点 1' }]).filter(
+      (e) => e !== 'separator',
+    ) as Array<{ id: string }>).map((i) => i.id);
+    expect(ids).toEqual(['hide', 'zoom-to-fit', 'view-normal-to', 'delete']);
   });
 });
 
@@ -265,50 +300,81 @@ describe('CanvasContextMenu 选中态（按拾取类型重构）', () => {
     expect(screen.getByRole('dialog', { name: '依赖项查看（规划中）' })).toBeDefined();
   });
 
-  it('face 拾取：不出现编辑特征项；删除走 HITL 确认（取消路）', async () => {
+  it('face 拾取：不出现编辑特征项；删除项禁用、不打开 HITL', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    setSelection([{ kind: 'face', id: 'face-1', label: '面 1' }]);
+    setSelection([{ kind: 'face', id: 'face-1', label: '面 1', ownerBodyKey: '0x18' }]);
     renderMenu(vi.fn(), onDelete);
     const menu = screen.getByRole('menu', { name: '画布菜单' });
     expect(within(menu).queryByRole('menuitem', { name: /编辑 面 1/ })).toBeNull();
-    await user.click(within(menu).getByRole('menuitem', { name: '删除 面 1' }));
-    // HITL：确认对话框出现，取消不触发删除。
-    const dialog = screen.getByRole('dialog', { name: '删除 面 1' });
-    await user.click(within(dialog).getByRole('button', { name: '取消' }));
+    const del = within(menu).getByRole('menuitem', { name: '删除' }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    expect(del.getAttribute('title')).toBe('面/边删除暂不支持');
+    await user.click(del);
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(onDelete).not.toHaveBeenCalled();
-    expect(screen.queryByRole('dialog', { name: '删除 面 1' })).toBeNull();
   });
 
-  it('edge 拾取：删除确认路 → onDelete 收到选择集 + 选择集清空', async () => {
+  it('face 隐藏走 owner 元素 id（不写 face id）', async () => {
+    mocks.viewport = makeViewport();
+    setSelection([{ kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18' }]);
+    const onClose = vi.fn();
+    render(<CanvasContextMenu anchor={ANCHOR} onClose={onClose} />);
+    await userEvent.setup().click(screen.getByRole('menuitem', { name: '隐藏所属实体' }));
+    expect(mocks.hideElements).toHaveBeenCalledWith(['0x18'], expect.anything(), true);
+    expect(usePartStudioStore.getState().canvas.hiddenIds).toEqual(['0x18']);
+  });
+
+  it('select-owner 回调 primary owner；删除禁用不打开 HITL', async () => {
+    const onSelectOwner = vi.fn();
+    setSelection([{ kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18' }]);
+    render(<CanvasContextMenu anchor={ANCHOR} onClose={vi.fn()} onSelectOwner={onSelectOwner} />);
+    await userEvent.setup().click(screen.getByRole('menuitem', { name: '选中所属实体' }));
+    expect(onSelectOwner).toHaveBeenCalledWith('0x18');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('part 拾取：删除确认路 → onDelete 收到选择集 + 选择集清空', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    const selection: CanvasSelection[] = [{ kind: 'edge', id: 'e1', label: '边 1' }];
+    const selection: CanvasSelection[] = [{ kind: 'part', id: 'p1', label: 'Part 1' }];
     setSelection(selection);
     renderMenu(vi.fn(), onDelete);
-    await user.click(screen.getByRole('menuitem', { name: '删除 边 1' }));
-    const dialog = screen.getByRole('dialog', { name: '删除 边 1' });
+    await user.click(screen.getByRole('menuitem', { name: '删除 Part 1' }));
+    const dialog = screen.getByRole('dialog', { name: '删除 Part 1' });
     await user.click(within(dialog).getByRole('button', { name: '删除' }));
     expect(onDelete).toHaveBeenCalledWith(selection);
     expect(usePartStudioStore.getState().canvas.selection).toHaveLength(0);
   });
 
-  it('真实宿主路：删除点击后宿主收合菜单（anchor→null），HITL 对话框仍独存', async () => {
+  it('edge 拾取：删除项禁用，不打开 HITL', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    setSelection([{ kind: 'edge', id: 'e1', label: '边 1', ownerBodyKey: '0x18' }]);
+    renderMenu(vi.fn(), onDelete);
+    const del = screen.getByRole('menuitem', { name: '删除' }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    await user.click(del);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('真实宿主路：part 删除点击后宿主收合菜单（anchor→null），HITL 对话框仍独存', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     function Host(): JSX.Element {
       const [anchor, setAnchor] = React.useState<{ x: number; y: number } | null>(ANCHOR);
       return <CanvasContextMenu anchor={anchor} onClose={() => setAnchor(null)} onDelete={onDelete} />;
     }
-    setSelection([{ kind: 'edge', id: 'e1', label: '边 1' }]);
+    setSelection([{ kind: 'part', id: 'p1', label: 'Part 1' }]);
     render(<Host />);
-    await user.click(screen.getByRole('menuitem', { name: '删除 边 1' }));
+    await user.click(screen.getByRole('menuitem', { name: '删除 Part 1' }));
     // 菜单已收合，HITL 对话框独存（pendingDelete 跨 anchor 生命周期）。
     expect(screen.queryByRole('menu')).toBeNull();
-    const dialog = screen.getByRole('dialog', { name: '删除 边 1' });
+    const dialog = screen.getByRole('dialog', { name: '删除 Part 1' });
     await user.click(within(dialog).getByRole('button', { name: '删除' }));
-    expect(onDelete).toHaveBeenCalledWith([{ kind: 'edge', id: 'e1', label: '边 1' }]);
-    expect(screen.queryByRole('dialog', { name: '删除 边 1' })).toBeNull();
+    expect(onDelete).toHaveBeenCalledWith([{ kind: 'part', id: 'p1', label: 'Part 1' }]);
+    expect(screen.queryByRole('dialog', { name: '删除 Part 1' })).toBeNull();
   });
 });
 

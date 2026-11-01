@@ -4,8 +4,9 @@
  *
  * part-studio 工具 ribbon 注册表（M3 Task 4）——ribbon 渲染层与命令搜索
  * 的唯一数据源（os-11/os-20 采集对齐；M6-c T5 分组序权威升级）：
- * - 27 工具按 Onshape 主工具栏分组序在册——**分组序权威 = diag-tools.json
- *  （2026-10-23 Tutorial 2 实测采集）：撤消重做｜草图｜拉伸 旋转 扫掠 放样
+ * - 29 工具按 Onshape 主工具栏分组序在册——**分组序权威 = diag-tools.json
+ *  （2026-10-23 Tutorial 2 实测采集；M-A5.2 在首部增「选择」组：选择面/选择边
+ *  为子实体选择模式 toggle，非 Onshape 采集项）：撤消重做｜选择｜草图｜拉伸 旋转 扫掠 放样
  *   加厚▾｜圆角▾ 倒角 拔模▾ 筋 抽壳 孔 外部螺纹｜线性阵列▾ 镜像｜布尔运算
  *   分割 变换▾ 删除零件｜修改圆角 删除面 移动面 替换面｜平面▾｜框架▾｜
  *   钣金模型▾｜添加自定义特征**。两处刻意缺席（工具集不变裁决）：①撤消/重做
@@ -33,9 +34,11 @@
  */
 
 import React from 'react';
+import { SvgCursor, SvgSelection } from '@itwin/itwinui-icons-react';
 
 /** ribbon 分组（os-11 toolset-seperator 切分序）。 */
 export type RibbonGroup =
+  | 'selection'
   | 'sketch'
   | 'create'
   | 'shape'
@@ -309,8 +312,9 @@ const SurfaceCurveIcon = icon(
 //    group 切换即分隔条）──────────────────────────────────────────────────
 
 /** 分组渲染顺序（os-11 toolset-seperator 切分序 = diag-tools.json 组界序；
- *  surfaceCurve 为本仓扩充组钉末位）。 */
+ *  selection 为本仓 M-A5.2 扩充组钉首位，surfaceCurve 为本仓扩充组钉末位）。 */
 export const RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
+  'selection',
   'sketch',
   'create',
   'shape',
@@ -325,10 +329,24 @@ export const RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
 ];
 
 /**
- * 27 工具注册表。toolId 校准见文件头；capability 键已全量入册
+ * 29 工具注册表。toolId 校准见文件头；capability 键已全量入册
  * TOOL_CAPABILITIES（ribbon-registry.test.ts 钉死该不变式）。
  */
 export const RIBBON_TOOLS: readonly RibbonTool[] = [
+  {
+    id: 'selectFace',
+    icon: SvgCursor,
+    labelKey: 'partStudio.ribbon.tools.selectFace.label',
+    capability: 'selection',
+    group: 'selection',
+  },
+  {
+    id: 'selectEdge',
+    icon: SvgSelection,
+    labelKey: 'partStudio.ribbon.tools.selectEdge.label',
+    capability: 'selection',
+    group: 'selection',
+  },
   {
     id: 'newSketch',
     icon: SketchIcon,

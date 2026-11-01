@@ -160,6 +160,7 @@ import { CreateNamedVersionDialog } from './dialogs/CreateNamedVersionDialog.js'
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
 import { useCanvasBodySelection } from './hooks/useCanvasBodySelection.js';
+import { useSubEntitySelection } from './hooks/useSubEntitySelection.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
@@ -467,6 +468,8 @@ function PartStudioSession({
     featureSystem.bodiesLoaded ? featureSystem.bodies : undefined,
     selectionMode === 'body',
   );
+  // M-A5.2 T3：face/edge 子实体选择模式 lifecycle——单挂载；body 模式不启动工具。
+  useSubEntitySelection(connection ?? undefined);
 
   // P2.5 F1：scope/连接切换必须清空元素集选择。`selectionSet` 按连接持有——
   // 切页签（仅换 URL、复用同一 BriefcaseConnection）后旧 scope 的元素仍留在

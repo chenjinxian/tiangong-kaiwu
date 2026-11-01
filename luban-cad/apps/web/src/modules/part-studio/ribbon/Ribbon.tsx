@@ -80,6 +80,14 @@ export function useToolActivation(canEdit = true): ToolActivation {
       const command = findRibbonCommand(id);
       if (!isGated(command?.capability ?? id)) return;
     }
+    if (id === 'selectFace' || id === 'selectEdge') {
+      // M-A5.2：面/边选择模式 toggle（同钮再点回 body）；不投 tools.run——
+      // 工具由 useSubEntitySelection 按 selectionMode 启动/清理。
+      const mode = id === 'selectFace' ? 'face' : 'edge';
+      const store = usePartStudioStore.getState();
+      store.setSelectionMode(store.canvas.selectionMode === mode ? 'body' : mode);
+      return;
+    }
     if (id === 'newSketch') {
       // os-30：草图命令开 SketchDialog（平面选择+四开关，确认进草图模式）；
       // 真实 sketch 工具接线前不经 tools.run（接线时移除本特例）。
@@ -276,6 +284,15 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
   const toggleCommandPalette = usePartStudioStore((s) => s.toggleCommandPalette);
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
   const exitSketch = usePartStudioStore((s) => s.exitSketch);
+  // M-A5.2：面/边选择模式 toggle 的激活态与禁用态（dialog 打开时禁用；
+  // 模式归零由 useSubEntitySelection 的 dialogActive 防御 effect 负责）。
+  const selectionMode = usePartStudioStore((s) => s.canvas.selectionMode);
+  const dialogActive = usePartStudioStore((s) => s.dialog.active !== null);
+  const isSelectionTool = (id: string): boolean => id === 'selectFace' || id === 'selectEdge';
+  const selectionActive = (id: string): boolean =>
+    id === 'selectFace' ? selectionMode === 'face'
+      : id === 'selectEdge' ? selectionMode === 'edge'
+        : false;
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
   const highlightIds = React.useMemo(() => {
@@ -331,13 +348,18 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
               >
                 {tools.map((tool) => {
                   // 只读总门：full 写工具禁用；gated 项仅信息引导，保持可点（完整 UI 面）。
-                  const disabled = !canEdit && !isGated(tool.capability);
+                  // M-A5.2：选择面/边在 dialog 打开时禁用（模式切换由 store toggle）。
+                  const selectionDisabled = isSelectionTool(tool.id) && dialogActive;
+                  const disabled = selectionDisabled || (!canEdit && !isGated(tool.capability));
+                  const active = isSelectionTool(tool.id)
+                    ? selectionActive(tool.id)
+                    : activeToolId === tool.id;
                   return tool.dropdownItems ? (
                     <RibbonDropdown
                       key={tool.id}
                       tool={tool}
                       onActivate={activate}
-                      active={activeToolId === tool.id}
+                      active={active}
                       highlighted={highlightIds?.has(tool.id) ?? false}
                       disabled={disabled}
                       readOnly={!canEdit}
@@ -347,7 +369,7 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
                       key={tool.id}
                       tool={tool}
                       onActivate={activate}
-                      active={activeToolId === tool.id}
+                      active={active}
                       highlighted={highlightIds?.has(tool.id) ?? false}
                       disabled={disabled}
                     />

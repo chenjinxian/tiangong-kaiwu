@@ -255,6 +255,18 @@ export function PartStudioCanvas({
     [applyOp, bodies, canEdit, t],
   );
 
+  /**
+   * M-A5.2 T5：面/边「选中所属实体」宿主动作——切回 body 模式（退出子实体
+   * 工具/清空子实体选择）、树选中 owner、SelectionSet 同步 owner。选择模式
+   * 切回 body 后由 useCanvasBodySelection 桥接管后续画布选择。
+   */
+  const handleSelectOwner = React.useCallback((bodyKey: string): void => {
+    const store = usePartStudioStore.getState();
+    store.setSelectionMode('body');
+    store.setSelectedNodeIds([bodyKey]);
+    connection?.selectionSet?.replace([bodyKey]);
+  }, [connection]);
+
   // data-viewport-ready：M4-T2 视口下传锚点（结构断言/T5 适应视图接线前的就绪观测位）。
   return (
     <div
@@ -319,6 +331,7 @@ export function PartStudioCanvas({
         anchor={anchor}
         onClose={() => setAnchor(null)}
         onDelete={handleCanvasDelete}
+        onSelectOwner={handleSelectOwner}
         canEdit={canEdit}
       />
 

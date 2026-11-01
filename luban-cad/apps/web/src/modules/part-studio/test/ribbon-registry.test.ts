@@ -37,6 +37,8 @@ import enPartStudio from '../../../common/i18n/locales/en/part-studio.json';
 
 /** os-11 工具顺序（dom-toolbar.html command-id 序列；8 个旧应用真实 toolId 已校准）。 */
 const EXPECTED_TOOL_IDS = [
+  'selectFace', // M-A5.2：选择面（子实体选择模式 toggle）
+  'selectEdge', // M-A5.2：选择边
   'newSketch', // 草图 (shift+s)
   'extrude', // 拉伸 (shift+e)
   'revolve', // 旋转 (shift+w)
@@ -68,6 +70,7 @@ const EXPECTED_TOOL_IDS = [
 
 /** os-11 分组顺序（toolset-seperator 切分）。 */
 const EXPECTED_GROUP_ORDER: RibbonGroup[] = [
+  'selection',
   'sketch',
   'create',
   'shape',
@@ -147,9 +150,9 @@ function registryI18nKeys(): string[] {
   return [...keys];
 }
 
-describe('RIBBON_TOOLS 注册表完整性（27 工具，os-11 顺序）', () => {
-  it('恰为 27 工具且 id 集合与顺序全对齐取证清单', () => {
-    expect(RIBBON_TOOLS).toHaveLength(27);
+describe('RIBBON_TOOLS 注册表完整性（29 工具，os-11 顺序 + M-A5.2 选择组）', () => {
+  it('恰为 29 工具且 id 集合与顺序全对齐取证清单', () => {
+    expect(RIBBON_TOOLS).toHaveLength(29);
     expect(RIBBON_TOOLS.map((tool) => tool.id)).toEqual([...EXPECTED_TOOL_IDS]);
   });
 
@@ -288,9 +291,9 @@ describe('命令查找辅助（palette 数据源）', () => {
     expect(findRibbonCommand('nope')).toBeUndefined();
   });
 
-  it('allRibbonCommands 展开工具+全部子项（27+44=71 条命令）', () => {
+  it('allRibbonCommands 展开工具+全部子项（29+44=73 条命令）', () => {
     const all = allRibbonCommands();
-    expect(all).toHaveLength(71);
+    expect(all).toHaveLength(73);
     // 工具保序：展开序中过滤回顶层工具，仍等于 os-11 工具序列。
     const toolIds = all
       .filter((command) => (RIBBON_TOOLS as readonly RibbonCommand[]).includes(command))

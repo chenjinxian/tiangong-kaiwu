@@ -13,7 +13,7 @@
 // 本任务拉伸特例路由新增独立文件）。@itwin/core-frontend 模块级 mock，真实
 // store/i18n 参与（setup.ts 全局词库兜底，zh-CN 基线）。
 
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -45,6 +45,7 @@ function resetStore(): void {
   usePartStudioStore.setState({
     tool: { activeToolId: null },
     dialog: { active: null },
+    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
   });
 }
 
@@ -183,6 +184,23 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
       mode: 'new',
       featureType: 'booleanBodies',
     });
+  });
+
+  it('M-A5.2：选择面/边 toggle selectionMode；同钮再点回 body；dialog 打开时禁用', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    const face = screen.getByRole('button', { name: '选择面' });
+    await user.click(face);
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('face');
+    expect(face.getAttribute('aria-pressed')).toBe('true');
+    await user.click(face);
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body');
+
+    act(() => usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' }));
+    const faceBtn = screen.getByRole('button', { name: '选择面' }) as HTMLButtonElement;
+    const edgeBtn = screen.getByRole('button', { name: '选择边' }) as HTMLButtonElement;
+    expect(faceBtn.disabled || faceBtn.getAttribute('aria-disabled') === 'true').toBe(true);
+    expect(edgeBtn.disabled || edgeBtn.getAttribute('aria-disabled') === 'true').toBe(true);
   });
 
   it('gated 工具不回归：拔模点击开能力引导对话框', async () => {

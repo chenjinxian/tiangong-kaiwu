@@ -25,6 +25,7 @@ export interface CapabilityGuidance {
  */
 export const TOOL_CAPABILITIES: Record<string, Capability> = {
   // —— full 锚点（已有真实工具面；T4 ribbon 校准全量入册）——
+  selection: 'full', // M-A5.2：面/边子实体选择模式（full no-op 探针，不触发能力引导）
   sketch: 'full',
   extrude: 'full',
   fillet: 'full',

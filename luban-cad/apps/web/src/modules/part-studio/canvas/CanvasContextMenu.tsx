@@ -45,6 +45,7 @@ import {
   SvgModel,
   SvgObjectRotate,
   SvgPalette,
+  SvgSelection,
   SvgSettings,
   SvgVisibilityHide,
   SvgWindowZoomIn,
@@ -72,6 +73,8 @@ export type CanvasMenuAction =
   | { kind: 'zoom-to-fit' }
   | { kind: 'view-normal-to' }
   | { kind: 'delete' }
+  // M-A5.2：面/边 owner 动作——回 body 模式并选中宿主实体。
+  | { kind: 'select-owner'; bodyKey?: string }
   // M4-T8 T5-⑥：材料/外观/工程图四项各持专名 kind（不再借道
   // show-dependencies）——gated 翻转后可达；真实动作随后端面接线（头注
   // 「翻转检查单」第 1 条）。
@@ -91,6 +94,10 @@ export interface CanvasMenuItem {
   /** 左置图标（os-12 V18；aria-hidden 纯装饰）。 */
   icon: React.ComponentType;
   action: CanvasMenuAction;
+  /** 模型级禁用（面/边删除暂不支持、owner 不可用等）。 */
+  disabled?: boolean;
+  /** 禁用原因 i18n 键（title 可见提示）。 */
+  disabledReasonKey?: string;
 }
 
 /** 菜单条目 = 菜单项 | 分隔线。 */
@@ -100,10 +107,10 @@ function item(id: string, labelKey: string, icon: React.ComponentType, action: C
   return { id, labelKey: `partStudio.canvasMenu.${labelKey}`, icon, action, usesName, capability };
 }
 
-/** 视图命令组（隐藏/缩放/视图垂直于——所有选中态共用）。 */
-function viewCommandGroup(): CanvasMenuEntry[] {
+/** 视图命令组（隐藏/缩放/视图垂直于——所有选中态共用；面/边用 owner 语义）。 */
+function viewCommandGroup(hideLabelKey = 'hide', hideUsesName = true): CanvasMenuEntry[] {
   return [
-    item('hide', 'hide', SvgVisibilityHide, { kind: 'hide' }, true),
+    item('hide', hideLabelKey, SvgVisibilityHide, { kind: 'hide' }, hideUsesName),
     item('zoom-to-fit', 'zoomToFit', SvgWindowZoomIn, { kind: 'zoom-to-fit' }),
     item('view-normal-to', 'viewNormalTo', SvgObjectRotate, { kind: 'view-normal-to' }),
   ];
@@ -149,15 +156,46 @@ export function buildCanvasMenu(selection: readonly CanvasSelection[]): CanvasMe
         'separator',
         item('delete', 'delete', SvgDelete, { kind: 'delete' }, true),
       ];
-    case 'face':
+    case 'face': {
+      const owner = primary.ownerBodyKey;
       return [
-        ...viewCommandGroup(),
+        ...viewCommandGroup('hideOwner', false),
+        'separator',
+        {
+          ...item('select-owner', 'selectOwner', SvgSelection, { kind: 'select-owner', bodyKey: owner }),
+          disabled: owner === undefined,
+          disabledReasonKey: owner === undefined
+            ? 'partStudio.canvasMenu.selectOwnerUnavailable' : undefined,
+        },
         'separator',
         item('appearance-for-face', 'appearanceForFace', SvgPalette, { kind: 'appearance-for-face' }, false, 'appearance'),
         'separator',
-        item('delete', 'delete', SvgDelete, { kind: 'delete' }, true),
+        {
+          ...item('delete', 'deleteUnsupported', SvgDelete, { kind: 'delete' }, false),
+          disabled: true,
+          disabledReasonKey: 'partStudio.canvasMenu.faceEdgeDeleteUnsupported',
+        },
       ];
-    case 'edge':
+    }
+    case 'edge': {
+      const owner = primary.ownerBodyKey;
+      return [
+        ...viewCommandGroup('hideOwner', false),
+        'separator',
+        {
+          ...item('select-owner', 'selectOwner', SvgSelection, { kind: 'select-owner', bodyKey: owner }),
+          disabled: owner === undefined,
+          disabledReasonKey: owner === undefined
+            ? 'partStudio.canvasMenu.selectOwnerUnavailable' : undefined,
+        },
+        'separator',
+        {
+          ...item('delete', 'deleteUnsupported', SvgDelete, { kind: 'delete' }, false),
+          disabled: true,
+          disabledReasonKey: 'partStudio.canvasMenu.faceEdgeDeleteUnsupported',
+        },
+      ];
+    }
     case 'vertex':
       return [...viewCommandGroup(), 'separator', item('delete', 'delete', SvgDelete, { kind: 'delete' }, true)];
   }
@@ -200,6 +238,11 @@ export interface CanvasContextMenuProps {
    */
   onDelete?: (selection: readonly CanvasSelection[]) => void;
   /**
+   * M-A5.2：面/边「选中所属实体」——宿主切回 body 模式、树选中 owner、
+   * SelectionSet.replace([owner])。缺省无动作（测试/壳期）。
+   */
+  onSelectOwner?: (bodyKey: string) => void;
+  /**
    * B6 M-A5 T2：编辑面总门（canEdit 单点合流直通）。false 时「删除」项保持
    * 渲染但 disabled（可见 title 提示），点击不打开 HITL；其余菜单项
    * （视图/隐藏/gated 引导）不受影响。缺省 true（测试/壳期语义）。
@@ -216,6 +259,7 @@ export function CanvasContextMenu({
   anchor,
   onClose,
   onDelete,
+  onSelectOwner,
   canEdit = true,
 }: CanvasContextMenuProps): React.JSX.Element | null {
   const { t } = useTranslation();
@@ -275,6 +319,7 @@ export function CanvasContextMenu({
 
   const handleItemClick = React.useCallback(
     (menuItem: CanvasMenuItem) => {
+      if (menuItem.disabled) return;
       const action = menuItem.action;
       // gated 项照常可点 → 能力引导对话框（不灰化不删减）。
       if (menuItem.capability && isGated(menuItem.capability)) {
@@ -317,12 +362,20 @@ export function CanvasContextMenu({
         }
         case 'hide':
           runAndClose(() => {
-            const ids = selection.map((s) => s.id);
-            hideNodes(ids);
+            // M-A5.2：face/edge 隐藏所属实体（owner 元素 id），不写子实体 id；
+            // part/feature/vertex 维持按自身 id 隐藏。
+            const owners = [...new Set(selection.flatMap((entry) => {
+              if (entry.kind === 'face' || entry.kind === 'edge') {
+                return entry.ownerBodyKey ? [entry.ownerBodyKey] : [];
+              }
+              return [entry.id];
+            }))];
+            if (owners.length === 0) return;
+            hideNodes(owners);
             const viewport = IModelApp.viewManager?.selectedView;
             if (viewport) {
               try {
-                EmphasizeElements.getOrCreate(viewport).hideElements(ids, viewport, true);
+                EmphasizeElements.getOrCreate(viewport).hideElements(owners, viewport, true);
               } catch (err) {
                 console.warn('[part-studio] viewport 隐藏应用失败（无真实视口？）', err);
               }
@@ -334,6 +387,13 @@ export function CanvasContextMenu({
           return;
         case 'view-normal-to':
           runAndClose(viewNormalToSelection);
+          return;
+        case 'select-owner':
+          if (action.bodyKey) {
+            runAndClose(() => onSelectOwner?.(action.bodyKey!));
+          } else {
+            onClose();
+          }
           return;
         case 'delete':
           // B6 M-A5 T2：canEdit=false 防御性拒收（菜单项已禁用，此处兜底——
@@ -357,7 +417,7 @@ export function CanvasContextMenu({
           return;
       }
     },
-    [canEdit, hideNodes, onClose, openDock, primary, runAndClose, selection, setDockTab, openFeatureDialog],
+    [canEdit, hideNodes, onClose, onSelectOwner, openDock, primary, runAndClose, selection, setDockTab, openFeatureDialog],
   );
 
   const name = primary ? selectionName(primary) : '';
@@ -434,18 +494,25 @@ export function CanvasContextMenu({
           if (entry === 'separator') {
             return <div key={`sep-${index}`} className="part-studio-canvas-menu__separator" role="separator" />;
           }
-          // B6 M-A5 T2：canEdit=false 时「删除」保持渲染但禁用（可见 title
-          // 提示）；其余项（视图/隐藏/gated 引导）不受写门限制。
-          const deleteDisabled = entry.action.kind === 'delete' && !canEdit;
+          // B6 M-A5 T2 + M-A5.2：模型级禁用（面/边删除暂不支持、owner 不可用）
+          // 与只读删除门合流；可见 title 给出原因。
+          const disabled = entry.disabled === true || (entry.action.kind === 'delete' && !canEdit);
+          const reason = entry.disabledReasonKey
+            ? t(entry.disabledReasonKey)
+            : disabled && entry.action.kind === 'delete'
+              ? t('partStudio.canvasMenu.readonlyHint')
+              : undefined;
           return (
             <button
               key={entry.id}
               type="button"
               role="menuitem"
               className="part-studio-canvas-menu__item"
-              disabled={deleteDisabled}
-              title={deleteDisabled ? t('partStudio.canvasMenu.readonlyHint') : undefined}
-              onClick={() => handleItemClick(entry)}
+              disabled={disabled}
+              title={reason}
+              onClick={() => {
+                if (!disabled) handleItemClick(entry);
+              }}
             >
               <span className="part-studio-menu-item-icon" aria-hidden="true">
                 <entry.icon />

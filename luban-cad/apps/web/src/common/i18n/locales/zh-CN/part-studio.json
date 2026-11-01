@@ -191,6 +191,7 @@
     "searchTools": "搜索工具…",
     "searchShortcut": "alt+/",
     "groups": {
+      "selection": "选择",
       "sketch": "草图",
       "create": "创建",
       "shape": "工程特征",
@@ -209,6 +210,8 @@
       "sketchAnnotate": "标注"
     },
     "tools": {
+      "selectFace": { "label": "选择面" },
+      "selectEdge": { "label": "选择边" },
       "sketch": { "label": "草图" },
       "extrude": { "label": "拉伸" },
       "revolve": { "label": "旋转" },
@@ -453,6 +456,12 @@
     "prompt": "点击拾取要圆角的边",
     "resolveFailed": "边引用解析失败"
   },
+  "subEntitySelect": {
+    "prompt": "拾取面/边（Esc 退出）",
+    "resolveFailed": "无法解析所选面/边",
+    "faceLabel": "面",
+    "edgeLabel": "边"
+  },
   "sketchDialog": {
     "defaultTitle": "草图",
     "confirm": "确认",
@@ -641,7 +650,12 @@
     "cancel": "取消",
     "confirmDelete": "删除",
     "deleteUnavailable": "实体已不可用，无法删除",
-    "readonlyHint": "当前为只读权限，无法删除"
+    "readonlyHint": "当前为只读权限，无法删除",
+    "hideOwner": "隐藏所属实体",
+    "selectOwner": "选中所属实体",
+    "selectOwnerUnavailable": "所属实体不可用",
+    "deleteUnsupported": "删除",
+    "faceEdgeDeleteUnsupported": "面/边删除暂不支持"
   },
   "tree": {
     "contextMenuLabel": "特征菜单",

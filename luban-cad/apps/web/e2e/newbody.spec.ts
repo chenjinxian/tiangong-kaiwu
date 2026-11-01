@@ -219,6 +219,161 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect(canvasMenu).toBeHidden();
   console.log(`[newbody] selection bridge → 画布 part 菜单 OK（${body2Name}）`);
 
+  // ── M-A5.2：面/边子实体选择模式（真栈） ──────────────────────────────────
+  // 等轴测 + 适应视图（确保两面/边可见；后续 fillet 接着用同一取景）。
+  const projectPoints = async (points: Array<{ x: number; y: number; z: number }>) =>
+    page.evaluate(async (worldPoints) => {
+      const cf = ((window as any).__lubanE2E?.coreFrontend) as {
+        IModelApp: {
+          viewManager: {
+            getFirstOpenView(): {
+              worldToView(p: { x: number; y: number; z: number }): { x: number; y: number };
+            } | undefined;
+          };
+        };
+      };
+      const vp = cf.IModelApp.viewManager.getFirstOpenView();
+      if (!vp) throw new Error('无打开视口');
+      return worldPoints.map((p) => vp.worldToView(p));
+    }, points);
+
+  await page.mouse.click(cx, cy + 120, { button: 'right' });
+  await expect(canvasMenu).toBeVisible();
+  await canvasMenu.getByRole('menuitem', { name: '等轴测视图' }).click();
+  await expect(canvasMenu).toBeHidden();
+  await page.mouse.click(cx, cy + 120, { button: 'right' });
+  await expect(canvasMenu).toBeVisible();
+  await canvasMenu.getByRole('menuitem', { name: '适应视图' }).click();
+  await expect(canvasMenu).toBeHidden();
+
+  const facePoints = await projectPoints([
+    { x: 5, y: 1, z: 2 }, // body2 顶面中心
+    { x: 5, y: 1, z: 0 }, // body2 底面中心（退路）
+  ]);
+  const faceBtn = page.getByRole('button', { name: '选择面', exact: true });
+  const edgeBtn = page.getByRole('button', { name: '选择边', exact: true });
+  await faceBtn.click();
+  await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  console.log('[newbody] M-A5.2 face mode on');
+  let facePicked = false;
+  let facePickPoint: { x: number; y: number } | undefined;
+  for (let i = 0; i < facePoints.length; i++) {
+    const p = facePoints[i]!;
+    if ((await faceBtn.getAttribute('aria-pressed')) !== 'true') {
+      await faceBtn.click();
+      await page.waitForTimeout(400);
+    }
+    await page.mouse.move(cb.x + p.x - 12, cb.y + p.y + 10);
+    await page.waitForTimeout(150);
+    await page.mouse.click(cb.x + p.x, cb.y + p.y);
+    await page.waitForTimeout(500);
+    await page.mouse.click(cx, cy + 120, { button: 'right' });
+    await expect(canvasMenu).toBeVisible();
+    if ((await canvasMenu.getByRole('menuitem', { name: '隐藏所属实体' }).count()) > 0) {
+      facePicked = true;
+      facePickPoint = p;
+      break;
+    }
+    // Escape 同时收合菜单并结束拾取工具（onEnded → body）；等模式落定再决定
+    // 是否需要手动 toggle——立即读 pressed 再点击会与 onEnded 的异步归零竞态
+    //（实测点击把已归零的 body 又切回 face）。
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    if ((await faceBtn.getAttribute('aria-pressed')) === 'true') {
+      await faceBtn.click();
+    }
+    await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
+  }
+  expect(facePicked, '面模式应在 body2 顶/底面拾到面').toBe(true);
+  await expect(canvasMenu.getByRole('menuitem', { name: '选中所属实体', exact: true })).toBeVisible();
+  await expect(canvasMenu.getByRole('menuitem', { name: '删除', exact: true })).toBeDisabled();
+  await canvasMenu.getByRole('menuitem', { name: '选中所属实体', exact: true }).click();
+  await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
+  await expect(body2Row).toHaveAttribute('aria-current', 'true');
+  console.log('[newbody] select-owner done');
+  await page.evaluate(async () => {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
+      IModelApp: {
+        viewManager: {
+          getFirstOpenView(): { iModel: { selectionSet: { emptyAll(): void } } } | undefined;
+        };
+      };
+    };
+    cf.IModelApp.viewManager.getFirstOpenView()?.iModel.selectionSet.emptyAll();
+  });
+  await page.waitForTimeout(150);
+
+  // 再入面模式：隐藏所属实体 → eye 恢复（复用首次命中的投影点；顶面中心
+  // 在等轴测下可能被 body1 遮挡，不能固定用 facePoints[0]）。
+  if (!facePickPoint) throw new Error('面拾取成功点未记录');
+  await faceBtn.click();
+  await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  await page.mouse.click(cb.x + facePickPoint.x, cb.y + facePickPoint.y);
+  await page.waitForTimeout(500);
+  await page.mouse.click(cx, cy + 120, { button: 'right' });
+  await expect(canvasMenu).toBeVisible();
+  const hideOwner = canvasMenu.getByRole('menuitem', { name: '隐藏所属实体' });
+  await expect(hideOwner).toBeVisible({ timeout: 10_000 });
+  await hideOwner.click();
+  await expect(body2Eye).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => hiddenElementIds(page), { timeout: 90_000 }).toContain(body2!.bodyKey);
+  await body2Eye.click();
+  await expect(body2Eye).toHaveAttribute('aria-pressed', 'false');
+  console.log('[newbody] hide owner + eye restore done');
+
+  // 边模式：拾一条 body2 边；失败坐标逐点尝试；成功后 Esc 回 body
+  await edgeBtn.click();
+  await expect(edgeBtn).toHaveAttribute('aria-pressed', 'true');
+  console.log('[newbody] M-A5.2 edge mode on');
+  const edgePoints = await projectPoints([
+    { x: 6, y: 0, z: 1 }, { x: 6, y: 2, z: 1 }, { x: 4, y: 0, z: 1 },
+    { x: 5, y: 0, z: 2 }, { x: 5, y: 2, z: 2 },
+  ]);
+  let edgePicked = false;
+  for (let i = 0; i < edgePoints.length; i++) {
+    const p = edgePoints[i]!;
+    if ((await edgeBtn.getAttribute('aria-pressed')) !== 'true') {
+      await edgeBtn.click();
+      await page.waitForTimeout(400);
+    }
+    await page.mouse.move(cb.x + p.x - 15, cb.y + p.y + 12);
+    await page.waitForTimeout(120);
+    await page.mouse.click(cb.x + p.x, cb.y + p.y);
+    await page.waitForTimeout(500);
+    await page.mouse.click(cx, cy + 120, { button: 'right' });
+    await expect(canvasMenu).toBeVisible();
+    if ((await canvasMenu.getByRole('menuitem', { name: '隐藏所属实体' }).count()) > 0) {
+      edgePicked = true;
+      await page.keyboard.press('Escape');
+      break;
+    }
+    // 同 face 分支：Escape 可能已由工具 onEnded 归零，等一拍再条件 toggle。
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    if ((await edgeBtn.getAttribute('aria-pressed')) === 'true') {
+      await edgeBtn.click();
+    }
+    await expect(edgeBtn).toHaveAttribute('aria-pressed', 'false');
+  }
+  expect(edgePicked, '边模式应在 body2 流形边上命中').toBe(true);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  if ((await edgeBtn.getAttribute('aria-pressed')) === 'true') await edgeBtn.click();
+  await expect(edgeBtn).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: '选择面', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await page.evaluate(async () => {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
+      IModelApp: {
+        viewManager: {
+          getFirstOpenView(): { iModel: { selectionSet: { emptyAll(): void } } } | undefined;
+        };
+      };
+    };
+    cf.IModelApp.viewManager.getFirstOpenView()?.iModel.selectionSet.emptyAll();
+  });
+  await page.keyboard.press('Escape');
+  console.log('[newbody] M-A5.2 面/边选择模式 → owner 选择/隐藏/禁用删除 OK');
+
   // ── 树删除 UI（T2）：特征行右键「删除」→ HITL 确认（dialog 作用域） ──
   const featureMenu = page.getByRole('menu', { name: '特征菜单' });
   const newBodyRow = page.getByTestId(`tree-row-${newBodyFeatureId}`);
@@ -276,7 +431,8 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   console.log('[newbody] 第二 undo 恢复两体基线');
 
   // ── 非默认体 fillet 真栈：拾 body2 边 → target 自动 owner；body2.sourceFeatureId=fillet ──
-  // 等轴测 + 适应视图（两条盒体都入框；选择已在上段清空 → 空白态菜单）。
+  // undo/redo 后重新等轴测 + 适应视图（树/体恢复但相机可能停在旧取景；不
+  // 重新 fit 会让后续投影点落在空画布上，实测量测 0 命中）。
   await page.mouse.click(cx, cy + 120, { button: 'right' });
   await expect(canvasMenu).toBeVisible();
   await canvasMenu.getByRole('menuitem', { name: '等轴测视图' }).click();
@@ -286,15 +442,8 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await canvasMenu.getByRole('menuitem', { name: '适应视图' }).click();
   await expect(canvasMenu).toBeHidden();
 
-  // 世界点（body2 盒 [4,6]×[0,2]×[0,2] 的竖边/顶边中点）投影后 boresite 点击
-  const projected = await page.evaluate(async (points) => {
-    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
-      IModelApp: { viewManager: { getFirstOpenView(): { worldToView(p: { x: number; y: number; z: number }): { x: number; y: number } } | undefined } };
-    };
-    const vp = cf.IModelApp.viewManager.getFirstOpenView();
-    if (!vp) throw new Error('无打开视口');
-    return points.map((p) => vp.worldToView(p));
-  }, [
+  // 世界点（body2 盒 [4,6]×[0,2]×[0,2] 的竖边/顶边中点）投影后 boresite 点击。
+  const projected = await projectPoints([
     { x: 6, y: 0, z: 1 }, { x: 6, y: 2, z: 1 }, { x: 4, y: 0, z: 1 }, { x: 4, y: 2, z: 1 },
     { x: 5, y: 0, z: 2 }, { x: 5, y: 2, z: 2 }, { x: 4, y: 1, z: 2 }, { x: 6, y: 1, z: 2 },
   ]);

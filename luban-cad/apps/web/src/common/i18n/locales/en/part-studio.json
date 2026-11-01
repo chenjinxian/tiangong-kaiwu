@@ -191,6 +191,7 @@
     "searchTools": "Search tools…",
     "searchShortcut": "alt+/",
     "groups": {
+      "selection": "Selection",
       "sketch": "Sketch",
       "create": "Create",
       "shape": "Engineered features",
@@ -209,6 +210,8 @@
       "sketchAnnotate": "Annotate"
     },
     "tools": {
+      "selectFace": { "label": "Select face" },
+      "selectEdge": { "label": "Select edge" },
       "sketch": { "label": "Sketch" },
       "extrude": { "label": "Extrude" },
       "revolve": { "label": "Revolve" },
@@ -453,6 +456,12 @@
     "prompt": "Click edges to fillet in the canvas",
     "resolveFailed": "Failed to resolve the edge reference"
   },
+  "subEntitySelect": {
+    "prompt": "Pick a face or edge (Esc to exit)",
+    "resolveFailed": "Failed to resolve the selected face/edge",
+    "faceLabel": "Face",
+    "edgeLabel": "Edge"
+  },
   "sketchDialog": {
     "defaultTitle": "Sketch",
     "confirm": "Confirm",
@@ -641,7 +650,12 @@
     "cancel": "Cancel",
     "confirmDelete": "Delete",
     "deleteUnavailable": "The body is no longer available; it cannot be deleted",
-    "readonlyHint": "Read-only permission; cannot delete"
+    "readonlyHint": "Read-only permission; cannot delete",
+    "hideOwner": "Hide owner body",
+    "selectOwner": "Select owner body",
+    "selectOwnerUnavailable": "Owner body unavailable",
+    "deleteUnsupported": "Delete",
+    "faceEdgeDeleteUnsupported": "Face/edge deletion is not supported yet"
   },
   "tree": {
     "contextMenuLabel": "Feature menu",

@@ -88,6 +88,7 @@ function renderCanvas(
   opts?: {
     sketches?: ReadonlyArray<{ id: string; label: string }>;
     connectionKey?: string;
+    connection?: BriefcaseConnection;
     bodies?: readonly BodyInfo[];
     canEdit?: boolean;
   },
@@ -100,7 +101,8 @@ function renderCanvas(
       bodies={opts?.bodies}
       canEdit={opts?.canEdit ?? true}
       connection={
-        opts?.connectionKey ? ({ key: opts.connectionKey } as unknown as BriefcaseConnection) : undefined
+        opts?.connection
+          ?? (opts?.connectionKey ? ({ key: opts.connectionKey } as unknown as BriefcaseConnection) : undefined)
       }
     />,
   );
@@ -435,14 +437,20 @@ describe('B6 M-A5 T2：画布 part 删除接线（deleteFeature + sourceFeatureI
     );
   });
 
-  it('非 part 选择项（edge）不进入 body 删除（无 op / 无 toast）', async () => {
+  it('非 part 选择项（edge）删除项禁用，不进入 body 删除（无 HITL/op/toast）', async () => {
     const user = userEvent.setup();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
     renderCanvas(applyOp, { bodies: CANVAS_BODIES });
     act(() => {
-      usePartStudioStore.getState().setCanvasSelection([{ kind: 'edge', id: 'e1', label: '边 1' }]);
+      usePartStudioStore.getState().setCanvasSelection([
+        { kind: 'edge', id: 'e1', label: '边 1', ownerBodyKey: '0x15' },
+      ]);
     });
-    await confirmCanvasDelete(user, '边 1');
+    fireEvent.contextMenu(screen.getByTestId('part-studio-canvas'), { clientX: 40, clientY: 50 });
+    const del = screen.getByRole('menuitem', { name: '删除' }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    await user.click(del);
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(applyOp).not.toHaveBeenCalled();
     expect(mocks.outputMessage).not.toHaveBeenCalled();
   });
@@ -489,5 +497,30 @@ describe('B6 M-A5 T2：画布 part 删除接线（deleteFeature + sourceFeatureI
     await user.click(del);
     expect(screen.queryByRole('dialog', { name: '删除 Base' })).toBeNull();
     expect(applyOp).not.toHaveBeenCalled();
+  });
+});
+
+describe('B6 M-A5.2 T5：选中所属实体宿主动作', () => {
+  it('选中所属实体 → body 模式 + 树选中 + SelectionSet.replace(owner)', async () => {
+    const user = userEvent.setup();
+    const selectionSet = { replace: vi.fn() };
+    renderCanvas(undefined, {
+      connection: { key: 'k', selectionSet } as unknown as BriefcaseConnection,
+    });
+    act(() => {
+      usePartStudioStore.getState().setSelectionMode('face');
+      usePartStudioStore.getState().setCanvasSelection([
+        { kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18' },
+      ]);
+    });
+    fireEvent.contextMenu(screen.getByTestId('part-studio-canvas'), {
+      clientX: 60, clientY: 70,
+    });
+    const menu = screen.getByRole('menu', { name: '画布菜单' });
+    await user.click(within(menu).getByRole('menuitem', { name: '选中所属实体' }));
+
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body');
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['0x18']);
+    expect(selectionSet.replace).toHaveBeenCalledWith(['0x18']);
   });
 });
