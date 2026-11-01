@@ -24,6 +24,7 @@ export interface LubanE2EHook {
 
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- e2e 观测面契约名（e2e helpers 读取）
     __lubanE2E?: LubanE2EHook;
   }
 }

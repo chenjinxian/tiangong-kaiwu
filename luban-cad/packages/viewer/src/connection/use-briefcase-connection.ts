@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BriefcaseConnection, IpcApp } from '@itwin/core-frontend';
-import { RpcManager } from '@itwin/core-common';
+import { IpcSession, RpcManager } from '@itwin/core-common';
 import { lubanIpcChannel, type LubanIpcInterface } from '@luban-cad/shared';
 
 export interface UseBriefcaseConnectionOptions {
@@ -110,11 +110,17 @@ export function useBriefcaseConnection(
       // IpcApp._ipc 就位，makeIpcProxy 代理首调即抛 "Expected value to be defined"
       // 且 error 终态不可自愈。显式轮询 isValid（60s 封顶：冷会话含 WS+原生库
       // 装载，比 30s 稳；acquireViewer 由 useViewport 并行推进，此处只等不启）。
-      for (let i = 0; i < 600 && !IpcApp.isValid; i++) {
+      // P2.8 reload 实证：`IpcApp.isValid` 在 LocalhostIpcApp.startup 首句即真，
+      // 但 `IpcSession.start` 要等 `IpcApp.startup` 完成才把 RPC 拦截到 IPC——
+      // 两者之间打开连接会让 useEditorSession/usePartStudios 的 getClient 仍绑定
+      // BentleyCloud HTTP（reload 实测 acquireWriteLease/listPartStudios/queryRows
+      // POST /LubanCAD/... → SPA origin 404；空列表进而自动建第二个默认 Part Studio）。
+      // 等两者都就绪再下载/开连接，所有后续 RPC 恒走 IPC。
+      for (let i = 0; i < 600 && !(IpcApp.isValid && IpcSession.active); i++) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      if (!IpcApp.isValid) {
-        setError(new Error('LocalhostIpcApp startup 未就绪（60s）——检查 /ipc WebSocket 连通'));
+      if (!IpcApp.isValid || !IpcSession.active) {
+        setError(new Error('LocalhostIpcApp/IpcSession startup 未就绪（60s）——检查 /ipc WebSocket 连通'));
         setIsLoading(false);
         return;
       }

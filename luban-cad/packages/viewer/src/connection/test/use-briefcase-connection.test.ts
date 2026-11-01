@@ -24,16 +24,21 @@ const {
   pushChangesMock,
   pullChangesMock,
   setIModelMock,
-} = vi.hoisted(() => ({
-  makeIpcProxyMock: vi.fn(),
-  downloadBriefcaseMock: vi.fn(),
-  openFileMock: vi.fn(),
-  closeMock: vi.fn(),
-  saveChangesMock: vi.fn(),
-  pushChangesMock: vi.fn(),
-  pullChangesMock: vi.fn(),
-  setIModelMock: vi.fn(),
-}));
+  ipcSessionMock,
+} = vi.hoisted(() => {
+  const ipcSession: { active: object | undefined } = { active: {} };
+  return {
+    makeIpcProxyMock: vi.fn(),
+    downloadBriefcaseMock: vi.fn(),
+    openFileMock: vi.fn(),
+    closeMock: vi.fn(),
+    saveChangesMock: vi.fn(),
+    pushChangesMock: vi.fn(),
+    pullChangesMock: vi.fn(),
+    setIModelMock: vi.fn(),
+    ipcSessionMock: ipcSession,
+  };
+});
 
 vi.mock('@itwin/core-frontend', () => ({
   // isValid: true——2026-10-26 open 前置 IpcApp 就绪门（生产 bundle 竞态修复）的
@@ -42,7 +47,10 @@ vi.mock('@itwin/core-frontend', () => ({
   BriefcaseConnection: { openFile: openFileMock },
 }));
 vi.mock('@luban-cad/shared', () => ({ lubanIpcChannel: 'luban-ipc' }));
-vi.mock('@itwin/core-common', () => ({ RpcManager: { setIModel: setIModelMock } }));
+vi.mock('@itwin/core-common', () => ({
+  RpcManager: { setIModel: setIModelMock },
+  IpcSession: ipcSessionMock,
+}));
 
 import {
   useBriefcaseConnection,
@@ -74,6 +82,7 @@ async function flushAsync(): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  ipcSessionMock.active = {};
   makeIpcProxyMock.mockReturnValue({ downloadBriefcase: downloadBriefcaseMock });
   downloadBriefcaseMock.mockResolvedValue(DOWNLOAD_RESULT);
   openFileMock.mockResolvedValue(mockConnection);
@@ -107,6 +116,25 @@ describe('useBriefcaseConnection（移植自旧查看器包）', () => {
       key: '/cache/abc/briefcases/42.bim',
       readonly: false,
     });
+  });
+
+  it('P2.8：IpcApp.isValid 但 IpcSession 未激活时等待（RPC-over-IPC 就绪门）', async () => {
+    ipcSessionMock.active = undefined;
+    const { result } = renderHook(() => useBriefcaseConnection(OPTIONS));
+
+    // 60s 门内不抢跑：IpcApp.isValid=true 但 RPC 仍可能绑 HTTP。
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(downloadBriefcaseMock).not.toHaveBeenCalled();
+    expect(result.current.connection).toBeNull();
+
+    ipcSessionMock.active = {};
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(downloadBriefcaseMock).toHaveBeenCalledTimes(1);
+    expect(result.current.connection).toBe(mockConnection);
   });
 
   it('P2.8：openFile 后先设置 RPC fallback routing token（reload Invalid iModelToken）', async () => {
