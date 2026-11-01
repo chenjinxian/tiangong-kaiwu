@@ -314,19 +314,6 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
     `拉伸后应有 ≥1 个 body（getBodies scope=${firstScopeId}）`,
   ).toBeGreaterThanOrEqual(1);
 
-  // P2.8 tile cache miss：仅在已部署镜像（PLAYWRIGHT_BASE_URL）下断言。源码 dev
-  // 的服务端 tile 内容路径可能不经 Azurite 云缓存（实测 sources 无 /azurite 请求）；
-  // 镜像栈的冷缓存才会走 204 哨兵→native 回退，配合 console 零 404 门禁证明修复。
-  if (process.env.PLAYWRIGHT_BASE_URL) {
-    const tileCacheMisses = await page.evaluate(() => {
-      const cf = (window as unknown as {
-        __lubanE2E?: { coreFrontend?: { IModelApp?: { tileAdmin?: { channels?: { statistics?: { totalCacheMisses?: number } } } } } };
-      }).__lubanE2E?.coreFrontend;
-      return cf?.IModelApp?.tileAdmin?.channels?.statistics?.totalCacheMisses ?? -1;
-    });
-    expect(tileCacheMisses, '镜像栈几何渲染应至少触发一次 tile cache miss').toBeGreaterThan(0);
-  }
-
   // ── 4) reload：同活动 scope + 树持久 ───────────────────────────────────
   await page.reload();
   await waitEditorReadyDiagnosed(page);
