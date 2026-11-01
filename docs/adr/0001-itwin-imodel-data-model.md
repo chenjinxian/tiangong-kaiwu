@@ -879,7 +879,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 
 | 残项 | 处置 | 证据/限制 | owner | 下一步 |
 |---|---|---|---|---|
-| new-document baseline 传播竞态（state=initialized 先于 blob 可读；e2e 15s settle/reload） | **waiver（P2）+ backlog** | `e2e/seed.ts:52-59`、`b-model.spec.ts:196-201`；首开覆盖已让渡；15s 不可删；镜像轮另见 reload iModelToken 竞态（独立） | hub + web | 原子 baseline 可见性（state 仅在 blob 可读后置 initialized）或客户端有界重试；P3 前完成 |
+| new-document baseline 传播竞态（state=initialized 先于 blob 可读；e2e 15s settle/reload） | **fixed（2026-11-01）** | WA 在 confirm 前用只读 CloudCache 回读 manifest + 全部 block（实测 4,194,304 B）；事件/recovery 生成按 iModel 单飞（曾撞 container attached/412）。e2e 删除 15s settle 与 pre-open reload，b-model main 24.7s；backend `d1e89d9` / public `5d72894` | backend/web | 保持回读+单飞；不得用 settle 兜底 |
 | A all-model 视觉 NOT RUN | **waiver** | A 种子空 iModel（0 PhysicalModel）；A 编辑器 canvas 全 mask | web/e2e | 几何-bearing A 夹具或 viewer 集成/像素测试 |
 | damaged 半图真栈门 NOT RUN | **waiver** | P2.6b3 C4：需 def 分区缺失 phys model 的半图库；公开 UI/RPC 无入口 | backend + e2e | 后端 test fixture（`deleteModel` harness）/受租约约束 test-only 命令 |
 | 后端直接 `deleteElements(BodySolid)` 不变量 | **fixed（P2.8 残项清理，2026-11-01）** | P2.6d 前端守卫 + P2.8 后端 `BasicManipulationCommand.deleteElements` 在任何锁/事务前据 editor-common 共享谓词拒删；内部特征删除走 FeatureService/EditTxn 不受影响；modeling-server guard test + feature 459/8 | backend | 保持共享谓词与两端测试；不得把前端守卫当后端不变量 |
@@ -887,7 +887,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | reload 后 30s 写租约 UX（unmount 不释放） | **fixed（P2.8 残项清理，2026-11-01）** | `useEditorSession` 在 pagehide 尽力释放旧 session 租约（reload 不触发 React unmount）；单测覆盖 pagehide/清理；`b-model.spec.ts` 删除 30s wait 后全链通过（36.0s）；服务端 TTL 仍兜底 | web | 保持 pagehide 监听与单测 |
 | e2e 未纳入 web tsc/lint | **fixed（P2.8 残项清理，2026-11-01）** | `tsconfig.e2e.json` + `typecheck:e2e`（`test:e2e` 先跑）；lint 覆盖 `e2e/**` + `playwright.config.ts`；修复判别联合/索引/PNG 边界 | web | 保持门禁 |
 | MS 产物 flatbuffers 版本 hoist（新，P2.8 本地产物实测） | **fixed（2026-11-01，backend packaging）** | npm 把 apache-arrow 的 flatbuffers@25 hoist 到顶层，覆盖 core-geometry/core-common 的 ~1.12.0 → `updateSketch` 写几何 `BGFBWriter` 报 `undefined.Builder`；`build-ms-dist.ps1` 顶层还原 1.12 + apache-arrow 下沉 25 + 运行期断言（backend `e1c2e92`/`2392636`/`d52a006`）；源模式 pnpm 分层不受影响 | backend/release | 产物必须经脚本重建；不得手工修补 |
-| 发布镜像 hub e2e | **NOT RUN** | 未获发布/推送授权；本地镜像 25b2b42 结果不作发布证据；A6 发布镜像链同样 NOT RUN | release owner | 发布授权后对 GHCR 镜像复跑 5 suites + A6 两用户链 |
+| 发布镜像 hub e2e | **local done（2026-11-01，未发布）** | 本地 test-observation 镜像 revision `67ce23b94a` 全量 **49/49（7.9m）**，A6 两用户分享链两用例均绿；GHCR/Release 发布镜像 e2e 仍未跑（未授权） | release owner | 发布授权后对 GHCR 镜像复跑 5 suites + A6 两用户链 |
 | e2e `/@id/` 开发态导入（新） | **fixed（P2.8）** | 15.4.1；P2.8：`window.__lubanE2E`（`VITE_E2E_HOOKS` 门控）+ 32 处替换 + app store hook；发布源镜像全量 49/49 | web/e2e | 保持生产 hook off；见 §15.8 |
 | 重载后 RPC 走 BentleyCloud HTTP（`/LubanCAD` 未代理→404）→ 空列表/双默认 scope（新，P2.8 实测） | **fixed（2026-11-01）** | `IpcApp.isValid` 早于 `IpcSession.start`；连接门改为两者俱备（public `fbf59a4ca8`）。实测 reload 的 acquire/list/queryRows 曾 POST 到 SPA origin 404，resolver 误建第二个默认 Part Studio | viewer/web | 保持 IpcSession 门；不得用 `/LubanCAD` 代理掩盖该竞态 |
 | 发布镜像全量轮 crash-class（1 `Target crashed` + 7 `worker 0xC0000142`） | **not reproduced（P2.8）** | 干净重启 + hook 镜像全量 **49/49，0 crash**；P2.7 归档保留为历史 | web/e2e | 保持观察；发布门槛以新全量证据为准 |
@@ -898,8 +898,10 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | F4/F7 最终轮命令/env/探针/dist 证据归档 | **fixed（P2.7）** | 本记录 15.2/15.3 + `evidence-p27/environment.txt` | release | 保持随每轮发布归档 |
 | 登录视觉 origin 相关（新） | **fixed（P2.8）** | mask `.signin-hero__token-value`（#f5f5f5）+ 重钉 `login-light.png`；:5301 全量通过 | e2e | 保持基址无关基线 |
 | MS 产物需随命名/P2.8 重建（`LubanRpcInterface`/`luban-ipc`） | **local done（2026-11-01，未发布）** | 最终本地产物 `backend-20261101-p28b`（178,577,902 B，SHA256 `15C7FB47…B9AA3EA35E157A`；RPC 1.18.0；native 5.15.5 / `fallback=True`）已安装并以产物模式运行；p27 旧名不兼容、p28 临时版（手工修）被取代 | release/backend | 发布时经 `build-ms-dist.ps1` 重建并归档 hash/provenance |
-| 生产镜像必须 hook-off | **local done（2026-11-01，未发布）** | 最终本地镜像 revision `fbf59a4ca874`（B on、E2E hooks off）已部署；`verify-stack` 17/17；测试观测镜像保留 `b80bd24ff1c3`；发布推送未授权 | release/web | 发布时 `rebuild-web.ps1 -BModelEnabled true`（不带 `-E2EHooks`） |
-| Azurite tile cache 404 console 噪声 | **test exemption + backlog** | `collectConsoleErrors` 精确豁免 `/azurite/.../tiles/` 的 404（预期 miss→native 回退）；其它 404 仍红 | web/e2e | 可选消除 console 噪声；不得扩大豁免范围 |
+| 生产镜像必须 hook-off | **local done（2026-11-01，未发布）** | 最终本地生产镜像 revision `67ce23b94a`（B on、E2E hooks off）已部署；`verify-stack` 17/17；test-observation 镜像保留 tag `e2e-hooks-67ce23b94a`（全量 49/49）；发布推送未授权 | release/web | 发布时 `rebuild-web.ps1 -BModelEnabled true`（不带 `-E2EHooks`） |
+| Azurite tile cache 404 console 噪声 | **fixed（2026-11-01）** | tiles 路径 nginx/Vite 把 Azurite 404 改写为 204 哨兵 + `MissAwareFetchCloudStorage`（204/404→miss→native）；删除 e2e tile 404 豁免；viewer 96 tests；镜像全量 49/49 零 console 错误 | web/e2e | 保持哨兵与零豁免；不得扩大豁免范围 |
+| A all-model 视觉 / damaged 半图真栈夹具 | **waiver（调查完成，未实施）** | A seed 空 iModel；夹具需 fromBaseline 上传/克隆 + hub recovery 过滤（或 test-only harness）；方案已调查（A 几何/半图生成、e2e 上传、恢复 UI 断言） | web/e2e/backend | 需批准夹具资产与 hub 变更后实施 |
+| 持久化 EC schema OpenCloudCAD 迁移 | **Phase 0 audit done（2026-11-01）；migration gated** | 本地 500 .bim 扫描：OpenCloudCAD=0、LubanCAD=94；只读脚本 backend `cbd5aa1`。生产审计 + schema 名/别名签核 + 备份后才可迁移/删除 | backend/release | 生产审计；零则退役 legacy path，非零按 expand/migrate/contract |
 | 测试专用限流覆盖（P2.8 最终轮 2000） | **disclosed test-only** | 最终镜像全量 `LUBAN_RPC_RATE_LIMIT_MAX=2000`（window 900000）；生产默认 100/15min 已恢复（MS health 200） | test/backend | 全量发布门沿用覆盖并披露；默认值不改 |
 | M2 自动 429 等待未实现 | **backlog** | 全量仍需 env 覆盖；默认 100/15min 不适合长套件 | web/backend | 客户端 429 有界等待 + 干净窗口策略 |
 
@@ -1007,5 +1009,35 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
     覆盖 reload/pagehide 租约释放、IpcSession 就绪门与 flatbuffers 几何写入。
   - 历史文档旧名扫描：除删除记录/迁移记录/上游检查单与持久化 schema 例外外，无活跃指引；
     该项关闭。
-- **仍待**：发布镜像 hub e2e 与 A6（未授权）；baseline 传播竞态；A all-model 视觉与
-  damaged 半图夹具；tile cache 404 console 噪声；EC schema 迁移。
+- **仍待（后续批次）**：发布镜像 hub e2e 与 A6（未授权）；A all-model 视觉与 damaged
+  半图夹具（需夹具资产/审批）；EC schema 迁移（Phase 0 审计后决策）。详见 §15.10。
+### 15.10 残项批次 2（2026-11-01）
+
+- **new-document baseline 传播竞态 → fixed**：webhook-agent 在 `POST /baselinefile`
+  前用全新只读 CloudCache/CloudContainer 读取 manifest 并下载全部 `baseline.bim`
+  block（实测 4,194,304 B，A/B 种子与新文档均通过）；同时按 iModel 对
+  `handleIModelCreated` 单飞——事件与 1 分钟 recovery checker 并发会撞
+  `container already attached` / manifest 412，把正常首启打成 failed。
+  e2e 删除 15s settle 与 pre-open reload，b-model 全链 main **24.7s**；backend
+  `d1e89d9`、public `5d72894`。
+- **Azurite tile cache 404 console 噪声 → fixed**：tiles 路径的 Azurite 404 由
+  nginx/Vite 改写为 204（`Cache-Control: no-store`），viewer 新增
+  `MissAwareFetchCloudStorage`（204/404 视为 miss，交 TileStorage 回退 native）；
+  e2e 删除 tile 404 豁免，console 门禁零容忍。viewer 96 tests；web
+  build/lint/typecheck:e2e 0；public `67ce23b94a`。
+- **本地镜像 e2e + A6**：test-observation 镜像 revision `67ce23b94a`（hooks on）
+  全量 **49/49（7.9m）**，A6 两用户分享链两用例均绿；生产镜像同 revision（hooks
+  off）已部署，`verify-stack` **17/17**。GHCR/Release 发布镜像的 e2e 与 A6 仍未跑
+  （未获发布授权）。
+- **EC schema Phase 0 audit**：只读脚本扫描本地 500 个 `.bim`：`OpenCloudCAD=0`、
+  `LubanCAD=94`、`LubanCadFeature=0`；脚本 backend `cbd5aa1`。已确认 native 层
+  不支持 schema/alias/class 原地改名；若生产审计同样为零，推荐退役 legacy IPC
+  schema 路径；若非零，按 expand/migrate/contract 迁移（需生产审计、schema 名/别名
+  签核、备份与显式批准）。
+- **A all-model 视觉 + damaged 半图夹具**：调查完成（A 只读编辑器只认 baseline/
+  checkpoint；MS RPC 写的 changeset 不进入 A 首开；需 fromBaseline 夹具上传或 clone，
+  并处理 recovery checker 对 `fromBaseline` 的抢跑）。本轮**未实施**，需批准夹具
+  资产（`.bim`）与 hub 变更后落地。
+- **仍待**：GHCR/Release 发布镜像 e2e + A6（发布授权）；A 夹具实施（夹具资产/审批）；
+  EC schema 生产审计与迁移决策；M2 自动 429 等待（backlog）。**未 push / 未 merge /
+  未 publish**。
