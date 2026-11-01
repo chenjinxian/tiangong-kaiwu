@@ -1511,16 +1511,17 @@ selector fixes separately.
   **4,881ms**、fit **141ms**、editRefresh **467ms**、FPS p95 **16.7ms**，
   tile 只记录）。基线见 `docs/superpowers/plans/2026-10-29-multibody-perf-baseline.md`；
   树就绪阈值按首跑 6,433ms 校准到 10s（1.55×）。
-- **E2E**：newbody 定向 **2/2**（含面删除负路径）；全量 51 项未取得单次全绿：
-  第一轮 **49 passed / 2 failed**——两项为编辑器五区视觉基线（新增「选择」组
-  整体右移；已核对 diff 仅 ribbon 区域后重钉，复验 **3/3**）；
-  第二轮 **50 passed / 1 failed**——唯一失败为 b-viewport「双 studio」相机取景
-  `npc.x=1.28`（既有 flake，与本改动无关），**定向复跑 2/2 通过**。
-  即 51 项均已在至少一次运行中通过，但无单次 51/51 记录。
+- **E2E**：newbody 定向 **2/2**（含面删除负路径）。删除/性能变更后的全量
+  套件 **51 passed / 1 skipped（perf opt-in），exit 0（12.3m）**——这次是
+  单次全绿；此前两轮记录（49/51 视觉重钉、50/51 b-viewport flake）保留为
+  过程证据。perf spec 缺省 skip，不占默认限流预算。
 - **verify**：生产默认限流恢复后 `verify-stack` **17/17**；`release-gate.ps1`
-  （expected SHA + `-AllowNativeFallback`）**FAIL=0**。
-- **本地生产镜像**：曾用工作区执行 `rebuild-web.ps1 -BModelEnabled true`（hooks
-  off）并 `verify-stack` 17/17；因当时改动未提交，镜像 revision 标签为 HEAD
-  `87ee0f408fb7`，不能作为发布 provenance。提交后须从新提交重建。
-- **MS 产物**：`backend-20261101-p29b` 已带上 429 `Retry-After` 头和
-  `facesFromId`/`edgesFromOwnId` IPC；p28c/p29 均被 p29b 取代。
+  （p29b SHA + `-AllowNativeFallback`）**FAIL=0 WARN=1**（仅 native
+  store fallback 明示告警）。
+- **本地生产镜像**：已从提交 `ce2b93b` 重建（B on、hooks off）并
+  `docker compose up -d web`；`verify-stack` **17/17**，Step E revision
+  `ce2b93b15304`。**未发布 GHCR/Release**（web 无 GHCR 通道）。
+- **MS 产物**：`backend-20261101-p29b`（178,576,209 B，SHA256
+  `6e2517ced3c49fa30d4e00b7b55501782ed332d21da177d5532ac7f3baea87be`）已带上
+  429 `Retry-After` 头和 `facesFromId`/`edgesFromOwnId` IPC；p28c/p29 被取代。
+  **本地产物，未创建 Release/GHCR 发布**。

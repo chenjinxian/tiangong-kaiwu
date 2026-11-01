@@ -14,7 +14,7 @@
 
 - **真 BRep，而非 Mesh**：生成物是可用于制造的实体模型；特征树、草图、参数与变更历史统一承载在 iModel 中。
 - **参数化特征闭环**：拉伸、圆角、抑制、排序、试算预览；草图线/矩形/圆 + 约束/尺寸 + DOF/矛盾面板。
-- **多体与体布尔（推进中）**：NEW-body、body boolean、逐 body 可见性、面/边子实体选择已落地；多体性能护栏在推进。
+- **多体与体布尔（推进中）**：NEW-body、body boolean、逐 body 可见性、面/边子实体选择、127-body/20-body 性能基线已落地；面/边删除已接线（普通盒体属内核既定负路径，错误诚实上呈）。
 - **云端协同数据链**：Changeset 推送/历史、写租约、语义 undo/redo、checkpoint/baseline 云化。
 - **大规模数字孪生渲染**：公开的 [DanQing](https://github.com/chenjinxian/DanQing) 纯客户端图形引擎，10km / 169,920 瓦片桥梁模型打开至首帧 2.25s，LOD 流式细化。
 - **可参与的开源面**：前端 `luban-cad/apps/web`、基座包 `packages/{viewer,editor,shared}` 与 iTwin.js fork 可独立构建；`shared`/`viewer`/`editor-frontend` 有单元测试；DanQing 是独立公开仓。
