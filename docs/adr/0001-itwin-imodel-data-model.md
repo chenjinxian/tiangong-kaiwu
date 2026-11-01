@@ -2,8 +2,9 @@
 
 - **状态**：已接受（Accepted，2026-10-30：认可 B 方向，采用 C 过渡，P1 spike 作为迁移门禁；
   **2026-10-30 P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**，见 §11/§14）。
-  **2026-11-01 P2.9 发布完成（qualified）**：public main `362bc01ced`、backend main
-  `ff399dd`、hub main `c49fd5c`；Release `backend-20261101-p28c` + GHCR WA/hub 已推送；
+  **2026-11-01 P2 发布完成（qualified）**：public main `be8b0c7`（发布代码
+  `362bc01ced`）、backend main `ff399dd`、hub main `c49fd5c`；Release
+  `backend-20261101-p28c` + GHCR WA/hub 已推送；
   发布产物部署后 `verify-stack` **17/17**，发布镜像全量 Playwright **51/51（9.0m，0 crash）**
   （含 A 几何/半图夹具与 A6），生产 web `87ee0f408fb7`。`Invalid iModelToken`、`/@id/` 观测面、
   baseline 传播、tile 404、EC legacy path、写租约残留均已收口。仍余 M2 自动 429 等待
@@ -1072,8 +1073,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 
 ### 15.12 GHCR / Release 发布与发布镜像验收（2026-11-01）
 
-- **提交**：public main `362bc01ced`（`feat/b-model-p2` 61 提交 ff 合并）、backend main
-  `ff399dd`、hub main `c49fd5c`；三仓 `main` 与 `origin/main` 一致。
+- **提交**：public main `be8b0c7`（发布代码 `362bc01ced`；`feat/b-model-p2` 61 提交 ff
+  合并）、backend main `ff399dd`、hub main `c49fd5c`；三仓 `main` 与 `origin/main` 一致。
 - **Release**：`backend-20261101-p28c`
   （https://github.com/chenjinxian/tiangong-kaiwu/releases/tag/backend-20261101-p28c），
   asset `modeling-server-win-x64-backend-20261101-p28c.tgz` 178,574,240 B，
