@@ -17,7 +17,7 @@
 | 文档 | 说明 |
 |------|------|
 | [Architecture.md](./Architecture.md) | 系统架构详细设计 |
-| [adr/0001-itwin-imodel-data-model.md](./adr/0001-itwin-imodel-data-model.md) | ADR：iTwin/iModel 数据模型与“文档—页签”信息架构（**已接受**；P0 前置完成；P1 spike **Go（qualified，门禁修订，待 owner 签字）**，见 §11/§14；**P2 实现完成（qualified；发布门部分 NOT RUN/受限，见 §15）**：RPC 1.18、B flag rollout/rollback、证据与残项处置） |
+| [adr/0001-itwin-imodel-data-model.md](./adr/0001-itwin-imodel-data-model.md) | ADR：iTwin/iModel 数据模型与“文档—页签”信息架构（**已接受**；P0 前置完成；P1 spike **Go（qualified）**；**P2 实现并发布（2026-11-01，Release `backend-20261101-p28c`）**：RPC 1.18、B flag rollout/rollback、证据与残项处置；P3 旧数据迁移退役、P4 暂缓） |
 | [ROADMAP.md](./ROADMAP.md) | 路线图索引（指向全程序路线图） |
 | [SKETCH-CONSTRAINT-WORKFLOW.md](./SKETCH-CONSTRAINT-WORKFLOW.md) | 草图约束工作流程（设计稿） |
 | [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |
@@ -43,7 +43,9 @@
 ### 发布与迁移
 | 文档 | 说明 |
 |------|------|
-| [RELEASE-backend-20261028c.md](./RELEASE-backend-20261028c.md) | 最新后端发布说明 |
+| [RELEASE-backend-20261101-p28c.md](./RELEASE-backend-20261101-p28c.md) | 最新后端发布说明（B 数据模型 P2 / 命名迁移 / legacy schema 退役） |
+| [RELEASE-CHECKLIST.md](./RELEASE-CHECKLIST.md) | 发布检查清单（产物 hash / native provenance / 限流姿态 / 镜像标签 / verify-stack） |
+| [RELEASE-backend-20261028c.md](./RELEASE-backend-20261028c.md) | 历史发布说明（MS #45 redo 栈修复） |
 | [MIGRATION-2026-10-29.md](./MIGRATION-2026-10-29.md) | 2026-10-29 项目总目录整理迁移记录 |
 | [NAMING-2026-10-31.md](./NAMING-2026-10-31.md) | 2026-10-31 OpenCloud→LubanCAD 命名迁移（线上契约/持久化 schema 例外/验证） |
 | [HISTORY.md](./HISTORY.md) | 已删除文档历史索引 |
@@ -70,4 +72,4 @@
 
 现行能力状态以本目录保留文档与代码/测试实测为准（状态标记：✅/🟠/⚪/❌）。
 
-*最后更新: 2026-10-31（P2 实现与本地栈发布验证；ADR §15 证据/rollout/rollback/残项处置）*
+*最后更新: 2026-11-01（P2 发布收口 + 发布后硬化：Release `backend-20261101-p28c`、发布镜像 51/51、verify-stack 17/17；M-A5.2 面/边选择；CI/发布清单）*

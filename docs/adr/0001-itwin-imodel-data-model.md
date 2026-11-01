@@ -7,8 +7,8 @@
   WA/hub 已推送；
   发布产物部署后 `verify-stack` **17/17**，发布镜像全量 Playwright **51/51（9.0m，0 crash）**
   （含 A 几何/半图夹具与 A6），生产 web `87ee0f408fb7`。`Invalid iModelToken`、`/@id/` 观测面、
-  baseline 传播、tile 404、EC legacy path、写租约残留均已收口。仍余 M2 自动 429 等待
-  （backlog）。逐项见 §15/§15.12。
+  baseline 传播、tile 404、EC legacy path、写租约残留均已收口。M2 自动 429 等待由
+  客户端有界等待收口（§15.14）；P3 旧数据迁移退役、P4 暂缓（§15.13）。逐项见 §15/§15.12。
 - **日期**：2026-10-30
 - **决策范围**：鲁班CAD 的领域数据模型、文档中心 IA、Part Studio 页签模型，以及 CAM/BIM 扩展方向
 - **关联文档**：
@@ -274,8 +274,8 @@ iTwin: Thing/Portfolio "园区"
 | **P0 前置** | Named Version 客户端/UI；iModel 状态诚实化；iTwin taxonomy 归一；`WorkspaceRef` 抽象 | 新能力有测试；旧 UI 不回归 |
 | **P1 Spike** | 特征多 Part Studio 作用域；迁移验证（**P1 实际：参数重放 + `rebuildAll`；Transformation NOT RUN**）；性能测试；Named Version/共享 | 四项 spike 全过，形成报告（**实际为 qualified Go，见下方注记**） |
 | **P2 新文档走 B** | 新文档 = iModel；Part Studio = Model；文档中心读取 B；A 旧文档只读兼容 | 新文档全链 e2e 绿；旧文档可打开 |
-| **P3 旧数据迁移** | 惰性迁移或批量迁移；保留源 iModel 归档；校验几何/特征/引用 | 迁移工具可重跑；抽样校验通过 |
-| **P4 收口** | 切换 IA；删除 A 兼容层（或长期保留只读）；更新文档与 ADR | 全量 e2e/视觉/verify-stack 绿 |
+| **P3 旧数据迁移（已退役，2026-11-01）** | owner 决策：**不做旧数据迁移**；本地 500 `.bim` legacy schema 审计为 0、owner 已授权清理旧数据；A 旧文档继续只读兼容 | 无迁移工具/数据变更；ADR 记录退役理由与影响（见 §15.13） |
+| **P4 收口（暂缓）** | 保留 A 只读兼容层；删除或长期保留待后续数据策略 | 当前不删除 A；全量 e2e 继续覆盖 A 只读 |
 
 > **P1 实际结果（2026-10-30）**：**Go（qualified，门禁修订，待 owner 签字）**。隔离（2+ Part Studio
 > 特征/树/体/orderKey/oplog；**final-fix2 HEAD** 全 `src/feature` 49 files / **447 passed** / 8 skipped）
@@ -754,8 +754,10 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 
 ### 15.1 状态与提交
 
-- **P2 功能实现完成（qualified）**：B 新文档（iModel=文档）+ 多 Part Studio 注册表/页签/视口 +
-  A 旧文档只读兼容 + RPC 1.18 原子同发。源码侧全量门已绿；**发布门未全过**（见 15.3/15.4）。
+- **P2 已实现并发布（2026-11-01，final）**：B 新文档（iModel=文档）+ 多 Part Studio 注册表/页签/视口 +
+  A 旧文档只读兼容 + RPC 1.18 原子同发。Release `backend-20261101-p28c` + GHCR 已发布；
+  发布镜像全量 **51/51**、`verify-stack` **17/17**（§15.12）。P3 旧数据迁移退役、P4 暂缓
+  （§15.13）。以下 15.1–15.7 为 P2.7 历史记录，最终状态以 §15.8–§15.14 为准。
 - **public**：`feat/b-model-p2`，BASE `ac0c2e8d5e`；P2.7 提交 **`4b01fff54bea`**（Dockerfile
   `VITE_B_MODEL_ENABLED` build-arg、`rebuild-web.ps1 -BModelEnabled`、Playwright 外部基址跳过
   :5300 webServer）、**`4b36c36e1b`**（ADR §15 首版）、**`b30ae8f`**、**`2b251595f8`**、
@@ -880,8 +882,6 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 残项 | 处置 | 证据/限制 | owner | 下一步 |
 |---|---|---|---|---|
 | new-document baseline 传播竞态（state=initialized 先于 blob 可读；e2e 15s settle/reload） | **fixed（2026-11-01）** | WA 在 confirm 前用只读 CloudCache 回读 manifest + 全部 block（实测 4,194,304 B）；事件/recovery 生成按 iModel 单飞（曾撞 container attached/412）。e2e 删除 15s settle 与 pre-open reload，b-model main 24.7s；backend `d1e89d9` / public `5d72894` | backend/web | 保持回读+单飞；不得用 settle 兜底 |
-| A all-model 视觉 NOT RUN | **waiver** | A 种子空 iModel（0 PhysicalModel）；A 编辑器 canvas 全 mask | web/e2e | 几何-bearing A 夹具或 viewer 集成/像素测试 |
-| damaged 半图真栈门 NOT RUN | **waiver** | P2.6b3 C4：需 def 分区缺失 phys model 的半图库；公开 UI/RPC 无入口 | backend + e2e | 后端 test fixture（`deleteModel` harness）/受租约约束 test-only 命令 |
 | 后端直接 `deleteElements(BodySolid)` 不变量 | **fixed（P2.8 残项清理，2026-11-01）** | P2.6d 前端守卫 + P2.8 后端 `BasicManipulationCommand.deleteElements` 在任何锁/事务前据 editor-common 共享谓词拒删；内部特征删除走 FeatureService/EditTxn 不受影响；modeling-server guard test + feature 459/8 | backend | 保持共享谓词与两端测试；不得把前端守卫当后端不变量 |
 | A 详情视觉基线钉人工调试 iModels + hero 日期 | **waiver** | `visual.spec.ts:199-222`（同项目 6 个人工调试库同框，日期 mask） | e2e | 隔离夹具项目 |
 | reload 后 30s 写租约 UX（unmount 不释放） | **fixed（P2.8 残项清理，2026-11-01）** | `useEditorSession` 在 pagehide 尽力释放旧 session 租约（reload 不触发 React unmount）；单测覆盖 pagehide/清理；`b-model.spec.ts` 删除 30s wait 后全链通过（36.0s）；服务端 TTL 仍兜底 | web | 保持 pagehide 监听与单测 |
@@ -904,7 +904,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | half-graph 独立复跑写租约残留（新，2026-11-01） | **fixed** | pagehide 释放 RPC 可被卸载中止，前页租约残留至 30s TTL；registry 写只等 10s 即报 holder 且无自动重放 → 重载后删除/创建必红。预算提升至 35s（与 applyOp 同口径）+ 单测；public `87ee0f4`；生产镜像 half-graph 2/2 | web | 预算须 ≥ 30s TTL + 余量；不得回退到 10s |
 | 持久化 EC schema OpenCloudCAD 迁移 | **retired（2026-11-01）** | owner 授权清理全部旧数据；Phase 0 本地 500 .bim 审计 OpenCloudCAD=0/LubanCAD=94（`cbd5aa1`）；backend `ff399dd` 删除 `CadFeatureSchema.ts` 与 7 个无调用方的 legacy IPC 方法，shared 移除 `CadFeatureRecord`（public `794049a`）；退役后复扫 58 .bim 仍 legacy=0/LubanCAD=9。本地零 legacy → 无数据迁移；特征历史由 FeatureService 写 LubanCAD schema | backend/release | 随下次产物重建归档；旧 legacy `.bim` 按数据策略删除/重建 |
 | 测试专用限流覆盖（P2.8 最终轮 2000） | **disclosed test-only** | 51-test 全量轮 `LUBAN_RPC_RATE_LIMIT_MAX=2000` / window 900000（启动日志 `env override`）；跑后已重启为生产默认 **100/15min**（日志 `production default`，MS health 200）；默认值未改 | test/backend | 全量发布门沿用覆盖并披露；默认值不改 |
-| M2 自动 429 等待未实现 | **backlog** | 全量仍需 env 覆盖；默认 100/15min 不适合长套件 | web/backend | 客户端 429 有界等待 + 干净窗口策略 |
+| M2 自动 429 等待未实现 | **fixed（2026-11-01，post-p28c 硬化）** | viewer `RateLimitAwareRpcRequest`（应用层子类化 `WebAppRpcRequest`，不改 fork）：解析 429 JSON `retryAfter`，单次 ≤30s / 单请求累计 ≤60s；短窗口自动恢复（重置 transient 计数），长窗口/预算耗尽走 base 退避快速失败；后端 429 同时补标准 `Retry-After` 头。测试 viewer **107**（新增 11）、backend security **16/16**；全量 e2e 仍用测试覆盖 2000/900000 并披露（默认 100/15min 不适合长套件），跑后恢复生产默认 | web/backend | 保持有界预算；不得把有界等待当作取消测试覆盖/干净窗口的理由 |
 
 ### 15.7 NOT RUN（不得写成通过）
 
@@ -1010,7 +1010,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
     覆盖 reload/pagehide 租约释放、IpcSession 就绪门与 flatbuffers 几何写入。
   - 历史文档旧名扫描：除删除记录/迁移记录/上游检查单外，无活跃指引；该项关闭。
 - **后续**：发布镜像 hub e2e 与 A6 已于 2026-11-01 完成（§15.12）；M2 自动 429 等待
-  （backlog）详见 §15.10。
+  已由客户端有界等待落地（2026-11-01 post-p28c，见 §15.6），全量 e2e 仍沿用并披露
+  测试限流覆盖。
 ### 15.10 残项批次 2（2026-11-01）
 
 - **new-document baseline 传播竞态 → fixed**：webhook-agent 在 `POST /baselinefile`
@@ -1048,7 +1049,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   damaged → HITL 删除 → 持久 tombstone → 默认 Part Studio 与画布恢复，console 零错误）。
   public `42d84fb`（夹具/spec/seed 助手 + 清理过时 settle 注释），e2e typecheck/lint 0。
 - **发布**：2026-11-01 已完成 push / merge / Release / GHCR 发布与发布镜像 e2e；详见 §15.12。
-  **仍待**：M2 自动 429 等待（backlog）。
+  **已收口（post-p28c）**：M2 自动 429 等待由客户端有界等待落地（§15.6）；全量 e2e 的
+  测试限流覆盖口径不变。
 
 ### 15.11 残项批次 2 最终验证（2026-11-01，本地）
 
@@ -1091,3 +1093,33 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   Step F hub `c49fd5c`；Step D native fallback）。
 - **限流**：发布镜像全量轮使用测试覆盖 `LUBAN_RPC_RATE_LIMIT_MAX=2000` / window 900000；
   跑后已恢复生产默认 **100/15min**（日志 `production default`），最终 `verify-stack` 17/17。
+
+### 15.13 P3/P4 收口裁决（2026-11-01）
+
+- **P3 旧数据迁移 → retired**：owner 决策不做 A→B 旧数据迁移。依据：
+  1. 本地 500 个 `.bim` 只读审计 `OpenCloudCAD=0`、`LubanCAD=94`；退役后复扫 58 个
+     `.bim` 仍 legacy=0（§15.10/NAMING §3）；
+  2. owner 已明确授权清理旧数据，项目仍处初期、数据组织未定型；
+  3. P1 已验证的迁移路径为**参数重放 + `rebuildAll`**（qualified Go），
+     iModel Transformation 仍 NOT RUN（peer 依赖不兼容），全量迁移成本/风险不成比例。
+- **P4 A 兼容层 → deferred**：A 旧文档继续**只读兼容**；当前不删除 A 代码路径。
+  全量 e2e 继续保留 A 只读用例（`b-model.spec.ts` A 旧文档只读 + `a-geometry.spec.ts`）。
+- **影响**：不新增迁移工具/数据变更；新文档一律 B；旧 A 文档不再被迁移，按数据策略
+  保留只读或删除/重建。复审触发：若后续出现生产 A 旧文档且需要进入 B，再单独立项。
+- **文档联动**：§8.1 阶段表、`docs/README.md`、`docs/RELEASE-backend-20261101-p28c.md`
+  已同步；`docs/NAMING-2026-10-31.md` §3 的 legacy schema 退役与本裁决同源。
+
+### 15.14 M2 自动 429 等待（2026-11-01，post-p28c 硬化）
+
+- **客户端**：`luban-cad/packages/viewer/src/host/rate-limit-retry.ts` 应用层子类化
+  iTwin `WebAppRpcRequest`（**不改 itwinjs-core fork**）：解析 429 JSON
+  `{code:'RATE_LIMIT_EXCEEDED', retryAfter}`，单次等待 ≤30s、单请求累计 ≤60s；
+  短窗口重置 transient 计数并自动恢复，长窗口/预算耗尽走 base 退避并在既有
+  `transientFaultLimit=4` 内快速失败。安装点在 `BentleyCloudRpcManager.initializeClient`
+  之后、任何 RPC 请求之前；IPC/WS 通道不经此路径。
+- **后端**：429 响应在既有 JSON body 外补标准 `Retry-After` 头（秒），供非 iTwin 客户端；
+  生产默认 100/15min 未改。
+- **验证**：viewer **107 passed**（新增 11：解析/预算/决策/请求类/安装）；
+  backend security **16/16**；viewer tsc/build/lint 0；backend tsc/lint 0。
+- **边界**：全量 Playwright 仍使用测试专用覆盖 2000/900000（默认 100/15min 不适合长套件），
+  跑后恢复生产默认；不得把有界等待当作取消测试覆盖/干净窗口的理由。

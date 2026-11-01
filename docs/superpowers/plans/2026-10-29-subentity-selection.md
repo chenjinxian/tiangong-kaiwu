@@ -1482,3 +1482,35 @@ selector fixes separately.
 - Registry count changes (29 tools / 73 commands) and i18n REQUIRED updates are
   included; no production dependencies added.
 - E2E reuses newbody scratch and keeps the default suite at 34 tests.
+
+---
+
+## Result（2026-11-01，T2–T6 落地）
+
+- **实现**：T2 `SubEntitySelectTool`（面/边拾取 + `resolveFaceRef`/`resolveEdgeRef`
+  持久 id）；T3 `useSubEntitySelection`（模式 lifecycle + **工具切换串行化**——
+  修复 face→edge 快速切换时新工具在旧工具未退出前安装失败、`onEnded` 把模式
+  重置 body 的真栈竞态）；T4 ribbon「选择」组（选择面/选择边 toggle，dialog 打开
+  时禁用）；T5 owner-aware 画布菜单（隐藏所属实体/选中所属实体/面边删除禁用 +
+  宿主 `SelectionSet.replace(owner)`）；T6 newbody 真栈门禁 + 视觉重钉。
+- **行为边界**：边仅接受 `resolveEdgeRef` 放行的流形边；面/边删除**禁用**
+  （HONEST：文案「面/边删除暂不支持」）；无持久子实体覆盖层；子实体选择不写
+  `SelectionSet`（仅 body 选择走既有桥）；只读总门下选择组随 full 能力禁用。
+- **单测**：web **1172 passed**（81 files）、viewer **107**、shared **144**、
+  editor frontend **43**、backend **670 passed / 8 skipped（70 files）**；
+  web/e2e tsc 与 lint 0。
+- **E2E**：newbody 定向 **2/2**。全量 51 项未取得单次全绿：
+  第一轮 **49 passed / 2 failed**——两项为编辑器五区视觉基线（新增「选择」组
+  整体右移；已核对 diff 仅 ribbon 区域后重钉，复验 **3/3**）；
+  第二轮 **50 passed / 1 failed**——唯一失败为 b-viewport「双 studio」相机取景
+  `npc.x=1.28`（既有 flake，与本改动无关），**定向复跑 2/2 通过**。
+  即 51 项均已在至少一次运行中通过，但无单次 51/51 记录。
+- **verify**：生产默认限流恢复后 `verify-stack` **17/17**；`release-gate.ps1`
+  （expected SHA + `-AllowNativeFallback`）**FAIL=0**。
+- **本地生产镜像**：已用当前工作区执行 `rebuild-web.ps1 -BModelEnabled true`
+  （hooks off）并 `docker compose up -d web`，`verify-stack` **17/17**。因改动
+  **未提交**，镜像 revision 标签仍为 HEAD `87ee0f408fb7`——**不能作为发布
+  provenance**；正式发布须从提交重建。
+- **未做**：A5.2 性能护栏（`2026-10-29-multibody-perf-guard.md`）仍为独立计划；
+  MS 产物 `backend-20261101-p28c` 不含本轮 429 `Retry-After` 头（前端 JSON
+  `retryAfter` 解析已生效），下次 MS 产物重建时带上。
