@@ -1491,15 +1491,27 @@ selector fixes separately.
   持久 id）；T3 `useSubEntitySelection`（模式 lifecycle + **工具切换串行化**——
   修复 face→edge 快速切换时新工具在旧工具未退出前安装失败、`onEnded` 把模式
   重置 body 的真栈竞态）；T4 ribbon「选择」组（选择面/选择边 toggle，dialog 打开
-  时禁用）；T5 owner-aware 画布菜单（隐藏所属实体/选中所属实体/面边删除禁用 +
+  时禁用）；T5 owner-aware 画布菜单（隐藏所属实体/选中所属实体/删除 +
   宿主 `SelectionSet.replace(owner)`）；T6 newbody 真栈门禁 + 视觉重钉。
-- **行为边界**：边仅接受 `resolveEdgeRef` 放行的流形边；面/边删除**禁用**
-  （HONEST：文案「面/边删除暂不支持」）；无持久子实体覆盖层；子实体选择不写
-  `SelectionSet`（仅 body 选择走既有桥）；只读总门下选择组随 full 能力禁用。
-- **单测**：web **1172 passed**（81 files）、viewer **107**、shared **144**、
-  editor frontend **43**、backend **670 passed / 8 skipped（70 files）**；
+- **面/边删除**：菜单删除项在拾取会话内启用（cacheId 在场），HITL 确认后由宿主
+  `subentity-delete.ts` 启动 SolidModeling 命令、建缓存、用持久 topologyId 经
+  `facesFromId`/`edgesFromOwnId` 反查 cache id，再 `deleteSubEntities` +
+  `saveChanges`。普通盒体单面删除是内核既定负路径（native
+  `DeleteSubEntitiesOperation.md`：`api_remove_faces` 邻面补不拢，Err 115006），
+  newbody 真栈验证**错误 toast + 保持 face 模式**；SUCCESS 需要共面分裂种子，
+  fixture 为 backlog。
+- **行为边界**：边仅接受 `resolveEdgeRef` 放行的流形边；无持久子实体覆盖层；
+  子实体选择不写 `SelectionSet`（仅 body 选择走既有桥）；只读总门下选择组
+  随 full 能力禁用；面/边删除仅主选择、同 owner/type。
+- **单测**：web **1181 passed**（82 files）、viewer **107**、shared **144**、
+  editor frontend **43**、backend **671 passed / 8 skipped（71 files）**；
   web/e2e tsc 与 lint 0。
-- **E2E**：newbody 定向 **2/2**。全量 51 项未取得单次全绿：
+- **性能护栏**：backend 127-body 基准通过（getBodies **7ms** / getTree **5ms** /
+  insert **31ms** / rebuildAll **565ms**）；web N=20 探针通过（treeReady
+  **4,881ms**、fit **141ms**、editRefresh **467ms**、FPS p95 **16.7ms**，
+  tile 只记录）。基线见 `docs/superpowers/plans/2026-10-29-multibody-perf-baseline.md`；
+  树就绪阈值按首跑 6,433ms 校准到 10s（1.55×）。
+- **E2E**：newbody 定向 **2/2**（含面删除负路径）；全量 51 项未取得单次全绿：
   第一轮 **49 passed / 2 failed**——两项为编辑器五区视觉基线（新增「选择」组
   整体右移；已核对 diff 仅 ribbon 区域后重钉，复验 **3/3**）；
   第二轮 **50 passed / 1 failed**——唯一失败为 b-viewport「双 studio」相机取景
@@ -1507,10 +1519,8 @@ selector fixes separately.
   即 51 项均已在至少一次运行中通过，但无单次 51/51 记录。
 - **verify**：生产默认限流恢复后 `verify-stack` **17/17**；`release-gate.ps1`
   （expected SHA + `-AllowNativeFallback`）**FAIL=0**。
-- **本地生产镜像**：已用当前工作区执行 `rebuild-web.ps1 -BModelEnabled true`
-  （hooks off）并 `docker compose up -d web`，`verify-stack` **17/17**。因改动
-  **未提交**，镜像 revision 标签仍为 HEAD `87ee0f408fb7`——**不能作为发布
-  provenance**；正式发布须从提交重建。
-- **未做**：A5.2 性能护栏（`2026-10-29-multibody-perf-guard.md`）仍为独立计划；
-  MS 产物 `backend-20261101-p28c` 不含本轮 429 `Retry-After` 头（前端 JSON
-  `retryAfter` 解析已生效），下次 MS 产物重建时带上。
+- **本地生产镜像**：曾用工作区执行 `rebuild-web.ps1 -BModelEnabled true`（hooks
+  off）并 `verify-stack` 17/17；因当时改动未提交，镜像 revision 标签为 HEAD
+  `87ee0f408fb7`，不能作为发布 provenance。提交后须从新提交重建。
+- **MS 产物**：`backend-20261101-p29b` 已带上 429 `Retry-After` 头和
+  `facesFromId`/`edgesFromOwnId` IPC；p28c/p29 均被 p29b 取代。

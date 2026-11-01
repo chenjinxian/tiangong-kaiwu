@@ -31,10 +31,10 @@ hash / native provenance / 限流姿态 / web·hub 镜像标签，并可串联
 
 ## 3. 单元 / 集成门
 
-- [ ] backend 全量 `pnpm test`（本机 native dev build；当前基线 **670 passed /
+- [ ] backend 全量 `pnpm test`（本机 native dev build；当前基线 **671 passed /
       8 skipped**）；注意全量 feature 测试不进入托管 CI，属发布前本地门。
 - [ ] public：shared **144**、viewer **107**、editor frontend **43**、web
-      **1172**（2026-11-01 post-p28c 基线；新增测试后以实际为准）。
+      **1181**（2026-11-01 post-p28c 基线；新增测试后以实际为准）。
 - [ ] 各包 `tsc` / `lint` 0 错；e2e `typecheck:e2e` 0 错。
 
 ## 4. 真栈 e2e（需干净限流窗口）
