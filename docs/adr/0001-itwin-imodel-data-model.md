@@ -900,15 +900,14 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | MS 产物需随命名/P2.8 重建（`LubanRpcInterface`/`luban-ipc`） | **local done（2026-11-01，未发布）** | 最终本地产物 `backend-20261101-p28b`（178,577,902 B，SHA256 `15C7FB47…B9AA3EA35E157A`；RPC 1.18.0；native 5.15.5 / `fallback=True`）已安装并以产物模式运行；p27 旧名不兼容、p28 临时版（手工修）被取代 | release/backend | 发布时经 `build-ms-dist.ps1` 重建并归档 hash/provenance |
 | 生产镜像必须 hook-off | **local done（2026-11-01，未发布）** | 最终本地生产镜像 revision `67ce23b94a`（B on、E2E hooks off）已部署；`verify-stack` 17/17；test-observation 镜像保留 tag `e2e-hooks-67ce23b94a`（全量 49/49）；发布推送未授权 | release/web | 发布时 `rebuild-web.ps1 -BModelEnabled true`（不带 `-E2EHooks`） |
 | Azurite tile cache 404 console 噪声 | **fixed（2026-11-01）** | tiles 路径 nginx/Vite 把 Azurite 404 改写为 204 哨兵 + `MissAwareFetchCloudStorage`（204/404→miss→native）；删除 e2e tile 404 豁免；viewer 96 tests；镜像全量 49/49 零 console 错误 | web/e2e | 保持哨兵与零豁免；不得扩大豁免范围 |
-| A all-model 视觉 / damaged 半图真栈夹具 | **waiver（调查完成，未实施）** | A seed 空 iModel；夹具需 fromBaseline 上传/克隆 + hub recovery 过滤（或 test-only harness）；方案已调查（A 几何/半图生成、e2e 上传、恢复 UI 断言） | web/e2e/backend | 需批准夹具资产与 hub 变更后实施 |
-| 持久化 EC schema OpenCloudCAD 迁移 | **Phase 0 audit done（2026-11-01）；migration gated** | 本地 500 .bim 扫描：OpenCloudCAD=0、LubanCAD=94；只读脚本 backend `cbd5aa1`。生产审计 + schema 名/别名签核 + 备份后才可迁移/删除 | backend/release | 生产审计；零则退役 legacy path，非零按 expand/migrate/contract |
+| A all-model 视觉 / damaged 半图真栈夹具 | **fixed（2026-11-01，本地）** | 提交真栈夹具 `a-geometry.bim`（2 PhysicalModel/2 Box 几何）与 `b-half-graph.bim`（def-only scope）；`resetFixtureImodel` 走 hub `fromBaseline` + WA 转换；hub recovery 过滤 `fileSize=0` 等待行（`c49fd5c`）；A spec 2/2（hook 观测面），half-graph spec 2/2（生产镜像 :5301，recovery→damaged→HITL→默认 scope）；public `42d84fb` | web/e2e/backend | 新全量套件复跑；发布镜像复跑仍需授权 |
+| 持久化 EC schema OpenCloudCAD 迁移 | **retired（2026-11-01）** | owner 授权清理全部旧数据；Phase 0 本地 500 .bim 审计 OpenCloudCAD=0/LubanCAD=94（`cbd5aa1`）；backend `ff399dd` 删除 `CadFeatureSchema.ts` 与 7 个无调用方的 legacy IPC 方法，shared 移除 `CadFeatureRecord`（public `794049a`）；退役后复扫 58 .bim 仍 legacy=0/LubanCAD=9。本地零 legacy → 无数据迁移；特征历史由 FeatureService 写 LubanCAD schema | backend/release | 随下次产物重建归档；旧 legacy `.bim` 按数据策略删除/重建 |
 | 测试专用限流覆盖（P2.8 最终轮 2000） | **disclosed test-only** | 最终镜像全量 `LUBAN_RPC_RATE_LIMIT_MAX=2000`（window 900000）；生产默认 100/15min 已恢复（MS health 200） | test/backend | 全量发布门沿用覆盖并披露；默认值不改 |
 | M2 自动 429 等待未实现 | **backlog** | 全量仍需 env 覆盖；默认 100/15min 不适合长套件 | web/backend | 客户端 429 有界等待 + 干净窗口策略 |
 
 ### 15.7 NOT RUN（不得写成通过）
 
 - **发布镜像 hub e2e**（GHCR 发布镜像）与 **A6 两用户授权链的发布镜像复跑**：未发布授权 → NOT RUN。
-- **A all-model 视觉**、**damaged 半图真栈门**：夹具缺失 → NOT RUN/waiver（15.6）。
 - **发布镜像全量 Playwright（P2.7 归档）**：**NOT VALID**——18 passed / 18 failed / 13 did not run
   （9 个 `/@id/` 载体、1 个 b-model canvas 超时、8 个 crash-class，15.3/15.4）。
   **P2.8 复验（发布源镜像 + 测试观测面，revision `b80bd24ff1c3`）：49/49（15.4m，0 crash）**，见 §15.8；
@@ -1007,10 +1006,9 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
     （Step D native fallback；Step E revision fbf59a4ca874）。
   - 新产物 + 新 web 源下 b-model 全链 e2e（setup + main）**2 passed**（main **46.2s**），
     覆盖 reload/pagehide 租约释放、IpcSession 就绪门与 flatbuffers 几何写入。
-  - 历史文档旧名扫描：除删除记录/迁移记录/上游检查单与持久化 schema 例外外，无活跃指引；
-    该项关闭。
-- **仍待（后续批次）**：发布镜像 hub e2e 与 A6（未授权）；A all-model 视觉与 damaged
-  半图夹具（需夹具资产/审批）；EC schema 迁移（Phase 0 审计后决策）。详见 §15.10。
+  - 历史文档旧名扫描：除删除记录/迁移记录/上游检查单外，无活跃指引；该项关闭。
+- **仍待（后续批次）**：发布镜像 hub e2e 与 A6（未授权）；M2 自动 429 等待（backlog）。
+  详见 §15.10。
 ### 15.10 残项批次 2（2026-11-01）
 
 - **new-document baseline 传播竞态 → fixed**：webhook-agent 在 `POST /baselinefile`
@@ -1029,15 +1027,23 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   全量 **49/49（7.9m）**，A6 两用户分享链两用例均绿；生产镜像同 revision（hooks
   off）已部署，`verify-stack` **17/17**。GHCR/Release 发布镜像的 e2e 与 A6 仍未跑
   （未获发布授权）。
-- **EC schema Phase 0 audit**：只读脚本扫描本地 500 个 `.bim`：`OpenCloudCAD=0`、
-  `LubanCAD=94`、`LubanCadFeature=0`；脚本 backend `cbd5aa1`。已确认 native 层
-  不支持 schema/alias/class 原地改名；若生产审计同样为零，推荐退役 legacy IPC
-  schema 路径；若非零，按 expand/migrate/contract 迁移（需生产审计、schema 名/别名
-  签核、备份与显式批准）。
-- **A all-model 视觉 + damaged 半图夹具**：调查完成（A 只读编辑器只认 baseline/
-  checkpoint；MS RPC 写的 changeset 不进入 A 首开；需 fromBaseline 夹具上传或 clone，
-  并处理 recovery checker 对 `fromBaseline` 的抢跑）。本轮**未实施**，需批准夹具
-  资产（`.bim`）与 hub 变更后落地。
-- **仍待**：GHCR/Release 发布镜像 e2e + A6（发布授权）；A 夹具实施（夹具资产/审批）；
-  EC schema 生产审计与迁移决策；M2 自动 429 等待（backlog）。**未 push / 未 merge /
-  未 publish**。
+- **EC schema legacy 路径 → retired（2026-11-01）**：owner 授权清理全部旧数据；
+  Phase 0 只读审计本地 500 个 `.bim`：`OpenCloudCAD=0`、`LubanCAD=94`、
+  `LubanCadFeature=0`（backend `cbd5aa1`）。据此 backend `ff399dd` 删除
+  `CadFeatureSchema.ts` 与 `ensureCadSchema`/`createFeature`/`listFeatures`/
+  `deleteFeature`/`updateFeature`/`setFeatureSuppressed`/`reorderFeature` 整条
+  IPC 路径（无调用方），shared 移除 `CadFeatureRecord`（public `794049a`）；
+  退役后复扫 58 个 `.bim` 仍 `OpenCloudCAD=0`、`LubanCAD=9`。本地零 legacy →
+  无数据迁移；特征历史由 FeatureService 写 LubanCAD schema。旧 legacy `.bim`
+  不再被现行代码读写，按数据策略删除/重建。
+- **A all-model 视觉 + damaged 半图夹具 → fixed（2026-11-01，本地）**：提交真栈夹具
+  `a-geometry.bim`（2 PhysicalModel、2 个 `Generic:PhysicalObject` Box、默认视图）与
+  `b-half-graph.bim`（仅 `LubanFeaturePartition:half-graph-fixture` def 分区，无 phys）。
+  `seed.ts#resetFixtureImodel` 走 hub `fromBaseline` → presigned PUT → WA `/baseline/process`
+  → initialized；hub `findByStates` 排除 `fileSize>0` 的 fromBaseline 等待行，防 recovery
+  checker 抢跑（hub `c49fd5c`，含单测）。A spec 2/2（hook 观测面：模型/几何流断言 + 只读
+  banner，不做像素钉版）；half-graph spec 2/2（生产镜像 :5301：recovery 不自动 create →
+  damaged → HITL 删除 → 持久 tombstone → 默认 Part Studio 与画布恢复，console 零错误）。
+  public `42d84fb`（夹具/spec/seed 助手 + 清理过时 settle 注释），e2e typecheck/lint 0。
+- **仍待**：GHCR/Release 发布镜像 e2e + A6（发布授权）；M2 自动 429 等待（backlog）；
+  新全量套件（51 tests）复跑。**未 push / 未 merge / 未 publish**。
