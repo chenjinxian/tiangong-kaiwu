@@ -2,13 +2,12 @@
 
 - **状态**：已接受（Accepted，2026-10-30：认可 B 方向，采用 C 过渡，P1 spike 作为迁移门禁；
   **2026-10-30 P1 spike 完成：Go（qualified，门禁修订，待 owner 签字）**，见 §11/§14）。
-  **2026-10-31 P2 实现完成（qualified；P2.8 已修复 reload token 与镜像观测面）**：
-  B 新文档 + 多 Part Studio 页签 + RPC 1.18 原子同发已在本地栈验收（verify-stack **17/17**；
-  源码全量 Playwright **49/49**；**发布源镜像 + 测试观测面全量 Playwright 49/49（15.4m，0 crash）**）；
-  `Invalid iModelToken` 已定根因并修复（briefcase fallback routing token + 有界重试 + 动态 JWT），
-  `/@id/` 已由 `VITE_E2E_HOOKS` 门控的 `window.__lubanE2E` 观测面替代。**发布镜像 hub e2e 仍
-  NOT RUN**（未授权发布）；发布前须重建 MS 产物（新 `LubanRpcInterface`）与 hook-off 生产镜像，
-  且多项产品残项为 waiver/backlog。逐项见 §15/§15.8。
+  **2026-11-01 P2.9 发布完成（qualified）**：public main `362bc01ced`、backend main
+  `ff399dd`、hub main `c49fd5c`；Release `backend-20261101-p28c` + GHCR WA/hub 已推送；
+  发布产物部署后 `verify-stack` **17/17**，发布镜像全量 Playwright **51/51（9.0m，0 crash）**
+  （含 A 几何/半图夹具与 A6），生产 web `87ee0f408fb7`。`Invalid iModelToken`、`/@id/` 观测面、
+  baseline 传播、tile 404、EC legacy path、写租约残留均已收口。仍余 M2 自动 429 等待
+  （backlog）。逐项见 §15/§15.12。
 - **日期**：2026-10-30
 - **决策范围**：鲁班CAD 的领域数据模型、文档中心 IA、Part Studio 页签模型，以及 CAM/BIM 扩展方向
 - **关联文档**：
@@ -585,8 +584,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 > （final-fix 仅文档/脚本改动）；hub unit **128 suites / 1166 tests**（final-fix2 HEAD）、tsc/nest build
 > clean。**hub route e2e（final-fix2，本地重建镜像 `271e5ec`）：5 suites / 70 tests PASS**
 > （secured/named-version-sharing/itwins/authorization/smoke-crud；`E2E_BASE_URL=http://localhost:5400`）。
-> 此前 final-fix 轮因本地 Docker/WSL 引擎失去响应未跑；该环境故障已排除。**发布镜像 e2e 仍未跑**
-> （强制门 8，见 §8.6）；命令见 `final-fix2-report.md`。
+> 此前 final-fix 轮因本地 Docker/WSL 引擎失去响应未跑；该环境故障已排除。发布镜像 e2e
+> 后于 2026-11-01 完成（§15.12）；命令见 `final-fix2-report.md`。
 
 > **残余与产品决策（final review F1/F2/F4，2026-10-30）**：
 > - **F2（spike 残余，未关闭）**：同库 init/预热/category 已按底层 `db.key` 串行，但
@@ -887,7 +886,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | reload 后 30s 写租约 UX（unmount 不释放） | **fixed（P2.8 残项清理，2026-11-01）** | `useEditorSession` 在 pagehide 尽力释放旧 session 租约（reload 不触发 React unmount）；单测覆盖 pagehide/清理；`b-model.spec.ts` 删除 30s wait 后全链通过（36.0s）；服务端 TTL 仍兜底 | web | 保持 pagehide 监听与单测 |
 | e2e 未纳入 web tsc/lint | **fixed（P2.8 残项清理，2026-11-01）** | `tsconfig.e2e.json` + `typecheck:e2e`（`test:e2e` 先跑）；lint 覆盖 `e2e/**` + `playwright.config.ts`；修复判别联合/索引/PNG 边界 | web | 保持门禁 |
 | MS 产物 flatbuffers 版本 hoist（新，P2.8 本地产物实测） | **fixed（2026-11-01，backend packaging）** | npm 把 apache-arrow 的 flatbuffers@25 hoist 到顶层，覆盖 core-geometry/core-common 的 ~1.12.0 → `updateSketch` 写几何 `BGFBWriter` 报 `undefined.Builder`；`build-ms-dist.ps1` 顶层还原 1.12 + apache-arrow 下沉 25 + 运行期断言（backend `e1c2e92`/`2392636`/`d52a006`）；源模式 pnpm 分层不受影响 | backend/release | 产物必须经脚本重建；不得手工修补 |
-| 发布镜像 hub e2e | **local done（2026-11-01，未发布）** | 本地 test-observation 镜像 revision `87ee0f4` 全量 **51/51（9.1m，0 crash）**，含新增 A 几何/半图夹具与 A6 两用户分享链；GHCR/Release 发布镜像 e2e 仍未跑（未授权） | release owner | 发布授权后对 GHCR 镜像复跑全量 + A6 两用户链 |
+| 发布镜像 hub e2e | **published done（2026-11-01）** | Release `backend-20261101-p28c` + GHCR `luban-webhook-agent`/`imodelhub`（digest `d2801d67…` / `ca4b77f6…`）实际部署；test-observation web 镜像全量 **51/51（9.0m，0 crash）**，含 A 几何/半图夹具与 A6 两用户分享链；`verify-stack` 17/17 | release owner | 保持发布镜像复跑记录；M2 429 等待仍 backlog |
 | e2e `/@id/` 开发态导入（新） | **fixed（P2.8）** | 15.4.1；P2.8：`window.__lubanE2E`（`VITE_E2E_HOOKS` 门控）+ 32 处替换 + app store hook；发布源镜像全量 49/49 | web/e2e | 保持生产 hook off；见 §15.8 |
 | 重载后 RPC 走 BentleyCloud HTTP（`/LubanCAD` 未代理→404）→ 空列表/双默认 scope（新，P2.8 实测） | **fixed（2026-11-01）** | `IpcApp.isValid` 早于 `IpcSession.start`；连接门改为两者俱备（public `fbf59a4ca8`）。实测 reload 的 acquire/list/queryRows 曾 POST 到 SPA origin 404，resolver 误建第二个默认 Part Studio | viewer/web | 保持 IpcSession 门；不得用 `/LubanCAD` 代理掩盖该竞态 |
 | 发布镜像全量轮 crash-class（1 `Target crashed` + 7 `worker 0xC0000142`） | **not reproduced（P2.8）** | 干净重启 + hook 镜像全量 **49/49**；2026-11-01 复跑扩至 **51/51，0 crash**；P2.7 归档保留为历史 | web/e2e | 保持观察；发布门槛以新全量证据为准 |
@@ -897,10 +896,10 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | editor backend lint 既有 6 errors | **fixed（P2.8 残项清理）** | 未用 import 清理；deprecated `iModel.elements.deleteElement` → 显式 `this.txn.deleteElement`（insert/update 已 beginEditing）；editor backend lint 0 | editor | 保持 lint 门 |
 | F4/F7 最终轮命令/env/探针/dist 证据归档 | **fixed（P2.7）** | 本记录 15.2/15.3 + `evidence-p27/environment.txt` | release | 保持随每轮发布归档 |
 | 登录视觉 origin 相关（新） | **fixed（P2.8）** | mask `.signin-hero__token-value`（#f5f5f5）+ 重钉 `login-light.png`；:5301 全量通过 | e2e | 保持基址无关基线 |
-| MS 产物需随命名/P2.8 重建（`LubanRpcInterface`/`luban-ipc`） | **local done（2026-11-01，未发布）** | 最终本地产物 `backend-20261101-p28c`（178,574,240 B，SHA256 `D5F7690C…F769CC45B8`；RPC 1.18.0；native 5.15.5 / `fallback=True`）已安装并以产物模式运行；p28b 被取代；p27 旧名不兼容、p28 临时版（手工修）被历史淘汰 | release/backend | 发布时经 `build-ms-dist.ps1` 重建并归档 hash/provenance |
-| 生产镜像必须 hook-off | **local done（2026-11-01，未发布）** | 最终本地生产镜像 revision `87ee0f408fb7`（B on、E2E hooks off）已部署；`verify-stack` 17/17；test-observation 镜像 tag `e2e-hooks-87ee0f408fb7`（全量 51/51）；发布推送未授权 | release/web | 发布时 `rebuild-web.ps1 -BModelEnabled true`（不带 `-E2EHooks`） |
+| MS 产物需随命名/P2.8 重建（`LubanRpcInterface`/`luban-ipc`） | **published（2026-11-01）** | Release `backend-20261101-p28c`（asset 178,574,240 B，digest `sha256:d5f7690c…f769cc45b8`；本地 SHA256 等同；RPC 1.18.0；native 5.15.5 / `fallback=True`）；GHCR 同 tag/latest 已推送 | release/backend | 保持 `build-ms-dist.ps1` 生产；发布后按 ADR §15.12 复验 |
+| 生产镜像必须 hook-off | **web 本地构建 + 后端 published（2026-11-01）** | 生产 web revision `87ee0f408fb7`（B on、E2E hooks off）已部署；web 无 GHCR 通道（compose 本地 build）；test-observation 镜像 tag `e2e-hooks-87ee0f408fb7`（全量 51/51）；后端 GHCR 镜像/Release 已发布 | release/web | 发布时 `rebuild-web.ps1 -BModelEnabled true`（不带 `-E2EHooks`）；web 发布仍走本仓镜像 |
 | Azurite tile cache 404 console 噪声 | **fixed（2026-11-01）** | tiles 路径 nginx/Vite 把 Azurite 404 改写为 204 哨兵 + `MissAwareFetchCloudStorage`（204/404→miss→native）；删除 e2e tile 404 豁免；viewer 96 tests；镜像全量 49/49 零 console 错误 | web/e2e | 保持哨兵与零豁免；不得扩大豁免范围 |
-| A all-model 视觉 / damaged 半图真栈夹具 | **fixed（2026-11-01，本地）** | 提交真栈夹具 `a-geometry.bim`（2 PhysicalModel/2 Box 几何）与 `b-half-graph.bim`（def-only scope）；`resetFixtureImodel` 走 hub `fromBaseline` + WA 转换；hub recovery 过滤 `fileSize=0` 等待行（`c49fd5c`）；A spec 2/2（hook 观测面），half-graph spec 2/2（生产镜像 `87ee0f4`）；含新夹具全量 **51/51**；public `42d84fb` | web/e2e/backend | 发布镜像复跑仍需授权 |
+| A all-model 视觉 / damaged 半图真栈夹具 | **fixed（2026-11-01，发布镜像复验）** | 提交真栈夹具 `a-geometry.bim`（2 PhysicalModel/2 Box 几何）与 `b-half-graph.bim`（def-only scope）；`resetFixtureImodel` 走 hub `fromBaseline` + WA 转换；hub recovery 过滤 `fileSize=0` 等待行（`c49fd5c`）；A spec 2/2（hook 观测面），half-graph spec 2/2（生产镜像 `87ee0f4`）；发布镜像全量 **51/51**；public `42d84fb` | web/e2e/backend | 保持发布镜像回归 |
 | half-graph 独立复跑写租约残留（新，2026-11-01） | **fixed** | pagehide 释放 RPC 可被卸载中止，前页租约残留至 30s TTL；registry 写只等 10s 即报 holder 且无自动重放 → 重载后删除/创建必红。预算提升至 35s（与 applyOp 同口径）+ 单测；public `87ee0f4`；生产镜像 half-graph 2/2 | web | 预算须 ≥ 30s TTL + 余量；不得回退到 10s |
 | 持久化 EC schema OpenCloudCAD 迁移 | **retired（2026-11-01）** | owner 授权清理全部旧数据；Phase 0 本地 500 .bim 审计 OpenCloudCAD=0/LubanCAD=94（`cbd5aa1`）；backend `ff399dd` 删除 `CadFeatureSchema.ts` 与 7 个无调用方的 legacy IPC 方法，shared 移除 `CadFeatureRecord`（public `794049a`）；退役后复扫 58 .bim 仍 legacy=0/LubanCAD=9。本地零 legacy → 无数据迁移；特征历史由 FeatureService 写 LubanCAD schema | backend/release | 随下次产物重建归档；旧 legacy `.bim` 按数据策略删除/重建 |
 | 测试专用限流覆盖（P2.8 最终轮 2000） | **disclosed test-only** | 51-test 全量轮 `LUBAN_RPC_RATE_LIMIT_MAX=2000` / window 900000（启动日志 `env override`）；跑后已重启为生产默认 **100/15min**（日志 `production default`，MS health 200）；默认值未改 | test/backend | 全量发布门沿用覆盖并披露；默认值不改 |
@@ -908,7 +907,6 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 
 ### 15.7 NOT RUN（不得写成通过）
 
-- **发布镜像 hub e2e**（GHCR 发布镜像）与 **A6 两用户授权链的发布镜像复跑**：未发布授权 → NOT RUN。
 - **发布镜像全量 Playwright（P2.7 归档）**：**NOT VALID**——18 passed / 18 failed / 13 did not run
   （9 个 `/@id/` 载体、1 个 b-model canvas 超时、8 个 crash-class，15.3/15.4）。
   **P2.8 复验（发布源镜像 + 测试观测面，revision `b80bd24ff1c3`）：49/49（15.4m，0 crash）**，见 §15.8；
@@ -916,7 +914,9 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   verify-stack/有效子集 + 产物重建门验收。
 - **生产 undo E2E 的镜像 spec 判定**：P2.8 全量镜像 **PASS**（`b-model-undo.spec.ts`）；
   P2.7 的 console 断言 FAIL 属 `/@id/` 载体，已由 hook 消除。
-- 未 push / 未 merge / 未发布任何镜像或 Release（待 owner 明确授权）。
+- **已于 2026-11-01 发布**：public main `362bc01`、backend main `ff399dd`、hub main `c49fd5c`；
+  Release `backend-20261101-p28c` + GHCR WA/hub 已推送；发布镜像全量 **51/51**、verify-stack
+  **17/17**。详见 §15.12。
 
 ### 15.8 P2.8 结果（2026-10-31）
 
@@ -962,10 +962,10 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   `backend-20261031-p27` 产物仍实现旧名，不兼容）。
 - **生产镜像**：必须以 `-E2EHooks` 缺省（off）重建；P2.8 全量所用镜像带测试 hook，
   不得作为生产产物。
-- **发布镜像 hub e2e / A6**：仍 **NOT RUN**（未授权发布）。
+- **发布镜像 hub e2e / A6**：后于 2026-11-01 完成（发布镜像全量 51/51，§15.12）。
 - 登录视觉 origin 已 mask + 重钉；tile cache 404 为精确测试豁免（建议后续消除 console 噪声）；
   全量 Playwright 仍需测试专用限流覆盖并披露。
-- 未 push / 未 merge / 未 publish。
+- 以上为 P2.8 收口时状态；2026-11-01 已完成 push / merge / Release / GHCR 发布（§15.12）。
 
 ### 15.9 残项清理（2026-11-01）
 
@@ -985,7 +985,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 - **验证**：editor common/backend/frontend build + lint 0；frontend **43**；backend build；
   security+guard **19**；feature **459 passed / 8 skipped**；MS 重启 health 200（F3 日志见上）；
   聚焦源码 e2e A 只读 **2 passed**（56.8s）。
-- **提交**：public `5e86e5a118`；backend `9a4efd8`。**未 push / 未 merge / 未 publish**。
+- **提交**：public `5e86e5a118`；backend `9a4efd8`（当时未 push；2026-11-01 已随发布推送，见 §15.12）。
 - **e2e tsc/lint 门禁**（public `aaef496276`）：新增 `apps/web/tsconfig.e2e.json`
   （沿用严格选项、全局 types 换 node）+ `typecheck:e2e`；`test:e2e` 先 typecheck 再跑；
   `lint` 覆盖 `e2e/**/*.ts` 与 `playwright.config.ts`。门禁暴露并修复既有隐患：
@@ -1008,8 +1008,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   - 新产物 + 新 web 源下 b-model 全链 e2e（setup + main）**2 passed**（main **46.2s**），
     覆盖 reload/pagehide 租约释放、IpcSession 就绪门与 flatbuffers 几何写入。
   - 历史文档旧名扫描：除删除记录/迁移记录/上游检查单外，无活跃指引；该项关闭。
-- **仍待（后续批次）**：发布镜像 hub e2e 与 A6（未授权）；M2 自动 429 等待（backlog）。
-  详见 §15.10。
+- **后续**：发布镜像 hub e2e 与 A6 已于 2026-11-01 完成（§15.12）；M2 自动 429 等待
+  （backlog）详见 §15.10。
 ### 15.10 残项批次 2（2026-11-01）
 
 - **new-document baseline 传播竞态 → fixed**：webhook-agent 在 `POST /baselinefile`
@@ -1026,8 +1026,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   build/lint/typecheck:e2e 0；public `67ce23b94a`。
 - **本地镜像 e2e + A6**：test-observation 镜像 revision `67ce23b94a`（hooks on）
   全量 **49/49（7.9m）**，A6 两用户分享链两用例均绿；生产镜像同 revision（hooks
-  off）已部署，`verify-stack` **17/17**。GHCR/Release 发布镜像的 e2e 与 A6 仍未跑
-  （未获发布授权）。
+  off）已部署，`verify-stack` **17/17**。GHCR/Release 发布镜像的 e2e 与 A6 后于
+  2026-11-01 完成（§15.12）。
 - **EC schema legacy 路径 → retired（2026-11-01）**：owner 授权清理全部旧数据；
   Phase 0 只读审计本地 500 个 `.bim`：`OpenCloudCAD=0`、`LubanCAD=94`、
   `LubanCadFeature=0`（backend `cbd5aa1`）。据此 backend `ff399dd` 删除
@@ -1046,8 +1046,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   banner，不做像素钉版）；half-graph spec 2/2（生产镜像 :5301：recovery 不自动 create →
   damaged → HITL 删除 → 持久 tombstone → 默认 Part Studio 与画布恢复，console 零错误）。
   public `42d84fb`（夹具/spec/seed 助手 + 清理过时 settle 注释），e2e typecheck/lint 0。
-- **仍待**：GHCR/Release 发布镜像 e2e + A6（发布授权）；M2 自动 429 等待（backlog）。
-  **未 push / 未 merge / 未 publish**。
+- **发布**：2026-11-01 已完成 push / merge / Release / GHCR 发布与发布镜像 e2e；详见 §15.12。
+  **仍待**：M2 自动 429 等待（backlog）。
 
 ### 15.11 残项批次 2 最终验证（2026-11-01，本地）
 
@@ -1069,3 +1069,24 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   **17/17**（Step E revision `87ee0f408fb7`；Step D native fallback；Step F hub `c49fd5c`）。
 - **限流**：51-test 轮仅使用测试覆盖 `LUBAN_RPC_RATE_LIMIT_MAX=2000` / window 900000；
   跑后已恢复生产默认 100/15min（启动日志 `production default`）。
+
+### 15.12 GHCR / Release 发布与发布镜像验收（2026-11-01）
+
+- **提交**：public main `362bc01ced`（`feat/b-model-p2` 61 提交 ff 合并）、backend main
+  `ff399dd`、hub main `c49fd5c`；三仓 `main` 与 `origin/main` 一致。
+- **Release**：`backend-20261101-p28c`
+  （https://github.com/chenjinxian/tiangong-kaiwu/releases/tag/backend-20261101-p28c），
+  asset `modeling-server-win-x64-backend-20261101-p28c.tgz` 178,574,240 B，
+  GitHub asset digest `sha256:d5f7690c6625099fd44b906a2a40015879028d546a5aca2b0de2c1f769cc45b8`
+  与本地 SHA256 相同。
+- **GHCR**：`ghcr.io/chenjinxian/luban-webhook-agent:backend-20261101-p28c` /
+  `:latest` digest `sha256:d2801d67c9fadcf6e837347426397d72b17106ffab88d8765f96591ea71a76d6`；
+  `ghcr.io/chenjinxian/imodelhub:...` digest
+  `sha256:ca4b77f61a88565aefbcf180bcf438ac3aaf4b2ebf0cd28a1a674bf794441b2e`（revision
+  `c49fd5c77101`）。部署时以 `docker compose pull` + `--force-recreate` 实际拉取/重建两容器。
+- **发布镜像 e2e**：发布 Release 同字节 MS 产物 + GHCR 容器 + test-observation web 镜像
+  `e2e-hooks-87ee0f408fb7`，全量 **51/51（9.0m，0 crash）**；A 几何夹具、damaged 半图
+  HITL、A6 两用户链均绿。发布部署 `verify-stack` **17/17**（Step E web `87ee0f408fb7`；
+  Step F hub `c49fd5c`；Step D native fallback）。
+- **限流**：发布镜像全量轮使用测试覆盖 `LUBAN_RPC_RATE_LIMIT_MAX=2000` / window 900000；
+  跑后已恢复生产默认 **100/15min**（日志 `production default`），最终 `verify-stack` 17/17。
