@@ -60,6 +60,12 @@ export interface CanvasSelection {
   ownerBodyKey?: string;
   /** face/edge 持久拓扑 id（edge=ref.edge；face=resolveFaceRef.ref）。 */
   topologyId?: LubanTopologyId;
+  /**
+   * face/edge 会话级 cache id（仅拾取工具活跃期间有效；工具退出即失效）。
+   * 面/边删除通道用它调用 solidModelingIpc.deleteSubEntities；缺失时删除项
+   * 禁用（须重新拾取），不得把它当作持久标识。
+   */
+  cacheId?: number;
 }
 
 /** 特征条目（双段树特征段视图模型；数据由消费方注入——壳期空集，RPC 接线后走 react-query）。 */

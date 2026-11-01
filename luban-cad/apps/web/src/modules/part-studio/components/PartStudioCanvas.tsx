@@ -56,6 +56,7 @@ import {
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
+import { deleteSelectedSubEntity } from '../canvas/subentity-delete.js';
 import type { CanvasSelection } from '../types.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
@@ -267,6 +268,37 @@ export function PartStudioCanvas({
     connection?.selectionSet?.replace([bodyKey]);
   }, [connection]);
 
+  /**
+   * M-A5.2 T5：面/边删除（HITL 已确认）——用选择条目的会话级 cacheId 调
+   * editor SolidModelingCommand.deleteSubEntities，saveChanges 后退出选择模式。
+   * 失败保持模式（可重拾），Error toast 透出后端/内核原文。
+   */
+  const handleDeleteSubEntity = React.useCallback(
+    async (selection: readonly CanvasSelection[]): Promise<void> => {
+      if (!canEdit || !connection) return;
+      try {
+        await deleteSelectedSubEntity(connection, selection);
+        usePartStudioStore.getState().setSelectionMode('body');
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(
+            OutputMessagePriority.Success,
+            t('partStudio.canvasMenu.subEntityDeleteSuccess'),
+          ),
+        );
+      } catch (err) {
+        IModelApp.notifications.outputMessage(
+          new NotifyMessageDetails(
+            OutputMessagePriority.Error,
+            t('partStudio.tree.deleteFailed', {
+              message: err instanceof Error ? err.message : String(err),
+            }),
+          ),
+        );
+      }
+    },
+    [canEdit, connection, t],
+  );
+
   // data-viewport-ready：M4-T2 视口下传锚点（结构断言/T5 适应视图接线前的就绪观测位）。
   return (
     <div
@@ -331,6 +363,7 @@ export function PartStudioCanvas({
         anchor={anchor}
         onClose={() => setAnchor(null)}
         onDelete={handleCanvasDelete}
+        onDeleteSubEntity={handleDeleteSubEntity}
         onSelectOwner={handleSelectOwner}
         canEdit={canEdit}
       />

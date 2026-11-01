@@ -111,6 +111,7 @@ export class SubEntitySelectTool extends LocateSubEntityTool {
           id: `face:${result.ref.nodeId}:${result.ref.entityId}`,
           ownerBodyKey,
           topologyId: result.ref,
+          cacheId,
           label: i18next.t('partStudio.subEntitySelect.faceLabel'),
         };
       }
@@ -129,6 +130,7 @@ export class SubEntitySelectTool extends LocateSubEntityTool {
         id: `edge:${result.ref.edge.nodeId}:${result.ref.edge.entityId}`,
         ownerBodyKey,
         topologyId: result.ref.edge,
+        cacheId,
         label: i18next.t('partStudio.subEntitySelect.edgeLabel'),
       };
     } catch (err) {

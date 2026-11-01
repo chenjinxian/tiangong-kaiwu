@@ -172,8 +172,9 @@ export function buildCanvasMenu(selection: readonly CanvasSelection[]): CanvasMe
         'separator',
         {
           ...item('delete', 'deleteUnsupported', SvgDelete, { kind: 'delete' }, false),
-          disabled: true,
-          disabledReasonKey: 'partStudio.canvasMenu.faceEdgeDeleteUnsupported',
+          disabled: primary.cacheId === undefined,
+          disabledReasonKey: primary.cacheId === undefined
+            ? 'partStudio.canvasMenu.subEntityDeleteStale' : undefined,
         },
       ];
     }
@@ -191,8 +192,9 @@ export function buildCanvasMenu(selection: readonly CanvasSelection[]): CanvasMe
         'separator',
         {
           ...item('delete', 'deleteUnsupported', SvgDelete, { kind: 'delete' }, false),
-          disabled: true,
-          disabledReasonKey: 'partStudio.canvasMenu.faceEdgeDeleteUnsupported',
+          disabled: primary.cacheId === undefined,
+          disabledReasonKey: primary.cacheId === undefined
+            ? 'partStudio.canvasMenu.subEntityDeleteStale' : undefined,
         },
       ];
     }
@@ -238,6 +240,11 @@ export interface CanvasContextMenuProps {
    */
   onDelete?: (selection: readonly CanvasSelection[]) => void;
   /**
+   * M-A5.2：面/边删除提交（HITL 确认后）。选择条目需携带会话级 `cacheId`；
+   * 宿主调用 editor 的 `deleteSubEntities` 命令并保存事务。缺省无动作。
+   */
+  onDeleteSubEntity?: (selection: readonly CanvasSelection[]) => void;
+  /**
    * M-A5.2：面/边「选中所属实体」——宿主切回 body 模式、树选中 owner、
    * SelectionSet.replace([owner])。缺省无动作（测试/壳期）。
    */
@@ -259,6 +266,7 @@ export function CanvasContextMenu({
   anchor,
   onClose,
   onDelete,
+  onDeleteSubEntity,
   onSelectOwner,
   canEdit = true,
 }: CanvasContextMenuProps): React.JSX.Element | null {
@@ -454,7 +462,13 @@ export function CanvasContextMenu({
               // B6 M-A5 T2：canEdit=false 防御性拒收（HITL 本不应打开；兜底
               // 程序化路径），不发删除回调。
               if (!canEdit) return;
-              if (onDelete) {
+              if (primary.kind === 'face' || primary.kind === 'edge') {
+                if (onDeleteSubEntity) {
+                  onDeleteSubEntity(selection);
+                } else {
+                  console.warn(`[part-studio] 删除子实体 ${name}（onDeleteSubEntity 未接线）`);
+                }
+              } else if (onDelete) {
                 onDelete(selection);
               } else {
                 console.warn(`[part-studio] 删除 ${name}（onDelete 未接线）`);

@@ -107,6 +107,7 @@ function renderMenu(
   onClose = vi.fn(),
   onDelete = vi.fn(),
   onSelectOwner?: (bodyKey: string) => void,
+  onDeleteSubEntity?: (selection: readonly CanvasSelection[]) => void,
 ): ReturnType<typeof render> {
   return render(
     <CanvasContextMenu
@@ -114,6 +115,7 @@ function renderMenu(
       onClose={onClose}
       onDelete={onDelete}
       onSelectOwner={onSelectOwner}
+      onDeleteSubEntity={onDeleteSubEntity}
     />,
   );
 }
@@ -171,9 +173,9 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
     expect(items.find((i) => i.id === 'show-dependencies')?.capability).toBe('dependencies');
   });
 
-  it('face 拾取 → 隐藏所属实体/选中所属实体/面外观 gated/禁用删除', () => {
+  it('face 拾取 → 隐藏所属实体/选中所属实体/面外观 gated/删除（cacheId 在场可执行）', () => {
     const menu = buildCanvasMenu([
-      { kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18', topologyId: { nodeId: 1, entityId: 3 } },
+      { kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18', topologyId: { nodeId: 1, entityId: 3 }, cacheId: 7 },
     ]);
     const items = menu.filter((entry): entry is CanvasMenuItem => entry !== 'separator');
     expect(items.map((entry) => entry.id)).toEqual([
@@ -183,10 +185,21 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
     expect(items.find((entry) => entry.id === 'select-owner')!.action).toEqual({
       kind: 'select-owner', bodyKey: '0x18',
     });
-    expect(items.find((entry) => entry.id === 'delete')).toMatchObject({
-      disabled: true,
-      disabledReasonKey: 'partStudio.canvasMenu.faceEdgeDeleteUnsupported',
-    });
+    const del = items.find((entry) => entry.id === 'delete')!;
+    expect(del.disabled).toBe(false);
+    expect(del.disabledReasonKey).toBeUndefined();
+  });
+
+  it('face/edge 无 cacheId（拾取会话已结束）→ 删除禁用并给出重拾原因', () => {
+    for (const kind of ['face', 'edge'] as const) {
+      const items = buildCanvasMenu([
+        { kind, id: `${kind}:1:3`, ownerBodyKey: '0x18' },
+      ]).filter((entry): entry is CanvasMenuItem => entry !== 'separator');
+      expect(items.find((entry) => entry.id === 'delete')).toMatchObject({
+        disabled: true,
+        disabledReasonKey: 'partStudio.canvasMenu.subEntityDeleteStale',
+      });
+    }
   });
 
   it('edge 拾取 → owner 组 + 选择所属实体 + 禁用删除', () => {
@@ -309,9 +322,25 @@ describe('CanvasContextMenu 选中态（按拾取类型重构）', () => {
     expect(within(menu).queryByRole('menuitem', { name: /编辑 面 1/ })).toBeNull();
     const del = within(menu).getByRole('menuitem', { name: '删除' }) as HTMLButtonElement;
     expect(del.disabled).toBe(true);
-    expect(del.getAttribute('title')).toBe('面/边删除暂不支持');
+    expect(del.getAttribute('title')).toBe('拾取会话已结束，请重新拾取面/边');
     await user.click(del);
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('face 删除（cacheId 在场）→ HITL 确认 → onDeleteSubEntity（不走 body 删除）', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    const onDeleteSubEntity = vi.fn();
+    const selection: CanvasSelection[] = [
+      { kind: 'face', id: 'face:1:3', label: '面', ownerBodyKey: '0x18', cacheId: 7 },
+    ];
+    setSelection(selection);
+    renderMenu(vi.fn(), onDelete, undefined, onDeleteSubEntity);
+    await user.click(screen.getByRole('menuitem', { name: '删除' }));
+    const dialog = screen.getByRole('dialog', { name: '删除 面' });
+    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+    expect(onDeleteSubEntity).toHaveBeenCalledWith(selection);
     expect(onDelete).not.toHaveBeenCalled();
   });
 

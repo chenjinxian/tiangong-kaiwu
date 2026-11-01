@@ -99,7 +99,7 @@ describe('SubEntitySelectTool 拾取形态', () => {
     expect(featureRpc.resolveFaceRef).toHaveBeenCalledWith('model-key', '0x15', 7);
     expect(picked).toEqual([{
       kind: 'face', id: 'face:1:3', ownerBodyKey: '0x15',
-      topologyId: { nodeId: 1, entityId: 3 }, label: expect.any(String),
+      topologyId: { nodeId: 1, entityId: 3 }, cacheId: 7, label: expect.any(String),
     }]);
   });
 
@@ -112,7 +112,7 @@ describe('SubEntitySelectTool 拾取形态', () => {
     expect(featureRpc.resolveEdgeRef).toHaveBeenCalledWith('model-key', '0x18', 9);
     expect(picked).toEqual([{
       kind: 'edge', id: 'edge:2:5', ownerBodyKey: '0x18',
-      topologyId: { nodeId: 2, entityId: 5 }, label: expect.any(String),
+      topologyId: { nodeId: 2, entityId: 5 }, cacheId: 9, label: expect.any(String),
     }]);
   });
 

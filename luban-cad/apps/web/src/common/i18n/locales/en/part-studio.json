@@ -655,7 +655,8 @@
     "selectOwner": "Select owner body",
     "selectOwnerUnavailable": "Owner body unavailable",
     "deleteUnsupported": "Delete",
-    "faceEdgeDeleteUnsupported": "Face/edge deletion is not supported yet"
+    "subEntityDeleteStale": "The pick session has ended; pick the face/edge again",
+    "subEntityDeleteSuccess": "Face/edge deleted"
   },
   "tree": {
     "contextMenuLabel": "Feature menu",

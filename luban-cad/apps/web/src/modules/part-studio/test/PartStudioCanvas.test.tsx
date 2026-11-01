@@ -40,6 +40,12 @@ vi.mock('@common/workspace/use-workspace-ref.js', () => ({
   useWorkspaceRef: () => null,
 }));
 
+// M-A5.2 T5：面/边删除通道（editor-frontend IPC）在宿主测试里替身化。
+const subEntityDeleteMock = vi.hoisted(() => vi.fn());
+vi.mock('../canvas/subentity-delete.js', () => ({
+  deleteSelectedSubEntity: subEntityDeleteMock,
+}));
+
 const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
   viewport: null as unknown,
@@ -120,6 +126,7 @@ function resetStore(): void {
 beforeEach(() => {
   vi.clearAllMocks();
   featureRpc.getSketch.mockReset();
+  subEntityDeleteMock.mockReset().mockResolvedValue(undefined);
   mocks.viewport = null;
   resetStore();
 });
@@ -522,5 +529,56 @@ describe('B6 M-A5.2 T5：选中所属实体宿主动作', () => {
     expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body');
     expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['0x18']);
     expect(selectionSet.replace).toHaveBeenCalledWith(['0x18']);
+  });
+});
+
+describe('B6 M-A5.2：面/边删除宿主动作', () => {
+  it('cacheId 选择 → HITL 确认 → deleteSelectedSubEntity + 回 body + 成功 toast', async () => {
+    const user = userEvent.setup();
+    const connection = { key: 'k' } as unknown as BriefcaseConnection;
+    renderCanvas(undefined, { connection });
+    act(() => {
+      usePartStudioStore.getState().setSelectionMode('face');
+      usePartStudioStore.getState().setCanvasSelection([
+        { kind: 'face', id: 'face:1:3', label: '面', ownerBodyKey: '0x18', cacheId: 7 },
+      ]);
+    });
+    fireEvent.contextMenu(screen.getByTestId('part-studio-canvas'), {
+      clientX: 60, clientY: 70,
+    });
+    const menu = screen.getByRole('menu', { name: '画布菜单' });
+    await user.click(within(menu).getByRole('menuitem', { name: '删除' }));
+    const dialog = screen.getByRole('dialog', { name: '删除 面' });
+    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+
+    await waitFor(() => expect(subEntityDeleteMock).toHaveBeenCalledWith(connection, expect.any(Array)));
+    await waitFor(() => expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body'));
+    expect(mocks.outputMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ briefMessage: '面/边已删除' }),
+    );
+  });
+
+  it('删除失败 → Error toast，保持 face 模式（可重拾）', async () => {
+    subEntityDeleteMock.mockRejectedValueOnce(new Error('内核拒收'));
+    const user = userEvent.setup();
+    renderCanvas(undefined, { connection: { key: 'k' } as unknown as BriefcaseConnection });
+    act(() => {
+      usePartStudioStore.getState().setSelectionMode('edge');
+      usePartStudioStore.getState().setCanvasSelection([
+        { kind: 'edge', id: 'edge:2:5', label: '边', ownerBodyKey: '0x18', cacheId: 9 },
+      ]);
+    });
+    fireEvent.contextMenu(screen.getByTestId('part-studio-canvas'), {
+      clientX: 60, clientY: 70,
+    });
+    const menu = screen.getByRole('menu', { name: '画布菜单' });
+    await user.click(within(menu).getByRole('menuitem', { name: '删除' }));
+    const dialog = screen.getByRole('dialog', { name: '删除 边' });
+    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ briefMessage: expect.stringContaining('内核拒收') }),
+    ));
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('edge');
   });
 });

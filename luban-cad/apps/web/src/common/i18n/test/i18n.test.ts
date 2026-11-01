@@ -178,7 +178,8 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'subEntitySelect.faceLabel', 'subEntitySelect.edgeLabel',
   // M-A5.2 T5：owner-aware 画布菜单——隐藏/选中所属实体、owner 不可用、面/边删除禁用。
   'canvasMenu.hideOwner', 'canvasMenu.selectOwner', 'canvasMenu.selectOwnerUnavailable',
-  'canvasMenu.deleteUnsupported', 'canvasMenu.faceEdgeDeleteUnsupported',
+  'canvasMenu.deleteUnsupported', 'canvasMenu.subEntityDeleteStale',
+  'canvasMenu.subEntityDeleteSuccess',
   // B6 M-A3.2a：newBody 复选 + 目标实体选择 + body 读面加载提示；零件段 body 缺省名。
   'featureDialog.newBodyLabel', 'featureDialog.targetBodyLabel',
   'featureDialog.bodiesLoadingHint', 'featureDialog.bodiesUnavailableHint',

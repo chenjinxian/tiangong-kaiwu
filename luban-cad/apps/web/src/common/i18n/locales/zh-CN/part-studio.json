@@ -655,7 +655,8 @@
     "selectOwner": "选中所属实体",
     "selectOwnerUnavailable": "所属实体不可用",
     "deleteUnsupported": "删除",
-    "faceEdgeDeleteUnsupported": "面/边删除暂不支持"
+    "subEntityDeleteStale": "拾取会话已结束，请重新拾取面/边",
+    "subEntityDeleteSuccess": "面/边已删除"
   },
   "tree": {
     "contextMenuLabel": "特征菜单",

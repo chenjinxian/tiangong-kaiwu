@@ -286,7 +286,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   }
   expect(facePicked, '面模式应在 body2 顶/底面拾到面').toBe(true);
   await expect(canvasMenu.getByRole('menuitem', { name: '选中所属实体', exact: true })).toBeVisible();
-  await expect(canvasMenu.getByRole('menuitem', { name: '删除', exact: true })).toBeDisabled();
+  await expect(canvasMenu.getByRole('menuitem', { name: '删除', exact: true })).toBeEnabled();
   await canvasMenu.getByRole('menuitem', { name: '选中所属实体', exact: true }).click();
   await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
   await expect(body2Row).toHaveAttribute('aria-current', 'true');
@@ -509,6 +509,52 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect(filletRowLocator).not.toHaveAttribute('data-suppressed', 'true', { timeout: 90_000 });
   await expect(page.getByText('抑制操作失败')).toHaveCount(0);
   console.log('[newbody] fillet 取消抑制 OK');
+
+  // ── M-A5.2 面删除真栈：body1 顶/底面 → HITL → deleteSubEntities + saveChanges ──
+  // body1 是干净盒体（body2 已被 fillet 改造），面删除验证 cacheId → editor
+  // SolidModelingCommand 的直通链；成功 toast 与模式归零为功能判据。
+  const body1FacePoints = await projectPoints([
+    { x: 1, y: 1, z: 1 }, { x: 1, y: 1, z: 0 },
+  ]);
+  await faceBtn.click();
+  await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  let body1FacePicked = false;
+  for (let i = 0; i < body1FacePoints.length; i++) {
+    const p = body1FacePoints[i]!;
+    await page.mouse.move(cb.x + p.x - 12, cb.y + p.y + 10);
+    await page.waitForTimeout(150);
+    await page.mouse.click(cb.x + p.x, cb.y + p.y);
+    await page.waitForTimeout(500);
+    await page.mouse.click(cx, cy + 120, { button: 'right' });
+    await expect(canvasMenu).toBeVisible();
+    if ((await canvasMenu.getByRole('menuitem', { name: '隐藏所属实体' }).count()) > 0) {
+      body1FacePicked = true;
+      break;
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    if ((await faceBtn.getAttribute('aria-pressed')) === 'true') await faceBtn.click();
+    await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
+    await faceBtn.click();
+    await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  }
+  expect(body1FacePicked, '面删除前应在 body1 上拾到面').toBe(true);
+  await expect(canvasMenu.getByRole('menuitem', { name: '删除', exact: true })).toBeEnabled();
+  await canvasMenu.getByRole('menuitem', { name: '删除', exact: true }).click();
+  const deleteFaceDialog = page.getByRole('dialog', { name: '删除 面' });
+  await expect(deleteFaceDialog).toBeVisible();
+  await deleteFaceDialog.getByRole('button', { name: '删除', exact: true }).click();
+  // 内核边界（imodel-native docs/reference/compare/DeleteSubEntitiesOperation.md）：
+  // 普通盒体单面删除是既定负路径（api_remove_faces 邻面补不拢，Err 115006）；
+  // SUCCESS 需要共面分裂种子。此处验证诚实负路径：错误 toast + 保持 face 模式。
+  const deleteFailure = page.getByText(/删除失败/);
+  await expect(deleteFailure).toBeVisible({ timeout: 90_000 });
+  expect(await deleteFailure.first().textContent()).toContain('内核拒收');
+  await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
+  await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
+  console.log('[newbody] M-A5.2 面删除负路径（盒体）→ 内核拒收 + 错误 toast OK');
 
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
 });

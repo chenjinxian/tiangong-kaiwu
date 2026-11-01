@@ -678,6 +678,12 @@ export interface SolidModelingCommandIpc extends EditCommandIpc {
   deleteSubEntities(id: Id64String, params: DeleteSubEntityProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined>;
   /** Modify the target solid or sheet body by transforming selected faces, edges, or vertices. */
   transformSubEntities(id: Id64String, params: TransformSubEntityProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined>;
+  /** Query the cache sub-entity ids of the face identified by its persistent topology id.
+   * Returns more than one id when the face has been split into pieces. */
+  facesFromId(id: Id64String, nodeId: number, entityId: number): Promise<string[] | undefined>;
+  /** Query the cache sub-entity ids of the edge carrying the supplied persistent edge id
+   * (the edge's OWN id, not the adjacent-face-pair id). Split pieces all carry the same id. */
+  edgesFromOwnId(id: Id64String, nodeId: number, entityId: number): Promise<string[] | undefined>;
   /** Modify the specified edges by changing them into faces having the requested blending surface geometry. */
   blendEdges(id: Id64String, params: BlendEdgesProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined>;
   /** Modify the specified edges by changing them into faces having the requested chamfer surface geometry. */
