@@ -31,7 +31,9 @@ concurrency:
 jobs:
   unit:
     name: Unit / Typecheck / Lint
-    runs-on: ubuntu-latest
+    # ubuntu-latest 已是 26.04，但 @itwin/oidc-signin-tool 的 postinstall 用
+    # Playwright 1.56 下载 chromium，尚不支持 26.04；钉 24.04（Playwright 支持）。
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
