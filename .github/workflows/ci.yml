@@ -1,0 +1,93 @@
+# 公开仓最小 CI（2026-11-01，任务 5）
+#
+# 覆盖：itwinjs-core 必要依赖构建 → luban-cad workspace 基座构建 → 单测 →
+# tsc/lint。**不覆盖**：真栈 e2e（需 docker 栈 + MS + 浏览器，归 verify-stack /
+# 发布 checklist）、发布镜像 e2e。
+#
+# 关键约束：luban-cad 的 @itwin/* 以 link: 直连 itwinjs-core 源码目录，fresh
+# checkout 必须先 Rush install + build 出 lib/，否则 pnpm install 后 tsc 找不到
+# 类型（见根 CLAUDE.md）。这里只构建 web 单测所需的 core-frontend 闭包；
+# core-backend / native 不在此 job（后端私有仓 CI 另行处理）。
+name: CI (public)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'luban-cad/**'
+      - 'itwinjs-core/**'
+      - '.github/workflows/ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'luban-cad/**'
+      - 'itwinjs-core/**'
+      - '.github/workflows/ci.yml'
+
+concurrency:
+  group: public-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit / Typecheck / Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: luban-cad/pnpm-lock.yaml
+
+      - name: Enable corepack / pnpm 10
+        run: |
+          corepack enable
+          corepack prepare pnpm@10 --activate
+
+      - name: Rush install (itwinjs-core)
+        working-directory: itwinjs-core
+        env:
+          CI: 'true'
+        run: node common/scripts/install-run-rush.js install --bypass-policy
+
+      - name: Rush build core-frontend closure
+        working-directory: itwinjs-core
+        env:
+          CI: 'true'
+        run: node common/scripts/install-run-rush.js build --to @itwin/core-frontend
+
+      - name: Install luban-cad workspace
+        working-directory: luban-cad
+        env:
+          CI: 'true'
+        run: corepack pnpm@10 install --frozen-lockfile
+
+      - name: Build first-party packages
+        working-directory: luban-cad
+        run: |
+          corepack pnpm@10 --filter @luban-cad/shared build
+          corepack pnpm@10 --filter @itwin/editor-common build
+          corepack pnpm@10 --filter @itwin/editor-frontend build
+          corepack pnpm@10 --filter @luban-cad/viewer build
+
+      - name: Unit tests
+        working-directory: luban-cad
+        env:
+          CI: 'true'
+        run: |
+          corepack pnpm@10 --filter @luban-cad/shared test
+          corepack pnpm@10 --filter @itwin/editor-frontend test
+          corepack pnpm@10 --filter @luban-cad/viewer test
+          corepack pnpm@10 --filter @luban-cad/web test
+
+      - name: Typecheck / Lint
+        working-directory: luban-cad
+        run: |
+          corepack pnpm@10 --filter @luban-cad/shared lint
+          corepack pnpm@10 --filter @itwin/editor-frontend lint
+          corepack pnpm@10 --filter @luban-cad/viewer lint
+          corepack pnpm@10 --filter @luban-cad/web exec tsc --noEmit
+          corepack pnpm@10 --filter @luban-cad/web lint
