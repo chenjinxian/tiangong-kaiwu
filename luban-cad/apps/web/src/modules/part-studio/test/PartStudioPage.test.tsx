@@ -1748,7 +1748,9 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
       renderPage('/documents/itwin-1/im-1');
       // 分拍推进：每拍同时冲刷 microtask/渲染，让 list→resolver→create→租约重试
       // 链在假时钟下逐跳落定（单拍 advance 会停在 create 尚未启动的一帧）。
-      for (let i = 0; i < 6; i += 1) {
+      // 预算对齐：REGISTRY_LEASE_ACQUIRE_BUDGET_MS 已从 10s 提升到 35s
+      //（2026-11-01 public 87ee0f4，≥30s TTL + 余量）；18×2.5s=45s 覆盖预算。
+      for (let i = 0; i < 18; i += 1) {
         await act(async () => {
           await vi.advanceTimersByTimeAsync(2_500);
         });
