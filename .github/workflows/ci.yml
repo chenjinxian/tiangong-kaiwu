@@ -39,8 +39,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: luban-cad/pnpm-lock.yaml
 
       - name: Enable corepack / pnpm 10
         run: |
