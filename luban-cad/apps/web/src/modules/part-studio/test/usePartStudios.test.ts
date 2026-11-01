@@ -13,7 +13,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PartStudioInfo } from '@luban-cad/shared';
 import type { EditorSession } from '../hooks/useEditorSession.js';
-import { usePartStudios } from '../hooks/usePartStudios.js';
+import {
+  REGISTRY_LEASE_ACQUIRE_BUDGET_MS,
+  usePartStudios,
+} from '../hooks/usePartStudios.js';
 
 const rpc = vi.hoisted(() => ({
   listPartStudios: vi.fn(async (_key: string): Promise<PartStudioInfo[]> => []),
@@ -213,6 +216,20 @@ describe('usePartStudios 写方法（共享会话/租约）', () => {
     });
     expect(rpc.renamePartStudio).toHaveBeenCalledWith('key-1', 'ps-1', '新名', 'sess-1');
     await waitFor(() => expect(result.current.studios.find((s) => s.id === 'ps-1')?.name).toBe('新名'));
+  });
+
+  it('租约预算覆盖前页 30s 残留 TTL（35s）——重载后删除可自愈', async () => {
+    const session = makeSession();
+    const { result } = renderHook(() => usePartStudios('itwin-1', 'im-1', session));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    await act(async () => {
+      await result.current.remove('ps-1');
+    });
+    expect(session.acquire).toHaveBeenCalledWith({
+      budgetMs: REGISTRY_LEASE_ACQUIRE_BUDGET_MS,
+      retryMs: expect.any(Number),
+    });
+    expect(REGISTRY_LEASE_ACQUIRE_BUDGET_MS).toBeGreaterThan(30_000);
   });
 
   it('remove：服务端拒绝（最后一个完整 scope）原样上抛且本地状态不变', async () => {

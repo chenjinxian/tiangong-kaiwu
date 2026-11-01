@@ -27,9 +27,11 @@ import {
 } from '@luban-cad/shared';
 import { LEASE_OP_ACQUIRE_RETRY_MS, type EditorSession } from './useEditorSession.js';
 
-/** 注册表写方法取租约预算：编辑器打开时生命周期已持有租约，正常即取即回；
- *  仅换连接/前页残留窗口需要等待（不占用 op 的 35s 自愈预算）。 */
-export const REGISTRY_LEASE_ACQUIRE_BUDGET_MS = 10_000;
+/** 注册表写方法取租约预算：编辑器打开时生命周期已持有租约，正常即取即回。
+ *  前页 pagehide 释放是尽力而为（卸载可能中止 RPC），残留租约最长 30s TTL；
+ *  预算取 35s 与 applyOp 自愈同口径——10s 会在重载后「删除/创建」上必红且无
+ *  自动重放。 */
+export const REGISTRY_LEASE_ACQUIRE_BUDGET_MS = 35_000;
 
 /** reload 时 registry RPC 可能早于 RPC fallback routing token 就位（P2.8 实测：
  *  BentleyCloudRpcProtocol 抛 "Invalid iModelToken for RPC operation request"）。
