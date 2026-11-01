@@ -27,6 +27,7 @@ import { LubanFeatureRpcInterface, LubanRpcInterface } from '@luban-cad/shared';
 import { ensureAccuSnap } from '../tools/ensure-accusnap.js';
 import { MissAwareFetchCloudStorage } from '../tile/miss-aware-storage.js';
 import { installE2EHooks } from './e2e-hooks.js';
+import { installRateLimitAwareRequests } from './rate-limit-retry.js';
 
 export interface StartViewerOptions {
   /** Backend RPC URL（modeling-server） */
@@ -117,6 +118,10 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
     { info: { title: 'LubanCAD', version: 'v1.0' }, uriPrefix: backendUrl },
     rpcInterfaces,
   );
+  // M2 自动 429 等待（2026-11-01）：在 initializeClient 之后、任何 RPC 请求之前
+  // 换上 429 感知 request class；识别后端 JSON retryAfter 并做有界等待。
+  // 详见 host/rate-limit-retry.ts 头注。
+  installRateLimitAwareRequests(rpcInterfaces);
 
   if (!IpcApp.isValid) {
     // eslint-disable-next-line no-console

@@ -12,11 +12,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock factory 会被提升到文件顶部，先于 const 初始化执行（TDZ）——
 // 被工厂引用的 mock 须用 vi.hoisted 一并提升（vitest 官方推荐写法）。
-const { startupMock, initializeClientMock, shutdownMock } = vi.hoisted(() => ({
-  startupMock: vi.fn().mockResolvedValue(undefined),
-  initializeClientMock: vi.fn(),
-  shutdownMock: vi.fn().mockResolvedValue(undefined),
-}));
+const { startupMock, initializeClientMock, shutdownMock, webRpcMocks } = vi.hoisted(() => {
+  const WebAppRpcRequest = class {};
+  const protocol = { requestType: WebAppRpcRequest };
+  return {
+    startupMock: vi.fn().mockResolvedValue(undefined),
+    initializeClientMock: vi.fn(),
+    shutdownMock: vi.fn().mockResolvedValue(undefined),
+    webRpcMocks: {
+      WebAppRpcRequest,
+      protocol,
+      getClientForInterface: vi.fn(() => ({ configuration: { protocol } })),
+    },
+  };
+});
 
 vi.mock('@itwin/core-frontend', () => ({
   IModelApp: { initialized: false, shutdown: shutdownMock, accuSnap: { enableSnap: vi.fn(), enableLocate: vi.fn() } },
@@ -30,6 +39,9 @@ vi.mock('@itwin/core-common', () => ({
   BentleyCloudRpcManager: { initializeClient: initializeClientMock },
   IModelReadRpcInterface: class {},
   IModelTileRpcInterface: class {},
+  // M2 自动 429 等待：rate-limit-retry.ts 的基类与安装入口。
+  WebAppRpcRequest: webRpcMocks.WebAppRpcRequest,
+  RpcManager: { getClientForInterface: webRpcMocks.getClientForInterface },
 }));
 vi.mock('@luban-cad/shared', () => ({
   LubanRpcInterface: class {},
@@ -49,6 +61,8 @@ describe('startViewer（移植自 WebInitializer）', () => {
     startupMock.mockClear();
     initializeClientMock.mockClear();
     shutdownMock.mockClear();
+    webRpcMocks.protocol.requestType = webRpcMocks.WebAppRpcRequest;
+    webRpcMocks.getClientForInterface.mockClear();
     const core = await import('@itwin/core-frontend');
     (core.IpcApp as unknown as { isValid: boolean }).isValid = false;
     (core.IModelApp as unknown as { initialized: boolean }).initialized = false;
@@ -84,6 +98,12 @@ describe('startViewer（移植自 WebInitializer）', () => {
     await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
     const arg = startupMock.mock.calls[0][0];
     expect(arg.iModelApp.rpcInterfaces).toHaveLength(4);
+  });
+
+  it('M2 429：所有 web RPC protocol 换成 429 感知 request class', async () => {
+    await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400' });
+    expect(webRpcMocks.getClientForInterface).toHaveBeenCalledTimes(4);
+    expect(webRpcMocks.protocol.requestType).not.toBe(webRpcMocks.WebAppRpcRequest);
   });
 
   it('P2.6c2 回归：RPC client 先于 host startup 注册（reload 竞态）', async () => {
@@ -135,6 +155,8 @@ describe('acquireViewer/releaseViewer（引用计数，M4 Task 1）', () => {
     startupMock.mockClear();
     initializeClientMock.mockClear();
     shutdownMock.mockClear();
+    webRpcMocks.protocol.requestType = webRpcMocks.WebAppRpcRequest;
+    webRpcMocks.getClientForInterface.mockClear();
     const core = await import('@itwin/core-frontend');
     (core.IpcApp as unknown as { isValid: boolean }).isValid = false;
     // shutdown 只在 IModelApp.initialized 时走 IModelApp.shutdown——置真以观察回收调用
