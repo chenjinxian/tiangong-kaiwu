@@ -884,10 +884,12 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | damaged 半图真栈门 NOT RUN | **waiver** | P2.6b3 C4：需 def 分区缺失 phys model 的半图库；公开 UI/RPC 无入口 | backend + e2e | 后端 test fixture（`deleteModel` harness）/受租约约束 test-only 命令 |
 | 后端直接 `deleteElements(BodySolid)` 不变量 | **fixed（P2.8 残项清理，2026-11-01）** | P2.6d 前端守卫 + P2.8 后端 `BasicManipulationCommand.deleteElements` 在任何锁/事务前据 editor-common 共享谓词拒删；内部特征删除走 FeatureService/EditTxn 不受影响；modeling-server guard test + feature 459/8 | backend | 保持共享谓词与两端测试；不得把前端守卫当后端不变量 |
 | A 详情视觉基线钉人工调试 iModels + hero 日期 | **waiver** | `visual.spec.ts:199-222`（同项目 6 个人工调试库同框，日期 mask） | e2e | 隔离夹具项目 |
-| reload 后 30s 写租约 UX（unmount 不释放） | **backlog** | `b-model.spec.ts:338-342`；产品侧未修 | web | pagehide/卸载释放租约或缩短 TTL + 重取 |
-| e2e 未纳入 web tsc/lint | **backlog** | `tsconfig.include=["src","vite.config.ts"]`；eslint 仅 `src/**` | web | 独立 e2e tsconfig/eslint 并接入聚合门 |
+| reload 后 30s 写租约 UX（unmount 不释放） | **fixed（P2.8 残项清理，2026-11-01）** | `useEditorSession` 在 pagehide 尽力释放旧 session 租约（reload 不触发 React unmount）；单测覆盖 pagehide/清理；`b-model.spec.ts` 删除 30s wait 后全链通过（36.0s）；服务端 TTL 仍兜底 | web | 保持 pagehide 监听与单测 |
+| e2e 未纳入 web tsc/lint | **fixed（P2.8 残项清理，2026-11-01）** | `tsconfig.e2e.json` + `typecheck:e2e`（`test:e2e` 先跑）；lint 覆盖 `e2e/**` + `playwright.config.ts`；修复判别联合/索引/PNG 边界 | web | 保持门禁 |
+| MS 产物 flatbuffers 版本 hoist（新，P2.8 本地产物实测） | **fixed（2026-11-01，backend packaging）** | npm 把 apache-arrow 的 flatbuffers@25 hoist 到顶层，覆盖 core-geometry/core-common 的 ~1.12.0 → `updateSketch` 写几何 `BGFBWriter` 报 `undefined.Builder`；`build-ms-dist.ps1` 顶层还原 1.12 + apache-arrow 下沉 25 + 运行期断言（backend `e1c2e92`/`2392636`/`d52a006`）；源模式 pnpm 分层不受影响 | backend/release | 产物必须经脚本重建；不得手工修补 |
 | 发布镜像 hub e2e | **NOT RUN** | 未获发布/推送授权；本地镜像 25b2b42 结果不作发布证据；A6 发布镜像链同样 NOT RUN | release owner | 发布授权后对 GHCR 镜像复跑 5 suites + A6 两用户链 |
 | e2e `/@id/` 开发态导入（新） | **fixed（P2.8）** | 15.4.1；P2.8：`window.__lubanE2E`（`VITE_E2E_HOOKS` 门控）+ 32 处替换 + app store hook；发布源镜像全量 49/49 | web/e2e | 保持生产 hook off；见 §15.8 |
+| 重载后 RPC 走 BentleyCloud HTTP（`/LubanCAD` 未代理→404）→ 空列表/双默认 scope（新，P2.8 实测） | **fixed（2026-11-01）** | `IpcApp.isValid` 早于 `IpcSession.start`；连接门改为两者俱备（public `fbf59a4ca8`）。实测 reload 的 acquire/list/queryRows 曾 POST 到 SPA origin 404，resolver 误建第二个默认 Part Studio | viewer/web | 保持 IpcSession 门；不得用 `/LubanCAD` 代理掩盖该竞态 |
 | 发布镜像全量轮 crash-class（1 `Target crashed` + 7 `worker 0xC0000142`） | **not reproduced（P2.8）** | 干净重启 + hook 镜像全量 **49/49，0 crash**；P2.7 归档保留为历史 | web/e2e | 保持观察；发布门槛以新全量证据为准 |
 | reload b-model `waitEditorReady` 失败（曾目视 `Invalid iModelToken` 横幅，原始 artifact 未保留） | **fixed（P2.8）** | 15.4.2/§15.8：briefcase open 后 `RpcManager.setIModel` + `usePartStudios` 有界重试 + 动态 JWT；镜像 b-model 全链通过（原始 one-off artifact 仍未归档） | web/viewer | 保持回归用例；发布前重建产物 |
 | MS 429 不记录（F2） | **fixed（P2.8 残项清理）** | 每 IP/窗口首次 429 `logger.warn`（method/url/max/window/retryAfter）+ security test；配额证据不再只依赖客户端状态码 | backend | 保持 warn-once 防刷屏 |
@@ -895,8 +897,8 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | editor backend lint 既有 6 errors | **fixed（P2.8 残项清理）** | 未用 import 清理；deprecated `iModel.elements.deleteElement` → 显式 `this.txn.deleteElement`（insert/update 已 beginEditing）；editor backend lint 0 | editor | 保持 lint 门 |
 | F4/F7 最终轮命令/env/探针/dist 证据归档 | **fixed（P2.7）** | 本记录 15.2/15.3 + `evidence-p27/environment.txt` | release | 保持随每轮发布归档 |
 | 登录视觉 origin 相关（新） | **fixed（P2.8）** | mask `.signin-hero__token-value`（#f5f5f5）+ 重钉 `login-light.png`；:5301 全量通过 | e2e | 保持基址无关基线 |
-| MS 产物需随命名/P2.8 重建（`LubanRpcInterface`/`luban-ipc`） | **release prerequisite** | P2.7 `backend-20261031-p27` 仍实现旧 interfaceName；本地 MS 以源码构建验证；新产物未建 | release/backend | 重建 MS 产物并重新归档 hash/provenance；不得用旧产物发布 |
-| 生产镜像必须 hook-off | **release prerequisite** | P2.8 全量使用 `-BModelEnabled true -E2EHooks true` 测试镜像（revision `b80bd24ff1c3`）；该镜像不是生产产物 | release/web | `rebuild-web.ps1 -BModelEnabled true`（不带 `-E2EHooks`）重建生产镜像 |
+| MS 产物需随命名/P2.8 重建（`LubanRpcInterface`/`luban-ipc`） | **local done（2026-11-01，未发布）** | 最终本地产物 `backend-20261101-p28b`（178,577,902 B，SHA256 `15C7FB47…B9AA3EA35E157A`；RPC 1.18.0；native 5.15.5 / `fallback=True`）已安装并以产物模式运行；p27 旧名不兼容、p28 临时版（手工修）被取代 | release/backend | 发布时经 `build-ms-dist.ps1` 重建并归档 hash/provenance |
+| 生产镜像必须 hook-off | **local done（2026-11-01，未发布）** | 最终本地镜像 revision `fbf59a4ca874`（B on、E2E hooks off）已部署；`verify-stack` 17/17；测试观测镜像保留 `b80bd24ff1c3`；发布推送未授权 | release/web | 发布时 `rebuild-web.ps1 -BModelEnabled true`（不带 `-E2EHooks`） |
 | Azurite tile cache 404 console 噪声 | **test exemption + backlog** | `collectConsoleErrors` 精确豁免 `/azurite/.../tiles/` 的 404（预期 miss→native 回退）；其它 404 仍红 | web/e2e | 可选消除 console 噪声；不得扩大豁免范围 |
 | 测试专用限流覆盖（P2.8 最终轮 2000） | **disclosed test-only** | 最终镜像全量 `LUBAN_RPC_RATE_LIMIT_MAX=2000`（window 900000）；生产默认 100/15min 已恢复（MS health 200） | test/backend | 全量发布门沿用覆盖并披露；默认值不改 |
 | M2 自动 429 等待未实现 | **backlog** | 全量仍需 env 覆盖；默认 100/15min 不适合长套件 | web/backend | 客户端 429 有界等待 + 干净窗口策略 |
@@ -990,19 +992,20 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   新增 `@types/node` devDependency。验证：tsc 0、lint 0、web build 0、聚焦源码 e2e
   （setup + documents）**2 passed**。
 - **本地发布前置（2026-11-01，未发布）**：
-  - MS 产物 `backend-20261101-p28`（178,560,782 B，SHA256
-    `B2769D3867865ADD9FC12841E89C52D0976E3F103106F25BDE86BA73C9B5F2EE`；
+  - 最终 MS 产物 `backend-20261101-p28b`（178,577,902 B，SHA256
+    `15C7FB47E8F8A0523A6E1C6A980E4C7FFD6829E407F550065DB9AA3EA35E157A`；
     RPC 契约 1.18.0；native provenance 5.15.5 / head `d29cf7e49fc2` /
-    `fallback=True`）已安装 `dist-backend/` 并以**产物模式**重启。日志
-    `LubanIpcHandler registered on channel: luban-ipc`、`LubanRpcInterface registered`、
-    `LubanFeatureRpcInterface registered`、`RPC rate limit: 100 req / 900000 ms per IP
-    (production default)`；`/rpc/metadata` 仅新名（无 OpenCloud）。旧 p27 产物保留为历史但
-    **不兼容**。
-  - 生产 web 镜像（B on、E2E hooks off）revision `aaef49627604`，`tiangong-kaiwu-web:latest`
-    已部署且健康；测试观测镜像保留为 `tiangong-kaiwu-web:e2e-hooks-b80bd24ff1c3`。
-    `verify-stack.ps1` **17/17**（Step D native fallback；Step E revision aaef496）。
-  - 新产物下的聚焦源码 e2e `A 旧文档只读`（setup + 1）**2 passed**（1.0m）。
+    `fallback=True`）已安装 `dist-backend/` 并以**产物模式**运行。日志
+    `luban-ipc` / `LubanRpcInterface` / `LubanFeatureRpcInterface` / 生产默认限流；
+    `/rpc/metadata` 仅新名（无 OpenCloud）。打包修复：顶层 flatbuffers 1.12 +
+    apache-arrow 内嵌 25（backend `e1c2e92`/`2392636`/`d52a006`，脚本运行期断言）；
+    p28 临时版（手工修）与 p27 旧名产物均被取代/不兼容。
+  - 生产 web 镜像（B on、E2E hooks off）revision `fbf59a4ca874` 已部署且健康；测试观测
+    镜像保留 `tiangong-kaiwu-web:e2e-hooks-b80bd24ff1c3`。`verify-stack.ps1` **17/17**
+    （Step D native fallback；Step E revision fbf59a4ca874）。
+  - 新产物 + 新 web 源下 b-model 全链 e2e（setup + main）**2 passed**（main **46.2s**），
+    覆盖 reload/pagehide 租约释放、IpcSession 就绪门与 flatbuffers 几何写入。
   - 历史文档旧名扫描：除删除记录/迁移记录/上游检查单与持久化 schema 例外外，无活跃指引；
     该项关闭。
-- **仍待**：发布镜像 hub e2e 与 A6（未授权）；30s 写租约 UX；baseline 传播竞态；
-  A all-model 视觉与 damaged 半图夹具；tile cache 404 console 噪声；EC schema 迁移。
+- **仍待**：发布镜像 hub e2e 与 A6（未授权）；baseline 传播竞态；A all-model 视觉与
+  damaged 半图夹具；tile cache 404 console 噪声；EC schema 迁移。
