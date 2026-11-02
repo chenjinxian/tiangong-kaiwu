@@ -255,9 +255,11 @@ if ($IncludeTypings) {
     }
   }
 
-  # drift 报告（docs/，按日覆盖同名文件）
+  # drift 报告（私有原生仓 docs/reference/typings-drift，按日覆盖同名文件）
   $reportDate = Get-Date -Format 'yyyy-MM-dd'
-  $reportPath = Join-Path $RepoRoot "docs\native-typings-drift-$reportDate.md"
+  $reportDir = Join-Path $NativeRepo "docs\reference\typings-drift"
+  New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
+  $reportPath = Join-Path $reportDir "native-typings-drift-$reportDate.md"
   $drifted  = @($driftFindings | Where-Object { $_.Status -eq 'drift' })
   $identCnt = @($driftFindings | Where-Object { $_.Status -eq 'identical' }).Count
   $lines = @()

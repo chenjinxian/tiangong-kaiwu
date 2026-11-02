@@ -31,14 +31,11 @@
 | [iTwin.js-Tools-Complete-Reference.md](./iTwin.js-Tools-Complete-Reference.md) | iTwin.js 工具完整参考 |
 | [ITWINJS_CORE_MODIFICATIONS.md](./ITWINJS_CORE_MODIFICATIONS.md) | iTwin.js Core 修改记录 |
 | [web-realstack-probes.md](./web-realstack-probes.md) | 前端真实栈探针标准动作（发布前必跑） |
-| [native-typings-drift-2026-10-11.md](./native-typings-drift-2026-10-11.md) | 原生库 typings 漂移记录（历史记录；后续同名报告为本地忽略产物，不纳入索引） |
 
 ### 部署与运维
 | 文档 | 说明 |
 |------|------|
 | [Deployment-Guide.md](./Deployment-Guide.md) | 部署指南 |
-| [NATIVE-REBUILD.md](./NATIVE-REBUILD.md) | Native Delivery 从 HEAD 重建 runbook（发布 provenance 硬门禁） |
-| [IMODEL-NATIVE-BUILD-ANALYSIS.md](./IMODEL-NATIVE-BUILD-ANALYSIS.md) | imodel-native 原始 bmake/MKE 与 CMake 移植的构建链分析、第三方依赖清单与干净离线构建方案 |
 | [PORTS.md](./PORTS.md) | 宿主端口登记（单一事实源） |
 | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) | 上游同步指南 |
 | [WEBHOOK_CONFIG.md](./WEBHOOK_CONFIG.md) | Webhook 密钥配置说明 |

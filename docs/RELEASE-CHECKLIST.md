@@ -1,7 +1,7 @@
 # 发布检查清单（后端产物 + 前后端镜像）
 
 本清单是发布门的**操作真源**。自动化前置：`scripts/release-gate.ps1` 校验产物
-hash / native provenance / 限流姿态 / web·hub 镜像标签，并可串联
+hash / 限流姿态 / web·hub 镜像标签，并可串联
 `verify-stack.ps1`。发布记录仍写入 ADR 与 `docs/RELEASE-backend-*.md`。
 
 ## 1. 源码与版本对齐
@@ -18,14 +18,6 @@ hash / native provenance / 限流姿态 / web·hub 镜像标签，并可串联
 - [ ] shared build：`cd luban-cad/packages/shared && corepack pnpm@10 build`。
 - [ ] MS 产物：backend 私有仓 `scripts/build-ms-dist.ps1` 重建；禁止手工修补
       产物或复用旧 tag。
-- [ ] **native provenance 硬检查**：产物
-      `node_modules/@bentley/imodeljs-native/native-provenance.json` 必须存在。
-      - `fallbackRequired=false` 为干净发布；
-      - `fallbackRequired=true`（store devbuild 早于 imodel-native HEAD）时，构建
-        必须显式 `-AllowStoreNativeFallback`，发布记录写明 version/head/fallback；
-      - **`using dev build from …` 横幅不是版本/新鲜度证明**，不得作为通过依据；
-        完整重建步骤见 [`docs/NATIVE-REBUILD.md`](./NATIVE-REBUILD.md)，`release-gate.ps1`
-        缺省对 `fallbackRequired=true` FAIL。
 - [ ] web 生产镜像：`powershell -File scripts/rebuild-web.ps1 -BModelEnabled true`
       （**不带** `-E2EHooks`）；镜像 LABEL `b-model-enabled=true`。
 - [ ] hub / webhook-agent 镜像来自 GHCR 同 tag；hub 不得挂宿主 `dist`（verify-stack

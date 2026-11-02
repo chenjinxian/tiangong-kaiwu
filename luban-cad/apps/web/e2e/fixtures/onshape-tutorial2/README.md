@@ -110,12 +110,10 @@ Known deviations / notes:
   (tangent continuity + exactly two incident endpoints), matching Onshape's chain
   selection: the base-corner triple point stops the Tutorial 2 chain at three members.
 - Native runtime executes the four-edge blend. As of 2026-11-02 the Delivery was
-  rebuilt from imodel-native HEAD in offline bundle mode, deployed with
-  `replace-imodeljs-native.ps1`, and the MS artifact reports
-  `deliveryPresent=true / fallbackRequired=false / freshness=store-at-or-after-head`
-  (see `docs/NATIVE-REBUILD.md`). The strict e2e was re-run on that artifact and
-  passed (2 tests, ~2.4 min); this remains development acceptance; a release-gate
-  pass still requires the usual publication checks.
+  rebuilt from the private native engine HEAD in offline bundle mode and deployed;
+  the strict e2e was re-run on that artifact and passed (2 tests, ~2.4 min). This
+  remains development acceptance; a release-gate pass still requires the usual
+  publication checks.
 
 ## Tool-level regression (2026-11-02)
 

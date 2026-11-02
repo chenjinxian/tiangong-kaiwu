@@ -6,7 +6,7 @@
 > 命名家族(2026-09-23 终版):平台 **天工开物** / 产品 **鲁班CAD(LubanCAD)** / 几何内核 **真形(TrueForm)** / 约束求解器 **绳墨(ShengMo)**。
 > 产品口吻:*说出要什么,鲁班给你真形。*
 >
-> **公开边界**：本仓、`luban-cad` 与 [DanQing](https://github.com/chenjinxian/DanQing) 公开；`luban-backend`、`imodelhub-services`、`imodel-native`、真形/绳墨为私有仓。公开仓可直接体验、提 Issue 和参与前端/渲染层开发。
+> **公开边界**：本仓、`luban-cad` 与 [DanQing](https://github.com/chenjinxian/DanQing) 公开；其余后端、原生与几何/约束求解私有仓不在本仓展开。公开仓可直接体验、提 Issue 和参与前端/渲染层开发。
 
 ---
 
@@ -156,7 +156,6 @@ e2e 基建说明:种子模型由测试自管(每轮自动重置);登录走会话
 | fetch-backend 下载超时/EOF | 需代理:`$env:HTTPS_PROXY='http://127.0.0.1:7897'`(或你的代理)后重跑 |
 | 登录/注册 429 | MS 登录限流 100 次/15 分钟——重启 MS 即清 |
 | 编辑器卡「初始化编辑器...」 | 已知 WS 握手抖动,刷新页面即恢复 |
-| MS 日志无 "using dev build" 横幅 | 原生库回退官方包,重跑 `scripts/replace-imodeljs-native.ps1`(rush 重装后 hook 自动跑) |
 | verify-stack 有红 | 按步骤行内的提示(A 健康/B 数据链/C WS/D 横幅)逐项排 |
 
 ## 文档索引

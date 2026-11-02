@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/` | 平台文档（UPSTREAM_SYNC.md / ITWINJS_CORE_MODIFICATIONS.md 等） | — |
 | `scripts/sync-from-upstream.sh` | 上游一键同步脚本 | bash |
 
-**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :5400 + Azurite :10500 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、imodel-native（iModel 原生引擎）。
+**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :5400 + Azurite :10500 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）。
 
 ## 核心架构模型：link: 源码消费
 
@@ -64,25 +64,6 @@ powershell -File scripts/verify-stack.ps1            # 4) 全栈验收（health�
 # 后端源码开发（私有仓检出者）：cd <luban-backend>\modeling-server && pnpm dev / test / lint（见该仓 README）
 powershell -File scripts/start-ms-host.ps1 -Source D:\Github\luban-backend\modeling-server   # 源码模式（install/build 全流程）
 ```
-
-### 原生库替换（本地 imodeljs.node）
-
-```bash
-powershell -File scripts/replace-imodeljs-native.ps1            # release 为默认；-Config debug 切换
-```
-
-- 用 imodel-native（`D:\Github\imodel-native`，分支 `dev/source-build`）的 `out/cmake/win-x64-<config>/Delivery/` 覆盖 node_modules 中 `@bentley/imodeljs-native` 的平台二进制 + 写 `devbuild.json`；TS wrapper/typings 仍来自 npm（`api_package/ts` 零改动）。
-- **作用范围（后端私有化后）**：脚本保留在本仓且不变，但其内置的 `modeling-server`/`webhook-agent` 安装现场模式在目录缺失时自然 no-op；要替换私有仓检出的后端 node_modules，用 `-ScanRoots D:\Github\luban-backend\modeling-server -ScanRoots D:\Github\luban-backend\webhook-agent`。
-- **硬门槛**：imodel-native HEAD 必须包含 itwinjs-core 所需版本 tag（`git merge-base --is-ancestor v<版本> HEAD`）；不满足先跑该仓 `sync-from-upstream.ps1` + CMake 重编译。
-- **自动接线（2026-10-11 起）**：`itwinjs-core/rush.json` 的 `eventHooks.postRushInstall` 会在
-  每次 `rush update`/`rush install` 后自动执行 `scripts/replace-imodeljs-native-postinstall.cjs`
-  （非 Windows 优雅跳过；失败只打黄色警告不阻断 install，可用 `--ignore-hooks` 跳过）。
-  该 hook 只覆盖 rush 重装会还原的现场；**luban-cad / 后端私有仓的 `pnpm install` 重装后仍需手动重跑**
-  `powershell -File scripts/replace-imodeljs-native.ps1`（可加 `-ScanRoots` 指私有仓现场）。
-  任何情况下，后端启动无 "using dev build from …" banner 即已回退官方二进制。
-  （eventHooks 属 fork 本地改动：上游同步冲突取上游后须重新追加，登记于
-  `docs/ITWINJS_CORE_MODIFICATIONS.md` §5。）
-- itwinjs-core 上游同步若提升了原生库版本：imodel-native 跟进同步 → 重编译 → 重跑本脚本（`scripts/sync-from-upstream.sh` 尾部会自动检测并提示）。
 
 ### 单测试 / 单 e2e
 

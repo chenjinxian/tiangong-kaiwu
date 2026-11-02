@@ -24,26 +24,10 @@
 bash scripts/sync-from-upstream.sh   # 于仓库根目录执行
 ```
 
-## imodel-native 联动（本地 imodeljs.node 替换）
-
-`scripts/sync-from-upstream.sh` 尾部会自动比对 `core/backend/package.json` 中
-`@bentley/imodeljs-native` 版本；变化时须按序完成（`scripts/replace-imodeljs-native.ps1`
-的硬门槛会强制校验第 1 步）：
-
-1. imodel-native 仓（`D:\Github\imodel-native`，分支 `dev/source-build`）跑 `.\sync-from-upstream.ps1`（冲突手工解）
-2. `cmake --preset win-x64-release && cmake --build --preset win-x64-release`（按需加 debug）
-3. 本仓 `rush update` → 按需 `rush build` → `powershell -File scripts/replace-imodeljs-native.ps1`
-
-任何 `rush update` / `pnpm install` 重装 node_modules 后，替换会被还原——itwinjs-core rush 现场
-已由 `rush.json` eventHooks.postRushInstall 自动重跑（2026-10-11 接线，fork 本地改动，
-同步冲突取上游后重新追加，见 docs/ITWINJS_CORE_MODIFICATIONS.md §5）；其余现场（luban-cad/
-后端私有仓）需手动重跑。后端启动无 "using dev build from …" banner 即已回退官方二进制。
-（替换方案历史设计原文已删除，索引见 `docs/HISTORY.md`。）
 REST 契约以 `docs/api-specs/`（官方 iTwin Platform OpenAPI 规格）为对照基准；SDK 面
 必须官方形状，自研扩展路由须挂在官方资源下并显式标注。
 
-统一部署（根 docker-compose.yml）：重建 itwinjs-core 后需 ①重跑
-`scripts/replace-imodeljs-native.ps1`（宿主 MS 原生库）②`docker compose build web`
+统一部署（根 docker-compose.yml）：重建 itwinjs-core 后需 `docker compose build web`
 （web 镜像按本仓源码构建；MS 为宿主进程，非 compose 服务）。
 
 ## 手动流程
