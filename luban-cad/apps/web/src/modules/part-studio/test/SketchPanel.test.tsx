@@ -376,6 +376,48 @@ describe('M6-b T5：dimensionCandidate 值确认桥（尺寸不直接提交铁�
   });
 });
 
+describe('v1.19：offsetCandidate 距离确认桥（偏移距精确输入，Onshape 偏移对话框同构）', () => {
+  it('收候选 → 表单预填实测距离；确认把输入值交给工具 commit（面板不自行落库）', async () => {
+    const commit = vi.fn(async (_distance: number): Promise<string | undefined> => undefined);
+    renderPanel(makeSketchSystem());
+    act(() => {
+      sketchToolEvents.emit('offsetCandidate', { measuredDistance: 17.3, commit });
+    });
+    const input = screen.getByTestId('sketch-panel-offset-input') as HTMLInputElement;
+    expect(input.value).toBe('17.3');
+    fireEvent.change(input, { target: { value: '19.05' } });
+    fireEvent.click(screen.getByTestId('sketch-panel-offset-confirm'));
+    await waitFor(() => expect(commit).toHaveBeenCalledWith(19.05));
+    await waitFor(() => expect(screen.queryByTestId('sketch-panel-offset-form')).toBeNull());
+  });
+
+  it('commit 返回拒收文案 → 表单保持、错误透出', async () => {
+    const commit = vi.fn(async (): Promise<string | undefined> => 'dof mismatch');
+    renderPanel(makeSketchSystem());
+    act(() => {
+      sketchToolEvents.emit('offsetCandidate', { measuredDistance: 17.3, commit });
+    });
+    fireEvent.click(screen.getByTestId('sketch-panel-offset-confirm'));
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalled());
+    expect(screen.getByTestId('sketch-panel-offset-form')).toBeDefined();
+  });
+
+  it('非法值不调用 commit；取消丢弃候选', async () => {
+    const commit = vi.fn(async (): Promise<string | undefined> => undefined);
+    renderPanel(makeSketchSystem());
+    act(() => {
+      sketchToolEvents.emit('offsetCandidate', { measuredDistance: 17.3, commit });
+    });
+    fireEvent.change(screen.getByTestId('sketch-panel-offset-input'), { target: { value: '0' } });
+    fireEvent.click(screen.getByTestId('sketch-panel-offset-confirm'));
+    await act(async () => { /* 微任务排空 */ });
+    expect(commit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('sketch-panel-offset-cancel'));
+    expect(screen.queryByTestId('sketch-panel-offset-form')).toBeNull();
+    expect(commit).not.toHaveBeenCalled();
+  });
+});
+
 describe('M6-b T5：级联删除', () => {
   it('纯函数：删点 → 拥有线级联 → 线另一端点传递死 → refs 命中约束级联（焊点另一侧存活）', () => {
     const next = computeCascadeDelete(

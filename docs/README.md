@@ -23,6 +23,7 @@
 | [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |
 | [baseline-reliability-design.md](./baseline-reliability-design.md) | Baseline 可靠性设计 |
 | [IMODEL_AUTO_RECOVERY_DESIGN.md](./IMODEL_AUTO_RECOVERY_DESIGN.md) | iModel 初始化失败自动修复设计 |
+| [UI-ONSHAPE-PARITY-2026-11-02.md](./UI-ONSHAPE-PARITY-2026-11-02.md) | Onshape UI 对齐（ViewCube/默认几何/显示设置/草图相机/Tutorial2 四短竖棱圆角） |
 
 ### 技术参考
 | 文档 | 说明 |
@@ -37,6 +38,7 @@
 |------|------|
 | [Deployment-Guide.md](./Deployment-Guide.md) | 部署指南 |
 | [NATIVE-REBUILD.md](./NATIVE-REBUILD.md) | Native Delivery 从 HEAD 重建 runbook（发布 provenance 硬门禁） |
+| [IMODEL-NATIVE-BUILD-ANALYSIS.md](./IMODEL-NATIVE-BUILD-ANALYSIS.md) | imodel-native 原始 bmake/MKE 与 CMake 移植的构建链分析、第三方依赖清单与干净离线构建方案 |
 | [PORTS.md](./PORTS.md) | 宿主端口登记（单一事实源） |
 | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) | 上游同步指南 |
 | [WEBHOOK_CONFIG.md](./WEBHOOK_CONFIG.md) | Webhook 密钥配置说明 |

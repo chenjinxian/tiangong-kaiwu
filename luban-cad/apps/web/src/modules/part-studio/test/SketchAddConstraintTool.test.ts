@@ -212,7 +212,7 @@ describe('M6-b T5：约束 6 工具 toolId 与注册接线', () => {
     expect(EqualAddTool.toolId).toBe('Sketch.Constraint.Equal');
   });
 
-  it('registerSketchConstraintTools 幂等：6 工具按序各注册一次（二次调用 no-op）', () => {
+  it('registerSketchConstraintTools 幂等：9 工具按序各注册一次（二次调用 no-op）', () => {
     const before = registerMock.mock.calls.length;
     registerSketchConstraintTools();
     registerSketchConstraintTools(); // 幂等：模块 flag 置位后 no-op
@@ -224,6 +224,9 @@ describe('M6-b T5：约束 6 工具 toolId 与注册接线', () => {
       'Sketch.Constraint.Parallel',
       'Sketch.Constraint.Perpendicular',
       'Sketch.Constraint.Equal',
+      'Sketch.Constraint.Midpoint',
+      'Sketch.Constraint.Tangent',
+      'Sketch.Constraint.Fixed',
     ]);
   });
 });

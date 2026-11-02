@@ -54,7 +54,7 @@ import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { nextConstraintId } from '../tools/sketch/sketch-constraint-logic.js';
 import { sketchToolEvents } from '../tools/sketch/sketch-tool-events.js';
-import type { SketchDimensionCandidate } from '../tools/sketch/sketch-tool-events.js';
+import type { SketchDimensionCandidate, SketchOffsetCandidate } from '../tools/sketch/sketch-tool-events.js';
 import './SketchPanel.css';
 
 export interface SketchPanelProps {
@@ -87,39 +87,49 @@ export function computeCascadeDelete(
   while (changed) {
     changed = false;
     for (const e of entities) {
+      // v1.19：内联端点/圆心不是独立实体（无 id），不参与级联；只有数字 ref 才拥有实体。
+      const owned = e.kind === 'line' ? [e.p1, e.p2] : e.kind === 'circle' ? [e.center] : [];
       if (removed.has(e.id)) {
-        const owned = e.kind === 'line' ? [e.p1, e.p2] : e.kind === 'circle' ? [e.center] : [];
         for (const id of owned) {
-          if (!removed.has(id)) {
+          if (typeof id === 'number' && !removed.has(id)) {
             removed.add(id);
             changed = true;
           }
         }
-      } else {
-        const refs = e.kind === 'line' ? [e.p1, e.p2] : e.kind === 'circle' ? [e.center] : [];
-        if (refs.some((r) => removed.has(r))) {
-          removed.add(e.id);
-          changed = true;
-        }
+      } else if (owned.some((r) => typeof r === 'number' && removed.has(r))) {
+        removed.add(e.id);
+        changed = true;
       }
     }
   }
+  const refTarget = (r: SketchConstraintDto['refs'][number]): number | undefined => {
+    if (typeof r === 'number') return r;
+    return 'origin' in r ? undefined : r.entity;
+  };
   return {
     entities: entities.filter((e) => !removed.has(e.id)),
-    constraints: constraints.filter((c) => !c.refs.some((r) => removed.has(r))),
+    constraints: constraints.filter((c) => !c.refs.some((r) => {
+      const id = refTarget(r);
+      return id !== undefined && removed.has(id);
+    })),
   };
 }
 
-/** 实体清单标签：点 `#id (x, y)` / 线 `#id (#p1→#p2)` / 圆·弧 `#id (r=…)`（解算值）。 */
+/** 实体清单标签：点 `#id (x, y)` / 线 `#id (#p1→#p2)` / 圆·弧 `#id (r=…)` / 样条（解算值）。
+ * v1.19 内联端点/圆心无实体 id，按坐标显示（不伪造 #id）。 */
 function entityLabel(e: SketchEntityDto): string {
+  const endpoint = (p: number | { x: number; y: number }): string =>
+    typeof p === 'number' ? `#${p}` : `(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`;
   switch (e.kind) {
     case 'point':
       return `#${e.id} (${e.x?.toFixed(2) ?? '?'}, ${e.y?.toFixed(2) ?? '?'})`;
     case 'line':
-      return `#${e.id} (#${e.p1}→#${e.p2})`;
+      return `#${e.id} (${endpoint(e.p1)}→${endpoint(e.p2)})`;
     case 'circle':
     case 'arc':
       return `#${e.id} (r=${e.radius?.toFixed(2) ?? '?'})`;
+    case 'spline':
+      return `#${e.id} (spline)`;
   }
 }
 
@@ -145,6 +155,12 @@ interface PendingDimension extends SketchDimensionCandidate {
   value: string;
 }
 
+/** v1.19 偏移距确认候选（预填光标实测距；确认值交回工具构建草稿）。 */
+interface PendingOffset {
+  candidate: SketchOffsetCandidate;
+  value: string;
+}
+
 type PanelTab = 'elements' | 'constraints' | 'dimensions';
 
 /** 草图模式面板（挂载位/差异裁决见文件头）。 */
@@ -163,6 +179,8 @@ export function SketchPanel({ sketchSystem }: SketchPanelProps): React.JSX.Eleme
   const [editSubmitting, setEditSubmitting] = useState(false);
   /** dimensionCandidate 值确认桥表单（工具满槽 → 面板收值提交）。 */
   const [pendingDimension, setPendingDimension] = useState<PendingDimension | undefined>(undefined);
+  /** v1.19 offsetCandidate 距离确认表单（光标定侧、输入定精确距 → 交回工具提交）。 */
+  const [pendingOffset, setPendingOffset] = useState<PendingOffset | undefined>(undefined);
 
   const { activeSketch } = sketchSystem;
 
@@ -175,9 +193,18 @@ export function SketchPanel({ sketchSystem }: SketchPanelProps): React.JSX.Eleme
     });
   }, []);
 
+  // 偏移距确认桥订阅：光标实测距预填（用户可改成精确设计值，Onshape 偏移对话框同构）。
+  useEffect(() => {
+    return sketchToolEvents.on('offsetCandidate', (candidate) => {
+      setPendingOffset({ candidate, value: String(candidate.measuredDistance) });
+      setActiveTab('dimensions');
+    });
+  }, []);
+
   // 草图切换/退出时清空尺寸编辑态。
   useEffect(() => {
     setPendingDimension(undefined);
+    setPendingOffset(undefined);
     setEditingDimensionId(null);
   }, [activeSketchId]);
 
@@ -266,12 +293,30 @@ export function SketchPanel({ sketchSystem }: SketchPanelProps): React.JSX.Eleme
     setPendingDimension(undefined);
   }, [pendingDimension, sketchSystem, t]);
 
+  /** 偏移距确认（面板只收值；草稿构建/提交/退出工具归 offset 工具 commit 回调）。 */
+  const confirmPendingOffset = useCallback(async () => {
+    const pending = pendingOffset;
+    if (!pending) return;
+    const value = Number(pending.value);
+    if (!Number.isFinite(value) || value <= 0) {
+      notifyError(t('partStudio.sketch.panel.errors.invalidDimension'));
+      return;
+    }
+    const error = await pending.candidate.commit(value);
+    if (error) {
+      // 拒收文本原样透出；表单保持——可改值再提交或取消。
+      notifyError(error);
+      return;
+    }
+    setPendingOffset(undefined);
+  }, [pendingOffset, t]);
+
   const failedIds = new Set([
     ...(activeSketch?.solve.failedConstraintIds ?? []),
     ...(activeSketch?.solve.conflictingRank ?? []),
   ]);
   const dimensionConstraints =
-    activeSketch?.constraints.filter((c) => c.kind === 'distance' || c.kind === 'radius') ?? [];
+    activeSketch?.constraints.filter((c) => c.kind === 'distance' || c.kind === 'radius' || c.kind === 'length') ?? [];
   const badge = activeSketch ? solveBadgeState(activeSketch.solve, label) : undefined;
 
   return (
@@ -396,7 +441,13 @@ export function SketchPanel({ sketchSystem }: SketchPanelProps): React.JSX.Eleme
                   data-testid={`sketch-panel-constraint-${c.id}`}
                 >
                   <span className="part-studio-sketch-panel__summary">
-                    {`#${c.id} ${label(`partStudio.sketch.vocabulary.constraintKinds.${c.kind}`)} [${c.refs.join(',')}]`}
+                    {`#${c.id} ${label(`partStudio.sketch.vocabulary.constraintKinds.${c.kind}`)} [${c.refs.map((r) => {
+                      if (typeof r === 'number') return String(r);
+                      if ('origin' in r) return 'origin';
+                      if (r.part === 'point') return `${r.entity}.point[${r.index}]`;
+                      if (r.part === 'handle') return `${r.entity}.handle[${r.index}]`;
+                      return `${r.entity}.${r.part}`;
+                    }).join(',')}]`}
                   </span>
                   <button
                     type="button"
@@ -417,6 +468,44 @@ export function SketchPanel({ sketchSystem }: SketchPanelProps): React.JSX.Eleme
         {/* 尺寸清单（候选值确认 + 现有尺寸内联编辑） */}
         {activeSketch && activeTab === 'dimensions' && (
           <div data-testid="sketch-panel-dimensions">
+            {pendingOffset && (
+              <div className="part-studio-sketch-panel__candidate" data-testid="sketch-panel-offset-form">
+                <p className="part-studio-sketch-panel__section-title">
+                  {t('partStudio.sketch.panel.confirmOffsetTitle')}
+                </p>
+                <input
+                  className="part-studio-sketch-panel__input"
+                  type="number"
+                  value={pendingOffset.value}
+                  placeholder={t('partStudio.sketch.panel.dimensionPlaceholder')}
+                  aria-label={t('partStudio.sketch.panel.confirmOffsetTitle')}
+                  autoFocus
+                  data-testid="sketch-panel-offset-input"
+                  onChange={(e) => setPendingOffset({ ...pendingOffset, value: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void confirmPendingOffset();
+                  }}
+                />
+                <div className="part-studio-sketch-panel__candidate-actions">
+                  <button
+                    type="button"
+                    className="part-studio-sketch-panel__confirm"
+                    data-testid="sketch-panel-offset-confirm"
+                    onClick={() => void confirmPendingOffset()}
+                  >
+                    {t('partStudio.sketch.panel.confirm')}
+                  </button>
+                  <button
+                    type="button"
+                    className="part-studio-sketch-panel__cancel"
+                    data-testid="sketch-panel-offset-cancel"
+                    onClick={() => setPendingOffset(undefined)}
+                  >
+                    {t('partStudio.sketch.panel.cancel')}
+                  </button>
+                </div>
+              </div>
+            )}
             {pendingDimension && (
               <div className="part-studio-sketch-panel__candidate" data-testid="sketch-panel-candidate-form">
                 <p className="part-studio-sketch-panel__section-title">
@@ -467,7 +556,9 @@ export function SketchPanel({ sketchSystem }: SketchPanelProps): React.JSX.Eleme
                   <span className="part-studio-sketch-panel__kind">
                     {t(c.kind === 'distance'
                       ? 'partStudio.sketch.vocabulary.dimensionKinds.distance'
-                      : 'partStudio.sketch.vocabulary.dimensionKinds.radius')}
+                      : c.kind === 'length'
+                        ? 'partStudio.sketch.vocabulary.dimensionKinds.length'
+                        : 'partStudio.sketch.vocabulary.dimensionKinds.radius')}
                   </span>
                   {editingDimensionId === c.id ? (
                     <input

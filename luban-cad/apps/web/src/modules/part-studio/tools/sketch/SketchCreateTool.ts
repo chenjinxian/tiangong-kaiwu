@@ -55,16 +55,17 @@ import {
   PrimitiveTool,
 } from '@itwin/core-frontend';
 import type { GraphicBuilder } from '@itwin/core-frontend';
-import { Arc3d, Point3d } from '@itwin/core-geometry';
+import { Arc3d, BezierCurve3d, Point3d } from '@itwin/core-geometry';
 import { ColorDef, LinePixels } from '@itwin/core-common';
 import i18next from 'i18next';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { sketchPlaneFrameFrom } from './sketch-plane.js';
+import { autoWeldConstraints } from './sketch-auto-weld.js';
 import type { SketchPlaneFrame, SketchPoint2 } from './sketch-plane.js';
 
-export type SketchCreateKind = 'line' | 'rectangle' | 'circle' | 'arc';
+export type SketchCreateKind = 'line' | 'rectangle' | 'circle' | 'arc' | 'spline';
 
 interface SketchShapeDraft {
   entities: SketchEntityDto[];
@@ -179,9 +180,15 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     }
 
     // 乐观提交（整体覆写语义）：既有实体/约束原样在前，草稿追加在后（M3-b 同构）。
+    // v1.19 自动重合：新端点落在既有端点坐标上 → 补结构化 coincident（Onshape
+    // 推断吸附同构；Tutorial 2 [14][16][18][45][46] 来源）。容差见模块头。
     const base = sketchSystem.activeSketch;
+    const welds = autoWeldConstraints(draft.entities, base?.entities ?? [], base?.constraints ?? [], {
+      startConstraintId: this._nextId,
+    });
+    this._nextId += welds.length;
     const entities = [...(base?.entities ?? []), ...draft.entities];
-    const constraints = [...(base?.constraints ?? []), ...draft.constraints];
+    const constraints = [...(base?.constraints ?? []), ...draft.constraints, ...welds];
     const result = await sketchSystem.applyUpdate(entities, constraints);
     if (!result.ok) {
       // 后端拒收零变更（库侧无写入）——本地回滚 = 丢弃草稿 + id 计数器复原；
@@ -291,7 +298,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
   }
 }
 
-/** 直线：2 点 → 2 point + 1 line。 */
+/** 直线（v1.19）：2 点 → 1 line（端点为内联隐式子元素，不膨胀可见实体计数）。 */
 export class SketchLineTool extends SketchCreateTool {
   public static override toolId = 'Sketch.Line';
   public static override iconSpec = 'icon-line';
@@ -310,15 +317,12 @@ export class SketchLineTool extends SketchCreateTool {
     if (!p1 || !p2) return undefined; // 点数不足（状态机保证 2 点，防御收窄）
     if (Math.hypot(p1.u - p2.u, p1.v - p2.v) < 1e-12) return undefined; // 零长度
 
-    const id1 = this.nextEntityId();
-    const id2 = this.nextEntityId();
     const idLine = this.nextEntityId();
     return {
-      entities: [
-        { kind: 'point', id: id1, x: p1.u, y: p1.v },
-        { kind: 'point', id: id2, x: p2.u, y: p2.v },
-        { kind: 'line', id: idLine, p1: id1, p2: id2 },
-      ],
+      entities: [{
+        kind: 'line', id: idLine,
+        p1: { x: p1.u, y: p1.v }, p2: { x: p2.u, y: p2.v },
+      }],
       constraints: [],
     };
   }
@@ -331,9 +335,11 @@ export class SketchLineTool extends SketchCreateTool {
 }
 
 /**
- * 拐角矩形：对角 2 点 → 8 point（每线独立端点）+ 4 line + 4 coincident 角点焊接
- * （M3-b/SketchFlow fixture 同构拓扑：焊接而非共享端点，与求解器契约一致）。
- * 角点在草图面局部 (u,v) 轴对齐。
+ * 中心矩形（v1.19，Onshape「center rectangle」同构）：对角 2 点 →
+ * 4 line（内联端点）+ 1 可见中心 point；自动关系：
+ * 4 角 coincident（结构化 start/end）+ 2 parallel + 1 perpendicular + 1 horizontal
+ * + 2 对角 midpoint。字面实体计数 5；Onshape 同款自动约束骨架（Tutorial 2 基底）。
+ * 角点在草图面局部 (u,v) 轴对齐（矩形工具 v1 无旋转）。
  */
 export class SketchRectangleTool extends SketchCreateTool {
   public static override toolId = 'Sketch.Rectangle';
@@ -354,37 +360,34 @@ export class SketchRectangleTool extends SketchCreateTool {
     const [a, b, c, d] = rectangleCorners(c1, c2);
     if (Math.abs(a.u - b.u) < 1e-12 || Math.abs(b.v - c.v) < 1e-12) return undefined; // 零宽/零高
 
-    // 角点序列（每线一对独立端点）：L1=AB L2=BC L3=CD L4=DA
-    // 元组解构（各位类型确定——noUncheckedIndexedAccess 下变量索引会加 undefined，解构不会）。
-    const ptIds: [number, number, number, number, number, number, number, number] = [
-      this.nextEntityId(), this.nextEntityId(), this.nextEntityId(), this.nextEntityId(),
+    // 角点序列：L1=AB（下） L2=BC（右） L3=CD（上） L4=DA（左）；端点为内联。
+    const [lAB, lBC, lCD, lDA] = [
       this.nextEntityId(), this.nextEntityId(), this.nextEntityId(), this.nextEntityId(),
     ];
-    const [pA1, pB1, pB2, pC1, pC2, pD1, pD2, pA2] = ptIds;
-    const lnIds: [number, number, number, number] = [
-      this.nextEntityId(), this.nextEntityId(), this.nextEntityId(), this.nextEntityId(),
-    ];
-    const [lAB, lBC, lCD, lDA] = lnIds;
-
+    const idCenter = this.nextEntityId();
+    const center = { x: (a.u + c.u) / 2, y: (a.v + c.v) / 2 };
     const entities: SketchEntityDto[] = [
-      { kind: 'point', id: pA1, x: a.u, y: a.v },
-      { kind: 'point', id: pB1, x: b.u, y: b.v },
-      { kind: 'point', id: pB2, x: b.u, y: b.v },
-      { kind: 'point', id: pC1, x: c.u, y: c.v },
-      { kind: 'point', id: pC2, x: c.u, y: c.v },
-      { kind: 'point', id: pD1, x: d.u, y: d.v },
-      { kind: 'point', id: pD2, x: d.u, y: d.v },
-      { kind: 'point', id: pA2, x: a.u, y: a.v },
-      { kind: 'line', id: lAB, p1: pA1, p2: pB1 },
-      { kind: 'line', id: lBC, p1: pB2, p2: pC1 },
-      { kind: 'line', id: lCD, p1: pC2, p2: pD1 },
-      { kind: 'line', id: lDA, p1: pD2, p2: pA2 },
+      { kind: 'line', id: lAB, p1: { x: a.u, y: a.v }, p2: { x: b.u, y: b.v } },
+      { kind: 'line', id: lBC, p1: { x: b.u, y: b.v }, p2: { x: c.u, y: c.v } },
+      { kind: 'line', id: lCD, p1: { x: c.u, y: c.v }, p2: { x: d.u, y: d.v } },
+      { kind: 'line', id: lDA, p1: { x: d.u, y: d.v }, p2: { x: a.u, y: a.v } },
+      { kind: 'point', id: idCenter, x: center.x, y: center.y },
     ];
     const constraints: SketchConstraintDto[] = [
-      { kind: 'coincident', id: this.nextEntityId(), refs: [pB1, pB2] }, // B 角
-      { kind: 'coincident', id: this.nextEntityId(), refs: [pC1, pC2] }, // C 角
-      { kind: 'coincident', id: this.nextEntityId(), refs: [pD1, pD2] }, // D 角
-      { kind: 'coincident', id: this.nextEntityId(), refs: [pA2, pA1] }, // A 角
+      // 4 角 coincident（结构化子实体引用，不占可见实体）
+      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lAB, part: 'end' }, { entity: lBC, part: 'start' }] },
+      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lBC, part: 'end' }, { entity: lCD, part: 'start' }] },
+      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lCD, part: 'end' }, { entity: lDA, part: 'start' }] },
+      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lDA, part: 'end' }, { entity: lAB, part: 'start' }] },
+      // 轴对齐骨架（Onshape 自动关系同构）
+      { kind: 'parallel', id: this.nextEntityId(), refs: [lAB, lCD] },
+      { kind: 'parallel', id: this.nextEntityId(), refs: [lBC, lDA] },
+      { kind: 'perpendicular', id: this.nextEntityId(), refs: [lAB, lBC] },
+      { kind: 'horizontal', id: this.nextEntityId(), refs: [lAB] },
+      // 中心点 = 两条对角线中点（Onshape center-point rectangle 自动关系）：
+      // 角序 a=L1.start, b=L2.start, c=L2.end, d=L3.end；对角线 a–c 与 b–d。
+      { kind: 'midpoint', id: this.nextEntityId(), refs: [idCenter, { entity: lAB, part: 'start' }, { entity: lBC, part: 'end' }] },
+      { kind: 'midpoint', id: this.nextEntityId(), refs: [idCenter, { entity: lBC, part: 'start' }, { entity: lCD, part: 'end' }] },
     ];
     return { entities, constraints };
   }
@@ -417,13 +420,9 @@ export class SketchCenterCircleTool extends SketchCreateTool {
     const radius = Math.hypot(center.u - edge.u, center.v - edge.v);
     if (radius < 1e-12) return undefined; // 零半径
 
-    const idCenter = this.nextEntityId();
     const idCircle = this.nextEntityId();
     return {
-      entities: [
-        { kind: 'point', id: idCenter, x: center.u, y: center.v },
-        { kind: 'circle', id: idCircle, center: idCenter, radius },
-      ],
+      entities: [{ kind: 'circle', id: idCircle, center: { x: center.u, y: center.v }, radius }],
       constraints: [],
     };
   }
@@ -464,20 +463,16 @@ export class SketchArc3PointTool extends SketchCreateTool {
     const arc = this._arcFrom3Points(start, end, onArc);
     if (!arc) return undefined; // 共线/任两点重合退化
 
-    const idCenter = this.nextEntityId();
     const idArc = this.nextEntityId();
     return {
-      entities: [
-        { kind: 'point', id: idCenter, x: arc.center.x, y: arc.center.y },
-        {
-          kind: 'arc',
-          id: idArc,
-          center: idCenter,
-          radius: arc.radius,
-          startAngle: arc.startAngle,
-          sweepAngle: arc.sweepAngle,
-        },
-      ],
+      entities: [{
+        kind: 'arc',
+        id: idArc,
+        center: { x: arc.center.x, y: arc.center.y },
+        radius: arc.radius,
+        startAngle: arc.startAngle,
+        sweepAngle: arc.sweepAngle,
+      }],
       constraints: [],
     };
   }
@@ -530,7 +525,83 @@ export class SketchArc3PointTool extends SketchCreateTool {
 }
 
 /**
- * 注册草图绘制 4 工具（M6-a T5；幂等——模块级 flag）。
+ * 精确三次贝塞尔样条（Tutorial 2 v1.19）：4 次确定性拾取——
+ * 起点 → 终点 → 起点控制点（P1）→ 终点控制点（P2）。
+ * 实体保持 1 条 spline（fitPoints 2 + controlPoints 4，与 Onshape 隐式子元素同计数）；
+ * 两条 fit↔endpoint 恒真 coincident 与 Onshape 自动关系同构（不占额外可见实体）。
+ * 与相邻曲线的 coincident/tangent 由约束工具补，不在创建时猜测。
+ */
+export class SketchSplineTool extends SketchCreateTool {
+  public static override toolId = 'Sketch.Spline';
+  public static override iconSpec = 'icon-spline';
+  protected readonly sketchKind = 'spline';
+  protected readonly requiredPoints = 4;
+  protected readonly promptKeys = [
+    'partStudio.sketch.create.spline.firstPrompt',
+    'partStudio.sketch.create.spline.secondPrompt',
+    'partStudio.sketch.create.spline.thirdPrompt',
+    'partStudio.sketch.create.spline.fourthPrompt',
+  ] as const;
+  protected readonly degenerateToastKey = 'partStudio.sketch.create.toasts.splineDegenerate';
+
+  protected createInstance(): SketchCreateTool { return new SketchSplineTool(); }
+
+  protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
+    const [p0, p3, c1, c2] = points;
+    if (!p0 || !p3 || !c1 || !c2) return undefined;
+    if (Math.hypot(p0.u - p3.u, p0.v - p3.v) < 1e-12) return undefined; // 端点重合退化
+    if (Math.hypot(p0.u - c1.u, p0.v - c1.v) < 1e-12 || Math.hypot(p3.u - c2.u, p3.v - c2.v) < 1e-12) return undefined; // 零切向退化
+
+    const idSpline = this.nextEntityId();
+    return {
+      entities: [{
+        kind: 'spline', id: idSpline,
+        fitPoints: [{ x: p0.u, y: p0.v }, { x: p3.u, y: p3.v }],
+        controlPoints: [
+          { x: p0.u, y: p0.v },
+          { x: c1.u, y: c1.v },
+          { x: c2.u, y: c2.v },
+          { x: p3.u, y: p3.v },
+        ],
+        periodic: false,
+      }],
+      // Onshape 自动关系：样条端点 ≡ 对应拟合点（恒真行，保留可见约束计数）。
+      constraints: [
+        { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: idSpline, part: 'start' }, { entity: idSpline, part: 'point', index: 0 }] },
+        { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: idSpline, part: 'end' }, { entity: idSpline, part: 'point', index: 1 }] },
+      ],
+    };
+  }
+
+  protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const p0 = anchors[0];
+    if (!p0) return;
+    if (anchors.length === 1) {
+      this.addWorldLineString(builder, [p0, cursor]);
+      return;
+    }
+    const p3 = anchors[1];
+    if (!p3) return;
+    if (anchors.length === 2) {
+      this.addWorldLineString(builder, [p0, p3]);
+      return;
+    }
+    const c1 = anchors[2];
+    if (!c1) return;
+    // 预览用折线采样（非提交几何；提交为精确 Bezier controlPoints）。
+    const curve = BezierCurve3d.create([toLocal3d(p0), toLocal3d(c1), toLocal3d(cursor), toLocal3d(p3)]);
+    if (!curve) return;
+    const pts: SketchPoint2[] = [];
+    for (let i = 0; i <= 32; i++) {
+      const q = curve.fractionToPoint(i / 32);
+      pts.push({ u: q.x, v: q.y });
+    }
+    this.addWorldLineString(builder, pts);
+  }
+}
+
+/**
+ * 注册草图绘制工具（M6-a T5 + v1.19 spline；幂等——模块级 flag）。
  * 注册点=PartStudioPage 工具注册编排（ensureEditTools 之后同 try 块，失败同面
  * 呈现）；不放 viewer 注册表——viewer 不反向依赖 app 模块
  * （register-edit-tools.ts 头注挂账的「鲁班草图链绘制 3 件」由本函数收口，
@@ -543,5 +614,6 @@ export function registerSketchTools(): void {
   IModelApp.tools.register(SketchRectangleTool);
   IModelApp.tools.register(SketchCenterCircleTool);
   IModelApp.tools.register(SketchArc3PointTool);
+  IModelApp.tools.register(SketchSplineTool);
   sketchToolsRegistered = true;
 }

@@ -38,6 +38,7 @@
 // applyViewportBackground）模块级 mock（零真实请求/零查看器）。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Matrix3d } from '@itwin/core-geometry';
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -201,6 +202,13 @@ vi.mock('@luban-cad/viewer', () => ({
   applyViewportBackground: viewerMocks.applyViewportBackground,
   ensureEditTools: viewerMocks.ensureEditTools,
   toggleProjectExtents: viewerMocks.toggleProjectExtents,
+  fitViewToModelRanges: vi.fn().mockResolvedValue(true),
+  queryAllPhysicalModelIds: vi.fn().mockResolvedValue([]),
+  DatumPlanesDecoration: class {
+    constructor() { /* noop */ }
+    setVisibility() { /* noop */ }
+    dispose() { /* noop */ }
+  },
   acquireViewer: vi.fn().mockResolvedValue(undefined),
   releaseViewer: vi.fn().mockResolvedValue(undefined),
   ensureAccuSnap: vi.fn().mockResolvedValue(undefined),
@@ -341,15 +349,29 @@ let FAKE_CONNECTION = {
 };
 
 const FAKE_VIEWPORT = {
+  viewFlags: { toJSON: () => ({}) },
+  antialiasSamples: 1,
+  turnCameraOn: vi.fn(),
+  turnCameraOff: vi.fn(),
+  synchWithView: vi.fn(),
   view: {
-    displayStyle: { backgroundColor: undefined },
+    displayStyle: {
+      backgroundColor: undefined,
+      settings: {
+        modelAppearanceOverrides: new Map(),
+        overrideModelAppearance: vi.fn(),
+        dropModelAppearanceOverride: vi.fn(),
+      },
+    },
     viewsCategory: vi.fn<() => boolean>().mockReturnValue(true),
     viewsModel: vi.fn<() => boolean>().mockReturnValue(true),
     is2d: vi.fn<() => boolean>().mockReturnValue(false),
     isSpatialView: vi.fn<() => boolean>().mockReturnValue(false),
     categorySelector: { categories: ['cat-1', 'cat-2'] },
     modelSelector: { models: ['model-1'] },
+    getRotation: () => Matrix3d.createIdentity(),
   },
+  onViewChanged: { addListener: vi.fn(), removeListener: vi.fn() },
   invalidateScene: vi.fn(),
   // B6 M-A3.2a I3：FeatureTree consumed 隐藏 effect 经真 viewport 下传后触达
   // EmphasizeElements 的 provider 注册面（桩必须可被 getOrCreate 注册）。
@@ -368,6 +390,12 @@ function resetStore(): void {
     canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
     dialog: { active: null },
     viewOnly: { isActive: false },
+    datum: {
+      visibility: { origin: true, top: true, front: true, right: true },
+      expanded: true,
+      selectedId: null,
+      autoHiddenOnce: false,
+    },
   });
 }
 
@@ -521,9 +549,10 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(tree).getByRole('button', { name: '特征' })).toBeDefined();
     expect(within(tree).getByTestId('part-studio-feature-list')).toBeDefined();
     expect(within(tree).getByRole('button', { name: '零件' })).toBeDefined();
-    // 空数据落定后两段均 empty 态（壳期「假 Part 1」占位随真数据源接线移除）；
+    // 空数据落定后：特征段仍有 Onshape 默认几何图元组；零件段 empty。
     // 读树/零件段查询异步，先过 loading 骨架。
-    expect(await within(tree).findByText('暂无特征')).toBeDefined();
+    expect(await within(tree).findByTestId('tree-datum-group')).toBeDefined();
+    expect(await within(tree).findByTestId('tree-row-datum-origin')).toBeDefined();
     expect(await within(tree).findByText('暂无零件')).toBeDefined();
   });
 
@@ -1035,7 +1064,7 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
         {
           kind: 'insertFeature',
           featureType: 'extrude',
-          params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+          params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
         },
         expect.any(String),
         'ps-1',

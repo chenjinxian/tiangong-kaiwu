@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   toolsRun: vi.fn(),
-  lookAtViewAlignedVolume: vi.fn(),
+  lookAtVolume: vi.fn(),
   computeFitRange: vi.fn(),
   synchWithView: vi.fn(),
   setStandardRotation: vi.fn(),
@@ -77,7 +77,7 @@ import { PartStudioCanvas } from '../components/PartStudioCanvas.js';
 function makeViewport(): Record<string, unknown> {
   return {
     view: {
-      lookAtViewAlignedVolume: mocks.lookAtViewAlignedVolume,
+      lookAtVolume: mocks.lookAtVolume,
       computeFitRange: mocks.computeFitRange,
       is3d: () => true,
       turnCameraOff: mocks.turnCameraOff,
@@ -245,7 +245,7 @@ describe('CanvasContextMenu 空白态（对齐旧应用视口右键）', () => {
     const onClose = vi.fn();
     renderMenu(onClose);
     await user.click(screen.getByRole('menuitem', { name: '适应视图' }));
-    expect(mocks.lookAtViewAlignedVolume).toHaveBeenCalled();
+    expect(mocks.lookAtVolume).toHaveBeenCalled();
     expect(mocks.synchWithView).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });

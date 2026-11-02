@@ -63,7 +63,10 @@ import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { SketchPanel } from './SketchPanel.js';
+import { ViewCube } from './ViewCube.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
+import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
+import { useDatumPlaneDecorations } from '../hooks/useDatumPlaneDecorations.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface PartStudioCanvasProps {
@@ -125,6 +128,8 @@ export interface PartStudioCanvasProps {
    * 传参）。挂载位裁决见 SketchPanel 文件头。
    */
   sketchSystem?: UseSketchSystem;
+  /** 显示/渲染设置（ViewCube 下拉与停靠面板共享状态）。 */
+  displaySettings?: UseDisplaySettingsResult;
 }
 
 interface MenuAnchor {
@@ -148,8 +153,10 @@ export function PartStudioCanvas({
   connectionLoading = false,
   connectionError = null,
   sketchSystem,
+  displaySettings,
 }: PartStudioCanvasProps): React.JSX.Element {
   const { t } = useTranslation();
+  useDatumPlaneDecorations(viewport);
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
 
   // T6：内联非模态对话框宿主（dialog 切片寻址）。
@@ -308,6 +315,7 @@ export function PartStudioCanvas({
       onContextMenu={handleContextMenu}
     >
       <div ref={viewportRef} className="part-studio-viewport" data-testid="part-studio-viewport" />
+      <ViewCube viewport={viewport} displaySettings={displaySettings} />
 
       {/* 连接相位覆盖层（M5-T2）：briefcase 失败错误面 / 下载中骨架。绝对定位
           叠加（z-index 低于草图覆盖层），viewport 区无重排——零布局跳动。错误

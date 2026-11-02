@@ -517,7 +517,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -533,7 +533,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 42.5, sketchId: 'sk-1', regions: [0] },
+      params: { profile: [], distance: 42.5, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
   });
 
@@ -774,7 +774,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1], operation: 'new' },
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -848,7 +848,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 2] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 2], operation: 'new' },
     });
     // 再点已选 chip = 摘除（点选切换语义）；余集非空 → ✓ 保持可用。
     await user.click(chip0);
@@ -857,7 +857,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp.mock.calls[1]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [2] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [2], operation: 'new' },
     });
   });
 
@@ -904,7 +904,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1, 2] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1, 2], operation: 'new' },
     });
   });
 
@@ -930,7 +930,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
   });
 
@@ -1111,7 +1111,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-2', regions: [0] },
+      params: { profile: [], distance: 10, sketchId: 'sk-2', regions: [0], operation: 'new' },
     });
   });
 
@@ -1149,10 +1149,9 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     });
   });
 
-  // M7 v1.10：布尔作用域页签映射到 featureType（extrude 对话框内切换）：
-  // 新建→extrude（既有载荷，symmetric 键语义不动）/ 加入→booleanAdd / 移除→booleanSubtract；
-  // 相交无后端特征类型（M7 首版不支持），保持不映射（不静默降级为并集——本版页签仍为回传元数据）。
-  it('布尔作用域映射 featureType（M7 v1.10）：加入→booleanAdd(unite) / 移除→booleanSubtract(subtract) / 新建→extrude 原载荷', async () => {
+  // Tutorial 2 v1.19：extrude/revolve 的「新建/加入」是同一特征内的 operation，
+  // 不再拆 booleanAdd/booleanSubtract 特征行；移除页签求值未实现→禁用+诚实提示。
+  it('特征内 operation（v1.19）：新建→extrude operation=new；加入→extrude operation=add；移除禁用（未实现）', async () => {
     featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
@@ -1166,12 +1165,11 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    // B1 复审 Minor：相交无后端类型 → 提交态页签禁用 + 「暂不支持」提示（不可静默并集）；
-    // 有实体时加入/移除可用。
     expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('part-studio-feature-dialog-intersect-unsupported-hint').textContent).toContain('相交暂不支持');
     expect((screen.getByRole('tab', { name: '加入' }) as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('tab', { name: '移除' }).getAttribute('title')).toContain('暂未实现');
 
     await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
     await screen.findByText('草图 1 的面');
@@ -1180,16 +1178,8 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls.at(-1)![0]).toEqual({
       kind: 'insertFeature',
-      featureType: 'booleanAdd',
-      params: { sketchId: 'sk-1', distance: 10, regions: [0], operation: 'unite' },
-    });
-
-    await user.click(screen.getByRole('tab', { name: '移除' }));
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
-      kind: 'insertFeature',
-      featureType: 'booleanSubtract',
-      params: { sketchId: 'sk-1', distance: 10, regions: [0], operation: 'subtract' },
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'add' },
     });
 
     await user.click(screen.getByRole('tab', { name: '新建' }));
@@ -1197,15 +1187,15 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp.mock.calls.at(-1)![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
-    expect(applyOp).toHaveBeenCalledTimes(3);
+    expect(applyOp).toHaveBeenCalledTimes(2);
   });
 
   // B1 复审 Important：布尔 requiresUpstream——无实体（sketch-only 模型）时加入/移除
   // 无上游，后端只会落 status=1 死特征（op 仍 ok:true）。UI 侧禁用页签 + 提示，确认
   // 仍提交合法 extrude（不产生死特征）。
-  it('无实体（hasBodies=false）：加入/移除/相交页签禁用 + 诚实提示；确认仍提交 extrude（不产生布尔死特征）', async () => {
+  it('无实体（hasBodies=false）：加入/移除/相交页签禁用 + 诚实提示；新建仍提交 extrude operation=new', async () => {
     featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
@@ -1232,7 +1222,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
   });
 
@@ -1601,7 +1591,7 @@ describe('M6-b T4 extrude 对称平铺复选（Onshape 平铺形态；载荷已�
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], symmetric: true },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], symmetric: true, operation: 'new' },
     });
     expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).symmetric).toBe(true);
   });
@@ -2572,98 +2562,70 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     featureRpc.getSketch.mockReset();
   });
 
-  it('单 body（N≤1）：无目标实体下拉、无 targetBodyId；勾选新建实体 → params.newBody=true（未勾省略）', async () => {
+  it('单 body（N≤1）：默认新建 → operation=new、无目标下拉、无 targetBodyId', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyExtrude(applyOp, { bodies: [BODY_1] });
     expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
-    const checkbox = screen.getByRole('checkbox', { name: '新建实体' }) as HTMLInputElement;
-    expect(checkbox.checked).toBe(false);
+    expect(screen.queryByRole('checkbox', { name: '新建实体' })).toBeNull(); // 新建由作用域页签表达
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
-    });
-    // 勾选后 → newBody:true（仅在勾选时带键）。
-    await user.click(checkbox);
-    expect(checkbox.checked).toBe(true);
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp.mock.calls[1]![0]).toEqual({
-      kind: 'insertFeature',
-      featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], newBody: true },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
   });
 
-  it('N>1 active authored body：目标实体下拉（consumed 不入选项）；默认首个；值进 op.targetBodyId 不进 params', async () => {
+  it('N>1 加入：目标实体下拉（consumed 不入选项）；值进 targetBodyId 且 mergeScope 同锚', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyExtrude(applyOp, { bodies: WITH_CONSUMED });
+    await user.click(screen.getByRole('tab', { name: '加入' }));
     const select = screen.getByRole('combobox', { name: '目标实体' }) as HTMLSelectElement;
     expect(select.value).toBe('0x15');
     expect(within(select).getByRole('option', { name: 'Body 1' })).toBeDefined();
     expect(within(select).getByRole('option', { name: 'Body 2' })).toBeDefined();
     expect(within(select).queryByRole('option', { name: 'Body 3' })).toBeNull();
     await user.selectOptions(select, '0x18');
+    expect(screen.getByTestId('part-studio-feature-dialog-merge-scope-hint').textContent).toContain('Body 2');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
       targetBodyId: '0x18',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'add', mergeScope: [{ bodyKey: '0x18' }] },
     });
   });
 
-  it('newBody 勾选：目标实体下拉隐藏、不携带 targetBodyId（新体由本 op 创建）', async () => {
+  it('加入 → 目标下拉显示；新建 → 下拉隐藏（新体由本 op 创建）', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyExtrude(applyOp, { bodies: ACTIVE_TWO });
-    expect(screen.getByRole('combobox', { name: '目标实体' })).toBeDefined();
-    await user.click(screen.getByRole('checkbox', { name: '新建实体' }));
-    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp.mock.calls[0]![0]).toEqual({
-      kind: 'insertFeature',
-      featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], newBody: true },
-    });
-  });
-
-  it('布尔作用域映射（加入→booleanAdd）N>1：仍显示目标实体且载荷 targetBodyId；newBody 复选隐藏（仅 extrude 新建）', async () => {
-    const applyOp = makeApplyOp();
-    const { user } = await renderReadyExtrude(applyOp, { bodies: ACTIVE_TWO });
-    expect(screen.getByRole('checkbox', { name: '新建实体' })).toBeDefined();
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull(); // 默认新建
     await user.click(screen.getByRole('tab', { name: '加入' }));
-    // 映射后 effectiveFeatureType=booleanAdd：不属 extrude 新建通道 → 复选隐藏。
-    expect(screen.queryByRole('checkbox', { name: '新建实体' })).toBeNull();
     expect(screen.getByRole('combobox', { name: '目标实体' })).toBeDefined();
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp.mock.calls[0]![0]).toEqual({
-      kind: 'insertFeature',
-      featureType: 'booleanAdd',
-      targetBodyId: '0x15',
-      params: { sketchId: 'sk-1', distance: 10, regions: [0], operation: 'unite' },
-    });
+    await user.click(screen.getByRole('tab', { name: '新建' }));
+    expect(screen.queryByRole('combobox', { name: '目标实体' })).toBeNull();
   });
 
-  it('读面初次失败（bodies 不可用）→ body-producing 提交禁用 + 诚实提示（不发无 target 的 insert）', async () => {
-    const applyOp = makeApplyOp();
-    await renderReadyExtrude(applyOp, { bodiesError: 'init race' });
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('part-studio-feature-dialog-bodies-unavailable-hint')).toBeDefined();
-    expect(applyOp).not.toHaveBeenCalled();
-  });
-
-  it('读面不可用但勾选 newBody → 仍可提交（newBody 无需 target；Minor 2）', async () => {
+  it('读面不可用 + 新建 → 仍可提交（new 无需 target；operation=new）', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyExtrude(applyOp, { bodiesError: 'init race' });
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('checkbox', { name: '新建实体' }));
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], newBody: true },
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
+    // 新建不依赖 body 读面 → 不呈现「读面不可用」阻断提示（不是隐藏错误，而是该门不适用）。
+    expect(screen.queryByTestId('part-studio-feature-dialog-bodies-unavailable-hint')).toBeNull();
+  });
+
+  it('读面初次失败 + 加入 → 提交禁用 + 诚实提示（不发无 target 的 insert）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodiesError: 'init race' });
+    await user.click(screen.getByRole('tab', { name: '加入' }));
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-bodies-unavailable-hint')).toBeDefined();
+    expect(applyOp).not.toHaveBeenCalled();
   });
 
   it('读面刷新中（bodiesLoading）→ 提交禁用 + 诚实提示（未知 N 不得发无 target 的 regular insert）', async () => {

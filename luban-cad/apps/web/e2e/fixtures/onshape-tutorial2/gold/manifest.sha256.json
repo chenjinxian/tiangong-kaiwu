@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-11-02T00:32:20.162Z",
+  "files": [
+    {
+      "path": "../raw/api-elements.json",
+      "sha256": "f67eee981bdedd3f3e98690f6ab2b7141bcb8c1e83f6bb03ad9ddd42f6d4b526",
+      "bytes": 2877
+    },
+    {
+      "path": "../raw/api-features.json",
+      "sha256": "79b670a00f2c9f726c81c97f461bb043dd79d3262715bc923c25840508b0f2d4",
+      "bytes": 221001
+    },
+    {
+      "path": "../raw/api-massproperties.json",
+      "sha256": "d4c7999626187e4e7ac42b4ba267b17e4e55e701d469fc09a18fd87e27701199",
+      "bytes": 1679
+    },
+    {
+      "path": "../raw/api-parts.json",
+      "sha256": "dda0f0600a944d60066d52a5028d619de218239b9ad679ede92b13e4a82e4ba3",
+      "bytes": 1372
+    },
+    {
+      "path": "../raw/reconstructed-steps.json",
+      "sha256": "ebfac7f75c236465c2119fc678e0ac0fdb92be445f6b8cadd48327c656425b9c",
+      "bytes": 6642
+    },
+    {
+      "path": "tutorial2.gold.json",
+      "sha256": "c4a36c961c152fc0f460bd60fe2a3f64d38a97c82c7391f7b28fb006a166906c",
+      "bytes": 31457
+    }
+  ]
+}

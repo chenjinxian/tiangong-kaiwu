@@ -305,6 +305,10 @@
       "parallel": { "label": "Parallel" },
       "perpendicular": { "label": "Perpendicular" },
       "equal": { "label": "Equal" },
+      "midpoint": { "label": "Midpoint" },
+      "tangent": { "label": "Tangent" },
+      "fixed": { "label": "Fixed" },
+      "length": { "label": "Length" },
       "distance": { "label": "Distance" },
       "radius": { "label": "Radius" }
     }
@@ -327,6 +331,8 @@
     },
     "booleanNoBodyHint": "Boolean operations need an existing solid: create one by extrude or revolve first",
     "booleanIntersectUnsupported": "Intersect is not supported yet",
+    "booleanOperationUnsupported": "This operation is not supported yet (new/add only)",
+    "mergeScopeHint": "Merge scope: {{name}}",
     "entitiesLabel": "Faces and sketch regions to extrude",
     "fastPick": "Quick pick",
     "removeEntity": "Remove {{label}}",
@@ -506,9 +512,16 @@
         "nextPrompt": "Click to place the arc end point",
         "thirdPrompt": "Click a point on the arc"
       },
+      "spline": {
+        "firstPrompt": "Click to place the spline start point",
+        "secondPrompt": "Click to place the spline end point",
+        "thirdPrompt": "Click to place the start handle",
+        "fourthPrompt": "Click to place the end handle"
+      },
       "toasts": {
         "zeroSize": "Degenerate shape (zero length/area/radius); not submitted",
         "colinearArc": "The three points are collinear or coincident; cannot build an arc, not submitted",
+        "splineDegenerate": "Spline endpoints coincide or a handle has zero tangent; not submitted",
         "systemNotReady": "Sketch system not ready; exit sketch mode and retry",
         "updateFailed": "Sketch update failed"
       }
@@ -526,7 +539,13 @@
         "pairFirst": "{{label}} constraint: click the first line",
         "pairSecond": "{{label}} constraint: click the second line",
         "equalFirst": "Equal constraint: click a line or a circle",
-        "equalSecond": "Equal constraint: click a second {{kind}}"
+        "equalSecond": "Equal constraint: click a second {{kind}}",
+        "midpointFirst": "Midpoint constraint: click the midpoint (or center point)",
+        "midpointSecond": "Midpoint constraint: click a line, or another endpoint",
+        "midpointThird": "Midpoint constraint: click the last endpoint",
+        "tangentFirst": "Tangent constraint: click an arc/spline or a line",
+        "tangentSecond": "Tangent constraint: click the other curve",
+        "fixedFirst": "Fixed constraint: click a point"
       },
       "reject": {
         "coincidentNeedsPoint": "The coincident constraint only accepts points (got {{actual}})",
@@ -535,7 +554,10 @@
         "parallelNeedsLine": "The {{label}} constraint only accepts lines (got {{actual}})",
         "equalNeedsLineOrCircle": "The equal constraint only accepts lines or circles (got {{actual}})",
         "equalNoMixing": "Both entities of the equal constraint must be lines or both circles",
-        "slotMismatch": "Entity type does not fit a slot of this constraint"
+        "slotMismatch": "Entity type does not fit a slot of this constraint",
+        "midpointNeedsPointLine": "The midpoint constraint needs a point and a line, or three points (got {{actual}})",
+        "tangentNeedsCurveLine": "The tangent constraint needs an arc/spline and a line (got {{actual}})",
+        "fixedNeedsPoint": "The fixed constraint only accepts a point (got {{actual}})"
       }
     },
     "dimension": {
@@ -550,7 +572,8 @@
     "offset": {
       "prompts": {
         "pickChain": "Offset: click an entity to offset (joined entities extend the chain automatically)",
-        "confirmSide": "Offset: click to set the offset side and distance"
+        "confirmSide": "Offset: click to set the offset side and distance",
+        "enterDistance": "Offset: click to set the side; enter the exact distance and confirm"
       },
       "toasts": {
         "unsupportedKind": "Offset currently supports lines and arcs only",
@@ -565,7 +588,7 @@
       "updateFailed": "Sketch update failed"
     },
     "vocabulary": {
-      "entityKinds": { "point": "point", "line": "line", "circle": "circle", "arc": "arc" },
+      "entityKinds": { "point": "point", "line": "line", "circle": "circle", "arc": "arc", "spline": "spline" },
       "constraintKinds": {
         "coincident": "Coincident",
         "horizontal": "Horizontal",
@@ -574,9 +597,12 @@
         "perpendicular": "Perpendicular",
         "equal": "Equal",
         "distance": "Distance",
-        "radius": "Radius"
+        "radius": "Radius",
+        "midpoint": "Midpoint",
+        "tangent": "Tangent",
+        "fixed": "Fixed"
       },
-      "dimensionKinds": { "distance": "Distance", "radius": "Radius" }
+      "dimensionKinds": { "distance": "Distance", "radius": "Radius", "length": "Length" }
     },
     "panel": {
       "title": "Sketch",
@@ -599,6 +625,7 @@
       "constraintList": "Constraints ({{count}})",
       "existingDimensions": "Dimensions ({{count}})",
       "confirmDimensionTitle": "Enter dimension value",
+      "confirmOffsetTitle": "Confirm offset distance",
       "dimensionPlaceholder": "A value greater than 0",
       "editDimensionTitle": "Click to edit the dimension value",
       "confirm": "Confirm",
@@ -681,6 +708,9 @@
     "bodiesReadFailed": "Failed to load bodies: {{message}} (showing the legacy parts list)",
     "hideBody": "Hide body",
     "showBody": "Show body",
+    "defaultGeometry": "Default geometry",
+    "hideDatum": "Hide {{name}}",
+    "showDatum": "Show {{name}}",
     "deleteSuccess": "Deleted {{name}}",
     "deleteFailed": "Delete failed: {{message}}",
     "suppressSuccess": "Suppression updated for {{name}}",
@@ -824,6 +854,26 @@
       "message": "Curve pattern is on the LubanCAD roadmap. This version supports only PART/body-level linear and circular patterns; curve patterns will follow in a later milestone."
     }
   },
+  "viewCube": {
+    "title": "View cube",
+    "settings": "Display & view settings",
+    "orientation": "View orientation",
+    "iso": "Isometric",
+    "dimetric": "Dimetric",
+    "trimetric": "Trimetric",
+    "fit": "Fit view",
+    "window": "Zoom window",
+    "more": "More display settings…",
+    "reset": "Reset view",
+    "faces": {
+      "top": "TOP",
+      "bottom": "BOTTOM",
+      "front": "FRONT",
+      "back": "BACK",
+      "left": "LEFT",
+      "right": "RIGHT"
+    }
+  },
   "displaySettingsPanel": {
     "modeLabel": "Display mode",
     "mode": {
@@ -831,15 +881,23 @@
       "shadedNoEdges": "Shaded without edges",
       "shadedHiddenEdges": "Shaded with hidden edges",
       "hiddenRemoved": "Hidden edges removed",
-      "hiddenVisible": "Hidden edges visible"
+      "hiddenVisible": "Hidden edges visible",
+      "translucent": "Translucent"
     },
-    "translucentGap": "Translucent mode not yet supported (no global translucency channel in renderer)",
+    "translucentGap": "Translucent uses 50% model transparency",
     "perspective": "Perspective view",
     "fov": "Field of view",
+    "shadows": "Shadows",
     "ao": "Ambient occlusion",
     "aoIntensity": "Occlusion intensity",
+    "antialias": "Anti-aliasing",
+    "background": "Background",
+    "backgroundTheme": "Follow theme",
+    "backgroundLight": "Light",
+    "backgroundDark": "Dark",
     "edgeWidth": "Edge width",
     "edgeColor": "Edge color",
+    "reset": "Reset to defaults",
     "noViewport": "Viewport not ready — open a model first"
   }
 }

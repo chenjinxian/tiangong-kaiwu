@@ -23,11 +23,13 @@ import type { LubanFeatureType, PatternParams, SketchPlaneDto } from '@luban-cad
 import type {
   CanvasSelection,
   CanvasSelectionMode,
+  DatumId,
   DockTab,
   PartStudioCanvasState,
   PartStudioCommandPaletteState,
   PartStudioDialogState,
   PartStudioDockState,
+  PartStudioDatumState,
   PartStudioSketchState,
   PartStudioState,
   PartStudioToolState,
@@ -76,6 +78,13 @@ export interface PartStudioActions {
   // viewOnly 切片（T7：仅查看模式切换）
   setViewOnly: (active: boolean) => void;
   toggleViewOnly: () => void;
+  // datum 切片（2026-11-02 默认几何图元）
+  setDatumVisible: (id: DatumId, visible: boolean) => void;
+  toggleDatumVisible: (id: DatumId) => void;
+  setDatumExpanded: (expanded: boolean) => void;
+  selectDatum: (id: DatumId | null) => void;
+  /** 首个产体特征后只隐藏一次三平面（Origin 保持），用户可再手动打开。 */
+  hideDatumPlanesOnce: () => void;
 }
 
 export type PartStudioStore = PartStudioState & PartStudioActions;
@@ -124,6 +133,14 @@ const initialCanvas: PartStudioCanvasState = {
 const initialDialog: PartStudioDialogState = { active: null };
 
 const initialViewOnly: PartStudioViewOnlyState = { isActive: false };
+
+/** 默认几何图元初始态：Origin+三平面可见、组展开、未自动隐藏。 */
+const initialDatum: PartStudioDatumState = {
+  visibility: { origin: true, top: true, front: true, right: true },
+  expanded: true,
+  selectedId: null,
+  autoHiddenOnce: false,
+};
 
 /** tree 切片：双段树活动段 + 树选中/展开。 */
 function createTreeSlice([set, get]: SliceCreator): { tree: PartStudioTreeState } & Pick<PartStudioActions,
@@ -207,6 +224,7 @@ export const usePartStudioStore = create<PartStudioStore>()((...args) => ({
   ...createCanvasSlice(args),
   ...createDialogSlice(args),
   ...createViewOnlySlice(args),
+  ...createDatumSlice(args),
 }));
 
 // P2.8：E2E 观测面（仅构建期 VITE_E2E_HOOKS=true 挂载；发布镜像缺省关闭）。
@@ -273,5 +291,37 @@ function createViewOnlySlice([set, get]: SliceCreator): { viewOnly: PartStudioVi
     viewOnly: initialViewOnly,
     setViewOnly: (active) => set({ viewOnly: { isActive: active } }),
     toggleViewOnly: () => set({ viewOnly: { isActive: !get().viewOnly.isActive } }),
+  };
+}
+
+/**
+ * datum 切片：默认几何图元（Origin/Top/Front/Right）的可见性/展开/选中。
+ * 合成 id 仅在本切片流转，不进 tree/canvas（见 types.ts 注）。
+ */
+function createDatumSlice([set, get]: SliceCreator): { datum: PartStudioDatumState } & Pick<PartStudioActions,
+  'setDatumVisible' | 'toggleDatumVisible' | 'setDatumExpanded' | 'selectDatum' | 'hideDatumPlanesOnce'> {
+  return {
+    datum: initialDatum,
+    setDatumVisible: (id, visible) => {
+      const datum = get().datum;
+      set({ datum: { ...datum, visibility: { ...datum.visibility, [id]: visible } } });
+    },
+    toggleDatumVisible: (id) => {
+      const datum = get().datum;
+      set({ datum: { ...datum, visibility: { ...datum.visibility, [id]: !datum.visibility[id] } } });
+    },
+    setDatumExpanded: (expanded) => set({ datum: { ...get().datum, expanded } }),
+    selectDatum: (id) => set({ datum: { ...get().datum, selectedId: id } }),
+    hideDatumPlanesOnce: () => {
+      const datum = get().datum;
+      if (datum.autoHiddenOnce) return;
+      set({
+        datum: {
+          ...datum,
+          autoHiddenOnce: true,
+          visibility: { ...datum.visibility, top: false, front: false, right: false },
+        },
+      });
+    },
   };
 }

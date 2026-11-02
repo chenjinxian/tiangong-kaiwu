@@ -135,6 +135,12 @@ function resetStore(): void {
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },
+    datum: {
+      visibility: { origin: true, top: true, front: true, right: true },
+      expanded: true,
+      selectedId: null,
+      autoHiddenOnce: false,
+    },
   });
 }
 
@@ -159,8 +165,12 @@ describe('FeatureTree 双段渲染（对齐 os-11；真数据源 entries）', ()
     // 零件段=物理元素查询产物（诚实呈现名）。
     await waitFor(() => expect(within(partsList).getByText('Part 1')).toBeDefined());
     expect(within(partsList).getByText('Part 2')).toBeDefined();
-    // 段头计数（os-11「特征 (17)」）。
-    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(4)');
+    // 段头计数（os-11「特征 (17)」）：4 个默认几何 + 4 个用户特征。
+    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(8)');
+    // Onshape 默认几何图元组（Origin/Top/Front/Right）在特征行之前。
+    const datum = within(tree).getByTestId('tree-datum-group');
+    for (const label of ['Origin', 'Top', 'Front', 'Right'])
+      expect(within(datum).getByText(label)).toBeDefined();
     expect(within(tree).getByTestId('part-studio-part-count').textContent).toBe('(2)');
     // 查询形状钉死：物理元素行（ECInstanceId + CodeValue），草图元素排除
     //（M6-c T5 小项批：LubanCAD.Sketch 子查询 NOT IN——零件数语义不含草图）。
@@ -172,13 +182,31 @@ describe('FeatureTree 双段渲染（对齐 os-11；真数据源 entries）', ()
     );
   });
 
-  it('空数据 → 特征段/零件段 empty 态（壳期假 Part 1 占位已移除，M3 T5-②③ 收口）', () => {
+  it('空数据 → 特征段仍显示默认几何图元组；零件段 empty（Onshape 初始树）', () => {
     render(<FeatureTree />);
     const tree = screen.getByTestId('part-studio-tree');
     expect(within(tree).getByTestId('part-studio-feature-list')).toBeDefined();
-    expect(within(tree).getByText('暂无特征')).toBeDefined();
+    expect(within(tree).getByTestId('tree-datum-group')).toBeDefined();
+    expect(within(tree).getByTestId('tree-row-datum-origin')).toBeDefined();
+    expect(within(tree).getByTestId('tree-row-datum-top')).toBeDefined();
+    expect(within(tree).getByTestId('tree-row-datum-front')).toBeDefined();
+    expect(within(tree).getByTestId('tree-row-datum-right')).toBeDefined();
+    expect(within(tree).queryByText('暂无特征')).toBeNull();
     expect(within(tree).getByText('暂无零件')).toBeDefined();
     expect(within(tree).queryByText('Part 1')).toBeNull();
+    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(4)');
+  });
+
+  it('默认几何眼睛切换只写 datum 切片，不污染画布隐藏集', async () => {
+    render(<FeatureTree />);
+    const tree = screen.getByTestId('part-studio-tree');
+    const topEye = within(tree).getByTestId('tree-row-datum-visibility-top');
+    fireEvent.click(topEye);
+    expect(usePartStudioStore.getState().datum.visibility.top).toBe(false);
+    expect(usePartStudioStore.getState().canvas.hiddenIds).toEqual([]);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+    fireEvent.click(topEye);
+    expect(usePartStudioStore.getState().datum.visibility.top).toBe(true);
   });
 
   it('CodeValue 缺失 → 未命名实体回退（诚实呈现 id）', async () => {

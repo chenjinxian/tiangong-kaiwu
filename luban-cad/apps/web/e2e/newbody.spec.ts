@@ -359,6 +359,10 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   if ((await edgeBtn.getAttribute('aria-pressed')) === 'true') await edgeBtn.click();
+  // 工具退出/模式回 body 是异步链；先等 store 落定，再断言按钮表现。
+  await expect.poll(() => page.evaluate(() =>
+    (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selectionMode,
+  )).toBe('body');
   await expect(edgeBtn).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByRole('button', { name: '选择面', exact: true })).toHaveAttribute('aria-pressed', 'false');
   await page.evaluate(async () => {

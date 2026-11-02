@@ -95,8 +95,8 @@ function makeFakeView(initialModels: string[] = []): unknown {
       m.dropModelsMock(ids);
     },
   };
-  // 内容感知取景入口（实现打在 view.lookAtViewAlignedVolume）
-  (view as Record<string, unknown>).lookAtViewAlignedVolume = m.lookAtVolumeMock;
+  // 内容感知取景入口（世界范围走 view.lookAtVolume）
+  (view as Record<string, unknown>).lookAtVolume = m.lookAtVolumeMock;
   // 断言出口：当前 selector 内的模型（Set 快照——P2.5 active-scope 过滤用）
   Object.defineProperty(view, 'selectedModels', { get: () => [...models] });
   return view;
@@ -330,7 +330,7 @@ describe('useViewport 视口创建主链（M4 Task 2）', () => {
     expect(m.synchWithViewMock).toHaveBeenCalledWith({});
   });
 
-  it('内容感知取景：queryModelRanges 联合范围 → lookAtViewAlignedVolume(union, aspect)', async () => {
+  it('内容感知取景：queryModelRanges 联合范围 → lookAtVolume(union, aspect)', async () => {
     const fakeView = makeFakeView();
     const fakeIModel = makeFakeIModel();
     const fakeViewport = makeFakeViewport(fakeIModel);

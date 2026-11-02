@@ -69,6 +69,8 @@ export interface PartStudioTabsProps {
   briefcaseError?: string | null;
   /** viewport 创建失败消息（T2 评审：useViewport error 出口——phase 可仍 ready）。 */
   viewportError?: string | null;
+  /** 适应视图（页签条左操作组；viewport-actions.fitView 的宿主出口）。 */
+  onFitView?: () => void;
 }
 
 /** 相位 → 连接态文案键（M5-T2 合并映射；P2.4 语义不变）。 */
@@ -102,6 +104,7 @@ export function PartStudioTabs({
   briefcaseLoading = false,
   briefcaseError = null,
   viewportError = null,
+  onFitView,
 }: PartStudioTabsProps): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -250,8 +253,13 @@ export function PartStudioTabs({
       {/* 页签条（os-11 底部）：左操作组 + 页签 */}
       <div className="part-studio-tab-strip" data-testid="part-studio-tab-strip">
         <div className="part-studio-tab-strip__actions">
-          {/* 适应视图：壳期可点占位（T6 接 Viewport 视图命令）。 */}
-          <IconButton label={t('partStudio.tabs.fitView')} styleType="borderless">
+          {/* 适应视图：接 viewport-actions.fitView（内容为全模型 fit range）。 */}
+          <IconButton
+            label={t('partStudio.tabs.fitView')}
+            styleType="borderless"
+            onClick={onFitView}
+            data-testid="part-studio-fit-view-button"
+          >
             <SvgFitToView />
           </IconButton>
           {/* 「+」（P2.4）：B 文档=创建默认名称 Part Studio；A/只读禁用。 */}

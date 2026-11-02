@@ -89,6 +89,24 @@ const TUTORIAL_ENTITIES: SketchEntityDto[] = [
 
 const TUTORIAL_CONSTRAINTS: SketchConstraintDto[] = [];
 
+/** Tutorial 2 基底角 + 拱喉链：底边(l3)、右腿(l5)、基底右边(l12) 在 (2,0) 三价；
+ * 右腿(l5) 与基底右边(l12) 共线（切线门挡不住），底边 l3 成 90°；
+ * 右腿(l5)—小弧(l7)—喉线(l10) 光滑相切相接（二价）。 */
+const CORNER_CHAIN_ENTITIES: SketchEntityDto[] = [
+  { kind: 'point', id: 1, x: -2, y: 0 },
+  { kind: 'point', id: 2, x: 2, y: 0 },
+  { kind: 'line', id: 3, p1: 1, p2: 2 },
+  { kind: 'point', id: 4, x: 2, y: 3 },
+  { kind: 'line', id: 5, p1: 2, p2: 4 },
+  { kind: 'point', id: 6, x: 3, y: 3 },
+  { kind: 'arc', id: 7, center: 6, radius: 1, startAngle: Math.PI, sweepAngle: Math.PI / 2 },
+  { kind: 'point', id: 8, x: 3, y: 2 },
+  { kind: 'point', id: 9, x: 5, y: 2 },
+  { kind: 'line', id: 10, p1: 8, p2: 9 },
+  { kind: 'point', id: 11, x: 2, y: -2 },
+  { kind: 'line', id: 12, p1: 2, p2: 11 },
+];
+
 /** L 形两线（共享端点焊接）：lineA (0,0)→(2,0)、lineB (2,0)→(2,2)。 */
 const L_ENTITIES: SketchEntityDto[] = [
   { kind: 'point', id: 1, x: 0, y: 0 },
@@ -107,6 +125,21 @@ describe('M6-c T4：collectOffsetChain 焊接图链扩展', () => {
     expect(collected.chain.members.map((e) => e.id).sort((a, b) => a - b)).toEqual([3, 5, 8]);
     // 两处相接点对（右腿终↔弧起 / 弧终↔喉线起）。
     expect(collected.chain.junctions).toHaveLength(2);
+  });
+
+  it('切线链模式：只沿光滑且二价相接扩展（基底三价角不把矩形拉进 Tutorial 2 偏移链）', () => {
+    // 默认（焊接图全扩展）：底边与基底右边（共线）都入链。
+    const anyMode = collectOffsetChain(CORNER_CHAIN_ENTITIES, [], 5);
+    expect(anyMode.ok).toBe(true);
+    if (!anyMode.ok) return;
+    expect(anyMode.chain.members.map((e) => e.id).sort((a, b) => a - b)).toEqual([3, 5, 7, 10, 12]);
+
+    // 工具实际使用切线链：右腿-小弧-喉线——90° 底边与三价角上的共线右边都截断。
+    const chain = collectOffsetChain(CORNER_CHAIN_ENTITIES, [], 5, { tangentOnly: true });
+    expect(chain.ok).toBe(true);
+    if (!chain.ok) return;
+    expect(chain.chain.members.map((e) => e.id).sort((a, b) => a - b)).toEqual([5, 7, 10]);
+    expect(chain.chain.junctions).toHaveLength(2);
   });
 
   it('通道①coincident 焊接 + 通道②共享端点：两线链', () => {
@@ -218,47 +251,39 @@ describe('M6-c T4：buildOffsetDraft 闭式偏移与约束展开（Tutorial 2 �
     expect(built.ok).toBe(true);
     if (!built.ok) return;
 
-    const pts = built.draft.entities.filter((e): e is Extract<SketchEntityDto, { kind: 'point' }> => e.kind === 'point');
     const lines = built.draft.entities.filter((e): e is Extract<SketchEntityDto, { kind: 'line' }> => e.kind === 'line');
     const arcs = built.draft.entities.filter((e): e is Extract<SketchEntityDto, { kind: 'arc' }> => e.kind === 'arc');
-    expect(pts).toHaveLength(5); // 腿 2 + 喉线 2 + 弧心 1
+    expect(built.draft.entities).toHaveLength(3); // v1.19：线+弧内联，不产生可见点实体
     expect(lines).toHaveLength(2);
     expect(arcs).toHaveLength(1);
 
     // 左腿竖线 x=0.875（整线法向平移，端点同平移 → 与源平行且法距=d）。
-    const newLeg = lines.find((l) => Math.abs((pts.find((p) => p.id === l.p1)?.x ?? 0) - 0.875) < 1e-9);
+    const newLeg = lines.find((l) => typeof l.p1 === 'object' && Math.abs(l.p1.x - 0.875) < 1e-9);
     expect(newLeg).toBeDefined();
-    const legP1 = pts.find((p) => p.id === newLeg!.p1);
-    const legP2 = pts.find((p) => p.id === newLeg!.p2);
-    expect(legP1).toMatchObject({ x: 0.875, y: 0.375 });
-    expect(legP2).toMatchObject({ x: 0.875, y: 1.063 });
+    if (!newLeg || typeof newLeg.p1 !== 'object' || typeof newLeg.p2 !== 'object') return;
+    expect(newLeg.p1).toMatchObject({ x: 0.875, y: 0.375 });
+    expect(newLeg.p2).toMatchObject({ x: 0.875, y: 1.063 });
 
-    // 大弧 R1.375 同心同 span（0.625+0.75）。
+    // 大弧 R1.375 同心同 span（0.625+0.75）；圆心内联。
     expect(arcs[0]).toMatchObject({ radius: 1.375, startAngle: Math.PI, sweepAngle: -Math.PI / 2 });
-    const arcCenter = pts.find((p) => p.id === arcs[0]!.center);
-    expect(arcCenter).toMatchObject({ x: 2.25, y: 1.063 });
+    if (arcs[0]?.kind === 'arc' && typeof arcs[0].center !== 'number')
+      expect(arcs[0].center).toMatchObject({ x: 2.25, y: 1.063 });
 
     // 顶切线 y=2.438（浮点和：1.688+0.75 → closeTo）。
-    const newThroat = lines.find((l) => l.id !== newLeg!.id);
-    const throatP1 = pts.find((p) => p.id === newThroat!.p1);
-    expect(throatP1?.y).toBeCloseTo(2.438, 10);
-    expect(throatP1?.x).toBeCloseTo(2.25, 10);
+    const newThroat = lines.find((l) => l.id !== newLeg.id);
+    if (!newThroat || typeof newThroat.p1 !== 'object') return;
+    expect(newThroat.p1.y).toBeCloseTo(2.438, 10);
+    expect(newThroat.p1.x).toBeCloseTo(2.25, 10);
 
-    // 约束展开形态：parallel+distance ×2（线对）+ 圆心 coincident + radius（弧对）；
-    // 线↔弧相接无桥（契约弧端点不可寻址，文件头 v1 边界）。
-    expect(built.draft.constraints.map((c) => c.kind)).toEqual(['parallel', 'distance', 'coincident', 'radius', 'parallel', 'distance']);
-    // [40] DISTANCE=0.75 同构：refs = 源线 p1 ↔ 新线 p1，value=d。
-    const distances = built.draft.constraints.filter((c) => c.kind === 'distance');
-    expect(distances.map((c) => c.value)).toEqual([0.75, 0.75]);
-    for (const c of distances) {
-      expect(c.refs).toHaveLength(2);
-      expect(TUTORIAL_ENTITIES.some((e) => e.kind === 'point' && e.id === c.refs[0])).toBe(true); // 源端点
-      expect(pts.some((p) => p.id === c.refs[1])).toBe(true); // 新端点
+    // v1.19：2 条链桥 coincident（结构化端点）+ 2 行 OFFSET（Onshape 关系同构）。
+    expect(built.draft.constraints.map((c) => c.kind)).toEqual(['coincident', 'coincident', 'offset', 'offset']);
+    const offsets = built.draft.constraints.filter((c) => c.kind === 'offset');
+    expect(offsets.map((c) => c.value)).toEqual([0.75, 0.75]);
+    for (const c of offsets) {
+      expect(c.refs).toHaveLength(4);
+      expect(typeof c.refs[0]).toBe('number');
+      expect(typeof c.refs[1]).toBe('number');
     }
-    const centerCoincident = built.draft.constraints.find((c) => c.kind === 'coincident');
-    expect(centerCoincident?.refs).toEqual([4, arcs[0]!.center]); // 源弧心点 ↔ 新弧心点
-    expect(built.draft.constraints.find((c) => c.kind === 'radius')?.value).toBe(1.375);
-
     // 相切链创建坐标天然满足桥位（左腿上端=新弧起点）：新弧 start=(0.875,1.063)。
     const newArcStart = {
       u: 2.25 + 1.375 * Math.cos(Math.PI),
@@ -267,7 +292,7 @@ describe('M6-c T4：buildOffsetDraft 闭式偏移与约束展开（Tutorial 2 �
     expect(newArcStart.u).toBeCloseTo(0.875, 10);
     expect(newArcStart.v).toBeCloseTo(1.063, 10);
 
-    // id 播种：全部唯一、≥ startId、nextId=终值+1（10 实体+6 约束=16 支）。
+    // id 播种：全部唯一、≥ startId、nextId=终值+1（3 实体+4 约束=7 支）。
     const allIds = [...built.draft.entities, ...built.draft.constraints].map((e) => e.id);
     expect(new Set(allIds).size).toBe(allIds.length);
     expect(Math.min(...allIds)).toBe(100);
@@ -280,8 +305,9 @@ describe('M6-c T4：buildOffsetDraft 闭式偏移与约束展开（Tutorial 2 �
     const right = buildOffsetDraft({ chain: legChain, entities: TUTORIAL_ENTITIES, distance: 0.75, cursor: { u: 2.5, v: 0.7 }, startId: 1 });
     expect(right.ok).toBe(true);
     if (!right.ok) return;
-    const rightP1 = right.draft.entities.find((e) => e.kind === 'point' && e.id === (right.draft.entities.find((x) => x.kind === 'line') as { p1: number }).p1);
-    expect(rightP1).toMatchObject({ x: 2.375, y: 0.375 });
+    const rightLine = right.draft.entities.find((x) => x.kind === 'line');
+    if (!rightLine || rightLine.kind !== 'line' || typeof rightLine.p1 !== 'object') return;
+    expect(rightLine.p1).toMatchObject({ x: 2.375, y: 0.375 });
 
     // 弧：光标圆内 → R−d（0.625−0.3=0.325）；span 原样。
     const arcChain = chain({ members: [TUTORIAL_ENTITIES[4]!] }, 5);
@@ -302,9 +328,9 @@ describe('M6-c T4：buildOffsetDraft 闭式偏移与约束展开（Tutorial 2 �
     const bridges = built.draft.constraints.filter((c) => c.kind === 'coincident');
     expect(bridges).toHaveLength(1); // 共享端点相接一处
     const bridge = bridges[0]!;
-    const ptIds = new Set(built.draft.entities.filter((e) => e.kind === 'point').map((p) => p.id));
     expect(bridge.refs).toHaveLength(2);
-    for (const r of bridge.refs) expect(ptIds.has(r)).toBe(true); // 桥接的是两条新线的端点
+    // v1.19：桥接的是新线内联端点的结构化 ref（不产生点实体）。
+    for (const r of bridge.refs) expect(typeof r === 'object' && 'entity' in r).toBe(true);
   });
 
   it('拒收位形：d≈0 → zeroDistance；向内偏移半径坍缩 → degenerateRadius；circle 入链 → unsupportedKind', () => {
@@ -336,8 +362,8 @@ describe('M6-c T4：SketchOffsetTool toolId 与注册接线', () => {
     expect(offset).toBeDefined();
     expect(offset?.group).toBe('sketchEdit');
     expect(SKETCH_RIBBON_TOOLS.some((t) => t.id === 'sketchOffset')).toBe(false);
-    // 18 之数不变（占位换真，不增位）。
-    expect(SKETCH_RIBBON_TOOLS).toHaveLength(18);
+    // v1.19 新增约束/尺寸工具后共 22 件（偏移占位换真本身不增位）。
+    expect(SKETCH_RIBBON_TOOLS).toHaveLength(22);
   });
 
   it('registerSketchOffsetTools 幂等：按序各注册一次（二次调用 no-op）', () => {

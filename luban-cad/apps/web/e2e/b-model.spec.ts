@@ -51,6 +51,7 @@ import {
   waitEditorReady,
   type BSeedEditorContext,
 } from './helpers';
+import { clickWorld, disableSnap, setStandardView } from './tutorial2-helpers';
 
 /** 本文件创建的唯一 B 文档（afterAll 按 id 清理；不触碰种子库）。 */
 let createdImodelId = '';
@@ -95,17 +96,6 @@ async function waitEditorReadyDiagnosed(page: Page): Promise<void> {
 
 /** 画布数据点（sketch-extrude.spec 同款：近→目标两段运动 + 驻留，给 AccuSnap
  * 运动定位算热捕捉的窗口；不做视图旋转——闭环由「弧端点点击=线端点像素」构造保证）。 */
-async function dataPoint(page: Page, x: number, y: number): Promise<void> {
-  await page.mouse.move(x - 28, y + 20);
-  await page.waitForTimeout(120);
-  await page.mouse.move(x, y);
-  await page.waitForTimeout(450);
-  await page.mouse.down();
-  await page.waitForTimeout(60);
-  await page.mouse.up();
-  await page.waitForTimeout(300);
-}
-
 test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 → reload → 双页签 → Named Version', async ({
   page,
   request,
@@ -252,30 +242,37 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
 
   const sketchToolbar = page.getByRole('toolbar', { name: '草图工具' });
   await expect(sketchToolbar).toBeVisible({ timeout: 60_000 });
-  await expect(featureCount).toHaveText('(1)', { timeout: 60_000 });
+  // 默认几何图元（Origin/Top/Front/Right）计入特征数（2026-11-02 Onshape 对齐）。
+  await expect(featureCount).toHaveText('(5)', { timeout: 60_000 });
   await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
 
-  // 线（2 击）+ 3 点弧（3 击）：弧端点点击=线端点像素 → 同一像素经同一会话
-  // 工具事件管道映回同一草图面点，闭环由构造保证（sketch-extrude.spec 实证）。
+  // 线（2 击）+ 3 点弧（3 击）：按 Top 平面世界点投影点击，闭环由构造保证
+  //（2026-11-02 进入草图自动按平面定向后，旧的固定像素假设失效）。
   const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas boundingBox 不可得（视口未挂载？）');
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const pointA = { x: cx - 150, y: cy }; // 线起点（像素）
-  const pointB = { x: cx + 150, y: cy }; // 线终点（像素）
+  const hub = { x: box.x, y: box.y };
+  const lineA = { x: -100, y: 0, z: 0 };
+  const lineB = { x: 100, y: 0, z: 0 };
+  const arcMid = { x: 0, y: -80, z: 0 };
+  // 钉一次 Top + 已知 volume，保证 worldToView 投影与工具事件映射一致。
+  await setStandardView(page, 0, {
+    low: { x: -200, y: -200, z: -100 },
+    high: { x: 200, y: 200, z: 100 },
+  });
+  await disableSnap(page);
   const lineButton = sketchToolbar.getByRole('button', { name: '线', exact: true });
   const arcButton = sketchToolbar.getByRole('button', { name: '圆弧', exact: true });
   await lineButton.click();
   await expect(lineButton).toHaveAttribute('aria-pressed', 'true');
-  await dataPoint(page, pointA.x, pointA.y);
-  await dataPoint(page, pointB.x, pointB.y);
+  await clickWorld(page, hub, lineA);
+  await clickWorld(page, hub, lineB);
   await page.waitForTimeout(2_000);
   await arcButton.click();
   await expect(arcButton).toHaveAttribute('aria-pressed', 'true');
-  await dataPoint(page, pointB.x, pointB.y); // 弧起点=线终点
-  await dataPoint(page, pointA.x, pointA.y); // 弧终点=线起点（闭环）
-  await dataPoint(page, cx, cy - 80); // 弧上点外挑
+  await clickWorld(page, hub, lineB); // 弧起点=线终点
+  await clickWorld(page, hub, lineA); // 弧终点=线起点（闭环）
+  await clickWorld(page, hub, arcMid); // 弧上点外凸
   await page.waitForTimeout(2_000);
 
   await page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' }).click();
@@ -303,7 +300,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
         .textContent()}`,
     );
   }
-  await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
+  await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
   await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
 
@@ -323,7 +320,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
     'aria-selected',
     'true',
   );
-  await expect(featureCount).toHaveText('(2)', { timeout: 60_000 });
+  await expect(featureCount).toHaveText('(6)', { timeout: 60_000 });
   await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
 
@@ -346,7 +343,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
     'aria-selected',
     'true',
   );
-  await expect(featureCount).toHaveText('(0)', { timeout: 30_000 });
+  await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
   await expect(page.getByTestId('part-studio-status-connection')).toHaveText('已连接');
 
   // 页签切回（只换 URL）：树恢复 + 连接键/WS 均不变。
@@ -356,7 +353,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
     'aria-selected',
     'true',
   );
-  await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
+  await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
 
   const afterSwitchInfo = await readOpenBriefcaseInfo(page);

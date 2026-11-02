@@ -19,19 +19,32 @@
  * （x/y/radius 缺省）不参与分辨；arc 不参与 v1 分辨（无独立解算体）。
  */
 
-import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
+import type { SketchConstraintDto, SketchEntityDto, SketchRef } from '@luban-cad/shared';
 import i18next from 'i18next';
 
-/** v1 约束种类（SolverTypes 冻结联合中无值的 6 种；tangent/concentric 等不存在）。 */
+/** 约束工具种类（v1.19：Tutorial 2 需要的无值/结构关系；带值尺寸走 Dimension 工具）。 */
 export type SketchConstraintKind =
   | 'coincident'
   | 'horizontal'
   | 'vertical'
   | 'parallel'
   | 'perpendicular'
-  | 'equal';
+  | 'equal'
+  | 'midpoint'
+  | 'tangent'
+  | 'fixed';
 
 export type SketchEntityKind = SketchEntityDto['kind'];
+
+/** 拾取种类（子实体引用解析结果；point 含线端点/圆心/样条控制点/origin）。 */
+export type SketchPickKind = 'point' | 'line' | 'circle' | 'arc' | 'spline';
+
+/** 一次拾取：结构化 ref（落库形态）+ 种类 + 所属可见实体 id（origin 无实体）。 */
+export interface SketchPick {
+  ref: SketchRef;
+  kind: SketchPickKind;
+  entityId?: number;
+}
 
 /** 槽判定产出：ok=本次点击接收进槽；complete=满槽可提交；message=拒收文案。 */
 export interface PickVerdict {
@@ -48,7 +61,7 @@ export interface PickVerdict {
  */
 export const CONSTRAINT_SLOT_SHAPES: Record<
   SketchConstraintKind,
-  readonly (readonly SketchEntityKind[])[]
+  readonly (readonly SketchPickKind[])[]
 > = {
   coincident: [['point', 'point']],
   horizontal: [['line'], ['point', 'point']],
@@ -56,6 +69,11 @@ export const CONSTRAINT_SLOT_SHAPES: Record<
   parallel: [['line', 'line']],
   perpendicular: [['line', 'line']],
   equal: [['line', 'line'], ['circle', 'circle']],
+  // 中心点+线，或三点（首点为后两点连线中点）——Tutorial 2 两种形态都在用。
+  midpoint: [['point', 'line'], ['point', 'point', 'point']],
+  // 弧/样条 + 线（顺序不限）；弧/样条成对亦由求解器支持。
+  tangent: [['arc', 'line'], ['spline', 'line'], ['line', 'arc'], ['line', 'spline'], ['arc', 'arc'], ['spline', 'spline']],
+  fixed: [['point']],
 };
 
 /** 拒收文案键（按种类回退通用键；槽位态专键在 acceptPick 内定位）。 */
@@ -66,6 +84,9 @@ const REJECT_KEYS: Record<SketchConstraintKind, string> = {
   parallel: 'partStudio.sketch.constraint.reject.parallelNeedsLine',
   perpendicular: 'partStudio.sketch.constraint.reject.parallelNeedsLine',
   equal: 'partStudio.sketch.constraint.reject.equalNeedsLineOrCircle',
+  midpoint: 'partStudio.sketch.constraint.reject.midpointNeedsPointLine',
+  tangent: 'partStudio.sketch.constraint.reject.tangentNeedsCurveLine',
+  fixed: 'partStudio.sketch.constraint.reject.fixedNeedsPoint',
 };
 
 /**
@@ -73,7 +94,7 @@ const REJECT_KEYS: Record<SketchConstraintKind, string> = {
  * 已拾取时槽形由首槽种类锁定；拒收**不消耗点击**（调用方保持拾取状态继续
  * 等待下一次合法输入）。
  */
-export function acceptPick(kind: SketchConstraintKind, picked: SketchEntityKind[], next: SketchEntityKind): PickVerdict {
+export function acceptPick(kind: SketchConstraintKind, picked: SketchPickKind[], next: SketchPickKind): PickVerdict {
   const shapes = CONSTRAINT_SLOT_SHAPES[kind];
   const candidates = picked.length === 0 ? shapes : shapes.filter((shape) => shape[0] === picked[0]);
   for (const shape of candidates) {
@@ -99,7 +120,7 @@ export function acceptPick(kind: SketchConstraintKind, picked: SketchEntityKind[
 }
 
 /** 分阶段提示键（满槽语义随槽形变化，每次点击后刷新；调用时翻译）。 */
-export function pickPrompt(kind: SketchConstraintKind, picked: SketchEntityKind[]): { key: string; params?: Record<string, unknown> } {
+export function pickPrompt(kind: SketchConstraintKind, picked: SketchPickKind[]): { key: string; params?: Record<string, unknown> } {
   const label = i18next.t(`partStudio.sketch.vocabulary.constraintKinds.${kind}`);
   switch (kind) {
     case 'coincident':
@@ -124,6 +145,16 @@ export function pickPrompt(kind: SketchConstraintKind, picked: SketchEntityKind[
         key: 'partStudio.sketch.constraint.prompts.equalSecond',
         params: { kind: i18next.t(`partStudio.sketch.vocabulary.entityKinds.${picked[0]}`) },
       };
+    case 'midpoint':
+      if (picked.length === 0) return { key: 'partStudio.sketch.constraint.prompts.midpointFirst', params: { label } };
+      if (picked.length === 1) return { key: 'partStudio.sketch.constraint.prompts.midpointSecond', params: { label } };
+      return { key: 'partStudio.sketch.constraint.prompts.midpointThird', params: { label } };
+    case 'tangent':
+      return picked.length === 0
+        ? { key: 'partStudio.sketch.constraint.prompts.tangentFirst', params: { label } }
+        : { key: 'partStudio.sketch.constraint.prompts.tangentSecond', params: { label } };
+    case 'fixed':
+      return { key: 'partStudio.sketch.constraint.prompts.fixedFirst', params: { label } };
   }
 }
 
@@ -143,7 +174,7 @@ function indexSolvedCoords(entities: SketchEntityDto[]): {
   }
   for (const e of entities) {
     if (e.kind === 'circle' && e.radius !== undefined) {
-      const center = points.get(e.center);
+      const center = typeof e.center === 'number' ? points.get(e.center) : e.center;
       if (center) circles.set(e.id, { center, radius: e.radius });
     }
   }
@@ -181,8 +212,8 @@ export function resolveNearestEntityId(entities: SketchEntityDto[], hit: { u: nu
       const c = points.get(e.id);
       if (c) consider(e.id, Math.hypot(hit.u - c.x, hit.v - c.y), 'point', index);
     } else if (e.kind === 'line') {
-      const p1 = points.get(e.p1);
-      const p2 = points.get(e.p2);
+      const p1 = typeof e.p1 === 'number' ? points.get(e.p1) : e.p1;
+      const p2 = typeof e.p2 === 'number' ? points.get(e.p2) : e.p2;
       if (p1 && p2) consider(e.id, distToSegment(hit, p1, p2), 'line', index);
     } else if (e.kind === 'circle') {
       const c = circles.get(e.id);
@@ -191,6 +222,124 @@ export function resolveNearestEntityId(entities: SketchEntityDto[], hit: { u: nu
   });
 
   return best?.id;
+}
+
+// ---------------------------------------------------------------------------
+// v1.19：结构化子实体拾取（Tutorial 2 的线端点/圆心/样条控制点都是隐式子元素）
+// ---------------------------------------------------------------------------
+
+interface PickCandidate {
+  ref: SketchRef;
+  kind: SketchPickKind;
+  entityId?: number;
+  x?: number;
+  y?: number;
+  dist: number;
+  /** 并列序：origin=0 < point=1 < 曲线=2（端点处点实体优先获胜）。 */
+  prio: number;
+}
+
+function resolveInlinePoint(ref: number | { x: number; y: number } | undefined, points: Map<number, SolvedCoord>): SolvedCoord | undefined {
+  if (ref === undefined) return undefined;
+  return typeof ref === 'number' ? points.get(ref) : { x: ref.x, y: ref.y };
+}
+
+function distToSegment2(p: SolvedCoord, a: SolvedCoord, b: SolvedCoord): number {
+  const abx = b.x - a.x;
+  const aby = b.y - a.y;
+  const lenSq = abx * abx + aby * aby;
+  const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / lenSq));
+  return Math.hypot(p.x - (a.x + t * abx), p.y - (a.y + t * aby));
+}
+
+function bezierAt(p0: SolvedCoord, c1: SolvedCoord, c2: SolvedCoord, p3: SolvedCoord, t: number): SolvedCoord {
+  const u = 1 - t;
+  return {
+    x: u * u * u * p0.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * p3.x,
+    y: u * u * u * p0.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * p3.y,
+  };
+}
+
+/**
+ * 就近拾取（v1.19）：点候选（显式点 / 线端点 / 圆心 / 弧端点 / 样条控制点 / origin）
+ * 与曲线候选（line/circle/arc/spline）同池比较；距离并列时点优先、origin 最高。
+ * 返回结构化 ref（可直接落库）与拾取种类，供约束/尺寸工具做槽位判定。
+ */
+export function resolveNearestPick(entities: SketchEntityDto[], hit: SolvedCoord): SketchPick | undefined {
+  const { points } = indexSolvedCoords(entities);
+  const candidates: PickCandidate[] = [];
+
+  const addPoint = (ref: SketchRef, x: number, y: number, entityId?: number, prio = 1): void => {
+    candidates.push({ ref, kind: 'point', entityId, x, y, dist: Math.hypot(hit.x - x, hit.y - y), prio });
+  };
+  const addCurve = (ref: SketchRef, kind: SketchPickKind, dist: number, entityId: number): void => {
+    candidates.push({ ref, kind, entityId, dist, prio: 2 });
+  };
+
+  // origin 标记（隐藏原点；点击原点优先于同坐标的可见点）。
+  addPoint({ origin: true }, 0, 0, undefined, 0);
+
+  for (const e of entities) {
+    if (e.kind === 'point') {
+      const c = points.get(e.id);
+      if (c) addPoint(e.id, c.x, c.y, e.id);
+    } else if (e.kind === 'line') {
+      const a = resolveInlinePoint(e.p1, points);
+      const b = resolveInlinePoint(e.p2, points);
+      if (a) addPoint(typeof e.p1 === 'number' ? e.p1 : { entity: e.id, part: 'start' }, a.x, a.y, e.id);
+      if (b) addPoint(typeof e.p2 === 'number' ? e.p2 : { entity: e.id, part: 'end' }, b.x, b.y, e.id);
+      if (a && b) addCurve(e.id, 'line', distToSegment2(hit, a, b), e.id);
+    } else if (e.kind === 'circle' || e.kind === 'arc') {
+      const center = resolveInlinePoint(e.center, points);
+      if (center) {
+        addPoint({ entity: e.id, part: 'center' }, center.x, center.y, e.id);
+        const r = e.radius;
+        if (r !== undefined) {
+          if (e.kind === 'circle') {
+            addCurve(e.id, 'circle', Math.abs(Math.hypot(hit.x - center.x, hit.y - center.y) - r), e.id);
+          } else if (e.startAngle !== undefined && e.sweepAngle !== undefined) {
+            const start = { x: center.x + r * Math.cos(e.startAngle), y: center.y + r * Math.sin(e.startAngle) };
+            const endAngle = e.startAngle + e.sweepAngle;
+            const end = { x: center.x + r * Math.cos(endAngle), y: center.y + r * Math.sin(endAngle) };
+            addPoint({ entity: e.id, part: 'start' }, start.x, start.y, e.id);
+            addPoint({ entity: e.id, part: 'end' }, end.x, end.y, e.id);
+            let best = Number.POSITIVE_INFINITY;
+            let prev = start;
+            for (let i = 1; i <= 32; i++) {
+              const th = e.startAngle + e.sweepAngle * (i / 32);
+              const p = { x: center.x + r * Math.cos(th), y: center.y + r * Math.sin(th) };
+              best = Math.min(best, distToSegment2(hit, prev, p));
+              prev = p;
+            }
+            addCurve(e.id, 'arc', best, e.id);
+          }
+        }
+      }
+    } else if (e.kind === 'spline') {
+      const c = e.controlPoints;
+      if (c.length === 4) {
+        const [p0, c1, c2, p3] = c as [SolvedCoord, SolvedCoord, SolvedCoord, SolvedCoord];
+        addPoint({ entity: e.id, part: 'start' }, p0.x, p0.y, e.id);
+        addPoint({ entity: e.id, part: 'end' }, p3.x, p3.y, e.id);
+        addPoint({ entity: e.id, part: 'handle', index: 1 }, c1.x, c1.y, e.id);
+        addPoint({ entity: e.id, part: 'handle', index: 2 }, c2.x, c2.y, e.id);
+        let best = Number.POSITIVE_INFINITY;
+        let prev = p0;
+        for (let i = 1; i <= 32; i++) {
+          const p = bezierAt(p0, c1, c2, p3, i / 32);
+          best = Math.min(best, distToSegment2(hit, prev, p));
+          prev = p;
+        }
+        addCurve(e.id, 'spline', best, e.id);
+      }
+    }
+  }
+
+  let best: PickCandidate | undefined;
+  for (const c of candidates) {
+    if (!best || c.dist < best.dist || (c.dist === best.dist && c.prio < best.prio)) best = c;
+  }
+  return best ? { ref: best.ref, kind: best.kind, entityId: best.entityId } : undefined;
 }
 
 /** 下一个约束 id：实体与约束全局最大 +1（M3-b Task 4 同式，保证草图内 id 唯一）。 */

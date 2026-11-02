@@ -181,6 +181,22 @@ export interface PartStudioViewOnlyState {
   isActive: boolean;
 }
 
+/** 默认几何图元（Onshape 初始树：Origin + Top/Front/Right 三基准面）。 */
+export type DatumId = 'origin' | 'top' | 'front' | 'right';
+
+/**
+ * datum 切片——默认几何图元可见性/展开/选中（2026-11-02 Onshape 对齐）。
+ * **合成 id 不进入 tree.selectedNodeIds / canvas.hiddenIds**：这些 id 不是 iModel
+ * element，误传给 EmphasizeElements/hideElements 会产生无效元素操作。
+ */
+export interface PartStudioDatumState {
+  visibility: Record<DatumId, boolean>;
+  expanded: boolean;
+  selectedId: DatumId | null;
+  /** 首个 body-producing 特征后只自动隐藏一次平面；用户可再手动打开。 */
+  autoHiddenOnce: boolean;
+}
+
 /**
  * part-studio 编辑器会话态聚合（spec §3 五分法：编辑器会话态唯一归属
  * zustand；服务端态归 react-query、运行时态归 viewer，不进本类型）。
@@ -194,4 +210,5 @@ export interface PartStudioState {
   canvas: PartStudioCanvasState;
   dialog: PartStudioDialogState;
   viewOnly: PartStudioViewOnlyState;
+  datum: PartStudioDatumState;
 }

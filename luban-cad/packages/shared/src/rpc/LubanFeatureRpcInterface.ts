@@ -84,6 +84,20 @@
  * **删除持久性（P2.2 修复轮 Critical）**：delete 在同一事务写持久 tombstone；该 scope 的惰性
  * 初始化与后续读/写一律拒收，绝不复活已删 scope（`listPartStudios` 也不列 tombstone）。
  * 上面的六个可选 scope 方法逐字不变——注册表不改变旧调用面。
+ * v1.19（Tutorial 2 过程级复刻）：草图结构化子实体引用 + 精确样条 + 新约束种类 + 特征 operation
+ * 语义 + 质量属性只读面——
+ *  - `SketchRef`：数字（显式实体 id，旧形态逐字有效）或结构化子实体引用
+ *    `{entity, part:"start"|"end"|"point"|"handle", index?}` / `{origin:true}`。Onshape 的线端点、
+ *    圆心、样条拟合点/控制点都是**隐式子元素**，不会膨胀可见实体计数（Tutorial 2 字面 18 实体）；
+ *    服务端求解前归一化为内部点实体，写回后仍落 18 实体形态。
+ *  - `SketchEntityDto` 增 `spline`（精确三次贝塞尔 controlPoints + fitPoints），line/arc/circle
+ *    的端点/圆心可为内联 `{x,y}`。
+ *  - `SketchConstraintDto` 增 `length`/`midpoint`/`tangent`/`offset`/`fixed`；distance 支持
+ *    point+point / point+line / line+line（后者按初值侧取有符号垂距）。
+ *  - `ExtrudeParams`/`RevolveParams` 增 `operation: "new"|"add"|"remove"` + `mergeScope`
+ *    （Onshape ADD/REMOVE 是同一特征的内部操作，不再拆独立 booleanAdd 特征行；
+ *    `booleanAdd`/`booleanSubtract` 保留给显式布尔工具）。
+ *  - `getMassProperties` 只读 RPC（body 体积/质心/表面积），Tutorial 2 几何金标验收用。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
@@ -98,10 +112,18 @@ export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "f
  * （互斥语义，Registry 层 zod 校验锁死）。本接口的 sketchId 仅 extrude 语义；布尔草图驱动在
  * M7 v1.10 起走独立的 BooleanParams（不共用本接口——见其注），服务端按类型字段集校验。
  */
+/** v1.19：特征内布尔操作（Onshape 同一拉伸/旋转特征的「新建/加入/去除」页签）。 */
+export type FeatureBooleanOperation = "new" | "add" | "remove";
+
 export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
   distance: number;
   sketchId?: string;
+  /** v1.19：特征内布尔操作（缺省按 legacy：newBody=true→"new"，否则 "add"）。
+   * `mergeScope` 为显式合并目标（Tutorial 2 E2/E3 = 单 Part 1）；空/缺省=自动（全部上游体）。 */
+  operation?: FeatureBooleanOperation;
+  /** v1.19：合并范围（body 引用）。v1 只支持 0 或 1 个（单 active body）；多目标延后。 */
+  mergeScope?: BodyRef[];
   /** @deprecated M6-c v1.8 起被 `regions` 取代（单面域简写）；兼容保留一版——服务端 zod
    * superRefine 与 `regions` 互斥拒收（同给两键即拒，不做静默优先级）。
    * 原 v1.6 语义：sketchId 模式下选面域（SketchDto.regions 下标，面积降序）；缺省 0=最大面域。 */
@@ -137,6 +159,15 @@ export interface BodyRef { bodyKey: string }
  * - `sourceFeatureId`：驱动该 body 的唯一特征（无源/消费态省略）；
  * - `authored`：生命周期托管 body（直改副本/orphan 不在读面）。
  */
+/** v1.19：body 质量属性（只读；Tutorial 2 几何金标验收）。
+ * 单位随 iModel 世界系（当前栈内部=mm 口径由调用方/显示层换算）；volume=体积，
+ * centroid=体积质心，surfaceArea 可选（内核面面积和）。 */
+export interface MassPropertiesDto {
+  bodyKey: string;
+  volume: number;
+  centroid: { x: number; y: number; z: number };
+  surfaceArea?: number;
+}
 export interface BodyInfo {
   bodyKey: string;
   name?: string;
@@ -349,6 +380,10 @@ export interface RevolveParams {
   axis: { sketchEntityId: number };
   fullRevolve: boolean;
   angle?: number;
+  /** v1.19：特征内布尔操作（缺省 "add"=既有 ADD 语义逐字不变）。 */
+  operation?: FeatureBooleanOperation;
+  /** v1.19：合并范围（同 ExtrudeParams.mergeScope；v1 只支持 0/1 个）。 */
+  mergeScope?: BodyRef[];
 }
 
 export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams;
@@ -402,14 +437,34 @@ export type FeatureFormModel = Record<string, FeatureFormModelEntry>;
  * M6-a v1.6 增 arc：center 引用 point id（与 circle 同）；startAngle/sweepAngle 为弧度制；
  * radius/startAngle/sweepAngle 缺省 = 待后端解算；三点弧工具由前端换算为本形态后提交。
  */
+/** v1.19：草图内联几何（隐式子元素；不占可见实体计数）。 */
+export interface SketchPointDto { x: number; y: number }
+
+/** v1.19：结构化子实体引用。数字 = 显式实体 id（旧形态，逐字有效）。
+ * - `start`/`end`：line 端点；arc 起/止端点；spline 首/末控制点（曲线端点）；point 自身。
+ * - `center`：circle/arc 圆心（内联圆心不占可见实体；约束寻址用）。
+ * - `point` + `index`：spline 拟合点 index（T2 = 端点拟合点 0/1）。
+ * - `handle` + `index`：spline 控制点（0..3，三次贝塞尔句柄）。
+ * - `origin`：草图原点（服务端归一化为隐藏锁定点，不占可见实体）。 */
+export type SketchRef =
+  | number
+  | { entity: number; part: "start" | "end" | "center" }
+  | { entity: number; part: "point"; index: number }
+  | { entity: number; part: "handle"; index: number }
+  | { origin: true };
+
 export type SketchEntityDto =
   | { kind: "point"; id: number; x?: number; y?: number }
-  | { kind: "line"; id: number; p1: number; p2: number }
-  | { kind: "circle"; id: number; center: number; radius?: number }
-  | { kind: "arc"; id: number; center: number; radius?: number; startAngle?: number; sweepAngle?: number };
+  | { kind: "line"; id: number; p1: number | SketchPointDto; p2: number | SketchPointDto }
+  | { kind: "circle"; id: number; center: number | SketchPointDto; radius?: number }
+  | { kind: "arc"; id: number; center: number | SketchPointDto; radius?: number; startAngle?: number; sweepAngle?: number }
+  /** v1.19：精确三次贝塞尔样条（Tutorial 2 为单条三次曲线；controlPoints 恰 4 个）。
+   * fitPoints 为 Onshape 拟合点语义（端点与 curve start/end 重合）；服务端求解以 controlPoints
+   * 为真源，fitPoints 仅用于结构化引用对齐与读面保真。N>2 拟合点/周期样条延后。 */
+  | { kind: "spline"; id: number; fitPoints?: SketchPointDto[]; controlPoints: SketchPointDto[]; periodic?: boolean };
 export interface SketchConstraintDto {
-  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius";
-  id: number; refs: number[]; value?: number;
+  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "length" | "midpoint" | "tangent" | "offset" | "fixed";
+  id: number; refs: SketchRef[]; value?: number;
 }
 export type SketchSolveStatusDto = "ok" | "underconstrained" | "conflicting" | "failed";
 export interface SketchSolveStateDto { status: SketchSolveStatusDto; dof: number; failedConstraintIds: number[]; conflictingRank: number[]; redundant?: boolean }
@@ -442,7 +497,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.18.0";
+  public static interfaceVersion = "1.19.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
@@ -499,4 +554,8 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
   /** B6 M-A3.1 v1.15：body 读面（只读，无租约门禁）——authored body（含 consumed 的 active=false），
    * 按 bodyKey 升序；直改副本/orphan 不在读面。M3.2 的树/参数面板消费。 */
   public async getBodies(_iModelKey: string, _partStudioId?: string): Promise<BodyInfo[]> { return this.forward(arguments); }
+
+  /** v1.19：body 质量属性只读面（无租约门禁；authored/active body 逐个体积/质心/表面积）。
+   * 缺省 Part Studio=legacy 单工作室读面（与 getBodies 同锚）。 */
+  public async getMassProperties(_iModelKey: string, _partStudioId?: string): Promise<MassPropertiesDto[]> { return this.forward(arguments); }
 }

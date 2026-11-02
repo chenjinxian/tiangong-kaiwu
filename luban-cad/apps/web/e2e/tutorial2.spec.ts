@@ -1,829 +1,589 @@
 /**
- * Copyright (c) LubanCAD. All rights reserved.
- * Licensed under the MIT License.
+ * Tutorial 2 v1.19 严格鼠标级复刻：真实 UI 工具逐笔建 18 实体/48 约束/9 尺寸
+ * + 六特征链（拉伸×3 / 旋转 / 圆角）。
  *
- * M6-b T7 集成验收（常驻回归）：Tutorial 2 六特征重建——Front 平面 Sketch 1
- * （底座矩形+双弧拱+旋转矩形+轴线+拱肩曲线，按 Onshape 采集坐标 mm）→
- * Extrude 1（对称 127）→ Extrude 2（对称 50.8）→ Extrude 3（对称 15.875）→
- * Revolve 1（全周，绕轴线）→ Fillet 1（R5.08，边拾取尽力）→ 体积金标准对拍
- * 归 scratch 探针（本 spec 落库+截图+regions 台账，探针脚本不入库）。
+ * 本文件用实际 ribbon 工具 + 画布数据点点击完成 Onshape Tutorial 2 的草图
+ * （中心矩形 → 右腿 → 小弧 → 喉线 → 第二矩形 → 偏移链 → 轴线 → 精确样条），
+ * 每步读回 RPC（只读）核对累计实体/约束计数；随后经特征对话框完成
+ * E1(NEW,127) → E2(ADD,50.8) → E3(ADD,15.875) → R1(ADD,360°) → Fillet(R5.08)。验收口径：
+ * - 字面 18 可见实体 / 48 约束 / 9 尺寸（直方图对齐 Onshape 采集）；
+ * - 不直发 RPC 草图、不用 replay 模块——全部经工具鼠标流；
+ * - 求解终态 dof=0、几何与 gold fixture 一致（样条为单条精确三次贝塞尔）。
  *
- * P2.6a：数据面迁到 **B 种子**（`E2E B 项目` / `E2E B Seed`）——每例 beforeEach
- * 重置种子，首开编辑器由解析器创建默认 Part Studio；RPC 直发携带该 scope
- * （applyFeatureOp 第 4 参 / getSketch 第 3 参），UI 对话框天然作用于活动 scope。
- *
- * 分层（降级预案如实登记）：
- * - L1 Sketch 1 走 RPC 直发（insertSketch 完整 entities/constraints/plane——
- *   【降级登记】UI 绘制链已由 sketch-extrude.spec（线+弧闭环）与 M6-a T5/T8
- *   证明；本草图 30+ 曲线实体点击序列过长，按计划 T7 预案直发。直发通道=
- *   MS 的 HTTP RPC face（/rpc/metadata 在册；BentleyCloud wire：POST text
- *   载体 + CSRF 双提交 + X-Correlation-Id 活动头——页面内模块副本的
- *   rpc-over-ipc 响应关联依赖页面运行时内部态，探针实证请求帧离站无回声，
- *   故走 Node 侧 HTTP 直调）。写租约借页面 useFeatureSystem 的在持会话
- *  （acquire 探测 holder——租约单持有者语义下第二会话被拒，holder 即页面
- *   会话 sessionId，同会话 applyFeatureOp 过 assertHeld；借用会话不 release）。
- *   落库后 onCommitted 照常触发前端树刷新（与 UI 提交同管道）。
- * - L2 Extrude 1-3 + Revolve 1 全走 UI 对话框（T4/T3 接线真栈验证主目标）：
- *   面域下拉按面积判读（regions 台账写入 shots/tutorial2-regions.json），
- *   对称复选勾选（T4 载荷接线首验），revolve 轴下拉显式选轴线（缺省首条
- *   line 是矩形边，必须显式选）。
- * - L3 Fillet 1 走 UI 边拾取（T6 链真栈首验，尽力）：拾取点经视口
- *   worldToView 投影底座板上表面 4 条边中点（确定性，非盲点）；拾到 ≥1 条
- *   即算 T6 链通过；超时/失败→Esc 结束拾取+✗ 关对话框，偏差登记后继续
- *  （体积对拍按无圆角口径，见 scratch 探针报告）。
- * - 采集几何与金标准：.superpowers/sdd/onshape-tutorial2-analysis/
- *   TUTORIAL2-MODELING-CHAIN.md（六特征参数+实体坐标 in×25.4）+ 体积
- *   21.85 in³ = 358.2 cm³。v 轴取负登记：本项目 Front 基准面坐标架
- *  （normal +Y，xDir +X）的局部 v 映世界 −Z（sketch-plane.ts yDir=normal×xDir），
- *   采集 y 上对应世界 z 上须提交 v=−y，否则零件上下颠倒（体积不变，形状镜像）。
- * - 拱肩样条（采集实体 f4982b6b，isConstruction=false 实几何）按三次贝塞尔
- *   16 段折线近似（本契约无样条实体；弦高 <0.05mm，面积偏差 <0.1%）。
- * - M5-T4 门 S7/S8（发布窗复测；B-model P0 Task 5 改写）：T7 尾部在复合模型上
- *   执行「保存版本」（顶栏开 CreateNamedVersionDialog：有未保存变更先
- *   pushChanges 再以返回 changeset id 创建 Named Version）→ 版本历史列出该
- *   命名版本；对话框关闭后保存版本钮仍可用（干净态可继续命名当前 changeset）。
- *   dock「推送」仍走 PushChangesetDialog（纯推送）。失败即门禁红——不降级不兜底。
+ * 唯一「自动关系」= Onshape 同构：矩形工具内建 auto 约束（10 行）、样条工具
+ * 恒真端点行（2 行）、绘制端点落在既有端点坐标时自动落 coincident（v1.19
+ * sketch-auto-weld，Onshape 推断吸附同构）。
  */
-
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import type { FeatureOp } from '@luban-cad/shared';
+import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
 import {
-  applyFeatureOpRpc,
-  assertFeatureOpOk,
-  borrowWriteLease,
-  collectConsoleErrors,
   getApiToken,
+  getBodiesRpc,
+  getFeatureTreeRpc,
+  getMassPropertiesRpc,
   getSketchRpc,
   openSeedImodelEditor,
 } from './helpers';
-import { resetBModelSeed, type SeedImodelRef } from './seed';
+import { resetBModelSeed } from './seed';
+import {
+  P,
+  activate,
+  addConstraint,
+  addDimension,
+  addOffset,
+  clickWorld,
+  disableSnap,
+  projectWorld,
+  regionIndexByArea,
+  setStandardView,
+  worldOf,
+  type Local2,
+  type Vec3,
+} from './tutorial2-helpers';
 
-// M5-T4 隔离修复（P2.6a 迁 B 种子）：T7/T7-B 在同一文件连续建模，前一用例会
-// 污染后一用例的特征计数与体积。每个用例开始前按名删旧建新 B 种子库，等待
-// baseline initialized（默认 Part Studio 由首开编辑器解析器创建）。
-// L3：reset 返回的同一组 id 交给 open，避免各自按名解析。
-let bSeed: SeedImodelRef | undefined;
+type Dialog = ReturnType<Page['getByTestId']>;
 
-test.beforeEach(async ({ request }) => {
-  test.setTimeout(900_000);
-  bSeed = await resetBModelSeed(request, await getApiToken());
-});
-
-/** 留证目录（仓根 .superpowers/sdd/2026-10-23-tutorial2-full-chain/shots/）。 */
-const SHOTS_DIR = resolve(
-  process.cwd(),
-  '../../../.superpowers/sdd/2026-10-23-tutorial2-full-chain/shots',
-);
-
-function shotPath(name: string): string {
-  mkdirSync(SHOTS_DIR, { recursive: true });
-  return resolve(SHOTS_DIR, name);
-}
-
-// ============================================================================
-// 采集几何（单位 mm；u=采集 x；v=−采集 y，见头注 v 轴登记）
-// ============================================================================
-
-/** 拐角矩形拓扑（M3-b SketchRectangleTool 同构：每线独立端点 8 pt + 4 line
- * + 4 coincident 焊接——焊接而非共享端点，与求解器契约一致）。 */
-function rectangle(
-  x0: number,
-  v0: number,
-  x1: number,
-  v1: number,
-  nextId: () => number,
-): { entities: unknown[]; constraints: unknown[] } {
-  const corners: Array<[number, number]> = [
-    [x0, v0],
-    [x1, v0],
-    [x1, v1],
-    [x0, v1],
-  ];
-  const entities: unknown[] = [];
-  const startIds: number[] = [];
-  const endIds: number[] = [];
-  for (let i = 0; i < 4; i++) {
-    const a = corners[i]!;
-    const b = corners[(i + 1) % 4]!;
-    const idA = nextId();
-    const idB = nextId();
-    const idLine = nextId();
-    entities.push(
-      { kind: 'point', id: idA, x: a[0], y: a[1] },
-      { kind: 'point', id: idB, x: b[0], y: b[1] },
-      { kind: 'line', id: idLine, p1: idA, p2: idB },
-    );
-    startIds.push(idA);
-    endIds.push(idB);
-  }
-  // 焊接约束：本线终点 ≡ 下线起点（首尾相接闭环；coincident 对称无向）
-  const constraints = startIds.map((startId, i) => ({
-    kind: 'coincident',
-    id: nextId(),
-    refs: [endIds[i], startIds[(i + 1) % 4]],
-  }));
-  return { entities, constraints };
-}
-
-/** 三次贝塞尔采样（采集坐标系；调用方负责 v 取负）。 */
-function bezierPoint(t: number): [number, number] {
-  const p0 = [-41.275, 9.525] as const;
-  const c1 = [-39.539240300655365, 40.3054840862751] as const;
-  const c2 = [16.844818368554112, 60.51863729953766] as const;
-  const p3 = [57.15, 61.925] as const;
-  const u = 1 - t;
-  const x = u * u * u * p0[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * p3[0];
-  const y = u * u * u * p0[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * p3[1];
-  return [x, y];
-}
-
-/** 构建 insertSketch op（entities/constraints/plane=Front 三向量）+ 轴线实体 id。 */
-function buildSketchOp(): {
-  op: {
-    kind: 'insertSketch';
-    entities: unknown[];
-    constraints: unknown[];
-    plane: {
-      origin: { x: number; y: number; z: number };
-      normal: { x: number; y: number; z: number };
-      xDir: { x: number; y: number; z: number };
-    };
-  };
-  axisLineId: number;
-} {
-  let next = 1;
-  const nid = (): number => next++;
-  const entities: unknown[] = [];
-  const constraints: unknown[] = [];
-
-  // 底座矩形（采集：中心原点 3.25×0.75 in → 82.55×19.05）
-  const base = rectangle(-41.275, -9.525, 41.275, 9.525, nid);
-  entities.push(...base.entities);
-  constraints.push(...base.constraints);
-
-  // 旋转矩形（采集：中心 (3.375,2.0625)in 2×1.125in → x 60.325..111.125, y 38.1..66.675）
-  const rect2 = rectangle(60.325, -66.675, 111.125, -38.1, nid);
-  entities.push(...rect2.entities);
-  constraints.push(...rect2.constraints);
-
-  // 通道右壁竖线（采集 x=1.625in，y 0.375..1.0625in）
-  {
-    const idA = nid();
-    const idB = nid();
-    entities.push(
-      { kind: 'point', id: idA, x: 41.275, y: -9.525 },
-      { kind: 'point', id: idB, x: 41.275, y: -27.0 },
-      { kind: 'line', id: nid(), p1: idA, p2: idB },
-    );
-  }
-  // 拱左壁竖线（采集 x=0.875in）
-  {
-    const idA = nid();
-    const idB = nid();
-    entities.push(
-      { kind: 'point', id: idA, x: 22.225, y: -9.525 },
-      { kind: 'point', id: idB, x: 22.225, y: -27.0 },
-      { kind: 'line', id: nid(), p1: idA, p2: idB },
-    );
-  }
-  // 双弧（同心，采集圆心 (2.25,1.063)in；小弧 R0.625in 大弧 R1.375in，
-  // 各为左上四分之一圆弧——本坐标系 startAngle=−π、sweep=+π/2）
-  {
-    const idCenter = nid();
-    entities.push({ kind: 'point', id: idCenter, x: 57.15, y: -27.0 });
-    entities.push({
-      kind: 'arc',
-      id: nid(),
-      center: idCenter,
-      radius: 15.875,
-      startAngle: -Math.PI,
-      sweepAngle: Math.PI / 2,
-    });
-    entities.push({
-      kind: 'arc',
-      id: nid(),
-      center: idCenter,
-      radius: 34.925,
-      startAngle: -Math.PI,
-      sweepAngle: Math.PI / 2,
-    });
-  }
-  // 双切线水平线（采集 y=1.6875in / y=2.4375in，x 到轴线 3.375in）
-  for (const v of [-42.875, -61.925]) {
-    const idA = nid();
-    const idB = nid();
-    entities.push(
-      { kind: 'point', id: idA, x: 57.15, y: v },
-      { kind: 'point', id: idB, x: 85.725, y: v },
-      { kind: 'line', id: nid(), p1: idA, p2: idB },
-    );
-  }
-  // 旋转轴线（采集 x=3.375in，y 1.5..2.625in——revolve 轴下拉的显式选择目标）
-  const axisPointA = nid();
-  const axisPointB = nid();
-  const axisLineId = nid();
-  entities.push(
-    { kind: 'point', id: axisPointA, x: 85.725, y: -38.1 },
-    { kind: 'point', id: axisPointB, x: 85.725, y: -66.675 },
-    { kind: 'line', id: axisLineId, p1: axisPointA, p2: axisPointB },
-  );
-  // 拱肩样条近似（16 段折线；首点=底座矩形左上角、末点=大弧顶点（精确））
-  {
-    const segments = 16;
-    let prev: [number, number] | undefined;
-    for (let i = 0; i <= segments; i++) {
-      const [cx, cy] = bezierPoint(i / segments);
-      // v 取负；末点精确落大弧顶点（防数值缝隙生 sliver 面）
-      const pt: [number, number] =
-        i === segments ? [57.15, -61.925] : [Number(cx.toFixed(4)), Number((-cy).toFixed(4))];
-      if (prev) {
-        const idA = nid();
-        const idB = nid();
-        entities.push(
-          { kind: 'point', id: idA, x: prev[0], y: prev[1] },
-          { kind: 'point', id: idB, x: pt[0], y: pt[1] },
-          { kind: 'line', id: nid(), p1: idA, p2: idB },
-        );
-      }
-      prev = pt;
-    }
-  }
-
-  return {
-    op: {
-      kind: 'insertSketch',
-      entities,
-      constraints,
-      plane: {
-        origin: { x: 0, y: 0, z: 0 },
-        normal: { x: 0, y: 1, z: 0 }, // Front（前视）：normal +Y（sketchPlaneFromOption 同款）
-        xDir: { x: 1, y: 0, z: 0 },
-      },
-    },
-    axisLineId,
-  };
-}
-
-/** 面域判读：按面积最近匹配 regionIndex（容差 2%；regions 台账=报告依据）。 */
-function regionIndexByArea(
-  regions: Array<{ area: number }>,
-  expected: number,
-): number {
-  let best = -1;
-  let bestDiff = Infinity;
-  regions.forEach((r, i) => {
-    const diff = Math.abs(r.area - expected);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = i;
-    }
-  });
-  if (best < 0 || bestDiff > expected * 0.02) {
-    throw new Error(
-      `面域判读失败：期望面积 ${expected} 附近无面域（最近差 ${bestDiff}）；regions=${JSON.stringify(regions)}`,
-    );
-  }
-  return best;
-}
-
-// ============================================================================
-// L1 通道：MS HTTP RPC face（BentleyCloud wire）——页面内模块副本的 rpc-over-ipc
-// 走不通（IpcSession 响应关联依赖页面运行时的会话内部态，探针实证请求帧离站
-// 后无回声），改 Node 侧直调 MS 的 HTTP RPC 面（/rpc/metadata 证实该面在册）：
-// POST {MS}/LubanCAD/v1.0/mode/primary/context/{itwin}/imodel/{imodel}/changeset/0/
-//   LubanFeatureRpcInterface-{interfaceVersion}-{op}（版本取自 @luban-cad/shared），
-//   text 载体 body=JSON 参数数组，
-//   CSRF 双提交（GET /rpc/metadata 取 csrf-token cookie + X-CSRF-Token 头）+
-//   X-Correlation-Id 等活动头。前端不经此面是路由选择，MS 侧在册即契约面。
-// ============================================================================
-
-/** MS RPC 单操作（text 载体；返回值按 body JSON 直取）。 */
-/** 草图通道公共动作：拉伸钮→选草图→选面域→距离→对称→确认→等树行（成功=行
- * 现身+对话框收合；拒收=就地 alert 原文抛出）。 */
+/** 拉伸对话框：选草图→（加入页签）→选面域 chips→距离→对称→确认→等树行/错误。 */
 async function extrudeViaDialog(
   page: Page,
-  dialog: ReturnType<Page['getByTestId']>,
-  featureList: ReturnType<Page['getByTestId']>,
+  dialog: Dialog,
+  featureList: Dialog,
   sketchId: string,
   regionIndices: number[],
   distance: string,
   treeRowName: string,
+  operation: 'new' | 'add',
 ): Promise<void> {
   await page.getByRole('button', { name: '拉伸', exact: true }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
   const chipBox = dialog.getByTestId('part-studio-feature-dialog-region-chips');
   await expect(chipBox).toBeVisible({ timeout: 20_000 });
-  // 清空缺省 [0]（=最大面域），再按目标集点选（chips 点选切换 aria-pressed）
   await dialog.getByTestId('part-studio-feature-dialog-region-clear').click();
-  for (const idx of regionIndices) {
+  for (const idx of regionIndices)
     await chipBox.getByRole('button', { name: new RegExp(`面域 ${idx}`) }).click();
+  if (operation === 'add') {
+    await dialog.getByRole('tab', { name: '加入' }).click();
+    await expect(dialog.getByTestId('part-studio-feature-dialog-merge-scope-hint')).toBeVisible({ timeout: 10_000 });
   }
   await dialog.getByLabel('距离').fill(distance);
-  await dialog
-    .getByTestId('part-studio-feature-dialog-symmetric-flat')
-    .locator('input')
-    .check();
+  await dialog.getByTestId('part-studio-feature-dialog-symmetric-flat').locator('input').check();
   await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
   await dialog.getByRole('button', { name: '确认' }).click();
   await expect(
-    featureList
-      .getByRole('button', { name: treeRowName })
-      .or(dialog.getByTestId('part-studio-feature-dialog-error')),
+    featureList.getByRole('button', { name: treeRowName }).or(dialog.getByTestId('part-studio-feature-dialog-error')),
   ).toBeVisible({ timeout: 90_000 });
-  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
-    throw new Error(
-      `${treeRowName} 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
-    );
-  }
+  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0)
+    throw new Error(`${treeRowName} 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`);
   await expect(dialog).toBeHidden({ timeout: 30_000 });
 }
 
-/** 树行存在且非错误态（part-studio-tree-row--error 类缺席=status 0 绿行）。 */
-async function expectTreeRowGreen(
-  featureList: ReturnType<Page['getByTestId']>,
-  name: string,
-): Promise<void> {
-  const row = featureList.getByRole('button', { name });
-  await expect(row).toBeVisible();
-  const cls = (await row.getAttribute('class')) ?? '';
-  expect(cls, `${name} 行应为绿（status 0），实得 class=${cls}`).not.toContain(
-    'part-studio-tree-row--error',
-  );
-}
-
-/** 等轴测+适应视图（右键画布菜单双连）。 */
-async function isoFitView(page: Page, cx: number, cy: number): Promise<void> {
-  await page.mouse.click(cx, cy + 120, { button: 'right' });
-  const solidMenu = page.getByRole('menu', { name: '画布菜单' });
-  await expect(solidMenu).toBeVisible();
-  await solidMenu.getByRole('menuitem', { name: '等轴测视图' }).click();
-  await expect(solidMenu).toBeHidden();
-  await page.mouse.click(cx, cy + 120, { button: 'right' });
-  await expect(solidMenu).toBeVisible();
-  await solidMenu.getByRole('menuitem', { name: '适应视图' }).click();
-  await expect(solidMenu).toBeHidden();
-}
-
-/** fillet 边拾取会话：圆角对话框→半径→添加边→投影点逐一 boresite 点击→
- * 「添加边」钮 toggle 结束拾取（拾取态下该钮即 stopPick）。返回 chips 数。 */
-async function pickFilletEdges(
+/** 旋转对话框：选草图→面域→轴→加入 Part 1→全方位→确认。 */
+async function revolveViaDialog(
   page: Page,
-  dialog: ReturnType<Page['getByTestId']>,
-  radius: string,
-  worldPoints: Array<{ x: number; y: number; z: number }>,
-  canvasBox: { x: number; y: number },
-): Promise<number> {
-  await page.getByRole('button', { name: '圆角', exact: true }).click();
-  await expect(dialog).toBeVisible();
-  await dialog.getByLabel('半径').fill(radius);
-  await dialog.getByTestId('part-studio-feature-dialog-add-edge').click();
-  await expect(dialog.getByTestId('part-studio-feature-dialog-picking-hint')).toBeVisible({
-    timeout: 15_000,
-  });
-  const picks = await page.evaluate(async (pts) => {
-    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
-      IModelApp: {
-        viewManager: {
-          getFirstOpenView(): {
-            worldToView(pt: { x: number; y: number; z: number }): { x: number; y: number };
-          };
-        };
-      };
-    };
-    const vp = cf.IModelApp.viewManager.getFirstOpenView();
-    if (!vp) throw new Error('无打开视口');
-    return pts.map((p) => {
-      const v = vp.worldToView(p);
-      return { x: v.x, y: v.y };
-    });
-  }, worldPoints);
-  for (const p of picks) {
-    const px = canvasBox.x + p.x;
-    const py = canvasBox.y + p.y;
-    await page.mouse.move(px - 15, py + 12);
-    await page.waitForTimeout(150);
-    await page.mouse.move(px, py);
-    await page.waitForTimeout(350); // boresite 运动定位窗口
-    await page.mouse.down();
-    await page.waitForTimeout(60);
-    await page.mouse.up();
-    await page.waitForTimeout(600);
-  }
-  const chipCount = await dialog
-    .getByTestId('part-studio-feature-dialog-edge-chips')
-    .locator('li')
-    .count();
-  console.log(`[t7] fillet 边拾取 chips=${chipCount}/${worldPoints.length}`);
-  if (chipCount === 0) throw new Error('拾取 0 边');
-  // 结束拾取：再点「添加边」钮（拾取态下该钮即 stopPick 开关——对话框自治
-  // 通道，比 Esc/右键确定：Esc 经工具层分叉实测不达对话框 stopPick）。
-  await dialog.getByTestId('part-studio-feature-dialog-add-edge').click();
-  await expect(dialog.getByTestId('part-studio-feature-dialog-picking-hint')).toBeHidden({
-    timeout: 10_000,
-  });
-  return chipCount;
-}
-
-test('T7 冒烟：Tutorial 2 六特征重建（Front 草图 RPC 直发 + Extrude×3/Revolve UI + Fillet 边拾取尽力）', async ({
-  page,
-}) => {
-  // 导航+就绪+建模链+内核求值远超全局 120s。
-  test.slow();
-
-  const consoleErrors = collectConsoleErrors(page);
-
-  // P2.6a：B 种子编辑器（helper 等 ?model= scope + 编辑器就绪）；ctx 携带
-  // itwinId/imodelId/scopeId/dbKey（dbKey 取自已打开 briefcase）。
-  const ctx = await openSeedImodelEditor(page, bSeed);
-  console.log(`[t7] B seed scope=${ctx.scopeId} dbKey=${ctx.dbKey}`);
-
-  const featureCount = page.getByTestId('part-studio-feature-count');
-  const featureList = page.getByTestId('part-studio-feature-list');
-
-  // ── L1：Sketch 1 RPC 直发（降级路径，登记）——MS HTTP face，Node 侧直调 ──
-  const { op, axisLineId } = buildSketchOp();
-  const accessToken = await getApiToken();
-
-  // 写租约：探测页面 useFeatureSystem 的在持会话（单持有者语义下第二会话
-  // acquire 被拒，holder=在持者 user=其 sessionId）；借 holder 会话落 op
-  //（assertHeld 按会话匹配），页面续期语义归页面（借用会话不 release）。
-  const lease = await borrowWriteLease(ctx, accessToken, 't7');
-  const result = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
-  assertFeatureOpOk(result, 'insertSketch');
-  const sketchId = result.featureId as string;
-  expect(sketchId).toBeTruthy();
-
-  // T1 全链证据：plane 回读=Front（normal +Y / xDir +X）；面域 ≥3
-  const sketch = (await getSketchRpc(ctx, sketchId, accessToken)) as {
-    plane?: { normal: { y: number }; xDir: { x: number } };
-    regions?: Array<{ area: number; outerEntityIds: number[]; holeEntityIds?: number[] }>;
-    entities: unknown[];
-  };
-  expect(sketch?.plane?.normal?.y, `plane 回读=${JSON.stringify(sketch?.plane)}`).toBe(1);
-  expect(sketch?.plane?.xDir?.x).toBe(1);
-  const regions = sketch?.regions ?? [];
-  expect(
-    regions.length,
-    `面域数=${regions.length}（期望 ≥3）：${JSON.stringify(regions)}`,
-  ).toBeGreaterThanOrEqual(3);
-
-  // regions 台账（面积降序；面域→特征映射表进报告）
-  const ledger = {
-    imodelId: ctx.imodelId,
-    scopeId: ctx.scopeId,
-    sketchId,
-    axisLineId,
-    plane: sketch?.plane,
-    regionCount: regions.length,
-    regions,
-    lease: { borrowed: lease.borrowed, sessionId: lease.sessionId },
-  };
-  writeFileSync(shotPath('tutorial2-regions.json'), JSON.stringify(ledger, null, 2), 'utf-8');
-  console.log(`[t7] regions=${JSON.stringify(regions.map((r, i) => ({ i, area: Number(r.area.toFixed(2)) })))}`);
-
-  // 面域判读（面积 mm² 解析预期——算式见报告；2% 容差吸收样条折线近似+求解噪声）
-  const idxBase = regionIndexByArea(regions, 1572.585); // 底座 82.55×19.05
-  const idxBand = regionIndexByArea(regions, 1153.56); // 拱形环带+喉部
-  const idxLobe = regionIndexByArea(regions, 2298.36); // 拱肩环面（样条+大弧+左壁+底座顶）
-  const idxRightRect = regionIndexByArea(regions, 725.775); // 旋转矩形轴右半（25.4×28.575）
-  console.log(
-    `[t7] 面域映射：base=${idxBase} band=${idxBand} lobe=${idxLobe} rightRect=${idxRightRect}`,
-  );
-
-  // RPC 落库经 onCommitted 自动刷新前端树（与 UI 提交同管道）
-  await expect(featureCount).toHaveText('(1)', { timeout: 60_000 });
-  await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
-  await page.screenshot({ path: shotPath('t7-1-sketch-committed.png') });
-
-  // ── L2：Extrude 1（NEW，面域=底座，127 对称——T4 对称接线首验）────────
-  const dialog = page.getByTestId('part-studio-feature-dialog');
-
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBase], '127', '拉伸 1');
-  await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
-  await page.screenshot({ path: shotPath('t7-2-extrude1.png') });
-
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBand, idxRightRect], '50.8', '拉伸 2');
-  await expect(featureCount).toHaveText('(3)', { timeout: 30_000 });
-  await page.screenshot({ path: shotPath('t7-3-extrude2.png') });
-
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxLobe], '15.875', '拉伸 3');
-  await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
-  await page.screenshot({ path: shotPath('t7-4-extrude3.png') });
-
-  // ── L2：Revolve 1（T4 Ribbon 入口+轴下拉显式选轴线，全周缺省勾选）──────
+  dialog: Dialog,
+  featureList: Dialog,
+  sketchId: string,
+  regionIndex: number,
+  axisLineId: number,
+  treeRowName: string,
+): Promise<void> {
   await page.getByRole('button', { name: '旋转', exact: true }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
   await expect(dialog.getByRole('combobox', { name: '面域' })).toBeVisible({ timeout: 20_000 });
-  await dialog.getByRole('combobox', { name: '面域' }).selectOption(String(idxRightRect));
-  // 轴下拉（缺省首条 line=矩形边，必须显式选轴线；选项文案「线 {id}」，值=实体 id）
+  await dialog.getByRole('combobox', { name: '面域' }).selectOption(String(regionIndex));
   await dialog.getByRole('combobox', { name: '旋转轴' }).selectOption(String(axisLineId));
-  await expect(
-    dialog.getByTestId('part-studio-feature-dialog-full-revolve').locator('input'),
-  ).toBeChecked(); // 全方位缺省勾选（360°）
+  await dialog.getByRole('tab', { name: '加入' }).click();
+  await expect(dialog.getByTestId('part-studio-feature-dialog-full-revolve').locator('input')).toBeChecked();
   await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
-  await page.screenshot({ path: shotPath('t7-5-revolve-dialog.png') });
   await dialog.getByRole('button', { name: '确认' }).click();
   await expect(
-    featureList
-      .getByRole('button', { name: '旋转 1' })
-      .or(dialog.getByTestId('part-studio-feature-dialog-error')),
+    featureList.getByRole('button', { name: treeRowName }).or(dialog.getByTestId('part-studio-feature-dialog-error')),
   ).toBeVisible({ timeout: 120_000 });
-  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
-    throw new Error(
-      `旋转 1 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
-    );
-  }
+  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0)
+    throw new Error(`${treeRowName} 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`);
   await expect(dialog).toBeHidden({ timeout: 30_000 });
-  await expect(featureCount).toHaveText('(5)', { timeout: 30_000 });
+}
 
-  // ── 视图：等轴测 + 适应视图（视觉对比基准帧）────────────────────────
+
+test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征四短竖棱圆角', async ({ page, request }) => {
+  test.slow();
+  test.setTimeout(1_200_000);
+  const bSeed = await resetBModelSeed(request, await getApiToken());
+  const ctx = await openSeedImodelEditor(page, bSeed);
+
+  // 进入草图：Front（前视）平面。
+  await page.getByRole('button', { name: '草图', exact: true }).click();
+  const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
+  await expect(sketchDialog).toBeVisible();
+  await sketchDialog.getByRole('combobox', { name: '草图平面' }).selectOption({ label: '前视' });
+  await sketchDialog.getByRole('button', { name: '确认' }).click();
+  const exitSketch = page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' });
+  await expect(exitSketch.or(sketchDialog.getByTestId('part-studio-sketch-dialog-error'))).toBeVisible({ timeout: 60_000 });
+  if ((await sketchDialog.getByTestId('part-studio-sketch-dialog-error').count()) > 0)
+    throw new Error(`insertSketch 拒收: ${await sketchDialog.getByTestId('part-studio-sketch-dialog-error').textContent()}`);
+
   const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas boundingBox 不可得');
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  await page.mouse.click(cx, cy + 120, { button: 'right' });
-  const solidMenu = page.getByRole('menu', { name: '画布菜单' });
-  await expect(solidMenu).toBeVisible();
-  await solidMenu.getByRole('menuitem', { name: '等轴测视图' }).click();
-  await expect(solidMenu).toBeHidden();
-  await page.mouse.click(cx, cy + 120, { button: 'right' });
-  await expect(solidMenu).toBeVisible();
-  await solidMenu.getByRole('menuitem', { name: '适应视图' }).click();
-  await expect(solidMenu).toBeHidden();
-  await page.waitForTimeout(10_000); // tile 流送驻留
-  await page.screenshot({ path: shotPath('t7-6-revolve1-iso.png') });
+  const hub = { x: box.x, y: box.y };
+  // 正对 Front 草图面取景（StandardViewId.Front=4）：ev.point 才落在与草图面平行的
+  // 平面上，局部 v 有变化。取景覆盖整幅 T2 草图（local x −41..111，y −67..10）。
+  await page.evaluate(() => {
+    const cf = (window as unknown as { __lubanE2E?: { coreFrontend: { IModelApp: { viewManager: { getFirstOpenView(): {
+      setStandardRotation(id: number): void;
+      view: { is3d(): boolean; turnCameraOff(): void };
+      synchWithView(a: Record<string, never>): void;
+      zoomToVolume(v: { low: { x: number; y: number; z: number }; high: { x: number; y: number; z: number } }): void;
+    } | undefined } } } } }).__lubanE2E?.coreFrontend;
+    const vp = cf?.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) return;
+    vp.setStandardRotation(4); // StandardViewId.Front
+    if (vp.view.is3d()) vp.view.turnCameraOff();
+    // local y → world z = −y：草图占 world x −41..111、z −10..67。取景左侧额外留白，
+    // 把全部草图推到左上覆盖层（SketchPanel，canvas 左侧 ~285px）之右——否则
+    // 样条起点/起点控制柄的点击会落到面板 DOM 上（实测被吞两次）。
+    vp.zoomToVolume({ low: { x: -135, y: -100, z: -20 }, high: { x: 125, y: 100, z: 90 } });
+    vp.synchWithView({});
+  });
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: 'test-results/t2-mouse-01-sketch-mode.png' });
 
-  // ── L3：Fillet 1（R5.08，底座板上表面 4 条边，尽力——T6 链真栈首验）────
-  let filletDone = false;
-  const filletDeadline = Date.now() + 180_000; // 3 分钟预算（演示失败纪律）
-  try {
-    await page.getByRole('button', { name: '圆角', exact: true }).click();
-    await expect(dialog).toBeVisible();
-    await dialog.getByLabel('半径').fill('5.08');
-    await dialog.getByTestId('part-studio-feature-dialog-add-edge').click();
-    await expect(
-      dialog.getByTestId('part-studio-feature-dialog-picking-hint'),
-    ).toBeVisible({ timeout: 15_000 });
+  const token = await getApiToken();
+  const tree = await getFeatureTreeRpc(ctx, token);
+  const sketchId = tree.find((row) => row.featureType === 'sketch')?.id;
+  expect(sketchId, 'insertSketch 后树内应有 sketch 行').toBeTruthy();
 
-    // 拾取点=底座板上表面 4 条边中点的视口投影（确定性投影，非盲点）。
-    const picks = await page.evaluate(async () => {
-      const cf = ((window as any).__lubanE2E?.coreFrontend) as {
-        IModelApp: {
-          viewManager: {
-            getFirstOpenView(): {
-              worldToView(pt: { x: number; y: number; z: number }): { x: number; y: number };
-            };
-          };
-        };
-      };
-      const vp = cf.IModelApp.viewManager.getFirstOpenView();
-      if (!vp) throw new Error('无打开视口');
-      const edgeMidpoints = [
-        { x: 0, y: 63.5, z: 9.525 },
-        { x: 0, y: -63.5, z: 9.525 },
-        { x: 41.275, y: 0, z: 9.525 },
-        { x: -41.275, y: 0, z: 9.525 },
-      ];
-      return edgeMidpoints.map((p) => {
-        const v = vp.worldToView(p);
-        return { x: v.x, y: v.y };
-      });
-    });
+  let sk: SketchDto;
+  const read = async (): Promise<SketchDto> => {
+    const got = await getSketchRpc(ctx, sketchId!, token);
+    expect(got).toBeDefined();
+    sk = got!;
+    return sk;
+  };
+  const counts = async (entities: number, constraints: number, label: string): Promise<SketchDto> => {
+    const got = await read();
+    expect(got.entities.length, `${label} 实体数`).toBe(entities);
+    expect(got.constraints.length, `${label} 约束数`).toBe(constraints);
+    console.log(`[t2-mouse] ${label}: entities=${got.entities.length} constraints=${got.constraints.length} dof=${got.solve.dof} status=${got.solve.status}`);
+    return got;
+  };
+  const lines = (snapshot: SketchDto) => snapshot.entities.filter((e): e is Extract<SketchEntityDto, { kind: 'line' }> => e.kind === 'line');
+  const midOf = (line: Extract<SketchEntityDto, { kind: 'line' }>): Vec3 => {
+    if (typeof line.p1 !== 'object' || typeof line.p2 !== 'object') throw new Error('线端点应为内联');
+    return worldOf({ x: (line.p1.x + line.p2.x) / 2, y: (line.p1.y + line.p2.y) / 2 });
+  };
+  /** 世界投影所用的局部坐标（设计值）。 */
 
-    for (const p of picks) {
-      if (Date.now() > filletDeadline) break;
-      const px = box.x + p.x;
-      const py = box.y + p.y;
-      await page.mouse.move(px - 15, py + 12);
+  // ── 1. 中心矩形（画在 origin 右上方，随后 origin 重合 + 两条长度尺寸驱动到终态）
+  const rectButton = page.getByRole('toolbar', { name: '草图工具' }).getByRole('button', { name: '矩形', exact: true });
+  await expect(rectButton).toBeVisible({ timeout: 15_000 });
+  await rectButton.click();
+  await expect(rectButton).toHaveAttribute('aria-pressed', 'true');
+  await disableSnap(page);
+  await clickWorld(page, hub, P(-20, 14));
+  await clickWorld(page, hub, P(62, -5));
+  await page.waitForTimeout(2_500);
+  await counts(5, 10, '中心矩形');
+  expect(sk!.solve.status).toBe('underconstrained');
+  expect(sk!.solve.dof).toBe(2);
+
+  const centerOf = (snapshot: SketchDto): Vec3 => {
+    const p = snapshot.entities.find((e) => e.kind === 'point');
+    if (!p || p.kind !== 'point') throw new Error('缺中心点');
+    return worldOf({ x: p.x ?? 0, y: p.y ?? 0 });
+  };
+  /** 指定局部坐标附近的可见 point（第二矩形中心——首矩形中心在 origin，不能用 find-first）。 */
+  const pointNear = (snapshot: SketchDto, x: number, y: number): Vec3 => {
+    const p = snapshot.entities.find((e) => e.kind === 'point' && Math.hypot((e.x ?? 0) - x, (e.y ?? 0) - y) < 5);
+    if (!p || p.kind !== 'point') throw new Error(`找不到点 (${x},${y})`);
+    return worldOf({ x: p.x ?? 0, y: p.y ?? 0 });
+  };
+  const topLine = (snapshot: SketchDto) => {
+    // 矩形第一条边（a→b）为局部顶边 y≈9.525；矩形工具角序 = 首点、邻角…
+    const top = lines(snapshot).find((l) => typeof l.p1 === 'object' && typeof l.p2 === 'object' && Math.abs(l.p1.y - l.p2.y) < 1e-6 && l.p1.y > 0);
+    if (!top) throw new Error('找不到矩形顶边');
+    return top;
+  };
+  const rightLine = (snapshot: SketchDto) => {
+    const right = lines(snapshot).find((l) => typeof l.p1 === 'object' && typeof l.p2 === 'object' && Math.abs(l.p1.x - l.p2.x) < 1e-6 && l.p1.x > 0);
+    if (!right) throw new Error('找不到矩形右边');
+    return right;
+  };
+  const leftLine = (snapshot: SketchDto) => {
+    const left = lines(snapshot).find((l) => typeof l.p1 === 'object' && typeof l.p2 === 'object' && Math.abs(l.p1.x - l.p2.x) < 1e-6 && l.p1.x < 0);
+    if (!left) throw new Error('找不到矩形左边');
+    return left;
+  };
+
+  // 中心点 ↔ origin（Onshape [11]）。
+  await addConstraint(page, hub, '重合', [centerOf(sk!), P(0, 0)]);
+  await counts(5, 11, 'origin 重合');
+  // 82.55 / 19.05 长度尺寸（Onshape [12][13]）。
+  await addDimension(page, hub, '长度', [midOf(topLine(sk!))], 82.55);
+  await addDimension(page, hub, '长度', [midOf(leftLine(sk!))], 19.05);
+  let after = await counts(5, 13, '基底长宽尺寸');
+  expect(after.solve.status).toBe('ok');
+  expect(after.solve.dof).toBe(0);
+
+  // ── 2. 右腿竖线 + 竖直（Onshape [14][15]；起点自动焊到底边右角）
+  await activate(page, '线');
+  await clickWorld(page, hub, P(41.275, -9.525));
+  await clickWorld(page, hub, P(41.275, -27.0002));
+  await page.waitForTimeout(1_500);
+  after = await counts(6, 14, '右腿线（自动重合）');
+  const rightLeg = lines(after).find((l) => {
+    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
+    return Math.abs(l.p1.x - l.p2.x) < 2 && l.p1.y < 0 && l.p2.y < -20;
+  });
+  if (!rightLeg) throw new Error('找不到右腿线');
+  await addConstraint(page, hub, '竖直', [midOf(rightLeg)]);
+  after = await counts(6, 15, '右腿竖直');
+  const rightLegNow = lines(after).find((l) => {
+    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
+    return Math.abs(l.p1.x - l.p2.x) < 1e-6 && l.p1.y < 0 && l.p2.y < -20;
+  })!;
+
+  // ── 3. 小弧（圆心 (57.15,−27.0002) R15.875，起点自动焊到右腿末端）+ 相切（[16][17]）
+  await activate(page, '圆弧');
+  await clickWorld(page, hub, P(41.275, -27.0002));
+  await clickWorld(page, hub, P(57.15, -42.8752));
+  await clickWorld(page, hub, P(45.925, -38.225));
+  await page.waitForTimeout(1_500);
+  after = await counts(7, 16, '小弧（自动重合）');
+  await addConstraint(page, hub, '相切', [P(45.925, -38.225), midOf(rightLegNow)]);
+  after = await counts(7, 17, '小弧-右腿相切');
+
+  // ── 4. 喉部水平线（起点自动焊到小弧末端）+ 相切 + 水平（[18][19][20]）
+  await activate(page, '线');
+  await clickWorld(page, hub, P(57.15, -42.8752));
+  await clickWorld(page, hub, P(85.725, -42.8752));
+  await page.waitForTimeout(1_500);
+  after = await counts(8, 18, '喉线（自动重合）');
+  const throat = lines(after).find((l) => {
+    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
+    return Math.abs(l.p1.y - l.p2.y) < 2 && l.p1.y < -35;
+  });
+  if (!throat) throw new Error('找不到喉线');
+  await addConstraint(page, hub, '相切', [midOf(throat), P(45.925, -38.225)]);
+  after = await counts(8, 19, '喉线-小弧相切');
+  await addConstraint(page, hub, '水平', [midOf(throat)]);
+  after = await counts(8, 20, '喉线水平');
+  const throatNow = lines(after).find((l) => {
+    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
+    return Math.abs(l.p1.y - l.p2.y) < 1e-6 && l.p1.y < -35;
+  })!;
+
+  // ── 5. 第二矩形（中心矩形 (60.325,−66.675)↔(111.125,−38.1)；+5 实体/+10 约束）
+  await activate(page, '矩形');
+  await clickWorld(page, hub, P(60.325, -66.675));
+  await clickWorld(page, hub, P(111.125, -38.1));
+  await page.waitForTimeout(2_000);
+  after = await counts(13, 30, '第二矩形');
+  const center2 = pointNear(after, 85.725, -52.3875);
+  const rect2Bottom = (snapshot: SketchDto) => lines(snapshot).find((l) => {
+    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
+    return Math.abs(l.p1.y - l.p2.y) < 1e-6 && Math.abs(l.p1.y - (-66.675)) < 2 && l.p1.x > 50
+      && Math.abs(Math.abs(l.p1.x - l.p2.x) - 50.8) < 10;
+  })!;
+  const rect2Right = (snapshot: SketchDto) => lines(snapshot).find((l) => {
+    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
+    return Math.abs(l.p1.x - l.p2.x) < 1e-6 && l.p1.x > 100;
+  })!;
+
+  // ── 6. 第二矩形定位（[31] vertical(center, throat.end)；[32]-[37] 尺寸）
+  await addConstraint(page, hub, '竖直', [center2, P(85.725, -42.8752)]);
+  after = await counts(13, 31, '第二矩形竖直定位');
+  await addDimension(page, hub, '半径', [P(45.925, -38.225)], 15.875);
+  after = await counts(13, 32, '小弧半径');
+  await addDimension(page, hub, '长度', [midOf(rect2Bottom(after))], 50.8);
+  after = await counts(13, 33, '第二矩形长度');
+  await addDimension(page, hub, '距离', [midOf(throatNow), midOf(topLine(after))], 52.4002);
+  after = await counts(13, 34, '喉线到底边距离');
+  await addDimension(page, hub, '长度', [midOf(rect2Right(after))], 28.575);
+  after = await counts(13, 35, '第二矩形高度');
+  // Onshape [36] 是「第二矩形下边（y=−66.675）↔ 基座顶边」76.2（不是上边 −38.1）。
+  await addDimension(page, hub, '距离', [midOf(rect2Bottom(after)), midOf(topLine(after))], 76.2);
+  after = await counts(13, 36, '第二矩形下边距离');
+  /** 第二矩形中心（base 中心已在 origin，用远离原点的可见点识别）。 */
+  const rect2Center = (snapshot: SketchDto): Vec3 => {
+    const p = snapshot.entities.find((e) => e.kind === 'point' && Math.hypot(e.x ?? 0, e.y ?? 0) > 1);
+    if (!p || p.kind !== 'point') throw new Error('找不到第二矩形中心');
+    return worldOf({ x: p.x ?? 0, y: p.y ?? 0 });
+  };
+  await addDimension(page, hub, '距离', [rect2Center(after), midOf(rightLine(after))], 44.45);
+  after = await counts(13, 37, '第二矩形中心到基座右边');
+
+  // ── 7. 偏移链（右腿+小弧+喉线 → 左腿+大弧+顶切线；精确距 19.05）[38]-[42]
+  await addOffset(page, hub, midOf(rightLegNow), P(22.225, -52.3875), 19.05);
+  after = await counts(16, 41, '偏移链');
+  const leftLeg = lines(after).find((l) => {
+    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
+    return Math.abs(l.p1.x - l.p2.x) < 1e-6 && Math.abs(l.p1.x - 22.225) < 2;
+  })!;
+  await addDimension(page, hub, '距离', [midOf(rightLegNow), midOf(leftLeg)], 19.05);
+  after = await counts(16, 42, '偏移距尺寸');
+
+  // ── 8. 旋转轴（第二矩形两条水平边中点的竖直线）[43][44]
+  await activate(page, '线');
+  await clickWorld(page, hub, P(85.725, -38.1));
+  await clickWorld(page, hub, P(85.725, -66.675));
+  await page.waitForTimeout(1_200);
+  after = await counts(17, 42, '旋转轴线');
+  await addConstraint(page, hub, '中点', [P(85.725, -38.1), P(100, -38.1)]);
+  after = await counts(17, 43, '轴线起点中点');
+  await addConstraint(page, hub, '中点', [P(85.725, -66.675), P(100, -66.675)]);
+  after = await counts(17, 44, '轴线终点中点');
+
+  // ── 9. 精确三次贝塞尔样条（起点→终点→起点柄→终点柄；端点自动焊）[45]-[48]
+  await activate(page, '样条');
+  await clickWorld(page, hub, P(-41.275, -9.525));
+  await clickWorld(page, hub, P(57.15, -61.9252));
+  await clickWorld(page, hub, P(-39.539240300655365, -40.3054840862751));
+  await clickWorld(page, hub, P(16.844818368554112, -60.51863729953766));
+  await page.waitForTimeout(2_500);
+  after = await counts(18, 48, '样条收官');
+
+  // ── 10. 终态断言：直方图 / 尺寸数 / 求解 / 几何
+  expect(after.solve.status, '终态求解状态').toBe('ok');
+  expect(after.solve.dof, '终态自由度').toBe(0);
+  const histogram = after.constraints.reduce<Record<string, number>>((acc, c) => {
+    acc[c.kind] = (acc[c.kind] ?? 0) + 1;
+    return acc;
+  }, {});
+  expect(histogram).toEqual({
+    coincident: 18, midpoint: 6, length: 4, distance: 4, parallel: 4,
+    horizontal: 3, perpendicular: 2, vertical: 2, tangent: 2, offset: 2, radius: 1,
+  });
+  const dims = after.constraints.filter((c) => c.kind === 'length' || c.kind === 'distance' || c.kind === 'radius');
+  expect(dims).toHaveLength(9);
+  expect(dims.map((c) => c.value).sort((a, b) => (a ?? 0) - (b ?? 0)))
+    .toEqual([15.875, 19.05, 19.05, 28.575, 44.45, 50.8, 52.4002, 76.2, 82.55]);
+
+  // 几何金标（Onshape API，local mm）：13 线（无序端点对）+ 2 弧（端点/半径）+ 2 点 + 1 样条。
+  // 端点排序先按 4 位小数归一：求解器可能让竖直线的 x 相差 1e-15，直接按 raw x 排序会
+  // 在相等 x 上先比较噪声 x 而不是 y，导致竖线方向翻转（Chrome 1440×900 实测）。
+  const round4 = (v: number): number => Math.round(v * 1e4) / 1e4;
+  const canonPair = (a: Local2, b: Local2): string => {
+    const ends = [{ x: round4(a.x), y: round4(a.y) }, { x: round4(b.x), y: round4(b.y) }]
+      .sort((p, q) => p.x - q.x || p.y - q.y);
+    return `${ends[0]!.x.toFixed(4)},${ends[0]!.y.toFixed(4)}|${ends[1]!.x.toFixed(4)},${ends[1]!.y.toFixed(4)}`;
+  };
+  const canon = (line: Extract<SketchEntityDto, { kind: 'line' }>): string => {
+    if (typeof line.p1 !== 'object' || typeof line.p2 !== 'object') throw new Error('线端点应为内联');
+    return canonPair(line.p1, line.p2);
+  };
+  const goldLines: Array<[Local2, Local2]> = [
+    [{ x: -41.275, y: -9.525 }, { x: 41.275, y: -9.525 }],
+    [{ x: -41.275, y: 9.525 }, { x: 41.275, y: 9.525 }],
+    [{ x: -41.275, y: -9.525 }, { x: -41.275, y: 9.525 }],
+    [{ x: 41.275, y: -9.525 }, { x: 41.275, y: 9.525 }],
+    [{ x: 41.275, y: -9.525 }, { x: 41.275, y: -27.0002 }],
+    [{ x: 57.15, y: -42.8752 }, { x: 85.725, y: -42.8752 }],
+    [{ x: 60.325, y: -38.1 }, { x: 111.125, y: -38.1 }],
+    [{ x: 60.325, y: -66.675 }, { x: 111.125, y: -66.675 }],
+    [{ x: 60.325, y: -38.1 }, { x: 60.325, y: -66.675 }],
+    [{ x: 111.125, y: -38.1 }, { x: 111.125, y: -66.675 }],
+    [{ x: 57.15, y: -61.9252 }, { x: 85.725, y: -61.9252 }],
+    [{ x: 22.225, y: -9.525 }, { x: 22.225, y: -27.0002 }],
+    [{ x: 85.725, y: -38.1 }, { x: 85.725, y: -66.675 }],
+  ];
+  const actualLines = lines(after).map(canon).sort();
+  const expectedLines = goldLines.map(([a, b]) => canonPair(a, b)).sort();
+  expect(actualLines).toEqual(expectedLines);
+
+  const arcs = after.entities.filter((e): e is Extract<SketchEntityDto, { kind: 'arc' }> => e.kind === 'arc');
+  expect(arcs).toHaveLength(2);
+  const arcSig = (a: Extract<SketchEntityDto, { kind: 'arc' }>): string => {
+    const c = a.center;
+    if (typeof c !== 'object') throw new Error('弧心应为内联');
+    const r = a.radius ?? 0;
+    const s = a.startAngle ?? 0;
+    const sw = a.sweepAngle ?? 0;
+    const ends = [
+      { x: c.x + r * Math.cos(s), y: c.y + r * Math.sin(s) },
+      { x: c.x + r * Math.cos(s + sw), y: c.y + r * Math.sin(s + sw) },
+    ].sort((p, q) => p.x - q.x || p.y - q.y);
+    return `${c.x.toFixed(4)},${c.y.toFixed(4)}|${r.toFixed(4)}|${ends[0]!.x.toFixed(4)},${ends[0]!.y.toFixed(4)}|${ends[1]!.x.toFixed(4)},${ends[1]!.y.toFixed(4)}`;
+  };
+  expect(arcs.map(arcSig).sort()).toEqual([
+    '57.1500,-27.0002|15.8750|41.2750,-27.0002|57.1500,-42.8752',
+    '57.1500,-27.0002|34.9250|22.2250,-27.0002|57.1500,-61.9252',
+  ]);
+
+  const pts = after.entities.filter((e): e is Extract<SketchEntityDto, { kind: 'point' }> => e.kind === 'point');
+  expect(pts).toHaveLength(2);
+  expect(pts.map((p) => `${(p.x ?? 0).toFixed(4)},${(p.y ?? 0).toFixed(4)}`).sort())
+    .toEqual(['0.0000,0.0000', '85.7250,-52.3875']);
+
+  const spline = after.entities.find((e): e is Extract<SketchEntityDto, { kind: 'spline' }> => e.kind === 'spline');
+  expect(spline, '应有 1 条样条').toBeDefined();
+  expect(spline!.controlPoints).toHaveLength(4);
+  const goldControls: Local2[] = [
+    { x: -41.275, y: -9.525 },
+    { x: -39.539240300655365, y: -40.3054840862751 },
+    { x: 16.844818368554112, y: -60.51863729953766 },
+    { x: 57.15, y: -61.9252 },
+  ];
+  let maxCtrlDev = 0;
+  spline!.controlPoints.forEach((p, i) => {
+    const dev = Math.hypot(p.x - goldControls[i]!.x, p.y - goldControls[i]!.y);
+    maxCtrlDev = Math.max(maxCtrlDev, dev);
+  });
+  console.log(`[t2-mouse] spline 控制点最大偏差 = ${maxCtrlDev.toFixed(4)} mm`);
+  expect(maxCtrlDev, '样条控制点偏差').toBeLessThan(1.0);
+
+  console.log(`[t2-mouse] FINAL histogram=${JSON.stringify(histogram)} dims=${dims.length}`);
+  await page.screenshot({ path: 'test-results/t2-mouse-99-final-sketch.png' });
+
+  // ── 11. 退出草图 → 六特征链（真实特征对话框；E1 新建，E2/E3/R1 加入 Part 1）
+  await exitSketch.click();
+  await expect(exitSketch).toBeHidden({ timeout: 30_000 });
+  const featureList = page.getByTestId('part-studio-feature-list');
+  await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible({ timeout: 60_000 });
+
+  const regions = after.regions ?? [];
+  expect(regions.length, `面域数=${regions.length}：${JSON.stringify(regions)}`).toBeGreaterThanOrEqual(4);
+  const idxBase = regionIndexByArea(regions, 1572.585); // 底座 82.55×19.05（JGG）
+  const idxBand = regionIndexByArea(regions, 1153.56); // 拱形环带+喉部（JGa）
+  const idxBandWing = regionIndexByArea(regions, 483.87); // JGe：拱形中带（E2 第二面域）
+  const idxRevolveProfile = regionIndexByArea(regions, 725.775); // JGW：旋转矩形轴右半（R1）
+  const idxLobe = regionIndexByArea(regions, 2298.36); // 拱肩环面（JGK）
+  console.log(`[t2-mouse] 面域映射：base=${idxBase} band=${idxBand} bandWing=${idxBandWing} revolve=${idxRevolveProfile} lobe=${idxLobe}（共 ${regions.length}）`);
+  const axisLine = lines(after).find((l) =>
+    typeof l.p1 === 'object' && typeof l.p2 === 'object'
+    && Math.abs(l.p1.x - 85.725) < 1e-6 && Math.abs(l.p2.x - 85.725) < 1e-6);
+  if (!axisLine) throw new Error('找不到旋转轴线');
+  const axisLineId = axisLine.id;
+
+  const dialog = page.getByTestId('part-studio-feature-dialog');
+  await extrudeViaDialog(page, dialog, featureList, sketchId!, [idxBase], '127', '拉伸 1', 'new');
+  await extrudeViaDialog(page, dialog, featureList, sketchId!, [idxBand, idxBandWing], '50.8', '拉伸 2', 'add');
+  await extrudeViaDialog(page, dialog, featureList, sketchId!, [idxLobe], '15.875', '拉伸 3', 'add');
+  await revolveViaDialog(page, dialog, featureList, sketchId!, idxRevolveProfile, axisLineId, '旋转 1');
+
+  const treeAfter = await getFeatureTreeRpc(ctx, token);
+  console.log(`[t2-mouse] feature tree: ${JSON.stringify(treeAfter.map((r) => ({ type: r.featureType, status: r.status })))}`);
+  expect(treeAfter.map((r) => r.featureType)).toEqual(['sketch', 'extrude', 'extrude', 'extrude', 'revolve']);
+  expect(treeAfter.every((r) => r.status === 0), '六列特征状态全 0').toBe(true);
+  const bodies = await getBodiesRpc(ctx, token);
+  const activeBodies = bodies.filter((b) => b.active);
+  expect(activeBodies, `active authored body 唯一：${JSON.stringify(bodies)}`).toHaveLength(1);
+  const mass = await getMassPropertiesRpc(ctx, token);
+  const volumeMm3 = mass.reduce((sum, m) => sum + m.volume, 0);
+  console.log(`[t2-mouse] 无圆角体积 = ${(volumeMm3 / 1000).toFixed(3)} cm³（fixture 无圆角 357.988）`);
+  expect(volumeMm3 / 1000, '无圆角体积').toBeGreaterThan(357.988 * 0.995);
+  expect(volumeMm3 / 1000, '无圆角体积').toBeLessThan(357.988 * 1.005);
+  await page.screenshot({ path: 'test-results/t2-mouse-10-features.png' });
+
+  // ── 12. Fillet 1：底座盒四根竖角棱（R5.08，切向延伸；右视拾右侧两条、左视拾左侧两条）
+  await setStandardView(page, 6 /* Iso */, {
+    low: { x: -90, y: -90, z: -40 }, high: { x: 180, y: 90, z: 90 },
+  });
+  await page.waitForTimeout(6_000); // tile 流送驻留（locate 命中依赖可见几何）
+  await page.screenshot({ path: 'test-results/t2-mouse-11-iso.png' });
+
+  await page.getByRole('button', { name: '圆角', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('半径').fill('5.08');
+  const propagate = dialog.getByTestId('part-studio-feature-dialog-propagate-smooth').locator('input');
+  if (!(await propagate.isChecked())) await propagate.check(); // gold tangentPropagation=true
+  await dialog.getByTestId('part-studio-feature-dialog-add-edge').click();
+  await expect(dialog.getByTestId('part-studio-feature-dialog-picking-hint')).toBeVisible({ timeout: 15_000 });
+
+  const pickFillet = async (points: Vec3[]): Promise<void> => {
+    for (const p of points) {
+      const [px] = await projectWorld(page, hub, [p]);
+      if (!px) throw new Error('投影失败');
+      await page.mouse.move(px.x - 15, px.y + 12);
       await page.waitForTimeout(150);
-      await page.mouse.move(px, py);
-      await page.waitForTimeout(350); // boresite 运动定位窗口
+      await page.mouse.move(px.x, px.y);
+      await page.waitForTimeout(450); // boresite 运动定位窗口
       await page.mouse.down();
       await page.waitForTimeout(60);
       await page.mouse.up();
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(700);
     }
-    const chipCount = await dialog
-      .getByTestId('part-studio-feature-dialog-edge-chips')
-      .locator('li')
-      .count();
-    console.log(`[t7] fillet 边拾取 chips=${chipCount}（≥1 即 T6 链真栈通过）`);
-    if (chipCount === 0) throw new Error('拾取预算内 0 边（T6 真栈不通过，偏差登记）');
-
-    // 结束拾取：再点「添加边」钮（拾取态下该钮即 stopPick 开关——对话框
-    // 自治通道，比 Esc/右键确定：Esc 经工具层分叉实测不达对话框 stopPick）。
-    await dialog.getByTestId('part-studio-feature-dialog-add-edge').click();
-    await expect(dialog.getByTestId('part-studio-feature-dialog-picking-hint')).toBeHidden({
-      timeout: 10_000,
-    });
-    await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
-    await dialog.getByRole('button', { name: '确认' }).click();
-    await expect(
-      featureList
-        .getByRole('button', { name: '圆角 1' })
-        .or(dialog.getByTestId('part-studio-feature-dialog-error')),
-    ).toBeVisible({ timeout: 120_000 });
-    if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
-      throw new Error(
-        `圆角 1 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
-      );
-    }
-    await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
-    filletDone = true;
-  } catch (err) {
-    console.log(
-      `[t7] fillet 未通过（偏差登记，体积按无圆角口径）：${err instanceof Error ? err.message : String(err)}`,
-    );
-    // 清场：Esc 退出拾取态 + ✗ 关对话框（留证后）
-    await page.screenshot({ path: shotPath('t7-7-fillet-failed.png') });
-    await page.keyboard.press('Escape').catch(() => undefined);
-    if ((await dialog.getByRole('button', { name: '取消' }).count()) > 0) {
-      await dialog.getByRole('button', { name: '取消' }).click();
-    }
-  }
-  await page.waitForTimeout(3_000);
-  await page.screenshot({ path: shotPath(filletDone ? 't7-8-fillet1.png' : 't7-8-final.png') });
-
-  // 台账补写终局态
-  writeFileSync(
-    shotPath('tutorial2-regions.json'),
-    JSON.stringify({ ...ledger, filletDone }, null, 2),
-    'utf-8',
-  );
-
-
-
-  // ── UI 对齐走查（M6c-T6）：四截图 + 轴判型断言 ──────────────────────
-  // 橙色高亮（f3ad3e）=FeatureDialog 在场即全 body emphasize（FeatureTree
-  // editHighlightIds → useCanvasSelection；无需进入编辑态）。
-  await page.getByTestId('part-studio-ribbon').screenshot({ path: shotPath('t6-1-ribbon.png') });
-  await page.getByRole('button', { name: '拉伸', exact: true }).click();
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
-  await expect(dialog.getByTestId('part-studio-feature-dialog-region-chips')).toBeVisible({ timeout: 20_000 });
-  await dialog.screenshot({ path: shotPath('t6-2-extrude-dialog.png') });
-  await page.waitForTimeout(2_000); // emphasize 生效帧
-  await page.getByTestId('part-studio-viewport').locator('canvas').first().screenshot({ path: shotPath('t6-3-edit-highlight.png') });
-  await dialog.getByRole('button', { name: '取消' }).click();
-  await page.getByRole('button', { name: '旋转', exact: true }).click();
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
-  const axisSelect = dialog.getByRole('combobox', { name: '旋转轴' });
-  await expect(axisSelect).toBeVisible({ timeout: 20_000 });
-  const axisLabelText = await axisSelect.locator('option:checked').textContent();
-  console.log();
-  expect(axisLabelText ?? '', '轴判型命名应属竖直线/水平线/斜线族').toMatch(/竖直线|水平线|斜线/);
-  await dialog.screenshot({ path: shotPath('t6-4-revolve-axis.png') });
-  await dialog.getByRole('button', { name: '取消' }).click();
-
-  // ── M5-T4 门 S7/S8（B-model P0 Task 5 改写）：保存版本命名 → 版本历史 ──
-  // 复合模型已建（5-6 特征、事务 pending），正是保存版本入口的真实前置。
-  // 顶栏「保存版本」开 CreateNamedVersionDialog：有未保存变更 → 先 pushChanges
-  // 再以返回的 changeset id 创建 Named Version（hub 仅元数据命名，不生成
-  // checkpoint/缩略图）。验证：对话框 → 成功 toast → 版本历史出现该 Named
-  // Version；对话框关闭后钮仍可用（干净态可继续命名当前 changeset）。
-  // 失败即门禁红（不兜底）。
-  const pushDescription = `M5-T4 复测推送 ${Date.now()}`;
-  const saveButton = page.getByTestId('part-studio-save-button');
-  await expect(saveButton).toBeEnabled({ timeout: 30_000 });
-  await saveButton.click();
-  const versionDialog = page.getByRole('dialog', { name: '保存版本' });
-  await expect(versionDialog).toBeVisible({ timeout: 15_000 });
-  await versionDialog.getByLabel('版本名称').fill(pushDescription);
-  await versionDialog.getByRole('button', { name: '保存' }).click();
-  await expect(page.getByText('版本已保存')).toBeVisible({ timeout: 60_000 });
-  await expect(saveButton).toBeEnabled({ timeout: 30_000 });
-  await page.getByTestId('part-studio-dock').getByRole('tab', { name: '版本历史' }).click();
-  await expect(page.getByTestId('part-studio-named-versions').getByText(pushDescription)).toBeVisible();
-  console.log(`[t7] 保存版本（Named Version）与版本历史闭环：${pushDescription}`);
-
-  // ── 全程零 console error ────────────────────────────────────────────
-  expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
-});
-
-
-// ============================================================================
-// T7-B（路径 1 实证，控制器 2026-10-24 指派）：Fillet 1 紧跟 Extrude 1——
-// 纯盒上游阶段拾底座 4 条竖棱倒角，证明「非流形边（邻面数大于 2）」阻断只在
-// 拱/底座 Union 之后出现（对照 T7 冒烟的全链后置 fillet 红行）。链序裁决：
-// 建序直排（Sketch→E1→Fillet→E2→E3→R1），不走 reorderFeature——重排后
-// fillet 上游集变化=几何非恒等，v1 线性链守卫必拒收，建序直排是唯一稳路径。
-// 断言：6 节点全绿（无 --error 行）+零 console error；体积对拍归 scratch 探针
-// （期望 ≈352.613−2.814≈349.8cm³——非 ±1% 达标测试，复合面域修复归 M6-c）。
-// 拾取降级：竖棱 boresite 命中几条算几条（≥1 即机制成立，如实登记）。
-// ============================================================================
-test('T7-B 链序实证：Fillet 1 紧跟 Extrude 1（纯盒上游）→ 全链 6 节点全绿', async ({
-  page,
-}) => {
-  test.slow();
-
-  const consoleErrors = collectConsoleErrors(page);
-
-  // P2.6a：B 种子编辑器（helper 等 ?model= scope + 编辑器就绪）。
-  const ctx = await openSeedImodelEditor(page, bSeed);
-  const featureCount = page.getByTestId('part-studio-feature-count');
-  const featureList = page.getByTestId('part-studio-feature-list');
-  const dialog = page.getByTestId('part-studio-feature-dialog');
-
-  // L1：同款草图 RPC 直发（借页面在持会话；台账单独落文件）
-  const { op, axisLineId } = buildSketchOp();
-  const accessToken = await getApiToken();
-  const lease = await borrowWriteLease(ctx, accessToken, 't7b');
-  const result = await applyFeatureOpRpc(ctx, op as unknown as FeatureOp, lease, accessToken);
-  assertFeatureOpOk(result, 'insertSketch');
-  const sketchId = result.featureId as string;
-  const sketch = (await getSketchRpc(ctx, sketchId, accessToken)) as {
-    regions?: Array<{ area: number }>;
   };
-  const regions = sketch?.regions ?? [];
-  expect(regions.length).toBeGreaterThanOrEqual(3);
-  writeFileSync(
-    shotPath('tutorial2-reorder-regions.json'),
-    JSON.stringify({ imodelId: ctx.imodelId, scopeId: ctx.scopeId, sketchId, axisLineId, regionCount: regions.length, regions }, null, 2),
-    'utf-8',
-  );
-  const idxBase = regionIndexByArea(regions, 1572.585);
-  const idxBand = regionIndexByArea(regions, 1153.56);
-  const idxLobe = regionIndexByArea(regions, 2298.36);
-  const idxRightRect = regionIndexByArea(regions, 725.775);
+  const chips = dialog.getByTestId('part-studio-feature-dialog-edge-chips');
+  const dialogBox = await dialog.boundingBox();
+  const canvasBox = await page.getByTestId('part-studio-viewport').locator('canvas').first().boundingBox();
+  if (!dialogBox || !canvasBox) throw new Error('fillet 拾取缺少 dialog/canvas boundingBox');
+  const safeMinX = dialogBox.x + dialogBox.width + 24;
+  const safeMaxX = canvasBox.x + canvasBox.width - 24;
 
-  await expect(featureCount).toHaveText('(1)', { timeout: 60_000 });
+  /** 在指定标准视图里找一个取景体积，使给定世界点在对话框右侧、画布内。 */
+  const framePointsRightOfDialog = async (viewId: number, points: Vec3[]): Promise<void> => {
+    const centers = [-400, -300, -200, -100, 0, 100, 200, 300, 400];
+    let last: Array<{ x: number; y: number }> = [];
+    for (const centerY of centers) {
+      const volume = {
+        low: { x: -120, y: centerY - 260, z: -70 },
+        high: { x: 170, y: centerY + 260, z: 70 },
+      };
+      await setStandardView(page, viewId, volume);
+      last = await projectWorld(page, hub, points);
+      if (last.every((p) => p.x > safeMinX && p.x < safeMaxX
+        && p.y > canvasBox.y + 20 && p.y < canvasBox.y + canvasBox.height - 20)) {
+        console.log(`[t2-mouse] fillet view=${viewId} centerY=${centerY} 投影=${JSON.stringify(last.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) })))}`);
+        return;
+      }
+    }
+    throw new Error(`无法把 fillet 拾取点放到对话框右侧：view=${viewId} last=${JSON.stringify(last)} safe=[${safeMinX},${safeMaxX}]`);
+  };
 
-  // Extrude 1（纯盒阶段——fillet 的上游）
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBase], '127', '拉伸 1');
-  await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
-
-  // 视图就位 + Fillet 1：纯盒 4 条竖棱（前后 2 + 轮廓 2）boresite 拾取
-  const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('canvas boundingBox 不可得');
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  await isoFitView(page, cx, cy);
-  await page.waitForTimeout(8_000); // tile 流送驻留
-  const chips = await pickFilletEdges(page, dialog, '5.08', [
-    { x: 41.275, y: 63.5, z: 0 },
+  // Onshape Fillet 1 = 底座四条**短 Z 竖棱**（19.05mm），不是长 Y 深棱。
+  // 右视看 x=+41.275 面：两条短棱在 y=±63.5；左视看 x=-41.275 面。
+  // 把整个面取景推到特性对话框右侧，逐条点击棱中点（z=0）。
+  const rightFacePoints: Vec3[] = [
     { x: 41.275, y: -63.5, z: 0 },
-    { x: -41.275, y: 63.5, z: 0 },
+    { x: 41.275, y: 63.5, z: 0 },
+  ];
+  const leftFacePoints: Vec3[] = [
     { x: -41.275, y: -63.5, z: 0 },
-  ], box);
-  expect(chips, `纯盒竖棱拾取=${chips}/4（≥1 即机制成立，如实登记）`).toBeGreaterThanOrEqual(1);
+    { x: -41.275, y: 63.5, z: 0 },
+  ];
+  await framePointsRightOfDialog(3 /* Right */, rightFacePoints);
+  await pickFillet(rightFacePoints);
+  console.log(`[t2-mouse] fillet chips after Right = ${await chips.locator('li').count().catch(() => 0)}`);
+  await framePointsRightOfDialog(2 /* Left */, leftFacePoints);
+  await pickFillet(leftFacePoints);
+  const chipCount = await chips.locator('li').count();
+  console.log(`[t2-mouse] fillet chips = ${chipCount}/4`);
+  await page.screenshot({ path: 'test-results/t2-mouse-12-fillet-picked.png' });
+  expect(chipCount, '四条短竖棱逐条拾取（不重复）').toBe(4);
+
+  await dialog.getByTestId('part-studio-feature-dialog-add-edge').click();
+  await expect(dialog.getByTestId('part-studio-feature-dialog-picking-hint')).toBeHidden({ timeout: 10_000 });
   await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
   await dialog.getByRole('button', { name: '确认' }).click();
   await expect(
-    featureList
-      .getByRole('button', { name: '圆角 1' })
-      .or(dialog.getByTestId('part-studio-feature-dialog-error')),
+    featureList.getByRole('button', { name: '圆角 1' }).or(dialog.getByTestId('part-studio-feature-dialog-error')),
   ).toBeVisible({ timeout: 120_000 });
-  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
-    throw new Error(
-      `圆角 1 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
-    );
-  }
-  await expect(featureCount).toHaveText('(3)', { timeout: 30_000 });
-  await expectTreeRowGreen(featureList, '圆角 1'); // status=0 绿行（对照全链后置的红行）
-  await page.screenshot({ path: shotPath('t7b-1-box-fillet.png') });
+  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0)
+    throw new Error(`圆角 1 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`);
+  await expect(dialog).toBeHidden({ timeout: 30_000 });
 
-  // 后续特征并入已倒角板（拱在中部不碰角圆角——union 预期无碍）
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxBand, idxRightRect], '50.8', '拉伸 2');
-  await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
-  await expectTreeRowGreen(featureList, '拉伸 2');
-  await extrudeViaDialog(page, dialog, featureList, sketchId, [idxLobe], '15.875', '拉伸 3');
-  await expect(featureCount).toHaveText('(5)', { timeout: 30_000 });
-  await expectTreeRowGreen(featureList, '拉伸 3');
-  await page.getByRole('button', { name: '旋转', exact: true }).click();
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('combobox', { name: '草图' }).selectOption(sketchId);
-  await expect(dialog.getByRole('combobox', { name: '面域' })).toBeVisible({ timeout: 20_000 });
-  await dialog.getByRole('combobox', { name: '面域' }).selectOption(String(idxRightRect));
-  await dialog.getByRole('combobox', { name: '旋转轴' }).selectOption(String(axisLineId));
-  await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
-  await dialog.getByRole('button', { name: '确认' }).click();
-  await expect(
-    featureList
-      .getByRole('button', { name: '旋转 1' })
-      .or(dialog.getByTestId('part-studio-feature-dialog-error')),
-  ).toBeVisible({ timeout: 120_000 });
-  if ((await dialog.getByTestId('part-studio-feature-dialog-error').count()) > 0) {
-    throw new Error(
-      `旋转 1 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
-    );
-  }
-  await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
+  const finalTree = await getFeatureTreeRpc(ctx, token);
+  console.log(`[t2-mouse] final tree: ${JSON.stringify(finalTree.map((r) => ({ type: r.featureType, status: r.status })))}`);
+  expect(finalTree.map((r) => r.featureType)).toEqual(['sketch', 'extrude', 'extrude', 'extrude', 'revolve', 'fillet']);
+  expect(finalTree.every((r) => r.status === 0), '六特征状态全 0').toBe(true);
+  const finalBodies = await getBodiesRpc(ctx, token);
+  expect(finalBodies.filter((b) => b.active), `单 active body：${JSON.stringify(finalBodies)}`).toHaveLength(1);
+  const finalMass = await getMassPropertiesRpc(ctx, token);
+  const finalVolumeMm3 = finalMass.reduce((sum, m) => sum + m.volume, 0);
+  const finalCm3 = finalVolumeMm3 / 1000;
+  const removalCm3 = volumeMm3 / 1000 - finalCm3;
+  console.log(`[t2-mouse] 四短棱圆角体积 = ${finalCm3.toFixed(3)} cm³；去材 = ${removalCm3.toFixed(3)} cm³（fixture 357.566 / 去材 0.422）`);
+  expect(removalCm3, '四短棱去材').toBeGreaterThan(0.35);
+  expect(removalCm3, '四短棱去材').toBeLessThan(0.50);
+  expect(finalCm3, '最终体积 ≤0.5% vs API 357.568').toBeGreaterThan(357.568 * 0.995);
+  expect(finalCm3, '最终体积 ≤0.5% vs API 357.568').toBeLessThan(357.568 * 1.005);
 
-  // 全链 6 节点全绿
-  for (const name of ['草图 1', '拉伸 1', '圆角 1', '拉伸 2', '拉伸 3', '旋转 1']) {
-    await expectTreeRowGreen(featureList, name);
-  }
-
-  await isoFitView(page, cx, cy);
-  await page.waitForTimeout(10_000);
-  await page.screenshot({ path: shotPath('t7b-2-final.png') });
-
-  expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);
+  await setStandardView(page, 6 /* Iso */, {
+    low: { x: -90, y: -90, z: -40 }, high: { x: 180, y: 90, z: 90 },
+  });
+  await page.waitForTimeout(6_000);
+  await page.screenshot({ path: 'test-results/t2-mouse-99-final.png' });
 });

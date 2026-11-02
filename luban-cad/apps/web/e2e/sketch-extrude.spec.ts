@@ -36,6 +36,7 @@ import { inflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
 import { collectConsoleErrors, getApiToken, openSeedImodelEditor } from './helpers';
 import { resetBModelSeed } from './seed';
+import { clickWorld, disableSnap, setStandardView } from './tutorial2-helpers';
 
 /** 留证目录（仓根 .superpowers/sdd/2026-10-23-tutorial2-sketch-chain/shots/）。 */
 const SHOTS_DIR = resolve(
@@ -244,41 +245,47 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await expect(sketchToolbar).toBeVisible({ timeout: 60_000 });
   await expect(lineButton).toBeVisible();
   await expect(arcButton).toBeVisible();
-  await expect(featureCount).toHaveText('(1)', { timeout: 60_000 });
+  // 默认几何图元（Origin/Top/Front/Right）计入特征数（2026-11-02 Onshape 对齐）。
+  await expect(featureCount).toHaveText('(5)', { timeout: 60_000 });
   await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
 
-  // ── 2) 画线+画弧（屏幕位固定，不做视图旋转）──────────────────────────
-  // 设计裁决（T8 run6-8 实录收敛）：工具事件管道的像素→世界映射在会话内自洽，
-  // 但与 worldToView/渲染视锥会分叉（视图旋转后尤甚——陈旧视锥+AccuDraw 轴锁，
-  // 线被画到取景外是假阴性）。故：不做任何视图旋转；线/弧点击全用画布中心区
-  // 固定屏幕位；**弧端点点击=线端点完全相同的像素**——同一映射把同一像素映回
-  // 同一平面点，闭环由构造保证（AccuSnap 吸附只是锦上添花）。闭环真值不依赖
-  // 显示：拉伸对话框的 getSketch.regions 是唯一裁判；唯一硬显示门=拉伸提交后
-  // 适应视图（fit 把成体带进视野）的中心区成墨断言。
+  // ── 2) 画线+画弧（世界点投影点击；保持闭环由构造保证）────────────────
+  // 2026-11-02 起进入草图自动按平面 frame 定向（Onshape 对齐），旧的「固定
+  // 像素 + 零视图旋转」假设失效。改为按 Top 平面世界点投影取像素：线 A→B，
+  // 3 点弧 B→A（同一世界端点）+ 下凸中点，闭环与世界几何一一对应。
   const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas boundingBox 不可得（视口未挂载？）');
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  const pointA = { x: cx - 150, y: cy }; // 线起点（像素）
-  const pointB = { x: cx + 150, y: cy }; // 线终点（像素）
+  const hub = { x: box.x, y: box.y };
+  const lineA = { x: -100, y: 0, z: 0 };
+  const lineB = { x: 100, y: 0, z: 0 };
+  const arcMid = { x: 0, y: -80, z: 0 };
+  // 进入草图后相机已按平面自动定向；再钉一次 Top + 已知 volume，保证
+  // worldToView 投影与工具事件映射一致（与 tutorial2 boot 同口径）。
+  await setStandardView(page, 0, {
+    low: { x: -200, y: -200, z: -100 },
+    high: { x: 200, y: 200, z: 100 },
+  });
+  await disableSnap(page);
 
   // 画线（2 点击）
   await lineButton.click();
   await expect(lineButton).toHaveAttribute('aria-pressed', 'true');
-  await dataPoint(page, pointA.x, pointA.y);
-  await dataPoint(page, pointB.x, pointB.y);
+  await clickWorld(page, hub, lineA);
+  await clickWorld(page, hub, lineB);
   await page.waitForTimeout(2_000); // 提交+tile 流送驻留
 
   // 基线②：线已提交态（弧的上墨差相对此基线）
   const afterLine = await grabCanvas(page);
 
-  // 画弧（3 点击）：起点=线终点像素 → 终点=线起点像素（闭环焊接）→ 弧上点外偏
+  // 画弧（3 点击）：起点=线终点 → 终点=线起点（闭环）→ 下凸弧上点
   await arcButton.click();
   await expect(arcButton).toHaveAttribute('aria-pressed', 'true');
-  await dataPoint(page, pointB.x, pointB.y); // 弧起点
-  await dataPoint(page, pointA.x, pointA.y); // 弧终点（闭环）
-  await dataPoint(page, cx, cy - 80); // 弧上点：中点外挑 ~80px
+  await clickWorld(page, hub, lineB);
+  await clickWorld(page, hub, lineA);
+  await clickWorld(page, hub, arcMid);
   await page.waitForTimeout(2_000);
 
   // 弧上屏：软观察（tile 时序与显示位置都不进门禁——闭环真值归面域读回），
@@ -339,7 +346,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
       `insertFeature 被后端拒收：${await dialog.getByTestId('part-studio-feature-dialog-error').textContent()}`,
     );
   }
-  await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
+  await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
   await expect(page.getByTestId('part-studio-undo-button')).toBeEnabled({ timeout: 15_000 });
 
@@ -366,12 +373,12 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
 
   // ── 7) 撤销 → 1 节点；重做 → 2 节点 ─────────────────────────────────
   await page.getByTestId('part-studio-undo-button').click();
-  await expect(featureCount).toHaveText('(1)', { timeout: 30_000 });
+  await expect(featureCount).toHaveText('(5)', { timeout: 30_000 });
   await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toHaveCount(0);
 
   await page.getByTestId('part-studio-redo-button').click();
-  await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
+  await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
   await page.screenshot({ path: shotPath('t8-4-undo-redo.png') });
 

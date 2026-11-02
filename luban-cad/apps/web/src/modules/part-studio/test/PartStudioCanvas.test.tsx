@@ -200,7 +200,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
       expect(applyOp).toHaveBeenCalledWith({
         kind: 'insertFeature',
         featureType: 'extrude',
-        params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0] },
+        params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
       }),
     );
     // 成功 → 宿主收合（closeDialog）。

@@ -43,6 +43,7 @@ vi.mock('../hooks/useNamedVersions.js', () => ({
 
 import { usePartStudioStore } from '../index.js';
 import { PartStudioDock } from '../components/PartStudioDock.js';
+import { DEFAULT_DISPLAY_SETTINGS } from '../internal/display-actions.js';
 
 const CHANGESETS = [
   { id: 'cs-2', index: 2, description: '加圆角', displayName: 'cs2', pushDateTime: '2026-10-20T09:00:00Z' },
@@ -67,6 +68,12 @@ interface DockProps {
   isSaving?: boolean;
   onSave?: () => void;
   onPush?: () => void;
+  displaySettings?: {
+    settings: typeof DEFAULT_DISPLAY_SETTINGS;
+    update: () => void;
+    reset: () => void;
+    viewportReady: boolean;
+  };
 }
 
 function renderDock(props: DockProps = {}): { unmount: () => void } {
@@ -126,6 +133,24 @@ describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
     expect(toContainText(within(dock).getByTestId('part-studio-dock-body'), '内容即将推出')).toBe(true);
     // 占位页签不发起 changesets 查询。
     expect(mocks.listChangesets).not.toHaveBeenCalled();
+  });
+
+  it('displaySettings 传入：显示设置页签渲染真实面板（占位退役）', async () => {
+    const user = userEvent.setup();
+    renderDock({
+      displaySettings: {
+        settings: DEFAULT_DISPLAY_SETTINGS,
+        update: vi.fn(),
+        reset: vi.fn(),
+        viewportReady: true,
+      },
+    });
+    const dock = screen.getByTestId('part-studio-dock');
+    await user.click(within(dock).getByRole('tab', { name: '显示设置' }));
+    const body = within(dock).getByTestId('part-studio-dock-body');
+    expect(within(body).getByTestId('part-studio-display-settings')).toBeDefined();
+    expect(within(body).getByTestId('part-studio-display-settings-mode')).toBeDefined();
+    expect(toContainText(body, '内容即将推出')).toBe(false);
   });
 
   it('loading 骨架先行，落定后列表行渲染（index/描述/日期）', async () => {

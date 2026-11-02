@@ -210,6 +210,8 @@ export type {
   FeatureFormFieldKind, FeatureFormModelEntry,
   // M3-b v1.2
   SketchEntityDto, SketchConstraintDto, SketchSolveStatusDto, SketchSolveStateDto, SketchDto, SketchSummaryDto,
+  // Tutorial 2 v1.19
+  SketchRef, SketchPointDto, FeatureBooleanOperation, MassPropertiesDto,
   // RW2-T6 v1.4
   ChamferParams,
   // RW2-T7 v1.5

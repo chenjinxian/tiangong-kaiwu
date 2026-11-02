@@ -98,10 +98,9 @@ function lookup(dict: unknown, dottedPath: string): unknown {
 }
 
 describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
-  it('18 工具在册：id 唯一、组序绘制→编辑→标注、组内排布有序', () => {
-    // M6-b T5：标注 2 占位（sketchDimension/sketchConstraint）按工具展开为
-    // 约束 6+尺寸 2 真 toolId，注册表 12→18（os-30 下拉 1:1 归 M6-c）。
-    expect(SKETCH_RIBBON_TOOLS).toHaveLength(18);
+  it('22 工具在册：id 唯一、组序绘制→编辑→标注、组内排布有序', () => {
+    // v1.19：新增样条/中点/相切/固定/长度 5 件（其中样条替换占位），注册表 18→22。
+    expect(SKETCH_RIBBON_TOOLS).toHaveLength(22);
     const ids = SKETCH_RIBBON_TOOLS.map((tool) => tool.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(SKETCH_TOOL_GROUP_ORDER).toEqual(['sketchDraw', 'sketchEdit', 'sketchAnnotate']);
@@ -115,7 +114,7 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
   // 实测）——绘制组含文本（线 矩形 圆 弧 样条 文本，采集序内插多边形/点未
   // 注册），编辑组=圆角 修剪 偏移 镜像；标注组采集仅「尺寸 重合」两钮，本仓
   // 按工具展开 8 件（约束 6 前置 + 尺寸 2，1:1 下拉归 M6-c 后续）。
-  it('10-sketch-toolbar.json 组内序对齐：绘制 6（文本归绘制组）/编辑 4/标注 8', () => {
+  it('10-sketch-toolbar.json 组内序对齐：绘制 6（文本归绘制组）/编辑 4/标注 12', () => {
     const labelsOf = (group: SketchRibbonTool['group']): string[] =>
       SKETCH_RIBBON_TOOLS
         .filter((tool) => tool.group === group)
@@ -123,7 +122,7 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
     expect(labelsOf('sketchDraw')).toEqual(['线', '矩形', '圆', '圆弧', '样条', '文本']);
     expect(labelsOf('sketchEdit')).toEqual(['圆角', '修剪', '偏移', '镜像']);
     expect(labelsOf('sketchAnnotate')).toEqual([
-      '重合', '水平', '竖直', '平行', '垂直', '相等', '距离', '半径',
+      '重合', '水平', '竖直', '平行', '垂直', '相等', '中点', '相切', '固定', '距离', '长度', '半径',
     ]);
   });
 

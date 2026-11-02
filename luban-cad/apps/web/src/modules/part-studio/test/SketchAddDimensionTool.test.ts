@@ -56,18 +56,21 @@ import { sketchToolEvents } from '../tools/sketch/sketch-tool-events.js';
 import type { SketchDimensionCandidate } from '../tools/sketch/sketch-tool-events.js';
 
 describe('M6-b T5：DIMENSION_SLOTS 槽位形状表（SolverTypes 冻结契约）', () => {
-  it('distance=2 point；radius=1 circle', () => {
-    expect(DIMENSION_SLOTS.distance).toEqual({ slot: 'point', count: 2 });
-    expect(DIMENSION_SLOTS.radius).toEqual({ slot: 'circle', count: 1 });
+  it('distance=2 point/line；radius=1 circle/arc；length=1 line', () => {
+    expect(DIMENSION_SLOTS.distance).toEqual({ kinds: ['point', 'line'], count: 2 });
+    expect(DIMENSION_SLOTS.radius).toEqual({ kinds: ['circle', 'arc'], count: 1 });
+    expect(DIMENSION_SLOTS.length).toEqual({ kinds: ['line'], count: 1 });
   });
 });
 
 describe('M6-b T5：acceptDimensionPick 槽位接收判定', () => {
-  it('distance：两点满槽；线/圆拒收', () => {
+  it('distance：point/line 混合两拾取满槽；圆/弧拒收', () => {
     expect(acceptDimensionPick('distance', 0, 'point')).toEqual({ ok: true, complete: false });
     expect(acceptDimensionPick('distance', 1, 'point')).toEqual({ ok: true, complete: true });
-    expect(acceptDimensionPick('distance', 0, 'line').ok).toBe(false);
+    expect(acceptDimensionPick('distance', 0, 'line')).toEqual({ ok: true, complete: false });
+    expect(acceptDimensionPick('distance', 1, 'line')).toEqual({ ok: true, complete: true });
     expect(acceptDimensionPick('distance', 0, 'circle').ok).toBe(false);
+    expect(acceptDimensionPick('distance', 0, 'arc').ok).toBe(false);
   });
 
   it('radius：单圆即满槽；点/线拒收', () => {
@@ -83,6 +86,12 @@ describe('M6-b T5：sketchToolEvents 事件桥（工具→面板值确认桥）'
     refs: [1, 2],
     entityIds: [1, 2],
   };
+
+  it('length：单线满槽；点/圆拒收', () => {
+    expect(acceptDimensionPick('length', 0, 'line')).toEqual({ ok: true, complete: true });
+    expect(acceptDimensionPick('length', 0, 'point').ok).toBe(false);
+    expect(acceptDimensionPick('length', 0, 'circle').ok).toBe(false);
+  });
 
   it('发收往返：emit 载荷原样达订阅者', () => {
     const received: SketchDimensionCandidate[] = [];

@@ -46,12 +46,12 @@ import {
   acceptPick,
   nextConstraintId,
   pickPrompt,
-  resolveNearestEntityId,
+  resolveNearestPick,
 } from './sketch-constraint-logic.js';
-import type { PickVerdict, SketchConstraintKind, SketchEntityKind } from './sketch-constraint-logic.js';
+import type { PickVerdict, SketchConstraintKind, SketchPick, SketchPickKind } from './sketch-constraint-logic.js';
 
-export { acceptPick, CONSTRAINT_SLOT_SHAPES, nextConstraintId, pickPrompt, resolveNearestEntityId } from './sketch-constraint-logic.js';
-export type { PickVerdict, SketchConstraintKind } from './sketch-constraint-logic.js';
+export { acceptPick, CONSTRAINT_SLOT_SHAPES, nextConstraintId, pickPrompt, resolveNearestEntityId, resolveNearestPick } from './sketch-constraint-logic.js';
+export type { PickVerdict, SketchConstraintKind, SketchPick, SketchPickKind } from './sketch-constraint-logic.js';
 
 /** 活动草图平面架（store 当前活动草图 plane → 缺省 XY@z=0；onPostInstall 解析一次）。 */
 export function resolveSketchPlaneFrame(): SketchPlaneFrame {
@@ -80,10 +80,10 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
   protected abstract readonly constraintKind: SketchConstraintKind;
   public static override iconSpec = 'icon-constraint';
 
-  /** 已拾取实体 id 序（满槽即提交/退出；失败清空重选）。 */
-  private _refs: number[] = [];
-  /** 已拾取实体种类序（槽位判定输入）。 */
-  private _pickedKinds: SketchEntityKind[] = [];
+  /** 已拾取结构化引用序（满槽即提交/退出；失败清空重选）。 */
+  private _picks: SketchPick[] = [];
+  /** 已拾取种类序（槽位判定输入）。 */
+  private _pickedKinds: SketchPickKind[] = [];
   /** 草图平面架（onPostInstall 解析：store 当前活动草图 plane → 缺省 XY@z=0）。 */
   private _plane!: SketchPlaneFrame;
 
@@ -113,28 +113,26 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
 
     // v1 单草图假设（M3-b 铁律保留）：不校验命中元素 id（活动草图元素=唯一
     // 几何面），光标点到活动草图实体就近分辨。
-    const entityId = resolveNearestEntityId(sketch.entities, hit);
-    if (entityId === undefined) {
+    const pick = resolveNearestPick(sketch.entities, { x: hit.u, y: hit.v });
+    if (!pick) {
       this._notify(i18next.t('partStudio.sketch.toasts.noSolvedCoords'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
-    const entity = sketch.entities.find((e) => e.id === entityId);
-    if (!entity) return EventHandled.Yes;
 
-    if (this._refs.includes(entity.id)) {
+    if (this._picks.some((p) => JSON.stringify(p.ref) === JSON.stringify(pick.ref))) {
       this._notify(i18next.t('partStudio.sketch.toasts.alreadyPicked'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
 
-    const verdict: PickVerdict = acceptPick(this.constraintKind, this._pickedKinds, entity.kind);
+    const verdict: PickVerdict = acceptPick(this.constraintKind, this._pickedKinds, pick.kind);
     if (!verdict.ok) {
       // 拒收不消耗点击：拾取状态原样，继续等待下一次合法输入。
       this._notify(verdict.message ?? i18next.t('partStudio.sketch.constraint.slotMismatch'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
 
-    this._refs.push(entity.id);
-    this._pickedKinds.push(entity.kind);
+    this._picks.push(pick);
+    this._pickedKinds.push(pick.kind);
 
     if (!verdict.complete) {
       this._outputPrompt(pickPrompt(this.constraintKind, this._pickedKinds));
@@ -146,7 +144,7 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
     const newConstraint: SketchConstraintDto = {
       kind: this.constraintKind,
       id: nextConstraintId(sketch),
-      refs: [...this._refs],
+      refs: this._picks.map((p) => p.ref),
     };
     const result = await sketchSystem.applyUpdate(sketch.entities, [...sketch.constraints, newConstraint]);
     if (!result.ok) {
@@ -164,7 +162,7 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
   }
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
-    if (this._refs.length > 0) {
+    if (this._picks.length > 0) {
       // 取消进行中的拾取序列，工具保持存活（再右键退出）——M3-b 两层语义。
       this._clearPicks();
       this._outputPrompt(pickPrompt(this.constraintKind, []));
@@ -184,7 +182,7 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
   protected abstract createInstance(): SketchAddConstraintTool;
 
   private _clearPicks(): void {
-    this._refs = [];
+    this._picks = [];
     this._pickedKinds = [];
   }
 
@@ -246,6 +244,30 @@ export class EqualAddTool extends SketchAddConstraintTool {
   protected createInstance(): SketchAddConstraintTool { return new EqualAddTool(); }
 }
 
+/** 中点：point+line（点在线中点）或 3 point（首点为后两点连线中点）。 */
+export class MidpointAddTool extends SketchAddConstraintTool {
+  public static override toolId = 'Sketch.Constraint.Midpoint';
+  public static override iconSpec = 'icon-constraint-midpoint';
+  protected readonly constraintKind = 'midpoint';
+  protected createInstance(): SketchAddConstraintTool { return new MidpointAddTool(); }
+}
+
+/** 相切：弧/样条 + 线（顺序不限；曲线成对亦支持）。 */
+export class TangentAddTool extends SketchAddConstraintTool {
+  public static override toolId = 'Sketch.Constraint.Tangent';
+  public static override iconSpec = 'icon-constraint-tangent';
+  protected readonly constraintKind = 'tangent';
+  protected createInstance(): SketchAddConstraintTool { return new TangentAddTool(); }
+}
+
+/** 固定：1 point（锁参数；origin 归一化也走此路径）。 */
+export class FixedAddTool extends SketchAddConstraintTool {
+  public static override toolId = 'Sketch.Constraint.Fixed';
+  public static override iconSpec = 'icon-constraint-fixed';
+  protected readonly constraintKind = 'fixed';
+  protected createInstance(): SketchAddConstraintTool { return new FixedAddTool(); }
+}
+
 /**
  * 注册草图约束 6 工具（M6-b T5；幂等——模块级 flag）。注册点=PartStudioPage
  * 工具注册编排（registerSketchTools 之后同 try 块）；懒引与幂等语义见
@@ -260,5 +282,8 @@ export function registerSketchConstraintTools(): void {
   IModelApp.tools.register(ParallelAddTool);
   IModelApp.tools.register(PerpendicularAddTool);
   IModelApp.tools.register(EqualAddTool);
+  IModelApp.tools.register(MidpointAddTool);
+  IModelApp.tools.register(TangentAddTool);
+  IModelApp.tools.register(FixedAddTool);
   constraintToolsRegistered = true;
 }

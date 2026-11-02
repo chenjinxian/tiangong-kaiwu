@@ -132,8 +132,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Button, Dialog, Text } from '@itwin/itwinui-react';
 import {
-  applyViewportBackground,
   ensureEditTools,
+  fitViewToModelRanges,
   toggleProjectExtents,
   useBriefcaseConnection,
   useViewport,
@@ -178,9 +178,12 @@ import {
 } from './hooks/usePartStudioScope.js';
 import { usePermissions } from './hooks/usePermissions.js';
 import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
+import { useSketchCamera } from './hooks/useSketchCamera.js';
+import { useDisplaySettings } from './hooks/useDisplaySettings.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import { BODY_PRODUCING_FEATURE_TYPES } from './types.js';
+import { fitView } from './internal/viewport-actions.js';
 import './PartStudioPage.css';
 
 export function PartStudioPage(): React.JSX.Element {
@@ -456,6 +459,36 @@ function PartStudioSession({
     scopeMode: mode,
   });
 
+  // 显示/渲染设置（2026-11-02）：共享给 ViewCube 下拉与右停靠面板。
+  const displaySettings = useDisplaySettings(viewport);
+
+  // 首帧取景校正（2026-11-02）：useViewport 创建链执行时画布可能尚未完成布局，
+  // viewRect.aspect 偏小 → 取景过远（模型只占视口一小块）。布局稳定后按最终
+  // aspect 再 fit 一次；仅 viewport/scope 变化触发，不抢用户后续缩放。
+  useEffect(() => {
+    if (!viewport || typeof requestAnimationFrame !== 'function') return;
+    let cancelled = false;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (!cancelled) void fitViewToModelRanges(viewport, activeModelIds);
+    }));
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [viewport, activeModelIds]);
+
+  // 特征写后自动取景（2026-11-02）：仅 body-producing 的 insertFeature 成功后
+  // 按 active scope 模型联合范围 fit；删除/抑制/编辑走原通道（不抢相机）。
+  const applyOpAndFit = useCallback(async (op: Parameters<typeof featureSystem.applyOp>[0]) => {
+    const result = await featureSystem.applyOp(op);
+    if (result.ok && op.kind === 'insertFeature' && BODY_PRODUCING_FEATURE_TYPES.includes(op.featureType)) {
+      // Onshape 默认几何图元：首个产体特征后只隐藏一次三平面（Origin 保留）。
+      usePartStudioStore.getState().hideDatumPlanesOnce();
+      await fitViewToModelRanges(viewport ?? undefined, activeModelIds);
+    }
+    return result;
+  }, [featureSystem.applyOp, viewport, activeModelIds]);
+
   // 画布 body 选中桥（B6 M-A5 T1）：connection.selectionSet（画布 pick 权威源）
   // → store.canvas.selection（kind='part'）单点挂载——右键菜单/对话框既有消费面
   // 零改动复用。bodies 仅在读面成功（bodiesLoaded）后下传；undefined=legacy
@@ -506,6 +539,10 @@ function PartStudioSession({
     registerSketchSystemAccessor(sketchSystem);
     return () => registerSketchSystemAccessor(undefined);
   }, [sketchSystem]);
+
+  // 草图相机（2026-11-02）：进入草图按真实平面 frame 定向，实体就位后按
+  // 草图范围取景（左侧面板 padding），退出恢复。单点挂载（Session）。
+  useSketchCamera(viewport, sketchSystem.activeSketch);
 
   // P2.4 F5：文档/scope 切换或离开编辑器时复位模块级草图 store——旧
   // activeSketchId 不得带进新文档/新 scope（防解析前 legacy getSketch 与
@@ -813,24 +850,6 @@ function PartStudioSession({
     };
   }, [phase, t]);
 
-  // Onshape 式视口底色：亮色浅灰/暗色深灰。数据模型里的 view 背景默认黑，观感
-  // 与 Onshape 差距最大的一处。观察 ThemeProvider 写入的 documentElement[data-theme]
-  // 并监听属性变化（MutationObserver，同旧 Editor.tsx:243-260 姿态）。
-  useEffect(() => {
-    if (!viewport) return;
-    const apply = (): void => {
-      const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-      applyViewportBackground(viewport, theme);
-    };
-    apply();
-    const observer = new MutationObserver(apply);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme', 'data-iui-theme'],
-    });
-    return () => observer.disconnect();
-  }, [viewport]);
-
   return (
     <div className="part-studio-page" data-testid="part-studio-page">
       <PartStudioTopBar
@@ -1010,7 +1029,7 @@ function PartStudioSession({
           viewport={viewport ?? undefined}
           // B6 M-A5 T2：树变异接线——applyOp 承载真删除/抑制 op；canEdit 总门
           // 同时驱动菜单禁用与 handler 拒收（隐藏/显示为会话态，不受此门限制）。
-          applyOp={featureSystem.applyOp}
+          applyOp={applyOpAndFit}
           canEdit={canEdit}
         />
         <div className="part-studio-main">
@@ -1021,7 +1040,7 @@ function PartStudioSession({
             viewportRef={viewportRef}
             viewport={viewport}
             canEdit={canEdit}
-            applyOp={featureSystem.applyOp}
+            applyOp={applyOpAndFit}
             leaseOk={featureSystem.leaseOk}
             sketches={sketchOptions}
             connection={connection ?? undefined}
@@ -1033,6 +1052,7 @@ function PartStudioSession({
             connectionLoading={connectionLoading}
             connectionError={canvasErrorMessage}
             sketchSystem={sketchSystem}
+            displaySettings={displaySettings}
           />
           <PartStudioDock
             iModelId={iModelId}
@@ -1041,6 +1061,7 @@ function PartStudioSession({
             isSaving={undoRedo.isSaving}
             onSave={handleSave}
             onPush={handlePush}
+            displaySettings={displaySettings}
           />
         </div>
       </div>
@@ -1063,6 +1084,7 @@ function PartStudioSession({
         briefcaseLoading={connectionLoading}
         briefcaseError={connectionErrorMessage}
         viewportError={viewportError}
+        onFitView={fitView}
       />
       {/* 半图删除 HITL（P2.4 恢复入口）：确认后才调 registry（墓碑写入）。 */}
       <Dialog

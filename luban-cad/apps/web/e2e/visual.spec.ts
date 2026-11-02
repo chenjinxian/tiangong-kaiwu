@@ -250,12 +250,14 @@ test('视觉钉版：编辑器五区 A 只读态（亮色，画布 mask）', asy
   const aInfo = await readOpenBriefcaseInfo(page);
   expect(aInfo.key, 'A 文档应打开 briefcase').toBeTruthy();
   expect(aInfo.isReadonly, 'A 文档连接必须以只读模式打开').toBe(true);
-  await expect(page.getByTestId('part-studio-feature-count')).toHaveText('(0)', {
+  // 2026-11-02 Onshape 对齐：默认几何图元（Origin/Top/Front/Right）计入特征数。
+  await expect(page.getByTestId('part-studio-feature-count')).toHaveText('(4)', {
     timeout: 60_000,
   });
+  await expect(page.getByTestId('tree-datum-group')).toBeVisible();
   await expect(
     page.getByTestId('part-studio-feature-list').getByText('暂无特征'),
-  ).toBeVisible({ timeout: 60_000 });
+  ).toHaveCount(0);
   await expect(page.getByTestId('part-studio-part-count')).toHaveText('(0)', {
     timeout: 60_000,
   });
@@ -291,12 +293,14 @@ test('视觉钉版：编辑器五区 B 默认页签（亮色，画布 mask）', 
   const bInfo = await readOpenBriefcaseInfo(page);
   expect(bInfo.key, 'B 文档应打开 briefcase').toBeTruthy();
   expect(bInfo.isReadonly, 'B 文档连接应为可写').toBe(false);
-  await expect(page.getByTestId('part-studio-feature-count')).toHaveText('(0)', {
+  // 2026-11-02 Onshape 对齐：默认几何图元计入特征数（B 空库仍无用户特征）。
+  await expect(page.getByTestId('part-studio-feature-count')).toHaveText('(4)', {
     timeout: 60_000,
   });
+  await expect(page.getByTestId('tree-datum-group')).toBeVisible();
   await expect(
     page.getByTestId('part-studio-feature-list').getByText('暂无特征'),
-  ).toBeVisible({ timeout: 60_000 });
+  ).toHaveCount(0);
   await expect(page.getByTestId('part-studio-part-count')).toHaveText('(1)', {
     timeout: 60_000,
   });

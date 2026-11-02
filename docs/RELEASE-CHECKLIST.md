@@ -8,7 +8,7 @@ hash / native provenance / 限流姿态 / web·hub 镜像标签，并可串联
 
 - [ ] public / backend / hub 三仓工作区干净，main 已推送；发布用的 public 提交
       固定记录在 ADR（不钉文档提交 HEAD）。
-- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.18.0**）；RPC
+- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.19.0**）；RPC
       interfaceName 只有 `LubanRpcInterface` / `LubanFeatureRpcInterface`
       （`/rpc/metadata` 中 `OpenCloud` 计数为 0）。
 - [ ] 命名迁移记录与 legacy schema 退役状态已同步（`docs/NAMING-2026-10-31.md`）。
@@ -45,9 +45,21 @@ hash / native provenance / 限流姿态 / web·hub 镜像标签，并可串联
 - [ ] 全量 Playwright 使用**测试专用限流覆盖**并在发布记录中披露：
       `$env:LUBAN_RPC_RATE_LIMIT_MAX='2000'; $env:LUBAN_RPC_RATE_LIMIT_WINDOW_MS='900000'`
       （默认 100 req/15min 不适合长套件）。
-- [ ] 源码 dev server 全量（`VITE_E2E_HOOKS=true`）**51/51**；或发布镜像
-      test-observation 镜像全量 51/51（生产 hook-off 镜像不承载 editor-spec
-      观测面）。
+- [ ] 源码 dev server 全量（`VITE_E2E_HOOKS=true`）**54 passed / 1 skipped
+      （55 total）**；或发布镜像 test-observation 镜像全量同口径（生产 hook-off
+      镜像不承载 editor-spec 观测面）。
+- [ ] Tutorial 2 严格鼠标级复刻门：`npx playwright test e2e/tutorial2.spec.ts`
+      通过——草图字面 18/48/9（直方图对齐 gold）+ 六特征 UI 对话框 +
+      四短竖棱 fillet 4 chips/status 0；体积与去材见
+      `e2e/fixtures/onshape-tutorial2/README.md`（终体积 ≤0.5% vs API
+      357.568 cm³，短棱去材 0.422 cm³）。**该 e2e 是开发验收；干净发布仍需
+      第 2 节 native provenance 硬检查通过。**
+- [ ] Onshape UI 对齐门：`npx playwright test e2e/ui-parity.spec.ts`——ViewCube
+      在场/朝向同步/面点击、默认几何图元与眼睛开关、ViewCube 下拉显示设置
+      持久化、草图相机平面定向与退出恢复。
+- [ ] Tutorial 2 逐工具回归：`npx playwright test e2e/tutorial2-tools.spec.ts`
+      （绘制/约束/标注/偏移 4 用例，实跑约 2.3 min；与严格复刻门同一真实
+      ribbon + canvas 管道，每用例独立重置 B 种子）。
 - [ ] 跑后**必须恢复生产默认**：重启 MS，启动日志应为
       `RPC rate limit: 100 req / 900000 ms per IP (production default)`。
 - [ ] A 几何夹具 / damaged 半图 HITL / A6 两用户分享链在发布镜像上复跑。

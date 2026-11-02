@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@itwin/core-frontend', () => ({
+  // ViewCube 模块加载期读取标准视图枚举。
+  StandardViewId: { NotStandard: -1, Top: 0, Bottom: 1, Left: 2, Right: 3, Front: 4, Back: 5, Iso: 6, RightIso: 7 },
   // Tool 基类桩：part-studio barrel → PartStudioPage → viewer 装饰件
   // （ToggleProjectExtentsTool extends Tool）模块加载期即需 Tool 存在。
   Tool: class {},

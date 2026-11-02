@@ -4,6 +4,7 @@ import { LubanFeatureRpcInterface } from "./LubanFeatureRpcInterface.js";
 import type {
   LubanFeatureType,
   ExtrudeParams,
+  FeatureBooleanOperation,
   LubanTopologyId,
   FilletEdgeRef,
   FilletParams,
@@ -20,6 +21,7 @@ import type {
   // M3-b v1.2
   SketchEntityDto,
   SketchConstraintDto,
+  SketchPointDto,
   SketchSolveStatusDto,
   SketchSolveStateDto,
   SketchDto,
@@ -46,12 +48,15 @@ import type {
   BooleanBodiesParams,
   // B-model P2.2 v1.18
   PartStudioInfo,
+  // Tutorial 2 v1.19
+  SketchRef,
+  MassPropertiesDto,
 } from "./LubanFeatureRpcInterface.js";
 
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.19.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -123,7 +128,7 @@ describe("M3-b v1.2 草图契约", () => {
     // 坐标/半径为可选（未解算实体允许缺省）
     const unsolvedPoint: SketchEntityDto = { kind: "point", id: 9 };
     expect(unsolvedPoint.id).toBe(9);
-    expectTypeOf<SketchEntityDto["kind"]>().toEqualTypeOf<"point" | "line" | "circle" | "arc">();
+    expectTypeOf<SketchEntityDto["kind"]>().toEqualTypeOf<"point" | "line" | "circle" | "arc" | "spline">();
   });
 
   it("SketchConstraintDto：kind 联合逐字 + refs/value 形状", () => {
@@ -134,7 +139,7 @@ describe("M3-b v1.2 草图契约", () => {
     const dimless: SketchConstraintDto = { kind: "horizontal", id: 11, refs: [2] };
     expect(dimless.value).toBeUndefined();
     expectTypeOf<SketchConstraintDto["kind"]>().toEqualTypeOf<
-      "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius"
+      "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "length" | "midpoint" | "tangent" | "offset" | "fixed"
     >();
   });
 
@@ -273,7 +278,7 @@ describe("M6-a v1.6 契约（arc 实体 + regions 面域 + regionIndex + insertS
     const unsolvedArc: SketchEntityDto = { kind: "arc", id: 8, center: 1 };
     expect(JSON.parse(JSON.stringify(unsolvedArc))).toEqual(unsolvedArc);
     expectTypeOf<Extract<SketchEntityDto, { kind: "arc" }>>().toEqualTypeOf<{
-      kind: "arc"; id: number; center: number; radius?: number; startAngle?: number; sweepAngle?: number;
+      kind: "arc"; id: number; center: number | SketchPointDto; radius?: number; startAngle?: number; sweepAngle?: number;
     }>();
   });
 
@@ -355,6 +360,8 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
       axis: { sketchEntityId: number };
       fullRevolve: boolean;
       angle?: number;
+      operation?: FeatureBooleanOperation;
+      mergeScope?: BodyRef[];
     }>();
     // JSON 序列化往返保持（RPC 载荷形态）
     expect(JSON.parse(JSON.stringify(partial))).toEqual(partial);
@@ -563,7 +570,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.19.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -736,8 +743,8 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
     expectTypeOf<Parameters<ApplyFn>[3]>().toEqualTypeOf<string | undefined>();
   });
 
-  it("版本 1.18.0（P2.2 注册表升版；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
+  it("版本 1.19.0（Tutorial 2 契约升版；v1.17 可选 scope 参数保持旧调用兼容）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.19.0");
   });
 });
 
@@ -801,6 +808,80 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.18.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.19.0");
+  });
+});
+
+describe("Tutorial 2 v1.19 契约（结构化子实体 + spline + 新约束 + operation + 质量属性）", () => {
+  it("SketchRef：数字（旧形态）/start-end/point/handle/origin", () => {
+    const refs: SketchRef[] = [
+      1,
+      { entity: 2, part: "start" },
+      { entity: 3, part: "point", index: 0 },
+      { entity: 4, part: "handle", index: 3 },
+      { origin: true },
+    ];
+    expect(JSON.parse(JSON.stringify(refs))).toEqual(refs);
+    expectTypeOf<SketchRef>().toEqualTypeOf<
+      number
+      | { entity: number; part: "start" | "end" | "center" }
+      | { entity: number; part: "point"; index: number }
+      | { entity: number; part: "handle"; index: number }
+      | { origin: true }
+    >();
+  });
+
+  it("spline DTO：精确三次 controlPoints + fitPoints；line/arc 支持内联点", () => {
+    const spline: SketchEntityDto = {
+      kind: "spline", id: 18,
+      fitPoints: [{ x: -41.275, y: -9.525 }, { x: 57.15, y: -61.9252 }],
+      controlPoints: [
+        { x: -41.275, y: -9.525 }, { x: -39.539240300655365, y: -40.3054840862751 },
+        { x: 16.844818368554112, y: -60.51863729953766 }, { x: 57.15, y: -61.9252 },
+      ],
+      periodic: false,
+    };
+    const line: SketchEntityDto = { kind: "line", id: 1, p1: { x: 0, y: 0 }, p2: { x: 1, y: 0 } };
+    const arc: SketchEntityDto = { kind: "arc", id: 7, center: { x: 57.15, y: -27.0002 }, radius: 15.875, startAngle: -Math.PI, sweepAngle: Math.PI / 2 };
+    expect(spline.kind === "spline" && spline.controlPoints.length).toBe(4);
+    expect(typeof line.p1).toBe("object");
+    expect(typeof arc.center).toBe("object");
+    expectTypeOf<Extract<SketchEntityDto, { kind: "spline" }>>().toEqualTypeOf<{
+      kind: "spline"; id: number; fitPoints?: SketchPointDto[]; controlPoints: SketchPointDto[]; periodic?: boolean;
+    }>();
+  });
+
+  it("SketchConstraintDto v1.19 新 kind + 结构化 refs", () => {
+    const constraints: SketchConstraintDto[] = [
+      { kind: "midpoint", id: 1, refs: [5, { entity: 2, part: "start" }, { entity: 1, part: "end" }] },
+      { kind: "length", id: 12, refs: [2], value: 82.55 },
+      { kind: "tangent", id: 17, refs: [7, 6] },
+      { kind: "offset", id: 41, refs: [16, 15, 6, 7], value: 19.05 },
+      { kind: "fixed", id: 49, refs: [{ origin: true }] },
+      { kind: "coincident", id: 46, refs: [{ entity: 18, part: "point", index: 1 }, { entity: 14, part: "start" }] },
+    ];
+    expect(constraints).toHaveLength(6);
+    expectTypeOf<SketchConstraintDto["refs"]>().toEqualTypeOf<SketchRef[]>();
+  });
+
+  it("Extrude/Revolve operation + mergeScope（同一特征内 ADD/REMOVE）", () => {
+    const extrude: ExtrudeParams = { profile: [], distance: 50.8, sketchId: "sk-1", operation: "add", mergeScope: [{ bodyKey: "0x18" }], symmetric: true };
+    const revolve: RevolveParams = { sketchId: "sk-1", axis: { sketchEntityId: 17 }, fullRevolve: true, operation: "add", mergeScope: [{ bodyKey: "0x18" }] };
+    expect(extrude.operation).toBe("add");
+    expect(revolve.mergeScope?.[0]?.bodyKey).toBe("0x18");
+    expectTypeOf<ExtrudeParams["operation"]>().toEqualTypeOf<FeatureBooleanOperation | undefined>();
+    expectTypeOf<RevolveParams["operation"]>().toEqualTypeOf<FeatureBooleanOperation | undefined>();
+  });
+
+  it("MassPropertiesDto 形状 + getMassProperties 只读 RPC 签名", () => {
+    const mp: MassPropertiesDto = { bodyKey: "0x18", volume: 357568.1766800494, centroid: { x: 1, y: 2, z: 3 }, surfaceArea: 49180.6 };
+    expect(mp.volume).toBeGreaterThan(0);
+    expectTypeOf<MassPropertiesDto>().toEqualTypeOf<{
+      bodyKey: string; volume: number; centroid: { x: number; y: number; z: number }; surfaceArea?: number;
+    }>();
+    expect(typeof LubanFeatureRpcInterface.prototype.getMassProperties).toBe("function");
+    expectTypeOf<LubanFeatureRpcInterface["getMassProperties"]>().toBeCallableWith("conn-1");
+    expectTypeOf<LubanFeatureRpcInterface["getMassProperties"]>().toBeCallableWith("conn-1", "ps-1");
+    expectTypeOf<ReturnType<LubanFeatureRpcInterface["getMassProperties"]>>().toEqualTypeOf<Promise<MassPropertiesDto[]>>();
   });
 });

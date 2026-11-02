@@ -28,6 +28,8 @@ import { useChangesets } from '../hooks/useChangesets.js';
 import { useNamedVersions } from '../hooks/useNamedVersions.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { DockTab } from '../types.js';
+import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
+import { DisplaySettingsPanel } from './DisplaySettingsPanel.js';
 import './PartStudioDock.css';
 
 /** 停靠页签在册（id 即 DockTab；labelKey 指向 partStudio.dock.tabs.*）。 */
@@ -50,6 +52,8 @@ export interface PartStudioDockProps {
   onSave?: () => void;
   /** 打开推送对话框（宿主 Session 持共享 PushChangesetDialog 实例；缺省诚实禁用）。 */
   onPush?: () => void;
+  /** 显示/渲染设置共享状态（ViewCube 下拉同源；缺省保持占位）。 */
+  displaySettings?: UseDisplaySettingsResult;
 }
 
 export function PartStudioDock({
@@ -59,6 +63,7 @@ export function PartStudioDock({
   isSaving = false,
   onSave,
   onPush,
+  displaySettings,
 }: PartStudioDockProps): React.JSX.Element {
   const { t } = useTranslation();
   const activeTab = usePartStudioStore((s) => s.dock.activeTab);
@@ -119,8 +124,10 @@ export function PartStudioDock({
               onSave={onSave}
               onPush={onPush}
             />
+          ) : activeTab === 'display' && displaySettings ? (
+            <DisplaySettingsPanel {...displaySettings} />
           ) : (
-            /* 壳期占位：工具设置/显示设置真实面板 T8+ 接管。 */
+            /* 工具设置仍为壳期占位。 */
             <Text isMuted>{t('partStudio.dock.placeholder')}</Text>
           )}
         </div>

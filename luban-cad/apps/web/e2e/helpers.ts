@@ -803,6 +803,21 @@ export async function getBodiesRpc(
   )) as BodyInfo[];
 }
 
+/** 带 scope 的质量属性读面（v1.19；体积单位 mm³，Tutorial 2 几何金标验收用）。 */
+export async function getMassPropertiesRpc(
+  ctx: BSeedEditorContext,
+  accessToken: string,
+  scopeId: string = ctx.scopeId,
+): Promise<{ bodyKey: string; volume: number; centroid: { x: number; y: number; z: number }; surfaceArea?: number }[]> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'getMassProperties',
+    [ctx.dbKey, scopeId],
+    accessToken,
+  )) as { bodyKey: string; volume: number; centroid: { x: number; y: number; z: number }; surfaceArea?: number }[];
+}
+
 /** 带 scope 的草图读面（第 3 参 `partStudioId`）。 */
 export async function getSketchRpc(
   ctx: BSeedEditorContext,

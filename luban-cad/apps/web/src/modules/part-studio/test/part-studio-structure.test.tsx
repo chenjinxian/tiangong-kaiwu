@@ -42,6 +42,7 @@
 // （各 hook 行为）。
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Matrix3d } from '@itwin/core-geometry';
 import { ThemeProvider as IuiThemeProvider } from '@itwin/itwinui-react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -172,6 +173,13 @@ vi.mock('@luban-cad/viewer', () => ({
   applyViewportBackground: viewerMocks.applyViewportBackground,
   ensureEditTools: viewerMocks.ensureEditTools,
   toggleProjectExtents: viewerMocks.toggleProjectExtents,
+  fitViewToModelRanges: vi.fn().mockResolvedValue(true),
+  queryAllPhysicalModelIds: vi.fn().mockResolvedValue([]),
+  DatumPlanesDecoration: class {
+    constructor() { /* noop */ }
+    setVisibility() { /* noop */ }
+    dispose() { /* noop */ }
+  },
   acquireViewer: vi.fn().mockResolvedValue(undefined),
   releaseViewer: vi.fn().mockResolvedValue(undefined),
   ensureAccuSnap: vi.fn().mockResolvedValue(undefined),
@@ -264,15 +272,29 @@ const FAKE_CONNECTION = {
 };
 
 const FAKE_VIEWPORT = {
+  viewFlags: { toJSON: () => ({}) },
+  antialiasSamples: 1,
+  turnCameraOn: vi.fn(),
+  turnCameraOff: vi.fn(),
+  synchWithView: vi.fn(),
   view: {
-    displayStyle: { backgroundColor: undefined },
+    displayStyle: {
+      backgroundColor: undefined,
+      settings: {
+        modelAppearanceOverrides: new Map(),
+        overrideModelAppearance: vi.fn(),
+        dropModelAppearanceOverride: vi.fn(),
+      },
+    },
     viewsCategory: vi.fn<() => boolean>().mockReturnValue(true),
     viewsModel: vi.fn<() => boolean>().mockReturnValue(true),
     is2d: vi.fn<() => boolean>().mockReturnValue(false),
     isSpatialView: vi.fn<() => boolean>().mockReturnValue(false),
     categorySelector: { categories: ['cat-1', 'cat-2'] },
     modelSelector: { models: ['model-1'] },
+    getRotation: () => Matrix3d.createIdentity(),
   },
+  onViewChanged: { addListener: vi.fn(), removeListener: vi.fn() },
   invalidateScene: vi.fn(),
   // B6 M-A3.2a I3：viewport 下传后 FeatureTree 的 EmphasizeElements provider 注册面。
   findFeatureOverrideProviderOfType: vi.fn(() => undefined),
@@ -316,6 +338,12 @@ function resetStore(): void {
     canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
     dialog: { active: null },
     viewOnly: { isActive: false },
+    datum: {
+      visibility: { origin: true, top: true, front: true, right: true },
+      expanded: true,
+      selectedId: null,
+      autoHiddenOnce: false,
+    },
   });
 }
 
@@ -586,7 +614,7 @@ describe('双段树（os-11 左栏）', () => {
     const tree = screen.getByTestId('part-studio-tree');
     expect(within(tree).getByRole('button', { name: '特征' })).toBeDefined();
     expect(within(tree).getByRole('button', { name: '零件' })).toBeDefined();
-    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(0)');
+    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(4)');
     expect(within(tree).getByTestId('part-studio-part-count')).toBeDefined();
     expect(within(tree).getByTestId('part-studio-feature-list')).toBeDefined();
     expect(within(tree).getByTestId('part-studio-part-list')).toBeDefined();
@@ -768,7 +796,7 @@ describe('M4 收官锚点总账（T9）', () => {
     expect(await within(tree).findByTestId('tree-row-f-1')).toBeDefined();
     expect(await within(tree).findByText('拉伸 1')).toBeDefined();
     expect(await within(tree).findByText('圆角 1')).toBeDefined();
-    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(2)');
+    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(6)');
     // 零件段：connection 物理元素查询产物（CodeValue 命名）+ 计数。
     expect(await within(tree).findByText('Part 1')).toBeDefined();
     expect(within(tree).getByTestId('part-studio-part-count').textContent).toBe('(1)');

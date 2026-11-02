@@ -1185,3 +1185,63 @@
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+/* ── 默认几何图元组（2026-11-02 Onshape 初始树对齐）──────────────────── */
+.part-studio-tree__datum-group {
+  list-style: none;
+}
+
+.part-studio-tree__datum-header-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding-inline-start: var(--iui-size-s);
+}
+
+.part-studio-tree__datum-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  inline-size: 100%;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--iui-border-radius-1);
+}
+
+.part-studio-tree__datum-header:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-tree__datum-list {
+  margin: 0;
+  padding: 0 0 0 var(--iui-size-l);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.part-studio-tree__datum-row-wrapper {
+  inline-size: 100%;
+}
+
+.part-studio-tree__datum-row .part-studio-tree-row__icon {
+  color: var(--iui-color-text-muted);
+  display: inline-flex;
+  align-items: center;
+}
+
+.part-studio-tree__datum-row[data-hidden='true'] .part-studio-tree-row__name {
+  opacity: 0.55;
+}
+
+.part-studio-tree__datum-row[aria-current='true'] {
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+}

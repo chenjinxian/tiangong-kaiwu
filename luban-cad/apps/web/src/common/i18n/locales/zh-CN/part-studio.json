@@ -305,6 +305,10 @@
       "parallel": { "label": "平行" },
       "perpendicular": { "label": "垂直" },
       "equal": { "label": "相等" },
+      "midpoint": { "label": "中点" },
+      "tangent": { "label": "相切" },
+      "fixed": { "label": "固定" },
+      "length": { "label": "长度" },
       "distance": { "label": "距离" },
       "radius": { "label": "半径" }
     }
@@ -327,6 +331,8 @@
     },
     "booleanNoBodyHint": "布尔操作需要已有实体：先拉伸或旋转创建实体",
     "booleanIntersectUnsupported": "相交暂不支持",
+    "booleanOperationUnsupported": "该操作暂未实现（当前支持新建/加入）",
+    "mergeScopeHint": "合并范围：{{name}}",
     "entitiesLabel": "要拉伸的面和草图面域",
     "fastPick": "快速拾取",
     "removeEntity": "移除 {{label}}",
@@ -506,9 +512,16 @@
         "nextPrompt": "点击放置圆弧终点",
         "thirdPrompt": "点击放置弧上一点"
       },
+      "spline": {
+        "firstPrompt": "点击放置样条起点",
+        "secondPrompt": "点击放置样条终点",
+        "thirdPrompt": "点击放置起点控制柄",
+        "fourthPrompt": "点击放置终点控制柄"
+      },
       "toasts": {
         "zeroSize": "形状退化（零长度/零面积/零半径），未提交",
         "colinearArc": "三点共线或有两点重合，无法构造圆弧，未提交",
+        "splineDegenerate": "样条端点重合或控制柄退化为零切向，未提交",
         "systemNotReady": "草图系统未就绪，请退出草图模式后重试",
         "updateFailed": "草图更新失败"
       }
@@ -526,7 +539,13 @@
         "pairFirst": "{{label}}约束：点击第一条线",
         "pairSecond": "{{label}}约束：点击第二条线",
         "equalFirst": "相等约束：点击一条线或一个圆",
-        "equalSecond": "相等约束：点击第二个{{kind}}"
+        "equalSecond": "相等约束：点击第二个{{kind}}",
+        "midpointFirst": "中点约束：点击中点（或中心点）",
+        "midpointSecond": "中点约束：点击一条线，或再点击一个端点",
+        "midpointThird": "中点约束：点击最后一个端点",
+        "tangentFirst": "相切约束：点击弧/样条或线",
+        "tangentSecond": "相切约束：点击另一条曲线",
+        "fixedFirst": "固定约束：点击一个点"
       },
       "reject": {
         "coincidentNeedsPoint": "重合约束只能拾取点（当前为{{actual}}）",
@@ -535,7 +554,10 @@
         "parallelNeedsLine": "{{label}}约束只能拾取线（当前为{{actual}}）",
         "equalNeedsLineOrCircle": "相等约束只能拾取线或圆（当前为{{actual}}）",
         "equalNoMixing": "相等约束的两个元素必须同为线或同为圆",
-        "slotMismatch": "元素类型不符合该约束的槽位要求"
+        "slotMismatch": "元素类型不符合该约束的槽位要求",
+        "midpointNeedsPointLine": "中点约束需要点+线或三个点（当前为{{actual}}）",
+        "tangentNeedsCurveLine": "相切约束需要弧/样条与线（当前为{{actual}}）",
+        "fixedNeedsPoint": "固定约束只能拾取点（当前为{{actual}}）"
       }
     },
     "dimension": {
@@ -550,7 +572,8 @@
     "offset": {
       "prompts": {
         "pickChain": "偏移：点击选择要偏移的实体（相接实体自动扩展成链）",
-        "confirmSide": "偏移：点击确认偏移侧与距离"
+        "confirmSide": "偏移：点击确认偏移侧与距离",
+        "enterDistance": "偏移：光标定侧；输入精确距离后确认"
       },
       "toasts": {
         "unsupportedKind": "偏移暂只支持线和圆弧",
@@ -565,7 +588,7 @@
       "updateFailed": "草图更新失败"
     },
     "vocabulary": {
-      "entityKinds": { "point": "点", "line": "线", "circle": "圆", "arc": "弧" },
+      "entityKinds": { "point": "点", "line": "线", "circle": "圆", "arc": "弧", "spline": "样条" },
       "constraintKinds": {
         "coincident": "重合",
         "horizontal": "水平",
@@ -574,9 +597,12 @@
         "perpendicular": "垂直",
         "equal": "相等",
         "distance": "距离",
-        "radius": "半径"
+        "radius": "半径",
+        "midpoint": "中点",
+        "tangent": "相切",
+        "fixed": "固定"
       },
-      "dimensionKinds": { "distance": "距离", "radius": "半径" }
+      "dimensionKinds": { "distance": "距离", "radius": "半径", "length": "长度" }
     },
     "panel": {
       "title": "草图",
@@ -599,6 +625,7 @@
       "constraintList": "约束（{{count}}）",
       "existingDimensions": "尺寸（{{count}}）",
       "confirmDimensionTitle": "输入尺寸值",
+      "confirmOffsetTitle": "确认偏移距离",
       "dimensionPlaceholder": "大于 0 的数值",
       "editDimensionTitle": "点击编辑尺寸值",
       "confirm": "确认",
@@ -681,6 +708,9 @@
     "bodiesReadFailed": "实体读取失败：{{message}}（当前显示为兼容零件列表）",
     "hideBody": "隐藏实体",
     "showBody": "显示实体",
+    "defaultGeometry": "默认几何图元",
+    "hideDatum": "隐藏 {{name}}",
+    "showDatum": "显示 {{name}}",
     "deleteSuccess": "已删除 {{name}}",
     "deleteFailed": "删除失败：{{message}}",
     "suppressSuccess": "已更新 {{name}} 的抑制状态",
@@ -824,6 +854,26 @@
       "message": "曲线阵列已在鲁班CAD 路线图中登记，当前版本仅支持实体（PART）级的线性与圆周阵列，后续里程碑提供。"
     }
   },
+  "viewCube": {
+    "title": "视图立方体",
+    "settings": "显示与视图设置",
+    "orientation": "视图方向",
+    "iso": "等轴测",
+    "dimetric": "二轴测",
+    "trimetric": "三轴测",
+    "fit": "适应视图",
+    "window": "缩放窗口",
+    "more": "更多显示设置…",
+    "reset": "重置视图",
+    "faces": {
+      "top": "上",
+      "bottom": "下",
+      "front": "前",
+      "back": "后",
+      "left": "左",
+      "right": "右"
+    }
+  },
   "displaySettingsPanel": {
     "modeLabel": "显示模式",
     "mode": {
@@ -831,15 +881,23 @@
       "shadedNoEdges": "着色（不含边线）",
       "shadedHiddenEdges": "着色（含隐藏边）",
       "hiddenRemoved": "隐藏边移除",
-      "hiddenVisible": "隐藏边可见"
+      "hiddenVisible": "隐藏边可见",
+      "translucent": "半透明"
     },
-    "translucentGap": "半透明模式暂不支持（渲染引擎无全局半透明通道）",
+    "translucentGap": "半透明模式通过模型透明度 50% 实现",
     "perspective": "透视视图",
     "fov": "视场角",
+    "shadows": "阴影",
     "ao": "环境光遮蔽",
     "aoIntensity": "遮蔽强度",
+    "antialias": "抗锯齿",
+    "background": "背景",
+    "backgroundTheme": "跟随主题",
+    "backgroundLight": "浅色",
+    "backgroundDark": "深色",
     "edgeWidth": "边线宽度",
     "edgeColor": "边线颜色",
+    "reset": "恢复默认",
     "noViewport": "视口未就绪——打开模型后可用"
   }
 }

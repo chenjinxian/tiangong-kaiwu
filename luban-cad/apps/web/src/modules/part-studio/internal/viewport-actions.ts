@@ -16,7 +16,7 @@ export type StandardViewKind = 'top' | 'front' | 'right' | 'iso';
 /** 视口子集（避开 Viewport 全类型，便于测试注入 fake）。 */
 interface ViewportLike {
   view: {
-    lookAtViewAlignedVolume: (volume: unknown, aspect: number) => void;
+    lookAtVolume: (volume: unknown, aspect: number) => void;
     computeFitRange: () => unknown;
     is3d: () => boolean;
     turnCameraOff: () => void;
@@ -24,6 +24,8 @@ interface ViewportLike {
   viewRect: { aspect: number };
   synchWithView: (args: Record<string, never>) => void;
   setStandardRotation: (id: StandardViewId) => void;
+  /** 程序化换视图后需手动通知（core 不保证 raise；ViewCube 订阅方）。 */
+  onViewChanged?: { raiseEvent?: () => void };
 }
 
 function selectedView(): ViewportLike | undefined {
@@ -35,7 +37,8 @@ function selectedView(): ViewportLike | undefined {
 export function fitView(): void {
   const viewport = selectedView();
   if (!viewport) return;
-  viewport.view.lookAtViewAlignedVolume(viewport.view.computeFitRange(), viewport.viewRect.aspect);
+  // computeFitRange 返回世界坐标；lookAtVolume 负责按当前旋转投影。
+  viewport.view.lookAtVolume(viewport.view.computeFitRange(), viewport.viewRect.aspect);
   viewport.synchWithView({});
 }
 
@@ -54,6 +57,7 @@ export function standardView(view: StandardViewKind): void {
   if (viewport.view.is3d()) {
     viewport.view.turnCameraOff();
   }
+  viewport.onViewChanged?.raiseEvent?.();
 }
 
 /**

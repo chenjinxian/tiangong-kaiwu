@@ -419,8 +419,9 @@ export function classifyAxisLines(entities: readonly SketchEntityDto[]): AxisLin
   const descriptors: AxisLineDescriptor[] = [];
   for (const entity of entities) {
     if (entity.kind !== 'line') continue;
-    const p1 = points.get(entity.p1);
-    const p2 = points.get(entity.p2);
+    // v1.19：内联端点直接取坐标；数字 ref 查显式 point。
+    const p1 = typeof entity.p1 === 'number' ? points.get(entity.p1) : entity.p1;
+    const p2 = typeof entity.p2 === 'number' ? points.get(entity.p2) : entity.p2;
     let kind: AxisLineDescriptor['kind'] = 'unknown';
     if (p1 !== undefined && p2 !== undefined) {
       if (Math.abs(p1.x - p2.x) <= AXIS_COORD_EPSILON) kind = 'vertical';
@@ -542,14 +543,23 @@ export function FeatureDialog({
   // 的假成功观感；applyOp 未接线（壳期/纯展示）保持 M3 纯回调语义。
   const editStandalone = mode === 'edit' && applyOp !== undefined;
 
-  // 布尔作用域 → 提交特征类型（M7 v1.10）：仅拉伸/布尔对话框参与映射（revolve/fillet
-  // 无草画面域工具体语义，页签保持元数据回传）；加入→booleanAdd、移除→booleanSubtract。
+  // 布尔作用域 → 提交语义：
+  // - v1.19（Tutorial 2）：extrude/revolve 的「新建/加入」是**同一特征内**的 operation
+  //   （不再拆 booleanAdd 特征行）；「移除」求值未实现→页签禁用+诚实提示。
+  // - 显式 booleanAdd/booleanSubtract 对话框保留旧映射（加入→booleanAdd、移除→booleanSubtract）。
+  const nativeOperationScope = featureType === 'extrude' || featureType === 'revolve';
   const booleanScopeCapable =
     mode === 'new' &&
-    (featureType === 'extrude' || featureType === 'booleanAdd' || featureType === 'booleanSubtract') &&
+    (featureType === 'extrude' || featureType === 'revolve' || featureType === 'booleanAdd' || featureType === 'booleanSubtract') &&
     applyOp !== undefined;
-  const booleanScopeMapped = booleanScopeCapable ? booleanScopeFeatureType(booleanScope) : undefined;
+  const booleanScopeMapped = booleanScopeCapable && !nativeOperationScope ? booleanScopeFeatureType(booleanScope) : undefined;
   const effectiveFeatureType = booleanScopeMapped ?? featureType;
+  // 特征内 operation：仅 extrude 的 new/add 已实现；revolve 仅 add。移除两类型均未实现。
+  const nativeOperation = nativeOperationScope
+    ? (featureType === 'revolve'
+        ? (booleanScope === 'add' ? 'add' : undefined) // revolve 仅 add 已实现（new/remove 页签禁用）
+        : (booleanScope === 'new' || booleanScope === 'add' ? booleanScope : undefined))
+    : undefined;
   // 草图通道（M6-a T6 extrude / M6-b T4 revolve；M7 v1.10 扩布尔）：新建提交走 sketchId 寻址
   //（数据源/门禁裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
   const booleanChannel =
@@ -601,10 +611,11 @@ export function FeatureDialog({
   // 禁用——结构键不可翻转）；N>1 的目标实体选择（值进 op.targetBodyId）。
   const [newBody, setNewBody] = React.useState<boolean>(() => readStoredNewBody(initialParams));
   const [targetBodyKey, setTargetBodyKey] = React.useState('');
-  // 结构键生效值：new 模式=本地复选；edit 模式=落库 params 回显（禁用，绝不翻转）。
-  const effectiveNewBody = mode === 'edit' ? readStoredNewBody(initialParams) : newBody;
-  // 复选可见面：new=extrude 提交通道；edit=extrude 既有特征（只读回显）。
-  const newBodyVisible = mode === 'edit' ? featureType === 'extrude' : extrudeChannel;
+  // v1.19：extrude/revolve 的「新建」由布尔作用域页签表达（Onshape 同构）；旧 newBody 复选
+  // 仅 edit 模式作只读回显（结构键不可翻转）。
+  const operationNewBody = mode === 'new' && nativeOperationScope && booleanScope === 'new';
+  const effectiveNewBody = mode === 'edit' ? readStoredNewBody(initialParams) : (newBody || operationNewBody);
+  const newBodyVisible = mode === 'edit' && (featureType === 'extrude' || featureType === 'revolve');
   // active authored body（consumed/orphan 不作写目标；服务端 getBodies 亦只回 authored）。
   const activeBodies = React.useMemo(
     () => (bodies ?? EMPTY_BODIES).filter((body) => body.active && body.authored !== false),
@@ -681,6 +692,11 @@ export function FeatureDialog({
   const effectiveTargetBodyKey = activeBodies.some((body) => body.bodyKey === targetBodyKey)
     ? targetBodyKey
     : (activeBodies[0]?.bodyKey ?? '');
+  // v1.19 mergeScope（Onshape「合并范围 Part 1」）：ADD 时显式携带合并目标。
+  // 单 body 自动 Part 1；N>1 取显式目标选择；new/remove 无合并目标。
+  const mergeScopeBodies = nativeOperation === 'add' && effectiveTargetBodyKey !== ''
+    ? [{ bodyKey: effectiveTargetBodyKey }]
+    : undefined;
   // 读面刷新中：N 未知 → insert 提交挂起（不得发无 target 的 regular insert）。
   const bodiesPending = insertTargetChannel && bodiesLoading === true;
   // I1：读面不可用（初次失败且未在刷新）→ target 无从确定，insert 提交禁用 + 可见提示。
@@ -1218,6 +1234,9 @@ export function FeatureDialog({
                 axis: { sketchEntityId: selectedAxisId! },
                 fullRevolve,
                 ...(angleRadians !== undefined ? { angle: angleRadians } : {}),
+                // v1.19：特征内 ADD（同一旋转特征，不拆 booleanAdd 行）+ 显式合并范围。
+                ...(nativeOperation ? { operation: nativeOperation } : {}),
+                ...(mergeScopeBodies ? { mergeScope: mergeScopeBodies } : {}),
               }
             // B6 M-A4.2a：body boolean（shared 1.16 BooleanBodiesParams）——
             // target/tools 均为 BodyRef（bodyKey=getBodies[].bodyKey）；target 恰 1、
@@ -1252,9 +1271,10 @@ export function FeatureDialog({
                   // T4-minor 接线收口：对称复选勾选才带键（缺省省略=载荷向后
                   // 兼容，既有钉形测试不破）。
                   ...(symmetric ? { symmetric: true } : {}),
-                  // B6 M-A3.2a：新建实体结构键——勾选才带键（缺省省略；后端缺省
-                  // false=既有 ADD 语义逐字不变）。
-                  ...(effectiveNewBody ? { newBody: true } : {}),
+                  // v1.19：operation 为 Onshape「新建/加入」页签真源；newBody 不再作为
+                  // 提交键（服务端 isNewBody 同时认 operation="new"），避免双真源。
+                  ...(nativeOperation ? { operation: nativeOperation } : {}),
+                  ...(mergeScopeBodies ? { mergeScope: mergeScopeBodies } : {}),
                 }
               : { profile: [], distance: parsedDistance },
           // B6 M-A3.2a：N>1 的显式目标 body 在 op 层（不在 params）；N≤1/newBody
@@ -1336,6 +1356,8 @@ export function FeatureDialog({
     distance,
     // B6 M-A3.2a：newBody/target 载荷面。
     effectiveNewBody,
+    nativeOperation,
+    mergeScopeBodies,
     targetSelectorVisible,
     effectiveTargetBodyKey,
     bodiesPending,
@@ -1469,14 +1491,19 @@ export function FeatureDialog({
           >
             {BOOLEAN_SCOPES.map((scope) => {
               // 提交态禁用（B1 复审）：①相交无后端特征类型，禁用防静默并集；
-              // ②无实体时加入/移除无上游，禁用防「成功 toast + status=1 死特征」。
+              // ②无实体时加入/移除无上游，禁用防「成功 toast + status=1 死特征」；
+              // ③v1.19 特征内 operation：extrude/revolve 的 remove 未实现、revolve 的 new 未实现。
+              const scopeUnsupported =
+                nativeOperationScope && (scope === 'remove' || (scope === 'new' && featureType === 'revolve'));
               const scopeDisabled =
                 booleanScopeCapable &&
-                (scope === 'intersect' || (booleanScopeNoBody && (scope === 'add' || scope === 'remove')));
+                (scope === 'intersect' || scopeUnsupported || (booleanScopeNoBody && (scope === 'add' || scope === 'remove')));
               const scopeDisabledHint =
                 scope === 'intersect'
                   ? t('partStudio.featureDialog.booleanIntersectUnsupported')
-                  : t('partStudio.featureDialog.booleanNoBodyHint');
+                  : scopeUnsupported
+                    ? t('partStudio.featureDialog.booleanOperationUnsupported')
+                    : t('partStudio.featureDialog.booleanNoBodyHint');
               return (
                 <button
                   key={scope}
@@ -1572,6 +1599,19 @@ export function FeatureDialog({
             data-testid="part-studio-feature-dialog-intersect-unsupported-hint"
           >
             {t('partStudio.featureDialog.booleanIntersectUnsupported')}
+          </p>
+        )}
+        {/* v1.19：Onshape「加入 + Part 1」合并范围回显（ADD 是同一特征内操作，无额外布尔行）。 */}
+        {nativeOperation === 'add' && mergeScopeBodies !== undefined && (
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint"
+            data-testid="part-studio-feature-dialog-merge-scope-hint"
+          >
+            {t('partStudio.featureDialog.mergeScopeHint', {
+              name: activeBodies.find((body) => body.bodyKey === mergeScopeBodies[0]?.bodyKey)?.name
+                ?? mergeScopeBodies[0]?.bodyKey ?? '?',
+            })}
           </p>
         )}
 

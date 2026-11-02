@@ -84,6 +84,7 @@ import type { FeatureNode, PartNode, TreeTab } from '../types.js';
 import { TreeFilter, parseTreeFilter } from './TreeFilter.js';
 import type { TreeNode } from './TreeRow.js';
 import { isFeatureNode, isNodeHidden, isSketchNode, TreeRow } from './TreeRow.js';
+import { DefaultGeometryGroup } from './DefaultGeometryGroup.js';
 
 export interface FeatureTreeProps {
   /**
@@ -513,8 +514,10 @@ export function FeatureTree({
     rows: readonly TreeNode[];
     emptyText: string;
     retryable?: boolean;
+    /** 特征段有默认几何组垫底，不再显示「暂无特征」空态。 */
+    suppressEmpty?: boolean;
   }): React.JSX.Element => {
-    const { loading: sectionLoading, error: sectionError, rows, emptyText, retryable } = options;
+    const { loading: sectionLoading, error: sectionError, rows, emptyText, retryable, suppressEmpty } = options;
     if (sectionLoading) return <SkeletonRows />;
     if (sectionError) {
       return (
@@ -534,7 +537,7 @@ export function FeatureTree({
         </li>
       );
     }
-    if (rows.length === 0 && filterInput === '') {
+    if (rows.length === 0 && filterInput === '' && !suppressEmpty) {
       return <li className="part-studio-tree__empty">{emptyText}</li>;
     }
     return <>{rows.map(renderRow)}</>;
@@ -568,7 +571,7 @@ export function FeatureTree({
                 className="part-studio-tree__count"
                 data-testid={`${section.testidPrefix}-count`}
               >
-                ({rows.length})
+                ({isFeatures ? rows.length + (filterInput === '' ? 4 : 0) : rows.length})
               </span>
               {/* 特征段头三工具钮（os-11 段头形态；D3）：插入元素/暂停重建/特征历史。 */}
               {isFeatures && (
@@ -598,13 +601,20 @@ export function FeatureTree({
             {!isCollapsed && (
               <ul className="part-studio-tree__list" data-testid={`part-studio-${section.id === 'features' ? 'feature' : 'part'}-list`}>
                 {isFeatures
-                  ? renderSectionRows({
-                      loading: loading ?? false,
-                      error,
-                      rows,
-                      emptyText: t('partStudio.sidebar.tree.emptyFeatures'),
-                      retryable: true,
-                    })
+                  ? (
+                    <>
+                      {/* Onshape 默认几何图元组：位于用户特征之前；过滤态下隐藏。 */}
+                      {filterInput === '' && <DefaultGeometryGroup />}
+                      {renderSectionRows({
+                        loading: loading ?? false,
+                        error,
+                        rows,
+                        emptyText: t('partStudio.sidebar.tree.emptyFeatures'),
+                        retryable: true,
+                        suppressEmpty: true,
+                      })}
+                    </>
+                  )
                   : (
                     <>
                       {/* I1：读面初次失败的可见错误 + 重试（legacy 回退不再静默）。 */}

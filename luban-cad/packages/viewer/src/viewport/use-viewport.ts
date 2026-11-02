@@ -410,7 +410,8 @@ async function fitViewToModelRanges(
     const union = new Range3d();
     for (const r of ranges) union.extendRange(Range3d.fromJSON(r));
     if (!union.isNull) {
-      viewport.view.lookAtViewAlignedVolume(union, viewport.viewRect.aspect);
+      // 模型范围是世界坐标：lookAtVolume 会按当前旋转投影到 view-aligned。
+      viewport.view.lookAtVolume(union, viewport.viewRect.aspect);
       viewport.synchWithView({});
       // eslint-disable-next-line no-console
       console.log('[useViewport] Content-aware fit:', JSON.stringify(union.toJSON()));

@@ -770,7 +770,8 @@ async function openTwoStudioWorld(
   const body1 = setup1.bodies[0]!;
   const featureCount = page.getByTestId('part-studio-feature-count');
   const partList = page.getByTestId('part-studio-part-list');
-  await expect(featureCount).toHaveText('(2)', { timeout: 90_000 });
+  // 2 个用户特征 + 默认几何图元 4。
+  await expect(featureCount).toHaveText('(6)', { timeout: 90_000 });
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), {
     timeout: 90_000,
   }).toBe(1);
@@ -787,7 +788,7 @@ async function openTwoStudioWorld(
     'aria-selected',
     'true',
   );
-  await expect(featureCount).toHaveText('(0)', { timeout: 30_000 });
+  await expect(featureCount).toHaveText('(4)', { timeout: 30_000 });
 
   const studios = await listStudios(ctx, token);
   expect(studios.map((studio) => studio.id).sort()).toEqual([k1Id, k2Id].sort());
@@ -800,7 +801,8 @@ async function openTwoStudioWorld(
     x0: 40, y0: 0, x1: 44, y1: 3, distance: 2,
   });
   const body2 = setup2.bodies[0]!;
-  await expect(featureCount).toHaveText('(2)', { timeout: 90_000 });
+  // 2 个用户特征 + 默认几何图元 4。
+  await expect(featureCount).toHaveText('(6)', { timeout: 90_000 });
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), {
     timeout: 90_000,
   }).toBe(1);
@@ -1667,7 +1669,7 @@ test.describe('P2.5 真栈视口门', () => {
       );
     }
     const featureCount = page.getByTestId('part-studio-feature-count');
-    await expect(featureCount).toHaveText(`(${k2TreeBeforeWrite + 1})`, { timeout: 60_000 });
+    await expect(featureCount).toHaveText(`(${k2TreeBeforeWrite + 1 + 4})`, { timeout: 60_000 });
     await exitSketchButton.click();
     await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible();
 
@@ -1692,11 +1694,11 @@ test.describe('P2.5 真栈视口门', () => {
     await tab(page, k1.id).click();
     await expectActiveScope(page, k1.id);
     await expectViewportScope(page, k1.physModelId, 'W-K1');
-    await expect(featureCount).toHaveText('(2)', { timeout: 30_000 });
+    await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
     await tab(page, k2.id).click();
     await expectActiveScope(page, k2.id);
     await expectViewportScope(page, k2.physModelId, 'W-K2-back');
-    await expect(featureCount).toHaveText(`(${k2TreeBeforeWrite + 1})`, { timeout: 30_000 });
+    await expect(featureCount).toHaveText(`(${k2TreeBeforeWrite + 1 + 4})`, { timeout: 30_000 });
 
     expect(consoleErrors, `隔离/写目标用例不得有 console/page 错误：\n${consoleErrors.join('\n')}`).toEqual([]);
     } finally {

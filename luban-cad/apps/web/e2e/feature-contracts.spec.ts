@@ -269,13 +269,15 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
   const featureCount = page.getByTestId('part-studio-feature-count');
   const undoButton = page.getByTestId('part-studio-undo-button');
   const redoButton = page.getByTestId('part-studio-redo-button');
-  await expect(featureCount).toHaveText(`(${finalTree.length})`, { timeout: 90_000 });
+  // 2026-11-02 Onshape 对齐：默认几何图元（Origin/Top/Front/Right）计入特征数。
+  const DEFAULT_GEOMETRY_COUNT = 4;
+  await expect(featureCount).toHaveText(`(${finalTree.length + DEFAULT_GEOMETRY_COUNT})`, { timeout: 90_000 });
   await expect(undoButton).toBeEnabled({ timeout: 90_000 });
   await undoButton.click();
-  await expect(featureCount).toHaveText(`(${finalTree.length - 1})`, { timeout: 90_000 });
+  await expect(featureCount).toHaveText(`(${finalTree.length + DEFAULT_GEOMETRY_COUNT - 1})`, { timeout: 90_000 });
   await expect(redoButton).toBeEnabled({ timeout: 30_000 });
   await redoButton.click();
-  await expect(featureCount).toHaveText(`(${finalTree.length})`, { timeout: 90_000 });
+  await expect(featureCount).toHaveText(`(${finalTree.length + DEFAULT_GEOMETRY_COUNT})`, { timeout: 90_000 });
   console.log('[release] 原生 undo/redo 回退/重放最后一笔通过');
 
   // ── 11) 全程零 console error ─────────────────────────────────────────────

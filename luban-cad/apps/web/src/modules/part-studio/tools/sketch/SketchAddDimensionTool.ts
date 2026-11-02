@@ -23,19 +23,18 @@ import {
   OutputMessagePriority,
   PrimitiveTool,
 } from '@itwin/core-frontend';
-import type { SketchEntityDto } from '@luban-cad/shared';
 import i18next from 'i18next';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { pickHitLocal, resolveSketchPlaneFrame } from './SketchAddConstraintTool.js';
 import type { SketchPlaneFrame } from './sketch-plane.js';
-import { resolveNearestEntityId } from './sketch-constraint-logic.js';
+import { resolveNearestPick } from './sketch-constraint-logic.js';
+import type { SketchPick, SketchPickKind } from './sketch-constraint-logic.js';
 import { sketchToolEvents } from './sketch-tool-events.js';
 import type { SketchDimensionCandidate, SketchDimensionKind } from './sketch-tool-events.js';
 
 export { sketchToolEvents } from './sketch-tool-events.js';
 export type { SketchDimensionCandidate, SketchDimensionKind } from './sketch-tool-events.js';
 
-type EntityKind = SketchEntityDto['kind'];
 
 /** 槽判定产出（acceptPick 同构）。 */
 export interface DimensionPickVerdict {
@@ -44,26 +43,31 @@ export interface DimensionPickVerdict {
 }
 
 /**
- * 槽位形状表（SolverTypes 冻结契约）：distance=2 point；radius=1 circle。
+ * 槽位形状表（SolverTypes 冻结契约）：
+ * - distance：2 个 point/line 组合（point+point / point+line / line+line）；
+ * - radius：1 个 circle/arc；
+ * - length：1 条 line。
  * value 不在工具侧——面板收值提交。
  */
-export const DIMENSION_SLOTS: Record<SketchDimensionKind, { slot: EntityKind; count: number }> = {
-  distance: { slot: 'point', count: 2 },
-  radius: { slot: 'circle', count: 1 },
+export type DimensionPickKind = 'point' | 'line' | 'circle' | 'arc';
+export const DIMENSION_SLOTS: Record<SketchDimensionKind, { kinds: readonly DimensionPickKind[]; count: number }> = {
+  distance: { kinds: ['point', 'line'], count: 2 },
+  radius: { kinds: ['circle', 'arc'], count: 1 },
+  length: { kinds: ['line'], count: 1 },
 };
 
-/** 槽位接收判定（纯函数，测试直击）：单一种类满 count 个即满槽，无槽形分叉。 */
-export function acceptDimensionPick(kind: SketchDimensionKind, pickedCount: number, next: EntityKind): DimensionPickVerdict {
-  const { slot, count } = DIMENSION_SLOTS[kind];
-  if (next !== slot) return { ok: false, complete: false };
+/** 槽位接收判定（纯函数，测试直击）。 */
+export function acceptDimensionPick(kind: SketchDimensionKind, pickedCount: number, next: SketchPickKind): DimensionPickVerdict {
+  const { kinds, count } = DIMENSION_SLOTS[kind];
+  if (!kinds.includes(next as DimensionPickKind)) return { ok: false, complete: false };
   return { ok: true, complete: pickedCount + 1 >= count };
 }
 
 /** 分阶段提示键（调用时翻译）。 */
 export function pickDimensionPrompt(kind: SketchDimensionKind, pickedCount: number): { key: string; params: Record<string, unknown> } {
   const label = i18next.t(`partStudio.sketch.vocabulary.dimensionKinds.${kind}`);
-  const { slot, count } = DIMENSION_SLOTS[kind];
-  const slotLabel = i18next.t(`partStudio.sketch.vocabulary.entityKinds.${slot}`);
+  const { kinds, count } = DIMENSION_SLOTS[kind];
+  const slotLabel = kinds.map((k) => i18next.t(`partStudio.sketch.vocabulary.entityKinds.${k}`)).join('/');
   if (pickedCount === 0) {
     return { key: 'partStudio.sketch.dimension.prompts.first', params: { label, slot: slotLabel, count } };
   }
@@ -83,8 +87,8 @@ export abstract class SketchAddDimensionTool extends PrimitiveTool {
   /** 尺寸种类（子类固定）。 */
   protected abstract readonly dimensionKind: SketchDimensionKind;
 
-  /** 已拾取实体 id 序（满槽 → 发候选事件 → 退出）。 */
-  private _refs: number[] = [];
+  /** 已拾取结构化引用（满槽 → 发候选事件 → 退出）。 */
+  private _picks: SketchPick[] = [];
   /** 草图平面架（onPostInstall 解析：store 当前活动草图 plane → 缺省 XY@z=0）。 */
   private _plane!: SketchPlaneFrame;
 
@@ -109,50 +113,48 @@ export abstract class SketchAddDimensionTool extends PrimitiveTool {
     const hit = pickHitLocal(ev, this._plane);
 
     // v1 单草图假设（M3-b 铁律保留）：不校验命中元素 id，就近分辨活动草图实体。
-    const entityId = resolveNearestEntityId(sketch.entities, hit);
-    if (entityId === undefined) {
+    const pick = resolveNearestPick(sketch.entities, { x: hit.u, y: hit.v });
+    if (!pick) {
       this._notify(i18next.t('partStudio.sketch.toasts.noSolvedCoords'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
-    const entity = sketch.entities.find((e) => e.id === entityId);
-    if (!entity) return EventHandled.Yes;
 
-    if (this._refs.includes(entity.id)) {
+    if (this._picks.some((p) => JSON.stringify(p.ref) === JSON.stringify(pick.ref))) {
       this._notify(i18next.t('partStudio.sketch.toasts.alreadyPicked'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
 
-    const verdict = acceptDimensionPick(this.dimensionKind, this._refs.length, entity.kind);
+    const verdict = acceptDimensionPick(this.dimensionKind, this._picks.length, pick.kind);
     if (!verdict.ok) {
       // 拒收不消耗点击，继续拾取。
-      const { slot } = DIMENSION_SLOTS[this.dimensionKind];
+      const { kinds } = DIMENSION_SLOTS[this.dimensionKind];
       this._notify(i18next.t('partStudio.sketch.dimension.reject.slotMismatch', {
         label: i18next.t(`partStudio.sketch.vocabulary.dimensionKinds.${this.dimensionKind}`),
-        slot: i18next.t(`partStudio.sketch.vocabulary.entityKinds.${slot}`),
-        actual: i18next.t(`partStudio.sketch.vocabulary.entityKinds.${entity.kind}`),
+        slot: kinds.map((k) => i18next.t(`partStudio.sketch.vocabulary.entityKinds.${k}`)).join('/'),
+        actual: i18next.t(`partStudio.sketch.vocabulary.entityKinds.${pick.kind}`),
       }), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
 
-    this._refs.push(entity.id);
+    this._picks.push(pick);
     if (!verdict.complete) {
-      this._outputPrompt(pickDimensionPrompt(this.dimensionKind, this._refs.length));
+      this._outputPrompt(pickDimensionPrompt(this.dimensionKind, this._picks.length));
       return EventHandled.Yes;
     }
 
     // 满槽 → 候选移交面板（绝不直接提交；value>0 校验与 applyUpdate 均属面板）。
     sketchToolEvents.emit('dimensionCandidate', {
       kind: this.dimensionKind,
-      refs: [...this._refs],
-      entityIds: [...this._refs],
+      refs: this._picks.map((p) => p.ref),
+      entityIds: this._picks.flatMap((p) => (p.entityId === undefined ? [] : [p.entityId])),
     } satisfies SketchDimensionCandidate);
     await this.exitTool();
     return EventHandled.No;
   }
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
-    if (this._refs.length > 0) {
-      this._refs = [];
+    if (this._picks.length > 0) {
+      this._picks = [];
       this._outputPrompt(pickDimensionPrompt(this.dimensionKind, 0));
       return EventHandled.Yes;
     }
@@ -186,12 +188,20 @@ export class DistanceAddTool extends SketchAddDimensionTool {
   protected createInstance(): SketchAddDimensionTool { return new DistanceAddTool(); }
 }
 
-/** 半径尺寸：1 circle + value（面板收值提交）。 */
+/** 半径尺寸：1 circle/arc + value（面板收值提交）。 */
 export class RadiusAddTool extends SketchAddDimensionTool {
   public static override toolId = 'Sketch.Dimension.Radius';
   public static override iconSpec = 'icon-dimension-radius';
   protected readonly dimensionKind = 'radius';
   protected createInstance(): SketchAddDimensionTool { return new RadiusAddTool(); }
+}
+
+/** 线长尺寸：1 line + value（Tutorial 2 的 4 个 LENGTH 尺寸）。 */
+export class LengthAddTool extends SketchAddDimensionTool {
+  public static override toolId = 'Sketch.Dimension.Length';
+  public static override iconSpec = 'icon-dimension-length';
+  protected readonly dimensionKind = 'length';
+  protected createInstance(): SketchAddDimensionTool { return new LengthAddTool(); }
 }
 
 /**
@@ -203,5 +213,6 @@ export function registerSketchDimensionTools(): void {
   if (dimensionToolsRegistered) return;
   IModelApp.tools.register(DistanceAddTool);
   IModelApp.tools.register(RadiusAddTool);
+  IModelApp.tools.register(LengthAddTool);
   dimensionToolsRegistered = true;
 }

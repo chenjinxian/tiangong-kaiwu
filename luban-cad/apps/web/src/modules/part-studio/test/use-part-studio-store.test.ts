@@ -58,6 +58,12 @@ const INITIAL_STATE: PartStudioState = {
   viewOnly: {
     isActive: false,
   },
+  datum: {
+    visibility: { origin: true, top: true, front: true, right: true },
+    expanded: true,
+    selectedId: null,
+    autoHiddenOnce: false,
+  },
 };
 
 beforeEach(() => {
@@ -66,7 +72,7 @@ beforeEach(() => {
 });
 
 describe('usePartStudioStore 初始态', () => {
-  it('八切片全部落在缺省会话态（tree/dock/tool/sketch/commandPalette/canvas/dialog/viewOnly）', () => {
+  it('九切片全部落在缺省会话态（含 datum 默认几何图元）', () => {
     const state = usePartStudioStore.getState();
     expect({
       tree: state.tree,
@@ -77,6 +83,7 @@ describe('usePartStudioStore 初始态', () => {
       canvas: state.canvas,
       dialog: state.dialog,
       viewOnly: state.viewOnly,
+      datum: state.datum,
     }).toEqual(INITIAL_STATE);
   });
 });

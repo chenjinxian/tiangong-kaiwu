@@ -41,7 +41,7 @@ import i18next from 'i18next';
 import type { SketchEntityDto } from '@luban-cad/shared';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { pickHitLocal, resolveSketchPlaneFrame } from './SketchAddConstraintTool.js';
-import type { SketchPlaneFrame } from './sketch-plane.js';
+import type { SketchPlaneFrame, SketchPoint2 } from './sketch-plane.js';
 import {
   OFFSET_TOL,
   buildOffsetDraft,
@@ -50,6 +50,7 @@ import {
   resolveNearestOffsetSeedId,
 } from './sketch-offset-logic.js';
 import type { OffsetBuildError, OffsetChain } from './sketch-offset-logic.js';
+import { sketchToolEvents } from './sketch-tool-events.js';
 
 /** 预览线色（SketchCreateTool 同款——M6-c UI 1:1 批统一校准）。 */
 const PREVIEW_COLOR = ColorDef.from(0, 120, 215);
@@ -65,6 +66,8 @@ export class SketchOffsetTool extends PrimitiveTool {
   private _chain?: OffsetChain;
   /** 种子实体（偏移距量取基准——光标到它的垂距即 d）。 */
   private _seed?: SketchEntityDto;
+  /** place 相确认点的光标命中（方向裁决与精确距离输入后的草稿构建共用）。 */
+  private _pendingHit?: SketchPoint2;
   /** 草图平面架（onPostInstall 解析一次）。 */
   private _plane!: SketchPlaneFrame;
   /** 实体/约束 id 计数器（maxId+1；提交前重播种，拒收回滚）。 */
@@ -86,6 +89,7 @@ export class SketchOffsetTool extends PrimitiveTool {
     if (this.isDynamicsStarted) this.endDynamics();
     this._chain = undefined;
     this._seed = undefined;
+    this._pendingHit = undefined;
     await super.onCleanup();
   }
 
@@ -113,7 +117,8 @@ export class SketchOffsetTool extends PrimitiveTool {
         return EventHandled.Yes;
       }
       // 相接链自动扩展（焊接图连通闭包；seed 非线/弧已挡）。
-      const collected = collectOffsetChain(sketch.entities, sketch.constraints, seed.id);
+      // 切线链：只在光滑相接处扩展（Tutorial 2 基底角不把矩形拉进偏移链）。
+      const collected = collectOffsetChain(sketch.entities, sketch.constraints, seed.id, { tangentOnly: true });
       if (!collected.ok) {
         this._notify(i18next.t('partStudio.sketch.offset.toasts.unsupportedKind'), OutputMessagePriority.Info);
         return EventHandled.Yes;
@@ -132,19 +137,50 @@ export class SketchOffsetTool extends PrimitiveTool {
       return EventHandled.Yes;
     }
 
-    this._seedNextId();
-    const idBase = this._nextId;
-    const built = buildOffsetDraft({
+    // 先按光标距做一次闭式校验（退化位形在候选之前拒收），但不提交——
+    // v1.19：光标只定侧，精确距由面板输入框确认（Onshape 偏移对话框同构；
+    // 鼠标距含亚像素误差，直接落库会与后续 DISTANCE 尺寸冲突）。
+    const validation = buildOffsetDraft({
       chain: this._chain!,
       entities: sketch.entities,
       distance,
       cursor: hit,
+      startId: this._nextId,
+    });
+    if (!validation.ok) {
+      this._notify(i18next.t(this._buildErrorToastKey(validation.error)), OutputMessagePriority.Info);
+      return EventHandled.Yes;
+    }
+
+    this._pendingHit = hit;
+    this._outputPrompt('enterDistance');
+    sketchToolEvents.emit('offsetCandidate', {
+      measuredDistance: distance,
+      commit: (value) => this._commitOffset(value),
+    });
+    return EventHandled.Yes;
+  }
+
+  /** 面板确认精确偏移距 → 同侧构建草稿并乐观提交；undefined=成功（工具退出）。 */
+  private async _commitOffset(distance: number): Promise<string | undefined> {
+    const sketchSystem = getSketchSystem();
+    const sketch = sketchSystem?.activeSketch;
+    if (!sketchSystem || !sketch || !this._chain || !this._pendingHit)
+      return i18next.t('partStudio.sketch.create.toasts.systemNotReady');
+    if (!(distance > OFFSET_TOL)) return i18next.t('partStudio.sketch.offset.toasts.zeroDistance');
+
+    this._seedNextId();
+    const idBase = this._nextId;
+    const built = buildOffsetDraft({
+      chain: this._chain,
+      entities: sketch.entities,
+      distance,
+      cursor: this._pendingHit,
       startId: idBase,
     });
     if (!built.ok) {
       this._nextId = idBase;
-      this._notify(i18next.t(this._buildErrorToastKey(built.error)), OutputMessagePriority.Info);
-      return EventHandled.Yes;
+      return i18next.t(this._buildErrorToastKey(built.error));
     }
 
     // 乐观提交（整体覆写语义）：既有实体/约束原样在前，偏移草稿追加在后。
@@ -154,14 +190,13 @@ export class SketchOffsetTool extends PrimitiveTool {
     );
     if (!result.ok) {
       // 后端拒收零变更（库侧无写入）——本地回滚 = 丢弃草稿 + id 计数器复原；
-      // 拒收文本原样透出，工具保持 place 相可立即再点。
+      // 拒收文本原样透出，面板表单保持（可改值再确认）。
       this._nextId = idBase;
-      this._notify(result.error ?? i18next.t('partStudio.sketch.create.toasts.updateFailed'), OutputMessagePriority.Error);
-      return EventHandled.No;
+      return result.error ?? i18next.t('partStudio.sketch.create.toasts.updateFailed');
     }
 
     await this.exitTool();
-    return EventHandled.No;
+    return undefined;
   }
 
   /** Dynamics 帧回调（place 相）：光标侧+垂距 → 闭式偏移预览（预览即所得）。 */
@@ -190,13 +225,15 @@ export class SketchOffsetTool extends PrimitiveTool {
     const builder = context.createGraphic({ type: GraphicType.WorldOverlay });
     builder.setSymbology(PREVIEW_COLOR, PREVIEW_COLOR, 2, LinePixels.Solid);
     for (const e of built.draft.entities) {
+      const resolvePoint = (ref: number | { x: number; y: number }): { u: number; v: number } | undefined =>
+        typeof ref === 'number' ? points.get(ref) : { u: ref.x, v: ref.y };
       if (e.kind === 'line') {
-        const p1 = points.get(e.p1);
-        const p2 = points.get(e.p2);
+        const p1 = resolvePoint(e.p1);
+        const p2 = resolvePoint(e.p2);
         if (!p1 || !p2) continue;
         builder.addLineString([this._plane.toWorld(p1), this._plane.toWorld(p2)]);
       } else if (e.kind === 'arc') {
-        const c = points.get(e.center);
+        const c = resolvePoint(e.center);
         if (!c || e.radius === undefined || e.startAngle === undefined || e.sweepAngle === undefined) continue;
         const arc = Arc3d.createXY(
           Point3d.create(c.u, c.v, 0),
@@ -216,6 +253,7 @@ export class SketchOffsetTool extends PrimitiveTool {
       this._phase = 'pick';
       this._chain = undefined;
       this._seed = undefined;
+      this._pendingHit = undefined;
       this._outputPrompt('pickChain');
       return EventHandled.Yes;
     }
@@ -253,7 +291,7 @@ export class SketchOffsetTool extends PrimitiveTool {
   }
 
   /** 分阶段提示（调用时翻译——i18next 单例直取，回调内不吃闭包旧语）。 */
-  private _outputPrompt(stage: 'pickChain' | 'confirmSide'): void {
+  private _outputPrompt(stage: 'pickChain' | 'confirmSide' | 'enterDistance'): void {
     IModelApp.notifications.outputPrompt(i18next.t(`partStudio.sketch.offset.prompts.${stage}`));
   }
 

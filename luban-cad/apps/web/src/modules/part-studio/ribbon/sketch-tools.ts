@@ -4,8 +4,9 @@
  *
  * part-studio 草图模式工具注册表（M3 Task 6）——草图模式 ribbon 变身
  * （os-30：点「创建新草图」后工具 ribbon 整体切换为草图工具组）的数据源：
- * - 18 工具按采集三组排布（M6-c T5 起=绘制 6 / 编辑 4 / 标注 8——组界与组内
- *   序权威=10-sketch-toolbar.json，见文件头 M6-c T5 段）；
+ * - 22 工具按采集三组排布（M6-c T5 起=绘制 6 / 编辑 4 / 标注 12——组界与组内
+ *   序权威=10-sketch-toolbar.json，见文件头 M6-c T5 段；标注 12 = M6-b 的 8
+ *   + v1.19 Tutorial 2 的中点/相切/固定/线长）；
  * - 与特征模式 RIBBON_TOOLS 分离注册：命令搜索（os-30 search 框禁用）与
  *   特征模式 palette 不索引草图工具；激活路由仍走 useToolActivation
  *   （未接线 toolId 由 tools.run 返回 false 打警告——真实草图工具接线时
@@ -28,7 +29,9 @@
  * M6-c T4（偏移接线）：sketchOffset 占位替换为真 toolId——Sketch.Offset
  *（tools/sketch/SketchOffsetTool.ts，registerSketchOffsetTools 注册，同一
  * 激活路由直投；选链→光标侧定方向→垂距定距→闭式造几何+约束展开）。
- * 其余 5 件（样条/编辑 4）占位保留，T6+ 后续任务接线。
+ * v1.19（Tutorial 2）接线：Sketch.Spline（SketchCreateTool.ts，
+ * registerSketchTools 注册）与中点/相切/固定/线长（SketchAddConstraintTool /
+ * SketchAddDimensionTool）；其余 3 件（文本/圆角/修剪/镜像中的占位）保留待接。
  *
  * M6-c T5（分组序对齐采集权威 10-sketch-toolbar.json——2026-10-23 草图模式
  * 实测）：「文本」自编辑组移入绘制组（Onshape 绘制组序=线 拐角矩形 中心点圆
@@ -96,6 +99,27 @@ const ArcIcon = icon(
 
 /* 样条：自由曲线。 */
 const SplineIcon = icon(el('path', { d: 'M4 18c4 0 3-12 8-12s4 8 8 8' }));
+
+/* 中点：线段 + 中点圆。 */
+const MidpointIcon = icon(
+  el('line', { x1: 4, y1: 12, x2: 20, y2: 12 }),
+  el('circle', { cx: 12, cy: 12, r: 2.2 }),
+);
+/* 相切：圆弧 + 切线。 */
+const TangentIcon = icon(
+  el('path', { d: 'M4 17a8 8 0 0 1 16 0' }),
+  el('line', { x1: 3, y1: 17, x2: 21, y2: 17 }),
+);
+/* 固定：锚点。 */
+const FixedIcon = icon(
+  el('circle', { cx: 12, cy: 9, r: 2.5 }),
+  el('path', { d: 'M12 11.5V19M8 19h8' }),
+);
+/* 长度：线段 + 端帽（Onshape 线长尺寸字形）。 */
+const LengthIcon = icon(
+  el('line', { x1: 4, y1: 12, x2: 20, y2: 12 }),
+  el('path', { d: 'M4 8v8M20 8v8' }),
+);
 
 /* 圆角：直角倒弧。 */
 const SketchFilletIcon = icon(
@@ -192,15 +216,15 @@ export const SKETCH_TOOL_GROUP_ORDER: readonly SketchRibbonGroup[] = [
   'sketchAnnotate',
 ];
 
-/** 18 草图工具注册表（绘制 4 + 标注 8 已接线真 toolId——M6-a T5/M6-b T5，见文件头；其余占位待接）。
+/** 22 草图工具注册表（绘制 6 + 编辑 1 + 标注 12 已接线真 toolId；文本/圆角/修剪/镜像占位）。
  *  组内序=10-sketch-toolbar.json 采集序（M6-c T5：文本归绘制组）。 */
 export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
-  // 绘制 6（前 4 件 M6-a T5 接线真 toolId；样条/文本占位——采集序：样条→文本）
+  // 绘制 6（M6-a T5 前 4 件 + v1.19 样条接线；文本占位——采集序：样条→文本）
   { id: 'Sketch.Line', icon: LineIcon, labelKey: 'partStudio.ribbon.sketchTools.line.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'Sketch.Rectangle', icon: RectangleIcon, labelKey: 'partStudio.ribbon.sketchTools.rectangle.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'Sketch.CenterCircle', icon: CircleIcon, labelKey: 'partStudio.ribbon.sketchTools.circle.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'Sketch.Arc3Point', icon: ArcIcon, labelKey: 'partStudio.ribbon.sketchTools.arc.label', capability: 'sketch', group: 'sketchDraw' },
-  { id: 'sketchSpline', icon: SplineIcon, labelKey: 'partStudio.ribbon.sketchTools.spline.label', capability: 'sketch', group: 'sketchDraw' },
+  { id: 'Sketch.Spline', icon: SplineIcon, labelKey: 'partStudio.ribbon.sketchTools.spline.label', capability: 'sketch', group: 'sketchDraw' },
   { id: 'sketchText', icon: TextIcon, labelKey: 'partStudio.ribbon.sketchTools.text.label', capability: 'sketch', group: 'sketchDraw' },
   // 编辑 4（采集序：圆角→修剪→偏移→镜像）
   { id: 'sketchFillet', icon: SketchFilletIcon, labelKey: 'partStudio.ribbon.sketchTools.fillet.label', capability: 'sketch', group: 'sketchEdit' },
@@ -215,6 +239,11 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   { id: 'Sketch.Constraint.Parallel', icon: ParallelIcon, labelKey: 'partStudio.ribbon.sketchTools.parallel.label', capability: 'sketch', group: 'sketchAnnotate' },
   { id: 'Sketch.Constraint.Perpendicular', icon: PerpendicularIcon, labelKey: 'partStudio.ribbon.sketchTools.perpendicular.label', capability: 'sketch', group: 'sketchAnnotate' },
   { id: 'Sketch.Constraint.Equal', icon: EqualIcon, labelKey: 'partStudio.ribbon.sketchTools.equal.label', capability: 'sketch', group: 'sketchAnnotate' },
+  // v1.19：Tutorial 2 需要的新约束工具（中点/相切/固定）+ 线长尺寸。
+  { id: 'Sketch.Constraint.Midpoint', icon: MidpointIcon, labelKey: 'partStudio.ribbon.sketchTools.midpoint.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Constraint.Tangent', icon: TangentIcon, labelKey: 'partStudio.ribbon.sketchTools.tangent.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Constraint.Fixed', icon: FixedIcon, labelKey: 'partStudio.ribbon.sketchTools.fixed.label', capability: 'sketch', group: 'sketchAnnotate' },
   { id: 'Sketch.Dimension.Distance', icon: DistanceIcon, labelKey: 'partStudio.ribbon.sketchTools.distance.label', capability: 'sketch', group: 'sketchAnnotate' },
+  { id: 'Sketch.Dimension.Length', icon: LengthIcon, labelKey: 'partStudio.ribbon.sketchTools.length.label', capability: 'sketch', group: 'sketchAnnotate' },
   { id: 'Sketch.Dimension.Radius', icon: RadiusIcon, labelKey: 'partStudio.ribbon.sketchTools.radius.label', capability: 'sketch', group: 'sketchAnnotate' },
 ];
