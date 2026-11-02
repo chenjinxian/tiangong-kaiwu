@@ -45,7 +45,7 @@ $repos = @(
   'D:\Github\tiangong-kaiwu',
   'D:\Github\luban-backend',
   'D:\Github\imodelhub-services',
-  'D:\Github\imodel-native',
+  'D:\Github\私有原生仓',
   'D:\Github\DanQing'
 )
 foreach ($repo in $repos) {
@@ -56,7 +56,7 @@ foreach ($repo in $repos) {
 }
 ```
 
-Expected: main clean at `142cda8`; backend/hub/imodel-native/DanQing clean.
+Expected: main clean at `142cda8`; backend/hub/私有原生仓/DanQing clean.
 Create local tags only:
 
 ```powershell
@@ -110,7 +110,7 @@ Create `docs/MIGRATION-2026-10-29.md`:
 ```markdown
 # 2026-10-29 项目总目录整理迁移记录
 
-- 范围：tiangong-kaiwu（项目总目录）、luban-backend、imodelhub-services、imodel-native、DanQing；platform-docs 已删除。
+- 范围：tiangong-kaiwu（项目总目录）、luban-backend、imodelhub-services、私有原生仓、DanQing；platform-docs 已删除。
 - 结构：apps/web-next → apps/web；packages/viewer-next → packages/viewer。
 - 包名：@luban-cad/web-next → @luban-cad/web；@luban-cad/viewer-next → @luban-cad/viewer。
 - 删除：viewer-core、web-viewer、config、旧脚本、itwinjs-core/open-cloud-cad。

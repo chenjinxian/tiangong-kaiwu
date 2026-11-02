@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 清理 imodel-native 与 DanQing 的生成物和过期文档，完成跨仓最终扫描，并把结果记录到项目总目录。
+**Goal:** 清理 私有原生仓 与 DanQing 的生成物和过期文档，完成跨仓最终扫描，并把结果记录到项目总目录。
 
-**Architecture:** platform-docs 已按用户裁决整仓删除，主仓 `docs/` 成为唯一文档根；本计划只处理 imodel-native/DanQing 的生成物与过期文档，不改源码。最后在主仓做跨仓 stale 扫描和状态记录。
+**Architecture:** platform-docs 已按用户裁决整仓删除，主仓 `docs/` 成为唯一文档根；本计划只处理 私有原生仓/DanQing 的生成物与过期文档，不改源码。最后在主仓做跨仓 stale 扫描和状态记录。
 
 **Tech Stack:** Markdown、PowerShell、CMake 构建树（仅删除，不重编译）、Git。
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - platform-docs 已整仓删除（不迁移内容）；不得再引用该目录，当前文档根为 `D:\Github\tiangong-kaiwu\docs`。
-- 不改 imodel-native/DanQing 源码；只删生成物、过期文档、合并当前文档。
+- 不改 私有原生仓/DanQing 源码；只删生成物、过期文档、合并当前文档。
 - 不重编译 native/DanQing；删除构建树后记录“下次构建前需重新配置”。
 - 执行期不 push、不建 Release；每仓独立本地 commit；完成后按用户指示推送/发布（见 MIGRATION）。
 - 当前端口：web 5300/5301、hub 5400（容器 4000）、MS 5401、WA 5402。
@@ -21,7 +21,7 @@
 
 ---
 
-### Task 1: imodel-native 生成物与历史文档
+### Task 1: 私有原生仓 生成物与历史文档
 
 **Files:**
 - Delete (ignored): `out/cmake/`, `build/__pycache__/`, pytest caches
@@ -33,7 +33,7 @@
 - [ ] **Step 1: Reclaim CMake build tree**
 
 ```powershell
-Set-Location 'D:\Github\imodel-native'
+Set-Location 'D:\Github\私有原生仓'
 foreach ($p in @('out\cmake','build\__pycache__','.pytest_cache')) {
   if (Test-Path $p) {
     $size = (Get-ChildItem $p -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
@@ -162,7 +162,7 @@ $repos = @(
  'D:\Github\tiangong-kaiwu',
  'D:\Github\luban-backend',
  'D:\Github\imodelhub-services',
- 'D:\Github\imodel-native',
+ 'D:\Github\私有原生仓',
  'D:\Github\DanQing'
 )
 foreach ($repo in $repos) {
@@ -194,7 +194,7 @@ Append to `D:\Github\tiangong-kaiwu\docs\MIGRATION-2026-10-29.md`:
 | tiangong-kaiwu | 去 next + 死包/旧应用/历史文档清理 | 见本文件主仓记录 |
 | luban-backend | 端口/editor 路径/文档/构建产物 | 两服务 vitest/lint/build |
 | imodelhub-services | APP_PORT/前端回调/坏脚本/文档 | unit/lint/build |
-| imodel-native | out/cmake + 历史计划 | git status clean |
+| 私有原生仓 | out/cmake + 历史计划 | git status clean |
 | DanQing | build + DTA 文档收敛 | git status clean |
 | platform-docs | 整仓删除，不迁移内容 | 本地目录不存在 |
 
@@ -214,7 +214,7 @@ git commit -m "docs: 记录 2026-10-29 项目总目录整理结果"
 
 ## Self-Review
 
-- Spec coverage: platform-docs deletion already completed; imodel-native (T1),
+- Spec coverage: platform-docs deletion already completed; 私有原生仓 (T1),
   DanQing (T2), cross-repo scan/result (T3).
 - No source edits in native/DanQing; no rebuild claimed.
 - Ports and names match the spec; history indexes preserve recovery paths.

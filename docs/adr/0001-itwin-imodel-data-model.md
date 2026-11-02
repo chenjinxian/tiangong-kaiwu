@@ -765,9 +765,9 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   native provenance），以及本 ADR/plan 的 fix-round 证据修正提交（见 `git log`）。
   **未 push/merge**。
 - **backend**：`feat/b-model-p2`，BASE `1c5d950`（RPC 限流 env 覆盖、注册表/半图实现）；
-  P2.7 提交 **`989c2d6`**（native Delivery 回退 + junction 穿透删除修复 + RPC 版本打印）、
+  P2.7 提交 **`989c2d6`**（构建产物回退 + junction 穿透删除修复 + RPC 版本打印）、
   **`168bba2`**（editor-backend 物化）、**`9c02e61`**、**`e5cb5f5`**（干净产物 hash/物化更新）、
-  **`3624a85`**（复审 fix round：native provenance + 全部 link 包物化 + tgz core-common
+  **`3624a85`**（复审 fix round：产物 provenance + 全部 link 包物化 + tgz core-common
   唯一断言 + LinkType 守卫）、**`66748a8`**（P2 记录修订）。**未 push**。
 - **复审包注记**：`review-public-0d6ffe1..4b36c36.diff` 与
   `review-backend-1c5d950..9c02e61.diff` **早于上述 live 修复**（尤其 265,649,231 B /
@@ -786,21 +786,14 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | 产物 | 标识 / 证据 |
 |---|---|
 | public shared | `dist/rpc/LubanFeatureRpcInterface.js` `interfaceVersion = "1.18.0"`；`test` **7 files / 144 passed** |
-| MS 产物 | tag `backend-20261031-p27`；tgz **178,553,408 B**，sha256 **`DBB79D6B637C143701DD76EFBE039EC2090A79014764EB0316F38AE0680CD35F`**；产物树 RPC **1.18.0**；native dev build + `native-provenance.json`（version **5.15.5** / head **`d29cf7e49fc2`** / required tag `v5.15.5` = `64a0718d1dc7` / **explicit store fallback=true** / freshness `store-predates-head`）；dist 0 个 `.map`；**7 个顶层 link 包**（含 `@luban-cad/shared` / `@itwin/editor-backend`）物化为真实目录（排除 `node_modules`）；tgz 断言 `@itwin/core-common` **1 份**、`@luban-cad/shared` 无 `node_modules`；`fetch-backend.ps1 -LocalArtifact` 安装到 `dist-backend\modeling-server` |
-| MS 运行形态 | 宿主产物模式（`start-ms-host.ps1 -Detach`）；日志横幅 `using dev build from …\@bentley\imodeljs-native` |
+| MS 产物 | tag `backend-20261031-p27`；tgz **178,553,408 B**，sha256 **`DBB79D6B637C143701DD76EFBE039EC2090A79014764EB0316F38AE0680CD35F`**；产物树 RPC **1.18.0**；dist 0 个 `.map`；**7 个顶层 link 包**（含 `@luban-cad/shared` / `@itwin/editor-backend`）物化为真实目录（排除 `node_modules`）；tgz 断言 `@itwin/core-common` **1 份**、`@luban-cad/shared` 无 `node_modules`；`fetch-backend.ps1 -LocalArtifact` 安装到 `dist-backend\modeling-server` |
+| MS 运行形态 | 宿主产物模式（`start-ms-host.ps1 -Detach`） |
 | web 镜像（本地） | `tiangong-kaiwu-web:latest`；镜像 Id `sha256:23639beaf380b21f4aff87daf86cdf9f57a245b0b6fef471b7286286868b272f`；`org.opencontainers.image.revision=4b01fff54beadcda0c13f589d8be62068a72db5b`；**`org.opencontainers.image.b-model-enabled=true`** |
 | hub 镜像（本地） | `ghcr.io/chenjinxian/imodelhub:latest`；Id `sha256:1663b22ab79059f6fac25d53a9a6d2162519db5d49bc9af95abcdfa0fa7095ea`；revision `25b2b42…`；**仅本地，未发布** |
 
 构建脚本硬化（backend `scripts/build-ms-dist.ps1`，P2.7 复审 fix round）：
-1. **Native Delivery 回退不再静默**：Delivery 缺失或 store dev build 早于 imodel-native HEAD 时，
-   必须显式 `-AllowStoreNativeFallback`，否则构建失败；同时硬校验 store package 版本 ==
-   store 目录版本、`devbuild.json` 的 `dev-build=true`、required tag `v<版本>` 存在且是
-   imodel-native HEAD 的祖先、store devbuild 不早于 required tag。解析并打印
-   version/HEAD/describe/tag/tag commit/store mtime/HEAD time/fallback，写入产物
-   `native-provenance.json`。本次：**5.15.5**，HEAD `d29cf7e49fc2`，required tag `v5.15.5`
-   （commit `64a0718d1dc7`，2026-10-02），store devbuild **2026-10-26** 早于 HEAD
-   （2026-10-29，220 commits）→ `fallbackRequired=true`，已显式授权；**不得把“dev-build 横幅”
-   当作版本/新鲜度证明**。
+1. **产物 provenance 校验**：私有依赖仓的版本/构建产物细节不在公开文档展开；
+   公开构建脚本只校验产物 provenance 字段存在且完整，不把启动横幅当作版本/新鲜度证明。
 2. **所有顶层 link/file: 依赖物化**（不只 editor-backend）：npm 对 link/file 依赖建
    Junction/Symlink，`tar --dereference` 会把目标的嵌套 `node_modules` 带进产物；旧步骤直接
    `Remove-Item` 还会穿透删除公开仓 workspace 的真实 link（实测 editor-backend 的
@@ -812,8 +805,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
    core-backend/editor-common/shared 三处重复 core-common。
 3. **嵌套 core-backend 删除加 LinkType/reparse 守卫**：仅当父 editor-backend 为真实目录时处理
    嵌套副本；嵌套项若是链接只删链接本身（不触达目标），真实副本才递归删除。
-4. 打包前打印产物树 RPC 契约版本；`native-provenance.json` 由 `verify-stack` Step D 读取并
-   在结果中显示 `native/head/fallback`。
+4. 打包前打印产物树 RPC 契约版本；产物 provenance 由 `verify-stack` Step D 读取并显示。
 
 ### 15.3 验证结果（精确）
 
@@ -862,7 +854,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 
 1. hub：发布 `25b2b42`（或其后）镜像并部署；`verify-stack` Step F 核对 OCI revision。
 2. MS：public shared 1.18.0 → backend `build-ms-dist.ps1` 产物 → `fetch-backend.ps1` 安装 →
-   `start-ms-host.ps1 -Detach`（产物模式）；核对横幅 dev build。
+   `start-ms-host.ps1 -Detach`（产物模式）；核对启动横幅。
 3. web：**同一 public 提交**执行
    `powershell -File scripts/rebuild-web.ps1 -BModelEnabled true` → `docker compose up -d web`；
    核对镜像 LABEL `b-model-enabled=true` 与 revision。

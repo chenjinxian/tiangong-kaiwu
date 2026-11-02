@@ -25,7 +25,7 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 ## 3. 单元 / 集成门
 
-- [ ] backend 全量 `pnpm test`（本机 native dev build；当前基线 **671 passed /
+- [ ] backend 全量 `pnpm test`（本机完整构建；当前基线 **671 passed /
       8 skipped**）；注意全量 feature 测试不进入托管 CI，属发布前本地门。
 - [ ] public：shared **144**、viewer **107**、editor frontend **43**、web
       **1181**（2026-11-01 post-p28c 基线；新增测试后以实际为准）。
@@ -45,7 +45,7 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
       四短竖棱 fillet 4 chips/status 0；体积与去材见
       `e2e/fixtures/onshape-tutorial2/README.md`（终体积 ≤0.5% vs API
       357.568 cm³，短棱去材 0.422 cm³）。**该 e2e 是开发验收；干净发布仍需
-      第 2 节 native provenance 硬检查通过。**
+      第 2 节产物完整性硬检查通过。**
 - [ ] Onshape UI 对齐门：`npx playwright test e2e/ui-parity.spec.ts`——ViewCube
       在场/朝向同步/面点击、默认几何图元与眼睛开关、ViewCube 下拉显示设置
       持久化、草图相机平面定向与退出恢复。
@@ -59,7 +59,7 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 ## 5. 发布镜像验收
 
 - [ ] `scripts/verify-stack.ps1` **17/17**：
-      Step D native provenance 可见；Step E web revision 与 web 源一致；Step F hub
+      Step D 产物 provenance 可见；Step E web revision 与 web 源一致；Step F hub
       revision 与 hub HEAD 一致且无宿主 dist 挂载。
 - [ ] web revision 落后源码时先 `rebuild-web.ps1` 再 `docker compose up -d web`；
       **不要用重启容器代替重建**（静态镜像无运行期 env）。
@@ -88,11 +88,11 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
   shared/editor/viewer/web 单测 + tsc/lint。不跑真栈 e2e。
 - **backend CI**（`.github/workflows/ci.yml`）：克隆 public 到 `D:\a\tiangong-kaiwu` →
   Rush 构建 `@itwin/core-backend` 闭包 → modeling-server tsc/lint + middleware 单测。
-  **native 全量仍走本清单第 3 节本地门**（托管 runner 未预置 dev build / slvs.node）。
+  **涉及私有依赖的测试仍走本清单第 3 节本地门**（托管 runner 未预置该工具链）。
 
 ```powershell
-# 快速检查（不跑 verify-stack；当前产物为 native store fallback 时显式放行）
-powershell -File scripts/release-gate.ps1 -AllowNativeFallback -SkipVerifyStack
+# 快速检查（不跑 verify-stack；当前产物使用后备来源时显式放行）
+powershell -File scripts/release-gate.ps1 -AllowStoreFallback -SkipVerifyStack
 
 # 完整发布门（生产限流已恢复）
 powershell -File scripts/release-gate.ps1 -ExpectedSha256 <release-asset-sha256>

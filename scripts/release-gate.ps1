@@ -1,18 +1,18 @@
 ﻿# 发布门自动化（2026-11-01，任务 5）
 #
-# 校验：产物 SHA256 / native provenance / MS 限流姿态 / web·hub 镜像标签，
+# 校验：产物 SHA256 / 产物 provenance / MS 限流姿态 / web·hub 镜像标签，
 # 并默认串联 verify-stack.ps1（17/17 权威验收）。
 #
 # 用法：
 #   powershell -File scripts/release-gate.ps1 -ExpectedSha256 <sha256>
-#   powershell -File scripts/release-gate.ps1 -AllowNativeFallback -SkipVerifyStack
+#   powershell -File scripts/release-gate.ps1 -AllowStoreFallback -SkipVerifyStack
 #
 # 退出码：0=通过；1=存在 FAIL。WARN 不阻断，但必须写入发布记录。
 
 [CmdletBinding()]
 param(
     [string]$ExpectedSha256,
-    [switch]$AllowNativeFallback,
+    [switch]$AllowStoreFallback,
     [switch]$AllowRateLimitOverride,
     [switch]$SkipVerifyStack
 )
@@ -62,21 +62,21 @@ if ($artifacts.Count -eq 0) {
     }
 }
 
-# --- 2. Native provenance -------------------------------------------------
+# --- 2. 产物 provenance ---------------------------------------------------
 $provPath = Join-Path $Root 'dist-backend\modeling-server\node_modules\@bentley\imodeljs-native\native-provenance.json'
 if (-not (Test-Path $provPath)) {
-    Fail "native provenance 缺失: $provPath"
+    Fail "产物 provenance 缺失: $provPath"
 } else {
     $prov = Get-Content -Raw -Path $provPath | ConvertFrom-Json
-    Write-Host "native: version=$($prov.nativeVersion) head=$($prov.imodelNativeHead) fallback=$($prov.fallbackRequired) freshness=$($prov.freshness)"
+    Write-Host "provenance: version=$($prov.nativeVersion) head=$($prov.imodelNativeHead) fallback=$($prov.fallbackRequired) freshness=$($prov.freshness)"
     if ($prov.fallbackRequired -eq $true) {
-        if ($AllowNativeFallback) {
-            Warn 'native store fallback=true（已显式放行；发布记录须写明 provenance）'
+        if ($AllowStoreFallback) {
+            Warn '产物使用后备来源（已显式放行；发布记录须写明 provenance）'
         } else {
-            Fail 'native store fallback=true；干净发布应从 imodel-native HEAD 重建 Delivery（或显式 -AllowNativeFallback）'
+            Fail '产物使用后备来源；干净发布应从私有依赖源重建（或显式 -AllowStoreFallback）'
         }
     } else {
-        Pass 'native 非 fallback'
+        Pass '产物 provenance 非 fallback'
     }
 }
 

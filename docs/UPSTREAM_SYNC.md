@@ -125,7 +125,7 @@ luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合�
 ### 2026-10-03（5.14.0-dev.19 → 5.15.x，filter-repo 清史后首次同步）
 
 - **上游版本**：`6407fdd4c5` → **`8bdef3e3cd`**（上游约一周提交，380 文件 +9967/-4175）；
-  `@bentley/imodeljs-native` **5.14.38 → 5.15.5**（触发原生库联动，见下）
+  私有依赖版本同步（细节归私有仓，不在公开同步记录展开）
 - **谱系验证**：这是公开仓 git filter-repo 历史重写（2026-10-01，后端私有化）后的
   首次真实同步——subtree squash 谱系在重写后存活，`sync-from-upstream.sh` 一次走通
   （此前的 `git subtree split` 干跑演练已验证）。
@@ -133,13 +133,7 @@ luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合�
   噪音差异），按「与上游逐字节一致」原则取上游版（`git checkout --theirs`）。
 - **rush 重建**：`rush update --bypass-policy`（1m48s）+ `rush build --to core-backend
   --to core-frontend --to editor-backend --to editor-frontend`（1m46s，增量）。
-- **imodel-native 联动**：其仓 `sync-from-upstream.ps1`（main→dev/source-build）**不带
-  tag**，须显式 `git fetch upstream tag v5.15.5` 过硬门槛（merge-base --is-ancestor）；
-  CMake 758/758 全新构建（vcvars64 shell，批处理文件方式，勿裸 shell）。
-- **新坑①（replace 脚本修正）**：Delivery 组装把 **iTwinNapi.dll 延迟加载桩（~13KB
-  无实现）放顶层**，真实现（~26KB+）在 `Node\` 子目录——imodeljs.node 绑定顶层名，
-  绑到桩则 node 报 "Module did not self-register"。`replace-imodeljs-native.ps1`
-  已加固定修正：拷贝后用 `Node\iTwinNapi.dll` 覆盖顶层。
+- **私有依赖联动**：版本门、构建与二进制替换细节由私有仓维护，不在公开同步记录展开。
 - **新坑②（私有仓测试修正）**：ACIS blob 头时间戳**个位数日期日为空格填充**
   （`Oct␣␣3`），normalize 正则 `\d{2}` 只匹配零填充——9/23–10/02 全两位数日从未
   暴露，10/03 首现。私有仓 `TestHost.ts` 正则改 `{1,2}\d{1,2}`（非上游回归）。
@@ -159,17 +153,14 @@ luban-cad，见下节）；lockfile / rush 配置与上游逐字节一致（合�
 - **上游版本**：5.14.0-dev.17 → **5.14.0-dev.19**（基线 `0b08bc37cc` → `6407fdd4c5`）
 - **冲突与处理**：仅 `core/frontend/src/internal/tile/OrbitGtTileTree.ts` 一处（上游重写），
   该文件不在自定义改动清单，取上游版本
-- **原生库版本变化**：`@bentley/imodeljs-native` **5.14.35 → 5.14.38** —— 按「imodel-native 联动」
-  小节跟进：imodel-native 合并 upstream/main 至 ≥ v5.14.38 → CMake 重编译 → rush update →
-  `scripts/replace-imodeljs-native.ps1`（其硬门槛以 `core/backend/package.json` 动态读版本为准）
+- **私有依赖版本变化**：按私有仓流程跟进；公开同步记录不展开版本/构建细节。
 - 首次带尾步自动检测的真实同步；`stays at` 分支已在合并完成后的重跑中验证
-- **2026-09-26 原生库替换机制启用**：`replace-imodeljs-native.ps1` 首次落地（imodel-native ≥ v5.14.38，release 配置），modeling-server 冒烟通过（banner/进程级；模型级冒烟因 imodelhub-services 未运行延后）
 
 ### 2026-09-23（仓库整合 + 5.14.0-dev.17）
 
 - **上游版本**：5.14.0-dev.15 → **5.14.0-dev.17**（`0b08bc37cc`），上游提交数 **8**
-  （版本推进 dev.16/17、`@bentley/imodeljs-native` 5.14.33–35、Presentation
-  `getElementProperties` 性能改进 #9743、5.13.5 changelogs）
+  （版本推进 dev.16/17、Presentation `getElementProperties` 性能改进 #9743、
+  5.13.5 changelogs）
 - **冲突与处理**：仅 `common/config/rush/pnpm-lock.yaml` 一处，按清单取上游版本；
   上游无接口新增，无需补实现
 - **工作区解耦**：`@luban-cad/*` 退出 rush 工作区，`rush.json`/`browser-approved-packages`/

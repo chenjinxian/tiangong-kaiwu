@@ -3,11 +3,11 @@
 - 日期：2026-09-27
 - 用途：支撑「iModel 存储能否支撑 Onshape 式参数化特征建模」裁决的全部一手证据持久化。每条结论带 file:line 或一手来源；推断与「未找到」如实标注。
 - 关联：裁决见 `2026-09-27-cad-feature-system-decision-record.md`；设计见 `2026-09-27-feature-system-imodel-architecture-design.md`。
-- 本地检出锚点：`D:\Github\imodel-native`（dev/source-build，同步至 upstream 5.14.39）；`D:\Github\FreeCAD`（main@92e2891cb4，26.3.0-dev，含 1.0 element map）；`D:\Github\modeling-app`（kittyCAD 官方检出，含 rust/ KCL 核心）；本仓 `itwinjs-core/`。
+- 本地检出锚点：`D:\Github\私有原生仓`（dev/source-build，同步至 upstream 5.14.39）；`D:\Github\FreeCAD`（main@92e2891cb4，26.3.0-dev，含 1.0 element map）；`D:\Github\modeling-app`（kittyCAD 官方检出，含 rust/ KCL 核心）；本仓 `itwinjs-core/`。
 
 ---
 
-## 1. imodel-native 能力盘点（2026-09-27 实查结论）
+## 1. 私有原生仓 能力盘点（2026-09-27 实查结论）
 
 - **BRepCore = Parasolid 的 ACIS 替身门面**：`SolidKernel.h` 109 条声明。
 - **PSBRepGeometry = 31-op 协议 1:1 忠实还原**：6 个官方即死路的 op（2/4/7/9/18/23）刻意保留；其中 18/23 内核层实现存在、可接线。

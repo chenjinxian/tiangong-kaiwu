@@ -36,8 +36,7 @@
 #   luban_cad_auth cookie（FE features/auth/services/auth/client.ts storeAuth 同形状），
 #   断言 101 + Sec-WebSocket-Accept 正确；负向探针（无 cookie 无 query token）断言被 401 拒。
 #
-# 横幅核验（Step D）: "using dev build from ..." 由 imodel-native
-#   iModelJsNodeAddon/api_package/ts/src/NativeLibrary.ts 在加载本地编译二进制时打印；
+# 横幅核验（Step D）: "using dev build from ..." 由本地编译原生包在加载时打印；
 #   宿主 MS 先查 %TEMP%\luban-cad-modeling-server.log(.err)（start-ms-host.ps1 -Detach 重定向），
 #   找不到再回退 `docker compose logs modeling-server`（--profile container 形态），报告命中来源。
 #
@@ -505,7 +504,7 @@ if (-not $msHealthy) {
         Add-Check 'D' 'MS dev-build 横幅' $true "命中于 $foundIn ：$line$provDetail"
     } else {
         $dockerNote = if (Get-Command docker -ErrorAction SilentlyContinue) { '' } else { '（docker 不在 PATH，容器形态日志未查）' }
-        $detail = "宿主日志 %TEMP%\luban-cad-modeling-server.log 与容器日志均无 '$banner' $dockerNote —— 重装 node_modules 后需重跑 scripts/replace-imodeljs-native.ps1 并重启 MS"
+        $detail = "宿主日志 %TEMP%\luban-cad-modeling-server.log 与容器日志均无 '$banner' $dockerNote —— 重装 node_modules 后需按私有仓流程重跑本地替换并重启 MS"
         Add-Check 'D' 'MS dev-build 横幅' $false -Detail $detail
     }
 }

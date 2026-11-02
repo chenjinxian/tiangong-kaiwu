@@ -43,20 +43,18 @@ if GIT_MERGE_AUTOEDIT=no git subtree pull --prefix="$PREFIX" --squash "$UPSTREAM
   NATIVE_AFTER=$(native_ver)
   if [ "$NATIVE_BEFORE" != "$NATIVE_AFTER" ]; then
     echo ""
-    echo "!!! $NATIVE_PKG version changed: $NATIVE_BEFORE -> $NATIVE_AFTER"
-    echo "    imodel-native must catch up before the local binary can replace npm's:"
-    echo "      1) cd D:/Github/imodel-native && ./sync-from-upstream.ps1   # merge upstream/main into dev/source-build"
-    echo "      2) cmake --preset win-x64-release && cmake --build --preset win-x64-release"
-    echo "      3) rush update + rush build, then: powershell -File scripts/replace-imodeljs-native.ps1"
-    echo "    (scripts/replace-imodeljs-native.ps1 enforces the version gate)"
+    echo "!!! native package version changed: $NATIVE_BEFORE -> $NATIVE_AFTER"
+    echo "    Follow the private native dependency repo's sync/build process before"
+    echo "    replacing the local binary, then rerun the public replacement script."
   else
-    echo "==> $NATIVE_PKG stays at $NATIVE_AFTER — no imodel-native follow-up needed."
+    echo "==> native package stays at $NATIVE_AFTER — no private follow-up needed."
   fi
 else
   echo ""
   echo "!!! Merge conflicts detected. Resolve them, then:"
   echo "    git add -A && git commit --no-edit"
   echo "    (pnpm-lock.yaml / rush.json / common/config/rush/*: take upstream's version)"
-  echo "    Then check whether @bentley/imodeljs-native changed in itwinjs-core/core/backend/package.json (the version tail-check only runs on clean syncs) - see docs/UPSTREAM_SYNC.md「imodel-native 联动」"
+  echo "    Then check whether the native package changed in itwinjs-core/core/backend/package.json"
+  echo "    (the version tail-check only runs on clean syncs); follow the private repo process."
   exit 1
 fi

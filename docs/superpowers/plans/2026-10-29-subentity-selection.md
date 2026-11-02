@@ -1516,8 +1516,7 @@ selector fixes separately.
   单次全绿；此前两轮记录（49/51 视觉重钉、50/51 b-viewport flake）保留为
   过程证据。perf spec 缺省 skip，不占默认限流预算。
 - **verify**：生产默认限流恢复后 `verify-stack` **17/17**；`release-gate.ps1`
-  （p29b SHA + `-AllowNativeFallback`）**FAIL=0 WARN=1**（仅 native
-  store fallback 明示告警）。
+  （p29b SHA + `-AllowStoreFallback`）**FAIL=0 WARN=1**（仅产物后备来源明示告警）。
 - **本地生产镜像**：已从提交 `ce2b93b` 重建（B on、hooks off）并
   `docker compose up -d web`；`verify-stack` **17/17**，Step E revision
   `ce2b93b15304`。**未发布 GHCR/Release**（web 无 GHCR 通道）。
@@ -1531,9 +1530,7 @@ selector fixes separately.
 - **DeleteSubEntities SUCCESS 共面分裂种子**：web/命令通道已就绪
   （`subentity-delete.ts` + `facesFromId`/`edgesFromOwnId`），普通盒体负路径已
   钉死；SUCCESS 需要 native/几何侧构造共面分裂面（邻面可生长补洞）。owner：
-  native/geometry；依据：imodel-native
+  native/geometry；依据：私有原生仓
   `docs/reference/compare/DeleteSubEntitiesOperation.md`（Task 14/15 挂起项）。
   该项不阻塞 web 侧接线与负路径回归。
-- **Native Delivery 从 HEAD 重建**：见 `docs/NATIVE-REBUILD.md`；当前 MS 产物
-  为显式 store fallback（`fallbackRequired=true`），`release-gate.ps1` 缺省 FAIL，
-  仅在 `-AllowNativeFallback` 下作为 qualified 发布。
+- **私有依赖产物重建**：详细构建/provenance 信息由私有仓维护，不在公开文档展开。

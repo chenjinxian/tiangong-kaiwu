@@ -3,7 +3,7 @@
 - 日期：2026-10-29
 - 状态：执行完成（2026-10-29；platform-docs 已按用户裁决删除）
 - 性质：跨仓结构整理、命名统一、过时内容删除、生成物清理
-- 范围：tiangong-kaiwu（项目总目录）+ luban-backend、imodelhub-services、imodel-native、DanQing（见 §2）
+- 范围：tiangong-kaiwu（项目总目录）+ luban-backend、imodelhub-services、私有原生仓、DanQing（见 §2）
 - 原则（执行期）：不 push、不建 Release；每阶段独立本地提交；仓内删除以 Git 历史为准。执行完成后按用户指示推送/发布（见 MIGRATION）
 
 ## 1. 目标与非目标
@@ -39,7 +39,7 @@
 1. `D:\Github\tiangong-kaiwu`（项目总目录，含 `luban-cad`、`itwinjs-core`）
 2. `D:\Github\luban-backend`
 3. `D:\Github\imodelhub-services`
-4. `D:\Github\imodel-native`
+4. `D:\Github\私有原生仓`
 5. `D:\Github\DanQing`
 
 `D:\Github\platform-docs`：按用户裁决于 2026-10-29 整仓删除，不迁移内容；
@@ -59,7 +59,7 @@
 | fork 旧应用 | 删除 `itwinjs-core/open-cloud-cad` 并登记同步检查单 |
 | worktree | 两个 `.claude/worktrees` 分支已包含在当前 HEAD，删除工作树与本地分支 |
 | token 残留 | `luban-cad/apps/web/playwright/.auth` 随旧 app 残留一起删除 |
-| 构建产物 | 回收 `imodel-native/out/cmake`、`DanQing/build`、`luban-backend/dist-out+staging` |
+| 构建产物 | 回收 `私有原生仓/out/cmake`、`DanQing/build`、`luban-backend/dist-out+staging` |
 | platform-docs | 整仓删除，不迁移内容；主仓 `docs/` 为唯一文档根 |
 | 保留资产 | `node_modules`、`dist-backend`、`.superpowers`、Rush `common/temp`、itwinjs `lib` |
 | 推送（执行期） | 不 push、不建 Release；完成后按用户指示执行 |
@@ -258,14 +258,14 @@ luban-cad/
 - `npm run test:unit`、`npm run lint`、`npm run build`；端口相关单测。
 - 若环境允许，跑 e2e/relational Docker；未跑需在 HISTORY/执行结果记录。
 
-### Phase 6：imodel-native / DanQing
+### Phase 6：私有原生仓 / DanQing
 
 **platform-docs**
 
 按用户裁决整仓删除，不迁移内容；主仓 `docs/` 成为唯一文档根。
 原计划的 STATUS/历史快照改写取消，被中止的未提交改动一并丢弃。
 
-**imodel-native**
+**私有原生仓**
 
 - 删除 `out/cmake`、`build/__pycache__`、pytest 缓存；保留 `out/npm-pkg`、
   `out/ida`、`out/ts-api-staging`、`docs/reference/ida`、`docs/reference/compare`。
@@ -312,7 +312,7 @@ luban-cad/
    `web-next|viewer-next|apps/web-next|open-cloud-cad|Zokei`
    目标零命中；允许白名单：`HISTORY.md`、分支名、`luban-next-*` 存储键、
    测试负例 `:5310`、容器内部 `web:3000`
-6. **imodel-native / DanQing**：仅文档/生成物变更；不重编译，记录延后；
+6. **私有原生仓 / DanQing**：仅文档/生成物变更；不重编译，记录延后；
    若后续构建，按各仓基线命令执行
 
 ## 8. 安全、回滚与失败处理

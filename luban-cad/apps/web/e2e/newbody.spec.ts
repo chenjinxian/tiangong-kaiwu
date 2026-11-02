@@ -548,7 +548,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   const deleteFaceDialog = page.getByRole('dialog', { name: '删除 面' });
   await expect(deleteFaceDialog).toBeVisible();
   await deleteFaceDialog.getByRole('button', { name: '删除', exact: true }).click();
-  // 内核边界（imodel-native docs/reference/compare/DeleteSubEntitiesOperation.md）：
+  // 内核边界（私有原生仓 reference）：
   // 普通盒体单面删除是既定负路径（api_remove_faces 邻面补不拢，Err 115006）；
   // SUCCESS 需要共面分裂种子。此处验证诚实负路径：错误 toast + 保持 face 模式。
   const deleteFailure = page.getByText(/删除失败/);

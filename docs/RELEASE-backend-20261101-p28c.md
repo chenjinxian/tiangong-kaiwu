@@ -14,7 +14,6 @@ Tag：`backend-20261101-p28c`
 | SHA256 | `d5f7690c6625099fd44b906a2a40015879028d546a5aca2b0de2c1f769cc45b8` |
 | GitHub Release asset digest | `sha256:d5f7690c6625099fd44b906a2a40015879028d546a5aca2b0de2c1f769cc45b8`（与本地相同） |
 | RPC 契约 | `@luban-cad/shared` **1.18.0** |
-| Native | 5.15.5 / imodel-native HEAD `d29cf7e49fc2` / **explicit store fallback=true**（store devbuild 早于 HEAD；见 ADR §15.2） |
 | MS 源码 | private `ff399dd` |
 | Hub 源码 | private `c49fd5c` |
 | Web 生产镜像 | revision `87ee0f408fb7`（B on、E2E hooks off） |
@@ -49,7 +48,7 @@ Tag：`backend-20261101-p28c`
   HITL、A6 两用户分享链；使用 test-observation web 镜像（E2E hooks on）+
   `LUBAN_RPC_RATE_LIMIT_MAX=2000 / window=900000` 测试专用覆盖。
 - `verify-stack.ps1`：**17/17**；2026-11-01 发布后复跑仍 **17/17**；
-  Step D `native=5.15.5 head=d29cf7e49fc2 fallback=True`；Step E web `87ee0f408fb7`；
+  Step D 产物 provenance 通过；Step E web `87ee0f408fb7`；
   Step F hub `c49fd5c`。
 - 限流：全量轮结束后 MS 已恢复生产默认 **100/15min**（启动日志 `production default`）。
 - 发布后独立复核：本地 tgz SHA256 与 Release asset digest 相同；`/rpc/metadata` 无
@@ -76,7 +75,6 @@ powershell -File scripts/verify-stack.ps1
   需干净窗口/测试覆盖”的测试口径。
 - **web 无 GHCR 通道**：生产镜像由本仓 `rebuild-web.ps1` 本地构建；发布时须核对
   revision 与 `b-model-enabled=true`，不得把 test-observation 镜像当生产产物。
-- **Native 为显式 store fallback**：store devbuild 早于 imodel-native HEAD；下次发布
-  前应从 HEAD 重建 Delivery（或保持显式授权并记录 provenance）。
+- **私有依赖产物 provenance**：详细版本/构建信息由对应私有仓维护，公开记录不展开。
 - **A 旧文档只读**：P3 旧数据迁移已退役（owner 决策 2026-11-01）；P4 删除 A 兼容层暂缓。
 - **限流默认窗口**：长套件仍需测试覆盖 + 跑后恢复默认；不得把覆盖值写进生产配置。
