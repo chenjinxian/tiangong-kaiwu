@@ -3,12 +3,13 @@ import {
   BeButtonEvent,
   BeModifierKeys,
   CoordSource,
+  EventHandled,
   IModelApp,
 } from '@itwin/core-frontend';
 import { Point3d } from '@itwin/core-geometry';
 import { SubEntityType } from '@itwin/editor-common';
 import type { SubEntityLocationProps, SubEntityProps } from '@itwin/editor-common';
-import type { SubEntityData } from '@itwin/editor-frontend';
+import { LocateSubEntityTool, type SubEntityData } from '@itwin/editor-frontend';
 import type { CanvasSelection } from '../types.js';
 import { OnshapeSelectTool } from '../tools/modeling/OnshapeSelectTool.js';
 
@@ -153,6 +154,8 @@ function makeTool(): { tool: TestableTool; onSelectionChanged: ReturnType<typeof
 class SelectionTool extends OnshapeSelectTool {
   public emitted: Array<readonly unknown[]> = [];
   public locateState: boolean[] = [];
+  /** initLocateElements 的 enableLocate 实参序列（resume 语义断言）。 */
+  public initLocateCalls: boolean[] = [];
   public constructor() {
     super({
       connectionKey: 'imodel-key',
@@ -169,14 +172,26 @@ class SelectionTool extends OnshapeSelectTool {
   public callResume(): void { this.resume(); }
   public async callSuspend(): Promise<void> { await this.suspendForCommand(); }
   public callResumeAfterCommand(): void { this.resumeAfterCommand(); }
-  public exposePaused(): boolean { return this.shouldEnableLocate === false; }
+  public callGather(ev: BeButtonEvent): Promise<EventHandled | undefined> { return this.gatherInput(ev); }
+  public exposePaused(): boolean { return this._paused; }
+  public exposeCommandSuspended(): boolean { return this._commandSuspended; }
+  public exposeLocateEnabled(): boolean { return this.shouldEnableLocate; }
   public exposeWantAdditionalSubEntities(): boolean { return this.wantAdditionalSubEntities; }
+  public acceptedCount(): number { return this._acceptedSubEntities.length; }
+  public acceptedKeysView(): string[] { return [...this._acceptedKeys]; }
+  public selectedIdsView(): string[] {
+    return this._selectedKeys.map((key) => this._selected.get(key)?.id ?? '');
+  }
   protected override async createSubEntityData(): Promise<SubEntityData> {
     // 单测无真实几何缓存：补 cleanupGraphic 供 remove/clear 路径调用。
     return { hasGraphic: true, cleanupGraphic: vi.fn() } as unknown as SubEntityData;
   }
   public override changeLocateState(enabled: boolean): void { this.locateState.push(enabled); }
-  public override initLocateElements(): void { /* no-op in unit test */ }
+  /** 记录 enableLocate 实参并镜像基类：initLocateElements 会转调 changeLocateState。 */
+  public override initLocateElements(enableLocate = true): void {
+    this.initLocateCalls.push(enableLocate);
+    this.changeLocateState(enableLocate);
+  }
   protected override setupAndPromptForNextAction(): void { /* no-op in unit test */ }
 }
 
@@ -436,16 +451,36 @@ describe('OnshapeSelectTool：持久 id 与 store 同步', () => {
     expect(tool.emitted.at(-1)).toHaveLength(2);
   });
 
-  it('pause(true) 清空选择并关闭 locate；resume 打开 locate', async () => {
+  it('pause(true) 清空选择并关闭 locate；resume 重新 initLocateElements(true)', async () => {
     rpc.resolveFaceRef.mockResolvedValue({ ok: true, ref: { nodeId: 1, entityId: 3 } });
     const tool = new SelectionTool();
     await tool.callAdd('0xA', LOC(SUB_FACE));
+
     await tool.callPause(true);
     expect(tool.emitted.at(-1)).toEqual([]);
     expect(tool.locateState.at(-1)).toBe(false);
+    expect(tool.initLocateCalls).toEqual([]);
     expect(tool.exposePaused()).toBe(true);
+    expect(tool.exposeLocateEnabled()).toBe(false);
+
     tool.callResume();
     expect(tool.exposePaused()).toBe(false);
+    expect(tool.exposeLocateEnabled()).toBe(true);
+    expect(tool.initLocateCalls.at(-1)).toBe(true);
+  });
+
+  it('pause(false) 保留选择且不发选择回调', async () => {
+    rpc.resolveFaceRef.mockResolvedValue({ ok: true, ref: { nodeId: 1, entityId: 3 } });
+    const tool = new SelectionTool();
+    await tool.callAdd('0xA', LOC(SUB_FACE));
+    const emissions = tool.emitted.length;
+
+    await tool.callPause(false);
+    expect(tool.emitted.length).toBe(emissions);
+    expect(tool.emitted.at(-1)).toHaveLength(1);
+    expect(tool.selectedIdsView()).toEqual(['face:0xA:1:3']);
+    expect(tool.acceptedKeysView()).toEqual(['0xA:0:7:0']);
+    expect(tool.exposePaused()).toBe(true);
   });
 
   it('pause 时 wantAdditionalSubEntities=false（不重开 locate circle），resume 后恢复', async () => {
@@ -459,18 +494,90 @@ describe('OnshapeSelectTool：持久 id 与 store 同步', () => {
     expect(tool.exposeWantAdditionalSubEntities()).toBe(true);
   });
 
+  it('paused/suspended 点击被 gatherInput 吞掉（No，不落 processAgenda/重启）', async () => {
+    const tool = new SelectionTool();
+    const ev = event(new Point3d());
+
+    await tool.callPause(true);
+    await expect(tool.callGather(ev)).resolves.toBe(EventHandled.No);
+
+    tool.callResume();
+    await tool.callSuspend();
+    await expect(tool.callGather(ev)).resolves.toBe(EventHandled.No);
+  });
+
+  it('resume 后 gatherInput 委托基类（不再被暂停短路）', async () => {
+    const tool = new SelectionTool();
+    await tool.callPause(true);
+    tool.callResume();
+
+    const proto = LocateSubEntityTool.prototype as unknown as {
+      gatherInput: (ev: BeButtonEvent) => Promise<EventHandled | undefined>;
+    };
+    const baseGather = vi.spyOn(proto, 'gatherInput');
+    try {
+      await tool.callGather(event(new Point3d()));
+      expect(baseGather).toHaveBeenCalledTimes(1);
+    } finally {
+      baseGather.mockRestore();
+    }
+  });
+
+  it('命令挂起期间 pause→resume 不重开 locate（initLocateElements(false)）', async () => {
+    const tool = new SelectionTool();
+    await tool.callSuspend();
+    await tool.callPause(true);
+
+    tool.callResume();
+    expect(tool.exposePaused()).toBe(false);
+    expect(tool.exposeCommandSuspended()).toBe(true);
+    expect(tool.exposeLocateEnabled()).toBe(false);
+    expect(tool.initLocateCalls.at(-1)).toBe(false);
+  });
+
   it('suspendForCommand 保留选择并抑制 locate；resumeAfterCommand 恢复', async () => {
     rpc.resolveFaceRef.mockResolvedValue({ ok: true, ref: { nodeId: 1, entityId: 3 } });
     const tool = new SelectionTool();
     await tool.callAdd('0xA', LOC(SUB_FACE));
 
     await tool.callSuspend();
-    expect(tool.exposePaused()).toBe(true);
+    expect(tool.exposeCommandSuspended()).toBe(true);
+    expect(tool.exposePaused()).toBe(false);
+    expect(tool.exposeLocateEnabled()).toBe(false);
     expect(tool.exposeWantAdditionalSubEntities()).toBe(false);
     expect(tool.emitted.at(-1)).toHaveLength(1);
 
     tool.callResumeAfterCommand();
-    expect(tool.exposePaused()).toBe(false);
+    expect(tool.exposeCommandSuspended()).toBe(false);
+    expect(tool.exposeLocateEnabled()).toBe(true);
     expect(tool.exposeWantAdditionalSubEntities()).toBe(true);
+    expect(tool.initLocateCalls.at(-1)).toBe(true);
+  });
+
+  it('resolve 期间移除同一 key：完成后不回插选择/不发回调/无残留 accepted', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    rpc.resolveFaceRef.mockImplementation(async () => {
+      await gate;
+      return { ok: true, ref: { nodeId: 1, entityId: 3 } };
+    });
+
+    const tool = new SelectionTool();
+    const pending = tool.callAdd('0xA', LOC(SUB_FACE));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(tool.acceptedCount()).toBe(1);
+
+    await tool.callRemove('0xA', LOC(SUB_FACE));
+    expect(tool.acceptedKeysView()).toEqual([]);
+    const emissionsAfterRemove = tool.emitted.length;
+
+    release();
+    await pending;
+
+    expect(tool.acceptedCount()).toBe(0);
+    expect(tool.acceptedKeysView()).toEqual([]);
+    expect(tool.selectedIdsView()).toEqual([]);
+    expect(tool.emitted.length).toBe(emissionsAfterRemove);
+    expect(tool.emitted.at(-1)).toEqual([]);
   });
 });

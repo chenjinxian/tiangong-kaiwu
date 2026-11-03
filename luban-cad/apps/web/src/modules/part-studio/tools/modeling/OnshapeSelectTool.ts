@@ -49,8 +49,9 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   protected readonly _acceptedKeys: string[] = [];
   /** 选择被清空/工具清理的代数——阻止异步 resolve 在清空后回插选择。 */
   private _selectionGeneration = 0;
-  private _paused = false;
-  private _commandSuspended = false;
+  /** protected：单测子类断言暂停/命令挂起状态。 */
+  protected _paused = false;
+  protected _commandSuspended = false;
 
   public constructor(options: OnshapeSelectOptions) {
     super();
@@ -201,6 +202,20 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
     return true;
   }
 
+  /**
+   * 暂停/命令挂起期间的点击必须在此吞掉。LocateSubEntityTool.gatherInput 依赖
+   * `wantAdditionalSubEntities` 才返回 EventHandled.No；暂停时该 getter 为 false，
+   * 会落到 ElementSetTool.gatherInput → processDataButton → processAgenda →
+   * onProcessComplete → onReinitialize → onRestartTool，在对话框仍打开时装入一个
+   * 未暂停的新工具。直接短路为 No（不定位、不处理 agenda、不重启）。
+   */
+  protected override async gatherInput(ev: BeButtonEvent): Promise<EventHandled | undefined> {
+    if (this._paused || this._commandSuspended)
+      return EventHandled.No;
+
+    return super.gatherInput(ev);
+  }
+
   /** 右键保留工具与高亮，由宿主打开 CanvasContextMenu。 */
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
     return EventHandled.Yes;
@@ -229,8 +244,10 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
 
     const selection = await this.resolveSelection(id, props.subEntity);
 
-    if (generation !== this._selectionGeneration) {
-      // 清空发生在 resolve 期间：撤掉先压入的高亮，且不再回插选择。
+    // resolve 期间被清空（generation 变化）或被 removeSubEntity 精确移除（key 已
+    // 不在 accepted 集合）：高亮已由 clearSelection/removeSubEntity 清理，绝不回插
+    // 选择、不发回调；防御性再按 key 撤一次残留。
+    if (generation !== this._selectionGeneration || !this._acceptedKeys.includes(key)) {
       this.discardAccepted(key);
       return;
     }
@@ -376,7 +393,8 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
     if (!this._paused)
       return;
     this._paused = false;
-    this.initLocateElements(true, false);
+    // 命令仍挂起时恢复不能重开 locate（resumeAfterCommand 才真正恢复）。
+    this.initLocateElements(!this._commandSuspended, false);
     this.setupAndPromptForNextAction();
   }
 
