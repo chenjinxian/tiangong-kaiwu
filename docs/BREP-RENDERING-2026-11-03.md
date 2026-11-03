@@ -1,16 +1,22 @@
 # 完整 BRep 元素渲染与拾取（2026-11-03）
 
 本文记录鲁班CAD 在**不修改 iTwin.js 渲染器 / shader** 的前提下，组合现有显示能力实现
-「全部拓扑边线 + BRep 顶点 + 点/边/面拾取高亮」的方案，以及默认 AO/灯光压暗的根因与修正。
+「iTwin 默认材质/灯光 + 纯白底 + 全部拓扑边线 + 无模式点/边/面拾取」的方案。
+
+> **2026-11-03 换代说明**：本文早期版本（同日）采用 Onshape 式顶光、灰面
+> SubCategoryOverride、AO 默认 37.5% 与面/边/点三种显式选择模式。该套渲染
+> 已整体回退为 iTwin core 默认值，三模式已删除、统一为一个 Onshape 选择工具。
+> 文中凡与本次换代冲突的旧数值均以下文为准；历史实现留在 Git 历史。
 
 ## 1. 问题与结论
 
 | 现象 | 根因 | 处理 |
 |---|---|---|
-| 默认模型整体偏暗、顶面比竖直面暗 | `render-profile` 的世界方向光 `[+X,+Y,−Z]` 实际打亮竖直面；真栈直方图顶面 121、侧面 150–164，与 Onshape（顶 159 / 侧 88–95）相反 | 方向改为近竖直顶光 `[0.1,0.15,−0.98]`，solar 0.72 / ambient 0.5；顶面 ~164、侧面 ~100 |
-| AO 默认压暗一档 | 37.5% 映射到 iTwin intensity 2.0（默认值 1.0 的两倍） | 锚点改为 37.5% ↔ 1.0，clamp [0.25, 4] |
-| 边线不全、三角网格线 | native tile `generateAllPolyfaceEdges` 只能二选一：true=全部三角网格边，false=只生成折角/轮廓特征边；光滑/切线拓扑边缺失 | 保留 `false`，新增**后端拓扑读面 → iTwin GraphicBuilder 叠加层**，按拓扑边逐条画精确曲线 |
-| 点/边/面无法统一拾取 | 三种子实体模式仅挂在画布右键菜单；顶点没有屏幕可见标记 | 沿用 `LocateSubEntityTool` 三种模式；点模式显示全部拓扑顶点小点，面/边/点均由基座提供 hover/选中高亮 |
+| 默认模型偏离 iTwin 观感（顶光/灰面/OA 压暗） | `render-profile` 自定义 solar/ambient/方向光 + 子类别灰面覆盖 + AO 默认开 | **回退 iTwin core 默认**：`LightSettings.fromJSON(undefined)`（solar 1.0 / ambient 0.2 / portrait 0.3）、`Environment` 默认、删除 SubCategoryOverride、AO 默认关、MSAA 4；白底与 BRep 边线保留 |
+| 边线不全、三角网格线 | native tile `generateAllPolyfaceEdges` 只能二选一：true=全部三角网格边，false=只生成折角/轮廓特征边；光滑/切线拓扑边缺失 | 保留 `false`，用**后端拓扑读面 → iTwin GraphicBuilder 叠加层**，按拓扑边逐条画精确曲线 |
+| 原生面定位在 Tutorial 2 体上卡死 MS | `locateSubEntities` 的 Face 路径在旋转+圆角体上无返回（stock `OffsetFacesTool` 同样复现；边/点路径正常） | 选择工具的 `maxFace=0`；面命中改客户端兜底：`getBodySubEntities(Face)` + 逐面 `getClosestPoint(AccuSnap 命中点)`，取屏幕距离最近（同距取三维最近） |
+| 等轴测下背棱/背点抢占 hover | 原生 locate 沿视线返回后方子实体，且其屏幕距离为 0（盒体对角线与视线平行）；纯 2D 阈值无法区分 | `resolveNativeHitPoints` 按视图深度剔除 AccuSnap 前表面之后的命中；`hiddenEdgesVisible` 模式保留穿面拾取 |
+| 点/边/面无模式统一拾取 | 旧实现只有三种显式子实体模式，顶点无屏幕标记 | 统一 `OnshapeSelectTool`：悬停 顶点(≤10px) > 边(≤6px) > 面；单击替换、Ctrl 切换、空白清除；整零件走零件列表/右键「选中所属实体」 |
 
 ## 2. 架构
 
@@ -59,18 +65,26 @@ packages/viewer BrepTopologyDecoration
 | Hidden edges visible | Wireframe | WorldOverlay 全部拓扑边 |
 | Translucent | 可见边 | WorldOverlay（可穿透半透明体） |
 
-拓扑叠加可在显示设置中单独关闭（「显示全部 BRep 边线」），顶点叠加默认关闭、点选择模式
-自动临时打开（「显示 BRep 顶点」可常开）。
+拓扑叠加可在显示设置中单独关闭（「显示全部 BRep 边线」）；顶点叠加默认关闭，
+在显示设置「显示 BRep 顶点」常开。顶点标记只影响可见性，拾取不再依赖显式模式。
 
-## 3. 拾取与高亮
+## 3. 拾取与高亮（统一 Onshape 选择，2026-11-03）
 
-- 面/边/点均继承 `LocateSubEntityTool`：
-  - 面：`resolveFaceRef` → 持久拓扑 id；
-  - 边：`resolveEdgeRef` → 边自身持久 id（流形门禁），高亮橙色用于圆角；
-  - 点：无持久 id 契约，高亮为屏幕空间蓝点，会话内有效（诚实边界）。
-- 入口：画布右键菜单「选择零件 / 选择面 / 选择边 / 选择点」；选中模式后左键 hover
-  即有对应高亮（面蓝色半透明、边蓝色粗线/圆角橙色、点蓝点）。
-- 顶点拾取容差 ×3（ACIS 顶点按射线距离判定，缺省孔径点不中）。
+工具：`apps/web/src/modules/part-studio/tools/modeling/OnshapeSelectTool.ts`
+继承 `LocateSubEntityTool`，注册为 ToolAdmin 默认工具（空闲态常驻），无选择模式。
+
+- **悬停**：原生边/点 locate + 面客户端兜底；屏幕阈值顶点 10px、边 6px、面 12px；
+  优先级 顶点 > 边 > 面。边/点先按视图深度剔除被前表面遮住的命中。
+- **单击**：普通单击替换为当前命中；Ctrl 单击切换该子实体；空白单击清空。
+- **整零件**：零件列表行或画布右键「选中所属实体」；零件选择与子实体选择互斥
+  （子实体选择会清空树选中和元素级 SelectionSet）。
+- **持久寻址**：面 `resolveFaceRef` → 持久拓扑 id；边 `resolveEdgeRef` → 边自身
+  持久 id（流形门禁）；点无持久 id 契约，会话级（诚实边界）。选择 id 含 owner，
+  两个 body 的同号 cache id 不会碰撞。
+- **生命周期**：仅空闲态保留；打开特征/草图对话框或启动其它工具清空。undo/redo
+  触发 `BriefcaseConnection.restartPrimitiveTool` 时按 store 快照恢复面/边/点高亮。
+- **命令协调**：BRep 拓扑读面与子实体删除经 `withExclusiveBrepCommand` 串行取得
+  SolidModeling 命令槽；hover 在命令执行前暂停、结束后恢复。
 - 拓扑叠加边与拾取高亮是两层：叠加边是静态显示，高亮由工具会话绘制，退出即清除。
 
 ## 4. 刷新与失败语义
@@ -79,18 +93,31 @@ packages/viewer BrepTopologyDecoration
 - 去抖 120ms；单次读面 8s 超时。
 - `startCommand` 被其他编辑命令占用/超时 → 返回 `undefined`，保留上一份拓扑，不闪空、不弹错。
 - 单 body/单边失败 → 跳过该条，其余照常绘制。
-- 读面会**清空几何缓存**再重建（保证新提交几何可见）；因此调用方只在 body 模式、无草图/对话框/拾取工具时刷新，避免拆毁工具拾取会话。
+- 读面会**清空几何缓存**再重建（保证新提交几何可见）；调用方只在无草图/对话框时刷新，
+  并通过命令协调器暂停/恢复默认选择工具的 hover，避免拆毁拾取会话。
 - 只对 active authored body 绘制；`hiddenIds` 中的 body 不绘制。
 
 ## 5. 验证基线
 
-- 真栈：Tutorial 2 成品 1 body / 67 条拓扑边 / 44 个顶点；68 条边几何并行读取约 74ms。
-- 对比截图：新灯光直方图主色 161/99/106，与 Onshape 159/88–95 对齐；旧值 121/150–164。
-- 单元：viewer 127/127（含 decoration 5 项）、web 1280/1280（含拓扑读面/面板开关/选项映射）。
-- e2e：tutorial2-tools 6/6（含新体 12 边/8 点断言）、tutorial2 严格 1/1、part-studio 8/8、ui-parity、visual 6/6、b-model/boolean/newbody/half-graph/feature-contracts 通过。visual 基线只覆盖 UI 铬（空体 B 种子），未受 BRep 叠加影响。
+- 真栈：Tutorial 2 成品 1 body / 67 条拓扑边 / 44 个顶点；边几何并行读取约 74ms。
+- 渲染：iTwin 默认灯光 `LightSettings.toJSON() === undefined`、无子类别覆盖、
+  AO 关、白底、MSAA 4；`b-viewport` 启动即断言。
+- 面兜底实测量级：27 面 × `getClosestPoint` 约 50ms/次 hover（本地 WS）。
+- 单元：`OnshapeSelectTool` 32/32（含面兜底排序、遮挡/命中阈值、owner-aware 选择）。
+- e2e：newbody 2/2（面/边/点直拾、跨 body 替换、Ctrl 多选、fillet、删除失败保留选择）、
+  render-showcase 2/2、ui-parity 2/2、visual 7/7；b-viewport 3/4（3 scope 相机
+  exact-fit 断言已知 P2.5 scope 过滤/取景竞态，见 §6）。
+- 视觉基线只覆盖 UI 铬（空体 B 种子），不覆盖 BRep 叠加像素。
 
 ## 6. 已知边界（诚实登记）
 
+- **原生面定位不可用**：Tutorial 2 类体上 `locateSubEntities` Face 路径卡死 MS
+  （stock `OffsetFacesTool` 复现），当前用 `getClosestPoint` 客户端兜底；大模型
+  （数百面）需后端批量面定位或原生内核修复，否则 hover 成本线性增长。
+- **隐藏边拾取**：正常着色模式按视图深度剔除背面边/点；隐藏边可见模式保留穿面拾取。
+- **3-scope 相机恢复**：b-viewport 的三 scope 测试中，K3→K1 切换偶尔无内容感知
+  fit（相机保留 K3 取景）或 fit 联合范围含 K3 体；属 P2.5 scope 过滤/取景竞态，
+  未随本功能修复，测试登记为已知失败（其余 b-viewport 3/4 通过）。
 - 拓扑叠加是可见边层：隐藏的光滑/切线边仍由 native 的折角边补充，不保证「隐藏边可见」
   模式下所有隐藏拓扑边都出现；要做全隐藏拓扑边需后端的深度/可见性判定或第二套虚线层。
 - 装饰件不参与 view clip / 剖切；后续如有剖切需求需把边几何纳入 GraphicBranch 的裁剪。

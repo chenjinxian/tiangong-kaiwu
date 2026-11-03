@@ -18,8 +18,7 @@ vi.mock('@itwin/core-frontend', () => ({
   IModelApp: { viewManager: { addDecorator: addDecoratorMock } },
 }));
 
-import { SketchDimensionsDecoration } from '../decorations/sketch-dimensions-decoration.js';
-import type { SketchDimensionAnnotation } from '../decorations/sketch-dimensions-decoration.js';
+import { type SketchDimensionAnnotation, SketchDimensionsDecoration } from '../decorations/sketch-dimensions-decoration.js';
 
 function makeViewport(spatial = true): { viewport: ScreenViewport; invalidate: ReturnType<typeof vi.fn> } {
   const invalidate = vi.fn();
@@ -97,7 +96,7 @@ describe('SketchDimensionsDecoration', () => {
     deco.decorate(context);
     expect(addCanvasDecoration).toHaveBeenCalledTimes(1);
 
-    const decoration = addCanvasDecoration.mock.calls[0]![0] as { drawDecoration: (ctx: unknown) => void };
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
     const ctx = makeCtx();
     decoration.drawDecoration(ctx);
 
@@ -107,7 +106,8 @@ describe('SketchDimensionsDecoration', () => {
     // 两端箭头填充。
     expect(ctx.fill.mock.calls.length).toBeGreaterThanOrEqual(2);
     // 锚点确实投影过（2 锚点 + 侧向点）。
-    expect(viewport.worldToView).toHaveBeenCalled();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(vi.mocked(viewport.worldToView).mock.calls.length).toBeGreaterThan(0);
   });
 
   it('径向尺寸：圆心-弧点引线 + R 文本', () => {
@@ -123,7 +123,7 @@ describe('SketchDimensionsDecoration', () => {
     const deco = new SketchDimensionsDecoration(viewport, annotations);
     const { context, addCanvasDecoration } = makeContext(viewport);
     deco.decorate(context);
-    const decoration = addCanvasDecoration.mock.calls[0]![0] as { drawDecoration: (ctx: unknown) => void };
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
     const ctx = makeCtx();
     decoration.drawDecoration(ctx);
 

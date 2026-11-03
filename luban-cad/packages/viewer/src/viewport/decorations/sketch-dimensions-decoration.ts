@@ -15,7 +15,7 @@ import {
   IModelApp,
   type ScreenViewport,
 } from '@itwin/core-frontend';
-import type { Point3d, Vector3d } from '@itwin/core-geometry';
+import { Geometry, type Point3d, type Vector3d } from '@itwin/core-geometry';
 
 export interface SketchLinearDimensionAnnotation {
   kind: 'linear';
@@ -57,7 +57,7 @@ interface ScreenPoint { x: number; y: number }
 interface ScreenRect { left: number; top: number; right: number; bottom: number }
 
 function normalize(x: number, y: number): ScreenPoint | undefined {
-  const len = Math.hypot(x, y);
+  const len = Geometry.hypotenuseXY(x, y);
   if (!Number.isFinite(len) || len < 1e-6) return undefined;
   return { x: x / len, y: y / len };
 }

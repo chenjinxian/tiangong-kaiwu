@@ -50,15 +50,14 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
 
 ## 3. 渲染与 BRep 拾取高亮
 
-- 视口基线（`packages/viewer/src/viewport/render-profile.ts`）：
+- 视口基线（`packages/viewer/src/viewport/render-profile.ts`，
+  2026-11-03 回退 iTwin 默认）：
   - 隐藏 Grid / ACS triad / Project Extents 包围盒 / 背景图；
-  - SmoothShade + 可见边（`#1f1f1f` 2px）+ AO（2026-11-03：37.5% 锚点改为
-    iTwin 默认强度 1.0，旧 2.0 会整体压暗一档）；
-  - 面片补齐法线后按真栈直方图重定灯光（2026-11-03）：旧
-    `[+X,+Y,-Z]` 把顶面压到 121、竖直面 150–164（Onshape 顶 159/侧 88–95，
-    方向照反）；现顶光 solar 0.72 `[+0.1,+0.15,-0.98]` + ambient 0.5 +
-    portrait 0.1 + specular 0.2，实测顶≈164/侧≈100；
-  - 中灰面 `#b4b4b6`、白底、MSAA 4。
+  - **iTwin core 默认灯光/材质**：`LightSettings.fromJSON(undefined)`（solar
+    1.0 / ambient 0.2 / portrait 0.3 / specular 1.0）与默认 `Environment`；
+    删除全部子类别灰面覆盖（不再写 `#b4b4b6`）；
+  - SmoothShade + 可见边（`#1f1f1f` 2px）、AO 默认关、MSAA 4、白底；
+  - 保留 `generateAllPolyfaceEdges=false` 与 BRep 全拓扑叠加层。
 - 草图曲线叠加（2026-11-02）：特征树 sketch 条目（params 自带
   entities+plane）采样成世界折线，屏幕空间绘制（无深度遮挡）。非编辑态全部
   草图灰色虚线（5/3 dash）；编辑态仅活动草图橙色实线（`#ff9f2f` 1.8px），
@@ -85,19 +84,26 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
   部署新后端产物后，须按 iModelId 清理一次 tile 云缓存容器（或临时
   `TILE_CACHE_STORAGE=local` 重建本地 `.Tiles`），否则浏览器仍会取到旧
   tile（表现为平光/三角线）。
-- BRep 拾取（`tools/modeling/SubEntitySelectTool.ts` +
-  `packages/editor/frontend/src/ElementGeometryTool.ts`）：
-  - 面/边/点三模式；面 hover `#4096ff`、选中 `#1e6ce0`，边宽 2/3px；
-  - 顶点无持久拓扑 id 契约：会话级 `vertex:<owner>:<cacheId>`，工具退出失效；
-    顶点拾取 aperture ×3（ACIS 按射线距离判定，缺省容差实测点不中）；
-  - 顶点高亮改画屏幕空间蓝色圆点（单点 PointString 线宽下不可见）；
-  - 圆角选边对话框打开期间工具挂起而非退出，已选边保持高亮到对话框关闭。
+- BRep 拾取（2026-11-03 统一 Onshape 选择，
+  `tools/modeling/OnshapeSelectTool.ts` + editor 基座）：
+  - **无模式**：默认工具常驻，面/边/点同收；悬停 顶点(10px) > 边(6px) > 面(12px)，
+    面 hover 蓝、边蓝/圆角橙；
+  - 普通单击替换、Ctrl 切换、空白清除；整零件走零件列表或右键「选中所属实体」，
+    树/零件选择与子实体选择互斥；
+  - 原生面定位在旋转+圆角体上会卡死 MS（stock OffsetFacesTool 复现），面命中
+    改 `getClosestPoint` 客户端兜底；原生边/点按视图深度剔除背面命中；
+  - 选择 id 含 owner；面/边换持久拓扑 id，顶点无持久契约（会话级
+    `vertex:<owner>:<cacheId>`，诚实边界）；
+  - undo/redo 后工具自动重启时按 store 快照恢复高亮；对话框/草图/其它工具启动
+    清空选择；
+  - 圆角选边对话框打开期间圆角工具挂起而非退出，已选边保持高亮到对话框关闭。
 
 ## 4. 显示/渲染设置
 
 - 共享状态：`hooks/useDisplaySettings.ts`，ViewCube 菜单与右停靠
   `DisplaySettingsPanel` 同源；localStorage
-  `luban.partStudio.displaySettings.v1`；background=theme 跟主题 observer。
+  `luban.partStudio.displaySettings.v2`（2026-11-03 v1→v2 换挡，不迁移旧
+  AO/边色覆盖）；background=theme 跟主题 observer。
 - 映射：`internal/display-actions.ts`
   - 模式 → `renderMode`/`visEdges`/`hidEdges`（SmoothShade、HiddenLine、
     Wireframe；translucent = SmoothShade + 模型 `FeatureAppearance` 0.5）；
@@ -106,8 +112,9 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
     `AmbientOcclusion.Settings.intensity`（37.5% ↔ 1.0，clamp [0.25,4]）；
   - 抗锯齿 → `viewport.antialiasSamples`；背景 → `applyViewportBackground`；
   - 边线 → `hiddenLineSettings.visible`（ovrColor/color/width）。
-- 默认：Shaded、AO 37.5%、阴影关、正交、FOV 90、边 `#1f1f1f`/2px、
-  全部 BRep 边线显示开/顶点关、AA 4、背景 theme。
+- 默认：Shaded、**iTwin 默认灯光/材质**、AO 关（强度锚点 1.0 保留供手动开启）、
+  阴影关、正交、FOV 90、边 `#1f1f1f`/2px、全部 BRep 边线显示开/顶点关、AA 4、
+  背景 theme（白底）。
 
 ## 5. 整体壳层（2026-11-02 最终波：Onshape live 逐像素）
 
@@ -123,8 +130,9 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
   一致：撤消/重做｜草图｜拉伸 旋转 扫掠 放样 加厚▾｜圆角▾ 倒角 拔模▾ 筋
   抽壳 孔 外部螺纹｜线性阵列▾ 镜像｜布尔 分割 变换▾ 删除零件｜修改圆角
   删除面 移动面 替换面｜平面▾｜框架▾｜钣金▾｜自定义特征▾。命令搜索
-  139×32 `#eee`，右边距 145px。选择面/边/点组移入画布右键菜单；曲面/曲线组
-  与选择组仍在命令搜索中可寻址，但不在主工具栏显示。
+  139×32 `#eee`，右边距 145px。画布无选择模式组：面/边/点由默认选择工具
+  直接拾取，画布右键菜单不再提供「选择面/边/点/零件」入口；曲面/曲线组仍在
+  命令搜索中可寻址，但不在主工具栏显示。
 - 左缘 40px 文档面板选择条：39×31 / 35px 步距，7 钮（版本和历史、创建版本、
   评论、文档注释、使用处、性能、AI 顾问）+ 底部页签管理器；历史接右停靠
   版本面板，创建版本接 Named Version 对话框，其余为 UI 占位（点击无行为）。

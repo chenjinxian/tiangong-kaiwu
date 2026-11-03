@@ -60,7 +60,7 @@ describe('render-profile：iTwin 默认渲染基线', () => {
     applyViewportRenderBaseline(vp as never);
     expect(settings.lights.solar.intensity).toBe(1);
     expect(settings.lights.solar.alwaysEnabled).toBe(false);
-    expect(settings.lights.solar.direction.isAlmostEqual({ x: 0.272166, y: 0.680414, z: 0.680414 } as never)).toBe(true);
+    expect(settings.lights.solar.direction.isAlmostEqual({ x: 0.272166, y: 0.680414, z: 0.680414 })).toBe(true);
     expect(settings.lights.ambient.intensity).toBe(0.2);
     expect(settings.lights.portraitIntensity).toBe(0.3);
     expect(settings.lights.specularIntensity).toBe(1);

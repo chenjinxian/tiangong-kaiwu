@@ -58,7 +58,7 @@ describe('SketchCurvesDecoration', () => {
     deco.decorate(context);
     expect(addCanvasDecoration).toHaveBeenCalledTimes(1);
 
-    const decoration = addCanvasDecoration.mock.calls[0]![0] as { drawDecoration: (ctx: unknown) => void };
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
     const ctx = {
       beginPath: vi.fn(),
       moveTo: vi.fn(),
@@ -73,7 +73,8 @@ describe('SketchCurvesDecoration', () => {
     expect(ctx.moveTo).toHaveBeenCalledWith(0, 0);
     expect(ctx.lineTo).toHaveBeenCalledWith(20, 10);
     expect(ctx.stroke).toHaveBeenCalledTimes(1);
-    expect(viewport.worldToView).toHaveBeenCalledTimes(2);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(vi.mocked(viewport.worldToView).mock.calls).toHaveLength(2);
 
     deco.dispose();
     expect(removeListenerMock).toHaveBeenCalledTimes(1);
@@ -88,7 +89,7 @@ describe('SketchCurvesDecoration', () => {
     );
     const { context, addCanvasDecoration } = makeContext(viewport);
     deco.decorate(context);
-    const decoration = addCanvasDecoration.mock.calls[0]![0] as { drawDecoration: (ctx: unknown) => void };
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
     const ctx = {
       beginPath: vi.fn(),
       moveTo: vi.fn(),
