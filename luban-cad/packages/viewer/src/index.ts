@@ -31,6 +31,18 @@ export {
 export type {
   DatumPlaneVisibility,
 } from './viewport/decorations/datum-planes-decoration.js';
+// 2026-11-03：完整 BRep 拓扑边/顶点叠加层（后端拓扑读面 → iTwin GraphicBuilder）。
+export {
+  BrepTopologyDecoration,
+  collectBrepEdgeCurves,
+  effectiveBrepOptions,
+} from './viewport/decorations/brep-topology-decoration.js';
+export type {
+  BrepTopology,
+  BrepTopologyDecorationOptions,
+  BrepTopologyEdge,
+  BrepTopologyVertex,
+} from './viewport/decorations/brep-topology-decoration.js';
 // M4 Task 1：可写编辑连接 hook——BriefcaseConnection 生命周期 + save/push/pull 代理
 //（Part Studio 组合消费，接口契约见 connection/use-briefcase-connection.ts）。
 export { useBriefcaseConnection } from './connection/index.js';
