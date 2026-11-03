@@ -34,7 +34,7 @@ apps/web/hooks/useBrepTopology.ts   生命周期（树刷新/undo/隐藏集变�
         ▼
 packages/viewer BrepTopologyDecoration
   ├─ WorldDecoration 图元：全部拓扑边，单图元、逐边 2px 朝相机偏移（深度测试 → 隐藏边不穿透；Scene 在真栈会遮住共面线，已弃用）
-  ├─ Canvas 图元：可选的 BRep 顶点小点（点选择模式自动打开）
+  ├─ Canvas 图元：可选的 BRep 顶点小点（显示设置开关）
   └─ useCachedDecorations：拓扑/样式变化显式失效，相机/场景变化由 iTwin 缓存机制处理
 ```
 
@@ -103,10 +103,13 @@ packages/viewer BrepTopologyDecoration
 - 渲染：iTwin 默认灯光 `LightSettings.toJSON() === undefined`、无子类别覆盖、
   AO 关、白底、MSAA 4；`b-viewport` 启动即断言。
 - 面兜底实测量级：27 面 × `getClosestPoint` 约 50ms/次 hover（本地 WS）。
-- 单元：`OnshapeSelectTool` 32/32（含面兜底排序、遮挡/命中阈值、owner-aware 选择）。
-- e2e：newbody 2/2（面/边/点直拾、跨 body 替换、Ctrl 多选、fillet、删除失败保留选择）、
-  render-showcase 2/2、ui-parity 2/2、visual 7/7；b-viewport 3/4（3 scope 相机
-  exact-fit 断言已知 P2.5 scope 过滤/取景竞态，见 §6）。
+- 单元：web 1320/1320、viewer 127/127、editor frontend 46/46；
+  `OnshapeSelectTool` 33/33（面兜底排序/阈值、遮挡、owner-aware 选择、空集清空）。
+- e2e 全量（2026-11-03 真栈）：52 passed / 4 failed / 2 skipped。其中
+  newbody 2/2（面/边/点直拾、跨 body 替换、Ctrl 多选、fillet、删除失败保留选择）、
+  render-showcase 2/2、ui-parity 2/2、visual 7/7、tutorial2 2/2、documents B 入口 2/2
+  均绿；剩余已知红：b-viewport 3-scope 相机 exact-fit（§6）、sketch-extrude 历史红
+  （Task 9 brief 登记，与本功能无关）。
 - 视觉基线只覆盖 UI 铬（空体 B 种子），不覆盖 BRep 叠加像素。
 
 ## 6. 已知边界（诚实登记）
@@ -123,5 +126,5 @@ packages/viewer BrepTopologyDecoration
 - 装饰件不参与 view clip / 剖切；后续如有剖切需求需把边几何纳入 GraphicBranch 的裁剪。
 - 大模型 N 条边会带来 N 次 `getSubEntityGeometry` IPC；当前有界并发 16，后续可加后端
   批量 DTO 或按 body 缓存，并以后端只读 RPC 替代前端的临时 SolidModeling 命令（避免
-  命令槽争用；当前仅在 body 模式/无草图/无对话框时读）。
+  命令槽争用；当前仅在无草图/对话框时读，并经命令协调器暂停 hover）。
 - 顶点无持久拓扑 id 契约（与现有 ResolveVertexRef 缺失一致）；点选仅会话级高亮。
