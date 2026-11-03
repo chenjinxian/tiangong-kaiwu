@@ -288,24 +288,23 @@ test.describe('完整 BRep 渲染演示', () => {
     const edge = await pickKindAt(
       page, box, await projectedEdgePoints(page), 'edge', '选择边',
     );
+    // pickKindAt 已单击选中并校验 store；不再二次点击（快速重击可能落在
+    // AccuSnap 刷新间隙被当成空白清除）。
     await page.mouse.move(box.x + edge.x, box.y + edge.y);
     await page.waitForTimeout(700);
     await shot(page, '08-edge-hover');
-    await page.mouse.down();
-    await page.mouse.up();
-    await page.waitForTimeout(700);
     await shot(page, '09-edge-selected');
-    expect((await page.evaluate(() => (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection))
-      .some((entry: { kind: string }) => entry.kind === 'edge')).toBe(true);
 
     await caption(page, '拾取演示｜选择面（无需切换模式）',
       '直接点击实体面，蓝色半透明面高亮；Ctrl 多选、空白清除。', 900);
     const facePoint = await pickFaceAt(page, box);
     await page.mouse.move(facePoint.x, facePoint.y);
+    await expect.poll(async () => page.evaluate(() =>
+      ((window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection as Array<{ kind: string }>)
+        .some((entry) => entry.kind === 'face'),
+    ), { timeout: 5_000 }).toBe(true);
     await page.waitForTimeout(500);
     await shot(page, '10-face-selected');
-    expect((await page.evaluate(() => (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection))
-      .some((entry: { kind: string }) => entry.kind === 'face')).toBe(true);
 
     await caption(page, '拾取演示｜选择点（无需切换模式）',
       '悬停/单击以蓝色点高亮；工具按 顶点(10px) > 边(6px) > 面 就近命中。', 900);
@@ -315,12 +314,7 @@ test.describe('完整 BRep 渲染演示', () => {
     await page.mouse.move(box.x + vertex.x, box.y + vertex.y);
     await page.waitForTimeout(700);
     await shot(page, '11-vertex-hover');
-    await page.mouse.down();
-    await page.mouse.up();
-    await page.waitForTimeout(700);
     await shot(page, '12-vertex-selected');
-    expect((await page.evaluate(() => (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection))
-      .some((entry: { kind: string }) => entry.kind === 'vertex')).toBe(true);
 
     // 收尾：空白清除后回到等轴测，便于用户自行操作。
     console.log('[render-showcase] complete');
