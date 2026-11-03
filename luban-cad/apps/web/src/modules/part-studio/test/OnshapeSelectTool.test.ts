@@ -12,10 +12,13 @@ import type { SubEntityData } from '@itwin/editor-frontend';
 import type { CanvasSelection } from '../types.js';
 import { OnshapeSelectTool } from '../tools/modeling/OnshapeSelectTool.js';
 
+const rpc = vi.hoisted(() => ({
+  resolveFaceRef: vi.fn(),
+  resolveEdgeRef: vi.fn(),
+}));
+
 vi.mock('@luban-cad/shared', () => ({
-  LubanFeatureRpcInterface: {
-    getClient: () => ({ resolveFaceRef: vi.fn(), resolveEdgeRef: vi.fn() }),
-  },
+  LubanFeatureRpcInterface: { getClient: () => rpc },
 }));
 
 function hit(type: SubEntityType, x: number, y: number, id = 1): SubEntityLocationProps {
@@ -146,7 +149,48 @@ function makeTool(): { tool: TestableTool; onSelectionChanged: ReturnType<typeof
   return { tool, onSelectionChanged, onError };
 }
 
+/** 生产 resolveSelection 管道（RPC mock）+ pause/resume 语义的测试子类。 */
+class SelectionTool extends OnshapeSelectTool {
+  public emitted: Array<readonly unknown[]> = [];
+  public locateState: boolean[] = [];
+  public constructor() {
+    super({
+      connectionKey: 'imodel-key',
+      onSelectionChanged: (selection) => { this.emitted.push(selection); },
+      onError: vi.fn(),
+    });
+  }
+  public callResolve(owner: string, sub: SubEntityProps): Promise<CanvasSelection | undefined> {
+    return this.resolveSelection(owner, sub);
+  }
+  public async callAdd(owner: string, props: SubEntityLocationProps): Promise<void> { await this.addSubEntity(owner, props); }
+  public async callRemove(owner: string, props?: SubEntityLocationProps): Promise<void> { await this.removeSubEntity(owner, props); }
+  public async callPause(clear: boolean): Promise<void> { await this.pause(clear); }
+  public callResume(): void { this.resume(); }
+  public async callSuspend(): Promise<void> { await this.suspendForCommand(); }
+  public callResumeAfterCommand(): void { this.resumeAfterCommand(); }
+  public exposePaused(): boolean { return this.shouldEnableLocate === false; }
+  public exposeWantAdditionalSubEntities(): boolean { return this.wantAdditionalSubEntities; }
+  protected override async createSubEntityData(): Promise<SubEntityData> {
+    // 单测无真实几何缓存：补 cleanupGraphic 供 remove/clear 路径调用。
+    return { hasGraphic: true, cleanupGraphic: vi.fn() } as unknown as SubEntityData;
+  }
+  public override changeLocateState(enabled: boolean): void { this.locateState.push(enabled); }
+  public override initLocateElements(): void { /* no-op in unit test */ }
+  protected override setupAndPromptForNextAction(): void { /* no-op in unit test */ }
+}
+
+const SUB_FACE = { type: SubEntityType.Face, id: 7, index: 0 } as SubEntityProps;
+const SUB_EDGE = { type: SubEntityType.Edge, id: 9, index: 0 } as SubEntityProps;
+const SUB_VERTEX = { type: SubEntityType.Vertex, id: 11, index: 0 } as SubEntityProps;
+const LOC = (sub: SubEntityProps): SubEntityLocationProps => ({
+  subEntity: sub,
+  point: new Point3d(0, 0, 0).toJSON(),
+}) as SubEntityLocationProps;
+
 beforeEach(() => {
+  rpc.resolveFaceRef.mockReset();
+  rpc.resolveEdgeRef.mockReset();
   // IModelApp 的 viewManager/toolAdmin/accuSnap 是 getter（无 setter）——只能替换静态字段。
   (IModelApp as unknown as { _viewManager: unknown })._viewManager = {
     invalidateDecorationsAllViews: vi.fn(),
@@ -336,5 +380,97 @@ describe('OnshapeSelectTool：异步 resolve 竞态', () => {
     expect(tool.selectedIdsView()).toEqual([]);
     expect(tool.acceptedKeysView()).toEqual([]);
     expect(tool.cleanupCalls('0xA')).toBe(1);
+  });
+});
+
+describe('OnshapeSelectTool：持久 id 与 store 同步', () => {
+  it('face id 含 owner 与持久拓扑 id', async () => {
+    rpc.resolveFaceRef.mockResolvedValue({ ok: true, ref: { nodeId: 1, entityId: 3 } });
+    const tool = new SelectionTool();
+    await expect(tool.callResolve('0xA', SUB_FACE)).resolves.toMatchObject({
+      kind: 'face',
+      id: 'face:0xA:1:3',
+      ownerBodyKey: '0xA',
+      cacheId: 7,
+    });
+  });
+
+  it('edge id 含 owner 与 ref.edge', async () => {
+    rpc.resolveEdgeRef.mockResolvedValue({ ok: true, ref: { edge: { nodeId: 2, entityId: 5 } } });
+    const tool = new SelectionTool();
+    await expect(tool.callResolve('0xB', SUB_EDGE)).resolves.toMatchObject({
+      kind: 'edge',
+      id: 'edge:0xB:2:5',
+      ownerBodyKey: '0xB',
+      topologyId: { nodeId: 2, entityId: 5 },
+    });
+  });
+
+  it('vertex 不调 RPC，会话级 id 含 owner', async () => {
+    const tool = new SelectionTool();
+    await expect(tool.callResolve('0xC', SUB_VERTEX)).resolves.toMatchObject({
+      kind: 'vertex',
+      id: 'vertex:0xC:11',
+      ownerBodyKey: '0xC',
+    });
+    expect(rpc.resolveFaceRef).not.toHaveBeenCalled();
+    expect(rpc.resolveEdgeRef).not.toHaveBeenCalled();
+  });
+
+  it('添加/移除同步回调选择集', async () => {
+    rpc.resolveFaceRef.mockResolvedValue({ ok: true, ref: { nodeId: 1, entityId: 3 } });
+    const tool = new SelectionTool();
+    await tool.callAdd('0xA', LOC(SUB_FACE));
+    expect(tool.emitted.at(-1)).toEqual([expect.objectContaining({ id: 'face:0xA:1:3' })]);
+    await tool.callRemove('0xA', LOC(SUB_FACE));
+    expect(tool.emitted.at(-1)).toEqual([]);
+  });
+
+  it('两个 body 的同号拓扑 id 不互相去重（owner 入键）', async () => {
+    rpc.resolveFaceRef.mockImplementation(async () => ({
+      ok: true, ref: { nodeId: 1, entityId: 3 },
+    }));
+    const tool = new SelectionTool();
+    await tool.callAdd('0xA', LOC(SUB_FACE));
+    await tool.callAdd('0xB', LOC(SUB_FACE));
+    expect(tool.emitted.at(-1)).toHaveLength(2);
+  });
+
+  it('pause(true) 清空选择并关闭 locate；resume 打开 locate', async () => {
+    rpc.resolveFaceRef.mockResolvedValue({ ok: true, ref: { nodeId: 1, entityId: 3 } });
+    const tool = new SelectionTool();
+    await tool.callAdd('0xA', LOC(SUB_FACE));
+    await tool.callPause(true);
+    expect(tool.emitted.at(-1)).toEqual([]);
+    expect(tool.locateState.at(-1)).toBe(false);
+    expect(tool.exposePaused()).toBe(true);
+    tool.callResume();
+    expect(tool.exposePaused()).toBe(false);
+  });
+
+  it('pause 时 wantAdditionalSubEntities=false（不重开 locate circle），resume 后恢复', async () => {
+    const tool = new SelectionTool();
+    expect(tool.exposeWantAdditionalSubEntities()).toBe(true);
+
+    await tool.callPause(true);
+    expect(tool.exposeWantAdditionalSubEntities()).toBe(false);
+
+    tool.callResume();
+    expect(tool.exposeWantAdditionalSubEntities()).toBe(true);
+  });
+
+  it('suspendForCommand 保留选择并抑制 locate；resumeAfterCommand 恢复', async () => {
+    rpc.resolveFaceRef.mockResolvedValue({ ok: true, ref: { nodeId: 1, entityId: 3 } });
+    const tool = new SelectionTool();
+    await tool.callAdd('0xA', LOC(SUB_FACE));
+
+    await tool.callSuspend();
+    expect(tool.exposePaused()).toBe(true);
+    expect(tool.exposeWantAdditionalSubEntities()).toBe(false);
+    expect(tool.emitted.at(-1)).toHaveLength(1);
+
+    tool.callResumeAfterCommand();
+    expect(tool.exposePaused()).toBe(false);
+    expect(tool.exposeWantAdditionalSubEntities()).toBe(true);
   });
 });

@@ -71,6 +71,14 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
 
   protected override get wantAdditionalElements(): boolean { return false; }
   protected override get shouldEnableLocate(): boolean { return !this._paused && !this._commandSuspended; }
+  /**
+   * 暂停/命令挂起期间必须为 false：基类 changeLocateState 会据此把 locate circle
+   * 重新点亮（`!isLocateCircleOn && wantAdditionalSubEntities`），暂停语义
+   * 就会被打破。requiredSubEntityCount=∞ 时基类 getter 恒真，故显式收口。
+   */
+  protected override get wantAdditionalSubEntities(): boolean {
+    return !this._paused && !this._commandSuspended && super.wantAdditionalSubEntities;
+  }
   protected override get shouldEnableSnap(): boolean { return false; }
 
   protected override wantSubEntityType(type: SubEntityType): boolean {
