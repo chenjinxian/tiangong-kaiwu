@@ -40,6 +40,7 @@ function fakeViewport() {
       backgroundMap: true,
       monochrome: true,
       wiremesh: true,
+      thematicDisplay: true,
     }),
     antialiasSamples: 1,
     invalidateScene: vi.fn(),
@@ -89,6 +90,7 @@ describe('render-profile：iTwin 默认渲染基线', () => {
     expect(f.backgroundMap).toBe(false);
     expect(f.monochrome).toBe(false);
     expect(f.wiremesh).toBe(false);
+    expect(f.thematicDisplay).toBe(false);
   });
 
   it('visible 边线覆盖 = #1f1f1f / 2px', () => {
@@ -104,6 +106,33 @@ describe('render-profile：iTwin 默认渲染基线', () => {
   it('不写 SubCategoryOverride（fake settings 未提供 overrideSubCategory 也不抛错）', () => {
     const { vp } = fakeViewport();
     expect(() => applyViewportRenderBaseline(vp as never)).not.toThrow();
+  });
+
+  it('幂等：重复应用不叠加，边线/灯光/环境保持 stock 值', () => {
+    const { vp, settings } = fakeViewport();
+    applyViewportRenderBaseline(vp as never);
+    const firstVisible = settings.hiddenLineSettings.toJSON().visible;
+
+    applyViewportRenderBaseline(vp as never);
+
+    // 边线覆盖重复写入同值（不嵌套/不漂移）。
+    expect(settings.hiddenLineSettings.toJSON().visible).toEqual(firstVisible);
+    expect(settings.hiddenLineSettings.toJSON().visible).toMatchObject({
+      ovrColor: true,
+      color: EDGE_COLOR.tbgr,
+      width: EDGE_WEIGHT,
+    });
+    // 灯光仍是 core 默认值（solar 1 / ambient 0.2 / portrait 0.3 / specular 1）。
+    expect(settings.lights.solar.intensity).toBe(1);
+    expect(settings.lights.solar.alwaysEnabled).toBe(false);
+    expect(settings.lights.ambient.intensity).toBe(0.2);
+    expect(settings.lights.portraitIntensity).toBe(0.3);
+    expect(settings.lights.specularIntensity).toBe(1);
+    expect(settings.lights.hemisphere.intensity).toBe(0);
+    // 环境仍全关。
+    expect(settings.environment.displaySky).toBe(false);
+    expect(settings.environment.displayGround).toBe(false);
+    expect(settings.environment.displayAtmosphere).toBe(false);
   });
 
   it('MSAA=4 且 invalidateScene 恰一次', () => {
