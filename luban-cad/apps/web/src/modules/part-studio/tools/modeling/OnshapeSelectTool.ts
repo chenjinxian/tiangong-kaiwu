@@ -19,11 +19,7 @@ import type {
   SubEntityLocationProps,
   SubEntityProps,
 } from '@itwin/editor-common';
-import {
-  EditTools,
-  LocateSubEntityTool,
-  isSameSubEntity,
-} from '@itwin/editor-frontend';
+import { LocateSubEntityTool } from '@itwin/editor-frontend';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import i18next from 'i18next';
 import type { CanvasSelection } from '../../types.js';
@@ -46,8 +42,13 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   public static override namespace = 'LubanCad';
 
   private readonly _options: OnshapeSelectOptions;
-  private readonly _selected = new Map<string, CanvasSelection>();
-  private readonly _selectedKeys: string[] = [];
+  /** 选择映射（protected：单测子类断言 owner-aware 增删语义）。 */
+  protected readonly _selected = new Map<string, CanvasSelection>();
+  protected readonly _selectedKeys: string[] = [];
+  /** 与 _acceptedSubEntities 逐项对齐的 owner-aware key（同一 cache id 可属不同 body）。 */
+  protected readonly _acceptedKeys: string[] = [];
+  /** 选择被清空/工具清理的代数——阻止异步 resolve 在清空后回插选择。 */
+  private _selectionGeneration = 0;
   private _paused = false;
   private _commandSuspended = false;
 
@@ -102,10 +103,23 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
       return undefined;
 
     const hits = await super.doPickSubEntities(id, ev);
-    if (!hits || hits.length === 0)
-      return hits;
+    return this.applyHoverPriority(hits, ev);
+  }
 
-    return this.orderHits(hits, ev);
+  /**
+   * 过滤/排序后的空集必须返回 undefined：基类 updateCurrentSubEntity 把 []
+   * 当作有命中并读 current[0].point，异常后 _subEntityGraphicPending 永久挂起
+   * （hover 死锁）。
+   */
+  protected applyHoverPriority(
+    hits: SubEntityLocationProps[] | undefined,
+    ev: BeButtonEvent,
+  ): SubEntityLocationProps[] | undefined {
+    if (!hits || hits.length === 0)
+      return undefined;
+
+    const ordered = this.orderHits(hits, ev);
+    return ordered.length > 0 ? ordered : undefined;
   }
 
   /** 屏幕距离过滤 + 顶点>边>面排序（protected 供测试触达）。 */
@@ -163,7 +177,7 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
     if (!hit)
       return false;
 
-    const exists = this._acceptedSubEntities.some((entry) => isSameSubEntity(entry.props, hit.subEntity));
+    const exists = this._acceptedKeys.includes(selectionKey(id, hit.subEntity));
 
     if (control) {
       if (exists)
@@ -185,22 +199,39 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   }
 
   protected override async addSubEntity(id: string, props: SubEntityLocationProps): Promise<void> {
-    await super.addSubEntity(id, props);
+    const key = selectionKey(id, props.subEntity);
+    const generation = this._selectionGeneration;
+    // 不复用基类 addSubEntity：其 push 在 createSubEntityData await 之后，无法与
+    // _acceptedKeys 保持逐项对齐，也无法在 clearSelection 竞态时精确回滚。
+    const data = await this.createSubEntityData(id, props);
 
-    const accepted = this.getAcceptedSubEntityData();
-    if (accepted && !accepted.hasGraphic) {
-      await this.removeSubEntity(id, props);
+    if (generation !== this._selectionGeneration) {
+      data.cleanupGraphic();
+      return;
+    }
+
+    if (!data.hasGraphic) {
+      data.cleanupGraphic();
       this._options.onError(i18next.t('partStudio.subEntitySelect.highlightFailed'));
       return;
     }
 
+    this._acceptedSubEntities.push(data);
+    this._acceptedKeys.push(key);
+
     const selection = await this.resolveSelection(id, props.subEntity);
+
+    if (generation !== this._selectionGeneration) {
+      // 清空发生在 resolve 期间：撤掉先压入的高亮，且不再回插选择。
+      this.discardAccepted(key);
+      return;
+    }
+
     if (!selection) {
       await this.removeSubEntity(id, props);
       return;
     }
 
-    const key = selectionKey(id, props.subEntity);
     if (!this._selected.has(key))
       this._selectedKeys.push(key);
     this._selected.set(key, selection);
@@ -208,30 +239,49 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   }
 
   protected override async removeSubEntity(id: string, props?: SubEntityLocationProps): Promise<void> {
-    await super.removeSubEntity(id, props);
-
+    // 基类按 props 过滤（type/id/index），对同一 cache id 的不同 body 会误删——
+    // 这里按 owner-aware key 精确定位并同步清理高亮与选择映射。
     if (props) {
       const key = selectionKey(id, props.subEntity);
-      this._selected.delete(key);
-      const index = this._selectedKeys.indexOf(key);
-      if (index >= 0)
-        this._selectedKeys.splice(index, 1);
+      this.discardAccepted(key);
+      this.removeSelectedKey(key);
     } else {
-      const key = this._selectedKeys.pop();
+      const key = this._acceptedKeys.pop();
+      this._acceptedSubEntities.pop()?.cleanupGraphic();
       if (key)
-        this._selected.delete(key);
+        this.removeSelectedKey(key);
     }
 
     this.emitSelection();
   }
 
+  private discardAccepted(key: string): void {
+    const index = this._acceptedKeys.lastIndexOf(key);
+    if (index < 0)
+      return;
+
+    this._acceptedSubEntities.splice(index, 1)[0]?.cleanupGraphic();
+    this._acceptedKeys.splice(index, 1);
+  }
+
+  private removeSelectedKey(key: string): void {
+    this._selected.delete(key);
+    const index = this._selectedKeys.indexOf(key);
+    if (index >= 0)
+      this._selectedKeys.splice(index, 1);
+  }
+
   public async clearSelection(): Promise<void> {
+    // 先递增代数：即使当前为空，也要让进行中的异步 add 在 resolve 后放弃回插。
+    this._selectionGeneration += 1;
+
     if (this._acceptedSubEntities.length === 0 && this._selected.size === 0)
       return;
 
     for (const entry of this._acceptedSubEntities)
       entry.cleanupGraphic();
     this._acceptedSubEntities.length = 0;
+    this._acceptedKeys.length = 0;
     this._selected.clear();
     this._selectedKeys.length = 0;
     this.emitSelection();
@@ -343,22 +393,8 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   }
 
   private async releaseCommand(): Promise<void> {
-    if (undefined === this._startedCmd)
-      return;
-
-    try {
-      await this.clearElementGeometryCache();
-    } catch {
-      // 外部已收口命令：继续复位本地状态
-    }
-    this._startedCmd = undefined;
-    this._checkedIds.clear();
-
-    try {
-      await EditTools.finishCommand();
-    } catch {
-      // 无活动命令：无需报错
-    }
+    // 复用基座 Task 2 的幂等收口：清几何缓存 → 复位 _startedCmd/_checkedIds → 结束命令。
+    await this.finishCommandIfStarted();
   }
 
   public override async onCleanup(): Promise<void> {
