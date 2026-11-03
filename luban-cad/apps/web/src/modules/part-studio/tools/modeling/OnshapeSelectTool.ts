@@ -30,6 +30,18 @@ export interface OnshapeSelectOptions {
   onError: (message: string) => void;
 }
 
+/**
+ * 构造函数入参：直接构造传 options；ToolAdmin 默认工具路径传 `[options]`。
+ * `ToolAdmin.startDefaultTool()` 调 `IModelApp.tools.create(toolId, defaultToolArgs)`
+ * ——只展开一个实参，故 `defaultToolArgs = [options]` 会得到 `new Tool([options])`。
+ * 这里两种形态都接受并归一化，避免 `_options.connectionKey`/回调变成 undefined。
+ */
+export type OnshapeSelectToolArgs = OnshapeSelectOptions | readonly [OnshapeSelectOptions];
+
+function isOptionsTuple(input: OnshapeSelectToolArgs): input is readonly [OnshapeSelectOptions] {
+  return Array.isArray(input);
+}
+
 const VERTEX_PICK_PX = 10;
 const EDGE_PICK_PX = 6;
 
@@ -53,9 +65,9 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   protected _paused = false;
   protected _commandSuspended = false;
 
-  public constructor(options: OnshapeSelectOptions) {
+  public constructor(input: OnshapeSelectToolArgs) {
     super();
-    this._options = options;
+    this._options = isOptionsTuple(input) ? input[0] : input;
   }
 
   public override requireWriteableTarget(): boolean {

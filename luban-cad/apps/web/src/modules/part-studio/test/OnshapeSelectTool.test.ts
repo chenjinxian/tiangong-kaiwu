@@ -12,6 +12,7 @@ import type { SubEntityLocationProps, SubEntityProps } from '@itwin/editor-commo
 import { LocateSubEntityTool, type SubEntityData } from '@itwin/editor-frontend';
 import type { CanvasSelection } from '../types.js';
 import { OnshapeSelectTool } from '../tools/modeling/OnshapeSelectTool.js';
+import type { OnshapeSelectOptions } from '../tools/modeling/OnshapeSelectTool.js';
 
 const rpc = vi.hoisted(() => ({
   resolveFaceRef: vi.fn(),
@@ -579,5 +580,46 @@ describe('OnshapeSelectTool：持久 id 与 store 同步', () => {
     expect(tool.selectedIdsView()).toEqual([]);
     expect(tool.emitted.length).toBe(emissionsAfterRemove);
     expect(tool.emitted.at(-1)).toEqual([]);
+  });
+});
+
+describe('OnshapeSelectTool：构造函数入参归一化', () => {
+  it('直接传 options 对象与传 [options]（ToolAdmin 默认工具单实参）都解析为同一份选项', () => {
+    const options: OnshapeSelectOptions = {
+      connectionKey: 'imodel-key',
+      onSelectionChanged: vi.fn(),
+      onError: vi.fn(),
+    };
+
+    const direct = new OnshapeSelectTool(options);
+    const viaToolAdmin = new OnshapeSelectTool([options]);
+
+    const readOptions = (tool: OnshapeSelectTool): OnshapeSelectOptions =>
+      (tool as unknown as { _options: OnshapeSelectOptions })._options;
+
+    expect(readOptions(direct)).toBe(options);
+    expect(readOptions(viaToolAdmin)).toBe(options);
+    expect(readOptions(viaToolAdmin).connectionKey).toBe('imodel-key');
+  });
+
+  it('onRestartTool 以归一化后的 options 重建工具', async () => {
+    const options: OnshapeSelectOptions = {
+      connectionKey: 'imodel-key',
+      onSelectionChanged: vi.fn(),
+      onError: vi.fn(),
+    };
+    const tool = new OnshapeSelectTool([options]);
+    const run = vi.spyOn(OnshapeSelectTool.prototype, 'run').mockResolvedValue(false);
+    const exit = vi.spyOn(tool, 'exitTool').mockResolvedValue(undefined);
+
+    await tool.onRestartTool();
+
+    expect(run).toHaveBeenCalledTimes(1);
+    const rebuilt = run.mock.instances[0] as OnshapeSelectTool;
+    expect((rebuilt as unknown as { _options: OnshapeSelectOptions })._options).toBe(options);
+    expect(exit).toHaveBeenCalled();
+
+    run.mockRestore();
+    exit.mockRestore();
   });
 });
