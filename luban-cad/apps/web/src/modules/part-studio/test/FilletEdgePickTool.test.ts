@@ -140,6 +140,11 @@ describe('M6-b T6：拾取形态（BlendEdgesTool 同款过滤/多选累积）',
     expect(FilletEdgePickTool.toolId).toBe('Fillet.PickEdges');
     expect(FilletEdgePickTool.namespace).toBe('LubanCad');
   });
+
+  it('wantSubEntityGeometry = true（橙色 x-ray 选边需要世界几何）', () => {
+    const proto = FilletEdgePickTool.prototype as unknown as { wantSubEntityGeometry: boolean };
+    expect(proto.wantSubEntityGeometry).toBe(true);
+  });
 });
 
 describe('M6-b T6：resolvePickedEdge 换算管道（mock RPC 隔离）', () => {

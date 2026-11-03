@@ -120,6 +120,9 @@ export class FilletEdgePickTool extends LocateSubEntityTool {
     return { parts: true, curves: false, surfaces: true, solids: true, other: false };
   }
 
+  /** 橙色 x-ray 选边覆盖层需要精确世界几何。 */
+  protected override get wantSubEntityGeometry(): boolean { return true; }
+
   /**
    * 多选累积不设上限（对话框驱动：结束权在右键/Esc/宿主 stop，不在基座
    * requiredSubEntityCount 满槽）——wantAdditionalSubEntities 恒真，每次

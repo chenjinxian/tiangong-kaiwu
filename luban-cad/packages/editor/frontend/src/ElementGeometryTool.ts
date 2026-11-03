@@ -239,6 +239,8 @@ export abstract class ElementGeometryCacheTool extends ElementSetTool implements
   }
 
   protected get geometryCacheFilter(): ElementGeometryCacheFilter | undefined { return undefined; }
+  /** 是否请求子实体的世界几何条目（只有圆角选边的橙色覆盖层需要）。 */
+  protected get wantSubEntityGeometry(): boolean { return false; }
   protected onGeometryCacheFilterChanged(): void { this._checkedIds.clear(); }
 
   protected async createElementGeometryCache(id: Id64String): Promise<boolean> {
@@ -359,6 +361,27 @@ export abstract class ElementGeometryCacheTool extends ElementSetTool implements
     } catch (err) { }
   }
 
+  /** 结束本工具启动的 SolidModeling 命令并清掉检查缓存（幂等）。 */
+  protected async finishCommandIfStarted(): Promise<void> {
+    if (undefined === this._startedCmd)
+      return;
+
+    try {
+      await this.clearElementGeometryCache();
+    } catch {
+      // 命令已被外部收口：仍继续复位本地状态
+    }
+
+    this._startedCmd = undefined;
+    this._checkedIds.clear();
+
+    try {
+      await EditTools.finishCommand();
+    } catch {
+      // 无活动命令/已被其它工具收口：无需重复报错
+    }
+  }
+
   public override async onUnsuspend(): Promise<void> {
     if (!this._firstResult)
       this.updateAgendaAppearanceProvider();
@@ -379,7 +402,7 @@ export abstract class ElementGeometryCacheTool extends ElementSetTool implements
 
   public override async onCleanup(): Promise<void> {
     await super.onCleanup();
-    await this.clearElementGeometryCache();
+    await this.finishCommandIfStarted();
     this.updateAgendaAppearanceProvider(true);
     this.clearGraphic();
   }
@@ -818,6 +841,9 @@ export abstract class LocateSubEntityTool extends ElementGeometryCacheTool {
         wantGraphic: true,
         wantRange: true,
         wantAppearance: true,
+        // 2026-11-03：世界几何按需读取——只有显式 opt-in 的工具（圆角选边
+        // 橙色 x-ray 覆盖层）需要，其余工具省掉几何负载。
+        wantGeometry: this.wantSubEntityGeometry ? true : undefined,
         chordTolerance,
       };
 
