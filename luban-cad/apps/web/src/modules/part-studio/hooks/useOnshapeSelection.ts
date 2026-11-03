@@ -7,7 +7,7 @@
  * - 卸载恢复 core Select 并清空选择；
  * - 注册 BRep 命令协调器的 hover 控制器（Task 6 接线）。
  */
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
@@ -22,14 +22,6 @@ function toast(message: string): void {
   );
 }
 
-/** 默认工具启动失败时回退 core Select，避免“看似有工具、实际无工具”。 */
-function startDefaultOrFallback(admin: typeof IModelApp.toolAdmin): void {
-  void admin.startDefaultTool().catch((err: unknown) => {
-    admin.defaultToolId = 'Select';
-    toast(err instanceof Error ? err.message : String(err));
-  });
-}
-
 export function useOnshapeSelection(
   connection: BriefcaseConnection | undefined,
   viewport: ScreenViewport | null | undefined,
@@ -37,6 +29,27 @@ export function useOnshapeSelection(
 ): void {
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+
+  /**
+   * 默认工具启动失败时回退 core Select，避免“看似有工具、实际无工具”。
+   * 启动是异步的（activeTool 在 run 完成前仍为空），同一挂载内 connection/viewport
+   * effect 与 paused effect 都可能请求启动——用 in-flight 守卫保证只发一次请求。
+   */
+  const startRequested = useRef(false);
+  const requestStart = useCallback((admin: typeof IModelApp.toolAdmin): void => {
+    if (startRequested.current)
+      return;
+
+    startRequested.current = true;
+    void admin.startDefaultTool()
+      .catch((err: unknown) => {
+        admin.defaultToolId = 'Select';
+        toast(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        startRequested.current = false;
+      });
+  }, []);
 
   useEffect(() => {
     if (!connection || !viewport)
@@ -55,7 +68,7 @@ export function useOnshapeSelection(
     admin.defaultToolArgs = [options];
 
     if (!pausedRef.current)
-      startDefaultOrFallback(admin);
+      requestStart(admin);
 
     const removeToolListener = admin.activeToolChanged.addListener((tool) => {
       if (pausedRef.current && tool instanceof OnshapeSelectTool)
@@ -71,7 +84,7 @@ export function useOnshapeSelection(
       removeToolListener();
       removeHoverController();
     };
-  }, [connection, viewport]);
+  }, [connection, viewport, requestStart]);
 
   useEffect(() => {
     const admin = IModelApp.toolAdmin;
@@ -91,8 +104,8 @@ export function useOnshapeSelection(
     if (tool instanceof OnshapeSelectTool)
       tool.resume();
     else
-      startDefaultOrFallback(admin);
-  }, [paused, connection, viewport]);
+      requestStart(admin);
+  }, [paused, connection, viewport, requestStart]);
 
   useEffect(() => () => {
     const admin = IModelApp.toolAdmin;

@@ -74,15 +74,33 @@ beforeEach(() => {
 });
 
 describe('useOnshapeSelection', () => {
-  it('注册工具并设置 defaultToolId/defaultToolArgs，空闲即启动', () => {
+  it('注册工具并设置 defaultToolId/defaultToolArgs，空闲即启动且只启动一次', async () => {
     const { admin, startDefaultTool } = stubToolAdmin();
     const register = vi.spyOn(IModelApp.tools, 'register').mockImplementation(() => undefined);
     const { unmount } = renderHook(() => useOnshapeSelection(connection, viewport, false));
     expect(register).toHaveBeenCalledWith(OnshapeSelectTool);
     expect(admin.defaultToolId).toBe(OnshapeSelectTool.toolId);
     expect(admin.defaultToolArgs?.[0]).toMatchObject({ connectionKey: 'imodel-key' });
-    expect(startDefaultTool).toHaveBeenCalled();
+    // 两个 effect 都请求启动，但 in-flight 守卫只放行一次。
+    expect(startDefaultTool).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(startDefaultTool).toHaveBeenCalledTimes(1);
     unmount();
+  });
+
+  it('暂停挂载不启动；解除暂停后恰好启动一次', async () => {
+    const { startDefaultTool } = stubToolAdmin();
+    vi.spyOn(IModelApp.tools, 'register').mockImplementation(() => undefined);
+    const { rerender } = renderHook(
+      ({ paused }) => useOnshapeSelection(connection, viewport, paused),
+      { initialProps: { paused: true } },
+    );
+    expect(startDefaultTool).not.toHaveBeenCalled();
+
+    rerender({ paused: false });
+    expect(startDefaultTool).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(startDefaultTool).toHaveBeenCalledTimes(1);
   });
 
   it('paused=true 不启动；恢复后启动或 resume', () => {
@@ -145,9 +163,8 @@ describe('useOnshapeSelection', () => {
     const { unmount } = renderHook(() => useOnshapeSelection(connection, viewport, false));
 
     await waitFor(() => expect(admin.defaultToolId).toBe('Select'));
-    // 挂载时两个 effect 各自触发一次 startDefaultTool（iTwin 对并发 run 取最后一次），
-    // 故提示可能多于一次；此处只断言失败回退一定发生且提示输出。
-    expect(outputMessage).toHaveBeenCalled();
+    // in-flight 守卫下只有一个启动请求，失败也只会提示一次。
+    expect(outputMessage).toHaveBeenCalledTimes(1);
     unmount();
   });
 
