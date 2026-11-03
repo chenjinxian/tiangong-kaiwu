@@ -26,7 +26,7 @@ vi.mock('@luban-cad/viewer', () => ({
 import { useDisplaySettings } from '../hooks/useDisplaySettings.js';
 import { DEFAULT_DISPLAY_SETTINGS } from '../internal/display-actions.js';
 
-const STORAGE_KEY = 'luban.partStudio.displaySettings.v1';
+const STORAGE_KEY = 'luban.partStudio.displaySettings.v2';
 const VIEWPORT = {} as ScreenViewport;
 
 beforeEach(() => {
@@ -82,6 +82,12 @@ describe('useDisplaySettings', () => {
     localStorage.setItem(STORAGE_KEY, '{not json');
     const { result } = renderHook(() => useDisplaySettings(VIEWPORT));
     expect(result.current.settings).toEqual(DEFAULT_DISPLAY_SETTINGS);
+  });
+
+  it('忽略 v1 旧设置，让新的 iTwin 默认生效', () => {
+    localStorage.setItem('luban.partStudio.displaySettings.v1', JSON.stringify({ ambientOcclusion: true }));
+    const { result } = renderHook(() => useDisplaySettings(VIEWPORT));
+    expect(result.current.settings.ambientOcclusion).toBe(false);
   });
 
   it('restores defaults with reset and persists the reset', () => {

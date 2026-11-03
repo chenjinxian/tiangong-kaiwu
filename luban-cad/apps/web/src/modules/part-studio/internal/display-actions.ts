@@ -43,6 +43,10 @@ export interface DisplaySettings {
   aoIntensityPct: number;
   edgeWidthPx: number;
   edgeColor: string;
+  /** 完整 BRep 拓扑边叠加（native tile 只含特征/轮廓边；默认开）。 */
+  showBrepEdges: boolean;
+  /** 全部 BRep 顶点圆点（默认关；点选择模式由调用方临时打开）。 */
+  showBrepVertices: boolean;
   shadows: boolean;
   antialiasSamples: 1 | 2 | 4 | 8;
   background: BackgroundMode;
@@ -52,19 +56,38 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   mode: 'shaded',
   perspective: false,
   fovDegrees: 90,
-  ambientOcclusion: true,
+  ambientOcclusion: false, // 2026-11-03：iTwin 默认 AO 关
   aoIntensityPct: 37.5,
-  edgeWidthPx: 1,
-  edgeColor: '#3d3d3d',
+  edgeWidthPx: 2,
+  edgeColor: '#1f1f1f',
+  showBrepEdges: true,
+  showBrepVertices: false,
   shadows: false,
   antialiasSamples: 4,
   background: 'theme',
 };
 
-/** 六态 + AO/阴影 → viewFlags（保留 lighting 等基线位）。 */
+/**
+ * 六态 + AO/阴影 → viewFlags。
+ * 除模式位外统一清掉落库视图可能携带的污染 flags（grid/wiremesh/monochrome/
+ * ACS/背景图），并以三个 no*Light 反推打开 lighting——只写 `lighting` 到
+ * ViewFlagProps 无效（fromJSON 忽略该键）。
+ */
 function viewFlagsFor(mode: DisplayModeId, aoOn: boolean, shadowsOn: boolean, base: ViewFlags): ViewFlags {
   const j = base.toJSON();
-  const common = { ambientOcclusion: aoOn, shadows: shadowsOn };
+  const common = {
+    ambientOcclusion: aoOn,
+    shadows: shadowsOn,
+    noCameraLights: false,
+    noSourceLights: false,
+    noSolarLight: false,
+    grid: false,
+    acs: false,
+    backgroundMap: false,
+    monochrome: false,
+    wiremesh: false,
+    thematicDisplay: false,
+  };
   switch (mode) {
     case 'shaded':
     case 'translucent':
@@ -80,9 +103,32 @@ function viewFlagsFor(mode: DisplayModeId, aoOn: boolean, shadowsOn: boolean, ba
   }
 }
 
-/** Onshape AO 百分比 → iTwin 幂指数（37.5% ↔ 2.0，夹 [0.25, 8]）。 */
+
+/** BRep 拓扑叠加层选项（显示模式/边设置/点选择模式 → 装饰件样式）。 */
+export function brepOverlayOptionsFor(
+  s: DisplaySettings,
+  selectionMode: 'body' | 'face' | 'edge' | 'vertex',
+): {
+  showEdges: boolean;
+  showVertices: boolean;
+  edgeColor: string;
+  edgeWidthPx: number;
+  xrayEdges: boolean;
+} {
+  return {
+    showEdges: s.showBrepEdges && s.mode !== 'shaded-no-edges',
+    showVertices: s.showBrepVertices || selectionMode === 'vertex',
+    edgeColor: s.edgeColor,
+    edgeWidthPx: s.edgeWidthPx,
+    xrayEdges: s.mode === 'hidden-visible' || s.mode === 'translucent',
+  };
+}
+
+/** Onshape AO 百分比 → iTwin 幂指数（37.5% ↔ iTwin 默认 1.0，夹 [0.25, 4]）。
+ * 2026-11-03：旧锚点 2.0 等于默认强度两倍，默认视口暗一档；以默认 1.0 为
+ * 37.5% 锚点后 AO 只收缝隙，不再整体压暗。 */
 export function aoIntensityFromPct(pct: number): number {
-  return Math.min(8, Math.max(0.25, 2.0 * pct / 37.5));
+  return Math.min(4, Math.max(0.25, 1.0 * pct / 37.5));
 }
 
 /**

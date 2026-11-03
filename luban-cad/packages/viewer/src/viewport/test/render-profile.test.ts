@@ -2,112 +2,120 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * render-profile 单测（2026-10-26 渲染对齐阶段 1）：Onshape 视觉基线的
- * 应用面钉死——可见边（ovrColor+深灰+1px）、灯光镜像值（solar 1.0/
- * ambient 0.2/portrait 0.1/specular 0.5）、全 SubCategory 中灰覆盖、
- * MSAA=4。core-frontend/core-common 真模块（纯数据/纯计算对象，jsdom 可载），
- * 视口/样式层用结构替身（本包测试惯例：零真实渲染）。
+ * 渲染基线单测（2026-11-03 回归 iTwin 默认）：
+ * - 灯光 = LightSettings.fromJSON(undefined)；
+ * - environment = Environment.fromJSON(undefined)（sky/ground/atmosphere 全关）；
+ * - 不写任何 SubCategoryOverride（材质回到元素/类别默认）；
+ * - viewFlags = SmoothShade + lighting + visibleEdges，AO/shadows 关；
+ * - hiddenLine visible 边线保留 #1f1f1f/2px；MSAA 4。
  */
-import { describe, expect, it } from 'vitest';
-import { HiddenLine, SubCategoryOverride, ViewFlags } from '@itwin/core-common';
+import { describe, expect, it, vi } from 'vitest';
+import { Environment, HiddenLine, LightSettings, RenderMode, ViewFlags } from '@itwin/core-common';
 import { DisplayStyle3dState } from '@itwin/core-frontend';
 import {
   ANTIALIAS_SAMPLES,
-  applyRenderProfile,
-  BODY_COLOR,
+  applyViewportRenderBaseline,
   EDGE_COLOR,
   EDGE_WEIGHT,
-  LIGHTS_PROFILE,
 } from '../render-profile.js';
 
-/** 3D 样式层替身：记录被写入的 settings（真实 DisplayStyle3dSettings 的关键 setter 面）。 */
-function fakeSettings() {
-  const lights: { clone: (changed: unknown) => unknown; changed?: unknown } = {
-    clone: (changed: unknown) => { lights.changed = changed; return lights; },
-  };
-  const s = {
-    hiddenLineSettings: HiddenLine.Settings.fromJSON({}),
-    lights,
-    overrides: new Map<string, unknown>(),
-    overrideSubCategory: (id: string, ovr: unknown) => { s.overrides.set(id, ovr); },
-  };
-  return s;
-}
-
-/** 视口替身：viewFlags setter + 3D displayStyle（instanceof DisplayStyle3dState 命中真类）。 */
 function fakeViewport() {
-  const settings = fakeSettings();
-  const vp: {
-    __viewFlags: { toJSON: () => Record<string, unknown> };
-    viewFlags: { toJSON: () => Record<string, unknown> };
-    antialiasSamples: number;
-    invalidateScene: () => void;
-    __invalidated: number;
-    view: { displayStyle: unknown };
-  } = {
-    __viewFlags: { toJSON: () => ({ renderMode: 6, lighting: true }) },
-    get viewFlags() { return vp.__viewFlags; },
-    set viewFlags(v: { toJSON: () => Record<string, unknown> }) { vp.__viewFlags = v; },
+  const settings = {
+    environment: Environment.defaults.withDisplay({ sky: true, ground: true, atmosphere: true }),
+    hiddenLineSettings: HiddenLine.Settings.fromJSON({
+      visible: { ovrColor: true, color: 0x123456, width: 5 },
+    }),
+    lights: LightSettings.fromJSON({
+      solar: { intensity: 3, alwaysEnabled: true, direction: [1, 0, 0] },
+    }),
+  };
+  const vp = {
+    viewFlags: ViewFlags.fromJSON({
+      renderMode: RenderMode.HiddenLine,
+      noSolarLight: true,
+      noCameraLights: true,
+      noSourceLights: true,
+      grid: true,
+      acs: true,
+      backgroundMap: true,
+      monochrome: true,
+      wiremesh: true,
+    }),
     antialiasSamples: 1,
-    __invalidated: 0,
-    invalidateScene() { vp.__invalidated += 1; },
-    view: { displayStyle: Object.create(DisplayStyle3dState.prototype, {
-      settings: { value: settings },
-    }) },
+    invalidateScene: vi.fn(),
+    setLightSettings(next: LightSettings) { settings.lights = next; },
+    view: {
+      displayStyle: Object.create(DisplayStyle3dState.prototype, {
+        settings: { value: settings },
+      }),
+    },
   };
   return { vp, settings };
 }
 
-describe('render-profile：Onshape 视觉基线应用', () => {
-  it('可见边打开 + 边线深灰 1px（ovrColor 语义）', () => {
+describe('render-profile：iTwin 默认渲染基线', () => {
+  it('灯光回到 LightSettings 默认值', () => {
     const { vp, settings } = fakeViewport();
-    applyRenderProfile(vp as never, []);
-    expect(vp.viewFlags.toJSON()).toMatchObject({ visEdges: true, renderMode: 6 });
-    const visible = settings.hiddenLineSettings.toJSON().visible ?? {};
-    expect(visible).toMatchObject({ ovrColor: true, color: EDGE_COLOR.tbgr, width: EDGE_WEIGHT });
+    applyViewportRenderBaseline(vp as never);
+    expect(settings.lights.solar.intensity).toBe(1);
+    expect(settings.lights.solar.alwaysEnabled).toBe(false);
+    expect(settings.lights.solar.direction.isAlmostEqual({ x: 0.272166, y: 0.680414, z: 0.680414 } as never)).toBe(true);
+    expect(settings.lights.ambient.intensity).toBe(0.2);
+    expect(settings.lights.portraitIntensity).toBe(0.3);
+    expect(settings.lights.specularIntensity).toBe(1);
+    expect(settings.lights.hemisphere.intensity).toBe(0);
   });
 
-  it('灯光镜像值透传 lights.clone（solar 1.0/ambient 0.2/portrait 0.1/specular 0.5）', () => {
+  it('environment 回到默认全关', () => {
     const { vp, settings } = fakeViewport();
-    applyRenderProfile(vp as never, []);
-    const written = settings.lights as unknown as { changed: unknown };
-    expect(written.changed).toEqual(LIGHTS_PROFILE);
+    applyViewportRenderBaseline(vp as never);
+    expect(settings.environment.displaySky).toBe(false);
+    expect(settings.environment.displayGround).toBe(false);
+    expect(settings.environment.displayAtmosphere).toBe(false);
   });
 
-  it('全体 SubCategory → 中灰哑光覆盖（SubCategoryOverride 真类）', () => {
-    const { vp, settings } = fakeViewport();
-    applyRenderProfile(vp as never, ['0x1', '0x2']);
-    expect(settings.overrides.size).toBe(2);
-    for (const ovr of settings.overrides.values()) {
-      expect(ovr).toBeInstanceOf(SubCategoryOverride);
-      expect((ovr as SubCategoryOverride).color?.toHexString()).toBe(BODY_COLOR.toHexString());
-    }
-  });
-
-  it('MSAA 热设 = 4（Onshape View in high quality 对应）', () => {
+  it('view flags = SmoothShade + lighting + visibleEdges；AO/阴影关并清污染', () => {
     const { vp } = fakeViewport();
-    applyRenderProfile(vp as never, []);
+    applyViewportRenderBaseline(vp as never);
+    const f = vp.viewFlags;
+    expect(f.renderMode).toBe(RenderMode.SmoothShade);
+    expect(f.lighting).toBe(true);
+    expect(f.visibleEdges).toBe(true);
+    expect(f.hiddenEdges).toBe(false);
+    expect(f.ambientOcclusion).toBe(false);
+    expect(f.shadows).toBe(false);
+    expect(f.grid).toBe(false);
+    expect(f.acsTriad).toBe(false);
+    expect(f.backgroundMap).toBe(false);
+    expect(f.monochrome).toBe(false);
+    expect(f.wiremesh).toBe(false);
+  });
+
+  it('visible 边线覆盖 = #1f1f1f / 2px', () => {
+    const { vp, settings } = fakeViewport();
+    applyViewportRenderBaseline(vp as never);
+    expect(settings.hiddenLineSettings.toJSON().visible).toMatchObject({
+      ovrColor: true,
+      color: EDGE_COLOR.tbgr,
+      width: EDGE_WEIGHT,
+    });
+  });
+
+  it('不写 SubCategoryOverride（fake settings 未提供 overrideSubCategory 也不抛错）', () => {
+    const { vp } = fakeViewport();
+    expect(() => applyViewportRenderBaseline(vp as never)).not.toThrow();
+  });
+
+  it('MSAA=4 且 invalidateScene 恰一次', () => {
+    const { vp } = fakeViewport();
+    applyViewportRenderBaseline(vp as never);
     expect(vp.antialiasSamples).toBe(ANTIALIAS_SAMPLES);
+    expect(vp.invalidateScene).toHaveBeenCalledTimes(1);
   });
 
-  it('应用后 invalidateScene 恰一次（settings 字典直改的失效补刀——红探针实证必需）', () => {
-    const { vp } = fakeViewport();
-    applyRenderProfile(vp as never, []);
-    expect(vp.__invalidated).toBe(1);
-  });
-
-  it('幂等：重复应用写入同值不叠加', () => {
-    const { vp, settings } = fakeViewport();
-    applyRenderProfile(vp as never, ['0x1']);
-    const first = settings.hiddenLineSettings;
-    applyRenderProfile(vp as never, ['0x1']);
-    expect(settings.hiddenLineSettings.toJSON()).toEqual(first.toJSON());
-    expect(settings.overrides.size).toBe(1);
-  });
-
-  it('基线常量钉形：边 #3d3d3d / 面 #9a9a9e（Onshape 视觉基因镜像）', () => {
-    expect(EDGE_COLOR.toHexString()).toBe('#3d3d3d');
-    expect(BODY_COLOR.toHexString()).toBe('#9a9a9e');
-    expect(ViewFlags.fromJSON({ visEdges: true }).visibleEdges).toBe(true);
+  it('常量钉形：边 #1f1f1f / 2px', () => {
+    expect(EDGE_COLOR.toHexString()).toBe('#1f1f1f');
+    expect(EDGE_WEIGHT).toBe(2);
+    expect(ANTIALIAS_SAMPLES).toBe(4);
   });
 });

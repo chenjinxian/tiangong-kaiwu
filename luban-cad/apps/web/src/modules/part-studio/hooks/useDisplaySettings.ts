@@ -16,7 +16,7 @@ import {
   type DisplaySettings,
 } from '../internal/display-actions.js';
 
-const STORAGE_KEY = 'luban.partStudio.displaySettings.v1';
+const STORAGE_KEY = 'luban.partStudio.displaySettings.v2';
 
 function loadSettings(): DisplaySettings {
   if (typeof localStorage === 'undefined') return DEFAULT_DISPLAY_SETTINGS;

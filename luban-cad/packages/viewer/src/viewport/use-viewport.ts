@@ -55,7 +55,7 @@ import {
 } from '@itwin/core-frontend';
 import { Range3d } from '@itwin/core-geometry';
 import { acquireViewer, releaseViewer } from '../host/web-initializer.js';
-import { applyRenderProfile } from './render-profile.js';
+import { applyViewportRenderBaseline } from './render-profile.js';
 
 /** 运行时相位：idle（未起）→ starting → ready（IPC 就绪）| error。 */
 export type ViewportPhase = 'idle' | 'starting' | 'ready' | 'error';
@@ -224,13 +224,13 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
         );
         if (!isAlive()) return;
 
-        // Onshape 视觉基线（2026-10-26 渲染对齐阶段 1）：可见深灰边线 + 灯光
-        // 重配 + 全类别中灰哑光覆盖 + MSAA——存量库/新库一致生效（详见 render-profile.ts）。
+        // iTwin 默认渲染基线（2026-11-03）：灯光/环境回到 core 默认、不覆盖
+        // 材质；保留白底与 BRep 全拓扑边线（#1f1f1f 2px）、MSAA 4
+        //（详见 render-profile.ts）。
         try {
-          const subCategoryIds = await queryAllSubCategoryIds(iModel);
-          if (isAlive()) applyRenderProfile(newViewport, subCategoryIds);
+          applyViewportRenderBaseline(newViewport);
         } catch {
-          // 画像应用失败不阻断视口（基线观感缺位，功能链不受影响）
+          // 基线应用失败不阻断视口（功能链不受影响）
         }
 
         if (!isAlive()) return;
@@ -573,22 +573,6 @@ async function queryAllSpatialCategoryIds(iModel: IModelConnection): Promise<str
   try {
     // Query all SpatialCategories (not just used ones, to ensure we have them for new elements)
     const query = `SELECT ECInstanceId FROM BisCore.SpatialCategory`;
-    const rows: string[] = [];
-    for await (const row of iModel.createQueryReader(query)) {
-      rows.push(row[0] as string);
-    }
-    return rows;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Query for all SubCategory IDs（渲染画像的面覆盖键——含各类别缺省子类别）。
- */
-async function queryAllSubCategoryIds(iModel: IModelConnection): Promise<string[]> {
-  try {
-    const query = `SELECT ECInstanceId FROM BisCore.SubCategory`;
     const rows: string[] = [];
     for await (const row of iModel.createQueryReader(query)) {
       rows.push(row[0] as string);

@@ -20,6 +20,7 @@ vi.mock('@luban-cad/viewer', () => ({
 import {
   applyDisplaySettings,
   aoIntensityFromPct,
+  brepOverlayOptionsFor,
   DEFAULT_DISPLAY_SETTINGS,
   type DisplayModeId,
   type DisplaySettings,
@@ -36,7 +37,7 @@ interface FakeViewport {
   isSpatialView: ReturnType<typeof vi.fn>;
 }
 
-function fakeViewport(): FakeViewport {
+function fakeViewport(initialFlags: ViewFlags = ViewFlags.fromJSON({})): FakeViewport {
   const turnCameraOn = vi.fn();
   const turnCameraOff = vi.fn();
   const synchWithView = vi.fn();
@@ -45,7 +46,7 @@ function fakeViewport(): FakeViewport {
   const modelAppearanceOverrides = new Map<string, unknown>();
   const isSpatialView = vi.fn(() => false);
   const viewport = {
-    viewFlags: ViewFlags.fromJSON({}),
+    viewFlags: initialFlags,
     antialiasSamples: 1,
     turnCameraOn,
     turnCameraOff,
@@ -109,6 +110,28 @@ describe('display-actions', () => {
     expect(flags(fake.viewport).ambientOcclusion).toBe(false);
     expect(flags(fake.viewport).shadows).toBe(true);
     expect(flags(fake.viewport).lighting).toBe(true);
+  });
+
+  it('lights saved views back up and clears contaminating view flags', () => {
+    const fake = fakeViewport(ViewFlags.fromJSON({
+      noCameraLights: true,
+      noSourceLights: true,
+      noSolarLight: true,
+      grid: true,
+      acs: true,
+      backgroundMap: true,
+      monochrome: true,
+      wiremesh: true,
+    }));
+    applyDisplaySettings(fake.viewport, settings({ mode: 'shaded' }));
+    const f = flags(fake.viewport);
+    expect(f.lighting).toBe(true);
+    expect(f.grid).toBe(false);
+    expect(f.acsTriad).toBe(false);
+    expect(f.backgroundMap).toBe(false);
+    expect(f.monochrome).toBe(false);
+    expect(f.wiremesh).toBe(false);
+    expect(f.renderMode).toBe(RenderMode.SmoothShade);
   });
 
   it('turns the perspective camera on with the configured FOV and off when disabled', () => {
@@ -175,21 +198,43 @@ describe('display-actions', () => {
     (fake.viewport.view as unknown as { displayStyle: unknown }).displayStyle = displayStyle;
 
     applyDisplaySettings(fake.viewport, settings({ aoIntensityPct: 75, edgeWidthPx: 2, edgeColor: '#ff0000' }));
-    expect(settings3d.ambientOcclusionSettings.intensity).toBeCloseTo(4, 6);
+    expect(settings3d.ambientOcclusionSettings.intensity).toBeCloseTo(2, 6);
     const visibleJson = settings3d.hiddenLineSettings.toJSON().visible!;
     expect(visibleJson.width).toBe(2);
     expect(visibleJson.ovrColor).toBe(true);
     expect(visibleJson.color).toBe(ColorDef.fromString('#ff0000').tbgr);
   });
 
+  it('maps display mode + vertex selection to the BRep overlay options', () => {
+    expect(brepOverlayOptionsFor(DEFAULT_DISPLAY_SETTINGS, 'body')).toMatchObject({
+      showEdges: true,
+      showVertices: false,
+      edgeColor: '#1f1f1f',
+      edgeWidthPx: 2,
+      xrayEdges: false,
+    });
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'shaded-no-edges' }, 'body').showEdges).toBe(false);
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'hidden-visible' }, 'body').xrayEdges).toBe(true);
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'translucent' }, 'edge').xrayEdges).toBe(true);
+    expect(brepOverlayOptionsFor(DEFAULT_DISPLAY_SETTINGS, 'vertex').showVertices).toBe(true);
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, showBrepEdges: false }, 'body').showEdges).toBe(false);
+  });
+
   it('is a no-op without a viewport', () => {
     expect(applyDisplaySettings(undefined, DEFAULT_DISPLAY_SETTINGS)).toBe(false);
   });
 
+  it('默认 AO 关闭（回归 iTwin 默认）', () => {
+    expect(DEFAULT_DISPLAY_SETTINGS.ambientOcclusion).toBe(false);
+    expect(DEFAULT_DISPLAY_SETTINGS.antialiasSamples).toBe(4);
+    expect(DEFAULT_DISPLAY_SETTINGS.background).toBe('theme');
+  });
+
   it('converts Onshape AO percentage to the iTwin intensity exponent with clamps', () => {
-    expect(aoIntensityFromPct(37.5)).toBeCloseTo(2, 10);
+    // Onshape 37.5% = iTwin 默认强度 1.0（旧 2.0 锚点把默认视口压暗一倍）。
+    expect(aoIntensityFromPct(37.5)).toBeCloseTo(1, 10);
     expect(aoIntensityFromPct(0)).toBe(0.25);
-    expect(aoIntensityFromPct(100)).toBeCloseTo(5.333333, 5);
-    expect(aoIntensityFromPct(1000)).toBe(8);
+    expect(aoIntensityFromPct(100)).toBeCloseTo(2.666667, 5);
+    expect(aoIntensityFromPct(1000)).toBe(4);
   });
 });
