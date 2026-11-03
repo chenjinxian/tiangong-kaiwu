@@ -1243,7 +1243,7 @@ class SelectionTool extends OnshapeSelectTool {
     return { hasGraphic: true } as SubEntityData;
   }
   public override changeLocateState(enabled: boolean): void { this.locateState.push(enabled); }
-  protected override initLocateElements(): void { /* no-op in unit test */ }
+  public override initLocateElements(): void { /* no-op in unit test */ }
   protected override setupAndPromptForNextAction(): void { /* no-op in unit test */ }
   public exposePaused(): boolean { return this.shouldEnableLocate === false; }
 }
@@ -1496,6 +1496,14 @@ function toast(message: string): void {
   );
 }
 
+/** 默认工具启动失败时回退 core Select，避免“看似有工具、实际无工具”。 */
+function startDefaultOrFallback(admin: typeof IModelApp.toolAdmin): void {
+  void admin.startDefaultTool().catch((err: unknown) => {
+    admin.defaultToolId = 'Select';
+    toast(err instanceof Error ? err.message : String(err));
+  });
+}
+
 export function useOnshapeSelection(
   connection: BriefcaseConnection | undefined,
   viewport: ScreenViewport | null | undefined,
@@ -1521,7 +1529,7 @@ export function useOnshapeSelection(
     admin.defaultToolArgs = [options];
 
     if (!pausedRef.current)
-      void admin.startDefaultTool();
+      startDefaultOrFallback(admin);
 
     const removeToolListener = admin.activeToolChanged.addListener((tool) => {
       if (pausedRef.current && tool instanceof OnshapeSelectTool)
@@ -1557,7 +1565,7 @@ export function useOnshapeSelection(
     if (tool instanceof OnshapeSelectTool)
       tool.resume();
     else
-      void admin.startDefaultTool();
+      startDefaultOrFallback(admin);
   }, [paused, connection, viewport]);
 
   useEffect(() => () => {
@@ -1808,7 +1816,7 @@ EOF
 - Delete: `luban-cad/apps/web/src/modules/part-studio/tools/modeling/SubEntitySelectTool.ts`
 - Delete: `luban-cad/apps/web/src/modules/part-studio/test/useSubEntitySelection.test.tsx`
 - Delete: `luban-cad/apps/web/src/modules/part-studio/test/SubEntitySelectTool.test.ts`
-- Modify tests: `use-part-studio-store.test.ts`、`useCanvasBodySelection.test.ts`、`CanvasContextMenu.test.tsx`、`PartStudioCanvas.test.tsx`、`PartStudioPage.test.tsx`、`part-studio-structure.test.tsx`、`Ribbon.test.tsx`、`ribbon-registry.test.ts`、`display-actions.test.ts`
+- Modify tests: `use-part-studio-store.test.ts`、`useCanvasBodySelection.test.ts`、`CanvasContextMenu.test.tsx`、`PartStudioCanvas.test.tsx`、`PartStudioPage.test.tsx`、`part-studio-structure.test.tsx`、`Ribbon.test.tsx`、`ribbon-registry.test.ts`、`display-actions.test.ts`、`SketchDialog.test.tsx`、`FeatureTree.test.tsx`、`FeatureDialog.test.tsx`、`PartStudioSidebar.test.tsx`（后四者去掉测试夹具里的 `selectionMode` 字段）
 
 **Interfaces:**
 - Consumes: `useOnshapeSelection(connection, viewport, paused)`、`clearActiveOnshapeSelection()`。
@@ -1948,6 +1956,7 @@ git rm luban-cad/apps/web/src/modules/part-studio/hooks/useSubEntitySelection.ts
 - `Ribbon.test.tsx`：删除“命令搜索仍可切换 selectionMode”用例；其余断言不变。
 - `ribbon-registry.test.ts`：`EXPECTED_TOOL_IDS` 删除 selectFace/selectEdge/selectVertex；分组序删除 `'selection'`；数量断言改为实际值。
 - `display-actions.test.ts`：`brepOverlayOptionsFor` 调用去掉 selectionMode 参数；顶点断言改为仅由 `showBrepVertices` 控制。
+- `SketchDialog.test.tsx` / `FeatureTree.test.tsx` / `FeatureDialog.test.tsx` / `PartStudioSidebar.test.tsx`：把测试夹具中的 `canvas: { selection: [], hiddenIds: [], selectionMode: 'body' }` 改为 `canvas: { selection: [], hiddenIds: [] }`；若这些文件 mock 了 `useSubEntitySelection`，改为 mock `useOnshapeSelection`（仅 PartStudioPage 子树需要的文件）。
 
 - [ ] **Step 9: 运行受影响单测与 tsc**
 
@@ -1996,7 +2005,11 @@ git add \
   luban-cad/apps/web/src/modules/part-studio/test/part-studio-structure.test.tsx \
   luban-cad/apps/web/src/modules/part-studio/test/Ribbon.test.tsx \
   luban-cad/apps/web/src/modules/part-studio/test/ribbon-registry.test.ts \
-  luban-cad/apps/web/src/modules/part-studio/test/display-actions.test.ts
+  luban-cad/apps/web/src/modules/part-studio/test/display-actions.test.ts \
+  luban-cad/apps/web/src/modules/part-studio/test/SketchDialog.test.tsx \
+  luban-cad/apps/web/src/modules/part-studio/test/FeatureTree.test.tsx \
+  luban-cad/apps/web/src/modules/part-studio/test/FeatureDialog.test.tsx \
+  luban-cad/apps/web/src/modules/part-studio/test/PartStudioSidebar.test.tsx
 git commit -m "$(cat <<'EOF'
 feat(selection): wire Onshape selection and remove explicit modes
 
@@ -2223,5 +2236,5 @@ EOF
 ## 自检结果
 
 - **Spec coverage**：渲染默认值/白底/BRep 边/AO 关/MSAA 4（Task 1）；editor 命令收口与几何按需（Task 2）；统一工具、全类型、跨 body、优先级、点击语义（Task 3-4）；默认工具/暂停生命周期（Task 5）；命令协调（Task 6）；移除模式、接线页面/零件列表/owner（Task 7）；e2e/视觉（Task 8）；文档/门禁（Task 9）。
-- **Placeholder scan**：无 TBD/TODO；“如失败按测试修正”仅用于测试替身签名差异，不影响生产行为定义。
+- **Placeholder scan**：无 TBD/TODO/“添加适当错误处理”等占位；所有测试与实现步骤均含可执行代码或明确文件/行操作。
 - **Type consistency**：`OnshapeSelectTool`/`OnshapeSelectOptions`/`onSelectionChanged`/`clearSelection`/`pause`/`resume`/`suspendForCommand`/`resumeAfterCommand` 在 Task 3-7 中命名一致；`useCanvasBodySelection(connection, bodies)`、`brepOverlayOptionsFor(settings)`、`withExclusiveBrepCommand` 在 Task 6-8 中一致；`CanvasSelection.id` 含 owner 的格式在 Task 4、Task 7 测试中一致。
