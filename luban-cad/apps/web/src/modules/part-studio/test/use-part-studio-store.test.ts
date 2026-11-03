@@ -50,7 +50,6 @@ const INITIAL_STATE: PartStudioState = {
   canvas: {
     selection: [],
     hiddenIds: [],
-    selectionMode: 'body',
   },
   dialog: {
     active: null,
@@ -60,9 +59,9 @@ const INITIAL_STATE: PartStudioState = {
   },
   datum: {
     visibility: { origin: true, top: true, front: true, right: true },
+    visibilityOverrides: {},
     expanded: true,
     selectedId: null,
-    autoHiddenOnce: false,
   },
 };
 
@@ -215,21 +214,6 @@ describe('canvas 切片（画布选择集 + 会话隐藏集，T5 收口 CanvasSe
     store.showNodes(['b']);
     expect(usePartStudioStore.getState().canvas.hiddenIds).toEqual(['a', 'c']);
   });
-
-  // M-A5.2 T1：选择模式是 canvas 切片的一部分——切模式清空画布选择
-  // （body↔face/edge 选择集语义不同，跨模式残留会误路由右键菜单）；
-  // 树选中不受影响（子实体选择不写 SelectionSet/树）；同模式幂等不重写。
-  it('setSelectionMode 切模式清空 canvas 选择，树选中不动；同模式幂等', () => {
-    const store = usePartStudioStore.getState();
-    store.setCanvasSelection([{ kind: 'part', id: '0x15', label: 'Body 1' }]);
-    store.setSelectedNodeIds(['feature-1']);
-    store.setSelectionMode('face');
-    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('face');
-    expect(usePartStudioStore.getState().canvas.selection).toEqual([]);
-    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['feature-1']);
-    store.setSelectionMode('face');
-    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('face');
-  });
 });
 
 describe('dialog 切片（画布内联对话框宿主寻址，T6；M4-T6 扩 new/edit 双模式）', () => {
@@ -290,6 +274,45 @@ describe('viewOnly 切片（仅查看模式，T7 os-24 汉堡菜单）', () => {
     expect(usePartStudioStore.getState().viewOnly.isActive).toBe(true);
     setViewOnly(false);
     expect(usePartStudioStore.getState().viewOnly.isActive).toBe(false);
+  });
+});
+
+describe('datum 切片（默认几何图元覆盖/同步）', () => {
+  it('眼睛覆盖写 visibility + visibilityOverrides，且不污染 tree/canvas 隐藏集', () => {
+    const store = usePartStudioStore.getState();
+    store.toggleDatumVisible('top');
+    let state = usePartStudioStore.getState();
+    expect(state.datum.visibility.top).toBe(false);
+    expect(state.datum.visibilityOverrides).toEqual({ top: false });
+    expect(state.canvas.hiddenIds).toEqual([]);
+    expect(state.tree.selectedNodeIds).toEqual([]);
+
+    state.setDatumVisible('origin', false);
+    state = usePartStudioStore.getState();
+    expect(state.datum.visibility.origin).toBe(false);
+    expect(state.datum.visibilityOverrides).toEqual({ top: false, origin: false });
+  });
+
+  it('syncDatumVisibility 只改有效值，不写覆盖；同值幂等', () => {
+    const store = usePartStudioStore.getState();
+    const next = { origin: false, top: true, front: false, right: false };
+    store.syncDatumVisibility(next);
+    const after = usePartStudioStore.getState().datum;
+    expect(after.visibility).toEqual(next);
+    expect(after.visibilityOverrides).toEqual({});
+
+    const before = after;
+    usePartStudioStore.getState().syncDatumVisibility({ ...next });
+    expect(usePartStudioStore.getState().datum).toBe(before);
+  });
+
+  it('clearDatumVisibilityOverrides 清空覆盖（自动规则下次同步接管）', () => {
+    const store = usePartStudioStore.getState();
+    store.setDatumVisible('front', false);
+    store.clearDatumVisibilityOverrides();
+    expect(usePartStudioStore.getState().datum.visibilityOverrides).toEqual({});
+    // 有效值由 Session 的下一轮 sync 恢复；动作本身只清覆盖。
+    expect(usePartStudioStore.getState().datum.visibility.front).toBe(false);
   });
 });
 

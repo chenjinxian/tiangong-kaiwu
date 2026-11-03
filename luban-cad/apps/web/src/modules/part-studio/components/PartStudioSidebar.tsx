@@ -24,7 +24,6 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@itwin/itwinui-react';
 import {
   IModelApp,
   NotifyMessageDetails,
@@ -32,13 +31,8 @@ import {
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
-import {
-  SvgCopy,
-  SvgFolderImport,
-  SvgHierarchyTree,
-  SvgModel,
-} from '@itwin/itwinui-icons-react';
 import { FeatureTree } from '../tree/FeatureTree.js';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { TreeNode } from '../tree/TreeRow.js';
 import type { FeatureNode } from '../types.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
@@ -76,14 +70,6 @@ export interface PartStudioSidebarProps {
   canEdit?: boolean;
 }
 
-/** 图标条类别槽（壳期占位；labelKey 指向 partStudio.sidebar.rail.*）。 */
-const RAIL_ITEMS = [
-  { id: 'features', labelKey: 'partStudio.sidebar.rail.features', icon: <SvgHierarchyTree key="icon" /> },
-  { id: 'parts', labelKey: 'partStudio.sidebar.rail.parts', icon: <SvgModel key="icon" /> },
-  { id: 'assemblies', labelKey: 'partStudio.sidebar.rail.assemblies', icon: <SvgCopy key="icon" /> },
-  { id: 'import', labelKey: 'partStudio.sidebar.rail.import', icon: <SvgFolderImport key="icon" /> },
-] as const;
-
 export function PartStudioSidebar({
   entries,
   loading,
@@ -98,8 +84,6 @@ export function PartStudioSidebar({
   canEdit = true,
 }: PartStudioSidebarProps): React.JSX.Element {
   const { t } = useTranslation();
-  // 图标条选中态：壳期本地态（类别槽尚未接 ribbon；T4 起与工具类别联动）。
-  const [activeRail, setActiveRail] = React.useState<string>('features');
   const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
 
   // T6：树上「编辑…」→ FeatureDialog（store.dialog 寻址，画布内联渲染；
@@ -188,31 +172,7 @@ export function PartStudioSidebar({
 
   return (
     <aside className="part-studio-sidebar" data-testid="part-studio-sidebar">
-      {/* 窄图标条：工具类别槽（os-11 最左竖条） */}
-      <nav
-        className="part-studio-icon-rail"
-        data-testid="part-studio-icon-rail"
-        aria-label={t('partStudio.sidebar.railLabel')}
-      >
-        {RAIL_ITEMS.map((item) => (
-          <IconButton
-            key={item.id}
-            label={t(item.labelKey)}
-            styleType="borderless"
-            aria-pressed={activeRail === item.id}
-            className={
-              activeRail === item.id
-                ? 'part-studio-icon-rail__button part-studio-icon-rail__button--active'
-                : 'part-studio-icon-rail__button'
-            }
-            onClick={() => setActiveRail(item.id)}
-          >
-            {item.icon}
-          </IconButton>
-        ))}
-      </nav>
-
-      {/* 双段树（T5 起整树交 FeatureTree；M4-T6 起真数据源经 props 直通）。 */}
+      {/* 200px 树面板（Onshape 40px 面板选择条由 PartStudioPanelRail 独立承载）。 */}
       <FeatureTree
         entries={entries}
         loading={loading}
@@ -228,6 +188,16 @@ export function PartStudioSidebar({
         onSuppress={handleSuppress}
         canEdit={canEdit}
       />
+      {/* Onshape 树右缘收起钮（live：33×34，悬于画布左缘中部；本阶段 UI 占位）。 */}
+      <button
+        type="button"
+        className="part-studio-tree-toggle"
+        aria-label={t('partStudio.sidebar.toggleTree')}
+        title={t('partStudio.sidebar.toggleTree')}
+        data-testid="part-studio-tree-toggle"
+      >
+        <OnshapeIcon name="treelist-button" size={20} />
+      </button>
     </aside>
   );
 }

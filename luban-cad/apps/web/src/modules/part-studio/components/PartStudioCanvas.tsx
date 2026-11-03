@@ -35,10 +35,9 @@
  *   主动切换，收口语义保持 viewOnly 直读）；写动作门另走 canEdit（B2 只读
  *   写门禁：Session 单点下传直通 FeatureDialog，权限只读下 ✓ 禁用+诚实提示，
  *   提交不进租约环——两条语义线切分，勿在下游混读）；
- * - store.sketch.isActive 驱动草图模式覆盖层：栅格（aria-hidden 纯视觉层）+
- *   约束（role=note 标签层）；M6-b T5 起并挂 SketchPanel（草图模式面板：
- *   DOF 徽标/三清单/尺寸内联编辑/级联删除——Session 下传 sketchSystem，
- *   挂载位裁决见 SketchPanel 文件头）；
+ * - store.sketch.isActive 驱动草图模式覆盖层：约束提示（role=note 标签层）
+ *   + 值确认浮层（尺寸/偏移）；Onshape 无「实体/约束/尺寸清单」常驻面板
+ *   （2026-11-03 按 live 删除 SketchPanel）；
  * - 连接相位覆盖层（M5-T2）：briefcase 下载中骨架 / 失败错误面（Session 下传
  *   isLoading/error，此前零消费）——绝对定位叠加在 viewport 上（零布局跳动）；
  *   错误面透传 error.message 原文 + 诚实重试路径指引（重开=切页签/重进，
@@ -54,7 +53,7 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { deleteSelectedSubEntity } from '../canvas/subentity-delete.js';
 import type { CanvasSelection } from '../types.js';
@@ -62,11 +61,17 @@ import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
-import { SketchPanel } from './SketchPanel.js';
+import { SketchPlanePicker } from './SketchPlanePicker.js';
+import { SketchValuePopup } from './SketchValuePopup.js';
+import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
+import { clearActiveOnshapeSelection } from '../internal/onshape-selection-runtime.js';
+import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
 import { ViewCube } from './ViewCube.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
 import { useDatumPlaneDecorations } from '../hooks/useDatumPlaneDecorations.js';
+import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js';
+import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface PartStudioCanvasProps {
@@ -79,6 +84,8 @@ export interface PartStudioCanvasProps {
    * FeatureDialog new 模式提交消费；缺省=对话框回退纯回调壳期语义）。
    */
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
+  /** v1.21：预览 op（fillet 首切片返回后端影子求值几何；FeatureDialog 实时预览消费）。 */
+  previewOp?: (op: FeatureOp) => Promise<PreviewResult>;
   /** 写租约在持（Session useFeatureSystem.leaseOk 直通；FeatureDialog 租约警示消费，T6 评审 I-2）。 */
   leaseOk?: boolean;
   /**
@@ -123,13 +130,14 @@ export interface PartStudioCanvasProps {
   /** 连接失败消息（M5-T2：Session 合流下传——briefcase error 优先，viewport 创建失败兜底（T2 评审）；原文透传，null=无失败）。 */
   connectionError?: string | null;
   /**
-   * 草图系统（M6-b T5：Session useSketchSystem 直通——SketchPanel 数据面）。
-   * 缺省 undefined = 面板不渲染（壳期/纯展示语义；生产宿主 Session 恒显式
-   * 传参）。挂载位裁决见 SketchPanel 文件头。
+   * 草图系统（Session useSketchSystem 直通——值确认浮层/标注读面）。
+   * 缺省 undefined = 浮层不渲染（壳期/纯展示语义；生产宿主恒显式传参）。
    */
   sketchSystem?: UseSketchSystem;
   /** 显示/渲染设置（ViewCube 下拉与停靠面板共享状态）。 */
   displaySettings?: UseDisplaySettingsResult;
+  /** 特征树条目（2026-11-02：sketch params 自带 entities+plane，供非编辑态虚线叠加）。 */
+  featureEntries?: readonly FeatureTreeEntry[];
 }
 
 interface MenuAnchor {
@@ -141,6 +149,7 @@ export function PartStudioCanvas({
   viewportRef,
   viewport,
   applyOp,
+  previewOp,
   leaseOk,
   canEdit = true,
   sketches,
@@ -154,14 +163,57 @@ export function PartStudioCanvas({
   connectionError = null,
   sketchSystem,
   displaySettings,
+  featureEntries = [],
 }: PartStudioCanvasProps): React.JSX.Element {
   const { t } = useTranslation();
   useDatumPlaneDecorations(viewport);
+  const sketchActiveForDecorations = usePartStudioStore((s) => s.sketch.isActive);
+  const activeSketchIdForDecorations = usePartStudioStore((s) => s.sketch.activeSketchId);
+  useSketchCurveDecorations(viewport, featureEntries, sketchActiveForDecorations, activeSketchIdForDecorations);
+  // 2026-11-02 Onshape live：活动草图尺寸标注（长度/距离/半径）视口绘制。
+  const { annotations: sketchAnnotations } = useSketchAnnotations(
+    viewport,
+    sketchSystem?.activeSketch,
+    sketchActiveForDecorations && sketchSystem !== undefined,
+  );
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
+  /** 新建草图对话框的平面选择（视口/特征树共用；关闭即清）。 */
+  const [sketchDraftPlane, setSketchDraftPlane] = React.useState<'top' | 'front' | 'right' | null>(null);
 
   // T6：内联非模态对话框宿主（dialog 切片寻址）。
   const dialog = usePartStudioStore((s) => s.dialog);
   const closeDialog = usePartStudioStore((s) => s.closeDialog);
+  const selectedDatumId = usePartStudioStore((s) => s.datum.selectedId);
+  const selectDatum = usePartStudioStore((s) => s.selectDatum);
+
+  // 打开草图对话框重置平面选择；关闭时清空（下一次打开不继承旧面）。
+  React.useEffect(() => {
+    setSketchDraftPlane(null);
+  }, [dialog.active]);
+
+  // 特征树 Top/Front/Right 选择 = 草图平面选择（视口拾取同源；Origin 忽略）。
+  React.useEffect(() => {
+    if (dialog.active !== 'sketch') return;
+    const plane = selectedDatumId === 'top'
+      ? 'top'
+      : selectedDatumId === 'front'
+        ? 'front'
+        : selectedDatumId === 'right'
+          ? 'right'
+          : null;
+    if (plane) setSketchDraftPlane(plane);
+  }, [dialog.active, selectedDatumId]);
+
+  const handleSketchPlaneSelect = React.useCallback((plane: 'top' | 'front' | 'right') => {
+    setSketchDraftPlane(plane);
+    selectDatum(plane);
+  }, [selectDatum]);
+
+  const handleSketchDialogCancel = React.useCallback(() => {
+    setSketchDraftPlane(null);
+    selectDatum(null);
+    closeDialog();
+  }, [closeDialog, selectDatum]);
   // T6：草图模式覆盖层开关（os-30 栅格/约束）。
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
   // T6 评审 I-1：viewOnly 运行时切换 → 打开中的写面对话框整体收口（宿主职责）。
@@ -188,10 +240,35 @@ export function PartStudioCanvas({
   // 契约缺省 XY@z=0）。SketchDialog 已收口不改——平面经 onConfirm 载荷带出，
   // 宿主此处接线。
   const setActiveSketchPlane = usePartStudioStore((s) => s.setActiveSketchPlane);
+  const exitSketch = usePartStudioStore((s) => s.exitSketch);
+  const sketchActiveForDialog = usePartStudioStore((s) => s.sketch.isActive);
+  const activeSketchIdForDialog = usePartStudioStore((s) => s.sketch.activeSketchId);
+  const activeSketchPlaneForDialog = usePartStudioStore((s) => s.sketch.activeSketchPlane);
   const handleSketchConfirm = React.useCallback((result?: SketchDialogResult) => {
+    // Onshape：同一个草图对话框既是创建框也是编辑框。创建成功后对话框
+    // **不关闭**，切到编辑态；再次 ✓ = 完成并退出草图。
+    if (sketchActiveForDialog) {
+      exitSketch();
+      setActiveSketchPlane(null);
+      setSketchDraftPlane(null);
+      selectDatum(null);
+      closeDialog();
+      return;
+    }
     setActiveSketchPlane(result ? sketchPlaneFromOption(result.plane) ?? null : null);
-    closeDialog();
-  }, [closeDialog, setActiveSketchPlane]);
+    const plane = result?.plane;
+    if (plane === 'top' || plane === 'front' || plane === 'right') setSketchDraftPlane(plane);
+    // 保持 dialog.active='sketch'：下一步渲染为同一对话框的编辑态。
+  }, [closeDialog, exitSketch, selectDatum, setActiveSketchPlane, sketchActiveForDialog]);
+
+  // 编辑既有草图（树双击/菜单）时：按落库平面回显到对话框字段。
+  React.useEffect(() => {
+    if (!sketchActiveForDialog || dialog.active !== 'sketch') return;
+    const plane = datumPlaneFromSketch(activeSketchPlaneForDialog);
+    if (plane === 'top' || plane === 'front' || plane === 'right') setSketchDraftPlane(plane);
+  }, [dialog.active, sketchActiveForDialog, activeSketchIdForDialog, activeSketchPlaneForDialog]);
+
+  const dialogSketchId = dialog.active === 'sketch' ? dialog.sketchId : undefined;
 
   /**
    * B6 M-A5 T2：画布 body 删除接线（Task 1 选中桥落地后不留死路）。删除回调
@@ -264,28 +341,27 @@ export function PartStudioCanvas({
   );
 
   /**
-   * M-A5.2 T5：面/边「选中所属实体」宿主动作——切回 body 模式（退出子实体
-   * 工具/清空子实体选择）、树选中 owner、SelectionSet 同步 owner。选择模式
-   * 切回 body 后由 useCanvasBodySelection 桥接管后续画布选择。
+   * M-A5.2 T5：面/边「选中所属实体」宿主动作——清空当前子实体选择、树选中
+   * owner、SelectionSet 同步 owner。后续画布选择由默认 Onshape 选择工具接管。
    */
   const handleSelectOwner = React.useCallback((bodyKey: string): void => {
+    clearActiveOnshapeSelection();
     const store = usePartStudioStore.getState();
-    store.setSelectionMode('body');
     store.setSelectedNodeIds([bodyKey]);
     connection?.selectionSet?.replace([bodyKey]);
   }, [connection]);
 
   /**
    * M-A5.2 T5：面/边删除（HITL 已确认）——用选择条目的会话级 cacheId 调
-   * editor SolidModelingCommand.deleteSubEntities，saveChanges 后退出选择模式。
-   * 失败保持模式（可重拾），Error toast 透出后端/内核原文。
+   * editor SolidModelingCommand.deleteSubEntities，saveChanges 后清空选择。
+   * 失败保持选择（可重拾），Error toast 透出后端/内核原文。
    */
   const handleDeleteSubEntity = React.useCallback(
     async (selection: readonly CanvasSelection[]): Promise<void> => {
       if (!canEdit || !connection) return;
       try {
         await deleteSelectedSubEntity(connection, selection);
-        usePartStudioStore.getState().setSelectionMode('body');
+        clearActiveOnshapeSelection();
         IModelApp.notifications.outputMessage(
           new NotifyMessageDetails(
             OutputMessagePriority.Success,
@@ -316,6 +392,29 @@ export function PartStudioCanvas({
     >
       <div ref={viewportRef} className="part-studio-viewport" data-testid="part-studio-viewport" />
       <ViewCube viewport={viewport} displaySettings={displaySettings} />
+
+      {/* 新建草图：Onshape 风格平面视口拾取 + 顶部「选择草图平面」提示条。
+          监听挂在 iTwin canvas，不阻挡旋转/缩放；树 Top/Front/Right 同样可选。 */}
+      {dialog.active === 'sketch' && viewport && (
+        <SketchPlanePicker
+          viewport={viewport}
+          selected={sketchDraftPlane}
+          onSelect={handleSketchPlaneSelect}
+        />
+      )}
+      {dialog.active === 'sketch' && sketchDraftPlane === null && (
+        <div className="part-studio-plane-prompt" data-testid="sketch-plane-prompt" role="note">
+          <span>{t('partStudio.sketchDialog.planePrompt')}</span>
+          <button
+            type="button"
+            className="part-studio-plane-prompt__close"
+            aria-label={t('partStudio.sketchDialog.cancel')}
+            onClick={handleSketchDialogCancel}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* 连接相位覆盖层（M5-T2）：briefcase 失败错误面 / 下载中骨架。绝对定位
           叠加（z-index 低于草图覆盖层），viewport 区无重排——零布局跳动。错误
@@ -348,24 +447,37 @@ export function PartStudioCanvas({
         </div>
       ) : null}
 
-      {/* T6 草图模式覆盖层（os-30）：栅格（纯视觉）+ 约束（标签）。 */}
+      {/* T6 草图模式覆盖层（os-30）：仅约束标签。2026-11-02 渲染对齐：
+          Onshape 草图不铺屏幕栅格，删除原纯视觉 24px lattice 覆盖层。 */}
       {sketchActive && (
-        <React.Fragment>
-          <div className="part-studio-canvas__sketch-grid" data-testid="sketch-grid-overlay" aria-hidden="true" />
-          <div
-            className="part-studio-canvas__sketch-constraints"
-            data-testid="sketch-constraints-overlay"
-            role="note"
-          >
-            {t('partStudio.sketch.constraintsOverlay')}
-          </div>
-        </React.Fragment>
+        <div
+          className="part-studio-canvas__sketch-constraints"
+          data-testid="sketch-constraints-overlay"
+          role="note"
+        >
+          {t('partStudio.sketch.constraintsOverlay')}
+        </div>
       )}
 
-      {/* M6-b T5：草图模式面板（DOF 徽标/三清单/尺寸内联编辑/级联删除）——
-          画布左上覆盖层（挂载位裁决见 SketchPanel 文件头）。sketchSystem
-          缺省（壳期/纯展示）不渲染。 */}
-      {sketchActive && sketchSystem && <SketchPanel sketchSystem={sketchSystem} />}
+      {/* 2026-11-02 Onshape live：尺寸标注 DOM 观测面（绘制由 viewer 装饰器
+          完成；这里只暴露数量/文本给 e2e，视觉隐藏不占布局）。 */}
+      {sketchActive && (
+        <div
+          className="part-studio-canvas__sketch-annotations"
+          data-testid="sketch-annotations"
+          data-count={sketchAnnotations.length}
+          data-labels={sketchAnnotations.map((annotation) => annotation.text).join('|')}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* 2026-11-02 Onshape live：光标旁阶段提示 + 实时尺寸（线长/角度、
+          矩形宽高、圆/弧半径）。pointer-events:none，不挡拾取。 */}
+      {sketchActive && <SketchToolFeedbackOverlay />}
+
+      {/* Onshape：草图模式没有常驻「实体/约束/尺寸清单」面板。尺寸与偏移的
+          值确认改为在标注/定侧位置弹出的浮层。 */}
+      {sketchActive && sketchSystem && <SketchValuePopup sketchSystem={sketchSystem} />}
 
       <CanvasContextMenu
         anchor={anchor}
@@ -394,30 +506,41 @@ export function PartStudioCanvas({
               ? dialog.featureName
               : t(`partStudio.ribbon.tools.${dialog.featureType}.label`)
           }
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           mode={dialog.mode}
-          featureType={dialog.mode === 'edit' ? undefined : dialog.featureType}
+          // 编辑模式也必须知道特征类型（按类型回显/提交 updateParams）。
+          featureType={dialog.featureType as LubanFeatureType | undefined}
           initialPatternKind={dialog.mode === 'edit' ? undefined : dialog.patternKind}
           applyOp={applyOp}
+          previewOp={previewOp}
           leaseOk={leaseOk}
           canEdit={canEdit}
           sketches={sketches}
+          connection={connection}
           connectionKey={connection?.key}
           hasBodies={hasBodies}
           bodies={bodies}
           bodiesLoading={bodiesLoading}
           bodiesError={bodiesError}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          viewport={viewport}
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />
       )}
       {dialog.active === 'sketch' && (
         <SketchDialog
-          sketchId={dialog.sketchId ?? undefined}
+          sketchId={dialogSketchId ?? activeSketchIdForDialog ?? undefined}
+          editing={sketchActiveForDialog}
+          planeId={sketchDraftPlane}
+          onPlaneChange={(plane) => {
+            setSketchDraftPlane(plane);
+            selectDatum(plane);
+          }}
           applyOp={applyOp}
           canEdit={canEdit}
           onConfirm={handleSketchConfirm}
-          onCancel={closeDialog}
+          onCancel={handleSketchDialogCancel}
         />
       )}
     </div>

@@ -1,0 +1,20 @@
+/* 草图面域视口拾取高亮（2026-11-02 Onshape live）。不挡原生视图操作。 */
+.part-studio-profile-picker {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+}
+
+.part-studio-profile-picker__marker {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+  pointer-events: none;
+}

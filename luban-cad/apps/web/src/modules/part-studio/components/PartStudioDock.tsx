@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge, Button, ProgressRadial, Text } from '@itwin/itwinui-react';
 import { SvgSave, SvgUploadToCloud } from '@itwin/itwinui-icons-react';
 import type { Changeset } from '@clients/imodels/ImodelsClient.js';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import { useChangesets } from '../hooks/useChangesets.js';
 import { useNamedVersions } from '../hooks/useNamedVersions.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
@@ -32,11 +33,20 @@ import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
 import { DisplaySettingsPanel } from './DisplaySettingsPanel.js';
 import './PartStudioDock.css';
 
-/** 停靠页签在册（id 即 DockTab；labelKey 指向 partStudio.dock.tabs.*）。 */
-const DOCK_TABS: { id: DockTab; labelKey: string }[] = [
-  { id: 'toolSettings', labelKey: 'partStudio.dock.tabs.toolSettings' },
-  { id: 'history', labelKey: 'partStudio.dock.tabs.history' },
-  { id: 'display', labelKey: 'partStudio.dock.tabs.display' },
+/** Onshape 右缘 5 钮（live：appearances / configuration-table / featurescript-table /
+ * model-based-definition / variable-table）。appearances 接既有显示设置面板；
+ * 其余为 Onshape UI 占位（保留按钮与图标，不实现行为）。 */
+const DOCK_PALETTE: {
+  id: string;
+  labelKey: string;
+  icon: 'appearances-button' | 'configuration-table-button' | 'featurescript-table-button' | 'model-based-definition' | 'variable-table-button';
+  tab?: DockTab;
+}[] = [
+  { id: 'appearances', labelKey: 'partStudio.dock.tabs.appearances', icon: 'appearances-button', tab: 'display' },
+  { id: 'configurations', labelKey: 'partStudio.dock.tabs.configurations', icon: 'configuration-table-button' },
+  { id: 'featurescript-table', labelKey: 'partStudio.dock.tabs.featurescriptTable', icon: 'featurescript-table-button' },
+  { id: 'model-based-definition', labelKey: 'partStudio.dock.tabs.modelBasedDefinition', icon: 'model-based-definition' },
+  { id: 'variable-table', labelKey: 'partStudio.dock.tabs.variableTable', icon: 'variable-table-button' },
 ];
 
 export interface PartStudioDockProps {
@@ -72,8 +82,9 @@ export function PartStudioDock({
   const openDock = usePartStudioStore((s) => s.openDock);
   const closeDock = usePartStudioStore((s) => s.closeDock);
 
-  const handleTabClick = React.useCallback(
-    (tab: DockTab) => {
+  const handlePaletteClick = React.useCallback(
+    (tab?: DockTab) => {
+      if (!tab) return; // Onshape UI 占位（未实现，点击无行为）
       // Onshape 语义：点非活动页签→切换并展开；点活动页签→收合。
       if (tab === activeTab && isOpen) {
         closeDock();
@@ -87,25 +98,30 @@ export function PartStudioDock({
 
   return (
     <aside className="part-studio-dock" data-testid="part-studio-dock">
-      <div role="tablist" aria-orientation="vertical" className="part-studio-dock__tabs">
-        {DOCK_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            id={`part-studio-dock-tab-${tab.id}`}
-            aria-selected={activeTab === tab.id}
-            aria-controls="part-studio-dock-body"
-            className={
-              activeTab === tab.id && isOpen
-                ? 'part-studio-dock__tab part-studio-dock__tab--active'
-                : 'part-studio-dock__tab'
-            }
-            onClick={() => handleTabClick(tab.id)}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
+      <div className="part-studio-dock__tabs">
+        {DOCK_PALETTE.map((item) => {
+          const active = item.tab !== undefined && activeTab === item.tab && isOpen;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              id={`part-studio-dock-tab-${item.tab ?? item.id}`}
+              aria-label={t(item.labelKey)}
+              title={t(item.labelKey)}
+              aria-pressed={active}
+              aria-controls={item.tab ? 'part-studio-dock-body' : undefined}
+              className={
+                active
+                  ? 'part-studio-dock__tab part-studio-dock__tab--active'
+                  : 'part-studio-dock__tab'
+              }
+              onClick={() => handlePaletteClick(item.tab)}
+              data-testid={`part-studio-dock-tab-${item.id}`}
+            >
+              <OnshapeIcon name={item.icon} size={20} />
+            </button>
+          );
+        })}
       </div>
       {isOpen && (
         <div
@@ -113,7 +129,8 @@ export function PartStudioDock({
           data-testid="part-studio-dock-body"
           role="tabpanel"
           id="part-studio-dock-body"
-          aria-labelledby={`part-studio-dock-tab-${activeTab}`}
+          aria-labelledby={activeTab === 'display' ? 'part-studio-dock-tab-display' : undefined}
+          aria-label={activeTab === 'history' ? t('partStudio.dock.tabs.history') : undefined}
         >
           {activeTab === 'history' ? (
             <ChangesetsPanel

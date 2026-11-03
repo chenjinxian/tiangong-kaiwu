@@ -55,9 +55,10 @@ describe('M4-T8 T3-①：logo 渐变令牌化（token guard）', () => {
 });
 
 describe('M4-T8 D2：分享钮形态（非全高直角）', () => {
-  it('分享钮规则限高 + 圆角（os-11 小圆角钮，不再被 Header actions 拉伸为全高方块）', () => {
+  it('分享钮规则限高 + 小圆角（2026-11-02 Onshape live：34px 高 / 3px 圆角 / 14px 字）', () => {
     const block = ruleBlock(partStudioCss, '.part-studio-share-button');
-    expect(block).toMatch(/block-size:\s*var\(--lx-control-height\)/);
-    expect(block).toMatch(/border-radius:\s*var\(--lx-radius\)/);
+    expect(block).toMatch(/block-size:\s*34px/);
+    expect(block).toMatch(/border-radius:\s*3px/);
+    expect(block).toMatch(/font-size:\s*14px/);
   });
 });

@@ -284,9 +284,11 @@ test('视觉钉版：编辑器五区 B 默认页签（亮色，画布 mask）', 
   await waitEditorReady(page);
   await expect(page.getByTestId('part-studio-readonly-banner')).toHaveCount(0);
   const tabStrip = page.getByTestId('part-studio-tab-strip');
-  await expect(tabStrip.getByRole('tab')).toHaveCount(1);
-  await expect(tabStrip.getByRole('tab').first()).toHaveText('Part Studio 1');
-  await expect(tabStrip.getByRole('tab').first()).toHaveAttribute('aria-selected', 'true');
+  // Onshape 壳：文档级页签 + Part Studio 页签（活动后者）。
+  await expect(tabStrip.getByRole('tab')).toHaveCount(2);
+  await expect(tabStrip.getByTestId('part-studio-doc-tab')).toBeVisible();
+  const activeTab = tabStrip.getByRole('tab', { name: 'Part Studio 1' });
+  await expect(activeTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('part-studio-viewport').locator('canvas').first()).toBeVisible();
   // P2.6c2 F3：连接级可写位显式断言；零件段（getBodies 异步读面）落定后再截图
   // ——快照声明 `零件 (1) Body 1`，未等待时慢栈可能截到 `零件 (0) / 暂无零件`。

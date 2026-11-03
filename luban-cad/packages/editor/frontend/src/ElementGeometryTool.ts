@@ -8,7 +8,7 @@
  */
 
 import { Id64, Id64Arg, Id64Array, Id64String } from "@itwin/core-bentley";
-import { FeatureAppearance, FeatureAppearanceProvider, RgbColor } from "@itwin/core-common";
+import { ColorDef, FeatureAppearance, FeatureAppearanceProvider, RgbColor } from "@itwin/core-common";
 import {
   AccuDrawHintBuilder, BeButtonEvent, BeModifierKeys, CoordinateLockOverrides, CoordSource, CoreTools, DecorateContext, DynamicsContext,
   ElementSetTool, EventHandled, FeatureOverrideProvider, FeatureSymbology, GraphicBranch, GraphicBranchOptions, GraphicType, HitDetail, IModelApp,
@@ -85,6 +85,10 @@ export class ElementGeometryGraphicsProvider {
   }
 }
 
+/** 子实体高亮蓝（Onshape 悬停/选中观感；RgbColor 由 ColorDef 转换，保持 sRGB 通道）。 */
+const SUBENTITY_HOVER_RGB = RgbColor.fromColorDef(ColorDef.from(64, 150, 255)); // #4096ff
+const SUBENTITY_ACCEPTED_RGB = RgbColor.fromColorDef(ColorDef.from(30, 108, 224)); // #1e6ce0
+
 /** @alpha */
 export function isSameSubEntity(a: SubEntityProps, b: SubEntityProps): boolean {
   if (a.type !== b.type)
@@ -100,6 +104,13 @@ export function isSameSubEntity(a: SubEntityProps, b: SubEntityProps): boolean {
 export class SubEntityData {
   public toolData?: any;
   public chordTolerance?: number;
+  /** 工具级高亮色覆盖（缺省=品牌蓝；特征对话框圆角选边按 Onshape 橙色）。 */
+  public highlightRgb?: RgbColor;
+  /**
+   * 高亮图形朝相机方向的世界偏移（像素；缺省 3）。实心结果预览与源体共面时
+   * 3px 深度偏移会被预览边线压住，圆角选边需要更大偏移才能保持可见（2026-11-02）。
+   */
+  public displayOffsetPixels = 3;
 
   private _props: SubEntityProps;
   private _geometry?: SubEntityGeometryProps;
@@ -118,27 +129,28 @@ export class SubEntityData {
 
   public isSame(other: SubEntityProps): boolean { return isSameSubEntity(this._props, other); }
 
-  public getAppearance(vp: Viewport, accepted: boolean): FeatureAppearance {
-    const color = vp.hilite.color;
-    const rgb = RgbColor.fromColorDef(accepted ? color.inverse() : color);
-    const transparency = 0.25;
-    const emphasized = true; // Necessary for obscured sub-entities w/SceneGraphic...
+  public getAppearance(_vp: Viewport, accepted: boolean): FeatureAppearance {
+    // 2026-11-02 Onshape 对齐：悬停/选中统一为品牌蓝，而不是 iTwin 缺省青或
+    // “选中=inverse 色 + emphasized 黑描边”（旧观感在深灰面上像黑色粗条）。
+    // 不启用 emphasized：Onshape 的子实体高亮是彩色几何本体，不是黑色轮廓。
+    const rgb = this.highlightRgb ?? (accepted ? SUBENTITY_ACCEPTED_RGB : SUBENTITY_HOVER_RGB);
+    const transparency = accepted ? 0.12 : 0.22;
     let weight;
 
     switch (this.props.type) {
       case SubEntityType.Face:
         break;
       case SubEntityType.Edge:
-        const edgeWeight = accepted ? 1 : 3;
+        const edgeWeight = accepted ? 3 : 2;
         weight = this._geometry?.appearance?.weight ? Math.min(this._geometry.appearance.weight + edgeWeight, 31) : edgeWeight;
         break;
       case SubEntityType.Vertex:
-        const vertexWeight = accepted ? 8 : 10;
+        const vertexWeight = accepted ? 12 : 10;
         weight = this._geometry?.appearance?.weight ? Math.min(this._geometry.appearance.weight + vertexWeight, 31) : vertexWeight;
         break;
     }
 
-    return FeatureAppearance.fromJSON({ rgb, transparency, weight, emphasized, nonLocatable: true });
+    return FeatureAppearance.fromJSON({ rgb, transparency, weight, nonLocatable: true });
   }
 
   public async createGraphic(iModel: IModelConnection): Promise<boolean> {
@@ -169,7 +181,7 @@ export class SubEntityData {
     const range = (this._geometry?.range ? Range3d.fromJSON(this._geometry.range) : undefined);
     const pixelSize = context.viewport.getPixelSizeAtPoint(range ? range.center : undefined);
     const offsetDir = context.viewport.view.getZVector();
-    offsetDir.scaleToLength(3 * pixelSize, offsetDir);
+    offsetDir.scaleToLength(this.displayOffsetPixels * pixelSize, offsetDir);
     const offsetTrans = Transform.createTranslation(offsetDir);
 
     const appearanceProvider = FeatureAppearanceProvider.supplement((app: FeatureAppearance) => {
@@ -841,8 +853,10 @@ export abstract class LocateSubEntityTool extends ElementGeometryCacheTool {
         wantGraphic: true,
         wantRange: true,
         wantAppearance: true,
-        // 2026-11-03：世界几何按需读取——只有显式 opt-in 的工具（圆角选边
-        // 橙色 x-ray 覆盖层）需要，其余工具省掉几何负载。
+        // 2026-11-02：圆角选边橙色 x-ray 覆盖层需要世界系几何条目（悬停/已选
+        // 边在源体透明/隐藏时仍可见）；此前只取 graphic，几何条目恒缺省。
+        // 2026-11-03：按需读取——只有显式 opt-in 的工具有此需求，其余工具省掉
+        // 世界几何负载。
         wantGeometry: this.wantSubEntityGeometry ? true : undefined,
         chordTolerance,
       };

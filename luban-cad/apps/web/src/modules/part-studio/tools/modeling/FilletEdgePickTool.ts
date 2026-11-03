@@ -35,11 +35,14 @@
  * （子类拓宽 protected 触达，SketchCreateTool.test 先例）；真栈验证归 T7。
  */
 
-import { EventHandled, IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
-import type { BeButtonEvent } from '@itwin/core-frontend';
+import { ColorDef, ElementGeometry, RgbColor } from '@itwin/core-common';
+import type { CurveCollection } from '@itwin/core-geometry';
+import { EventHandled, GraphicType, IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
+import type { BeButtonEvent, DecorateContext } from '@itwin/core-frontend';
 import { SubEntityType } from '@itwin/editor-common';
 import type { ElementGeometryCacheFilter, SubEntityFilter, SubEntityLocationProps, SubEntityProps } from '@itwin/editor-common';
 import { LocateSubEntityTool } from '@itwin/editor-frontend';
+import type { SubEntityData } from '@itwin/editor-frontend';
 import i18next from 'i18next';
 import type { FilletEdgeRef } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
@@ -60,9 +63,24 @@ export interface FilletEdgePickToolOptions {
   onEdgeRemoved?: (ref: FilletEdgeRef, ownerElementId: ElementId) => void;
   /** 边引用换算失败等错误回报（对话框 toast 呈现；文案已本地化）。 */
   onError?: (message: string) => void;
-  /** 拾取会话结束（右键/Esc/宿主 stop 触发工具退出）——对话框回非拾取态。 */
+  /** 主动结束拾取（右键/再点「结束拾取」）：工具仍驻留，已选边高亮保留到对话框关闭。 */
+  onPickingSuspended?: () => void;
+  /** 从挂起态恢复拾取（再次「添加边」）。 */
+  onPickingResumed?: () => void;
+  /** 拾取会话真正销毁（对话框关闭/宿主 stop）——高亮随之清除。 */
   onEnded?: () => void;
 }
+
+/**
+ * Onshape 圆角选择高亮橙（live 截图实测核心 ≈ #EBA93D；取品牌橙 #F5A623，
+ * 与预览选中面域同色）——不是通用选择的品牌蓝，圆角工具内覆盖。
+ */
+const FILLET_EDGE_ORANGE = RgbColor.fromColorDef(ColorDef.from(0xf5, 0xa6, 0x23));
+/**
+ * 已选边高亮朝相机的屏幕偏移；实心圆角结果预览与源体共面，需要大于基座缺省
+ * 3px 才能保持橙色可见（2026-11-02 演示反馈）。
+ */
+const FILLET_EDGE_HIGHLIGHT_OFFSET_PX = 10;
 
 /** 拾取键（elementId:cacheSubEntityId）→ 已换算 ref 的会话映射（removeSubEntity 反查）。 */
 type PickRefMap = Map<string, FilletEdgeRef>;
@@ -83,10 +101,47 @@ export class FilletEdgePickTool extends LocateSubEntityTool {
 
   private readonly _options: FilletEdgePickToolOptions;
   private readonly _pickRefs: PickRefMap = new Map();
+  /** false=已结束拾取但工具仍驻留，保留 accepted 边高亮直到对话框关闭。 */
+  private _picking = true;
 
   constructor(options: FilletEdgePickToolOptions) {
     super();
     this._options = options;
+  }
+
+  /** 挂起拾取（右键/结束拾取钮）：清 hover，保留已选边高亮与几何缓存。 */
+  public suspendPicking(): void {
+    if (!this._picking) return;
+    this._picking = false;
+    this.clearCurrentSubEntity();
+    IModelApp.viewManager.invalidateDecorationsAllViews();
+    this._options.onPickingSuspended?.();
+  }
+
+  /** 恢复拾取（对话框「添加边」再点）；沿用既有缓存与已选边。 */
+  public resumePicking(): void {
+    if (this._picking) return;
+    this._picking = true;
+    this.initLocateElements(true, false);
+    this.setupAndPromptForNextAction();
+    IModelApp.notifications.outputPrompt(i18next.t('partStudio.filletPick.prompt'));
+    IModelApp.viewManager.invalidateDecorationsAllViews();
+    this._options.onPickingResumed?.();
+  }
+
+  /** 挂起态不更新 hover 命中；已选边仍由基座 decorate 绘制。 */
+  protected override async updateGraphic(ev: BeButtonEvent, isDynamics: boolean): Promise<void> {
+    if (!this._picking) {
+      this.clearCurrentSubEntity();
+      return;
+    }
+    return super.updateGraphic(ev, isDynamics);
+  }
+
+  /** 挂起态点击画布不增加边（对话框仍可编辑参数）。 */
+  public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
+    if (!this._picking) return EventHandled.Yes;
+    return super.onDataButtonDown(ev);
   }
 
   /** 只读拾取（无写入面——不进 requireWriteableTarget 检查；旧 SelectSubEntityTool 同口径）。 */
@@ -132,9 +187,71 @@ export class FilletEdgePickTool extends LocateSubEntityTool {
     return Number.POSITIVE_INFINITY;
   }
 
+  /**
+   * 圆角选边橙色覆盖层（2026-11-02）：基座高亮图形挂在源元素 id 上，源体为
+   * 实心结果预览而透明/隐藏时橙色会一并消失。这里直接把缓存的子实体几何
+   * （世界系 ElementGeometryDataEntry）重画为 WorldOverlay 橙线——x-ray，
+   * 不受源体显隐/深度影响，和 Onshape 已选边高亮同姿态。
+   */
+  protected override drawSubEntity(context: DecorateContext, subEntity: SubEntityData, accepted: boolean): void {
+    if (this.drawEdgeOverlay(context, subEntity)) return;
+    super.drawSubEntity(context, subEntity, accepted);
+  }
+
+  private drawEdgeOverlay(context: DecorateContext, subEntity: SubEntityData): boolean {
+    const entry = subEntity.geometry?.geometry;
+    if (!entry) return false;
+    try {
+      const iterator = new ElementGeometry.Iterator({ entryArray: [entry] });
+      const builder = context.createGraphic({ type: GraphicType.WorldOverlay });
+      const orange = ColorDef.from(0xf5, 0xa6, 0x23);
+      builder.setSymbology(orange, orange, 3);
+      let added = false;
+      for (const item of iterator) {
+        const geometry = item.toGeometryQuery();
+        if (!geometry) continue;
+        type CurveArg = Parameters<typeof builder.addCurvePrimitive>[0];
+        if (geometry.geometryCategory === 'curvePrimitive') {
+          builder.addCurvePrimitive(geometry as unknown as CurveArg);
+          added = true;
+        } else if (geometry.geometryCategory === 'curveCollection') {
+          const children = (geometry as CurveCollection).children ?? [];
+          for (const child of children)
+            builder.addCurvePrimitive(child as unknown as CurveArg);
+          added = children.length > 0;
+        }
+      }
+      if (!added) return false;
+      context.addDecorationFromBuilder(builder);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Onshape 圆角规则：悬停/已选边均为橙色（不是通用选择的品牌蓝）。 */
+  protected override async setCurrentSubEntity(
+    id: ElementId,
+    hit: SubEntityLocationProps,
+    chordTolerance?: number,
+  ): Promise<boolean> {
+    const result = await super.setCurrentSubEntity(id, hit, chordTolerance);
+    if (this._currentSubEntity) {
+      this._currentSubEntity.highlightRgb = FILLET_EDGE_ORANGE;
+      this._currentSubEntity.displayOffsetPixels = FILLET_EDGE_HIGHLIGHT_OFFSET_PX;
+    }
+    return result;
+  }
+
   /** 拾得一条边：高亮先落（拾取反馈不等 RPC），换算成功才回报 chips。 */
   protected override async addSubEntity(id: ElementId, props: SubEntityLocationProps): Promise<void> {
     await super.addSubEntity(id, props);
+    // 已选边橙显（基座把刚拾的边追加到 _acceptedSubEntities 尾部）。
+    const accepted = this.getAcceptedSubEntityData(-1);
+    if (accepted) {
+      accepted.highlightRgb = FILLET_EDGE_ORANGE;
+      accepted.displayOffsetPixels = FILLET_EDGE_HIGHLIGHT_OFFSET_PX;
+    }
 
     const ref = await this.resolvePickedEdge(id, props.subEntity.id);
     if (undefined === ref) {
@@ -163,14 +280,15 @@ export class FilletEdgePickTool extends LocateSubEntityTool {
     this._options.onEdgeRemoved?.(ref, id);
   }
 
-  /** 右键=结束拾取（对话框驱动裁决；不沿用基座右键换.hit 语义）。 */
+  /** 右键=结束拾取但保留高亮（Onshape：对话框开着时已选边持续蓝显）。 */
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
-    await this.exitTool();
+    this.suspendPicking();
     return EventHandled.Yes;
   }
 
-  /** 会话结束（三通道汇合点：右键/Esc→exitTool、宿主 stop、框架替换）：回调对话框。 */
+  /** 会话真正结束（对话框关闭/宿主 stop/框架替换）：清高亮并回调。 */
   public override async onCleanup(): Promise<void> {
+    this._picking = false;
     await super.onCleanup(); // 基座清元素几何缓存+高亮——cache id 全失效（换算已即时落袋）
     this._pickRefs.clear();
     this._options.onEnded?.();

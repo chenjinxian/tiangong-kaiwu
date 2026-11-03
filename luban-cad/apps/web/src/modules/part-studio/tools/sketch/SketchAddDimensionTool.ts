@@ -31,6 +31,8 @@ import { resolveNearestPick } from './sketch-constraint-logic.js';
 import type { SketchPick, SketchPickKind } from './sketch-constraint-logic.js';
 import { sketchToolEvents } from './sketch-tool-events.js';
 import type { SketchDimensionCandidate, SketchDimensionKind } from './sketch-tool-events.js';
+import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
+import { registerUnifiedDimensionTool } from './SketchDimensionTool.js';
 
 export { sketchToolEvents } from './sketch-tool-events.js';
 export type { SketchDimensionCandidate, SketchDimensionKind } from './sketch-tool-events.js';
@@ -91,6 +93,10 @@ export abstract class SketchAddDimensionTool extends PrimitiveTool {
   private _picks: SketchPick[] = [];
   /** 草图平面架（onPostInstall 解析：store 当前活动草图 plane → 缺省 XY@z=0）。 */
   private _plane!: SketchPlaneFrame;
+  /** 光标视口坐标（标注提示跟随光标）。 */
+  private _cursorView?: { x: number; y: number };
+  /** 当前阶段提示文本（onMouseMotion 重发）。 */
+  private _hintText?: string;
 
   public override requireWriteableTarget(): boolean { return true; }
 
@@ -100,6 +106,18 @@ export abstract class SketchAddDimensionTool extends PrimitiveTool {
     this._plane = resolveSketchPlaneFrame();
     this.initLocateElements(false, true);
     this._outputPrompt(pickDimensionPrompt(this.dimensionKind, 0));
+  }
+
+  public override async onCleanup(): Promise<void> {
+    clearSketchToolFeedback(this.toolId);
+    await super.onCleanup();
+  }
+
+  public override async onMouseMotion(ev: BeButtonEvent): Promise<void> {
+    await super.onMouseMotion(ev);
+    this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
+    if (this._hintText)
+      publishSketchToolHint(this.toolId, this._hintText, this._cursorView);
   }
 
   public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
@@ -172,7 +190,11 @@ export abstract class SketchAddDimensionTool extends PrimitiveTool {
   protected abstract createInstance(): SketchAddDimensionTool;
 
   private _outputPrompt(prompt: { key: string; params: Record<string, unknown> }): void {
-    IModelApp.notifications.outputPrompt(i18next.t(prompt.key, prompt.params));
+    const text = i18next.t(prompt.key, prompt.params);
+    this._hintText = text;
+    IModelApp.notifications.outputPrompt(text);
+    if (this._cursorView)
+      publishSketchToolHint(this.toolId, text, this._cursorView);
   }
 
   private _notify(message: string, priority: OutputMessagePriority): void {
@@ -211,6 +233,9 @@ export class LengthAddTool extends SketchAddDimensionTool {
 let dimensionToolsRegistered = false;
 export function registerSketchDimensionTools(): void {
   if (dimensionToolsRegistered) return;
+  // Onshape 单尺寸按钮（ribbon 只暴露这一个）；旧三工具保留注册以兼容历史
+  // toolId/AI 入口，但不再有飞菜单。
+  registerUnifiedDimensionTool();
   IModelApp.tools.register(DistanceAddTool);
   IModelApp.tools.register(RadiusAddTool);
   IModelApp.tools.register(LengthAddTool);

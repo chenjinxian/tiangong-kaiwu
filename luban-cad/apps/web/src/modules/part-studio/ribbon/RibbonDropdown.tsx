@@ -16,9 +16,10 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { DropdownMenu, IconButton, MenuItem } from '@itwin/itwinui-react';
-import { SvgChevronDown } from '@itwin/itwinui-icons-react';
+import { DropdownMenu, MenuItem } from '@itwin/itwinui-react';
 import { isGated } from '../internal/capabilities.js';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
+import { onshapeIconFor } from './ribbon-registry.js';
 import type { RibbonTool } from './ribbon-registry.js';
 
 export interface RibbonDropdownProps {
@@ -46,16 +47,18 @@ export function RibbonDropdown({
   const { t } = useTranslation();
   const label = t(tool.labelKey);
   const MainIcon = tool.icon;
+  const mainOnshapeIcon = onshapeIconFor(tool.id);
 
   // 菜单子项模型 → iTwinUI MenuItem（点击自动收合：DropdownMenu
   // closeOnItemClick 缺省 true）。F11：disabled 逐子项按 capability 计算，
   // 不继承父工具的只读门（父 full 的飞菜单里可能有 gated 信息面）。
   const menuItems = (tool.dropdownItems ?? []).map((item) => {
     const ItemIcon = item.icon;
+    const itemOnshapeIcon = onshapeIconFor(item.id);
     return (
       <MenuItem
         key={item.id}
-        icon={<ItemIcon />}
+        icon={itemOnshapeIcon ? <OnshapeIcon name={itemOnshapeIcon} size={18} /> : <ItemIcon />}
         disabled={readOnly && !isGated(item.capability)}
         onClick={() => onActivate(item.id)}
       >
@@ -73,18 +76,17 @@ export function RibbonDropdown({
   return (
     <div className="part-studio-ribbon__dropdown" data-testid={`part-studio-ribbon-dropdown-${tool.id}`}>
       {/* 主钮：激活父命令（默认变体）。title 对齐 os-11「名称 (快捷键)」。 */}
-      <IconButton
-        size="small"
-        styleType="borderless"
+      <button
+        type="button"
         aria-label={label}
         title={tool.shortcut ? `${label} (${tool.shortcut})` : label}
         aria-pressed={active}
         className={toolClass}
         disabled={disabled}
-        onClick={() => onActivate(tool.id)}
+        onClick={(event) => { event.currentTarget.blur(); onActivate(tool.id); }}
       >
-        <MainIcon />
-      </IconButton>
+        {mainOnshapeIcon ? <OnshapeIcon name={mainOnshapeIcon} size={20} /> : <MainIcon />}
+      </button>
       {/* 箭头钮：DropdownMenu 触发（portal 飞菜单 + 键盘导航/焦点管理）。
           aria-label 保留「名称 ▾」可访问名；aria-haspopup/aria-expanded 由
           DropdownMenu 克隆注入。aria-label 经 rest 透传到菜单（role=menu
@@ -95,14 +97,13 @@ export function RibbonDropdown({
         aria-label={label}
         placement="bottom-start"
       >
-        <IconButton
-          size="small"
-          styleType="borderless"
+        <button
+          type="button"
           aria-label={`${label} ▾`}
           className="part-studio-ribbon__arrow"
         >
-          <SvgChevronDown />
-        </IconButton>
+          <OnshapeIcon name="expanded" size={10} />
+        </button>
       </DropdownMenu>
     </div>
   );

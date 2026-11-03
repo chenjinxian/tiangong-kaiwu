@@ -22,7 +22,6 @@ import type { StoreApi } from 'zustand';
 import type { LubanFeatureType, PatternParams, SketchPlaneDto } from '@luban-cad/shared';
 import type {
   CanvasSelection,
-  CanvasSelectionMode,
   DatumId,
   DockTab,
   PartStudioCanvasState,
@@ -62,11 +61,10 @@ export interface PartStudioActions {
   toggleCommandPalette: () => void;
   setCommandPaletteQuery: (query: string) => void;
   setPaletteHighlight: (enabled: boolean) => void;
-  // canvas 切片（T5：viewport pick → store 回流的寻址单位宿主；M-A5.2 T1 增选择模式）
+  // canvas 切片（T5：viewport pick → store 回流的寻址单位宿主）
   setCanvasSelection: (selection: readonly CanvasSelection[]) => void;
   hideNodes: (nodeIds: readonly string[]) => void;
   showNodes: (nodeIds: readonly string[]) => void;
-  setSelectionMode: (mode: CanvasSelectionMode) => void;
   // dialog 切片（T6：画布内联非模态对话框宿主寻址；M4-T6 扩 new/edit 双模式）
   openFeatureDialog: (
     feature:
@@ -83,8 +81,10 @@ export interface PartStudioActions {
   toggleDatumVisible: (id: DatumId) => void;
   setDatumExpanded: (expanded: boolean) => void;
   selectDatum: (id: DatumId | null) => void;
-  /** 首个产体特征后只隐藏一次三平面（Origin 保持），用户可再手动打开。 */
-  hideDatumPlanesOnce: () => void;
+  /** Session 实时同步有效可见性（不写覆盖）。 */
+  syncDatumVisibility: (visibility: Record<DatumId, boolean>) => void;
+  /** scope 切换清空用户覆盖（自动规则重新接管）。 */
+  clearDatumVisibilityOverrides: () => void;
 }
 
 export type PartStudioStore = PartStudioState & PartStudioActions;
@@ -127,19 +127,18 @@ const initialCommandPalette: PartStudioCommandPaletteState = {
 const initialCanvas: PartStudioCanvasState = {
   selection: [],
   hiddenIds: [],
-  selectionMode: 'body',
 };
 
 const initialDialog: PartStudioDialogState = { active: null };
 
 const initialViewOnly: PartStudioViewOnlyState = { isActive: false };
 
-/** 默认几何图元初始态：Origin+三平面可见、组展开、未自动隐藏。 */
+/** 默认几何图元初始态：Origin+三平面可见、组展开、无用户覆盖。 */
 const initialDatum: PartStudioDatumState = {
   visibility: { origin: true, top: true, front: true, right: true },
+  visibilityOverrides: {},
   expanded: true,
   selectedId: null,
-  autoHiddenOnce: false,
 };
 
 /** tree 切片：双段树活动段 + 树选中/展开。 */
@@ -236,9 +235,9 @@ if (import.meta.env.VITE_E2E_HOOKS === 'true' && typeof window !== 'undefined') 
   }).__lubanE2EApp = { usePartStudioStore };
 }
 
-/** canvas 切片：画布选择集（pick 回流宿主）+ 会话隐藏集 + 选择模式（M-A5.2 T1）。 */
+/** canvas 切片：画布选择集（pick 回流宿主）+ 会话隐藏集。 */
 function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvasState } & Pick<PartStudioActions,
-  'setCanvasSelection' | 'hideNodes' | 'showNodes' | 'setSelectionMode'> {
+  'setCanvasSelection' | 'hideNodes' | 'showNodes'> {
   return {
     canvas: initialCanvas,
     setCanvasSelection: (selection) => set({ canvas: { ...get().canvas, selection: [...selection] } }),
@@ -251,13 +250,6 @@ function createCanvasSlice([set, get]: SliceCreator): { canvas: PartStudioCanvas
       const canvas = get().canvas;
       const dropping = new Set(nodeIds);
       set({ canvas: { ...canvas, hiddenIds: canvas.hiddenIds.filter((id) => !dropping.has(id)) } });
-    },
-    // 切模式清空画布选择（body↔face/edge 条目语义不同，跨模式残留会误路由）；
-    // 树选中不动（子实体选择不写 SelectionSet、不回写树）；同模式幂等不重写。
-    setSelectionMode: (mode) => {
-      const canvas = get().canvas;
-      if (canvas.selectionMode === mode) return;
-      set({ canvas: { ...canvas, selectionMode: mode, selection: [] } });
     },
   };
 }
@@ -299,29 +291,45 @@ function createViewOnlySlice([set, get]: SliceCreator): { viewOnly: PartStudioVi
  * 合成 id 仅在本切片流转，不进 tree/canvas（见 types.ts 注）。
  */
 function createDatumSlice([set, get]: SliceCreator): { datum: PartStudioDatumState } & Pick<PartStudioActions,
-  'setDatumVisible' | 'toggleDatumVisible' | 'setDatumExpanded' | 'selectDatum' | 'hideDatumPlanesOnce'> {
+  'setDatumVisible' | 'toggleDatumVisible' | 'setDatumExpanded' | 'selectDatum'
+  | 'syncDatumVisibility' | 'clearDatumVisibilityOverrides'> {
   return {
     datum: initialDatum,
     setDatumVisible: (id, visible) => {
       const datum = get().datum;
-      set({ datum: { ...datum, visibility: { ...datum.visibility, [id]: visible } } });
-    },
-    toggleDatumVisible: (id) => {
-      const datum = get().datum;
-      set({ datum: { ...datum, visibility: { ...datum.visibility, [id]: !datum.visibility[id] } } });
-    },
-    setDatumExpanded: (expanded) => set({ datum: { ...get().datum, expanded } }),
-    selectDatum: (id) => set({ datum: { ...get().datum, selectedId: id } }),
-    hideDatumPlanesOnce: () => {
-      const datum = get().datum;
-      if (datum.autoHiddenOnce) return;
       set({
         datum: {
           ...datum,
-          autoHiddenOnce: true,
-          visibility: { ...datum.visibility, top: false, front: false, right: false },
+          visibility: { ...datum.visibility, [id]: visible },
+          visibilityOverrides: { ...datum.visibilityOverrides, [id]: visible },
         },
       });
+    },
+    toggleDatumVisible: (id) => {
+      const datum = get().datum;
+      const next = !datum.visibility[id];
+      set({
+        datum: {
+          ...datum,
+          visibility: { ...datum.visibility, [id]: next },
+          visibilityOverrides: { ...datum.visibilityOverrides, [id]: next },
+        },
+      });
+    },
+    setDatumExpanded: (expanded) => set({ datum: { ...get().datum, expanded } }),
+    selectDatum: (id) => set({ datum: { ...get().datum, selectedId: id } }),
+    syncDatumVisibility: (visibility) => {
+      const datum = get().datum;
+      const current = datum.visibility;
+      if (current.origin === visibility.origin && current.top === visibility.top
+        && current.front === visibility.front && current.right === visibility.right)
+        return;
+      set({ datum: { ...datum, visibility } });
+    },
+    clearDatumVisibilityOverrides: () => {
+      const datum = get().datum;
+      if (Object.keys(datum.visibilityOverrides).length === 0) return;
+      set({ datum: { ...datum, visibilityOverrides: {} } });
     },
   };
 }

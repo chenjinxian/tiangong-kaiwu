@@ -18,11 +18,27 @@
  *   拔模，aria-expanded 开合语义；
  * - 底部（M6-c T5 对齐采集规格 12-dialog-extrude-1.png：底部=透明度滑杆 +
  *   成品 + ?）：透明度滑杆（0-100，缺省 0=不透明）+ 成品按钮（=✓ 确认出口，
- *   M3 期即成品文案）+ ? 帮助（展开文案）。**透明度语义=预览透明度，🟠 挂账**——
- *   本版无视觉预览通道（useFeatureSystem previewOp 延后，insertFeature 直提交
- *   无预览帧），值仅本地态 + FeatureDialogResult.transparency 回传（接预览
- *   通道时消费）；M3 期的回滚滑杆撤出对话框（采集权威：Onshape 回滚条在特征
- *   树底部非对话框内——树回滚条归 backlog 单裁，不在本对话框复活）。
+ *   M3 期即成品文案）+ ? 帮助（展开文案）。**透明度语义=实时预览透明度**
+ *（2026-11-02 接线：0→Onshape 默认灰体 alpha 0.42；100→0.06）——见下方实时预览段。
+ *   M3 期的回滚滑杆撤出对话框（采集权威：Onshape 回滚条在特征树底部非对话框
+ *   内——树回滚条归 backlog 单裁，不在本对话框复活）。
+ *
+ * 实时几何预览（2026-11-02，按 Onshape live 规则重做——禁止自由配色/叠影）：
+ * - Onshape 证据：`.superpowers/sdd/onshape-tutorial2-analysis/recapture-2026-11-01/
+ *   feature-extrude-1/2/3.png`、`feature-revolve-1.png`、`feature-fillet-1.png`：
+ *   新增体积 = **半透明灰色实体**（受光、与既有实体互相深度遮挡）；选中草图
+ *   面域 = **橙色半透明填充 + 橙色描边**；圆角已选边 = 橙色加粗；取消即消失。
+ * - 数据源 = 同一 getSketch 响应的 entities + plane + regions；参数（面域/
+ *   距离/对称/方向；旋转=面域/轴/角度）→ internal/feature-preview 纯函数生成
+ *   世界几何（extrude=双副本+侧面四边形+端盖+选中面环；revolve=绕轴四边形/
+ *   稀疏环线+选中面环）→ FeaturePreviewOverlay 注册 **WorldDecoration**
+ *   （GraphicType.WorldDecoration：深度测试开启，在 3D 场景内渲染）。
+ * - 仅 UI 近似：不写库、不调内核；提交仍走 applyOp 真实求值。当前仅
+ *   extrude/revolve 有可精确由草图构造的预览；fillet/loft/sweep/mirror/pattern/
+ *   boolean 的结果几何需要内核预览通道，未实现前**不伪造**（Onshape 均有预览，
+ *   属已知差距；圆角仅先把已选边高亮对齐为橙色）。
+ * - 单测锚：feature-preview.test（几何/过滤/旋转/闭环）；e2e tutorial2
+ *   T2_SHOWCASE=1 在三个拉伸与旋转对话框断言预览几何计数 >0 并截图。
  *
  * 提交接线（M4-T6 拉伸闭环）：mode='new' 且 applyOp 在场时，✓/成品 →
  * `applyOp({ kind: 'insertFeature', featureType, params })`；成功 → toast
@@ -201,25 +217,43 @@
  */
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
+import {
+  IModelApp,
+  NotifyMessageDetails,
+  OutputMessagePriority,
+  type BriefcaseConnection,
+  type ScreenViewport,
+} from '@itwin/core-frontend';
 import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type {
   BodyInfo,
   BooleanBodiesParams,
   FeatureOp,
   FeatureOpResult,
+  FeatureParams,
+  FeaturePreviewGeometryDto,
   FilletEdgeRef,
   LubanFeatureType,
   MirrorParams,
   PatternParams,
+  PreviewResult,
   SketchEntityDto,
+  SketchPlaneDto,
   SketchRegionDto,
 } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { filletEdgeRefKey } from '../tools/modeling/fillet-edge-ref.js';
+import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
+import { FeatureProfilePicker } from '../components/FeatureProfilePicker.js';
+import type { ProfilePick, ProfileSketch } from '../internal/profile-picker.js';
+import {
+  buildExtrudePreview,
+  buildRevolvePreview,
+} from '../internal/feature-preview.js';
 import './FeatureDialog.css';
 
 /** 结果类型页签（os-31：实体|曲面|薄壁）。 */
@@ -253,8 +287,8 @@ export interface FeatureDialogResult {
   symmetric: boolean;
   draft: string;
   /**
-   * 透明度滑杆读数（M6-c T5，0-100，缺省 0=不透明）——🟠 挂账：本版无视觉
-   * 预览通道（previewOp 延后），值仅回传不消费；接预览通道时作为预览帧透明度。
+   * 透明度滑杆读数（M6-c T5，0-100，缺省 0=不透明）——2026-11-02 起直接驱动
+   * 实时预览灰体 alpha（0→0.42，100→0.06）；无预览通道时仅回传。
    *（M3 期同位的 rollback 滑杆已撤出——采集权威钉底栏=透明度，见文件头注。）
    */
   transparency: number;
@@ -271,6 +305,8 @@ export interface FeatureDialogResult {
 export interface FeatureDialogProps {
   /** 特征名（标题=对话框可访问名，os-31「Extrude 1」；new 模式=类型标签）。 */
   featureName: string;
+  /** 编辑模式特征 id（updateParams 寻址；new 模式缺省）。 */
+  featureId?: string;
   /**
    * 提交模式（M4-T6）：'new'=创建（applyOp 在场即走 insertFeature 直提交）；
    * 'edit'=既有特征（本版不提交，updateParams 归特征对话框增强 backlog）。
@@ -286,6 +322,13 @@ export interface FeatureDialogProps {
   initialPatternKind?: PatternParams['kind'];
   /** op 提交面（Session useFeatureSystem.applyOp 直通；缺省=纯回调壳期语义）。 */
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
+  /**
+   * v1.21 预览 op（Session useFeatureSystem.previewOp 直通）：fillet 首切片返回
+   * 后端影子求值的真实结果几何 → 前端 TileRpc requestElementGraphics 动态显示。
+   */
+  previewOp?: (op: FeatureOp) => Promise<PreviewResult>;
+  /** briefcase 连接（TileRpc requestElementGraphics 的 iModel 载体；缺省不出后端预览）。 */
+  connection?: BriefcaseConnection | null;
   /**
    * 写租约在持（Session useFeatureSystem.leaseOk 直通；T6 评审 I-2）——
    * false 且提交面在场时给可视警示「提交将等待租约」，**不硬禁用**（保留
@@ -344,6 +387,13 @@ export interface FeatureDialogProps {
    * updateParams 接线时必须原样保留该键（本版 edit 提交仍禁用）。
    */
   initialParams?: unknown;
+  /**
+   * 实时预览视口（2026-11-02）：宿主 PartStudioCanvas 的 ScreenViewport。
+   * 在场且 extrude/revolve 草图通道就绪时，对话框把参数 → 世界几何 → 画布
+   * Onshape 同款预览（灰体 + 橙色选中面域，WorldDecoration 深度测试）。缺省不预览
+   *（单测/壳期无视口，几何纯函数另测）。
+   */
+  viewport?: ScreenViewport | null;
   /** ✓/成品 确认出口（回传全量载荷；提交成功后由宿主 closeDialog）。 */
   onConfirm?: (result: FeatureDialogResult) => void;
   /** ✗ 取消出口。 */
@@ -434,6 +484,14 @@ export function classifyAxisLines(entities: readonly SketchEntityDto[]): AxisLin
   return descriptors;
 }
 
+/**
+ * 可经 updateParams 二次编辑的特征类型（2026-11-03）：loft/sweep 换草图被服务端
+ * 结构守卫拒收、booleanBodies 参数整体不可变——对话框对这些类型只读展示。
+ */
+const EDITABLE_EDIT_FEATURE_TYPES: ReadonlySet<string> = new Set([
+  'extrude', 'revolve', 'fillet', 'mirror', 'pattern', 'booleanAdd', 'booleanSubtract',
+]);
+
 /** 草图选项缺省（M6-a T6：props 未接线/壳期空集——「先创建草图」门禁数据源；模块级常量防引用抖动）。 */
 const EMPTY_SKETCHES: readonly FeatureDialogSketchOption[] = [];
 
@@ -449,15 +507,6 @@ export function readStoredNewBody(params: unknown): boolean {
 }
 
 /**
- * 面积读数（M6-a T6）：内部米制 m²，toPrecision(3) 去尾零（0.0025 → "0.0025"、
- * 3.14159 → "3.14"）——面域下拉的量级提示位，非精确读数（精确面积标注归
- * M6-c 视口拾取交互单裁）。
- */
-function formatArea(area: number): string {
-  return String(Number(area.toPrecision(3)));
-}
-
-/**
  * 特征编辑对话框（非模态内联面板）。宿主经 onConfirm/onCancel 收合——
  * 组件不自销（受控口径，与 CapabilityDialog 一致）；宿主挂
  * `key={mode==='edit' ? featureId : 'new-'+featureType}`（M3-T6 台账①：
@@ -465,10 +514,13 @@ function formatArea(area: number): string {
  */
 export function FeatureDialog({
   featureName,
+  featureId,
   mode = 'edit',
   featureType,
   initialPatternKind,
   applyOp,
+  previewOp,
+  connection,
   leaseOk,
   canEdit = true,
   entities,
@@ -479,6 +531,7 @@ export function FeatureDialog({
   bodiesLoading,
   bodiesError,
   initialParams,
+  viewport,
   onConfirm,
   onCancel,
 }: FeatureDialogProps): React.JSX.Element {
@@ -488,13 +541,41 @@ export function FeatureDialog({
   // 缺省（legacy 路由/壳期）不传参数（旧 arity 与后端 legacy 读面逐字不变）。
   const partStudioId = useWorkspaceRef()?.modelId;
 
+  // 编辑既有特征（双击树/右键「编辑…」）：updateParams 在原 params 上合并
+  // 可编辑量，保留 operation/mergeScope/newBody 等结构键（服务端 updateParams
+  // 对这些键有不可翻转守卫）。loft/sweep/booleanBodies 的结构引用或语义键
+  // 不可改，编辑框只读。
+  const editParams = React.useMemo<Record<string, unknown> | undefined>(() => {
+    if (mode !== 'edit' || typeof initialParams !== 'object' || initialParams === null) return undefined;
+    return initialParams as Record<string, unknown>;
+  }, [mode, initialParams]);
+  const editParamsSupported = mode === 'edit' && EDITABLE_EDIT_FEATURE_TYPES.has(featureType ?? '');
+  // 真编辑（宿主接了 applyOp）才锁结构键；壳期 edit 纯回调语义保持可交互。
+  const structuralLocked = mode === 'edit' && applyOp !== undefined;
+  const editReadOnly = structuralLocked && !editParamsSupported;
+  const storedNumberString = (value: unknown): string | undefined =>
+    typeof value === 'number' && Number.isFinite(value) ? String(value) : undefined;
+  const storedRegionsForEdit = React.useMemo<number[] | undefined>(() => {
+    if (!editParams) return mode === 'edit' ? [] : undefined;
+    if (Array.isArray(editParams.regions))
+      return editParams.regions.filter((v): v is number => typeof v === 'number' && v >= 0);
+    if (typeof editParams.regionIndex === 'number') return [editParams.regionIndex];
+    return [];
+  }, [editParams, mode]);
+
   const [resultType, setResultType] = React.useState<FeatureResultType>('solid');
-  const [booleanScope, setBooleanScope] = React.useState<FeatureBooleanScope>('new');
+  const [booleanScope, setBooleanScope] = React.useState<FeatureBooleanScope>(() => {
+    if (mode !== 'edit') return 'new';
+    const operation = editParams?.operation;
+    if (operation === 'new' || operation === 'add' || operation === 'remove' || operation === 'intersect')
+      return operation;
+    return editParams?.newBody === true ? 'new' : featureType === 'revolve' || featureType === 'booleanAdd' ? 'add' : 'new';
+  });
   const [chips, setChips] = React.useState<FeatureDialogEntity[]>([...(entities ?? [])]);
-  const [distance, setDistance] = React.useState('10');
+  const [distance, setDistance] = React.useState(() => storedNumberString(editParams?.distance) ?? '10');
   const [direction, setDirection] = React.useState<FeatureDirection>('forward');
   const [startOffset, setStartOffset] = React.useState('');
-  const [symmetric, setSymmetric] = React.useState(false);
+  const [symmetric, setSymmetric] = React.useState(() => editParams?.symmetric === true);
   const [draft, setDraft] = React.useState('');
   // 透明度滑杆（M6-c T5 对齐采集底栏；0=不透明。语义挂账见文件头注）。
   const [transparency, setTransparency] = React.useState(0);
@@ -538,10 +619,6 @@ export function FeatureDialog({
     };
     // 监听终身一次挂载；闭包内一律走 ref（意图在此注记，非遗漏依赖）。
   }, []);
-  // edit 模式且宿主已接提交面（T6 评审 M-1）：updateParams 本版不接线（特征
-  // 对话框增强 backlog），✓/成品 禁用 + 提示行，消除「点确认即关面板无事发生」
-  // 的假成功观感；applyOp 未接线（壳期/纯展示）保持 M3 纯回调语义。
-  const editStandalone = mode === 'edit' && applyOp !== undefined;
 
   // 布尔作用域 → 提交语义：
   // - v1.19（Tutorial 2）：extrude/revolve 的「新建/加入」是**同一特征内**的 operation
@@ -563,9 +640,17 @@ export function FeatureDialog({
   // 草图通道（M6-a T6 extrude / M6-b T4 revolve；M7 v1.10 扩布尔）：新建提交走 sketchId 寻址
   //（数据源/门禁裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
   const booleanChannel =
-    mode === 'new' && (effectiveFeatureType === 'booleanAdd' || effectiveFeatureType === 'booleanSubtract') && applyOp !== undefined;
+    (mode === 'new' || mode === 'edit')
+    && (effectiveFeatureType === 'booleanAdd' || effectiveFeatureType === 'booleanSubtract')
+    && applyOp !== undefined;
+  // 编辑既有 extrude/revolve/boolean* 也复用形态/面域拾取与实时预览。
+  const editSketchFeature = mode === 'edit'
+    && (effectiveFeatureType === 'extrude' || effectiveFeatureType === 'revolve' || booleanChannel);
   const sketchChannel =
-    mode === 'new' && (effectiveFeatureType === 'extrude' || effectiveFeatureType === 'revolve' || booleanChannel) && applyOp !== undefined;
+    ((mode === 'new'
+      && (effectiveFeatureType === 'extrude' || effectiveFeatureType === 'revolve' || booleanChannel))
+      || editSketchFeature)
+    && applyOp !== undefined;
   const revolveChannel = sketchChannel && effectiveFeatureType === 'revolve';
   const extrudeChannel = sketchChannel && effectiveFeatureType === 'extrude';
   // 布尔上游门禁（B1 复审 Important）：布尔特征 requiresUpstream=true，无上游时后端
@@ -575,7 +660,7 @@ export function FeatureDialog({
   const booleanUpstreamMissing = booleanChannel && !hasBodies;
   // fillet 通道（M6-b T6）：体边拾取非草画面域——不进草图通道；输入集=体上
   // 拾得的边（持久拓扑 id 对），提交面同 applyOp。
-  const filletChannel = mode === 'new' && featureType === 'fillet' && applyOp !== undefined;
+  const filletChannel = (mode === 'new' || mode === 'edit') && featureType === 'fillet' && applyOp !== undefined;
   // B2 loft 通道（首版两平行截面）：**双截面草图**选择器——不走 sketchChannel
   //（loft 无面域读取：服务端每草图取最大面域；载荷 {sketchIds, bodyType:'SOLID'}）。
   // ribbon 现有 'loft' 条目无注册工具（伪 toolId，见 Ribbon.tsx 注记），入口改道
@@ -591,12 +676,12 @@ export function FeatureDialog({
   // 并与镜像体 Unite）。无草图/面域/边拾取输入——参数只有平面；上游体由服务端特征链供给
   //（requiresUpstream——无实体时 UI 先挡 + 后端 op 边界同口径拒收）。ribbon 的 MirrorElements
   // 是真实直改工具 id，但参数化特征链入口特例改道本对话框（见 Ribbon.tsx 注）。
-  const mirrorChannel = mode === 'new' && featureType === 'mirror' && applyOp !== undefined;
+  const mirrorChannel = (mode === 'new' || mode === 'edit') && featureType === 'mirror' && applyOp !== undefined;
   const mirrorUpstreamMissing = mirrorChannel && !hasBodies;
   // B5 v1.14 pattern 通道：PART/body 级阵列（kind=linear/circular；count 含原件）。
   // 无草图/面域/边拾取输入——参数只有 kind/count/spacing?/angle?/axis；上游体由服务端
   // 特征链供给（requiresUpstream——无实体时 UI 先挡 + 后端 op 边界同口径拒收）。
-  const patternChannel = mode === 'new' && featureType === 'pattern' && applyOp !== undefined;
+  const patternChannel = (mode === 'new' || mode === 'edit') && featureType === 'pattern' && applyOp !== undefined;
   const patternUpstreamMissing = patternChannel && !hasBodies;
   // B6 M-A4.2a body boolean 通道（shared 1.16 BooleanBodiesParams）：以 body 为
   // 操作对象——target 单选 + tools 多选（均取 getBodies 的 active authored 读面），
@@ -634,7 +719,15 @@ export function FeatureDialog({
   // chamfer/shell：工具体/picker 未接线，无法提供 owner → 禁提交（不默认）。
   // 拾取边 + 父体 elementId 原子成对（Critical 1）：去重键含 owner——两 body 的边
   // 即使 refKey（边自身 id）碰撞也不会互相覆盖；跨体即混合错误，绝不错体提交。
-  const [filletPicks, setFilletPicks] = React.useState<Array<{ ref: FilletEdgeRef; ownerElementId: string }>>([]);
+  const [filletPicks, setFilletPicks] = React.useState<Array<{ ref: FilletEdgeRef; ownerElementId: string }>>(() => {
+    // 编辑既有 fillet：回显落库边集（params.edges 即 FilletEdgeRef[]）。
+    if (mode !== 'edit' || !Array.isArray(editParams?.edges)) return [];
+    return (editParams.edges as unknown[]).flatMap((item) => {
+      const edge = (item as { edge?: unknown } | null)?.edge;
+      if (!edge || typeof edge !== 'object') return [];
+      return [{ ref: { edge: edge as FilletEdgeRef['edge'] }, ownerElementId: '' }];
+    });
+  });
   const filletEdges = React.useMemo(() => filletPicks.map((pick) => pick.ref), [filletPicks]);
   const activeBodyKeys = React.useMemo(
     () => new Set(activeBodies.map((body) => body.bodyKey)),
@@ -644,7 +737,9 @@ export function FeatureDialog({
     () => filletPicks.map((pick) => pick.ownerElementId),
     [filletPicks],
   );
-  const filletOwnersValidated = filletChannel && bodies !== undefined && filletEdges.length > 0;
+  // 编辑既有 fillet 时边集来自落库 params（无 ownerElementId），updateParams
+  // 沿用特征原有 body 关联，不做新建时的跨体 target 推导。
+  const filletOwnersValidated = mode === 'new' && filletChannel && bodies !== undefined && filletEdges.length > 0;
   const filletMissingOwner = filletOwnersValidated
     ? filletOwnerIds.find((owner) => owner === undefined || !activeBodyKeys.has(owner))
     : undefined;
@@ -709,10 +804,23 @@ export function FeatureDialog({
     && bodies === undefined && bodiesLoading !== true
     && bodiesError !== undefined && !newBodyReadExempt;
   const sketchOptions = sketches ?? EMPTY_SKETCHES;
-  const [selectedSketchId, setSelectedSketchId] = React.useState('');
+  // 编辑模式：优先回显落库 sketchId（不存在时下方效应才回落最近草图）。
+  const [selectedSketchId, setSelectedSketchId] = React.useState(() =>
+    mode === 'edit' && typeof editParams?.sketchId === 'string' ? editParams.sketchId : '',
+  );
+  // Onshape：Extrude/Revolve 打开即选中最近草图（无需先选草图下拉）；面域
+  // 通过画布点击增删，默认取最大面域。切草图/打开时自动落最后一张草图。
+  React.useEffect(() => {
+    if (!sketchChannel || sketchOptions.length === 0) {
+      if (selectedSketchId !== '') setSelectedSketchId('');
+      return;
+    }
+    if (!sketchOptions.some((option) => option.id === selectedSketchId))
+      setSelectedSketchId(sketchOptions[sketchOptions.length - 1]!.id);
+  }, [sketchChannel, sketchOptions, selectedSketchId]);
   // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
   // 不再消费此态，其面域选择走下方 selectedRegions 多选集）。
-  const [regionIndex, setRegionIndex] = React.useState(0);
+  const [regionIndex, setRegionIndex] = React.useState(() => storedRegionsForEdit?.[0] ?? 0);
   // M6-c T3（extrude 通道）：多面域选中集——SketchDto.regions 面积降序下标，
   // 升序存储（载荷集语义确定性；后端重复下标按集去重幂等）。缺省 [0]=最大面域
   //（v1.6 regionIndex 缺省 0 的语义锚同源），随面域读取落定回填。
@@ -724,11 +832,20 @@ export function FeatureDialog({
   // M6-b T4（revolve 通道）：getSketch.entities 原样留存（与 regions 同一
   // 响应落定，无独立读取窗）；undefined=未选草图/读取中。
   const [sketchEntities, setSketchEntities] = React.useState<SketchEntityDto[] | undefined>(undefined);
+  // 2026-11-02 实时预览：草图平面（同一 getSketch 响应；局部 (u,v) → 世界）。
+  const [sketchPlane, setSketchPlane] = React.useState<SketchPlaneDto | undefined>(undefined);
   // M6-b T4（revolve 通道）：旋转轴选择——fullRevolve 缺省 true（满周）；
   // 角度 UI 度制（用户面单位裁决），载荷前转弧度（见 handleConfirm 注记）。
-  const [selectedAxisId, setSelectedAxisId] = React.useState<number | undefined>(undefined);
-  const [fullRevolve, setFullRevolve] = React.useState(true);
-  const [angleDegrees, setAngleDegrees] = React.useState('360');
+  const [selectedAxisId, setSelectedAxisId] = React.useState<number | undefined>(() => {
+    const axis = editParams?.axis as { sketchEntityId?: unknown } | undefined;
+    return typeof axis?.sketchEntityId === 'number' ? axis.sketchEntityId : undefined;
+  });
+  const [fullRevolve, setFullRevolve] = React.useState(() => editParams?.fullRevolve !== false);
+  const [angleDegrees, setAngleDegrees] = React.useState(() =>
+    typeof editParams?.angle === 'number'
+      ? String(Number(((editParams.angle * 180) / Math.PI).toFixed(6)))
+      : '360',
+  );
   // 面域读取代际：换草图/换连接时 +1，慢响应过期即丢弃（useSketchSystem
   // activeEpochRef 同款纪律——stale-clobber 防旧草图面域覆写新选择）。
   const regionsEpochRef = React.useRef(0);
@@ -741,15 +858,25 @@ export function FeatureDialog({
   const [sweepProfileSketchId, setSweepProfileSketchId] = React.useState('');
   const [sweepPathSketchId, setSweepPathSketchId] = React.useState('');
   // B4 mirror 通道：镜像平面（世界系过原点；缺省 XZ=法向 Y，与 Onshape 默认前视镜像同锚）。
-  const [mirrorPlane, setMirrorPlane] = React.useState<MirrorParams['plane']>('XZ');
+  const [mirrorPlane, setMirrorPlane] = React.useState<MirrorParams['plane']>(() =>
+    mode === 'edit' && (editParams?.plane === 'XY' || editParams?.plane === 'YZ' || editParams?.plane === 'XZ')
+      ? editParams.plane
+      : 'XZ',
+  );
   // B5 pattern 通道：kind（ribbon 入口可指定初始值）+ count（含原件，缺省 3）+
   // spacing（linear 缺省 10）/ angle（circular 缺省 360°）+ axis（linear 缺省 X；
   // circular 锁定 Z，见下方载荷/渲染）。
-  const [patternKind, setPatternKind] = React.useState<PatternParams['kind']>(initialPatternKind ?? 'linear');
-  const [patternCount, setPatternCount] = React.useState('3');
-  const [patternSpacing, setPatternSpacing] = React.useState('10');
-  const [patternAngle, setPatternAngle] = React.useState('360');
-  const [patternAxis, setPatternAxis] = React.useState<PatternParams['axis']>('X');
+  const [patternKind, setPatternKind] = React.useState<PatternParams['kind']>(() =>
+    mode === 'edit' && (editParams?.kind === 'linear' || editParams?.kind === 'circular')
+      ? editParams.kind
+      : (initialPatternKind ?? 'linear'),
+  );
+  const [patternCount, setPatternCount] = React.useState(() => storedNumberString(editParams?.count) ?? '3');
+  const [patternSpacing, setPatternSpacing] = React.useState(() => storedNumberString(editParams?.spacing) ?? '10');
+  const [patternAngle, setPatternAngle] = React.useState(() => storedNumberString(editParams?.angle) ?? '360');
+  const [patternAxis, setPatternAxis] = React.useState<PatternParams['axis']>(() =>
+    editParams?.axis === 'X' || editParams?.axis === 'Y' || editParams?.axis === 'Z' ? editParams.axis : 'X',
+  );
   // B6 M-A4.2a booleanBodies 通道：target 键 + tools 键集 + operation + keepTools。
   // target 缺省 ''（生效值回落首个 active authored body）；tools 以键集维护
   //（点选切换天然去重——载荷再按 activeBodies 序归一，无重复项）。
@@ -799,34 +926,63 @@ export function FeatureDialog({
   }, []);
 
   // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
-  const [radius, setRadius] = React.useState('5');
-  const [propagateSmooth, setPropagateSmooth] = React.useState(true);
+  const [radius, setRadius] = React.useState(() => storedNumberString(editParams?.radius) ?? '5');
+  const [propagateSmooth, setPropagateSmooth] = React.useState(() => editParams?.propagateSmooth !== false);
   // 拾取态：picking 供渲染（按钮切换/✓禁用），ref 镜像供 Escape 分叉（监听
   // 终身一次挂载，不吃闭包旧态——与 onCancelRef 同纪律）；工具实例经 ref 持有
   //（stop/卸载守卫时 exitTool，实例类型来自动态 import，不静态引入工具模块）。
   const [picking, setPicking] = React.useState(false);
   const pickingRef = React.useRef(false);
-  const pickToolRef = React.useRef<{ exitTool(): Promise<void> } | null>(null);
+  type PickToolHandle = {
+    exitTool(): Promise<void>;
+    suspendPicking(): void;
+    resumePicking(): void;
+  };
+  const pickToolRef = React.useRef<PickToolHandle | null>(null);
 
-  /** 结束拾取（三通道汇合：Esc 分叉/再点钮/卸载守卫；工具自然退出亦归此态）。 */
+  /** 拾取挂起（右键/结束拾取钮）：工具驻留，已选边高亮保留到对话框关闭。 */
+  const handlePickingSuspended = React.useCallback(() => {
+    pickingRef.current = false;
+    setPicking(false);
+  }, []);
+
+  /** 恢复拾取（再次点「添加边」）。 */
+  const handlePickingResumed = React.useCallback(() => {
+    pickingRef.current = true;
+    setPicking(true);
+  }, []);
+
+  /** 工具真正销毁（宿主 stop 等）：清空句柄并回非拾取态。 */
+  const handlePickingEnded = React.useCallback(() => {
+    pickingRef.current = false;
+    pickToolRef.current = null;
+    setPicking(false);
+  }, []);
+
+  /** 结束拾取：只挂起，不销毁——Onshape 在参数对话框打开期间保持已选边高亮。 */
   const stopPick = React.useCallback(() => {
     if (!pickingRef.current) return;
     pickingRef.current = false;
     setPicking(false);
-    const tool = pickToolRef.current;
-    pickToolRef.current = null;
-    // 工具已被框架先行退出（Esc 经 startDefaultTool 替换）时 exitTool 为 no-op。
-    void tool?.exitTool();
+    pickToolRef.current?.suspendPicking();
   }, []);
 
   /** 添加边（M6-b T6）：动态 import 启动 FilletEdgePickTool（工具模块静态依赖
-   * editor 基座链，动态拆包见文件头注 fillet 通道裁决）；回调直改 chips。 */
+   * editor 基座链，动态拆包见文件头注 fillet 通道裁决）；回调直改 chips。
+   * 已存在挂起工具时优先 resume，保留既有高亮与元素几何缓存。 */
   const startPick = React.useCallback(() => {
     if (pickingRef.current || !connectionKey) return;
+    const existing = pickToolRef.current;
+    if (existing) {
+      existing.resumePicking();
+      pickingRef.current = true;
+      setPicking(true);
+      return;
+    }
     pickingRef.current = true;
     setPicking(true);
     void (async () => {
-      let tool: { exitTool(): Promise<void> } | undefined = undefined;
+      let tool: PickToolHandle | undefined = undefined;
       try {
         const { startFilletEdgePick } = await import('../tools/modeling/FilletEdgePickTool.js');
         tool = await startFilletEdgePick({
@@ -851,7 +1007,9 @@ export function FeatureDialog({
             IModelApp.notifications.outputMessage(
               new NotifyMessageDetails(OutputMessagePriority.Error, message),
             ),
-          onEnded: stopPick,
+          onPickingSuspended: handlePickingSuspended,
+          onPickingResumed: handlePickingResumed,
+          onEnded: handlePickingEnded,
         });
       } catch {
         tool = undefined; // 动态加载/安装异常与启动失败同面——回非拾取态不悬挂
@@ -861,11 +1019,14 @@ export function FeatureDialog({
         // 启动失败（视口不适配/宿主未就绪）——回非拾取态（诚实不悬挂）。
         pickingRef.current = false;
         setPicking(false);
+      } else if (!pickingRef.current) {
+        // 启动在途时用户已点结束拾取——工具已装好但应立即挂起（保留高亮）。
+        tool.suspendPicking();
       }
     })();
-  }, [connectionKey, stopPick]);
+  }, [connectionKey, handlePickingSuspended, handlePickingResumed, handlePickingEnded]);
 
-  // 卸载守卫：对话框关闭/确认成功而拾取仍在场——退出工具不留孤儿拾取会话。
+  // 卸载守卫：对话框关闭/确认成功才真正销毁拾取工具（清除已选边高亮）。
   React.useEffect(() => {
     return () => {
       const tool = pickToolRef.current;
@@ -891,6 +1052,7 @@ export function FeatureDialog({
     if (!sketchChannel || selectedSketchId === '') {
       setRegions(undefined);
       setSketchEntities(undefined);
+      setSketchPlane(undefined);
       setSelectedRegions([]); // M6-c T3：多选集随身份清空（不跨草图残留）
       setRegionsLoading(false);
       setRegionsError(undefined);
@@ -899,6 +1061,7 @@ export function FeatureDialog({
     if (!connectionKey) {
       setRegions(undefined);
       setSketchEntities(undefined);
+      setSketchPlane(undefined);
       setSelectedRegions([]);
       setRegionsLoading(false);
       setRegionsError(t('partStudio.featureDialog.regionUnreadable'));
@@ -914,20 +1077,32 @@ export function FeatureDialog({
           if (regionsEpochRef.current !== epoch) return; // 迟写丢弃（身份已切换）
           setRegions(sketch?.regions ?? []); // regions 缺省（旧后端不下发）=无面域，禁提交
           setSketchEntities(sketch?.entities ?? []); // M6-b T4：revolve 轴候选源（同响应落定）
-          // M6-c T3：多选集缺省回填 [0]=最大面域（单/多面域同式；空集=无面域）。
-          setSelectedRegions((sketch?.regions?.length ?? 0) > 0 ? [0] : []);
+          setSketchPlane(sketch?.plane); // 实时预览：平面缺省=XY@z=0 契约语义
+          // 新建：单面域自动选中、多面域不预选（Onshape 视口点选）；
+          // 编辑：回显落库 regions/regionIndex（缺省回落 [0]）。
+          const count = sketch?.regions?.length ?? 0;
+          if (mode === 'edit') {
+            const stored = (storedRegionsForEdit ?? []).filter((index) => index < count);
+            const next = stored.length > 0 ? stored : count > 0 ? [0] : [];
+            setSelectedRegions(next);
+            setRegionIndex(next[0] ?? 0);
+          } else {
+            setSelectedRegions(count === 1 ? [0] : []);
+            setRegionIndex(0);
+          }
           setRegionsLoading(false);
         },
         (err: unknown) => {
           if (regionsEpochRef.current !== epoch) return;
           setRegions([]);
           setSketchEntities([]);
+          setSketchPlane(undefined);
           setSelectedRegions([]);
           setRegionsError(err instanceof Error ? err.message : String(err));
           setRegionsLoading(false);
         },
       );
-  }, [sketchChannel, selectedSketchId, connectionKey, partStudioId, t]);
+  }, [sketchChannel, selectedSketchId, connectionKey, partStudioId, t, mode, storedRegionsForEdit]);
 
   // 轴候选（M6-b T4 revolve 通道；M6-c T5 判型升级）：草图内 line 实体按端点
   // 解算坐标判型（classifyAxisLines——竖直/水平/斜线+同类序号；id 即载荷
@@ -949,6 +1124,113 @@ export function FeatureDialog({
     }
   }, [axisLines, selectedAxisId]);
 
+  // ── 实时几何预览（2026-11-02）────────────────────────────────────────────
+  // 参数（面域选集/距离/对称/轴/角度）→ 世界几何（internal/feature-preview 纯
+  // 函数）→ FeaturePreviewOverlay 的 WorldDecoration（灰体+橙色选中面域，
+  // 深度测试）。不动内核/不写库；提交仍走 applyOp 真实求值。非 extrude/revolve
+  // 通道（fillet/loft/...）暂无内核预览几何，返回 undefined 不画（不伪造）。
+  const previewGeometry = React.useMemo(() => {
+    if (!viewport || sketchChannel === false || !sketchEntities || !regions || regions.length === 0)
+      return undefined;
+    if (extrudeChannel) {
+      const magnitude = Number(distance);
+      if (distance.trim() === '' || !Number.isFinite(magnitude) || magnitude <= 0) return undefined;
+      const selected = regions.filter((_, index) => selectedRegions.includes(index));
+      return buildExtrudePreview(
+        sketchEntities,
+        sketchPlane,
+        selected,
+        direction === 'backward' ? -magnitude : magnitude,
+        symmetric,
+      );
+    }
+    if (revolveChannel) {
+      const angle = fullRevolve
+        ? Math.PI * 2
+        : (Number(angleDegrees) * Math.PI) / 180;
+      if (!Number.isFinite(angle) || angle <= 0) return undefined;
+      const selected = regions[regionIndex] ? [regions[regionIndex]!] : [];
+      return buildRevolvePreview(
+        sketchEntities,
+        sketchPlane,
+        selected,
+        selectedAxisId,
+        angle,
+      );
+    }
+    return undefined;
+  }, [
+    viewport,
+    sketchChannel,
+    sketchEntities,
+    sketchPlane,
+    regions,
+    extrudeChannel,
+    revolveChannel,
+    selectedRegions,
+    regionIndex,
+    selectedAxisId,
+    distance,
+    direction,
+    symmetric,
+    fullRevolve,
+    angleDegrees,
+  ]);
+  // 预览透明度：底部滑杆 0=Onshape 默认灰体（0.42）→100=近隐形（0.06）。
+  const previewOpacity = 0.42 - (Math.max(0, Math.min(100, transparency)) / 100) * 0.36;
+  // 橙色选中面/边画布需覆盖整个 3D 视口——portal 到最近的 .part-studio-canvas。
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const [previewHost, setPreviewHost] = React.useState<HTMLElement | null>(null);
+  React.useEffect(() => {
+    setPreviewHost((rootRef.current?.closest('.part-studio-canvas') as HTMLElement | null) ?? null);
+  }, []);
+
+  // v1.21：fillet 真实结果预览——后端影子求值（不落库）→ 前端 TileRpc 动态图形。
+  // 150ms debounce + 序列号守卫；短租约预算失败只静默不出预览，不阻塞参数编辑。
+  const [backendPreview, setBackendPreview] = React.useState<FeaturePreviewGeometryDto | undefined>(undefined);
+  const previewSeqRef = React.useRef(0);
+  React.useEffect(() => {
+    if (!filletChannel || previewOp === undefined || filletEdges.length === 0) {
+      setBackendPreview(undefined);
+      return;
+    }
+    const parsedRadius = Number(radius);
+    if (radius.trim() === '' || !Number.isFinite(parsedRadius) || parsedRadius <= 0) {
+      setBackendPreview(undefined);
+      return;
+    }
+    const seq = ++previewSeqRef.current;
+    const timer = window.setTimeout(() => {
+      const filletParams = {
+        ...(mode === 'edit' ? (editParams ?? {}) : {}),
+        radius: parsedRadius,
+        propagateSmooth,
+        edges: filletEdges.map((edge) => ({ edge: edge.edge })),
+      } as FeatureParams;
+      const op: FeatureOp = mode === 'edit' && featureId !== undefined
+        ? { kind: 'updateParams', featureId, params: filletParams }
+        : {
+            kind: 'insertFeature',
+            featureType: 'fillet',
+            params: filletParams,
+            ...(filletAutomaticTargetId !== undefined ? { targetBodyId: filletAutomaticTargetId } : {}),
+          };
+      void previewOp(op).then(
+        (result) => {
+          if (previewSeqRef.current !== seq) return;
+          setBackendPreview(result.ok ? result.preview : undefined);
+        },
+        () => {
+          if (previewSeqRef.current === seq) setBackendPreview(undefined);
+        },
+      );
+    }, 150);
+    return () => {
+      window.clearTimeout(timer);
+      if (previewSeqRef.current === seq) previewSeqRef.current += 1;
+    };
+  }, [filletChannel, previewOp, filletEdges, radius, propagateSmooth, filletAutomaticTargetId, mode, featureId, editParams]);
+
   // 提交门（M6-a T6；M6-c T3 面域判据分叉）：草图通道就绪 = 已选草图 ∧ 面域
   // 已载且非空 ∧ 面域选择就绪——extrude=多选集非空（用户清空 →「选择至少一个
   // 面域」+ ✓ 禁用）；revolve=单选序未越界（换草图瞬间旧值残留防御）∧ 轴线
@@ -962,7 +1244,7 @@ export function FeatureDialog({
       regionsError === undefined &&
       regionCount > 0 &&
       (revolveChannel
-        ? regionIndex < regionCount && selectedAxisId !== undefined
+        ? selectedRegions.length === 1 && regionIndex < regionCount && selectedAxisId !== undefined
         : selectedRegions.length > 0));
   // 提交门（M6-b T6 fillet 追加）：已拾至少一条边（空边集禁提交——shared
   // FilletParams.edges 非空语义前置）∧ 拾取会话已结束（会话在场时禁提交）。
@@ -1000,7 +1282,7 @@ export function FeatureDialog({
   // ✓/成品统一禁用面（各通道门禁 + 上游门禁；两处按钮同源防漂移）。pattern 的数值
   // 非法不在此禁用——提交时给字段级诚实文案（同 extrude distance 的既有手感：
   // 数字域错误在确认出口报，而非静默灰化）。
-  const submitDisabled = submitting || editStandalone || !canEdit || !sketchReady || !filletReady
+  const submitDisabled = submitting || editReadOnly || !canEdit || !sketchReady || !filletReady
     || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
     || patternUpstreamMissing
     // B6 M-A3.2a：读面刷新中（N 未知）/读面不可用（target 无从确定）禁提交；
@@ -1028,35 +1310,6 @@ export function FeatureDialog({
     setChips((prev) => prev.filter((chip) => chip.id !== id));
   }, []);
 
-  // 草图选择（M6-a T6）：换草图即重置面域选择（regions 语义=该草图的面积降序
-  // 数组，旧下标不跨草图续用；读取中的过渡窗由 sketchReady 禁提交兜住）——
-  // 单选序归零 + 多选集同步清空（M6-c T3：多选集不清则载荷会以新 sketchId 配
-  // 旧草图下标，读取 effect 落定前的过渡帧故须就地失效）。
-  const handleSketchChange = React.useCallback((sketchId: string) => {
-    setSelectedSketchId(sketchId);
-    setRegionIndex(0);
-    setSelectedRegions([]);
-  }, []);
-
-  // 草图 chip ×移除 = 清选择（回到「选择草图…」占位，提交随 sketchReady 禁用）。
-  const handleRemoveSketchChip = React.useCallback(() => {
-    setSelectedSketchId('');
-    setRegionIndex(0);
-    setSelectedRegions([]);
-  }, []);
-
-  // 面域多选（M6-c T3 extrude 通道）：点 chip 切换选中态；升序存储（载荷集
-  // 语义确定性）；「全选/清空」轻量操作补全 Onshape 多选手感的两端。
-  const handleToggleRegion = React.useCallback((index: number) => {
-    setSelectedRegions((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index].sort((a, b) => a - b),
-    );
-  }, []);
-  const handleSelectAllRegions = React.useCallback(() => {
-    setSelectedRegions((regions ?? []).map((_, index) => index));
-  }, [regions]);
-  const handleClearRegions = React.useCallback(() => setSelectedRegions([]), []);
-
   const buildResult = React.useCallback((): FeatureDialogResult => ({
     resultType,
     booleanScope,
@@ -1080,8 +1333,11 @@ export function FeatureDialog({
    */
   const handleConfirm = React.useCallback(() => {
     if (submitting || !canEdit) return; // 禁重入 + 只读写门禁（B2：readonly 不进租约环）
-    if (editStandalone) return; // M-1：edit 本版不提交（✓ 已禁用，此为防御兜底）
-    if (!(mode === 'new' && applyOp && featureType)) {
+    if (editReadOnly) return; // 结构键不可变类型只读（✓ 已禁用，防御兜底）
+    const submittedFeatureType = featureType;
+    const canSubmit = applyOp !== undefined && submittedFeatureType !== undefined
+      && (mode === 'new' || (mode === 'edit' && featureId !== undefined));
+    if (!canSubmit) {
       onConfirm?.(buildResult());
       return;
     }
@@ -1155,13 +1411,8 @@ export function FeatureDialog({
     setSubmitting(true);
     void (async () => {
       let result: FeatureOpResult;
-      try {
-        result = await applyOp({
-          kind: 'insertFeature',
-          // M7 v1.10：布尔作用域映射后的提交类型（新建=基础类型；加入/移除=booleanAdd/
-          // booleanSubtract）。外层门禁已确保 featureType 在场，effectiveFeatureType 随之非空
-          //（`!` 收窄：布尔映射只在基础类型为 extrude/boolean* 时产生）。
-          featureType: effectiveFeatureType!,
+      // 新建/编辑共用参数构造（编辑时下方再与落库 params 合并）。
+      const paramsPayload: FeatureParams = (
           // M6-a T6：extrude 走草图通道——{sketchId} 草图寻址 + 空 profile
           //（shared 互斥语义：sketchId 在场时 profile 须空数组，后端
           // sketchRegionsFrom 按面域数组产轮廓）。M7 v1.10：布尔草图驱动独立
@@ -1177,7 +1428,7 @@ export function FeatureDialog({
           // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
           // edges:[{edge:{nodeId,entityId}}...]}（边自身持久 id 透传，shared v1.9
           // M6-d 纯换契约；无 profile/distance 语义）。
-          params: patternChannel
+          patternChannel
             ? (patternKind === 'linear'
                 ? {
                     // B5 pattern（shared v1.14 PatternParams）：PART/body 线性阵列——
@@ -1276,12 +1527,35 @@ export function FeatureDialog({
                   ...(nativeOperation ? { operation: nativeOperation } : {}),
                   ...(mergeScopeBodies ? { mergeScope: mergeScopeBodies } : {}),
                 }
-              : { profile: [], distance: parsedDistance },
-          // B6 M-A3.2a：N>1 的显式目标 body 在 op 层（不在 params）；N≤1/newBody
-          // 缺省不发（legacy/全局链尾语义由后端裁决）。Critical 1：fillet 的值=
-          // 拾取边父体（filletAutomaticTargetId），不是任何默认值。
-          ...(opTargetBodyId === undefined ? {} : { targetBodyId: opTargetBodyId }),
-        });
+              : { profile: [], distance: parsedDistance });
+      // 编辑：在落库 params 上合并可编辑量，保留 operation/mergeScope/newBody 等
+      // 结构键（updateParams 不得翻转它们）。pattern/mirror 两形态键集互斥，
+      // 用完整新载荷而非合并旧键。
+      let params: FeatureParams = paramsPayload;
+      if (mode === 'edit') {
+        const stored = (editParams ?? {}) as Record<string, unknown>;
+        if (featureType === 'extrude' || featureType === 'booleanAdd' || featureType === 'booleanSubtract') {
+          params = { ...stored, ...paramsPayload, symmetric } as FeatureParams;
+          // regions 与 deprecated regionIndex 互斥（服务端 zod 同拒）。
+          delete (params as unknown as Record<string, unknown>).regionIndex;
+        } else if (featureType === 'revolve') {
+          params = { ...stored, ...paramsPayload } as FeatureParams;
+          if (fullRevolve) delete (params as unknown as Record<string, unknown>).angle;
+        }
+      }
+      const op: FeatureOp = mode === 'edit'
+        ? { kind: 'updateParams', featureId: featureId!, params }
+        : {
+            kind: 'insertFeature',
+            featureType: effectiveFeatureType!,
+            params,
+            // B6 M-A3.2a：N>1 的显式目标 body 在 op 层（不在 params）；N≤1/newBody
+            // 缺省不发（legacy/全局链尾语义由后端裁决）。Critical 1：fillet 的值=
+            // 拾取边父体（filletAutomaticTargetId），不是任何默认值。
+            ...(opTargetBodyId === undefined ? {} : { targetBodyId: opTargetBodyId }),
+          };
+      try {
+        result = await applyOp(op);
       } catch (err) {
         // rpc-over-ipc 异常（连接断开等）——与拒收同面呈现，不静默。
         result = { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -1304,7 +1578,9 @@ export function FeatureDialog({
   }, [
     submitting,
     canEdit,
-    editStandalone,
+    editReadOnly,
+    featureId,
+    editParams,
     mode,
     applyOp,
     featureType,
@@ -1371,26 +1647,38 @@ export function FeatureDialog({
     featureName,
   ]);
 
-  // 选中回显 chip（M6-a T6；M6-c T3 分叉）：「{草图名} 的面」——对齐采集规格
-  // 「Sketch 1 的 面」chips 形态；「· 面域 N」后缀仅 revolve 保留（单选下拉的
-  // 回显位），extrude 的面域选中态由多选 chips 自身 aria-pressed 呈现（后缀
-  // 表达不了集合）。
+  // 选中草图（Onshape：最近一张草图自动激活，面域在视口拾取）。
   const selectedSketch = sketchOptions.find((option) => option.id === selectedSketchId);
-  const sketchChipLabel = selectedSketch
-    ? revolveChannel && regionCount > 1
-      ? t('partStudio.featureDialog.sketchFaceChipWithRegion', {
-          name: selectedSketch.label,
-          index: regionIndex,
-        })
-      : t('partStudio.featureDialog.sketchFaceChip', { name: selectedSketch.label })
-    : undefined;
-  // 面域下拉项（M6-a T6）：regions 面积降序（后端 sketchRegionsFrom 确定性排序
-  // 语义），首项标注最大（= regionIndex 缺省 0 的语义锚）。
-  const regionOptionLabel = (index: number, area: number): string =>
-    index === 0
-      ? t('partStudio.featureDialog.regionOptionLargest', { index, area: formatArea(area) })
-      : t('partStudio.featureDialog.regionOption', { index, area: formatArea(area) });
-
+  // Onshape 面/草图面域拾取：当前草图面域投影为可点击区域（同屏悬停高亮）。
+  const profileSketches = React.useMemo<ProfileSketch[]>(() => {
+    if (!selectedSketch || !regions || regions.length === 0) return [];
+    return [{
+      id: selectedSketch.id,
+      label: selectedSketch.label,
+      plane: sketchPlane,
+      regions,
+    }];
+  }, [selectedSketch, regions, sketchPlane]);
+  const selectedProfilePicks = React.useMemo<ProfilePick[]>(
+    () => selectedRegions.map((regionIndex) => ({ sketchId: selectedSketchId, regionIndex })),
+    [selectedRegions, selectedSketchId],
+  );
+  const handleToggleProfile = React.useCallback((pick: ProfilePick) => {
+    if (pick.sketchId !== selectedSketchId) return; // 单草图活动通道（多草图拾取待扩展）
+    if (revolveChannel) {
+      setSelectedRegions((prev) => (prev.length === 1 && prev[0] === pick.regionIndex ? [] : [pick.regionIndex]));
+      setRegionIndex(pick.regionIndex);
+      return;
+    }
+    setSelectedRegions((prev) => (
+      prev.includes(pick.regionIndex)
+        ? prev.filter((index) => index !== pick.regionIndex)
+        : [...prev, pick.regionIndex].sort((a, b) => a - b)
+    ));
+  }, [selectedSketchId, revolveChannel]);
+  const handleRemoveProfileChip = React.useCallback((regionIndex: number) => {
+    setSelectedRegions((prev) => prev.filter((index) => index !== regionIndex));
+  }, []);
   // 轴下拉项（M6-c T5 判型命名）：竖直线/水平线/斜线+同类序号；unknown（端点
   // 无解算坐标）回退「线 {id}」——载荷寻址（axis.sketchEntityId=id）不受影响。
   const axisOptionLabel = (line: AxisLineDescriptor): string => {
@@ -1425,6 +1713,7 @@ export function FeatureDialog({
 
   return (
     <div
+      ref={rootRef}
       role="dialog"
       aria-modal="false"
       aria-label={featureName}
@@ -1474,6 +1763,7 @@ export function FeatureDialog({
                 type="button"
                 role="tab"
                 aria-selected={resultType === type}
+                disabled={structuralLocked}
                 className={[
                   'part-studio-feature-dialog__tab',
                   resultType === type ? 'part-studio-feature-dialog__tab--active' : '',
@@ -1496,10 +1786,13 @@ export function FeatureDialog({
               const scopeUnsupported =
                 nativeOperationScope && (scope === 'remove' || (scope === 'new' && featureType === 'revolve'));
               const scopeDisabled =
-                booleanScopeCapable &&
-                (scope === 'intersect' || scopeUnsupported || (booleanScopeNoBody && (scope === 'add' || scope === 'remove')));
+                structuralLocked
+                || (booleanScopeCapable
+                  && (scope === 'intersect' || scopeUnsupported || (booleanScopeNoBody && (scope === 'add' || scope === 'remove'))));
               const scopeDisabledHint =
-                scope === 'intersect'
+                structuralLocked
+                  ? t('partStudio.featureDialog.editOperationLocked')
+                  : scope === 'intersect'
                   ? t('partStudio.featureDialog.booleanIntersectUnsupported')
                   : scopeUnsupported
                     ? t('partStudio.featureDialog.booleanOperationUnsupported')
@@ -1615,14 +1908,15 @@ export function FeatureDialog({
           </p>
         )}
 
-        {/* edit 模式提示行（T6 评审 M-1）：参数编辑即将推出（✓ 已禁用）。 */}
-        {canEdit && editStandalone && (
+        {/* 编辑只读提示：loft/sweep 的草图结构引用、booleanBodies 的语义参数
+            由服务端 updateParams 守卫拒收（换参数须删除特征后重建）。 */}
+        {canEdit && editReadOnly && (
           <p
             role="note"
             className="part-studio-feature-dialog__hint"
             data-testid="part-studio-feature-dialog-edit-hint"
           >
-            {t('partStudio.featureDialog.editHint')}
+            {t('partStudio.featureDialog.editUnsupportedHint')}
           </p>
         )}
 
@@ -2419,100 +2713,42 @@ export function FeatureDialog({
 
           {sketchChannel && sketchOptions.length > 0 && (
             <React.Fragment>
-              {/* 草图下拉（多选一；视口点击拾取归 M6-c 交互精化）。 */}
-              <select
-                aria-label={t('partStudio.featureDialog.sketchLabel')}
-                className="part-studio-feature-dialog__select"
-                value={selectedSketchId}
-                disabled={submitting}
-                onChange={(event) => handleSketchChange(event.target.value)}
+              {/* Onshape「要拉伸的面和草图面域」：没有草图下拉/面域列表按钮；
+                  草图自动取最近一张，面域在视口中点击增删，每个选中面域显示
+                  一个「草图 N 的面」chip（可 X 移除）。 */}
+              <div
+                className="part-studio-feature-dialog__profile-field"
+                data-testid="part-studio-feature-dialog-profile-field"
               >
-                <option value="" disabled>
-                  {t('partStudio.featureDialog.sketchPlaceholder')}
-                </option>
-                {sketchOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-
-              {/* 面域选择（M6-a T6 最小形态 → M6-c T3 分叉）：extrude=多选 chips
-                  （regions>1 才现；点选切换 aria-pressed，缺省 [0]=最大面域；
-                  「全选/清空」轻量操作）——Onshape「面和草图面域」多选语义；
-                  revolve=单选下拉保持（**裁决钉死：RevolveParams 未扩 regions——
-                  不越契约**，载荷仍 regionIndex）。单面域两通道均自动 [0]（缺省
-                  语义无需选择，无 UI）。 */}
-              {regions !== undefined && regionCount > 1 && !revolveChannel && (
-                <div
-                  className="part-studio-feature-dialog__region-picker"
-                  data-testid="part-studio-feature-dialog-region-chips"
-                >
+                {selectedRegions.length > 0 ? (
                   <ul className="part-studio-feature-dialog__chips">
-                    {regions.map((region, index) => (
-                      <li key={`region-${index}`}>
+                    {selectedRegions.map((index) => (
+                      <li key={`profile-${index}`}>
                         <button
                           type="button"
-                          aria-pressed={selectedRegions.includes(index)}
-                          className="part-studio-feature-dialog__region-chip"
+                          className="part-studio-feature-dialog__profile-chip"
+                          data-region-index={index}
                           disabled={submitting}
-                          onClick={() => handleToggleRegion(index)}
+                          title={t('partStudio.featureDialog.removeProfileHint')}
+                          onClick={() => handleRemoveProfileChip(index)}
                         >
-                          {regionOptionLabel(index, region.area)}
+                          <span>{t('partStudio.featureDialog.profileChip', {
+                            sketch: selectedSketch?.label ?? selectedSketchId,
+                          })}</span>
+                          <span aria-hidden="true"> ×</span>
                         </button>
                       </li>
                     ))}
                   </ul>
-                  <div className="part-studio-feature-dialog__region-actions">
-                    <button
-                      type="button"
-                      className="part-studio-feature-dialog__fast-pick"
-                      data-testid="part-studio-feature-dialog-region-select-all"
-                      disabled={submitting}
-                      onClick={handleSelectAllRegions}
-                    >
-                      {t('partStudio.featureDialog.regionSelectAll')}
-                    </button>
-                    <button
-                      type="button"
-                      className="part-studio-feature-dialog__fast-pick"
-                      data-testid="part-studio-feature-dialog-region-clear"
-                      disabled={submitting}
-                      onClick={handleClearRegions}
-                    >
-                      {t('partStudio.featureDialog.regionClearAll')}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {regions !== undefined && regionCount > 1 && revolveChannel && (
-                <select
-                  aria-label={t('partStudio.featureDialog.regionLabel')}
-                  className="part-studio-feature-dialog__select"
-                  value={regionIndex}
-                  disabled={submitting}
-                  onChange={(event) => setRegionIndex(Number(event.target.value))}
-                >
-                  {regions.map((region, index) => (
-                    <option key={`region-${index}`} value={index}>
-                      {regionOptionLabel(index, region.area)}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {/* 空选门禁（M6-c T3）：extrude 多面域下用户清空全部选中 →
-                  「选择至少一个面域」提示 + ✓ 禁用（sketchReady extrude 判据）。
-                  revolve 无此态（单选下拉恒有值）。 */}
-              {!revolveChannel && !regionsError && regions !== undefined && regionCount > 0 && selectedRegions.length === 0 && (
-                <p
-                  role="note"
-                  className="part-studio-feature-dialog__hint"
-                  data-testid="part-studio-feature-dialog-no-region-selected-hint"
-                >
-                  {t('partStudio.featureDialog.noRegionSelectedHint')}
-                </p>
-              )}
+                ) : (
+                  <span
+                    className="part-studio-feature-dialog__profile-empty"
+                    data-testid="part-studio-feature-dialog-no-region-selected-hint"
+                  >
+                    {t('partStudio.featureDialog.noProfileSelectedHint')}
+                  </span>
+                )}
+              </div>
 
               {/* 旋转轴下拉（M6-b T4 revolve 通道；M6-c T5 判型命名）：选项
                   「竖直线/水平线/斜线 N」（端点解算坐标判向；unknown 回退
@@ -2546,23 +2782,6 @@ export function FeatureDialog({
                 >
                   {t('partStudio.featureDialog.noAxisHint')}
                 </p>
-              )}
-
-              {/* 选中回显 chip：「{草图名} 的面」（revolve 多面域 + regionIndex）；×=清选择。 */}
-              {selectedSketch && sketchChipLabel && (
-                <ul className="part-studio-feature-dialog__chips">
-                  <li className="part-studio-feature-dialog__chip">
-                    <span className="part-studio-feature-dialog__chip-label">{sketchChipLabel}</span>
-                    <button
-                      type="button"
-                      aria-label={t('partStudio.featureDialog.removeEntity', { label: sketchChipLabel })}
-                      className="part-studio-feature-dialog__chip-remove"
-                      onClick={handleRemoveSketchChip}
-                    >
-                      <SvgClose />
-                    </button>
-                  </li>
-                </ul>
               )}
 
               {/* 面域读取失败（RPC 异常/连接缺失）：就地 alert + 提交禁用。 */}
@@ -2681,9 +2900,9 @@ export function FeatureDialog({
       </div>
 
       {/* 底部（M6-c T5 采集对齐 12-dialog-extrude-1.png）：透明度滑杆（无可见
-          标签，aria 供名）+ 成品 + ?。透明度=预览透明度语义（挂账：无预览通道，
-          值仅本地态+载荷回传——见文件头注）；M3 期回滚滑杆撤出（Onshape 回滚条
-          在特征树底部，归树 backlog 单裁）。 */}
+          标签，aria 供名）+ 成品 + ?。透明度直接驱动实时预览叠影 alpha（见文件
+          头注「实时几何预览」）；M3 期回滚滑杆撤出（Onshape 回滚条在特征树底部，
+          归树 backlog 单裁）。 */}
       <footer className="part-studio-feature-dialog__footer">
         <div className="part-studio-feature-dialog__transparency">
           <input
@@ -2721,6 +2940,31 @@ export function FeatureDialog({
         <p role="note" className="part-studio-feature-dialog__help-text">
           {t('partStudio.featureDialog.helpText')}
         </p>
+      )}
+      {/* Onshape 同款「在视口中点击草图面域」：悬停/点击高亮画在画布覆盖层，
+          选中状态回写 chips。portal 到 .part-studio-canvas。 */}
+      {previewHost !== null && viewport && sketchChannel && !submitting && profileSketches.length > 0 && createPortal(
+        <FeatureProfilePicker
+          viewport={viewport}
+          profiles={profileSketches}
+          selected={selectedProfilePicks}
+          onToggle={handleToggleProfile}
+        />,
+        previewHost,
+      )}
+      {/* 实时预览：extrude/revolve 客户端几何叠层 + fillet 后端影子求值几何
+          （v1.21，TileRpc 动态图形）。portal 到 .part-studio-canvas。 */}
+      {previewHost !== null && (previewGeometry !== undefined || backendPreview !== undefined) && createPortal(
+        <FeaturePreviewOverlay
+          viewport={viewport}
+          connection={connection}
+          geometry={previewGeometry}
+          dynamicPreview={backendPreview}
+          opacity={previewOpacity}
+          hideSource={backendPreview !== undefined}
+          solid={backendPreview !== undefined}
+        />,
+        previewHost,
       )}
     </div>
   );

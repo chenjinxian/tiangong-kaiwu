@@ -25,25 +25,26 @@
  *
  * T6 草图模式变身（os-30）：store.sketch.isActive → 工具条整体切换为草图
  * 工具组（SKETCH_TOOL_GROUP_ORDER 三组），特征工具组隐去；命令搜索触发钮
- * 禁用（os-30「search 框禁用」）；右端追加「退出草图」按钮（exitSketch
- * 复位，特征 ribbon 还原）。
+ * 禁用（os-30「search 框禁用」）；退出草图走草图对话框绿色 ✓（Onshape 无
+ * 额外工具栏退出按钮；2026-11-02 对齐移除原右端按钮，2026-11-03 删除
+ * SketchPanel 后同一对话框兼任编辑/完成）。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@itwin/itwinui-react';
-import { SvgSearch } from '@itwin/itwinui-icons-react';
 import { IModelApp } from '@itwin/core-frontend';
 import { CAPABILITY_GUIDANCE, isGated } from '../internal/capabilities.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import {
-  RIBBON_GROUP_ORDER,
+  ONSHAPE_RIBBON_GROUP_ORDER,
   RIBBON_TOOLS,
   allRibbonCommands,
   findRibbonCommand,
+  onshapeIconFor,
 } from './ribbon-registry.js';
-import type { RibbonIcon } from './ribbon-registry.js';
-import { SKETCH_TOOL_GROUP_ORDER, SKETCH_RIBBON_TOOLS } from './sketch-tools.js';
+import type { RibbonIcon, RibbonTool } from './ribbon-registry.js';
+import { SKETCH_PLACEHOLDER_IDS, SKETCH_TOOL_GROUP_ORDER, SKETCH_RIBBON_TOOLS } from './sketch-tools.js';
 import type { SketchRibbonTool } from './sketch-tools.js';
 import { RibbonDropdown } from './RibbonDropdown.js';
 
@@ -80,14 +81,8 @@ export function useToolActivation(canEdit = true): ToolActivation {
       const command = findRibbonCommand(id);
       if (!isGated(command?.capability ?? id)) return;
     }
-    if (id === 'selectFace' || id === 'selectEdge') {
-      // M-A5.2：面/边选择模式 toggle（同钮再点回 body）；不投 tools.run——
-      // 工具由 useSubEntitySelection 按 selectionMode 启动/清理。
-      const mode = id === 'selectFace' ? 'face' : 'edge';
-      const store = usePartStudioStore.getState();
-      store.setSelectionMode(store.canvas.selectionMode === mode ? 'body' : mode);
-      return;
-    }
+    // 2026-11-02：Onshape 草图工具栏里尚未实现的按钮/变体——保留 UI，点击无行为。
+    if (SKETCH_PLACEHOLDER_IDS.has(id)) return;
     if (id === 'newSketch') {
       // os-30：草图命令开 SketchDialog（平面选择+四开关，确认进草图模式）；
       // 真实 sketch 工具接线前不经 tools.run（接线时移除本特例）。
@@ -230,6 +225,50 @@ interface RibbonButtonModel {
   icon: RibbonIcon;
   labelKey: string;
   shortcut?: string;
+  showLabel?: boolean;
+}
+
+/** 撤消/重做组（Onshape 工具栏首组；特征/草图模式共用）。 */
+function HistoryGroup({
+  canEdit,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+}: {
+  canEdit: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
+}): React.JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <div className="part-studio-ribbon__group part-studio-ribbon__group--history" role="group" aria-label={t('partStudio.ribbon.groups.history')}>
+      <button
+        type="button"
+        className="part-studio-ribbon__tool"
+        aria-label={t('partStudio.topBar.edit.undo')}
+        title={t('partStudio.topBar.edit.undo')}
+        disabled={!canEdit || !canUndo}
+        onClick={onUndo}
+        data-testid="part-studio-ribbon-undo"
+      >
+        <OnshapeIcon name="undo-button" size={20} />
+      </button>
+      <button
+        type="button"
+        className="part-studio-ribbon__tool"
+        aria-label={t('partStudio.topBar.edit.redo')}
+        title={t('partStudio.topBar.edit.redo')}
+        disabled={!canEdit || !canRedo}
+        onClick={onRedo}
+        data-testid="part-studio-ribbon-redo"
+      >
+        <OnshapeIcon name="redo-button" size={20} />
+      </button>
+    </div>
+  );
 }
 
 /** 单工具按钮（无下拉变体的工具；草图/特征模式共用）。 */
@@ -244,24 +283,26 @@ function RibbonToolButton({ tool, onActivate, active, highlighted, disabled = fa
   const { t } = useTranslation();
   const label = t(tool.labelKey);
   const Icon = tool.icon;
+  const onshapeIcon = onshapeIconFor(tool.id);
   const className = [
     'part-studio-ribbon__tool',
+    tool.showLabel ? 'part-studio-ribbon__tool--labeled' : '',
     active ? 'part-studio-ribbon__tool--active' : '',
     highlighted ? 'part-studio-ribbon__tool--highlight' : '',
   ].filter(Boolean).join(' ');
   return (
-    <IconButton
-      size="small"
-      styleType="borderless"
+    <button
+      type="button"
       aria-label={label}
       title={tool.shortcut ? `${label} (${tool.shortcut})` : label}
       aria-pressed={active}
       className={className}
       disabled={disabled}
-      onClick={() => onActivate(tool.id)}
+      onClick={(event) => { event.currentTarget.blur(); onActivate(tool.id); }}
     >
-      <Icon />
-    </IconButton>
+      {onshapeIcon ? <OnshapeIcon name={onshapeIcon} size={20} /> : <Icon />}
+      {tool.showLabel && <span className="part-studio-ribbon__tool-label">{label}</span>}
+    </button>
   );
 }
 
@@ -274,25 +315,29 @@ export interface RibbonProps {
   /** 只读总门（P2.4）：false 时写工具钮禁用且激活不派发；gated 信息面仍可点。
    *  缺省 true（独立组件测试/旧调用语义）。 */
   canEdit?: boolean;
+  /** 撤消可用（BriefcaseTxns.isUndoPossible；Onshape 工具栏首组）。 */
+  canUndo?: boolean;
+  /** 重做可用。 */
+  canRedo?: boolean;
+  /** 撤消回调（页面层 IModelApp.tools.run('Undo') 通道）。 */
+  onUndo?: () => void;
+  /** 重做回调。 */
+  onRedo?: () => void;
 }
 
-export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element {
+export function Ribbon({
+  canEdit = true,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
+}: RibbonProps = {}): React.JSX.Element {
   const { t } = useTranslation();
   const { activate, gatedCapability, closeGatedDialog } = useToolActivation(canEdit);
   const activeToolId = usePartStudioStore((s) => s.tool.activeToolId);
   const palette = usePartStudioStore((s) => s.commandPalette);
   const toggleCommandPalette = usePartStudioStore((s) => s.toggleCommandPalette);
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
-  const exitSketch = usePartStudioStore((s) => s.exitSketch);
-  // M-A5.2：面/边选择模式 toggle 的激活态与禁用态（dialog 打开时禁用；
-  // 模式归零由 useSubEntitySelection 的 dialogActive 防御 effect 负责）。
-  const selectionMode = usePartStudioStore((s) => s.canvas.selectionMode);
-  const dialogActive = usePartStudioStore((s) => s.dialog.active !== null);
-  const isSelectionTool = (id: string): boolean => id === 'selectFace' || id === 'selectEdge';
-  const selectionActive = (id: string): boolean =>
-    id === 'selectFace' ? selectionMode === 'face'
-      : id === 'selectEdge' ? selectionMode === 'edge'
-        : false;
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
   const highlightIds = React.useMemo(() => {
@@ -307,10 +352,20 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
   }, [palette.isOpen, palette.highlightEnabled, palette.query, t]);
 
   return (
-    <div className="part-studio-ribbon" data-testid="part-studio-ribbon">
+    <div
+      className={`part-studio-ribbon${sketchActive ? ' part-studio-ribbon--sketch' : ''}`}
+      data-testid="part-studio-ribbon"
+    >
       {sketchActive ? (
         /* 草图模式变身（os-30）：草图工具组替换特征工具组。 */
         <div className="part-studio-ribbon__groups" role="toolbar" aria-label={t('partStudio.ribbon.sketchToolbarLabel')}>
+          <HistoryGroup
+            canEdit={canEdit}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={onUndo}
+            onRedo={onRedo}
+          />
           {SKETCH_TOOL_GROUP_ORDER.map((group) => {
             const tools = SKETCH_RIBBON_TOOLS.filter((tool) => tool.group === group);
             return (
@@ -320,15 +375,26 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
                 role="group"
                 aria-label={t(`partStudio.ribbon.sketchGroups.${group}`)}
               >
-                {tools.map((tool: SketchRibbonTool) => (
-                  <RibbonToolButton
-                    key={tool.id}
-                    tool={tool}
-                    onActivate={activate}
-                    active={activeToolId === tool.id}
-                    highlighted={false}
-                    disabled={!canEdit}
-                  />
+                {tools.map((sketchTool: SketchRibbonTool) => (
+                  sketchTool.dropdownItems ? (
+                    <RibbonDropdown
+                      key={sketchTool.id}
+                      tool={sketchTool as unknown as RibbonTool}
+                      onActivate={activate}
+                      active={activeToolId === sketchTool.id}
+                      highlighted={false}
+                      disabled={!canEdit}
+                    />
+                  ) : (
+                    <RibbonToolButton
+                      key={sketchTool.id}
+                      tool={sketchTool}
+                      onActivate={activate}
+                      active={activeToolId === sketchTool.id}
+                      highlighted={false}
+                      disabled={!canEdit}
+                    />
+                  )
                 ))}
               </div>
             );
@@ -336,7 +402,15 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
         </div>
       ) : (
         <div className="part-studio-ribbon__groups" role="toolbar" aria-label={t('partStudio.ribbon.toolbarLabel')}>
-          {RIBBON_GROUP_ORDER.map((group) => {
+          {/* Onshape 首组：撤消/重做（32×32，无标签）。 */}
+          <HistoryGroup
+            canEdit={canEdit}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={onUndo}
+            onRedo={onRedo}
+          />
+          {ONSHAPE_RIBBON_GROUP_ORDER.map((group) => {
             const tools = RIBBON_TOOLS.filter((tool) => tool.group === group);
             if (tools.length === 0) return null;
             return (
@@ -348,12 +422,8 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
               >
                 {tools.map((tool) => {
                   // 只读总门：full 写工具禁用；gated 项仅信息引导，保持可点（完整 UI 面）。
-                  // M-A5.2：选择面/边在 dialog 打开时禁用（模式切换由 store toggle）。
-                  const selectionDisabled = isSelectionTool(tool.id) && dialogActive;
-                  const disabled = selectionDisabled || (!canEdit && !isGated(tool.capability));
-                  const active = isSelectionTool(tool.id)
-                    ? selectionActive(tool.id)
-                    : activeToolId === tool.id;
+                  const disabled = !canEdit && !isGated(tool.capability);
+                  const active = activeToolId === tool.id;
                   return tool.dropdownItems ? (
                     <RibbonDropdown
                       key={tool.id}
@@ -387,16 +457,11 @@ export function Ribbon({ canEdit = true }: RibbonProps = {}): React.JSX.Element 
         onClick={toggleCommandPalette}
         disabled={sketchActive}
       >
-        <SvgSearch className="part-studio-ribbon__search-icon" />
         <span>{t('partStudio.ribbon.searchTools')}</span>
         <kbd className="part-studio-ribbon__search-kbd">{t('partStudio.ribbon.searchShortcut')}</kbd>
       </button>
-      {/* 草图模式退出钮（os-30：回到特征 ribbon）。 */}
-      {sketchActive && (
-        <button type="button" className="part-studio-ribbon__exit-sketch" onClick={exitSketch}>
-          {t('partStudio.ribbon.exitSketch')}
-        </button>
-      )}
+      {/* Onshape 草图模式没有额外的「退出草图」工具栏按钮：退出走草图特性
+          对话框的绿色 ✓（编辑态同一对话框）。 */}
       <CapabilityDialog capability={gatedCapability} onClose={closeGatedDialog} />
     </div>
   );

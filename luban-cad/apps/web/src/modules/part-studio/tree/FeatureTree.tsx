@@ -57,24 +57,19 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@itwin/itwinui-react';
 import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto } from '@luban-cad/shared';
 import {
-  SvgAdd,
-  SvgChevronDown,
-  SvgChevronRight,
-  SvgClock,
   SvgDelete,
   SvgDraw,
   SvgEdit,
   SvgEditAll,
   SvgHideManuallySuppressed,
-  SvgPause,
-  SvgVisibilityHide,
   SvgVisibilityShow,
 } from '@itwin/itwinui-icons-react';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
+import type { OnshapeIconName } from '../icons/onshape-icons.js';
 import { CapabilityDialog } from '../ribbon/Ribbon.js';
 import { isGated } from '../internal/capabilities.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
@@ -84,6 +79,7 @@ import type { FeatureNode, PartNode, TreeTab } from '../types.js';
 import { TreeFilter, parseTreeFilter } from './TreeFilter.js';
 import type { TreeNode } from './TreeRow.js';
 import { isFeatureNode, isNodeHidden, isSketchNode, TreeRow } from './TreeRow.js';
+import { DEFAULT_DATUM_COUNT } from './DefaultGeometryGroup.js';
 import { DefaultGeometryGroup } from './DefaultGeometryGroup.js';
 
 export interface FeatureTreeProps {
@@ -163,10 +159,10 @@ const TREE_SECTIONS: { id: TreeTab; labelKey: string; testidPrefix: string }[] =
  * 能力引导对话框（capabilities.ts 单一真源；翻转 gated→full 时此处零改动，
  * 真实动作在 handleSectionTool 的 full 分支接线）。
  */
-const FEATURE_SECTION_TOOLS: { id: string; labelKey: string; capability: string; icon: React.ComponentType }[] = [
-  { id: 'insert-elements', labelKey: 'partStudio.tree.insertElements', capability: 'insertElement', icon: SvgAdd },
-  { id: 'pause-rebuild', labelKey: 'partStudio.tree.pauseRebuild', capability: 'pauseRebuild', icon: SvgPause },
-  { id: 'feature-history', labelKey: 'partStudio.tree.featureHistory', capability: 'featureHistory', icon: SvgClock },
+const FEATURE_SECTION_TOOLS: { id: string; labelKey: string; capability: string; icon: OnshapeIconName }[] = [
+  { id: 'insert-elements', labelKey: 'partStudio.tree.insertElements', capability: 'insertElement', icon: 'new-folder-button' },
+  { id: 'pause-rebuild', labelKey: 'partStudio.tree.pauseRebuild', capability: 'pauseRebuild', icon: 'pause-dialog' },
+  { id: 'feature-history', labelKey: 'partStudio.tree.featureHistory', capability: 'featureHistory', icon: 'profile-part-studio' },
 ];
 
 /**
@@ -381,6 +377,8 @@ export function FeatureTree({
   // M6-a T7：草图节点编辑入口（双击+右键两路同义）——enterSketch 进草图模式，
   // ribbon 变身/栅格覆盖层/树红显全由既有 sketch 切片消费面驱动。
   const enterSketch = usePartStudioStore((s) => s.enterSketch);
+  // Onshape：双击草图行进入编辑时同时打开草图对话框（平面/选项 + ✓/✗）。
+  const openSketchDialog = usePartStudioStore((s) => s.openSketchDialog);
   // B6 M-A5 T2：逐 body 可见性走会话态 store（hide/show 单一通道）——不直接触
   // EmphasizeElements；consumed∪manual neverDrawn effect 按 hiddenIds 重算。
   const hideNodes = usePartStudioStore((s) => s.hideNodes);
@@ -467,16 +465,22 @@ export function FeatureTree({
       const plane = (entry?.params as { plane?: SketchPlaneDto } | undefined)?.plane;
       enterSketch(node.id);
       setActiveSketchPlane(plane ?? null);
+      openSketchDialog(node.id);
     },
-    [enterSketch, setActiveSketchPlane, entries],
+    [enterSketch, setActiveSketchPlane, openSketchDialog, entries],
   );
 
-  // 双击路由（Onshape 语义=双击进编辑）：仅 sketch 节点有行为，非 sketch 节点不动。
+  // 双击路由（Onshape 语义=双击进编辑）：草图 → 进草图模式 + 草图对话框；
+  // 特征 → 打开 FeatureDialog edit（updateParams 二次编辑）。
   const handleRowDoubleClick = React.useCallback(
     (node: TreeNode) => {
-      if (isSketchNode(node)) handleEditSketch(node);
+      if (isSketchNode(node)) {
+        handleEditSketch(node);
+        return;
+      }
+      if (isFeatureNode(node) && onEdit) onEdit(node);
     },
-    [handleEditSketch],
+    [handleEditSketch, onEdit],
   );
 
   const handleRename = React.useCallback(
@@ -556,45 +560,49 @@ export function FeatureTree({
         const isFeatures = section.id === 'features';
         const rows = isFeatures ? model.featureRows : model.partRows;
         return (
-          <section key={section.id} className="part-studio-tree__section">
+          <section
+            key={section.id}
+            className={`part-studio-tree__section part-studio-tree__section--${section.id}`}
+          >
             <div className="part-studio-tree__section-header-row">
               <button
                 type="button"
                 aria-expanded={!isCollapsed}
                 className="part-studio-tree__section-header"
+                data-testid={`part-studio-${section.id === 'features' ? 'feature' : 'part'}-section-header`}
                 onClick={() => handleSectionHeader(section.id)}
               >
-                {isCollapsed ? <SvgChevronRight /> : <SvgChevronDown />}
+                {section.id === 'parts' && (
+                  <OnshapeIcon name={isCollapsed ? 'collapsed' : 'expanded'} size={10} />
+                )}
                 <span>{t(section.labelKey)}</span>
+                <span
+                  className="part-studio-tree__count"
+                  data-testid={`${section.testidPrefix}-count`}
+                >
+                  ({isFeatures ? rows.length + (filterInput === '' ? DEFAULT_DATUM_COUNT : 0) : rows.length})
+                </span>
               </button>
-              <span
-                className="part-studio-tree__count"
-                data-testid={`${section.testidPrefix}-count`}
-              >
-                ({isFeatures ? rows.length + (filterInput === '' ? 4 : 0) : rows.length})
-              </span>
-              {/* 特征段头三工具钮（os-11 段头形态；D3）：插入元素/暂停重建/特征历史。 */}
+              {/* 特征段头三工具钮（Onshape live：new-folder / pause / profile）。 */}
               {isFeatures && (
                 <div
                   className="part-studio-tree__section-tools"
                   role="group"
                   aria-label={t('partStudio.tree.sectionToolsLabel')}
                 >
-                  {FEATURE_SECTION_TOOLS.map((tool) => {
-                    const Icon = tool.icon;
-                    return (
-                      <IconButton
-                        key={tool.id}
-                        size="small"
-                        styleType="borderless"
-                        label={t(tool.labelKey)}
-                        data-testid={`part-studio-tree-tool-${tool.id}`}
-                        onClick={() => handleSectionTool(tool.capability)}
-                      >
-                        <Icon />
-                      </IconButton>
-                    );
-                  })}
+                  {FEATURE_SECTION_TOOLS.map((tool) => (
+                    <button
+                      key={tool.id}
+                      type="button"
+                      className="part-studio-tree__section-tool"
+                      aria-label={t(tool.labelKey)}
+                      title={t(tool.labelKey)}
+                      data-testid={`part-studio-tree-tool-${tool.id}`}
+                      onClick={() => handleSectionTool(tool.capability)}
+                    >
+                      <OnshapeIcon name={tool.icon} size={20} />
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -613,6 +621,10 @@ export function FeatureTree({
                         retryable: true,
                         suppressEmpty: true,
                       })}
+                      {/* Onshape 特征链末端的回滚条（live：渐变横条，UI 视觉锚点）。 */}
+                      {filterInput === '' && !loading && !error && (
+                        <li className="part-studio-tree__rollback" aria-hidden="true" />
+                      )}
                     </>
                   )
                   : (
@@ -774,7 +786,7 @@ export function FeatureTree({
             }}
           >
             <span className="part-studio-menu-item-icon" aria-hidden="true">
-              {isNodeHidden(menuNode) ? <SvgVisibilityShow /> : <SvgVisibilityHide />}
+              <OnshapeIcon name={isNodeHidden(menuNode) ? 'eye_open' : 'eye_closed'} size={16} />
             </span>
             {isNodeHidden(menuNode)
               ? t('partStudio.tree.showBody')

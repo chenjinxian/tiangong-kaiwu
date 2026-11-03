@@ -1,0 +1,287 @@
+/**
+ * Copyright (c) LubanCAD. All rights reserved.
+ * Licensed under the MIT License.
+ *
+ * 活动草图尺寸标注（Onshape live，2026-11-02）：屏幕空间绘制尺寸线/延长线/
+ * 箭头/数值。锚点由 web 层从草图约束解析成世界坐标（SketchDto → 局部几何 →
+ * 世界）；本装饰器只负责投影与制图样式，因此与草图求解/数据契约解耦。
+ *
+ * Onshape 口径：标注不随相机缩放变粗变细（尺寸线 1px、文字 12px、箭头 8px）；
+ * 标注放在几何外侧，侧向由调用方给的世界方向决定；文字沿尺寸线旋转但永不
+ * 倒置；半径用 R 前缀 + 圆心→弧点引线。
+ */
+import {
+  type DecorateContext,
+  IModelApp,
+  type ScreenViewport,
+} from '@itwin/core-frontend';
+import type { Point3d, Vector3d } from '@itwin/core-geometry';
+
+export interface SketchLinearDimensionAnnotation {
+  kind: 'linear';
+  id: string;
+  /** 被测两点（世界系）。 */
+  a: Point3d;
+  b: Point3d;
+  /** 草图面内世界方向：从被标注几何指向尺寸线应放置的一侧。 */
+  side: Vector3d;
+  text: string;
+}
+
+export interface SketchRadialDimensionAnnotation {
+  kind: 'radial';
+  id: string;
+  /** 圆心（世界系）。 */
+  center: Point3d;
+  /** 圆弧上的引线落点（世界系）。 */
+  point: Point3d;
+  /** 草图面内世界方向：引线/文字朝圆弧外侧。 */
+  side: Vector3d;
+  text: string;
+}
+
+export type SketchDimensionAnnotation = SketchLinearDimensionAnnotation | SketchRadialDimensionAnnotation;
+
+const LINE_COLOR = 'rgba(57, 65, 74, 0.92)';
+const TEXT_COLOR = '#39414a';
+const HALO_COLOR = 'rgba(250, 249, 245, 0.94)';
+const EXT_GAP = 3;
+const EXT_OVERSHOOT = 4;
+const DIM_OFFSET = 34;
+const STACK_STEP = 22;
+const ARROW_LENGTH = 8;
+const ARROW_HALF_WIDTH = 3;
+const FONT = '12px "Segoe UI", "Microsoft YaHei", sans-serif';
+
+interface ScreenPoint { x: number; y: number }
+interface ScreenRect { left: number; top: number; right: number; bottom: number }
+
+function normalize(x: number, y: number): ScreenPoint | undefined {
+  const len = Math.hypot(x, y);
+  if (!Number.isFinite(len) || len < 1e-6) return undefined;
+  return { x: x / len, y: y / len };
+}
+
+function rectsOverlap(a: ScreenRect, b: ScreenRect): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+function labelRect(center: ScreenPoint, angle: number, text: string): ScreenRect {
+  const width = Math.max(18, text.length * 7 + 8);
+  const height = 16;
+  // 粗估旋转后的包围盒（仅用于防止标注互相叠字）。
+  const c = Math.abs(Math.cos(angle));
+  const s = Math.abs(Math.sin(angle));
+  const w = width * c + height * s;
+  const h = width * s + height * c;
+  return { left: center.x - w / 2, top: center.y - h / 2, right: center.x + w / 2, bottom: center.y + h / 2 };
+}
+
+/** 沿尺寸线方向画实心箭头（tip 在端点，指向尺寸线外侧）。 */
+function drawArrow(ctx: CanvasRenderingContext2D, tip: ScreenPoint, direction: ScreenPoint): void {
+  const perp = { x: -direction.y, y: direction.x };
+  const base = { x: tip.x - direction.x * ARROW_LENGTH, y: tip.y - direction.y * ARROW_LENGTH };
+  ctx.beginPath();
+  ctx.moveTo(tip.x, tip.y);
+  ctx.lineTo(base.x + perp.x * ARROW_HALF_WIDTH, base.y + perp.y * ARROW_HALF_WIDTH);
+  ctx.lineTo(base.x - perp.x * ARROW_HALF_WIDTH, base.y - perp.y * ARROW_HALF_WIDTH);
+  ctx.closePath();
+  ctx.fillStyle = LINE_COLOR;
+  ctx.fill();
+}
+
+/** 文字沿尺寸线方向书写，归一化到 [-90°, 90°] 防止倒置。 */
+function readableAngle(dx: number, dy: number): number {
+  let angle = Math.atan2(dy, dx);
+  if (angle > Math.PI / 2) angle -= Math.PI;
+  else if (angle < -Math.PI / 2) angle += Math.PI;
+  return angle;
+}
+
+/**
+ * 活动草图尺寸标注装饰器。锚点为空/非空间视图 no-op；setAnnotations 重新
+ * invalidate（草图约束变化时由 React effect 调用）。
+ */
+export class SketchDimensionsDecoration {
+  private readonly _viewport: ScreenViewport;
+  private _annotations: readonly SketchDimensionAnnotation[];
+  private readonly _removeListener?: () => void;
+
+  public constructor(
+    viewport: ScreenViewport,
+    annotations: readonly SketchDimensionAnnotation[] = [],
+  ) {
+    this._viewport = viewport;
+    this._annotations = [...annotations];
+    this._removeListener = IModelApp.viewManager.addDecorator(this);
+  }
+
+  public setAnnotations(annotations: readonly SketchDimensionAnnotation[]): void {
+    this._annotations = [...annotations];
+    this._viewport.invalidateScene();
+  }
+
+  public dispose(): void {
+    this._removeListener?.();
+  }
+
+  public decorate(context: DecorateContext): void {
+    const vp = context.viewport;
+    if (!vp.view.isSpatialView() || this._annotations.length === 0)
+      return;
+
+    context.addCanvasDecoration({
+      drawDecoration: (ctx) => this.draw(ctx, vp),
+    });
+  }
+
+  private draw(ctx: CanvasRenderingContext2D, vp: ScreenViewport): void {
+    const occupied: ScreenRect[] = [];
+    ctx.save();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = LINE_COLOR;
+    ctx.font = FONT;
+
+    for (const annotation of this._annotations) {
+      if (annotation.kind === 'linear')
+        this.drawLinear(ctx, vp, annotation, occupied);
+      else
+        this.drawRadial(ctx, vp, annotation, occupied);
+    }
+    ctx.restore();
+  }
+
+  private drawLinear(
+    ctx: CanvasRenderingContext2D,
+    vp: ScreenViewport,
+    annotation: SketchLinearDimensionAnnotation,
+    occupied: ScreenRect[],
+  ): void {
+    const sa = vp.worldToView(annotation.a);
+    const sb = vp.worldToView(annotation.b);
+    if (![sa.x, sa.y, sb.x, sb.y].every(Number.isFinite)) return;
+
+    const lineDir = normalize(sb.x - sa.x, sb.y - sa.y);
+    if (!lineDir) return;
+
+    const sidePoint = vp.worldToView(annotation.a.plus(annotation.side));
+    let sideDir = normalize(sidePoint.x - sa.x, sidePoint.y - sa.y);
+    if (!sideDir) sideDir = { x: -lineDir.y, y: lineDir.x };
+    if (sideDir.x * lineDir.x + sideDir.y * lineDir.y > 0.5) {
+      // 侧向与尺寸线方向退化（探针太短/方向共线）：取垂线。
+      sideDir = { x: -lineDir.y, y: lineDir.x };
+    }
+
+    let offset = DIM_OFFSET;
+    let da = { x: sa.x + sideDir.x * offset, y: sa.y + sideDir.y * offset };
+    let db = { x: sb.x + sideDir.x * offset, y: sb.y + sideDir.y * offset };
+    let labelCenter = {
+      x: (da.x + db.x) / 2 + sideDir.x * 9,
+      y: (da.y + db.y) / 2 + sideDir.y * 9,
+    };
+    const angle = readableAngle(db.x - da.x, db.y - da.y);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const rect = labelRect(labelCenter, angle, annotation.text);
+      if (!occupied.some((other) => rectsOverlap(rect, other))) break;
+      offset += STACK_STEP;
+      da = { x: sa.x + sideDir.x * offset, y: sa.y + sideDir.y * offset };
+      db = { x: sb.x + sideDir.x * offset, y: sb.y + sideDir.y * offset };
+      labelCenter = {
+        x: (da.x + db.x) / 2 + sideDir.x * 9,
+        y: (da.y + db.y) / 2 + sideDir.y * 9,
+      };
+    }
+    occupied.push(labelRect(labelCenter, angle, annotation.text));
+
+    // 延长线（与几何留 3px 间隙，越过尺寸线 4px）。
+    ctx.strokeStyle = LINE_COLOR;
+    ctx.lineWidth = 1;
+    for (const [s, d] of [[sa, da], [sb, db]] as const) {
+      ctx.beginPath();
+      ctx.moveTo(s.x + sideDir.x * EXT_GAP, s.y + sideDir.y * EXT_GAP);
+      ctx.lineTo(d.x + sideDir.x * EXT_OVERSHOOT, d.y + sideDir.y * EXT_OVERSHOOT);
+      ctx.stroke();
+    }
+
+    // 尺寸线 + 两端箭头（指向延长线）。
+    ctx.beginPath();
+    ctx.moveTo(da.x, da.y);
+    ctx.lineTo(db.x, db.y);
+    ctx.stroke();
+    drawArrow(ctx, da, { x: -lineDir.x, y: -lineDir.y });
+    drawArrow(ctx, db, lineDir);
+
+    // 数值：沿尺寸线旋转；文字底边贴近尺寸线（canvas 上为负 y）。
+    ctx.save();
+    ctx.translate(labelCenter.x, labelCenter.y);
+    ctx.rotate(angle);
+    ctx.font = FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = HALO_COLOR;
+    ctx.strokeText(annotation.text, 0, 0);
+    ctx.fillStyle = TEXT_COLOR;
+    ctx.fillText(annotation.text, 0, 0);
+    ctx.restore();
+  }
+
+  private drawRadial(
+    ctx: CanvasRenderingContext2D,
+    vp: ScreenViewport,
+    annotation: SketchRadialDimensionAnnotation,
+    occupied: ScreenRect[],
+  ): void {
+    const sc = vp.worldToView(annotation.center);
+    const sp = vp.worldToView(annotation.point);
+    if (![sc.x, sc.y, sp.x, sp.y].every(Number.isFinite)) return;
+
+    const radial = normalize(sp.x - sc.x, sp.y - sc.y);
+    if (!radial) return;
+    const sidePoint = vp.worldToView(annotation.point.plus(annotation.side));
+    const sideDir = normalize(sidePoint.x - sp.x, sidePoint.y - sp.y);
+    const outward = sideDir && sideDir.x * radial.x + sideDir.y * radial.y >= 0 ? sideDir : radial;
+
+    let leaderEnd = { x: sp.x + outward.x * 44, y: sp.y + outward.y * 44 };
+    let labelCenter = { x: leaderEnd.x + outward.x * 12, y: leaderEnd.y + outward.y * 12 };
+    const angle = readableAngle(outward.x, outward.y);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const rect = labelRect(labelCenter, angle, annotation.text);
+      if (!occupied.some((other) => rectsOverlap(rect, other))) break;
+      leaderEnd = { x: leaderEnd.x + outward.x * STACK_STEP, y: leaderEnd.y + outward.y * STACK_STEP };
+      labelCenter = { x: labelCenter.x + outward.x * STACK_STEP, y: labelCenter.y + outward.y * STACK_STEP };
+    }
+    occupied.push(labelRect(labelCenter, angle, annotation.text));
+
+    // 圆心→弧点→外侧引线；箭头落在弧点上，指向圆心（标准半径标注）。
+    ctx.strokeStyle = LINE_COLOR;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sc.x, sc.y);
+    ctx.lineTo(leaderEnd.x, leaderEnd.y);
+    ctx.stroke();
+    drawArrow(ctx, sp, { x: -outward.x, y: -outward.y });
+
+    // 圆心十字。
+    ctx.beginPath();
+    ctx.moveTo(sc.x - 3, sc.y);
+    ctx.lineTo(sc.x + 3, sc.y);
+    ctx.moveTo(sc.x, sc.y - 3);
+    ctx.lineTo(sc.x, sc.y + 3);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(labelCenter.x, labelCenter.y);
+    ctx.rotate(angle);
+    ctx.font = FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = HALO_COLOR;
+    ctx.strokeText(annotation.text, 0, 0);
+    ctx.fillStyle = TEXT_COLOR;
+    ctx.fillText(annotation.text, 0, 0);
+    ctx.restore();
+  }
+}

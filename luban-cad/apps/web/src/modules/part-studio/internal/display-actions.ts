@@ -45,7 +45,7 @@ export interface DisplaySettings {
   edgeColor: string;
   /** 完整 BRep 拓扑边叠加（native tile 只含特征/轮廓边；默认开）。 */
   showBrepEdges: boolean;
-  /** 全部 BRep 顶点圆点（默认关；点选择模式由调用方临时打开）。 */
+  /** 全部 BRep 顶点圆点（默认关；仅由显示设置控制）。 */
   showBrepVertices: boolean;
   shadows: boolean;
   antialiasSamples: 1 | 2 | 4 | 8;
@@ -104,11 +104,8 @@ function viewFlagsFor(mode: DisplayModeId, aoOn: boolean, shadowsOn: boolean, ba
 }
 
 
-/** BRep 拓扑叠加层选项（显示模式/边设置/点选择模式 → 装饰件样式）。 */
-export function brepOverlayOptionsFor(
-  s: DisplaySettings,
-  selectionMode: 'body' | 'face' | 'edge' | 'vertex',
-): {
+/** BRep 拓扑叠加层选项（显示模式/边设置 → 装饰件样式）。 */
+export function brepOverlayOptionsFor(s: DisplaySettings): {
   showEdges: boolean;
   showVertices: boolean;
   edgeColor: string;
@@ -117,7 +114,7 @@ export function brepOverlayOptionsFor(
 } {
   return {
     showEdges: s.showBrepEdges && s.mode !== 'shaded-no-edges',
-    showVertices: s.showBrepVertices || selectionMode === 'vertex',
+    showVertices: s.showBrepVertices,
     edgeColor: s.edgeColor,
     edgeWidthPx: s.edgeWidthPx,
     xrayEdges: s.mode === 'hidden-visible' || s.mode === 'translucent',

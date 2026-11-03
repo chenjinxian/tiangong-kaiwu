@@ -161,7 +161,13 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
           rpcInterfaces,
           // P2.8：tile cache miss 由部署代理改写为 204，前端存储把 204/404 当 miss
           // 抛错交给 TileStorage 的原生回退——避免浏览器对真实 404 打 console 噪声。
-          tileAdmin: { tileStorage: new MissAwareFetchCloudStorage() },
+          // 2026-11-02 渲染对齐：generateAllPolyfaceEdges 缺省 true 会为每个 polyface
+          // 面片发边线，Shaded 下整模型泛三角网格线；关闭后由拓扑/折角推断真实
+          // BRep 特征边（边线显示仍由 render-profile 的 visEdges 控制）。
+          tileAdmin: {
+            tileStorage: new MissAwareFetchCloudStorage(),
+            generateAllPolyfaceEdges: false,
+          },
           // M6-a T5：AccuSnap 换 SketchAccuSnap 子类（九模式优先级表——草图
           // 绘制链的端点/中点/圆心/交点捕捉面；应用级单例，全局捕捉面同步变宽，
           // 边界见 tools/sketch-accu-snap.ts 头注）。仅首次 startup 分支生效

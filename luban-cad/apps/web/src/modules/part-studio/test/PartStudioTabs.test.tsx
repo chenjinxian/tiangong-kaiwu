@@ -101,7 +101,8 @@ describe('B 文档真页签（studios → tabs；active = ?model=）', () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    // Onshape 文档级页签 + 两个 Part Studio 页签（新壳层）。
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
   });
 });
 
@@ -139,9 +140,10 @@ describe('创建（「+」= 默认名称）', () => {
     expect(screen.queryByTestId('part-studio-tab-actions')).toBeNull();
   });
 
-  it('mode 未定/失败：不渲染 legacy 页签、动作菜单缺席、「+」禁用（F1）', () => {
+  it('mode 未定/失败：仅文档级页签、无 legacy 页签、动作菜单缺席、「+」禁用（F1）', () => {
     renderTabs({ mode: undefined, studios: [] });
-    expect(screen.queryByRole('tab')).toBeNull();
+    expect(screen.getByTestId('part-studio-doc-tab')).toBeDefined();
+    expect(screen.getAllByRole('tab')).toHaveLength(1);
     expect(screen.queryByTestId('part-studio-tab-actions')).toBeNull();
     const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);

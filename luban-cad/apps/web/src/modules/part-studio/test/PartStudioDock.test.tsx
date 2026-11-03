@@ -98,10 +98,11 @@ function isDisabled(button: HTMLElement): boolean {
     || button.getAttribute('aria-disabled') === 'true';
 }
 
-/** 打开版本历史页签（dock body 展开 + history 面板就位）。 */
-async function openHistoryTab(user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
+/** 打开版本历史（Onshape 化后入口在左缘面板选择条；组件级直接置 store）。 */
+async function openHistoryTab(_user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
+  usePartStudioStore.setState({ dock: { activeTab: 'history', isOpen: true } });
   const dock = screen.getByTestId('part-studio-dock');
-  await user.click(within(dock).getByRole('tab', { name: '版本历史' }));
+  await waitFor(() => within(dock).getByTestId('part-studio-dock-body'));
   return within(dock).getByTestId('part-studio-dock-body');
 }
 
@@ -120,18 +121,17 @@ beforeEach(() => {
 });
 
 describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
-  it('未点开页签：body 不渲染；工具设置/显示设置仍占位', async () => {
+  it('未点开页签：body 不渲染；右缘 5 钮在场，占位钮无动作', async () => {
     const user = userEvent.setup();
     renderDock();
     expect(screen.queryByTestId('part-studio-dock-body')).toBeNull();
 
     const dock = screen.getByTestId('part-studio-dock');
-    await user.click(within(dock).getByRole('tab', { name: '工具设置' }));
-    expect(toContainText(within(dock).getByTestId('part-studio-dock-body'), '内容即将推出')).toBe(true);
-
-    await user.click(within(dock).getByRole('tab', { name: '显示设置' }));
-    expect(toContainText(within(dock).getByTestId('part-studio-dock-body'), '内容即将推出')).toBe(true);
-    // 占位页签不发起 changesets 查询。
+    for (const id of ['appearances', 'configurations', 'featurescript-table', 'model-based-definition', 'variable-table']) {
+      expect(within(dock).getByTestId(`part-studio-dock-tab-${id}`)).toBeDefined();
+    }
+    await user.click(within(dock).getByTestId('part-studio-dock-tab-configurations'));
+    expect(screen.queryByTestId('part-studio-dock-body')).toBeNull();
     expect(mocks.listChangesets).not.toHaveBeenCalled();
   });
 
@@ -146,7 +146,7 @@ describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
       },
     });
     const dock = screen.getByTestId('part-studio-dock');
-    await user.click(within(dock).getByRole('tab', { name: '显示设置' }));
+    await user.click(within(dock).getByTestId('part-studio-dock-tab-appearances'));
     const body = within(dock).getByTestId('part-studio-dock-body');
     expect(within(body).getByTestId('part-studio-display-settings')).toBeDefined();
     expect(within(body).getByTestId('part-studio-display-settings-mode')).toBeDefined();
@@ -281,21 +281,21 @@ describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
 
 // ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────
 
-describe('M4-T8 T3-④：dock tab aria-controls 关联', () => {
-  it('页签 aria-controls 指向面板 id；面板 aria-labelledby 指回活动页签', async () => {
+describe('M4-T8 T3-④：dock 面板可访问关联（Onshape 5 钮）', () => {
+  it('外观钮 aria-controls 指向面板 id；面板 aria-labelledby 指回外观钮', async () => {
     const user = userEvent.setup();
     renderDock();
     const dock = screen.getByTestId('part-studio-dock');
-    const historyTab = within(dock).getByRole('tab', { name: '版本历史' });
-    await user.click(historyTab);
+    const appearances = within(dock).getByTestId('part-studio-dock-tab-appearances');
+    await user.click(appearances);
 
     const body = within(dock).getByTestId('part-studio-dock-body');
-    // tab → panel 指向（aria-controls=id）；panel → tab 回指（aria-labelledby）。
-    expect(historyTab.getAttribute('aria-controls')).toBe(body.id);
-    expect(body.getAttribute('aria-labelledby')).toBe(historyTab.id);
-    // 切页签后回指随活动页签走。
-    await user.click(within(dock).getByRole('tab', { name: '显示设置' }));
-    expect(within(dock).getByTestId('part-studio-dock-body').getAttribute('aria-labelledby'))
-      .toBe(within(dock).getByRole('tab', { name: '显示设置' }).id);
+    expect(appearances.getAttribute('aria-controls')).toBe(body.id);
+    expect(body.getAttribute('aria-labelledby')).toBe(appearances.id);
+    // 历史面板由左缘按钮打开：面板以 aria-label 自名。
+    usePartStudioStore.setState({ dock: { activeTab: 'history', isOpen: true } });
+    await waitFor(() =>
+      expect(within(dock).getByTestId('part-studio-dock-body').getAttribute('aria-label')).toBe('版本历史'),
+    );
   });
 });

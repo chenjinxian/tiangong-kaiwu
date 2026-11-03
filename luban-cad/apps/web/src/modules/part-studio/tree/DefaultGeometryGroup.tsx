@@ -7,46 +7,29 @@
  * 流转，**不进入** tree.selectedNodeIds / canvas.hiddenIds（非 iModel element）。
  * 行标签固定英文（Onshape 在中文界面同样保留 Origin/Top/Front/Right）。
  *
- * 默认可见性：初始三平面 + Origin 可见；首个产体特征后由 Session 调
- * hideDatumPlanesOnce 自动隐藏三平面（用户可用眼睛重新打开）。
+ * 默认可见性：Session 的 useDatumVisibility 按 authored body/活动草图实时
+ * 同步有效值（有体→全隐；无体→全显；草图落默认面→显示该面）；眼睛点击写
+ * 用户覆盖，scope 切换时清空。
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@itwin/itwinui-react';
-import {
-  SvgChevronDown,
-  SvgChevronRight,
-  SvgVisibilityHide,
-  SvgVisibilityShow,
-} from '@itwin/itwinui-icons-react';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { DatumId } from '../types.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
-const DATUM_ROWS: readonly { id: DatumId; label: string; kind: 'origin' | 'plane' }[] = [
+export const DATUM_ROWS: readonly { id: DatumId; label: string; kind: 'origin' | 'plane' }[] = [
   { id: 'origin', label: 'Origin', kind: 'origin' },
   { id: 'top', label: 'Top', kind: 'plane' },
   { id: 'front', label: 'Front', kind: 'plane' },
   { id: 'right', label: 'Right', kind: 'plane' },
 ];
 
-/** Origin 靶心 / 平面小方框（24×24 描边，跟随 currentColor）。 */
-function OriginIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6">
-      <circle cx="12" cy="12" r="5.2" />
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4" strokeLinecap="round" />
-    </svg>
-  );
-}
+/** Onshape 特征计数把默认几何四项计入（FeatureTree count 单一真源）。 */
+export const DEFAULT_DATUM_COUNT = DATUM_ROWS.length;
 
-function PlaneIcon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6">
-      <path d="M4 8.5 12 4l8 4.5-8 4.5-8-4.5Z" />
-      <path d="M4 8.5V16l8 4.5 8-4.5V8.5" opacity=".55" />
-    </svg>
-  );
+/** Origin 靶心 / 默认平面图标（Onshape 原 symbol）。 */
+function DatumIcon({ kind }: { kind: 'origin' | 'plane' }): React.JSX.Element {
+  return <OnshapeIcon name={kind === 'origin' ? 'origin-button' : 'default-plane-button'} size={16} />;
 }
 
 export function DefaultGeometryGroup(): React.JSX.Element {
@@ -68,7 +51,7 @@ export function DefaultGeometryGroup(): React.JSX.Element {
           data-testid="tree-datum-group-toggle"
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded ? <SvgChevronDown /> : <SvgChevronRight />}
+          <OnshapeIcon name={expanded ? 'expanded' : 'collapsed'} size={10} />
           <span>{t('partStudio.tree.defaultGeometry')}</span>
         </button>
       </div>
@@ -89,15 +72,15 @@ export function DefaultGeometryGroup(): React.JSX.Element {
                   onClick={() => selectDatum(selected ? null : row.id)}
                 >
                   <span className="part-studio-tree-row__icon" aria-hidden="true">
-                    {row.kind === 'origin' ? <OriginIcon /> : <PlaneIcon />}
+                    <DatumIcon kind={row.kind} />
                   </span>
                   <span className="part-studio-tree-row__name">{row.label}</span>
                 </button>
-                <IconButton
-                  size="small"
-                  styleType="borderless"
+                <button
+                  type="button"
                   className="part-studio-tree-row__visibility"
-                  label={t(visible ? 'partStudio.tree.hideDatum' : 'partStudio.tree.showDatum', { name: row.label })}
+                  aria-label={t(visible ? 'partStudio.tree.hideDatum' : 'partStudio.tree.showDatum', { name: row.label })}
+                  title={t(visible ? 'partStudio.tree.hideDatum' : 'partStudio.tree.showDatum', { name: row.label })}
                   data-testid={`tree-row-datum-visibility-${row.id}`}
                   aria-pressed={!visible}
                   onClick={(event) => {
@@ -105,8 +88,8 @@ export function DefaultGeometryGroup(): React.JSX.Element {
                     toggleVisible(row.id);
                   }}
                 >
-                  {visible ? <SvgVisibilityShow /> : <SvgVisibilityHide />}
-                </IconButton>
+                  <OnshapeIcon name={visible ? 'eye_open' : 'eye_closed'} size={16} />
+                </button>
               </li>
             );
           })}

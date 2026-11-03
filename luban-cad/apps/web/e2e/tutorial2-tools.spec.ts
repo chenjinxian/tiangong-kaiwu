@@ -25,8 +25,10 @@ import {
   addConstraint,
   addDimension,
   addOffset,
+  chooseSketchPlaneInViewport,
   clickWorld,
   disableSnap,
+  finishSketch,
   setStandardView,
   worldOf,
   type Local2,
@@ -105,10 +107,12 @@ async function boot(page: Page, request: APIRequestContext): Promise<{ ctx: Ctx;
   await page.getByRole('button', { name: '草图', exact: true }).click();
   const dialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('combobox', { name: '草图平面' }).selectOption({ label: '前视' });
+  await chooseSketchPlaneInViewport(page, 'front');
   await dialog.getByRole('button', { name: '确认' }).click();
-  const exit = page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' });
-  await expect(exit.or(dialog.getByTestId('part-studio-sketch-dialog-error'))).toBeVisible({ timeout: 60_000 });
+  // Onshape：创建后同一草图对话框保持打开（编辑态），草图工具条变身。
+  await expect(
+    page.getByRole('toolbar', { name: '草图工具' }).or(dialog.getByTestId('part-studio-sketch-dialog-error')),
+  ).toBeVisible({ timeout: 60_000 });
   if ((await dialog.getByTestId('part-studio-sketch-dialog-error').count()) > 0)
     throw new Error(`insertSketch 拒收: ${await dialog.getByTestId('part-studio-sketch-dialog-error').textContent()}`);
 
@@ -116,9 +120,11 @@ async function boot(page: Page, request: APIRequestContext): Promise<{ ctx: Ctx;
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas boundingBox 不可得');
   const hub = { x: box.x, y: box.y };
-  // 与严格复刻 spec 同一取景：草图整体位于左侧 SketchPanel 覆盖区之右。
+  // 与严格复刻 spec 同一取景：草图整体位于左侧草图对话框覆盖区之右。
+  // 2026-11-02 Onshape 壳层后画布宽高变化：放大取景，确保 T2 草图的点击点
+  // 全部留在画布内（旧取景下 P(75,45) 会落到 30px 底部页签条上）。
   await setStandardView(page, 4, {
-    low: { x: -135, y: -100, z: -20 }, high: { x: 125, y: 100, z: 90 },
+    low: { x: -170, y: -120, z: -100 }, high: { x: 160, y: 120, z: 120 },
   });
   await disableSnap(page);
   return { ctx, token, hub };
@@ -153,7 +159,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
     const { ctx, token, hub } = await boot(page, request);
 
-    await activate(page, '矩形');
+    await activate(page, '拐角矩形');
     await clickWorld(page, hub, P(-30, 12));
     await clickWorld(page, hub, P(25, -8));
     await page.waitForTimeout(1_500);
@@ -167,7 +173,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     await expectCounts(ctx, token, 6, 10, '自由线');
 
     // 三点圆弧：起点/终点/弧上点。
-    await activate(page, '圆弧');
+    await activate(page, '3 点圆弧');
     await clickWorld(page, hub, P(40, 20));
     await clickWorld(page, hub, P(70, 20));
     await clickWorld(page, hub, P(55, 35));
@@ -201,7 +207,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     const { ctx, token, hub } = await boot(page, request);
 
     // 矩形整体避开 origin（y=10..30），否则底边会与原点拾取热区重叠。
-    await activate(page, '矩形');
+    await activate(page, '拐角矩形');
     await clickWorld(page, hub, P(-10, 30));
     await clickWorld(page, hub, P(30, 10));
     await page.waitForTimeout(1_500);
@@ -220,7 +226,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     sk = await expectCounts(ctx, token, 7, 10, '线 B');
 
     // 弧起点落在线上 → auto-weld（与 Onshape 推断吸附同构）。
-    await activate(page, '圆弧');
+    await activate(page, '3 点圆弧');
     await clickWorld(page, hub, P(75, 45));
     await clickWorld(page, hub, P(90, 35));
     await clickWorld(page, hub, P(88, 42));
@@ -273,7 +279,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
     const { ctx, token, hub } = await boot(page, request);
 
-    await activate(page, '矩形');
+    await activate(page, '拐角矩形');
     await clickWorld(page, hub, P(-20, 20));
     await clickWorld(page, hub, P(20, 0));
     await page.waitForTimeout(1_500);
@@ -285,7 +291,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     await page.waitForTimeout(1_200);
     sk = await expectCounts(ctx, token, 6, 10, '基准线');
 
-    await activate(page, '圆弧');
+    await activate(page, '3 点圆弧');
     await clickWorld(page, hub, P(60, 10));
     await clickWorld(page, hub, P(75, 0));
     await clickWorld(page, hub, P(72, 7));
@@ -312,6 +318,60 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     expect(dims.find((c) => c.kind === 'radius')?.value).toBe(12.5);
     expect(dims.find((c) => c.kind === 'distance')?.value).toBe(25);
     expect(sk.solve.status).not.toBe('conflicting');
+  });
+
+  test('双击树二次编辑：草图对话框重开 + 拉伸距离 updateParams 落库', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
+    const { ctx, hub } = await boot(page, request);
+    await activate(page, '拐角矩形');
+    await clickWorld(page, hub, P(-30, 12));
+    await clickWorld(page, hub, P(25, -8));
+    await page.waitForTimeout(1_500);
+    await finishSketch(page);
+
+    const featureList = page.getByTestId('part-studio-feature-list');
+    await page.getByRole('button', { name: '拉伸', exact: true }).click();
+    const createDialog = page.getByTestId('part-studio-feature-dialog');
+    await expect(createDialog.getByText('草图 1 的面')).toBeVisible({ timeout: 20_000 });
+    await createDialog.getByRole('button', { name: '确认' }).click();
+    await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible({ timeout: 60_000 });
+
+    // 完整 BRep 拓扑叠加：首个实体生成后，装饰件应读到全部拓扑边与顶点
+    //（读面走 SolidModeling 命令，提交后自动刷新；不依赖拾取工具）。
+    await expect.poll(async () => page.evaluate(() => {
+      const deco = (window as any).__lubanE2E?.coreFrontend?.IModelApp?.viewManager?.decorators
+        ?.find((entry: { id?: string }) => entry.id === 'luban.brep-topology');
+      return deco?._topology?.edges?.length ?? 0;
+    }), { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect.poll(async () => page.evaluate(() => {
+      const deco = (window as any).__lubanE2E?.coreFrontend?.IModelApp?.viewManager?.decorators
+        ?.find((entry: { id?: string }) => entry.id === 'luban.brep-topology');
+      return deco?._topology?.vertices?.length ?? 0;
+    }), { timeout: 30_000 }).toBeGreaterThan(0);
+
+    // 双击拉伸行 → 同一 FeatureDialog 以编辑态打开，距离回显落库值。
+    await featureList.getByRole('button', { name: '拉伸 1' }).dblclick();
+    const editDialog = page.getByTestId('part-studio-feature-dialog');
+    await expect(editDialog).toBeVisible({ timeout: 15_000 });
+    const distance = editDialog.getByRole('textbox', { name: '距离' });
+    await expect(distance).toHaveValue('10');
+    await expect(editDialog.getByText('草图 1 的面')).toBeVisible({ timeout: 20_000 });
+    await distance.fill('20');
+    await editDialog.getByRole('button', { name: '确认' }).click();
+    await expect(editDialog).toBeHidden({ timeout: 60_000 });
+    const tree = await getFeatureTreeRpc(ctx, await getApiToken());
+    const extrude = tree.find((entry) => entry.featureType === 'extrude');
+    expect((extrude?.params as { distance?: number } | undefined)?.distance).toBe(20);
+
+    // 双击草图行 → 草图对话框重新打开（Onshape 无实体/约束/尺寸常驻面板）。
+    await featureList.getByRole('button', { name: '草图 1' }).dblclick();
+    const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
+    await expect(sketchDialog).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('sketch-panel')).toHaveCount(0);
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible();
+    await sketchDialog.getByRole('button', { name: '确认' }).click();
+    await expect(sketchDialog).toBeHidden({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible();
   });
 
   test('偏移：单线链生成平行线 + offset 关系并由面板精确距离提交', async ({ page, request }) => {

@@ -13,7 +13,7 @@ import {
   IModelApp,
   type ScreenViewport,
 } from '@itwin/core-frontend';
-import { Point3d } from '@itwin/core-geometry';
+import { Point3d, Vector3d } from '@itwin/core-geometry';
 
 export interface DatumPlaneVisibility {
   origin: boolean;
@@ -34,6 +34,47 @@ function corners(x: number, y: number, z: number): Point3d[] {
   ];
 }
 
+/** 默认基准面 id（与 apps/web DatumId 的平面子集一致）。 */
+export type DatumPlaneId = 'top' | 'front' | 'right';
+
+export interface DatumPlaneGeometry {
+  id: DatumPlaneId;
+  /** 世界系四角（闭合顺序，不重复首点）。 */
+  points: Point3d[];
+  labelPoint: Point3d;
+  normal: Vector3d;
+}
+
+/** 平面半尺寸（Onshape 初始平面铺满视口大半；随视口范围缩放，最小 25）。 */
+export function datumPlaneHalfSize(viewport: ScreenViewport): number {
+  const extents = viewport.view.getExtents();
+  const extent = Math.max(extents.x, extents.y, extents.z, 1);
+  return Math.max(25, extent * 0.42);
+}
+
+/**
+ * 三基准面世界几何（草图平面对话框视口拾取与视口装饰共用同一口径）：
+ * Top=XY(normal Z)、Front=XZ(normal Y)、Right=YZ(normal X)。
+ */
+export function datumPlaneGeometries(viewport: ScreenViewport): DatumPlaneGeometry[] {
+  const s = datumPlaneHalfSize(viewport);
+  return [
+    { id: 'top', points: corners(s, s, 0), labelPoint: Point3d.create(-s * 0.86, s * 0.86, 0), normal: Vector3d.unitZ() },
+    {
+      id: 'front',
+      points: [Point3d.create(-s, 0, -s), Point3d.create(s, 0, -s), Point3d.create(s, 0, s), Point3d.create(-s, 0, s)],
+      labelPoint: Point3d.create(-s * 0.86, 0, s * 0.86),
+      normal: Vector3d.unitY(),
+    },
+    {
+      id: 'right',
+      points: [Point3d.create(0, -s, -s), Point3d.create(0, s, -s), Point3d.create(0, s, s), Point3d.create(0, -s, s)],
+      labelPoint: Point3d.create(0, -s * 0.86, s * 0.86),
+      normal: Vector3d.unitX(),
+    },
+  ];
+}
+
 export class DatumPlanesDecoration {
   private readonly _viewport: ScreenViewport;
   private readonly _halfSize: number;
@@ -43,9 +84,7 @@ export class DatumPlanesDecoration {
   public constructor(viewport: ScreenViewport, visibility: DatumPlaneVisibility) {
     this._viewport = viewport;
     this._visibility = { ...visibility };
-    const extents = viewport.view.getExtents();
-    const extent = Math.max(extents.x, extents.y, extents.z, 1);
-    this._halfSize = Math.max(25, extent * 0.42);
+    this._halfSize = datumPlaneHalfSize(viewport);
     this._removeListener = IModelApp.viewManager.addDecorator(this);
   }
 

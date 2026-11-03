@@ -29,7 +29,10 @@ export default defineConfig({
         channel: 'chrome',
         viewport: { width: 1440, height: 900 },
         headless: false,
-        video: 'on',
+        // 演示节拍：每个 Playwright 输入动作放慢 180ms，鼠标轨迹/点击在录屏里可读。
+        launchOptions: { slowMo: 180 },
+        // T2_KEEP_OPEN=1：演示后浏览器长时间保持打开，停止录屏避免文件无限增长。
+        video: process.env.T2_KEEP_OPEN === '1' ? 'off' : 'on',
         screenshot: 'on',
         trace: 'off',
       },
@@ -38,7 +41,7 @@ export default defineConfig({
   use: {
     ...base.use,
     viewport: { width: 1440, height: 900 },
-    video: 'on',
+    video: process.env.T2_KEEP_OPEN === '1' ? 'off' : 'on',
     screenshot: 'on',
     trace: 'off',
   },

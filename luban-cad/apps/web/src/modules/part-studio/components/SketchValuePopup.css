@@ -1,0 +1,80 @@
+/* 草图尺寸/偏移值确认弹层（Onshape 标注位置浮层，2026-11-03）。
+ * 绝对定位在画布容器上；不遮罩、不拦其它鼠标事件。 */
+.part-studio-sketch-value-popup {
+  position: absolute;
+  z-index: 26;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  min-block-size: 28px;
+  padding: 3px 4px 3px 5px;
+  border: 1px solid var(--iui-color-border, #b9b9b9);
+  border-radius: 3px;
+  background: var(--iui-color-background, #ffffff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  color: var(--iui-color-text, #333333);
+  font: inherit;
+  font-size: var(--iui-font-size-0, 12px);
+}
+
+.part-studio-sketch-value-popup__input {
+  inline-size: 92px;
+  block-size: 22px;
+  padding: 1px 4px;
+  border: 1px solid var(--iui-color-border, #b9b9b9);
+  border-radius: 2px;
+  background: var(--iui-color-background, #ffffff);
+  color: var(--iui-color-text, #333333);
+  font: inherit;
+  font-size: var(--iui-font-size-0, 12px);
+}
+
+.part-studio-sketch-value-popup__input:focus {
+  outline: 1px solid var(--iui-color-text-accent, #1e6ce0);
+  outline-offset: 0;
+}
+
+.part-studio-sketch-value-popup__confirm,
+.part-studio-sketch-value-popup__cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.part-studio-sketch-value-popup__confirm {
+  color: #2e7d32;
+}
+
+.part-studio-sketch-value-popup__cancel {
+  color: #c62828;
+}
+
+.part-studio-sketch-value-popup__confirm:enabled:hover,
+.part-studio-sketch-value-popup__cancel:enabled:hover {
+  background: var(--iui-color-background-hover, #eef4fb);
+}
+
+.part-studio-sketch-value-popup__confirm:disabled,
+.part-studio-sketch-value-popup__cancel:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.part-studio-sketch-value-popup__error {
+  max-inline-size: 220px;
+  margin-inline-start: 4px;
+  color: var(--iui-color-text-negative, #d30b0b);
+  font-size: 11px;
+  white-space: normal;
+}

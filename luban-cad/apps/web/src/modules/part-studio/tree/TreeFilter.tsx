@@ -15,7 +15,7 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { SvgFilter, SvgCloseSmall } from '@itwin/itwinui-icons-react';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { FeatureNode, PartNode } from '../types.js';
 
 /** 筛选查询（parseTreeFilter 产物；空条件=全量）。 */
@@ -129,6 +129,15 @@ export function TreeFilter({ value, onChange }: TreeFilterProps): React.JSX.Elem
 
   return (
     <div className="part-studio-tree-filter" data-testid="part-studio-tree-filter">
+      <button
+        type="button"
+        className="part-studio-tree-filter__help-trigger"
+        aria-label={t('partStudio.treeFilter.helpLabel')}
+        aria-expanded={helpOpen}
+        onClick={() => setHelpOpen((open) => !open)}
+      >
+        <OnshapeIcon name="filter-results-button" size={20} />
+      </button>
       <div className="part-studio-tree-filter__field">
         <input
           type="text"
@@ -145,19 +154,10 @@ export function TreeFilter({ value, onChange }: TreeFilterProps): React.JSX.Elem
             aria-label={t('partStudio.treeFilter.clear')}
             onClick={() => onChange('')}
           >
-            <SvgCloseSmall />
+            ×
           </button>
         )}
       </div>
-      <button
-        type="button"
-        className="part-studio-tree-filter__help-trigger"
-        aria-label={t('partStudio.treeFilter.helpLabel')}
-        aria-expanded={helpOpen}
-        onClick={() => setHelpOpen((open) => !open)}
-      >
-        <SvgFilter />
-      </button>
       {helpOpen && (
         <ul className="part-studio-tree-filter__syntax" role="list">
           {SYNTAX_KEYS.map((key) => (

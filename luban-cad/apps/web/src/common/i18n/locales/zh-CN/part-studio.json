@@ -1,7 +1,17 @@
 {
   "topBar": {
-    "breadcrumb": { "documents": "文档" },
-    "branch": { "main": "Main" },
+    "breadcrumb": {
+      "documents": "文档",
+      "label": "文档路径"
+    },
+    "branch": {
+      "main": "Main"
+    },
+    "copyLink": "复制文档链接",
+    "notifications": "通知",
+    "explore": "探索 Onshape",
+    "appStore": "应用程序商店",
+    "learningCenter": "学习中心",
     "edit": {
       "undo": "撤消",
       "redo": "重做",
@@ -17,6 +27,16 @@
       "logout": "退出登录"
     }
   },
+  "panelRail": {
+    "label": "文档面板",
+    "history": "版本和历史记录",
+    "createVersion": "创建版本…",
+    "comments": "评论",
+    "notes": "文档注释",
+    "whereUsed": "使用处",
+    "performance": "性能",
+    "aiAdvisor": "AI 顾问"
+  },
   "sidebar": {
     "railLabel": "工具类别",
     "rail": {
@@ -27,16 +47,22 @@
     },
     "tree": {
       "features": "特征",
-      "parts": "零件",
+      "parts": "零件数",
       "emptyFeatures": "暂无特征",
       "emptyParts": "暂无零件"
-    }
+    },
+    "toggleTree": "显示/隐藏特征树"
   },
   "dock": {
     "tabs": {
       "toolSettings": "工具设置",
       "history": "版本历史",
-      "display": "显示设置"
+      "display": "显示设置",
+      "appearances": "外观",
+      "configurations": "配置表",
+      "featurescriptTable": "FeatureScript 表",
+      "modelBasedDefinition": "基于模型的定义",
+      "variableTable": "变量表"
     },
     "placeholder": "内容即将推出",
     "history": {
@@ -78,6 +104,7 @@
     "failed": "保存失败: {{message}}"
   },
   "tabs": {
+    "document": "文档",
     "fitView": "适应视图",
     "newTab": "新建页签",
     "newPartStudio": "新建 Part Studio",
@@ -202,115 +229,364 @@
       "frames": "框架",
       "sheetMetal": "钣金",
       "custom": "自定义特征",
-      "surfaceCurve": "曲面/曲线"
+      "surfaceCurve": "曲面/曲线",
+      "history": "撤消/重做"
     },
     "sketchGroups": {
       "sketchDraw": "绘制",
       "sketchEdit": "编辑",
-      "sketchAnnotate": "标注"
+      "sketchAnnotate": "标注",
+      "sketchFeature": "特征",
+      "sketchDimension": "尺寸",
+      "sketchConstraint": "约束"
     },
     "tools": {
-      "selectFace": { "label": "选择面" },
-      "selectEdge": { "label": "选择边" },
-      "sketch": { "label": "草图" },
-      "extrude": { "label": "拉伸" },
-      "revolve": { "label": "旋转" },
-      "sweep": { "label": "扫掠" },
-      "loft": { "label": "放样" },
-      "thicken": { "label": "加厚" },
-      "fillet": { "label": "圆角" },
-      "chamfer": { "label": "倒角" },
-      "draft": { "label": "拔模" },
-      "shell": { "label": "抽壳" },
-      "hole": { "label": "孔" },
-      "thread": { "label": "外部螺纹" },
-      "linearPattern": { "label": "线性阵列" },
-      "mirror": { "label": "镜像" },
-      "pattern": { "label": "阵列" },
-      "boolean": { "label": "布尔运算" },
-      "booleanBodies": { "label": "布尔运算" },
-      "splitPart": { "label": "分割" },
-      "transform": { "label": "变换" },
-      "deleteBodies": { "label": "删除零件" },
-      "modifyFillet": { "label": "修改圆角" },
-      "deleteFace": { "label": "删除面" },
-      "moveFace": { "label": "移动面" },
-      "replaceFace": { "label": "替换面" },
-      "cPlane": { "label": "平面" },
-      "frame": { "label": "框架" },
-      "sheetMetal": { "label": "钣金模型" },
-      "userFeatures": { "label": "添加自定义特征" },
-      "surfaceCurve": { "label": "曲面/曲线" }
+      "selectFace": {
+        "label": "选择面"
+      },
+      "selectEdge": {
+        "label": "选择边"
+      },
+      "selectVertex": {
+        "label": "选择点"
+      },
+      "sketch": {
+        "label": "草图"
+      },
+      "extrude": {
+        "label": "拉伸"
+      },
+      "revolve": {
+        "label": "旋转"
+      },
+      "sweep": {
+        "label": "扫掠"
+      },
+      "loft": {
+        "label": "放样"
+      },
+      "thicken": {
+        "label": "加厚"
+      },
+      "fillet": {
+        "label": "圆角"
+      },
+      "chamfer": {
+        "label": "倒角"
+      },
+      "draft": {
+        "label": "拔模"
+      },
+      "shell": {
+        "label": "抽壳"
+      },
+      "hole": {
+        "label": "孔"
+      },
+      "thread": {
+        "label": "外部螺纹"
+      },
+      "linearPattern": {
+        "label": "线性阵列"
+      },
+      "mirror": {
+        "label": "镜像"
+      },
+      "pattern": {
+        "label": "阵列"
+      },
+      "boolean": {
+        "label": "布尔运算"
+      },
+      "booleanBodies": {
+        "label": "布尔运算"
+      },
+      "splitPart": {
+        "label": "分割"
+      },
+      "transform": {
+        "label": "变换"
+      },
+      "deleteBodies": {
+        "label": "删除零件"
+      },
+      "modifyFillet": {
+        "label": "修改圆角"
+      },
+      "deleteFace": {
+        "label": "删除面"
+      },
+      "moveFace": {
+        "label": "移动面"
+      },
+      "replaceFace": {
+        "label": "替换面"
+      },
+      "cPlane": {
+        "label": "平面"
+      },
+      "frame": {
+        "label": "框架"
+      },
+      "sheetMetal": {
+        "label": "钣金模型"
+      },
+      "userFeatures": {
+        "label": "添加自定义特征"
+      },
+      "surfaceCurve": {
+        "label": "曲面/曲线"
+      },
+      "rib": {
+        "label": "筋"
+      }
     },
     "items": {
-      "thickenClosed": { "label": "封闭" },
-      "faceBlend": { "label": "面混合" },
-      "bodyDraft": { "label": "主体拔模" },
-      "circularPattern": { "label": "环形阵列" },
-      "curvePattern": { "label": "曲线阵列" },
-      "wrap": { "label": "包覆" },
-      "decal": { "label": "印花" },
-      "frameTrim": { "label": "框架修剪" },
-      "gusset": { "label": "角撑板" },
-      "endCap": { "label": "端盖" },
-      "cutList": { "label": "切割清单" },
-      "flange": { "label": "法兰" },
-      "hem": { "label": "卷边" },
-      "tab": { "label": "薄片" },
-      "smBend": { "label": "折弯" },
-      "smJog": { "label": "SMJog" },
-      "forming": { "label": "成型" },
-      "sheetMetalLoft": { "label": "钣金放样" },
-      "smJoint": { "label": "制作接头" },
-      "bendRelief": { "label": "折弯止裂槽" },
-      "cornerBreak": { "label": "尖角倒钝" },
-      "endSheetMetal": { "label": "结束钣金模型" },
-      "pcbFlexModel": { "label": "PCBFlexModel" },
-      "pcbEndFlexModel": { "label": "PCBEndFlexModel" },
-      "surfacePlane": { "label": "平面" },
-      "offsetSurface": { "label": "偏移曲面" },
-      "boundarySurface": { "label": "边界曲面" },
-      "fillSurface": { "label": "填充" },
-      "moveBoundary": { "label": "移动边界" },
-      "ruledSurface": { "label": "直纹曲面" },
-      "mutualTrim": { "label": "相互修剪" },
-      "constraintSurface": { "label": "约束曲面" },
-      "helix": { "label": "螺旋" },
-      "fitSpline3d": { "label": "3D 拟合样条" },
-      "projectCurve": { "label": "投影" },
-      "bridgeCurve": { "label": "桥接" },
-      "compositeCurve": { "label": "复合" },
-      "intersectionCurve": { "label": "交点" },
-      "trimCurve": { "label": "修剪" },
-      "isoline": { "label": "等斜线" },
-      "offsetCurve": { "label": "偏移" },
-      "isoparametricCurve": { "label": "等参" },
-      "editCurve": { "label": "编辑" },
-      "routeCurve": { "label": "路线曲线" }
+      "thickenClosed": {
+        "label": "封闭"
+      },
+      "faceBlend": {
+        "label": "面混合"
+      },
+      "bodyDraft": {
+        "label": "主体拔模"
+      },
+      "circularPattern": {
+        "label": "环形阵列"
+      },
+      "curvePattern": {
+        "label": "曲线阵列"
+      },
+      "wrap": {
+        "label": "包覆"
+      },
+      "decal": {
+        "label": "印花"
+      },
+      "frameTrim": {
+        "label": "框架修剪"
+      },
+      "gusset": {
+        "label": "角撑板"
+      },
+      "endCap": {
+        "label": "端盖"
+      },
+      "cutList": {
+        "label": "切割清单"
+      },
+      "flange": {
+        "label": "法兰"
+      },
+      "hem": {
+        "label": "卷边"
+      },
+      "tab": {
+        "label": "薄片"
+      },
+      "smBend": {
+        "label": "折弯"
+      },
+      "smJog": {
+        "label": "SMJog"
+      },
+      "forming": {
+        "label": "成型"
+      },
+      "sheetMetalLoft": {
+        "label": "钣金放样"
+      },
+      "smJoint": {
+        "label": "制作接头"
+      },
+      "bendRelief": {
+        "label": "折弯止裂槽"
+      },
+      "cornerBreak": {
+        "label": "尖角倒钝"
+      },
+      "endSheetMetal": {
+        "label": "结束钣金模型"
+      },
+      "pcbFlexModel": {
+        "label": "PCBFlexModel"
+      },
+      "pcbEndFlexModel": {
+        "label": "PCBEndFlexModel"
+      },
+      "surfacePlane": {
+        "label": "平面"
+      },
+      "offsetSurface": {
+        "label": "偏移曲面"
+      },
+      "boundarySurface": {
+        "label": "边界曲面"
+      },
+      "fillSurface": {
+        "label": "填充"
+      },
+      "moveBoundary": {
+        "label": "移动边界"
+      },
+      "ruledSurface": {
+        "label": "直纹曲面"
+      },
+      "mutualTrim": {
+        "label": "相互修剪"
+      },
+      "constraintSurface": {
+        "label": "约束曲面"
+      },
+      "helix": {
+        "label": "螺旋"
+      },
+      "fitSpline3d": {
+        "label": "3D 拟合样条"
+      },
+      "projectCurve": {
+        "label": "投影"
+      },
+      "bridgeCurve": {
+        "label": "桥接"
+      },
+      "compositeCurve": {
+        "label": "复合"
+      },
+      "intersectionCurve": {
+        "label": "交点"
+      },
+      "trimCurve": {
+        "label": "修剪"
+      },
+      "isoline": {
+        "label": "等斜线"
+      },
+      "offsetCurve": {
+        "label": "偏移"
+      },
+      "isoparametricCurve": {
+        "label": "等参"
+      },
+      "editCurve": {
+        "label": "编辑"
+      },
+      "routeCurve": {
+        "label": "路线曲线"
+      }
     },
     "sketchTools": {
-      "line": { "label": "线" },
-      "rectangle": { "label": "矩形" },
-      "circle": { "label": "圆" },
-      "arc": { "label": "圆弧" },
-      "spline": { "label": "样条" },
-      "fillet": { "label": "圆角" },
-      "trim": { "label": "修剪" },
-      "offset": { "label": "偏移" },
-      "mirror": { "label": "镜像" },
-      "text": { "label": "文本" },
-      "coincident": { "label": "重合" },
-      "horizontal": { "label": "水平" },
-      "vertical": { "label": "竖直" },
-      "parallel": { "label": "平行" },
-      "perpendicular": { "label": "垂直" },
-      "equal": { "label": "相等" },
-      "midpoint": { "label": "中点" },
-      "tangent": { "label": "相切" },
-      "fixed": { "label": "固定" },
-      "length": { "label": "长度" },
-      "distance": { "label": "距离" },
-      "radius": { "label": "半径" }
+      "line": {
+        "label": "线"
+      },
+      "rectangle": {
+        "label": "拐角矩形"
+      },
+      "circle": {
+        "label": "中心点圆"
+      },
+      "arc": {
+        "label": "3 点圆弧"
+      },
+      "spline": {
+        "label": "样条"
+      },
+      "fillet": {
+        "label": "圆角"
+      },
+      "trim": {
+        "label": "修剪"
+      },
+      "offset": {
+        "label": "偏移"
+      },
+      "mirror": {
+        "label": "镜像"
+      },
+      "text": {
+        "label": "文本"
+      },
+      "coincident": {
+        "label": "重合"
+      },
+      "horizontal": {
+        "label": "水平"
+      },
+      "vertical": {
+        "label": "竖直"
+      },
+      "parallel": {
+        "label": "平行"
+      },
+      "perpendicular": {
+        "label": "垂直"
+      },
+      "equal": {
+        "label": "相等"
+      },
+      "midpoint": {
+        "label": "中点"
+      },
+      "tangent": {
+        "label": "相切"
+      },
+      "fixed": {
+        "label": "固定"
+      },
+      "length": {
+        "label": "长度"
+      },
+      "distance": {
+        "label": "距离"
+      },
+      "radius": {
+        "label": "半径"
+      },
+      "polygon": {
+        "label": "内切多边形"
+      },
+      "point": {
+        "label": "点"
+      },
+      "use": {
+        "label": "使用"
+      },
+      "construction": {
+        "label": "构造"
+      },
+      "linearPattern": {
+        "label": "线性阵列"
+      },
+      "insertDxf": {
+        "label": "插入 DXF 或 DWG"
+      },
+      "dimension": {
+        "label": "尺寸"
+      },
+      "rectangleCenter": {
+        "label": "中心矩形"
+      },
+      "rectangleAligned": {
+        "label": "对齐矩形"
+      },
+      "circlePerimeter": {
+        "label": "周边圆"
+      },
+      "arcCenter": {
+        "label": "中心圆弧"
+      },
+      "arcTangent": {
+        "label": "相切圆弧"
+      },
+      "polygonCircumscribed": {
+        "label": "外切多边形"
+      },
+      "splineBezier": {
+        "label": "贝塞尔曲线"
+      },
+      "splineConic": {
+        "label": "圆锥曲线"
+      }
     }
   },
   "featureDialog": {
@@ -349,6 +625,10 @@
     "regionUnreadable": "无法读取草图面域：建模服务未连接",
     "sketchFaceChip": "{{name}} 的面",
     "sketchFaceChipWithRegion": "{{name}} 的面 · 面域 {{index}}",
+    "profileChip": "{{sketch}} 的面",
+    "profilePickHint": "在视口中点击草图面域，可多选",
+    "noProfileSelectedHint": "在视口中点击要拉伸的草图面域",
+    "removeProfileHint": "移除该面域",
     "axisLabel": "旋转轴",
     "axisOption": "线 {{id}}",
     "axisOptionVertical": "竖直线 {{index}}",
@@ -442,6 +722,8 @@
     "submitEvalFailed": "{{name}} 已提交但求值失败：{{message}}——特征已入特征树，几何未生成",
     "leaseBusy": "写租约被其他会话持有，提交将等待租约",
     "editHint": "该特征类型的参数编辑即将推出",
+    "editUnsupportedHint": "该特征的结构引用/语义参数不可直接修改（loft、sweep、体布尔请删除特征后重建）",
+    "editOperationLocked": "编辑模式下布尔作用域不可更改（结构键）",
     "readonlyHint": "当前为只读权限，无法提交特征",
     "sections": {
       "direction": "方向",
@@ -463,10 +745,12 @@
     "resolveFailed": "边引用解析失败"
   },
   "subEntitySelect": {
-    "prompt": "拾取面/边（Esc 退出）",
+    "prompt": "拾取面/边/点（Esc 退出）",
     "resolveFailed": "无法解析所选面/边",
+    "highlightFailed": "无法高亮所选子实体（几何缓存不可用）",
     "faceLabel": "面",
-    "edgeLabel": "边"
+    "edgeLabel": "边",
+    "vertexLabel": "点"
   },
   "sketchDialog": {
     "defaultTitle": "草图",
@@ -474,6 +758,10 @@
     "cancel": "取消",
     "planeLabel": "草图平面",
     "planePlaceholder": "选择草图平面…",
+    "planeFieldPlaceholder": "选择平面或面",
+    "planeHint": "在视口中选择基准面，或在特征树中选择 Top/Front/Right",
+    "planePrompt": "选择草图平面",
+    "clearPlane": "清除草图平面",
     "planes": {
       "top": "上视",
       "front": "前视",
@@ -494,7 +782,15 @@
   },
   "sketch": {
     "constraintsOverlay": "约束",
+    "live": {
+      "length": "长度",
+      "width": "宽度",
+      "height": "高度",
+      "radius": "半径",
+      "angle": "角度"
+    },
     "create": {
+      "cancelPrompt": "右键取消当前形状",
       "line": {
         "firstPrompt": "点击放置直线起点",
         "nextPrompt": "点击放置直线终点"
@@ -567,6 +863,20 @@
       },
       "reject": {
         "slotMismatch": "{{label}}尺寸只能拾取{{slot}}（当前为{{actual}}）"
+      },
+      "unified": {
+        "prompts": {
+          "selectEntity": "尺寸：选择要标注的实体（线/圆/弧/点）",
+          "secondOrPlaceLength": "尺寸：选择第二个实体标注距离，或点击空白处放置长度",
+          "placeRadius": "尺寸：点击空白处放置半径尺寸",
+          "secondEntity": "尺寸：选择第二个点或线标注距离"
+        },
+        "invalid": {
+          "singlePoint": "单个点无法创建尺寸，请继续选择第二个点或线",
+          "unsupported": "该实体组合暂不支持尺寸",
+          "unsupportedPair": "两个圆/弧之间暂不支持距离尺寸",
+          "tooManyPicks": "尺寸最多拾取两个实体"
+        }
       }
     },
     "offset": {
@@ -588,7 +898,13 @@
       "updateFailed": "草图更新失败"
     },
     "vocabulary": {
-      "entityKinds": { "point": "点", "line": "线", "circle": "圆", "arc": "弧", "spline": "样条" },
+      "entityKinds": {
+        "point": "点",
+        "line": "线",
+        "circle": "圆",
+        "arc": "弧",
+        "spline": "样条"
+      },
       "constraintKinds": {
         "coincident": "重合",
         "horizontal": "水平",
@@ -602,7 +918,11 @@
         "tangent": "相切",
         "fixed": "固定"
       },
-      "dimensionKinds": { "distance": "距离", "radius": "半径", "length": "长度" }
+      "dimensionKinds": {
+        "distance": "距离",
+        "radius": "半径",
+        "length": "长度"
+      }
     },
     "panel": {
       "title": "草图",
@@ -683,7 +1003,11 @@
     "selectOwnerUnavailable": "所属实体不可用",
     "deleteUnsupported": "删除",
     "subEntityDeleteStale": "拾取会话已结束，请重新拾取面/边",
-    "subEntityDeleteSuccess": "面/边已删除"
+    "subEntityDeleteSuccess": "面/边已删除",
+    "selectFaces": "选择面",
+    "selectEdges": "选择边",
+    "selectVertices": "选择点",
+    "selectParts": "选择零件"
   },
   "tree": {
     "contextMenuLabel": "特征菜单",
@@ -852,19 +1176,38 @@
     "curvePattern": {
       "title": "曲线阵列（规划中）",
       "message": "曲线阵列已在鲁班CAD 路线图中登记，当前版本仅支持实体（PART）级的线性与圆周阵列，后续里程碑提供。"
+    },
+    "rib": {
+      "title": "筋（规划中）",
+      "message": "筋特征已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
     }
   },
   "viewCube": {
     "title": "视图立方体",
-    "settings": "显示与视图设置",
-    "orientation": "视图方向",
+    "cameraOptions": "相机和渲染选项",
+    "graphicsPreferences": "图形首选项…",
     "iso": "等轴测",
-    "dimetric": "二轴测",
-    "trimetric": "三轴测",
-    "fit": "适应视图",
-    "window": "缩放窗口",
-    "more": "更多显示设置…",
-    "reset": "重置视图",
+    "dimetric": "正二等轴测",
+    "trimetric": "正三轴测",
+    "zoomFit": "缩放到合适大小",
+    "zoomWindow": "放大所选窗口",
+    "perspective": "透视视图",
+    "shadedWithEdges": "带边着色",
+    "hiddenEdgesRemoved": "消除隐藏边",
+    "highQuality": "启用高质量视图",
+    "rotateUp": "向上旋转 15°",
+    "rotateDown": "向下旋转 15°",
+    "rotateLeft": "向左旋转 15°",
+    "rotateRight": "向右旋转 15°",
+    "cornerView": "切换到角视图",
+    "submenu": {
+      "shadedWithEdges": "带边着色",
+      "shadedWithoutEdges": "不带边着色",
+      "unshaded": "不着色",
+      "translucent": "半透明",
+      "hiddenVisible": "隐藏边可见",
+      "hiddenRemoved": "消除隐藏边"
+    },
     "faces": {
       "top": "上",
       "bottom": "下",
@@ -872,7 +1215,8 @@
       "back": "后",
       "left": "左",
       "right": "右"
-    }
+    },
+    "homeView": "回到等轴测"
   },
   "displaySettingsPanel": {
     "modeLabel": "显示模式",
@@ -897,6 +1241,8 @@
     "backgroundDark": "深色",
     "edgeWidth": "边线宽度",
     "edgeColor": "边线颜色",
+    "showBrepEdges": "显示全部 BRep 边线",
+    "showBrepVertices": "显示 BRep 顶点",
     "reset": "恢复默认",
     "noViewport": "视口未就绪——打开模型后可用"
   }

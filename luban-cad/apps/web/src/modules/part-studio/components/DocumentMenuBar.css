@@ -2,7 +2,14 @@
  * 工作区单位对话框 hint。全部走 iTwinUI 令牌（组件禁写裸色值）。 */
 
 .document-menu-bar__trigger {
-  margin-inline-end: var(--iui-size-2xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
 }
 
 .document-menu-bar__units-dialog {

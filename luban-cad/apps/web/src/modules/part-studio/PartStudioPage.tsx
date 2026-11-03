@@ -134,7 +134,6 @@ import { Button, Dialog, Text } from '@itwin/itwinui-react';
 import {
   ensureEditTools,
   fitViewToModelRanges,
-  toggleProjectExtents,
   useBriefcaseConnection,
   useViewport,
 } from '@luban-cad/viewer';
@@ -143,6 +142,7 @@ import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/c
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
+import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
 import { isBModelItwin } from '@clients/itwins/types.js';
 import type { DocumentMode } from '@modules/documents';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
@@ -151,6 +151,7 @@ import { useITwinPermissions } from '@common/permissions/use-itwin-permissions.j
 import { env } from '@config/env.js';
 import { viewerNotifications } from '@app/providers/ViewerNotifications.js';
 import { PartStudioTopBar } from './components/PartStudioTopBar.js';
+import { PartStudioPanelRail } from './components/PartStudioPanelRail.js';
 import { PartStudioSidebar } from './components/PartStudioSidebar.js';
 import { PartStudioCanvas } from './components/PartStudioCanvas.js';
 import { PartStudioDock } from './components/PartStudioDock.js';
@@ -160,7 +161,7 @@ import { CreateNamedVersionDialog } from './dialogs/CreateNamedVersionDialog.js'
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
 import { useCanvasBodySelection } from './hooks/useCanvasBodySelection.js';
-import { useSubEntitySelection } from './hooks/useSubEntitySelection.js';
+import { useOnshapeSelection } from './hooks/useOnshapeSelection.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
@@ -169,6 +170,7 @@ import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 import { mapFeatureEntries } from './hooks/useFeatureTree.js';
 import { useEditorSession, type EditorSession } from './hooks/useEditorSession.js';
 import { useFeatureSystem } from './hooks/useFeatureSystem.js';
+import { useBrepTopology } from './hooks/useBrepTopology.js';
 import { useNamedVersionActions } from './hooks/useNamedVersionActions.js';
 import { usePartStudios } from './hooks/usePartStudios.js';
 import {
@@ -180,9 +182,11 @@ import { usePermissions } from './hooks/usePermissions.js';
 import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
 import { useSketchCamera } from './hooks/useSketchCamera.js';
 import { useDisplaySettings } from './hooks/useDisplaySettings.js';
+import { useDatumVisibility } from './hooks/useDatumVisibility.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import { BODY_PRODUCING_FEATURE_TYPES } from './types.js';
+import { clearActiveOnshapeSelection } from './internal/onshape-selection-runtime.js';
 import { fitView } from './internal/viewport-actions.js';
 import './PartStudioPage.css';
 
@@ -209,6 +213,13 @@ export function PartStudioPage(): React.JSX.Element {
     queryFn: () => new ItwinsClient().get(iTwinId as string),
     enabled: !!iTwinId,
   });
+  // Onshape 底栏文档级页签显示文档名（与顶栏同查询键，React Query 去重不重复请求）。
+  const imodelQuery = useQuery({
+    queryKey: ['part-studio', 'breadcrumb', 'imodel', iModelId ?? ''],
+    queryFn: () => new ImodelsClient().get(iModelId as string),
+    enabled: !!iModelId,
+  });
+  const documentName = imodelQuery.data?.displayName ?? imodelQuery.data?.name ?? '';
   const mode: DocumentMode | undefined = itwinQuery.data
     ? (isBModelItwin(itwinQuery.data) ? 'B' : 'A')
     : undefined;
@@ -314,6 +325,7 @@ export function PartStudioPage(): React.JSX.Element {
     <PartStudioSession
       iTwinId={iTwinId ?? ''}
       iModelId={iModelId ?? ''}
+      documentName={documentName || undefined}
       mode={mode}
       canEdit={canEdit}
       canManageStudios={canManageStudios}
@@ -343,6 +355,8 @@ export function PartStudioPage(): React.JSX.Element {
 interface PartStudioSessionProps {
   iTwinId: string;
   iModelId: string;
+  /** 文档级页签显示名（Onshape 用文档标题；缺省回退「文档」）。 */
+  documentName?: string;
   /** B/A 文档上下文（P2.1 F5 承接；undefined=标记查询在途）。 */
   mode: DocumentMode | undefined;
   /** 编辑面总门：B ∧ !viewOnly ∧ 权限 editable ∧ scope 已解析（A 恒 false）。 */
@@ -382,6 +396,7 @@ interface PartStudioSessionProps {
 function PartStudioSession({
   iTwinId,
   iModelId,
+  documentName,
   mode,
   canEdit,
   canManageStudios,
@@ -482,8 +497,8 @@ function PartStudioSession({
   const applyOpAndFit = useCallback(async (op: Parameters<typeof featureSystem.applyOp>[0]) => {
     const result = await featureSystem.applyOp(op);
     if (result.ok && op.kind === 'insertFeature' && BODY_PRODUCING_FEATURE_TYPES.includes(op.featureType)) {
-      // Onshape 默认几何图元：首个产体特征后只隐藏一次三平面（Origin 保留）。
-      usePartStudioStore.getState().hideDatumPlanesOnce();
+      // 默认几何图元不再一次性隐藏：body 读面刷新后由 useDatumVisibility
+      // 按真实 body/草图状态实时同步（删除/Undo 也会自动恢复）。
       await fitViewToModelRanges(viewport ?? undefined, activeModelIds);
     }
     return result;
@@ -492,17 +507,55 @@ function PartStudioSession({
   // 画布 body 选中桥（B6 M-A5 T1）：connection.selectionSet（画布 pick 权威源）
   // → store.canvas.selection（kind='part'）单点挂载——右键菜单/对话框既有消费面
   // 零改动复用。bodies 仅在读面成功（bodiesLoaded）后下传；undefined=legacy
-  // 回退，hook 不接管选择集（不清旧值）。M-A5.2 T1：仅 body 模式启用——
-  // face/edge 子实体选择由工具自管、不写 SelectionSet，桥必须退订。
+  // 回退，hook 不接管选择集（不清旧值）。子实体选择由默认 Onshape 选择工具
+  // 写 store，不写 SelectionSet，两者不互相覆盖。
   // 双挂载=双写选择集，勿在下游再挂。
-  const selectionMode = usePartStudioStore((s) => s.canvas.selectionMode);
   useCanvasBodySelection(
     connection ?? undefined,
     featureSystem.bodiesLoaded ? featureSystem.bodies : undefined,
-    selectionMode === 'body',
   );
-  // M-A5.2 T3：face/edge 子实体选择模式 lifecycle——单挂载；body 模式不启动工具。
-  useSubEntitySelection(connection ?? undefined);
+
+  // 默认 Onshape 选择工具（2026-11-03）：body/face/edge/vertex 统一拾取；
+  // 对话框/草图打开时暂停（清空选择），关闭后恢复。
+  const sketchActiveForSelection = usePartStudioStore((s) => s.sketch.isActive);
+  const dialogActiveForSelection = usePartStudioStore((s) => s.dialog.active !== null);
+  useOnshapeSelection(
+    connection ?? undefined,
+    viewport,
+    sketchActiveForSelection || dialogActiveForSelection,
+  );
+
+  // Onshape 零件列表选择：tree 中的 part 节点 → SelectionSet → store（kind='part'）。
+  const selectedNodeIds = usePartStudioStore((s) => s.tree.selectedNodeIds);
+  useEffect(() => {
+    if (!connection || !featureSystem.bodiesLoaded)
+      return;
+    const partIds = selectedNodeIds.filter((id) =>
+      featureSystem.bodies.some((body) =>
+        body.bodyKey === id && body.active !== false && body.authored !== false));
+    if (partIds.length === 0)
+      return;
+    clearActiveOnshapeSelection();
+    connection.selectionSet.replace(partIds);
+  }, [selectedNodeIds, connection, featureSystem.bodies, featureSystem.bodiesLoaded]);
+
+  // 完整 BRep 拓扑叠加（2026-11-03）：全部拓扑边 + 可选顶点；显示设置只改样式，
+  // 树/body 刷新才重读（hook 内部 120ms 去抖 + 8s 超时）。
+  // 读面会临时启停 SolidModeling 命令，故在无草图/对话框（可能已有活动编辑
+  // 工具）时刷新；其余状态沿用上一份拓扑，避免打断工具会话。
+  const hiddenIds = usePartStudioStore((s) => s.canvas.hiddenIds);
+  const sketchActiveForBrep = usePartStudioStore((s) => s.sketch.isActive);
+  const dialogActiveForBrep = usePartStudioStore((s) => s.dialog.active !== null);
+  useBrepTopology({
+    connection: connection ?? undefined,
+    viewport,
+    bodies: featureSystem.bodies,
+    bodiesLoaded: featureSystem.bodiesLoaded,
+    revision: featureSystem.tree,
+    hiddenIds,
+    display: displaySettings.settings,
+    enabled: !sketchActiveForBrep && !dialogActiveForBrep,
+  });
 
   // P2.5 F1：scope/连接切换必须清空元素集选择。`selectionSet` 按连接持有——
   // 切页签（仅换 URL、复用同一 BriefcaseConnection）后旧 scope 的元素仍留在
@@ -539,6 +592,31 @@ function PartStudioSession({
     registerSketchSystemAccessor(sketchSystem);
     return () => registerSketchSystemAccessor(undefined);
   }, [sketchSystem]);
+
+  // 默认几何图元实时显隐（2026-11-02）：body 读面/树回退 + 活动草图平面 →
+  // 纯规则 → store 有效可见性（树 + DatumPlanesDecoration 单一消费面）。
+  // 用户眼睛覆盖写在 visibilityOverrides，scope 切换时清空。
+  const datumHasBodies = React.useMemo(
+    () => featureSystem.bodiesLoaded
+      ? featureSystem.bodies.some((body) => body.active && body.authored !== false)
+      : featureSystem.tree.some((entry) =>
+        !entry.suppressed
+        && (BODY_PRODUCING_FEATURE_TYPES as readonly string[]).includes(entry.featureType)),
+    [featureSystem.bodiesLoaded, featureSystem.bodies, featureSystem.tree],
+  );
+  const sketchActiveForDatum = usePartStudioStore((s) => s.sketch.isActive);
+  const sketchPlaneForDatum = usePartStudioStore((s) => s.sketch.activeSketchPlane);
+  // Onshape：新建草图选平面期间三基准面必须可见（视口拾取的主要目标）。
+  const sketchDialogActiveForDatum = usePartStudioStore((s) => s.dialog.active === 'sketch');
+  useDatumVisibility(
+    datumHasBodies,
+    sketchActiveForDatum,
+    sketchPlaneForDatum ?? sketchSystem.activeSketch?.plane ?? null,
+    sketchDialogActiveForDatum,
+  );
+  useEffect(() => {
+    usePartStudioStore.getState().clearDatumVisibilityOverrides();
+  }, [connection, iModelId, activeModelId]);
 
   // 草图相机（2026-11-02）：进入草图按真实平面 frame 定向，实体就位后按
   // 草图范围取景（左侧面板 padding），退出恢复。单点挂载（Session）。
@@ -768,10 +846,9 @@ function PartStudioSession({
       }
     }
 
-    // 空间视图默认开启项目范围装饰件。
-    if (view.isSpatialView()) {
-      toggleProjectExtents(conn, true);
-    }
+    // 2026-11-02 Onshape 渲染对齐：不再默认绘制 project-extents 包围盒
+    //（远大于模型，观感与 Onshape 严重不符）。装饰件与切换工具保留，
+    // 需要调试时可显式启用。
   }, [viewport, connection, isEditingScopeReady, activePhysModelId]);
 
   // 工具注册编排（M4-T3；旧 Editor.tsx:262-309 序忠实移植）：host 就绪
@@ -858,14 +935,6 @@ function PartStudioSession({
         mode={mode}
         canManageShare={canManageShare}
         canManageDocument={canManageDocument}
-        canUndo={undoRedo.canUndo}
-        canRedo={undoRedo.canRedo}
-        hasUnsavedChanges={undoRedo.hasUnsavedChanges}
-        // B-model P0 Task 5：干净态也可命名当前 changeset（canEdit ∧ 连接就绪）。
-        canSaveVersion={canEdit && !!connection}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onSave={handleSaveVersion}
       />
       {/* scope 横幅（P2.4）：A 只读 / B 解析中 / 错误 / 半图恢复 / 默认创建。 */}
       {mode === 'A' && (
@@ -1011,81 +1080,100 @@ function PartStudioSession({
           </button>
         </div>
       )}
-      {/* 工具 ribbon（os-11 第二行）：27 工具 + 8 下拉 + 命令搜索触发钮。 */}
-      <Ribbon canEdit={canEdit} />
-      <div className="part-studio-body">
-        <PartStudioSidebar
-          entries={featureSystem.tree}
-          loading={featureSystem.loading}
-          error={featureSystem.error}
-          onRetry={featureSystem.refresh}
-          connection={connection ?? undefined}
-          // B6 M-A3.2a：读面仅在成功读取后下传（初次失败/未就绪 → 树回退 legacy
-          // 物理查询；I1：初次失败也下传 bodiesError → 可见错误条 + 重试，不静默）。
-          // I3：viewport 显式下传 → consumed 隐藏随晚到/重建视口重跑。
-          bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
-          bodiesLoading={featureSystem.bodiesLoading}
-          bodiesError={featureSystem.bodiesError}
-          viewport={viewport ?? undefined}
-          // B6 M-A5 T2：树变异接线——applyOp 承载真删除/抑制 op；canEdit 总门
-          // 同时驱动菜单禁用与 handler 拒收（隐藏/显示为会话态，不受此门限制）。
-          applyOp={applyOpAndFit}
-          canEdit={canEdit}
+      {/* Onshape 工作区：40px 面板选择条贯穿工具栏/正文/页签全高，右侧依次为
+          36px 工具栏、树 + 画布、30px 文档级页签（2026-11-02 live 对齐）。 */}
+      <div className="part-studio-workspace" data-testid="part-studio-workspace">
+        <PartStudioPanelRail
+          onSaveVersion={handleSaveVersion}
+          canSaveVersion={canEdit && !!connection}
         />
-        <div className="part-studio-main">
-          {/* canEdit 直通画布对话框宿主（B2 只读写门禁）：权限只读下写面对话框
-              的 ✓ 提交面禁用+诚实提示，不进 useFeatureSystem 租约获取等待环
-             （hook 层另有 readonly 前置拒收兜底，两层防御纵深）。 */}
-          <PartStudioCanvas
-            viewportRef={viewportRef}
-            viewport={viewport}
+        <div className="part-studio-workspace__main">
+          {/* 工具 ribbon（os-11 第二行）：撤消/重做 + 特征组 + 命令搜索触发钮。 */}
+          <Ribbon
             canEdit={canEdit}
-            applyOp={applyOpAndFit}
-            leaseOk={featureSystem.leaseOk}
-            sketches={sketchOptions}
-            connection={connection ?? undefined}
-            hasBodies={hasBodies}
-            bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
-            bodiesLoading={featureSystem.bodiesLoading}
-            bodiesError={featureSystem.bodiesError}
-            featureParams={editFeatureParams}
-            connectionLoading={connectionLoading}
-            connectionError={canvasErrorMessage}
-            sketchSystem={sketchSystem}
-            displaySettings={displaySettings}
+            canUndo={undoRedo.canUndo}
+            canRedo={undoRedo.canRedo}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
           />
-          <PartStudioDock
+          <div className="part-studio-body">
+            <PartStudioSidebar
+              entries={featureSystem.tree}
+              loading={featureSystem.loading}
+              error={featureSystem.error}
+              onRetry={featureSystem.refresh}
+              connection={connection ?? undefined}
+              // B6 M-A3.2a：读面仅在成功读取后下传（初次失败/未就绪 → 树回退 legacy
+              // 物理查询；I1：初次失败也下传 bodiesError → 可见错误条 + 重试，不静默）。
+              // I3：viewport 显式下传 → consumed 隐藏随晚到/重建视口重跑。
+              bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
+              bodiesLoading={featureSystem.bodiesLoading}
+              bodiesError={featureSystem.bodiesError}
+              viewport={viewport ?? undefined}
+              // B6 M-A5 T2：树变异接线——applyOp 承载真删除/抑制 op；canEdit 总门
+              // 同时驱动菜单禁用与 handler 拒收（隐藏/显示为会话态，不受此门限制）。
+              applyOp={applyOpAndFit}
+              canEdit={canEdit}
+            />
+            <div className="part-studio-main">
+              {/* canEdit 直通画布对话框宿主（B2 只读写门禁）：权限只读下写面对话框
+                  的 ✓ 提交面禁用+诚实提示，不进 useFeatureSystem 租约获取等待环
+                 （hook 层另有 readonly 前置拒收兜底，两层防御纵深）。 */}
+              <PartStudioCanvas
+                viewportRef={viewportRef}
+                viewport={viewport}
+                canEdit={canEdit}
+                applyOp={applyOpAndFit}
+                previewOp={featureSystem.previewOp}
+                leaseOk={featureSystem.leaseOk}
+                sketches={sketchOptions}
+                connection={connection ?? undefined}
+                hasBodies={hasBodies}
+                bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
+                bodiesLoading={featureSystem.bodiesLoading}
+                bodiesError={featureSystem.bodiesError}
+                featureParams={editFeatureParams}
+                connectionLoading={connectionLoading}
+                connectionError={canvasErrorMessage}
+                sketchSystem={sketchSystem}
+                displaySettings={displaySettings}
+                featureEntries={featureSystem.tree}
+              />
+              <PartStudioDock
+                iModelId={iModelId}
+                currentChangesetId={connection?.changeset?.id ?? null}
+                hasUnsavedChanges={undoRedo.hasUnsavedChanges}
+                isSaving={undoRedo.isSaving}
+                onSave={handleSave}
+                onPush={handlePush}
+                displaySettings={displaySettings}
+              />
+            </div>
+          </div>
+          <PartStudioTabs
+            iTwinId={iTwinId}
             iModelId={iModelId}
-            currentChangesetId={connection?.changeset?.id ?? null}
-            hasUnsavedChanges={undoRedo.hasUnsavedChanges}
-            isSaving={undoRedo.isSaving}
-            onSave={handleSave}
-            onPush={handlePush}
-            displaySettings={displaySettings}
+            documentName={documentName}
+            mode={mode}
+            studios={studios}
+            activeModelId={activeModelId}
+            studiosLoading={studiosLoading}
+            studiosError={studiosError ?? null}
+            canEdit={canManageStudios}
+            onCreate={onCreateStudio}
+            onRename={async (studioId, name) => {
+              await onRenameStudio(studioId, name);
+            }}
+            onDelete={onDeleteStudio}
+            onRetryStudios={() => void onRetryStudios()}
+            connection={phase}
+            briefcaseLoading={connectionLoading}
+            briefcaseError={connectionErrorMessage}
+            viewportError={viewportError}
+            onFitView={fitView}
           />
         </div>
       </div>
-      <PartStudioTabs
-        iTwinId={iTwinId}
-        iModelId={iModelId}
-        mode={mode}
-        studios={studios}
-        activeModelId={activeModelId}
-        studiosLoading={studiosLoading}
-        studiosError={studiosError ?? null}
-        canEdit={canManageStudios}
-        onCreate={onCreateStudio}
-        onRename={async (studioId, name) => {
-          await onRenameStudio(studioId, name);
-        }}
-        onDelete={onDeleteStudio}
-        onRetryStudios={() => void onRetryStudios()}
-        connection={phase}
-        briefcaseLoading={connectionLoading}
-        briefcaseError={connectionErrorMessage}
-        viewportError={viewportError}
-        onFitView={fitView}
-      />
       {/* 半图删除 HITL（P2.4 恢复入口）：确认后才调 registry（墓碑写入）。 */}
       <Dialog
         isOpen={damagedDeleteTarget !== null}

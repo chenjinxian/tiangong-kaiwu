@@ -250,17 +250,25 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
     { x: 5, y: 1, z: 2 }, // body2 顶面中心
     { x: 5, y: 1, z: 0 }, // body2 底面中心（退路）
   ]);
-  const faceBtn = page.getByRole('button', { name: '选择面', exact: true });
-  const edgeBtn = page.getByRole('button', { name: '选择边', exact: true });
-  await faceBtn.click();
-  await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  // 2026-11-02 Onshape 化：选择组移入画布右键菜单（主工具栏无此组）。
+  const currentSelectionMode = (): Promise<string> => page.evaluate(() =>
+    (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selectionMode,
+  );
+  const selectMode = async (mode: 'face' | 'edge' | 'vertex' | 'body'): Promise<void> => {
+    const label = { face: '选择面', edge: '选择边', vertex: '选择点', body: '选择零件' }[mode];
+    await page.mouse.click(cx, cy + 120, { button: 'right' });
+    await expect(canvasMenu).toBeVisible();
+    await canvasMenu.getByRole('menuitem', { name: label, exact: true }).click();
+    await expect.poll(currentSelectionMode).toBe(mode);
+  };
+  await selectMode('face');
   console.log('[newbody] M-A5.2 face mode on');
   let facePicked = false;
   let facePickPoint: { x: number; y: number } | undefined;
   for (let i = 0; i < facePoints.length; i++) {
     const p = facePoints[i]!;
-    if ((await faceBtn.getAttribute('aria-pressed')) !== 'true') {
-      await faceBtn.click();
+    if ((await currentSelectionMode()) !== 'face') {
+      await selectMode('face');
       await page.waitForTimeout(400);
     }
     await page.mouse.move(cb.x + p.x - 12, cb.y + p.y + 10);
@@ -279,16 +287,16 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
     //（实测点击把已归零的 body 又切回 face）。
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
-    if ((await faceBtn.getAttribute('aria-pressed')) === 'true') {
-      await faceBtn.click();
+    if ((await currentSelectionMode()) === 'face') {
+      await selectMode('body');
     }
-    await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(currentSelectionMode).toBe('body');
   }
   expect(facePicked, '面模式应在 body2 顶/底面拾到面').toBe(true);
   await expect(canvasMenu.getByRole('menuitem', { name: '选中所属实体', exact: true })).toBeVisible();
   await expect(canvasMenu.getByRole('menuitem', { name: '删除', exact: true })).toBeEnabled();
   await canvasMenu.getByRole('menuitem', { name: '选中所属实体', exact: true }).click();
-  await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(currentSelectionMode).toBe('body');
   await expect(body2Row).toHaveAttribute('aria-current', 'true');
   console.log('[newbody] select-owner done');
   await page.evaluate(async () => {
@@ -306,8 +314,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   // 再入面模式：隐藏所属实体 → eye 恢复（复用首次命中的投影点；顶面中心
   // 在等轴测下可能被 body1 遮挡，不能固定用 facePoints[0]）。
   if (!facePickPoint) throw new Error('面拾取成功点未记录');
-  await faceBtn.click();
-  await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  await selectMode('face');
   await page.mouse.click(cb.x + facePickPoint.x, cb.y + facePickPoint.y);
   await page.waitForTimeout(500);
   await page.mouse.click(cx, cy + 120, { button: 'right' });
@@ -322,8 +329,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   console.log('[newbody] hide owner + eye restore done');
 
   // 边模式：拾一条 body2 边；失败坐标逐点尝试；成功后 Esc 回 body
-  await edgeBtn.click();
-  await expect(edgeBtn).toHaveAttribute('aria-pressed', 'true');
+  await selectMode('edge');
   console.log('[newbody] M-A5.2 edge mode on');
   const edgePoints = await projectPoints([
     { x: 6, y: 0, z: 1 }, { x: 6, y: 2, z: 1 }, { x: 4, y: 0, z: 1 },
@@ -332,8 +338,8 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   let edgePicked = false;
   for (let i = 0; i < edgePoints.length; i++) {
     const p = edgePoints[i]!;
-    if ((await edgeBtn.getAttribute('aria-pressed')) !== 'true') {
-      await edgeBtn.click();
+    if ((await currentSelectionMode()) !== 'edge') {
+      await selectMode('edge');
       await page.waitForTimeout(400);
     }
     await page.mouse.move(cb.x + p.x - 15, cb.y + p.y + 12);
@@ -350,21 +356,17 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
     // 同 face 分支：Escape 可能已由工具 onEnded 归零，等一拍再条件 toggle。
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
-    if ((await edgeBtn.getAttribute('aria-pressed')) === 'true') {
-      await edgeBtn.click();
+    if ((await currentSelectionMode()) === 'edge') {
+      await selectMode('body');
     }
-    await expect(edgeBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(currentSelectionMode).toBe('body');
   }
   expect(edgePicked, '边模式应在 body2 流形边上命中').toBe(true);
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
-  if ((await edgeBtn.getAttribute('aria-pressed')) === 'true') await edgeBtn.click();
-  // 工具退出/模式回 body 是异步链；先等 store 落定，再断言按钮表现。
-  await expect.poll(() => page.evaluate(() =>
-    (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selectionMode,
-  )).toBe('body');
-  await expect(edgeBtn).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.getByRole('button', { name: '选择面', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  if ((await currentSelectionMode()) === 'edge') await selectMode('body');
+  // 工具退出/模式回 body 是异步链；先等 store 落定。
+  await expect.poll(currentSelectionMode).toBe('body');
   await page.evaluate(async () => {
     const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: {
@@ -404,8 +406,8 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   console.log('[newbody] 树删除 UI（HITL）→ body2 consumed、树一行、hide 生效');
 
   // 原生 undo → 两体恢复、树两行、hide 清除、特征行恢复
-  const undo = page.getByTestId('part-studio-undo-button');
-  const redo = page.getByTestId('part-studio-redo-button');
+  const undo = page.getByTestId('part-studio-ribbon-undo');
+  const redo = page.getByTestId('part-studio-ribbon-redo');
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
@@ -520,8 +522,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   const body1FacePoints = await projectPoints([
     { x: 1, y: 1, z: 1 }, { x: 1, y: 1, z: 0 },
   ]);
-  await faceBtn.click();
-  await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  await selectMode('face');
   let body1FacePicked = false;
   for (let i = 0; i < body1FacePoints.length; i++) {
     const p = body1FacePoints[i]!;
@@ -537,10 +538,9 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
     }
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
-    if ((await faceBtn.getAttribute('aria-pressed')) === 'true') await faceBtn.click();
-    await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
-    await faceBtn.click();
-    await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+    if ((await currentSelectionMode()) === 'face') await selectMode('body');
+    await expect.poll(currentSelectionMode).toBe('body');
+    await selectMode('face');
   }
   expect(body1FacePicked, '面删除前应在 body1 上拾到面').toBe(true);
   await expect(canvasMenu.getByRole('menuitem', { name: '删除', exact: true })).toBeEnabled();
@@ -554,10 +554,10 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   const deleteFailure = page.getByText(/删除失败/);
   await expect(deleteFailure).toBeVisible({ timeout: 90_000 });
   expect(await deleteFailure.first().textContent()).toContain('内核拒收');
-  await expect(faceBtn).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(currentSelectionMode).toBe('face');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(500);
-  await expect(faceBtn).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(currentSelectionMode).toBe('body');
   console.log('[newbody] M-A5.2 面删除负路径（盒体）→ 内核拒收 + 错误 toast OK');
 
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);

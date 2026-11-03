@@ -11,23 +11,17 @@
  * itwinjs-core 标准件：
  *
  * - 取点：AccuSnap 捕捉优先——`IModelApp.accuSnap.getCurrSnapDetail()` 热捕捉
- *   取 `adjustedPoint`（含 AccuDraw/栅格调整，HitDetail.ts:365-401），回落
- *   `ev.point`（AccuDraw 激活时已被罗盘调整入面）。**禁手写命中测试**。
- *   世界点经草图平面架（sketch-plane.ts）投影为局部 (u,v) 提交——取代 M3-b
- *   的手写 z=0 投影（planeZ=0 恒定假设已废弃，architecture.md §四）。
- * - 平面锁定：AccuDraw HintBuilder 三件套（setOrigin=平面原点世界坐标 /
- *   setNormal=平面法向 / setLockZ=true；AccuDraw.ts:3588-3753），onPostInstall
- *   送 hints 激活罗盘；onCleanup 恢复路径=deactivate()（下一 PrimitiveTool
- *   安装时 AccuDraw 恒 onPrimitiveToolInstall→clearContext+Inactive，
- *   AccuDraw.ts:1979-1993——hints 不残留；deactivate 防罗盘在 Idle/视图
- *   工具下残留显示）。三件套另两件（is3dCompass 子类化 / acsPlaneSnapLock）
- *   属全局面改动，本任务不引入（登记为后续单裁——局部投影已保证提交坐标
- *   恒在草图面上，罗盘锁定是交互辅助层）。
- * - 橡皮筋：**Dynamics 通道**（裁决：弃 M3-b 的 Decorator 自管预览——Dynamics
- *   是 PrimitiveTool 标准预览生命周期（Tool.ts:673-680），帧驱动免手动
- *   invalidateDecorations，且与 AccuDraw 罗盘同帧联动）。onPostInstall
- *   beginDynamics → onDynamicFrame 按已锚点+光标点绘预览 → onCleanup
- *   endDynamics。
+ *   取 `adjustedPoint`，回落 `ev.point`。**禁手写命中测试**。世界点经草图
+ *   平面架（sketch-plane.ts）投影为局部 (u,v) 提交——取代 M3-b 的手写 z=0
+ *   投影（planeZ=0 恒定假设已废弃，architecture.md §四）。
+ * - 标注提示（2026-11-02 Onshape live）：不激活 iTwin AccuDraw 罗盘（Onshape
+ *   草图没有该 UI），而由 sketch-live-measures + sketch-tool-feedback 发布
+ *   「阶段提示 + 线长/角度/矩形宽高/圆与弧半径」；SketchToolFeedbackOverlay
+ *   在光标旁呈现。标准 ToolAssistance 同步发出（editor 原工具通道，辅助技术
+ *   可用）。提交后的常驻尺寸标注由 SketchDimensionsDecoration 绘制。
+ * - 橡皮筋/构造线：**Dynamics 通道**（PrimitiveTool 标准预览生命周期，
+ *   Tool.ts:673-680）——onDynamicFrame 同时绘制工作预览与 editor SketchTools
+ *   同款构造辅助（弧心连线、样条控制多边形，虚线）。
  * - 提交：满点 → buildShape 构造草稿 entities/constraints →
  *   `getSketchSystem().applyUpdate([...base, ...draft])` 乐观整体覆写 →
  *   拒收（ok:false）回滚 id 计数 + outputMessage 错误透出（后端拒收文本原样，
@@ -39,12 +33,10 @@
  *   无参启动无选项注入通道（M3-b 已知坑：AI/键盘路径无 setOptions），宿主
  *   PartStudioSession 挂载 useSketchSystem 时注册。toast 走
  *   IModelApp.notifications.outputMessage（web 呈现桥 ViewerNotifications
- *   → iTwinUI toaster）；outputPrompt 仍为官方提示通道但 web 呈现面
- *   未接线（桥文件头诚实登记），提示语照常发出待呈现面补齐。
+ *   → iTwinUI toaster）。
  */
 
 import {
-  AccuDrawHintBuilder,
   BeButtonEvent,
   DynamicsContext,
   EventHandled,
@@ -53,8 +45,11 @@ import {
   NotifyMessageDetails,
   OutputMessagePriority,
   PrimitiveTool,
+  ToolAssistance,
+  ToolAssistanceImage,
+  ToolAssistanceInputMethod,
 } from '@itwin/core-frontend';
-import type { GraphicBuilder } from '@itwin/core-frontend';
+import type { GraphicBuilder, ToolAssistanceInstruction, ToolAssistanceSection } from '@itwin/core-frontend';
 import { Arc3d, BezierCurve3d, Point3d } from '@itwin/core-geometry';
 import { ColorDef, LinePixels } from '@itwin/core-common';
 import i18next from 'i18next';
@@ -63,6 +58,11 @@ import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { sketchPlaneFrameFrom } from './sketch-plane.js';
 import { autoWeldConstraints } from './sketch-auto-weld.js';
+import { computeSketchLiveMeasures } from './sketch-live-measures.js';
+import {
+  clearSketchToolFeedback,
+  publishSketchToolFeedback,
+} from './sketch-tool-feedback.js';
 import type { SketchPlaneFrame, SketchPoint2 } from './sketch-plane.js';
 
 export type SketchCreateKind = 'line' | 'rectangle' | 'circle' | 'arc' | 'spline';
@@ -116,8 +116,14 @@ export abstract class SketchCreateTool extends PrimitiveTool {
    * 失败回滚到形状构造前快照；onPostInstall 与每次提交前按 activeSketch 重播种）。
    */
   private _nextId = 1;
-  /** AccuDraw 是否由本工具 hints 激活（onCleanup 恢复面据此精确 deactivate）。 */
-  private _accuDrawActivated = false;
+  /** 当前光标局部点（Onshape live 尺寸提示；onMouseMotion/onDynamicFrame 更新）。 */
+  private _cursorLocal?: SketchPoint2;
+  /** 当前光标视口坐标（覆盖层定位；viewPoint 与画布 CSS 像素同系）。 */
+  private _cursorView?: { x: number; y: number };
+  /** 反馈签名（像素取整）——避免同一位置重复触发 React 渲染。 */
+  private _feedbackSignature = '';
+  /** ToolAssistance 阶段签名（阶段变化才重发，防每帧通知）。 */
+  private _assistanceStage = -1;
 
   public override requireWriteableTarget(): boolean { return true; }
 
@@ -127,12 +133,9 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     // enterSketch 先归零、onConfirm 再落平面，工具启动读到的恒为本会话平面）；
     // null → 契约缺省 XY@z=0（编辑既有草图的平面回显待契约下发，types.ts 注）。
     this._plane = sketchPlaneFrameFrom(usePartStudioStore.getState().sketch.activeSketchPlane);
-    // AccuDraw 平面锁定：HintBuilder setOrigin/setNormal/setLockZ + sendHints 激活。
-    const hints = new AccuDrawHintBuilder();
-    hints.setOrigin(this._plane.origin);
-    hints.setNormal(this._plane.normal);
-    hints.setLockZ = true;
-    this._accuDrawActivated = hints.sendHints();
+    // Onshape 草图没有 iTwin 的 AccuDraw 罗盘：不激活罗盘，实时数值由
+    // SketchToolFeedbackOverlay（Onshape live 同款光标旁读数）呈现。取点仍
+    // 经 AccuSnap hot detail + 平面架投影，平面锁定语义不依赖罗盘。
     // 不 locate 元素（无定位圈）但开启 AccuSnap 吸附——currHit 取点前提；
     // initLocateElements(false) 缺省会 enableSnap(false) 关掉吸附（M3-b 实测注记）。
     this.initLocateElements(false, true);
@@ -140,21 +143,35 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     // Dynamics 通道橡皮筋（帧驱动预览；0 锚点时 onDynamicFrame 早退不绘制）。
     this.beginDynamics();
     this._outputStagePrompt();
+    this._provideToolAssistance();
   }
 
   public override async onCleanup(): Promise<void> {
     if (this.isDynamicsStarted) this.endDynamics();
-    // AccuDraw 恢复（路径裁决见文件头）：仅本工具激活过时 deactivate；
-    // 下一 PrimitiveTool 安装恒 clearContext，hints 不跨工具残留。
-    if (this._accuDrawActivated) AccuDrawHintBuilder.deactivate();
+    clearSketchToolFeedback(this.toolId);
     this._anchors = [];
     await super.onCleanup();
   }
 
+  /**
+   * 光标移动：更新实时尺寸提示（Onshape live 光标旁数值）+ ToolAssistance。
+   * 只读光标，不改工具状态机。
+   */
+  public override async onMouseMotion(ev: BeButtonEvent): Promise<void> {
+    await super.onMouseMotion(ev);
+    this._cursorLocal = this._pickLocal(ev);
+    this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
+    this._publishFeedback();
+  }
+
   public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
     this._anchors.push(this._pickLocal(ev));
+    this._cursorLocal = this._pickLocal(ev);
+    this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
 
     if (this._anchors.length < this.requiredPoints) {
+      this._publishFeedback();
+      this._provideToolAssistance();
       this._outputStagePrompt();
       return EventHandled.No;
     }
@@ -167,6 +184,8 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     const draft = this.buildShape(points);
     if (!draft) {
       this._notify(this._t(this.degenerateToastKey), OutputMessagePriority.Info);
+      this._publishFeedback();
+      this._provideToolAssistance();
       this._outputStagePrompt();
       return EventHandled.No;
     }
@@ -195,6 +214,8 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       // 拒收文本原样透出，工具保持存活可立即重画。
       this._nextId = idBase;
       this._notify(result.error ?? this._t('partStudio.sketch.create.toasts.updateFailed'), OutputMessagePriority.Error);
+      this._publishFeedback();
+      this._provideToolAssistance();
       this._outputStagePrompt();
       return EventHandled.No;
     }
@@ -205,18 +226,74 @@ export abstract class SketchCreateTool extends PrimitiveTool {
 
   /** Dynamics 帧回调：已锚点 + 当前光标点 → 预览（WorldOverlay，压顶绘制）。 */
   public override onDynamicFrame(ev: BeButtonEvent, context: DynamicsContext): void {
+    this._cursorLocal = this._pickLocal(ev);
+    this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
+    this._publishFeedback();
     if (this._anchors.length === 0) return;
-    const cursor = this._pickLocal(ev);
+    const cursor = this._cursorLocal;
     const builder = context.createGraphic({ type: GraphicType.WorldOverlay });
     builder.setSymbology(PREVIEW_COLOR, PREVIEW_COLOR, 2, LinePixels.Solid);
     this.buildPreview(this._anchors, cursor, builder);
     context.addGraphic(builder.finish());
+
+    // editor SketchTools 同款构造辅助层：弧心连线 / 样条控制多边形（虚线 +
+    // 控制点），讲解清楚「正在定义什么」，不是另一套预览。
+    const construction = context.createGraphic({ type: GraphicType.WorldOverlay });
+    construction.setSymbology(ColorDef.black, ColorDef.black, 1, LinePixels.Code2);
+    this.buildConstructionGeometry(this._anchors, cursor, construction);
+    context.addGraphic(construction.finish());
+  }
+
+  /** 构造辅助线（子类可扩展；0 锚点时由调用方早退）。 */
+  protected buildConstructionGeometry(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const first = anchors[0];
+    if (!first) return;
+    switch (this.sketchKind) {
+      case 'circle':
+        this.addWorldLineString(builder, [first, cursor]);
+        break;
+      case 'arc': {
+        const second = anchors[1];
+        if (!second) {
+          this.addWorldLineString(builder, [first, cursor]);
+          break;
+        }
+        // 弦 + 圆心到三点的虚线（让三点定圆关系可见）。
+        this.addWorldLineString(builder, [first, second]);
+        const pts: [Point3d, Point3d, Point3d] = [toLocal3d(first), toLocal3d(second), toLocal3d(cursor)];
+        const arc = Arc3d.createCircularStartMiddleEnd(...pts);
+        if (arc instanceof Arc3d) {
+          const centerWorld = this._plane.toWorld({ u: arc.center.x, v: arc.center.y });
+          builder.addLineString([centerWorld, this._plane.toWorld(first)]);
+          builder.addLineString([centerWorld, this._plane.toWorld(second)]);
+        }
+        break;
+      }
+      case 'spline': {
+        const second = anchors[1];
+        if (!second) {
+          this.addWorldLineString(builder, [first, cursor]);
+          break;
+        }
+        const c1 = anchors[2];
+        if (!c1) {
+          this.addWorldLineString(builder, [first, second, cursor]);
+          break;
+        }
+        this.addWorldLineString(builder, [first, second, c1, cursor]);
+        break;
+      }
+      default:
+        break;
+    }
   }
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
     if (this._anchors.length > 0) {
       // 取消进行中的形状，工具保持存活（再右键退出）——M3-b 两层语义。
       this._anchors = [];
+      this._publishFeedback();
+      this._provideToolAssistance();
       this._outputStagePrompt();
       return EventHandled.Yes;
     }
@@ -283,9 +360,60 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     return curve;
   }
 
-  private _outputStagePrompt(): void {
+  /** 当前阶段提示文本（i18n 实时翻译）。 */
+  private _stageHint(): string {
     const key = this.promptKeys[Math.min(this._anchors.length, this.promptKeys.length - 1)];
-    if (key) IModelApp.notifications.outputPrompt(this._t(key));
+    return key ? this._t(key) : '';
+  }
+
+  /**
+   * 发布光标旁实时反馈（Onshape live）：阶段提示 + 已锚点到光标的尺寸。
+   * 签名按像素取整去重——同一位置不重复触发覆盖层渲染。
+   */
+  private _publishFeedback(): void {
+    const hint = this._stageHint();
+    const measures = this._cursorLocal && this._anchors.length > 0
+      ? computeSketchLiveMeasures(this.sketchKind, this._anchors, this._cursorLocal)
+      : [];
+    const cx = this._cursorView ? Math.round(this._cursorView.x) : -1;
+    const cy = this._cursorView ? Math.round(this._cursorView.y) : -1;
+    const signature = `${hint}|${measures.map((m) => `${m.labelKey}:${m.value}`).join('|')}|${cx},${cy}`;
+    if (signature === this._feedbackSignature) return;
+    this._feedbackSignature = signature;
+    publishSketchToolFeedback({
+      toolId: this.toolId,
+      ...(hint ? { hint } : {}),
+      measures,
+      ...(this._cursorView ? { cursor: this._cursorView } : {}),
+    });
+  }
+
+  /**
+   * 标准 ToolAssistance（iTwin editor 同款通道）：阶段变化才重发。
+   * Web 呈现面由 SketchToolFeedbackOverlay 承接；此通道保留给辅助技术/未来
+   * AppUI 挂载（editor 原工具也是这么做的）。
+   */
+  private _provideToolAssistance(): void {
+    const stage = this._anchors.length;
+    if (stage === this._assistanceStage) return;
+    this._assistanceStage = stage;
+    const hint = this._stageHint();
+    if (!hint) return;
+    const cancel = this._t('partStudio.sketch.create.cancelPrompt');
+    const mouseInstructions: ToolAssistanceInstruction[] = [
+      ToolAssistance.createInstruction(ToolAssistanceImage.LeftClick, hint, false, ToolAssistanceInputMethod.Mouse),
+      ToolAssistance.createInstruction(ToolAssistanceImage.RightClick, cancel, false, ToolAssistanceInputMethod.Mouse),
+    ];
+    const sections: ToolAssistanceSection[] = [
+      ToolAssistance.createSection(mouseInstructions, ToolAssistance.inputsLabel),
+    ];
+    IModelApp.notifications.setToolAssistance(ToolAssistance.createInstructions(
+      ToolAssistance.createInstruction(this.iconSpec, hint), sections,
+    ));
+  }
+
+  private _outputStagePrompt(): void {
+    IModelApp.notifications.outputPrompt(this._stageHint());
   }
 
   /** 调用时翻译（i18next 单例直取——与 useFeatureSystem 同口径，回调内不吃闭包旧语）。 */

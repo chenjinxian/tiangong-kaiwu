@@ -96,7 +96,7 @@ const featureRpc = vi.hoisted(() => {
   releaseWriteLease: vi.fn(async (_key: string, _sessionId: string) => undefined),
   // B-model P2.4：注册表读面（scope 解析/页签数据源）。
   listPartStudios: vi.fn(async (_key: string): Promise<unknown[]> => []),
-  // M6-b T5：useSketchSystem 活动草图读面（SketchPanel 数据源；无活动草图 → undefined）。
+  // useSketchSystem 活动草图读面（值确认浮层/标注数据源；无活动草图 → undefined）。
   getSketch: vi.fn(async (_key: string, _sketchId: string): Promise<unknown> => undefined),
   };
 });
@@ -180,6 +180,22 @@ vi.mock('@luban-cad/viewer', () => ({
     setVisibility() { /* noop */ }
     dispose() { /* noop */ }
   },
+  SketchCurvesDecoration: class {
+    constructor() { /* noop */ }
+    setPolylines() { /* noop */ }
+    dispose() { /* noop */ }
+  },
+  SketchDimensionsDecoration: class {
+    constructor() { /* noop */ }
+    setAnnotations() { /* noop */ }
+    dispose() { /* noop */ }
+  },
+  BrepTopologyDecoration: class {
+    constructor() { /* noop */ }
+    setTopology() { /* noop */ }
+    setOptions() { /* noop */ }
+    dispose() { /* noop */ }
+  },
   acquireViewer: vi.fn().mockResolvedValue(undefined),
   releaseViewer: vi.fn().mockResolvedValue(undefined),
   ensureAccuSnap: vi.fn().mockResolvedValue(undefined),
@@ -191,6 +207,12 @@ vi.mock('@luban-cad/shared', () => ({
   LubanFeatureRpcInterface: {
     getClient: () => featureRpc,
   },
+}));
+
+// 2026-11-03：默认 Onshape 选择工具生命周期替身（本文件 IModelApp 桩无
+// activeToolChanged 事件面）；行为断言归 PartStudioPage.test.tsx。
+vi.mock('../hooks/useOnshapeSelection.js', () => ({
+  useOnshapeSelection: vi.fn(),
 }));
 
 import { usePartStudioStore } from '../index.js';
@@ -308,23 +330,23 @@ const VIEWPORT_REF: { current: HTMLDivElement | null } = { current: null };
 /** os-11 工具顺序的 27 主钮可访问名（zh-CN 基线；▾=携带下拉飞菜单）。 */
 const EXPECTED_TOOL_LABELS = [
   '草图', '拉伸', '旋转', '扫掠', '放样',
-  '加厚', '圆角', '倒角', '拔模', '抽壳', '孔', '外部螺纹',
+  '加厚', '圆角', '倒角', '拔模', '筋', '抽壳', '孔', '外部螺纹',
   '线性阵列', '镜像',
   '布尔运算', '分割', '变换', '删除零件',
   '修改圆角', '删除面', '移动面', '替换面',
-  '平面', '框架', '钣金模型', '添加自定义特征', '曲面/曲线',
+  '平面', '框架', '钣金模型', '添加自定义特征',
 ] as const;
 
-/** os-20 的 8 个下拉飞菜单宿主 toolId（data-testid 锚点）。 */
+/** Onshape live 可见下拉箭头（曲面/曲线组已在工具栏隐去，仍在命令搜索中）。 */
 const EXPECTED_DROPDOWN_IDS = [
   'thicken', 'RoundEdges', 'DraftFaces', 'LinearPattern',
-  'transform', 'frame', 'sheetMetalStart', 'surfaceCurve',
+  'transform', 'cPlane', 'frame', 'sheetMetalStart', 'USER_FEATURES',
 ] as const;
 
-/** os-11 分组可访问名（特征工具 toolbar 的 11 个 role=group）。 */
+/** Onshape live 11 组（首组撤消/重做；曲面/曲线组工具栏隐去）。 */
 const EXPECTED_GROUP_LABELS = [
-  '草图', '创建', '工程特征', '阵列', '组合', '直接编辑',
-  '参考几何', '框架', '钣金', '自定义特征', '曲面/曲线',
+  '撤消/重做', '草图', '创建', '工程特征', '阵列', '组合', '直接编辑',
+  '参考几何', '框架', '钣金', '自定义特征',
 ] as const;
 
 /** store 全切片复位（八切片回缺省，用例间互不渗漏）。 */
@@ -340,9 +362,9 @@ function resetStore(): void {
     viewOnly: { isActive: false },
     datum: {
       visibility: { origin: true, top: true, front: true, right: true },
+      visibilityOverrides: {},
       expanded: true,
       selectedId: null,
-      autoHiddenOnce: false,
     },
   });
 }
@@ -369,7 +391,7 @@ function renderPage(): ReturnType<typeof render> {
 async function renderReadyPage(): Promise<ReturnType<typeof render>> {
   const rendered = renderPage();
   await waitFor(() => {
-    const save = screen.getByTestId('part-studio-save-button') as HTMLButtonElement;
+    const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     expect(save.disabled === false && save.getAttribute('aria-disabled') !== 'true').toBe(true);
   }, { timeout: 10_000 });
   return rendered;
@@ -432,19 +454,22 @@ describe('五区存在性（os-11 布局壳）', () => {
   it('顶栏/左栏/画布/右停靠/底部页签条五区锚点同时在场', () => {
     renderPage();
     expect(screen.getByTestId('part-studio-top-bar')).toBeDefined();
+    expect(screen.getByTestId('part-studio-workspace')).toBeDefined();
+    expect(screen.getByTestId('part-studio-panel-rail')).toBeDefined();
     expect(screen.getByTestId('part-studio-sidebar')).toBeDefined();
-    expect(screen.getByTestId('part-studio-icon-rail')).toBeDefined();
     expect(screen.getByTestId('part-studio-tree')).toBeDefined();
     const canvas = screen.getByTestId('part-studio-canvas');
     expect(within(canvas).getByTestId('part-studio-viewport')).toBeDefined();
     expect(screen.getByTestId('part-studio-dock')).toBeDefined();
     expect(screen.getByTestId('part-studio-tab-strip')).toBeDefined();
-    expect(screen.getByTestId('part-studio-status-bar')).toBeDefined();
+    // 可见状态栏已移除；仅隐藏连接态节点供 e2e 就绪。
+    expect(screen.queryByTestId('part-studio-status-bar')).toBeNull();
+    expect(screen.getByTestId('part-studio-status-connection')).toBeDefined();
   });
 });
 
-describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/os-20）', () => {
-  it('27 工具主钮全渲染（特征工具 toolbar + 11 分组）', () => {
+describe('工具 ribbon（Onshape live：28 工具 + 9 下拉 + 搜索触发钮）', () => {
+  it('工具主钮全渲染（特征工具 toolbar + 11 分组）', () => {
     renderPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
     const toolbar = within(ribbon).getByRole('toolbar', { name: '特征工具' });
@@ -459,7 +484,7 @@ describe('工具 ribbon（27 工具 + 8 下拉 + 命令搜索触发钮，os-11/o
     }
   });
 
-  it('8 下拉锚点在场（data-testid + 箭头钮 aria-haspopup=menu），变换飞菜单展开子项（portal 逃逸到 body 外）', async () => {
+  it('9 个可见下拉锚点在场（data-testid + 箭头钮 aria-haspopup=menu），变换飞菜单展开子项（portal 逃逸到 body 外）', async () => {
     const user = userEvent.setup();
     await renderReadyPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
@@ -612,8 +637,8 @@ describe('双段树（os-11 左栏）', () => {
   it('特征段 + 零件段 + 段头计数 + 语法筛选框', () => {
     renderPage();
     const tree = screen.getByTestId('part-studio-tree');
-    expect(within(tree).getByRole('button', { name: '特征' })).toBeDefined();
-    expect(within(tree).getByRole('button', { name: '零件' })).toBeDefined();
+    expect(within(tree).getByTestId('part-studio-feature-section-header')).toBeDefined();
+    expect(within(tree).getByTestId('part-studio-part-section-header')).toBeDefined();
     expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(4)');
     expect(within(tree).getByTestId('part-studio-part-count')).toBeDefined();
     expect(within(tree).getByTestId('part-studio-feature-list')).toBeDefined();
@@ -645,7 +670,7 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     expect(screen.getByTestId('part-studio-canvas')).toBeDefined();
   });
 
-  it('SketchDialog：四开关在场，✓ 确认进草图模式（ribbon 变身 + 栅格/约束覆盖层）', async () => {
+  it('SketchDialog：四开关在场，✓ 确认进草图模式（ribbon 变身 + 约束覆盖层）', async () => {
     const user = userEvent.setup();
     await renderReadyPage();
     // ribbon「草图」主钮 → SketchDialog（os-30 创建草图流程）。
@@ -656,20 +681,25 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     for (const label of ['禁用压印', '显示约束', '显示表达式', '显示错误']) {
       expect(within(dialog).getByRole('checkbox', { name: label })).toBeDefined();
     }
+    // Onshape：平面字段（视口/树/菜单）——未选平面不得确认。
+    await user.click(within(dialog).getByRole('combobox', { name: '草图平面' }));
+    await user.click(screen.getByRole('option', { name: '上视' }));
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
-    // 草图模式变身：草图工具组 ribbon + 退出草图钮 + 栅格/约束覆盖层 + 搜索禁用。
+    // 草图模式变身：草图工具组 ribbon + 约束覆盖层 + 搜索禁用；完成钮在草图面板。
     const ribbon = screen.getByTestId('part-studio-ribbon');
     expect(within(ribbon).getByRole('toolbar', { name: '草图工具' })).toBeDefined();
-    expect(within(ribbon).getByRole('button', { name: '退出草图' })).toBeDefined();
+    expect(within(ribbon).queryByRole('button', { name: '退出草图' })).toBeNull();
     expect(
       (within(ribbon).getByRole('button', { name: /搜索工具/ }) as HTMLButtonElement).disabled,
     ).toBe(true);
-    expect(screen.getByTestId('sketch-grid-overlay')).toBeDefined();
-    expect(screen.getByTestId('sketch-constraints-overlay')).toBeDefined();
-    // 退出草图：特征 ribbon 还原。
-    await user.click(within(ribbon).getByRole('button', { name: '退出草图' }));
-    expect(within(screen.getByTestId('part-studio-ribbon')).getByRole('toolbar', { name: '特征工具' })).toBeDefined();
     expect(screen.queryByTestId('sketch-grid-overlay')).toBeNull();
+    expect(screen.getByTestId('sketch-constraints-overlay')).toBeDefined();
+    // 面板「完成」= exitSketch（结构层直接调用 store 出口）。
+    act(() => {
+      usePartStudioStore.getState().exitSketch();
+    });
+    expect(within(screen.getByTestId('part-studio-ribbon')).getByRole('toolbar', { name: '特征工具' })).toBeDefined();
+    expect(screen.queryByTestId('sketch-constraints-overlay')).toBeNull();
   });
 
   it('TabManagerDialog（P2.4）：alt+~+t 打开，列表承载注册表 Part Studio（非 iModel）', async () => {
@@ -716,19 +746,18 @@ describe('M4 收官锚点总账（T9）', () => {
     (button as HTMLButtonElement).disabled === true
     || button.getAttribute('aria-disabled') === 'true';
 
-  it('顶栏 undo/redo/saveVersion 三钮锚点在场；干净态 undo/redo 禁用、保存版本可用，txns 解锁后撤销投标准工具 Undo', async () => {
+  it('工具栏撤消/重做 + 左缘创建版本锚点在场；干净态 undo/redo 禁用、创建版本可用，txns 解锁后撤销投标准工具 Undo', async () => {
     const user = userEvent.setup();
     await renderReadyPage();
-    const topBar = screen.getByTestId('part-studio-top-bar');
-    // testid 钉形（结构不变式）+ 可访问名钉形（os-11 操作簇：撤消/重做/保存版本）。
-    expect(within(topBar).getByTestId('part-studio-undo-button')).toBeDefined();
-    expect(within(topBar).getByTestId('part-studio-redo-button')).toBeDefined();
-    expect(within(topBar).getByTestId('part-studio-save-button')).toBeDefined();
-    expect(within(topBar).getByRole('button', { name: '撤消' })).toBeDefined();
-    expect(within(topBar).getByRole('button', { name: '重做' })).toBeDefined();
-    expect(within(topBar).getByRole('button', { name: '保存版本' })).toBeDefined();
-    const undo = within(topBar).getByTestId('part-studio-undo-button');
-    const save = within(topBar).getByTestId('part-studio-save-button');
+    // Onshape live：撤消/重做在工具栏首组，创建版本在左缘面板选择条。
+    expect(screen.getByTestId('part-studio-ribbon-undo')).toBeDefined();
+    expect(screen.getByTestId('part-studio-ribbon-redo')).toBeDefined();
+    expect(screen.getByTestId('part-studio-panel-rail-create-version')).toBeDefined();
+    expect(within(screen.getByTestId('part-studio-ribbon')).getByRole('button', { name: '撤消' })).toBeDefined();
+    expect(within(screen.getByTestId('part-studio-ribbon')).getByRole('button', { name: '重做' })).toBeDefined();
+    expect(within(screen.getByTestId('part-studio-panel-rail')).getByRole('button', { name: /^创建版本/ })).toBeDefined();
+    const undo = screen.getByTestId('part-studio-ribbon-undo');
+    const save = screen.getByTestId('part-studio-panel-rail-create-version');
     expect(isDisabled(undo)).toBe(true);
     // B-model P0 Task 5：保存版本钮由 canSaveVersion（canEdit ∧ 连接）驱动——
     // 干净态也可命名当前 changeset，故不随 hasPendingTxns 回落禁用（权限查询
@@ -802,13 +831,13 @@ describe('M4 收官锚点总账（T9）', () => {
     expect(within(tree).getByTestId('part-studio-part-count').textContent).toBe('(1)');
   });
 
-  it('CreateNamedVersionDialog 挂载：保存版本钮（干净态可用）→ 点击挂载命名对话框（名称/描述锚点 + 命名通道）', async () => {
+  it('CreateNamedVersionDialog 挂载：左缘创建版本钮（干净态可用）→ 点击挂载命名对话框（名称/描述锚点 + 命名通道）', async () => {
     const user = userEvent.setup();
     mocks.imodelsListChangesets.mockResolvedValue([
       { id: 'cs-2', index: 2, description: '初始', displayName: 'cs2', pushDateTime: '2026-10-20T09:00:00Z' },
     ]);
     await renderReadyPage();
-    const save = screen.getByTestId('part-studio-save-button');
+    const save = screen.getByTestId('part-studio-panel-rail-create-version');
     await waitFor(() => expect(isDisabled(save)).toBe(false));
     await user.click(save);
 

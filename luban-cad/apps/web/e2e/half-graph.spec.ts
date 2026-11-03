@@ -73,7 +73,7 @@ test.describe('damaged 半图真栈门', () => {
     await waitEditorReady(page);
     await expect(page.getByTestId('part-studio-scope-damaged')).toHaveCount(0);
     await expect(page.getByTestId('part-studio-scope-recovery')).toHaveCount(0);
-    await expect(page.getByTestId('part-studio-tab-strip').getByRole('tab')).toHaveCount(1);
+    await expect(page.getByTestId('part-studio-tab-strip').locator('[data-studio-id]')).toHaveCount(1);
     expect(consoleErrors).toEqual([]);
   });
 });

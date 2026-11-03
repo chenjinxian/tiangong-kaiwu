@@ -34,7 +34,10 @@ const FACE_NORMALS: readonly { id: CubeFaceId; normal: readonly [number, number,
   { id: 'back', normal: [0, -1, 0] },
 ];
 
-const LABEL_RADIUS = 26;
+/** 面标签投影半径（150px stage / 64px cube；标签落在可见面中心附近）。 */
+const LABEL_RADIUS = 32;
+/** 角点命中区投影半径（比标签略外，落在 cube 圆角处）。 */
+const CORNER_RADIUS = 38;
 
 /** CSS matrix3d 元素（含 F·R·F 的 Y 翻转，与 cssMatrix3dFromRotation 同口径）。 */
 function cssEntry(rotation: Matrix3d, row: number, col: number): number {
@@ -72,6 +75,46 @@ export function axisScreenDirections(rotation: Matrix3d): Record<'x' | 'y' | 'z'
   const y = transform(rotation, [0, -1, 0]);
   const z = transform(rotation, [0, 0, 1]);
   return { x: [x[0], x[1]], y: [y[0], y[1]], z: [z[0], z[1]] };
+}
+
+export interface ProjectedCubeCorner {
+  id: string;
+  /** 相对 cube 中心的屏幕偏移（CSS px；y 向下）。 */
+  x: number;
+  y: number;
+  /** 从中心指向该角的 eye 方向（点击后作为 trimetric 方向）。 */
+  direction: [number, number, number];
+}
+
+const CORNER_SIGNS: ReadonlyArray<readonly [string, number, number, number]> = [
+  ['front-top-left', -1, -1, 1],
+  ['front-top-right', 1, -1, 1],
+  ['back-top-left', -1, 1, 1],
+  ['back-top-right', 1, 1, 1],
+  ['front-bottom-left', -1, -1, -1],
+  ['front-bottom-right', 1, -1, -1],
+  ['back-bottom-left', -1, 1, -1],
+  ['back-bottom-right', 1, 1, -1],
+];
+
+/**
+ * 当前朝向下可见的 cube 角点（屏幕投影；仅 z>0 面向观察者）。
+ * Onshape 点击 cube 角 = trimetric；命中区本身不可见，hover 才提示。
+ */
+export function projectCubeCorners(rotation: Matrix3d): ProjectedCubeCorner[] {
+  const corners: ProjectedCubeCorner[] = [];
+  for (const [id, sx, sy, sz] of CORNER_SIGNS) {
+    const [x, y, z] = transform(rotation, [sx, sy, sz]);
+    if (z <= 0.05)
+      continue;
+    corners.push({
+      id,
+      x: x * CORNER_RADIUS,
+      y: y * CORNER_RADIUS,
+      direction: [sx, sy, sz],
+    });
+  }
+  return corners;
 }
 
 /** 由 eye direction 构造视图旋转（up 缺省 +Z；退化时改用 +X）。 */

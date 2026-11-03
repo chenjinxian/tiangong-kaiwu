@@ -40,7 +40,7 @@ vi.mock('@itwin/core-frontend', () => ({
 }));
 
 import { usePartStudioStore } from '../index.js';
-import { Ribbon } from '../ribbon/Ribbon.js';
+import { Ribbon, useToolActivation } from '../ribbon/Ribbon.js';
 
 /** store 复位：tool/dialog 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
@@ -188,21 +188,41 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     });
   });
 
-  it('M-A5.2：选择面/边 toggle selectionMode；同钮再点回 body；dialog 打开时禁用', async () => {
+  it('Onshape 主工具栏隐藏选择组；命令搜索同一激活路由仍可切换 selectionMode', async () => {
     const user = userEvent.setup();
-    render(<Ribbon />);
-    const face = screen.getByRole('button', { name: '选择面' });
-    await user.click(face);
-    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('face');
-    expect(face.getAttribute('aria-pressed')).toBe('true');
-    await user.click(face);
-    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body');
+    function SelectionHarness(): React.JSX.Element {
+      const { activate } = useToolActivation();
+      return (
+        <>
+          <button type="button" onClick={() => void activate('selectFace')}>activate-face</button>
+          <button type="button" onClick={() => void activate('selectEdge')}>activate-edge</button>
+          <button type="button" onClick={() => void activate('selectVertex')}>activate-vertex</button>
+        </>
+      );
+    }
+    render(
+      <>
+        <Ribbon />
+        <SelectionHarness />
+      </>,
+    );
+    // 主工具栏不显示选择组（Onshape live 无此组）。
+    expect(screen.queryByRole('button', { name: '选择面' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '选择边' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '选择点' })).toBeNull();
 
+    await user.click(screen.getByRole('button', { name: 'activate-face' }));
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('face');
+    await user.click(screen.getByRole('button', { name: 'activate-face' }));
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body');
+    await user.click(screen.getByRole('button', { name: 'activate-vertex' }));
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('vertex');
+
+    // 特征对话框打开时保持旧防御：不切模式。
     act(() => usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' }));
-    const faceBtn = screen.getByRole('button', { name: '选择面' }) as HTMLButtonElement;
-    const edgeBtn = screen.getByRole('button', { name: '选择边' }) as HTMLButtonElement;
-    expect(faceBtn.disabled || faceBtn.getAttribute('aria-disabled') === 'true').toBe(true);
-    expect(edgeBtn.disabled || edgeBtn.getAttribute('aria-disabled') === 'true').toBe(true);
+    act(() => usePartStudioStore.getState().setSelectionMode('body'));
+    await user.click(screen.getByRole('button', { name: 'activate-face' }));
+    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body');
   });
 
   it('gated 工具不回归：拔模点击开能力引导对话框', async () => {

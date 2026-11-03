@@ -22,13 +22,9 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@itwin/itwinui-react';
-import {
-  SvgDraw,
-  SvgVisibilityHide,
-  SvgVisibilityShow,
-} from '@itwin/itwinui-icons-react';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { FeatureNode, PartNode } from '../types.js';
+import { FeatureTypeIcon } from './FeatureTypeIcon.js';
 
 /** 树行节点（特征段 | 零件段并集口径）。 */
 export type TreeNode = FeatureNode | PartNode;
@@ -165,22 +161,18 @@ export function TreeRow({
             onContextMenu={(event) => onContextMenu(node, event)}
             onDoubleClick={onDoubleClick ? () => onDoubleClick(node) : undefined}
           >
-            {/* M6-a T7：草图节点行图标（SvgDraw 占位；M6-c 按采集 SVG 再校）。 */}
-            {isSketchNode(node) && (
-              <span className="part-studio-tree-row__icon" aria-hidden="true">
-                <SvgDraw />
-              </span>
-            )}
+            {/* 2026-11-02：每个特征/零件行都带 17px 类型图标（Onshape 树）。 */}
+            <FeatureTypeIcon node={node} />
             <span className="part-studio-tree-row__name">{node.name}</span>
           </button>
           {/* B6 M-A5 T2：逐 body 可见性 eye（仅 part 行；按钮不可嵌套——与主行
               按钮同级）。stopPropagation 保证不触发行选中。 */}
           {partRow && onToggleVisibility && (
-            <IconButton
-              size="small"
-              styleType="borderless"
+            <button
+              type="button"
               className="part-studio-tree-row__visibility"
-              label={t(hidden ? 'partStudio.tree.showBody' : 'partStudio.tree.hideBody')}
+              aria-label={t(hidden ? 'partStudio.tree.showBody' : 'partStudio.tree.hideBody')}
+              title={t(hidden ? 'partStudio.tree.showBody' : 'partStudio.tree.hideBody')}
               data-testid={`tree-row-visibility-${node.id}`}
               aria-pressed={hidden}
               onClick={(event) => {
@@ -188,8 +180,8 @@ export function TreeRow({
                 onToggleVisibility(node);
               }}
             >
-              {hidden ? <SvgVisibilityHide /> : <SvgVisibilityShow />}
-            </IconButton>
+              <OnshapeIcon name={hidden ? 'eye_closed' : 'eye_open'} size={16} />
+            </button>
           )}
         </div>
       )}

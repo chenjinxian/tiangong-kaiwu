@@ -778,7 +778,9 @@ async function openTwoStudioWorld(
 
   // `+` 创建第二 studio（真实 UI；生产 registry 通道）。
   const tabStrip = page.getByTestId('part-studio-tab-strip');
-  const tabs = tabStrip.getByRole('tab');
+  // 页签条含文档级页签（无 data-studio-id）：只看 Part Studio 页签。
+  const tabs = tabStrip.locator('[data-studio-id]');
+  await expect(tabs).toHaveCount(1, { timeout: 30_000 });
   await page.getByTestId('part-studio-new-tab-button').click();
   await expect(tabs).toHaveCount(2, { timeout: 60_000 });
   const k2Id = readModelScopeId(page);
@@ -1198,9 +1200,9 @@ test.describe('P2.5 真栈视口门', () => {
     await expectActiveScope(page, k1.id);
     await expectViewportScope(page, k1.physModelId, 'K1-pre-tile');
     // 创建 K3 后立刻切回 K1：K3 只在空模型态短暂显示，其体由后续 RPC 造出。
-    const tabs3 = page.getByTestId('part-studio-tab-strip').getByRole('tab');
+    const tabs3 = page.getByTestId('part-studio-tab-strip').locator('[data-studio-id]');
     await page.getByTestId('part-studio-new-tab-button').click();
-    await expect(tabs3).toHaveCount(3, { timeout: 60_000 });
+    await expect(tabs3).toHaveCount(2, { timeout: 60_000 });
     const k3Id = readModelScopeId(page);
     expect(k3Id, 'K3 URL scope').toBeTruthy();
     await tab(page, k1.id).click();
@@ -1356,7 +1358,7 @@ test.describe('P2.5 真栈视口门', () => {
     // ── C) R4：文档级 undo/redo（最新事务在 ps-2）不得清空 ps-1 选择 ───────
     const k2TreeBeforeUndo = await readTree(ctx, token, k2.id);
     expect(k2TreeBeforeUndo.length, 'ps-2 基线树应为 2 节点').toBe(2);
-    const undo = page.getByTestId('part-studio-undo-button');
+    const undo = page.getByTestId('part-studio-ribbon-undo');
     await expect(undo).toBeEnabled({ timeout: 60_000 });
     await undo.click();
     // 单个提交事件后的确定性短驻留；只读一次 HTTP RPC（不做高频 poll——
@@ -1366,7 +1368,7 @@ test.describe('P2.5 真栈视口门', () => {
     expect(await readSelectionSet(page), 'undo 后 ps-1 选择必须保留').toEqual([
       body1.bodyKey,
     ]);
-    const redo = page.getByTestId('part-studio-redo-button');
+    const redo = page.getByTestId('part-studio-ribbon-redo');
     await expect(redo).toBeEnabled({ timeout: 60_000 });
     await redo.click();
     await page.waitForTimeout(1500);
@@ -1585,8 +1587,8 @@ test.describe('P2.5 真栈视口门', () => {
       '画布删除应移除驱动特征（树节点减少）',
     ).toBeLessThan(k2TreeBeforeDelete.length);
     expect(await readTree(ctx, token, k1.id), '正控制 Delete 不得触碰 ps-1').toEqual(tree1Before);
-    await expect(page.getByTestId('part-studio-undo-button')).toBeEnabled({ timeout: 60_000 });
-    await page.getByTestId('part-studio-undo-button').click();
+    await expect(page.getByTestId('part-studio-ribbon-undo')).toBeEnabled({ timeout: 60_000 });
+    await page.getByTestId('part-studio-ribbon-undo').click();
     await expect(partRows).toHaveCount(2, { timeout: 60_000 });
     const bodiesRestored = await getBodiesRpc(ctx, token, k2.id);
     expect(
@@ -1625,8 +1627,8 @@ test.describe('P2.5 真栈视口门', () => {
       '未取消的 Move 手势必须真正提交（body placement/props 变化）',
     ).not.toEqual(propsBeforeMove);
     expect(await readTree(ctx, token, k1.id), 'Move 直改不改 ps-1 特征树').toEqual(tree1Before);
-    await expect(page.getByTestId('part-studio-undo-button')).toBeEnabled({ timeout: 60_000 });
-    await page.getByTestId('part-studio-undo-button').click();
+    await expect(page.getByTestId('part-studio-ribbon-undo')).toBeEnabled({ timeout: 60_000 });
+    await page.getByTestId('part-studio-ribbon-undo').click();
     console.log('[b-viewport] D3 undo clicked');
     await expect.poll(async () => JSON.stringify(await readElementProps(page, body1.bodyKey)), {
       timeout: 60_000,
@@ -1653,13 +1655,12 @@ test.describe('P2.5 真栈视口门', () => {
     await page.getByRole('button', { name: '草图', exact: true }).click();
     const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(sketchDialog).toBeVisible();
-    await sketchDialog.getByRole('combobox', { name: '草图平面' }).selectOption({ label: '上视' });
+    await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
+ await page.getByRole('option', { name: '上视' }).click();
     await sketchDialog.getByRole('button', { name: '确认' }).click();
-    const exitSketchButton = page
-      .getByTestId('part-studio-ribbon')
-      .getByRole('button', { name: '退出草图' });
     await expect(
-      exitSketchButton.or(sketchDialog.getByTestId('part-studio-sketch-dialog-error')),
+      page.getByRole('toolbar', { name: '草图工具' })
+        .or(sketchDialog.getByTestId('part-studio-sketch-dialog-error')),
     ).toBeVisible({ timeout: 60_000 });
     if ((await sketchDialog.getByTestId('part-studio-sketch-dialog-error').count()) > 0) {
       throw new Error(
@@ -1670,7 +1671,8 @@ test.describe('P2.5 真栈视口门', () => {
     }
     const featureCount = page.getByTestId('part-studio-feature-count');
     await expect(featureCount).toHaveText(`(${k2TreeBeforeWrite + 1 + 4})`, { timeout: 60_000 });
-    await exitSketchButton.click();
+    await sketchDialog.getByRole('button', { name: '确认' }).click();
+    await expect(sketchDialog).toBeHidden({ timeout: 30_000 });
     await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible();
 
     const tree2AfterWrite = await readTree(ctx, token, k2.id);

@@ -4,9 +4,8 @@
  *
  * part-studio 工具 ribbon 注册表（M3 Task 4）——ribbon 渲染层与命令搜索
  * 的唯一数据源（os-11/os-20 采集对齐；M6-c T5 分组序权威升级）：
- * - 29 工具按 Onshape 主工具栏分组序在册——**分组序权威 = diag-tools.json
- *  （2026-10-23 Tutorial 2 实测采集；M-A5.2 在首部增「选择」组：选择面/选择边
- *  为子实体选择模式 toggle，非 Onshape 采集项）：撤消重做｜选择｜草图｜拉伸 旋转 扫掠 放样
+ * - 28 工具按 Onshape 主工具栏分组序在册——**分组序权威 = diag-tools.json
+ *  （2026-10-23 Tutorial 2 实测采集）：撤消重做｜草图｜拉伸 旋转 扫掠 放样
  *   加厚▾｜圆角▾ 倒角 拔模▾ 筋 抽壳 孔 外部螺纹｜线性阵列▾ 镜像｜布尔运算
  *   分割 变换▾ 删除零件｜修改圆角 删除面 移动面 替换面｜平面▾｜框架▾｜
  *   钣金模型▾｜添加自定义特征**。两处刻意缺席（工具集不变裁决）：①撤消/重做
@@ -34,7 +33,7 @@
  */
 
 import React from 'react';
-import { SvgCursor, SvgSelection } from '@itwin/itwinui-icons-react';
+import type { OnshapeIconName } from '../icons/onshape-icons.js';
 
 /** ribbon 分组（os-11 toolset-seperator 切分序）。 */
 export type RibbonGroup =
@@ -74,6 +73,8 @@ export interface RibbonTool {
   labelKey: string;
   /** 快捷键（os-11 title 属性钉死：shift+s/shift+e/shift+w/shift+f）。 */
   shortcut?: string;
+  /** 主钮显示文字标签（Onshape 仅草图等主命令带 label）。 */
+  showLabel?: boolean;
   /** 能力键（internal/capabilities 注册表寻址）。 */
   capability: string;
   group: RibbonGroup;
@@ -165,6 +166,13 @@ const DraftIcon = icon(
   el('path', { d: 'M4 20h16' }),
   el('path', { d: 'M6 20L9 6h6l3 14' }),
   el('path', { d: 'M9 6h6', strokeDasharray: '2 2' }),
+);
+
+/* 筋：薄板 + 加强肋（工具栏渲染取 Onshape rib-button，此字形仅兜底）。 */
+const RibIcon = icon(
+  el('path', { d: 'M4 20h16' }),
+  el('path', { d: 'M6 20V8h12v12' }),
+  el('path', { d: 'M12 20V8' }),
 );
 
 /* 抽壳（旧应用 ShellIcon 同形）。 */
@@ -312,9 +320,8 @@ const SurfaceCurveIcon = icon(
 //    group 切换即分隔条）──────────────────────────────────────────────────
 
 /** 分组渲染顺序（os-11 toolset-seperator 切分序 = diag-tools.json 组界序；
- *  selection 为本仓 M-A5.2 扩充组钉首位，surfaceCurve 为本仓扩充组钉末位）。 */
+ *  surfaceCurve 为本仓扩充组钉末位）。 */
 export const RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
-  'selection',
   'sketch',
   'create',
   'shape',
@@ -329,29 +336,138 @@ export const RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
 ];
 
 /**
- * 29 工具注册表。toolId 校准见文件头；capability 键已全量入册
+ * Onshape 主工具栏可见分组序（2026-11-02 live 对齐）：surfaceCurve 为本仓扩充
+ * 的曲面/曲线大全，在 Onshape 主工具栏无对应组——本阶段只从工具栏隐去，
+ * 注册表/命令搜索仍保留，功能不删。2026-11-03：显式选择模式（selection 组）
+ * 已由默认 OnshapeSelectTool 取代并从注册表移除。
+ */
+export const ONSHAPE_RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
+  'sketch',
+  'create',
+  'shape',
+  'pattern',
+  'combine',
+  'directEdit',
+  'reference',
+  'frames',
+  'sheetMetal',
+  'custom',
+];
+
+/**
+ * 工具 id → Onshape 图标符号（live SVG sprite 名）：工具栏/下拉子项统一取此表，
+ * 未列出的本仓扩充命令沿用注册表内自制图标（仅命令搜索可见）。
+ */
+const ONSHAPE_TOOL_ICONS: Readonly<Record<string, OnshapeIconName>> = {
+  newSketch: 'new-sketch-button',
+  extrude: 'extrude-button',
+  revolve: 'revolve-button',
+  SweepFaces: 'sweep-button',
+  loft: 'loft-button',
+  thicken: 'thicken-button',
+  thickenClosed: 'thicken-button',
+  RoundEdges: 'fillet-button',
+  faceBlend: 'fillet-button',
+  ChamferEdges: 'chamfer-button',
+  DraftFaces: 'draft-button',
+  bodyDraft: 'draft-button',
+  rib: 'rib-button',
+  HollowFaces: 'shell-button',
+  CreateHole: 'hole-button',
+  externalThread: 'external-thread-button',
+  LinearPattern: 'linear-pattern-button',
+  CircularPattern: 'linear-pattern-button',
+  curvePattern: 'curve-pattern-button',
+  MirrorElements: 'mirror-button',
+  booleanBodies: 'boolean-bodies-button',
+  splitPart: 'split-part-button',
+  transform: 'transform-button',
+  wrap: 'transform-button',
+  decal: 'transform-button',
+  deleteBodies: 'delete-bodies-button',
+  modifyFillet: 'modify-fillet-button',
+  deleteFace: 'delete-face-button',
+  moveFace: 'move-face-button',
+  replaceFace: 'replace-face-button',
+  cPlane: 'c-plane-button',
+  frame: 'frame-button',
+  frameTrim: 'frame-button',
+  gusset: 'frame-button',
+  endCap: 'frame-button',
+  cutList: 'frame-button',
+  sheetMetalStart: 'sheet-metal-start-button',
+  flange: 'sheet-metal-start-button',
+  hem: 'sheet-metal-start-button',
+  tab: 'sheet-metal-start-button',
+  smBend: 'sheet-metal-start-button',
+  smJog: 'sheet-metal-start-button',
+  forming: 'sheet-metal-start-button',
+  sheetMetalLoft: 'sheet-metal-start-button',
+  smJoint: 'sheet-metal-start-button',
+  bendRelief: 'sheet-metal-start-button',
+  cornerBreak: 'sheet-metal-start-button',
+  endSheetMetal: 'sheet-metal-start-button',
+  pcbFlexModel: 'sheet-metal-start-button',
+  pcbEndFlexModel: 'sheet-metal-start-button',
+  USER_FEATURES: 'add-toolbar-feature',
+
+  // —— 草图工具栏（Onshape live 20 钮 + flyout 子项）——
+  'Sketch.Line': 'sketch-line-segment-button',
+  'Sketch.Rectangle': 'sketch-rectangle-button',
+  'Sketch.CenterRectangle': 'sketch-center-rectangle-button',
+  'Sketch.AlignedRectangle': 'sketch-aligned-rectangle-button',
+  'Sketch.CenterCircle': 'sketch-circle-button',
+  'Sketch.PerimeterCircle': 'sketch-perimeter-circle-button',
+  'Sketch.Arc3Point': 'sketch-arc-button',
+  'Sketch.CenterArc': 'sketch-center-arc-button',
+  'Sketch.TangentArc': 'sketch-tangent-arc-button',
+  sketchInscribedPolygon: 'sketch-inscribed-polygon-button',
+  sketchCircumscribedPolygon: 'sketch-circumscribed-polygon-button',
+  'Sketch.Spline': 'sketch-spline-button',
+  'Sketch.Bezier': 'sketch-bezier-button',
+  'Sketch.Conic': 'sketch-conic-button',
+  sketchPoint: 'sketch-point-button',
+  sketchText: 'sketch-text-rectangle-button',
+  sketchUse: 'sketch-use-button',
+  sketchConstruction: 'sketch-construction-button',
+  sketchFillet: 'sketch-fillet-button',
+  sketchTrim: 'sketch-trim-button',
+  'Sketch.Offset': 'sketch-offset-button',
+  sketchMirror: 'sketch-mirror-button',
+  sketchLinearPattern: 'sketch-lpattern-button',
+  sketchInsertDxf: '150715_Sketch_Icons_30_InsertDXFDWG',
+  'Sketch.Dimension': 'sketch-dimension-button',
+  'Sketch.Dimension.Distance': 'sketch-dimension-button',
+  'Sketch.Dimension.Length': 'sketch-dimension-button',
+  'Sketch.Dimension.Radius': 'sketch-perimeter-circle-button',
+  'Sketch.Constraint.Coincident': 'sketch-coincident-button',
+  'Sketch.Constraint.Horizontal': 'sketch-horizontal-button',
+  'Sketch.Constraint.Vertical': 'sketch-vertical-button',
+  'Sketch.Constraint.Parallel': 'sketch-parallel-button',
+  'Sketch.Constraint.Perpendicular': 'sketch-perpendicular-button',
+  'Sketch.Constraint.Equal': 'sketch-equal-button',
+  'Sketch.Constraint.Midpoint': 'sketch-midpoint-button',
+  'Sketch.Constraint.Tangent': 'sketch-tangent-button',
+  'Sketch.Constraint.Fixed': 'sketch-fix-button',
+};
+
+
+/** 工具 id 的 Onshape 图标名（undefined = 沿用注册表自制图标，仅搜索可见）。 */
+export function onshapeIconFor(id: string): OnshapeIconName | undefined {
+  return ONSHAPE_TOOL_ICONS[id];
+}
+
+/**
+ * 28 工具注册表。toolId 校准见文件头；capability 键已全量入册
  * TOOL_CAPABILITIES（ribbon-registry.test.ts 钉死该不变式）。
  */
 export const RIBBON_TOOLS: readonly RibbonTool[] = [
-  {
-    id: 'selectFace',
-    icon: SvgCursor,
-    labelKey: 'partStudio.ribbon.tools.selectFace.label',
-    capability: 'selection',
-    group: 'selection',
-  },
-  {
-    id: 'selectEdge',
-    icon: SvgSelection,
-    labelKey: 'partStudio.ribbon.tools.selectEdge.label',
-    capability: 'selection',
-    group: 'selection',
-  },
   {
     id: 'newSketch',
     icon: SketchIcon,
     labelKey: 'partStudio.ribbon.tools.sketch.label',
     shortcut: 'shift+s',
+    showLabel: true,
     capability: 'sketch',
     group: 'sketch',
   },
@@ -422,6 +538,13 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     dropdownItems: [
       { id: 'bodyDraft', icon: DraftIcon, labelKey: 'partStudio.ribbon.items.bodyDraft.label', capability: 'draft' },
     ],
+  },
+  {
+    id: 'rib',
+    icon: RibIcon,
+    labelKey: 'partStudio.ribbon.tools.rib.label',
+    capability: 'rib',
+    group: 'shape',
   },
   {
     id: 'HollowFaces',
@@ -533,6 +656,8 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     labelKey: 'partStudio.ribbon.tools.cPlane.label',
     capability: 'cPlane',
     group: 'reference',
+    // Onshape live: 平面主钮带 ▾（本阶段保留箭头 UI，变体未实现）。
+    dropdownItems: [],
   },
   {
     id: 'frame',
@@ -575,6 +700,8 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     labelKey: 'partStudio.ribbon.tools.userFeatures.label',
     capability: 'userFeatures',
     group: 'custom',
+    // Onshape live: 自定义特征主钮带 ▾（本阶段保留箭头 UI，飞菜单未实现）。
+    dropdownItems: [],
   },
   {
     id: 'surfaceCurve',
@@ -620,7 +747,7 @@ export function findRibbonCommand(id: string): RibbonCommand | undefined {
   return undefined;
 }
 
-/** 展开全部可寻址命令（27 工具 + 44 下拉子项 = 71），ribbon 顺序保序。 */
+/** 展开全部可寻址命令（28 工具 + 44 下拉子项 = 72），ribbon 顺序保序。 */
 export function allRibbonCommands(): RibbonCommand[] {
   const commands: RibbonCommand[] = [];
   for (const tool of RIBBON_TOOLS) {

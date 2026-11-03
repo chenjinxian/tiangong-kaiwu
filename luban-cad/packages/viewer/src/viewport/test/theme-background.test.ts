@@ -1,6 +1,7 @@
 // theme-background（M4 Task 2）：Onshape 式视口底色纯函数验收——
-//  亮色 (242,244,247) / 暗色 (38,38,38)（旧 Editor.tsx:243-260 实测值），
-//  色值按 ColorDef 的 0xTTBBGGRR 编码钉死（防实现与断言同式互证）。
+//  亮色 (255,255,255) / 暗色 (38,38,38)（2026-11-02 live Onshape 采集：
+//  画布为纯白 #ffffff；旧值 #f2f4f7 偏灰），色值按 ColorDef 的 0xTTBBGGRR
+//  编码钉死（防实现与断言同式互证）。
 //  data-theme 的 MutationObserver 接线在消费侧（apps/web），不在本模块。
 
 import { describe, expect, it, vi } from 'vitest';
@@ -20,7 +21,7 @@ function makeFakeViewport(): {
 
 /** ColorDef.from(r,g,b) 的期望 tbgr（t=0）：0x00BBGGRR。 */
 const EXPECTED = {
-  light: 0x00f7f4f2, // (242, 244, 247)
+  light: 0x00ffffff, // (255, 255, 255)
   dark: 0x00262626, // (38, 38, 38)
 } as const;
 

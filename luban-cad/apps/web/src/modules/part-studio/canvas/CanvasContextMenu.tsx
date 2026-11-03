@@ -73,7 +73,7 @@ export type CanvasMenuAction =
   | { kind: 'zoom-to-fit' }
   | { kind: 'view-normal-to' }
   | { kind: 'delete' }
-  // M-A5.2：面/边 owner 动作——回 body 模式并选中宿主实体。
+  // M-A5.2：面/边 owner 动作——清空子实体选择并选中宿主实体。
   | { kind: 'select-owner'; bodyKey?: string }
   // M4-T8 T5-⑥：材料/外观/工程图四项各持专名 kind（不再借道
   // show-dependencies）——gated 翻转后可达；真实动作随后端面接线（头注
@@ -198,8 +198,19 @@ export function buildCanvasMenu(selection: readonly CanvasSelection[]): CanvasMe
         },
       ];
     }
-    case 'vertex':
-      return [...viewCommandGroup(), 'separator', item('delete', 'delete', SvgDelete, { kind: 'delete' }, true)];
+    case 'vertex': {
+      const owner = primary.ownerBodyKey;
+      return [
+        ...viewCommandGroup('hideOwner', false),
+        'separator',
+        {
+          ...item('select-owner', 'selectOwner', SvgSelection, { kind: 'select-owner', bodyKey: owner }),
+          disabled: owner === undefined,
+          disabledReasonKey: owner === undefined
+            ? 'partStudio.canvasMenu.selectOwnerUnavailable' : undefined,
+        },
+      ];
+    }
   }
 }
 
@@ -245,7 +256,7 @@ export interface CanvasContextMenuProps {
    */
   onDeleteSubEntity?: (selection: readonly CanvasSelection[]) => void;
   /**
-   * M-A5.2：面/边「选中所属实体」——宿主切回 body 模式、树选中 owner、
+   * M-A5.2：面/边「选中所属实体」——宿主清空子实体选择、树选中 owner、
    * SelectionSet.replace([owner])。缺省无动作（测试/壳期）。
    */
   onSelectOwner?: (bodyKey: string) => void;

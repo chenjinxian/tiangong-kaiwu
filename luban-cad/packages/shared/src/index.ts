@@ -206,7 +206,8 @@ export { LubanFeatureRpcInterface } from './rpc/LubanFeatureRpcInterface.js';
 export type {
   LubanFeatureType, ExtrudeParams, FeatureOp, FeatureTreeEntry, FeatureOpResult,
   // M3-a v1.1
-  LubanTopologyId, FilletEdgeRef, FilletParams, FeatureParams, PreviewResult, FeatureFormField, FeatureFormModel,
+  LubanTopologyId, FilletEdgeRef, FilletParams, FeatureParams, PreviewResult, FeaturePreviewGeometryDto,
+  FeatureFormField, FeatureFormModel,
   FeatureFormFieldKind, FeatureFormModelEntry,
   // M3-b v1.2
   SketchEntityDto, SketchConstraintDto, SketchSolveStatusDto, SketchSolveStateDto, SketchDto, SketchSummaryDto,

@@ -85,7 +85,7 @@ export function hasExactBModelMarker(data: Record<string, unknown> | undefined):
 }
 
 /** 按名确保种子项目在场；缺失时自愈重建（A：未标记；B：带标记）。同名 ≥2 抛错。 */
-async function ensureSeedProject(
+export async function ensureSeedProject(
   request: APIRequestContext,
   accessToken: string,
   projectName: string,
@@ -116,7 +116,7 @@ async function readItwinData(
 }
 
 /** B 项目必须带**精确** P2.1 标记；否则视为人工同名项目——不删改，直接红（L4）。 */
-async function assertBModelProject(
+export async function assertBModelProject(
   request: APIRequestContext,
   accessToken: string,
   itwinId: string,
@@ -132,7 +132,7 @@ async function assertBModelProject(
 }
 
 /** 按名重置项目内的种子 iModel（删旧建新 + 轮询 initialized；P2.8 起无 settle 等待）。 */
-async function resetSeedImodel(
+export async function resetSeedImodel(
   request: APIRequestContext,
   accessToken: string,
   itwinId: string,

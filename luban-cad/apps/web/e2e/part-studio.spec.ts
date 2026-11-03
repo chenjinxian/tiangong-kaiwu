@@ -51,41 +51,43 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
     await expect(page.getByTestId('part-studio-sidebar')).toBeVisible();
     await expect(page.getByTestId('part-studio-canvas')).toBeVisible();
     await expect(page.getByTestId('part-studio-tab-strip')).toBeVisible();
-    await expect(page.getByTestId('part-studio-status-bar')).toBeVisible();
+    // 多余可见状态栏已移除（仅隐藏连接态节点供就绪判定）。
+    await expect(page.getByTestId('part-studio-status-bar')).toHaveCount(0);
 
     // 连接就绪双证：状态栏「已连接」（briefcase+host 相位合流）+ 挂载点 canvas
     await expect(page.getByTestId('part-studio-status-connection')).toHaveText('已连接');
     await expect(page.getByTestId('part-studio-viewport').locator('canvas').first()).toBeVisible();
 
-    // 左栏：图标条四类槽 + 双段树段头（特征/零件）
-    const rail = page.getByTestId('part-studio-icon-rail');
-    for (const label of ['特征', '零件', '装配体', '导入']) {
-      await expect(rail.getByRole('button', { name: label })).toBeVisible();
+    // 左栏：Onshape 40px 文档面板选择条 + 双段树段头（特征/零件数）
+    const rail = page.getByTestId('part-studio-panel-rail');
+    for (const id of ['history', 'create-version', 'comments', 'notes', 'where-used', 'performance', 'ai-advisor']) {
+      await expect(rail.getByTestId(`part-studio-panel-rail-${id}`)).toBeVisible();
     }
     const tree = page.getByTestId('part-studio-tree');
     await expect(tree).toBeVisible();
     await expect(tree.getByText('特征', { exact: true }).first()).toBeVisible();
-    await expect(tree.getByText('零件', { exact: true }).first()).toBeVisible();
+    await expect(tree.getByText('零件数', { exact: true }).first()).toBeVisible();
 
-    // 右停靠三页签（role=tab）+ 底部活动页签
-    for (const tab of ['工具设置', '版本历史', '显示设置']) {
-      await expect(page.getByRole('tab', { name: tab })).toBeVisible();
+    // 右缘 5 钮（Onshape live）+ 底部活动页签
+    const dock = page.getByTestId('part-studio-dock');
+    for (const id of ['appearances', 'configurations', 'featurescript-table', 'model-based-definition', 'variable-table']) {
+      await expect(dock.getByTestId(`part-studio-dock-tab-${id}`)).toBeVisible();
     }
     await expect(page.getByRole('tab', { name: 'Part Studio 1' })).toBeVisible();
 
     // 顶栏编辑三钮（干净事务态：undo/redo 诚实禁用——无可撤销/重做内容；保存
     // 版本可用——B-model P0 Task 5 起干净态也可命名当前 changeset，不再随
     // hasPendingTxns 回落禁用）。每轮种子重置保证此前提，见 auth.setup。
-    await expect(page.getByTestId('part-studio-undo-button')).toBeDisabled();
-    await expect(page.getByTestId('part-studio-redo-button')).toBeDisabled();
-    await expect(page.getByTestId('part-studio-save-button')).toBeEnabled();
+    await expect(page.getByTestId('part-studio-ribbon-undo')).toBeDisabled();
+    await expect(page.getByTestId('part-studio-ribbon-redo')).toBeDisabled();
+    await expect(page.getByTestId('part-studio-panel-rail-create-version')).toBeEnabled();
   });
 
   test('保存版本：干净态命名当前 changeset', async ({ page }) => {
     // beforeEach 已 openSeedImodelEditor（含 waitEditorReady）；B 种子每轮重置，
     // 干净事务态下保存版本走「最新 changeset 命名」路径。
-    await expect(page.getByTestId('part-studio-save-button')).toBeEnabled();
-    await page.getByTestId('part-studio-save-button').click();
+    await expect(page.getByTestId('part-studio-panel-rail-create-version')).toBeEnabled();
+    await page.getByTestId('part-studio-panel-rail-create-version').click();
 
     const dialog = page.getByRole('dialog', { name: '保存版本' });
     await expect(dialog).toBeVisible();
@@ -94,7 +96,7 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
     await expect(page.getByText('版本已保存')).toBeVisible();
 
     // 打开版本历史面板，确认 Named Version 行出现。
-    await page.getByRole('tab', { name: '版本历史' }).click();
+    await page.getByTestId('part-studio-panel-rail-history').click();
     const named = page.getByTestId('part-studio-named-versions');
     await expect(named).toBeVisible();
     await expect(named.getByText('E2E V1')).toBeVisible();
@@ -122,8 +124,9 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
 
   test('真实页签：「+」新建 Part Studio 换 scope + alt+~+t 页签管理器开合', async ({ page }) => {
     const tabStrip = page.getByTestId('part-studio-tab-strip');
-    const tabs = tabStrip.getByRole('tab');
-    // 默认 scope 已由解析器创建：恰一页签且 active（URL ?model= 同源）。
+    // 首项是文档级页签；Part Studio 页签用 data-studio-id 计数（Onshape 底栏）。
+    const tabs = tabStrip.locator('[data-studio-id]');
+    // 默认 scope 已由解析器创建：恰一 Part Studio 页签且 active（URL ?model= 同源）。
     await expect(tabs).toHaveCount(1);
     const firstScope = new URL(page.url()).searchParams.get('model');
     expect(firstScope).toBeTruthy();
@@ -222,9 +225,9 @@ test.describe('A 旧文档只读（legacy 种子）', () => {
 
     // 写面收口：full 写工具（倒角）+ 顶栏保存版本/撤销/重做 禁用。
     await expect(page.getByRole('button', { name: '倒角', exact: true })).toBeDisabled();
-    await expect(page.getByTestId('part-studio-save-button')).toBeDisabled();
-    await expect(page.getByTestId('part-studio-undo-button')).toBeDisabled();
-    await expect(page.getByTestId('part-studio-redo-button')).toBeDisabled();
+    await expect(page.getByTestId('part-studio-panel-rail-create-version')).toBeDisabled();
+    await expect(page.getByTestId('part-studio-ribbon-undo')).toBeDisabled();
+    await expect(page.getByTestId('part-studio-ribbon-redo')).toBeDisabled();
 
     // 只读仍可看：连接 + 画布在场（waitEditorReady 已在 helper 内断言）。
     await expect(page.getByTestId('part-studio-status-connection')).toHaveText('已连接');

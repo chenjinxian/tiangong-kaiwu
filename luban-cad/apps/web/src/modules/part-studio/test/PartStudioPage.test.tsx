@@ -194,6 +194,13 @@ vi.mock('@luban-cad/shared', () => ({
   },
 }));
 
+// 2026-11-03：默认 Onshape 选择工具生命周期替身——真实 hook 依赖 ToolAdmin
+// 的 activeToolChanged 事件面（本文件 IModelApp 桩不提供）；调用形状在此断言。
+const onshapeSelectionMock = vi.hoisted(() => vi.fn());
+vi.mock('../hooks/useOnshapeSelection.js', () => ({
+  useOnshapeSelection: onshapeSelectionMock,
+}));
+
 // 结构测试零查看器启动：useViewport 钉 ready 相位 + 假 viewport 实例、
 // useBriefcaseConnection 钉就绪连接（状态栏「已连接」与 M4-T2 接线断言依赖）。
 vi.mock('@luban-cad/viewer', () => ({
@@ -207,6 +214,22 @@ vi.mock('@luban-cad/viewer', () => ({
   DatumPlanesDecoration: class {
     constructor() { /* noop */ }
     setVisibility() { /* noop */ }
+    dispose() { /* noop */ }
+  },
+  SketchCurvesDecoration: class {
+    constructor() { /* noop */ }
+    setPolylines() { /* noop */ }
+    dispose() { /* noop */ }
+  },
+  SketchDimensionsDecoration: class {
+    constructor() { /* noop */ }
+    setAnnotations() { /* noop */ }
+    dispose() { /* noop */ }
+  },
+  BrepTopologyDecoration: class {
+    constructor() { /* noop */ }
+    setTopology() { /* noop */ }
+    setOptions() { /* noop */ }
     dispose() { /* noop */ }
   },
   acquireViewer: vi.fn().mockResolvedValue(undefined),
@@ -387,14 +410,14 @@ function resetStore(): void {
     tool: { activeToolId: null },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     commandPalette: { isOpen: false, query: '', highlightEnabled: true },
-    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
+    canvas: { selection: [], hiddenIds: [] },
     dialog: { active: null },
     viewOnly: { isActive: false },
     datum: {
       visibility: { origin: true, top: true, front: true, right: true },
+      visibilityOverrides: {},
       expanded: true,
       selectedId: null,
-      autoHiddenOnce: false,
     },
   });
 }
@@ -448,7 +471,7 @@ function renderAPage(entry = '/documents/itwin-1/im-1'): ReturnType<typeof rende
 async function renderReadyPage(entry?: string): Promise<ReturnType<typeof render>> {
   const rendered = renderPage(entry);
   await waitFor(() => {
-    const save = screen.getByTestId('part-studio-save-button') as HTMLButtonElement;
+    const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     expect(save.disabled === false && save.getAttribute('aria-disabled') !== 'true').toBe(true);
   }, { timeout: 10_000 });
   return rendered;
@@ -539,16 +562,17 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(topBar).getByRole('button', { name: '帮助' })).toBeDefined();
   });
 
-  it('左栏：竖图标条 + 双段树（特征段 / 零件段；M4-T6 真数据源接线，假 Part 1 占位移除）', async () => {
+  it('左栏：Onshape 40px 面板选择条 + 双段树（特征段 / 零件段；M4-T6 真数据源接线）', async () => {
     renderPage();
-    const rail = screen.getByTestId('part-studio-icon-rail');
-    expect(within(rail).getByRole('button', { name: '特征' })).toBeDefined();
-    expect(within(rail).getByRole('button', { name: '零件' })).toBeDefined();
+    // 2026-11-02 Onshape live：类别窄条退役，改为文档级 7 钮面板选择条。
+    const rail = screen.getByTestId('part-studio-panel-rail');
+    expect(within(rail).getByTestId('part-studio-panel-rail-history')).toBeDefined();
+    expect(within(rail).getByTestId('part-studio-panel-rail-create-version')).toBeDefined();
 
     const tree = screen.getByTestId('part-studio-tree');
-    expect(within(tree).getByRole('button', { name: '特征' })).toBeDefined();
+    expect(within(tree).getByTestId('part-studio-feature-section-header')).toBeDefined();
     expect(within(tree).getByTestId('part-studio-feature-list')).toBeDefined();
-    expect(within(tree).getByRole('button', { name: '零件' })).toBeDefined();
+    expect(within(tree).getByTestId('part-studio-part-section-header')).toBeDefined();
     // 空数据落定后：特征段仍有 Onshape 默认几何图元组；零件段 empty。
     // 读树/零件段查询异步，先过 loading 骨架。
     expect(await within(tree).findByTestId('tree-datum-group')).toBeDefined();
@@ -559,13 +583,13 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
   it('双段树：段头点击收起列表并写 store tree.activeTab', async () => {
     const user = userEvent.setup();
     renderPage();
-    const featuresHeader = within(screen.getByTestId('part-studio-tree')).getByRole('button', { name: '特征' });
+    const featuresHeader = within(screen.getByTestId('part-studio-tree')).getByTestId('part-studio-feature-section-header');
     expect(featuresHeader.getAttribute('aria-expanded')).toBe('true');
     await user.click(featuresHeader);
     expect(featuresHeader.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByTestId('part-studio-feature-list')).toBeNull();
     expect(usePartStudioStore.getState().tree.activeTab).toBe('features');
-    await user.click(within(screen.getByTestId('part-studio-tree')).getByRole('button', { name: '零件' }));
+    await user.click(within(screen.getByTestId('part-studio-tree')).getByTestId('part-studio-part-section-header'));
     expect(usePartStudioStore.getState().tree.activeTab).toBe('parts');
     expect(screen.queryByTestId('part-studio-part-list')).toBeNull();
   });
@@ -576,27 +600,35 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(canvas).getByTestId('part-studio-viewport')).toBeDefined();
   });
 
-  it('右停靠：三页签 + 点击写 store 并展开占位内容，再点活动页签收合', async () => {
+  it('右缘 5 钮（Onshape live）：外观接显示面板，再点收合；其余占位无动作', async () => {
     const user = userEvent.setup();
     renderPage();
     const dock = screen.getByTestId('part-studio-dock');
-    const historyTab = within(dock).getByRole('tab', { name: '版本历史' });
-    expect(within(dock).getByRole('tab', { name: '工具设置' })).toBeDefined();
-    expect(within(dock).getByRole('tab', { name: '显示设置' })).toBeDefined();
+    for (const id of ['appearances', 'configurations', 'featurescript-table', 'model-based-definition', 'variable-table']) {
+      expect(within(dock).getByTestId(`part-studio-dock-tab-${id}`)).toBeDefined();
+    }
 
-    // 首击：写活动页签 + 展开占位内容。
-    await user.click(historyTab);
-    expect(usePartStudioStore.getState().dock.activeTab).toBe('history');
+    // 外观钮：展开显示设置面板。
+    await user.click(within(dock).getByTestId('part-studio-dock-tab-appearances'));
+    expect(usePartStudioStore.getState().dock.activeTab).toBe('display');
     expect(usePartStudioStore.getState().dock.isOpen).toBe(true);
     expect(within(dock).getByTestId('part-studio-dock-body')).toBeDefined();
-    // 换页签：内容随页签切换、保持展开。
-    await user.click(within(dock).getByRole('tab', { name: '显示设置' }));
-    expect(usePartStudioStore.getState().dock.activeTab).toBe('display');
-    expect(within(dock).getByTestId('part-studio-dock-body')).toBeDefined();
-    // 再点活动页签：收合。
-    await user.click(within(dock).getByRole('tab', { name: '显示设置' }));
+    // 再点活动钮：收合。
+    await user.click(within(dock).getByTestId('part-studio-dock-tab-appearances'));
     expect(usePartStudioStore.getState().dock.isOpen).toBe(false);
     expect(within(dock).queryByTestId('part-studio-dock-body')).toBeNull();
+    // 占位钮点击不改变 dock 状态（UI 保留，行为未实现）。
+    await user.click(within(dock).getByTestId('part-studio-dock-tab-configurations'));
+    expect(usePartStudioStore.getState().dock.isOpen).toBe(false);
+  });
+
+  it('左缘历史钮：点击展开版本历史面板', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByTestId('part-studio-panel-rail-history'));
+    expect(usePartStudioStore.getState().dock.activeTab).toBe('history');
+    expect(usePartStudioStore.getState().dock.isOpen).toBe(true);
+    expect(within(screen.getByTestId('part-studio-dock')).getByTestId('part-studio-dock-body')).toBeDefined();
   });
 
   it('页签条（P2.4）：活动页签=注册表 scope；「+」创建默认 Part Studio 并导航', async () => {
@@ -609,7 +641,6 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     featureRpc.listPartStudios.mockResolvedValue([STUDIO_1, created]);
     await renderReadyPage();
     const strip = screen.getByTestId('part-studio-tab-strip');
-    expect(within(strip).getByRole('button', { name: '适应视图' })).toBeDefined();
     // 活动页签来自注册表列表（?model=ps-1）。
     const activeTab = within(strip).getByRole('tab', { name: 'Part Studio 1' });
     expect(activeTab.getAttribute('aria-selected')).toBe('true');
@@ -628,13 +659,10 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(strip).getByRole('tab', { name: 'Part Studio 2' }).getAttribute('aria-selected')).toBe('true');
   });
 
-  it('状态栏：连接态（useViewport ready → 已连接）+ 编辑模式 + 单位 + 视图类型', () => {
+  it('多余状态栏已移除：仅保留隐藏连接态节点（e2e 就绪信号）', () => {
     renderPage();
-    const statusBar = screen.getByTestId('part-studio-status-bar');
-    expect(within(statusBar).getByText('已连接')).toBeDefined();
-    expect(within(statusBar).getByText('零件')).toBeDefined();
-    expect(within(statusBar).getByText('mm')).toBeDefined();
-    expect(within(statusBar).getByText('等轴测')).toBeDefined();
+    expect(screen.queryByTestId('part-studio-status-bar')).toBeNull();
+    expect(screen.getByTestId('part-studio-status-connection').textContent).toBe('已连接');
   });
 });
 
@@ -780,9 +808,7 @@ describe('M5-T3 权限门（权限未载不开连接）+ briefcase readonly 三�
       FAKE_CONNECTION.txns.onChangesPushed.raise();
     });
     const user = userEvent.setup();
-    const save = (await within(screen.getByTestId('part-studio-top-bar')).findByRole('button', {
-      name: '保存版本',
-    })) as HTMLButtonElement;
+    const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     await user.click(save);
     expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull();
   });
@@ -854,18 +880,17 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     expect(FAKE_CONNECTION.supportsGraphicalEditing).toHaveBeenCalledTimes(1);
   });
 
-  it('顶栏三钮：干净事务态 undo/redo 禁用、保存版本可用（命名当前 changeset）；事件驱动可解锁', async () => {
+  it('工具栏撤消/重做 + 左缘创建版本：干净事务态 undo/redo 禁用、创建版本可用；事件驱动可解锁', async () => {
     const user = userEvent.setup();
     renderPage();
-    const topBar = screen.getByTestId('part-studio-top-bar');
     // iTwinUI v3 美观禁用口径：disabled 属性或 aria-disabled 均算禁用
     //（PartStudioTopBar.test 同款判定）。
     const isDisabled = (button: HTMLElement): boolean =>
       (button as HTMLButtonElement).disabled === true
       || button.getAttribute('aria-disabled') === 'true';
-    const undo = within(topBar).getByRole('button', { name: '撤消' });
-    const redo = within(topBar).getByRole('button', { name: '重做' });
-    const save = within(topBar).getByRole('button', { name: '保存版本' });
+    const undo = screen.getByTestId('part-studio-ribbon-undo');
+    const redo = screen.getByTestId('part-studio-ribbon-redo');
+    const save = screen.getByTestId('part-studio-panel-rail-create-version');
     expect(isDisabled(undo)).toBe(true);
     expect(isDisabled(redo)).toBe(true);
     // B-model P0 Task 5：保存版本钮由 canSaveVersion 门驱动（canEdit ∧ 连接就绪）
@@ -890,8 +915,7 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     const user = userEvent.setup();
     FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
     renderPage();
-    const topBar = screen.getByTestId('part-studio-top-bar');
-    const save = (await within(topBar).findByRole('button', { name: '保存版本' })) as HTMLButtonElement;
+    const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     await waitFor(() => expect(save.disabled).toBe(false));
     await user.click(save);
 
@@ -928,8 +952,7 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
       { id: 'cs-2', index: 2, description: '加圆角', displayName: 'cs2', pushDateTime: '2026-10-20T09:00:00Z' },
     ]);
     renderPage();
-    const topBar = screen.getByTestId('part-studio-top-bar');
-    const save = (await within(topBar).findByRole('button', { name: '保存版本' })) as HTMLButtonElement;
+    const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     await waitFor(() => expect(save.disabled).toBe(false));
 
     await user.click(save);
@@ -964,11 +987,12 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
       FAKE_CONNECTION.txns.onAfterUndoRedo.raise();
     });
 
-    const topBar = screen.getByTestId('part-studio-top-bar');
-    const undo = await within(topBar).findByRole('button', { name: '撤消' });
-    const redo = within(topBar).getByRole('button', { name: '重做' });
-    const save = within(topBar).getByRole('button', { name: '保存版本' });
-    await waitFor(() => expect(undo.getAttribute('aria-disabled')).not.toBe('true'));
+    const undo = screen.getByTestId('part-studio-ribbon-undo');
+    const redo = screen.getByTestId('part-studio-ribbon-redo');
+    const save = screen.getByTestId('part-studio-panel-rail-create-version');
+    // Onshape 化后工具钮同时受写门控制：viewOnly 下撤消/重做保持禁用。
+    expect((undo as HTMLButtonElement).disabled).toBe(true);
+    expect((redo as HTMLButtonElement).disabled).toBe(true);
     // B-model P0 Task 5：保存版本钮由 canSaveVersion（canEdit ∧ 连接）直接禁用
     //——viewOnly 下即使 txns 有未推送变更也不解锁。
     expect(
@@ -994,12 +1018,13 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     expect(viewerMocks.toggleProjectExtents).not.toHaveBeenCalled();
   });
 
-  it('空间视图：项目范围装饰件默认开启（toggleProjectExtents(conn, true)）', async () => {
+  it('空间视图：项目范围包围盒不再默认显示（Onshape 无 project-extents 框）', async () => {
     (FAKE_VIEWPORT.view.isSpatialView as ReturnType<typeof vi.fn>).mockReturnValue(true);
     renderPage();
     await waitFor(() =>
-      expect(viewerMocks.toggleProjectExtents).toHaveBeenCalledWith(FAKE_CONNECTION, true),
+      expect(FAKE_CONNECTION.editorToolSettings.category).toBe('cat-1'),
     );
+    expect(viewerMocks.toggleProjectExtents).not.toHaveBeenCalled();
   });
 });
 
@@ -1032,6 +1057,48 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
     await waitFor(() => expect(addListener).toHaveBeenCalled());
   });
 
+  // ── 2026-11-03：默认 Onshape 选择工具 + 零件列表选择桥 ──────────────────
+  it('默认选择工具：useOnshapeSelection(connection, viewport, paused=false)', async () => {
+    renderPage();
+    await waitFor(() =>
+      expect(onshapeSelectionMock).toHaveBeenCalledWith(FAKE_CONNECTION, FAKE_VIEWPORT, false),
+    );
+  });
+
+  it('对话框打开 → useOnshapeSelection paused=true（关闭后恢复 false）', async () => {
+    renderPage();
+    await waitFor(() => expect(onshapeSelectionMock).toHaveBeenCalledWith(FAKE_CONNECTION, FAKE_VIEWPORT, false));
+
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+    });
+    await waitFor(() =>
+      expect(onshapeSelectionMock).toHaveBeenLastCalledWith(FAKE_CONNECTION, FAKE_VIEWPORT, true),
+    );
+
+    act(() => {
+      usePartStudioStore.getState().closeDialog();
+    });
+    await waitFor(() =>
+      expect(onshapeSelectionMock).toHaveBeenLastCalledWith(FAKE_CONNECTION, FAKE_VIEWPORT, false),
+    );
+  });
+
+  it('零件列表选中 part 节点 → SelectionSet.replace(partIds)', async () => {
+    featureRpc.getBodies.mockResolvedValueOnce([
+      { bodyKey: '0x15', name: 'Base', active: true, authored: true },
+    ]);
+    renderPage();
+    await waitFor(() => expect(featureRpc.getBodies).toHaveBeenCalled());
+
+    act(() => {
+      usePartStudioStore.getState().setSelectedNodeIds(['0x15']);
+    });
+    await waitFor(() =>
+      expect(FAKE_CONNECTION.selectionSet.replace).toHaveBeenCalledWith(['0x15']),
+    );
+  });
+
   it('拉伸闭环（页级）：new/extrude 对话框提交 → applyFeatureOp 形状钉死（M6-a T6 草图通道）+ 对话框关闭', async () => {
     const user = userEvent.setup();
     // M6-a T6：树含 sketch 节点（Session 过滤映射成对话框下拉选项）+ getSketch
@@ -1055,7 +1122,7 @@ describe('M4-T6 拉伸闭环接线（Session 内层特征系统 + 树/对话框�
     });
     const dialog = await screen.findByTestId('part-studio-feature-dialog');
     // 选草图（树映射命名「草图 1」）→ 单面域自动 regions [0] → 提交。
-    await user.selectOptions(within(dialog).getByRole('combobox', { name: '草图' }), 'sk-1');
+    // Onshape：最近草图自动选中（无草图下拉）；单面域自动 [0] → 提交。
     await within(dialog).findByText('草图 1 的面');
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     await waitFor(() =>
@@ -1085,7 +1152,7 @@ describe('M4-T7 版本历史真面板接线（dock 数据源 + 推送对话框�
     mocks.imodelsListChangesets.mockResolvedValue(CHANGESETS);
     renderPage();
     const dock = screen.getByTestId('part-studio-dock');
-    await user.click(within(dock).getByRole('tab', { name: '版本历史' }));
+    await user.click(screen.getByTestId('part-studio-panel-rail-history'));
     expect(mocks.imodelsListChangesets).toHaveBeenCalledWith('im-1');
 
     const list = await within(dock).findByTestId('part-studio-changesets-list');
@@ -1101,10 +1168,10 @@ describe('M4-T7 版本历史真面板接线（dock 数据源 + 推送对话框�
     FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
     renderPage();
     await waitFor(() =>
-      expect((screen.getByTestId('part-studio-save-button') as HTMLButtonElement).disabled).toBe(false),
+      expect((screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement).disabled).toBe(false),
     );
     const dock = screen.getByTestId('part-studio-dock');
-    await user.click(within(dock).getByRole('tab', { name: '版本历史' }));
+    await user.click(screen.getByTestId('part-studio-panel-rail-history'));
     const push = await within(dock).findByTestId('part-studio-dock-push-button');
     await user.click(push);
 
@@ -1121,7 +1188,7 @@ describe('M4-T7 版本历史真面板接线（dock 数据源 + 推送对话框�
     FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
     renderPage();
     const dock = screen.getByTestId('part-studio-dock');
-    await user.click(within(dock).getByRole('tab', { name: '版本历史' }));
+    await user.click(screen.getByTestId('part-studio-panel-rail-history'));
     const save = await within(dock).findByTestId('part-studio-dock-save-button');
     await user.click(save);
     await waitFor(() => expect(FAKE_CONNECTION.saveChanges).toHaveBeenCalledTimes(1));
@@ -1190,19 +1257,19 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     // 无假重试钮：重开=切页签/重进的真实路径，错误面只给指引不放行不通的按钮。
     expect(within(face).queryByRole('button')).toBeNull();
     // 状态栏同步失败态——host 相位 ready 被 briefcase 失败覆盖（T2-② 缺陷本体）。
-    expect(within(screen.getByTestId('part-studio-status-bar')).getByText('连接失败')).toBeDefined();
+    expect(screen.getByTestId('part-studio-status-connection').textContent).toBe('连接失败');
   });
 
   it('下载中：状态栏「正在打开文档…」+ 画布骨架覆盖层（五区在场不重排——零布局跳动）', () => {
     viewerMocks.useBriefcaseConnection.mockReturnValue(openingMock());
     renderPage();
-    expect(within(screen.getByTestId('part-studio-status-bar')).getByText('正在打开文档…')).toBeDefined();
+    expect(screen.getByTestId('part-studio-status-connection').textContent).toBe('正在打开文档…');
     expect(within(screen.getByTestId('part-studio-canvas')).getByTestId('part-studio-connection-loading')).toBeDefined();
     // 覆盖层为绝对定位叠加：五区结构照常在场（不因连接相位重排布局）。
     expect(screen.getByTestId('part-studio-top-bar')).toBeDefined();
     expect(screen.getByTestId('part-studio-sidebar')).toBeDefined();
     expect(screen.getByTestId('part-studio-dock')).toBeDefined();
-    expect(screen.getByTestId('part-studio-status-bar')).toBeDefined();
+    expect(screen.getByTestId('part-studio-status-connection')).toBeDefined();
   });
 
   it('viewport 创建失败（phase ready 但 error 在场）→ 画布错误面 + 状态栏连接失败（不被 host ready 掩盖）；briefcase 失败优先合流', async () => {
@@ -1220,7 +1287,7 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     // 画布错误面呈现 viewport 错误消息；状态栏失败态（ready 相位被 error 覆盖）。
     const face = within(screen.getByTestId('part-studio-canvas')).getByTestId('part-studio-connection-error');
     expect(within(face).getByText('No view state available')).toBeDefined();
-    expect(within(screen.getByTestId('part-studio-status-bar')).getByText('连接失败')).toBeDefined();
+    expect(screen.getByTestId('part-studio-status-connection').textContent).toBe('连接失败');
 
     // 合流优先级与状态栏序一致：briefcase 失败在场 → 错误面取 briefcase 消息
     //（viewport 消息退位——同屏两源只报更上游的失败因）。
@@ -1244,7 +1311,7 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     const user = userEvent.setup();
     FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
     const { rerender } = renderPage();
-    const save = (await within(screen.getByTestId('part-studio-top-bar')).findByRole('button', { name: '保存版本' })) as HTMLButtonElement;
+    const save = (await screen.findByTestId('part-studio-panel-rail-create-version')) as HTMLButtonElement;
     await waitFor(() => expect(save.disabled).toBe(false));
     await user.click(save);
     expect(await screen.findByRole('dialog', { name: '保存版本' })).toBeDefined();
@@ -1314,7 +1381,7 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     await waitFor(() => expect(featureRpc.getFeatureTree).toHaveBeenCalledWith('briefcase-key'));
     // 编辑面整体收口：不进编辑作用域、保存版本禁用、「+」禁用。
     expect(FAKE_CONNECTION.enterEditingScope).not.toHaveBeenCalled();
-    const save = screen.getByTestId('part-studio-save-button') as HTMLButtonElement;
+    const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     expect(save.disabled || save.getAttribute('aria-disabled') === 'true').toBe(true);
     const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
@@ -1345,9 +1412,7 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     fireEvent.keyDown(window, { key: '/', altKey: true });
 
     // dock 保存/推送禁用（canEdit 门）——按钮位于版本历史面板内。
-    await user.click(
-      within(screen.getByTestId('part-studio-dock')).getByRole('tab', { name: '版本历史' }),
-    );
+    await user.click(screen.getByTestId('part-studio-panel-rail-history'));
     const dockSave = screen.getByTestId('part-studio-dock-save-button') as HTMLButtonElement;
     const dockPush = screen.getByTestId('part-studio-dock-push-button') as HTMLButtonElement;
     expect(dockSave.disabled || dockSave.getAttribute('aria-disabled') === 'true').toBe(true);
@@ -1479,7 +1544,7 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
       usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
     });
     const dialog = await screen.findByTestId('part-studio-feature-dialog');
-    await user.selectOptions(within(dialog).getByRole('combobox', { name: '草图' }), 'sk-1');
+    // Onshape：最近草图自动选中（无草图下拉）；单面域自动 [0] → 提交。
     await within(dialog).findByText('草图 1 的面');
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     await waitFor(() => expect(featureRpc.applyFeatureOp).toHaveBeenCalled());
@@ -1509,7 +1574,10 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     await user.click(within(screen.getByTestId('part-studio-top-bar')).getByRole('button', { name: '文档菜单' }));
     const menu = await screen.findByRole('menu');
     expect(within(menu).getByRole('menuitem', { name: '重命名文档' }).getAttribute('aria-disabled')).toBe('true');
-    expect(within(screen.getByTestId('part-studio-tab-strip')).queryByRole('tab')).toBeNull();
+    // Onshape 文档级页签恒在；marker 未定时不得出现任何 Part Studio legacy 页签。
+    expect(within(screen.getByTestId('part-studio-tab-strip')).getByTestId('part-studio-doc-tab')).toBeDefined();
+    expect(within(screen.getByTestId('part-studio-tab-strip')).queryByRole('tab', { name: 'Part Studio 1' })).toBeNull();
+    expect(within(screen.getByTestId('part-studio-tab-strip')).queryByTestId('part-studio-tab-actions')).toBeNull();
     expect(featureRpc.listPartStudios).not.toHaveBeenCalled();
     expect(mocks.itwinsUpdate).not.toHaveBeenCalled();
     // marker 在途：连接 options 仍为 null（首开不猜读写）。
@@ -1584,7 +1652,7 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     renderPage('/documents/itwin-1/im-1');
     expect(await screen.findByTestId('part-studio-readonly-reopen')).toBeDefined();
     // 写面收口：保存版本/「+」/Ribbon 写工具禁用；零租约、零自动 create。
-    const save = screen.getByTestId('part-studio-save-button') as HTMLButtonElement;
+    const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     expect(save.disabled || save.getAttribute('aria-disabled') === 'true').toBe(true);
     const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
@@ -1998,7 +2066,7 @@ describe('B-model P2.5：active scope 视口过滤', () => {
     const banner = await screen.findByTestId('part-studio-model-filter-error');
     expect(banner.textContent).toContain('ECSQL');
     // 连接/文档状态保持正常：状态栏「已连接」，画布无连接错误面。
-    expect(within(screen.getByTestId('part-studio-status-bar')).getByText('已连接')).toBeDefined();
+    expect(screen.getByTestId('part-studio-status-connection').textContent).toBe('已连接');
     expect(screen.queryByTestId('part-studio-connection-error')).toBeNull();
   });
 

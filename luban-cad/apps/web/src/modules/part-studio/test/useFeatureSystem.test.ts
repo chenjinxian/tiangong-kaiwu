@@ -27,7 +27,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, PreviewResult } from '@luban-cad/shared';
 import { FEATURE_OP_TIMEOUT_MS, useFeatureSystem } from '../hooks/useFeatureSystem.js';
 import { useEditorSession } from '../hooks/useEditorSession.js';
 
@@ -50,6 +50,15 @@ const fakeClient = vi.hoisted(() => {
     // 返回型宽化到契约联合（旧源 as const 字面量型在 mockResolvedValueOnce 改写
     // 拒收分支时与 strict tsc 相抵——web build 门含 tsc --noEmit 全量测）。
     applyFeatureOp: vi.fn(async (_key: string, _op: FeatureOp, _sessionId: string): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f2' })),
+    previewFeatureOp: vi.fn(async (_key: string, _op: FeatureOp, _sessionId: string): Promise<PreviewResult> => ({
+      ok: true,
+      affected: [],
+      preview: {
+        entries: [],
+        categoryId: '0x1',
+        placement: { origin: { x: 0, y: 0, z: 0 }, angles: { yaw: 0, pitch: 0, roll: 0 } },
+      },
+    })),
     acquireWriteLease: vi.fn(async (_key: string, _sessionId: string): Promise<{ ok: boolean; holder?: string }> => ({ ok: true, holder: 'tester' })),
     releaseWriteLease: vi.fn(async (_key: string, _sessionId: string): Promise<void> => undefined),
   };
@@ -433,6 +442,41 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
     expect(applyResult).toEqual({ ok: true, featureId: 'f2' });
     expect(fakeClient.applyFeatureOp).toHaveBeenCalledWith('test-model.bim', op, expect.any(String));
     await waitFor(() => expect(fakeClient.getFeatureTree.mock.calls.length).toBeGreaterThan(treeFetches));
+  });
+
+  it('previewOp 转发 op + sessionId，返回 preview 且不 refresh', async () => {
+    const connection = createMockConnection();
+    const op: FeatureOp = {
+      kind: 'insertFeature',
+      featureType: 'fillet',
+      params: { radius: 1, propagateSmooth: true, edges: [] },
+    };
+    const { result } = renderFeatureSystem(connection);
+    await waitFor(() => expect(result.current.tree).toEqual(fakeClient.makeTree()));
+    const treeFetches = fakeClient.getFeatureTree.mock.calls.length;
+
+    let previewResult: PreviewResult | undefined;
+    await act(async () => {
+      previewResult = await result.current.previewOp(op);
+    });
+
+    expect(previewResult?.ok).toBe(true);
+    expect(previewResult?.preview?.categoryId).toBe('0x1');
+    expect(fakeClient.previewFeatureOp).toHaveBeenCalledWith('test-model.bim', op, expect.any(String));
+    expect(fakeClient.getFeatureTree.mock.calls.length).toBe(treeFetches); // 预览不刷新读面
+  });
+
+  it('previewOp readonly 连接前置拒收，零派发', async () => {
+    const connection = createMockConnection({ isReadonly: true });
+    const { result } = renderFeatureSystem(connection);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    fakeClient.previewFeatureOp.mockClear();
+
+    await act(async () => {
+      const preview = await result.current.previewOp({ kind: 'deleteFeature', featureId: 'f1' });
+      expect(preview.ok).toBe(false);
+    });
+    expect(fakeClient.previewFeatureOp).not.toHaveBeenCalled();
   });
 
   it('applyOp 失败仅回错误结果，不 refresh', async () => {

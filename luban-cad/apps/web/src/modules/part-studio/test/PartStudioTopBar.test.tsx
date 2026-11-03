@@ -103,111 +103,19 @@ function renderTopBar(
   );
 }
 
-/** 三钮句柄（order：撤消/重做/保存版本）。 */
-function getEditorButtons() {
-  const topBar = screen.getByTestId('part-studio-top-bar');
-  const undo = within(topBar).getByRole('button', { name: '撤消' });
-  const redo = within(topBar).getByRole('button', { name: '重做' });
-  const save = within(topBar).getByRole('button', { name: '保存版本' });
-  return { topBar, undo, redo, save };
-}
-
-/** iTwinUI 禁用口径：button[disabled] 或 aria-disabled（美观禁用）。 */
-function isDisabled(button: HTMLElement): boolean {
-  return (button as HTMLButtonElement).disabled === true
-    || button.getAttribute('aria-disabled') === 'true';
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('PartStudioTopBar 撤销/重做/保存三钮组（M4 Task 4）', () => {
-  it('三钮位于操作区（分享钮之前）且标签 i18n 就位', () => {
+describe('Onshape live：顶栏不再承载撤消/重做/创建版本', () => {
+  it('顶栏无撤消/重做/保存版本钮（已迁移到工具栏首组与左缘面板选择条）', () => {
     renderTopBar();
     const topBar = screen.getByTestId('part-studio-top-bar');
-    const share = within(topBar).getByRole('button', { name: '分享' });
-    const { undo, redo, save } = getEditorButtons();
-
-    // DOM 序：三钮先于分享钮（os-11 右侧操作簇头部）。
-    expect(topBar.contains(undo)).toBe(true);
-    expect(topBar.contains(redo)).toBe(true);
-    expect(topBar.contains(save)).toBe(true);
-    expect(undo.compareDocumentPosition(redo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(redo.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(save.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it('缺省 props（未接线）：三钮全禁用（诚实禁用不误投）', () => {
-    renderTopBar();
-    const { undo, redo, save } = getEditorButtons();
-    expect(isDisabled(undo)).toBe(true);
-    expect(isDisabled(redo)).toBe(true);
-    expect(isDisabled(save)).toBe(true);
-  });
-
-  it('canUndo/canRedo/hasUnsavedChanges 驱动各钮 disabled', () => {
-    renderTopBar({ canUndo: true, canRedo: false, hasUnsavedChanges: false });
-    const { undo, redo, save } = getEditorButtons();
-    expect(isDisabled(undo)).toBe(false);
-    expect(isDisabled(redo)).toBe(true);
-    expect(isDisabled(save)).toBe(true);
-  });
-
-  it('hasUnsavedChanges=true：保存版本钮解除禁用（有未推送内容才可开推送入口）', () => {
-    renderTopBar({ hasUnsavedChanges: true });
-    const { save } = getEditorButtons();
-    expect(isDisabled(save)).toBe(false);
-  });
-
-  // B-model P0 Task 5：canSaveVersion 显式门——干净态也可命名当前 changeset
-  //（缺省未传时仍回退 hasUnsavedChanges，上一条「干净态禁用」用例保持）。
-  it('canSaveVersion=true：干净态保存版本钮可用（命名当前 changeset）', () => {
-    renderTopBar({ hasUnsavedChanges: false, canSaveVersion: true });
-    const { save } = getEditorButtons();
-    expect(isDisabled(save)).toBe(false);
-  });
-
-  it('canSaveVersion=false 显式关闭：即使有未推送变更也禁用（显式门优先于回退）', () => {
-    renderTopBar({ hasUnsavedChanges: true, canSaveVersion: false });
-    const { save } = getEditorButtons();
-    expect(isDisabled(save)).toBe(true);
-  });
-
-  it('点击：undo/redo/保存版本 各调对应回调', async () => {
-    const user = userEvent.setup();
-    const onUndo = vi.fn();
-    const onRedo = vi.fn();
-    const onSave = vi.fn();
-    renderTopBar({ canUndo: true, canRedo: true, hasUnsavedChanges: true, onUndo, onRedo, onSave });
-
-    const { undo, redo, save } = getEditorButtons();
-    await user.click(undo);
-    await user.click(redo);
-    await user.click(save);
-    expect(onUndo).toHaveBeenCalledTimes(1);
-    expect(onRedo).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledTimes(1);
-  });
-
-  it('禁用态点击不调回调', async () => {
-    const user = userEvent.setup();
-    const onUndo = vi.fn();
-    const onRedo = vi.fn();
-    const onSave = vi.fn();
-    renderTopBar({ onUndo, onRedo, onSave });
-
-    const { undo, redo, save } = getEditorButtons();
-    await user.click(undo);
-    await user.click(redo);
-    await user.click(save);
-    expect(onUndo).not.toHaveBeenCalled();
-    expect(onRedo).not.toHaveBeenCalled();
-    expect(onSave).not.toHaveBeenCalled();
+    expect(within(topBar).queryByRole('button', { name: '撤消' })).toBeNull();
+    expect(within(topBar).queryByRole('button', { name: '重做' })).toBeNull();
+    expect(within(topBar).queryByRole('button', { name: '保存版本' })).toBeNull();
   });
 });
-
-// ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────
 
 describe('M4-T8 T3-②：help-button 死类清理', () => {
   it('帮助钮不再携带无 CSS 规则的 part-studio-help-button 死类', () => {

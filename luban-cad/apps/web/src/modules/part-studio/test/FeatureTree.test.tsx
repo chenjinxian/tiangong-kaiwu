@@ -137,9 +137,9 @@ function resetStore(): void {
     dialog: { active: null },
     datum: {
       visibility: { origin: true, top: true, front: true, right: true },
+      visibilityOverrides: {},
       expanded: true,
       selectedId: null,
-      autoHiddenOnce: false,
     },
   });
 }
@@ -713,19 +713,19 @@ const SKETCH_TREE_ENTRIES: FeatureTreeEntry[] = [
 ];
 
 describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击进编辑）', () => {
-  it('sketch 条目显示名走 i18n（草图 1/草图 2），非回退原始串；行图标在场', () => {
+  it('sketch 条目显示名走 i18n（草图 1/草图 2）；每个特征行都有类型图标', () => {
     render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
     const tree = screen.getByTestId('part-studio-tree');
     // featureTypes.sketch 入词库：同类型序号自增命名（草图 1/草图 2），非回退原始串。
     expect(within(tree).getByText('草图 1')).toBeDefined();
     expect(within(tree).getByText('草图 2')).toBeDefined();
     expect(within(tree).queryByText('sketch 1')).toBeNull();
-    // 行图标（SvgDraw 占位，M6-c 再校）：svg 在场且 aria-hidden。
-    const icon = screen.getByTestId('tree-row-sk1').querySelector('.part-studio-tree-row__icon svg');
-    expect(icon).not.toBeNull();
-    expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
-    // 非 sketch 节点无图标（既有呈现面不变）。
-    expect(screen.getByTestId('tree-row-ex9').querySelector('.part-studio-tree-row__icon')).toBeNull();
+    // 2026-11-02：所有特征行带 17px 类型图标（sketch/extrude 各自字形），aria-hidden。
+    for (const rowId of ['tree-row-sk1', 'tree-row-ex9']) {
+      const icon = screen.getByTestId(rowId).querySelector('.part-studio-tree-row__icon svg');
+      expect(icon).not.toBeNull();
+      expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
+    }
   });
 
   it('双击 sketch 节点 → enterSketch 进草图模式（store 断言+行红显联动）；无 plane 树行=契约缺省 XY@z=0', async () => {
@@ -739,6 +739,8 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     expect(sketch.activeSketchPlane).toBeNull();
     // 树红显进行中草图（os-30 联动既有面）。
     expect(screen.getByTestId('tree-row-sk1').getAttribute('data-sketch-active')).toBe('true');
+    // Onshape：双击草图同时打开草图对话框（只此一个对话框，无实体/约束清单）。
+    expect(usePartStudioStore.getState().dialog).toMatchObject({ active: 'sketch', sketchId: 'sk1' });
   });
 
   it('M6-b T1：编辑入口回显树行 params.plane → activeSketchPlane（双击/右键两路同义+串场防御）', async () => {
@@ -768,10 +770,12 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     expect(sketch.activeSketchPlane).toEqual(FRONT_PLANE_DTO);
   });
 
-  it('双击非 sketch 节点 → 不进草图模式（既有行为不变）', async () => {
+  it('双击特征节点 → onEdit（打开 FeatureDialog 二次编辑）且不进草图模式', async () => {
     const user = userEvent.setup();
-    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    const onEdit = vi.fn();
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} onEdit={onEdit} />);
     await user.dblClick(screen.getByTestId('tree-row-ex9'));
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'ex9', type: 'extrude' }));
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
     expect(usePartStudioStore.getState().sketch.activeSketchId).toBeNull();
   });
@@ -830,8 +834,8 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     expect(screen.queryByTestId('tree-row-visibility-ex1')).toBeNull();
     const eye = screen.getByTestId('tree-row-visibility-0x15');
     expect(eye.getAttribute('aria-pressed')).toBe('false');
-    // iTwinUI IconButton 的 label 落为视觉隐藏文本（可访问名），非 aria-label 直写。
-    expect(eye.textContent).toContain('隐藏实体');
+    // 原生 button：可访问名落在 aria-label（2026-11-02 Onshape 图标化）。
+    expect(eye.getAttribute('aria-label')).toContain('隐藏实体');
     await user.click(eye);
     // 会话隐藏集写入（FeatureTree 的 consumed∪manual neverDrawn effect 消费）。
     expect(usePartStudioStore.getState().canvas.hiddenIds).toContain('0x15');
@@ -842,7 +846,7 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     expect(row.getAttribute('data-hidden')).toBe('true');
     const eyeHidden = screen.getByTestId('tree-row-visibility-0x15');
     expect(eyeHidden.getAttribute('aria-pressed')).toBe('true');
-    expect(eyeHidden.textContent).toContain('显示实体');
+    expect(eyeHidden.getAttribute('aria-label')).toContain('显示实体');
     // 再点恢复可见（showNodes 通道）。
     await user.click(eyeHidden);
     expect(usePartStudioStore.getState().canvas.hiddenIds).not.toContain('0x15');

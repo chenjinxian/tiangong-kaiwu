@@ -5,7 +5,7 @@
  * 约束 id 分配——语义骨架移植自退役仓 apps/web/features/sketch/tools/
  * SketchAddConstraintTool.ts（M3-b T5，溯源注记）。
  *
- * **零 core-frontend 依赖**的裁决：SketchPanel（画布覆盖层）消费
+ * **零 core-frontend 依赖**的裁决：SketchValuePopup/标注层消费
  * nextConstraintId（dimensionCandidate 收值构造约束）与本模块的清单语义；
  * 若从 SketchAddConstraintTool 导入会把 `class extends PrimitiveTool` 的
  * 基类存在性强加给面板消费方（M6-a T5 懒引裁决的同款理由）。工具类
@@ -265,7 +265,12 @@ function bezierAt(p0: SolvedCoord, c1: SolvedCoord, c2: SolvedCoord, p3: SolvedC
  * 与曲线候选（line/circle/arc/spline）同池比较；距离并列时点优先、origin 最高。
  * 返回结构化 ref（可直接落库）与拾取种类，供约束/尺寸工具做槽位判定。
  */
-export function resolveNearestPick(entities: SketchEntityDto[], hit: SolvedCoord): SketchPick | undefined {
+export function resolveNearestPick(
+  entities: SketchEntityDto[],
+  hit: SolvedCoord,
+  /** 最大命中距离（草图局部单位）；缺省无穷=旧「就近」语义。 */
+  maxDistance = Number.POSITIVE_INFINITY,
+): SketchPick | undefined {
   const { points } = indexSolvedCoords(entities);
   const candidates: PickCandidate[] = [];
 
@@ -339,7 +344,8 @@ export function resolveNearestPick(entities: SketchEntityDto[], hit: SolvedCoord
   for (const c of candidates) {
     if (!best || c.dist < best.dist || (c.dist === best.dist && c.prio < best.prio)) best = c;
   }
-  return best ? { ref: best.ref, kind: best.kind, entityId: best.entityId } : undefined;
+  if (!best || best.dist > maxDistance) return undefined;
+  return { ref: best.ref, kind: best.kind, entityId: best.entityId };
 }
 
 /** 下一个约束 id：实体与约束全局最大 +1（M3-b Task 4 同式，保证草图内 id 唯一）。 */

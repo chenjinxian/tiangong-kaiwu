@@ -26,12 +26,12 @@ import {
   Button,
   Dialog,
   DropdownMenu,
-  IconButton,
   LabeledInput,
   MenuItem,
   Text,
 } from '@itwin/itwinui-react';
-import { SvgAdd, SvgFitToView, SvgMore } from '@itwin/itwinui-icons-react';
+import { SvgMore } from '@itwin/itwinui-icons-react';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { PartStudioInfo } from '@luban-cad/shared';
 import type { DocumentMode } from '@modules/documents';
 import type { ViewportPhase } from '@luban-cad/viewer';
@@ -48,6 +48,8 @@ export interface PartStudioTabsProps {
   iTwinId: string;
   /** 当前 iModel（workspaceRefPath 生产者/页签管理器寻址）。 */
   iModelId: string;
+  /** 文档级页签显示名（Onshape 用文档标题；缺省回退「文档」）。 */
+  documentName?: string;
   /** B 文档的注册表页签（A 忽略）。 */
   studios?: readonly PartStudioInfo[];
   /** 活动 Part Studio id（URL `?model=`）。 */
@@ -91,6 +93,7 @@ export function PartStudioTabs({
   mode,
   iTwinId,
   iModelId,
+  documentName,
   studios = [],
   activeModelId,
   studiosLoading = false,
@@ -104,7 +107,6 @@ export function PartStudioTabs({
   briefcaseLoading = false,
   briefcaseError = null,
   viewportError = null,
-  onFitView,
 }: PartStudioTabsProps): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -250,43 +252,33 @@ export function PartStudioTabs({
 
   return (
     <>
-      {/* 页签条（os-11 底部）：左操作组 + 页签 */}
+      {/* 页签条（2026-11-02 Onshape live：30px 灰底 / 200px 文档级页签 / 左「+」）。 */}
       <div className="part-studio-tab-strip" data-testid="part-studio-tab-strip">
-        <div className="part-studio-tab-strip__actions">
-          {/* 适应视图：接 viewport-actions.fitView（内容为全模型 fit range）。 */}
-          <IconButton
-            label={t('partStudio.tabs.fitView')}
-            styleType="borderless"
-            onClick={onFitView}
-            data-testid="part-studio-fit-view-button"
-          >
-            <SvgFitToView />
-          </IconButton>
-          {/* 「+」（P2.4）：B 文档=创建默认名称 Part Studio；A/只读禁用。 */}
-          <IconButton
-            label={t('partStudio.tabs.newPartStudio')}
-            styleType="borderless"
+        <div className="part-studio-tab-strip__controls">
+          <button
+            type="button"
+            className="part-studio-tab-strip__new"
+            aria-label={t('partStudio.tabs.newPartStudio')}
+            title={t('partStudio.tabs.newPartStudio')}
             disabled={!isB || !canEdit || isCreating}
             onClick={() => void handleCreate()}
             data-testid="part-studio-new-tab-button"
           >
-            <SvgAdd />
-          </IconButton>
-          {/* 重命名/删除菜单（B 活动 scope；删除 HITL）。 */}
-          {isB && activeStudio && (
-            <DropdownMenu menuItems={tabMenuItems} placement="top">
-              <IconButton
-                label={t('partStudio.tabs.menu')}
-                styleType="borderless"
-                disabled={!canEdit}
-                data-testid="part-studio-tab-actions"
-              >
-                <SvgMore />
-              </IconButton>
-            </DropdownMenu>
-          )}
+            <OnshapeIcon name="plus-button" size={16} />
+          </button>
         </div>
         <div role="tablist" aria-label={t('partStudio.tabs.partStudio')} className="part-studio-tab-strip__tabs">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={false}
+            className="part-studio-tab part-studio-tab--document"
+            data-testid="part-studio-doc-tab"
+            onClick={() => navigate(`/documents/${iTwinId}`)}
+          >
+            <OnshapeIcon name="document" size={16} />
+            <span className="part-studio-tab__label">{documentName || t('partStudio.tabs.document')}</span>
+          </button>
           {isB
             ? studios.map((studio) => {
                 const damaged = studio.physModelId === '';
@@ -302,7 +294,8 @@ export function PartStudioTabs({
                     className={`part-studio-tab${active ? ' part-studio-tab--active' : ''}`}
                     onClick={() => openStudio(studio.id)}
                   >
-                    {studio.name}
+                    <OnshapeIcon name="partstudio" size={16} />
+                    <span className="part-studio-tab__label">{studio.name}</span>
                     {damaged && (
                       <span className="part-studio-tab__damaged" data-damaged="true">
                         {t('partStudio.tabs.damaged')}
@@ -319,11 +312,26 @@ export function PartStudioTabs({
                     aria-selected
                     className="part-studio-tab part-studio-tab--active"
                   >
-                    {t('partStudio.tabs.partStudio')}
+                    <OnshapeIcon name="partstudio" size={16} />
+                    <span className="part-studio-tab__label">{t('partStudio.tabs.partStudio')}</span>
                   </button>
                 )
               : null}
         </div>
+        {isB && activeStudio && (
+          <DropdownMenu menuItems={tabMenuItems} placement="top">
+            <button
+              type="button"
+              className="part-studio-tab-strip__menu"
+              aria-label={t('partStudio.tabs.menu')}
+              title={t('partStudio.tabs.menu')}
+              disabled={!canEdit}
+              data-testid="part-studio-tab-actions"
+            >
+              <SvgMore />
+            </button>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* 页签操作错误（创建失败等）；删除/重命名错误在各自对话框内就地呈现。 */}
@@ -333,27 +341,14 @@ export function PartStudioTabs({
         </div>
       )}
 
-      {/* 状态栏：连接态 / 编辑模式 / 单位 / 视图类型 */}
-      <div className="part-studio-status-bar" data-testid="part-studio-status-bar">
-        <span className="part-studio-status-bar__item">
-          <span className="part-studio-status-bar__label">{t('partStudio.status.connection')}</span>
-          <span className="part-studio-status-bar__value" data-testid="part-studio-status-connection">
-            {t(connectionKey(connection, briefcaseLoading, briefcaseError, viewportError))}
-          </span>
-        </span>
-        <span className="part-studio-status-bar__item">
-          <span className="part-studio-status-bar__label">{t('partStudio.status.editMode')}</span>
-          <span className="part-studio-status-bar__value">{t('partStudio.status.editModePart')}</span>
-        </span>
-        <span className="part-studio-status-bar__item">
-          <span className="part-studio-status-bar__label">{t('partStudio.status.units')}</span>
-          <span className="part-studio-status-bar__value">{t('partStudio.status.unitMm')}</span>
-        </span>
-        <span className="part-studio-status-bar__item">
-          <span className="part-studio-status-bar__label">{t('partStudio.status.viewType')}</span>
-          <span className="part-studio-status-bar__value">{t('partStudio.status.viewIso')}</span>
-        </span>
-      </div>
+      {/* 连接态仅保留隐藏可访问节点（e2e/helper 就绪信号）；不再渲染可见状态栏。 */}
+      <span
+        className="part-studio-visually-hidden"
+        data-testid="part-studio-status-connection"
+        aria-live="polite"
+      >
+        {t(connectionKey(connection, briefcaseLoading, briefcaseError, viewportError))}
+      </span>
 
       {/* 页签管理器（os-33）：alt+~+t 开合；列 Part Studio（A=单页签）。 */}
       <TabManagerDialog

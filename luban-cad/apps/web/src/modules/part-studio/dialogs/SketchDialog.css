@@ -132,40 +132,93 @@
   overflow-wrap: anywhere;
 }
 
-/* ── 草图平面选择 + 快速拾取（os-30：蓝框 select）───────────────────────── */
+/* ── 草图平面字段（Onshape：字段不是下拉框；主场从视口/特征树选面）───────── */
 .part-studio-sketch-dialog__plane-row {
+  position: relative;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--iui-size-2xs);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
 }
 
-.part-studio-sketch-dialog__plane-select {
-  flex: 1;
-  min-inline-size: 0;
-  padding: var(--iui-size-2xs);
+.part-studio-sketch-dialog__plane-label {
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-sketch-dialog__plane-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-block-size: 26px;
   border: 1px solid var(--iui-color-border-accent, var(--iui-color-border));
   border-radius: var(--iui-border-radius-1);
   background: var(--iui-color-background);
+}
+
+.part-studio-sketch-dialog__plane-value {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 4px 6px;
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
   color: var(--iui-color-text);
   font: inherit;
   font-size: var(--iui-font-size-0);
+  text-align: start;
+  cursor: pointer;
 }
 
-.part-studio-sketch-dialog__fast-pick {
+.part-studio-sketch-dialog__plane-clear {
   flex-shrink: 0;
-  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  inline-size: 22px;
+  block-size: 22px;
+  margin-inline-end: 2px;
+  padding: 0;
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.part-studio-sketch-dialog__plane-clear:hover {
+  background: var(--iui-color-background-hover);
+  color: var(--iui-color-text);
+}
+
+.part-studio-sketch-dialog__plane-menu {
+  position: absolute;
+  inset-block-start: calc(100% + 2px);
+  inset-inline: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
   border: 1px solid var(--iui-color-border);
   border-radius: var(--iui-border-radius-1);
   background: var(--iui-color-background);
+  box-shadow: var(--iui-shadow-2, 0 2px 8px rgba(0, 0, 0, 0.2));
+}
+
+.part-studio-sketch-dialog__plane-menu button {
+  inline-size: 100%;
+  padding: 4px 6px;
+  border: none;
+  border-radius: var(--iui-border-radius-1);
+  background: transparent;
   color: var(--iui-color-text);
   font: inherit;
   font-size: var(--iui-font-size-0);
+  text-align: start;
   cursor: pointer;
-  white-space: nowrap;
 }
 
-.part-studio-sketch-dialog__fast-pick:hover {
+.part-studio-sketch-dialog__plane-menu button:hover,
+.part-studio-sketch-dialog__plane-menu button[aria-selected='true'] {
   background: var(--iui-color-background-hover);
 }
 

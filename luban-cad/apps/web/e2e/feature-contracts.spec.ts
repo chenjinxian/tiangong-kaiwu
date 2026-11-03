@@ -267,8 +267,8 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
   // 用页面树计数（onCommitted 刷新）而非反复 getFeatureTree——后者在逐步验树时
   // 会把 MS HTTP RPC 打到限流（实测全量套件出现 429→编辑器连接连带卡死）。
   const featureCount = page.getByTestId('part-studio-feature-count');
-  const undoButton = page.getByTestId('part-studio-undo-button');
-  const redoButton = page.getByTestId('part-studio-redo-button');
+  const undoButton = page.getByTestId('part-studio-ribbon-undo');
+  const redoButton = page.getByTestId('part-studio-ribbon-redo');
   // 2026-11-02 Onshape 对齐：默认几何图元（Origin/Top/Front/Right）计入特征数。
   const DEFAULT_GEOMETRY_COUNT = 4;
   await expect(featureCount).toHaveText(`(${finalTree.length + DEFAULT_GEOMETRY_COUNT})`, { timeout: 90_000 });

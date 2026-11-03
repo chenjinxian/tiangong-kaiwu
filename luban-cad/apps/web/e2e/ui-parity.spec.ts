@@ -84,43 +84,86 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
     await expect.poll(() => readCubeTransform(page))
       .toBe('matrix3d(1,0,0,0,0,0,1,0,0,-1,0,0,0,0,0,1)');
 
-    // ── 3) ViewCube 下拉显示设置（持久化写穿）──────────────────────────
+    // ── 3) ViewCube 菜单（2026-11-02 Onshape 菜单结构；未实现项隐藏）──────
     await page.getByTestId('viewcube-menu-trigger').click();
     await expect(page.getByTestId('viewcube-menu')).toBeVisible();
-    await page.getByTestId('viewcube-mode').selectOption('hidden-removed');
-    await page.getByTestId('viewcube-background').selectOption('dark');
-    await page.getByTestId('viewcube-ao').uncheck();
-    await expect.poll(() => readStoredDisplaySettings(page)).toMatchObject({
-      mode: 'hidden-removed',
-      background: 'dark',
-      ambientOcclusion: false,
-    });
-    // 复位（避免污染同一浏览器的后续断言/截图）。
-    await page.getByTestId('viewcube-mode').selectOption('shaded');
-    await page.getByTestId('viewcube-background').selectOption('theme');
-    await page.getByTestId('viewcube-ao').check();
-    await page.getByTestId('viewcube-menu-trigger').click();
+    for (const id of [
+      'viewcube-menu-iso', 'viewcube-menu-dimetric', 'viewcube-menu-trimetric',
+      'viewcube-menu-graphics', 'viewcube-menu-zoom-fit', 'viewcube-menu-zoom-window',
+      'viewcube-menu-perspective', 'viewcube-menu-shaded', 'viewcube-menu-hidden',
+      'viewcube-menu-high-quality',
+    ])
+      await expect(page.getByTestId(id)).toBeVisible();
+    // 用户裁决：命名视图/剖视图/相切边等未实现项不显示假按钮。
+    await expect(page.getByText(/命名视图|剖视图|相切边可见|亮显边界边/)).toHaveCount(0);
 
-    // 眼睛开关只写 datum 切片，不动画布隐藏集。
+    // 带边着色子菜单 → 隐藏边移除；写穿持久化。
+    await page.getByTestId('viewcube-menu-shaded').click();
+    await expect(page.getByTestId('viewcube-submenu-shaded')).toBeVisible();
+    await page.getByTestId('viewcube-mode-hidden-removed').click();
+    await expect.poll(() => readStoredDisplaySettings(page))
+      .toMatchObject({ mode: 'hidden-removed' });
+    // 复位。
+    await page.getByTestId('viewcube-menu-shaded').click();
+    await page.getByTestId('viewcube-mode-shaded').click();
+    await expect.poll(() => readStoredDisplaySettings(page)).toMatchObject({ mode: 'shaded' });
+
+    // 隐藏边子菜单 → 隐藏边可见（再复位）。
+    await page.getByTestId('viewcube-menu-hidden').click();
+    await expect(page.getByTestId('viewcube-submenu-hidden')).toBeVisible();
+    await page.getByTestId('viewcube-mode-hidden-visible').click();
+    await expect.poll(() => readStoredDisplaySettings(page))
+      .toMatchObject({ mode: 'hidden-visible' });
+    await page.getByTestId('viewcube-menu-shaded').click();
+    await page.getByTestId('viewcube-mode-shaded').click();
+
+    // 高质量视图是 checkable：默认 4 已开启，第一次点击关闭（1），再点恢复 4。
+    await page.getByTestId('viewcube-menu-high-quality').click();
+    await expect.poll(() => readStoredDisplaySettings(page))
+      .toMatchObject({ antialiasSamples: 1 });
+    await page.getByTestId('viewcube-menu-high-quality').click();
+    await expect.poll(() => readStoredDisplaySettings(page))
+      .toMatchObject({ antialiasSamples: 4 });
+
+    // 图形首选项 → 右侧浮动 display 面板（dock 外层宽 0，检 body 可见性）。
+    await page.getByTestId('viewcube-menu-graphics').click();
+    await expect(page.getByTestId('part-studio-dock-body')).toBeVisible();
+    await expect(page.locator('#part-studio-dock-tab-display')).toBeVisible();
+    await expect.poll(() => page.evaluate(() =>
+      (window as any).__lubanE2EApp.usePartStudioStore.getState().dock,
+    )).toMatchObject({ activeTab: 'display', isOpen: true });
+    // 点活动页签收合，避免改变后续草图取景布局断言。
+    await page.locator('#part-studio-dock-tab-display').click();
+    await expect(page.getByTestId('part-studio-dock-body')).toHaveCount(0);
+
+    // 眼睛开关只写 datum 切片，不动画布隐藏集；按初始有效值取反断言（有体时
+    // 自动规则可能已隐藏该平面，不能写死 false）。
+    const initialTop = await page.evaluate(() =>
+      (window as any).__lubanE2EApp.usePartStudioStore.getState().datum.visibility.top as boolean);
     await page.getByTestId('tree-row-datum-visibility-top').click();
     await expect.poll(() => page.evaluate(() =>
       (window as any).__lubanE2EApp.usePartStudioStore.getState().datum.visibility.top,
-    )).toBe(false);
+    )).toBe(!initialTop);
     expect(await page.evaluate(() =>
       (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.hiddenIds,
     )).toEqual([]);
     await page.getByTestId('tree-row-datum-visibility-top').click();
+    await expect.poll(() => page.evaluate(() =>
+      (window as any).__lubanE2EApp.usePartStudioStore.getState().datum.visibility.top,
+    )).toBe(initialTop);
 
     // ── 4) 草图相机：平面定向 + 草图范围取景 + 退出恢复 ─────────────────
     const before = await readCamera(page);
     await page.getByRole('button', { name: '草图', exact: true }).click();
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible();
-    await dialog.getByRole('combobox', { name: '草图平面' }).selectOption({ label: '前视' });
+    await dialog.getByRole('combobox', { name: '草图平面' }).click();
+ await page.getByRole('option', { name: '前视' }).click();
     await dialog.getByRole('button', { name: '确认' }).click();
-    const exitSketch = page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' });
-    await expect(exitSketch.or(dialog.getByTestId('part-studio-sketch-dialog-error')))
-      .toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.getByRole('toolbar', { name: '草图工具' })
+        .or(dialog.getByTestId('part-studio-sketch-dialog-error')),
+    ).toBeVisible({ timeout: 60_000 });
     if ((await dialog.getByTestId('part-studio-sketch-dialog-error').count()) > 0)
       throw new Error(`insertSketch 拒收: ${await dialog.getByTestId('part-studio-sketch-dialog-error').textContent()}`);
 
@@ -137,8 +180,9 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
     expect(Math.abs(dot(row(inSketch.rotation, 0), [plane.xDir.x, plane.xDir.y, plane.xDir.z])))
       .toBeCloseTo(1, 3);
 
-    // 退出：完整恢复进入前的 rotation/origin/extents。
-    await exitSketch.click();
+    // 退出：完整恢复进入前的 rotation/origin/extents（草图对话框绿色 ✓）。
+    await dialog.getByRole('button', { name: '确认' }).click();
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
     await expect.poll(async () => {
       const after = await readCamera(page);
       return after.rotation.every((r, i) => r.every((v, j) => Math.abs(v - before.rotation[i]![j]!) < 1e-6));

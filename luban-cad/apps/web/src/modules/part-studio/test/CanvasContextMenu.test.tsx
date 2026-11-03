@@ -91,7 +91,7 @@ function makeViewport(): Record<string, unknown> {
 /** store 复位：canvas/tree/dock 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
-    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
+    canvas: { selection: [], hiddenIds: [] },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     dock: { activeTab: 'toolSettings', isOpen: false },
   });
@@ -216,11 +216,16 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
     expect(items.find((entry) => entry.id === 'delete')).toMatchObject({ disabled: true });
   });
 
-  it('vertex 拾取 → 精简集（无 owner 动作，保持旧四项链）', () => {
-    const ids = (buildCanvasMenu([{ kind: 'vertex', id: 'v1', label: '顶点 1' }]).filter(
-      (e) => e !== 'separator',
-    ) as Array<{ id: string }>).map((i) => i.id);
-    expect(ids).toEqual(['hide', 'zoom-to-fit', 'view-normal-to', 'delete']);
+  it('vertex 拾取 → owner 组 + 选中所属实体，无删除（后端无 vertex 删除契约）', () => {
+    const items = (buildCanvasMenu([
+      { kind: 'vertex', id: 'vertex:0x18:11', label: '点 1', ownerBodyKey: '0x18', cacheId: 11 },
+    ]).filter((e) => e !== 'separator') as CanvasMenuItem[]);
+    expect(items.map((i) => i.id)).toEqual([
+      'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner',
+    ]);
+    expect(items.find((i) => i.id === 'select-owner')!.action).toEqual({
+      kind: 'select-owner', bodyKey: '0x18',
+    });
   });
 });
 
@@ -232,6 +237,8 @@ describe('CanvasContextMenu 空白态（对齐旧应用视口右键）', () => {
       expect(within(menu).getByRole('menuitem', { name })).toBeDefined();
     }
     expect(within(menu).queryByRole('menuitem', { name: /删除/ })).toBeNull();
+    // 2026-11-03：显式选择模式已移除（默认 Onshape 选择工具取代）。
+    expect(within(menu).queryByRole('menuitem', { name: /选择(面|边|点|零件)/ })).toBeNull();
   });
 
   it('anchor=null 渲染空（页面级常驻挂载，右键驱动开合）', () => {

@@ -101,6 +101,7 @@
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import { RpcInterface, RpcManager } from "@itwin/core-common";
+import type { ElementGeometryDataEntry, Placement3dProps } from "@itwin/core-common";
 
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
  * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern；
@@ -421,8 +422,35 @@ export type FeatureOpResult =
   | { ok: true; featureId?: string }
   | { ok: false; error: string };
 
-/** M3-a：预览结果（HITL 预览→确认→提交；不落库，仅回报受影响特征及内核状态码） */
-export interface PreviewResult { ok: boolean; error?: string; affected: Array<{ featureId: string; status: number }> }
+/**
+ * v1.21：预览几何（新特征影子求值结果）。前端把 `entries` 原样作为
+ * `DynamicGraphicsRequest3dProps.geometry = { format: 'flatbuffer', data }`
+ * 交给 TileRpc `requestElementGraphics`，由后端 Visualization 生成 iMdl，
+ * 前端 `readElementGraphics` 显示——瞬态预览，不进 tile cache/不落库。
+ */
+export interface FeaturePreviewGeometryDto {
+  /** BRep/flatbuffer 几何流（`ElementGeometryDataEntry[]`）。 */
+  entries: ElementGeometryDataEntry[];
+  /** 3D 类别（后端取目标 body 的 category；动态请求契约要求持久类别）。 */
+  categoryId: string;
+  /** 几何流局部坐标系 → 世界（目标 body 的 placement，已去 bbox）。 */
+  placement: Omit<Placement3dProps, "bbox">;
+  /** 关联模型（可选；可为 transient id）。 */
+  modelId?: string;
+  /** 关联元素（可选；目标 body，供选中/高亮语义）。 */
+  elementId?: string;
+}
+
+/** M3-a：预览结果（HITL 预览→确认→提交；不落库，仅回报受影响特征及内核状态码）。
+ * v1.21：fillet 首切片附带 `preview`（影子求值的真实结果几何），供 TileRpc 动态预览。 */
+export interface PreviewResult {
+  ok: boolean;
+  error?: string;
+  affected: Array<{ featureId: string; status: number }>;
+  preview?: FeaturePreviewGeometryDto;
+  /** 预览几何计算失败的诚实信息（不影响 ok/affected 的校验结论）。 */
+  previewError?: string;
+}
 
 /** M3-a：表单字段种类（前端按 kind 渲染；edgeRefs 由 resolveEdgeRef 寻址；RW2-T7 增 faceRefs——由 resolveFaceRef 寻址） */
 export type FeatureFormFieldKind = "number" | "json" | "boolean" | "edgeRefs" | "faceRefs" | "readonlyText";
@@ -469,8 +497,16 @@ export interface SketchConstraintDto {
 export type SketchSolveStatusDto = "ok" | "underconstrained" | "conflicting" | "failed";
 export interface SketchSolveStateDto { status: SketchSolveStatusDto; dof: number; failedConstraintIds: number[]; conflictingRank: number[]; redundant?: boolean }
 /** M6-a v1.6：草图面域（几何流写回后经 sketchRegionsFrom 识别下发，面积降序）。
- * regionIndex 语义 = 本数组下标。outerEntityIds=外环构成实体 id 集；holeEntityIds=孔环（可缺省）。 */
-export interface SketchRegionDto { area: number; outerEntityIds: number[]; holeEntityIds?: number[] }
+ * regionIndex 语义 = 本数组下标。outerEntityIds=外环构成实体 id 集；holeEntityIds=孔环（可缺省）。
+ * v1.20：outerBoundary/holeBoundaries = 后端**有序环采样点**（草图局部 2D，闭合、首尾不重复）——
+ * 预览橙色面填充消费；实体 id 集不足以重建带交点/孔环的面域边界。 */
+export interface SketchRegionDto {
+  area: number;
+  outerEntityIds: number[];
+  holeEntityIds?: number[];
+  outerBoundary?: SketchPointDto[];
+  holeBoundaries?: SketchPointDto[][];
+}
 export interface SketchDto {
   id: string;
   entities: SketchEntityDto[];
@@ -497,7 +533,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.19.0";
+  public static interfaceVersion = "1.21.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

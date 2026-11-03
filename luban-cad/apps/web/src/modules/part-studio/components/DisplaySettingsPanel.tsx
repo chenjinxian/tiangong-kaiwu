@@ -181,6 +181,30 @@ export function DisplaySettingsPanel({
         <span className="part-studio-display-settings__label">{t('partStudio.displaySettingsPanel.edgeColor')}</span>
       </label>
 
+      <label className="part-studio-display-settings__field part-studio-display-settings__field--row">
+        <input
+          type="checkbox"
+          aria-label={t('partStudio.displaySettingsPanel.showBrepEdges')}
+          data-testid="part-studio-display-settings-brep-edges"
+          checked={settings.showBrepEdges}
+          disabled={disabled}
+          onChange={(e) => set({ showBrepEdges: e.target.checked })}
+        />
+        <span className="part-studio-display-settings__label">{t('partStudio.displaySettingsPanel.showBrepEdges')}</span>
+      </label>
+
+      <label className="part-studio-display-settings__field part-studio-display-settings__field--row">
+        <input
+          type="checkbox"
+          aria-label={t('partStudio.displaySettingsPanel.showBrepVertices')}
+          data-testid="part-studio-display-settings-brep-vertices"
+          checked={settings.showBrepVertices}
+          disabled={disabled}
+          onChange={(e) => set({ showBrepVertices: e.target.checked })}
+        />
+        <span className="part-studio-display-settings__label">{t('partStudio.displaySettingsPanel.showBrepVertices')}</span>
+      </label>
+
       <button
         type="button"
         className="part-studio-display-settings__reset"

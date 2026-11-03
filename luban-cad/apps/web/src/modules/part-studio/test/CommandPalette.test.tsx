@@ -192,8 +192,9 @@ describe('Ribbon 结构冒烟（27 工具 + 8 下拉 + 搜索触发钮）', () =
   it('主钮/下拉箭头/搜索触发钮计数对齐 os-11', () => {
     render(<Ribbon />);
     const ribbon = screen.getByTestId('part-studio-ribbon');
-    // 29 工具主钮（M-A5.2 增选择面/选择边）+ 8 下拉箭头钮 + 1 命令搜索触发钮 = 38。
-    expect(within(ribbon).getAllByRole('button')).toHaveLength(38);
+    // 30 工具主钮（M-A5.2 增选择面/选择边 + 2026-11-02 选择点）+ 8 下拉箭头钮
+    // + 1 命令搜索触发钮 = 39。
+    expect(within(ribbon).getAllByRole('button')).toHaveLength(39);
     expect(within(ribbon).getByRole('button', { name: /搜索工具/ })).toBeDefined();
   });
 

@@ -1,0 +1,10 @@
+/* FeaturePreviewOverlay.css — 橙色选中面/边 x-ray 叠层（灰体在 3D WorldDecoration）。
+ * 覆盖整个 3D 画布，位于 viewport 之上、工具栏/对话框之下；不拦鼠标。 */
+.part-studio-feature-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}

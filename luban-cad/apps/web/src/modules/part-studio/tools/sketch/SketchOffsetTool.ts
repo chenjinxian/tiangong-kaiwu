@@ -51,6 +51,7 @@ import {
 } from './sketch-offset-logic.js';
 import type { OffsetBuildError, OffsetChain } from './sketch-offset-logic.js';
 import { sketchToolEvents } from './sketch-tool-events.js';
+import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 
 /** 预览线色（SketchCreateTool 同款——M6-c UI 1:1 批统一校准）。 */
 const PREVIEW_COLOR = ColorDef.from(0, 120, 215);
@@ -72,6 +73,10 @@ export class SketchOffsetTool extends PrimitiveTool {
   private _plane!: SketchPlaneFrame;
   /** 实体/约束 id 计数器（maxId+1；提交前重播种，拒收回滚）。 */
   private _nextId = 1;
+  /** 光标视口坐标（标注提示跟随光标）。 */
+  private _cursorView?: { x: number; y: number };
+  /** 当前阶段提示文本（onMouseMotion 重发）。 */
+  private _hintText?: string;
 
   public override requireWriteableTarget(): boolean { return true; }
 
@@ -87,10 +92,18 @@ export class SketchOffsetTool extends PrimitiveTool {
 
   public override async onCleanup(): Promise<void> {
     if (this.isDynamicsStarted) this.endDynamics();
+    clearSketchToolFeedback(this.toolId);
     this._chain = undefined;
     this._seed = undefined;
     this._pendingHit = undefined;
     await super.onCleanup();
+  }
+
+  public override async onMouseMotion(ev: BeButtonEvent): Promise<void> {
+    await super.onMouseMotion(ev);
+    this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
+    if (this._hintText)
+      publishSketchToolHint(this.toolId, this._hintText, this._cursorView);
   }
 
   public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
@@ -157,6 +170,7 @@ export class SketchOffsetTool extends PrimitiveTool {
     sketchToolEvents.emit('offsetCandidate', {
       measuredDistance: distance,
       commit: (value) => this._commitOffset(value),
+      anchor: { x: ev.viewPoint.x, y: ev.viewPoint.y },
     });
     return EventHandled.Yes;
   }
@@ -292,7 +306,11 @@ export class SketchOffsetTool extends PrimitiveTool {
 
   /** 分阶段提示（调用时翻译——i18next 单例直取，回调内不吃闭包旧语）。 */
   private _outputPrompt(stage: 'pickChain' | 'confirmSide' | 'enterDistance'): void {
-    IModelApp.notifications.outputPrompt(i18next.t(`partStudio.sketch.offset.prompts.${stage}`));
+    const text = i18next.t(`partStudio.sketch.offset.prompts.${stage}`);
+    this._hintText = text;
+    IModelApp.notifications.outputPrompt(text);
+    if (this._cursorView)
+      publishSketchToolHint(this.toolId, text, this._cursorView);
   }
 
   /** 错误/信息面走 outputMessage（呈现桥 ViewerNotifications → iTwinUI toaster）。 */

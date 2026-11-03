@@ -73,7 +73,6 @@ vi.mock('@itwin/core-frontend', () => ({
 }));
 
 import type { FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
-import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
@@ -98,12 +97,13 @@ function lookup(dict: unknown, dottedPath: string): unknown {
 }
 
 describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
-  it('22 工具在册：id 唯一、组序绘制→编辑→标注、组内排布有序', () => {
-    // v1.19：新增样条/中点/相切/固定/长度 5 件（其中样条替换占位），注册表 18→22。
-    expect(SKETCH_RIBBON_TOOLS).toHaveLength(22);
+  it('20 工具在册：id 唯一、Onshape live 五组序、组内排布有序', () => {
+    expect(SKETCH_RIBBON_TOOLS).toHaveLength(20);
     const ids = SKETCH_RIBBON_TOOLS.map((tool) => tool.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(SKETCH_TOOL_GROUP_ORDER).toEqual(['sketchDraw', 'sketchEdit', 'sketchAnnotate']);
+    expect(SKETCH_TOOL_GROUP_ORDER).toEqual([
+      'sketchFeature', 'sketchDraw', 'sketchEdit', 'sketchDimension', 'sketchConstraint',
+    ]);
     const ordered = [...SKETCH_RIBBON_TOOLS].sort(
       (a, b) => SKETCH_TOOL_GROUP_ORDER.indexOf(a.group) - SKETCH_TOOL_GROUP_ORDER.indexOf(b.group),
     );
@@ -114,30 +114,52 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
   // 实测）——绘制组含文本（线 矩形 圆 弧 样条 文本，采集序内插多边形/点未
   // 注册），编辑组=圆角 修剪 偏移 镜像；标注组采集仅「尺寸 重合」两钮，本仓
   // 按工具展开 8 件（约束 6 前置 + 尺寸 2，1:1 下拉归 M6-c 后续）。
-  it('10-sketch-toolbar.json 组内序对齐：绘制 6（文本归绘制组）/编辑 4/标注 12', () => {
+  it('Onshape live 组内序：特征 2 / 绘制 10 / 编辑 6 / 尺寸 1 / 约束 1', () => {
     const labelsOf = (group: SketchRibbonTool['group']): string[] =>
       SKETCH_RIBBON_TOOLS
         .filter((tool) => tool.group === group)
         .map((tool) => lookup(zhPartStudio, tool.labelKey.replace(/^partStudio\./, '')) as string);
-    expect(labelsOf('sketchDraw')).toEqual(['线', '矩形', '圆', '圆弧', '样条', '文本']);
-    expect(labelsOf('sketchEdit')).toEqual(['圆角', '修剪', '偏移', '镜像']);
-    expect(labelsOf('sketchAnnotate')).toEqual([
-      '重合', '水平', '竖直', '平行', '垂直', '相等', '中点', '相切', '固定', '距离', '长度', '半径',
+    expect(labelsOf('sketchFeature')).toEqual(['拉伸', '旋转']);
+    expect(labelsOf('sketchDraw')).toEqual([
+      '线', '拐角矩形', '中心点圆', '3 点圆弧', '内切多边形', '样条', '点', '文本', '使用', '构造',
     ]);
+    expect(labelsOf('sketchEdit')).toEqual([
+      '圆角', '修剪', '偏移', '镜像', '线性阵列', '插入 DXF 或 DWG',
+    ]);
+    expect(labelsOf('sketchDimension')).toEqual(['尺寸']);
+    expect(labelsOf('sketchConstraint')).toEqual(['重合']);
+    // 飞菜单子项仍在册（约束 8 + 尺寸 2 + 绘制变体），名称可寻址。
+    const constraint = SKETCH_RIBBON_TOOLS.find((t) => t.id === 'Sketch.Constraint.Coincident');
+    expect(constraint?.dropdownItems?.map((item) => lookup(zhPartStudio, item.labelKey.replace(/^partStudio\./, '')))).toEqual([
+      '水平', '竖直', '平行', '垂直', '相等', '中点', '相切', '固定',
+    ]);
+    // Onshape live：只有一个「尺寸」按钮——长度/半径/距离由同一工具按拾取
+    // 动态推断，不再有长度/半径下拉（2026-11-02）。
+    const dimension = SKETCH_RIBBON_TOOLS.find((t) => t.id === 'Sketch.Dimension');
+    expect(dimension?.dropdownItems).toBeUndefined();
+    expect(SKETCH_RIBBON_TOOLS.filter((t) => t.group === 'sketchDimension')).toHaveLength(1);
+    // 2026-11-02 live 截图逐钮核对：线/使用有 ▾（空数组=未实现变体保留箭头）；
+    // 点/文本/镜像/构造/尺寸没有 ▾。
+    for (const id of ['Sketch.Line', 'sketchUse'])
+      expect(SKETCH_RIBBON_TOOLS.find((t) => t.id === id)?.dropdownItems, `${id} 应有 ▾`).toBeDefined();
+    for (const id of ['sketchPoint', 'sketchText', 'sketchMirror', 'sketchConstruction', 'Sketch.Dimension'])
+      expect(SKETCH_RIBBON_TOOLS.find((t) => t.id === id)?.dropdownItems, `${id} 不应有 ▾`).toBeUndefined();
   });
 
-  it('capability 统一 sketch（已入册 TOOL_CAPABILITIES）；labelKey 挂 partStudio.ribbon.* 且在 zh/en 词库存在', () => {
+  it('capability 已入册；工具与飞菜单子项 labelKey 在 zh/en 词库存在', () => {
     for (const tool of SKETCH_RIBBON_TOOLS) {
-      expect(tool.capability).toBe('sketch');
+      expect(['sketch', 'extrude', 'revolve']).toContain(tool.capability);
       expect(TOOL_CAPABILITIES[tool.capability]).toBeDefined();
-      expect(tool.labelKey.startsWith('partStudio.ribbon.')).toBe(true);
-      const localPath = tool.labelKey.replace(/^partStudio\./, '');
-      const zh = lookup(zhPartStudio, localPath);
-      const en = lookup(enPartStudio, localPath);
-      expect(typeof zh).toBe('string');
-      expect((zh as string).length).toBeGreaterThan(0);
-      expect(typeof en).toBe('string');
-      expect((en as string).length).toBeGreaterThan(0);
+      for (const command of [tool, ...(tool.dropdownItems ?? [])]) {
+        expect(command.labelKey.startsWith('partStudio.ribbon.')).toBe(true);
+        const localPath = command.labelKey.replace(/^partStudio\./, '');
+        const zh = lookup(zhPartStudio, localPath);
+        const en = lookup(enPartStudio, localPath);
+        expect(typeof zh).toBe('string');
+        expect((zh as string).length).toBeGreaterThan(0);
+        expect(typeof en).toBe('string');
+        expect((en as string).length).toBeGreaterThan(0);
+      }
     }
   });
 });
@@ -154,10 +176,6 @@ function resetStore(): void {
   });
 }
 
-function setSelection(selection: readonly CanvasSelection[]): void {
-  usePartStudioStore.setState((s) => ({ canvas: { ...s.canvas, selection: [...selection] } }));
-}
-
 function renderDialog(props: Partial<Parameters<typeof SketchDialog>[0]> = {}): {
   onConfirm: ReturnType<typeof vi.fn>;
   onCancel: ReturnType<typeof vi.fn>;
@@ -166,6 +184,18 @@ function renderDialog(props: Partial<Parameters<typeof SketchDialog>[0]> = {}): 
   const onCancel = vi.fn();
   render(<SketchDialog onConfirm={onConfirm} onCancel={onCancel} {...props} />);
   return { onConfirm, onCancel };
+}
+
+/**
+ * Onshape live（2026-11-02）：平面字段点击展开基准面菜单（无箭头/无原生
+ * select）；主路径是视口/特征树拾取，此菜单是可访问兜底。
+ */
+async function choosePlane(
+  user: ReturnType<typeof userEvent.setup>,
+  label = '前视',
+): Promise<void> {
+  await user.click(screen.getByRole('combobox', { name: '草图平面' }));
+  await user.click(screen.getByRole('option', { name: label }));
 }
 
 // M4-T6：FeatureTree 数据源切 entries（useFeatureSystem.tree 同形）；sketch
@@ -217,18 +247,33 @@ describe('SketchDialog 非模态结构（os-30）', () => {
   });
 });
 
-describe('草图平面选择（select + 快速拾取）', () => {
-  it('缺省基准面选项：占位项 + 上视/前视/右视', () => {
+describe('草图平面选择（Onshape 字段 + 基准面菜单）', () => {
+  it('未选平面：字段占位 + ✓ 禁用 + 提示；无原生 select/无快速拾取/无箭头', () => {
     renderDialog();
-    const select = screen.getByRole('combobox', { name: '草图平面' });
-    for (const label of ['选择草图平面…', '上视', '前视', '右视']) {
-      expect(within(select).getByRole('option', { name: label })).toBeDefined();
-    }
-    // 占位项选中（未选面）。
-    expect((select as HTMLSelectElement).value).toBe('');
+    const field = screen.getByTestId('sketch-plane-field-button');
+    expect(field.textContent).toBe('选择平面或面');
+    expect(field.getAttribute('aria-expanded')).toBe('false');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('sketch-plane-hint')).toBeDefined();
+    // 无原生下拉/快速拾取：Onshape 主路径是视口/树拾取，字段只承载值。
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: '快速拾取' })).toBeNull();
   });
 
-  it('选面 → 进确认载荷；planes 可注入覆盖缺省基准面', async () => {
+  it('点击字段 → 上视/前视/右视菜单；选面 → 进确认载荷', async () => {
+    const { onConfirm } = renderDialog();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '草图平面' }));
+    for (const label of ['上视', '前视', '右视']) {
+      expect(screen.getByRole('option', { name: label })).toBeDefined();
+    }
+    await user.click(screen.getByRole('option', { name: '前视' }));
+    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('前视');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect((onConfirm.mock.calls[0]![0] as SketchDialogResult).plane).toBe('front');
+  });
+
+  it('planes 可注入覆盖缺省基准面；清除按钮 → 平面清空 + ✓ 禁用', async () => {
     const { onConfirm } = renderDialog({
       planes: [
         { id: 'plane-a', label: '基准面 A' },
@@ -236,50 +281,14 @@ describe('草图平面选择（select + 快速拾取）', () => {
       ],
     });
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图平面' }), 'plane-b');
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect((onConfirm.mock.calls[0]![0] as SketchDialogResult).plane).toBe('plane-b');
+    await user.click(screen.getByRole('combobox', { name: '草图平面' }));
+    await user.click(screen.getByRole('option', { name: '基准面 B' }));
+    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('基准面 B');
+    await user.click(screen.getByRole('button', { name: '清除草图平面' }));
+    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('选择平面或面');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(onConfirm).not.toHaveBeenCalled();
   });
-
-  it('快速拾取：画布主选择成动态选项并选中（label 回退 id）', async () => {
-    setSelection([
-      { kind: 'face', id: 'face-9', label: '面 9' },
-      { kind: 'face', id: 'face-8', label: '面 8' },
-    ]);
-    const { onConfirm } = renderDialog();
-    const user = userEvent.setup();
-    const dialog = screen.getByRole('dialog', { name: '草图' });
-    await user.click(within(dialog).getByRole('button', { name: '快速拾取' }));
-    const select = screen.getByRole('combobox', { name: '草图平面' });
-    // 主选择=选择集最后一项（useCanvasSelection.primary 口径）。
-    expect((select as HTMLSelectElement).value).toBe('face-8');
-    expect(within(select).getByRole('option', { name: '面 8' })).toBeDefined();
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect((onConfirm.mock.calls[0]![0] as SketchDialogResult).plane).toBe('face-8');
-  });
-
-  // F2 终审修复：快速拾取仅接受 kind='face'——part/edge/vertex/feature 主选择
-  // 不是平面（选中桥新写入的 body 选择不得被误当草图平面），不添选项、不改
-  // 当前所选平面。
-  it.each(['part', 'edge', 'vertex', 'feature'] as const)(
-    '快速拾取仅接受 face：%s 主选择 → 不添选项、所选平面不变',
-    async (kind) => {
-      const label = `选中 ${kind}`;
-      setSelection([{ kind, id: `sel-${kind}`, label }]);
-      const { onConfirm } = renderDialog();
-      const user = userEvent.setup();
-      const select = screen.getByRole('combobox', { name: '草图平面' }) as HTMLSelectElement;
-      // 先选基准面「前视」——快速拾取不得把它改掉。
-      await user.selectOptions(select, 'front');
-      await user.click(screen.getByRole('button', { name: '快速拾取' }));
-      expect(select.value).toBe('front');
-      expect(within(select).queryByRole('option', { name: label })).toBeNull();
-      expect(within(select).queryByRole('option', { name: `sel-${kind}` })).toBeNull();
-      // 确认载荷里的平面仍是前视（未被非面选择覆盖）。
-      await user.click(screen.getByRole('button', { name: '确认' }));
-      expect((onConfirm.mock.calls[0]![0] as SketchDialogResult).plane).toBe('front');
-    },
-  );
 });
 
 describe('四开关（os-30 勾选组）', () => {
@@ -297,6 +306,7 @@ describe('四开关（os-30 勾选组）', () => {
     const { onConfirm } = renderDialog();
     const user = userEvent.setup();
     const dialog = screen.getByRole('dialog', { name: '草图' });
+    await choosePlane(user);
     await user.click(within(dialog).getByRole('checkbox', { name: '禁用压印' }));
     await user.click(within(dialog).getByRole('checkbox', { name: '显示约束' }));
     await user.click(within(dialog).getByRole('checkbox', { name: '显示表达式' }));
@@ -304,7 +314,7 @@ describe('四开关（os-30 勾选组）', () => {
     await user.click(screen.getByRole('button', { name: '确认' }));
     const payload = onConfirm.mock.calls[0]![0] as SketchDialogResult;
     expect(payload).toEqual({
-      plane: '',
+      plane: 'front',
       disableImprint: true,
       showConstraints: true,
       showExpressions: true,
@@ -316,7 +326,9 @@ describe('四开关（os-30 勾选组）', () => {
 describe('确认/取消 ↔ store.sketch 联动', () => {
   it('✓确认（壳期未接 applyOp）→ onConfirm 载荷 + enterSketch（sketchId prop 寻址）', async () => {
     const { onConfirm } = renderDialog({ sketchId: 'sketch-7' });
-    await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
+    const user = userEvent.setup();
+    await choosePlane(user);
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-7', activeSketchPlane: null });
   });
@@ -362,7 +374,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-42' }));
     const { onConfirm } = renderDialog({ applyOp });
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图平面' }), 'front');
+    await choosePlane(user);
     await user.click(screen.getByRole('button', { name: '确认' }));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
     expect(applyOp.mock.calls[0]![0]).toEqual({
@@ -382,19 +394,23 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('未选面 → op 省略 plane 键（契约缺省 XY@z=0）；成功照常建壳进草图', async () => {
+  it('未选面 → ✓ 禁用 + 平面提示（Onshape 不允许无平面建草图，不发起 op）', async () => {
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-7' }));
     renderDialog({ applyOp });
-    await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
-    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
-    expect(applyOp.mock.calls[0]![0]).toEqual({ kind: 'insertSketch', entities: [], constraints: [] });
-    await waitFor(() => expect(usePartStudioStore.getState().sketch.activeSketchId).toBe('sk-7'));
+    const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    expect(screen.getByTestId('sketch-plane-hint')).toBeDefined();
+    await userEvent.setup().click(confirm);
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
   });
 
   it('ok:false → 就地 Alert + 不进草图模式 + onConfirm 未调（不关框可改参重试）', async () => {
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: false, error: '约束求解失败' }));
     const { onConfirm } = renderDialog({ applyOp });
-    await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
+    const user = userEvent.setup();
+    await choosePlane(user);
+    await user.click(screen.getByRole('button', { name: '确认' }));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('约束求解失败');
     expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null });
@@ -408,7 +424,9 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
       throw new Error('ipc closed');
     });
     renderDialog({ applyOp });
-    await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));
+    const user = userEvent.setup();
+    await choosePlane(user);
+    await user.click(screen.getByRole('button', { name: '确认' }));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('ipc closed');
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
@@ -435,6 +453,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     );
     renderDialog({ applyOp });
     const user = userEvent.setup();
+    await choosePlane(user);
     const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
     await user.click(confirm);
     // 提交中：✓ 禁用 + aria-busy——第二击被 disabled/禁重入双保险吞掉。
@@ -450,51 +469,56 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
 });
 
 describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
-  it('ribbon 切换为草图工具组：特征工具隐去 + 搜索禁用 + 退出草图在场', () => {
+  it('ribbon 切换为草图工具组：特征工具隐去 + 搜索禁用（完成钮归草图面板）', () => {
     usePartStudioStore.getState().enterSketch('sk1');
     render(<Ribbon />);
     expect(screen.getByRole('toolbar', { name: '草图工具' })).toBeDefined();
     // 草图绘制工具在场（os-30 组：线/矩形/圆…）；M6-b T5 标注组按工具展开
     //（约束 6 + 尺寸 2 真 toolId，原「尺寸/约束」两占位钮已除名）。
-    for (const name of ['线', '矩形', '圆', '重合', '水平', '竖直', '距离', '半径']) {
+    for (const name of [
+      '线', '拐角矩形', '中心点圆', '3 点圆弧', '内切多边形', '样条', '点', '文本',
+      '使用', '构造', '圆角', '修剪', '偏移', '镜像', '线性阵列', '插入 DXF 或 DWG',
+      '尺寸', '重合', '拉伸', '旋转',
+    ]) {
       expect(screen.getByRole('button', { name })).toBeDefined();
     }
-    // 特征工具组隐去（拉伸/抽壳只在特征 ribbon——草图组的圆角/镜像同名不同族，不作案据）。
-    expect(screen.queryByRole('button', { name: '拉伸' })).toBeNull();
+    // 草图 → 零件特征工具仍隐去；草图特征组只有拉伸/旋转（Onshape live）。
     expect(screen.queryByRole('button', { name: '抽壳' })).toBeNull();
     // os-30：search 框禁用。
     expect(screen.getByRole('button', { name: /搜索工具/ }).hasAttribute('disabled')).toBe(true);
-    // 退出草图按钮在场。
-    expect(screen.getByRole('button', { name: '退出草图' })).toBeDefined();
+    // Onshape live：ribbon 不再有「退出草图」——完成钮在草图对话框绿色 ✓。
+    expect(screen.queryByRole('button', { name: '退出草图' })).toBeNull();
   });
 
-  it('草图工具点击 → tools.run(Sketch.Line)；退出草图 → sketch 复位 + 特征 ribbon 还原', async () => {
+  it('草图工具点击 → tools.run(Sketch.Line)；退出草图（面板完成）→ ribbon 还原', async () => {
     usePartStudioStore.getState().enterSketch('sk1');
     const user = userEvent.setup();
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '线' }));
     // M6-a T5：绘制 4 件占位 id 已校准为真 toolId（Sketch.Line 等，注册表头注）。
     expect(mocks.toolsRun).toHaveBeenCalledWith('Sketch.Line');
-    await user.click(screen.getByRole('button', { name: '退出草图' }));
+    act(() => {
+      usePartStudioStore.getState().exitSketch();
+    });
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
     // ribbon 还原：特征工具组回来。
     expect(screen.getByRole('toolbar', { name: '特征工具' })).toBeDefined();
     expect(screen.getByRole('button', { name: '拉伸' })).toBeDefined();
   });
 
-  it('画布叠加层：sketch 激活 → 栅格/约束覆盖层出现，退出即消', () => {
+  it('画布叠加层：sketch 激活 → 约束覆盖层出现，栅格不渲染，退出即消', () => {
     const { unmount } = render(<PartStudioCanvas viewportRef={{ current: null }} />);
     expect(screen.queryByTestId('sketch-grid-overlay')).toBeNull();
     expect(screen.queryByTestId('sketch-constraints-overlay')).toBeNull();
     act(() => {
       usePartStudioStore.getState().enterSketch('sk1');
     });
-    expect(screen.getByTestId('sketch-grid-overlay')).toBeDefined();
+    expect(screen.queryByTestId('sketch-grid-overlay')).toBeNull();
     expect(screen.getByTestId('sketch-constraints-overlay')).toBeDefined();
     act(() => {
       usePartStudioStore.getState().exitSketch();
     });
-    expect(screen.queryByTestId('sketch-grid-overlay')).toBeNull();
+    expect(screen.queryByTestId('sketch-constraints-overlay')).toBeNull();
     unmount();
   });
 
@@ -541,14 +565,23 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     expect(mocks.toolsRun).not.toHaveBeenCalled();
     expect(usePartStudioStore.getState().dialog.active).toBe('sketch');
     const dialog = screen.getByRole('dialog', { name: '草图' });
+    await choosePlane(user);
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
     // M6-a T4：真 sketchId 入 store（废 'sketch-active' 占位串）。
+    // 平面随确认载荷下发（宿主 handleSketchConfirm → setActiveSketchPlane）。
     await waitFor(() =>
-      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-real-1', activeSketchPlane: null }),
+      expect(usePartStudioStore.getState().sketch).toEqual({
+        isActive: true,
+        activeSketchId: 'sk-real-1',
+        activeSketchPlane: sketchPlaneFromOption('front'),
+      }),
     );
-    // 对话框已提交收合（宿主 closeDialog）。
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // Onshape：创建后同一草图对话框保持打开（编辑态）；再次 ✓ 完成退出。
+    expect(usePartStudioStore.getState().dialog.active).toBe('sketch');
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(screen.queryByTestId('part-studio-sketch-dialog')).toBeNull());
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
   });
 
   it('os-30「search 框禁用」：草图模式 alt+/ 不响应 + 进入草图强制收合面板', () => {

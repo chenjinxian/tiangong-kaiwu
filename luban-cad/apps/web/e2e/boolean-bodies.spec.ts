@@ -202,7 +202,7 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   console.log(`[boolean] unite → active=1 hidden=${body2Key}`);
 
   // undo → 两体恢复（源/隐藏均回退）
-  const undo = page.getByTestId('part-studio-undo-button');
+  const undo = page.getByTestId('part-studio-ribbon-undo');
   await expect(undo).toBeEnabled({ timeout: 90_000 });
   await undo.click();
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(2);
@@ -213,7 +213,7 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
   console.log('[boolean] undo → 两体恢复');
 
   // redo → 再消费；再 undo 回两体准备 subtract（只等 UI/隐藏，不耗 RPC）
-  const redo = page.getByTestId('part-studio-redo-button');
+  const redo = page.getByTestId('part-studio-ribbon-redo');
   await expect(redo).toBeEnabled({ timeout: 90_000 });
   await redo.click();
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(), { timeout: 90_000 }).toBe(1);

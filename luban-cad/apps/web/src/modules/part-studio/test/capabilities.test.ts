@@ -29,6 +29,7 @@ import {
  * featureHistory（共 23）+ B5 曲线阵列 curvePattern（无工具/后端面，共 24）。 */
 const EXPECTED_GATED_IDS = [
   'draft', // 拔模
+  'rib', // 筋（2026-11-02 Onshape 工具栏补齐）
   'shell', // 抽壳
   'thread', // 外部螺纹
   'sheetMetal', // 钣金系
@@ -55,7 +56,7 @@ const EXPECTED_GATED_IDS = [
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern（共 24，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern（共 25，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

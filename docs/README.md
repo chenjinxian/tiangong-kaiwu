@@ -23,7 +23,8 @@
 | [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |
 | [baseline-reliability-design.md](./baseline-reliability-design.md) | Baseline 可靠性设计 |
 | [IMODEL_AUTO_RECOVERY_DESIGN.md](./IMODEL_AUTO_RECOVERY_DESIGN.md) | iModel 初始化失败自动修复设计 |
-| [UI-ONSHAPE-PARITY-2026-11-02.md](./UI-ONSHAPE-PARITY-2026-11-02.md) | Onshape UI 对齐（ViewCube/默认几何/显示设置/草图相机/Tutorial2 四短竖棱圆角） |
+| [UI-ONSHAPE-PARITY-2026-11-02.md](./UI-ONSHAPE-PARITY-2026-11-02.md) | Onshape UI 全量对齐（40px 顶栏/36px 工具栏/40px 面板轨/200px 树/30px 页签、Onshape SVG 图标、ViewCube/显示设置、无可见状态栏；草图**单对话框**（创建+编辑，无实体/约束清单面板）+ 视口平面拾取 + 单尺寸钮与标注位置弹框 + 拉伸/旋转视口面域 chip + 特征树双击二次编辑（updateParams）；含 Tutorial2 四短竖棱圆角、特征实时预览与「Tutorial 2 - Build a Part」新建项目展示） |
+| [BREP-RENDERING-2026-11-03.md](./BREP-RENDERING-2026-11-03.md) | 完整 BRep 元素渲染与拾取（不修改 iTwin 渲染器/shader）：全部拓扑边叠加层（WorldDecoration + 深度偏移）、BRep 顶点显示、点/边/面拾取高亮；AO 默认压暗与灯光方向根因修正（顶光直方图 161/99 vs Onshape 159/88–95） |
 
 ### 技术参考
 | 文档 | 说明 |
@@ -72,4 +73,4 @@
 
 现行能力状态以本目录保留文档与代码/测试实测为准（状态标记：✅/🟠/⚪/❌）。
 
-*最后更新: 2026-11-01（P2 发布收口 + 发布后硬化：Release `backend-20261101-p28c`、发布镜像 51/51、verify-stack 17/17；M-A5.2 面/边选择、面/边删除接线、多体性能基线；CI/发布清单）*
+*最后更新: 2026-11-03（完整 BRep 拓扑边/顶点叠加与点/边/面拾取；AO 默认强度/顶光方向修正；详见 [BREP-RENDERING-2026-11-03.md](./BREP-RENDERING-2026-11-03.md)）*

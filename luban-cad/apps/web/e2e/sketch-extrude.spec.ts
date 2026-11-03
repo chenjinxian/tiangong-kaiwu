@@ -213,17 +213,17 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await page.getByRole('button', { name: '草图', exact: true }).click();
   const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(sketchDialog).toBeVisible();
-  await sketchDialog.getByRole('combobox', { name: '草图平面' }).selectOption({ label: '上视' });
+  await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
+ await page.getByRole('option', { name: '上视' }).click();
   await sketchDialog.getByRole('button', { name: '确认' }).click();
 
   // 提交窗（60s）：applyOp 链=写租约获取→insertSketch→saveChanges→onCommitted→
   // 树刷新；冷会话首笔含 RPC 通道/租约建立（FEATURE_OP_TIMEOUT_MS 15s + 陈旧
-  // 租约 35s 自愈预算都在链上）。双通道等待（or）：成功=「退出草图」钮现身
-  //（对话框随即卸载——勿用 aria-busy 消失判据，toHaveAttribute 会等元素存在，
-  // 成功关闭反而超时）；拒收=对话框内 alert 现身（透出后端原文快速红）。
+  // 租约 35s 自愈预算都在链上）。双通道等待（or）：成功=草图工具条变身
+  //（同一草图对话框保持编辑态）；拒收=对话框内 alert 现身（透出后端原文快速红）。
   await expect(
     page
-      .getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' })
+      .getByRole('toolbar', { name: '草图工具' })
       .or(sketchDialog.getByTestId('part-studio-sketch-dialog-error')),
   ).toBeVisible({ timeout: 60_000 });
   // 拒收分辩用瞬时 count()（成功路径对话框已卸载，textContent 会等元素挂载干等到
@@ -236,9 +236,9 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
 
   // 草图模式变身双证（结构断言先行）+ 特征树草图节点落位（insertSketch 提交链）
   const sketchToolbar = page.getByRole('toolbar', { name: '草图工具' });
-  await expect(page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' })).toBeVisible({ timeout: 15_000 });
+  await expect(sketchDialog).toBeVisible({ timeout: 15_000 });
   const lineButton = sketchToolbar.getByRole('button', { name: '线', exact: true });
-  const arcButton = sketchToolbar.getByRole('button', { name: '圆弧', exact: true });
+  const arcButton = sketchToolbar.getByRole('button', { name: '3 点圆弧', exact: true });
   // 首笔 op 预算放宽（60s）：applyOp 链=写租约获取→insertSketch→saveChanges→
   // onCommitted→树刷新，冷会话首笔含 RPC 通道/租约建立（FEATURE_OP_TIMEOUT_MS
   // 15s + 陈旧租约 35s 自愈预算都在链上），5s 级断言会吃假红。
@@ -308,7 +308,8 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await page.screenshot({ path: shotPath('t8-1-sketch-loop.png') });
 
   // ── 5) 退出草图 → 拉伸对话框（草图通道）──────────────────────────────
-  await page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' }).click();
+  await sketchDialog.getByRole('button', { name: '确认' }).click();
+  await expect(sketchDialog).toBeHidden({ timeout: 30_000 });
   await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible();
 
   // 基线③：成体前的干净画布（拉伸对话框内联在画布上会入元素截图，须关框后取）
@@ -318,17 +319,12 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   const dialog = page.getByTestId('part-studio-feature-dialog');
   await expect(dialog).toBeVisible();
 
-  // 草图通道：选草图 → 面域读回（getSketch.regions）。闭环成败在此亮牌——
-  // regions=0 → 「草图无可拉伸面域」+ ✓ 恒禁用（断言超时红=吸附闭环失败，
+  // 草图通道：草图自动取最近一张 → 面域读回（getSketch.regions）。闭环成败在此
+  // 亮牌——regions=0 → 「草图无可拉伸面域」+ ✓ 恒禁用（断言超时红=吸附闭环失败，
   // 按纪律停在此处如实记录，不掩盖）。
-  const sketchSelect = dialog.getByRole('combobox', { name: '草图' });
-  await expect(sketchSelect).toBeVisible();
-  await sketchSelect.selectOption({ label: '草图 1' });
   await expect(dialog.getByText('草图 1 的面', { exact: true })).toBeVisible({ timeout: 20_000 });
-  // 面域数如实记录（单面域=无下拉；多面域=下拉选项数）
-  const regionSelect = dialog.getByRole('combobox', { name: '面域' });
-  const regionOptions = await regionSelect.locator('option').count();
-  console.log(`[t8] 拉伸面域数=${regionOptions > 0 ? regionOptions : 1}（1=单面域自动 regionIndex=0）`);
+  const profileChips = dialog.getByTestId('part-studio-feature-dialog-profile-field').locator('button[data-region-index]');
+  console.log(`[t8] 拉伸已选面域数=${await profileChips.count()}（1=单面域自动 regionIndex=0）`);
   await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
   await page.screenshot({ path: shotPath('t8-2-extrude-dialog.png') });
 
@@ -348,7 +344,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   }
   await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
-  await expect(page.getByTestId('part-studio-undo-button')).toBeEnabled({ timeout: 15_000 });
+  await expect(page.getByTestId('part-studio-ribbon-undo')).toBeEnabled({ timeout: 15_000 });
 
   // ── 6) 成体视口：适应视图 → 中心区成片新墨（视口非空硬断言）──────────
   await page.mouse.click(cx, cy + 120, { button: 'right' });
@@ -372,12 +368,12 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await page.screenshot({ path: shotPath('t8-3-solid.png') });
 
   // ── 7) 撤销 → 1 节点；重做 → 2 节点 ─────────────────────────────────
-  await page.getByTestId('part-studio-undo-button').click();
+  await page.getByTestId('part-studio-ribbon-undo').click();
   await expect(featureCount).toHaveText('(5)', { timeout: 30_000 });
   await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toHaveCount(0);
 
-  await page.getByTestId('part-studio-redo-button').click();
+  await page.getByTestId('part-studio-ribbon-redo').click();
   await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
   await page.screenshot({ path: shotPath('t8-4-undo-redo.png') });

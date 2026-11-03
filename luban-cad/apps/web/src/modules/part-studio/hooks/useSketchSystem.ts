@@ -61,7 +61,7 @@ export interface UseSketchSystem {
    */
   applyUpdate(entities: SketchEntityDto[], constraints: SketchConstraintDto[]): Promise<FeatureOpResult>;
   /**
-   * 改尺寸约束值（M6-b T5：SketchPanel 尺寸内联编辑通道）——
+   * 改尺寸约束值（历史面板内联编辑通道；面板已删除，保留 API 供标注编辑）——
    * updateSketchConstraint op（仅 distance/radius 类约束；后端改值重解算并
    * 重写草图 params+几何流，EDE 传播由 op 自带）。就绪门禁/拒收透出语义与
    * applyUpdate 同；成功 → 重取 activeSketch（后端重解算后的新坐标+解算

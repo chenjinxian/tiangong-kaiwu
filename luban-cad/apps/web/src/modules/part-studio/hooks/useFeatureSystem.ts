@@ -74,6 +74,7 @@ import {
   type FeatureOp,
   type FeatureOpResult,
   type FeatureTreeEntry,
+  type PreviewResult,
   LubanFeatureRpcInterface,
 } from '@luban-cad/shared';
 import type { DocumentMode } from '@modules/documents';
@@ -121,6 +122,12 @@ export interface UseFeatureSystem {
   refresh(): Promise<void>;
   /** 成功后自动 refresh；失败仅返回错误结果不刷新 */
   applyOp(op: FeatureOp): Promise<FeatureOpResult>;
+  /**
+   * v1.21：预览 op（不落库）。fillet 首切片返回后端影子求值的真实几何
+   * （`PreviewResult.preview`），前端经 TileRpc requestElementGraphics 显示。
+   * 短租约预算（2s）——预览是交互态，不因陈旧租约卡 UI；失败只影响预览。
+   */
+  previewOp(op: FeatureOp): Promise<PreviewResult>;
 }
 
 export function useFeatureSystem(
@@ -281,6 +288,20 @@ export function useFeatureSystem(
     return result;
   }, [connectionKey, connection, refresh, partStudioId, session, sessionId]);
 
+  const previewOp = useCallback(async (op: FeatureOp): Promise<PreviewResult> => {
+    if (!connectionKey)
+      return { ok: false, error: i18next.t('partStudio.featureSystem.notConnected'), affected: [] };
+    if (connection?.isReadonly)
+      return { ok: false, error: i18next.t('partStudio.featureSystem.readonlyConnection'), affected: [] };
+    const client = LubanFeatureRpcInterface.getClient();
+    const scopeArgs: [] | [string] = partStudioId === undefined ? [] : [partStudioId];
+    // 预览是交互态：短预算，拿不到租约就静默不出预览（提交仍有完整 35s 自愈预算）。
+    const lease = await session.acquire({ budgetMs: 2_000, retryMs: 250 });
+    if (!lease.ok)
+      return { ok: false, error: lease.holder ? i18next.t('partStudio.featureSystem.leaseHeldBy', { holder: lease.holder }) : '', affected: [] };
+    return withOpTimeout(client.previewFeatureOp(connectionKey, op, sessionId, ...scopeArgs));
+  }, [connectionKey, connection, session, sessionId, partStudioId]);
+
   return {
     tree,
     loading,
@@ -292,5 +313,6 @@ export function useFeatureSystem(
     leaseOk,
     refresh,
     applyOp,
+    previewOp,
   };
 }

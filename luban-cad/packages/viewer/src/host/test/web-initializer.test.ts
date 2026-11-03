@@ -76,6 +76,10 @@ describe('startViewer（移植自 WebInitializer）', () => {
     expect(String(arg.localhostIpcApp.socketUrl)).toContain('token=jwt-x');
     expect(arg.iModelApp.publicPath).toBe('/');
     expect(arg.iModelApp.authorizationClient).toBeDefined();
+    // 2026-11-02 Onshape 渲染对齐：禁止为每个 polyface 面片生成边线
+    //（否则 Shaded 会把三角剖分线全部画出来）；保留 tileStorage。
+    expect(arg.iModelApp.tileAdmin.generateAllPolyfaceEdges).toBe(false);
+    expect(arg.iModelApp.tileAdmin.tileStorage).toBeDefined();
   });
 
   it('P2.8：getAccessToken 动态提供者——WS 用初值，RPC 每次取新值（过期刷新）', async () => {

@@ -34,13 +34,6 @@ export const BODY_PRODUCING_FEATURE_TYPES: readonly LubanFeatureType[] = [
 export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature';
 
 /**
- * 画布选择模式（M-A5.2 T1）：body=实体级选择（既有 SelectionSet 桥接管）；
- * face/edge=子实体选择（工具自管拾取，不写 SelectionSet——见
- * useCanvasBodySelection 的 enabled 门）。
- */
-export type CanvasSelectionMode = 'body' | 'face' | 'edge';
-
-/**
  * 画布选择集条目——viewport pick → store 回流的寻址单位
  *（选择驱动 UI：ribbon 组重排/高亮、画布右键按 kind 重构的依据）。
  * T5 定宿主（T2 挂账「CanvasSelection 无宿主」收口）：存 store.canvas
@@ -56,9 +49,9 @@ export interface CanvasSelection {
   label?: string;
   /** kind=feature 时的特征类型（edit 模式 FeatureDialog 的寻址元数据，如 extrude）。 */
   featureType?: string;
-  /** face/edge 必填：所属 BodySolid 元素 id（=getBodies.bodyKey）。 */
+  /** face/edge/vertex 必填：所属 BodySolid 元素 id（=getBodies.bodyKey）。 */
   ownerBodyKey?: string;
-  /** face/edge 持久拓扑 id（edge=ref.edge；face=resolveFaceRef.ref）。 */
+  /** face/edge 持久拓扑 id（edge=ref.edge；face=resolveFaceRef.ref）；vertex 无持久契约。 */
   topologyId?: LubanTopologyId;
   /**
    * face/edge 会话级 cache id（仅拾取工具活跃期间有效；工具退出即失效）。
@@ -146,14 +139,12 @@ export interface PartStudioCommandPaletteState {
   highlightEnabled: boolean;
 }
 
-/** canvas 切片——画布选择集（viewport pick → store 回流）+ 会话隐藏集 + 选择模式。 */
+/** canvas 切片——画布选择集（viewport pick → store 回流）+ 会话隐藏集。 */
 export interface PartStudioCanvasState {
   /** 画布选择集（右键菜单按 primary.kind 重构的依据；T6 viewport pick 接线后写入）。 */
   selection: readonly CanvasSelection[];
   /** 隐藏集（画布菜单「隐藏」的会话记录；FeatureOverrideProvider 消费、:hidden 叠加）。 */
   hiddenIds: readonly string[];
-  /** 选择模式（M-A5.2 T1）：body 走既有 SelectionSet 桥；face/edge 由工具自管。 */
-  selectionMode: CanvasSelectionMode;
 }
 
 /**
@@ -190,11 +181,12 @@ export type DatumId = 'origin' | 'top' | 'front' | 'right';
  * element，误传给 EmphasizeElements/hideElements 会产生无效元素操作。
  */
 export interface PartStudioDatumState {
+  /** 有效可见性（树/装饰件消费；由 Session 按模型/草图状态实时同步）。 */
   visibility: Record<DatumId, boolean>;
+  /** 用户眼睛按钮覆盖（仅 scope 切换时清空；优先于自动规则）。 */
+  visibilityOverrides: Partial<Record<DatumId, boolean>>;
   expanded: boolean;
   selectedId: DatumId | null;
-  /** 首个 body-producing 特征后只自动隐藏一次平面；用户可再手动打开。 */
-  autoHiddenOnce: boolean;
 }
 
 /**

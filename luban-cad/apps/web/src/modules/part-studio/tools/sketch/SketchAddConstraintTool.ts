@@ -48,6 +48,7 @@ import {
   pickPrompt,
   resolveNearestPick,
 } from './sketch-constraint-logic.js';
+import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 import type { PickVerdict, SketchConstraintKind, SketchPick, SketchPickKind } from './sketch-constraint-logic.js';
 
 export { acceptPick, CONSTRAINT_SLOT_SHAPES, nextConstraintId, pickPrompt, resolveNearestEntityId, resolveNearestPick } from './sketch-constraint-logic.js';
@@ -86,6 +87,10 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
   private _pickedKinds: SketchPickKind[] = [];
   /** 草图平面架（onPostInstall 解析：store 当前活动草图 plane → 缺省 XY@z=0）。 */
   private _plane!: SketchPlaneFrame;
+  /** 光标视口坐标（标注提示跟随光标）。 */
+  private _cursorView?: { x: number; y: number };
+  /** 当前阶段提示文本（onMouseMotion 重发）。 */
+  private _hintText?: string;
 
   public override requireWriteableTarget(): boolean { return true; }
 
@@ -97,6 +102,18 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
     // M6-a T5 实测注记）。
     this.initLocateElements(false, true);
     this._outputPrompt(pickPrompt(this.constraintKind, []));
+  }
+
+  public override async onCleanup(): Promise<void> {
+    clearSketchToolFeedback(this.toolId);
+    await super.onCleanup();
+  }
+
+  public override async onMouseMotion(ev: BeButtonEvent): Promise<void> {
+    await super.onMouseMotion(ev);
+    this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
+    if (this._hintText)
+      publishSketchToolHint(this.toolId, this._hintText, this._cursorView);
   }
 
   public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
@@ -187,7 +204,11 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
   }
 
   private _outputPrompt(prompt: { key: string; params?: Record<string, unknown> }): void {
-    IModelApp.notifications.outputPrompt(i18next.t(prompt.key, prompt.params));
+    const text = i18next.t(prompt.key, prompt.params);
+    this._hintText = text;
+    IModelApp.notifications.outputPrompt(text);
+    if (this._cursorView)
+      publishSketchToolHint(this.toolId, text, this._cursorView);
   }
 
   /** 错误/信息面走 outputMessage（呈现桥 ViewerNotifications → iTwinUI toaster）。 */

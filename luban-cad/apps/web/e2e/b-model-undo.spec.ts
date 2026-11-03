@@ -167,8 +167,8 @@ test('生产 IPC：双 scope 文档级 undo、init floor 与 redo 清空', async
     return r.featureId!;
   };
 
-  const undo = page.getByTestId('part-studio-undo-button');
-  const redo = page.getByTestId('part-studio-redo-button');
+  const undo = page.getByTestId('part-studio-ribbon-undo');
+  const redo = page.getByTestId('part-studio-ribbon-redo');
   const ids = (rows: FeatureTreeRow[]): string[] => rows.map((row) => row.id);
 
   // 1) UI 首读已初始化默认 scope（ACTIVE，空图）；干净态 undo 禁用。

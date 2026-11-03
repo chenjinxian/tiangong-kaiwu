@@ -1,7 +1,17 @@
 {
   "topBar": {
-    "breadcrumb": { "documents": "Documents" },
-    "branch": { "main": "Main" },
+    "breadcrumb": {
+      "documents": "Documents",
+      "label": "Document path"
+    },
+    "branch": {
+      "main": "Main"
+    },
+    "copyLink": "Copy document link",
+    "notifications": "Notifications",
+    "explore": "Explore Onshape",
+    "appStore": "App store",
+    "learningCenter": "Learning center",
     "edit": {
       "undo": "Undo",
       "redo": "Redo",
@@ -17,6 +27,16 @@
       "logout": "Sign out"
     }
   },
+  "panelRail": {
+    "label": "Document panels",
+    "history": "Versions and history",
+    "createVersion": "Create version…",
+    "comments": "Comments",
+    "notes": "Document notes",
+    "whereUsed": "Where used",
+    "performance": "Performance",
+    "aiAdvisor": "AI advisor"
+  },
   "sidebar": {
     "railLabel": "Tool categories",
     "rail": {
@@ -30,13 +50,19 @@
       "parts": "Parts",
       "emptyFeatures": "No features yet",
       "emptyParts": "No parts yet"
-    }
+    },
+    "toggleTree": "Show/hide feature tree"
   },
   "dock": {
     "tabs": {
       "toolSettings": "Tool settings",
       "history": "Version history",
-      "display": "Display settings"
+      "display": "Display settings",
+      "appearances": "Appearances",
+      "configurations": "Configuration table",
+      "featurescriptTable": "FeatureScript table",
+      "modelBasedDefinition": "Model-based definition",
+      "variableTable": "Variable table"
     },
     "placeholder": "Coming soon",
     "history": {
@@ -78,6 +104,7 @@
     "failed": "Save failed: {{message}}"
   },
   "tabs": {
+    "document": "Document",
     "fitView": "Fit to view",
     "newTab": "New tab",
     "newPartStudio": "New Part Studio",
@@ -202,115 +229,364 @@
       "frames": "Frames",
       "sheetMetal": "Sheet metal",
       "custom": "Custom features",
-      "surfaceCurve": "Surface/curve"
+      "surfaceCurve": "Surface/curve",
+      "history": "Undo/redo"
     },
     "sketchGroups": {
       "sketchDraw": "Draw",
       "sketchEdit": "Edit",
-      "sketchAnnotate": "Annotate"
+      "sketchAnnotate": "Annotate",
+      "sketchFeature": "Features",
+      "sketchDimension": "Dimension",
+      "sketchConstraint": "Constraints"
     },
     "tools": {
-      "selectFace": { "label": "Select face" },
-      "selectEdge": { "label": "Select edge" },
-      "sketch": { "label": "Sketch" },
-      "extrude": { "label": "Extrude" },
-      "revolve": { "label": "Revolve" },
-      "sweep": { "label": "Sweep" },
-      "loft": { "label": "Loft" },
-      "thicken": { "label": "Thicken" },
-      "fillet": { "label": "Fillet" },
-      "chamfer": { "label": "Chamfer" },
-      "draft": { "label": "Draft" },
-      "shell": { "label": "Shell" },
-      "hole": { "label": "Hole" },
-      "thread": { "label": "External thread" },
-      "linearPattern": { "label": "Linear pattern" },
-      "mirror": { "label": "Mirror" },
-      "pattern": { "label": "Pattern" },
-      "boolean": { "label": "Boolean" },
-      "booleanBodies": { "label": "Boolean" },
-      "splitPart": { "label": "Split" },
-      "transform": { "label": "Transform" },
-      "deleteBodies": { "label": "Delete part" },
-      "modifyFillet": { "label": "Modify fillet" },
-      "deleteFace": { "label": "Delete face" },
-      "moveFace": { "label": "Move face" },
-      "replaceFace": { "label": "Replace face" },
-      "cPlane": { "label": "Plane" },
-      "frame": { "label": "Frame" },
-      "sheetMetal": { "label": "Sheet metal model" },
-      "userFeatures": { "label": "Add custom features" },
-      "surfaceCurve": { "label": "Surface/curve" }
+      "selectFace": {
+        "label": "Select face"
+      },
+      "selectEdge": {
+        "label": "Select edge"
+      },
+      "selectVertex": {
+        "label": "Select vertex"
+      },
+      "sketch": {
+        "label": "Sketch"
+      },
+      "extrude": {
+        "label": "Extrude"
+      },
+      "revolve": {
+        "label": "Revolve"
+      },
+      "sweep": {
+        "label": "Sweep"
+      },
+      "loft": {
+        "label": "Loft"
+      },
+      "thicken": {
+        "label": "Thicken"
+      },
+      "fillet": {
+        "label": "Fillet"
+      },
+      "chamfer": {
+        "label": "Chamfer"
+      },
+      "draft": {
+        "label": "Draft"
+      },
+      "shell": {
+        "label": "Shell"
+      },
+      "hole": {
+        "label": "Hole"
+      },
+      "thread": {
+        "label": "External thread"
+      },
+      "linearPattern": {
+        "label": "Linear pattern"
+      },
+      "mirror": {
+        "label": "Mirror"
+      },
+      "pattern": {
+        "label": "Pattern"
+      },
+      "boolean": {
+        "label": "Boolean"
+      },
+      "booleanBodies": {
+        "label": "Boolean"
+      },
+      "splitPart": {
+        "label": "Split"
+      },
+      "transform": {
+        "label": "Transform"
+      },
+      "deleteBodies": {
+        "label": "Delete part"
+      },
+      "modifyFillet": {
+        "label": "Modify fillet"
+      },
+      "deleteFace": {
+        "label": "Delete face"
+      },
+      "moveFace": {
+        "label": "Move face"
+      },
+      "replaceFace": {
+        "label": "Replace face"
+      },
+      "cPlane": {
+        "label": "Plane"
+      },
+      "frame": {
+        "label": "Frame"
+      },
+      "sheetMetal": {
+        "label": "Sheet metal model"
+      },
+      "userFeatures": {
+        "label": "Add custom features"
+      },
+      "surfaceCurve": {
+        "label": "Surface/curve"
+      },
+      "rib": {
+        "label": "Rib"
+      }
     },
     "items": {
-      "thickenClosed": { "label": "Thicken closed" },
-      "faceBlend": { "label": "Face blend" },
-      "bodyDraft": { "label": "Body draft" },
-      "circularPattern": { "label": "Circular pattern" },
-      "curvePattern": { "label": "Curve pattern" },
-      "wrap": { "label": "Wrap" },
-      "decal": { "label": "Decal" },
-      "frameTrim": { "label": "Frame trim" },
-      "gusset": { "label": "Gusset" },
-      "endCap": { "label": "End cap" },
-      "cutList": { "label": "Cut list" },
-      "flange": { "label": "Flange" },
-      "hem": { "label": "Hem" },
-      "tab": { "label": "Tab" },
-      "smBend": { "label": "Bend" },
-      "smJog": { "label": "SMJog" },
-      "forming": { "label": "Forming" },
-      "sheetMetalLoft": { "label": "Sheet metal loft" },
-      "smJoint": { "label": "Make joint" },
-      "bendRelief": { "label": "Bend relief" },
-      "cornerBreak": { "label": "Corner break" },
-      "endSheetMetal": { "label": "End sheet metal model" },
-      "pcbFlexModel": { "label": "PCBFlexModel" },
-      "pcbEndFlexModel": { "label": "PCBEndFlexModel" },
-      "surfacePlane": { "label": "Plane" },
-      "offsetSurface": { "label": "Offset surface" },
-      "boundarySurface": { "label": "Boundary surface" },
-      "fillSurface": { "label": "Fill" },
-      "moveBoundary": { "label": "Move boundary" },
-      "ruledSurface": { "label": "Ruled surface" },
-      "mutualTrim": { "label": "Mutual trim" },
-      "constraintSurface": { "label": "Constraint surface" },
-      "helix": { "label": "Helix" },
-      "fitSpline3d": { "label": "Fit spline 3D" },
-      "projectCurve": { "label": "Project" },
-      "bridgeCurve": { "label": "Bridge curve" },
-      "compositeCurve": { "label": "Composite curve" },
-      "intersectionCurve": { "label": "Intersection" },
-      "trimCurve": { "label": "Trim" },
-      "isoline": { "label": "Isoline" },
-      "offsetCurve": { "label": "Offset curve" },
-      "isoparametricCurve": { "label": "Isoparametric curve" },
-      "editCurve": { "label": "Edit curve" },
-      "routeCurve": { "label": "Route curve" }
+      "thickenClosed": {
+        "label": "Thicken closed"
+      },
+      "faceBlend": {
+        "label": "Face blend"
+      },
+      "bodyDraft": {
+        "label": "Body draft"
+      },
+      "circularPattern": {
+        "label": "Circular pattern"
+      },
+      "curvePattern": {
+        "label": "Curve pattern"
+      },
+      "wrap": {
+        "label": "Wrap"
+      },
+      "decal": {
+        "label": "Decal"
+      },
+      "frameTrim": {
+        "label": "Frame trim"
+      },
+      "gusset": {
+        "label": "Gusset"
+      },
+      "endCap": {
+        "label": "End cap"
+      },
+      "cutList": {
+        "label": "Cut list"
+      },
+      "flange": {
+        "label": "Flange"
+      },
+      "hem": {
+        "label": "Hem"
+      },
+      "tab": {
+        "label": "Tab"
+      },
+      "smBend": {
+        "label": "Bend"
+      },
+      "smJog": {
+        "label": "SMJog"
+      },
+      "forming": {
+        "label": "Forming"
+      },
+      "sheetMetalLoft": {
+        "label": "Sheet metal loft"
+      },
+      "smJoint": {
+        "label": "Make joint"
+      },
+      "bendRelief": {
+        "label": "Bend relief"
+      },
+      "cornerBreak": {
+        "label": "Corner break"
+      },
+      "endSheetMetal": {
+        "label": "End sheet metal model"
+      },
+      "pcbFlexModel": {
+        "label": "PCBFlexModel"
+      },
+      "pcbEndFlexModel": {
+        "label": "PCBEndFlexModel"
+      },
+      "surfacePlane": {
+        "label": "Plane"
+      },
+      "offsetSurface": {
+        "label": "Offset surface"
+      },
+      "boundarySurface": {
+        "label": "Boundary surface"
+      },
+      "fillSurface": {
+        "label": "Fill"
+      },
+      "moveBoundary": {
+        "label": "Move boundary"
+      },
+      "ruledSurface": {
+        "label": "Ruled surface"
+      },
+      "mutualTrim": {
+        "label": "Mutual trim"
+      },
+      "constraintSurface": {
+        "label": "Constraint surface"
+      },
+      "helix": {
+        "label": "Helix"
+      },
+      "fitSpline3d": {
+        "label": "Fit spline 3D"
+      },
+      "projectCurve": {
+        "label": "Project"
+      },
+      "bridgeCurve": {
+        "label": "Bridge curve"
+      },
+      "compositeCurve": {
+        "label": "Composite curve"
+      },
+      "intersectionCurve": {
+        "label": "Intersection"
+      },
+      "trimCurve": {
+        "label": "Trim"
+      },
+      "isoline": {
+        "label": "Isoline"
+      },
+      "offsetCurve": {
+        "label": "Offset curve"
+      },
+      "isoparametricCurve": {
+        "label": "Isoparametric curve"
+      },
+      "editCurve": {
+        "label": "Edit curve"
+      },
+      "routeCurve": {
+        "label": "Route curve"
+      }
     },
     "sketchTools": {
-      "line": { "label": "Line" },
-      "rectangle": { "label": "Rectangle" },
-      "circle": { "label": "Circle" },
-      "arc": { "label": "Arc" },
-      "spline": { "label": "Spline" },
-      "fillet": { "label": "Fillet" },
-      "trim": { "label": "Trim" },
-      "offset": { "label": "Offset" },
-      "mirror": { "label": "Mirror" },
-      "text": { "label": "Text" },
-      "coincident": { "label": "Coincident" },
-      "horizontal": { "label": "Horizontal" },
-      "vertical": { "label": "Vertical" },
-      "parallel": { "label": "Parallel" },
-      "perpendicular": { "label": "Perpendicular" },
-      "equal": { "label": "Equal" },
-      "midpoint": { "label": "Midpoint" },
-      "tangent": { "label": "Tangent" },
-      "fixed": { "label": "Fixed" },
-      "length": { "label": "Length" },
-      "distance": { "label": "Distance" },
-      "radius": { "label": "Radius" }
+      "line": {
+        "label": "Line"
+      },
+      "rectangle": {
+        "label": "Corner rectangle"
+      },
+      "circle": {
+        "label": "Center point circle"
+      },
+      "arc": {
+        "label": "3 point arc"
+      },
+      "spline": {
+        "label": "Spline"
+      },
+      "fillet": {
+        "label": "Fillet"
+      },
+      "trim": {
+        "label": "Trim"
+      },
+      "offset": {
+        "label": "Offset"
+      },
+      "mirror": {
+        "label": "Mirror"
+      },
+      "text": {
+        "label": "Text"
+      },
+      "coincident": {
+        "label": "Coincident"
+      },
+      "horizontal": {
+        "label": "Horizontal"
+      },
+      "vertical": {
+        "label": "Vertical"
+      },
+      "parallel": {
+        "label": "Parallel"
+      },
+      "perpendicular": {
+        "label": "Perpendicular"
+      },
+      "equal": {
+        "label": "Equal"
+      },
+      "midpoint": {
+        "label": "Midpoint"
+      },
+      "tangent": {
+        "label": "Tangent"
+      },
+      "fixed": {
+        "label": "Fixed"
+      },
+      "length": {
+        "label": "Length"
+      },
+      "distance": {
+        "label": "Distance"
+      },
+      "radius": {
+        "label": "Radius"
+      },
+      "polygon": {
+        "label": "Inscribed polygon"
+      },
+      "point": {
+        "label": "Point"
+      },
+      "use": {
+        "label": "Use"
+      },
+      "construction": {
+        "label": "Construction"
+      },
+      "linearPattern": {
+        "label": "Linear pattern"
+      },
+      "insertDxf": {
+        "label": "Insert DXF or DWG"
+      },
+      "dimension": {
+        "label": "Dimension"
+      },
+      "rectangleCenter": {
+        "label": "Center rectangle"
+      },
+      "rectangleAligned": {
+        "label": "Aligned rectangle"
+      },
+      "circlePerimeter": {
+        "label": "Perimeter circle"
+      },
+      "arcCenter": {
+        "label": "Center arc"
+      },
+      "arcTangent": {
+        "label": "Tangent arc"
+      },
+      "polygonCircumscribed": {
+        "label": "Circumscribed polygon"
+      },
+      "splineBezier": {
+        "label": "Bezier"
+      },
+      "splineConic": {
+        "label": "Conic"
+      }
     }
   },
   "featureDialog": {
@@ -349,6 +625,10 @@
     "regionUnreadable": "Cannot read sketch regions: modeling service not connected",
     "sketchFaceChip": "Face of {{name}}",
     "sketchFaceChipWithRegion": "Face of {{name}} · region {{index}}",
+    "profileChip": "Face of {{sketch}}",
+    "profilePickHint": "Click sketch regions in the viewport; select as many as needed",
+    "noProfileSelectedHint": "Click the sketch regions to extrude in the viewport",
+    "removeProfileHint": "Remove this region",
     "axisLabel": "Revolve axis",
     "axisOption": "Line {{id}}",
     "axisOptionVertical": "Vertical line {{index}}",
@@ -442,6 +722,8 @@
     "submitEvalFailed": "{{name}} committed but evaluation failed: {{message}} — feature added to tree, geometry not generated",
     "leaseBusy": "The write lease is held by another session; submitting will wait for the lease",
     "editHint": "Parameter editing for this feature type is coming soon",
+    "editUnsupportedHint": "Structural or semantic parameters of this feature cannot be changed here (delete and recreate loft, sweep, or body boolean features)",
+    "editOperationLocked": "Boolean scope cannot be changed while editing (structural key)",
     "readonlyHint": "You have read-only permission; features cannot be submitted",
     "sections": {
       "direction": "Direction",
@@ -463,10 +745,12 @@
     "resolveFailed": "Failed to resolve the edge reference"
   },
   "subEntitySelect": {
-    "prompt": "Pick a face or edge (Esc to exit)",
+    "prompt": "Pick a face, edge, or vertex (Esc to exit)",
     "resolveFailed": "Failed to resolve the selected face/edge",
+    "highlightFailed": "Unable to highlight the selected sub-entity (geometry cache unavailable)",
     "faceLabel": "Face",
-    "edgeLabel": "Edge"
+    "edgeLabel": "Edge",
+    "vertexLabel": "Vertex"
   },
   "sketchDialog": {
     "defaultTitle": "Sketch",
@@ -474,6 +758,10 @@
     "cancel": "Cancel",
     "planeLabel": "Sketch plane",
     "planePlaceholder": "Select a plane…",
+    "planeFieldPlaceholder": "Select a plane or face",
+    "planeHint": "Select a datum plane in the viewport or Top/Front/Right in the feature tree",
+    "planePrompt": "Select a sketch plane",
+    "clearPlane": "Clear sketch plane",
     "planes": {
       "top": "Top",
       "front": "Front",
@@ -494,7 +782,15 @@
   },
   "sketch": {
     "constraintsOverlay": "Constraints",
+    "live": {
+      "length": "Length",
+      "width": "Width",
+      "height": "Height",
+      "radius": "Radius",
+      "angle": "Angle"
+    },
     "create": {
+      "cancelPrompt": "Right-click to cancel the current shape",
       "line": {
         "firstPrompt": "Click to place the line start point",
         "nextPrompt": "Click to place the line end point"
@@ -567,6 +863,20 @@
       },
       "reject": {
         "slotMismatch": "The {{label}} dimension only accepts a {{slot}} (got {{actual}})"
+      },
+      "unified": {
+        "prompts": {
+          "selectEntity": "Dimension: select an entity (line/circle/arc/point)",
+          "secondOrPlaceLength": "Dimension: select a second entity for distance, or click empty space to place a length",
+          "placeRadius": "Dimension: click empty space to place the radius",
+          "secondEntity": "Dimension: select a second point or line for distance"
+        },
+        "invalid": {
+          "singlePoint": "A single point has no dimension; select a second point or line",
+          "unsupported": "This entity combination is not supported for dimensioning",
+          "unsupportedPair": "Distance between two circles/arcs is not supported yet",
+          "tooManyPicks": "A dimension accepts at most two entities"
+        }
       }
     },
     "offset": {
@@ -588,7 +898,13 @@
       "updateFailed": "Sketch update failed"
     },
     "vocabulary": {
-      "entityKinds": { "point": "point", "line": "line", "circle": "circle", "arc": "arc", "spline": "spline" },
+      "entityKinds": {
+        "point": "point",
+        "line": "line",
+        "circle": "circle",
+        "arc": "arc",
+        "spline": "spline"
+      },
       "constraintKinds": {
         "coincident": "Coincident",
         "horizontal": "Horizontal",
@@ -602,7 +918,11 @@
         "tangent": "Tangent",
         "fixed": "Fixed"
       },
-      "dimensionKinds": { "distance": "Distance", "radius": "Radius", "length": "Length" }
+      "dimensionKinds": {
+        "distance": "Distance",
+        "radius": "Radius",
+        "length": "Length"
+      }
     },
     "panel": {
       "title": "Sketch",
@@ -683,7 +1003,11 @@
     "selectOwnerUnavailable": "Owner body unavailable",
     "deleteUnsupported": "Delete",
     "subEntityDeleteStale": "The pick session has ended; pick the face/edge again",
-    "subEntityDeleteSuccess": "Face/edge deleted"
+    "subEntityDeleteSuccess": "Face/edge deleted",
+    "selectFaces": "Select faces",
+    "selectEdges": "Select edges",
+    "selectVertices": "Select vertices",
+    "selectParts": "Select parts"
   },
   "tree": {
     "contextMenuLabel": "Feature menu",
@@ -852,19 +1176,38 @@
     "curvePattern": {
       "title": "Curve pattern (on the roadmap)",
       "message": "Curve pattern is on the LubanCAD roadmap. This version supports only PART/body-level linear and circular patterns; curve patterns will follow in a later milestone."
+    },
+    "rib": {
+      "title": "Rib (on the roadmap)",
+      "message": "Rib features are on the LubanCAD roadmap and are not available in this version yet."
     }
   },
   "viewCube": {
     "title": "View cube",
-    "settings": "Display & view settings",
-    "orientation": "View orientation",
+    "cameraOptions": "Camera and render options",
+    "graphicsPreferences": "Graphics preferences…",
     "iso": "Isometric",
     "dimetric": "Dimetric",
     "trimetric": "Trimetric",
-    "fit": "Fit view",
-    "window": "Zoom window",
-    "more": "More display settings…",
-    "reset": "Reset view",
+    "zoomFit": "Zoom to fit",
+    "zoomWindow": "Zoom to selected window",
+    "perspective": "Perspective view",
+    "shadedWithEdges": "Shaded with edges",
+    "hiddenEdgesRemoved": "Hidden edges removed",
+    "highQuality": "View in high quality",
+    "rotateUp": "Rotate up 15°",
+    "rotateDown": "Rotate down 15°",
+    "rotateLeft": "Rotate left 15°",
+    "rotateRight": "Rotate right 15°",
+    "cornerView": "Switch to corner view",
+    "submenu": {
+      "shadedWithEdges": "Shaded with edges",
+      "shadedWithoutEdges": "Shaded without edges",
+      "unshaded": "Unshaded",
+      "translucent": "Translucent",
+      "hiddenVisible": "Hidden edges visible",
+      "hiddenRemoved": "Hidden edges removed"
+    },
     "faces": {
       "top": "TOP",
       "bottom": "BOTTOM",
@@ -872,7 +1215,8 @@
       "back": "BACK",
       "left": "LEFT",
       "right": "RIGHT"
-    }
+    },
+    "homeView": "Home view"
   },
   "displaySettingsPanel": {
     "modeLabel": "Display mode",
@@ -897,6 +1241,8 @@
     "backgroundDark": "Dark",
     "edgeWidth": "Edge width",
     "edgeColor": "Edge color",
+    "showBrepEdges": "Show all BRep edges",
+    "showBrepVertices": "Show BRep vertices",
     "reset": "Reset to defaults",
     "noViewport": "Viewport not ready — open a model first"
   }

@@ -363,7 +363,7 @@ describe('M6-c T4：SketchOffsetTool toolId 与注册接线', () => {
     expect(offset?.group).toBe('sketchEdit');
     expect(SKETCH_RIBBON_TOOLS.some((t) => t.id === 'sketchOffset')).toBe(false);
     // v1.19 新增约束/尺寸工具后共 22 件（偏移占位换真本身不增位）。
-    expect(SKETCH_RIBBON_TOOLS).toHaveLength(22);
+    expect(SKETCH_RIBBON_TOOLS).toHaveLength(20);
   });
 
   it('registerSketchOffsetTools 幂等：按序各注册一次（二次调用 no-op）', () => {

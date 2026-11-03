@@ -7,7 +7,6 @@
 //    body → { kind:'part', id:bodyKey, label:name }，按 elements 迭代序；
 //  - 非 body/未知/consumed(active=false)/orphan(authored=false) 忽略；空集写 []；
 //  - bodies undefined（legacy 回退）不订阅、不接管 store 选择集；
-//  - enabled=false（M-A5.2 T1：face/edge 模式）退订且不写 store；重启同步；
 //  - 稳定 key（kind/id/label/owner/topology）等值守卫：相同序列重复触发不重写
 //    （store 数组引用不变），同 id 不同 owner/topology 不误判相等；
 //  - 卸载/连接替换退订（BeEvent disposer）；不写 tree.selectedNodeIds。
@@ -75,18 +74,15 @@ const BODIES: readonly BodyInfo[] = [BODY_1, BODY_2, BODY_CONSUMED, BODY_ORPHAN]
 interface HookProps {
   connection: MockConnection | undefined;
   bodies: readonly BodyInfo[] | undefined;
-  enabled: boolean;
 }
 
 function renderBodySelection(
   connection: MockConnection | undefined,
   bodies: readonly BodyInfo[] | undefined,
-  enabled = true,
 ) {
   return renderHook(
-    ({ connection: c, bodies: b, enabled: e }: HookProps) =>
-      useCanvasBodySelection(asConnection(c), b, e),
-    { initialProps: { connection, bodies, enabled } satisfies HookProps },
+    ({ connection: c, bodies: b }: HookProps) => useCanvasBodySelection(asConnection(c), b),
+    { initialProps: { connection, bodies } satisfies HookProps },
   );
 }
 
@@ -95,7 +91,7 @@ const currentSelection = () => usePartStudioStore.getState().canvas.selection;
 beforeEach(() => {
   usePartStudioStore.setState({
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
-    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
+    canvas: { selection: [], hiddenIds: [] },
   });
 });
 
@@ -170,7 +166,7 @@ describe('useCanvasBodySelection（B6 M-A5 T1 画布 body 选中桥）', () => {
     expect(currentSelection()).toBe(first);
 
     // bodies 引用变化（读面刷新/改名）→ effect 重同步当前 elements，label 跟随。
-    rerender({ connection, bodies: [{ ...BODY_1, name: 'Body 1 renamed' }], enabled: true });
+    rerender({ connection, bodies: [{ ...BODY_1, name: 'Body 1 renamed' }] });
     expect(currentSelection()).toEqual([{ kind: 'part', id: '0x201', label: 'Body 1 renamed' }]);
   });
 
@@ -193,7 +189,7 @@ describe('useCanvasBodySelection（B6 M-A5 T1 画布 body 选中桥）', () => {
     const { rerender } = renderBodySelection(connA, BODIES);
     expect(currentSelection()).toEqual([{ kind: 'part', id: '0x201', label: 'Body 1' }]);
 
-    rerender({ connection: connB, bodies: BODIES, enabled: true });
+    rerender({ connection: connB, bodies: BODIES });
     expect(connA.selectionSet.listenerCount()).toBe(0);
     expect(connB.selectionSet.listenerCount()).toBe(1);
     expect(currentSelection()).toEqual([{ kind: 'part', id: '0x202', label: 'Body 2' }]);
@@ -219,22 +215,6 @@ describe('useCanvasBodySelection（B6 M-A5 T1 画布 body 选中桥）', () => {
     const { unmount } = renderBodySelection(undefined, BODIES);
     expect(() => unmount()).not.toThrow();
     expect(currentSelection()).toEqual([]);
-  });
-
-  it('enabled=false 退订且不写 store；重新启用同步当前 elements', () => {
-    const connection = makeConnection(['0x201']);
-    const { rerender } = renderBodySelection(connection, BODIES, true);
-    expect(currentSelection()).toEqual([{ kind: 'part', id: '0x201', label: 'Body 1' }]);
-
-    usePartStudioStore.getState().setCanvasSelection([]);
-    rerender({ connection, bodies: BODIES, enabled: false });
-    expect(connection.selectionSet.listenerCount()).toBe(0);
-    act(() => connection.selectionSet.replace(['0x202']));
-    expect(currentSelection()).toEqual([]);
-
-    rerender({ connection, bodies: BODIES, enabled: true });
-    expect(connection.selectionSet.listenerCount()).toBe(1);
-    expect(currentSelection()).toEqual([{ kind: 'part', id: '0x202', label: 'Body 2' }]);
   });
 
   it('canvasSelectionKey 区分 owner/topology（同 id 不误判相等）', () => {

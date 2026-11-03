@@ -84,6 +84,8 @@ const pickMocks = vi.hoisted(() => {
     onEdgeAdded?: (ref: unknown, ownerElementId: string) => void;
     onEdgeRemoved?: (ref: unknown, ownerElementId: string) => void;
     onError?: (message: string) => void;
+    onPickingSuspended?: () => void;
+    onPickingResumed?: () => void;
     onEnded?: () => void;
   }
   return {
@@ -92,9 +94,13 @@ const pickMocks = vi.hoisted(() => {
       pickMocks.captured = options;
       return {
         exitTool: pickMocks.exitTool,
+        suspendPicking: pickMocks.suspendPicking,
+        resumePicking: pickMocks.resumePicking,
       };
     }),
     exitTool: vi.fn(async () => undefined),
+    suspendPicking: vi.fn(),
+    resumePicking: vi.fn(),
   };
 });
 
@@ -498,7 +504,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
       connectionKey: 'model-key',
       ...props,
     });
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     // 就绪判据：回显 chip 在场（单面域无 ·面域 后缀；多面域带序号）。
     await screen.findByText(regions.length > 1 ? '草图 1 的面 · 面域 0' : '草图 1 的面');
     return { user, ...rendered };
@@ -679,30 +685,57 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(screen.queryByTestId('part-studio-feature-dialog-lease-warning')).toBeNull();
   });
 
-  it('edit 模式（宿主已接提交面）→ ✓/成品 禁用 + 提示行「参数编辑即将推出」（M-1：消除假成功），不发起 op', async () => {
+  it('edit 模式（宿主已接提交面）→ 回显落库参数，✓ 发 updateParams（保留 operation）', async () => {
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
     const onConfirm = vi.fn();
-    const onCancel = vi.fn();
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1',
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    });
     render(
       <FeatureDialog
         featureName="拉伸 1"
+        featureId="f-1"
         mode="edit"
         featureType="extrude"
         applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        initialParams={{
+          profile: [],
+          distance: 25,
+          sketchId: 'sk-1',
+          regions: [0],
+          symmetric: true,
+          operation: 'add',
+        }}
         onConfirm={onConfirm}
-        onCancel={onCancel}
       />,
     );
-    const hint = screen.getByTestId('part-studio-feature-dialog-edit-hint');
-    expect(hint.textContent).toContain('参数编辑即将推出');
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
-    // ✗ 取消仍可达（禁用态下唯一出口——关闭面板），且全程不发起 op/确认。
-    await user.click(screen.getByRole('button', { name: '取消' }));
-    expect(onCancel).toHaveBeenCalledTimes(1);
-    expect(applyOp).not.toHaveBeenCalled();
-    expect(onConfirm).not.toHaveBeenCalled();
+    // 落库值回显（不是缺省 10）。
+    expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('25');
+    expect((screen.getByTestId('part-studio-feature-dialog-symmetric-flat').querySelector('input') as HTMLInputElement).checked).toBe(true);
+    await screen.findByText('草图 1 的面');
+    expect(screen.queryByTestId('part-studio-feature-dialog-edit-hint')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'updateParams',
+      featureId: 'f-1',
+      params: {
+        profile: [],
+        distance: 25,
+        sketchId: 'sk-1',
+        regions: [0],
+        symmetric: true,
+        operation: 'add',
+      },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -734,7 +767,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     featureRpc.getSketch.mockReset();
   });
 
-  it('多面域：chips 多选在场（缺省 [0]=最大面域选中态）→ 点「面域 1」→ 载荷 regions [0,1]（M6-c T3 多选语义）', async () => {
+  it('多面域：不静默预选（Onshape 必须在视口点击面域）→ 空选占位 + ✓ 禁用', async () => {
     featureRpc.getSketch.mockResolvedValue(
       sketchDtoWith([
         { area: 0.5, outerEntityIds: [1, 2, 3, 4] },
@@ -743,7 +776,6 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     );
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
-    const onConfirm = vi.fn();
     render(
       <FeatureDialog
         featureName="拉伸"
@@ -752,31 +784,20 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         applyOp={applyOp}
         sketches={[{ id: 'sk-1', label: '草图 1' }]}
         connectionKey="model-key"
-        onConfirm={onConfirm}
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
-    // 面域多选 chips 现于 regions>1；面积读数去尾零（0.5 → "0.5"），首项=最大
-    // 且缺省选中（[0]=v1.6 regionIndex 缺省 0 的语义锚同源）。
-    const chipsBox = await screen.findByTestId('part-studio-feature-dialog-region-chips');
-    const chip0 = within(chipsBox).getByRole('button', { name: '面域 0（最大，面积 0.5）' });
-    const chip1 = within(chipsBox).getByRole('button', { name: '面域 1（面积 0.1）' });
-    expect(chip0.getAttribute('aria-pressed')).toBe('true');
-    expect(chip1.getAttribute('aria-pressed')).toBe('false');
-    // 单选下拉不在场（M6-c T3：extrude 面域下拉已升级为多选 chips）。
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
+    await waitFor(() => expect(featureRpc.getSketch).toHaveBeenCalledWith('model-key', 'sk-1'));
+    // 多面域无唯一解 → 不预选；空选字段给 Onshape 同款占位文案。
+    const empty = await screen.findByTestId('part-studio-feature-dialog-no-region-selected-hint');
+    expect(empty.textContent).toBe('在视口中点击要拉伸的草图面域');
+    expect(screen.queryByText('草图 1 的面')).toBeNull();
+    // 无面域列表/下拉——添加只能靠视口拾取（e2e 覆盖）。
+    expect(screen.queryByTestId('part-studio-feature-dialog-region-chips')).toBeNull();
     expect(screen.queryByRole('combobox', { name: '面域' })).toBeNull();
-    // 回显 chip 不带 ·面域 N 后缀（选中态由 chips 自身 aria-pressed 呈现）。
-    expect(screen.getByText('草图 1 的面')).toBeDefined();
-    // 点选「面域 1」→ 选中集 [0,1]（升序）→ 载荷 regions 数组直出。
-    await user.click(chip1);
-    expect(chip1.getAttribute('aria-pressed')).toBe('true');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp).toHaveBeenCalledWith({
-      kind: 'insertFeature',
-      featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1], operation: 'new' },
-    });
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(applyOp).not.toHaveBeenCalled();
   });
 
   // ── B-model v1.17：面域读面 Part Studio scope（路由 ?model=） ─────────────
@@ -795,7 +816,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
     expect(featureRpc.getSketch).toHaveBeenCalledWith('model-key', 'sk-1', 'ps-1');
   });
@@ -813,102 +834,12 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
     expect(featureRpc.getSketch.mock.calls[0]).toHaveLength(2);
   });
 
-  it('多面域钉形（[0,2] 两域）：三面域缺省 [0] → 点「面域 2」→ regions [0,2]；再点「面域 0」摘除 → regions [2]（点选切换）', async () => {
-    featureRpc.getSketch.mockResolvedValue(
-      sketchDtoWith([
-        { area: 0.5, outerEntityIds: [1] },
-        { area: 0.3, outerEntityIds: [2] },
-        { area: 0.1, outerEntityIds: [3] },
-      ]),
-    );
-    const user = userEvent.setup();
-    const applyOp = makeApplyOp();
-    render(
-      <FeatureDialog
-        featureName="拉伸"
-        mode="new"
-        featureType="extrude"
-        applyOp={applyOp}
-        sketches={[{ id: 'sk-1', label: '草图 1' }]}
-        connectionKey="model-key"
-      />,
-    );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
-    const chipsBox = await screen.findByTestId('part-studio-feature-dialog-region-chips');
-    const chip0 = within(chipsBox).getByRole('button', { name: '面域 0（最大，面积 0.5）' });
-    const chip2 = within(chipsBox).getByRole('button', { name: '面域 2（面积 0.1）' });
-    await user.click(chip2);
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp).toHaveBeenCalledTimes(1);
-    expect(applyOp.mock.calls[0]![0]).toEqual({
-      kind: 'insertFeature',
-      featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 2], operation: 'new' },
-    });
-    // 再点已选 chip = 摘除（点选切换语义）；余集非空 → ✓ 保持可用。
-    await user.click(chip0);
-    expect(chip0.getAttribute('aria-pressed')).toBe('false');
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp.mock.calls[1]![0]).toEqual({
-      kind: 'insertFeature',
-      featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [2], operation: 'new' },
-    });
-  });
-
-  it('全选/清空流：清空 → 空选提示 + ✓ 禁用不发起 op；全选 → 三域全选中载荷 regions [0,1,2]', async () => {
-    featureRpc.getSketch.mockResolvedValue(
-      sketchDtoWith([
-        { area: 0.5, outerEntityIds: [1] },
-        { area: 0.3, outerEntityIds: [2] },
-        { area: 0.1, outerEntityIds: [3] },
-      ]),
-    );
-    const user = userEvent.setup();
-    const applyOp = makeApplyOp();
-    render(
-      <FeatureDialog
-        featureName="拉伸"
-        mode="new"
-        featureType="extrude"
-        applyOp={applyOp}
-        sketches={[{ id: 'sk-1', label: '草图 1' }]}
-        connectionKey="model-key"
-      />,
-    );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
-    await screen.findByTestId('part-studio-feature-dialog-region-chips');
-    // 清空 → 空选门禁（M6-c T3）：「选择至少一个面域」+ ✓/成品 禁用，不发起 op。
-    await user.click(screen.getByTestId('part-studio-feature-dialog-region-clear'));
-    expect(screen.getByTestId('part-studio-feature-dialog-no-region-selected-hint').textContent).toBe('选择至少一个面域');
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp).not.toHaveBeenCalled();
-    // 全选 → 三 chips 全按下 → ✓ 解禁 → 载荷 regions [0,1,2]（升序集语义）。
-    await user.click(screen.getByTestId('part-studio-feature-dialog-region-select-all'));
-    const chipsBox = screen.getByTestId('part-studio-feature-dialog-region-chips');
-    const chipList = within(chipsBox).getByRole('list');
-    for (const chip of within(chipList).getAllByRole('button')) {
-      expect(chip.getAttribute('aria-pressed')).toBe('true');
-    }
-    expect(screen.queryByTestId('part-studio-feature-dialog-no-region-selected-hint')).toBeNull();
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp).toHaveBeenCalledTimes(1);
-    expect(applyOp.mock.calls[0]![0]).toEqual({
-      kind: 'insertFeature',
-      featureType: 'extrude',
-      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0, 1, 2], operation: 'new' },
-    });
-  });
-
-  it('单面域：自动 regions [0] 且不显示面域 chips/下拉（缺省语义无需选择）', async () => {
+  it('单面域：自动 regions [0] 且字段只有一个 chip（无面域列表/下拉）', async () => {
     featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.0025, outerEntityIds: [1, 2, 3, 4] }]));
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
@@ -922,10 +853,12 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面'); // 单面域 chip 无 ·面域 后缀
     expect(screen.queryByTestId('part-studio-feature-dialog-region-chips')).toBeNull();
     expect(screen.queryByRole('combobox', { name: '面域' })).toBeNull();
+    // 字段只承载选中项（无「面域 N」按钮列表）：Onshape 的添加动作在视口中。
+    expect(screen.getByTestId('part-studio-feature-dialog-profile-field').querySelectorAll('button[data-region-index]')).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
@@ -957,24 +890,35 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it('已选草图未选（初始态）：提交禁用——通道未就绪不放行', async () => {
+  it('自动选中最近草图（Onshape）：无草图下拉；单面域就绪后可提交', async () => {
     featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
     const applyOp = makeApplyOp();
+    const user = userEvent.setup();
     render(
       <FeatureDialog
         featureName="拉伸"
         mode="new"
         featureType="extrude"
         applyOp={applyOp}
-        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        sketches={[
+          { id: 'sk-0', label: '草图 0' },
+          { id: 'sk-1', label: '草图 1' },
+        ]}
         connectionKey="model-key"
       />,
     );
-    // 占位项在场、未选中 → ✓ 禁用；getSketch 不应在未选草图时被调。
-    expect(screen.getByRole('combobox', { name: '草图' })).toBeDefined();
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(featureRpc.getSketch).not.toHaveBeenCalled();
-    expect(applyOp).not.toHaveBeenCalled();
+    // 无草图下拉；最近一张（列表末位 sk-1）自动读取面域。
+    expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
+    await screen.findByText('草图 1 的面');
+    expect(featureRpc.getSketch).toHaveBeenCalledTimes(1);
+    expect(featureRpc.getSketch).toHaveBeenCalledWith('model-key', 'sk-1');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
+    });
   });
 
   it('草图无面域（regions 缺省/空）：草图无可拉伸面域提示 + 提交禁用', async () => {
@@ -991,7 +935,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     const hint = await screen.findByTestId('part-studio-feature-dialog-no-region-hint');
     expect(hint.textContent).toBe('草图无可拉伸面域');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
@@ -1013,7 +957,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     const errorFace = await screen.findByTestId('part-studio-feature-dialog-region-error');
     expect(errorFace.textContent).toContain('连接断开');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
@@ -1033,14 +977,14 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         sketches={[{ id: 'sk-1', label: '草图 1' }]}
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     const errorFace = await screen.findByTestId('part-studio-feature-dialog-region-error');
     expect(errorFace.textContent).toContain('无法读取草图面域');
     expect(featureRpc.getSketch).not.toHaveBeenCalled();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('chip ×移除 = 清选择：草图下拉回占位、提交禁用、regions 清态', async () => {
+  it('chip ×移除 = 清选择：字段回空选占位、提交禁用、regions 清态', async () => {
     featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
@@ -1054,33 +998,22 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
-    await user.click(screen.getByRole('button', { name: '移除 草图 1 的面' }));
+    await user.click(screen.getByRole('button', { name: '草图 1 的面' }));
     expect(screen.queryByText('草图 1 的面')).toBeNull();
-    expect(screen.queryByRole('combobox', { name: '面域' })).toBeNull();
+    expect(screen.getByTestId('part-studio-feature-dialog-no-region-selected-hint').textContent)
+      .toBe('在视口中点击要拉伸的草图面域');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
   });
 
-  it('换草图重置面域选择：sk-1 选 [0,1] → 切 sk-2 回缺省 [0]（旧下标不跨草图续用）', async () => {
+  it('自动取最近草图：多草图时只读取末位 sk-2（旧面域下标不跨草图续用）', async () => {
     featureRpc.getSketch.mockImplementation(async (_key: string, sketchId: string) =>
       sketchId === 'sk-1'
-        ? sketchDtoWith(
-            [
-              { area: 0.5, outerEntityIds: [1] },
-              { area: 0.1, outerEntityIds: [2] },
-            ],
-            'sk-1',
-          )
-        : sketchDtoWith(
-            [
-              { area: 0.2, outerEntityIds: [3] },
-              { area: 0.05, outerEntityIds: [4] },
-            ],
-            'sk-2',
-          ),
+        ? sketchDtoWith([{ area: 0.5, outerEntityIds: [1] }], 'sk-1')
+        : sketchDtoWith([{ area: 0.2, outerEntityIds: [3] }], 'sk-2'),
     );
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
@@ -1097,16 +1030,8 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
-    const chips1 = await screen.findByTestId('part-studio-feature-dialog-region-chips');
-    await user.click(within(chips1).getByRole('button', { name: '面域 1（面积 0.1）' }));
-    expect(screen.getByText('草图 1 的面')).toBeDefined();
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-2');
     await screen.findByText('草图 2 的面');
-    // 换草图后多选集回缺省 [0]：sk-2 的「面域 0」按下、「面域 1」未选。
-    const chips2 = screen.getByTestId('part-studio-feature-dialog-region-chips');
-    expect(within(chips2).getByRole('button', { name: '面域 0（最大，面积 0.2）' }).getAttribute('aria-pressed')).toBe('true');
-    expect(within(chips2).getByRole('button', { name: '面域 1（面积 0.05）' }).getAttribute('aria-pressed')).toBe('false');
+    expect(featureRpc.getSketch).not.toHaveBeenCalledWith('model-key', 'sk-1');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
       kind: 'insertFeature',
@@ -1132,14 +1057,11 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    // 草图通道形态：草图下拉在场（旧布尔直出的通用 chips/快速拾取不越通道）。
-    expect(screen.getByRole('combobox', { name: '草图' })).toBeDefined();
+    // 草图通道形态：无草图下拉/无快速拾取；最近草图自动读取面域。
+    expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
     expect(screen.queryByRole('button', { name: '快速拾取' })).toBeNull();
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp).not.toHaveBeenCalled();
-    // 选中草图（单面域自动 [0]）→ 提交草图驱动布尔载荷
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
+    // 单面域自动 [0] → 提交草图驱动布尔载荷
     await screen.findByText('草图 1 的面');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
@@ -1171,7 +1093,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('tab', { name: '移除' }).getAttribute('title')).toContain('暂未实现');
 
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
 
     await user.click(screen.getByRole('tab', { name: '加入' }));
@@ -1216,7 +1138,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-boolean-no-body-hint').textContent).toContain('布尔操作需要已有实体');
     expect(screen.getByTestId('part-studio-feature-dialog-intersect-unsupported-hint')).toBeDefined();
     // 草图通道仍可用（extrude 合法路径）：选草图 → 确认提交 extrude。
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
@@ -1241,7 +1163,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         hasBodies={false}
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
     expect(screen.getByTestId('part-studio-feature-dialog-boolean-no-body-hint').textContent).toContain('布尔操作需要已有实体');
     const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
@@ -1306,8 +1228,8 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
         {...props}
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
-    await screen.findByText(/草图 1 的面/); // 面域已落定（entities 同响应到达；多面域 chip 带 ·面域 后缀故用 regex）
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
+    await waitFor(() => expect(featureRpc.getSketch).toHaveBeenCalled());
     return { user };
   }
 
@@ -1346,37 +1268,24 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     });
   });
 
-  it('revolve 面域保持单选（M6-c T3 裁决钉形）：多面域仍出单选下拉（无多选 chips/全选/清空），载荷 regionIndex 透传（RevolveParams 未扩 regions——不越契约）', async () => {
+  it('revolve 多面域：不预选、无面域下拉/列表（与 extrude 同一视口拾取）→ 空选时 ✓ 禁用', async () => {
     const applyOp = makeApplyOp();
-    const { user } = await renderRevolveDialog(
+    await renderRevolveDialog(
       applyOp,
       revolveSketchDto(LINED_SKETCH_ENTITIES, [
         { area: 0.5, outerEntityIds: [1] },
         { area: 0.1, outerEntityIds: [2] },
       ]),
     );
-    // 单选下拉在场（首项标最大）；extrude 的多选 UI（chips/全选/清空/空选提示）不越通道。
-    const regionSelect = await screen.findByRole('combobox', { name: '面域' });
-    expect(within(regionSelect).getByRole('option', { name: '面域 0（最大，面积 0.5）' })).toBeDefined();
+    const empty = await screen.findByTestId('part-studio-feature-dialog-no-region-selected-hint');
+    expect(empty.textContent).toBe('在视口中点击要拉伸的草图面域');
+    // 旧单选下拉/多选列表均已撤除。
+    expect(screen.queryByRole('combobox', { name: '面域' })).toBeNull();
     expect(screen.queryByTestId('part-studio-feature-dialog-region-chips')).toBeNull();
     expect(screen.queryByTestId('part-studio-feature-dialog-region-select-all')).toBeNull();
     expect(screen.queryByTestId('part-studio-feature-dialog-region-clear')).toBeNull();
-    expect(screen.queryByTestId('part-studio-feature-dialog-no-region-selected-hint')).toBeNull();
-    // 回显 chip 带 ·面域 N 后缀（revolve 保留单选回显形态）。
-    expect(screen.getByText('草图 1 的面 · 面域 0')).toBeDefined();
-    await user.selectOptions(regionSelect, '1');
-    expect(screen.getByText('草图 1 的面 · 面域 1')).toBeDefined();
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect(applyOp.mock.calls[0]![0]).toEqual({
-      kind: 'insertFeature',
-      featureType: 'revolve',
-      params: {
-        sketchId: 'sk-1',
-        regionIndex: 1,
-        axis: { sketchEntityId: 3 },
-        fullRevolve: true,
-      },
-    });
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(applyOp).not.toHaveBeenCalled();
   });
 
   it('角度换算 π 精度：取消全方位 → 角度输入现（缺省 360）→ 改 180 → 载荷 angle=Math.PI（fullRevolve=false）', async () => {
@@ -1567,7 +1476,7 @@ describe('M6-b T4 extrude 对称平铺复选（Onshape 平铺形态；载荷已�
         {...props}
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
     return { user, onConfirm };
   }
@@ -2103,6 +2012,8 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     pickMocks.captured = undefined;
     pickMocks.startFilletEdgePick.mockClear();
     pickMocks.exitTool.mockClear();
+    pickMocks.suspendPicking.mockClear();
+    pickMocks.resumePicking.mockClear();
   });
 
   function renderFilletDialog(applyOp: ReturnType<typeof makeApplyOp>, props: Partial<Parameters<typeof FeatureDialog>[0]> = {}) {
@@ -2334,7 +2245,7 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('拾取态：aria-pressed + 拾取提示 +「结束拾取」钮 + ✓ 禁用；点钮 → exitTool 回「添加边」', async () => {
+  it('拾取态：aria-pressed + 拾取提示 +「结束拾取」钮 + ✓ 禁用；点钮 → suspend 回「添加边」且不销毁工具', async () => {
     const user = userEvent.setup();
     renderFilletDialog(makeApplyOp());
     await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
@@ -2344,13 +2255,19 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-picking-hint')).toBeDefined();
     expect(screen.getByTestId('part-studio-feature-dialog-add-edge').textContent).toBe('结束拾取');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    // 再点钮 = 主动结束拾取（对话框驱动结束通道之一）。
+    // 再点钮 = 主动结束拾取：工具挂起，已选边高亮保留到对话框关闭。
     await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
-    expect(pickMocks.exitTool).toHaveBeenCalledTimes(1);
+    expect(pickMocks.suspendPicking).toHaveBeenCalledTimes(1);
+    expect(pickMocks.exitTool).not.toHaveBeenCalled();
     expect(screen.getByTestId('part-studio-feature-dialog-add-edge').textContent).toBe('添加边');
+
+    // 再次添加边 = 恢复既有工具，不重新创建拾取会话（保留高亮/缓存）。
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    expect(pickMocks.resumePicking).toHaveBeenCalledTimes(1);
+    expect(pickMocks.startFilletEdgePick).toHaveBeenCalledTimes(1);
   });
 
-  it('拾取态 Escape 分叉：只结束拾取回对话框（onCancel 不调、exitTool 调）', async () => {
+  it('拾取态 Escape 分叉：只结束拾取回对话框（onCancel 不调、suspend 调、工具不销毁）', async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();
     render(
@@ -2367,7 +2284,8 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
     await waitFor(() => expect(pickMocks.captured).toBeDefined());
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(pickMocks.exitTool).toHaveBeenCalledTimes(1);
+    expect(pickMocks.suspendPicking).toHaveBeenCalledTimes(1);
+    expect(pickMocks.exitTool).not.toHaveBeenCalled();
     expect(onCancel).not.toHaveBeenCalled(); // 对话框不关——拾取分叉优先
     expect(screen.getByTestId('part-studio-feature-dialog-add-edge').textContent).toBe('添加边');
   });
@@ -2553,7 +2471,7 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
         {...props}
       />,
     );
-    await user.selectOptions(screen.getByRole('combobox', { name: '草图' }), 'sk-1');
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
     return { user, onConfirm };
   }

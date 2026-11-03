@@ -2,18 +2,18 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * Onshape 风格 ViewCube 行为测试（2026-11-02）：六面/四角在场、朝向实时同步、
- * 面点击标准视图、下拉菜单显示设置与「更多」接线。
+ * Onshape 风格 ViewCube 行为测试（2026-11-02 重做）：150px stage/无圆环角点/
+ * 朝向实时同步/面点击标准视图/角点 trimetric/菜单结构/关闭语义/菜单动作接线。
  */
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Matrix3d, Vector3d } from '@itwin/core-geometry';
-import { StandardViewId, type ScreenViewport } from '@itwin/core-frontend';
+import { IModelApp, StandardViewId, type ScreenViewport } from '@itwin/core-frontend';
 import { ViewCube } from '../components/ViewCube.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
-import { DEFAULT_DISPLAY_SETTINGS } from '../internal/display-actions.js';
+import { DEFAULT_DISPLAY_SETTINGS, type DisplaySettings } from '../internal/display-actions.js';
 
 interface FakeViewport {
   viewport: ScreenViewport;
@@ -40,9 +40,16 @@ function fakeViewport(rotation = Matrix3d.createIdentity()): FakeViewport {
       getRotation: () => current,
       setRotation: (m: Matrix3d) => { current = m; setRotation(m); },
       is3d: () => true,
+      isSpatialView: () => true,
+      modelSelector: { models: ['model-1'] },
       turnCameraOff,
       lookAtVolume,
       computeFitRange: () => ({ low: Vector3d.createZero(), high: Vector3d.create(1, 1, 1) }),
+    },
+    iModel: {
+      models: {
+        queryModelRanges: async () => [{ low: [0, 0, 0], high: [1, 1, 1] }],
+      },
     },
     viewRect: { aspect: 1.5 },
     setStandardRotation,
@@ -65,28 +72,40 @@ function fakeViewport(rotation = Matrix3d.createIdentity()): FakeViewport {
   };
 }
 
-function displaySettings(update = vi.fn()): UseDisplaySettingsResult {
+function displaySettings(
+  update = vi.fn(),
+  settings: DisplaySettings = DEFAULT_DISPLAY_SETTINGS,
+): UseDisplaySettingsResult {
   return {
-    settings: DEFAULT_DISPLAY_SETTINGS,
+    settings,
     update,
     reset: vi.fn(),
     viewportReady: true,
   };
 }
 
+const ISO_ROTATION = Matrix3d.createRowValues(
+  0.707106781186548, 0.707106781186548, 0,
+  -0.408248290463863, 0.408248290463863, 0.816496580927726,
+  0.577350269189626, -0.577350269189626, 0.577350269189626,
+);
+
 beforeEach(() => {
   usePartStudioStore.setState({ dock: { activeTab: 'toolSettings', isOpen: false } });
+  vi.restoreAllMocks();
 });
 
 describe('ViewCube', () => {
-  it('renders six faces, four corners and the cube stage', () => {
-    const fake = fakeViewport();
+  it('renders the six faces and invisible corner hit zones, without the old ring/corner-dot chrome', () => {
+    const fake = fakeViewport(ISO_ROTATION);
     render(<ViewCube viewport={fake.viewport} />);
     for (const face of ['front', 'back', 'left', 'right', 'top', 'bottom'])
       expect(screen.getByTestId(`viewcube-face-${face}`)).toBeDefined();
-    for (const corner of ['top-front-left', 'top-front-right', 'top-back-left', 'top-back-right'])
-      expect(screen.getByTestId(`viewcube-corner-${corner}`)).toBeDefined();
+    expect(document.querySelector('.part-studio-viewcube__ring')).toBeNull();
+    expect(document.querySelector('.part-studio-viewcube__corner')).toBeNull();
+    expect(screen.getByTestId('viewcube-corner-front-top-right')).toBeDefined();
     expect(screen.getByTestId('part-studio-viewcube')).toBeDefined();
+    expect(document.querySelector('.part-studio-viewcube__compass')).not.toBeNull();
   });
 
   it('synchronizes the CSS cube transform from the viewport rotation and view changes', () => {
@@ -107,69 +126,42 @@ describe('ViewCube', () => {
     render(<ViewCube viewport={fake.viewport} />);
     const labels = (): string[] =>
       [...document.querySelectorAll('.part-studio-viewcube__face-label')].map((el) => el.textContent ?? '');
-    expect(labels()).toEqual(['上']);
+    expect(labels()).toEqual(['TOP']);
 
-    // iTwin setRotation 可能原地 setFrom 同一实例：ViewCube 必须克隆快照。
-    shared.setFrom(Matrix3d.createRowValues(
-      0.707106781186548, 0.707106781186548, 0,
-      -0.408248290463863, 0.408248290463863, 0.816496580927726,
-      0.577350269189626, -0.577350269189626, 0.577350269189626,
-    ));
+    shared.setFrom(ISO_ROTATION);
     act(() => fake.raiseViewChanged());
     expect(labels()).toHaveLength(3);
   });
 
   it('renders screen-aligned labels for the faces currently facing the viewer', () => {
-    const fake = fakeViewport();
+    const fake = fakeViewport(ISO_ROTATION);
     render(<ViewCube viewport={fake.viewport} />);
-    const labels = (): string[] =>
-      [...document.querySelectorAll('.part-studio-viewcube__face-label')].map((el) => el.textContent ?? '');
-    expect(labels()).toEqual(['上']);
-
-    fake.viewport.view.setRotation(Matrix3d.createRowValues(
-      0.707106781186548, 0.707106781186548, 0,
-      -0.408248290463863, 0.408248290463863, 0.816496580927726,
-      0.577350269189626, -0.577350269189626, 0.577350269189626,
-    ));
-    act(() => fake.raiseViewChanged());
-    // 右前上 iso：Top/Front/Right 三面可见，标签保持屏幕水平。
-    const shown = labels();
+    const shown = [...document.querySelectorAll('.part-studio-viewcube__face-label')]
+      .map((el) => el.textContent ?? '');
     expect(shown).toHaveLength(3);
-    for (const label of ['上', '右', '前'])
+    for (const label of ['TOP', 'RIGHT', 'FRONT'])
       expect(shown).toContain(label);
   });
 
-  it('sets a standard top view when the front-facing cube face is clicked', async () => {
+  it('sets a standard top view when a cube face is clicked', async () => {
     const user = userEvent.setup();
-    const iso = Matrix3d.createRowValues(
-      0.707106781186548, 0.707106781186548, 0,
-      -0.408248290463863, 0.408248290463863, 0.816496580927726,
-      0.577350269189626, -0.577350269189626, 0.577350269189626,
-    );
-    const fake = fakeViewport(iso);
-    // 程序化换视图不会 raise onViewChanged：fake 模拟真实 rotation 变化，
-    // ViewCube 必须在动作后显式回读。
+    const fake = fakeViewport(ISO_ROTATION);
     fake.setStandardRotation.mockImplementation(() => {
       fake.viewport.view.setRotation(Matrix3d.createIdentity());
     });
     render(<ViewCube viewport={fake.viewport} />);
-    expect(screen.getAllByText('上')).toHaveLength(1);
     await user.click(screen.getByTestId('viewcube-face-top'));
     expect(fake.setStandardRotation).toHaveBeenCalledWith(StandardViewId.Top);
     expect(fake.turnCameraOff).toHaveBeenCalledTimes(1);
     expect(fake.synchWithView).toHaveBeenCalledWith({});
-    // Top 视图：只显示朝屏幕的 Top 面标签，cube 回到单位矩阵。
     expect([...document.querySelectorAll('.part-studio-viewcube__face-label')].map((el) => el.textContent))
-      .toEqual(['上']);
-    const cube = document.querySelector('.part-studio-viewcube__cube') as HTMLElement;
-    expect(cube.style.transform).toBe('matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)');
+      .toEqual(['TOP']);
   });
 
   it('orbits the camera by dragging the cube', () => {
     const fake = fakeViewport();
     render(<ViewCube viewport={fake.viewport} />);
     const stage = screen.getByTestId('part-studio-viewcube').querySelector('.part-studio-viewcube__stage') as HTMLElement;
-    // jsdom 未实现 pointer capture；拖拽只依赖 pointer 事件坐标。
     Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
     Object.defineProperty(stage, 'hasPointerCapture', { value: () => false });
 
@@ -181,39 +173,108 @@ describe('ViewCube', () => {
     expect(next.rowZ().isExactEqual(Matrix3d.createIdentity().rowZ())).toBe(false);
   });
 
-  it('opens the settings popover only when display settings are supplied', async () => {
+  it('always renders the borderless mini-cube trigger and opens the Onshape menu', async () => {
     const user = userEvent.setup();
-    const fake = fakeViewport();
-    const { unmount } = render(<ViewCube viewport={fake.viewport} />);
-    expect(screen.queryByTestId('viewcube-menu-trigger')).toBeNull();
-    unmount();
-
-    render(<ViewCube viewport={fake.viewport} displaySettings={displaySettings()} />);
-    expect(screen.getByTestId('viewcube-menu-trigger')).toBeDefined();
-    await user.click(screen.getByTestId('viewcube-menu-trigger'));
-    expect(screen.getByTestId('viewcube-menu')).toBeDefined();
+    render(<ViewCube viewport={fakeViewport().viewport} />);
+    const trigger = screen.getByTestId('viewcube-menu-trigger');
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    await user.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    const menu = screen.getByTestId('viewcube-menu');
+    for (const id of [
+      'viewcube-menu-iso', 'viewcube-menu-dimetric', 'viewcube-menu-trimetric',
+      'viewcube-menu-zoom-fit', 'viewcube-menu-zoom-window',
+    ])
+      expect(screen.getByTestId(id)).toBeDefined();
+    expect(menu).toBeDefined();
+    // 用户裁决：不实现项隐藏，不显示假按钮。
+    expect(screen.queryByText(/命名视图|Named views/)).toBeNull();
+    expect(screen.queryByText(/剖视图|Section view/)).toBeNull();
   });
 
-  it('writes display-mode / perspective changes through the shared update callback', async () => {
+  it('closes on outside pointer-down and Escape returns focus to the trigger', async () => {
+    const user = userEvent.setup();
+    render(<ViewCube viewport={fakeViewport().viewport} />);
+    const trigger = screen.getByTestId('viewcube-menu-trigger');
+    await user.click(trigger);
+    expect(screen.getByTestId('viewcube-menu')).toBeDefined();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByTestId('viewcube-menu')).toBeNull();
+
+    await user.click(trigger);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('viewcube-menu')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('writes orientation, perspective, display-mode, and quality changes through the shared settings callback', async () => {
     const user = userEvent.setup();
     const update = vi.fn();
     const fake = fakeViewport();
-    render(<ViewCube viewport={fake.viewport} displaySettings={displaySettings(update)} />);
-    await user.click(screen.getByTestId('viewcube-menu-trigger'));
+    render(<ViewCube
+      viewport={fake.viewport}
+      displaySettings={displaySettings(update, { ...DEFAULT_DISPLAY_SETTINGS, antialiasSamples: 1 })}
+    />);
+    const trigger = screen.getByTestId('viewcube-menu-trigger');
 
-    await user.selectOptions(screen.getByTestId('viewcube-mode'), 'hidden-removed');
-    expect(update).toHaveBeenCalledWith({ mode: 'hidden-removed' });
+    await user.click(trigger);
+    await user.click(screen.getByTestId('viewcube-menu-iso'));
+    expect(fake.setRotation).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('viewcube-menu')).toBeNull();
 
-    await user.click(screen.getByTestId('viewcube-perspective'));
+    await user.click(trigger);
+    await user.click(screen.getByTestId('viewcube-menu-perspective'));
     expect(update).toHaveBeenCalledWith({ perspective: true });
+
+    fireEvent.click(screen.getByTestId('viewcube-menu-shaded'));
+    expect(screen.getByTestId('viewcube-submenu-shaded')).toBeDefined();
+    fireEvent.click(screen.getByTestId('viewcube-mode-translucent'));
+    expect(update).toHaveBeenCalledWith({ mode: 'translucent' });
+
+    await user.click(screen.getByTestId('viewcube-menu-high-quality'));
+    expect(update).toHaveBeenCalledWith({ antialiasSamples: 4 });
   });
 
-  it('opens the dock display tab from the more button', async () => {
+  it('opens the hidden-edges submenu and maps visible/removed modes', async () => {
+    const user = userEvent.setup();
+    const update = vi.fn();
+    render(<ViewCube viewport={fakeViewport().viewport} displaySettings={displaySettings(update)} />);
+    await user.click(screen.getByTestId('viewcube-menu-trigger'));
+    fireEvent.click(screen.getByTestId('viewcube-menu-hidden'));
+    expect(screen.getByTestId('viewcube-submenu-hidden')).toBeDefined();
+    fireEvent.click(screen.getByTestId('viewcube-mode-hidden-visible'));
+    expect(update).toHaveBeenCalledWith({ mode: 'hidden-visible' });
+  });
+
+  it('fits the view and starts the window-zoom tool', async () => {
     const user = userEvent.setup();
     const fake = fakeViewport();
+    const run = vi.spyOn(IModelApp.tools, 'run').mockResolvedValue(true as never);
     render(<ViewCube viewport={fake.viewport} displaySettings={displaySettings()} />);
     await user.click(screen.getByTestId('viewcube-menu-trigger'));
-    await user.click(screen.getByTestId('viewcube-more'));
+    await user.click(screen.getByTestId('viewcube-menu-zoom-fit'));
+    await waitFor(() => expect(fake.lookAtVolume).toHaveBeenCalledTimes(1));
+    expect(fake.synchWithView).toHaveBeenCalledWith({});
+
+    await user.click(screen.getByTestId('viewcube-menu-trigger'));
+    await user.click(screen.getByTestId('viewcube-menu-zoom-window'));
+    expect(run).toHaveBeenCalledWith('View.WindowArea');
+  });
+
+  it('opens the dock display tab from Graphics preferences', async () => {
+    const user = userEvent.setup();
+    render(<ViewCube viewport={fakeViewport().viewport} displaySettings={displaySettings()} />);
+    await user.click(screen.getByTestId('viewcube-menu-trigger'));
+    await user.click(screen.getByTestId('viewcube-menu-graphics'));
     expect(usePartStudioStore.getState().dock).toEqual({ activeTab: 'display', isOpen: true });
+  });
+
+  it('applies a trimetric direction when a cube corner hotspot is clicked', async () => {
+    const user = userEvent.setup();
+    const fake = fakeViewport(ISO_ROTATION);
+    render(<ViewCube viewport={fake.viewport} />);
+    await user.click(screen.getByTestId('viewcube-corner-front-top-right'));
+    expect(fake.setRotation).toHaveBeenCalledTimes(1);
   });
 });

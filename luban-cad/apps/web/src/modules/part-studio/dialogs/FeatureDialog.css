@@ -292,7 +292,58 @@
   cursor: not-allowed;
 }
 
-/* ── 面域多选 chips（M6-c T3：Onshape「面和草图面域」多选语义）───────────── */
+/* ── Onshape「要拉伸的面和草图面域」字段（2026-11-02 live）─────────────── */
+/* 无下拉/无列表：草图自动取最近一张，面域在视口中点击；字段本体只承载 chips。 */
+.part-studio-feature-dialog__profile-field {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-block-size: 24px;
+  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+}
+
+.part-studio-feature-dialog__profile-field:has(.part-studio-feature-dialog__profile-chip) {
+  border-color: var(--iui-color-text-accent);
+  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+}
+
+.part-studio-feature-dialog__profile-empty {
+  color: var(--iui-color-text-muted);
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-feature-dialog__profile-chip {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 1px var(--iui-size-xs);
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  font-size: var(--iui-font-size-0);
+  cursor: pointer;
+}
+
+/* 悬停反馈门到 enabled（既有 chip 家族同口径）。 */
+.part-studio-feature-dialog__profile-chip:enabled:hover {
+  background: var(--iui-color-background-hover);
+}
+
+.part-studio-feature-dialog__profile-chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* ── 面域多选 chips（M6-c T3；2026-11-02 起被视口拾取字段顶替，样式留作
+ * 历史 aria 语义测试/潜在回退）──────────────────────────────────────────── */
 .part-studio-feature-dialog__region-picker {
   display: flex;
   flex-direction: column;

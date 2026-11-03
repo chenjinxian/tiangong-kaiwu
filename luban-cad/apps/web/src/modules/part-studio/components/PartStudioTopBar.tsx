@@ -33,29 +33,16 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   Avatar,
-  Button,
-  Header,
-  HeaderBreadcrumbs,
-  HeaderButton,
-  HeaderLogo,
-  IconButton,
   MenuItem,
   DropdownMenu,
 } from '@itwin/itwinui-react';
-import {
-  SvgCheckmark,
-  SvgChevronLeft,
-  SvgHelpCircularHollow,
-  SvgNamedVersionAdd,
-  SvgRedo,
-  SvgShare,
-  SvgUndo,
-} from '@itwin/itwinui-icons-react';
+import { SvgCheckmark } from '@itwin/itwinui-icons-react';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
 import { ShareDocumentDialog, type DocumentMode, type DocumentSummary } from '@modules/documents';
 import { useTheme } from '@app/providers/ThemeContext.js';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import { DocumentMenuBar } from './DocumentMenuBar.js';
 
 export interface PartStudioTopBarProps {
@@ -96,13 +83,6 @@ export function PartStudioTopBar({
   mode,
   canManageShare = false,
   canManageDocument = false,
-  canUndo = false,
-  canRedo = false,
-  hasUnsavedChanges = false,
-  canSaveVersion,
-  onUndo,
-  onRedo,
-  onSave,
 }: PartStudioTopBarProps): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -170,19 +150,17 @@ export function PartStudioTopBar({
 
   return (
     <>
-      <Header
-      className="part-studio-top-bar"
-      data-testid="part-studio-top-bar"
-      appLogo={
-        <>
-          <HeaderLogo
-            logo={<div className="part-studio-logo-mark">LC</div>}
+      <header className="part-studio-top-bar" data-testid="part-studio-top-bar">
+        <div className="part-studio-top-bar__leading">
+          <button
+            type="button"
+            className="part-studio-brand"
+            aria-label={t('common.app.name')}
             onClick={() => navigate('/documents')}
           >
-            {t('common.app.name')}
-          </HeaderLogo>
-          {/* 汉堡文档菜单（os-24：品牌右侧、文档名之前）；B 文档名=iModel 名，
-              重命名走 ImodelsClient.update（P2.1 F5 承接）。 */}
+            <span className="part-studio-logo-mark" aria-hidden="true">鲁</span>
+            <span className="part-studio-brand__name">{t('common.app.name')}</span>
+          </button>
           <DocumentMenuBar
             iTwinId={iTwinId}
             iModelId={iModelId}
@@ -190,120 +168,124 @@ export function PartStudioTopBar({
             documentName={mode === 'B' ? imodelName : itwinName}
             canManage={canManageDocument}
           />
-        </>
-      }
-      breadcrumbs={
-        <HeaderBreadcrumbs
-          items={[
-            <HeaderButton
-              key="documents"
-              name={t('partStudio.topBar.breadcrumb.documents')}
+          <div className="part-studio-crumbs" aria-label={t('partStudio.topBar.breadcrumb.label')}>
+            <button
+              type="button"
+              className="part-studio-crumb"
               onClick={() => navigate('/documents')}
-              startIcon={<SvgChevronLeft />}
-            />,
-            <HeaderButton
-              key="itwin"
-              name={itwinName}
-              onClick={() => navigate(`/documents/${iTwinId}`)}
-            />,
-            <HeaderButton key="imodel" name={imodelName} isActive />,
-            // 分支徽标（os-11：文档名右侧 pill；非导航项，作面包屑末位装饰）。
-            <span key="branch" className="part-studio-branch-pill">
-              {t('partStudio.topBar.branch.main')}
-            </span>,
-          ]}
-        />
-      }
-      actions={[
-        // 撤销/重做/保存版本三钮组（M4-T4，os-11 操作簇头部）：状态由页面层
-        // useUndoRedo（BriefcaseTxns 标准通道）驱动——undo/redo 点击投标准工具
-        // 'Undo'/'Redo'（viewer 注册表在册、快捷键同源）；第三钮 M4-T7 演进为
-        // 「保存版本」入口，B-model P0 Task 5 起开 Named Version 对话框
-        //（canSaveVersion 门；props 缺省 = 未接线，三钮诚实禁用）。
-        <IconButton
-          key="undo"
-          label={t('partStudio.topBar.edit.undo')}
-          styleType="borderless"
-          className="part-studio-edit-button"
-          disabled={!canUndo}
-          onClick={onUndo}
-          data-testid="part-studio-undo-button"
-        >
-          <SvgUndo />
-        </IconButton>,
-        <IconButton
-          key="redo"
-          label={t('partStudio.topBar.edit.redo')}
-          styleType="borderless"
-          className="part-studio-edit-button"
-          disabled={!canRedo}
-          onClick={onRedo}
-          data-testid="part-studio-redo-button"
-        >
-          <SvgRedo />
-        </IconButton>,
-        <IconButton
-          key="save"
-          label={t('partStudio.topBar.edit.saveVersion')}
-          styleType="borderless"
-          className="part-studio-edit-button"
-          disabled={!(canSaveVersion ?? hasUnsavedChanges)}
-          onClick={onSave}
-          data-testid="part-studio-save-button"
-        >
-          <SvgNamedVersionAdd />
-        </IconButton>,
-        // 分享（T7）：复用 documents 模块 ShareDocumentDialog（经 @modules/documents
-        // barrel）——共享当前文档（iTwin）成员/邀请/链接三页签。
-        <Button
-          key="share"
-          size="small"
-          styleType="high-visibility"
-          startIcon={<SvgShare />}
-          className="part-studio-share-button"
-          // F1/F2：mode 未定 → 禁用；B 文档分享管理 = iTwin manage（服务端口径），
-          // 仅 iModel Manage 的受让人不得看到必然 403 的分享管理入口。
-          disabled={!shareDoc || (mode === 'B' && !canManageShare)}
-          data-testid="part-studio-share-button"
-          onClick={() => setShareOpen(true)}
-        >
-          {t('partStudio.topBar.share')}
-        </Button>,
-        <IconButton
-          key="help"
-          label={t('partStudio.topBar.help')}
-          styleType="borderless"
-        >
-          <SvgHelpCircularHollow />
-        </IconButton>,
-        <DropdownMenu
-          key="user-menu"
-          menuItems={[
-            <MenuItem key="account" onClick={() => navigate('/settings')}>
-              {t('partStudio.topBar.userMenu.account')}
-            </MenuItem>,
-            <MenuItem
-              key="theme-toggle"
-              onClick={toggleTheme}
-              startIcon={theme === 'dark' ? <SvgCheckmark /> : undefined}
             >
-              {t('partStudio.topBar.userMenu.darkMode')}
-            </MenuItem>,
-            <MenuItem key="logout" onClick={() => void handleLogout()}>
-              {t('partStudio.topBar.userMenu.logout')}
-            </MenuItem>,
-          ]}
-        >
-          <IconButton label={t('partStudio.topBar.userMenu.open')} styleType="borderless">
-            <Avatar
-              title={user?.name || user?.email}
-              abbreviation={(user?.name?.slice(0, 2) || user?.email?.slice(0, 2) || 'U').toUpperCase()}
-              image={user?.avatar ? <img src={user.avatar} alt="" /> : undefined}
-            />
-          </IconButton>
-        </DropdownMenu>,
-      ]}
-      />
+              {t('partStudio.topBar.breadcrumb.documents')}
+            </button>
+            <span className="part-studio-crumb__sep" aria-hidden="true">/</span>
+            <button
+              type="button"
+              className="part-studio-crumb"
+              onClick={() => navigate(`/documents/${iTwinId}`)}
+            >
+              {itwinName}
+            </button>
+            <span className="part-studio-crumb__sep" aria-hidden="true">/</span>
+          </div>
+          <div className="part-studio-doc-heading">
+            <button
+              type="button"
+              className="part-studio-doc-title"
+              onClick={() => navigate(`/documents/${iTwinId}`)}
+            >
+              {imodelName || itwinName}
+            </button>
+            <span className="part-studio-branch-pill">
+              {t('partStudio.topBar.branch.main')}
+            </span>
+            <button
+              type="button"
+              className="part-studio-doc-action"
+              aria-label={t('partStudio.topBar.copyLink')}
+              title={t('partStudio.topBar.copyLink')}
+              onClick={() => void navigator.clipboard?.writeText(window.location.href)}
+            >
+              <OnshapeIcon name="document-links" size={20} />
+            </button>
+            <span className="part-studio-doc-kind" aria-hidden="true">
+              <OnshapeIcon name="public" size={16} />
+            </span>
+          </div>
+        </div>
+        <div className="part-studio-top-bar__actions">
+          <button
+            type="button"
+            className="part-studio-topbar-placeholder part-studio-topbar-explore"
+            aria-label={t('partStudio.topBar.explore')}
+            title={t('partStudio.topBar.explore')}
+          >
+            <OnshapeIcon name="explore-onshape" size={18} />
+            <span>{t('partStudio.topBar.explore')}</span>
+          </button>
+          <button
+            type="button"
+            className="part-studio-topbar-placeholder"
+            aria-label={t('partStudio.topBar.appStore')}
+            title={t('partStudio.topBar.appStore')}
+          >
+            <OnshapeIcon name="navbar-app-store" size={20} />
+          </button>
+          <button
+            type="button"
+            className="part-studio-topbar-placeholder"
+            aria-label={t('partStudio.topBar.learningCenter')}
+            title={t('partStudio.topBar.learningCenter')}
+          >
+            <OnshapeIcon name="navbar-learning-center" size={20} />
+          </button>
+          <button
+            type="button"
+            className="part-studio-share-button"
+            disabled={!shareDoc || (mode === 'B' && !canManageShare)}
+            data-testid="part-studio-share-button"
+            onClick={() => setShareOpen(true)}
+          >
+            {t('partStudio.topBar.share')}
+          </button>
+          <button
+            type="button"
+            className="part-studio-topbar-placeholder part-studio-topbar-help"
+            aria-label={t('partStudio.topBar.help')}
+            title={t('partStudio.topBar.help')}
+          >
+            <OnshapeIcon name="navbar-help" size={20} />
+          </button>
+          <DropdownMenu
+            menuItems={[
+              <MenuItem key="account" onClick={() => navigate('/settings')}>
+                {t('partStudio.topBar.userMenu.account')}
+              </MenuItem>,
+              <MenuItem
+                key="theme-toggle"
+                onClick={toggleTheme}
+                startIcon={theme === 'dark' ? <SvgCheckmark /> : undefined}
+              >
+                {t('partStudio.topBar.userMenu.darkMode')}
+              </MenuItem>,
+              <MenuItem key="logout" onClick={() => void handleLogout()}>
+                {t('partStudio.topBar.userMenu.logout')}
+              </MenuItem>,
+            ]}
+          >
+            <button
+              type="button"
+              className="part-studio-user-button"
+              aria-label={t('partStudio.topBar.userMenu.open')}
+            >
+              <span className="part-studio-user-name">{user?.name || user?.email || ''}</span>
+              <Avatar
+                title={user?.name || user?.email}
+                abbreviation={(user?.name?.slice(0, 2) || user?.email?.slice(0, 2) || 'U').toUpperCase()}
+                image={user?.avatar ? <img src={user.avatar} alt="" /> : undefined}
+              />
+            </button>
+          </DropdownMenu>
+        </div>
+      </header>
       {/* 共享对话框（T7；P2.4 B/A 分流）：B 文档 = iModel 级权限（成员/邀请，
           无链接分享；canManageShare=imodels_manage fail-closed）；A = iTwin
           成员/邀请/链接三页签（旧行为不变）。 */}

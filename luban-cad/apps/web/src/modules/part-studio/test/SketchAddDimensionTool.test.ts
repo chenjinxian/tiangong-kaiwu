@@ -5,7 +5,7 @@
  * 1 circle）+ 槽位接收判定 + 事件桥发收往返。
  *
  * 「尺寸不直接提交铁律」（M3-b 裁决 E-4）的结构面在此钉死：工具模块不导出
- * 任何提交通道，满槽只经 sketchToolEvents 发候选（SketchPanel.test.tsx 验收
+ * 任何提交通道，满槽只经 sketchToolEvents 发候选（SketchValuePopup.test 验收
  * 面板收值→提交的另一半；工具交互态归真实栈冒烟，诚实登记不覆盖）。
  */
 import { describe, expect, it, vi } from 'vitest';

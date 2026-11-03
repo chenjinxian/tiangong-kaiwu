@@ -33,13 +33,12 @@ import {
   Button,
   Dialog,
   DropdownMenu,
-  IconButton,
   LabeledSelect,
   MenuDivider,
   MenuItem,
   Text,
 } from '@itwin/itwinui-react';
-import { SvgMenu } from '@itwin/itwinui-icons-react';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
 import { RenameDocumentDialog, type DocumentMode } from '@modules/documents';
 import { isGated } from '../internal/capabilities.js';
@@ -193,13 +192,14 @@ export function DocumentMenuBar({
   return (
     <>
       <DropdownMenu menuItems={menuItems} className="document-menu-bar">
-        <IconButton
-          label={t('partStudio.documentMenu.open')}
-          styleType="borderless"
+        <button
+          type="button"
+          aria-label={t('partStudio.documentMenu.open')}
+          title={t('partStudio.documentMenu.open')}
           className="document-menu-bar__trigger"
         >
-          <SvgMenu />
-        </IconButton>
+          <OnshapeIcon name="hamburger-button" size={20} />
+        </button>
       </DropdownMenu>
 
       {/* 重命名文档：复用 documents 模块对话框（跨模块 barrel 消费；doc 经

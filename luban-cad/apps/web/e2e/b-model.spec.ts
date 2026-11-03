@@ -196,7 +196,8 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   expect(createPosts[0]!.body ?? '').toContain(docName);
 
   const tabStrip = page.getByTestId('part-studio-tab-strip');
-  const tabs = tabStrip.getByRole('tab');
+  // Onshape 底栏首项是文档级页签（无 data-studio-id）；Part Studio 页签单独计数。
+  const tabs = tabStrip.locator('[data-studio-id]');
   await expect(tabs).toHaveCount(1, { timeout: 60_000 });
   await expect(tabStrip.locator(`[data-studio-id="${firstScopeId}"]`)).toHaveAttribute(
     'aria-selected',
@@ -223,13 +224,12 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   await page.getByRole('button', { name: '草图', exact: true }).click();
   const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(sketchDialog).toBeVisible();
-  await sketchDialog.getByRole('combobox', { name: '草图平面' }).selectOption({ label: '上视' });
+  await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
+ await page.getByRole('option', { name: '上视' }).click();
   await sketchDialog.getByRole('button', { name: '确认' }).click();
-  // 提交双通道：成功=「退出草图」现身；拒收=对话框 alert（原文抛出）。
+  // 提交双通道：成功=草图工具条变身（同一草图对话框保持打开）；拒收=对话框 alert。
   await expect(
-    page
-      .getByTestId('part-studio-ribbon')
-      .getByRole('button', { name: '退出草图' })
+    page.getByRole('toolbar', { name: '草图工具' })
       .or(sketchDialog.getByTestId('part-studio-sketch-dialog-error')),
   ).toBeVisible({ timeout: 60_000 });
   if ((await sketchDialog.getByTestId('part-studio-sketch-dialog-error').count()) > 0) {
@@ -246,41 +246,33 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   await expect(featureCount).toHaveText('(5)', { timeout: 60_000 });
   await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
 
-  // 线（2 击）+ 3 点弧（3 击）：按 Top 平面世界点投影点击，闭环由构造保证
-  //（2026-11-02 进入草图自动按平面定向后，旧的固定像素假设失效）。
+  // 拐角矩形（2 击）：按 Top 平面世界点投影点击。B 链验证的是文档/特征
+  // 生命周期；矩形自带闭合环，保证单面域可拉伸（线+弧闭环的端点贴合
+  // 由 tutorial2-tools 绘制/约束用例单独覆盖）。
   const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas boundingBox 不可得（视口未挂载？）');
   const hub = { x: box.x, y: box.y };
-  const lineA = { x: -100, y: 0, z: 0 };
-  const lineB = { x: 100, y: 0, z: 0 };
-  const arcMid = { x: 0, y: -80, z: 0 };
   // 钉一次 Top + 已知 volume，保证 worldToView 投影与工具事件映射一致。
   await setStandardView(page, 0, {
     low: { x: -200, y: -200, z: -100 },
     high: { x: 200, y: 200, z: 100 },
   });
   await disableSnap(page);
-  const lineButton = sketchToolbar.getByRole('button', { name: '线', exact: true });
-  const arcButton = sketchToolbar.getByRole('button', { name: '圆弧', exact: true });
-  await lineButton.click();
-  await expect(lineButton).toHaveAttribute('aria-pressed', 'true');
-  await clickWorld(page, hub, lineA);
-  await clickWorld(page, hub, lineB);
-  await page.waitForTimeout(2_000);
-  await arcButton.click();
-  await expect(arcButton).toHaveAttribute('aria-pressed', 'true');
-  await clickWorld(page, hub, lineB); // 弧起点=线终点
-  await clickWorld(page, hub, lineA); // 弧终点=线起点（闭环）
-  await clickWorld(page, hub, arcMid); // 弧上点外凸
+  const rectButton = sketchToolbar.getByRole('button', { name: '拐角矩形', exact: true });
+  await rectButton.click();
+  await expect(rectButton).toHaveAttribute('aria-pressed', 'true');
+  await clickWorld(page, hub, { x: -100, y: -80, z: 0 });
+  await clickWorld(page, hub, { x: 100, y: 80, z: 0 });
   await page.waitForTimeout(2_000);
 
-  await page.getByTestId('part-studio-ribbon').getByRole('button', { name: '退出草图' }).click();
+  await sketchDialog.getByRole('button', { name: '确认' }).click();
+  await expect(sketchDialog).toBeHidden({ timeout: 30_000 });
   await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible();
 
   await page.getByRole('button', { name: '拉伸', exact: true }).click();
   await expect(featureDialog).toBeVisible();
-  await featureDialog.getByRole('combobox', { name: '草图' }).selectOption({ label: '草图 1' });
+  // Onshape 同款：草图自动取最近一张，单面域自动选中 → 字段直接出现 chip。
   await expect(featureDialog.getByText('草图 1 的面', { exact: true })).toBeVisible({
     timeout: 20_000,
   });
@@ -363,7 +355,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
 
   // ── 6) Named Version（顶栏保存版本）→ 版本历史 ────────────────────────
   const versionName = `E2E B Chain V ${Date.now()}`;
-  const saveButton = page.getByTestId('part-studio-save-button');
+  const saveButton = page.getByTestId('part-studio-panel-rail-create-version');
   await expect(saveButton).toBeEnabled({ timeout: 30_000 });
   await saveButton.click();
   const versionDialog = page.getByRole('dialog', { name: '保存版本' });
@@ -372,7 +364,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   await versionDialog.getByRole('button', { name: '保存', exact: true }).click();
   await expect(page.getByText('版本已保存')).toBeVisible({ timeout: 90_000 });
   await expect(saveButton).toBeEnabled({ timeout: 30_000 });
-  await page.getByTestId('part-studio-dock').getByRole('tab', { name: '版本历史' }).click();
+  await page.getByTestId('part-studio-panel-rail-history').click();
   await expect(
     page.getByTestId('part-studio-named-versions').getByText(versionName),
   ).toBeVisible({ timeout: 30_000 });
@@ -437,9 +429,9 @@ test.describe('A 旧文档只读', () => {
       await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
     }
     await expect(page.getByTestId('part-studio-new-tab-button')).toBeDisabled();
-    await expect(page.getByTestId('part-studio-save-button')).toBeDisabled();
-    await expect(page.getByTestId('part-studio-undo-button')).toBeDisabled();
-    await expect(page.getByTestId('part-studio-redo-button')).toBeDisabled();
+    await expect(page.getByTestId('part-studio-panel-rail-create-version')).toBeDisabled();
+    await expect(page.getByTestId('part-studio-ribbon-undo')).toBeDisabled();
+    await expect(page.getByTestId('part-studio-ribbon-redo')).toBeDisabled();
 
     // 读面交互仍可用（文档菜单开合——只读页完整 UI 面）。
     await page.getByRole('button', { name: '文档菜单' }).click();

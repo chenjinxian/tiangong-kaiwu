@@ -10,7 +10,26 @@
   block-size: 100vh;
   background: var(--lx-backdrop);
   color: var(--iui-color-text);
+  font-family: "Open Sans", "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
   overflow: hidden;
+}
+
+/* Onshape 工作区：40px 面板选择条贯穿全高，右侧列 = 工具栏 + 主体 + 页签。 */
+.part-studio-workspace {
+  flex: 1;
+  min-block-size: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+.part-studio-workspace__main {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .part-studio-body {
@@ -27,18 +46,46 @@
   flex-direction: row;
 }
 
-/* ── 顶栏 ─────────────────────────────────────────────────────────── */
+/* ── 顶栏（2026-11-02 Onshape live：40px / 22px 文档名 / 右操作簇）────── */
 .part-studio-top-bar {
   flex-shrink: 0;
-  border-block-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  block-size: 40px;
+  padding: 0;
+  border-block-end: none;
+  background: #eaeaea;
 }
 
-/* iTwinUI header-brand-icon 槽为 24×24：logo 必须同尺寸（DocumentsPage 同口径）。
- * 底色走 --lx-brand-gradient 品牌渐变令牌（T3-① 令牌化收口：组件层禁裸色值）。 */
+.part-studio-top-bar__leading {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-inline-size: 0;
+  flex: 1;
+  gap: 0;
+}
+
+.part-studio-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  inline-size: 139px;
+  min-inline-size: 139px;
+  block-size: 40px;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text);
+  cursor: pointer;
+}
+
 .part-studio-logo-mark {
   inline-size: 24px;
   block-size: 24px;
-  border-radius: var(--iui-border-radius-1);
+  border-radius: 6px;
   background: var(--lx-brand-gradient);
   color: var(--iui-color-white);
   display: flex;
@@ -46,77 +93,296 @@
   justify-content: center;
   font-weight: 800;
   font-size: 10px;
+  line-height: 1;
 }
 
-/* 分支徽标（os-11：文档名右侧 pill）。 */
-.part-studio-branch-pill {
-  align-self: center;
-  padding: 1px var(--iui-size-xs);
-  border-radius: var(--iui-border-radius-1);
-  border: 1px solid var(--iui-color-border);
-  background: var(--iui-color-background);
-  color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-0);
-  line-height: var(--iui-size-m);
+.part-studio-brand__name {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
   white-space: nowrap;
 }
 
-/* 分享钮（os-11/V3）：iTwinUI Header actions 槽会把钮体拉伸到满高——限高
- * （--lx-control-height 32px 控件带，os-01 按钮几何实证）+ 圆角回正（D2 收口：
- * 不再是全高直角方块）。 */
+.part-studio-top-bar__leading .document-menu-bar__trigger {
+  inline-size: 32px;
+  block-size: 40px;
+  min-inline-size: 32px;
+  min-block-size: 40px;
+  margin-inline-end: 0;
+  border-radius: 0;
+}
+
+.part-studio-top-bar__leading .document-menu-bar__trigger svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+/* Onshape 顶栏只呈现文档名；项目路径保留在可访问树（测试/键盘可达），视觉隐藏。 */
+.part-studio-crumbs {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.part-studio-crumb {
+  max-inline-size: 140px;
+  overflow: hidden;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--iui-color-text-muted);
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.part-studio-crumb:hover {
+  color: var(--iui-color-text);
+  text-decoration: underline;
+}
+
+.part-studio-crumb__sep {
+  color: var(--iui-color-border, #c3c6c9);
+}
+
+.part-studio-doc-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-inline-size: 0;
+  block-size: 40px;
+  margin-inline-start: 0;
+}
+
+.part-studio-doc-title {
+  max-inline-size: 308px;
+  overflow: hidden;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #333333;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 37px;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.part-studio-branch-pill {
+  align-self: center;
+  padding: 0 4px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #999999;
+  font-size: 16px;
+  line-height: 28px;
+  white-space: nowrap;
+}
+
+.part-studio-doc-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #666666;
+  cursor: pointer;
+}
+
+.part-studio-doc-action:hover {
+  background: #f0f0f0;
+}
+
+.part-studio-doc-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 22px;
+  block-size: 23px;
+  margin-inline-start: 6px;
+}
+
+.part-studio-top-bar__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.part-studio-topbar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-topbar-placeholder:hover {
+  background: #f0f0f0;
+}
+
+.part-studio-topbar-explore {
+  inline-size: 115px;
+  block-size: 30px;
+  align-self: center;
+  gap: 6px;
+  margin-inline: 4px 32px;
+  border: 1px solid #d7d7d7;
+  border-radius: 3px;
+  font-size: 14px;
+  color: #333333;
+}
+
+.part-studio-topbar-explore span {
+  white-space: nowrap;
+}
+
+.part-studio-topbar-help {
+  inline-size: 47px;
+}
+
 .part-studio-share-button {
   align-self: center;
-  block-size: var(--lx-control-height);
-  padding-inline: var(--iui-size-s);
-  border-radius: var(--lx-radius);
-  margin-inline-end: var(--iui-size-2xs);
+  inline-size: 51px;
+  block-size: 34px;
+  margin-inline: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: #1651b0;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
 }
 
-/* 撤销/重做/保存三钮组（M4-T4，os-11 操作簇头部）：钮间呼吸感。 */
-.part-studio-edit-button {
-  margin-inline-end: var(--iui-size-3xs);
+.part-studio-share-button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
-/* ── 左栏：窄图标条 + 双段树 ───────────────────────────────────────── */
+.part-studio-user-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  block-size: 40px;
+  padding: 0 8px 0 4px;
+  border: none;
+  background: transparent;
+  color: #333333;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.part-studio-user-name {
+  max-inline-size: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-user-button .iui-avatar {
+  inline-size: 24px;
+  block-size: 24px;
+  font-size: 10px;
+}
+
+/* ── 左侧 40px 面板选择条（Onshape live：39×31 钮 / 35px 步距）─────── */
+.part-studio-panel-rail {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  inline-size: 40px;
+  padding-block: 1px 0;
+  background: #ffffff;
+}
+
+.part-studio-panel-rail__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 39px;
+  block-size: 31px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-panel-rail__button:hover:not(:disabled) {
+  background: #e5e5e5;
+}
+
+.part-studio-panel-rail__button--active {
+  background: #d7e7f7;
+}
+
+.part-studio-panel-rail__button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.part-studio-panel-rail__bottom {
+  margin-block-start: auto;
+}
+
+/* ── 左栏：200px 树面板（Onshape 面板选择条独立在 PartStudioPanelRail）── */
 .part-studio-sidebar {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  border-inline-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
-  background: var(--iui-color-background);
-}
-
-.part-studio-icon-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--iui-size-2xs);
-  padding: var(--iui-size-2xs);
-  border-inline-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
-}
-
-.part-studio-icon-rail__button {
-  inline-size: 32px;
-  block-size: 32px;
-}
-
-.part-studio-icon-rail__button--active {
-  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
-  color: var(--iui-color-text-accent);
+  border-inline-end: none;
+  box-shadow: inset -1px 0 0 #d7d7d7;
+  background: #ffffff;
 }
 
 .part-studio-tree {
-  inline-size: 240px;
+  inline-size: var(--lx-tree-width, 200px);
   overflow-y: auto;
-  padding: var(--iui-size-2xs);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--iui-size-2xs);
+  gap: 0;
+  color: #383d41;
+  font-size: var(--lx-tree-font-size, 13px);
+  line-height: 20px;
 }
 
 .part-studio-tree__section {
   display: flex;
   flex-direction: column;
+}
+
+.part-studio-tree__section + .part-studio-tree__section {
+  margin-block-start: 4px;
+  padding-block-start: 4px;
+  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
 }
 
 .part-studio-tree__section-header {
@@ -125,23 +391,30 @@
   align-items: center;
   gap: var(--iui-size-2xs);
   inline-size: 100%;
-  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  block-size: 30px;
+  padding: 0 4px;
   border: none;
   background: transparent;
   color: var(--iui-color-text);
   font: inherit;
-  font-weight: 600;
+  font-size: var(--lx-tree-font-size, 13px);
+  font-weight: 500;
   cursor: pointer;
   border-radius: var(--iui-border-radius-1);
 }
 
+.part-studio-tree__section-header svg {
+  inline-size: 12px;
+  block-size: 12px;
+}
+
 .part-studio-tree__section-header:hover {
-  background: var(--iui-color-background-hover);
+  background: var(--lx-tree-row-hover, #def1fb);
 }
 
 .part-studio-tree__list {
   margin: 0;
-  padding: 0 0 0 var(--iui-size-l);
+  padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -149,9 +422,10 @@
 
 .part-studio-tree__empty,
 .part-studio-tree__part {
-  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  padding: 0 4px;
   color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-0);
+  font-size: var(--lx-tree-font-size, 13px);
+  line-height: var(--lx-tree-row-height, 26px);
 }
 
 /* M4-T6 六态完备：loading 骨架（双条呼吸）+ error 就地错误条（重试钮）。 */
@@ -298,31 +572,48 @@
 }
 
 /* ── 右停靠 ───────────────────────────────────────────────────────── */
+/* Onshape 右缘：浮动工具面板条（不占布局宽），panel body 向左浮出。 */
 .part-studio-dock {
+  position: relative;
   flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  border-inline-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
-  background: var(--iui-color-background);
+  inline-size: 0;
 }
 
 .part-studio-dock__tabs {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 10px;
+  z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: var(--iui-size-2xs);
-  padding: var(--iui-size-2xs);
+  align-items: center;
+  gap: 3px;
+  inline-size: 34px;
+  padding: 4px;
+  border: 1px solid var(--iui-color-border);
+  border-radius: 5px;
+  background: var(--iui-color-background);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  transform: translateY(-50%);
 }
 
 .part-studio-dock__tab {
-  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
   border: none;
-  border-radius: var(--iui-border-radius-1);
+  border-radius: 3px;
   background: transparent;
   color: var(--iui-color-text-muted);
-  font: inherit;
-  font-size: var(--iui-font-size-0);
   cursor: pointer;
-  white-space: nowrap;
+}
+
+.part-studio-dock__tab svg {
+  inline-size: 16px;
+  block-size: 16px;
 }
 
 .part-studio-dock__tab:hover {
@@ -331,101 +622,170 @@
 }
 
 .part-studio-dock__tab--active {
-  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
-  color: var(--iui-color-text-accent);
+  background: #e5f2fb;
+  color: #0084d5;
 }
 
 .part-studio-dock__body {
+  position: absolute;
+  inset-block-start: 12px;
+  inset-inline-end: 52px;
+  z-index: 29;
   inline-size: 280px;
-  padding: var(--iui-size-m);
-  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  max-block-size: calc(100% - 24px);
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--iui-color-border);
+  border-radius: 4px;
+  background: var(--iui-color-background);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 
-/* ── 底部页签条 + 状态栏 ──────────────────────────────────────────── */
+/* ── 底部页签条（2026-11-02 Onshape live：30px 灰底 / 200px 文档级页签）──── */
 .part-studio-tab-strip {
+  position: relative;
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  align-items: center;
-  gap: var(--iui-size-xs);
-  padding: 0 var(--iui-size-xs);
-  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
-  background: var(--iui-color-background);
+  align-items: stretch;
+  block-size: 30px;
+  padding: 0;
+  border-block-start: none;
+  background: #d7d7d7;
 }
 
-.part-studio-tab-strip__actions {
+.part-studio-tab-strip__controls {
   display: flex;
-  flex-direction: row;
   align-items: center;
+  justify-content: center;
+  inline-size: 34px;
+  flex-shrink: 0;
+}
+
+.part-studio-tab-strip__new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 26px;
+  block-size: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-tab-strip__new:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.part-studio-tab-strip__new:disabled {
+  opacity: 0.4;
 }
 
 .part-studio-tab-strip__tabs {
   display: flex;
   flex-direction: row;
   align-items: stretch;
+  padding-inline-start: 5px;
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.part-studio-tab-strip__tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .part-studio-tab {
-  padding: var(--iui-size-xs) var(--iui-size-m);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  inline-size: 200px;
+  min-inline-size: 200px;
+  block-size: 27px;
+  margin: 1px 2px 0 0;
+  padding: 0 10px;
   border: none;
-  border-block-start: 2px solid transparent;
-  background: transparent;
-  color: var(--iui-color-text-muted);
+  background: #eaeaea;
+  color: #666666;
   font: inherit;
-  font-size: var(--iui-font-size-0);
+  font-size: 14px;
+  line-height: 1;
   cursor: pointer;
   white-space: nowrap;
 }
 
+.part-studio-tab:hover {
+  background: #f2f2f2;
+}
+
 .part-studio-tab--active {
-  color: var(--iui-color-text);
-  font-weight: 600;
-  border-block-start-color: var(--iui-color-text-accent);
-  background: var(--iui-color-background-accent-muted, transparent);
+  color: #333333;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
-.part-studio-status-bar {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--iui-size-l);
-  padding: 1px var(--iui-size-m);
-  border-block-start: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
-  background: var(--lx-backdrop);
-  color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-0);
-  line-height: var(--iui-size-m);
+.part-studio-tab--document {
+  color: #666666;
 }
 
-.part-studio-status-bar__item {
+.part-studio-tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-tab-strip__menu {
   display: inline-flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--iui-size-2xs);
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  margin: 2px 4px 0 auto;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #555555;
+  opacity: 0;
+  cursor: pointer;
 }
 
-.part-studio-status-bar__label {
-  color: var(--iui-color-text-disabled, var(--iui-color-text-muted));
+.part-studio-tab-strip:hover .part-studio-tab-strip__menu,
+.part-studio-tab-strip__menu:focus-visible {
+  opacity: 1;
 }
 
-.part-studio-status-bar__value {
-  color: var(--iui-color-text);
-  font-variant-numeric: tabular-nums;
+.part-studio-tab-strip__menu svg {
+  inline-size: 14px;
+  block-size: 14px;
 }
 
-/* ── 工具 ribbon（os-11 第二行：分组工具条 + 右端命令搜索触发钮）────────── */
+.part-studio-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── 工具 ribbon（2026-11-02 Onshape live：36px / 32×32 / 2px 分隔 / 20px 图标）── */
 .part-studio-ribbon {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  align-items: center;
-  gap: var(--iui-size-xs);
-  padding: 2px var(--iui-size-xs);
-  border-block-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
-  background: var(--iui-color-background);
-  overflow-x: auto;
+  align-items: stretch;
+  gap: 0;
+  block-size: 36px;
+  padding: 0;
+  border-block-end: none;
+  background: #ffffff;
+  overflow: hidden;
 }
 
 .part-studio-ribbon__groups {
@@ -433,37 +793,95 @@
   min-inline-size: 0;
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
+  block-size: 36px;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.part-studio-ribbon__groups::-webkit-scrollbar {
+  display: none;
 }
 
 .part-studio-ribbon__group {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 1px;
-  padding: 0 var(--iui-size-2xs);
-  border-inline-end: 1px solid var(--iui-color-border-subtle, var(--iui-color-border));
+  gap: 2px;
+  block-size: 36px;
+  padding: 0 2px 0 1px;
+  border-inline-start: 2px solid #d7d7d7;
 }
 
-.part-studio-ribbon__group:last-child {
-  border-inline-end: none;
+.part-studio-ribbon__group:first-child {
+  border-inline-start: none;
 }
 
-/* 工具钮：激活态（store tool.activeToolId）+ 命令搜索亮显态（os-23）。 */
+.part-studio-ribbon__group--history {
+  padding-inline: 2px;
+}
+
+.part-studio-ribbon__tool,
+.part-studio-ribbon__dropdown > button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 32px;
+  min-inline-size: 32px;
+  min-block-size: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-ribbon__tool:hover:not(:disabled),
+.part-studio-ribbon__dropdown > button:hover:not(:disabled) {
+  background: #e5e5e5;
+}
+
+.part-studio-ribbon__tool:disabled,
+.part-studio-ribbon__dropdown > button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.part-studio-ribbon__tool svg,
+.part-studio-ribbon__dropdown > button svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-ribbon__tool--labeled {
+  inline-size: auto;
+  min-inline-size: 68px;
+  padding-inline: 6px;
+  gap: 4px;
+}
+
+.part-studio-ribbon__tool-label {
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
 .part-studio-ribbon__tool--active {
-  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
-  color: var(--iui-color-text-accent);
+  background: #d6e6f7;
+  color: #1651b0;
 }
 
 .part-studio-ribbon__tool--highlight {
-  outline: 2px solid var(--iui-color-text-accent);
+  outline: 2px solid #1651b0;
   outline-offset: -2px;
-  border-radius: var(--iui-border-radius-1);
+  border-radius: 3px;
 }
 
-/* 「图标 + ▾」飞出菜单宿主（菜单本体=iTwinUI DropdownMenu portal 渲染，
-   样式走 iui-menu——M3 收口 C2：不再自绘绝对定位菜单，滚动容器不再裁剪）。 */
+/* 「图标 + ▾」飞出菜单宿主（菜单本体=iTwinUI DropdownMenu portal 渲染）。 */
 .part-studio-ribbon__dropdown {
   position: relative;
   display: flex;
@@ -472,51 +890,67 @@
   gap: 0;
 }
 
-.part-studio-ribbon__arrow {
-  margin-inline-start: -2px;
-  inline-size: 14px;
+.part-studio-ribbon__dropdown > .part-studio-ribbon__arrow {
+  inline-size: 18px;
+  min-inline-size: 18px;
+  block-size: 32px;
+  min-block-size: 32px;
 }
 
-/* portal 飞菜单：bottom-start 锚定箭头钮，钮底缘高于 ribbon 底缘（ribbon
-   padding）——外推 margin 使菜单完全清开 ribbon 底线（不与工具行叠压）。 */
+.part-studio-ribbon__arrow svg {
+  inline-size: 10px;
+  block-size: 6px;
+}
+
+/* portal 飞菜单：bottom-start 锚定箭头钮，外推使菜单清开工具栏。 */
 .part-studio-ribbon__menu {
-  margin-block-start: 6px;
+  margin-block-start: 2px;
 }
 
-/* 命令搜索触发钮（os-11 command-search-trigger）。 */
+/* 命令搜索触发钮（Onshape command-search-trigger：139×32 #eee，右留 138px）。 */
 .part-studio-ribbon__search-trigger {
   flex-shrink: 0;
   display: inline-flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--iui-size-2xs);
-  padding: 2px var(--iui-size-xs);
-  border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius-1);
-  background: var(--iui-color-background);
-  color: var(--iui-color-text-muted);
+  gap: 6px;
+  inline-size: 139px;
+  block-size: 32px;
+  margin: 2px 145px 2px 10px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 3px;
+  background: #eeeeee;
+  color: #333333;
   font: inherit;
-  font-size: var(--iui-font-size-0);
+  font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
 }
 
+.part-studio-ribbon__search-trigger > span {
+  flex: 1;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+}
+
 .part-studio-ribbon__search-trigger:hover {
-  background: var(--iui-color-background-hover);
-  color: var(--iui-color-text);
+  background: #e0e0e0;
 }
 
 .part-studio-ribbon__search-icon {
-  inline-size: 14px;
-  block-size: 14px;
+  flex-shrink: 0;
+  inline-size: 16px;
+  block-size: 16px;
 }
 
 .part-studio-ribbon__search-kbd {
-  padding: 0 4px;
-  border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius-1);
-  background: var(--iui-color-background-backdrop, transparent);
-  font-size: var(--iui-font-size-0);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #666666;
+  font-size: 12px;
   font-family: inherit;
 }
 
@@ -815,7 +1249,7 @@
   flex-direction: row;
   align-items: center;
   gap: var(--iui-size-2xs);
-  padding: 0 var(--iui-size-2xs) var(--iui-size-2xs);
+  padding: 4px 4px 4px;
 }
 
 .part-studio-tree-filter__field {
@@ -828,13 +1262,14 @@
 
 .part-studio-tree-filter__input {
   inline-size: 100%;
-  padding: var(--iui-size-2xs) var(--iui-size-m) var(--iui-size-2xs) var(--iui-size-xs);
+  block-size: 30px;
+  padding: 4px 22px 4px 6px;
   border: 1px solid var(--iui-color-border);
-  border-radius: var(--iui-border-radius-1);
+  border-radius: var(--lx-radius, 2px);
   background: var(--iui-color-background);
   color: var(--iui-color-text);
   font: inherit;
-  font-size: var(--iui-font-size-0);
+  font-size: var(--lx-tree-font-size, 13px);
 }
 
 .part-studio-tree-filter__clear {
@@ -916,8 +1351,9 @@
 .part-studio-tree__count {
   flex-shrink: 0;
   padding-inline-end: var(--iui-size-xs);
-  color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-0);
+  color: #6a6f73;
+  font-size: var(--lx-tree-font-size, 13px);
+  font-weight: 400;
 }
 
 /* 特征段头三工具钮（os-11 段头形态；D3）：计数右侧行内工具组。 */
@@ -927,6 +1363,20 @@
   flex-direction: row;
   align-items: center;
   padding-inline-end: var(--iui-size-3xs);
+}
+
+/* 段头工具钮：Onshape 12–14px 字形，20px 命中区（iTwinUI small 缺省 24 偏大）。 */
+.part-studio-tree__section-tools button {
+  inline-size: 20px;
+  block-size: 20px;
+  min-inline-size: 20px;
+  min-block-size: 20px;
+  padding: 0;
+}
+
+.part-studio-tree__section-tools button svg {
+  inline-size: 14px;
+  block-size: 14px;
 }
 
 /* 右键菜单项左置图标（os-12/os-15 V18/V20；D5）：固定宽槽对齐标签列。 */
@@ -952,19 +1402,21 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--iui-size-3xs, 2px);
+  gap: 0;
   inline-size: 100%;
-  border-radius: var(--iui-border-radius-1);
+  block-size: var(--lx-tree-row-height, 26px);
+  border-radius: 0;
 }
 
-/* 行级 hover 覆盖 eye 区（主行按钮自身 hover 仍在；下方透明化避免双层叠色）。 */
+/* 行级 hover 覆盖 eye 区（Onshape #def1fb）。 */
 .part-studio-tree-row-wrapper:hover {
-  background: var(--iui-color-background-hover);
+  background: var(--lx-tree-row-hover, #def1fb);
 }
 
-/* 选中行 hover 保持选中底色（wrapper 与主行按钮同源 accent muted）。 */
+/* 选中行底色（hover 保持；Onshape 浅蓝，文字保持正文色）。 */
+.part-studio-tree-row-wrapper:has(> .part-studio-tree-row--selected),
 .part-studio-tree-row-wrapper:has(> .part-studio-tree-row--selected):hover {
-  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  background: var(--lx-tree-row-selected, #c9e4f9);
 }
 
 .part-studio-tree-row-wrapper > .part-studio-tree-row {
@@ -976,15 +1428,31 @@
   background: transparent;
 }
 
-/* eye 常显（隐藏态沿用行淡显语义；点击走 store 会话隐藏集）。 */
+/* eye 仅行 hover/focus 可见（Onshape 20px 图标列；键盘仍可聚焦）。
+   隐藏按钮不用 display:none，保证 aria/tab 语义。 */
 .part-studio-tree-row__visibility {
   flex-shrink: 0;
-  opacity: 0.75;
+  inline-size: var(--lx-tree-icon-slot, 20px);
+  block-size: var(--lx-tree-icon-slot, 20px);
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.08s ease;
 }
 
-.part-studio-tree-row__visibility:hover,
-.part-studio-tree-row__visibility[aria-pressed='true'] {
+.part-studio-tree-row__visibility svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.part-studio-tree-row-wrapper:hover .part-studio-tree-row__visibility,
+.part-studio-tree-row-wrapper:focus-within .part-studio-tree-row__visibility {
   opacity: 1;
+}
+
+.part-studio-tree-row__visibility:hover {
+  background: transparent;
 }
 
 .part-studio-tree-row {
@@ -992,25 +1460,26 @@
   flex-direction: row;
   align-items: center;
   inline-size: 100%;
-  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  block-size: var(--lx-tree-row-height, 26px);
+  padding: 0 8px 0 0;
   border: none;
   background: transparent;
   color: var(--iui-color-text);
   font: inherit;
-  font-size: var(--iui-font-size-0);
+  font-size: var(--lx-tree-font-size, 13px);
   text-align: start;
   cursor: pointer;
-  border-radius: var(--iui-border-radius-1);
+  border-radius: 0;
 }
 
 .part-studio-tree-row:hover {
-  background: var(--iui-color-background-hover);
+  background: transparent;
 }
 
 .part-studio-tree-row--selected,
 .part-studio-tree-row--selected:hover {
-  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
-  color: var(--iui-color-text-accent);
+  background: transparent;
+  color: var(--iui-color-text);
 }
 
 /* os-11：出错特征红色显示。 */
@@ -1024,21 +1493,28 @@
   font-style: italic;
 }
 
-/* 隐藏（含画布隐藏集叠加）淡显。 */
-.part-studio-tree-row--hidden .part-studio-tree-row__name {
+/* 隐藏（含画布隐藏集叠加）淡显：图标与文字同 0.5（Onshape 行级淡显）。 */
+.part-studio-tree-row--hidden .part-studio-tree-row__name,
+.part-studio-tree-row--hidden .part-studio-tree-row__icon {
   opacity: 0.5;
 }
 
-/* M6-a T7：草图节点行图标（SvgDraw 占位，M6-c UI 1:1 按采集 SVG 再校）。 */
+/* 树类型图标槽：20px（字形 17px），与 Onshape live 采集一致。 */
 .part-studio-tree-row__icon {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  margin-inline-end: var(--iui-size-2xs);
+  inline-size: var(--lx-tree-icon-slot, 20px);
+  block-size: var(--lx-tree-icon-slot, 20px);
+  margin-inline-end: 3px;
+  margin-inline-start: 3px;
+  color: #5f6368;
 }
 
 .part-studio-tree-row__icon svg {
-  inline-size: 14px;
-  block-size: 14px;
+  inline-size: var(--lx-tree-icon-size, 17px);
+  block-size: var(--lx-tree-icon-size, 17px);
 }
 
 .part-studio-tree-row__input {
@@ -1108,20 +1584,8 @@
   cursor: not-allowed;
 }
 
-/* 栅格覆盖层（纯视觉，aria-hidden； sketch 激活时铺在 viewport 上）。 */
-.part-studio-canvas__sketch-grid {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, var(--iui-color-border-subtle, var(--iui-color-border)) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--iui-color-border-subtle, var(--iui-color-border)) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: 0.35;
-}
-
-/* 约束覆盖层（角标标签，pointer-events 穿透——画布拾取不被拦截）。 */
+/* 约束覆盖层（角标标签，pointer-events 穿透——画布拾取不被拦截）。
+   2026-11-02：Onshape 草图无屏幕栅格，原 .part-studio-canvas__sketch-grid 已删除。 */
 .part-studio-canvas__sketch-constraints {
   position: absolute;
   inset-block-end: var(--iui-size-xs);
@@ -1133,6 +1597,21 @@
   background: var(--iui-color-background);
   color: var(--iui-color-text-muted);
   font-size: var(--iui-font-size-0);
+  pointer-events: none;
+}
+
+/* 2026-11-02 Onshape live：尺寸标注 DOM 观测面（实际绘制在 canvas 装饰器）。
+   视觉隐藏（不占布局、不可见），仅暴露数量/文本给 e2e。 */
+.part-studio-canvas__sketch-annotations {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
   pointer-events: none;
 }
 
@@ -1195,53 +1674,471 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding-inline-start: var(--iui-size-s);
+  padding-inline-start: 4px;
 }
 
 .part-studio-tree__datum-header {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--iui-size-2xs);
+  gap: 4px;
   inline-size: 100%;
-  padding: var(--iui-size-2xs) var(--iui-size-xs);
+  block-size: var(--lx-tree-row-height, 26px);
+  padding: 0 4px;
   border: none;
   background: transparent;
   color: var(--iui-color-text);
   font: inherit;
-  font-weight: 600;
+  font-size: var(--lx-tree-font-size, 13px);
+  font-weight: 400;
   text-align: start;
   cursor: pointer;
-  border-radius: var(--iui-border-radius-1);
+  border-radius: 0;
+}
+
+.part-studio-tree__datum-header svg {
+  inline-size: 12px;
+  block-size: 12px;
 }
 
 .part-studio-tree__datum-header:hover {
-  background: var(--iui-color-background-hover);
+  background: transparent;
+}
+
+.part-studio-tree__datum-header-row:hover {
+  background: var(--lx-tree-row-hover, #def1fb);
 }
 
 .part-studio-tree__datum-list {
   margin: 0;
-  padding: 0 0 0 var(--iui-size-l);
+  padding: 0 0 0 var(--lx-tree-indent, 19px);
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
 }
 
 .part-studio-tree__datum-row-wrapper {
   inline-size: 100%;
+  block-size: var(--lx-tree-row-height, 26px);
 }
 
 .part-studio-tree__datum-row .part-studio-tree-row__icon {
-  color: var(--iui-color-text-muted);
+  color: var(--iui-color-text);
   display: inline-flex;
   align-items: center;
 }
 
-.part-studio-tree__datum-row[data-hidden='true'] .part-studio-tree-row__name {
-  opacity: 0.55;
+.part-studio-tree__datum-row[data-hidden='true'] .part-studio-tree-row__name,
+.part-studio-tree__datum-row[data-hidden='true'] .part-studio-tree-row__icon {
+  opacity: 0.5;
 }
 
 .part-studio-tree__datum-row[aria-current='true'] {
-  background: var(--iui-color-background-accent-muted, var(--iui-color-background-hover));
+  background: transparent;
+}
+
+.part-studio-tree__datum-row-wrapper:has(> .part-studio-tree__datum-row[aria-current='true']) {
+  background: var(--lx-tree-row-selected, #c9e4f9);
+}
+
+/* ── 特征树 Onshape live 精修（2026-11-02：13.333px / 26px 行 / 200px 面板）── */
+.part-studio-tree {
+  block-size: 100%;
+  overflow: hidden;
+  color: #333333;
+  font-size: 13.333px;
+  line-height: 20px;
+}
+
+.part-studio-tree-filter {
+  flex: 0 0 38px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 3px 0 3px;
+}
+
+.part-studio-tree-filter__help-trigger {
+  flex-shrink: 0;
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: 0;
+  color: #333333;
+}
+
+.part-studio-tree-filter__help-trigger svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-tree-filter__field {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.part-studio-tree-filter__input {
+  block-size: 30px;
+  padding: 0 22px 0 6px;
+  border: 1px solid #d7d7d7;
+  border-radius: 0;
+  background: #ffffff;
+  color: #333333;
+  font-size: 13.333px;
+}
+
+.part-studio-tree-filter__input::placeholder {
+  color: #999999;
+}
+
+.part-studio-tree-filter__clear {
+  inset-inline-end: 3px;
+  inline-size: 18px;
+  block-size: 18px;
+  font-size: 15px;
+  line-height: 1;
+  color: #666666;
+}
+
+.part-studio-tree-filter__syntax {
+  inset-block-start: calc(100% + 2px);
+  inset-inline: 0;
+}
+
+.part-studio-tree__section {
+  min-block-size: 0;
+}
+
+.part-studio-tree__section + .part-studio-tree__section {
+  margin-block-start: 0;
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+.part-studio-tree__section--features {
+  flex: 1 1 auto;
+}
+
+.part-studio-tree__section--parts {
+  flex: 0 0 278px;
+}
+
+.part-studio-tree__section-header-row {
+  flex-shrink: 0;
+  block-size: 30px;
+  gap: 0;
+}
+
+.part-studio-tree__section--parts .part-studio-tree__section-header-row {
+  block-size: 26px;
+}
+
+.part-studio-tree__section-header {
+  block-size: 100%;
+  padding: 0 0 0 4px;
+  gap: 0;
+  border-radius: 0;
+  color: #333333;
+  font-size: 13.333px;
+  font-weight: 500;
+}
+
+.part-studio-tree__section--parts .part-studio-tree__section-header {
+  padding-inline-start: 6px;
+  gap: 7px;
+  font-weight: 400;
+}
+
+.part-studio-tree__section-header:hover {
+  background: #e5f2fb;
+}
+
+.part-studio-tree__section-header > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-tree__section-header svg {
+  flex-shrink: 0;
+  inline-size: 10px;
+  block-size: 10px;
+}
+
+.part-studio-tree__count {
+  padding-inline: 0;
+  color: #333333;
+  font-size: 13.333px;
+  font-weight: 500;
+}
+
+.part-studio-tree__section--parts .part-studio-tree__count {
+  font-weight: 400;
+}
+
+.part-studio-tree__section-tools {
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.part-studio-tree__section-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 30px;
+  block-size: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-tree__section-tool:hover {
+  background: #e5e5e5;
+}
+
+.part-studio-tree__section-tool svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-tree__list {
+  flex: 1;
+  min-block-size: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.part-studio-tree-row-wrapper {
+  block-size: 26px;
+}
+
+.part-studio-tree-row-wrapper:hover {
+  background: #e5f2fb;
+}
+
+.part-studio-tree-row-wrapper:has(> .part-studio-tree-row--selected),
+.part-studio-tree-row-wrapper:has(> .part-studio-tree-row--selected):hover {
+  background: #c9e4f9;
+}
+
+.part-studio-tree-row {
+  block-size: 26px;
+  padding: 0 10px 0 6px;
+  border-radius: 0;
+  color: #333333;
+  font-size: 13.333px;
+  line-height: 20px;
+}
+
+.part-studio-tree-row__icon {
+  inline-size: 16px;
+  block-size: 16px;
+  margin-inline: 0 4px;
+  color: #333333;
+}
+
+.part-studio-tree-row__icon svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.part-studio-tree-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-tree-row__visibility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-tree-row__visibility svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.part-studio-tree__datum-header-row {
+  block-size: 26px;
+  padding-inline-start: 0;
+}
+
+.part-studio-tree__datum-header {
+  block-size: 26px;
+  padding: 0 0 0 6px;
+  gap: 7px;
+  color: #333333;
+  font-size: 13.333px;
+  font-weight: 400;
+}
+
+.part-studio-tree__datum-header svg {
+  inline-size: 10px;
+  block-size: 10px;
+}
+
+.part-studio-tree__datum-list {
+  padding-inline-start: 19px;
+}
+
+.part-studio-tree__datum-row {
+  padding-inline-start: 7px;
+}
+
+.part-studio-tree__datum-row .part-studio-tree-row__icon {
+  margin-inline-end: 3px;
+}
+
+/* ── 右缘 5 钮（Onshape live：33×34 无缝竖排，白底 1px 分隔）──────────── */
+.part-studio-dock__tabs {
+  inset-block-start: 50%;
+  inset-inline-end: 0;
+  inline-size: 33px;
+  gap: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.part-studio-dock__tab {
+  inline-size: 33px;
+  block-size: 34px;
+  border-radius: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: transparent;
+  color: #333333;
+}
+
+.part-studio-dock__tab:last-child {
+  border-block-end: none;
+}
+
+.part-studio-dock__tab svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-dock__tab:hover {
+  background: #e5e5e5;
+  color: #333333;
+}
+
+.part-studio-dock__tab--active {
+  background: #d7e7f7;
+  color: #1651b0;
+}
+
+/* 树右缘收起钮（Onshape live：x=树右+5，垂直中部，33×34 白底灰边）。 */
+.part-studio-sidebar {
+  position: relative;
+  overflow: visible;
+}
+
+.part-studio-tree-toggle {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: -38px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 33px;
+  block-size: 34px;
+  padding: 0;
+  border: 1px solid #aaaaaa;
+  border-radius: 0;
+  background: #ffffff;
+  color: #333333;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.part-studio-tree-toggle:hover {
+  background: #f0f0f0;
+}
+
+.part-studio-tree-toggle svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+/* Onshape 回滚条：特征链末尾 6px 渐变横条（UI 视觉锚点，不接拖拽行为）。 */
+.part-studio-tree__rollback {
+  list-style: none;
+  block-size: 6px;
+  margin: 5px 6px 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ffffff 0%, #9a9a9a 8%, #9a9a9a 92%, #ffffff 100%);
+}
+
+.part-studio-tree__rollback + * {
+  margin-block-start: 0;
+}
+
+/* 段头三钮精确命中区（live：30×30，标题占 100px，右侧留 10px）。 */
+.part-studio-tree__section-tools .part-studio-tree__section-tool {
+  inline-size: 30px;
+  block-size: 30px;
+  min-inline-size: 30px;
+  min-block-size: 30px;
+  padding: 0;
+}
+
+.part-studio-tree__section-tools .part-studio-tree__section-tool svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-tree__section-tools {
+  inline-size: 90px;
+  min-inline-size: 90px;
+  margin-inline-start: 0;
+}
+
+.part-studio-tree__count {
+  margin-inline-start: 3px;
+}
+
+/* 右缘工具条整体上移 8px（Onshape live 中心略高于画布中心）。 */
+.part-studio-dock__tabs {
+  transform: translateY(calc(-50% - 8px));
+}
+
+/* 工具栏组宽与 Onshape live 逐组对齐：每组 +1px 右内边距。 */
+.part-studio-ribbon__group {
+  padding-inline: 1px 3px;
+}
+
+.part-studio-ribbon__group--history {
+  padding-inline: 2px;
+}
+
+/* 特征段标题固定 100px，工具组自 x=140 起（Onshape live）。 */
+.part-studio-tree__section--features .part-studio-tree__section-header {
+  flex: 0 0 100px;
+  inline-size: 100px;
+  min-inline-size: 0;
+}
+
+/* 草图模式：工具组只占内容宽，搜索框紧跟其后（Onshape live x≈1058）。 */
+.part-studio-ribbon--sketch .part-studio-ribbon__groups {
+  flex: 0 1 auto;
+}
+
+.part-studio-ribbon--sketch .part-studio-ribbon__search-trigger {
+  margin-inline: 10px auto;
 }

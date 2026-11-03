@@ -34,9 +34,10 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { SvgCheckmark, SvgClock, SvgClose } from '@itwin/itwinui-icons-react';
 import type { FeatureOp, FeatureOpResult, SketchPlaneDto } from '@luban-cad/shared';
-import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import './SketchDialog.css';
+
+type SketchPlaneDatumId = 'top' | 'front' | 'right';
 
 /** 平面选项（下拉项寻址单位）。 */
 export interface SketchPlaneOption {
@@ -82,8 +83,17 @@ export interface SketchDialogProps {
   sketchName?: string;
   /** 活动草图 id（壳期/契约外兜底的 enterSketch 寻址；M6-a T4 起 applyOp 在场时由 RPC 真 featureId 取代）。 */
   sketchId?: string;
-  /** 平面下拉选项（缺省=缺省基准面 上视/前视/右视）。 */
+  /**
+   * 编辑既有草图（Onshape 双击树/创建后保持同一对话框）：✓ = 完成并退出草图，
+   * 不再 insertSketch；平面为落库只读值（updateSketch 契约无 plane 键）。
+   */
+  editing?: boolean;
+  /** 平面选项（缺省=缺省基准面 上视/前视/右视；选择主要来自视口/特征树）。 */
   planes?: readonly SketchPlaneOption[];
+  /** 受控平面 id（画布视口拾取/特征树选择驱动；缺省时对话框内部维护）。 */
+  planeId?: SketchPlaneDatumId | null;
+  /** 平面变化出口（选择或清除）。 */
+  onPlaneChange?: (plane: SketchPlaneDatumId | null) => void;
   /** op 提交面（M6-a T4：Session useFeatureSystem.applyOp 直通；缺省=纯回调壳期语义）。 */
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   /**
@@ -114,7 +124,10 @@ const DEFAULT_PLANES: readonly SketchPlaneOption[] = [
 export function SketchDialog({
   sketchName,
   sketchId,
+  editing = false,
   planes,
+  planeId,
+  onPlaneChange,
   applyOp,
   canEdit = true,
   onConfirm,
@@ -122,7 +135,6 @@ export function SketchDialog({
   onHistory,
 }: SketchDialogProps): React.JSX.Element {
   const { t } = useTranslation();
-  const { primary } = useCanvasSelection();
   const enterSketch = usePartStudioStore((s) => s.enterSketch);
   const exitSketch = usePartStudioStore((s) => s.exitSketch);
 
@@ -137,8 +149,13 @@ export function SketchDialog({
     [planes, t],
   );
 
-  const [pickedPlanes, setPickedPlanes] = React.useState<SketchPlaneOption[]>([]);
-  const [plane, setPlane] = React.useState('');
+  const [internalPlane, setInternalPlane] = React.useState('');
+  const plane = planeId !== undefined ? (planeId ?? '') : internalPlane;
+  const setPlane = React.useCallback((next: string) => {
+    setInternalPlane(next);
+    onPlaneChange?.((next || null) as SketchPlaneDatumId | null);
+  }, [onPlaneChange]);
+  const [planeMenuOpen, setPlaneMenuOpen] = React.useState(false);
   const [disableImprint, setDisableImprint] = React.useState(false);
   const [showConstraints, setShowConstraints] = React.useState(false);
   const [showExpressions, setShowExpressions] = React.useState(false);
@@ -159,15 +176,6 @@ export function SketchDialog({
       aliveRef.current = false;
     };
   }, []);
-
-  // 快速拾取：仅面选择可作草图平面（F2 终审修复）——part/edge/vertex/feature
-  // 主选择不是平面，不添加选项、不改当前所选（label 缺省回退 id）。
-  const handleFastPick = React.useCallback(() => {
-    if (!primary || primary.kind !== 'face') return;
-    const picked: SketchPlaneOption = { id: primary.id, label: primary.label ?? primary.id };
-    setPickedPlanes((prev) => (prev.some((option) => option.id === picked.id) ? prev : [...prev, picked]));
-    setPlane(picked.id);
-  }, [primary]);
 
   const handleHistory = React.useCallback(() => {
     if (onHistory) {
@@ -192,7 +200,12 @@ export function SketchDialog({
    * 纯回调语义（enterSketch 占位寻址，同 FeatureDialog 未接线回退）。
    */
   const handleConfirm = React.useCallback(() => {
-    if (submitting || !canEdit) return; // 禁重入 + 只读写门禁（B2：readonly 不进租约环）
+    if (submitting || !canEdit || plane === '') return; // 禁重入 + 只读门禁 + 未选平面
+    if (editing) {
+      // Onshape：编辑态 ✓ = 完成草图（几何修改已逐 op 提交）。
+      onConfirm?.(buildResult());
+      return;
+    }
     if (!applyOp) {
       enterSketch(sketchId ?? 'sketch-active');
       onConfirm?.(buildResult());
@@ -225,17 +238,14 @@ export function SketchDialog({
         setError(result.error);
       }
     })();
-  }, [submitting, canEdit, applyOp, enterSketch, sketchId, onConfirm, buildResult, plane]);
+  }, [submitting, canEdit, editing, applyOp, enterSketch, sketchId, onConfirm, buildResult, plane]);
 
   const handleCancel = React.useCallback(() => {
     exitSketch();
     onCancel?.();
   }, [exitSketch, onCancel]);
 
-  const allOptions = React.useMemo(
-    () => [...planeOptions, ...pickedPlanes],
-    [planeOptions, pickedPlanes],
-  );
+  const selectedOption = planeOptions.find((option) => option.id === plane);
 
   return (
     <div
@@ -256,7 +266,7 @@ export function SketchDialog({
             type="button"
             aria-label={t('partStudio.sketchDialog.confirm')}
             className="part-studio-sketch-dialog__confirm"
-            disabled={submitting || !canEdit}
+            disabled={submitting || !canEdit || plane === ''}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -318,31 +328,73 @@ export function SketchDialog({
           </p>
         )}
 
-        {/* 草图平面选择 + 快速拾取（os-30：蓝框 select + 快速拾取）。 */}
+        {/* 草图平面字段（Onshape live：字段本身不是下拉框；主场选择是在视口/
+            特征树点击基准面。字段点击提供可访问的基准面列表兜底，无箭头）。 */}
         <div className="part-studio-sketch-dialog__plane-row">
-          <select
-            aria-label={t('partStudio.sketchDialog.planeLabel')}
-            className="part-studio-sketch-dialog__plane-select"
-            value={plane}
-            onChange={(event) => setPlane(event.target.value)}
-          >
-            <option value="" disabled>
-              {t('partStudio.sketchDialog.planePlaceholder')}
-            </option>
-            {allOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="part-studio-sketch-dialog__fast-pick"
-            onClick={handleFastPick}
-          >
-            {t('partStudio.sketchDialog.fastPick')}
-          </button>
+          <span className="part-studio-sketch-dialog__plane-label">
+            {t('partStudio.sketchDialog.planeLabel')}
+          </span>
+          <div className="part-studio-sketch-dialog__plane-field" data-testid="sketch-plane-field">
+            <button
+              type="button"
+              role="combobox"
+              aria-label={t('partStudio.sketchDialog.planeLabel')}
+              aria-expanded={planeMenuOpen}
+              aria-controls="part-studio-sketch-plane-menu"
+              className="part-studio-sketch-dialog__plane-value"
+              data-testid="sketch-plane-field-button"
+              disabled={editing}
+              onClick={() => {
+                if (!editing) setPlaneMenuOpen((open) => !open);
+              }}
+            >
+              {selectedOption?.label ?? t('partStudio.sketchDialog.planeFieldPlaceholder')}
+            </button>
+            {!editing && plane !== '' && (
+              <button
+                type="button"
+                className="part-studio-sketch-dialog__plane-clear"
+                aria-label={t('partStudio.sketchDialog.clearPlane')}
+                title={t('partStudio.sketchDialog.clearPlane')}
+                onClick={() => {
+                  setPlane('');
+                  setPlaneMenuOpen(false);
+                }}
+              >
+                ×
+              </button>
+            )}
+            {!editing && planeMenuOpen && (
+              <ul
+                id="part-studio-sketch-plane-menu"
+                role="listbox"
+                aria-label={t('partStudio.sketchDialog.planeLabel')}
+                className="part-studio-sketch-dialog__plane-menu"
+              >
+                {planeOptions.map((option) => (
+                  <li key={option.id} role="none">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={option.id === plane}
+                      onClick={() => {
+                        setPlane(option.id);
+                        setPlaneMenuOpen(false);
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
+        {plane === '' && (
+          <p className="part-studio-sketch-dialog__hint" data-testid="sketch-plane-hint">
+            {t('partStudio.sketchDialog.planeHint')}
+          </p>
+        )}
 
         {/* 四开关勾选组（os-30：默认仅「显示错误」勾选）。 */}
         <div

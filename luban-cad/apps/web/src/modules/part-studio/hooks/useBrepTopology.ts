@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *
  * BRep 拓扑叠加层生命周期（2026-11-03）：body 读面/树刷新 → 读取全部拓扑边与
- * 顶点 → 注册 BrepTopologyDecoration。显示设置/选择模式变化只更新装饰件样式，
+ * 顶点 → 注册 BrepTopologyDecoration。显示设置变化只更新装饰件样式，
  * 不重复读后端；树提交/undo-redo/隐藏集变化才重取。
  *
  * 读面走 editor SolidModeling 命令（readBrepTopology），命令被其他编辑工具
@@ -16,7 +16,6 @@ import { BrepTopologyDecoration, type BrepTopology } from '@luban-cad/viewer';
 import { readBrepTopology } from '../internal/brep-topology.js';
 import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.js';
 import { brepOverlayOptionsFor, type DisplaySettings } from '../internal/display-actions.js';
-import type { CanvasSelectionMode } from '../types.js';
 
 const READ_TIMEOUT_MS = 8_000;
 const FETCH_DEBOUNCE_MS = 120;
@@ -35,7 +34,6 @@ export interface UseBrepTopologyOptions {
   /** store.canvas.hiddenIds（隐藏 body 不画拓扑叠加）。 */
   hiddenIds: readonly string[];
   display: DisplaySettings;
-  selectionMode: CanvasSelectionMode;
   enabled?: boolean;
 }
 
@@ -78,7 +76,6 @@ export function useBrepTopology({
   revision,
   hiddenIds,
   display,
-  selectionMode,
   enabled = true,
 }: UseBrepTopologyOptions): UseBrepTopologyResult {
   const decorationRef = useRef<BrepTopologyDecoration>();
@@ -87,7 +84,7 @@ export function useBrepTopology({
   const [error, setError] = useState<string>();
 
   const hiddenKey = hiddenIds.join('|');
-  const edgeOptions = useMemo(() => brepOverlayOptionsFor(display, selectionMode), [display, selectionMode]);
+  const edgeOptions = useMemo(() => brepOverlayOptionsFor(display), [display]);
 
   // 视口生命周期：创建/销毁装饰件（样式与已有拓扑立刻回填）。
   useEffect(() => {
@@ -105,7 +102,7 @@ export function useBrepTopology({
     // 只随视口重建；样式/拓扑由下面的 effect 更新。
   }, [viewport]);
 
-  // 样式变更（显示设置/点选择模式）。
+  // 样式变更（显示设置）。
   useEffect(() => {
     decorationRef.current?.setOptions(edgeOptions);
   }, [edgeOptions]);

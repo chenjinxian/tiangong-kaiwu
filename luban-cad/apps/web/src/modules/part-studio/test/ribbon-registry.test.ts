@@ -39,6 +39,7 @@ import enPartStudio from '../../../common/i18n/locales/en/part-studio.json';
 const EXPECTED_TOOL_IDS = [
   'selectFace', // M-A5.2：选择面（子实体选择模式 toggle）
   'selectEdge', // M-A5.2：选择边
+  'selectVertex', // 2026-11-02：选择点（BRep vertex）
   'newSketch', // 草图 (shift+s)
   'extrude', // 拉伸 (shift+e)
   'revolve', // 旋转 (shift+w)
@@ -48,6 +49,7 @@ const EXPECTED_TOOL_IDS = [
   'RoundEdges', // 圆角 (shift+f)（旧应用真实 toolId）▾
   'ChamferEdges', // 倒角（旧应用真实 toolId）
   'DraftFaces', // 拔模（旧应用真实 toolId）▾
+  'rib', // 筋（2026-11-02 live 工具栏补齐）
   'HollowFaces', // 抽壳（旧应用真实 toolId）
   'CreateHole', // 孔（旧应用真实 toolId）
   'externalThread', // 外部螺纹
@@ -97,6 +99,8 @@ const EXPECTED_DROPDOWNS: Record<string, string[]> = {
     'smJoint', 'bendRelief', 'cornerBreak', 'endSheetMetal',
     'pcbFlexModel', 'pcbEndFlexModel',
   ],
+  cPlane: [], // 平面 ▾（Onshape live 箭头；变体未实现，空飞菜单）
+  USER_FEATURES: [], // 添加自定义特征 ▾（Onshape live 箭头；飞菜单未实现）
   surfaceCurve: [ // 曲面/曲线大全（UI-INVENTORY §2.2：曲面 8 + 曲线 12）
     'surfacePlane', 'offsetSurface', 'boundarySurface', 'fillSurface',
     'moveBoundary', 'ruledSurface', 'mutualTrim', 'constraintSurface',
@@ -150,9 +154,9 @@ function registryI18nKeys(): string[] {
   return [...keys];
 }
 
-describe('RIBBON_TOOLS 注册表完整性（29 工具，os-11 顺序 + M-A5.2 选择组）', () => {
-  it('恰为 29 工具且 id 集合与顺序全对齐取证清单', () => {
-    expect(RIBBON_TOOLS).toHaveLength(29);
+describe('RIBBON_TOOLS 注册表完整性（31 工具，os-11 顺序 + 选择组 + 筋）', () => {
+  it('恰为 31 工具且 id 集合与顺序全对齐取证清单', () => {
+    expect(RIBBON_TOOLS).toHaveLength(31);
     expect(RIBBON_TOOLS.map((tool) => tool.id)).toEqual([...EXPECTED_TOOL_IDS]);
   });
 
@@ -186,7 +190,7 @@ describe('RIBBON_GROUP_ORDER 分组（os-11 分隔序）', () => {
   const ONSHAPE_GROUP_SEQUENCE: ReadonlyArray<readonly [group: RibbonGroup, labels: readonly string[]]> = [
     ['sketch', ['草图']],
     ['create', ['拉伸', '旋转', '扫掠', '放样', '加厚']],
-    ['shape', ['圆角', '倒角', '拔模', '抽壳', '孔', '外部螺纹']],
+    ['shape', ['圆角', '倒角', '拔模', '筋', '抽壳', '孔', '外部螺纹']],
     ['pattern', ['线性阵列', '镜像']],
     ['combine', ['布尔运算', '分割', '变换', '删除零件']],
     ['directEdit', ['修改圆角', '删除面', '移动面', '替换面']],
@@ -216,8 +220,8 @@ describe('RIBBON_GROUP_ORDER 分组（os-11 分隔序）', () => {
   });
 });
 
-describe('下拉飞菜单（8 个，os-20 子项清单）', () => {
-  it('恰为 8 个带 dropdownItems 的工具，id 集合对齐', () => {
+describe('下拉飞菜单（10 个：os-20 八组 + 平面/自定义箭头 UI）', () => {
+  it('恰为 10 个带 dropdownItems 的工具，id 集合对齐', () => {
     const dropdownTools = RIBBON_TOOLS.filter((tool) => tool.dropdownItems !== undefined);
     expect(dropdownTools.map((tool) => tool.id).sort()).toEqual(Object.keys(EXPECTED_DROPDOWNS).sort());
   });
@@ -261,7 +265,7 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
   it('gated 家族工具/子项经 isGated 路由能力引导', () => {
     const gatedTools = RIBBON_TOOLS.filter((tool) => isGated(tool.capability));
     expect(gatedTools.map((tool) => tool.id).sort()).toEqual([
-      'DraftFaces', 'HollowFaces', 'externalThread', 'frame', 'sheetMetalStart', 'surfaceCurve',
+      'DraftFaces', 'HollowFaces', 'externalThread', 'frame', 'rib', 'sheetMetalStart', 'surfaceCurve',
     ].sort());
     for (const capability of GATED_CAPABILITIES) {
       expect(isGated(capability)).toBe(true);
@@ -291,9 +295,9 @@ describe('命令查找辅助（palette 数据源）', () => {
     expect(findRibbonCommand('nope')).toBeUndefined();
   });
 
-  it('allRibbonCommands 展开工具+全部子项（29+44=73 条命令）', () => {
+  it('allRibbonCommands 展开工具+全部子项（31+44=75 条命令）', () => {
     const all = allRibbonCommands();
-    expect(all).toHaveLength(73);
+    expect(all).toHaveLength(75);
     // 工具保序：展开序中过滤回顶层工具，仍等于 os-11 工具序列。
     const toolIds = all
       .filter((command) => (RIBBON_TOOLS as readonly RibbonCommand[]).includes(command))
