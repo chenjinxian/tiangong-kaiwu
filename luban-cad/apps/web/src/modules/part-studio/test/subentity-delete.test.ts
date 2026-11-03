@@ -5,7 +5,7 @@
  * 持久拓扑 id 反查 cache id（facesFromId/edgesFromOwnId），再调
  * `deleteSubEntities` 并保存事务；不走 body 删除。
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const editorMocks = vi.hoisted(() => ({
   startCommand: vi.fn(),
@@ -28,6 +28,7 @@ vi.mock('@itwin/editor-frontend', () => ({
 import { editorBuiltInCmdIds, SubEntityType } from '@itwin/editor-common';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { deleteSelectedSubEntity } from '../canvas/subentity-delete.js';
+import { registerBrepHoverController } from '../internal/brep-command-coordinator.js';
 import type { CanvasSelection } from '../types.js';
 
 function connection(): { key: string; saveChanges: ReturnType<typeof vi.fn> } {
@@ -40,6 +41,13 @@ beforeEach(() => {
   editorMocks.facesFromId.mockReset().mockResolvedValue(['7']);
   editorMocks.edgesFromOwnId.mockReset().mockResolvedValue(['9']);
   editorMocks.deleteSubEntities.mockReset().mockResolvedValue({});
+});
+
+let unregisterHoverController: (() => void) | undefined;
+
+afterEach(() => {
+  unregisterHoverController?.();
+  unregisterHoverController = undefined;
 });
 
 describe('deleteSelectedSubEntity', () => {
@@ -117,6 +125,45 @@ describe('deleteSelectedSubEntity', () => {
     await expect(deleteSelectedSubEntity(conn as unknown as BriefcaseConnection, [
       { kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18', topologyId: { nodeId: 1, entityId: 3 } },
     ])).rejects.toThrow(/未返回几何结果/);
+    expect(conn.saveChanges).not.toHaveBeenCalled();
+  });
+
+  it('注册 hover 控制器时：建缓存/反查/删除/保存全在 suspend 与 resume 之间', async () => {
+    const events: string[] = [];
+    unregisterHoverController = registerBrepHoverController({
+      suspend: async () => { events.push('suspend'); },
+      resume: () => { events.push('resume'); },
+    });
+    editorMocks.startCommand.mockImplementation(async () => { events.push('startCommand'); return 'cmd-1'; });
+    editorMocks.createElementGeometryCache.mockImplementation(async () => { events.push('cache'); return true; });
+    editorMocks.facesFromId.mockImplementation(async () => { events.push('facesFromId'); return ['7']; });
+    editorMocks.deleteSubEntities.mockImplementation(async () => { events.push('delete'); return {}; });
+    const conn = connection();
+    conn.saveChanges.mockImplementation(async () => { events.push('saveChanges'); });
+
+    await deleteSelectedSubEntity(conn as unknown as BriefcaseConnection, [
+      { kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18', topologyId: { nodeId: 1, entityId: 3 } },
+    ]);
+
+    expect(events).toEqual([
+      'suspend', 'startCommand', 'cache', 'facesFromId', 'delete', 'saveChanges', 'resume',
+    ]);
+  });
+
+  it('注册 hover 控制器时：命令失败仍 resume（队列不悬挂）', async () => {
+    const events: string[] = [];
+    unregisterHoverController = registerBrepHoverController({
+      suspend: async () => { events.push('suspend'); },
+      resume: () => { events.push('resume'); },
+    });
+    editorMocks.deleteSubEntities.mockImplementation(async () => { events.push('delete'); return undefined; });
+    const conn = connection();
+
+    await expect(deleteSelectedSubEntity(conn as unknown as BriefcaseConnection, [
+      { kind: 'face', id: 'face:1:3', ownerBodyKey: '0x18', topologyId: { nodeId: 1, entityId: 3 } },
+    ])).rejects.toThrow(/未返回几何结果/);
+
+    expect(events).toEqual(['suspend', 'delete', 'resume']);
     expect(conn.saveChanges).not.toHaveBeenCalled();
   });
 });

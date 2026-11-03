@@ -19,6 +19,7 @@
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { editorBuiltInCmdIds, SubEntityType } from '@itwin/editor-common';
 import { EditTools, solidModelingIpc } from '@itwin/editor-frontend';
+import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.js';
 import type { CanvasSelection } from '../types.js';
 
 export async function deleteSelectedSubEntity(
@@ -36,39 +37,45 @@ export async function deleteSelectedSubEntity(
     throw new Error('面/边删除缺少持久 topologyId（请重新拾取面/边）');
   }
 
-  await EditTools.startCommand<string>({
-    commandId: editorBuiltInCmdIds.cmdSolidModeling,
-    iModelKey: connection.key,
+  // 闭包内不保留属性窄化：先取出已校验值（协调器队列闭包可能延后执行）。
+  const ownerBodyKey = primary.ownerBodyKey;
+  const topologyId = primary.topologyId;
+
+  await withExclusiveBrepCommand(async () => {
+    await EditTools.startCommand<string>({
+      commandId: editorBuiltInCmdIds.cmdSolidModeling,
+      iModelKey: connection.key,
+    });
+
+    // 同一命令内建缓存：后续反查/删除操作依赖它；不同命令的 cache id 不跨用。
+    const created = await solidModelingIpc.createElementGeometryCache(ownerBodyKey, {
+      parts: true, curves: false, surfaces: true, solids: true, other: false,
+    });
+    if (!created) {
+      throw new Error('无法为所选体建立几何缓存');
+    }
+
+    const type = primary.kind === 'face' ? SubEntityType.Face : SubEntityType.Edge;
+    const ids = primary.kind === 'face'
+      ? await solidModelingIpc.facesFromId(ownerBodyKey, topologyId.nodeId, topologyId.entityId)
+      : await solidModelingIpc.edgesFromOwnId(ownerBodyKey, topologyId.nodeId, topologyId.entityId);
+    if (!ids || ids.length === 0) {
+      throw new Error('无法按持久拓扑 id 反查面/边（几何已变化，请重新拾取）');
+    }
+
+    const result = await solidModelingIpc.deleteSubEntities(
+      ownerBodyKey,
+      { subEntities: ids.map((id) => ({ id: Number(id), type })) },
+      {
+        writeChanges: true,
+        requestId: `LubanCAD.DeleteSubEntity:${ownerBodyKey}:${primary.id}`,
+      },
+    );
+    if (!result) {
+      throw new Error('deleteSubEntities 未返回几何结果（内核拒收或目标已变化）');
+    }
+
+    // 5.9 起标记 deprecated，但仍是 briefcase 提交的标准入口（useUndoRedo/useBriefcaseConnection 同口径）。
+    await connection.saveChanges('LubanCAD: delete sub-entity');
   });
-
-  // 同一命令内建缓存：后续反查/删除操作依赖它；不同命令的 cache id 不跨用。
-  const created = await solidModelingIpc.createElementGeometryCache(primary.ownerBodyKey, {
-    parts: true, curves: false, surfaces: true, solids: true, other: false,
-  });
-  if (!created) {
-    throw new Error('无法为所选体建立几何缓存');
-  }
-
-  const type = primary.kind === 'face' ? SubEntityType.Face : SubEntityType.Edge;
-  const ids = primary.kind === 'face'
-    ? await solidModelingIpc.facesFromId(primary.ownerBodyKey, primary.topologyId.nodeId, primary.topologyId.entityId)
-    : await solidModelingIpc.edgesFromOwnId(primary.ownerBodyKey, primary.topologyId.nodeId, primary.topologyId.entityId);
-  if (!ids || ids.length === 0) {
-    throw new Error('无法按持久拓扑 id 反查面/边（几何已变化，请重新拾取）');
-  }
-
-  const result = await solidModelingIpc.deleteSubEntities(
-    primary.ownerBodyKey,
-    { subEntities: ids.map((id) => ({ id: Number(id), type })) },
-    {
-      writeChanges: true,
-      requestId: `LubanCAD.DeleteSubEntity:${primary.ownerBodyKey}:${primary.id}`,
-    },
-  );
-  if (!result) {
-    throw new Error('deleteSubEntities 未返回几何结果（内核拒收或目标已变化）');
-  }
-
-  // 5.9 起标记 deprecated，但仍是 briefcase 提交的标准入口（useUndoRedo/useBriefcaseConnection 同口径）。
-  await connection.saveChanges('LubanCAD: delete sub-entity');
 }
