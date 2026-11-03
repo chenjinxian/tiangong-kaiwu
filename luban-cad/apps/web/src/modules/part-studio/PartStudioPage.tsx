@@ -186,7 +186,7 @@ import { useDatumVisibility } from './hooks/useDatumVisibility.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import { BODY_PRODUCING_FEATURE_TYPES } from './types.js';
-import { clearActiveOnshapeSelection } from './internal/onshape-selection-runtime.js';
+import { clearActiveOnshapeHighlight } from './internal/onshape-selection-runtime.js';
 import { fitView } from './internal/viewport-actions.js';
 import './PartStudioPage.css';
 
@@ -535,7 +535,7 @@ function PartStudioSession({
         body.bodyKey === id && body.active !== false && body.authored !== false));
     if (partIds.length === 0)
       return;
-    clearActiveOnshapeSelection();
+    clearActiveOnshapeHighlight();
     connection.selectionSet.replace(partIds);
   }, [selectedNodeIds, connection, featureSystem.bodies, featureSystem.bodiesLoaded]);
 

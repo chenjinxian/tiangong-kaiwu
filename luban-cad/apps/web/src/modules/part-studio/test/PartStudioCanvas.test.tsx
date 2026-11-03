@@ -48,8 +48,10 @@ vi.mock('../canvas/subentity-delete.js', () => ({
 
 // 2026-11-03：Onshape 选择运行时（选中所属实体/删除后清空子实体选择）替身化。
 const clearOnshapeSelectionMock = vi.hoisted(() => vi.fn());
+const clearOnshapeHighlightMock = vi.hoisted(() => vi.fn());
 vi.mock('../internal/onshape-selection-runtime.js', () => ({
   clearActiveOnshapeSelection: clearOnshapeSelectionMock,
+  clearActiveOnshapeHighlight: clearOnshapeHighlightMock,
 }));
 
 const mocks = vi.hoisted(() => ({
@@ -557,7 +559,7 @@ describe('B6 M-A5.2 T5：选中所属实体宿主动作', () => {
     const menu = screen.getByRole('menu', { name: '画布菜单' });
     await user.click(within(menu).getByRole('menuitem', { name: '选中所属实体' }));
 
-    expect(clearOnshapeSelectionMock).toHaveBeenCalledTimes(1);
+    expect(clearOnshapeHighlightMock).toHaveBeenCalledTimes(1);
     expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['0x18']);
     expect(selectionSet.replace).toHaveBeenCalledWith(['0x18']);
   });

@@ -15,3 +15,8 @@ export function activeOnshapeSelect(): OnshapeSelectTool | undefined {
 export function clearActiveOnshapeSelection(): void {
   void activeOnshapeSelect()?.clearSelection();
 }
+
+/** 只清子实体高亮、不动 store/树（零件列表选中 part 时使用）。 */
+export function clearActiveOnshapeHighlight(): void {
+  activeOnshapeSelect()?.clearSelectionGraphics();
+}

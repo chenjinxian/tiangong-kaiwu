@@ -8,7 +8,12 @@
  * - 注册 BRep 命令协调器的 hover 控制器（Task 6 接线）。
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
+import {
+  IModelApp,
+  NotifyMessageDetails,
+  OutputMessagePriority,
+  PrimitiveTool,
+} from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { OnshapeSelectTool } from '../tools/modeling/OnshapeSelectTool.js';
@@ -129,7 +134,9 @@ export function useOnshapeSelection(
       // 空闲态切到其它工具 = 「启动其它工具清空选择」（spec §4）。undo/redo
       // 的 restartPrimitiveTool 会装回 OnshapeSelectTool，不属于此分支，
       // store 选择由新实例按快照恢复高亮。
-      if (!(tool instanceof OnshapeSelectTool)) {
+      // 只对 **PrimitiveTool 替换**清空；ViewTool/InputCollector（中键平移、
+      // 旋转、缩放）会临时占据 activeTool 并挂起本工具，不得清除选择/树。
+      if (tool instanceof PrimitiveTool && !(tool instanceof OnshapeSelectTool)) {
         const store = usePartStudioStore.getState();
         store.setCanvasSelection([]);
         store.setSelectedNodeIds([]);

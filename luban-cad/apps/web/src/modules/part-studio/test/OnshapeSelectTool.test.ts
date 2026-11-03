@@ -338,6 +338,13 @@ describe('OnshapeSelectTool：面定位客户端兜底', () => {
 
     const location = await probe().callFace('0x1', event(new Point3d(0, 0, 0)));
     expect(location?.subEntity).toEqual({ type: SubEntityType.Face, id: 7, index: 0 });
+
+    // 所有面都超 12px → 无命中（真正覆盖阈值过滤，而不只是排序）。
+    solidIpc.getClosestPoint.mockImplementation(async (_id: string, face: SubEntityProps) => ({
+      subEntity: face,
+      point: new Point3d(40, 0, 0).toJSON(),
+    }));
+    await expect(probe().callFace('0x1', event(new Point3d(0, 0, 0)))).resolves.toBeUndefined();
   });
 
   it('屏幕距离相差 ≤1px 时取三维更近的面（正/背面重叠）', async () => {
@@ -366,6 +373,15 @@ describe('OnshapeSelectTool：面定位客户端兜底', () => {
     await expect(probe().callFace('0x1', event(new Point3d()))).resolves.toBeUndefined();
     expect(solidIpc.getBodySubEntities).not.toHaveBeenCalled();
     expect(solidIpc.getClosestPoint).not.toHaveBeenCalled();
+  });
+});
+
+describe('OnshapeSelectTool：清空选择', () => {
+  it('即使工具内没有子实体，clearSelection 仍回调空集（空白点击清整零件选择）', async () => {
+    const tool = new SelectionTool();
+    tool.emitted.length = 0;
+    await tool.clearSelection();
+    expect(tool.emitted.at(-1)).toEqual([]);
   });
 });
 

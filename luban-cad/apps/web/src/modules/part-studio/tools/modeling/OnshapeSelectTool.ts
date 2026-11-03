@@ -52,6 +52,13 @@ const VERTEX_PICK_PX = 10;
 const EDGE_PICK_PX = 6;
 const FACE_PICK_PX = 12;
 
+/**
+ * undo/redo 的 restartPrimitiveTool 重建实例时置位：旧实例 onCleanup 只释放
+ * 高亮图形、不清宿主选择，新实例随后按快照恢复。Escape/换工具路径保持 false，
+ * onCleanup 正常清空选择（spec §6.7）。
+ */
+let preserveSelectionOnCleanup = false;
+
 function selectionKey(owner: string, props: SubEntityProps): string {
   return `${owner}:${props.type}:${props.id}:${props.index ?? 0}`;
 }
@@ -167,8 +174,10 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
     // 与视线平行，顶面中心的正后方恰是背棱（原生 hit.point 是背棱真实点，
     // 屏幕距离 0，单靠 2D 阈值无法区分）。用视图深度剔除被前表面遮挡的命中；
     // 隐藏边可见模式保留穿面拾取。
+    // 视图 z 是固定深度盒（±32767），用视线距离的 1e-4 作为容差：可见边
+    // 与命中面的深度差在舍入噪声量级，背面边/点仍相差数十单位。
     const eyeDistance = vp.view.getOrigin().distance(vp.view.getCenter());
-    const depthTolerance = Math.max(eyeDistance * 1e-5, 1e-6);
+    const depthTolerance = Math.max(eyeDistance * 1e-4, 1e-3);
     return hits.filter((hit) => {
       if (hit.subEntity.type === SubEntityType.Face || !hit.point)
         return true;
@@ -187,29 +196,35 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
     if (undefined === vp || !hit?.isElementHit || hit.sourceId !== id)
       return undefined;
 
-    const faces = await solidModelingIpc.getBodySubEntities(id, SubEntityType.Face, false);
-    if (!faces?.length)
+    try {
+      const faces = await solidModelingIpc.getBodySubEntities(id, SubEntityType.Face, false);
+      if (!faces?.length)
+        return undefined;
+
+      const testPoint = hit.hitPoint;
+      let best: { location: SubEntityLocationProps; screen: number; distance: number } | undefined;
+
+      for (const face of faces) {
+        const location = await solidModelingIpc.getClosestPoint(id, face, testPoint);
+        if (undefined === location)
+          continue;
+
+        const world = Point3d.fromJSON(location.point);
+        const screen = vp.worldToView(world).distanceXY(ev.viewPoint);
+        if (screen > FACE_PICK_PX)
+          continue;
+
+        const distance = world.distance(testPoint);
+        if (undefined === best || screen < best.screen - 1 || (Math.abs(screen - best.screen) <= 1 && distance < best.distance))
+          best = { location, screen, distance };
+      }
+
+      return best?.location;
+    } catch {
+      // 几何缓存/命令拆卸竞态：本次 hover 无面命中，下一次鼠标移动重试。
+      // 不得把拒绝抛给基座 updateCurrentSubEntity（其 pending 标志无 finally）。
       return undefined;
-
-    const testPoint = hit.hitPoint;
-    let best: { location: SubEntityLocationProps; screen: number; distance: number } | undefined;
-
-    for (const face of faces) {
-      const location = await solidModelingIpc.getClosestPoint(id, face, testPoint);
-      if (undefined === location)
-        continue;
-
-      const world = Point3d.fromJSON(location.point);
-      const screen = vp.worldToView(world).distanceXY(ev.viewPoint);
-      if (screen > FACE_PICK_PX)
-        continue;
-
-      const distance = world.distance(testPoint);
-      if (undefined === best || screen < best.screen - 1 || (Math.abs(screen - best.screen) <= 1 && distance < best.distance))
-        best = { location, screen, distance };
     }
-
-    return best?.location;
   }
 
   /**
@@ -394,14 +409,18 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   }
 
   public async clearSelection(): Promise<void> {
-    // 先递增代数：即使当前为空，也要让进行中的异步 add 在 resolve 后放弃回插。
+    // 即使工具内没有子实体也要 emit：空白点击/换工具必须清空宿主的整零件
+    // 选择（树 + SelectionSet）；早退会让 part 选择永远无法经空白点击清除。
     this._selectionGeneration += 1;
-
-    if (this._acceptedSubEntities.length === 0 && this._selected.size === 0)
-      return;
-
     this.releaseSelectionGraphics();
     this.emitSelection();
+    IModelApp.viewManager.invalidateDecorationsAllViews();
+  }
+
+  /** 只释放高亮（不通知宿主/不清 store）：树选中 part 时清掉子实体高亮。 */
+  public clearSelectionGraphics(): void {
+    this._selectionGeneration += 1;
+    this.releaseSelectionGraphics();
     IModelApp.viewManager.invalidateDecorationsAllViews();
   }
 
@@ -492,11 +511,12 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   /** 对话框/草图期间暂停：可选清空选择，释放 SolidModeling 命令。 */
   public async pause(clearSelection: boolean): Promise<void> {
     this._paused = true;
+    this.changeLocateState(false, false);
+    // 先等在途 hover 落定再清 current，避免它在清理后又写回一个残影。
+    await this.waitForHoverSettled();
     this.clearCurrentSubEntity();
     if (clearSelection)
       await this.clearSelection();
-    this.changeLocateState(false, false);
-    await this.waitForHoverSettled();
     await this.releaseCommand();
   }
 
@@ -514,9 +534,9 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
     if (this._paused || this._commandSuspended)
       return;
     this._commandSuspended = true;
-    this.clearCurrentSubEntity();
     this.changeLocateState(false, false);
     await this.waitForHoverSettled();
+    this.clearCurrentSubEntity();
     await this.releaseCommand();
   }
 
@@ -542,10 +562,14 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
     this.clearCurrentSubEntity();
     this.changeLocateState(false, false);
     await this.waitForHoverSettled();
-    // 只释放高亮图形，不向宿主清空选择：undo/redo 会由 BriefcaseConnection
-    // 自动 restartPrimitiveTool，重建实例后按快照恢复（见 onRestartTool）；
-    // 真正的清空由暂停/scope 切换/宿主回调显式发起。
-    this.releaseSelectionGraphics();
+    if (preserveSelectionOnCleanup || (this._acceptedSubEntities.length === 0 && this._selected.size === 0)) {
+      // undo/redo 重建只释放图形，新实例按快照恢复；工具内无子实体时（part
+      // 选择）也不 emit——Delete/Move 等元素集工具 install 时仍需要 SelectionSet。
+      this.releaseSelectionGraphics();
+    } else {
+      // 有子实体选择且换工具/Escape：清空宿主选择（spec §6.7）。
+      await this.clearSelection();
+    }
     await super.onCleanup();
   }
 
@@ -584,6 +608,11 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
           subEntity: props,
           point: new Point3d().toJSON(),
         } as SubEntityLocationProps);
+        // await 期间清空/新拾取：放弃本条目，避免回插无 store 对应的残留高亮。
+        if (generation !== this._selectionGeneration) {
+          data.cleanupGraphic();
+          return;
+        }
         if (!data.hasGraphic) {
           data.cleanupGraphic();
           continue;
@@ -606,9 +635,14 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
 
   public override async onRestartTool(): Promise<void> {
     const tool = new OnshapeSelectTool(this._options);
-    if (!(await tool.run())) {
-      await this.exitTool();
-      return;
+    preserveSelectionOnCleanup = true;
+    try {
+      if (!(await tool.run())) {
+        await this.exitTool();
+        return;
+      }
+    } finally {
+      preserveSelectionOnCleanup = false;
     }
     await tool.restoreSelection(this._options.getSelectionSnapshot?.() ?? []);
   }

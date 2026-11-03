@@ -399,6 +399,8 @@ describe('树→画布联动单向流（树选中 → viewport emphasize；M4-T6
       expect.objectContaining({ transparency: 0.8 }),
       true,
     );
+    expect((mocks.emphasizeElements.mock.calls[0]?.[2] as { nonLocatable?: boolean }).nonLocatable)
+      .not.toBe(true);
   });
 
   it('emphasize 键稳定序列化：拼串碰撞集合（["a","bc"] vs ["ab","c"]）仍触发重跑', async () => {

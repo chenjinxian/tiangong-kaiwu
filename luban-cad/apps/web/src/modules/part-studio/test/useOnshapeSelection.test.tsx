@@ -9,14 +9,17 @@
  */
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { IModelApp } from '@itwin/core-frontend';
+import { IModelApp, PrimitiveTool } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import { OnshapeSelectTool } from '../tools/modeling/OnshapeSelectTool.js';
 import type { OnshapeSelectOptions } from '../tools/modeling/OnshapeSelectTool.js';
 import { useOnshapeSelection } from '../hooks/useOnshapeSelection.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
-const connection = { key: 'imodel-key' } as BriefcaseConnection;
+const connection = {
+  key: 'imodel-key',
+  selectionSet: { emptyAll: vi.fn() },
+} as unknown as BriefcaseConnection;
 const viewport = {} as ScreenViewport;
 
 const outputMessage = vi.fn();
@@ -107,6 +110,47 @@ describe('useOnshapeSelection', () => {
     expect(startDefaultTool).toHaveBeenCalledTimes(1);
     await Promise.resolve();
     expect(startDefaultTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('ViewTool/InputCollector 激活不清空选择；PrimitiveTool 激活才清空', async () => {
+    const { admin, activeToolChanged } = stubToolAdmin();
+    vi.spyOn(IModelApp.tools, 'register').mockImplementation(() => undefined);
+    renderHook(() => useOnshapeSelection(connection, viewport, false));
+    usePartStudioStore.setState({
+      canvas: { selection: [{ kind: 'face', id: 'f1', ownerBodyKey: '0xB', cacheId: 3 }], hiddenIds: [] },
+      tree: { activeTab: 'features', selectedNodeIds: ['0xB'], expandedNodeIds: [] },
+    });
+
+    // 中键平移/旋转会临时把 ViewTool 设为 activeTool：不得清选择。
+    activeToolChanged.raiseEvent({ toolId: 'View.Pan' });
+    expect(usePartStudioStore.getState().canvas.selection).toHaveLength(1);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['0xB']);
+
+    const primitive = Object.create(PrimitiveTool.prototype) as PrimitiveTool;
+    activeToolChanged.raiseEvent(primitive);
+    expect(usePartStudioStore.getState().canvas.selection).toEqual([]);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+  });
+
+  it('onSelectionChanged 清树/SelectionSet 并写本次子实体选择（含空集）', async () => {
+    const { admin } = stubToolAdmin();
+    vi.spyOn(IModelApp.tools, 'register').mockImplementation(() => undefined);
+    renderHook(() => useOnshapeSelection(connection, viewport, false));
+    const options = (admin.defaultToolArgs?.[0] ?? {}) as OnshapeSelectOptions;
+    expect(options.onSelectionChanged).toBeTypeOf('function');
+    usePartStudioStore.setState({
+      tree: { activeTab: 'features', selectedNodeIds: ['0xB'], expandedNodeIds: [] },
+    });
+    (connection.selectionSet.emptyAll as ReturnType<typeof vi.fn>).mockClear();
+
+    const selection = [{ kind: 'face', id: 'f1', ownerBodyKey: '0xB', cacheId: 3 }] as const;
+    options.onSelectionChanged(selection);
+    expect(connection.selectionSet.emptyAll).toHaveBeenCalledTimes(1);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+    expect(usePartStudioStore.getState().canvas.selection).toEqual(selection);
+
+    options.onSelectionChanged([]);
+    expect(usePartStudioStore.getState().canvas.selection).toEqual([]);
   });
 
   it('paused=true 不启动；恢复后启动或 resume', () => {

@@ -177,8 +177,9 @@ test('B 项目 UI 入口：文档中心 B 区 → 详情 → 打开工作空间�
   const scopeId = readModelScopeId(page);
   expect(scopeId, 'B 文档默认 Part Studio 应写入 ?model=').toBeTruthy();
   const tabStrip = page.getByTestId('part-studio-tab-strip');
-  await expect(tabStrip.getByRole('tab')).toHaveCount(1);
-  await expect(tabStrip.getByRole('tab').first()).toHaveText('Part Studio 1');
+  // 页签条含文档级页签（E2E B Seed）+ 一个 Part Studio 页签。
+  await expect(tabStrip.getByRole('tab')).toHaveCount(2);
+  await expect(tabStrip.getByRole('tab', { name: 'Part Studio 1' })).toBeVisible();
   await expect(tabStrip.locator(`[data-studio-id="${scopeId}"]`)).toHaveAttribute(
     'aria-selected',
     'true',

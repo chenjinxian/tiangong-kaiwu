@@ -64,7 +64,7 @@ import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
 import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
-import { clearActiveOnshapeSelection } from '../internal/onshape-selection-runtime.js';
+import { clearActiveOnshapeHighlight, clearActiveOnshapeSelection } from '../internal/onshape-selection-runtime.js';
 import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
 import { ViewCube } from './ViewCube.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
@@ -345,7 +345,7 @@ export function PartStudioCanvas({
    * owner、SelectionSet 同步 owner。后续画布选择由默认 Onshape 选择工具接管。
    */
   const handleSelectOwner = React.useCallback((bodyKey: string): void => {
-    clearActiveOnshapeSelection();
+    clearActiveOnshapeHighlight();
     const store = usePartStudioStore.getState();
     store.setSelectedNodeIds([bodyKey]);
     connection?.selectionSet?.replace([bodyKey]);
