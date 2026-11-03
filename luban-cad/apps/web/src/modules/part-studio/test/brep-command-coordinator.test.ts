@@ -52,4 +52,31 @@ describe('BrepCommandCoordinator', () => {
     await withExclusiveBrepCommand(async () => { events.push('next'); });
     expect(events).toEqual(['suspend', 'boom', 'resume', 'suspend', 'next', 'resume']);
   });
+
+  it('suspend 失败：任务不执行、不 resume，队列继续处理下一任务', async () => {
+    const events: string[] = [];
+    const unregisterFailing = registerBrepHoverController({
+      suspend: async () => {
+        events.push('suspend-fail');
+        throw new Error('suspend-failed');
+      },
+      resume: () => { events.push('resume-fail'); },
+    });
+
+    await expect(withExclusiveBrepCommand(async () => { events.push('task-1'); }))
+      .rejects.toThrow('suspend-failed');
+    // fail-fast：任务未执行，且没有对未成功暂停的 hover 调用 resume。
+    expect(events).toEqual(['suspend-fail']);
+    unregisterFailing();
+
+    // 失败只终止当前任务：队列不悬挂，下一任务照常 suspend → 执行 → resume。
+    const unregister = registerBrepHoverController({
+      suspend: async () => { events.push('suspend'); },
+      resume: () => { events.push('resume'); },
+    });
+    await expect(withExclusiveBrepCommand(async () => { events.push('task-2'); return 2; }))
+      .resolves.toBe(2);
+    expect(events).toEqual(['suspend-fail', 'suspend', 'task-2', 'resume']);
+    unregister();
+  });
 });

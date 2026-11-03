@@ -21,10 +21,20 @@ export function registerBrepHoverController(next: BrepHoverController): () => vo
   };
 }
 
+/**
+ * fail-fast 取得命令槽：suspend 失败直接抛出——任务不执行、也不 resume
+ * （hover 未被成功暂停，强行恢复会与调用方命令抢命令槽）。异常只影响本任务：
+ * withExclusiveBrepCommand 的 queue 链已接住拒绝，后续任务照常排队执行。
+ */
+async function suspendHover(): Promise<BrepHoverController | undefined> {
+  const active = controller;
+  await active?.suspend();
+  return active;
+}
+
 export function withExclusiveBrepCommand<T>(task: () => Promise<T>): Promise<T> {
   const run = queue.then(async () => {
-    const active = controller;
-    await active?.suspend();
+    const active = await suspendHover();
     try {
       return await task();
     } finally {
