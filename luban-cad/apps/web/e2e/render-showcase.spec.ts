@@ -1,9 +1,9 @@
 /**
  * 完整 BRep 渲染演示（2026-11-03）：在已构建的 Tutorial 2 成品上演示
- * - 默认顶光/AO 后的 Shaded 外观与全部拓扑边线；
+ * - iTwin 默认灯光/材质 + 纯白底 + BRep 全拓扑边线的 Shaded 外观（AO 默认关）；
  * - 显示设置：BRep 边线叠加开关、顶点显示、AO 开关；
  * - 隐藏边可见（xray 全拓扑边）/ 半透明模式；
- * - 面/边/点三种拾取与高亮（画布右键菜单入口）。
+ * - 面/边/点直接悬停/点击拾取与高亮（Onshape 统一选择，无模式切换）。
  *
  * 运行（系统 Chrome，演示后保持打开）：
  *   T2_RENDER_SHOWCASE=1 T2_KEEP_OPEN=1 npx playwright test e2e/render-showcase.spec.ts \
@@ -97,42 +97,9 @@ async function closeDisplayPanel(page: Page): Promise<void> {
   await expect(page.getByTestId('part-studio-dock-body')).toHaveCount(0, { timeout: 10_000 });
 }
 
-async function chooseSelectionMode(
-  page: Page,
-  canvas: ReturnType<Page['locator']>,
-  label: string,
-  mode: 'body' | 'face' | 'edge' | 'vertex',
-): Promise<void> {
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('canvas boundingBox 不可得');
-  try {
-    await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.55, { button: 'right' });
-    const item = page.getByRole('menuitem', { name: label, exact: true });
-    await expect(item).toBeVisible({ timeout: 3_000 });
-    await item.click();
-  } catch {
-    // 演示稳定兜底：右键菜单被遮挡/语言差异时直接走同一 store 通道。
-    await page.evaluate((next) => {
-      (window as unknown as {
-        __lubanE2EApp: { usePartStudioStore: { getState(): { setSelectionMode(mode: string): void } } };
-      }).__lubanE2EApp.usePartStudioStore.getState().setSelectionMode(next);
-    }, mode);
-  }
-  await expect.poll(async () => page.evaluate(() => (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selectionMode), {
-    timeout: 15_000,
-  }).toBe(mode);
-  if (mode === 'body')
-    return;
-  await expect.poll(async () => page.evaluate(() => {
-    const tool = (window as unknown as {
-      __lubanE2E?: { coreFrontend: { IModelApp: { toolAdmin: { activeTool?: { toolId?: string } } } } };
-    }).__lubanE2E?.coreFrontend.IModelApp.toolAdmin.activeTool;
-    return tool?.toolId;
-  }), { timeout: 15_000 }).toBe('LubanCAD.SelectSubEntity');
-}
-
-async function projectedEdgePoint(page: Page): Promise<{ x: number; y: number }> {
-  return page.evaluate(() => {
+/** 拓扑边中点投影列表（避开端点——统一工具按 顶点>边 优先，端点会选中顶点）。 */
+async function projectedEdgePoints(page: Page, limit = 16): Promise<Array<{ x: number; y: number }>> {
+  return page.evaluate((max) => {
     const cf = (window as unknown as {
       __lubanE2E?: { coreFrontend: any; coreCommon: any };
     }).__lubanE2E;
@@ -140,49 +107,96 @@ async function projectedEdgePoint(page: Page): Promise<{ x: number; y: number }>
     const vp = cf.coreFrontend.IModelApp.viewManager.getFirstOpenView();
     const deco = cf.coreFrontend.IModelApp.viewManager.decorators
       .find((entry: { id?: string }) => entry.id === 'luban.brep-topology');
-    const edge = deco?._topology?.edges?.[0];
-    if (!edge) throw new Error('BRep 拓扑尚未就绪（无边）');
-    const iterator = new cf.coreCommon.ElementGeometry.Iterator({ entryArray: [edge.entry] });
-    for (const item of iterator) {
-      const geometry = item.toGeometryQuery();
-      if (geometry?.geometryCategory === 'curvePrimitive') {
-        const view = vp.worldToView(geometry.startPoint());
-        return { x: view.x, y: view.y };
+    const edges = deco?._topology?.edges ?? [];
+    if (edges.length === 0) throw new Error('BRep 拓扑尚未就绪（无边）');
+    const points: Array<{ x: number; y: number }> = [];
+    for (const edge of edges) {
+      const iterator = new cf.coreCommon.ElementGeometry.Iterator({ entryArray: [edge.entry] });
+      for (const item of iterator) {
+        const geometry = item.toGeometryQuery();
+        if (geometry?.geometryCategory !== 'curvePrimitive')
+          continue;
+        const midpoint = typeof geometry.fractionToPoint === 'function'
+          ? geometry.fractionToPoint(0.5)
+          : geometry.startPoint();
+        const view = vp.worldToView(midpoint);
+        points.push({ x: view.x, y: view.y });
+        break;
       }
+      if (points.length >= max)
+        break;
     }
-    throw new Error('无法解析第一条拓扑边');
-  });
+    return points;
+  }, limit);
 }
 
-async function projectedVertexPoint(page: Page): Promise<{ x: number; y: number }> {
-  return page.evaluate(() => {
+async function projectedVertexPoints(page: Page, limit = 16): Promise<Array<{ x: number; y: number }>> {
+  return page.evaluate((max) => {
     const cf = (window as unknown as { __lubanE2E?: { coreFrontend: any } }).__lubanE2E;
     if (!cf) throw new Error('E2E hook 缺失');
     const vp = cf.coreFrontend.IModelApp.viewManager.getFirstOpenView();
     const deco = cf.coreFrontend.IModelApp.viewManager.decorators
       .find((entry: { id?: string }) => entry.id === 'luban.brep-topology');
-    const vertex = deco?._topology?.vertices?.[0];
-    if (!vertex) throw new Error('BRep 顶点尚未就绪');
-    const view = vp.worldToView(vertex);
-    return { x: view.x, y: view.y };
-  });
+    const vertices = deco?._topology?.vertices ?? [];
+    if (vertices.length === 0) throw new Error('BRep 顶点尚未就绪');
+    return vertices.slice(0, max).map((vertex: { x: number; y: number; z: number }) => {
+      const view = vp.worldToView(vertex);
+      return { x: view.x, y: view.y };
+    });
+  }, limit);
+}
+
+/** 在候选投影点上悬停+单击，直到 store 选择含目标 kind（返回命中点）。 */
+async function pickKindAt(
+  page: Page,
+  box: { x: number; y: number },
+  points: Array<{ x: number; y: number }>,
+  kind: 'edge' | 'face' | 'vertex',
+  label: string,
+): Promise<{ x: number; y: number }> {
+  for (const point of points) {
+    const x = box.x + point.x;
+    const y = box.y + point.y;
+    await page.mouse.move(x, y);
+    await page.waitForTimeout(400);
+    await page.mouse.down();
+    await page.mouse.up();
+    try {
+      await expect.poll(async () => page.evaluate(() =>
+        ((window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection as Array<{ kind: string }>)
+          .map((entry) => entry.kind),
+      ), { timeout: 3_000, intervals: [100, 200, 500] }).toContain(kind);
+      return point;
+    } catch {
+      // 该候选未命中（遮挡/边角），继续下一个
+    }
+  }
+  throw new Error(`${label}：${points.length} 个候选点均未选中 ${kind}`);
 }
 
 
-/** 在面模式下扫描几个落在实体上的屏幕点，返回实际点亮的点（避开空白/边线热区）。 */
+/** 扫描几个落在实体上的屏幕点，返回实际选中面的点（避开空白/边线热区）。 */
 async function pickFaceAt(page: Page, box: { x: number; y: number; width: number; height: number }): Promise<{ x: number; y: number }> {
   const points: Array<[number, number]> = [
     [0.43, 0.60], [0.47, 0.62], [0.5, 0.65], [0.55, 0.60], [0.5, 0.55], [0.6, 0.62],
+    [0.45, 0.55], [0.52, 0.58], [0.48, 0.68], [0.56, 0.66], [0.42, 0.64], [0.58, 0.56],
   ];
   for (const [fx, fy] of points) {
-    await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy);
-    await page.waitForTimeout(350);
+    const x = box.x + box.width * fx;
+    const y = box.y + box.height * fy;
+    await page.mouse.move(x, y);
+    await page.waitForTimeout(400);
     await page.mouse.down();
     await page.mouse.up();
-    await page.waitForTimeout(500);
-    const selected = await page.evaluate(() => (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection);
-    if (selected.some((entry: { kind: string }) => entry.kind === 'face'))
-      return { x: box.x + box.width * fx, y: box.y + box.height * fy };
+    try {
+      await expect.poll(async () => page.evaluate(() =>
+        ((window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection as Array<{ kind: string }>)
+          .map((entry) => entry.kind),
+      ), { timeout: 3_000, intervals: [100, 200, 500] }).toContain('face');
+      return { x, y };
+    } catch {
+      // 该候选未命中（空白/边线热区），继续下一个
+    }
   }
   throw new Error('面拾取未命中：扫描点均未选中实体面');
 }
@@ -209,8 +223,8 @@ test.describe('完整 BRep 渲染演示', () => {
     }), { timeout: 30_000 }).toBeGreaterThan(0);
 
     console.log('[render-showcase] default');
-    await caption(page, '默认 Shaded｜顶光 + AO + 全部拓扑边',
-      '面片使用 Onshape 式顶光（顶面亮、侧面暗）；深灰边来自完整 BRep 拓扑，\n圆角与相邻面的切线边不再缺失。');
+    await caption(page, '默认外观｜iTwin 默认灯光/材质 + 白底 + BRep 边线',
+      '面片使用 iTwin 默认灯光与材质（不覆盖子类别材质）；纯白底色；\n深灰边来自完整 BRep 拓扑，圆角与切线边可见；AO 默认关，MSAA 4×。');
     await shot(page, '01-default-shaded');
 
     // ── 显示设置：BRep 边线 / 顶点 / AO ───────────────────────────────
@@ -228,17 +242,17 @@ test.describe('完整 BRep 渲染演示', () => {
     await shot(page, '03-all-brep-edges');
 
     await caption(page, '显示设置｜BRep 顶点',
-      '开启「显示 BRep 顶点」：全部拓扑顶点以屏幕小点显示；点选择模式会自动打开。', 900);
+      '开启「显示 BRep 顶点」：全部拓扑顶点以屏幕小点显示；无需切换模式，直接悬停/点击即可拾取。', 900);
     await page.getByTestId('part-studio-display-settings-brep-vertices').click();
     await page.waitForTimeout(700);
     await shot(page, '04-brep-vertices');
     await page.getByTestId('part-studio-display-settings-brep-vertices').click();
 
-    await caption(page, '渲染对比｜AO 关闭',
-      'AO 只收缝隙；默认强度已从 2.0 调回 iTwin 默认 1.0，不再把整体压暗。', 900);
+    await caption(page, '渲染对比｜AO 开启（默认关）',
+      '默认渲染不启用 AO；手动开启后 AO 只收缝隙（强度锚点 1.0 = 37.5%），不整体压暗。', 900);
     await page.getByTestId('part-studio-display-settings-ao').click();
     await page.waitForTimeout(700);
-    await shot(page, '05-ao-off');
+    await shot(page, '05-ao-on');
     await page.getByTestId('part-studio-display-settings-ao').click();
     await page.waitForTimeout(500);
     await closeDisplayPanel(page);
@@ -269,10 +283,11 @@ test.describe('完整 BRep 渲染演示', () => {
 
     console.log('[render-showcase] picking');
     // ── 面/边/点拾取 ─────────────────────────────────────────────────
-    await caption(page, '拾取演示｜选择边',
-      '画布右键 →「选择边」；悬停高亮后单击，显示蓝色选中边（与圆角橙色选边同一基座）。', 900);
-    await chooseSelectionMode(page, canvas, '选择边', 'edge');
-    const edge = await projectedEdgePoint(page);
+    await caption(page, '拾取演示｜选择边（无需切换模式）',
+      '直接悬停高亮后单击：显示蓝色选中边（与圆角橙色选边同一基座）。', 900);
+    const edge = await pickKindAt(
+      page, box, await projectedEdgePoints(page), 'edge', '选择边',
+    );
     await page.mouse.move(box.x + edge.x, box.y + edge.y);
     await page.waitForTimeout(700);
     await shot(page, '08-edge-hover');
@@ -283,9 +298,8 @@ test.describe('完整 BRep 渲染演示', () => {
     expect((await page.evaluate(() => (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection))
       .some((entry: { kind: string }) => entry.kind === 'edge')).toBe(true);
 
-    await caption(page, '拾取演示｜选择面',
-      '右键 →「选择面」；点击实体面，蓝色半透明面高亮。', 900);
-    await chooseSelectionMode(page, canvas, '选择面', 'face');
+    await caption(page, '拾取演示｜选择面（无需切换模式）',
+      '直接点击实体面，蓝色半透明面高亮；Ctrl 多选、空白清除。', 900);
     const facePoint = await pickFaceAt(page, box);
     await page.mouse.move(facePoint.x, facePoint.y);
     await page.waitForTimeout(500);
@@ -293,10 +307,11 @@ test.describe('完整 BRep 渲染演示', () => {
     expect((await page.evaluate(() => (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection))
       .some((entry: { kind: string }) => entry.kind === 'face')).toBe(true);
 
-    await caption(page, '拾取演示｜选择点',
-      '右键 →「选择点」；点选择模式显示全部顶点小点，悬停/单击以蓝色点高亮。', 900);
-    await chooseSelectionMode(page, canvas, '选择点', 'vertex');
-    const vertex = await projectedVertexPoint(page);
+    await caption(page, '拾取演示｜选择点（无需切换模式）',
+      '悬停/单击以蓝色点高亮；工具按 顶点(10px) > 边(6px) > 面 就近命中。', 900);
+    const vertex = await pickKindAt(
+      page, box, await projectedVertexPoints(page), 'vertex', '选择点',
+    );
     await page.mouse.move(box.x + vertex.x, box.y + vertex.y);
     await page.waitForTimeout(700);
     await shot(page, '11-vertex-hover');
@@ -307,12 +322,13 @@ test.describe('完整 BRep 渲染演示', () => {
     expect((await page.evaluate(() => (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection))
       .some((entry: { kind: string }) => entry.kind === 'vertex')).toBe(true);
 
-    // 收尾：回到实体选择，便于用户自行操作。
+    // 收尾：空白清除后回到等轴测，便于用户自行操作。
     console.log('[render-showcase] complete');
-    await chooseSelectionMode(page, canvas, '选择零件', 'body');
+    await page.mouse.click(box.x + 20, box.y + 20);
+    await page.waitForTimeout(400);
     await setIso(page);
     await caption(page, '演示完成｜可自行操作',
-      '右键画布可切换面/边/点选择；右侧显示设置可开关 BRep 边线/顶点、AO、显示模式。\n'
+      '直接悬停/点击选择面/边/点（Ctrl 多选、空白清除）；右侧显示设置可开关 BRep 边线/顶点、AO、显示模式。\n'
       + '浏览器保持打开，不自动关闭。', 1_500);
     await shot(page, '13-final');
     if (keepOpen)

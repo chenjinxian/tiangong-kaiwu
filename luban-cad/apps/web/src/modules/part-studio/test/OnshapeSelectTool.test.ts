@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BeButtonEvent,
   BeModifierKeys,
@@ -19,9 +19,21 @@ const rpc = vi.hoisted(() => ({
   resolveEdgeRef: vi.fn(),
 }));
 
+const solidIpc = vi.hoisted(() => ({
+  getBodySubEntities: vi.fn(),
+  getClosestPoint: vi.fn(),
+}));
+
 vi.mock('@luban-cad/shared', () => ({
   LubanFeatureRpcInterface: { getClient: () => rpc },
 }));
+
+// solidModelingIpc 是 IpcApp 的 Proxy（属性惰性绑定），无法 vi.spyOn；
+// 面兜底单测用可观测替身替换该导出，保留 editor 其余导出。
+vi.mock('@itwin/editor-frontend', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@itwin/editor-frontend')>();
+  return { ...actual, solidModelingIpc: solidIpc };
+});
 
 function hit(type: SubEntityType, x: number, y: number, id = 1): SubEntityLocationProps {
   return {
@@ -281,6 +293,79 @@ describe('OnshapeSelectTool：悬停优先级与阈值', () => {
 
     tool.nextHits = [hit(SubEntityType.Vertex, 31, 20, 1)];
     await expect(tool.callPick('0x1', ev)).resolves.toBeUndefined();
+  });
+});
+
+describe('OnshapeSelectTool：面定位客户端兜底', () => {
+  class FaceProbeTool extends OnshapeSelectTool {
+    public callFace(id: string, ev: BeButtonEvent): Promise<SubEntityLocationProps | undefined> {
+      return this.pickFaceUnderCursor(id, ev);
+    }
+    public exposeMaxHits(type: SubEntityType): number {
+      return this.getMaximumSubEntityHits(type);
+    }
+  }
+
+  function probe(): FaceProbeTool {
+    return new FaceProbeTool({ connectionKey: 'imodel-key', onSelectionChanged: vi.fn(), onError: vi.fn() });
+  }
+
+  afterEach(() => {
+    solidIpc.getBodySubEntities.mockReset();
+    solidIpc.getClosestPoint.mockReset();
+  });
+
+  it('原生面定位关闭（Face=0、边/点=3），避免内核面定位卡死 MS', () => {
+    const tool = probe();
+    expect(tool.exposeMaxHits(SubEntityType.Face)).toBe(0);
+    expect(tool.exposeMaxHits(SubEntityType.Edge)).toBe(3);
+    expect(tool.exposeMaxHits(SubEntityType.Vertex)).toBe(3);
+  });
+
+  it('取屏幕距离最近的面；超 12px 的面被滤掉', async () => {
+    (IModelApp as unknown as { _accuSnap: unknown })._accuSnap = {
+      currHit: { isElementHit: true, sourceId: '0x1', hitPoint: new Point3d(0, 0, 0) },
+    };
+    solidIpc.getBodySubEntities.mockResolvedValue([
+      { type: SubEntityType.Face, id: 5, index: 0 },
+      { type: SubEntityType.Face, id: 6, index: 0 },
+      { type: SubEntityType.Face, id: 7, index: 0 },
+    ]);
+    solidIpc.getClosestPoint.mockImplementation(async (_id: string, face: SubEntityProps) => ({
+      subEntity: face,
+      point: new Point3d(face.id === 5 ? 2 : face.id === 6 ? 40 : 1, 0, 0).toJSON(),
+    }));
+
+    const location = await probe().callFace('0x1', event(new Point3d(0, 0, 0)));
+    expect(location?.subEntity).toEqual({ type: SubEntityType.Face, id: 7, index: 0 });
+  });
+
+  it('屏幕距离相差 ≤1px 时取三维更近的面（正/背面重叠）', async () => {
+    (IModelApp as unknown as { _accuSnap: unknown })._accuSnap = {
+      currHit: { isElementHit: true, sourceId: '0x1', hitPoint: new Point3d(0, 0, 0) },
+    };
+    solidIpc.getBodySubEntities.mockResolvedValue([
+      { type: SubEntityType.Face, id: 5, index: 0 },
+      { type: SubEntityType.Face, id: 6, index: 0 },
+    ]);
+    solidIpc.getClosestPoint.mockImplementation(async (_id: string, face: SubEntityProps) => ({
+      subEntity: face,
+      // 屏幕（xy）几乎重合；id 6 的三维距离更近。
+      point: new Point3d(0.5, 0, face.id === 5 ? 30 : 5).toJSON(),
+    }));
+
+    const location = await probe().callFace('0x1', event(new Point3d(0, 0, 0)));
+    expect(location?.subEntity.id).toBe(6);
+  });
+
+  it('无元素命中/元素 id 不一致 → undefined，且不发起几何 RPC', async () => {
+    (IModelApp as unknown as { _accuSnap: unknown })._accuSnap = {
+      currHit: { isElementHit: true, sourceId: '0x2', hitPoint: new Point3d() },
+    };
+
+    await expect(probe().callFace('0x1', event(new Point3d()))).resolves.toBeUndefined();
+    expect(solidIpc.getBodySubEntities).not.toHaveBeenCalled();
+    expect(solidIpc.getClosestPoint).not.toHaveBeenCalled();
   });
 });
 

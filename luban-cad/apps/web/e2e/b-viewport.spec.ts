@@ -126,6 +126,9 @@ interface ViewportProbe {
 
 interface StoreProbe {
   canvasSelection: string[];
+  /** 子实体选择（face/edge/vertex）的 owner body；part 选择回退 id。 */
+  canvasSelectionOwners: string[];
+  canvasSelectionKinds: string[];
   treeSelection: string[];
   activeToolId: string | null;
 }
@@ -208,12 +211,72 @@ async function readStore(page: Page): Promise<StoreProbe> {
       );
     }
     const state = app.usePartStudioStore.getState();
+    const selection = (state.canvas?.selection ?? []) as Array<{
+      id: string;
+      kind?: string;
+      ownerBodyKey?: string;
+    }>;
     return {
-      canvasSelection: (state.canvas?.selection ?? []).map((entry: any) => String(entry.id)),
+      canvasSelection: selection.map((entry) => String(entry.id)),
+      canvasSelectionOwners: selection.map((entry) => String(entry.ownerBodyKey ?? entry.id)),
+      canvasSelectionKinds: selection.map((entry) => String(entry.kind ?? 'part')),
       treeSelection: [...(state.tree?.selectedNodeIds ?? [])],
       activeToolId: state.tool?.activeToolId ?? null,
     };
   });
+}
+
+interface DefaultRenderStyle {
+  theme: string | null;
+  lights: unknown;
+  environmentSky: boolean;
+  subCategoryOverrideCount: number;
+  ambientOcclusion: boolean;
+  backgroundColor: string;
+  antialiasSamples: number;
+}
+
+/** 页面内读默认渲染基线（Task 7 render-profile + v2 显示设置默认值）。 */
+async function readDefaultRenderStyle(page: Page): Promise<DefaultRenderStyle> {
+  return page.evaluate(() => {
+    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
+    const vp = cf.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) throw new Error('默认渲染断言：viewport 未就绪');
+    const s = vp.view.displayStyle.settings;
+    return {
+      theme: document.documentElement.dataset.theme ?? null,
+      lights: s.lights.toJSON() ?? null,
+      environmentSky: s.environment.displaySky,
+      subCategoryOverrideCount: s.subCategoryOverrides.size,
+      ambientOcclusion: vp.viewFlags.ambientOcclusion,
+      backgroundColor: s.backgroundColor.toHexString(),
+      antialiasSamples: vp.antialiasSamples,
+    };
+  });
+}
+
+/**
+ * 默认渲染基线（2026-11-03，常规套件必跑）：
+ * - 灯光/环境 = iTwin core 默认（LightSettings 默认值 toJSON() === undefined）；
+ * - 不覆盖子类别材质（subCategoryOverrides 0）；
+ * - AO 默认关、白底、MSAA 4。
+ * 视口创建 → render baseline → useDisplaySettings effect 是异步链，先轮询
+ * 背景落白底再逐项断言（避免首帧旧值）。
+ */
+async function expectDefaultRenderStyle(page: Page): Promise<void> {
+  await expect.poll(async () => (await readDefaultRenderStyle(page)).backgroundColor, {
+    timeout: 60_000,
+    intervals: [250, 500],
+  }).toBe('#ffffff');
+  const style = await readDefaultRenderStyle(page);
+  console.log(`[b-viewport] default render=${JSON.stringify(style)}`);
+  expect(style.theme, '默认渲染断言要求亮色主题（白底）').toBe('light');
+  expect(style.lights).toBeNull(); // LightSettings 默认值 toJSON() === undefined
+  expect(style.environmentSky).toBe(false);
+  expect(style.subCategoryOverrideCount).toBe(0);
+  expect(style.ambientOcclusion).toBe(false);
+  expect(style.backgroundColor).toBe('#ffffff');
+  expect(style.antialiasSamples).toBe(4);
 }
 
 /** 页面内读 briefcase 事务面（C6 守卫「不发事务」的真栈观测；走 /ipc WS）。 */
@@ -730,6 +793,28 @@ function expectCameraSame(
   }
 }
 
+/** 内容感知 fit 为异步写相机；跨 scope 断言轮询到终值（容差 1.5 仍能区分
+ * scope 级错误——不同 scope 的 origin 相差数十单位）。 */
+async function expectCameraEventuallySame(
+  page: Page,
+  expected: CameraState | null,
+  label: string,
+  tolerance = 1.5,
+): Promise<void> {
+  await expect.poll(async () => {
+    const camera = (await readViewport(page)).camera;
+    if (!camera || !expected)
+      return Number.POSITIVE_INFINITY;
+    let worst = 0;
+    for (const key of ['origin', 'extents', 'center'] as const) {
+      const a = camera[key];
+      const e = expected[key];
+      worst = Math.max(worst, Math.abs(a.x - e.x) + Math.abs(a.y - e.y) + Math.abs(a.z - e.z));
+    }
+    return worst;
+  }, { timeout: 15_000, intervals: [100, 250, 500] }).toBeLessThanOrEqual(tolerance);
+}
+
 // ============================================================================
 // 共用：重置种子 + 打开编辑器 + 双 studio 双体
 // ============================================================================
@@ -830,14 +915,13 @@ async function expectViewportScope(
   physModelId: string,
   label: string,
 ): Promise<ViewportProbe> {
-  let last: ViewportProbe | null = null;
   await expect.poll(async () => {
-    last = await readViewport(page);
-    return `${last.selectorModels.join(',')}|${last.settingsModel ?? ''}`;
+    const probe = await readViewport(page);
+    return `${probe.selectorModels.join(',')}|${probe.settingsModel ?? ''}`;
   }, { timeout: 60_000, intervals: [250, 500, 1000] }).toBe(
     `${physModelId}|${physModelId}`,
   );
-  const probe = (last ?? (await readViewport(page))) as ViewportProbe;
+  const probe = await readViewport(page);
   expect(probe.hasViewport, `${label}：viewport 必须存在`).toBe(true);
   expect(probe.camera, `${label}：相机状态必须可读（非空过）`).toBeTruthy();
   expect(probe.sameViewport, `${label}：视口实例必须仍是打标实例`).toBe(true);
@@ -893,6 +977,41 @@ async function clickCanvas(page: Page, viewPoint: Vec3): Promise<void> {
   await page.waitForTimeout(250);
 }
 
+/**
+ * 画布单击直到选中指定 owner（几何 tile 流送有延迟：切 scope 后首次点击可能
+ * 落在尚未出图的区域，locate 无命中；重试同一投影点直到 store 出现 owner）。
+ */
+async function clickCanvasUntilOwner(
+  page: Page,
+  viewPoint: Vec3,
+  owner: string,
+  label: string,
+): Promise<StoreProbe> {
+  const deadline = Date.now() + 30_000;
+  let last: StoreProbe | null = null;
+  while (Date.now() < deadline) {
+    await clickCanvas(page, viewPoint);
+    last = await readStore(page);
+    if (last.canvasSelectionOwners.includes(owner)) return last;
+    await page.waitForTimeout(500);
+  }
+  throw new Error(
+    `${label}：30s 内画布单击未选中 owner=${owner}（last=${JSON.stringify(last)}）`,
+  );
+}
+
+/** 画布空白单击：Onshape 统一选择工具的空白清除语义（store.canvas.selection → []）。 */
+async function clearCanvasSelection(page: Page): Promise<void> {
+  const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas boundingBox 不可得');
+  await page.mouse.click(box.x + 20, box.y + 20);
+  await expect.poll(async () => (await readStore(page)).canvasSelection.length, {
+    timeout: 20_000,
+    intervals: [100, 200, 500],
+  }).toBe(0);
+}
+
 /** 两个数据点手势（Move/Rotate 若仍驻留则足以完成一次提交）。 */
 async function gesture(page: Page): Promise<void> {
   const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
@@ -905,20 +1024,18 @@ async function gesture(page: Page): Promise<void> {
   await page.waitForTimeout(500);
 }
 
-/** 真实画布点击选中指定 body（投影中心 + selectionSet 轮询）。 */
-async function selectBodyViaCanvas(
-  page: Page,
-  physModelId: string,
-  bodyKey: string,
-  label: string,
-): Promise<void> {
-  const proj = await projectModelCenter(page, physModelId);
-  await clickCanvas(page, proj.view);
+/**
+ * 真实零件选择：Onshape 统一选择下画布单击拾取的是面/边/点，**不再**选中
+ * 整个 body；零件选择走左侧零件树行（tree.selectedNodeIds → SelectionSet →
+ * store kind='part' 单向桥）。
+ */
+async function selectBodyViaPartsList(page: Page, bodyKey: string, label: string): Promise<void> {
+  await page.getByTestId(`tree-row-${bodyKey}`).click();
   await expect.poll(async () => (await readSelectionSet(page)).join(','), {
     timeout: 20_000,
     intervals: [200, 500],
   }).toBe(bodyKey);
-  expect((await readStore(page)).canvasSelection, `${label}：store 选择桥`).toContain(bodyKey);
+  expect((await readStore(page)).canvasSelection, `${label}：store part 选择桥`).toContain(bodyKey);
 }
 
 /** 相机取景到某元素（用于「隐藏 scope 的几何即便在视野内也不可拾取」）。 */
@@ -1057,8 +1174,16 @@ test.describe('P2.5 真栈视口门', () => {
       if (url.includes('/ipc') || url.includes('/ws')) socketUrls.push(url);
     });
 
+    // 默认渲染断言要求亮色主题（应用默认 light；显式钉住防开发态残留暗色）。
+    await page.addInitScript(() => {
+      localStorage.setItem('luban-next-theme', 'light');
+      localStorage.setItem('luban-next-lang', 'zh-CN');
+    });
     const world = await openTwoStudioWorld(page, seed, 'viewport');
     const { ctx, k1, k2, body1, body2 } = world;
+
+    // Task 7 默认渲染基线：core 默认灯光/环境、无子类别覆盖、白底、AO 关、MSAA 4。
+    await expectDefaultRenderStyle(page);
 
     // 视口身份基线：先打标，之后所有 sameViewport 断言才是真断言（review F4）。
     await tagViewport(page);
@@ -1085,29 +1210,29 @@ test.describe('P2.5 真栈视口门', () => {
     );
     expect(k1Probe.camera, 'K1 应有相机状态').toBeTruthy();
     expect(k1Probe.selectorModels).not.toContain(k2.physModelId);
-    const k1Camera = k1Probe.camera;
+    // 内容感知取景是异步写入的：初载快照必须取稳定值，否则切回同 scope 的
+    // 终值（正确 fit）与初载中间帧比较会造成假失败（真栈 flake）。
+    await page.waitForTimeout(1200);
+    const k1Camera = (await readViewport(page)).camera ?? k1Probe.camera;
     const k1ViewRect = k1Probe.viewRect;
     console.log(
       `[b-viewport] K1 registry phys=${k1.physModelId} loaded=[${k1Probe.loadedModels.join(',')}] ` +
         `viewRect=${JSON.stringify(k1ViewRect)}`,
     );
 
-    // 真实 pick：点击 ps-1 body 投影中心 → selectionSet 只含 body1。
+    // 真实 pick（Onshape 统一选择，2026-11-03）：画布单击命中 body1 的子实体
+    // （面/边/点，owner=body1），**不写**元素级 SelectionSet；整零件选择走零件树。
     const proj1 = await projectModelCenter(page, k1.physModelId);
     console.log(`[b-viewport] proj1=${JSON.stringify(proj1)}`);
     expect(proj1.npc.x, 'ps-1 体应在 K1 视锥内（npc.x）').toBeGreaterThan(0);
     expect(proj1.npc.x, 'ps-1 体应在 K1 视锥内（npc.x 上界）').toBeLessThan(1);
     expect(proj1.npc.y, 'ps-1 体应在 K1 视锥内（npc.y）').toBeGreaterThan(0);
     expect(proj1.npc.y, 'ps-1 体应在 K1 视锥内（npc.y 上界）').toBeLessThan(1);
-    await clickCanvas(page, proj1.view);
-    await expect.poll(async () => (await readSelectionSet(page)).join(','), {
-      timeout: 20_000,
-      intervals: [200, 500],
-    }).toBe(body1.bodyKey);
-    await expect.poll(async () => (await readStore(page)).canvasSelection.join(','), {
-      timeout: 20_000,
-    }).toBe(body1.bodyKey);
-    await setSelectionSet(page, []);
+    const pick1Store = await clickCanvasUntilOwner(page, proj1.view, body1.bodyKey, 'K1 pick');
+    expect(pick1Store.canvasSelectionKinds.length, '画布单击应产生子实体选择').toBeGreaterThan(0);
+    expect(pick1Store.canvasSelectionKinds, '子实体选择不带 kind=part').not.toContain('part');
+    expect(await readSelectionSet(page), '子实体选择不写 SelectionSet').toHaveLength(0);
+    await clearCanvasSelection(page);
 
     // 隐藏 scope 不可拾取（K1 下把 ps-2 的位置拉进视野，点击它的中心也不能
     // 选中 ps-2 —— selector 之外模型不参与渲染/拾取）。
@@ -1120,8 +1245,11 @@ test.describe('P2.5 真栈视口门', () => {
     await clickCanvas(page, hid2.view);
     const hidSel = await readSelectionSet(page);
     expect(hidSel, 'K1 活动时点击 ps-2 位置不得选中 ps-2').not.toContain(body2.bodyKey);
-    expect((await readStore(page)).canvasSelection).not.toContain(body2.bodyKey);
-    await setSelectionSet(page, []);
+    expect(
+      (await readStore(page)).canvasSelectionOwners,
+      'K1 活动时点击 ps-2 位置不得产生 owner=ps-2 的子实体选择',
+    ).not.toContain(body2.bodyKey);
+    await clearCanvasSelection(page);
 
     // ── B) 切 K2：selector/相机/设置全部切到 ps-2；ps-1 不可见/不在视锥 ────
     await clearTileCalls(page).catch(() => undefined);
@@ -1134,7 +1262,8 @@ test.describe('P2.5 真栈视口门', () => {
     expect(k2Probe.loadedModels, 'K2 已加载 ModelState 应包含 ps-2 physModelId').toContain(
       k2.physModelId,
     );
-    const k2Camera = k2Probe.camera;
+    await page.waitForTimeout(1200);
+    const k2Camera = (await readViewport(page)).camera ?? k2Probe.camera;
     expect(k2Camera, 'K2 应有相机状态').toBeTruthy();
     // 相机按 scope 重取景：ps-2 体在 x≈42，origin 必须明显平移。
     expect(
@@ -1149,11 +1278,10 @@ test.describe('P2.5 真栈视口门', () => {
     expect(proj2.npc.x).toBeLessThan(1);
     expect(proj2.npc.y).toBeGreaterThan(0);
     expect(proj2.npc.y).toBeLessThan(1);
-    await clickCanvas(page, proj2.view);
-    await expect.poll(async () => (await readSelectionSet(page)).join(','), {
-      timeout: 20_000,
-    }).toBe(body2.bodyKey);
-    await setSelectionSet(page, []);
+    const pick2Store = await clickCanvasUntilOwner(page, proj2.view, body2.bodyKey, 'K2 pick');
+    expect(pick2Store.canvasSelectionKinds, 'K2 画布单击应为子实体选择').not.toContain('part');
+    expect(await readSelectionSet(page), '子实体选择不写 SelectionSet').toHaveLength(0);
+    await clearCanvasSelection(page);
 
     // K1 在 K2 下不可见：其物理模型既不在 selector，投影也应在视锥外。
     const proj1InK2 = await projectModelCenter(page, k1.physModelId);
@@ -1175,13 +1303,17 @@ test.describe('P2.5 真栈视口门', () => {
     expect(await readSelectionSet(page), 'K2 活动时点击 ps-1 位置不得选中 ps-1').not.toContain(
       body1.bodyKey,
     );
-    await setSelectionSet(page, []);
+    expect(
+      (await readStore(page)).canvasSelectionOwners,
+      'K2 活动时点击 ps-1 位置不得产生 owner=ps-1 的子实体选择',
+    ).not.toContain(body1.bodyKey);
+    await clearCanvasSelection(page);
 
     // ── C) 切回 K1：相机恢复 + 连接/WS 身份稳定 ──────────────────────────
     await tab(page, k1.id).click();
     await expectActiveScope(page, k1.id);
-    const k1Back = await expectViewportScope(page, k1.physModelId, 'K1-back');
-    expectCameraSame(k1Back.camera, k1Camera, '切回 K1 相机');
+    await expectViewportScope(page, k1.physModelId, 'K1-back');
+    await expectCameraEventuallySame(page, k1Camera, '切回 K1 相机');
     const infoAfter = await readOpenBriefcaseInfo(page);
     expect(infoAfter.key, '切 scope 后 connection.key 必须不变').toBe(infoBefore.key);
     expect(infoAfter.isReadonly).toBe(false);
@@ -1233,9 +1365,19 @@ test.describe('P2.5 真栈视口门', () => {
       k3Hits.length,
       '首次显示 K3 几何应产生 K3 物理模型的 tile 请求（证明记录探针有效且几何确实走 tile 通道）',
     ).toBeGreaterThan(0);
+    // K3 首帧可能仍带着切换前旧 scene 的一次 tile 请求（iTwin scene 重建在
+    // selector 落定后的下一帧；PrimaryTreeReference.addToScene 栈已证）。稳态
+    // 判据：再清一次后静默窗内不得再出现 ps-1 请求。
+    console.log(
+      `[b-viewport] K3 切换过渡期 ps-1 tile 请求=${k1HitsInK3.length}（不计入稳态门）`,
+    );
+    await clearTileCalls(page);
+    await page.waitForTimeout(2_000);
+    const k3SteadyCalls = await readTileCalls(page);
+    const k1HitsSteady = k3SteadyCalls.filter((call) => call.text.includes(k1.physModelId));
     expect(
-      k1HitsInK3,
-      `K3 落定后不得再有 ps-1 物理模型的 tile 请求：\n${k1HitsInK3
+      k1HitsSteady,
+      `K3 稳态不得再有 ps-1 物理模型的 tile 请求：\n${k1HitsSteady
         .map((call) => `${call.method} ${call.text.slice(0, 240)}`)
         .join('\n')}`,
     ).toHaveLength(0);
@@ -1270,7 +1412,7 @@ test.describe('P2.5 真栈视口门', () => {
       await tab(page, target.id).click();
       await expectActiveScope(page, target.id);
       const probe = await expectViewportScope(page, target.physModelId, `switch-${i + 1}`);
-      expectCameraSame(probe.camera, targetCamera, `switch-${i + 1} 相机`);
+      await expectCameraEventuallySame(page, targetCamera, `switch-${i + 1} 相机`);
       expect(probe.sameViewport, `switch-${i + 1} 视口身份`).toBe(true);
       const info = await readOpenBriefcaseInfo(page);
       expect(info.key, `switch-${i + 1} connection.key`).toBe(infoBefore.key);
@@ -1336,13 +1478,12 @@ test.describe('P2.5 真栈视口门', () => {
     expect(tree1Before.length, 'ps-1 基线树应为 2 节点').toBe(2);
 
     const proj1 = await projectModelCenter(page, k1.physModelId);
-    await clickCanvas(page, proj1.view);
-    await expect.poll(async () => (await readSelectionSet(page)).join(','), {
-      timeout: 20_000,
-    }).toBe(body1.bodyKey);
-    expect((await readStore(page)).canvasSelection, 'store 选择桥应映射 body1').toEqual([
-      body1.bodyKey,
-    ]);
+    // Onshape 统一选择：画布单击 → 子实体（face/edge/vertex，owner=body1），
+    // 不写元素级 SelectionSet；SelectionSet 仅由零件树/程序化 part 选择写入。
+    const pick1 = await clickCanvasUntilOwner(page, proj1.view, body1.bodyKey, 'I-K1 pick');
+    expect(pick1.canvasSelectionKinds.length, '画布单击应产生子实体选择').toBeGreaterThan(0);
+    expect(pick1.canvasSelectionKinds, '子实体选择不带 kind=part').not.toContain('part');
+    expect(await readSelectionSet(page), '子实体选择不写 SelectionSet').toHaveLength(0);
 
     // ── B) R4：无关渲染（invalidateScene）不得清空选择 ──────────────────────
     await page.evaluate(async () => {
@@ -1350,10 +1491,9 @@ test.describe('P2.5 真栈视口门', () => {
       cf.IModelApp.viewManager.getFirstOpenView()?.invalidateScene();
     });
     await page.waitForTimeout(700);
-    expect(await readSelectionSet(page), 'invalidateScene 后选择必须保留').toEqual([
-      body1.bodyKey,
-    ]);
-    expect((await readStore(page)).canvasSelection).toEqual([body1.bodyKey]);
+    expect(await readSelectionSet(page), 'invalidateScene 后 selectionSet 必须仍为空').toHaveLength(0);
+    expect((await readStore(page)).canvasSelectionOwners, 'invalidateScene 后子实体选择必须保留')
+      .toEqual([body1.bodyKey]);
 
     // ── C) R4：文档级 undo/redo（最新事务在 ps-2）不得清空 ps-1 选择 ───────
     const k2TreeBeforeUndo = await readTree(ctx, token, k2.id);
@@ -1365,19 +1505,19 @@ test.describe('P2.5 真栈视口门', () => {
     // MS 100/15min 配额下每次 poll 都是直连请求）。
     await page.waitForTimeout(1500);
     expect((await readTree(ctx, token, k2.id)).length, 'undo 后 ps-2 树 -1').toBe(1);
-    expect(await readSelectionSet(page), 'undo 后 ps-1 选择必须保留').toEqual([
-      body1.bodyKey,
-    ]);
+    expect(await readSelectionSet(page), 'undo 后 selectionSet 必须仍为空').toHaveLength(0);
+    expect((await readStore(page)).canvasSelectionOwners, 'undo 后 ps-1 子实体选择必须保留')
+      .toEqual([body1.bodyKey]);
     const redo = page.getByTestId('part-studio-ribbon-redo');
     await expect(redo).toBeEnabled({ timeout: 60_000 });
     await redo.click();
     await page.waitForTimeout(1500);
     expect((await readTree(ctx, token, k2.id)).length, 'redo 后 ps-2 树恢复').toBe(2);
-    expect(await readSelectionSet(page), 'redo 后 ps-1 选择必须保留').toEqual([
-      body1.bodyKey,
-    ]);
+    expect(await readSelectionSet(page), 'redo 后 selectionSet 必须仍为空').toHaveLength(0);
+    expect((await readStore(page)).canvasSelectionOwners, 'redo 后 ps-1 子实体选择必须保留')
+      .toEqual([body1.bodyKey]);
     expect(await readTree(ctx, token, k1.id), 'undo/redo 不得改动 ps-1 树').toEqual(tree1Before);
-    await setSelectionSet(page, []);
+    await clearCanvasSelection(page);
 
     // ── D) 真实选择隔离：注入 ps-1 body → 切 ps-2 → Delete/Move 不触碰 ps-1
     const csBeforeIsolation = await latestChangeset(request, ctx.imodelId, token);
@@ -1423,7 +1563,7 @@ test.describe('P2.5 真栈视口门', () => {
 
     // ── C6（P2.6d）：全局 Delete 选中 authored body → 守卫拒绝（bilingual
     //    warning / 零事务 / getBodies 仍 200 且 body 不变；不破坏 init BodySolid）。
-    await selectBodyViaCanvas(page, k2.physModelId, body2.bodyKey, 'C6-K2');
+    await selectBodyViaPartsList(page, body2.bodyKey, 'C6-K2');
     const treeC6 = await readTree(ctx, token, k2.id);
     const bodiesC6 = await getBodiesRpc(ctx, token, k2.id);
     const csC6 = await latestChangeset(request, ctx.imodelId, token);
@@ -1505,11 +1645,9 @@ test.describe('P2.5 真栈视口门', () => {
     await expect(partRows).toHaveCount(2, { timeout: 60_000 });
     const k2TreeBeforeDelete = await readTree(ctx, token, k2.id);
 
+    // 整零件选择走零件树行（画布单击只拾取子实体，不再选中整个 body）。
+    await selectBodyViaPartsList(page, extraBody!.bodyKey, 'D2-newBody');
     const projExtra = await projectWorldPoint(page, { x: 51.5, y: 1, z: 0.5 });
-    await clickCanvas(page, projExtra);
-    await expect.poll(async () => (await readSelectionSet(page)).join(','), {
-      timeout: 20_000,
-    }).toBe(extraBody!.bodyKey);
     console.log(`[b-viewport] D2 selected newBody=${extraBody!.bodyKey}`);
     const canvas2 = page.getByTestId('part-studio-viewport').locator('canvas').first();
     const box2 = await canvas2.boundingBox();
@@ -1604,7 +1742,7 @@ test.describe('P2.5 真栈视口门', () => {
     await tab(page, k1.id).click();
     await expectActiveScope(page, k1.id);
     await expectViewportScope(page, k1.physModelId, 'D3-K1');
-    await selectBodyViaCanvas(page, k1.physModelId, body1.bodyKey, 'D3-K1');
+    await selectBodyViaPartsList(page, body1.bodyKey, 'D3-K1');
     console.log('[b-viewport] D3 selected body1');
     const propsBeforeMove = await readElementProps(page, body1.bodyKey);
     const moveStarted = await page.evaluate(async () => {

@@ -70,6 +70,10 @@ export function useOnshapeSelection(
   useEffect(() => {
     const generation = ++effectGeneration.current;
     const admin = IModelApp.toolAdmin;
+    // 首次挂载时 viewer 尚未 startup（useViewport 的 acquireViewer 异步链），
+    // toolAdmin 可能未就绪；connection/viewport 落定后本 effect 会重跑。
+    if (!admin)
+      return;
 
     // 连接/视口失效（切换中/关闭文档）：恢复 core Select 默认并清参数，
     // 防止旧连接的 Onshape 工具配置残留。
@@ -86,11 +90,22 @@ export function useOnshapeSelection(
 
     const options: OnshapeSelectOptions = {
       connectionKey: connection.key,
+      // undo/redo 后 BriefcaseConnection 自动 restartPrimitiveTool：新实例按此
+      // 快照恢复 face/edge/vertex 高亮（store 是选择权威，onCleanup 不清它）。
+      getSelectionSnapshot: () => usePartStudioStore.getState().canvas.selection,
       onSelectionChanged: (selection) => {
         // 已清理/过期（卸载或连接切换）的旧工具不得再把选择写回 store。
         if (disposed || generation !== effectGeneration.current)
           return;
-        usePartStudioStore.getState().setCanvasSelection(selection);
+        const store = usePartStudioStore.getState();
+        // Onshape 单一选择状态：子实体工具的任一次选择（面/边/点，或空白清除）
+        // 都终止整零件选择——树选中与元素级 SelectionSet 一并清空，避免
+        // 零件高亮 + 子实体高亮并存/隔离残留。先清元素级选择（其 onChanged
+        // 桥会写空画布选择），再写本次子实体选择，顺序不可倒置。
+        connection.selectionSet.emptyAll();
+        if (store.tree.selectedNodeIds.length > 0)
+          store.setSelectedNodeIds([]);
+        store.setCanvasSelection(selection);
       },
       onError: toast,
     };
@@ -102,14 +117,26 @@ export function useOnshapeSelection(
       void requestStart(admin);
 
     const removeToolListener = admin.activeToolChanged.addListener((tool) => {
-      if (!pausedRef.current)
+      if (pausedRef.current) {
+        // 与 paused effect 同口径：dialog/草图期间任何工具激活都清空 body
+        // SelectionSet，防止新装工具重新写入旧 body 选择。
+        connection.selectionSet.emptyAll();
+        if (tool instanceof OnshapeSelectTool)
+          void tool.pause(true);
         return;
+      }
 
-      // 与 paused effect 同口径：dialog/草图期间任何工具激活都清空 body SelectionSet，
-      // 防止新装工具重新写入旧 body 选择。
-      connection.selectionSet.emptyAll();
-      if (tool instanceof OnshapeSelectTool)
-        void tool.pause(true);
+      // 空闲态切到其它工具 = 「启动其它工具清空选择」（spec §4）。undo/redo
+      // 的 restartPrimitiveTool 会装回 OnshapeSelectTool，不属于此分支，
+      // store 选择由新实例按快照恢复高亮。
+      if (!(tool instanceof OnshapeSelectTool)) {
+        const store = usePartStudioStore.getState();
+        store.setCanvasSelection([]);
+        store.setSelectedNodeIds([]);
+        // 不在这里清 connection.selectionSet：DeleteElements/Move 等元素集
+        // 工具 install 时要把 SelectionSet 拷进 agenda（C6 全局 Delete 守卫
+        // 依赖该输入）；由工具自身/提交成功路径收口。
+      }
     });
 
     const removeHoverController = registerBrepHoverController({
@@ -127,7 +154,7 @@ export function useOnshapeSelection(
 
   useEffect(() => {
     const admin = IModelApp.toolAdmin;
-    if (admin.defaultToolId !== OnshapeSelectTool.toolId)
+    if (!admin || admin.defaultToolId !== OnshapeSelectTool.toolId)
       return;
 
     const tool = admin.activeTool;
@@ -149,7 +176,7 @@ export function useOnshapeSelection(
   useEffect(() => () => {
     effectGeneration.current += 1;
     const admin = IModelApp.toolAdmin;
-    if (admin.defaultToolId === OnshapeSelectTool.toolId) {
+    if (admin?.defaultToolId === OnshapeSelectTool.toolId) {
       admin.defaultToolId = 'Select';
       admin.defaultToolArgs = undefined;
       if (admin.activeTool instanceof OnshapeSelectTool)

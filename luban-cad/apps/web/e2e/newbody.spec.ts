@@ -12,6 +12,9 @@
  *   → 逐 body eye：隐藏 body2（data-hidden + EmphasizeElements neverDrawn）→ 显示
  *   → 程序化 SelectionSet 桥：replace([body2Key]) → 画布菜单出 part 删除项 →
  *     emptyAll + 收合
+ *   → Onshape 统一选择（2026-11-03）：无模式直接拾取面/边/点、空白清除、
+ *     跨 body 普通单击替换、Ctrl 多选/再点取消、面 owner 菜单（选中所属/
+ *     隐藏/删除）
  *   → 树删除 UI（B6 M-A5 T2）：newBody 特征行右键「删除」→ HITL 确认 →
  *     body2 consumed、树一行、几何 hide → 原生 undo → 两体恢复、hide 清除
  *   → 首个 delete 的原生 redo → body2 再消费 → undo 恢复两体基线
@@ -219,7 +222,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect(canvasMenu).toBeHidden();
   console.log(`[newbody] selection bridge → 画布 part 菜单 OK（${body2Name}）`);
 
-  // ── M-A5.2：面/边子实体选择模式（真栈） ──────────────────────────────────
+  // ── Onshape 统一选择（2026-11-03）：无模式直接拾取面/边/点 ──────────────
   // 等轴测 + 适应视图（确保两面/边可见；后续 fillet 接着用同一取景）。
   const projectPoints = async (points: Array<{ x: number; y: number; z: number }>) =>
     page.evaluate(async (worldPoints) => {
@@ -246,59 +249,105 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await canvasMenu.getByRole('menuitem', { name: '适应视图' }).click();
   await expect(canvasMenu).toBeHidden();
 
-  const facePoints = await projectPoints([
-    { x: 5, y: 1, z: 2 }, // body2 顶面中心
-    { x: 5, y: 1, z: 0 }, // body2 底面中心（退路）
-  ]);
-  // 2026-11-02 Onshape 化：选择组移入画布右键菜单（主工具栏无此组）。
-  const currentSelectionMode = (): Promise<string> => page.evaluate(() =>
-    (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selectionMode,
+  type SelectionLike = { kind: string; id: string; ownerBodyKey?: string };
+  const currentSelection = (): Promise<SelectionLike[]> => page.evaluate(() =>
+    (window as any).__lubanE2EApp.usePartStudioStore.getState().canvas.selection,
   );
-  const selectMode = async (mode: 'face' | 'edge' | 'vertex' | 'body'): Promise<void> => {
-    const label = { face: '选择面', edge: '选择边', vertex: '选择点', body: '选择零件' }[mode];
-    await page.mouse.click(cx, cy + 120, { button: 'right' });
-    await expect(canvasMenu).toBeVisible();
-    await canvasMenu.getByRole('menuitem', { name: label, exact: true }).click();
-    await expect.poll(currentSelectionMode).toBe(mode);
-  };
-  await selectMode('face');
-  console.log('[newbody] M-A5.2 face mode on');
-  let facePicked = false;
-  let facePickPoint: { x: number; y: number } | undefined;
-  for (let i = 0; i < facePoints.length; i++) {
-    const p = facePoints[i]!;
-    if ((await currentSelectionMode()) !== 'face') {
-      await selectMode('face');
-      await page.waitForTimeout(400);
-    }
-    await page.mouse.move(cb.x + p.x - 12, cb.y + p.y + 10);
+
+  /** 悬停离开再落到目标点（触发 locate），单击后等选择写回 store。 */
+  const pickAt = async (p: { x: number; y: number }): Promise<void> => {
+    const x = cb.x + p.x;
+    const y = cb.y + p.y;
+    await page.mouse.move(x - 12, y + 10);
     await page.waitForTimeout(150);
-    await page.mouse.click(cb.x + p.x, cb.y + p.y);
+    await page.mouse.move(x, y);
+    await page.waitForTimeout(250);
+    await page.mouse.click(x, y);
     await page.waitForTimeout(500);
-    await page.mouse.click(cx, cy + 120, { button: 'right' });
-    await expect(canvasMenu).toBeVisible();
-    if ((await canvasMenu.getByRole('menuitem', { name: '隐藏所属实体' }).count()) > 0) {
-      facePicked = true;
-      facePickPoint = p;
-      break;
+  };
+
+  const activeToolId = (): Promise<string | null> => page.evaluate(() =>
+    (window as any).__lubanE2E?.coreFrontend?.IModelApp?.toolAdmin?.activeTool?.toolId ?? null,
+  );
+
+  const pickMatching = async (
+    points: Array<{ x: number; y: number }>,
+    predicate: (entry: SelectionLike) => boolean,
+    label: string,
+  ): Promise<{ x: number; y: number }> => {
+    for (const p of points) {
+      await pickAt(p);
+      // face/edge 的 resolve 走 WS RPC，首拾可能 >500ms；轮询选择落定再判定。
+      try {
+        await expect.poll(async () => (await currentSelection()).length, {
+          timeout: 4_000,
+          intervals: [100, 200, 500],
+        }).toBeGreaterThan(0);
+      } catch {
+        console.log(`[newbody] ${label} miss @(${Math.round(p.x)},${Math.round(p.y)})`);
+        continue;
+      }
+      const selectionNow = await currentSelection();
+      console.log(
+        `[newbody] ${label} @(${Math.round(p.x)},${Math.round(p.y)}) → ` +
+          selectionNow.map((entry) => `${entry.kind}:${entry.ownerBodyKey ?? ''}`).join(','),
+      );
+      if (selectionNow.some(predicate))
+        return p;
     }
-    // Escape 同时收合菜单并结束拾取工具（onEnded → body）；等模式落定再决定
-    // 是否需要手动 toggle——立即读 pressed 再点击会与 onEnded 的异步归零竞态
-    //（实测点击把已归零的 body 又切回 face）。
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
-    if ((await currentSelectionMode()) === 'face') {
-      await selectMode('body');
-    }
-    await expect.poll(currentSelectionMode).toBe('body');
-  }
-  expect(facePicked, '面模式应在 body2 顶/底面拾到面').toBe(true);
+    throw new Error(`${label}：${points.length} 个投影点均未命中`);
+  };
+
+  const body1 = bodies.find((b) => b.active && b.authored !== false && b.bodyKey !== body2!.bodyKey);
+  expect(body1, '应存在第二个 active authored body（body1）').toBeTruthy();
+
+  // 每个 body 取多面中心，规避等轴测遮挡；扫描直到 owner/kind 命中。
+  const body1FacePoints = await projectPoints([
+    { x: 1, y: 1, z: 1 }, { x: 1, y: 1, z: 0 }, { x: 0, y: 1, z: 0.5 },
+    { x: 1, y: 0, z: 0.5 }, { x: 2, y: 1, z: 0.5 }, { x: 1, y: 2, z: 0.5 },
+  ]);
+  const body2FacePoints = await projectPoints([
+    { x: 5, y: 1, z: 2 }, { x: 5, y: 1, z: 0 }, { x: 4, y: 1, z: 1 },
+    { x: 5, y: 0, z: 1 }, { x: 6, y: 1, z: 1 }, { x: 5, y: 2, z: 1 },
+  ]);
+  const edgePoints = await projectPoints([
+    { x: 6, y: 0, z: 1 }, { x: 6, y: 2, z: 1 }, { x: 4, y: 0, z: 1 },
+    { x: 5, y: 0, z: 2 }, { x: 5, y: 2, z: 2 }, { x: 4, y: 1, z: 2 },
+    { x: 6, y: 1, z: 2 }, { x: 5, y: 0, z: 0 }, { x: 5, y: 2, z: 0 },
+  ]);
+  const vertexPoints = await projectPoints([
+    { x: 6, y: 2, z: 2 }, { x: 4, y: 0, z: 2 }, { x: 4, y: 2, z: 2 },
+    { x: 6, y: 0, z: 2 }, { x: 6, y: 2, z: 0 }, { x: 4, y: 0, z: 0 },
+  ]);
+  console.log(
+    `[newbody] canvas=${JSON.stringify(cb)} activeTool=${await activeToolId()} ` +
+      `body1=${body1?.bodyKey} body2=${body2!.bodyKey}`,
+  );
+  console.log(
+    `[newbody] proj body1=[${body1FacePoints.map((p) => `${Math.round(p.x)},${Math.round(p.y)}`).join(' ')}] ` +
+      `body2=[${body2FacePoints.map((p) => `${Math.round(p.x)},${Math.round(p.y)}`).join(' ')}]`,
+  );
+  // 空白清除：干净起点。
+  await pickAt({ x: 30, y: 30 });
+  expect(await currentSelection(), '空白点击必须清空选择').toEqual([]);
+
+  // 面拾取 + owner 菜单（直接右键；无模式切换）。
+  const body2FacePick = await pickMatching(
+    body2FacePoints,
+    (entry) => entry.kind === 'face' && entry.ownerBodyKey === body2!.bodyKey,
+    'body2 面拾取',
+  );
+  let selection = await currentSelection();
+  expect(selection, '面拾取后应恰一项 face').toHaveLength(1);
+  expect(selection[0]!.kind).toBe('face');
+  await page.mouse.click(cx, cy + 120, { button: 'right' });
+  await expect(canvasMenu).toBeVisible();
+  await expect(canvasMenu.getByRole('menuitem', { name: '隐藏所属实体', exact: true })).toBeVisible();
   await expect(canvasMenu.getByRole('menuitem', { name: '选中所属实体', exact: true })).toBeVisible();
   await expect(canvasMenu.getByRole('menuitem', { name: '删除', exact: true })).toBeEnabled();
   await canvasMenu.getByRole('menuitem', { name: '选中所属实体', exact: true }).click();
-  await expect.poll(currentSelectionMode).toBe('body');
   await expect(body2Row).toHaveAttribute('aria-current', 'true');
-  console.log('[newbody] select-owner done');
+  console.log('[newbody] 面直接拾取 → owner 菜单「选中所属实体」OK');
   await page.evaluate(async () => {
     const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: {
@@ -309,14 +358,16 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
     };
     cf.IModelApp.viewManager.getFirstOpenView()?.iModel.selectionSet.emptyAll();
   });
+  await expect.poll(async () => (await currentSelection()).length).toBe(0);
   await page.waitForTimeout(150);
 
-  // 再入面模式：隐藏所属实体 → eye 恢复（复用首次命中的投影点；顶面中心
-  // 在等轴测下可能被 body1 遮挡，不能固定用 facePoints[0]）。
-  if (!facePickPoint) throw new Error('面拾取成功点未记录');
-  await selectMode('face');
-  await page.mouse.click(cb.x + facePickPoint.x, cb.y + facePickPoint.y);
-  await page.waitForTimeout(500);
+  // 隐藏所属实体 → eye 恢复（复用首次命中的投影点）。
+  if (!body2FacePick) throw new Error('面拾取成功点未记录');
+  await pickMatching(
+    [body2FacePick, ...body2FacePoints],
+    (entry) => entry.kind === 'face' && entry.ownerBodyKey === body2!.bodyKey,
+    'body2 面重拾',
+  );
   await page.mouse.click(cx, cy + 120, { button: 'right' });
   await expect(canvasMenu).toBeVisible();
   const hideOwner = canvasMenu.getByRole('menuitem', { name: '隐藏所属实体' });
@@ -328,57 +379,60 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect(body2Eye).toHaveAttribute('aria-pressed', 'false');
   console.log('[newbody] hide owner + eye restore done');
 
-  // 边模式：拾一条 body2 边；失败坐标逐点尝试；成功后 Esc 回 body
-  await selectMode('edge');
-  console.log('[newbody] M-A5.2 edge mode on');
-  const edgePoints = await projectPoints([
-    { x: 6, y: 0, z: 1 }, { x: 6, y: 2, z: 1 }, { x: 4, y: 0, z: 1 },
-    { x: 5, y: 0, z: 2 }, { x: 5, y: 2, z: 2 },
-  ]);
-  let edgePicked = false;
-  for (let i = 0; i < edgePoints.length; i++) {
-    const p = edgePoints[i]!;
-    if ((await currentSelectionMode()) !== 'edge') {
-      await selectMode('edge');
-      await page.waitForTimeout(400);
-    }
-    await page.mouse.move(cb.x + p.x - 15, cb.y + p.y + 12);
-    await page.waitForTimeout(120);
-    await page.mouse.click(cb.x + p.x, cb.y + p.y);
-    await page.waitForTimeout(500);
-    await page.mouse.click(cx, cy + 120, { button: 'right' });
-    await expect(canvasMenu).toBeVisible();
-    if ((await canvasMenu.getByRole('menuitem', { name: '隐藏所属实体' }).count()) > 0) {
-      edgePicked = true;
-      await page.keyboard.press('Escape');
-      break;
-    }
-    // 同 face 分支：Escape 可能已由工具 onEnded 归零，等一拍再条件 toggle。
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
-    if ((await currentSelectionMode()) === 'edge') {
-      await selectMode('body');
-    }
-    await expect.poll(currentSelectionMode).toBe('body');
-  }
-  expect(edgePicked, '边模式应在 body2 流形边上命中').toBe(true);
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
-  if ((await currentSelectionMode()) === 'edge') await selectMode('body');
-  // 工具退出/模式回 body 是异步链；先等 store 落定。
-  await expect.poll(currentSelectionMode).toBe('body');
-  await page.evaluate(async () => {
-    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
-      IModelApp: {
-        viewManager: {
-          getFirstOpenView(): { iModel: { selectionSet: { emptyAll(): void } } } | undefined;
-        };
-      };
-    };
-    cf.IModelApp.viewManager.getFirstOpenView()?.iModel.selectionSet.emptyAll();
-  });
-  await page.keyboard.press('Escape');
-  console.log('[newbody] M-A5.2 面/边选择模式 → owner 选择/隐藏/禁用删除 OK');
+  // 跨 body 普通单击 = 替换语义（先 body1 面、后 body2 面）。
+  await pickMatching(
+    body1FacePoints,
+    (entry) => entry.kind === 'face' && entry.ownerBodyKey === body1!.bodyKey,
+    'body1 面拾取',
+  );
+  selection = await currentSelection();
+  expect(selection, 'body1 面单击后应恰一项').toHaveLength(1);
+  expect(selection[0]!.ownerBodyKey).toBe(body1!.bodyKey);
+  await pickMatching(
+    body2FacePoints,
+    (entry) => entry.kind === 'face' && entry.ownerBodyKey === body2!.bodyKey,
+    'body2 面拾取（替换）',
+  );
+  selection = await currentSelection();
+  expect(selection, '普通单击跨 body 必须替换（不累加）').toHaveLength(1);
+  expect(selection[0]!.ownerBodyKey).toBe(body2!.bodyKey);
+  console.log('[newbody] 跨 body 普通单击替换 OK');
+
+  // Ctrl 多选：body1 面 + Ctrl body2 面 → 两项不同 owner；再 Ctrl body2 面 → 只剩 body1。
+  await pickMatching(
+    body1FacePoints,
+    (entry) => entry.kind === 'face' && entry.ownerBodyKey === body1!.bodyKey,
+    'body1 面拾取（Ctrl 基线）',
+  );
+  await page.keyboard.down('Control');
+  const body2CtrlPick = await pickMatching(
+    body2FacePoints,
+    (entry) => entry.kind === 'face' && entry.ownerBodyKey === body2!.bodyKey,
+    'body2 面 Ctrl 多选',
+  );
+  await page.keyboard.up('Control');
+  selection = await currentSelection();
+  expect(selection, 'Ctrl 多选应得两项').toHaveLength(2);
+  expect(new Set(selection.map((entry) => entry.ownerBodyKey)))
+    .toEqual(new Set([body1!.bodyKey, body2!.bodyKey]));
+  await page.keyboard.down('Control');
+  await pickAt(body2CtrlPick);
+  await page.keyboard.up('Control');
+  await expect.poll(async () => (await currentSelection()).length).toBe(1);
+  selection = await currentSelection();
+  expect(selection[0]!.ownerBodyKey, 'Ctrl 再点同一面应取消该项，只剩 body1').toBe(body1!.bodyKey);
+  console.log('[newbody] Ctrl 多选 + 再点取消 OK');
+
+  // 边/点：直接悬停/点击（工具按 顶点(10px) > 边(6px) > 面 排序）。
+  await pickMatching(edgePoints, (entry) => entry.kind === 'edge', 'body2 边拾取');
+  console.log('[newbody] edge pick OK');
+  await pickMatching(vertexPoints, (entry) => entry.kind === 'vertex', 'body2 顶点拾取');
+  console.log('[newbody] vertex pick OK');
+
+  // 收尾：空白清除（无模式可回退）。
+  await pickAt({ x: 30, y: 30 });
+  await expect.poll(async () => (await currentSelection()).length).toBe(0);
+  console.log('[newbody] Onshape 统一选择 → 面/边/点直接拾取 + owner 菜单 OK');
 
   // ── 树删除 UI（T2）：特征行右键「删除」→ HITL 确认（dialog 作用域） ──
   const featureMenu = page.getByRole('menu', { name: '特征菜单' });
@@ -518,31 +572,18 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
 
   // ── M-A5.2 面删除真栈：body1 顶/底面 → HITL → deleteSubEntities + saveChanges ──
   // body1 是干净盒体（body2 已被 fillet 改造），面删除验证 cacheId → editor
-  // SolidModelingCommand 的直通链；成功 toast 与模式归零为功能判据。
-  const body1FacePoints = await projectPoints([
-    { x: 1, y: 1, z: 1 }, { x: 1, y: 1, z: 0 },
+  // SolidModelingCommand 的直通链；成功路径由 UI 清空选择，失败保持选择可重拾。
+  const body1DeleteFacePoints = await projectPoints([
+    { x: 1, y: 1, z: 1 }, { x: 1, y: 1, z: 0 }, { x: 0, y: 1, z: 0.5 },
+    { x: 1, y: 0, z: 0.5 }, { x: 2, y: 1, z: 0.5 }, { x: 1, y: 2, z: 0.5 },
   ]);
-  await selectMode('face');
-  let body1FacePicked = false;
-  for (let i = 0; i < body1FacePoints.length; i++) {
-    const p = body1FacePoints[i]!;
-    await page.mouse.move(cb.x + p.x - 12, cb.y + p.y + 10);
-    await page.waitForTimeout(150);
-    await page.mouse.click(cb.x + p.x, cb.y + p.y);
-    await page.waitForTimeout(500);
-    await page.mouse.click(cx, cy + 120, { button: 'right' });
-    await expect(canvasMenu).toBeVisible();
-    if ((await canvasMenu.getByRole('menuitem', { name: '隐藏所属实体' }).count()) > 0) {
-      body1FacePicked = true;
-      break;
-    }
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
-    if ((await currentSelectionMode()) === 'face') await selectMode('body');
-    await expect.poll(currentSelectionMode).toBe('body');
-    await selectMode('face');
-  }
-  expect(body1FacePicked, '面删除前应在 body1 上拾到面').toBe(true);
+  await pickMatching(
+    body1DeleteFacePoints,
+    (entry) => entry.kind === 'face' && entry.ownerBodyKey === body1!.bodyKey,
+    'body1 面删除拾取',
+  );
+  await page.mouse.click(cx, cy + 120, { button: 'right' });
+  await expect(canvasMenu).toBeVisible();
   await expect(canvasMenu.getByRole('menuitem', { name: '删除', exact: true })).toBeEnabled();
   await canvasMenu.getByRole('menuitem', { name: '删除', exact: true }).click();
   const deleteFaceDialog = page.getByRole('dialog', { name: '删除 面' });
@@ -550,14 +591,18 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await deleteFaceDialog.getByRole('button', { name: '删除', exact: true }).click();
   // 内核边界（私有原生仓 reference）：
   // 普通盒体单面删除是既定负路径（api_remove_faces 邻面补不拢，Err 115006）；
-  // SUCCESS 需要共面分裂种子。此处验证诚实负路径：错误 toast + 保持 face 模式。
+  // SUCCESS 需要共面分裂种子。此处验证诚实负路径：错误 toast + 保持面选择。
   const deleteFailure = page.getByText(/删除失败/);
   await expect(deleteFailure).toBeVisible({ timeout: 90_000 });
   expect(await deleteFailure.first().textContent()).toContain('内核拒收');
-  await expect.poll(currentSelectionMode).toBe('face');
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(500);
-  await expect.poll(currentSelectionMode).toBe('body');
+  expect(
+    (await currentSelection()).some(
+      (entry) => entry.kind === 'face' && entry.ownerBodyKey === body1!.bodyKey,
+    ),
+    '删除失败后应保持面选择（可重拾）',
+  ).toBe(true);
+  await pickAt({ x: 30, y: 30 });
+  await expect.poll(async () => (await currentSelection()).length).toBe(0);
   console.log('[newbody] M-A5.2 面删除负路径（盒体）→ 内核拒收 + 错误 toast OK');
 
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);

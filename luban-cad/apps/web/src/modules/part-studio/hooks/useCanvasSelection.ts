@@ -22,10 +22,22 @@
  */
 
 import React from 'react';
-import { ColorDef, FeatureOverrideType } from '@itwin/core-common';
+import { ColorDef, FeatureAppearance, FeatureOverrideType, RgbColor } from '@itwin/core-common';
 import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { CanvasSelection } from '../types.js';
+
+/**
+ * 树选中高亮的默认外观（未强调元素）：保留 EmphasizeElements 的灰显，
+ * 但 **nonLocatable=false**——默认 `createDefaultAppearance()` 带
+ * nonLocatable:true，选中特征（非几何元素 id）时全模型像素无 elementId，
+ * 后续 hover/拾取（含圆角选边）全部失效（2026-11-03 真栈实证）。
+ */
+const TREE_EMPHASIS_DEFAULT = FeatureAppearance.fromJSON({
+  rgb: new RgbColor(0xe4, 0xe4, 0xe4),
+  transparency: 0.8,
+  // 不写 nonLocatable（缺省即 false）；Emphasize 默认外观会显式置 true。
+});
 
 /**
  * 特征编辑态体高亮色（M6-c T5）：Onshape 橙——采集截图 12-dialog-extrude-1.png
@@ -74,7 +86,8 @@ export function useCanvasSelection(
       const emphasize = EmphasizeElements.getOrCreate(viewport);
       emphasize.clearEmphasizedElements(viewport);
       if (emphasizedNodeIds.length > 0) {
-        emphasize.emphasizeElements([...emphasizedNodeIds], viewport, undefined, true);
+        // 第三参传 nonLocatable=false 的默认外观，避免特征/零件高亮使全模型不可拾取。
+        emphasize.emphasizeElements([...emphasizedNodeIds], viewport, TREE_EMPHASIS_DEFAULT, true);
       }
     };
     try {

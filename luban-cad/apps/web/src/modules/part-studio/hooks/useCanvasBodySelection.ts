@@ -98,6 +98,10 @@ export function useCanvasBodySelection(
     const sync = (): void => {
       const next = mapBodiesToSelection(selectionSet.elements, bodies);
       const store = usePartStudioStore.getState();
+      // 元素级 SelectionSet 清空（含异步 onChanged）不得覆盖子实体选择：
+      // 面/边/点由默认选择工具独立持有，清空 SelectionSet 只是清整零件选择。
+      if (next.length === 0 && store.canvas.selection.some((entry) => entry.kind !== 'part'))
+        return;
       if (canvasSelectionKey(store.canvas.selection) === canvasSelectionKey(next)) return;
       store.setCanvasSelection(next);
     };

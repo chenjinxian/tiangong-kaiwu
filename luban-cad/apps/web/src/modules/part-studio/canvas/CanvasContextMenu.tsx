@@ -477,8 +477,11 @@ export function CanvasContextMenu({
                 if (onDeleteSubEntity) {
                   onDeleteSubEntity(selection);
                 } else {
-                  console.warn(`[part-studio] 删除子实体 ${name}（onDeleteSubEntity 未接线）`);
+                  console.warn(`[part-studio] 删除子实体 ${name}（onDelete 未接线）`);
                 }
+                // 子实体删除是异步内核操作：成功由 host 清选择；失败保留选择
+                // 供重拾（2026-11-03；此处提前清空会让失败后 store 与工具分裂）。
+                return;
               } else if (onDelete) {
                 onDelete(selection);
               } else {

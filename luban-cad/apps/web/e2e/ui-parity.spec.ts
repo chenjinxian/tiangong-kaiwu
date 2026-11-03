@@ -42,7 +42,7 @@ async function readCubeTransform(page: Page): Promise<string> {
 
 async function readStoredDisplaySettings(page: Page): Promise<Record<string, unknown> | null> {
   return page.evaluate(() => {
-    const raw = localStorage.getItem('luban.partStudio.displaySettings.v1');
+    const raw = localStorage.getItem('luban.partStudio.displaySettings.v2');
     return raw ? JSON.parse(raw) as Record<string, unknown> : null;
   });
 }

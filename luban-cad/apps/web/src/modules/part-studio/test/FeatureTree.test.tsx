@@ -393,7 +393,12 @@ describe('树→画布联动单向流（树选中 → viewport emphasize；M4-T6
     render(<FeatureTree entries={ENTRIES} />);
     await user.click(screen.getByTestId('tree-row-ex2'));
     expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['ex2']);
-    expect(mocks.emphasizeElements).toHaveBeenCalledWith(['ex2'], { id: 'vp' }, undefined, true);
+    expect(mocks.emphasizeElements).toHaveBeenCalledWith(
+      ['ex2'],
+      { id: 'vp' },
+      expect.objectContaining({ transparency: 0.8 }),
+      true,
+    );
   });
 
   it('emphasize 键稳定序列化：拼串碰撞集合（["a","bc"] vs ["ab","c"]）仍触发重跑', async () => {
@@ -410,7 +415,12 @@ describe('树→画布联动单向流（树选中 → viewport emphasize；M4-T6
     await waitFor(() =>
       expect(mocks.emphasizeElements.mock.calls.length).toBeGreaterThan(first),
     );
-    expect(mocks.emphasizeElements).toHaveBeenLastCalledWith(['ab', 'c'], { id: 'vp' }, undefined, true);
+    expect(mocks.emphasizeElements).toHaveBeenLastCalledWith(
+      ['ab', 'c'],
+      { id: 'vp' },
+      expect.objectContaining({ transparency: 0.8 }),
+      true,
+    );
   });
 
   it('卸载清空 emphasize（有 viewport：清理走 EmphasizeElements.get，不反向建实例）', async () => {
