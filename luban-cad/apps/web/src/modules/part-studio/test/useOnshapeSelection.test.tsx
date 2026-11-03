@@ -70,7 +70,7 @@ beforeEach(() => {
   stubNotifications();
   usePartStudioStore.setState({
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
-    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
+    canvas: { selection: [], hiddenIds: [] },
     dialog: { active: null },
   });
 });

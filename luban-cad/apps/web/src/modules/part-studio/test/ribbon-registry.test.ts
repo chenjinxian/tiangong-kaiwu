@@ -1,7 +1,7 @@
 // src/modules/part-studio/test/ribbon-registry.test.ts
 //
 // M3 Task 4（brief Step 1）：工具 ribbon 注册表完整性——
-//  1) 27 工具全在册（os-11 dom-toolbar.html 取证顺序；id 校准原则：已有真实
+//  1) 28 工具全在册（os-11 dom-toolbar.html 取证顺序；id 校准原则：已有真实
 //     iTwin 工具的沿用旧应用 toolId——SweepFaces/RoundEdges/ChamferEdges/
 //     DraftFaces/HollowFaces/CreateHole/MirrorElements/LinearPattern，未接线
 //     的用 Onshape command-id——newSketch/extrude/…/USER_FEATURES）；
@@ -37,9 +37,6 @@ import enPartStudio from '../../../common/i18n/locales/en/part-studio.json';
 
 /** os-11 工具顺序（dom-toolbar.html command-id 序列；8 个旧应用真实 toolId 已校准）。 */
 const EXPECTED_TOOL_IDS = [
-  'selectFace', // M-A5.2：选择面（子实体选择模式 toggle）
-  'selectEdge', // M-A5.2：选择边
-  'selectVertex', // 2026-11-02：选择点（BRep vertex）
   'newSketch', // 草图 (shift+s)
   'extrude', // 拉伸 (shift+e)
   'revolve', // 旋转 (shift+w)
@@ -70,9 +67,8 @@ const EXPECTED_TOOL_IDS = [
   'surfaceCurve', // 曲面/曲线组 ▾
 ] as const;
 
-/** os-11 分组顺序（toolset-seperator 切分）。 */
+/** os-11 分组顺序（toolset-seperator 切分；选择组随默认选择工具退役）。 */
 const EXPECTED_GROUP_ORDER: RibbonGroup[] = [
-  'selection',
   'sketch',
   'create',
   'shape',
@@ -154,9 +150,9 @@ function registryI18nKeys(): string[] {
   return [...keys];
 }
 
-describe('RIBBON_TOOLS 注册表完整性（31 工具，os-11 顺序 + 选择组 + 筋）', () => {
-  it('恰为 31 工具且 id 集合与顺序全对齐取证清单', () => {
-    expect(RIBBON_TOOLS).toHaveLength(31);
+describe('RIBBON_TOOLS 注册表完整性（28 工具，os-11 顺序 + 筋）', () => {
+  it('恰为 28 工具且 id 集合与顺序全对齐取证清单', () => {
+    expect(RIBBON_TOOLS).toHaveLength(28);
     expect(RIBBON_TOOLS.map((tool) => tool.id)).toEqual([...EXPECTED_TOOL_IDS]);
   });
 
@@ -295,9 +291,9 @@ describe('命令查找辅助（palette 数据源）', () => {
     expect(findRibbonCommand('nope')).toBeUndefined();
   });
 
-  it('allRibbonCommands 展开工具+全部子项（31+44=75 条命令）', () => {
+  it('allRibbonCommands 展开工具+全部子项（28+44=72 条命令）', () => {
     const all = allRibbonCommands();
-    expect(all).toHaveLength(75);
+    expect(all).toHaveLength(72);
     // 工具保序：展开序中过滤回顶层工具，仍等于 os-11 工具序列。
     const toolIds = all
       .filter((command) => (RIBBON_TOOLS as readonly RibbonCommand[]).includes(command))

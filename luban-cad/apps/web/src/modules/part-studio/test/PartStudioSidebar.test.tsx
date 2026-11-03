@@ -73,7 +73,7 @@ const BODIES: BodyInfo[] = [
 
 function resetStore(): void {
   usePartStudioStore.setState({
-    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
+    canvas: { selection: [], hiddenIds: [] },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },

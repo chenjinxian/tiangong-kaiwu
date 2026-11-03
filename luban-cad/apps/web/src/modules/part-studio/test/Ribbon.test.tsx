@@ -47,7 +47,7 @@ function resetStore(): void {
   usePartStudioStore.setState({
     tool: { activeToolId: null },
     dialog: { active: null },
-    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
+    canvas: { selection: [], hiddenIds: [] },
   });
 }
 
@@ -186,43 +186,6 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
       mode: 'new',
       featureType: 'booleanBodies',
     });
-  });
-
-  it('Onshape 主工具栏隐藏选择组；命令搜索同一激活路由仍可切换 selectionMode', async () => {
-    const user = userEvent.setup();
-    function SelectionHarness(): React.JSX.Element {
-      const { activate } = useToolActivation();
-      return (
-        <>
-          <button type="button" onClick={() => void activate('selectFace')}>activate-face</button>
-          <button type="button" onClick={() => void activate('selectEdge')}>activate-edge</button>
-          <button type="button" onClick={() => void activate('selectVertex')}>activate-vertex</button>
-        </>
-      );
-    }
-    render(
-      <>
-        <Ribbon />
-        <SelectionHarness />
-      </>,
-    );
-    // 主工具栏不显示选择组（Onshape live 无此组）。
-    expect(screen.queryByRole('button', { name: '选择面' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '选择边' })).toBeNull();
-    expect(screen.queryByRole('button', { name: '选择点' })).toBeNull();
-
-    await user.click(screen.getByRole('button', { name: 'activate-face' }));
-    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('face');
-    await user.click(screen.getByRole('button', { name: 'activate-face' }));
-    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body');
-    await user.click(screen.getByRole('button', { name: 'activate-vertex' }));
-    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('vertex');
-
-    // 特征对话框打开时保持旧防御：不切模式。
-    act(() => usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' }));
-    act(() => usePartStudioStore.getState().setSelectionMode('body'));
-    await user.click(screen.getByRole('button', { name: 'activate-face' }));
-    expect(usePartStudioStore.getState().canvas.selectionMode).toBe('body');
   });
 
   it('gated 工具不回归：拔模点击开能力引导对话框', async () => {

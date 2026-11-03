@@ -164,7 +164,7 @@ import { classifyAxisLines, FeatureDialog } from '../dialogs/FeatureDialog.js';
 /** store 复位：canvas/viewOnly 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
   usePartStudioStore.setState({
-    canvas: { selection: [], hiddenIds: [], selectionMode: 'body' },
+    canvas: { selection: [], hiddenIds: [] },
     viewOnly: { isActive: false },
   });
 }

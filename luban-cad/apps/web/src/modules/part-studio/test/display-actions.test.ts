@@ -205,19 +205,21 @@ describe('display-actions', () => {
     expect(visibleJson.color).toBe(ColorDef.fromString('#ff0000').tbgr);
   });
 
-  it('maps display mode + vertex selection to the BRep overlay options', () => {
-    expect(brepOverlayOptionsFor(DEFAULT_DISPLAY_SETTINGS, 'body')).toMatchObject({
+  it('maps display mode + showBrepVertices to the BRep overlay options', () => {
+    expect(brepOverlayOptionsFor(DEFAULT_DISPLAY_SETTINGS)).toMatchObject({
       showEdges: true,
       showVertices: false,
       edgeColor: '#1f1f1f',
       edgeWidthPx: 2,
       xrayEdges: false,
     });
-    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'shaded-no-edges' }, 'body').showEdges).toBe(false);
-    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'hidden-visible' }, 'body').xrayEdges).toBe(true);
-    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'translucent' }, 'edge').xrayEdges).toBe(true);
-    expect(brepOverlayOptionsFor(DEFAULT_DISPLAY_SETTINGS, 'vertex').showVertices).toBe(true);
-    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, showBrepEdges: false }, 'body').showEdges).toBe(false);
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'shaded-no-edges' }).showEdges).toBe(false);
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'hidden-visible' }).xrayEdges).toBe(true);
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, mode: 'translucent' }).xrayEdges).toBe(true);
+    // 顶点叠加仅由 showBrepVertices 控制（不再随选择模式自动打开）。
+    expect(brepOverlayOptionsFor(DEFAULT_DISPLAY_SETTINGS).showVertices).toBe(false);
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, showBrepVertices: true }).showVertices).toBe(true);
+    expect(brepOverlayOptionsFor({ ...DEFAULT_DISPLAY_SETTINGS, showBrepEdges: false }).showEdges).toBe(false);
   });
 
   it('is a no-op without a viewport', () => {
