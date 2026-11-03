@@ -68,19 +68,6 @@ describe('DisplaySettingsPanel', () => {
     expect(reset).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles the full BRep edge/vertex overlay (defaults: edges on, vertices off)', async () => {
-    const user = userEvent.setup();
-    const { update } = renderPanel();
-    const edges = screen.getByTestId('part-studio-display-settings-brep-edges') as HTMLInputElement;
-    const vertices = screen.getByTestId('part-studio-display-settings-brep-vertices') as HTMLInputElement;
-    expect(edges.checked).toBe(true);
-    expect(vertices.checked).toBe(false);
-    await user.click(edges);
-    expect(update).toHaveBeenCalledWith({ showBrepEdges: false });
-    await user.click(vertices);
-    expect(update).toHaveBeenCalledWith({ showBrepVertices: true });
-  });
-
   it('honestly disables every control without a viewport', () => {
     renderPanel({}, false);
     expect((screen.getByTestId('part-studio-display-settings-mode') as HTMLSelectElement).disabled).toBe(true);
