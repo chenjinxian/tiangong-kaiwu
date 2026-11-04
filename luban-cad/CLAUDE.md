@@ -166,6 +166,6 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 - `apps/web` 全量 vitest：1328/1328；shared 151、editor 29、viewer 127；四包 `tsc`/lint 绿。
 - 真栈：`newbody`（选择/删除/undo/redo）、`part-studio`（五区/ribbon 激活）通过。
-- **known-red**：`tutorial2` 拉伸 2 面域 4 的 `data-region-points` 落在画布外（证据与归因见 `../docs/superpowers/specs/2026-11-04-debt-cleanup-x01-x03-airr.md` §7.1）；`sketch-extrude` 仍红。不得把 known-red 当绿，也不得通过放宽断言“修复”。
+- **known-red**：`sketch-extrude` 仍红（草图无拉链面域）。`tutorial2` X-14 已于 2026-11-04 关闭：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min；六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³），证据 `apps/web/test-results/t2-strict-after.log`。不得把 known-red 当绿，也不得通过放宽断言“修复”。
 
 *最后更新: 2026-11-04（平台 P0/P1 门禁 + X-01/X-02/X-03 单一管道/草图/选择规则；验证基线）*

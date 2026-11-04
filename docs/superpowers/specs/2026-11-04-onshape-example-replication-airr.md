@@ -22,7 +22,8 @@
 - 发现 526 个文档（Onshape 150 / Onshape Training Repo 361 / Explore Onshape Models 6 / Onshape Training 9）。
 - 其中 476 个含 Part Studio，合计 1685 个 Part Studio。
 - UI 证据：526/526 文档有浏览器索引；491 个代表 Part Studio 有截图、压缩 DOM 轮廓和 ARIA。
-- 结构证据：5 个文档有完整 `features + massproperties + parts`；32 个文档有特征树；massproperties/parts 正在按配额补齐。
+- 结构证据（2026-11-04 收口）：5 个文档有完整 `features + massproperties + parts`；37 个文档有特征树；11 个文档有 parts；118 个文档有聚合 massproperties 文件（完成度以 `manifest/collection-coverage.json` 为准）。
+- 逐 body 质量属性：Onshape 默认 massproperties 只返回 `-all-`；已新增 `tools/mass-by-part.mjs` 按 `partId` + `massAsGroup=false` 采集每个 Part/body 的体积/质量/质心，已完成 11 个文档 / 90 个 Part Studio（Batch 1 全覆盖）。
 - Tutorial 2「Build a Part」已有 gold fixture，并已迁入同一私有数据仓。
 
 ### 第一批验收（Batch 1）
@@ -33,8 +34,15 @@
 | Onshape Quickstart | 4 Part Studio；完整 API + UI | 至少 1 个 Part Studio 完整特征链；多 Part Studio 目录可解析；体积/body 数对拍 |
 | Bench Vise | 4 Part Studio；完整 API + UI | 至少 1 个 Part Studio 完整特征链；多 Part/多 body 对拍 |
 | Part Feeding Machine | 13 Part Studio；完整 API + UI | 选择 1 个 Part Studio 做完整链；验证大规模多 Part 文档的选择/树/相机 |
-| Exercise: Clamp | 2 Part Studio；特征树 + UI | 草图/尺寸/特征树回放；massproperties 到齐后补体积锚 |
-| Intro to CAD - Skateboard | 1 Part Studio；特征树 + UI | 草图/约束/特征链回放；作为训练型示例的 UI 基线 |
+| Exercise: Clamp | 2 Part Studio；特征树 + UI（1/2 PS 有 UI） | 草图/尺寸/特征树回放；massproperties/parts 到齐后补体积锚 |
+| Tutorial 2 - Build Your First Part - iOS | 1 Part Studio；4 特征（sketch/extrude NEW/extrude ADD/chamfer）；特征树 + UI + parts + 逐 body 质量属性（157.479 cm³） | **几何回放已通过**（私有后端 replay：单 body、四特征 status 0、终体积 157.165 cm³，-0.20%）；当前 blocked-capability：DIAMETER UI、line→整圆 tangent（回放省略 4 条，dof=4）、通用 imprint-face extrude、chamfer UI 创建链。原「Intro to CAD - Skateboard」的 Part Studio 为空（0 特征、0 body），数据不可用，已替换 |
+
+**Batch 1 数据状态（2026-11-04）**
+
+- Bench Vise、Part Feeding Machine、Onshape Quickstart：4/4、13/13、4/4 Part Studio 均已有 features + parts + 逐 body massproperties + UI（Quickstart 的代表 UI 仅 1/4，目标 SPINDLE 的代表证据待补）。
+- Exercise: Clamp、Tutorial 2 iOS：parts 与逐 body massproperties 已补（Clamp 2 PS/6 parts；iOS 1 PS/1 part，体积 157.479 cm³）；UI 覆盖 Clamp 1/2、iOS 1/1。
+- 所有体积断言使用逐 body 数据；没有逐 body 数据时只能标记 `blocked-evidence`，不得用聚合值冒充单 body。
+- 能力/数据缺口与 ADR 批次：见 `docs/superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md`。
 
 所有示例都要求：特征树类型/顺序/关键参数可追溯；同一输入的求值确定性；不允许用截图伪造几何结果。
 
@@ -150,5 +158,7 @@
 - 跨仓影响明确：是
 - P0 例外已登记：现有 X-05/X-14 等仍需跟踪；本 AIRR 不新增例外
 - ADR：需要（parity scenario/evidence 契约；以及任何 FeatureOp/schema 变更）
-- Owner 签字：待签
-- 结论：**DRAFT — 修改后批准前不写实现代码**
+- Owner 签字：用户（2026-11-04 已确认 AIRR）
+- 结论：**APPROVED（2026-11-04）**。Batch 1 表格已将数据为空的 Skateboard 替换为
+  Tutorial 2 iOS；复用矩阵、单一建模管道、跨仓/发布边界不变。新增 FeatureOp/约束
+  仍须单独 ADR + shared 版本 bump。

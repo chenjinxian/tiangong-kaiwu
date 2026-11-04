@@ -355,7 +355,10 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
   `tutorial2.spec.ts` 1/1（严格鼠标流 3.3 min；18 实体/48 约束/9 尺寸、
   dof=0；草图对话框视口平面拾取 + 三次拉伸/一次旋转全部在视口点选面域；
   圆角拾取保持 Iso 斜视两段各 2 chips；无圆角 358.161 cm³、终 357.739 cm³、
-  四短棱去材 0.422 cm³；T2_SHOWCASE 演示 5.1 min）、
+  四短棱去材 0.422 cm³；T2_SHOWCASE 演示 5.1 min）。
+  **2026-11-04 X-14 复跑**：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min），
+  同体积/去材数字；修复=特征对话框前 `frameScene(SCENES.partIso)` +
+  `profilePickPoints` 只返回安全点，详见 `architecture/EXCEPTIONS.md` X-14；
   `tutorial2-tools.spec.ts` 5/5（绘制/约束/标注/偏移/双击树二次编辑，3.1 min；
   标注测试验证单尺寸按钮依次生成 length 45 / radius 12.5 / distance 25，
   值确认框在标注位置；二次编辑验证拉伸距离 10→20 的 updateParams 落库）、
