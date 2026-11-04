@@ -500,16 +500,17 @@ export type SketchRef =
 
 export type SketchEntityDto =
   | { kind: "point"; id: number; x?: number; y?: number }
-  | { kind: "line"; id: number; p1: number | SketchPointDto; p2: number | SketchPointDto }
-  | { kind: "circle"; id: number; center: number | SketchPointDto; radius?: number }
-  | { kind: "arc"; id: number; center: number | SketchPointDto; radius?: number; startAngle?: number; sweepAngle?: number }
+  | { kind: "line"; id: number; p1: number | SketchPointDto; p2: number | SketchPointDto; construction?: boolean }
+  | { kind: "circle"; id: number; center: number | SketchPointDto; radius?: number; construction?: boolean }
+  | { kind: "arc"; id: number; center: number | SketchPointDto; radius?: number; startAngle?: number; sweepAngle?: number; construction?: boolean }
   /** v1.19：精确三次贝塞尔样条（Tutorial 2 为单条三次曲线；controlPoints 恰 4 个）。
    * fitPoints 为 Onshape 拟合点语义（端点与 curve start/end 重合）；服务端求解以 controlPoints
    * 为真源，fitPoints 仅用于结构化引用对齐与读面保真。N>2 拟合点/周期样条延后。 */
-  | { kind: "spline"; id: number; fitPoints?: SketchPointDto[]; controlPoints: SketchPointDto[]; periodic?: boolean };
+  | { kind: "spline"; id: number; fitPoints?: SketchPointDto[]; controlPoints: SketchPointDto[]; periodic?: boolean; construction?: boolean };
 export interface SketchConstraintDto {
-  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "length" | "midpoint" | "tangent" | "offset" | "fixed";
-  id: number; refs: SketchRef[]; value?: number;
+  /** v1.23（ADR-0004）：diameter/concentric；driven=参考尺寸（不送求解器）。 */
+  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "diameter" | "concentric" | "length" | "midpoint" | "tangent" | "offset" | "fixed";
+  id: number; refs: SketchRef[]; value?: number; driven?: boolean;
 }
 export type SketchSolveStatusDto = "ok" | "underconstrained" | "conflicting" | "failed";
 export interface SketchSolveStateDto { status: SketchSolveStatusDto; dof: number; failedConstraintIds: number[]; conflictingRank: number[]; redundant?: boolean }
@@ -550,7 +551,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.22.0";
+  public static interfaceVersion = "1.23.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

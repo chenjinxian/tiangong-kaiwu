@@ -31,7 +31,7 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
 
 ## 决策
 
-### 1. 数据模型（shared 1.22.0，向后兼容的 additive 变更）
+### 1. 数据模型（shared 1.23.0，向后兼容的 additive 变更）
 
 `SketchEntityDto`：
 
@@ -87,9 +87,9 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
 
 ### 5. 版本与发布
 
-- shared `LubanFeatureRpcInterface.interfaceVersion`：1.22.0 已被 ADR-0005（extrude/revolve）
-  占用；本 ADR 剩余 sketch 字段落地时 **minor bump 到 1.23.0**。若两者在同一次未发布
-  列车内完成，可合并为一次 1.22.0，但必须同一批测试/发布。
+- shared `LubanFeatureRpcInterface.interfaceVersion`：ADR-0005（extrude/revolve）占用
+  1.22.0；本 ADR 第一切片落地 version **1.23.0**。后续 sketch 字段继续 additive minor bump，
+  每批保持 shared/backend/web 同批测试与发布。
 - backend / web 同批发布；`SolverTypes.ts` 冻结清单更新为新 hash，并附双跑语料。
 - 旧数据：新增字段全部可选，旧 params 直接可读；提供 Tutorial 2 gold 旧 fixture
   回归 + 旧库首开测试。
@@ -110,16 +110,22 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
 - construction 过滤会改变含 construction 曲线的面域结果——这是修复，不是回归；
   必须用旧 fixture 证明无 construction 的草图结果不变。
 
-## 实现记录（2026-11-04，第一切片）
+## 实现记录（2026-11-04，第一切片，shared 1.23.0）
 
 - 已实现 point+circle coincident：`SketchWireNormalizer.ts`（point+circle 通过）、
-  `SlvsSolver.ts`（PT_ON_CIRCLE 构建 + 初值检查）、`SolverTypes.ts`（形状校验 +
-  冻结 hash `bc9143…`）、`interface-freeze.json` 同步。
-- 验证：`SlvsSolver.test.ts` + `SolverTypes.test.ts` **78/78 passed**；
-  `SketchWireNormalizer.test.ts` **5/5 passed**；`tsc --noEmit` 通过。
-- iOS 几何回放：私有后端 `Tutorial2IosReplay.test.ts` 通过——DIAMETER→radius/2、
-  省略 4 条 line+整圆 tangent（dof=4）、E1 三材料面域 25mm NEW、E2 左环 symmetric
-  50mm ADD、Chamfer 2mm 三边；终体积 157.165 cm³（目标 157.479，-0.20%）。
-  证明 point+circle coincident 已可用，但完整约束 parity 仍需 tangent+整圆。
-- 未实现：tangent line+整圆、construction、DIAMETER/ANGLE/CONCENTRIC 等 shared DTO
-  字段；这些仍按本 ADR 后续批次执行。iOS UI 创建链（chamfer/DIAMETER）也待补。
+  `SlvsSolver.ts`（PT_ON_CIRCLE 构建 + 初值检查）、`SolverTypes.ts`（形状校验）；
+  iOS 回放证明可用。
+- 已实现 shared DTO 第一切片：line/circle/arc/spline `construction?: boolean`；
+  constraint `kind: "diameter" | "concentric"`；`driven?: boolean`。
+- 求解器：diameter → `SLVS_C_DIAMETER`，concentric → 圆心 point+point coincident，
+  driven 不生成方程；`interface-freeze.json` 的 `SolverTypes.ts` hash 已同步为
+  `b13a81ae…`。
+- 面域：`SketchRegions`/`sketchCurvesFromParams` 过滤 construction 曲线；新增
+  4×4 方形 + construction 对角线仍为 1 个面域的回归测试。
+- UI：草图 ribbon 的 construction 切换（`sketchConstruction`）驱动 store
+  `constructionMode`，新绘制实体带 `construction`；viewer 装饰器虚线显示。
+  圆尺寸默认 DIAMETER、弧默认半径，标注带 `⌀`；i18n en/zh-CN 同步。
+- 验证：后端 sketch 测试 **86/86 passed**、backend `tsc` 绿；shared 单测绿；
+  web `tsc` 绿。真栈 T2 回归待 1.23.0 全量复跑（记录于验证基线）。
+- 未实现（按本 ADR 后续批次）：line+整圆 tangent、`angle`、projected/pierce/mirror、
+  driven 的 UI 编辑入口、iOS UI 创建链（chamfer/DIAMETER）。

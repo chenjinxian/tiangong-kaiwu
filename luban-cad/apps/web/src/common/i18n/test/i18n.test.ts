@@ -311,7 +311,7 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'sketch.vocabulary.constraintKinds.vertical', 'sketch.vocabulary.constraintKinds.parallel',
   'sketch.vocabulary.constraintKinds.perpendicular', 'sketch.vocabulary.constraintKinds.equal',
   'sketch.vocabulary.constraintKinds.distance', 'sketch.vocabulary.constraintKinds.radius',
-  'sketch.vocabulary.dimensionKinds.distance', 'sketch.vocabulary.dimensionKinds.radius',
+  'sketch.vocabulary.dimensionKinds.distance', 'sketch.vocabulary.dimensionKinds.radius', 'sketch.vocabulary.dimensionKinds.diameter',
   'sketch.panel.title', 'sketch.panel.exit', 'sketch.panel.finish',
   'sketch.panel.sketchId', 'sketch.panel.loading',
   'sketch.panel.tabs.elements', 'sketch.panel.tabs.constraints', 'sketch.panel.tabs.dimensions',

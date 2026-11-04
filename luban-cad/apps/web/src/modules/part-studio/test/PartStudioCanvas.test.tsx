@@ -270,6 +270,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
           normal: { x: 0, y: 0, z: 1 },
           xDir: { x: 1, y: 0, z: 0 },
         },
+        constructionMode: false,
       }),
     );
     // Onshape：创建后同一草图对话框保持打开（编辑态）；再次 ✓ = 完成退出。
@@ -300,6 +301,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
           normal: { x: 0, y: 1, z: 0 },
           xDir: { x: 1, y: 0, z: 0 },
         },
+        constructionMode: false,
       }),
     );
     // op 侧 plane 同步下发（T4 口径不变）。

@@ -74,6 +74,21 @@ describe('buildSketchDimensionAnnotations', () => {
     expect(dim.side.x).toBeGreaterThan(0);
   });
 
+  it('diameter：圆心 + 圆上点，⌀ 前缀文本（v1.23 ADR-0004）', () => {
+    const entities: SketchEntityDto[] = [
+      ...baseLines,
+      { kind: 'circle', id: 4, center: { x: 10, y: 0 }, radius: 10 },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'diameter', id: 103, refs: [4], value: 20 },
+    ]));
+    expect(annotations).toHaveLength(1);
+    const dim = annotations[0]!;
+    expect(dim).toMatchObject({ kind: 'radial', id: 'dimension-103', text: '⌀20' });
+    if (dim.kind !== 'radial') throw new Error('应为径向尺寸');
+    expect(dim.center.x).toBeCloseTo(10, 6);
+  });
+
   it('radius：圆心 + 弧中角点，R 前缀文本', () => {
     const entities: SketchEntityDto[] = [
       ...baseLines,

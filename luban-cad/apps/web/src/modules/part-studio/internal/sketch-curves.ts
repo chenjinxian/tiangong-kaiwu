@@ -17,12 +17,14 @@ import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
 export interface SketchCurvePolyline {
   sketchId: string;
   points: Point3d[];
+  construction?: boolean;
 }
 
 /** 单草图实体折线（entityId 用于面域外环过滤——特征预览消费）。 */
 export interface SketchEntityPolyline {
   entityId: number;
   points: Point3d[];
+  construction?: boolean;
 }
 
 interface LocalPoint { x: number; y: number }
@@ -134,7 +136,11 @@ export function sketchEntitiesToWorldPolylines(
         break;
     }
     if (local && local.length >= 2 && typeof entity.id === 'number') {
-      out.push({ entityId: entity.id, points: local.map((p) => frame.toWorld({ u: p.x, v: p.y })) });
+      out.push({
+        entityId: entity.id,
+        points: local.map((p) => frame.toWorld({ u: p.x, v: p.y })),
+        ...((entity as { construction?: boolean }).construction ? { construction: true } : {}),
+      });
     }
   }
   return out;
@@ -153,7 +159,11 @@ export function sketchEntriesToWorldPolylines(entries: readonly FeatureTreeEntry
     if (!params || !Array.isArray(params.entities))
       continue;
     for (const entityPolyline of sketchEntitiesToWorldPolylines(params.entities, params.plane)) {
-      polylines.push({ sketchId: entry.id, points: entityPolyline.points });
+      polylines.push({
+        sketchId: entry.id,
+        points: entityPolyline.points,
+        ...(entityPolyline.construction ? { construction: true } : {}),
+      });
     }
   }
   return polylines;

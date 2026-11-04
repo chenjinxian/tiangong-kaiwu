@@ -921,6 +921,7 @@
       "dimensionKinds": {
         "distance": "距离",
         "radius": "半径",
+        "diameter": "直径",
         "length": "长度"
       }
     },

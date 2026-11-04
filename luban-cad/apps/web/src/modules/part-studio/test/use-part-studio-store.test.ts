@@ -142,9 +142,20 @@ describe('tool 切片（当前工具）', () => {
 describe('sketch 切片（草图模式）', () => {
   it('enterSketch 进草图模式并记活动草图（平面归零防串场），exitSketch 全复位', () => {
     usePartStudioStore.getState().enterSketch('sketch-9');
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9', activeSketchPlane: null });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9', activeSketchPlane: null, constructionMode: false });
     usePartStudioStore.getState().exitSketch();
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false });
+  });
+
+  it('v1.23：toggleSketchConstruction 切换构造模式，enterSketch 归零', () => {
+    usePartStudioStore.getState().enterSketch('sketch-c');
+    usePartStudioStore.getState().toggleSketchConstruction();
+    expect(usePartStudioStore.getState().sketch.constructionMode).toBe(true);
+    usePartStudioStore.getState().toggleSketchConstruction();
+    expect(usePartStudioStore.getState().sketch.constructionMode).toBe(false);
+    usePartStudioStore.getState().toggleSketchConstruction();
+    usePartStudioStore.getState().enterSketch('sketch-d');
+    expect(usePartStudioStore.getState().sketch.constructionMode).toBe(false);
   });
 
   it('M6-a T5：setActiveSketchPlane 下发平面；enterSketch 再进归零（不串上一会话）', () => {

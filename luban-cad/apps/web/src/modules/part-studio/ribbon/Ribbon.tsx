@@ -156,6 +156,12 @@ export function useToolActivation(canEdit = true): ToolActivation {
       openFeatureDialog({ mode: 'new', featureType: 'booleanBodies' });
       return;
     }
+    if (id === 'sketchConstruction') {
+      // v1.23（ADR-0004）：构造模式开关——不是 iTwin 工具；切换后新绘曲线带
+      // construction=true，后端面域生成过滤构造曲线。
+      usePartStudioStore.getState().toggleSketchConstruction();
+      return;
+    }
     const command = findRibbonCommand(id);
     const capability = command?.capability ?? id;
     if (isGated(capability)) {
@@ -338,6 +344,7 @@ export function Ribbon({
   const palette = usePartStudioStore((s) => s.commandPalette);
   const toggleCommandPalette = usePartStudioStore((s) => s.toggleCommandPalette);
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
+  const constructionMode = usePartStudioStore((s) => Boolean(s.sketch.constructionMode));
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
   const highlightIds = React.useMemo(() => {
@@ -381,7 +388,7 @@ export function Ribbon({
                       key={sketchTool.id}
                       tool={sketchTool as unknown as RibbonTool}
                       onActivate={activate}
-                      active={activeToolId === sketchTool.id}
+                      active={sketchTool.id === 'sketchConstruction' ? constructionMode : activeToolId === sketchTool.id}
                       highlighted={false}
                       disabled={!canEdit}
                     />
@@ -390,7 +397,7 @@ export function Ribbon({
                       key={sketchTool.id}
                       tool={sketchTool}
                       onActivate={activate}
-                      active={activeToolId === sketchTool.id}
+                      active={sketchTool.id === 'sketchConstruction' ? constructionMode : activeToolId === sketchTool.id}
                       highlighted={false}
                       disabled={!canEdit}
                     />

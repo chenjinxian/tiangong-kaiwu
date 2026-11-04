@@ -4,7 +4,7 @@
  *
  * 活动草图约束 → 视口尺寸标注（Onshape live，2026-11-02）。
  *
- * 数据源：SketchDto.constraints 中 length / distance / radius（与面板「尺寸」
+ * 数据源：SketchDto.constraints 中 length / distance / radius / diameter（与面板「尺寸」
  * 页签同口径），实体坐标用解算后的 DTO 局部 (u,v)。标注锚点在世界系：
  * 局部几何经 SketchPlaneDto 坐标架刚体变换——与草图曲线装饰同源。
  *
@@ -319,6 +319,28 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
           point: world(point),
           side: sideWorld(frame, radial),
           text: `R${formatSketchDimensionValue(constraint.value)}`,
+        });
+        break;
+      }
+      case 'diameter': {
+        const ref = constraint.refs[0];
+        if (ref === undefined || constraint.value === undefined) break;
+        const item = resolveRef(ref, entities, points);
+        if (item?.kind !== 'circle' || item.radius < EPS) break;
+        const start = item.startAngle;
+        const sweep = item.sweepAngle;
+        const midAngle = typeof start === 'number' && typeof sweep === 'number'
+          ? start + sweep / 2
+          : Math.PI / 4;
+        const point = arcPoint(item.center, item.radius, midAngle);
+        const radial = { x: Math.cos(midAngle), y: Math.sin(midAngle) };
+        annotations.push({
+          kind: 'radial',
+          id: `dimension-${constraint.id}`,
+          center: world(item.center),
+          point: world(point),
+          side: sideWorld(frame, radial),
+          text: `⌀${formatSketchDimensionValue(constraint.value)}`,
         });
         break;
       }

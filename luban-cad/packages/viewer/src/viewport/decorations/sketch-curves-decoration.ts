@@ -22,6 +22,8 @@ const ACTIVE_SKETCH_STYLE = '#ff9f2f';
 export interface SketchCurveGeometry {
   points: readonly Point3d[];
   sketchId?: string;
+  /** v1.23（ADR-0004）：构造曲线在活动草图内也画虚线。 */
+  construction?: boolean;
 }
 
 export class SketchCurvesDecoration {
@@ -64,7 +66,7 @@ export class SketchCurvesDecoration {
           const active = this._activeSketchId !== undefined && polyline.sketchId === this._activeSketchId;
           ctx.strokeStyle = active ? ACTIVE_SKETCH_STYLE : SKETCH_CURVE_STYLE;
           ctx.lineWidth = active ? 1.8 : 1.1;
-          ctx.setLineDash(active ? [] : SKETCH_CURVE_DASH);
+          ctx.setLineDash(active && !polyline.construction ? [] : SKETCH_CURVE_DASH);
           ctx.beginPath();
           let started = false;
           for (const world of polyline.points) {

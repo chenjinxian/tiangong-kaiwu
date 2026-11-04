@@ -15,6 +15,7 @@ import {
   SketchLineTool,
   SketchRectangleTool,
   SketchSplineTool,
+  withConstructionMode,
 } from '../tools/sketch/SketchCreateTool.js';
 
 /** 子类拓宽 protected buildShape 的测试触达口。 */
@@ -171,5 +172,25 @@ describe('v1.19：SketchSplineTool buildShape（精确三次贝塞尔）', () =>
     const tool = new TestableSpline();
     expect(tool.callBuildShape([{ u: 0, v: 0 }, { u: 0, v: 0 }, { u: 1, v: 1 }, { u: 2, v: 2 }])).toBeUndefined();
     expect(tool.callBuildShape([{ u: 0, v: 0 }, { u: 5, v: 0 }, { u: 0, v: 0 }, { u: 3, v: 2 }])).toBeUndefined();
+  });
+});
+
+describe('v1.23 ADR-0004：构造模式', () => {
+  it('曲线实体带 construction=true，point 保持原样；关闭时原样返回', () => {
+    const draft = {
+      entities: [
+        { kind: 'line' as const, id: 1, p1: { x: 0, y: 0 }, p2: { x: 1, y: 0 } },
+        { kind: 'circle' as const, id: 2, center: { x: 0, y: 0 }, radius: 1 },
+        { kind: 'point' as const, id: 3, x: 0, y: 0 },
+      ],
+      constraints: [],
+    };
+    const off = withConstructionMode(draft, false);
+    expect(off).toBe(draft);
+    const on = withConstructionMode(draft, true);
+    expect(on.entities[0]).toMatchObject({ kind: 'line', construction: true });
+    expect(on.entities[1]).toMatchObject({ kind: 'circle', construction: true });
+    expect(on.entities[2]).toEqual(draft.entities[2]);
+    expect('construction' in on.entities[2]!).toBe(false);
   });
 });

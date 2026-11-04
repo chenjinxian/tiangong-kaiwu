@@ -921,6 +921,7 @@
       "dimensionKinds": {
         "distance": "Distance",
         "radius": "Radius",
+        "diameter": "Diameter",
         "length": "Length"
       }
     },

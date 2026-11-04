@@ -27,10 +27,14 @@ describe('inferDimensionCompletion（单尺寸按钮动态推断）', () => {
     });
   });
 
-  it('圆弧 + 放置点击 → 半径', () => {
+  it('圆弧 + 放置点击 → 半径；圆 → 直径（v1.23 ADR-0004）', () => {
     expect(inferDimensionCompletion([pick('arc', 2)], true)).toMatchObject({
       kind: 'radius',
       entityIds: [2],
+    });
+    expect(inferDimensionCompletion([pick('circle', 3)], true)).toMatchObject({
+      kind: 'diameter',
+      entityIds: [3],
     });
   });
 

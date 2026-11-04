@@ -128,6 +128,8 @@ export interface PartStudioSketchState {
    * planeZ v1 一致）。
    */
   activeSketchPlane: SketchPlaneDto | null;
+  /** v1.23（ADR-0004）：构造模式——新绘制曲线带 construction=true，不参与面域。 */
+  constructionMode?: boolean;
 }
 
 /** commandPalette 切片——命令搜索面板（alt+/）开关 + 查询词 + ribbon 亮显。 */

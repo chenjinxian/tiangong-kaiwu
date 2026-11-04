@@ -14,7 +14,7 @@
  */
 
 /** 尺寸种类（v1.19 增 length：Onshape 线长尺寸；distance 支持 point/line 混合）。 */
-export type SketchDimensionKind = 'distance' | 'radius' | 'length';
+export type SketchDimensionKind = 'distance' | 'radius' | 'diameter' | 'length';
 
 /** Onshape 值确认框的屏幕锚点（view 坐标；标注放置点/偏移定侧点）。 */
 export interface SketchToolAnchor { x: number; y: number }

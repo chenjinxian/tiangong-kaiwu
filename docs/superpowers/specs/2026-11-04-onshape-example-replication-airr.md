@@ -62,7 +62,7 @@
 | itwinjs-core | BriefcaseTxns、EditTools、ElementSetTool、iModel/BIS | `packages/editor`、viewer host、core-backend | 5.15 fork | 复用 |
 | luban-cad/packages/editor | 建模工具基类、编辑命令、草图工具 | `EditTool.ts`、`SolidModelingToolBase.ts`、`Sketch.*` | workspace | 复用；不恢复旧编辑 RPC |
 | luban-cad/packages/viewer | 渲染、选择装饰、草图/尺寸装饰 | `render-profile.ts`、`OnshapeSelectTool`、decorations | workspace | 复用 |
-| luban-cad/packages/shared | FeatureOp/DTO/契约 | `LubanFeatureRpcInterface` 1.22.0 | workspace | 优先不改；需要新增 op 时 ADR + 版本化 |
+| luban-cad/packages/shared | FeatureOp/DTO/契约 | `LubanFeatureRpcInterface` 1.23.0 | workspace | 优先不改；需要新增 op 时 ADR + 版本化 |
 | luban-backend/modeling-server | FeatureService、FeatureEngine、massproperties、schema | 私有仓产物；`dist-backend` 消费 | 当前发布列车 | 只为缺失能力扩展，不另开写面 |
 | luban-backend/webhook-agent | baseline/webhook | 与复刻无直接关系 | 当前发布列车 | 不适用 |
 | imodel-native | SolidKernel/BRep | 私有源码 + Delivery | canonical checkout | 先复用；无必要不改 native |

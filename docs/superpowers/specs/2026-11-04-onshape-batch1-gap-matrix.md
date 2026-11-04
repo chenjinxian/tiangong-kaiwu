@@ -38,6 +38,11 @@
 双端同发布、更新 `SolverTypes.ts` 冻结清单，并跑双跑求解器语料（arc/spline/offset/
 tangent/conflicting/underconstrained + 新约束样例）。旧草图 fixture 必须可读/可迁移。
 
+**第一切片已落地（2026-11-04，shared 1.23.0）**：construction 标志（DTO→求解器→
+面域过滤→前端 construction 切换/虚线显示）、`diameter`（圆默认直径 + ⌀ 标注）、
+`concentric`、`driven`（不送求解器）；point+circle coincident 已在 1.22.0 前落地。
+仍待：`angle`、projected/pierce/mirror、line+整圆 tangent、driven UI、iOS UI e2e。
+
 ### ADR-0005（extrude/revolve contract）
 
 范围：

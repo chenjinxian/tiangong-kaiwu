@@ -20,12 +20,16 @@ export function useSketchCurveDecorations(
   activeSketchId?: string | null,
 ): void {
   const activeSketch = sketchActive ? activeSketchId ?? undefined : undefined;
-  const polylines = useMemo<readonly { points: readonly Point3d[]; sketchId?: string }[]>(() => {
+  const polylines = useMemo<readonly { points: readonly Point3d[]; sketchId?: string; construction?: boolean }[]>(() => {
     const converted = sketchEntriesToWorldPolylines(entries);
     const visible = activeSketch === undefined
       ? converted
       : converted.filter((entry) => entry.sketchId === activeSketch);
-    return visible.map((entry) => ({ points: entry.points, sketchId: entry.sketchId }));
+    return visible.map((entry) => ({
+      points: entry.points,
+      sketchId: entry.sketchId,
+      ...(entry.construction ? { construction: true } : {}),
+    }));
   }, [entries, activeSketch]);
   const decorationRef = useRef<SketchCurvesDecoration | null>(null);
 

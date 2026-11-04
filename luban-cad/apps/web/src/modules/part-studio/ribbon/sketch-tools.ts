@@ -78,7 +78,6 @@ export const SKETCH_PLACEHOLDER_IDS: ReadonlySet<string> = new Set([
   'sketchPoint',
   'sketchText',
   'sketchUse',
-  'sketchConstruction',
   'sketchFillet',
   'sketchTrim',
   'sketchMirror',

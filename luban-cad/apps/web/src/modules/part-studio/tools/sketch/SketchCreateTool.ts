@@ -67,7 +67,7 @@ import type { SketchPlaneFrame, SketchPoint2 } from './sketch-plane.js';
 
 export type SketchCreateKind = 'line' | 'rectangle' | 'circle' | 'arc' | 'spline';
 
-interface SketchShapeDraft {
+export interface SketchShapeDraft {
   entities: SketchEntityDto[];
   constraints: SketchConstraintDto[];
 }
@@ -95,6 +95,15 @@ function toLocal3d(p: SketchPoint2): Point3d {
  * 子类提供 toolId/提示语键/实体构造（buildShape）与预览构造（buildPreview）；
  * 退化（零长/零面积/零半径/共线）buildShape 返回 undefined。
  */
+/** v1.23（ADR-0004）：构造模式作用于曲线实体；point 不参与面域，保持原样。 */
+export function withConstructionMode(draft: SketchShapeDraft, construction: boolean): SketchShapeDraft {
+  if (!construction) return draft;
+  return {
+    ...draft,
+    entities: draft.entities.map((e) => (e.kind === 'point' ? e : { ...e, construction: true })),
+  };
+}
+
 export abstract class SketchCreateTool extends PrimitiveTool {
   public static override namespace = 'LubanCad';
 
@@ -190,6 +199,9 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       return EventHandled.No;
     }
 
+    // v1.23（ADR-0004）：构造模式下新绘曲线带 construction=true；点不参与面域，保持原样。
+    const draftWithConstruction = withConstructionMode(draft, Boolean(usePartStudioStore.getState().sketch.constructionMode));
+
     const sketchSystem = getSketchSystem();
     if (!sketchSystem) {
       // accessor 未注册（宿主未挂载/已卸载）——回滚 id + 错误透出，工具存活。
@@ -202,12 +214,12 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     // v1.19 自动重合：新端点落在既有端点坐标上 → 补结构化 coincident（Onshape
     // 推断吸附同构；Tutorial 2 [14][16][18][45][46] 来源）。容差见模块头。
     const base = sketchSystem.activeSketch;
-    const welds = autoWeldConstraints(draft.entities, base?.entities ?? [], base?.constraints ?? [], {
+    const welds = autoWeldConstraints(draftWithConstruction.entities, base?.entities ?? [], base?.constraints ?? [], {
       startConstraintId: this._nextId,
     });
     this._nextId += welds.length;
-    const entities = [...(base?.entities ?? []), ...draft.entities];
-    const constraints = [...(base?.constraints ?? []), ...draft.constraints, ...welds];
+    const entities = [...(base?.entities ?? []), ...draftWithConstruction.entities];
+    const constraints = [...(base?.constraints ?? []), ...draftWithConstruction.constraints, ...welds];
     const result = await sketchSystem.applyUpdate(entities, constraints);
     if (!result.ok) {
       // 后端拒收零变更（库侧无写入）——本地回滚 = 丢弃草稿 + id 计数器复原；

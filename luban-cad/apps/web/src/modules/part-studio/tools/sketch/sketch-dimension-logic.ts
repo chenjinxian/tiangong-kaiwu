@@ -4,7 +4,7 @@
  * Onshape 单尺寸工具推断（2026-11-02）：一个「尺寸」按钮，不再有长度/半径
  * 下拉。按用户拾取的实体动态决定结果：
  * - 单线 + 放置点击 → length
- * - 单圆/单弧 + 放置点击 → radius
+ * - 单圆 + 放置点击 → diameter；单弧 → radius
  * - 两个 point/line 实体 → distance（点-点 / 点-线 / 线-线；线-线平行语义由
  *   后端求解器裁决）
  * - 单点、两圆/两弧 → invalid（不伪造尺寸）
@@ -14,7 +14,7 @@
 import type { SketchConstraintDto } from '@luban-cad/shared';
 import type { SketchPick } from './sketch-constraint-logic.js';
 
-export type DimensionKind = Extract<SketchConstraintDto['kind'], 'length' | 'radius' | 'distance'>;
+export type DimensionKind = Extract<SketchConstraintDto['kind'], 'length' | 'radius' | 'diameter' | 'distance'>;
 
 export type DimensionCompletion =
   | { kind: 'pending' }
@@ -34,6 +34,8 @@ function singleDimension(pick: SketchPick): DimensionCompletion {
     case 'line':
       return { kind: 'length', refs: [pick.ref], entityIds: firstEntityIds([pick]) };
     case 'circle':
+      // v1.23（ADR-0004）：Onshape 圆默认直径尺寸；弧默认半径。
+      return { kind: 'diameter', refs: [pick.ref], entityIds: firstEntityIds([pick]) };
     case 'arc':
       return { kind: 'radius', refs: [pick.ref], entityIds: firstEntityIds([pick]) };
     case 'point':

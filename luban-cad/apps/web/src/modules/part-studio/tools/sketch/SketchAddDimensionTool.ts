@@ -55,6 +55,7 @@ export type DimensionPickKind = 'point' | 'line' | 'circle' | 'arc';
 export const DIMENSION_SLOTS: Record<SketchDimensionKind, { kinds: readonly DimensionPickKind[]; count: number }> = {
   distance: { kinds: ['point', 'line'], count: 2 },
   radius: { kinds: ['circle', 'arc'], count: 1 },
+  diameter: { kinds: ['circle', 'arc'], count: 1 },
   length: { kinds: ['line'], count: 1 },
 };
 

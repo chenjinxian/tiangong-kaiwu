@@ -56,7 +56,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.22.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.23.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -139,8 +139,11 @@ describe("M3-b v1.2 草图契约", () => {
     const dimless: SketchConstraintDto = { kind: "horizontal", id: 11, refs: [2] };
     expect(dimless.value).toBeUndefined();
     expectTypeOf<SketchConstraintDto["kind"]>().toEqualTypeOf<
-      "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "length" | "midpoint" | "tangent" | "offset" | "fixed"
+      "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "length" | "midpoint" | "tangent" | "offset" | "fixed" | "diameter" | "concentric"
     >();
+    // v1.23：driven 参考尺寸只是显示语义，仍复用同一 DTO
+    const driven: SketchConstraintDto = { kind: "diameter", id: 12, refs: [3], value: 10, driven: true };
+    expect(driven.driven).toBe(true);
   });
 
   it("SketchSolveStateDto / SketchDto / SketchSummaryDto 形状", () => {
@@ -278,8 +281,11 @@ describe("M6-a v1.6 契约（arc 实体 + regions 面域 + regionIndex + insertS
     const unsolvedArc: SketchEntityDto = { kind: "arc", id: 8, center: 1 };
     expect(JSON.parse(JSON.stringify(unsolvedArc))).toEqual(unsolvedArc);
     expectTypeOf<Extract<SketchEntityDto, { kind: "arc" }>>().toEqualTypeOf<{
-      kind: "arc"; id: number; center: number | SketchPointDto; radius?: number; startAngle?: number; sweepAngle?: number;
+      kind: "arc"; id: number; center: number | SketchPointDto; radius?: number; startAngle?: number; sweepAngle?: number; construction?: boolean;
     }>();
+    // v1.23：construction 是可选的显示/面域过滤语义，旧 arc 不带该字段仍合法
+    const constructionArc: SketchEntityDto = { kind: "arc", id: 9, center: 1, radius: 1, startAngle: 0, sweepAngle: 1, construction: true };
+    expect(constructionArc.construction).toBe(true);
   });
 
   it("SketchDto 带 regions 可构造；regions 缺省向后兼容（旧形态无 regions 仍编译通过）", () => {
@@ -570,7 +576,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.22.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.23.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -743,8 +749,8 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
     expectTypeOf<Parameters<ApplyFn>[3]>().toEqualTypeOf<string | undefined>();
   });
 
-  it("版本 1.22.0（面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.22.0");
+  it("版本 1.23.0（面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.23.0");
   });
 });
 
@@ -808,7 +814,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.22.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.23.0");
   });
 });
 
@@ -847,7 +853,7 @@ describe("Tutorial 2 v1.19 契约（结构化子实体 + spline + 新约束 + op
     expect(typeof line.p1).toBe("object");
     expect(typeof arc.center).toBe("object");
     expectTypeOf<Extract<SketchEntityDto, { kind: "spline" }>>().toEqualTypeOf<{
-      kind: "spline"; id: number; fitPoints?: SketchPointDto[]; controlPoints: SketchPointDto[]; periodic?: boolean;
+      kind: "spline"; id: number; fitPoints?: SketchPointDto[]; controlPoints: SketchPointDto[]; periodic?: boolean; construction?: boolean;
     }>();
   });
 
