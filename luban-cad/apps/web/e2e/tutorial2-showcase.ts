@@ -144,10 +144,19 @@ export async function showcaseCaption(page: Page, title: string, detail: string,
   await page.waitForTimeout(holdMs);
 }
 
+/**
+ * 无条件按场景范围取景（严格/展示模式共用的测试前置）。
+ * 只用于特征面域拾取等需要确定性视口的步骤；草图绘制阶段仍保留原有相机，
+ * 否则会把弧点推到 ViewCube 命中区（2026-11-04 X-14 复测实测）。
+ */
+export async function frameScene(page: Page, scene: ShowcaseScene): Promise<void> {
+  await setStandardView(page, scene.viewId, { low: scene.low, high: scene.high });
+}
+
 /** 相机到场景 + 驻留 + 截图（仅展示模式）。 */
 export async function showcaseScene(page: Page, scene: ShowcaseScene): Promise<void> {
   if (!showcaseEnabled()) return;
-  await setStandardView(page, scene.viewId, { low: scene.low, high: scene.high });
+  await frameScene(page, scene);
   await page.waitForTimeout(scene.holdMs ?? 850);
   const index = String(++shotCounter).padStart(2, '0');
   await page.screenshot({ path: `test-results/t2-showcase-${index}-${scene.label}.png` });

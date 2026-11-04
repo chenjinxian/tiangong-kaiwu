@@ -105,6 +105,33 @@ describe('特征对话框面域视口拾取（Onshape live）', () => {
     expect(pickProfileAt(viewport, [sketch], point)).toEqual({ sketchId: 'sk-1', regionIndex: 0 });
   });
 
+  it('面域完全在安全区外 → 不返回兜底点（X-14）', () => {
+    const offscreen: ProfileSketch = {
+      ...sketch,
+      regions: [{
+        area: 100,
+        outerEntityIds: [1],
+        // 世界 x=1000 → 屏幕 x=20300，远在 900px 视口之外。
+        outerBoundary: square(10, 1000),
+      }],
+    };
+    expect(profilePickPoints(viewport, [offscreen])).toEqual([]);
+  });
+
+  it('面域在左侧对话框下方（x 不安全）→ 不产点', () => {
+    const underDialog: ProfileSketch = {
+      ...sketch,
+      regions: [{
+        area: 100,
+        outerEntityIds: [1],
+        // 世界 x=-16..-6 → 屏幕 -20..180，整块在左侧对话框下方；
+        // 世界 y=-16..-6 → 屏幕 620..420，纵向可点，但 x 不安全 → 无点。
+        outerBoundary: square(10, -16),
+      }],
+    };
+    expect(profilePickPoints(viewport, [underDialog])).toEqual([]);
+  });
+
   it('无 outerBoundary（旧后端/退化面域）→ 不投影、不可拾取、不产点', () => {
     const legacy: SketchRegionDto = { area: 1, outerEntityIds: [1] };
     const legacySketch: ProfileSketch = { ...sketch, regions: [legacy] };

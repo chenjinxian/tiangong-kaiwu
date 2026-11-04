@@ -349,6 +349,15 @@ export async function chooseProfileRegionsInViewport(
       return point !== undefined;
     }, { timeout: 20_000 }).toBe(true);
     if (!point) throw new Error(`面域 ${regionIndex} 无可用屏幕点`);
+    // X-14 回归护栏：profile picker 的兜底点可能落在画布外；在真实鼠标点击前
+    // 明确失败并打印坐标，避免 10s 超时把“取景不足”伪装成“选择失败”。
+    if (point.x < 0 || point.y < 0 || point.x > canvasBox.width || point.y > canvasBox.height) {
+      throw new Error(
+        `面域 ${regionIndex} 的拾取点落在画布外：` +
+          `point=(${point.x.toFixed(1)},${point.y.toFixed(1)}), canvas=${canvasBox.width}x${canvasBox.height}；` +
+          `请先调整取景（X-14）`,
+      );
+    }
     await dataPoint(page, canvasBox.x + point.x, canvasBox.y + point.y);
     await expect(field.locator(`button[data-region-index="${regionIndex}"]`)).toBeVisible({ timeout: 10_000 });
   }

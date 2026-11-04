@@ -86,25 +86,23 @@ export function profilePickPoints(
       const ys = loops.outer.map((p) => p.y);
       const left = Math.min(...xs), right = Math.max(...xs);
       const top = Math.min(...ys), bottom = Math.max(...ys);
-      let fallback: ScreenPoint | undefined;
       let found: ScreenPoint | undefined;
-      const steps = 9;
+      // 17×17 采样：细窄环带也能找到安全内部点；找不到就明确不产点，
+      // 绝不把画布外兜底点交给演示/e2e 去点击（X-14）。
+      const steps = 17;
       outer: for (let i = 1; i < steps; i++) {
         for (let j = 1; j < steps; j++) {
           const p = {
             x: left + ((right - left) * i) / steps,
             y: top + ((bottom - top) * j) / steps,
           };
-          if (!pointInRegion(p, loops)) continue;
-          fallback ??= p;
-          if (safe(p)) {
+          if (pointInRegion(p, loops) && safe(p)) {
             found = p;
             break outer;
           }
         }
       }
-      const point = found ?? fallback;
-      if (point) result.push({ sketchId: sketch.id, regionIndex, ...point });
+      if (found) result.push({ sketchId: sketch.id, regionIndex, ...found });
     });
   }
   return result;

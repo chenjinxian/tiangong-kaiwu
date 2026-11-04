@@ -53,6 +53,7 @@ import {
   SCENES,
   expectDynamicPreview,
   expectLivePreview,
+  frameScene,
   resetTutorial2Project,
   showcaseCaption,
   showcaseEnabled,
@@ -78,6 +79,8 @@ async function extrudeViaDialog(
   // 草图自动取最近一张；面域在视口中点击（无草图/面域下拉）。
   const marker = page.getByTestId('feature-profile-picker');
   await expect(marker).toBeAttached({ timeout: 20_000 });
+  // X-14：按整张草图+模型范围取景后再读面域点，保证拱肩翼面域在画布内。
+  await frameScene(page, SCENES.partIso);
   await expect.poll(async () => {
     const raw = await marker.getAttribute('data-region-points');
     try {
@@ -118,6 +121,8 @@ async function revolveViaDialog(
   await expect(dialog).toBeVisible();
   const marker = page.getByTestId('feature-profile-picker');
   await expect(marker).toBeAttached({ timeout: 20_000 });
+  // X-14：旋转面域同样先按整张草图+模型范围取景。
+  await frameScene(page, SCENES.partIso);
   await expect.poll(async () => {
     const raw = await marker.getAttribute('data-region-points');
     try {
