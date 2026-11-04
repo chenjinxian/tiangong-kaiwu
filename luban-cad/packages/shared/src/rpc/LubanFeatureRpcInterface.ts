@@ -100,6 +100,7 @@
  *  - `getMassProperties` 只读 RPC（body 体积/质心/表面积），Tutorial 2 几何金标验收用。
  * v1.25（ADR-0004 第二切片）：`SketchConstraintDto.kind` + `angle`（两线夹角，value 弧度）。
  * v1.24（ADR-0005 Phase 2）：`ExtrudeParams.secondDirection`（blind/throughAll）落地。
+ * v1.26（ADR-0006 切片 A）：`HoleParams` 简单平底钻孔（位置=草图 point，轴线=草图法向）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -109,7 +110,7 @@ import {
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
  * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern；
  * B6 M-A4.1 v1.16 增 booleanBodies（body boolean）） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies";
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies" | "hole";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -134,6 +135,24 @@ export interface ExtrudeSecondDirection {
   /** blind 必填且 >0；throughAll 忽略。 */
   distanceMm?: number;
   direction?: ExtrudeDirection;
+}
+
+/**
+ * v1.26（ADR-0006 切片 A）：简单钻孔。位置取草图内的 point 实体（每点一孔），
+ * 轴线=草图平面法向；首版只做无螺纹平底孔（tipAngleDeg 仅允许 180/缺省）。
+ * 沉头/埋头/螺纹/按面引用等 Onshape 高级形态明确拒收，不做静默降级。
+ */
+export interface HoleParams {
+  sketchId: string;
+  /** 选中的草图 point 实体 id；缺省=草图内全部 point。 */
+  pointIds?: number[];
+  diameterMm: number;
+  endBound: "blind" | "throughAll";
+  /** blind 必填且 >0；throughAll 忽略。 */
+  depthMm?: number;
+  direction?: ExtrudeDirection;
+  /** 180=平底（首版唯一支持值）；缺省 180。 */
+  tipAngleDeg?: number;
 }
 
 export interface ExtrudeParams {
@@ -417,7 +436,7 @@ export interface RevolveParams {
   mergeScope?: BodyRef[];
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams;
 
 export type FeatureOp =
   /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
@@ -565,7 +584,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.25.0";
+  public static interfaceVersion = "1.26.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

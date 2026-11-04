@@ -145,16 +145,16 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     renderCanvas();
     actOpenEdit('ex1', '拉伸 1');
     expect(screen.getByRole('dialog', { name: '拉伸 1' })).toBeDefined();
-    // 写入本地态：展开拔模段并键入（重挂后必须消失）。
-    await user.click(withinDialog().getByRole('button', { name: '拔模' }));
-    await user.type(withinDialog().getByRole('textbox', { name: '拔模' }), '5');
-    expect((withinDialog().getByRole('textbox', { name: '拔模' }) as HTMLInputElement).value).toBe('5');
+    // 写入本地态：展开起始偏移段并键入（重挂后必须消失；拔模输入已按未实现禁用）。
+    await user.click(withinDialog().getByRole('button', { name: '起始偏移' }));
+    await user.type(withinDialog().getByRole('textbox', { name: '起始偏移' }), '5');
+    expect((withinDialog().getByRole('textbox', { name: '起始偏移' }) as HTMLInputElement).value).toBe('5');
 
-    // 切换到另一特征（key: ex1 → ex2）→ 重挂，拔模回缺省（折叠+空）。
+    // 切换到另一特征（key: ex1 → ex2）→ 重挂，起始偏移回缺省（折叠+空）。
     actOpenEdit('ex2', '拉伸 2');
     expect(screen.getByRole('dialog', { name: '拉伸 2' })).toBeDefined();
-    expect(withinDialog().queryByRole('textbox', { name: '拔模' })).toBeNull();
-    expect(withinDialog().getByRole('button', { name: '拔模' }).getAttribute('aria-expanded')).toBe('false');
+    expect(withinDialog().queryByRole('textbox', { name: '起始偏移' })).toBeNull();
+    expect(withinDialog().getByRole('button', { name: '起始偏移' }).getAttribute('aria-expanded')).toBe('false');
   });
 
   it('B5：patternKind 参与 key —— pattern linear→circular 两入口切换重挂（kind 初值生效）', () => {

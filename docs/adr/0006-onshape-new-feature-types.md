@@ -1,6 +1,8 @@
 # ADR-0006：Onshape 新特征类型与引用几何（分切片设计）
 
-- 状态：提议（2026-11-04 起草；按切片逐个批准后实施；当前未批准任何代码）
+- 状态：已接受（2026-11-05 owner 指示“继承实现下一个特征”）。
+  **切片 A（hole）已落地 backend/contract（shared 1.26.0）**；切片 B/C/D 仍待逐个批准。
+  UI 对话框因缺少 live 证据仍未实现（不凭空发明控件）。
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/adr/0005-extrude-revolve-contract-onshape-parity.md`、
   `docs/superpowers/specs/2026-11-04-onshape-example-replication-airr.md`、
@@ -100,6 +102,20 @@ Tutorial 2 iOS 的 Extrude 2 仍用草图左环面域近似（几何等价，−
 需要“选择实体面 + 轮廓投影 + 沿面法向扫掠”，依赖稳定的 face 引用与 face 轮廓提取；
 目前 `resolveFaceRef` 提供持久 face id，但面轮廓提取/扫掠尚未验证。该切片必须有
 iOS 场景的全量对拍（不能只靠截图）后再批准。
+
+### 切片 A 实现记录（2026-11-05，shared 1.26.0）
+
+- `LubanFeatureType + "hole"`；`HoleParams`：`sketchId`、`pointIds?`、`diameterMm`、
+  `endBound: blind|throughAll`、`depthMm?`、`direction?`、`tipAngleDeg?`。
+- 后端：`FeatureTypeRegistry` 注册（同步 `/` `booleanOp=subtract`、`requiresUpstream=true`）；
+  `FeatureEngine.evaluateHole` 取草图 point → 两段半圆弧圆 profile → 沿草图法向 Sweep →
+  一次 Subtract；throughAll 复用 `throughAllDistance`。首版仅平底（tipAngle 非 180 拒收），
+  螺纹/沉头/埋头/up-to-entity 明确拒收。`FeatureService` 跳过 hole 的面域选择校验。
+- 验证：`HoleFlow.test.ts` 3/3——throughAll φ4 方块 4000−40π；blind φ2 深 4 两位置；
+  `pointIds` 精确选位与非法 id 落 status=1；`FeatureTypeRegistry` schema 正/负路径；
+  shared 153/153；web 1334/1334；shared 1.26 真栈 T2 strict 2 passed（体积不变）。
+  web `tsc` 绿（暂无 hole 对话框）。
+- 仍未实现：hole UI 对话框（需 live 证据）、钻尖/螺纹/沉头/按面 up-to 终止条件。
 
 ## 不在本 ADR
 

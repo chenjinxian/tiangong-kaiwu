@@ -165,12 +165,15 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 ## 验证基线（2026-11-04）
 
 - `apps/web` 全量 vitest：1334/1334；shared 152、editor 29、viewer 127；四包 `tsc`/lint 绿。
-- shared 1.25.0：ADR-0004（construction/diameter/concentric/driven/整圆相切/angle）
-  + ADR-0005 Phase 2（revolve new、extrude secondDirection）。
-- 后端 sketch：89/89（含 angle 60° 收敛、line+circle tangent、diameter/concentric）。
-- 真栈回归（shared 1.25.0 实测）：`tutorial2.spec.ts` **2 passed（4.1 min）**，
+- shared 1.26.0：ADR-0004（construction/diameter/concentric/driven/整圆相切/angle）
+  + ADR-0005 Phase 2（revolve new、extrude secondDirection）
+  + ADR-0006 切片 A（hole，backend/contract only）。
+- 后端 sketch：89/89（含 angle 60° 收敛、line+circle tangent、diameter/concentric）；
+  hole 流程 3/3（throughAll 4000−40π、blind 多孔、pointIds 精确选位）。
+- 真栈回归（shared 1.26.0 实测）：`tutorial2.spec.ts` **2 passed（4.0 min）**，
   体积与 1.22.0 基线完全一致（无圆角 358.161、终体积 357.739、去材 0.422 cm³）；
   shared 1.24 合并 strict+tools **8 passed（8.2 min）**，tools 含圆直径+共圆相切 UI 链。
+- web 全量 1334/1334；shared 153/153。
 - 真栈：`newbody`（选择/删除/undo/redo）、`part-studio`（五区/ribbon 激活）通过。
 - **known-red**：`sketch-extrude` 仍红（草图无拉链面域）。`tutorial2` X-14 已于 2026-11-04 关闭：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min；六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³），证据 `apps/web/test-results/t2-strict-after.log`。不得把 known-red 当绿，也不得通过放宽断言“修复”。
 

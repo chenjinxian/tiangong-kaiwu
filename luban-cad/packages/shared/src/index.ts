@@ -237,6 +237,8 @@ export type {
   BooleanBodiesParams,
   // B-model P2.2 v1.18（Part Studio 注册表）
   PartStudioInfo,
+  // ADR-0006 切片 A（v1.26，简单钻孔）
+  HoleParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

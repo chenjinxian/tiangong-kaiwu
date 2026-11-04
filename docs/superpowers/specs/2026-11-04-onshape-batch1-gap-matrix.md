@@ -73,6 +73,10 @@ extrude `secondDirection` 已落地（backend/contract only，UI 证据待补）
 `cPlane`、`assignVariable`/变量系统、face-extrude/imprint-face、chamfer 边语义。
 这些能力需要各自的几何/变量系统设计，不与 0005 同批；按示例逐个立项。
 
+**切片 A 已落地（2026-11-05，shared 1.26.0，backend/contract only）**：`hole` 简单平底孔
+（草图 point 位置、blind/throughAll、方向、pointIds；螺纹/沉头/up-to-entity 拒收）。
+`HoleFlow` 3/3；UI 对话框需 live 证据后补。
+
 ### 不在本批次
 
 - sheet metal、assembly mate、drawing、custom FeatureScript（logoMaker/thread/myFeature）。
