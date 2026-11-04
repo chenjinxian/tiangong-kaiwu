@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **P0-04 先论证后编码** | AIRR 批准后才写代码；新包/新 RPC/schema/native/渲染管线/求解器接口/数据迁移/AI 工具必须 ADR | 未 AIRR/ADR 直接开工；“先做出来再说” |
 | **P0-05 单一建模/编辑管道** | 参数化走 `LubanFeatureRpcInterface` FeatureOp；直接编辑走 `EditTools.startCommand` + `basicManipulationIpc`/`solidModelingIpc`；标准基类与标准事件 | 旧 `LubanRpcInterface.startEditCommand/callEditMethod/finishEditCommand`（已删除）；自定义事件替代 `onCommitted`/`onModelGeometryChanged` |
 | **P0-06 单一数据源/BIS** | iModel/BIS + `params` 是模型事实源；派生显示数据只做投影；schema/params 变更=版本化+迁移+旧库 fixture+回滚 | 同一草图既存 params 又存 native geometry stream；无迁移的 schema 变更 |
-| **P0-07 契约唯一/公私边界** | `@luban-cad/shared` 唯一跨仓契约（`LubanFeatureRpcInterface` 1.23.0、`LubanRpcInterface` 1.1.0）；变更 bump 版本 + 双端同发布 | 并行 REST DTO；公共仓出现私有源码/密钥/native 细节/内部证据 |
+| **P0-07 契约唯一/公私边界** | `@luban-cad/shared` 唯一跨仓契约（`LubanFeatureRpcInterface` 1.24.0、`LubanRpcInterface` 1.1.0）；变更 bump 版本 + 双端同发布 | 并行 REST DTO；公共仓出现私有源码/密钥/native 细节/内部证据 |
 | **P0-08 Fork/native 最小可追溯** | fork 改动登记 `docs/ITWINJS_CORE_MODIFICATIONS.md`；native 改动源码+`NativeLibrary.ts`+ctest+下游回归+provenance；只保留一个 canonical native | 手改生成产物；多份 native checkout 并行；改 editor 导出后不重建 viewer `dist` |
 | **P0-09 内核/求解器冻结与许可** | 真形（TrueForm）几何内核只经 `SolidKernel.h`；绳墨只经 solver-neutral；ACIS 只用 Modeler+Polyhedra；libslvs 仅纯云 SaaS 姿态 | STEP/healing 等未授权 ACIS 能力接线；on-prem 打包 libslvs；引入未经合法授权的代码或资料 |
 | **P0-10 可撤销或 HITL** | 每个用户/Agent 操作走标准事务；不可逆操作登记例外并强制预览→确认→提交+审计 | 静默不可逆、假成功 no-op、跳过 HITL |

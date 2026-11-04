@@ -58,8 +58,9 @@ dof=0；真栈 `tutorial2-tools` 新增圆直径+共圆相切 UI 链用例。
 
 **Phase 1 已落地（2026-11-04，shared 1.22.0）**：extrude blind/throughAll、direction、
 startOffsetMm、operation remove/intersect；UI 移除/相交页签启用、方向/起始偏移进真实
-params。**Phase 2 第一项（v1.23）**：revolve new 已落地（独立新体；UI 新建页签启用）。
-仍待：upToNext/upToSurface/upToVertex、draft、secondDirection、face-extrude。
+params。**Phase 2（v1.23/v1.24）**：revolve new 已落地（独立新体；UI 新建页签启用）；
+extrude `secondDirection` 已落地（backend/contract only，UI 证据待补）。
+仍待：upToNext/upToSurface/upToVertex、draft、face-extrude、第二方向 UI。
 
 门禁：每次新增/变更 FeatureOp 字段都必须版本化、旧库 fixture、回滚路径；不得用
 “复刻 demo”绕过标准管道。

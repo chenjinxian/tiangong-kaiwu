@@ -125,6 +125,15 @@ export type ExtrudeEndBound = "blind" | "throughAll" | "upToNext" | "upToSurface
 /** v1.22（ADR-0005）：拉伸方向；backward 等价于沿草图法向反向扫掠。 */
 export type ExtrudeDirection = "forward" | "backward";
 
+/** v1.24（ADR-0005 Phase 2）：第二方向拉伸。缺省方向=主方向的相反侧；
+ * 与 `symmetric` 互斥；throughAll 需要上游实体。首版不支持第二方向 draft/偏移。 */
+export interface ExtrudeSecondDirection {
+  endBound: "blind" | "throughAll";
+  /** blind 必填且 >0；throughAll 忽略。 */
+  distanceMm?: number;
+  direction?: ExtrudeDirection;
+}
+
 export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
   distance: number;
@@ -140,6 +149,8 @@ export interface ExtrudeParams {
   direction?: ExtrudeDirection;
   /** v1.22（ADR-0005）：起始偏移（mm，沿草图法向；可为负）。缺省 0。 */
   startOffsetMm?: number;
+  /** v1.24（ADR-0005 Phase 2）：第二方向拉伸；与 symmetric 互斥。 */
+  secondDirection?: ExtrudeSecondDirection;
   /** v1.19：合并范围（body 引用）。v1 只支持 0 或 1 个（单 active body）；多目标延后。 */
   mergeScope?: BodyRef[];
   /** @deprecated M6-c v1.8 起被 `regions` 取代（单面域简写）；兼容保留一版——服务端 zod
@@ -551,7 +562,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.23.0";
+  public static interfaceVersion = "1.24.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

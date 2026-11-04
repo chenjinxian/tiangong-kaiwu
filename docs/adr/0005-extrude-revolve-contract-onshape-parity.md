@@ -1,8 +1,8 @@
 # ADR-0005：拉伸/旋转特征契约扩展（终止条件、布尔、方向与 draft）
 
 - 状态：已接受（2026-11-04；Phase 1：extrude endBound blind/throughAll、direction、
-  startOffsetMm、operation remove/intersect；Phase 2 已落地 revolve new；upTo*/draft/
-  secondDirection 仍待后续）
+  startOffsetMm、operation remove/intersect；Phase 2 已落地 revolve new 与 extrude
+  secondDirection（shared 1.24.0）；upTo*/draft 仍待后续）
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md`
 - 决策者：LubanCAD 平台团队
@@ -72,8 +72,8 @@ adapter 中映射为对应草图面域（左环面域）；如果映射后的体
 
 ### 4. 版本与发布
 
-- ADR-0004 与 ADR-0005 若同批发布：shared 一次性 bump 到 **1.22.0**；
-  否则 ADR-0005 单独 bump 到 1.23.0。
+- 实际发布序列：ADR-0005 Phase 1 = 1.22.0；ADR-0004 第一切片 = 1.23.0；
+  ADR-0005 Phase 2（revolve new 无形状变更、secondDirection 增字段）= **1.24.0**。
 - backend/web 同批；`FeatureTypeRegistry` schema、shared DTO、FeatureDialog、
   preview 共用新字段；DSL 白名单同步。
 - 旧库 fixture：Tutorial 2 gold + 旧 extrude 参数（无新字段）必须逐字可读；
@@ -110,12 +110,20 @@ adapter 中映射为对应草图面域（左环面域）；如果映射后的体
   `FeatureOperationSemantics` 新增「上游已存在时 revolve NEW 产出第二个独立 body」
   （10×20 矩形绕底边 4000π 圆柱，总体积 500+4000π）；`FeatureTypeRegistry` new 接受、
   mergeScope 拒收；FeatureDialog 130/130（revolve 新建页签启用，相交仍禁用）。
-- 未实现（仍诚实拒收/待办）：upToNext/upToSurface/upToVertex、draft、secondDirection、
-  face-extrude。拔模输入框已禁用并给出“尚未实现”提示，禁止接受输入后静默丢弃
-  （FeatureDialog 测试钉住 disabled）。
-- **第二方向 / upTo* 的 UI 证据缺口**：已采集 features JSON 有 `hasSecondDirection`/
-  `secondDirectionDepth` 与 `UP_TO_*` 终止条件，但现有 UI 截图/DOM 未覆盖对应对话框；
-  在补采 live UI 证据前只做后端能力，不凭空发明对话框控件。
+- **Phase 2 第二项（shared 1.24.0，2026-11-04）：extrude `secondDirection` 已落地**
+  （backend/contract only）。`ExtrudeSecondDirection { endBound: blind|throughAll;
+  distanceMm?; direction? }`；缺省方向=主方向相反侧；symmetric 互斥；blind 必填
+  distanceMm；throughAll 不得用于 operation=new。求值：两段扫掠体先 Unite 再参与
+  add/remove/intersect/new 规划。验证：`FeatureOperationSemantics` 正向 5 + 反向 3
+  体积 1600、质心 z=1；`FeatureTypeRegistry` 接受/拒收矩阵；shared 152/152。
+  真栈 shared 1.24 复核：`tutorial2` + `tutorial2-tools` 合并 8 passed（8.2 min），
+  strict 体积/去材与 1.22 基线一致。
+  **UI 仍无 live 证据，不新增第二方向对话框控件**；表单模型以 JSON 只读面暴露。
+- 未实现（仍诚实拒收/待办）：upToNext/upToSurface/upToVertex、draft、face-extrude。
+  拔模输入框已禁用并给出“尚未实现”提示，禁止接受输入后静默丢弃（FeatureDialog
+  测试钉住 disabled）。
+- **upTo* 的 UI 证据缺口**：已采集 features JSON 有 `UP_TO_*` 终止条件，但现有 UI
+  截图/DOM 未覆盖对应对话框；在补采 live UI 证据前只做后端能力，不凭空发明控件。
 
 ## 备选方案
 

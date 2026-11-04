@@ -56,7 +56,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.23.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.24.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -576,7 +576,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.23.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.24.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -749,8 +749,8 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
     expectTypeOf<Parameters<ApplyFn>[3]>().toEqualTypeOf<string | undefined>();
   });
 
-  it("版本 1.23.0（面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.23.0");
+  it("版本 1.24.0（面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.24.0");
   });
 });
 
@@ -814,7 +814,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.23.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.24.0");
   });
 });
 
@@ -877,6 +877,23 @@ describe("Tutorial 2 v1.19 契约（结构化子实体 + spline + 新约束 + op
     expect(revolve.mergeScope?.[0]?.bodyKey).toBe("0x18");
     expectTypeOf<ExtrudeParams["operation"]>().toEqualTypeOf<FeatureBooleanOperation | undefined>();
     expectTypeOf<RevolveParams["operation"]>().toEqualTypeOf<FeatureBooleanOperation | undefined>();
+  });
+
+  it("v1.24：ExtrudeParams.secondDirection（blind/throughAll + 可选方向）可构造", () => {
+    const blind: ExtrudeParams = {
+      profile: [], distance: 5, sketchId: "sk-1",
+      secondDirection: { endBound: "blind", distanceMm: 3, direction: "backward" },
+    };
+    const throughAll: ExtrudeParams = {
+      profile: [], distance: 5, sketchId: "sk-1",
+      secondDirection: { endBound: "throughAll" },
+    };
+    expect(blind.secondDirection?.endBound).toBe("blind");
+    expect(blind.secondDirection?.distanceMm).toBe(3);
+    expect(throughAll.secondDirection?.direction).toBeUndefined();
+    expectTypeOf<ExtrudeParams["secondDirection"]>().toEqualTypeOf<{
+      endBound: "blind" | "throughAll"; distanceMm?: number; direction?: "forward" | "backward";
+    } | undefined>();
   });
 
   it("MassPropertiesDto 形状 + getMassProperties 只读 RPC 签名", () => {
