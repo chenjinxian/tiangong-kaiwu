@@ -38,6 +38,7 @@ import {
 type Ctx = Awaited<ReturnType<typeof openSeedImodelEditor>>;
 type LineEntity = Extract<SketchEntityDto, { kind: 'line' }>;
 type ArcEntity = Extract<SketchEntityDto, { kind: 'arc' }>;
+type CircleEntity = Extract<SketchEntityDto, { kind: 'circle' }>;
 
 const lines = (sk: SketchDto): LineEntity[] =>
   sk.entities.filter((e): e is LineEntity => e.kind === 'line');
@@ -88,6 +89,15 @@ const horizontalLineAt = (sk: SketchDto, y: number, tol = 3): LineEntity => {
   });
   if (!found) throw new Error(`找不到 y=${y} 附近的水平线`);
   return found;
+};
+const circles = (sk: SketchDto): CircleEntity[] =>
+  sk.entities.filter((e): e is CircleEntity => e.kind === 'circle');
+/** 圆心为内联对象（绘制工具产物）时，取圆上 angle 处的世界点。 */
+const pointOnCircle = (circle: CircleEntity, angle: number): Vec3 => {
+  const c = circle.center;
+  if (typeof c !== 'object') throw new Error('圆心应为内联对象');
+  const r = circle.radius ?? 0;
+  return worldOf({ x: c.x + r * Math.cos(angle), y: c.y + r * Math.sin(angle) });
 };
 const pointOnArc = (arc: ArcEntity): Vec3 => {
   const c = arc.center;
@@ -200,6 +210,52 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     expect(sk.entities.filter((e) => e.kind === 'point')).toHaveLength(1);
     // 矩形自带 4 条角 coincident；样条只新增自己的 2 条。
     expect(sk.constraints.filter((c) => c.kind === 'coincident')).toHaveLength(coincidentBefore + 2);
+  });
+
+  test('圆：直径尺寸 + 线端点共圆相切（v1.23 ADR-0004 UI 链）', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
+    const { ctx, token, hub } = await boot(page, request);
+
+    // 中心点圆：圆心 + 圆周点；先画半径 25，再用直径尺寸改为 40（半径 20）。
+    await activate(page, '中心点圆');
+    await clickWorld(page, hub, P(40, 30));
+    await clickWorld(page, hub, P(65, 30));
+    await page.waitForTimeout(1_500);
+    let sk = await readLatest(ctx, token);
+    expect(circles(sk)).toHaveLength(1);
+    expect(circles(sk)[0]!.radius).toBeCloseTo(25, 1);
+
+    const circlePick = pointOnCircle(circles(sk)[0]!, Math.PI / 6);
+    await addDimension(page, hub, '直径', [circlePick], 40);
+    sk = await readLatest(ctx, token);
+    const circle = circles(sk)[0]!;
+    expect(circle.radius).toBeCloseTo(20, 1);
+    expect(sk.constraints.some((c) => c.kind === 'diameter' && c.value === 40)).toBe(true);
+
+    // 线的起点落在圆周上；随后用「点+整圆」重合把端点钉在圆上。
+    const center = circle.center as { x: number; y: number };
+    const tangentPoint = worldOf({ x: center.x + circle.radius!, y: center.y });
+    await activate(page, '线');
+    await clickWorld(page, hub, tangentPoint);
+    await clickWorld(page, hub, worldOf({ x: center.x + circle.radius! + 30, y: center.y + 30 }));
+    await page.waitForTimeout(1_200);
+    sk = await readLatest(ctx, token);
+    const line = lines(sk).find((l) => Math.hypot(inlineP1(l).x - (center.x + circle.radius!), inlineP1(l).y - center.y) < 2);
+    expect(line, '应找到从圆周出发的线').toBeTruthy();
+
+    await addConstraint(page, hub, '重合', [tangentPoint, pointOnCircle(circle, Math.PI / 2)]);
+    await addConstraint(page, hub, '相切', [midOf(line!), pointOnCircle(circle, Math.PI)]);
+    sk = await readLatest(ctx, token);
+    expect(sk.solve.status).not.toBe('failed');
+    expect(sk.solve.status).not.toBe('conflicting');
+    const kinds = sk.constraints.map((c) => c.kind);
+    expect(kinds.filter((k) => k === 'coincident').length).toBeGreaterThanOrEqual(1);
+    const tangent = sk.constraints.find((c) => c.kind === 'tangent');
+    expect(tangent, '相切约束应落库').toBeTruthy();
+    const tangentIds = tangent!.refs.map((r) => (typeof r === 'number' ? r : (r as { entity: number }).entity));
+    expect(tangentIds).toContain(circle.id);
+    expect(tangentIds).toContain(line!.id);
+    console.log(`[t2-tools] 圆直径+共圆相切: entities=${sk.entities.length} constraints=${sk.constraints.length} dof=${sk.solve.dof} status=${sk.solve.status}`);
   });
 
   test('约束：重合/中点/相切/水平/竖直各自落一行且不改实体类型', async ({ page, request }) => {

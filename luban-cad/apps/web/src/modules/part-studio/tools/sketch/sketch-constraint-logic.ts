@@ -63,7 +63,8 @@ export const CONSTRAINT_SLOT_SHAPES: Record<
   SketchConstraintKind,
   readonly (readonly SketchPickKind[])[]
 > = {
-  coincident: [['point', 'point']],
+  // v1.23：点+整圆也合法（line 端点吸附整圆）；点+点保持既有语义。
+  coincident: [['point', 'point'], ['point', 'circle'], ['circle', 'point']],
   horizontal: [['line'], ['point', 'point']],
   vertical: [['line'], ['point', 'point']],
   parallel: [['line', 'line']],

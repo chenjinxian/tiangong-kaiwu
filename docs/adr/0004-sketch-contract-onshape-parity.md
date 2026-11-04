@@ -131,6 +131,11 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
   `constructionMode`，新绘制实体带 `construction`；viewer 装饰器虚线显示。
   圆尺寸默认 DIAMETER、弧默认半径，标注带 `⌀`；i18n en/zh-CN 同步；约束工具
   槽位接受整圆+直线 tangent。
+- 前端约束槽位同步：coincident 接受 point+circle（此前仅 point+point，导致
+  「线端点吸附整圆」在 UI 无法创建），tangent 接受 circle+line；真栈
+  `tutorial2-tools` 新增「圆：直径 + 线端点共圆相切」用例，走真实 ribbon/画布：
+  直径 40 → 半径 20，coincident/tangent 落库，`dof=2 underconstrained`（未加定位约束，
+  符合预期）。
 - 验证：后端 sketch 测试 **87/87 passed**、backend `tsc` 绿；shared 单测绿；
   web 目标测试绿。iOS 几何回放改为**全量约束**：`Tutorial2IosReplay.test.ts`
   草图 `status=ok dof=0`（4 条 line+circle tangent + 2 条 DIAMETER 全量参与），

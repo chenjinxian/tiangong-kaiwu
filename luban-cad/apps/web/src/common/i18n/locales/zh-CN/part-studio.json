@@ -844,7 +844,7 @@
         "fixedFirst": "固定约束：点击一个点"
       },
       "reject": {
-        "coincidentNeedsPoint": "重合约束只能拾取点（当前为{{actual}}）",
+        "coincidentNeedsPoint": "重合约束接受点+点或点+整圆（当前为{{actual}}）",
         "linearNeedsLineOrPoint": "{{label}}约束需要拾取线或点（当前为{{actual}}）",
         "linearPairNeedsPoint": "{{label}}约束的第二个元素只能是点（当前为{{actual}}）",
         "parallelNeedsLine": "{{label}}约束只能拾取线（当前为{{actual}}）",

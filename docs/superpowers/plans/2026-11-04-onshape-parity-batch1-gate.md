@@ -399,7 +399,8 @@ Expected: every blocked example names a concrete shared contract gap and the ADR
   driven、line+整圆 tangent（端点共圆语义；内部 1 条半径线⟂line，DOF 净 −1）。
   后端 sketch **87/87**、web 目标测试绿；iOS 回放改为**全量约束**：
   `status=ok dof=0`（4 tangent + 2 DIAMETER 全参与），终体积 157.165 cm³ 不变。
-  前端约束槽位接受 circle+line；圆尺寸默认 DIAMETER/⌀ 标注、construction 切换与虚线。
+  前端约束槽位接受 circle+line 与 point+circle coincident；圆尺寸默认 DIAMETER/⌀
+  标注、construction 切换与虚线。真栈 `tutorial2-tools` 新增圆直径+共圆相切 UI 用例。
 - **ADR-0005 Phase 2 第一项（v1.23）**：revolve `operation="new"` 已落地——NEW-body 行
   不消费上游，独立新体；schema 拒绝 new+mergeScope；FeatureService 目标规划与
   FeatureDialog 新建页签同步。验证：后端 feature 子集 **79/79**（含 revolve NEW

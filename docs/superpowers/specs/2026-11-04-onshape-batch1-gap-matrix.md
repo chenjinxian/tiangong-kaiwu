@@ -41,8 +41,9 @@ tangent/conflicting/underconstrained + 新约束样例）。旧草图 fixture �
 **第一切片已落地（2026-11-04，shared 1.23.0）**：construction 标志（DTO→求解器→
 面域过滤→前端 construction 切换/虚线显示）、`diameter`（圆默认直径 + ⌀ 标注）、
 `concentric`、`driven`（不送求解器）、line+整圆 tangent（端点共圆语义，内部 1 条
-半径线⟂line，DOF 净 −1；前端约束槽位接受 circle+line）；point+circle coincident
-已在 1.22.0 前落地。iOS 回放已全量约束 dof=0。
+半径线⟂line，DOF 净 −1；前端约束槽位接受 circle+line）、前端 coincident 接受
+point+circle；point+circle coincident 求解已在 1.22.0 前落地。iOS 回放已全量约束
+dof=0；真栈 `tutorial2-tools` 新增圆直径+共圆相切 UI 链用例。
 仍待：`angle`、projected/pierce/mirror、driven UI、iOS UI e2e。
 
 ### ADR-0005（extrude/revolve contract）

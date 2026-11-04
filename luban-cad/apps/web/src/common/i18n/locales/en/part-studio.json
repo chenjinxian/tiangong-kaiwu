@@ -844,7 +844,7 @@
         "fixedFirst": "Fixed constraint: click a point"
       },
       "reject": {
-        "coincidentNeedsPoint": "The coincident constraint only accepts points (got {{actual}})",
+        "coincidentNeedsPoint": "The coincident constraint accepts points or a point and a circle (got {{actual}})",
         "linearNeedsLineOrPoint": "The {{label}} constraint needs a line or a point (got {{actual}})",
         "linearPairNeedsPoint": "The second entity of the {{label}} constraint must be a point (got {{actual}})",
         "parallelNeedsLine": "The {{label}} constraint only accepts lines (got {{actual}})",

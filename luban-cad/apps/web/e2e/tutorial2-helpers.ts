@@ -37,7 +37,7 @@ export async function activate(page: Page, name: string): Promise<void> {
   const toolbar = page.getByRole('toolbar', { name: '草图工具' });
   // Onshape 草图只有一个尺寸按钮（无下拉）；长度/半径/距离均由同一工具按拾取
   // 动态推断。旧用例的名称保留为操作意图（决定后续拾取/放置点击），但工具相同。
-  const dimensionNames = ['尺寸', '距离', '长度', '半径'];
+  const dimensionNames = ['尺寸', '距离', '长度', '半径', '直径'];
   let target = toolbar.getByRole('button', {
     name: dimensionNames.includes(name) ? '尺寸' : name,
     exact: true,
@@ -73,6 +73,7 @@ export async function activate(page: Page, name: string): Promise<void> {
     '距离': 'Sketch.Dimension',
     '长度': 'Sketch.Dimension',
     '半径': 'Sketch.Dimension',
+    '直径': 'Sketch.Dimension',
   };
   const expected = expectedToolId[name];
   if (expected) {
@@ -132,7 +133,7 @@ export async function addDimension(
   for (const p of points) await clickWorld(page, hub, p);
   // Onshape 单尺寸工具：单线/单弧/单圆先拾取，再点击空白放置；两点/两线直接
   // 形成距离。长度/半径补一次 placing click。
-  if (name === '长度' || name === '半径') await clickBlank(page, hub);
+  if (name === '长度' || name === '半径' || name === '直径') await clickBlank(page, hub);
   // Onshape：值确认框在标注放置位置弹出（不是左侧常驻面板）。
   const input = page.getByTestId('sketch-value-input');
   await expect(input).toBeVisible({ timeout: 10_000 });

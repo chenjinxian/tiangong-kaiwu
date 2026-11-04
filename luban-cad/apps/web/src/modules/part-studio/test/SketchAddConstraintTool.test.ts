@@ -87,7 +87,7 @@ const entities: SketchEntityDto[] = [
 
 describe('M6-b T5：槽位定义表（SolverTypes 冻结契约逐字）', () => {
   it('coincident=2 point；horizontal/vertical=1 line 或 2 point；parallel/perpendicular=2 line；equal=2 line 或 2 circle', () => {
-    expect(CONSTRAINT_SLOT_SHAPES.coincident).toEqual([['point', 'point']]);
+    expect(CONSTRAINT_SLOT_SHAPES.coincident).toEqual([['point', 'point'], ['point', 'circle'], ['circle', 'point']]);
     expect(CONSTRAINT_SLOT_SHAPES.horizontal).toEqual([['line'], ['point', 'point']]);
     expect(CONSTRAINT_SLOT_SHAPES.vertical).toEqual([['line'], ['point', 'point']]);
     expect(CONSTRAINT_SLOT_SHAPES.parallel).toEqual([['line', 'line']]);
