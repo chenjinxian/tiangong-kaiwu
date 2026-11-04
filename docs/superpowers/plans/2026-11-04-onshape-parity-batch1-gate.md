@@ -405,6 +405,9 @@ Expected: every blocked example names a concrete shared contract gap and the ADR
   不消费上游，独立新体；schema 拒绝 new+mergeScope；FeatureService 目标规划与
   FeatureDialog 新建页签同步。验证：后端 feature 子集 **79/79**（含 revolve NEW
   第二个 body、4000π 圆柱体积）、FeatureDialog **130/130**。
+- **第三示例复刻（2026-11-05）**：`Postman`（Explore Onshape Models）通过 converter v2
+  场景回放：Custom 平面 sketch（矩阵）→ 0.5mm extrude；2.6705 cm³（Onshape 2.6866，
+  -0.60%）；imprintFace 用 region 0 adapter，decal 非几何跳过。
 - **第二示例复刻（2026-11-05）**：`Exercise: Basic Drawing`（Training Repo）通过数据驱动
   converter v2 生成场景并在后端回放：sketch（Right，construction centerline + 镜像线）
   → revolve FULL NEW；体积 2442.2935 cm³（Onshape 2442.2938，-0.00%）。未映射约束

@@ -91,6 +91,11 @@ extrude `secondDirection` 已落地（backend/contract only，UI 证据待补）
   **2442.2935 cm³**（Onshape 2442.2938，-0.00%）。场景保留 MIRROR /
   CENTERLINE_DIMENSION / 单点 HORIZONTAL / point+line COINCIDENT 为未映射缺口，
   不宣称约束树完整。
+- **Postman**（Explore Onshape Models，doc `30416b6b…` / PS `33a4bc9f…`）：
+  Custom 平面（`sketchMatrix`）sketch（4 线 + 4 圆）→ imprintFace 0.5mm extrude。
+  场景 adapter 用草图面域 region 0（同 iOS 口径）回放：2.6705 cm³（Onshape
+  2.6866，-0.60%，tolerance 1%）；decal 非几何跳过，PROJECTED / circle start/end
+  约束未映射。后端 `PostmanReplay.test.ts` 通过。
 
 ## 数据批次
 
