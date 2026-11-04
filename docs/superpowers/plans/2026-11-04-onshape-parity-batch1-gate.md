@@ -405,6 +405,9 @@ Expected: every blocked example names a concrete shared contract gap and the ADR
   不消费上游，独立新体；schema 拒绝 new+mergeScope；FeatureService 目标规划与
   FeatureDialog 新建页签同步。验证：后端 feature 子集 **79/79**（含 revolve NEW
   第二个 body、4000π 圆柱体积）、FeatureDialog **130/130**。
+- **ADR-0004 第二切片（shared 1.25.0）**：`angle` 约束 backend/contract 落地
+  （两线夹角；libslvs ANGLE 度槽位换算、other 方向按初值选择）；后端 sketch 89/89。
+  UI 无 live 证据，暂不新增控件。
 - **ADR-0005 Phase 2第二项（shared 1.24.0）**：extrude `secondDirection` 落地
   （blind/throughAll、缺省反向、symmetric 互斥；与主方向先 Unite 再参与布尔）。
   验证：正向 5 + 反向 3 体积 1600/质心 z=1；shared 152/152。UI 仍无 live 证据，

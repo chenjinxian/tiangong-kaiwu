@@ -8,7 +8,7 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 - [ ] public / backend / hub 三仓工作区干净，main 已推送；发布用的 public 提交
       固定记录在 ADR（不钉文档提交 HEAD）。
-- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.24.0**）；RPC
+- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.25.0**）；RPC
       interfaceName 只有 `LubanRpcInterface` / `LubanFeatureRpcInterface`。
 - [ ] legacy schema 退役状态已同步（旧数据审计零命中；现行代码不再读写）。
 

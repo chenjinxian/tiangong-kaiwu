@@ -44,7 +44,9 @@ tangent/conflicting/underconstrained + 新约束样例）。旧草图 fixture �
 半径线⟂line，DOF 净 −1；前端约束槽位接受 circle+line）、前端 coincident 接受
 point+circle；point+circle coincident 求解已在 1.22.0 前落地。iOS 回放已全量约束
 dof=0；真栈 `tutorial2-tools` 新增圆直径+共圆相切 UI 链用例。
-仍待：`angle`、projected/pierce/mirror、driven UI、iOS UI e2e。
+**第二切片（v1.25）**：`angle`（两线夹角，弧度；libslvs 度槽位换算）backend/contract
+落地；UI 无 live 证据，暂不新增控件。
+仍待：angle UI、projected/pierce/mirror、driven UI、iOS UI e2e。
 
 ### ADR-0005（extrude/revolve contract）
 

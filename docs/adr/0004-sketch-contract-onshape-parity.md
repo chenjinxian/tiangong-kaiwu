@@ -1,6 +1,8 @@
 # ADR-0004：草图契约扩展（Onshape 草图/约束/尺寸对齐）
 
-- 状态：已接受（2026-11-04；owner 指示继续，分切片实施；第一切片 point+circle coincident 已落地）
+- 状态：已接受（2026-11-04；分切片实施。已落地：point+circle coincident、
+  construction/diameter/concentric/driven、line+circle tangent、angle（shared 1.25.0）；
+  angle UI/projected/pierce/mirror/driven UI 待后续）
 - 关联：`docs/superpowers/specs/2026-11-04-onshape-example-replication-airr.md`、
   `docs/superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md`
 - 决策者：LubanCAD 平台团队
@@ -136,7 +138,12 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
   `tutorial2-tools` 新增「圆：直径 + 线端点共圆相切」用例，走真实 ribbon/画布：
   直径 40 → 半径 20，coincident/tangent 落库，`dof=2 underconstrained`（未加定位约束，
   符合预期）。
-- 验证：后端 sketch 测试 **87/87 passed**、backend `tsc` 绿；shared 单测绿；
+- **angle（shared 1.25.0，backend/contract only）**：DTO/SolverTypes/Normalizer 接受
+  两 line + `value` 弧度（0<value<π）；SlvsSolver 映射 libslvs `ANGLE`（其 valA 是度，
+  内部 ×180/π；按初值选择 `other` 方向翻转，避免 π−value 初值误判）。`SolverTypes.ts`
+  冻结 hash 更新为 `2801e1…`。验证：两线初始 45° → 约束 60° 收敛（dof=1，长度自由）；
+  后端 sketch **89/89**。angle 的 UI 尺寸工具尚无 live 证据，暂不新增控件。
+- 验证：后端 sketch 测试 **89/89 passed**、backend `tsc` 绿；shared **152/152**；
   web 目标测试绿。iOS 几何回放改为**全量约束**：`Tutorial2IosReplay.test.ts`
   草图 `status=ok dof=0`（4 条 line+circle tangent + 2 条 DIAMETER 全量参与），
   终体积 157.165 cm³（目标 157.479，−0.20%）不变。

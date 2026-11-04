@@ -98,6 +98,8 @@
  *    （Onshape ADD/REMOVE 是同一特征的内部操作，不再拆独立 booleanAdd 特征行；
  *    `booleanAdd`/`booleanSubtract` 保留给显式布尔工具）。
  *  - `getMassProperties` 只读 RPC（body 体积/质心/表面积），Tutorial 2 几何金标验收用。
+ * v1.25（ADR-0004 第二切片）：`SketchConstraintDto.kind` + `angle`（两线夹角，value 弧度）。
+ * v1.24（ADR-0005 Phase 2）：`ExtrudeParams.secondDirection`（blind/throughAll）落地。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -519,8 +521,9 @@ export type SketchEntityDto =
    * 为真源，fitPoints 仅用于结构化引用对齐与读面保真。N>2 拟合点/周期样条延后。 */
   | { kind: "spline"; id: number; fitPoints?: SketchPointDto[]; controlPoints: SketchPointDto[]; periodic?: boolean; construction?: boolean };
 export interface SketchConstraintDto {
-  /** v1.23（ADR-0004）：diameter/concentric；driven=参考尺寸（不送求解器）。 */
-  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "diameter" | "concentric" | "length" | "midpoint" | "tangent" | "offset" | "fixed";
+  /** v1.25（ADR-0004）：angle=两线夹角（value 弧度，direction-vector 语义）；diameter/concentric；
+   * driven=参考尺寸（不送求解器）。 */
+  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "diameter" | "concentric" | "angle" | "length" | "midpoint" | "tangent" | "offset" | "fixed";
   id: number; refs: SketchRef[]; value?: number; driven?: boolean;
 }
 export type SketchSolveStatusDto = "ok" | "underconstrained" | "conflicting" | "failed";
@@ -562,7 +565,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.24.0";
+  public static interfaceVersion = "1.25.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
