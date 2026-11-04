@@ -724,6 +724,7 @@
     "editHint": "该特征类型的参数编辑即将推出",
     "editUnsupportedHint": "该特征的结构引用/语义参数不可直接修改（loft、sweep、体布尔请删除特征后重建）",
     "editOperationLocked": "编辑模式下布尔作用域不可更改（结构键）",
+    "draftUnsupported": "拔模尚未实现；输入已禁用",
     "readonlyHint": "当前为只读权限，无法提交特征",
     "sections": {
       "direction": "方向",

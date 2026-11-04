@@ -2890,12 +2890,16 @@ export function FeatureDialog({
                       </label>
                     )}
                     {section.id === 'draft' && (
+                      // v1.23：draft 尚无后端几何求值（ADR-0005 后续）；禁用而不是
+                      // 接受输入后静默丢弃（P0-10 禁止假成功）。
                       <input
                         type="text"
                         inputMode="decimal"
                         aria-label={label}
                         className="part-studio-feature-dialog__input"
                         value={draft}
+                        disabled
+                        title={t('partStudio.featureDialog.draftUnsupported')}
                         onChange={(event) => setDraft(event.target.value)}
                       />
                     )}

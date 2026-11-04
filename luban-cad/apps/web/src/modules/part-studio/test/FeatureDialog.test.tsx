@@ -320,15 +320,17 @@ describe('折叠段（方向/起始偏移/对称/拔模）', () => {
     expect(within(dialog).queryByRole('textbox', { name: '拔模' })).toBeNull();
   });
 
-  it('开合折叠段：拔模展开 → 输入值进确认载荷', async () => {
+  it('拔模折叠段：输入禁用并提示未实现（不接受后静默丢弃）', async () => {
     const { onConfirm } = renderDialog({ entities: [] });
     const user = userEvent.setup();
     const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
     await user.click(within(dialog).getByRole('button', { name: '拔模' }));
     expect(within(dialog).getByRole('button', { name: '拔模' }).getAttribute('aria-expanded')).toBe('true');
-    await user.type(within(dialog).getByRole('textbox', { name: '拔模' }), '5');
+    const input = within(dialog).getByRole('textbox', { name: '拔模' }) as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    expect(input.title).toContain('拔模尚未实现');
     await user.click(screen.getByRole('button', { name: '确认' }));
-    expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).draft).toBe('5');
+    expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).draft).toBe('');
   });
 
   it('方向下拉（正向/反向）+ 对称勾选 + 起始偏移 → 全进确认载荷', async () => {

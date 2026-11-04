@@ -724,6 +724,7 @@
     "editHint": "Parameter editing for this feature type is coming soon",
     "editUnsupportedHint": "Structural or semantic parameters of this feature cannot be changed here (delete and recreate loft, sweep, or body boolean features)",
     "editOperationLocked": "Boolean scope cannot be changed while editing (structural key)",
+    "draftUnsupported": "Draft is not implemented yet; the input is disabled",
     "readonlyHint": "You have read-only permission; features cannot be submitted",
     "sections": {
       "direction": "Direction",

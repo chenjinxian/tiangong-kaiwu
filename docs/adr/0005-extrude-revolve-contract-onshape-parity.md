@@ -111,7 +111,11 @@ adapter 中映射为对应草图面域（左环面域）；如果映射后的体
   （10×20 矩形绕底边 4000π 圆柱，总体积 500+4000π）；`FeatureTypeRegistry` new 接受、
   mergeScope 拒收；FeatureDialog 130/130（revolve 新建页签启用，相交仍禁用）。
 - 未实现（仍诚实拒收/待办）：upToNext/upToSurface/upToVertex、draft、secondDirection、
-  face-extrude。
+  face-extrude。拔模输入框已禁用并给出“尚未实现”提示，禁止接受输入后静默丢弃
+  （FeatureDialog 测试钉住 disabled）。
+- **第二方向 / upTo* 的 UI 证据缺口**：已采集 features JSON 有 `hasSecondDirection`/
+  `secondDirectionDepth` 与 `UP_TO_*` 终止条件，但现有 UI 截图/DOM 未覆盖对应对话框；
+  在补采 live UI 证据前只做后端能力，不凭空发明对话框控件。
 
 ## 备选方案
 
