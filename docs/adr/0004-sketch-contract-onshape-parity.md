@@ -87,7 +87,9 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
 
 ### 5. 版本与发布
 
-- shared `LubanFeatureRpcInterface.interfaceVersion` 从 1.21.0 **minor bump 到 1.22.0**。
+- shared `LubanFeatureRpcInterface.interfaceVersion`：1.22.0 已被 ADR-0005（extrude/revolve）
+  占用；本 ADR 剩余 sketch 字段落地时 **minor bump 到 1.23.0**。若两者在同一次未发布
+  列车内完成，可合并为一次 1.22.0，但必须同一批测试/发布。
 - backend / web 同批发布；`SolverTypes.ts` 冻结清单更新为新 hash，并附双跑语料。
 - 旧数据：新增字段全部可选，旧 params 直接可读；提供 Tutorial 2 gold 旧 fixture
   回归 + 旧库首开测试。

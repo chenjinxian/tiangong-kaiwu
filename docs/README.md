@@ -26,7 +26,7 @@
 | [adr/0002-retire-legacy-edit-channel-and-unify-selection.md](./adr/0002-retire-legacy-edit-channel-and-unify-selection.md) | ADR：退役旧编辑 RPC 通道（shared 1.1.0）、草图工具族唯一、`store.canvas.selection` 单一选择权威（X-01/X-02/X-03，2026-11-04） |
 | [adr/0003-onshape-parity-scenario-contract.md](./adr/0003-onshape-parity-scenario-contract.md) | ADR（已接受 2026-11-04）：Onshape parity 场景/证据契约 v1（测试专用 schema、逐 body 期望、blocked-evidence/capability；不新增运行时 RPC） |
 | [adr/0004-sketch-contract-onshape-parity.md](./adr/0004-sketch-contract-onshape-parity.md) | ADR（已接受 2026-11-04，分切片）：草图契约扩展（construction、DIAMETER/ANGLE/CONCENTRIC/PROJECTED/MIRROR/PIERCE、driven 尺寸、point-circle coincident；shared bump + 双端）；第一切片 point+circle 已落地 |
-| [adr/0005-extrude-revolve-contract-onshape-parity.md](./adr/0005-extrude-revolve-contract-onshape-parity.md) | ADR（提议）：拉伸/旋转契约扩展（endBound、REMOVE/INTERSECT、方向/起始偏移/draft/第二方向、revolve NEW/REMOVE；face-extrude 与其余特征转 ADR-0006） |
+| [adr/0005-extrude-revolve-contract-onshape-parity.md](./adr/0005-extrude-revolve-contract-onshape-parity.md) | ADR（已接受 2026-11-04，Phase 1 已落地）：extrude endBound blind/throughAll、REMOVE/INTERSECT、方向/起始偏移；revolve remove；upTo*/draft/secondDirection/revolve new 待后续；face-extrude 转 ADR-0006 |
 | [adr/0006-onshape-new-feature-types.md](./adr/0006-onshape-new-feature-types.md) | ADR（提议/待立项）：hole/draft/rib/pattern/mirror 平面/cPlane/变量/face-extrude/chamfer 边语义；逐能力另立 AIRR/ADR |
 | [superpowers/specs/2026-11-04-debt-cleanup-x01-x03-airr.md](./superpowers/specs/2026-11-04-debt-cleanup-x01-x03-airr.md) | AIRR：X-01/X-02/X-03 第一轮债务清理（复用矩阵/跨仓影响/测试/回滚） |
 | [superpowers/specs/2026-11-04-onshape-example-replication-airr.md](./superpowers/specs/2026-11-04-onshape-example-replication-airr.md) | AIRR（已批准）：Onshape 示例复刻与 Part Studio 交互/UI 对齐；Batch 1 六示例、复用矩阵、跨仓/回滚 |
@@ -86,4 +86,4 @@
 
 现行能力状态以本目录保留文档与代码/测试实测为准（状态标记：✅/🟠/⚪/❌）。
 
-*最后更新: 2026-11-04（X-01/X-02/X-03/X-14 已关闭；Onshape parity AIRR 已批准、ADR-0003 已接受、ADR-0004 已接受（第一切片 point+circle 落地）、ADR-0005 提议；Batch 1 缺口矩阵/执行计划/scenario v1 落档；Tutorial 2 iOS 几何回放 157.165 cm³/-0.20%；tutorial2 setup+strict 2 passed、tutorial2-tools 6 passed；后端/原生逐文件证据在私有仓）*
+*最后更新: 2026-11-04（X-01/X-02/X-03/X-14 已关闭；Onshape parity AIRR 已批准、ADR-0003/0004 已接受、ADR-0005 Phase 1（shared 1.22.0：extrude remove/intersect/throughAll/direction/offset、revolve remove）已落地、ADR-0006 待立项；Batch 1 缺口矩阵/执行计划/scenario v1 落档；Tutorial 2 iOS 几何回放 157.165 cm³/-0.20%；tutorial2 setup+strict 2 passed、tutorial2-tools 6 passed；后端/原生逐文件证据在私有仓）*

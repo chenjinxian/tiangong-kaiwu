@@ -4,9 +4,9 @@
 
 **Goal:** Close Tutorial 2 X-14 (Extrude 2 region 4) with a deterministic, true-stack UI path and register the remaining Batch 1 capability gaps without weakening any assertion.
 
-**Architecture:** The failure is a test/viewport framing defect, not a modeling defect: the strict e2e never framed the camera because `showcaseScene` returned early outside showcase mode, so the third profile region projected above the canvas while `profilePickPoints` still emitted an off-canvas fallback. The fix makes scene framing unconditional, hardens the picker so it never advertises an unsafe point, and records the evidence. No FeatureOp, RPC, BIS schema, or product modeling path changes in this plan.
+**Architecture:** The failure is a test/viewport framing defect, not a modeling defect: the strict e2e never framed the camera because `showcaseScene` returned early outside showcase mode, so the third profile region projected above the canvas while `profilePickPoints` still emitted an off-canvas fallback. The fix adds a feature-only `frameScene(SCENES.partIso)` call in the extrude/revolve dialog helpers, hardens the picker so it never advertises an unsafe point, and records the evidence. No FeatureOp, RPC, BIS schema, or product modeling path changes in this plan.
 
-**Tech Stack:** Playwright (true stack :5300 + modeling-server :5401), Vitest, iTwin.js 5.15 viewport APIs, `@luban-cad/shared` 1.21.0 (unchanged).
+**Tech Stack:** Playwright (true stack :5300 + modeling-server :5401), Vitest, iTwin.js 5.15 viewport APIs, `@luban-cad/shared` 1.22.0 (ADR-0005 Phase 1).
 
 **Spec:** `docs/superpowers/specs/2026-11-04-onshape-example-replication-airr.md` (approved 2026-11-04); scenario contract design in `docs/adr/0003-onshape-parity-scenario-contract.md`.
 
@@ -97,7 +97,7 @@ and the arch lobe used by E2/E3/R1. If the lobe is still clipped, add a dedicate
 `featureProfiles` scene with larger `z` high (for example `high.z = 140`) and use it in both
 helpers; do not re-enable unconditional framing during sketch drawing.
 
-- [x] **Step 3: Run the strict test and inspect the profile-pick logs**
+- [x] **Step 4: Run the strict test and inspect the profile-pick logs**
 
 ```powershell
 cd D:\Github\tiangong-kaiwu\luban-cad\apps\web
@@ -108,7 +108,7 @@ Expected: `1 passed` (plus setup), final feature tree `sketch, extrude, extrude,
 
 If it still fails on a region point, do **not** change assertions. Capture the failing region's `data-region-points` entry and the current `SCENES.partIso` range, then enlarge only the `partIso` low/high symmetric around the model center until every requested region is inside the canvas. Record the new range in the test log.
 
-- [x] **Step 4: Record verification output**
+- [x] **Step 5: Record verification output**
 
 Append the exact command, pass count, volume values, and date to `test-results/t2-strict-after.log`. Do not commit yet.
 
@@ -395,7 +395,16 @@ Expected: every blocked example names a concrete shared contract gap and the ADR
   （目标 157.479，**-0.20%**，<0.5%）。
   已知约束缺口：4 条 line+整圆 tangent 省略（草图 dof=4）；DIAMETER/UI/chamfer
   创建链仍按 ADR-0004 后续批次。
-- ADR-0004/0005 已起草；0005 聚焦 extrude/revolve，其余特征转 ADR-0006。
+- ADR-0004/0005 已接受；0005 聚焦 extrude/revolve，其余特征转 ADR-0006。
+- **ADR-0005 Phase 1 已落地（shared 1.22.0）**：extrude `remove`/`intersect`、
+  `endBound=blind|throughAll`、`direction`、`startOffsetMm`；revolve `remove`。
+  UI 移除/相交页签启用（extrude）、revolve 移除启用、方向/起始偏移进入真实 params
+  与预览。验证：`FeatureOperationSemantics`（remove/throughAll/direction/offset/
+  intersect 体积+质心）、`RevolveFlow` 9/9（方柱−半圆柱=64−π）、
+  `FeatureTypeRegistry` 21/21、FeatureDialog 130/130、shared 151/151、tsc 绿。
+  注意：shared 1.22.0 与本地 MS 产物 1.21.0 有版本门禁，开发栈已切到 MS 源码模式；
+  发布产物必须按 shared→backend→web 重建后才能回到产物模式；源码 MS 1.22.0 下
+tutorial2 strict 已复跑 2 passed（4.0 min，体积不变）。
 
 ## Self-Review
 

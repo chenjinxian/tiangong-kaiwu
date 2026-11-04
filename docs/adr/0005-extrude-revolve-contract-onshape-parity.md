@@ -1,6 +1,7 @@
 # ADR-0005：拉伸/旋转特征契约扩展（终止条件、布尔、方向与 draft）
 
-- 状态：提议（2026-11-04）
+- 状态：已接受（2026-11-04；Phase 1 已落地：extrude endBound blind/throughAll、direction、
+  startOffsetMm、operation remove/intersect；revolve remove 已落地；revolve new 与 upTo*/draft 仍待后续）
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md`
 - 决策者：LubanCAD 平台团队
@@ -86,6 +87,24 @@ adapter 中映射为对应草图面域（左环面域）；如果映射后的体
 - 真栈 e2e：Pallet/Clamp 的代表特征链；至少一个 REMOVE + 一个 UP_TO_SURFACE。
 - 旧 fixture 回归：Tutorial 2 六特征链体积不变（357.568 ±0.5%）。
 - 负路径：缺 endBoundRef、remove 无目标 body、intersect 未实现、draft 越界。
+
+## 实现记录（2026-11-04，Phase 1）
+
+- shared 1.22.0：`ExtrudeParams` 增 `endBound`（blind/throughAll 已实现，upTo* 服务端拒收）、
+  `direction`、`startOffsetMm`；`FeatureBooleanOperation` 增 `intersect`。
+- backend：extrude `remove`→Subtract、`intersect`→内核 Intersect；`throughAll` 用项目范围
+  + 上游可转换范围计算距离（BRep flatbuffer 无 GeometryQuery range，不伪装读取）；
+  `direction=backward` 反向扫掠；`startOffsetMm` 沿法向平移剖面。
+- UI：extrude 的移除/相交页签启用；方向/起始偏移从本地状态进入真实 params。
+- 验证：`FeatureOperationSemantics.test.ts`（remove/throughAll/direction/offset 体积与质心）、
+  `FeatureTypeRegistry.test.ts` 21/21、`FeatureEngine.test.ts`+语义 14/14、FeatureDialog 130/130、
+  shared 151/151、`tsc` 通过。真栈：MS 源码模式 1.22.0 + web 1.22.0 下 `tutorial2.spec.ts`
+  **2 passed（4.0 min）**，体积/特征树与 1.21.0 基线一致；产物模式 `dist-backend` 仍是
+  1.21.0，发布前必须按 shared→backend→web 重建，否则 RPC 版本门禁会拒绝。
+- revolve remove 已落地：`RevolveParams.operation="remove"` → Subtract；UI revolve 移除页签启用。
+  验证：`RevolveFlow.test.ts` 9/9（方柱 − 半圆柱 = 64−π）。
+- 未实现（仍诚实拒收/待办）：upToNext/upToSurface/upToVertex、draft、secondDirection、
+  revolve new、face-extrude。
 
 ## 备选方案
 
