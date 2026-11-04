@@ -113,7 +113,7 @@ Create `docs/MIGRATION-2026-10-29.md`:
 - 范围：tiangong-kaiwu（项目总目录）、luban-backend、imodelhub-services、私有原生仓、DanQing；platform-docs 已删除。
 - 结构：apps/web-next → apps/web；packages/viewer-next → packages/viewer。
 - 包名：@luban-cad/web-next → @luban-cad/web；@luban-cad/viewer-next → @luban-cad/viewer。
-- 删除：viewer-core、web-viewer、config、旧脚本、itwinjs-core/open-cloud-cad。
+- 删除：viewer-core、web-viewer、config、旧脚本。
 - 例外：分支 web-next-m0 与浏览器存储键 luban-next-* 暂不改名。
 - 恢复：所有删除内容从 Git 历史恢复，索引见 docs/HISTORY.md。
 ```
@@ -395,65 +395,7 @@ git commit -m "refactor(web): web-next 统一为 web"
 
 ---
 
-### Task 5: 删除 fork 内旧应用拷贝
-
-**Files:**
-- Delete: `itwinjs-core/open-cloud-cad/`
-- Modify: `docs/UPSTREAM_SYNC.md`
-- Modify: `docs/ITWINJS_CORE_MODIFICATIONS.md`
-- Modify: `CLAUDE.md`（删除旧拷贝说明或改为历史注记）
-
-**Interfaces:** none.
-
-- [ ] **Step 1: Confirm no external references/build consumers**
-
-```powershell
-Set-Location 'D:\Github\tiangong-kaiwu'
-git grep -n "open-cloud-cad" -- ':!itwinjs-core/open-cloud-cad'
-```
-
-Expected: only `docs/UPSTREAM_SYNC.md` and root `CLAUDE.md`; no rush/pnpm/compose/script.
-
-- [ ] **Step 2: Delete and document**
-
-```powershell
-git rm -r itwinjs-core/open-cloud-cad
-```
-
-Add to `docs/UPSTREAM_SYNC.md` under the subtree-pull checklist:
-
-```markdown
-- 同步后检查 `itwinjs-core/open-cloud-cad/`：该目录是本 fork 已删除的旧品牌应用历史拷贝，
-  不属于上游 rush/workspace；若上游同步带回，直接再次删除并记录。
-```
-
-Add to `docs/ITWINJS_CORE_MODIFICATIONS.md`:
-
-```markdown
-- 2026-10-29：删除 `open-cloud-cad/`（旧品牌应用历史拷贝，438 files）。
-  该目录非 rush 项目、无构建消费者；删除属于 fork 本地整理，不是上游修改。
-```
-
-Update root `CLAUDE.md` line describing the frozen copy to state it has been deleted
-and is recoverable from Git history.
-
-- [ ] **Step 3: Verify**
-
-```powershell
-if (Test-Path itwinjs-core/open-cloud-cad) { throw 'open-cloud-cad still exists' }
-git status --short
-```
-
-- [ ] **Step 4: Commit**
-
-```powershell
-git add -A
-git commit -m "chore(itwinjs): 删除 fork 内旧应用拷贝并登记同步检查"
-```
-
----
-
-### Task 6: 主仓文档收敛
+### Task 5: 主仓文档收敛
 
 **Files:**
 - Delete: all `docs/superpowers/plans/*` except
@@ -575,7 +517,7 @@ Apply these exact facts:
 - dev port `:5300`, nginx `:5301`, hub `:5400`/container `:4000`,
   MS `:5401`, webhook-agent `:5402`
 - no current doc may say `apps/web-next`, `web-next`, `viewer-next`,
-  `viewer-core`, `web-viewer`, `open-cloud-cad` as active paths
+  `viewer-core`, `web-viewer` as active paths
 - `ROADMAP.md` becomes a short index pointing to
   `docs/superpowers/specs/2026-09-28-cad-full-program-roadmap.md`
 - `README.md`/`luban-cad/README.md` use the new package tree and commands
@@ -590,7 +532,7 @@ Apply these exact facts:
 Use `rg` to find active docs with old names:
 
 ```powershell
-rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer|open-cloud-cad" README.md CLAUDE.md docs luban-cad/README.md luban-cad/CLAUDE.md
+rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer" README.md CLAUDE.md docs luban-cad/README.md luban-cad/CLAUDE.md
 ```
 
 For each hit in a kept current doc, replace with the new name or delete the stale
@@ -605,7 +547,7 @@ git commit -m "docs: 收敛当前文档并删除已完成历史计划"
 
 ---
 
-### Task 7: 全套门禁与收口
+### Task 6: 全套门禁与收口
 
 **Files:**
 - Modify: `docs/MIGRATION-2026-10-29.md`（记录结果）
@@ -647,14 +589,13 @@ green and do not drive-by rewrites in shared here. No old package importers in l
 
 ```powershell
 Set-Location 'D:\Github\tiangong-kaiwu'
-rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer|open-cloud-cad" `
+rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer" `
   README.md CLAUDE.md docs luban-cad `
   --glob '!docs/HISTORY.md' --glob '!docs/MIGRATION-2026-10-29.md' `
   --glob '!docs/superpowers/**' --glob '!**/node_modules/**'
 ```
 
 Expected: zero hits except explicitly documented exceptions. Allow:
-- root `CLAUDE.md` line documenting `open-cloud-cad` deletion
 - branch name `web-next-m0` in historical/release text
 - `luban-next-*` browser storage keys
 - `:5310` in CORS negative tests

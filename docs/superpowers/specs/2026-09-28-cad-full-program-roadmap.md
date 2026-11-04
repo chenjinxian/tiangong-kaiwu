@@ -20,10 +20,10 @@
 T2（X1 spike，go/no-go）→ WS3 特征引擎 →┬→ WS4 草图求解 → M2 →┐
                  ↑                      ├→ WS5 协同数据链 ──────┼→ M3/M4 → WS10 AI
               WS1 内核暴露 ────────────┘→ WS6 前端 UX ─────────┘
-WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solver-neutral 接口）与主线解耦
+WS8 真形（TrueForm）几何内核 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solver-neutral 接口）与主线解耦
 ```
 
-**一句话逻辑**：没有一步需要发明新机制——存储（元素）、依赖图（EDE）、同步（changeset）、内核（ACIS）、求解器（libslvs）都是现成件；主线写的全部代码 = 特征求值 + op 编排 + UI；长线自研（真形/绳墨）由接口契约保护，可随时平替。
+**一句话逻辑**：没有一步需要发明新机制——存储（元素）、依赖图（EDE）、同步（changeset）、兼容内核（ACIS；平台内核=真形（TrueForm）几何内核）、求解器（libslvs）都是现成件；主线写的全部代码 = 特征求值 + op 编排 + UI；长线自研（真形（TrueForm）几何内核/绳墨）由接口契约保护，可随时平替。
 
 ---
 
@@ -122,7 +122,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T5.0 | spike #2：imodelhub-services 对 changeset description 的存取验证 | op 摘要可存取 | — | S |
 | T5.1 ✅ | op 即 push 管线（FeatureService.applyOp→txn→saveChanges→push） | changeset 粒度=op 粒度 | T3.7 | M |
 | T5.2 ✅ | op 日志元素（append-only：类型/特征 id/参数 old/new/用户/时间）+ description 摘要 | 审计链完整 | T5.0/T5.1 | M |
-| T5.3 ✅（updateParams 范围） | 语义 undo/redo：op 日志逆向/正放成新 changeset（不依赖 txn 栈——push 后栈清空是硬事实） | 跨会话 undo/redo 一致 | T5.2 | M |
+| T5.3 ✅（updateParams 范围） | 语义 undo/redo：op 日志反向/正向重放成新 changeset（不依赖 txn 栈——push 后栈清空是硬事实） | 跨会话 undo/redo 一致 | T5.2 | M |
 | T5.4 ✅ | 写租约：MS 按 iModel 会话级写锁（WS 会话持有+心跳+过期释放） | 同刻单编辑者；读者不限 | T5.1 | M |
 | T5.5 | 同步链验证：MS push→WS 广播→前端 pull→**tile 失效刷新实测**（本地栈唯一未验证环节） | 双端秒级一致 | T5.1 | M |
 | T5.6 | 📁 多人共编实现（op 队列串行+presence+per-user undo 校验失败即拒） | 留档，D8 论证已毕 | T5.4 | L ⚠️ |
@@ -138,7 +138,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T6.3 ✅（2026-10-04 M3-a） | 视口拾取 → 反查 `(nodeId,entityId)` → 写入特征 params（拓扑引用建立入口；拾取反查经 op31+op7 组合解邻面对，出口「点选面/边建引用」以边实现——fillet 消费面；纯面引用消费方不存在于 M3 范围） | 点选面/边建引用 | T1.1 | M |
 | T6.4 ✅（2026-10-04 M3-a，反馈级口径） | 拖拽预览管道（预览 op=previewOp 影子求值→确认成真 op；v1 交付=debounce 试算+成功/失败反馈徽标，非视口几何级——D-4 已知边界） | 流畅 | T3.8 | M |
 | T6.5 ✅（2026-10-09 M3-b，裁决 E-2 模式面口径） | 草图模式 UI（平面进入/退出、栅格、捕捉——进入=俯视对齐（Top）+栅格显示+状态栏提示+特征树联动入口，退出=位姿/栅格还原；**完整平面定义（原点/法向选择）显式划出**，见 M3-b 计划「显式划出」清单） | 可用 | T4.4 | L |
-| T6.6 ✅（2026-10-04 M3-a） | **M3 接线补遗**（M1 Task 9 审查实证）：`LubanFeatureRpcInterface` 须双端各补一处——后端 `main.ts` 的 `BentleyCloudRpcManager.initializeImpl` 数组 + 前端 `web-viewer/src/WebInitializer.ts` 的 `rpcInterfaces` 数组（OpenCloudRpcInterface 同款先例）。**改名裁决**：interfaceName `"luban-cad/features-v1"` → `"LubanFeatureRpcInterface"`（BentleyCloudRpcProtocol 按 `-` 切 operationId/按 `/` 截 path，旧名永远寻址不到——潜伏缺陷，因从未被传输消费而未爆） | 前端可调通特征 RPC | T5.8 | S |
+| T6.6 ✅（2026-10-04 M3-a） | **M3 接线补遗**（M1 Task 9 审查实证）：`LubanFeatureRpcInterface` 须双端各补一处——后端 `main.ts` 的 `BentleyCloudRpcManager.initializeImpl` 数组 + 前端 `web-viewer/src/WebInitializer.ts` 的 `rpcInterfaces` 数组。**改名裁决**：interfaceName `"luban-cad/features-v1"` → `"LubanFeatureRpcInterface"`（BentleyCloudRpcProtocol 按 `-` 切 operationId/按 `/` 截 path，旧名永远寻址不到——潜伏缺陷，因从未被传输消费而未爆） | 前端可调通特征 RPC | T5.8 | S |
 
 ## WS7 测试与质量 🔨
 
@@ -151,9 +151,9 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T7.5 | 性能基准（特征链长 vs 再生时间；KernelLock 全局串行下的吞吐实测；**大实体 changeset 体积实测**——证据库 §2.4：BRep blob 无分块、50MiB 阈值是 ChangesetReader 侧迹象） | 基线报告 | M |
 | T7.6 | **LubanCAD schema 演进门禁**：v1 快速迭代期的 schema changeset 纪律（只加不删/只加属性不改类型）+ CI 检查 + op 日志元素 schema 归属（进同一 LubanCAD schema） | 演进规则成文+CI 拦截破坏性变更 | S |
 
-## WS8 真形（TrueForm）自研几何内核 🔬 长线
+## WS8 真形（TrueForm）几何内核 🔬 长线
 
-**定位**：自主可控内核，与 ACIS 并行演进。**关键架构红利：`SolidKernel.h` 的 106 方法契约就是真形的规格书**——真形作为 BRepCore 的第二后端实现来研发，经同一契约插拔验证，永不绑架主线。
+**定位**：真形（TrueForm）几何内核，自主可控，与 ACIS 并行演进。**关键架构红利：`SolidKernel.h` 的 106 方法契约就是真形（TrueForm）几何内核的规格书**——真形（TrueForm）几何内核作为 BRepCore 的第二后端实现来研发，经同一契约插拔验证，永不绑架主线。
 
 | ID | 任务 | 说明 | 规模 |
 |---|---|---|---|
@@ -161,7 +161,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | T8.2 | STEP reader + healing（reader 必须配 healing，同为自研） | ACIS InterOp 未授权的替代路径 | XL ⚠️ |
 | T8.3 | 核心数据表示：拓扑（BODY/FACE/EDGE/…）+ 几何（解析+样条）+ 公差体系（对齐 SPAresabs=1e-6 惯例） | 内核地基 | XL ⚠️ |
 | T8.4 | 核心算子：布尔/倒角/扫掠/偏移……逐项对标 §5 映射表 | 逐算子攻关 | XL ⚠️ |
-| T8.5 | ATTRIB 等效机制（TopologyID 载体的自有版） | **没有它特征体系不可移植到真形** | L ⚠️ |
+| T8.5 | ATTRIB 等效机制（TopologyID 载体的自有版） | **没有它特征体系不可移植到真形（TrueForm）几何内核** | L ⚠️ |
 | T8.6 | 双内核对照测试（同一契约双实现，语义等价断言） | 质量基准 | L ⚠️ |
 
 诚实估计：T8.1/T8.2 近中期可达；T8.3+ 是以年计的工程，需独立排期与团队。
@@ -209,7 +209,7 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 | **M2 草图驱动** | 约束求解入环，改草图尺寸全零件联动 | T4 全部 —— **✅ 2026-09-30 达成（后端闭环——改草图尺寸→求解→全零件联动实证；UX 交互归 M2-UX）**（分支 m2-sketch-solver，7 任务 SDD，测试 29 文件/255 过/9 skip） |
 | **M3 v1 特征完整** | 草图+拉伸+布尔+圆角+前端 UX 可用 | T3.4-3.6、WS6 —— **✅ 2026-10-09 全部达成（M3-a 2026-10-04：fillet+特征树/参数面板/拾取引用/预览管道半壁 = T3.4/T3.5/T3.8/T6.1-T6.4/T6.6；M3-b 2026-10-09：草图交互 UX 半壁 = T6.5/T4.6/T4.7，8 任务 SDD）** |
 | **M4 协同完整** | 租约/语义 undo/双端实时 | WS5 完整 |
-| **M5 真形 STEP 通路** | writer+reader+healing | T8.1/T8.2 |
+| **M5 真形（TrueForm）几何内核 STEP 通路** | writer+reader+healing | T8.1/T8.2 |
 | **M6 绳墨平替** | 自研求解器替换 libslvs | T9.1-9.4 |
 | **M7 文生 3D** | AI Agent 特征级生成+编辑回环 | WS10 |
 
@@ -219,20 +219,20 @@ WS8 真形 / WS9 绳墨：独立长线，经冻结接口（SolidKernel.h / solve
 2. **tile 刷新链路（T5.5）**：本地栈唯一未实测的同步环节。备注：M1 已验证 MS 侧 op=push/pull 数据链（FeatureSync.test.ts）；前端对外部 changeset 的自动 pull/tile 刷新未接线，归 WS6。
 3. **KernelLock 全局串行**：v1 无感（单写者），T11.5 前是并行天花板。
 4. **圆柱面操作（T1.5）**：柱面草图/面提取的前置，v1 不碰。
-5. **真形/绳墨是研究性投入**：接口契约（SolidKernel.h / solver-neutral）保证主线不被自研进度绑架——这是双轨制的全部意义。
+5. **真形（TrueForm）几何内核/绳墨是研究性投入**：接口契约（SolidKernel.h / solver-neutral）保证主线不被自研进度绑架——这是双轨制的全部意义。
 6. **双 op 面接缝（2026-09-28 审查新增）**：特征引擎跨 `createBRepGeometry`（12 粗粒度 op）与 ElementGeometryCache（31-op）两面；两面的事务/锁/缓存交互未经验证——T3.4 是最先暴露点，视情况在 WS3 前加一个 op 面选型 spike。**2026-09-30 补注：31-op 通道确认已实现（PSBRepEdit.cpp op switch，op31-35 已入该通道）**。**2026-10-04 结案注：T3.4 已验证——fillet 求值跨两面混合调用序（scratch 载体缓存通道 op32/33/34/Blend + 真实库 createBRepGeometry 粗粒度 op）稳定无崩溃无串扰（FilletFlow 9/9 + 探针臂全过），接缝风险实证消除**。
 7. **op=push 交互延迟**：本地 hub 往返可接受（M1 演示级）；AI 批量 op 场景的合批策略（composite op=单 changeset）留为设计注记，不进 v1。
 8. **内核会话态管理**：rollback mark、ElementGeometryCache 均为会话态；模型重开=重建（T1.2 出口已含 mark 表重建策略；缓存重建随 T3.12）。
 9. **ACIS BRep blob 非确定性**（M1 Task 10 实证）：blob 头含时间戳+随机 ID，同参数两次求值字节不同（~75 字节）。纪律：跨求值比较一律用 `TestHost.normalizeBrepGeomJson` 归一化；同持久化 blob 可字节比。影响面：T7.4 结构断言回归、T7.5 性能基准、未来任何字节级几何断言。观察记录（2026-09-29 M1 合并树）：全量套件出现一次未复现的失败（1/5 跑，用例名未捕获）——疑属归一化秒边界或 WriteLease 1ms TTL 边界家族，再现时按此排查。归一化函数选择以 TestHost 文档为准：缓存条目 JSON（数字索引形态）用 normalizeFeatureCacheJson、持久几何流用 normalizeBrepGeomJson——选错会使断言变同义反复（M3-a Task 1 实证）。
-10. **【幻影定案 2026-09-30·已治愈】body「中毒态」= sweep 双因子缺陷的 Subtract no-op 观测（EDE 写路径无辜）**。终局（内核攻坚 泳道，2026-09-30）：**内嵌工具从未真正切削**——**C++ 因子**：私有原生仓 `PSBRepCreate.cpp` Sweep case `createSheet` 旗标漏取反（官方 `IsAnyRegionType ^ 1`，ida :1254-1258 直证），region 剖面恒出零厚 sheet（已修 4a98c0820）；**JS 因子**：`FeatureEngine.ts` sweepProfile 闭合点去重→Loop 内几何开线→ACIS ewire 缺口→`api_skin_wires` 端盖失败退化 sheet（已修 a9eb19c：显式补 pts[0] 闭合收尾）。双因子任一在即 sweep 产物=壳；内嵌工具的壳面与 base 壳面几何不相交（体足迹重叠）→ Subtract 恒 no-op——历史上「内嵌孔洞起步→后续 indirect 写永久失效」的全部观测（陈旧体落库/列哈希不变/跨进程持久/rebuildAll 不可恢复/子进程复现/直写免疫）均为 **no-op 重序列化的正确行为**：EDE indirect 写通道自始健康、直写/间接写无分野，「静默不落库」与「落库陈旧内核体」两代改判一并被 no-op 解释取代。实证链：坐标 L1-L5 全层保真、唯一丢失层=体语义（见 `.superpowers/sdd/内核攻坚/task-2-report.md`）；翻转钉零残留（suppress 三臂=会话内/同进程重开/子进程全部「移除真孔」，260 过三轮满套件，见 task-2b-report）。**表述勘定**：「应用层缓解不可能」「建链轨迹规范化=唯一防御」「阻塞 M2」随幻影定案废止——两步制保留为纵深冗余（生产码注释已改，T4.8）；debug-tail-root 调查矩阵=方法论资产留档（探针臂 skip 保留、翻转钉转正）。**附带新契约**：4 点 Loop（隐式闭合）剖面 sweep 仍出 sheet=内核契约（开线端盖失败退化，非缺陷）——特征引擎剖面构造须守「显式闭合链」约定（JS 侧已落 pts[0] 收尾）。历史调查留档：私有原生仓 `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md`（其 FNV 指纹法/证伪清单仍是有效方法论资产，结论段已加定案框）。
-11. **【已治愈 2026-09-30·内核攻坚】fork 逆向重建的 PSBRepGeometry 三项原生缺陷——全部闭环**：**③ 中毒态落库陈旧体 = 幻影定案**（非独立缺陷，实为风险 #10 的 sweep 双因子 no-op 观测；C++ 因子已修 4a98c0820，见第 10 条）。**① GeometryCache 异步 populate 摄取持久化 BRep entry 硬崩 + ② 内核状态物化 op（op 读通道/createRollbackMark）后同会话异步缓存调用硬崩 0xC0000005 = 同根一修**——ACIS 内核上下文（bulletin board/history stream/error state）每线程一份，worker 线程未 `api_start_modeller` 即触任何 `api_*` 必崩（①崩于 `api_restore_entity_list_file`、②崩于 `~AcisKernelEntity`→`api_del_entity`，原「疑线程亲和」坐实为缺每线程内核注册；printf 二分一轮定界）；修复 = `AcisKernelManager::EnsureSessionStarted` thread_local 懒注册（135 内核入口零改动全覆盖，含析构路径）+ 注册分支纳入 KernelLock（73faeb924+bb3c4e19e），回归钉 `WorkerThreadKernelAccess_SaveRestoreDelete`。**M3 前置全解除**：T3.4 解锁（附带修复 Sweep 产物 nodeId=1 不打标——op31-34 在 Sweep 产物修前恒死火）；T3.8「异步缓存调用收敛在首个内核态物化 op 之前」操作律**解除**（probe-t6 八臂全过，消费面可按普通调用序写）。登记 = 私有原生仓 `docs/superpowers/specs/2026-09-30-native-defects-backlog.md`（三项均已标已修）；复现物 `segfault-repro/`/`probe-t6/` 按修复判据复验后归档。
+10. **【幻影定案 2026-09-30·已治愈】body「中毒态」= sweep 双因子缺陷的 Subtract no-op 观测（EDE 写路径无辜）**。终局（内核攻坚 泳道，2026-09-30）：**内嵌工具从未真正切削**——**C++ 因子**：私有原生仓 `PSBRepCreate.cpp` Sweep case `createSheet` 旗标漏取反（`createSheet = IsAnyRegionType ^ 1`，行为核对），region 剖面恒出零厚 sheet（已修 4a98c0820）；**JS 因子**：`FeatureEngine.ts` sweepProfile 闭合点去重→Loop 内几何开线→ACIS ewire 缺口→`api_skin_wires` 端盖失败退化 sheet（已修 a9eb19c：显式补 pts[0] 闭合收尾）。双因子任一在即 sweep 产物=壳；内嵌工具的壳面与 base 壳面几何不相交（体足迹重叠）→ Subtract 恒 no-op——历史上「内嵌孔洞起步→后续 indirect 写永久失效」的全部观测（陈旧体落库/列哈希不变/跨进程持久/rebuildAll 不可恢复/子进程复现/直写免疫）均为 **no-op 重序列化的正确行为**：EDE indirect 写通道自始健康、直写/间接写无分野，「静默不落库」与「落库陈旧内核体」两代改判一并被 no-op 解释取代。实证链：坐标 L1-L5 全层保真、唯一丢失层=体语义（见 `.superpowers/sdd/内核攻坚/task-2-report.md`）；翻转钉零残留（suppress 三臂=会话内/同进程重开/子进程全部「移除真孔」，260 过三轮满套件，见 task-2b-report）。**表述勘定**：「应用层缓解不可能」「建链轨迹规范化=唯一防御」「阻塞 M2」随幻影定案废止——两步制保留为纵深冗余（生产码注释已改，T4.8）；debug-tail-root 调查矩阵=方法论资产留档（探针臂 skip 保留、翻转钉转正）。**附带新契约**：4 点 Loop（隐式闭合）剖面 sweep 仍出 sheet=内核契约（开线端盖失败退化，非缺陷）——特征引擎剖面构造须守「显式闭合链」约定（JS 侧已落 pts[0] 收尾）。历史调查留档：私有原生仓 `docs/superpowers/specs/2026-09-29-poisoned-state-findings.md`（其 FNV 指纹法/证伪清单仍是有效方法论资产，结论段已加定案框）。
+11. **【已治愈 2026-09-30·内核攻坚】fork 内维护的 PSBRepGeometry 三项原生缺陷——全部闭环**：**③ 中毒态落库陈旧体 = 幻影定案**（非独立缺陷，实为风险 #10 的 sweep 双因子 no-op 观测；C++ 因子已修 4a98c0820，见第 10 条）。**① GeometryCache 异步 populate 摄取持久化 BRep entry 硬崩 + ② 内核状态物化 op（op 读通道/createRollbackMark）后同会话异步缓存调用硬崩 0xC0000005 = 同根一修**——ACIS 内核上下文（bulletin board/history stream/error state）每线程一份，worker 线程未 `api_start_modeller` 即触任何 `api_*` 必崩（①崩于 `api_restore_entity_list_file`、②崩于 `~AcisKernelEntity`→`api_del_entity`，原「疑线程亲和」坐实为缺每线程内核注册；printf 二分一轮定界）；修复 = `AcisKernelManager::EnsureSessionStarted` thread_local 懒注册（135 内核入口零改动全覆盖，含析构路径）+ 注册分支纳入 KernelLock（73faeb924+bb3c4e19e），回归钉 `WorkerThreadKernelAccess_SaveRestoreDelete`。**M3 前置全解除**：T3.4 解锁（附带修复 Sweep 产物 nodeId=1 不打标——op31-34 在 Sweep 产物修前恒死火）；T3.8「异步缓存调用收敛在首个内核态物化 op 之前」操作律**解除**（probe-t6 八臂全过，消费面可按普通调用序写）。登记 = 私有原生仓 `docs/superpowers/specs/2026-09-30-native-defects-backlog.md`（三项均已标已修）；复现物 `segfault-repro/`/`probe-t6/` 按修复判据复验后归档。
 12. **【2026-09-30 M2 终审 I3 登记】CI 缺位+原生构建依赖（M2 首次）**：modeling-server 门禁（vitest/tsc/eslint）仅本机跑；libslvs 原生构建依赖仓外 SolveSpace 克隆 + submodule 钉子（Eigen `3147391d`/mimalloc `f81bf1b3`）+ `EIGEN_DIR`/`MIMALLOC_DIR` 环境变量（bootstrap 步骤见 `modeling-server/native/slvs/VENDOR.md`「新机器 bootstrap」节）——换机/协作者/回归均无守门。中期补 CI workflow（缓存 `slvs.node` 产物或容器化工具链）。
 
 ## 审查记录
 
 - **2026-09-28 全面审查**（X1 通过后、实现启动前）：修订 T3.4（fillet 改走 ElementGeometryCache/Blend=24，纠正误用 Round=10）；WS1 加注「双 op 面」与「协议层自动打标、D4 无需协议加参」（证据：`itwinjs-core/editor/backend/src/EditBuiltInCommand.ts:418-450`、`私有原生仓 PSBRepEdit.cpp:1684-1693`）；新增 T1.8（TopologyID↔缓存子实体桥接）、T3.11（D7 打标）、T3.12（崩溃恢复）、T5.8（op RPC 接口入 shared）、T7.6（schema 演进门禁）；T1.1/T1.2 出口标准补强；风险登记补 6-8。spec ↔ roadmap 映射逐条核对：修订后全覆盖。
 - **2026-09-30 M2 终审修复波**（whole-branch review @ m2-sketch-solver b3cab67f81，裁决 With fixes）：**I1** updateParams 闸门对称化——存储无 sketchId 的内联特征被带 sketchId 的 op 覆写原会「挂上」草图却不建 sketch→feature 边、不 ensureSketchSolved，现拒收（`内联特征不支持挂接草图`）；**I2** 布尔+sketchId 由「zod 剥离」改为 Registry booleanSchema 按类型拒收（剥离防御实测 no-op：引擎类型无关消费 sketchId、两步制建链被绕过——T4.8 行已补注，M2-UX 清单第 2 条改写为显式支持单裁）；**I3** 原生构建绑定登记风险 #12 + VENDOR.md「新机器 bootstrap」。文档对齐：`@luban-cad/shared` ExtrudeParams 注释、FeatureTypeRegistry/FeatureService/FeatureEngine 注释同步改述「布尔拒收 sketchId」。回归：modeling-server vitest 29 文件 258 过/9 skip、tsc 0 错、eslint 仓级既有基线不变。
-- **2026-09-30 内核攻坚 泳道（风险 #11 backlog 三项攻坚，四任务 SDD + 各任务审查循环）**：native-① 内核 sweep 位置复现钉（96d422f，「位置完美保持」实证——「sweep 变换未应用」假设在 C++ 内核层证伪，嫌疑收窄 entry 生产/解码侧）→ native-② 全链坐标定界——坐标 L1-L5 全层无损、唯一丢失层=体语义（sheet vs solid），双因子=C++ Sweep `createSheet` 旗标漏取反（ida 直证，4a98c08 已修）+ JS sweepProfile 闭合点去重→开线退化（tiangong 侧 a9eb19c 一行修）；native-②b 中毒态钉翻转 + region-solid 接线回归钉（75dd05d..33ff9f0，审查 round1：探针臂 300s 超时+stderr 入错信、四处过时 prose 改幻影定案口径含生产码 FeatureService「历史防御/纵深冗余」）→ native-③ ①②硬崩同根定界（ACIS 内核上下文每线程一份）+ thread_local 懒注册修复（73faeb9..bb3c4e1，审查 round1：注册分支纳入 KernelLock）。**定案三连：风险 #10 中毒态=幻影（EDE 写路径无辜，本登记第 10 条整段改写）；风险 #11 ①②③全治愈（第 11 条整段改写）；T3.8 异步收敛操作律解除**。附带定案：Sweep 产物 nodeId=1（op31-34 在 Sweep 产物解死火，T3.4 前置清空）；4 点 Loop（隐式闭合）出 sheet=内核契约（特征引擎剖面构造须显式闭合链）。回归：modeling-server vitest 29 文件 260 过/8 skip（原 9 skip 中毒态留档用例翻转启用后零残留）+tsc 0 错+eslint 仓级既有基线不变；私有原生仓 BRepCoreTest 31/31+PSBRepGeometryTest 10/10。
+- **2026-09-30 内核攻坚 泳道（风险 #11 backlog 三项攻坚，四任务 SDD + 各任务审查循环）**：native-① 内核 sweep 位置复现钉（96d422f，「位置完美保持」实证——「sweep 变换未应用」假设在 C++ 内核层证伪，嫌疑收窄 entry 生产/解码侧）→ native-② 全链坐标定界——坐标 L1-L5 全层无损、唯一丢失层=体语义（sheet vs solid），双因子=C++ Sweep `createSheet` 旗标漏取反（行为核对，4a98c08 已修）+ JS sweepProfile 闭合点去重→开线退化（tiangong 侧 a9eb19c 一行修）；native-②b 中毒态钉翻转 + region-solid 接线回归钉（75dd05d..33ff9f0，审查 round1：探针臂 300s 超时+stderr 入错信、四处过时 prose 改幻影定案口径含生产码 FeatureService「历史防御/纵深冗余」）→ native-③ ①②硬崩同根定界（ACIS 内核上下文每线程一份）+ thread_local 懒注册修复（73faeb9..bb3c4e1，审查 round1：注册分支纳入 KernelLock）。**定案三连：风险 #10 中毒态=幻影（EDE 写路径无辜，本登记第 10 条整段改写）；风险 #11 ①②③全治愈（第 11 条整段改写）；T3.8 异步收敛操作律解除**。附带定案：Sweep 产物 nodeId=1（op31-34 在 Sweep 产物解死火，T3.4 前置清空）；4 点 Loop（隐式闭合）出 sheet=内核契约（特征引擎剖面构造须显式闭合链）。回归：modeling-server vitest 29 文件 260 过/8 skip（原 9 skip 中毒态留档用例翻转启用后零残留）+tsc 0 错+eslint 仓级既有基线不变；私有原生仓 BRepCoreTest 31/31+PSBRepGeometryTest 10/10。
 - **2026-10-04 M3-a 收口注记**（plan `2026-10-04-m3a-v1-feature-complete`，两仓 `feature/m3a-v1-features`，12 任务 SDD）：
   - **裁决落点（D-1~D-5 全部显式登记）**：D-1 边引用编码改邻面对（op33 契约倒逼，`FilletEdgeRef{faceA,faceB}`，面对=集语义全边 blend）；D-2 fillet 求值=异步预求值前相+EDE 标记短路（async/同步接缝）；D-3 求值载体=会话级 scratch StandaloneDb（changeset 零污染）；D-4 T3.8 预览弃 rollback mark 改影子求值（mark 的 TS 面零存在+成本，反馈级口径）；D-5 undo 覆盖面维持 M1 口径（updateParams 可逆，suppress/reorder/insert 记 oplog 不可逆，UI toast 提示）。
   - **原生修复**：私有原生仓 aacbcf2d0——子实体修改 op 对改造目标重解析子实体 id，根治「SUCCESS 但几何原状」静默空操作（Blend/Chamfer/Offset/Hollow/Delete/Transform 全族受益）；未归因现象「连续第二次 blend 不重灌失稳」与 op7 getConnectedSubEntities 死桩登记 私有原生仓 defects backlog。

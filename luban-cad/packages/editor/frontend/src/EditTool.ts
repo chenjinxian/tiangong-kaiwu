@@ -32,6 +32,17 @@ export namespace EditTools {
    * @returns the delay (in milliseconds) before attempting again. If `undefined` use default (usually 1 second)
    */
   export type BusyRetry = (attempt: number, msg: string) => Promise<number | undefined>;
+
+  /** Options for [[EditTools.initialize]]. */
+  export interface InitializeOptions {
+    /** Register the vendored `SketchTools` module (CreateLineString/CreateArc/CreateCircle/
+     * CreateEllipse/CreateRectangle/CreateBCurve). Defaults to `true` to preserve upstream
+     * behavior. Products with their own sketch tool family (e.g. LubanCAD `Sketch.*`, which
+     * persists sketch params rather than a native geometry stream) must pass `false` — a
+     * second registered family would be a duplicate implementation and data path (P1-01/P0-06).
+     */
+    registerSketchTools?: boolean;
+  }
 }
 
 /**
@@ -70,8 +81,10 @@ export class EditTools {
    *   await EditorTools.initialize();
    * ```
    * @note This registers tools for element undo and redo.
+   * @param options pass `{ registerSketchTools: false }` when the product supplies its own
+   * sketch tool family (see [[EditTools.InitializeOptions]]).
    */
-  public static async initialize(): Promise<void> {
+  public static async initialize(options?: EditTools.InitializeOptions): Promise<void> {
     if (this._initialized)
       return;
 
@@ -91,7 +104,9 @@ export class EditTools {
     // TODO: TEMPORARY - Register tools for testing. To be moved into apps.
     tools.registerModule(ProjectLocation, this.namespace);
     tools.registerModule(ProjectGeoLocation, this.namespace);
-    tools.registerModule(SketchTools, this.namespace);
+    // X-02: first-party apps with their own sketch tools opt out (default true = upstream).
+    if (options?.registerSketchTools !== false)
+      tools.registerModule(SketchTools, this.namespace);
     tools.registerModule(SolidModelingTools, this.namespace);
     tools.registerModule(SolidPrimitiveTools, this.namespace);
     tools.registerModule(TransformTools, this.namespace);

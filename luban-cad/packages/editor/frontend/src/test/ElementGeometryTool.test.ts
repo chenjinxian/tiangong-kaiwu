@@ -1,6 +1,6 @@
 /**
  * 2026-11-03：子实体工具命令收口与几何按需读取的基座契约。
- * editor 包 vitest 是 node 环境：core-frontend 按 DraftFacesTool.test 口径
+ * editor 包 vitest 是 node 环境：core-frontend 按 editor 工具测试口径
  * 模块级 mock（只保留被测基类会触碰的成员）。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';

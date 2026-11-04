@@ -22,12 +22,12 @@
 | 主题 | 状态 | 裁决 |
 |---|---|---|
 | TopologyID 协议暴露形态 | **已定案 2026-09-27** | **内嵌式**：创建类 op 沿用门面既有 nodeId 参数；修改类 op 走 Emboss 保标模式（FindNodeIdRange→改→AddNodeIdAttributes）；新增查询 op `FacesFromId(nodeId, entityId)→面集合`。不做独立打标 op |
-| Undo 语义 | **已定案 2026-09-27** | op 即 push（changeset 粒度=op 粒度）；undo/redo 统一走 op 日志逆向/正放，不依赖 txn 栈（push 后栈清空） |
+| Undo 语义 | **已定案 2026-09-27** | op 即 push（changeset 粒度=op 粒度）；undo/redo 统一走 op 日志反向/正向重放，不依赖 txn 栈（push 后栈清空） |
 | 可行性总裁决 | **已定案 2026-09-27** | **iModel 存储可支撑 Onshape 式参数化特征建模**；需补 X1-X4（见设计文档 §0） |**2026-09-28 追记：X1 spike 通过（M0 达成），最大风险消除——EDE 回调契约承载 BRep 再生实证（`modeling-server/src/feature/spike-x1/X1EdeBrepSpike.test.ts` 5/5 绿）；内核在环路径定为 `IModelDb.createBRepGeometry`；详见 `2026-09-28-cad-full-program-roadmap.md` WS2** |
 
 ## 不可轻易翻案的裁决（用户明示）
 
-- STEP 交换基于真形自研，OCCT 侧车路线被否（「不靠谱」）。
+- STEP 交换基于真形（TrueForm）几何内核自研，OCCT 侧车路线被否（「不靠谱」）。
 - 平台交付形态 = 纯云 SaaS（SolveSpace/GPLv3 红线的前提）。
 - AI 建模层后置；agent 环路参考 Claude Code 模式但全部后置。
 

@@ -61,7 +61,11 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
 - 草图曲线叠加（2026-11-02）：特征树 sketch 条目（params 自带
   entities+plane）采样成世界折线，屏幕空间绘制（无深度遮挡）。非编辑态全部
   草图灰色虚线（5/3 dash）；编辑态仅活动草图橙色实线（`#ff9f2f` 1.8px），
-  退出后恢复全量。
+  退出后恢复全量。**2026-11-04 单一数据源收口**：`LubanCAD.Sketch` 不再写
+  native geometry stream（params 的 entities+plane 是唯一数据源），
+  `sketchRegionsFrom`/`sketchProfileFrom` 直接从 params 构建曲线；旧库启动时由
+  后端迁移清空几何流。叠加层是草图唯一显示来源，不再存在 native 的
+  XY（Bottom）重复副本。
 - **草图标注（2026-11-02，Onshape live 对齐）**：
   - 常驻尺寸：活动草图的 length/distance/radius 约束 → 世界锚点 →
     `SketchDimensionsDecoration` 屏幕空间绘制（尺寸线/延长线/双箭头/数值；

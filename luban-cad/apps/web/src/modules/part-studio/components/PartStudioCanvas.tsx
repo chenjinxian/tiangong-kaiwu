@@ -65,6 +65,7 @@ import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
 import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
 import { clearActiveOnshapeHighlight, clearActiveOnshapeSelection } from '../internal/onshape-selection-runtime.js';
+import { applyCanvasSelection } from '../internal/selection-authority.js';
 import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
 import { ViewCube } from './ViewCube.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
@@ -348,8 +349,13 @@ export function PartStudioCanvas({
     clearActiveOnshapeHighlight();
     const store = usePartStudioStore.getState();
     store.setSelectedNodeIds([bodyKey]);
-    connection?.selectionSet?.replace([bodyKey]);
-  }, [connection]);
+    // X-03 单一权威：写 store.canvas.selection，再由唯一投影写点同步
+    // connection.selectionSet。label 取 body 读面（不可用时缺省回退 id）。
+    const body = bodies?.find((candidate) => candidate.bodyKey === bodyKey);
+    applyCanvasSelection(connection, [
+      { kind: 'part', id: bodyKey, label: body?.name },
+    ]);
+  }, [connection, bodies]);
 
   /**
    * M-A5.2 T5：面/边删除（HITL 已确认）——用选择条目的会话级 cacheId 调
@@ -486,6 +492,7 @@ export function PartStudioCanvas({
         onDeleteSubEntity={handleDeleteSubEntity}
         onSelectOwner={handleSelectOwner}
         canEdit={canEdit}
+        connection={connection}
       />
 
       {/* T6 内联非模态对话框（os-30/os-31：画布左上角，不遮罩画布）。

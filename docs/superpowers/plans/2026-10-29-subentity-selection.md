@@ -1531,6 +1531,6 @@ selector fixes separately.
   （`subentity-delete.ts` + `facesFromId`/`edgesFromOwnId`），普通盒体负路径已
   钉死；SUCCESS 需要 native/几何侧构造共面分裂面（邻面可生长补洞）。owner：
   native/geometry；依据：私有原生仓
-  `docs/reference/compare/DeleteSubEntitiesOperation.md`（Task 14/15 挂起项）。
+  历史分析记录（Task 14/15 挂起项）。
   该项不阻塞 web 侧接线与负路径回归。
 - **私有依赖产物重建**：详细构建/provenance 信息由私有仓维护，不在公开文档展开。

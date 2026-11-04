@@ -22,12 +22,6 @@ export type ToolMessagesLanguage = 'zh-CN' | 'en';
 type Catalog = Record<string, string>;
 
 const ZH_CN: Catalog = {
-  // —— 打孔（CreateHoleTool）——
-  'modelingTools.holePrompt': '点击选择打孔位置，或在面上选择具体位置',
-  'modelingTools.holePositionSelected': '已选择位置 ({{x}}, {{y}}, {{z}})，右键完成或继续点击选择新位置',
-  'modelingTools.holeApplying': '正在打孔: 直径 {{diameter}}mm, 深度 {{depth}}mm...',
-  'modelingTools.holeDone': '打孔完成: 直径 {{diameter}}mm, 深度 {{depth}}mm',
-  'modelingTools.holeFailed': '打孔失败: {{message}}',
   // —— 镜像（MirrorElementsTool）——
   'modelingTools.mirrorSelect': '选择要镜像的元素（已选 {{count}} 个），右键进入下一步',
   'modelingTools.mirrorPlanePoint': '点击选择镜像平面上的点',
@@ -35,12 +29,6 @@ const ZH_CN: Catalog = {
   'modelingTools.mirrorApplying': '正在镜像 {{count}} 个元素...',
   'modelingTools.mirrorDone': '镜像完成: {{count}} 个元素已镜像',
   'modelingTools.mirrorFailed': '镜像失败: {{message}}',
-  // —— 拔模（DraftFacesTool）——
-  'modelingTools.draftPrompt': '点击选择要拔模的面（角度: {{angle}}°），右键完成选择',
-  'modelingTools.draftSelected': '已选择 {{count}} 个面，右键完成选择',
-  'modelingTools.draftApplying': '正在执行拔模: {{count}} 个面, 角度 {{angle}}°...',
-  'modelingTools.draftDone': '拔模完成: {{count}} 个面已应用 {{angle}}° 拔模角度',
-  'modelingTools.draftFailed': '拔模失败: {{message}}',
   // —— 阵列工具设置（PatternTools）——
   'modeling.pattern.toolCount': '数量',
   'modeling.pattern.toolSpacing': '间距',
@@ -48,22 +36,12 @@ const ZH_CN: Catalog = {
 };
 
 const EN: Catalog = {
-  'modelingTools.holePrompt': 'Click to choose the hole position, or pick a specific location on a face',
-  'modelingTools.holePositionSelected': 'Position selected ({{x}}, {{y}}, {{z}}). Right-click to finish or keep clicking to choose a new position',
-  'modelingTools.holeApplying': 'Creating hole: diameter {{diameter}}mm, depth {{depth}}mm...',
-  'modelingTools.holeDone': 'Hole created: diameter {{diameter}}mm, depth {{depth}}mm',
-  'modelingTools.holeFailed': 'Failed to create hole: {{message}}',
   'modelingTools.mirrorSelect': 'Select elements to mirror ({{count}} selected); right-click to continue',
   'modelingTools.mirrorPlanePoint': 'Click to choose a point on the mirror plane',
   'modelingTools.mirrorPlaneNormal': 'Click to set the mirror plane normal, or right-click to use the default normal (Y axis)',
   'modelingTools.mirrorApplying': 'Mirroring {{count}} elements...',
   'modelingTools.mirrorDone': 'Mirror complete: {{count}} elements mirrored',
   'modelingTools.mirrorFailed': 'Mirror failed: {{message}}',
-  'modelingTools.draftPrompt': 'Click faces to draft (angle: {{angle}}°); right-click when done',
-  'modelingTools.draftSelected': '{{count}} faces selected; right-click when done',
-  'modelingTools.draftApplying': 'Applying draft to {{count}} faces at {{angle}}°...',
-  'modelingTools.draftDone': 'Draft complete: {{count}} faces drafted at {{angle}}°',
-  'modelingTools.draftFailed': 'Draft failed: {{message}}',
   'modeling.pattern.toolCount': 'Count',
   'modeling.pattern.toolSpacing': 'Spacing',
   'modeling.pattern.toolTotalAngle': 'Total angle',

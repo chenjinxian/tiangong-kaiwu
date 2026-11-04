@@ -40,10 +40,13 @@ export class OpDslParseError extends Error {
   }
 }
 
-// M6-c T5 小项批：补 revolve（M6-b T2 落 LubanFeatureType 时漏同步本白名单——
-// parse 端拒收 `op insertFeature revolve {...}`，与 RPC/zod 通道口径劈叉；此处
-// 对齐 LubanFeatureType 全集，后续扩型须两处同步）。
-const FEATURE_TYPES: readonly LubanFeatureType[] = ["extrude", "booleanAdd", "booleanSubtract", "fillet", "chamfer", "shell", "revolve", "loft", "sweep", "mirror", "pattern"];
+// 白名单必须覆盖 LubanFeatureType 全集。历史上多次漏同步（revolve、booleanBodies）；
+// 2026-11-04 由 ops 测试用 `Record<LubanFeatureType, true>` 编译期穷举 + DSL 往返锁死，
+// 新增类型若未同步会直接红。长期目标：由单一 schema 生成，禁止本数组手写。
+const FEATURE_TYPES: readonly LubanFeatureType[] = [
+  "extrude", "booleanAdd", "booleanSubtract", "fillet", "chamfer", "shell",
+  "revolve", "loft", "sweep", "mirror", "pattern", "booleanBodies",
+];
 const OP_KINDS: readonly FeatureOp["kind"][] = [
   "insertFeature", "updateParams", "deleteFeature", "setFeatureSuppressed", "reorderFeature",
   "updateSketchConstraint", "insertSketch", "updateSketch", "deleteSketch", "undo", "redo",

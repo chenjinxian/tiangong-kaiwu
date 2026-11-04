@@ -15,7 +15,14 @@ describe('LubanRpcInterface', () => {
   });
 
   it('should have correct interface version', () => {
-    expect(LubanRpcInterface.interfaceVersion).toBe('1.0.0');
+    expect(LubanRpcInterface.interfaceVersion).toBe('1.1.0');
+  });
+
+  it('does not expose the retired edit-command channel (X-01)', () => {
+    const prototype = LubanRpcInterface.prototype as unknown as Record<string, unknown>;
+    expect(prototype.startEditCommand).toBeUndefined();
+    expect(prototype.callEditMethod).toBeUndefined();
+    expect(prototype.finishEditCommand).toBeUndefined();
   });
 });
 

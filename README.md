@@ -3,7 +3,7 @@
 **基于云服务的 AI+CAD 应用平台总目录** —— *天工开物,鲁班造物——真形为体,绳墨为度。*
 
 > **Visibility: PUBLIC(开源)**
-> 命名家族(2026-09-23 终版):平台 **天工开物** / 产品 **鲁班CAD(LubanCAD)** / 几何内核 **真形(TrueForm)** / 约束求解器 **绳墨(ShengMo)**。
+> 命名家族(2026-09-23 终版):平台 **天工开物** / 产品 **鲁班CAD(LubanCAD)** / **真形（TrueForm）几何内核** / 约束求解器 **绳墨(ShengMo)**。
 > 产品口吻:*说出要什么,鲁班给你真形。*
 >
 > **公开边界**：本仓、`luban-cad` 与 [DanQing](https://github.com/chenjinxian/DanQing) 公开；其余后端、原生与几何/约束求解私有仓不在本仓展开。公开仓可直接体验、提 Issue 和参与前端/渲染层开发。
@@ -21,7 +21,7 @@
 
 ## 这是什么
 
-鲁班CAD 是**生成式 CAD**:面向工业制造的 AI 生成式设计——生成物是可用于制造的**真实 BRep 实体**(真形),不是通用文生 3D 的 Mesh。底座是 iTwin.js(vendored fork,`itwinjs-core/`),iModel 作为数据主权载体(模型、特征树、草图、变更历史一体)。
+鲁班CAD 是**生成式 CAD**:面向工业制造的 AI 生成式设计——生成物是由**真形（TrueForm）几何内核**产出的、可用于制造的**真实 BRep 实体**,不是通用文生 3D 的 Mesh。底座是 iTwin.js(vendored fork,`itwinjs-core/`),iModel 作为数据主权载体(模型、特征树、草图、变更历史一体)。
 
 **当前能力**(✅ 可用 / 🟠 部分):
 
@@ -52,7 +52,7 @@
 浏览器(React 18 + Vite)
    │ 同源入口 :5301(容器内 nginx :80;开发态直连 :5300)
    ▼
-nginx(单入口)─┬─ /api /ws /ipc ─→ modeling-server :5401(建模宿主:Briefcase/编辑管道/RPC/原生几何内核)
+nginx(单入口)─┬─ /api /ws /ipc ─→ modeling-server :5401(建模宿主:Briefcase/编辑管道/RPC/真形（TrueForm）几何内核)
               ├─ /auth /itwins /imodels… ─→ iModelHub :5400(元数据中枢:用户/项目/模型/changeset/锁/权限)
               ├─ /azurite ─→ Azurite :10500(对象存储:baseline/changeset/tile/缩略图)
               └─ / → web(静态)
@@ -186,4 +186,4 @@ e2e 基建说明:种子模型由测试自管(每轮自动重置);登录走会话
 ## 许可与边界
 
 - 本仓公开部分含 itwinjs-core fork(其原始许可见 `itwinjs-core/LICENSE.md`)。
-- 后端服务、真形内核、绳墨求解器为私有仓自研组件,经 GHCR/Releases 产物分发;本仓不含其源码。
+- 后端服务、真形（TrueForm）几何内核、绳墨求解器为私有仓自研组件,经 GHCR/Releases 产物分发;本仓不含其源码。

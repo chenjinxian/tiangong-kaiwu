@@ -13,9 +13,42 @@
  */
 import { describe, expect, it } from "vitest";
 import { dslToOps, OpDslParseError, opsToDsl } from "./opDsl.js";
-import type { FeatureOp, FilletEdgeRef } from "./rpc/LubanFeatureRpcInterface.js";
+import type { FeatureOp, FeatureParams, FilletEdgeRef, LubanFeatureType } from "./rpc/LubanFeatureRpcInterface.js";
 
 const tri = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }];
+
+/**
+ * 编译期穷举：LubanFeatureType 新增成员时本对象缺键会直接 TS 报错；
+ * 运行时再用 DSL 往返验证 opDsl 白名单确实放行每一种。
+ * 这条测试专门防历史事故：revolve / booleanBodies 两次漏同步。
+ */
+const ALL_FEATURE_TYPES: Record<LubanFeatureType, true> = {
+  extrude: true,
+  booleanAdd: true,
+  booleanSubtract: true,
+  fillet: true,
+  chamfer: true,
+  shell: true,
+  revolve: true,
+  loft: true,
+  sweep: true,
+  mirror: true,
+  pattern: true,
+  booleanBodies: true,
+};
+
+describe("op DSL 白名单 × LubanFeatureType 全集", () => {
+  it("每一种 Feature 类型都能通过 parse（opDsl 不得漏同步）", () => {
+    for (const featureType of Object.keys(ALL_FEATURE_TYPES) as LubanFeatureType[]) {
+      const op: FeatureOp = {
+        kind: "insertFeature",
+        featureType,
+        params: { profile: [], distance: 1 } as unknown as FeatureParams,
+      };
+      expect(dslToOps(opsToDsl([op])), featureType).toEqual([op]);
+    }
+  });
+});
 
 /** 全 10 分支样本链（每分支恰一 op，含典型字段全集） */
 const allKindsOps: FeatureOp[] = [

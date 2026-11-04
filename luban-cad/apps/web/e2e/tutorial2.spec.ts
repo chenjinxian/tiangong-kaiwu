@@ -216,6 +216,20 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   const sketchId = tree.find((row) => row.featureType === 'sketch')?.id;
   expect(sketchId, 'insertSketch 后树内应有 sketch 行').toBeTruthy();
 
+  // 回归（2026-11-04）：LubanCAD.Sketch 不再写 native geometry stream（params 唯一数据源，
+  // SketchCurvesDecoration 唯一显示源）——元素几何流必须为空，否则会在 XY（Bottom）出现重复。
+  await expect.poll(async () => page.evaluate(async (id) => {
+    const cf = (window as unknown as {
+      __lubanE2E?: { coreFrontend: { IModelApp: { viewManager: { getFirstOpenView(): {
+        iModel: { elements: { loadProps(id: string, options: { wantGeometry: true }): Promise<{ geom?: unknown[] } | undefined> } };
+      } | undefined } } } };
+    }).__lubanE2E?.coreFrontend;
+    const vp = cf?.IModelApp.viewManager.getFirstOpenView();
+    if (!vp) return -1;
+    const props = await vp.iModel.elements.loadProps(id, { wantGeometry: true });
+    return props?.geom?.length ?? 0;
+  }, sketchId!), { timeout: 90_000 }).toBe(0);
+
   let sk: SketchDto;
   const read = async (): Promise<SketchDto> => {
     const got = await getSketchRpc(ctx, sketchId!, await getApiToken());

@@ -47,7 +47,7 @@
 
 排除：
 
-- 官方 SDK、样本仓、第三方上游、`decompiled_*`、`forensics` 等辅助目录。
+- 官方 SDK、样本仓、第三方上游、临时分析目录等辅助目录。
 
 ## 3. 已确认决策
 
@@ -56,7 +56,6 @@
 | 命名 | 全量去 `next`：`apps/web`、`@luban-cad/web`、`packages/viewer`、`@luban-cad/viewer` |
 | 过时内容 | 删除，以 Git 历史为准；当前有效文档 + `HISTORY.md` 索引 |
 | 旧 viewer | `viewer-core`、`web-viewer`、`config` 删除；已确认无外部消费者 |
-| fork 旧应用 | 删除 `itwinjs-core/open-cloud-cad` 并登记同步检查单 |
 | worktree | 两个 `.claude/worktrees` 分支已包含在当前 HEAD，删除工作树与本地分支 |
 | token 残留 | `luban-cad/apps/web/playwright/.auth` 随旧 app 残留一起删除 |
 | 构建产物 | 回收 `私有原生仓/out/cmake`、`DanQing/build`、`luban-backend/dist-out+staging` |
@@ -152,12 +151,6 @@ luban-cad/
 - 保留必要的移植来源说明时，不写不存在的目录。
 
 ### Phase 3：主仓文档与 fork 清理
-
-删除 `itwinjs-core/open-cloud-cad/`（438 tracked files，19.2 MiB）：
-
-- 在 `docs/UPSTREAM_SYNC.md` 增加“同步后若带回 `open-cloud-cad/` 则删除”的检查单。
-- 在 `docs/ITWINJS_CORE_MODIFICATIONS.md` 登记这是 fork 本地删除，不是上游改动。
-- 同步脚本无需改代码；文档明确该目录非 rush/workspace 项目。
 
 文档保留（当前有效）：
 
@@ -268,7 +261,7 @@ luban-cad/
 **私有原生仓**
 
 - 删除 `out/cmake`、`build/__pycache__`、pytest 缓存；保留 `out/npm-pkg`、
-  `out/ida`、`out/ts-api-staging`、`docs/reference/ida`、`docs/reference/compare`。
+  `out/ts-api-staging`、临时分析目录。
 - 删除 `docs/superpowers` 中已完成历史计划；新增 `HISTORY.md`。
 - 修正 2 处旧路径/旧端口引用；不改原生源码。
 
@@ -309,7 +302,7 @@ luban-cad/
 3. **luban-backend**：两服务 vitest/lint/build；config/CORS 测试
 4. **imodelhub-services**：unit/lint/build；端口/CI/load 配置检查
 5. **文档**：markdown 链接检查；全仓 stale 扫描
-   `web-next|viewer-next|apps/web-next|open-cloud-cad|Zokei`
+   `web-next|viewer-next|apps/web-next|Zokei`
    目标零命中；允许白名单：`HISTORY.md`、分支名、`luban-next-*` 存储键、
    测试负例 `:5310`、容器内部 `web:3000`
 6. **私有原生仓 / DanQing**：仅文档/生成物变更；不重编译，记录延后；

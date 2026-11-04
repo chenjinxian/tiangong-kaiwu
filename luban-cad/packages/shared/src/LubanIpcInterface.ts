@@ -8,9 +8,9 @@
  * This interface adds only the initial download step that NativeApp would normally handle,
  * plus the physical-assembly helpers used by the editor.
  *
- * The former CadFeature EC-schema history API (legacy `OpenCloudCAD`/`ocad`) was
- * retired on 2026-11-01: feature history is persisted by FeatureService in the
- * LubanCAD schema, and the legacy path had no callers and no local data to migrate.
+ * The former CadFeature EC-schema history API was retired on 2026-11-01:
+ * feature history is persisted by FeatureService in the LubanCAD schema, and the
+ * legacy path had no callers and no local data to migrate.
  */
 
 import type { Changeset } from './projects/types.js';

@@ -5,8 +5,9 @@
 
 // 同源移植自 apps/web/features/modeling/SolidModelingToolBase.ts（web M4-T3；
 // 类名/接口名不改——Agent 复用规约）。RoundEdgesTool/ChamferEdgesTool/
-// HollowFacesTool（editor-frontend 内置）不经此基类；本基类当前仅被移植件
-// DraftFacesTool 继承。
+// HollowFacesTool（editor-frontend 内置）不经此基类；2026-11-04 X-01 删除
+// DraftFacesTool 后暂无产品工具继承，保留为后续实体建模工具（面/边选择 +
+// 标准 SolidModeling 命令）的公共基类。
 // 2026-10-22 随 editor 模块收编迁入本包（@itwin/editor-frontend）src/luban/
 // modeling/：原 @itwin/editor-frontend 自包名导入改为包内相对导入。
 
@@ -32,7 +33,7 @@ export interface SolidModelingToolBaseOptions {
 
 /**
  * 实体建模工具基类 - 提供边/面选择的通用逻辑
- * （web 当前仅移植件 DraftFacesTool 继承此类）
+ * （当前无产品工具继承；供后续 SolidModeling 命令工具复用）
  */
 export abstract class SolidModelingToolBase<
   TOptions extends SolidModelingToolBaseOptions = SolidModelingToolBaseOptions,

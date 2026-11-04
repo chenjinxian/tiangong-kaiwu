@@ -4,7 +4,7 @@
 - platform-docs：已按用户裁决整仓删除（不迁移内容）；主仓 `docs/` 为唯一文档根。
 - 结构：apps/web-next → apps/web；packages/viewer-next → packages/viewer。
 - 包名：@luban-cad/web-next → @luban-cad/web；@luban-cad/viewer-next → @luban-cad/viewer。
-- 删除：viewer-core、web-viewer、config、旧脚本、itwinjs-core/open-cloud-cad。
+- 删除：viewer-core、web-viewer、config、旧脚本。
 - 例外：分支 web-next-m0 与浏览器存储键 luban-next-* 暂不改名。
 - 恢复：仓内删除内容从 Git 历史恢复，索引见 docs/HISTORY.md；platform-docs 为仓外独立目录，不保留恢复索引。
 

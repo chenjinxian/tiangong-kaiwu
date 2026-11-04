@@ -435,8 +435,7 @@ interface ExtrudeFeature {
 ### iTwin.js + Parasolid 的优势
 
 ```typescript
-// iTwin.js 内部使用 Parasolid 作为几何内核
-// 提供了高性能的 BRep 操作
+// iTwin.js 内部使用 Parasolid 作为几何内核（上游历史事实；本平台几何内核为真形（TrueForm）几何内核，两者不混用）
 
 // 1. 快速创建几何
 const profile = await createProfileFromSketch(sketch);  // 从草图创建截面

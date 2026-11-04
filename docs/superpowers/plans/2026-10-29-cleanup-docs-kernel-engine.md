@@ -43,8 +43,8 @@ foreach ($p in @('out\cmake','build\__pycache__','.pytest_cache')) {
 }
 ```
 
-Keep `out/npm-pkg`, `out/npm-pkg-4.11.35`, `out/ida`, `out/ts-api-staging`,
-`docs/reference/ida`, `docs/reference/compare`.
+Keep `out/npm-pkg`, `out/npm-pkg-4.11.35`, `out/ts-api-staging`,
+历史分析目录（已清理）。
 
 - [ ] **Step 2: Delete historical plans/specs**
 
@@ -167,7 +167,7 @@ $repos = @(
 )
 foreach ($repo in $repos) {
   "=== $repo ==="
-  rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer|open-cloud-cad|Zokei|platform-docs" `
+  rg -n "apps/web-next|web-next|viewer-next|viewer-core|web-viewer|Zokei|platform-docs" `
     $repo --glob '!**/node_modules/**' --glob '!**/.git/**' --glob '!**/third_party/**' `
     --glob '!**/HISTORY.md' --glob '!**/MIGRATION-2026-10-29.md' `
     --glob '!**/docs/superpowers/**' 2>$null |

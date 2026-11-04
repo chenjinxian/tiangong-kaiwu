@@ -16,10 +16,24 @@ import type { OnshapeSelectOptions } from '../tools/modeling/OnshapeSelectTool.j
 import { useOnshapeSelection } from '../hooks/useOnshapeSelection.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
-const connection = {
-  key: 'imodel-key',
-  selectionSet: { emptyAll: vi.fn() },
-} as unknown as BriefcaseConnection;
+function makeConnection(initialIds: readonly string[] = []) {
+  const elements = new Set<string>(initialIds);
+  return {
+    key: 'imodel-key',
+    selectionSet: {
+      elements,
+      replace: vi.fn((ids: readonly string[]): void => {
+        elements.clear();
+        for (const id of ids) elements.add(id);
+      }),
+      emptyAll: vi.fn((): void => {
+        elements.clear();
+      }),
+    },
+  };
+}
+
+const connection = makeConnection() as unknown as BriefcaseConnection;
 const viewport = {} as ScreenViewport;
 
 const outputMessage = vi.fn();
@@ -135,17 +149,19 @@ describe('useOnshapeSelection', () => {
   it('onSelectionChanged 清树/SelectionSet 并写本次子实体选择（含空集）', async () => {
     const { admin } = stubToolAdmin();
     vi.spyOn(IModelApp.tools, 'register').mockImplementation(() => undefined);
-    renderHook(() => useOnshapeSelection(connection, viewport, false));
+    const conn = makeConnection(['0x201']);
+    renderHook(() => useOnshapeSelection(conn as unknown as BriefcaseConnection, viewport, false));
     const options = (admin.defaultToolArgs?.[0] ?? {}) as OnshapeSelectOptions;
     expect(options.onSelectionChanged).toBeTypeOf('function');
     usePartStudioStore.setState({
       tree: { activeTab: 'features', selectedNodeIds: ['0xB'], expandedNodeIds: [] },
     });
-    (connection.selectionSet.emptyAll as ReturnType<typeof vi.fn>).mockClear();
+    conn.selectionSet.emptyAll.mockClear();
 
     const selection = [{ kind: 'face', id: 'f1', ownerBodyKey: '0xB', cacheId: 3 }] as const;
     options.onSelectionChanged(selection);
-    expect(connection.selectionSet.emptyAll).toHaveBeenCalledTimes(1);
+    expect(conn.selectionSet.emptyAll).toHaveBeenCalledTimes(1);
+    expect(conn.selectionSet.elements.size).toBe(0);
     expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
     expect(usePartStudioStore.getState().canvas.selection).toEqual(selection);
 
@@ -175,10 +191,9 @@ describe('useOnshapeSelection', () => {
   it('暂停清空工具选择并清空 connection.selectionSet', () => {
     const { admin } = stubToolAdmin();
     vi.spyOn(IModelApp.tools, 'register').mockImplementation(() => undefined);
-    const emptyAll = vi.fn();
-    const conn = { key: 'imodel-key', selectionSet: { emptyAll } } as unknown as BriefcaseConnection;
+    const conn = makeConnection(['0x201']);
     const { rerender } = renderHook(
-      ({ paused }) => useOnshapeSelection(conn, viewport, paused),
+      ({ paused }) => useOnshapeSelection(conn as unknown as BriefcaseConnection, viewport, paused),
       { initialProps: { paused: false } },
     );
 
@@ -188,7 +203,8 @@ describe('useOnshapeSelection', () => {
     rerender({ paused: true });
 
     expect(pause).toHaveBeenCalledWith(true);
-    expect(emptyAll).toHaveBeenCalledTimes(1);
+    expect(conn.selectionSet.emptyAll).toHaveBeenCalledTimes(1);
+    expect(conn.selectionSet.elements.size).toBe(0);
   });
 
   it('卸载恢复 core Select 并清空 store 选择', () => {
@@ -238,17 +254,17 @@ describe('useOnshapeSelection', () => {
   it('暂停期间新激活的 Onshape 工具也暂停并清空 SelectionSet；卸载移除监听', () => {
     const { admin, activeToolChanged } = stubToolAdmin();
     vi.spyOn(IModelApp.tools, 'register').mockImplementation(() => undefined);
-    const emptyAll = vi.fn();
-    const conn = { key: 'imodel-key', selectionSet: { emptyAll } } as unknown as BriefcaseConnection;
-    const { unmount } = renderHook(() => useOnshapeSelection(conn, viewport, true));
+    const conn = makeConnection(['0x201']);
+    const { unmount } = renderHook(() => useOnshapeSelection(conn as unknown as BriefcaseConnection, viewport, true));
 
     const tool = makeTool();
     const pause = vi.spyOn(tool, 'pause').mockResolvedValue(undefined);
-    emptyAll.mockClear(); // 挂载进 paused 时 paused effect 已清过一次
+    conn.selectionSet.emptyAll.mockClear(); // 挂载进 paused 时 paused effect 已清过一次
+    conn.selectionSet.elements.add('0x201'); // 重新播种：验证 activeToolChanged 清空
     admin.activeTool = tool;
     activeToolChanged.raiseEvent(tool);
     expect(pause).toHaveBeenCalledWith(true);
-    expect(emptyAll).toHaveBeenCalledTimes(1);
+    expect(conn.selectionSet.emptyAll).toHaveBeenCalledTimes(1);
 
     unmount();
     expect(activeToolChanged.listenerCount()).toBe(0);

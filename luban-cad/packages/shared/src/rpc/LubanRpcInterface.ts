@@ -29,7 +29,7 @@ export abstract class LubanRpcInterface extends RpcInterface {
   public static readonly interfaceName = 'LubanRpcInterface';
 
   /** The version of the interface */
-  public static interfaceVersion = '1.0.0';
+  public static interfaceVersion = '1.1.0';
 
   /** The types that can be marshaled by the interface */
   public static types = () => [];
@@ -147,36 +147,6 @@ export abstract class LubanRpcInterface extends RpcInterface {
    * Terminate backend (for graceful shutdown)
    */
   public async terminate(): Promise<void> {
-    return this.forward(arguments);
-  }
-
-  // =============================================================================
-  // Editor Commands (Future: Sprint 2+)
-  // =============================================================================
-
-  /**
-   * Start an edit command on the backend
-   * This integrates with @itwin/editor-backend EditCommandAdmin
-   */
-  public async startEditCommand(
-    _commandId: string,
-    _iModelKey: string,
-    ..._args: unknown[]
-  ): Promise<unknown> {
-    return this.forward(arguments);
-  }
-
-  /**
-   * Call a method on the active edit command
-   */
-  public async callEditMethod(_methodName: string, ..._args: unknown[]): Promise<unknown> {
-    return this.forward(arguments);
-  }
-
-  /**
-   * Finish the current edit command
-   */
-  public async finishEditCommand(): Promise<string> {
     return this.forward(arguments);
   }
 

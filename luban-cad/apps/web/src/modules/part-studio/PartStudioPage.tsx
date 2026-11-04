@@ -40,8 +40,9 @@
  *   ensureEditTools（EditTools.initialize + 注册表 + 快捷键子集）——失败走
  *   IModelApp.notifications 错误面（旧 Editor.tsx:262-309 序移植）；轮询 5s
  *   耗尽同样错误面可见不静默（M4-T8 收 M3-T3 挂单）。注册后
- *   ribbon/命令搜索的 8 个真实 toolId（RoundEdges/DraftFaces/…）tools.run 直投
- *   真启动（useToolActivation 本任务不动）；
+ *   ribbon/命令搜索的 6 个在册真实 toolId（RoundEdges/HollowFaces/MirrorElements/
+ *   LinearPattern/CircularPattern/SweepFaces）tools.run 直投真启动；
+ *   DraftFaces/CreateHole 已翻 gated（X-01，无后端命令，不再注册死工具）；
  * - 编辑作用域 + 撤销/重做/保存（M4-T4）：三 hook 挂 **Session 内层**
  *   （connection prop 已在此层；外层只持 useBriefcaseConnection 组装）——
  *   useEditingScope（Editor.tsx:322-371 忠实移植：复用/回查/卸载退出）、
@@ -100,9 +101,10 @@
  *   门禁），绝不回落全模型；
  * - editorToolSettings 模型校准在 B 钉死 active physModelId（工具写目标不得落
  *   到隐藏 scope 的模型）；A 只读不进入编辑作用域，配置段不执行（既有行为）；
- * - **选择集隔离（fix round 1 F1）**：scope/连接切换与视口过滤落定
- *   （`appliedModelKey`）时清空 `connection.selectionSet` + store 画布/树选择——
- *   旧 scope 元素不得经 Delete/Move 等元素集工具被无确认操作；
+ * - **选择集隔离（fix round 1 F1；X-03 单一权威）**：scope/连接切换与视口过滤
+ *   落定（`appliedModelKey`）时经 `clearCanvasSelection` 清空 store 画布/树选择
+ *   及 `connection.selectionSet` 投影——旧 scope 元素不得经 Delete/Move 等元素集
+ *   工具被无确认操作；
  * - **R2/R3（fix round 2）**：过滤失败走 viewer 独立 `filterError` 通道，页面以
  *   非阻断提示条呈现（不清空画布错误面、不把状态栏误报为连接失败）；同一
  *   scope/连接切换 effect 退出活动工具（`toolAdmin.startDefaultTool`），防旧
@@ -160,7 +162,11 @@ import { PushChangesetDialog } from './dialogs/PushChangesetDialog.js';
 import { CreateNamedVersionDialog } from './dialogs/CreateNamedVersionDialog.js';
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
-import { useCanvasBodySelection } from './hooks/useCanvasBodySelection.js';
+import {
+  applyCanvasSelection,
+  clearCanvasSelection,
+  partSelectionsFromTree,
+} from './internal/selection-authority.js';
 import { useOnshapeSelection } from './hooks/useOnshapeSelection.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
 import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
@@ -504,17 +510,6 @@ function PartStudioSession({
     return result;
   }, [featureSystem.applyOp, viewport, activeModelIds]);
 
-  // 画布 body 选中桥（B6 M-A5 T1）：connection.selectionSet（画布 pick 权威源）
-  // → store.canvas.selection（kind='part'）单点挂载——右键菜单/对话框既有消费面
-  // 零改动复用。bodies 仅在读面成功（bodiesLoaded）后下传；undefined=legacy
-  // 回退，hook 不接管选择集（不清旧值）。子实体选择由默认 Onshape 选择工具
-  // 写 store，不写 SelectionSet，两者不互相覆盖。
-  // 双挂载=双写选择集，勿在下游再挂。
-  useCanvasBodySelection(
-    connection ?? undefined,
-    featureSystem.bodiesLoaded ? featureSystem.bodies : undefined,
-  );
-
   // 默认 Onshape 选择工具（2026-11-03）：body/face/edge/vertex 统一拾取；
   // 对话框/草图打开时暂停（清空选择），关闭后恢复。
   const sketchActiveForSelection = usePartStudioStore((s) => s.sketch.isActive);
@@ -525,18 +520,19 @@ function PartStudioSession({
     sketchActiveForSelection || dialogActiveForSelection,
   );
 
-  // Onshape 零件列表选择：tree 中的 part 节点 → SelectionSet → store（kind='part'）。
+  // Onshape 零件列表选择（X-03 单一权威）：tree 中的 part 节点 → store.canvas
+  // .selection（kind='part'）+ 同步投影到 connection.selectionSet（标准元素集
+  // 工具输入）。不再反向订阅 selectionSet；子实体选择由 Onshape 工具写 store，
+  // 投影自动清空 selectionSet。
   const selectedNodeIds = usePartStudioStore((s) => s.tree.selectedNodeIds);
   useEffect(() => {
     if (!connection || !featureSystem.bodiesLoaded)
       return;
-    const partIds = selectedNodeIds.filter((id) =>
-      featureSystem.bodies.some((body) =>
-        body.bodyKey === id && body.active !== false && body.authored !== false));
-    if (partIds.length === 0)
+    const selection = partSelectionsFromTree(selectedNodeIds, featureSystem.bodies);
+    if (selection.length === 0)
       return;
     clearActiveOnshapeHighlight();
-    connection.selectionSet.replace(partIds);
+    applyCanvasSelection(connection, selection);
   }, [selectedNodeIds, connection, featureSystem.bodies, featureSystem.bodiesLoaded]);
 
   // 完整 BRep 拓扑叠加（2026-11-03）：全部拓扑边 + 可选顶点；显示设置只改样式，
@@ -566,12 +562,10 @@ function PartStudioSession({
   // （viewer 过滤落定签名）变化再清一次——覆盖「切 scope 后、过滤落定前」
   // 的 lag 窗口内用户 pick 到旧 scope 几何的播种路径。
   useEffect(() => {
-    connection?.selectionSet.emptyAll();
-    const store = usePartStudioStore.getState();
-    store.setCanvasSelection([]);
-    store.setSelectedNodeIds([]);
+    // X-03 单一权威：store + 树 + selectionSet 一并清（唯一投影写点）。
+    clearCanvasSelection(connection ?? undefined);
     // R3：元素集工具（Move/Rotate 等）在 install 时把 selectionSet 拷贝进 agenda，
-    // emptyAll 不撤销已装载的 agenda——scope 变化/过滤落定必须退出活动工具，
+    // 清空不撤销已装载的 agenda——scope 变化/过滤落定必须退出活动工具，
     // 防旧 scope 的操作跨页签提交（真栈工具层验证归 P2.6）。
     const toolAdmin = IModelApp.initialized ? IModelApp.toolAdmin : undefined;
     if (toolAdmin?.activeTool) {

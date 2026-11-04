@@ -346,6 +346,8 @@ export function FeatureTree({
   // neverDrawn 集 = consumed body ∪ store.canvas.hiddenIds（手动隐藏），replace=true
   // 整集重建：撤销恢复 active / 手动隐藏/取消隐藏后都按最新并集重算；并集空时
   // clearHiddenElements 令撤销后的 body 重新可见。无 viewport（壳期/测试）静默跳过。
+  // 草图不在此列：2026-11-04 起 LubanCAD.Sketch 不再写 native geometry stream
+  // （params 唯一数据源，SketchCurvesDecoration 唯一显示源），无需按元素 id 隐藏。
   const consumedBodiesKey = React.useMemo(
     () => (bodies === undefined
       ? null

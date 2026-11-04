@@ -894,7 +894,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 | Azurite tile cache 404 console 噪声 | **fixed（2026-11-01）** | tiles 路径 nginx/Vite 把 Azurite 404 改写为 204 哨兵 + `MissAwareFetchCloudStorage`（204/404→miss→native）；删除 e2e tile 404 豁免；viewer 96 tests；镜像全量 49/49 零 console 错误 | web/e2e | 保持哨兵与零豁免；不得扩大豁免范围 |
 | A all-model 视觉 / damaged 半图真栈夹具 | **fixed（2026-11-01，发布镜像复验）** | 提交真栈夹具 `a-geometry.bim`（2 PhysicalModel/2 Box 几何）与 `b-half-graph.bim`（def-only scope）；`resetFixtureImodel` 走 hub `fromBaseline` + WA 转换；hub recovery 过滤 `fileSize=0` 等待行（`c49fd5c`）；A spec 2/2（hook 观测面），half-graph spec 2/2（生产镜像 `87ee0f4`）；发布镜像全量 **51/51**；public `42d84fb` | web/e2e/backend | 保持发布镜像回归 |
 | half-graph 独立复跑写租约残留（新，2026-11-01） | **fixed** | pagehide 释放 RPC 可被卸载中止，前页租约残留至 30s TTL；registry 写只等 10s 即报 holder 且无自动重放 → 重载后删除/创建必红。预算提升至 35s（与 applyOp 同口径）+ 单测；public `87ee0f4`；生产镜像 half-graph 2/2 | web | 预算须 ≥ 30s TTL + 余量；不得回退到 10s |
-| 持久化 EC schema OpenCloudCAD 迁移 | **retired（2026-11-01）** | owner 授权清理全部旧数据；Phase 0 本地 500 .bim 审计 OpenCloudCAD=0/LubanCAD=94（`cbd5aa1`）；backend `ff399dd` 删除 `CadFeatureSchema.ts` 与 7 个无调用方的 legacy IPC 方法，shared 移除 `CadFeatureRecord`（public `794049a`）；退役后复扫 58 .bim 仍 legacy=0/LubanCAD=9。本地零 legacy → 无数据迁移；特征历史由 FeatureService 写 LubanCAD schema | backend/release | 随下次产物重建归档；旧 legacy `.bim` 按数据策略删除/重建 |
+| 持久化 legacy EC schema 迁移 | **retired（2026-11-01）** | owner 授权清理全部旧数据；Phase 0 本地 500 .bim 审计 legacy=0/LubanCAD=94（`cbd5aa1`）；backend `ff399dd` 删除 `CadFeatureSchema.ts` 与 7 个无调用方的 legacy IPC 方法，shared 移除 `CadFeatureRecord`（public `794049a`）；退役后复扫 58 .bim 仍 legacy=0/LubanCAD=9。本地零 legacy → 无数据迁移；特征历史由 FeatureService 写 LubanCAD schema | backend/release | 随下次产物重建归档；旧 legacy `.bim` 按数据策略删除/重建 |
 | 测试专用限流覆盖（P2.8 最终轮 2000） | **disclosed test-only** | 51-test 全量轮 `LUBAN_RPC_RATE_LIMIT_MAX=2000` / window 900000（启动日志 `env override`）；跑后已重启为生产默认 **100/15min**（日志 `production default`，MS health 200）；默认值未改 | test/backend | 全量发布门沿用覆盖并披露；默认值不改 |
 | M2 自动 429 等待未实现 | **fixed（2026-11-01，post-p28c 硬化）** | viewer `RateLimitAwareRpcRequest`（应用层子类化 `WebAppRpcRequest`，不改 fork）：解析 429 JSON `retryAfter`，单次 ≤30s / 单请求累计 ≤60s；短窗口自动恢复（重置 transient 计数），长窗口/预算耗尽走 base 退避快速失败；后端 429 同时补标准 `Retry-After` 头。测试 viewer **107**（新增 11）、backend security **16/16**；全量 e2e 仍用测试覆盖 2000/900000 并披露（默认 100/15min 不适合长套件），跑后恢复生产默认 | web/backend | 保持有界预算；不得把有界等待当作取消测试覆盖/干净窗口的理由 |
 
@@ -992,7 +992,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
     RPC 契约 1.18.0；native provenance 5.15.5 / head `d29cf7e49fc2` /
     `fallback=True`）已安装 `dist-backend/` 并以**产物模式**运行。日志
     `luban-ipc` / `LubanRpcInterface` / `LubanFeatureRpcInterface` / 生产默认限流；
-    `/rpc/metadata` 仅新名（无 OpenCloud）。打包修复：顶层 flatbuffers 1.12 +
+    `/rpc/metadata` 仅新名（仅新名）。打包修复：顶层 flatbuffers 1.12 +
     apache-arrow 内嵌 25（backend `e1c2e92`/`2392636`/`d52a006`，脚本运行期断言）；
     p28 临时版（手工修）与 p27 旧名产物均被取代/不兼容。
   - 生产 web 镜像（B on、E2E hooks off）revision `fbf59a4ca874` 已部署且健康；测试观测
@@ -1023,12 +1023,12 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   off）已部署，`verify-stack` **17/17**。GHCR/Release 发布镜像的 e2e 与 A6 后于
   2026-11-01 完成（§15.12）。
 - **EC schema legacy 路径 → retired（2026-11-01）**：owner 授权清理全部旧数据；
-  Phase 0 只读审计本地 500 个 `.bim`：`OpenCloudCAD=0`、`LubanCAD=94`、
+  Phase 0 只读审计本地 500 个 `.bim`：`legacy=0`、`LubanCAD=94`、
   `LubanCadFeature=0`（backend `cbd5aa1`）。据此 backend `ff399dd` 删除
   `CadFeatureSchema.ts` 与 `ensureCadSchema`/`createFeature`/`listFeatures`/
   `deleteFeature`/`updateFeature`/`setFeatureSuppressed`/`reorderFeature` 整条
   IPC 路径（无调用方），shared 移除 `CadFeatureRecord`（public `794049a`）；
-  退役后复扫 58 个 `.bim` 仍 `OpenCloudCAD=0`、`LubanCAD=9`。本地零 legacy →
+  退役后复扫 58 个 `.bim` 仍 `legacy=0`、`LubanCAD=9`。本地零 legacy →
   无数据迁移；特征历史由 FeatureService 写 LubanCAD schema。旧 legacy `.bim`
   不再被现行代码读写，按数据策略删除/重建。
 - **A all-model 视觉 + damaged 半图夹具 → fixed（2026-11-01，本地）**：提交真栈夹具
@@ -1089,7 +1089,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 ### 15.13 P3/P4 收口裁决（2026-11-01）
 
 - **P3 旧数据迁移 → retired**：owner 决策不做 A→B 旧数据迁移。依据：
-  1. 本地 500 个 `.bim` 只读审计 `OpenCloudCAD=0`、`LubanCAD=94`；退役后复扫 58 个
+  1. 本地 500 个 `.bim` 只读审计 `legacy=0`、`LubanCAD=94`；退役后复扫 58 个
      `.bim` 仍 legacy=0（§15.10/NAMING §3）；
   2. owner 已明确授权清理旧数据，项目仍处初期、数据组织未定型；
   3. P1 已验证的迁移路径为**参数重放 + `rebuildAll`**（qualified Go），
@@ -1099,7 +1099,7 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
 - **影响**：不新增迁移工具/数据变更；新文档一律 B；旧 A 文档不再被迁移，按数据策略
   保留只读或删除/重建。复审触发：若后续出现生产 A 旧文档且需要进入 B，再单独立项。
 - **文档联动**：§8.1 阶段表、`docs/README.md`、`docs/RELEASE-backend-20261101-p28c.md`
-  已同步；`docs/NAMING-2026-10-31.md` §3 的 legacy schema 退役与本裁决同源。
+  已同步；legacy schema 退役与本裁决同源。
 
 ### 15.14 M2 自动 429 等待（2026-11-01，post-p28c 硬化）
 

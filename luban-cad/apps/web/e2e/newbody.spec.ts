@@ -10,8 +10,8 @@
  *   草图 A → extrude body1 → 草图 B → extrude(newBody) body2
  *   → getBodies 两个 active authored body；页面树两行
  *   → 逐 body eye：隐藏 body2（data-hidden + EmphasizeElements neverDrawn）→ 显示
- *   → 程序化 SelectionSet 桥：replace([body2Key]) → 画布菜单出 part 删除项 →
- *     emptyAll + 收合
+ *   → 程序化 store part 选择（X-03 唯一权威；selectionSet 为其投影）→
+ *     画布菜单出 part 删除项 → 清空 + 收合
  *   → Onshape 统一选择（2026-11-03）：无模式直接拾取面/边/点、空白清除、
  *     跨 body 普通单击替换、Ctrl 多选/再点取消、面 owner 菜单（选中所属/
  *     隐藏/删除）
@@ -186,29 +186,23 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   const cy = cb.y + cb.height / 2;
   const canvasMenu = page.getByRole('menu', { name: '画布菜单' });
 
-  // ── 程序化 selection bridge（T1）：selectionSet.replace → store part 选择 ──
-  // 右键画布 → part 菜单「删除 {body2}」在列（证明桥已写入 store；不新增 RPC）。
-  await page.evaluate(async (bodyKey) => {
-    const cf = ((window as any).__lubanE2E?.coreFrontend) as {
-      IModelApp: {
-        viewManager: {
-          getFirstOpenView(): {
-            iModel: { selectionSet: { replace(ids: string[]): void; emptyAll(): void } };
-          } | undefined;
-        };
-      };
-    };
-    const vp = cf.IModelApp.viewManager.getFirstOpenView();
-    if (!vp) throw new Error('无打开视口');
-    vp.iModel.selectionSet.replace([bodyKey]);
-  }, body2!.bodyKey);
-  // 桥 onChanged 同步写 store；留一帧 React 提交（菜单读 store 快照）。
+  // ── X-03 单一选择权威：store.canvas.selection 是事实源，selectionSet 是投影 ──
+  // 右键画布 → part 菜单「删除 {body2}」在列（证明 store part 选择驱动菜单；
+  // 不再依赖已删除的 selectionSet→store 反向桥）。
+  await page.evaluate(async ({ bodyKey, name }) => {
+    (window as any).__lubanE2EApp.usePartStudioStore.getState().setCanvasSelection([
+      { kind: 'part', id: bodyKey, label: name },
+    ]);
+  }, { bodyKey: body2!.bodyKey, name: body2Name });
   await page.waitForTimeout(150);
   await page.mouse.click(cx, cy + 120, { button: 'right' });
   await expect(canvasMenu).toBeVisible();
   await expect(canvasMenu.getByRole('menuitem', { name: `删除 ${body2Name}`, exact: true })).toBeVisible();
   await expect(canvasMenu.getByRole('menuitem', { name: `隐藏 ${body2Name}`, exact: true })).toBeVisible();
   await page.evaluate(async () => {
+    const store = (window as any).__lubanE2EApp.usePartStudioStore.getState();
+    store.setCanvasSelection([]);
+    store.setSelectedNodeIds([]);
     const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: {
         viewManager: {
@@ -220,7 +214,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   });
   await page.keyboard.press('Escape');
   await expect(canvasMenu).toBeHidden();
-  console.log(`[newbody] selection bridge → 画布 part 菜单 OK（${body2Name}）`);
+  console.log(`[newbody] store part selection → 画布 part 菜单 OK（${body2Name}）`);
 
   // ── Onshape 统一选择（2026-11-03）：无模式直接拾取面/边/点 ──────────────
   // 等轴测 + 适应视图（确保两面/边可见；后续 fillet 接着用同一取景）。
@@ -349,6 +343,9 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect(body2Row).toHaveAttribute('aria-current', 'true');
   console.log('[newbody] 面直接拾取 → owner 菜单「选中所属实体」OK');
   await page.evaluate(async () => {
+    const store = (window as any).__lubanE2EApp.usePartStudioStore.getState();
+    store.setCanvasSelection([]);
+    store.setSelectedNodeIds([]);
     const cf = ((window as any).__lubanE2E?.coreFrontend) as {
       IModelApp: {
         viewManager: {

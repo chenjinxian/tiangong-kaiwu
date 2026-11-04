@@ -8,7 +8,7 @@
 
 // 兼容别名再导出（第 29–36、69、83、90 行）：Project*/BriefcaseInfo/ChangesetInfo/
 // ChangesetCompareResult 是历史公开 API，线上契约与持久化 schema 的迁移窗口内
-// 仍被消费（见 docs/NAMING-2026-10-31.md 例外条款）；新代码请用新名。
+// 仍被消费；新代码请用新名。
 /* eslint-disable @typescript-eslint/no-deprecated -- 兼容别名再导出 */
 
 // =============================================================================

@@ -1085,6 +1085,10 @@
       "title": "Draft (on the roadmap)",
       "message": "Draft features are on the LubanCAD roadmap and are not available in this version yet."
     },
+    "hole": {
+      "title": "Hole (on the roadmap)",
+      "message": "Hole features are on the LubanCAD roadmap and are not available in this version yet."
+    },
     "shell": {
       "title": "Shell (on the roadmap)",
       "message": "Shell features are on the LubanCAD roadmap and are not available in this version yet."

@@ -6,7 +6,7 @@
 
 ## 定位
 
-基于 iTwin.js 图形建模平台实现的前端 CAD 产品:参数化特征、草图约束、云协同与可撤销编辑,生成物是**可用于工业制造的真实 BRep**(真形),不是通用文生 3D 的 Mesh。公开的 [丹青(DanQing)](https://github.com/chenjinxian/DanQing) 是独立的大体量渲染引擎项目,尚未接入本应用。
+基于 iTwin.js 图形建模平台实现的前端 CAD 产品:参数化特征、草图约束、云协同与可撤销编辑,生成物是由**真形（TrueForm）几何内核**产出的、可用于工业制造的真实 BRep,不是通用文生 3D 的 Mesh。公开的 [丹青(DanQing)](https://github.com/chenjinxian/DanQing) 是独立的大体量渲染引擎项目,尚未接入本应用。
 
 本仓(`luban-cad/`)是产品应用侧:前端宿主 + 共享包 + 建模基座。建模后台与 webhook 代理的源码在私有仓,本应用经其发布产物运行(见根 README 的起栈流程)。
 
@@ -27,7 +27,7 @@
 
 ## 组件关系
 
-- 生成几何 → **真形(TrueForm)内核**(私有仓,自主研发,终局替换现有 BRep 实现层)
+- 生成几何 → **真形（TrueForm）几何内核**(私有仓 `D:\Github\trueform`,自主研发,终局替换现有 BRep 实现层)
 - 约束求解 → **绳墨(ShengMo)**(私有仓,自主研发)
 - 渲染 → 当前应用使用 **iTwin.js 渲染栈**;公开的 **[丹青(DanQing)](https://github.com/chenjinxian/DanQing)** 是大体量渲染/全平台方向的独立引擎(尚未接入本应用)
 - 数据/事务 → iModel(iModel IO/ECSQL/变更追踪,经 itwinjs-core fork)

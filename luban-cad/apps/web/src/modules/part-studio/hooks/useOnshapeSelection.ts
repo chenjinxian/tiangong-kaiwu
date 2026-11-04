@@ -20,6 +20,11 @@ import { OnshapeSelectTool } from '../tools/modeling/OnshapeSelectTool.js';
 import type { OnshapeSelectOptions } from '../tools/modeling/OnshapeSelectTool.js';
 import { activeOnshapeSelect } from '../internal/onshape-selection-runtime.js';
 import { registerBrepHoverController } from '../internal/brep-command-coordinator.js';
+import {
+  applyCanvasSelection,
+  clearCanvasSelection,
+  syncCanvasSelectionProjection,
+} from '../internal/selection-authority.js';
 
 function toast(message: string): void {
   IModelApp.notifications.outputMessage(
@@ -102,15 +107,10 @@ export function useOnshapeSelection(
         // 已清理/过期（卸载或连接切换）的旧工具不得再把选择写回 store。
         if (disposed || generation !== effectGeneration.current)
           return;
-        const store = usePartStudioStore.getState();
-        // Onshape 单一选择状态：子实体工具的任一次选择（面/边/点，或空白清除）
-        // 都终止整零件选择——树选中与元素级 SelectionSet 一并清空，避免
-        // 零件高亮 + 子实体高亮并存/隔离残留。先清元素级选择（其 onChanged
-        // 桥会写空画布选择），再写本次子实体选择，顺序不可倒置。
-        connection.selectionSet.emptyAll();
-        if (store.tree.selectedNodeIds.length > 0)
-          store.setSelectedNodeIds([]);
-        store.setCanvasSelection(selection);
+        // X-03 单一权威：子实体工具的任一次选择（面/边/点，或空白清除）都
+        // 终止整零件选择——清树 + 写 store，并把 selectionSet 投影为空
+        // （子实体不进入元素级 SelectionSet）。
+        applyCanvasSelection(connection, selection, { clearTree: true });
       },
       onError: toast,
     };
@@ -123,9 +123,9 @@ export function useOnshapeSelection(
 
     const removeToolListener = admin.activeToolChanged.addListener((tool) => {
       if (pausedRef.current) {
-        // 与 paused effect 同口径：dialog/草图期间任何工具激活都清空 body
-        // SelectionSet，防止新装工具重新写入旧 body 选择。
-        connection.selectionSet.emptyAll();
+        // 与 paused effect 同口径：dialog/草图期间任何工具激活都清空选择
+        //（store + 树 + selectionSet），防止新装工具重新写入旧 body 选择。
+        clearCanvasSelection(connection);
         if (tool instanceof OnshapeSelectTool)
           void tool.pause(true);
         return;
@@ -137,12 +137,15 @@ export function useOnshapeSelection(
       // 只对 **PrimitiveTool 替换**清空；ViewTool/InputCollector（中键平移、
       // 旋转、缩放）会临时占据 activeTool 并挂起本工具，不得清除选择/树。
       if (tool instanceof PrimitiveTool && !(tool instanceof OnshapeSelectTool)) {
-        const store = usePartStudioStore.getState();
-        store.setCanvasSelection([]);
-        store.setSelectedNodeIds([]);
-        // 不在这里清 connection.selectionSet：DeleteElements/Move 等元素集
-        // 工具 install 时要把 SelectionSet 拷进 agenda（C6 全局 Delete 守卫
-        // 依赖该输入）；由工具自身/提交成功路径收口。
+        // X-03：清 store/树，但**保留 selectionSet**——activeToolChanged 先于
+        // ElementSetTool.onPostInstall，DeleteElements/Move 等要把 SelectionSet
+        // 拷进 agenda（C6 全局 Delete 守卫依赖该输入）。工具退出、Onshape 工具
+        // 重新激活时由下方 sync 收口，恢复“store 为唯一权威”的投影。
+        clearCanvasSelection(connection, { preserveToolSelection: true });
+      } else if (tool instanceof OnshapeSelectTool) {
+        // 工具退出/undo-redo restart 装回默认选择工具：按 store 重新投影，
+        // 清掉工具启动期间保留的旧 SelectionSet。
+        syncCanvasSelectionProjection(connection);
       }
     });
 
@@ -168,9 +171,9 @@ export function useOnshapeSelection(
     if (paused) {
       if (tool instanceof OnshapeSelectTool)
         void tool.pause(true);
-      // 用户确认“打开对话框/草图即清空选择”：body SelectionSet 一并清，防止 store 空
-      // 但 SelectionSet 仍残留旧 body 被后续工具误用。
-      connection?.selectionSet?.emptyAll();
+      // 用户确认“打开对话框/草图即清空选择”：store + 树 + selectionSet 一并清
+      //（X-03 唯一投影写点），防止 store 空但 SelectionSet 残留旧 body。
+      clearCanvasSelection(connection);
       return;
     }
 
@@ -189,6 +192,7 @@ export function useOnshapeSelection(
       if (admin.activeTool instanceof OnshapeSelectTool)
         void admin.startDefaultTool();
     }
-    usePartStudioStore.getState().setCanvasSelection([]);
+    // 卸载时连接可能已释放：只清 store/树，不触 selectionSet。
+    clearCanvasSelection(undefined);
   }, []);
 }

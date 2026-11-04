@@ -8,10 +8,9 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 - [ ] public / backend / hub 三仓工作区干净，main 已推送；发布用的 public 提交
       固定记录在 ADR（不钉文档提交 HEAD）。
-- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.19.0**）；RPC
-      interfaceName 只有 `LubanRpcInterface` / `LubanFeatureRpcInterface`
-      （`/rpc/metadata` 中 `OpenCloud` 计数为 0）。
-- [ ] 命名迁移记录与 legacy schema 退役状态已同步（`docs/NAMING-2026-10-31.md`）。
+- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.21.0**）；RPC
+      interfaceName 只有 `LubanRpcInterface` / `LubanFeatureRpcInterface`。
+- [ ] legacy schema 退役状态已同步（旧数据审计零命中；现行代码不再读写）。
 
 ## 2. 构建
 

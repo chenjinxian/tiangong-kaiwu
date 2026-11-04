@@ -4,25 +4,60 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # 天工开物（TiangongKaiwu）平台总仓
 
-基于云服务的 AI+CAD 应用平台。**本仓是公开总仓**（后端服务源码在私有仓 `luban-backend`，本仓只消费其产物）；命名家族（2026-09-23 定版）：平台 **天工开物** / 产品 **鲁班CAD（LubanCAD）** / 几何内核 **真形（TrueForm，私有仓，自主研发）** / 约束求解器 **绳墨（ShengMo，私有仓，自主研发）**。代码内包名为 `@luban-cad/*`，功能状态标记用 ✅/🟠/⚪/❌。
+基于云服务的 AI+CAD 应用平台。**本仓是公开总仓**（后端服务源码在私有仓 `luban-backend`，本仓只消费其产物）；命名家族（2026-09-23 定版）：平台 **天工开物** / 产品 **鲁班CAD（LubanCAD）** / **真形（TrueForm）几何内核**（私有仓 `D:\Github\trueform`，自主研发） / 约束求解器 **绳墨（ShengMo，私有仓，自主研发）**。代码内包名为 `@luban-cad/*`，功能状态标记用 ✅/🟠/⚪/❌。
+
+> **开发规则总册：`docs/DEVELOPMENT-RULES.md`（唯一权威，P0/P1/P2）。**
+> 任何功能开工前必须完成 AIRR（`docs/architecture/AIRR-TEMPLATE.md`）；接口冻结见
+> `docs/architecture/INTERFACE-FREEZE-MATRIX.md`，规范来源见
+> `docs/architecture/CANONICAL-SOURCES.md`，例外必须登记到
+> `docs/architecture/EXCEPTIONS.md`。本文件与各仓 `CLAUDE.md` 只做领域补充，冲突以总册为准。
+
+## 必须遵守的 P0 红线（本仓执行口径）
+
+> 下表是每个 PR/每次 Agent 操作的硬门禁；完整定义与例外见总册和 `docs/architecture/EXCEPTIONS.md`。
+
+| 规则 | 本仓含义（必须做到） | 禁止（发现即打回） |
+|---|---|---|
+| **P0-01 iTwin 唯一底座** | 模型数据、事务、工具生命周期、视图、选择、撤销全部基于 iTwin.js/iModel/BIS | 第二套模型库、渲染平台、建模 API、选择/撤销状态机 |
+| **P0-02 源码唯一事实源** | itwinjs-core/imodel-native/官方 clients 以源码/官方包为准；`link:` 消费；改源码后重建对应 `lib/`/`dist/` | npm registry 替换 `link:`、手改 `lib`/`dist`、未登记 fork、未记录版本二进制 |
+| **P0-03 参考优先** | 先查 iTwin/editor/imodel-native/官方 clients/BisSchemas/DanQing/参考项目，写复用矩阵 | 已有标准 API 时自造同类实现；参考实现当“素材”而非规格 |
+| **P0-04 先论证后编码** | AIRR 批准后才写代码；新包/新 RPC/schema/native/渲染管线/求解器接口/数据迁移/AI 工具必须 ADR | 未 AIRR/ADR 直接开工；“先做出来再说” |
+| **P0-05 单一建模/编辑管道** | 参数化走 `LubanFeatureRpcInterface` FeatureOp；直接编辑走 `EditTools.startCommand` + `basicManipulationIpc`/`solidModelingIpc`；标准基类与标准事件 | 旧 `LubanRpcInterface.startEditCommand/callEditMethod/finishEditCommand`（已删除）；自定义事件替代 `onCommitted`/`onModelGeometryChanged` |
+| **P0-06 单一数据源/BIS** | iModel/BIS + `params` 是模型事实源；派生显示数据只做投影；schema/params 变更=版本化+迁移+旧库 fixture+回滚 | 同一草图既存 params 又存 native geometry stream；无迁移的 schema 变更 |
+| **P0-07 契约唯一/公私边界** | `@luban-cad/shared` 唯一跨仓契约（`LubanFeatureRpcInterface` 1.21.0、`LubanRpcInterface` 1.1.0）；变更 bump 版本 + 双端同发布 | 并行 REST DTO；公共仓出现私有源码/密钥/native 细节/内部证据 |
+| **P0-08 Fork/native 最小可追溯** | fork 改动登记 `docs/ITWINJS_CORE_MODIFICATIONS.md`；native 改动源码+`NativeLibrary.ts`+ctest+下游回归+provenance；只保留一个 canonical native | 手改生成产物；多份 native checkout 并行；改 editor 导出后不重建 viewer `dist` |
+| **P0-09 内核/求解器冻结与许可** | 真形（TrueForm）几何内核只经 `SolidKernel.h`；绳墨只经 solver-neutral；ACIS 只用 Modeler+Polyhedra；libslvs 仅纯云 SaaS 姿态 | STEP/healing 等未授权 ACIS 能力接线；on-prem 打包 libslvs；引入未经合法授权的代码或资料 |
+| **P0-10 可撤销或 HITL** | 每个用户/Agent 操作走标准事务；不可逆操作登记例外并强制预览→确认→提交+审计 | 静默不可逆、假成功 no-op、跳过 HITL |
+
+**开工/完工门禁**
+
+1. 开工：AIRR + 复用矩阵 + 跨仓影响 + 回滚计划；新契约/schema/native/渲染/求解器/迁移必须 ADR。
+2. 编码：标准工具基类、标准 IPC、标准事务/事件；不得绕过工具生命周期自管状态。
+3. 测试：单元 + StandaloneDb/契约 + **真栈 e2e**；触碰 iModel/RPC/native/schema/工具事务的改动不得用 jsdom-only 宣称完成。
+4. 文档：接口冻结矩阵、例外登记、能力状态、文档索引、修改台账同 PR 更新；禁止硬编码过期测试基线。
+5. 发布：shared → backend → web 同批次；镜像/产物 commit、digest、provenance 可查；`verify-stack` 全绿；发布由 release owner 执行。
+6. Agent/自动化：未经明确要求不 commit/push/publish；不伪造证据/状态；破坏性操作必须 HITL。
+
+当前未关闭的 P0/P1 例外：`docs/architecture/EXCEPTIONS.md`（X-04 起；X-01/X-02/X-03 已于 2026-11-04 关闭）。
 
 ## 仓库布局
 
 | 目录 | 角色 | 工具链 |
 |---|---|---|
-| `itwinjs-core/` | vendored iTwin.js fork（git-subtree squash 谱系，上游 `iTwin/itwinjs-core`）；其内旧品牌名的冻结历史应用拷贝 `open-cloud-cad/` 已于 2026-10-29 删除（fork 本地整理，非上游修改；可从 Git 历史恢复，勿再引用） | **Rush** + pnpm |
+| `itwinjs-core/` | vendored iTwin.js fork（git-subtree squash 谱系，上游 `iTwin/itwinjs-core`）；正式产品只在 `luban-cad/apps/web` | **Rush** + pnpm |
 | `luban-cad/` | 鲁班CAD 应用（pnpm workspace：`apps/web`（前端宿主，包名 `@luban-cad/web`）+ `packages/{shared,viewer,editor}`） | **pnpm** + Vite + Vitest + Playwright |
 | `luban-backend/`（**私有仓，仓外**） | 后端服务：私有仓 luban-backend（modeling-server :5401 + webhook-agent :5402 源码与镜像/产物发布脚本）；产物经 **GHCR 镜像 + GitHub Releases** 分发，`scripts/fetch-backend.ps1` 拉取到本仓 `dist-backend/` | pnpm + tsx |
 | `docs/` | 平台文档（UPSTREAM_SYNC.md / ITWINJS_CORE_MODIFICATIONS.md 等） | — |
 | `scripts/sync-from-upstream.sh` | 上游一键同步脚本 | bash |
 
-**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :5400 + Azurite :10500 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）。
+**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :5400 + Azurite :10500 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、**真形（TrueForm）几何内核**（私有仓 `D:\Github\trueform`，自主研发 BRep 内核，只经 `SolidKernel.h` 接入）。
 
 ## 核心架构模型：link: 源码消费
 
 应用**不经 npm registry**，直接以 pnpm `link:` 引用 itwinjs-core 源码目录（如 `"@itwin/core-backend": "link:../itwinjs-core/core/backend"`）。后果：
 
 - 改了 `itwinjs-core/` 的源码，必须先 `rush build --to <包>` 重建该包的 `lib/` 产物，应用端才能看到效果。
+- **workspace 包同样是“源码 + 构建产物”双层**：`packages/shared` 有 `dist/`、`packages/editor/*` 有 `lib/`、`packages/viewer` 有 `dist/`。改了上游包（尤其是 editor 的导出面/API）后，必须按依赖顺序重建下游包；**删除/改名 editor 导出后不重建 viewer `dist` 会导致 Vite 加载旧 viewer 代码报 `does not provide an export named ...`，进而整表工具注册失败**（2026-11-04 实测）。
 - `modeling-server`、`webhook-agent` 是**独立 pnpm 项目**（各自 pnpm-lock.yaml，不属于 luban-cad workspace）；`modeling-server` 还跨项目 link 了 `../luban-cad/packages/shared`（`@luban-cad/shared`，RPC 接口定义所在）。（此条对私有仓 luban-backend 适用，见其 README）
 
 ## 运行流水线
@@ -45,10 +80,15 @@ node common/scripts/install-run-rush.js build --to @itwin/core-backend --to @itw
 ### luban-cad（pnpm workspace）
 
 ```bash
-cd luban-cad && pnpm install
-cd apps/web && pnpm dev                    # 前端 dev :5300（栈内部署经 nginx :5301）
-pnpm build / pnpm lint / pnpm test         # 各包目录内均可用
-pnpm test:e2e                              # Playwright（apps/web 内；七页+键盘流+视觉钉版+性能探针，需真实栈）
+# 本机未全局安装 pnpm；统一用 corepack pnpm@10（lockfile 9.0）
+cd luban-cad && corepack pnpm@10 install
+# 首次或改 shared/editor 后，按依赖顺序构建 workspace 产物：
+corepack pnpm@10 --filter @luban-cad/shared run build
+corepack pnpm@10 --filter @itwin/editor-common --filter @itwin/editor-backend --filter @itwin/editor-frontend run build
+corepack pnpm@10 --filter @luban-cad/viewer run build
+cd apps/web && corepack pnpm@10 dev          # 前端 dev :5300（栈内部署经 nginx :5301）
+corepack pnpm@10 build / lint / test         # 各包目录内均可用
+corepack pnpm@10 test:e2e                    # Playwright（apps/web 内；七页+键盘流+视觉钉版+性能探针，需真实栈）
 ```
 
 ### 后端（私有仓 luban-backend；本仓走产物分发）
@@ -98,7 +138,8 @@ npx playwright test e2e/documents.spec.ts                # 单 e2e（在 luban-c
 - **markup 功能 ❌ 降级占位**：`@itwin/core-markup` 不在 luban-cad workspace 依赖中，12 个工具禁用；启用前需先补依赖解析。
 - **peer 版本解析报 `No matching version found for @itwin/xxx@dev.N`**：在消费方 package.json 显式声明 `"@itwin/xxx": "workspace:*"` 或 link: 让 peer 由本地满足。
 - **本机 pnpm 版本**：lockfile 是 lockfileVersion 9.0（pnpm 9/10 时代）；pnpm 12 的默认供应链策略（minimumReleaseAge）会拒绝安装。本机 pnpm 未全局安装，用 `corepack pnpm@10 install`。
-- **modeling-server 首启报 `@luban-cad/shared` 无 dist/**：link: 包需先构建一次 `cd luban-cad/packages/shared && pnpm build`（tsc），再启动 modeling-server（2026-09-26 实测）。（私有仓 luban-backend 适用，见其 README）
+- **modeling-server 首启报 `@luban-cad/shared` 无 dist/**：link: 包需先构建一次 `cd luban-cad/packages/shared && corepack pnpm@10 build`（tsc），再启动 modeling-server（2026-09-26 实测）。（私有仓 luban-backend 适用，见其 README）
+- **删除/改名 editor 导出后未重建 viewer `dist`**：Vite 仍加载旧 viewer 产物，报 `does not provide an export named ...`，`ensureEditTools` 整表失败（Undo/Chamfer 等“未启动”）。按 shared → editor → viewer 顺序重建后再 reload（2026-11-04 实测）。
 - **link: 项目禁用 `pnpm add`**：modeling-server/webhook-agent 的 `link:../itwinjs-core/*` 会被静默重解析为 registry 包（2026-09-26 实测）。加依赖须手改 package.json + `corepack pnpm@10 install --no-frozen-lockfile`，并核对 lockfile 的 `link:` 计数不变。（私有仓 luban-backend 适用，见其 README）
 - **hub 镜像内容被宿主 dist 挂载遮蔽**（2026-10-27 实证）：compose 的 imodelhub 曾挂 `D:\Github\imodelhub-services\dist:/usr/src/app/dist:ro`（10-23 临时补丁）——镜像 ID 是新的、容器实跑宿主旧产物，发布内容静默失效。**hub 内容一律以 GHCR 镜像为准，禁止挂宿主 dist**；`verify-stack.ps1` Step F 对该挂载做硬检查（FAIL），并核对镜像 OCI revision 与 hub HEAD。
 - **按 URL 推送后跟踪引用不更新**：`git push git@github.com:...`（HTTPS 被重置时的一次性 SSH URL）成功但 `origin/*` 不前进，`git status` 会误报 ahead——补 `git fetch <url> <branch>:refs/remotes/origin/<branch>` 同步。
@@ -108,7 +149,8 @@ npx playwright test e2e/documents.spec.ts                # 单 e2e（在 luban-c
 - 能力矩阵/状态：本仓 `docs/README.md` 索引 + 代码/测试实测
 - 官方 iTwin Platform REST 规格（契约对照基准）：`docs/api-specs/*.json`（itwins / imodels-v2 / access-control-v2 / webhooks-v2 / storage / users）
 - 详细开发准则（工具生命周期/检查清单/AI 注册规约）：`luban-cad/CLAUDE.md`
+- 项目级规则入口（均 subordinate 于本总册）：`D:\Github\luban-backend\CLAUDE.md`、`D:\Github\imodel-native\CLAUDE.md`、`D:\Github\imodelhub-services\CLAUDE.md`、`D:\Github\DanQing\CLAUDE.md`、`D:\Github\trueform\CLAUDE.md`
+- 真形（TrueForm）几何内核文档：`D:\Github\trueform\docs\README.md`（架构 / `SolidKernel.h` 集成合同 / 路线图）
 - 宿主端口登记（53xx/54xx 专用段，避开 itwinjs-core）：`docs/PORTS.md`
 - 上游同步史与冲突处理经验：`docs/UPSTREAM_SYNC.md`
-- 命名迁移（2026-10-31，OpenCloud→LubanCAD；含线上契约与持久化 schema 例外）：`docs/NAMING-2026-10-31.md`
 - 已删除文档历史索引：`docs/HISTORY.md`；当前文档总索引：`docs/README.md`

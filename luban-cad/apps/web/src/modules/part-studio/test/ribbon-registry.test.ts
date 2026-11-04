@@ -3,8 +3,9 @@
 // M3 Task 4（brief Step 1）：工具 ribbon 注册表完整性——
 //  1) 28 工具全在册（os-11 dom-toolbar.html 取证顺序；id 校准原则：已有真实
 //     iTwin 工具的沿用旧应用 toolId——SweepFaces/RoundEdges/ChamferEdges/
-//     DraftFaces/HollowFaces/CreateHole/MirrorElements/LinearPattern，未接线
-//     的用 Onshape command-id——newSketch/extrude/…/USER_FEATURES）；
+//     HollowFaces/MirrorElements/LinearPattern；DraftFaces/CreateHole 已翻
+//     gated（X-01，后端无命令），未接线的用 Onshape command-id——
+//     newSketch/extrude/…/USER_FEATURES）；
 //  2) 8 个下拉飞菜单全在册（os-20 采集：加厚/圆角/拔模/线性阵列/变换/框架/
 //     钣金模型/曲面曲线组），各含子项清单与 os-20 txt 证据一致；
 //  3) 快捷键（os-11 title 属性：草图 shift+s / 拉伸 shift+e / 旋转 shift+w /
@@ -45,10 +46,10 @@ const EXPECTED_TOOL_IDS = [
   'thicken', // 加厚 ▾
   'RoundEdges', // 圆角 (shift+f)（旧应用真实 toolId）▾
   'ChamferEdges', // 倒角（旧应用真实 toolId）
-  'DraftFaces', // 拔模（旧应用真实 toolId）▾
+  'DraftFaces', // 拔模（X-01 起 gated 引导）▾
   'rib', // 筋（2026-11-02 live 工具栏补齐）
   'HollowFaces', // 抽壳（旧应用真实 toolId）
-  'CreateHole', // 孔（旧应用真实 toolId）
+  'CreateHole', // 孔（X-01 起 gated 引导）
   'externalThread', // 外部螺纹
   'LinearPattern', // 线性阵列（旧应用真实 toolId）▾
   'MirrorElements', // 镜像（旧应用真实 toolId）
@@ -261,7 +262,7 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
   it('gated 家族工具/子项经 isGated 路由能力引导', () => {
     const gatedTools = RIBBON_TOOLS.filter((tool) => isGated(tool.capability));
     expect(gatedTools.map((tool) => tool.id).sort()).toEqual([
-      'DraftFaces', 'HollowFaces', 'externalThread', 'frame', 'rib', 'sheetMetalStart', 'surfaceCurve',
+      'CreateHole', 'DraftFaces', 'HollowFaces', 'externalThread', 'frame', 'rib', 'sheetMetalStart', 'surfaceCurve',
     ].sort());
     for (const capability of GATED_CAPABILITIES) {
       expect(isGated(capability)).toBe(true);
@@ -269,7 +270,7 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
   });
 
   it('full 锚点与既有建模工具面不 gated', () => {
-    for (const id of ['sketch', 'extrude', 'fillet', 'chamfer', 'sweep', 'hole', 'mirror', 'linearPattern', 'boolean']) {
+    for (const id of ['sketch', 'extrude', 'fillet', 'chamfer', 'sweep', 'mirror', 'linearPattern', 'boolean']) {
       expect(isGated(id)).toBe(false);
     }
   });

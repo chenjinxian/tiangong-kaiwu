@@ -15,10 +15,11 @@
  *   线性阵列/变换/框架/钣金模型/曲面曲线组）携全量子项（os-20 txt 证据逐项
  *   对账）；
  * - id 校准原则（T2 挂账「gated toolId 暂定命名待 T4 校准」收口）：已有
- *   真实 iTwin 工具的 8 项沿用旧应用 toolId（CadToolbar.tsx 取证：
- *   SweepFaces/RoundEdges/ChamferEdges/DraftFaces/HollowFaces/CreateHole/
- *   MirrorElements/LinearPattern）——useToolActivation 直投
- *   IModelApp.tools.run 即可真激活；其余未接线命令用 Onshape command-id
+ *   真实 iTwin 工具的 6 项沿用旧应用 toolId（CadToolbar.tsx 取证：
+ *   SweepFaces/RoundEdges/ChamferEdges/HollowFaces/MirrorElements/LinearPattern）
+ *   ——useToolActivation 直投 IModelApp.tools.run 即可真激活；
+ *   DraftFaces/CreateHole 因后端无对应命令已翻 gated（X-01，2026-11-04），
+ *   点击走能力引导而不是 tools.run；其余未接线命令用 Onshape command-id
  *   （newSketch/extrude/…/USER_FEATURES），后续里程碑接线时替换或映射；
  *   B3 注：SweepFaces 虽仍是真实直改工具 id，但参数化特征链入口已在
  *   B5 注：LinearPattern/CircularPattern（下拉子项）同姿态改道 new/pattern 对话框

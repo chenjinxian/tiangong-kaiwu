@@ -311,10 +311,9 @@ function makeTxnsStub() {
   };
 }
 
-// B6 M-A5 T1：画布 body 选中桥（useCanvasBodySelection）的 SelectionSet 最小桩
-// ——空 elements + BeEvent 兼容 onChanged（addListener 返回退订；raise 直发）。
-// 本文件所有用例的 body 读面缺省空集、选择集缺省空 → 等值守卫不写 store，
-// 不改变既有断言面。
+// X-03：SelectionSet 最小桩（空 elements + BeEvent 兼容 onChanged）。选择权威
+// 在 store.canvas.selection；本桩只承接单向投影（replace/emptyAll）与 F1 隔离断言。
+// 本文件所有用例的 body 读面缺省空集、选择集缺省空 → 等值守卫不写 store。
 function makeSelectionSetStub() {
   const listeners = new Set<() => void>();
   const raise = (): void => {

@@ -61,6 +61,6 @@ corepack pnpm@10 exec playwright test e2e/multibody-perf.spec.ts
 - **tile 指标**只记录不 gate（架构改造另立）。
 - 全量默认 e2e 仍不包含本探针（`test.skip` 缺省）；大 N 需干净限流窗口。
 - **面/边删除**：反向 cache id 通道已落地；普通盒体单面删除是内核既定负路径
-  （`私有原生仓 docs/reference/compare/DeleteSubEntitiesOperation.md`：
+  （历史分析记录：
   `api_remove_faces` 邻面补不拢，Err 115006）；SUCCESS 需要共面分裂种子 —
   fixture 为 backlog（见 `2026-10-29-subentity-selection.md` Result）。

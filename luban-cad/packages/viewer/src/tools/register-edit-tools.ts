@@ -20,9 +20,14 @@
  *    SketchCircleTool + 约束 6：Coincident/Horizontal/Vertical/Parallel/
  *    Perpendicular/Equal + 尺寸 2：Distance/Radius，旧 features/sketch/tools/*）：
  *    **绘制面已由 M6-a T5 收口**——apps/web 侧 tools/sketch/SketchCreateTool.ts
- *    四件（Sketch.Line/Sketch.Rectangle/Sketch.CenterCircle/Sketch.Arc3Point，
- *    含新增 3 点弧）经 registerSketchTools 在 PartStudioPage 注册（packages/viewer
- *    不反向依赖 app 模块）；约束 6 + 尺寸 2 挂账依旧（F3 约束/尺寸工具任务）。
+ *    五件（Sketch.Line/Sketch.Rectangle/Sketch.CenterCircle/Sketch.Arc3Point/
+ *    Sketch.Spline）经 registerSketchTools 在 PartStudioPage 注册（packages/viewer
+ *    不反向依赖 app 模块）；约束/尺寸/偏移工具同由 app 注册。
+ *    **X-02（2026-11-04）**：editor vendored SketchTools 六件不再注册——产品
+ *    草图创建工具族唯一为 app 的 Sketch.*（params 单一数据源）。本注册表与
+ *    `EditTools.initialize({ registerSketchTools: false })` 双处都不再挂
+ *    CreateLineString/CreateArc/CreateCircle/CreateEllipse/CreateRectangle/
+ *    CreateBCurve。
  *  - 选择 5 工具（FenceSelect/SelectAll/Invert/ClearSelection/SelectByCategory，
  *    旧 src/core/tools/SelectionTools.ts）：简报未列——命令面板接线里程碑移植；
  *  - 剖切 2 工具（SectionByPlane/ClearSection，旧 src/core/section/SectionTools.ts）：
@@ -31,6 +36,10 @@
  *    ToggleProjectExtents 已由 M4-T2 移植并在册，其余挂账；
  *  - 动画 2（CameraWalk/FlyToSelection）与渲染 3（SetRenderMode/ToggleAO/
  *    ToggleShadows，旧 src/core/animation|rendering/*）：挂账同上；
+ *  - **X-01（2026-11-04）**：CreateHole/DraftFaces 工具删除——后端
+ *    `EditCommandAdmin` 无 `createHole`/`draftFaces` 命令，历史调用为空操作
+ *    （假成功）。能力表 `hole` 由 full 翻 gated、`draft` 保持 gated，ribbon
+ *    点击走能力引导；不再注册死工具。
  *  - `tools.run('AccuDraw.SessionToggle')`（旧表顺手启动项）：AccuDraw 工具族
  *    未入注册表，跳过；AccuSnap snap/locate 使能已由本包
  *    ensureAccuSnap（M4-T2）覆盖；
@@ -61,26 +70,19 @@ import {
 } from '@itwin/core-frontend';
 import {
   ChamferEdgesTool,
-  // —— 以下 5 项为 M4-T3 移植四工具（DraftFaces/CreateHole/MirrorElements/
-  //    LinearPattern/CircularPattern），2026-10-22 随 editor 模块收编由
-  //    旧查看器包 src/tools/modeling/ 迁入 @itwin/editor-frontend src/luban/
-  //    modeling/，改从其导出面供给（建模功能归位第一方建模基座）——
+  // —— MirrorElements/LinearPattern/CircularPattern 为 M4-T3 移植工具，
+  //    2026-10-22 随 editor 模块收编由旧查看器包 src/tools/modeling/ 迁入
+  //    @itwin/editor-frontend src/luban/modeling/，改从其导出面供给（建模功能
+  //    归位第一方建模基座）。X-01：CreateHole/DraftFaces 死工具已删除，
+  //    MirrorElements 改走标准 basicManipulationIpc。 ——
   CircularPatternTool,
   CopyElementsTool,
-  CreateArcTool,
-  CreateBCurveTool,
   CreateBoxTool,
-  CreateCircleTool,
   CreateConeTool,
   CreateCylinderTool,
-  CreateEllipseTool,
-  CreateHoleTool,
-  CreateLineStringTool,
-  CreateRectangleTool,
   CreateSphereTool,
   CreateTorusTool,
   DeleteElementsTool,
-  DraftFacesTool,
   EditTools,
   HollowFacesTool,
   IntersectSolidElementsTool,
@@ -110,9 +112,13 @@ export async function ensureEditTools(): Promise<void> {
   if (registered) return;
 
   // 旧 Editor.tsx:284 序：先 initialize（注册 vendored 内置 Undo/Redo、
-  // Sketch/SolidModeling/SolidPrimitive/Transform/DeleteElements/ModifyCurve
-  // 模块 + edit command handler），再叠加旧应用显式注册表。
-  await EditTools.initialize();
+  // SolidModeling/SolidPrimitive/Transform/DeleteElements/ModifyCurve 模块 +
+  // edit command handler），再叠加旧应用显式注册表。
+  // X-02（2026-11-04）：产品草图工具族唯一为 app 的 Sketch.*（params 单一
+  // 数据源）；显式关闭 vendored SketchTools 注册，避免 CreateLineString/
+  // CreateArc/CreateCircle/CreateEllipse/CreateRectangle/CreateBCurve 与产品
+  // 工具族并存（双实现、双数据路径）。
+  await EditTools.initialize({ registerSketchTools: false });
 
   registerAllTools();
   registered = true;
@@ -137,13 +143,9 @@ function registerAllTools(): void {
   IModelApp.tools.register(CreateConeTool);
   IModelApp.tools.register(CreateTorusTool);
 
-  // ── 草图原生 6（editor-frontend SketchTools；鲁班草图绘制链见头注挂账）────
-  IModelApp.tools.register(CreateLineStringTool);
-  IModelApp.tools.register(CreateArcTool);
-  IModelApp.tools.register(CreateCircleTool);
-  IModelApp.tools.register(CreateEllipseTool);
-  IModelApp.tools.register(CreateRectangleTool);
-  IModelApp.tools.register(CreateBCurveTool);
+  // ── 草图工具：唯一产品族为 app 的 Sketch.*（PartStudioPage 懒注册）──────
+  // X-02：editor vendored SketchTools 六件既不在 EditTools.initialize 注册，
+  // 也不在本表注册。
 
   // ── 变换 4 + 撤销/重做 2（editor-frontend）───────────────────────────────
   // Undo/Redo 为 M4-T4 标准通道前置注册（旧表缺——旧快捷键 'LubanCad.Undo' 是
@@ -156,12 +158,11 @@ function registerAllTools(): void {
   IModelApp.tools.register(UndoTool);
   IModelApp.tools.register(RedoTool);
 
-  // ── 面边 / 阵列 / 布尔 13（前 8 项含移植四件 + M3 校准真实 toolId）────────
+  // ── 面边 / 阵列 / 布尔 11（Mirror/LinearPattern/CircularPattern 为移植真件
+  // + M3 校准真实 toolId；X-01 删除 DraftFaces/CreateHole 死工具）────────────
   IModelApp.tools.register(RoundEdgesTool);
   IModelApp.tools.register(ChamferEdgesTool);
   IModelApp.tools.register(HollowFacesTool);
-  IModelApp.tools.register(DraftFacesTool);
-  IModelApp.tools.register(CreateHoleTool);
   IModelApp.tools.register(MirrorElementsTool);
   IModelApp.tools.register(LinearPatternTool);
   IModelApp.tools.register(CircularPatternTool);

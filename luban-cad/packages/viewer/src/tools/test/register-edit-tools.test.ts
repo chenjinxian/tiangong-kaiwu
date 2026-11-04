@@ -1,22 +1,23 @@
 // register-edit-tools（M4 Task 3）：ensureEditTools 注册表验收——
-//  1) 注册序同旧应用 registerTools.ts（视图 7 → 基元 5 → 草图原生 6 → 变换 4
-//     +Undo/Redo → 面边/布尔/阵列 13 → 测量 6 → 裁剪 5 → 装饰 1）——完整 toolId
-//     序列钉死（含 8 个 M3 校准真实 toolId：SweepFaces/RoundEdges/ChamferEdges/
-//     DraftFaces/HollowFaces/CreateHole/MirrorElements/LinearPattern）；
-//  2) 幂等：二次调用不重复 register、EditTools.initialize 只跑一次；
-//  3) 失败路径：EditTools.initialize 拒绝 → ensureEditTools 拒绝且不落 flag
+//  1) 注册序同旧应用 registerTools.ts 的裁剪版（视图 7 → 基元 5 → 变换 4
+//     +Undo/Redo → 面边/布尔/阵列 11 → 测量 6 → 裁剪 5 → 装饰 1）——完整 toolId
+//     序列钉死（含 6 个 M3 校准真实 toolId：SweepFaces/RoundEdges/ChamferEdges/
+//     HollowFaces/MirrorElements/LinearPattern）；
+//  2) X-02：editor vendored 草图六件不注册——产品唯一草图工具族为 app 的
+//     Sketch.*，`EditTools.initialize({ registerSketchTools: false })` 显式关闭；
+//  3) X-01：CreateHole/DraftFaces 死工具已删除，不再注册；
+//  4) 幂等：二次调用不重复 register、EditTools.initialize 只跑一次；
+//  5) 失败路径：EditTools.initialize 拒绝 → ensureEditTools 拒绝且不落 flag
 //     （下次调用可重试，与 PartStudioPage 的 notifications 可见错误面配套）；
-//  4) registerDefaultShortcuts 子集（Undo/Redo/Delete/Escape 键位）派发真启动。
+//  6) registerDefaultShortcuts 子集（Undo/Redo/Delete/Escape 键位）派发真启动。
 // mock 口径：@itwin/core-frontend 与 @itwin/editor-frontend 模块级 mock（桩类
 // 携真实 toolId 静态量）；project-extents-decoration 为被测真件（其 toolId 是
 // 真静态量）；@luban-cad/shared 零真实 RPC。工厂内不可引用模块作用域绑定
 // （vi.mock 提升先于模块体求值）——桩表全数收进 vi.hoisted。
-// 2026-10-22 editor 模块收编：四个移植工具自旧查看器包 src/tools/modeling/
+// 2026-10-22 editor 模块收编：移植工具自旧查看器包 src/tools/modeling/
 // 迁入 @itwin/editor-frontend src/luban/modeling/，注册表改从其导出面导入——
-// 本测试的 '@itwin/editor-frontend' mock 桩表随之收编五桩（DraftFaces/
-// CreateHole/MirrorElements/LinearPattern/CircularPattern；toolId 真值由随迁
-// 的各工具行为测试钉死）；原 LocateSubEntityTool/basicManipulationIpc 桩随
-// SolidModelingToolBase 导入链消失而移除。
+// 本测试 mock 桩表随之收编（MirrorElements/LinearPattern/CircularPattern；
+// toolId 真值由随迁的各工具行为测试钉死）。
 
 // @vitest-environment jsdom
 
@@ -62,12 +63,6 @@ const mocks = vi.hoisted(() => {
     CreateBoxTool: 'CreateBox',
     CreateConeTool: 'CreateCone',
     CreateTorusTool: 'CreateTorus',
-    CreateLineStringTool: 'CreateLineString',
-    CreateArcTool: 'CreateArc',
-    CreateCircleTool: 'CreateCircle',
-    CreateEllipseTool: 'CreateEllipse',
-    CreateRectangleTool: 'CreateRectangle',
-    CreateBCurveTool: 'CreateBCurve',
     MoveElementsTool: 'MoveElements',
     RotateElementsTool: 'RotateElements',
     CopyElementsTool: 'CopyElements',
@@ -77,10 +72,9 @@ const mocks = vi.hoisted(() => {
     RoundEdgesTool: 'RoundEdges',
     ChamferEdgesTool: 'ChamferEdges',
     HollowFacesTool: 'HollowFaces',
-    // 2026-10-22 收编五桩：移植四工具（+CircularPattern）迁入 editor-frontend
-    // 后改由其导出面供给，此处置 stub 携真实 toolId（真值锚在各工具行为测试）。
-    DraftFacesTool: 'DraftFaces',
-    CreateHoleTool: 'CreateHole',
+    // 2026-10-22 收编：移植工具迁入 editor-frontend 后改由其导出面供给，
+    // 此处置 stub 携真实 toolId（真值锚在各工具行为测试）。X-01：DraftFaces/
+    // CreateHole 死工具已删除，桩表同步移除。
     MirrorElementsTool: 'MirrorElements',
     LinearPatternTool: 'LinearPattern',
     CircularPatternTool: 'CircularPattern',
@@ -112,7 +106,7 @@ vi.mock('@itwin/core-frontend', () => {
     },
     GraphicType: { WorldDecoration: 1, WorldOverlay: 2 },
     Tool: class {},
-    // 移植件 CreateHoleTool/MirrorElementsTool 的基类（注册表仅引类不实例化）。
+    // 移植件 MirrorElementsTool 的基类（注册表仅引类不实例化）。
     PrimitiveTool: class {},
   };
   for (const [toolId, exportName] of Object.entries(mocks.coreFrontendToolIds)) {
@@ -156,12 +150,12 @@ const EXPECTED_TOOL_IDS: readonly string[] = [
   'View.Rotate', 'View.Pan', 'View.Fit', 'View.Zoom', 'View.WindowArea', 'View.Undo', 'View.Redo',
   // 基元 5（editor-frontend）
   'CreateSphere', 'CreateCylinder', 'CreateBox', 'CreateCone', 'CreateTorus',
-  // 草图原生 6（editor-frontend）
-  'CreateLineString', 'CreateArc', 'CreateCircle', 'CreateEllipse', 'CreateRectangle', 'CreateBCurve',
+  // X-02：草图工具唯一族为 app 的 Sketch.*（PartStudioPage 注册）——此处无原生 6。
   // 变换 4 + 撤销/重做 2（editor-frontend；Undo/Redo 为 T4 标准通道前置注册）
   'MoveElements', 'RotateElements', 'CopyElements', 'DeleteElements', 'Undo', 'Redo',
-  // 面边/布尔/阵列 13（DraftFaces/CreateHole/MirrorElements/LinearPattern/CircularPattern 为移植真件）
-  'RoundEdges', 'ChamferEdges', 'HollowFaces', 'DraftFaces', 'CreateHole', 'MirrorElements',
+  // 面边/布尔/阵列 11（MirrorElements/LinearPattern/CircularPattern 为移植真件；
+  // X-01 删除 DraftFaces/CreateHole）
+  'RoundEdges', 'ChamferEdges', 'HollowFaces', 'MirrorElements',
   'LinearPattern', 'CircularPattern', 'OffsetFaces', 'SweepFaces',
   'UniteSolids', 'SubtractSolids', 'IntersectSolids',
   // 测量 6（core-frontend）
@@ -172,10 +166,10 @@ const EXPECTED_TOOL_IDS: readonly string[] = [
   'ToggleProjectExtents',
 ];
 
-/** M3 校准的 8 个真实 toolId（ribbon-registry「id 校准原则」对账面）。 */
+/** M3 校准的真实 toolId（ribbon-registry「id 校准原则」对账面；X-01 后 6 项）。 */
 const M3_CALIBRATED_TOOL_IDS: readonly string[] = [
-  'SweepFaces', 'RoundEdges', 'ChamferEdges', 'DraftFaces', 'HollowFaces',
-  'CreateHole', 'MirrorElements', 'LinearPattern',
+  'SweepFaces', 'RoundEdges', 'ChamferEdges', 'HollowFaces',
+  'MirrorElements', 'LinearPattern',
 ];
 
 beforeEach(async () => {
@@ -203,7 +197,7 @@ describe('ensureEditTools 注册表', () => {
     expect(registeredToolIds()).toEqual(EXPECTED_TOOL_IDS);
   });
 
-  it('8 个 M3 校准真实 toolId 全部在册（ribbon 直投 tools.run 可真启动）', async () => {
+  it('6 个 M3 校准真实 toolId 全部在册（ribbon 直投 tools.run 可真启动）', async () => {
     await registry.ensureEditTools();
     const ids = registeredToolIds();
     for (const toolId of M3_CALIBRATED_TOOL_IDS) {
@@ -232,9 +226,10 @@ describe('ensureEditTools 注册表', () => {
     expect(registeredToolIds()).toEqual(EXPECTED_TOOL_IDS);
   });
 
-  it('注册前置 EditTools.initialize 恰一次（幂等 flag 在 initialize 之后落）', async () => {
+  it('注册前置 EditTools.initialize 恰一次且显式关闭 vendored 草图工具（幂等 flag 在 initialize 之后落）', async () => {
     await registry.ensureEditTools();
     expect(mocks.initializeMock).toHaveBeenCalledTimes(1);
+    expect(mocks.initializeMock).toHaveBeenCalledWith({ registerSketchTools: false });
     // 序：initialize 先于任何 register（旧 Editor.tsx:284-286 序）。
     expect(mocks.initializeMock.mock.invocationCallOrder[0]).toBeLessThan(
       Math.min(...mocks.registerMock.mock.invocationCallOrder),

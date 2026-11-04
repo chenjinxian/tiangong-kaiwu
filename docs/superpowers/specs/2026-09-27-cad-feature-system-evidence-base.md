@@ -16,7 +16,7 @@
 - **创建类门面全线带 nodeId 参数**（打标通道现成）。
 - **有效性检查** `HasConsistentTopologyAndGeometry`（=api_check_entity）存在，但仅作持久化前内部守门。
 - **内核回滚 mark**（CreateRollbackMark）存在但未暴露到 JS 协议。
-- ACIS 授权硬事实（`D:\Spatial\ACIS_2025.1.0.1`，spatial_license.h，Customer: Haihe Lab）：仅 **3D ACIS Modeler + Polyhedra**；STEP/tolerant stitch 属 **3D InterOp 未授权**（运行时 Not authorized，产品级门控，与构建配置无关）。→ STEP 读写与 healing 走真形自研（writer 先行；reader 必须配 healing）。建模公差恒 SPAresabs=1e-6 不可调。
+- ACIS 授权硬事实（`D:\Spatial\ACIS_2025.1.0.1`，spatial_license.h，Customer: Haihe Lab）：仅 **3D ACIS Modeler + Polyhedra**；STEP/tolerant stitch 属 **3D InterOp 未授权**（运行时 Not authorized，产品级门控，与构建配置无关）。→ STEP 读写与 healing 走真形（TrueForm）几何内核自研（writer 先行；reader 必须配 healing）。建模公差恒 SPAresabs=1e-6 不可调。
 
 ## 2. itwinjs-core 机制证据（2026-09-27 取证，均为一手 file:line）
 

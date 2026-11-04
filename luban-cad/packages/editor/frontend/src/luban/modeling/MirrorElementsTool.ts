@@ -4,18 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 // 同源移植自 apps/web/features/modeling/MirrorElementsTool.ts（web M4-T3；
-// 类名/toolId 不改——Agent 复用规约）。等价改写同 DraftFacesTool 头注：动态
-// import 收敛静态导入；app 级 i18n 改包内 toolMessage。镜像走
-// basicManipulation/mirrorElement 后端命令（B4：一次 startEditCommand + 逐元素
-// callEditMethod + saveChanges + finishEditCommand——旧 startEditCommand 载荷形态
-// 后端无对应方法=空操作，已修）。参数化特征链入口另由 ribbon 改道 FeatureDialog
+// 类名/toolId 不改——Agent 复用规约）。等价改写：动态 import 收敛静态导入；
+// app 级 i18n 改包内 toolMessage。镜像走**标准编辑管道**：
+// EditTools.startCommand(basicManipulation) + basicManipulationIpc.mirrorElement
+// + saveChanges + EditTools.finishCommand（X-01：旧 LubanRpcInterface edit-command
+// 通道已退役）。参数化特征链入口另由 ribbon 改道 FeatureDialog
 //（MirrorElements 工具本体保留为直改通道，按需单裁入口）。
 // 2026-10-22 随 editor 模块收编迁入本包（@itwin/editor-frontend）src/luban/
 // modeling/。
 
 import { BeButtonEvent, EventHandled, IModelApp, NotifyMessageDetails, OutputMessagePriority, PrimitiveTool } from '@itwin/core-frontend';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
-import { LubanRpcInterface } from '@luban-cad/shared';
+import { editorBuiltInCmdIds } from '@itwin/editor-common';
+import { EditTools } from '../../EditTool';
+import { basicManipulationIpc } from '../../EditToolIpc';
 import { toolMessage } from './messages';
 
 /**
@@ -157,14 +159,13 @@ export class MirrorElementsTool extends PrimitiveTool {
         throw new Error('Editing requires a briefcase connection');
       }
 
-      // 调用 RPC 执行镜像操作（B4 修复：basicManipulation 命令一次、逐元素 callEditMethod——
-      // 旧实现把 mirrorElement 载荷塞进 startEditCommand 构造参数，后端无此方法=空操作）。
-      // 语义=**就地并入镜像体**（元素几何变成 Unite(原体, 镜像体)，原体材料保留在同一元素内；
-      // placement 不变、返回同一元素 id——与参数化 mirror 特征一致；单独镜像副本会内翻，
-      // 当前原生面无实体反倒向通道）。BRep 实体几何（v1 范围）。
-      // 事务在 finishEditCommand 之前显式 saveChanges（EditCommand 默认 requestFinish 会
-      // abandon 未保存事务——不显式保存则空跑）。
-      const rpc = LubanRpcInterface.getClient();
+      // 标准编辑管道（X-01）：一次 basicManipulation 命令、逐元素 mirrorElement、
+      // 显式 saveChanges、finally 收口。语义=**就地并入镜像体**（元素几何变成
+      // Unite(原体, 镜像体)，原体材料保留在同一元素内；placement 不变、返回同一
+      // 元素 id——与参数化 mirror 特征一致；单独镜像副本会内翻，当前原生面无实体
+      // 反倒向通道）。BRep 实体几何（v1 范围）。
+      // 事务在 finishCommand 之前显式 saveChanges（EditCommand 默认 requestFinish
+      // 会 abandon 未保存事务——不显式保存则空跑）。
       const planePoint = {
         x: this._planePoint.x,
         y: this._planePoint.y,
@@ -176,13 +177,16 @@ export class MirrorElementsTool extends PrimitiveTool {
         z: this._planeNormal.z,
       };
 
-      await rpc.startEditCommand('basicManipulation', iModel.key);
+      await EditTools.startCommand<string>({
+        commandId: editorBuiltInCmdIds.cmdBasicManipulation,
+        iModelKey: iModel.key,
+      });
       try {
         for (const elementId of this._selectedElements)
-          await rpc.callEditMethod('mirrorElement', elementId, planePoint, planeNormal);
-        await rpc.callEditMethod('saveChanges', 'mirror elements');
+          await basicManipulationIpc.mirrorElement(elementId, planePoint, planeNormal);
+        await basicManipulationIpc.saveChanges('mirror elements');
       } finally {
-        await rpc.finishEditCommand();
+        await EditTools.finishCommand();
       }
 
       IModelApp.notifications.outputMessage(

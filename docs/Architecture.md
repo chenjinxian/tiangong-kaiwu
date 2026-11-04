@@ -1,6 +1,8 @@
 # 鲁班CAD 架构设计（luban-cad，天工开物平台）
 
 > **代码归属（后端私有化，2026-10-01）**：本文所述后端服务 `modeling-server`（:5401）与 `webhook-agent`（:5402）的源码在私有仓 **luban-backend**，文中 `modeling-server/src/...` 等代码路径均指该私有仓。本仓公开侧只**消费产物**：imodelhub / webhook-agent 以 **GHCR 镜像**进栈（`docker-compose.yml` 零后端 build），MS 以 **GitHub Releases 产物**（`scripts/fetch-backend.ps1` → `dist-backend\`）+ `scripts/start-ms-host.ps1` 宿主运行。
+>
+> **几何内核**：平台使用**真形（TrueForm）几何内核**（私有仓 `D:\Github\trueform`），只经 `SolidKernel.h` 契约接入；不使用第二套几何内核。
 
 ## 系统架构
 
@@ -222,7 +224,7 @@ Content-Type: application/json
 {
   "operation": {
     "interfaceName": "LubanRpcInterface",
-    "interfaceVersion": "1.0.0",
+    "interfaceVersion": "1.1.0",
     "operationName": "acquireBriefcase",
     "requestId": "uuid"
   },
@@ -429,9 +431,14 @@ modeling-server 启用 CSRF 保护：
 
 ### 添加新的 RPC 方法
 
-1. 在 `LubanRpcInterface` 添加方法声明
+1. 在 `LubanRpcInterface` 添加方法声明并 bump `interfaceVersion`
 2. 在 `LubanRpcImpl` 实现方法
 3. 前端通过 RPC client 调用
+
+> **编辑/建模红线（P0-05）**：不得再向 `LubanRpcInterface` 添加编辑命令通道
+>（旧 `startEditCommand/callEditMethod/finishEditCommand` 已于 1.1.0 删除）。
+> 直接编辑走 `EditTools` + `basicManipulationIpc`/`solidModelingIpc`；参数化
+> 建模走 `LubanFeatureRpcInterface` FeatureOp。
 
 ### 添加新的 Webhook 处理器
 

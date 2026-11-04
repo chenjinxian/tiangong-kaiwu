@@ -3,7 +3,7 @@
 日期：2026-11-01
 Tag：`backend-20261101-p28c`
 性质：**MS 产物 + GHCR 镜像发布**；web 生产镜像由本仓本地构建（无 GHCR 通道）。
-关联：ADR-0001 §15（B 数据模型 P2 / P2.8）、`docs/NAMING-2026-10-31.md` §5。
+关联：ADR-0001 §15（B 数据模型 P2 / P2.8）。
 
 ## 产物
 
@@ -30,10 +30,9 @@ Tag：`backend-20261101-p28c`
 
 1. **B 数据模型 P2**：iModel = 文档；Part Studio 注册表/页签/active-scope 视口；
    A 旧文档只读兼容；RPC 1.18 原子同发；删除 scope 持久 tombstone。
-2. **命名迁移收口**：线上契约/RPC/IPC 全部 `LubanCAD`/`luban-*`；旧 `OpenCloud` 名称
-   在 `/rpc/metadata` 中为 0。
+2. **命名收口**：线上契约/RPC/IPC 全部 `LubanCAD`/`luban-*`。
 3. **legacy EC schema 退役**：owner 授权清理旧数据；删除 `CadFeatureSchema.ts` 与
-   7 个无调用方的 legacy IPC 方法；本地 500 `.bim` 审计 `OpenCloudCAD=0`，无数据迁移。
+   7 个无调用方的 legacy IPC 方法；本地 500 `.bim` 审计 legacy schema=0，无数据迁移。
 4. **P2.8 修复波**：reload `Invalid iModelToken`（IpcSession 门 + `RpcManager.setIModel` +
    有界重试 + 动态 JWT）；写租约 pagehide 释放与 35s 预算；baseline 传播回读 + 单飞；
    tile 404→204 哨兵；MS 产物 flatbuffers hoist 修复。
@@ -51,8 +50,8 @@ Tag：`backend-20261101-p28c`
   Step D 产物 provenance 通过；Step E web `87ee0f408fb7`；
   Step F hub `c49fd5c`。
 - 限流：全量轮结束后 MS 已恢复生产默认 **100/15min**（启动日志 `production default`）。
-- 发布后独立复核：本地 tgz SHA256 与 Release asset digest 相同；`/rpc/metadata` 无
-  `OpenCloud`；web 镜像 `b-model-enabled=true`。
+- 发布后独立复核：本地 tgz SHA256 与 Release asset digest 相同；`/rpc/metadata`
+  仅含 `Luban*` 接口；web 镜像 `b-model-enabled=true`。
 
 ## 部署
 

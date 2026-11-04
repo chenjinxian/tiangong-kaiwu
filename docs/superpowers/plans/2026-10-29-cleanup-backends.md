@@ -227,9 +227,6 @@ git rm test/load/scripts/run-load-tests.sh test/load/scripts/run-smoke-test.sh P
 
 - [ ] **Step 3: Fix brand and test-helper names**
 
-- `src/common/guards/api-key.guard.ts` and
-  `src/imodels/imodels-admin.controller.ts`: replace old copyright header
-  “Open Cloud CAD” with `LubanCAD / 天工开物`.
 - `scripts/setup-webhook-for-testing.sql`: replace `web-agent` with
   `webhook-agent`; keep SQL semantics.
 
@@ -363,10 +360,10 @@ npm run build
 
 ```powershell
 Set-Location 'D:\Github\luban-backend'
-rg -n "web-next|apps/web|Open Cloud CAD|Zokei|localhost:3000|localhost:5310" `
+rg -n "web-next|apps/web|Zokei|localhost:3000|localhost:5310" `
   README.md CLAUDE.md docs HISTORY.md modeling-server scripts
 Set-Location 'D:\Github\imodelhub-services'
-rg -n "web-next|apps/web|Open Cloud CAD|Zokei|localhost:3000|localhost:5310" `
+rg -n "web-next|apps/web|Zokei|localhost:3000|localhost:5310" `
   README.md CLAUDE.md docs HISTORY.md src test scripts env-example-relational .env.example
 ```
 

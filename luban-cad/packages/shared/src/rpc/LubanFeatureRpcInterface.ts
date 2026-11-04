@@ -100,8 +100,9 @@
  *  - `getMassProperties` 只读 RPC（body 体积/质心/表面积），Tutorial 2 几何金标验收用。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
-import { RpcInterface, RpcManager } from "@itwin/core-common";
-import type { ElementGeometryDataEntry, Placement3dProps } from "@itwin/core-common";
+import {
+  type ElementGeometryDataEntry, type Placement3dProps, RpcInterface, RpcManager,
+} from "@itwin/core-common";
 
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
  * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern；

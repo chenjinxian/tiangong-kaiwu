@@ -32,6 +32,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
+import type { BriefcaseConnection } from '@itwin/core-frontend';
+import { clearCanvasSelection } from '../internal/selection-authority.js';
 import {
   SvgAlignLeft,
   SvgAlignRight,
@@ -266,6 +268,11 @@ export interface CanvasContextMenuProps {
    * （视图/隐藏/gated 引导）不受影响。缺省 true（测试/壳期语义）。
    */
   canEdit?: boolean;
+  /**
+   * X-03：删除确认后清空选择的投影目标。缺省 undefined 时只清 store/树
+   *（测试/壳期）；生产宿主传 connection，使 selectionSet 同步清空。
+   */
+  connection?: BriefcaseConnection;
 }
 
 /** 选中实体显示名（label 缺省回退 id）。 */
@@ -280,11 +287,11 @@ export function CanvasContextMenu({
   onDeleteSubEntity,
   onSelectOwner,
   canEdit = true,
+  connection,
 }: CanvasContextMenuProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const selection = usePartStudioStore((s) => s.canvas.selection);
   const hideNodes = usePartStudioStore((s) => s.hideNodes);
-  const setCanvasSelection = usePartStudioStore((s) => s.setCanvasSelection);
   const setDockTab = usePartStudioStore((s) => s.setDockTab);
   const openDock = usePartStudioStore((s) => s.openDock);
   const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
@@ -487,7 +494,7 @@ export function CanvasContextMenu({
               } else {
                 console.warn(`[part-studio] 删除 ${name}（onDelete 未接线）`);
               }
-              setCanvasSelection([]);
+              clearCanvasSelection(connection);
             }}
           >
             {t('partStudio.canvasMenu.confirmDelete')}

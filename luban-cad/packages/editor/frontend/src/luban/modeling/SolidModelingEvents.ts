@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 // 同源移植自 apps/web/features/modeling/SolidModelingEvents.ts（web M4-T3；
-// 类名/事件名不改——Agent 复用规约）。DraftFacesTool 经 SolidModelingToolBase
-// 消费 draftComplete 事件面（web 面板尚未订阅，事件照发不悬空）。
+// 类名/事件名不改——Agent 复用规约）。2026-11-04 X-01 删除 DraftFacesTool 后
+// 暂无工具消费；保留为实体建模工具（需面/边选择事件）的公共事件面。
 
 import type { SubEntityLocationProps } from '@itwin/editor-common';
 
