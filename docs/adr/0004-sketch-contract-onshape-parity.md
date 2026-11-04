@@ -122,10 +122,18 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
   `b13a81ae…`。
 - 面域：`SketchRegions`/`sketchCurvesFromParams` 过滤 construction 曲线；新增
   4×4 方形 + construction 对角线仍为 1 个面域的回归测试。
+- line+整圆 tangent：libslvs `ARC_LINE_TANGENT` 只认弧端点，整圆改用**端点共圆语义**：
+  取 line 距圆心更近的端点，合成「圆心→端点半径线 ⟂ line」1 条内部
+  `PERPENDICULAR`（不新增自由参数，DOF 净 −1）。`SketchWireNormalizer`、
+  `SolverTypes` 校验与前端槽位表同步接受 circle+line；两端点都不在圆上的
+  「任意位置相切」不在本语义内，由初值可行性检查拒绝，不静默给错几何。
 - UI：草图 ribbon 的 construction 切换（`sketchConstruction`）驱动 store
   `constructionMode`，新绘制实体带 `construction`；viewer 装饰器虚线显示。
-  圆尺寸默认 DIAMETER、弧默认半径，标注带 `⌀`；i18n en/zh-CN 同步。
-- 验证：后端 sketch 测试 **86/86 passed**、backend `tsc` 绿；shared 单测绿；
-  web `tsc` 绿。真栈 T2 回归待 1.23.0 全量复跑（记录于验证基线）。
-- 未实现（按本 ADR 后续批次）：line+整圆 tangent、`angle`、projected/pierce/mirror、
-  driven 的 UI 编辑入口、iOS UI 创建链（chamfer/DIAMETER）。
+  圆尺寸默认 DIAMETER、弧默认半径，标注带 `⌀`；i18n en/zh-CN 同步；约束工具
+  槽位接受整圆+直线 tangent。
+- 验证：后端 sketch 测试 **87/87 passed**、backend `tsc` 绿；shared 单测绿；
+  web 目标测试绿。iOS 几何回放改为**全量约束**：`Tutorial2IosReplay.test.ts`
+  草图 `status=ok dof=0`（4 条 line+circle tangent + 2 条 DIAMETER 全量参与），
+  终体积 157.165 cm³（目标 157.479，−0.20%）不变。
+- 未实现（按本 ADR 后续批次）：`angle`、projected/pierce/mirror、driven 的 UI
+  编辑入口、iOS 真栈 UI 创建链（chamfer/DIAMETER 已可 API 回放，UI e2e 待补）。

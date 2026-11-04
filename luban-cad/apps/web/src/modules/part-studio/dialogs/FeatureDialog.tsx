@@ -633,11 +633,10 @@ export function FeatureDialog({
     applyOp !== undefined;
   const booleanScopeMapped = booleanScopeCapable && !nativeOperationScope ? booleanScopeFeatureType(booleanScope) : undefined;
   const effectiveFeatureType = booleanScopeMapped ?? featureType;
-  // 特征内 operation：extrude 的 new/add/remove/intersect 均已实现；revolve 为 add/remove。
+  // 特征内 operation：extrude 的 new/add/remove/intersect 均已实现；
+  // revolve 为 new/add/remove（v1.23 ADR-0005 Phase 2；intersect 仍无后端路径，页签禁用）。
   const nativeOperation = nativeOperationScope
-    ? (featureType === 'revolve'
-        ? (booleanScope === 'add' || booleanScope === 'remove' ? booleanScope : undefined)
-        : booleanScope)
+    ? (featureType === 'revolve' && booleanScope === 'intersect' ? undefined : booleanScope)
     : undefined;
   // 草图通道（M6-a T6 extrude / M6-b T4 revolve；M7 v1.10 扩布尔）：新建提交走 sketchId 寻址
   //（数据源/门禁裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
@@ -1789,29 +1788,23 @@ export function FeatureDialog({
             className="part-studio-feature-dialog__tablist"
           >
             {BOOLEAN_SCOPES.map((scope) => {
-              // 提交态禁用（B1 复审 + v1.22 ADR-0005）：
-              // ①布尔特征类型的相交仍无后端路径（extrude 已支持）；
+              // 提交态禁用（B1 复审 + v1.22/v1.23 ADR-0005）：
+              // ①布尔特征类型的相交仍无后端路径（extrude 已支持，revolve 未实现）；
               // ②无实体时加入/移除/相交无上游，禁用防「成功 toast + status=1 死特征」；
-              // ③revolve 的 new 仍未实现（remove 已支持）。
+              // ③revolve new/add/remove 均已实现，不再禁用 new。
               const intersectUnsupported = scope === 'intersect'
                 && !(nativeOperationScope && featureType === 'extrude');
-              const scopeUnsupported =
-                nativeOperationScope
-                && featureType === 'revolve'
-                && scope === 'new';
               const scopeDisabled =
                 structuralLocked
                 || (booleanScopeCapable
-                  && (intersectUnsupported || scopeUnsupported
+                  && (intersectUnsupported
                     || (booleanScopeNoBody && (scope === 'add' || scope === 'remove' || scope === 'intersect'))));
               const scopeDisabledHint =
                 structuralLocked
                   ? t('partStudio.featureDialog.editOperationLocked')
                   : intersectUnsupported
                   ? t('partStudio.featureDialog.booleanIntersectUnsupported')
-                  : scopeUnsupported
-                    ? t('partStudio.featureDialog.booleanOperationUnsupported')
-                    : t('partStudio.featureDialog.booleanNoBodyHint');
+                  : t('partStudio.featureDialog.booleanNoBodyHint');
               return (
                 <button
                   key={scope}

@@ -35,7 +35,7 @@
 | Bench Vise | 4 Part Studio；完整 API + UI | 至少 1 个 Part Studio 完整特征链；多 Part/多 body 对拍 |
 | Part Feeding Machine | 13 Part Studio；完整 API + UI | 选择 1 个 Part Studio 做完整链；验证大规模多 Part 文档的选择/树/相机 |
 | Exercise: Clamp | 2 Part Studio；特征树 + UI（1/2 PS 有 UI） | 草图/尺寸/特征树回放；massproperties/parts 到齐后补体积锚 |
-| Tutorial 2 - Build Your First Part - iOS | 1 Part Studio；4 特征（sketch/extrude NEW/extrude ADD/chamfer）；特征树 + UI + parts + 逐 body 质量属性（157.479 cm³） | **几何回放已通过**（私有后端 replay：单 body、四特征 status 0、终体积 157.165 cm³，-0.20%）；当前 blocked-capability：DIAMETER UI、line→整圆 tangent（回放省略 4 条，dof=4）、通用 imprint-face extrude、chamfer UI 创建链。原「Intro to CAD - Skateboard」的 Part Studio 为空（0 特征、0 body），数据不可用，已替换 |
+| Tutorial 2 - Build Your First Part - iOS | 1 Part Studio；4 特征（sketch/extrude NEW/extrude ADD/chamfer）；特征树 + UI + parts + 逐 body 质量属性（157.479 cm³） | **几何+约束全量回放已通过**（私有后端 replay：草图 ok/dof=0，含 4 条 line+circle tangent 与 2 条 DIAMETER；单 body、四特征 status 0、终体积 157.165 cm³，-0.20%）；当前 blocked-capability 仅剩通用 imprint-face extrude 与 chamfer UI 创建链。原「Intro to CAD - Skateboard」的 Part Studio 为空（0 特征、0 body），数据不可用，已替换 |
 
 **Batch 1 数据状态（2026-11-04）**
 

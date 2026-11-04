@@ -93,6 +93,9 @@ describe('M6-b T5：槽位定义表（SolverTypes 冻结契约逐字）', () => 
     expect(CONSTRAINT_SLOT_SHAPES.parallel).toEqual([['line', 'line']]);
     expect(CONSTRAINT_SLOT_SHAPES.perpendicular).toEqual([['line', 'line']]);
     expect(CONSTRAINT_SLOT_SHAPES.equal).toEqual([['line', 'line'], ['circle', 'circle']]);
+    // v1.23：整圆 + line 也走端点相切语义（顺序不限）
+    expect(CONSTRAINT_SLOT_SHAPES.tangent).toContainEqual(['circle', 'line']);
+    expect(CONSTRAINT_SLOT_SHAPES.tangent).toContainEqual(['line', 'circle']);
   });
 });
 

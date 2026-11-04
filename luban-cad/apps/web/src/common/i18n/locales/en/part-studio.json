@@ -852,7 +852,7 @@
         "equalNoMixing": "Both entities of the equal constraint must be lines or both circles",
         "slotMismatch": "Entity type does not fit a slot of this constraint",
         "midpointNeedsPointLine": "The midpoint constraint needs a point and a line, or three points (got {{actual}})",
-        "tangentNeedsCurveLine": "The tangent constraint needs an arc/spline and a line (got {{actual}})",
+        "tangentNeedsCurveLine": "The tangent constraint needs an arc/circle/spline and a line (got {{actual}})",
         "fixedNeedsPoint": "The fixed constraint only accepts a point (got {{actual}})"
       }
     },

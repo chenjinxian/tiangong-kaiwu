@@ -71,8 +71,9 @@ export const CONSTRAINT_SLOT_SHAPES: Record<
   equal: [['line', 'line'], ['circle', 'circle']],
   // 中心点+线，或三点（首点为后两点连线中点）——Tutorial 2 两种形态都在用。
   midpoint: [['point', 'line'], ['point', 'point', 'point']],
-  // 弧/样条 + 线（顺序不限）；弧/样条成对亦由求解器支持。
-  tangent: [['arc', 'line'], ['spline', 'line'], ['line', 'arc'], ['line', 'spline'], ['arc', 'arc'], ['spline', 'spline']],
+  // 弧/整圆/样条 + 线（顺序不限）；弧/样条成对亦由求解器支持。整圆语义为
+  // line 端点（经 coincident）落在圆上的端点相切，见 SolverTypes.ts。
+  tangent: [['arc', 'line'], ['circle', 'line'], ['spline', 'line'], ['line', 'arc'], ['line', 'circle'], ['line', 'spline'], ['arc', 'arc'], ['spline', 'spline']],
   fixed: [['point']],
 };
 

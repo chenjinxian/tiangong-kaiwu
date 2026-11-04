@@ -393,8 +393,17 @@ Expected: every blocked example names a concrete shared contract gap and the ADR
   5 面域（3 材料 + 2 孔）→ E1 三材料 25mm NEW → E2 左环 symmetric 50mm ADD →
   Chamfer 2mm 三 cap 边；单 body、四特征 status 0、终体积 **157.165 cm³**
   （目标 157.479，**-0.20%**，<0.5%）。
-  已知约束缺口：4 条 line+整圆 tangent 省略（草图 dof=4）；DIAMETER/UI/chamfer
-  创建链仍按 ADR-0004 后续批次。
+  当时已知约束缺口：4 条 line+整圆 tangent 省略（草图 dof=4）、DIAMETER 映射为
+  radius；两项均已在下方「ADR-0004 第一切片完成」补齐（iOS 回放现为 dof=0）。
+- **ADR-0004 第一切片完成（shared 1.23.0）**：construction、diameter、concentric、
+  driven、line+整圆 tangent（端点共圆语义；内部 1 条半径线⟂line，DOF 净 −1）。
+  后端 sketch **87/87**、web 目标测试绿；iOS 回放改为**全量约束**：
+  `status=ok dof=0`（4 tangent + 2 DIAMETER 全参与），终体积 157.165 cm³ 不变。
+  前端约束槽位接受 circle+line；圆尺寸默认 DIAMETER/⌀ 标注、construction 切换与虚线。
+- **ADR-0005 Phase 2 第一项（v1.23）**：revolve `operation="new"` 已落地——NEW-body 行
+  不消费上游，独立新体；schema 拒绝 new+mergeScope；FeatureService 目标规划与
+  FeatureDialog 新建页签同步。验证：后端 feature 子集 **79/79**（含 revolve NEW
+  第二个 body、4000π 圆柱体积）、FeatureDialog **130/130**。
 - ADR-0004/0005 已接受；0005 聚焦 extrude/revolve，其余特征转 ADR-0006。
 - **ADR-0005 Phase 1 已落地（shared 1.22.0）**：extrude `remove`/`intersect`、
   `endBound=blind|throughAll`、`direction`、`startOffsetMm`；revolve `remove`。

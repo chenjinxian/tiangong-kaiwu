@@ -1143,7 +1143,7 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect(applyOp).toHaveBeenCalledTimes(5);
   });
 
-  it('特征内 operation（v1.22）：revolve 移除页签启用、新建仍禁用', async () => {
+  it('特征内 operation（v1.23）：revolve 新建/移除页签启用，相交仍禁用', async () => {
     featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
     render(
       <FeatureDialog
@@ -1155,8 +1155,8 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
+    expect((screen.getByRole('tab', { name: '新建' }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByRole('tab', { name: '新建' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -1297,7 +1297,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'revolve',
-      params: { sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 3 }, fullRevolve: true },
+      params: { sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 3 }, fullRevolve: true, operation: 'new' },
     });
   });
 
@@ -1309,7 +1309,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'revolve',
-      params: { sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 4 }, fullRevolve: true },
+      params: { sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 4 }, fullRevolve: true, operation: 'new' },
     });
   });
 
@@ -1351,6 +1351,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
         axis: { sketchEntityId: 3 },
         fullRevolve: false,
         angle: Math.PI,
+        operation: 'new',
       },
     });
   });

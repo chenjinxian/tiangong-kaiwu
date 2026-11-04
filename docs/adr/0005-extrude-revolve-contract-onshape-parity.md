@@ -1,7 +1,8 @@
 # ADR-0005：拉伸/旋转特征契约扩展（终止条件、布尔、方向与 draft）
 
-- 状态：已接受（2026-11-04；Phase 1 已落地：extrude endBound blind/throughAll、direction、
-  startOffsetMm、operation remove/intersect；revolve remove 已落地；revolve new 与 upTo*/draft 仍待后续）
+- 状态：已接受（2026-11-04；Phase 1：extrude endBound blind/throughAll、direction、
+  startOffsetMm、operation remove/intersect；Phase 2 已落地 revolve new；upTo*/draft/
+  secondDirection 仍待后续）
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md`
 - 决策者：LubanCAD 平台团队
@@ -103,8 +104,14 @@ adapter 中映射为对应草图面域（左环面域）；如果映射后的体
   1.21.0，发布前必须按 shared→backend→web 重建，否则 RPC 版本门禁会拒绝。
 - revolve remove 已落地：`RevolveParams.operation="remove"` → Subtract；UI revolve 移除页签启用。
   验证：`RevolveFlow.test.ts` 9/9（方柱 − 半圆柱 = 64−π）。
+- **Phase 2 第一项（v1.23，2026-11-04）：revolve operation="new" 已落地**——NEW-body 行
+  不消费上游平铺条目，`AsyncFeatureEval` 直接返回旋转工具体；schema 拒绝 new+mergeScope；
+  FeatureService 的 NEW-body 目标规划与 UI 替换/回显同步支持 revolve。验证：
+  `FeatureOperationSemantics` 新增「上游已存在时 revolve NEW 产出第二个独立 body」
+  （10×20 矩形绕底边 4000π 圆柱，总体积 500+4000π）；`FeatureTypeRegistry` new 接受、
+  mergeScope 拒收；FeatureDialog 130/130（revolve 新建页签启用，相交仍禁用）。
 - 未实现（仍诚实拒收/待办）：upToNext/upToSurface/upToVertex、draft、secondDirection、
-  revolve new、face-extrude。
+  face-extrude。
 
 ## 备选方案
 

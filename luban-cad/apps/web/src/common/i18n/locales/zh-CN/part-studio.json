@@ -852,7 +852,7 @@
         "equalNoMixing": "相等约束的两个元素必须同为线或同为圆",
         "slotMismatch": "元素类型不符合该约束的槽位要求",
         "midpointNeedsPointLine": "中点约束需要点+线或三个点（当前为{{actual}}）",
-        "tangentNeedsCurveLine": "相切约束需要弧/样条与线（当前为{{actual}}）",
+        "tangentNeedsCurveLine": "相切约束需要弧/整圆/样条与线（当前为{{actual}}）",
         "fixedNeedsPoint": "固定约束只能拾取点（当前为{{actual}}）"
       }
     },
