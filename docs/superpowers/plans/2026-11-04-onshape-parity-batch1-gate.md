@@ -405,6 +405,10 @@ Expected: every blocked example names a concrete shared contract gap and the ADR
   不消费上游，独立新体；schema 拒绝 new+mergeScope；FeatureService 目标规划与
   FeatureDialog 新建页签同步。验证：后端 feature 子集 **79/79**（含 revolve NEW
   第二个 body、4000π 圆柱体积）、FeatureDialog **130/130**。
+- **第二示例复刻（2026-11-05）**：`Exercise: Basic Drawing`（Training Repo）通过数据驱动
+  converter v2 生成场景并在后端回放：sketch（Right，construction centerline + 镜像线）
+  → revolve FULL NEW；体积 2442.2935 cm³（Onshape 2442.2938，-0.00%）。未映射约束
+  （MIRROR/CENTERLINE_DIMENSION/单点 HORIZONTAL/point+line COINCIDENT）显式登记。
 - **ADR-0006 切片 A（shared 1.26.0）**：`hole` 简单平底钻孔 backend/contract 落地
   （位置=草图 point → 圆 Sweep → Subtract；blind/throughAll、pointIds、方向）。
   `HoleFlow` 3/3：throughAll 4000−40π、blind 多孔、精确选位与非法 id status=1；

@@ -82,6 +82,16 @@ extrude `secondDirection` 已落地（backend/contract only，UI 证据待补）
 - sheet metal、assembly mate、drawing、custom FeatureScript（logoMaker/thread/myFeature）。
 - 这些示例的对应 Part Studio 可以登记为 `blocked-capability`，不进入 Batch 1 绿门。
 
+## 已复刻示例（geometry replay）
+
+- **Exercise: Basic Drawing**（Onshape Training Repo，doc `58d05174…` / PS `4a289bd0…`）：
+  数据驱动场景（`tools/scenario/from-onshape-v2.mjs`）——Right 平面 sketch（20 线，含
+  construction centerline 与镜像几何）→ 全周 revolve NEW。后端
+  `BasicDrawingReplay.test.ts`：单 body、特征树 `sketch/revolve`，体积
+  **2442.2935 cm³**（Onshape 2442.2938，-0.00%）。场景保留 MIRROR /
+  CENTERLINE_DIMENSION / 单点 HORIZONTAL / point+line COINCIDENT 为未映射缺口，
+  不宣称约束树完整。
+
 ## 数据批次
 
 2026-11-04 已完成：Batch 1 的 parts + 逐 body 质量属性（Bench 4 PS、Quickstart 4 PS、
