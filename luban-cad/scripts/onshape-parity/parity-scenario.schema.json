@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luban-cad.dev/schemas/parity-scenario.v1.json",
+  "title": "LubanCAD Onshape parity scenario v1",
+  "description": "Test-only scenario contract for replaying an Onshape Part Studio in LubanCAD. This is not a runtime RPC contract; see docs/adr/0003-onshape-parity-scenario-contract.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "features", "expected", "provenance"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "docId": { "type": "string" },
+    "elementId": { "type": "string" },
+    "owner": { "type": "string" },
+    "name": { "type": "string" },
+    "units": {
+      "description": "Units used by feature params and sketch coordinates. Expected volume is always m^3.",
+      "enum": ["mm", "m"]
+    },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    },
+    "expected": { "$ref": "#/$defs/expected" },
+    "ui": { "$ref": "#/$defs/ui" },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name", "params"],
+      "properties": {
+        "type": {
+          "enum": [
+            "sketch",
+            "extrude",
+            "revolve",
+            "fillet",
+            "chamfer",
+            "shell",
+            "mirror",
+            "pattern",
+            "booleanBodies",
+            "booleanAdd",
+            "booleanSubtract",
+            "loft",
+            "sweep"
+          ]
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "sourceFeatureId": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "params": { "type": "object" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["volumeM3", "bodyCount", "tolerance"],
+      "properties": {
+        "volumeM3": { "type": "number", "minimum": 0 },
+        "bodyCount": { "type": "integer", "minimum": 0 },
+        "featureTree": { "type": "array", "items": { "type": "string" } },
+        "tolerance": {
+          "description": "Relative volume tolerance; Tutorial 2 uses 0.005, default parity uses 0.01.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "bodies": { "type": "array", "items": { "$ref": "#/$defs/body" } },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["volumeM3"],
+      "properties": {
+        "partId": { "type": "string" },
+        "name": { "type": "string" },
+        "volumeM3": { "type": "number", "minimum": 0 },
+        "massKg": { "type": "number", "minimum": 0 },
+        "centroid": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "vec3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "path"],
+            "properties": {
+              "kind": { "enum": ["screenshot", "dom", "aria", "video"] },
+              "path": { "type": "string", "minLength": 1 },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capturedAt", "status"],
+      "properties": {
+        "capturedAt": { "type": "string", "minLength": 1 },
+        "sourceMicroversion": { "type": "string" },
+        "rawFeaturesSha256": { "type": "string" },
+        "status": {
+          "enum": ["complete", "blocked-evidence", "blocked-capability"]
+        },
+        "missing": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "blocked-evidence" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["missing"] }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "blocked-capability" } },
+            "required": ["status"]
+          },
+          "then": { "required": ["missing"] }
+        }
+      ]
+    }
+  }
+}

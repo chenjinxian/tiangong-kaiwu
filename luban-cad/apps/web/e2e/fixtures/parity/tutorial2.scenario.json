@@ -1,0 +1,1130 @@
+{
+  "schemaVersion": 1,
+  "id": "onshape-tutorial2-build-a-part",
+  "docId": "5f5052a120e3451a48484808",
+  "elementId": "c0cf346ec3bef1726450f500",
+  "owner": "onshape",
+  "name": "First Part",
+  "units": "mm",
+  "features": [
+    {
+      "type": "sketch",
+      "name": "Sketch 1",
+      "sourceFeatureId": "FsvJ924yhwGOdQs_0",
+      "sourceType": "newSketch",
+      "params": {
+        "plane": {
+          "origin": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "xDir": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          }
+        },
+        "entities": [
+          {
+            "id": 1,
+            "sourceId": "4bbb934d-0ef4-4e83-bd87-71beb03a387b.rect.bottom",
+            "kind": "line",
+            "p1": {
+              "x": -41.275,
+              "y": -9.525
+            },
+            "p2": {
+              "x": 41.275,
+              "y": -9.525
+            }
+          },
+          {
+            "id": 2,
+            "sourceId": "4bbb934d-0ef4-4e83-bd87-71beb03a387b.rect.top",
+            "kind": "line",
+            "p1": {
+              "x": -41.275,
+              "y": 9.525
+            },
+            "p2": {
+              "x": 41.275,
+              "y": 9.525
+            }
+          },
+          {
+            "id": 3,
+            "sourceId": "4bbb934d-0ef4-4e83-bd87-71beb03a387b.rect.left",
+            "kind": "line",
+            "p1": {
+              "x": -41.275,
+              "y": -9.525
+            },
+            "p2": {
+              "x": -41.275,
+              "y": 9.525
+            }
+          },
+          {
+            "id": 4,
+            "sourceId": "4bbb934d-0ef4-4e83-bd87-71beb03a387b.rect.right",
+            "kind": "line",
+            "p1": {
+              "x": 41.275,
+              "y": -9.525
+            },
+            "p2": {
+              "x": 41.275,
+              "y": 9.525
+            }
+          },
+          {
+            "id": 5,
+            "sourceId": "4bbb934d-0ef4-4e83-bd87-71beb03a387b.rect.middle",
+            "kind": "point",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "id": 6,
+            "sourceId": "qWNQFZYz-YRwg-BDnY-Mkhf-yKiAhuXpCSrl",
+            "kind": "line",
+            "p1": {
+              "x": 41.275,
+              "y": -9.525
+            },
+            "p2": {
+              "x": 41.275,
+              "y": -27.0002
+            }
+          },
+          {
+            "id": 7,
+            "sourceId": "51f3bc57-1325-4e7c-99b0-058aa69d2a80",
+            "kind": "arc",
+            "center": {
+              "x": 57.15,
+              "y": -27.0002
+            },
+            "radius": 15.875,
+            "startAngle": -3.141592653589793,
+            "sweepAngle": 1.5707963267948966
+          },
+          {
+            "id": 8,
+            "sourceId": "VN1vDrE9-9rhM-t6L7-seoI-iifckboQqW2z",
+            "kind": "line",
+            "p1": {
+              "x": 57.15,
+              "y": -42.8752
+            },
+            "p2": {
+              "x": 85.725,
+              "y": -42.8752
+            }
+          },
+          {
+            "id": 9,
+            "sourceId": "4e1e7f54-c948-48b7-9be1-c759b32187ce.rect.bottom",
+            "kind": "line",
+            "p1": {
+              "x": 60.325,
+              "y": -38.1
+            },
+            "p2": {
+              "x": 111.125,
+              "y": -38.1
+            }
+          },
+          {
+            "id": 10,
+            "sourceId": "4e1e7f54-c948-48b7-9be1-c759b32187ce.rect.top",
+            "kind": "line",
+            "p1": {
+              "x": 60.325,
+              "y": -66.675
+            },
+            "p2": {
+              "x": 111.125,
+              "y": -66.675
+            }
+          },
+          {
+            "id": 11,
+            "sourceId": "4e1e7f54-c948-48b7-9be1-c759b32187ce.rect.left",
+            "kind": "line",
+            "p1": {
+              "x": 60.325,
+              "y": -38.1
+            },
+            "p2": {
+              "x": 60.325,
+              "y": -66.675
+            }
+          },
+          {
+            "id": 12,
+            "sourceId": "4e1e7f54-c948-48b7-9be1-c759b32187ce.rect.right",
+            "kind": "line",
+            "p1": {
+              "x": 111.125,
+              "y": -38.1
+            },
+            "p2": {
+              "x": 111.125,
+              "y": -66.675
+            }
+          },
+          {
+            "id": 13,
+            "sourceId": "4e1e7f54-c948-48b7-9be1-c759b32187ce.rect.middle",
+            "kind": "point",
+            "x": 85.725,
+            "y": -52.3875
+          },
+          {
+            "id": 14,
+            "sourceId": "f224b4cb-e203-45c9-9eaa-14969bb7630d.0",
+            "kind": "line",
+            "p1": {
+              "x": 57.15,
+              "y": -61.9252
+            },
+            "p2": {
+              "x": 85.725,
+              "y": -61.9252
+            }
+          },
+          {
+            "id": 15,
+            "sourceId": "f224b4cb-e203-45c9-9eaa-14969bb7630d.1",
+            "kind": "arc",
+            "center": {
+              "x": 57.15,
+              "y": -27.0002
+            },
+            "radius": 34.925,
+            "startAngle": -3.141592653589793,
+            "sweepAngle": 1.5707963267948966
+          },
+          {
+            "id": 16,
+            "sourceId": "f224b4cb-e203-45c9-9eaa-14969bb7630d.2",
+            "kind": "line",
+            "p1": {
+              "x": 22.225,
+              "y": -9.525
+            },
+            "p2": {
+              "x": 22.225,
+              "y": -27.0002
+            }
+          },
+          {
+            "id": 17,
+            "sourceId": "mIqPK4pu-UhI2-CuNv-TtCn-32D9RiMOUjL4",
+            "kind": "line",
+            "p1": {
+              "x": 85.725,
+              "y": -38.1
+            },
+            "p2": {
+              "x": 85.725,
+              "y": -66.675
+            }
+          },
+          {
+            "id": 18,
+            "sourceId": "f4982b6b-8bb9-49bf-8bdc-2ed470ae9e6c",
+            "kind": "spline",
+            "fitPoints": [
+              {
+                "x": -41.275,
+                "y": -9.525
+              },
+              {
+                "x": 57.15,
+                "y": -61.9252
+              }
+            ],
+            "controlPoints": [
+              {
+                "x": -41.275,
+                "y": -9.525
+              },
+              {
+                "x": -39.539240300655365,
+                "y": -40.3054840862751
+              },
+              {
+                "x": 16.84481836855411,
+                "y": -60.51863729953766
+              },
+              {
+                "x": 57.15,
+                "y": -61.9252
+              }
+            ],
+            "periodic": false
+          }
+        ],
+        "constraints": [
+          {
+            "id": 1,
+            "sourceIndex": 0,
+            "sourceType": "MIDPOINT",
+            "kind": "midpoint",
+            "refs": [
+              5,
+              {
+                "entity": 2,
+                "part": "start"
+              },
+              {
+                "entity": 1,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "sourceIndex": 1,
+            "sourceType": "MIDPOINT",
+            "kind": "midpoint",
+            "refs": [
+              5,
+              {
+                "entity": 2,
+                "part": "end"
+              },
+              {
+                "entity": 1,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "sourceIndex": 2,
+            "sourceType": "PERPENDICULAR",
+            "kind": "perpendicular",
+            "refs": [
+              2,
+              3
+            ]
+          },
+          {
+            "id": 4,
+            "sourceIndex": 3,
+            "sourceType": "PARALLEL",
+            "kind": "parallel",
+            "refs": [
+              1,
+              2
+            ]
+          },
+          {
+            "id": 5,
+            "sourceIndex": 4,
+            "sourceType": "PARALLEL",
+            "kind": "parallel",
+            "refs": [
+              3,
+              4
+            ]
+          },
+          {
+            "id": 6,
+            "sourceIndex": 5,
+            "sourceType": "HORIZONTAL",
+            "kind": "horizontal",
+            "refs": [
+              2
+            ]
+          },
+          {
+            "id": 7,
+            "sourceIndex": 6,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 1,
+                "part": "start"
+              },
+              {
+                "entity": 3,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "sourceIndex": 7,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 1,
+                "part": "end"
+              },
+              {
+                "entity": 4,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 9,
+            "sourceIndex": 8,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 2,
+                "part": "start"
+              },
+              {
+                "entity": 3,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 10,
+            "sourceIndex": 9,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 2,
+                "part": "end"
+              },
+              {
+                "entity": 4,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 11,
+            "sourceIndex": 10,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              5,
+              {
+                "origin": true
+              }
+            ]
+          },
+          {
+            "id": 12,
+            "sourceIndex": 11,
+            "sourceType": "LENGTH",
+            "kind": "length",
+            "refs": [
+              2
+            ],
+            "valueMm": 82.55,
+            "valueSource": "3.25*inch"
+          },
+          {
+            "id": 13,
+            "sourceIndex": 12,
+            "sourceType": "LENGTH",
+            "kind": "length",
+            "refs": [
+              3
+            ],
+            "valueMm": 19.05,
+            "valueSource": ".75*inch"
+          },
+          {
+            "id": 14,
+            "sourceIndex": 13,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 6,
+                "part": "start"
+              },
+              {
+                "entity": 1,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 15,
+            "sourceIndex": 14,
+            "sourceType": "VERTICAL",
+            "kind": "vertical",
+            "refs": [
+              6
+            ]
+          },
+          {
+            "id": 16,
+            "sourceIndex": 15,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 6,
+                "part": "end"
+              },
+              {
+                "entity": 7,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 17,
+            "sourceIndex": 16,
+            "sourceType": "TANGENT",
+            "kind": "tangent",
+            "refs": [
+              7,
+              6
+            ]
+          },
+          {
+            "id": 18,
+            "sourceIndex": 17,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 8,
+                "part": "start"
+              },
+              {
+                "entity": 7,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 19,
+            "sourceIndex": 18,
+            "sourceType": "TANGENT",
+            "kind": "tangent",
+            "refs": [
+              8,
+              7
+            ]
+          },
+          {
+            "id": 20,
+            "sourceIndex": 19,
+            "sourceType": "HORIZONTAL",
+            "kind": "horizontal",
+            "refs": [
+              8
+            ]
+          },
+          {
+            "id": 21,
+            "sourceIndex": 20,
+            "sourceType": "MIDPOINT",
+            "kind": "midpoint",
+            "refs": [
+              13,
+              {
+                "entity": 10,
+                "part": "start"
+              },
+              {
+                "entity": 9,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 22,
+            "sourceIndex": 21,
+            "sourceType": "MIDPOINT",
+            "kind": "midpoint",
+            "refs": [
+              13,
+              {
+                "entity": 10,
+                "part": "end"
+              },
+              {
+                "entity": 9,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 23,
+            "sourceIndex": 22,
+            "sourceType": "PERPENDICULAR",
+            "kind": "perpendicular",
+            "refs": [
+              10,
+              11
+            ]
+          },
+          {
+            "id": 24,
+            "sourceIndex": 23,
+            "sourceType": "PARALLEL",
+            "kind": "parallel",
+            "refs": [
+              9,
+              10
+            ]
+          },
+          {
+            "id": 25,
+            "sourceIndex": 24,
+            "sourceType": "PARALLEL",
+            "kind": "parallel",
+            "refs": [
+              11,
+              12
+            ]
+          },
+          {
+            "id": 26,
+            "sourceIndex": 25,
+            "sourceType": "HORIZONTAL",
+            "kind": "horizontal",
+            "refs": [
+              10
+            ]
+          },
+          {
+            "id": 27,
+            "sourceIndex": 26,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 9,
+                "part": "start"
+              },
+              {
+                "entity": 11,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 28,
+            "sourceIndex": 27,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 9,
+                "part": "end"
+              },
+              {
+                "entity": 12,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 29,
+            "sourceIndex": 28,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 10,
+                "part": "start"
+              },
+              {
+                "entity": 11,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 30,
+            "sourceIndex": 29,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 10,
+                "part": "end"
+              },
+              {
+                "entity": 12,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 31,
+            "sourceIndex": 30,
+            "sourceType": "VERTICAL",
+            "kind": "vertical",
+            "refs": [
+              13,
+              {
+                "entity": 8,
+                "part": "end"
+              }
+            ]
+          },
+          {
+            "id": 32,
+            "sourceIndex": 31,
+            "sourceType": "RADIUS",
+            "kind": "radius",
+            "refs": [
+              7
+            ],
+            "valueMm": 15.875,
+            "valueSource": ".625*inch"
+          },
+          {
+            "id": 33,
+            "sourceIndex": 32,
+            "sourceType": "LENGTH",
+            "kind": "length",
+            "refs": [
+              9
+            ],
+            "valueMm": 50.8,
+            "valueSource": "2*inch"
+          },
+          {
+            "id": 34,
+            "sourceIndex": 33,
+            "sourceType": "DISTANCE",
+            "kind": "distance",
+            "refs": [
+              8,
+              2
+            ],
+            "valueMm": 52.4002,
+            "valueSource": "2.063*inch"
+          },
+          {
+            "id": 35,
+            "sourceIndex": 34,
+            "sourceType": "LENGTH",
+            "kind": "length",
+            "refs": [
+              12
+            ],
+            "valueMm": 28.575,
+            "valueSource": "1.125*inch"
+          },
+          {
+            "id": 36,
+            "sourceIndex": 35,
+            "sourceType": "DISTANCE",
+            "kind": "distance",
+            "refs": [
+              10,
+              2
+            ],
+            "valueMm": 76.2,
+            "valueSource": "3*inch"
+          },
+          {
+            "id": 37,
+            "sourceIndex": 36,
+            "sourceType": "DISTANCE",
+            "kind": "distance",
+            "refs": [
+              13,
+              4
+            ],
+            "valueMm": 44.45,
+            "valueSource": "1.75*inch"
+          },
+          {
+            "id": 38,
+            "sourceIndex": 37,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 15,
+                "part": "end"
+              },
+              {
+                "entity": 14,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 39,
+            "sourceIndex": 38,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 16,
+                "part": "end"
+              },
+              {
+                "entity": 15,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 40,
+            "sourceIndex": 39,
+            "sourceType": "DISTANCE",
+            "kind": "distance",
+            "refs": [
+              6,
+              16
+            ],
+            "valueMm": 19.05,
+            "valueSource": ".75*inch"
+          },
+          {
+            "id": 41,
+            "sourceIndex": 40,
+            "sourceType": "OFFSET",
+            "kind": "offset",
+            "refs": [
+              16,
+              6,
+              15,
+              7
+            ],
+            "valueMm": 19.05,
+            "pairs": [
+              {
+                "offset": 16,
+                "master": 6
+              },
+              {
+                "offset": 15,
+                "master": 7
+              }
+            ],
+            "valueSource": ".75*inch"
+          },
+          {
+            "id": 42,
+            "sourceIndex": 41,
+            "sourceType": "OFFSET",
+            "kind": "offset",
+            "refs": [
+              16,
+              6,
+              14,
+              8
+            ],
+            "valueMm": 19.05,
+            "pairs": [
+              {
+                "offset": 16,
+                "master": 6
+              },
+              {
+                "offset": 14,
+                "master": 8
+              }
+            ],
+            "valueSource": ".75*inch"
+          },
+          {
+            "id": 43,
+            "sourceIndex": 42,
+            "sourceType": "MIDPOINT",
+            "kind": "midpoint",
+            "refs": [
+              {
+                "entity": 17,
+                "part": "start"
+              },
+              9
+            ]
+          },
+          {
+            "id": 44,
+            "sourceIndex": 43,
+            "sourceType": "MIDPOINT",
+            "kind": "midpoint",
+            "refs": [
+              {
+                "entity": 17,
+                "part": "end"
+              },
+              10
+            ]
+          },
+          {
+            "id": 45,
+            "sourceIndex": 44,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 18,
+                "part": "point",
+                "index": 0
+              },
+              {
+                "entity": 1,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 46,
+            "sourceIndex": 45,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 18,
+                "part": "point",
+                "index": 1
+              },
+              {
+                "entity": 14,
+                "part": "start"
+              }
+            ]
+          },
+          {
+            "id": 47,
+            "sourceIndex": 46,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 18,
+                "part": "start"
+              },
+              {
+                "entity": 18,
+                "part": "point",
+                "index": 0
+              }
+            ]
+          },
+          {
+            "id": 48,
+            "sourceIndex": 47,
+            "sourceType": "COINCIDENT",
+            "kind": "coincident",
+            "refs": [
+              {
+                "entity": 18,
+                "part": "end"
+              },
+              {
+                "entity": 18,
+                "part": "point",
+                "index": 1
+              }
+            ]
+          }
+        ],
+        "axisEntityId": 17,
+        "visibleEntityIds": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ]
+      }
+    },
+    {
+      "type": "extrude",
+      "name": "Extrude 1",
+      "sourceFeatureId": "FTKbSiPSvY6H3xX_0",
+      "params": {
+        "operation": "new",
+        "depthMm": 127,
+        "symmetric": true,
+        "endBound": "BLIND",
+        "regionRoles": [
+          "base"
+        ],
+        "regionGeometryIds": [
+          "JGG"
+        ],
+        "booleanScope": [],
+        "allMerge": false
+      }
+    },
+    {
+      "type": "extrude",
+      "name": "Extrude 2",
+      "sourceFeatureId": "FSsHdwtXuzgd3vt_1",
+      "params": {
+        "operation": "add",
+        "depthMm": 50.8,
+        "symmetric": true,
+        "endBound": "BLIND",
+        "regionRoles": [
+          "band",
+          "bandWing"
+        ],
+        "regionGeometryIds": [
+          "JGa",
+          "JGe"
+        ],
+        "booleanScope": [
+          "JHD"
+        ],
+        "allMerge": false
+      }
+    },
+    {
+      "type": "extrude",
+      "name": "Extrude 3",
+      "sourceFeatureId": "F5xrzK8112eH25q_1",
+      "params": {
+        "operation": "add",
+        "depthMm": 15.875,
+        "symmetric": true,
+        "endBound": "BLIND",
+        "regionRoles": [
+          "lobe"
+        ],
+        "regionGeometryIds": [
+          "JGK"
+        ],
+        "booleanScope": [
+          "JHD"
+        ],
+        "allMerge": false
+      }
+    },
+    {
+      "type": "revolve",
+      "name": "Revolve 1",
+      "sourceFeatureId": "FYUddAni0cAng1n_1",
+      "params": {
+        "operation": "add",
+        "fullRevolve": true,
+        "revolveType": "FULL",
+        "regionRoles": [
+          "revolveProfile"
+        ],
+        "regionGeometryIds": [
+          "JGW"
+        ],
+        "axisGeometryIds": [
+          "JF5"
+        ],
+        "axisEntityId": 17,
+        "booleanScope": [
+          "JHD"
+        ],
+        "allMerge": false
+      }
+    },
+    {
+      "type": "fillet",
+      "name": "Fillet 1",
+      "sourceFeatureId": "FO38R2Pyt1GnVd3_1",
+      "params": {
+        "radiusMm": 5.08,
+        "tangentPropagation": true,
+        "onshapeEdgeIds": [
+          "JHt",
+          "JHl",
+          "JHp",
+          "JHh"
+        ],
+        "edgeIntent": {
+          "kind": "box-end-short-edges",
+          "sourceFeature": "Extrude 1",
+          "cornersMm": [
+            {
+              "x": -41.275,
+              "y": -63.5
+            },
+            {
+              "x": 41.275,
+              "y": -63.5
+            },
+            {
+              "x": 41.275,
+              "y": 63.5
+            },
+            {
+              "x": -41.275,
+              "y": 63.5
+            }
+          ],
+          "axis": "z",
+          "lengthMm": 19.05,
+          "extentMm": [
+            -9.525,
+            9.525
+          ],
+          "expectedOwnIds": [
+            "1:1",
+            "1:3",
+            "1:8",
+            "1:10"
+          ]
+        }
+      }
+    }
+  ],
+  "expected": {
+    "volumeM3": 0.00035756817668004945,
+    "bodyCount": 1,
+    "featureTree": [
+      "Sketch 1",
+      "Extrude 1",
+      "Extrude 2",
+      "Extrude 3",
+      "Revolve 1",
+      "Fillet 1"
+    ],
+    "tolerance": 0.005,
+    "notes": [
+      "volumeCm3Api=357.5681766800494",
+      "lubanNoFilletCm3=357.988",
+      "lubanFourEdgeFilletCm3=357.566",
+      "filletRemovalCm3=0.422"
+    ]
+  },
+  "provenance": {
+    "capturedAt": "2026-11-01",
+    "sourceMicroversion": "af52e61bb0215c37eb302018",
+    "rawFeaturesSha256": "79b670a00f2c9f726c81c97f461bb043dd79d3262715bc923c25840508b0f2d4",
+    "status": "complete",
+    "notes": [
+      "gold=tutorial2.gold.json",
+      "volumeCm3Api=357.5681766800494",
+      "volumeCm3Luban=357.566"
+    ]
+  }
+}
