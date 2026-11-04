@@ -78,7 +78,8 @@
  * 旧路径互斥，服务端 zod 拒收 mixed 形态）；symmetric 对布尔不适用（隐藏+不进载荷）。
  * 上游门禁（B1 复审 Important）：布尔特征 requiresUpstream=true，无实体（hasBodies=false）
  * 时加入/移除页签禁用 + 提交禁用 + 诚实提示（后端 op 边界同口径拒收，双层防御）；
- * 相交无后端特征类型，提交态页签禁用 + 提示（不可静默降级为并集）。
+ * 相交：v1.22（ADR-0005）extrude 通道已落地；显式 booleanAdd/Subtract 仍无
+ * 后端相交类型，提交态页签禁用 + 提示（不可静默降级为并集）。
  *
  * revolve 通道（M6-b T4，照 M6-a T6 拉伸通道同构复刻）：sketchChannel 扩
  * revolve——草图/面域拾取两下拉全复用，revolve 分支增：
@@ -622,7 +623,8 @@ export function FeatureDialog({
 
   // 布尔作用域 → 提交语义：
   // - v1.19（Tutorial 2）：extrude/revolve 的「新建/加入」是**同一特征内**的 operation
-  //   （不再拆 booleanAdd 特征行）；「移除」求值未实现→页签禁用+诚实提示。
+  //   （不再拆 booleanAdd 特征行）。
+  // - v1.22（ADR-0005）：extrude 的 remove/intersect 后端已落地；revolve 仍仅 add。
   // - 显式 booleanAdd/booleanSubtract 对话框保留旧映射（加入→booleanAdd、移除→booleanSubtract）。
   const nativeOperationScope = featureType === 'extrude' || featureType === 'revolve';
   const booleanScopeCapable =
@@ -631,11 +633,11 @@ export function FeatureDialog({
     applyOp !== undefined;
   const booleanScopeMapped = booleanScopeCapable && !nativeOperationScope ? booleanScopeFeatureType(booleanScope) : undefined;
   const effectiveFeatureType = booleanScopeMapped ?? featureType;
-  // 特征内 operation：仅 extrude 的 new/add 已实现；revolve 仅 add。移除两类型均未实现。
+  // 特征内 operation：extrude 的 new/add/remove/intersect 均已实现；revolve 为 add/remove。
   const nativeOperation = nativeOperationScope
     ? (featureType === 'revolve'
-        ? (booleanScope === 'add' ? 'add' : undefined) // revolve 仅 add 已实现（new/remove 页签禁用）
-        : (booleanScope === 'new' || booleanScope === 'add' ? booleanScope : undefined))
+        ? (booleanScope === 'add' || booleanScope === 'remove' ? booleanScope : undefined)
+        : booleanScope)
     : undefined;
   // 草图通道（M6-a T6 extrude / M6-b T4 revolve；M7 v1.10 扩布尔）：新建提交走 sketchId 寻址
   //（数据源/门禁裁决见文件头注）；其余特征类型与 edit/壳期路径一概不进本通道。
@@ -1142,6 +1144,7 @@ export function FeatureDialog({
         selected,
         direction === 'backward' ? -magnitude : magnitude,
         symmetric,
+        Number(startOffset) || 0,
       );
     }
     if (revolveChannel) {
@@ -1172,6 +1175,7 @@ export function FeatureDialog({
     selectedAxisId,
     distance,
     direction,
+    startOffset,
     symmetric,
     fullRevolve,
     angleDegrees,
@@ -1522,9 +1526,14 @@ export function FeatureDialog({
                   // T4-minor 接线收口：对称复选勾选才带键（缺省省略=载荷向后
                   // 兼容，既有钉形测试不破）。
                   ...(symmetric ? { symmetric: true } : {}),
-                  // v1.19：operation 为 Onshape「新建/加入」页签真源；newBody 不再作为
+                  // v1.19：operation 为 Onshape「新建/加入/移除/相交」页签真源；newBody 不再作为
                   // 提交键（服务端 isNewBody 同时认 operation="new"），避免双真源。
                   ...(nativeOperation ? { operation: nativeOperation } : {}),
+                  // v1.22（ADR-0005）：方向/起始偏移从本地 UI 状态变为真实参数。
+                  ...(direction === 'backward' ? { direction: 'backward' as const } : {}),
+                  ...(startOffset.trim() !== '' && Number.isFinite(Number(startOffset))
+                    ? { startOffsetMm: Number(startOffset) }
+                    : {}),
                   ...(mergeScopeBodies ? { mergeScope: mergeScopeBodies } : {}),
                 }
               : { profile: [], distance: parsedDistance });
@@ -1780,19 +1789,25 @@ export function FeatureDialog({
             className="part-studio-feature-dialog__tablist"
           >
             {BOOLEAN_SCOPES.map((scope) => {
-              // 提交态禁用（B1 复审）：①相交无后端特征类型，禁用防静默并集；
-              // ②无实体时加入/移除无上游，禁用防「成功 toast + status=1 死特征」；
-              // ③v1.19 特征内 operation：extrude/revolve 的 remove 未实现、revolve 的 new 未实现。
+              // 提交态禁用（B1 复审 + v1.22 ADR-0005）：
+              // ①布尔特征类型的相交仍无后端路径（extrude 已支持）；
+              // ②无实体时加入/移除/相交无上游，禁用防「成功 toast + status=1 死特征」；
+              // ③revolve 的 new 仍未实现（remove 已支持）。
+              const intersectUnsupported = scope === 'intersect'
+                && !(nativeOperationScope && featureType === 'extrude');
               const scopeUnsupported =
-                nativeOperationScope && (scope === 'remove' || (scope === 'new' && featureType === 'revolve'));
+                nativeOperationScope
+                && featureType === 'revolve'
+                && scope === 'new';
               const scopeDisabled =
                 structuralLocked
                 || (booleanScopeCapable
-                  && (scope === 'intersect' || scopeUnsupported || (booleanScopeNoBody && (scope === 'add' || scope === 'remove'))));
+                  && (intersectUnsupported || scopeUnsupported
+                    || (booleanScopeNoBody && (scope === 'add' || scope === 'remove' || scope === 'intersect'))));
               const scopeDisabledHint =
                 structuralLocked
                   ? t('partStudio.featureDialog.editOperationLocked')
-                  : scope === 'intersect'
+                  : intersectUnsupported
                   ? t('partStudio.featureDialog.booleanIntersectUnsupported')
                   : scopeUnsupported
                     ? t('partStudio.featureDialog.booleanOperationUnsupported')

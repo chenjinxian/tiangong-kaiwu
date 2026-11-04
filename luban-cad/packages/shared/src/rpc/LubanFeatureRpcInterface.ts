@@ -114,16 +114,32 @@ export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "f
  * （互斥语义，Registry 层 zod 校验锁死）。本接口的 sketchId 仅 extrude 语义；布尔草图驱动在
  * M7 v1.10 起走独立的 BooleanParams（不共用本接口——见其注），服务端按类型字段集校验。
  */
-/** v1.19：特征内布尔操作（Onshape 同一拉伸/旋转特征的「新建/加入/去除」页签）。 */
-export type FeatureBooleanOperation = "new" | "add" | "remove";
+/** v1.19：特征内布尔操作（Onshape 同一拉伸/旋转特征的「新建/加入/去除/相交」页签）。
+ * v1.22：remove/intersect 后端落地（remove=Subtract，intersect=内核 Intersect）。 */
+export type FeatureBooleanOperation = "new" | "add" | "remove" | "intersect";
+
+/** v1.22（ADR-0005）：拉伸终止条件。upTo* 在 schema 层暂未实现，服务端诚实拒收；
+ * blind/throughAll 已实现。 */
+export type ExtrudeEndBound = "blind" | "throughAll" | "upToNext" | "upToSurface" | "upToVertex";
+
+/** v1.22（ADR-0005）：拉伸方向；backward 等价于沿草图法向反向扫掠。 */
+export type ExtrudeDirection = "forward" | "backward";
 
 export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
   distance: number;
   sketchId?: string;
   /** v1.19：特征内布尔操作（缺省按 legacy：newBody=true→"new"，否则 "add"）。
-   * `mergeScope` 为显式合并目标（Tutorial 2 E2/E3 = 单 Part 1）；空/缺省=自动（全部上游体）。 */
+   * `mergeScope` 为显式合并目标（Tutorial 2 E2/E3 = 单 Part 1）；空/缺省=自动（全部上游体）。
+   * v1.22：remove/intersect 已落地；new 仍走独立 body 规划。 */
   operation?: FeatureBooleanOperation;
+  /** v1.22（ADR-0005）：终止条件。缺省 blind（既有行为）；throughAll 由服务端按上游
+   * 实体范围计算扫掠距离；upTo* 尚未实现，服务端拒收。 */
+  endBound?: ExtrudeEndBound;
+  /** v1.22（ADR-0005）：方向。缺省 forward；backward 沿草图法向反向扫掠。 */
+  direction?: ExtrudeDirection;
+  /** v1.22（ADR-0005）：起始偏移（mm，沿草图法向；可为负）。缺省 0。 */
+  startOffsetMm?: number;
   /** v1.19：合并范围（body 引用）。v1 只支持 0 或 1 个（单 active body）；多目标延后。 */
   mergeScope?: BodyRef[];
   /** @deprecated M6-c v1.8 起被 `regions` 取代（单面域简写）；兼容保留一版——服务端 zod
@@ -534,7 +550,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.21.0";
+  public static interfaceVersion = "1.22.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

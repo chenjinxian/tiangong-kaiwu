@@ -1071,9 +1071,9 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     });
   });
 
-  // Tutorial 2 v1.19：extrude/revolve 的「新建/加入」是同一特征内的 operation，
-  // 不再拆 booleanAdd/booleanSubtract 特征行；移除页签求值未实现→禁用+诚实提示。
-  it('特征内 operation（v1.19）：新建→extrude operation=new；加入→extrude operation=add；移除禁用（未实现）', async () => {
+  // Tutorial 2 v1.19：extrude/revolve 的「新建/加入/移除/相交」是同一特征内的 operation，
+  // 不再拆 booleanAdd/booleanSubtract 特征行；v1.22（ADR-0005）extrude remove/intersect 落地。
+  it('特征内 operation（v1.22）：extrude 新建/加入/移除/相交均提交真实 operation', async () => {
     featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
     const user = userEvent.setup();
     const applyOp = makeApplyOp();
@@ -1087,11 +1087,9 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
         connectionKey="model-key"
       />,
     );
-    expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('part-studio-feature-dialog-intersect-unsupported-hint').textContent).toContain('相交暂不支持');
+    expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('tab', { name: '加入' }) as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole('tab', { name: '移除' }).getAttribute('title')).toContain('暂未实现');
+    expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(false);
 
     await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');
@@ -1104,6 +1102,22 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'add' },
     });
 
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'remove' },
+    });
+
+    await user.click(screen.getByRole('tab', { name: '相交' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'intersect' },
+    });
+
     await user.click(screen.getByRole('tab', { name: '新建' }));
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls.at(-1)![0]).toEqual({
@@ -1111,7 +1125,39 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       featureType: 'extrude',
       params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
-    expect(applyOp).toHaveBeenCalledTimes(2);
+
+    // v1.22：方向/起始偏移从本地 UI 状态进入真实 params。
+    await user.selectOptions(screen.getByRole('combobox', { name: '方向' }), 'backward');
+    await user.click(screen.getByRole('button', { name: '起始偏移' }));
+    await user.type(screen.getByRole('textbox', { name: '起始偏移' }), '2');
+    await user.click(screen.getByRole('tab', { name: '加入' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'add',
+        direction: 'backward', startOffsetMm: 2,
+      },
+    });
+    expect(applyOp).toHaveBeenCalledTimes(5);
+  });
+
+  it('特征内 operation（v1.22）：revolve 移除页签启用、新建仍禁用', async () => {
+    featureRpc.getSketch.mockResolvedValue(sketchDtoWith([{ area: 0.25, outerEntityIds: [1] }]));
+    render(
+      <FeatureDialog
+        featureName="旋转"
+        mode="new"
+        featureType="revolve"
+        applyOp={makeApplyOp()}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('tab', { name: '新建' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   // B1 复审 Important：布尔 requiresUpstream——无实体（sketch-only 模型）时加入/移除
@@ -1136,7 +1182,6 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     expect((screen.getByRole('tab', { name: '移除' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('part-studio-feature-dialog-boolean-no-body-hint').textContent).toContain('布尔操作需要已有实体');
-    expect(screen.getByTestId('part-studio-feature-dialog-intersect-unsupported-hint')).toBeDefined();
     // 草图通道仍可用（extrude 合法路径）：选草图 → 确认提交 extrude。
     await screen.findByTestId('part-studio-feature-dialog-profile-field');
     await screen.findByText('草图 1 的面');

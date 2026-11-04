@@ -111,12 +111,13 @@ export function buildExtrudePreview(
   regions: readonly SketchRegionDto[],
   distance: number,
   symmetric: boolean,
+  startOffset = 0,
 ): FeaturePreviewGeometry {
   if (!Number.isFinite(distance) || Math.abs(distance) < EPS) return emptyPreview();
   const frame = sketchPlaneFrameFrom(plane);
   const normal = frame.normal;
-  const bottomOffset = symmetric ? -distance / 2 : 0;
-  const topOffset = symmetric ? distance / 2 : distance;
+  const bottomOffset = (Number.isFinite(startOffset) ? startOffset : 0) + (symmetric ? -distance / 2 : 0);
+  const topOffset = bottomOffset + distance;
   const boundaryIds = selectedBoundaryIds(regions);
   if (boundaryIds.size === 0) return emptyPreview();
   const polylines = sketchEntitiesToWorldPolylines(entities, plane)

@@ -59,6 +59,13 @@ describe('buildExtrudePreview', () => {
     const backward = buildExtrudePreview(SQUARE, XY_PLANE, [SQUARE_REGION], -6, false);
     expect(backward.lines[0]![0]!.z).toBeCloseTo(0, 9);
     expect(backward.lines[1]![0]!.z).toBeCloseTo(-6, 9);
+    // v1.22：起始偏移沿法向平移整个预览体（symmetric 以偏移后的中面为中心）。
+    const offset = buildExtrudePreview(SQUARE, XY_PLANE, [SQUARE_REGION], 10, false, 3);
+    expect(offset.lines[0]![0]!.z).toBeCloseTo(3, 9);
+    expect(offset.lines[1]![0]!.z).toBeCloseTo(13, 9);
+    const offsetSymmetric = buildExtrudePreview(SQUARE, XY_PLANE, [SQUARE_REGION], 10, true, 3);
+    expect(offsetSymmetric.lines[0]![0]!.z).toBeCloseTo(-2, 9);
+    expect(offsetSymmetric.lines[1]![0]!.z).toBeCloseTo(8, 9);
   });
 
   it('按面域外环过滤实体；单边无法闭环 → 只有橙色轮廓，不伪造填充', () => {
