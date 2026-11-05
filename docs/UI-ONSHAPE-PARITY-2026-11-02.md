@@ -642,7 +642,7 @@ luban-cad 对照截图同目录）。sign-in live：`onshape/pages/signin-live.p
 
 ## 2026-11-06 宣传素材与产品介绍页
 
-- 新增公开路由 `/showcase`（`ShowcaseRoute`，无需登录）：Hero、1080p 真实建模
+- 新增公开产品介绍页 `/` 与 `/showcase`（`ShowcaseRoute`，无需登录；原令牌样张移至 `/dev-tokens`）：Hero、1080p 真实建模
   视频、核心能力卡片、示例复刻体积对拍、UI 对齐截图、技术底座与 CTA。
 - 素材：`luban-cad/apps/web/public/showcase/`
   - 9 张 **3840×2160** WebP 实机截图（`hero-tutorial2`、`sketch`、`extrude`、

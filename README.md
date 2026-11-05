@@ -14,7 +14,7 @@
 
 ![鲁班CAD Tutorial 2 成品](luban-cad/apps/web/public/showcase/hero-tutorial2.webp)
 
-> **产品介绍页**：启动 dev 后访问 `http://localhost:5300/showcase`（公开路由，无需登录）。
+> **产品介绍页**：启动 dev 后访问 `http://localhost:5300/`（根路径即产品介绍页；`/showcase` 同内容，无需登录）。
 > 包含 4K 实机截图、1080p 真实建模演示视频与示例复刻体积对拍；素材来自真实栈，非概念图。
 
 | 草图与约束 | 参数化特征 |
