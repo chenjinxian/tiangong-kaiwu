@@ -36,9 +36,9 @@ const FEATURES = [
 
 const EXAMPLES = [
   { name: 'Tutorial 2 - Build a Part', metric: '357.739 cm³ / 去材 0.422 cm³', note: '六特征 + 四棱圆角，严格鼠标级复刻', image: '/showcase/hero-tutorial2.webp' },
-  { name: 'Tutorial 2 iOS', metric: '157478.900 mm³', note: '与 Onshape 目标 0.00% 误差', image: '/showcase/example-ios.png' },
-  { name: 'Exercise: Basic Drawing', metric: '2442.2935 mm³', note: '与目标 -0.00% 误差', image: '/showcase/example-basic-drawing.png' },
-  { name: 'Exercise - Hand Brake Update', metric: '1 mm 圆边倒角', note: '真实 UI 拾边 + 距离-角度倒角', image: '/showcase/example-handbrake.png' },
+  { name: 'Tutorial 2 iOS', metric: '157478.900 mm³', note: '与 Onshape 目标 0.00% 误差', image: '/showcase/example-ios.webp' },
+  { name: 'Exercise: Basic Drawing', metric: '2442.2935 mm³', note: '与目标 -0.00% 误差', image: '/showcase/example-basic-drawing.webp' },
+  { name: 'Exercise - Hand Brake Update', metric: '1 mm 圆边倒角', note: '真实 UI 拾边 + 距离-角度倒角', image: '/showcase/example-handbrake.webp' },
   { name: 'Sample Assignment', metric: '8915.860 mm³', note: '4 草图 + 4 拉伸 + 4 竖边倒角', image: '/showcase/hero-sample-assignment.webp' },
 ];
 
