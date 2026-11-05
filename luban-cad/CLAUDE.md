@@ -164,7 +164,7 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-05）
 
-- `apps/web` 全量 vitest：1383/1383（2026-11-06 图形首选项默认值校正：AO 20%、
+- `apps/web` 全量 vitest：1382/1382（2026-11-06 图形首选项默认值校正：AO 20%、
   线宽 2px、v2→v3 迁移 +2；2026-11-05 UI polish：GraphicsPreferencesDialog 5、
   AppearancesPanel 3、useBodyAppearanceOverrides 2、Ribbon 父行/快捷键 1、ViewCube
   标准视图/自由视角 1、Front 面轴原点 1、动画相机 1、viewcube-mode 5；ViewCube/Dock/display-actions
@@ -206,4 +206,4 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （简单孔 + 沉头孔，树 `sketch/extrude/hole` 全 status=0，去材误差 <0.001%）通过。
 - **known-red**：`sketch-extrude` 仍红（草图无拉链面域）。`tutorial2` X-14 已于 2026-11-04 关闭：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min；六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³），证据 `apps/web/test-results/t2-strict-after.log`。不得把 known-red 当绿，也不得通过放宽断言“修复”。
 
-*最后更新: 2026-11-06（全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面 + 草图落在自定义平面（shared 1.29.0，Intro to CAD 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；验证基线 1383）*
+*最后更新: 2026-11-06（全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面 + 草图落在自定义平面（shared 1.29.0，Intro to CAD 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；验证基线 1382）*

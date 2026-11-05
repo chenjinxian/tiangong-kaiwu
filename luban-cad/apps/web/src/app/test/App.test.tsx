@@ -12,13 +12,11 @@ describe('App', () => {
     expect(screen.getByTestId('app-root')).toBeDefined();
   });
 
-  it('令牌样张页渲染 iTwinUI 主按钮', () => {
+  it('根路由是产品介绍页（完整宣传片）', () => {
     render(<App />);
-    expect(screen.getByRole('button', { name: '主按钮' })).toBeDefined();
+    expect(screen.getByTestId('showcase-route')).toBeDefined();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('BRep');
+    expect(document.querySelector('video')).not.toBeNull();
   });
 
-  it('默认路由是令牌样张', () => {
-    render(<App />);
-    expect(screen.getByTestId('dev-tokens-route')).toBeDefined();
-  });
 });

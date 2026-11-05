@@ -642,7 +642,7 @@ luban-cad 对照截图同目录）。sign-in live：`onshape/pages/signin-live.p
 
 ## 2026-11-06 宣传素材与产品介绍页
 
-- 新增公开产品介绍页 `/` 与 `/showcase`（`ShowcaseRoute`，无需登录；原令牌样张移至 `/dev-tokens`）：Hero、1080p 真实建模
+- 新增公开产品介绍页 `/` 与 `/showcase`（`ShowcaseRoute`，无需登录；原令牌样张移至 `/dev-tokens`；主页 Hero 直接内嵌完整 1080p 宣传片，自动静音播放、可控制/循环，README 用 1080p 视频封面链接）：Hero、1080p 真实建模
   视频、核心能力卡片、示例复刻体积对拍、UI 对齐截图、技术底座与 CTA。
 - 素材：`luban-cad/apps/web/public/showcase/`
   - 9 张 **3840×2160** WebP 实机截图（`hero-tutorial2`、`sketch`、`extrude`、
@@ -693,5 +693,5 @@ luban-cad 对照截图同目录）。sign-in live：`onshape/pages/signin-live.p
 - 示例逐步 UI spec：`intro-to-cad`/`sample-assignment` 在 `EXAMPLE_RESET=1`
   下因旧示例库状态/baseline 重建长等待未完成（非 UI 断言失败）；示例 iModel
   重开与体积由 `verify-imodels` 12/12 覆盖。已知测试环境债务，后续单独清库重跑。
-- `apps/web` 全量单测 **1383/1383**；tsc（含 e2e）/lint 绿；production build 9.77s 成功，
+- `apps/web` 全量单测 **1382/1382**；tsc（含 e2e）/lint 绿；production build 9.77s 成功，
   `dist/showcase` 13 个资产（4K WebP + 1080p WebM）。

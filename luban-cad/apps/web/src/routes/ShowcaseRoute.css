@@ -436,3 +436,34 @@
     padding: 20px 24px;
   }
 }
+
+/* 2026-11-06：主页 Hero 直接展示完整宣传片（1080p，controls/autoplay muted）。 */
+.showcase-hero__media--video {
+  display: flex;
+  flex-direction: column;
+  background: #0d1420;
+  box-shadow: 0 34px 90px rgba(16, 43, 84, 0.28);
+}
+
+.showcase-hero__media--video video {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0d1420;
+  object-fit: cover;
+}
+
+.showcase-hero__media--video .showcase-hero__badge {
+  inset-block-start: 14px;
+  inset-block-end: auto;
+  inset-inline-start: 14px;
+  background: rgba(10, 24, 44, 0.8);
+}
+
+.showcase-hero__video-caption {
+  display: block;
+  padding: 10px 14px;
+  color: #c9d7e8;
+  font-size: 13px;
+  line-height: 1.4;
+}

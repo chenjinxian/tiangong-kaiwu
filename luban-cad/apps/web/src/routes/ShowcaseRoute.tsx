@@ -51,7 +51,7 @@ const STACK = [
 
 export function ShowcaseRoute(): React.JSX.Element {
   return (
-    <div className="showcase-page">
+    <div className="showcase-page" data-testid="showcase-route">
       <header className="showcase-header">
         <Link className="showcase-brand" to="/documents">
           <span className="showcase-brand__mark">鲁</span>
@@ -67,14 +67,14 @@ export function ShowcaseRoute(): React.JSX.Element {
       </header>
 
       <main>
-        <section className="showcase-hero">
+        <section id="video" className="showcase-hero">
           <div className="showcase-hero__copy">
             <div className="showcase-kicker">AI + CAD · 云原生 · 参数化建模</div>
             <h1>把设计意图，变成真实可制造的 BRep。</h1>
             <p>
               鲁班CAD 是天工开物平台的云端 CAD 产品：草图、约束、参数化特征、
               多体布尔、真实示例复刻与可撤销事务，全部落在 iTwin.js / BIS 之上。
-              下面的截图与视频均来自真实栈运行，不是概念图。
+              右侧是完整宣传片，下方是实机截图——全部来自真实栈运行，不是概念图。
             </p>
             <div className="showcase-hero__actions">
               <Link className="showcase-button showcase-button--primary" to="/login">进入鲁班CAD</Link>
@@ -86,32 +86,19 @@ export function ShowcaseRoute(): React.JSX.Element {
               <li><strong>0.00%</strong> 示例体积对拍</li>
             </ul>
           </div>
-          <div className="showcase-hero__media">
-            <img src="/showcase/hero-tutorial2.webp" alt="鲁班CAD Part Studio：Tutorial 2 成品" />
-            <span className="showcase-hero__badge">Tutorial 2 · 真实内核求值</span>
-          </div>
-        </section>
-
-        <section id="video" className="showcase-section showcase-video">
-          <div className="showcase-section__head">
-            <span className="showcase-kicker">REAL-TIME DEMO</span>
-            <h2>从草图到成品，一次真实建模回放</h2>
-            <p>鼠标级 Tutorial 2 复刻：中心矩形、偏移链、拉伸、旋转与圆角，每一步都走后端特征求值。</p>
-          </div>
-          <div className="showcase-video__frame">
+          <div className="showcase-hero__media showcase-hero__media--video">
             <video
               src="/showcase/tutorial2-demo-1080p.webm"
-              poster="/showcase/hero-tutorial2.webp"
+              poster="/showcase/video-poster.webp"
               controls
               autoPlay
               muted
               loop
               playsInline
+              preload="auto"
             />
-          </div>
-          <div className="showcase-video__meta">
-            <span>WEBM · 1920×1080 · 真实鼠标轨迹</span>
-            <span>可撤销事务 · 每步均有真实几何结果</span>
+            <span className="showcase-hero__badge">完整宣传片 · 1080p · 01:21</span>
+            <span className="showcase-hero__video-caption">从文档中心到草图、拉伸、圆角、倒角与孔 · 真实鼠标轨迹</span>
           </div>
         </section>
 

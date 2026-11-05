@@ -17,7 +17,7 @@ describe('ShowcaseRoute 产品介绍页', () => {
     const video = document.querySelector('video') as HTMLVideoElement;
     expect(video).not.toBeNull();
     expect(video.getAttribute('src')).toBe('/showcase/tutorial2-demo-1080p.webm');
-    expect(video.getAttribute('poster')).toBe('/showcase/hero-tutorial2.webp');
+    expect(video.getAttribute('poster')).toBe('/showcase/video-poster.webp');
     expect(document.querySelectorAll('img[src^="/showcase/"]').length).toBeGreaterThanOrEqual(10);
     expect(screen.getByText('Tutorial 2 - Build a Part')).toBeDefined();
     expect(screen.getByText('真形（TrueForm）')).toBeDefined();
