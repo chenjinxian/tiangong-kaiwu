@@ -91,6 +91,7 @@ export function PushChangesetDialog({
         styleType="default"
         title={t('partStudio.pushChangeset.title')}
         aria-label={t('partStudio.pushChangeset.title')}
+        className="part-studio-push-dialog"
       >
         <Dialog.TitleBar titleText={t('partStudio.pushChangeset.title')} />
         <Dialog.Content>

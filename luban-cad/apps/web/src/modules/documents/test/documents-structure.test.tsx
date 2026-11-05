@@ -94,7 +94,7 @@ describe('DocumentsPage 结构断言（M2 Task 8，关键区域存在性）', ()
   it('侧栏：document-sidebar 锚点 + 五筛选 + 创建大钮（os-01 左栏）', () => {
     renderPage();
     const sidebar = screen.getByTestId('document-sidebar');
-    for (const label of ['最近打开过的', '收藏', '我的文档', '已与我共享', '公开']) {
+    for (const label of ['最近打开过的', '收藏', '由我所有', '已与我共享', '公开']) {
       expect(within(sidebar).getByRole('button', { name: label })).toBeDefined();
     }
     expect(within(sidebar).getByRole('button', { name: '创建' })).toBeDefined();
@@ -118,7 +118,7 @@ describe('DocumentsPage 结构断言（M2 Task 8，关键区域存在性）', ()
 
   it('工具条：分区标题+计数 / 排序 / 网格·列表切换 / 刷新', () => {
     renderPage();
-    expect(screen.getByRole('heading', { name: '我的文档' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: '由我所有' })).toBeDefined();
     expect(screen.getByText('2 个文档')).toBeDefined();
     expect(screen.getByRole('button', { name: '排序' })).toBeDefined();
     expect(screen.getByRole('button', { name: '网格视图' })).toBeDefined();

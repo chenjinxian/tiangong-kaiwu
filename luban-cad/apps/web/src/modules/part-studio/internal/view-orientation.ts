@@ -34,10 +34,10 @@ const FACE_NORMALS: readonly { id: CubeFaceId; normal: readonly [number, number,
   { id: 'back', normal: [0, -1, 0] },
 ];
 
-/** 面标签投影半径（150px stage / 64px cube；标签落在可见面中心附近）。 */
-const LABEL_RADIUS = 32;
-/** 角点命中区投影半径（比标签略外，落在 cube 圆角处）。 */
-const CORNER_RADIUS = 38;
+/** 面标签投影半径（150px stage / 60px cube；标签落在可见面中心）。 */
+const LABEL_RADIUS = 30;
+/** 角点命中区投影半径（落在 cube 圆角处）。 */
+const CORNER_RADIUS = 42;
 
 /** CSS matrix3d 元素（含 F·R·F 的 Y 翻转，与 cssMatrix3dFromRotation 同口径）。 */
 function cssEntry(rotation: Matrix3d, row: number, col: number): number {
@@ -77,6 +77,15 @@ export function axisScreenDirections(rotation: Matrix3d): Record<'x' | 'y' | 'z'
   return { x: [x[0], x[1]], y: [y[0], y[1]], z: [z[0], z[1]] };
 }
 
+/** 本地 cube 坐标（CSS 局部：+Z=Top，+Y=Front）→ 屏幕偏移（相对 cube 中心，y 向下）。 */
+export function projectCubePoint(
+  rotation: Matrix3d,
+  local: readonly [number, number, number],
+): { x: number; y: number; z: number } {
+  const [x, y, z] = transform(rotation, local);
+  return { x, y, z };
+}
+
 export interface ProjectedCubeCorner {
   id: string;
   /** 相对 cube 中心的屏幕偏移（CSS px；y 向下）。 */
@@ -96,6 +105,27 @@ const CORNER_SIGNS: ReadonlyArray<readonly [string, number, number, number]> = [
   ['back-bottom-left', -1, 1, -1],
   ['back-bottom-right', 1, 1, -1],
 ];
+
+/**
+ * 三色轴原点 = 当前视图中 Front 面左下角（屏幕偏移，相对 cube 中心，y 向下）。
+ * Onshape live：三色轴锚在 Front 面左下角（ISO 与 Front 视图实测均吻合）。
+ */
+export function frontFaceBottomLeft(
+  rotation: Matrix3d,
+  halfSize: number,
+): { x: number; y: number } {
+  let best: { x: number; y: number } | undefined;
+  for (const sx of [-halfSize, halfSize]) {
+    for (const sz of [-halfSize, halfSize]) {
+      const [x, y] = transform(rotation, [sx, halfSize, sz]);
+      if (!best
+        || x < best.x - 1e-6
+        || (Math.abs(x - best.x) <= 1e-6 && y > best.y))
+        best = { x, y };
+    }
+  }
+  return best ?? { x: 0, y: 0 };
+}
 
 /**
  * 当前朝向下可见的 cube 角点（屏幕投影；仅 z>0 面向观察者）。

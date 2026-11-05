@@ -641,6 +641,21 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 
+/* Onshape「外观」右面板：575px 宽、无内边距（面板组件自持 header/tabs/footer）。 */
+.part-studio-dock__body--appearances {
+  inset-block-start: 0;
+  inset-inline-end: 44px;
+  inline-size: 575px;
+  block-size: 100%;
+  max-block-size: none;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 0;
+  border-block: none;
+  border-inline-end: none;
+  box-shadow: -1px 0 3px rgba(0, 0, 0, 0.08);
+}
+
 /* ── 底部页签条（2026-11-02 Onshape live：30px 灰底 / 200px 文档级页签）──── */
 .part-studio-tab-strip {
   position: relative;
@@ -822,8 +837,7 @@
   padding-inline: 2px;
 }
 
-.part-studio-ribbon__tool,
-.part-studio-ribbon__dropdown > button {
+.part-studio-ribbon__tool {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -840,19 +854,24 @@
   cursor: pointer;
 }
 
-.part-studio-ribbon__tool:hover:not(:disabled),
-.part-studio-ribbon__dropdown > button:hover:not(:disabled) {
+/* Onshape live：下拉触发组 52×34（主钮 34 + 箭头 18×32）。 */
+.part-studio-ribbon__dropdown > .part-studio-ribbon__tool {
+  inline-size: 34px;
+  block-size: 34px;
+  min-inline-size: 34px;
+  min-block-size: 34px;
+}
+
+.part-studio-ribbon__tool:hover:not(:disabled) {
   background: #e5e5e5;
 }
 
-.part-studio-ribbon__tool:disabled,
-.part-studio-ribbon__dropdown > button:disabled {
+.part-studio-ribbon__tool:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.part-studio-ribbon__tool svg,
-.part-studio-ribbon__dropdown > button svg {
+.part-studio-ribbon__tool svg {
   inline-size: 20px;
   block-size: 20px;
 }
@@ -881,30 +900,131 @@
   border-radius: 3px;
 }
 
-/* 「图标 + ▾」飞出菜单宿主（菜单本体=iTwinUI DropdownMenu portal 渲染）。 */
+/* 「图标 + ▾」飞出菜单宿主（菜单本体 portal 到 body）。 */
 .part-studio-ribbon__dropdown {
   position: relative;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 0;
+  block-size: 34px;
 }
 
 .part-studio-ribbon__dropdown > .part-studio-ribbon__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   inline-size: 18px;
   min-inline-size: 18px;
   block-size: 32px;
   min-block-size: 32px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-ribbon__dropdown > .part-studio-ribbon__arrow:hover,
+.part-studio-ribbon__dropdown > .part-studio-ribbon__arrow[aria-expanded='true'] {
+  background: #e5e5e5;
 }
 
 .part-studio-ribbon__arrow svg {
   inline-size: 10px;
-  block-size: 6px;
+  block-size: 10px;
 }
 
-/* portal 飞菜单：bottom-start 锚定箭头钮，外推使菜单清开工具栏。 */
+/* Onshape live：180px 白底飞菜单；左对齐触发组、顶边压 toolbar 底边 1px。 */
 .part-studio-ribbon__menu {
-  margin-block-start: 2px;
+  position: fixed;
+  z-index: 1000;
+  inline-size: 180px;
+  padding: 0;
+  border: 1px solid #cccccc;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #333333;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.part-studio-ribbon__menu-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  inline-size: 100%;
+  min-block-size: 32px;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.part-studio-ribbon__menu-row--parent {
+  min-block-size: 34px;
+}
+
+.part-studio-ribbon__menu-row:hover:not(:disabled) {
+  background: #eaeaea;
+  outline: none;
+}
+
+.part-studio-ribbon__menu-row:focus-visible {
+  background: #eaeaea;
+  outline: none;
+}
+
+.part-studio-ribbon__menu-row:disabled {
+  color: #9a9a9a;
+  cursor: default;
+}
+
+.part-studio-ribbon__menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-ribbon__menu-icon svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-ribbon__menu-label {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-ribbon__shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline-start: 8px;
+}
+
+.part-studio-ribbon__shortcut-key {
+  display: inline-block;
+  padding: 0 2px;
+  border: 1px solid #dddddd;
+  border-radius: 2px;
+  background: #f4f4f4;
+  color: #333333;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 16.5px;
 }
 
 /* 命令搜索触发钮（Onshape command-search-trigger：139×32 #eee，右留 138px）。 */
@@ -2141,4 +2261,67 @@
 
 .part-studio-ribbon--sketch .part-studio-ribbon__search-trigger {
   margin-inline: 10px auto;
+}
+
+/* ── 2026-11-06 Onshape live 顶栏复核：操作簇顺序 / 用户簇 / ribbon 起点 ── */
+.part-studio-top-bar__actions {
+  align-items: center;
+}
+
+.part-studio-topbar-explore { order: 1; }
+.part-studio-topbar-notifications { order: 2; }
+.part-studio-topbar-appstore { order: 3; }
+.part-studio-topbar-help { order: 4; }
+.part-studio-share-button { order: 5; }
+.part-studio-top-bar__actions > [class*='dropdown'] { order: 6; }
+.part-studio-topbar-learning { display: none; }
+
+.part-studio-topbar-notifications,
+.part-studio-topbar-appstore {
+  inline-size: 32px;
+  block-size: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-user-button {
+  padding: 0 4px 0 8px;
+}
+
+.part-studio-user-caret {
+  color: #555555;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Onshape ribbon 第一组撤消钮距左缘 ≈39px（历史组自身留白）。 */
+
+/* 树面板 live 206px，行高/字号按 26px/13px。 */
+.part-studio-tree {
+  inline-size: var(--lx-tree-width, 206px);
+}
+
+.part-studio-tree__section-header {
+  block-size: 26px;
+}
+
+/* live 左轨 36px：与树宽 206 合计 242px，与 Onshape 截图逐像素一致。 */
+.part-studio-panel-rail {
+  inline-size: 36px;
+}
+.part-studio-panel-rail__button {
+  inline-size: 35px;
+}
+.part-studio-ribbon__groups {
+  padding-inline-start: 0;
+}
+.part-studio-user-button {
+  order: 6;
+}
+
+.part-studio-user-name {
+  max-inline-size: 110px;
 }

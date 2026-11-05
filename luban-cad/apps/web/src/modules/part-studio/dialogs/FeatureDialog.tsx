@@ -419,17 +419,18 @@ export function booleanScopeFeatureType(scope: FeatureBooleanScope): LubanFeatur
   return undefined;
 }
 
-/** 折叠段定义（方向默认展开——主参数段；余者折叠）。 */
+/** 折叠段定义（Onshape live：所有折叠段默认收起）。 */
 interface CollapsibleSection {
-  id: 'direction' | 'startOffset' | 'symmetric' | 'draft';
+  id: 'direction' | 'startOffset' | 'symmetric' | 'draft' | 'secondEnd';
   defaultExpanded: boolean;
 }
 
 const SECTIONS: readonly CollapsibleSection[] = [
-  { id: 'direction', defaultExpanded: true },
+  { id: 'direction', defaultExpanded: false },
   { id: 'startOffset', defaultExpanded: false },
   { id: 'symmetric', defaultExpanded: false },
   { id: 'draft', defaultExpanded: false },
+  { id: 'secondEnd', defaultExpanded: false },
 ];
 
 /**
@@ -490,7 +491,7 @@ export function classifyAxisLines(entities: readonly SketchEntityDto[]): AxisLin
  * 结构守卫拒收、booleanBodies 参数整体不可变——对话框对这些类型只读展示。
  */
 const EDITABLE_EDIT_FEATURE_TYPES: ReadonlySet<string> = new Set([
-  'extrude', 'revolve', 'fillet', 'mirror', 'pattern', 'booleanAdd', 'booleanSubtract',
+  'extrude', 'revolve', 'fillet', 'chamfer', 'mirror', 'pattern', 'booleanAdd', 'booleanSubtract',
 ]);
 
 /** 草图选项缺省（M6-a T6：props 未接线/壳期空集——「先创建草图」门禁数据源；模块级常量防引用抖动）。 */
@@ -574,6 +575,10 @@ export function FeatureDialog({
   });
   const [chips, setChips] = React.useState<FeatureDialogEntity[]>([...(entities ?? [])]);
   const [distance, setDistance] = React.useState(() => storedNumberString(editParams?.distance) ?? '10');
+  // v1.22 ADR-0005 已支持 extrude endBound=blind/throughAll；本版把后端能力接到
+  // Onshape 同款「终止条件」控件（throughAll 需要上游实体，new/newBody 禁用）。
+  const [endBound, setEndBound] = React.useState<'blind' | 'throughAll'>(() =>
+    (editParams as { endBound?: unknown } | undefined)?.endBound === 'throughAll' ? 'throughAll' : 'blind');
   const [direction, setDirection] = React.useState<FeatureDirection>('forward');
   const [startOffset, setStartOffset] = React.useState('');
   const [symmetric, setSymmetric] = React.useState(() => editParams?.symmetric === true);
@@ -662,6 +667,10 @@ export function FeatureDialog({
   // fillet 通道（M6-b T6）：体边拾取非草画面域——不进草图通道；输入集=体上
   // 拾得的边（持久拓扑 id 对），提交面同 applyOp。
   const filletChannel = (mode === 'new' || mode === 'edit') && featureType === 'fillet' && applyOp !== undefined;
+  // 2026-11-05（能力补齐 Slice 1）：chamfer 复用 fillet 的边拾取/owner/target 通道。
+  // 后端 ChamferParams 已发布；本片只接 UI（首版 equal distance：mode=2，values1=values2=d）。
+  const chamferChannel = (mode === 'new' || mode === 'edit') && featureType === 'chamfer' && applyOp !== undefined;
+  const edgePickChannel = filletChannel || chamferChannel;
   // B2 loft 通道（首版两平行截面）：**双截面草图**选择器——不走 sketchChannel
   //（loft 无面域读取：服务端每草图取最大面域；载荷 {sketchIds, bodyType:'SOLID'}）。
   // ribbon 现有 'loft' 条目无注册工具（伪 toolId，见 Ribbon.tsx 注记），入口改道
@@ -701,6 +710,13 @@ export function FeatureDialog({
   // 仅 edit 模式作只读回显（结构键不可翻转）。
   const operationNewBody = mode === 'new' && nativeOperationScope && booleanScope === 'new';
   const effectiveNewBody = mode === 'edit' ? readStoredNewBody(initialParams) : (newBody || operationNewBody);
+  // throughAll 需要上游实体（后端 zod superRefine 同口径）。new/newBody 时禁用选项；
+  // 操作页签切到 new 后本地态回落到 blind，避免「UI 显示贯穿、载荷实际盲孔」错位。
+  const endBoundAllowed = extrudeChannel && nativeOperation !== 'new' && !effectiveNewBody;
+  const effectiveEndBound = endBound === 'throughAll' && endBoundAllowed ? 'throughAll' : 'blind';
+  React.useEffect(() => {
+    if (endBound === 'throughAll' && !endBoundAllowed) setEndBound('blind');
+  }, [endBound, endBoundAllowed]);
   const newBodyVisible = mode === 'edit' && (featureType === 'extrude' || featureType === 'revolve');
   // active authored body（consumed/orphan 不作写目标；服务端 getBodies 亦只回 authored）。
   const activeBodies = React.useMemo(
@@ -740,7 +756,7 @@ export function FeatureDialog({
   );
   // 编辑既有 fillet 时边集来自落库 params（无 ownerElementId），updateParams
   // 沿用特征原有 body 关联，不做新建时的跨体 target 推导。
-  const filletOwnersValidated = mode === 'new' && filletChannel && bodies !== undefined && filletEdges.length > 0;
+  const filletOwnersValidated = mode === 'new' && edgePickChannel && bodies !== undefined && filletEdges.length > 0;
   const filletMissingOwner = filletOwnersValidated
     ? filletOwnerIds.find((owner) => owner === undefined || !activeBodyKeys.has(owner))
     : undefined;
@@ -765,14 +781,14 @@ export function FeatureDialog({
     : activeBodies.find((body) => body.bodyKey === filletDerivedTargetBodyId);
   // N>1 时 fillet 必须发自动推导的 target；N≤1 保持 legacy（不发 target）。
   const filletAutomaticTargetId =
-    filletChannel && bodies !== undefined && activeBodies.length > 1 && filletTargetError === undefined
+    edgePickChannel && bodies !== undefined && activeBodies.length > 1 && filletTargetError === undefined
       ? filletDerivedTargetBodyId
       : undefined;
-  // chamfer/shell：owner 通道未接线 → 一律禁提交（gated；不落默认 target）。
+  // shell：owner 通道未接线 → 一律禁提交（gated；不落默认 target）。chamfer 已接边拾取。
   const unownedTargetChannel =
     mode === 'new' &&
     applyOp !== undefined &&
-    (effectiveFeatureType === 'chamfer' || effectiveFeatureType === 'shell');
+    effectiveFeatureType === 'shell';
   // 手动 target 下拉只保留给「无拾取耦合」的 insert 通道；fillet/chamfer/shell 排除。
   // B6 M-A4.2a：booleanBodies 的 target 走通道内自管选择并进 params.targets
   //（不是 op.targetBodyId）——排除通用下拉，避免双选择器/错载荷面。
@@ -927,7 +943,34 @@ export function FeatureDialog({
   }, []);
 
   // ── fillet 通道（M6-b T6）：半径/切向延伸/边 chips + 对话框驱动拾取会话 ──
-  const [radius, setRadius] = React.useState(() => storedNumberString(editParams?.radius) ?? '5');
+  // 2026-11-05（Slice 1b）：chamfer 增加双距离/距离-角度模式；半径状态在
+  // chamfer 编辑态回显 values1，而不是 fillet 的 radius。
+  type ChamferVariant = 'equal' | 'twoDistances' | 'distanceAngle';
+  const [chamferVariant, setChamferVariant] = React.useState<ChamferVariant>(() => {
+    if (featureType !== 'chamfer' || editParams === undefined) return 'equal';
+    const storedMode = Number(editParams.mode);
+    if (storedMode === 3 || storedMode === 4) return 'distanceAngle';
+    if (storedMode === 2
+      && typeof editParams.values1 === 'number'
+      && typeof editParams.values2 === 'number'
+      && editParams.values2 !== editParams.values1) return 'twoDistances';
+    return 'equal';
+  });
+  const [radius, setRadius] = React.useState(() =>
+    featureType === 'chamfer' && editParams !== undefined
+      ? (storedNumberString(editParams.values1) ?? '5')
+      : (storedNumberString(editParams?.radius) ?? '5'));
+  const [chamferDistance2, setChamferDistance2] = React.useState(() => {
+    if (chamferVariant !== 'twoDistances') return '5';
+    return storedNumberString(editParams?.values2) ?? '5';
+  });
+  const [chamferAngleDeg, setChamferAngleDeg] = React.useState(() => {
+    if (chamferVariant !== 'distanceAngle') return '45';
+    const stored = editParams?.values2;
+    return typeof stored === 'number' && Number.isFinite(stored)
+      ? String(Number(((stored * 180) / Math.PI).toFixed(6)))
+      : '45';
+  });
   const [propagateSmooth, setPropagateSmooth] = React.useState(() => editParams?.propagateSmooth !== false);
   // 拾取态：picking 供渲染（按钮切换/✓禁用），ref 镜像供 Escape 分叉（监听
   // 终身一次挂载，不吃闭包旧态——与 onCancelRef 同纪律）；工具实例经 ref 持有
@@ -1251,7 +1294,7 @@ export function FeatureDialog({
         : selectedRegions.length > 0));
   // 提交门（M6-b T6 fillet 追加）：已拾至少一条边（空边集禁提交——shared
   // FilletParams.edges 非空语义前置）∧ 拾取会话已结束（会话在场时禁提交）。
-  const filletReady = !filletChannel || (filletEdges.length > 0 && !picking);
+  const filletReady = !edgePickChannel || (filletEdges.length > 0 && !picking);
   // 提交门（B2 loft）：两截面均已选、互不相同、**且仍存在于实时草图选项**——
   // 非模态对话框打开期间删除已选草图（sketches 缩水）不得留下陈旧 id 放行提交
   //（loftNeedsTwo/loftSelectionStale 均入就绪判据；服务端 zod/存在性检查兜底）。
@@ -1324,10 +1367,10 @@ export function FeatureDialog({
     // M6-c T5：底部滑杆=透明度（采集对齐；预览消费挂账见文件头注）。
     transparency,
     // M6-b T6：仅 fillet 通道携带已拾边集（其余通道键缺省——既有钉形载荷不破）。
-    ...(filletChannel ? { filletEdges } : {}),
+    ...(edgePickChannel ? { filletEdges } : {}),
     // B6 M-A3.2a：extrude 结构键回传（仅 true 时携带；edit 模式=落库落值回显）。
     ...(newBodyVisible && effectiveNewBody ? { newBody: true } : {}),
-  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, transparency, filletChannel, filletEdges, newBodyVisible, effectiveNewBody]);
+  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, transparency, edgePickChannel, filletEdges, newBodyVisible, effectiveNewBody]);
 
   /**
    * 确认出口：new + applyOp 在场 → insertFeature 直提交（拉伸闭环）；否则
@@ -1345,7 +1388,7 @@ export function FeatureDialog({
       return;
     }
     if (sketchChannel && !sketchReady) return; // 草图通道门禁（✓ 已禁用，此为防御兜底）
-    if (filletChannel && !filletReady) return; // fillet 通道门禁（空边集/拾取中——防御兜底）
+    if (edgePickChannel && !filletReady) return; // 边拾取通道门禁（空边集/拾取中——防御兜底）
     if (loftChannel && !loftReady) return; // loft 通道门禁（两截面未选/同草图——防御兜底）
     if (sweepChannel && !sweepReady) return; // sweep 通道门禁（轮廓/路径未选/同草图——防御兜底）
     if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
@@ -1374,10 +1417,14 @@ export function FeatureDialog({
     // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep/mirror/pattern 无距离量——旋转角即参数/
     // 半径即参数/放样无扫掠距离/扫掠无扫掠距离/镜像无距离/阵列无距离，输入已隐藏）。
     let parsedDistance = 0;
-    if (!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel
+    if (!revolveChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
       && !patternChannel && !booleanBodiesChannel) {
       parsedDistance = Number(distance);
-      if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
+      if (effectiveEndBound === 'throughAll') {
+        // ExtrudeParams.distance 契约仍要求正数（服务端 throughAll 时忽略该值）；
+        // 输入框已禁用，保留当前有效值，缺省回落到 1（仅满足形态校验）。
+        if (!Number.isFinite(parsedDistance) || parsedDistance <= 0) parsedDistance = 1;
+      } else if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
         setError(t('partStudio.featureDialog.distanceInvalid'));
         return;
       }
@@ -1385,11 +1432,37 @@ export function FeatureDialog({
     // 半径校验（M6-b T6 fillet 通道）：内部米制直传（单位换算在显示层——
     // architecture.md §四；缺省 5 与 Onshape 采集默认同量级）。
     let parsedRadius = 0;
-    if (filletChannel) {
+    let parsedChamferValue2 = 0;
+    if (edgePickChannel) {
       parsedRadius = Number(radius);
       if (radius.trim() === '' || !Number.isFinite(parsedRadius) || parsedRadius <= 0) {
-        setError(t('partStudio.featureDialog.radiusInvalid'));
+        setError(t(chamferChannel
+          ? 'partStudio.featureDialog.chamferDistanceInvalid'
+          : 'partStudio.featureDialog.radiusInvalid'));
         return;
+      }
+      if (chamferChannel) {
+        if (chamferVariant === 'twoDistances') {
+          parsedChamferValue2 = Number(chamferDistance2);
+          if (chamferDistance2.trim() === ''
+            || !Number.isFinite(parsedChamferValue2)
+            || parsedChamferValue2 <= 0) {
+            setError(t('partStudio.featureDialog.chamferDistance2Invalid'));
+            return;
+          }
+        } else if (chamferVariant === 'distanceAngle') {
+          const degrees = Number(chamferAngleDeg);
+          if (chamferAngleDeg.trim() === ''
+            || !Number.isFinite(degrees)
+            || degrees <= 0
+            || degrees >= 180) {
+            setError(t('partStudio.featureDialog.chamferAngleInvalid'));
+            return;
+          }
+          parsedChamferValue2 = (degrees * Math.PI) / 180;
+        } else {
+          parsedChamferValue2 = parsedRadius;
+        }
       }
     }
     // 角度校验与换算（M6-b T4 revolve 且非全周）：UI 度制（用户面单位裁决）→
@@ -1405,7 +1478,7 @@ export function FeatureDialog({
       angleRadians = (degrees * Math.PI) / 180;
     }
     // Critical 1：fillet 的 target 只来自拾取边父体（N>1）；其余通道来自手动下拉。
-    const opTargetBodyId = filletChannel
+    const opTargetBodyId = edgePickChannel
       ? filletAutomaticTargetId
       : targetSelectorVisible && effectiveTargetBodyKey !== ''
         ? effectiveTargetBodyKey
@@ -1472,6 +1545,16 @@ export function FeatureDialog({
                 sketchIds: [loftSketchA, loftSketchB],
                 bodyType: 'SOLID',
               }
+            : chamferChannel
+            ? {
+                // RW2-T6 后端 ChamferParams；Slice 1b：等距/双距离用 mode=2，
+                // 距离-角度用 mode=3（values2 为弧度）。
+                mode: chamferVariant === 'distanceAngle' ? 3 : 2,
+                propagateSmooth,
+                edges: filletEdges.map((edge) => ({ edge: edge.edge })),
+                values1: parsedRadius,
+                values2: parsedChamferValue2,
+              }
             : filletChannel
             ? {
                 radius: parsedRadius,
@@ -1534,6 +1617,10 @@ export function FeatureDialog({
                     ? { startOffsetMm: Number(startOffset) }
                     : {}),
                   ...(mergeScopeBodies ? { mergeScope: mergeScopeBodies } : {}),
+                  // v1.22 ADR-0005：终止条件（缺省 blind=legacy 不携带该键）。
+                  ...(extrudeChannel && effectiveEndBound === 'throughAll'
+                    ? { endBound: 'throughAll' as const }
+                    : {}),
                 }
               : { profile: [], distance: parsedDistance });
       // 编辑：在落库 params 上合并可编辑量，保留 operation/mergeScope/newBody 等
@@ -1546,6 +1633,13 @@ export function FeatureDialog({
           params = { ...stored, ...paramsPayload, symmetric } as FeatureParams;
           // regions 与 deprecated regionIndex 互斥（服务端 zod 同拒）。
           delete (params as unknown as Record<string, unknown>).regionIndex;
+          // endBound 可编辑：blind 时删除落库键（payload 不携带 blind，避免旧值残留）。
+          if (featureType === 'extrude') {
+            if (effectiveEndBound === 'throughAll')
+              (params as unknown as Record<string, unknown>).endBound = 'throughAll';
+            else
+              delete (params as unknown as Record<string, unknown>).endBound;
+          }
         } else if (featureType === 'revolve') {
           params = { ...stored, ...paramsPayload } as FeatureParams;
           if (fullRevolve) delete (params as unknown as Record<string, unknown>).angle;
@@ -1622,6 +1716,9 @@ export function FeatureDialog({
     filletReady,
     filletEdges,
     radius,
+    chamferVariant,
+    chamferDistance2,
+    chamferAngleDeg,
     propagateSmooth,
     loftChannel,
     loftReady,
@@ -1638,6 +1735,10 @@ export function FeatureDialog({
     fullRevolve,
     angleDegrees,
     distance,
+    // 2026-11-05：终止条件（throughAll 载荷 + 距离校验分支）。
+    endBound,
+    endBoundAllowed,
+    effectiveEndBound,
     // B6 M-A3.2a：newBody/target 载荷面。
     effectiveNewBody,
     nativeOperation,
@@ -1708,12 +1809,18 @@ export function FeatureDialog({
       ? body.name
       : t('partStudio.tree.defaultBodyName', { index: index + 1 });
 
-  // 折叠段可见集（M6-b T4）：草图通道「对称」以平铺复选顶替（Onshape 采集
-  // 形态），折叠段 symmetric 隐藏防双复选绑同态；非通道（edit/布尔/壳期）不动。
-  const visibleSections = React.useMemo(
-    () => (sketchChannel || loftChannel || sweepChannel || mirrorChannel || patternChannel ? SECTIONS.filter((section) => section.id !== 'symmetric') : SECTIONS),
-    [sketchChannel, loftChannel, sweepChannel, mirrorChannel, patternChannel],
-  );
+  // Onshape live：折叠段只属于 extrude（方向/起始偏移/拔模/第二个终止位置）。
+  // fillet/chamfer/revolve/pattern/mirror/boolean 等对话框没有这些通用段；
+  // 草图通道的「对称」以平铺复选顶替，折叠段 symmetric 隐藏防双复选。
+  const visibleSections = React.useMemo(() => {
+    // 壳期无 featureType（纯回调对话框）保留全部折叠段；真实特征面按 live
+    // 证据收敛——只有 extrude 有这组通用段。
+    if (!featureType) return SECTIONS;
+    if (featureType !== 'extrude') return [];
+    // live：方向/起始偏移/第二终止位置是展开行；对称与拔模是平铺复选框。
+    return SECTIONS.filter((section) => section.id !== 'draft'
+      && !(sketchChannel && section.id === 'symmetric'));
+  }, [featureType, sketchChannel]);
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -1728,6 +1835,7 @@ export function FeatureDialog({
       aria-busy={submitting || undefined}
       className="part-studio-feature-dialog"
       data-testid="part-studio-feature-dialog"
+      data-feature={featureType ?? 'unknown'}
     >
       {/* 顶置标题行：特征名 + ✓确认/✗取消（os-31）。 */}
       <header className="part-studio-feature-dialog__header">
@@ -1753,77 +1861,144 @@ export function FeatureDialog({
         </div>
       </header>
 
-      {/* 布尔作用域双页签（os-31）。**booleanBodies（体布尔）不渲染**：该通道的
-          结果类型/布尔作用域均由 M4.1 契约固定（实体 + unite/subtract），遗留页签
-          全部惰性；尤其「相交」页签在体布尔下可点却不会改变 operation，会误导用户
-          以为提交了相交（实际仍 unite）——体布尔的相交仅由下方 operation 下拉的
-          禁用选项表达，杜绝静默降级。 */}
-      {featureType !== 'booleanBodies' && (
+      {/* Onshape live 页签面：extrude/revolve = 结果类型 + 布尔作用域；
+          pattern/mirror = 模式字段 + 布尔作用域；booleanBodies = 并集/差集/相交；
+          fillet = 边/全圆角；chamfer 无页签。 */}
+      {((patternChannel && !patternUpstreamMissing) || (mirrorChannel && !mirrorUpstreamMissing)) && (
+        <div className="part-studio-feature-dialog__mode-row">
+          {featureType === 'pattern' ? (
+            <select
+              aria-label={t('partStudio.featureDialog.patternKindLabel')}
+              className="part-studio-feature-dialog__select part-studio-feature-dialog__mode-select"
+              value={patternKind}
+              disabled={submitting}
+              onChange={(event) => {
+                const kind = event.target.value as PatternParams['kind'];
+                setPatternKind(kind);
+                if (kind === 'circular') setPatternAxis('Z');
+              }}
+            >
+              <option value="linear">{t('partStudio.featureDialog.patternModeOptions.linear')}</option>
+              <option value="circular">{t('partStudio.featureDialog.patternModeOptions.circular')}</option>
+            </select>
+          ) : (
+            <select
+              aria-label={t('partStudio.featureDialog.mirrorModeLabel')}
+              className="part-studio-feature-dialog__select part-studio-feature-dialog__mode-select"
+              value="part"
+              disabled
+            >
+              <option value="part">{t('partStudio.featureDialog.mirrorModeLabel')}</option>
+            </select>
+          )}
+        </div>
+      )}
+      {featureType === 'fillet' && (
+        <div role="tablist" aria-label={t('partStudio.featureDialog.filletTabsLabel')}
+          className="part-studio-feature-dialog__tablist part-studio-feature-dialog__tablist--top">
+          <button type="button" role="tab" aria-selected className="part-studio-feature-dialog__tab part-studio-feature-dialog__tab--active">
+            {t('partStudio.featureDialog.filletTabEdge')}
+          </button>
+          <button type="button" role="tab" aria-selected={false} disabled
+            title={t('partStudio.featureDialog.notImplemented')} className="part-studio-feature-dialog__tab part-studio-feature-dialog__tab--disabled">
+            {t('partStudio.featureDialog.filletTabFullRound')}
+          </button>
+        </div>
+      )}
+      {featureType !== 'booleanBodies' && featureType !== 'fillet' && featureType !== 'chamfer' && (
         <div className="part-studio-feature-dialog__tabs">
-          <div
-            role="tablist"
-            aria-label={t('partStudio.featureDialog.resultTypeTabs')}
-            className="part-studio-feature-dialog__tablist"
-          >
-            {RESULT_TYPES.map((type) => (
-              <button
-                key={type}
-                type="button"
-                role="tab"
-                aria-selected={resultType === type}
-                disabled={structuralLocked}
-                className={[
-                  'part-studio-feature-dialog__tab',
-                  resultType === type ? 'part-studio-feature-dialog__tab--active' : '',
-                ].filter(Boolean).join(' ')}
-                onClick={() => setResultType(type)}
-              >
-                {t(`partStudio.featureDialog.resultTypes.${type}`)}
-              </button>
-            ))}
-          </div>
-          <div
-            role="tablist"
-            aria-label={t('partStudio.featureDialog.booleanScopeTabs')}
-            className="part-studio-feature-dialog__tablist"
-          >
-            {BOOLEAN_SCOPES.map((scope) => {
-              // 提交态禁用（B1 复审 + v1.22/v1.23 ADR-0005）：
-              // ①布尔特征类型的相交仍无后端路径（extrude 已支持，revolve 未实现）；
-              // ②无实体时加入/移除/相交无上游，禁用防「成功 toast + status=1 死特征」；
-              // ③revolve new/add/remove 均已实现，不再禁用 new。
-              const intersectUnsupported = scope === 'intersect'
-                && !(nativeOperationScope && featureType === 'extrude');
-              const scopeDisabled =
-                structuralLocked
-                || (booleanScopeCapable
-                  && (intersectUnsupported
-                    || (booleanScopeNoBody && (scope === 'add' || scope === 'remove' || scope === 'intersect'))));
-              const scopeDisabledHint =
-                structuralLocked
-                  ? t('partStudio.featureDialog.editOperationLocked')
-                  : intersectUnsupported
-                  ? t('partStudio.featureDialog.booleanIntersectUnsupported')
-                  : t('partStudio.featureDialog.booleanNoBodyHint');
-              return (
+          {(featureType === undefined || featureType === 'extrude' || featureType === 'revolve') && (
+            <div
+              role="tablist"
+              aria-label={t('partStudio.featureDialog.resultTypeTabs')}
+              className="part-studio-feature-dialog__tablist"
+            >
+              {RESULT_TYPES.map((type) => (
                 <button
-                  key={scope}
+                  key={type}
                   type="button"
                   role="tab"
-                  aria-selected={booleanScope === scope}
-                  disabled={scopeDisabled}
-                  title={scopeDisabled ? scopeDisabledHint : undefined}
+                  aria-selected={resultType === type}
+                  disabled={structuralLocked}
                   className={[
                     'part-studio-feature-dialog__tab',
-                    booleanScope === scope ? 'part-studio-feature-dialog__tab--active' : '',
+                    resultType === type ? 'part-studio-feature-dialog__tab--active' : '',
                   ].filter(Boolean).join(' ')}
-                  onClick={() => setBooleanScope(scope)}
+                  onClick={() => setResultType(type)}
                 >
-                  {t(`partStudio.featureDialog.booleanScopes.${scope}`)}
+                  {t(`partStudio.featureDialog.resultTypes.${type}`)}
                 </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
+          {(featureType === undefined || featureType === 'extrude' || featureType === 'revolve'
+            || featureType === 'pattern' || featureType === 'mirror') && (
+            <div
+              role="tablist"
+              aria-label={t('partStudio.featureDialog.booleanScopeTabs')}
+              className="part-studio-feature-dialog__tablist"
+            >
+              {BOOLEAN_SCOPES.map((scope) => {
+                // 提交态禁用（B1 复审 + v1.22/v1.23 ADR-0005）：
+                // ①布尔特征类型的相交仍无后端路径（extrude 已支持，revolve 未实现）；
+                // ②无实体时加入/移除/相交无上游，禁用防「成功 toast + status=1 死特征」；
+                // ③revolve new/add/remove 均已实现，不再禁用 new。
+                const intersectUnsupported = scope === 'intersect'
+                  && !(nativeOperationScope && featureType === 'extrude');
+                const scopeDisabled =
+                  structuralLocked
+                  || (booleanScopeCapable
+                    && (intersectUnsupported
+                      || (booleanScopeNoBody && (scope === 'add' || scope === 'remove' || scope === 'intersect'))));
+                const scopeDisabledHint =
+                  structuralLocked
+                    ? t('partStudio.featureDialog.editOperationLocked')
+                    : intersectUnsupported
+                    ? t('partStudio.featureDialog.booleanIntersectUnsupported')
+                    : t('partStudio.featureDialog.booleanNoBodyHint');
+                return (
+                  <button
+                    key={scope}
+                    type="button"
+                    role="tab"
+                    aria-selected={booleanScope === scope}
+                    disabled={scopeDisabled}
+                    title={scopeDisabled ? scopeDisabledHint : undefined}
+                    className={[
+                      'part-studio-feature-dialog__tab',
+                      booleanScope === scope ? 'part-studio-feature-dialog__tab--active' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => setBooleanScope(scope)}
+                  >
+                    {t(`partStudio.featureDialog.booleanScopes.${scope}`)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+      {featureType === 'booleanBodies' && (
+        <div role="tablist" aria-label={t('partStudio.featureDialog.booleanBodiesOperationLabel')}
+          className="part-studio-feature-dialog__tablist part-studio-feature-dialog__tablist--top">
+          {(['unite', 'subtract', 'intersect'] as const).map((operation) => (
+            <button
+              key={operation}
+              type="button"
+              role="tab"
+              aria-selected={booleanOperation === operation}
+              disabled={operation === 'intersect' || submitting}
+              title={operation === 'intersect' ? t('partStudio.featureDialog.booleanBodiesIntersectHint') : undefined}
+              className={[
+                'part-studio-feature-dialog__tab',
+                booleanOperation === operation ? 'part-studio-feature-dialog__tab--active' : '',
+                operation === 'intersect' ? 'part-studio-feature-dialog__tab--disabled' : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() => setBooleanOperation(operation)}
+            >
+              {t(`partStudio.featureDialog.booleanBodiesOperationOptions.${operation}`)}
+            </button>
+          ))}
         </div>
       )}
 
@@ -1932,20 +2107,44 @@ export function FeatureDialog({
             M6-b T4：revolve 通道不适用（无距离量——全周/角度即参数），输入
             隐藏、handleConfirm 跳过距离校验。M6-b T6：fillet 通道同口径
             （无距离量——半径即参数）。 */}
-        {!revolveChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel
+        {extrudeChannel && (
+          <section className="part-studio-feature-dialog__end-bound" data-testid="part-studio-feature-dialog-end-bound">
+            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-end-bound">
+              {t('partStudio.featureDialog.endBoundLabel')}
+            </label>
+            <select
+              id="part-studio-feature-dialog-end-bound"
+              aria-label={t('partStudio.featureDialog.endBoundLabel')}
+              className="part-studio-feature-dialog__select"
+              value={effectiveEndBound}
+              disabled={submitting}
+              onChange={(event) => setEndBound(event.target.value === 'throughAll' ? 'throughAll' : 'blind')}
+            >
+              <option value="blind">{t('partStudio.featureDialog.endBoundBlind')}</option>
+              <option
+                value="throughAll"
+                disabled={!endBoundAllowed}
+                title={endBoundAllowed ? undefined : t('partStudio.featureDialog.endBoundRequiresUpstream')}
+              >
+                {t('partStudio.featureDialog.endBoundThroughAll')}
+              </option>
+            </select>
+          </section>
+        )}
+        {!revolveChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
           && !patternChannel && !booleanBodiesChannel && (
           <section className="part-studio-feature-dialog__distance">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
-              {t('partStudio.featureDialog.distanceLabel')}
+              {t(featureType === 'extrude' ? 'partStudio.featureDialog.depthLabel' : 'partStudio.featureDialog.distanceLabel')}
             </label>
             <input
               id="part-studio-feature-dialog-distance"
               type="text"
               inputMode="decimal"
-              aria-label={t('partStudio.featureDialog.distanceLabel')}
+              aria-label={t(featureType === 'extrude' ? 'partStudio.featureDialog.depthLabel' : 'partStudio.featureDialog.distanceLabel')}
               className="part-studio-feature-dialog__input"
               value={distance}
-              disabled={submitting}
+              disabled={submitting || effectiveEndBound === 'throughAll'}
               onChange={(event) => setDistance(event.target.value)}
             />
           </section>
@@ -1964,6 +2163,19 @@ export function FeatureDialog({
               onChange={(event) => setSymmetric(event.target.checked)}
             />
             <span>{t('partStudio.featureDialog.sections.symmetric')}</span>
+          </label>
+        )}
+
+        {/* Onshape live：拔模是平铺复选（不是折叠段）；后端求值未实现，禁用
+            并给出 title——布局对齐但不伪造可用能力。 */}
+        {extrudeChannel && (
+          <label
+            className="part-studio-feature-dialog__checkbox"
+            data-testid="part-studio-feature-dialog-draft"
+            title={t('partStudio.featureDialog.draftUnsupported')}
+          >
+            <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+            <span>{t('partStudio.featureDialog.sections.draft')}</span>
           </label>
         )}
 
@@ -2017,26 +2229,122 @@ export function FeatureDialog({
           </React.Fragment>
         )}
 
-        {/* fillet 参数区（M6-b T6）：半径（缺省 5，米制直传）+切向延伸复选
-            （缺省 true = FilletParams.propagateSmooth）。独立构造器（见
-            handleConfirm fillet 分支）。 */}
-        {filletChannel && (
+        {/* fillet/chamfer 参数区（M6-b T6；Slice 1b 增倒角模式）：半径/倒角距离
+            +切向延伸复选。倒角按类型显示第二距离或角度；fillet 保持单半径。 */}
+        {edgePickChannel && (
           <React.Fragment>
-            <section className="part-studio-feature-dialog__distance">
+            {/* Onshape live 行序：实体字段 → 切向延伸 → 测量/控制（或倒角测量
+                +类型）→ 数值 → 不对称/选项。测量/控制首版只读，禁用不伪造。 */}
+            <section className="part-studio-feature-dialog__distance" data-field="measurement">
+              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-measurement">
+                {t(chamferChannel ? 'partStudio.featureDialog.chamferMeasurementLabel' : 'partStudio.featureDialog.measurementLabel')}
+              </label>
+              <select
+                id="part-studio-feature-dialog-measurement"
+                aria-label={t(chamferChannel ? 'partStudio.featureDialog.chamferMeasurementLabel' : 'partStudio.featureDialog.measurementLabel')}
+                className="part-studio-feature-dialog__select"
+                value="default"
+                disabled
+              >
+                <option value="default">
+                  {t(chamferChannel
+                    ? 'partStudio.featureDialog.chamferMeasurementOffset'
+                    : 'partStudio.featureDialog.measurementOptions.radius')}
+                </option>
+              </select>
+            </section>
+            {!chamferChannel && (
+              <section className="part-studio-feature-dialog__distance" data-field="control">
+                <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-control">
+                  {t('partStudio.featureDialog.controlLabel')}
+                </label>
+                <select
+                  id="part-studio-feature-dialog-control"
+                  aria-label={t('partStudio.featureDialog.controlLabel')}
+                  className="part-studio-feature-dialog__select"
+                  value="default"
+                  disabled
+                >
+                  <option value="default">{t('partStudio.featureDialog.controlOptions.distance')}</option>
+                </select>
+              </section>
+            )}
+            {chamferChannel && (
+              <section className="part-studio-feature-dialog__distance" data-field="chamfer-type">
+                <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-chamfer-type">
+                  {t('partStudio.featureDialog.chamferTypeLabel')}
+                </label>
+                <select
+                  id="part-studio-feature-dialog-chamfer-type"
+                  aria-label={t('partStudio.featureDialog.chamferTypeLabel')}
+                  className="part-studio-feature-dialog__select"
+                  value={chamferVariant}
+                  disabled={submitting}
+                  onChange={(event) => setChamferVariant(event.target.value as ChamferVariant)}
+                >
+                  <option value="equal">{t('partStudio.featureDialog.chamferTypeEqual')}</option>
+                  <option value="twoDistances">{t('partStudio.featureDialog.chamferTypeTwoDistances')}</option>
+                  <option value="distanceAngle">{t('partStudio.featureDialog.chamferTypeDistanceAngle')}</option>
+                </select>
+              </section>
+            )}
+            <section className="part-studio-feature-dialog__distance" data-field="radius">
               <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-radius">
-                {t('partStudio.featureDialog.radiusLabel')}
+                {t(chamferChannel
+                  ? (chamferVariant === 'twoDistances'
+                    ? 'partStudio.featureDialog.chamferDistance1Label'
+                    : 'partStudio.featureDialog.chamferDistanceLabel')
+                  : 'partStudio.featureDialog.radiusLabel')}
               </label>
               <input
                 id="part-studio-feature-dialog-radius"
                 type="text"
                 inputMode="decimal"
-                aria-label={t('partStudio.featureDialog.radiusLabel')}
+                aria-label={t(chamferChannel
+                  ? (chamferVariant === 'twoDistances'
+                    ? 'partStudio.featureDialog.chamferDistance1Label'
+                    : 'partStudio.featureDialog.chamferDistanceLabel')
+                  : 'partStudio.featureDialog.radiusLabel')}
                 className="part-studio-feature-dialog__input"
                 value={radius}
                 disabled={submitting}
                 onChange={(event) => setRadius(event.target.value)}
               />
             </section>
+            {chamferChannel && chamferVariant === 'twoDistances' && (
+              <section className="part-studio-feature-dialog__distance" data-field="chamfer-distance2">
+                <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance2">
+                  {t('partStudio.featureDialog.chamferDistance2Label')}
+                </label>
+                <input
+                  id="part-studio-feature-dialog-distance2"
+                  type="text"
+                  inputMode="decimal"
+                  aria-label={t('partStudio.featureDialog.chamferDistance2Label')}
+                  className="part-studio-feature-dialog__input"
+                  value={chamferDistance2}
+                  disabled={submitting}
+                  onChange={(event) => setChamferDistance2(event.target.value)}
+                />
+              </section>
+            )}
+            {chamferChannel && chamferVariant === 'distanceAngle' && (
+              <section className="part-studio-feature-dialog__angle" data-field="chamfer-angle">
+                <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-chamfer-angle">
+                  {t('partStudio.featureDialog.chamferAngleLabel')}
+                </label>
+                <input
+                  id="part-studio-feature-dialog-chamfer-angle"
+                  type="text"
+                  inputMode="decimal"
+                  aria-label={t('partStudio.featureDialog.chamferAngleLabel')}
+                  className="part-studio-feature-dialog__input"
+                  value={chamferAngleDeg}
+                  disabled={submitting}
+                  onChange={(event) => setChamferAngleDeg(event.target.value)}
+                />
+              </section>
+            )}
             <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-propagate-smooth">
               <input
                 type="checkbox"
@@ -2045,6 +2353,34 @@ export function FeatureDialog({
               />
               <span>{t('partStudio.featureDialog.propagateSmoothLabel')}</span>
             </label>
+            {!chamferChannel && (
+              <React.Fragment>
+                <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-asymmetric">
+                  <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                  <span>{t('partStudio.featureDialog.asymmetricLabel')}</span>
+                </label>
+                {[
+                  ['partial', 'partStudio.featureDialog.partialFilletLabel', false, false],
+                  ['variable', 'partStudio.featureDialog.variableFilletLabel', false, false],
+                  ['overflow', 'partStudio.featureDialog.allowOverflowLabel', true, true],
+                  ['smooth', 'partStudio.featureDialog.smoothFilletLabel', false, false],
+                ].map(([key, labelKey, checked, toggle]) => (
+                  <label
+                    key={String(key)}
+                    className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat"
+                    data-testid={`part-studio-feature-dialog-fillet-${key}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(checked)}
+                      disabled={!toggle}
+                      onChange={() => undefined}
+                    />
+                    <span>{t(String(labelKey))}</span>
+                  </label>
+                ))}
+              </React.Fragment>
+            )}
           </React.Fragment>
         )}
 
@@ -2058,6 +2394,8 @@ export function FeatureDialog({
             <span className="part-studio-feature-dialog__entities-label">
               {booleanBodiesChannel
                 ? t('partStudio.featureDialog.booleanBodiesParametersLabel')
+                : chamferChannel
+                ? t('partStudio.featureDialog.chamferEdgesLabel')
                 : filletChannel
                 ? t('partStudio.featureDialog.filletEdgesLabel')
                 : patternChannel
@@ -2070,7 +2408,7 @@ export function FeatureDialog({
                         ? t('partStudio.featureDialog.loftSectionsLabel')
                         : t('partStudio.featureDialog.entitiesLabel')}
             </span>
-            {!sketchChannel && !filletChannel && !loftChannel && !sweepChannel && !mirrorChannel
+            {!sketchChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
               && !patternChannel && !booleanBodiesChannel && (
               <button
                 type="button"
@@ -2081,6 +2419,19 @@ export function FeatureDialog({
               </button>
             )}
           </div>
+
+          {/* Onshape 实体字段：阵列/镜像作用于整件，显示 active authored body 芯片。 */}
+          {(patternChannel || mirrorChannel) && activeBodies.length > 0 && (
+            <div className="part-studio-feature-dialog__profile-field" data-testid="part-studio-feature-dialog-body-chips">
+              <ul className="part-studio-feature-dialog__chips">
+                {activeBodies.map((body, index) => (
+                  <li key={body.bodyKey} className="part-studio-feature-dialog__chip">
+                    <span className="part-studio-feature-dialog__chip-label">{bodyOptionLabel(body, index)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* B6 M-A3.2a：目标实体（N>1 active authored body 的显式写目标）——
               值进 op.targetBodyId（不是 params）；newBody 时隐藏（新体由本 op 创建）。
@@ -2116,7 +2467,7 @@ export function FeatureDialog({
 
           {/* Critical 1：fillet 的 target 按拾取边父体自动确定（只读显示）；跨体/
               孤儿/消费态 owner → 显式错误 + 禁提交，绝不回落默认 body。 */}
-          {filletChannel && bodies !== undefined && activeBodies.length > 1 && (
+          {edgePickChannel && bodies !== undefined && activeBodies.length > 1 && (
             filletTargetError !== undefined ? (
               <p
                 role="alert"
@@ -2264,7 +2615,7 @@ export function FeatureDialog({
                   <select
                     id="part-studio-feature-dialog-boolean-operation"
                     aria-label={t('partStudio.featureDialog.booleanBodiesOperationLabel')}
-                    className="part-studio-feature-dialog__select"
+                    className="part-studio-feature-dialog__select part-studio-feature-dialog__boolean-operation"
                     value={booleanOperation}
                     disabled={submitting}
                     onChange={(event) =>
@@ -2326,7 +2677,7 @@ export function FeatureDialog({
 
           {/* fillet 通道（M6-b T6）：无 body/无连接诚实降级 / 添加边拾取钮 /
               拾取中提示 / 边 chips 列表（「边 N」+×移除）/ 空边集门禁。 */}
-          {filletChannel && (
+          {edgePickChannel && (
             <React.Fragment>
               {!hasBodies ? (
                 <p
@@ -2351,12 +2702,21 @@ export function FeatureDialog({
                     className="part-studio-feature-dialog__fast-pick"
                     data-testid="part-studio-feature-dialog-add-edge"
                     aria-pressed={picking}
+                    aria-label={picking
+                      ? t('partStudio.featureDialog.stopPick')
+                      : t('partStudio.featureDialog.addEdge')}
                     disabled={submitting}
                     onClick={picking ? stopPick : startPick}
                   >
-                    {picking
-                      ? t('partStudio.featureDialog.stopPick')
-                      : t('partStudio.featureDialog.addEdge')}
+                    <span aria-hidden="true">
+                      {picking
+                        ? t('partStudio.featureDialog.stopPick')
+                        : filletEdges.length > 0
+                          ? t('partStudio.featureDialog.addEdge')
+                          : t(chamferChannel
+                            ? 'partStudio.featureDialog.chamferEdgesLabel'
+                            : 'partStudio.featureDialog.filletEdgesLabel')}
+                    </span>
                   </button>
                   {picking && (
                     <p
@@ -2404,7 +2764,9 @@ export function FeatureDialog({
                   className="part-studio-feature-dialog__hint"
                   data-testid="part-studio-feature-dialog-no-edges-hint"
                 >
-                  {t('partStudio.featureDialog.noEdgesHint')}
+                  {t(chamferChannel
+                    ? 'partStudio.featureDialog.chamferNoEdgesHint'
+                    : 'partStudio.featureDialog.noEdgesHint')}
                 </p>
               )}
             </React.Fragment>
@@ -2425,17 +2787,23 @@ export function FeatureDialog({
                 </p>
               ) : (
                 <React.Fragment>
-                  <select
-                    aria-label={t('partStudio.featureDialog.mirrorPlaneLabel')}
-                    className="part-studio-feature-dialog__select"
-                    value={mirrorPlane}
-                    disabled={submitting}
-                    onChange={(event) => setMirrorPlane(event.target.value as MirrorParams['plane'])}
-                  >
-                    <option value="XY">{t('partStudio.featureDialog.mirrorPlaneOptions.XY')}</option>
-                    <option value="YZ">{t('partStudio.featureDialog.mirrorPlaneOptions.YZ')}</option>
-                    <option value="XZ">{t('partStudio.featureDialog.mirrorPlaneOptions.XZ')}</option>
-                  </select>
+                  <section className="part-studio-feature-dialog__distance" data-field="mirror-plane">
+                    <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-mirror-plane">
+                      {t('partStudio.featureDialog.mirrorPlaneLabel')}
+                    </label>
+                    <select
+                      id="part-studio-feature-dialog-mirror-plane"
+                      aria-label={t('partStudio.featureDialog.mirrorPlaneLabel')}
+                      className="part-studio-feature-dialog__select part-studio-feature-dialog__mirror-plane"
+                      value={mirrorPlane}
+                      disabled={submitting}
+                      onChange={(event) => setMirrorPlane(event.target.value as MirrorParams['plane'])}
+                    >
+                      <option value="XY">{t('partStudio.featureDialog.mirrorPlaneOptions.XY')}</option>
+                      <option value="YZ">{t('partStudio.featureDialog.mirrorPlaneOptions.YZ')}</option>
+                      <option value="XZ">{t('partStudio.featureDialog.mirrorPlaneOptions.XZ')}</option>
+                    </select>
+                  </section>
                   {/* 首版范围提示（世界平面 + 保留原体；服务端保持同一语义）。 */}
                   <p
                     role="note"
@@ -2465,22 +2833,7 @@ export function FeatureDialog({
                 </p>
               ) : (
                 <React.Fragment>
-                  <select
-                    aria-label={t('partStudio.featureDialog.patternKindLabel')}
-                    className="part-studio-feature-dialog__select"
-                    value={patternKind}
-                    disabled={submitting}
-                    onChange={(event) => {
-                      const kind = event.target.value as PatternParams['kind'];
-                      setPatternKind(kind);
-                      // 圆周首版仅世界 Z：切换即锁定（切回线性保留 Z 亦合法）。
-                      if (kind === 'circular') setPatternAxis('Z');
-                    }}
-                  >
-                    <option value="linear">{t('partStudio.featureDialog.patternKindOptions.linear')}</option>
-                    <option value="circular">{t('partStudio.featureDialog.patternKindOptions.circular')}</option>
-                  </select>
-                  <section className="part-studio-feature-dialog__distance">
+                  <section className="part-studio-feature-dialog__distance" data-field="pattern-count">
                     <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-count">
                       {t('partStudio.featureDialog.patternCountLabel')}
                     </label>
@@ -2496,7 +2849,7 @@ export function FeatureDialog({
                     />
                   </section>
                   {patternKind === 'linear' ? (
-                    <section className="part-studio-feature-dialog__distance">
+                    <section className="part-studio-feature-dialog__distance" data-field="pattern-spacing">
                       <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-spacing">
                         {t('partStudio.featureDialog.patternSpacingLabel')}
                       </label>
@@ -2512,7 +2865,7 @@ export function FeatureDialog({
                       />
                     </section>
                   ) : (
-                    <section className="part-studio-feature-dialog__angle">
+                    <section className="part-studio-feature-dialog__angle" data-field="pattern-angle">
                       <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-angle">
                         {t('partStudio.featureDialog.patternAngleLabel')}
                       </label>
@@ -2530,7 +2883,7 @@ export function FeatureDialog({
                   )}
                   <select
                     aria-label={t('partStudio.featureDialog.patternAxisLabel')}
-                    className="part-studio-feature-dialog__select"
+                    className="part-studio-feature-dialog__select part-studio-feature-dialog__pattern-axis"
                     value={patternKind === 'circular' ? 'Z' : patternAxis}
                     disabled={submitting || patternKind === 'circular'}
                     onChange={(event) => setPatternAxis(event.target.value as PatternParams['axis'])}
@@ -2539,6 +2892,18 @@ export function FeatureDialog({
                     <option value="Y">{t('partStudio.featureDialog.patternAxisOptions.Y')}</option>
                     <option value="Z">{t('partStudio.featureDialog.patternAxisOptions.Z')}</option>
                   </select>
+                  <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-pattern-centered">
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.centerLabel')}</span>
+                  </label>
+                  <label className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat" data-testid="part-studio-feature-dialog-pattern-second-direction">
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.secondDirectionLabel')}</span>
+                  </label>
+                  <label className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat" data-testid="part-studio-feature-dialog-pattern-skip-instances">
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.skipInstancesLabel')}</span>
+                  </label>
                   <p
                     role="note"
                     className="part-studio-feature-dialog__hint"
@@ -2843,13 +3208,14 @@ export function FeatureDialog({
             const isOpen = expanded[section.id];
             const label = t(`partStudio.featureDialog.sections.${section.id}`);
             return (
-              <section key={section.id} className="part-studio-feature-dialog__section">
+              <section key={section.id} className="part-studio-feature-dialog__section" data-section={section.id}>
                 <button
                   type="button"
                   aria-expanded={isOpen}
                   className="part-studio-feature-dialog__section-toggle"
                   onClick={() => toggleSection(section.id)}
                 >
+                  <span className="part-studio-feature-dialog__section-checkbox" aria-hidden="true" />
                   <span>{label}</span>
                 </button>
                 {isOpen && (
@@ -2901,6 +3267,15 @@ export function FeatureDialog({
                         disabled
                         title={t('partStudio.featureDialog.draftUnsupported')}
                         onChange={(event) => setDraft(event.target.value)}
+                      />
+                    )}
+                    {section.id === 'secondEnd' && (
+                      <input
+                        type="text"
+                        aria-label={label}
+                        className="part-studio-feature-dialog__input"
+                        disabled
+                        title={t('partStudio.featureDialog.secondEndUnsupported')}
                       />
                     )}
                   </div>

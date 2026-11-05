@@ -188,6 +188,7 @@ import { usePermissions } from './hooks/usePermissions.js';
 import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
 import { useSketchCamera } from './hooks/useSketchCamera.js';
 import { useDisplaySettings } from './hooks/useDisplaySettings.js';
+import { useBodyAppearanceOverrides } from './hooks/useBodyAppearanceOverrides.js';
 import { useDatumVisibility } from './hooks/useDatumVisibility.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
@@ -482,6 +483,12 @@ function PartStudioSession({
 
   // 显示/渲染设置（2026-11-02）：共享给 ViewCube 下拉与右停靠面板。
   const displaySettings = useDisplaySettings(viewport);
+  // Onshape「外观」：逐 body 颜色覆盖（独立 FeatureOverrideProvider，与选择高亮并存）。
+  const [bodyColors, setBodyColors] = React.useState<Record<string, string>>({});
+  useBodyAppearanceOverrides(viewport, bodyColors);
+  const handleBodyColorChange = React.useCallback((bodyKey: string, color: string): void => {
+    setBodyColors((prev) => ({ ...prev, [bodyKey]: color }));
+  }, []);
 
   // 首帧取景校正（2026-11-02）：useViewport 创建链执行时画布可能尚未完成布局，
   // viewRect.aspect 偏小 → 取景过远（模型只占视口一小块）。布局稳定后按最终
@@ -1140,7 +1147,10 @@ function PartStudioSession({
                 isSaving={undoRedo.isSaving}
                 onSave={handleSave}
                 onPush={handlePush}
-                displaySettings={displaySettings}
+                bodies={featureSystem.bodies}
+                sketches={sketchOptions}
+                bodyColors={bodyColors}
+                onBodyColorChange={handleBodyColorChange}
               />
             </div>
           </div>

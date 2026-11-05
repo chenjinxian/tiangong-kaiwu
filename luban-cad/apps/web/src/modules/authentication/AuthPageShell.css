@@ -23,3 +23,29 @@
   .auth-shell__hero { display: none; }
   .auth-shell__form { flex: 1; }
 }
+
+/* 2026-11-06 Onshape sign-in live：左表单列约 50%，顶部起始而非垂直居中。 */
+.auth-shell {
+  background: #ffffff;
+}
+
+.auth-shell__form {
+  flex: 0 0 50%;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 64px 48px 48px;
+  border-right: none;
+  background: #ffffff;
+}
+
+.auth-shell__hero {
+  background: #f5f5f5;
+}
+
+@media (max-width: 960px) {
+  .auth-shell__form {
+    flex: 1;
+    align-items: center;
+    padding: 32px 24px;
+  }
+}

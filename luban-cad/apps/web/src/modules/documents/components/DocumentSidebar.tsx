@@ -10,24 +10,28 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, DropdownMenu, MenuItem, SideNavigation, SidenavButton } from '@itwin/itwinui-react';
+import { DropdownMenu, MenuItem } from '@itwin/itwinui-react';
 import {
   SvgAdd,
+  SvgChevronDown,
   SvgClock,
+  SvgDelete,
   SvgFolder,
   SvgGlobe,
   SvgImport,
   SvgShare,
   SvgStar,
   SvgTag,
+  SvgUser,
 } from '@itwin/itwinui-icons-react';
 import type { DocumentFilter, GatedCreateAction } from '../types.js';
 
-/** 筛选项定义：档位 + 图标（iTwinUI 图标组件引用，渲染时首字母大写局部变量）。 */
+/** 筛选项定义：档位 + 图标（Onshape 左栏顺序：由我所有 → 最近 → 收藏 →
+ * 已与我共享 → 公开；收藏为本产品保留的额外筛选）。 */
 const FILTER_ITEMS: { id: DocumentFilter; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'my', icon: SvgUser },
   { id: 'recent', icon: SvgClock },
   { id: 'favorites', icon: SvgStar },
-  { id: 'my', icon: SvgFolder },
   { id: 'shared', icon: SvgShare },
   { id: 'public', icon: SvgGlobe },
 ];
@@ -69,28 +73,63 @@ export function DocumentSidebar({
           </MenuItem>,
         ]}
       >
-        <Button styleType="high-visibility" startIcon={<SvgAdd />}>
-          {t('documents.createMenu.button')}
-        </Button>
+        <button type="button" className="documents-sidebar__create-button">
+          <SvgAdd className="documents-sidebar__create-icon" />
+          <span>{t('documents.createMenu.button')}</span>
+          <SvgChevronDown className="documents-sidebar__create-caret" />
+        </button>
       </DropdownMenu>
 
-      <SideNavigation
-        className="documents-sidebar__nav"
-        isExpanded
-        items={FILTER_ITEMS.map((item) => {
+      <nav className="documents-sidebar__nav" aria-label={t('documents.sidebar.label')}>
+        <button
+          type="button"
+          className="documents-sidebar__item documents-sidebar__item--explore"
+          onClick={() => onGatedAction('importFrom')}
+        >
+          <SvgGlobe />
+          <span>{t('documents.sidebar.explore')}</span>
+        </button>
+        {FILTER_ITEMS.map((item) => {
           const IconComponent = item.icon;
           return (
-            <SidenavButton
+            <button
               key={item.id}
-              startIcon={<IconComponent />}
-              isActive={activeFilter === item.id}
+              type="button"
+              className={[
+                'documents-sidebar__item',
+                activeFilter === item.id ? 'documents-sidebar__item--active' : '',
+              ].filter(Boolean).join(' ')}
+              aria-current={activeFilter === item.id ? 'page' : undefined}
               onClick={() => onFilterChange(item.id)}
             >
-              {t(`documents.filters.${item.id}`)}
-            </SidenavButton>
+              <IconComponent />
+              <span>{t(`documents.filters.${item.id}`)}</span>
+            </button>
           );
         })}
-      />
+        <button
+          type="button"
+          className="documents-sidebar__item"
+          onClick={() => onGatedAction('labelTag')}
+        >
+          <SvgTag />
+          <span>{t('documents.sidebar.labels')}</span>
+        </button>
+        <button type="button" className="documents-sidebar__item" disabled title={t('documents.sidebar.notImplemented')}>
+          <SvgDelete />
+          <span>{t('documents.sidebar.trash')}</span>
+        </button>
+      </nav>
+
+      <div className="documents-sidebar__footer">
+        <span className="documents-sidebar__plan">{t('documents.sidebar.freePlan')}</span>
+        <button type="button" className="documents-sidebar__pro" onClick={() => onGatedAction('upgrade')}>
+          {t('documents.sidebar.tryPro')}
+        </button>
+        <button type="button" className="documents-sidebar__pricing" onClick={() => onGatedAction('upgrade')}>
+          {t('documents.sidebar.plansPricing')}
+        </button>
+      </div>
     </div>
   );
 }

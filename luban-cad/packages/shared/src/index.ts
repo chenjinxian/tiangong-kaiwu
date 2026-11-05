@@ -239,6 +239,10 @@ export type {
   PartStudioInfo,
   // ADR-0006 切片 A（v1.26，简单钻孔）
   HoleParams,
+  HoleVertexRef,
+  // ADR-0006 切片 B1（v1.29，cPlane 基准面）
+  CPlaneParams,
+  CPlaneReference,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

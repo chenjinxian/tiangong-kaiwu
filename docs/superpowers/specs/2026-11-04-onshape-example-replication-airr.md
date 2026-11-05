@@ -35,7 +35,7 @@
 | Bench Vise | 4 Part Studio；完整 API + UI | 至少 1 个 Part Studio 完整特征链；多 Part/多 body 对拍 |
 | Part Feeding Machine | 13 Part Studio；完整 API + UI | 选择 1 个 Part Studio 做完整链；验证大规模多 Part 文档的选择/树/相机 |
 | Exercise: Clamp | 2 Part Studio；特征树 + UI（1/2 PS 有 UI） | 草图/尺寸/特征树回放；massproperties/parts 到齐后补体积锚 |
-| Tutorial 2 - Build Your First Part - iOS | 1 Part Studio；4 特征（sketch/extrude NEW/extrude ADD/chamfer）；特征树 + UI + parts + 逐 body 质量属性（157.479 cm³） | **几何+约束全量回放已通过**（私有后端 replay：草图 ok/dof=0，含 4 条 line+circle tangent 与 2 条 DIAMETER；单 body、四特征 status 0、终体积 157.165 cm³，-0.20%）；当前 blocked-capability 仅剩通用 imprint-face extrude 与 chamfer UI 创建链。原「Intro to CAD - Skateboard」的 Part Studio 为空（0 特征、0 body），数据不可用，已替换 |
+| Tutorial 2 - Build Your First Part - iOS | 1 Part Studio；4 特征（sketch/extrude NEW/extrude ADD/chamfer）；特征树 + UI + parts + 逐 body 质量属性（157.479 cm³） | **几何+约束全量回放已通过**（草图 ok/dof=0，含 4 条 line+circle tangent 与 2 条 DIAMETER）；单 body、四特征 status 0、终体积 **157478.900 mm³ = Onshape 目标**（chamfer UI 已于 2026-11-05 接通并按 CAP_EDGE 语义拾取 3 条边）；剩余近似仅 imprint-face → 面域 ADD。原「Intro to CAD - Skateboard」的 Part Studio 为空（0 特征、0 body），数据不可用，已替换 |
 
 **Batch 1 数据状态（2026-11-04）**
 
@@ -62,7 +62,7 @@
 | itwinjs-core | BriefcaseTxns、EditTools、ElementSetTool、iModel/BIS | `packages/editor`、viewer host、core-backend | 5.15 fork | 复用 |
 | luban-cad/packages/editor | 建模工具基类、编辑命令、草图工具 | `EditTool.ts`、`SolidModelingToolBase.ts`、`Sketch.*` | workspace | 复用；不恢复旧编辑 RPC |
 | luban-cad/packages/viewer | 渲染、选择装饰、草图/尺寸装饰 | `render-profile.ts`、`OnshapeSelectTool`、decorations | workspace | 复用 |
-| luban-cad/packages/shared | FeatureOp/DTO/契约 | `LubanFeatureRpcInterface` 1.26.0 | workspace | 优先不改；需要新增 op 时 ADR + 版本化 |
+| luban-cad/packages/shared | FeatureOp/DTO/契约 | `LubanFeatureRpcInterface` 1.28.0 | workspace | 优先不改；需要新增 op 时 ADR + 版本化 |
 | luban-backend/modeling-server | FeatureService、FeatureEngine、massproperties、schema | 私有仓产物；`dist-backend` 消费 | 当前发布列车 | 只为缺失能力扩展，不另开写面 |
 | luban-backend/webhook-agent | baseline/webhook | 与复刻无直接关系 | 当前发布列车 | 不适用 |
 | imodel-native | SolidKernel/BRep | 私有源码 + Delivery | canonical checkout | 先复用；无必要不改 native |
@@ -141,6 +141,93 @@
 - known-red：Tutorial 2 Extrude 2 region 4（X-14）必须在 Batch 1 转绿；sketch-extrude 无 closed region 仍按现有登记跟踪。
 
 ---
+
+## 7.1 逐示例 iModel 与分步演示（2026-11-05 补充）
+
+### 需求
+
+每个 Onshape 示例在 luban-cad 中都必须有**对应的真实 iModel**（不是临时测试库、不是截图），
+并生成与 Tutorial 2 同形态的分步演示：每一步真实 UI 操作 + 截图/说明，最终模型可从
+文档中心重新打开。
+
+### 设计
+
+- **示例项目**：专用 B 标记项目 `Onshape 示例复刻`
+  （`data.luban = { modelMode:'B', schemaVersion:1 }`），每个 Part Studio 示例一个 iModel，
+  名称 `<owner>/<document>/<Part Studio>` 的稳定 slug。
+- **持久化**：通过 web 编辑器打开 iModel → 真实 UI 构建 → dock「推送」写入 hub changeset；
+  重开同一 iModel 后特征树/草图/body 必须仍在。构建前不删除已存在示例库；显式 `--reset`
+  才重建。
+- **演示产物**：`luban-cad/apps/web/demo-artifacts/examples/<slug>/`
+  - `001-<step>.png` … 每步截图；
+  - `index.html` 画廊 + 步骤说明 + 体积/特征树校验；
+  - `demo.webm`（可选，Playwright 录制）；
+  - `manifest.json`（iModel id、项目 id、场景 id、推送 changeset、校验结果）。
+- **通用 runner**：`e2e/examples/` 下按 scenario 驱动真实 UI：
+  - 草图：平面选择 → 绘制点/线/圆/弧 → 约束/尺寸（scenario 中已支持的 kind）→ 完成；
+  - 特征：按类型走现有对话框（extrude/revolve/hole），面域/孔位按 scenario 元数据选择；
+  - 每步调用统一 `step()` 截屏 + 记录 caption；
+  - 不支持的约束/特征不得静默跳过：写入运行报告，示例标为 `blocked-capability`，不生成“完成”演示。
+- **首批**：Basic Drawing（Right 平面 sketch → 全周 revolve）作为第一个新示例；
+  随后 Postman、WARNING LABEL、Mate Connectors，再按能力扩展。
+- **门槛**：演示必须来自真栈（真实 Briefcase/iModel + FeatureService 求值）；jsdom/StandaloneDb
+  只能作为前置校验。最终体积与 scenario expected 对拍，iModel 重开后读回一致。
+- **混合构建规则（2026-11-05 补充）**：当精确几何在 UI 拾取阈值以下（如 Postman 的
+  r=1.60176 mm 角圆），草图可经 `applyFeatureOpRpc` 的 `insertSketch` 按采集数据精确复原，
+  但仍走同一 `LubanFeatureRpcInterface` FeatureOp 管道、事务与推送；演示页必须显式标注
+  哪一步是数据驱动、哪一步是真实 UI 操作，不得把 RPC 步骤冒充成鼠标绘制。特征步骤
+  （拉伸/旋转等）优先走真实 UI 对话框。
+
+### 已落地状态（2026-11-05）
+
+| 示例 | iModel | changeset | 结果 |
+|---|---|---|---|
+| Tutorial 2 - Build a Part | `f2278180-4f57-43b2-98f5-2cc8f76fd24f` | `Onshape example: Tutorial 2 - Build a Part` | 357.716 cm³；5.0 min 录像 |
+| Tutorial 2 - Build Your First Part - iOS | `f49b33ab-d07d-4e76-9aef-80812e8784cf` | `Onshape example: Tutorial 2 - Build Your First Part - iOS` | 157478.900 vs 157478.9 mm³（**0.00%**）；17 约束草图 RPC + 2 次 UI 拉伸 + UI 倒角（3 条 CAP_EDGE，2 mm） |
+| Exercise - Hand Brake Update | `33f8feb0-ea05-4e7d-9f88-38c30def30e8` | `Onshape example: Exercise - Hand Brake Update` | 7125.270 vs 7125.274 mm³（−0.00006%）；并集外边界草图 RPC + UI 全周旋转 + UI 倒角（左端圆边 1 mm） |
+| Sample Assignment · Alignment Plate | `a9eacfe5-825f-421e-93c3-bf55466c27cf` | `Onshape example: Sample Assignment` | 8915.860 vs 8915.8599 mm³（0.00%）；4 草图 RPC + 4 次 UI 拉伸（含完全贯穿移除）+ UI 距离-角度倒角（4 竖边 1.524 mm / 45°，mode=3） |
+| Exercise: Basic Drawing | `3f90c416-34c3-4c02-8ce3-0cdbb98c1761` | `Onshape example: Exercise - Basic Drawing` | 2446.3125 vs 2442.2938 cm³（+0.164%）；纯 UI |
+| Postman | `828fc683-c679-40d3-b75c-e6dbe5911eae` | `Onshape example: Postman` | 2.6705 vs 2.6866 cm³（−0.60%）；草图 RPC + UI 拉伸 |
+| WARNING LABEL - Bench Vise | `2e2fd3e3-607b-4b20-b8e1-937db350a89f` | `Onshape example: WARNING LABEL - Bench Vise` | 0.819353 vs 0.8193532 mm³（−0.00002%）；3 草图 RPC + 2 次 UI 拉伸；imprintFace add 映射为面域 ADD |
+| Exercise - Creating Mate Connectors | `b261311a-3f3a-4800-bebf-1d66bdc8eb93` | `Onshape example: Exercise - Creating Mate Connectors` | 21900.405 vs 21743.326 mm³（+0.72%）；2 body（11861.2 vs 11704.085，+1.34%；10039.2 vs 10039.241）；3 草图 RPC + 3 次 UI 拉伸（含反向移除/完全贯穿/目标实体） |
+| Intro to CAD 1.2-1.4 | `342ec346-971f-428f-ae1b-c42517876b6e` | `Onshape example: Intro to CAD 1.2-1.4` | 85157.341 vs 85157.342 mm³（−0.000001%）；单 body；2 草图 RPC（含背面偏移未拉伸草图）+ 1 次 UI 多面域拉伸 |
+| WARNING LABEL · Onshape Training ×3 | `f3867be8…`、`8ed53b20…`、`86c7a96f…` | `Onshape example: WARNING LABEL - <doc>` | 三个文档的同一 Part Studio（features JSON sha256 一致）；各 0.8193532 mm³；独立 iModel + changeset，共用同构 9 步演示 |
+
+十二个（9 个独立示例 + 3 个同几何文档）iModel 均已在 hub 中重开验证；重开回归
+`e2e/examples/verify-imodels.spec.ts` 一次性 12/12 passed（逐库特征树 + 体积），
+证据图在 `apps/web/demo-artifacts/examples/_verify/`；演示页在
+`luban-cad/apps/web/demo-artifacts/examples/`。
+
+**已证实的面域引擎缺口（2026-11-05）**：本仓 sketchRegionsFrom 不合并重叠闭环；
+Onshape 对“完整圆 + 切线”重叠几何按并集生成单一外环。示例层用精确切点角度的线+半圆弧
+重建外环（Mate Connectors 已验证，体积差 +0.72%）；产品层若要直接回放原始实体，需要
+面域并集能力（后端改动，需 ADR/回归）。
+
+**union 语义原型结论（2026-11-05，仅研究，未改后端）**：用 core-geometry
+`constructAllXYRegionLoops` + `regionBooleanXY(Union, simplifyUnion)` 合并全部排列面，
+再把“完整圆边界全部 strict-inside 并集”的圆环作为孔减去，可在 Mate Connectors 原始
+实体上精确得到 5930.5823 mm²（外环−两孔），即该例的 Onshape 面域。但对 Quickstart：
+Spindle 全排列面并集 Pappus 体积 27816.75 vs 期望 22162.97；Handle 4673.59 vs 8215.94，
+说明 Onshape 的 region 0 不是“全部闭环并集”，而是特定连通/嵌套子集；通用 union 改动
+不足以复刻，仍需逐示例 profile 映射或更完整的面域引擎。该结论避免重复研究。
+
+**imprint-face 切片 0 spike（2026-11-05，仅研究）**：iOS E1 body 的
+`getSubEntityGeometry` 面几何可取：侧面为 `Loop(4)`、上下 cap 为
+`ParityRegion(3 children)`（世界系）。整平面 faceRef 可行；但 iOS Extrude 2 选的是
+imprint 后的左环**子面**，我们的 cap 尚未按内圆 split，`faceRef(整 cap)` 不等价。
+在实现 face imprint/split 之前，iOS/Intermediate 的 imprint-face 步骤继续用“最近草图
+面域”近似并在演示页标注；详见 `2026-11-05-imprint-face-extrude-airr.md`（草稿）。
+
+**被动 UI 抓包 probe（2026-11-05，仅研究）**：扫描 `onshape-parity-data` 下 1023 个
+browser capture 文件、47486 条 HTTP 条目，**0 条 feature endpoint**。UI 的 HTTP JSON
+只有文档/元素/工具栏/权限等元数据，特征树/参数不在其中（大概率在 WebSocket/二进制通道）。
+按本 AIRR 非目标不解析内部二进制协议，因此抓包不能替代 features API；UI 抓包只用于
+截图/DOM/ARIA 证据。采集限流只能按 `retry-after` 等待并降速，不做客户端规避。
+
+### 回滚
+
+示例 iModel 是测试/演示数据，可删除重建；不涉及产品 schema/迁移。runner 与新项目不改变
+生产建模管道。
 
 ## 8. 回滚与发布
 

@@ -1,8 +1,11 @@
 /*
- * Onshape ViewCube（2026-11-02 live 采集基线）：
- * 150×150 stage；~84px 白面圆角 cube；浅灰罗盘弧线/三角；无圆环、无角点；
- * 底部右侧无边框 mini-cube 菜单触发器；菜单 224px 白底、12px 字、22px 行高、
- * hover #DEF1FB、子菜单向左展开。
+ * Onshape ViewCube（2026-11-05 逐像素复核）：
+ * - 150×150 stage，位于画布右上角内缩 15px；cube 面边长 ~60px（ISO 轮廓 ~83×85）；
+ * - 半透明近白圆角 cube，4px #e3e9ee 斜切边带；hover 面 #c4e1f5；
+ * - 三色轴锚在 Front 面左下角、画在 cube 前面（#cd0000/#009400/#0000d0）；
+ * - 罗盘 #e3e9ee 弧线 x=22.5..54 / 96..127.5；四向三角 11×7.5；
+ * - 右下 trigger 44.23×28、rgba(255,255,255,.35)、圆角 3、20px mini-cube + 8×4 三角；
+ * - 菜单 224px 白底、12px 字、22px 行高、hover #DEF1FB、子菜单向左展开。
  */
 
 .part-studio-viewcube {
@@ -20,13 +23,13 @@
   position: relative;
   inline-size: 150px;
   block-size: 150px;
-  perspective: 420px;
-  cursor: grab;
+  perspective: 700px;
+  cursor: default;
   touch-action: none;
 }
 
-.part-studio-viewcube__stage:active {
-  cursor: grabbing;
+.part-studio-viewcube__stage--interactive {
+  cursor: pointer;
 }
 
 /* ── 罗盘与旋转热区 ─────────────────────────────────────────────── */
@@ -38,9 +41,30 @@
   pointer-events: none;
 }
 
+.part-studio-viewcube__compass-arc path,
+.part-studio-viewcube__compass-tri {
+  fill: #e3e9ee;
+  stroke: #e3e9ee;
+}
+
+.part-studio-viewcube__compass-arc path[stroke-width] {
+  fill: none;
+}
+
+.part-studio-viewcube__compass-arc--active path,
+.part-studio-viewcube__compass-tri--active {
+  fill: #c4e1f5;
+  stroke: #c4e1f5;
+}
+
+.part-studio-viewcube__compass-arc--active path[stroke-width] {
+  fill: none;
+  stroke: #c4e1f5;
+}
+
 .part-studio-viewcube__arrow-hit {
   position: absolute;
-  z-index: 2;
+  z-index: 6;
   padding: 0;
   border: none;
   background: transparent;
@@ -48,95 +72,144 @@
   opacity: 0;
 }
 
-.part-studio-viewcube__arrow-hit:hover {
-  background: rgba(163, 198, 224, 0.22);
-  border-radius: 4px;
-}
-
-.part-studio-viewcube__arrow-hit--n { top: 0; left: 62px; inline-size: 26px; block-size: 20px; }
-.part-studio-viewcube__arrow-hit--s { bottom: 0; left: 62px; inline-size: 26px; block-size: 20px; }
-.part-studio-viewcube__arrow-hit--w { left: 0; top: 62px; inline-size: 20px; block-size: 26px; }
-.part-studio-viewcube__arrow-hit--e { right: 0; top: 62px; inline-size: 20px; block-size: 26px; }
+.part-studio-viewcube__arrow-hit--nw { left: 18px; top: 4px; inline-size: 40px; block-size: 34px; }
+.part-studio-viewcube__arrow-hit--ne { left: 92px; top: 4px; inline-size: 40px; block-size: 34px; }
+.part-studio-viewcube__arrow-hit--n { top: 0; left: 66px; inline-size: 18px; block-size: 14px; }
+.part-studio-viewcube__arrow-hit--s { bottom: 0; left: 66px; inline-size: 18px; block-size: 14px; }
+.part-studio-viewcube__arrow-hit--w { left: 0; top: 62px; inline-size: 18px; block-size: 26px; }
+.part-studio-viewcube__arrow-hit--e { right: 0; top: 62px; inline-size: 18px; block-size: 26px; }
 
 /* ── 3D cube ──────────────────────────────────────────────────── */
+/* Onshape live：面边长 58px，位于 150×150 中心；ISO 轮廓约 82 CSS。 */
 .part-studio-viewcube__cube {
   position: absolute;
-  left: 33px;
-  top: 33px;
-  inline-size: 84px;
-  block-size: 84px;
+  left: 46px;
+  top: 46px;
+  z-index: 2;
+  inline-size: 58px;
+  block-size: 58px;
   transform-style: preserve-3d;
-  transition: transform 0.16s ease-out;
 }
 
+/* 半透明近白玻璃面 + 斜切边带：1px #d7d7d7 外线 + 4px 白色斜面带 +
+   1px #e3e9ee 内线（Onshape live：边线细、倒角面带宽且发白）。
+   backface 可见让背面参与叠加，但远侧标签用 --hidden 隐藏。 */
 .part-studio-viewcube__face {
   position: absolute;
   inset: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0;
   padding: 0;
-  border: 1px solid #d8e1e8;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #ffffff 0%, #f3f7fa 100%);
+  border: 1px solid #d9dee3;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.92);
   cursor: pointer;
-  backface-visibility: hidden;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.85),
-    inset 0 -6px 12px rgba(111, 145, 168, 0.05),
-    0 1px 2px rgba(42, 68, 92, 0.05);
-  transition: background 0.12s ease, border-color 0.12s ease;
+  pointer-events: none;
+  backface-visibility: visible;
+  box-shadow: inset 0 0 0 7px rgba(255, 255, 255, 0.96);
+  transition: background 0.1s ease;
 }
 
-.part-studio-viewcube__face:hover {
-  background: #f7fbff;
-  border-color: #bcd2e2;
+.part-studio-viewcube__face--top {
+  background: rgba(249, 251, 253, 0.94);
 }
 
-/* ── 面标签（屏幕对齐；不随 cube 旋转，只按投影位置移动）──────────── */
-.part-studio-viewcube__face-labels {
+.part-studio-viewcube__face--front {
+  background: rgba(246, 249, 252, 0.92);
+}
+
+.part-studio-viewcube__face--right {
+  background: rgba(244, 247, 250, 0.9);
+}
+
+.part-studio-viewcube__face.part-studio-viewcube__face--hovered {
+  background: #c4e1f5;
+  border-color: #e3e9ee;
+}
+
+/* 面标签：屏幕对齐、始终直立（Onshape DPR4 live 实证：上/前/右均直立）。 */
+.part-studio-viewcube__labels {
   position: absolute;
   inset: 0;
+  z-index: 4;
   pointer-events: none;
+}
+
+/* 隐藏面边带/角点高亮层（在 cube 之上、标签/轴之下）。 */
+.part-studio-viewcube__picks {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.part-studio-viewcube__picks svg {
+  display: block;
+  inline-size: 150px;
+  block-size: 150px;
+  overflow: visible;
+}
+
+.part-studio-viewcube__hidden-strip {
+  fill: none;
+  stroke: #c4e1f5;
+  stroke-width: 8;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.part-studio-viewcube__hidden-strip--active {
+  opacity: 1;
+}
+
+.part-studio-viewcube__corner-dot {
+  fill: #c4e1f5;
+  stroke: none;
 }
 
 .part-studio-viewcube__face-label {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  color: #7b8187;
-  font-size: 10.5px;
+  transform: translate(-50%, -50%);
+  color: #62696f;
+  font-size: 9px;
   font-weight: 400;
   line-height: 1;
+  letter-spacing: 0.2px;
   white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ── 不可见角点热区（Onshape 点击 cube 角=trimetric）───────────────── */
+/* Onshape live 不显示角点圆点；命中区保留但完全透明，仅 hover 时极淡提示。 */
 .part-studio-viewcube__corner-hit {
   position: absolute;
-  z-index: 3;
+  z-index: 6;
   inline-size: 11px;
   block-size: 11px;
   padding: 0;
-  border: 1px solid #dbe4ea;
+  border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  cursor: pointer;
+  background: transparent;
+  pointer-events: none;
   transform: translate(-50%, -50%);
-  opacity: 0.9;
-  transition: background 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  opacity: 0;
 }
 
-.part-studio-viewcube__corner-hit:hover,
 .part-studio-viewcube__corner-hit:focus-visible {
-  background: #e8f4fd;
-  border-color: #9cc7e8;
-  box-shadow: 0 0 0 2px rgba(0, 132, 213, 0.12);
-  opacity: 1;
+  outline: 1px dashed #7aa7c7;
 }
 
 /* ── 轴三色标 ─────────────────────────────────────────────────── */
+/* Onshape live：三色轴画在立方体**前面**（Y/X 轴穿过面可见，标签在轴端）。 */
 .part-studio-viewcube__axes {
   position: absolute;
   inset: 0;
+  z-index: 5;
   pointer-events: none;
 }
 
@@ -147,20 +220,32 @@
   overflow: visible;
 }
 
-/* ── mini-cube 触发器（无边框，位于 stage 右下）─────────────────── */
+/* 菜单锚点：自研模式让 trigger/menu 继续按既有绝对定位相对 stage 摆放；
+   官方模式由 ItwinViewCube.css 覆写为独立定位块。 */
+.part-studio-viewcube__camera-menu {
+  display: contents;
+}
+
+/* ── mini-cube 触发器 ─────────────────────────────────────────── */
+/* Onshape live DOM：44.226×28、right 0 / bottom -5（相对 150 stage）、radius 3、
+   rgba(255,255,255,.35)；20px 图标 + 8×4 黑色下三角，间距 7px。 */
 .part-studio-viewcube__trigger {
   position: absolute;
-  right: 7px;
-  bottom: 2px;
-  z-index: 5;
-  display: inline-flex;
+  right: 0;
+  bottom: -5px;
+  z-index: 7;
+  box-sizing: border-box;
+  display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 3px;
+  justify-content: flex-start;
+  inline-size: 44.25px;
+  block-size: 28px;
+  gap: 7px;
+  padding: 0 5px 0 4px;
   border: none;
   border-radius: 3px;
-  background: transparent;
-  color: #4a4a4a;
+  background: rgba(255, 255, 255, 0.35);
+  color: #333333;
   cursor: pointer;
 }
 
@@ -169,7 +254,30 @@
   background: #eef2f5;
 }
 
+/* Onshape live：hover 时在触发器左侧显示浅灰 tooltip「相机和渲染选项」。 */
+.part-studio-viewcube__trigger-tooltip {
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 50%;
+  display: none;
+  padding: 5px 8px;
+  border-radius: 2px;
+  background: #eef1f4;
+  color: #3f4347;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.part-studio-viewcube__trigger:hover .part-studio-viewcube__trigger-tooltip,
+.part-studio-viewcube__trigger:focus-visible .part-studio-viewcube__trigger-tooltip {
+  display: block;
+}
+
 .part-studio-viewcube__mini-cube {
+  flex: 0 0 auto;
   inline-size: 20px;
   block-size: 20px;
 }
@@ -177,13 +285,23 @@
 .part-studio-viewcube__trigger-chevron {
   inline-size: 8px;
   block-size: 8px;
-  color: #4a4a4a;
+  color: #333333;
+}
+
+/* Onshape live 的 .os-dropdown-caret：border-top 4px #333，左右 4px 透明。 */
+.part-studio-viewcube__trigger-triangle {
+  flex: 0 0 auto;
+  inline-size: 0;
+  block-size: 0;
+  border-inline-start: 4px solid transparent;
+  border-inline-end: 4px solid transparent;
+  border-block-start: 4px solid #333333;
 }
 
 /* ── 菜单（Onshape camera/render options）───────────────────────── */
 .part-studio-viewcube__menu {
   position: absolute;
-  top: 154px;
+  top: 158px;
   right: 0;
   z-index: 45;
   inline-size: 224px;
@@ -214,10 +332,20 @@
   cursor: pointer;
 }
 
-.part-studio-viewcube__item:hover,
-.part-studio-viewcube__item:focus-visible {
+.part-studio-viewcube__item:hover:not(:disabled),
+.part-studio-viewcube__item:focus-visible:not(:disabled) {
   background: #def1fb;
   outline: none;
+}
+
+.part-studio-viewcube__item--disabled {
+  color: #a9a9a9;
+  cursor: default;
+}
+
+.part-studio-viewcube__item--disabled .part-studio-viewcube__item-icon,
+.part-studio-viewcube__item--disabled .part-studio-viewcube__item-arrow {
+  color: #b8b8b8;
 }
 
 .part-studio-viewcube__item--checkable {
@@ -300,12 +428,12 @@
   line-height: 18px;
 }
 
-/* Home：cube 左侧弯曲回退箭头（Onshape live y≈stage+28）。 */
+/* Home：cube 左侧弯曲回退箭头（Onshape live：约 (50,18) 20px）。 */
 .part-studio-viewcube__home {
   position: absolute;
-  left: 49px;
-  top: 28px;
-  z-index: 4;
+  left: 50px;
+  top: 18px;
+  z-index: 6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -314,12 +442,14 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: #8a8f94;
+  color: #5f6468;
   cursor: pointer;
+  opacity: 0.9;
 }
 
 .part-studio-viewcube__home:hover {
-  color: #555555;
+  color: #333333;
+  opacity: 1;
 }
 
 .part-studio-viewcube__home svg {

@@ -43,9 +43,9 @@
 | Auth | `apps/web/src/modules/authentication/` | ✅ JWT 认证 |
 | iTwin | `apps/web/src/modules/documents/`（项目管理与文档中心同页） | ✅ 项目管理 |
 | iModel | `apps/web/src/modules/documents/` + `document-details/` | ✅ 模型管理 |
-| Editor | `apps/web/src/modules/part-studio/`（编辑器页：ribbon/特征树/参数面板/状态栏五区）+ 基座包 `packages/viewer`（iTwin 启动序列/RPC）+ `packages/editor/frontend`（第一方建模基座，2026-10-22 收编） | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；✅ 特征实时预览（2026-11-02：extrude/revolve 参数 → 画布半透明 ghost，随相机重绘，透明度滑杆驱动；fillet 结果走 TileRpc 动态 iMdl 实心结果 + 源体透明 + 橙色 x-ray 选边；提交仍走真实内核）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口）；✅ **Onshape 统一选择**（2026-11-03：默认工具常驻，无模式；悬停 顶点>边>面、单击替换/Ctrl 切换/空白清除、整零件走零件列表/右键；跨 body owner 持久 ref；undo/redo 后按 store 快照恢复高亮；面命中因原生 Face locate 卡死 MS 改用 `getClosestPoint` 兜底）；✅ **iTwin 默认渲染基线**（2026-11-03：core 默认灯光/材质 + 白底 + BRep 全拓扑边 + AO 关 + MSAA 4）；✅ Onshape UI 对齐（2026-11-02：ViewCube/显示设置下拉/默认几何图元树+视口批注；详见 `../docs/UI-ONSHAPE-PARITY-2026-11-02.md`）；✅ 完整 BRep 拓扑边/顶点叠加（不修改 iTwin 渲染器/shader；详见 `../docs/BREP-RENDERING-2026-11-03.md`）；editor 基座两处修复：cleanup 幂等 `finishCommand`、`wantGeometry` 按需读取；✅ **X-01/X-02/X-03 第一轮债务清理（2026-11-04）**：旧编辑 RPC 删除、草图工具唯一族 `Sketch.*`、`store.canvas.selection` 单一权威 + `internal/selection-authority.ts` 唯一 SelectionSet 投影 |
+| Editor | `apps/web/src/modules/part-studio/`（编辑器页：ribbon/特征树/参数面板/状态栏五区）+ 基座包 `packages/viewer`（iTwin 启动序列/RPC）+ `packages/editor/frontend`（第一方建模基座，2026-10-22 收编） | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；✅ 特征实时预览（2026-11-02：extrude/revolve 参数 → 画布半透明 ghost，随相机重绘，透明度滑杆驱动；fillet 结果走 TileRpc 动态 iMdl 实心结果 + 源体透明 + 橙色 x-ray 选边；提交仍走真实内核）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口）；✅ **Onshape 统一选择**（2026-11-03：默认工具常驻，无模式；悬停 顶点>边>面、单击替换/Ctrl 切换/空白清除、整零件走零件列表/右键；跨 body owner 持久 ref；undo/redo 后按 store 快照恢复高亮；面命中因原生 Face locate 卡死 MS 改用 `getClosestPoint` 兜底）；✅ **iTwin 默认渲染基线**（2026-11-03：core 默认灯光/材质 + 白底 + BRep 全拓扑边 + AO 关 + MSAA 4）；✅ Onshape UI 对齐（2026-11-02：ViewCube/显示设置下拉/默认几何图元树+视口批注；2026-11-05 追加：工具栏下拉 180px/父行+快捷键、ViewCube 逐像素复核 + 交互对齐（面边 58px/屏幕直立标签/三色轴/trigger 44.25×28/Home 仅自由视角/隐藏面轮廓带/角点蓝点/罗盘弧 hover/180ms 相机动画/无拖拽）+完整菜单、左侧「图形首选项」对话框、右侧「外观」面板 + 逐 body 颜色覆盖；详见 `../docs/UI-ONSHAPE-PARITY-2026-11-02.md`）；✅ **官方 iTwin ViewCube 默认**（2026-11-05 用户裁决手感更好：默认官方 `CubeNavigationAid`，`?viewcube=onshape` 回退自研；相机/渲染菜单抽成唯一 `ViewCubeCameraMenu` 挂官方 cube 下方；菜单相机改 `setRotationAboutPoint` 修正交 target 甩飞；宿主修背面命中/箭头可见性/1.5×；事件桥+400ms 跟踪；真栈 itwin 2 passed/ui-parity 2/tutorial2 2）；✅ 完整 BRep 拓扑边/顶点叠加（不修改 iTwin 渲染器/shader；详见 `../docs/BREP-RENDERING-2026-11-03.md`）；editor 基座两处修复：cleanup 幂等 `finishCommand`、`wantGeometry` 按需读取；✅ **X-01/X-02/X-03 第一轮债务清理（2026-11-04）**：旧编辑 RPC 删除、草图工具唯一族 `Sketch.*`、`store.canvas.selection` 单一权威 + `internal/selection-authority.ts` 唯一 SelectionSet 投影 |
 | Sketch | `apps/web/src/modules/part-studio/tools/sketch/` | ✅ 草图编辑（M3-b：线/矩形/圆绘制+约束/尺寸工具链+DOF/矛盾面板+先试算后提交）；✅ 2026-11-02 进入草图按 SketchPlane frame 相机定向/实体范围取景，退出恢复；✅ 画布常驻长度/距离/半径尺寸标注 + 绘制中光标旁实时读数/阶段提示；✅ 2026-11-04 草图唯一数据源=params（entities+plane；后端不再写 native geometry stream，求值直接读 params；旧库首开迁移清空几何流，前端 SketchCurvesDecoration 是唯一显示源）；✅ 2026-11-04 草图工具唯一族=`Sketch.*`（editor vendored SketchTools 六件不再注册） |
-| Modeling | `apps/web/src/modules/part-studio/tools/modeling/` + `packages/viewer/src/tools/register-edit-tools.ts` | 🟠 实体建模（阵列/MirrorElements 走标准 `basicManipulationIpc` 直改通道；CreateHole/DraftFaces 死工具已删，能力翻 gated）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService） |
+| Modeling | `apps/web/src/modules/part-studio/tools/modeling/` + `packages/viewer/src/tools/register-edit-tools.ts` | 🟠 实体建模（阵列/MirrorElements 走标准 `basicManipulationIpc` 直改通道；DraftFaces 死工具已删、能力 gated）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService）；✅ 孔（ADR-0006 切片 A/A2/A3，2026-11-05：`HoleDialog` 草图点 + 曲线顶点（线/弧端点、圆心）/孔径/blind/throughAll/沉头孔；shared 1.28.0；真栈简单孔去材 196.349 vs 196.350 mm³、沉头孔 373.064 mm³ 精确；倒角孔/螺纹页签禁用）；✅ 倒角 UI（2026-11-05，能力补齐 Slice 1/1b：ribbon「倒角」→ 复用 fillet 视口拾边/owner；类型与字段按 Onshape live 副本对齐「等距离/两个距离/距离和角度」「距离/角度」，等距离/两个距离 `mode=2`、距离和角度 `mode=3`；编辑回显 values1/values2；iOS 3 条 CAP_EDGE 达 Onshape 目标体积、Hand Brake 边 1 mm 精确、Sample Assignment 4 竖边 1.524 mm@45° 精确）；🟠 基准面 cPlane（ADR-0006 切片 B1，shared 1.29.0，2026-11-05：`CPlaneDialog` 图元/偏移/偏移距离/反转法线；SketchDialog 可选 cPlane 并落平面快照 + `sourceFeatureId`；被草图引用时改参/删除诚实拒收；视口平面渲染与改参传播归 B1b/B2） |
 | Markup | —（无模块；工具未注册） | ❌ 降级占位（`@itwin/core-markup` 依赖未配置——启用前需先补 workspace 依赖解析，T2.3 裁决：不预引依赖，等真实需求） |
 | Measurement | `packages/viewer/src/tools/register-edit-tools.ts`（注册 core-frontend 测量工具） | ✅ 测量工具 |
 | View Clip | `packages/viewer/src/tools/register-edit-tools.ts`（注册 core-frontend 裁剪工具） | ✅ 视图裁剪 |
@@ -162,20 +162,48 @@ cd apps/web && corepack pnpm@10 dev          # 前端 dev :5300（栈内部署�
 Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 ```
 
-## 验证基线（2026-11-04）
+## 验证基线（2026-11-05）
 
-- `apps/web` 全量 vitest：1334/1334；shared 152、editor 29、viewer 127；四包 `tsc`/lint 绿。
-- shared 1.26.0：ADR-0004（construction/diameter/concentric/driven/整圆相切/angle）
+- `apps/web` 全量 vitest：1383/1383（2026-11-06 图形首选项默认值校正：AO 20%、
+  线宽 2px、v2→v3 迁移 +2；2026-11-05 UI polish：GraphicsPreferencesDialog 5、
+  AppearancesPanel 3、useBodyAppearanceOverrides 2、Ribbon 父行/快捷键 1、ViewCube
+  标准视图/自由视角 1、Front 面轴原点 1、动画相机 1、viewcube-mode 5；ViewCube/Dock/display-actions
+  断言同步更新；此前 cPlane +17、SketchDialog 偏移平面编辑、FeatureDialog endBound、
+  chamfer 三种模式/编辑回显；FeatureDialog 单文件 135）；
+  shared 155、editor 29、viewer 127；`tsc`（含 e2e）/lint 绿。
+- shared 1.29.0：ADR-0004（construction/diameter/concentric/driven/整圆相切/angle）
   + ADR-0005 Phase 2（revolve new、extrude secondDirection）
-  + ADR-0006 切片 A（hole，backend/contract only）。
+  + ADR-0006 切片 A/A2/A3（hole：backend/contract/UI + 顶点孔位 + 沉头孔 + `e2e/hole.spec.ts` 3 passed）
+  + 切片 B1（cPlane：三基准面/偏移/反转法线 + SketchPlaneDto.sourceFeatureId）。
 - 后端 sketch：89/89（含 angle 60° 收敛、line+circle tangent、diameter/concentric）；
-  hole 流程 3/3（throughAll 4000−40π、blind 多孔、pointIds 精确选位）。
-- 真栈回归（shared 1.26.0 实测）：`tutorial2.spec.ts` **2 passed（4.0 min）**，
+  hole 流程 5/5（throughAll 4000−40π、blind 多孔、pointIds 精确选位、v1.27 顶点孔位、v1.28 沉头孔 4000−76π）；
+  cPlane 流程 2/2（体后插入不改体积；被引用改参/删除拒收、解除后可改删；首特征 + 草图 + 拉伸 4000 mm³）；
+  `ScenarioReplayCorpus` 3/3（Basic/Warning Label/MateConnectors 建链 + synthetic vertexRefs 体积对拍）；
+  **后端全量 84 files / 734 passed / 8 skipped**（2026-11-05，shared 1.29 实测）。
+- 真栈回归（shared 1.28.0 实测）：`tutorial2.spec.ts` **2 passed（4.1 min）**，
   体积与 1.22.0 基线完全一致（无圆角 358.161、终体积 357.739、去材 0.422 cm³）；
   shared 1.24 合并 strict+tools **8 passed（8.2 min）**，tools 含圆直径+共圆相切 UI 链。
-- web 全量 1334/1334；shared 153/153。
-- 示例复刻：Tutorial 2、iOS、Exercise: Basic Drawing（2442.2935 vs 2442.2938，-0.00%）、Postman（2.6705 vs 2.6866 cm³，-0.60%）。
-- 真栈：`newbody`（选择/删除/undo/redo）、`part-studio`（五区/ribbon 激活）通过。
+- 示例复刻：Tutorial 2、iOS（157.4789 vs 157.4789 cm³，**0.00%**）、
+  Exercise: Basic Drawing（2442.2935 vs 2442.2938，-0.00%）、Postman（2.6705 vs 2.6866 cm³，-0.60%）。
+- 示例 iModel 分步演示（hub 持久化 + 重开验证）：Tutorial 2、Tutorial 2 - Build Your First
+  Part - iOS、Exercise: Basic Drawing、Postman、WARNING LABEL - Bench Vise、
+  Exercise - Creating Mate Connectors、Intro to CAD 1.2-1.4、Exercise - Hand Brake Update、
+  Sample Assignment（Alignment Plate），
+  外加 WARNING LABEL 同几何文档族 3 个 Quickstart 文档（各自独立 iModel，共 12 个 iModel）；
+  演示页 `apps/web/demo-artifacts/examples/`，runner `apps/web/e2e/examples/`。
+  Postman/警告标签/Mate Connectors/Intro 的草图步骤为采集数据经 RPC 精确复原（页面明确标注），
+  特征步骤走真实 UI；Mate Connectors 圆头槽按精确切点弧+切线重建（面域引擎尚不合并重叠闭环）。
+  Intro to CAD（2026-11-05 cPlane 版，iModel `de911416-9dca-4be9-86c3-813458bc18f6`）：
+  UI 建 Plane 1（Front 偏移 −20、反转法线）+ SketchDialog 选 Plane 1 建壳，
+  树 `sketch → extrude → cPlane → sketch`，体积 85157.341 mm³；演示截图 001–010。
+  重开回归 `e2e/examples/verify-imodels.spec.ts`：12/12 passed（逐库特征树 + 体积；
+  2026-11-05 已含 Tutorial 2 iOS、Hand Brake 与 Sample Assignment 的真实 UI 倒角版本，
+  Intro to CAD 为 cPlane 版本）。
+  Tutorial 2 iOS 的倒角按 Onshape CAP_EDGE 语义拾取 3 条边（+y/−y 端盖分别取景），
+  终体积 157478.900 mm³ 与目标一致；Hand Brake 左端圆边 1 mm 精确；
+  Sample Assignment 4 草图 RPC + 4 次 UI 拉伸 + 4 竖边距离-角度倒角，体积 8915.860 mm³（0.00%）。
+- 真栈：`newbody`（选择/删除/undo/redo）、`part-studio`（五区/ribbon 激活）、`hole`
+  （简单孔 + 沉头孔，树 `sketch/extrude/hole` 全 status=0，去材误差 <0.001%）通过。
 - **known-red**：`sketch-extrude` 仍红（草图无拉链面域）。`tutorial2` X-14 已于 2026-11-04 关闭：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min；六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³），证据 `apps/web/test-results/t2-strict-after.log`。不得把 known-red 当绿，也不得通过放宽断言“修复”。
 
-*最后更新: 2026-11-04（平台 P0/P1 门禁 + X-01/X-02/X-03 单一管道/草图/选择规则；验证基线）*
+*最后更新: 2026-11-06（全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面 + 草图落在自定义平面（shared 1.29.0，Intro to CAD 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；验证基线 1383）*

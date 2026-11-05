@@ -270,7 +270,7 @@ export function CreateImodelDialog({
                 disabled={busy}
                 loading={busy}
               >
-                {t('documents.create.submit')}
+                {t('documents.create.imodelSubmit')}
               </Button>
             </>
           )}

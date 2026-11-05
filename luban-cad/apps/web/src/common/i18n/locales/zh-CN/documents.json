@@ -9,7 +9,7 @@
   "filters": {
     "recent": "最近打开过的",
     "favorites": "收藏",
-    "my": "我的文档",
+    "my": "由我所有",
     "shared": "已与我共享",
     "public": "公开"
   },
@@ -27,7 +27,11 @@
     "importFile": "文件导入即将推出。即将支持导入 CAD 文件直接创建新文档。",
     "importFrom": "从外部来源导入即将推出。即将支持从第三方服务导入文档。",
     "labelTag": "标签功能即将推出。即将支持为文档添加标签，以便分类与筛选。",
-    "confirm": "知道了"
+    "confirm": "知道了",
+    "upgrade": "订阅升级即将推出。当前版本使用 Free 订阅；升级后可创建、编辑私有数据并邀请团队协作。",
+    "learning": "学习中心即将推出。届时可在此浏览示例模型、视频教程和逐步引导。",
+    "forum": "论坛即将推出。届时可在此与社区交流建模经验。",
+    "help": "帮助文档即将推出。当前版本的操作要点见仓库 README 与 docs/。"
   },
   "section": {
     "count": "{{count}} 个文档",
@@ -125,9 +129,16 @@
     "nameRequired": "请输入文档名称",
     "numberLabel": "文档编号",
     "numberPlaceholder": "输入文档编号（可选）",
-    "submit": "创建",
+    "submit": "创建公开文档",
     "cancel": "取消",
-    "failed": "创建失败，请重试"
+    "failed": "创建失败，请重试",
+    "tagsLabel": "文档标签",
+    "tagsPlaceholder": "搜索标签",
+    "tagsUnsupported": "标签功能尚未实现",
+    "locationLabel": "文档位置",
+    "locationRoot": "由我所有",
+    "locationEmpty": "没有其他文件夹",
+    "imodelSubmit": "创建"
   },
   "rename": {
     "title": "重命名文档",
@@ -304,5 +315,47 @@
       "title": "暂无 iModel",
       "description": "创建您的第一个 iModel 开始建模"
     }
+  },
+  "sidebar": {
+    "label": "文档导航",
+    "explore": "探索鲁班CAD",
+    "labels": "标签",
+    "trash": "垃圾桶",
+    "notImplemented": "该能力尚未实现",
+    "freePlan": "订阅: Free",
+    "tryPro": "试用 Professional",
+    "plansPricing": "Plans and pricing"
+  },
+  "planBanner": {
+    "message": "您的 Free 订阅仅允许编辑公开数据。试用鲁班CAD Professional 以创建、编辑私有数据并与您的团队共享这些数据。",
+    "cta": "试用 Professional"
+  },
+  "onboarding": {
+    "title": "欢迎使用鲁班CAD",
+    "upgrade": "立即升级",
+    "exploreTitle": "探索鲁班CAD",
+    "exploreDesc": "深入了解并与示例模型、视频或逐步引导互动。",
+    "learning": "学习中心",
+    "forum": "论坛",
+    "help": "帮助文档"
+  },
+  "recent": {
+    "title": "我上次打开过的"
+  },
+  "folders": {
+    "title": "文件夹",
+    "add": "添加"
+  },
+  "owned": {
+    "title": "由我所有"
+  },
+  "footer": {
+    "copyright": "© 2013–2026 鲁班CAD",
+    "terms": "条款和隐私"
+  },
+  "header": {
+    "notifications": "通知",
+    "appStore": "应用程序商店",
+    "help": "帮助"
   }
 }

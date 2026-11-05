@@ -102,7 +102,7 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
     await expect(named.getByText('E2E V1')).toBeVisible();
   });
 
-  test('ribbon 工具真激活：ChamferEdges aria-pressed + 零未启动警告（圆角/扫掠均已改道对话框）', async ({ page }) => {
+  test('ribbon 倒角入口打开参数对话框（Onshape 族；无假激活警告）', async ({ page }) => {
     const consoleMessages: string[] = [];
     page.on('console', (message) => {
       consoleMessages.push(`[${message.type()}] ${message.text()}`);
@@ -110,16 +110,15 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
 
     const chamfer = page.getByRole('button', { name: '倒角', exact: true });
     await expect(chamfer).toBeVisible();
-    await expect(chamfer).toHaveAttribute('aria-pressed', 'false');
-
     await chamfer.click();
 
-    // 真激活双证：store 写入（aria-pressed）+ tools.run 真启动（console 零警告）。
-    // aria-pressed 先于 tools.run 落定——单证会放过假激活（M4-T9 S4 反证口径：
-    // 「命令未启动」警告 = 假激活）。
-    await expect(chamfer).toHaveAttribute('aria-pressed', 'true');
+    const dialog = page.getByTestId('part-studio-feature-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeDisabled();
     const warnings = consoleMessages.filter((text) => /未启动|激活失败/.test(text));
-    expect(warnings, `ChamferEdges 激活不应有警告：\n${warnings.join('\n')}`).toHaveLength(0);
+    expect(warnings, `倒角对话框不应出现假激活警告：\n${warnings.join('\n')}`).toHaveLength(0);
+    await dialog.getByRole('button', { name: '取消', exact: true }).click();
+    await expect(dialog).toBeHidden();
   });
 
   test('真实页签：「+」新建 Part Studio 换 scope + alt+~+t 页签管理器开合', async ({ page }) => {
@@ -190,7 +189,7 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
     // 非模态（os-31）：aria-modal=false，画布仍可达
     await expect(dialog).toHaveAttribute('aria-modal', 'false');
     // 距离缺省 10（M4-T9 冒烟 S5 同口径；输入为文本型 number 框——role=textbox）
-    await expect(dialog.getByRole('textbox', { name: '距离' })).toHaveValue('10');
+    await expect(dialog.getByRole('textbox', { name: '深度' })).toHaveValue('10');
 
     // ✗ 取消收合（不做建模闭环断言——那归 T4 私有仓复测门）
     await dialog.getByRole('button', { name: '取消', exact: true }).click();
@@ -203,10 +202,10 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
     await expect(dialog).toBeVisible();
     // 半径缺省 5（M6-b T6 裁决；距离区对 fillet 不适用——不在场）。
     await expect(dialog.getByRole('textbox', { name: '半径' })).toHaveValue('5');
-    await expect(dialog.getByRole('textbox', { name: '距离' })).toBeHidden();
+    await expect(dialog.getByRole('textbox', { name: '深度' })).toBeHidden();
     // 空边集门禁：✓/成品 禁用（视口拾取链不自动断言——归 T7 真栈冒烟）。
     await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeDisabled();
-    await expect(dialog.getByRole('button', { name: '成品', exact: true })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeDisabled();
 
     await dialog.getByRole('button', { name: '取消', exact: true }).click();
     await expect(dialog).toBeHidden();

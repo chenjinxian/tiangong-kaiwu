@@ -225,13 +225,18 @@ describe('SketchDialog 非模态结构（os-30）', () => {
     expect(screen.getByRole('dialog', { name: 'Sketch 1' })).toBeDefined();
   });
 
-  it('✓/✗ + 历史时钟 + ? 帮助 全在标题行', () => {
+  it('✓/✗ 在标题行；历史/帮助在底栏（Onshape live 布局）', () => {
     renderDialog();
     const dialog = screen.getByRole('dialog', { name: '草图' });
     const header = dialog.querySelector('.part-studio-sketch-dialog__header');
+    const footer = dialog.querySelector('.part-studio-sketch-dialog__footer');
     expect(header).not.toBeNull();
-    for (const name of ['确认', '取消', '历史', '帮助']) {
+    expect(footer).not.toBeNull();
+    for (const name of ['确认', '取消']) {
       expect(within(header as HTMLElement).getByRole('button', { name })).toBeDefined();
+    }
+    for (const name of ['历史', '帮助']) {
+      expect(within(footer as HTMLElement).getByRole('button', { name })).toBeDefined();
     }
   });
 
@@ -288,6 +293,43 @@ describe('草图平面选择（Onshape 字段 + 基准面菜单）', () => {
     expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('选择平面或面');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('v1.29 cPlane 选项：insertSketch.plane 使用选项快照并带 sourceFeatureId', async () => {
+    const plane = {
+      origin: { x: 0, y: -20, z: 0 },
+      normal: { x: 0, y: 1, z: 0 },
+      xDir: { x: 1, y: 0, z: 0 },
+      sourceFeatureId: '0x42',
+    };
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-42' }));
+    const { onConfirm } = renderDialog({
+      applyOp,
+      planes: [{ id: '0x42', label: '平面 1', plane }],
+    });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '草图平面' }));
+    await user.click(screen.getByRole('option', { name: '平面 1' }));
+    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('平面 1');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertSketch', entities: [], constraints: [], plane,
+    });
+    expect((onConfirm.mock.calls[0]![0] as SketchDialogResult).planeDto).toEqual(plane);
+  });
+
+  it('编辑既有草图：偏移/自定义平面无法映射三基准面 → 只读「自定义平面」且 ✓ 仍可完成', async () => {
+    const { onConfirm } = renderDialog({ editing: true });
+    const field = screen.getByTestId('sketch-plane-field-button');
+    expect(field.textContent).toBe('自定义平面');
+    expect((field as HTMLButtonElement).disabled).toBe(true);
+    const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
+    // updateSketch 不携带 plane——plane 空不得阻断「完成草图」（偏移平面草图编辑）。
+    expect(confirm.disabled).toBe(false);
+    const user = userEvent.setup();
+    await user.click(confirm);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -583,6 +625,41 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     await waitFor(() => expect(screen.queryByTestId('part-studio-sketch-dialog')).toBeNull());
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
+  });
+
+  it('画布宿主路（v1.29）：openFeatureDialog(new/cPlane) → CPlaneDialog；草图平面列表含树内平面 1', async () => {
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    const user = userEvent.setup();
+    const cPlaneEntry: FeatureTreeEntry = {
+      id: '0x42', featureType: 'cPlane', orderKey: 1, suppressed: false, status: 0,
+      params: { reference: 'front', offsetMm: -20 },
+    };
+    render(<PartStudioCanvas viewportRef={{ current: null }} applyOp={applyOp} featureEntries={[cPlaneEntry]} />);
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'cPlane' });
+    });
+    expect(screen.getByTestId('part-studio-cplane-dialog')).toBeDefined();
+    // 已有 1 个平面 → 新建默认名「平面 2」。
+    expect(screen.getByRole('dialog', { name: '平面 2' })).toBeDefined();
+    act(() => {
+      usePartStudioStore.getState().closeDialog();
+    });
+
+    act(() => {
+      usePartStudioStore.getState().openSketchDialog();
+    });
+    await user.click(screen.getByRole('combobox', { name: '草图平面' }));
+    expect(screen.getByRole('option', { name: '平面 1' })).toBeDefined();
+    await user.click(screen.getByRole('option', { name: '平面 1' }));
+    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('平面 1');
+    // 创建成功切编辑态：平面字段只读，仍显示来源平面（v1.29）。
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      const field = screen.getByTestId('sketch-plane-field-button');
+      expect(field.textContent).toBe('平面 1');
+      expect((field as HTMLButtonElement).disabled).toBe(true);
+    });
   });
 
   it('os-30「search 框禁用」：草图模式 alt+/ 不响应 + 进入草图强制收合面板', () => {

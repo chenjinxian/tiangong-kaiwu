@@ -1,0 +1,71 @@
+/*
+ * 官方 iTwin Viewer ViewCube 宿主（默认模式；?viewcube=onshape 回退自研）。
+ * 官方 CubeNavigationAid 自带 .components-cube-container（96×96）、.nav-cube
+ * （64×64 容器 + 128px CSS3D 面）与 iTwinUI 变量样式；这里负责放到画布
+ * 右上角，并复用自研模式的相机/渲染菜单触发器（同一套 DOM/testid）。
+ */
+.part-studio-itwin-viewcube {
+  position: absolute;
+  top: 15px;
+  right: 24px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 与自研/Onshape 相同的 150×150 stage：cube 在 stage 内居中，trigger 挂
+     stage 右下角，避免官方 cube 直接贴右缘、trigger 顶在 cube 正下方。 */
+  inline-size: 150px;
+  block-size: 150px;
+  user-select: none;
+  color: var(--iui-color-text);
+}
+
+.part-studio-itwin-viewcube .components-cube-container {
+  pointer-events: auto;
+  /* 官方 Cube.scss 内部面宽 128px，但 `.nav-cube`（同元素、后加载）把盒压到
+     64px → 官方原生 cube 只有 64px。这里按 AppUI 声明的 96px 宿主尺度放大
+     1.5×，保持官方结构/配色/命中/动画不变。 */
+  transform: scale(1.5);
+  transform-origin: center center;
+}
+
+/* 官方 Cube.scss 的 `.face { backface-visibility: inherit }` 让背面参与命中：
+   Chromium 下 ISO 视角中底/背面会拦截可见面中心格的点击（实测 Front 点不中）。
+   隐藏背面既符合实体 cube 语义，也恢复官方 FaceCell 命中。 */
+.part-studio-itwin-viewcube .face {
+  backface-visibility: hidden;
+}
+
+/* 官方箭头按 AppUI 深色导航条设计：color=--iui-color-background（白）且 SVG
+   内联 fill=var(--iui-color-icon-muted, currentColor)——在纯白画布上
+   完全不可见。这里只换前景色，保留官方箭头几何/命中/±90° 行为。 */
+.part-studio-itwin-viewcube .cube-pointer {
+  color: #3b4248;
+}
+
+.part-studio-itwin-viewcube .cube-pointer svg {
+  fill: currentColor;
+}
+
+.part-studio-itwin-viewcube .cube-pointer:hover {
+  color: var(--iui-color-text-accent, #0f6cbd);
+}
+
+/* 相机/渲染菜单：camera-menu 为 display:contents，trigger/menu 相对 150×150
+   根节点定位。官方 cube 96px 居中后左右各留 27px，trigger 与菜单右缘对齐
+   cube 右缘（而不是 stage 右缘），视觉上与立方体成一組、且不贴右缘。 */
+/* trigger 固定定位（不随 cube 朝向/面视图变化）：
+   - 右缘与最右边箭头右缘对齐（官方箭头比 150 stage 外扩 2px → right:-2）；
+   - 上缘与最下面箭头下缘对齐（箭头下缘 = stage 底 +2px → bottom:-30），
+     按钮整体位于箭头下方，不再压在 cube/箭头上。
+   官方 3D 面投影在 ISO 可达 stage 底，按钮在此固定位置仍保留 2px 安全隙。 */
+.part-studio-itwin-viewcube .part-studio-viewcube__trigger {
+  right: -2px;
+  bottom: -30px;
+}
+
+/* 菜单固定跟随 trigger：右缘同 trigger，top = trigger bottom + 8。 */
+.part-studio-itwin-viewcube .part-studio-viewcube__menu {
+  right: -2px;
+  top: 188px;
+}

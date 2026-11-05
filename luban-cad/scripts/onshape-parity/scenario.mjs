@@ -20,6 +20,7 @@ export const FEATURE_TYPES = new Set([
   "booleanSubtract",
   "loft",
   "sweep",
+  "hole",
 ]);
 
 export const PROVENANCE_STATUSES = new Set([

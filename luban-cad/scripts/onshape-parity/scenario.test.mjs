@@ -93,6 +93,17 @@ test("blocked 状态未知被拒", () => {
   assert.equal(validateScenario(value).ok, false);
 });
 
+test("hole 特征类型通过校验（ADR-0006 切片 A）", () => {
+  const value = minimal();
+  value.features.push({
+    type: "hole",
+    name: "Hole 1",
+    params: { sketchId: "s1", pointIds: [1], diameterMm: 5, endBound: "throughAll" },
+  });
+  const result = validateScenario(value);
+  assert.equal(result.ok, true, result.errors.join("\n"));
+});
+
 test("Tutorial 2 场景 fixture 通过校验且保留金标体积", async () => {
   const scenario = await loadScenario(TUTORIAL2);
   assert.equal(scenario.features.length, 6);

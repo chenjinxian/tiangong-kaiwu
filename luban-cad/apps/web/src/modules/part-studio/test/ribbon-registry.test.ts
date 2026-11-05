@@ -262,7 +262,7 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
   it('gated 家族工具/子项经 isGated 路由能力引导', () => {
     const gatedTools = RIBBON_TOOLS.filter((tool) => isGated(tool.capability));
     expect(gatedTools.map((tool) => tool.id).sort()).toEqual([
-      'CreateHole', 'DraftFaces', 'HollowFaces', 'externalThread', 'frame', 'rib', 'sheetMetalStart', 'surfaceCurve',
+      'DraftFaces', 'HollowFaces', 'externalThread', 'frame', 'rib', 'sheetMetalStart', 'surfaceCurve',
     ].sort());
     for (const capability of GATED_CAPABILITIES) {
       expect(isGated(capability)).toBe(true);

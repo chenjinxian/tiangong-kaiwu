@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import { Button, Checkbox } from '@itwin/itwinui-react';
 import { AuthFormField, AuthPageShell, useAuthForm } from '@modules/authentication';
 import { AuthSession } from '@clients/auth/AuthSession.js';
-import { env } from '@config/env.js';
 import './SignInRoute.css';
 
 /** 邮箱格式（brief 钉死）。 */
@@ -32,24 +31,19 @@ type SignInValues = {
   rememberMe: boolean;
 };
 
-/** 右列占位 hero：品牌文案 + 设计令牌面板（hub 端点等运行时令牌展示位）。 */
+/** 右列产品实景（Onshape live 同构：右侧大幅产品图，点击进入产品介绍）。 */
 function SignInHero(): React.JSX.Element {
-  const { t } = useTranslation();
   return (
-    <div className="signin-hero">
-      <div className="signin-hero__panel">
-        <div className="signin-hero__brand">{t('auth.signIn.heroTitle')}</div>
-        <div className="signin-hero__tagline">{t('auth.signIn.heroSubtitle')}</div>
-        <div className="signin-hero__tokens">
-          <div className="signin-hero__token-label">{t('auth.signIn.heroTokenReady')}</div>
-          <div className="signin-hero__token">
-            <span className="signin-hero__token-key">{t('auth.signIn.heroTokenHub')}</span>
-            <span className="signin-hero__token-value">{env.hubUrl}</span>
-          </div>
-        </div>
-        <div className="signin-hero__note">{t('auth.signIn.heroTokenNote')}</div>
-      </div>
-    </div>
+    <Link className="signin-hero" to="/showcase" aria-label="查看鲁班CAD产品介绍">
+      <img
+        className="signin-hero__image"
+        src="/showcase/hero-tutorial2.webp"
+        alt="鲁班CAD 参数化建模实机画面"
+      />
+      <span className="signin-hero__caption">
+        真实内核 · 真实拓扑 · 真实示例
+      </span>
+    </Link>
   );
 }
 

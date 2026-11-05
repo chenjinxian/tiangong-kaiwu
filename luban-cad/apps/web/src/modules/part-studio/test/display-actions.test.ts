@@ -198,7 +198,7 @@ describe('display-actions', () => {
     (fake.viewport.view as unknown as { displayStyle: unknown }).displayStyle = displayStyle;
 
     applyDisplaySettings(fake.viewport, settings({ aoIntensityPct: 75, edgeWidthPx: 2, edgeColor: '#ff0000' }));
-    expect(settings3d.ambientOcclusionSettings.intensity).toBeCloseTo(2, 6);
+    expect(settings3d.ambientOcclusionSettings.intensity).toBeCloseTo(3.75, 6);
     const visibleJson = settings3d.hiddenLineSettings.toJSON().visible!;
     expect(visibleJson.width).toBe(2);
     expect(visibleJson.ovrColor).toBe(true);
@@ -226,17 +226,21 @@ describe('display-actions', () => {
     expect(applyDisplaySettings(undefined, DEFAULT_DISPLAY_SETTINGS)).toBe(false);
   });
 
-  it('默认 AO 关闭（回归 iTwin 默认）', () => {
-    expect(DEFAULT_DISPLAY_SETTINGS.ambientOcclusion).toBe(false);
+  it('默认值与图形首选项校正值一致（AO 20%、45 deg、2 px、光泽度 3%）', () => {
+    expect(DEFAULT_DISPLAY_SETTINGS.ambientOcclusion).toBe(true);
+    expect(DEFAULT_DISPLAY_SETTINGS.aoIntensityPct).toBe(20);
+    expect(DEFAULT_DISPLAY_SETTINGS.fovDegrees).toBe(45);
+    expect(DEFAULT_DISPLAY_SETTINGS.edgeWidthPx).toBe(2);
+    expect(DEFAULT_DISPLAY_SETTINGS.glossinessPct).toBe(3);
     expect(DEFAULT_DISPLAY_SETTINGS.antialiasSamples).toBe(4);
     expect(DEFAULT_DISPLAY_SETTINGS.background).toBe('theme');
   });
 
-  it('converts Onshape AO percentage to the iTwin intensity exponent with clamps', () => {
-    // Onshape 37.5% = iTwin 默认强度 1.0（旧 2.0 锚点把默认视口压暗一倍）。
-    expect(aoIntensityFromPct(37.5)).toBeCloseTo(1, 10);
+  it('converts AO percentage to the iTwin intensity exponent with clamps', () => {
+    // 20% = iTwin 默认强度 1.0（默认值校正后锚点同步）。
+    expect(aoIntensityFromPct(20)).toBeCloseTo(1, 10);
     expect(aoIntensityFromPct(0)).toBe(0.25);
-    expect(aoIntensityFromPct(100)).toBeCloseTo(2.666667, 5);
+    expect(aoIntensityFromPct(100)).toBe(4);
     expect(aoIntensityFromPct(1000)).toBe(4);
   });
 });

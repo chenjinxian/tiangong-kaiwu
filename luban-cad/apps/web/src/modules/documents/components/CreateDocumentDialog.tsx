@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ITwinSubClass } from '@itwin/itwins-client';
 import { Button, Dialog, LabeledInput, Text } from '@itwin/itwinui-react';
+import { SvgFolder } from '@itwin/itwinui-icons-react';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import { B_MODEL_DATA } from '@clients/itwins/types.js';
 import type { CreateItwinInput } from '@clients/itwins/types.js';
@@ -99,7 +100,7 @@ export function CreateDocumentDialog({
   return (
     <Dialog isOpen={isOpen} onClose={handleClose} portal isDismissible>
       <Dialog.Backdrop />
-      <Dialog.Main styleType="default" title={t('documents.create.title')} className="documents-dialog">
+      <Dialog.Main styleType="default" title={t('documents.create.title')} className="documents-dialog documents-create-dialog">
         <Dialog.TitleBar titleText={t('documents.create.title')} />
         <Dialog.Content>
           {submitError && (
@@ -128,6 +129,24 @@ export function CreateDocumentDialog({
             onChange={(event) => setNumber(event.target.value)}
             disabled={createMutation.isPending}
           />
+          <LabeledInput
+            label={t('documents.create.tagsLabel')}
+            placeholder={t('documents.create.tagsPlaceholder')}
+            value=""
+            disabled
+            readOnly
+            title={t('documents.create.tagsUnsupported')}
+          />
+          <div className="documents-create-location">
+            <span className="documents-create-location__label">{t('documents.create.locationLabel')}</span>
+            <div className="documents-create-location__tree">
+              <div className="documents-create-location__row">
+                <SvgFolder />
+                <span>{t('documents.create.locationRoot')}</span>
+              </div>
+              <div className="documents-create-location__empty">{t('documents.create.locationEmpty')}</div>
+            </div>
+          </div>
         </Dialog.Content>
         <Dialog.ButtonBar>
           <Button styleType="default" onClick={handleClose} disabled={createMutation.isPending}>

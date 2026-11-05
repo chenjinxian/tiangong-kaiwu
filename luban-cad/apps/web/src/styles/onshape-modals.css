@@ -1,0 +1,42 @@
+/* onshape-modals.css — 2026-11-06 通用模态对话框 Onshape 皮肤。
+ * 只收敛外壳密度/圆角/标题/按钮，业务字段与对话框语义不变。 */
+.documents-dialog,
+.share-dialog,
+.tab-manager-dialog,
+.document-details-dialog,
+.part-studio-version-dialog,
+.part-studio-push-dialog {
+  max-block-size: calc(100vh - 60px);
+  border-radius: 4px;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.documents-dialog [class*='dialog-title'],
+.share-dialog [class*='dialog-title'],
+.tab-manager-dialog [class*='dialog-title'],
+.document-details-dialog [class*='dialog-title'],
+.part-studio-version-dialog [class*='dialog-title'],
+.part-studio-push-dialog [class*='dialog-title'] {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.documents-dialog [class*='dialog-button-bar'],
+.share-dialog [class*='dialog-button-bar'],
+.tab-manager-dialog [class*='dialog-button-bar'],
+.document-details-dialog [class*='dialog-button-bar'],
+.part-studio-version-dialog [class*='dialog-button-bar'],
+.part-studio-push-dialog [class*='dialog-button-bar'] {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.documents-dialog [class*='dialog-button-bar'] button,
+.share-dialog [class*='dialog-button-bar'] button,
+.tab-manager-dialog [class*='dialog-button-bar'] button,
+.document-details-dialog [class*='dialog-button-bar'] button,
+.part-studio-version-dialog [class*='dialog-button-bar'] button,
+.part-studio-push-dialog [class*='dialog-button-bar'] button {
+  min-block-size: 34px;
+  border-radius: 4px;
+}

@@ -71,6 +71,19 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
   });
 
+  it('ADR-0006 B1：平面（cPlane）点击 → new/cPlane 对话框（不投 tools.run、不写激活态）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '平面' }));
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'cPlane',
+    });
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
+  });
+
   it('B3：扫掠（SweepFaces）点击改道 new/sweep 对话框（参数化特征链入口——不经 tools.run 不写激活态）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
@@ -150,6 +163,17 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
       featureType: 'pattern',
       patternKind: 'circular',
     });
+  });
+
+  it('Onshape 菜单：首行父工具 + 快捷键 keycap + 变体行（2026-11-05 live 对齐）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '圆角 ▾' }));
+    const menu = screen.getByRole('menu', { name: '圆角' });
+    const parent = within(menu).getByTestId('part-studio-ribbon-menu-row-RoundEdges');
+    expect(parent.textContent).toContain('圆角');
+    expect(parent.querySelectorAll('.part-studio-ribbon__shortcut-key')).toHaveLength(2);
+    expect(within(menu).getByTestId('part-studio-ribbon-menu-row-faceBlend').textContent).toContain('面混合');
   });
 
   it('B5：曲线阵列无工具/后端面 → capability gated 引导（不投伪 toolId、不静默失败）', async () => {

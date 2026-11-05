@@ -89,6 +89,12 @@ export function useToolActivation(canEdit = true): ToolActivation {
       openSketchDialog();
       return;
     }
+    if (id === 'cPlane') {
+      // ADR-0006 切片 B1：cPlane 闭环入口——专用 CPlaneDialog（参考基准面/偏移/反转法线），
+      // 提交 insertFeature cPlane；不投任何直改工具。
+      openFeatureDialog({ mode: 'new', featureType: 'cPlane' });
+      return;
+    }
     if (id === 'extrude') {
       // M4-T6 拉伸闭环入口：new/extrude 对话框（宿主 PartStudioCanvas 按
       // dialog 寻址渲染 + 提交接 applyOp），不经 tools.run。
@@ -99,6 +105,12 @@ export function useToolActivation(canEdit = true): ToolActivation {
       // M6-b T4 旋转闭环入口：new/revolve 对话框（M4-T6 同姿态——草图通道
       // 面域+轴拾取），不经 tools.run。
       openFeatureDialog({ mode: 'new', featureType: 'revolve' });
+      return;
+    }
+    if (id === 'CreateHole') {
+      // ADR-0006 切片 A：new/hole 对话框（草图点定位 + blind/throughAll），
+      // 参数化特征链入口，不经旧的死命令 CreateHoleTool。
+      openFeatureDialog({ mode: 'new', featureType: 'hole' });
       return;
     }
     if (id === 'loft') {
@@ -145,6 +157,12 @@ export function useToolActivation(canEdit = true): ToolActivation {
       // 特征链非直改工具；拾取归对话框「添加边」钮驱动 FilletEdgePickTool），
       // 不经 tools.run。
       openFeatureDialog({ mode: 'new', featureType: 'fillet' });
+      return;
+    }
+    if (id === 'ChamferEdges') {
+      // 2026-11-05（能力补齐 Slice 1）：倒角闭环入口。复用 fillet 的边拾取/
+      // owner/target 通道；首版 equal distance（mode=2，values1=values2）。
+      openFeatureDialog({ mode: 'new', featureType: 'chamfer' });
       return;
     }
     if (id === 'booleanBodies') {

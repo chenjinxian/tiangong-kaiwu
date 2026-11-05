@@ -159,16 +159,11 @@ test('视觉钉版：登录页（亮色）', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByTestId('signin-route')).toBeVisible();
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible();
-  // P2.8：hero 的 HUB 端点展示 env.hubUrl（缺省=当前 origin）——:5300 源码
-  // dev 与 :5301 发布镜像 origin 不同，遮蔽该运行时值（面板背景 #f5f5f5），
-  // 让同一基线同时适用于 source 与 release-image 全量套件。
-  const hubEndpoint = page.locator('.signin-hero__token-value');
-  await expect(hubEndpoint).toBeVisible();
+  // 2026-11-06：右栏改为产品实景图（/showcase/hero-tutorial2.webp），
+  // 不再有运行时 HUB 端点文本——基线不再需要 mask。
+  await expect(page.locator('.signin-hero__image')).toBeVisible();
   await settleFonts(page);
-  await expect(page).toHaveScreenshot('login-light.png', {
-    mask: [hubEndpoint],
-    maskColor: 'rgb(245, 245, 245)',
-  });
+  await expect(page).toHaveScreenshot('login-light.png');
 });
 
 test('视觉钉版：文档中心网格（亮色，flag-on B/A 双区）', async ({ page }) => {
@@ -180,23 +175,25 @@ test('视觉钉版：文档中心网格（亮色，flag-on B/A 双区）', async
   // 真实数据锚点①：B 项目区在场且 B 夹具项目落位（flag-on 分区 IA + B 徽标）
   const projects = page.getByTestId('projects-section');
   await expect(projects).toBeVisible({ timeout: 20_000 });
+  // 2026-11-06：项目区改为 Onshape 文件夹行（custom rows），不再是 tile。
   await expect(
     projects.getByRole('button', { name: VISUAL_B_PROJECT, exact: true }),
   ).toBeVisible({ timeout: 20_000 });
-  // 真实数据锚点②：A 夹具项目在 A 旧文档区（网格卡片渲染完成）
+  // A 区切网格后，夹具项目在 A 旧文档区渲染为 tile。
+  await page.getByRole('button', { name: '网格视图' }).click();
   const legacyBody = page.locator('.documents-body');
   await expect(
     legacyBody.getByRole('button', { name: VISUAL_A_PROJECT, exact: true }),
   ).toBeVisible({ timeout: 20_000 });
-  // 双区各一卡（分区读取唯一事实源：B 不得混入 A 区，反之亦然）
+  // 双区各一卡/行（分区读取唯一事实源：B 不得混入 A 区，反之亦然）
   await expect(legacyBody.getByRole('button', { name: VISUAL_B_PROJECT })).toHaveCount(0);
   await expect(projects.getByRole('button', { name: VISUAL_A_PROJECT })).toHaveCount(0);
   await expect(legacyBody.locator('.document-tile')).toHaveCount(1);
-  await expect(projects.locator('.document-tile')).toHaveCount(1);
+  await expect(projects.locator('.documents-projects__row')).toHaveCount(1);
   // 夹具每轮新建：tile「修改于」日期随日漂移——遮蔽日期文本（白底 mask
   // 与卡片同色，只去日期不遮整卡）。
   const modifiedLabels = page.locator('.document-tile').getByText(/^修改于/);
-  await expect(modifiedLabels).toHaveCount(2);
+  await expect(modifiedLabels).toHaveCount(1);
   await settleFonts(page);
   await expect(page).toHaveScreenshot('documents-grid-light.png', {
     mask: await modifiedLabels.all(),

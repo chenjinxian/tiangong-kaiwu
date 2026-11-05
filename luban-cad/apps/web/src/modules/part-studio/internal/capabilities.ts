@@ -34,9 +34,8 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   sweep: 'full', // 扫掠
   loft: 'full', // 放样
   thicken: 'full', // 加厚（含封闭变体）
-  // X-01（2026-11-04）：孔无后端 op / 无标准工具（旧 CreateHoleTool 调用的
-  // createHole 命令不存在，属假成功）——翻 gated，点击走能力引导。
-  hole: 'gated', // 孔
+  // ADR-0006 切片 A（2026-11-05）：孔走后端 hole op + HoleDialog，能力翻 full。
+  hole: 'full', // 孔
   linearPattern: 'full', // 线性阵列（B5 起参数化 PART 级入口）
   circularPattern: 'full', // 环形阵列（B5 起参数化 PART 级入口）
   curvePattern: 'gated', // 曲线阵列（B5：无工具/后端面——首版 pattern 仅线性/圆周，翻 gated 诚实引导）
@@ -112,7 +111,6 @@ function guidanceFor(toolId: string): CapabilityGuidance {
  */
 export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   draft: guidanceFor('draft'),
-  hole: guidanceFor('hole'),
   rib: guidanceFor('rib'),
   shell: guidanceFor('shell'),
   thread: guidanceFor('thread'),

@@ -17,11 +17,13 @@ import { DocumentsRoute } from '@routes/DocumentsRoute.js';
 import { ForgotPasswordRoute } from '@routes/ForgotPasswordRoute.js';
 import { PartStudioRoute } from '@routes/PartStudioRoute.js';
 import { SettingsRoute } from '@routes/SettingsRoute.js';
+import { ShowcaseRoute } from '@routes/ShowcaseRoute.js';
 import { SignInRoute } from '@routes/SignInRoute.js';
 import { SignUpRoute } from '@routes/SignUpRoute.js';
 
 export const routes: RouteObject[] = [
   { path: '/', element: <DevTokensRoute /> },
+  { path: '/showcase', element: <ShowcaseRoute /> },
   { path: '/dev-viewer', element: <DevViewerRoute /> },
   { path: '/login', element: <SignInRoute /> },
   { path: '/register', element: <SignUpRoute /> },

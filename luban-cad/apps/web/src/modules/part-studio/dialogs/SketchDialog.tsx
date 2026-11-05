@@ -37,12 +37,12 @@ import type { FeatureOp, FeatureOpResult, SketchPlaneDto } from '@luban-cad/shar
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import './SketchDialog.css';
 
-type SketchPlaneDatumId = 'top' | 'front' | 'right';
-
-/** 平面选项（下拉项寻址单位）。 */
+/** 平面选项（下拉项寻址单位）。`plane`（v1.29）：cPlane 等自定义平面的世界快照；
+ *  缺省=三基准面，由 sketchPlaneFromOption 按 id 映射（旧行为逐字不变）。 */
 export interface SketchPlaneOption {
   id: string;
   label: string;
+  plane?: SketchPlaneDto;
 }
 
 /** 三基准面选项 id（DEFAULT_PLANES 寻址；平面映射的判别域）。 */
@@ -69,9 +69,11 @@ export function sketchPlaneFromOption(optionId: string): SketchPlaneDto | undefi
   }
 }
 
-/** 确认载荷：草图对话框全量本地态回传（新建草图 RPC 接线口）。 */
+/** 确认载荷：草图对话框全量本地态回传（新建草图 RPC 接线口）。
+ *  `planeDto`（v1.29）：选中项自带的世界平面（cPlane）；缺省时由宿主按 `plane` 映射三基准面。 */
 export interface SketchDialogResult {
   plane: string;
+  planeDto?: SketchPlaneDto;
   disableImprint: boolean;
   showConstraints: boolean;
   showExpressions: boolean;
@@ -90,10 +92,10 @@ export interface SketchDialogProps {
   editing?: boolean;
   /** 平面选项（缺省=缺省基准面 上视/前视/右视；选择主要来自视口/特征树）。 */
   planes?: readonly SketchPlaneOption[];
-  /** 受控平面 id（画布视口拾取/特征树选择驱动；缺省时对话框内部维护）。 */
-  planeId?: SketchPlaneDatumId | null;
+  /** 受控平面 id（三基准面或 cPlane 特征 id；画布视口拾取/对话框选择驱动）。 */
+  planeId?: string | null;
   /** 平面变化出口（选择或清除）。 */
-  onPlaneChange?: (plane: SketchPlaneDatumId | null) => void;
+  onPlaneChange?: (plane: string | null) => void;
   /** op 提交面（M6-a T4：Session useFeatureSystem.applyOp 直通；缺省=纯回调壳期语义）。 */
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   /**
@@ -153,7 +155,7 @@ export function SketchDialog({
   const plane = planeId !== undefined ? (planeId ?? '') : internalPlane;
   const setPlane = React.useCallback((next: string) => {
     setInternalPlane(next);
-    onPlaneChange?.((next || null) as SketchPlaneDatumId | null);
+    onPlaneChange?.(next || null);
   }, [onPlaneChange]);
   const [planeMenuOpen, setPlaneMenuOpen] = React.useState(false);
   const [disableImprint, setDisableImprint] = React.useState(false);
@@ -185,13 +187,22 @@ export function SketchDialog({
     }
   }, [onHistory]);
 
+  const selectedOption = planeOptions.find((option) => option.id === plane);
+  /** v1.29：选中项自带 plane（cPlane）优先；三基准面回退旧映射。 */
+  const resolvedPlane = React.useCallback(
+    (): SketchPlaneDto | undefined => selectedOption?.plane ?? sketchPlaneFromOption(plane),
+    [selectedOption, plane],
+  );
+
   const buildResult = React.useCallback((): SketchDialogResult => ({
     plane,
+    // 仅自定义平面（cPlane）把快照带进确认载荷；三基准面维持旧载荷形状（宿主回退映射）。
+    ...(selectedOption?.plane !== undefined ? { planeDto: selectedOption.plane } : {}),
     disableImprint,
     showConstraints,
     showExpressions,
     showErrors,
-  }), [plane, disableImprint, showConstraints, showExpressions, showErrors]);
+  }), [plane, selectedOption, disableImprint, showConstraints, showExpressions, showErrors]);
 
   /**
    * 确认出口（M6-a T4）：applyOp 在场 → insertSketch 直提交（空草图先建壳；
@@ -200,7 +211,9 @@ export function SketchDialog({
    * 纯回调语义（enterSketch 占位寻址，同 FeatureDialog 未接线回退）。
    */
   const handleConfirm = React.useCallback(() => {
-    if (submitting || !canEdit || plane === '') return; // 禁重入 + 只读门禁 + 未选平面
+    // 编辑既有草图时平面只读且 updateSketch 不携带 plane——偏移/自定义平面
+    // 无法映射到三基准面时 plane 为空，但不得因此阻断「完成草图」。
+    if (submitting || !canEdit || (plane === '' && !editing)) return; // 禁重入 + 只读门禁 + 新建未选平面
     if (editing) {
       // Onshape：编辑态 ✓ = 完成草图（几何修改已逐 op 提交）。
       onConfirm?.(buildResult());
@@ -213,9 +226,9 @@ export function SketchDialog({
     }
     setError(undefined);
     setSubmitting(true);
-    // 平面映射（M6-a T4）：基准面三向量随 op 下发；非基准面（拾取面/未选）→
-    // 省略 plane 键，契约缺省 XY@z=0（见 sketchPlaneFromOption 注）。
-    const planeDto = sketchPlaneFromOption(plane);
+    // 平面映射（M6-a T4；v1.29 cPlane）：选中项自带世界平面优先；三基准面回退旧映射；
+    // 非基准面（拾取面/未选）→ 省略 plane 键，契约缺省 XY@z=0。
+    const planeDto = resolvedPlane();
     const op: FeatureOp = planeDto
       ? { kind: 'insertSketch', entities: [], constraints: [], plane: planeDto }
       : { kind: 'insertSketch', entities: [], constraints: [] };
@@ -238,14 +251,12 @@ export function SketchDialog({
         setError(result.error);
       }
     })();
-  }, [submitting, canEdit, editing, applyOp, enterSketch, sketchId, onConfirm, buildResult, plane]);
+  }, [submitting, canEdit, editing, applyOp, enterSketch, sketchId, onConfirm, buildResult, plane, resolvedPlane]);
 
   const handleCancel = React.useCallback(() => {
     exitSketch();
     onCancel?.();
   }, [exitSketch, onCancel]);
-
-  const selectedOption = planeOptions.find((option) => option.id === plane);
 
   return (
     <div
@@ -266,7 +277,7 @@ export function SketchDialog({
             type="button"
             aria-label={t('partStudio.sketchDialog.confirm')}
             className="part-studio-sketch-dialog__confirm"
-            disabled={submitting || !canEdit || plane === ''}
+            disabled={submitting || !canEdit || (plane === '' && !editing)}
             onClick={handleConfirm}
           >
             <SvgCheckmark />
@@ -278,23 +289,6 @@ export function SketchDialog({
             onClick={handleCancel}
           >
             <SvgClose />
-          </button>
-          <button
-            type="button"
-            aria-label={t('partStudio.sketchDialog.history')}
-            className="part-studio-sketch-dialog__history"
-            onClick={handleHistory}
-          >
-            <SvgClock />
-          </button>
-          <button
-            type="button"
-            aria-label={t('partStudio.sketchDialog.help')}
-            aria-expanded={helpOpen}
-            className="part-studio-sketch-dialog__help"
-            onClick={() => setHelpOpen((prev) => !prev)}
-          >
-            ?
           </button>
         </div>
       </header>
@@ -348,7 +342,8 @@ export function SketchDialog({
                 if (!editing) setPlaneMenuOpen((open) => !open);
               }}
             >
-              {selectedOption?.label ?? t('partStudio.sketchDialog.planeFieldPlaceholder')}
+              {selectedOption?.label
+                ?? (editing ? t('partStudio.sketchDialog.customPlane') : t('partStudio.sketchDialog.planeFieldPlaceholder'))}
             </button>
             {!editing && plane !== '' && (
               <button
@@ -436,6 +431,26 @@ export function SketchDialog({
           </label>
         </div>
       </div>
+      {/* Onshape live：草图对话框底栏=左侧工具图标（历史）+ 右侧 ?。 */}
+      <footer className="part-studio-sketch-dialog__footer">
+        <button
+          type="button"
+          aria-label={t('partStudio.sketchDialog.history')}
+          className="part-studio-sketch-dialog__history"
+          onClick={handleHistory}
+        >
+          <SvgClock />
+        </button>
+        <button
+          type="button"
+          aria-label={t('partStudio.sketchDialog.help')}
+          aria-expanded={helpOpen}
+          className="part-studio-sketch-dialog__help"
+          onClick={() => setHelpOpen((prev) => !prev)}
+        >
+          ?
+        </button>
+      </footer>
     </div>
   );
 }

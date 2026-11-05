@@ -26,7 +26,8 @@ vi.mock('@luban-cad/viewer', () => ({
 import { useDisplaySettings } from '../hooks/useDisplaySettings.js';
 import { DEFAULT_DISPLAY_SETTINGS } from '../internal/display-actions.js';
 
-const STORAGE_KEY = 'luban.partStudio.displaySettings.v2';
+const STORAGE_KEY = 'luban.partStudio.displaySettings.v3';
+const LEGACY_V2_STORAGE_KEY = 'luban.partStudio.displaySettings.v2';
 const VIEWPORT = {} as ScreenViewport;
 
 beforeEach(() => {
@@ -84,10 +85,30 @@ describe('useDisplaySettings', () => {
     expect(result.current.settings).toEqual(DEFAULT_DISPLAY_SETTINGS);
   });
 
-  it('忽略 v1 旧设置，让新的 iTwin 默认生效', () => {
-    localStorage.setItem('luban.partStudio.displaySettings.v1', JSON.stringify({ ambientOcclusion: true }));
+  it('忽略 v1 旧设置，让新的 Onshape 图形首选项默认生效', () => {
+    localStorage.setItem('luban.partStudio.displaySettings.v1', JSON.stringify({ ambientOcclusion: false }));
     const { result } = renderHook(() => useDisplaySettings(VIEWPORT));
-    expect(result.current.settings.ambientOcclusion).toBe(false);
+    expect(result.current.settings.ambientOcclusion).toBe(true);
+  });
+
+  it('v2 旧默认 AO 37.5/线宽 1 迁移到 20/2，其他自定义值保留', () => {
+    localStorage.setItem(LEGACY_V2_STORAGE_KEY, JSON.stringify({
+      mode: 'translucent',
+      ambientOcclusion: true,
+      aoIntensityPct: 37.5,
+      edgeWidthPx: 1,
+    }));
+    const { result } = renderHook(() => useDisplaySettings(VIEWPORT));
+    expect(result.current.settings.mode).toBe('translucent');
+    expect(result.current.settings.aoIntensityPct).toBe(20);
+    expect(result.current.settings.edgeWidthPx).toBe(2);
+  });
+
+  it('v2 用户自定义线宽 3 不被迁移覆盖', () => {
+    localStorage.setItem(LEGACY_V2_STORAGE_KEY, JSON.stringify({ edgeWidthPx: 3, aoIntensityPct: 60 }));
+    const { result } = renderHook(() => useDisplaySettings(VIEWPORT));
+    expect(result.current.settings.edgeWidthPx).toBe(3);
+    expect(result.current.settings.aoIntensityPct).toBe(60);
   });
 
   it('restores defaults with reset and persists the reset', () => {

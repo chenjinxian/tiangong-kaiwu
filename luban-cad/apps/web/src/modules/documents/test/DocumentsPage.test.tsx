@@ -119,7 +119,7 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
   it('侧栏五筛选 + 创建大钮（os-01 左栏）', () => {
     renderPage();
     const sidebar = screen.getByTestId('document-sidebar');
-    for (const label of ['最近打开过的', '收藏', '我的文档', '已与我共享', '公开']) {
+    for (const label of ['最近打开过的', '收藏', '由我所有', '已与我共享', '公开']) {
       expect(within(sidebar).getByRole('button', { name: label })).toBeDefined();
     }
     expect(within(sidebar).getByRole('button', { name: '创建' })).toBeDefined();
@@ -152,7 +152,7 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     await user.click(await screen.findByRole('menuitem', { name: '新建文档' }));
     await user.type(await screen.findByLabelText(/文档名称/), '新文档');
     // 侧栏「创建」大钮与对话框提交钮同名——提交钮以 dialog 作用域取。
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建公开文档' }));
     // ADR-0001 P0 滚动升级契约：新 web 只发 subClass:'Project'，class 由
     // hub 派生（Project → Endeavor）。显式 class 会让 pre-P0 hub 无法按
     // 老缺省路径建项目，且新 hub 需再校验二元组——故断言 class 缺席。
@@ -202,7 +202,7 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
 
   it('工具条：分区标题+计数 / 排序菜单 / 网格·列表切换 / 刷新', () => {
     renderPage();
-    expect(screen.getByRole('heading', { name: '我的文档' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: '由我所有' })).toBeDefined();
     expect(screen.getByText('2 个文档')).toBeDefined();
     expect(screen.getByRole('button', { name: '排序' })).toBeDefined();
     expect(screen.getByRole('button', { name: '网格视图' })).toBeDefined();
@@ -359,7 +359,7 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
   it('flag 关（缺省）：无 B 项目区，DOM/操作与旧版一致', () => {
     renderPage();
     expect(screen.queryByTestId('projects-section')).toBeNull();
-    expect(screen.getByRole('heading', { name: '我的文档' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: '由我所有' })).toBeDefined();
     expect(screen.getByText('2 个文档')).toBeDefined();
     expect(screen.getByText('文档 A')).toBeDefined();
     expect(screen.getByText('文档 B')).toBeDefined();
@@ -383,7 +383,7 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     // B 项目只在 B 区出现一次（A 区只消费 legacyDocuments）
     expect(screen.getAllByText('B 项目一')).toHaveLength(1);
 
-    const legacyHeading = screen.getByRole('heading', { name: '我的文档' });
+    const legacyHeading = screen.getByRole('heading', { name: '由我所有' });
     expect(
       projectsSection.compareDocumentPosition(legacyHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

@@ -147,5 +147,8 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
   web 目标测试绿。iOS 几何回放改为**全量约束**：`Tutorial2IosReplay.test.ts`
   草图 `status=ok dof=0`（4 条 line+circle tangent + 2 条 DIAMETER 全量参与），
   终体积 157.165 cm³（目标 157.479，−0.20%）不变。
+  > 2026-11-05 补记：该 −0.20% 来自旧 RPC 倒角边集；chamfer UI 按 Onshape
+  > CAP_EDGE 语义拾取 3 条边后，真栈终体积为 **157478.900 mm³ = 目标（0.00%）**。
 - 未实现（按本 ADR 后续批次）：`angle`、projected/pierce/mirror、driven 的 UI
-  编辑入口、iOS 真栈 UI 创建链（chamfer/DIAMETER 已可 API 回放，UI e2e 待补）。
+  编辑入口、iOS 真栈 UI 创建链（DIAMETER 已可 API 回放；chamfer UI 已于
+  2026-11-05 接通，见 `2026-11-05-chamfer-ui-airr.md`）。

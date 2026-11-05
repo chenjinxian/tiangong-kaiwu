@@ -531,7 +531,7 @@ describe('工具 ribbon（Onshape live：28 工具 + 9 下拉 + 搜索触发钮�
     expect(document.activeElement).toBe(arrow);
   });
 
-  it('拉伸/扫掠改道特征对话框（M4-T6/B3）；full 工具投 tools.run；gated 工具开能力引导对话框', async () => {
+  it('拉伸/扫掠/倒角改道特征对话框（M4-T6/B3/Slice 1）；gated 工具开能力引导对话框', async () => {
     const user = userEvent.setup();
     await renderReadyPage();
     const ribbon = screen.getByTestId('part-studio-ribbon');
@@ -558,10 +558,17 @@ describe('工具 ribbon（Onshape live：28 工具 + 9 下拉 + 搜索触发钮�
     await user.click(
       within(within(document.body).getByTestId('part-studio-feature-dialog')).getByRole('button', { name: '取消' }),
     );
-    // full：倒角（ChamferEdges 在册 full，无对话框特例）→ tools.run + 激活态。
+    // 倒角（能力补齐 Slice 1）：改道 new/chamfer 特征对话框（视口拾边 + 距离）。
     await user.click(within(ribbon).getByRole('button', { name: '倒角' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('ChamferEdges');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('ChamferEdges');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'chamfer',
+    });
+    await user.click(
+      within(within(document.body).getByTestId('part-studio-feature-dialog')).getByRole('button', { name: '取消' }),
+    );
     // gated：拔模 → 能力引导对话框（不投 tools.run）。
     mocks.toolsRun.mockClear();
     await user.click(within(ribbon).getByRole('button', { name: '拔模' }));

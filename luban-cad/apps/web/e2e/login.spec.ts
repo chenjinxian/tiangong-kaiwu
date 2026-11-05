@@ -30,7 +30,7 @@ test.describe('登录页（表单路径一轮 + 找回密码入口）', () => {
     // 登录成功落会话：文档中心真实呈现（顶栏 + 左栏；默认档=我的文档）
     await expect(page.getByTestId('documents-route')).toBeVisible();
     await expect(page.getByTestId('document-sidebar')).toBeVisible();
-    await expect(page.getByRole('heading', { name: '我的文档' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '由我所有' })).toBeVisible();
   });
 
   test('找回密码入口往返', async ({ page }) => {

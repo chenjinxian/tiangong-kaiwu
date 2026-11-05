@@ -20,6 +20,7 @@ import {
   ColorDef,
   FeatureAppearance,
   HiddenLine,
+  LightSettings,
   RenderMode,
   ViewFlags,
 } from '@itwin/core-common';
@@ -50,14 +51,17 @@ export interface DisplaySettings {
   shadows: boolean;
   antialiasSamples: 1 | 2 | 4 | 8;
   background: BackgroundMode;
+  /** Onshape 图形首选项「光泽度」：映射 iTwin 全局 specularIntensity（0-100%）。 */
+  glossinessPct: number;
 }
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   mode: 'shaded',
   perspective: false,
-  fovDegrees: 90,
-  ambientOcclusion: false, // 2026-11-03：iTwin 默认 AO 关
-  aoIntensityPct: 37.5,
+  // 2026-11-06 用户校正：AO 默认 20%、线宽 2 px、视野 45 deg。
+  fovDegrees: 45,
+  ambientOcclusion: true,
+  aoIntensityPct: 20,
   edgeWidthPx: 2,
   edgeColor: '#1f1f1f',
   showBrepEdges: true,
@@ -65,6 +69,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   shadows: false,
   antialiasSamples: 4,
   background: 'theme',
+  glossinessPct: 3,
 };
 
 /**
@@ -121,11 +126,11 @@ export function brepOverlayOptionsFor(s: DisplaySettings): {
   };
 }
 
-/** Onshape AO 百分比 → iTwin 幂指数（37.5% ↔ iTwin 默认 1.0，夹 [0.25, 4]）。
- * 2026-11-03：旧锚点 2.0 等于默认强度两倍，默认视口暗一档；以默认 1.0 为
- * 37.5% 锚点后 AO 只收缝隙，不再整体压暗。 */
+/** Onshape AO 百分比 → iTwin 幂指数（20% ↔ iTwin 默认 1.0，夹 [0.25, 4]）。
+ * 2026-11-06 用户校正默认 AO=20%：锚点随默认值同步改为 20%，保持默认视觉
+ * 强度仍为 iTwin 1.0（若沿用 37.5 锚点，20% 会变成 0.533 的更强遮蔽）。 */
 export function aoIntensityFromPct(pct: number): number {
-  return Math.min(4, Math.max(0.25, 1.0 * pct / 37.5));
+  return Math.min(4, Math.max(0.25, 1.0 * pct / 20));
 }
 
 /**
@@ -180,6 +185,14 @@ export function applyDisplaySettings(
       ...hline.toJSON(),
       visible: { ...visible, ovrColor: true, color: ColorDef.fromString(s.edgeColor).tbgr, width: s.edgeWidthPx },
     });
+    // Onshape「光泽度」→ 全局高光强度（0-100% 映射 [0,1]）。
+    if (style3d.lights) {
+      const specularIntensity = Math.min(1, Math.max(0, s.glossinessPct / 100));
+      style3d.lights = LightSettings.fromJSON({
+        ...style3d.lights.toJSON(),
+        specularIntensity,
+      });
+    }
   }
 
   viewport.synchWithView({});

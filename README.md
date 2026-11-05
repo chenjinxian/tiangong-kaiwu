@@ -10,6 +10,28 @@
 
 ---
 
+## 产品实景与宣传页
+
+![鲁班CAD Tutorial 2 成品](luban-cad/apps/web/public/showcase/hero-tutorial2.webp)
+
+> **产品介绍页**：启动 dev 后访问 `http://localhost:5300/showcase`（公开路由，无需登录）。
+> 包含 4K 实机截图、1080p 真实建模演示视频与示例复刻体积对拍；素材来自真实栈，非概念图。
+
+| 草图与约束 | 参数化特征 |
+|---|---|
+| ![草图](luban-cad/apps/web/public/showcase/sketch.webp) | ![拉伸](luban-cad/apps/web/public/showcase/extrude.webp) |
+
+| BRep 拓扑 | 孔与工程特征 |
+|---|---|
+| ![圆角](luban-cad/apps/web/public/showcase/fillet.webp) | ![孔](luban-cad/apps/web/public/showcase/hole.webp) |
+
+- **1080p 演示视频**：[`tutorial2-demo-1080p.webm`](luban-cad/apps/web/public/showcase/tutorial2-demo-1080p.webm)（真实鼠标轨迹，1920×1080）。
+- **4K 截图**：`luban-cad/apps/web/public/showcase/*.webp`（3840×2160）。
+- 示例复刻体积对拍与重开验证见 `docs/UI-ONSHAPE-PARITY-2026-11-02.md` 与
+  `luban-cad/apps/web/e2e/examples/verify-imodels.spec.ts`。
+
+---
+
 ## 项目亮点
 
 - **真 BRep，而非 Mesh**：生成物是可用于制造的实体模型；特征树、草图、参数与变更历史统一承载在 iModel 中。

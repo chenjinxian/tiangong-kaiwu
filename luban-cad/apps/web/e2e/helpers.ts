@@ -523,6 +523,18 @@ export async function openSeedImodelEditor(
 }
 
 /**
+ * 显式切到自研 Onshape ViewCube（产品默认已是官方 iTwin）。Onshape UI 复刻
+ * 演示/罗盘 15° 步进的 e2e 必须显式回退；sessionStorage v2 key 与
+ * `internal/viewcube-mode.ts` 同步，reload 后由 `readViewCubeMode` 读取。
+ */
+export async function forceOnshapeViewCube(page: Page): Promise<void> {
+  await page.evaluate(() => sessionStorage.setItem('luban.viewcubeMode.v2', 'onshape'));
+  await page.reload();
+  await waitEditorReady(page);
+  await page.getByTestId('part-studio-viewcube').waitFor({ state: 'visible', timeout: 30_000 });
+}
+
+/**
  * A 旧文档编辑器 helper（只读规格专用）：打开未标记 A 种子库，返回项目/库 id。
  * 不等待 `?model=`（A 永不产生 scope），但等连接/画布就绪以承接只读读面断言。
  * `ids` 语义同 `openSeedImodelEditor`（可选传入 reset 结果）。
@@ -676,7 +688,7 @@ export async function msRpc(
   const url =
     `${MS_BASE}/LubanCAD/v1.0/mode/primary/context/${itwinId}/imodel/${imodelId}` +
     `/changeset/0/LubanFeatureRpcInterface-${FEATURE_RPC_VERSION}-${operation}`;
-  const res = await fetch(url, {
+  const send = (): Promise<Response> => fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'text/plain',
@@ -690,7 +702,23 @@ export async function msRpc(
     },
     body: JSON.stringify(args),
   });
-  const text = await res.text();
+  // MS 全局限流 100 req/15min（跨 spec 共享）。429 携带 retryAfter 秒数；
+  // 有界重试（≤6 次）让长演示跑完，重试仍失败则按原样抛错（不吞限流）。
+  let res = await send();
+  let text = await res.text();
+  for (let attempt = 0; res.status === 429 && attempt < 6; attempt++) {
+    let retryAfter = 5;
+    try {
+      retryAfter = Number((JSON.parse(text) as { retryAfter?: number }).retryAfter ?? 5);
+    } catch {
+      retryAfter = 5;
+    }
+    const waitMs = Math.min(Math.max(retryAfter, 1), 30) * 1000;
+    console.warn(`[msRpc] ${operation} 429 限流，${waitMs / 1000}s 后重试（${attempt + 1}/6）`);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    res = await send();
+    text = await res.text();
+  }
   if (!res.ok) throw new Error(`MS RPC ${operation} HTTP ${res.status}: ${text.slice(0, 240)}`);
   let parsed: unknown;
   try {

@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Matrix3d, Vector3d } from '@itwin/core-geometry';
 import { IModelApp, StandardViewId, type ScreenViewport } from '@itwin/core-frontend';
 import { ViewCube } from '../components/ViewCube.js';
+import { viewRotationFromDirection } from '../internal/view-orientation.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
 import { DEFAULT_DISPLAY_SETTINGS, type DisplaySettings } from '../internal/display-actions.js';
@@ -89,6 +90,7 @@ const ISO_ROTATION = Matrix3d.createRowValues(
   -0.408248290463863, 0.408248290463863, 0.816496580927726,
   0.577350269189626, -0.577350269189626, 0.577350269189626,
 );
+const FREE_ROTATION = viewRotationFromDirection(Vector3d.create(0.4, -0.7, 0.55))!;
 
 beforeEach(() => {
   usePartStudioStore.setState({ dock: { activeTab: 'toolSettings', isOpen: false } });
@@ -124,23 +126,41 @@ describe('ViewCube', () => {
     const shared = Matrix3d.createIdentity();
     const fake = fakeViewport(shared);
     render(<ViewCube viewport={fake.viewport} />);
-    const labels = (): string[] =>
-      [...document.querySelectorAll('.part-studio-viewcube__face-label')].map((el) => el.textContent ?? '');
-    expect(labels()).toEqual(['TOP']);
-
+    const cube = screen.getByTestId('part-studio-viewcube').querySelector('.part-studio-viewcube__cube') as HTMLElement;
+    const before = cube.style.transform;
     shared.setFrom(ISO_ROTATION);
     act(() => fake.raiseViewChanged());
-    expect(labels()).toHaveLength(3);
+    expect(cube.style.transform).not.toBe(before);
   });
 
-  it('renders screen-aligned labels for the faces currently facing the viewer', () => {
+  it('renders screen-aligned localized labels for the three visible faces', () => {
     const fake = fakeViewport(ISO_ROTATION);
     render(<ViewCube viewport={fake.viewport} />);
-    const shown = [...document.querySelectorAll('.part-studio-viewcube__face-label')]
-      .map((el) => el.textContent ?? '');
-    expect(shown).toHaveLength(3);
-    for (const label of ['TOP', 'RIGHT', 'FRONT'])
-      expect(shown).toContain(label);
+    // Onshape live：标签是屏幕对齐的直立文字，只渲染朝前的三个面。
+    const labels = [...document.querySelectorAll('.part-studio-viewcube__face-label')]
+      .map((el) => el.textContent ?? '')
+      .sort();
+    expect(labels).toEqual(['上', '右', '前'].sort());
+    for (const face of ['top', 'front', 'right']) {
+      const button = screen.getByTestId(`viewcube-face-${face}`);
+      expect(button.getAttribute('aria-label')).toMatch(/上|前|右/);
+    }
+  });
+
+  it('shows the home control only for free (non-standard) camera views', () => {
+    const iso = fakeViewport(ISO_ROTATION);
+    const first = render(<ViewCube viewport={iso.viewport} />);
+    expect(screen.queryByTestId('viewcube-home')).toBeNull();
+    first.unmount();
+
+    const top = fakeViewport(Matrix3d.createIdentity());
+    const second = render(<ViewCube viewport={top.viewport} />);
+    expect(screen.queryByTestId('viewcube-home')).toBeNull();
+    second.unmount();
+
+    const free = fakeViewport(FREE_ROTATION);
+    render(<ViewCube viewport={free.viewport} />);
+    expect(screen.getByTestId('viewcube-home')).not.toBeNull();
   });
 
   it('sets a standard top view when a cube face is clicked', async () => {
@@ -154,23 +174,26 @@ describe('ViewCube', () => {
     expect(fake.setStandardRotation).toHaveBeenCalledWith(StandardViewId.Top);
     expect(fake.turnCameraOff).toHaveBeenCalledTimes(1);
     expect(fake.synchWithView).toHaveBeenCalledWith({});
-    expect([...document.querySelectorAll('.part-studio-viewcube__face-label')].map((el) => el.textContent))
-      .toEqual(['TOP']);
   });
 
-  it('orbits the camera by dragging the cube', () => {
+  it('does not orbit on drag (Onshape ViewCube is click-only)', () => {
     const fake = fakeViewport();
     render(<ViewCube viewport={fake.viewport} />);
     const stage = screen.getByTestId('part-studio-viewcube').querySelector('.part-studio-viewcube__stage') as HTMLElement;
-    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
-    Object.defineProperty(stage, 'hasPointerCapture', { value: () => false });
-
     fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 });
     fireEvent.pointerMove(stage, { clientX: 40, clientY: 10, pointerId: 1 });
+    fireEvent.pointerUp(stage, { clientX: 40, clientY: 10, pointerId: 1 });
+    expect(fake.setRotation).not.toHaveBeenCalled();
+  });
 
-    expect(fake.setRotation).toHaveBeenCalledTimes(1);
-    const next = fake.setRotation.mock.calls[0]![0] as Matrix3d;
-    expect(next.rowZ().isExactEqual(Matrix3d.createIdentity().rowZ())).toBe(false);
+  it('uses an animated frustum transition when the viewport supports it', async () => {
+    const user = userEvent.setup();
+    const fake = fakeViewport(ISO_ROTATION);
+    const animate = vi.fn();
+    (fake.viewport as unknown as { animateFrustumChange: typeof animate }).animateFrustumChange = animate;
+    render(<ViewCube viewport={fake.viewport} />);
+    await user.click(screen.getByTestId('viewcube-face-top'));
+    expect(animate).toHaveBeenCalledWith({ animationTime: 180 });
   });
 
   it('always renders the borderless mini-cube trigger and opens the Onshape menu', async () => {
@@ -188,9 +211,10 @@ describe('ViewCube', () => {
     ])
       expect(screen.getByTestId(id)).toBeDefined();
     expect(menu).toBeDefined();
-    // 用户裁决：不实现项隐藏，不显示假按钮。
-    expect(screen.queryByText(/命名视图|Named views/)).toBeNull();
-    expect(screen.queryByText(/剖视图|Section view/)).toBeNull();
+    // 2026-11-05 Onshape live：未实现项保持菜单完整外观，但禁用并带 aria-disabled。
+    expect(screen.getByTestId('viewcube-menu-named-views').getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByTestId('viewcube-menu-section').getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByTestId('viewcube-menu-previous-view').getAttribute('aria-disabled')).toBe('true');
   });
 
   it('closes on outside pointer-down and Escape returns focus to the trigger', async () => {
@@ -262,12 +286,20 @@ describe('ViewCube', () => {
     expect(run).toHaveBeenCalledWith('View.WindowArea');
   });
 
-  it('opens the dock display tab from Graphics preferences', async () => {
+  it('invokes the host Graphics preferences callback (not the dock)', async () => {
     const user = userEvent.setup();
-    render(<ViewCube viewport={fakeViewport().viewport} displaySettings={displaySettings()} />);
+    const onOpenGraphicsPreferences = vi.fn();
+    render(
+      <ViewCube
+        viewport={fakeViewport().viewport}
+        displaySettings={displaySettings()}
+        onOpenGraphicsPreferences={onOpenGraphicsPreferences}
+      />,
+    );
     await user.click(screen.getByTestId('viewcube-menu-trigger'));
     await user.click(screen.getByTestId('viewcube-menu-graphics'));
-    expect(usePartStudioStore.getState().dock).toEqual({ activeTab: 'display', isOpen: true });
+    expect(onOpenGraphicsPreferences).toHaveBeenCalledTimes(1);
+    expect(usePartStudioStore.getState().dock).toEqual({ activeTab: 'toolSettings', isOpen: false });
   });
 
   it('applies a trimetric direction when a cube corner hotspot is clicked', async () => {

@@ -387,7 +387,7 @@ test.describe('性能门禁 ②：Documents 百行滚动', () => {
     await expect(rows.first()).toBeVisible({ timeout: 20_000 });
     await expect.poll(async () => rows.count(), { timeout: 30_000 }).toBeGreaterThanOrEqual(SEED_DOC_COUNT);
     const rowCount = await rows.count();
-    const bSectionRowCount = await projectsSection.locator('.documents-table-row').count();
+    const bSectionRowCount = await projectsSection.locator('.documents-projects__row').count();
     expect(
       bSectionRowCount,
       'B 项目区应至少渲染 B 种子一行（flag-on 双区；B 区不并入百行口径）',

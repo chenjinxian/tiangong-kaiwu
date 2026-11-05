@@ -170,7 +170,17 @@
   display: flex;
   flex-direction: row;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--iui-size-2xs);
+}
+
+/* ── 终止条件（2026-11-05：接入 v1.22 ADR-0005 endBound=blind/throughAll）── */
+.part-studio-feature-dialog__end-bound {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--iui-size-2xs);
+  margin-left: var(--iui-size-s);
 }
 
 .part-studio-feature-dialog__distance-label {
@@ -532,4 +542,701 @@
   color: var(--iui-color-text-muted);
   font-size: var(--iui-font-size-0);
   line-height: 1.5;
+}
+
+/* ── 2026-11-06 Onshape 1:1 皮肤复核 ──────────────────────────────────────
+ * live 实测（Sample Assignment UI Evidence，1560×905@2x）：
+ * - 面板 220 CSS 宽，贴树右缘（x=246）/内容上缘+3px（y=79），无边框/圆角，
+ *   shadow 0 5px 10px rgba(0,0,0,.2)，字体 12px；
+ * - header 29px（标题 14px，绿✓/红✗ 28×28）；
+ * - 页签行 28px，参数行 27–28px；实体选择字段 214×26；底部仅滑杆+?。
+ * 这里只收紧外壳与行距；各特征参数顺序/缺项在 render 中按 live 分支处理。 */
+.part-studio-feature-dialog {
+  inset-block-start: 3px;
+  inset-inline-start: 6px;
+  inline-size: 220px;
+  max-inline-size: calc(100% - 12px);
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  font-size: 12px;
+  line-height: 16px;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  max-block-size: calc(100vh - 120px);
+  overflow: hidden;
+}
+
+.part-studio-feature-dialog__header {
+  min-block-size: 29px;
+  padding: 0 0 0 4px;
+  gap: 0;
+}
+
+.part-studio-feature-dialog__title {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.part-studio-feature-dialog__header-actions {
+  gap: 0;
+}
+
+.part-studio-feature-dialog__confirm,
+.part-studio-feature-dialog__cancel {
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 0;
+}
+
+.part-studio-feature-dialog__confirm svg,
+.part-studio-feature-dialog__cancel svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-feature-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-block-size: 0;
+  padding: 0 3px;
+  overflow-y: auto;
+}
+
+.part-studio-feature-dialog__tabs,
+.part-studio-feature-dialog__tablist {
+  gap: 0;
+}
+
+.part-studio-feature-dialog__tablist {
+  min-block-size: 28px;
+  padding: 0 2px;
+  border-block-end: 1px solid #d7d7d7;
+}
+
+.part-studio-feature-dialog__tab {
+  block-size: 28px;
+  padding: 0 6px;
+  border-block-end: 2px solid transparent;
+  color: #333333;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 26px;
+}
+
+.part-studio-feature-dialog__tab--active {
+  border-block-end-color: #1651b0;
+  color: #1651b0;
+  font-weight: 500;
+}
+
+.part-studio-feature-dialog__distance,
+.part-studio-feature-dialog__angle {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  min-block-size: 28px;
+  gap: 4px;
+  align-items: center;
+  margin: 0;
+}
+
+.part-studio-feature-dialog__end-bound {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  grid-column: 1 / -1;
+  gap: 4px;
+  align-items: center;
+  margin: 0;
+}
+
+.part-studio-feature-dialog__distance-label {
+  color: #333333;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.part-studio-feature-dialog__select,
+.part-studio-feature-dialog__input {
+  block-size: 24px;
+  min-block-size: 24px;
+  padding: 1px 4px;
+  border: 1px solid #b8c0c8;
+  border-radius: 0;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.part-studio-feature-dialog__checkbox {
+  min-block-size: 28px;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog__entities {
+  gap: 2px;
+  padding: 2px 3px;
+  border-radius: 0;
+}
+
+.part-studio-feature-dialog__entities-header {
+  gap: 2px;
+}
+
+.part-studio-feature-dialog__entities-label,
+.part-studio-feature-dialog__profile-empty,
+.part-studio-feature-dialog__hint,
+.part-studio-feature-dialog__alert,
+.part-studio-feature-dialog__lease-warning {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.part-studio-feature-dialog__hint,
+.part-studio-feature-dialog__alert,
+.part-studio-feature-dialog__lease-warning {
+  padding: 2px 4px;
+  border-radius: 0;
+}
+
+.part-studio-feature-dialog__profile-field {
+  min-block-size: 24px;
+  padding: 1px 3px;
+  border-radius: 0;
+}
+
+.part-studio-feature-dialog__chip,
+.part-studio-feature-dialog__profile-chip,
+.part-studio-feature-dialog__region-chip {
+  border-radius: 0;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog__sections {
+  gap: 0;
+}
+
+.part-studio-feature-dialog__section {
+  border-block-start: 0;
+}
+
+.part-studio-feature-dialog__section-toggle {
+  min-block-size: 27px;
+  padding: 0 2px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.part-studio-feature-dialog__section-toggle::before {
+  content: '▸';
+  display: inline-block;
+  inline-size: 14px;
+  color: #555555;
+}
+
+.part-studio-feature-dialog__section-toggle[aria-expanded='true']::before {
+  content: '▾';
+}
+
+.part-studio-feature-dialog__section-body {
+  padding: 0 2px 2px;
+}
+
+.part-studio-feature-dialog__footer {
+  min-block-size: 28px;
+  padding: 0 2px;
+  gap: 2px;
+}
+
+.part-studio-feature-dialog__finish {
+  display: none;
+}
+
+.part-studio-feature-dialog__help {
+  inline-size: 20px;
+  block-size: 20px;
+  border: none;
+  border-radius: 50%;
+  background: #f5f5f5;
+  color: #555555;
+  font-size: 12px;
+}
+
+/* Onshape 参数顺序：extrude = 实体字段 → 终止条件 → 深度 → 对称 → 折叠段。 */
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__entities {
+  order: 1;
+}
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__distance {
+  order: 2;
+}
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__checkbox[data-testid='part-studio-feature-dialog-symmetric-flat'] {
+  order: 3;
+}
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__sections {
+  order: 4;
+}
+/* 终止条件下拉在深度输入之前（Onshape 行序）。 */
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__end-bound {
+  order: -1;
+}
+/* Onshape 不常驻「相交暂不支持」提示行（禁用态在页签 title 中表达）。 */
+.part-studio-feature-dialog [data-testid='part-studio-feature-dialog-intersect-unsupported-hint'] {
+  display: none;
+}
+
+/* Onshape extrude：终止条件下拉自身显示「给定深度」，不显示额外行标签。 */
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__end-bound .part-studio-feature-dialog__distance-label {
+  display: none;
+}
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__end-bound {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ── Hole（Onshape live：220×374；页签行 → 实体字段 → 合并范围 → 孔型/尺寸
+ * → 起始平面/终止条件/深度/钻尖；实体字段点击展开草图点列表）────────────── */
+.part-studio-feature-dialog__tab--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__entities-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-block-size: 22px;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__entities-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-hole-dialog__sketch {
+  flex: 0 0 88px;
+  max-inline-size: 88px;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__profile-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  inline-size: 100%;
+  min-block-size: 26px;
+  padding: 1px 3px;
+  border: 1px solid #b8c0c8;
+  background: #ffffff;
+  text-align: start;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__profile-field:focus {
+  outline: 1px solid #1651b0;
+  outline-offset: -1px;
+}
+
+.part-studio-hole-dialog__locations-list {
+  max-block-size: 120px;
+  overflow-y: auto;
+  border: 1px solid #b8c0c8;
+  border-block-start: 0;
+  background: #ffffff;
+}
+
+.part-studio-hole-dialog__location-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 22px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog__static-value {
+  display: flex;
+  align-items: center;
+  min-block-size: 24px;
+  padding: 1px 4px;
+  overflow: hidden;
+  color: #333333;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #f5f5f5;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__end-bound {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__footer {
+  justify-content: space-between;
+}
+
+.part-studio-hole-dialog__unit-suffix {
+  padding-inline-start: 3px;
+  color: #777777;
+  font-size: 11px;
+}
+
+/* ── 2026-11-06 Onshape live 二次复核：页签/模式行/实体字段/行序 ────────── */
+/* live 页签均分整行、居中；活动页签 2px 蓝底线。 */
+.part-studio-feature-dialog__tablist {
+  display: flex;
+  inline-size: 100%;
+}
+
+.part-studio-feature-dialog__tablist .part-studio-feature-dialog__tab {
+  flex: 1 1 0;
+  text-align: center;
+}
+
+.part-studio-feature-dialog__tablist--top {
+  border-block-end: 1px solid #d7d7d7;
+}
+
+.part-studio-feature-dialog__mode-row {
+  display: flex;
+  align-items: center;
+  min-block-size: 28px;
+  padding: 2px 3px;
+}
+
+.part-studio-feature-dialog__mode-select {
+  inline-size: 100%;
+  block-size: 24px;
+  border: 1px solid #b8c0c8;
+  background: #ffffff;
+}
+
+/* 实体字段：Onshape live 为浅蓝底、边框、字段内即占位/芯片，不另起标签行。 */
+.part-studio-feature-dialog__entities-header {
+  min-block-size: 24px;
+  padding: 1px 3px;
+  border: 1px solid #b8c0c8;
+  border-block-end: 0;
+  background: #eaf2fb;
+}
+
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__entities-header,
+.part-studio-feature-dialog[data-feature='revolve'] .part-studio-feature-dialog__entities-header,
+.part-studio-feature-dialog[data-feature='fillet'] .part-studio-feature-dialog__entities-header,
+.part-studio-feature-dialog[data-feature='chamfer'] .part-studio-feature-dialog__entities-header {
+  border-color: #a9c4dd;
+}
+
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__entities-label,
+.part-studio-feature-dialog[data-feature='revolve'] .part-studio-feature-dialog__entities-label,
+.part-studio-feature-dialog[data-feature='fillet'] .part-studio-feature-dialog__entities-label,
+.part-studio-feature-dialog[data-feature='chamfer'] .part-studio-feature-dialog__entities-label {
+  display: none;
+}
+
+.part-studio-feature-dialog__profile-field {
+  border: 1px solid #a9c4dd;
+  border-block-start: 0;
+  background: #eaf2fb;
+}
+
+.part-studio-feature-dialog__profile-field .part-studio-feature-dialog__chip,
+.part-studio-feature-dialog__profile-chip {
+  background: #ffffff;
+}
+
+/* 参数数值行：Onshape 行内 label 左、值右对齐，无显式输入框（点入才编辑）。 */
+.part-studio-feature-dialog__distance,
+.part-studio-feature-dialog__angle {
+  grid-template-columns: 62px minmax(0, 1fr);
+  min-block-size: 27px;
+}
+
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__distance .part-studio-feature-dialog__input,
+.part-studio-feature-dialog[data-feature='revolve'] .part-studio-feature-dialog__angle .part-studio-feature-dialog__input,
+.part-studio-feature-dialog[data-feature='fillet'] .part-studio-feature-dialog__distance .part-studio-feature-dialog__input,
+.part-studio-feature-dialog[data-feature='chamfer'] .part-studio-feature-dialog__distance .part-studio-feature-dialog__input {
+  border-color: transparent;
+  background: transparent;
+  text-align: end;
+}
+
+.part-studio-feature-dialog__checkbox {
+  padding-inline-start: 2px;
+}
+
+/* 折叠行：Onshape 箭头在行首，整行无边框。 */
+.part-studio-feature-dialog__section-toggle {
+  justify-content: flex-start;
+  gap: 2px;
+}
+
+/* 平铺选项复选（部分圆角/可变圆角/允许边溢出/平滑圆角）。 */
+.part-studio-feature-dialog__section-toggle--flat {
+  display: flex;
+  align-items: center;
+  min-block-size: 27px;
+  cursor: default;
+}
+
+.part-studio-feature-dialog__section-toggle--flat::before {
+  content: '>';
+  display: inline-block;
+  inline-size: 14px;
+  color: #555555;
+  text-align: center;
+}
+
+/* 检查器/操作下拉：不可用项保持禁用态但不误导（title 说明）。 */
+.part-studio-feature-dialog__select:disabled {
+  color: #555555;
+  opacity: 1;
+  background: #ffffff;
+}
+
+/* 底栏滑杆 live 为中性灰细轨。 */
+.part-studio-feature-dialog__transparency-slider {
+  accent-color: #8a8a8a;
+  block-size: 16px;
+}
+
+/* 隐藏不可提交/未实现但仍在 DOM 的结构控件（测试与兼容语义保留）。 */
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-new-body'] {
+  display: none;
+}
+.part-studio-feature-dialog__pattern-kind,
+.part-studio-feature-dialog__boolean-operation {
+  display: none;
+}
+
+/* ── 行序：extrude = 实体 → 终止条件 → 深度 → 方向 → 起始偏移 → 对称 →
+ * 拔模 → 第二终止位置（Onshape live；折叠段用 contents 参与 body 流）────── */
+.part-studio-feature-dialog__body {
+  display: flex;
+  flex-direction: column;
+}
+.part-studio-feature-dialog__sections {
+  display: contents;
+}
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__entities { order: 1; }
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__end-bound { order: 2; }
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__distance { order: 3; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-section='direction'] { order: 4; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-section='startOffset'] { order: 5; }
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__checkbox[data-testid='part-studio-feature-dialog-symmetric-flat'] { order: 6; }
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__checkbox[data-testid='part-studio-feature-dialog-draft'] { order: 7; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-section='secondEnd'] { order: 8; }
+
+/* 旋转：实体字段（含面域）→ 全方位复选 → 角度。 */
+.part-studio-feature-dialog[data-feature='revolve'] .part-studio-feature-dialog__entities { order: 1; }
+.part-studio-feature-dialog[data-feature='revolve'] [data-testid='part-studio-feature-dialog-full-revolve'] { order: 2; }
+.part-studio-feature-dialog[data-feature='revolve'] .part-studio-feature-dialog__angle { order: 3; }
+
+/* 圆角/倒角：实体字段 → 切向延伸 → 测量/控制/类型 → 数值 → 选项。 */
+.part-studio-feature-dialog[data-feature='fillet'] .part-studio-feature-dialog__entities,
+.part-studio-feature-dialog[data-feature='chamfer'] .part-studio-feature-dialog__entities { order: 1; }
+.part-studio-feature-dialog[data-feature='fillet'] [data-testid='part-studio-feature-dialog-propagate-smooth'] { order: 2; }
+.part-studio-feature-dialog[data-feature='fillet'] [data-field='measurement'],
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='measurement'] { order: 3; }
+.part-studio-feature-dialog[data-feature='fillet'] [data-field='control'],
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='chamfer-type'] { order: 4; }
+.part-studio-feature-dialog[data-feature='fillet'] [data-field='radius'],
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='radius'] { order: 5; }
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='chamfer-distance2'],
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='chamfer-angle'] { order: 5; }
+.part-studio-feature-dialog[data-feature='chamfer'] [data-testid='part-studio-feature-dialog-propagate-smooth'] { order: 6; }
+.part-studio-feature-dialog[data-feature='fillet'] [data-testid='part-studio-feature-dialog-asymmetric'] { order: 6; }
+.part-studio-feature-dialog[data-feature='fillet'] [data-testid^='part-studio-feature-dialog-fillet-'] { order: 7; }
+
+/* 阵列：实体字段 → 方向 → 距离 → 实例数；镜像：实体字段 → 镜像平面。 */
+.part-studio-feature-dialog[data-feature='pattern'] .part-studio-feature-dialog__entities,
+.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__entities { order: 1; }
+.part-studio-feature-dialog[data-feature='pattern'] .part-studio-feature-dialog__entities {
+  display: flex;
+  flex-direction: column;
+}
+.part-studio-feature-dialog[data-feature='pattern'] .part-studio-feature-dialog__pattern-axis { order: 2; }
+.part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-spacing'],
+.part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-angle'] { order: 3; }
+.part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-count'] { order: 4; }
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-scope-hint'] { order: 5; }
+.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__mirror-plane { order: 2; }
+
+/* fillet/chamfer 的空态按钮占满实体字段宽度，视觉上即字段占位。 */
+.part-studio-feature-dialog[data-feature='fillet'] [data-testid='part-studio-feature-dialog-add-edge'],
+.part-studio-feature-dialog[data-feature='chamfer'] [data-testid='part-studio-feature-dialog-add-edge'] {
+  inline-size: 100%;
+  margin: 0;
+  padding: 2px 4px;
+  border: 1px solid #a9c4dd;
+  border-block-start: 0;
+  background: #eaf2fb;
+  text-align: start;
+  font-size: 12px;
+}
+
+/* CPlane：图元字段（浅蓝实体字段）+ 下拉菜单。 */
+.part-studio-cplane__reference-field {
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  min-block-size: 25px;
+  border: 1px solid #a9c4dd;
+  background: #eaf2fb;
+  text-align: start;
+  cursor: pointer;
+}
+
+.part-studio-cplane__menu {
+  position: absolute;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid #c9c9c9;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.part-studio-cplane__menu-option {
+  display: block;
+  inline-size: 100%;
+  padding: 4px 8px;
+  border: none;
+  background: #ffffff;
+  font-size: 12px;
+  text-align: start;
+}
+
+.part-studio-cplane__menu-option[aria-selected='true'] {
+  background: #e8f2ff;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-feature-dialog__entities {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+/* Hole：单草图时光标下的草图选择保留可访问性但不占位（Onshape 实体字段
+ * 只有占位/芯片 + 时钟图标）。 */
+.part-studio-hole-dialog__hidden-select {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__entities {
+  position: relative;
+  padding: 0;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__entities-header {
+  padding: 1px 3px;
+  border: 1px solid #a9c4dd;
+  background: #eaf2fb;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__entities-header::after {
+  content: '◷';
+  margin-inline-start: auto;
+  color: #6d7d8c;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__profile-field {
+  border-block-start: 0;
+  background: #eaf2fb;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__entities-label {
+  display: none;
+}
+
+/* Onshape 模式/指令对话框不展示实现范围说明文字（保留 DOM 供测试/语义）。 */
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-scope-hint'],
+.part-studio-feature-dialog[data-feature='mirror'] [data-testid='part-studio-feature-dialog-mirror-scope-hint'] {
+  display: none;
+}
+
+/* CPlane live：图元字段占满整行（无左侧标签），偏移模式行整行下拉。 */
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-feature-dialog__entities {
+  border: 0;
+  padding: 0;
+  gap: 0;
+  background: transparent;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-feature-dialog__entities-header {
+  border: 0;
+  padding: 0;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-feature-dialog__entities-label {
+  display: none;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__reference-field {
+  inline-size: 100%;
+  min-block-size: 26px;
+  border: 1px solid #a9c4dd;
+  background: #eaf2fb;
+  text-align: start;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__mode .part-studio-feature-dialog__distance-label {
+  display: none;
+}
+
+/* Hole live：合并范围始终在场；类型/尺寸为无边框行；数值右对齐 + 单位。 */
+.part-studio-hole-dialog__merge-scope {
+  grid-template-columns: 62px minmax(0, 1fr);
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__type,
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size {
+  grid-template-columns: 62px minmax(0, 1fr);
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__type .part-studio-feature-dialog__select,
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size .part-studio-feature-dialog__select {
+  border-color: transparent;
+  background: transparent;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__value-row {
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__value-row .part-studio-feature-dialog__input {
+  border-color: transparent;
+  background: transparent;
+  text-align: end;
+}
+
+.part-studio-hole-dialog__unit {
+  color: #555555;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* 折叠行前的小方块（Onshape live `> ☐ 方向`；仅视觉，操作仍由整行切换）。 */
+.part-studio-feature-dialog__section-checkbox {
+  display: inline-block;
+  inline-size: 11px;
+  block-size: 11px;
+  border: 1px solid #9aa4ae;
+  background: #ffffff;
 }

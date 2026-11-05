@@ -217,13 +217,22 @@ export function PartStudioTopBar({
             className="part-studio-topbar-placeholder part-studio-topbar-explore"
             aria-label={t('partStudio.topBar.explore')}
             title={t('partStudio.topBar.explore')}
+            onClick={() => navigate('/showcase')}
           >
             <OnshapeIcon name="explore-onshape" size={18} />
             <span>{t('partStudio.topBar.explore')}</span>
           </button>
           <button
             type="button"
-            className="part-studio-topbar-placeholder"
+            className="part-studio-topbar-placeholder part-studio-topbar-notifications"
+            aria-label={t('partStudio.topBar.notifications')}
+            title={t('partStudio.topBar.notifications')}
+          >
+            <OnshapeIcon name="navbar-notifications" size={20} />
+          </button>
+          <button
+            type="button"
+            className="part-studio-topbar-placeholder part-studio-topbar-appstore"
             aria-label={t('partStudio.topBar.appStore')}
             title={t('partStudio.topBar.appStore')}
           >
@@ -231,11 +240,19 @@ export function PartStudioTopBar({
           </button>
           <button
             type="button"
-            className="part-studio-topbar-placeholder"
+            className="part-studio-topbar-placeholder part-studio-topbar-learning"
             aria-label={t('partStudio.topBar.learningCenter')}
             title={t('partStudio.topBar.learningCenter')}
           >
             <OnshapeIcon name="navbar-learning-center" size={20} />
+          </button>
+          <button
+            type="button"
+            className="part-studio-topbar-placeholder part-studio-topbar-help"
+            aria-label={t('partStudio.topBar.help')}
+            title={t('partStudio.topBar.help')}
+          >
+            <OnshapeIcon name="navbar-help" size={20} />
           </button>
           <button
             type="button"
@@ -245,14 +262,6 @@ export function PartStudioTopBar({
             onClick={() => setShareOpen(true)}
           >
             {t('partStudio.topBar.share')}
-          </button>
-          <button
-            type="button"
-            className="part-studio-topbar-placeholder part-studio-topbar-help"
-            aria-label={t('partStudio.topBar.help')}
-            title={t('partStudio.topBar.help')}
-          >
-            <OnshapeIcon name="navbar-help" size={20} />
           </button>
           <DropdownMenu
             menuItems={[
@@ -276,12 +285,13 @@ export function PartStudioTopBar({
               className="part-studio-user-button"
               aria-label={t('partStudio.topBar.userMenu.open')}
             >
-              <span className="part-studio-user-name">{user?.name || user?.email || ''}</span>
               <Avatar
                 title={user?.name || user?.email}
                 abbreviation={(user?.name?.slice(0, 2) || user?.email?.slice(0, 2) || 'U').toUpperCase()}
                 image={user?.avatar ? <img src={user.avatar} alt="" /> : undefined}
               />
+              <span className="part-studio-user-name">{user?.name || user?.email || ''}</span>
+              <span className="part-studio-user-caret" aria-hidden="true">▾</span>
             </button>
           </DropdownMenu>
         </div>

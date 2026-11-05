@@ -21,6 +21,7 @@
     "@itwin/core-common": "link:../../../itwinjs-core/core/common",
     "@itwin/core-frontend": "link:../../../itwinjs-core/core/frontend",
     "@itwin/core-geometry": "link:../../../itwinjs-core/core/geometry",
+    "@itwin/core-i18n": "link:../../../itwinjs-core/core/i18n",
     "@itwin/editor-frontend": "link:../editor/frontend",
     "@itwin/imodels-access-frontend": "^6.0.2",
     "@itwin/imodels-client-management": "^6.0.2",

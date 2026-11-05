@@ -45,7 +45,8 @@
             "booleanAdd",
             "booleanSubtract",
             "loft",
-            "sweep"
+            "sweep",
+            "hole"
           ]
         },
         "name": { "type": "string", "minLength": 1 },

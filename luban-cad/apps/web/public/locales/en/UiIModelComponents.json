@@ -1,0 +1,10 @@
+{
+  "cube": {
+    "front": "Front",
+    "back": "Back",
+    "top": "Top",
+    "bottom": "Bottom",
+    "left": "Left",
+    "right": "Right"
+  }
+}

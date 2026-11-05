@@ -412,10 +412,20 @@ Expected: every blocked example names a concrete shared contract gap and the ADR
   converter v2 生成场景并在后端回放：sketch（Right，construction centerline + 镜像线）
   → revolve FULL NEW；体积 2442.2935 cm³（Onshape 2442.2938，-0.00%）。未映射约束
   （MIRROR/CENTERLINE_DIMENSION/单点 HORIZONTAL/point+line COINCIDENT）显式登记。
-- **ADR-0006 切片 A（shared 1.26.0）**：`hole` 简单平底钻孔 backend/contract 落地
+- **ADR-0006 切片 A（shared 1.26.0）**：`hole` 简单平底钻孔 backend/contract/UI 落地
   （位置=草图 point → 圆 Sweep → Subtract；blind/throughAll、pointIds、方向）。
   `HoleFlow` 3/3：throughAll 4000−40π、blind 多孔、精确选位与非法 id status=1；
-  UI 对话框需 live 证据后补。
+  `HoleDialog` 按 live 证据落地（单位/孔类型/草图点/孔径/终止/深度；沉头与倒角孔禁用），
+  `HoleDialog.test.tsx` 6/6，真栈 `e2e/hole.spec.ts` 2 passed（去材 196.349 vs 196.350 mm³）。
+- **ADR-0006 切片 A2（shared 1.27.0）**：`HoleParams.vertexRefs`（线/弧端点、圆心、样条首末），
+  后端 `sketchVertexPositionsFrom`；converter v2 解码 qCompressed（zlib）并映射 Onshape
+  `locations` 的 point/曲线顶点；mate connector/多草图/不可解表达式整孔登记 blocked。
+  `HoleFlow` 4/4；`ScenarioReplayCorpus` 3/3（synthetic vertexRefs 7803.65 mm³ 对拍）。
+  仍未实现 mate connector 孔位与钻尖/沉头/螺纹。
+- **ADR-0006 切片 A3（shared 1.28.0）**：沉头孔（counterbore）backend/contract/UI + 真栈；
+  `holeStyle/counterboreDiameterMm/counterboreDepthMm`，主孔 + 同轴扩孔一次 Subtract；
+  `HoleFlow` 5/5（4000−76π）；`e2e/hole.spec.ts` 3 passed（沉头去材 373.064 mm³ 精确对拍）；
+  converter 映射 Onshape C_BORE（表达式可解时）。倒角孔/螺纹/钻尖仍禁用。
 - **ADR-0004 第二切片（shared 1.25.0）**：`angle` 约束 backend/contract 落地
   （两线夹角；libslvs ANGLE 度槽位换算、other 方向按初值选择）；后端 sketch 89/89。
   UI 无 live 证据，暂不新增控件。

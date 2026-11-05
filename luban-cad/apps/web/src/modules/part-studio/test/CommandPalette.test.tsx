@@ -206,12 +206,16 @@ describe('Ribbon 结构冒烟（27 工具 + 8 下拉 + 搜索触发钮）', () =
     expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
   });
 
-  it('full 工具（倒角）点击 → tools.run(ChamferEdges) + 写 store 激活态（拉伸/旋转/圆角/扫掠/放样已改道对话框）', async () => {
+  it('倒角点击 → 开 new/chamfer 特征对话框，不投 tools.run（拉伸/旋转/圆角/扫掠/放样/倒角同姿态）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '倒角' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('ChamferEdges');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('ChamferEdges');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'chamfer',
+    });
   });
 
   it('下拉飞菜单：加厚箭头展开子项，点击封闭 → tools.run(thickenClosed)', async () => {

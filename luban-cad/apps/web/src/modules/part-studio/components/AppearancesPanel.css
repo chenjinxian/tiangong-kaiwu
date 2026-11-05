@@ -1,0 +1,165 @@
+/*
+ * Onshape「外观」右侧面板（2026-11-05 live）：575px 宽；标题居中 + tab 下划线；
+ * 零件行名称 + 全宽颜色字段；空态线稿插画；底部 ?。
+ */
+
+.part-studio-appearances {
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  background: #ffffff;
+  color: #333333;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.part-studio-appearances__header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 30px;
+  border-block-end: 1px solid #e1e1e1;
+}
+
+.part-studio-appearances__title {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.part-studio-appearances__header-icon {
+  position: absolute;
+  inset-inline-end: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.part-studio-appearances__tabs {
+  display: flex;
+  align-items: stretch;
+  border-block-end: 1px solid #dcdcdc;
+}
+
+.part-studio-appearances__tab {
+  flex: 1;
+  padding: 5px 10px;
+  border: none;
+  border-block-end: 2px solid transparent;
+  background: transparent;
+  color: #444444;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.part-studio-appearances__tab--active {
+  border-block-end-color: #1a73c8;
+  color: #1a73c8;
+}
+
+.part-studio-appearances__content {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+}
+
+.part-studio-appearances__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.part-studio-appearances__row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-block-size: 29px;
+  padding: 2px 6px 2px 10px;
+  border-block-end: 1px solid #ededed;
+}
+
+.part-studio-appearances__row:first-child {
+  background: #f3f3f3;
+}
+
+.part-studio-appearances__name {
+  flex: 0 0 46%;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.part-studio-appearances__color {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 24px;
+  padding: 0;
+  border: 1px solid #9a9a9a;
+  border-radius: 1px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Chrome：让颜色字段整体填充所选颜色（Onshape 外观行同款全宽色块）。 */
+.part-studio-appearances__color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.part-studio-appearances__color::-webkit-color-swatch {
+  border: none;
+}
+
+.part-studio-appearances__color:disabled {
+  cursor: default;
+}
+
+.part-studio-appearances__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  block-size: 100%;
+  min-block-size: 320px;
+  padding: 24px;
+  color: #6f6f6f;
+  font-size: 13px;
+  text-align: center;
+}
+
+.part-studio-appearances__empty-art {
+  inline-size: 220px;
+  block-size: 150px;
+}
+
+.part-studio-appearances__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-block-size: 26px;
+  padding: 2px 8px;
+  border-block-start: 1px solid #e1e1e1;
+}
+
+.part-studio-appearances__help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 16px;
+  block-size: 16px;
+  border: 1px solid #b9b9b9;
+  border-radius: 50%;
+  color: #777777;
+  font-size: 11px;
+  cursor: help;
+}

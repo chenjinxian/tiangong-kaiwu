@@ -10,7 +10,8 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
 - 组件：`apps/web/src/modules/part-studio/components/ViewCube.tsx|css`
   - 150×150 stage；84px 白面圆角 cube；浅灰罗盘弧线 + 四向箭头；无旧版
     圆环/角点装饰；Home 回退箭头 + 右下无边框 mini-cube 触发器（Onshape
-    `view-cube-button`）。
+    `view-cube-button`）。**（2026-11-05 二轮 DPR4 复核修正：cube 面边 58px、
+    面标签屏幕直立、轴色/锚点/trigger 见下文「2026-11-05 UI polish」）**
   - 六面点击走 `StandardViewId`；四角为不可见 trimetric 热区（hover 才提示）；
     cube 拖动 = 真实轨道旋转（世界 Z yaw + 屏幕右轴 pitch，15° 步进）。
   - 朝向同步订阅 `viewport.onViewChanged`。**两个关键修正**：
@@ -113,7 +114,7 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
     Wireframe；translucent = SmoothShade + 模型 `FeatureAppearance` 0.5）；
   - 透视/FOV → `turnCameraOn(Angle)`/`turnCameraOff`；
   - 阴影 → `viewFlags.shadows`；AO → `viewFlags.ambientOcclusion` +
-    `AmbientOcclusion.Settings.intensity`（37.5% ↔ 1.0，clamp [0.25,4]）；
+    `AmbientOcclusion.Settings.intensity`（20% ↔ 1.0，clamp [0.25,4]）；
   - 抗锯齿 → `viewport.antialiasSamples`；背景 → `applyViewportBackground`；
   - 边线 → `hiddenLineSettings.visible`（ovrColor/color/width）。
 - 默认：Shaded、**iTwin 默认灯光/材质**、AO 关（强度锚点 1.0 保留供手动开启）、
@@ -153,6 +154,8 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
 - ViewCube 150×150 stage（top/right 15px）：84px 白面 cube、10.5px 固定
   英文大写面标签（TOP/FRONT/RIGHT/…）、Home 回退箭头、mini-cube 触发器改
   用 Onshape `view-cube-button`；菜单文案/勾选沿用既有显示设置通道。
+  **（2026-11-05 二轮复核后为 58px 面边、本地化屏幕直立标签、Home 仅自由视角，
+  见下文 2026-11-05 节）**
 
 ## 6. 特征树与草图工具栏样式
 
@@ -192,6 +195,19 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
   `SketchValuePopup`（数字输入 + 绿色 ✓ / 红色 ×，Enter 确认、Escape 取消），
   不再把输入框放在左侧常驻面板。尺寸值提交走 `applyUpdate` 追加约束，偏移
   值交回工具的 `commit`；拒收文本就地显示。
+- **cPlane 基准面（2026-11-05，shared 1.29.0，Slice B1）**：ribbon「平面」→
+  `CPlaneDialog`，字段按 Onshape live 可编辑副本证据：图元（参考基准面芯片 + ×，
+  Top/Front/Right）、偏移复选、偏移距离（mm）、反转法线；提交
+  `insertFeature cPlane`，特征树显示「平面 N」。新建草图对话框的「草图平面」
+  下拉同时列出三基准面与成功 cPlane；选中后 `insertSketch.plane` 携带世界快照
+  （origin/normal/xDir）与 `sourceFeatureId`。草图编辑态若来源平面存在，字段
+  显示「平面 N」；来源已删除则显示「自定义平面」。平面被草图引用时，改参/删除
+  由后端诚实拒收（切片 B1 不改参传播）；视口半透明平面渲染归 B1b。
+  live 证据：`D:\Github\onshape-parity-data\ui-evidence\cplane-dialog-20261105\`。
+- **偏移/自定义平面草图编辑（2026-11-05 修正）**：编辑既有草图时平面字段只读；
+  平面若不在世界原点（如 Front 偏移 x=2/4）或非轴对齐且无 `sourceFeatureId`，
+  字段显示「自定义平面」而不是空占位；✓ 不再因 plane 为空而禁用——`updateSketch`
+  契约本身不携带 plane。新建草图仍未选平面时 ✓ 照旧禁用。
 - **双击特征树二次编辑**：双击草图行 = 进草图模式并重开同一 SketchDialog；
   双击拉伸/旋转/圆角/镜像/阵列行 = 打开 FeatureDialog 编辑态，回显落库参数，
   ✓ 发 `updateParams`（保留 operation/mergeScope/newBody 等结构键）。loft/
@@ -203,6 +219,11 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
   点 chip = 移除。多面域不静默预选（Onshape 同款：必须明确点选）；单面域自动
   选中。没有有序环的旧后端面域不伪造拾取点（诚实降级）。e2e 通过
   `feature-profile-picker[data-region-points]` 做真实鼠标点击。
+- **终止条件（2026-11-05）**：extrude 对话框新增「终止条件」下拉（给定深度 /
+  完全贯穿），接 ADR-0005 `endBound`（v1.22 后端已支持）。完全贯穿需要上游实体：
+  `new`/`newBody` 时选项禁用并有提示；选中后距离输入只读，载荷仍携带正
+  `distance` 以满足 `ExtrudeParams` 形态契约（服务端 throughAll 时忽略该值）。
+  编辑既有 extrude 可来回切换；切换为给定深度时从落库 params 删除 `endBound` 键。
 
 ## 7. 相机
 
@@ -330,6 +351,30 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
   重试前把鼠标移到远处并等待 >900 ms，避免连续落空点击被宿主解释成双击视图
   操作（演示 2026-11-02 相机漂移根因）。
 
+## 10. 倒角对话框（2026-11-05，能力补齐 Slice 1）
+
+- ribbon「倒角」不再投旧 `ChamferEdges` 工具，改为打开 new/chamfer 的
+  `FeatureDialog`——与拉伸/旋转/圆角/扫掠/放样同一入口姿态。
+- 边拾取复用 fillet 通道：点「添加边」进入视口拾取（按钮 `aria-pressed`），
+  再点同一按钮结束；已选边以「边 N」chip 呈现，可逐条移除；未选边或拾取
+  会话未结束时 ✓ 诚实禁用。
+- 参数区先选「倒角类型」：等距离（`mode=2`，`values1=values2=d`）、
+  两个距离（`mode=2`，两个距离）或距离和角度（`mode=3`，距离 + 角度° → 载荷弧度）；
+  编辑既有倒角回显模式与 values；无实时 ghost，提交走真实内核。
+- **Onshape live 证据（2026-11-05，可编辑公开副本）**：
+  `ui-evidence/chamfer-dialog-20261105/`。实测类型选项为
+  **等距离 / 两个距离 / 距离和角度**；字段标签：等距离=「距离」，
+  两个距离=「距离 1」/「距离 2」，距离和角度=「距离」/「角度」；
+  所有模式有「切向延伸」，后两者有「方向覆盖」。LubanCAD 已按此对齐
+  类型名与字段名；「方向覆盖」和 Onshape 的「测量」控件尚未实现。
+- 多端盖拾取：Onshape 的 CAP_EDGE 可能分处零件两端；iOS 示例按 +y 端盖
+  （Extrude 2 的 r25/r10）与 −y 端盖（Extrude 1 的 r10）分别取景拾取，
+  共 3 条边后提交 2 mm，终体积 157478.900 mm³ 与 Onshape 目标一致。
+- 证据：Hand Brake 1 条边/1 mm → 7125.270 mm³；iOS 3 条边/2 mm →
+  157478.900 mm³（0.00%）；Sample Assignment 4 条竖边距离-角度
+  1.524 mm/45° → 8915.860 mm³（0.00%）；in-session undo/redo 特征数往返；
+  12/12 iModel 重开回归；web 1344/1344；`e2e` tsc/lint 绿。
+
 ## 验证
 
 - 单测：web 1274/1274、viewer 122/122、editor 43/43 全绿
@@ -367,3 +412,286 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
   独立于本轮壳层/预览改动，待后续草图工具链专项处理）。
 - 真栈截图：`.superpowers/t2-demo-20261102/ui-evidence/`（渲染/ViewCube 菜单/
   面/边/点高亮/树样式）。
+
+## 2026-11-05 追加：工具栏下拉 / ViewCube / 图形首选项 / 外观面板
+
+> 本节 **supersede** 上文旧 ViewCube 与右 dock DisplaySettingsPanel 的部分描述。live 证据目录：
+> `D:\Github\onshape-parity-data\ui-evidence\ui-polish-20261105\`（工具栏下拉 07、ViewCube 04/05、
+> 图形首选项 09/12、外观面板 11/13）。
+
+### 工具栏下拉（`ribbon/RibbonDropdown.tsx` + `PartStudioPage.css`）
+
+- 触发组 52×34：主钮 34×34 + 箭头 18×32（chevron 10×10，hover/展开 `#e5e5e5`）。
+- 菜单 portal 到 body：**180px 宽**、1px `#ccc`、radius 3、shadow `0 5px 10px rgba(0,0,0,.2)`；
+  左对齐整个触发组，顶边压 toolbar 底边 1px；窗口滚动/缩放/外点/Escape 收合。
+- 首行=父工具（label + 快捷键 keycap，如「圆角 shift f」）；后续行=变体（20px 图标、
+  14px 文本、行高 34/32、padding 6px、hover `#eaeaea`）。不再用 iTwinUI 默认大菜单。
+- 键盘：打开聚焦首项，↑/↓ 移动，Enter/Space 激活；菜单 role=menu / menuitem，
+  只读态逐子项 capability 裁决（gated 仍可开能力引导）。
+
+### ViewCube（`components/ViewCube.tsx|css`）
+
+> 2026-11-05 二轮逐像素复核。live 证据：`ui-evidence/viewcube-exact-20261105/`（含
+> DPR4 600×600 原图、`probe-clean.json`、`side-by-side-final.png`）。**Onshape 的
+> cube/罗盘/三色轴/标签全部由主 WebGL canvas 绘制，DOM 只有
+> `.os-view-cube-bounds { width:150px;height:150px;right:0;bottom:5px }`**，因此
+> 不可能复制它的 shader/亚像素；以下为可测的几何/颜色/尺寸指标，均已在 LubanCAD
+> 按 CSS/SVG 重建。
+
+- stage 150×150，位于画布右上内缩 15px（live：canvas top+15 / right 15）。
+- cube **面边长 58px**（`left 46/top 46`，`translateZ(29px)`，perspective 700）；
+  ISO 轮廓实测约 82×86 CSS（live 实测 81×85.5）——此前面 74px/translateZ 42 偏大约
+  35%，是“大小不对”的主因。半透明近白玻璃面（0.78–0.84），1px `#cfd5da` 外线 +
+  6px 白色斜面带 + 1px 低对比内线，radius 15；背面可见以形成玻璃叠加。
+- 面标签为**屏幕对齐直立文字**（不随面倾斜），只渲染朝前三面；位置由
+  `projectFaceLabels` 投影到面中心。live DPR4 实证：上/前/右在 ISO 下全部直立，
+  此前“随面倾斜”理解错误。
+- hover 面填充 **`#c4e1f5`**（live 像素精确值），斜切边保持白色/灰色。
+- 三色轴：颜色取 live CSS 变量 **`#cd0000` / `#009400` / `#0000d0`**；锚点为当前
+  Front 面投影左下角（`frontFaceBottomLeft`，ISO/Front 实拍吻合）；屏幕长度
+  X 60 / Y 46 / Z 56；指向观察者的轴隐藏；画在 cube 前面（z-index 4）。
+- Home 弯曲箭头**只在自由视角显示**；ISO/Top/Front 等标准视图隐藏（live 逐视图实拍）。
+- 罗盘 `#e3e9ee`：顶部两弧 x=22.5..54 / 96..127.5、y=9..32.5，四向三角 11×7.5。
+- 右下 trigger：live DOM **44.226×28**、right 0 / bottom −5、radius 3、
+  `rgba(255,255,255,.35)`、20px mini-cube + 8×4 `#333` 实心下三角、间距 7px；
+  hover 左侧显示 Onshape 同款浅灰 tooltip「相机和渲染选项」。
+- **交互层（2026-11-05 三轮实拍对齐，证据 `ui-evidence/viewcube-interactions-20261105/`）**：
+  - 可见面 hover 整面 `#c4e1f5`；**隐藏面**由轮廓边的 8px 蓝边带选中
+    （ISO 右轮廓 → 后视图；底部 → 底视图；左轮廓 → 左视图），六面皆可达；
+  - 角点 hover 显示 r≈9 蓝圆点，点击走该角 trimetric（方向 = 三邻面法向合成，
+    local +Y=world −Y，故 `[sx,-sy,sz]`）；
+  - 顶部左右弧 hover 高亮弧线本体；左右三角只可点击 yaw 15°，hover 不亮（live 实拍）；
+    点击均为 **15° 单步、无按住连发**；
+  - **无拖拽轨道旋转**：Onshape 从面/空白拖动均不改视图（实拍 40–42）；已移除旧拖拽；
+  - 点击面/隐藏面/角/罗盘使用 iTwin `animateFrustumChange({animationTime:180})` +
+    400ms rAF 回读，相机与 cube 同步平滑过渡（Onshape t80 中间态/t200 完成）；
+  - 命中用屏幕空间几何（角点 > 隐藏面边带 > 可见面），面/角按钮 `pointer-events:none`
+    仅留可访问性；不再依赖 CSS 3D 的命中/悬停。
+  - 视觉再收敛：面不透明度 0.92、单线边 + 7px 白斜面、9px 屏幕直立标签、1px 轴色线。
+- 菜单补齐 live 全部 16 项/4 分隔：命名视图、上一个视图（有历史才启用，单步回退）、
+  编辑时法向垂直于草图、相切边可见、亮显边界边、剖视图…；未实现项保持外观但禁用 +
+  `aria-disabled`，不静默假生效。图形首选项项改调用宿主回调（打开左侧对话框），
+  不再打开右 dock。
+
+### 图形首选项（`dialogs/GraphicsPreferencesDialog.tsx|css`）
+
+- 左侧 300px 非模态面板（与右侧外观面板可同时打开）：标题 + 绿✓/红✗、常规/草图 tab、
+  可折叠分组、info 圆点、重置为默认值、?。
+- 常规：环境光遮蔽 / 视野 / 线宽 / 光泽度（前两项写 `DisplaySettings`；线宽写
+  `edgeWidthPx`；光泽度映射 iTwin `LightSettings.specularIntensity`）；镜面反射颜色/
+  剖面干涉颜色/影线边/网格主体按 live 分组呈现，但当前渲染器未暴露 → 禁用 + info 文案。
+- 草图：活跃草图/非活跃草图/构造线分组按 live 呈现；当前渲染器暂未暴露逐草图颜色/
+  线型 → 禁用并诚实标注。
+- 默认值：AO 开 20%、视野 45 deg、线宽 2 px、光泽度 3%（2026-11-06 用户校正）。
+- ✓ 保留实时预览并关闭；✗ 回滚打开时快照；reset 调共享 reset。
+
+### 外观面板（`components/AppearancesPanel.tsx|css` + `PartStudioDock`）
+
+- 右缘「外观」按钮不再打开显示设置：渲染独立 575px 右侧面板（标题「外观」+ tab
+  零件和曲面 / 草图和曲线）。
+- 零件行 = 名称 + 全宽颜色字段；颜色经独立 `FeatureOverrideProvider`
+  （`hooks/useBodyAppearanceOverrides.ts`）逐 body 覆盖，与选择高亮并存。
+- 空态 = 线稿插画 + live 文案（没有零件或曲面 / 没有草图和曲线）；草图行首版列出
+  草图名与禁用的颜色字段（渲染器暂不支持逐草图着色，info 明示）。
+
+**验证基线（2026-11-05）**：web **1375/1375**；新增 GraphicsPreferencesDialog 5、
+AppearancesPanel 3、useBodyAppearanceOverrides 2、Ribbon 父行/快捷键 1、ViewCube
+标准视图/自由视角 1、Front 面轴原点 1、动画相机 1；ViewCube/Dock/display-actions
+断言同步更新；tsc/lint 绿。真栈截图 30–54 保留在证据目录；ViewCube 二轮精确复核证据在
+`ui-evidence/viewcube-exact-20261105/`（DPR4 live、最终 ISO/Front/自由视角、
+`side-by-side-final.png`）；交互层证据在 `ui-evidence/viewcube-interactions-20261105/`
+（Onshape 面/隐藏面/角/罗盘/拖拽/动画帧 + LubanCAD 最终截图与 `side-by-side-final.png`）。
+`e2e/tutorial2.spec.ts` 的罗盘 15° 步进等待从 140/150ms 调到 400ms 以覆盖 180ms
+相机动画；真栈验证 `e2e/ui-parity.spec.ts` 2 passed、`e2e/tutorial2.spec.ts` 2 passed
+（3.4min，四短棱圆角体积 357.739 cm³ / 去材 0.422）。
+
+**真栈复核（2026-11-05，真实 iModel `de911416…`，登录 test@example.com）**：
+
+- 工具栏：实测菜单 180×68、rows 34/32、`1px #ccc`、`0 5px 10px rgba(0,0,0,.2)`，
+  左缘=触发组 x、顶边=组底边−1；圆角父行显示 `shift` `f` keycap（47–52）。
+- ViewCube：等轴测下三色轴在立方体前面、标签在轴端；面标签在各自正视图中正立
+  （`54-our-front-face-iso.png` 为面局部放大）；与 live `04-viewcube-crop.png` 同构（53）。
+- 图形首选项：真实渲染滑杆可用；reset 后 AO 20%、FOV 45 deg、线宽 2 px、
+  光泽度 3% 与 live 一致；不支持项禁用 + info（50–51）。
+- 外观：选择 Body 1 颜色 `#ff0000`（React 原生 setter + input 事件）后视口实体即时变红，
+  证明 `FeatureOverrideProvider` 链路真实生效（47 前 / 48 后）。
+  **边界**：颜色是当前会话的显示投影，不写回 iModel/BIS；持久化外观需要 BIS 外观属性
+  + schema 版本化，未包含在本切片。
+- 关闭外观面板后 ViewCube 菜单、图形首选项、下拉菜单均无互相遮挡；面板打开时按
+  Onshape 同姿态覆盖右缘（ViewCube 暂时被面板遮住）。
+
+## 2026-11-05 追加：官方 iTwin Viewer ViewCube（默认）+ 相机/渲染菜单
+
+用户实看后裁决「官方默认的交互操作手感非常好，比自研的强多了。就使用官方的
+吧，但是要把 相机/渲染菜单 加上」。因此官方 `@itwin/imodel-components-react` 的
+`CubeNavigationAid`（AppUI `CubeNavigationAidControl` 同源）**设为默认**；自研
+Onshape 模式保留为 `?viewcube=onshape` 回退/Onshape 演示用。
+
+- **默认与回退**：无参数/未知值 → 官方；`?viewcube=onshape` → 自研。显式选择写入
+  `sessionStorage` v2 key（`luban.viewcubeMode.v2`），跨 `?model=…` 重写保持。
+- **相机/渲染菜单**：原自研菜单整块抽到 `ViewCubeCameraMenu.tsx`（唯一实现，
+  `ViewCubeMenuItem`/全部 testid/224px 样式/子菜单/键盘行为不变）。官方模式放
+  150×150 stage：cube 96px 居中、左右各 27px 留白、stage 右缩进 24px。
+  **trigger 固定定位（用户最终钉死，不随 ViewCube 变化）**：右缘与最右边箭头
+  右缘对齐，上缘与最下面箭头下缘对齐（按钮位于箭头下方），菜单固定跟随按钮。
+  e2e 断言边对齐 ≤1px、切 ISO 后按钮坐标不变且不与 cube 重合。此前「贴太紧/
+  按钮位置不对/与 ViewCube 重合/偏上/右对齐」反馈由此关闭。菜单相机动作
+  （ISO/正二等轴测/正三轴测/上一个视图）
+  改用 `view.setRotationAboutPoint`，修复正交视图裸 `setRotation` 绕 eye 转导致
+  target 甩出模型（实测 ISO 后模型消失）；官方模式 180ms + 400ms rAF
+  `setViewMatrix` 跟踪，cube 与相机逐帧同步。
+- **实现**：`ItwinViewCube.tsx|css` + `useItwinViewCubeBridge.ts` + `viewcube-mode.ts`
+  + `ViewCubeCameraMenu.tsx`；`PartStudioCanvas` 以 `React.lazy` 加载官方 chunk。
+  事件桥原样移植官方 `ViewportComponent`：cube → 固定旋转中心 + world frustum +
+  `synchWithView({noSaveInUndo:!complete})`；viewport `onViewChanged` →
+  `ViewportComponentEvents.setViewMatrix` 反向同步。
+- **环境修复**：Vite Sass importer 解 iTwin 包的 webpack 风格 `~@itwin/…`；
+  viewer startup 注入 `ITwinLocalization({urlTemplate:'/locales/{{lng}}/{{ns}}.json'})`；
+  官方 UI 包交 Vite 预打包（classnames 等 pnpm 传递依赖），core-* 仍 `exclude`
+  单实例；Vitest `server.deps.inline` 处理官方 AppUI 包 `.scss`。
+- **宿主适配（保持官方行为不变）**：`.face { backface-visibility: hidden }`
+  修复 Chromium 下背面拦截可见面中心格点击；箭头前景改深灰（官方为白，纯白底
+  不可见）；官方原生 64px cube 按 AppUI 96px 宿主尺度放大 1.5×（origin center）。
+- **实测**：面中心/四角点击、拖拽、四向 ±90° 箭头、相机/渲染菜单（含图形首选项/
+  子菜单）工作；真栈 `e2e/itwin-viewcube.spec.ts` 2 passed（默认官方 + 菜单）、
+  `e2e/ui-parity.spec.ts` 2 passed（显式回退自研）、`e2e/tutorial2.spec.ts`
+  2 passed（4.2 min，体积 357.739 cm³/去材 0.422；罗盘 15° 演示显式回退自研）；
+  web **1382/1382**、viewer 127/127、tsc/lint 绿。
+- **代价/边界**：官方 cube 为独立 lazy chunk（JS 492 kB / gzip 144 kB；CSS 114 kB /
+  gzip 15 kB），默认加载。官方模式下没有自研的罗盘 15°、三色轴、隐藏面边带、Home
+  （菜单已补齐相机/渲染项）；Onshape UI 复刻演示用回退模式。
+- 证据：`D:\Github\onshape-parity-data\ui-evidence\itwin-viewcube-20261105\`
+  （`00-side-by-side.png`、ISO、Top+箭头、原生 64px、自研回退）。
+
+## 2026-11-06 全 UI Onshape live 对齐（第一轮）
+
+用户要求「全面检查所有 UI，与 Onshape 全面对齐，必须真实对比」。本轮回采了
+Onshape live（Sample Assignment 副本、documents 首页、create 流程、sign-in）
+与 luban-cad 同屏证据，逐区修正。渲染引擎差异（iTwin WebGL vs Onshape）保留，
+UI 布局/密度/字段顺序/文案按 live 对齐。
+
+**证据**：`D:\Github\onshape-parity-data\ui-evidence\ui-full-audit-20261106\`
+（Onshape shell 2000×1160@2x、12 个特征对话框、documents/create/sign-in；
+luban-cad 对照截图同目录）。sign-in live：`onshape/pages/signin-live.png`。
+
+### 壳层（Part Studio）
+- Onshape live 尺寸复核：顶栏 40px、ribbon 36px、左轨 36px、树 206px（合计
+  242px）、树行 26px、底栏 30px；ribbon 首组撤消钮左缘 ≈39px。
+- 顶栏操作簇顺序改为 Explore → 通知 → 应用 → 帮助 → 分享 → 用户（头像+名称+
+  caret）；品牌/文档名/分支 pill 保持原布局；ribbon 起点与左轨对齐后首钮回到 38px。
+- 版本/历史、评论、注释、使用处、性能、AI 顾问 7 个左轨钮与底部页签管理器保留。
+
+### 特征对话框（220px 扁平皮肤，x=树右缘+6 / y=内容上缘+3）
+- 统一：220px 宽、无边框/圆角、shadow `0 5px 10px rgba(0,0,0,.2)`、header 29px、
+  页签 28px 且等分居中、参数行 27–28px、实体字段浅蓝底（`#eaf2fb`，边框
+  `#a9c4dd`）、footer 透明度滑杆（中性灰）+ ?。隐藏「成品」文本钮，确认/取消
+  28×28。
+- Extrude：实体字段 → 终止条件 → 深度 → 方向 → 起始偏移 → 对称 → 拔模 →
+  第二个终止位置；方向/起始偏移/第二位置为折叠行，对称/拔模为平铺复选；
+  隐藏「新建实体」复选（由布尔作用域页签表达）。深度输入右对齐。
+- Revolve：实体字段 + 全方位旋转 + 角度；结果类型/布尔作用域页签同 live。
+- Fillet：边/全圆角页签；实体字段 → 切向延伸 → 测量（半径）→ 控制（距离）→
+  半径 → 不对称 → 部分圆角/可变圆角/允许边溢出/平滑圆角；「添加边」在空态即
+  字段占位。
+- Chamfer：无页签；实体字段 → 测量（偏移）→ 倒角类型 → 距离/第二距离/角度 →
+  切向延伸；补 `chamfer` 进可编辑特征集（此前真实栈编辑会被判只读）。
+- Hole：单位页签（Inch/公制）→ 简单/沉头孔/倒角孔 → 图元字段（点选列表折叠，
+  单草图时隐藏选择器并显示时钟图标）→ 合并范围 → 孔类型/钻孔尺寸 → 孔径 →
+  起始平面/终止/深度/钻尖；footer 滑杆禁用并标注未接线。
+- Plane：图元字段（浅蓝）→ 偏移模式整行下拉（无/偏移）→ 偏移距离 → 反转法线；
+  原「偏移」复选框改为 Onshape 同构下拉（e2e 用 `selectOption`）。
+- Pattern/Mirror：顶部模式行（零件阵列/零件镜像）+ 布尔作用域页签；实体字段
+  显示 active body 芯片；Pattern 行序 方向 → 距离 → 实例数 → 居中/第二方向/
+  跳过实例，技术范围提示视觉隐藏；Mirror 镜像平面独立行。
+- BooleanBodies：Onshape 并集/差集/相交页签（相交禁用），不再显示遗留结果类型/
+  布尔作用域页签与运算下拉（DOM 保留隐藏选择器供兼容）。
+- Sketch：220px 扁平皮肤；平面字段浅蓝 + 时钟图标；四复选行 27px；历史/帮助
+  移到底栏左右（Onshape live 无 header 时钟/help）。
+
+### Documents 首页（live：2000×1160@2x）
+- 新增 Free 订阅横幅 + Try Professional（gated 能力引导）。
+- 左栏 224px：蓝色创建钮 194×34 + 探索/由我所有/最近/收藏/共享/公开/标签/垃圾桶
+  + 底部订阅/试用/Plans and pricing。筛选标签 `由我所有`；banner/对话能力 gated。
+- 主区：由我所有标题、欢迎面板（三栏）、我上次打开过的横卡（名称用 CSS content
+  避免与表格重复文本）、文件夹行、项目行列表（替代第二张大表）、文档表格；
+  默认视图改为表格（Onshape live）；列表/网格记忆保留。
+- 表格在欢迎区下方保留 360px 固有高度，主区滚动；避免 flex 压缩成 0。
+- 顶部右侧补通知/应用/帮助图标；标题/免费横幅/表头密度对齐 live。
+- 新建文档对话框：约 590px、顶部对齐（translate 37px）、名称/编号/文档标签
+  （禁用诚实标注）/文档位置树、创建公开文档/取消；`documents.create.imodelSubmit`
+  单独保留 iModel 创建的「创建」文案。
+- Sign-in：左表单列 50%、顶部 64px 起始、436px 表单、34px 输入；右 hero 仍为
+  占位（宣传素材阶段替换为产品实景图）。Checkbox 高度修复（只对非 checkbox
+  输入设 34px）。
+- Document Details：白底、48px 顶栏、22px 标题、64px 缩略图、计数行 38px、
+  卡片去阴影。
+
+### 测试/证据
+- web 单测 1382/1382；documents 96/96；document-details 64/64；
+  FeatureDialog 135/135（含命中区/顺序/禁用门）。
+- e2e 更新：documents 五筛 → 由我所有、默认表格/文本断言、B 项目双击进入；
+  part-studio 深度标签、确认钮（成品已隐藏）、倒角入口改为对话框断言；
+  CPlane e2e `selectOption('offset')`。
+- 本轮 e2e 结果见下一节（真栈回归完成后补）。
+
+### 诚实边界（未关闭）
+- Split/Transform 工具栏入口无参数对话框（未实现能力，不伪造 UI）。
+- Hole 预览透明度滑杆禁用（未接线）；图形首选项/外观面板的既有能力边界不变。
+- Onshape 账号/学习中心/论坛为 gated 引导，不伪造外部页面。
+- 渲染观感差异（引擎不同）保留，不在本表声称逐像素一致。
+
+## 2026-11-06 宣传素材与产品介绍页
+
+- 新增公开路由 `/showcase`（`ShowcaseRoute`，无需登录）：Hero、1080p 真实建模
+  视频、核心能力卡片、示例复刻体积对拍、UI 对齐截图、技术底座与 CTA。
+- 素材：`luban-cad/apps/web/public/showcase/`
+  - 9 张 **3840×2160** WebP 实机截图（`hero-tutorial2`、`sketch`、`extrude`、
+    `fillet`、`hole`、`chamfer`、`hero-sample-assignment`、`documents`、
+    `create-document`），由 `scripts/capture-showcase.mjs` 以 1920×1080 CSS /
+    DPR2 从真实栈采集；
+  - `tutorial2-demo-1080p.webm`（**1920×1080**、81s、真实鼠标轨迹；由
+    `scripts/record-showcase.mjs` 录制，含文档中心 → Tutorial 2 草图/拉伸/圆角
+    → Sample Assignment 倒角/孔）。
+- 入口：Part Studio 顶栏「探索 Onshape」与 Documents 欢迎卡「探索鲁班CAD」改为
+  导航 `/showcase`；登录页右栏改为产品实景图并链接 `/showcase`。
+- README 增加产品实景区（4 张能力图 + 视频直链 + 素材目录说明）。
+- 单测：`src/routes/test/ShowcaseRoute.test.tsx` 1/1（4K 图/1080p 视频/能力文案）。
+- 边界：视频无剪辑，包含真实 iModel 打开等待段；宣传页不发起后端请求。
+
+### 全 UI 覆盖矩阵（2026-11-06 复核）
+
+| 界面 | 参考证据 | 对齐内容 | 状态 |
+|---|---|---|---|
+| 登录 `/login` | live sign-in | 50% 左表单列、436px 表单、顶部 64px；右侧产品实景大图（4K） | ✅ |
+| 文档中心 `/documents` | live documents | Free 横幅、224px 左栏、欢迎面板、最近卡、文件夹行、项目行、表格、页脚 | ✅ |
+| 新建文档对话框 | live create | 590px、顶部对齐、名称/编号/标签/位置、创建公开文档 | ✅（标签/位置为诚实禁用/静态占位） |
+| 分享/重命名/删除/能力引导 | iTwinUI 基线 | 统一 Onshape 模态皮肤（4px 圆角、20px 标题、右对齐 34px 按钮） | ✅ |
+| 文档详情 `/documents/:id` | Onshape 视觉语言（无独立 live 页） | 白底 48px 顶栏、22px 标题、64px 缩略图、紧凑内容 | ✅（信息架构为 luban 项目/iModel 模型） |
+| Part Studio 顶栏 | live shell | 40px、22px 标题、操作簇顺序（Explore/通知/应用/帮助/分享/用户+caret） | ✅ |
+| Ribbon / 左轨 / 特征树 | live shell | 36px ribbon、36px 轨、206px 树（合计 242）、26px 行、30px 底栏 | ✅ |
+| ViewCube + 相机/渲染菜单 | live + 用户裁决 | 默认官方 iTwin cube（用户认可手感）；自研 `?viewcube=onshape` 回退；菜单/图形首选项/外观已对齐 | ✅ |
+| 特征树右键 / 画布右键 / 命令搜索 | live 交互 | 既有 2026-11-02~05 对齐；本轮未回归破坏 | ✅ |
+| Extrude / Revolve | live dialogs | 220px、页签、实体字段、终止/深度、方向/偏移/对称/拔模/第二位置、页脚 | ✅ |
+| Fillet / Chamfer | live dialogs | 边/全圆角页签、实体字段、切向延伸、测量/控制、半径、选项 | ✅ |
+| Hole | live dialog | 单位/类型页签、折叠点选、合并范围、孔型/尺寸、起始/终止/深度/钻尖、页脚 | ✅（孔型尺寸下拉值只读） |
+| Plane (cPlane) | live dialog | 图元浅蓝字段、偏移模式整行下拉、偏移距离、反转法线 | ✅ |
+| Pattern / Mirror | live dialogs | 模式行、布尔页签、实体 body 芯片、方向/距离/实例数/居中/折叠项、镜像平面 | ✅ |
+| Boolean bodies | live dialog | 并集/差集/相交页签（相交禁用）、工具选择、保留工具体 | ✅ |
+| Sketch | live dialog | 220px、浅蓝平面字段+时钟、四复选、底栏历史/? | ✅ |
+| Graphics Preferences / Appearances | live panels | 2026-11-05 已对齐；默认 AO 20%、线宽 2px | ✅ |
+| Split / Transform | live dialogs | 无实现能力，工具栏入口不伪造对话框 | ⚪ 未实现 |
+| Markup / 部分 ribbon 占位 | — | 依赖缺失/能力 gated，保持禁用 | ❌/⚪ 既有边界 |
+
+### 真栈复核（2026-11-06 收口）
+
+- 关键 UI e2e：documents 6/6、part-studio 8/8、itwin-viewcube 2/2、
+  ui-parity 2/2（v3 显示设置存储键修正后）、visual 7/7（基线重钉：
+  login/documents-grid/document-details/editor A/B、settings）。
+- 功能回归：hole 3/3（简单孔/沉头孔体积精确）、tutorial2 2/2 + 示例重开
+  verify-imodels（12 iModel）、feature-contracts 2/2、perf 文档百行滚动通过；
+  perf 首帧在栈忙时曾瞬时连接失败，单独重跑 2/2 通过。
+- 示例逐步 UI spec：`intro-to-cad`/`sample-assignment` 在 `EXAMPLE_RESET=1`
+  下因旧示例库状态/baseline 重建长等待未完成（非 UI 断言失败）；示例 iModel
+  重开与体积由 `verify-imodels` 12/12 覆盖。已知测试环境债务，后续单独清库重跑。
+- `apps/web` 全量单测 **1383/1383**；tsc（含 e2e）/lint 绿；production build 9.77s 成功，
+  `dist/showcase` 13 个资产（4K WebP + 1080p WebM）。

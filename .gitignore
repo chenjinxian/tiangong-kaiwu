@@ -25,3 +25,9 @@ docker-compose.override.yml
 /shots/
 
 # rush hook ???????????drift=0 ??? 10-11 ??
+
+# Superpowers scratch (ledgers/shots)
+.superpowers/
+
+# Generated demo walkthrough pages/screenshots (regenerate via e2e/examples; not source)
+luban-cad/apps/web/demo-artifacts/

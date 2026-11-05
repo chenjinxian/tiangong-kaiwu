@@ -11,7 +11,7 @@
 | 示例 | Part Studio / 特征 | 今天可回放 | 共享契约缺口 | 数据缺口 | 下一步 |
 |---|---|---|---|---|---|
 | Tutorial 2 - Build a Part | 1 PS / 6 特征（sketch、extrude NEW/ADD×2、revolve ADD、fillet） | 全部（gold + strict e2e） | 无 | 无（gold 固定 fixture） | 本计划关闭 X-14 |
-| Tutorial 2 - Build Your First Part - iOS | 1 PS / 4 特征（sketch、extrude NEW/ADD、chamfer） | **几何+约束全量回放已通过**（私有后端 `Tutorial2IosReplay.test.ts`）：sketch→5 面域（3 材料 + 2 孔）→ E1 三材料面域 25mm NEW → E2 左环 symmetric 50mm ADD（等价 imprint-face 反向拉 50mm）→ Chamfer 2mm 三 cap 边；草图 `ok/dof=0`（含 4 条 line+circle tangent、2 条 DIAMETER）；单 body、特征树 `sketch/extrude/extrude/chamfer`、终体积 **157.165 cm³**（目标 157.479，-0.20%，<0.5%） | **剩余缺口**：① imprint-face 用左环面域 + symmetric 50mm 近似（几何等价，非通用 face-extrude）；② Chamfer 边由 cap 面几何谓词选出（3 条），UI 创建链未覆盖 | parts 1 / 逐 body 157.479 cm³；scenario 已更新（constraint parity complete；仍标 blocked-capability 仅因 face-extrude/chamfer UI 语义） | 补 iOS 真栈 UI e2e；通用 face-extrude 转 ADR-0006 |
+| Tutorial 2 - Build Your First Part - iOS | 1 PS / 4 特征（sketch、extrude NEW/ADD、chamfer） | **几何+约束全量回放已通过**（私有后端 `Tutorial2IosReplay.test.ts`）：sketch→5 面域（3 材料 + 2 孔）→ E1 三材料面域 25mm NEW → E2 左环 symmetric 50mm ADD（等价 imprint-face 反向拉 50mm）→ Chamfer 2mm 三 cap 边；草图 `ok/dof=0`（含 4 条 line+circle tangent、2 条 DIAMETER）；单 body、特征树 `sketch/extrude/extrude/chamfer`、终体积 **157.165 cm³**（目标 157.479，-0.20%，<0.5%；2026-11-05 chamfer UI 按 CAP_EDGE 修正后实测 **157478.900 mm³ = 目标，0.00%**） | **剩余缺口**：① imprint-face 用左环面域 + symmetric 50mm 近似（几何等价，非通用 face-extrude）；② ~~Chamfer UI 创建链未覆盖~~ **2026-11-05 已关闭**：ribbon → 视口拾取 3 条 CAP_EDGE → equal distance 2 mm | parts 1 / 逐 body 157.479 cm³；scenario 已更新；blocked-capability 仅因 face-extrude | iOS 真栈 UI e2e 已完成；通用 face-extrude 转 ADR-0006 |
 | Bench Vise SPINDLE | 1 PS / 9 特征（assignVariable、cPlane、sketch×2、revolve×2、mateConnector、myFeature、booleanBodies） | sketch/revolve ADD/booleanBodies 部分 | construction 标志（0004）、revolve NEW/REMOVE 已落地、cPlane/assignVariable/custom FeatureScript（0006）、额外约束（0004） | 已补：parts 2 / 逐 body 22.163 + 8.216 cm³ | ADR-0004/0005/0006 |
 | Bench Vise WARNING LABEL | 1 PS / 7 特征（sketch×3、extrude×2、decal、mateConnector） | sketch/extrude NEW/ADD 部分 | construction、decal（非几何）、额外约束 | 已补：parts 1 / 逐 body 0.000819 cm³ | ADR-0004 |
 | Onshape Quickstart SPINDLE | 1 PS / 9 特征（与 Bench SPINDLE 同构） | 同 Bench SPINDLE | 同 Bench SPINDLE | 已补：parts 2 / 逐 body 22.163 + 8.216 cm³；UI 只采到 1/4（代表 PS 待确认） | ADR-0004/0005 + UI 补采 |
@@ -73,9 +73,11 @@ extrude `secondDirection` 已落地（backend/contract only，UI 证据待补）
 `cPlane`、`assignVariable`/变量系统、face-extrude/imprint-face、chamfer 边语义。
 这些能力需要各自的几何/变量系统设计，不与 0005 同批；按示例逐个立项。
 
-**切片 A 已落地（2026-11-05，shared 1.26.0，backend/contract only）**：`hole` 简单平底孔
-（草图 point 位置、blind/throughAll、方向、pointIds；螺纹/沉头/up-to-entity 拒收）。
-`HoleFlow` 3/3；UI 对话框需 live 证据后补。
+**切片 A/A2/A3 已落地（2026-11-05，shared 1.28.0）**：`hole` 简单平底孔 + 沉头孔
+（草图 point 与曲线顶点位置、blind/throughAll、方向、pointIds/vertexRefs、counterbore；
+螺纹/倒角孔/up-to-entity 与 mate connector 孔位拒收）。`HoleFlow` 5/5；
+`HoleDialog` 7/7 + 真栈 hole e2e 3 passed；`ScenarioReplayCorpus` 3/3（含 synthetic
+vertexRefs 体积对拍）。
 
 ### 不在本批次
 

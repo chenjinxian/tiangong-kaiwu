@@ -269,7 +269,7 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
 
     await waitFor(() => expect(fakeClient.acquireWriteLease).toHaveBeenCalledTimes(1));
     expect(fakeClient.acquireWriteLease).toHaveBeenCalledWith('test-model.bim', expect.any(String));
-    expect(result.current.leaseOk).toBe(true);
+    await waitFor(() => expect(result.current.leaseOk).toBe(true));
 
     unmount();
 

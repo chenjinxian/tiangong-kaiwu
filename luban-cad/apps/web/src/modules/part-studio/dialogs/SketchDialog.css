@@ -239,3 +239,161 @@
   font-size: var(--iui-font-size-0);
   cursor: pointer;
 }
+
+/* ── 2026-11-06 Onshape live 二次复核：220px 扁平皮肤 ──────────────────── */
+.part-studio-sketch-dialog {
+  inset-block-start: 3px;
+  inset-inline-start: 6px;
+  inline-size: 220px;
+  max-inline-size: calc(100% - 12px);
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  font-size: 12px;
+  line-height: 16px;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.part-studio-sketch-dialog__header {
+  min-block-size: 29px;
+  padding: 0 0 0 4px;
+  gap: 0;
+}
+
+.part-studio-sketch-dialog__title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-sketch-dialog__header-actions {
+  gap: 0;
+}
+
+.part-studio-sketch-dialog__confirm,
+.part-studio-sketch-dialog__cancel {
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 0;
+}
+
+.part-studio-sketch-dialog__confirm svg,
+.part-studio-sketch-dialog__cancel svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.part-studio-sketch-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 3px;
+}
+
+.part-studio-sketch-dialog__alert,
+.part-studio-sketch-dialog__hint {
+  padding: 2px 4px;
+  border-radius: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.part-studio-sketch-dialog__plane-row {
+  display: block;
+  margin: 0;
+}
+
+.part-studio-sketch-dialog__plane-label {
+  display: none;
+}
+
+.part-studio-sketch-dialog__plane-field {
+  position: relative;
+  inline-size: 100%;
+  min-block-size: 26px;
+  padding: 1px 3px;
+  border: 1px solid #a9c4dd;
+  border-radius: 0;
+  background: #eaf2fb;
+}
+
+.part-studio-sketch-dialog__plane-field::after {
+  content: '◷';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 6px;
+  color: #6d7d8c;
+  font-size: 15px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.part-studio-sketch-dialog__plane-value {
+  inline-size: calc(100% - 20px);
+  min-block-size: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  text-align: start;
+}
+
+.part-studio-sketch-dialog__plane-menu {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid #c9c9c9;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.part-studio-sketch-dialog__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+}
+
+.part-studio-sketch-dialog__toggle {
+  display: flex;
+  align-items: center;
+  min-block-size: 27px;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.part-studio-sketch-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-block-size: 28px;
+  padding: 0 2px;
+}
+
+.part-studio-sketch-dialog__history {
+  inline-size: 24px;
+  block-size: 24px;
+  color: #555555;
+}
+
+.part-studio-sketch-dialog__history svg {
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.part-studio-sketch-dialog__help {
+  inline-size: 20px;
+  block-size: 20px;
+  border: none;
+  background: #f5f5f5;
+  color: #555555;
+  font-size: 12px;
+}

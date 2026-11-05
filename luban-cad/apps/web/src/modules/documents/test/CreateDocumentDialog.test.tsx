@@ -55,7 +55,7 @@ describe('CreateDocumentDialog 创建载荷（subClass-only）', () => {
     renderDialog({ onCreated });
 
     await user.type(await screen.findByLabelText(/文档名称/), '新文档');
-    await user.click(screen.getByRole('button', { name: '创建' }));
+    await user.click(screen.getByRole('button', { name: '创建公开文档' }));
 
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
     expect(mocks.create).toHaveBeenCalledWith({ displayName: '新文档', subClass: 'Project' });
@@ -70,7 +70,7 @@ describe('CreateDocumentDialog 创建载荷（subClass-only）', () => {
 
     await user.type(await screen.findByLabelText(/文档名称/), '新文档');
     await user.type(screen.getByLabelText(/文档编号/), 'DOC-001');
-    await user.click(screen.getByRole('button', { name: '创建' }));
+    await user.click(screen.getByRole('button', { name: '创建公开文档' }));
 
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
     expect(mocks.create).toHaveBeenCalledWith({
@@ -87,7 +87,7 @@ describe('CreateDocumentDialog 创建载荷（subClass-only）', () => {
     renderDialog();
 
     await user.type(await screen.findByLabelText(/文档名称/), '旧文档');
-    await user.click(screen.getByRole('button', { name: '创建' }));
+    await user.click(screen.getByRole('button', { name: '创建公开文档' }));
 
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
     const payload = mocks.create.mock.calls[0]![0] as Record<string, unknown>;
@@ -100,7 +100,7 @@ describe('CreateDocumentDialog 创建载荷（subClass-only）', () => {
     renderDialog();
 
     await user.type(await screen.findByLabelText(/文档名称/), 'B 项目');
-    await user.click(screen.getByRole('button', { name: '创建' }));
+    await user.click(screen.getByRole('button', { name: '创建公开文档' }));
 
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
     expect(mocks.create).toHaveBeenCalledWith({

@@ -9,7 +9,7 @@
   "filters": {
     "recent": "Recently opened",
     "favorites": "Favorites",
-    "my": "My documents",
+    "my": "Owned by me",
     "shared": "Shared with me",
     "public": "Public"
   },
@@ -27,7 +27,11 @@
     "importFile": "File import is coming soon. You will be able to create new documents by importing CAD files.",
     "importFrom": "Importing from external sources is coming soon. Third-party document imports will be supported in a later release.",
     "labelTag": "Labels are coming soon. You will be able to tag documents for categorization and filtering.",
-    "confirm": "Got it"
+    "confirm": "Got it",
+    "upgrade": "Subscription upgrades are coming soon. This version uses the Free subscription; upgrading will allow creating and editing private data and inviting teammates.",
+    "learning": "The learning center is coming soon. It will host sample models, video tutorials, and step-by-step guides.",
+    "forum": "The forum is coming soon. It will host community modeling discussions.",
+    "help": "Help documentation is coming soon. For now, see the repository README and docs/. "
   },
   "section": {
     "count": "{{count}} documents",
@@ -125,9 +129,16 @@
     "nameRequired": "Please enter a document name",
     "numberLabel": "Document number",
     "numberPlaceholder": "Enter a document number (optional)",
-    "submit": "Create",
+    "submit": "Create public document",
     "cancel": "Cancel",
-    "failed": "Failed to create. Please retry."
+    "failed": "Failed to create. Please retry.",
+    "tagsLabel": "Document tags",
+    "tagsPlaceholder": "Search tags",
+    "tagsUnsupported": "Tagging is not implemented yet",
+    "locationLabel": "Document location",
+    "locationRoot": "Owned by me",
+    "locationEmpty": "No other folders",
+    "imodelSubmit": "Create"
   },
   "rename": {
     "title": "Rename document",
@@ -304,5 +315,47 @@
       "title": "No iModels yet",
       "description": "Create your first iModel to start modeling"
     }
+  },
+  "sidebar": {
+    "label": "Document navigation",
+    "explore": "Explore LubanCAD",
+    "labels": "Labels",
+    "trash": "Trash",
+    "notImplemented": "This capability is not implemented yet",
+    "freePlan": "Subscription: Free",
+    "tryPro": "Try Professional",
+    "plansPricing": "Plans and pricing"
+  },
+  "planBanner": {
+    "message": "Your Free subscription only allows editing public data. Try LubanCAD Professional to create and edit private data and share it with your team.",
+    "cta": "Try Professional"
+  },
+  "onboarding": {
+    "title": "Welcome to LubanCAD",
+    "upgrade": "Upgrade now",
+    "exploreTitle": "Explore LubanCAD",
+    "exploreDesc": "Learn more and interact with sample models, videos, and step-by-step guides.",
+    "learning": "Learning center",
+    "forum": "Forum",
+    "help": "Help documentation"
+  },
+  "recent": {
+    "title": "Recently opened"
+  },
+  "folders": {
+    "title": "Folders",
+    "add": "Add"
+  },
+  "owned": {
+    "title": "Owned by me"
+  },
+  "footer": {
+    "copyright": "© 2013–2026 LubanCAD",
+    "terms": "Terms and privacy"
+  },
+  "header": {
+    "notifications": "Notifications",
+    "appStore": "App store",
+    "help": "Help"
   }
 }

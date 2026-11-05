@@ -20,6 +20,7 @@
  */
 
 import { IModelApp, IpcApp, LocalhostIpcApp, type NotificationManager } from '@itwin/core-frontend';
+import { ITwinLocalization } from '@itwin/core-i18n';
 import { FrontendIModelsAccess } from '@itwin/imodels-access-frontend';
 import { BentleyCloudRpcManager, IModelReadRpcInterface, IModelTileRpcInterface } from '@itwin/core-common';
 import { IModelsClient } from '@itwin/imodels-client-management';
@@ -159,6 +160,14 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
         },
         iModelApp: {
           rpcInterfaces,
+          // 2026-11-05 官方 ViewCube 评估：iTwin 包 locale（UiIModelComponents/
+          // UiComponents）用绝对 URL。默认 ITwinLocalization 的 loadPath 是相对
+          // 路径，BrowserRouter 的 /documents/:iTwinId/:iModelId 会把
+          // `locales/en/*.json` 解析到页面子路径（404 + SPA 回退 HTML）。此处只
+          // 改 URL 模板，语言检测/回退语义沿用 ITwinLocalization 默认。
+          localization: new ITwinLocalization({
+            urlTemplate: '/locales/{{lng}}/{{ns}}.json',
+          }),
           // P2.8：tile cache miss 由部署代理改写为 204，前端存储把 204/404 当 miss
           // 抛错交给 TileStorage 的原生回退——避免浏览器对真实 404 打 console 噪声。
           // 2026-11-02 渲染对齐：generateAllPolyfaceEdges 缺省 true 会为每个 polyface

@@ -41,8 +41,8 @@ describe('DisplaySettingsPanel', () => {
     const fov = screen.getByTestId('part-studio-display-settings-fov') as HTMLInputElement;
     const aoIntensity = screen.getByTestId('part-studio-display-settings-ao-intensity') as HTMLInputElement;
     expect(fov.disabled).toBe(true);
-    // 2026-11-03：AO 默认关（iTwin 默认）→ 强度滑杆初始禁用。
-    expect(aoIntensity.disabled).toBe(true);
+    // 2026-11-06 图形首选项校正：AO 默认开（20%）→ 强度滑杆可用。
+    expect(aoIntensity.disabled).toBe(false);
     await user.click(screen.getByTestId('part-studio-display-settings-perspective'));
     expect(update).toHaveBeenCalledWith({ perspective: true });
     unmount();
@@ -58,8 +58,8 @@ describe('DisplaySettingsPanel', () => {
     await user.click(screen.getByTestId('part-studio-display-settings-shadows'));
     expect(update).toHaveBeenCalledWith({ shadows: true });
     await user.click(screen.getByTestId('part-studio-display-settings-ao'));
-    // 2026-11-03：AO 默认关 → 点击开启（再次点击回 false 由 onChange 语义保证）。
-    expect(update).toHaveBeenCalledWith({ ambientOcclusion: true });
+    // 2026-11-05 Onshape 默认 AO 开 → 点击关闭。
+    expect(update).toHaveBeenCalledWith({ ambientOcclusion: false });
     await user.selectOptions(screen.getByTestId('part-studio-display-settings-antialias'), '8');
     expect(update).toHaveBeenCalledWith({ antialiasSamples: 8 });
     await user.selectOptions(screen.getByTestId('part-studio-display-settings-background'), 'dark');

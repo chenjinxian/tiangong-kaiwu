@@ -2,21 +2,19 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * RibbonDropdown（M3 Task 4；M3 收口 C2 重构）：「图标 + ▾」飞出菜单（对齐
- * os-11 dropdown / os-20 展开证据）——主钮点击=激活父命令（Onshape 默认变体
- * 语义），箭头钮经 iTwinUI DropdownMenu 开合飞菜单（终审 D1 定夺书：模块内
- * DocumentMenuBar/PartStudioTopBar 同库先例）——
- * - portal 到 body 渲染：ribbon `overflow-x:auto` 双轴滚动容器不再裁剪下沉
- *   菜单（D1 根因）；
- * - 方向键导航/焦点管理/Escape/点外收合由 floating-ui 交互面免费到手（连带
- *   收口终审 T4-③ 飞菜单键盘导航），收合后焦点还到触发钮；
- * - 菜单子项点击=激活该子命令并收合（closeOnItemClick 缺省）；
- * - aria-haspopup/menu 语义由 DropdownMenu 落在触发钮上（aria-expanded 随开合）。
+ * RibbonDropdown（2026-11-05 Onshape live 重做）：工具栏「主图标 + 小箭头」与
+ * 180px 飞菜单。live 证据（onshape-parity-data/ui-evidence/ui-polish-20261105）：
+ * - 触发组 52×34：主钮 34×34 + 箭头 18×32（chevron 10×10）；
+ * - 飞菜单 180px、1px #ccc、radius 3、shadow 0 5px 10px rgba(0,0,0,.2)，
+ *   左对齐整个触发组、顶边压住 toolbar 底边 1px；
+ * - 首行=父工具（带快捷键 keycap），后续行=变体；行高 34/32，padding 6px，
+ *   20px 图标，14px 文本，hover #eaeaea。
+ * 菜单 portal 到 body（避开 ribbon overflow 裁剪）；外点/Escape 收合，方向键
+ * 在菜单内移动焦点，Enter/Space 激活。
  */
-
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { DropdownMenu, MenuItem } from '@itwin/itwinui-react';
 import { isGated } from '../internal/capabilities.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import { onshapeIconFor } from './ribbon-registry.js';
@@ -36,6 +34,27 @@ export interface RibbonDropdownProps {
   readOnly?: boolean;
 }
 
+interface MenuRow {
+  key: string;
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  shortcut?: string;
+  disabled: boolean;
+  parent: boolean;
+}
+
+function ShortcutKeys({ shortcut }: { shortcut: string }): React.JSX.Element {
+  const keys = shortcut.split(/[+\s]+/).filter(Boolean);
+  return (
+    <span className="part-studio-ribbon__shortcut" aria-hidden="true">
+      {keys.map((key) => (
+        <kbd key={key} className="part-studio-ribbon__shortcut-key">{key}</kbd>
+      ))}
+    </span>
+  );
+}
+
 export function RibbonDropdown({
   tool,
   onActivate,
@@ -49,23 +68,100 @@ export function RibbonDropdown({
   const MainIcon = tool.icon;
   const mainOnshapeIcon = onshapeIconFor(tool.id);
 
-  // 菜单子项模型 → iTwinUI MenuItem（点击自动收合：DropdownMenu
-  // closeOnItemClick 缺省 true）。F11：disabled 逐子项按 capability 计算，
-  // 不继承父工具的只读门（父 full 的飞菜单里可能有 gated 信息面）。
-  const menuItems = (tool.dropdownItems ?? []).map((item) => {
-    const ItemIcon = item.icon;
-    const itemOnshapeIcon = onshapeIconFor(item.id);
-    return (
-      <MenuItem
-        key={item.id}
-        icon={itemOnshapeIcon ? <OnshapeIcon name={itemOnshapeIcon} size={18} /> : <ItemIcon />}
-        disabled={readOnly && !isGated(item.capability)}
-        onClick={() => onActivate(item.id)}
-      >
-        {t(item.labelKey)}
-      </MenuItem>
-    );
-  });
+  const [open, setOpen] = React.useState(false);
+  const [position, setPosition] = React.useState({ left: 0, top: 0 });
+  const groupRef = React.useRef<HTMLDivElement>(null);
+  const arrowRef = React.useRef<HTMLButtonElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  const rows: MenuRow[] = React.useMemo(() => {
+    const parentRow: MenuRow = {
+      key: `parent-${tool.id}`,
+      id: tool.id,
+      label,
+      icon: mainOnshapeIcon ? <OnshapeIcon name={mainOnshapeIcon} size={20} /> : <MainIcon />,
+      ...(tool.shortcut ? { shortcut: tool.shortcut } : {}),
+      disabled,
+      parent: true,
+    };
+    const children = (tool.dropdownItems ?? []).map((item): MenuRow => {
+      const ItemIcon = item.icon;
+      const itemOnshapeIcon = onshapeIconFor(item.id);
+      return {
+        key: item.id,
+        id: item.id,
+        label: t(item.labelKey),
+        icon: itemOnshapeIcon ? <OnshapeIcon name={itemOnshapeIcon} size={20} /> : <ItemIcon />,
+        disabled: readOnly && !isGated(item.capability),
+        parent: false,
+      };
+    });
+    return [parentRow, ...children];
+  }, [tool, label, mainOnshapeIcon, MainIcon, disabled, readOnly, t]);
+
+  const placeMenu = React.useCallback((): void => {
+    const rect = groupRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Onshape：菜单左对齐触发组，顶边压住 toolbar 底边 1px；右缘不超出视口。
+    const left = Math.max(4, Math.min(rect.left, window.innerWidth - 184));
+    setPosition({ left, top: Math.max(0, rect.bottom - 1) });
+  }, []);
+
+  const closeMenu = React.useCallback((restoreFocus = false): void => {
+    setOpen(false);
+    if (restoreFocus) arrowRef.current?.focus();
+  }, []);
+
+  const openMenu = React.useCallback((): void => {
+    placeMenu();
+    setOpen(true);
+    // 焦点移到首项（Onshape 菜单键盘可达）。
+    window.setTimeout(() => {
+      menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not([disabled])')?.focus();
+    }, 0);
+  }, [placeMenu]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target) || groupRef.current?.contains(target)) return;
+      closeMenu();
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu(true);
+        return;
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      event.preventDefault();
+      const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])') ?? [])];
+      if (items.length === 0) return;
+      const index = items.indexOf(document.activeElement as HTMLButtonElement);
+      const next = event.key === 'ArrowDown'
+        ? (index + 1) % items.length
+        : (index - 1 + items.length) % items.length;
+      items[next]?.focus();
+    };
+    const onViewportChange = (): void => closeMenu();
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, true);
+    };
+  }, [open, closeMenu]);
+
+  const activate = (row: MenuRow): void => {
+    if (row.disabled) return;
+    closeMenu(true);
+    onActivate(row.id);
+  };
 
   const toolClass = [
     'part-studio-ribbon__tool',
@@ -74,8 +170,12 @@ export function RibbonDropdown({
   ].filter(Boolean).join(' ');
 
   return (
-    <div className="part-studio-ribbon__dropdown" data-testid={`part-studio-ribbon-dropdown-${tool.id}`}>
-      {/* 主钮：激活父命令（默认变体）。title 对齐 os-11「名称 (快捷键)」。 */}
+    <div
+      ref={groupRef}
+      className="part-studio-ribbon__dropdown"
+      data-testid={`part-studio-ribbon-dropdown-${tool.id}`}
+    >
+      {/* 主钮：激活父命令（Onshape 默认变体语义）。 */}
       <button
         type="button"
         aria-label={label}
@@ -87,24 +187,48 @@ export function RibbonDropdown({
       >
         {mainOnshapeIcon ? <OnshapeIcon name={mainOnshapeIcon} size={20} /> : <MainIcon />}
       </button>
-      {/* 箭头钮：DropdownMenu 触发（portal 飞菜单 + 键盘导航/焦点管理）。
-          aria-label 保留「名称 ▾」可访问名；aria-haspopup/aria-expanded 由
-          DropdownMenu 克隆注入。aria-label 经 rest 透传到菜单（role=menu
-          的可访问名=工具名）。 */}
-      <DropdownMenu
-        menuItems={menuItems}
-        className="part-studio-ribbon__menu"
-        aria-label={label}
-        placement="bottom-start"
+      <button
+        ref={arrowRef}
+        type="button"
+        aria-label={`${label} ▾`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="part-studio-ribbon__arrow"
+        onClick={() => (open ? closeMenu(true) : openMenu())}
       >
-        <button
-          type="button"
-          aria-label={`${label} ▾`}
-          className="part-studio-ribbon__arrow"
+        <OnshapeIcon name="expanded" size={10} />
+      </button>
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          className="part-studio-ribbon__menu"
+          role="menu"
+          aria-label={label}
+          style={{ left: position.left, top: position.top }}
+          data-testid={`part-studio-ribbon-menu-${tool.id}`}
         >
-          <OnshapeIcon name="expanded" size={10} />
-        </button>
-      </DropdownMenu>
+          {rows.map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              role="menuitem"
+              aria-disabled={row.disabled ? 'true' : undefined}
+              disabled={row.disabled}
+              className={[
+                'part-studio-ribbon__menu-row',
+                row.parent ? 'part-studio-ribbon__menu-row--parent' : '',
+              ].filter(Boolean).join(' ')}
+              data-testid={`part-studio-ribbon-menu-row-${row.id}`}
+              onClick={() => activate(row)}
+            >
+              <span className="part-studio-ribbon__menu-icon" aria-hidden="true">{row.icon}</span>
+              <span className="part-studio-ribbon__menu-label">{row.label}</span>
+              {row.shortcut && <ShortcutKeys shortcut={row.shortcut} />}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

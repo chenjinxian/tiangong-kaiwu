@@ -101,6 +101,10 @@
  * v1.25（ADR-0004 第二切片）：`SketchConstraintDto.kind` + `angle`（两线夹角，value 弧度）。
  * v1.24（ADR-0005 Phase 2）：`ExtrudeParams.secondDirection`（blind/throughAll）落地。
  * v1.26（ADR-0006 切片 A）：`HoleParams` 简单平底钻孔（位置=草图 point，轴线=草图法向）。
+ * v1.29（ADR-0006 切片 B1）：`cPlane` 基准面特征（参考 Top/Front/Right + 偏移 + 反转法线）
+ * + `SketchPlaneDto.sourceFeatureId`（草图平面来源）。cPlane 是引用几何特征：求值直通上游
+ * 条目、不产生/修改 body 几何；草图平面三向量仍是派生快照，sourceFeatureId 只作来源展示与
+ * 引用守卫（本切片不改参传播）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -110,7 +114,7 @@ import {
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
  * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern；
  * B6 M-A4.1 v1.16 增 booleanBodies（body boolean）） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies" | "hole";
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies" | "hole" | "cPlane";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -142,10 +146,25 @@ export interface ExtrudeSecondDirection {
  * 轴线=草图平面法向；首版只做无螺纹平底孔（tipAngleDeg 仅允许 180/缺省）。
  * 沉头/埋头/螺纹/按面引用等 Onshape 高级形态明确拒收，不做静默降级。
  */
+/** v1.27（ADR-0006 切片 A2）：孔位也可引用草图曲线顶点（Onshape 常见形态）。 */
+export interface HoleVertexRef {
+  /** 草图实体 id（line/arc/circle/point）。 */
+  entityId: number;
+  /** line/arc：start/end；circle/arc/封闭样条：center；point：center。 */
+  part: "start" | "end" | "center";
+}
 export interface HoleParams {
   sketchId: string;
-  /** 选中的草图 point 实体 id；缺省=草图内全部 point。 */
+  /** 选中的草图 point 实体 id；缺省=草图内全部 point。
+   *  v1.27：与 vertexRefs 同给时只取显式 pointIds（不再默认全选）。 */
   pointIds?: number[];
+  /** v1.27：草图曲线顶点孔位。至少 pointIds 或 vertexRefs 之一非空。 */
+  vertexRefs?: HoleVertexRef[];
+  /** v1.28（ADR-0006 切片 A3）：simple（缺省）| counterbore（沉头孔）。 */
+  holeStyle?: "simple" | "counterbore";
+  /** counterbore 必填：沉头孔直径/深度（孔轴线从草图平面起算）。 */
+  counterboreDiameterMm?: number;
+  counterboreDepthMm?: number;
   diameterMm: number;
   endBound: "blind" | "throughAll";
   /** blind 必填且 >0；throughAll 忽略。 */
@@ -436,7 +455,20 @@ export interface RevolveParams {
   mergeScope?: BodyRef[];
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams;
+/**
+ * v1.29（ADR-0006 切片 B1）：基准面参考图元。首版只支持三世界基准面；面/边/其他 cPlane
+ * 作为参考归 B2。偏移沿参考面法向（可负），`flipNormal` 同时反转法线与 xDir 手性。
+ */
+export type CPlaneReference = "top" | "front" | "right";
+export interface CPlaneParams {
+  reference: CPlaneReference;
+  /** 沿参考面法向的偏移距离（mm，有限数；缺省 0）。 */
+  offsetMm?: number;
+  /** true=法线与 xDir 反向（草图正面朝另一侧）。 */
+  flipNormal?: boolean;
+}
+
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams;
 
 export type FeatureOp =
   /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
@@ -573,8 +605,16 @@ export interface SketchDto {
 export interface SketchSummaryDto { id: string; entityCount: number; constraintCount: number }
 
 /** M6-a v1.6：草图平面（世界系米制；缺省=XY@z=0 保持 M3-b 语义）。
- * 草图实体/解算仍在局部 2D（u,v）；特征求值时经本变换到世界系。 */
-export interface SketchPlaneDto { origin: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number }; xDir: { x: number; y: number; z: number } }
+ * 草图实体/解算仍在局部 2D（u,v）；特征求值时经本变换到世界系。
+ * v1.29：`sourceFeatureId` 记录派生来源（cPlane 特征 id）。三向量仍是插入时快照；
+ * 本切片 sourceFeatureId 只用于来源展示与「被引用时禁止改参/删除」守卫。 */
+export interface SketchPlaneDto {
+  origin: { x: number; y: number; z: number };
+  normal: { x: number; y: number; z: number };
+  xDir: { x: number; y: number; z: number };
+  /** v1.29：平面来源特征（cPlane）。旧库/基准面无此键。 */
+  sourceFeatureId?: string;
+}
 
 export abstract class LubanFeatureRpcInterface extends RpcInterface {
   /**
@@ -584,7 +624,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.26.0";
+  public static interfaceVersion = "1.29.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

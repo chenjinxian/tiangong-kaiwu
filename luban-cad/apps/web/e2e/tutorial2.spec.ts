@@ -17,6 +17,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
 import {
+  forceOnshapeViewCube,
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
@@ -27,6 +28,7 @@ import {
   openSeedImodelEditor,
 } from './helpers';
 import { resetBModelSeed } from './seed';
+import { listExampleChangesets, pushExampleChanges } from './examples/imodel.js';
 import {
   P,
   activate,
@@ -94,7 +96,7 @@ async function extrudeViaDialog(
     await dialog.getByRole('tab', { name: '加入' }).click();
     await expect(dialog.getByTestId('part-studio-feature-dialog-merge-scope-hint')).toBeVisible({ timeout: 10_000 });
   }
-  await dialog.getByLabel('距离').fill(distance);
+  await dialog.getByLabel('深度').fill(distance);
   await dialog.getByTestId('part-studio-feature-dialog-symmetric-flat').locator('input').check();
   await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 10_000 });
   await expectLivePreview(page, treeRowName);
@@ -171,6 +173,8 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
     await showcaseShot(page, '新建项目', 1200);
   }
   const ctx = await openSeedImodelEditor(page, bSeed);
+  // 产品默认官方 iTwin ViewCube；本演示的 Onshape 罗盘 15° 步进依赖自研模式。
+  await forceOnshapeViewCube(page);
   await showcaseCaption(page, '步骤 2｜打开 Part Studio', '空白 Part Studio；左侧特征树、右侧 3D 视口。接下来从草图开始。');
 
   // 进入草图：Front（前视）平面。
@@ -722,8 +726,10 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
     let err = normalizeDeg(targetDeg - current);
     if (Math.abs(err) < 5) return;
     // 校准一次箭头方向（右箭头可能对应 +15° 或 -15° 方位角）。
+    // 2026-11-05：ViewCube 改为 Onshape 式 180ms 相机动画；400ms 等待覆盖动画
+    // 尾帧，避免随后 frameCurrentView 被 animator 覆盖（260ms 实测偶发失败）。
     await yawRight.click();
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(400);
     z = await readViewZ();
     const after = (Math.atan2(z.y, z.x) * 180) / Math.PI;
     const moved = normalizeDeg(after - current);
@@ -732,7 +738,7 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
     const steps = Math.min(24, Math.max(0, Math.round(Math.abs(remaining) / 15)));
     for (let i = 0; i < steps; i++) {
       await arrow.click();
-      await page.waitForTimeout(140);
+      await page.waitForTimeout(400);
     }
   };
 
@@ -824,6 +830,20 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   await showcaseScene(page, SCENES.partIso);
   await showcaseScene(page, SCENES.partFront);
   await showcaseScene(page, SCENES.partRight);
+
+  // 2026-11-05 用户要求：第一个演示也必须落到真实 iModel。普通特征 op 默认
+  // 不 auto-push；展示模式下显式推送，并校验 hub changeset。
+  if (showcase) {
+    await showcaseCaption(page, '步骤 21｜推送持久化', '把六特征写入 hub changeset；关闭浏览器后重新打开同一 iModel，模型仍在。', 1200);
+    await pushExampleChanges(page, 'Onshape example: Tutorial 2 - Build a Part');
+    const token = await getApiToken();
+    const changesets = await listExampleChangesets(request, token, ctx.imodelId);
+    expect(
+      changesets.some((changeset) => (changeset.description ?? '').includes('Tutorial 2 - Build a Part')),
+      `hub changeset 应包含 Tutorial 2 示例描述：${JSON.stringify(changesets.slice(-3))}`,
+    ).toBe(true);
+    await showcaseShot(page, '推送完成', 900);
+  }
 
   if (keepOpen) {
     // 演示完成：回到 Iso 并撤掉字幕，浏览器保持打开供用户自由操作。

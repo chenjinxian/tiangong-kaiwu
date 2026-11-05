@@ -409,7 +409,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     await featureList.getByRole('button', { name: '拉伸 1' }).dblclick();
     const editDialog = page.getByTestId('part-studio-feature-dialog');
     await expect(editDialog).toBeVisible({ timeout: 15_000 });
-    const distance = editDialog.getByRole('textbox', { name: '距离' });
+    const distance = editDialog.getByRole('textbox', { name: '深度' });
     await expect(distance).toHaveValue('10');
     await expect(editDialog.getByText('草图 1 的面')).toBeVisible({ timeout: 20_000 });
     await distance.fill('20');

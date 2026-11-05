@@ -11,6 +11,7 @@ import {
   axisScreenDirections,
   cssMatrix3dFromRotation,
   DIMETRIC_DIRECTION,
+  frontFaceBottomLeft,
   ISO_DIRECTION,
   orbitDirection,
   projectFaceLabels,
@@ -107,6 +108,20 @@ describe('view-orientation', () => {
       expect(Math.hypot(label.x, label.y)).toBeGreaterThan(2);
     // 三个标签落在不同位置（Top 可在水平中央）。
     expect(new Set(labels.map((l) => `${Math.round(l.x)},${Math.round(l.y)}`)).size).toBe(3);
+  });
+
+  it('anchors the axis triad at the projected Front-face bottom-left corner', () => {
+    // Front 视图：Front 面左下角 = cube 中心的 (-halfSize, +halfSize)。
+    const front = Matrix3d.createRowValues(1, 0, 0, 0, 0, 1, 0, -1, 0);
+    const frontOrigin = frontFaceBottomLeft(front, 30);
+    expect(frontOrigin.x).toBeCloseTo(-30, 6);
+    expect(frontOrigin.y).toBeCloseTo(30, 6);
+
+    // ISO：与 Onshape live 一致，原点落在 cube 左下方（负 x、正 y）。
+    const iso = viewRotationFromDirection(ISO_DIRECTION)!;
+    const isoOrigin = frontFaceBottomLeft(iso, 30);
+    expect(isoOrigin.x).toBeLessThan(0);
+    expect(isoOrigin.y).toBeGreaterThan(0);
   });
 
   it('reports screen directions for the world axes (Onshape right-iso triad)', () => {

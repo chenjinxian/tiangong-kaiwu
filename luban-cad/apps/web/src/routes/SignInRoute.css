@@ -136,3 +136,69 @@
   font-size: 12px;
   color: var(--iui-color-text-muted);
 }
+
+/* Onshape sign-in live：436px 表单列、34px 输入、顶部品牌。 */
+.signin {
+  max-width: 436px;
+  gap: 12px;
+}
+
+.signin__logo {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.signin__title {
+  margin-block-start: 16px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.signin__form {
+  gap: 14px;
+  margin-block-start: 20px;
+}
+
+.signin__form input:not([type='checkbox']) {
+  min-block-size: 34px;
+  font-size: 14px;
+}
+
+.signin__submit {
+  min-block-size: 34px;
+}
+
+/* 右列：产品实景大图（Onshape live sign-in 同构），点击进入 /showcase。 */
+.signin-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: 100%;
+  padding: 0;
+  overflow: hidden;
+  background: #f5f7fa;
+  text-decoration: none;
+}
+
+.signin-hero__image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: 62% 50%;
+  opacity: 0.94;
+}
+
+.signin-hero__caption {
+  position: absolute;
+  inset-block-end: 28px;
+  inset-inline-start: 50%;
+  padding: 8px 14px;
+  border-radius: 4px;
+  background: rgba(13, 32, 58, 0.72);
+  color: #ffffff;
+  font-size: 13px;
+  transform: translateX(-50%);
+}

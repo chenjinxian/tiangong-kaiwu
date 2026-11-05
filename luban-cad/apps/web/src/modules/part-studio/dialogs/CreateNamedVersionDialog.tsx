@@ -106,6 +106,7 @@ export function CreateNamedVersionDialog({
         styleType="default"
         title={t('partStudio.namedVersion.title')}
         aria-label={t('partStudio.namedVersion.title')}
+        className="part-studio-version-dialog"
       >
         <Dialog.TitleBar titleText={t('partStudio.namedVersion.title')} />
         <Dialog.Content>

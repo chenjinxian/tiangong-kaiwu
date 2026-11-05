@@ -13,7 +13,7 @@
  */
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { getApiToken, openSeedImodelEditor } from './helpers';
+import { forceOnshapeViewCube, getApiToken, openSeedImodelEditor } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed';
 
 interface CameraSnapshot {
@@ -42,7 +42,7 @@ async function readCubeTransform(page: Page): Promise<string> {
 
 async function readStoredDisplaySettings(page: Page): Promise<Record<string, unknown> | null> {
   return page.evaluate(() => {
-    const raw = localStorage.getItem('luban.partStudio.displaySettings.v2');
+    const raw = localStorage.getItem('luban.partStudio.displaySettings.v3');
     return raw ? JSON.parse(raw) as Record<string, unknown> : null;
   });
 }
@@ -62,6 +62,9 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
     const token = await getApiToken();
     const seed = await resetBModelSeed(request, token);
     await openSeedImodelEditor(page, seed);
+    // 产品默认已是官方 iTwin ViewCube；本用例断言的是 Onshape 自研模式
+    // （面点击/罗盘/菜单），显式回退。
+    await forceOnshapeViewCube(page);
 
     // ── 2) 默认几何图元树 ────────────────────────────────────────────────
     const datum = page.getByTestId('tree-datum-group');
@@ -94,8 +97,16 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
       'viewcube-menu-high-quality',
     ])
       await expect(page.getByTestId(id)).toBeVisible();
-    // 用户裁决：命名视图/剖视图/相切边等未实现项不显示假按钮。
-    await expect(page.getByText(/命名视图|剖视图|相切边可见|亮显边界边/)).toHaveCount(0);
+    // 2026-11-05 live 对齐：未实现项保留完整菜单外观但禁用 + aria-disabled，
+    // 不再隐藏（用户裁决以 live 16 项为准）。
+    for (const id of [
+      'viewcube-menu-named-views', 'viewcube-menu-normal-to-sketch',
+      'viewcube-menu-tangent-edges', 'viewcube-menu-highlight-boundary',
+      'viewcube-menu-section',
+    ]) {
+      await expect(page.getByTestId(id)).toBeVisible();
+      await expect(page.getByTestId(id)).toHaveAttribute('aria-disabled', 'true');
+    }
 
     // 带边着色子菜单 → 隐藏边移除；写穿持久化。
     await page.getByTestId('viewcube-menu-shaded').click();
@@ -125,16 +136,12 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
     await expect.poll(() => readStoredDisplaySettings(page))
       .toMatchObject({ antialiasSamples: 4 });
 
-    // 图形首选项 → 右侧浮动 display 面板（dock 外层宽 0，检 body 可见性）。
+    // 图形首选项 → 左侧独立对话框（2026-11-05 live 对齐；不再打开右侧 dock）。
     await page.getByTestId('viewcube-menu-graphics').click();
-    await expect(page.getByTestId('part-studio-dock-body')).toBeVisible();
-    await expect(page.locator('#part-studio-dock-tab-display')).toBeVisible();
-    await expect.poll(() => page.evaluate(() =>
-      (window as any).__lubanE2EApp.usePartStudioStore.getState().dock,
-    )).toMatchObject({ activeTab: 'display', isOpen: true });
-    // 点活动页签收合，避免改变后续草图取景布局断言。
-    await page.locator('#part-studio-dock-tab-display').click();
+    await expect(page.getByTestId('part-studio-graphics-dialog')).toBeVisible();
     await expect(page.getByTestId('part-studio-dock-body')).toHaveCount(0);
+    await page.getByTestId('gfx-confirm').click();
+    await expect(page.getByTestId('part-studio-graphics-dialog')).toHaveCount(0);
 
     // 眼睛开关只写 datum 切片，不动画布隐藏集；按初始有效值取反断言（有体时
     // 自动规则可能已隐藏该平面，不能写死 false）。

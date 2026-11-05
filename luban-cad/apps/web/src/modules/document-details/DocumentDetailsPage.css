@@ -290,3 +290,71 @@
 .document-details-menu-item-danger {
   color: var(--iui-color-text-negative);
 }
+
+/* ── 2026-11-06 Onshape live 视觉语言：白底 / 48px 顶栏 / 紧凑 hero ─────── */
+.document-details-page {
+  background: #ffffff;
+}
+
+.document-details-header {
+  block-size: 48px;
+  background: #ffffff;
+}
+
+.document-details-header [class*='page-header-left'] {
+  padding-inline-start: 14px;
+}
+
+.document-details-header [class*='page-header-right'] {
+  padding-inline-end: 14px;
+}
+
+.document-details-hero {
+  margin: 0;
+  padding: 18px 22px 14px;
+  border-block-end: 1px solid #eeeeee;
+  background: #ffffff;
+}
+
+.document-details-hero__media {
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 3px;
+}
+
+.document-details-hero__title {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.document-details-hero__meta {
+  color: #666666;
+  font-size: 14px;
+}
+
+.document-details-content {
+  padding: 0 22px 18px;
+  background: #ffffff;
+}
+
+.document-details-toolbar {
+  min-block-size: 38px;
+  border-block-end: 1px solid #eeeeee;
+}
+
+.document-details-count {
+  color: #666666;
+  font-size: 14px;
+}
+
+.imodel-card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  padding-block-start: 12px;
+}
+
+.imodel-card-grid .imodel-card {
+  border: 1px solid #e3e3e3;
+  border-radius: 3px;
+  box-shadow: none;
+}

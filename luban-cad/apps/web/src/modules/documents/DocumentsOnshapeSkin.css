@@ -1,0 +1,666 @@
+/* DocumentsOnshapeSkin.css — 2026-11-06 Onshape documents live 复核皮肤。
+ * 覆盖 DocumentsPage.css 的通用 iTwinUI 观感；页面 IA / 数据仍由原组件提供。 */
+
+.documents-page {
+  background: #ffffff;
+}
+
+.documents-header {
+  block-size: 48px;
+  background: #ffffff;
+}
+
+.documents-header [class*='page-header-left'] {
+  padding-inline-start: 14px;
+}
+
+.documents-header [class*='page-header-right'] {
+  padding-inline-end: 14px;
+}
+
+.documents-search {
+  inline-size: min(480px, 46vw);
+}
+
+/* Free 订阅横幅（live：灰底条 + 右侧描边按钮）。 */
+.documents-plan-banner {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-block-size: 50px;
+  padding: 0 18px 0 22px;
+  border-block-end: 1px solid #e5e5e5;
+  background: #f7f7f7;
+  color: #333333;
+  font-size: 14px;
+}
+
+.documents-plan-banner__cta {
+  flex-shrink: 0;
+  border: 1px solid #1651b0;
+  background: #ffffff;
+  color: #1651b0;
+}
+
+/* 左栏：224px；创建蓝钮 + 30px 导航行 + 底部订阅块。 */
+.documents-sidebar {
+  inline-size: 224px;
+  min-inline-size: 224px;
+  gap: 0;
+  padding: 12px 0 8px;
+  background: #ffffff;
+  border-inline-end: 1px solid #e5e5e5;
+}
+
+.documents-sidebar__create {
+  display: block;
+  padding: 0 15px 12px;
+}
+
+.documents-sidebar__create-button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  inline-size: 194px;
+  block-size: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 4px;
+  background: #1651b0;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.documents-sidebar__create-button:hover {
+  background: #12438f;
+}
+
+.documents-sidebar__create-icon {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.documents-sidebar__create-caret {
+  inline-size: 14px;
+  block-size: 14px;
+  margin-inline-start: 2px;
+}
+
+.documents-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  padding: 2px 0;
+}
+
+.documents-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: 100%;
+  min-block-size: 30px;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  color: #333333;
+  font: inherit;
+  font-size: 14px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.documents-sidebar__item svg {
+  flex-shrink: 0;
+  inline-size: 20px;
+  block-size: 20px;
+  color: #333333;
+}
+
+.documents-sidebar__item:hover:not(:disabled) {
+  background: #f2f2f2;
+}
+
+.documents-sidebar__item--active {
+  background: #e8f3fd;
+  color: #1651b0;
+  font-weight: 500;
+}
+
+.documents-sidebar__item--active svg {
+  color: #1651b0;
+}
+
+.documents-sidebar__item--explore {
+  margin-block-end: 4px;
+}
+
+.documents-sidebar__item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.documents-sidebar__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-start: auto;
+  padding: 12px 15px 0;
+}
+
+.documents-sidebar__plan {
+  color: #666666;
+  font-size: 13px;
+}
+
+.documents-sidebar__pro {
+  min-block-size: 34px;
+  border: none;
+  border-radius: 4px;
+  background: #1651b0;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.documents-sidebar__pricing {
+  min-block-size: 34px;
+  border: 1px solid #b8b8b8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #333333;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* 主区：与 live 相同的 22px 内边距 + 紧凑区块。 */
+.documents-main {
+  gap: 10px;
+  padding: 0 22px 18px;
+  background: #ffffff;
+}
+
+.documents-owned-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 34px;
+  color: #333333;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.documents-owned-head__icon {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+/* 欢迎面板（live：浅蓝底，三栏）。 */
+.documents-welcome {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.5fr) minmax(260px, 1fr);
+  gap: 18px;
+  padding: 22px;
+  border-radius: 4px;
+  background: #eef5ff;
+}
+
+.documents-welcome__main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  padding-inline-start: 8px;
+}
+
+.documents-welcome__title {
+  margin: 0;
+  color: #333333;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.documents-welcome__upgrade {
+  align-self: flex-start;
+  border: 1px solid #b8b8b8;
+  background: #ffffff;
+}
+
+.documents-welcome__upgrade-icon {
+  transform: rotate(180deg);
+}
+
+.documents-welcome__explore {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-block-size: 138px;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #333333;
+  text-align: start;
+  cursor: pointer;
+}
+
+.documents-welcome__explore-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: 150px;
+  block-size: 110px;
+  border-radius: 4px;
+  background: #f1f6ff;
+  color: #8aa4c8;
+}
+
+.documents-welcome__explore-art svg {
+  inline-size: 60px;
+  block-size: 60px;
+}
+
+.documents-welcome__explore-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+.documents-welcome__explore-title {
+  color: #1651b0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.documents-welcome__explore-desc {
+  color: #3f4d59;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.documents-welcome__explore-arrow {
+  margin-inline-start: auto;
+  color: #333333;
+  font-size: 26px;
+}
+
+.documents-welcome__links {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.documents-welcome__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #333333;
+  font: inherit;
+  font-size: 15px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.documents-welcome__link svg {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+.documents-welcome__link-arrow {
+  margin-inline-start: auto;
+  font-size: 20px;
+}
+
+/* 最近打开：三张横卡；名称用 CSS content（不重复文本节点，避免与表格重复）。 */
+.documents-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block: 2px;
+}
+
+.documents-recent__title {
+  color: #333333;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.documents-recent__cards {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+}
+
+.documents-recent__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  inline-size: 280px;
+  min-inline-size: 280px;
+  block-size: 80px;
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  background: #ffffff;
+  text-align: start;
+  cursor: pointer;
+}
+
+.documents-recent__card:hover {
+  border-color: #a9c4dd;
+}
+
+.documents-recent__thumb {
+  flex-shrink: 0;
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+.documents-recent__fallback {
+  inline-size: 40px;
+  block-size: 40px;
+  color: #8aa4c8;
+}
+
+.documents-recent__name::after {
+  content: attr(data-name);
+  display: block;
+  overflow: hidden;
+  color: #333333;
+  font-size: 14px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documents-folders-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 38px;
+  border-block-end: 1px solid #e5e5e5;
+  color: #333333;
+  font-size: 14px;
+}
+
+.documents-folders-row__chevron {
+  color: #777777;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.documents-folders-row__icon {
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.documents-folders-row__title {
+  font-weight: 500;
+}
+
+.documents-folders-row button {
+  margin-inline-start: auto;
+  color: #333333;
+}
+
+/* 工具栏/表格贴合 live 密度。 */
+.documents-toolbar__title [class*='iui-text-title'] {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.documents-toolbar__count {
+  font-size: 14px;
+}
+
+.documents-table [class*='table-header-cell'] {
+  min-block-size: 32px;
+  color: #666666;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.documents-table [class*='table-row'] {
+  min-block-size: 54px;
+}
+
+.documents-table [class*='table-cell'] {
+  font-size: 14px;
+}
+
+.documents-thumb-img,
+.documents-thumb-icon {
+  inline-size: 40px;
+  block-size: 40px;
+}
+
+.documents-footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  min-block-size: 30px;
+  padding: 0 22px;
+  border-block-start: 1px solid #e5e5e5;
+  background: #ffffff;
+  color: #777777;
+  font-size: 12px;
+}
+
+.documents-footer button {
+  border: none;
+  background: transparent;
+  color: #777777;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 1100px) {
+  .documents-welcome {
+    grid-template-columns: 1fr;
+  }
+
+  .documents-welcome__explore-art {
+    display: none;
+  }
+}
+
+/* 项目表不再 40vh 内滚（live 页面由主区滚动）；避免下方文档区被裁掉。 */
+.documents-projects .documents-table {
+  max-block-size: none;
+  overflow: visible;
+}
+
+.documents-table {
+  overflow-x: auto;
+}
+
+.documents-body__wrapper {
+  overflow: visible;
+}
+
+/* 新建文档对话框（live：约 590px 宽，20px 标题，34px 输入，右对齐按钮）。 */
+.documents-create-dialog {
+  inline-size: 590px;
+  max-inline-size: min(590px, calc(100vw - 40px));
+  font-size: 14px;
+}
+
+.documents-create-dialog [class*='dialog-title'] {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.documents-create-dialog [class*='dialog-content'] {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px;
+}
+
+.documents-create-dialog [class*='iui-input-container'] {
+  inline-size: 100%;
+}
+
+.documents-create-dialog input {
+  min-block-size: 34px;
+  font-size: 14px;
+}
+
+.documents-create-dialog [class*='dialog-button-bar'] {
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 22px 18px;
+}
+
+.documents-create-dialog [class*='dialog-button-bar'] button {
+  min-inline-size: 80px;
+  min-block-size: 34px;
+}
+
+/* 项目段（Onshape live 的文件夹行密度；不再占一张大表）。 */
+.documents-projects {
+  gap: 6px;
+}
+
+.documents-projects__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.documents-projects__row {
+  display: grid;
+  grid-template-columns: 22px minmax(160px, 1.2fr) minmax(160px, 1fr) minmax(100px, 0.7fr) 34px;
+  align-items: center;
+  gap: 10px;
+  min-block-size: 44px;
+  padding: 0 4px;
+  border-block-end: 1px solid #eeeeee;
+  color: #333333;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.documents-projects__row:hover,
+.documents-projects__row--selected {
+  background: #f5faff;
+}
+
+.documents-projects__icon {
+  inline-size: 20px;
+  block-size: 20px;
+  color: #6d7d8c;
+}
+
+.documents-projects__name {
+  overflow: hidden;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #333333;
+  font: inherit;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.documents-projects__modified,
+.documents-projects__owner {
+  overflow: hidden;
+  color: #666666;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* B 项目区标题与表格的间距贴近 live。 */
+.documents-projects > .documents-toolbar {
+  align-items: center;
+}
+
+/* 新建文档：Onshape live 顶部对齐 + 标签/位置字段。 */
+.documents-create-dialog {
+  margin-block-start: 0;
+  margin-block-end: auto;
+  translate: 0 37px;
+  max-block-size: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.documents-create-location {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.documents-create-location__label {
+  color: #333333;
+  font-size: 14px;
+}
+
+.documents-create-location__tree {
+  min-block-size: 128px;
+  padding: 4px;
+  border: 1px solid #c9c9c9;
+  background: #ffffff;
+}
+
+.documents-create-location__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 28px;
+  color: #333333;
+  font-size: 14px;
+}
+
+.documents-create-location__row svg {
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.documents-create-location__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 80px;
+  color: #999999;
+  font-size: 14px;
+}
+
+/* 页面滚动由主区承担；文献列表保留固有高度，避免被上方欢迎区压成 0。 */
+.documents-body,
+.documents-body__wrapper {
+  flex: 0 0 auto;
+  min-block-size: 360px;
+}
+
+.documents-body .documents-table {
+  flex: 0 0 auto;
+  min-block-size: 320px;
+  max-block-size: 60vh;
+  overflow: auto;
+}
+
+/* 主区各段保持固有高度并交给 main 滚动，禁止 flex 压缩成 0。 */
+.documents-main > * {
+  flex-shrink: 0;
+}

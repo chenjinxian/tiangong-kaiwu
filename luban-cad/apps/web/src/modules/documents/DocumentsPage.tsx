@@ -42,10 +42,13 @@ import {
 import {
   SvgAdd,
   SvgCheckmark,
+  SvgChevronDown,
   SvgCloseSmall,
   SvgDelete,
+  SvgFolder,
   SvgFolderOpened,
   SvgInfo,
+  SvgMoreVertical,
   SvgRefresh,
   SvgRename,
   SvgSearch,
@@ -53,10 +56,12 @@ import {
   SvgStar,
   SvgStarHollow,
   SvgStatusError,
+  SvgUser,
 } from '@itwin/itwinui-icons-react';
 import { AuthSession } from '@clients/auth/AuthSession.js';
 import { ItwinsClient } from '@clients/itwins/ItwinsClient.js';
 import { useTheme } from '@app/providers/ThemeContext.js';
+import { OnshapeIcon } from '../part-studio/icons/onshape-icons.js';
 import { useDocuments } from './hooks/useDocuments.js';
 import { useBModelEnabled } from './hooks/useBModelEnabled.js';
 import { useDocumentFilters } from './hooks/useDocumentFilters.js';
@@ -72,12 +77,14 @@ import { DocumentToolbar } from './components/DocumentToolbar.js';
 import { DocumentGrid } from './components/DocumentGrid.js';
 import { DocumentTable, type DocumentRow } from './components/DocumentTable.js';
 import { DocumentInfoPanel } from './components/DocumentInfoPanel.js';
+import { DocumentThumbnail } from './components/DocumentThumbnail.js';
 import { CreateDocumentDialog } from './components/CreateDocumentDialog.js';
 import { RenameDocumentDialog } from './components/RenameDocumentDialog.js';
 import { ShareDocumentDialog } from './components/ShareDocumentDialog.js';
 import { CapabilityDialog } from './components/CapabilityDialog.js';
 import { addToFavorites, removeFromFavorites } from './internal/documents.api.js';
 import './DocumentsPage.css';
+import './DocumentsOnshapeSkin.css';
 
 /** 双视图偏好（Onshape 文档中心 IA：表格/网格记忆）。 */
 const VIEW_STORAGE_KEY = 'luban-next-documents-view';
@@ -87,9 +94,10 @@ const NO_DOCUMENTS: DocumentSummary[] = [];
 
 function readStoredView(): DocumentsView {
   try {
-    return localStorage.getItem(VIEW_STORAGE_KEY) === 'table' ? 'table' : 'tile';
+    // Onshape live 文档中心默认列表视图；用户切换后按记忆恢复。
+    return localStorage.getItem(VIEW_STORAGE_KEY) === 'tile' ? 'tile' : 'table';
   } catch {
-    return 'tile';
+    return 'table';
   }
 }
 
@@ -213,15 +221,18 @@ export function DocumentsPage(): React.JSX.Element {
     () => toRows(visibleDocuments),
     [toRows, visibleDocuments],
   );
-  const projectRows = React.useMemo<DocumentRow[]>(
-    () => toRows(visibleProjects),
-    [toRows, visibleProjects],
-  );
 
   const selectedDoc = React.useMemo(
     () =>
       [...visibleProjects, ...visibleDocuments].find((doc) => doc.id === selectedId) ?? null,
     [visibleProjects, visibleDocuments, selectedId],
+  );
+
+  // Onshape 首页横幅（仅「由我所有」档位、非搜索态）。
+  const showLanding = filter === 'my' && !isSearching;
+  const recentItems = React.useMemo(
+    () => [...visibleProjects, ...visibleDocuments].slice(0, 3),
+    [visibleProjects, visibleDocuments],
   );
 
   const formatDate = React.useCallback(
@@ -494,6 +505,15 @@ export function DocumentsPage(): React.JSX.Element {
           </HeaderLogo>
         }
         actions={[
+          <IconButton key="notifications" label={t('documents.header.notifications')} styleType="borderless">
+            <OnshapeIcon name="navbar-notifications" size={20} />
+          </IconButton>,
+          <IconButton key="app-store" label={t('documents.header.appStore')} styleType="borderless">
+            <OnshapeIcon name="navbar-app-store" size={20} />
+          </IconButton>,
+          <IconButton key="help" label={t('documents.header.help')} styleType="borderless">
+            <OnshapeIcon name="navbar-help" size={20} />
+          </IconButton>,
           <DropdownMenu
             key="user-menu"
             menuItems={[
@@ -533,6 +553,14 @@ export function DocumentsPage(): React.JSX.Element {
         />
       </Header>
 
+      {/* Onshape Free 订阅横幅（live：顶栏下、整幅浅灰条）。 */}
+      <div className="documents-plan-banner" role="note">
+        <span>{t('documents.planBanner.message')}</span>
+        <Button styleType="default" className="documents-plan-banner__cta" onClick={() => setGatedAction('upgrade')}>
+          {t('documents.planBanner.cta')}
+        </Button>
+      </div>
+
       {/* 主体：左栏（创建 ▾ + 五筛选）+ 主区（工具条 + 内容 + 详情侧栏） */}
       <Flex className="documents-content" flexDirection="row">
         <DocumentSidebar
@@ -543,6 +571,83 @@ export function DocumentsPage(): React.JSX.Element {
         />
 
         <main className="documents-main">
+          {/* Onshape live：主区首行「由我所有」+ 用户图标。 */}
+          <div className="documents-owned-head">
+            <SvgUser className="documents-owned-head__icon" />
+            <span>{t('documents.owned.title')}</span>
+          </div>
+
+          {showLanding && (
+            <React.Fragment>
+              {/* 欢迎/入门卡片（live：浅蓝整幅面板 + 右侧学习入口）。 */}
+              <section className="documents-welcome" data-testid="documents-welcome">
+                <div className="documents-welcome__main">
+                  <h2 className="documents-welcome__title">{t('documents.onboarding.title')}</h2>
+                  <Button
+                    styleType="default"
+                    className="documents-welcome__upgrade"
+                    startIcon={<SvgChevronDown className="documents-welcome__upgrade-icon" />}
+                    onClick={() => setGatedAction('upgrade')}
+                  >
+                    {t('documents.onboarding.upgrade')}
+                  </Button>
+                </div>
+                <button type="button" className="documents-welcome__explore" onClick={() => navigate('/showcase')}>
+                  <div className="documents-welcome__explore-art" aria-hidden="true">
+                    <SvgFolder />
+                  </div>
+                  <div className="documents-welcome__explore-copy">
+                    <span className="documents-welcome__explore-title">{t('documents.onboarding.exploreTitle')}</span>
+                    <span className="documents-welcome__explore-desc">{t('documents.onboarding.exploreDesc')}</span>
+                  </div>
+                  <span className="documents-welcome__explore-arrow" aria-hidden="true">→</span>
+                </button>
+                <div className="documents-welcome__links">
+                  {(['learning', 'forum', 'help'] as const).map((action) => (
+                    <button key={action} type="button" className="documents-welcome__link" onClick={() => setGatedAction(action)}>
+                      <SvgInfo />
+                      <span>{t(`documents.onboarding.${action}`)}</span>
+                      <span className="documents-welcome__link-arrow" aria-hidden="true">→</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              {recentItems.length > 0 && (
+                <section className="documents-recent" data-testid="documents-recent">
+                  <div className="documents-recent__title">{t('documents.recent.title')}</div>
+                  <div className="documents-recent__cards">
+                    {recentItems.map((doc) => (
+                      <button
+                        key={doc.id}
+                        type="button"
+                        className="documents-recent__card"
+                        aria-label={doc.name}
+                        onClick={() => openDocument(doc)}
+                      >
+                        <DocumentThumbnail
+                          url={doc.thumbnailUrl}
+                          className="documents-recent__thumb"
+                          fallback={<SvgFolder className="documents-recent__fallback" />}
+                        />
+                        <span className="documents-recent__name" data-name={doc.name} />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <div className="documents-folders-row">
+                <span className="documents-folders-row__chevron" aria-hidden="true">›</span>
+                <SvgFolder className="documents-folders-row__icon" />
+                <span className="documents-folders-row__title">{t('documents.folders.title')}</span>
+                <Button styleType="borderless" size="small" onClick={() => setGatedAction('folder')}>
+                  + {t('documents.folders.add')}
+                </Button>
+              </div>
+            </React.Fragment>
+          )}
+
           {/* P2.1：B 项目区（仅 flag 开渲染；flag 关 DOM 与旧版逐字一致）——
               位于 A 旧文档区之上，消费 useDocuments 的 projects 子集，B
               项目不再混入下方 A 区。 */}
@@ -570,28 +675,42 @@ export function DocumentsPage(): React.JSX.Element {
                     ? t('documents.projects.searchEmpty')
                     : t('documents.projects.empty')}
                 </Text>
-              ) : view === 'table' ? (
-                <DocumentTable
-                  rows={projectRows}
-                  sort={sort}
-                  emptyContent={null}
-                  formatDate={formatDate}
-                  buildMenuItems={buildMenuItems}
-                  onSortChange={setSort}
-                  onRowClick={(doc) => setSelectedId(doc.id)}
-                  onRowOpen={openDocument}
-                  isSelected={(id) => selectedId === id}
-                />
               ) : (
-                <DocumentGrid
-                  documents={visibleProjects}
-                  isFavorite={(id) => favoriteIds.has(id)}
-                  isSelected={(id) => selectedId === id}
-                  formatModified={formatModified}
-                  buildMenuItems={buildMenuItems}
-                  onOpen={openDocument}
-                  onToggleFavorite={toggleFavorite}
-                />
+                <div className="documents-projects__list">
+                  {visibleProjects.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className={
+                        selectedId === doc.id
+                          ? 'documents-projects__row documents-projects__row--selected'
+                          : 'documents-projects__row'
+                      }
+                      onClick={() => setSelectedId(doc.id)}
+                      onDoubleClick={() => openDocument(doc)}
+                    >
+                      <SvgFolder className="documents-projects__icon" />
+                      <button
+                        type="button"
+                        className="documents-projects__name"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedId(doc.id);
+                        }}
+                      >
+                        {doc.name}
+                      </button>
+                      <span className="documents-projects__modified">{formatModified(doc)}</span>
+                      <span className="documents-projects__owner">{doc.owner}</span>
+                      <div onClick={(event) => event.stopPropagation()}>
+                        <DropdownMenu menuItems={(close) => buildMenuItems(doc, close)}>
+                          <IconButton label={t('documents.table.rowActions')} styleType="borderless">
+                            <SvgMoreVertical />
+                          </IconButton>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </section>
           )}
@@ -622,6 +741,11 @@ export function DocumentsPage(): React.JSX.Element {
           </div>
         </main>
       </Flex>
+
+      <footer className="documents-footer">
+        <span>{t('documents.footer.copyright')}</span>
+        <button type="button" onClick={() => setGatedAction('help')}>{t('documents.footer.terms')}</button>
+      </footer>
 
       {/* 新建文档 */}
       <CreateDocumentDialog

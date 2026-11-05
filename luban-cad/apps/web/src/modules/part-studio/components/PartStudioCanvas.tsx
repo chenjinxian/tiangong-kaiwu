@@ -57,9 +57,13 @@ import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatu
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { deleteSelectedSubEntity } from '../canvas/subentity-delete.js';
 import type { CanvasSelection } from '../types.js';
+import { CPlaneDialog } from '../dialogs/CPlaneDialog.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
+import { GraphicsPreferencesDialog } from '../dialogs/GraphicsPreferencesDialog.js';
 import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
+import { HoleDialog } from '../dialogs/HoleDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
+import { cPlanePlaneOptions } from '../internal/cplane.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
@@ -68,12 +72,22 @@ import { clearActiveOnshapeHighlight, clearActiveOnshapeSelection } from '../int
 import { applyCanvasSelection } from '../internal/selection-authority.js';
 import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
 import { ViewCube } from './ViewCube.js';
+import { readViewCubeMode } from '../internal/viewcube-mode.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
 import { useDatumPlaneDecorations } from '../hooks/useDatumPlaneDecorations.js';
 import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js';
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+
+/**
+ * 官方 iTwin ViewCube 按需加载：默认模式只加载官方组件 chunk；
+ * `?viewcube=onshape` 回退自研模式。官方包不进入自研路径（单测/降级）。
+ */
+const ItwinViewCube = React.lazy(async () => {
+  const mod = await import('./ItwinViewCube.js');
+  return { default: mod.ItwinViewCube };
+});
 
 export interface PartStudioCanvasProps {
   /** viewport 宿主 div ref（viewer useViewport 出口）。 */
@@ -167,6 +181,16 @@ export function PartStudioCanvas({
   featureEntries = [],
 }: PartStudioCanvasProps): React.JSX.Element {
   const { t } = useTranslation();
+  // 2026-11-05：ViewCube 模式由 URL/sessionStorage 决定（挂载时读取一次；改
+  // query 会整页 reload）。默认官方 iTwin（用户裁决手感更好）；?viewcube=onshape
+  // 回退自研 Onshape 模式（e2e/演示显式使用）。
+  const viewCubeMode = React.useMemo(() => {
+    try {
+      return readViewCubeMode(window.location.search, window.sessionStorage);
+    } catch {
+      return readViewCubeMode(window.location.search);
+    }
+  }, []);
   useDatumPlaneDecorations(viewport);
   const sketchActiveForDecorations = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchIdForDecorations = usePartStudioStore((s) => s.sketch.activeSketchId);
@@ -178,8 +202,10 @@ export function PartStudioCanvas({
     sketchActiveForDecorations && sketchSystem !== undefined,
   );
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
-  /** 新建草图对话框的平面选择（视口/特征树共用；关闭即清）。 */
-  const [sketchDraftPlane, setSketchDraftPlane] = React.useState<'top' | 'front' | 'right' | null>(null);
+  /** 新建草图对话框的平面选择（三基准面 id 或 cPlane 特征 id；关闭即清）。 */
+  const [sketchDraftPlane, setSketchDraftPlane] = React.useState<string | null>(null);
+  /** Onshape「图形首选项」左侧非模态面板（与右侧外观面板可同时打开）。 */
+  const [graphicsPreferencesOpen, setGraphicsPreferencesOpen] = React.useState(false);
 
   // T6：内联非模态对话框宿主（dialog 切片寻址）。
   const dialog = usePartStudioStore((s) => s.dialog);
@@ -209,6 +235,31 @@ export function PartStudioCanvas({
     setSketchDraftPlane(plane);
     selectDatum(plane);
   }, [selectDatum]);
+
+  /**
+   * 草图平面选项（v1.29）：三基准面 + 特征树内成功 cPlane。命名与树一致（「平面 N」）。
+   * cPlane 选项自带世界平面快照（SketchDialog 提交时原样下发并附 sourceFeatureId）。
+   */
+  const sketchPlaneOptions = React.useMemo(() => {
+    const typeLabel = (featureType: string): string => {
+      const key = `partStudio.tree.featureTypes.${featureType}`;
+      const label = t(key);
+      return label === key ? featureType : label;
+    };
+    return [
+      ...(['top', 'front', 'right'] as const).map((id) => ({
+        id,
+        label: t(`partStudio.sketchDialog.planes.${id}`),
+      })),
+      ...cPlanePlaneOptions(featureEntries, typeLabel),
+    ];
+  }, [featureEntries, t]);
+
+  /** 新建 cPlane 的默认名（与树命名一致：平面 N，N=现有 cPlane 数+1）。 */
+  const newCPlaneName = React.useMemo(() => {
+    const count = featureEntries.filter((entry) => entry.featureType === 'cPlane').length;
+    return `${t('partStudio.tree.featureTypes.cPlane')} ${count + 1}`;
+  }, [featureEntries, t]);
 
   const handleSketchDialogCancel = React.useCallback(() => {
     setSketchDraftPlane(null);
@@ -256,18 +307,27 @@ export function PartStudioCanvas({
       closeDialog();
       return;
     }
-    setActiveSketchPlane(result ? sketchPlaneFromOption(result.plane) ?? null : null);
-    const plane = result?.plane;
-    if (plane === 'top' || plane === 'front' || plane === 'right') setSketchDraftPlane(plane);
+    // v1.29：cPlane 选项自带世界快照（含 sourceFeatureId）；三基准面回退旧映射。
+    setActiveSketchPlane(result ? (result.planeDto ?? sketchPlaneFromOption(result.plane) ?? null) : null);
+    setSketchDraftPlane(result?.plane || null);
     // 保持 dialog.active='sketch'：下一步渲染为同一对话框的编辑态。
   }, [closeDialog, exitSketch, selectDatum, setActiveSketchPlane, sketchActiveForDialog]);
 
   // 编辑既有草图（树双击/菜单）时：按落库平面回显到对话框字段。
+  // v1.29：自定义平面的来源指针（sourceFeatureId）命中现存 cPlane 选项时显示「平面 N」，
+  // 不再一律显示「自定义平面」；来源已删除/不在列表 → 保持自定义平面（诚实降级）。
   React.useEffect(() => {
     if (!sketchActiveForDialog || dialog.active !== 'sketch') return;
     const plane = datumPlaneFromSketch(activeSketchPlaneForDialog);
-    if (plane === 'top' || plane === 'front' || plane === 'right') setSketchDraftPlane(plane);
-  }, [dialog.active, sketchActiveForDialog, activeSketchIdForDialog, activeSketchPlaneForDialog]);
+    if (plane === 'top' || plane === 'front' || plane === 'right') {
+      setSketchDraftPlane(plane);
+      return;
+    }
+    const sourceFeatureId = activeSketchPlaneForDialog?.sourceFeatureId;
+    if (sourceFeatureId !== undefined
+      && sketchPlaneOptions.some((option) => option.id === sourceFeatureId))
+      setSketchDraftPlane(sourceFeatureId);
+  }, [dialog.active, sketchActiveForDialog, activeSketchIdForDialog, activeSketchPlaneForDialog, sketchPlaneOptions]);
 
   const dialogSketchId = dialog.active === 'sketch' ? dialog.sketchId : undefined;
 
@@ -397,14 +457,37 @@ export function PartStudioCanvas({
       onContextMenu={handleContextMenu}
     >
       <div ref={viewportRef} className="part-studio-viewport" data-testid="part-studio-viewport" />
-      <ViewCube viewport={viewport} displaySettings={displaySettings} />
+      {viewCubeMode === 'itwin' ? (
+        <React.Suspense fallback={null}>
+          <ItwinViewCube
+            viewport={viewport}
+            connection={connection}
+            displaySettings={displaySettings}
+            onOpenGraphicsPreferences={() => setGraphicsPreferencesOpen(true)}
+          />
+        </React.Suspense>
+      ) : (
+        <ViewCube
+          viewport={viewport}
+          displaySettings={displaySettings}
+          onOpenGraphicsPreferences={() => setGraphicsPreferencesOpen(true)}
+        />
+      )}
+      {graphicsPreferencesOpen && displaySettings && (
+        <GraphicsPreferencesDialog
+          displaySettings={displaySettings}
+          onClose={() => setGraphicsPreferencesOpen(false)}
+        />
+      )}
 
       {/* 新建草图：Onshape 风格平面视口拾取 + 顶部「选择草图平面」提示条。
           监听挂在 iTwin canvas，不阻挡旋转/缩放；树 Top/Front/Right 同样可选。 */}
       {dialog.active === 'sketch' && viewport && (
         <SketchPlanePicker
           viewport={viewport}
-          selected={sketchDraftPlane}
+          selected={sketchDraftPlane === 'top' || sketchDraftPlane === 'front' || sketchDraftPlane === 'right'
+            ? sketchDraftPlane
+            : null}
           onSelect={handleSketchPlaneSelect}
         />
       )}
@@ -499,7 +582,40 @@ export function PartStudioCanvas({
           M4-T6 T6-①：key 按模式寻址——edit=featureId（跨特征切换重挂，本地态
           不残留）；new='new-'+featureType（同类型连开亦重挂，上一单的距离/页签
           不泄漏进下一单）。 */}
-      {dialog.active === 'feature' && (
+      {dialog.active === 'feature' && (dialog.featureType === 'hole' ? (
+        /* ADR-0006 切片 A：孔使用专用对话框（草图点+blind/throughAll），
+           提交同走 FeatureService 的 hole op；不套用通用 FeatureDialog。 */
+        <HoleDialog
+          key={dialog.mode === 'edit' ? dialog.featureId : 'new-hole'}
+          featureName={
+            dialog.mode === 'edit'
+              ? dialog.featureName
+              : t(`partStudio.ribbon.tools.${dialog.featureType}.label`)
+          }
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          applyOp={applyOp}
+          connectionKey={connection?.key}
+          sketches={sketches}
+          bodies={bodies}
+          canEdit={canEdit}
+          onConfirm={closeDialog}
+          onCancel={closeDialog}
+        />
+      ) : dialog.featureType === 'cPlane' ? (
+        /* ADR-0006 切片 B1：cPlane 使用专用对话框（图元/偏移/偏移距离/反转法线），
+           提交 insertFeature/updateParams；不套用通用 FeatureDialog。 */
+        <CPlaneDialog
+          key={dialog.mode === 'edit' ? dialog.featureId : 'new-cPlane'}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : newCPlaneName}
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          applyOp={applyOp}
+          canEdit={canEdit}
+          onConfirm={closeDialog}
+          onCancel={closeDialog}
+        />
+      ) : (
         <FeatureDialog
           key={
             dialog.mode === 'edit'
@@ -534,15 +650,17 @@ export function PartStudioCanvas({
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />
-      )}
+      ))}
       {dialog.active === 'sketch' && (
         <SketchDialog
           sketchId={dialogSketchId ?? activeSketchIdForDialog ?? undefined}
           editing={sketchActiveForDialog}
           planeId={sketchDraftPlane}
+          planes={sketchPlaneOptions}
           onPlaneChange={(plane) => {
             setSketchDraftPlane(plane);
-            selectDatum(plane);
+            // 只有三基准面同步树选中；cPlane 是特征行，不写 datum 选中态。
+            selectDatum(plane === 'top' || plane === 'front' || plane === 'right' ? plane : null);
           }}
           applyOp={applyOp}
           canEdit={canEdit}

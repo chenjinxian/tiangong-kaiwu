@@ -34,10 +34,10 @@ test.beforeEach(async ({ page }) => {
 
 test('筛选切换：默认我的文档真实数据（≥1 文档）→ 最近 → 收藏', async ({ page }) => {
   // 默认档=我的文档（DEFAULT_DOCUMENT_FILTER，?filter 缺席收敛）：种子项目真实在列
-  await expect(page.getByRole('heading', { name: '我的文档' })).toBeVisible();
-  await expect(page.getByRole('button', { name: SEED_PROJECT_NAME }).first()).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(page.getByRole('heading', { name: '由我所有' })).toBeVisible();
+  await expect(
+    page.locator('.documents-body').getByText(SEED_PROJECT_NAME).first(),
+  ).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/个文档/)).toBeVisible();
   // P2.6c1 flag-on 双区（e2e 环境以 VITE_B_MODEL_ENABLED=true 启动）：B 项目区
   // 在场且 B 种子落位；A 旧文档种子仍在 A 区；B 种子不混入 A 区（分区读取
@@ -83,10 +83,10 @@ test('创建菜单开合：✅ 新建文档 + 🟠 gated 项能力引导（hones
 });
 
 test('表格/网格切换 + localStorage 记忆', async ({ page }) => {
-  await sidebar(page).getByRole('button', { name: '我的文档' }).click();
-  await expect(page.getByRole('button', { name: SEED_PROJECT_NAME }).first()).toBeVisible({
-    timeout: 20_000,
-  });
+  await sidebar(page).getByRole('button', { name: '由我所有' }).click();
+  await expect(
+    page.locator('.documents-body').getByText(SEED_PROJECT_NAME).first(),
+  ).toBeVisible({ timeout: 20_000 });
 
   // 切表格：Table 表头中文名 + 种子行在列。P2.6c1：flag-on 时 B 项目区也有
   // 自己的表格，选择器必须锚 A 旧文档区（`.documents-body`）——否则双表命中
@@ -112,10 +112,10 @@ test('表格/网格切换 + localStorage 记忆', async ({ page }) => {
 });
 
 test('搜索三态：命中 → 未命中空态 → 清除还原', async ({ page }) => {
-  await sidebar(page).getByRole('button', { name: '我的文档' }).click();
-  await expect(page.getByRole('button', { name: SEED_PROJECT_NAME }).first()).toBeVisible({
-    timeout: 20_000,
-  });
+  await sidebar(page).getByRole('button', { name: '由我所有' }).click();
+  await expect(
+    page.locator('.documents-body').getByText(SEED_PROJECT_NAME).first(),
+  ).toBeVisible({ timeout: 20_000 });
 
   const searchBox = page.getByPlaceholder('搜索文档…');
   // flag-on 双区共用搜索词：B 区标题在 projects-section 内，A 区标题在 main 的
@@ -129,7 +129,7 @@ test('搜索三态：命中 → 未命中空态 → 清除还原', async ({ page
   await expect(aToolbar.getByRole('heading', { name: '搜索："测试"' })).toBeVisible();
   await expect(projects.getByRole('heading', { name: '搜索："测试"' })).toBeVisible();
   await expect(projects.getByText('未找到匹配项目')).toBeVisible();
-  await expect(page.getByRole('button', { name: SEED_PROJECT_NAME }).first()).toBeVisible();
+  await expect(page.locator('.documents-body').getByText(SEED_PROJECT_NAME).first()).toBeVisible();
 
   // 未命中：诚实空态
   await searchBox.fill('绝对不存在的文档名-x');
@@ -137,8 +137,8 @@ test('搜索三态：命中 → 未命中空态 → 清除还原', async ({ page
 
   // 清除：还原分区
   await page.getByRole('button', { name: '清除搜索' }).click();
-  await expect(page.getByRole('heading', { name: '我的文档' })).toBeVisible();
-  await expect(page.getByRole('button', { name: SEED_PROJECT_NAME }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: '由我所有' })).toBeVisible();
+  await expect(page.locator('.documents-body').getByText(SEED_PROJECT_NAME).first()).toBeVisible();
 });
 
 test('B 项目 UI 入口：文档中心 B 区 → 详情 → 打开工作空间进默认 Part Studio', async ({
@@ -159,7 +159,7 @@ test('B 项目 UI 入口：文档中心 B 区 → 详情 → 打开工作空间�
   const projects = page.getByTestId('projects-section');
   const bCard = projects.getByRole('button', { name: B_SEED_PROJECT_NAME }).first();
   await expect(bCard).toBeVisible({ timeout: 20_000 });
-  await bCard.click();
+  await bCard.dblclick();
 
   // ② B 项目详情（无只读横幅；B 种子库卡片 + 打开工作空间入口）
   await expect(page).toHaveURL(new RegExp(`/documents/${bSeed.itwinId}(\\?.*)?$`));

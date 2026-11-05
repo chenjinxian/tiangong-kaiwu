@@ -1,13 +1,56 @@
+import { existsSync, statSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { configDefaults, defineConfig } from 'vitest/config';
 
+const appDir = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * 2026-11-05 官方 ViewCube：iTwin AppUI SCSS 使用 webpack 风格 `~@itwin/...`
+ * 导入（如 `@itwin/core-react/lib/core-react/base/base`）。Vite 的 Sass 编译器
+ * 不认识 `~`，直接 500。这里按包内真实布局解析到 `.scss` 文件（sass 条件导出
+ * 的 `lib/*` 映射），不改 node_modules。
+ */
+function findSassTildeImport(url: string): URL | null {
+  if (!url.startsWith('~')) return null;
+  const target = path.join(appDir, 'node_modules', url.slice(1));
+  const candidates = [
+    `${target}.scss`,
+    `${target}.sass`,
+    path.join(target, 'index.scss'),
+    path.join(path.dirname(target), `_${path.basename(target)}.scss`),
+    target,
+  ];
+  const file = candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
+  return file ? pathToFileURL(file) : null;
+}
+
 export default defineConfig({
   plugins: [react()],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        importers: [{ findFileUrl: findSassTildeImport }],
+      },
+    },
+  },
   optimizeDeps: {
     // link: 包不做预打包（brief 钉死项）；@itwin/core-frontend 为 DevViewerRoute
     // 就绪态回退读取通道，按 apps/web 先例排除（esm 产物源码直服）。
     // M6-a T5：core-geometry/core-common 同 link: 口径一并排除（草图工具链依赖）。
-    exclude: ['@luban-cad/viewer', '@luban-cad/shared', '@itwin/core-frontend', '@itwin/core-geometry', '@itwin/core-common'],
+    exclude: [
+      '@luban-cad/viewer',
+      '@luban-cad/shared',
+      '@itwin/core-frontend',
+      '@itwin/core-geometry',
+      '@itwin/core-common',
+      // 2026-11-05 官方 ViewCube：AppUI 组件（imodel-components-react 等）仍由
+      // Vite 预打包（其 CJS 依赖 classnames 等是 pnpm 传递依赖，直服会缺
+      // default 导出）；但 core-* 保持排除，esbuild 将其 external 到 link: 源码，
+      // 保证 Matrix3d/UiEvent/Viewport 与主应用同实例。默认 onshape 模式不 import
+      // 官方组件，因此不触发这条预打包链。
+    ],
   },
   server: {
     // C2 退役（2026-10-26）：新 web 迁入 :5300（旧 apps/web 删除，docs/PORTS.md 既定方案；
@@ -75,6 +118,18 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
+    server: {
+      deps: {
+        // 官方 ViewCube 默认加载后，jsdom 单测也会 import AppUI 包；这些包
+        // 直接 import .scss，Node ESM 会以 ERR_UNKNOWN_FILE_EXTENSION 崩。
+        // 交给 Vite 转换（CSS 在 Vitest 下由 css:false 处理为空模块）。
+        inline: [
+          '@itwin/imodel-components-react',
+          '@itwin/components-react',
+          '@itwin/core-react',
+        ],
+      },
+    },
     // e2e/*.spec.ts 是 Playwright 套件（独立 config playwright.config.ts）——
     // vitest 缺省 include 收 *.spec.* 会把它们当单测收集、集间即红（M5-T5 起
     // 在场，M5-T7 perf 探针入 e2e 时一并钉死排除面）。缺省排除面保留

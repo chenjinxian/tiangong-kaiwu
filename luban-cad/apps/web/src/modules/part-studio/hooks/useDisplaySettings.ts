@@ -16,15 +16,28 @@ import {
   type DisplaySettings,
 } from '../internal/display-actions.js';
 
-const STORAGE_KEY = 'luban.partStudio.displaySettings.v2';
+const STORAGE_KEY = 'luban.partStudio.displaySettings.v3';
+/** v2 旧默认（AO 37.5% / 线宽 1px）→ v3（20% / 2px）一次性迁移源。 */
+const LEGACY_V2_STORAGE_KEY = 'luban.partStudio.displaySettings.v2';
+
+function mergeWithDefaults(parsed: Partial<DisplaySettings>): DisplaySettings {
+  return { ...DEFAULT_DISPLAY_SETTINGS, ...parsed };
+}
 
 function loadSettings(): DisplaySettings {
   if (typeof localStorage === 'undefined') return DEFAULT_DISPLAY_SETTINGS;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_DISPLAY_SETTINGS;
-    const parsed = JSON.parse(raw) as Partial<DisplaySettings>;
-    return { ...DEFAULT_DISPLAY_SETTINGS, ...parsed };
+    if (raw) return mergeWithDefaults(JSON.parse(raw) as Partial<DisplaySettings>);
+    const legacy = localStorage.getItem(LEGACY_V2_STORAGE_KEY);
+    if (!legacy) return DEFAULT_DISPLAY_SETTINGS;
+    // 只把仍等于 v2 默认的项迁到新默认；用户自定义的其他值保留。
+    const migrated = JSON.parse(legacy) as Partial<DisplaySettings>;
+    if (migrated.aoIntensityPct === 37.5)
+      migrated.aoIntensityPct = DEFAULT_DISPLAY_SETTINGS.aoIntensityPct;
+    if (migrated.edgeWidthPx === 1)
+      migrated.edgeWidthPx = DEFAULT_DISPLAY_SETTINGS.edgeWidthPx;
+    return mergeWithDefaults(migrated);
   } catch {
     return DEFAULT_DISPLAY_SETTINGS;
   }

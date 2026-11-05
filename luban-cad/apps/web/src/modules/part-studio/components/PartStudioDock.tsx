@@ -23,14 +23,15 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge, Button, ProgressRadial, Text } from '@itwin/itwinui-react';
 import { SvgSave, SvgUploadToCloud } from '@itwin/itwinui-icons-react';
+import type { BodyInfo } from '@luban-cad/shared';
 import type { Changeset } from '@clients/imodels/ImodelsClient.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import { useChangesets } from '../hooks/useChangesets.js';
 import { useNamedVersions } from '../hooks/useNamedVersions.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import type { DockTab } from '../types.js';
-import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
-import { DisplaySettingsPanel } from './DisplaySettingsPanel.js';
+import { AppearancesPanel } from './AppearancesPanel.js';
+import type { AppearanceSketchItem } from './AppearancesPanel.js';
 import './PartStudioDock.css';
 
 /** Onshape 右缘 5 钮（live：appearances / configuration-table / featurescript-table /
@@ -62,8 +63,14 @@ export interface PartStudioDockProps {
   onSave?: () => void;
   /** 打开推送对话框（宿主 Session 持共享 PushChangesetDialog 实例；缺省诚实禁用）。 */
   onPush?: () => void;
-  /** 显示/渲染设置共享状态（ViewCube 下拉同源；缺省保持占位）。 */
-  displaySettings?: UseDisplaySettingsResult;
+  /** 外观面板：库内实体读面（active authored）。 */
+  bodies?: readonly BodyInfo[];
+  /** 外观面板：草图列表（树 sketch 行映射）。 */
+  sketches?: readonly AppearanceSketchItem[];
+  /** 外观面板：逐 body 颜色（bodyKey → #rrggbb）。 */
+  bodyColors?: Readonly<Record<string, string>>;
+  /** 外观面板：颜色变更回调（宿主应用 FeatureOverride）。 */
+  onBodyColorChange?: (bodyKey: string, color: string) => void;
 }
 
 export function PartStudioDock({
@@ -73,7 +80,10 @@ export function PartStudioDock({
   isSaving = false,
   onSave,
   onPush,
-  displaySettings,
+  bodies = [],
+  sketches = [],
+  bodyColors = {},
+  onBodyColorChange,
 }: PartStudioDockProps): React.JSX.Element {
   const { t } = useTranslation();
   const activeTab = usePartStudioStore((s) => s.dock.activeTab);
@@ -125,7 +135,9 @@ export function PartStudioDock({
       </div>
       {isOpen && (
         <div
-          className="part-studio-dock__body"
+          className={activeTab === 'display'
+            ? 'part-studio-dock__body part-studio-dock__body--appearances'
+            : 'part-studio-dock__body'}
           data-testid="part-studio-dock-body"
           role="tabpanel"
           id="part-studio-dock-body"
@@ -141,8 +153,13 @@ export function PartStudioDock({
               onSave={onSave}
               onPush={onPush}
             />
-          ) : activeTab === 'display' && displaySettings ? (
-            <DisplaySettingsPanel {...displaySettings} />
+          ) : activeTab === 'display' ? (
+            <AppearancesPanel
+              bodies={bodies}
+              sketches={sketches}
+              bodyColors={bodyColors}
+              onBodyColorChange={onBodyColorChange}
+            />
           ) : (
             /* 工具设置仍为壳期占位。 */
             <Text isMuted>{t('partStudio.dock.placeholder')}</Text>

@@ -1,0 +1,10 @@
+{
+  "cube": {
+    "front": "前",
+    "back": "后",
+    "top": "上",
+    "bottom": "下",
+    "left": "左",
+    "right": "右"
+  }
+}

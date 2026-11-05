@@ -52,4 +52,12 @@ export interface DocumentSort {
 
 /** 创建菜单的 gated（🟠 能力门）项键——照常可点，打开能力引导对话框
  * （spec §0 铁律 1 完整 UI 面：gated 是运行时数据，不是视觉残缺）。 */
-export type GatedCreateAction = 'folder' | 'importFile' | 'importFrom' | 'labelTag';
+export type GatedCreateAction =
+  | 'folder'
+  | 'importFile'
+  | 'importFrom'
+  | 'labelTag'
+  | 'upgrade'
+  | 'learning'
+  | 'forum'
+  | 'help';

@@ -29,7 +29,14 @@
 | [adr/0005-extrude-revolve-contract-onshape-parity.md](./adr/0005-extrude-revolve-contract-onshape-parity.md) | ADR（已接受 2026-11-04，Phase 1 已落地）：extrude endBound blind/throughAll、REMOVE/INTERSECT、方向/起始偏移；revolve remove；upTo*/draft/secondDirection/revolve new 待后续；face-extrude 转 ADR-0006 |
 | [adr/0006-onshape-new-feature-types.md](./adr/0006-onshape-new-feature-types.md) | ADR（提议/待立项）：hole/draft/rib/pattern/mirror 平面/cPlane/变量/face-extrude/chamfer 边语义；逐能力另立 AIRR/ADR |
 | [superpowers/specs/2026-11-04-debt-cleanup-x01-x03-airr.md](./superpowers/specs/2026-11-04-debt-cleanup-x01-x03-airr.md) | AIRR：X-01/X-02/X-03 第一轮债务清理（复用矩阵/跨仓影响/测试/回滚） |
-| [superpowers/specs/2026-11-04-onshape-example-replication-airr.md](./superpowers/specs/2026-11-04-onshape-example-replication-airr.md) | AIRR（已批准）：Onshape 示例复刻与 Part Studio 交互/UI 对齐；Batch 1 六示例、复用矩阵、跨仓/回滚 |
+| [superpowers/specs/2026-11-04-onshape-example-replication-airr.md](./superpowers/specs/2026-11-04-onshape-example-replication-airr.md) | AIRR（已批准）：Onshape 示例复刻与 Part Studio 交互/UI 对齐；Batch 1 六示例、复用矩阵、跨仓/回滚；2026-11-05 补 12 个 iModel/重开回归/union 研究结论 |
+| [superpowers/specs/2026-11-05-imprint-face-extrude-airr.md](./superpowers/specs/2026-11-05-imprint-face-extrude-airr.md) | AIRR（草稿，未批准）：imprint-face / 面轮廓拉伸；切片 0 spike 证明整平面 faceRef 可行（Loop/ParityRegion），但 iOS imprint 子面需 face split；批准前不写实现代码 |
+| [superpowers/specs/2026-11-05-sketch-feature-capability-backlog.md](./superpowers/specs/2026-11-05-sketch-feature-capability-backlog.md) | 草图/特征能力补齐 backlog：按 140 个 scenario 的缺失频次排序的切片计划（chamfer UI、约束 ref 形态、cPlane、pattern/mirror/hole、face split、imports/sheet metal、草图实体）；每片 AIRR/ADR + 真栈验收 |
+| [superpowers/specs/2026-11-05-chamfer-ui-airr.md](./superpowers/specs/2026-11-05-chamfer-ui-airr.md) | AIRR（批准，2026-11-05 已实施）：chamfer UI 创建链 Slice 1；复用 fillet 边拾取/owner/target 与现有 ChamferParams，不改 shared/后端；Hand Brake/iOS 真栈验收、undo/redo、回滚 |
+| [superpowers/specs/2026-11-05-chamfer-modes-airr.md](./superpowers/specs/2026-11-05-chamfer-modes-airr.md) | AIRR（批准，2026-11-05 已实施）：倒角 Slice 1b 双距离/距离-角度模式（mode=2/3）+编辑回显；Sample Assignment 以 1.524 mm/45° 精确建出，体积 0.00% |
+| [superpowers/specs/2026-11-05-scenario-edge-selector-airr.md](./superpowers/specs/2026-11-05-scenario-edge-selector-airr.md) | AIRR（批准，2026-11-05 已实施）：converter CAP_EDGE 语义选择器 + 私有后端 ScenarioReplay 持久边解析；合成 fillet/chamfer StandaloneDb 场景 2/2，SWEPT_EDGE/full-round 仍待补 |
+| [superpowers/specs/2026-11-05-cplane-airr.md](./superpowers/specs/2026-11-05-cplane-airr.md) | AIRR（批准，2026-11-05 已实施，shared 1.29.0）：cPlane 基准面（Top/Front/Right + 偏移 + 反转法线）+ 草图落在自定义平面；CPlaneDialog（按 live 可编辑副本证据）、SketchDialog 平面列表、树标签与编辑回显；被引用时改参/删除诚实拒收；Intro to CAD 真栈 2 passed、体积 85157.341 mm³；B1b 视口渲染 / B2 改参传播待后续 |
+| [superpowers/specs/2026-11-05-ui-polish-airr.md](./superpowers/specs/2026-11-05-ui-polish-airr.md) | AIRR（批准，2026-11-05 已实施）：工具栏下拉 180px/父行+快捷键、ViewCube 二轮逐像素复核 + 三轮交互对齐（面边 58px/屏幕直立标签/三色轴/隐藏面轮廓带/角点蓝点/罗盘弧 hover/180ms 相机动画/无拖拽/trigger tooltip）、左侧「图形首选项」对话框、右侧「外观」面板（零件/草图 tab + 逐 body 颜色覆盖）；live 证据 `ui-polish-20261105` + `viewcube-exact-20261105` + `viewcube-interactions-20261105`；官方 iTwin ViewCube **默认**（`?viewcube=onshape` 回退自研；相机/渲染菜单抽成唯一 `ViewCubeCameraMenu` 挂官方 cube；lazy、事件桥、宿主命中/箭头/1.5×/target 修复）；图形首选项默认 AO 20%/线宽 2px；web 1382/1382 |
 | [superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md](./superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md) | Batch 1 能力/数据缺口矩阵（construction/DIAMETER/endBound 等契约缺口；ADR-0004/0005 批次） |
 | [superpowers/plans/2026-11-04-onshape-parity-batch1-gate.md](./superpowers/plans/2026-11-04-onshape-parity-batch1-gate.md) | 执行计划：Tutorial 2 X-14 关闭 + 面域拾取安全化 + Batch 1 缺口登记（已完成并留证） |
 | [ROADMAP.md](./ROADMAP.md) | 路线图索引（指向全程序路线图） |
@@ -37,12 +44,13 @@
 | [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |
 | [baseline-reliability-design.md](./baseline-reliability-design.md) | Baseline 可靠性设计 |
 | [IMODEL_AUTO_RECOVERY_DESIGN.md](./IMODEL_AUTO_RECOVERY_DESIGN.md) | iModel 初始化失败自动修复设计 |
-| [UI-ONSHAPE-PARITY-2026-11-02.md](./UI-ONSHAPE-PARITY-2026-11-02.md) | Onshape UI 全量对齐（40px 顶栏/36px 工具栏/40px 面板轨/200px 树/30px 页签、Onshape SVG 图标、ViewCube/显示设置、无可见状态栏；草图**单对话框**（创建+编辑，无实体/约束清单面板）+ 视口平面拾取 + 单尺寸钮与标注位置弹框 + 拉伸/旋转视口面域 chip + 特征树双击二次编辑（updateParams）；含 Tutorial2 四短竖棱圆角、特征实时预览与「Tutorial 2 - Build a Part」新建项目展示；2026-11-03 渲染回退 iTwin 默认材质/灯光、无模式统一选择） |
+| [UI-ONSHAPE-PARITY-2026-11-02.md](./UI-ONSHAPE-PARITY-2026-11-02.md) | Onshape UI 全量对齐（40px 顶栏/36px 工具栏/40px 面板轨/200px 树/30px 页签、Onshape SVG 图标、ViewCube/显示设置、无可见状态栏；草图**单对话框**（创建+编辑，无实体/约束清单面板）+ 视口平面拾取 + 单尺寸钮与标注位置弹框 + 拉伸/旋转视口面域 chip + 特征树双击二次编辑（updateParams）；2026-11-05：编辑偏移/自定义平面草图显示「自定义平面」且 ✓ 可完成；extrude 终止条件 给定深度/完全贯穿；含 Tutorial2 四短竖棱圆角、特征实时预览与「Tutorial 2 - Build a Part」新建项目展示；2026-11-03 渲染回退 iTwin 默认材质/灯光、无模式统一选择；2026-11-05 官方 iTwin ViewCube 设为默认 + 相机/渲染菜单复用，`?viewcube=onshape` 回退自研；2026-11-06 全 UI live 复核：文档中心/新建/登录/文档详情、220px 扁平皮肤特征对话框、Hole/Plane/Sketch/Pattern/Mirror/Boolean 字段顺序，新增公开产品介绍页 `/showcase` 与 4K/1080p 素材） |
 | [BREP-RENDERING-2026-11-03.md](./BREP-RENDERING-2026-11-03.md) | 完整 BRep 元素渲染与拾取（不修改 iTwin 渲染器/shader）：iTwin 默认灯光/材质 + 白底 + 全部拓扑边叠加层（WorldDecoration + 深度偏移）、BRep 顶点显示、统一 Onshape 无模式点/边/面拾取（面 `getClosestPoint` 兜底、背棱深度剔除、undo/redo 恢复选择）；含原生面定位卡死与 3-scope 相机竞态已知边界 |
 
 ### 技术参考
 | 文档 | 说明 |
 |------|------|
+| [示例 iModel 复刻画廊](../luban-cad/apps/web/demo-artifacts/examples/index.html) | 已完成 Onshape 示例的真实 iModel 分步演示（2026-11-05：Tutorial 2、Tutorial 2 iOS、Basic Drawing、Postman、WARNING LABEL + 3 个同几何文档、Mate Connectors、Intro to CAD（cPlane UI）、Hand Brake、Sample Assignment；共 12 个 iModel，含 runner/manifest） |
 | [iTwin.js-Tools-Complete-Reference.md](./iTwin.js-Tools-Complete-Reference.md) | iTwin.js 工具完整参考 |
 | [ITWINJS_CORE_MODIFICATIONS.md](./ITWINJS_CORE_MODIFICATIONS.md) | iTwin.js Core 修改记录 |
 | [web-realstack-probes.md](./web-realstack-probes.md) | 前端真实栈探针标准动作（发布前必跑） |
@@ -86,4 +94,4 @@
 
 现行能力状态以本目录保留文档与代码/测试实测为准（状态标记：✅/🟠/⚪/❌）。
 
-*最后更新: 2026-11-04（X-01/X-02/X-03/X-14 已关闭；Onshape parity AIRR 已批准、ADR-0003/0004 已接受、ADR-0005 Phase 1（shared 1.22.0：extrude remove/intersect/throughAll/direction/offset、revolve remove）已落地、ADR-0006 待立项；Batch 1 缺口矩阵/执行计划/scenario v1 落档；Tutorial 2 iOS 几何回放 157.165 cm³/-0.20%；tutorial2 setup+strict 2 passed、tutorial2-tools 6 passed；后端/原生逐文件证据在私有仓）*
+*最后更新: 2026-11-05（UI polish 完成真栈复核，并二次逐像素重做 ViewCube：DPR4 live 分析确认 cube 面边 58px、标签屏幕直立、三色轴 #cd0000/#009400/#0000d0 锚 Front 面左下、trigger 44.226×28、Home 仅自由视角；工具栏下拉 180px/父行+快捷键、ViewCube 交互对齐（可见面/隐藏面轮廓带/角点/罗盘弧 hover、180ms 相机动画、无拖拽、trigger tooltip）、左侧「图形首选项」对话框（默认 AO 20%/FOV 45°/线宽 2px/光泽度 3%）、右侧「外观」面板 + 逐 body 颜色覆盖（会话内显示，未持久化）；web **1382/1382**、tsc/lint 绿；live 证据 `ui-evidence/ui-polish-20261105` 47–54、`ui-evidence/viewcube-exact-20261105`、`ui-evidence/viewcube-interactions-20261105`；官方 iTwin ViewCube **默认** + 相机/渲染菜单（`?viewcube=onshape` 回退自研；真栈 `itwin-viewcube.spec.ts`、ui-parity、tutorial2 均绿；证据 `ui-evidence/itwin-viewcube-20261105`）。此前：cPlane Slice B1（shared 1.29.0，Intro to CAD 真栈 85157.341 mm³）；chamfer UI Slice 1/1b；converter CAP_EDGE + ScenarioReplay 2/2；12 个示例 iModel 重开通过；X-01/X-02/X-03/X-14 已关闭；ADR-0004/0005 Phase 1、ADR-0006 切片 A/A2/A3/B1 已落地）*
