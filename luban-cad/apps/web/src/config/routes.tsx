@@ -22,8 +22,9 @@ import { SignInRoute } from '@routes/SignInRoute.js';
 import { SignUpRoute } from '@routes/SignUpRoute.js';
 
 export const routes: RouteObject[] = [
-  { path: '/', element: <DevTokensRoute /> },
+  { path: '/', element: <ShowcaseRoute /> },
   { path: '/showcase', element: <ShowcaseRoute /> },
+  { path: '/dev-tokens', element: <DevTokensRoute /> },
   { path: '/dev-viewer', element: <DevViewerRoute /> },
   { path: '/login', element: <SignInRoute /> },
   { path: '/register', element: <SignUpRoute /> },
