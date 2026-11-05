@@ -5,18 +5,18 @@
 
 <p align="center">
   <a href="luban-cad/apps/web/public/showcase/tutorial2-demo-1080p.webm">
-    <img src="luban-cad/apps/web/public/showcase/video-poster.webp" alt="鲁班CAD 完整宣传片：从草图到真实 BRep" width="100%"/>
+    <img src="luban-cad/apps/web/public/showcase/demo-preview.gif" alt="鲁班CAD 动图预览：文档中心、草图、拉伸、圆角与孔" width="100%"/>
   </a>
 </p>
 
 <p align="center">
   <strong>▶ <a href="luban-cad/apps/web/public/showcase/tutorial2-demo-1080p.webm">观看完整宣传片</a></strong>
-  （1080p · 01:21 · 真实鼠标轨迹）&nbsp;·&nbsp;
+  （1080p · 01:21 · 真实鼠标轨迹；上方动图自动循环）&nbsp;·&nbsp;
   <a href="luban-cad/apps/web/public/showcase">4K 实机截图</a>
 </p>
 
 > **产品介绍页**：本地栈入口 `http://localhost:5301/`，前端 dev 为 `http://localhost:5300/`；主页即完整宣传片与能力展示（`/showcase` 同内容），无需登录。
-> 宣传片直接从产品主页播放完整版。GitHub README 不支持内嵌仓库内的视频文件，因此这里用封面图链接完整视频。
+> 宣传片完整版在产品主页 `/` 内嵌播放。GitHub README 不支持内嵌仓库内的视频文件，因此 README 使用自动循环的动图预览，点击可打开完整 1080p 视频。
 
 ---
 
