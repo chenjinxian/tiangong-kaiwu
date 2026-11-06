@@ -93,7 +93,16 @@ test.describe('shell 移除面真栈验收', () => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 600_000);
     const token = await getApiToken();
     const ids = await ensureExampleImodel(request, token, 'E2E - Shell Face', { reset: true });
-    const ctx = await openExampleEditor(page, ids);
+    // 冷 baseline 首次下载可能超过单次画布等待；失败后 reload 一次（缓存已落）。
+    const openWithRetry = async (target: { itwinId: string; imodelId: string } = ids) => {
+      try {
+        return await openExampleEditor(page, target);
+      } catch {
+        await page.reload();
+        return openExampleEditor(page, target);
+      }
+    };
+    const ctx = await openWithRetry();
     const scenario = syntheticScenario();
 
     const built = await runScenario(ctx, scenario, token, {
@@ -112,7 +121,7 @@ test.describe('shell 移除面真栈验收', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.01);
 
     await page.reload();
-    const reopened = await openExampleEditor(page, ids);
+    const reopened = await openWithRetry({ itwinId: ids.itwinId, imodelId: ids.imodelId });
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'revolve', 'shell']);
     expect(tree.every((row) => row.status === 0)).toBe(true);
