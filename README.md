@@ -104,7 +104,7 @@ nginx ─┬─ /api /ws /ipc → modeling-server :5401（Briefcase / FeatureOp 
 前置：**Windows 10/11 x64**、Docker Desktop（已启动）、Node.js 20.12+（推荐 22 LTS）。**不需要 GitHub 账号，不需要 `gh`，不需要 `docker login`** —— 4 个服务镜像（web / bff / imodelhub / webhook-agent）与 Windows 后端产物均为公开资源（镜像已脱敏，不含私有源码）。
 
 ```powershell
-git clone https://github.com/chenjinxian/tiangong-kaiwu.git
+git clone --depth 1 https://github.com/chenjinxian/tiangong-kaiwu.git
 cd tiangong-kaiwu
 powershell -NoProfile -File scripts/quickstart.ps1
 ```

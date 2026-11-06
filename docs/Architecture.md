@@ -494,7 +494,8 @@ Docker Compose（根 docker-compose.yml）:
   - postgres / redis / maildev / azurite   基础设施
   - imodelhub      ← GHCR 镜像 ghcr.io/chenjinxian/imodelhub-public
   - webhook-agent  ← GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent-public
-  - web            本仓构建（luban-cad/apps/web/Dockerfile）
+  - web            ← GHCR 镜像 ghcr.io/chenjinxian/luban-web-public（静态前端；开发者可本仓 build 覆盖）
+  - bff            ← GHCR 镜像 ghcr.io/chenjinxian/luban-bff-public
   - nginx          :80 统一入口
 
 宿主进程（不在 compose 内）:

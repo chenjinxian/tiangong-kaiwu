@@ -13,7 +13,7 @@ LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有�
 **一键起栈**（Windows 10/11 x64）：
 
 ```powershell
-git clone https://github.com/chenjinxian/tiangong-kaiwu.git
+git clone --depth 1 https://github.com/chenjinxian/tiangong-kaiwu.git
 cd tiangong-kaiwu
 powershell -NoProfile -File scripts/quickstart.ps1
 ```
@@ -49,9 +49,9 @@ powershell -NoProfile -File scripts/verify-public-deps.ps1
 
 | 产物 | Tag / Release | Digest / SHA256 |
 |---|---|---|
-| web | `backend-20261106` / `latest` | `sha256:23ca8405621dbab84fdf5db82a4b6e61565f13c79b8bfe5656305df2edb418d0` |
+| web | `backend-20261106` / `latest` | `sha256:706a6dd5d0c6892be8a9f7165b151c81c95047ad3ea2c5bf07b6712a8634c5d3` |
 | bff | `backend-20261106` / `latest` | `sha256:f0f8f6b7eca9425c4d2f828a0763b62ffc5a5057047fc6e4ae56a8eab877fd19` |
-| imodelhub | `backend-20261106` / `latest` | `sha256:3bae7b6746fe04228ebb469a16956cf3dab3c4563593e253a5004ea2811813cb` |
+| imodelhub | `backend-20261106` / `latest` | `sha256:24eb26b352db3a0b0afa9b0726f987f9e6fd34afc93aba395be23b2d1d4c71cc` |
 | webhook-agent | `backend-20261106` / `latest` | `sha256:27eb8103705cd9b64ba56c402aa0e9c3e325d9c3a722893708844734625951b4` |
 | modeling-server | Release `backend-20261106` | `sha256:fc35aa45c9f395168cb7ac47f8f4fbe27528a133221faecc231bc6960a60bbcf`（178,691,226 B，契约 1.32.0，Windows x64） |
 
