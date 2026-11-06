@@ -61,6 +61,8 @@ interface OpMeta {
   depthMm?: number;
   symmetric?: boolean;
   oppositeDirection?: boolean;
+  /** throughAll 的物理深度由 body 决定，不能用 depthMm 当扫掠范围。 */
+  endBound?: string;
   axisSketchEntityId?: number;
 }
 
@@ -121,6 +123,76 @@ function worldOf(frame: Frame, u: number, v: number, w: number): Vec3 {
 
 const near = (a: Vec3, b: Vec3, tol = TOL): boolean =>
   Math.abs(a[0] - b[0]) < tol && Math.abs(a[1] - b[1]) < tol && Math.abs(a[2] - b[2]) < tol;
+
+/** 世界点 → 草图坐标系 (u, v, w)；w 沿拉伸方向。 */
+function frameCoords(frame: Frame, p: Vec3): [number, number, number] {
+  const v = sub(p, frame.o);
+  return [dot(v, frame.x), dot(v, frame.y), dot(v, frame.n)];
+}
+
+const near2 = (a: readonly [number, number], b: readonly [number, number], tol = TOL): boolean =>
+  Math.abs(a[0] - b[0]) < tol && Math.abs(a[1] - b[1]) < tol;
+
+/**
+ * through-all 拉伸的侧边：不依赖记录深度，只要求边沿草图法向、且在某个
+ * 草图端点 (u,v) 上（实际 w 范围由 body 决定）。
+ */
+function sweptSideUv(edge: EdgeHandle, frame: Frame): [number, number] | undefined {
+  if (edge.curve.kind !== 'line' || !edge.curve.p0 || !edge.curve.p1) return undefined;
+  const a = frameCoords(frame, edge.curve.p0);
+  const b = frameCoords(frame, edge.curve.p1);
+  if (Math.abs(a[2] - b[2]) < TOL) return undefined; // 必须跨法向
+  if (!near2([a[0], a[1]], [b[0], b[1]])) return undefined; // 必须平行法向
+  return [a[0], a[1]];
+}
+
+/** 端盖边所在的 w（线取共面 w；弧取圆心 w）；非共面返回 undefined。 */
+function capEdgeW(edge: EdgeHandle, frame: Frame): number | undefined {
+  if (edge.curve.kind === 'line' && edge.curve.p0 && edge.curve.p1) {
+    const a = frameCoords(frame, edge.curve.p0);
+    const b = frameCoords(frame, edge.curve.p1);
+    return Math.abs(a[2] - b[2]) < TOL ? (a[2] + b[2]) / 2 : undefined;
+  }
+  if (edge.curve.kind === 'arc' && edge.curve.center)
+    return frameCoords(frame, edge.curve.center)[2];
+  return undefined;
+}
+
+/** 面边界选择器在 through-all/任意深度下的端盖边：投影回草图坐标系比对。 */
+function projectedCapEdgeMatches(edge: EdgeHandle, entity: Record<string, unknown>, frame: Frame): boolean {
+  if (entity.kind === 'line') {
+    if (edge.curve.kind !== 'line' || !edge.curve.p0 || !edge.curve.p1) return false;
+    const p1 = point2(entity.p1);
+    const p2 = point2(entity.p2);
+    if (!p1 || !p2) return false;
+    const a = frameCoords(frame, edge.curve.p0);
+    const b = frameCoords(frame, edge.curve.p1);
+    if (Math.abs(a[2] - b[2]) > TOL) return false;
+    return (near2([a[0], a[1]], p1) && near2([b[0], b[1]], p2))
+      || (near2([a[0], a[1]], p2) && near2([b[0], b[1]], p1));
+  }
+  if (entity.kind === 'circle' || entity.kind === 'arc') {
+    if (edge.curve.kind !== 'arc' || !edge.curve.center || edge.curve.radius === undefined || !edge.curve.normal)
+      return false;
+    const center = point2(entity.center);
+    const radius = Number(entity.radius);
+    if (!center || !Number.isFinite(radius)) return false;
+    if (Math.abs(dot(edge.curve.normal, frame.n)) < 1 - 1e-9) return false;
+    if (Math.abs(edge.curve.radius - radius) > TOL) return false;
+    const c = frameCoords(frame, edge.curve.center);
+    if (!near2([c[0], c[1]], center)) return false;
+    if (entity.kind === 'circle') return true;
+    const expected = arcEndpoints(entity, frame, 0);
+    if (!expected || !edge.curve.start || !edge.curve.end) return false;
+    const start = frameCoords(frame, edge.curve.start);
+    const end = frameCoords(frame, edge.curve.end);
+    const s = frameCoords(frame, expected.start);
+    const e = frameCoords(frame, expected.end);
+    return (near2([start[0], start[1]], [s[0], s[1]]) && near2([end[0], end[1]], [e[0], e[1]]))
+      || (near2([start[0], start[1]], [e[0], e[1]]) && near2([end[0], end[1]], [s[0], s[1]]));
+  }
+  return false;
+}
 
 function point2(value: unknown): [number, number] | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -296,6 +368,7 @@ function collectMetadata(scenario: ParityScenario): {
         symmetric?: boolean;
         oppositeDirection?: boolean;
         direction?: 'forward' | 'backward';
+        endBound?: string;
         selection?: { kind?: string; sketchFeatureId?: string };
       };
       if (!feature.sourceFeatureId) continue;
@@ -308,6 +381,7 @@ function collectMetadata(scenario: ParityScenario): {
         depthMm: p.depthMm ?? 1,
         symmetric: p.symmetric === true,
         oppositeDirection: p.oppositeDirection === true || p.direction === 'backward',
+        ...(p.endBound ? { endBound: p.endBound } : {}),
       });
       continue;
     }
@@ -337,13 +411,164 @@ function findSourceOp(selector: EdgeSelector, ops: readonly OpMeta[]): OpMeta | 
     ?? [...ops].reverse().find((op) => op.sketchSource === selector.sketchFeatureId);
 }
 
+/** 期望边几何（面边界选择器可一次命中多条边）。 */
+type ExpectedEdge =
+  | { kind: 'line'; p0: Vec3; p1: Vec3 }
+  | { kind: 'arc'; center: Vec3; radius: number; normal: Vec3; start: Vec3; end: Vec3 }
+  | { kind: 'circle'; center: Vec3; radius: number; normal: Vec3 };
+
+function edgeMatchesExpected(edge: EdgeHandle, expected: ExpectedEdge): boolean {
+  if (expected.kind === 'line') return lineMatches(edge, expected.p0, expected.p1);
+  if (expected.kind === 'circle')
+    return circleMatches(edge, expected.center, expected.radius, expected.normal);
+  if (!circleMatches(edge, expected.center, expected.radius, expected.normal)) return false;
+  if (!edge.curve.start || !edge.curve.end) return false;
+  return (near(edge.curve.start, expected.start) && near(edge.curve.end, expected.end))
+    || (near(edge.curve.start, expected.end) && near(edge.curve.end, expected.start));
+}
+
+function entityCapEdgeAtWorld(
+  entity: Record<string, unknown>,
+  frame: Frame,
+  w: number,
+): ExpectedEdge | undefined {
+  if (entity.kind === 'circle') {
+    const center = point2(entity.center);
+    const radius = Number(entity.radius);
+    if (!center || !Number.isFinite(radius)) return undefined;
+    return { kind: 'circle', center: worldOf(frame, center[0], center[1], w), radius, normal: frame.n };
+  }
+  if (entity.kind === 'arc') {
+    const center = point2(entity.center);
+    const radius = Number(entity.radius);
+    const ends = arcEndpoints(entity, frame, w);
+    if (!center || !Number.isFinite(radius) || !ends) return undefined;
+    return {
+      kind: 'arc',
+      center: worldOf(frame, center[0], center[1], w),
+      radius,
+      normal: frame.n,
+      start: ends.start,
+      end: ends.end,
+    };
+  }
+  if (entity.kind === 'line') {
+    const p1 = point2(entity.p1);
+    const p2 = point2(entity.p2);
+    if (!p1 || !p2) return undefined;
+    return { kind: 'line', p0: worldOf(frame, p1[0], p1[1], w), p1: worldOf(frame, p2[0], p2[1], w) };
+  }
+  return undefined;
+}
+
+/**
+ * SWEPT_FACE 的期望边界边：草图实体沿 extrude 方向扫出的侧面的 4 条边界
+ * （圆为两端圆环；线/弧为两端盖边 + 两条侧边）。
+ */
+function sweptFaceExpectedEdges(
+  entity: Record<string, unknown>,
+  frame: Frame,
+  wLow: number,
+  wHigh: number,
+): ExpectedEdge[] {
+  const edges: ExpectedEdge[] = [];
+  if (entity.kind === 'circle') {
+    const low = entityCapEdgeAtWorld(entity, frame, wLow);
+    const high = entityCapEdgeAtWorld(entity, frame, wHigh);
+    return [...(low ? [low] : []), ...(high ? [high] : [])];
+  }
+  if (entity.kind === 'line') {
+    const p1 = point2(entity.p1);
+    const p2 = point2(entity.p2);
+    if (!p1 || !p2) return edges;
+    const at = (p: [number, number], w: number) => worldOf(frame, p[0], p[1], w);
+    edges.push({ kind: 'line', p0: at(p1, wLow), p1: at(p1, wHigh) });
+    edges.push({ kind: 'line', p0: at(p2, wLow), p1: at(p2, wHigh) });
+    const lowCap = entityCapEdgeAtWorld(entity, frame, wLow);
+    const highCap = entityCapEdgeAtWorld(entity, frame, wHigh);
+    if (lowCap) edges.push(lowCap);
+    if (highCap) edges.push(highCap);
+    return edges;
+  }
+  if (entity.kind === 'arc') {
+    const lowEnds = arcEndpoints(entity, frame, wLow);
+    const highEnds = arcEndpoints(entity, frame, wHigh);
+    if (lowEnds && highEnds) {
+      edges.push({ kind: 'line', p0: lowEnds.start, p1: highEnds.start });
+      edges.push({ kind: 'line', p0: lowEnds.end, p1: highEnds.end });
+    }
+    const lowCap = entityCapEdgeAtWorld(entity, frame, wLow);
+    const highCap = entityCapEdgeAtWorld(entity, frame, wHigh);
+    if (lowCap) edges.push(lowCap);
+    if (highCap) edges.push(highCap);
+  }
+  return edges;
+}
+
+const endpointKey = (p: readonly [number, number]): string =>
+  `${p[0].toFixed(6)}:${p[1].toFixed(6)}`;
+
+/**
+ * 包含指定实体的闭合草图轮廓环（点忽略；圆独立成环）。
+ * 组成环的每条线/弧端点必须恰好出现 2 次；分叉/开口/多个环一律诚实失败。
+ */
+function profileLoopOf(
+  entities: readonly Record<string, unknown>[],
+  reference: Record<string, unknown>,
+): Record<string, unknown>[] {
+  if (reference.kind === 'circle') return [reference];
+  if (reference.kind !== 'line' && reference.kind !== 'arc') return [];
+
+  const loopable = entities.filter((e) => e.kind === 'line' || e.kind === 'arc');
+  const byEndpoint = new Map<string, Record<string, unknown>[]>();
+  for (const entity of loopable) {
+    for (const p of sketchEntityEndpoints(entity)) {
+      const key = endpointKey(p);
+      const list = byEndpoint.get(key) ?? [];
+      list.push(entity);
+      byEndpoint.set(key, list);
+    }
+  }
+
+  const allowed = new Set<Record<string, unknown>>([reference]);
+  const queue = [reference];
+  while (queue.length) {
+    const current = queue.pop()!;
+    for (const p of sketchEntityEndpoints(current)) {
+      for (const next of byEndpoint.get(endpointKey(p)) ?? []) {
+        if (allowed.has(next)) continue;
+        allowed.add(next);
+        queue.push(next);
+      }
+    }
+  }
+
+  // 闭合环的每个端点必须恰有 2 条实体相接；分叉（T 接）或开口都不猜。
+  for (const entity of Array.from(allowed)) {
+    for (const p of sketchEntityEndpoints(entity)) {
+      const count = (byEndpoint.get(endpointKey(p)) ?? []).filter((c) => allowed.has(c)).length;
+      if (count !== 2)
+        throw new BlockedCapabilityError(
+          'edge-selector',
+          `CAP_FACE 轮廓环不闭合/分叉（端点 ${endpointKey(p)} 接 ${count} 条实体）`,
+        );
+    }
+  }
+  return Array.from(allowed);
+}
+
 function resolveSelector(
   selector: EdgeSelector,
   handles: readonly EdgeHandle[],
   sketches: ReadonlyMap<string, SketchMeta>,
   ops: readonly OpMeta[],
-): EdgeHandle {
-  if (selector.kind !== 'capEdge' && selector.kind !== 'sweptEdge')
+): EdgeHandle[] {
+  if (
+    selector.kind !== 'capEdge' &&
+    selector.kind !== 'sweptEdge' &&
+    selector.kind !== 'capFace' &&
+    selector.kind !== 'sweptFace'
+  )
     throw new BlockedCapabilityError('edge-selector', `不支持的边选择器 ${selector.kind}`);
   if (!selector.sketchFeatureId || selector.sketchEntityId === undefined)
     throw new BlockedCapabilityError('edge-selector', `${selector.kind} 缺少草图/实体`);
@@ -377,28 +602,88 @@ function resolveSelector(
     const wHigh = source.symmetric === true ? distance / 2 : distance;
     const capW = selector.isStart === true ? wLow : wHigh;
     matches = handles.filter((edge) => matchCapEdge(edge, entity, frame, capW));
-  } else if (source.kind === 'extrude') {
+  } else if (selector.kind === 'sweptEdge') {
+    if (source.kind === 'extrude') {
+      const distance = source.depthMm ?? 0;
+      const wLow = source.symmetric === true ? -distance / 2 : 0;
+      const wHigh = source.symmetric === true ? distance / 2 : distance;
+      if (source.endBound === 'throughAll' || source.endBound === 'through_all') {
+        // through-all 的实际深度由 body 决定：按“沿法向 + 草图端点 (u,v)”匹配，
+        // 不拿记录里的 depthMm 当扫掠范围（Pedal 实测：记录 25.4，实际 15.875）。
+        matches = handles.filter((edge) => {
+          const uv = sweptSideUv(edge, frame);
+          return uv !== undefined && sweptPoints.some((p) => near2(uv, p));
+        });
+      } else {
+        matches = handles.filter((edge) => matchSweptExtrude(edge, sweptPoints, frame, wLow, wHigh));
+      }
+    } else {
+      if (source.axisSketchEntityId === undefined)
+        throw new BlockedCapabilityError('edge-selector', 'SWEPT_EDGE 旋转源缺少轴线');
+      const axisEntity = sketch.entities.find((e) => Number(e.id) === source.axisSketchEntityId);
+      if (!axisEntity || axisEntity.kind !== 'line')
+        throw new BlockedCapabilityError('edge-selector', `SWEPT_EDGE 轴线实体无效: ${source.axisSketchEntityId}`);
+      const a1 = point2(axisEntity.p1);
+      const a2 = point2(axisEntity.p2);
+      if (!a1 || !a2) throw new BlockedCapabilityError('edge-selector', 'SWEPT_EDGE 轴线端点缺失');
+      const origin = worldOf(frame, a1[0], a1[1], 0);
+      const end = worldOf(frame, a2[0], a2[1], 0);
+      matches = handles.filter((edge) =>
+        matchSweptRevolve(edge, sweptPoints, frame, { origin, dir: sub(end, origin) }));
+    }
+  } else {
+    // CAP_FACE / SWEPT_FACE：面边界边集。首版仅支持 extrude 源。
+    if (source.kind !== 'extrude')
+      throw new BlockedCapabilityError('edge-selector', `${selector.kind} 仅支持拉伸源（当前 ${source.kind}）`);
     const distance = source.depthMm ?? 0;
     const wLow = source.symmetric === true ? -distance / 2 : 0;
     const wHigh = source.symmetric === true ? distance / 2 : distance;
-    matches = handles.filter((edge) => matchSweptExtrude(edge, sweptPoints, frame, wLow, wHigh));
-  } else {
-    if (source.axisSketchEntityId === undefined)
-      throw new BlockedCapabilityError('edge-selector', 'SWEPT_EDGE 旋转源缺少轴线');
-    const axisEntity = sketch.entities.find((e) => Number(e.id) === source.axisSketchEntityId);
-    if (!axisEntity || axisEntity.kind !== 'line')
-      throw new BlockedCapabilityError('edge-selector', `SWEPT_EDGE 轴线实体无效: ${source.axisSketchEntityId}`);
-    const a1 = point2(axisEntity.p1);
-    const a2 = point2(axisEntity.p2);
-    if (!a1 || !a2) throw new BlockedCapabilityError('edge-selector', 'SWEPT_EDGE 轴线端点缺失');
-    const origin = worldOf(frame, a1[0], a1[1], 0);
-    const end = worldOf(frame, a2[0], a2[1], 0);
-    matches = handles.filter((edge) =>
-      matchSweptRevolve(edge, sweptPoints, frame, { origin, dir: sub(end, origin) }));
+    const throughAll = source.endBound === 'throughAll' || source.endBound === 'through_all';
+    if (selector.kind === 'sweptFace' && throughAll) {
+      // 实际 w 范围由 body 决定：侧边按法向/端点匹配，端盖边投影回草图坐标系。
+      const endpoints = sketchEntityEndpoints(entity);
+      matches = handles.filter((edge) => {
+        const uv = sweptSideUv(edge, frame);
+        if (uv !== undefined && endpoints.some((p) => near2(uv, p))) return true;
+        return projectedCapEdgeMatches(edge, entity, frame);
+      });
+    } else if (selector.kind === 'sweptFace') {
+      const expected = sweptFaceExpectedEdges(entity, frame, wLow, wHigh);
+      if (expected.length === 0)
+        throw new BlockedCapabilityError('edge-selector', `${selector.kind} 期望边为空`);
+      matches = handles.filter((edge) => expected.some((candidate) => edgeMatchesExpected(edge, candidate)));
+    } else if (throughAll) {
+      // 端盖面：through-all 两端轮廓同形，投影匹配后按 w 选起点（min）或终点（max）。
+      const loop = profileLoopOf(sketch.entities, entity);
+      const projected = handles
+        .map((edge) => ({ edge, w: capEdgeW(edge, frame) }))
+        .filter(({ edge, w }) => w !== undefined && loop.some((loopEntity) => projectedCapEdgeMatches(edge, loopEntity, frame)))
+        .map(({ edge, w }) => ({ edge, w: w! }));
+      if (projected.length === 0)
+        throw new BlockedCapabilityError('edge-selector', 'CAP_FACE through-all 端盖边无匹配');
+      const targetW = selector.isStart === true
+        ? Math.min(...projected.map((entry) => entry.w))
+        : Math.max(...projected.map((entry) => entry.w));
+      matches = projected
+        .filter((entry) => Math.abs(entry.w - targetW) < TOL)
+        .map((entry) => entry.edge);
+    } else {
+      const expected = profileLoopOf(sketch.entities, entity)
+        .map((loopEntity) =>
+          entityCapEdgeAtWorld(loopEntity, frame, selector.isStart === true ? wLow : wHigh))
+        .filter((edge): edge is ExpectedEdge => edge !== undefined);
+      if (expected.length === 0)
+        throw new BlockedCapabilityError('edge-selector', `${selector.kind} 期望边为空`);
+      matches = handles.filter((edge) => expected.some((candidate) => edgeMatchesExpected(edge, candidate)));
+    }
+    if (process.env.EDGE_DEBUG === '1')
+      console.log(`[edge-resolver] ${selector.kind} throughAll=${throughAll} matches=${matches.length}`);
   }
 
   const unique = new Map(matches.map((edge) => [`${edge.bodyKey}:${edge.subEntityId}`, edge]));
-  if (unique.size !== 1) {
+  const faceDerived = selector.kind === 'capFace' || selector.kind === 'sweptFace';
+  const invalid = faceDerived ? unique.size === 0 : unique.size !== 1;
+  if (invalid) {
     if (process.env.EDGE_DEBUG === '1') {
       console.log('[edge-resolver] selector', JSON.stringify(selector), 'matches', unique.size);
       console.log('[edge-resolver] edges', JSON.stringify(handles, null, 2));
@@ -406,11 +691,12 @@ function resolveSelector(
     }
     throw new BlockedCapabilityError(
       'edge-selector',
-      `${selector.kind} 匹配不唯一: sketch=${selector.sketchFeatureId}#${selector.sketchEntityId} ` +
+      `${selector.kind} ${faceDerived ? '无匹配' : '匹配不唯一'}: ` +
+      `sketch=${selector.sketchFeatureId}#${selector.sketchEntityId} ` +
       `source=${source.sourceFeatureId} matches=${unique.size}`,
     );
   }
-  return Array.from(unique.values())[0]!;
+  return Array.from(unique.values());
 }
 
 async function readHandles(
@@ -478,20 +764,24 @@ export async function resolveScenarioEdges(
   const handles = await readHandles(page, ctx, accessToken);
   const refs = new Map<string, FilletEdgeRef>();
   for (const entry of entries) {
-    const handle = resolveSelector(entry.selector!, handles, sketches, ops);
-    const result = (await msRpc(
-      ctx.itwinId,
-      ctx.imodelId,
-      'resolveEdgeRef',
-      [ctx.dbKey, handle.bodyKey, handle.subEntityId],
-      accessToken,
-    )) as { ok: boolean; ref?: FilletEdgeRef; error?: string };
-    if (!result.ok || !result.ref)
-      throw new BlockedCapabilityError(
-        'edge-selector',
-        `${feature.name} resolveEdgeRef 失败: ${result.error ?? 'unknown'}`,
-      );
-    refs.set(`${result.ref.edge.nodeId}:${result.ref.edge.entityId}`, result.ref);
+    // 单边选择器（CAP_EDGE/SWEPT_EDGE）恒 1 条；面边界选择器（CAP_FACE/
+    // SWEPT_FACE）可命中多条——逐条 resolveEdgeRef，失败即整特征阻塞。
+    const selected = resolveSelector(entry.selector!, handles, sketches, ops);
+    for (const handle of selected) {
+      const result = (await msRpc(
+        ctx.itwinId,
+        ctx.imodelId,
+        'resolveEdgeRef',
+        [ctx.dbKey, handle.bodyKey, handle.subEntityId],
+        accessToken,
+      )) as { ok: boolean; ref?: FilletEdgeRef; error?: string };
+      if (!result.ok || !result.ref)
+        throw new BlockedCapabilityError(
+          'edge-selector',
+          `${feature.name} resolveEdgeRef 失败: ${result.error ?? 'unknown'}`,
+        );
+      refs.set(`${result.ref.edge.nodeId}:${result.ref.edge.entityId}`, result.ref);
+    }
   }
   if (refs.size === 0)
     throw new BlockedCapabilityError('edge-selector', `${feature.name} 解析结果为空`);

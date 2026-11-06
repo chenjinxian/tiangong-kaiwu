@@ -30,6 +30,85 @@
   legacy 真实 UI 演示（默认 skip，`EXAMPLE_UI_LEGACY=1` 运行）；验收门改为上述
   RPC 场景 spec，不再以不稳定的 UI 倒角作为 known-red。
 
+### P0.5 — 数据真相与连续队列（2026-11-06）
+
+- [x] **work queue**：新增私有 `tools/build-work-queue.mjs` → `manifest/work-queue.json`；
+      以 `example-index` 的 blockers 分类并去重同名 PS。当前唯一 PS **1470**：
+      geometry-ready **13**、blocked-feature **39**、geometry-with-dropped-constraints **1**、
+      blocked-evidence **1294**、excluded **105**、excluded-sheet-metal **18**。
+      13 个 geometry-ready 中 12 个已有示例，唯一未建的是 `Top, Ring, Key`。
+- [x] **sheet-metal 真相修正**：旧 rawClassification 把含 active `sheetMetalStart/Flange`
+      的 PS 误判为 replicable；队列现按 active feature blocker 归入 excluded-sheet-metal，
+      不再把它们算入 native 完成率。
+- [x] **edge selector UUID.suffix**：`edge-selectors.mjs` 的全文回退只比较去点 normalized，
+      导致 `UUID.right/.top/.bottom/.left` 复合边永远匹配不到；改为 raw+normalized 双匹配，
+      新增 plain `sketchEntityQuery` 回归用例（10/10）。全量重转后多批 fillet/chamfer
+      不再因 suffix 失败（其余 face-derived 查询仍如实 blocked）。
+- [x] **body 谱系 ADD/merge 修正**：`Revolve 1 (ADD)` 会覆盖 body.sourceFeatureId，
+      旧回溯把它当造体终点；现仅 `extrude/revolve operation=new` 或显式 newBody 为终点，
+      修饰型 creator 继续回溯，hole 对原始 extrude 的 booleanScope 可解析。
+- [x] **通用 scenario 回放器**：`e2e/examples/replay/run-file.ts` +
+      `scenario-file.spec.ts`（env 驱动，缺省 skip，不污染全量套件）+
+      `top-ring-key-scenario.spec.ts`（单示例回归）。
+- [x] **Top, Ring, Key 真栈**：12 特征（5 sketch/3 extrude/fillet/revolve/hole/chamfer），
+      3 条边选择器，逐 body **2998.1418 vs 2998.1430 mm³（0.00004%）**，push+重开；
+      在公开 Release `backend-20261106` 产物 MS 上复跑通过。约束以 skip 保留解算坐标，
+      如实登记 constraints=dropped。**persist 已验证（2026-11-06，P0.6 修复后）**：
+      全新 briefcase cache 冷开 `09ea16a9`，树 12 特征全 status=0，
+      **2998.1418 vs 2998.1430 mm³（0.00004%）**（`verify-imodels` 第 13 条）。
+- [!] **已知风险（2026-11-06）**：一次 MS 在 chamfer 后以 MSVCP140.dll
+      c0000005 崩溃（同一场景随后在公开产物 MS 上连续通过，暂不可复现）；
+      若再复发按系统性调试立案，不作为“绿”。
+- **下一步队列（按解锁值）**：
+  1. FEATURE pattern（circular 22 / linear 7）——契约/后端/UI；
+  2. shell 转换 + 面选择器（22）；3. sketch 外部引用（PROJECTED/CONCENTRIC external 等
+     约 200 个 PS，最大但最大）；
+  4. upToSurface（24 个特征）；5. splitPart/rib/face ops/transform；6. draft（native
+     taper 未暴露，独立 spike）。
+- **数据边界**：1294 PS 缺 features/massproperties，UI 证据 526/526 已有；采集接口仍受
+  账号配额限制（reserve 保护），不得用 UI 截图伪造结构化特征。每轮先补可采集数据，
+  其余维持 blocked-evidence。
+
+### P0.6 — 持久化真相：cold-open 契约（2026-11-06 发现，已关闭）
+
+- **实证**：用外部 Release 产物 MS（空 briefcase cache）重开 Tutorial 2 iModel
+  `f2278180-...` 失败：`CheckpointNotFound: Checkpoint not found for changeset
+  2e0a37a4...`。旧 `verify-imodels` 12/12 只是在**同一台机器同一 cache** 上通过，
+  没有验证“新机器重开”。
+- **真实根因（两处 hub 契约缺口，均实证）**：
+  1. `changesets/:id/checkpoint` 只做精确匹配；官方链接名是
+     `currentOrPrecedingCheckpoint`，缺“回退到 changesetIndex ≤ 请求值的最新
+     successful checkpoint（baseline 0）”语义 → 空 cache 直接 404。
+  2. changesets 列表**忽略官方 `$orderBy=index desc`**。官方 SDK 解析“最新
+     changeset”=`$top=1&$orderBy=index desc`；hub 按升序返回最旧一条（index 1），
+     即便 checkpoint 回退可用也会下载到早期空 changeset（实测树为空）。
+- **修复（hub 源码，未发布镜像）**：
+  - repository/service/controller 新增 `findLatestSuccessfulAtOrBefore`，按
+    `changesetIndex DESC, createdAt DESC` 取 ≤ 请求 index 的最新 successful；
+  - changesets 列表实现 `$orderBy`（仅 `index [asc|desc]`，非法值 400），
+    ORDER BY 贯通 repository，`_links.self/next` 原样回填排序；
+  - 单测：`checkpoint-current-or-preceding.spec.ts` 2/2、
+    `changesets-findall-range-parentid.spec.ts` 27/27；hub 全量
+    **129 suites / 1179 tests passed**；本地镜像 `checkpoint-fix2` 实跑
+    `desc → index 2, asc → index 1, 非法 → 400`。
+- **e2e 基建**：`auth.setup` 改为“有 refreshToken 先 refresh 换新成对 token”——
+  旧逻辑复用仍有效的 accessToken，但 refreshToken 可能已被其他进程/手工登录
+  轮换，套件跑到中途才 401（实测 setup 时 token 仅剩 0.4 min）。
+- **验收（硬门，2026-11-06）**：单个**全新** `BRIEFCASE_CACHE_LOCATION`、外部
+  Release 产物 MS 冷开 **13/13** 示例 iModel——本轮 MS 日志实测下载 **13 个
+  briefcase**，特征树/体积全部读回一致，`verify-imodels` **2 passed（7.0 min）**。
+  含 Top, Ring, Key（2998.1418 vs 2998.1430 mm³）与 Intro to CAD cPlane 版。
+- **顺带校正 legacy 验证列表**：sample-assignment → `f52752cb`（canonical 场景库，
+  9 特征/8915.8602 mm³；旧 a9eacfe5 已不存在）；intro-to-cad → `bb8efb7b`
+  （cPlane 树/85157.3407 mm³；旧 de911416 已不存在）。
+- **未发布**：hub 镜像仍为本地 `checkpoint-fix2`，公开 GHCR 的
+  `imodelhub-public:latest` 尚未更新；外部用户冷开仍会命中旧缺陷。发布需用户
+  授权后重新 build/push hub 镜像并更新部署产物说明。
+- **延后（非正确性缺口）**：changeset checkpoint 生成/注册任务
+  （`SnapshotDb.createFrom` + 上传 + `createOrUpdateForChangeset`）未实现；当前
+  冷开依赖 baseline + 回放全部 changesets，示例量级可接受。待大规模 iModel 性能
+  需要时再立项（P0.6b）。
+
 ### P1 — 能力解锁（按解锁数排序）
 
 - [x] **T2 Edge selector resolver (CAP_EDGE/SWEPT_EDGE)**
@@ -51,6 +130,52 @@
     但 revolve 单面域产物体积不足（region 0 ≈5373，region [0,1] 并集 ≈7140 vs
     目标 7125——多面域 revolve 才可能对上），阻塞在**revolve 多 region 契约**，
     不是边选择器；不把体积期望改成错误值来“转绿”，转 T4/T7 处理。
+- [ ] **T8 Face-boundary edge selectors（2026-11-06，下一步；test-only）**
+  - Ruling：P0.5 计划把 FEATURE/FACE pattern 列第一，但原始 features 取证显示
+    `patternType=FACE/FEATURE`（Drive Sleeve=FACE、Bottom Bracket=FEATURE
+    fullFeaturePattern=false），产品当前只有 body pattern，实现代价远高于预估；
+    改为先做 **面边界边选择器**——它才是 4 个 blocked-feature PS 的“最后一公里”：
+    Bumper Block（仅 1 条 fillet 查询未映射）、Exercise: Universal Joint Drawing、
+    Intro 1.2-1.4 Rear Shock、Pedal。
+  - 证据：Bumper Block 原始 fillet 有 9 条查询——4 条 SWEPT_EDGE（已支持）+
+    1 条 CAP_FACE + 4 条 SWEPT_FACE；live Onshape 只读页（
+    `ui-evidence/bumper-block-live-20261106/04-fillet-selected.png`）显示选中
+    为围绕顶板/立面的连续边链。目标体积 636.7314988 mm³（scenario expected）。
+  - 语义：SWEPT_FACE→该草图实体沿上游 extrude 扫出的侧面的全部边界边；
+    CAP_FACE→extrude 端盖面的边界边（按 isStart 选起点/终点；首版取包含该实体的
+    闭合轮廓环）。生成期望边几何（线端点/弧圆心半径/圆）并与 dev-only 边句柄
+    几何匹配；一套查询可命中多条边，去重后交 `resolveEdgeRef`。through-all 无固定
+    深度：侧边按“沿草图法向 + 端点 (u,v)”匹配、端盖边投影回草图坐标系，不拿
+    记录 depthMm 当扫掠范围。
+  - 已落地（2026-11-06，test-only）：converter 解析 CAP_FACE/SWEPT_FACE
+    （`edge-selectors.test.mjs` 12/12）；resolver 支持面边界边集 + through-all
+    投影匹配；`tsc` 绿。转换器同步修正：`hasDraft=true` 必须登记 blocking
+    （Bumper Block 旧产物漏标拔模的真相缺口）。
+  - **真实 PS 验收尚未达成（诚实记录）**：四个候选各有其它前置缺口——
+    Bumper Block：Extrude 2 拔模 10°（产品无内核通道，translator 正确阻塞）；
+    Exercise: Universal Joint Drawing：Extrude 11 是 **imprintFace** 选择，Sketch 8
+    是开放投影轮廓（21 段中仅 2 条重复顶边成退化闭环，16 个开放端点），test-only
+    的“草图面域近似”无法成立——真阻塞是 **face-extrude/imprint-face（ADR-0006
+    切片 D）**，不是普通草图外部引用；
+    Pedal：Fillet 2 的 SWEPT_EDGE 引用被前序 Fillet 1 消费/改写的边（现体上
+    端点无对应竖直边），属“前序 blend 边别名”问题；Rear Shock 同类。
+  - 顺带修正 arc 转换真相（2026-11-06）：Onshape 圆弧参数以圆的
+    `xDir/yDir` 为角度原点，旧 converter 直接用 `startParam`，圆弧整体偏转圆帧角
+    （UJ Sketch 8 实测 2.5°，端点差 0.4 mm）。现 `startAngle =
+    atan2(yDir,xDir) + startParam`，sweep 保留 endParam−startParam 的方向（可负）；
+    现有绿例（iOS/Hand Brake/Top Ring Key 等 scenario）无草图 arc，无回归面。
+  - 下一步：前序 blend 边别名（不要用体后几何硬匹配）、extrude draft 通道、
+    sketch 外部引用三者至少再落一个，面边界选择器才有端到端绿例；当前不把
+    解析器单测绿冒充示例完成。
+  - 回归（2026-11-06）：既有边选择器通道 `edge-selector.spec.ts` **3 passed**
+    （合成圆盘 770.737 mm³ = 解析期望；iOS First Part 157478.901 vs 157478.902）。
+    期间发现并修正 iOS scenario 的陈旧产物：`booleanScopeFeatureIds` 仍是
+    `..._0.opExtrude`/`.wireOp` 带后缀串，回放器按裸 featureId 查 body 恒失败；
+    converter 现统一剥 `.op<Kind>`/`.wireOp` 后缀后再过滤，iOS scenario 已重转，
+    `scope ids=["FBLN..._0","F1Wm..._0"]` 且显式 target 通过。
+  - 索引守卫：`index-examples.mjs` 对任何 capFace/sweptFace 场景加
+    `converter-scenario: 面边界选择器待真栈验收`，防止解析器单测绿把 PS 误升级为
+    geometry-ready；首个真栈绿例后再删守卫。
 - [x] **T3 Shell UI**
   - 证据：Onshape 官方帮助页（`ui-evidence/shell-help-20261106`，Faces to shell →
     Hollow → thickness → direction → confirm）；Hollow 无契约，本切片不渲染假控件。
@@ -202,10 +327,12 @@
   **T6 单点 H/V + CENTERLINE_DIMENSION + CONCENTRIC 映射、assignVariable 静态求值**
   （后两者为 converter-only，产品变量表/UI 未完成）、**T5 mirror 世界平面切片**
   （均真栈或解析级绿；T3 用官方帮助页证据）。
-- 正在执行：**T4 其余项**（upTo*、hole tapped/face placement）与
-  T5 pattern FEATURE 模式、T6 sketch 外部引用。下一优先：
-  hole tapped/face placement 与 pattern FEATURE（解锁面最大）；T6 只做有
-  solver/契约支撑的约束，MIRROR/PROJECTED 等需先立 ADR。
+- 正在执行（2026-11-06 增量）：**work queue 已建立**；edge selector UUID.suffix 与
+  body 谱系 ADD/merge 已修；通用 `run-file` 回放器 + **Top, Ring, Key 真栈绿**
+  （2998.1418 vs 2998.1430）。下一步按队列：**FEATURE pattern → shell 转换/面选择器
+  → sketch 外部引用 → upToSurface → split/rib/face ops → draft native spike**。
+  T6 只做有 solver/契约支撑的约束，MIRROR/PROJECTED 等需先立 ADR；不得用 skip
+  constraints 宣称约束树完整。
 - **并行轨道（2026-11-06）**：`2026-11-06-capability-coverage-examples.md`。
   公开示例副本→UI 取证→近似重建；Handle 已用采集源数据完成真栈精确重建
   （见 T4b）。Bumper Block 的 `extrude draft 10°` 是下一首个缺口。

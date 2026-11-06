@@ -202,16 +202,21 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   Part - iOS、Exercise: Basic Drawing、Postman、WARNING LABEL - Bench Vise、
   Exercise - Creating Mate Connectors、Intro to CAD 1.2-1.4、Exercise - Hand Brake Update、
   Sample Assignment（Alignment Plate），
-  外加 WARNING LABEL 同几何文档族 3 个 Quickstart 文档（各自独立 iModel，共 12 个 iModel）；
-  演示页 `apps/web/demo-artifacts/examples/`，runner `apps/web/e2e/examples/`。
+  外加 WARNING LABEL 同几何文档族 3 个 Quickstart 文档与 Top, Ring, Key（各自独立
+  iModel，共 13 个 iModel）；演示页 `apps/web/demo-artifacts/examples/`，runner
+  `apps/web/e2e/examples/`。
   Postman/警告标签/Mate Connectors/Intro 的草图步骤为采集数据经 RPC 精确复原（页面明确标注），
   特征步骤走真实 UI；Mate Connectors 圆头槽按精确切点弧+切线重建（面域引擎尚不合并重叠闭环）。
-  Intro to CAD（2026-11-05 cPlane 版，iModel `de911416-9dca-4be9-86c3-813458bc18f6`）：
+  Intro to CAD（cPlane 版，当前 iModel `bb8efb7b-5a07-4eb9-b36a-e0f8a7dfcaaf`，与
+  `demo-artifacts/examples/state.json` 同源）：
   UI 建 Plane 1（Front 偏移 −20、反转法线）+ SketchDialog 选 Plane 1 建壳，
   树 `sketch → extrude → cPlane → sketch`，体积 85157.341 mm³；演示截图 001–010。
-  重开回归 `e2e/examples/verify-imodels.spec.ts`：12/12 passed（逐库特征树 + 体积；
-  2026-11-05 已含 Tutorial 2 iOS、Hand Brake 与 Sample Assignment 的真实 UI 倒角版本，
-  Intro to CAD 为 cPlane 版本）。
+  重开回归 `e2e/examples/verify-imodels.spec.ts`：**13/13 passed**（逐库特征树 + 体积；
+  2026-11-06 用**全新 briefcase cache** 冷开验证，含 Tutorial 2 iOS、Hand Brake、
+  Sample Assignment（canonical 场景库 `f52752cb`）、Top, Ring, Key（`09ea16a9`，
+  2998.1418 vs 2998.1430 mm³）与 Intro to CAD cPlane 版本）。冷开依赖 hub 的
+  `currentOrPrecedingCheckpoint` 回退与 changesets `$orderBy` 支持（2026-11-06 修复；
+  公开 GHCR hub 镜像尚未更新时外部冷开会失败）。
   Tutorial 2 iOS 的倒角按 Onshape CAP_EDGE 语义拾取 3 条边（+y/−y 端盖分别取景），
   终体积 157478.900 mm³ 与目标一致；Hand Brake 左端圆边 1 mm 精确；
   Sample Assignment 4 草图 RPC + 4 次 UI 拉伸 + 4 竖边距离-角度倒角，体积 8915.860 mm³（0.00%）。
