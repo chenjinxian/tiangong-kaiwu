@@ -491,8 +491,10 @@ docker compose restart nginx
 1. **modeling-server 启动失败**
    - 先确认产物就位：`dist-backend\modeling-server\dist\main.js`（缺则跑 `scripts/fetch-backend.ps1`）
    - 检查 imodelhub-services 是否运行、Azurite 是否运行
-   - 检查端口 5401 是否被占用
+   - 检查端口 5401 是否被占用（`scripts/stop-ms-host.ps1` 可安全停止旧实例）
    - 查看日志: `%TEMP%\luban-cad-modeling-server.log(.err)`（宿主进程）
+   - 若日志报 `VCRUNTIME140.dll` / `MSVCP140.dll` 缺失：安装 **Microsoft Visual C++ Redistributable 2015–2022 x64**（原生几何库依赖）
+   - 若日志报 `Cannot find module './imodeljs-win-x64/imodeljs.node'`：产物解压不完整，重跑 `scripts/fetch-backend.ps1`
 
 2. **Frontend 构建失败**
    - 检查 node_modules: `pnpm install`
