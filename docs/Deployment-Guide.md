@@ -81,6 +81,8 @@ powershell -NoProfile -File scripts/verify-public-deps.ps1
 
 > 公开镜像是**脱敏运行产物**：不含私有源码、`src/`、source map、`.d.ts`、测试文件；镜像内的 hub `.env` 仅为模板占位，真实密钥全部由仓库根 `.env` 经 compose 注入。后端源码仍只在私有仓。
 >
+> **安全提示**：不要脱离本 compose 单独运行公开 hub 镜像——模板中的密钥是占位值；生产/共享环境必须使用 `scripts/generate-env.ps1` 生成的随机密钥，并限制 5400/5402 端口的访问范围。
+>
 > `scripts/fetch-backend.ps1` 默认走匿名 GitHub API + `curl.exe`，只有匿名 API 被限流时才回退到已登录的 `gh`（可选）。资产带 `digest` 时自动校验 SHA256。
 >
 > **契约版本提示**：脚本会对比公共产物与当前源码的 `LubanFeatureRpcInterface.interfaceVersion`。若公共 Release 落后（例如产物 1.18.0 而源码 1.32.0），会打印黄色警告——基础建模可继续用，但最新特征可能不可用；需由 release owner 重新发布匹配产物。
