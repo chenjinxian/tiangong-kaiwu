@@ -112,12 +112,20 @@ export function buildExtrudePreview(
   distance: number,
   symmetric: boolean,
   startOffset = 0,
+  /** v1.24 第二方向：沿法向的有符号距离（缺省=主方向相反侧）。同一轮廓的
+   *  两段扫掠并集仍是单一棱柱——扩展到 [min, max] 即正确包络。 */
+  secondSignedDistance = 0,
 ): FeaturePreviewGeometry {
   if (!Number.isFinite(distance) || Math.abs(distance) < EPS) return emptyPreview();
   const frame = sketchPlaneFrameFrom(plane);
   const normal = frame.normal;
-  const bottomOffset = (Number.isFinite(startOffset) ? startOffset : 0) + (symmetric ? -distance / 2 : 0);
-  const topOffset = bottomOffset + distance;
+  const origin = Number.isFinite(startOffset) ? startOffset : 0;
+  let bottomOffset = origin + (symmetric ? -distance / 2 : 0);
+  let topOffset = bottomOffset + distance;
+  if (!symmetric && Number.isFinite(secondSignedDistance) && Math.abs(secondSignedDistance) > EPS) {
+    bottomOffset = Math.min(bottomOffset, origin + Math.min(0, secondSignedDistance));
+    topOffset = Math.max(topOffset, origin + Math.max(0, secondSignedDistance));
+  }
   const boundaryIds = selectedBoundaryIds(regions);
   if (boundaryIds.size === 0) return emptyPreview();
   const polylines = sketchEntitiesToWorldPolylines(entities, plane)

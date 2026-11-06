@@ -46,7 +46,8 @@
             "booleanSubtract",
             "loft",
             "sweep",
-            "hole"
+            "hole",
+            "cPlane"
           ]
         },
         "name": { "type": "string", "minLength": 1 },

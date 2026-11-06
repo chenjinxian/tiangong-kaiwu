@@ -61,7 +61,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.29.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.32.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -356,24 +356,28 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
     expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies" | "hole" | "cPlane">();
   });
 
-  it("RevolveParams：全周（angle 忽略）与部分角度（angle 必填形态）均可构造；regionIndex 缺省向后兼容", () => {
+  it("RevolveParams：全周（angle 忽略）与部分角度（angle 必填形态）均可构造；regions 多面域与旧 regionIndex 兼容", () => {
     // 全周：360°（angle 键可省——服务端忽略）
     const full: RevolveParams = { sketchId: "sk-1", axis: { sketchEntityId: 11 }, fullRevolve: true };
     expect(full.fullRevolve).toBe(true);
     expect(full.angle).toBeUndefined();
-    expect(full.regionIndex).toBeUndefined();
-    // 部分角度：angle 弧度制
-    const partial: RevolveParams = { sketchId: "sk-1", regionIndex: 0, axis: { sketchEntityId: 11 }, fullRevolve: false, angle: Math.PI };
+    expect(full.regions).toBeUndefined();
+    // 部分角度：angle 弧度制；v1.30 多面域
+    const partial: RevolveParams = { sketchId: "sk-1", regions: [0, 1], axis: { sketchEntityId: 11 }, fullRevolve: false, angle: Math.PI };
     expect(partial.angle).toBe(Math.PI);
     expectTypeOf<RevolveParams>().toEqualTypeOf<{
       sketchId: string;
       regionIndex?: number;
+      regions?: number[];
       axis: { sketchEntityId: number };
       fullRevolve: boolean;
       angle?: number;
       operation?: FeatureBooleanOperation;
       mergeScope?: BodyRef[];
     }>();
+    // 旧单面域简写仍可构造（服务端与 regions 互斥拒收，契约层保留一版）
+    const legacy: RevolveParams = { sketchId: "sk-1", regionIndex: 0, axis: { sketchEntityId: 11 }, fullRevolve: true };
+    expect(legacy.regionIndex).toBe(0);
     // JSON 序列化往返保持（RPC 载荷形态）
     expect(JSON.parse(JSON.stringify(partial))).toEqual(partial);
   });
@@ -581,7 +585,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.29.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.32.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -754,8 +758,8 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
     expectTypeOf<Parameters<ApplyFn>[3]>().toEqualTypeOf<string | undefined>();
   });
 
-  it("版本 1.29.0（cPlane 基准面 + SketchPlaneDto.sourceFeatureId；hole 沉头孔；面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.29.0");
+  it("版本 1.30.0（revolve 多面域；cPlane 基准面 + SketchPlaneDto.sourceFeatureId；hole 沉头孔；面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.32.0");
   });
 });
 
@@ -819,7 +823,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.29.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.32.0");
   });
 });
 
@@ -914,13 +918,20 @@ describe("Tutorial 2 v1.19 契约（结构化子实体 + spline + 新约束 + op
       sketchId: "sk-1", pointIds: [1], diameterMm: 4, endBound: "throughAll",
       holeStyle: "counterbore", counterboreDiameterMm: 8, counterboreDepthMm: 3,
     };
+    const countersink: HoleParams = {
+      sketchId: "sk-1", pointIds: [1], diameterMm: 3.5, endBound: "throughAll",
+      holeStyle: "countersink", countersinkDiameterMm: 6, countersinkAngleDeg: 90,
+    };
     expect(blind.depthMm).toBe(5);
     expect(through.pointIds).toBeUndefined();
     expect(through.vertexRefs?.[0]?.part).toBe("end");
     expect(counterbore.counterboreDepthMm).toBe(3);
+    expect(countersink.countersinkAngleDeg).toBe(90);
     expectTypeOf<HoleParams>().toEqualTypeOf<{
       sketchId: string; pointIds?: number[]; vertexRefs?: HoleVertexRef[]; diameterMm: number;
-      holeStyle?: "simple" | "counterbore"; counterboreDiameterMm?: number; counterboreDepthMm?: number;
+      holeStyle?: "simple" | "counterbore" | "countersink";
+      counterboreDiameterMm?: number; counterboreDepthMm?: number;
+      countersinkDiameterMm?: number; countersinkAngleDeg?: number;
       endBound: "blind" | "throughAll"; depthMm?: number;
       direction?: "forward" | "backward"; tipAngleDeg?: number;
     }>();
@@ -939,17 +950,21 @@ describe("Tutorial 2 v1.19 契约（结构化子实体 + spline + 新约束 + op
   });
 });
 
-describe("v1.29 契约（cPlane 基准面）", () => {
-  it("CPlaneParams：参考基准面枚举 + 偏移 + 反转法线；JSON 往返保持", () => {
+describe("v1.29/v1.31 契约（cPlane 基准面 / 平面点）", () => {
+  it("CPlaneParams：参考基准面枚举 + 偏移/平面点原点 + 反转法线；JSON 往返保持", () => {
     const ref: CPlaneReference = "front";
     const minimal: CPlaneParams = { reference: ref };
     const offset: CPlaneParams = { reference: "right", offsetMm: -20, flipNormal: true };
+    const pointPlane: CPlaneParams = { reference: "top", origin: { x: 1, y: 2, z: 3 }, flipNormal: true };
     expect(minimal.offsetMm).toBeUndefined();
     expect(offset.flipNormal).toBe(true);
+    expect(pointPlane.origin).toEqual({ x: 1, y: 2, z: 3 });
     expect(JSON.parse(JSON.stringify(offset))).toEqual(offset);
+    expect(JSON.parse(JSON.stringify(pointPlane))).toEqual(pointPlane);
     expectTypeOf<CPlaneParams>().toEqualTypeOf<{
       reference: "top" | "front" | "right";
       offsetMm?: number;
+      origin?: { x: number; y: number; z: number };
       flipNormal?: boolean;
     }>();
     // 编译期可用作 FeatureOp 载荷（联合扩展回归锁）
@@ -967,5 +982,24 @@ describe("v1.29 契约（cPlane 基准面）", () => {
     expect(legacy.sourceFeatureId).toBeUndefined();
     expect(sourced.sourceFeatureId).toBe("0x42");
     expectTypeOf<SketchPlaneDto["sourceFeatureId"]>().toEqualTypeOf<string | undefined>();
+  });
+});
+
+describe("v1.30 契约（revolve 多面域）", () => {
+  it("regions 下标数组进入 FeatureOp 载荷；缺省/空数组形态不被契约层改写", () => {
+    const op: FeatureOp = {
+      kind: "insertFeature",
+      featureType: "revolve",
+      params: { sketchId: "sk-1", regions: [0, 2], axis: { sketchEntityId: 3 }, fullRevolve: true, operation: "new" },
+    };
+    expect(op.kind).toBe("insertFeature");
+    const params = op.kind === "insertFeature" ? op.params as RevolveParams : undefined;
+    expect(params?.regions).toEqual([0, 2]);
+    expect(params?.regionIndex).toBeUndefined();
+    expect(JSON.parse(JSON.stringify(params))).toEqual(params);
+  });
+
+  it("版本 1.30.0（revolve regions 多面域；旧 regionIndex 简写保留一版）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.32.0");
   });
 });

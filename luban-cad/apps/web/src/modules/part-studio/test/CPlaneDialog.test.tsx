@@ -73,6 +73,34 @@ describe('CPlaneDialog（ADR-0006 切片 B1）', () => {
     expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
   });
 
+  it('v1.31 平面点：世界参考法线 + 原点 X/Y/Z → origin 载荷', async () => {
+    const { applyOp } = renderDialog();
+    fireEvent.click(screen.getByTestId('cplane-reference-chip'));
+    fireEvent.click(screen.getByTestId('cplane-reference-top'));
+    fireEvent.change(screen.getByTestId('cplane-mode'), { target: { value: 'point' } });
+    fireEvent.change(screen.getByTestId('cplane-origin-x'), { target: { value: '1' } });
+    fireEvent.change(screen.getByTestId('cplane-origin-y'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('cplane-origin-z'), { target: { value: '3' } });
+    fireEvent.click(confirmButton());
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'cPlane',
+      params: { reference: 'top', origin: { x: 1, y: 2, z: 3 } },
+    });
+  });
+
+  it('平面点原点非法 → ✓ 禁用，不提交', () => {
+    const { applyOp } = renderDialog();
+    fireEvent.click(screen.getByTestId('cplane-reference-chip'));
+    fireEvent.click(screen.getByTestId('cplane-reference-top'));
+    fireEvent.change(screen.getByTestId('cplane-mode'), { target: { value: 'point' } });
+    fireEvent.change(screen.getByTestId('cplane-origin-x'), { target: { value: 'abc' } });
+    expect(confirmButton().disabled).toBe(true);
+    fireEvent.click(confirmButton());
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
   it('未启用偏移/反转 → 省略可选键', async () => {
     const { applyOp } = renderDialog();
     fireEvent.click(screen.getByTestId('cplane-reference-chip'));

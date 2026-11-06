@@ -19,10 +19,10 @@
  * （真栈 e2e：新拉伸永久 0 边）。因此调用方只在无草图/对话框/子实体拾取工具的
  * 状态刷新，避免清掉进行中的拾取缓存；读完整理命令槽（finishCommand）。
  */
-import type { ElementGeometryDataEntry } from '@itwin/core-common';
+import { ElementGeometry, type ElementGeometryDataEntry } from '@itwin/core-common';
 import { editorBuiltInCmdIds, SubEntityType } from '@itwin/editor-common';
 import type { SubEntityGeometryProps, SubEntityProps } from '@itwin/editor-common';
-import { Range3d, type Range3dProps } from '@itwin/core-geometry';
+import { Arc3d, LineSegment3d, Range3d, type Range3dProps } from '@itwin/core-geometry';
 import { EditTools, solidModelingIpc } from '@itwin/editor-frontend';
 import type { BodyInfo } from '@luban-cad/shared';
 import type {
@@ -201,4 +201,118 @@ async function readActiveBodies(
   }
 
   return { edges, vertices };
+}
+
+/** 可序列化的边几何（E2E 选择器解析用；不进入产品事实源）。 */
+export type BrepEdgeCurve =
+  | { kind: 'line'; p0: [number, number, number]; p1: [number, number, number] }
+  | {
+    kind: 'arc';
+    center: [number, number, number];
+    radius: number;
+    normal: [number, number, number];
+    start: [number, number, number];
+    end: [number, number, number];
+    sweepRadians: number;
+  }
+  | { kind: 'other'; geometryType: string };
+
+export interface BrepEdgeHandle {
+  bodyKey: string;
+  subEntityId: number;
+  curve: BrepEdgeCurve;
+}
+
+function pointTuple(p: { x: number; y: number; z: number }): [number, number, number] {
+  return [p.x, p.y, p.z];
+}
+
+function curveDescriptor(entry: ElementGeometryDataEntry): BrepEdgeCurve | undefined {
+  let geometry: ReturnType<typeof ElementGeometry.toGeometryQuery>;
+  try {
+    geometry = ElementGeometry.toGeometryQuery(entry);
+  } catch {
+    return undefined;
+  }
+  if (!geometry) return undefined;
+  if (geometry instanceof LineSegment3d) {
+    return { kind: 'line', p0: pointTuple(geometry.point0Ref), p1: pointTuple(geometry.point1Ref) };
+  }
+  if (geometry instanceof Arc3d) {
+    const start = geometry.startPoint();
+    const end = geometry.endPoint();
+    return {
+      kind: 'arc',
+      center: pointTuple(geometry.center),
+      radius: geometry.vector0.magnitude(),
+      normal: pointTuple(geometry.perpendicularVector),
+      start: pointTuple(start),
+      end: pointTuple(end),
+      sweepRadians: geometry.sweep.sweepRadians,
+    };
+  }
+  return { kind: 'other', geometryType: geometry.geometryCategory };
+}
+
+/**
+ * 读 active authored body 的边几何 + 缓存子实体 id（E2E selector resolver 专用）。
+ * 通道与 readBrepTopology 完全一致（SolidModeling 命令 + 几何缓存），但保留
+ * `props.id` 供 `resolveEdgeRef` 把拾取 id 换成边自身持久 id。
+ * 返回 undefined = 命令无法启动；空数组 = 无 active authored body。
+ */
+export async function readBrepEdgeHandles(
+  iModelKey: string,
+  bodies: readonly BodyInfo[],
+  source: BrepTopologySource = editorBrepTopologySource,
+): Promise<BrepEdgeHandle[] | undefined> {
+  const active = bodies.filter(isActiveAuthored);
+  if (active.length === 0) return [];
+  try {
+    await source.startCommand(iModelKey);
+  } catch {
+    return undefined;
+  }
+  try {
+    try {
+      await source.clearCache();
+    } catch {
+      // 缓存清理失败不阻断；下面仍按当前缓存读取。
+    }
+    const out: BrepEdgeHandle[] = [];
+    for (const body of active) {
+      let created = false;
+      try {
+        created = await source.createCache(body.bodyKey);
+      } catch {
+        created = false;
+      }
+      if (!created) continue;
+      let edgeProps: SubEntityProps[] = [];
+      try {
+        edgeProps = (await source.getSubEntities(body.bodyKey, SubEntityType.Edge, false)) ?? [];
+      } catch {
+        continue;
+      }
+      const geometries = await mapLimit(edgeProps, GEOMETRY_CONCURRENCY, (props) =>
+        source.getGeometry(body.bodyKey, props, { wantGeometry: true }));
+      for (let i = 0; i < geometries.length; i++) {
+        const geometry = geometries[i];
+        if (!geometry?.geometry) continue;
+        const curve = curveDescriptor(geometry.geometry as ElementGeometryDataEntry);
+        if (!curve) continue;
+        out.push({
+          bodyKey: body.bodyKey,
+          subEntityId: Number(edgeProps[i]!.id),
+          curve,
+        });
+      }
+    }
+    return out;
+  } finally {
+    try {
+      await source.finishCommand();
+    } catch {
+      // 命令已被其他工具收口。
+    }
+  }
 }

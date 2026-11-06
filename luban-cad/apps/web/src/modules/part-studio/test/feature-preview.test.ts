@@ -59,6 +59,10 @@ describe('buildExtrudePreview', () => {
     const backward = buildExtrudePreview(SQUARE, XY_PLANE, [SQUARE_REGION], -6, false);
     expect(backward.lines[0]![0]!.z).toBeCloseTo(0, 9);
     expect(backward.lines[1]![0]!.z).toBeCloseTo(-6, 9);
+    // v1.24：第二方向（缺省主方向相反侧）扩展预览包络 [-5, 10]。
+    const second = buildExtrudePreview(SQUARE, XY_PLANE, [SQUARE_REGION], 10, false, 0, -5);
+    expect(second.lines[0]![0]!.z).toBeCloseTo(-5, 9);
+    expect(second.lines[1]![0]!.z).toBeCloseTo(10, 9);
     // v1.22：起始偏移沿法向平移整个预览体（symmetric 以偏移后的中面为中心）。
     const offset = buildExtrudePreview(SQUARE, XY_PLANE, [SQUARE_REGION], 10, false, 3);
     expect(offset.lines[0]![0]!.z).toBeCloseTo(3, 9);

@@ -104,6 +104,17 @@ test("hole 特征类型通过校验（ADR-0006 切片 A）", () => {
   assert.equal(result.ok, true, result.errors.join("\n"));
 });
 
+test("cPlane 特征类型通过校验（ADR-0003 additive）", () => {
+  const value = minimal();
+  value.features.push({
+    type: "cPlane",
+    name: "Plane 2",
+    params: { reference: "front", offsetMm: 25.4, flipNormal: false },
+  });
+  const result = validateScenario(value);
+  assert.equal(result.ok, true, result.errors.join("\n"));
+});
+
 test("Tutorial 2 场景 fixture 通过校验且保留金标体积", async () => {
   const scenario = await loadScenario(TUTORIAL2);
   assert.equal(scenario.features.length, 6);

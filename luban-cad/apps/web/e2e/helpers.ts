@@ -21,6 +21,7 @@ import type {
   FeatureOp,
   FeatureOpResult,
   FeatureTreeEntry,
+  PartStudioInfo,
   SketchDto,
 } from '@luban-cad/shared';
 import {
@@ -504,6 +505,30 @@ export async function openBModelEditor(
 }
 
 /**
+ * 打开 B 文档内的指定 Part Studio scope（多 PS 示例 runner 用）。
+ * 与 `openBModelEditor` 的差别仅是把 `?model=<scopeId>` 作为入口 URL；
+ * 解析器不会因为 URL 已带 scope 而重建默认 Part Studio。
+ */
+export async function openBModelPartStudio(
+  page: Page,
+  ids: SeedImodelIds,
+  scopeId: string,
+): Promise<BSeedEditorContext> {
+  await loginWithSession(page);
+  await gotoRoute(
+    page,
+    `/documents/${ids.itwinId}/${ids.imodelId}?model=${encodeURIComponent(scopeId)}`,
+    'part-studio-page',
+  );
+  await waitEditorReady(page);
+  const actual = readModelScopeId(page);
+  if (actual !== scopeId)
+    throw new Error(`开 Part Studio 未落位：期望 ${scopeId}，实际 ${actual ?? '<none>'}（URL=${page.url()}）`);
+  const dbKey = (await readBriefcaseKey(page)) ?? briefcaseDbKey(ids.imodelId);
+  return { ...ids, scopeId, dbKey };
+}
+
+/**
  * 主编辑 helper（P2.6a）：打开 **B 种子** 编辑器，返回 `{itwinId, imodelId,
  * scopeId, dbKey}`。B 种子首开时解析器创建默认 `Part Studio 1` 并 replace 到
  * `?model=<uuid>`；本 helper 等到该 URL + 连接/画布就绪才返回。
@@ -740,6 +765,25 @@ export interface WriteLease {
   borrowed: boolean;
 }
 
+/**
+ * 释放本 helper 自己取得的写租约（不释放页面自己的租约）。
+ * RPC 批量构建后必须调用，否则随后页面 UI 可能拿不到租约而卡在拾取/确认。
+ */
+export async function releaseWriteLease(
+  ctx: Pick<BSeedEditorContext, 'itwinId' | 'imodelId' | 'dbKey'>,
+  lease: WriteLease,
+  accessToken: string,
+): Promise<void> {
+  if (lease.borrowed) return;
+  await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'releaseWriteLease',
+    [ctx.dbKey, lease.sessionId],
+    accessToken,
+  );
+}
+
 export async function borrowWriteLease(
   ctx: Pick<BSeedEditorContext, 'itwinId' | 'imodelId' | 'dbKey'>,
   accessToken: string,
@@ -844,6 +888,53 @@ export async function getMassPropertiesRpc(
     [ctx.dbKey, scopeId],
     accessToken,
   )) as { bodyKey: string; volume: number; centroid: { x: number; y: number; z: number }; surfaceArea?: number }[];
+}
+
+/** Part Studio 注册表读面（B-model P2.4；纯读，不初始化 scope）。 */
+export async function listPartStudiosRpc(
+  ctx: Pick<BSeedEditorContext, 'itwinId' | 'imodelId' | 'dbKey'>,
+  accessToken: string,
+): Promise<PartStudioInfo[]> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'listPartStudios',
+    [ctx.dbKey],
+    accessToken,
+  )) as PartStudioInfo[];
+}
+
+/** 创建 Part Studio scope（写租约必填；幂等由调用方按名称先 list）。 */
+export async function createPartStudioRpc(
+  ctx: Pick<BSeedEditorContext, 'itwinId' | 'imodelId' | 'dbKey'>,
+  name: string,
+  lease: WriteLease,
+  accessToken: string,
+): Promise<PartStudioInfo> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'createPartStudio',
+    [ctx.dbKey, name, lease.sessionId],
+    accessToken,
+  )) as PartStudioInfo;
+}
+
+/** 重命名 Part Studio（写租约必填；不改变 scope id/几何）。 */
+export async function renamePartStudioRpc(
+  ctx: Pick<BSeedEditorContext, 'itwinId' | 'imodelId' | 'dbKey'>,
+  partStudioId: string,
+  name: string,
+  lease: WriteLease,
+  accessToken: string,
+): Promise<PartStudioInfo> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'renamePartStudio',
+    [ctx.dbKey, partStudioId, name, lease.sessionId],
+    accessToken,
+  )) as PartStudioInfo;
 }
 
 /** 带 scope 的草图读面（第 3 参 `partStudioId`）。 */

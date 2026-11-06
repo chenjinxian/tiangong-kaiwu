@@ -152,3 +152,14 @@ Onshape 公开示例的草图大量使用当前 shared 1.21.0 未表达的能力
 - 未实现（按本 ADR 后续批次）：`angle`、projected/pierce/mirror、driven 的 UI
   编辑入口、iOS 真栈 UI 创建链（DIAMETER 已可 API 回放；chamfer UI 已于
   2026-11-05 接通，见 `2026-11-05-chamfer-ui-airr.md`）。
+- **point+line coincident（v1.31，2026-11-06，无 shared 契约变更）**：Onshape
+  的 `COINCIDENT` 常把点吸附到线上（curvSegment 端点 + line）。求解器无独立
+  PT_ON_LINE，按 SolveSpace 的等价形态 `SLVS_C_PT_LINE_DISTANCE(valA=0)` 实现；
+  `SolverTypes` 形态校验、`SketchWireNormalizer` 归一化、`SlvsSolver` 的构造与
+  初值满足判定、converter 全链同步。验证：`src/sketch` **46/46**（新增
+  point+line solver/normalizer 两例）；后端回放
+  `Tutorial2Fixture/Tutorial2IosReplay/BasicDrawingReplay/PostmanReplay/
+  ScenarioReplayCorpus/ScenarioFilletReplay/SketchFlow/SketchOps` **31/31**。
+  全量 scenario 重转后 `COINCIDENT point+line（未映射）` 由 247 条降至 3 条；
+  约束树完整性仍受 PROJECTED/MIRROR/CENTERLINE_DIMENSION 等未实现约束限制，
+  不宣称约束 complete。

@@ -569,6 +569,34 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     });
   });
 
+  it('第二方向：勾选 + 深度 → 载荷 secondDirection；对称勾选时禁用', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp);
+    const secondToggle = screen.getByTestId('part-studio-feature-dialog-second-direction')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(secondToggle);
+    const secondDepth = screen.getByRole('textbox', { name: '第二方向深度' });
+    await user.clear(secondDepth);
+    await user.type(secondDepth, '3');
+    // 勾选对称 → 第二方向禁用并自动关闭（后端 zod 互斥）。
+    const symmetric = screen.getByTestId('part-studio-feature-dialog-symmetric-flat')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(symmetric);
+    expect(secondToggle.disabled).toBe(true);
+    expect(secondToggle.checked).toBe(false);
+    await user.click(symmetric); // 取消对称，重新启用第二方向
+    await user.click(secondToggle);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new',
+        secondDirection: { endBound: 'blind', distanceMm: 3 },
+      },
+    });
+  });
+
   it('成功 → toast（notifications 通道，与保存错误面同款标准管道）', async () => {
     const { user } = await renderReadyDialog(makeApplyOp());
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -1324,7 +1352,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'revolve',
-      params: { sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 3 }, fullRevolve: true, operation: 'new' },
+      params: { sketchId: 'sk-1', regions: [0], axis: { sketchEntityId: 3 }, fullRevolve: true, operation: 'new' },
     });
   });
 
@@ -1336,8 +1364,43 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'revolve',
-      params: { sketchId: 'sk-1', regionIndex: 0, axis: { sketchEntityId: 4 }, fullRevolve: true, operation: 'new' },
+      params: { sketchId: 'sk-1', regions: [0], axis: { sketchEntityId: 4 }, fullRevolve: true, operation: 'new' },
     });
+  });
+
+  it('v1.30 多面域编辑回显：regions [0,1] → 两个 chips → 载荷保留选集（不再发 regionIndex）', async () => {
+    const applyOp = makeApplyOp();
+    const TWO_REGIONS: SketchRegionDto[] = [
+      { area: 0.5, outerEntityIds: [1, 2, 3, 4] },
+      { area: 0.25, outerEntityIds: [1, 2, 3] },
+    ];
+    featureRpc.getSketch.mockResolvedValue(revolveSketchDto(LINED_SKETCH_ENTITIES, TWO_REGIONS));
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="旋转 1"
+        featureId="f-rev"
+        mode="edit"
+        featureType="revolve"
+        initialParams={{ sketchId: 'sk-1', regions: [0, 1], axis: { sketchEntityId: 3 }, fullRevolve: true }}
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
+    await waitFor(() => {
+      const chips = screen.getByTestId('part-studio-feature-dialog-profile-field')
+        .querySelectorAll('button[data-region-index]');
+      expect(chips).toHaveLength(2);
+    });
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'insertFeature' }>;
+    expect(op.params).toMatchObject({ sketchId: 'sk-1', regions: [0, 1], axis: { sketchEntityId: 3 } });
+    expect('regionIndex' in op.params).toBe(false);
   });
 
   it('revolve 多面域：不预选、无面域下拉/列表（与 extrude 同一视口拾取）→ 空选时 ✓ 禁用', async () => {
@@ -1374,7 +1437,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
       featureType: 'revolve',
       params: {
         sketchId: 'sk-1',
-        regionIndex: 0,
+        regions: [0],
         axis: { sketchEntityId: 3 },
         fullRevolve: false,
         angle: Math.PI,

@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-06T00:00:00.000Z",
+  "source": "Onshape parity corpus; legacy single-PS entries. See registry.ts and docs/superpowers/specs/2026-11-06-example-coverage-master-airr.md.",
+  "documents": [
+    {
+      "id": "tutorial-2",
+      "owner": "Onshape",
+      "docId": "576aef66e4b0cc2e7f45753d",
+      "docName": "Tutorial 2 - Build a Part",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Tutorial 2 - Build a Part",
+      "imodelName": "Tutorial 2 - Build a Part",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "tutorial-2-first-part",
+          "sourceElementId": "46033ccdfaf701956cc383a7",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "extrude", "extrude", "revolve", "fillet"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 357716, "tolerance": 0.01 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "exercise-basic-drawing",
+      "owner": "Onshape Training Repo",
+      "docId": "58d051743d98a90f86e9e2ab",
+      "docName": "Exercise: Basic Drawing",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "Exercise - Basic Drawing",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "basic-drawing-wheel",
+          "sourceElementId": "4a289bd094a999329a3900af",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "revolve"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 2442293.8, "tolerance": 0.01 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "tutorial-2-ios",
+      "owner": "Onshape",
+      "docId": "d4232cec2345103a74d1d381",
+      "docName": "Tutorial 2 - Build Your First Part - iOS",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "Tutorial 2 - Build Your First Part - iOS",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "tutorial-2-ios-first-part",
+          "sourceElementId": "25c55355695ddf868ec46c44",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "extrude", "chamfer"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 157478.9, "tolerance": 0.001 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "hand-brake",
+      "owner": "Onshape Training Repo",
+      "docId": "91f152e2325e166b5ae98f4d",
+      "docName": "Exercise: Hand Brake Update",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "Exercise - Hand Brake Update",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "hand-brake-master-cylinder-piston",
+          "sourceElementId": "031b0afd8ef29bf2fd26bf52",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "revolve", "chamfer"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 7125.2741608, "tolerance": 0.005 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "sample-assignment",
+      "owner": "Explore Onshape Models",
+      "docId": "39f2540fb7997e7badbd6ee3",
+      "docName": "Sample Assignment",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "Sample Assignment",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "sample-assignment-alignment-plate",
+          "sourceElementId": "d1989636af28eb77f9e99c58",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "sketch", "extrude", "sketch", "extrude", "sketch", "extrude", "chamfer"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 8915.859905, "tolerance": 0.001 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "postman",
+      "owner": "Explore Onshape Models",
+      "docId": "30416b6b359a60a141297ad9",
+      "docName": "Postman",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "Postman",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "partial", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "postman-brain-screen",
+          "sourceElementId": "33a4bc9ff219a1b984926eb4",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 2686.592, "tolerance": 0.02 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "partial", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "warning-label",
+      "owner": "Explore Onshape Models",
+      "docId": "85bd160fa9e256ec1938a5e7",
+      "docName": "Bench Vise",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "WARNING LABEL - Bench Vise",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "warning-label-bench-vise",
+          "sourceElementId": "a33d659d2e6cf76c8f9ddef5",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "sketch", "sketch", "extrude"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 0.8193532, "tolerance": 0.02 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "warning-label-edu-quickstart",
+      "owner": "Onshape Training",
+      "docId": "6942f3f3544f9bd9e108f8e8",
+      "docName": "Onshape EDU Quickstart",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "WARNING LABEL - Onshape EDU Quickstart",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "warning-label-edu-quickstart",
+          "sourceElementId": "e555b5ba06d23d8616106ebf",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "sketch", "sketch", "extrude"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 0.8193532, "tolerance": 0.02 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "warning-label-professional-discovery",
+      "owner": "Onshape Training",
+      "docId": "829f23dc709160ef04981bb9",
+      "docName": "Onshape Professional Discovery Quickstart",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "WARNING LABEL - Onshape Professional Discovery Quickstart",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "warning-label-professional-discovery",
+          "sourceElementId": "3d00215dabd688d945e3b696",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "sketch", "sketch", "extrude"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 0.8193532, "tolerance": 0.02 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "warning-label-onshape-quickstart",
+      "owner": "Onshape Training",
+      "docId": "e19cf45a2f0dc72c0322ed7c",
+      "docName": "Onshape Quickstart",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "WARNING LABEL - Onshape Quickstart",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "warning-label-onshape-quickstart",
+          "sourceElementId": "7a23879e4fe55b3a28166506",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "sketch", "sketch", "extrude"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 0.8193532, "tolerance": 0.02 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "mate-connectors",
+      "owner": "Onshape Training Repo",
+      "docId": "8343b562bd9a180d26b486b1",
+      "docName": "Exercise: Creating Mate Connectors",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "Exercise - Creating Mate Connectors",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "partial", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "mate-connectors-links",
+          "sourceElementId": "761c6b9a50b16a1a6b34d89a",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "sketch", "extrude", "sketch", "extrude"],
+          "expected": { "bodyCount": 2, "totalVolumeMm3": 21743.326, "tolerance": 0.03 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "partial", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "intro-to-cad",
+      "owner": "Onshape Training Repo",
+      "docId": "dfc6e33c9313a1939829f0ca",
+      "docName": "Intro to CAD - 1.2-1.4",
+      "folderPath": null,
+      "layout": "legacy-single-ps",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "Intro to CAD 1.2-1.4",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "intro-to-cad-extrude-remove",
+          "sourceElementId": "caa02e4e60b8a5fe0b0251bc",
+          "name": "Part Studio 1",
+          "order": 1,
+          "featureTypes": ["sketch", "extrude", "cPlane", "sketch"],
+          "expected": { "bodyCount": 1, "totalVolumeMm3": 85157.342, "tolerance": 0.02 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "pending", "overall": "partial" }
+        }
+      ]
+    },
+    {
+      "id": "exercise-element-organization",
+      "owner": "Onshape Training Repo",
+      "docId": "58eb97a87053360f6da2f15d",
+      "docName": "Exercise: Element Organization",
+      "folderPath": null,
+      "layout": "document",
+      "projectName": "Onshape 示例复刻",
+      "imodelName": "Exercise - Element Organization",
+      "classification": "replicable-now",
+      "blockers": [],
+      "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "verified", "overall": "partial" },
+      "scopes": [
+        {
+          "id": "element-organization-o-ring",
+          "sourceElementId": "175362f23d8a08be2e01f828",
+          "name": "O-Ring",
+          "order": 1,
+          "scenarioPath": "scenarios/Onshape-Training-Repo-58eb97a87053360f6da2f15d-175362f23d8a08be2e01f828.scenario.json",
+          "featureTypes": ["sketch", "revolve"],
+          "expected": { "bodyCount": 1 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "complete", "constraints": "complete", "ui": "complete", "persist": "verified", "overall": "partial" }
+        },
+        {
+          "id": "element-organization-bushing",
+          "sourceElementId": "bef3a95b0793f0bd33859cee",
+          "name": "Bushing",
+          "order": 2,
+          "scenarioPath": "scenarios/Onshape-Training-Repo-58eb97a87053360f6da2f15d-bef3a95b0793f0bd33859cee.scenario.json",
+          "featureTypes": ["sketch", "extrude"],
+          "expected": { "bodyCount": 1 },
+          "classification": "replicable-now",
+          "blockers": [],
+          "status": { "geometry": "approximate", "constraints": "complete", "ui": "partial", "persist": "verified", "overall": "partial" }
+        }
+      ]
+    }
+  ]
+}

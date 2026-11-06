@@ -173,7 +173,8 @@ iOS 场景的全量对拍（不能只靠截图）后再批准。
   纯几何链行为不变）；`applyInsert` 对 cPlane 跳过 body rewire/FeatureDrives 输出边。
   被草图 `plane.sourceFeatureId` 引用时，`updateParams`/`deleteFeature` 在 txn 前诚实拒收
   （apply/preview 同文案）。
-- 转换器/回放：本切片不涉及 scenario 转换；`ScenarioReplay` 尚未消费 cPlane。
+- 转换器/回放：B1 当时不涉及 scenario 转换；`ScenarioReplay` 对 cPlane 的消费已在
+  B2a 真实示例落地中补齐（见下）。
 - UI（live 证据 `onshape-parity-data/ui-evidence/cplane-dialog-20261105/`）：
   `CPlaneDialog`（图元芯片 参考基准面 + ×、偏移复选、偏移距离 mm、反转法线）；
   `internal/cplane.ts` 唯一平面派生点；`SketchDialog` 平面下拉同时列出成功 cPlane，
@@ -188,6 +189,64 @@ iOS 场景的全量对拍（不能只靠截图）后再批准。
 - 已知边界（B1b/B2）：cPlane 改参不驱动已引用草图重定位（引用时拒收改参/删除）；
   视口未渲染半透明平面；参考图元仅三世界基准面；Onshape「偏移」多模式下拉/表达式
   /「成品」按钮未实现。
+
+### 切片 B2a 实现记录（2026-11-06，shared 1.31.0：平面点/自定义世界原点）
+
+- `CPlaneParams + origin?: {x,y,z}`（世界 mm）；与 `offsetMm` 互斥（服务端 zod
+  superRefine 拒收同给）。`reference` 仍提供世界法线/xDir；`flipNormal` 反转法线。
+- 后端：schema 增 origin + 互斥；`evaluateCPlaneAsync` 校验 origin 有限数并继续直通。
+- 前端：`internal/cplane.ts` 平面派生在 origin 有限时直接采用该世界原点（忽略 offset），
+  法线仍取 reference；`CPlaneDialog` 增「类型 = 基准面 / 平面点」，平面点模式显示
+  原点 X/Y/Z 数值输入；载荷 `{reference, origin, flipNormal?}`。旧基准面/偏移形态逐字兼容。
+- 验证：shared 159/159；后端 `CPlaneFlow` 3/3（origin 落库/草图快照、origin+offset 拒收）；
+  web CPlaneDialog/cplane **17/17**；真栈 `e2e/cplane-point.spec.ts` setup+test **2 passed**
+  ——UI 创建平面点 (1,2,3) → 草图落在该平面 → 矩形拉伸 20×20×10 = **4000 mm³**，
+  push+重开平面快照/sourceFeatureId 一致。
+- 诚实边界：本切片是 Onshape「平面点」的**世界法线子集**；任意面/边参考、点来自草图顶点
+  的引用形态、改参传播仍归 B2b。UI 类型/原点字段是功能入口，不是 live 像素级 parity。
+
+### 切片 B2a 真实示例落地（2026-11-06，Exercise: Hand Brake Update / Handle）
+
+- converter（私有 parity 仓，test-only）新增：`PLANE_POINT` → 世界轴对齐
+  `{reference, origin, flipNormal}`（参考面/方向不一致则诚实 dropped）；草图
+  `planeSourceFeatureId`（消费草图的 `sketchPlane` 查询指向 `<cPlane>planeOp`）；
+  extrude/hole 的 `booleanScope` 压缩查询提取**真实 featureId**（旧正则漏掉
+  `$<id>opExtrude` 形态）。
+- runner/translator（公共 e2e，test-only）：cPlane `origin` 透传；草图平面来源映射为
+  本地 cPlane featureId；`booleanScopeFeatureIds` → 显式 `targetBodyId`（多体必需，
+  解析不到即阻塞）；body 谱系回溯（body sourceFeatureId 被后续 fillet/hole 改写后，
+  仍能把 Onshape 的原始 body 引用解析到同一 body）；`regionRisk` 越界下标按产品真实
+  面域数收敛并记 note；孔方向按目标 body 质心位于草图法线哪一侧决定
+  `direction=backward`（钻入材料），证据写 note。
+- converter 修正：Onshape `secondDirectionOppositeDirection=true` 是**反侧**，恰为
+  产品契约缺省；旧映射（true→同侧）会把 Handle grip 的 130 mm 压成 120 mm。
+- 后端 `ScenarioReplay` 消费 cPlane 与草图 `planeSourceFeatureId`；新增
+  `CPlaneScenarioReplay.test.ts`（4000−80π mm³，树含 cPlane）。
+- 真栈验收：`e2e/examples/handle-scenario.spec.ts` setup+test **2 passed**——12 特征
+  （含 PLANE_POINT、secondDirection 10+120、2 个多体 remove、3 点沉头孔、fillet 30）
+  全 status=0；逐体体积 **38314.220 / 68563.590** vs 采集 **38314.765 / 68563.589**
+  （总 106877.810 vs 106878.354，**0.0005%**）；push + 重开树/逐体一致。约束
+  refs 仍走 `skipSketchConstraints` 并登记 `constraints=dropped`，不宣称约束树完整。
+
+### 切片 A4 实现记录（2026-11-06，shared 1.32.0：倒角孔/countersink）
+
+- `HoleParams.holeStyle` 增 `countersink`；新增 `countersinkDiameterMm`（起始面侧锥口直径，
+  必须 > 主孔直径）与 `countersinkAngleDeg`（包含角，deg，0<angle<180）。counterbore/
+  countersink 参数互斥，只在对应 holeStyle 生效；旧 simple/counterbore 载荷逐字兼容。
+- 后端：`FeatureTypeRegistry` zod 正/负路径；`FeatureEngine.evaluateHole` 在起始面侧
+  构造顶环（锥口半径）与底环（主孔半径）两条 Loop，经 `BRepGeometryOperation.Loft`
+  生成锥台工具体，与主孔圆柱一起 Subtract。锥深由
+  `(countersinkDiameterMm − diameterMm)/2 / tan(angle/2)` 自动求得，不引入新内核 API。
+- 转换器（私有仓，test-only）：Onshape `C_SINK` → countersink；`cSinkAngle`
+  的 degree 表达式经 quantity 转回 deg；直径/角度缺失或越界如实 dropped。
+- UI：`HoleDialog` 启用「倒角孔」页签，字段「倒角孔直径/倒角孔角度（deg）」；
+  编辑回显、单位换算（直径随 mm/in，角度恒 deg）、提交前几何校验。
+- 验证：后端 `HoleFlow` **6/6**（新增独立库 countersink：φ4 贯通 + φ8/90° 锥口，
+  4000−152π/3）；web `HoleDialog` **7/7**；shared 159/159；真栈
+  `e2e/hole.spec.ts --grep 倒角孔` **2 passed**——40×20×10 板、φ5 贯通 + φ10/90°
+  锥口，去材 **261.794** vs 解析 **261.799 mm³**（0.002%），树 status=0。
+- 诚实边界：真实语料 11 个 C_SINK 特征分布在 7 个 PS，但这些 PS 仍被 sheet metal/
+  import/custom/其它特征阻塞，暂无完整真实示例；钻尖/螺纹/间隙表仍未实现。
 
 ## 不在本 ADR
 

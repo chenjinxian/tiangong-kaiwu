@@ -62,6 +62,7 @@ import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import { GraphicsPreferencesDialog } from '../dialogs/GraphicsPreferencesDialog.js';
 import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
 import { HoleDialog } from '../dialogs/HoleDialog.js';
+import { ShellDialog } from '../dialogs/ShellDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import { cPlanePlaneOptions } from '../internal/cplane.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
@@ -611,6 +612,24 @@ export function PartStudioCanvas({
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           applyOp={applyOp}
+          canEdit={canEdit}
+          onConfirm={closeDialog}
+          onCancel={closeDialog}
+        />
+      ) : dialog.featureType === 'shell' ? (
+        /* T3：参数化抽壳使用专用对话框（面选择来自 store.canvas.selection，
+           移除面 + 壁厚 + 方向；Hollow 契约未支持，不渲染假控件）。 */
+        <ShellDialog
+          key={dialog.mode === 'edit' ? dialog.featureId : 'new-shell'}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : t('partStudio.ribbon.tools.shell.label')}
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          applyOp={applyOp}
+          previewOp={previewOp}
+          connection={connection}
+          viewport={viewport}
+          bodies={bodies}
+          initialFaces={dialog.mode === 'new' ? dialog.inputFaces : undefined}
           canEdit={canEdit}
           onConfirm={closeDialog}
           onCancel={closeDialog}

@@ -22,7 +22,7 @@ const INCH_MM = 25.4;
 
 export type HoleUnit = 'mm' | 'in';
 export type HoleEndBound = 'blind' | 'throughAll';
-export type HoleStyle = 'simple' | 'counterbore';
+export type HoleStyle = 'simple' | 'counterbore' | 'countersink';
 
 interface HoleLocationOption {
   key: string;
@@ -54,6 +54,7 @@ export interface HoleDialogProps {
 function readInitialParams(value: unknown): {
   sketchId?: string; pointIds?: number[]; vertexRefs?: HoleVertexRef[]; diameterMm?: number;
   holeStyle?: HoleStyle; counterboreDiameterMm?: number; counterboreDepthMm?: number;
+  countersinkDiameterMm?: number; countersinkAngleDeg?: number;
   endBound?: HoleEndBound; depthMm?: number;
 } {
   if (typeof value !== 'object' || value === null) return {};
@@ -68,9 +69,13 @@ function readInitialParams(value: unknown): {
         && (r.part === 'start' || r.part === 'end' || r.part === 'center'))
       : undefined,
     diameterMm: typeof p.diameterMm === 'number' ? p.diameterMm : undefined,
-    holeStyle: p.holeStyle === 'counterbore' ? 'counterbore' : p.holeStyle === 'simple' ? 'simple' : undefined,
+    holeStyle: p.holeStyle === 'counterbore'
+      ? 'counterbore'
+      : p.holeStyle === 'countersink' ? 'countersink' : p.holeStyle === 'simple' ? 'simple' : undefined,
     counterboreDiameterMm: typeof p.counterboreDiameterMm === 'number' ? p.counterboreDiameterMm : undefined,
     counterboreDepthMm: typeof p.counterboreDepthMm === 'number' ? p.counterboreDepthMm : undefined,
+    countersinkDiameterMm: typeof p.countersinkDiameterMm === 'number' ? p.countersinkDiameterMm : undefined,
+    countersinkAngleDeg: typeof p.countersinkAngleDeg === 'number' ? p.countersinkAngleDeg : undefined,
     endBound: p.endBound === 'blind' || p.endBound === 'throughAll' ? p.endBound : undefined,
     depthMm: typeof p.depthMm === 'number' ? p.depthMm : undefined,
   };
@@ -98,6 +103,12 @@ export function HoleDialog({
   );
   const [counterboreDepth, setCounterboreDepth] = React.useState(
     () => numberText(initial.counterboreDepthMm ?? initial.diameterMm ?? 5) || '5',
+  );
+  const [countersinkDiameter, setCountersinkDiameter] = React.useState(
+    () => numberText(initial.countersinkDiameterMm ?? (initial.diameterMm ?? 5) * 2) || '10',
+  );
+  const [countersinkAngle, setCountersinkAngle] = React.useState(
+    () => numberText(initial.countersinkAngleDeg ?? 90) || '90',
   );
   const [endBound, setEndBound] = React.useState<HoleEndBound>(() => initial.endBound ?? 'blind');
   const [depth, setDepth] = React.useState(() => numberText(initial.depthMm ?? 10) || '10');
@@ -182,24 +193,31 @@ export function HoleDialog({
     const mmDepth = unit === 'mm' ? Number(depth) : Number(depth) * INCH_MM;
     const mmCbore = unit === 'mm' ? Number(counterboreDiameter) : Number(counterboreDiameter) * INCH_MM;
     const mmCboreDepth = unit === 'mm' ? Number(counterboreDepth) : Number(counterboreDepth) * INCH_MM;
+    const mmCsink = unit === 'mm' ? Number(countersinkDiameter) : Number(countersinkDiameter) * INCH_MM;
     setUnit(next);
     setDiameter(numberText(next === 'mm' ? mm : mm / INCH_MM));
     setDepth(numberText(next === 'mm' ? mmDepth : mmDepth / INCH_MM));
     setCounterboreDiameter(numberText(next === 'mm' ? mmCbore : mmCbore / INCH_MM));
     setCounterboreDepth(numberText(next === 'mm' ? mmCboreDepth : mmCboreDepth / INCH_MM));
+    setCountersinkDiameter(numberText(next === 'mm' ? mmCsink : mmCsink / INCH_MM));
   };
 
   const diameterMm = unit === 'mm' ? Number(diameter) : Number(diameter) * INCH_MM;
   const depthMm = unit === 'mm' ? Number(depth) : Number(depth) * INCH_MM;
   const counterboreDiameterMm = unit === 'mm' ? Number(counterboreDiameter) : Number(counterboreDiameter) * INCH_MM;
   const counterboreDepthMm = unit === 'mm' ? Number(counterboreDepth) : Number(counterboreDepth) * INCH_MM;
+  const countersinkDiameterMm = unit === 'mm' ? Number(countersinkDiameter) : Number(countersinkDiameter) * INCH_MM;
+  const countersinkAngleDeg = Number(countersinkAngle); // 角度恒为 deg，不随长度单位换算
   const counterboreValid = holeStyle !== 'counterbore'
     || (Number.isFinite(counterboreDiameterMm) && counterboreDiameterMm > diameterMm
       && Number.isFinite(counterboreDepthMm) && counterboreDepthMm > 0);
+  const countersinkValid = holeStyle !== 'countersink'
+    || (Number.isFinite(countersinkDiameterMm) && countersinkDiameterMm > diameterMm
+      && Number.isFinite(countersinkAngleDeg) && countersinkAngleDeg > 0 && countersinkAngleDeg < 180);
   const submitDisabled = !canEdit || busy || !applyOp || !sketchId || selected.size === 0
     || !Number.isFinite(diameterMm) || diameterMm <= 0
     || (endBound === 'blind' && (!Number.isFinite(depthMm) || depthMm <= 0))
-    || !counterboreValid;
+    || !counterboreValid || !countersinkValid;
 
   const confirm = async (): Promise<void> => {
     if (submitDisabled || !applyOp) return;
@@ -215,7 +233,9 @@ export function HoleDialog({
         ...(vertexRefs.length > 0 ? { vertexRefs } : {}),
         ...(holeStyle === 'counterbore'
           ? { holeStyle, counterboreDiameterMm, counterboreDepthMm }
-          : {}),
+          : holeStyle === 'countersink'
+            ? { holeStyle, countersinkDiameterMm, countersinkAngleDeg }
+            : {}),
         diameterMm,
         endBound,
         ...(endBound === 'blind' ? { depthMm } : {}),
@@ -289,9 +309,8 @@ export function HoleDialog({
             onClick={() => setHoleStyle('simple')}>{t('partStudio.holeDialog.simple')}</button>
           <button type="button" role="tab" aria-selected={holeStyle === 'counterbore'} className={tabClass(holeStyle === 'counterbore')}
             onClick={() => setHoleStyle('counterbore')}>{t('partStudio.holeDialog.counterbore')}</button>
-          <button type="button" role="tab" aria-selected={false} disabled className={tabClass(false, true)} title={t('partStudio.holeDialog.notImplemented')}>
-            {t('partStudio.holeDialog.countersink')}
-          </button>
+          <button type="button" role="tab" aria-selected={holeStyle === 'countersink'} className={tabClass(holeStyle === 'countersink')}
+            onClick={() => setHoleStyle('countersink')}>{t('partStudio.holeDialog.countersink')}</button>
         </div>
 
         <section className="part-studio-feature-dialog__entities" data-testid="hole-locations-field">
@@ -384,6 +403,22 @@ export function HoleDialog({
               <input id="hole-cbore-depth" data-testid="hole-cbore-depth" className="part-studio-feature-dialog__input" inputMode="decimal"
                 value={counterboreDepth} onChange={(e) => setCounterboreDepth(e.target.value)} />
               <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
+            </section>
+          </>
+        )}
+        {holeStyle === 'countersink' && (
+          <>
+            <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
+              <label htmlFor="hole-csink-diameter" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.countersinkDiameter')}</label>
+              <input id="hole-csink-diameter" data-testid="hole-csink-diameter" className="part-studio-feature-dialog__input" inputMode="decimal"
+                value={countersinkDiameter} onChange={(e) => setCountersinkDiameter(e.target.value)} />
+              <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
+            </section>
+            <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
+              <label htmlFor="hole-csink-angle" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.countersinkAngle')}</label>
+              <input id="hole-csink-angle" data-testid="hole-csink-angle" className="part-studio-feature-dialog__input" inputMode="decimal"
+                value={countersinkAngle} onChange={(e) => setCountersinkAngle(e.target.value)} />
+              <span className="part-studio-hole-dialog__unit">deg</span>
             </section>
           </>
         )}

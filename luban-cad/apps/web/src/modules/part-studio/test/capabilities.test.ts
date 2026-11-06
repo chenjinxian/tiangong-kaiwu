@@ -31,7 +31,6 @@ import {
 const EXPECTED_GATED_IDS = [
   'draft', // 拔模
   'rib', // 筋（2026-11-02 Onshape 工具栏补齐）
-  'shell', // 抽壳
   'thread', // 外部螺纹
   'sheetMetal', // 钣金系
   'frames', // 框架系

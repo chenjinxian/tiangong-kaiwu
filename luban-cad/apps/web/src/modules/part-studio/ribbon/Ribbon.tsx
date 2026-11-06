@@ -165,6 +165,18 @@ export function useToolActivation(canEdit = true): ToolActivation {
       openFeatureDialog({ mode: 'new', featureType: 'chamfer' });
       return;
     }
+    if (id === 'HollowFaces') {
+      // T3 参数化抽壳入口：new/shell 对话框（移除面 + 壁厚 + 方向）。
+      // 对话框打开会 pause 选择工具并清空选择——必须在路由时快照输入面。
+      const inputFaces = usePartStudioStore.getState().canvas.selection
+        .filter((entry) => entry.kind === 'face' && entry.topologyId !== undefined);
+      openFeatureDialog({
+        mode: 'new',
+        featureType: 'shell',
+        ...(inputFaces.length > 0 ? { inputFaces } : {}),
+      });
+      return;
+    }
     if (id === 'booleanBodies') {
       // B6 M-A4.2a 体布尔闭环入口：new/booleanBodies 对话框（target 单选 +
       // tools 多选 + operation + keepTools，提交 insertFeature；shared 1.16

@@ -35,6 +35,8 @@ const ALL_FEATURE_TYPES: Record<LubanFeatureType, true> = {
   mirror: true,
   pattern: true,
   booleanBodies: true,
+  hole: true,
+  cPlane: true,
 };
 
 describe("op DSL 白名单 × LubanFeatureType 全集", () => {
@@ -390,6 +392,32 @@ describe("op DSL × B6 M-A3.2a（targetBodyId 双向）", () => {
       .toThrow(/targetBodyId/);
     expect(() => dslToOps('op insertFeature extrude {"params":{"profile":[],"distance":1},"targetBodyId":42}'))
       .toThrow(/targetBodyId/);
+  });
+});
+
+describe("op DSL × v1.26/v1.29（FEATURE_TYPES 白名单补 hole/cPlane）", () => {
+  it("hole 往返恒等 + 文本级稳定", () => {
+    const op: FeatureOp = {
+      kind: "insertFeature",
+      featureType: "hole",
+      params: { sketchId: "sk-1", pointIds: [1], diameterMm: 5, endBound: "blind", depthMm: 10 },
+    };
+    const dsl = opsToDsl([op]);
+    expect(dsl.startsWith("op insertFeature hole {")).toBe(true);
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("cPlane 往返恒等 + 文本级稳定", () => {
+    const op: FeatureOp = {
+      kind: "insertFeature",
+      featureType: "cPlane",
+      params: { reference: "top", offsetMm: 1, flipNormal: false },
+    };
+    const dsl = opsToDsl([op]);
+    expect(dsl.startsWith("op insertFeature cPlane {")).toBe(true);
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
   });
 });
 

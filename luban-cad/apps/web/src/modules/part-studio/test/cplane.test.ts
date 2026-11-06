@@ -35,6 +35,19 @@ describe('cPlanePlaneFromParams', () => {
     });
   });
 
+  it('v1.31 平面点 origin → 直接用世界原点，法线取 reference', () => {
+    expect(cPlanePlaneFromParams({ reference: 'top', origin: { x: 1, y: 2, z: 3 } })).toEqual({
+      origin: { x: 1, y: 2, z: 3 },
+      normal: { x: 0, y: 0, z: 1 },
+      xDir: { x: 1, y: 0, z: 0 },
+    });
+    expect(cPlanePlaneFromParams({ reference: 'front', origin: { x: -5, y: 0, z: 7 }, flipNormal: true })).toEqual({
+      origin: { x: -5, y: 0, z: 7 },
+      normal: { x: 0, y: -1, z: 0 },
+      xDir: { x: 1, y: 0, z: 0 },
+    });
+  });
+
   it('非法参考/非对象 → undefined（不猜）', () => {
     expect(cPlanePlaneFromParams({ reference: 'bottom' })).toBeUndefined();
     expect(cPlanePlaneFromParams(null)).toBeUndefined();

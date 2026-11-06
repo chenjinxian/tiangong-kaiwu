@@ -143,4 +143,37 @@ test.describe('孔（ADR-0006 切片 A/A2/A3）真栈', () => {
     console.log(`[hole-counterbore] base=${baseVolumeMm3.toFixed(3)} removed=${removedMm3.toFixed(3)} expected=${expectedRemoved.toFixed(3)} mm³`);
     expect(Math.abs(removedMm3 - expectedRemoved) / expectedRemoved, '沉头孔去材量误差').toBeLessThan(0.01);
   });
+
+  test('倒角孔：主孔贯通 + 起始面 90° 锥口（v1.32）', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
+    const { ctx, token, baseVolumeMm3 } = await createPlate(page, request);
+
+    await page.getByRole('button', { name: '孔', exact: true }).click();
+    const holeDialog = page.getByTestId('part-studio-hole-dialog');
+    await expect(holeDialog).toBeVisible();
+    await holeDialog.getByTestId('hole-locations-toggle').click();
+    await expect(holeDialog.getByTestId('hole-points')).toBeVisible({ timeout: 30_000 });
+    await holeDialog.getByLabel('点 1').check();
+    await holeDialog.getByText('倒角孔').click();
+    await holeDialog.getByTestId('hole-csink-diameter').fill('10');
+    await holeDialog.getByTestId('hole-csink-angle').fill('90');
+    await holeDialog.getByTestId('hole-end-bound').selectOption('throughAll');
+    await expect(holeDialog.getByRole('button', { name: '确认' })).toBeEnabled();
+    await page.screenshot({ path: 'test-results/hole-05-countersink-dialog.png' });
+    await holeDialog.getByRole('button', { name: '确认' }).click();
+    await expect(holeDialog).toBeHidden({ timeout: 90_000 });
+    await page.screenshot({ path: 'test-results/hole-06-countersink-result.png' });
+
+    const tree = await getFeatureTreeRpc(ctx, token);
+    expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'hole']);
+    expect(tree.every((row) => row.status === 0), `特征状态：${JSON.stringify(tree.map((r) => r.status))}`).toBe(true);
+
+    const mass = await getMassPropertiesRpc(ctx, token);
+    const removedMm3 = baseVolumeMm3 - mass.reduce((sum, m) => sum + m.volume, 0);
+    // 主孔 Ø5 贯通（62.5π）+ 90° 锥台（顶 R5→底 R2.5、深 2.5；锥体 36.458π，
+    // 其中 φ5×2.5=15.625π 已被主孔覆盖）→ 83.333π mm³。
+    const expectedRemoved = Math.PI * (62.5 + (2.5 / 3) * (25 + 12.5 + 6.25) - 15.625);
+    console.log(`[hole-countersink] base=${baseVolumeMm3.toFixed(3)} removed=${removedMm3.toFixed(3)} expected=${expectedRemoved.toFixed(3)} mm³`);
+    expect(Math.abs(removedMm3 - expectedRemoved) / expectedRemoved, '倒角孔去材量误差').toBeLessThan(0.01);
+  });
 });

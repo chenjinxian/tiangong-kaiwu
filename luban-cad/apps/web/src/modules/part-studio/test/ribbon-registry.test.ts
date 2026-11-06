@@ -118,7 +118,6 @@ const EXPECTED_SHORTCUTS: Record<string, string> = {
 /** spec §5 初始 gated 集合在 ribbon 上的家族键（capability 维度）。 */
 const GATED_CAPABILITIES = [
   'draft', // 拔模
-  'shell', // 抽壳
   'thread', // 外部螺纹
   'frames', // 框架系
   'sheetMetal', // 钣金系
@@ -262,7 +261,7 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
   it('gated 家族工具/子项经 isGated 路由能力引导', () => {
     const gatedTools = RIBBON_TOOLS.filter((tool) => isGated(tool.capability));
     expect(gatedTools.map((tool) => tool.id).sort()).toEqual([
-      'DraftFaces', 'HollowFaces', 'externalThread', 'frame', 'rib', 'sheetMetalStart', 'surfaceCurve',
+      'DraftFaces', 'externalThread', 'frame', 'rib', 'sheetMetalStart', 'surfaceCurve',
     ].sort());
     for (const capability of GATED_CAPABILITIES) {
       expect(isGated(capability)).toBe(true);

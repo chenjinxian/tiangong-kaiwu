@@ -69,7 +69,12 @@ export interface PartStudioActions {
   // dialog 切片（T6：画布内联非模态对话框宿主寻址；M4-T6 扩 new/edit 双模式）
   openFeatureDialog: (
     feature:
-      | { mode: 'new'; featureType: LubanFeatureType; patternKind?: PatternParams['kind'] }
+      | {
+        mode: 'new';
+        featureType: LubanFeatureType;
+        patternKind?: PatternParams['kind'];
+        inputFaces?: readonly CanvasSelection[];
+      }
       | { mode: 'edit'; featureId: string; featureName: string; featureType: string },
   ) => void;
   openSketchDialog: (sketchId?: string) => void;

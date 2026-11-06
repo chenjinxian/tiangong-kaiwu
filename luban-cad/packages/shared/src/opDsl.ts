@@ -46,6 +46,7 @@ export class OpDslParseError extends Error {
 const FEATURE_TYPES: readonly LubanFeatureType[] = [
   "extrude", "booleanAdd", "booleanSubtract", "fillet", "chamfer", "shell",
   "revolve", "loft", "sweep", "mirror", "pattern", "booleanBodies",
+  "hole", "cPlane",
 ];
 const OP_KINDS: readonly FeatureOp["kind"][] = [
   "insertFeature", "updateParams", "deleteFeature", "setFeatureSuppressed", "reorderFeature",

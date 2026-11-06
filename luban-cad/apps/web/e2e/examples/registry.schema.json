@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luban-cad.dev/schemas/example-registry.v1.json",
+  "title": "LubanCAD Onshape example registry v1",
+  "description": "Test-only registry: document -> Part Studio scopes -> expected geometry. Runtime UUIDs live in demo-artifacts/examples/state.json, not here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "documents"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string" },
+    "source": { "type": "string" },
+    "documents": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/document" }
+    }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "docId", "docName", "layout", "projectName", "imodelName", "scopes"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "docId": { "type": "string", "minLength": 1 },
+        "docName": { "type": "string", "minLength": 1 },
+        "folderPath": { "type": ["string", "null"] },
+        "layout": { "enum": ["document", "legacy-single-ps"] },
+        "projectName": { "type": "string", "minLength": 1 },
+        "imodelName": { "type": "string", "minLength": 1 },
+        "classification": { "$ref": "#/$defs/classification" },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/blocker" } },
+        "status": { "$ref": "#/$defs/status" },
+        "scopes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/scope" } }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sourceElementId", "name", "expected"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "sourceElementId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "minimum": 0 },
+        "scenarioPath": { "type": "string" },
+        "featureTypes": { "type": "array", "items": { "type": "string" } },
+        "expected": { "$ref": "#/$defs/expected" },
+        "classification": { "$ref": "#/$defs/classification" },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/blocker" } },
+        "status": { "$ref": "#/$defs/status" },
+        "uiEvidencePath": { "type": "string" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bodyCount"],
+      "properties": {
+        "bodyCount": { "type": "integer", "minimum": 0 },
+        "totalVolumeMm3": { "type": "number", "minimum": 0 },
+        "tolerance": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "featureTree": { "type": "array", "items": { "type": "string" } },
+        "bodies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["partId", "volumeMm3"],
+            "properties": {
+              "partId": { "type": "string" },
+              "name": { "type": "string" },
+              "volumeMm3": { "type": "number", "minimum": 0 },
+              "massKg": { "type": "number", "minimum": 0 },
+              "centroid": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["x", "y", "z"],
+                "properties": { "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "classification": {
+      "enum": [
+        "replicable-now", "blocked-converter", "blocked-capability", "blocked-evidence",
+        "blocked-selector", "blocked-sheet-metal", "excluded-import",
+        "excluded-custom-feature", "excluded-specialized", "excluded-assembly-only", "excluded-empty"
+      ]
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": { "type": "string" },
+        "value": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["geometry", "constraints", "ui", "persist", "overall"],
+      "properties": {
+        "geometry": { "enum": ["complete", "approximate", "blocked"] },
+        "constraints": { "enum": ["complete", "dropped", "blocked"] },
+        "ui": { "enum": ["complete", "partial", "blocked"] },
+        "persist": { "enum": ["verified", "pending"] },
+        "overall": { "enum": ["complete", "partial", "blocked", "excluded"] }
+      }
+    }
+  }
+}

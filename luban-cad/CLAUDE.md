@@ -45,7 +45,7 @@
 | iModel | `apps/web/src/modules/documents/` + `document-details/` | ✅ 模型管理 |
 | Editor | `apps/web/src/modules/part-studio/`（编辑器页：ribbon/特征树/参数面板/状态栏五区）+ 基座包 `packages/viewer`（iTwin 启动序列/RPC）+ `packages/editor/frontend`（第一方建模基座，2026-10-22 收编） | ✅ 3D 编辑器；参数化特征 UX ✅（M3-a：特征树/参数面板/圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览反馈徽标）；✅ 特征实时预览（2026-11-02：extrude/revolve 参数 → 画布半透明 ghost，随相机重绘，透明度滑杆驱动；fillet 结果走 TileRpc 动态 iMdl 实心结果 + 源体透明 + 橙色 x-ray 选边；提交仍走真实内核）；草图模式 UX ✅（M3-b：俯视/栅格/提示+特征树联动入口）；✅ **Onshape 统一选择**（2026-11-03：默认工具常驻，无模式；悬停 顶点>边>面、单击替换/Ctrl 切换/空白清除、整零件走零件列表/右键；跨 body owner 持久 ref；undo/redo 后按 store 快照恢复高亮；面命中因原生 Face locate 卡死 MS 改用 `getClosestPoint` 兜底）；✅ **iTwin 默认渲染基线**（2026-11-03：core 默认灯光/材质 + 白底 + BRep 全拓扑边 + AO 关 + MSAA 4）；✅ Onshape UI 对齐（2026-11-02：ViewCube/显示设置下拉/默认几何图元树+视口批注；2026-11-05 追加：工具栏下拉 180px/父行+快捷键、ViewCube 逐像素复核 + 交互对齐（面边 58px/屏幕直立标签/三色轴/trigger 44.25×28/Home 仅自由视角/隐藏面轮廓带/角点蓝点/罗盘弧 hover/180ms 相机动画/无拖拽）+完整菜单、左侧「图形首选项」对话框、右侧「外观」面板 + 逐 body 颜色覆盖；详见 `../docs/UI-ONSHAPE-PARITY-2026-11-02.md`）；✅ **官方 iTwin ViewCube 默认**（2026-11-05 用户裁决手感更好：默认官方 `CubeNavigationAid`，`?viewcube=onshape` 回退自研；相机/渲染菜单抽成唯一 `ViewCubeCameraMenu` 挂官方 cube 下方；菜单相机改 `setRotationAboutPoint` 修正交 target 甩飞；宿主修背面命中/箭头可见性/1.5×；事件桥+400ms 跟踪；真栈 itwin 2 passed/ui-parity 2/tutorial2 2）；✅ 完整 BRep 拓扑边/顶点叠加（不修改 iTwin 渲染器/shader；详见 `../docs/BREP-RENDERING-2026-11-03.md`）；editor 基座两处修复：cleanup 幂等 `finishCommand`、`wantGeometry` 按需读取；✅ **X-01/X-02/X-03 第一轮债务清理（2026-11-04）**：旧编辑 RPC 删除、草图工具唯一族 `Sketch.*`、`store.canvas.selection` 单一权威 + `internal/selection-authority.ts` 唯一 SelectionSet 投影 |
 | Sketch | `apps/web/src/modules/part-studio/tools/sketch/` | ✅ 草图编辑（M3-b：线/矩形/圆绘制+约束/尺寸工具链+DOF/矛盾面板+先试算后提交）；✅ 2026-11-02 进入草图按 SketchPlane frame 相机定向/实体范围取景，退出恢复；✅ 画布常驻长度/距离/半径尺寸标注 + 绘制中光标旁实时读数/阶段提示；✅ 2026-11-04 草图唯一数据源=params（entities+plane；后端不再写 native geometry stream，求值直接读 params；旧库首开迁移清空几何流，前端 SketchCurvesDecoration 是唯一显示源）；✅ 2026-11-04 草图工具唯一族=`Sketch.*`（editor vendored SketchTools 六件不再注册） |
-| Modeling | `apps/web/src/modules/part-studio/tools/modeling/` + `packages/viewer/src/tools/register-edit-tools.ts` | 🟠 实体建模（阵列/MirrorElements 走标准 `basicManipulationIpc` 直改通道；DraftFaces 死工具已删、能力 gated）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService）；✅ 孔（ADR-0006 切片 A/A2/A3，2026-11-05：`HoleDialog` 草图点 + 曲线顶点（线/弧端点、圆心）/孔径/blind/throughAll/沉头孔；shared 1.28.0；真栈简单孔去材 196.349 vs 196.350 mm³、沉头孔 373.064 mm³ 精确；倒角孔/螺纹页签禁用）；✅ 倒角 UI（2026-11-05，能力补齐 Slice 1/1b：ribbon「倒角」→ 复用 fillet 视口拾边/owner；类型与字段按 Onshape live 副本对齐「等距离/两个距离/距离和角度」「距离/角度」，等距离/两个距离 `mode=2`、距离和角度 `mode=3`；编辑回显 values1/values2；iOS 3 条 CAP_EDGE 达 Onshape 目标体积、Hand Brake 边 1 mm 精确、Sample Assignment 4 竖边 1.524 mm@45° 精确）；🟠 基准面 cPlane（ADR-0006 切片 B1，shared 1.29.0，2026-11-05：`CPlaneDialog` 图元/偏移/偏移距离/反转法线；SketchDialog 可选 cPlane 并落平面快照 + `sourceFeatureId`；被草图引用时改参/删除诚实拒收；视口平面渲染与改参传播归 B1b/B2） |
+| Modeling | `apps/web/src/modules/part-studio/tools/modeling/` + `packages/viewer/src/tools/register-edit-tools.ts` | 🟠 实体建模（阵列/MirrorElements 走标准 `basicManipulationIpc` 直改通道；DraftFaces 死工具已删、能力 gated）；参数化特征系统 ✅（M3-a：圆角/抑制/排序 op（v1 线性链无非恒等合法重排，守卫拒收口径）/预览 op——后端在私有仓 luban-backend FeatureService）；✅ 孔（ADR-0006 切片 A/A2/A3，2026-11-05：`HoleDialog` 草图点 + 曲线顶点（线/弧端点、圆心）/孔径/blind/throughAll/沉头孔；shared 1.28.0；真栈简单孔去材 196.349 vs 196.350 mm³、沉头孔 373.064 mm³ 精确；shared 1.32.0 起倒角孔/countersink 启用——锥台 Loft 切除 + HoleDialog 直径/角度，真栈去材 261.794 vs 261.799 mm³；螺纹页签仍禁用）；✅ 倒角 UI（2026-11-05，能力补齐 Slice 1/1b：ribbon「倒角」→ 复用 fillet 视口拾边/owner；类型与字段按 Onshape live 副本对齐「等距离/两个距离/距离和角度」「距离/角度」，等距离/两个距离 `mode=2`、距离和角度 `mode=3`；编辑回显 values1/values2；iOS 3 条 CAP_EDGE 达 Onshape 目标体积、Hand Brake 边 1 mm 精确、Sample Assignment 4 竖边 1.524 mm@45° 精确）；✅ 抽壳 UI（T3，2026-11-06：`ShellDialog` 移除面 + 壁厚 + 内/外方向 + 后端影子预览；面快照在 ribbon 路由时捕获，`ShellParams` 零变更；真栈盒体 1084.000 mm³、undo/redo、双击编辑 1952 mm³、push+重开；Hollow/逐面差异壁厚未支持）；✅ 拉伸第二方向（T4 切片，2026-11-06：`ExtrudeParams.secondDirection` 契约已有，FeatureDialog「第二个方向」复选 + 深度/终止条件 + 编辑回显 + 预览包络；converter 映射 BLIND/THROUGH_ALL；真栈 20×20 拉伸 10+5=6000.000 mm³、push+重开）；✅ 旋转多面域（T4，2026-11-06，shared 1.30.0：`RevolveParams.regions` + 后端逐域 spin/Unite；FeatureDialog revolve 复用 extrude 的视口多选 chips；真栈两互斥环柱 2500π=7853.981 mm³、真实 Hand Brake 7125.270 vs 7125.274）；🟠 基准面 cPlane（ADR-0006 切片 B1，shared 1.29.0，2026-11-05：`CPlaneDialog` 图元/偏移/偏移距离/反转法线；SketchDialog 可选 cPlane 并落平面快照 + `sourceFeatureId`；被草图引用时改参/删除诚实拒收；shared 1.31.0 B2a 增「平面点」世界原点（与 offsetMm 互斥），Handle 真实示例真栈；任意面/边参考、视口平面渲染与改参传播归 B2b） |
 | Markup | —（无模块；工具未注册） | ❌ 降级占位（`@itwin/core-markup` 依赖未配置——启用前需先补 workspace 依赖解析，T2.3 裁决：不预引依赖，等真实需求） |
 | Measurement | `packages/viewer/src/tools/register-edit-tools.ts`（注册 core-frontend 测量工具） | ✅ 测量工具 |
 | View Clip | `packages/viewer/src/tools/register-edit-tools.ts`（注册 core-frontend 裁剪工具） | ✅ 视图裁剪 |
@@ -162,24 +162,37 @@ cd apps/web && corepack pnpm@10 dev          # 前端 dev :5300（栈内部署�
 Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 ```
 
-## 验证基线（2026-11-05）
+## 验证基线（2026-11-06）
 
-- `apps/web` 全量 vitest：1382/1382（2026-11-06 图形首选项默认值校正：AO 20%、
+- `apps/web` 全量 vitest：**1389/1389**（2026-11-06 图形首选项默认值校正：AO 20%、
   线宽 2px、v2→v3 迁移 +2；2026-11-05 UI polish：GraphicsPreferencesDialog 5、
   AppearancesPanel 3、useBodyAppearanceOverrides 2、Ribbon 父行/快捷键 1、ViewCube
   标准视图/自由视角 1、Front 面轴原点 1、动画相机 1、viewcube-mode 5；ViewCube/Dock/display-actions
   断言同步更新；此前 cPlane +17、SketchDialog 偏移平面编辑、FeatureDialog endBound、
   chamfer 三种模式/编辑回显；FeatureDialog 单文件 135）；
-  shared 155、editor 29、viewer 127；`tsc`（含 e2e）/lint 绿。
+  shared **159**、editor 29、viewer 127；`tsc`（含 e2e）/lint 绿。
+- shared 1.32.0：hole 倒角孔/countersink（ADR-0006 切片 A4；`countersinkDiameterMm`
+  + `countersinkAngleDeg` 包含角，与 counterbore 参数互斥）；后端锥台 Loft 切除，
+  HoleDialog 启用「倒角孔」页签；后端 `HoleFlow` **6/6**、web HoleDialog **7/7**、
+  真栈 `e2e/hole.spec.ts --grep 倒角孔` **2 passed**（去材 261.794 vs 261.799 mm³）。
+- shared 1.31.0：`CPlaneParams.origin` 平面点（ADR-0006 B2a；世界参考法线 + 自定义
+  世界原点，与 offsetMm 互斥）；真栈 `e2e/cplane-point.spec.ts` **2 passed**
+  （平面点 (1,2,3) → 草图 → 拉伸 4000 mm³，push+重开）。
+- shared 1.30.0：`RevolveParams.regions` 多面域旋转（ADR-0005 Phase 3；旧
+  `regionIndex` 简写 deprecated 兼容）；shared 159/159。
 - shared 1.29.0：ADR-0004（construction/diameter/concentric/driven/整圆相切/angle）
   + ADR-0005 Phase 2（revolve new、extrude secondDirection）
   + ADR-0006 切片 A/A2/A3（hole：backend/contract/UI + 顶点孔位 + 沉头孔 + `e2e/hole.spec.ts` 3 passed）
   + 切片 B1（cPlane：三基准面/偏移/反转法线 + SketchPlaneDto.sourceFeatureId）。
-- 后端 sketch：89/89（含 angle 60° 收敛、line+circle tangent、diameter/concentric）；
-  hole 流程 5/5（throughAll 4000−40π、blind 多孔、pointIds 精确选位、v1.27 顶点孔位、v1.28 沉头孔 4000−76π）；
-  cPlane 流程 2/2（体后插入不改体积；被引用改参/删除拒收、解除后可改删；首特征 + 草图 + 拉伸 4000 mm³）；
+- 后端 sketch：`src/sketch` **92/92**（含 point-on-line coincident v1.31、点+原点 H/V、CENTERLINE_DIMENSION→distance、
+  angle 60° 收敛、line+circle tangent、diameter/concentric）；回放
+  Tutorial2/iOS/Basic/Postman/Corpus/Fillet/SketchFlow/SketchOps **31/31**；
+  hole 流程 6/6（throughAll 4000−40π、blind 多孔、pointIds 精确选位、v1.27 顶点孔位、v1.28 沉头孔 4000−76π、v1.32 倒角孔 4000−152π/3）；
+  cPlane 流程 **3/3**（体后插入不改体积；被引用改参/删除拒收、解除后可改删；首特征 +
+  草图 + 拉伸 4000 mm³；v1.31 平面点 origin 落库/草图快照 + origin/offset 互斥拒收）；
   `ScenarioReplayCorpus` 3/3（Basic/Warning Label/MateConnectors 建链 + synthetic vertexRefs 体积对拍）；
-  **后端全量 84 files / 734 passed / 8 skipped**（2026-11-05，shared 1.29 实测）。
+  **后端全量 88 files / 754 passed / 8 skipped**（2026-11-06，shared 1.32 实测；
+  含 point-on-line 与多面域 revolve）。
 - 真栈回归（shared 1.28.0 实测）：`tutorial2.spec.ts` **2 passed（4.1 min）**，
   体积与 1.22.0 基线完全一致（无圆角 358.161、终体积 357.739、去材 0.422 cm³）；
   shared 1.24 合并 strict+tools **8 passed（8.2 min）**，tools 含圆直径+共圆相切 UI 链。
@@ -204,6 +217,45 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   Sample Assignment 4 草图 RPC + 4 次 UI 拉伸 + 4 竖边距离-角度倒角，体积 8915.860 mm³（0.00%）。
 - 真栈：`newbody`（选择/删除/undo/redo）、`part-studio`（五区/ribbon 激活）、`hole`
   （简单孔 + 沉头孔，树 `sketch/extrude/hole` 全 status=0，去材误差 <0.001%）通过。
+- T3 Shell UI（2026-11-06）：`e2e/shell.spec.ts` setup+test **2 passed**——盒体
+  20×20×10 顶面移除 1 mm 内缩 **1084.000 mm³**（解析期望同值），undo/redo、
+  双击编辑 2 mm（1952 mm³）、push + 重开一致；`ShellDialog.test.tsx` 5/5。
+- T4 拉伸第二方向（2026-11-06）：`e2e/extrude-second-direction.spec.ts`
+  setup+test **2 passed**——20×20 矩形拉伸 10 + 第二方向 5 = **6000.000 mm³**；
+  FeatureDialog/feature-preview/翻译器单测同批。
+- T4 旋转多面域（2026-11-06，shared 1.30.0）：`e2e/revolve-multi-region.spec.ts`
+  setup+test **2 passed**——视口点选 2 个互斥环柱面域 + 轴，体积 **7853.981 mm³**
+  （2500π），push+重开；FeatureDialog 137/137（含多面域编辑回显）。
+  真实 Hand Brake：`e2e/examples/hand-brake-scenario.spec.ts` setup+test **2 passed**——
+  sketch + revolve regions [0,1] + SWEPT_EDGE 1 mm 倒角，**7125.270 mm³** vs 采集
+  7125.274；首版单 region 0 为 5358.127（−24.8%，根因即单面域契约）。
+  converter 多 query 仅给面积降序前缀（regionRisk），真实面域选择在 spec 中审计。
+- T4b Handle 真实示例（2026-11-06，Exercise: Hand Brake Update / Handle）：
+  `e2e/examples/handle-scenario.spec.ts` setup+test **2 passed**——12 特征
+  （PLANE_POINT、secondDirection 10+120、2 个多体 remove、3 点沉头孔、fillet 30）
+  全 status=0；逐体 **38314.220 / 68563.590** vs 采集 **38314.765 / 68563.589**
+  （总 106877.810 vs 106878.354，**0.0005%**），push+重开一致。converter 新增
+  PLANE_POINT/草图 `planeSourceFeatureId`/booleanScope featureId 提取；修正
+  `secondDirectionOppositeDirection=true → 反侧`（旧映射把 130 压成 120）；runner
+  增加 body 谱系回溯、regionRisk 越界面域收敛 note、按目标质心侧定孔方向；
+  后端 `CPlaneScenarioReplay` 1/1；translator 17/17。约束 refs 仍
+  `constraints=dropped`，不宣称约束树完整。
+- T5 mirror 首切片（2026-11-06）：`e2e/examples/mirror.spec.ts` setup+test
+  **2 passed**——偏置盒体 YZ 世界平面整件镜像 **8000.000 mm³**（2×4000），
+  push+重开一致；converter 仅映射 PART / fullFeaturePattern=true，局部镜像如实
+  dropped。
+- T2 边选择器（2026-11-06）：`e2e/examples/edge-selector.spec.ts` setup+test **2 passed**
+  （合成圆盘 CAP_EDGE 倒角 770.737 mm³ = 解析期望；iOS First Part 3 条 CAP_EDGE
+  终体积 **157478.901 mm³** vs 157478.902）；私有 converter 解析 9/9、
+  backend matcher 7/7、ScenarioReplay 11/11。Hand Brake 仍受 revolve 单 region
+  契约阻塞（region 0 ≈5372.779、[0,1] 并集 ≈7139.92 vs 7125.274），不以错值转绿。
+- T1/T4 imprintFace 面域解析（2026-11-06，test-only 近似）：
+  `e2e/examples/sample-assignment-scenario.spec.ts` setup+test **2 passed**——
+  9 特征、体积 **8915.860 mm³** vs 8915.859905，push+重开一致；两条切除孔用
+  显式可审计 region 映射，4 条 SWEPT_EDGE 并集端点消歧，约束登记
+  `constraints=dropped`。`pickImprintRegion` 单测 3/3（孔优先/最大/外环回退/不猜）。
+  产品 face split 仍未实现，步骤保持 `approximate=true`；旧 UI 版
+  `sample-assignment.spec.ts` 降为 legacy（`EXAMPLE_UI_LEGACY=1` 才跑）。
 - **known-red**：`sketch-extrude` 仍红（草图无拉链面域）。`tutorial2` X-14 已于 2026-11-04 关闭：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min；六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³），证据 `apps/web/test-results/t2-strict-after.log`。不得把 known-red 当绿，也不得通过放宽断言“修复”。
 
-*最后更新: 2026-11-06（全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面 + 草图落在自定义平面（shared 1.29.0，Intro to CAD 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；验证基线 1382）*
+*最后更新: 2026-11-06（全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面/平面点 + 草图落在自定义平面（shared 1.31.0，Intro to CAD + Handle 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；T3 抽壳 UI 真栈 1084.000 mm³ + 编辑/重开；T4 拉伸第二方向真栈 6000.000 mm³ + 旋转多面域 7853.981 mm³/Hand Brake 7125.270 mm³；T4b Handle 真栈逐体 38314.220/68563.590 vs 38314.765/68563.589；T5 mirror 真栈 8000.000 mm³；T6 point-on-line + 单点 H/V + CENTERLINE_DIMENSION 约束映射（缺口 143→6、47→0）；shared 1.32 倒角孔真栈 261.794 vs 261.799 mm³；验证基线 1389）*

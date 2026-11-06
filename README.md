@@ -55,6 +55,7 @@
 | **Exercise: Basic Drawing** | **2442.2935 mm³**，与目标 **-0.00%** 误差 |
 | **Exercise - Hand Brake Update** | 左端圆边 **1 mm** 倒角，真实 UI 拾边 |
 | **Sample Assignment** | 4 草图 + 4 拉伸 + 4 竖边距离-角度倒角；**8915.860 mm³** |
+| **Exercise: Element Organization** | 一个 iModel 内 2 个 Part Studio 页签：O-Ring 全周旋转、Bushing 拉伸；逐 PS 重开验证 |
 
 <p>
   <img src="luban-cad/apps/web/public/showcase/example-ios.webp" alt="Tutorial 2 iOS" width="32%"/>

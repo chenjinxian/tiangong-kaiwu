@@ -21,6 +21,7 @@ export const FEATURE_TYPES = new Set([
   "loft",
   "sweep",
   "hole",
+  "cPlane",
 ]);
 
 export const PROVENANCE_STATUSES = new Set([

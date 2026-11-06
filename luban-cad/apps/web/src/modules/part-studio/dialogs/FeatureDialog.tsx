@@ -61,10 +61,9 @@
  *   的读面钉死 store.sketch.activeSketchId（草图模式身份），对话框拾取任意
  *   草图不属该通道（复用须劫持活动身份，误触草图模式变身语义），直调 RPC
  *   即最小内聚面（读操作不涉写租约；代际守卫防慢响应覆写）。
- * 交互（M6-a 最小形态，视口点击拾取归 M6-c；面域选择形态 M6-c T3 起分叉——
- * extrude 多选 chips / revolve 单选下拉，见下方 M6-c T3 段）：草图下拉
- *（多选一）；选中回显 chip「{草图名} 的面」（revolve 多面域追加 ·面域 N，
- * 对齐采集规格「Sketch 1 的 面」chips 形态），×移除=清选择。门禁（对齐 T3 zod 语义，不再空 profile 裸奔）：无草图 → 「先创建
+ * 交互（M6-a 最小形态，视口点击拾取归 M6-c；面域选择形态 M6-c T3 起分叉，
+ * v1.30 起 extrude/revolve 统一为多选集，见下方 M6-c T3 段）：草图下拉
+ *（多选一）；选中回显 chip「{草图名} 的面」，×移除=清选择。门禁（对齐 T3 zod 语义，不再空 profile 裸奔）：无草图 → 「先创建
  * 草图」提示 + 提交禁用；regions 缺省/空 → 「草图无可拉伸面域」 + 禁用；
  * 面域读取中/失败 → 禁用（失败经 role=alert 就地呈现）。布尔类型 M7 v1.10 起
  * 同样走草图通道（见下方 v1.10 段），其余特征类型走原 payload 不动。
@@ -93,8 +92,8 @@
  *   **UI 度制（用户面单位裁决），载荷前 ×π/180 转弧度**（shared
  *   RevolveParams.angle 契约 (0, 2π]，度制域 (0, 360]；180° → Math.PI 精度
  *   由单测钉死）；
- * - 载荷 `{profile: [], sketchId, regionIndex, axis: {sketchEntityId},
- *   fullRevolve, angle?}`（angle 仅 !fullRevolve 携带）；距离量对 revolve
+ * - 载荷 `{sketchId, regions, axis: {sketchEntityId}, fullRevolve, angle?}`
+ *   （v1.30 起多面域 regions；angle 仅 !fullRevolve 携带）；距离量对 revolve
  *   不适用——距离输入隐藏、距离校验跳过（revolve 分支独立构造器，extrude
  *   通道载荷不动）。
  *
@@ -108,10 +107,9 @@
  * ...(symmetric?{symmetric}:{})}`——**不再发 regionIndex**（shared v1.8 起
  * @deprecated，服务端 zod 与 regions 互斥拒收）。门禁追加：selectedRegions
  * 空（用户清空）→「选择至少一个面域」提示 + ✓ 禁用；regions 读取中/失败/空
- * 既有门禁不动。revolve 通道保持单选下拉 + regionIndex 载荷
- *（**裁决钉死：RevolveParams 未扩 regions——不越契约**；多面域旋转归后续
- * 契约扩展单裁），回显 chip「· 面域 N」后缀亦仅 revolve 保留（extrude 的
- * 面域选中态由多选 chips 自身 aria-pressed 呈现）。
+ * 既有门禁不动。v1.30（shared 1.30.0）起 revolve 复用同一多选集（逐域旋转并
+ * Unite），载荷发 `regions` 不再发 deprecated `regionIndex`；编辑回显兼容旧库
+ * `regionIndex`。面域选中态由 chips 自身 data-region-index 呈现。
  *
  * 对称复选（M6-b T4，extrude 通道）：Onshape 采集形态「对称」在折叠区外平铺
  *（sketchChannel 下折叠段 symmetric 隐藏，平铺复选顶替）——state 即既有
@@ -582,6 +580,22 @@ export function FeatureDialog({
   const [direction, setDirection] = React.useState<FeatureDirection>('forward');
   const [startOffset, setStartOffset] = React.useState('');
   const [symmetric, setSymmetric] = React.useState(() => editParams?.symmetric === true);
+  // v1.24 secondDirection（extrude）：Onshape「第二个终止位置」平铺复选 + 距离/
+  // 终止条件。契约缺省=主方向相反侧；首切片 UI 不暴露方向翻转（方向由
+  // scenario/合同显式携带时仍按落库回显）。
+  const storedSecondDirection = React.useMemo(() => {
+    const value = (editParams as { secondDirection?: unknown } | undefined)?.secondDirection;
+    return value && typeof value === 'object' ? value as Record<string, unknown> : undefined;
+  }, [editParams]);
+  const [secondDirectionEnabled, setSecondDirectionEnabled] = React.useState(
+    () => storedSecondDirection !== undefined,
+  );
+  const [secondDirectionDepth, setSecondDirectionDepth] = React.useState(
+    () => storedNumberString(storedSecondDirection?.distanceMm) ?? '5',
+  );
+  const [secondDirectionEndBound, setSecondDirectionEndBound] = React.useState<'blind' | 'throughAll'>(
+    () => storedSecondDirection?.endBound === 'throughAll' ? 'throughAll' : 'blind',
+  );
   const [draft, setDraft] = React.useState('');
   // 透明度滑杆（M6-c T5 对齐采集底栏；0=不透明。语义挂账见文件头注）。
   const [transparency, setTransparency] = React.useState(0);
@@ -835,12 +849,10 @@ export function FeatureDialog({
     if (!sketchOptions.some((option) => option.id === selectedSketchId))
       setSelectedSketchId(sketchOptions[sketchOptions.length - 1]!.id);
   }, [sketchChannel, sketchOptions, selectedSketchId]);
-  // revolve 通道面域序（RevolveParams.regionIndex 单选语义——M6-c T3 起 extrude
-  // 不再消费此态，其面域选择走下方 selectedRegions 多选集）。
-  const [regionIndex, setRegionIndex] = React.useState(() => storedRegionsForEdit?.[0] ?? 0);
-  // M6-c T3（extrude 通道）：多面域选中集——SketchDto.regions 面积降序下标，
-  // 升序存储（载荷集语义确定性；后端重复下标按集去重幂等）。缺省 [0]=最大面域
-  //（v1.6 regionIndex 缺省 0 的语义锚同源），随面域读取落定回填。
+  // M6-c T3 / v1.30：extrude 与 revolve 共用多面域选中集——SketchDto.regions
+  // 面积降序下标，升序存储（载荷集语义确定性；后端重复下标按集去重幂等）。
+  // 缺省 [0]=最大面域（v1.6 regionIndex 缺省 0 的语义锚同源），随面域读取落定回填。
+  // revolve v1.30 起不再消费单选 regionIndex（契约保留一版兼容旧库编辑回显）。
   const [selectedRegions, setSelectedRegions] = React.useState<number[]>([]);
   // 面域读面（getSketch.regions——面积降序数组；undefined=未选/读取中）。
   const [regions, setRegions] = React.useState<SketchRegionDto[] | undefined>(undefined);
@@ -1129,10 +1141,8 @@ export function FeatureDialog({
             const stored = (storedRegionsForEdit ?? []).filter((index) => index < count);
             const next = stored.length > 0 ? stored : count > 0 ? [0] : [];
             setSelectedRegions(next);
-            setRegionIndex(next[0] ?? 0);
           } else {
             setSelectedRegions(count === 1 ? [0] : []);
-            setRegionIndex(0);
           }
           setRegionsLoading(false);
         },
@@ -1180,13 +1190,21 @@ export function FeatureDialog({
       const magnitude = Number(distance);
       if (distance.trim() === '' || !Number.isFinite(magnitude) || magnitude <= 0) return undefined;
       const selected = regions.filter((_, index) => selectedRegions.includes(index));
+      const mainSigned = direction === 'backward' ? -magnitude : magnitude;
+      const secondDepth = Number(secondDirectionDepth);
+      const secondSigned = secondDirectionEnabled && !symmetric
+        && secondDirectionEndBound === 'blind'
+        && Number.isFinite(secondDepth) && secondDepth > 0
+        ? (mainSigned >= 0 ? -secondDepth : secondDepth)
+        : 0;
       return buildExtrudePreview(
         sketchEntities,
         sketchPlane,
         selected,
-        direction === 'backward' ? -magnitude : magnitude,
+        mainSigned,
         symmetric,
         Number(startOffset) || 0,
+        secondSigned,
       );
     }
     if (revolveChannel) {
@@ -1194,7 +1212,7 @@ export function FeatureDialog({
         ? Math.PI * 2
         : (Number(angleDegrees) * Math.PI) / 180;
       if (!Number.isFinite(angle) || angle <= 0) return undefined;
-      const selected = regions[regionIndex] ? [regions[regionIndex]!] : [];
+      const selected = regions.filter((_, index) => selectedRegions.includes(index));
       return buildRevolvePreview(
         sketchEntities,
         sketchPlane,
@@ -1213,12 +1231,14 @@ export function FeatureDialog({
     extrudeChannel,
     revolveChannel,
     selectedRegions,
-    regionIndex,
     selectedAxisId,
     distance,
     direction,
     startOffset,
     symmetric,
+    secondDirectionEnabled,
+    secondDirectionDepth,
+    secondDirectionEndBound,
     fullRevolve,
     angleDegrees,
   ]);
@@ -1277,11 +1297,10 @@ export function FeatureDialog({
     };
   }, [filletChannel, previewOp, filletEdges, radius, propagateSmooth, filletAutomaticTargetId, mode, featureId, editParams]);
 
-  // 提交门（M6-a T6；M6-c T3 面域判据分叉）：草图通道就绪 = 已选草图 ∧ 面域
-  // 已载且非空 ∧ 面域选择就绪——extrude=多选集非空（用户清空 →「选择至少一个
-  // 面域」+ ✓ 禁用）；revolve=单选序未越界（换草图瞬间旧值残留防御）∧ 轴线
-  // 已选。不就绪 → ✓/成品 禁用——T3 zod 拒收语义前置到 UI（无 sketchId 的空
-  // profile 裸奔不再发放行）。
+  // 提交门（M6-a T6；M6-c T3 面域判据分叉；v1.30 revolve 多集合同口径）：草图
+  // 通道就绪 = 已选草图 ∧ 面域已载且非空 ∧ 选集非空、下标未越界（revolve 另需
+  // 轴线已选）。不就绪 → ✓/成品 禁用——T3 zod 拒收语义前置到 UI（无 sketchId 的
+  // 空 profile 裸奔不再发放行）。
   const regionCount = regions?.length ?? 0;
   const sketchReady =
     !sketchChannel ||
@@ -1290,7 +1309,9 @@ export function FeatureDialog({
       regionsError === undefined &&
       regionCount > 0 &&
       (revolveChannel
-        ? selectedRegions.length === 1 && regionIndex < regionCount && selectedAxisId !== undefined
+        ? selectedRegions.length > 0
+          && selectedRegions.every((index) => index < regionCount)
+          && selectedAxisId !== undefined
         : selectedRegions.length > 0));
   // 提交门（M6-b T6 fillet 追加）：已拾至少一条边（空边集禁提交——shared
   // FilletParams.edges 非空语义前置）∧ 拾取会话已结束（会话在场时禁提交）。
@@ -1477,6 +1498,20 @@ export function FeatureDialog({
       }
       angleRadians = (degrees * Math.PI) / 180;
     }
+    // v1.24 secondDirection：blind 必须有正距离；symmetric 与第二方向互斥
+    //（UI 勾选对称时自动关掉第二方向，这里防御兜底）。
+    let parsedSecondDistance = 0;
+    if (extrudeChannel && secondDirectionEnabled && !symmetric) {
+      if (secondDirectionEndBound === 'blind') {
+        parsedSecondDistance = Number(secondDirectionDepth);
+        if (secondDirectionDepth.trim() === ''
+          || !Number.isFinite(parsedSecondDistance)
+          || parsedSecondDistance <= 0) {
+          setError(t('partStudio.featureDialog.secondDirectionDepthInvalid'));
+          return;
+        }
+      }
+    }
     // Critical 1：fillet 的 target 只来自拾取边父体（N>1）；其余通道来自手动下拉。
     const opTargetBodyId = edgePickChannel
       ? filletAutomaticTargetId
@@ -1497,10 +1532,9 @@ export function FeatureDialog({
           // M6-c T3：面域寻址升级——regions 多选数组直出（缺省 [0]=最大面域；
           // 不再发 regionIndex——shared v1.8 起该键 @deprecated，服务端 zod 与
           // regions 互斥拒收，同给两键即拒）。
-          // M6-b T4：revolve 分支独立构造器——{sketchId, regionIndex,
-          // axis, fullRevolve, angle?}（shared v1.7 RevolveParams；**裁决钉死：
-          // RevolveParams 未扩 regions，revolve 保持单选 regionIndex 不越契约**；
-          // symmetric 等 extrude 扩展不适用，对称载荷挂账见文件头注 T4-minor）。
+          // M6-b T4 / v1.30：revolve 分支独立构造器——{sketchId, regions,
+          // axis, fullRevolve, angle?}（shared 1.30.0 RevolveParams；逐域旋转并
+          // Unite；不再发 deprecated regionIndex；symmetric 等 extrude 扩展不适用）。
           // M6-b T6：fillet 分支独立构造器——{radius, propagateSmooth,
           // edges:[{edge:{nodeId,entityId}}...]}（边自身持久 id 透传，shared v1.9
           // M6-d 纯换契约；无 profile/distance 语义）。
@@ -1566,8 +1600,10 @@ export function FeatureDialog({
                 // 注：不带 profile 键（RevolveParams 契约无此字段；后端 zod 会剥离——
                 // B5 起 PatternParams 也带 axis，三元上下文按 axis 收窄后该冗余键触发
                 // 过配检查，顺带对齐契约）。
+                // v1.30：regions 多面域直出（不再发 regionIndex——服务端 zod 与
+                // regions 互斥拒收）。
                 sketchId: selectedSketchId,
-                regionIndex,
+                regions: [...selectedRegions],
                 axis: { sketchEntityId: selectedAxisId! },
                 fullRevolve,
                 ...(angleRadians !== undefined ? { angle: angleRadians } : {}),
@@ -1621,6 +1657,17 @@ export function FeatureDialog({
                   ...(extrudeChannel && effectiveEndBound === 'throughAll'
                     ? { endBound: 'throughAll' as const }
                     : {}),
+                  // v1.24：第二方向（缺省=主方向相反侧；方向键由 scenario/落库携带）。
+                  ...(extrudeChannel && secondDirectionEnabled && !symmetric
+                    ? {
+                      secondDirection: {
+                        endBound: secondDirectionEndBound,
+                        ...(secondDirectionEndBound === 'blind'
+                          ? { distanceMm: parsedSecondDistance }
+                          : {}),
+                      },
+                    }
+                    : {}),
                 }
               : { profile: [], distance: parsedDistance });
       // 编辑：在落库 params 上合并可编辑量，保留 operation/mergeScope/newBody 等
@@ -1639,6 +1686,9 @@ export function FeatureDialog({
               (params as unknown as Record<string, unknown>).endBound = 'throughAll';
             else
               delete (params as unknown as Record<string, unknown>).endBound;
+            // 第二方向与 symmetric 互斥：关闭/对称时删除落库键，避免旧值残留。
+            if (!secondDirectionEnabled || symmetric)
+              delete (params as unknown as Record<string, unknown>).secondDirection;
           }
         } else if (featureType === 'revolve') {
           params = { ...stored, ...paramsPayload } as FeatureParams;
@@ -1729,7 +1779,6 @@ export function FeatureDialog({
     sweepProfileSketchId,
     sweepPathSketchId,
     selectedSketchId,
-    regionIndex,
     selectedRegions,
     selectedAxisId,
     fullRevolve,
@@ -1739,6 +1788,9 @@ export function FeatureDialog({
     endBound,
     endBoundAllowed,
     effectiveEndBound,
+    secondDirectionEnabled,
+    secondDirectionDepth,
+    secondDirectionEndBound,
     // B6 M-A3.2a：newBody/target 载荷面。
     effectiveNewBody,
     nativeOperation,
@@ -1774,17 +1826,13 @@ export function FeatureDialog({
   );
   const handleToggleProfile = React.useCallback((pick: ProfilePick) => {
     if (pick.sketchId !== selectedSketchId) return; // 单草图活动通道（多草图拾取待扩展）
-    if (revolveChannel) {
-      setSelectedRegions((prev) => (prev.length === 1 && prev[0] === pick.regionIndex ? [] : [pick.regionIndex]));
-      setRegionIndex(pick.regionIndex);
-      return;
-    }
+    // v1.30：extrude/revolve 统一多选集（revolve 逐域旋转并 Unite）。
     setSelectedRegions((prev) => (
       prev.includes(pick.regionIndex)
         ? prev.filter((index) => index !== pick.regionIndex)
         : [...prev, pick.regionIndex].sort((a, b) => a - b)
     ));
-  }, [selectedSketchId, revolveChannel]);
+  }, [selectedSketchId]);
   const handleRemoveProfileChip = React.useCallback((regionIndex: number) => {
     setSelectedRegions((prev) => prev.filter((index) => index !== regionIndex));
   }, []);
@@ -2160,7 +2208,10 @@ export function FeatureDialog({
             <input
               type="checkbox"
               checked={symmetric}
-              onChange={(event) => setSymmetric(event.target.checked)}
+              onChange={(event) => {
+                setSymmetric(event.target.checked);
+                if (event.target.checked) setSecondDirectionEnabled(false);
+              }}
             />
             <span>{t('partStudio.featureDialog.sections.symmetric')}</span>
           </label>
@@ -2177,6 +2228,58 @@ export function FeatureDialog({
             <input type="checkbox" checked={false} disabled onChange={() => undefined} />
             <span>{t('partStudio.featureDialog.sections.draft')}</span>
           </label>
+        )}
+
+        {/* v1.24 secondDirection（Onshape「第二个终止位置」）：对称已覆盖双向，
+            勾选时禁用；首切片方向=契约缺省（主方向相反侧）。 */}
+        {extrudeChannel && (
+          <React.Fragment>
+            <label
+              className="part-studio-feature-dialog__checkbox"
+              data-testid="part-studio-feature-dialog-second-direction"
+            >
+              <input
+                type="checkbox"
+                checked={secondDirectionEnabled}
+                disabled={submitting || symmetric}
+                onChange={(event) => setSecondDirectionEnabled(event.target.checked)}
+              />
+              <span>{t('partStudio.featureDialog.secondDirectionLabel')}</span>
+            </label>
+            {secondDirectionEnabled && !symmetric && (
+              <section className="part-studio-feature-dialog__distance">
+                <label
+                  htmlFor="part-studio-feature-dialog-second-depth"
+                  className="part-studio-feature-dialog__distance-label"
+                >
+                  {t('partStudio.featureDialog.secondDirectionDepthLabel')}
+                </label>
+                <input
+                  id="part-studio-feature-dialog-second-depth"
+                  type="text"
+                  inputMode="decimal"
+                  aria-label={t('partStudio.featureDialog.secondDirectionDepthLabel')}
+                  className="part-studio-feature-dialog__input"
+                  data-testid="part-studio-feature-dialog-second-depth"
+                  value={secondDirectionDepth}
+                  disabled={submitting || secondDirectionEndBound === 'throughAll'}
+                  onChange={(event) => setSecondDirectionDepth(event.target.value)}
+                />
+                <select
+                  aria-label={t('partStudio.featureDialog.secondDirectionEndLabel')}
+                  className="part-studio-feature-dialog__select"
+                  data-testid="part-studio-feature-dialog-second-end"
+                  value={secondDirectionEndBound}
+                  disabled={submitting}
+                  onChange={(event) =>
+                    setSecondDirectionEndBound(event.target.value as 'blind' | 'throughAll')}
+                >
+                  <option value="blind">{t('partStudio.featureDialog.blindLabel')}</option>
+                  <option value="throughAll">{t('partStudio.featureDialog.throughAllLabel')}</option>
+                </select>
+              </section>
+            )}
+          </React.Fragment>
         )}
 
         {/* B6 M-A3.2a：extrude「新建实体」复选（结构键）——勾选才在 params 带

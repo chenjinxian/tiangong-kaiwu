@@ -30,6 +30,10 @@
 | [adr/0006-onshape-new-feature-types.md](./adr/0006-onshape-new-feature-types.md) | ADR（提议/待立项）：hole/draft/rib/pattern/mirror 平面/cPlane/变量/face-extrude/chamfer 边语义；逐能力另立 AIRR/ADR |
 | [superpowers/specs/2026-11-04-debt-cleanup-x01-x03-airr.md](./superpowers/specs/2026-11-04-debt-cleanup-x01-x03-airr.md) | AIRR：X-01/X-02/X-03 第一轮债务清理（复用矩阵/跨仓影响/测试/回滚） |
 | [superpowers/specs/2026-11-04-onshape-example-replication-airr.md](./superpowers/specs/2026-11-04-onshape-example-replication-airr.md) | AIRR（已批准）：Onshape 示例复刻与 Part Studio 交互/UI 对齐；Batch 1 六示例、复用矩阵、跨仓/回滚；2026-11-05 补 12 个 iModel/重开回归/union 研究结论 |
+| [superpowers/specs/2026-11-06-example-coverage-master-airr.md](./superpowers/specs/2026-11-06-example-coverage-master-airr.md) | AIRR（已批准，2026-11-06）：Onshape 示例全量覆盖总纲；一文档一 iModel/多 PS scope、静态 registry/运行态 state、selector/translator、四维状态、私有 corpus 索引与回滚门禁 |
+| [superpowers/specs/2026-11-06-shell-ui-airr.md](./superpowers/specs/2026-11-06-shell-ui-airr.md) | AIRR（已实施，2026-11-06）：参数化抽壳 UI；复用 ShellParams/既有求值/选择权威，移除面+壁厚+方向+影子预览；官方帮助页证据；真栈 1084.000 mm³、编辑/undo/重开 |
+| [superpowers/plans/2026-11-06-example-coverage-continuous.md](./superpowers/plans/2026-11-06-example-coverage-continuous.md) | 连续执行台账（活文档）：T2 边选择器 / T3 抽壳 / T4 第二方向 / T5 mirror 世界平面已完成；T4 其余能力与 B1+ 批次进行中 |
+| [superpowers/plans/2026-11-06-capability-coverage-examples.md](./superpowers/plans/2026-11-06-capability-coverage-examples.md) | 公开示例能力覆盖轨道（2026-11-06）：创建副本→UI 取证→近似重建；与严格数据保真口径分离 |
 | [superpowers/specs/2026-11-05-imprint-face-extrude-airr.md](./superpowers/specs/2026-11-05-imprint-face-extrude-airr.md) | AIRR（草稿，未批准）：imprint-face / 面轮廓拉伸；切片 0 spike 证明整平面 faceRef 可行（Loop/ParityRegion），但 iOS imprint 子面需 face split；批准前不写实现代码 |
 | [superpowers/specs/2026-11-05-sketch-feature-capability-backlog.md](./superpowers/specs/2026-11-05-sketch-feature-capability-backlog.md) | 草图/特征能力补齐 backlog：按 140 个 scenario 的缺失频次排序的切片计划（chamfer UI、约束 ref 形态、cPlane、pattern/mirror/hole、face split、imports/sheet metal、草图实体）；每片 AIRR/ADR + 真栈验收 |
 | [superpowers/specs/2026-11-05-chamfer-ui-airr.md](./superpowers/specs/2026-11-05-chamfer-ui-airr.md) | AIRR（批准，2026-11-05 已实施）：chamfer UI 创建链 Slice 1；复用 fillet 边拾取/owner/target 与现有 ChamferParams，不改 shared/后端；Hand Brake/iOS 真栈验收、undo/redo、回滚 |
@@ -50,7 +54,7 @@
 ### 技术参考
 | 文档 | 说明 |
 |------|------|
-| [示例 iModel 复刻画廊](../luban-cad/apps/web/demo-artifacts/examples/index.html) | 已完成 Onshape 示例的真实 iModel 分步演示（2026-11-05：Tutorial 2、Tutorial 2 iOS、Basic Drawing、Postman、WARNING LABEL + 3 个同几何文档、Mate Connectors、Intro to CAD（cPlane UI）、Hand Brake、Sample Assignment；共 12 个 iModel，含 runner/manifest） |
+| [示例 iModel 复刻画廊](../luban-cad/apps/web/demo-artifacts/examples/index.html) | 已完成 Onshape 示例的真实 iModel 分步演示（2026-11-05：Tutorial 2、Tutorial 2 iOS、Basic Drawing、Postman、WARNING LABEL + 3 个同几何文档、Mate Connectors、Intro to CAD（cPlane UI）、Hand Brake、Sample Assignment；2026-11-06 新增 `Exercise: Element Organization` 文档级 iModel，O-Ring + Bushing 两个 Part Studio 页签；共 12 个 legacy iModel + 1 个多 PS iModel，含 runner/manifest；Sample Assignment 当前 known-red） |
 | [iTwin.js-Tools-Complete-Reference.md](./iTwin.js-Tools-Complete-Reference.md) | iTwin.js 工具完整参考 |
 | [ITWINJS_CORE_MODIFICATIONS.md](./ITWINJS_CORE_MODIFICATIONS.md) | iTwin.js Core 修改记录 |
 | [web-realstack-probes.md](./web-realstack-probes.md) | 前端真实栈探针标准动作（发布前必跑） |

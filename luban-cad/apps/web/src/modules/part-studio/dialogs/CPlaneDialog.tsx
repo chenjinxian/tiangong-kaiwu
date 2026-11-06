@@ -32,9 +32,19 @@ export interface CPlaneDialogProps {
 function readInitialParams(value: unknown): Partial<CPlaneParams> {
   if (typeof value !== 'object' || value === null) return {};
   const p = value as Record<string, unknown>;
+  const origin = typeof p.origin === 'object' && p.origin !== null
+    ? p.origin as Record<string, unknown>
+    : undefined;
+  const finiteOrigin = origin !== undefined
+    && typeof origin.x === 'number' && Number.isFinite(origin.x)
+    && typeof origin.y === 'number' && Number.isFinite(origin.y)
+    && typeof origin.z === 'number' && Number.isFinite(origin.z)
+    ? { x: origin.x, y: origin.y, z: origin.z }
+    : undefined;
   return {
     reference: isCPlaneReference(p.reference) ? p.reference : undefined,
     offsetMm: typeof p.offsetMm === 'number' && Number.isFinite(p.offsetMm) ? p.offsetMm : undefined,
+    origin: finiteOrigin,
     flipNormal: p.flipNormal === true,
   };
 }
@@ -52,24 +62,42 @@ export function CPlaneDialog({
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [offsetEnabled, setOffsetEnabled] = React.useState(initial.offsetMm !== undefined);
   const [offset, setOffset] = React.useState(() => numberText(initial.offsetMm ?? 0));
+  // v1.31：平面点（世界参考法线 + 世界原点）；旧 offset 形态默认 reference 模式。
+  const [planeMode, setPlaneMode] = React.useState<'reference' | 'point'>(
+    initial.origin !== undefined ? 'point' : 'reference',
+  );
+  const [originX, setOriginX] = React.useState(() => numberText(initial.origin?.x ?? 0));
+  const [originY, setOriginY] = React.useState(() => numberText(initial.origin?.y ?? 0));
+  const [originZ, setOriginZ] = React.useState(() => numberText(initial.origin?.z ?? 0));
   const [flipNormal, setFlipNormal] = React.useState(initial.flipNormal === true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>(undefined);
 
   const offsetMm = Number(offset);
-  const offsetValid = !offsetEnabled || (offset.trim() !== '' && Number.isFinite(offsetMm));
-  const submitDisabled = !canEdit || busy || !applyOp || reference === undefined || !offsetValid;
+  const offsetValid = planeMode !== 'reference' || !offsetEnabled
+    || (offset.trim() !== '' && Number.isFinite(offsetMm));
+  const originNumbers = [Number(originX), Number(originY), Number(originZ)];
+  const originValid = planeMode !== 'point'
+    || ([originX, originY, originZ].every((text) => text.trim() !== '') && originNumbers.every(Number.isFinite));
+  const submitDisabled = !canEdit || busy || !applyOp || reference === undefined
+    || !offsetValid || !originValid;
 
   const confirm = async (): Promise<void> => {
     if (submitDisabled || reference === undefined || !applyOp) return;
     setBusy(true);
     setError(undefined);
     try {
-      const params: CPlaneParams = {
-        reference,
-        ...(offsetEnabled ? { offsetMm } : {}),
-        ...(flipNormal ? { flipNormal: true } : {}),
-      };
+      const params: CPlaneParams = planeMode === 'point'
+        ? {
+            reference,
+            origin: { x: originNumbers[0]!, y: originNumbers[1]!, z: originNumbers[2]! },
+            ...(flipNormal ? { flipNormal: true } : {}),
+          }
+        : {
+            reference,
+            ...(offsetEnabled ? { offsetMm } : {}),
+            ...(flipNormal ? { flipNormal: true } : {}),
+          };
       const result = await applyOp(featureId !== undefined
         ? { kind: 'updateParams', featureId, params }
         : { kind: 'insertFeature', featureType: 'cPlane', params });
@@ -134,6 +162,25 @@ export function CPlaneDialog({
             {t('partStudio.cPlaneDialog.readonlyHint')}
           </p>
         )}
+
+        {/* v1.31：平面点模式（Onshape「平面点」的 B2a 子集：世界参考法线 + 世界原点）。 */}
+        <section className="part-studio-feature-dialog__distance part-studio-cplane__mode">
+          <label className="part-studio-feature-dialog__distance-label" htmlFor="cplane-mode">
+            {t('partStudio.cPlaneDialog.mode')}
+          </label>
+          <select
+            id="cplane-mode"
+            data-testid="cplane-mode"
+            aria-label={t('partStudio.cPlaneDialog.mode')}
+            className="part-studio-feature-dialog__select"
+            value={planeMode}
+            disabled={!canEdit}
+            onChange={(event) => setPlaneMode(event.target.value === 'point' ? 'point' : 'reference')}
+          >
+            <option value="reference">{t('partStudio.cPlaneDialog.modeReference')}</option>
+            <option value="point">{t('partStudio.cPlaneDialog.modePoint')}</option>
+          </select>
+        </section>
 
         {/* Onshape live：图元是浅蓝实体字段；偏移是整行下拉；偏移距离是数值行。 */}
         <section className="part-studio-feature-dialog__entities">
@@ -200,25 +247,27 @@ export function CPlaneDialog({
           )}
         </section>
 
-        <section className="part-studio-feature-dialog__distance part-studio-cplane__mode">
-          <label className="part-studio-feature-dialog__distance-label" htmlFor="cplane-offset-mode">
-            {t('partStudio.cPlaneDialog.offset')}
-          </label>
-          <select
-            id="cplane-offset-mode"
-            data-testid="cplane-offset"
-            aria-label={t('partStudio.cPlaneDialog.offset')}
-            className="part-studio-feature-dialog__select"
-            value={offsetEnabled ? 'offset' : 'none'}
-            disabled={!canEdit}
-            onChange={(event) => setOffsetEnabled(event.target.value === 'offset')}
-          >
-            <option value="none">{t('partStudio.cPlaneDialog.offsetNone')}</option>
-            <option value="offset">{t('partStudio.cPlaneDialog.offset')}</option>
-          </select>
-        </section>
+        {planeMode === 'reference' && (
+          <section className="part-studio-feature-dialog__distance part-studio-cplane__mode">
+            <label className="part-studio-feature-dialog__distance-label" htmlFor="cplane-offset-mode">
+              {t('partStudio.cPlaneDialog.offset')}
+            </label>
+            <select
+              id="cplane-offset-mode"
+              data-testid="cplane-offset"
+              aria-label={t('partStudio.cPlaneDialog.offset')}
+              className="part-studio-feature-dialog__select"
+              value={offsetEnabled ? 'offset' : 'none'}
+              disabled={!canEdit}
+              onChange={(event) => setOffsetEnabled(event.target.value === 'offset')}
+            >
+              <option value="none">{t('partStudio.cPlaneDialog.offsetNone')}</option>
+              <option value="offset">{t('partStudio.cPlaneDialog.offset')}</option>
+            </select>
+          </section>
+        )}
 
-        {offsetEnabled && (
+        {planeMode === 'reference' && offsetEnabled && (
           <section className="part-studio-feature-dialog__distance">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="cplane-offset-distance">
               {t('partStudio.cPlaneDialog.offsetDistance')}
@@ -234,6 +283,32 @@ export function CPlaneDialog({
               onChange={(event) => setOffset(event.target.value)}
             />
           </section>
+        )}
+
+        {planeMode === 'point' && (
+          <React.Fragment>
+            {(['x', 'y', 'z'] as const).map((axis) => {
+              const value = axis === 'x' ? originX : axis === 'y' ? originY : originZ;
+              const setValue = axis === 'x' ? setOriginX : axis === 'y' ? setOriginY : setOriginZ;
+              return (
+                <section key={axis} className="part-studio-feature-dialog__distance">
+                  <label className="part-studio-feature-dialog__distance-label" htmlFor={`cplane-origin-${axis}`}>
+                    {t('partStudio.cPlaneDialog.origin')} {axis.toUpperCase()}
+                  </label>
+                  <input
+                    id={`cplane-origin-${axis}`}
+                    data-testid={`cplane-origin-${axis}`}
+                    aria-label={`${t('partStudio.cPlaneDialog.origin')} ${axis.toUpperCase()}`}
+                    className="part-studio-feature-dialog__input"
+                    inputMode="decimal"
+                    value={value}
+                    disabled={!canEdit}
+                    onChange={(event) => setValue(event.target.value)}
+                  />
+                </section>
+              );
+            })}
+          </React.Fragment>
         )}
 
         <label className="part-studio-feature-dialog__checkbox">

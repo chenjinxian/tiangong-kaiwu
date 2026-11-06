@@ -105,6 +105,16 @@
  * + `SketchPlaneDto.sourceFeatureId`（草图平面来源）。cPlane 是引用几何特征：求值直通上游
  * 条目、不产生/修改 body 几何；草图平面三向量仍是派生快照，sourceFeatureId 只作来源展示与
  * 引用守卫（本切片不改参传播）。
+ * v1.30（ADR-0005 Phase 3）：`RevolveParams.regions` 多面域旋转——与 `ExtrudeParams.regions`
+ * 同锚（SketchDto.regions 面积降序下标数组；Onshape「实体/草图面域」多选语义）。逐域旋转体
+ * Unite 为单一工具实体后再参与特征内 new/add/remove。`regionIndex` 降级为单面域简写
+ * （deprecated，服务端 zod 与 regions 互斥拒收）。旧单面域载荷逐字兼容（缺省 [0]=最大面域）。
+ * v1.31（ADR-0006 切片 B2a）：`CPlaneParams.origin` 平面点——世界参考法线 + 自定义世界原点；
+ * 首版不支持任意面/边参考（B2b）；旧世界基准面/偏移载荷逐字兼容。
+ * v1.32（ADR-0006 切片 A4）：`HoleParams.holeStyle` 增 `countersink`（倒角孔）——
+ * `countersinkDiameterMm`（起始面侧锥口直径）+ `countersinkAngleDeg`（包含角，deg，0<angle<180）；
+ * 主孔仍由 `diameterMm`/`endBound` 定义，锥台从起始面切到主孔柱面（深度按几何自动求得）。
+ * 旧 simple/counterbore 载荷逐字兼容；counterbore/countersink 参数互斥且只在对应 holeStyle 生效。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -160,11 +170,17 @@ export interface HoleParams {
   pointIds?: number[];
   /** v1.27：草图曲线顶点孔位。至少 pointIds 或 vertexRefs 之一非空。 */
   vertexRefs?: HoleVertexRef[];
-  /** v1.28（ADR-0006 切片 A3）：simple（缺省）| counterbore（沉头孔）。 */
-  holeStyle?: "simple" | "counterbore";
+  /** v1.28（ADR-0006 切片 A3）：simple（缺省）| counterbore（沉头孔）。
+   *  v1.32（切片 A4）：countersink（倒角孔/锥口）。 */
+  holeStyle?: "simple" | "counterbore" | "countersink";
   /** counterbore 必填：沉头孔直径/深度（孔轴线从草图平面起算）。 */
   counterboreDiameterMm?: number;
   counterboreDepthMm?: number;
+  /** countersink 必填：起始面侧锥口直径（> diameterMm）。 */
+  countersinkDiameterMm?: number;
+  /** countersink 必填：包含角（deg，0<angle<180；90=标准沉头）。锥口深度由
+   *  (countersinkDiameterMm−diameterMm)/2 / tan(angle/2) 自动求得。 */
+  countersinkAngleDeg?: number;
   diameterMm: number;
   endBound: "blind" | "throughAll";
   /** blind 必填且 >0；throughAll 忽略。 */
@@ -439,13 +455,20 @@ export interface ShellParams {
 /** M6-b v1.7（T2）：旋转参数——草图面域绕草图内轴线旋转成体。
  * `axis` = 草图内 line 实体 id（须与面域共面——结构上草图线恒在草图面内，服务端求值期
  * 守卫兜底）；`fullRevolve=true` 走 360° 全周（`angle` 忽略），否则 `angle` 弧度制必填。
- * `regionIndex` 语义与 extrude 同（SketchDto.regions 下标，面积降序；缺省 0=最大面域）。
+ * `regions` 语义与 extrude 同（SketchDto.regions 下标数组，面积降序；多选逐域旋转并 Unite）。
  * M6-c T2 起语义=ADD（Onshape Add 同语义：有上游=与上游布尔并为单一并集体——离群两体为
  * 多 lump 单体，合法；无上游=新建体直出）。v1 的「只 NEW」挂账已清偿——服务端裁决见
  * modeling-server AsyncFeatureEval.evaluateRevolveAsync 头注。 */
 export interface RevolveParams {
   sketchId: string;
+  /** @deprecated v1.30 起被 `regions` 取代（单面域简写，兼容保留）；服务端 zod
+   * superRefine 与 `regions` 互斥拒收（同给两键即拒，不做静默优先级）。
+   * 原 v1.7 语义：选面域（SketchDto.regions 下标，面积降序）；缺省 0=最大面域。 */
   regionIndex?: number;
+  /** v1.30：多面域选择——SketchDto.regions 下标数组（面积降序，语义与 regionIndex 同锚）。
+   * 逐域旋转（含孔域沿用域内 CSG）后 Unite 为单一工具实体；重复下标按集语义去重。
+   * 缺省（与 regionIndex 皆不在场）=[0]=最大面域。 */
+  regions?: number[];
   axis: { sketchEntityId: number };
   fullRevolve: boolean;
   angle?: number;
@@ -462,8 +485,11 @@ export interface RevolveParams {
 export type CPlaneReference = "top" | "front" | "right";
 export interface CPlaneParams {
   reference: CPlaneReference;
-  /** 沿参考面法向的偏移距离（mm，有限数；缺省 0）。 */
+  /** 沿参考面法向的偏移距离（mm，有限数；缺省 0）。与 `origin` 互斥。 */
   offsetMm?: number;
+  /** v1.31（B2a）：平面点——世界坐标原点（mm）。给定时忽略 `offsetMm`，
+   * 平面过该点、法线取 `reference` 世界基准面法线（`flipNormal` 可反转）。 */
+  origin?: { x: number; y: number; z: number };
   /** true=法线与 xDir 反向（草图正面朝另一侧）。 */
   flipNormal?: boolean;
 }
@@ -624,7 +650,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.29.0";
+  public static interfaceVersion = "1.32.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

@@ -199,9 +199,29 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     });
   });
 
-  it('倒角孔页签仍禁用（未实现不假成功）', () => {
-    renderDialog();
-    const countersink = screen.getByText('倒角孔').closest('button') as HTMLButtonElement;
-    expect(countersink.disabled).toBe(true);
+  it('倒角孔提交 countersink 参数（v1.32）', async () => {
+    const { applyOp } = renderDialog();
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    fireEvent.click(screen.getByText('倒角孔').closest('button')!);
+    expect(screen.getByTestId('hole-csink-diameter')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('hole-csink-angle'), { target: { value: '90' } });
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'hole',
+      params: {
+        sketchId: 'sketch-1',
+        pointIds: [1],
+        holeStyle: 'countersink',
+        countersinkDiameterMm: 10,
+        countersinkAngleDeg: 90,
+        diameterMm: 5,
+        endBound: 'blind',
+        depthMm: 10,
+        tipAngleDeg: 180,
+      },
+    });
   });
 });

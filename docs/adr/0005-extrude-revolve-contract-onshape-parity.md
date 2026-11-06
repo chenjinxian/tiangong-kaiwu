@@ -125,6 +125,31 @@ adapter 中映射为对应草图面域（左环面域）；如果映射后的体
 - **upTo* 的 UI 证据缺口**：已采集 features JSON 有 `UP_TO_*` 终止条件，但现有 UI
   截图/DOM 未覆盖对应对话框；在补采 live UI 证据前只做后端能力，不凭空发明控件。
 
+## 实现记录（2026-11-06，Phase 3：revolve 多面域）
+
+- **shared 1.30.0**：`RevolveParams` 增 `regions?: number[]`，与 `ExtrudeParams.regions`
+  同锚（SketchDto.regions 面积降序下标）；`regionIndex` 降级为 deprecated 单面域简写，
+  服务端 zod 与 `regions` 同给即拒收（无静默优先级）。旧单面域载荷逐字兼容（缺省 [0]）。
+- **backend**：`FeatureTypeRegistry` revolve schema 增 regions + 互斥 superRefine；
+  `resolveRevolveInputs` 归一选集（去重、逐域退化守卫）；`evaluateRevolveAsync` 逐域
+  旋转（含孔域沿用域内 CSG）后一次 `Unite` 为单一工具实体，再参与特征内 new/add/remove。
+  单面域零新增内核调用。
+- **UI**：FeatureDialog 的 revolve 通道改用与 extrude 相同的 `selectedRegions` 多选集
+  （视口点选增删 chips；编辑回显 `regions`/旧 `regionIndex`）；载荷发 `regions` 不再发
+  `regionIndex`；提交门=选集非空且下标未越界 + 轴已选；预览按选集并集边界生成。
+- **验证**：
+  - backend `RevolveFlow` 新增两互斥矩形环柱：regions [0,1] 全周体积 2500π；
+    `FeatureTypeRegistry` regions 接受/互斥/负数拒收；backend 相关 37/37。
+  - 真栈 UI `e2e/revolve-multi-region.spec.ts` setup+test **2 passed**：
+    视口点选 2 面域 + 轴 → 体积 **7853.981 mm³**（2500π=7853.982，0.00001%），push+重开。
+  - 真实示例 `e2e/examples/hand-brake-scenario.spec.ts` setup+test **2 passed**：
+    3 特征全链，revolve regions [0,1]（审计选择：上半轮廓两域；下半镜像域排除）
+    + SWEPT_EDGE 1 mm 倒角，体积 **7125.270 mm³** vs 采集 7125.274。
+    此前单 region 0 为 5358.127（−24.8%），多面域契约即根因修复。
+- **诚实边界**：converter 对多 query 的 Onshape revolve 只能给面积降序前缀
+  `[0..n-1]` 的 best-effort（`regionRisk`），示例/replay 必须审计具体面域；
+  Hand Brake 的审计选择写在该 spec 的 `withAuditedRevolveRegions`，不冒充通用自动映射。
+
 ## 备选方案
 
 - **前端换算终止条件**：会伪造几何，拒绝。

@@ -8,6 +8,8 @@
  *
  * 语义：
  * - origin = 基准面 origin(0,0,0) + normal * offsetMm（offsetMm 可负；flip 不改位置）；
+ * - v1.31 平面点：params.origin 存在时直接作为世界原点（offsetMm 忽略），
+ *   法线仍取 reference 世界基准面法线；与 offsetMm 的互斥由后端 schema 把守；
  * - flipNormal=true 只反转法线（草图正面朝另一侧），xDir 保持——局部 Y = normal × xDir
  *   随之翻转，符合“反转法线”的直观语义。
  */
@@ -48,12 +50,17 @@ export function cPlanePlaneFromParams(
   const normal = flip
     ? { x: neg(frame.normal.x), y: neg(frame.normal.y), z: neg(frame.normal.z) }
     : frame.normal;
+  const finiteOrigin = p.origin !== undefined
+    && Number.isFinite(p.origin.x) && Number.isFinite(p.origin.y) && Number.isFinite(p.origin.z);
+  const origin = finiteOrigin
+    ? { x: p.origin!.x, y: p.origin!.y, z: p.origin!.z }
+    : {
+        x: scaled(frame.normal.x),
+        y: scaled(frame.normal.y),
+        z: scaled(frame.normal.z),
+      };
   return {
-    origin: {
-      x: scaled(frame.normal.x),
-      y: scaled(frame.normal.y),
-      z: scaled(frame.normal.z),
-    },
+    origin,
     normal,
     xDir: frame.xDir,
     ...(sourceFeatureId !== undefined ? { sourceFeatureId } : {}),

@@ -162,7 +162,15 @@ export type PartStudioDialogState =
   | { active: null }
   /** B5：patternKind 为 ribbon 入口的初始阵列类型（LinearPattern→linear、CircularPattern→circular）；
    * 对话框内仍可自由切换（参数化特征载荷 kind 以对话框当前值为准）。 */
-  | { active: 'feature'; mode: 'new'; featureType: LubanFeatureType; patternKind?: PatternParams['kind'] }
+  | {
+    active: 'feature';
+    mode: 'new';
+    featureType: LubanFeatureType;
+    patternKind?: PatternParams['kind'];
+    /** 打开对话框时的预选面快照（抽壳：对话框打开会暂停选择工具并清空选择，
+     *  必须在路由时捕获输入面）。 */
+    inputFaces?: readonly CanvasSelection[];
+  }
   | { active: 'feature'; mode: 'edit'; featureId: string; featureName: string; featureType: string }
   | { active: 'sketch'; sketchId: string | null };
 
