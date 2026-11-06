@@ -14,6 +14,7 @@ __azurite_db_*
 AzuriteConfig
 # 后端产物解压落点（fetch-backend.ps1）
 dist-backend/
+dist-out/
 test-results/
 # Playwright MCP 浏览器观测产物（快照/日志/截图；证据入私有仓）
 .playwright-mcp/
