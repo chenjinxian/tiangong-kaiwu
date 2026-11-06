@@ -42,18 +42,22 @@ setup('authenticate', async ({ request }) => {
   // 覆盖最坏链并留 auth/网络余量（L5）。P2.8 起无 settle 等待。
   setup.setTimeout(1_300_000);
 
-  // 1) 取会话：缓存复用 → refresh 续命 → 真实登录（仅末级耗限流额度）。
-  //    refresh 401（refreshToken 已被其他进程旋转）不致命——降级真实登录。
+  // 1) 取会话：有 refreshToken 一律先 refresh（轮换出新的成对 token）→ 真实登录
+  //    （仅末级耗限流额度）。不能再“accessToken 仍有效就整体复用”：refreshToken
+  //    是旋转制，若它已被别的进程/手工登录轮换，复用留下的是一条无续命能力的
+  //    会话——套件跑到 token 过期才 401 团灭（2026-11-06 冷开复跑实测：setup
+  //    时 access token 只剩 0.4 min，apiMeOk 通过，第二个 iModel 即刷新 401）。
+  //    refresh 端点无限流，提前换新成对 token 不消耗登录额度。
   let auth: StoredAuth;
   const cached = readSessionFile();
-  if (cached?.accessToken && (await apiMeOk(request, cached.accessToken))) {
-    auth = cached;
-  } else if (cached?.refreshToken) {
+  if (cached?.refreshToken) {
     try {
       auth = await apiRefresh(request, cached);
     } catch {
       auth = await apiLogin(request);
     }
+  } else if (cached?.accessToken && (await apiMeOk(request, cached.accessToken))) {
+    auth = cached;
   } else {
     auth = await apiLogin(request);
   }

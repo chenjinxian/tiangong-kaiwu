@@ -55,7 +55,9 @@ const ENTRIES: VerifyEntry[] = [
   {
     slug: 'sample-assignment',
     projectId: 'c7778d27-f4c5-4097-a735-fc8080c2c820',
-    imodelId: 'a9eacfe5-825f-421e-93c3-bf55466c27cf',
+    // 2026-11-06：canonical 场景重建库（`E2E - Sample Assignment RPC`；9 特征/
+    // 8915.8602 mm³）。旧 UI 库 a9eacfe5 已不存在，且残留的同名 UI 库特征树为空。
+    imodelId: 'f52752cb-5602-42e7-8f30-14371d371b41',
     featureTypes: [
       'sketch', 'extrude', 'sketch', 'extrude', 'sketch', 'extrude', 'sketch', 'extrude', 'chamfer',
     ],
@@ -113,15 +115,30 @@ const ENTRIES: VerifyEntry[] = [
   {
     slug: 'intro-to-cad',
     projectId: 'c7778d27-f4c5-4097-a735-fc8080c2c820',
-    imodelId: 'de911416-9dca-4be9-86c3-813458bc18f6',
+    // 2026-11-06：cPlane 版本当前库（state.json 同源；树 sketch/extrude/cPlane/
+    // sketch、85157.3407 mm³）。旧 de911416 已不存在。
+    imodelId: 'bb8efb7b-5a07-4eb9-b36a-e0f8a7dfcaaf',
     featureTypes: ['sketch', 'extrude', 'cPlane', 'sketch'],
     expectedVolumeMm3: 85157.342,
     tolerance: 0.02,
   },
+  {
+    slug: 'top-ring-key',
+    projectId: 'c7778d27-f4c5-4097-a735-fc8080c2c820',
+    // P0.5 新建（2026-11-06）：12 特征/逐 body 2998.1430 mm³。此条把该示例的
+    // persist 从 pending 提升为“冷 briefcase cache 重开可读回”。
+    imodelId: '09ea16a9-46dd-48aa-a866-04a0ee39db7a',
+    featureTypes: [
+      'sketch', 'extrude', 'fillet', 'sketch', 'revolve',
+      'sketch', 'hole', 'sketch', 'extrude', 'sketch', 'extrude', 'chamfer',
+    ],
+    expectedVolumeMm3: 2998.14301903484,
+    tolerance: 0.01,
+  },
 ];
 
 test.describe('示例 iModel 重开回归', () => {
-  test('12 个已推送 iModel：特征树 + 体积读回一致', async ({ page }) => {
+  test('13 个已推送 iModel：特征树 + 体积读回一致', async ({ page }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 900_000);
     const token = await getApiToken();
     const summary: unknown[] = [];

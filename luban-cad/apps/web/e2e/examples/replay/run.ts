@@ -191,6 +191,19 @@ export async function runScenario(
             if (local === body.sourceFeatureId) bodyKeyBySource.set(source, body.bodyKey);
           });
           // 回溯造体特征：body.sourceFeatureId 可能已被 fillet/hole 等改写。
+          // 注意 ADD/revolve-add 只是「修饰已有 body」，其 sourceFeatureId 会覆盖
+          // body 的原造体特征；不能在这里停止，否则后续 booleanScope 引用原始
+          // extrude/revolve-new 时会找不到 body（Top, Ring, Key 实测）。只有真正
+          // 新建 body 的 newBody/extrude-new 才是谱系终点；修饰型 creator 继续回溯。
+          const startsNewBody = (candidate: ScenarioFeature): boolean => {
+            const p = (candidate.params ?? {}) as Record<string, unknown>;
+            if (candidate.type === 'extrude' || candidate.type === 'revolve')
+              return p.operation === 'new' || p.newBody === true;
+            if (candidate.type === 'booleanBodies' || candidate.type === 'booleanAdd'
+              || candidate.type === 'booleanSubtract')
+              return true; // 布尔结果 body 的谱系边界：无法继续静态回溯两侧原始体
+            return false;
+          };
           const sourceFeature = scenarioFeatureByLocalId.get(body.sourceFeatureId);
           const sourceIndex = sourceFeature ? scenario.features.indexOf(sourceFeature) : -1;
           for (let index = sourceIndex; index >= 0; index--) {
@@ -198,7 +211,7 @@ export async function runScenario(
             if (!candidate?.sourceFeatureId || !BODY_CREATOR_TYPES.has(candidate.type)) continue;
             if (!bodyKeyBySource.has(candidate.sourceFeatureId))
               bodyKeyBySource.set(candidate.sourceFeatureId, body.bodyKey);
-            break;
+            if (startsNewBody(candidate)) break;
           }
         }
         const activeKeys = new Set(bodies.map((body) => body.bodyKey));
