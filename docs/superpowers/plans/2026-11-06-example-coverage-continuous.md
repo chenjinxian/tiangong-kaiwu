@@ -185,12 +185,12 @@
     组合/传播的内核 blend 问题**。`gaiter-scenario.spec.ts` 以 fixme 保留，不伪造绿；
     记任务 #103。
   - 未覆盖：CAP_FACE/曲面侧面等其它 shell 面形态、Hollow、逐面差异壁厚。
-- [~] **T12 booleanBodies intersect 解锁（2026-11-07）**
+- [x] **T12 booleanBodies intersect 解锁（2026-11-07）**
   - backend：registry 放行 intersect；evaluator 映射内核 `BRepGeometryOperation.Intersect`；
     registry 测试 62/62（含 T2c 交集体积 2 mm³）。
   - converter/translator：UNION/SUBTRACTION/INTERSECTION → unite/subtract/intersect。
-  - 真栈 `e2e/boolean-intersect.spec.ts`：2×2×1 与 1×1×2 重叠盒交集 **1 mm³**、
-    tool 消费、push/重开（待源码 MS 重启后跑）。
+  - 真栈 `e2e/boolean-intersect.spec.ts` **2 passed**：2×2×1 与 1×1×2 重叠盒
+    交集 **1 mm³**、tool 消费、push/重开；后端全量 **764 passed / 8 skipped**。
   - 契约形态未变（BooleanBodiesParams 早已含 intersect），无常量版本 bump；
     发布随 shared 1.34 双端。UI 相交页签仍按产品节奏。
 - [ ] **T8 Face-boundary edge selectors（2026-11-06，下一步；test-only）**
