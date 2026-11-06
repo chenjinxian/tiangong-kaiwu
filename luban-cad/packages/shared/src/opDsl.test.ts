@@ -37,6 +37,7 @@ const ALL_FEATURE_TYPES: Record<LubanFeatureType, true> = {
   booleanBodies: true,
   hole: true,
   cPlane: true,
+  faceExtrude: true,
 };
 
 describe("op DSL 白名单 × LubanFeatureType 全集", () => {

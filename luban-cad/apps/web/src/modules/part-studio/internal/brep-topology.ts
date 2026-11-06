@@ -22,7 +22,7 @@
 import { ElementGeometry, type ElementGeometryDataEntry } from '@itwin/core-common';
 import { editorBuiltInCmdIds, SubEntityType } from '@itwin/editor-common';
 import type { SubEntityGeometryProps, SubEntityProps } from '@itwin/editor-common';
-import { Arc3d, LineSegment3d, Range3d, type Range3dProps } from '@itwin/core-geometry';
+import { Arc3d, CurveOps, LineSegment3d, Loop, ParityRegion, Range3d, type Range3dProps } from '@itwin/core-geometry';
 import { EditTools, solidModelingIpc } from '@itwin/editor-frontend';
 import type { BodyInfo } from '@luban-cad/shared';
 import type {
@@ -260,6 +260,132 @@ function curveDescriptor(entry: ElementGeometryDataEntry): BrepEdgeCurve | undef
  * `props.id` 供 `resolveEdgeRef` 把拾取 id 换成边自身持久 id。
  * 返回 undefined = 命令无法启动；空数组 = 无 active authored body。
  */
+/** 可序列化的面边界环曲线（E2E face selector / faceExtrude 解析用；不进入产品事实源）。 */
+export type BrepFaceLoopCurve =
+  | { kind: 'line'; p0: [number, number, number]; p1: [number, number, number] }
+  | {
+    kind: 'arc';
+    center: [number, number, number];
+    radius: number;
+    normal: [number, number, number];
+    start: [number, number, number];
+    end: [number, number, number];
+    sweepRadians: number;
+  }
+  | { kind: 'other'; geometryType: string };
+
+export interface BrepFaceHandle {
+  bodyKey: string;
+  subEntityId: number;
+  range: { low: [number, number, number]; high: [number, number, number] };
+  normal: [number, number, number];
+  loops: BrepFaceLoopCurve[][];
+}
+
+function primitiveDescriptor(curve: unknown): BrepFaceLoopCurve | undefined {
+  if (curve instanceof LineSegment3d)
+    return { kind: 'line', p0: pointTuple(curve.point0Ref), p1: pointTuple(curve.point1Ref) };
+  if (curve instanceof Arc3d) {
+    const start = curve.startPoint();
+    const end = curve.endPoint();
+    return {
+      kind: 'arc',
+      center: pointTuple(curve.center),
+      radius: curve.vector0.magnitude(),
+      normal: pointTuple(curve.perpendicularVector),
+      start: pointTuple(start),
+      end: pointTuple(end),
+      sweepRadians: curve.sweep.sweepRadians,
+    };
+  }
+  const category = (curve as { geometryCategory?: string } | undefined)?.geometryCategory;
+  return category ? { kind: 'other', geometryType: category } : undefined;
+}
+
+function loopDescriptors(loop: Loop): BrepFaceLoopCurve[] {
+  return loop.children
+    .map(primitiveDescriptor)
+    .filter((curve): curve is BrepFaceLoopCurve => curve !== undefined);
+}
+
+/**
+ * 读 active authored body 的面拓扑（dev-only 观测面）：缓存面子实体 id + 范围 + 平面法线 +
+ * 边界环曲线。面几何条目经 `ElementGeometry.toGeometryQuery` 得到 Loop/ParityRegion
+ * （spike 2026-11-06 实证；planar face 可经 CurveOps.isPlanar 取局部平面）。
+ * 与 readBrepEdgeHandles 同通道；先查一次 Edge 再查 Face（原生缓存需先有子实体查询
+ * 才会填充 Face 列表——Tutorial 2 探针实测，直接 Face 返回空）。
+ */
+export async function readBrepFaceHandles(
+  iModelKey: string,
+  bodies: readonly BodyInfo[],
+  source: BrepTopologySource = editorBrepTopologySource,
+): Promise<BrepFaceHandle[] | undefined> {
+  const active = bodies.filter(isActiveAuthored);
+  if (active.length === 0) return [];
+  try {
+    await source.startCommand(iModelKey);
+  } catch {
+    return undefined;
+  }
+  try {
+    try {
+      await source.clearCache();
+    } catch {
+      // 缓存清理失败不阻断。
+    }
+    const out: BrepFaceHandle[] = [];
+    for (const body of active) {
+      let created = false;
+      try {
+        created = await source.createCache(body.bodyKey);
+      } catch {
+        created = false;
+      }
+      if (!created) continue;
+      try {
+        await source.getSubEntities(body.bodyKey, SubEntityType.Edge, false);
+      } catch {
+        // 预热失败：Face 查询可能为空，按空集处理。
+      }
+      let faceProps: SubEntityProps[] = [];
+      try {
+        faceProps = (await source.getSubEntities(body.bodyKey, SubEntityType.Face, false)) ?? [];
+      } catch {
+        continue;
+      }
+      for (const props of faceProps) {
+        const geometry = await source.getGeometry(body.bodyKey, props, { wantGeometry: true, wantRange: true });
+        if (!geometry?.geometry || !geometry.range) continue;
+        let query;
+        try {
+          query = ElementGeometry.toGeometryQuery(geometry.geometry as ElementGeometryDataEntry);
+        } catch {
+          continue;
+        }
+        if (!(query instanceof Loop) && !(query instanceof ParityRegion)) continue;
+        const plane = CurveOps.isPlanar(query);
+        if (!plane) continue;
+        const range = Range3d.fromJSON(geometry.range);
+        const loops = query instanceof Loop ? [loopDescriptors(query)] : query.children.map(loopDescriptors);
+        out.push({
+          bodyKey: body.bodyKey,
+          subEntityId: Number(props.id),
+          range: { low: pointTuple(range.low), high: pointTuple(range.high) },
+          normal: pointTuple(plane.matrix.columnZ()),
+          loops,
+        });
+      }
+    }
+    return out;
+  } finally {
+    try {
+      await source.finishCommand();
+    } catch {
+      // 命令已被其他工具收口。
+    }
+  }
+}
+
 export async function readBrepEdgeHandles(
   iModelKey: string,
   bodies: readonly BodyInfo[],

@@ -115,6 +115,10 @@
  * `countersinkDiameterMm`（起始面侧锥口直径）+ `countersinkAngleDeg`（包含角，deg，0<angle<180）；
  * 主孔仍由 `diameterMm`/`endBound` 定义，锥台从起始面切到主孔柱面（深度按几何自动求得）。
  * 旧 simple/counterbore 载荷逐字兼容；counterbore/countersink 参数互斥且只在对应 holeStyle 生效。
+ * v1.33（ADR-0006 切片 D）：`LubanFeatureType + "faceExtrude"` 与 `FaceExtrudeParams`——
+ * 以既有 body 的持久面引用为轮廓，沿面法向拉伸并参与特征内布尔。首版 add/remove/intersect
+ * + blind/throughAll；NEW/secondDirection throughAll/非平面面诚实拒收。UI 暂无入口（backend/
+ * contract 先行，UI 需 live 面拉伸对话框证据）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -124,7 +128,7 @@ import {
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
  * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern；
  * B6 M-A4.1 v1.16 增 booleanBodies（body boolean）） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies" | "hole" | "cPlane";
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -409,6 +413,35 @@ export interface PatternParams {
 export interface LubanTopologyId { nodeId: number; entityId: number }
 
 /**
+ * v1.33（ADR-0006 切片 D）：face-extrude/imprint-face 参数。
+ *
+ * 与 `ExtrudeParams` 的差异仅在轮廓来源：本类型取既有 body 的**持久面引用**
+ * （`resolveFaceRef` 产物）作为轮廓环，沿该面法向拉伸；面边界环由后端
+ * SolidModeling 命令 `getSubEntityGeometry` 读取（spike 2026-11-06：返回
+ * Loop/ParityRegion 世界坐标曲线）。不回写 native geometry stream。
+ *
+ * - `bodyId`：面所属 body 的 BIS 元素 id（`getBodies.bodyKey`）；
+ * - `faceRef`：跨重建稳定的面拓扑 id；
+ * - `operation`：首版 add/remove/intersect（NEW 面源自既有体，诚实拒收）；
+ * - `endBound`：blind（须 `depthMm>0`）/ throughAll（按上游体范围）；
+ * - `direction`：相对面法向；缺省 forward；
+ * - `secondDirection`：复用 extrude 同形，首版仅 blind；
+ * - `mergeScope`：多体目标（与 ExtrudeParams.mergeScope 同语义）。
+ *
+ * 非平面面、零/多环歧义、面引用失效由服务端在 txn 前诚实拒收，不静默降级。
+ */
+export interface FaceExtrudeParams {
+  bodyId: string;
+  faceRef: LubanTopologyId;
+  operation: "add" | "remove" | "intersect";
+  endBound: Extract<ExtrudeEndBound, "blind" | "throughAll">;
+  depthMm?: number;
+  direction?: ExtrudeDirection;
+  secondDirection?: ExtrudeSecondDirection;
+  mergeScope?: BodyRef[];
+}
+
+/**
  * 边引用 = 边自身持久拓扑 id 单引用（M6-d v1.9 纯换，面对对退役）。
  * `edge` = op31 topologyIdFromSubEntity 对**边子实体**回的边自身 id（创建即赋号，布尔分裂
  * 子边继承同 id）；求值端 op36 edgesFromOwnId 按 id 直寻缓存边子实体——分裂片同 id 集合
@@ -494,7 +527,7 @@ export interface CPlaneParams {
   flipNormal?: boolean;
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams;
 
 export type FeatureOp =
   /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
@@ -650,7 +683,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.32.0";
+  public static interfaceVersion = "1.33.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

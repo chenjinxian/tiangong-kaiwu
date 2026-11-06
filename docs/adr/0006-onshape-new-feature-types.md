@@ -5,7 +5,9 @@
   **切片 A2（hole 曲线顶点孔位）已落地 backend/contract/UI + 数据驱动回放（shared 1.27.0）**；
   **切片 A3（沉头孔 counterbore）已落地 backend/contract/UI + 真栈 e2e（shared 1.28.0）**；
   **切片 B1（cPlane 基准面 + 草图落在自定义平面）已落地 backend/contract/UI + 真栈 e2e（shared 1.29.0）**；
-  切片 B2（任意参考几何/改参传播/变量）、C、D 仍待逐个批准。
+  切片 B2（任意参考几何/改参传播/变量）、C 仍待逐个批准；
+  **切片 D（face-extrude/imprint-face）backend/contract/e2e 首切片已落地（2026-11-06，
+  shared 1.33.0；converter/runner 的 imprintFace 解析与 UI 待后续）**。
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/adr/0005-extrude-revolve-contract-onshape-parity.md`、
   `docs/superpowers/specs/2026-11-04-onshape-example-replication-airr.md`、
@@ -247,6 +249,70 @@ iOS 场景的全量对拍（不能只靠截图）后再批准。
   锥口，去材 **261.794** vs 解析 **261.799 mm³**（0.002%），树 status=0。
 - 诚实边界：真实语料 11 个 C_SINK 特征分布在 7 个 PS，但这些 PS 仍被 sheet metal/
   import/custom/其它特征阻塞，暂无完整真实示例；钻尖/螺纹/间隙表仍未实现。
+
+### 切片 D spike 与首切片设计（2026-11-06，face-extrude/imprint-face）
+
+**spike 结论（真栈，Tutorial 2 iModel `f2278180`）**：`SolidModelingCommand` 的
+`getBodySubEntities(Face)` 可枚举 **27 面/67 边**；对单个面调用
+`getSubEntityGeometry(bodyId, {id, type: Face}, {wantGeometry,wantRange})` 返回面边界
+几何条目——`ElementGeometry.toGeometryQuery(entry)` 得到 **Loop**（curveCollection），
+range 为世界坐标。即**面边界环提取已可用，无需新增 native API**。同一探针在 UJ
+debug 空几何 body 上 edge/face 均为 0（正常退化；服务端须按 0 面诚实拒收）。
+
+**契约（shared 1.33.0）**：新增 `LubanFeatureType + "faceExtrude"` 与
+`FaceExtrudeParams`（不把 `ExtrudeParams.sketchId/regions` 改成可选，避免污染既有
+草图拉伸的全部守卫与 UI）：
+
+```ts
+export interface FaceExtrudeParams {
+  /** 面所属 body 的元素 id（BIS body element id；回放时由 getBodies.bodyKey 取得）。 */
+  bodyId: string;
+  /** 该面的持久拓扑引用（resolveFaceRef 的产物，跨重建稳定）。 */
+  faceRef: LubanTopologyId;
+  operation: "add" | "remove" | "intersect"; // FeatureBooleanOperation 子集；NEW 首切片拒绝
+  endBound: "blind" | "throughAll";
+  depthMm?: number;                    // blind 必填
+  direction?: ExtrudeDirection;        // 相对面法向
+  secondDirection?: ExtrudeSecondDirection; // 复用 extrude 同形（throughAll 首版不支持）
+  mergeScope?: BodyRef[];              // target body 引用（多体必需；scenario 的 booleanScope 在回放层解析）
+}
+```
+
+**后端求值（私有仓）**：面引用→缓存 face 子实体 id（`facesFromId`）→
+`getSubEntityGeometry`→`ElementGeometry.toGeometryQuery`；平面 Loop/ParityRegion
+是世界坐标，直接作为 `sweepClosedWire`/region sweep 的输入，沿面法向按
+depth/throughAll 扫掠，再按 operation 与上游体 Unite/Subtract/Intersect。
+非平面面、0 环、op=NEW、secondDirection 首版诚实拒收；多 face 选择首切片只支持
+单面（Onshape 多面查询由回放器逐面展开成多个 faceExtrude 步骤，后续切片再做
+单特征多面）。
+
+**回放/E2E**：runner 通过 `resolveFaceRef` 取得 faceRef；面查询到体的几何匹配
+需按面环/草图 imprint 关系做唯一解析（不在本切片做 UI）。首个真实验收目标：
+Tutorial 2 iOS Extrude 2 从“草图面域近似”升级为真实 faceExtrude，终体积
+157478.9 mm³ 不变；其次 Postman。
+
+**UI**：无 live 面拉伸对话框证据前不新增入口（backend/contract 先行）；UI 切片
+需采集 Onshape “从面拉伸”对话框后另批。
+
+### 切片 D 实现记录（2026-11-06，shared 1.33.0：faceExtrude backend/contract/e2e）
+
+- **契约**：`LubanFeatureType + "faceExtrude"`；`FaceExtrudeParams { bodyId, faceRef,
+  operation(add|remove|intersect), endBound(blind|throughAll), depthMm?, direction?,
+  secondDirection?, mergeScope? }`；shared `interfaceVersion = 1.33.0`；opDsl 白名单同步。
+- **后端**（私有仓 `AsyncFeatureEval.evaluateFaceExtrudeAsync`）：上游 BRep 写 scratch
+  载体 → `SolidModelingCommand.facesFromId(faceRef)` → `getSubEntityGeometry`
+  → `ElementGeometry.toGeometryQuery`（Loop/ParityRegion）→ `CurveOps.isPlanar`
+  局部化 → 沿面法向 `Sweep`（含孔面域外环−孔 CSG）→ 与上游 Unite/Subtract/Intersect。
+  throughAll 用上游范围投影；secondDirection 首版仅 blind；非平面/多面片/失效引用/
+  NEW 一律诚实失败（status=1/op 拒收）。
+- **验证**：`FaceExtrudeFlow.test.ts` **5/5**（4×4×2 盒：add 1mm → 48、remove 1mm
+  → 16、失效面引用 status≠0、schema 拒收）；`FeatureTypeRegistry/FeatureRpcImpl`
+  51/51；真栈 `e2e/examples/face-extrude.spec.ts` **2 passed**——合成盒体顶面由
+  dev-only 面枚举 + `resolveFaceRef` 取得持久面引用，faceExtrude add 1mm 体积
+  **48.000 mm³**，push 后重开树 `sketch/extrude/faceExtrude` 全 status=0、体积一致。
+- **仍未做**：converter/runner 把 Onshape `imprintFace` 查询解析为 faceRef（真实
+  iOS/Postman 仍走 test-only 草图面域近似）；单特征多面查询；NEW；UI 入口（无 live
+  证据）；published web/MS artifact 仍为 1.32，本切片发布需重新构建双端产物。
 
 ## 不在本 ADR
 

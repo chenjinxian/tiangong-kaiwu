@@ -243,6 +243,7 @@ export type {
   // ADR-0006 切片 B1（v1.29，cPlane 基准面）
   CPlaneParams,
   CPlaneReference,
+  FaceExtrudeParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

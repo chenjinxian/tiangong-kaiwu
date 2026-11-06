@@ -132,6 +132,19 @@
     但 revolve 单面域产物体积不足（region 0 ≈5373，region [0,1] 并集 ≈7140 vs
     目标 7125——多面域 revolve 才可能对上），阻塞在**revolve 多 region 契约**，
     不是边选择器；不把体积期望改成错误值来“转绿”，转 T4/T7 处理。
+- [x] **T9 faceExtrude 首切片（2026-11-06，shared 1.33.0）**
+  - 契约：`faceExtrude` + `FaceExtrudeParams`（bodyId/faceRef/operation/endBound/
+    direction/secondDirection/mergeScope）；shared 1.33.0；opDsl 白名单同步。
+  - 后端：scratch 载体 → `facesFromId` → 面边界 `getSubEntityGeometry`（Loop/
+    ParityRegion）→ `CurveOps.isPlanar` → 面法向 Sweep → 特征内布尔；throughAll；
+    非平面/多面片/失效引用/NEW 诚实拒收。
+  - 验证：`FaceExtrudeFlow.test.ts` 5/5（add 48 / remove 16 / 失效 status≠0 /
+    schema 拒收）；registry/RPC 51/51；真栈 `e2e/examples/face-extrude.spec.ts`
+    **2 passed**——合成盒体顶面 `resolveFaceRef` + faceExtrude add 1mm =
+    **48.000 mm³**，push/重开后树含 faceExtrude 且体积一致。
+  - 下一步：converter/runner 把 Onshape `imprintFace` 查询解析为 faceRef（iOS/
+    Postman 去近似）、单特征多面、UI 证据与入口；发布前必须重建 web/MS 双端
+    （当前 published artifact 仍 1.32）。
 - [ ] **T8 Face-boundary edge selectors（2026-11-06，下一步；test-only）**
   - Ruling：P0.5 计划把 FEATURE/FACE pattern 列第一，但原始 features 取证显示
     `patternType=FACE/FEATURE`（Drive Sleeve=FACE、Bottom Bracket=FEATURE
