@@ -12,6 +12,7 @@ import type {
   FeatureOp,
   FilletEdgeRef,
   HoleParams,
+  LubanTopologyId,
   SketchConstraintDto,
   SketchEntityDto,
   SketchPlaneDto,
@@ -62,6 +63,8 @@ export interface TranslateContext {
   featureIdBySource?: ReadonlyMap<string, string>;
   /** 已应用草图的平面快照（Onshape 源 id → plane），孔方向判定用。 */
   sketchPlaneBySource?: ReadonlyMap<string, SketchPlaneDto>;
+  /** shell 步骤已解析的持久面引用（键=scenario feature name）。 */
+  shellRefsByFeatureName?: ReadonlyMap<string, LubanTopologyId[]>;
   /** 当前时点 body 质心（bodyKey → 世界质心），孔方向判定用。 */
   bodyCentroidByKey?: ReadonlyMap<string, { x: number; y: number; z: number }>;
 }
@@ -300,6 +303,35 @@ function extrudeOp(feature: ScenarioFeature, context: TranslateContext): Transla
       ...(scopeTarget ? [scopeTarget.note] : []),
     ],
     approximate,
+  };
+}
+
+/**
+ * shell（ADR-0008 第一切片）：由 runner 的 shellFaceResolver 产出持久面引用；
+ * 本函数只做结构校验与方向符号（Onshape oppositeDirection=false = 内缩 → 负距离）。
+ */
+function shellOp(feature: ScenarioFeature, context: TranslateContext): TranslatedStep {
+  const params = asRecord(feature.params) ?? {};
+  const thickness = numberParam(params, "defaultDistance");
+  if (thickness === undefined || !(thickness > 0))
+    throw new BlockedCapabilityError('shell', `${feature.name} 壁厚无效: ${String(params.defaultDistance)}`);
+  const opposite = booleanParam(params, "oppositeDirection") === true;
+  const refs = context.shellRefsByFeatureName?.get(feature.name);
+  if (!refs || refs.length === 0)
+    throw new BlockedCapabilityError('shell', `${feature.name} 移除面引用未解析（面选择器）`);
+  return {
+    scenario: feature,
+    op: {
+      kind: 'insertFeature',
+      featureType: 'shell',
+      params: {
+        defaultDistance: opposite ? thickness : -thickness,
+        faces: refs,
+        distances: 0,
+      },
+    },
+    notes: [`shell faces=${refs.length}（面选择器，${opposite ? '外扩' : '内缩'} ${thickness} mm）`],
+    approximate: false,
   };
 }
 
@@ -719,10 +751,11 @@ export function translateScenarioFeature(
       return booleanBodiesOp(feature, context);
     case 'booleanAdd':
     case 'booleanSubtract':
+    case 'shell':
+      return shellOp(feature, context);
     case 'pattern':
     case 'loft':
     case 'sweep':
-    case 'shell':
       throw new BlockedCapabilityError(
         'feature-channel',
         `${feature.name}（${feature.type}）尚未接入通用 scenario channel`,

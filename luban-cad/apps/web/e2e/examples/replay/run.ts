@@ -6,7 +6,7 @@
  * 每个被近似的步骤写入 notes，调用方必须落到 manifest。
  */
 import type { Page } from '@playwright/test';
-import type { FeatureOpResult, FilletEdgeRef, SketchPlaneDto } from '@luban-cad/shared';
+import type { FeatureOpResult, FilletEdgeRef, LubanTopologyId, SketchPlaneDto } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
   assertFeatureOpOk,
@@ -44,6 +44,14 @@ export interface RunScenarioOptions {
     feature: ScenarioFeature,
     scenario: ParityScenario,
   ) => Promise<{ refs: FilletEdgeRef[]; notes: string[] }>;
+  /**
+   * shell 移除面解析器（面 query → 持久面引用）。未提供时 translator 对 shell
+   * 诚实阻塞；解析失败同样阻塞，绝不任取一面。
+   */
+  shellFaceResolver?: (
+    feature: ScenarioFeature,
+    scenario: ParityScenario,
+  ) => Promise<{ refs: LubanTopologyId[]; notes: string[] }>;
 }
 
 /**
@@ -276,6 +284,12 @@ export async function runScenario(
         edgeRefsByFeatureName = new Map([[feature.name, resolved.refs]]);
         edgeNotes.push(...resolved.notes);
       }
+      let shellRefsByFeatureName: ReadonlyMap<string, LubanTopologyId[]> | undefined;
+      if (feature.type === 'shell' && options.shellFaceResolver) {
+        const resolved = await options.shellFaceResolver(feature, scenario);
+        shellRefsByFeatureName = new Map([[feature.name, resolved.refs]]);
+        edgeNotes.push(...resolved.notes);
+      }
       // body 引用（booleanBodies 目标/工具、extrude/revolve/hole 的 booleanScope）
       // 必须在**该步时点**解析：后续特征会改变 body 集。
       const stepParams = effectiveFeature.params as Record<string, unknown>;
@@ -355,6 +369,7 @@ export async function runScenario(
         latestSketchId,
         featureIdBySource: localFeatureIdBySource,
         ...(edgeRefsByFeatureName ? { edgeRefsByFeatureName } : {}),
+        ...(shellRefsByFeatureName ? { shellRefsByFeatureName } : {}),
         ...bodyContext,
       });
       if (imprintNotes.length > 0) {

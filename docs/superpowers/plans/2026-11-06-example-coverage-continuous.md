@@ -61,7 +61,7 @@
       若再复发按系统性调试立案，不作为“绿”。
 - **下一步队列（按解锁值）**：
   1. FEATURE pattern（circular 22 / linear 7）——契约/后端首切片已落（T10）；converter 映射/UI 待做；
-  2. shell 转换 + 面选择器（22）；3. sketch 外部引用（PROJECTED/CONCENTRIC external 等
+  2. shell 转换/面选择器首切片已落（T11，合成绿；真实例被 fillet 内核阻塞）；3. sketch 外部引用（PROJECTED/CONCENTRIC external 等
      约 200 个 PS，最大但最大）；
   4. upToSurface（24 个特征）；5. splitPart/rib/face ops/transform；6. draft（native
      taper 未暴露，独立 spike）。
@@ -170,6 +170,19 @@
     源特征集合与 NEW 语义未解——**converter 不映射、不猜**；需 live 取证后另立
     切片。FACE/曲线 pattern、per-instance skip/第二方向、UI 入口/编辑/预览同缺；
     published web/MS 仍为 1.32，发布需 shared→backend→web 同批重建。
+- [x] **T11 shell 转换 + 面选择器首切片（2026-11-07，test-only）**
+  - converter：`convertShell` 输出 shell 特征（isHollow/Hollow dropped、thickness、
+    oppositeDirection、面 query 语义描述 sweptFace/capFace + 草图实体 + 上游 op）。
+  - 回放：`shellFaceResolver` 解析 **revolve SWEPT_FACE 端面**（草图直线 ⟂ 回转轴
+    → 平面圆/环；按轴线段/平面/外半径唯一匹配，允许前序 fillet/chamfer 圆角缩小外缘）
+    → resolveFaceRef；translator `shellOp`（oppositeDirection=false → 负距离内缩，
+    distances=0 穿孔移除）。
+  - 证据：合成 `e2e/examples/shell-face.spec.ts` **2 passed**——实心圆柱 R10×10
+    移除顶面 + 内缩 2 mm = 开口杯 **1533.097 mm³**（π(1000−512)），push/重开。
+  - 真实例 **Gaiter 仍 blocked-kernel**：两端面解析成功，但前序 Fillet 1（8 条整圆边
+    1 mm）后 body 体积归零（status=0，massproperties=0；shell 再触发原生 bad
+    allocation）。`gaiter-scenario.spec.ts` 以 fixme 保留，不伪造绿；记任务 #103。
+  - 未覆盖：CAP_FACE/曲面侧面等其它 shell 面形态、Hollow、逐面差异壁厚。
 - [ ] **T8 Face-boundary edge selectors（2026-11-06，下一步；test-only）**
   - Ruling：P0.5 计划把 FEATURE/FACE pattern 列第一，但原始 features 取证显示
     `patternType=FACE/FEATURE`（Drive Sleeve=FACE、Bottom Bracket=FEATURE

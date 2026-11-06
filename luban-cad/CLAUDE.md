@@ -171,6 +171,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   断言同步更新；此前 cPlane +17、SketchDialog 偏移平面编辑、FeatureDialog endBound、
   chamfer 三种模式/编辑回显；FeatureDialog 单文件 135）；
   shared **160**、editor 29、viewer 127；`tsc`（含 e2e）/lint 绿。
+- T11 shell 转换/面选择器（2026-11-07，test-only）：converter 输出 shell；replay
+  解析 revolve SWEPT_FACE 端面（线⟂轴、前序圆角容差）→ resolveFaceRef → ShellParams。
+  合成真栈 `e2e/examples/shell-face.spec.ts` **2 passed**——实心圆柱移顶面 + 内缩
+  2 mm = 开口杯 **1533.097 mm³**，push/重开。Gaiter 真实例 blocked-kernel：
+  Fillet 1（8 条整圆边）后 body 零体积（status=0 / mass=0），spec fixme 待内核修复。
 - shared 1.34.0：featurePattern FEATURE 阵列（ADR-0007 首切片；sourceFeatureId +
   count/spacing?/angle? + 任意轴线段；源限 extrude/revolve/hole add/remove，差集 delta）。
   后端 `FeaturePatternFlow` **4/4**（线性 8.75 mm³、偏轴圆周 12 mm³、校验矩阵）、

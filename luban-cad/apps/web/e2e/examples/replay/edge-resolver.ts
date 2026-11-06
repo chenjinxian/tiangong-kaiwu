@@ -767,6 +767,10 @@ export async function resolveScenarioEdges(
     // 单边选择器（CAP_EDGE/SWEPT_EDGE）恒 1 条；面边界选择器（CAP_FACE/
     // SWEPT_FACE）可命中多条——逐条 resolveEdgeRef，失败即整特征阻塞。
     const selected = resolveSelector(entry.selector!, handles, sketches, ops);
+    if (process.env.EDGE_DEBUG === '1') {
+      console.log(`[edge-resolver] ${feature.name} query=${JSON.stringify(entry.selector)} ` +
+        `matches=${JSON.stringify(selected.map((handle) => ({ id: handle.subEntityId, curve: handle.curve })))}`);
+    }
     for (const handle of selected) {
       const result = (await msRpc(
         ctx.itwinId,
@@ -785,6 +789,9 @@ export async function resolveScenarioEdges(
   }
   if (refs.size === 0)
     throw new BlockedCapabilityError('edge-selector', `${feature.name} 解析结果为空`);
+  if (process.env.EDGE_DEBUG === '1') {
+    console.log(`[edge-resolver] ${feature.name} refs=${JSON.stringify(Array.from(refs.keys()))}`);
+  }
   return {
     refs: Array.from(refs.values()),
     notes: [`edgeResolver=${feature.name}: ${entries.length} queries → ${refs.size} refs`],
