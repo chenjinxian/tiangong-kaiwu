@@ -103,6 +103,20 @@ nginx ─┬─ /api /ws /ipc → modeling-server :5401（Briefcase / FeatureOp 
 
 前置：**Windows 10/11 x64**、Docker Desktop（已启动）、Node.js 20.12+（推荐 22 LTS）。**不需要 GitHub 账号，不需要 `gh`，不需要 `docker login`** —— 4 个服务镜像（web / bff / imodelhub / webhook-agent）与 Windows 后端产物均为公开资源（镜像已脱敏，不含私有源码）。
 
+**方式 A：下载部署包（推荐，无需 clone 大仓）**
+
+```powershell
+$zip = "$env:TEMP\luban-cad-deploy.zip"
+Invoke-WebRequest "https://github.com/chenjinxian/tiangong-kaiwu/releases/latest/download/luban-cad-deploy.zip" -OutFile $zip
+Expand-Archive $zip -DestinationPath "$env:TEMP\luban-cad-deploy" -Force
+cd "$env:TEMP\luban-cad-deploy"
+powershell -NoProfile -File scripts/quickstart.ps1
+```
+
+部署包只有 compose/启动脚本/nginx 配置（约 55 KB），源码仓里的 itwinjs-core/luban-cad 构建输入完全不需要。
+
+**方式 B：克隆公开仓**
+
 ```powershell
 git clone --depth 1 https://github.com/chenjinxian/tiangong-kaiwu.git
 cd tiangong-kaiwu

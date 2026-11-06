@@ -70,6 +70,12 @@ try {
   } else {
     Add-Result 'Release modeling-server 资产' $false '最新 Release 中没有 modeling-server-win-x64-*.tgz'
   }
+  $bundle = @($release.assets | Where-Object { $_.name -eq 'luban-cad-deploy.zip' }) | Select-Object -First 1
+  if ($bundle) {
+    Add-Result 'Release 部署包 luban-cad-deploy.zip' $true "$([math]::Round([long]$bundle.size / 1KB)) KB（无需 clone 源码）"
+  } else {
+    Add-Result 'Release 部署包 luban-cad-deploy.zip' $false '缺少稳定名部署包（make-deploy-bundle.ps1 后上传）'
+  }
 } catch {
   Add-Result 'Release 元数据' $false "$($_.Exception.Message)（GitHub API 限流或网络失败）"
 }

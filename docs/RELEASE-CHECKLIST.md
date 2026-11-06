@@ -79,6 +79,9 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 ## 6. 产物与发布
 
 - [ ] Release asset 大小/SHA256 与本地 tgz 相同；GitHub asset digest 核对。
+- [ ] `scripts/make-deploy-bundle.ps1 -Tag <tag>` 生成部署包并上传
+      `luban-cad-deploy-<tag>.zip` + 稳定名 `luban-cad-deploy.zip`（外部免 clone）；
+      `verify-public-deps.ps1` 含该资产检查。
 - [ ] GHCR tag/latest digest 记录（WA / hub）；`latest` 指向同 digest。
 - [ ] 发布记录：`docs/RELEASE-backend-<date>.md` + ADR §15 追加；docs/README
       索引更新。

@@ -10,7 +10,19 @@ LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有�
 
 给没有后端源码、没有 GitHub 账号、也不想登录任何镜像仓库的同事/朋友：
 
-**一键起栈**（Windows 10/11 x64）：
+**方式 A：下载部署包（推荐，无需 clone 源码仓）**
+
+```powershell
+$zip = "$env:TEMP\luban-cad-deploy.zip"
+Invoke-WebRequest "https://github.com/chenjinxian/tiangong-kaiwu/releases/latest/download/luban-cad-deploy.zip" -OutFile $zip
+Expand-Archive $zip -DestinationPath "$env:TEMP\luban-cad-deploy" -Force
+cd "$env:TEMP\luban-cad-deploy"
+powershell -NoProfile -File scripts/quickstart.ps1
+```
+
+部署包约 55 KB，只含 `docker-compose.yml`、启动/验收脚本与 nginx 配置；web/bff/hub/WA 均为公开镜像，modeling-server 为公开 Release 产物，**不需要 itwinjs-core/luban-cad 源码或任何本地构建**。
+
+**方式 B：克隆公开仓**
 
 ```powershell
 git clone --depth 1 https://github.com/chenjinxian/tiangong-kaiwu.git
@@ -43,7 +55,7 @@ powershell -NoProfile -File scripts/quickstart.ps1
 powershell -NoProfile -File scripts/verify-public-deps.ps1
 ```
 
-该脚本检查 4 个 GHCR 镜像的匿名 manifest、最新 Release 的 MS 资产，以及 compose 中 5 个官方基础设施镜像引用；发布前必须全绿。
+该脚本检查 4 个 GHCR 镜像的匿名 manifest、最新 Release 的 MS 资产与部署包，以及 compose 中 5 个官方基础设施镜像引用；发布前必须全绿。
 
 **当前公开基线（2026-11-06）**：
 

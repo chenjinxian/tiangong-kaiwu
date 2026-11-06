@@ -11,6 +11,7 @@
 | imodelhub | `ghcr.io/chenjinxian/imodelhub-public:backend-20261106` / `:latest` | `sha256:24eb26b352db3a0b0afa9b0726f987f9e6fd34afc93aba395be23b2d1d4c71cc` |
 | webhook-agent | `ghcr.io/chenjinxian/luban-webhook-agent-public:backend-20261106` / `:latest` | `sha256:27eb8103705cd9b64ba56c402aa0e9c3e325d9c3a722893708844734625951b4` |
 | modeling-server | Release `backend-20261106` / `modeling-server-win-x64-backend-20261106.tgz` | `sha256:fc35aa45c9f395168cb7ac47f8f4fbe27528a133221faecc231bc6960a60bbcf`（178,691,226 B） |
+| 部署包 | Release `backend-20261106` / `luban-cad-deploy.zip`（稳定名） | `sha256:9122bb14668fe42a0f7ffce048ce131760d0a61512606c637d23fe9c9bacdb2b`（约 55 KB，无需 clone 源码仓） |
 
 - modeling-server 契约 `LubanFeatureRpcInterface.interfaceVersion = 1.32.0`，RPC metadata 实测暴露 `LubanFeatureRpcInterface-1.32.0-*`。
 - 原生库 provenance 见产物内 `native-provenance.json`；本次为显式 store dev build（已在内部发布记录披露），Windows x64。
@@ -18,7 +19,7 @@
 
 ## 验收
 
-- `scripts/verify-public-deps.ps1` **10/10**：4 个 GHCR 包匿名 manifest 200 + 最新 Release 资产 + 5 个官方基础设施引用。
+- `scripts/verify-public-deps.ps1` **11/11**：4 个 GHCR 包匿名 manifest 200 + 最新 Release 的 MS 资产与稳定名部署包 + 5 个官方基础设施引用。
 - 匿名冷拉（空 `DOCKER_CONFIG`）实测通过：
   - `luban-web-public:latest`、`luban-bff-public:latest`（本次）；`imodelhub-public:latest`、`luban-webhook-agent-public:latest`（本次早前）。
 - 产物模式建模后端（Release 同源构建）在宿主 :5401 启动，`scripts/verify-stack.ps1` **17/17**（health×5、登录、iTwin/iModel/baseline 数据链、WS cookie 握手与负向拒绝、dev-build 横幅、web/hub 镜像 revision）。
