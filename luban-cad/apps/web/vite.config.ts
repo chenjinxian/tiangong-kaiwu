@@ -14,16 +14,30 @@ const appDir = path.dirname(fileURLToPath(import.meta.url));
  */
 function findSassTildeImport(url: string): URL | null {
   if (!url.startsWith('~')) return null;
-  const target = path.join(appDir, 'node_modules', url.slice(1));
-  const candidates = [
-    `${target}.scss`,
-    `${target}.sass`,
-    path.join(target, 'index.scss'),
-    path.join(path.dirname(target), `_${path.basename(target)}.scss`),
-    target,
+  const rel = url.slice(1);
+  // 本地 pnpm isolated 布局：apps/web/node_modules/<pkg> 是 symlink；
+  // Docker 构建使用 --config.node-linker=hoisted，registry 依赖平铺在
+  // luban-cad/node_modules（apps/web/node_modules 可能不存在该包）。
+  // 两处都查，避免生产镜像构建与本地 dev 解析结果分叉（2026-11-06 实测：
+  // Docker build 里 QuantityNumberInput.scss 的 ~@itwin/core-react 解析失败）。
+  const roots = [
+    path.join(appDir, 'node_modules'),
+    path.join(appDir, '..', '..', 'node_modules'),
+    path.join(appDir, '..', '..', '..', 'node_modules'),
   ];
-  const file = candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
-  return file ? pathToFileURL(file) : null;
+  for (const root of roots) {
+    const target = path.join(root, rel);
+    const candidates = [
+      `${target}.scss`,
+      `${target}.sass`,
+      path.join(target, 'index.scss'),
+      path.join(path.dirname(target), `_${path.basename(target)}.scss`),
+      target,
+    ];
+    const file = candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
+    if (file) return pathToFileURL(file);
+  }
+  return null;
 }
 
 export default defineConfig({

@@ -6,6 +6,92 @@ LubanCAD 使用 **imodelhub-services 模式**，所有服务在本地或私有�
 
 **后端私有化（2026-10-01）**：后端源码在私有仓 **luban-backend**，本仓只**消费产物**——imodelhub / webhook-agent 为 **GHCR 镜像**，modeling-server 以 **GitHub Releases 产物**（`dist-backend\`）在宿主进程运行。
 
+## 外部体验者本地部署（推荐路径）
+
+给没有后端源码、没有 GitHub 账号、也不想登录任何镜像仓库的同事/朋友：
+
+**一键起栈**（Windows 10/11 x64）：
+
+```powershell
+git clone https://github.com/chenjinxian/tiangong-kaiwu.git
+cd tiangong-kaiwu
+powershell -NoProfile -File scripts/quickstart.ps1
+```
+
+脚本会依次完成：环境检查 → 生成根 `.env`（随机密钥）→ 匿名下载 modeling-server 产物（Release，带 SHA256 校验）→ 拉取公开 GHCR 镜像 → `docker compose up -d` → 启动宿主 modeling-server → 全栈验收 → 打开 **http://localhost:5301**。注册任意邮箱即可体验（HUB 自带 seed 管理员，账号密码在仓库根 `.env` 的 `IMODELHUB_ADMIN_EMAIL` / `IMODELHUB_ADMIN_PASSWORD`）。
+
+**需要获取的完整服务清单**（只有本仓公开；以下全部为公开可匿名获取，无第二私有仓依赖）：
+
+| # | 服务/产物 | 来源 | 认证 | 说明 |
+|---|---|---|---|---|
+| 1 | **web** | GHCR `ghcr.io/chenjinxian/luban-web-public:latest` | 无 | React/Vite 前端静态镜像（含 viewer/editor 构建产物） |
+| 2 | **bff** | GHCR `ghcr.io/chenjinxian/luban-bff-public:latest` | 无 | 同源 API 网关（/api JWT/限流/CORS） |
+| 3 | **imodelhub** | GHCR `ghcr.io/chenjinxian/imodelhub-public:latest` | 无 | iModel/项目/changeset/权限 API |
+| 4 | **webhook-agent** | GHCR `ghcr.io/chenjinxian/luban-webhook-agent-public:latest` | 无 | Webhook + baseline 生成 |
+| 5 | **modeling-server** | GitHub Releases `modeling-server-win-x64-*.tgz` | 无 | Windows 宿主进程（含真形/ACIS 原生依赖、slvs.node；非容器） |
+| 6 | postgres | Docker Hub `postgres:17-alpine` | 无 | HUB 数据库 |
+| 7 | redis | Docker Hub `redis:7-alpine` | 无 | HUB 队列 |
+| 8 | maildev | Docker Hub `maildev/maildev:latest` | 无 | 本地邮件 |
+| 9 | azurite | MCR `mcr.microsoft.com/azure-storage/azurite` | 无 | Blob 存储 |
+| 10 | nginx | Docker Hub `nginx:alpine` | 无 | 单入口 :5301 |
+
+宿主侧只需 **Node.js 20.12+**（运行 modeling-server）。**没有其他需要单独下载的私有服务、原生库或求解器**：native/slvs/ACIS 均随 modeling-server 产物分发；TrueForm/绳墨尚未单独接入部署面。
+
+随时验证公开依赖是否完整可匿名获取：
+
+```powershell
+powershell -NoProfile -File scripts/verify-public-deps.ps1
+```
+
+该脚本检查 4 个 GHCR 镜像的匿名 manifest、最新 Release 的 MS 资产，以及 compose 中 5 个官方基础设施镜像引用；发布前必须全绿。
+
+**当前公开基线（2026-11-06）**：
+
+| 产物 | Tag / Release | Digest / SHA256 |
+|---|---|---|
+| web | `backend-20261106` / `latest` | `sha256:23ca8405621dbab84fdf5db82a4b6e61565f13c79b8bfe5656305df2edb418d0` |
+| bff | `backend-20261106` / `latest` | `sha256:f0f8f6b7eca9425c4d2f828a0763b62ffc5a5057047fc6e4ae56a8eab877fd19` |
+| imodelhub | `backend-20261106` / `latest` | `sha256:3bae7b6746fe04228ebb469a16956cf3dab3c4563593e253a5004ea2811813cb` |
+| webhook-agent | `backend-20261106` / `latest` | `sha256:27eb8103705cd9b64ba56c402aa0e9c3e325d9c3a722893708844734625951b4` |
+| modeling-server | Release `backend-20261106` | `sha256:fc35aa45c9f395168cb7ac47f8f4fbe27528a133221faecc231bc6960a60bbcf`（178,691,226 B，契约 1.32.0，Windows x64） |
+
+> modeling-server 的原生库 provenance 记录在产物内 `native-provenance.json`（发布时使用显式 store dev build，已在发布记录披露）。
+
+**为什么不需要 `gh` / `docker login`**：
+
+| 依赖 | 分发方式 | 认证 |
+|---|---|---|
+| imodelhub | GHCR `ghcr.io/chenjinxian/imodelhub-public:latest` | **公开包，匿名拉取** |
+| webhook-agent | GHCR `ghcr.io/chenjinxian/luban-webhook-agent-public:latest` | **公开包，匿名拉取** |
+| modeling-server | GitHub Releases `modeling-server-win-x64-*.tgz` | 公开 Release，匿名 API/下载 |
+| web | GHCR `ghcr.io/chenjinxian/luban-web-public:latest` | **公开包，匿名拉取**（纯静态前端） |
+| bff | GHCR `ghcr.io/chenjinxian/luban-bff-public:latest` | **公开包，匿名拉取** |
+
+> 公开镜像是**脱敏运行产物**：不含私有源码、`src/`、source map、`.d.ts`、测试文件；镜像内的 hub `.env` 仅为模板占位，真实密钥全部由仓库根 `.env` 经 compose 注入。后端源码仍只在私有仓。
+>
+> `scripts/fetch-backend.ps1` 默认走匿名 GitHub API + `curl.exe`，只有匿名 API 被限流时才回退到已登录的 `gh`（可选）。资产带 `digest` 时自动校验 SHA256。
+>
+> **契约版本提示**：脚本会对比公共产物与当前源码的 `LubanFeatureRpcInterface.interfaceVersion`。若公共 Release 落后（例如产物 1.18.0 而源码 1.32.0），会打印黄色警告——基础建模可继续用，但最新特征可能不可用；需由 release owner 重新发布匹配产物。
+
+**机器要求**：Windows 10/11 x64；Docker Desktop（WSL2 后端）已启动；Node.js 20.12+（推荐 22 LTS）；内存 ≥ 8 GB；首次下载约 5–15 分钟（视网络；后端产物约 178 MB + 三个公开镜像）、磁盘约 6–8 GB。**当前不支持 Linux/macOS/Apple Silicon**：modeling-server 是 Windows 原生宿主进程（本地编译的几何原生库）。
+
+**停止与升级**：
+
+```powershell
+# 停止
+docker compose down
+powershell -File scripts/stop-ms-host.ps1
+
+# 升级（先停宿主 MS，否则产物解压会被占用）
+powershell -File scripts/stop-ms-host.ps1
+git pull
+powershell -File scripts/fetch-backend.ps1     # 新产物 + 新公开镜像（含 web）
+docker compose up -d
+docker compose restart nginx                   # hub/WA 重建后刷新上游 IP 缓存
+powershell -File scripts/start-ms-host.ps1 -Detach
+powershell -File scripts/verify-stack.ps1
+```
+
 ## 统一部署链路（部署权威：根 `docker-compose.yml`）
 
 ```bash
@@ -49,18 +135,19 @@ powershell -File scripts/verify-stack.ps1            # 4) 全栈验收
 | PostgreSQL | 5432 | imodelhub-services 数据库 | 是 |
 | azurite | 10500 | Azure Blob 存储模拟器 | 是 |
 | imodelhub-services | 5400 | iModel 管理服务 | 是 |
-| modeling-server | 5401 | LubanCAD 后端 | 是 |
-| Web | 5300 | 前端应用 | 是 |
+| modeling-server | 5401 | LubanCAD 后端（宿主进程） | 是 |
+| Web | 栈内 3000 | 前端静态（仅经 nginx 暴露） | 是 |
+| nginx | **5301** | 单入口（外部访问 http://localhost:5301） | 是 |
 | Webhook-Agent | 5402 | Webhook 接收器 + Baseline 生成 | 是 |
 
 **镜像/产物来源（后端私有化）**：
 
 | 服务 | 来源 |
 |---|---|
-| imodelhub | **GHCR 镜像** `ghcr.io/chenjinxian/imodelhub:latest`（构建在私有仓 luban-backend） |
-| webhook-agent | **GHCR 镜像** `ghcr.io/chenjinxian/luban-webhook-agent:latest`（构建在私有仓 luban-backend） |
+| imodelhub | **GHCR 镜像** `ghcr.io/chenjinxian/imodelhub-public:latest`（构建在私有仓 luban-backend） |
+| webhook-agent | **GHCR 镜像** `ghcr.io/chenjinxian/luban-webhook-agent-public:latest`（构建在私有仓 luban-backend） |
 | modeling-server | **GitHub Releases 产物** `modeling-server-win-x64-*.tgz`（`scripts/fetch-backend.ps1` 解压到 `dist-backend\`，`scripts/start-ms-host.ps1` 宿主运行） |
-| web | 本仓构建（`luban-cad/apps/web/Dockerfile`） |
+| web | **GHCR 镜像** `ghcr.io/chenjinxian/luban-web-public:latest`（纯静态前端；开发者可 `scripts/rebuild-web.ps1` 本地重建） |
 | postgres / redis / maildev / azurite / nginx | 官方镜像 |
 
 ### Webhook-Agent 为什么是必需的？
@@ -96,9 +183,9 @@ curl http://localhost:5400/imodels/admin/compensation-status \
 
 ## 前置要求
 
-- Docker Desktop（栈：PostgreSQL/Azurite/Redis/Maildev + GHCR 镜像 + web/nginx）
-- gh CLI（已登录，且可读 `chenjinxian/tiangong-kaiwu` 的 Releases——`scripts/fetch-backend.ps1` 拉 MS 产物用）
-- Node.js 20.x + pnpm 10.x（仅前端/itwinjs-core 开发需要；lockfile 为 lockfileVersion 9.0，pnpm 12 供应链策略会拒装，用 `corepack pnpm@10`）
+- Docker Desktop（栈：PostgreSQL/Azurite/Redis/Maildev + GHCR 公开镜像 + web/nginx）
+- Node.js 20+（宿主 modeling-server 必需；推荐 22 LTS。开发态另需 pnpm 10.x——lockfile 为 lockfileVersion 9.0，pnpm 12 供应链策略会拒装，用 `corepack pnpm@10`）
+- gh CLI **可选**：`fetch-backend.ps1` 默认匿名下载公开 Release；仅当匿名 GitHub API 被限流时才回退到已登录的 gh
 - Rush（仅 itwinjs-core 底座需要，经 `node common/scripts/install-run-rush.js` 调用，无需全局安装）
 - imodelhub-services / luban-backend 源码检出**非必需**（栈内消费 GHCR 镜像与 Releases 产物；后端源码开发见私有仓 luban-backend README）
 
@@ -180,10 +267,10 @@ compose 内 **9 个服务**，镜像来源如下；MS 不占 compose 服务位�
 | redis | 官方 `redis:7-alpine` | 栈内 6379；源码模式宿主发布 56379 |
 | maildev | 官方 `maildev/maildev` | 栈内 SMTP 1025 / UI 1080；源码模式宿主发布 11025 / 11080 |
 | azurite | 官方 `mcr.microsoft.com/azure-storage/azurite` | 宿主 10500-10502（容器内 10000-10002） |
-| imodelhub | **GHCR** `ghcr.io/chenjinxian/imodelhub:latest` | 宿主 5400（容器内 4000） |
-| webhook-agent | **GHCR** `ghcr.io/chenjinxian/luban-webhook-agent:latest` | 宿主 5402（容器内 4002） |
-| web | **本仓构建** `luban-cad/apps/web/Dockerfile`（构建上下文=仓库根） | 栈内 3000（仅经 nginx 5301 暴露） |
-| bff | **本仓构建** `services/bff`（可选；未启用时 nginx 直连宿主 MS） | 容器内 5403 |
+| imodelhub | **GHCR** `ghcr.io/chenjinxian/imodelhub-public:latest` | 宿主 5400（容器内 4000） |
+| webhook-agent | **GHCR** `ghcr.io/chenjinxian/luban-webhook-agent-public:latest` | 宿主 5402（容器内 4002） |
+| web | **GHCR** `ghcr.io/chenjinxian/luban-web-public:latest`（开发者可本地 build 覆盖） | 栈内 3000（仅经 nginx 5301 暴露） |
+| bff | **GHCR** `ghcr.io/chenjinxian/luban-bff-public:latest`（可选；未启用时 nginx 直连宿主 MS） | 容器内 5403 |
 | nginx | 官方 `nginx:alpine`（单域名入口） | 宿主 5301（容器内 80） |
 | modeling-server | **非 compose 服务**：宿主进程，`scripts/start-ms-host.ps1` 跑 `dist-backend\` 产物 | 宿主 5401 |
 
@@ -195,7 +282,7 @@ compose 内 **9 个服务**，镜像来源如下；MS 不占 compose 服务位�
 # 后端镜像（GHCR）+ MS 产物（Releases）一键拉齐，幂等
 powershell -File scripts/fetch-backend.ps1
 
-# web 镜像由 compose 按本仓源码构建；其余服务均为官方/GHCR 镜像
+# web / bff / hub / WA 均来自公开 GHCR（外部零本地构建）
 # （后端镜像的构建/发布属私有仓 luban-backend 的事务，不在本仓）
 ```
 
@@ -348,17 +435,44 @@ tar -xzvf azurite-backup.tar.gz -C /
 
 ## 故障排除
 
-### 端口冲突
+### 端口冲突（Windows）
 
-```bash
+```powershell
 # 查找占用端口的进程
-lsof -i :5400
-lsof -i :5401
-lsof -i :5300
+Get-NetTCPConnection -State Listen -LocalPort 5301,5400,5401,5402 |
+  Select-Object LocalPort, OwningProcess
+Get-Process -Id <PID> | Select-Object Id, ProcessName, Path
 
-# 终止进程
-kill -9 <PID>
+# 仅停止宿主 modeling-server（脚本会校验进程身份，避免误杀）
+powershell -File scripts/stop-ms-host.ps1
 ```
+
+### 镜像拉取失败 / 提示 unauthorized
+
+公开镜像无需 `docker login`。先确认能否访问 GHCR：
+
+```powershell
+docker pull ghcr.io/chenjinxian/imodelhub-public:latest
+docker pull ghcr.io/chenjinxian/luban-webhook-agent-public:latest
+```
+
+失败通常是网络/代理问题（Docker Desktop → Settings → Resources → Proxies），不是权限问题。若包被误设为 private，需由仓库所有者改回 Public。
+
+### 重建 hub/WA 后 502
+
+nginx 会缓存上游容器 IP。重建 hub 或 webhook-agent 后若 5301 报 502：
+
+```powershell
+docker compose restart nginx
+```
+
+### Release 下载失败
+
+`fetch-backend.ps1` 默认匿名访问 GitHub API（未登录限流 60 次/小时）。若返回 403：
+
+- 等待一段时间重试；或
+- 在已登录 `gh` 的机器上运行同一脚本（自动回退）；或
+- 手动从 https://github.com/chenjinxian/tiangong-kaiwu/releases/latest 下载 `modeling-server-win-x64-*.tgz`，放到 `dist-backend\` 后重跑脚本。
 
 ### 服务启动失败
 
@@ -517,9 +631,11 @@ git pull origin main
 # 2. 重拉后端产物与镜像（幂等；Releases/GHCR 有新版即更新）
 powershell -File scripts/fetch-backend.ps1
 
-# 3. 重启栈与宿主 MS（web 有变更时 --build）
-docker compose up -d --build web
+# 3. 重启栈与宿主 MS（web 默认拉公开镜像；改了 web 源码的开发者用 rebuild-web.ps1）
+docker compose up -d
+docker compose restart nginx
 powershell -File scripts/start-ms-host.ps1 -Detach
+powershell -File scripts/verify-stack.ps1
 ```
 
 ### 数据库迁移
@@ -543,12 +659,13 @@ npm run migration:run
 | Webhook-Agent | 5402 | ✅ | Webhook + Baseline 生成 |
 
 **访问地址**:
-- Frontend: http://localhost:5300
+- 产品入口（nginx）: **http://localhost:5301**
+- 前端 dev server（开发态）: http://localhost:5300
 - modeling-server Health: http://localhost:5401/health
 - modeling-server WebSocket: ws://localhost:5401/ws
 - modeling-server RPC: http://localhost:5401/rpc/metadata
 
 ---
 
-*文档版本: 2.4*
-*最后更新: 2026-10-29（前端目录收敛为 `luban-cad/apps/web`；web 镜像为本地构建，修正 compose 服务计数与 bff 行）*
+*文档版本: 2.5*
+*最后更新: 2026-11-06（外部体验者一键起栈：公开 GHCR 镜像 + 匿名 Release 下载 + quickstart/stop-ms-host 脚本）*

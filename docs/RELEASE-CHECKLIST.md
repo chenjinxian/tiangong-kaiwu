@@ -19,15 +19,19 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
       产物或复用旧 tag。
 - [ ] web 生产镜像：`powershell -File scripts/rebuild-web.ps1 -BModelEnabled true`
       （**不带** `-E2EHooks`）；镜像 LABEL `b-model-enabled=true`。
+- [ ] web 公开镜像：`scripts/rebuild-web.ps1` 构建并打
+      `ghcr.io/chenjinxian/luban-web-public` tag，push `latest` + 本次 tag。
+- [ ] bff 公开镜像：`docker compose build bff` 后推
+      `ghcr.io/chenjinxian/luban-bff-public`（`latest` + 本次 tag）。
 - [ ] hub / webhook-agent 镜像来自 GHCR 同 tag；hub 不得挂宿主 `dist`（verify-stack
       Step F 硬检查）。
 
 ## 3. 单元 / 集成门
 
-- [ ] backend 全量 `pnpm test`（本机完整构建；当前基线 **671 passed /
-      8 skipped**）；注意全量 feature 测试不进入托管 CI，属发布前本地门。
-- [ ] public：shared **144**、viewer **107**、editor frontend **43**、web
-      **1181**（2026-11-01 post-p28c 基线；新增测试后以实际为准）。
+- [ ] backend 全量 `pnpm test`（本机完整构建；当前基线 **754 passed /
+      8 skipped**，shared 1.32 实测）；注意全量 feature 测试不进入托管 CI，属发布前本地门。
+- [ ] public：shared **159**、viewer **127**、editor **29**、web
+      **1389**（2026-11-06 基线；新增测试后以实际为准）。
 - [ ] 各包 `tsc` / `lint` 0 错；e2e `typecheck:e2e` 0 错。
 
 ## 4. 真栈 e2e（需干净限流窗口）
@@ -64,6 +68,13 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
       **不要用重启容器代替重建**（静态镜像无运行期 env）。
 - [ ] `docker compose pull` + `--force-recreate` 实际拉取 GHCR 镜像；核对 OCI
       revision 标签。
+- [ ] 公开镜像门：`imodelhub-public` / `luban-webhook-agent-public` /
+      `luban-web-public` / `luban-bff-public` 均为 `visibility=public`，且
+      **匿名 registry token + manifest HEAD 200**（无需 `docker login`）；
+      `scripts/verify-public-deps.ps1` 全绿。首次设为 Public 若 API 404，
+      按包设置页手动操作（一次即可，后续 push 继承）。
+- [ ] 镜像内容审计：hub/WA 无 `src/`、`*.map`、`*.d.ts`、`*.test.js`
+      （`publish.ps1` push 前硬门）；web 仅为静态产物；bff 仅 dist+生产依赖。
 
 ## 6. 产物与发布
 

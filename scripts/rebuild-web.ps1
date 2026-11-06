@@ -112,6 +112,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "docker compose build web 失败（exit $LASTEXITCODE）—— 上方为构建日志（worker 字节断言失败时按其提示重拷 public/scripts/ 快照）" }
 } finally { Pop-Location }
 
+# 2026-11-06：compose 的 web 服务新增公开 image 名（ghcr.io/.../luban-web-public），
+# 本脚本 build 后由 compose 以该名打 tag；同步补旧本地名 tiangong-kaiwu-web:latest，
+# 供 verify-stack Step E 与既有回滚流程继续按旧名 inspect。
+$composeImage = [string](@(& docker compose config --images web 2>$null)[0]).Trim()
+if ($composeImage -and $composeImage -ne 'tiangong-kaiwu-web:latest') {
+    docker tag $composeImage tiangong-kaiwu-web:latest
+    if ($LASTEXITCODE -ne 0) { throw "docker tag $composeImage → tiangong-kaiwu-web:latest 失败" }
+    Write-Host "==> 已补本地兼容 tag: tiangong-kaiwu-web:latest → $composeImage" -ForegroundColor DarkGray
+}
+
 # 构建标签自证（P2.7）：镜像 LABEL 必须与请求的 flag 一致，否则发布记录/回滚会读错开关。
 $imgJson = (& docker image inspect tiangong-kaiwu-web:latest 2>$null) -join "`n"
 $actualFlag = $null
@@ -134,4 +144,5 @@ if ($null -ne $actualE2E -and $actualE2E -ne $E2EHooks) {
 Write-Host "==> 完成: web 镜像已重建（GIT_COMMIT=$shaShort；VITE_B_MODEL_ENABLED=$flagLabel；VITE_E2E_HOOKS=$e2eLabel$(if ($canBuildArg) { '' } else { '；compose 过旧未注入标签/开关' })）。" -ForegroundColor Green
 Write-Host '    在跑的 web 容器未动——新镜像生效: docker compose up -d web'
 Write-Host '    回滚: 以 -BModelEnabled false 重建并 docker compose up -d web（B 数据保留，A UI 不变）'
+Write-Host '    公开发布（release owner）: docker push ghcr.io/chenjinxian/luban-web-public:latest（首次需把包设为 Public）'
 Write-Host '    验收: powershell -File scripts/verify-stack.ps1（Step E 报告镜像陈旧态）'

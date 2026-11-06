@@ -128,7 +128,7 @@ services:
   # imodelhub-services（HUB，宿主 :5400 / 容器内 :4000）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
   # ------------------------------------------------------------
   imodelhub:
-    image: ghcr.io/chenjinxian/imodelhub:latest
+    image: ghcr.io/chenjinxian/imodelhub-public:latest
     ports:
       # 仅回环发布（2026-10-27 审计 P2-02 配套）：宿主 MS/verify-stack 仍可
       # localhost:5400 直连；nginx 走容器网络 imodelhub:4000（见 HUB_UPSTREAM）。
@@ -224,7 +224,7 @@ services:
   # webhook-agent（宿主 :5402 / 容器内 :4002）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
   # ------------------------------------------------------------
   webhook-agent:
-    image: ghcr.io/chenjinxian/luban-webhook-agent:latest
+    image: ghcr.io/chenjinxian/luban-webhook-agent-public:latest
     ports:
       - "0.0.0.0:5402:4002"
     env_file:
@@ -270,6 +270,12 @@ services:
   #   （verify-stack Step E 比对镜像 revision 标签/Created 与源提交，陈旧打 WARN）。
   # ------------------------------------------------------------
   web:
+    # 公开 web 镜像（2026-11-06）：纯静态前端，外部体验者无需本机 Rush/pnpm
+    # 构建 itwinjs-core（全新克隆没有 lib/，本地 build 会失败）。image + build
+    # 并存：外部用 pull_policy=missing 拉公开镜像；开发者改源后仍跑
+    # scripts/rebuild-web.ps1（compose build 会覆盖本地同名 tag）。
+    image: ghcr.io/chenjinxian/luban-web-public:${LUBAN_WEB_TAG:-latest}
+    pull_policy: missing
     build:
       context: .
       dockerfile: luban-cad/apps/web/Dockerfile
@@ -301,6 +307,10 @@ services:
   # /ws /ipc 永不经 BFF（WS 长连接直连 MS）。
   # ------------------------------------------------------------
   bff:
+    # 公开 BFF 镜像（2026-11-06）：外部体验者零本地构建；开发者仍可用
+    # docker compose build bff 覆盖本地同名 tag。
+    image: ghcr.io/chenjinxian/luban-bff-public:latest
+    pull_policy: missing
     build: ./services/bff
     container_name: luban-bff
     environment:

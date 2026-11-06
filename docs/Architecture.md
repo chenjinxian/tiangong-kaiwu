@@ -479,10 +479,10 @@ const Editor = lazy(() => import('../pages/Editor/Editor.js'));
 
 ### 开发模式
 ```
-imodelhub-services (localhost:5400)         # 栈内为 GHCR 镜像 ghcr.io/chenjinxian/imodelhub
+imodelhub-services (localhost:5400)         # 栈内为 GHCR 镜像 ghcr.io/chenjinxian/imodelhub-public
 modeling-server (localhost:5401)            # 宿主进程：本仓产物 dist-backend\（fetch-backend.ps1），
                                             # 或私有仓 luban-backend 源码 dev（start-ms-host.ps1 -Source）
-Webhook-Agent (localhost:5402)              # GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent
+Webhook-Agent (localhost:5402)              # GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent-public
 Frontend (localhost:5300)
 Azurite (localhost:10500)
 PostgreSQL (localhost:5432)
@@ -492,8 +492,8 @@ PostgreSQL (localhost:5432)
 ```
 Docker Compose（根 docker-compose.yml）:
   - postgres / redis / maildev / azurite   基础设施
-  - imodelhub      ← GHCR 镜像 ghcr.io/chenjinxian/imodelhub
-  - webhook-agent  ← GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent
+  - imodelhub      ← GHCR 镜像 ghcr.io/chenjinxian/imodelhub-public
+  - webhook-agent  ← GHCR 镜像 ghcr.io/chenjinxian/luban-webhook-agent-public
   - web            本仓构建（luban-cad/apps/web/Dockerfile）
   - nginx          :80 统一入口
 

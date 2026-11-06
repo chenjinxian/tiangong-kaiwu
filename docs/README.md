@@ -62,7 +62,7 @@
 ### 部署与运维
 | 文档 | 说明 |
 |------|------|
-| [Deployment-Guide.md](./Deployment-Guide.md) | 部署指南 |
+| [Deployment-Guide.md](./Deployment-Guide.md) | 部署指南（外部体验者一键起栈：公开镜像 + 匿名产物下载，无需 GitHub 账号/docker login） |
 | [PORTS.md](./PORTS.md) | 宿主端口登记（单一事实源） |
 | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) | 上游同步指南 |
 | [WEBHOOK_CONFIG.md](./WEBHOOK_CONFIG.md) | Webhook 密钥配置说明 |
@@ -70,8 +70,9 @@
 ### 发布与迁移
 | 文档 | 说明 |
 |------|------|
-| [RELEASE-backend-20261101-p28c.md](./RELEASE-backend-20261101-p28c.md) | 最新后端发布说明（B 数据模型 P2 / 命名迁移 / legacy schema 退役） |
-| [RELEASE-CHECKLIST.md](./RELEASE-CHECKLIST.md) | 发布检查清单（产物 hash / native provenance / 限流姿态 / 镜像标签 / verify-stack） |
+| [RELEASE-backend-20261106.md](./RELEASE-backend-20261106.md) | 最新发布说明（外部本地部署：4 个公开镜像 + MS 1.32 产物；匿名冷拉/17 项全栈验收） |
+| [RELEASE-backend-20261101-p28c.md](./RELEASE-backend-20261101-p28c.md) | 历史发布说明（B 数据模型 P2 / 命名迁移 / legacy schema 退役） |
+| [RELEASE-CHECKLIST.md](./RELEASE-CHECKLIST.md) | 发布检查清单（产物 hash / native provenance / 限流姿态 / 镜像标签 / 公开可见性 / verify-stack） |
 | [RELEASE-backend-20261028c.md](./RELEASE-backend-20261028c.md) | 历史发布说明（MS #45 redo 栈修复） |
 | [MIGRATION-2026-10-29.md](./MIGRATION-2026-10-29.md) | 2026-10-29 项目总目录整理迁移记录 |
 | [HISTORY.md](./HISTORY.md) | 已删除文档历史索引 |

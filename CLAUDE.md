@@ -50,7 +50,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/` | 平台文档（UPSTREAM_SYNC.md / ITWINJS_CORE_MODIFICATIONS.md 等） | — |
 | `scripts/sync-from-upstream.sh` | 上游一键同步脚本 | bash |
 
-**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :5400 + Azurite :10500 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、**真形（TrueForm）几何内核**（私有仓 `D:\Github\trueform`，自主研发 BRep 内核，只经 `SolidKernel.h` 接入）。
+**仓外项目**（用途说明，需自行检出）：luban-backend（后端私有仓，见上表；本仓不检出也能跑——`fetch-backend.ps1` 拉产物即可）、imodelhub-services（本地 iModel 管理平台：iModel 管理 API :5400 + Azurite :10500 + Postgres，替代 Bentley 云；栈内以 GHCR 镜像 `ghcr.io/chenjinxian/imodelhub-public` 消费）、丹青 DanQing（纯客户端图形引擎，itwinjs-core 大体量渲染 × Filament 高质量实时渲染/全平台）、**真形（TrueForm）几何内核**（私有仓 `D:\Github\trueform`，自主研发 BRep 内核，只经 `SolidKernel.h` 接入）。
 
 ## 核心架构模型：link: 源码消费
 
@@ -94,12 +94,16 @@ corepack pnpm@10 test:e2e                    # Playwright（apps/web 内；七�
 ### 后端（私有仓 luban-backend；本仓走产物分发）
 
 ```bash
-# 外部验证者快速起栈（4+2 命令流；顺序执行）
+# 外部体验者一键起栈（公开 GHCR 镜像 + 匿名 Release 下载；无需 GitHub 账号/gh/docker login；Windows）
+powershell -NoProfile -File scripts/quickstart.ps1   # 检查→.env→产物/镜像→compose→宿主 MS→验收→开 :5301
+
+# 等价手动 4+1 命令流（顺序执行）
 powershell -File scripts/generate-env.ps1            # 0) 仓库根 .env（幂等）
-powershell -File scripts/fetch-backend.ps1           # 1) Releases 拉 MS 产物 tgz→dist-backend\ + docker compose pull（GHCR）
+powershell -File scripts/fetch-backend.ps1           # 1) 公开 Release 匿名拉 MS 产物→dist-backend\ + docker compose pull（公开 GHCR）
 docker compose up -d                                 # 2) 栈：imodelhub/WA/web/nginx + 基础设施
-powershell -File scripts/start-ms-host.ps1 -Detach   # 3) 宿主 MS :5401（产物模式）
+powershell -File scripts/start-ms-host.ps1 -Detach   # 3) 宿主 MS :5401（产物模式；写 PID 文件）
 powershell -File scripts/verify-stack.ps1            # 4) 全栈验收（health→数据链→WS→横幅）
+powershell -File scripts/stop-ms-host.ps1            # 停止宿主 MS（校验进程身份，可 -Force）
 
 # 后端源码开发（私有仓检出者）：cd <luban-backend>\modeling-server && pnpm dev / test / lint（见该仓 README）
 powershell -File scripts/start-ms-host.ps1 -Source D:\Github\luban-backend\modeling-server   # 源码模式（install/build 全流程）

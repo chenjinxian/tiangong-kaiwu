@@ -99,21 +99,29 @@ nginx ─┬─ /api /ws /ipc → modeling-server :5401（Briefcase / FeatureOp 
 - **内核与求解器**：真形（TrueForm）只经 `SolidKernel.h`；绳墨（ShengMo）保持 solver-neutral；ACIS 仅 Modeler/Polyhedra。
 - **UI 与 Onshape 对齐**：Part Studio 壳层、特征对话框、Documents 首页、登录页与 ViewCube 按 live 证据逐区对齐；渲染观感差异由引擎决定。
 
-## 快速开始
+## 快速开始（外部体验者）
 
-前置：Node.js ≥ 20、`corepack pnpm@10`、Docker Desktop、PowerShell。
+前置：**Windows 10/11 x64**、Docker Desktop（已启动）、Node.js 20.12+（推荐 22 LTS）。**不需要 GitHub 账号，不需要 `gh`，不需要 `docker login`** —— 4 个服务镜像（web / bff / imodelhub / webhook-agent）与 Windows 后端产物均为公开资源（镜像已脱敏，不含私有源码）。
 
 ```powershell
-# 仓库根目录
+git clone https://github.com/chenjinxian/tiangong-kaiwu.git
+cd tiangong-kaiwu
+powershell -NoProfile -File scripts/quickstart.ps1
+```
+
+一键完成：生成 `.env`（随机密钥）→ 匿名下载 modeling-server 产物（SHA256 校验）+ 4 个 GHCR 公开镜像（web / bff / imodelhub / webhook-agent）→ 启动容器栈与宿主后端 → 全栈验收 → 打开 **http://localhost:5301**。
+
+等价的 5 步手动流程：
+
+```powershell
 powershell -File scripts/generate-env.ps1     # 生成根 .env（幂等）
-powershell -File scripts/fetch-backend.ps1    # 拉建模产物 + GHCR 镜像
+powershell -File scripts/fetch-backend.ps1    # 公开 Release 产物 + GHCR 公开镜像
 docker compose up -d                          # hub / web / nginx / 基础设施
 powershell -File scripts/start-ms-host.ps1 -Detach
 powershell -File scripts/verify-stack.ps1     # 全栈验收
 ```
 
-访问 **http://localhost:5301**，注册任意邮箱 → 新建项目 → 新建 iModel → 打开工作空间。
-完整启动说明、开发模式和故障排查见 [`docs/Deployment-Guide.md`](docs/Deployment-Guide.md) 与 [`docs/README.md`](docs/README.md)。
+停止：`docker compose down` + `powershell -File scripts/stop-ms-host.ps1`。首次下载约 5–15 分钟、磁盘约 6–8 GB。当前不支持 Linux/macOS/Apple Silicon（modeling-server 是 Windows 原生宿主进程）。完整说明、升级与故障排查见 [`docs/Deployment-Guide.md`](docs/Deployment-Guide.md) 与 [`docs/README.md`](docs/README.md)。
 
 ## 开发与测试
 
@@ -135,7 +143,7 @@ corepack pnpm@10 run lint
 corepack pnpm@10 exec playwright test e2e/documents.spec.ts e2e/part-studio.spec.ts
 ```
 
-- 当前基线：`apps/web` **1382/1382** 单测；tsc/lint 绿；viewer 127、shared 155。
+- 当前基线：`apps/web` **1389/1389** 单测；tsc/lint 绿；viewer 127、shared 159。
 - iTwin.js fork 改动须登记 `docs/ITWINJS_CORE_MODIFICATIONS.md`，并按 Rush 重建下游产物。
 - 后端源码在私有仓，本仓只消费 GHCR 镜像与 GitHub Releases 产物；不提交私有源码/密钥/native 证据。
 

@@ -549,7 +549,10 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     #     （按 manifest 摘要 inspect 会 miss），摘要值跳过 ---
     $psImg = [string](@(Get-NativeOut { docker compose ps --format '{{.Image}}' web })[0])
     if ($psImg -like 'sha256:*') { $psImg = '' }
-    $candidates = @('tiangong-kaiwu-web:latest', $psImg) | Where-Object { $_ }
+    # 2026-11-06：web 改为公开镜像（ghcr.io/.../luban-web-public）+ 本地 build 双形态；
+    # 容器实际镜像优先，随后公开名，最后旧本地 tag 兜底。
+    $candidates = @($psImg, 'ghcr.io/chenjinxian/luban-web-public:latest', 'tiangong-kaiwu-web:latest') |
+      Where-Object { $_ } | Select-Object -Unique
 
     # --- 镜像 Created + revision 标签：走 JSON 不走 --format——Go 模板里内嵌双引号
     #     会被 PS5.1 原生参数传递剥掉（实测 "function \"org\" not defined" 坑） ---
@@ -563,7 +566,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         }
     }
     if (-not $img) {
-        Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 $($candidates -join ' / ') 不存在或读取失败（尚未 build——scripts/rebuild-web.ps1）" -Warn
+        Add-Check 'E' 'web 镜像陈旧检测' $true "镜像 $($candidates -join ' / ') 不存在或读取失败（外部先 docker compose pull web；开发者 build 用 scripts/rebuild-web.ps1）" -Warn
     } else {
         $imgCreated = $null
         # docker 的 Created 带纳秒小数（9 位），.NET 解析上限 7 位——截齐再 Parse
@@ -669,7 +672,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
             }
         }
 
-        $imgName = 'ghcr.io/chenjinxian/imodelhub:latest'
+        $imgName = 'ghcr.io/chenjinxian/imodelhub-public:latest'
         if ($container -and $container.Config.Image) { $imgName = [string]$container.Config.Image }
         $img = $null
         $imgJson = (Get-HubNativeOut { docker image inspect $imgName }) -join "`n"

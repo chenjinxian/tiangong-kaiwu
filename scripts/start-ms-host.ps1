@@ -71,10 +71,11 @@ if (-not $Source) {
     }
     Write-Host "modeling-server（产物，宿主形态）启动中 ... 端口 $MsPort" -ForegroundColor Cyan
     if ($Detach) {
-        Start-Process -FilePath 'node' -ArgumentList 'dist\main.js' `
+        $proc = Start-Process -FilePath 'node' -ArgumentList 'dist\main.js' `
             -WorkingDirectory $MsDir -WindowStyle Hidden `
-            -RedirectStandardOutput $LogFile -RedirectStandardError "$LogFile.err"
-        Write-Host "已后台启动，日志: $LogFile"
+            -RedirectStandardOutput $LogFile -RedirectStandardError "$LogFile.err" -PassThru
+        Set-Content -Path (Join-Path $env:TEMP 'luban-cad-modeling-server.pid') -Value $proc.Id -Encoding ascii
+        Write-Host "已后台启动（PID $($proc.Id)），日志: $LogFile"
     } else {
         Push-Location $MsDir
         try { node '.\dist\main.js' } finally { Pop-Location }
@@ -105,10 +106,11 @@ if (-not $Source) {
 
     Write-Host "modeling-server（$Mode，源码模式）启动中 ... 端口 $MsPort" -ForegroundColor Cyan
     if ($Detach) {
-        Start-Process -FilePath 'corepack' -ArgumentList (@('pnpm@10') + $argList) `
+        $proc = Start-Process -FilePath 'corepack' -ArgumentList (@('pnpm@10') + $argList) `
             -WorkingDirectory $MsDir -WindowStyle Hidden `
-            -RedirectStandardOutput $LogFile -RedirectStandardError "$LogFile.err"
-        Write-Host "已后台启动，日志: $LogFile"
+            -RedirectStandardOutput $LogFile -RedirectStandardError "$LogFile.err" -PassThru
+        Set-Content -Path (Join-Path $env:TEMP 'luban-cad-modeling-server.pid') -Value $proc.Id -Encoding ascii
+        Write-Host "已后台启动（PID $($proc.Id)），日志: $LogFile"
     } else {
         Push-Location $MsDir
         try { corepack pnpm@10 @argList } finally { Pop-Location }
