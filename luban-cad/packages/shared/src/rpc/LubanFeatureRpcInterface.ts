@@ -62,7 +62,8 @@
  *  - `LubanFeatureType` + `booleanBodies`；`BooleanBodiesParams`
  *    （`targets`/`tools` BodyRef 数组 + `operation: "unite"|"subtract"|"intersect"` + `keepTools`）；
  *  - v1 收窄（服务端 zod/op 边界诚实拒收，契约类型面保留全形）：`targets` 恰 1、`tools` ≥1、
- *    两集互斥、无重复、`intersect` 暂不可执行（与 B1「相交页签禁用」同口径）；
+ *    两集互斥、无重复；unite/subtract/intersect 三操作均由内核执行
+ *    （intersect 于 2026-11-07 解锁；UI 相交页签仍按产品节奏启用）；
  *  - 求值语义（服务端）：target ∪/− tools 写回 target（单 BRep）；成功且 `keepTools=false` 时
  *    tools 软删除（active=false，元素/几何保留，可撤销）；失败不消费、target 保留最后几何。
  *  - 无新 RPC 方法（沿用 insertFeature/updateParams/deleteFeature/getBodies；bodyKey 即
@@ -294,7 +295,8 @@ export interface PartStudioInfo {
  * 经 `BodyRef`（bodyKey=`getBodies[].bodyKey`）寻址，运算结果写回 target（目标链尾）。
  * - `targets`：v1 **恰 1 个**（语料也只有 0/1 target；多 target 服务端诚实拒收）。
  * - `tools`：≥1；v1 全部按 bodyKey 升序作为 kernel tools（target 恒在前）。
- * - `operation`：`unite | subtract | intersect`；**v1 契约保留但服务端拒收 `intersect`**
+ * - `operation`：`unite | subtract | intersect`；三操作均由内核执行
+ *   （`intersect` = 内核 Intersect；2026-11-07 起不再拒收）
  *   （与 B1「相交页签禁用」同口径，不做静默降级）。
  * - `keepTools`：false=成功后 tools 软删除（`active=false`，元素/几何/id 保留，可撤销）；
  *   true=tools 保留为独立 body。**失败（内核/空结果/缓存缺失）一律不消费**，target 保留最后几何。

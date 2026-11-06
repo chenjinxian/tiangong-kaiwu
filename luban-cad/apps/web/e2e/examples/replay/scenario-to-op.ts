@@ -468,7 +468,9 @@ function booleanBodiesOp(feature: ScenarioFeature, context: TranslateContext): T
     ? 'unite' as const
     : rawOperation === 'subtract' || rawOperation === 'subtraction'
       ? 'subtract' as const
-      : undefined;
+      : rawOperation === 'intersect' || rawOperation === 'intersection'
+        ? 'intersect' as const
+        : undefined;
   if (!operation)
     throw new BlockedCapabilityError('boolean-bodies', `${feature.name} 不支持的布尔操作 ${rawOperation || 'unknown'}`);
   const toolSources = stringArray(params.toolSourceFeatureIds ?? params.tools);

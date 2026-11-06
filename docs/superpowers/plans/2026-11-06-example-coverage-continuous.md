@@ -180,9 +180,19 @@
   - 证据：合成 `e2e/examples/shell-face.spec.ts` **2 passed**——实心圆柱 R10×10
     移除顶面 + 内缩 2 mm = 开口杯 **1533.097 mm³**（π(1000−512)），push/重开。
   - 真实例 **Gaiter 仍 blocked-kernel**：两端面解析成功，但前序 Fillet 1（8 条整圆边
-    1 mm）后 body 体积归零（status=0，massproperties=0；shell 再触发原生 bad
-    allocation）。`gaiter-scenario.spec.ts` 以 fixme 保留，不伪造绿；记任务 #103。
+    1 mm）后 body 体积归零/原生 bad allocation。取证：半径 1/0.5/0.2 均失败（非半径
+    可行性）；边子集 1 条=45766.698、4 条=45567.736 有效，2 条/8 条失败——**特定边
+    组合/传播的内核 blend 问题**。`gaiter-scenario.spec.ts` 以 fixme 保留，不伪造绿；
+    记任务 #103。
   - 未覆盖：CAP_FACE/曲面侧面等其它 shell 面形态、Hollow、逐面差异壁厚。
+- [~] **T12 booleanBodies intersect 解锁（2026-11-07）**
+  - backend：registry 放行 intersect；evaluator 映射内核 `BRepGeometryOperation.Intersect`；
+    registry 测试 62/62（含 T2c 交集体积 2 mm³）。
+  - converter/translator：UNION/SUBTRACTION/INTERSECTION → unite/subtract/intersect。
+  - 真栈 `e2e/boolean-intersect.spec.ts`：2×2×1 与 1×1×2 重叠盒交集 **1 mm³**、
+    tool 消费、push/重开（待源码 MS 重启后跑）。
+  - 契约形态未变（BooleanBodiesParams 早已含 intersect），无常量版本 bump；
+    发布随 shared 1.34 双端。UI 相交页签仍按产品节奏。
 - [ ] **T8 Face-boundary edge selectors（2026-11-06，下一步；test-only）**
   - Ruling：P0.5 计划把 FEATURE/FACE pattern 列第一，但原始 features 取证显示
     `patternType=FACE/FEATURE`（Drive Sleeve=FACE、Bottom Bracket=FEATURE
