@@ -255,7 +255,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   backend matcher 7/7、ScenarioReplay 11/11。**同日 imprint 侧向**：converter
   保留全部 imprint queries + `imprintSign`（−1 环外/+1 环内），iOS 走 side=outside
   → region 1（真栈 2 passed）；`pickImprintRegion`/sign 解析单测 5/5、
-  translator 21/21、scenario schema 11/11。Hand Brake 仍受 revolve 单 region
+  translator 21/21、scenario schema 11/11。同日修 converter 明文 CAP_EDGE
+  `"isStart":true` 解析（edge-selectors 13/13）与 runner 多体无 scope 显式
+  谱系锚定；Rear Shock 探针仍 blocked（Extrude 1 为 5 条混合侧向 imprint，
+  线侧是实体子面，需真 imprint/face split），回归 Handle/Hand Brake/Sample
+  Assignment/Element Organization **5 passed**。Hand Brake 仍受 revolve 单 region
   契约阻塞（region 0 ≈5372.779、[0,1] 并集 ≈7139.92 vs 7125.274），不以错值转绿。
 - T1/T4 imprintFace 面域解析（2026-11-06，test-only 近似）：
   `e2e/examples/sample-assignment-scenario.spec.ts` setup+test **2 passed**——

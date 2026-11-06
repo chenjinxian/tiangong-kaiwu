@@ -342,6 +342,13 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
     Extrude 8 UP_TO_SURFACE 阻塞，保持 blocked，不转绿。
   - 若未来要支持“实体面选择”的 Extrude（真正的 face 拉伸），需另一类查询形状
     （根在 op 特征而非 sketch `.imprint`）与独立验收，不在本切片冒名。
+  - **Rear Shock 探针（2026-11-06）**：Extrude 1 有 **5 条混合侧向 imprint
+    查询**（线 + 圆，−1/+1 混合），其中线侧的 FACE 是 extrude 后的实体子面，
+    不是草图材料面域；草图面域映射无法表达该选集（region 为空，回落到
+    region 0 会让 Fillet 1 的 CAP_EDGE 无匹配）。结论：该 PS 需要真正的
+    imprint/face split 才能精确回放，保持 blocked。顺带修复 converter 明文
+    CAP_EDGE `"isStart":true` 解析（旧实现只认 compact `isStartT`），并给
+    runner 增加多体无 scope 的显式谱系锚定；回归 5 passed。
 
 ## 不在本 ADR
 

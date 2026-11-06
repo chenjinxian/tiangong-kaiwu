@@ -192,6 +192,15 @@
   - 下一步：前序 blend 边别名（不要用体后几何硬匹配）、extrude draft 通道、
     sketch 外部引用三者至少再落一个，面边界选择器才有端到端绿例；当前不把
     解析器单测绿冒充示例完成。
+  - **2026-11-06 追加（Rear Shock 探针）**：修 converter 明文 CAP_EDGE 的
+    `"isStart":true` 解析（旧实现只认 compact `isStartT`，端盖侧恒 false；
+    `edge-selectors.test.mjs` **13/13**）；runner 增加多体无 booleanScope 的显式
+    锚定（按最近造体谱系，notes 记录，不用隐式链尾）。探针越过 Extrude 1/2，
+    但 Fillet 1 仍 matches=0：Extrude 1 是 **5 条混合侧向 imprint 查询**
+    （线/圆，−1/+1 混合），线侧 FACE 是 extrude 后的**实体子面**而非草图材料
+    面域；草图面域映射无法表达。该 PS 保持 blocked（需要真正的 imprint。
+    face split），不以错误 region 0 强跑；不新增 spec。回归 Handle/Hand Brake/
+    Sample Assignment/Element Organization **5 passed**。
   - 回归（2026-11-06）：既有边选择器通道 `edge-selector.spec.ts` **3 passed**
     （合成圆盘 770.737 mm³ = 解析期望；iOS First Part 157478.901 vs 157478.902）。
     期间发现并修正 iOS scenario 的陈旧产物：`booleanScopeFeatureIds` 仍是

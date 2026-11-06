@@ -46,6 +46,26 @@ export interface RunScenarioOptions {
   ) => Promise<{ refs: FilletEdgeRef[]; notes: string[] }>;
 }
 
+/**
+ * 多体模型中无 booleanScope 的 insertFeature 需要显式 targetBodyId（产品契约
+ * 禁止隐式全局链尾）。按场景顺序回溯最近的造体特征，取该特征谱系当前对应的
+ * active body 作为锚定；结果写入 notes，可审计。
+ */
+function mostRecentCreatorBody(
+  features: readonly ScenarioFeature[],
+  currentIndex: number,
+  bodyKeyBySource: ReadonlyMap<string, string> | undefined,
+  allBodyKeys: readonly string[],
+): string | undefined {
+  for (let index = currentIndex - 1; index >= 0; index--) {
+    const source = features[index]?.sourceFeatureId;
+    if (!source) continue;
+    const key = bodyKeyBySource?.get(source);
+    if (key !== undefined && allBodyKeys.includes(key)) return key;
+  }
+  return allBodyKeys[0];
+}
+
 export interface RunScenarioResult {
   featureIds: string[];
   notes: string[];
@@ -73,6 +93,7 @@ export async function runScenario(
   // 最近的造体特征即可恢复 Onshape body 引用所指向的 extrude/revolve。
   const scenarioFeatureByLocalId = new Map<string, ScenarioFeature>();
   const BODY_CREATOR_TYPES = new Set(['extrude', 'revolve', 'booleanBodies', 'booleanAdd', 'booleanSubtract']);
+  const MULTI_BODY_ANCHOR_TYPES = new Set(['extrude', 'revolve', 'hole', 'faceExtrude']);
   let latestSketchId: string | undefined;
   const featureIds: string[] = [];
   const notes: string[] = [];
@@ -80,7 +101,9 @@ export async function runScenario(
   const steps: RunScenarioResult['steps'] = [];
 
   try {
-    for (const feature of scenario.features as ScenarioFeature[]) {
+    const scenarioFeatures = scenario.features as ScenarioFeature[];
+    for (let featureIndex = 0; featureIndex < scenarioFeatures.length; featureIndex++) {
+      const feature = scenarioFeatures[featureIndex]!;
       // imprintFace 解析（test-only）：Onshape 的 imprint FACE 查询根节点是
       // `<sketchId>.imprint`——它指向**草图面/材料面域**，不是实体 BRep 面
       // （2026-11-06 真栈实证：iOS Extrude 1 顶盖是单一外环+两孔面，不存在环
@@ -152,6 +175,13 @@ export async function runScenario(
                 parts.push(
                   `实体 ${query.sketchEntityId} ${pick.basis}` +
                   `${side ? `/${side}` : ''} area=${pick.area.toFixed(3)}`,
+                );
+              }
+              if (process.env.EXAMPLE_DEBUG_IMPRINT === '1') {
+                console.log(
+                  `[imprint] ${feature.name}: queries=${JSON.stringify(queries.map((query) => ({
+                    s: query.sketchFeatureId, e: query.sketchEntityId, sign: query.imprintSign ?? imprintSignFromQuery(query.queryString),
+                  })))} regions=${JSON.stringify(regions)} reason=${reason ?? '-'}`,
                 );
               }
               if (reason === undefined && regions.length > 0) {
@@ -241,12 +271,21 @@ export async function runScenario(
       const scopeSources = Array.isArray(stepParams.booleanScopeFeatureIds)
         ? stepParams.booleanScopeFeatureIds.filter((source): source is string => typeof source === 'string')
         : [];
+      // 多体 ADD/NEW 无 booleanScope 时产品要求显式 targetBodyId；仅当此前
+      // 已出现 ≥2 个造体特征（可能多体）才读 body 集，避免单体示例多付 RPC。
+      const priorCreatorCount = scenarioFeatures.slice(0, featureIndex).filter(
+        (candidate) => (candidate.type === 'extrude' || candidate.type === 'revolve')
+          && (candidate.params?.operation === 'new' || candidate.params?.newBody === true),
+      ).length;
+      const anchorEligible = MULTI_BODY_ANCHOR_TYPES.has(effectiveFeature.type)
+        && scopeSources.length === 0
+        && priorCreatorCount >= 2;
       let bodyContext: {
         bodyKeyBySource?: Map<string, string>;
         allBodyKeys?: string[];
         bodyCentroidByKey?: Map<string, { x: number; y: number; z: number }>;
       } = {};
-      if (effectiveFeature.type === 'booleanBodies' || scopeSources.length > 0) {
+      if (effectiveFeature.type === 'booleanBodies' || scopeSources.length > 0 || anchorEligible) {
         const bodies = (await getBodiesRpc(ctx, accessToken)).filter(
           (body) => body.active !== false && body.authored !== false,
         );
@@ -314,6 +353,25 @@ export async function runScenario(
       if (regionAuditNote !== undefined) {
         translated.notes.push(regionAuditNote);
         translated.approximate = true;
+      }
+      // 多体无 scope：显式锚定（不在产品侧使用隐式全局链尾）。
+      if (translated.op.kind === 'insertFeature'
+        && translated.op.targetBodyId === undefined
+        && MULTI_BODY_ANCHOR_TYPES.has(translated.op.featureType)
+        && bodyContext.allBodyKeys !== undefined
+        && bodyContext.allBodyKeys.length > 1) {
+        const anchor = mostRecentCreatorBody(
+          scenarioFeatures,
+          featureIndex,
+          bodyContext.bodyKeyBySource,
+          bodyContext.allBodyKeys,
+        );
+        if (anchor !== undefined) {
+          translated.op = { ...translated.op, targetBodyId: anchor };
+          translated.notes.push(
+            `multi-body anchor=${anchor}（Onshape 无 booleanScope；按最近造体谱系显式锚定）`,
+          );
+        }
       }
       const op = options.skipSketchConstraints && translated.op.kind === 'insertSketch'
         ? { ...translated.op, constraints: [] }
