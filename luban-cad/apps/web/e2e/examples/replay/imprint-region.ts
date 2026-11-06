@@ -41,7 +41,19 @@ export function pickImprintRegion(
     pool = holes.length > 0 ? holes : outers;
     basis = holes.length > 0 ? 'hole' : 'outer';
   }
-  if (pool.length === 0) return undefined;
+  if (pool.length === 0) {
+    // 唯一相邻材料面域：草图里该曲线只邻接一个材料面（另一侧无草图材料）。
+    // 侧向只在“该侧确有候选”时有意义；此时回退到唯一邻接面是几何确定的，
+    // 不是任意猜（Pedal Extrude 4 的 line 3 / Rear Shock line 18 实测场景）。
+    const byIndex = new Map<number, { regionIndex: number; region: SketchRegionDto; basis: 'hole' | 'outer' }>();
+    for (const entry of holes) byIndex.set(entry.regionIndex, { ...entry, basis: 'hole' });
+    for (const entry of outers) byIndex.set(entry.regionIndex, { ...entry, basis: 'outer' });
+    if (byIndex.size === 1) {
+      const only = [...byIndex.values()][0]!;
+      return { regionIndex: only.regionIndex, basis: only.basis, area: only.region.area };
+    }
+    return undefined;
+  }
   const best = pool.reduce((a, b) => (b.region.area > a.region.area ? b : a));
   return {
     regionIndex: best.regionIndex,

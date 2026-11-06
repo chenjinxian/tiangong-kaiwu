@@ -33,11 +33,19 @@ test.describe('pickImprintRegion', () => {
     expect(pickImprintRegion(undefined, 1)).toBeUndefined();
   });
 
-  test('imprint 侧向：-1 环外（孔侧）、+1 环内（外环），指定侧无候选不换侧', () => {
+  test('imprint 侧向：-1 环外（孔侧）、+1 环内（外环）', () => {
     expect(pickImprintRegion(regions, 5, 'outside')).toEqual({ regionIndex: 1, basis: 'hole', area: 60 });
     expect(pickImprintRegion(regions, 5, 'inside')).toEqual({ regionIndex: 2, basis: 'outer', area: 40 });
-    // 实体 3 只有外环候选：要求孔侧时返回 undefined，不静默改用外环。
-    expect(pickImprintRegion(regions, 3, 'outside')).toBeUndefined();
+  });
+
+  test('指定侧无候选：唯一相邻材料面域回退；多相邻仍不换侧', () => {
+    // 实体 3 只有 region 0 一个相邻材料面 → 侧向无候选时取它（几何确定）。
+    expect(pickImprintRegion(regions, 3, 'outside')).toEqual({ regionIndex: 0, basis: 'outer', area: 100 });
+    const multiAdjacent: SketchRegionDto[] = [
+      { area: 10, outerEntityIds: [8] },
+      { area: 20, outerEntityIds: [8] },
+    ];
+    expect(pickImprintRegion(multiAdjacent, 8, 'outside')).toBeUndefined();
   });
 
   test('侧向数字解析：明文 topologyDisambiguation / compact $IMPRINTD±1', () => {

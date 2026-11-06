@@ -60,7 +60,7 @@
       c0000005 崩溃（同一场景随后在公开产物 MS 上连续通过，暂不可复现）；
       若再复发按系统性调试立案，不作为“绿”。
 - **下一步队列（按解锁值）**：
-  1. FEATURE pattern（circular 22 / linear 7）——契约/后端/UI；
+  1. FEATURE pattern（circular 22 / linear 7）——契约/后端首切片已落（T10）；converter 映射/UI 待做；
   2. shell 转换 + 面选择器（22）；3. sketch 外部引用（PROJECTED/CONCENTRIC external 等
      约 200 个 PS，最大但最大）；
   4. upToSurface（24 个特征）；5. splitPart/rib/face ops/transform；6. draft（native
@@ -155,6 +155,21 @@
   - 下一步：产品级草图面的 region 语义继续对齐（+1 环内待更多真栈例证）；
     faceExtrude 等真正“实体面选择”语料；发布前必须重建 web/MS 双端（当前
     published artifact 仍 1.32）。
+- [x] **T10 FEATURE pattern 首切片（2026-11-07，shared 1.34.0；ADR-0007）**
+  - 契约：`FeaturePatternParams`（sourceFeatureId/kind/count/spacing?/angle?/
+    axis 线段）；`LubanFeatureType + "featurePattern"`；shared 1.34.0；opDsl 同步。
+  - 后端：源特征前后**缓存差集**为 delta（add: after−before；remove: before−after），
+    逐实例变换后按源操作 Unite/Subtract；源仅 extend/revolve/hole 的 add/remove；
+    NEW/fillet/chamfer/shell/mirror/缺源/冷缓存诚实拒收；任意轴线段（linear 平移、
+    circular 绕轴旋转，count 含原件）。
+  - 验证：`FeaturePatternFlow.test.ts` **4/4**（8.75 mm³ 线性、12 mm³ 偏轴圆周、
+    校验矩阵）；registry/RPC **46/46**；真栈 `e2e/examples/feature-pattern.spec.ts`
+    **2 passed**——40×40×10 盒 + 4×4×5 凸台线性 3 实例 = **16240.000 mm³**，
+    push/重开树含 featurePattern 且 status=0。
+  - 未做/语料缺口：46 个 FEATURE pattern raw 均 `operationType=NEW` + `entities=[]`，
+    源特征集合与 NEW 语义未解——**converter 不映射、不猜**；需 live 取证后另立
+    切片。FACE/曲线 pattern、per-instance skip/第二方向、UI 入口/编辑/预览同缺；
+    published web/MS 仍为 1.32，发布需 shared→backend→web 同批重建。
 - [ ] **T8 Face-boundary edge selectors（2026-11-06，下一步；test-only）**
   - Ruling：P0.5 计划把 FEATURE/FACE pattern 列第一，但原始 features 取证显示
     `patternType=FACE/FEATURE`（Drive Sleeve=FACE、Bottom Bracket=FEATURE
@@ -201,6 +216,11 @@
     面域；草图面域映射无法表达。该 PS 保持 blocked（需要真正的 imprint。
     face split），不以错误 region 0 强跑；不新增 spec。回归 Handle/Hand Brake/
     Sample Assignment/Element Organization **5 passed**。
+    追加：`pickImprintRegion` 增加“指定侧无候选时唯一相邻材料面域回退”
+    （多相邻仍不换侧）+ `EXAMPLE_DEBUG_IMPRINT` 面域转储；Pedal 探针因此把
+    Extrude 4 正确落到 region 0，但仍停在 Fillet 2：其 SWEPT_EDGE 是
+    through-all **切除面与回转体的交线边**，不是草图竖直扫掠边，需要切除结果的
+    拓扑求交，不是边别名/端点容差能修。Pedal/Rear Shock 均维持 blocked。
   - 回归（2026-11-06）：既有边选择器通道 `edge-selector.spec.ts` **3 passed**
     （合成圆盘 770.737 mm³ = 解析期望；iOS First Part 157478.901 vs 157478.902）。
     期间发现并修正 iOS scenario 的陈旧产物：`booleanScopeFeatureIds` 仍是

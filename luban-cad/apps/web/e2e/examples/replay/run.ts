@@ -157,6 +157,17 @@ export async function runScenario(
               reason = `草图 ${sourceSketchId} 尚未构建`;
             } else {
               const sketch = await getSketchRpc(ctx, localSketchId, accessToken);
+              if (process.env.EXAMPLE_DEBUG_IMPRINT === '1') {
+                console.log(
+                  `[imprint] ${feature.name} sketch regions=` +
+                  JSON.stringify((sketch?.regions ?? []).map((region, index) => ({
+                    i: index,
+                    area: Number(region.area.toFixed(3)),
+                    outer: region.outerEntityIds,
+                    hole: region.holeEntityIds ?? [],
+                  }))),
+                );
+              }
               for (const query of queries) {
                 if (typeof query.sketchEntityId !== 'number') {
                   reason = '查询缺 sketchEntityId';
