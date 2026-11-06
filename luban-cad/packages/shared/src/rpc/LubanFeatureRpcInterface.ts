@@ -115,6 +115,10 @@
  * `countersinkDiameterMm`（起始面侧锥口直径）+ `countersinkAngleDeg`（包含角，deg，0<angle<180）；
  * 主孔仍由 `diameterMm`/`endBound` 定义，锥台从起始面切到主孔柱面（深度按几何自动求得）。
  * 旧 simple/counterbore 载荷逐字兼容；counterbore/countersink 参数互斥且只在对应 holeStyle 生效。
+ * v1.34（ADR-0007 第一切片）：`LubanFeatureType + "featurePattern"` 与
+ * `FeaturePatternParams`——FEATURE pattern：源特征（extrude/revolve/hole add/remove）的
+ * 几何增量按 linear/circular 任意轴线段阵列，增量=源前/后缓存差集；PART `pattern` 契约
+ * 逐字保留。首版无 UI 入口、无 per-instance skip/第二方向。
  * v1.33（ADR-0006 切片 D）：`LubanFeatureType + "faceExtrude"` 与 `FaceExtrudeParams`——
  * 以既有 body 的持久面引用为轮廓，沿面法向拉伸并参与特征内布尔。首版 add/remove/intersect
  * + blind/throughAll；NEW/secondDirection throughAll/非平面面诚实拒收。UI 暂无入口（backend/
@@ -128,7 +132,7 @@ import {
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
  * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern；
  * B6 M-A4.1 v1.16 增 booleanBodies（body boolean）） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude";
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -409,6 +413,35 @@ export interface PatternParams {
   axis: "X" | "Y" | "Z";
 }
 
+/** v1.34：featurePattern 的轴线段（世界坐标；方向须非零，服务端归一化）。 */
+export interface PatternAxisLine {
+  origin: { x: number; y: number; z: number };
+  direction: { x: number; y: number; z: number };
+}
+
+/**
+ * v1.34（ADR-0007 第一切片）：**FEATURE pattern**——阵列某个上游特征产生的几何增量，
+ * 而不是整个 body（区别于 `PatternParams` 的 PART/body 阵列）。
+ *
+ * - `sourceFeatureId`：同链上游特征（本地 featureId）。首版仅支持
+ *   `extrude`/`revolve`/`hole` 且 operation 为 add/remove；NEW 源、fillet/chamfer 源、
+ *   shell/mirror 源诚实拒收（增量语义不成立）。
+ * - 增量 = 源特征求值前后缓存差集（add：after−before；remove：before−after），
+ *   逐实例变换后按源操作 Unite/Subtract 回当前体——不重新求值源特征参数。
+ * - `count`：实例总数（含原件），2..1000；`spacing` 仅 linear、`angle` 仅 circular
+ *   （度制 (0,360]；整周 angle/count，部分角 angle/(count-1)，与 PatternParams 同口径）。
+ * - `axis`：任意世界轴线段；linear 沿 direction 平移，circular 绕该轴旋转（右手定则）。
+ * - 首版无 UI 入口、无 per-instance skip、无第二方向；发布需 shared/后端双端同批。
+ */
+export interface FeaturePatternParams {
+  sourceFeatureId: string;
+  kind: "linear" | "circular";
+  count: number;
+  spacing?: number;
+  angle?: number;
+  axis: PatternAxisLine;
+}
+
 /** 内核持久拓扑 id（面语义；op31-34 的 TS 形状，EditBuiltInCommand.ts:418-424） */
 export interface LubanTopologyId { nodeId: number; entityId: number }
 
@@ -527,7 +560,7 @@ export interface CPlaneParams {
   flipNormal?: boolean;
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams;
 
 export type FeatureOp =
   /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
@@ -683,7 +716,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.33.0";
+  public static interfaceVersion = "1.34.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

@@ -34,6 +34,7 @@ const ALL_FEATURE_TYPES: Record<LubanFeatureType, true> = {
   sweep: true,
   mirror: true,
   pattern: true,
+  featurePattern: true,
   booleanBodies: true,
   hole: true,
   cPlane: true,

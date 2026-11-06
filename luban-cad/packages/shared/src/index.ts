@@ -244,6 +244,8 @@ export type {
   CPlaneParams,
   CPlaneReference,
   FaceExtrudeParams,
+  FeaturePatternParams,
+  PatternAxisLine,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================
