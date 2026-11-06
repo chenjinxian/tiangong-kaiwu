@@ -73,7 +73,7 @@ powershell -NoProfile -File scripts/verify-public-deps.ps1
 >
 > **契约版本提示**：脚本会对比公共产物与当前源码的 `LubanFeatureRpcInterface.interfaceVersion`。若公共 Release 落后（例如产物 1.18.0 而源码 1.32.0），会打印黄色警告——基础建模可继续用，但最新特征可能不可用；需由 release owner 重新发布匹配产物。
 
-**机器要求**：Windows 10/11 x64；Docker Desktop（WSL2 后端）已启动；Node.js 20.12+（推荐 22 LTS）；内存 ≥ 8 GB；首次下载约 5–15 分钟（视网络；后端产物约 178 MB + 三个公开镜像）、磁盘约 6–8 GB。**当前不支持 Linux/macOS/Apple Silicon**：modeling-server 是 Windows 原生宿主进程（本地编译的几何原生库）。
+**机器要求**：Windows 10/11 x64；Docker Desktop（WSL2 后端）已启动；Node.js 20.12+（推荐 22 LTS）；内存 ≥ 8 GB；磁盘约 6–8 GB。首次下载约 5–30 分钟（视 GitHub/Docker 网络；后端产物约 170 MB + 4 个公开镜像）；**下载中断后直接重跑脚本即可断点续传**。**当前不支持 Linux/macOS/Apple Silicon**：modeling-server 是 Windows 原生宿主进程（本地编译的几何原生库）。
 
 **停止与升级**：
 

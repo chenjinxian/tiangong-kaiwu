@@ -121,7 +121,7 @@ powershell -File scripts/start-ms-host.ps1 -Detach
 powershell -File scripts/verify-stack.ps1     # 全栈验收
 ```
 
-停止：`docker compose down` + `powershell -File scripts/stop-ms-host.ps1`。首次下载约 5–15 分钟、磁盘约 6–8 GB。当前不支持 Linux/macOS/Apple Silicon（modeling-server 是 Windows 原生宿主进程）。完整说明、升级与故障排查见 [`docs/Deployment-Guide.md`](docs/Deployment-Guide.md) 与 [`docs/README.md`](docs/README.md)。
+停止：`docker compose down` + `powershell -File scripts/stop-ms-host.ps1`。首次下载约 5–30 分钟（支持断点续传）、磁盘约 6–8 GB。当前不支持 Linux/macOS/Apple Silicon（modeling-server 是 Windows 原生宿主进程）。完整说明、升级与故障排查见 [`docs/Deployment-Guide.md`](docs/Deployment-Guide.md) 与 [`docs/README.md`](docs/README.md)。
 
 ## 开发与测试
 

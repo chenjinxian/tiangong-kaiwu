@@ -87,26 +87,56 @@ function Select-MsAsset {
 function Save-ReleaseAsset {
   param($Asset, [string]$Dest)
   $out = Join-Path $Dest $Asset.name
-  if (Test-Path $out) { Remove-Item $out -Force }
+  $resume = $false
+  $expected = if ($Asset.size) { [long]$Asset.size } else { 0 }
+  if (Test-Path $out) {
+    $have = (Get-Item $out).Length
+    if ($expected -gt 0 -and $have -eq $expected) {
+      Write-Host "==> 已存在完整资产（$have 字节），跳过下载并校验 ..." -ForegroundColor Green
+      $downloaded = $true
+    } elseif ($expected -gt 0 -and $have -lt $expected) {
+      Write-Host "==> 断点续传：已有 $have / $expected 字节 ..." -ForegroundColor Yellow
+      $resume = $true
+      $downloaded = $false
+    } else {
+      Remove-Item $out -Force
+      $downloaded = $false
+    }
+  } else {
+    $downloaded = $false
+  }
 
-  $downloaded = $false
   $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-  if ($curl) {
-    Write-Host "==> 匿名下载 $($Asset.name)（$([math]::Round([long]$Asset.size / 1MB)) MB）..."
+  if (-not $downloaded -and $curl) {
+    Write-Host "==> 匿名下载 $($Asset.name)（$([math]::Round($expected / 1MB)) MB）..."
     # curl 进度/错误走 stderr：PS5.1 在 ErrorActionPreference=Stop 下会把 stderr
     # 包装成 NativeCommandError 直接中断——临时降级，失败判定仍以 LASTEXITCODE 为准。
     $eap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-      & curl.exe --location --fail --retry 3 --retry-delay 2 --progress-bar `
-        --output $out $Asset.browser_download_url
+      $curlArgs = @('--location', '--fail', '--retry', '3', '--retry-delay', '2',
+        '--progress-bar', '--output', $out)
+      if ($resume) { $curlArgs += @('--continue-at', '-') }
+      & curl.exe @curlArgs $Asset.browser_download_url
       $downloaded = ($LASTEXITCODE -eq 0)
+      if (-not $downloaded -and $resume) {
+        # 服务端不支持 Range/续传失败：删半文件重下一次（慢网络下仍可完成）
+        Write-Host "==> 续传失败，重新完整下载 ..." -ForegroundColor Yellow
+        if (Test-Path $out) { Remove-Item $out -Force }
+        & curl.exe --location --fail --retry 3 --retry-delay 2 --progress-bar `
+          --output $out $Asset.browser_download_url
+        $downloaded = ($LASTEXITCODE -eq 0)
+      }
     } finally {
       $ErrorActionPreference = $eap
     }
-  } else {
+  } elseif (-not $downloaded) {
     Write-Host "==> 下载 $($Asset.name)（curl 不可用，回退 Invoke-WebRequest）..."
     try {
+      if ($resume) {
+        # PS5.1 IWR 不支持断点续传：先删半文件，避免拼接损坏
+        if (Test-Path $out) { Remove-Item $out -Force }
+      }
       Invoke-WebRequest -Uri $Asset.browser_download_url -OutFile $out -UseBasicParsing -TimeoutSec 1800
       $downloaded = $true
     } catch {
@@ -139,10 +169,11 @@ function Save-ReleaseAsset {
 }
 
 # ============================================================
-# 幂等前清：旧 tgz 与旧解压树一并清掉（防版本混合/陈旧解压残留；
-# MS 进程仍占用 dist-backend\modeling-server 时 Remove/解压会报错中止——先停宿主 MS 再跑）
+# 幂等前清：旧解压树清掉（防版本混合/陈旧解压残留；MS 进程仍占用
+# dist-backend\modeling-server 时 Remove/解压会报错中止——先停宿主 MS 再跑）。
+# tgz 不预先删除：同名完整资产直接跳过，半文件断点续传（慢网络友好）；
+# 选定目标资产后再清理其它 tag 的旧 tgz。
 # ============================================================
-Remove-Item -Path "$dest\modeling-server-win-x64-*.tgz" -Force -ErrorAction SilentlyContinue
 Remove-Item -Path (Join-Path $dest 'modeling-server') -Recurse -Force -ErrorAction SilentlyContinue
 
 if ($LocalArtifact) {
@@ -171,6 +202,8 @@ if ($LocalArtifact) {
   $releaseTag = if ($release.tag_name) { [string]$release.tag_name } else { [string]$release.tagName }
   $asset = Select-MsAsset -Assets $release.assets
   $asset | Add-Member -NotePropertyName releaseTag -NotePropertyValue $releaseTag -Force
+  Get-ChildItem -Path "$dest\modeling-server-win-x64-*.tgz" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -ne $asset.name } | Remove-Item -Force -ErrorAction SilentlyContinue
   Write-Host "==> Release: $releaseTag，资产: $($asset.name)" -ForegroundColor Cyan
   $tgz = Save-ReleaseAsset -Asset $asset -Dest $dest
 
