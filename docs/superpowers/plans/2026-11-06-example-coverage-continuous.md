@@ -101,9 +101,11 @@
 - **顺带校正 legacy 验证列表**：sample-assignment → `f52752cb`（canonical 场景库，
   9 特征/8915.8602 mm³；旧 a9eacfe5 已不存在）；intro-to-cad → `bb8efb7b`
   （cPlane 树/85157.3407 mm³；旧 de911416 已不存在）。
-- **未发布**：hub 镜像仍为本地 `checkpoint-fix2`，公开 GHCR 的
-  `imodelhub-public:latest` 尚未更新；外部用户冷开仍会命中旧缺陷。发布需用户
-  授权后重新 build/push hub 镜像并更新部署产物说明。
+- **已发布（2026-11-06b，hub-only hotfix）**：`imodelhub-public:backend-20261106b`
+  与 `:latest` 同 digest `sha256:17098624…`，OCI revision `61e78c5`（hub HEAD），
+  匿名 manifest 200；**发布镜像 + 全新 briefcase cache 冷开 13/13 通过**
+  （MS 日志 13 次下载，`verify-imodels` 2 passed）。MS Release / 其它镜像不变。
+  hub 源码 commit `61e78c5`、公开仓 commit `4d295bbf`/`907a66ed` 已推送。
 - **延后（非正确性缺口）**：changeset checkpoint 生成/注册任务
   （`SnapshotDb.createFrom` + 上传 + `createOrUpdateForChangeset`）未实现；当前
   冷开依赖 baseline + 回放全部 changesets，示例量级可接受。待大规模 iModel 性能

@@ -8,7 +8,7 @@
 |---|---|---|
 | web | `ghcr.io/chenjinxian/luban-web-public:backend-20261106` / `:latest` | `sha256:706a6dd5d0c6892be8a9f7165b151c81c95047ad3ea2c5bf07b6712a8634c5d3` |
 | bff | `ghcr.io/chenjinxian/luban-bff-public:backend-20261106` / `:latest` | `sha256:f0f8f6b7eca9425c4d2f828a0763b62ffc5a5057047fc6e4ae56a8eab877fd19` |
-| imodelhub | `ghcr.io/chenjinxian/imodelhub-public:backend-20261106` / `:latest` | `sha256:24eb26b352db3a0b0afa9b0726f987f9e6fd34afc93aba395be23b2d1d4c71cc` |
+| imodelhub | `ghcr.io/chenjinxian/imodelhub-public:backend-20261106b` / `:latest` | `sha256:170986243dbf0abd619dded56331aaae015ed2b7d75d82393aa2c3db0375b1a8` |
 | webhook-agent | `ghcr.io/chenjinxian/luban-webhook-agent-public:backend-20261106` / `:latest` | `sha256:27eb8103705cd9b64ba56c402aa0e9c3e325d9c3a722893708844734625951b4` |
 | modeling-server | Release `backend-20261106` / `modeling-server-win-x64-backend-20261106.tgz` | `sha256:fc35aa45c9f395168cb7ac47f8f4fbe27528a133221faecc231bc6960a60bbcf`（178,691,226 B） |
 | 部署包 | Release `backend-20261106` / `luban-cad-deploy.zip`（稳定名） | `sha256:5967e5b577377e1420e52b0194602ce922847f98766331b211aee1b8cbf3a9e8`（约 55 KB，无需 clone 源码仓） |
@@ -25,6 +25,18 @@
 - 产物模式建模后端（Release 同源构建）在宿主 :5401 启动，`scripts/verify-stack.ps1` **17/17**（health×5、登录、iTwin/iModel/baseline 数据链、WS cookie 握手与负向拒绝、dev-build 横幅、web/hub 镜像 revision）。
 - 公开 web 镜像在浏览器实际加载：标题 LubanCAD，控制台 0 error。
 - 冷拉后 `docker compose up -d` 使用公开镜像，无本地构建。
+
+## Hotfix backend-20261106b（imodelhub only，2026-11-06）
+
+- 修复冷 briefcase cache 打不开已推送 iModel 的两处 hub 契约缺口：
+  `changesets/:id/checkpoint` 补 `currentOrPrecedingCheckpoint` 回退；changesets
+  列表实现官方 `$orderBy=index desc`（此前“最新 changeset”返回最旧一条）。
+- 镜像：`imodelhub-public:backend-20261106b` 与 `latest` 同 digest
+  `sha256:170986243dbf0abd619dded56331aaae015ed2b7d75d82393aa2c3db0375b1a8`，
+  OCI revision `61e78c5`（hub HEAD）；匿名 manifest 200。
+- modeling-server Release 与其它镜像不变；无需重新下载 MS 产物。
+- 验收：hub 单测 1179/1179；发布镜像 + 全新 briefcase cache 冷开 13/13 示例
+  （`verify-imodels` 2 passed）。
 
 ## 已知限制 / 回滚
 
