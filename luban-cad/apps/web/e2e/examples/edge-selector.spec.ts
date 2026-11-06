@@ -155,14 +155,17 @@ test.describe('T2 edge selector replay', () => {
 
   /**
    * 真实 PS 验收：Tutorial 2 iOS First Part。
-   * - imprintFace：Extrude 2 的查询引用草图圆 5；runner 选择“圆 5 为孔洞边界”
-   *   的最大面域（region 1），保留内孔；
+   * - imprintFace：Extrude 2 的查询引用草图圆 5（side=-1 环外）；runner 按
+   *   侧向选择“圆 5 为孔洞边界”的最大材料面域（region 1），保留内孔。
+   *   2026-11-06 真栈实证：该 FACE 是**草图面**（查询根 `<sketchId>.imprint`），
+   *   Extrude 1 顶盖是单一外环+两孔面，不存在可选的实体环面片；因此不走
+   *   faceExtrude，步骤保持 approximate；
    * - chamfer：3 条 CAP_EDGE 由 edgeResolver 解析；
    * - 目标体积取采集 per-part nominal（157,478.9 mm³）。
    * 约束以 skip 保留 Onshape 解算坐标（converter 有 HORIZONTAL 单点缺口），
    * notes 必须登记 constraints=dropped。
    */
-  test('真实 iOS First Part：imprint 面域 + 3 条 CAP_EDGE 倒角', async ({ page, request }) => {
+  test('真实 iOS First Part：imprint 面域侧向 + 3 条 CAP_EDGE 倒角', async ({ page, request }) => {
     test.skip(!isExampleDataAvailable(), 'ONSHAPE_PARITY_DATA 不在场');
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 600_000);
     const token = await getApiToken();
@@ -178,7 +181,11 @@ test.describe('T2 edge selector replay', () => {
         resolveScenarioEdges(page, ctx, fullScenario, feature, token),
     });
     expect(built.steps.map((step) => step.type)).toEqual(['sketch', 'extrude', 'extrude', 'chamfer']);
-    expect(built.notes.some((note) => note.includes('imprintFace→草图面域 1'))).toBe(true);
+    const imprintStep = built.steps.find((step) => step.feature === 'Extrude 2');
+    expect(imprintStep?.approximate).toBe(true);
+    expect(imprintStep?.notes.join(' ')).toContain('imprintFace→草图面域 1');
+    expect(imprintStep?.notes.join(' ')).toContain('outside');
+    expect(imprintStep?.notes.join(' ')).toContain('area=1649.336');
     expect(built.notes.some((note) => note.includes('edgeResolver=Chamfer 1'))).toBe(true);
 
     await page.reload();

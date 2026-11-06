@@ -55,6 +55,53 @@ test.describe('scenario → FeatureOp', () => {
     expect(step.notes.join(' ')).toContain('imprintFace');
   });
 
+  test('faceExtrude 由已解析 faceRef 映射为 insertFeature，不近似', () => {
+    const feature: ScenarioFeature = {
+      type: 'faceExtrude',
+      name: 'Extrude 2',
+      params: {
+        operation: 'add',
+        endBound: 'blind',
+        depthMm: 50,
+        direction: 'backward',
+        bodyId: 'body-1',
+        faceRef: { nodeId: 12, entityId: 34 },
+        mergeScope: [{ bodyKey: 'body-1' }],
+      },
+    };
+    const step = translateScenarioFeature(feature);
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.featureType).toBe('faceExtrude');
+    expect(step.op.targetBodyId).toBe('body-1');
+    expect(step.op.params).toMatchObject({
+      bodyId: 'body-1',
+      faceRef: { nodeId: 12, entityId: 34 },
+      operation: 'add',
+      endBound: 'blind',
+      depthMm: 50,
+      direction: 'backward',
+      mergeScope: [{ bodyKey: 'body-1' }],
+    });
+    expect(step.approximate).toBe(false);
+  });
+
+  test('faceExtrude NEW / 缺 faceRef 诚实阻塞', () => {
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude 2',
+      params: {
+        operation: 'new', endBound: 'blind', depthMm: 1,
+        bodyId: 'body-1', faceRef: { nodeId: 1, entityId: 2 },
+      },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude 2',
+      params: { operation: 'add', endBound: 'blind', depthMm: 1, bodyId: 'body-1' },
+    })).toThrow(BlockedCapabilityError);
+  });
+
   test('extrude 拔模未实现 → blocked，不静默按直体近似', () => {
     expect(() => translateScenarioFeature({
       type: 'extrude',

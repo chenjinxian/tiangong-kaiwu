@@ -47,7 +47,8 @@
             "loft",
             "sweep",
             "hole",
-            "cPlane"
+            "cPlane",
+            "faceExtrude"
           ]
         },
         "name": { "type": "string", "minLength": 1 },

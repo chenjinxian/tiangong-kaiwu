@@ -7,6 +7,7 @@
  */
 import type {
   BodyRef,
+  FaceExtrudeParams,
   FeatureBooleanOperation,
   FeatureOp,
   FilletEdgeRef,
@@ -299,6 +300,62 @@ function extrudeOp(feature: ScenarioFeature, context: TranslateContext): Transla
       ...(scopeTarget ? [scopeTarget.note] : []),
     ],
     approximate,
+  };
+}
+
+/**
+ * faceExtrude（ADR-0006 切片 D）：由 runner 的 imprintFaceResolver 产出，
+ * params 已含持久 faceRef/bodyId/direction；这里只做结构校验，不解析几何。
+ */
+function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
+  const params = asRecord(feature.params) ?? {};
+  const operation = normalizeOperation(params.operation);
+  if (!operation || operation === 'new')
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} 需要 add/remove/intersect（NEW 未实现）`);
+  const endBound = normalizeEndBound(params.endBound) ?? 'blind';
+  if (endBound !== 'blind' && endBound !== 'throughAll')
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} 终止条件 ${endBound} 未实现`);
+  const depthMm = numberParam(params, 'depthMm');
+  if (endBound === 'blind' && (depthMm === undefined || depthMm <= 0))
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} 盲端缺少有效距离`);
+  const bodyId = stringParam(params, 'bodyId');
+  const faceRef = asRecord(params.faceRef);
+  const nodeId = faceRef?.nodeId;
+  const entityId = faceRef?.entityId;
+  if (!bodyId || !Number.isInteger(nodeId) || !Number.isInteger(entityId))
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} 缺少已解析的 bodyId/faceRef`);
+  const direction = stringParam(params, 'direction') === 'backward' ? 'backward' as const : 'forward' as const;
+  const mergeScopeRaw = Array.isArray(params.mergeScope) ? params.mergeScope : [];
+  const mergeScope: BodyRef[] = [];
+  for (const entry of mergeScopeRaw) {
+    const record = asRecord(entry);
+    const bodyKey = typeof record?.bodyKey === 'string' ? record.bodyKey : undefined;
+    if (!bodyKey)
+      throw new BlockedCapabilityError('face-extrude', `${feature.name} mergeScope 含无 bodyKey 的项`);
+    mergeScope.push({ bodyKey });
+  }
+  const faceParams: FaceExtrudeParams = {
+    bodyId,
+    faceRef: { nodeId: nodeId as number, entityId: entityId as number },
+    operation,
+    endBound,
+    ...(depthMm !== undefined ? { depthMm } : {}),
+    direction,
+    ...(mergeScope.length > 0 ? { mergeScope } : {}),
+  };
+  return {
+    scenario: feature,
+    op: {
+      kind: 'insertFeature',
+      featureType: 'faceExtrude',
+      targetBodyId: bodyId,
+      params: faceParams,
+    },
+    notes: [
+      `imprintFace 精确面拉伸（direction=${direction}，` +
+      `${endBound === 'throughAll' ? 'throughAll' : `${depthMm} mm`}）`,
+    ],
+    approximate: false,
   };
 }
 
@@ -644,6 +701,8 @@ export function translateScenarioFeature(
       return sketchOp(feature, context);
     case 'extrude':
       return extrudeOp(feature, context);
+    case 'faceExtrude':
+      return faceExtrudeOp(feature);
     case 'revolve':
       return revolveOp(feature, context);
     case 'hole':

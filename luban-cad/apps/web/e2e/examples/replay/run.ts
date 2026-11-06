@@ -17,7 +17,12 @@ import {
   releaseWriteLease,
   type BSeedEditorContext,
 } from '../../helpers.js';
-import { pickImprintRegion } from './imprint-region.js';
+import {
+  imprintSideFromSign,
+  imprintSignFromQuery,
+  pickImprintRegion,
+  type ImprintSide,
+} from './imprint-region.js';
 import {
   translateScenarioFeature,
   type ParityScenario,
@@ -76,39 +81,103 @@ export async function runScenario(
 
   try {
     for (const feature of scenario.features as ScenarioFeature[]) {
-      // imprintFace 近似解析（test-only）：converter 记录面查询引用的草图实体；
-      // 用 getSketch 面域读面选“该实体为孔洞边界”的最大面域，替代一律 region 0。
-      // face split 仍未实现，步骤保持 approximate=true 并写 note。
+      // imprintFace 解析（test-only）：Onshape 的 imprint FACE 查询根节点是
+      // `<sketchId>.imprint`——它指向**草图面/材料面域**，不是实体 BRep 面
+      // （2026-11-06 真栈实证：iOS Extrude 1 顶盖是单一外环+两孔面，不存在环
+      // 面片；实体 FACE 查询只出现在 CAP_FACE/SWEPT_FACE 派生边语义）。
+      // 因此按面域回放：逐查询用 imprint 侧向（-1=环外/孔侧、+1=环内）选面域，
+      // 多查询合并为一次 extrude.regions；face split 不参与。
+      // 侧向约定由 iOS（-1→环面）实证；未识别/查询未全部解析时保留原 selection，
+      // 由 translator 显式登记 region 0 近似——绝不猜。
       let effectiveFeature = feature;
-      let imprintNote: string | undefined;
+      const imprintNotes: string[] = [];
+      let imprintApproximate = false;
       if (feature.type === 'extrude') {
         const selection = (feature.params as {
-          selection?: { kind?: string; sketchFeatureId?: string; sketchEntityId?: number };
+          selection?: {
+            kind?: string;
+            sketchFeatureId?: string;
+            sketchEntityId?: number;
+            queryString?: string;
+            imprintSign?: number;
+            queries?: Array<{
+              sketchFeatureId?: string;
+              sketchEntityId?: number;
+              queryString?: string;
+              imprintSign?: number;
+            }>;
+          };
         }).selection;
-        if (selection?.kind === 'imprintFace'
-          && selection.sketchFeatureId !== undefined
-          && typeof selection.sketchEntityId === 'number') {
-          const localSketchId = sketchIdBySource.get(selection.sketchFeatureId);
-          if (localSketchId !== undefined) {
-            const sketch = await getSketchRpc(ctx, localSketchId, accessToken);
-            const pick = pickImprintRegion(sketch?.regions, selection.sketchEntityId);
-            if (pick !== undefined) {
-              effectiveFeature = {
-                ...feature,
-                params: {
-                  ...feature.params,
-                  selection: {
-                    kind: 'sketchRegions',
-                    sketchFeatureId: selection.sketchFeatureId,
-                    regionIndex: pick.regionIndex,
-                    regions: [pick.regionIndex],
+        if (selection?.kind === 'imprintFace') {
+          const queries = Array.isArray(selection.queries) && selection.queries.length > 0
+            ? selection.queries
+            : [{
+                sketchFeatureId: selection.sketchFeatureId,
+                sketchEntityId: selection.sketchEntityId,
+                queryString: selection.queryString,
+                imprintSign: selection.imprintSign,
+              }];
+          const sketchSources = new Set(
+            queries.map((query) => query.sketchFeatureId).filter(
+              (value): value is string => typeof value === 'string',
+            ),
+          );
+          const regions: number[] = [];
+          const parts: string[] = [];
+          let reason: string | undefined;
+          if (sketchSources.size !== 1) {
+            reason = `草图来源不唯一（${sketchSources.size}）`;
+          } else {
+            const sourceSketchId = [...sketchSources][0]!;
+            const localSketchId = sketchIdBySource.get(sourceSketchId);
+            if (!localSketchId) {
+              reason = `草图 ${sourceSketchId} 尚未构建`;
+            } else {
+              const sketch = await getSketchRpc(ctx, localSketchId, accessToken);
+              for (const query of queries) {
+                if (typeof query.sketchEntityId !== 'number') {
+                  reason = '查询缺 sketchEntityId';
+                  break;
+                }
+                const sign = typeof query.imprintSign === 'number'
+                  ? query.imprintSign
+                  : imprintSignFromQuery(query.queryString);
+                const side: ImprintSide | undefined = imprintSideFromSign(sign);
+                const pick = pickImprintRegion(sketch?.regions, query.sketchEntityId, side);
+                if (!pick) {
+                  reason = `实体 ${query.sketchEntityId} 无${side ?? '孔洞/外环'}候选面域`;
+                  break;
+                }
+                regions.push(pick.regionIndex);
+                parts.push(
+                  `实体 ${query.sketchEntityId} ${pick.basis}` +
+                  `${side ? `/${side}` : ''} area=${pick.area.toFixed(3)}`,
+                );
+              }
+              if (reason === undefined && regions.length > 0) {
+                const unique = Array.from(new Set(regions));
+                effectiveFeature = {
+                  ...feature,
+                  params: {
+                    ...feature.params,
+                    selection: {
+                      kind: 'sketchRegions',
+                      sketchFeatureId: sourceSketchId,
+                      regionIndex: unique[0],
+                      regions: unique,
+                    },
                   },
-                },
-              };
-              imprintNote = `imprintFace→草图面域 ${pick.regionIndex}` +
-                `（实体 ${selection.sketchEntityId} ${pick.basis}，area=${pick.area.toFixed(3)}；` +
-                'face split 未实现，近似）';
+                };
+                imprintNotes.push(
+                  `imprintFace→草图面域 ${unique.join(',')}（${parts.join('；')}；` +
+                  'face split 未实现，近似）',
+                );
+                imprintApproximate = true;
+              }
             }
+          }
+          if (reason !== undefined) {
+            imprintNotes.push(`imprintFace 保留原查询近似：${reason}`);
           }
         }
       }
@@ -238,9 +307,9 @@ export async function runScenario(
         ...(edgeRefsByFeatureName ? { edgeRefsByFeatureName } : {}),
         ...bodyContext,
       });
-      if (imprintNote !== undefined) {
-        translated.notes.push(imprintNote);
-        translated.approximate = true;
+      if (imprintNotes.length > 0) {
+        translated.notes.push(...imprintNotes);
+        if (imprintApproximate) translated.approximate = true;
       }
       if (regionAuditNote !== undefined) {
         translated.notes.push(regionAuditNote);
@@ -296,7 +365,7 @@ export async function runScenario(
       notes.push(...stepNotes.map((note) => `${feature.name}: ${note}`));
       steps.push({
         feature: feature.name,
-        type: feature.type,
+        type: effectiveFeature.type,
         featureId,
         notes: stepNotes,
         approximate: translated.approximate,

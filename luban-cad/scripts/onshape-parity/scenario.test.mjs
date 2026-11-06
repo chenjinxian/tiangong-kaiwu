@@ -115,6 +115,24 @@ test("cPlane 特征类型通过校验（ADR-0003 additive）", () => {
   assert.equal(result.ok, true, result.errors.join("\n"));
 });
 
+test("faceExtrude 特征类型通过校验（ADR-0006 切片 D）", () => {
+  const value = minimal();
+  value.features.push({
+    type: "faceExtrude",
+    name: "Extrude 2",
+    params: {
+      bodyId: "body-1",
+      faceRef: { nodeId: 1, entityId: 2 },
+      operation: "add",
+      endBound: "blind",
+      depthMm: 50,
+      direction: "forward",
+    },
+  });
+  const result = validateScenario(value);
+  assert.equal(result.ok, true, result.errors.join("\n"));
+});
+
 test("Tutorial 2 场景 fixture 通过校验且保留金标体积", async () => {
   const scenario = await loadScenario(TUTORIAL2);
   assert.equal(scenario.features.length, 6);

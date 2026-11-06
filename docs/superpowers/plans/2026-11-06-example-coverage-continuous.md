@@ -142,9 +142,19 @@
     schema 拒收）；registry/RPC 51/51；真栈 `e2e/examples/face-extrude.spec.ts`
     **2 passed**——合成盒体顶面 `resolveFaceRef` + faceExtrude add 1mm =
     **48.000 mm³**，push/重开后树含 faceExtrude 且体积一致。
-  - 下一步：converter/runner 把 Onshape `imprintFace` 查询解析为 faceRef（iOS/
-    Postman 去近似）、单特征多面、UI 证据与入口；发布前必须重建 web/MS 双端
-    （当前 published artifact 仍 1.32）。
+  - **T9b 真栈纠正（2026-11-06，同日）**：Onshape `imprintFace` 查询根为
+    `<sketchId>.imprint`，指向**草图面/材料面域**，不是实体 BRep 面；iOS Extrude 1
+    顶盖是单一面（3 loops = 外环+两 R10 孔），无左环面片，solid-face 匹配零候选。
+    因此 imprintFace **不走 faceExtrude**；改为草图面域 + imprint 侧向回放：
+    converter 保留全部 queries + `imprintSign`（−1 环外/+1 环内），runner 逐查询
+    选面域并合并 regions。真栈 `edge-selector.spec.ts` iOS **2 passed**——侧向
+    outside、region 1、体积 157478.901 vs 157478.902 mm³。单测 5+21+schema 11。
+    Hand Brake Update 数据就绪（Extrude 2 双查询、5/6 为 +1 圆），但仍被草图约束
+    与 Extrude 8 UP_TO_SURFACE 阻塞，保持 blocked。faceExtrude 保留为显式实体面
+    能力（无 converter 映射、无 UI，仅合成真栈 48.000 mm³）。
+  - 下一步：产品级草图面的 region 语义继续对齐（+1 环内待更多真栈例证）；
+    faceExtrude 等真正“实体面选择”语料；发布前必须重建 web/MS 双端（当前
+    published artifact 仍 1.32）。
 - [ ] **T8 Face-boundary edge selectors（2026-11-06，下一步；test-only）**
   - Ruling：P0.5 计划把 FEATURE/FACE pattern 列第一，但原始 features 取证显示
     `patternType=FACE/FEATURE`（Drive Sleeve=FACE、Bottom Bracket=FEATURE
@@ -219,9 +229,12 @@
     并写 note（face split 未实现）。iOS 由此从 region 0（176206 mm³ 错误映射）
     修正为 region 1 + forward + depth 50，配合 3 条 CAP_EDGE 倒角达
     157478.901 mm³。
-    - 仍缺：产品级 imprintFace/faceRef 面切分（draft AIRR 待批准），当前 `sketchRegions`
-      选择语义只等价于“对面域做拉伸”，不等于 Onshape 的 imprint 面。**不得**
-      据此宣称 imprintFace 产品能力 complete。
+    - **2026-11-06 语义纠正**：imprint FACE 查询根是 `<sketchId>.imprint`，
+      即**草图面/材料面域**；converter 已保留全部 queries 与 `imprintSign`
+      （−1 环外/+1 环内），runner 逐查询选面域并合并 regions。iOS 用
+      side=outside/region 1 真栈绿（157478.901 vs 157478.902）。产品级
+      “实体面选择”的 faceExtrude 是另一能力（无当前语料映射）；**不得**把
+      草图面域回放宣称为 Onshape imprint 拓扑（face split）已实现。
   - [x] **revolve 多面域（shared 1.30.0，2026-11-06）**：
     - 契约 `RevolveParams.regions`（与 extrude 同锚；`regionIndex` deprecated 简写，
       同给拒收）；后端 `resolveRevolveInputs` 选集归一 + 逐域 spin/CSG + Unite；

@@ -22,6 +22,7 @@ export const FEATURE_TYPES = new Set([
   "sweep",
   "hole",
   "cPlane",
+  "faceExtrude",
 ]);
 
 export const PROVENANCE_STATUSES = new Set([

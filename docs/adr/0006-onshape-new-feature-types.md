@@ -7,7 +7,11 @@
   **切片 B1（cPlane 基准面 + 草图落在自定义平面）已落地 backend/contract/UI + 真栈 e2e（shared 1.29.0）**；
   切片 B2（任意参考几何/改参传播/变量）、C 仍待逐个批准；
   **切片 D（face-extrude/imprint-face）backend/contract/e2e 首切片已落地（2026-11-06，
-  shared 1.33.0；converter/runner 的 imprintFace 解析与 UI 待后续）**。
+  shared 1.33.0；converter/runner 的 imprintFace 解析与 UI 待后续）。
+  同日真栈纠正：Onshape `imprintFace` 查询指向**草图面/材料面域**（根
+  `<sketchId>.imprint`），不是实体 BRep 面；imprintFace 不走 faceExtrude，
+  改用带侧向的草图面域回放（见切片 D 修正记录）。faceExtrude 保留为显式
+  实体面能力，当前无语料映射/UI**。
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/adr/0005-extrude-revolve-contract-onshape-parity.md`、
   `docs/superpowers/specs/2026-11-04-onshape-example-replication-airr.md`、
@@ -286,10 +290,21 @@ depth/throughAll 扫掠，再按 operation 与上游体 Unite/Subtract/Intersect
 单面（Onshape 多面查询由回放器逐面展开成多个 faceExtrude 步骤，后续切片再做
 单特征多面）。
 
-**回放/E2E**：runner 通过 `resolveFaceRef` 取得 faceRef；面查询到体的几何匹配
-需按面环/草图 imprint 关系做唯一解析（不在本切片做 UI）。首个真实验收目标：
-Tutorial 2 iOS Extrude 2 从“草图面域近似”升级为真实 faceExtrude，终体积
-157478.9 mm³ 不变；其次 Postman。
+**回放/E2E（设计初稿，已被真栈修正覆盖）**：runner 通过 `resolveFaceRef` 取得
+faceRef；面查询到体的几何匹配需按面环/草图 imprint 关系做唯一解析。曾计划把
+Tutorial 2 iOS Extrude 2 升级为真实 faceExtrude。
+
+**2026-11-06 真栈修正（iOS First Part，实证）**：Extrude 2 的 FACE 查询根是
+`<sketchId>.imprint`，指向**草图面/材料面域**，不是实体 BRep 面。实测 Extrude 1
+的顶盖是**单一面**（3 loops = 外环 hull + 两个 R10 孔）；唯一共面候选是
+offset=25 mm 的另一端盖，不存在左环面片。solid-face 匹配因此零候选，不能把
+imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprint 侧向**：
+查询 `topologyDisambiguation([[edge, ±1]])` 的 −1 选环外（若曲线是孔边界即
+“孔侧”材料面域）、+1 选环内；converter 保留全部 queries 与 sign，多查询合并为
+一次 extrude.regions。iOS −1→环面（region 1）已验证，体积 157478.901 vs
+157478.902 mm³。faceExtrude 保留为“显式选择实体面”的独立能力（Onshape 的
+“Faces and sketch regions”两者都有），当前语料没有该选择的映射，仅合成真栈
+验收；不宣称 imprintFace 走 faceExtrude。
 
 **UI**：无 live 面拉伸对话框证据前不新增入口（backend/contract 先行）；UI 切片
 需采集 Onshape “从面拉伸”对话框后另批。
@@ -310,9 +325,23 @@ Tutorial 2 iOS Extrude 2 从“草图面域近似”升级为真实 faceExtrude�
   51/51；真栈 `e2e/examples/face-extrude.spec.ts` **2 passed**——合成盒体顶面由
   dev-only 面枚举 + `resolveFaceRef` 取得持久面引用，faceExtrude add 1mm 体积
   **48.000 mm³**，push 后重开树 `sketch/extrude/faceExtrude` 全 status=0、体积一致。
-- **仍未做**：converter/runner 把 Onshape `imprintFace` 查询解析为 faceRef（真实
-  iOS/Postman 仍走 test-only 草图面域近似）；单特征多面查询；NEW；UI 入口（无 live
-  证据）；published web/MS artifact 仍为 1.32，本切片发布需重新构建双端产物。
+- **仍未做**：faceExtrude 的 converter 映射（当前语料没有“显式实体面”选择）、
+  NEW、secondDirection、UI 入口（无 live 证据）；published web/MS artifact 仍为
+  1.32，本切片发布需重新构建双端产物。
+- **2026-11-06 修正记录（imprintFace ∉ faceExtrude）**：
+  - 证据：iOS Extrude 2 的查询根 `<sketchId>.imprint`；真栈面枚举显示顶盖单面
+    （3 loops），无左环面片；solid-face 几何匹配零候选。故撤销“imprintFace→faceRef”
+    的实现尝试，**不把未匹配的实体面冒充为 imprint 面**。
+  - 已落地：converter（私有数据仓）保留全部 imprint queries + `imprintSign`
+    （−1 环外/+1 环内）；公共回放层 `imprint-region.ts` 支持侧向选择与 sign 解析，
+    runner 逐查询选面域、合并 regions；iOS 真栈 2 passed（体积 157478.901，
+    side=outside，region 1）。单测：`imprint-region.spec.ts` 5 项、
+    `scenario-to-op.spec.ts` 21 项、scenario schema 11 项。
+  - Hand Brake Update（`08f0…`）数据已就绪：Extrude 2 两条 line 查询（−1）、
+    Extrude 5/6 为 +1 圆；该 PS 仍被草图约束（MIRROR/CONCENTRIC/OFFSET 等）与
+    Extrude 8 UP_TO_SURFACE 阻塞，保持 blocked，不转绿。
+  - 若未来要支持“实体面选择”的 Extrude（真正的 face 拉伸），需另一类查询形状
+    （根在 op 特征而非 sketch `.imprint`）与独立验收，不在本切片冒名。
 
 ## 不在本 ADR
 
