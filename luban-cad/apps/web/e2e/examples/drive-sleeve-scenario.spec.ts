@@ -12,7 +12,7 @@
  * 逐条静态反解；场景携带 Onshape bodydetails 面面积 oracle，replay 用
  * shared `selectProfileRegionsByArea` 在 product 面域中选唯一子集：
  * Extrude 1 → 8 面域（10530.0589）、Extrude 2 → 0-4（25208.7599）、
- * Extrude 3 → 2,3（3230.2602）、CAP_FACE Extrude 4 → 5-8（4069.5386）。
+ * Extrude 3 → 2,3（3230.2602）、CAP_FACE Extrude 4 → 5-8（4069.54）。
  * CAP_FACE 的 `isStart` 修正为上游**起始端盖**（startOffset=0，direction=backward）；
  * hole scope `.opExtrude` 后缀修复后 Hole/pattern status=0。
  * 实测 1,175,022.882 vs 1,175,024.308 mm³（0.00012%），push+冷重开一致。

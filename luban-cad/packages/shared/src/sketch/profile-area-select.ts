@@ -72,6 +72,10 @@ export function selectProfileRegionsByArea(
     options.toleranceMm2 ?? 1,
     Math.abs(targetArea) * (options.toleranceRatio ?? 0.002),
   );
+  // “面积不可区分”阈值取相对 1e-7（~0.0004mm² @4069）：既能判同形面域
+  // （四象限成对面积差异 <1e-6）为 ambiguous，又能把 0.0007mm² 差异的
+  // 另一组几何子集排除（Drive Sleeve [5,6,7,8]）。不能放到 0.2% 容差量级。
+  const ambiguityEpsilon = Math.max(1e-9, Math.abs(targetArea) * 1e-7);
 
   let bestMask = -1;
   let bestArea = 0;
@@ -93,8 +97,8 @@ export function selectProfileRegionsByArea(
     const selectedCount = bitCount(mask);
     // 最近优先；同等距离取更少面域，再取较小 mask（稳定、可复现）。
     const better = bestMask === -1
-      || distance < bestDelta - 1e-9
-      || (Math.abs(distance - bestDelta) <= 1e-9 && (
+      || distance < bestDelta - ambiguityEpsilon
+      || (Math.abs(distance - bestDelta) <= ambiguityEpsilon && (
         selectedCount < bestCount
         || (selectedCount === bestCount && mask < bestMask)
       ));
@@ -105,11 +109,13 @@ export function selectProfileRegionsByArea(
       bestCount = selectedCount;
       ambiguous = false;
     } else if (
-      distance <= bestDelta + 1e-9
+      distance <= bestDelta + ambiguityEpsilon
       && selectedCount === bestCount
       && mask !== bestMask
     ) {
-      // 同距同规模的两个不同子集：面积证据无法唯一裁决。
+      // 同面积、同面域数的不同子集才判 ambiguous。不同面域数的近似子集
+      // 是有意用“更少面域”优先（Occam）：例如 Drive Sleeve 的 4 面域切削面
+      // 与一个 5 面域的等面积组合；后者不是同一面，不能按面积抢答。
       ambiguous = true;
     }
   }

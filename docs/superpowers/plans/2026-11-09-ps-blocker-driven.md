@@ -35,8 +35,9 @@ shared → backend → web → e2e。
 | 有 features 的 PS | 227 |
 | native PS（非 import/自定义 FS/钣金/专用/空） | **104** |
 | 其中逐 body 数据可测（`perBodyComplete`） | **59** |
-| 严格管道 `replicable-now`（几何/约束/UI/持久全绿） | **2**（Wheel、Master Cylinder Piston） |
-| raw capability `replicable-now`（忽略 scenario 完整性） | 35 |
+| 严格管道 `replicable-now`（几何/约束/UI/持久全绿） | **2**（本计划基线；2026-11-09 执行后 **14**：Wheel、Master Cylinder Piston、First Part、WARNING LABEL ×4、Drive Sleeve ×2、Intro Part 1/2、O-Ring、Bushing、ENG_BEARING） |
+| raw capability `replicable-now`（忽略 scenario 完整性） | 35（执行后 **44**） |
+| blocked-selector / blocked-kernel / blocked-capability（执行后） | **4 / 4 / 15** |
 
 ### 0.2 59 个可测 native PS 的 blocker 排名
 
@@ -381,7 +382,7 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
     返回 `ambiguous`，调用方必须登记，禁止按面积排序猜前缀。
   - scenario 新增可选证据字段 `profileAreaMm2` / `profileAreaEvidence`（params
     自由对象，无需 schema 变更）；converter 对 Drive Sleeve 四段拉伸携带
-    10530.0589 / 25208.7599 / 3230.2602 / 4069.5386 mm²。
+    10530.0589 / 25208.7599 / 3230.2602 / 4069.54 mm²。
   - runner：有面积证据时先保留逐边查询命中作为必需面域，再做面积子集选择；
     CAP_FACE 不受逐边结果约束；NEW 的 `dominantImprintRegion` 启发式在面积
     证据命中后必须跳过（否则 8 面域会被收敛回 region 0）。

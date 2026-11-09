@@ -37,6 +37,13 @@ describe('selectProfileRegionsByArea', () => {
     expect(picked?.area).toBe(60);
   });
 
+  it('同面积面域的选择必须 ambiguous（浮点噪声不得选出“唯一”解）', () => {
+    const same = selectProfileRegionsByArea(regions([1000, 1000, 1000]), 1000);
+    expect(same?.ambiguous).toBe(true);
+    const pair = selectProfileRegionsByArea(regions([1000, 1000, 1000, 1000]), 2000);
+    expect(pair?.ambiguous).toBe(true);
+  });
+
   it('无子集落在容差内 → undefined', () => {
     expect(selectProfileRegionsByArea(regions([10, 20, 30]), 1000)).toBeUndefined();
   });
