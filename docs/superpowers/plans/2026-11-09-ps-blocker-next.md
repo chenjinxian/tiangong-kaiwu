@@ -22,8 +22,8 @@ FeatureOp/RPC → 真栈 e2e”的单一链路。新增能力优先落在 **shar
 - `docs/adr/0006-onshape-new-feature-types.md`（面选择/selector 语义）
 - `docs/adr/0009-sketch-external-references.md`（PROJECTED/PIERCE 等）
 - `docs/adr/0015-multi-target-feature-scope.md`（多体作用域）
-- 私有索引 `D:\Github\onshape-parity-data\manifest\example-index.json`
-- 私有 BRepCore 审计台账 `D:\Github\imodel-native\docs\audit\BREPCORE-AUDIT-LEDGER.md`
+- 私有索引：`onshape-parity-data` 的 example-index（路径不展开）
+- 私有 BRepCore 审计台账：私有 `imodel-native`（路径与条目细节不在此复述）
 
 ## Global Constraints
 
@@ -71,11 +71,10 @@ FeatureOp/RPC → 真栈 e2e”的单一链路。新增能力优先落在 **shar
   `sample-assignment-scenario.spec.ts`、新增 `region-risk-exact.spec.ts`。
 - 公共文档：`docs/superpowers/plans/2026-11-09-ps-blocker-next.md`、
   `docs/superpowers/plans/2026-11-09-ps-blocker-driven.md`、ADR-0006/0009/0015。
-- 私有 converter/数据：`D:\Github\onshape-parity-data\tools\scenario\from-onshape-v2.mjs`、
-  新增 `tools/analyze-centerline.mjs`、`tools/collect-face-evidence.mjs`、
-  `tools/collect-face-evidence.test.mjs`。
-- 私有 native：`D:\Github\imodel-native\iModelCore\BRepCore\Tests\NonPublished\BRepCore_SmokeTests.cpp`、
-  `docs/audit/BREPCORE-AUDIT-LEDGER.md`。
+- 私有 converter/数据：私有 `onshape-parity-data` 的 scenario converter 与
+  centerline/face-evidence 工具（路径不展开）。
+- 私有 native：私有 `imodel-native` 的 BRepCore smoke test 与审计台账
+  （测试名/路径/条目细节不公开复述）。
 
 ---
 
@@ -191,7 +190,7 @@ git commit -m "feat(shared): add bbox evidence to profile region selection"
 ## Task 2: Intro Part 3 同面积面集转绿（Part 4 条件处理）
 
 **Files:**
-- Modify: `D:\Github\onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
+- Modify: `onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
 - Modify: `luban-cad/apps/web/e2e/examples/replay/run.ts`
 - Modify: `luban-cad/apps/web/e2e/examples/intro-cad-parts.spec.ts`
 - Regenerate: `scenarios/Onshape-Training-Repo-c6a3cd9aa3daa7819cae0c44-2b8c683d9655e48fb91f2cd9.scenario.json`
@@ -268,11 +267,11 @@ const profileBoundsMm = (feature.params as { profileBoundsMm?: RegionBoundsMm })
 - [ ] **Step 5: 重转 scenario 并跑真栈**
 
 ```bash
-cd D:\Github\onshape-parity-data
+cd <private onshape-parity-data>
 node tools/scenario/from-onshape-v2.mjs --doc c6a3cd9aa3daa7819cae0c44 \
   --element 2b8c683d9655e48fb91f2cd9 \
   --out scenarios/Onshape-Training-Repo-c6a3cd9aa3daa7819cae0c44-2b8c683d9655e48fb91f2cd9.scenario.json
-cd D:\Github\tiangong-kaiwu\luban-cad\apps\web
+cd luban-cad/apps/web
 npx playwright test e2e/examples/intro-cad-parts.spec.ts --grep "Part 3" --reporter=line
 ```
 Expected: **229,418.896 mm³ ±0.5%**，树/status/body/push+重开全绿。
@@ -298,7 +297,7 @@ git commit -m "test(intro): Part 3 strict via area+bbox evidence"
 ## Task 3: Alignment regionRisk 精确化（iOS 条件）
 
 **Files:**
-- Modify: `D:\Github\onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
+- Modify: `onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
 - Regenerate: `scenarios/Explore-Onshape-Models-39f2540fb7997e7badbd6ee3-d1989636af28eb77f9e99c58.scenario.json`
 - Test: `luban-cad/apps/web/e2e/examples/sample-assignment-scenario.spec.ts`
 
@@ -332,11 +331,11 @@ FJHQlRU8HHNoz71_1: {
 - [ ] **Step 3: 重转 + 真栈**
 
 ```bash
-cd D:\Github\onshape-parity-data
+cd <private onshape-parity-data>
 node tools/scenario/from-onshape-v2.mjs --doc 39f2540fb7997e7badbd6ee3 \
   --element d1989636af28eb77f9e99c58 \
   --out scenarios/Explore-Onshape-Models-39f2540fb7997e7badbd6ee3-d1989636af28eb77f9e99c58.scenario.json
-cd D:\Github\tiangong-kaiwu\luban-cad\apps\web
+cd luban-cad/apps/web
 npx playwright test e2e/examples/sample-assignment-scenario.spec.ts --reporter=line
 ```
 Expected: 8915.860 ±0.5%，tree/status/body/push+重开一致；notes 不再有
@@ -362,8 +361,8 @@ git commit -m "test(sample-assignment): exact region evidence for Cut 2 holes"
 ## Task 4: CENTERLINE_DIMENSION refs 分析 + converter 批次
 
 **Files:**
-- Create: `D:\Github\onshape-parity-data\tools\analyze-centerline.mjs`
-- Modify: `D:\Github\onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
+- Create: `onshape-parity-data\tools\analyze-centerline.mjs`
+- Modify: `onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
 - Reconvert affected scenarios; Modify: private index if needed.
 - Test: `scenario-to-op.spec.ts`（新增 constraint 形态单测）+ 一个真实 PS。
 
@@ -415,8 +414,8 @@ git commit -m "feat(replay): cover additional CENTERLINE_DIMENSION refs"
 ## Task 5: capFace/sweptFace 面证据批量
 
 **Files:**
-- Create: `D:\Github\onshape-parity-data\tools\collect-face-evidence.mjs`
-- Create: `D:\Github\onshape-parity-data\tools\collect-face-evidence.test.mjs`
+- Create: `onshape-parity-data\tools\collect-face-evidence.mjs`
+- Create: `onshape-parity-data\tools\collect-face-evidence.test.mjs`
 - Modify: `from-onshape-v2.mjs` 的 `PROFILE_AREA_EVIDENCE`
 - Modify: private `index-examples.mjs` known-selector 表（仅当证据不足）
 
@@ -459,7 +458,7 @@ test('picks planar cap faces by area+bbox', () => {
 - [ ] **Step 2: 采集 26 个 PS**
 
 ```bash
-cd D:\Github\onshape-parity-data
+cd <private onshape-parity-data>
 node tools/collect-face-evidence.mjs --owner "Onshape Training Repo" --limit 200
 ```
 只读、带 retry-after；输出 `manifest/face-evidence.json`；任何 429/无面证据
@@ -488,55 +487,33 @@ git commit -m "test(examples): area/bbox evidence for cap-face selector"
 ## Task 6: Bumper 12 边 fillet native probe + 产品守卫
 
 **Files:**
-- Modify: `D:\Github\imodel-native\iModelCore\BRepCore\Tests\NonPublished\BRepCore_SmokeTests.cpp`
-- Modify: `D:\Github\imodel-native\docs\audit\BREPCORE-AUDIT-LEDGER.md`
-- Modify: `D:\Github\luban-backend\modeling-server\src\feature\AsyncFeatureEval.ts`（仅加日志/守卫，不改语义）
-- Test: ctest `BRepCoreTest`（gtest 套件名；源文件是 `BRepCore_SmokeTests.cpp`）+ 真栈 `bumper-block-approx.spec.ts`
+- Private: 私有 `imodel-native` 的多边 blend smoke 探针与审计台账
+  （测试名/路径/条目细节不在此复述）
+- Private: 私有 `luban-backend` fillet 失败路径守卫（仅加日志/守卫，不改语义；
+  **未提交、尚未进入产物**）
+- Test: 私有 native ctest + 真栈 `bumper-block-approx.spec.ts`
 
 **Interfaces:**
-- Consumes: `BRepUtil::Modify::BlendEdges`、`GetBodyFaces`、`MassProperties`。
-- Produces: 多边 blend 的 native 证据；Bumper 错误的 kernel/caller 判定。
+- Consumes: 私有内核的 blend/body-face/mass 只读能力（具体符号不公开复述）。
+- Produces: 多边 blend 的**聚合**内核边界结论；Bumper 的 kernel/caller 判定。
+  具体测试名、拓扑计数、探针体积与内核错误码只在私有审计台账。
 
 - [ ] **Step 1: 写 native 多边测试（先失败/观察）**
 
-在 `BRepCore_SmokeTests.cpp` 增加（`makeBox` 必须是本测试作用域内的局部 lambda，
-不能依赖 `FaceLevelModify` 内部的同名 lambda）：
-```cpp
-TEST_F(BRepCoreSmokeTests, BlendMultiEdgeBox)
-{
-  auto makeBox = []() {
-    IBRepEntityPtr e;
-    DgnBoxDetail d(DPoint3d::From(0, 0, 0), DPoint3d::From(0, 0, 1),
-                   DVec3d::From(1, 0, 0), DVec3d::From(0, 1, 0), 1, 1, 1, 1, true);
-    BRepUtil::Create::BodyFromSolidPrimitive(e, *ISolidPrimitive::CreateDgnBox(d));
-    return e;
-  };
-  IBRepEntityPtr box = makeBox();
-  bvector<ISubEntityPtr> edges;
-  ASSERT_EQ(12u, BRepUtil::GetBodyEdges(&edges, *box));
-  bvector<double> radii(12, 0.05);
-  ASSERT_EQ(SUCCESS, BRepUtil::Modify::BlendEdges(*box, edges, radii, false));
-  double volume = 0; DPoint3d centroid; double inertia[3][3];
-  ASSERT_EQ(SUCCESS, BRepUtil::MassProperties(*box, &volume, nullptr, &centroid, inertia, 1e-6));
-  ASSERT_GT(volume, 0.0);
-}
-```
-再加 3/4 边与“布尔压印盒”各一例；若 12 边盒体即失败，直接确认内核边界。
+在私有 native smoke 测试中增加多边 blend 探针：盒体 12 边、3 边链、4 边闭环
+与布尔压印盒各一例，记录成功/失败与干净回滚。**测试代码不在此复述**；证据
+只写私有审计台账。
 
-- [ ] **Step 2: 跑 ctest**
+- [ ] **Step 2: 跑私有 native ctest**
 
-```bash
-cd D:\Github\imodel-native
-cmake --build --preset win-x64-debug --target BRepCoreTest
-ctest --preset win-x64-debug -R BRepCoreTest --output-on-failure
-```
-记录成功/失败与 `find_err_ident`（若可捕获）。
+在私有 `imodel-native` 构建并运行对应 native 测试，记录成功/失败与错误标识
+（若可捕获）。**构建命令、测试名与错误码只在私有台账**，不复制到公开仓。
 
 - [ ] **Step 3: 下游日志/守卫**
 
 在 backend fillet 失败路径记录：target body face/edge 数、选中边数、半径是否
-均匀、BlendEdges 返回值。若 BlendEdges 成功但几何为空，产品必须 status=1，
-不得假成功。
+均匀、blend 返回值。若 blend 成功但几何为空，产品必须 status=1，不得假成功。
+该守卫为**设计/未提交，尚未进入产物**。
 
 - [ ] **Step 4: 真栈复核**
 
@@ -544,16 +521,14 @@ ctest --preset win-x64-debug -R BRepCoreTest --output-on-failure
 cd luban-cad/apps/web
 npx playwright test e2e/examples/bumper-block-approx.spec.ts --reporter=line
 ```
-Expected: 仍为 record（或修复后 strict）；无论结果，更新审计台账
-F1/F6 状态与证据。
+Expected: 仍为 record（或修复后 strict）；无论结果，更新私有审计台账的
+聚合状态与证据指针。
 
 - [ ] **Step 5: 提交**
 
-```bash
-git -C D:\Github\imodel-native add docs/audit/BREPCORE-AUDIT-LEDGER.md \
-  iModelCore/BRepCore/Tests/NonPublished/BRepCore_SmokeTests.cpp
-git -C D:\Github\imodel-native commit -m "test(brepcore): multi-edge blend probe"
-```
+私有 `imodel-native` / `luban-backend` 变更按私有约束保持**未提交**；公开仓
+不复制 native 测试代码/错误码/路径。若后续授权提交，只提交私有仓变更，公开侧
+仍只登记聚合结论。
 
 ---
 
@@ -602,7 +577,10 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
 > **执行结果（2026-11-09）**：strict `replicable-now` **16**（目标 ≥18，未达，
 > 缺口 2）；`verify-example-index` **0 errors / 5 warnings**。新增严格绿：
 > Intro Part 3（229,418.896 mm³，0.000%）与 Sample Assignment / Alignment
-> （8,915.890 mm³，+0.00034%）。缺额原因与未解决项证据见
+> （8,915.890 mm³，+0.00034%）。**计数口径**：16 为当前工作树；干净私有检出
+> 重索引为 15（私有索引生成器/converter/scenario 未提交，Part 3 strict 依赖
+> 私有 scenario）；Alignment 的 `Cut 2 more holes` 保留一条已审计人工面域覆盖，
+> 纯证据驱动计数 15（`Cut 2 holes` 面积证据精确）。缺额原因与未解决项证据见
 > `2026-11-09-ps-blocker-driven.md`「PS blocker 下一阶段执行记录」。
 
 **Files:**
@@ -615,7 +593,7 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
 - [x] **Step 1: 重生成索引并验证（已执行；目标未达，实际 16/18）**
 
 ```bash
-cd D:\Github\onshape-parity-data
+cd <private onshape-parity-data>
 node tools/index-examples.mjs
 node tools/verify-example-index.mjs
 ```

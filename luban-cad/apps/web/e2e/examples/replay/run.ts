@@ -344,13 +344,17 @@ export async function runScenario(
                 // 逐边命中优先作为“必须在选集内”的约束（保留查询选中的位置），
                 // 面积证据只负责补全/裁决；只有被逐边约束后无唯一解时才独立按
                 // 面积求解（Part 3/4 这类逐边命中本身错的极端情况）。
-                // 面面积证据是精确值：用 1e-7 相对容差（约 0.0004mm² @4069），
-                // 避免把“面积接近但几何不同”的 5 面域子集也当候选。逐边命中
-                // 仍优先作为必须面域；只有无唯一解时才独立按面积求解。
+                // 面面积证据是精确值：用 1e-7 相对容差并关闭 shared 的 1mm²
+                // 绝对容差下限（toleranceMm2: 0；约 0.0004mm² @4069），避免把
+                // “面积接近但几何不同”的 5 面域子集也当候选。逐边命中仍优先作为
+                // 必须面域；只有无唯一解时才独立按面积求解（该 fallback 保留
+                // shared 缺省绝对下限，用于吸收 Onshape 采集面积与产品面域求值的
+                // 极小数值差，例如 Drive Sleeve 的 1.3e-7 相对差）。
                 let areaSelection = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
                   ...(required.length > 0 ? { requireRegions: required } : {}),
                   ...(profileBoundsMm ? { profileBoundsMm } : {}),
                   toleranceRatio: 1e-7,
+                  toleranceMm2: 0,
                 });
                 let usedRequired = required.length > 0;
                 if ((!areaSelection || areaSelection.ambiguous) && required.length > 0) {
@@ -504,8 +508,10 @@ export async function runScenario(
       // 没有产品面域语义（Alignment 4 个 id ↔ 产品 2 个面域；iOS 3 个 id 恰好是
       // 3 个材料面域但仍是前缀）。scenario 带 profileAreaMm2 时，用产品面域面积
       // 找唯一子集（与 imprintFace 面积证据同一 shared selector、同一 1e-7 相对
-      // 容差，未放宽）；scenario 声明的 regions 必须与面积唯一解完全一致，否则
-      // fail closed——不按前缀/顺序猜。唯一解时移除 regionRisk（不再标近似）。
+      // 容差且 toleranceMm2:0 关闭绝对下限，未放宽）；scenario 声明的 regions 必须
+      // 是非空、非负整数且不重复，并与面积唯一解完全一致，否则 fail closed——
+      // 不按前缀/顺序猜、不静默过滤畸形声明。唯一解时同时移除 selection 与顶层
+      // params 的 regionRisk（不再标近似）。
       //
       // 只处理**原始** selection 就是 sketchRegions 的特征。P2.2 会把 imprintFace/
       // capFaceExtrude 改写成 sketchRegions 且保留 profileAreaMm2/profileBoundsMm；
@@ -545,6 +551,7 @@ export async function runScenario(
           }));
           const areaSelection = selectProfileRegionsByArea(regionAreas, areaParams.profileAreaMm2, {
             toleranceRatio: 1e-7,
+            toleranceMm2: 0,
             ...(areaParams.profileBoundsMm ? { profileBoundsMm: areaParams.profileBoundsMm } : {}),
           });
           if (!areaSelection || areaSelection.ambiguous) {
@@ -554,11 +561,27 @@ export async function runScenario(
               `${areaSelection?.ambiguous ? '多解等距' : '容差内无唯一面域子集'}`,
             );
           }
-          const declared = Array.isArray(areaSelectionRaw.regions)
-            ? areaSelectionRaw.regions.filter(
-                (value): value is number => Number.isInteger(value) && value >= 0,
-              )
-            : [];
+          // scenario 声明的 regions 是证据断言，不是可过滤的提示：非数组、空集、
+          // 非整数、负数或重复都必须 fail closed（不得静默丢掉非法值后按剩余值
+          // 通过）。
+          const declaredRaw = areaSelectionRaw.regions;
+          let declared: number[] = [];
+          if (declaredRaw !== undefined) {
+            const isNonEmptyIntegerArray = Array.isArray(declaredRaw)
+              && declaredRaw.length > 0
+              && declaredRaw.every((value) => typeof value === 'number'
+                && Number.isInteger(value) && value >= 0);
+            const hasDuplicates = isNonEmptyIntegerArray
+              && new Set(declaredRaw).size !== declaredRaw.length;
+            if (!isNonEmptyIntegerArray || hasDuplicates) {
+              throw new BlockedCapabilityError(
+                'region-selector',
+                `${feature.name} scenario 声明 regions 非法：${JSON.stringify(declaredRaw)}` +
+                `（必须是非空、非负整数且不重复）`,
+              );
+            }
+            declared = declaredRaw as number[];
+          }
           if (declared.length > 0
             && (declared.length !== areaSelection.regions.length
               || declared.some((value, index) => value !== areaSelection.regions[index]))) {
@@ -574,10 +597,14 @@ export async function runScenario(
             regionIndex: _regionIndex,
             ...areaSelectionRest
           } = areaSelectionRaw;
+          const {
+            regionRisk: _topLevelRegionRisk,
+            ...areaParamsRest
+          } = effectiveFeature.params as Record<string, unknown>;
           effectiveFeature = {
             ...effectiveFeature,
             params: {
-              ...(effectiveFeature.params as Record<string, unknown>),
+              ...areaParamsRest,
               selection: {
                 ...areaSelectionRest,
                 regions: areaSelection.regions,

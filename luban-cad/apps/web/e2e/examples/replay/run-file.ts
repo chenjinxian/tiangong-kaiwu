@@ -42,7 +42,7 @@ export async function runScenarioFile(
   page: Page,
   request: APIRequestContext,
   options: RunScenarioFileOptions,
-): Promise<{ scenario: ParityScenario; volumes: number[]; expected: number[] }> {
+): Promise<{ scenario: ParityScenario; volumes: number[]; expected: number[]; approximateSteps: number }> {
   const file = resolveScenarioFile(options.scenario);
   const scenario = JSON.parse(readFileSync(file, 'utf8')) as ParityScenario;
   const expected = ((scenario.expected as { bodies?: Array<{ volumeM3?: number }> } | undefined)?.bodies || [])
@@ -68,6 +68,19 @@ export async function runScenarioFile(
   const expectedTypes = scenario.features.map((feature) => feature.type);
   expect(built.steps.map((step) => step.type)).toEqual(expectedTypes);
   const actualOpTypes = built.steps.map((step) => step.opFeatureType ?? step.type);
+  // 严格轨定义仍是 tree/status/body/volume/push+reopen；approximate 步骤只记录，
+  // 不强制为 0（合法的严格绿示例可能保留已知近似：Intro Part 3 strict 实测
+  // approximateSteps=3；Drive Sleeve 的直接 runScenario 严格轨 Extrude 1 亦然），
+  // 因此这里不做断言，只在非 record 轨打印警告。
+  const strictTrack = options.volumePolicy !== 'record' && options.statusPolicy !== 'record';
+  console.log(`[scenario-file] ${options.name} approximateSteps=${built.approximateSteps}`);
+  if (strictTrack && built.approximateSteps > 0) {
+    console.log(
+      `[scenario-file] WARNING ${options.name} approximateSteps=${built.approximateSteps} ` +
+      `(${built.steps.filter((step) => step.approximate).map((step) => step.feature).join(', ')})；` +
+      `严格门仍为 tree/status/body/volume/push+reopen，不把 approximate 当失败`,
+    );
+  }
 
   // 冷重开稳定性（2026-11-08 Bumper Block 严格轨实测）：重逻辑链 push 前的首次
   // reload 偶发 90s 内不出 canvas（MS health 仍 200）；重试一次并记录提交前体积，
@@ -131,5 +144,5 @@ export async function runScenarioFile(
   for (let i = 0; i < reference.length; i++) {
     expect(Math.abs(reopened[i]! - reference[i]!) / reference[i]!).toBeLessThan(tolerance);
   }
-  return { scenario, volumes, expected };
+  return { scenario, volumes, expected, approximateSteps: built.approximateSteps };
 }

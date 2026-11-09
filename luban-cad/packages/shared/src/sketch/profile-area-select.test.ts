@@ -48,6 +48,18 @@ describe('selectProfileRegionsByArea', () => {
     expect(selectProfileRegionsByArea(regions([10, 20, 30]), 1000)).toBeUndefined();
   });
 
+  it('精确证据轨关闭绝对下限后不得静默选择 1mm² 内的近似子集', () => {
+    // 目标 100.2：缺省容差 max(1, 0.2004)=1mm² 会把面积 100（Δ=−0.2）当成
+    // 候选并直接选中；精确证据轨必须用 target*1e-7 的相对容差（此例
+    // tolerance=1.002e-5），100 与 100.5 都不在容差内 → undefined。
+    const areas = regions([100, 100.5]);
+    expect(selectProfileRegionsByArea(areas, 100.2)?.regions).toEqual([0]);
+    expect(selectProfileRegionsByArea(areas, 100.2, {
+      toleranceRatio: 1e-7,
+      toleranceMm2: 0,
+    })).toBeUndefined();
+  });
+
   it('必需面域越界/非法输入 → undefined', () => {
     expect(selectProfileRegionsByArea(regions([10, 20]), 10, { requireRegions: [2] })).toBeUndefined();
     expect(selectProfileRegionsByArea(regions([10, Number.NaN]), 10)).toBeUndefined();

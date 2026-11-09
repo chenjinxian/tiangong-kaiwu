@@ -20,7 +20,7 @@ shared → backend → web → e2e。
 - `docs/superpowers/specs/2026-11-06-example-coverage-master-airr.md`（总 AIRR）
 - `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`（历史执行台账）
 - `docs/adr/0006-*`、`0009-sketch-external-references.md`、`0015-multi-target-feature-scope.md`
-- 私有索引：`D:\Github\onshape-parity-data\manifest\example-index.json`
+- 私有索引：`onshape-parity-data` 的 example-index（路径不展开）
   （2026-11-09 重生成；原始 features/证据不进入公共仓）
 
 ---
@@ -218,7 +218,7 @@ deleteBodies 等。每项独立 ADR；没有真实示例直接受益前不先做
 
 ### P8 — BRepCore 审计（并行常规项）
 
-- 在私有 `D:\Github\imodel-native` 建 `docs/BREPCORE-AUDIT.md` 台账：
+- 在私有 `imodel-native` 建 `docs/BREPCORE-AUDIT.md` 台账：
   文件/调用点、内存与生命周期、线程/并发、错误传播、几何精度、拓扑稳定性、
   布尔/圆角/扫掠真实语义、ACIS/真形边界。
 - 每次能力切片触及 BRepCore 时追加审计条目；发现问题立 ADR/修复或登记
@@ -244,7 +244,7 @@ deleteBodies 等。每项独立 ADR；没有真实示例直接受益前不先做
 # shared
 cd luban-cad/packages/shared && corepack pnpm@10 test && corepack pnpm@10 build
 # backend
-cd D:/Github/luban-backend/modeling-server && corepack pnpm@10 test
+cd <private luban-backend>/modeling-server && corepack pnpm@10 test
 # web
 cd luban-cad/apps/web && corepack pnpm@10 test && corepack pnpm@10 exec tsc --noEmit
 # 真栈（示例/能力）
@@ -449,17 +449,15 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 
 ## P8 执行记录（2026-11-09，BRepCore 审计首切片）
 
-- 在私有 `imodel-native/docs/audit/BREPCORE-AUDIT-LEDGER.md` 建立初始台账：
+- 在私有 `imodel-native` 审计台账建立初始台账（路径与条目细节不在此复述）：
   - 覆盖矩阵（拉伸/布尔/面修改/拓扑/持久 id/mass）；
-  - 发现：Bumper 12 边 fillet 无几何回包（待证实，需 native probe）、Gaiter
-    全圆边 blend 体积 0（待证实）、Drive Sleeve pattern op=1 是调用方 hole
-    scope/direction 前提错误（已闭环）、跨 3 body fillet 是产品契约缺口、
-    createBRepGeometry 空结果需调用方守卫、多边/布尔压印 blend ctest 缺口；
+  - 首切片登记若干待证实项与调用方守卫缺口；具体证据只在私有台账；
   - deep code audit 队列（Blend/Chamfer/Hollow/Offset、Sweep/Loft 前置、
-    Boolean 相交语义、拓扑 id、SolidKernel 111 导出 vs ctest）。
-- 结论：当前**没有证据**支持“BRepCore 在 12 边/全圆边 blend 有确定性缺陷”；
-  先补 native 多边/布尔压印 ctest，再决定内核修复还是产品守卫。公开侧只登记
-  聚合状态，不复制原生细节。
+    Boolean 相交语义、拓扑 id、SolidKernel 导出 vs ctest）。
+- 结论（2026-11-09 Task 6 更新）：native probe 已确认**内核边界**（Bumper 回放
+  选中的多边 fillet 边集在内核失败并干净回滚）；细节见私有审计台账，公开侧只
+  登记聚合状态。原“先补 ctest 再决定”的 P8 待办据此收敛为：产品侧保持
+  blocked-kernel/record，不为内核失败造近似绿例。
 
 ## P6 补充 2（2026-11-09，DRILL HOTD ENG_BEARING）
 
@@ -503,9 +501,9 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 
 ### 索引与严格绿
 
-- MS 先恢复**产物模式**（`dist-backend\modeling-server\dist\main.js`，生产姿态）后
+- MS 先恢复**产物模式**（生产姿态）后
   跑回归；Task 6 遗留的源码模式进程已停止。
-- 重生成并验证（私有仓 `D:\Github\onshape-parity-data`）：
+- 重生成并验证（私有仓 `onshape-parity-data`，路径不展开）：
   `node tools/index-examples.mjs` → strict `replicable-now` **16**；
   `node tools/verify-example-index.mjs` → **0 errors / 5 warnings**（5 条均为既有
   “有 features 文件但签名空”）。blocked-selector 4 → 3。
@@ -530,10 +528,19 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   变化（blocked-selector → replicable-now）；Alignment 在 Task 3 去近似后已被索引
   计为 replicable-now。相对计划基线 14，二者合计 +2；相对 Task 7 后索引 15，
   Task 8 +1。
+- **计数可复现性**：**16 是当前工作树口径**；从干净私有检出重新索引会得到
+  **15**，因为私有索引生成器/converter/scenario 均未提交（私有仓不提交约束）；
+  Part 3 的 strict spec 依赖私有 scenario。
+- **Alignment 证据口径**：8,915.890 mm³ 仍是严格绿，但 `Cut 2 more holes` 保留
+  一条**已审计的人工面域覆盖**（`withAuditedRegions`）；纯证据驱动的严格绿计数为
+  **15**；`Cut 2 holes` 已是面积证据精确（无人工覆盖）。
+- **strict 定义**：tree/status/body/逐 body 体积/push+重开；`approximateSteps`
+  只记录并警告，不强制为 0（Drive Sleeve 的严格绿 Extrude 1 仍有 face-split
+  备注），不在收口时把近似备注当失败。
 - 目标未达原因（逐任务）：T5 实采 0/26（Onshape CDP 401）、792/801 候选为面边界
   选择器且无 PROFILE_AREA_EVIDENCE 通道；T4 Fox RP23 被既有 TANGENT arc+circle 与
   Fillet 3 sweptEdge matches=0 阻塞，整圆/弧 CENTERLINE 不可产品表达（10 条
-  fail-closed）；T6 Bumper 12 边 fillet 内核 BL_MITRE_TOO_CMPLX/13050；T7 仅设计
+  fail-closed）；T6 Bumper 12 边 fillet 内核边界已确认（私有台账，未升绿）；T7 仅设计
   （proposed）；T3 iOS 副本缺 features 文件、证据仅私有；T2 Part 4 面积+bbox 非唯一。
 
 ### 每任务 strict/blocked 实际
@@ -545,7 +552,7 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 | 3 | Alignment 精确化（8,915.890） | iOS 证据仅私有；索引副本仍 blocked-evidence（缺 features 文件） |
 | 4 | 0（Wheel 回归绿 2,442,291.0475） | Fox RP23 blocked-converter；整圆/弧 CENTERLINE 10 条 fail-closed |
 | 5 | 0（collector 11/11） | 0/26 实采（CDP 401）；792/801 面边界无面积证据通道；4 探针 pre-existing selector |
-| 6 | 0（Bumper record 657,764.787，+3.303%） | blocked-kernel（12 边 fillet status=1；native 证据 6a87ec137..fdef7d0fc） |
+| 6 | 0（Bumper record 657,764.787，+3.303%） | blocked-kernel（12 边 fillet status=1；native 边界结论见私有台账） |
 | 7 | 0（AIRR/ADR proposed，无代码） | PROJECTED 切片 1b / ADR-0015 多体待批准 |
 | 8 | 索引 16 + 演示 Part 3 | 目标 18 未达（缺 2） |
 
@@ -580,12 +587,12 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   Task 2 报告（2/4/70 候选）；私有 converter 证据。
 - iOS：`.superpowers/sdd/2026-11-09-ps-blocker-next/task-3-report.md`（私有
   bodydetails 证据 157478.786 vs 157478.902）；索引 iOS 副本 missing-features-file。
-- Fox RP23：`task-4-report.md`；`D:\Github\onshape-parity-data\manifest\centerline-forms.json`；
+- Fox RP23：`task-4-report.md`；私有 `onshape-parity-data` 的 centerline-forms manifest；
   私有 scenario（无公共 spec）。
 - capFace/sweptFace：`task-5-report.md`；私有 `manifest/face-evidence.json` +
   `task-5-*.log`（CDP 401）。
-- Bumper：`task-6-report.md`；native `D:\Github\imodel-native` 6a87ec137..fdef7d0fc
-  （未 push）；后端 guard 未提交；`bumper-block-approx.spec.ts`（record）。
+- Bumper：`task-6-report.md`；native 证据只在私有 `imodel-native` 审计台账
+  （未提交）；后端 guard 为设计/未提交、尚未进入产物；`bumper-block-approx.spec.ts`（record）。
 - PROJECTED/多体：ADR-0009 / ADR-0015 / AIRR（proposed/未批准，不计绿）。
 
 ### 演示/画廊
@@ -596,3 +603,40 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 - `/showcase` Intro 卡片更新为 Part 1–3（409,676.600 / 294,967.152 / 229,418.896
   mm³），图片使用真实 1920×1080 `example-intro-part3.webp`。未为任何 blocked
   项新增卡片。
+
+### Final fix round（2026-11-09，whole-branch review 收口）
+
+- **公开/私有边界**：ADR-0015、driven/next 计划已移除 native 测试名、拓扑计数、
+  探针体积、内核错误码、私有 commit 范围与绝对私有路径；细节只保留私有
+  `imodel-native` 审计台账指针。next 计划不再嵌入 native C++ 测试代码；P8
+  记录已按 Task 6 聚合结论收敛。后端失败封闭守卫明确为**设计/未提交、尚未进入
+  产物**。全公共树扫描 `BL_MITRE`/`api_fix_blends`/`BlendMultiEdge`/私有哈希/
+  绝对私有路径已无实现证据残留。
+- **面面积 oracle 精确化**：`run.ts` 的两个精确证据调用点传
+  `toleranceMm2: 0`（容差=target×1e-7），新增 shared 回归测试（目标 100.2、
+  面域 100/100.5 → undefined，不再静默吃 1 mm² 绝对下限）；shared
+  **193/193**。P2.2 的 required-less 校准 fallback 仍保留 shared 缺省绝对下限，
+  用于吸收 Onshape 采集面积与产品面域求值的极小数值差（Drive Sleeve 实测
+  1.34e-7 相对差；主精确路径与 P2.3 均已精确）。
+- **P2.3 fail-closed**：scenario 声明的 `regions` 非数组/空集/非整数/负数/重复
+  一律 `BlockedCapabilityError`（不再静默过滤）；唯一解后同时移除 `selection`
+  与顶层 `params` 的 `regionRisk`。
+- **strict wrapper**：`runScenarioFile` 返回并打印 `approximateSteps`；严格轨
+  仅警告、不强制为 0。证据：Intro Part 3 strict（wrapper）实测
+  `approximateSteps=3`（Extrude 1/2/3）仍严格绿；Drive Sleeve 直接
+  `runScenario` 严格轨亦有已知 face-split 近似。strict 定义维持
+  tree/status/body/volume/push+reopen。
+- **edge-selector**：iOS `Extrude 2` 断言改为 2026-11-09 精确 imprint 有向边侧
+  语义（`approximate=false`、`edge-right`、精确选择注记）；真栈通过
+  （157,478.786 vs 157,478.902）。
+- **回归门（本轮实测）**：shared **193/193** + build clean；web
+  **1527/1527**（116 files）+ `tsc`（app/e2e）clean；真栈
+  `intro-cad-parts` Part 3 **2 passed**（229,418.896，0.000%，
+  approximateSteps=3 警告）、`sample-assignment-scenario` **2 passed**
+  （8,915.890 vs 8,915.860）、`drive-sleeve-scenario` 两副本各 **2 passed**
+  （1,175,022.882 vs 1,175,024.308；Update Drawing 副本遇 MS 429
+  retryAfter 479 后重跑通过）、`edge-selector` 合成用例通过 + iOS 用例
+  429 重试后 **2 passed**（157,478.786）。MS 限流未改服务配置。
+- **计数口径**：见上文「计数可复现性」与「Alignment 证据口径」；strict 仍 **16**
+  （当前工作树）/ **15**（干净私有检出重索引）/ **15**（Alignment 人工覆盖去计），
+  未改严格断言、未强凑 18。

@@ -100,15 +100,14 @@
 
 ### Task 6：Bumper 多边 fillet native 证据
 
-- native 探针：`BlendMultiEdgeBox`（12 边普通盒，半径 0.05）成功（26 faces）；
-  3 边链/4 边闭环成功（9/10 faces）；Bumper 同体近似体（10 faces / 20 edges，
-  与真栈同体）**全 20 边**半径 5、`propagateSmooth=true` 成功（42 faces，
-  657,761→652,323）；**产品回放选中的下 12 边**（底环 4 + 竖边 4 + z=40 肩环 4）
-  失败：`api_fix_blends failed ident=BL_MITRE_TOO_CMPLX errno=13050`，graph fallback
-  同样失败，但 body **干净回滚**（体积 657,761 不变、10 faces，无半成品）。
-- 后端已加失败封闭守卫（结构：非空 entry 但零 BRep；几何：BRep 结果 facet 体
-  积非有限/≤0；Sheet/Wire 不做体积门），`FilletFlow` **13/13**；真栈 Bumper 仍
-  record **657,764.787 mm³（+3.303%）**、Fillet/Hole status=1，未放宽断言。
+- native probe confirmed the kernel boundary；具体测试名、拓扑计数、探针体积与
+  内核错误码只记录在私有 `imodel-native` 审计台账（不在此复述）。公开侧只保留
+  聚合结论：产品回放选中的多边 fillet 边集在内核边界失败，且 body **干净回滚**
+  （无半成品）。
+- 后端失败封闭守卫为**设计/未提交守卫，尚未进入产物**（结构：非空 entry 但零
+  BRep；几何：BRep 结果 facet 体积非有限/≤0；Sheet/Wire 不做体积门）；设计态
+  `FilletFlow` 13/13（仅私有工作树）。真栈 Bumper 仍 record
+  **657,764.787 mm³（+3.303%）**、Fillet/Hole status=1，未放宽断言。
 - **对多目标的含义**：跨体 fillet 必须**逐 body 组成独立的 `BlendEdges` 边集**，
   不得把多个 body 的边拼成一次调用；任一体失败=整特征 status=1 + 干净回滚。
   Task 6 **不证明** Handle Parts 的 6 条 SWEPT_EDGE/3 body 可由内核通过；该例仍
