@@ -40,6 +40,30 @@ const EXAMPLES = [
   { name: 'Exercise: Basic Drawing', metric: '2442.2935 mm³', note: '与目标 -0.00% 误差', image: '/showcase/example-basic-drawing.webp' },
   { name: 'Exercise - Hand Brake Update', metric: '1 mm 圆边倒角', note: '真实 UI 拾边 + 距离-角度倒角', image: '/showcase/example-handbrake.webp' },
   { name: 'Sample Assignment', metric: '8915.860 mm³', note: '4 草图 + 4 拉伸 + 4 竖边倒角', image: '/showcase/hero-sample-assignment.webp' },
+  {
+    name: 'Exercise: Intermediate Drawing / Drive Sleeve',
+    metric: '1,175,022.882 mm³',
+    note: 'CAP_FACE 起始面 + 6 孔圆周阵列，0.00012% 误差',
+    image: '/showcase/example-drive-sleeve.webp',
+  },
+  {
+    name: 'Intro to CAD 1.2 / Part 1–2',
+    metric: '409,676.600 / 294,967.152 mm³',
+    note: '草图建在拉伸端盖 + 精确体积，0.000% 误差',
+    image: '/showcase/example-intro-part1.webp',
+  },
+  {
+    name: 'Element Organization / O-Ring + Bushing',
+    metric: '454.910 / 3,259.620 mm³',
+    note: 'revolve 与单圆 imprint 拉伸，≤0.004% 误差',
+    image: '/showcase/example-o-ring.webp',
+  },
+  {
+    name: 'DRILL HOTD / ENG_BEARING',
+    metric: '2,590.224 mm³',
+    note: '对称拉伸端盖草图 + featureMirror，−0.001% 误差',
+    image: '/showcase/example-eng-bearing.webp',
+  },
 ];
 
 const STACK = [
@@ -82,7 +106,7 @@ export function ShowcaseRoute(): React.JSX.Element {
             </div>
             <ul className="showcase-hero__facts">
               <li><strong>4K</strong> 实机截图</li>
-              <li><strong>12</strong> 个持久示例 iModel</li>
+              <li><strong>14</strong> 个严格绿示例</li>
               <li><strong>0.00%</strong> 示例体积对拍</li>
             </ul>
           </div>
