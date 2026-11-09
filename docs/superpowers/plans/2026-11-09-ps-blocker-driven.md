@@ -553,7 +553,8 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 - 真栈（逐 spec 干净限流窗口）：
   - `intro-cad-parts`：Part 1 **2 passed**（409,676.600）、Part 2 **2 passed**
     （294,967.152）、Part 3 **2 passed**（229,418.896）；Part 4/5/6 保持
-    `test.fail` known-red（batch 的 error-context 已留证，未升绿）。
+    `test.fail` known-red（spec 内登记；根因见 Task 2/4 报告与索引 blocker，
+    未升绿；batch 的临时 test-results 已被后续 Playwright 运行清理）。
   - `sample-assignment-scenario` **2 passed**（8,915.890 vs 8,915.860）。
   - `drive-sleeve-scenario` **3 passed**（1,175,022.882 vs 1,175,024.308，−0.00012%；
     树/status/push+重开）。
