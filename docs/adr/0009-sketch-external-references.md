@@ -2,7 +2,9 @@
 
 - 状态：已接受（计划 W1.5 / 队列 #3；**切片 1a（草图→草图投影）已实现，2026-11-07**；
   切片 1b（实体边投影）与切片 2（PIERCE/INTERSECTED/SILHOUETTED/UI）待实现）。
+  **2026-11-09：切片 1b 的同步读路径/异步快照 AIRR 已出（提议/未批准，见下）**。
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
+  `docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md`（切片 1b 设计增量）、
   `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`。
 
 ## 背景与证据
@@ -44,8 +46,15 @@ line/circle/arc/point 投影到目标草图平面，全同步、读时派生。
 重开 3000，投影草图 DOF=0、区域 400→600）。后端全量 768 passed / 8 skipped、web 1389/1389、
 shared 162/162。
 
-### 切片 1b：外部实体边投影为固定构造几何（blocked-design，待设计）
+### 切片 1b：外部实体边投影为固定参考曲线（blocked-design；2026-11-09 AIRR 已出，未批准）
 
+> **2026-11-09 设计增量（提议/未批准，未批准前不写产品代码）**：
+> `docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md` 给出同步草图读路径
+> （`readResolvedSketch`/`SketchRegions`/`FeatureService.getSketch`）与实体拓扑异步
+> `SolidModelingCommand` 的冲突分析，比较「异步草图求值路径」与「可失效同步快照缓存」，
+> 选定后者，并给出契约形状/失效键/失败封闭/旧库回退/测试矩阵/UI 证据缺口。本 ADR 以下
+> 切片 1b 条文保持有效；契约细节以 AIRR 的判别联合为准（旧 1.35 载荷逐字兼容）。
+>
 > **2026-11-07 可行性结论（未开工，登记证据）**：实体边投影不是 converter/replay 的增量，
 > 而是**读路径架构**变更。当前草图读取是同步链路（`readResolvedSketch`/`SketchRegions`
 > 只拿到 `IModelDb`，切片 1a 的实时重投影全同步）；实体边拓扑只能经
@@ -57,17 +66,19 @@ shared 162/162。
 > （`SolidKernel.h` 的 Imprint/拓扑接口齐全），也不是 blocked-evidence。切片 1a
 > （草图→草图）继续作为当前可用子集；PROJECTED 源为实体边时 converter 保持 dropped。
 
-1. **契约（shared 增量）**：`SketchEntityDto` 增可选
-   `projected?: { source: SketchExternalRef; role: "projected" }` 或新增
-   `kind: "projectedCurve"`（二选一在实现前用 schema 实验定；原则是不破坏
-   旧实体形态）。`SketchExternalRef = { bodyId: string; kind: "edge" | "face";
-   topologyRef: LubanTopologyId; }`（复用持久拓扑 id；面引用取边界边集）。
-2. **后端求值**：草图的投影曲线在**求解前**由外部拓扑读取并落为**固定构造
-   几何**（不参与 DOF；solver-neutral 输入是固定曲线，不新增求解器约束）。
+1. **契约（shared 增量）**：沿用 `SketchEntityDto.projected?: SketchProjectedMarker`
+   （不新增 `kind: "projectedCurve"`，避免破坏旧实体形态）。`SketchExternalRef`
+   扩展为判别联合：保留既有 `{ kind: "sketchEntity"; sketchId; entityId }`，新增
+   `{ kind: "bodyEdge"; bodyId; topologyRef: LubanTopologyId }` 与
+   `{ kind: "bodyFace"; bodyId; topologyRef: LubanTopologyId; loops?: "outer" | "all" }`
+   （复用持久拓扑 id；面引用取边界边集）。精确签名以 AIRR §5.1 为准。
+2. **后端求值**：草图的投影曲线在**求解前**由外部拓扑读取并落为**固定参考
+   曲线**（不参与 DOF；solver-neutral 输入是固定曲线，不新增求解器约束）。
    读取外部几何走既有 `SolidModelingCommand`（与 faceExtrude 同通道，异步）；
-   草图求值需在异步预求值路径完成投影快照。投影曲线带 `source` 引用与
-   `sourceHash`（拓扑版本），上游变化时重投影；读取失败=sketch status=1，
-   不静默丢弃。
+   草图求值需在异步预求值路径完成投影快照。投影曲线带 `source` 引用；读面用
+   sourceDigest + bodyRevision 键判快照是否失效（见 AIRR §4.2），上游变化时
+   重投影；读取失败=读面 `projection.status="failed"`、消费特征 status=1（插入
+   失败则 op 拒收），不静默丢弃。
 3. **参数化/持久化**：投影结果是派生显示/求解输入，**不是第二套草图事实源**；
    事实源仍是 `params`（含 source 引用与投影快照），重建时按 source 重新投影。
    旧库无该字段=无投影，逐字兼容。

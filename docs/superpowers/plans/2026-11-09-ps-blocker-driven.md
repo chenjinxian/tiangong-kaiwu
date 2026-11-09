@@ -163,7 +163,11 @@ Drive Sleeve 双绿；draft/rib 虽计数高，但都在 3+ blocker 的 PS 中�
 
 ### P3 — 外部草图引用（ADR-0009 续作）
 
-按语料计数排序，独立切片：
+- **状态：blocked-design（2026-11-09）**。切片 1b 的 AIRR
+  `docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md` 已出
+  （**提议/未批准**）；**未批准前不写产品代码**；AIRR 不是绿例，不改变 P3 的
+  blocked 状态。
+- 按语料计数排序，独立切片：
 1. **PROJECTED（31）**：实体边/面投影到草图；平行/非平行、裁剪、源驱动边；
    Use 工具 UI；投影实体不占 DOF 的既有规则延续。
 2. **PIERCE（7）**：草图点穿透实体面；求解语义 + 拖动/尺寸更新。
@@ -186,6 +190,9 @@ Drive Sleeve 双绿；draft/rib 虽计数高，但都在 3+ blocker 的 PS 中�
 
 ### P5 — 多体作用域（ADR-0015）
 
+- **状态：blocked-design（2026-11-09）**。ADR-0015 已扩展为决策完整的
+  `targetBodyIds` + 内部逐体计划契约提案（**提议/未批准**）；**未批准前不写产品
+  代码**；ADR 不是绿例，不改变 P5 的 blocked 状态。
 - 设计单 FeatureOp 多目标/跨 body 语义（fillet 跨 3 body、pattern/mirror 多体）；
   评估 shared 契约形状（`targetBodyIds` 还是 per-body 子操作）。
 - 先做 Handle Parts 的跨 3 body fillet 最小切片；失败则登记
@@ -483,5 +490,8 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   - Part 3/4 同面积面集、Part 5/6 单线 imprint face split：blocked-selector；
   - Bumper 12 边 fillet：blocked-kernel（native probe 已排入审计台账）；
   - regionRisk（Alignment/iOS）：blocked-evidence（需位置/拓扑证据）。
+- **设计登记（Task 7，2026-11-09）**：PROJECTED 切片 1b AIRR 与 ADR-0015 多目标
+  契约增量均已落为**提议/未批准**；P3/P5 保持 blocked-design；未批准前不写产品
+  代码，AIRR/ADR 不计入严格绿。
 - 任务列表已按上述状态关闭：completed 包含“实现完成”与“blocked 证据收口”
   两种，后续只在证据/能力变化时重开对应切片。

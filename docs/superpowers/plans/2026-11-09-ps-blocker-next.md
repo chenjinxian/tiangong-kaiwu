@@ -566,24 +566,27 @@ git -C D:\Github\imodel-native commit -m "test(brepcore): multi-edge blend probe
 
 **Interfaces:** 无代码接口；产出设计/决策/回滚/测试矩阵。
 
-- [ ] **Step 1: PROJECTED 1b AIRR**
+> **2026-11-09 完成（设计）**：AIRR、ADR-0009 增量与 ADR-0015 扩展已落，状态均为
+> **提议/未批准**；P3/P5 保持 blocked-design；**未批准前不写产品代码**；不计入严格绿。
+
+- [x] **Step 1: PROJECTED 1b AIRR**
 
 写清：当前同步读草图 → 实体边投影需异步 `SolidModelingCommand`；评估
 (a) 异步草图求值路径，(b) 可失效同步快照缓存；选一；旧库回退；UI 证据缺口；
 测试矩阵（平行/非平行、源面失效、跨体）。
 
-- [ ] **Step 2: 多体 ADR-0015**
+- [x] **Step 2: 多体 ADR-0015**
 
 写清单 FeatureOp 多目标契约（`targetBodyIds` vs per-body 子操作）、
 fillet/pattern/mirror 的跨体语义、事务/撤销、失败回退；明确不改变单 target
 旧载荷。
 
-- [ ] **Step 3: 评审与登记**
+- [x] **Step 3: 评审与登记**
 
 计划文档记录“未批准前不写产品代码”；把 P3/P5 任务保持 blocked-design；
 不把 AIRR/ADR 当作绿例。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md \

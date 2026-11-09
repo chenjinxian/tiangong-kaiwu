@@ -1,10 +1,13 @@
 # ADR-0015：多 body 特征作用域（多目标删除/阵列）
 
-- 状态：**提议 / blocked-design（2026-11-07；未实现）**。当前 `insertFeature`
-  模型是「一个特征 → 一个目标 body → 一个几何输出」，Links 与 FACE 阵列示例
-  证明这不足以表达 Onshape 的单特征多 body 作用域。
+- 状态：**提议 / blocked-design（2026-11-07；2026-11-09 扩展为决策完整的多目标契约提案；
+  未实现、未批准）**。当前 `insertFeature` 模型是「一个特征 → 一个目标 body → 一个几何输出」，
+  Links 与 FACE 阵列示例证明这不足以表达 Onshape 的单特征多 body 作用域。
+  **未批准前不写产品代码；本 ADR 不是绿例。**
 - 关联：`docs/adr/0007-feature-pattern.md`、`docs/adr/0012-split-part-world-plane.md`、
-  `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`。
+  `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`、
+  `docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md`（同批异步预求值/
+  快照缓存设计，可复用于多 body 逐体求值）。
 
 ## 背景与证据
 
@@ -35,11 +38,13 @@
 
 ### 选项
 
-1. **扩展 FeatureOp 为多目标**（推荐）：`insertFeature.targetBodyIds?: Id64String[]`
+1. **扩展 FeatureOp 为多目标**（推荐）：`insertFeature.targetBodyIds?: string[]`
    （与单值 `targetBodyId` 互斥），首版只用于 **REMOVE 语义**的 extrude/hole
    （Links 场景）；后端对每个 target body 独立求值（各自链上游/缓存），
    特征行与多个 body 建立 FeatureDrives 边；feature 输出缓存改为
-   `(featureId, bodyId) → entries`，写回逐 body 执行；失败按 body 隔离。
+   `(featureId, bodyId) → entries`，写回逐 body 执行；失败**整特征回滚
+   （all-or-nothing）**，逐 body 只做诊断隔离（2026-11-09 修正：部分成功会破坏
+   单特征/撤销/冷重建语义，见「决策增量」D5/D6）。
 2. **拆成 N 个内部特征行**（拒绝）：树/编辑/删除/撤销语义与 Onshape 单特征
    不一致，且隐藏行需要 schema 迁移；不得作为「完整复刻」。
 3. **回放层拆 N 步近似**（拒绝用于 complete）：树会多出步骤，只能登记
@@ -48,7 +53,8 @@
 ### 首版范围（若批准）
 
 - 契约（shared 增量，需版本 bump）：`FeatureOp.insertFeature` 增
-  `targetBodyIds?: Id64String[]`；`InsertTargetPlan` 增多目标计划。
+  `targetBodyIds?: string[]`（`getBodies[].bodyKey`）；`MultiTargetPlan` 逐体上游/
+  缓存/失败诊断。
 - 后端：仅 `extrude/hole` 的 `operation=remove/throughAll` 支持多目标；
   其余特征/操作诚实拒收（不静默单目标）。
 - featurePattern：先把「源特征 delta × 单 target」语义保持；多 body 输出
@@ -65,8 +71,205 @@
 ## 验证（完成前）
 
 - 后端 `MultiTargetRemoveFlow`：两 box body，一次 throughAll REMOVE 同时
-  穿孔，逐 body 体积/谱系断言；失败隔离与冷重建。
+  穿孔，逐 body 体积/谱系断言；失败原子性（all-or-nothing）与冷重建。
 - 真栈 Links：2 body、体积 21,743.326 mm³、push+重开；树 featureType 数
   与 Onshape 一致（单 Extrude 3）。
 - 回归：现有单目标 extrude/hole/booleanBodies/featurePattern 全绿。
 - 完成前 Links 保持 known-red，不调容差。
+
+## 2026-11-09 证据更新（Task 5/6，不构成实现/绿例）
+
+### Task 5：面边界选择器批量证据
+
+- 私有 collector 从 `example-index` 的 selector gate 构建 26 PS 工作清单：
+  **128 个特征 / 801 条 CAP_FACE·SWEPT_FACE 查询**；其中 **9 条/8 个特征** 属
+  `PROFILE_AREA_EVIDENCE` 轮廓证据通道，**792 条/120 个特征** 是 fillet/chamfer/
+  shell/mirror/deleteBodies/enclose 的面边界选择器（fillet 699、chamfer 50、
+  shell 26、mirror 12、deleteBodies 4、enclose 1）。
+- collector 对同一 face id 出现在多个 body 的情况显式报 `ambiguous-face-id` 并
+  拒收匹配；这证明**扁平 face/edge 引用在没有 body 归属时不能唯一解析**，冷重建
+  尤其不能靠“扫描候选 body”猜。
+- 四个 strict 探针（Hydraulic Components、Universal Joint Assembly ×2、Rear Shock）
+  全部停在既有的 `sweptEdge`/`sweptFace matches=0`，没有新增严格绿；live 采集
+  0/26（Onshape CDP 会话 401 过期），未写入任何伪造映射。
+- **对多目标的含义**：多 body 契约必须先声明目标 body 集合，再在该集合内解析 ref；
+  0 候选/多候选都失败封闭（`ambiguous`），禁止取第一个。面边界选择器本身的缺口
+  仍是独立 blocker，不应被本 ADR 的实现“顺带”宣称为已解决。
+
+### Task 6：Bumper 多边 fillet native 证据
+
+- native 探针：`BlendMultiEdgeBox`（12 边普通盒，半径 0.05）成功（26 faces）；
+  3 边链/4 边闭环成功（9/10 faces）；Bumper 同体近似体（10 faces / 20 edges，
+  与真栈同体）**全 20 边**半径 5、`propagateSmooth=true` 成功（42 faces，
+  657,761→652,323）；**产品回放选中的下 12 边**（底环 4 + 竖边 4 + z=40 肩环 4）
+  失败：`api_fix_blends failed ident=BL_MITRE_TOO_CMPLX errno=13050`，graph fallback
+  同样失败，但 body **干净回滚**（体积 657,761 不变、10 faces，无半成品）。
+- 后端已加失败封闭守卫（结构：非空 entry 但零 BRep；几何：BRep 结果 facet 体
+  积非有限/≤0；Sheet/Wire 不做体积门），`FilletFlow` **13/13**；真栈 Bumper 仍
+  record **657,764.787 mm³（+3.303%）**、Fillet/Hole status=1，未放宽断言。
+- **对多目标的含义**：跨体 fillet 必须**逐 body 组成独立的 `BlendEdges` 边集**，
+  不得把多个 body 的边拼成一次调用；任一体失败=整特征 status=1 + 干净回滚。
+  Task 6 **不证明** Handle Parts 的 6 条 SWEPT_EDGE/3 body 可由内核通过；该例仍
+  保持 blocked-design/待验收，不以 ADR 冒充绿。
+
+## 2026-11-09 决策增量：多目标契约（决策完整提案，提议/未批准）
+
+> 本节补全原 ADR 的「选项 1」，但不改变其状态：**提议 / blocked-design**。
+> 首实现切片仍是 REMOVE extrude/hole；fillet/pattern/mirror 跨体为后续切片。
+> 未批准前不写产品代码。
+
+### D1 公开契约：`targetBodyIds` + 内部逐体计划（混合）
+
+```ts
+type FeatureOp =
+  | {
+      kind: "insertFeature";
+      featureType: LubanFeatureType;
+      params: FeatureParams;
+      /** 旧单目标（N>1 模型 regular insert）；与 targetBodyIds 恰一。 */
+      targetBodyId?: string;
+      /** 新多目标：getBodies[].bodyKey；与 targetBodyId 恰一；非空、去重、
+       *  同一 Part Studio 的 active authored body。 */
+      targetBodyIds?: string[];
+    }
+  | { kind: "updateParams"; featureId: string; params: FeatureParams }
+  | { kind: "deleteFeature"; featureId: string; targetBodyId?: string };
+```
+
+- **不采用 per-body 子操作作为公开载荷**：若每个 body 复制一份 params，会出现两份
+  事实源（P0-06）、树/编辑/哈希/回放语义分叉，且隐藏子行需要 schema 迁移。
+- **采用内部逐体计划**：`MultiTargetPlan` 为每个目标 body 保存上游链、按 body 归属
+  解析出的边/面子集、缓存键；公开载荷始终只有一份 `params` + `targetBodyIds`。
+- 多 body 目标集是**校验与解析范围**，不是“把同一操作静默扩到所有 body”：只有明确
+  列出的 body 参与；缺 body/重复/跨 PS/非 active→op 拒收。
+
+### D2 逐体内部计划与求值顺序
+
+- `MultiTargetPlan = { targets: Array<{ bodyId; upstreamEntries; edgeRefs?;
+  faceRefs?; cacheKey }> }`。
+- 求值顺序：`targetBodyIds` 声明顺序（若省略=bodyKey 字典序，保证冷重建确定性）；
+  body 之间不共享可变求值状态。
+- 每个 body 独立求值，但**事务与失败域是整个特征**（见 D5/D6）。
+
+### D3 各特征/操作的跨体语义
+
+| 特征/操作 | 多目标语义 | 首版约束 |
+|---|---|---|
+| `extrude` / `hole`，REMOVE/throughAll | 同一工具路径逐个目标 body 施加 | **首实现切片只允许此形态**；ADD/NEW/其它终止条件多目标拒收 |
+| `extrude` / `hole`，ADD/NEW 多目标 | 会对每个目标体合并/造体，语义未取证 | 拒收（blocked-capability） |
+| `fillet` / `chamfer` | `params.edges` 扁平 ref 在声明目标集内逐 ref 找 owner body；按 owner 分组；每个非空组做一次 `BlendEdges`（同 radius/propagate） | 跨体边不合并；每组结果逐 body 写回；任一组失败整特征回滚 |
+| `shell` / `moveFace` | `params.faces` 同理按 owner body 分组；同一厚度/距离逐体应用 | 逐面差异参数（moveFace distancesMm）按组保持原顺序 |
+| `featurePattern` | 源特征 `sourceFeatureId/sourceFeatureIds` 的 owner body 决定目标集；逐源取前/后差集，再逐 body 应用同一实例变换；多源跨体=各体各自差集 | 目标集须与源 owner 集合一致；不支持把 A 体增量阵列到 B 体（跨体复制不是本语义） |
+| `featureMirror` | 逐源特征反射差集并应用到其 owner body；`operation=unite/subtract/intersect` 逐体执行 | `operation=new`（独立镜像体/多输出造体）仍属多输出语义，blocked-design；不在本增量 |
+| `pattern`（PART/body 级 `PatternParams`） | 保持现有 body-level 语义，不是本 ADR 的多目标 | 不变 |
+| `splitPart` keepBothSides | 双输出/多 body 写回，仍按 ADR-0012 切片 2 blocked-design | 不在本增量 |
+
+- **ref 归属规则**：在声明目标集内逐 body 解析 ref；恰一个 body 命中=归属；0 命中=
+  `target-ref-not-found`；多 body 命中=`target-ref-ambiguous`（Task 5 的
+  duplicate-face-id 证据）。禁止按 ref 顺序/首个 body 猜测。
+- 若某 body 组为空（如 fillet 只有 A 体边却被声明了 B 体）→ 整特征拒收，不做
+  “空组跳过”。
+- 跨体 fillet 的边集由**每组独立**提交内核；不得把一个 body 的边混入另一 body 的
+  `BlendEdges`（Task 6 证明边集语义本身就是内核边界）。
+
+### D4 旧单 target 载荷兼容
+
+- `targetBodyIds` 缺省 = **既有单 target 路径逐字不变**；`targetBodyId` 继续被接受。
+- `targetBodyId` 与 `targetBodyIds` 同时出现、`targetBodyIds=[]`、重复 id、
+  跨 Part Studio、非 active authored body → schema/op 边界拒收。
+- `targetBodyIds` 长度为 1 时等价于单目标（允许，便于统一路径）；不改变旧库任何行。
+- 旧 web/旧 shared 不发送新字段；新后端忽略其缺省；旧库无迁移，旧载荷逐字兼容。
+- 新字段只出现在 FeatureOp（op 参数）不写入 `params`；body 归属由 body 行/
+  FeatureDrives 关系持久化，冷重建从同一 target 集合重新解析。
+
+### D5 事务与撤销
+
+- **一个特征 = 一个 `FeatureOp` = 一个 `BriefcaseTxns` 事务**；所有目标 body 的写入、
+  `(featureId, bodyId)` 缓存更新、FeatureDrives 边、op log、saveChanges 在同一事务内。
+- 不按 body 开子事务；不允许多次 `txn.end("save")`。写租约仍是整 op 一个。
+- undo：回滚所有 body 的几何/边/缓存标记；redo：按同一 `targetBodyIds` 重新逐体求值。
+- `deleteFeature` 对多输出特征：一个事务内删除它驱动的全部输出 body/行；若任一输出
+  被下游特征引用→拒收（HITL 级联需单独设计，见 D8）。旧单输出 `deleteFeature` 不变。
+
+### D6 失败与回滚（all-or-nothing）
+
+- 任一体上游缺失、ref 归属失败、内核失败、几何为空/无效 → **整特征 status=1**；
+  该 op 不写任何 body/cache/边，事务回滚；错误信息带逐 body 诊断（bodyKey + 阶段 +
+  错误码），但成功状态不部分提交。
+- 原 ADR「失败按 body 隔离」的表述已在 2026-11-09 修正为 all-or-nothing：单特征
+  部分成功会破坏树/撤销/冷重建语义；Task 6 的 native「干净回滚」证据支持该口径。
+- 预览（`previewFeatureOp`）仍只写 shadow，不写库；某体预览失败则整预览失败/为空，
+  不返回“部分体”预览冒充完整结果。
+- 禁止假成功/静默 no-op：remove 在某体零去材也必须由语义判定（若 Onshape 视为
+  no-op 则需 live 证据后显式允许；首版失败封闭），不得把零结果当成功。
+
+### D7 冷重建、缓存与体谱系
+
+- `FeatureOutputCache` 键改为 `(featureId, bodyId) → entries`；每个目标 body 仍要求
+  **恰 1 条 BRep 条目**才写回（`writeBodyFromCache` 的 1 条不变式逐 body 保持）。
+- 一个特征可驱动 N 个 body（1:N）；每个 body 的 `sourceFeatureId` 仍唯一指向该特征；
+  `FeatureDrives` 逐 body 建边；body alias 表按 bodyKey 维护 N 项。
+- `ensureWarm` 的就绪判定从“特征级 cache 存在”扩展为“该特征的全部目标 body cache
+  存在”；缺任一目标→冷重建该特征（或 status=1）。
+- 冷重建按特征拓扑序 + 目标顺序确定性执行；源体在目标体之前求值；缺上游链路→
+  status=1，不输出部分 body。
+- 失败/抑制的目标体语义：本增量只支持 active authored body；suppressed/consumed body
+  作为目标→拒收，不静默跳过。
+
+### D8 featurePattern / delete 级联
+
+- **源为多输出特征**：`featurePattern`/`featureMirror` 的源差集按 (featureId, bodyId)
+  逐体读取；实例只应用到该源所属 body。源集合不完整（某体无 cache）→ status=1。
+- **引用守卫**：删除被 pattern/mirror/fillet 等下游引用的源特征仍由既有 FeatureDrives
+  拒收；删除多输出特征时，若任一输出 body 被下游引用→拒收并提示引用方。
+- **删除多输出特征**：一次事务删除其全部输出 body；若删除后仍有特征引用这些 body→
+  拒收（不自动级联删除；破坏性级联需 HITL/独立 ADR）。
+- **已知 M1 缺口不扩大**：`deleteFeature` 目前不触发 body 再生（ADR-0007 切片 9
+  known-red，16240 删除后仍为 16240）；本增量不得声称修复该缺口，冷重建后的结果
+  另按该缺口口径验收。
+- **tree**：多输出仍是一行特征 + 多个零件行，不新增第二套特征树/选择权威。
+
+### D9 UI / 能力门禁
+
+- 无 Onshape 多选目标 body/跨体 fillet 的 live 证据前，不新增多目标选择器/预览控件；
+  能力保持 gated；先落 RPC/后端/回放。
+- 特征树可显示“一特征驱动 N 体”的只读事实（若实现），但目标选择/编辑 UI 另采集证据。
+
+### D10 拒绝的替代
+
+- **拆成 N 个内部特征行**：树/编辑/删除/撤销与 Onshape 单特征语义不一致；隐藏行需
+  schema 迁移；拒绝。
+- **回放层拆 N 步近似**：树会多出步骤，只能登记 approximate/known-red，不能计绿。
+- **公开载荷 per-body 复制 params**：双事实源、编辑/哈希/回放分叉；拒绝（D1）。
+
+## 验证矩阵（增量，批准后实现时执行）
+
+| 用例 | 验收 |
+|---|---|
+| `MultiTargetRemoveFlow`：两 box body，一次 throughAll REMOVE 同时穿孔 | 逐 body 体积/谱系；单特征行；push+冷重开 |
+| 跨体 fillet 合成：3 body、每体 2 条可 blend 边、同半径 | 3 体各去材；一个特征行；每体独立 `BlendEdges`；任一体失败=全回滚 |
+| 跨体 shell/moveFace 合成：两面分属两体 | 逐 body 厚度/偏移；失败原子性 |
+| featurePattern 多源跨体 | 逐体差集/实例；目标集与源 owner 一致；冷重建 |
+| featureMirror 多源跨体 | 逐体反射/操作；`new` 仍拒收 |
+| undo/redo + 冷开 | 所有目标体回到对应状态；缓存按 (featureId,bodyId) 重建；无部分体 |
+| deleteFeature 多输出 | 全部输出删除；下游引用拒收；不冒充 M1 再生修复 |
+| 负路径：双字段/空数组/重复/跨 PS/非 active/ref 归属 0 或多/缺 cache | 全部 op 拒收或 status=1，无部分写 |
+| 回归：现有单 target extrude/hole/booleanBodies/featurePattern/featureMirror/shell/fillet | 全绿；Links 仍 known-red 直到实现（不调容差） |
+| Handle Parts（6 SWEPT_EDGE / 3 body）真栈 | 只有全绿才可宣称；否则 blocked-kernel/blocked-design，不用近似 |
+
+## 回滚与发布（增量）
+
+- **回滚方式**：字段 additive；停止接受 `targetBodyIds` 即回到单 target 路径；旧库
+  无迁移。已产生的多输出文档**不能由旧 backend 正确冷重建**（旧不变量=一特征一
+  body），回滚前须审计/导出受影响特征，或从启用前 checkpoint 恢复；不得用旧版本
+  合并/忽略多输出 body。
+- **兼容窗口**：shared bump → backend → web 同批发布；旧 web/旧 shared 不发送新字段；
+  新 web/旧 backend 的含多目标文档按失败封闭处理。
+- **发布门**：上述验证矩阵全绿、单 target 全量回归、冷开、`verify-stack`；不把
+  AIRR/ADR 当绿例。
+
+## 状态
+
+- 本节与原文均为**提议 / blocked-design**；**未批准；未实现；不是绿例**；
+  未批准前不写产品代码。首实现切片：REMOVE extrude/hole 的 `targetBodyIds` +
+  逐体缓存/写回/冷重建；跨体 fillet/pattern/mirror 为后续切片。
