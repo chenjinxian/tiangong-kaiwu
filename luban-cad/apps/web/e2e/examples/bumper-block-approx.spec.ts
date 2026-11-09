@@ -1,16 +1,15 @@
 /**
- * 能力覆盖轨（非严格，2026-11-08 复核）：Bumper Block 的剩余阻塞是面拉伸，
- * 不是拔模。
+ * 能力覆盖轨（非严格，2026-11-09 复核）：Bumper Block 的剩余阻塞是**上游实体面
+ * 起始拉伸**（CAP_FACE），不是拔模，也不是 imprint 草图面域。
  *
- * v1.51 拔模已落（converter/translator 真映射，不再 allowApproximateDraft）。
- * 但 Extrude 2 的 selection 是 **imprintFace**：Onshape 从 Extrude 1 的顶面
- * （z=40）向上再拉伸 40 并带 10° 拔模；当前回放把 imprintFace 近似成原草图的
- * region 0（z=0 起），与 Extrude 1 完全重叠 → 该步实测 **add 0**。逐 step 体积
- * （EXAMPLE_DEBUG_VOLUMES=1）：360000 → 360000 → Fillet 354373.149 → Hole
- * 346770.496；采集目标 636731.499（−45.5%）。因此本示例保持 `volumePolicy:
- * 'record'`，严格轮次仍由 scenario-file 轨诚实阻塞；不得把接近似当绿。
+ * 2026-11-09 分类纠正：Extrude 2 的 qCompressed 解码后是
+ * `FQ77...opExtrude + CAP_FACE`（从 Extrude 1 顶面 z=40 再拉 40 + 10° 拔模），
+ * converter 不再误标 imprintFace，而是 `selection.kind='face'`；translator 以
+ * `BlockedCapabilityError('face-extrude')` 诚实阻塞。旧近似路径（region 0 从
+ * z=0 叠加，体积 −45.5%）已退役，不得把该近似当绿。
  *
- * 真阻塞：ADR-0006 切片 D（face-extrude / imprint-face 的**面平面起点**语义）。
+ * 真阻塞：产品 faceExtrude 缺起始面/draft 语义 + 12 边 fillet 内核；严格轮次
+ * 保持 blocked-selector/kernel。
  */
 import { test } from '@playwright/test';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
@@ -19,6 +18,7 @@ import { runScenarioFile } from './replay/run-file.js';
 
 test.describe('能力覆盖轨：Bumper Block（拔模已真映射；imprintFace 起点仍是阻塞）', () => {
   test('整链回放 → 树/status/body/重开；体积差异仅记录', async ({ page, request }) => {
+    test.fail(true, 'known-blocked: CAP_FACE start-face extrude (faceExtrude lacks start-face/draft)');
     test.skip(!isExampleDataAvailable(), 'ONSHAPE_PARITY_DATA 不在场');
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 1_200_000);
     const result = await runScenarioFile(page, request, {

@@ -223,6 +223,15 @@ function resolveRegions(
     // 兼容已有人工示例的语义，但明确标 approximate；通用面 split 尚未实现。
     return { regions: [0], notes: ['imprintFace 以最近草图 region 0 近似（face split 未实现）'], approximate: true };
   }
+  if (kind === 'face') {
+    // 2026-11-09：CAP_FACE/SWEPT_FACE 是上游实体面选择（如 Bumper Block 从
+    // Extrude 1 顶面再拉），不是 imprint 草图面域；产品 faceExtrude 尚无
+    // 起始面/draft 语义，诚实阻塞，不能退化成 region 0 近似。
+    throw new BlockedCapabilityError(
+      'face-extrude',
+      `${feature.name} 从上游实体面拉伸（CAP_FACE/SWEPT_FACE）未实现`,
+    );
+  }
   throw new BlockedCapabilityError('region-selector', `${feature.name} 缺少可解析面域`);
 }
 

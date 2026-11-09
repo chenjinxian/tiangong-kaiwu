@@ -293,3 +293,19 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 - **结论**：P1.2 转 `blocked-evidence`（需要 Onshape 面级 ID 与逐面证据）；
   P2.0 先做 selector taxonomy + CAP_FACE 分类纠正，避免继续把 CAP_FACE 当
   imprintFace。
+
+## P2.0 执行记录（2026-11-09，CAP_FACE 分类纠正）
+
+- **converter**：non-`qSketchRegion` 不再一律当 imprintFace；`.imprint` 根才
+  imprintFace，`CAP_FACE/SWEPT_FACE`/`EntityType.FACE` → `selection.kind='face'`
+  并登记 dropped，未知形态 → `kind='unknown'`。Bumper Block Extrude 2 由误标
+  imprintFace（“缺 ±1 符号”）纠正为 CAP_FACE 面选择。
+- **translator**：`selection.kind='face'` 抛
+  `BlockedCapabilityError('face-extrude')`，不再退化成 region 0 近似。
+- **index**：Bumper Block blocker 变为
+  `extrude Extrude 2: 面选择（CAP_FACE/SWEPT_FACE）未映射` +
+  `面边界选择器（capFace/sweptFace）待真栈验收`；strict 7 不变。
+- **spec**：`bumper-block-approx.spec.ts` 标 `test.fail` known-blocked；
+  旧近似体积路径退役。
+- **下一步 P2.1**：实现 CAP_FACE 起始面/draft（产品 faceExtrude 扩展）或如实
+  登记 blocked-kernel（12 边 fillet 已知），不把 CAP_FACE 塞回 imprint。
