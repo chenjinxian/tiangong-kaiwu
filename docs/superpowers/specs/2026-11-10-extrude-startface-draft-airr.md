@@ -342,7 +342,7 @@ profile。求值期用面边界与期望 profile（面积/bbox/边集）唯一�
 | 面平面化 | `CurveOps.isPlanar` | 已有 | 复用 | faceExtrude 已用 | 项目自有（iTwin 官方 API） |
 | 面域/孔 CSG | `faceSweepTool`（外环 − 孔） | 已有 | 复用/扩展 | 加 startOffset/draft 参数 | 项目自有 |
 | 拔模构造 | `loftDraftedLoop` / `sweepSketchRegionDraft` / `constructCurveXYOffset` | 已有（sketch draft） | A1 复用；A2 替换/扩展 | A1 仅参数/轮廓接线；A2 再做解析边 | 项目自有（iTwin 官方 API） |
-| 面环拔模适配 | `loftDraftedLoop`（`FeatureEngine` 私有）+ `sweepSketchRegionDraft`（只接受 `SketchRegion`） | 需适配 | 导出 `loftDraftedLoop` 并新增 `faceSweepToolDrafted(Loop/ParityRegion, ...)` | 不能把面 `Loop` 强塞给 `SketchRegion` helper；避免第二套拔模实现 | 项目自有 |
+| 面环拔模适配 | `loftDraftedLoop`（私有后端拉伸求值器内部，未导出）+ `sweepSketchRegionDraft`（只接受 `SketchRegion`） | 需适配 | 导出 `loftDraftedLoop` 并新增 `faceSweepToolDrafted(Loop/ParityRegion, ...)` | 不能把面 `Loop` 强塞给 `SketchRegion` helper；避免第二套拔模实现 | 项目自有 |
 | 方向/第二方向/合并范围 | `ExtrudeDirection` / `ExtrudeSecondDirection` / `BodyRef` | 已有 | 复用 | 同形，不新造 | 项目自有 |
 | 特征管道/事务 | `FeatureOp` → `FeatureService` → `BriefcaseTxns` | 已有 | 复用 | 无第二管道 | 项目自有 |
 | 面解析（test-only） | `imprint-face-resolver` / `shell-face-resolver` / `readBrepFaceHandles` | 已有 | 扩展 | 起始面=上游帽面匹配 | 项目自有（test-only） |
@@ -529,9 +529,9 @@ const faceExtrudeSchema = z.object({
   只记录 **A1 baseline 体积**（预计接近 297,764.787，实测为准），不得断言
   sharp-frustum 297,002.158、line/arc 锥面边或 20/20。
 - **helper 适配（命名/导出）**：`sweepSketchRegionDraft` 的入参是 `SketchRegion`，
-  不能传 face `Loop`；`loftDraftedLoop` 当前是 `FeatureEngine` 私有、未导出。
-  A1 必须：
-  - 导出 `loftDraftedLoop`（`FeatureEngine`），或迁到无环共享 helper（如
+  不能传 face `Loop`；`loftDraftedLoop` 当前是私有后端拉伸求值器的内部函数、
+  未导出。A1 必须：
+  - 从私有后端拉伸求值器导出 `loftDraftedLoop`，或迁到无环共享 helper（如
     `DraftLoft.ts`），保持 sketch 路径逐字不变；
   - 新增 `faceSweepToolDrafted(db, local: Loop | ParityRegion, distance, offset,
     planeToWorld, backward, startOffset)`：外环/孔环分别调用 `loftDraftedLoop`
