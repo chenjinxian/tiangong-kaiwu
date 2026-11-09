@@ -36,7 +36,7 @@
   既有草图拔模链路保持不变。faceExtrude 已有面边界提取、逐环/孔的 CSG、标准
   FeatureOp/事务，复用面最大，不产生第二套建模管道。
 - 但 A 只保证**语义**正确；要达成 Bumper oracle **20/20**，还必须满足两个显式前提：
-  (i) **解析边尖模**（A2）：锥面侧边必须是 line/arc，不能是 curvePrimitive；
+  (i) **解析边**（A2）：锥面侧边必须是 line/arc，不能是 curvePrimitive；
   (ii) **oracle 完整展开**（test-only）：私有 collector 必须按 Onshape 真实选择展开
       全部 20 条边（含底面 4 条 loop 边），公共 resolver 仍 fail closed。
   A2 若经 spike 证明现有内核/TS 操作无法产出解析边，则 Bumper 严格门保持
@@ -130,6 +130,8 @@ startOffset、拔模与布尔操作。Bumper Block 的 Extrude 2 就是该形态
 - 不新增 `FaceExtrude` 之外的特征类型，不给 `ExtrudeParams` 加 `startFaceRef`。
 - 不做 NEW body、多 face、多面片、非平面/曲面、spline/椭圆边界的 faceExtrude。
 - 不做 throughAll+sweep draft、secondDirection+draft、THIN/SURFACE。
+- 不做与起始面法向不重合的自定义拔模方向；首版 pull direction 固定为面法向，
+  非平行拔模方向无契约字段（需要 live 证据/另切片）。
 - 不做 replay-only 的体积/几何特判（硬编码 Bumper 体积、按示例调角、直接断言采集值）。
 - 不改变草图/特征事实源、选择权威、事务/撤销管道、渲染管线。
 
@@ -362,6 +364,8 @@ export interface FaceExtrudeParams {
 - `startOffsetMm` 与 `draftAngleDeg` 的组合语义（中性面是否随 startOffset 平移）
   目前按“平移后的起始面平面”设计；Bumper 的 startOffset=0 不受影响。该组合需
   live/合成证据（见 S8），在证据前不得宣称通用精确。
+- 首版拔模拉出方向固定为起始面法向；不支持与面法向不平行的自定义拔模方向
+  （无契约字段；需要 live 证据/另切片）。
 
 ### 4.4 校验/归一化（backend zod + 求值器）
 
@@ -608,6 +612,7 @@ const faceExtrudeSchema = z.object({
 | 起始面与上游草图平面不平行（斜面） | faceExtrude 沿面法向；解析体积/方向正确；旧 sketch 路径不得参与精确断言 |
 | 非平面面（圆柱侧面）/ 开环 / spline 边界 | status=1；不折线化 |
 | 面法向退化/零法向、draft 无法定义方向 | status=1；不产体 |
+| 自定义/非平行拔模方向（无契约字段） | 不接收；需要 live 证据/另切片 |
 | draft 0/89/NaN、反向孤键、draft+throughAll、draft+secondDirection、startOffset+secondDirection | zod 拒收矩阵 |
 | blind 缺 depth、负/零 depth | zod 拒收 |
 | 退化拔模（深度×tan 角使远端截面塌缩） | status=1；体不变 |

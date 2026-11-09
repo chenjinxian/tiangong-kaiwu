@@ -110,6 +110,8 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
 
 - 不给 `ExtrudeParams` 加 `startFaceRef`；faceExtrude 已是面轮廓的唯一特征。
 - 不新增 feature type/RPC/工具；所有写入仍走 FeatureOp + BriefcaseTxns。
+- 不做与起始面法向不平行的自定义拔模方向（首版 pull direction = 面法向；
+  需要 live 证据/另切片）。
 - 不做 replay-only 硬编码/按示例调参/直接采集体积。
 - 不做 UI（无 live 起始面/拔模对话框证据）；能力 gated，不造假控件。
 
