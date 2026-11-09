@@ -1885,3 +1885,9 @@
 
 后续计划按真实 PS blocker 排名重制；优先 imprint 精确化、selector、外部草图引用、多体作用域、
 数据采集；能力与 BRepCore 审计作为并行常规项。
+
+**优先级移交（2026-11-09）**：新计划已写入
+`docs/superpowers/plans/2026-11-09-ps-blocker-driven.md`（基于重新生成的
+`manifest/example-index.json`：104 native / 59 可测 native / 47 imprint /
+25 selector / 27 CONCENTRIC 等）。本台账保留为历史执行记录与切片证据索引；
+后续调度以新计划 §0.3 的 ≤2 blocker 清单为准。
