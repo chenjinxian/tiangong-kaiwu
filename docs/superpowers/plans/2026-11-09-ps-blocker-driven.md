@@ -615,7 +615,7 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   （历史问题另列）。
 - **面面积 oracle 精确化**：`run.ts` 的两个精确证据调用点传
   `toleranceMm2: 0`（容差=target×1e-7），新增 shared 回归测试（目标 100.2、
-  面域 100/100.5 → undefined，不再静默吃 1 mm² 绝对下限）；shared **193/193**。
+  面域 100/100.5 → undefined，不再静默吃 1 mm² 绝对下限）；shared **194/194**。
   P2.2 的 required-less 校准 fallback 也关闭绝对下限，改用有界
   `toleranceRatio: 2e-7`（覆盖 Drive Sleeve 实测 1.34e-7 的 Onshape
   bodydetails vs 产品面域求值差，仍比 1mm² 绝对下限严格约三个数量级）；
@@ -632,7 +632,7 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 - **edge-selector**：iOS `Extrude 2` 断言改为 2026-11-09 精确 imprint 有向边侧
   语义（`approximate=false`、`edge-right`、精确选择注记）；真栈通过
   （157,478.786 vs 157,478.902）。
-- **回归门（本轮实测）**：shared **193/193** + build clean；web
+- **回归门（本轮实测）**：shared **194/194** + build clean；web
   **1527/1527**（116 files）+ `tsc`（app/e2e）clean；真栈
   `intro-cad-parts` Part 3 **2 passed**（229,418.896，0.000%，
   approximateSteps=3 警告）、`sample-assignment-scenario` **2 passed**
