@@ -506,8 +506,14 @@ export async function runScenario(
       // 找唯一子集（与 imprintFace 面积证据同一 shared selector、同一 1e-7 相对
       // 容差，未放宽）；scenario 声明的 regions 必须与面积唯一解完全一致，否则
       // fail closed——不按前缀/顺序猜。唯一解时移除 regionRisk（不再标近似）。
+      //
+      // 只处理**原始** selection 就是 sketchRegions 的特征。P2.2 会把 imprintFace/
+      // capFaceExtrude 改写成 sketchRegions 且保留 profileAreaMm2/profileBoundsMm；
+      // 那条路径已用逐边命中作 requireRegions 消费证据，若此处再跑一次无 required
+      // 的选集，会把 P2.2 的合法结果重新裁决甚至误阻塞（Drive Sleeve/Intro）。
+      const originalSelectionKind = (feature.params as { selection?: { kind?: string } }).selection?.kind;
       let sketchRegionAreaNote: string | undefined;
-      if (effectiveFeature.type === 'extrude') {
+      if (effectiveFeature.type === 'extrude' && originalSelectionKind === 'sketchRegions') {
         const areaParams = effectiveFeature.params as {
           profileAreaMm2?: unknown;
           profileBoundsMm?: RegionBoundsMm;
