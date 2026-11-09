@@ -10,6 +10,7 @@ import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from '../i
 import { DEFAULT_DATA_ROOT } from '../registry.js';
 import { resolveScenarioEdges, type ResolveEdgesResult } from './edge-resolver.js';
 import { resolveImprintFaceRef } from './imprint-face-resolver.js';
+import { resolveOracleEdges, type RollbackEdgeOracle } from './rollback-edge-oracle.js';
 import { resolveScenarioShellFaces } from './shell-face-resolver.js';
 import { runScenario } from './run.js';
 import type { ParityScenario, ScenarioFeature } from './scenario-to-op.js';
@@ -60,6 +61,14 @@ export interface RunScenarioFileOptions {
    * 缺省行为完全不变（仍走 `resolveScenarioEdges`）。
    */
   edgeRefsOverride?: EdgeRefsOverride;
+  /**
+   * 回滚快照边曲线 oracle（2026-11-10，test-only）：键 = scenario featureId
+   * （`sourceFeatureId`）或特征名。fillet/chamfer 步骤命中时走
+   * `resolveOracleEdges`（几何唯一匹配 + resolveEdgeRef），否则保持既有
+   * `resolveScenarioEdges`。缺省不启用，默认行为完全不变。
+   * `edgeRefsOverride` 若同时提供仍优先（显式审计覆盖 > oracle > 通用 resolver）。
+   */
+  edgeOracle?: ReadonlyMap<string, RollbackEdgeOracle>;
 }
 
 export function resolveScenarioFile(rel: string): string {
@@ -87,7 +96,8 @@ export async function runScenarioFile(
     skipSketchConstraints: options.skipSketchConstraints ?? false,
     ...(options.allowApproximateDraft ? { allowApproximateDraft: true } : {}),
     edgeResolver: async (feature, fullScenario, bodyContext) => {
-      // 审计覆盖优先（仅显式传入的 spec）；未命中/未提供则保持通用 resolver。
+      // 显式审计覆盖最优先（仅显式传入的 spec）；其次回滚快照 oracle；
+      // 都未命中/未提供时保持通用 resolver（默认行为不变）。
       const override = await options.edgeRefsOverride?.({
         feature,
         scenario: fullScenario,
@@ -97,6 +107,11 @@ export async function runScenarioFile(
         bodyContext,
       });
       if (override !== undefined) return override;
+      const oracle = (feature.sourceFeatureId !== undefined
+        ? options.edgeOracle?.get(feature.sourceFeatureId)
+        : undefined) ?? options.edgeOracle?.get(feature.name);
+      if (oracle !== undefined)
+        return resolveOracleEdges(page, ctx, feature, oracle, token, bodyContext);
       return resolveScenarioEdges(page, ctx, fullScenario, feature, token, bodyContext);
     },
     shellFaceResolver: (feature, fullScenario, context) =>
