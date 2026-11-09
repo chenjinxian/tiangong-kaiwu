@@ -597,3 +597,27 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
   imprint 的几何近似，不宣称所有 imprint PS 全绿。
 - 回滚：移除两处 `pickImprintRegionByEdgeSide` 调用即回到旧启发式；shared 工具
   可保留无副作用。
+
+## 切片 F：CAP_FACE 起始面 → 既有 extrude(startOffset+draft)（2026-11-09）
+
+- **证据**：Bumper Block Extrude 2 的 qCompressed 是
+  `FQ77...opExtrude + CAP_FACE`（从 Extrude 1 顶面 z=40 再拉 40 + 10° 拔模），
+  不是 `<sketchId>.imprint`；converter 此前误标 imprintFace + region 0 近似
+  （体积 −45.5%）。
+- **实现（test-only replay，无 RPC 变更）**：
+  - converter 识别 `opExtrude + CAP_FACE`，仅当上游是 **NEW/blind/非对称/非反向/
+    无 draft/无第二方向** 时，导出 `selection.kind='capFaceExtrude'`：
+    上游草图 + 面域集 + `startOffsetMm = 上游 depth`；
+  - 公共 translator 把它映射为产品既有 `extrude` 的 `startOffsetMm` + 现有
+    `draftAngleDeg`/`draftPullDirection`；起始面/拔模位置在真栈验证前标
+    `approximateStartOffset`/`approximateDraft`；
+  - 其它 CAP_FACE/SWEPT_FACE 形态仍 `kind='face'` → `BlockedCapabilityError`。
+- **真栈（Bumper Block，`volumePolicy/statusPolicy: 'record'`）**：
+  - Extrude 1 = 360,000 mm³；Extrude 2 新增 297,764.787 → 657,764.787 mm³；
+  - 采集目标 636,731.499，**+3.303%**（旧近似 −45.5%）；
+  - Fillet 1 status=1、Hole status=1（12 边 blend/后续孔内核仍阻塞），
+    因此严格门仍 blocked-kernel；spec 只做能力覆盖，不宣称 complete。
+- **边界**：上游 ADD/symmetric/反向/draft/secondDirection、当前反向/对称、
+  非同一草图面域暂不映射；面选择的产品 UI（从面起始）仍未实现，当前是回放
+  利用既有 startOffset/draft RPC 能力。
+- **回滚**：移除 capFaceExtrude 分支即回到 `face` blocked，无 schema/产物变更。

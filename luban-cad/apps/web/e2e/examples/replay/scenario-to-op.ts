@@ -205,18 +205,24 @@ function resolveRegions(
   // converter 的“面积降序前缀”多选映射是 best-effort（Onshape 查询是边/面语义，
   // 不能静态反推面域下标）；消费方必须保留 regionRisk 标记，不得当完整复刻。
   const risk = selection?.regionRisk === true || params.regionRisk === true;
-  const riskNotes = risk ? ['面域为 converter 前缀映射（regionRisk，需审计）'] : [];
+  // P2.1：CAP_FACE 起始面 → 上游草图面域 + startOffset；位置/拔模在真栈校验前
+  // 保持 approximate（起始面是 cap，草图为基准面）。
+  const capFaceApprox = selection?.approximateStartOffset === true || selection?.approximateDraft === true;
+  const riskNotes = [
+    ...(risk ? ['面域为 converter 前缀映射（regionRisk，需审计）'] : []),
+    ...(capFaceApprox ? ['CAP_FACE 起始面/拔模映射待真栈校验（approximate）'] : []),
+  ];
   const explicit = selection?.regions ?? params.regions;
   if (Array.isArray(explicit) && explicit.every((value) => Number.isInteger(value) && value >= 0)) {
     return {
       regions: Array.from(new Set(explicit as number[])),
       notes: riskNotes,
-      approximate: risk,
+      approximate: risk || capFaceApprox,
     };
   }
   const single = selection?.regionIndex ?? params.regionIndex;
   if (Number.isInteger(single) && (single as number) >= 0) {
-    return { regions: [single as number], notes: riskNotes, approximate: risk };
+    return { regions: [single as number], notes: riskNotes, approximate: risk || capFaceApprox };
   }
   const kind = String(selection?.kind ?? '');
   if (kind === 'imprintFace') {
@@ -311,7 +317,14 @@ function extrudeOp(feature: ScenarioFeature, context: TranslateContext): Transla
   const direction = !symmetric && booleanParam(params, 'oppositeDirection') === true
     ? 'backward' as const
     : undefined;
-  const startOffsetMm = numberParam(params, 'startOffsetMm');
+  const selectionRecord = asRecord(params.selection);
+  const startOffsetMm = numberParam(params, 'startOffsetMm')
+    ?? (selectionRecord ? numberParam(selectionRecord, 'startOffsetMm') : undefined);
+  if (stringParam(selectionRecord ?? {}, 'kind') === 'capFaceExtrude') {
+    notes.push(
+      `CAP_FACE 起始面 → 上游草图面域 + startOffsetMm=${startOffsetMm ?? '?'}（产品 extrude 偏移/拔模通道）`,
+    );
+  }
   // v1.24 secondDirection：契约缺省=主方向相反侧；scenario 只在 Onshape
   // secondDirectionOppositeDirection=true 时显式带 direction（回主方向同侧）。
   const secondRaw = asRecord(params.secondDirection);

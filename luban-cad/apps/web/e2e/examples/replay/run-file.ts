@@ -25,6 +25,11 @@ export interface RunScenarioFileOptions {
    * 断言；仍断言 tree/status/body 数/push+重开。严格示例必须保持缺省 'strict'。
    */
   volumePolicy?: 'strict' | 'record';
+  /**
+   * 能力覆盖轨（非严格）：'record' 允许特征树存在非 0 status（如已知 blocked-kernel
+   * 的 fillet），只打印表格；严格轨缺省 'strict' 仍要求全 0。
+   */
+  statusPolicy?: 'strict' | 'record';
   /** 能力覆盖轨：拔模按直壁近似并标 approximate（严格轨禁止）。 */
   allowApproximateDraft?: boolean;
 }
@@ -84,7 +89,17 @@ export async function runScenarioFile(
   if (process.env.EXAMPLE_DEBUG_TREE === '1')
     console.log('[scenario-file] tree', JSON.stringify(tree.map((row) => ({ featureType: row.featureType, status: row.status, error: (row as { error?: string }).error })), null, 1));
   expect(tree.map((row) => row.featureType)).toEqual(actualOpTypes);
-  expect(tree.every((row) => row.status === 0)).toBe(true);
+  const statusOk = tree.every((row) => row.status === 0);
+  if (options.statusPolicy === 'record') {
+    if (!statusOk) {
+      console.log(
+        '[scenario-file] non-zero statuses (recorded, not strict): ' +
+        JSON.stringify(tree.map((row) => ({ type: row.featureType, status: row.status, error: (row as { error?: string }).error }))),
+      );
+    }
+  } else {
+    expect(statusOk).toBe(true);
+  }
 
   const tolerance = options.tolerance
     ?? Number((scenario.expected as { tolerance?: number } | undefined)?.tolerance || 0.005);

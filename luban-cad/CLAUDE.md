@@ -189,6 +189,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `replicable-now` **2 → 7**（First Part + WARNING LABEL ×4 + Wheel +
   Master Cylinder Piston），imprint 近似 blocker **47 → 14**（剩余为 regionRisk，
   不是边侧语义）。无 RPC 载荷/`interfaceVersion` 变更。
+- **CAP_FACE 起始面（P2.1，2026-11-09）**：converter 对上游 NEW/blind 拉伸帽面
+  导出 `capFaceExtrude`（上游草图/面域 + startOffset=上游 depth），translator
+  映射既有 `extrude` 的 startOffset+draft；不再误标 imprintFace/region 0。
+  Bumper Block 真栈（record）：Extrude 1 360,000 → Extrude 2 **657,764.787**
+  mm³（+297,764.787），目标 636,731.499，**+3.303%**；Fillet 1/Hole status=1
+  （12 边 fillet/内核仍阻塞）。`run-file` 新增 `statusPolicy:'record'`（严格轨
+  缺省仍 fail closed）。无 RPC/产物变更。
 - `apps/web` 全量 vitest：**1527/1527**（2026-11-09 body pattern 反向 UI +1
   （FeatureDialog 179/179；真栈 3×3 720.000 反向质心 x=-6 push+冷重开）；
   body pattern 第二方向 UI +3

@@ -152,6 +152,41 @@ test.describe('scenario → FeatureOp', () => {
     expect(step.notes.join(' ')).toContain('Onshape live 几何未独立校准');
   });
 
+  test('CAP_FACE 起始面（P2.1）：上游草图面域 + startOffsetMm + draft', () => {
+    const step = translateScenarioFeature({
+      type: 'extrude',
+      name: 'Extrude 2',
+      params: {
+        operation: 'add',
+        endBound: 'blind',
+        depthMm: 40,
+        hasDraft: true,
+        draftAngleDeg: Math.PI / 18,
+        draftPullDirection: true,
+        selection: {
+          kind: 'capFaceExtrude',
+          sketchFeatureId: 's',
+          regions: [0],
+          startOffsetMm: 40,
+          approximateStartOffset: true,
+          approximateDraft: true,
+        },
+      },
+    }, { sketchIdBySource: new Map([['s', 'sk']]) });
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.params).toMatchObject({
+      sketchId: 'sk',
+      regions: [0],
+      startOffsetMm: 40,
+      distance: 40,
+      draftAngleDeg: 10,
+      draftPullDirection: true,
+    });
+    expect(step.approximate).toBe(true);
+    expect(step.notes.join(' ')).toContain('CAP_FACE 起始面');
+  });
+
   test('extrude 拔模与 symmetric/非 blind 冲突 → blocked', () => {
     const context = { sketchIdBySource: new Map([['s', 'sk']]) };
     expect(() => translateScenarioFeature({

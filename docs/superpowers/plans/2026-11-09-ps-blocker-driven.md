@@ -309,3 +309,18 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   旧近似体积路径退役。
 - **下一步 P2.1**：实现 CAP_FACE 起始面/draft（产品 faceExtrude 扩展）或如实
   登记 blocked-kernel（12 边 fillet 已知），不把 CAP_FACE 塞回 imprint。
+
+## P2.1 执行记录（2026-11-09，CAP_FACE 起始面映射）
+
+- converter 对 `opExtrude + CAP_FACE` 且上游 NEW/blind/非对称/非反向/无 draft/
+  无第二方向的简单帽面，导出 `capFaceExtrude`（上游草图/面域 + startOffset=上游
+  depth）；translator 映射产品既有 `extrude` 的 startOffset+draft。
+- Bumper Block 真栈（record）：Extrude 1 360,000 → Extrude 2 657,764.787
+  （+297,764.787），目标 636,731.499，**+3.303%**；Fillet 1/Hole status=1
+  （12 边 fillet/内核仍阻塞），严格门保持 blocked-kernel。
+- `run-file` 新增 `statusPolicy:'record'`（能力覆盖轨记录非 0 status；严格轨
+  缺省仍 fail closed）；Bumper spec 由 test.fail 转为能力覆盖记录。
+- index：Bumper 的 face 选择 blocker 消失，只剩
+  `面边界选择器（capFace/sweptFace）待真栈验收`。
+- 下一步：P2.1b CAP_FACE 反向/对称/上游 draft 形态，或 P3 外部草图引用；
+  Bumper 的 fillet/hole 内核问题单独登记 blocked-kernel。
