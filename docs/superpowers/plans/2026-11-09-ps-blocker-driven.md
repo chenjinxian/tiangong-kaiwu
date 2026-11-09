@@ -426,3 +426,15 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
     `replicable-now` **9 → 11**，blocked-selector 4。
 - **下一步**：位置+面积联合证据（同面积面域需拓扑邻接/质心），以及单线
   imprint 的实体面 split；不得用任意同面积子集冒充精确轮廓。
+
+## P6 补充（2026-11-09，Element Organization 数据补齐）
+
+- 对 `Exercise: Element Organization`（58eb97）补 parts/per-part mass；重新转换
+  O-Ring / Bushing 场景（旧场景 expected=0/无 body）。
+- **O-Ring**（sketch+revolve）：真栈 **454.910 vs 454.927 mm³（0.004%）**，
+  严格绿。
+- **Bushing**（sketch+extrude，单 circle imprint +1）：真栈
+  **3,259.620 vs 3,259.685 mm³（0.002%）**，严格绿。
+- 新 `o-ring-scenario.spec.ts` 两个严格用例；index strict `replicable-now`
+  **11 → 13**。Bushing 从 `blocked-converter（regionRisk 缺 sketchEntityId）`
+  转为 replicable-now（重新转换后单查询有 sketchEntityId，侧向精确）。
