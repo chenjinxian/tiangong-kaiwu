@@ -10,6 +10,7 @@ import type {
   FeatureOpResult,
   FilletEdgeRef,
   LubanTopologyId,
+  RegionBoundsMm,
   SketchPlaneDto,
   SketchRegionDto,
 } from '@luban-cad/shared';
@@ -317,11 +318,27 @@ export async function runScenario(
               // 查询无法唯一还原整组被选面。若 scenario 带 Onshape 面面积 oracle，
               // 在 product 面域里找唯一子集；非 CAP_FACE 查询必须包含逐边命中。
               const profileAreaMm2 = (feature.params as { profileAreaMm2?: unknown }).profileAreaMm2;
+              // 位置证据（bbox）：同面积面域（如 Intro Part 3 的 9 个 645.16mm²
+              // 网格）仅按面积多解；Onshape bodydetails 顶面 box 提供第二 oracle。
+              const profileBoundsMm = (feature.params as { profileBoundsMm?: RegionBoundsMm }).profileBoundsMm;
+              const regionBounds = (region: SketchRegionDto): RegionBoundsMm | undefined => {
+                const pts = region.outerBoundary ?? [];
+                if (pts.length === 0) return undefined;
+                return {
+                  minX: Math.min(...pts.map((p) => p.x)),
+                  minY: Math.min(...pts.map((p) => p.y)),
+                  maxX: Math.max(...pts.map((p) => p.x)),
+                  maxY: Math.max(...pts.map((p) => p.y)),
+                };
+              };
               let profileAreaSelected = false;
               if (typeof profileAreaMm2 === 'number' && Number.isFinite(profileAreaMm2)
                 && (sketch?.regions?.length ?? 0) > 0) {
                 const required = isCapFace ? [] : Array.from(new Set(regions));
-                const regionAreas = sketch!.regions!.map((region) => ({ area: region.area }));
+                const regionAreas = sketch!.regions!.map((region) => ({
+                  area: region.area,
+                  bounds: regionBounds(region),
+                }));
                 // 逐边命中优先作为“必须在选集内”的约束（保留查询选中的位置），
                 // 面积证据只负责补全/裁决；只有被逐边约束后无唯一解时才独立按
                 // 面积求解（Part 3/4 这类逐边命中本身错的极端情况）。
@@ -330,11 +347,13 @@ export async function runScenario(
                 // 仍优先作为必须面域；只有无唯一解时才独立按面积求解。
                 let areaSelection = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
                   ...(required.length > 0 ? { requireRegions: required } : {}),
+                  ...(profileBoundsMm ? { profileBoundsMm } : {}),
                   toleranceRatio: 1e-7,
                 });
                 let usedRequired = required.length > 0;
                 if ((!areaSelection || areaSelection.ambiguous) && required.length > 0) {
                   const withoutRequired = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
+                    ...(profileBoundsMm ? { profileBoundsMm } : {}),
                     toleranceRatio: 1e-7,
                   });
                   if (withoutRequired && !withoutRequired.ambiguous) {
@@ -352,6 +371,7 @@ export async function runScenario(
                   parts.push(
                     `profileArea=${profileAreaMm2}mm² → 面域 ${areaSelection.regions.join(',')}` +
                     `（Δ=${areaSelection.delta.toFixed(3)}mm²；Onshape 面面积证据` +
+                    `${profileBoundsMm ? `+bbox ${JSON.stringify(profileBoundsMm)}` : ''}` +
                     `${overridesQueryPicks ? '；覆盖逐边命中' : ''}）`,
                   );
                 } else {
