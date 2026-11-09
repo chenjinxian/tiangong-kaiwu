@@ -491,7 +491,8 @@ git commit -m "test(examples): area/bbox evidence for cap-face selector"
   （测试名/路径/条目细节不在此复述）
 - Private: 私有 `luban-backend` fillet 失败路径守卫（仅加日志/守卫，不改语义；
   **未提交、尚未进入产物**）
-- Test: 私有 native ctest + 真栈 `bumper-block-approx.spec.ts`
+- Test: 私有 native ctest + 真栈 `bumper-block-strict.spec.ts`（2026-11-09
+  follow-up：Fillet 1 审计 20 边覆盖；原 record 轨同日退场）
 
 **Interfaces:**
 - Consumes: 私有内核的 blend/body-face/mass 只读能力（具体符号不公开复述）。
@@ -519,10 +520,10 @@ git commit -m "test(examples): area/bbox evidence for cap-face selector"
 
 ```bash
 cd luban-cad/apps/web
-npx playwright test e2e/examples/bumper-block-approx.spec.ts --reporter=line
+npx playwright test e2e/examples/bumper-block-strict.spec.ts --reporter=line
 ```
-Expected: 仍为 record（或修复后 strict）；无论结果，更新私有审计台账的
-聚合状态与证据指针。
+Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fillet 1 仍解析
+12 条边、仍属 blocked-kernel。无论结果，更新私有审计台账的聚合状态与证据指针。
 
 - [ ] **Step 5: 提交**
 
@@ -613,7 +614,9 @@ npx playwright test e2e/examples/<changed-specs> --reporter=line
 Actual: shared **192/192** + build clean；web **1527/1527**（116 files）+ tsc
 （app/e2e）clean；真栈逐 spec：Part 1/2/3 各 **2 passed**、sample **2 passed**、
 drive-sleeve **3 passed**、wheel **2 passed**、scenario-to-op **51 passed**、
-bumper record **2 passed**（+3.303%，未升绿）、demo Part 3 **2 passed**、
+bumper record **2 passed**（+3.303%，未升绿；2026-11-09 follow-up 已由
+`bumper-block-strict.spec.ts` 审计 20 边覆盖取代：634,347.216 vs 636,731.499，
+−0.374%，见 driven closeout）、demo Part 3 **2 passed**、
 ShowcaseRoute **1/1**。Part 4/5/6 保持 test.fail known-red。批量首轮遇 MS
 100 req/15min 429，按 spec 分窗重跑（未改配置）；`verify-imodels` 可选未跑
 （严格用例用自管 E2E iModel，未重置既有持久示例）。
@@ -658,7 +661,7 @@ native/backend 仓未提交。
 | regionRisk area 证据 | converter 转换 + index verify | translator 50/50 | Alignment、iOS |
 | CENTERLINE refs | scenario-to-op 新单测 | shared build | Fox RP23（或 blocked 证据） |
 | capFace/sweptFace 证据 | collector 测试 | index verify | 目标 PS spec |
-| Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper record/strict |
+| Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper strict（审计 20 边覆盖）；通用 resolver 12 边仍 blocked-kernel |
 | AIRR/ADR | 文档自检 | 无代码 | 无 |
 
 ## 停止条件

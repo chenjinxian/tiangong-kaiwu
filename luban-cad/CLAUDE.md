@@ -192,10 +192,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 - **CAP_FACE 起始面（P2.1，2026-11-09）**：converter 对上游 NEW/blind 拉伸帽面
   导出 `capFaceExtrude`（上游草图/面域 + startOffset=上游 depth），translator
   映射既有 `extrude` 的 startOffset+draft；不再误标 imprintFace/region 0。
-  Bumper Block 真栈（record）：Extrude 1 360,000 → Extrude 2 **657,764.787**
-  mm³（+297,764.787），目标 636,731.499，**+3.303%**；Fillet 1/Hole status=1
-  （12 边 fillet/内核仍阻塞）。`run-file` 新增 `statusPolicy:'record'`（严格轨
-  缺省仍 fail closed）。无 RPC/产物变更。
+  Bumper Block：Extrude 1 360,000 → Extrude 2 **657,764.787** mm³（+297,764.787）；
+  严格轨 `bumper-block-strict.spec.ts` 对 Fillet 1 使用**审计 20 边覆盖**
+  （Onshape live evidence；native/private 证据只在私有审计台账），真栈 6 特征
+  全 status=0、1 body、**634,347.216 vs 636,731.499 mm³（−0.374%）**、push+
+  冷重开一致；Extrude 2 仍为 startOffset+draft 近似（approximateSteps=1）。
+  通用 resolver 对 Fillet 1 仍只解析 12 条边、仍属 blocked-kernel，索引分类
+  不变。`run-file` 新增 `statusPolicy:'record'`（严格轨缺省仍 fail closed）与
+  push 后冷重开 status=0 严格断言。无 RPC/产物变更。
 - `apps/web` 全量 vitest：**1527/1527**（2026-11-09 body pattern 反向 UI +1
   （FeatureDialog 179/179；真栈 3×3 720.000 反向质心 x=-6 push+冷重开）；
   body pattern 第二方向 UI +3

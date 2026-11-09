@@ -643,3 +643,23 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 - **计数口径**：见上文「计数可复现性」与「Alignment 证据口径」；strict 仍 **16**
   （当前工作树）/ **15**（干净私有检出重索引）/ **15**（Alignment 人工覆盖去计），
   未改严格断言、未强凑 18。
+
+### Follow-up（2026-11-09）：Bumper Fillet 1 审计 20 边覆盖
+
+- 通用 resolver 仍把 Bumper Fillet 1 的 9 条 CAP_FACE / SWEPT_EDGE / SWEPT_FACE
+  查询展开为 12 条 lower-box 边，内核拒绝该边集（Fillet 1 status=1）。Bumper 的
+  索引分类**保持 `blocked-kernel`**，strict 计数不增加（16 不变）；本 follow-up
+  不是通用能力修复。
+- 新增 test-only `luban-cad/apps/web/e2e/examples/bumper-block-strict.spec.ts`：
+  仅对 Fillet 1 使用**审计 20 边覆盖**（audited 20-edge selection from Onshape
+  live evidence；refs `1:1..1:12` + `2:1..2:8`、单一 body），其他特征/示例仍走
+  通用 resolver；产品 RPC/shared/UI/后端零改动。原 record 轨
+  `bumper-block-approx.spec.ts` 同日退场。
+- 真栈严格轨 **2 passed（49.5 s）**：6 特征全 status=0（含 Fillet 1/Hole）、
+  1 body、**634,347.216 vs 636,731.499 mm³（−0.374%）**；push 前与冷重开后
+  体积均 634,347.2156303624 mm³（重开 status=0 新断言通过）。Extrude 2 仍为
+  CAP_FACE startOffset+draft 近似（approximateSteps=1）。Hole 1 在前序 fillet
+  成功后不再失败（非独立孔映射缺陷）。
+- `run-file` 严格轨新增 push 后冷重开 status=0 断言；Intro Part 3 回归
+  **2 passed（48.5 s）**，229,418.896 mm³（pre/post 同值），approximateSteps=3
+  既有警告不变。native/private 证据仍只在私有审计台账。

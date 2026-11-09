@@ -804,7 +804,12 @@ function resolveSelector(
   return Array.from(unique.values());
 }
 
-async function readHandles(
+/**
+ * 读取当前 active body 的全部 BRep 边句柄（test-only 观测面）。
+ * 2026-11-09 导出供审计边覆盖（Bumper Fillet 1 全 20 边）复用同一枚举通道；
+ * 通用 `resolveScenarioEdges` 行为不变。
+ */
+export async function readBodyEdgeHandles(
   page: Page,
   ctx: BSeedEditorContext,
   accessToken: string,
@@ -867,7 +872,7 @@ export async function resolveScenarioEdges(
     );
 
   const { sketches, ops } = collectMetadata(scenario);
-  const handles = await readHandles(page, ctx, accessToken);
+  const handles = await readBodyEdgeHandles(page, ctx, accessToken);
   const refs = new Map<string, FilletEdgeRef>();
   const bodyKeys = new Set<string>();
   for (const entry of entries) {
