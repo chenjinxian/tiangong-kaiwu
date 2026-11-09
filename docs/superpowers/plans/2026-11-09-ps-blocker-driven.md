@@ -513,10 +513,13 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   - Intro Part 3 移出 `KNOWN_SELECTOR_BLOCKERS`：Task 2 bodydetails 面积+bbox
     唯一反解，真栈 **229,418.896 vs 229,418.896 mm³（0.000%）**，spec 已 strict；
   - Part 4 blocker 值更新为“面积+bbox 有 2/4/70 个并列候选子集”（仍 blocked-selector）；
-  - `CENTERLINE_DIMENSION` 按 converter 输入映射到产品 `DISTANCE` 归因
-    （`tools/analyze-centerline.mjs`：26 个索引 PS / 105 条中 94 条可表达，11 条
-    fail-closed 由 converter 记入 scenario-constraint）；4 个 PS 的 constraints 由
-    dropped → complete，无分类提升（含 Wheel）。
+  - `CENTERLINE_DIMENSION` 按 converter 输入映射到产品 `DISTANCE` 归因。
+    Task 4 报告的 **26 个索引 PS / 105 条中 94 条可表达 / 11 条 fail-closed**
+    是**修正前**的索引标记子集；Task 8 归因修正后
+    `node tools/analyze-centerline.mjs --only-centerline-blockers` 为
+    **0 PS / 0 条**（索引已无该 blocker）。全语料统计为 **49 PS / 279 条 /
+    261 可表达 / 18 fail-closed（19 种 ref 形态）**。4 个 PS 的 constraints 由
+    dropped → complete，**无分类提升**（含 Wheel）；验证结论不变。
 
 | 新增严格绿 | 真栈体积 vs Onshape | 误差 | 证据 |
 |---|---|---|---|

@@ -612,7 +612,7 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
   `docs/superpowers/plans/2026-11-09-ps-blocker-driven.md`
 - Demo: `luban-cad/apps/web/demo-artifacts/examples/index.html`（本地生成）
 
-- [x] **Step 1: 重生成索引并验证**
+- [x] **Step 1: 重生成索引并验证（已执行；目标未达，实际 16/18）**
 
 ```bash
 cd D:\Github\onshape-parity-data
