@@ -732,8 +732,8 @@ const faceExtrudeSchema = z.object({
 | 既有 remove/backward 1 mm | 回归 | **16.000 mm³** |
 | 180×50×40 盒 + 顶面 faceExtrude add 40（无 draft） | A1 | 新增 **360,000 mm³**；总 **720,000** |
 | 同上 + `startOffsetMm=-5`（进入体 5 mm） | A1 | 新增 315,000；总 **675,000**（去除重叠） |
-| 同上 + draft 10°、`draftPullDirection=true`（收窄） | **A1** | **记录 A1 baseline 体积**（预计接近 297,764.787，实测为准；**不是** 297,002.158）；bbox/参数落库往返 |
-| 同上 + draft 10°、`draftPullDirection=false`（外扩） | **A1** | **记录 A1 baseline 体积**（不是 427,012.818）；bbox/参数往返 |
+| 同上 + draft 10°、`draftPullDirection=true`（收窄） | **A1** | **记录 A1 baseline 体积**（预计接近 297,764.787，实测为准；**不是** 297,002.158）；bbox + `startOffsetMm`/`draftAngleDeg`/`draftPullDirection` 落库往返 |
+| 同上 + draft 10°、`draftPullDirection=false`（外扩） | **A1** | **记录 A1 baseline 体积**（不是 427,012.818）；bbox + `startOffsetMm`/`draftAngleDeg`/`draftPullDirection` 落库往返 |
 | 同上 + draft 10° 收窄 | **A2** | sharp-frustum **297,002.158 mm³**（或经证据 measured A2 baseline）；远端 165.893842×35.893842（z=80） |
 | 同上 + draft 10° 外扩 | **A2** | sharp-frustum **427,012.818 mm³**（或 measured A2 baseline）；远端 194.106158×64.106158 |
 | 同上 + draft + 4 条锥面斜边 | **A2** | tool 体与最终 Unite 体边枚举全部为 line/arc（无 curvePrimitive）；未达成 → known-red/blocked-kernel |

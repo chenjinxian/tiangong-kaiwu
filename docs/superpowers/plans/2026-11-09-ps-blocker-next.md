@@ -576,7 +576,8 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 **Approval/next steps（批准后）:**
 - [ ] 用户评审/签字（AIRR + ADR-0016）。
 - [ ] A1：shared 契约 + backend schema/求值器 + `faceSweepToolDrafted`/`loftDraftedLoop`
-      适配 + CAP_FACE=profile/body 归属守卫 + 失败封闭；记录 A1 baseline，不宣称精确。
+      适配 + CAP_FACE=profile/body 归属守卫 + 失败封闭；面轮廓/offset/angle 参数往返；
+      记录 A1 baseline，不宣称精确。
 - [ ] A2：解析边 spike/实现（私有 native/TS 或等价构造；P0-08 另批）；合成矩形 →
       Bumper pre-fillet 657,002.158（或 measured A2 baseline）/20/20。
 - [ ] A3：S9/S10/S11 证据采集 + converter/translator/runner + oracle 全边展开（test-only）。

@@ -212,7 +212,8 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
   - 180×50×40 盒顶面 add 40（无 draft）新增 360,000；
   - `startOffsetMm=-5` 新增 315,000（总 675,000）；
   - draft 10° 收窄/外扩：**记录 A1 baseline 体积**（收窄预计接近 297,764.787；
-    外扩实测记录，预计不是 427,012.818；均以实测为准），断言 bbox/方向/参数往返；
+    外扩实测记录，预计不是 427,012.818；均以实测为准），断言 bbox/方向 +
+    `startOffsetMm`/`draftAngleDeg`/`draftPullDirection` 往返；
   - CAP_FACE=start-reference / 面边界与期望 profile 不唯一匹配 → blocked/status=1；
   - bodyId 跨体/多 body 歧义 → status=1；旧单 body 载荷逐字兼容，旧多 body 歧义
     登记 fail closed；
