@@ -61,16 +61,18 @@ describe('selectProfileRegionsByArea', () => {
     expect(selectProfileRegionsByArea(regions(many), 10, { maxRegions: 20 })).toBeUndefined();
   });
 
-  it('bbox 证据能区分同面积同形区域', () => {
+  it('bbox 证据能在面积多解时选出唯一子集（无 bbox 时 ambiguous）', () => {
     const cells = [
-      { area: 645.16, bounds: { minX: 0, minY: 0, maxX: 25.4, maxY: 25.4 } },
-      { area: 645.16, bounds: { minX: 0, minY: 25.4, maxX: 25.4, maxY: 50.8 } },
-      { area: 645.16, bounds: { minX: 0, minY: 50.8, maxX: 25.4, maxY: 76.2 } },
+      { area: 10, bounds: { minX: 0, minY: 0, maxX: 10, maxY: 10 } },
+      { area: 20, bounds: { minX: 10, minY: 0, maxX: 30, maxY: 10 } },
+      { area: 10, bounds: { minX: 100, minY: 0, maxX: 110, maxY: 10 } },
     ];
-    const picked = selectProfileRegionsByArea(cells, 1935.48, {
-      profileBoundsMm: { minX: 0, minY: 0, maxX: 25.4, maxY: 76.2 },
+    // 面积多解：[0,1] 与 [1,2] 都是 30；bbox 只接受前者。
+    expect(selectProfileRegionsByArea(cells, 30)?.ambiguous).toBe(true);
+    const picked = selectProfileRegionsByArea(cells, 30, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 30, maxY: 10 },
     });
-    expect(picked?.regions).toEqual([0, 1, 2]);
+    expect(picked?.regions).toEqual([0, 1]);
     expect(picked?.ambiguous).toBe(false);
   });
 
