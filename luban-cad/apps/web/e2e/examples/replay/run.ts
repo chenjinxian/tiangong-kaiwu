@@ -101,6 +101,18 @@ export interface RunScenarioOptions {
   ) => Promise<ImprintFaceResolution>;
 }
 
+/** 面域包围盒（草图局部 mm）；无 outerBoundary 时返回 undefined（selector 失败闭合）。 */
+function regionBounds(region: SketchRegionDto): RegionBoundsMm | undefined {
+  const pts = region.outerBoundary ?? [];
+  if (pts.length === 0) return undefined;
+  return {
+    minX: Math.min(...pts.map((p) => p.x)),
+    minY: Math.min(...pts.map((p) => p.y)),
+    maxX: Math.max(...pts.map((p) => p.x)),
+    maxY: Math.max(...pts.map((p) => p.y)),
+  };
+}
+
 /**
  * 多体模型中无 booleanScope 的 insertFeature 需要显式 targetBodyId（产品契约
  * 禁止隐式全局链尾）。按场景顺序回溯最近的造体特征，取该特征谱系当前对应的
@@ -321,16 +333,6 @@ export async function runScenario(
               // 位置证据（bbox）：同面积面域（如 Intro Part 3 的 9 个 645.16mm²
               // 网格）仅按面积多解；Onshape bodydetails 顶面 box 提供第二 oracle。
               const profileBoundsMm = (feature.params as { profileBoundsMm?: RegionBoundsMm }).profileBoundsMm;
-              const regionBounds = (region: SketchRegionDto): RegionBoundsMm | undefined => {
-                const pts = region.outerBoundary ?? [];
-                if (pts.length === 0) return undefined;
-                return {
-                  minX: Math.min(...pts.map((p) => p.x)),
-                  minY: Math.min(...pts.map((p) => p.y)),
-                  maxX: Math.max(...pts.map((p) => p.x)),
-                  maxY: Math.max(...pts.map((p) => p.y)),
-                };
-              };
               let profileAreaSelected = false;
               if (typeof profileAreaMm2 === 'number' && Number.isFinite(profileAreaMm2)
                 && (sketch?.regions?.length ?? 0) > 0) {
@@ -496,6 +498,103 @@ export async function runScenario(
               `${isCapFace ? 'CAP_FACE 起始面' : 'imprintFace'} 保留原查询近似：${reason}`,
             );
           }
+        }
+      }
+      // 面面积证据（P2.3）：qSketchRegion 的 Onshape deterministicIds 数量/顺序
+      // 没有产品面域语义（Alignment 4 个 id ↔ 产品 2 个面域；iOS 3 个 id 恰好是
+      // 3 个材料面域但仍是前缀）。scenario 带 profileAreaMm2 时，用产品面域面积
+      // 找唯一子集（与 imprintFace 面积证据同一 shared selector、同一 1e-7 相对
+      // 容差，未放宽）；scenario 声明的 regions 必须与面积唯一解完全一致，否则
+      // fail closed——不按前缀/顺序猜。唯一解时移除 regionRisk（不再标近似）。
+      let sketchRegionAreaNote: string | undefined;
+      if (effectiveFeature.type === 'extrude') {
+        const areaParams = effectiveFeature.params as {
+          profileAreaMm2?: unknown;
+          profileBoundsMm?: RegionBoundsMm;
+          selection?: {
+            kind?: string;
+            sketchFeatureId?: string;
+            regions?: unknown;
+            regionIndex?: unknown;
+            regionRisk?: boolean;
+            [key: string]: unknown;
+          };
+        };
+        const areaSelectionRaw = areaParams.selection;
+        if (areaSelectionRaw?.kind === 'sketchRegions'
+          && typeof areaParams.profileAreaMm2 === 'number'
+          && Number.isFinite(areaParams.profileAreaMm2)) {
+          const sourceSketchId = areaSelectionRaw.sketchFeatureId;
+          const localSketchId = sourceSketchId ? sketchIdBySource.get(sourceSketchId) : undefined;
+          if (!localSketchId) {
+            throw new BlockedCapabilityError(
+              'region-selector',
+              `${feature.name} 面积证据草图 ${sourceSketchId ?? '?'} 尚未构建`,
+            );
+          }
+          const sketch = await getSketchRpc(ctx, localSketchId, accessToken);
+          const regionAreas = (sketch?.regions ?? []).map((region) => ({
+            area: region.area,
+            bounds: regionBounds(region),
+          }));
+          const areaSelection = selectProfileRegionsByArea(regionAreas, areaParams.profileAreaMm2, {
+            toleranceRatio: 1e-7,
+            ...(areaParams.profileBoundsMm ? { profileBoundsMm: areaParams.profileBoundsMm } : {}),
+          });
+          if (!areaSelection || areaSelection.ambiguous) {
+            throw new BlockedCapabilityError(
+              'region-selector',
+              `${feature.name} profileArea=${areaParams.profileAreaMm2}mm² ` +
+              `${areaSelection?.ambiguous ? '多解等距' : '容差内无唯一面域子集'}`,
+            );
+          }
+          const declared = Array.isArray(areaSelectionRaw.regions)
+            ? areaSelectionRaw.regions.filter(
+                (value): value is number => Number.isInteger(value) && value >= 0,
+              )
+            : [];
+          if (declared.length > 0
+            && (declared.length !== areaSelection.regions.length
+              || declared.some((value, index) => value !== areaSelection.regions[index]))) {
+            throw new BlockedCapabilityError(
+              'region-selector',
+              `${feature.name} 面积证据选集 ${JSON.stringify(areaSelection.regions)} ` +
+              `与 scenario 声明 ${JSON.stringify(declared)} 不一致`,
+            );
+          }
+          const {
+            regionRisk: _regionRisk,
+            regions: _regions,
+            regionIndex: _regionIndex,
+            ...areaSelectionRest
+          } = areaSelectionRaw;
+          effectiveFeature = {
+            ...effectiveFeature,
+            params: {
+              ...(effectiveFeature.params as Record<string, unknown>),
+              selection: {
+                ...areaSelectionRest,
+                regions: areaSelection.regions,
+                regionIndex: areaSelection.regions[0],
+              },
+            },
+          };
+          if (process.env.EXAMPLE_DEBUG_REGIONS === '1') {
+            console.log(
+              `[regions] ${feature.name} sketch=${sourceSketchId} area=${areaParams.profileAreaMm2} ` +
+              `actual=` + JSON.stringify((sketch?.regions ?? []).map((region, index) => ({
+                i: index,
+                area: region.area,
+                outer: region.outerEntityIds,
+                hole: region.holeEntityIds ?? [],
+              }))) +
+              ` selected=${JSON.stringify(areaSelection.regions)} delta=${areaSelection.delta}`,
+            );
+          }
+          sketchRegionAreaNote =
+            `profileArea=${areaParams.profileAreaMm2}mm² → 面域 ${areaSelection.regions.join(',')}` +
+            `（Δ=${areaSelection.delta.toFixed(6)}mm²；产品面域面积唯一解）` +
+            `${declared.length > 0 ? '，与 scenario 声明一致' : ''}`;
         }
       }
       // regionRisk：converter 用 deterministicIds 数量近似多面域选集，可能与实际
@@ -730,6 +829,7 @@ export async function runScenario(
         translated.notes.push(profileRegionNote);
         if (!profileRegionNote.includes('→ 面域')) translated.approximate = true;
       }
+      if (sketchRegionAreaNote !== undefined) translated.notes.push(sketchRegionAreaNote);
       if (regionAuditNote !== undefined) {
         translated.notes.push(regionAuditNote);
         translated.approximate = true;
