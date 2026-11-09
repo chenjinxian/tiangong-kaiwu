@@ -60,6 +60,22 @@ describe('selectProfileRegionsByArea', () => {
     })).toBeUndefined();
   });
 
+  it('校准回退（2e-7、无绝对下限）仍拒绝近面积同面数子集', () => {
+    // P2.2 required-less 回退的容差是 target*2e-7（无 1mm² 下限）：目标
+    // 100.2 时 tolerance≈2e-5，100（Δ−0.2）与 100.5（Δ+0.3）都不在容差内。
+    const areas = regions([100, 100.5]);
+    expect(selectProfileRegionsByArea(areas, 100.2, {
+      toleranceRatio: 2e-7,
+      toleranceMm2: 0,
+    })).toBeUndefined();
+    // 边界校准而非零容差：目标 100.00002（Δ−2e-5 < tolerance≈2.0000004e-5）
+    // 接受面积 100，证明该回退仍能吸收采集值/产品求值的极小数值差。
+    expect(selectProfileRegionsByArea(areas, 100.00002, {
+      toleranceRatio: 2e-7,
+      toleranceMm2: 0,
+    })?.regions).toEqual([0]);
+  });
+
   it('必需面域越界/非法输入 → undefined', () => {
     expect(selectProfileRegionsByArea(regions([10, 20]), 10, { requireRegions: [2] })).toBeUndefined();
     expect(selectProfileRegionsByArea(regions([10, Number.NaN]), 10)).toBeUndefined();

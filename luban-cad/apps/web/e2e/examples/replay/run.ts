@@ -344,12 +344,13 @@ export async function runScenario(
                 // 逐边命中优先作为“必须在选集内”的约束（保留查询选中的位置），
                 // 面积证据只负责补全/裁决；只有被逐边约束后无唯一解时才独立按
                 // 面积求解（Part 3/4 这类逐边命中本身错的极端情况）。
-                // 面面积证据是精确值：用 1e-7 相对容差并关闭 shared 的 1mm²
-                // 绝对容差下限（toleranceMm2: 0；约 0.0004mm² @4069），避免把
-                // “面积接近但几何不同”的 5 面域子集也当候选。逐边命中仍优先作为
-                // 必须面域；只有无唯一解时才独立按面积求解（该 fallback 保留
-                // shared 缺省绝对下限，用于吸收 Onshape 采集面积与产品面域求值的
-                // 极小数值差，例如 Drive Sleeve 的 1.3e-7 相对差）。
+                // 面面积证据是精确值：主路径用 1e-7 相对容差并关闭 shared 的
+                // 1mm² 绝对容差下限（toleranceMm2: 0；约 0.0004mm² @4069），
+                // 避免把“面积接近但几何不同”的 5 面域子集也当候选。逐边命中仍
+                // 优先作为必须面域；只有无唯一解时才独立按面积求解。该校准回退
+                // 同样关闭绝对下限，改用有界 2e-7 相对容差：覆盖 Onshape
+                // bodydetails 采集面积与产品面域求值的实测极小差（Drive Sleeve
+                // 1.34e-7），仍比 1mm² 绝对下限严格约三个数量级。
                 let areaSelection = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
                   ...(required.length > 0 ? { requireRegions: required } : {}),
                   ...(profileBoundsMm ? { profileBoundsMm } : {}),
@@ -360,7 +361,8 @@ export async function runScenario(
                 if ((!areaSelection || areaSelection.ambiguous) && required.length > 0) {
                   const withoutRequired = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
                     ...(profileBoundsMm ? { profileBoundsMm } : {}),
-                    toleranceRatio: 1e-7,
+                    toleranceRatio: 2e-7,
+                    toleranceMm2: 0,
                   });
                   if (withoutRequired && !withoutRequired.ambiguous) {
                     areaSelection = withoutRequired;

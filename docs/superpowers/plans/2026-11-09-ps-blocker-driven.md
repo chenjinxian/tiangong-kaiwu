@@ -615,10 +615,12 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   （历史问题另列）。
 - **面面积 oracle 精确化**：`run.ts` 的两个精确证据调用点传
   `toleranceMm2: 0`（容差=target×1e-7），新增 shared 回归测试（目标 100.2、
-  面域 100/100.5 → undefined，不再静默吃 1 mm² 绝对下限）；shared
-  **193/193**。P2.2 的 required-less 校准 fallback 仍保留 shared 缺省绝对下限，
-  用于吸收 Onshape 采集面积与产品面域求值的极小数值差（Drive Sleeve 实测
-  1.34e-7 相对差；主精确路径与 P2.3 均已精确）。
+  面域 100/100.5 → undefined，不再静默吃 1 mm² 绝对下限）；shared **193/193**。
+  P2.2 的 required-less 校准 fallback 也关闭绝对下限，改用有界
+  `toleranceRatio: 2e-7`（覆盖 Drive Sleeve 实测 1.34e-7 的 Onshape
+  bodydetails vs 产品面域求值差，仍比 1mm² 绝对下限严格约三个数量级）；
+  回归测试证明近面积同面数子集（100.2 vs 100/100.5）在该回退容差下仍被拒绝，
+  而 2e-5 量级的校准差可被接受。主精确路径与 P2.3 保持 1e-7，无任何绝对下限。
 - **P2.3 fail-closed**：scenario 声明的 `regions` 非数组/空集/非整数/负数/重复
   一律 `BlockedCapabilityError`（不再静默过滤）；唯一解后同时移除 `selection`
   与顶层 `params` 的 `regionRisk`。
