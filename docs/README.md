@@ -79,7 +79,8 @@
 ### 发布与迁移
 | 文档 | 说明 |
 |------|------|
-| [RELEASE-backend-20261106.md](./RELEASE-backend-20261106.md) | 最新发布说明（外部本地部署：4 个公开镜像 + MS 1.32 产物；匿名冷拉/17 项全栈验收） |
+| [RELEASE-backend-20261109.md](./RELEASE-backend-20261109.md) | 最新发布说明（草图/特征能力检查点：4 个公开镜像 + MS **1.63.0** 产物；匿名冷拉/17 项全栈验收） |
+| [RELEASE-backend-20261106.md](./RELEASE-backend-20261106.md) | 历史发布说明（外部本地部署：4 个公开镜像 + MS 1.32 产物；匿名冷拉/17 项全栈验收） |
 | [RELEASE-backend-20261101-p28c.md](./RELEASE-backend-20261101-p28c.md) | 历史发布说明（B 数据模型 P2 / 命名迁移 / legacy schema 退役） |
 | [RELEASE-CHECKLIST.md](./RELEASE-CHECKLIST.md) | 发布检查清单（产物 hash / native provenance / 限流姿态 / 镜像标签 / 公开可见性 / verify-stack） |
 | [RELEASE-backend-20261028c.md](./RELEASE-backend-20261028c.md) | 历史发布说明（MS #45 redo 栈修复） |

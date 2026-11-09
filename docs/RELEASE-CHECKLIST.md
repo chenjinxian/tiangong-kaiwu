@@ -8,7 +8,7 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 - [ ] public / backend / hub 三仓工作区干净，main 已推送；发布用的 public 提交
       固定记录在 ADR（不钉文档提交 HEAD）。
-- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.32.0**）；RPC
+- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.63.0**）；RPC
       interfaceName 只有 `LubanRpcInterface` / `LubanFeatureRpcInterface`。
 - [ ] legacy schema 退役状态已同步（旧数据审计零命中；现行代码不再读写）。
 
@@ -28,10 +28,11 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 ## 3. 单元 / 集成门
 
-- [ ] backend 全量 `pnpm test`（本机完整构建；当前基线 **754 passed /
-      8 skipped**，shared 1.32 实测）；注意全量 feature 测试不进入托管 CI，属发布前本地门。
-- [ ] public：shared **159**、viewer **127**、editor **29**、web
-      **1389**（2026-11-06 基线；新增测试后以实际为准）。
+- [ ] backend 全量 `pnpm test`（本机完整构建；当前基线 **883 passed /
+      1 expected fail / 8 skipped**，shared 1.63 实测）；注意全量 feature 测试
+      不进入托管 CI，属发布前本地门。
+- [ ] public：shared **171**、viewer **127**、editor **29**、web
+      **1527**（2026-11-09 基线；新增测试后以实际为准）。
 - [ ] 各包 `tsc` / `lint` 0 错；e2e `typecheck:e2e` 0 错。
 
 ## 4. 真栈 e2e（需干净限流窗口）

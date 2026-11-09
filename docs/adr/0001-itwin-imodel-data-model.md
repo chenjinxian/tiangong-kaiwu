@@ -1115,3 +1115,24 @@ legacy `subclass` 别名与 `subClass` 同口径按枚举校验，任意字符�
   backend security **16/16**；viewer tsc/build/lint 0；backend tsc/lint 0。
 - **边界**：全量 Playwright 仍使用测试专用覆盖 2000/900000（默认 100/15min 不适合长套件），
   跑后恢复生产默认；不得把有界等待当作取消测试覆盖/干净窗口的理由。
+
+### 15.15 草图/特征能力检查点发布（2026-11-09，backend-20261109）
+
+- **范围**：把 shared 契约 1.32.0 → **1.63.0** 的草图/特征/UI 能力作为公开
+  产物发布；完整说明与逐项 digest 见 `docs/RELEASE-backend-20261109.md`。
+- **源码基线**：public `fd5291682d`、backend `c52861c`、hub `61e78c5`。
+- **产物**：web `sha256:1d7555d2…`、bff `sha256:ddf1d5be…`、hub `sha256:f6f07559…`、
+  WA `sha256:e66de9ba…`（tag `backend-20261109` 与 `latest` 同 digest）；MS tgz
+  `sha256:1f4c1647…`（179,035,866 B）；部署包 `sha256:a877234d…`（56,862 B）。
+  4 个 GHCR 包匿名 manifest 200。
+- **发布门**：`verify-public-deps.ps1` **11/11**；`release-gate.ps1` **FAIL=0
+  WARN=1**（WARN = 显式 native store fallback）；内联 `verify-stack.ps1`
+  **17/17**；backend **883 passed / 1 expected fail / 8 skipped**；shared
+  **171/171**；web **1527/1527**；浏览器加载 :5301 标题 LubanCAD、console 0 error。
+- **native provenance**：imodeljs-native 5.15.5，store dev build 2026-11-02 早于
+  imodel-native HEAD `d34a8a38`（2026-11-04）；required tag v5.15.5 已包含；
+  fallback 已记录并披露。
+- **残项**：本次未在发布窗口重跑全量 Playwright（按切片级真栈 + verify-stack
+  验收）；真实 PS 示例仍受 imprint/外部引用/selector/多体/数据缺口阻塞，完成率
+  无变化；后续按 `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`
+  的 PS blocker 重排计划推进。
