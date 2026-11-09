@@ -270,6 +270,16 @@ export type {
 } from './sketch/imprint-region.js';
 
 // =============================================================================
+// 面域面积证据选择（2026-11-09 P2.2：面选择查询在被分割面集上的精确反解）
+// =============================================================================
+export { selectProfileRegionsByArea } from './sketch/profile-area-select.js';
+export type {
+  AreaSelectableRegion,
+  ProfileAreaSelectOptions,
+  ProfileAreaSelection,
+} from './sketch/profile-area-select.js';
+
+// =============================================================================
 // op DSL v1（RW2-T5：FeatureOp 链双向序列化，KCL 等价物第一步）
 // =============================================================================
 export { opsToDsl, dslToOps, OpDslParseError } from './opDsl.js';

@@ -187,6 +187,37 @@ test.describe('scenario → FeatureOp', () => {
     expect(step.notes.join(' ')).toContain('CAP_FACE 起始面');
   });
 
+  test('CAP_FACE 反向起始面（P2.1b）：负 startOffsetMm + 起始面法向换算后的 forward', () => {
+    const step = translateScenarioFeature({
+      type: 'extrude',
+      name: 'Extrude 4',
+      params: {
+        operation: 'remove',
+        endBound: 'blind',
+        depthMm: 16.256,
+        oppositeDirection: false,
+        selection: {
+          kind: 'capFaceExtrude',
+          sketchFeatureId: 's',
+          regions: [0],
+          startOffsetMm: -63.5,
+          approximateStartOffset: true,
+        },
+      },
+    }, { sketchIdBySource: new Map([['s', 'sk']]) });
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.params).toMatchObject({
+      sketchId: 'sk',
+      regions: [0],
+      startOffsetMm: -63.5,
+      distance: 16.256,
+      operation: 'remove',
+    });
+    // 起始面在草图平面反侧，产品 direction 缺省 forward（负偏移已表达位置）。
+    expect(step.op.params).not.toHaveProperty('direction');
+  });
+
   test('extrude 拔模与 symmetric/非 blind 冲突 → blocked', () => {
     const context = { sketchIdBySource: new Map([['s', 'sk']]) };
     expect(() => translateScenarioFeature({

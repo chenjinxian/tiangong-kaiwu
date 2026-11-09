@@ -335,3 +335,94 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 - 后续 P2.1b：capFaceExtrude 支持上游 imprintFace（复制 queries，回放侧先按
   边侧选面域，再设 startOffset），并补 CONCENTRIC refs；两者都绿后 Drive Sleeve
   才能严格转绿。不得只做其一就宣称完成。
+
+## P2.1b 执行记录（2026-11-09，CAP_FACE 上游 imprint + hole scope）
+
+- **converter**
+  - `resolveCapFaceExtrude` 受理上游 imprintFace：复制全部上游 imprint queries
+    （草图实体 + ±1），并从**下游 CAP_FACE** 的 `originalSetDisambiguation`
+    提取边界边 UUID → 草图实体（Drive Sleeve：边 2/4/5/6/7）。
+  - 方向按起始面法向换算：`capNormal=上游方向`，
+    `productDirection=capNormal×下游opposite`；`startOffsetMm=capNormal×depth`。
+    Drive Sleeve Extrude 4 → `startOffset=-63.5`、`direction=forward`。
+  - 修复 `.opExtrude` 明文后缀解析（旧正则只认 `$idopExtrude`，CAP_FACE 从未
+    被识别）。
+  - hole `scope` 同样剥 `.op*` 后缀；旧实现 scope 恒空 → 回放器不建 body
+    质心上下文 → 孔方向缺省 forward 钻向空处（Hole 1 零体积）。
+- **runner**：CAP_FACE 边界边优先按“面域边界包含全部边”选面域（面选择语义），
+  无命中才回退逐边侧向；CAP_FACE 步禁走 A1 faceExtrude（否则丢掉 startOffset）。
+- **真栈证据（Drive Sleeve, Intermediate Drawing）**：树 8/8 **status=0**；
+  Hole 1 `direction=backward`（body 质心在草图法线负侧），6 孔真实去材；
+  体积 **1,388,291.491 vs 1,175,024.308 mm³ = +18.1%**（known-red）。
+  修正前 Extrude 4 无效果、Hole/pattern 零去材。
+- **剩余根因（blocked-selector，不属于 CAP_FACE）**：Extrude 1 的 8 条 imprint
+  查询在被草图线分割的面上各选一个子面；当前 region 引擎按整条边选唯一面域且
+  NEW 多查询收敛到主导 region 0。正确 face set（内盘子面并集）需要
+  **edge-split 面集 resolver**（P2.2）。Drive Sleeve 严格断言保留 `test.fail`。
+- **回归**：Bumper Block 仍 657,764.787（+3.303%）；scenario-to-op **50/50**。
+- **index**：CONCENTRIC 补入 converter 能力表（原漏登记导致 50 PS 误报）；
+  新增 `blocked-selector` 分类与 known-selector 表，两条 Drive Sleeve 从
+  `blocked-converter` → `blocked-selector`；strict `replicable-now` **保持 7**
+  （没有把 known-red 算绿）。`verify-example-index` 0 errors / 5 warnings。
+- **下一步**：P2.2 统一 selector resolver——先做 **edge-split face set**
+  （Drive Sleeve 转绿信号），再做 capFace/sweptFace/face/axis 的合成真栈矩阵。
+
+## P2.2 执行记录（2026-11-09，面面积证据选择 + CAP_FACE isStart）
+
+- **根因（P2.1b 剩余 +18.1%）不是边侧符号，而是“面集反解”**：Onshape 的
+  imprint/CAP_FACE 查询在被草图内部分割的面上逐条定位子面；product 面域引擎
+  对同一条边只能给出一个相邻面域，多查询会重复/漏选。Drive Sleeve Extrude 1
+  实际选 8 个面域（4 大扇区 + 3 中扇区 + 槽区），旧实现收敛到 region 0。
+- **新能力（test-only replay，无 RPC/`interfaceVersion` 变更）**：
+  - 私有采集：Onshape `bodydetails?includeTopology=true` 提供最终 BRep 面
+    `id/area/box/surface`（只读 API；Drive Sleeve 证据落私有仓）。
+  - 公共 shared：`selectProfileRegionsByArea`（`sketch/profile-area-select.ts`）
+    在 product `SketchRegionDto.area` 上枚举子集，按目标面积选唯一解；多解等距
+    返回 `ambiguous`，调用方必须登记，禁止按面积排序猜前缀。
+  - scenario 新增可选证据字段 `profileAreaMm2` / `profileAreaEvidence`（params
+    自由对象，无需 schema 变更）；converter 对 Drive Sleeve 四段拉伸携带
+    10530.0589 / 25208.7599 / 3230.2602 / 4069.5386 mm²。
+  - runner：有面积证据时先保留逐边查询命中作为必需面域，再做面积子集选择；
+    CAP_FACE 不受逐边结果约束；NEW 的 `dominantImprintRegion` 启发式在面积
+    证据命中后必须跳过（否则 8 面域会被收敛回 region 0）。
+  - **CAP_FACE `isStart` 语义修正**：`isStart:true` 指上游拉伸的**起始端盖**
+    （草图平面），`false` 指深度端盖。Drive Sleeve Extrude 4 从 z=0 的起始端盖
+    向材料内切 16.256（startOffset=0，direction=backward），不是从 −63.5 端盖
+    向前切；Bumper `isStartF` 保持 startOffset=+40。
+- **真栈（严格）**：
+  - Drive Sleeve ×2（Intermediate Drawing / Update Drawing）
+    **1,175,022.882 vs 1,175,024.308 mm³（0.00012%）**，8/8 status=0，
+    push+冷重开一致；**test.fail 移除，转严格绿**。
+  - Bumper Block 保持 657,764.787（+3.303%，record）；scenario-to-op 50/50。
+  - shared 新增 selector 单测 8/8（含 Drive Sleeve 10530.06/4069.54 回归与
+    多解 ambiguous）。
+- **索引**：strict `replicable-now` **7 → 9**（Drive Sleeve 两份副本）；
+  `verify-example-index` 0 errors / 5 warnings。`blocked-selector` 分类保留，
+  但本批两条 PS 移出 known-selector 表。
+- **下一步**：把面积证据采集扩展到其余 `blocked-selector`/`regionRisk` PS
+  （P2.2 批量化）；selector 仍未覆盖的 sweptFace/axis 走同一证据通道或
+  如实 blocked-selector。
+
+## P4.2 / P6 执行记录（2026-11-09，Intro to CAD 1.2 数据 + 草图建面）
+
+- **数据采集（只读 Onshape API）**：对 `Intro to CAD - 1.2`（c6a3cd）与
+  `1.2-1.4`（dfc6e3）补 parts/per-part mass；批量转换 Part 1–6 场景。
+- **converter quick wins**：
+  - **草图建在上游拉伸端盖**：`planeDto` 支持 CAP_FACE/SWEPT_FACE 草图平面，
+    通过上游 extrude 的**源草图 sketchMatrix** + `isStart`/深度静态推导端盖
+    平面；Part 1/5/6 不再报“不支持的草图平面”。
+  - **压缩 imprint 识别**：`$imprint`/`S7$IMPRINT`（无点号）不再落 unknown；
+    Part 1–6 的 extrude 选择全部映射。
+- **真栈**：
+  - **Part 1 / Part 2 严格绿**：409,676.600 / 294,967.152 mm³ 与采集值
+    **0.000%**，树/status/body/push+重开全绿。
+  - Part 3 / Part 4 known-red：同一草图被 region 引擎切成 9 个**同面积**
+    645.16 区域，三块矩形轮廓面积分别为 3/2/1 格（1935.48/1290.32/645.16）；
+    仅面积证据多解，且 ADD 之间还要求位置不重叠 → 当前 −35.7% / −62.5%，
+    `blocked-selector`（需要位置/拓扑证据）。
+  - Part 5 / Part 6 known-red：Sketch 2 只有单条线，imprintFace 需要实体面
+    split；当前草图 0 面域 → `blocked-selector`（face split）。
+  - 新 `intro-cad-parts.spec.ts`：2 strict + 4 test.fail；index strict
+    `replicable-now` **9 → 11**，blocked-selector 4。
+- **下一步**：位置+面积联合证据（同面积面域需拓扑邻接/质心），以及单线
+  imprint 的实体面 split；不得用任意同面积子集冒充精确轮廓。

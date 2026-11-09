@@ -17,6 +17,7 @@ import {
   imprintEdgeSideFromSign,
   pickImprintRegionByEdgeSide,
   resolveImprintEdgeGeometry,
+  selectProfileRegionsByArea,
 } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
@@ -188,6 +189,10 @@ export async function runScenario(
             sketchEntityId?: number;
             queryString?: string;
             imprintSign?: number;
+            startOffsetMm?: number;
+            oppositeDirection?: boolean;
+            /** CAP_FACE `originalSetDisambiguation` 边界边 → 上游草图面域（P2.1b）。 */
+            capFaceEdges?: { sketchFeatureId?: string; entityIds?: number[] };
             queries?: Array<{
               sketchFeatureId?: string;
               sketchEntityId?: number;
@@ -196,19 +201,33 @@ export async function runScenario(
             }>;
           };
         }).selection;
-        if (selection?.kind === 'imprintFace') {
-          const queries = Array.isArray(selection.queries) && selection.queries.length > 0
+        // 2026-11-09（P2.1b）：CAP_FACE 起始面的上游也可以是 imprintFace
+        // （Drive Sleeve：Extrude 1 帽面）。此时面域仍按 sketch imprint 有向边侧
+        // 选；startOffset/direction 由 converter 按草图法向预换算，保留在顶层参数。
+        const isCapFace = selection?.kind === 'capFaceExtrude';
+        const capFaceEdgeIds = isCapFace && Array.isArray(selection?.capFaceEdges?.entityIds)
+          ? selection.capFaceEdges.entityIds.filter((id): id is number => Number.isInteger(id))
+          : [];
+        const hasCapFaceEdges = capFaceEdgeIds.length > 0;
+        if (selection?.kind === 'imprintFace'
+          || (isCapFace && ((selection.queries?.length ?? 0) > 0 || hasCapFaceEdges))) {
+          const rawQueries = Array.isArray(selection.queries) && selection.queries.length > 0
             ? selection.queries
-            : [{
+            : [];
+          const queries = rawQueries.length > 0
+            ? rawQueries
+            : !hasCapFaceEdges ? [{
                 sketchFeatureId: selection.sketchFeatureId,
                 sketchEntityId: selection.sketchEntityId,
                 queryString: selection.queryString,
                 imprintSign: selection.imprintSign,
-              }];
+              }] : [];
           const sketchSources = new Set(
-            queries.map((query) => query.sketchFeatureId).filter(
-              (value): value is string => typeof value === 'string',
-            ),
+            [
+              ...queries.map((query) => query.sketchFeatureId),
+              ...(isCapFace && selection.capFaceEdges?.sketchFeatureId
+                ? [selection.capFaceEdges.sketchFeatureId] : []),
+            ].filter((value): value is string => typeof value === 'string'),
           );
           const regions: number[] = [];
           const parts: string[] = [];
@@ -233,44 +252,119 @@ export async function runScenario(
                   }))),
                 );
               }
-              for (const query of queries) {
-                if (typeof query.sketchEntityId !== 'number') {
-                  reason = '查询缺 sketchEntityId';
-                  imprintAllExact = false;
-                  break;
-                }
-                const sign = typeof query.imprintSign === 'number'
-                  ? query.imprintSign
-                  : imprintSignFromQuery(query.queryString);
-                // v1.63+（2026-11-09）：Onshape 的 +1/−1 是**有向边左/右侧**，
-                // 不是孔侧/外环。优先用 shared 的边侧精确选择；边界/边型不支持时
-                // 才回退旧启发式并保持 approximate 登记。
-                const edgeSide = imprintEdgeSideFromSign(sign);
-                const edge = resolveImprintEdgeGeometry(sketch?.entities ?? [], query.sketchEntityId);
-                const exactPick = edge && edgeSide
-                  ? pickImprintRegionByEdgeSide(sketch?.regions, query.sketchEntityId, edge, edgeSide)
-                  : undefined;
-                const side: ImprintSide | undefined = imprintSideFromSign(sign);
-                const pick = exactPick ?? pickImprintRegion(sketch?.regions, query.sketchEntityId, side);
-                if (!exactPick) imprintAllExact = false;
-                if (!pick) {
-                  reason = `实体 ${query.sketchEntityId} 无${edgeSide ? `边侧 ${edgeSide}` : side ?? '孔洞/外环'}候选面域`;
-                  break;
-                }
-                regions.push(pick.regionIndex);
-                parts.push(
-                  `实体 ${query.sketchEntityId} ${pick.basis}` +
-                  `${exactPick ? `/edge-${edgeSide}` : side ? `/${side}(fallback)` : ''} area=${pick.area.toFixed(3)}`,
+              if (process.env.EXAMPLE_DEBUG_REGION_BOUNDS === '1') {
+                console.log(
+                  `[region-bounds] ${feature.name} ` +
+                  JSON.stringify(sketch?.regions ?? []),
                 );
+              }
+              // P2.1b：实体面选择是“这些边界边共同围成的**一个**面”，不是逐边
+              // 侧向并集。面域边界包含全部边界边时精确命中；否则回退到逐边侧向。
+              let faceRegionPicked = false;
+              if (hasCapFaceEdges) {
+                const matched = (sketch?.regions ?? []).map((region, index) => {
+                  const boundary = new Set([
+                    ...(region.outerEntityIds ?? []),
+                    ...(region.holeEntityIds ?? []),
+                  ]);
+                  return { index, boundary };
+                }).filter((entry) => capFaceEdgeIds.every((id) => entry.boundary.has(id)));
+                if (matched.length > 0) {
+                  for (const entry of matched) regions.push(entry.index);
+                  parts.push(
+                    `CAP_FACE 边界边 ${capFaceEdgeIds.join(',')} → 面域 ${matched.map((entry) => entry.index).join(',')}（全部边在面域边界）`,
+                  );
+                  faceRegionPicked = true;
+                } else {
+                  imprintNotes.push(
+                    `CAP_FACE 边界边 ${capFaceEdgeIds.join(',')} 无单一面域命中（回退逐边侧向）`,
+                  );
+                }
+              }
+              if (!faceRegionPicked) {
+                for (const query of queries) {
+                  if (typeof query.sketchEntityId !== 'number') {
+                    reason = '查询缺 sketchEntityId';
+                    imprintAllExact = false;
+                    break;
+                  }
+                  const sign = typeof query.imprintSign === 'number'
+                    ? query.imprintSign
+                    : imprintSignFromQuery(query.queryString);
+                  // v1.63+（2026-11-09）：Onshape 的 +1/−1 是**有向边左/右侧**，
+                  // 不是孔侧/外环。优先用 shared 的边侧精确选择；边界/边型不支持时
+                  // 才回退旧启发式并保持 approximate 登记。
+                  const edgeSide = imprintEdgeSideFromSign(sign);
+                  const edge = resolveImprintEdgeGeometry(sketch?.entities ?? [], query.sketchEntityId);
+                  const exactPick = edge && edgeSide
+                    ? pickImprintRegionByEdgeSide(sketch?.regions, query.sketchEntityId, edge, edgeSide)
+                    : undefined;
+                  const side: ImprintSide | undefined = imprintSideFromSign(sign);
+                  const pick = exactPick ?? pickImprintRegion(sketch?.regions, query.sketchEntityId, side);
+                  if (!exactPick) imprintAllExact = false;
+                  if (!pick) {
+                    reason = `实体 ${query.sketchEntityId} 无${edgeSide ? `边侧 ${edgeSide}` : side ?? '孔洞/外环'}候选面域`;
+                    break;
+                  }
+                  regions.push(pick.regionIndex);
+                  parts.push(
+                    `实体 ${query.sketchEntityId} ${pick.basis}` +
+                    `${exactPick ? `/edge-${edgeSide}` : side ? `/${side}(fallback)` : ''} area=${pick.area.toFixed(3)}`,
+                  );
+                }
+              }
+              // 面面积证据（P2.2）：面选择查询被草图内部分割成多个子面时，逐边
+              // 查询无法唯一还原整组被选面。若 scenario 带 Onshape 面面积 oracle，
+              // 在 product 面域里找唯一子集；非 CAP_FACE 查询必须包含逐边命中。
+              const profileAreaMm2 = (feature.params as { profileAreaMm2?: unknown }).profileAreaMm2;
+              let profileAreaSelected = false;
+              if (typeof profileAreaMm2 === 'number' && Number.isFinite(profileAreaMm2)
+                && (sketch?.regions?.length ?? 0) > 0) {
+                const required = isCapFace ? [] : Array.from(new Set(regions));
+                const regionAreas = sketch!.regions!.map((region) => ({ area: region.area }));
+                // 面积证据优先独立求解；只有多解时才用逐边命中做约束。逐边命中
+                // 本身可能因半段/面集而错（Part 3/4），不能被它绑死。
+                let areaSelection = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
+                  toleranceRatio: 0.002,
+                });
+                let usedRequired = false;
+                if ((!areaSelection || areaSelection.ambiguous) && required.length > 0) {
+                  areaSelection = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
+                    requireRegions: required,
+                    toleranceRatio: 0.002,
+                  });
+                  usedRequired = true;
+                }
+                if (areaSelection && !areaSelection.ambiguous) {
+                  const overridesQueryPicks = !usedRequired
+                    && required.some((index) => !areaSelection!.regions.includes(index));
+                  regions.length = 0;
+                  regions.push(...areaSelection.regions);
+                  faceRegionPicked = true;
+                  profileAreaSelected = true;
+                  parts.push(
+                    `profileArea=${profileAreaMm2}mm² → 面域 ${areaSelection.regions.join(',')}` +
+                    `（Δ=${areaSelection.delta.toFixed(3)}mm²；Onshape 面面积证据` +
+                    `${overridesQueryPicks ? '；覆盖逐边命中' : ''}）`,
+                  );
+                } else {
+                  imprintNotes.push(
+                    `profileArea=${profileAreaMm2}mm² 无唯一面域子集` +
+                    `（${areaSelection?.ambiguous ? '多解等距' : '容差内无解'}；保留逐查询结果）`,
+                  );
+                }
               }
               if (process.env.EXAMPLE_DEBUG_IMPRINT === '1') {
                 console.log(
                   `[imprint] ${feature.name}: queries=${JSON.stringify(queries.map((query) => ({
                     s: query.sketchFeatureId, e: query.sketchEntityId, sign: query.imprintSign ?? imprintSignFromQuery(query.queryString),
-                  })))} regions=${JSON.stringify(regions)} reason=${reason ?? '-'}`,
+                  })))} capFaceEdges=${JSON.stringify(capFaceEdgeIds)} regions=${JSON.stringify(regions)} ` +
+                  `areaSelected=${profileAreaSelected} parts=${JSON.stringify(parts)} notes=${JSON.stringify(imprintNotes)} reason=${reason ?? '-'}`,
                 );
               }
-              let merged = mergeImprintRegions(regions, reason);
+              let merged = faceRegionPicked
+                ? { regions: Array.from(new Set(regions)), partial: false }
+                : mergeImprintRegions(regions, reason);
               if (merged && sketch?.regions) {
                 const queryEntityIds = queries
                   .map((query) => query.sketchEntityId)
@@ -278,7 +372,9 @@ export async function runScenario(
                 // 仅 NEW：首段轮廓是“草图面本身”，多查询应收敛到大材料面；
                 // add/remove 的 imprint 落在已演化 body 的某个子面上，静态收敛会过选。
                 const dominantOp = String((feature.params as Record<string, unknown>).operation ?? '').toLowerCase();
-                const dominant = dominantOp === 'new'
+                // 面面积证据已是完整选集；不能再被 NEW 主导面域启发式收敛回
+                // region 0（Drive Sleeve Extrude 1 曾因此从 8 面域退回单环）。
+                const dominant = dominantOp === 'new' && !profileAreaSelected
                   ? dominantImprintRegion(sketch.regions, queryEntityIds, merged.regions)
                   : undefined;
                 if (dominant && (merged.regions.length > 1 || !merged.regions.includes(dominant.regionIndex))) {
@@ -293,7 +389,8 @@ export async function runScenario(
               if (merged) {
                 let usedFaceExtrude = false;
                 // A1：非 NEW 且单区域时，尝试把“整面一致”的 imprint 改走 faceExtrude。
-                if (options.imprintFaceResolver && merged.regions.length === 1 && sketch?.regions) {
+                // CAP_FACE 起始面必须走 startOffset 通道，不能被整面 faceExtrude 吞掉偏移。
+                if (!isCapFace && options.imprintFaceResolver && merged.regions.length === 1 && sketch?.regions) {
                   const extrudeParams = feature.params as Record<string, unknown>;
                   const operation = String(extrudeParams.operation ?? '').toLowerCase();
                   const endBoundRaw = String(extrudeParams.endBound ?? 'blind')
@@ -348,8 +445,13 @@ export async function runScenario(
                       },
                     },
                   };
+                  const capFaceOffsets = isCapFace
+                    ? `startOffset=${selection.startOffsetMm ?? '?'}mm/` +
+                      `direction=${selection.oppositeDirection ? 'backward' : 'forward'}；`
+                    : '';
                   imprintNotes.push(
-                    `imprintFace→草图面域 ${merged.regions.join(',')}（${parts.join('；')}；` +
+                    `${isCapFace ? 'CAP_FACE 起始面→上游 imprint 草图面域' : 'imprintFace→草图面域'} ` +
+                    `${merged.regions.join(',')}（${capFaceOffsets}${parts.join('；')}；` +
                     (merged.partial ? `部分查询未解析：${reason}；` : '') +
                     (imprintAllExact
                       ? '有向边左/右侧精确选择）'
@@ -363,7 +465,9 @@ export async function runScenario(
           if (reason !== undefined) {
             imprintAllExact = false;
             imprintApproximate = true;
-            imprintNotes.push(`imprintFace 保留原查询近似：${reason}`);
+            imprintNotes.push(
+              `${isCapFace ? 'CAP_FACE 起始面' : 'imprintFace'} 保留原查询近似：${reason}`,
+            );
           }
         }
       }
