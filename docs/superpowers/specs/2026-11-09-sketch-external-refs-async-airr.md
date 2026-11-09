@@ -302,7 +302,8 @@ interface ProjectionSnapshotKey {
    *  {entityId, source} 列表（derived !== true）按 entityId 排序后的 canonical JSON。 */
   sourceDigest: string;
   /** 全部源 body 的 revision 规范摘要：逐 body =
-   *  (bodyId, 产出/修改特征 id, 该特征链 params canonical digest, lastBodyWriteEpoch)。 */
+   *  (bodyId, 产出/修改特征 id, 该特征链 params canonical digest,
+   *   lastBodyWriteEpoch（进程内提交纪元）)。 */
   bodyRevision: string;
   /** scope 级全局失效纪元：undo/redo、import/迁移、无唯一 body 的直接编辑、
    *  可能重接投影依赖的结构性图变更时 bump（进程内单调）。 */
@@ -327,7 +328,8 @@ interface ProjectionSnapshot {
 - **bodyRevision bump 规则（逐源 body）**：以下任一发生即 bump：该 body 的 FeatureOp
   insert/update/delete/suppress/undo/redo 提交；产出/修改该 body 的特征链 params
   变化；直接编辑提交改变该 body 几何/拓扑；body 创建/消费/删除。`lastBodyWriteEpoch`
-  由每次已提交的 body 写入（FeatureOp 或直接编辑 hook）分配为单调值，不是时间戳。
+  由每次已提交的 body 写入（FeatureOp 或直接编辑 hook）分配为**进程内单调值**，
+  不是时间戳，也不要求跨进程相等。
 - **changeEpoch bump 规则（scope 级）**：仅对**无法归属到具体 body** 的提交
   （undo/redo、import/迁移、无唯一 body 的直接编辑）以及可能重接投影依赖的**结构性
   图变更**（插入/删除/重排/抑制会改变 body 产出/修改特征或依赖边重接的操作）bump，
@@ -353,8 +355,9 @@ interface ProjectionSnapshot {
 | 只读 briefcase | 不写库；用已有快照；缺失=失败封闭（不触发写事务） |
 | 跨 Part Studio / 前向引用 / 循环 | 插入期直接拒收；不应产生快照 |
 
-- revision 的来源必须是**持久/可重建的**：产出特征 id + params 摘要 +
-  `lastBodyWriteEpoch`（提交纪元），不能依赖内存对象指针或时间。
+- revision 的**持久部分**=产出特征 id + 特征链 params 摘要（可从库重建）；
+  `lastBodyWriteEpoch` 只是**进程内失效**用的提交纪元，不要求跨进程持久/相等
+  （冷开缓存为空、重新求值会分配新纪元）。不得依赖内存对象指针或时间。
 - 不使用 TTL/时间过期作为正确性依据；时间只做诊断。
 
 ### 4.4 失败封闭语义
