@@ -610,8 +610,8 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   探针体积、内核错误码、私有 commit 范围与绝对私有路径；细节只保留私有
   `imodel-native` 审计台账指针。next 计划不再嵌入 native C++ 测试代码；P8
   记录已按 Task 6 聚合结论收敛。后端失败封闭守卫明确为**设计/未提交、尚未进入
-  产物**。全公共树扫描 `BL_MITRE`/`api_fix_blends`/`BlendMultiEdge`/私有哈希/
-  绝对私有路径已无实现证据残留。
+  产物**。全公共树扫描 native 错误码、探针名、私有 commit 哈希与绝对私有路径，
+  已无实现证据残留。
 - **面面积 oracle 精确化**：`run.ts` 的两个精确证据调用点传
   `toleranceMm2: 0`（容差=target×1e-7），新增 shared 回归测试（目标 100.2、
   面域 100/100.5 → undefined，不再静默吃 1 mm² 绝对下限）；shared
