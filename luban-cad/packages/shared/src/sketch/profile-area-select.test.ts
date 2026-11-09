@@ -61,6 +61,36 @@ describe('selectProfileRegionsByArea', () => {
     expect(selectProfileRegionsByArea(regions(many), 10, { maxRegions: 20 })).toBeUndefined();
   });
 
+  it('bbox 证据能区分同面积同形区域', () => {
+    const cells = [
+      { area: 645.16, bounds: { minX: 0, minY: 0, maxX: 25.4, maxY: 25.4 } },
+      { area: 645.16, bounds: { minX: 0, minY: 25.4, maxX: 25.4, maxY: 50.8 } },
+      { area: 645.16, bounds: { minX: 0, minY: 50.8, maxX: 25.4, maxY: 76.2 } },
+    ];
+    const picked = selectProfileRegionsByArea(cells, 1935.48, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 25.4, maxY: 76.2 },
+    });
+    expect(picked?.regions).toEqual([0, 1, 2]);
+    expect(picked?.ambiguous).toBe(false);
+  });
+
+  it('bbox 与选集不匹配 → undefined（不以面积/顺序猜）', () => {
+    const cells = [
+      { area: 645.16, bounds: { minX: 0, minY: 0, maxX: 25.4, maxY: 25.4 } },
+      { area: 645.16, bounds: { minX: 0, minY: 25.4, maxX: 25.4, maxY: 50.8 } },
+      { area: 645.16, bounds: { minX: 0, minY: 50.8, maxX: 25.4, maxY: 76.2 } },
+    ];
+    expect(selectProfileRegionsByArea(cells, 1935.48, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 25.4, maxY: 50.8 },
+    })).toBeUndefined();
+  });
+
+  it('有 bbox 目标但面域缺少 bounds → undefined（证据不全不猜）', () => {
+    expect(selectProfileRegionsByArea(regions([10, 20, 30]), 50, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+    })).toBeUndefined();
+  });
+
   it('Drive Sleeve 回归：8 面域 10530.06 / 内盘 4 面域 4069.54', () => {
     const driveSleeve = [
       18748.239558460496, 1615.1300896232754, 1615.1300896232754,

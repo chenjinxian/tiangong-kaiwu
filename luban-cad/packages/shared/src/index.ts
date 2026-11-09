@@ -277,6 +277,7 @@ export type {
   AreaSelectableRegion,
   ProfileAreaSelectOptions,
   ProfileAreaSelection,
+  RegionBoundsMm,
 } from './sketch/profile-area-select.js';
 
 // =============================================================================

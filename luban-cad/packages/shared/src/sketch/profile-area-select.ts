@@ -11,9 +11,19 @@
  * 且满足容差的唯一解。多个等距解 → `ambiguous`，调用方必须如实登记，禁止
  * 按面积/顺序猜一个。该工具不接触内核/RPC，只在 scenario replay 与测试中使用。
  */
+/** 面域包围盒（世界/草图 mm）。 */
+export interface RegionBoundsMm {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
 export interface AreaSelectableRegion {
   /** SketchRegionDto 的面积（mm²）。 */
   area: number;
+  /** 面域包围盒；提供目标 bbox 时必须存在。 */
+  bounds?: RegionBoundsMm;
 }
 
 export interface ProfileAreaSelection {
@@ -39,12 +49,39 @@ export interface ProfileAreaSelectOptions {
    * 由调用方登记 blocked-selector，禁止静默取前缀。
    */
   maxRegions?: number;
+  /** 目标面的世界/草图 bbox；有值时要求选集 union bbox 匹配。 */
+  profileBoundsMm?: RegionBoundsMm;
+  /** bbox 容差（mm，缺省 0.2）。 */
+  boundsToleranceMm?: number;
 }
 
 function bitCount(mask: number): number {
   let count = 0;
   for (let value = mask; value !== 0; value &= value - 1) count++;
   return count;
+}
+
+/** 选集内所有面域包围盒的并集；任一面域缺少 bounds → undefined。 */
+function unionBounds(regions: readonly AreaSelectableRegion[], mask: number): RegionBoundsMm | undefined {
+  let bounds: RegionBoundsMm | undefined;
+  for (let i = 0; i < regions.length; i++) {
+    if ((mask & (1 << i)) === 0) continue;
+    const b = regions[i].bounds;
+    if (!b) return undefined;
+    bounds = bounds === undefined ? { ...b } : {
+      minX: Math.min(bounds.minX, b.minX),
+      minY: Math.min(bounds.minY, b.minY),
+      maxX: Math.max(bounds.maxX, b.maxX),
+      maxY: Math.max(bounds.maxY, b.maxY),
+    };
+  }
+  return bounds;
+}
+
+function boundsMatch(a: RegionBoundsMm | undefined, b: RegionBoundsMm, tol: number): boolean {
+  return a !== undefined
+    && Math.abs(a.minX - b.minX) <= tol && Math.abs(a.minY - b.minY) <= tol
+    && Math.abs(a.maxX - b.maxX) <= tol && Math.abs(a.maxY - b.maxY) <= tol;
 }
 
 /**
@@ -94,6 +131,9 @@ export function selectProfileRegionsByArea(
     const delta = area - targetArea;
     const distance = Math.abs(delta);
     if (distance > tolerance) continue;
+    if (options.profileBoundsMm !== undefined
+      && !boundsMatch(unionBounds(regions, mask), options.profileBoundsMm, options.boundsToleranceMm ?? 0.2))
+      continue;
     const selectedCount = bitCount(mask);
     // 最近优先；同等距离取更少面域，再取较小 mask（稳定、可复现）。
     const better = bestMask === -1

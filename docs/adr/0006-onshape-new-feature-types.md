@@ -694,6 +694,7 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
   `scenario-to-op` 50/50；shared selector 单测 8/8。
 - **边界**：面积 oracle 依赖采集面面积；未采集的 PS 仍走逐边/前沿选择并登记
   `blocked-selector`。面积证据只裁决“选哪些面域”，不改变特征参数/事务/提交。
+- **位置证据**：bbox 作为 area 的第二 oracle，多解时不得按 mask 猜。
 - **回滚**：删除 scenario 的 `profileAreaMm2` 即回到逐边选择；shared 工具可保留
   无副作用。
 
