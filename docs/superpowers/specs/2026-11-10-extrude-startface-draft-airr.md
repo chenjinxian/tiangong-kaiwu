@@ -285,6 +285,7 @@ Bumper 私有场景
 | 需求能力 | 候选复用 | 覆盖度 | 决策 | 理由 |
 |---|---|---|---|---|
 | 面持久引用 | `LubanTopologyId` / `resolveFaceRef` | 已有 | 复用 | 与 shell/mirror/moveFace/faceExtrude 同源 |
+| 面引用动态解析 | `ExtrudeParams.endFaceRef`（upToSurface）的“持久面引用 + 每求值周期解析”模式 | 已有 | 复用模式，不复制字段 | `endFaceRef` 仍属 sketch extrude；faceExtrude 用 `faceRef`，避免字段/语义混用 |
 | 面边界提取 | `facesFromId` + `getSubEntityGeometry` + `ElementGeometry.toGeometryQuery` | 已有（faceExtrude 首切片） | 复用 | 已验证 Loop/ParityRegion |
 | 面平面化 | `CurveOps.isPlanar` | 已有 | 复用 | faceExtrude 已用 |
 | 面域/孔 CSG | `faceSweepTool`（外环 − 孔） | 已有 | 复用/扩展 | 加 startOffset/draft 参数 |

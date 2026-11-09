@@ -71,6 +71,8 @@ export interface FaceExtrudeParams {
 
 - `bodyId`/`faceRef` 指向**起始面**；求值轮廓是该面边界（Loop/ParityRegion），
   不是草图面域。
+- 复用 `ExtrudeParams.endFaceRef`（upToSurface）已建立的“持久面引用 + 每求值周期
+  动态解析”模式；`endFaceRef` 字段本身仍属 sketch extrude，不迁移/不混用。
 - **Bumper 精确映射的 `startOffsetMm` 为 0**：面本身在 z=40；不得把当前
   converter 推断的 40 带入 faceExtrude。`startOffsetMm` 只表达 Onshape 面板上
   显式的起始偏移。
