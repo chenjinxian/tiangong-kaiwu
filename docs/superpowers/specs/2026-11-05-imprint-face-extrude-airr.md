@@ -224,3 +224,131 @@ Onshape 的 Extrude 支持把**已有实体的一个平面**（通常是草图 i
    切出子面），再让 faceRef 指向子面；这是 iOS/Intermediate 真复刻的前置。
    在切片 2 之前，这两例的 imprint-face 步骤继续用“最近草图面域”近似并在演示页标注。
 4. **切片 3**：多环/带孔面、非平面拒收、撤销重开、全量回归。
+
+---
+
+## 7. 2026-11-07 证据更新：静态“草图面域”近似已到边界
+
+hub 恢复后的真栈与 backend StandaloneDb 离线回放给出了同一结论：对
+“同一草图被多次 imprint、每次落在不同 body 面/起始面”的链，按单 query 选草图
+材料面域的近似会选错基础轮廓，不能靠调 picker/tolerance 修复。
+
+- **Drive Sleeve（8509862e）**：4 段 imprintFace extrude + hole + FACE circular
+  pattern。backend 离线逐段 264448.7 → 688721.7 → 790461.9 mm³，Extrude 4
+  remove 零去材；最终 774611.7 vs 采集 1175024.3（−34.08%）。web 真栈在
+  featurePattern 求值以 `内核 op 失败: op=1 status=0` 失败（实例化孔与错误基础体
+  不相交）。两 runner 失败形态不同，根因同为 imprint 基础轮廓。
+- **Universal Joint Drawing（246cb5ff）**：Extrude 11 的 Sketch 10 全为构造/投影线，
+  草图 0 面域；web 真栈 `面域下标越界: regionIndex=0（草图共 0 个面域）` 拒收。
+- **Universal Joint Assembly（8d892a47）**：Extrude 10/11/12 后 1,690,674.783 mm³
+  vs 最终期望 602,047.386；Chamfer 10 的 `sweptFace` 实际是 boolean 面 INTERSECT
+  交线，converter 按首个 derivedFrom 面近似后 matches=0。
+- **Rear Shock（08e8de59）**：imprint 基础体偏差 + 前序 fillet 分割边，CAP_EDGE/
+  SWEPT_EDGE 在错误体上零匹配。
+
+### 切片建议（在原切片 0/1/2 基础上的收敛）
+
+1. **A1（test-only 回放）**：非 NEW imprintFace extrude 用
+   `readFaceHandles`（已有 dev-only hook）匹配当前 body 的共面实体面；当面与所选
+   草图区域整体一致时走 `faceExtrude(faceRef, operation, depth, direction)`
+   （产品能力已有，ADR-0006 切片 D）。合成“盒顶面 imprint add/remove”真栈。
+2. **A2**：起始面/方向符号与多面选择；Drive Sleeve 全链逐段体积；Universal Joint
+   Drawing 的实体面选择。
+3. **B**：face split 能力查证——先查 `SolidModelingCommand`/BRepCore 是否暴露
+   split/imprint API；未暴露则登记 blocked-kernel（TaperFaces 同样无 NAPI 绑定）。
+4. **C（保底）**：无法唯一匹配实体面时抛 `BlockedCapabilityError('imprint-face')`，
+   删除 region 0/小面域拼集回退；不伪造几何。
+
+**回滚**：全部在 `e2e/examples/replay` test-only 层，不改产品契约/内核；删除 resolver
+分支即回到当前近似行为。**不做**：UI Use/imprint 工具、任意曲面 imprint、face split
+产品级能力。
+
+### A1 实现记录（2026-11-07，test-only）
+
+- 新增 `e2e/examples/replay/imprint-face-resolver.ts`：`readFaceHandles` 枚举
+  当前 active authored body 的平面面；草图区域外环/孔环与面环按面积/质心匹配
+  （1% / 1% span 容差），面法向与草图法向平行且点共面（0.02 mm），单区域、
+  单 body、唯一候选才经 `resolveFaceRef` 产出持久面引用。
+- `run.ts` 新增 `imprintFaceResolver` 选项：非 NEW、单区域、blind/throughAll 的
+  imprintFace 拉伸在整面匹配成功时改走产品 `faceExtrude`；失败回退既有草图面域
+  近似并写 note。`run-file.ts` 已接线；后续步骤 `type` 保留场景逻辑类型，
+  另记 `opFeatureType` 供树对拍。
+- **合成真栈绿**：`e2e/examples/imprint-face.spec.ts` **2 passed**——20×20×10 盒
+  + 顶面同边界 20×20 草图 imprint ADD 2 mm → **4800.000 mm³**，树
+  `sketch/extrude/sketch/faceExtrude`，push+重开一致；A1 机制成立。
+- **真实例现状（不转绿）**：Drive Sleeve 仅在 Extrude 4（单区域 remove）触发
+  A1，fallback=“无共面且边界一致的面”（基础体已被前序错误近似）；Extrude 1 是
+  NEW、Extrude 2/3 是多区域选择，A1 按设计不处理。iOS scenario 经 A1 回归
+  **2 passed**（157478.901 mm³），未发生替换（树仍 extrude），无回归。
+- A2 仍需：NEW/多区域选择的实体面/起始面语义、face split；A1 不改产品契约。
+
+### A2 首步：NEW 拉伸主导面域收敛（2026-11-07，test-only）
+
+- **规则**：仅对 `operation=new` 的 imprintFace 拉伸，当逐 query pick 出多个面域、
+  且同一大材料面包含**全部被查询实体**（外环或孔环）、面积 ≥ 已选面域最大面积的
+  4 倍时，收敛到该主导面域。add/remove 不收敛（imprint 落在已演化 body 的子面，
+  静态收敛会过选 +59.5% 实测）。
+- **实现**：公共 `imprint-region.ts` 新增 `dominantImprintRegion()`（+4 单测，
+  8/8）；`run.ts` 在 NEW 拉伸应用；backend `ScenarioReplay` 同口径复刻。
+- **Drive Sleeve 结果（仍 known-red）**：Extrude 1 由 264448.7 → **1190513.2 mm³**
+  （主导 region 0）；backend 离线整链 **1357113.4 vs 1175024.3（+15.50%）**
+  （此前 −34.08%），web 真栈约 **+20.1%**。剩余偏差：Extrude 2 仍把
+  regions [0,1,2] 当独立 prism 加料（+424k）、Extrude 4 按 region 0 整面切除
+  （−305k），需要 add/remove 的**子面/起始面**语义与 face split。
+- **回归**：iOS scenario **2 passed**（157478.901 mm³，主导规则未触发，无退化）；
+  合成 A1 **2 passed**。
+
+### A2 阻塞证据：face split / imprint 内核入口未暴露（2026-11-07）
+
+- `imodel-native/iModelCore/BRepCore/PublicAPI/BRepCore/SolidKernel.h` 已提供
+  `ImprintCurveVectorOnFace` / `ImprintCurveVectorOnBody`（AcisModify 侧对应
+  `api_imprint` / `api_project_wire_to_body`）。
+- **修正（2026-11-07 内核查证）**：TS 绑定**存在**——第一方 editor backend
+  `EditBuiltInCommand.ts:1105` 的 `SolidModelingCommand.imprintBody`
+  （`ImprintProps`，`OperationType.Imprint=28`，native `PSBRepEdit.cpp`
+  `imprintBody`）；此前“grep 0 命中”的判断只覆盖了旧路径，已作废。
+- **但该绑定对本切片不可用（blocked-kernel）**：StandaloneDb 探针（同一 scratch
+  cache + 显式顶面）显示：
+  - **开放线段** imprint（盒体顶面跨线）返回 1 条结果几何（可用）；
+  - **闭合 Loop（圆 / 矩形）CurveCollection** imprint **直接使 vitest worker
+    崩溃**（多次复现，偏移 +显式 face/方向同样崩溃，非 JS 异常）；
+  - **闭合 Arc3d CurvePrimitive**（整圆）imprint 不崩溃但**返回 undefined/no-op**
+    （面数不变）。单独 `ElementGeometry.fromGeometryQuery(closed Loop)` 编码正常
+    （opcode=8/344B），确认问题在 native imprint 闭合 wire 路径而非编码。
+  native `ImprintCurveVectorOnFace` 的闭合 wire 路径在当前 native 构建内不可用。
+- **替代通道也否定（2026-11-07）**：以 carrier 元素承载闭合 Loop 作 profile，
+  调用第一方 editor `cutSolid`（Blind/Backward/ProfileClosure.Auto + target/tool
+  hint + writeChanges）同样返回 undefined（no-op，面数不变）；Emboss/裁切通道
+  对当前 profile 元素形态不可用。未找到绕过闭合 wire imprint 的安全通道。
+  故 add/remove imprint 的 face split 仍登记 **blocked-kernel（闭合 wire 崩溃）**；
+  A1（整面一致）+ NEW 主导面域是当前可用安全子集。开放曲线 imprint 可另立切片。
+- 若后续要做：native 侧定位闭合 wire 崩溃 → ADR → ctest + synthetic face split →
+  Drive Sleeve/Universal Joint 全链；完成前不得用近似几何宣称示例绿。
+- **追加证据（2026-11-07 收口批次）**：两例在 face split 缺失下更早阻塞：
+  - `Exercise: Basic Assembly / Hydraulic Components`（58d046/60f21）：Extrude 1
+    是 imprintFace 复合轮廓（外圆 + 内接六边形 + 内圆），回放按主导面域只得到
+    部分轮廓；Fillet 1 的 sweptEdge（Sketch 1#1，source=Extrude 1）**matches=0**。
+  - `Intro to CAD 1.2-1.4 / Rear Shock`（dfc6e33c/08e8de）：Extrude 1 为
+    imprintFace ADD（5 条 query，35 实体草图）；Fillet 3 的 sweptEdge
+    （Sketch 1#17，source=Extrude 1）**matches=0**。
+  - `Exercise: Inserting a BOM / Hydraulic Components`（664c42/a3c462，
+    25 特征/4 body，与上一例同源躯干）：真栈同样在 **Fillet 1**
+    `sweptEdge Sketch 1#1 source=Extrude 1 matches=0` 阻塞（同一外圆+六边形+
+    内圆复合轮廓）；其后的 shell/Fillet 4 OFFSET_EDGE 缺口被此上游阻塞遮住，
+    暂不单独立项。
+  两者都不是 transform/shell/边解析器的独立缺陷，根因同为本切片的 imprint
+  子面/复合轮廓语义；在 native face split 落地前保持 blocked。
+- **追加证据（2026-11-07，2 点插值样条转换后）**：`Tutorial 2 - Build a Part /
+  First Part`（576aef66/46033ccd，6 特征：sketch → 3×extrude → revolve → fillet）
+  的草图含 1 条 2 插值点样条；converter 现按 endDerivative=3·(P3−endHandle)
+  精确转三次贝塞尔（单测 6/6），整链 scenario 转换成功、树/status 全 0。**但离线
+  回放 2,444,863.6 vs 采集 357,568.2 mm³（+584%）**：3 个 imprintFace extrude 在
+  已演化 body 的面上选材（queries=1/2/1、regionRisk=false），回放按草图面域
+  整体拉伸，远超目标。证明样条不是该例阻塞；它与其他例同属本片 face split
+  的 add/remove 子面语义，保持 blocked-converter（索引未假绿）。
+- **追加证据（2026-11-07，能力覆盖轨 Bumper Block）**：Bumper Block 的
+  Extrude 2（imprintFace ADD）被 A1 解析器匹配到当前 body 的整面，改走
+  `faceExtrude`；10° 拔模按直壁近似后整链真栈可行（树 6/status 全 0/单 body/
+  push+重开），但体积 **346,770.496 vs 636,731.499 mm³（−45.54%）**。说明 A1
+  对演化体面“整面一致”也不等于 Onshape imprint 子面语义，只能作能力链覆盖，
+  不能作为 face split 的替代；严格轨仍 blocked。

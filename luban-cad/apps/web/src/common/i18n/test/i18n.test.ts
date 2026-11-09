@@ -200,7 +200,7 @@ const REQUIRED_PART_STUDIO_KEYS = [
   'featureDialog.booleanBodiesToolsLabel', 'featureDialog.booleanBodiesOperationLabel',
   'featureDialog.booleanBodiesOperationOptions.unite', 'featureDialog.booleanBodiesOperationOptions.subtract',
   'featureDialog.booleanBodiesOperationOptions.intersect',
-  'featureDialog.booleanBodiesIntersectHint', 'featureDialog.booleanBodiesKeepToolsLabel',
+  'featureDialog.booleanBodiesKeepToolsLabel',
   'featureDialog.booleanBodiesConsumeHint', 'featureDialog.booleanBodiesToolLockHint',
   'featureDialog.booleanBodiesNeedsTwoHint', 'featureDialog.booleanBodiesUnavailableHint',
   'featureDialog.booleanBodiesToolsMissingHint', 'featureDialog.booleanBodiesTargetInToolsError',

@@ -43,12 +43,28 @@ export async function activate(page: Page, name: string): Promise<void> {
     exact: true,
   });
   if ((await target.count()) === 0) {
-    // Onshape live：约束子项收在飞菜单（2026-11-02）；尺寸无飞菜单。
-    const inConstraints = ['水平', '竖直', '平行', '垂直', '相等', '中点', '相切', '固定'].includes(name);
-    if (!inConstraints) throw new Error(`草图工具 ${name} 不在册`);
-    const dropdown = toolbar.getByTestId('part-studio-ribbon-dropdown-Sketch.Constraint.Coincident');
-    await dropdown.getByRole('button', { name: /▾/ }).click();
-    target = page.getByRole('menuitem', { name, exact: true });
+    // Onshape live：约束/绘制变体收在飞菜单（2026-11-02）；尺寸无飞菜单。
+    const variantParent: Record<string, string> = {
+      '中心矩形': 'Sketch.Rectangle',
+      '对齐矩形': 'Sketch.Rectangle',
+      '中心圆弧': 'Sketch.Arc3Point',
+      '相切圆弧': 'Sketch.Arc3Point',
+      '贝塞尔曲线': 'Sketch.Spline',
+      '周边圆': 'Sketch.CenterCircle',
+      '外切多边形': 'sketchInscribedPolygon',
+    };
+    const parent = variantParent[name];
+    if (parent !== undefined) {
+      const dropdown = toolbar.getByTestId(`part-studio-ribbon-dropdown-${parent}`);
+      await dropdown.getByRole('button', { name: /▾/ }).click();
+      target = page.getByRole('menuitem', { name, exact: true });
+    } else {
+      const inConstraints = ['水平', '竖直', '平行', '垂直', '相等', '中点', '相切', '固定'].includes(name);
+      if (!inConstraints) throw new Error(`草图工具 ${name} 不在册`);
+      const dropdown = toolbar.getByTestId('part-studio-ribbon-dropdown-Sketch.Constraint.Coincident');
+      await dropdown.getByRole('button', { name: /▾/ }).click();
+      target = page.getByRole('menuitem', { name, exact: true });
+    }
   }
   await expect(target).toBeVisible({ timeout: 15_000 });
   await target.click();
@@ -56,10 +72,20 @@ export async function activate(page: Page, name: string): Promise<void> {
   const expectedToolId: Record<string, string> = {
     '线': 'Sketch.Line',
     '拐角矩形': 'Sketch.Rectangle',
+    '中心矩形': 'Sketch.CenterRectangle',
+    '对齐矩形': 'Sketch.AlignedRectangle',
+    '中心圆弧': 'Sketch.CenterArc',
+    '贝塞尔曲线': 'Sketch.Bezier',
+    '相切圆弧': 'Sketch.TangentArc',
     '中心点圆': 'Sketch.CenterCircle',
+    '周边圆': 'Sketch.PerimeterCircle',
+    '内切多边形': 'sketchInscribedPolygon',
+    '外切多边形': 'sketchCircumscribedPolygon',
     '3 点圆弧': 'Sketch.Arc3Point',
     '样条': 'Sketch.Spline',
     '偏移': 'Sketch.Offset',
+    '镜像': 'Sketch.Mirror',
+  '点': 'Sketch.Point',
     '重合': 'Sketch.Constraint.Coincident',
     '水平': 'Sketch.Constraint.Horizontal',
     '竖直': 'Sketch.Constraint.Vertical',

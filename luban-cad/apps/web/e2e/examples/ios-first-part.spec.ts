@@ -186,6 +186,9 @@ test.describe('示例 iModel：Tutorial 2 iOS', () => {
     await expect(addEdge).toHaveAttribute('aria-pressed', 'false');
     await dialog.getByRole('textbox', { name: '距离' }).fill('2');
     await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 15_000 });
+    // 后端影子求值几何 → TileRpc 动态预览（2026-11-08 接入 chamfer）。
+    await expect(page.getByTestId('part-studio-feature-preview'))
+      .toHaveAttribute('data-dynamic', '1', { timeout: 30_000 });
     await frameStandardView(page, 6, RANGE, { left: 0.55, right: 0.05, top: 0.08, bottom: 0.22 });
     await demoShot(page, {
       dir: DEMO_DIR, index: 7, slug: 'chamfer-dialog',

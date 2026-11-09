@@ -48,7 +48,10 @@
             "sweep",
             "hole",
             "cPlane",
-            "faceExtrude"
+            "faceExtrude",
+            "featurePattern",
+            "featureMirror",
+            "transform"
           ]
         },
         "name": { "type": "string", "minLength": 1 },

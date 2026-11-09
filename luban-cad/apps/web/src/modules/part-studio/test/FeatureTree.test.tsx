@@ -75,7 +75,8 @@ vi.mock('@itwin/core-frontend', () => ({
 import { ColorDef, FeatureOverrideType } from '@itwin/core-common';
 import { usePartStudioStore } from '../index.js';
 import { matchFeature, matchPart, parseTreeFilter } from '../tree/TreeFilter.js';
-import { deleteTargetBodyIdForFeature, FeatureTree } from '../tree/FeatureTree.js';
+import { activeBodyParts, deleteTargetBodyIdForFeature, FeatureTree } from '../tree/FeatureTree.js';
+import { TreeRow } from '../tree/TreeRow.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 
 /**
@@ -964,5 +965,53 @@ describe('B6 M-A4.2a：booleanBodies 树行本地化', () => {
     expect(within(tree).getByText('布尔 1')).toBeDefined();
     expect(within(tree).queryByText('booleanBodies 1')).toBeNull();
     expect(within(tree).getByText('mysteryFeature 1')).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// W1.5b 多 Part/body 展示：零件段逐 body 体积（质量属性读面 → 行右侧弱化文案）。
+// ---------------------------------------------------------------------------
+describe('W1.5b 逐 body 体积展示', () => {
+  it('activeBodyParts 映射质量属性体积；未读到的 body 不渲染体积字段', () => {
+    const bodies: BodyInfo[] = [
+      { bodyKey: 'b1', name: '实体 A', active: true, authored: true },
+      { bodyKey: 'b2', name: '', active: true, authored: true },
+      { bodyKey: 'b3', name: 'consumed', active: false, authored: true },
+    ];
+    const rows = activeBodyParts(bodies, (index) => `实体 ${index}`, new Map([
+      ['b1', { volume: 4000 }],
+      ['b2', { volume: Number.NaN }],
+      ['b3', { volume: 999 }],
+    ]));
+    expect(rows.map((row) => row.name)).toEqual(['实体 A', '实体 2']);
+    expect(rows[0]?.volumeMm3).toBe(4000);
+    expect(rows[1]?.volumeMm3).toBeUndefined();
+  });
+
+  it('TreeRow 零件行渲染体积文案/可访问标题；无体积不渲染', () => {
+    const base = {
+      selected: false,
+      editing: false,
+      onSelect: vi.fn(),
+      onContextMenu: vi.fn(),
+      onCommitRename: vi.fn(),
+      onCancelRename: vi.fn(),
+      onToggleVisibility: vi.fn(),
+    };
+    const { rerender } = render(
+      <ul>
+        <TreeRow node={{ id: 'b1', name: '实体 1', isHidden: false, volumeMm3: 1234.5 }} {...base} />
+      </ul>,
+    );
+    const volume = screen.getByTestId('tree-row-volume-b1');
+    expect(volume.textContent).toBe('1,234.5 mm³');
+    expect(volume.getAttribute('title')).toBe('实体体积（质量属性）');
+
+    rerender(
+      <ul>
+        <TreeRow node={{ id: 'b1', name: '实体 1', isHidden: false }} {...base} />
+      </ul>,
+    );
+    expect(screen.queryByTestId('tree-row-volume-b1')).toBeNull();
   });
 });

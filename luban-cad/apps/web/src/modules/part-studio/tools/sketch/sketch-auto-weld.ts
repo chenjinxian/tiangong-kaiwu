@@ -50,6 +50,11 @@ function indexPoints(entities: SketchEntityDto[]): Map<number, Point2> {
 
 /** 实体端点（焊接目标/焊接来源共用）：line 两端、arc 起止、spline 首末控制点。 */
 function entityEndpoints(entity: SketchEntityDto, points: Map<number, Point2>): EndpointCandidate[] {
+  if (entity.kind === 'point') {
+    return entity.x === undefined || entity.y === undefined
+      ? []
+      : [{ ref: entity.id, x: entity.x, y: entity.y }];
+  }
   if (entity.kind === 'line') {
     const out: EndpointCandidate[] = [];
     const a = resolvePoint(entity.p1, points);
@@ -94,6 +99,23 @@ function pairKey(a: SketchRef, b: SketchRef): string {
   return `${k1}|${k2}`;
 }
 
+/** 点到线段距离；垂足在段外返回 undefined（不把“延长线附近”焊成点在线）。 */
+function pointOnSegmentDistance(
+  p: Point2,
+  a: Point2,
+  b: Point2,
+): number | undefined {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (!(lenSq > 1e-12)) return undefined;
+  const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+  if (t < 0 || t > 1) return undefined;
+  const fx = a.x + t * dx;
+  const fy = a.y + t * dy;
+  return Math.hypot(p.x - fx, p.y - fy);
+}
+
 /**
  * 为新实体端点生成自动 coincident 行。
  *
@@ -114,8 +136,6 @@ export function autoWeldConstraints(
     ...pointCandidates(existingEntities),
     ...existingEntities.flatMap((e) => entityEndpoints(e, existingPoints)),
   ];
-  if (targets.length === 0) return [];
-
   const newPoints = indexPoints(newEntities);
   const covered = new Set<string>();
   for (const c of existingConstraints) {
@@ -124,7 +144,19 @@ export function autoWeldConstraints(
 
   const out: SketchConstraintDto[] = [];
   let nextId = opts.startConstraintId;
+  const existingLines = existingEntities.flatMap((entity) => {
+    if (entity.kind !== 'line') return [];
+    const a = resolvePoint(entity.p1, existingPoints);
+    const b = resolvePoint(entity.p2, existingPoints);
+    return a && b ? [{ id: entity.id, a, b }] : [];
+  });
+  const existingCircles = existingEntities.flatMap((entity) => {
+    if (entity.kind !== 'circle' || entity.radius === undefined) return [];
+    const center = resolvePoint(entity.center, existingPoints);
+    return center ? [{ id: entity.id, center, radius: entity.radius }] : [];
+  });
   for (const entity of newEntities) {
+    let welded = false;
     for (const endpoint of entityEndpoints(entity, newPoints)) {
       let best: EndpointCandidate | undefined;
       let bestDist = Number.POSITIVE_INFINITY;
@@ -140,6 +172,43 @@ export function autoWeldConstraints(
       if (covered.has(key)) continue;
       covered.add(key);
       out.push({ kind: 'coincident', id: nextId++, refs: [endpoint.ref, best.ref] });
+      welded = true;
+    }
+    // v1.59：点实体落在既有线内部 → point-on-line coincident（Onshape 推断同构）。
+    if (entity.kind === 'point' && entity.x !== undefined && entity.y !== undefined && !welded) {
+      let best: { id: number; distance: number } | undefined;
+      for (const line of existingLines) {
+        const distance = pointOnSegmentDistance({ x: entity.x, y: entity.y }, line.a, line.b);
+        if (distance !== undefined && distance <= tol && (best === undefined || distance < best.distance))
+          best = { id: line.id, distance };
+      }
+      if (best !== undefined) {
+        const key = pairKey(entity.id, best.id);
+        if (!covered.has(key)) {
+          covered.add(key);
+          out.push({ kind: 'coincident', id: nextId++, refs: [entity.id, best.id] });
+        }
+        welded = true;
+      }
+      if (!welded) {
+        // 整圆边界：point-on-circle 由 coincident(point, circle) 表达（弧只支持端点重合，
+        // 不做 point-on-arc 冒充）。
+        let bestCircle: { id: number; distance: number } | undefined;
+        for (const circle of existingCircles) {
+          const distance = Math.abs(
+            Math.hypot(entity.x - circle.center.x, entity.y - circle.center.y) - circle.radius,
+          );
+          if (distance <= tol && (bestCircle === undefined || distance < bestCircle.distance))
+            bestCircle = { id: circle.id, distance };
+        }
+        if (bestCircle !== undefined) {
+          const key = pairKey(entity.id, bestCircle.id);
+          if (!covered.has(key)) {
+            covered.add(key);
+            out.push({ kind: 'coincident', id: nextId++, refs: [entity.id, bestCircle.id] });
+          }
+        }
+      }
     }
   }
   return out;

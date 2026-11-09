@@ -6,7 +6,13 @@
  * 每个被近似的步骤写入 notes，调用方必须落到 manifest。
  */
 import type { Page } from '@playwright/test';
-import type { FeatureOpResult, FilletEdgeRef, LubanTopologyId, SketchPlaneDto } from '@luban-cad/shared';
+import type {
+  FeatureOpResult,
+  FilletEdgeRef,
+  LubanTopologyId,
+  SketchPlaneDto,
+  SketchRegionDto,
+} from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
   assertFeatureOpOk,
@@ -18,12 +24,18 @@ import {
   type BSeedEditorContext,
 } from '../../helpers.js';
 import {
+  dominantImprintRegion,
   imprintSideFromSign,
   imprintSignFromQuery,
+  mergeImprintRegions,
   pickImprintRegion,
   type ImprintSide,
 } from './imprint-region.js';
+import { selectEdgeTargetBody } from './multi-body-anchor.js';
+import { resolveRegionsFromProfileEntities } from './region-entity-resolver.js';
+import type { ImprintFaceResolution } from './imprint-face-resolver.js';
 import {
+  BlockedCapabilityError,
   translateScenarioFeature,
   type ParityScenario,
   type ScenarioFeature,
@@ -43,7 +55,12 @@ export interface RunScenarioOptions {
   edgeResolver?: (
     feature: ScenarioFeature,
     scenario: ParityScenario,
-  ) => Promise<{ refs: FilletEdgeRef[]; notes: string[] }>;
+    /** v1.50：该步时点的 body 谱系（多体 resolver 用 operationSourceIds 限定候选体）。 */
+    bodyContext: {
+      bodyKeyBySource?: ReadonlyMap<string, string>;
+      allBodyKeys?: readonly string[];
+    },
+  ) => Promise<{ refs: FilletEdgeRef[]; notes: string[]; bodyKeys?: string[] }>;
   /**
    * shell 移除面解析器（面 query → 持久面引用）。未提供时 translator 对 shell
    * 诚实阻塞；解析失败同样阻塞，绝不任取一面。
@@ -51,7 +68,30 @@ export interface RunScenarioOptions {
   shellFaceResolver?: (
     feature: ScenarioFeature,
     scenario: ParityScenario,
-  ) => Promise<{ refs: LubanTopologyId[]; notes: string[] }>;
+    context: {
+      bodyKeyBySource?: ReadonlyMap<string, string>;
+      allBodyKeys?: readonly string[];
+    },
+  ) => Promise<{ refs: LubanTopologyId[]; notes: string[]; targetBodyKey?: string }>;
+  /**
+   * A1（test-only）：非 NEW imprintFace 拉伸的“整个草图区域 == 当前 body 平面面”
+   * 匹配。成功时该步改走产品 faceExtrude；失败返回 ok:false 并回退既有草图面域近似。
+   */
+  /**
+   * 能力覆盖轨（非严格轨）：把带拔模的 extrude 按直壁近似回放并显式标
+   * approximate。仅用于 parallel capability-coverage 示例；严格轨必须保持 false
+   * （translator 默认拔模即阻塞，禁止静默近似）。
+   */
+  allowApproximateDraft?: boolean;
+  imprintFaceResolver?: (
+    feature: ScenarioFeature,
+    scenario: ParityScenario,
+    data: {
+      plane: SketchPlaneDto | undefined;
+      regions: readonly SketchRegionDto[];
+      regionIndices: readonly number[];
+    },
+  ) => Promise<ImprintFaceResolution>;
 }
 
 /**
@@ -78,7 +118,16 @@ export interface RunScenarioResult {
   featureIds: string[];
   notes: string[];
   approximateSteps: number;
-  steps: Array<{ feature: string; type: string; featureId?: string; notes: string[]; approximate: boolean }>;
+  steps: Array<{
+    feature: string;
+    /** 场景逻辑类型（imprintFace 被改走 faceExtrude 时仍保留原始 'extrude'）。 */
+    type: string;
+    /** 实际写入产品的 FeatureType（如 'faceExtrude'）；缺省同 type。 */
+    opFeatureType?: string;
+    featureId?: string;
+    notes: string[];
+    approximate: boolean;
+  }>;
 }
 
 /** Apply a whole scenario to the given Part Studio scope. */
@@ -101,7 +150,7 @@ export async function runScenario(
   // 最近的造体特征即可恢复 Onshape body 引用所指向的 extrude/revolve。
   const scenarioFeatureByLocalId = new Map<string, ScenarioFeature>();
   const BODY_CREATOR_TYPES = new Set(['extrude', 'revolve', 'booleanBodies', 'booleanAdd', 'booleanSubtract']);
-  const MULTI_BODY_ANCHOR_TYPES = new Set(['extrude', 'revolve', 'hole', 'faceExtrude']);
+  const MULTI_BODY_ANCHOR_TYPES = new Set(['extrude', 'revolve', 'hole', 'faceExtrude', 'featurePattern', 'mirror']);
   let latestSketchId: string | undefined;
   const featureIds: string[] = [];
   const notes: string[] = [];
@@ -203,25 +252,89 @@ export async function runScenario(
                   })))} regions=${JSON.stringify(regions)} reason=${reason ?? '-'}`,
                 );
               }
-              if (reason === undefined && regions.length > 0) {
-                const unique = Array.from(new Set(regions));
-                effectiveFeature = {
-                  ...feature,
-                  params: {
-                    ...feature.params,
-                    selection: {
-                      kind: 'sketchRegions',
-                      sketchFeatureId: sourceSketchId,
-                      regionIndex: unique[0],
-                      regions: unique,
+              let merged = mergeImprintRegions(regions, reason);
+              if (merged && sketch?.regions) {
+                const queryEntityIds = queries
+                  .map((query) => query.sketchEntityId)
+                  .filter((id): id is number => typeof id === 'number');
+                // 仅 NEW：首段轮廓是“草图面本身”，多查询应收敛到大材料面；
+                // add/remove 的 imprint 落在已演化 body 的某个子面上，静态收敛会过选。
+                const dominantOp = String((feature.params as Record<string, unknown>).operation ?? '').toLowerCase();
+                const dominant = dominantOp === 'new'
+                  ? dominantImprintRegion(sketch.regions, queryEntityIds, merged.regions)
+                  : undefined;
+                if (dominant && (merged.regions.length > 1 || !merged.regions.includes(dominant.regionIndex))) {
+                  merged = { regions: [dominant.regionIndex], partial: merged.partial };
+                  imprintNotes.push(
+                    `imprintFace 多查询收敛到主导面域 ${dominant.regionIndex}` +
+                    `（area=${dominant.area.toFixed(3)}；查询边全部位于该面边界）`,
+                  );
+                }
+              }
+              if (merged) {
+                let usedFaceExtrude = false;
+                // A1：非 NEW 且单区域时，尝试把“整面一致”的 imprint 改走 faceExtrude。
+                if (options.imprintFaceResolver && merged.regions.length === 1 && sketch?.regions) {
+                  const extrudeParams = feature.params as Record<string, unknown>;
+                  const operation = String(extrudeParams.operation ?? '').toLowerCase();
+                  const endBoundRaw = String(extrudeParams.endBound ?? 'blind')
+                    .replace(/[_-]/g, '').toLowerCase();
+                  if ((operation === 'add' || operation === 'remove' || operation === 'intersect')
+                    && (endBoundRaw === 'blind' || endBoundRaw === 'throughall')) {
+                    const resolution = await options.imprintFaceResolver(feature, scenario, {
+                      plane: sketchPlaneBySource.get(sourceSketchId),
+                      regions: sketch.regions,
+                      regionIndices: merged.regions,
+                    });
+                    if (process.env.EXAMPLE_DEBUG_IMPRINT === '1') {
+                      console.log(`[imprint-face] ${feature.name}: ` + (resolution.ok
+                        ? `face=${resolution.bodyId}:${resolution.faceSubEntityId}`
+                        : `fallback=${resolution.reason}`));
+                    }
+                    if (resolution.ok) {
+                      effectiveFeature = {
+                        ...feature,
+                        type: 'faceExtrude',
+                        params: {
+                          bodyId: resolution.bodyId,
+                          faceRef: resolution.faceRef,
+                          operation,
+                          endBound: endBoundRaw === 'throughall' ? 'throughAll' : 'blind',
+                          ...(typeof extrudeParams.depthMm === 'number'
+                            ? { depthMm: extrudeParams.depthMm } : {}),
+                          direction: extrudeParams.oppositeDirection === true ? 'backward' : 'forward',
+                        },
+                      };
+                      imprintNotes.push(`${resolution.note}（A1 整面匹配，标近似）`);
+                      imprintApproximate = true;
+                      usedFaceExtrude = true;
+                    } else {
+                      imprintNotes.push(
+                        `imprintFace 实体面未匹配：${resolution.reason}（回退草图面域近似）`,
+                      );
+                    }
+                  }
+                }
+                if (!usedFaceExtrude) {
+                  effectiveFeature = {
+                    ...feature,
+                    params: {
+                      ...feature.params,
+                      selection: {
+                        kind: 'sketchRegions',
+                        sketchFeatureId: sourceSketchId,
+                        regionIndex: merged.regions[0],
+                        regions: merged.regions,
+                      },
                     },
-                  },
-                };
-                imprintNotes.push(
-                  `imprintFace→草图面域 ${unique.join(',')}（${parts.join('；')}；` +
-                  'face split 未实现，近似）',
-                );
-                imprintApproximate = true;
+                  };
+                  imprintNotes.push(
+                    `imprintFace→草图面域 ${merged.regions.join(',')}（${parts.join('；')}；` +
+                    (merged.partial ? `部分查询未解析：${reason}；` : '') +
+                    'face split 未实现，近似）',
+                  );
+                  imprintApproximate = true;
+                }
               }
             }
           }
@@ -253,6 +366,14 @@ export async function runScenario(
           const localSketchId = sketchIdBySource.get(sketchSource);
           if (localSketchId !== undefined) {
             const sketch = await getSketchRpc(ctx, localSketchId, accessToken);
+            if (process.env.EXAMPLE_DEBUG_REGIONS === '1') {
+              console.log(
+                `[regions] ${feature.name} sketch=${sketchSource} requested=${JSON.stringify(requested)} actual=` +
+                JSON.stringify((sketch?.regions ?? []).map((region, index) => ({
+                  i: index, area: Number(region.area.toFixed(3)), outer: region.outerEntityIds, hole: region.holeEntityIds ?? [],
+                }))),
+              );
+            }
             const regionCount = sketch?.regions?.length ?? 0;
             const valid = requested.filter(
               (value): value is number => Number.isInteger(value) && (value as number) >= 0 && (value as number) < regionCount,
@@ -278,24 +399,56 @@ export async function runScenario(
         }
       }
       let edgeRefsByFeatureName: ReadonlyMap<string, FilletEdgeRef[]> | undefined;
+      let edgeBodyKeys: string[] = [];
       const edgeNotes: string[] = [];
-      if ((feature.type === 'fillet' || feature.type === 'chamfer') && options.edgeResolver) {
-        const resolved = await options.edgeResolver(feature, scenario);
-        edgeRefsByFeatureName = new Map([[feature.name, resolved.refs]]);
-        edgeNotes.push(...resolved.notes);
-      }
       let shellRefsByFeatureName: ReadonlyMap<string, LubanTopologyId[]> | undefined;
-      if (feature.type === 'shell' && options.shellFaceResolver) {
-        const resolved = await options.shellFaceResolver(feature, scenario);
-        shellRefsByFeatureName = new Map([[feature.name, resolved.refs]]);
-        edgeNotes.push(...resolved.notes);
-      }
+      let shellTargetBodyByFeatureName: ReadonlyMap<string, string> | undefined;
       // body 引用（booleanBodies 目标/工具、extrude/revolve/hole 的 booleanScope）
       // 必须在**该步时点**解析：后续特征会改变 body 集。
       const stepParams = effectiveFeature.params as Record<string, unknown>;
       const scopeSources = Array.isArray(stepParams.booleanScopeFeatureIds)
         ? stepParams.booleanScopeFeatureIds.filter((source): source is string => typeof source === 'string')
         : [];
+      // v1.50：revolve 轮廓实体 → 产品真实面域（converter `profileEntityIds`）。
+      // 显式 `regions`（示例审计覆盖）优先，不被自动覆盖；映射不收敛时沿旧
+      // converter 口径（regionIndex/regionRisk）并标近似，绝不静默猜面域。
+      // 旧口径对单 query revolve 盲取 region 0，同一草图的多个 NEW revolve 会
+      // 全部落进同一面域（Handle Parts 三体实测）。
+      let profileRegionNote: string | undefined;
+      const profileEntityIds = Array.isArray(stepParams.profileEntityIds)
+        ? stepParams.profileEntityIds.filter((id): id is number => Number.isInteger(id) && id > 0)
+        : [];
+      if (effectiveFeature.type === 'revolve'
+        && profileEntityIds.length > 0
+        && !Array.isArray(stepParams.regions)) {
+        const sketchSource = typeof stepParams.sketchFeatureId === 'string' ? stepParams.sketchFeatureId : undefined;
+        const localSketchId = sketchSource ? sketchIdBySource.get(sketchSource) : undefined;
+        if (localSketchId !== undefined) {
+          const sketch = await getSketchRpc(ctx, localSketchId, accessToken);
+          const mapping = resolveRegionsFromProfileEntities(sketch?.regions, profileEntityIds);
+          const converged = mapping.regions.length > 0
+            && mapping.unmatchedEntityIds.length === 0
+            && mapping.ambiguousEntityIds.length === 0;
+          if (converged) {
+            const rest = { ...stepParams };
+            delete rest.regionIndex;
+            delete rest.regionRisk;
+            delete rest.regionQueryCount;
+            effectiveFeature = {
+              ...effectiveFeature,
+              params: { ...rest, regions: mapping.regions },
+            };
+            profileRegionNote =
+              `profile 实体 ${JSON.stringify(profileEntityIds)} → 面域 ${JSON.stringify(mapping.regions)}` +
+              '（SketchRegionDto 边界映射）';
+          } else {
+            profileRegionNote =
+              `profile 实体映射未收敛（regions=${JSON.stringify(mapping.regions)} ` +
+              `unmatched=${JSON.stringify(mapping.unmatchedEntityIds)} ` +
+              `ambiguous=${JSON.stringify(mapping.ambiguousEntityIds)}），沿用 converter 近似`;
+          }
+        }
+      }
       // 多体 ADD/NEW 无 booleanScope 时产品要求显式 targetBodyId；仅当此前
       // 已出现 ≥2 个造体特征（可能多体）才读 body 集，避免单体示例多付 RPC。
       const priorCreatorCount = scenarioFeatures.slice(0, featureIndex).filter(
@@ -305,12 +458,27 @@ export async function runScenario(
       const anchorEligible = MULTI_BODY_ANCHOR_TYPES.has(effectiveFeature.type)
         && scopeSources.length === 0
         && priorCreatorCount >= 2;
+      // fillet/chamfer 的边引用本身已确定目标体：多体模型按被选边所在 bodyKey
+      // 显式锚定（产品契约禁止隐式链尾）。边缘跨 body 时不做猜测，直接阻塞。
+      // v1.50：body 集必须在边解析**之前**读出并传给 resolver——resolver 用
+      // selector.operationSourceIds 谱系限定候选 body（Handle Parts 同一草图三
+      // revolve 的共享顶点圆边几何相同，不限定会跨 3 body）。
+      const edgeBodyContextEligible = (effectiveFeature.type === 'fillet' || effectiveFeature.type === 'chamfer')
+        && priorCreatorCount >= 2;
+      // transform 的 entities 查询显式给出目标 body 源特征：必须在该步时点解析
+      // bodyKey（多体模型禁止隐式链尾）。仅当 scenario 携带源 id 时多付一次 RPC。
+      const transformAnchorEligible = effectiveFeature.type === 'transform'
+        && Array.isArray(stepParams.targetSourceFeatureIds)
+        && stepParams.targetSourceFeatureIds.length > 0;
+      // shell 的多体目标同样由面查询源特征决定（resolver 在步骤时点解析 bodyKey）。
+      const shellAnchorEligible = effectiveFeature.type === 'shell';
       let bodyContext: {
         bodyKeyBySource?: Map<string, string>;
         allBodyKeys?: string[];
         bodyCentroidByKey?: Map<string, { x: number; y: number; z: number }>;
       } = {};
-      if (effectiveFeature.type === 'booleanBodies' || scopeSources.length > 0 || anchorEligible) {
+      if (effectiveFeature.type === 'booleanBodies' || scopeSources.length > 0
+        || anchorEligible || edgeBodyContextEligible || transformAnchorEligible || shellAnchorEligible) {
         const bodies = (await getBodiesRpc(ctx, accessToken)).filter(
           (body) => body.active !== false && body.authored !== false,
         );
@@ -363,6 +531,32 @@ export async function runScenario(
           );
         }
       }
+      // fillet/chamfer 边解析：多体时把当前 body 谱系交给 resolver 限定候选体。
+      if ((feature.type === 'fillet' || feature.type === 'chamfer') && options.edgeResolver) {
+        const resolved = await options.edgeResolver(feature, scenario, bodyContext);
+        edgeRefsByFeatureName = new Map([[feature.name, resolved.refs]]);
+        edgeBodyKeys = resolved.bodyKeys ?? [];
+        edgeNotes.push(...resolved.notes);
+      }
+      // shell 面解析依赖该步时点的 body 集（多体模型须先锚定目标 body）。
+      if (feature.type === 'shell' && options.shellFaceResolver) {
+        const resolved = await options.shellFaceResolver(feature, scenario, bodyContext);
+        shellRefsByFeatureName = new Map([[feature.name, resolved.refs]]);
+        if (resolved.targetBodyKey !== undefined)
+          shellTargetBodyByFeatureName = new Map([[feature.name, resolved.targetBodyKey]]);
+        edgeNotes.push(...resolved.notes);
+      }
+      // 能力覆盖轨：拔模按直壁近似（仅显式开启；translator 的默认阻塞不变）。
+      let approximateDraft = false;
+      if (options.allowApproximateDraft
+        && effectiveFeature.type === 'extrude'
+        && (effectiveFeature.params as { hasDraft?: unknown }).hasDraft === true) {
+        effectiveFeature = {
+          ...effectiveFeature,
+          params: { ...(effectiveFeature.params as Record<string, unknown>), hasDraft: false, draftAngleDeg: 0 },
+        };
+        approximateDraft = true;
+      }
       const translated = translateScenarioFeature(effectiveFeature, {
         sketchIdBySource,
         sketchPlaneBySource,
@@ -370,14 +564,23 @@ export async function runScenario(
         featureIdBySource: localFeatureIdBySource,
         ...(edgeRefsByFeatureName ? { edgeRefsByFeatureName } : {}),
         ...(shellRefsByFeatureName ? { shellRefsByFeatureName } : {}),
+        ...(shellTargetBodyByFeatureName ? { shellTargetBodyByFeatureName } : {}),
         ...bodyContext,
       });
       if (imprintNotes.length > 0) {
         translated.notes.push(...imprintNotes);
         if (imprintApproximate) translated.approximate = true;
       }
+      if (profileRegionNote !== undefined) {
+        translated.notes.push(profileRegionNote);
+        if (!profileRegionNote.includes('→ 面域')) translated.approximate = true;
+      }
       if (regionAuditNote !== undefined) {
         translated.notes.push(regionAuditNote);
+        translated.approximate = true;
+      }
+      if (approximateDraft) {
+        translated.notes.push('拔模按直壁近似（产品无内核通道，approximate）');
         translated.approximate = true;
       }
       // 多体无 scope：显式锚定（不在产品侧使用隐式全局链尾）。
@@ -398,6 +601,25 @@ export async function runScenario(
             `multi-body anchor=${anchor}（Onshape 无 booleanScope；按最近造体谱系显式锚定）`,
           );
         }
+      }
+      // fillet/chamfer：目标体由解析后的边决定，不按“最近造体”猜。跨 body 的
+      // 单次圆角/倒角在产品契约里没有合法目标，诚实阻塞。
+      if (translated.op.kind === 'insertFeature'
+        && (translated.op.featureType === 'fillet' || translated.op.featureType === 'chamfer')
+        && translated.op.targetBodyId === undefined
+        && bodyContext.allBodyKeys !== undefined
+        && bodyContext.allBodyKeys.length > 1) {
+        const selection = selectEdgeTargetBody(edgeBodyKeys, bodyContext.allBodyKeys);
+        if (selection.targetBodyId === undefined) {
+          throw new BlockedCapabilityError(
+            'edge-selector',
+            `${feature.name}：${selection.blockedReason ?? '无法显式锚定目标体'}`,
+          );
+        }
+        translated.op = { ...translated.op, targetBodyId: selection.targetBodyId };
+        translated.notes.push(
+          `multi-body anchor=${selection.targetBodyId}（由选中边所属 body 显式锚定）`,
+        );
       }
       const op = options.skipSketchConstraints && translated.op.kind === 'insertSketch'
         ? { ...translated.op, constraints: [] }
@@ -449,7 +671,9 @@ export async function runScenario(
       notes.push(...stepNotes.map((note) => `${feature.name}: ${note}`));
       steps.push({
         feature: feature.name,
-        type: effectiveFeature.type,
+        type: feature.type,
+        ...(translated.op.kind === 'insertFeature'
+          ? { opFeatureType: translated.op.featureType } : {}),
         featureId,
         notes: stepNotes,
         approximate: translated.approximate,

@@ -53,10 +53,18 @@ const EXPECTED_GATED_IDS = [
   'pauseRebuild', // 暂停重建（M4-T8 D3 特征段头钮）
   'featureHistory', // 特征历史（M4-T8 D3 特征段头钮）
   'curvePattern', // 曲线阵列（B5：无工具/后端面——首版 pattern 仅 PART 级线性/圆周）
+  'deleteBodies', // 删除零件（W1.2b：无后端 FeatureOp）
+  'deleteFace', // 删除面（W1.2b：内核 DeleteSubEntity 0 回包）
+  'replaceFace', // 替换面（W1.2b：editor IPC 未暴露）
+  'thicken', // 加厚（W1.2b：无实体 FeatureOp/曲面体管道）
+  'wrap', // 包覆（W1.2b 续审计：无工具/后端面）
+  'decal', // 印花（W1.2b 续审计：非几何显示特征，无工具面）
+  'modifyFillet', // 修改圆角（W1.2b 续审计：无工具/后端面）
+  'userFeatures', // 添加自定义特征（W1.2b 续审计：FeatureScript 不在本版本）
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern（共 25，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + moveFace/transform/splitPart 已翻 full（共 32，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

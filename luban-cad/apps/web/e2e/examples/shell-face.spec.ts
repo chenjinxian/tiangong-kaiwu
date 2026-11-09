@@ -106,8 +106,8 @@ test.describe('shell 移除面真栈验收', () => {
     const scenario = syntheticScenario();
 
     const built = await runScenario(ctx, scenario, token, {
-      shellFaceResolver: (feature, fullScenario) =>
-        resolveScenarioShellFaces(page, ctx, fullScenario, feature, token),
+      shellFaceResolver: (feature, fullScenario, context) =>
+        resolveScenarioShellFaces(page, ctx, fullScenario, feature, token, context),
     });
     expect(built.steps.map((step) => step.type)).toEqual(['sketch', 'revolve', 'shell']);
     const shellStep = built.steps.find((step) => step.type === 'shell');
@@ -128,5 +128,116 @@ test.describe('shell 移除面真栈验收', () => {
     const reopenedVolume = (await getMassPropertiesRpc(reopened, token))
       .reduce((sum, item) => sum + item.volume, 0);
     expect(Math.abs(reopenedVolume - volume) / volume).toBeLessThan(0.005);
+  });
+});
+
+/**
+ * T11b 合成真栈：多体 + capFace（拉伸圆端盖）目标 body 解析。
+ * 两个独立圆柱体，shell 只移除第二个体的底面（CAP_FACE isStart），
+ * 验证多体 targetBodyBySource → targetBodyId → 目标面筛选链路。
+ */
+function syntheticMultiBodyCapScenario(): ParityScenario {
+  const circleSketch = (source: string, cx: number, r: number) => ({
+    type: 'sketch' as const,
+    name: `Sketch ${source}`,
+    sourceFeatureId: source,
+    params: {
+      plane: XY_PLANE,
+      entities: [
+        { kind: 'point' as const, id: 1, x: cx, y: 0 },
+        { kind: 'circle' as const, id: 2, center: 1, radius: r },
+      ],
+      constraints: [],
+    },
+  });
+  return {
+    schemaVersion: 1,
+    id: 'e2e-shell-capface-multibody',
+    name: 'shell capFace multi-body',
+    units: 'mm',
+    features: [
+      circleSketch('sketch-a', 0, 8),
+      {
+        type: 'extrude',
+        name: 'Extrude A',
+        sourceFeatureId: 'extrude-a',
+        params: {
+          operation: 'new', endBound: 'blind', depthMm: 10,
+          selection: { kind: 'sketchRegions', sketchFeatureId: 'sketch-a', regions: [0] },
+        },
+      },
+      circleSketch('sketch-b', 40, 8),
+      {
+        type: 'extrude',
+        name: 'Extrude B',
+        sourceFeatureId: 'extrude-b',
+        params: {
+          operation: 'new', endBound: 'blind', depthMm: 10,
+          selection: { kind: 'sketchRegions', sketchFeatureId: 'sketch-b', regions: [0] },
+        },
+      },
+      {
+        type: 'shell',
+        name: 'Shell B',
+        sourceFeatureId: 'shell-b',
+        params: {
+          defaultDistance: 2,
+          distances: 2,
+          oppositeDirection: false,
+          selection: {
+            kind: 'faceQueries',
+            queries: [{
+              kind: 'capFace',
+              sketchFeatureId: 'sketch-b',
+              sketchEntityId: 2,
+              operationSourceIds: ['extrude-b'],
+              isStart: true,
+            }],
+          },
+        },
+      },
+    ],
+  };
+}
+
+const EXPECTED_SOLID_MM3 = Math.PI * 8 * 8 * 10;
+const EXPECTED_SHELLED_MM3 = Math.PI * (8 * 8 * 10 - 6 * 6 * 8);
+
+test.describe('shell capFace 多体真栈验收', () => {
+  test('两圆柱体：capFace 只对目标 body 开底壳，另一体不变', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 600_000);
+    const token = await getApiToken();
+    const ids = await ensureExampleImodel(request, token, 'E2E - Shell CapFace Multi', { reset: true });
+    const ctx = await openExampleEditor(page, ids);
+    const scenario = syntheticMultiBodyCapScenario();
+
+    const built = await runScenario(ctx, scenario, token, {
+      shellFaceResolver: (feature, fullScenario, context) =>
+        resolveScenarioShellFaces(page, ctx, fullScenario, feature, token, context),
+    });
+    expect(built.steps.map((step) => step.type)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'shell']);
+    const shellStep = built.steps.find((step) => step.type === 'shell');
+    expect(shellStep?.notes.join(' ')).toContain('targetBody=');
+    expect(shellStep?.notes.join(' ')).toContain('shell faces=1');
+
+    const mass = await getMassPropertiesRpc(ctx, token);
+    expect(mass.length).toBe(2);
+    const volumes = mass.map((item) => item.volume).sort((a, b) => a - b);
+    console.log(
+      `[shell-capface-multi] volumes=${volumes.map((v) => v.toFixed(3)).join(',')} ` +
+      `expected=${EXPECTED_SHELLED_MM3.toFixed(3)},${EXPECTED_SOLID_MM3.toFixed(3)}`,
+    );
+    expect(Math.abs(volumes[0]! - EXPECTED_SHELLED_MM3) / EXPECTED_SHELLED_MM3).toBeLessThan(0.01);
+    expect(Math.abs(volumes[1]! - EXPECTED_SOLID_MM3) / EXPECTED_SOLID_MM3).toBeLessThan(0.01);
+
+    await page.reload();
+    const reopened = await openExampleEditor(page, ids);
+    const tree = await getFeatureTreeRpc(reopened, token);
+    expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'shell']);
+    expect(tree.every((row) => row.status === 0)).toBe(true);
+    const reopenedVolumes = (await getMassPropertiesRpc(reopened, token))
+      .map((item) => item.volume).sort((a, b) => a - b);
+    expect(Math.abs(reopenedVolumes[0]! - volumes[0]!) / volumes[0]!).toBeLessThan(0.005);
+    expect(Math.abs(reopenedVolumes[1]! - volumes[1]!) / volumes[1]!).toBeLessThan(0.005);
   });
 });

@@ -87,3 +87,48 @@ describe('v1.19：autoWeldConstraints（绘制自动 coincident）', () => {
     expect(autoWeldConstraints(fresh, [], [], { startConstraintId: 100 })).toEqual([]);
   });
 });
+
+describe('v1.59：Sketch.Point 点实体自动重叠合', () => {
+  it('新 point 落在既有线端点容差内 → coincident（结构化端点引用）', () => {
+    const line: SketchEntityDto = { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } };
+    const point: SketchEntityDto = { kind: 'point', id: 2, x: 10.2, y: 0.1 };
+    const out = autoWeldConstraints([point], [line], [], { startConstraintId: 100 });
+    expect(out).toEqual([{ kind: 'coincident', id: 100, refs: [2, { entity: 1, part: 'end' }] }]);
+  });
+
+  it('新 point 远离既有几何 → 不补约束', () => {
+    const line: SketchEntityDto = { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } };
+    const point: SketchEntityDto = { kind: 'point', id: 2, x: 20, y: 20 };
+    expect(autoWeldConstraints([point], [line], [], { startConstraintId: 100 })).toEqual([]);
+  });
+});
+
+describe('v1.59：Sketch.Point 点在线推断', () => {
+  it('新 point 落在既有线内部容差内 → coincident(point, line)', () => {
+    const line: SketchEntityDto = { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } };
+    const point: SketchEntityDto = { kind: 'point', id: 2, x: 5, y: 0.2 };
+    const out = autoWeldConstraints([point], [line], [], { startConstraintId: 100 });
+    expect(out).toEqual([{ kind: 'coincident', id: 100, refs: [2, 1] }]);
+  });
+
+  it('垂足在线段外（延长线附近）不焊', () => {
+    const line: SketchEntityDto = { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } };
+    const point: SketchEntityDto = { kind: 'point', id: 2, x: 11, y: 0.2 };
+    expect(autoWeldConstraints([point], [line], [], { startConstraintId: 100 })).toEqual([]);
+  });
+});
+
+describe('v1.59：Sketch.Point 点在圆上推断', () => {
+  it('新 point 落在整圆边界容差内 → coincident(point, circle)', () => {
+    const circle: SketchEntityDto = { kind: 'circle', id: 1, center: { x: 0, y: 0 }, radius: 10 };
+    const point: SketchEntityDto = { kind: 'point', id: 2, x: 10, y: 0.2 };
+    const out = autoWeldConstraints([point], [circle], [], { startConstraintId: 100 });
+    expect(out).toEqual([{ kind: 'coincident', id: 100, refs: [2, 1] }]);
+  });
+
+  it('新 point 在圆内但非边界 → 不焊', () => {
+    const circle: SketchEntityDto = { kind: 'circle', id: 1, center: { x: 0, y: 0 }, radius: 10 };
+    const point: SketchEntityDto = { kind: 'point', id: 2, x: 5, y: 0 };
+    expect(autoWeldConstraints([point], [circle], [], { startConstraintId: 100 })).toEqual([]);
+  });
+});

@@ -179,4 +179,170 @@ test.describe('featurePattern 真栈验收', () => {
       .reduce((sum, item) => sum + item.volume, 0);
     expect(Math.abs(reopenedVolume - 16240)).toBeLessThan(162.4);
   });
+
+  test('v1.59 多源：两个凸台一次线性阵列 → 16480 → push/重开', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 600_000);
+    const token = await getApiToken();
+    const ids = await ensureExampleImodel(request, token, 'E2E - Feature Pattern Multi', { reset: true });
+    const openWithRetry = async () => {
+      try {
+        return await openExampleEditor(page, ids);
+      } catch {
+        await page.reload();
+        return openExampleEditor(page, ids);
+      }
+    };
+    const ctx = await openWithRetry();
+    const lease = await borrowWriteLease(ctx, token, 'feature-pattern-multi');
+
+    const baseSketch = rectangleSketch(40, 40, -20, -20);
+    const baseSketchResult = await applyFeatureOpRpc(
+      ctx,
+      { kind: 'insertSketch', entities: baseSketch.entities, constraints: baseSketch.constraints, plane: XY_PLANE } as unknown as FeatureOp,
+      lease, token,
+    );
+    expect(baseSketchResult.ok).toBe(true);
+    const baseExtrude = await applyFeatureOpRpc(
+      ctx,
+      {
+        kind: 'insertFeature', featureType: 'extrude',
+        params: { profile: [], distance: 10, sketchId: (baseSketchResult as { featureId: string }).featureId, regions: [0], operation: 'new' },
+      },
+      lease, token,
+    );
+    expect(baseExtrude.ok).toBe(true);
+
+    const bossIds: string[] = [];
+    for (const y0 of [2, 20]) {
+      const sketch = rectangleSketch(4, 4, 2, y0);
+      const sk = await applyFeatureOpRpc(
+        ctx,
+        { kind: 'insertSketch', entities: sketch.entities, constraints: sketch.constraints, plane: TOP_PLANE } as unknown as FeatureOp,
+        lease, token,
+      );
+      expect(sk.ok).toBe(true);
+      const ex = await applyFeatureOpRpc(
+        ctx,
+        {
+          kind: 'insertFeature', featureType: 'extrude',
+          params: { profile: [], distance: 5, sketchId: (sk as { featureId: string }).featureId, regions: [0], operation: 'add' },
+        },
+        lease, token,
+      );
+      expect(ex.ok, ex.ok ? '' : ex.error).toBe(true);
+      bossIds.push((ex as { featureId: string }).featureId);
+    }
+
+    const pattern = await applyFeatureOpRpc(
+      ctx,
+      {
+        kind: 'insertFeature', featureType: 'featurePattern',
+        params: {
+          sourceFeatureIds: bossIds,
+          kind: 'linear', count: 3, spacing: 6,
+          axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 } },
+        },
+      } as unknown as FeatureOp,
+      lease, token,
+    );
+    expect(pattern.ok, pattern.ok ? '' : pattern.error).toBe(true);
+
+    const volume = (await getMassPropertiesRpc(ctx, token)).reduce((sum, item) => sum + item.volume, 0);
+    console.log(`[feature-pattern-multi] volume=${volume.toFixed(3)} expected=16480`);
+    expect(Math.abs(volume - 16480)).toBeLessThan(164.8);
+
+    await pushExampleChanges(page, 'featurePattern multi-source acceptance');
+    await page.reload();
+    const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
+    const tree = await getFeatureTreeRpc(reopened, token);
+    expect(tree.map((row) => row.featureType)).toEqual([
+      'sketch', 'extrude', 'sketch', 'extrude', 'sketch', 'extrude', 'featurePattern',
+    ]);
+    expect(tree.every((row) => row.status === 0)).toBe(true);
+    const reopenedVolume = (await getMassPropertiesRpc(reopened, token)).reduce((sum, item) => sum + item.volume, 0);
+    expect(Math.abs(reopenedVolume - 16480)).toBeLessThan(164.8);
+  });
+  test('v1.61 第二方向：3×2 网格 → 16480 → push/重开', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 600_000);
+    const token = await getApiToken();
+    const ids = await ensureExampleImodel(request, token, 'E2E - Feature Pattern Grid', { reset: true });
+    const openWithRetry = async () => {
+      try {
+        return await openExampleEditor(page, ids);
+      } catch {
+        await page.reload();
+        return openExampleEditor(page, ids);
+      }
+    };
+    const ctx = await openWithRetry();
+    const lease = await borrowWriteLease(ctx, token, 'feature-pattern-grid');
+
+    const baseSketch = rectangleSketch(40, 40, -20, -20);
+    const baseSketchResult = await applyFeatureOpRpc(
+      ctx,
+      { kind: 'insertSketch', entities: baseSketch.entities, constraints: baseSketch.constraints, plane: XY_PLANE } as unknown as FeatureOp,
+      lease, token,
+    );
+    expect(baseSketchResult.ok).toBe(true);
+    const baseExtrude = await applyFeatureOpRpc(
+      ctx,
+      {
+        kind: 'insertFeature', featureType: 'extrude',
+        params: { profile: [], distance: 10, sketchId: (baseSketchResult as { featureId: string }).featureId, regions: [0], operation: 'new' },
+      },
+      lease, token,
+    );
+    expect(baseExtrude.ok).toBe(true);
+
+    const bossSketch = rectangleSketch(4, 4, 2, 2);
+    const bossSketchResult = await applyFeatureOpRpc(
+      ctx,
+      { kind: 'insertSketch', entities: bossSketch.entities, constraints: bossSketch.constraints, plane: TOP_PLANE } as unknown as FeatureOp,
+      lease, token,
+    );
+    expect(bossSketchResult.ok).toBe(true);
+    const bossExtrude = await applyFeatureOpRpc(
+      ctx,
+      {
+        kind: 'insertFeature', featureType: 'extrude',
+        params: { profile: [], distance: 5, sketchId: (bossSketchResult as { featureId: string }).featureId, regions: [0], operation: 'add' },
+      },
+      lease, token,
+    );
+    expect(bossExtrude.ok, bossExtrude.ok ? '' : bossExtrude.error).toBe(true);
+
+    const pattern = await applyFeatureOpRpc(
+      ctx,
+      {
+        kind: 'insertFeature', featureType: 'featurePattern',
+        params: {
+          sourceFeatureId: (bossExtrude as { featureId: string }).featureId,
+          kind: 'linear', count: 3, spacing: 6,
+          axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 } },
+          secondDirection: {
+            count: 2, spacing: 8,
+            axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 1, z: 0 } },
+          },
+        },
+      } as unknown as FeatureOp,
+      lease, token,
+    );
+    expect(pattern.ok, pattern.ok ? '' : pattern.error).toBe(true);
+
+    const volume = (await getMassPropertiesRpc(ctx, token)).reduce((sum, item) => sum + item.volume, 0);
+    console.log(`[feature-pattern-grid] volume=${volume.toFixed(3)} expected=16480`);
+    expect(Math.abs(volume - 16480)).toBeLessThan(164.8);
+
+    await pushExampleChanges(page, 'featurePattern second-direction grid acceptance');
+    await page.reload();
+    const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
+    const tree = await getFeatureTreeRpc(reopened, token);
+    expect(tree.map((row) => row.featureType)).toEqual([
+      'sketch', 'extrude', 'sketch', 'extrude', 'featurePattern',
+    ]);
+    expect(tree.every((row) => row.status === 0)).toBe(true);
+    const reopenedVolume = (await getMassPropertiesRpc(reopened, token))
+      .reduce((sum, item) => sum + item.volume, 0);
+    expect(Math.abs(reopenedVolume - 16480)).toBeLessThan(164.8);
+  });
 });

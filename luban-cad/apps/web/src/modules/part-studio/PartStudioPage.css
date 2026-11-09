@@ -2072,6 +2072,16 @@
   white-space: nowrap;
 }
 
+/* W1.5b：零件行逐 body 体积（质量属性读面；右对齐、弱化呈现）。 */
+.part-studio-tree-row__volume {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  padding-inline-start: 6px;
+  color: #6b6b6b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .part-studio-tree-row__visibility {
   display: inline-flex;
   align-items: center;

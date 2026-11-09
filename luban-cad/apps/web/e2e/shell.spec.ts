@@ -120,6 +120,9 @@ test.describe('T3 shell dialog', () => {
     await expect(dialog.locator('.part-studio-feature-dialog__profile-chip')).toHaveCount(1, { timeout: 10_000 });
     await dialog.getByTestId('part-studio-shell-thickness').fill('1');
     await expect(dialog.getByTestId('part-studio-shell-confirm')).toBeEnabled({ timeout: 15_000 });
+    // 后端影子求值几何 → TileRpc 动态预览（2026-11-08 接入 shell）。
+    await expect(page.getByTestId('part-studio-feature-preview'))
+      .toHaveAttribute('data-dynamic', '1', { timeout: 30_000 });
     await dialog.getByTestId('part-studio-shell-confirm').click({ timeout: 30_000 });
     await expect(dialog).toBeHidden({ timeout: 180_000 });
 
@@ -162,6 +165,8 @@ test.describe('T3 shell dialog', () => {
     await expect(editDialog).toBeVisible({ timeout: 30_000 });
     await expect(editDialog.getByTestId('part-studio-shell-thickness')).toHaveValue('1');
     await editDialog.getByTestId('part-studio-shell-thickness').fill('2');
+    await expect(page.getByTestId('part-studio-feature-preview'))
+      .toHaveAttribute('data-dynamic', '1', { timeout: 30_000 });
     await editDialog.getByTestId('part-studio-shell-confirm').click({ timeout: 30_000 });
     await expect(editDialog).toBeHidden({ timeout: 180_000 });
     const editedVolume = (await getMassPropertiesRpc(ctx, token)).reduce((sum, item) => sum + item.volume, 0);

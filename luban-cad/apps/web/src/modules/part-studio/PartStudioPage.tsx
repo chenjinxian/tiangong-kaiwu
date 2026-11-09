@@ -907,6 +907,13 @@ function PartStudioSession({
         // M6-c T4：偏移工具（Sketch.Offset）——同款懒引+幂等（编辑组真 toolId）。
         const { registerSketchOffsetTools } = await import('./tools/sketch/SketchOffsetTool.js');
         registerSketchOffsetTools();
+        // 2026-11-09：草图镜像（Sketch.Mirror）——官方帮助证据两相流程；同款懒引+幂等。
+        const { registerSketchMirrorTools } = await import('./tools/sketch/SketchMirrorTool.js');
+        registerSketchMirrorTools();
+        const { registerSketchPointTools } = await import('./tools/sketch/SketchPointTool.js');
+        registerSketchPointTools();
+        const { registerSketchTangentArcTools } = await import('./tools/sketch/SketchTangentArcTool.js');
+        registerSketchTangentArcTools();
       } catch (err) {
         if (cancelled) return;
         // 工具注册失败必须可见（同旧应用口径：错误面吞掉 = 工具全灭且无诊断线索）
@@ -1104,6 +1111,7 @@ function PartStudioSession({
               error={featureSystem.error}
               onRetry={featureSystem.refresh}
               connection={connection ?? undefined}
+              partStudioId={activeModelId}
               // B6 M-A3.2a：读面仅在成功读取后下传（初次失败/未就绪 → 树回退 legacy
               // 物理查询；I1：初次失败也下传 bodiesError → 可见错误条 + 重试，不静默）。
               // I3：viewport 显式下传 → consumed 隐藏随晚到/重建视口重跑。

@@ -600,6 +600,11 @@
       "surface": "曲面",
       "thinWall": "薄壁"
     },
+    "resultTypeUnsupported": "该结果体类型尚无产品通道（不提供假入口）",
+    "thinThicknessLabel": "壁厚",
+    "thinMidPlaneLabel": "中间平面",
+    "thinThicknessInvalid": "薄壁厚度须为有限正数",
+    "thinWallHint": "薄壁：沿闭合轮廓向内偏置该厚度成空心体；首版单侧厚度，第二厚度/中间平面未支持",
     "booleanScopes": {
       "new": "新建",
       "add": "加入",
@@ -656,9 +661,29 @@
     "mirrorPlaneOptions": {
       "XY": "XY 平面（法向 Z）",
       "YZ": "YZ 平面（法向 X）",
-      "XZ": "XZ 平面（法向 Y）"
+      "XZ": "XZ 平面（法向 Y）",
+      "face": "选中的面"
     },
-    "mirrorScopeHint": "首版仅支持过世界原点的 XY/YZ/XZ 平面，并保留原体（与镜像体合并）",
+    "mirrorScopeLabel": "镜像范围",
+    "mirrorScopeOptions": {
+      "body": "零件镜像",
+      "feature": "特征镜像"
+    },
+    "mirrorSourceFeatureLabel": "要镜像的特征",
+    "mirrorSourceFeaturePlaceholder": "选择特征",
+    "mirrorSourceFeatureEmptyHint": "暂无可用源特征：特征镜像仅支持拉伸、旋转、孔（首版限制）",
+    "mirrorFeatureHint": "特征镜像复制所选特征的增量并按镜像平面反射；源特征保留",
+    "mirrorFeatureScopeHint": "特征镜像：过世界原点的 XY/YZ/XZ 平面；源特征保留，镜像增量并入当前实体",
+    "featureMirrorEditUnsupported": "特征镜像暂不支持参数编辑；请删除后重建（源特征与镜像平面在创建时确定）",
+    "mirrorScopeHint": "支持过世界原点的 XY/YZ/XZ 平面或选中的面；保留原体并与镜像体合并",
+    "mirrorOperationTabs": "镜像操作",
+    "mirrorOperationHint": "「新建」（独立镜像体）需多体输出支持，当前未开放；可选加入/移除/相交",
+    "mirrorFaceHint": "镜像平面 = 选中的面（{{face}}）",
+    "mirrorFaceMissingHint": "请先在视口中选中一个面，再打开镜像",
+    "mirrorFaceMultipleHint": "镜像平面只能选择一个面（当前选中 {{count}} 个）；请取消多余选择后重试",
+    "mirrorFaceReadOnlyHint": "该镜像使用面引用（faceRef），当前界面只读回显；请删除后重建以修改平面。",
+    "mirrorFaceOwnerMismatchHint": "所选面不属于当前目标实体；请重新选择面或目标实体",
+    "mirrorPlaneLineReadOnlyHint": "该镜像使用任意世界平面（planeLine），当前界面暂不支持编辑其平面；请删除后重建。",
     "mirrorNeedsBodyHint": "镜像需要上游实体：请先创建至少一个实体特征",
     "patternParametersLabel": "要阵列化的图元",
     "patternKindLabel": "阵列类型",
@@ -667,6 +692,9 @@
       "circular": "圆周阵列"
     },
     "patternCountLabel": "实例数量（含原件）",
+    "patternCountLabelCentered": "每侧实例数（含原件）",
+    "patternCenteredHint": "居中：N 为每侧实例数（含原件），总实例数为 2N−1（种子居中）",
+    "patternCountCenteredInvalid": "每侧实例数须为 2–500 的整数（含原件）",
     "patternSpacingLabel": "间距",
     "patternAngleLabel": "总角度（度）",
     "patternAxisLabel": "方向轴",
@@ -711,6 +739,17 @@
     "endBoundBlind": "给定深度",
     "endBoundThroughAll": "完全贯穿",
     "endBoundRequiresUpstream": "完全贯穿需要上游实体（新建时不可用）",
+    "endBoundUpToNext": "成形到下一个面",
+    "endBoundUpToSurface": "成形到面",
+    "endBoundUpToSurfaceRequiresUpstream": "成形到面需要上游实体（新建时不可用）",
+    "endBoundUpToSurfaceNeedsFace": "成形到面需要先在视口中选中一个面（再打开拉伸）",
+    "endBoundUpToSurfaceMultipleFaces": "成形到面只能选择一个面（当前选中 {{count}} 个）",
+    "endBoundUpToSurfaceFaceHint": "成形到面 = 选中的面（{{face}}）",
+    "endBoundUpToSurfaceFaceReadOnly": "该拉伸使用面引用（endFaceRef），当前界面只读回显（{{face}}）",
+    "endOffsetEnableLabel": "偏移距离",
+    "endOffsetLabel": "偏移距离（mm）",
+    "endOffsetOppositeLabel": "反向",
+    "endOffsetInvalid": "偏移距离必须是大于 0 的数字",
     "newBodyLabel": "新建实体",
     "targetBodyLabel": "目标实体",
     "bodiesLoadingHint": "正在读取实体列表：读取完成前不可提交",
@@ -728,7 +767,6 @@
       "subtract": "差集",
       "intersect": "相交"
     },
-    "booleanBodiesIntersectHint": "相交暂不支持：首版仅支持并集/差集",
     "booleanBodiesKeepToolsLabel": "保留工具体",
     "booleanBodiesConsumeHint": "未勾选「保留工具体」时，提交成功后工具实体将被消费（隐藏，可撤销恢复）",
     "booleanBodiesToolLockHint": "布尔存在期间，所选工具实体的源链被锁定；编辑工具体需先删除该布尔特征",
@@ -743,6 +781,8 @@
     "editUnsupportedHint": "该特征的结构引用/语义参数不可直接修改（loft、sweep、体布尔请删除特征后重建）",
     "editOperationLocked": "编辑模式下布尔作用域不可更改（结构键）",
     "draftUnsupported": "拔模尚未实现；输入已禁用",
+    "draftAngleLabel": "拔模角度",
+    "draftReverseLabel": "反向",
     "readonlyHint": "当前为只读权限，无法提交特征",
     "sections": {
       "direction": "方向",
@@ -796,7 +836,17 @@
     "patternDirectionLabel": "方向",
     "patternDistanceLabel": "距离",
     "patternInstanceCountLabel": "实例数",
-    "mirrorEntitiesLabel": "要镜像的图元"
+    "mirrorEntitiesLabel": "要镜像的图元",
+    "patternSecondCountLabel": "第二方向实例数量（含原件）",
+    "patternSecondCountLabelCentered": "第二方向每侧实例数（含原件）",
+    "patternSecondSpacingLabel": "第二方向间距",
+    "patternSecondAxisLabel": "第二方向轴",
+    "patternSecondCenteredLabel": "第二方向居中",
+    "patternSecondCountInvalid": "第二方向实例数量须为 2–1000 的整数（含原件）",
+    "patternSecondCountCenteredInvalid": "第二方向每侧实例数须为 2–500 的整数（含原件）",
+    "patternSecondSpacingInvalid": "第二方向间距须为正数",
+    "patternTotalCountInvalid": "两个方向的总实例数不得超过 1000",
+    "patternSecondHint": "第二个方向与第一方向叠加为网格；两个方向的总实例数不得超过 1000。"
   },
   "filletPick": {
     "prompt": "点击拾取要圆角的边",
@@ -858,14 +908,44 @@
         "firstPrompt": "点击放置矩形第一个角点",
         "nextPrompt": "点击放置矩形对角点"
       },
+      "centerArc": {
+        "firstPrompt": "点击放置圆弧圆心",
+        "secondPrompt": "点击放置圆弧起点（定半径）",
+        "thirdPrompt": "点击确定圆弧终点/扫角"
+      },
+      "alignedRectangle": {
+        "firstPrompt": "点击放置对齐矩形第一条边的起点",
+        "secondPrompt": "点击放置第一条边的终点（定角度/长度）",
+        "thirdPrompt": "点击确定垂直边的距离"
+      },
+      "centerRectangle": {
+        "firstPrompt": "点击放置矩形中心",
+        "nextPrompt": "点击放置矩形角点"
+      },
       "circle": {
         "firstPrompt": "点击放置圆心",
         "nextPrompt": "点击放置圆上一点（定半径）"
+      },
+      "perimeterCircle": {
+        "firstPrompt": "点击放置圆上第一点",
+        "secondPrompt": "点击放置圆上第二点",
+        "thirdPrompt": "点击放置圆上第三点"
+      },
+      "polygon": {
+        "firstPrompt": "点击放置多边形中心",
+        "nextPrompt": "点击确定构造圆半径",
+        "sidesPrompt": "输入边数（3–50），按 Enter 或点击完成"
       },
       "arc": {
         "firstPrompt": "点击放置圆弧起点",
         "nextPrompt": "点击放置圆弧终点",
         "thirdPrompt": "点击放置弧上一点"
+      },
+      "bezier": {
+        "firstPrompt": "点击放置贝塞尔起点（控制点 1）",
+        "secondPrompt": "点击放置控制点 2",
+        "thirdPrompt": "点击放置控制点 3",
+        "fourthPrompt": "点击放置贝塞尔终点（控制点 4）"
       },
       "spline": {
         "firstPrompt": "点击放置样条起点",
@@ -876,6 +956,8 @@
       "toasts": {
         "zeroSize": "形状退化（零长度/零面积/零半径），未提交",
         "colinearArc": "三点共线或有两点重合，无法构造圆弧，未提交",
+        "colinearCircle": "三点共线或有两点重合，无法构造圆，未提交",
+        "polygonDegenerate": "多边形需要非零构造半径和 3–50 条边，未提交",
         "splineDegenerate": "样条端点重合或控制柄退化为零切向，未提交",
         "systemNotReady": "草图系统未就绪，请退出草图模式后重试",
         "updateFailed": "草图更新失败"
@@ -948,6 +1030,46 @@
         "unsupportedKind": "偏移暂只支持线和圆弧",
         "degenerateRadius": "偏移距离过大：圆弧向内偏移后半径将归零",
         "zeroDistance": "偏移距离为零，请点击实体以外位置确认偏移"
+      }
+    },
+    "tangentArc": {
+      "prompts": {
+        "start": "相切圆弧：点击一条草图直线的端点作为起点",
+        "end": "相切圆弧：点击圆弧终点"
+      },
+      "toasts": {
+        "sketchEmpty": "草图未打开或为空，无法创建圆弧",
+        "startOnEndpoint": "相切圆弧必须从草图直线的端点开始",
+        "degenerate": "该终点使圆弧退化，请另选位置",
+        "updateFailed": "草图更新失败"
+      }
+    },
+    "point": {
+      "prompts": {
+        "place": "点：点击放置点；Esc 或右键结束"
+      },
+      "toasts": {
+        "sketchEmpty": "草图未打开或为空，无法放点",
+        "invalidPoint": "无法在该位置放置点",
+        "updateFailed": "草图更新失败"
+      }
+    },
+    "mirror": {
+      "prompts": {
+        "pickAxis": "镜像：点击一条草图线作为镜像线",
+        "pickEntities": "镜像：点击实体即时镜像；Esc 或右键结束"
+      },
+      "toasts": {
+        "sketchEmpty": "草图未打开或为空，无法镜像",
+        "nothingPicked": "命中处无可分辨的草图实体",
+        "axisMustBeLine": "镜像：镜像线必须是一条草图线",
+        "unsupportedKind": "镜像支持直线、点、整圆和圆弧（样条待后续）",
+        "axisSourceSame": "镜像线不能以自身为镜像对象",
+        "degenerateAxis": "镜像线长度为零",
+        "degenerateEntity": "实体无法镜像（几何缺失或长度为零）",
+        "alreadyMirrored": "该实体已被本工具镜像",
+        "mirrored": "已镜像",
+        "updateFailed": "草图更新失败"
       }
     },
     "toasts": {
@@ -1089,6 +1211,7 @@
     "retry": "重试",
     "unnamedElement": "未命名实体 {{id}}",
     "defaultBodyName": "实体 {{index}}",
+    "bodyVolumeTitle": "实体体积（质量属性）",
     "bodiesReadFailed": "实体读取失败：{{message}}（当前显示为兼容零件列表）",
     "hideBody": "隐藏实体",
     "showBody": "显示实体",
@@ -1116,7 +1239,13 @@
       "pattern": "阵列",
       "hole": "孔",
       "cPlane": "平面",
-      "sketch": "草图"
+      "sketch": "草图",
+      "moveFace": "移动面",
+      "faceExtrude": "面拉伸",
+      "featurePattern": "特征阵列",
+      "featureMirror": "特征镜像",
+      "transform": "变换",
+      "splitPart": "分割"
     }
   },
   "featureSystem": {
@@ -1242,6 +1371,50 @@
     "rib": {
       "title": "筋（规划中）",
       "message": "筋特征已在鲁班CAD 路线图中登记，当前版本尚未开放，将在后续里程碑提供。"
+    },
+    "thicken": {
+      "title": "加厚（规划中）",
+      "message": "加厚需要曲面体管道，已在鲁班CAD 路线图中登记，将在后续里程碑开放。"
+    },
+    "splitPart": {
+      "title": "分割（后端已就绪，UI 进行中）",
+      "message": "splitPart 后端（单侧世界平面）已可用；分割对话框与面/草图驱动选择尚未开放。"
+    },
+    "transform": {
+      "title": "变换（后端已就绪，UI 进行中）",
+      "message": "变换后端（平移/旋转/均匀缩放/副本）已可用；对话框与转换器映射尚未开放。"
+    },
+    "deleteBodies": {
+      "title": "删除零件（进行中）",
+      "message": "删除体尚未作为特征操作开放；可在支持的零件树右键删除，或等待本能力。"
+    },
+    "deleteFace": {
+      "title": "删除面（内核阻塞）",
+      "message": "内核删除面子操作当前不返回几何，本能力在内核支持前保持阻塞。"
+    },
+    "moveFace": {
+      "title": "移动面（后端已就绪，UI 进行中）",
+      "message": "moveFace 偏移后端已可用（持久面引用 + 距离）；面拾取对话框尚未开放。"
+    },
+    "replaceFace": {
+      "title": "替换面（接口未暴露）",
+      "message": "内核替换面操作未通过编辑器接口暴露，本能力保持阻塞。"
+    },
+    "wrap": {
+      "title": "包覆（规划中）",
+      "message": "包覆需要曲线到曲面的映射与实体包覆管道，已在鲁班CAD 路线图中登记，当前版本尚未开放。"
+    },
+    "decal": {
+      "title": "印花（规划中）",
+      "message": "印花属图像显示特征，不产生实体几何；当前版本未提供图像贴花管道，已在路线图中登记。"
+    },
+    "modifyFillet": {
+      "title": "修改圆角（规划中）",
+      "message": "修改圆角需要选择已有圆角面并按新半径重算，相关内核能力尚未接入，已在路线图中登记。"
+    },
+    "userFeatures": {
+      "title": "添加自定义特征（规划中）",
+      "message": "自定义 FeatureScript 特征不在当前版本支持范围内（示例复刻按 excluded-custom-feature 登记），后续独立立项。"
     }
   },
   "viewCube": {
@@ -1318,17 +1491,18 @@
     "countersinkAngle": "倒角孔角度",
     "endBound": "终止条件",
     "blind": "给定深度",
+    "upToNext": "成形到下一个面",
     "throughAll": "完全贯穿",
     "depth": "孔深",
     "startPlane": "起始平面",
     "startFromPart": "从零件开始",
     "tipAngle": "钻尖角",
-    "tipFlat": "180°（首版平底孔）",
+    "tipDrill": "118°（标准钻尖）",
+    "tipFlat": "180°（平底）",
     "mergeScope": "合并范围",
     "autoTarget": "自动（活动零件）",
     "submitSuccess": "{{name}} 已创建",
-    "submitFailed": "孔提交失败",
-    "previewUnsupported": "孔预览透明度尚未接线"
+    "submitFailed": "孔提交失败"
   },
   "shellDialog": {
     "facesLabel": "要移除的面",
@@ -1344,6 +1518,48 @@
     "ownerMissing": "无法确定所选面的所属实体，请重新拾取",
     "hollowUnavailable": "空心（不移除面）当前契约未支持，本切片仅支持移除面抽壳",
     "submitSuccess": "{{name}} 已创建"
+  },
+  "moveFaceDialog": {
+    "facesLabel": "要移动的面",
+    "facesEmpty": "先在画布中选择要移动的面，再打开移动面",
+    "targetBody": "目标实体",
+    "editTarget": "沿用已落库实体",
+    "moveType": "偏移",
+    "moveTypeOffset": "偏移",
+    "termination": "终止类型",
+    "givenDepth": "给定深度",
+    "distance": "距离",
+    "direction": "方向",
+    "outward": "向外",
+    "inward": "向内",
+    "distanceHint": "正距离沿面法向外扩、反向内缩；本切片仅支持偏移/给定深度",
+    "crossBody": "所选面属于多个实体；移动面要求同一实体",
+    "ownerMissing": "无法确定所选面的所属实体，请重新拾取",
+    "reFillet": "重新应用圆角",
+    "reFilletUnavailable": "「重新应用圆角」当前后端未支持，已禁用",
+    "perFaceReadOnly": "该特征使用逐面距离（distancesMm），当前对话框只读；请用 RPC/参数面板编辑",
+    "submitSuccess": "{{name}} 已创建"
+  },
+  "featurePatternDialog": {
+    "sourceLabel": "要阵列化的特征",
+    "sourceMissing": "源特征缺失",
+    "sourceLockedHint": "源特征与轴是结构引用，编辑中不可更改；可修改阵列类型、实例数与间距/角度（配置副本请删除后重建）",
+    "axisReadonly": "轴：原点 {{origin}}，方向 {{direction}}（只读）",
+    "axisMissing": "轴数据缺失或退化，无法提交",
+    "countCenteredInvalid": "居中阵列的每侧实例数须为 2–500 的整数（含原件）",
+    "submitSuccess": "{{name}} 已更新",
+    "secondCountLabel": "第二方向实例数量（含原件）",
+    "secondCountLabelCentered": "第二方向每侧实例数（含原件）",
+    "secondSpacingLabel": "第二方向间距",
+    "secondCenteredLabel": "第二方向居中",
+    "secondDirectionHint": "第二方向轴是结构引用，编辑中只读保留；取消勾选后提交将移除第二方向。",
+    "secondAxisReadonly": "第二方向轴：原点 {{origin}}，方向 {{direction}}（只读）",
+    "secondAxisMissing": "第二方向轴数据缺失或退化，无法提交",
+    "secondCountInvalid": "第二方向实例数量须为 2–1000 的整数（含原件）",
+    "secondCountCenteredInvalid": "第二方向每侧实例数须为 2–500 的整数（含原件）",
+    "secondSpacingInvalid": "第二方向间距须为正数",
+    "totalInstancesInvalid": "两个方向的总实例数不得超过 1000",
+    "multiSourceHint": "多源特征按顺序阵列；源特征列表是结构引用，编辑中不可更改。"
   },
   "cPlaneDialog": {
     "mode": "类型",
@@ -1444,5 +1660,63 @@
     "showBrepVertices": "显示 BRep 顶点",
     "reset": "恢复默认",
     "noViewport": "视口未就绪——打开模型后可用"
+  },
+  "transformDialog": {
+    "targetBody": "要变换的实体",
+    "targetFixed": "创建时确定（编辑中只读）",
+    "targetPlaceholder": "选择实体…",
+    "targetMissing": "请选择要变换的实体",
+    "noBodies": "无活动实体：请先创建实体",
+    "needsBody": "变换需要已有实体：请先拉伸或旋转创建实体",
+    "mode": "变换类型",
+    "modes": {
+      "translate": "按 XYZ 平动",
+      "rotate": "旋转",
+      "scale": "缩放"
+    },
+    "dx": "ΔX（mm）",
+    "dy": "ΔY（mm）",
+    "dz": "ΔZ（mm）",
+    "axis": "轴",
+    "customAxis": "自定义轴（只读）",
+    "customAxisHint": "自定义旋转轴方向 {{direction}}（只读；选择 X/Y/Z 将替换）",
+    "axisOriginHint": "旋转中心 {{origin}}（只读保留）",
+    "angle": "角度（度）",
+    "rotateHint": "绕所选世界轴过世界原点旋转；已存自定义轴/旋转中心只读保留",
+    "scale": "缩放因子",
+    "nonUniformHint": "该变换使用非均匀缩放（scaleAxes），当前对话框不支持编辑；请切换变换类型，或删除后重建。",
+    "scaleOriginHint": "缩放固定点 {{origin}}（只读保留）",
+    "scaleHint": "以世界原点为固定点均匀缩放；固定点拾取与非均匀缩放在首切片未开放",
+    "copy": "复制零件",
+    "translateNoop": "平移为零：请输入非零偏移",
+    "combinedHint": "该变换包含多个分量（平移/旋转/缩放），当前对话框只支持单分量编辑；请删除后重建以修改组合。",
+    "submitSuccess": "{{name}} 已更新",
+    "copyMergeHint": "首版复制将原件与副本合并到同一实体（copy=true Unite）；独立零件副本需多体输出（ADR-0015）。"
+  },
+  "splitPartDialog": {
+    "splitType": "分割类型",
+    "splitTypePart": "零件",
+    "faceUnsupported": "首切片不支持面分割；仅实体零件按世界平面切分。",
+    "targets": "要分割的零件、曲面或曲线",
+    "targetFixed": "创建时确定（编辑中只读）",
+    "targetPlaceholder": "选择实体…",
+    "targetMissing": "请选择要分割的实体",
+    "noBodies": "无活动实体：请先创建实体",
+    "needsBody": "分割需要已有实体：请先拉伸或旋转创建实体",
+    "tool": "用于分割的图元",
+    "toolWorldPlane": "世界平面（XY/YZ/XZ）",
+    "plane": "分割平面",
+    "offset": "平面偏移（mm）",
+    "keepSide": "保留侧",
+    "keepPositive": "正侧（法向侧）",
+    "keepNegative": "负侧（反法向侧）",
+    "planeHint": "XY 法向 +Z、YZ 法向 +X、XZ 法向 +Y；正侧即法向侧。",
+    "keepTools": "保留工具",
+    "keepToolsUnsupported": "不适用：世界平面不是实体工具",
+    "useTrimmed": "修剪到面边界",
+    "useTrimmedUnsupported": "未支持",
+    "keepBothSides": "保留两侧",
+    "keepBothSidesUnsupported": "未支持（需多体输出，ADR-0015）",
+    "submitSuccess": "{{name}} 已更新"
   }
 }

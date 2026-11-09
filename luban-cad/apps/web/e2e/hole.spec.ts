@@ -94,6 +94,9 @@ test.describe('孔（ADR-0006 切片 A/A2/A3）真栈', () => {
     await holeDialog.getByLabel('点 1').check();
     await holeDialog.getByTestId('hole-end-bound').selectOption('throughAll');
     await expect(holeDialog.getByRole('button', { name: '确认' })).toBeEnabled();
+    // 后端影子求值几何 → TileRpc 动态预览（2026-11-08 接入 hole）。
+    await expect(page.getByTestId('part-studio-feature-preview'))
+      .toHaveAttribute('data-dynamic', '1', { timeout: 30_000 });
     await page.screenshot({ path: 'test-results/hole-01-simple-dialog.png' });
     await holeDialog.getByRole('button', { name: '确认' }).click();
     await expect(holeDialog).toBeHidden({ timeout: 90_000 });
@@ -110,6 +113,86 @@ test.describe('孔（ADR-0006 切片 A/A2/A3）真栈', () => {
     console.log(`[hole] base=${baseVolumeMm3.toFixed(3)} removed=${removedMm3.toFixed(3)} expected=${expectedRemoved.toFixed(3)} mm³`);
     // 基准体积随鼠标落点有亚毫米差；孔去材量应精确等于孔径（Ø5）×厚度（10）。
     expect(Math.abs(removedMm3 - expectedRemoved) / expectedRemoved, '孔去材量误差').toBeLessThan(0.01);
+  });
+
+  test('v1.56 upToNext：沿孔轴到最近平行面（板厚 10）→ 去材等于贯穿深度', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
+    const { ctx, token, baseVolumeMm3 } = await createPlate(page, request);
+
+    await page.getByRole('button', { name: '孔', exact: true }).click();
+    const holeDialog = page.getByTestId('part-studio-hole-dialog');
+    await expect(holeDialog).toBeVisible();
+    await holeDialog.getByTestId('hole-locations-toggle').click();
+    await expect(holeDialog.getByTestId('hole-points')).toBeVisible({ timeout: 30_000 });
+    await holeDialog.getByLabel('点 1').check();
+    await holeDialog.getByTestId('hole-end-bound').selectOption('upToNext');
+    await expect(holeDialog.getByTestId('hole-depth')).toHaveCount(0);
+    await expect(holeDialog.getByRole('button', { name: '确认' })).toBeEnabled();
+    await expect(page.getByTestId('part-studio-feature-preview'))
+      .toHaveAttribute('data-dynamic', '1', { timeout: 30_000 });
+    await holeDialog.getByRole('button', { name: '确认' }).click();
+    await expect(holeDialog).toBeHidden({ timeout: 90_000 });
+
+    const tree = await getFeatureTreeRpc(ctx, token);
+    expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'hole']);
+    expect(tree.every((row) => row.status === 0), `特征状态：${JSON.stringify(tree.map((r) => r.status))}`).toBe(true);
+    expect(tree[2]?.params).toMatchObject({ endBound: 'upToNext' });
+    const mass = await getMassPropertiesRpc(ctx, token);
+    const removedMm3 = baseVolumeMm3 - mass.reduce((sum, m) => sum + m.volume, 0);
+    const expectedRemoved = Math.PI * 2.5 * 2.5 * 10;
+    console.log(`[hole-up-to-next] removed=${removedMm3.toFixed(3)} expected=${expectedRemoved.toFixed(3)} mm³`);
+    expect(Math.abs(removedMm3 - expectedRemoved) / expectedRemoved).toBeLessThan(0.01);
+  });
+
+  test('盲孔 + 118° 钻尖（v1.50）：去材 = 圆柱段 + 钻尖锥', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS);
+    const { ctx, token, baseVolumeMm3 } = await createPlate(page, request);
+
+    await page.getByRole('button', { name: '孔', exact: true }).click();
+    const holeDialog = page.getByTestId('part-studio-hole-dialog');
+    await expect(holeDialog).toBeVisible();
+    await holeDialog.getByTestId('hole-locations-toggle').click();
+    await holeDialog.getByLabel('点 1').check();
+    await holeDialog.getByTestId('hole-end-bound').selectOption('blind');
+    await holeDialog.getByTestId('hole-depth').fill('4');
+    // Onshape live 证据默认 118°；180=平底仍可选。
+    await expect(holeDialog.getByTestId('hole-tip-angle')).toHaveValue('118');
+    await expect(holeDialog.getByRole('button', { name: '确认' })).toBeEnabled();
+    await holeDialog.getByRole('button', { name: '确认' }).click();
+    await expect(holeDialog).toBeHidden({ timeout: 90_000 });
+
+    const tree = await getFeatureTreeRpc(ctx, token);
+    expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'hole']);
+    expect(tree.every((row) => row.status === 0)).toBe(true);
+    const mass = await getMassPropertiesRpc(ctx, token);
+    const removedMm3 = baseVolumeMm3 - mass.reduce((sum, item) => sum + item.volume, 0);
+    const radius = 2.5;
+    const tipHeight = radius / Math.tan((118 * Math.PI / 180) / 2);
+    const expected = Math.PI * radius * radius * 4 + (Math.PI * radius * radius * tipHeight) / 3;
+    console.log(`[hole] tip removed=${removedMm3.toFixed(3)} expected=${expected.toFixed(3)} mm³`);
+    expect(Math.abs(removedMm3 - expected) / expected, '钻尖孔去材量误差').toBeLessThan(0.01);
+
+    // 反向（Onshape「反向」控件）：材料在草图法线正向，backward 钻孔朝材料外 →
+    // 体积不变；树落第二行 hole 且 params.direction=backward。
+    const volumeBeforeBackward = mass.reduce((sum, item) => sum + item.volume, 0);
+    await page.getByRole('button', { name: '孔', exact: true }).click();
+    const backwardDialog = page.getByTestId('part-studio-hole-dialog');
+    await expect(backwardDialog).toBeVisible();
+    await backwardDialog.getByTestId('hole-locations-toggle').click();
+    await backwardDialog.getByLabel('点 1').check();
+    await backwardDialog.getByTestId('hole-end-bound').selectOption('blind');
+    await backwardDialog.getByTestId('hole-depth').fill('4');
+    await backwardDialog.getByTestId('hole-direction').selectOption('backward');
+    await backwardDialog.getByRole('button', { name: '确认' }).click();
+    await expect(backwardDialog).toBeHidden({ timeout: 90_000 });
+    const backwardMass = await getMassPropertiesRpc(ctx, token);
+    const volumeAfterBackward = backwardMass.reduce((sum, item) => sum + item.volume, 0);
+    expect(Math.abs(volumeAfterBackward - volumeBeforeBackward), '反向孔不应去材').toBeLessThan(1e-6);
+    const backwardTree = await getFeatureTreeRpc(ctx, token);
+    const holeRows = backwardTree.filter((row) => row.featureType === 'hole');
+    expect(holeRows).toHaveLength(2);
+    expect(holeRows[1]?.params).toMatchObject({ direction: 'backward' });
+    expect(holeRows[1]?.status).toBe(0);
   });
 
   test('沉头孔：主孔贯通 + 起始面扩孔（v1.28）', async ({ page, request }) => {

@@ -75,6 +75,7 @@ import { isGated } from '../internal/capabilities.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { useFeatureTree } from '../hooks/useFeatureTree.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+import { useBodyMassProperties } from '../hooks/useBodyMassProperties.js';
 import type { FeatureNode, PartNode, TreeTab } from '../types.js';
 import { TreeFilter, parseTreeFilter } from './TreeFilter.js';
 import type { TreeNode } from './TreeRow.js';
@@ -99,6 +100,8 @@ export interface FeatureTreeProps {
    * 查询随特征刷新（entries 引用变化）重跑——新特征落库产生的实体如实出现。
    */
   connection?: BriefcaseConnection;
+  /** W1.5b：Part Studio scope（质量属性读面）；缺省=legacy 全局 arity。 */
+  partStudioId?: string;
   /**
    * B6 M-A3.2a：body 读面（Session useFeatureSystem.bodies 直通，仅在该连接成功
    * 读过 getBodies 时下传）。在场时零件段=**authored active body**（名称取
@@ -252,14 +255,19 @@ function usePhysicalElements(
 export function activeBodyParts(
   bodies: readonly BodyInfo[],
   defaultBodyName: (index: number) => string,
+  massByBodyKey?: ReadonlyMap<string, { volume: number }>,
 ): PartNode[] {
   return bodies
     .filter((body) => body.active && body.authored !== false)
-    .map((body, index) => ({
-      id: body.bodyKey,
-      name: body.name && body.name.trim() !== '' ? body.name : defaultBodyName(index + 1),
-      isHidden: false,
-    }));
+    .map((body, index) => {
+      const volume = massByBodyKey?.get(body.bodyKey)?.volume;
+      return {
+        id: body.bodyKey,
+        name: body.name && body.name.trim() !== '' ? body.name : defaultBodyName(index + 1),
+        isHidden: false,
+        ...(typeof volume === 'number' && Number.isFinite(volume) ? { volumeMm3: volume } : {}),
+      };
+    });
 }
 
 /**
@@ -295,6 +303,7 @@ export function FeatureTree({
   error,
   onRetry,
   connection,
+  partStudioId,
   bodies,
   bodiesLoading,
   bodiesError,
@@ -310,9 +319,22 @@ export function FeatureTree({
   const filter = React.useMemo(() => parseTreeFilter(filterInput), [filterInput]);
   // B6 M-A3.2a：body 读面在场 → 零件段=active authored body；读面加载中 → 骨架
   // （不抢先跑 legacy 全量查询）；读面不可用（MS<1.15/初次失败）→ legacy 回退。
+  // W1.5b：逐 body 质量属性（只读）→ 零件段行体积；随 entries 刷新重读。
+  // 仅在 body 读面在场时发起（legacy/壳期/无体不付 RPC）。
+  const bodyMass = useBodyMassProperties(
+    bodies !== undefined && bodies.length > 0 ? connection : undefined,
+    partStudioId,
+    entries,
+  );
   const bodyParts = React.useMemo(
-    () => (bodies === undefined ? undefined : activeBodyParts(bodies, (index) => t('partStudio.tree.defaultBodyName', { index }))),
-    [bodies, t],
+    () => (bodies === undefined
+      ? undefined
+      : activeBodyParts(
+        bodies,
+        (index) => t('partStudio.tree.defaultBodyName', { index }),
+        bodyMass.byBodyKey,
+      )),
+    [bodies, t, bodyMass.byBodyKey],
   );
   const legacyPartsEnabled = bodies === undefined && !bodiesLoading;
   // 零件段查询（随特征刷新重跑：entries 引用即 refreshToken）。

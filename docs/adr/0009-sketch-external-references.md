@@ -1,6 +1,7 @@
 # ADR-0009：草图外部引用（PROJECTED/PIERCE/INTERSECTED/SILHOUETTED）
 
-- 状态：已接受（计划 W1.5 / 队列 #3；第一切片设计，2026-11-07）。
+- 状态：已接受（计划 W1.5 / 队列 #3；**切片 1a（草图→草图投影）已实现，2026-11-07**；
+  切片 1b（实体边投影）与切片 2（PIERCE/INTERSECTED/SILHOUETTED/UI）待实现）。
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`。
 
@@ -18,7 +19,43 @@
 
 ## 决策（分切片）
 
-### 切片 1：外部边投影为固定构造几何（本 ADR 首个实现目标）
+### 切片 1a（已实现，2026-11-07）：草图→草图投影（Use/Project 同步通道）
+
+首个实现先落**草图实体源**（不依赖实体 BRep/异步拓扑读取）：同 Part Studio 内另一张草图的
+line/circle/arc/point 投影到目标草图平面，全同步、读时派生。
+
+1. **契约（shared 1.35.0）**：`insertSketch.projections?: SketchProjectionRequest[]`
+   （`sourceSketchId/sourceEntityId/entityId`）；实体 DTO 增 `projected?: SketchProjectedMarker`
+   （`source` + 派生点 `derived`）。旧载荷逐字兼容。
+2. **合成/求值**：写面合成投影组（line=2 派生点+线，circle/arc=圆心点+曲线，point=点；
+   id=entityId/+1/+2），投影实体**不送求解器**（DOF 不含投影）；约束引用投影实体 id 在
+   op 边界诚实拒收（PIERCE 等归切片 2）。圆/弧限**平行平面**（含反向）；非平行投影为椭圆，
+   切片 1a 拒收不近似。
+3. **参数联动**：投影是**读时派生**——面域/显示/孔位/扫掠路径/旋转轴读取源草图当前解重投影；
+   `params` 中保存的投影坐标只是插入时快照。`insertSketch` 建「源草图→投影草图」驱动边；
+   消费特征创建时补「全部上游投影源→消费特征」直连边（草图无 EDE 处理器，直连保证同步/
+   异步两条求值路径都重算）。scoped 脏闭包放行草图透传节点。
+4. **删除守卫**：删投影源被驱动边拒收；删投影草图清 incoming 边（不悬空阻断源删除）。
+5. **UI**：本切片不做新工具（无 live 证据）；回放/RPC 先行。
+
+**证据（2026-11-07）**：后端 `SketchProjectionFlow` 4/4（20×20 投影拉伸 2000 mm³，改源宽
+30→下游 3000 mm³；平行圆投影圆柱；非平行圆/约束引用/id 冲突/重复请求/源缺失/循环引用
+拒收；删除语义）。真栈 `e2e/sketch-projection.spec.ts` **2 passed**（2000→3000→push+
+重开 3000，投影草图 DOF=0、区域 400→600）。后端全量 768 passed / 8 skipped、web 1389/1389、
+shared 162/162。
+
+### 切片 1b：外部实体边投影为固定构造几何（blocked-design，待设计）
+
+> **2026-11-07 可行性结论（未开工，登记证据）**：实体边投影不是 converter/replay 的增量，
+> 而是**读路径架构**变更。当前草图读取是同步链路（`readResolvedSketch`/`SketchRegions`
+> 只拿到 `IModelDb`，切片 1a 的实时重投影全同步）；实体边拓扑只能经
+> `SolidModelingCommand`（异步，需 scratch 载体 + feature output cache）读取，见
+> `AsyncFeatureEval.mirrorFaceTransform`/`evaluateMoveFaceAsync` 的既有异步通道。
+> 要支持“上游 body 改参 → 投影草图读时重投影”，必须把草图求值/面域/显示读面改为
+> 异步（或引入可失效的同步几何快照缓存），这是跨 FeatureService/SketchRegions/
+> 前端 decoration 的架构切片，需先出 AIRR/ADR 增量与旧库回退方案。**不是 blocked-kernel**
+> （`SolidKernel.h` 的 Imprint/拓扑接口齐全），也不是 blocked-evidence。切片 1a
+> （草图→草图）继续作为当前可用子集；PROJECTED 源为实体边时 converter 保持 dropped。
 
 1. **契约（shared 增量）**：`SketchEntityDto` 增可选
    `projected?: { source: SketchExternalRef; role: "projected" }` 或新增

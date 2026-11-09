@@ -24,10 +24,19 @@ export const BODY_PRODUCING_FEATURE_TYPES: readonly LubanFeatureType[] = [
   'revolve',
   'booleanAdd',
   'booleanSubtract',
+  'booleanBodies',
   'loft',
   'sweep',
   'mirror',
   'pattern',
+  // 2026-11-08：体修改型新特征同列（消隐回退/插入后取景/无读面时的 hasBodies
+  // 判定一致；不是第二套体模型，均为标准 insertFeature 输出）。
+  'featurePattern',
+  'featureMirror',
+  'moveFace',
+  'faceExtrude',
+  'transform',
+  'splitPart',
 ];
 
 /** 画布拾取类型（spec §5 上下文敏感模型：右键菜单按 kind 重构）。 */
@@ -85,6 +94,8 @@ export interface PartNode {
   name: string;
   isHidden: boolean;
   hasError?: boolean;
+  /** W1.5b：逐 body 体积（mm³，质量属性读面；缺省=未读取/不可用，不显示）。 */
+  volumeMm3?: number;
 }
 
 /** 双段树活动段（os-11 左栏：特征列表 / 零件列表）。 */

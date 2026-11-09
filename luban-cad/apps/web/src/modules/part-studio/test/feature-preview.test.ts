@@ -90,6 +90,65 @@ describe('buildExtrudePreview', () => {
     expect(buildExtrudePreview(SQUARE, XY_PLANE, [], 5, false)).toEqual(EMPTY);
   });
 
+  it('v1.51 拔模：远端环按 δ=|d|·tan(θ) 外扩；反向内缩；反向拉伸沿 -Z', () => {
+    const delta = 10 * Math.tan((10 * Math.PI) / 180);
+    const big: SketchRegionDto = {
+      area: 100,
+      outerEntityIds: [1, 2, 3, 4],
+      outerBoundary: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }],
+    };
+    const up = buildExtrudePreview(SQUARE, XY_PLANE, [big], 10, false, 0, 0, {
+      angleDeg: 10, pullDirection: false,
+    });
+    // quads[0] = [bottom0, bottom1, top1, top0]
+    expect(up.quads[0]![0]!.toJSON()).toEqual([0, 0, 0]);
+    expect(up.quads[0]![1]!.toJSON()).toEqual([10, 0, 0]);
+    expect(up.quads[0]![2]!.x).toBeCloseTo(10 + delta, 6);
+    expect(up.quads[0]![2]!.y).toBeCloseTo(-delta, 6);
+    expect(up.quads[0]![2]!.z).toBeCloseTo(10, 6);
+    expect(up.quads[0]![3]!.x).toBeCloseTo(-delta, 6);
+    expect(up.quads[0]![3]!.y).toBeCloseTo(-delta, 6);
+    expect(up.fillLoops).toHaveLength(1);
+    expect(up.capLoops).toHaveLength(2);
+    expect(up.lines.length).toBe(6); // 底/顶环 + 4 条连接棱
+
+    const reverse = buildExtrudePreview(SQUARE, XY_PLANE, [big], 10, false, 0, 0, {
+      angleDeg: 10, pullDirection: true,
+    });
+    expect(reverse.quads[0]![3]!.x).toBeCloseTo(delta, 6);
+    expect(reverse.quads[0]![3]!.y).toBeCloseTo(delta, 6);
+    expect(reverse.quads[0]![2]!.x).toBeCloseTo(10 - delta, 6);
+
+    const backward = buildExtrudePreview(SQUARE, XY_PLANE, [big], -10, false, 0, 0, {
+      angleDeg: 10, pullDirection: false,
+    });
+    expect(backward.quads[0]![0]!.z).toBeCloseTo(0, 6);
+    expect(backward.quads[0]![3]!.z).toBeCloseTo(-10, 6);
+    expect(backward.quads[0]![3]!.x).toBeCloseTo(-delta, 6);
+  });
+
+  it('拔模孔环：正向外扩时孔环向内缩（材料侧一致）', () => {
+    const delta = 10 * Math.tan((10 * Math.PI) / 180);
+    const holed: SketchRegionDto = {
+      area: 84,
+      outerEntityIds: [1, 2, 3, 4],
+      holeEntityIds: [5, 6, 7, 8],
+      outerBoundary: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }],
+      // 孔环 CW（外环 CCW 的反向），与 sketchRegionsFrom 输出一致。
+      holeBoundaries: [[{ x: 3, y: 3 }, { x: 3, y: 7 }, { x: 7, y: 7 }, { x: 7, y: 3 }]],
+    };
+    const preview = buildExtrudePreview(SQUARE, XY_PLANE, [holed], 10, false, 0, 0, {
+      angleDeg: 10, pullDirection: false,
+    });
+    expect(preview.fillLoops).toHaveLength(2); // 外环 + 孔环
+    expect(preview.capLoops).toHaveLength(0); // 带孔端盖不三角化
+    // quads 0..3 外环、4..7 孔环；孔环底 0 = (3,3,0)，顶 0 = (3+δ,3+δ,10)。
+    expect(preview.quads[4]![0]!.toJSON()).toEqual([3, 3, 0]);
+    expect(preview.quads[4]![3]!.x).toBeCloseTo(3 + delta, 6);
+    expect(preview.quads[4]![3]!.y).toBeCloseTo(3 + delta, 6);
+    expect(preview.quads[4]![3]!.z).toBeCloseTo(10, 6);
+  });
+
   it('草图平面非 XY 时沿平面法向拉伸（Front 平面 → +Y）', () => {
     const front: SketchPlaneDto = {
       origin: { x: 0, y: 0, z: 0 },

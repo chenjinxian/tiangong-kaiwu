@@ -569,6 +569,239 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     });
   });
 
+  it('v1.53 成形到下一个面：无需面快照，移除可选，载荷 endBound=upToNext 且距离框禁用', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp);
+    expect((screen.getByRole('option', { name: '成形到下一个面' }) as HTMLOptionElement).disabled).toBe(true);
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    expect((screen.getByRole('option', { name: '成形到下一个面' }) as HTMLOptionElement).disabled).toBe(false);
+    await user.selectOptions(screen.getByRole('combobox', { name: '终止条件' }), 'upToNext');
+    expect((screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0],
+        operation: 'remove', endBound: 'upToNext',
+      },
+    });
+  });
+
+  it('v1.52 成形到面：无面快照 → 选项禁用 + 缺面提示', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp);
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    expect((screen.getByRole('option', { name: '成形到面' }) as HTMLOptionElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-up-to-surface-face-missing-hint').textContent)
+      .toContain('先在视口中选中一个面');
+  });
+
+  it('v1.52 成形到面：单面快照 → 载荷 endBound/endFaceRef，距离框禁用、面提示在场', async () => {
+    const applyOp = makeApplyOp();
+    const face = {
+      kind: 'face' as const,
+      id: 'face-1',
+      topologyId: { nodeId: 1, entityId: 2 },
+      ownerBodyKey: '0x15',
+    };
+    const { user } = await renderReadyDialog(applyOp, { initialFaces: [face] });
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    expect((screen.getByRole('option', { name: '成形到面' }) as HTMLOptionElement).disabled).toBe(false);
+    await user.selectOptions(screen.getByRole('combobox', { name: '终止条件' }), 'upToSurface');
+    expect((screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-up-to-surface-face-hint').textContent)
+      .toContain('1:2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0],
+        operation: 'remove', endBound: 'upToSurface', endFaceRef: { nodeId: 1, entityId: 2 },
+      },
+    });
+  });
+
+  it('v1.54 成形到面偏移距离：启用 + 2mm 反向 → 载荷 endOffsetMm/endOffsetOppositeDirection', async () => {
+    const applyOp = makeApplyOp();
+    const face = {
+      kind: 'face' as const,
+      id: 'face-1',
+      topologyId: { nodeId: 1, entityId: 2 },
+      ownerBodyKey: '0x15',
+    };
+    const { user } = await renderReadyDialog(applyOp, { initialFaces: [face] });
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: '终止条件' }), 'upToSurface');
+    // 未启用偏移：复选默认关闭；勾选后才出现距离/反向。
+    const enable = screen.getByRole('checkbox', { name: '偏移距离' }) as HTMLInputElement;
+    expect(enable.checked).toBe(false);
+    expect(screen.queryByRole('textbox', { name: '偏移距离（mm）' })).toBeNull();
+    await user.click(enable);
+    const offset = screen.getByRole('textbox', { name: '偏移距离（mm）' });
+    expect((offset as HTMLInputElement).value).toBe('1');
+    await user.clear(offset);
+    await user.type(offset, '2');
+    await user.click(screen.getByRole('checkbox', { name: '反向' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0],
+        operation: 'remove', endBound: 'upToSurface', endFaceRef: { nodeId: 1, entityId: 2 },
+        endOffsetMm: 2, endOffsetOppositeDirection: true,
+      },
+    });
+  });
+
+  it('v1.54 成形到面偏移距离：非正数 → 确认禁用、不发 op', async () => {
+    const applyOp = makeApplyOp();
+    const face = {
+      kind: 'face' as const,
+      id: 'face-1',
+      topologyId: { nodeId: 1, entityId: 2 },
+      ownerBodyKey: '0x15',
+    };
+    const { user } = await renderReadyDialog(applyOp, { initialFaces: [face] });
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: '终止条件' }), 'upToSurface');
+    await user.click(screen.getByRole('checkbox', { name: '偏移距离' }));
+    const offset = screen.getByRole('textbox', { name: '偏移距离（mm）' });
+    await user.clear(offset);
+    await user.type(offset, '0');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('v1.54 编辑回显偏移 → updateParams 合并 endOffsetMm/反向；关闭后删除旧键', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      mode: 'edit', featureId: 'f-extrude',
+      initialParams: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'remove',
+        endBound: 'upToSurface', endFaceRef: { nodeId: 1, entityId: 2 },
+        endOffsetMm: 2, endOffsetOppositeDirection: true,
+      },
+    });
+    expect((screen.getByRole('checkbox', { name: '偏移距离' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('textbox', { name: '偏移距离（mm）' }) as HTMLInputElement).value).toBe('2');
+    expect((screen.getByRole('checkbox', { name: '反向' }) as HTMLInputElement).checked).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(op.kind).toBe('updateParams');
+    expect(op.featureId).toBe('f-extrude');
+    expect(op.params).toMatchObject({
+      endBound: 'upToSurface', endFaceRef: { nodeId: 1, entityId: 2 },
+      endOffsetMm: 2, endOffsetOppositeDirection: true,
+    });
+  });
+
+  it('v1.52 成形到面：多面快照 → 选项禁用 + 多选提示', async () => {
+    const applyOp = makeApplyOp();
+    const faces = [
+      { kind: 'face' as const, id: 'f1', topologyId: { nodeId: 1, entityId: 2 }, ownerBodyKey: '0x15' },
+      { kind: 'face' as const, id: 'f2', topologyId: { nodeId: 3, entityId: 4 }, ownerBodyKey: '0x15' },
+    ];
+    const { user } = await renderReadyDialog(applyOp, { initialFaces: faces });
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    expect((screen.getByRole('option', { name: '成形到面' }) as HTMLOptionElement).disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-up-to-surface-face-multiple-hint').textContent)
+      .toContain('2');
+  });
+
+  it('v1.53 薄壁：曲面页签禁用、薄壁启用；厚度输入 + 载荷 bodyType/THIN，冲突控件禁用', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp);
+    expect((screen.getByRole('tab', { name: '曲面' }) as HTMLButtonElement).disabled).toBe(true);
+    const thinTab = screen.getByRole('tab', { name: '薄壁' }) as HTMLButtonElement;
+    expect(thinTab.disabled).toBe(false);
+    await user.click(thinTab);
+    const thickness = screen.getByRole('textbox', { name: '壁厚' });
+    expect((thickness as HTMLInputElement).value).toBe('1');
+    expect(screen.getByTestId('part-studio-feature-dialog-thin-wall-hint').textContent)
+      .toContain('单侧厚度');
+    expect((screen.getByTestId('part-studio-feature-dialog-symmetric-flat').querySelector('input') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByTestId('part-studio-feature-dialog-draft').querySelector('input') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByTestId('part-studio-feature-dialog-second-direction').querySelector('input') as HTMLInputElement).disabled).toBe(true);
+    await user.clear(thickness);
+    await user.type(thickness, '2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new',
+        bodyType: 'THIN', thinThicknessMm: 2,
+      },
+    });
+  });
+
+  it('v1.55 薄壁中间平面：勾选 → 载荷 thinMidPlane:true', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp);
+    await user.click(screen.getByRole('tab', { name: '薄壁' }));
+    const midPlane = screen.getByRole('checkbox', { name: '中间平面' }) as HTMLInputElement;
+    expect(midPlane.checked).toBe(false);
+    await user.click(midPlane);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new',
+        bodyType: 'THIN', thinThicknessMm: 1, thinMidPlane: true,
+      },
+    });
+  });
+
+  it('v1.55 薄壁中间平面：edit 回显 + updateParams 合并键', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      mode: 'edit', featureId: 'f-thin',
+      initialParams: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new',
+        bodyType: 'THIN', thinThicknessMm: 2, thinMidPlane: true,
+      },
+    });
+    expect((screen.getByRole('checkbox', { name: '中间平面' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('textbox', { name: '壁厚' }) as HTMLInputElement).value).toBe('2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(op.kind).toBe('updateParams');
+    expect(op.featureId).toBe('f-thin');
+    expect(op.params).toMatchObject({ bodyType: 'THIN', thinThicknessMm: 2, thinMidPlane: true });
+  });
+
+  it('v1.53 薄壁：厚度非正 → 提交禁用 + 不发 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp);
+    await user.click(screen.getByRole('tab', { name: '薄壁' }));
+    const thickness = screen.getByRole('textbox', { name: '壁厚' });
+    await user.clear(thickness);
+    await user.type(thickness, '0');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('v1.53 薄壁：切薄壁时把成形到面复位为给定深度（后端互斥）', async () => {
+    const face = {
+      kind: 'face' as const,
+      id: 'face-1',
+      topologyId: { nodeId: 1, entityId: 2 },
+      ownerBodyKey: '0x15',
+    };
+    const { user } = await renderReadyDialog(makeApplyOp(), { initialFaces: [face] });
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: '终止条件' }), 'upToSurface');
+    await user.click(screen.getByRole('tab', { name: '薄壁' }));
+    expect((screen.getByRole('combobox', { name: '终止条件' }) as HTMLSelectElement).value).toBe('blind');
+    expect((screen.getByRole('option', { name: '成形到面' }) as HTMLOptionElement).disabled).toBe(true);
+  });
+
   it('第二方向：勾选 + 深度 → 载荷 secondDirection；对称勾选时禁用', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyDialog(applyOp);
@@ -1649,6 +1882,102 @@ describe('M6-b T4 extrude 对称平铺复选（Onshape 平铺形态；载荷已�
 });
 
 // ---------------------------------------------------------------------------
+// v1.51（ADR-0005 Phase 4）：extrude 拔模平铺复选 + 角度 + 反向。
+// live 证据 ui-evidence/draft-dialog-20261108（Onshape：拔模复选 → 拔模角度 3 deg → 反向）。
+// ---------------------------------------------------------------------------
+describe('v1.51 extrude 拔模（角度/反向 → op 载荷）', () => {
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  async function renderReadyExtrude(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1', entities: [], constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    });
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="拉伸 1" mode="new" featureType="extrude" applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]} connectionKey="model-key"
+        onConfirm={onConfirm} onCancel={vi.fn()} {...props}
+      />,
+    );
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
+    return { user, onConfirm };
+  }
+
+  beforeEach(() => {
+    featureRpc.getSketch.mockReset();
+  });
+
+  it('勾选拔模 → 角度默认 3 + 反向复选；确认载荷 draftAngleDeg=3（无反向键）', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = await renderReadyExtrude(applyOp);
+    await user.click(screen.getByRole('checkbox', { name: '拔模' }));
+    const angle = screen.getByRole('textbox', { name: '拔模角度' }) as HTMLInputElement;
+    expect(angle.value).toBe('3');
+    expect(screen.getByRole('checkbox', { name: '反向' })).toBeDefined();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'insertFeature', featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new', draftAngleDeg: 3 },
+    });
+    expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).draft).toBe('3');
+  });
+
+  it('反向勾选 → 载荷 draftPullDirection:true；改角度 → draftAngleDeg 跟随', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp);
+    await user.click(screen.getByRole('checkbox', { name: '拔模' }));
+    const angle = screen.getByRole('textbox', { name: '拔模角度' });
+    await user.clear(angle);
+    await user.type(angle, '10');
+    await user.click(screen.getByRole('checkbox', { name: '反向' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const params = (applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'insertFeature' }>).params as Record<string, unknown>;
+    expect(params.draftAngleDeg).toBe(10);
+    expect(params.draftPullDirection).toBe(true);
+  });
+
+  it('拔模与对称互斥：勾拔模 → 对称取消并禁用；勾对称 → 拔模禁用', async () => {
+    const { user } = await renderReadyExtrude(makeApplyOp());
+    const symmetric = screen.getByRole('checkbox', { name: '对称' }) as HTMLInputElement;
+    const draft = screen.getByRole('checkbox', { name: '拔模' }) as HTMLInputElement;
+    await user.click(symmetric);
+    expect(draft.disabled).toBe(true);
+    await user.click(symmetric); // 取消对称
+    await user.click(draft);
+    expect((screen.getByRole('checkbox', { name: '对称' }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole('checkbox', { name: '对称' }) as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('edit 模式回显 draftAngleDeg/反向，确认发 updateParams 合并键', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, {
+      mode: 'edit', featureId: 'f-extrude',
+      initialParams: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'add',
+        draftAngleDeg: 7, draftPullDirection: true,
+      },
+    });
+    expect((screen.getByRole('checkbox', { name: '拔模' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('textbox', { name: '拔模角度' }) as HTMLInputElement).value).toBe('7');
+    expect((screen.getByRole('checkbox', { name: '反向' }) as HTMLInputElement).checked).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(op.kind).toBe('updateParams');
+    expect(op.featureId).toBe('f-extrude');
+    expect(op.params).toMatchObject({ draftAngleDeg: 7, draftPullDirection: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // B2 Task 2：loft 通道（双截面草图选择器——最小入口）。
 // 首版只做两平行截面（LoftParams.sketchIds 二元组 + bodyType:'SOLID'；无 guides/
 // end conditions/sections UI）。两个独立下拉（截面草图 1/2），门禁=两键均已选且
@@ -1696,6 +2025,19 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-loft-parallel-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('选两张不同草图 → previewOp insertFeature loft（150ms 防抖，2026-11-08）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    const { user } = renderLoftDialog(makeApplyOp(), { previewOp });
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 1' }), 'sk-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 2' }), 'sk-2');
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'loft',
+      params: { sketchIds: ['sk-1', 'sk-2'], bodyType: 'SOLID' },
+    });
   });
 
   it('选两张不同草图 → 载荷 {sketchIds:[a,b], bodyType:"SOLID"}（无 distance/profile/regions 键）→ onConfirm', async () => {
@@ -1821,6 +2163,19 @@ describe('B3 sweep 通道（轮廓草图 + 路径草图双选择器）', () => {
     expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('选轮廓 + 路径 → previewOp insertFeature sweep（150ms 防抖，2026-11-08）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    const { user } = renderSweepDialog(makeApplyOp(), { previewOp });
+    await user.selectOptions(screen.getByRole('combobox', { name: '轮廓草图' }), 'sk-profile');
+    await user.selectOptions(screen.getByRole('combobox', { name: '路径草图' }), 'sk-path');
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'sweep',
+      params: { profileSketchId: 'sk-profile', pathSketchId: 'sk-path', bodyType: 'SOLID' },
+    });
+  });
+
   it('选轮廓 + 路径 → 载荷 {profileSketchId, pathSketchId, bodyType:"SOLID"}（无 distance/profile/regions 键）→ onConfirm', async () => {
     const applyOp = makeApplyOp();
     const { user, onConfirm } = renderSweepDialog(applyOp);
@@ -1930,10 +2285,39 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
     expect(screen.getByRole('option', { name: 'XY 平面（法向 Z）' })).toBeDefined();
     expect(screen.getByRole('option', { name: 'YZ 平面（法向 X）' })).toBeDefined();
     expect(screen.getByRole('option', { name: 'XZ 平面（法向 Y）' })).toBeDefined();
+    // v1.41：无面快照时 FACE 选项在场但禁用（不猜面）。
+    expect((screen.getByRole('option', { name: '选中的面' }) as HTMLOptionElement).disabled).toBe(true);
     expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // mirror 无距离量
     expect(screen.getByTestId('part-studio-feature-dialog-mirror-scope-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('打开即触发 previewOp insertFeature mirror（默认 XZ，2026-11-08）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    renderMirrorDialog(makeApplyOp(), { previewOp });
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'mirror',
+      params: { plane: 'XZ', keepOriginal: true },
+    });
+  });
+
+  it('edit 模式打开即触发 previewOp updateParams mirror（2026-11-08）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    renderMirrorDialog(makeApplyOp(), {
+      previewOp,
+      mode: 'edit',
+      featureId: 'f-mirror',
+      initialParams: { plane: 'XZ', keepOriginal: true },
+    });
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'updateParams',
+      featureId: 'f-mirror',
+      params: { plane: 'XZ', keepOriginal: true },
+    });
   });
 
   it('选择 YZ 平面 → 载荷 {plane:"YZ", keepOriginal:true}（无 distance/profile/regions 键）→ onConfirm', async () => {
@@ -1966,6 +2350,200 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
   it('edit 模式/壳期不渲染 mirror 平面下拉（new + applyOp 才进入通道）', () => {
     renderDialog({ featureType: 'mirror' });
     expect(screen.queryByRole('combobox', { name: '镜像平面' })).toBeNull();
+  });
+
+  it('v1.37 编辑任意平面镜像（planeLine）→ 只读提示 + 下拉禁用 + 提交禁用 + 不发起 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderMirrorDialog(applyOp, {
+      mode: 'edit',
+      initialParams: { planeLine: { origin: { x: 0, y: 0, z: 0 }, normal: { x: 1, y: -1, z: 0 } }, keepOriginal: true },
+    });
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-plane-line-readonly-hint').textContent)
+      .toContain('任意世界平面');
+    expect((screen.getByRole('combobox', { name: '镜像平面' }) as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('v1.41 路由快照单个面 → 缺省 FACE，载荷 {faceRef, keepOriginal:true}', async () => {
+    const applyOp = makeApplyOp();
+    const face = {
+      kind: 'face' as const,
+      id: 'face-1',
+      topologyId: { nodeId: 1, entityId: 2 },
+      ownerBodyKey: '0x15',
+      label: '顶面',
+    };
+    const { user, onConfirm } = renderMirrorDialog(applyOp, { initialFaces: [face] });
+    const select = screen.getByRole('combobox', { name: '镜像平面' }) as HTMLSelectElement;
+    expect(select.value).toBe('FACE');
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-face-hint').textContent).toContain('1:2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'mirror',
+      params: { faceRef: { nodeId: 1, entityId: 2 }, keepOriginal: true },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('v1.48 镜像操作页签：新建禁用；加入缺省、移除/相交可提交 operation', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderMirrorDialog(applyOp);
+    const tablist = screen.getByRole('tablist', { name: '镜像操作' });
+    const newTab = within(tablist).getByRole('tab', { name: '新建' }) as HTMLButtonElement;
+    expect(newTab.disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-operation-hint').textContent)
+      .toContain('多体');
+    const addTab = within(tablist).getByRole('tab', { name: '加入' }) as HTMLButtonElement;
+    expect(addTab.getAttribute('aria-selected')).toBe('true');
+    await user.click(within(tablist).getByRole('tab', { name: '移除' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'mirror',
+      params: { plane: 'XZ', keepOriginal: true, operation: 'subtract' },
+    });
+  });
+
+  it('v1.48 编辑回显：stored operation=intersect → 相交页签选中；世界平面镜像编辑通道保持可改', () => {
+    renderMirrorDialog(makeApplyOp(), {
+      mode: 'edit',
+      initialParams: { plane: 'YZ', keepOriginal: true, operation: 'intersect' },
+    });
+    const tablist = screen.getByRole('tablist', { name: '镜像操作' });
+    expect(within(tablist).getByRole('tab', { name: '相交' }).getAttribute('aria-selected')).toBe('true');
+    expect(within(tablist).getByRole('tab', { name: '移除' }).getAttribute('aria-selected')).toBe('false');
+    expect((screen.getByRole('combobox', { name: '镜像平面' }) as HTMLSelectElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('多选面 → FACE 选项禁用 + 明确提示；仍可提交世界平面', async () => {
+    const applyOp = makeApplyOp();
+    const faces = [
+      { kind: 'face' as const, id: 'f1', topologyId: { nodeId: 1, entityId: 2 }, ownerBodyKey: '0x15' },
+      { kind: 'face' as const, id: 'f2', topologyId: { nodeId: 3, entityId: 4 }, ownerBodyKey: '0x15' },
+    ];
+    const { user } = renderMirrorDialog(applyOp, { initialFaces: faces });
+    const select = screen.getByRole('combobox', { name: '镜像平面' }) as HTMLSelectElement;
+    expect(select.value).toBe('XZ');
+    const faceOption = screen.getByRole('option', { name: '选中的面' }) as HTMLOptionElement;
+    expect(faceOption.disabled).toBe(true);
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-face-multiple-hint').textContent)
+      .toContain('2');
+    await user.selectOptions(select, 'YZ');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'mirror',
+      params: { plane: 'YZ', keepOriginal: true },
+    });
+  });
+
+  it('v1.41 编辑落库 faceRef → 只读提示 + 下拉/确认禁用 + 不发起 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderMirrorDialog(applyOp, {
+      mode: 'edit',
+      initialParams: { faceRef: { nodeId: 1, entityId: 2 }, keepOriginal: true },
+    });
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-face-readonly-hint')).toBeDefined();
+    expect((screen.getByRole('combobox', { name: '镜像平面' }) as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  // 2026-11-08 live 证据 mirror-feature-scope-20261108：作用域 零件镜像/特征镜像；
+  // 特征镜像 = 源特征下拉（“要镜像的特征”）+ 世界平面 → featureMirror 载荷。
+  it('特征镜像作用域：缺省零件镜像；切到特征镜像显示源特征下拉、隐藏镜像操作页签/面选项', async () => {
+    const { user } = renderMirrorDialog(makeApplyOp(), {
+      features: [
+        { id: 'f-ext', label: '拉伸 1', featureType: 'extrude' },
+        { id: 'f-hole', label: '孔 1', featureType: 'hole' },
+      ],
+    });
+    const scope = screen.getByTestId('part-studio-feature-dialog-mirror-scope') as HTMLSelectElement;
+    expect(scope.value).toBe('body');
+    expect(screen.queryByTestId('part-studio-feature-dialog-mirror-source')).toBeNull();
+    expect(screen.getByRole('tablist', { name: '镜像操作' })).toBeDefined();
+    await user.selectOptions(scope, 'feature');
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-source')).toBeDefined();
+    expect(screen.queryByRole('tablist', { name: '镜像操作' })).toBeNull();
+    expect(screen.queryByRole('option', { name: '选中的面' })).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('特征镜像：选源特征 + YZ 平面 → insertFeature featureMirror planeLine(过原点/法向 X)', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = renderMirrorDialog(applyOp, {
+      features: [{ id: 'f-ext', label: '拉伸 1', featureType: 'extrude' }],
+    });
+    await user.selectOptions(screen.getByTestId('part-studio-feature-dialog-mirror-scope'), 'feature');
+    await user.selectOptions(screen.getByTestId('part-studio-feature-dialog-mirror-source'), 'f-ext');
+    await user.selectOptions(screen.getByRole('combobox', { name: '镜像平面' }), 'YZ');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'featureMirror',
+      params: {
+        sourceFeatureId: 'f-ext',
+        planeLine: { origin: { x: 0, y: 0, z: 0 }, normal: { x: 1, y: 0, z: 0 } },
+      },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('特征镜像无源特征 → 空源提示 + 提交禁用 + 不发起 op', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderMirrorDialog(applyOp, { features: [] });
+    await user.selectOptions(screen.getByTestId('part-studio-feature-dialog-mirror-scope'), 'feature');
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-source-empty-hint').textContent)
+      .toContain('拉伸、旋转、孔');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('特征镜像预览：源/平面齐备 → previewOp insertFeature featureMirror', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    const { user } = renderMirrorDialog(makeApplyOp(), {
+      previewOp,
+      features: [{ id: 'f-ext', label: '拉伸 1', featureType: 'extrude' }],
+    });
+    await user.selectOptions(screen.getByTestId('part-studio-feature-dialog-mirror-scope'), 'feature');
+    await user.selectOptions(screen.getByTestId('part-studio-feature-dialog-mirror-source'), 'f-ext');
+    await waitFor(() => {
+      const last = previewOp.mock.calls.at(-1)?.[0];
+      expect(last).toMatchObject({ kind: 'insertFeature', featureType: 'featureMirror' });
+    }, { timeout: 3000 });
+  });
+
+  it('多体：面属于非目标 body → owner mismatch 提示 + 提交禁用；改回同体恢复', async () => {
+    const applyOp = makeApplyOp();
+    const face = {
+      kind: 'face' as const,
+      id: 'face-1',
+      topologyId: { nodeId: 1, entityId: 2 },
+      ownerBodyKey: '0x15',
+    };
+    const { user } = renderMirrorDialog(applyOp, {
+      initialFaces: [face],
+      bodies: [
+        { bodyKey: '0x15', name: 'Body 1', active: true, authored: true, sourceFeatureId: 'f1' },
+        { bodyKey: '0x18', name: 'Body 2', active: true, authored: true, sourceFeatureId: 'f2' },
+      ],
+    });
+    const target = screen.getByRole('combobox', { name: '目标实体' }) as HTMLSelectElement;
+    expect(target.value).toBe('0x15'); // 单面快照默认目标 body
+    await user.selectOptions(target, '0x18');
+    expect(screen.getByTestId('part-studio-feature-dialog-mirror-face-owner-mismatch-hint')).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.selectOptions(target, '0x15');
+    expect(screen.queryByTestId('part-studio-feature-dialog-mirror-face-owner-mismatch-hint')).toBeNull();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
 
@@ -2017,6 +2595,37 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-pattern-scope-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('打开即触发 previewOp insertFeature pattern linear（2026-11-08）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    const { user } = renderPatternDialog(makeApplyOp(), { previewOp });
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'linear', count: 3, spacing: 10, axis: 'X' },
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    await waitFor(() => expect(previewOp.mock.calls.some(([op]) =>
+      op.kind === 'insertFeature' && op.featureType === 'pattern'
+      && (op.params as { kind?: string }).kind === 'circular')).toBe(true), { timeout: 3000 });
+  });
+
+  it('edit 模式打开即触发 previewOp updateParams pattern（2026-11-08）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    renderPatternDialog(makeApplyOp(), {
+      previewOp,
+      mode: 'edit',
+      featureId: 'f-pattern',
+      initialParams: { kind: 'linear', count: 3, spacing: 10, axis: 'X' },
+    });
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: { kind: 'linear', count: 3, spacing: 10, axis: 'X' },
+    });
   });
 
   it('线性提交：载荷 {kind:"linear", count:3, spacing:10, axis:"X"}（无 angle 键）→ onConfirm', async () => {
@@ -2092,6 +2701,189 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(screen.getByRole('alert').textContent).toBe('总角度须在 (0, 360] 度之间');
     expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  // v1.49（ADR-0007 切片 6）：居中线性阵列——UI 输入 N=每侧实例数（含原件），
+  // 载荷 count=2N−1（总实例数，必为奇数，seed 居中）；圆周不支持居中。
+  it('v1.49 居中：勾选后标签改为每侧实例数 + 提示在场；载荷 count=2N−1（N=3→5）+ centered:true', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = renderPatternDialog(applyOp);
+    await user.click(screen.getByRole('checkbox', { name: '居中' }));
+    expect(screen.queryByRole('textbox', { name: '实例数量（含原件）' })).toBeNull();
+    const perSide = screen.getByRole('textbox', { name: '每侧实例数（含原件）' }) as HTMLInputElement;
+    expect(perSide.value).toBe('3');
+    expect(screen.getByTestId('part-studio-feature-dialog-pattern-centered-hint').textContent).toContain('2N−1');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'linear', count: 5, spacing: 10, axis: 'X', centered: true },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('v1.49 居中边界：N=1 / N=501 → 每侧实例数文案拒收且不发 op（N 上限 500 保证总数 ≤999）', async () => {
+    for (const value of ['1', '501']) {
+      const applyOp = makeApplyOp();
+      const { user, unmount } = renderPatternDialog(applyOp);
+      await user.click(screen.getByRole('checkbox', { name: '居中' }));
+      const input = screen.getByRole('textbox', { name: '每侧实例数（含原件）' });
+      await user.clear(input);
+      await user.type(input, value);
+      await user.click(screen.getByRole('button', { name: '确认' }));
+      expect(screen.getByRole('alert').textContent).toBe('每侧实例数须为 2–500 的整数（含原件）');
+      expect(applyOp).not.toHaveBeenCalled();
+      unmount();
+    }
+  });
+
+  it('v1.49 居中：切圆周即禁用并复位「居中」；圆周载荷不带 centered/count 仍为输入总数', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp);
+    await user.click(screen.getByRole('checkbox', { name: '居中' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    const centered = screen.getByRole('checkbox', { name: '居中' }) as HTMLInputElement;
+    expect(centered.checked).toBe(false);
+    expect(centered.disabled).toBe(true);
+    expect(screen.queryByTestId('part-studio-feature-dialog-pattern-centered-hint')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'circular', count: 3, angle: 360, axis: 'Z' },
+    });
+  });
+
+  it('v1.49 居中编辑回显：落库 count=5 → 显示 N=3；updateParams 仍发 count=5 + centered:true', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-p',
+      initialParams: { kind: 'linear', count: 5, spacing: 6, axis: 'X', centered: true },
+    });
+    expect((screen.getByRole('checkbox', { name: '居中' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('textbox', { name: '每侧实例数（含原件）' }) as HTMLInputElement).value).toBe('3');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-p',
+      params: { kind: 'linear', count: 5, spacing: 6, axis: 'X', centered: true },
+    });
+  });
+
+  it('v1.62 第二方向：勾选 → count/spacing/axis 字段，载荷 secondDirection（线性）', async () => {
+    const applyOp = makeApplyOp();
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    const { user, onConfirm } = renderPatternDialog(applyOp, { previewOp });
+    const second = screen.getByRole('checkbox', { name: '第二个方向' }) as HTMLInputElement;
+    expect(second.checked).toBe(false);
+    expect(screen.queryByRole('textbox', { name: '第二方向实例数量（含原件）' })).toBeNull();
+    await user.click(second);
+    expect((screen.getByRole('textbox', { name: '第二方向实例数量（含原件）' }) as HTMLInputElement).value).toBe('2');
+    expect((screen.getByRole('textbox', { name: '第二方向间距' }) as HTMLInputElement).value).toBe('10');
+    expect((screen.getByRole('combobox', { name: '第二方向轴' }) as HTMLSelectElement).value).toBe('Y');
+    await user.clear(screen.getByRole('textbox', { name: '第二方向实例数量（含原件）' }));
+    await user.type(screen.getByRole('textbox', { name: '第二方向实例数量（含原件）' }), '3');
+    await user.clear(screen.getByRole('textbox', { name: '第二方向间距' }));
+    await user.type(screen.getByRole('textbox', { name: '第二方向间距' }), '5');
+    await user.selectOptions(screen.getByRole('combobox', { name: '第二方向轴' }), 'Y');
+    const expected = {
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: {
+        kind: 'linear', count: 3, spacing: 10, axis: 'X',
+        secondDirection: { count: 3, spacing: 5, axis: 'Y' },
+      },
+    };
+    await waitFor(() => expect(previewOp.mock.calls.at(-1)![0]).toMatchObject(expected), { timeout: 3000 });
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith(expected);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('v1.62 第二方向 edit 回显/居中：count=3 → 每侧 2；updateParams 发 2N−1 + centered', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-p2',
+      initialParams: {
+        kind: 'linear', count: 3, spacing: 10, axis: 'X',
+        secondDirection: { count: 3, spacing: 5, axis: 'Z', centered: true },
+      },
+    });
+    const second = screen.getByRole('checkbox', { name: '第二个方向' }) as HTMLInputElement;
+    expect(second.checked).toBe(true);
+    expect((screen.getByRole('textbox', { name: '第二方向每侧实例数（含原件）' }) as HTMLInputElement).value).toBe('2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-p2',
+      params: {
+        kind: 'linear', count: 3, spacing: 10, axis: 'X',
+        secondDirection: { count: 3, spacing: 5, axis: 'Z', centered: true },
+      },
+    });
+  });
+
+  it('v1.62 第二方向拒收：总实例 >1000 / 间距 ≤0 / 圆周复位', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp);
+    await user.click(screen.getByRole('checkbox', { name: '第二个方向' }));
+    const count = screen.getByRole('textbox', { name: '第二方向实例数量（含原件）' });
+    await user.clear(count);
+    await user.type(count, '2');
+    const firstCount = screen.getByRole('textbox', { name: '实例数量（含原件）' });
+    await user.clear(firstCount);
+    await user.type(firstCount, '600');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('1000');
+
+    await user.clear(firstCount);
+    await user.type(firstCount, '3');
+    await user.clear(screen.getByRole('textbox', { name: '第二方向间距' }));
+    await user.type(screen.getByRole('textbox', { name: '第二方向间距' }), '0');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('正数');
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    expect((screen.getByRole('checkbox', { name: '第二个方向' }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole('checkbox', { name: '第二个方向' }) as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('v1.63 第一方向反向：勾选 → 载荷 oppositeDirection:true；edit 回显；圆周复位', async () => {
+    const applyOp = makeApplyOp();
+    const first = renderPatternDialog(applyOp);
+    const reverse = screen.getByRole('checkbox', { name: '反向' }) as HTMLInputElement;
+    expect(reverse.checked).toBe(false);
+    await first.user.click(reverse);
+    await first.user.selectOptions(screen.getByRole('combobox', { name: '方向轴' }), 'Y');
+    await first.user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'linear', count: 3, spacing: 10, axis: 'Y', oppositeDirection: true },
+    });
+    first.unmount();
+
+    const editApplyOp = makeApplyOp();
+    const edit = renderPatternDialog(editApplyOp, {
+      mode: 'edit',
+      featureId: 'f-rev',
+      initialParams: { kind: 'linear', count: 3, spacing: 10, axis: 'X', oppositeDirection: true },
+    });
+    const editReverse = screen.getAllByRole('checkbox', { name: '反向' }).at(-1) as HTMLInputElement;
+    expect(editReverse.checked).toBe(true);
+    await edit.user.click(screen.getAllByRole('button', { name: '确认' }).at(-1)!);
+    expect(editApplyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-rev',
+      params: { kind: 'linear', count: 3, spacing: 10, axis: 'X', oppositeDirection: true },
+    });
+
+    await edit.user.selectOptions(screen.getAllByRole('combobox', { name: '阵列类型' }).at(-1)!, 'circular');
+    expect(screen.queryAllByRole('checkbox', { name: '反向' })).toHaveLength(0);
   });
 
   it('无上游实体（hasBodies=false）→ 需要上游实体提示 + 提交禁用 + 不渲染参数控件/不发起 op', async () => {
@@ -2300,6 +3092,36 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect((screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement).value).toBe('distanceAngle');
     expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('1.524');
     expect((screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement).value).toBe('45');
+  });
+
+  it('chamfer 预览：改距离触发 previewOp（updateParams，chamfer 载荷）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    render(
+      <FeatureDialog
+        featureName="倒角 1"
+        featureId="f-chamfer"
+        mode="edit"
+        featureType="chamfer"
+        applyOp={makeApplyOp()}
+        previewOp={previewOp}
+        initialParams={{ mode: 2, propagateSmooth: true, edges: [EDGE_1], values1: 2, values2: 2 }}
+        onConfirm={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'updateParams',
+      featureId: 'f-chamfer',
+      params: { mode: 2, edges: [EDGE_1], values1: 2, values2: 2 },
+    });
+    const user = userEvent.setup();
+    const distance = screen.getByRole('textbox', { name: '距离' });
+    await user.clear(distance);
+    await user.type(distance, '3');
+    await waitFor(() => expect(previewOp.mock.calls.some(([op]) => {
+      const params = (op as Extract<FeatureOp, { kind: 'updateParams' }>).params as { values1?: number };
+      return params.values1 === 3;
+    })).toBe(true), { timeout: 3000 });
   });
 
   it('多边载荷：拾 2 边 → 两 chips（序号 1/2）→ 结束拾取 → 载荷 edges 按拾取序全量透传', async () => {
@@ -2904,7 +3726,7 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
 //    authored；目标行常态禁用，冲突态可解选）；载荷 {targets:[{bodyKey}],
 //    tools:[{bodyKey}...], operation, keepTools}——op 层**不带 targetBodyId**
 //    （M4.1 planBooleanInsert：params.targets 为目标唯一真源，重复给值须一致）；
-//  - operation unite/subtract（intersect 选项禁用+提示，不静默降级）；
+//  - operation unite/subtract/intersect（T12 起后端/契约支持 intersect，UI 同步启用）；
 //  - keepTools 缺省 false（消费提示）；true → I3 工具链锁提示（编辑工具体需先删布尔）；
 //  - 门禁：<2 active authored body / bodiesLoading / 读面不可用 / tools 空 /
 //    target 在 tools / canEdit / lease；失败就地 alert，成功 toast+onConfirm。
@@ -2950,7 +3772,7 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     featureRpc.getSketch.mockReset();
   });
 
-  it('字段与缺省：目标实体单选（consumed 不入选项/目标行禁用）、工具多选、运算缺省并集（相交禁用+提示）、保留工具体缺省未勾+消费提示', () => {
+  it('字段与缺省：目标实体单选（consumed 不入选项/目标行禁用）、工具多选、运算缺省并集（相交可用）、保留工具体缺省未勾+消费提示', () => {
     renderBooleanDialog(makeApplyOp(), { bodies: [...THREE_BODIES, BODY_CONSUMED] });
     const target = screen.getByRole('combobox', { name: '目标实体' }) as HTMLSelectElement;
     expect(target.value).toBe('0x15');
@@ -2963,8 +3785,9 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     // 工具列表不渲染 consumed body。
     expect(screen.queryByRole('checkbox', { name: 'Consumed' })).toBeNull();
     expect((screen.getByRole('tab', { name: '并集' }) as HTMLButtonElement).getAttribute('aria-selected')).toBe('true');
-    expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('part-studio-feature-dialog-boolean-intersect-hint').textContent).toContain('相交暂不支持');
+    // T12（2026-11-07）：后端/契约支持 intersect，UI 同步启用（不再禁用/降级）。
+    expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId('part-studio-feature-dialog-boolean-intersect-hint')).toBeNull();
     const keepTools = screen.getByRole('checkbox', { name: '保留工具体' }) as HTMLInputElement;
     expect(keepTools.checked).toBe(false);
     expect(screen.getByTestId('part-studio-feature-dialog-boolean-consume-hint').textContent).toContain('消费');
@@ -2976,7 +3799,25 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     expect(screen.getAllByRole('combobox', { name: '目标实体' })).toHaveLength(1);
   });
 
-  it('Onshape 运算页签：并集缺省、差集可选、「相交」禁用（防静默提交 unite）', async () => {
+  it('选工具后触发 previewOp insertFeature booleanBodies（2026-11-08）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    renderBooleanDialog(makeApplyOp(), { previewOp });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Body 2' }));
+    fireEvent.click(screen.getByRole('tab', { name: '相交' }));
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'booleanBodies',
+      params: {
+        targets: [{ bodyKey: '0x15' }],
+        tools: [{ bodyKey: '0x18' }],
+        operation: 'intersect',
+        keepTools: false,
+      },
+    });
+  });
+
+  it('Onshape 运算页签：并集缺省、差集/相交可选（T12 起全部提交后端）', async () => {
     const applyOp = makeApplyOp();
     renderBooleanDialog(applyOp);
     const user = userEvent.setup();
@@ -2984,11 +3825,14 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     expect(screen.queryByRole('tablist', { name: '结果类型' })).toBeNull();
     expect(screen.queryByRole('tablist', { name: '布尔作用域' })).toBeNull();
     expect((screen.getByRole('tab', { name: '并集' }) as HTMLButtonElement).getAttribute('aria-selected')).toBe('true');
-    expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(true);
+    const intersect = screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement;
+    expect(intersect.disabled).toBe(false);
     await user.click(screen.getByRole('checkbox', { name: 'Body 2' }));
+    await user.click(intersect);
+    expect(intersect.getAttribute('aria-selected')).toBe('true');
     await user.click(confirmButton());
     expect(booleanCreateOp(applyOp.mock.calls[0]![0]).params).toMatchObject({
-      operation: 'unite',
+      operation: 'intersect',
       tools: [{ bodyKey: '0x18' }],
     });
   });

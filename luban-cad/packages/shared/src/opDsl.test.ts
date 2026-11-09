@@ -35,10 +35,14 @@ const ALL_FEATURE_TYPES: Record<LubanFeatureType, true> = {
   mirror: true,
   pattern: true,
   featurePattern: true,
+  featureMirror: true,
   booleanBodies: true,
   hole: true,
   cPlane: true,
   faceExtrude: true,
+  transform: true,
+  splitPart: true,
+  moveFace: true,
 };
 
 describe("op DSL 白名单 × LubanFeatureType 全集", () => {
@@ -450,5 +454,13 @@ describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
     const dsl = `op insertSketch {"entities":[],"constraints":[]}`;
     expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
     expect(dslToOps(dsl)).toEqual([{ kind: "insertSketch", entities: [], constraints: [] }]);
+  });
+
+  it("v1.35 projections 往返深等（与 plane 可共存）", () => {
+    const op: FeatureOp = {
+      kind: "insertSketch", entities: [], constraints: [], plane,
+      projections: [{ sourceSketchId: "0x2000000000a", sourceEntityId: 11, entityId: 101 }],
+    };
+    expect(dslToOps(opsToDsl([op]))).toEqual([op]);
   });
 });

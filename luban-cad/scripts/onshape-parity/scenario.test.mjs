@@ -54,6 +54,25 @@ test("未知 feature type 被拒", () => {
   assert.match(result.errors.join("\n"), /features\[0\]\.type/);
 });
 
+test("transform feature type 被接受（ADR-0010 回放契约）", () => {
+  const value = minimal();
+  value.features.push({
+    type: "transform",
+    name: "Transform 1",
+    sourceFeatureId: "F1",
+    sourceType: "transform",
+    params: {
+      transformType: "TRANSLATION_DISTANCE",
+      translation: { x: 0, y: 0, z: -19.05 },
+      targetSourceFeatureIds: ["F0"],
+      copy: false,
+      directionApprox: true,
+    },
+  });
+  const result = validateScenario(value);
+  assert.equal(result.ok, true, result.errors.join("\n"));
+});
+
 test("负体积 / 零容差被拒", () => {
   const negative = minimal({ expected: { volumeM3: -1, bodyCount: 0, tolerance: 0.01 } });
   assert.equal(validateScenario(negative).ok, false);
@@ -127,6 +146,37 @@ test("faceExtrude 特征类型通过校验（ADR-0006 切片 D）", () => {
       endBound: "blind",
       depthMm: 50,
       direction: "forward",
+    },
+  });
+  const result = validateScenario(value);
+  assert.equal(result.ok, true, result.errors.join("\n"));
+});
+
+test("featurePattern 特征类型通过校验（ADR-0007 切片 2：FACE pattern 转换）", () => {
+  const value = minimal();
+  value.features.push({
+    type: "featurePattern",
+    name: "Circular pattern 1",
+    params: {
+      sourceFeatureId: "FOPoKze0Om2PwH7_1",
+      kind: "circular",
+      count: 6,
+      angle: 360,
+      axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 1 } },
+    },
+  });
+  const result = validateScenario(value);
+  assert.equal(result.ok, true, result.errors.join("\n"));
+});
+
+test("featureMirror 特征类型通过校验（ADR-0011 切片 3）", () => {
+  const value = minimal();
+  value.features.push({
+    type: "featureMirror",
+    name: "Mirror 1",
+    params: {
+      sourceFeatureId: "FOPoKze0Om2PwH7_1",
+      planeLine: { origin: { x: 20, y: 0, z: 0 }, normal: { x: 1, y: 0, z: 0 } },
     },
   });
   const result = validateScenario(value);

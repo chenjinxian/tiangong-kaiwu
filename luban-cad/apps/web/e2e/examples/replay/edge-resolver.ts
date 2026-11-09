@@ -38,7 +38,7 @@ interface EdgeCurve {
   geometryType?: string;
 }
 
-interface EdgeHandle {
+export interface EdgeHandle {
   bodyKey: string;
   subEntityId: number;
   curve: EdgeCurve;
@@ -79,9 +79,20 @@ interface EdgeSelector {
 export interface ResolveEdgesResult {
   refs: FilletEdgeRef[];
   notes: string[];
+  /** 被选中边所在的 bodyKey（去重）。多体模型用它给 fillet/chamfer 显式锚定目标体。 */
+  bodyKeys: string[];
 }
 
-interface Frame {
+/**
+ * v1.50：该步时点的 body 谱系。多体模型中相同几何边可能同时存在于多个 body
+ * （同一草图多 profile 共享顶点/边），必须用 selector.operationSourceIds 限定到
+ * 源操作所在的 body，否则单边选择器会“匹配不唯一/跨 body”。
+ */
+export interface EdgeBodyScope {
+  bodyKeyBySource?: ReadonlyMap<string, string>;
+}
+
+export interface Frame {
   o: Vec3;
   x: Vec3;
   y: Vec3;
@@ -159,6 +170,29 @@ function capEdgeW(edge: EdgeHandle, frame: Frame): number | undefined {
 }
 
 /** 面边界选择器在 through-all/任意深度下的端盖边：投影回草图坐标系比对。 */
+/** through-all 端盖边被布尔边界裁剪时端点不再等于草图段——按“同一支撑线 +
+ * 投影重叠”匹配（仅 CAP_EDGE line 通道；CIRCLE/ARC 仍走精确投影）。 */
+export function projectedCapEdgeOnLine(edge: EdgeHandle, entity: Record<string, unknown>, frame: Frame): boolean {
+  if (entity.kind !== 'line' || edge.curve.kind !== 'line' || !edge.curve.p0 || !edge.curve.p1) return false;
+  const p1 = point2(entity.p1);
+  const p2 = point2(entity.p2);
+  if (!p1 || !p2) return false;
+  const a = frameCoords(frame, edge.curve.p0);
+  const b = frameCoords(frame, edge.curve.p1);
+  if (Math.abs(a[2] - b[2]) > TOL) return false;
+  const dx = p2[0] - p1[0];
+  const dy = p2[1] - p1[1];
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-18) return false;
+  const len = Math.sqrt(len2);
+  const perp = (q: [number, number]): number => Math.abs((q[0] - p1[0]) * dy - (q[1] - p1[1]) * dx) / len;
+  const along = (q: [number, number]): number => ((q[0] - p1[0]) * dx + (q[1] - p1[1]) * dy) / len2;
+  if (perp([a[0], a[1]]) > TOL || perp([b[0], b[1]]) > TOL) return false;
+  const lo = Math.min(along([a[0], a[1]]), along([b[0], b[1]]));
+  const hi = Math.max(along([a[0], a[1]]), along([b[0], b[1]]));
+  return hi >= -1e-4 && lo <= 1 + 1e-4;
+}
+
 function projectedCapEdgeMatches(edge: EdgeHandle, entity: Record<string, unknown>, frame: Frame): boolean {
   if (entity.kind === 'line') {
     if (edge.curve.kind !== 'line' || !edge.curve.p0 || !edge.curve.p1) return false;
@@ -285,13 +319,41 @@ function sketchEntityEndpoints(entity: Record<string, unknown>): Array<[number, 
   return [];
 }
 
+/**
+ * 圆实体没有端点；当 selector 用相邻实体消歧时（Hydraulic Fillet 1 实测：
+ * 外圆 + 两条相邻直线，各查询命中六边形一个角点），取相邻实体之间**唯一且落在
+ * 圆上**的共享端点作为扫掠边位置。共享点不唯一/不在圆上 → 空集（匹配失败，不猜）。
+ */
+function circleContextCandidatePoints(
+  circle: Record<string, unknown>,
+  contextEntities: readonly Record<string, unknown>[],
+): Array<[number, number]> {
+  const center = point2(circle.center);
+  const radius = Number(circle.radius);
+  if (!center || !Number.isFinite(radius) || contextEntities.length < 2) return [];
+  const shared = new Map<string, [number, number]>();
+  for (let i = 0; i < contextEntities.length; i += 1) {
+    for (let j = i + 1; j < contextEntities.length; j += 1) {
+      for (const p of sketchEntityEndpoints(contextEntities[i]!)) {
+        for (const q of sketchEntityEndpoints(contextEntities[j]!)) {
+          if (Math.abs(p[0] - q[0]) >= TOL || Math.abs(p[1] - q[1]) >= TOL) continue;
+          const radial = Math.hypot(p[0] - center[0], p[1] - center[1]);
+          if (Math.abs(radial - radius) < TOL) shared.set(`${p[0].toFixed(9)}:${p[1].toFixed(9)}`, p);
+        }
+      }
+    }
+  }
+  return shared.size === 1 ? Array.from(shared.values()) : [];
+}
+
 /** 相邻实体消歧：共享端点唯一时只用该点，否则回退全部端点（随后会以多匹配失败）。 */
-function sweptCandidatePoints(
+export function sweptCandidatePoints(
   entity: Record<string, unknown>,
   contextEntities: readonly Record<string, unknown>[],
 ): Array<[number, number]> {
   const primary = sketchEntityEndpoints(entity);
   if (contextEntities.length === 0) return primary;
+  if (primary.length === 0 && entity.kind === 'circle') return circleContextCandidatePoints(entity, contextEntities);
   const shared: Array<[number, number]> = [];
   for (const context of contextEntities) {
     for (const p of sketchEntityEndpoints(context)) {
@@ -601,7 +663,33 @@ function resolveSelector(
     const wLow = source.symmetric === true ? -distance / 2 : 0;
     const wHigh = source.symmetric === true ? distance / 2 : distance;
     const capW = selector.isStart === true ? wLow : wHigh;
-    matches = handles.filter((edge) => matchCapEdge(edge, entity, frame, capW));
+    if (source.endBound === 'throughAll' || source.endBound === 'through_all') {
+      // v1.38（Stirrup 实测）：through-all 的实际端盖位置由 body 决定，depthMm 是
+      // 记录值不是扫掠范围；CAP_EDGE 与 CAP_FACE 同口径——投影回草图系匹配后
+      // 按 isStart 取最小/最大 w。旧实现对 through-all 用 depthMm，Fillet 2 的
+      // 线端盖 matches=0。
+      const candidates: Array<{ edge: EdgeHandle; w: number }> = [];
+      for (const edge of handles) {
+        const w = capEdgeW(edge, frame);
+        const matched = entity.kind === 'line'
+          ? projectedCapEdgeOnLine(edge, entity, frame)
+          : projectedCapEdgeMatches(edge, entity, frame);
+        if (w !== undefined && matched)
+          candidates.push({ edge, w });
+      }
+      if (candidates.length === 0) {
+        matches = [];
+      } else {
+        const targetW = selector.isStart === true
+          ? Math.min(...candidates.map((entry) => entry.w))
+          : Math.max(...candidates.map((entry) => entry.w));
+        matches = candidates
+          .filter((entry) => Math.abs(entry.w - targetW) < TOL)
+          .map((entry) => entry.edge);
+      }
+    } else {
+      matches = handles.filter((edge) => matchCapEdge(edge, entity, frame, capW));
+    }
   } else if (selector.kind === 'sweptEdge') {
     if (source.kind === 'extrude') {
       const distance = source.depthMm ?? 0;
@@ -685,6 +773,23 @@ function resolveSelector(
   const invalid = faceDerived ? unique.size === 0 : unique.size !== 1;
   if (invalid) {
     if (process.env.EDGE_DEBUG === '1') {
+      // 大模型下完整 edges 可能超过 Playwright console 捕获上限被截断；
+      // 先打印紧凑摘要（id/kind/端点），完整 JSON 供小模型使用。
+      const summary = handles.map((handle) => {
+        const curve = handle.curve as {
+          kind?: string;
+          p0?: readonly number[];
+          p1?: readonly number[];
+          start?: readonly number[];
+          end?: readonly number[];
+        };
+        return {
+          id: handle.subEntityId,
+          kind: curve.kind,
+          points: curve.kind === 'line' ? [curve.p0, curve.p1] : [curve.start, curve.end],
+        };
+      });
+      console.log('[edge-resolver] handle-summary', JSON.stringify(summary));
       console.log('[edge-resolver] selector', JSON.stringify(selector), 'matches', unique.size);
       console.log('[edge-resolver] edges', JSON.stringify(handles, null, 2));
       console.log('[edge-resolver] sketch entity', JSON.stringify(entity), 'frame', JSON.stringify(frame), 'source', JSON.stringify(source));
@@ -748,6 +853,7 @@ export async function resolveScenarioEdges(
   scenario: ParityScenario,
   feature: ScenarioFeature,
   accessToken: string,
+  bodyScope?: EdgeBodyScope,
 ): Promise<ResolveEdgesResult> {
   const params = feature.params as { edges?: Array<{ selector?: EdgeSelector }> };
   const entries = params.edges ?? [];
@@ -763,10 +869,28 @@ export async function resolveScenarioEdges(
   const { sketches, ops } = collectMetadata(scenario);
   const handles = await readHandles(page, ctx, accessToken);
   const refs = new Map<string, FilletEdgeRef>();
+  const bodyKeys = new Set<string>();
   for (const entry of entries) {
+    // v1.50：源操作谱系限定候选 body（bodyKeyBySource 由 runner 在步骤时点注入）。
+    // 只有在 selector 明确给出 operationSourceIds 且至少一个映射到当前 body 时
+    // 才收窄；否则保持旧行为（单 body 示例/未映射 selector 不受影响）。
+    const allowedBodyKeys = new Set<string>();
+    for (const sourceId of entry.selector!.operationSourceIds ?? []) {
+      const bodyKey = bodyScope?.bodyKeyBySource?.get(sourceId);
+      if (bodyKey !== undefined) allowedBodyKeys.add(bodyKey);
+    }
+    const candidateHandles = allowedBodyKeys.size > 0
+      ? handles.filter((handle) => allowedBodyKeys.has(handle.bodyKey))
+      : handles;
+    if (allowedBodyKeys.size > 0 && candidateHandles.length === 0)
+      throw new BlockedCapabilityError(
+        'edge-selector',
+        `${feature.name}: 源操作 body ${JSON.stringify(Array.from(allowedBodyKeys))} 无可枚举边`,
+      );
     // 单边选择器（CAP_EDGE/SWEPT_EDGE）恒 1 条；面边界选择器（CAP_FACE/
     // SWEPT_FACE）可命中多条——逐条 resolveEdgeRef，失败即整特征阻塞。
-    const selected = resolveSelector(entry.selector!, handles, sketches, ops);
+    const selected = resolveSelector(entry.selector!, candidateHandles, sketches, ops);
+    for (const handle of selected) bodyKeys.add(handle.bodyKey);
     if (process.env.EDGE_DEBUG === '1') {
       console.log(`[edge-resolver] ${feature.name} query=${JSON.stringify(entry.selector)} ` +
         `matches=${JSON.stringify(selected.map((handle) => ({ id: handle.subEntityId, curve: handle.curve })))}`);
@@ -795,5 +919,6 @@ export async function resolveScenarioEdges(
   return {
     refs: Array.from(refs.values()),
     notes: [`edgeResolver=${feature.name}: ${entries.length} queries → ${refs.size} refs`],
+    bodyKeys: Array.from(bodyKeys),
   };
 }

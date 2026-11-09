@@ -19,6 +19,7 @@ import {
   renamePartStudioRpc,
   SEED_PAGE_SIZE,
   type BSeedEditorContext,
+  type EditorReadyOptions,
 } from '../helpers.js';
 import {
   assertBModelProject,
@@ -172,8 +173,9 @@ export async function findExampleDocument(
 export async function openExampleEditor(
   page: Page,
   ids: SeedImodelRef,
+  options?: EditorReadyOptions,
 ): Promise<BSeedEditorContext> {
-  return openBModelEditor(page, ids);
+  return openBModelEditor(page, ids, options);
 }
 
 /** 打开文档内指定 PS scope（新标准多页签）。 */
@@ -181,8 +183,9 @@ export async function openExamplePartStudio(
   page: Page,
   ids: SeedImodelRef,
   scopeId: string,
+  options?: EditorReadyOptions,
 ): Promise<BSeedEditorContext> {
-  return openBModelPartStudio(page, ids, scopeId);
+  return openBModelPartStudio(page, ids, scopeId, options);
 }
 
 /** 只有可构建 scope 才建页签；blocked/excluded 留在 catalog，不建空壳。 */

@@ -37,11 +37,11 @@
 
 ## 2. 现状证据
 
-- 526 发现文档；476 有 PS；API PS 1685；磁盘 PS 目录 1469；有 features 的 PS 224；48 个 features-complete 文档（manifest API 188 PS，磁盘 feature PS 210）。
+- 526 发现文档；476 有 PS；API PS 1685；磁盘 PS 目录 1470；有 features 的 PS **227**（2026-11-07 index 实测）；48 个 features-complete 文档。
 - 145 个 PS 有 per-body mass（145 complete），91 个有 parts；85/145 可测 PS 为 multi-body，最大 146 body。
-- 严格分类（当前 converter/UI/contract）：8 个 `replicable-now`、10 个 `blocked-converter`、35 个 `blocked-capability`、1296 个 `blocked-evidence`、18 个 `blocked-sheet-metal`、69 个 import、20 个 custom、10 个 specialized、3 个 empty。
-- 转换器当前 0 complete / 6 geometryComplete / 2 smoke / 90 blocked / 27 failed / 36 skipped（2026-11-04，待 W1.0 重跑）。
-- 现有 12 个示例 iModel 是单 PS legacy；`verify-imodels.spec.ts` 硬编码 UUID 且只校验聚合体积。Part Studio 多页签/多 scope 已由 B registry 支持。
+- 严格分类（2026-11-07 index 刷新，含内核阻塞登记 + 产品 FeatureType 真相）：**2 个 `replicable-now`**、**29 个 `blocked-converter`**、**21 个 `blocked-capability`**、1294 个 `blocked-evidence`、1 个 `blocked-kernel`（Gaiter Fillet 1）、18 个 `blocked-sheet-metal`、69 个 import、21 个 custom、10 个 specialized、5 个 empty；`verify-example-index` ok（0 errors / 5 warnings）。
+- 转换器当前 1 complete / **17 geometryComplete** / 6 smoke / **77 blocked** / **50 failed** / 48 skipped（2026-11-07 manifest；精确贝塞尔样条转换后 failed 53→50、geometryComplete 16→17；failed 归因见连续计划「converter 失败/单 blocker 复查」）。
+- 现有 12 个示例 iModel 是单 PS legacy；`verify-imodels.spec.ts` 曾硬编码 UUID 且只校验聚合体积。**2026-11-08 已重写为 state.json 驱动**：每 document 一条 test（失败隔离），逐 scope 校验树/status/active body 数/体积，state 缺失 fail closed；`verify-registry.spec.ts` 负责静态 registry 期望。Part Studio 多页签/多 scope 已由 B registry 支持。
 - `opDsl.ts` 白名单漏 `hole`/`cPlane`；已在本 AIRR 的执行切片中修复并加测试。
 - 公共仓 `dist-backend` 产物可能是 shared 1.21；真栈前必须做版本握手。
 

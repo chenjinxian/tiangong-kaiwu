@@ -18,6 +18,14 @@ import { BlockedCapabilityError, type ParityScenario, type ScenarioFeature } fro
 export interface ShellFaceResolution {
   refs: LubanTopologyId[];
   notes: string[];
+  /** 多体模型显式目标 body（runner 注入 shell op.targetBodyId）。 */
+  targetBodyKey?: string;
+}
+
+/** runner 在 shell 步骤时点解析的 body 上下文（多体模型必需）。 */
+export interface ShellFaceContext {
+  bodyKeyBySource?: ReadonlyMap<string, string>;
+  allBodyKeys?: readonly string[];
 }
 
 interface Vec3 { x: number; y: number; z: number }
@@ -44,12 +52,13 @@ interface FaceHandle {
   loops: FaceLoopCurve[][];
 }
 
-interface ShellQuery {
+export interface ShellQuery {
   kind?: string;
   sketchFeatureId?: string;
   sketchEntityId?: number;
   sketchEntityKind?: string;
   operationSourceIds?: string[];
+  isStart?: boolean;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -143,7 +152,7 @@ function radialDistance(point: Vec3, axisOrigin: Vec3, axisDir: Vec3): number {
   return len(sub(v, mul(axisDir, dot(v, axisDir))));
 }
 
-interface ExpectedEndFace {
+export interface ExpectedEndFace {
   center: Vec3;
   axisDir: Vec3;
   outerRadius: number;
@@ -215,6 +224,72 @@ function expectedEndFace(
   return { center, axisDir, outerRadius, innerRadius };
 }
 
+/**
+ * 计算 query 对应的拉伸端盖面（CAP_FACE，circle profile）。
+ *
+ * 首切片仅支持 **blind/symmetric 拉伸的圆端盖**（我们的语料形态）：圆心由草图圆
+ * 的圆心实体得出，端盖沿草图法向偏移 w（start=0 / end=depth；symmetric=±depth/2；
+ * oppositeDirection 翻转 end 侧）；轴向=草图法向。through-all 的实际端盖由 body
+ * 决定，无法静态定位 → 拒收。矩形/环形端盖待后续切片。
+ */
+export function expectedCapFace(
+  query: ShellQuery,
+  scenario: ParityScenario,
+): ExpectedEndFace | undefined {
+  const sources = (query.operationSourceIds ?? [])
+    .map((id) => scenario.features.find((feature) => feature.sourceFeatureId === id && feature.type === 'extrude'))
+    .filter((feature): feature is ScenarioFeature => feature !== undefined);
+  const extrude = sources[0];
+  if (!extrude) return undefined;
+  const extrudeParams = asRecord(extrude.params) ?? {};
+  const endBound = String(extrudeParams.endBound ?? 'blind').toLowerCase();
+  if (endBound === 'throughall' || endBound === 'through_all') return undefined;
+  const depth = typeof extrudeParams.depthMm === 'number' && Number.isFinite(extrudeParams.depthMm)
+    ? extrudeParams.depthMm
+    : undefined;
+  if (depth === undefined || !(depth > 0)) return undefined;
+  const sketchId = query.sketchFeatureId
+    ?? (asRecord(extrudeParams.selection)?.sketchFeatureId as string | undefined);
+  const sketchFeature = scenario.features.find(
+    (feature) => feature.type === 'sketch' && feature.sourceFeatureId === sketchId,
+  );
+  if (!sketchFeature) return undefined;
+  const plane = asRecord(sketchFeature.params.plane) as unknown as SketchPlaneDto | undefined;
+  if (!plane) return undefined;
+  const frame = frameOf(plane);
+  if (!frame) return undefined;
+  const entities = Array.isArray(sketchFeature.params.entities)
+    ? sketchFeature.params.entities as Array<Record<string, unknown>>
+    : [];
+  const entity = entities.find((entry) => Number(entry.id) === query.sketchEntityId);
+  if (!entity || entity.kind !== 'circle') return undefined;
+  const radius = typeof entity.radius === 'number' ? entity.radius : undefined;
+  if (radius === undefined || !(radius > 1e-9)) return undefined;
+  const centerId = typeof entity.center === 'number' ? entity.center : undefined;
+  const centerEntity = centerId === undefined
+    ? undefined
+    : entities.find((entry) => Number(entry.id) === centerId && entry.kind === 'point');
+  const center2 = point2(centerEntity);
+  if (!center2) return undefined;
+  const symmetric = extrudeParams.symmetric === true;
+  const opposite = extrudeParams.oppositeDirection === true;
+  const offset = query.isStart === true
+    ? (symmetric ? -depth / 2 : 0)
+    : (symmetric ? depth / 2 : (opposite ? -depth : depth));
+  const center = add(world2(frame, center2), mul(frame.normal, offset));
+  return { center, axisDir: frame.normal, outerRadius: radius, innerRadius: 0 };
+}
+
+/** query → 期望移除面（sweptFace=revolve 端面；capFace=拉伸圆端盖）。 */
+export function expectedShellFace(
+  query: ShellQuery,
+  scenario: ParityScenario,
+): ExpectedEndFace | undefined {
+  if (query.kind === 'capFace') return expectedCapFace(query, scenario);
+  if (query.kind === 'sweptFace') return expectedEndFace(query, scenario);
+  return undefined;
+}
+
 function centerOf(face: FaceHandle): Vec3 {
   return v3(
     (face.range.low[0] + face.range.high[0]) / 2,
@@ -270,13 +345,40 @@ function matchEndFace(
   return { diagnostics };
 }
 
-/** 解析 shell 移除面（当前切片：revolve SWEPT_FACE 端面）。 */
+/**
+ * shell 目标 body 解析（多体模型）：查询的 operationSourceIds 经 runner 的
+ * bodyKeyBySource 映射；恰 1 个 body 时直接用；0/多候选一律阻塞。
+ */
+export function resolveShellTargetBodyKey(
+  label: string,
+  queries: readonly ShellQuery[],
+  bodyKeys: readonly string[],
+  context: ShellFaceContext,
+): string {
+  if (bodyKeys.length === 0)
+    throw new BlockedCapabilityError('shell-faces', `${label} 无 active authored body`);
+  if (bodyKeys.length === 1) return bodyKeys[0]!;
+  const sourceIds = Array.from(new Set(queries.flatMap((query) => query.operationSourceIds ?? [])))
+    .filter((id) => context.bodyKeyBySource?.has(id));
+  const keys = Array.from(new Set(sourceIds
+    .map((id) => context.bodyKeyBySource!.get(id))
+    .filter((key): key is string => key !== undefined)));
+  if (keys.length !== 1)
+    throw new BlockedCapabilityError(
+      'shell-faces',
+      `${label} 多体模型无法唯一解析目标 body（候选 ${keys.length}）`,
+    );
+  return keys[0]!;
+}
+
+/** 解析 shell 移除面（切片 2：revolve SWEPT_FACE 端面 / 拉伸 CAP_FACE 圆端盖）。 */
 export async function resolveScenarioShellFaces(
   page: Page,
   ctx: BSeedEditorContext,
   scenario: ParityScenario,
   feature: ScenarioFeature,
   accessToken: string,
+  context: ShellFaceContext = {},
 ): Promise<ShellFaceResolution> {
   const params = asRecord(feature.params) ?? {};
   const selection = asRecord(params.selection);
@@ -286,8 +388,14 @@ export async function resolveScenarioShellFaces(
   const bodies = (await getBodiesRpc(ctx, accessToken)).filter(
     (body: BodyInfo) => body.active !== false && body.authored !== false,
   );
-  if (bodies.length !== 1)
-    throw new BlockedCapabilityError('shell-faces', `${feature.name} 需恰 1 个 active authored body（当前 ${bodies.length}）`);
+  // 多体模型：以查询的 operationSourceIds（剔除草图引用）解析唯一目标 body；
+  // 无 body 映射上下文或命中 0/多 body 一律阻塞，绝不任取一体。
+  const targetBodyKey = resolveShellTargetBodyKey(
+    feature.name,
+    queries,
+    bodies.map((body: BodyInfo) => body.bodyKey),
+    context,
+  );
   let faces: FaceHandle[] | undefined;
   try {
     faces = await page.evaluate(async ({ key, bodyInfos }) => {
@@ -307,6 +415,10 @@ export async function resolveScenarioShellFaces(
   }
   if (!faces)
     throw new BlockedCapabilityError('shell-faces', `${feature.name} SolidModeling 命令槽被占用，未读到面`);
+  // 多体模型：面集裁到目标 body（readFaceHandles 返回全 body 面）。
+  faces = faces.filter((face) => face.bodyKey === targetBodyKey);
+  if (faces.length === 0)
+    throw new BlockedCapabilityError('shell-faces', `${feature.name} 目标 body ${targetBodyKey} 无面`);
 
   const shellIndex = scenario.features.indexOf(feature);
   const roundingAllowanceMm = scenario.features
@@ -322,13 +434,14 @@ export async function resolveScenarioShellFaces(
   const seen = new Set<number>();
   const notes: string[] = [];
   for (const query of queries) {
-    if (query.kind !== 'sweptFace')
+    if (query.kind !== 'sweptFace' && query.kind !== 'capFace')
       throw new BlockedCapabilityError('shell-faces', `${feature.name} 面 query ${query.kind ?? 'unknown'} 未支持`);
-    const expected = expectedEndFace(query, scenario);
+    const expected = expectedShellFace(query, scenario);
     if (!expected)
       throw new BlockedCapabilityError(
         'shell-faces',
-        `${feature.name} 面 query（sketch=${query.sketchFeatureId}#${query.sketchEntityId}）不是 revolve 垂直端面`,
+        `${feature.name} 面 query（${query.kind}，sketch=${query.sketchFeatureId}#${query.sketchEntityId}）`
+        + '不可静态定位（sweptFace 需 revolve 垂直端面；capFace 需 blind/symmetric 拉伸圆端盖）',
       );
     if (process.env.EXAMPLE_DEBUG_SHELL === '1') {
       console.log(`[shell-faces] expected center=${JSON.stringify(expected.center)} dir=${JSON.stringify(expected.axisDir)} r=${expected.outerRadius.toFixed(3)}`);
@@ -371,5 +484,5 @@ export async function resolveScenarioShellFaces(
   }
   if (refs.length === 0)
     throw new BlockedCapabilityError('shell-faces', `${feature.name} 未解析出任何移除面`);
-  return { refs, notes };
+  return { refs, notes, ...(targetBodyKey !== undefined ? { targetBodyKey } : {}) };
 }

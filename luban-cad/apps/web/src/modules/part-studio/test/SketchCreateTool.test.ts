@@ -13,6 +13,9 @@ import {
   SketchArc3PointTool,
   SketchCenterCircleTool,
   SketchLineTool,
+  SketchPerimeterCircleTool,
+  SketchInscribedPolygonTool,
+  SketchCircumscribedPolygonTool,
   SketchRectangleTool,
   SketchSplineTool,
   withConstructionMode,
@@ -26,6 +29,15 @@ class TestableRect extends SketchRectangleTool {
   public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
 }
 class TestableCircle extends SketchCenterCircleTool {
+  public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
+}
+class TestablePerimeterCircle extends SketchPerimeterCircleTool {
+  public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
+}
+class TestableInscribedPolygon extends SketchInscribedPolygonTool {
+  public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
+}
+class TestableCircumscribedPolygon extends SketchCircumscribedPolygonTool {
   public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
 }
 class TestableArc extends SketchArc3PointTool {
@@ -107,6 +119,64 @@ describe('v1.19：SketchCenterCircleTool buildShape（内联圆心）', () => {
   it('零半径 → undefined', () => {
     const tool = new TestableCircle();
     expect(tool.callBuildShape([{ u: 1, v: 1 }, { u: 1, v: 1 }])).toBeUndefined();
+  });
+});
+
+describe('Sketch polygon：正多边形 buildShape（默认 6 边）', () => {
+  it('内切多边形：构造圆 + 6 线 + 6 coincident + 5 equal + 6 angle（外角 2π/6）', () => {
+    const tool = new TestableInscribedPolygon();
+    const draft = tool.callBuildShape([{ u: 0, v: 0 }, { u: 10, v: 0 }]);
+    expect(draft).toBeDefined();
+    const circles = draft!.entities.filter((e) => e.kind === 'circle');
+    const lines = draft!.entities.filter((e) => e.kind === 'line');
+    expect(circles).toHaveLength(1);
+    expect(circles[0]).toMatchObject({ construction: true, radius: 10 });
+    expect(lines).toHaveLength(6);
+    expect(draft!.constraints.filter((c) => c.kind === 'coincident')).toHaveLength(6);
+    expect(draft!.constraints.filter((c) => c.kind === 'equal')).toHaveLength(5);
+    const angles = draft!.constraints.filter((c) => c.kind === 'angle');
+    expect(angles).toHaveLength(6);
+    for (const angle of angles) expect(angle.value).toBeCloseTo(Math.PI / 3, 12);
+    // 内切（构造圆与边相切）：首顶点应偏离半径方向 π/6，顶点半径 10/cos(π/6)。
+    const first = lines[0];
+    if (first?.kind !== 'line' || typeof first.p1 === 'number') throw new Error('非内联线');
+    expect(Math.hypot(first.p1.x, first.p1.y)).toBeCloseTo(10 / Math.cos(Math.PI / 6), 10);
+    expect(Math.atan2(first.p1.y, first.p1.x)).toBeCloseTo(Math.PI / 6, 10);
+  });
+
+  it('外切多边形：首顶点在半径方向、顶点半径=构造半径；零半径拒收', () => {
+    const tool = new TestableCircumscribedPolygon();
+    const draft = tool.callBuildShape([{ u: 0, v: 0 }, { u: 10, v: 0 }]);
+    expect(draft).toBeDefined();
+    const lines = draft!.entities.filter((e) => e.kind === 'line');
+    expect(lines).toHaveLength(6);
+    const first = lines[0];
+    if (first?.kind !== 'line' || typeof first.p1 === 'number') throw new Error('非内联线');
+    expect(first.p1.x).toBeCloseTo(10, 10);
+    expect(first.p1.y).toBeCloseTo(0, 10);
+    expect(tool.callBuildShape([{ u: 0, v: 0 }, { u: 0, v: 0 }])).toBeUndefined();
+  });
+});
+
+describe('Sketch.PerimeterCircle：三点定圆 buildShape', () => {
+  it('圆上三点 (1,0)/(0,-1)/(-1,0) → 1 circle，center (0,0)、r=1（不生成圆心点）', () => {
+    const tool = new TestablePerimeterCircle();
+    const draft = tool.callBuildShape([{ u: 1, v: 0 }, { u: 0, v: -1 }, { u: -1, v: 0 }]);
+    expect(draft).toBeDefined();
+    expect(draft!.entities).toHaveLength(1);
+    expect(draft!.entities[0]).toMatchObject({ kind: 'circle', id: 1 });
+    const circle = draft!.entities[0];
+    if (circle?.kind !== 'circle' || typeof circle.center === 'number') throw new Error('非 circle');
+    expect(circle.center.x).toBeCloseTo(0, 10);
+    expect(circle.center.y).toBeCloseTo(0, 10);
+    expect(circle.radius).toBeCloseTo(1, 10);
+    expect(draft!.constraints).toEqual([]);
+  });
+
+  it('三点共线 → undefined；任两点重合 → undefined', () => {
+    const tool = new TestablePerimeterCircle();
+    expect(tool.callBuildShape([{ u: 0, v: 0 }, { u: 2, v: 0 }, { u: 1, v: 0 }])).toBeUndefined();
+    expect(tool.callBuildShape([{ u: 0, v: 0 }, { u: 0, v: 0 }, { u: 1, v: 1 }])).toBeUndefined();
   });
 });
 

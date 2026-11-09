@@ -50,7 +50,7 @@ import {
   ToolAssistanceInputMethod,
 } from '@itwin/core-frontend';
 import type { GraphicBuilder, ToolAssistanceInstruction, ToolAssistanceSection } from '@itwin/core-frontend';
-import { Arc3d, BezierCurve3d, Point3d } from '@itwin/core-geometry';
+import { AngleSweep, Arc3d, BezierCurve3d, Point3d } from '@itwin/core-geometry';
 import { ColorDef, LinePixels } from '@itwin/core-common';
 import i18next from 'i18next';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
@@ -58,6 +58,7 @@ import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { sketchPlaneFrameFrom } from './sketch-plane.js';
 import { autoWeldConstraints } from './sketch-auto-weld.js';
+import { POLYGON_DEFAULT_SIDES, POLYGON_MAX_SIDES, POLYGON_MIN_SIDES, regularPolygonVertices, type PolygonMode } from './sketch-polygon.js';
 import { computeSketchLiveMeasures } from './sketch-live-measures.js';
 import {
   clearSketchToolFeedback,
@@ -65,7 +66,7 @@ import {
 } from './sketch-tool-feedback.js';
 import type { SketchPlaneFrame, SketchPoint2 } from './sketch-plane.js';
 
-export type SketchCreateKind = 'line' | 'rectangle' | 'circle' | 'arc' | 'spline';
+export type SketchCreateKind = 'line' | 'rectangle' | 'centerRectangle' | 'alignedRectangle' | 'circle' | 'perimeterCircle' | 'polygonInscribed' | 'polygonCircumscribed' | 'arc' | 'centerArc' | 'spline' | 'bezier';
 
 export interface SketchShapeDraft {
   entities: SketchEntityDto[];
@@ -185,7 +186,20 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       return EventHandled.No;
     }
 
-    const points = this._anchors;
+    await this.commitAnchors([...this._anchors]);
+    return EventHandled.No;
+  }
+
+  /** 锚点快照（子类键盘交互/诊断用；只读）。 */
+  protected get anchorPoints(): readonly SketchPoint2[] {
+    return this._anchors;
+  }
+
+  /**
+   * 提交当前锚点的形状草稿（基类第三次点击与子类键盘 Enter 共用）。
+   * 失败时保持工具存活并回滚 id；成功退出工具。
+   */
+  protected async commitAnchors(points: SketchPoint2[]): Promise<void> {
     this._anchors = [];
 
     this._seedNextId();
@@ -196,7 +210,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       this._publishFeedback();
       this._provideToolAssistance();
       this._outputStagePrompt();
-      return EventHandled.No;
+      return;
     }
 
     // v1.23（ADR-0004）：构造模式下新绘曲线带 construction=true；点不参与面域，保持原样。
@@ -207,7 +221,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       // accessor 未注册（宿主未挂载/已卸载）——回滚 id + 错误透出，工具存活。
       this._nextId = idBase;
       this._notify(this._t('partStudio.sketch.create.toasts.systemNotReady'), OutputMessagePriority.Error);
-      return EventHandled.No;
+      return;
     }
 
     // 乐观提交（整体覆写语义）：既有实体/约束原样在前，草稿追加在后（M3-b 同构）。
@@ -229,11 +243,10 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       this._publishFeedback();
       this._provideToolAssistance();
       this._outputStagePrompt();
-      return EventHandled.No;
+      return;
     }
 
     await this.exitTool();
-    return EventHandled.No;
   }
 
   /** Dynamics 帧回调：已锚点 + 当前光标点 → 预览（WorldOverlay，压顶绘制）。 */
@@ -373,7 +386,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
   }
 
   /** 当前阶段提示文本（i18n 实时翻译）。 */
-  private _stageHint(): string {
+  protected stageHint(): string {
     const key = this.promptKeys[Math.min(this._anchors.length, this.promptKeys.length - 1)];
     return key ? this._t(key) : '';
   }
@@ -383,7 +396,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
    * 签名按像素取整去重——同一位置不重复触发覆盖层渲染。
    */
   private _publishFeedback(): void {
-    const hint = this._stageHint();
+    const hint = this.stageHint();
     const measures = this._cursorLocal && this._anchors.length > 0
       ? computeSketchLiveMeasures(this.sketchKind, this._anchors, this._cursorLocal)
       : [];
@@ -409,7 +422,7 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     const stage = this._anchors.length;
     if (stage === this._assistanceStage) return;
     this._assistanceStage = stage;
-    const hint = this._stageHint();
+    const hint = this.stageHint();
     if (!hint) return;
     const cancel = this._t('partStudio.sketch.create.cancelPrompt');
     const mouseInstructions: ToolAssistanceInstruction[] = [
@@ -425,7 +438,13 @@ export abstract class SketchCreateTool extends PrimitiveTool {
   }
 
   private _outputStagePrompt(): void {
-    IModelApp.notifications.outputPrompt(this._stageHint());
+    IModelApp.notifications.outputPrompt(this.stageHint());
+  }
+
+  /** 工具子类在键盘调整参数后刷新覆盖层提示（不改变锚点状态机）。 */
+  protected refreshFeedback(): void {
+    this._publishFeedback();
+    this._outputStagePrompt();
   }
 
   /** 调用时翻译（i18next 单例直取——与 useFeatureSystem 同口径，回调内不吃闭包旧语）。 */
@@ -481,6 +500,43 @@ export class SketchLineTool extends SketchCreateTool {
  * + 2 对角 midpoint。字面实体计数 5；Onshape 同款自动约束骨架（Tutorial 2 基底）。
  * 角点在草图面局部 (u,v) 轴对齐（矩形工具 v1 无旋转）。
  */
+/** 轴对齐矩形草稿（角点 c1/c2 为对角）；供拐角矩形与中心矩形复用。 */
+function axisAlignedRectangleDraft(
+  c1: SketchPoint2,
+  c2: SketchPoint2,
+  nextEntityId: () => number,
+): SketchShapeDraft | undefined {
+  const [a, b, c, d] = rectangleCorners(c1, c2);
+  if (Math.abs(a.u - b.u) < 1e-12 || Math.abs(b.v - c.v) < 1e-12) return undefined; // 零宽/零高
+
+  // 角点序列：L1=AB（下） L2=BC（右） L3=CD（上） L4=DA（左）；端点为内联。
+  const [lAB, lBC, lCD, lDA] = [
+    nextEntityId(), nextEntityId(), nextEntityId(), nextEntityId(),
+  ];
+  const idCenter = nextEntityId();
+  const center = { x: (a.u + c.u) / 2, y: (a.v + c.v) / 2 };
+  const entities: SketchEntityDto[] = [
+    { kind: 'line', id: lAB, p1: { x: a.u, y: a.v }, p2: { x: b.u, y: b.v } },
+    { kind: 'line', id: lBC, p1: { x: b.u, y: b.v }, p2: { x: c.u, y: c.v } },
+    { kind: 'line', id: lCD, p1: { x: c.u, y: c.v }, p2: { x: d.u, y: d.v } },
+    { kind: 'line', id: lDA, p1: { x: d.u, y: d.v }, p2: { x: a.u, y: a.v } },
+    { kind: 'point', id: idCenter, x: center.x, y: center.y },
+  ];
+  const constraints: SketchConstraintDto[] = [
+    { kind: 'coincident', id: nextEntityId(), refs: [{ entity: lAB, part: 'end' }, { entity: lBC, part: 'start' }] },
+    { kind: 'coincident', id: nextEntityId(), refs: [{ entity: lBC, part: 'end' }, { entity: lCD, part: 'start' }] },
+    { kind: 'coincident', id: nextEntityId(), refs: [{ entity: lCD, part: 'end' }, { entity: lDA, part: 'start' }] },
+    { kind: 'coincident', id: nextEntityId(), refs: [{ entity: lDA, part: 'end' }, { entity: lAB, part: 'start' }] },
+    { kind: 'parallel', id: nextEntityId(), refs: [lAB, lCD] },
+    { kind: 'parallel', id: nextEntityId(), refs: [lBC, lDA] },
+    { kind: 'perpendicular', id: nextEntityId(), refs: [lAB, lBC] },
+    { kind: 'horizontal', id: nextEntityId(), refs: [lAB] },
+    { kind: 'midpoint', id: nextEntityId(), refs: [idCenter, { entity: lAB, part: 'start' }, { entity: lBC, part: 'end' }] },
+    { kind: 'midpoint', id: nextEntityId(), refs: [idCenter, { entity: lBC, part: 'start' }, { entity: lCD, part: 'end' }] },
+  ];
+  return { entities, constraints };
+}
+
 export class SketchRectangleTool extends SketchCreateTool {
   public static override toolId = 'Sketch.Rectangle';
   public static override iconSpec = 'icon-rectangle';
@@ -497,39 +553,7 @@ export class SketchRectangleTool extends SketchCreateTool {
   protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
     const [c1, c2] = points;
     if (!c1 || !c2) return undefined; // 点数不足（状态机保证 2 点，防御收窄）
-    const [a, b, c, d] = rectangleCorners(c1, c2);
-    if (Math.abs(a.u - b.u) < 1e-12 || Math.abs(b.v - c.v) < 1e-12) return undefined; // 零宽/零高
-
-    // 角点序列：L1=AB（下） L2=BC（右） L3=CD（上） L4=DA（左）；端点为内联。
-    const [lAB, lBC, lCD, lDA] = [
-      this.nextEntityId(), this.nextEntityId(), this.nextEntityId(), this.nextEntityId(),
-    ];
-    const idCenter = this.nextEntityId();
-    const center = { x: (a.u + c.u) / 2, y: (a.v + c.v) / 2 };
-    const entities: SketchEntityDto[] = [
-      { kind: 'line', id: lAB, p1: { x: a.u, y: a.v }, p2: { x: b.u, y: b.v } },
-      { kind: 'line', id: lBC, p1: { x: b.u, y: b.v }, p2: { x: c.u, y: c.v } },
-      { kind: 'line', id: lCD, p1: { x: c.u, y: c.v }, p2: { x: d.u, y: d.v } },
-      { kind: 'line', id: lDA, p1: { x: d.u, y: d.v }, p2: { x: a.u, y: a.v } },
-      { kind: 'point', id: idCenter, x: center.x, y: center.y },
-    ];
-    const constraints: SketchConstraintDto[] = [
-      // 4 角 coincident（结构化子实体引用，不占可见实体）
-      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lAB, part: 'end' }, { entity: lBC, part: 'start' }] },
-      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lBC, part: 'end' }, { entity: lCD, part: 'start' }] },
-      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lCD, part: 'end' }, { entity: lDA, part: 'start' }] },
-      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lDA, part: 'end' }, { entity: lAB, part: 'start' }] },
-      // 轴对齐骨架（Onshape 自动关系同构）
-      { kind: 'parallel', id: this.nextEntityId(), refs: [lAB, lCD] },
-      { kind: 'parallel', id: this.nextEntityId(), refs: [lBC, lDA] },
-      { kind: 'perpendicular', id: this.nextEntityId(), refs: [lAB, lBC] },
-      { kind: 'horizontal', id: this.nextEntityId(), refs: [lAB] },
-      // 中心点 = 两条对角线中点（Onshape center-point rectangle 自动关系）：
-      // 角序 a=L1.start, b=L2.start, c=L2.end, d=L3.end；对角线 a–c 与 b–d。
-      { kind: 'midpoint', id: this.nextEntityId(), refs: [idCenter, { entity: lAB, part: 'start' }, { entity: lBC, part: 'end' }] },
-      { kind: 'midpoint', id: this.nextEntityId(), refs: [idCenter, { entity: lBC, part: 'start' }, { entity: lCD, part: 'end' }] },
-    ];
-    return { entities, constraints };
+    return axisAlignedRectangleDraft(c1, c2, () => this.nextEntityId());
   }
 
   protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
@@ -537,6 +561,106 @@ export class SketchRectangleTool extends SketchCreateTool {
     if (!a0) return;
     const [a, b, c, d] = rectangleCorners(a0, cursor);
     this.addWorldLineString(builder, [a, b, c, d, a]);
+  }
+}
+
+/** 中心点矩形：第 1 点=中心，第 2 点=一个角点；对角点由中心反射得到。 */
+export class SketchCenterRectangleTool extends SketchCreateTool {
+  public static override toolId = 'Sketch.CenterRectangle';
+  public static override iconSpec = 'icon-center-rectangle';
+  protected readonly sketchKind = 'centerRectangle';
+  protected readonly requiredPoints = 2;
+  protected readonly promptKeys = [
+    'partStudio.sketch.create.centerRectangle.firstPrompt',
+    'partStudio.sketch.create.centerRectangle.nextPrompt',
+  ] as const;
+  protected readonly degenerateToastKey = 'partStudio.sketch.create.toasts.zeroSize';
+
+  protected createInstance(): SketchCreateTool { return new SketchCenterRectangleTool(); }
+
+  protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
+    const [center, corner] = points;
+    if (!center || !corner) return undefined;
+    const opposite = { u: 2 * center.u - corner.u, v: 2 * center.v - corner.v };
+    return axisAlignedRectangleDraft(opposite, corner, () => this.nextEntityId());
+  }
+
+  protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const center = anchors[0];
+    if (!center) return;
+    const opposite = { u: 2 * center.u - cursor.u, v: 2 * center.v - cursor.v };
+    const [a, b, c, d] = rectangleCorners(opposite, cursor);
+    this.addWorldLineString(builder, [a, b, c, d, a]);
+  }
+}
+
+/** 对齐矩形（3 点）：A/B 定第一边，C 定垂直边的有向高度；不强制轴对齐。 */
+export class SketchAlignedRectangleTool extends SketchCreateTool {
+  public static override toolId = 'Sketch.AlignedRectangle';
+  public static override iconSpec = 'icon-aligned-rectangle';
+  protected readonly sketchKind = 'alignedRectangle';
+  protected readonly requiredPoints = 3;
+  protected readonly promptKeys = [
+    'partStudio.sketch.create.alignedRectangle.firstPrompt',
+    'partStudio.sketch.create.alignedRectangle.secondPrompt',
+    'partStudio.sketch.create.alignedRectangle.thirdPrompt',
+  ] as const;
+  protected readonly degenerateToastKey = 'partStudio.sketch.create.toasts.zeroSize';
+
+  protected createInstance(): SketchCreateTool { return new SketchAlignedRectangleTool(); }
+
+  protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
+    const [a, b, c] = points;
+    if (!a || !b || !c) return undefined;
+    const dx = b.u - a.u;
+    const dy = b.v - a.v;
+    const length = Math.hypot(dx, dy);
+    if (length < 1e-12) return undefined;
+    const nx = -dy / length;
+    const ny = dx / length;
+    const height = (c.u - a.u) * nx + (c.v - a.v) * ny;
+    if (Math.abs(height) < 1e-12) return undefined;
+    const d = { u: a.u + nx * height, v: a.v + ny * height };
+    const e = { u: b.u + nx * height, v: b.v + ny * height };
+    const [lAB, lBC, lCD, lDA] = [
+      this.nextEntityId(), this.nextEntityId(), this.nextEntityId(), this.nextEntityId(),
+    ];
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: lAB, p1: { x: a.u, y: a.v }, p2: { x: b.u, y: b.v } },
+      { kind: 'line', id: lBC, p1: { x: b.u, y: b.v }, p2: { x: e.u, y: e.v } },
+      { kind: 'line', id: lCD, p1: { x: e.u, y: e.v }, p2: { x: d.u, y: d.v } },
+      { kind: 'line', id: lDA, p1: { x: d.u, y: d.v }, p2: { x: a.u, y: a.v } },
+    ];
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lAB, part: 'end' }, { entity: lBC, part: 'start' }] },
+      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lBC, part: 'end' }, { entity: lCD, part: 'start' }] },
+      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lCD, part: 'end' }, { entity: lDA, part: 'start' }] },
+      { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: lDA, part: 'end' }, { entity: lAB, part: 'start' }] },
+      { kind: 'parallel', id: this.nextEntityId(), refs: [lAB, lCD] },
+      { kind: 'parallel', id: this.nextEntityId(), refs: [lBC, lDA] },
+      { kind: 'perpendicular', id: this.nextEntityId(), refs: [lAB, lBC] },
+    ];
+    return { entities, constraints };
+  }
+
+  protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const a = anchors[0];
+    const b = anchors[1];
+    if (!a) return;
+    if (!b) {
+      this.addWorldLineString(builder, [a, cursor]);
+      return;
+    }
+    const dx = b.u - a.u;
+    const dy = b.v - a.v;
+    const length = Math.hypot(dx, dy);
+    if (length < 1e-12) return;
+    const nx = -dy / length;
+    const ny = dx / length;
+    const height = (cursor.u - a.u) * nx + (cursor.v - a.v) * ny;
+    const d = { u: a.u + nx * height, v: a.v + ny * height };
+    const e = { u: b.u + nx * height, v: b.v + ny * height };
+    this.addWorldLineString(builder, [a, b, e, d, a]);
   }
 }
 
@@ -574,6 +698,271 @@ export class SketchCenterCircleTool extends SketchCreateTool {
     if (radius < 1e-12) return;
     // 局部 z=0 全圆 → 世界化（平面架刚体变换，圆心在草图面上）。
     this.addWorldArc(builder, Arc3d.createXY(toLocal3d(center), radius));
+  }
+}
+
+/**
+ * 周边圆（三点圆，toolId `Sketch.PerimeterCircle`，Onshape 圆飞菜单变体）：
+ * 圆上依次拾取三点 → 三点定圆 → 1 circle（不生成圆心点，与 Onshape 三次点样式一致）。
+ * 共线/任两点重合 → buildShape undefined（toast 拒收）。
+ */
+export class SketchPerimeterCircleTool extends SketchCreateTool {
+  public static override toolId = 'Sketch.PerimeterCircle';
+  public static override iconSpec = 'icon-perimeter-circle';
+  protected readonly sketchKind = 'perimeterCircle';
+  protected readonly requiredPoints = 3;
+  protected readonly promptKeys = [
+    'partStudio.sketch.create.perimeterCircle.firstPrompt',
+    'partStudio.sketch.create.perimeterCircle.secondPrompt',
+    'partStudio.sketch.create.perimeterCircle.thirdPrompt',
+  ] as const;
+  protected readonly degenerateToastKey = 'partStudio.sketch.create.toasts.colinearCircle';
+
+  protected createInstance(): SketchCreateTool { return new SketchPerimeterCircleTool(); }
+
+  protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
+    const [a, b, c] = points;
+    if (!a || !b || !c) return undefined;
+    const circle = this._circleFrom3Points(a, b, c);
+    if (!circle) return undefined;
+    return {
+      entities: [{
+        kind: 'circle',
+        id: this.nextEntityId(),
+        center: { x: circle.center.u, y: circle.center.v },
+        radius: circle.radius,
+      }],
+      constraints: [],
+    };
+  }
+
+  protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const a = anchors[0];
+    if (!a) return;
+    if (anchors.length === 1) {
+      this.addWorldLineString(builder, [a, cursor]);
+      return;
+    }
+    const b = anchors[1];
+    if (!b) return;
+    const circle = this._circleFrom3Points(a, b, cursor);
+    if (circle) this.addWorldArc(builder, Arc3d.createXY(toLocal3d(circle.center), circle.radius));
+    else this.addWorldLineString(builder, [a, b, cursor]); // 共线候选：折线提示（提交同形判退）
+  }
+
+  /** 三点定圆（局部 z=0 面内）：任两点重合/共线 → undefined。 */
+  private _circleFrom3Points(a: SketchPoint2, b: SketchPoint2, c: SketchPoint2): { center: SketchPoint2; radius: number } | undefined {
+    const pa = toLocal3d(a); const pb = toLocal3d(b); const pc = toLocal3d(c);
+    if (pa.isAlmostEqual(pb) || pb.isAlmostEqual(pc) || pa.isAlmostEqual(pc)) return undefined;
+    const curve = Arc3d.createCircularStartMiddleEnd(pa, pb, pc);
+    if (!(curve instanceof Arc3d)) return undefined; // 共线 → LineString3d 退化
+    const radius = curve.vector0.magnitude();
+    if (radius < 1e-12) return undefined;
+    return { center: { u: curve.center.x, v: curve.center.y }, radius };
+  }
+}
+
+/**
+ * 正多边形基类（Onshape 多边形飞菜单两变体共享，2026-11-09）。
+ *
+ * 交互：圆心 → 构造圆半径点 → （键盘输入边数 3–50）→ Enter 或第三次点击完成。
+ * 实体：1 条 construction 构造圆（显示）+ N 条内联端点线；约束：相邻端点
+ * coincident + 全边 equal + N 个外角 angle(2π/N)。默认 6 边。
+ * 构造圆尚未与多边形建立求解约束（尺寸编辑联动后续切片）。
+ */
+export abstract class SketchPolygonTool extends SketchCreateTool {
+  protected abstract readonly polygonMode: PolygonMode;
+  protected readonly requiredPoints = 3;
+  protected readonly promptKeys = [
+    'partStudio.sketch.create.polygon.firstPrompt',
+    'partStudio.sketch.create.polygon.nextPrompt',
+    'partStudio.sketch.create.polygon.sidesPrompt',
+  ] as const;
+  protected readonly degenerateToastKey = 'partStudio.sketch.create.toasts.polygonDegenerate';
+
+  private _sides = POLYGON_DEFAULT_SIDES;
+  private _digitBuffer = '';
+
+  protected get sideCount(): number { return this._sides; }
+
+  protected override stageHint(): string {
+    const base = super.stageHint();
+    return this.anchorPoints.length >= 2 ? `${base} (${this._sides})` : base;
+  }
+
+  /**
+   * 键盘边数输入（Onshape 帮助页：半径点后直接输入数字；范围 3–50）。
+   * Enter 提交；Backspace 复位默认 6。未到半径点时不拦截按键（保留快捷键）。
+   */
+  public override async onKeyTransition(wentDown: boolean, ev: KeyboardEvent): Promise<EventHandled> {
+    if (!wentDown || this.anchorPoints.length < 2) return EventHandled.No;
+    if (/^[0-9]$/.test(ev.key)) {
+      ev.preventDefault();
+      const candidate = (this._digitBuffer + ev.key).slice(-2);
+      const parsed = Number(candidate);
+      if (Number.isInteger(parsed) && parsed >= POLYGON_MIN_SIDES && parsed <= POLYGON_MAX_SIDES) {
+        this._sides = parsed;
+        this._digitBuffer = candidate;
+      } else {
+        this._sides = Math.min(POLYGON_MAX_SIDES, Math.max(POLYGON_MIN_SIDES, Number(ev.key)));
+        this._digitBuffer = ev.key;
+      }
+      this.refreshFeedback();
+      return EventHandled.Yes;
+    }
+    if (ev.key === 'Backspace') {
+      ev.preventDefault();
+      this._digitBuffer = '';
+      this._sides = POLYGON_DEFAULT_SIDES;
+      this.refreshFeedback();
+      return EventHandled.Yes;
+    }
+    if (ev.key === 'Enter') {
+      // 阻止浏览器把 Enter 变成焦点按钮（飞菜单箭头）的默认 click——否则菜单会
+      // 在提交后重新展开并挡住草图完成按钮（2026-11-09 真栈实测）。
+      ev.preventDefault();
+      await this.commitAnchors([...this.anchorPoints]);
+      return EventHandled.Yes;
+    }
+    return EventHandled.No;
+  }
+
+  protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
+    const [center, radiusPoint] = points;
+    if (!center || !radiusPoint) return undefined;
+    const polygon = regularPolygonVertices(center, radiusPoint, this._sides, this.polygonMode);
+    if (!polygon) return undefined;
+
+    const circleId = this.nextEntityId();
+    const entities: SketchEntityDto[] = [{
+      kind: 'circle', id: circleId,
+      center: { x: center.u, y: center.v }, radius: polygon.constructionRadius,
+      construction: true,
+    }];
+    const lineIds: number[] = [];
+    for (let k = 0; k < this._sides; k++) {
+      const lineId = this.nextEntityId();
+      lineIds.push(lineId);
+      const a = polygon.vertices[k]!;
+      const b = polygon.vertices[(k + 1) % this._sides]!;
+      entities.push({ kind: 'line', id: lineId, p1: { x: a.u, y: a.v }, p2: { x: b.u, y: b.v } });
+    }
+    const constraints: SketchConstraintDto[] = [];
+    for (let k = 0; k < this._sides; k++) {
+      constraints.push({
+        kind: 'coincident', id: this.nextEntityId(),
+        refs: [
+          { entity: lineIds[k]!, part: 'end' },
+          { entity: lineIds[(k + 1) % this._sides]!, part: 'start' },
+        ],
+      });
+    }
+    for (let k = 1; k < this._sides; k++) {
+      constraints.push({ kind: 'equal', id: this.nextEntityId(), refs: [lineIds[0]!, lineIds[k]!] });
+    }
+    const turn = (2 * Math.PI) / this._sides;
+    for (let k = 0; k < this._sides; k++) {
+      constraints.push({
+        kind: 'angle', id: this.nextEntityId(), value: turn,
+        refs: [lineIds[k]!, lineIds[(k + 1) % this._sides]!],
+      });
+    }
+    return { entities, constraints };
+  }
+
+  protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const center = anchors[0];
+    if (!center) return;
+    if (anchors.length === 1) {
+      this.addWorldLineString(builder, [center, cursor]);
+      return;
+    }
+    const radiusPoint = anchors[1];
+    if (!radiusPoint) return;
+    const polygon = regularPolygonVertices(center, radiusPoint, this._sides, this.polygonMode);
+    if (!polygon) return;
+    const loop = [...polygon.vertices, polygon.vertices[0]!];
+    this.addWorldLineString(builder, loop);
+    this.addWorldArc(builder, Arc3d.createXY(toLocal3d(center), polygon.constructionRadius));
+  }
+}
+
+/** Onshape「Inscribed polygon」（内切多边形）：构造圆在多边形内、与各边相切。 */
+export class SketchInscribedPolygonTool extends SketchPolygonTool {
+  public static override toolId = 'sketchInscribedPolygon';
+  public static override iconSpec = 'icon-polygon';
+  protected readonly polygonMode = 'inscribed' as const;
+  protected override readonly sketchKind = 'polygonInscribed' as const;
+  protected createInstance(): SketchCreateTool { return new SketchInscribedPolygonTool(); }
+}
+
+/** Onshape「Circumscribed polygon」（外切多边形）：多边形在构造圆内、圆过各顶点。 */
+export class SketchCircumscribedPolygonTool extends SketchPolygonTool {
+  public static override toolId = 'sketchCircumscribedPolygon';
+  public static override iconSpec = 'icon-polygon';
+  protected readonly polygonMode = 'circumscribed' as const;
+  protected override readonly sketchKind = 'polygonCircumscribed' as const;
+  protected createInstance(): SketchCreateTool { return new SketchCircumscribedPolygonTool(); }
+}
+
+/** 中心点圆弧：圆心 → 起点（定半径）→ 终点（定扫角）。 */
+export class SketchCenterArcTool extends SketchCreateTool {
+  public static override toolId = 'Sketch.CenterArc';
+  public static override iconSpec = 'icon-center-arc';
+  protected readonly sketchKind = 'centerArc';
+  protected readonly requiredPoints = 3;
+  protected readonly promptKeys = [
+    'partStudio.sketch.create.centerArc.firstPrompt',
+    'partStudio.sketch.create.centerArc.secondPrompt',
+    'partStudio.sketch.create.centerArc.thirdPrompt',
+  ] as const;
+  protected readonly degenerateToastKey = 'partStudio.sketch.create.toasts.colinearArc';
+
+  protected createInstance(): SketchCreateTool { return new SketchCenterArcTool(); }
+
+  protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
+    const [center, start, end] = points;
+    if (!center || !start || !end) return undefined;
+    const radius = Math.hypot(start.u - center.u, start.v - center.v);
+    if (radius < 1e-12) return undefined;
+    const startAngle = Math.atan2(start.v - center.v, start.u - center.u);
+    const endAngle = Math.atan2(end.v - center.v, end.u - center.u);
+    let sweep = endAngle - startAngle;
+    while (sweep <= -Math.PI) sweep += Math.PI * 2;
+    while (sweep > Math.PI) sweep -= Math.PI * 2;
+    if (Math.abs(sweep) < 1e-9) return undefined;
+    return {
+      entities: [{
+        kind: 'arc',
+        id: this.nextEntityId(),
+        center: { x: center.u, y: center.v },
+        radius,
+        startAngle,
+        sweepAngle: sweep,
+      }],
+      constraints: [],
+    };
+  }
+
+  protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const center = anchors[0];
+    if (!center) return;
+    if (anchors.length === 1) {
+      const radius = Math.hypot(cursor.u - center.u, cursor.v - center.v);
+      if (radius > 1e-12) this.addWorldArc(builder, Arc3d.createXY(toLocal3d(center), radius));
+      return;
+    }
+    const start = anchors[1];
+    if (!start) return;
+    const radius = Math.hypot(start.u - center.u, start.v - center.v);
+    if (radius < 1e-12) return;
+    const startAngle = Math.atan2(start.v - center.v, start.u - center.u);
+    const endAngle = Math.atan2(cursor.v - center.v, cursor.u - center.u);
+    let sweep = endAngle - startAngle;
+    while (sweep <= -Math.PI) sweep += Math.PI * 2;
+    while (sweep > Math.PI) sweep -= Math.PI * 2;
+    if (Math.abs(sweep) < 1e-9) return;
+    this.addWorldArc(builder, Arc3d.createXY(toLocal3d(center), radius, AngleSweep.createStartSweepRadians(startAngle, sweep)));
   }
 }
 
@@ -740,6 +1129,63 @@ export class SketchSplineTool extends SketchCreateTool {
   }
 }
 
+/** 贝塞尔曲线：4 个控制点按 P0→P3 顺序点击（Onshape 样条飞菜单 Bezier）。 */
+export class SketchBezierTool extends SketchCreateTool {
+  public static override toolId = 'Sketch.Bezier';
+  public static override iconSpec = 'icon-bezier';
+  protected readonly sketchKind = 'bezier';
+  protected readonly requiredPoints = 4;
+  protected readonly promptKeys = [
+    'partStudio.sketch.create.bezier.firstPrompt',
+    'partStudio.sketch.create.bezier.secondPrompt',
+    'partStudio.sketch.create.bezier.thirdPrompt',
+    'partStudio.sketch.create.bezier.fourthPrompt',
+  ] as const;
+  protected readonly degenerateToastKey = 'partStudio.sketch.create.toasts.splineDegenerate';
+
+  protected createInstance(): SketchCreateTool { return new SketchBezierTool(); }
+
+  protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
+    const [p0, p1, p2, p3] = points;
+    if (!p0 || !p1 || !p2 || !p3) return undefined;
+    if (Math.hypot(p0.u - p3.u, p0.v - p3.v) < 1e-12) return undefined; // 端点重合退化
+    const idSpline = this.nextEntityId();
+    return {
+      entities: [{
+        kind: 'spline', id: idSpline,
+        fitPoints: [{ x: p0.u, y: p0.v }, { x: p3.u, y: p3.v }],
+        controlPoints: [
+          { x: p0.u, y: p0.v }, { x: p1.u, y: p1.v },
+          { x: p2.u, y: p2.v }, { x: p3.u, y: p3.v },
+        ],
+        periodic: false,
+      }],
+      constraints: [
+        { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: idSpline, part: 'start' }, { entity: idSpline, part: 'point', index: 0 }] },
+        { kind: 'coincident', id: this.nextEntityId(), refs: [{ entity: idSpline, part: 'end' }, { entity: idSpline, part: 'point', index: 1 }] },
+      ],
+    };
+  }
+
+  protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const p0 = anchors[0];
+    if (!p0) return;
+    if (anchors.length < 3) {
+      this.addWorldLineString(builder, [...anchors, cursor]);
+      return;
+    }
+    const [p1, p2] = [anchors[1]!, anchors[2]!];
+    const curve = BezierCurve3d.create([toLocal3d(p0), toLocal3d(p1), toLocal3d(p2), toLocal3d(cursor)]);
+    if (!curve) return;
+    const pts: SketchPoint2[] = [];
+    for (let i = 0; i <= 32; i++) {
+      const q = curve.fractionToPoint(i / 32);
+      pts.push({ u: q.x, v: q.y });
+    }
+    this.addWorldLineString(builder, pts);
+  }
+}
+
 /**
  * 注册草图绘制工具（M6-a T5 + v1.19 spline；幂等——模块级 flag）。
  * 注册点=PartStudioPage 工具注册编排（ensureEditTools 之后同 try 块，失败同面
@@ -752,8 +1198,15 @@ export function registerSketchTools(): void {
   if (sketchToolsRegistered) return;
   IModelApp.tools.register(SketchLineTool);
   IModelApp.tools.register(SketchRectangleTool);
+  IModelApp.tools.register(SketchCenterRectangleTool);
+  IModelApp.tools.register(SketchAlignedRectangleTool);
   IModelApp.tools.register(SketchCenterCircleTool);
+  IModelApp.tools.register(SketchPerimeterCircleTool);
+  IModelApp.tools.register(SketchInscribedPolygonTool);
+  IModelApp.tools.register(SketchCircumscribedPolygonTool);
   IModelApp.tools.register(SketchArc3PointTool);
+  IModelApp.tools.register(SketchCenterArcTool);
   IModelApp.tools.register(SketchSplineTool);
+  IModelApp.tools.register(SketchBezierTool);
   sketchToolsRegistered = true;
 }

@@ -37,6 +37,21 @@ for (const dir of [EXAMPLES, ...walk(EXAMPLES)]) {
 }
 const state = readJson(path.join(EXAMPLES, 'state.json'));
 
+// manifest/state 一致性门（2026-11-08）：demo 目录名即 state document id。
+// 旧 manifest 可能指向已重建/删除的 iModel（Sample/intro/iOS 均发生过）；
+// 只比较双方都有 imodelId 的条目，缺失 state 的聚合型 manifest 不误报。
+const stateById = new Map((state?.documents || []).map((doc) => [doc.id, doc]));
+const manifestMismatches = manifests.flatMap((entry) => {
+  const slug = entry.rel.split(path.sep)[0];
+  const doc = stateById.get(slug);
+  if (!doc?.imodelId || !entry.manifest.imodelId) return [];
+  return doc.imodelId === entry.manifest.imodelId ? [] : [{
+    manifest: entry.rel,
+    manifestImodelId: entry.manifest.imodelId,
+    stateImodelId: doc.imodelId,
+  }];
+});
+
 const esc = (value) => String(value ?? '')
   .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;');
@@ -71,6 +86,10 @@ const cards = manifests
     </article>`;
   }).join('\n');
 
+const mismatchText = manifestMismatches.length === 0
+  ? 'manifest/state iModelId mismatches: 0'
+  : `manifest/state iModelId mismatches: ${manifestMismatches.length}（${manifestMismatches.map((m) => m.manifest).join(', ')}）`;
+
 const stateRows = (state?.documents || []).map((doc) =>
   `<tr><td>${esc(doc.id)}</td><td>${esc(doc.projectId || '—')}</td><td>${esc(doc.imodelId || '—')}</td><td>${(doc.scopes || []).map((s) =>
     `${esc(s.name)}:${esc(s.status)}${s.volumeMm3 ? ` ${s.volumeMm3.toFixed(3)} mm³` : ''}`).join('<br/>')}</td></tr>`,
@@ -93,11 +112,15 @@ th,td{padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:left;font-size
 code{font-size:12px}
 </style></head><body>
 <header><h1>LubanCAD · Onshape 示例复刻</h1>
-<p>本页由 <code>scripts/onshape-parity/gallery.mjs</code> 生成；iModel/截图是本地演示产物，不是产品事实源。</p></header>
+<p>本页由 <code>scripts/onshape-parity/gallery.mjs</code> 生成；iModel/截图是本地演示产物，不是产品事实源。${esc(mismatchText)}。</p></header>
 <h2>示例（${manifests.length}）</h2>
 <section class="grid">${cards || '<p style="padding:0 48px">暂无 manifest；先运行示例 spec。</p>'}</section>
 <h2>运行态 state（${state?.documents?.length || 0}）</h2>
 <table><thead><tr><th>Document</th><th>Project</th><th>iModel</th><th>Scopes</th></tr></thead><tbody>${stateRows || '<tr><td colspan="4">暂无 state.json</td></tr>'}</tbody></table>
 </body></html>`;
 writeFileSync(OUT, html, 'utf8');
-console.log(`wrote ${path.relative(ROOT, OUT)} (${manifests.length} manifests, ${state?.documents?.length || 0} state docs)`);
+console.log(`wrote ${path.relative(ROOT, OUT)} (${manifests.length} manifests, ${state?.documents?.length || 0} state docs; ${mismatchText})`);
+if (manifestMismatches.length > 0) {
+  console.error(`manifest/state iModelId mismatch：${JSON.stringify(manifestMismatches, null, 2)}`);
+  process.exitCode = 1;
+}

@@ -120,8 +120,8 @@ test.describe('T2 edge selector replay', () => {
     const scenario = syntheticScenario();
 
     const built = await runScenario(ctx, scenario, token, {
-      edgeResolver: (feature, fullScenario) =>
-        resolveScenarioEdges(page, ctx, fullScenario, feature, token),
+      edgeResolver: (feature, fullScenario, bodyContext) =>
+        resolveScenarioEdges(page, ctx, fullScenario, feature, token, bodyContext),
     });
     expect(built.featureIds.length).toBe(3);
     expect(built.steps.map((step) => step.type)).toEqual(['sketch', 'extrude', 'chamfer']);
@@ -177,8 +177,8 @@ test.describe('T2 edge selector replay', () => {
 
     const built = await runScenario(ctx, scenario, token, {
       skipSketchConstraints: true,
-      edgeResolver: (feature, fullScenario) =>
-        resolveScenarioEdges(page, ctx, fullScenario, feature, token),
+      edgeResolver: (feature, fullScenario, bodyContext) =>
+        resolveScenarioEdges(page, ctx, fullScenario, feature, token, bodyContext),
     });
     expect(built.steps.map((step) => step.type)).toEqual(['sketch', 'extrude', 'extrude', 'chamfer']);
     const imprintStep = built.steps.find((step) => step.feature === 'Extrude 2');

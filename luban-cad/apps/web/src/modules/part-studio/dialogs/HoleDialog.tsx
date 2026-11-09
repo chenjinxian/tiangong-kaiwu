@@ -12,16 +12,24 @@
  * 钻尖角固定 180°（平底），螺纹/倒角孔明确禁用；提交仍走 FeatureService 的 hole op。
  */
 import * as React from 'react';
-import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
+import { createPortal } from 'react-dom';
+import {
+  type BriefcaseConnection,
+  IModelApp,
+  NotifyMessageDetails,
+  OutputMessagePriority,
+  type ScreenViewport,
+} from '@itwin/core-frontend';
 import { useTranslation } from 'react-i18next';
-import type { BodyInfo, FeatureOp, FeatureOpResult, HoleVertexRef } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, HoleVertexRef, PreviewResult } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useWorkspaceRef } from '../../../common/workspace/use-workspace-ref.js';
+import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
 
 const INCH_MM = 25.4;
 
 export type HoleUnit = 'mm' | 'in';
-export type HoleEndBound = 'blind' | 'throughAll';
+export type HoleEndBound = 'blind' | 'throughAll' | 'upToNext';
 export type HoleStyle = 'simple' | 'counterbore' | 'countersink';
 
 interface HoleLocationOption {
@@ -43,6 +51,10 @@ export interface HoleDialogProps {
   /** edit 模式：既有 hole 参数回显（HoleParams 落库形态，mm 数值）。 */
   initialParams?: unknown;
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
+  /** 改参/插入预览（后端影子求值几何 → TileRpc 动态图形；失败静默无预览）。 */
+  previewOp?: (op: FeatureOp) => Promise<PreviewResult>;
+  connection?: BriefcaseConnection | null;
+  viewport?: ScreenViewport | null;
   connectionKey?: string;
   sketches?: readonly HoleDialogSketchOption[];
   bodies?: readonly BodyInfo[];
@@ -55,7 +67,8 @@ function readInitialParams(value: unknown): {
   sketchId?: string; pointIds?: number[]; vertexRefs?: HoleVertexRef[]; diameterMm?: number;
   holeStyle?: HoleStyle; counterboreDiameterMm?: number; counterboreDepthMm?: number;
   countersinkDiameterMm?: number; countersinkAngleDeg?: number;
-  endBound?: HoleEndBound; depthMm?: number;
+  endBound?: HoleEndBound; depthMm?: number; tipAngleDeg?: number;
+  direction?: 'forward' | 'backward';
 } {
   if (typeof value !== 'object' || value === null) return {};
   const p = value as Record<string, unknown>;
@@ -76,8 +89,11 @@ function readInitialParams(value: unknown): {
     counterboreDepthMm: typeof p.counterboreDepthMm === 'number' ? p.counterboreDepthMm : undefined,
     countersinkDiameterMm: typeof p.countersinkDiameterMm === 'number' ? p.countersinkDiameterMm : undefined,
     countersinkAngleDeg: typeof p.countersinkAngleDeg === 'number' ? p.countersinkAngleDeg : undefined,
-    endBound: p.endBound === 'blind' || p.endBound === 'throughAll' ? p.endBound : undefined,
+    endBound: p.endBound === 'blind' || p.endBound === 'throughAll' || p.endBound === 'upToNext'
+      ? p.endBound : undefined,
     depthMm: typeof p.depthMm === 'number' ? p.depthMm : undefined,
+    tipAngleDeg: typeof p.tipAngleDeg === 'number' ? p.tipAngleDeg : undefined,
+    direction: p.direction === 'backward' ? 'backward' : p.direction === 'forward' ? 'forward' : undefined,
   };
 }
 
@@ -86,7 +102,8 @@ function numberText(value: number): string {
 }
 
 export function HoleDialog({
-  featureName, featureId, initialParams, applyOp, connectionKey, sketches = [], bodies = [], canEdit = true, onConfirm, onCancel,
+  featureName, featureId, initialParams, applyOp, previewOp, connection, viewport,
+  connectionKey, sketches = [], bodies = [], canEdit = true, onConfirm, onCancel,
 }: HoleDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const partStudioId = useWorkspaceRef()?.modelId;
@@ -107,10 +124,20 @@ export function HoleDialog({
   const [countersinkDiameter, setCountersinkDiameter] = React.useState(
     () => numberText(initial.countersinkDiameterMm ?? (initial.diameterMm ?? 5) * 2) || '10',
   );
+  // v1.50：新建默认 118°（Onshape live 证据）；编辑旧库缺省按平底 180 回显，避免
+  // 老特征改参时静默改几何。
+  const [tipAngleDeg, setTipAngleDeg] = React.useState<number>(
+    () => initial.tipAngleDeg ?? (featureId !== undefined ? 180 : 118),
+  );
   const [countersinkAngle, setCountersinkAngle] = React.useState(
     () => numberText(initial.countersinkAngleDeg ?? 90) || '90',
   );
   const [endBound, setEndBound] = React.useState<HoleEndBound>(() => initial.endBound ?? 'blind');
+  // 反向（Onshape oppositeDirection；live 证据 dialog.html 的「反向」控件）：
+  // 缺省正向；落库 backward 回显，正向不发键（旧载荷兼容）。
+  const [direction, setDirection] = React.useState<'forward' | 'backward'>(
+    () => initial.direction === 'backward' ? 'backward' : 'forward',
+  );
   const [depth, setDepth] = React.useState(() => numberText(initial.depthMm ?? 10) || '10');
   const [targetBodyId, setTargetBodyId] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -219,28 +246,76 @@ export function HoleDialog({
     || (endBound === 'blind' && (!Number.isFinite(depthMm) || depthMm <= 0))
     || !counterboreValid || !countersinkValid;
 
+  const buildParams = React.useCallback((): Record<string, unknown> => {
+    const selectedOptions = (options ?? []).filter((o) => selected.has(o.key));
+    const pointIds = selectedOptions.flatMap((o) => (o.pointId === undefined ? [] : [o.pointId]));
+    const vertexRefs = selectedOptions.flatMap((o) => (o.vertex === undefined ? [] : [o.vertex]));
+    return {
+      sketchId,
+      ...(pointIds.length > 0 ? { pointIds } : {}),
+      ...(vertexRefs.length > 0 ? { vertexRefs } : {}),
+      ...(holeStyle === 'counterbore'
+        ? { holeStyle, counterboreDiameterMm, counterboreDepthMm }
+        : holeStyle === 'countersink'
+          ? { holeStyle, countersinkDiameterMm, countersinkAngleDeg }
+          : {}),
+      diameterMm,
+      endBound,
+      ...(endBound === 'blind' ? { depthMm } : {}),
+      tipAngleDeg,
+      ...(direction === 'backward' ? { direction } : {}),
+    };
+  }, [options, selected, sketchId, holeStyle, counterboreDiameterMm, counterboreDepthMm,
+    countersinkDiameterMm, countersinkAngleDeg, diameterMm, endBound, depthMm, tipAngleDeg, direction]);
+
+  // 预览宿主/动态几何（2026-11-08：后端 hole 影子求值 → TileRpc；失败静默无预览）。
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const [previewHost, setPreviewHost] = React.useState<HTMLElement | null>(null);
+  React.useEffect(() => {
+    setPreviewHost((rootRef.current?.closest('.part-studio-canvas') as HTMLElement | null) ?? null);
+  }, []);
+  const [dynamicPreview, setDynamicPreview] = React.useState<PreviewResult['preview']>(undefined);
+  const [transparency, setTransparency] = React.useState(0);
+  const previewSeqRef = React.useRef(0);
+  React.useEffect(() => {
+    if (previewOp === undefined || submitDisabled) {
+      setDynamicPreview(undefined);
+      return;
+    }
+    const seq = ++previewSeqRef.current;
+    const timer = window.setTimeout(() => {
+      const params = buildParams();
+      const op: FeatureOp = featureId !== undefined
+        ? { kind: 'updateParams', featureId, params }
+        : {
+            kind: 'insertFeature',
+            featureType: 'hole',
+            ...(targetBodyId !== '' ? { targetBodyId } : {}),
+            params,
+          };
+      void previewOp(op).then(
+        (result) => {
+          if (previewSeqRef.current !== seq) return;
+          setDynamicPreview(result.ok ? result.preview : undefined);
+        },
+        () => {
+          if (previewSeqRef.current === seq) setDynamicPreview(undefined);
+        },
+      );
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      if (previewSeqRef.current === seq) previewSeqRef.current += 1;
+    };
+  }, [previewOp, submitDisabled, buildParams, featureId, targetBodyId]);
+  const previewOpacity = 0.42 - (Math.max(0, Math.min(100, transparency)) / 100) * 0.36;
+
   const confirm = async (): Promise<void> => {
     if (submitDisabled || !applyOp) return;
     setBusy(true);
     setError(undefined);
     try {
-      const selectedOptions = (options ?? []).filter((o) => selected.has(o.key));
-      const pointIds = selectedOptions.flatMap((o) => (o.pointId === undefined ? [] : [o.pointId]));
-      const vertexRefs = selectedOptions.flatMap((o) => (o.vertex === undefined ? [] : [o.vertex]));
-      const params = {
-        sketchId,
-        ...(pointIds.length > 0 ? { pointIds } : {}),
-        ...(vertexRefs.length > 0 ? { vertexRefs } : {}),
-        ...(holeStyle === 'counterbore'
-          ? { holeStyle, counterboreDiameterMm, counterboreDepthMm }
-          : holeStyle === 'countersink'
-            ? { holeStyle, countersinkDiameterMm, countersinkAngleDeg }
-            : {}),
-        diameterMm,
-        endBound,
-        ...(endBound === 'blind' ? { depthMm } : {}),
-        tipAngleDeg: 180,
-      };
+      const params = buildParams();
       const result = await applyOp(featureId !== undefined
         ? { kind: 'updateParams', featureId, params }
         : {
@@ -278,6 +353,7 @@ export function HoleDialog({
 
   return (
     <div
+      ref={rootRef}
       role="dialog"
       aria-modal={false}
       aria-label={featureName}
@@ -430,7 +506,23 @@ export function HoleDialog({
           <select id="hole-end" data-testid="hole-end-bound" className="part-studio-feature-dialog__select" value={endBound}
             onChange={(e) => setEndBound(e.target.value as HoleEndBound)} aria-label={t('partStudio.holeDialog.endBound')}>
             <option value="blind">{t('partStudio.holeDialog.blind')}</option>
+            <option value="upToNext">{t('partStudio.holeDialog.upToNext')}</option>
             <option value="throughAll">{t('partStudio.holeDialog.throughAll')}</option>
+          </select>
+        </section>
+        <section className="part-studio-feature-dialog__distance">
+          <label htmlFor="hole-direction" className="part-studio-feature-dialog__distance-label">
+            {t('partStudio.featureDialog.direction')}
+          </label>
+          <select
+            id="hole-direction"
+            data-testid="hole-direction"
+            className="part-studio-feature-dialog__select"
+            value={direction}
+            onChange={(e) => setDirection(e.target.value as 'forward' | 'backward')}
+          >
+            <option value="forward">{t('partStudio.featureDialog.directionOptions.forward')}</option>
+            <option value="backward">{t('partStudio.featureDialog.directionOptions.backward')}</option>
           </select>
         </section>
         {endBound === 'blind' && (
@@ -442,8 +534,19 @@ export function HoleDialog({
           </section>
         )}
         <section className="part-studio-feature-dialog__distance">
-          <span className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.tipAngle')}</span>
-          <span className="part-studio-feature-dialog__static-value">{t('partStudio.holeDialog.tipFlat')}</span>
+          <label htmlFor="hole-tip-angle" className="part-studio-feature-dialog__distance-label">
+            {t('partStudio.holeDialog.tipAngle')}
+          </label>
+          <select
+            id="hole-tip-angle"
+            data-testid="hole-tip-angle"
+            className="part-studio-feature-dialog__select"
+            value={String(tipAngleDeg)}
+            onChange={(e) => setTipAngleDeg(Number(e.target.value))}
+          >
+            <option value="118">{t('partStudio.holeDialog.tipDrill')}</option>
+            <option value="180">{t('partStudio.holeDialog.tipFlat')}</option>
+          </select>
         </section>
       </div>
       <footer className="part-studio-feature-dialog__footer">
@@ -452,15 +555,27 @@ export function HoleDialog({
             type="range"
             min={0}
             max={100}
-            defaultValue={0}
-            disabled
-            title={t('partStudio.holeDialog.previewUnsupported')}
+            value={transparency}
+            disabled={dynamicPreview === undefined}
+            onChange={(event) => setTransparency(Number(event.target.value))}
             aria-label={t('partStudio.featureDialog.transparencyLabel')}
             className="part-studio-feature-dialog__transparency-slider"
           />
         </div>
         <button type="button" className="part-studio-feature-dialog__help" aria-label={t('partStudio.featureDialog.help')}>?</button>
       </footer>
+      {previewHost !== null && dynamicPreview !== undefined && createPortal(
+        <FeaturePreviewOverlay
+          viewport={viewport ?? null}
+          connection={connection ?? null}
+          geometry={undefined}
+          dynamicPreview={dynamicPreview}
+          opacity={previewOpacity}
+          hideSource
+          solid
+        />,
+        previewHost,
+      )}
     </div>
   );
 }

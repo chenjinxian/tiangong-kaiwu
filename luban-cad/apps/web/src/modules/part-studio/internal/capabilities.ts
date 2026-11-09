@@ -33,7 +33,7 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   revolve: 'full', // 旋转
   sweep: 'full', // 扫掠
   loft: 'full', // 放样
-  thicken: 'full', // 加厚（含封闭变体）
+  thicken: 'gated', // 加厚（无实体 FeatureOp/曲面体管道——W1.2b 诚实 gated）
   // ADR-0006 切片 A（2026-11-05）：孔走后端 hole op + HoleDialog，能力翻 full。
   hole: 'full', // 孔
   linearPattern: 'full', // 线性阵列（B5 起参数化 PART 级入口）
@@ -41,17 +41,17 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   curvePattern: 'gated', // 曲线阵列（B5：无工具/后端面——首版 pattern 仅线性/圆周，翻 gated 诚实引导）
   mirror: 'full', // 镜像
   boolean: 'full', // 布尔运算
-  splitPart: 'full', // 分割
-  transform: 'full', // 变换（含包覆/印花）
-  wrap: 'full', // 包覆
-  decal: 'full', // 印花
-  deleteBodies: 'full', // 删除零件
-  modifyFillet: 'full', // 修改圆角
-  deleteFace: 'full', // 删除面
-  moveFace: 'full', // 移动面
-  replaceFace: 'full', // 替换面
+  splitPart: 'full', // 分割（ADR-0012 UI 面：单侧世界平面 + 偏移 + 保留侧；面/双侧/converter 未接）
+  transform: 'full', // 变换（ADR-0010 UI 面：XYZ 平动/世界轴旋转/均匀缩放 + 复制；converter 未接）
+  wrap: 'gated', // 包覆（无工具/后端面——W1.2b 续审计诚实 gated）
+  decal: 'gated', // 印花（非几何显示特征，无工具面——W1.2b 续审计）
+  deleteBodies: 'gated', // 删除零件（无后端 FeatureOp——W1.2b 诚实 gated）
+  modifyFillet: 'gated', // 修改圆角（无工具/后端面——W1.2b 续审计诚实 gated）
+  deleteFace: 'gated', // 删除面（内核 DeleteSubEntity 0 回包——blocked-kernel）
+  moveFace: 'full', // 移动面（ADR-0014 切片 1/2 + MoveFaceDialog：面 + 偏移/给定深度距离；逐面距离编辑/converter 未接）
+  replaceFace: 'gated', // 替换面（editor IPC 未暴露——blocked）
   cPlane: 'full', // 平面
-  userFeatures: 'full', // 添加自定义特征
+  userFeatures: 'gated', // 添加自定义特征（FeatureScript 自定义特征不在本版本——W1.2b 续审计）
 
   // —— 初始 gated 集合（spec §5；材料/外观、曲面/曲线各拆两条）——
   draft: 'gated', // 拔模
@@ -134,4 +134,15 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   pauseRebuild: guidanceFor('pauseRebuild'),
   featureHistory: guidanceFor('featureHistory'),
   curvePattern: guidanceFor('curvePattern'),
+  // W1.2b 能力真相审计（2026-11-07）：以下六项无真实 UI 面（部分后端已落），先 gated；
+  // moveFace 已于 2026-11-08 接 MoveFaceDialog 翻 full。
+  thicken: guidanceFor('thicken'),
+  deleteBodies: guidanceFor('deleteBodies'),
+  deleteFace: guidanceFor('deleteFace'),
+  replaceFace: guidanceFor('replaceFace'),
+  // W1.2b 续审计（2026-11-07）：其余 four full 项无真实工具面。
+  wrap: guidanceFor('wrap'),
+  decal: guidanceFor('decal'),
+  modifyFillet: guidanceFor('modifyFillet'),
+  userFeatures: guidanceFor('userFeatures'),
 };

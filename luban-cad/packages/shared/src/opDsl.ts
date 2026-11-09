@@ -46,7 +46,7 @@ export class OpDslParseError extends Error {
 const FEATURE_TYPES: readonly LubanFeatureType[] = [
   "extrude", "booleanAdd", "booleanSubtract", "fillet", "chamfer", "shell",
   "revolve", "loft", "sweep", "mirror", "pattern", "booleanBodies",
-  "hole", "cPlane", "faceExtrude", "featurePattern",
+  "hole", "cPlane", "faceExtrude", "featurePattern", "featureMirror", "transform", "splitPart", "moveFace",
 ];
 const OP_KINDS: readonly FeatureOp["kind"][] = [
   "insertFeature", "updateParams", "deleteFeature", "setFeatureSuppressed", "reorderFeature",
@@ -82,11 +82,16 @@ function opToLine(op: FeatureOp): string {
       return `op reorderFeature ${JSON.stringify({ featureId: op.featureId, to: op.to })}`;
     case "updateSketchConstraint":
       return `op updateSketchConstraint ${JSON.stringify({ sketchId: op.sketchId, constraintId: op.constraintId, value: op.value })}`;
-    case "insertSketch":
-      // M6-a v1.6：plane 为可选声明字段——携带时恒写（往返恒等），缺省时保持旧文本形态
-      return `op insertSketch ${JSON.stringify(op.plane === undefined
-        ? { entities: op.entities, constraints: op.constraints }
-        : { entities: op.entities, constraints: op.constraints, plane: op.plane })}`;
+    case "insertSketch": {
+      // M6-a v1.6：plane 为可选声明字段——携带时恒写（往返恒等），缺省时保持旧文本形态。
+      // v1.35：projections 同口径（ADR-0009 切片 1a）。
+      const payload: Record<string, unknown> = { entities: op.entities, constraints: op.constraints };
+      if (op.plane !== undefined)
+        payload.plane = op.plane;
+      if (op.projections !== undefined)
+        payload.projections = op.projections;
+      return `op insertSketch ${JSON.stringify(payload)}`;
+    }
     case "updateSketch":
       return `op updateSketch ${JSON.stringify({ sketchId: op.sketchId, entities: op.entities, constraints: op.constraints })}`;
     case "deleteSketch":
@@ -235,13 +240,27 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
       noFeatureType();
       const entities = asArr(p.entities, "entities");
       const constraints = asArr(p.constraints, "constraints");
-      if (p.plane === undefined)
+      const plane = p.plane === undefined ? undefined : asObj(p.plane, "plane");
+      const projections = p.projections === undefined ? undefined : asArr(p.projections, "projections");
+      if (plane === undefined && projections === undefined)
         return { kind, entities, constraints } as unknown as FeatureOp;
-      // M6-a v1.6：plane 为声明字段（不再按未知键剥离），形态校验后透传
-      const plane = asObj(p.plane, "plane");
       return {
         kind, entities, constraints,
-        plane: { origin: asVec3(plane.origin, "plane.origin"), normal: asVec3(plane.normal, "plane.normal"), xDir: asVec3(plane.xDir, "plane.xDir") },
+        ...(plane === undefined ? {} : {
+          // M6-a v1.6：plane 为声明字段（不再按未知键剥离），形态校验后透传
+          plane: { origin: asVec3(plane.origin, "plane.origin"), normal: asVec3(plane.normal, "plane.normal"), xDir: asVec3(plane.xDir, "plane.xDir") },
+        }),
+        ...(projections === undefined ? {} : {
+          // v1.35：projections 形态校验后透传（源草图/实体 id 与目标实体 id）
+          projections: projections.map((raw, index) => {
+            const item = asObj(raw, `projections[${index}]`);
+            return {
+              sourceSketchId: asStr(item.sourceSketchId, `projections[${index}].sourceSketchId`),
+              sourceEntityId: asNum(item.sourceEntityId, `projections[${index}].sourceEntityId`),
+              entityId: asNum(item.entityId, `projections[${index}].entityId`),
+            };
+          }),
+        }),
       } as unknown as FeatureOp;
     }
     case "updateSketch":

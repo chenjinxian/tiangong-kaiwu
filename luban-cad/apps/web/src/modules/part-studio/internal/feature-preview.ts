@@ -101,6 +101,98 @@ function offsetPoint(point: Point3d, normal: Vector3d, distance: number): Point3
   return point.plusScaled(normal, distance);
 }
 
+interface DraftPreviewOptions {
+  angleDeg: number;
+  pullDirection: boolean;
+}
+
+/**
+ * 草图局部 2D 环偏置（拔模预览）：顶点沿相邻边右法线（材料外扩方向）的角平分线
+ * 偏移。外环 CCW/孔环 CW 下右法线均指向材料增长侧，与后端“外环扩、孔环缩”同口径。
+ * 折线近似圆弧；无效输入返回原点列（不伪造锥度）。
+ */
+function offsetLoop2d(
+  points: readonly SketchPointDto[],
+  delta: number,
+): SketchPointDto[] {
+  if (!Number.isFinite(delta) || Math.abs(delta) < EPS) return points.map((p) => ({ x: p.x, y: p.y }));
+  const n = points.length;
+  if (n < 3) return points.map((p) => ({ x: p.x, y: p.y }));
+  const rightNormal = (dx: number, dy: number): [number, number] | undefined => {
+    const length = Math.hypot(dx, dy);
+    if (length < EPS) return undefined;
+    return [dy / length, -dx / length];
+  };
+  return points.map((point, index) => {
+    const prev = points[(index - 1 + n) % n]!;
+    const next = points[(index + 1) % n]!;
+    const r1 = rightNormal(point.x - prev.x, point.y - prev.y)
+      ?? rightNormal(next.x - point.x, next.y - point.y);
+    const r2 = rightNormal(next.x - point.x, next.y - point.y)
+      ?? rightNormal(point.x - prev.x, point.y - prev.y);
+    if (!r1 || !r2) return { x: point.x, y: point.y };
+    const bx = r1[0] + r2[0];
+    const by = r1[1] + r2[1];
+    const length = Math.hypot(bx, by);
+    if (length < EPS) return { x: point.x, y: point.y };
+    const bisector: [number, number] = [bx / length, by / length];
+    const miter = Math.max(0.3, bisector[0] * r1[0] + bisector[1] * r1[1]);
+    const scaled = delta / miter;
+    return { x: point.x + bisector[0] * scaled, y: point.y + bisector[1] * scaled };
+  });
+}
+
+/**
+ * 拔模拉伸预览（v1.51）：底端=草图环，远端=按 δ=d·tan(θ) 偏置的环；外环/孔环
+ * 同向右法线（材料扩张方向一致）。中性面=起始端（与后端一致）。
+ */
+function buildDraftExtrudePreview(
+  plane: SketchPlaneDto | undefined,
+  regions: readonly SketchRegionDto[],
+  bottomOffset: number,
+  topOffset: number,
+  draft: DraftPreviewOptions,
+): FeaturePreviewGeometry {
+  const frame = sketchPlaneFrameFrom(plane);
+  const effectiveDeg = draft.pullDirection ? -draft.angleDeg : draft.angleDeg;
+  const delta = Math.abs(topOffset - bottomOffset) * Math.tan((effectiveDeg * Math.PI) / 180);
+  if (!Number.isFinite(delta)) return emptyPreview();
+  const quads: Point3d[][] = [];
+  const lines: Point3d[][] = [];
+  const fillLoops: Point3d[][] = [];
+  const capLoops: Point3d[][] = [];
+  const selectionEdges: Point3d[][] = [];
+  const toWorld = (point: { x: number; y: number }, offset: number): Point3d =>
+    frame.toWorld({ u: point.x, v: point.y }).plusScaled(frame.normal, offset);
+  for (const region of regions) {
+    const outer = region.outerBoundary ?? [];
+    if (outer.length < 3) continue;
+    const holes = (region.holeBoundaries ?? []).filter((loop) => loop.length >= 3);
+    const loops = [outer, ...holes];
+    for (const loop of loops) {
+      const bottom = loop.map((point) => toWorld(point, bottomOffset));
+      const top = offsetLoop2d(loop, delta).map((point) => toWorld(point, topOffset));
+      fillLoops.push(bottom);
+      selectionEdges.push(bottom);
+      if (quads.length + loop.length <= MAX_QUADS) {
+        for (let i = 0; i < loop.length; i++) {
+          const next = (i + 1) % loop.length;
+          quads.push([bottom[i]!, bottom[next]!, top[next]!, top[i]!]);
+        }
+      }
+      lines.push([...bottom, bottom[0]!.clone()], [...top, top[0]!.clone()]);
+      const step = Math.max(1, Math.floor(loop.length / 8));
+      for (let i = 0; i < loop.length; i += step)
+        lines.push([bottom[i]!.clone(), top[i]!.clone()]);
+    }
+    if (holes.length === 0) {
+      capLoops.push(outer.map((point) => toWorld(point, bottomOffset)));
+      capLoops.push(offsetLoop2d(outer, delta).map((point) => toWorld(point, topOffset)));
+    }
+  }
+  return { quads, lines, fillLoops, capLoops, selectionEdges };
+}
+
 /**
  * 拉伸预览几何。`regionEntityIds` = 选中面域的外/内环实体 id 集；
  * symmetric=true 时沿法向 ±d/2，否则 [0,+d]。
@@ -115,6 +207,8 @@ export function buildExtrudePreview(
   /** v1.24 第二方向：沿法向的有符号距离（缺省=主方向相反侧）。同一轮廓的
    *  两段扫掠并集仍是单一棱柱——扩展到 [min, max] 即正确包络。 */
   secondSignedDistance = 0,
+  /** v1.51 拔模：远端环按 δ=|d|·tan(θ) 偏置（pullDirection 翻转方向）。 */
+  draft?: DraftPreviewOptions,
 ): FeaturePreviewGeometry {
   if (!Number.isFinite(distance) || Math.abs(distance) < EPS) return emptyPreview();
   const frame = sketchPlaneFrameFrom(plane);
@@ -126,6 +220,8 @@ export function buildExtrudePreview(
     bottomOffset = Math.min(bottomOffset, origin + Math.min(0, secondSignedDistance));
     topOffset = Math.max(topOffset, origin + Math.max(0, secondSignedDistance));
   }
+  if (draft && Number.isFinite(draft.angleDeg) && Math.abs(draft.angleDeg) > EPS)
+    return buildDraftExtrudePreview(plane, regions, bottomOffset, topOffset, draft);
   const boundaryIds = selectedBoundaryIds(regions);
   if (boundaryIds.size === 0) return emptyPreview();
   const polylines = sketchEntitiesToWorldPolylines(entities, plane)

@@ -506,10 +506,12 @@ describe('工具 ribbon（Onshape live：28 工具 + 9 下拉 + 搜索触发钮�
     expect(ribbon.contains(menu)).toBe(false);
     expect(within(menu).getByRole('menuitem', { name: '包覆' })).toBeDefined();
     expect(within(menu).getByRole('menuitem', { name: '印花' })).toBeDefined();
-    // 子项点击 → 激活（wrap 在册 full → tools.run）+ 菜单收合（closeOnItemClick 缺省）。
+    // 子项点击 → 能力引导（wrap 在 W1.2b 续审计后 gated，无真实工具面）+
+    // 菜单收合（closeOnItemClick 缺省）；不得假启动 tools.run。
     await user.click(within(menu).getByRole('menuitem', { name: '包覆' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('wrap');
-    expect(usePartStudioStore.getState().tool.activeToolId).toBe('wrap');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().tool.activeToolId).not.toBe('wrap');
+    expect(screen.getByRole('dialog', { name: '包覆（规划中）' })).toBeDefined();
     expect(within(document.body).queryByRole('menu', { name: '变换' })).toBeNull();
   });
 

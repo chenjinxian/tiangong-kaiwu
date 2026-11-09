@@ -48,6 +48,8 @@ export interface PartStudioSidebarProps {
   onRetry?: () => void;
   /** 连接（legacy 零件段物理元素查询数据源；body 读面不可用时回退）。 */
   connection?: BriefcaseConnection;
+  /** W1.5b：Part Studio scope（逐 body 质量属性读面）。 */
+  partStudioId?: string;
   /** B6 M-A3.2a：body 读面（仅连接成功读过 getBodies 时下传；undefined=legacy 回退）。 */
   bodies?: readonly BodyInfo[];
   /** body 读面加载中（零件段骨架）。 */
@@ -76,6 +78,7 @@ export function PartStudioSidebar({
   error,
   onRetry,
   connection,
+  partStudioId,
   bodies,
   bodiesLoading,
   bodiesError,
@@ -91,6 +94,15 @@ export function PartStudioSidebar({
   // 供标题与后续 updateParams 路由）。
   const handleEdit = React.useCallback(
     (node: TreeNode) => {
+      // 特征镜像首版无 updateParams 通道：不开通用参数对话框（会显示与载荷
+      // 不匹配的距离/草图字段），诚实提示删除重建（ADR-0011 切片 4）。
+      if ('type' in node && node.type === 'featureMirror') {
+        IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+          OutputMessagePriority.Info,
+          t('partStudio.featureDialog.featureMirrorEditUnsupported'),
+        ));
+        return;
+      }
       openFeatureDialog({
         mode: 'edit',
         featureId: node.id,
@@ -98,7 +110,7 @@ export function PartStudioSidebar({
         featureType: 'type' in node ? node.type : '',
       });
     },
-    [openFeatureDialog],
+    [openFeatureDialog, t],
   );
 
   // B6 M-A5 T2：toast 通道（FeatureDialog/保存错误面同款 IModelApp.notifications）。
@@ -179,6 +191,7 @@ export function PartStudioSidebar({
         error={error}
         onRetry={onRetry}
         connection={connection}
+        partStudioId={partStudioId}
         bodies={bodies}
         bodiesLoading={bodiesLoading}
         bodiesError={bodiesError}

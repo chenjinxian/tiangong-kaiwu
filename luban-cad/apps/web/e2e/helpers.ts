@@ -480,14 +480,26 @@ async function msHealthHint(): Promise<string> {
  * 是 baseline 传播竞态，也可能是 MS 100 req/15min 配额 429；错误串先给出事实，
  * 不在 helper 内自动等待配额（M2 归 P2.6c）。
  */
+export interface EditorReadyOptions {
+  /**
+   * canvas 可见等待预算；缺省 90s。
+   * 2026-11-08 实测：registry 顺序重开 legacy iModel 时，阻塞点是
+   * `iModel.views.load(savedView)`——Tutorial 2 约 3.4s，Basic Drawing 在 MS
+   * 繁忙时 53–160s，其余 ECSQL 均 <100ms。该套件按文档串行重开，给 view load
+   * 留更长预算；数据断言不变，慢链仍会如实超时。
+   */
+  canvasTimeoutMs?: number;
+}
+
 export async function openBModelEditor(
   page: Page,
   ids: SeedImodelIds,
+  options?: EditorReadyOptions,
 ): Promise<BSeedEditorContext> {
   await loginWithSession(page);
   await gotoRoute(page, `/documents/${ids.itwinId}/${ids.imodelId}`, 'part-studio-page');
   try {
-    await waitEditorReady(page);
+    await waitEditorReady(page, options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(
@@ -513,6 +525,7 @@ export async function openBModelPartStudio(
   page: Page,
   ids: SeedImodelIds,
   scopeId: string,
+  options?: EditorReadyOptions,
 ): Promise<BSeedEditorContext> {
   await loginWithSession(page);
   await gotoRoute(
@@ -520,7 +533,7 @@ export async function openBModelPartStudio(
     `/documents/${ids.itwinId}/${ids.imodelId}?model=${encodeURIComponent(scopeId)}`,
     'part-studio-page',
   );
-  await waitEditorReady(page);
+  await waitEditorReady(page, options);
   const actual = readModelScopeId(page);
   if (actual !== scopeId)
     throw new Error(`开 Part Studio 未落位：期望 ${scopeId}，实际 ${actual ?? '<none>'}（URL=${page.url()}）`);
@@ -591,11 +604,11 @@ export async function openLegacySeedEditor(
  * 固定 90s 死线会在两次重开进行中被耗尽——重开各含 3s 驻留 + 30s 可见等待 +
  * 过渡态轮询，实测需要 ~2 分钟。每次重开顺延 +60s 死线（预算语义不变：仍是
  * 「两次重开」，只是不让重开自身的耗时吃掉判定时间）。 */
-export async function waitEditorReady(page: Page): Promise<void> {
+export async function waitEditorReady(page: Page, options?: EditorReadyOptions): Promise<void> {
   await waitEditorConnected(page);
   await expect(
     page.getByTestId('part-studio-viewport').locator('canvas').first(),
-  ).toBeVisible({ timeout: 90_000 });
+  ).toBeVisible({ timeout: options?.canvasTimeoutMs ?? 90_000 });
 }
 
 /** 连接就绪（状态栏「已连接」）但不要求 canvas——damaged/recovery 半图没有视口。 */

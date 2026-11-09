@@ -66,21 +66,11 @@ export const SKETCH_TOOL_GROUP_ORDER: readonly SketchRibbonGroup[] = [
 
 /** 尚未实现的 Onshape 草图工具/变体：保留 UI，点击无行为。 */
 export const SKETCH_PLACEHOLDER_IDS: ReadonlySet<string> = new Set([
-  'Sketch.CenterRectangle',
-  'Sketch.AlignedRectangle',
-  'Sketch.PerimeterCircle',
-  'Sketch.CenterArc',
-  'Sketch.TangentArc',
-  'sketchInscribedPolygon',
-  'sketchCircumscribedPolygon',
-  'Sketch.Bezier',
   'Sketch.Conic',
-  'sketchPoint',
   'sketchText',
   'sketchUse',
   'sketchFillet',
   'sketchTrim',
-  'sketchMirror',
   'sketchLinearPattern',
   'sketchInsertDxf',
 ]);
@@ -112,7 +102,7 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
     menuItem('Sketch.Bezier', 'partStudio.ribbon.sketchTools.splineBezier.label'),
     menuItem('Sketch.Conic', 'partStudio.ribbon.sketchTools.splineConic.label'),
   ]),
-  tool('sketchPoint', 'partStudio.ribbon.sketchTools.point.label', 'sketchDraw'),
+  tool('Sketch.Point', 'partStudio.ribbon.sketchTools.point.label', 'sketchDraw'),
   tool('sketchText', 'partStudio.ribbon.sketchTools.text.label', 'sketchDraw'),
   tool('sketchUse', 'partStudio.ribbon.sketchTools.use.label', 'sketchDraw', 'sketch', []),
   tool('sketchConstruction', 'partStudio.ribbon.sketchTools.construction.label', 'sketchDraw'),
@@ -121,7 +111,7 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   tool('sketchFillet', 'partStudio.ribbon.sketchTools.fillet.label', 'sketchEdit', 'sketch', []),
   tool('sketchTrim', 'partStudio.ribbon.sketchTools.trim.label', 'sketchEdit', 'sketch', []),
   tool('Sketch.Offset', 'partStudio.ribbon.sketchTools.offset.label', 'sketchEdit', 'sketch', []),
-  tool('sketchMirror', 'partStudio.ribbon.sketchTools.mirror.label', 'sketchEdit'),
+  tool('Sketch.Mirror', 'partStudio.ribbon.sketchTools.mirror.label', 'sketchEdit', 'sketch'),
   tool('sketchLinearPattern', 'partStudio.ribbon.sketchTools.linearPattern.label', 'sketchEdit', 'sketch', []),
   tool('sketchInsertDxf', 'partStudio.ribbon.sketchTools.insertDxf.label', 'sketchEdit', 'sketch', []),
 

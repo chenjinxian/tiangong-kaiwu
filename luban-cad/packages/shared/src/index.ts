@@ -211,6 +211,8 @@ export type {
   FeatureFormFieldKind, FeatureFormModelEntry,
   // M3-b v1.2
   SketchEntityDto, SketchConstraintDto, SketchSolveStatusDto, SketchSolveStateDto, SketchDto, SketchSummaryDto,
+  // v1.35（ADR-0009 切片 1a）
+  SketchExternalRef, SketchProjectedMarker, SketchProjectionRequest,
   // Tutorial 2 v1.19
   SketchRef, SketchPointDto, FeatureBooleanOperation, MassPropertiesDto,
   // RW2-T6 v1.4
@@ -229,6 +231,7 @@ export type {
   SweepParams,
   // B4 v1.13（mirror 平面镜像）
   MirrorParams,
+  MirrorPlaneLine,
   // B5 v1.14（pattern PART 级阵列）
   PatternParams,
   // B6 M-A3.1 v1.15（NEW-body / body 读面）
@@ -246,6 +249,10 @@ export type {
   FaceExtrudeParams,
   FeaturePatternParams,
   PatternAxisLine,
+  TransformParams,
+  SplitPartParams,
+  MoveFaceParams,
+  FeatureMirrorParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================

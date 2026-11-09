@@ -107,7 +107,7 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
         diameterMm: 8,
         endBound: 'blind',
         depthMm: 12,
-        tipAngleDeg: 180,
+        tipAngleDeg: 118,
       },
     });
     expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
@@ -128,7 +128,7 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
         diameterMm: 5,
         endBound: 'blind',
         depthMm: 10,
-        tipAngleDeg: 180,
+        tipAngleDeg: 118,
       },
     });
   });
@@ -146,6 +146,19 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     expect('depthMm' in op.params).toBe(false);
   });
 
+  it('v1.56 upToNext 省略 depthMm 且可提交', async () => {
+    const { applyOp } = renderDialog();
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 2'));
+    fireEvent.change(screen.getByTestId('hole-end-bound'), { target: { value: 'upToNext' } });
+    expect(screen.queryByTestId('hole-depth')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const op = applyOp.mock.calls[0]![0] as unknown as { params: Record<string, unknown> };
+    expect(op.params.endBound).toBe('upToNext');
+    expect('depthMm' in op.params).toBe(false);
+  });
+
   it('edit 模式回显 pointIds/尺寸并走 updateParams', async () => {
     const { applyOp } = renderDialog({
       featureId: 'feature-9',
@@ -160,6 +173,30 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     fireEvent.click(screen.getByRole('button', { name: '确认' }));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
     expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'feature-9',
+      params: {
+        sketchId: 'sketch-1',
+        pointIds: [2],
+        diameterMm: 6.5,
+        endBound: 'blind',
+        depthMm: 4,
+        tipAngleDeg: 180,
+      },
+    });
+  });
+
+  it('改参触发 previewOp（updateParams，hole 载荷）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    renderDialog({
+      featureId: 'feature-9',
+      previewOp,
+      initialParams: {
+        sketchId: 'sketch-1', pointIds: [2], diameterMm: 6.5, endBound: 'blind', depthMm: 4,
+      },
+    });
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
       kind: 'updateParams',
       featureId: 'feature-9',
       params: {
@@ -194,7 +231,7 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
         diameterMm: 5,
         endBound: 'blind',
         depthMm: 10,
-        tipAngleDeg: 180,
+        tipAngleDeg: 118,
       },
     });
   });
@@ -220,8 +257,39 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
         diameterMm: 5,
         endBound: 'blind',
         depthMm: 10,
-        tipAngleDeg: 180,
+        tipAngleDeg: 118,
       },
+    });
+  });
+
+  it('方向反向：选 backward → 载荷 direction=backward（live「反向」控件）', async () => {
+    const { applyOp } = renderDialog();
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    expect((screen.getByTestId('hole-direction') as HTMLSelectElement).value).toBe('forward');
+    fireEvent.change(screen.getByTestId('hole-direction'), { target: { value: 'backward' } });
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'hole',
+      params: { direction: 'backward' },
+    });
+  });
+
+  it('钻尖角选择：默认 118（Onshape live），选 180 后载荷平底（v1.50）', async () => {
+    const { applyOp } = renderDialog();
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    const tip = screen.getByTestId('hole-tip-angle') as HTMLSelectElement;
+    expect(tip.value).toBe('118');
+    fireEvent.change(tip, { target: { value: '180' } });
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'hole',
+      params: { tipAngleDeg: 180 },
     });
   });
 });

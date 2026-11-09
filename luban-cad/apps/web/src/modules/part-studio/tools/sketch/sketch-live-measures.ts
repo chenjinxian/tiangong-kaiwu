@@ -11,7 +11,7 @@
  */
 import type { SketchPoint2 } from './sketch-plane.js';
 
-export type SketchToolKind = 'line' | 'rectangle' | 'circle' | 'arc' | 'spline';
+export type SketchToolKind = 'line' | 'rectangle' | 'centerRectangle' | 'alignedRectangle' | 'circle' | 'perimeterCircle' | 'polygonInscribed' | 'polygonCircumscribed' | 'arc' | 'centerArc' | 'spline' | 'bezier';
 
 export interface SketchLiveMeasure {
   /** i18n 键（由覆盖层翻译；保持纯函数无 i18next 依赖）。 */
@@ -72,8 +72,50 @@ export function computeSketchLiveMeasures(
         { labelKey: 'partStudio.sketch.live.height', value: formatNumber(Math.abs(cursor.v - first.v)) },
       ];
 
+    case 'centerRectangle':
+      return [
+        { labelKey: 'partStudio.sketch.live.width', value: formatNumber(2 * Math.abs(cursor.u - first.u)) },
+        { labelKey: 'partStudio.sketch.live.height', value: formatNumber(2 * Math.abs(cursor.v - first.v)) },
+      ];
+
+    case 'alignedRectangle': {
+      if (anchors.length === 1) {
+        return [
+          { labelKey: 'partStudio.sketch.live.length', value: formatNumber(length(first, cursor)) },
+          {
+            labelKey: 'partStudio.sketch.live.angle',
+            value: `${(((Math.atan2(cursor.v - first.v, cursor.u - first.u) * 180) / Math.PI + 360) % 360).toFixed(1)}°`,
+          },
+        ];
+      }
+      const second = anchors[1]!;
+      const dx = second.u - first.u;
+      const dy = second.v - first.v;
+      const base = Math.hypot(dx, dy);
+      if (base < 1e-12) return [];
+      const height = Math.abs((cursor.u - first.u) * (-dy / base) + (cursor.v - first.v) * (dx / base));
+      return [{ labelKey: 'partStudio.sketch.live.height', value: formatNumber(height) }];
+    }
+
     case 'circle':
       return [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(length(first, cursor)) }];
+
+    case 'polygonInscribed':
+    case 'polygonCircumscribed':
+      return anchors.length === 1
+        ? [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(length(first, cursor)) }]
+        : [];
+
+    case 'perimeterCircle': {
+      if (anchors.length === 1) {
+        return [{ labelKey: 'partStudio.sketch.live.length', value: formatNumber(length(first, cursor)) }];
+      }
+      const second = anchors[1]!;
+      const radius = radiusThroughThreePoints(first, second, cursor);
+      return radius === undefined
+        ? []
+        : [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(radius) }];
+    }
 
     case 'arc': {
       if (anchors.length === 1) {
@@ -86,7 +128,21 @@ export function computeSketchLiveMeasures(
         : [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(radius) }];
     }
 
+    case 'centerArc': {
+      if (anchors.length === 1) {
+        return [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(length(first, cursor)) }];
+      }
+      const start = anchors[1]!;
+      const startAngle = Math.atan2(start.v - first.v, start.u - first.u);
+      const endAngle = Math.atan2(cursor.v - first.v, cursor.u - first.u);
+      let sweep = endAngle - startAngle;
+      while (sweep <= -Math.PI) sweep += Math.PI * 2;
+      while (sweep > Math.PI) sweep -= Math.PI * 2;
+      return [{ labelKey: 'partStudio.sketch.live.angle', value: `${Math.abs((sweep * 180) / Math.PI).toFixed(1)}°` }];
+    }
+
     case 'spline':
+    case 'bezier':
       return [];
   }
 }

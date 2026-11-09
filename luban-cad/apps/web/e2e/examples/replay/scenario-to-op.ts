@@ -65,6 +65,8 @@ export interface TranslateContext {
   sketchPlaneBySource?: ReadonlyMap<string, SketchPlaneDto>;
   /** shell 步骤已解析的持久面引用（键=scenario feature name）。 */
   shellRefsByFeatureName?: ReadonlyMap<string, LubanTopologyId[]>;
+  /** shell 多体目标 body（键=scenario feature name；单体示例缺省）。 */
+  shellTargetBodyByFeatureName?: ReadonlyMap<string, string>;
   /** 当前时点 body 质心（bodyKey → 世界质心），孔方向判定用。 */
   bodyCentroidByKey?: ReadonlyMap<string, { x: number; y: number; z: number }>;
 }
@@ -108,13 +110,14 @@ function normalizeOperation(value: unknown): FeatureBooleanOperation | undefined
   }
 }
 
-function normalizeEndBound(value: unknown): 'blind' | 'throughAll' | 'upToNext' | 'upToSurface' | 'upToVertex' | undefined {
+function normalizeEndBound(value: unknown): 'blind' | 'throughAll' | 'upToNext' | 'upToSurface' | 'upToVertex' | 'upToBody' | undefined {
   switch (String(value ?? '').toLowerCase()) {
     case 'blind': return 'blind';
     case 'through_all': case 'throughall': return 'throughAll';
     case 'up_to_next': case 'uptonext': return 'upToNext';
     case 'up_to_surface': case 'uptosurface': return 'upToSurface';
     case 'up_to_vertex': case 'uptovertex': return 'upToVertex';
+    case 'up_to_body': case 'uptobody': return 'upToBody';
     default: return undefined;
   }
 }
@@ -225,24 +228,75 @@ function resolveRegions(
 
 function extrudeOp(feature: ScenarioFeature, context: TranslateContext): TranslatedStep {
   const params = asRecord(feature.params) ?? {};
-  // 拔模角当前无产品契约/内核通道（原生 api_taper_faces 未暴露）；静默按直体
-  // 拉伸会伪造几何，4 个 PS / 15 个特征会因此假绿。显式阻塞到独立 ADR。
-  const draftAngle = numberParam(params, 'draftAngleDeg');
-  if (booleanParam(params, 'hasDraft') === true && draftAngle !== undefined && Math.abs(draftAngle) > 1e-9) {
-    throw new BlockedCapabilityError(
-      'extrude-draft',
-      `${feature.name} 拔模角 ${(draftAngle * 180 / Math.PI).toFixed(3)}° 尚无产品契约/内核通道`,
-    );
-  }
+  // v1.51（ADR-0005 Phase 4）：拔模已落产品契约/后端（sketchId + blind）。converter
+  // 的 draftAngleDeg 为弧度（quantityMm 语义），产品契约为度。Onshape「反向」=
+  // draftPullDirection 直接映射；方向符号尚未用 live 几何独立校准 → 回放标 approximate。
+  const rawDraftRad = numberParam(params, 'draftAngleDeg');
+  const draftAngleDeg = booleanParam(params, 'hasDraft') === true
+    && rawDraftRad !== undefined && Math.abs(rawDraftRad) > 1e-9
+    ? rawDraftRad * 180 / Math.PI
+    : undefined;
+  const draftPullDirection = booleanParam(params, 'draftPullDirection') === true;
   const { sketchId, notes: sketchNotes } = resolveSketchId(feature, params, context);
-  const { regions, notes: regionNotes, approximate } = resolveRegions(params, feature);
+  const { regions, notes: regionNotes, approximate: regionApproximate } = resolveRegions(params, feature);
   const operation = normalizeOperation(params.operation);
-  const endBound = normalizeEndBound(params.endBound) ?? 'blind';
-  if (endBound === 'upToNext' || endBound === 'upToSurface' || endBound === 'upToVertex') {
-    // 契约保留但当前后端尚未实现；不把它静默降成 blind。
-    throw new BlockedCapabilityError('extrude-end-bound', `${feature.name} 终止条件 ${endBound} 尚未实现`);
+  const rawEndBound = normalizeEndBound(params.endBound);
+  const solvedDepth = numberParam(params, 'depthMm') ?? numberParam(params, 'distance');
+  // v1.53：upToNext 已落产品（最近平行面，无需目标查询）——回放直接映射 endBound，
+  // 不再用 blind 静态近似。upToSurface 仍缺目标 faceRef 查询，继续静态近似；
+  // upToVertex/upToBody 无产品契约。
+  // v1.60：upToVertex 已落产品（草图顶点投影深度）——converter 解析出草图顶点时
+  // 直通 endVertexRef；目标查询缺失/非草图顶点时退回既有静态深度近似（标 approximate）。
+  const endVertexRaw = asRecord(params.endVertexRef);
+  const endVertexSketchSource = endVertexRaw === undefined ? undefined
+    : stringParam(endVertexRaw, 'sketchFeatureId') ?? stringParam(endVertexRaw, 'sketchId');
+  const endVertexEntityId = endVertexRaw === undefined ? undefined : numberParam(endVertexRaw, 'entityId');
+  const endVertexPartRaw = endVertexRaw === undefined ? undefined : stringParam(endVertexRaw, 'part');
+  const endVertexPart = endVertexPartRaw === 'start' || endVertexPartRaw === 'end' || endVertexPartRaw === 'center'
+    ? endVertexPartRaw : undefined;
+  let exactEndVertex: { sketchId: string; entityId: number; part: 'start' | 'end' | 'center' } | undefined;
+  if (rawEndBound === 'upToVertex' && endVertexRaw !== undefined) {
+    if (endVertexSketchSource === undefined || endVertexEntityId === undefined
+      || !Number.isInteger(endVertexEntityId) || endVertexEntityId < 0 || endVertexPart === undefined)
+      throw new BlockedCapabilityError('extrude-end-bound', `${feature.name} upToVertex 的 endVertexRef 形态非法`);
+    const localTarget = context.sketchIdBySource?.get(endVertexSketchSource);
+    if (localTarget === undefined)
+      throw new BlockedCapabilityError('extrude-end-bound', `${feature.name} upToVertex 目标草图 ${endVertexSketchSource} 不在已应用草图映射`);
+    exactEndVertex = { sketchId: localTarget, entityId: endVertexEntityId, part: endVertexPart };
   }
-  const distance = numberParam(params, 'depthMm') ?? numberParam(params, 'distance') ?? 0;
+  const productUpToVertex = exactEndVertex !== undefined;
+  const productUpToNext = rawEndBound === 'upToNext';
+  const staticUpTo = rawEndBound === 'upToSurface'
+    || (rawEndBound === 'upToVertex' && !productUpToVertex) || rawEndBound === 'upToBody';
+  let approximate = regionApproximate;
+  const notes = [...sketchNotes, ...regionNotes];
+  if (productUpToNext) {
+    if (operation === 'new' || params.newBody === true)
+      throw new BlockedCapabilityError('extrude-end-bound', `${feature.name} upToNext 需要上游实体（operation=new/newBody 不可用）`);
+    if (booleanParam(params, 'symmetric') === true
+      || draftAngleDeg !== undefined || asRecord(params.secondDirection) !== undefined)
+      throw new BlockedCapabilityError('extrude-end-bound', `${feature.name} upToNext 与 symmetric/draft/secondDirection 互斥`);
+    notes.push('endBound=upToNext（产品最近平行面；无需目标查询）');
+  }
+  if (productUpToVertex) {
+    // upToVertex 的深度来自目标草图顶点（不依赖上游体），operation=new 合法。
+    if (booleanParam(params, 'symmetric') === true
+      || draftAngleDeg !== undefined || asRecord(params.secondDirection) !== undefined)
+      throw new BlockedCapabilityError('extrude-end-bound', `${feature.name} upToVertex 与 symmetric/draft/secondDirection 互斥`);
+    notes.push(`endBound=upToVertex（产品草图顶点 ${endVertexSketchSource}#${endVertexEntityId}:${endVertexPart} 投影深度）`);
+  }
+  if (staticUpTo) {
+    if (solvedDepth === undefined || solvedDepth <= 0)
+      throw new BlockedCapabilityError('extrude-end-bound', `${feature.name} 终止条件 ${rawEndBound} 缺已解算深度（无法近似）`);
+    approximate = true;
+    notes.push(`endBound=${rawEndBound}→blind(${solvedDepth}mm，静态近似；目标查询未采集（产品 upToSurface 需 endFaceRef））`);
+  }
+  // 未知/缺省终止条件沿用 blind；throughAll/upToNext 直通，其余 up-to 走静态近似。
+  const endBound = productUpToVertex ? 'upToVertex'
+    : rawEndBound === 'throughAll' ? 'throughAll'
+      : rawEndBound === 'upToNext' ? 'upToNext'
+        : 'blind';
+  const distance = solvedDepth ?? (rawEndBound === 'upToNext' || productUpToVertex ? 1 : 0);
   const symmetric = booleanParam(params, 'symmetric') === true;
   // symmetric 已覆盖双向；再传 backward 会被后端 zod 以互斥拒收。
   const direction = !symmetric && booleanParam(params, 'oppositeDirection') === true
@@ -266,11 +320,34 @@ function extrudeOp(feature: ScenarioFeature, context: TranslateContext): Transla
       throw new BlockedCapabilityError('extrude-second-direction', `${feature.name} 第二方向缺有效距离`);
     const dirRaw = stringParam(secondRaw, 'direction');
     const secondDir = dirRaw === 'backward' || dirRaw === 'forward' ? dirRaw : undefined;
+    // 2026-11-08：UP_TO_SURFACE 第二方向由 converter 传 blind(solvedDepth) +
+    // approximate 标记；回放必须显式标近似（目标查询未采集；产品 secondDirection
+    // 目前仅 blind/throughAll，up-to 未映射）。
+    if (booleanParam(secondRaw, 'approximate') === true) {
+      approximate = true;
+      notes.push(
+        `secondDirection=${String(secondRaw.sourceBound ?? 'UP_TO_SURFACE')}→blind(` +
+        `${secondDistance ?? 0}mm，静态近似；目标查询未采集，产品第二方向 up-to 未映射）`,
+      );
+    }
     secondDirection = {
       endBound: bound,
       ...(bound === 'blind' && secondDistance !== undefined ? { distanceMm: secondDistance } : {}),
       ...(secondDir ? { direction: secondDir } : {}),
     };
+  }
+  if (draftAngleDeg !== undefined) {
+    if (symmetric)
+      throw new BlockedCapabilityError('extrude-draft', `${feature.name} 拔模与 symmetric 互斥`);
+    if (secondDirection !== undefined)
+      throw new BlockedCapabilityError('extrude-draft', `${feature.name} 拔模与 secondDirection 互斥`);
+    if (endBound !== 'blind')
+      throw new BlockedCapabilityError('extrude-draft', `${feature.name} 拔模首版仅支持 blind（当前 ${endBound}）`);
+    approximate = true;
+    notes.push(
+      `draft=${draftAngleDeg.toFixed(3)}°${draftPullDirection ? '(reverse)' : ''}：` +
+      '方向符号按 draftPullDirection 直接映射（Onshape live 几何未独立校准）',
+    );
   }
   // Onshape ADD/REMOVE 的合并范围必须落到具体 body（多体模型）；NEW 的目标由
   // newBody 规划决定，不能把 scope 当 target。
@@ -291,14 +368,20 @@ function extrudeOp(feature: ScenarioFeature, context: TranslateContext): Transla
         ...(operation ? { operation } : {}),
         endBound,
         symmetric,
+        ...(exactEndVertex ? { endVertexRef: exactEndVertex } : {}),
         ...(direction ? { direction } : {}),
         ...(startOffsetMm !== undefined ? { startOffsetMm } : {}),
+        ...(draftAngleDeg !== undefined
+          ? {
+            draftAngleDeg,
+            ...(draftPullDirection ? { draftPullDirection: true } : {}),
+          }
+          : {}),
         ...(secondDirection ? { secondDirection } : {}),
       },
     },
     notes: [
-      ...sketchNotes,
-      ...regionNotes,
+      ...notes,
       ...(secondDirection ? ['secondDirection（v1.24）'] : []),
       ...(scopeTarget ? [scopeTarget.note] : []),
     ],
@@ -319,18 +402,23 @@ function shellOp(feature: ScenarioFeature, context: TranslateContext): Translate
   const refs = context.shellRefsByFeatureName?.get(feature.name);
   if (!refs || refs.length === 0)
     throw new BlockedCapabilityError('shell', `${feature.name} 移除面引用未解析（面选择器）`);
+  const targetBodyId = context.shellTargetBodyByFeatureName?.get(feature.name);
   return {
     scenario: feature,
     op: {
       kind: 'insertFeature',
       featureType: 'shell',
+      ...(targetBodyId !== undefined ? { targetBodyId } : {}),
       params: {
         defaultDistance: opposite ? thickness : -thickness,
         faces: refs,
         distances: 0,
       },
     },
-    notes: [`shell faces=${refs.length}（面选择器，${opposite ? '外扩' : '内缩'} ${thickness} mm）`],
+    notes: [
+      `shell faces=${refs.length}（面选择器，${opposite ? '外扩' : '内缩'} ${thickness} mm）`,
+      ...(targetBodyId !== undefined ? [`targetBody=${targetBodyId}（shell 面源）`] : []),
+    ],
     approximate: false,
   };
 }
@@ -516,21 +604,100 @@ function booleanBodiesOp(feature: ScenarioFeature, context: TranslateContext): T
   };
 }
 
+/**
+ * transform（ADR-0010）：scenario 只携带平移量与目标 body 源特征 id。
+ * 目标 body 由 runner 在步骤时点注入 bodyKeyBySource 解析；多体模型缺上下文
+ * 即阻塞，绝不隐式落到链尾 body。directionApprox=true 表示方向由端盖静态推导
+ * （面可能被后续特征修改），步骤标近似。
+ */
+function transformOp(feature: ScenarioFeature, context: TranslateContext): TranslatedStep {
+  const params = asRecord(feature.params) ?? {};
+  if (params.copy === true)
+    throw new BlockedCapabilityError('transform', `${feature.name} 独立副本 body 未支持`);
+  const translation = asRecord(params.translation);
+  const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+  if (!translation || !finite(translation.x) || !finite(translation.y) || !finite(translation.z))
+    throw new BlockedCapabilityError('transform', `${feature.name} 平移量非有限数`);
+  const targetSources = stringArray(params.targetSourceFeatureIds);
+  const notes: string[] = [];
+  let targetBodyId: string | undefined;
+  if (targetSources.length > 0) {
+    const bodyKeyBySource = context.bodyKeyBySource;
+    if (bodyKeyBySource) {
+      const key = targetSources
+        .map((source) => bodyKeyBySource.get(source))
+        .find((candidate): candidate is string => candidate !== undefined);
+      if (key === undefined)
+        throw new BlockedCapabilityError(
+          'transform',
+          `${feature.name} 的目标 body 源 ${targetSources.join(',')} 无可解析 body`,
+        );
+      targetBodyId = key;
+      notes.push(`targetBody=${key}（transform entities）`);
+    } else if ((context.allBodyKeys?.length ?? 0) > 1) {
+      throw new BlockedCapabilityError('transform', `${feature.name} 多体模型缺 body 解析上下文`);
+    }
+  }
+  const approximate = params.directionApprox === true;
+  if (approximate) notes.push('方向由端盖静态推导（directionApprox）');
+  return {
+    scenario: feature,
+    op: {
+      kind: 'insertFeature',
+      featureType: 'transform',
+      ...(targetBodyId !== undefined ? { targetBodyId } : {}),
+      params: { translation: { x: translation.x, y: translation.y, z: translation.z }, copy: false },
+    },
+    notes,
+    approximate,
+  };
+}
+
 function cPlaneOp(feature: ScenarioFeature): TranslatedStep {
   const params = asRecord(feature.params) ?? {};
   const reference = stringParam(params, 'reference');
   if (reference !== 'top' && reference !== 'front' && reference !== 'right')
     throw new BlockedCapabilityError('cplane-reference', `${feature.name} 参考面未映射：${String(reference)}`);
+  const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+  const vec = (value: unknown): { x: number; y: number; z: number } | undefined => {
+    const record = asRecord(value);
+    return record && finite(record.x) && finite(record.y) && finite(record.z)
+      ? { x: record.x, y: record.y, z: record.z }
+      : undefined;
+  };
+  // v1.44：THREE_POINT（converter 对非世界参考 cPlane 的 frame 派生等价平面）。
+  // reference 仅为契约占位，三点决定平面；三点共线/非有限 → 诚实阻塞。
+  const rawThree = params.threePoints;
+  let threePoints: [{ x: number; y: number; z: number }, { x: number; y: number; z: number }, { x: number; y: number; z: number }] | undefined;
+  if (rawThree !== undefined) {
+    if (!Array.isArray(rawThree) || rawThree.length !== 3)
+      throw new BlockedCapabilityError('cplane-three-points', `${feature.name} threePoints 必须为 3 个点`);
+    const p1 = vec(rawThree[0]), p2 = vec(rawThree[1]), p3 = vec(rawThree[2]);
+    if (!p1 || !p2 || !p3)
+      throw new BlockedCapabilityError('cplane-three-points', `${feature.name} threePoints 含非有限坐标`);
+    const a = { x: p2.x - p1.x, y: p2.y - p1.y, z: p2.z - p1.z };
+    const b = { x: p3.x - p1.x, y: p3.y - p1.y, z: p3.z - p1.z };
+    const cross = {
+      x: a.y * b.z - a.z * b.y,
+      y: a.z * b.x - a.x * b.z,
+      z: a.x * b.y - a.y * b.x,
+    };
+    if (!(Math.hypot(cross.x, cross.y, cross.z) > 1e-9))
+      throw new BlockedCapabilityError('cplane-three-points', `${feature.name} threePoints 共线（退化平面）`);
+    threePoints = [p1, p2, p3];
+  }
   const offsetMm = numberParam(params, 'offsetMm');
   const rawOrigin = asRecord(params.origin);
-  const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-  const origin = rawOrigin && finite(rawOrigin.x) && finite(rawOrigin.y) && finite(rawOrigin.z)
-    ? { x: rawOrigin.x, y: rawOrigin.y, z: rawOrigin.z }
-    : undefined;
+  const origin = vec(rawOrigin);
   if (rawOrigin !== undefined && origin === undefined)
     throw new BlockedCapabilityError('cplane-origin', `${feature.name} 平面点原点非有限数`);
+  if (threePoints !== undefined && (offsetMm !== undefined || origin !== undefined))
+    throw new BlockedCapabilityError('cplane-three-points', `${feature.name} threePoints 与 offset/origin 互斥`);
   // v1.31：origin 与 offsetMm 互斥（平面点不叠加偏移）。
-  const notes = origin !== undefined ? [`PLANE_POINT origin=(${origin.x},${origin.y},${origin.z})`] : [];
+  const approximate = threePoints !== undefined && params.constructionApprox === true;
+  const notes = threePoints !== undefined
+    ? ['THREE_POINT（converter frame 派生；constructionApprox）']
+    : origin !== undefined ? [`PLANE_POINT origin=(${origin.x},${origin.y},${origin.z})`] : [];
   return {
     scenario: feature,
     op: {
@@ -538,16 +705,18 @@ function cPlaneOp(feature: ScenarioFeature): TranslatedStep {
       featureType: 'cPlane',
       params: {
         reference,
-        ...(origin !== undefined
-          ? { origin }
-          : offsetMm !== undefined ? { offsetMm } : {}),
+        ...(threePoints !== undefined
+          ? { threePoints }
+          : origin !== undefined
+            ? { origin }
+            : offsetMm !== undefined ? { offsetMm } : {}),
         ...(booleanParam(params, 'flipNormal') !== undefined
           ? { flipNormal: booleanParam(params, 'flipNormal') }
           : {}),
       },
     },
     notes,
-    approximate: false,
+    approximate,
   };
 }
 
@@ -558,8 +727,9 @@ function holeOp(feature: ScenarioFeature, context: TranslateContext): Translated
   if (diameterMm === undefined)
     throw new BlockedCapabilityError('hole-diameter', `${feature.name} 缺少孔径`);
   const endBound = normalizeEndBound(params.endBound);
-  if (endBound !== 'blind' && endBound !== 'throughAll')
+  if (endBound !== 'blind' && endBound !== 'throughAll' && endBound !== 'upToNext')
     throw new BlockedCapabilityError('hole-end-bound', `${feature.name} 终止条件未映射`);
+  const upToNext = endBound === 'upToNext';
   const holeStyle = stringParam(params, 'holeStyle');
   const counterbore = holeStyle === 'counterbore'
     ? {
@@ -601,6 +771,10 @@ function holeOp(feature: ScenarioFeature, context: TranslateContext): Translated
     if (dot < 0) direction = 'backward';
   }
   const depthMm = numberParam(params, 'depthMm');
+  const tipAngleDeg = numberParam(params, 'tipAngleDeg');
+  // converter 对 UP_TO_ENTITY 用 Onshape 计算深度做 blind 复现（endApprox）；
+  // 不是产品 up-to-entity 能力，必须显式标 approximate。
+  const endApprox = booleanParam(params, 'endApprox') === true;
   const holeParams: HoleParams = {
     sketchId,
     diameterMm,
@@ -609,8 +783,9 @@ function holeOp(feature: ScenarioFeature, context: TranslateContext): Translated
     ...(vertexRefs?.length ? { vertexRefs: vertexRefs as HoleParams['vertexRefs'] } : {}),
     ...(counterbore ?? {}),
     ...(countersink ?? {}),
-    ...(depthMm !== undefined ? { depthMm } : {}),
+    ...(depthMm !== undefined && endBound === 'blind' ? { depthMm } : {}),
     ...(direction ? { direction } : {}),
+    ...(tipAngleDeg !== undefined ? { tipAngleDeg } : {}),
   };
   return {
     scenario: feature,
@@ -623,8 +798,10 @@ function holeOp(feature: ScenarioFeature, context: TranslateContext): Translated
     notes: [
       ...(target ? [target.note] : []),
       ...(direction ? [`holeDirection=${direction}（质心在草图法线负侧）`] : []),
+      ...(upToNext ? ['endBound=upToNext（单孔位，产品最近平行面）'] : []),
+      ...(endApprox ? ['UP_TO_ENTITY 以 Onshape 计算深度 blind 复现（endApprox，非动态目标）'] : []),
     ],
-    approximate: false,
+    approximate: endApprox,
   };
 }
 
@@ -662,21 +839,80 @@ function filletOp(feature: ScenarioFeature, context: TranslateContext): Translat
   };
 }
 
+/** v1.48：mirror operation 透传；缺省 unite（旧载荷逐字兼容）。 */
+function mirrorOperation(feature: ScenarioFeature): 'unite' | 'subtract' | 'intersect' | undefined {
+  const raw = stringParam(feature.params, 'operation');
+  if (raw === undefined) return undefined;
+  if (raw === 'unite' || raw === 'subtract' || raw === 'intersect') return raw;
+  throw new BlockedCapabilityError('mirror-operation', `${feature.name} 未支持的 mirror operation：${raw}`);
+}
+
 /** mirror（T5 首切片）：仅世界基准面 XY/YZ/XZ + 整件镜像（keepOriginal 恒 true）。 */
 function mirrorOp(feature: ScenarioFeature): TranslatedStep {
   const plane = stringParam(feature.params, 'plane');
+  const planeLineRaw = asRecord(feature.params.planeLine);
+  const operation = mirrorOperation(feature);
+  const newBodyApproximation = booleanParam(feature.params, 'newBodyApproximation') === true;
+  if (plane === undefined && planeLineRaw !== undefined) {
+    const originRaw = asRecord(planeLineRaw.origin);
+    const normalRaw = asRecord(planeLineRaw.normal);
+    const vec = (value: Record<string, unknown> | undefined): { x: number; y: number; z: number } | undefined => {
+      if (value === undefined) return undefined;
+      const x = value.x, y = value.y, z = value.z;
+      return typeof x === 'number' && Number.isFinite(x)
+        && typeof y === 'number' && Number.isFinite(y)
+        && typeof z === 'number' && Number.isFinite(z) ? { x, y, z } : undefined;
+    };
+    const origin = vec(originRaw);
+    const normal = vec(normalRaw);
+    if (origin === undefined || normal === undefined)
+      throw new BlockedCapabilityError('mirror-plane', `${feature.name} planeLine 缺失/非有限数`);
+    if (normal.x === 0 && normal.y === 0 && normal.z === 0)
+      throw new BlockedCapabilityError('mirror-plane', `${feature.name} planeLine.normal 为零向量`);
+    const planeApprox = booleanParam(feature.params, 'planeApprox') === true;
+    const featureAllApproximation = booleanParam(feature.params, 'featureAllApproximation') === true;
+    const notes = ['mirror planeLine（任意世界平面）'];
+    if (planeApprox) notes.push('镜像面由源 extrude 端盖静态推导（平面位置近似，未经实体面复核）');
+    if (featureAllApproximation) notes.push('mirror FEATURE_ALL 以整件镜像近似（含切除时语义不保真）');
+    if (newBodyApproximation) notes.push('mirror 新建独立体需多体输出（ADR-0015），回放合并为单 body');
+    if (operation !== undefined && operation !== 'unite') notes.push(`mirror operation=${operation}`);
+    return {
+      scenario: feature,
+      op: {
+        kind: 'insertFeature',
+        featureType: 'mirror',
+        params: {
+          planeLine: { origin, normal },
+          keepOriginal: true,
+          ...(operation !== undefined && operation !== 'unite' ? { operation } : {}),
+        },
+      },
+      notes,
+      approximate: planeApprox || featureAllApproximation || newBodyApproximation,
+    };
+  }
   if (plane !== 'XY' && plane !== 'YZ' && plane !== 'XZ') {
     throw new BlockedCapabilityError('mirror-plane', `${feature.name} 镜像面未映射：${String(plane)}`);
   }
+  const featureAllApproximation = booleanParam(feature.params, 'featureAllApproximation') === true;
+  const notes = [featureAllApproximation
+    ? 'mirror FEATURE_ALL 以整件镜像近似（含切除时语义不保真）'
+    : 'mirror=world-plane，整件镜像（T5 首切片）'];
+  if (newBodyApproximation) notes.push('mirror 新建独立体需多体输出（ADR-0015），回放合并为单 body');
+  if (operation !== undefined && operation !== 'unite') notes.push(`mirror operation=${operation}`);
   return {
     scenario: feature,
     op: {
       kind: 'insertFeature',
       featureType: 'mirror',
-      params: { plane, keepOriginal: true },
+      params: {
+        plane,
+        keepOriginal: true,
+        ...(operation !== undefined && operation !== 'unite' ? { operation } : {}),
+      },
     },
-    notes: ['mirror=world-plane，整件镜像（T5 首切片）'],
-    approximate: false,
+    notes,
+    approximate: featureAllApproximation || newBodyApproximation,
   };
 }
 
@@ -723,6 +959,200 @@ function chamferOp(feature: ScenarioFeature, context: TranslateContext): Transla
 }
 
 /**
+ * v1.42+（ADR-0007 切片 2）：scenario featurePattern → FeatureOp featurePattern。
+ * 场景里的 `sourceFeatureId` 是 Onshape 原始 id，翻译期经 featureIdBySource 换成
+ * 本地 featureId（源特征必须先建链）；轴线段为世界坐标（converter 由圆柱轴解析）。
+ */
+function featurePatternOp(feature: ScenarioFeature, context: TranslateContext): TranslatedStep {
+  const params = feature.params;
+  const sourceRaw = stringParam(params, 'sourceFeatureId');
+  const sourceListRaw = Array.isArray(params.sourceFeatureIds)
+    ? params.sourceFeatureIds.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    : undefined;
+  if (sourceRaw !== undefined && sourceListRaw !== undefined)
+    throw new BlockedCapabilityError('feature-pattern-source', `${feature.name}: sourceFeatureId 与 sourceFeatureIds 同时存在`);
+  if (sourceRaw === undefined && (sourceListRaw === undefined || sourceListRaw.length === 0))
+    throw new BlockedCapabilityError('feature-pattern-source', `${feature.name}: 缺少 sourceFeatureId/sourceFeatureIds`);
+  const sourcesRaw = sourceListRaw ?? [sourceRaw!];
+  if (new Set(sourcesRaw).size !== sourcesRaw.length)
+    throw new BlockedCapabilityError('feature-pattern-source', `${feature.name}: 源特征重复`);
+  const sourcesLocal: string[] = [];
+  for (const raw of sourcesRaw) {
+    const local = context.featureIdBySource?.get(raw);
+    if (local === undefined)
+      throw new BlockedCapabilityError(
+        'feature-pattern-source',
+        `${feature.name}: 源特征 ${raw} 尚未建链（featureIdBySource 缺失）`,
+      );
+    sourcesLocal.push(local);
+  }
+  const kind = stringParam(params, 'kind');
+  if (kind !== 'linear' && kind !== 'circular')
+    throw new BlockedCapabilityError('feature-pattern-kind', `${feature.name}: 未知 kind ${String(kind)}`);
+  const count = numberParam(params, 'count');
+  if (count === undefined || !Number.isInteger(count) || count < 2 || count > 1000)
+    throw new BlockedCapabilityError('feature-pattern-count', `${feature.name}: count 非法 ${String(count)}`);
+  const axisRaw = asRecord(params.axis);
+  const originRaw = asRecord(axisRaw?.origin);
+  const directionRaw = asRecord(axisRaw?.direction);
+  const vec = (value: Record<string, unknown> | undefined): { x: number; y: number; z: number } | undefined => {
+    if (value === undefined) return undefined;
+    const x = value.x, y = value.y, z = value.z;
+    return typeof x === 'number' && Number.isFinite(x)
+      && typeof y === 'number' && Number.isFinite(y)
+      && typeof z === 'number' && Number.isFinite(z) ? { x, y, z } : undefined;
+  };
+  const origin = vec(originRaw);
+  const direction = vec(directionRaw);
+  if (origin === undefined || direction === undefined)
+    throw new BlockedCapabilityError('feature-pattern-axis', `${feature.name}: axis 线段缺失/非有限数`);
+  if (direction.x === 0 && direction.y === 0 && direction.z === 0)
+    throw new BlockedCapabilityError('feature-pattern-axis', `${feature.name}: axis.direction 为零向量`);
+  const spacing = numberParam(params, 'spacing');
+  const angle = numberParam(params, 'angle');
+  if (kind === 'linear' && (spacing === undefined || !(spacing > 0)))
+    throw new BlockedCapabilityError('feature-pattern-spacing', `${feature.name}: linear spacing 须 >0`);
+  if (kind === 'circular' && (angle === undefined || !(angle > 0 && angle <= 360)))
+    throw new BlockedCapabilityError('feature-pattern-angle', `${feature.name}: circular angle 须在 (0,360]`);
+  // linear 方向取自草图线 p1→p2；Onshape edge 真实方向（可能反向）未采集，
+  // 回放必须标近似，不能当 exact。
+  // v1.49（ADR-0007 切片 6）：居中阵列；count 为总实例数（含原件，须奇数）。
+  const centered = booleanParam(params, 'centered') === true;
+  if (centered && kind !== 'linear')
+    throw new BlockedCapabilityError('feature-pattern-centered', `${feature.name}: centered 仅支持 linear`);
+  if (centered && count % 2 !== 1)
+    throw new BlockedCapabilityError('feature-pattern-centered', `${feature.name}: centered count 必须为奇数`);
+  // v1.61（ADR-0007 切片 10）：第二方向网格（仅 linear）。
+  const secondRaw = asRecord(params.secondDirection);
+  let secondDirection:
+    | { count: number; spacing?: number; centered?: boolean; axis: { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number } } }
+    | undefined;
+  if (secondRaw !== undefined) {
+    if (kind !== 'linear')
+      throw new BlockedCapabilityError('feature-pattern-second-direction', `${feature.name}: 第二方向仅支持 linear`);
+    const secondCount = numberParam(secondRaw, 'count');
+    if (secondCount === undefined || !Number.isInteger(secondCount) || secondCount < 2 || secondCount > 1000)
+      throw new BlockedCapabilityError('feature-pattern-second-direction', `${feature.name}: 第二方向 count 非法 ${String(secondCount)}`);
+    const secondSpacing = numberParam(secondRaw, 'spacing');
+    if (secondSpacing === undefined || !(secondSpacing > 0))
+      throw new BlockedCapabilityError('feature-pattern-second-direction', `${feature.name}: 第二方向 spacing 须 >0`);
+    const secondCentered = booleanParam(secondRaw, 'centered') === true;
+    if (secondCentered && secondCount % 2 !== 1)
+      throw new BlockedCapabilityError('feature-pattern-second-direction', `${feature.name}: 第二方向 centered count 必须为奇数`);
+    if (count * secondCount > 1000)
+      throw new BlockedCapabilityError('feature-pattern-second-direction', `${feature.name}: 两方向总实例数超过 1000`);
+    const secondAxisRaw = asRecord(secondRaw.axis);
+    const secondOrigin = vec(asRecord(secondAxisRaw?.origin));
+    const secondDir = vec(asRecord(secondAxisRaw?.direction));
+    if (secondOrigin === undefined || secondDir === undefined)
+      throw new BlockedCapabilityError('feature-pattern-second-direction', `${feature.name}: 第二方向 axis 缺失/非有限数`);
+    if (secondDir.x === 0 && secondDir.y === 0 && secondDir.z === 0)
+      throw new BlockedCapabilityError('feature-pattern-second-direction', `${feature.name}: 第二方向 axis.direction 为零向量`);
+    secondDirection = {
+      count: secondCount,
+      spacing: secondSpacing,
+      ...(secondCentered ? { centered: true } : {}),
+      axis: { origin: secondOrigin, direction: secondDir },
+    };
+  }
+  // linear 方向取自草图线 p1→p2；Onshape edge 真实方向（可能反向）未采集，
+  // 回放必须标近似，不能当 exact。
+  const directionRisk = params.directionRisk === true;
+  const notes = [
+    sourcesRaw.length === 1
+      ? `featurePattern source=${sourcesRaw[0]}→${sourcesLocal[0]} kind=${kind} count=${count}（converter pattern）`
+      : `featurePattern sources=${sourcesRaw.length} kind=${kind} count=${count}（converter pattern 多源）`,
+  ];
+  if (centered) notes.push('居中阵列（seed 居中，实例 ±k·spacing）');
+  if (secondDirection) notes.push(`第二方向 ${secondDirection.count}×spacing ${secondDirection.spacing}（网格）`);
+  if (directionRisk) notes.push('方向取自草图线 p1→p2，与 Onshape edge 方向一致性未验证（近似）');
+  return {
+    scenario: feature,
+    op: {
+      kind: 'insertFeature',
+      featureType: 'featurePattern',
+      params: {
+        ...(sourcesRaw.length === 1
+          ? { sourceFeatureId: sourcesLocal[0]! }
+          : { sourceFeatureIds: sourcesLocal }),
+        kind,
+        count,
+        ...(kind === 'linear' ? { spacing } : { angle }),
+        axis: { origin, direction },
+        ...(centered ? { centered: true } : {}),
+        ...(secondDirection ? { secondDirection } : {}),
+      },
+    },
+    notes,
+    approximate: directionRisk,
+  };
+}
+
+/**
+ * v1.47（ADR-0011 切片 3）：scenario featureMirror → FeatureOp featureMirror。
+ * 源特征 id 经 featureIdBySource 换本地 id；世界平面线段透传（normal 非零）。
+ */
+function featureMirrorOp(feature: ScenarioFeature, context: TranslateContext): TranslatedStep {
+  const params = feature.params;
+  const sourceRaw = stringParam(params, 'sourceFeatureId');
+  const sourceListRaw = Array.isArray(params.sourceFeatureIds)
+    ? params.sourceFeatureIds.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    : undefined;
+  if (sourceRaw !== undefined && sourceListRaw !== undefined)
+    throw new BlockedCapabilityError('feature-mirror-source', `${feature.name}: sourceFeatureId 与 sourceFeatureIds 同时存在`);
+  if (sourceRaw === undefined && (sourceListRaw === undefined || sourceListRaw.length === 0))
+    throw new BlockedCapabilityError('feature-mirror-source', `${feature.name}: 缺少 sourceFeatureId/sourceFeatureIds`);
+  const sourcesRaw = sourceListRaw ?? [sourceRaw!];
+  if (new Set(sourcesRaw).size !== sourcesRaw.length)
+    throw new BlockedCapabilityError('feature-mirror-source', `${feature.name}: 源特征重复`);
+  const sourcesLocal: string[] = [];
+  for (const raw of sourcesRaw) {
+    const local = context.featureIdBySource?.get(raw);
+    if (local === undefined)
+      throw new BlockedCapabilityError(
+        'feature-mirror-source',
+        `${feature.name}: 源特征 ${raw} 尚未建链（featureIdBySource 缺失）`,
+      );
+    sourcesLocal.push(local);
+  }
+  const plane = asRecord(params.planeLine);
+  const originRaw = asRecord(plane?.origin);
+  const normalRaw = asRecord(plane?.normal);
+  const vec = (value: Record<string, unknown> | undefined): { x: number; y: number; z: number } | undefined => {
+    if (value === undefined) return undefined;
+    const x = value.x, y = value.y, z = value.z;
+    return typeof x === 'number' && Number.isFinite(x)
+      && typeof y === 'number' && Number.isFinite(y)
+      && typeof z === 'number' && Number.isFinite(z) ? { x, y, z } : undefined;
+  };
+  const origin = vec(originRaw);
+  const normal = vec(normalRaw);
+  if (origin === undefined || normal === undefined)
+    throw new BlockedCapabilityError('feature-mirror-plane', `${feature.name}: planeLine 缺失/非有限数`);
+  if (normal.x === 0 && normal.y === 0 && normal.z === 0)
+    throw new BlockedCapabilityError('feature-mirror-plane', `${feature.name}: planeLine.normal 为零向量`);
+  const planeApprox = booleanParam(params, 'planeApprox') === true;
+  const newBodyApproximation = booleanParam(params, 'newBodyApproximation') === true;
+  const notes = [sourcesRaw.length === 1
+    ? `featureMirror source=${sourcesRaw[0]}→${sourcesLocal[0]}（converter FEATURE mirror）`
+    : `featureMirror sources=${sourcesRaw.length}（converter FEATURE mirror 多源）`];
+  if (planeApprox) notes.push('镜像面由源 extrude 端盖静态推导（平面位置近似，未经实体面复核）');
+  if (newBodyApproximation) notes.push('mirror 新建独立体需多体输出（ADR-0015），回放按源操作合并');
+  return {
+    scenario: feature,
+    op: {
+      kind: 'insertFeature',
+      featureType: 'featureMirror',
+      params: sourcesRaw.length === 1
+        ? { sourceFeatureId: sourcesLocal[0]!, planeLine: { origin, normal } }
+        : { sourceFeatureIds: sourcesLocal, planeLine: { origin, normal } },
+    },
+    notes,
+    approximate: planeApprox || newBodyApproximation,
+  };
+}
+
+/**
  * Map one scenario feature. `sketch` returns insertSketch; feature steps return
  * insertFeature. Unsupported selectors/features throw BlockedCapabilityError.
  */
@@ -751,6 +1181,12 @@ export function translateScenarioFeature(
       return mirrorOp(feature);
     case 'booleanBodies':
       return booleanBodiesOp(feature, context);
+    case 'transform':
+      return transformOp(feature, context);
+    case 'featurePattern':
+      return featurePatternOp(feature, context);
+    case 'featureMirror':
+      return featureMirrorOp(feature, context);
     case 'booleanAdd':
     case 'booleanSubtract':
     case 'shell':

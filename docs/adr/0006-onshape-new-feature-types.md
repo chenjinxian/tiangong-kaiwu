@@ -4,6 +4,7 @@
   **切片 A（hole）已落地 backend/contract/UI + 真栈 e2e（shared 1.26.0）**；
   **切片 A2（hole 曲线顶点孔位）已落地 backend/contract/UI + 数据驱动回放（shared 1.27.0）**；
   **切片 A3（沉头孔 counterbore）已落地 backend/contract/UI + 真栈 e2e（shared 1.28.0）**；
+  **切片 A6（hole upToNext 终止条件）已落地 backend/contract/UI + 真栈 e2e（shared 1.56.0）**；
   **切片 B1（cPlane 基准面 + 草图落在自定义平面）已落地 backend/contract/UI + 真栈 e2e（shared 1.29.0）**；
   切片 B2（任意参考几何/改参传播/变量）、C 仍待逐个批准；
   **切片 D（face-extrude/imprint-face）backend/contract/e2e 首切片已落地（2026-11-06，
@@ -252,7 +253,8 @@ iOS 场景的全量对拍（不能只靠截图）后再批准。
   `e2e/hole.spec.ts --grep 倒角孔` **2 passed**——40×20×10 板、φ5 贯通 + φ10/90°
   锥口，去材 **261.794** vs 解析 **261.799 mm³**（0.002%），树 status=0。
 - 诚实边界：真实语料 11 个 C_SINK 特征分布在 7 个 PS，但这些 PS 仍被 sheet metal/
-  import/custom/其它特征阻塞，暂无完整真实示例；钻尖/螺纹/间隙表仍未实现。
+  import/custom/其它特征阻塞，暂无完整真实示例；钻尖已于切片 A5（2026-11-08，
+  shared 1.50.0）落地；螺纹/间隙表/按面 up-to 仍未实现。
 
 ### 切片 D spike 与首切片设计（2026-11-06，face-extrude/imprint-face）
 
@@ -349,6 +351,28 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
     imprint/face split 才能精确回放，保持 blocked。顺带修复 converter 明文
     CAP_EDGE `"isStart":true` 解析（旧实现只认 compact `isStartT`），并给
     runner 增加多体无 scope 的显式谱系锚定；回归 5 passed。
+  - **UJ Assembly Drawing 探针（2026-11-08）**：`a4c271/419abe` 单 blocker=面边界选择器；
+    真栈建链 Main Body → Extrude 10/11/12 成功（体积 1696459.995→1293242.869→
+    419576.578），Chamfer 10 的 `sweptFace` 查询在实体 #10（线，+x 侧）零匹配；
+    同特征实体 #18/#22（.MirrorCS，-x 侧）可匹配。面拓扑回退实验（15 Face）候选 0。
+    **根因复核（backend StandaloneDb，跳过约束）**：同链 body bbox x=[−60, 0]，
+    即 Extrude 12（intersect，imprintSign −1）后 +x 材料已不存在——实体 #10 的
+    目标面本不应存在。故这不是选择器/拓扑问题，而是上游 **imprintFace 面域选择/
+    符号**把 intersect 保留侧选错（或该 query 需要真正的面 split）。回退实验撤销；
+    3 个 UJ PS 保持 blocked-capability，不靠翻符号猜绿。
+  - **Bumper Block 复核（2026-11-08，draft 落地后）**：Extrude 2 的 `imprintFace`
+    在 Onshape 中从 Extrude 1 的顶面（z=40）再拉伸 40 + 10° 拔模；当前回放把
+    imprintFace 近似成原草图 region 0（z=0 起）→ 与 Extrude 1 完全重叠，该步
+    **add 0**。逐 step 体积：360000 → 360000 → Fillet 354373.149 → Hole
+    346770.496；采集目标 636731.499（−45.5%）。Bumper Block 的剩余阻塞是
+    **imprintFace 的面平面起点/子面语义**，不是 draft（draft 已由 v1.51 真映射）。
+    **端盖映射试验（未保留，2026-11-08）**：converter/translator 临时把紧邻
+    extrude 的 CAP_FACE 端盖映射为 `startOffsetMm=40`（并压过 A1 faceExtrude），
+    Extrude 2 正确增加 **297764.787**（总 657764.787），但 Fillet 1 的面边界选择器
+    展开为 **12 条边**（z=40 顶部 4 + 侧边 4 + z=0 底部 4），内核返回
+    `blendEdges 无几何回包`，Fillet/Hole 级联 status=1。该映射使能力轨 status 变红，
+    故整体回退（不保留实验代码）。后续需要真实的 Fillet 边集语义 + 内核 blend
+    能力；在此之前 Bumper Block 保持 `volumePolicy: record`，不转绿。
 
 ## 不在本 ADR
 
@@ -373,3 +397,119 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
   cPlane + 草图落在自定义平面）已于 2026-11-05 实施（shared 1.29.0），B2（任意参考几何
   与改参传播、assignVariable 表达式）仍需单独 AIRR/ADR 签字。
 - 在 owner 批准具体切片前，不写产品代码；本 ADR 仅作为待批准设计。
+
+## 2026-11-08 Stirrup imprint 补集面证据（blocked-capability）
+
+- **Onshape 只读证据**：`ui-evidence/stirrup-20261108/stirrup-full.png`（公开文档
+  `Exercise: Hand Brake Update` / Stirrup，21 特征、2 parts）与
+  `stirrup-lubancad-prefix.png`（本仓回放到 Extrude 6 的体）。
+- **Sketch 2 面域**：3 个互不相交的 9×20 矩形（后端 `getSketch` 实测区域面积
+  各 180 mm²）。Extrude 2（REMOVE/THROUGH_ALL）的 queries 引用**侧边矩形**的边
+  e7/e12，`imprintSign=−1`。
+- **根因**：回放把 −1 解释为“该边相邻的矩形区域”（选中 regions [1,2]），只切掉
+  两侧矩形与圆柱的窄条（−500.171 mm³）；Onshape 切的是**实体端面上的材料面**
+  （圆柱端面减去三个矩形孔 = 补集面），随后 Fillet 2 的 CAP_EDGE（草图槽边）
+  在体上无匹配 → `matches=0`。多个不相交闭环时“环外面”是补集面（外环 + 孔），
+  不是任一相邻正区域；需要实体面枚举/面边界（face split）或从实体端面构造
+  补集轮廓。
+- **前缀体积（backend StandaloneDb 与 web 真栈一致）**：Extrude 1
+  **15707.942**（r10×50）→ Fillet 1 14660.744 → Extrude 2 14160.573
+  （仅 −500.171）→ Extrude 3 15417.209（+1256.64，r4–r6 环带正确）→ Extrude 4
+  14851.723（−565.486）→ Extrude 5 12495.533（−2356.19）→ Extrude 6
+  **零去材**；终 12495.533 vs 期望 15107.141（−17.3%），body 1 vs 2。
+- 结论：Stirrup 保持 blocked-capability（任务 #106 根因更新）；不得用相邻矩形
+  区域冒充补集面，也不得改容差放绿。
+
+## 2026-11-08 hole 预览（HoleDialog）
+
+- **后端**：`previewOp` 的 `updateParams` hole 走同步影子求值（
+  `evaluateChainForPreview` 写 shadow Map 后直接取几何）；`insertFeature` hole
+  用目标链尾缓存 + `evaluateHole` 在 scratch Map 上求值（不写库/不写缓存/无 txn），
+  回传既有 `PreviewResult.preview`。HoleDialog 此前只拿到 affected，预览滑杆
+  明确禁用（`previewUnsupported`）。
+- **UI**：`HoleDialog` 增 `previewOp/connection/viewport`，提交载荷构造提取为
+  `buildParams` 共用；250ms 防抖调预览，经 `FeaturePreviewOverlay` 门户渲染
+  TileRpc 动态几何（源体隐藏 + 实心结果），底部透明度滑杆启用并驱动预览 alpha。
+- **证据**：后端 `HoleFlow` **7/7**（新增预览用例：insert/update 均回传非空
+  几何、elementId=目标体、体体积/树 params 零写）；单测 `HoleDialog.test.tsx`
+  **8/8**（+1 预览调用）；真栈 `e2e/hole.spec.ts --grep 草图点` **2 passed**
+  （throughAll 对话框 `data-dynamic=1`，去材 196.349 vs 196.350 mm³）。
+
+## 切片 A5 实现记录（2026-11-08，shared 1.50.0：钻尖角）
+
+- **契约**：`HoleParams.tipAngleDeg` 从「仅 180」放宽到 **(0,180]**；缺省或 180=
+  平底（旧库逐字兼容），throughAll 忽略钻尖。无新字段/BIS 迁移；shared
+  `LubanFeatureRpcInterface` **1.50.0**。
+- **后端求值**（`FeatureEngine.evaluateHole`）：盲孔圆柱段（depthMm）之后追加
+  钻尖锥工具，锥高 `h = r / tan(tipAngle/2)`；锥体由两个同心圆环 Loft 成锥台
+  （顶圆半径 r·1e-5，避免退化点线；体积误差远低于验收容差），与主孔柱同轴，
+  随 `direction=backward` 取反。圆柱/锥口/钻尖三工具一次 Subtract。
+- **UI**：`HoleDialog` 钻尖角下拉（118°/180°，新建缺省 **118°**；live 证据
+  `quickstart-copy-hole-dialog-20261105`：118°；编辑旧库缺省 180 回显）+
+  **方向下拉**（正向/反向；live dialog.html 的「反向」控件，payload 仅反向时发
+  `direction:"backward"`）；预览随参数实时更新。
+- **converter**：`from-onshape-v2.mjs` 解析 `tipAngle`（deg）→ `tipAngleDeg`；
+  仅 blind 采用，throughAll 保持 180（钻穿无残留，避免场景无谓漂移）；越界阻塞。
+  旧 `holeVersion=LEGACY` 特征无 tipAngle 字段 → 保持 180（其钻尖语义未采集）。
+- **验证**：后端 `HoleFlow` **8/8**（新增 φ4 深 5 盲孔 118°：去材
+  **67.860 vs 67.866 mm³ 理论** 圆柱+锥）、`FeatureTypeRegistry` schema 118/180
+  接受、0/181 拒收；web `HoleDialog.test.tsx` **10/10**（默认 118、可切 180、
+  预览载荷、反向载荷）；翻译器 **36/36**（tipAngleDeg 透传）；真栈
+  `e2e/hole.spec.ts --grep 盲孔` **2 passed**——φ5 深 4 盲孔 118° 去材
+  **88.371 vs 88.371 mm³**，随后反向盲孔体积零变（材料在正向）、
+  `params.direction=backward`、树/status 全 0。web 全量 **1467/1467**。
+- **未做**：螺纹/间隙表/多深度表/按面 up-to、118° 以外非标准钻尖的像素级
+  截面证据；真实示例中所有含盲孔的已转换场景仍被其它特征阻塞（本切片不冒充
+  示例完成）。
+
+## 切片 A6 实现记录（2026-11-08，shared 1.56.0：hole upToNext）
+
+- **契约**：`HoleParams.endBound` 增加 `"upToNext"`（`blind`/`throughAll` 旧值逐字兼容）；
+  `depthMm` 在 upToNext 忽略；钻尖角仍仅 blind 生效（throughAll/upToNext 平底）。
+- **求值**：复用 `UpToPlane` 的最近平行面解析——求值前以孔位为探针，沿孔轴取最近
+  平行面；候选面须在孔位投影点**实际边界**内（Loop 描边 + 射线奇偶，ParityRegion
+  外层减孔；先 bbox 快筛）。多孔位逐孔解析目标平面并逐孔独立深度（v1.56 增补）；
+  任一孔位无面则整特征 status=1。`upToNext` 预解析按孔位列表存入
+  `resolvedUpToPlanes`，同步求值按索引取面。预览路径同样先预解析，HoleDialog 预览可见。
+- **UI**：`HoleDialog` 终止条件增「成形到下一个面」，upToNext 隐藏深度输入；载荷
+  `{endBound:"upToNext"}`（无 depthMm）；edit 回显。
+- **验证（本切片停止点）**：
+  - 后端 `HoleFlow` **10/10**：方块 20×20×10、φ3、upToNext → 去材
+    **π·1.5²·10 = 70.686 mm³**；新增多孔位 upToNext（两孔位同目标面）→
+    每孔独立去材 **2π·1²·10 = 62.832 mm³**；既有 throughAll/blind/tip/counterbore/preview
+    全回归。
+  - 新增 `HoleUpToNextSteppedFlow` **1/1**：20×20×5 基板 + 10×10×5 凸台；
+    (5,5) 选凸台顶 z=10、 (15,15) 选基板顶 z=5 → 去材 **15π = 47.124 mm³**。
+    若只用 bbox 会把 L 形基板顶（z=5）误选，本用例钉死点-面精确包含。
+  - 「无探针」首跑误选同体孔底（去材 π·1.5²·2）→ 增加孔位边界过滤后修正；
+    这是本切片的语义根因记录，不把近邻孔底当作目标面。
+  - web `HoleDialog.test.tsx` **11/11**；`FeatureTypeRegistry` schema 放行 upToNext。
+  - 真栈 `e2e/hole.spec.ts --grep upToNext` **2 passed（46.2 s）**：板厚 10、φ5、
+    upToNext 去材 **196.349 vs 196.350 mm³**，树 `sketch/extrude/hole` 全 status=0，
+    `params.endBound="upToNext"`。
+  - 回放链路：translator 直通 `upToNext`（单/多孔位；带 note）**40/40**；
+    后端 `ScenarioReplayParity` **6/6**（顶面草图孔轴反向 → 底 z=0，4000−40π）。
+  - converter：hole `endStyle=UP_TO_NEXT` 映射 `upToNext`（多孔位也不再 drop）。
+    Postman 4" Traction Wheel 重转后 endBound 不再是阻塞原因，该孔改由
+    **沉头孔尺寸表达式未解析**阻塞，示例仍 blocked（不宣称解锁）。
+  - shared **170/170**（interfaceVersion 1.56.0）；web **1497/1497**；后端全量
+    **861 passed / 1 expected fail / 8 skipped（100 files）**。
+- **未做**：upToVertex/upToSurface 孔、螺纹/间隙表；真实示例仍被其它阻塞项挡住；
+  边界点/退化描边的容差策略未单独验收。
+- **回滚**：additive 枚举/分支；移除 upToNext 分支即回到 1.55 行为，旧库无迁移。
+
+## UP_TO_ENTITY 孔静态深度回放（2026-11-09，converter/translator，近似）
+
+- **背景**：语料 27 个孔 `endStyle=UP_TO_ENTITY`，目标查询指向 body 边/面派生顶点
+  （解码后含 SWEPT_FACE/CAP_FACE/FACES/EDGES），当前场景不持久化该目标查询与
+  BRep 拓扑，产品无 up-to-entity 动态能力。
+- **回放策略**：Onshape 已将解算深度写入 `holeDepthComputed`/`holeDepthComputedV3`；
+  converter 在该终止条件下映射 `endBound="blind"` + 计算深度，并写
+  `endApprox=true/sourceEndStyle=UP_TO_ENTITY`；公共 translator 转 `approximate=true`
+  并在 note 明示“非动态目标”。**不得**把 `approximate` 步计入几何 complete；
+  改参不会跟随目标面/顶点，只是复现采集状态。
+- **验证**：translator 新增 upToEntity 静态近似用例，`scenario-to-op.spec.ts`
+  **42/42**；重转 164 场景后 UP_TO_ENTITY 的 PS 均仍被其它缺口（自定义草图平面、
+  sheet-metal、自定义特征等）阻塞，complete/geometry 计数不变（4/15）。
+- **未做/阻塞**：真实 up-to-entity 动态解析需要持久化目标顶点查询/拓扑选择器与
+  UI 拾取；当前不作为产品能力，不打开 HoleDialog 选项。

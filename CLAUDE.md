@@ -151,6 +151,7 @@ npx playwright test e2e/documents.spec.ts                # 单 e2e（在 luban-c
 ## 文档锚点
 
 - 能力矩阵/状态：本仓 `docs/README.md` 索引 + 代码/测试实测
+- **产品目标与工程原则（2026-11-09）**：`docs/architecture/PRODUCT-GOALS-AND-ENGINEERING-PRINCIPLES.md`——全量 Onshape 能力→AI+CAD、示例验证真形/绳墨、功能级架构闭环、BRepCore 持续审计
 - 官方 iTwin Platform REST 规格（契约对照基准）：`docs/api-specs/*.json`（itwins / imodels-v2 / access-control-v2 / webhooks-v2 / storage / users）
 - 详细开发准则（工具生命周期/检查清单/AI 注册规约）：`luban-cad/CLAUDE.md`
 - 项目级规则入口（均 subordinate 于本总册）：`D:\Github\luban-backend\CLAUDE.md`、`D:\Github\imodel-native\CLAUDE.md`、`D:\Github\imodelhub-services\CLAUDE.md`、`D:\Github\DanQing\CLAUDE.md`、`D:\Github\trueform\CLAUDE.md`

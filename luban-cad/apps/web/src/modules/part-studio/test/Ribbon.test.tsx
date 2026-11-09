@@ -136,6 +136,25 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     });
   });
 
+  it('B4 v1.41：镜像路由快照选中面 → dialog.inputFaces（对话框打开清选择前捕获）', async () => {
+    const user = userEvent.setup();
+    const face = {
+      kind: 'face' as const,
+      id: 'face-1',
+      topologyId: { nodeId: 1, entityId: 2 },
+      ownerBodyKey: '0x15',
+    };
+    usePartStudioStore.setState({ canvas: { selection: [face], hiddenIds: [] } });
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '镜像' }));
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'mirror',
+      inputFaces: [face],
+    });
+  });
+
   it('B5：线性阵列（LinearPattern）点击改道 new/pattern 对话框（初值 kind=linear——不经 tools.run 不写激活态）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
@@ -153,8 +172,12 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
   it('B5：下拉子项环形阵列（CircularPattern：真实直改 toolId 校准）改道 new/pattern 对话框初值 kind=circular', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
-    await user.click(screen.getByRole('button', { name: '线性阵列 ▾' }));
+    const arrow = screen.getByRole('button', { name: '线性阵列 ▾' });
+    await user.click(arrow);
     await user.click(screen.getByRole('menuitem', { name: '环形阵列' }));
+    // 激活工具/对话框后焦点不得回到箭头：否则工具内的 Enter（如多边形边数提交）
+    // 会触发箭头默认 click 重新展开飞菜单（2026-11-09 真栈实测）。
+    expect(document.activeElement).not.toBe(arrow);
     expect(mocks.toolsRun).not.toHaveBeenCalled();
     expect(usePartStudioStore.getState().tool.activeToolId).toBeNull();
     expect(usePartStudioStore.getState().dialog).toEqual({

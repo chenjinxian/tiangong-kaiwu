@@ -23,6 +23,9 @@ export const FEATURE_TYPES = new Set([
   "hole",
   "cPlane",
   "faceExtrude",
+  "featurePattern",
+  "featureMirror",
+  "transform",
 ]);
 
 export const PROVENANCE_STATUSES = new Set([

@@ -218,13 +218,14 @@ describe('Ribbon 结构冒烟（27 工具 + 8 下拉 + 搜索触发钮）', () =
     });
   });
 
-  it('下拉飞菜单：加厚箭头展开子项，点击封闭 → tools.run(thickenClosed)', async () => {
+  it('下拉飞菜单：加厚箭头展开子项，点击封闭 → 能力引导（W1.2b gated，不 tools.run）', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
     await user.click(screen.getByRole('button', { name: '加厚 ▾' }));
     const menu = screen.getByRole('menu', { name: '加厚' });
     expect(within(menu).getByRole('menuitem', { name: '封闭' })).toBeDefined();
     await user.click(within(menu).getByRole('menuitem', { name: '封闭' }));
-    expect(mocks.toolsRun).toHaveBeenCalledWith('thickenClosed');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: '加厚（规划中）' })).toBeDefined();
   });
 });

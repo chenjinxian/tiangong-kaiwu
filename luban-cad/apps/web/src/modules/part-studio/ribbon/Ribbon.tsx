@@ -98,7 +98,14 @@ export function useToolActivation(canEdit = true): ToolActivation {
     if (id === 'extrude') {
       // M4-T6 拉伸闭环入口：new/extrude 对话框（宿主 PartStudioCanvas 按
       // dialog 寻址渲染 + 提交接 applyOp），不经 tools.run。
-      openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+      // v1.52：upToSurface 目标面在路由时快照（对话框打开即清选择；与 mirror/shell 同口径）。
+      const inputFaces = usePartStudioStore.getState().canvas.selection
+        .filter((entry) => entry.kind === 'face' && entry.topologyId !== undefined);
+      openFeatureDialog({
+        mode: 'new',
+        featureType: 'extrude',
+        ...(inputFaces.length > 0 ? { inputFaces } : {}),
+      });
       return;
     }
     if (id === 'revolve') {
@@ -130,11 +137,17 @@ export function useToolActivation(canEdit = true): ToolActivation {
       return;
     }
     if (id === 'MirrorElements') {
-      // B4 mirror 闭环入口：new/mirror 对话框（世界平面 XY/YZ/XZ + 保留原体 Unite——
-      // 参数化特征链，首版不支持任意面/基准面）。MirrorElements 是 editor 直改工具的
-      // 真实 toolId（其 basicManipulation/mirrorElement 通道此前为空操作），参数化
-      // 特征链入口不走直改通道——特例改道对话框（与 extrude/revolve/loft/sweep 同姿态）。
-      openFeatureDialog({ mode: 'new', featureType: 'mirror' });
+      // B4 mirror 闭环入口：new/mirror 对话框（世界平面 XY/YZ/XZ 或选中的面 faceRef +
+      // 保留原体 Unite）。MirrorElements 是 editor 直改工具的真实 toolId，参数化
+      // 特征链入口不走直改通道——特例改道对话框。对话框打开会 pause 选择工具并清空
+      // 选择——必须在路由时快照选中的面（与 shell 同口径）。
+      const inputFaces = usePartStudioStore.getState().canvas.selection
+        .filter((entry) => entry.kind === 'face' && entry.topologyId !== undefined);
+      openFeatureDialog({
+        mode: 'new',
+        featureType: 'mirror',
+        ...(inputFaces.length > 0 ? { inputFaces } : {}),
+      });
       return;
     }
     if (id === 'LinearPattern') {
@@ -184,6 +197,30 @@ export function useToolActivation(canEdit = true): ToolActivation {
       // 注册工具、静默失败）——改道参数化对话框，不再假启动。M7 草图布尔
       // （booleanAdd/booleanSubtract 页签）保持原通道不变。
       openFeatureDialog({ mode: 'new', featureType: 'booleanBodies' });
+      return;
+    }
+    if (id === 'transform') {
+      // ADR-0010 UI 面（2026-11-08 live 证据）：变换专用对话框（XYZ 平动/
+      // 世界轴旋转/均匀缩放 + 复制；目标实体在插入时选择）。
+      openFeatureDialog({ mode: 'new', featureType: 'transform' });
+      return;
+    }
+    if (id === 'splitPart') {
+      // ADR-0012 UI 面（2026-11-08 live 证据）：单侧世界平面切分对话框
+      // （目标实体 + XY/YZ/XZ 平面 + 偏移 + 保留侧；面/双侧未支持）。
+      openFeatureDialog({ mode: 'new', featureType: 'splitPart' });
+      return;
+    }
+    if (id === 'moveFace') {
+      // ADR-0014 UI 面（2026-11-08 live 证据）：moveFace 专用对话框（面 + 偏移
+      // 距离）。对话框打开会 pause 选择工具并清空选择——路由时快照输入面。
+      const inputFaces = usePartStudioStore.getState().canvas.selection
+        .filter((entry) => entry.kind === 'face' && entry.topologyId !== undefined);
+      openFeatureDialog({
+        mode: 'new',
+        featureType: 'moveFace',
+        ...(inputFaces.length > 0 ? { inputFaces } : {}),
+      });
       return;
     }
     if (id === 'sketchConstruction') {

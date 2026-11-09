@@ -10,18 +10,25 @@
  * 约束以 skip 保留 Onshape 解算坐标（converter 有 DISTANCE refs 缺口），
  * 步骤 notes 必须登记 constraints=dropped，不宣称约束树完整。
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
-import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
+import {
+  ensureExampleImodel,
+  listExampleChangesets,
+  openExampleEditor,
+  pushExampleChanges,
+} from './imodel.js';
 import { DEFAULT_DATA_ROOT, isExampleDataAvailable } from './registry.js';
 import { resolveScenarioEdges } from './replay/edge-resolver.js';
 import { runScenario } from './replay/run.js';
 import type { ParityScenario } from './replay/scenario-to-op.js';
 
-const EXAMPLE_NAME = 'E2E - Sample Assignment RPC';
+/** 默认 canonical E2E 库；registry 持久 demo 库同名修复时用
+ * `SAMPLE_ASSIGNMENT_IMODEL_NAME=Sample Assignment` 定向重建（不建第二套 builder）。 */
+const EXAMPLE_NAME = process.env.SAMPLE_ASSIGNMENT_IMODEL_NAME ?? 'E2E - Sample Assignment RPC';
 const SCENARIO = path.join(
   DEFAULT_DATA_ROOT,
   'scenarios',
@@ -79,8 +86,8 @@ test.describe('Sample Assignment scenario rebuild', () => {
 
     const built = await runScenario(ctx, scenario, token, {
       skipSketchConstraints: true,
-      edgeResolver: (feature, fullScenario) =>
-        resolveScenarioEdges(page, ctx, fullScenario, feature, token),
+      edgeResolver: (feature, fullScenario, bodyContext) =>
+        resolveScenarioEdges(page, ctx, fullScenario, feature, token, bodyContext),
     });
     expect(built.steps.map((step) => step.type)).toEqual([
       'sketch', 'extrude', 'sketch', 'extrude', 'sketch', 'extrude', 'sketch', 'extrude', 'chamfer',
@@ -107,5 +114,47 @@ test.describe('Sample Assignment scenario rebuild', () => {
     expect(reopened.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));
     const reopenedVolume = (await getMassPropertiesRpc(ctx, token)).reduce((sum, item) => sum + item.volume, 0);
     expect(Math.abs(reopenedVolume - expected) / expected).toBeLessThan(0.005);
+
+    // registry 持久 demo 库（同名）用本 spec 定向重建时，同步重写 demo manifest：
+    // 旧 manifest 指向已删除的 UI 库/a9eacfe5 且 build 仍写“真实 UI 倒角”。只按
+    // state/旧截图事实重写，不伪造新截图；画廊重生成见 scripts/onshape-parity/gallery.mjs。
+    if (process.env.SAMPLE_ASSIGNMENT_IMODEL_NAME === 'Sample Assignment') {
+      const demoDir = 'demo-artifacts/examples/sample-assignment';
+      const screenshots = existsSync(demoDir)
+        ? readdirSync(demoDir).filter((name) => name.endsWith('.png')).sort()
+        : [];
+      const changesets = await listExampleChangesets(request, token, ids.imodelId);
+      const manifest = {
+        example: 'Sample Assignment',
+        partStudio: 'Alignment Plate',
+        owner: 'Explore Onshape Models',
+        scenario: 'scenarios/Sample-Assignment-d1989636af28eb77f9e99c58.scenario.json',
+        projectId: ids.itwinId,
+        projectName: 'Onshape 示例复刻',
+        imodelId: ids.imodelId,
+        imodelName: 'Sample Assignment',
+        openPath: `http://localhost:5300/documents/${ids.itwinId}/${ids.imodelId}`,
+        changesets: changesets.map((changeset, index) => ({
+          index: index + 1,
+          id: changeset.id,
+          description: changeset.description,
+        })),
+        featureTree: reopened.map((row) => row.featureType),
+        build: {
+          mode: 'rpc-scenario',
+          runner: 'e2e/examples/sample-assignment-scenario.spec.ts',
+          runCommand: 'SAMPLE_ASSIGNMENT_IMODEL_NAME="Sample Assignment" npx playwright test e2e/examples/sample-assignment-scenario.spec.ts --reporter=line',
+          notes: '2026-11-08 重建：旧 UI 库缺 chamfer，legacy UI builder 非绿门；本库由审计 RPC 场景构建（Cut 2 holes [0,1]；Cut 2 more holes [0,1]；chamfer 4 SWEPT_EDGE 经 edgeResolver）。',
+        },
+        expected: { volumeMm3: expected, bodyCount: 1, tolerance: 0.005 },
+        actual: { volumeMm3: reopenedVolume, bodyCount: 1 },
+        screenshots,
+        screenshotsProvenance: 'legacy-ui-build-2026-11-05（最终几何一致；构建过程截图未随 RPC 重建重拍）',
+        verifiedAt: new Date().toISOString(),
+      };
+      mkdirSync(demoDir, { recursive: true });
+      writeFileSync(path.join(demoDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+      console.log(`[sample-scenario] manifest written: ${path.join(demoDir, 'manifest.json')}`);
+    }
   });
 });

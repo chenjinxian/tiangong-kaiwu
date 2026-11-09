@@ -80,6 +80,13 @@ export function isNodeHidden(node: TreeNode): boolean {
   return node.isHidden;
 }
 
+const volumeFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+
+/** W1.5b：零件行体积文案（mm³；数据来自质量属性读面，不参与拾取/事实源）。 */
+export function formatPartVolume(volumeMm3: number): string {
+  return `${volumeFormatter.format(volumeMm3)} mm³`;
+}
+
 export function TreeRow({
   node,
   selected,
@@ -164,6 +171,15 @@ export function TreeRow({
             {/* 2026-11-02：每个特征/零件行都带 17px 类型图标（Onshape 树）。 */}
             <FeatureTypeIcon node={node} />
             <span className="part-studio-tree-row__name">{node.name}</span>
+            {partRow && 'volumeMm3' in node && node.volumeMm3 !== undefined && Number.isFinite(node.volumeMm3) && (
+              <span
+                className="part-studio-tree-row__volume"
+                data-testid={`tree-row-volume-${node.id}`}
+                title={t('partStudio.tree.bodyVolumeTitle')}
+              >
+                {formatPartVolume(node.volumeMm3)}
+              </span>
+            )}
           </button>
           {/* B6 M-A5 T2：逐 body 可见性 eye（仅 part 行；按钮不可嵌套——与主行
               按钮同级）。stopPropagation 保证不触发行选中。 */}

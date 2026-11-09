@@ -45,8 +45,8 @@ test.describe('Gaiter scenario rebuild', () => {
 
     const built = await runScenario(ctx, scenario, token, {
       skipSketchConstraints: true,
-      edgeResolver: (feature, fullScenario) =>
-        resolveScenarioEdges(page, ctx, fullScenario, feature, token),
+      edgeResolver: (feature, fullScenario, bodyContext) =>
+        resolveScenarioEdges(page, ctx, fullScenario, feature, token, bodyContext),
       shellFaceResolver: (feature, fullScenario) =>
         resolveScenarioShellFaces(page, ctx, fullScenario, feature, token),
     });

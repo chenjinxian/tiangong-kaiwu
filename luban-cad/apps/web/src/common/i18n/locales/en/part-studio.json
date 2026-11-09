@@ -600,6 +600,11 @@
       "surface": "Surface",
       "thinWall": "Thin wall"
     },
+    "resultTypeUnsupported": "This result body type has no product channel yet (no fake entry)",
+    "thinThicknessLabel": "Thickness",
+    "thinMidPlaneLabel": "Mid plane",
+    "thinThicknessInvalid": "Thin-wall thickness must be a finite positive number",
+    "thinWallHint": "Thin wall: offsets the closed profile inward by this thickness to form a hollow body; first slice is one-sided (second thickness/mid-plane not supported)",
     "booleanScopes": {
       "new": "New",
       "add": "Add",
@@ -656,9 +661,29 @@
     "mirrorPlaneOptions": {
       "XY": "XY plane (normal Z)",
       "YZ": "YZ plane (normal X)",
-      "XZ": "XZ plane (normal Y)"
+      "XZ": "XZ plane (normal Y)",
+      "face": "Selected face"
     },
-    "mirrorScopeHint": "This first version supports only the world-origin XY/YZ/XZ planes and keeps the original body (united with the mirrored body)",
+    "mirrorScopeLabel": "Mirror scope",
+    "mirrorScopeOptions": {
+      "body": "Part mirror",
+      "feature": "Feature mirror"
+    },
+    "mirrorSourceFeatureLabel": "Features to mirror",
+    "mirrorSourceFeaturePlaceholder": "Select a feature",
+    "mirrorSourceFeatureEmptyHint": "No eligible source features: feature mirror supports extrude, revolve, and hole (first slice)",
+    "mirrorFeatureHint": "Feature mirror reflects the selected feature's delta across the mirror plane; the source feature is kept",
+    "mirrorFeatureScopeHint": "Feature mirror: world-origin XY/YZ/XZ plane; the source feature is kept and the mirrored delta is merged into the current body",
+    "featureMirrorEditUnsupported": "Feature mirror parameters are not editable yet; delete and recreate it (source feature and mirror plane are fixed at creation)",
+    "mirrorScopeHint": "Supports world-origin XY/YZ/XZ planes or a selected face; the original is kept and united with the mirrored body",
+    "mirrorOperationTabs": "Mirror operation",
+    "mirrorOperationHint": "New (a separate mirrored body) requires multi-body output and is not enabled; use Add/Remove/Intersect",
+    "mirrorFaceHint": "Mirror plane = selected face ({{face}})",
+    "mirrorFaceMissingHint": "Select a face in the viewport before opening Mirror",
+    "mirrorFaceMultipleHint": "The mirror plane accepts exactly one face ({{count}} selected); deselect the extras and retry",
+    "mirrorFaceReadOnlyHint": "This mirror uses a face reference (faceRef); it is read-only in this dialog. Delete and recreate to change the plane.",
+    "mirrorFaceOwnerMismatchHint": "The selected face does not belong to the target body; reselect the face or target body",
+    "mirrorPlaneLineReadOnlyHint": "This mirror uses an arbitrary world plane (planeLine); editing its plane is not supported in this UI yet. Delete and recreate it.",
     "mirrorNeedsBodyHint": "Mirror needs an upstream body: create at least one solid feature first",
     "patternParametersLabel": "Entities to pattern",
     "patternKindLabel": "Pattern type",
@@ -667,6 +692,9 @@
       "circular": "Circular pattern"
     },
     "patternCountLabel": "Instance count (including original)",
+    "patternCountLabelCentered": "Instances per side (including original)",
+    "patternCenteredHint": "Centered: N is the number of instances on each side (including the original); total instances = 2N−1 (seed centered)",
+    "patternCountCenteredInvalid": "Instances per side must be an integer between 2 and 500 (including the original)",
     "patternSpacingLabel": "Spacing",
     "patternAngleLabel": "Total angle (degrees)",
     "patternAxisLabel": "Axis",
@@ -711,6 +739,17 @@
     "endBoundBlind": "Blind",
     "endBoundThroughAll": "Through all",
     "endBoundRequiresUpstream": "Through all requires an upstream body (not available for New)",
+    "endBoundUpToNext": "Up to next",
+    "endBoundUpToSurface": "Up to surface",
+    "endBoundUpToSurfaceRequiresUpstream": "Up to surface requires an upstream body (not available for New)",
+    "endBoundUpToSurfaceNeedsFace": "Select a face in the viewport before opening Extrude to use Up to surface",
+    "endBoundUpToSurfaceMultipleFaces": "Up to surface accepts exactly one face ({{count}} selected)",
+    "endBoundUpToSurfaceFaceHint": "Up to surface = selected face ({{face}})",
+    "endBoundUpToSurfaceFaceReadOnly": "This extrude uses a face reference (endFaceRef); it is read-only in this dialog ({{face}})",
+    "endOffsetEnableLabel": "Offset distance",
+    "endOffsetLabel": "Offset distance (mm)",
+    "endOffsetOppositeLabel": "Reverse",
+    "endOffsetInvalid": "Offset distance must be a number greater than 0",
     "newBodyLabel": "New body",
     "targetBodyLabel": "Target body",
     "bodiesLoadingHint": "Loading bodies: submitting is disabled until the body list is available",
@@ -728,7 +767,6 @@
       "subtract": "Subtract",
       "intersect": "Intersect"
     },
-    "booleanBodiesIntersectHint": "Intersect is not supported yet: this first version supports unite/subtract only",
     "booleanBodiesKeepToolsLabel": "Keep tool bodies",
     "booleanBodiesConsumeHint": "With “Keep tool bodies” unchecked, tool bodies are consumed on success (hidden; undo restores them)",
     "booleanBodiesToolLockHint": "While this boolean exists, the source chain of the selected tool bodies is locked; delete the boolean before editing those bodies",
@@ -743,6 +781,8 @@
     "editUnsupportedHint": "Structural or semantic parameters of this feature cannot be changed here (delete and recreate loft, sweep, or body boolean features)",
     "editOperationLocked": "Boolean scope cannot be changed while editing (structural key)",
     "draftUnsupported": "Draft is not implemented yet; the input is disabled",
+    "draftAngleLabel": "Draft angle",
+    "draftReverseLabel": "Reverse",
     "readonlyHint": "You have read-only permission; features cannot be submitted",
     "sections": {
       "direction": "Direction",
@@ -796,7 +836,17 @@
     "patternDirectionLabel": "Direction",
     "patternDistanceLabel": "Distance",
     "patternInstanceCountLabel": "Instance count",
-    "mirrorEntitiesLabel": "Entities to mirror"
+    "mirrorEntitiesLabel": "Entities to mirror",
+    "patternSecondCountLabel": "Second direction instance count (including original)",
+    "patternSecondCountLabelCentered": "Second direction instances per side (including original)",
+    "patternSecondSpacingLabel": "Second direction spacing",
+    "patternSecondAxisLabel": "Second direction axis",
+    "patternSecondCenteredLabel": "Second direction centered",
+    "patternSecondCountInvalid": "Second-direction instance count must be an integer between 2 and 1000 (including the original)",
+    "patternSecondCountCenteredInvalid": "Second-direction instances per side must be an integer between 2 and 500 (including the original)",
+    "patternSecondSpacingInvalid": "Second-direction spacing must be a positive number",
+    "patternTotalCountInvalid": "Total instances across both directions must not exceed 1000",
+    "patternSecondHint": "The second direction adds a grid to the first direction; total instances across both directions must not exceed 1000."
   },
   "filletPick": {
     "prompt": "Click edges to fillet in the canvas",
@@ -858,14 +908,44 @@
         "firstPrompt": "Click to place the first corner of the rectangle",
         "nextPrompt": "Click to place the opposite corner"
       },
+      "centerArc": {
+        "firstPrompt": "Click to place the arc center",
+        "secondPrompt": "Click to place the arc start (defines radius)",
+        "thirdPrompt": "Click to set the arc end/extent"
+      },
+      "alignedRectangle": {
+        "firstPrompt": "Click to place the first side's start point",
+        "secondPrompt": "Click to place the first side's end point (angle/length)",
+        "thirdPrompt": "Click to set the perpendicular width"
+      },
+      "centerRectangle": {
+        "firstPrompt": "Click to place the rectangle center",
+        "nextPrompt": "Click to place a rectangle corner"
+      },
       "circle": {
         "firstPrompt": "Click to place the circle center",
         "nextPrompt": "Click a point on the circle (sets radius)"
+      },
+      "perimeterCircle": {
+        "firstPrompt": "Click the first point on the circle",
+        "secondPrompt": "Click the second point on the circle",
+        "thirdPrompt": "Click the third point on the circle"
+      },
+      "polygon": {
+        "firstPrompt": "Click to place the polygon center",
+        "nextPrompt": "Click to set the construction circle radius",
+        "sidesPrompt": "Type the number of sides (3-50), then Enter or click to finish"
       },
       "arc": {
         "firstPrompt": "Click to place the arc start point",
         "nextPrompt": "Click to place the arc end point",
         "thirdPrompt": "Click a point on the arc"
+      },
+      "bezier": {
+        "firstPrompt": "Click to place the Bezier start (control point 1)",
+        "secondPrompt": "Click to place control point 2",
+        "thirdPrompt": "Click to place control point 3",
+        "fourthPrompt": "Click to place the Bezier end (control point 4)"
       },
       "spline": {
         "firstPrompt": "Click to place the spline start point",
@@ -876,6 +956,8 @@
       "toasts": {
         "zeroSize": "Degenerate shape (zero length/area/radius); not submitted",
         "colinearArc": "The three points are collinear or coincident; cannot build an arc, not submitted",
+        "colinearCircle": "The three points are collinear or coincident; cannot build a circle, not submitted",
+        "polygonDegenerate": "Polygon needs a non-zero construction radius and 3-50 sides; not submitted",
         "splineDegenerate": "Spline endpoints coincide or a handle has zero tangent; not submitted",
         "systemNotReady": "Sketch system not ready; exit sketch mode and retry",
         "updateFailed": "Sketch update failed"
@@ -948,6 +1030,46 @@
         "unsupportedKind": "Offset currently supports lines and arcs only",
         "degenerateRadius": "Offset distance too large: an inward-offset arc would collapse to zero radius",
         "zeroDistance": "Offset distance is zero; click away from the entity to set the offset"
+      }
+    },
+    "tangentArc": {
+      "prompts": {
+        "start": "Tangent arc: click a sketch line endpoint as the start",
+        "end": "Tangent arc: click the arc end point"
+      },
+      "toasts": {
+        "sketchEmpty": "No sketch is open (or it is empty); cannot create an arc",
+        "startOnEndpoint": "A tangent arc must start at a sketch line endpoint",
+        "degenerate": "The arc would be degenerate at that end point; choose another point",
+        "updateFailed": "Sketch update failed"
+      }
+    },
+    "point": {
+      "prompts": {
+        "place": "Point: click to place a point; Esc or right-click to finish"
+      },
+      "toasts": {
+        "sketchEmpty": "No sketch is open (or it is empty); cannot place a point",
+        "invalidPoint": "Cannot place a point at this location",
+        "updateFailed": "Sketch update failed"
+      }
+    },
+    "mirror": {
+      "prompts": {
+        "pickAxis": "Mirror: click a sketch line to use as the mirror line",
+        "pickEntities": "Mirror: click entities to mirror; Esc or right-click to finish"
+      },
+      "toasts": {
+        "sketchEmpty": "No sketch is open (or it is empty); nothing to mirror",
+        "nothingPicked": "No sketch entity at the hit point",
+        "axisMustBeLine": "Mirror: the mirror line must be a sketch line",
+        "unsupportedKind": "Mirror supports lines, points, circles and arcs (splines pending)",
+        "axisSourceSame": "The mirror line cannot be mirrored about itself",
+        "degenerateAxis": "Mirror line has zero length",
+        "degenerateEntity": "Entity cannot be mirrored (missing or zero-length geometry)",
+        "alreadyMirrored": "That entity is already mirrored by this tool",
+        "mirrored": "Mirrored",
+        "updateFailed": "Sketch update failed"
       }
     },
     "toasts": {
@@ -1089,6 +1211,7 @@
     "retry": "Retry",
     "unnamedElement": "Unnamed element {{id}}",
     "defaultBodyName": "Body {{index}}",
+    "bodyVolumeTitle": "Body volume (mass properties)",
     "bodiesReadFailed": "Failed to load bodies: {{message}} (showing the legacy parts list)",
     "hideBody": "Hide body",
     "showBody": "Show body",
@@ -1116,7 +1239,13 @@
       "pattern": "Pattern",
       "hole": "Hole",
       "cPlane": "Plane",
-      "sketch": "Sketch"
+      "sketch": "Sketch",
+      "moveFace": "Move face",
+      "faceExtrude": "Face extrude",
+      "featurePattern": "Feature pattern",
+      "featureMirror": "Feature mirror",
+      "transform": "Transform",
+      "splitPart": "Split"
     }
   },
   "featureSystem": {
@@ -1242,6 +1371,50 @@
     "rib": {
       "title": "Rib (on the roadmap)",
       "message": "Rib features are on the LubanCAD roadmap and are not available in this version yet."
+    },
+    "thicken": {
+      "title": "Thicken (on the roadmap)",
+      "message": "Thicken requires a surface-body pipeline; it is registered on the LubanCAD roadmap and will be enabled in a later milestone."
+    },
+    "splitPart": {
+      "title": "Split (backend ready, UI in progress)",
+      "message": "The splitPart backend (one-sided world plane) is available; the split dialog and face/sketch-driven selection are not enabled yet."
+    },
+    "transform": {
+      "title": "Transform (backend ready, UI in progress)",
+      "message": "The transform backend (translation, rotation, uniform scale, copy) is available; the dialog and converter mapping are not enabled yet."
+    },
+    "deleteBodies": {
+      "title": "Delete parts (in progress)",
+      "message": "Deleting bodies is not yet available as a feature operation; use the part tree context menu where supported, or wait for this capability."
+    },
+    "deleteFace": {
+      "title": "Delete face (blocked by kernel)",
+      "message": "The kernel delete-face operation currently returns no geometry, so this capability remains blocked until the kernel supports it."
+    },
+    "moveFace": {
+      "title": "Move face (backend ready, UI in progress)",
+      "message": "The moveFace offset backend is available (persistent face references + distance); the face-picking dialog is not enabled yet."
+    },
+    "replaceFace": {
+      "title": "Replace face (not exposed)",
+      "message": "The kernel replace-face operation is not exposed by the editor interface; this capability remains blocked."
+    },
+    "wrap": {
+      "title": "Wrap (planned)",
+      "message": "Wrap requires curve-to-surface mapping and a solid wrap pipeline; it is registered on the LubanCAD roadmap and is not enabled in this version."
+    },
+    "decal": {
+      "title": "Decal (planned)",
+      "message": "Decals are image display features that produce no solid geometry; an image decal pipeline is not provided in this version and is registered on the roadmap."
+    },
+    "modifyFillet": {
+      "title": "Modify fillet (planned)",
+      "message": "Modify fillet requires selecting an existing fillet face and re-evaluating it at a new radius; the kernel capability is not integrated yet and is registered on the roadmap."
+    },
+    "userFeatures": {
+      "title": "Add custom feature (planned)",
+      "message": "Custom FeatureScript features are out of scope for this version (examples are registered as excluded-custom-feature) and will be handled by a separate project."
     }
   },
   "viewCube": {
@@ -1318,17 +1491,18 @@
     "countersinkAngle": "Countersink angle",
     "endBound": "End condition",
     "blind": "Blind",
+    "upToNext": "Up to next",
     "throughAll": "Through all",
     "depth": "Depth",
     "startPlane": "Start plane",
     "startFromPart": "Start from part",
     "tipAngle": "Tip angle",
-    "tipFlat": "180° (flat bottom in this version)",
+    "tipDrill": "118° (standard drill point)",
+    "tipFlat": "180° (flat)",
     "mergeScope": "Merge scope",
     "autoTarget": "Automatic (active part)",
     "submitSuccess": "{{name}} created",
-    "submitFailed": "Hole submission failed",
-    "previewUnsupported": "Hole preview transparency is not wired yet"
+    "submitFailed": "Hole submission failed"
   },
   "shellDialog": {
     "facesLabel": "Faces to shell",
@@ -1344,6 +1518,48 @@
     "ownerMissing": "Unable to determine the owner body of the selected faces; pick again",
     "hollowUnavailable": "Hollow (no faces removed) is not supported by the current contract; this slice removes faces only",
     "submitSuccess": "{{name}} created"
+  },
+  "moveFaceDialog": {
+    "facesLabel": "Faces to move",
+    "facesEmpty": "Select the faces to move on the canvas, then open Move face",
+    "targetBody": "Target body",
+    "editTarget": "Use stored body",
+    "moveType": "Offset",
+    "moveTypeOffset": "Offset",
+    "termination": "End condition",
+    "givenDepth": "Given depth",
+    "distance": "Distance",
+    "direction": "Direction",
+    "outward": "Outward",
+    "inward": "Inward",
+    "distanceHint": "Positive distance offsets along the face normal; negative retracts. This slice supports Offset / Given depth only",
+    "crossBody": "Selected faces belong to multiple bodies; Move face requires one body",
+    "ownerMissing": "Unable to determine the owner body of the selected faces; pick again",
+    "reFillet": "Re-apply fillets",
+    "reFilletUnavailable": "Re-apply fillets is not supported by the backend yet and is disabled",
+    "perFaceReadOnly": "This feature uses per-face distances (distancesMm); this dialog is read-only. Edit via RPC/parameter panel",
+    "submitSuccess": "{{name}} created"
+  },
+  "featurePatternDialog": {
+    "sourceLabel": "Features to pattern",
+    "sourceMissing": "Source feature missing",
+    "sourceLockedHint": "The source feature and axis are structural references and cannot be changed while editing; you can change the pattern type, instance count, and spacing/angle (delete and rebuild to reconfigure)",
+    "axisReadonly": "Axis: origin {{origin}}, direction {{direction}} (read-only)",
+    "axisMissing": "Axis data is missing or degenerate; cannot submit",
+    "countCenteredInvalid": "Centered pattern per-side instance count must be an integer between 2 and 500 (including the seed)",
+    "submitSuccess": "{{name}} updated",
+    "secondCountLabel": "Second direction instance count (including original)",
+    "secondCountLabelCentered": "Second direction instances per side (including original)",
+    "secondSpacingLabel": "Second direction spacing",
+    "secondCenteredLabel": "Second direction centered",
+    "secondDirectionHint": "The second-direction axis is a structural reference and stays read-only; unchecking removes the second direction on submit.",
+    "secondAxisReadonly": "Second direction axis: origin {{origin}}, direction {{direction}} (read-only)",
+    "secondAxisMissing": "Second-direction axis data is missing or degenerate; cannot submit",
+    "secondCountInvalid": "Second-direction instance count must be an integer between 2 and 1000 (including the original)",
+    "secondCountCenteredInvalid": "Second-direction instances per side must be an integer between 2 and 500 (including the original)",
+    "secondSpacingInvalid": "Second-direction spacing must be a positive number",
+    "totalInstancesInvalid": "Total instances across both directions must not exceed 1000",
+    "multiSourceHint": "Multiple source features are patterned in order; the source list is a structural reference and cannot be changed here."
   },
   "cPlaneDialog": {
     "mode": "Type",
@@ -1444,5 +1660,63 @@
     "showBrepVertices": "Show BRep vertices",
     "reset": "Reset to defaults",
     "noViewport": "Viewport not ready — open a model first"
+  },
+  "transformDialog": {
+    "targetBody": "Entity to transform",
+    "targetFixed": "Fixed at creation (read-only while editing)",
+    "targetPlaceholder": "Select an entity…",
+    "targetMissing": "Select the entity to transform",
+    "noBodies": "No active entities: create a solid first",
+    "needsBody": "Transform requires an existing solid: create one by extrude or revolve first",
+    "mode": "Transform type",
+    "modes": {
+      "translate": "Translate by XYZ",
+      "rotate": "Rotate",
+      "scale": "Scale"
+    },
+    "dx": "ΔX (mm)",
+    "dy": "ΔY (mm)",
+    "dz": "ΔZ (mm)",
+    "axis": "Axis",
+    "customAxis": "Custom axis (read-only)",
+    "customAxisHint": "Custom rotation axis direction {{direction}} (read-only; choosing X/Y/Z replaces it)",
+    "axisOriginHint": "Rotation center {{origin}} (read-only, preserved)",
+    "angle": "Angle (degrees)",
+    "rotateHint": "Rotates about the selected world axis through the world origin; stored custom axis origins are preserved read-only",
+    "scale": "Scale factor",
+    "nonUniformHint": "This transform uses non-uniform scale (scaleAxes); editing it is not supported in this dialog. Switch the transform type or delete and recreate it.",
+    "scaleOriginHint": "Scale fixed point {{origin}} (read-only, preserved)",
+    "scaleHint": "Uniform scale about the world origin; fixed-point picking and non-uniform scale are not available in this first slice",
+    "copy": "Copy part",
+    "translateNoop": "Translation is zero: enter a non-zero offset",
+    "combinedHint": "This transform combines multiple components (translate/rotate/scale); this dialog edits a single component only. Delete and recreate it to change the combination.",
+    "submitSuccess": "{{name}} updated",
+    "copyMergeHint": "This first slice merges the original and the copy into one entity (copy=true Unite); an independent Part copy requires multi-body output (ADR-0015)."
+  },
+  "splitPartDialog": {
+    "splitType": "Split type",
+    "splitTypePart": "Part",
+    "faceUnsupported": "Face split is not supported in this slice; only solid parts cut by a world plane.",
+    "targets": "Parts, surfaces, or curves to split",
+    "targetFixed": "Fixed at creation (read-only while editing)",
+    "targetPlaceholder": "Select an entity…",
+    "targetMissing": "Select the entity to split",
+    "noBodies": "No active entities: create a solid first",
+    "needsBody": "Split requires an existing solid: create one by extrude or revolve first",
+    "tool": "Split tool",
+    "toolWorldPlane": "World plane (XY/YZ/XZ)",
+    "plane": "Split plane",
+    "offset": "Plane offset (mm)",
+    "keepSide": "Side to keep",
+    "keepPositive": "Positive side (normal side)",
+    "keepNegative": "Negative side (opposite normal)",
+    "planeHint": "XY normal +Z, YZ normal +X, XZ normal +Y; the positive side is the normal side.",
+    "keepTools": "Keep tools",
+    "keepToolsUnsupported": "Not applicable: the world plane is not a body tool",
+    "useTrimmed": "Trim to face boundary",
+    "useTrimmedUnsupported": "Not supported",
+    "keepBothSides": "Keep both sides",
+    "keepBothSidesUnsupported": "Not supported (needs multi-body output, ADR-0015)",
+    "submitSuccess": "{{name}} updated"
   }
 }

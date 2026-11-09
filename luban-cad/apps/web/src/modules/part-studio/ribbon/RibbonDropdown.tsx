@@ -159,7 +159,10 @@ export function RibbonDropdown({
 
   const activate = (row: MenuRow): void => {
     if (row.disabled) return;
-    closeMenu(true);
+    // 激活工具后不把焦点还给箭头按钮：工具接管键盘（数字/Enter），若焦点仍在
+    // 箭头，Enter 的默认 click 会在提交后重新展开飞菜单并挡住后续对话框确认
+    // （2026-11-09 多边形真栈实测）。
+    closeMenu();
     onActivate(row.id);
   };
 

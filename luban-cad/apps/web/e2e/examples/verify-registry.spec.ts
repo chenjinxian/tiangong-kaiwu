@@ -4,6 +4,9 @@
  * 不写、不推送；逐个 registry 文档按“项目名 + iModel 名”定位，打开每个
  * Part Studio scope，读回特征树/body/逐 body 质量属性并与 registry expected 对拍。
  * legacy 12 个先跑通；新 document 级条目随后用同一流程扩展。
+ *
+ * 2026-11-08：改为**每个 registry 文档一条 test**（失败按文档隔离，不再一条
+ * test 串行 12 库、首个漂移即整批中断）；状态仍 upsert 到 state.json。
  */
 import { expect, test } from '@playwright/test';
 import { getApiToken, getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, listPartStudiosRpc } from '../helpers.js';
@@ -12,30 +15,40 @@ import { findExampleDocument, openExampleEditor, openExamplePartStudio } from '.
 import { loadExampleRegistry } from './registry.js';
 import { upsertExampleDocumentState, type ExampleScopeState } from './state.js';
 
-test.describe('示例 registry 重开回归', () => {
-  test('legacy registry 条目：PS 列表/特征树/body/体积读回', async ({ page, request }) => {
-    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 1_200_000);
-    const token = await getApiToken();
-    const registry = loadExampleRegistry();
-    const only = process.env.EXAMPLE_DOCS
-      ?.split(',').map((value) => value.trim()).filter(Boolean);
-    const entries = only?.length
-      ? registry.documents.filter((entry) => only.includes(entry.id))
-      // B0 默认只验已存在的 legacy 条目；新 document 级示例用 EXAMPLE_DOCS 显式点名，
-      // 避免“registry 已登记但尚未构建”被误报为回归。
-      : registry.documents.filter((entry) => entry.layout === 'legacy-single-ps');
-    expect(entries.length, `EXAMPLE_DOCS 无匹配：${only?.join(',')}`).toBeGreaterThan(0);
-    const summary: unknown[] = [];
+const registry = loadExampleRegistry();
+const only = process.env.EXAMPLE_DOCS
+  ?.split(',').map((value) => value.trim()).filter(Boolean);
+const entries = only?.length
+  ? registry.documents.filter((entry) => only.includes(entry.id))
+  // B0 起初只默认验 legacy；2026-11-08 起 document 级多 PS 条目也已构建并纳入
+  // 默认集合（registry 只收录真实 demo 文档，未构建条目不进 registry）。
+  : registry.documents.filter((entry) => entry.scopes.length > 0);
+// 12 个 legacy iModel 串行重开；Basic Drawing 的 views.load 实测 53–160s
+// （其余 ECSQL <100ms，见 helpers EditorReadyOptions），单文档由 90s 缺省 gate
+// 放大到 240s；单文档预算 25min，失败不拖累其它文档。
+const READY_OPTIONS = { canvasTimeoutMs: 240_000 };
 
-    for (const entry of entries) {
+test.describe('示例 registry 重开回归', () => {
+  if (entries.length === 0) {
+    test('EXAMPLE_DOCS 必须匹配至少一个 registry 条目', () => {
+      expect(entries.length, `EXAMPLE_DOCS 无匹配：${only?.join(',')}`).toBeGreaterThan(0);
+    });
+    return;
+  }
+
+  for (const entry of entries) {
+    test(`${entry.id}：PS 列表/特征树/body/体积读回`, async ({ page, request }) => {
+      test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 600_000);
+      const token = await getApiToken();
       const ids = await findExampleDocument(request, token, entry);
-      const defaultCtx = await openExampleEditor(page, ids);
+      const defaultCtx = await openExampleEditor(page, ids, READY_OPTIONS);
       const studios = await listPartStudiosRpc(defaultCtx, token);
       expect(studios.length, `${entry.imodelName} Part Studio 列表为空`).toBeGreaterThan(0);
 
       const byName = new Map(studios.map((studio) => [studio.name, studio]));
       const defaultStudio = studios.find((studio) => studio.id === defaultCtx.scopeId);
       const scopeStates: ExampleScopeState[] = [];
+      const summary: unknown[] = [];
       for (const scope of entry.scopes) {
         // legacy 单 PS iModel 的实际 scope 名不保证是 "Part Studio 1"；默认入口
         // 的 scope 才是历史构建目标。多 PS 文档才按 registry 名称匹配。
@@ -47,7 +60,7 @@ test.describe('示例 registry 重开回归', () => {
 
         const ctx = studio.id === defaultCtx.scopeId
           ? defaultCtx
-          : await openExamplePartStudio(page, ids, studio.id);
+          : await openExamplePartStudio(page, ids, studio.id, READY_OPTIONS);
         const tree = await getFeatureTreeRpc(ctx, token);
         const treeTypes = tree.map((row) => row.featureType);
         if (scope.featureTypes)
@@ -98,7 +111,7 @@ test.describe('示例 registry 重开回归', () => {
         updatedAt: new Date().toISOString(),
         scopes: scopeStates,
       });
-    }
-    console.log(`[verify-registry] summary ${JSON.stringify(summary)}`);
-  });
+      console.log(`[verify-registry] ${entry.id} summary ${JSON.stringify(summary)}`);
+    });
+  }
 });

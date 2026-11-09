@@ -106,3 +106,65 @@ UI 证据。直接把 Onshape 原始响应塞进 e2e 会导致：场景不可读
   `BlockedCapabilityError`。产品镜像语义为整条上游体反射后 Unite。
 - 真栈：`e2e/examples/mirror.spec.ts` setup+test 2 passed（偏置盒体 YZ 镜像
   8000.000 mm³ = 2×4000）。
+
+## 增量记录（2026-11-07，离线回放与 featurePattern/featureMirror）
+
+- 私有 backend `test/ScenarioReplay.ts` 扩展：支持 `featurePattern`（linear/circular，
+  单 active body）与 `featureMirror`（单源 + planeLine）；imprintFace 多查询改为与
+  公共 runner 同口径的面域解析（按 imprint 侧向选材料面域，已解析照用、未解析写
+  log、全未解析才回退 region 0），不再无条件 region 0。
+- 新增 `DriveSleeveScenarioReplay.test.ts` 直接读取私有场景 JSON（数据缺失整组
+  skip），验证 4 extrude + hole + FACE circular pattern 的真实链。结果
+  **known-red**：Extrude 1/2/3 264448.7→688721.7→790461.9 mm³，
+  Extrude 4(remove) 零去材；孔方向按目标体质心推断（负侧→backward，与公共
+  translator 同口径）后最终 774611.7 vs 采集 1175024.3（−34.08%）。`it.fails`
+  登记，根因是 imprintFace 实体 imprint/face split 与草图材料面域近似的语义差
+  （基础轮廓被近似成小面域拼集）；不得调松断言或宣称示例绿。
+- **公共 web 真栈首跑（2026-11-07，hub 恢复后）**：同一场景
+  `drive-sleeve-scenario.spec.ts` 以 `test.fail` 运行，失败在 featurePattern
+  求值（MS 日志 `内核 op 失败: op=1 status=0`，树 status≠0），与 backend 离线
+  replay 的“status=0 但零去材”失败形态不同；两者根因同为 imprint 基础轮廓近似，
+  不改变 known-red 结论。
+- 公共仓同步：scenario `featurePattern` 支持 linear（`directionRisk` 标近似）与
+  CAP_FACE mirror `planeLine`（`planeApprox` 标近似）；translator 单测 **28/28**，
+  纯回放辅助 **12/12**。真实栈因本机 Docker/WSL wedge 待补跑。
+
+## 增量记录（2026-11-08，revolve 轮廓实体 → 真实面域）
+
+- **问题**：Onshape revolve 的 `entities` 查询给的是轮廓边（sketchEntityId），
+  converter 对单 query 一律落 `regionIndex: 0`；同一草图多个 NEW revolve
+  （Handle Parts 77b496/d405047 三体）全部盲取同一面域，三体体积不可能对拍。
+- **场景字段（additive，test-only）**：`revolve.params.profileEntityIds?: number[]`
+  ——查询的草图实体在本地草图中的 id（converter 用 `findSketchEntityForQuery`
+  解析，全部解析成功才携带）。
+- **回放器**：`region-entity-resolver.ts` 用
+  `SketchRegionDto.outerEntityIds/holeEntityIds` 把实体映射到面域下标；仅当
+  场景**未显式给 regions**（示例审计覆盖优先）时启用。全部命中且无共享边界
+  歧义 → 覆盖为 `regions`；未命中/歧义 → 沿用 converter 旧口径并在 notes 标
+  近似（绝不静默猜面域）。单测（Playwright）**6/6**。
+- **边解析多体限定**：多体步骤把 body 谱系（bodyKeyBySource）传给
+  `resolveScenarioEdges`，按 `selector.operationSourceIds` 收窄候选 body——
+  同草图多 profile 共享顶点/边时，几何相同的 SWEPT_EDGE 不再跨 body 误配。
+- **真栈**：Handle Parts 前置 10 特征跑通（3 体，未圆角 12326.161 /
+  32140.878 / 106103.005 mm³）；Fillet 1 的 6 条边分属 3 body，按产品单
+  `targetBodyId` 契约诚实阻塞——归 ADR-0015，spec 以 `test.fail` 登记
+  known-red。回归：Handle/Hand Brake/Sample Assignment/edge-selector 真栈
+  通过（Sample Assignment 与 iOS 首跑分别因连接失败和 MS 429 为环境红，
+  限流窗口恢复后复跑 **2 passed / 3 passed**）。
+- **面边界选择器验收（2026-11-08）**：Universal Joint Drawing（e9d0c09c/246cb5ff）
+  的 Chamfer 10 含 6 条 SWEPT_FACE + 2 条 SWEPT_EDGE。未裁剪面（Sketch 8
+  entity 18）已能展开 **4 条**边界边；entity 10（Sketch 8 正侧 u=+36.195）
+  **matches=0**。调试证据：最终体全部边 x ≤ 0（存在镜像侧 x=−36.195 的对应边），
+  正侧几何整体不存在——Extrude 10/11/12 的 region/imprint 回放把正侧体丢弃或
+  镜像（Extrude 12 intersect 后仅剩半体，而 Mirror 1 在 Chamfer 之后），属
+  **上游体分叉**而非单纯 face split；spec 以 `test.fail` 登记 known-red。
+  工作队列的「capFace/sweptFace 待验收」据此收窄为「上游分叉 + 缺失面的
+  面解析」缺口。
+- **第二方向 up-to 静态近似（2026-11-08）**：converter 对
+  `secondDirectionBound=UP_TO_SURFACE` 使用已解算 `secondDirectionDepth`
+  转 `{endBound:'blind', distanceMm, approximate:true, sourceBound}`；
+  translator 识别 `approximate` 标步骤近似并记 note（产品第二方向仅
+  blind/throughAll，up-to 未映射；目标查询未采集）。translator **35/35**；
+  合成真栈 20×20 拉伸 10 + 第二方向 5
+  = **6000 mm³** push+重开。Stirrup 真实 PS 仍 known-red 于 Fillet 2 的
+  CAP_EDGE through-all（上游体分叉，任务 #106），与本近似无关。

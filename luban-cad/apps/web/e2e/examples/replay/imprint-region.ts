@@ -62,6 +62,57 @@ export function pickImprintRegion(
   };
 }
 
+/**
+ * 合并多查询 imprint 面域选择。
+ *
+ * 2026-11-07（Rear Shock 实测）：旧策略是“任一查询无候选就整步放弃、回退 region 0”，
+ * 这会把整圈最大面域当成 imprint 目标（完全错误）。现策略：
+ * - 已解析查询的面域照用（去重保序）；
+ * - 未解析查询由调用方写入 reason，步骤仍标 approximate；
+ * - 一条都没解析出来才返回 undefined（保留原 selection/由 translator 阻塞）。
+ */
+export function mergeImprintRegions(
+  regions: readonly number[],
+  unresolvedReason?: string,
+): { regions: number[]; partial: boolean } | undefined {
+  const unique = Array.from(new Set(regions));
+  if (unique.length === 0) return undefined;
+  return { regions: unique, partial: unresolvedReason !== undefined };
+}
+
+/**
+ * 多查询主导面域收敛（A2 首步，2026-11-07 Drive Sleeve 实测）。
+ *
+ * 当逐查询 pick 出多个面域、但**同一条大材料面域包含全部被查询实体**（作为外环
+ * 或孔环），且其面积 ≥ 已选面域最大面积的 4 倍时，查询指向的是该大面（imprint
+ * 面本身），零散小面域只是同一组边界的邻接排列面。返回主导面域；否则 undefined
+ * （保留多面域选集，不猜）。
+ */
+export function dominantImprintRegion(
+  regions: readonly SketchRegionDto[] | undefined,
+  entityIds: readonly number[],
+  selectedIndices: readonly number[],
+): { regionIndex: number; area: number } | undefined {
+  const ids = Array.from(new Set(entityIds.filter((id) => Number.isInteger(id) && id > 0)));
+  if (ids.length < 2 || !regions || regions.length === 0) return undefined;
+  const candidates = regions
+    .map((region, regionIndex) => ({
+      regionIndex,
+      area: region.area,
+      count: ids.filter((id) =>
+        region.outerEntityIds.includes(id) || (region.holeEntityIds?.includes(id) ?? false)).length,
+    }))
+    .filter((candidate) => candidate.count === ids.length);
+  if (candidates.length === 0) return undefined;
+  const best = candidates.reduce((a, b) => (b.area > a.area ? b : a));
+  const selectedAreas = selectedIndices
+    .map((index) => regions[index]?.area ?? 0)
+    .filter((area) => area > 0);
+  const maxSelected = selectedAreas.length > 0 ? Math.max(...selectedAreas) : 0;
+  if (!(best.area >= maxSelected * 4)) return undefined;
+  return { regionIndex: best.regionIndex, area: best.area };
+}
+
 /** 查询侧向数字 → 面域侧：−1 环外、+1 环内；0/非数/缺失不指定。 */
 export function imprintSideFromSign(sign: number | undefined): ImprintSide | undefined {
   if (sign === undefined || !Number.isFinite(sign) || sign === 0) return undefined;

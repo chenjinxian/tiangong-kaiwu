@@ -195,7 +195,7 @@
  * - 输入 = getBodies 读面（宿主下传 bodies 的 active authored 子集，consumed/
  *   orphan 不入选项）：**target 单选**（缺省首个）+ **tools 多选**（目标行常态禁用；
  *   若目标后来被改成已选工具，冲突行保持可点以便解选）+ operation（unite/subtract；
- *   intersect 选项禁用+提示，与服务端 v1 拒收同口径，不静默降级）+ keepTools
+ *   intersect 自 T12（2026-11-07）后端解锁后同步启用，不再禁用/降级）+ keepTools
  *   （缺省 false=成功后消费工具；true=保留并给出 I3 源链锁提示——编辑被引用的
  *   工具实体须先删除该布尔特征）。
  * - 载荷 `{targets:[{bodyKey}], tools:[{bodyKey}...], operation, keepTools}`；目标
@@ -229,12 +229,14 @@ import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type {
   BodyInfo,
   BooleanBodiesParams,
+  FeatureMirrorParams,
   FeatureOp,
   FeatureOpResult,
   FeatureParams,
   FeaturePreviewGeometryDto,
   FilletEdgeRef,
   LubanFeatureType,
+  LubanTopologyId,
   MirrorParams,
   PatternParams,
   PreviewResult,
@@ -245,6 +247,7 @@ import type {
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
+import type { CanvasSelection } from '../types.js';
 import { filletEdgeRefKey } from '../tools/modeling/fillet-edge-ref.js';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
 import { FeatureProfilePicker } from '../components/FeatureProfilePicker.js';
@@ -274,6 +277,14 @@ export interface FeatureDialogEntity {
 export interface FeatureDialogSketchOption {
   id: string;
   label: string;
+}
+
+/** 特征选项（featureMirror 源特征选择——2026-11-08 live 证据“要镜像的特征”）：
+ * 宿主自特征树过滤 extrude/revolve/hole（后端首版允许的源类型）后下传。 */
+export interface FeatureDialogFeatureOption {
+  id: string;
+  label: string;
+  featureType: string;
 }
 
 /** 确认载荷：面板全量本地态的一次性回传（变异层接线口）。 */
@@ -352,6 +363,12 @@ export interface FeatureDialogProps {
    */
   sketches?: readonly FeatureDialogSketchOption[];
   /**
+   * v1.47 featureMirror 源特征选项（2026-11-08 UI 证据）：宿主自特征树过滤
+   * extrude/revolve/hole 后下传；mirror 对话框切“特征镜像”作用域时消费。
+   * 缺省空集 → 特征来源下拉为空 + 提交禁用（不伪造源 id）。
+   */
+  features?: readonly FeatureDialogFeatureOption[];
+  /**
    * iModel key（M6-a T6 面域读面 / M6-b T6 边拾取寻址）：选中草图后经 getSketch
    * 拉 SketchRegionDto[]（面积降序，regionIndex=数组下标）；fillet 通道直通
    * FilletEdgePickTool（resolveEdgeRef 寻址键）。缺省 undefined = 面域不可读
@@ -380,6 +397,12 @@ export interface FeatureDialogProps {
    * ——提交禁用 + 诚实提示（零件段错误条提供重试出口）。
    */
   bodiesError?: string;
+  /**
+   * 路由时快照的画布选择（对话框打开会暂停选择工具/清空选择）：当前仅 mirror
+   * 使用——恰一个面时作为「镜像平面 = 选中的面」（MirrorParams.faceRef）。
+   * 缺省 undefined（无面快照 → 仍用世界平面下拉）。
+   */
+  initialFaces?: readonly CanvasSelection[];
   /**
    * B6 M-A3.2a：既有特征落库 params（mode='edit' 由宿主自特征树行下传）。
    * 仅消费结构键 `newBody`：回显复选框且禁用（翻转=语义变更，服务端拒收）；
@@ -495,6 +518,9 @@ const EDITABLE_EDIT_FEATURE_TYPES: ReadonlySet<string> = new Set([
 /** 草图选项缺省（M6-a T6：props 未接线/壳期空集——「先创建草图」门禁数据源；模块级常量防引用抖动）。 */
 const EMPTY_SKETCHES: readonly FeatureDialogSketchOption[] = [];
 
+/** featureMirror 源特征选项缺省（未接线/无源——特征作用域提交禁用）。 */
+const EMPTY_FEATURES: readonly FeatureDialogFeatureOption[] = [];
+
 /** body 读面缺省（M-A3.2a：未接线/不可用时不做 target 选择）。 */
 const EMPTY_BODIES: readonly BodyInfo[] = [];
 
@@ -504,6 +530,14 @@ const EMPTY_BODIES: readonly BodyInfo[] = [];
  */
 export function readStoredNewBody(params: unknown): boolean {
   return typeof params === 'object' && params !== null && (params as { newBody?: unknown }).newBody === true;
+}
+
+/** 世界平面 → featureMirror planeLine（过原点；法向与 body mirror 的 plane 同口径）。 */
+function mirrorPlaneLineForWorldPlane(plane: 'XY' | 'YZ' | 'XZ'): FeatureMirrorParams['planeLine'] {
+  const normal = plane === 'XY'
+    ? { x: 0, y: 0, z: 1 }
+    : plane === 'YZ' ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+  return { origin: { x: 0, y: 0, z: 0 }, normal };
 }
 
 /**
@@ -525,11 +559,13 @@ export function FeatureDialog({
   canEdit = true,
   entities,
   sketches,
+  features = EMPTY_FEATURES,
   connectionKey,
   hasBodies = true,
   bodies,
   bodiesLoading,
   bodiesError,
+  initialFaces,
   initialParams,
   viewport,
   onConfirm,
@@ -563,7 +599,14 @@ export function FeatureDialog({
     return [];
   }, [editParams, mode]);
 
-  const [resultType, setResultType] = React.useState<FeatureResultType>('solid');
+  const [resultType, setResultType] = React.useState<FeatureResultType>(() =>
+    editParams?.bodyType === 'THIN' ? 'thinWall' : 'solid');
+  // v1.53（ADR-0005 Phase 6）：薄壁厚度（mm）；v1.55 增中间平面（厚度以边界为中心）。
+  // 第二厚度未实现（live 证据有此行，但产品无对应通道，不渲染假控件）。
+  const [thinThickness, setThinThickness] = React.useState(
+    () => storedNumberString((editParams as { thinThicknessMm?: unknown } | undefined)?.thinThicknessMm) ?? '1');
+  const [thinMidPlane, setThinMidPlane] = React.useState(
+    () => (editParams as { thinMidPlane?: unknown } | undefined)?.thinMidPlane === true);
   const [booleanScope, setBooleanScope] = React.useState<FeatureBooleanScope>(() => {
     if (mode !== 'edit') return 'new';
     const operation = editParams?.operation;
@@ -573,10 +616,44 @@ export function FeatureDialog({
   });
   const [chips, setChips] = React.useState<FeatureDialogEntity[]>([...(entities ?? [])]);
   const [distance, setDistance] = React.useState(() => storedNumberString(editParams?.distance) ?? '10');
-  // v1.22 ADR-0005 已支持 extrude endBound=blind/throughAll；本版把后端能力接到
-  // Onshape 同款「终止条件」控件（throughAll 需要上游实体，new/newBody 禁用）。
-  const [endBound, setEndBound] = React.useState<'blind' | 'throughAll'>(() =>
-    (editParams as { endBound?: unknown } | undefined)?.endBound === 'throughAll' ? 'throughAll' : 'blind');
+  // v1.52（ADR-0005 Phase 5）：upToSurface 目标面快照（路由时选中面；对话框打开即清选择）
+  // / 落库 faceRef（edit 只读回显）。与 mirror 面快照同源但独立命名，避免两通道耦合。
+  // 打开对话框后画布拾取被 useOnshapeSelection 的 paused 策略禁用并清选择——
+  // live 点选目标面登记 blocked-capability（ADR-0005 Phase 5 增补），不伪造通道。
+  const upToFaceSnapshot = React.useMemo(() => (initialFaces ?? []).flatMap((entry) => {
+    if (entry.kind !== 'face' || entry.topologyId === undefined) return [];
+    return [{ topologyId: entry.topologyId, ownerBodyKey: entry.ownerBodyKey }];
+  }), [initialFaces]);
+  const storedEndFaceRef = React.useMemo<LubanTopologyId | undefined>(() => {
+    if (mode !== 'edit') return undefined;
+    const raw = (editParams as { endFaceRef?: unknown } | undefined)?.endFaceRef;
+    if (typeof raw !== 'object' || raw === null) return undefined;
+    const face = raw as { nodeId?: unknown; entityId?: unknown };
+    return typeof face.nodeId === 'number' && typeof face.entityId === 'number'
+      ? { nodeId: face.nodeId, entityId: face.entityId }
+      : undefined;
+  }, [mode, editParams]);
+  const upToSurfaceFaceRef = storedEndFaceRef
+    ?? (upToFaceSnapshot.length === 1 ? upToFaceSnapshot[0]!.topologyId : undefined);
+  const upToSurfaceFaceMultiple = mode === 'new' && upToFaceSnapshot.length > 1;
+  // v1.54（ADR-0005 Phase 5 增补）：upToSurface「偏移距离」+ 反向（live 证据
+  // extrude-endbound-surface.json 行 hasOffset=偏移距离）。缺省关闭；仅成形到面可用。
+  const storedEndOffsetMm = (editParams as { endOffsetMm?: unknown } | undefined)?.endOffsetMm;
+  const [endOffsetEnabled, setEndOffsetEnabled] = React.useState(
+    () => typeof storedEndOffsetMm === 'number' && storedEndOffsetMm > 0);
+  const [endOffset, setEndOffset] = React.useState(
+    () => storedNumberString(storedEndOffsetMm) ?? '1');
+  const [endOffsetOpposite, setEndOffsetOpposite] = React.useState(
+    () => (editParams as { endOffsetOppositeDirection?: unknown } | undefined)?.endOffsetOppositeDirection === true);
+  // v1.22 ADR-0005 已支持 extrude endBound=blind/throughAll；v1.52 增 upToSurface
+  // （目标面=路由快照；打开后点选 blocked）；v1.54 增「偏移距离」+ 反向。
+  const [endBound, setEndBound] = React.useState<'blind' | 'throughAll' | 'upToSurface' | 'upToNext'>(() => {
+    const stored = (editParams as { endBound?: unknown } | undefined)?.endBound;
+    if (stored === 'throughAll') return 'throughAll';
+    if (stored === 'upToSurface') return 'upToSurface';
+    if (stored === 'upToNext') return 'upToNext';
+    return 'blind';
+  });
   const [direction, setDirection] = React.useState<FeatureDirection>('forward');
   const [startOffset, setStartOffset] = React.useState('');
   const [symmetric, setSymmetric] = React.useState(() => editParams?.symmetric === true);
@@ -596,7 +673,11 @@ export function FeatureDialog({
   const [secondDirectionEndBound, setSecondDirectionEndBound] = React.useState<'blind' | 'throughAll'>(
     () => storedSecondDirection?.endBound === 'throughAll' ? 'throughAll' : 'blind',
   );
-  const [draft, setDraft] = React.useState('');
+  // v1.51（ADR-0005 Phase 4）：拔模角（度制）+ 反向。缺省关闭；有效角为正=材料外扩。
+  const [draftEnabled, setDraftEnabled] = React.useState(() =>
+    typeof editParams?.draftAngleDeg === 'number' && editParams.draftAngleDeg !== 0);
+  const [draft, setDraft] = React.useState(() => storedNumberString(editParams?.draftAngleDeg) ?? '');
+  const [draftPullDirection, setDraftPullDirection] = React.useState(() => editParams?.draftPullDirection === true);
   // 透明度滑杆（M6-c T5 对齐采集底栏；0=不透明。语义挂账见文件头注）。
   const [transparency, setTransparency] = React.useState(0);
   const [helpOpen, setHelpOpen] = React.useState(false);
@@ -702,6 +783,8 @@ export function FeatureDialog({
   // 是真实直改工具 id，但参数化特征链入口特例改道本对话框（见 Ribbon.tsx 注）。
   const mirrorChannel = (mode === 'new' || mode === 'edit') && featureType === 'mirror' && applyOp !== undefined;
   const mirrorUpstreamMissing = mirrorChannel && !hasBodies;
+  // v1.37（ADR-0011）：任意平面镜像（planeLine）暂无 UI 编辑——禁止用世界平面下拉静默覆盖。
+  const mirrorPlaneLineReadOnly = mirrorChannel && mode === 'edit' && editParams?.planeLine !== undefined;
   // B5 v1.14 pattern 通道：PART/body 级阵列（kind=linear/circular；count 含原件）。
   // 无草图/面域/边拾取输入——参数只有 kind/count/spacing?/angle?/axis；上游体由服务端
   // 特征链供给（requiresUpstream——无实体时 UI 先挡 + 后端 op 边界同口径拒收）。
@@ -709,7 +792,7 @@ export function FeatureDialog({
   const patternUpstreamMissing = patternChannel && !hasBodies;
   // B6 M-A4.2a body boolean 通道（shared 1.16 BooleanBodiesParams）：以 body 为
   // 操作对象——target 单选 + tools 多选（均取 getBodies 的 active authored 读面），
-  // operation unite/subtract（v1 服务端拒 intersect），keepTools 决定成功后是否
+  // operation unite/subtract/intersect（T12 起全支持），keepTools 决定成功后是否
   // 消费工具。载荷目标只经 params.targets（M4.1 planBooleanInsert：params 是唯一
   // 真源；op 层 targetBodyId 可选且不一致会被拒——本通道不发）。**与 M7 的草图
   // 布尔（booleanAdd/booleanSubtract 页签/通道）互不相干，后者保持原样。**
@@ -719,7 +802,15 @@ export function FeatureDialog({
   // extrude 新建实体结构键（new 模式=用户勾选；edit 模式由落库 params 回显且
   // 禁用——结构键不可翻转）；N>1 的目标实体选择（值进 op.targetBodyId）。
   const [newBody, setNewBody] = React.useState<boolean>(() => readStoredNewBody(initialParams));
-  const [targetBodyKey, setTargetBodyKey] = React.useState('');
+  const [targetBodyKey, setTargetBodyKey] = React.useState(() => {
+    // B4 mirror faceRef：路由时快照的单个面所属 body 作为 N>1 目标实体默认值，
+    // 与镜像面保持同体（后续用户改目标下拉会被 ownerMismatch 守卫拦下）。
+    if (featureType !== 'mirror' || mode !== 'new') return '';
+    const faces = (initialFaces ?? []).filter(
+      (entry) => entry.kind === 'face' && entry.ownerBodyKey !== undefined,
+    );
+    return faces.length === 1 ? faces[0]!.ownerBodyKey! : '';
+  });
   // v1.19：extrude/revolve 的「新建」由布尔作用域页签表达（Onshape 同构）；旧 newBody 复选
   // 仅 edit 模式作只读回显（结构键不可翻转）。
   const operationNewBody = mode === 'new' && nativeOperationScope && booleanScope === 'new';
@@ -727,10 +818,41 @@ export function FeatureDialog({
   // throughAll 需要上游实体（后端 zod superRefine 同口径）。new/newBody 时禁用选项；
   // 操作页签切到 new 后本地态回落到 blind，避免「UI 显示贯穿、载荷实际盲孔」错位。
   const endBoundAllowed = extrudeChannel && nativeOperation !== 'new' && !effectiveNewBody;
-  const effectiveEndBound = endBound === 'throughAll' && endBoundAllowed ? 'throughAll' : 'blind';
+  // v1.53：薄壁单侧厚度；首版与 upToSurface/symmetric/draft/第二方向互斥（后端 zod 同口径）。
+  const thinWallActive = extrudeChannel && resultType === 'thinWall';
+  const thinThicknessNumber = Number(thinThickness);
+  const thinThicknessValid = !thinWallActive
+    || (thinThickness.trim() !== '' && Number.isFinite(thinThicknessNumber) && thinThicknessNumber > 0);
+  // v1.52：upToSurface 需要上游 + 恰一个面快照（多选/无面不猜）；new/newBody 同 throughAll 禁用。
+  // v1.53：薄壁不做 upToSurface/upToNext（首版仅 blind/throughAll）。
+  const upToSurfaceAllowed = endBoundAllowed && !thinWallActive
+    && upToSurfaceFaceRef !== undefined && !upToSurfaceFaceMultiple;
+  const upToNextAllowed = endBoundAllowed && !thinWallActive;
+  const effectiveEndBound: 'blind' | 'throughAll' | 'upToSurface' | 'upToNext' =
+    endBound === 'throughAll' && endBoundAllowed ? 'throughAll'
+      : endBound === 'upToSurface' && upToSurfaceAllowed ? 'upToSurface'
+        : endBound === 'upToNext' && upToNextAllowed ? 'upToNext'
+          : 'blind';
+  // v1.54：偏移距离仅在有效 upToSurface 下启用；输入须为有限正数（与 zod 同域）。
+  const endOffsetActive = extrudeChannel && effectiveEndBound === 'upToSurface'
+    && upToSurfaceFaceRef !== undefined;
+  const endOffsetNumber = Number(endOffset);
+  const endOffsetValid = !(endOffsetActive && endOffsetEnabled)
+    || (endOffset.trim() !== '' && Number.isFinite(endOffsetNumber) && endOffsetNumber > 0);
   React.useEffect(() => {
     if (endBound === 'throughAll' && !endBoundAllowed) setEndBound('blind');
-  }, [endBound, endBoundAllowed]);
+    if (endBound === 'upToSurface' && !upToSurfaceAllowed) setEndBound('blind');
+    if (endBound === 'upToNext' && !upToNextAllowed) setEndBound('blind');
+  }, [endBound, endBoundAllowed, upToSurfaceAllowed, upToNextAllowed]);
+  // v1.53：薄壁与 symmetric/draft/第二方向/upToSurface 互斥——切入薄壁时主动复位，
+  // 避免「UI 显示拔模/对称、载荷实际被后端拒收」的错位。
+  React.useEffect(() => {
+    if (!thinWallActive) return;
+    if (symmetric) setSymmetric(false);
+    if (draftEnabled) setDraftEnabled(false);
+    if (secondDirectionEnabled) setSecondDirectionEnabled(false);
+    if (endBound === 'upToSurface' || endBound === 'upToNext') setEndBound('blind');
+  }, [thinWallActive, symmetric, draftEnabled, secondDirectionEnabled, endBound]);
   const newBodyVisible = mode === 'edit' && (featureType === 'extrude' || featureType === 'revolve');
   // active authored body（consumed/orphan 不作写目标；服务端 getBodies 亦只回 authored）。
   const activeBodies = React.useMemo(
@@ -886,12 +1008,54 @@ export function FeatureDialog({
   // 扫掠/同平面路径，服务端 zod 同口径拒收）。
   const [sweepProfileSketchId, setSweepProfileSketchId] = React.useState('');
   const [sweepPathSketchId, setSweepPathSketchId] = React.useState('');
-  // B4 mirror 通道：镜像平面（世界系过原点；缺省 XZ=法向 Y，与 Onshape 默认前视镜像同锚）。
-  const [mirrorPlane, setMirrorPlane] = React.useState<MirrorParams['plane']>(() =>
-    mode === 'edit' && (editParams?.plane === 'XY' || editParams?.plane === 'YZ' || editParams?.plane === 'XZ')
-      ? editParams.plane
-      : 'XZ',
-  );
+  // B4 mirror 通道：镜像平面 = 世界系三平面（缺省 XZ）或**选中的面**（v1.41 faceRef）。
+  // 面来自路由时快照（对话框打开会 pause 选择工具/清空选择）；恰一个面时直接作为
+  // 「镜像平面 = 选中的面」；多选面不猜（提示 + FACE 选项不可选），无面快照仍用
+  // 世界平面下拉。edit 落库 faceRef 只读回显。
+  const initialMirrorFaces = React.useMemo(() => (initialFaces ?? []).flatMap((entry) => {
+    if (entry.kind !== 'face' || entry.topologyId === undefined) return [];
+    return [{ topologyId: entry.topologyId, ownerBodyKey: entry.ownerBodyKey }];
+  }), [initialFaces]);
+  const storedMirrorFaceRef = React.useMemo<LubanTopologyId | undefined>(() => {
+    if (mode !== 'edit') return undefined;
+    const raw = (editParams as { faceRef?: unknown } | undefined)?.faceRef;
+    if (typeof raw !== 'object' || raw === null) return undefined;
+    const face = raw as { nodeId?: unknown; entityId?: unknown };
+    return typeof face.nodeId === 'number' && typeof face.entityId === 'number'
+      ? { nodeId: face.nodeId, entityId: face.entityId }
+      : undefined;
+  }, [mode, editParams]);
+  const mirrorFaceRef = mode === 'edit'
+    ? storedMirrorFaceRef
+    : initialMirrorFaces.length === 1 ? initialMirrorFaces[0]!.topologyId : undefined;
+  const initialMirrorFaceOwnerKey = initialMirrorFaces.length === 1
+    ? initialMirrorFaces[0]!.ownerBodyKey
+    : undefined;
+  const [mirrorPlaneChoice, setMirrorPlaneChoice] = React.useState<MirrorParams['plane'] | 'FACE'>(() => {
+    if (mode === 'edit') {
+      if (storedMirrorFaceRef !== undefined) return 'FACE';
+      if (editParams?.plane === 'XY' || editParams?.plane === 'YZ' || editParams?.plane === 'XZ')
+        return editParams.plane;
+      return 'XZ';
+    }
+    return initialMirrorFaces.length === 1 ? 'FACE' : 'XZ';
+  });
+  const mirrorFaceReadOnly = mirrorChannel && mode === 'edit' && storedMirrorFaceRef !== undefined;
+  const mirrorFaceMissing = mirrorChannel && mirrorPlaneChoice === 'FACE' && mirrorFaceRef === undefined;
+  const mirrorFaceMultiple = mirrorChannel && mode === 'new' && initialMirrorFaces.length > 1;
+  // v1.48（ADR-0011 切片 2c）：镜像体与上游体的布尔组合（缺省 unite=加入）。
+  const [mirrorOperation, setMirrorOperation] = React.useState<NonNullable<MirrorParams['operation']>>(() => {
+    const stored = (editParams as { operation?: unknown } | undefined)?.operation;
+    return stored === 'subtract' || stored === 'intersect' || stored === 'unite' ? stored : 'unite';
+  });
+  // 2026-11-08（live 证据 mirror-feature-scope-20261108）：镜像作用域
+  // 零件（body，现有 mirror）/ 特征（featureMirror，single source + world plane）。
+  // 面镜像作用域产品契约尚无法表达（featureMirror planeLine 需要面平面解析），
+  // 不在 UI 造假；特征作用域首版仅世界平面。
+  const [mirrorScope, setMirrorScope] = React.useState<'body' | 'feature'>('body');
+  const [mirrorSourceFeatureId, setMirrorSourceFeatureId] = React.useState('');
+  const mirrorFeatureReady = mirrorScope === 'body'
+    || (mirrorSourceFeatureId !== '' && mirrorPlaneChoice !== 'FACE');
   // B5 pattern 通道：kind（ribbon 入口可指定初始值）+ count（含原件，缺省 3）+
   // spacing（linear 缺省 10）/ angle（circular 缺省 360°）+ axis（linear 缺省 X；
   // circular 锁定 Z，见下方载荷/渲染）。
@@ -900,12 +1064,59 @@ export function FeatureDialog({
       ? editParams.kind
       : (initialPatternKind ?? 'linear'),
   );
-  const [patternCount, setPatternCount] = React.useState(() => storedNumberString(editParams?.count) ?? '3');
+  // v1.49（ADR-0007 切片 6）：居中线性阵列——落库 count 是总实例数 2N−1，
+  // 编辑回显换算回每侧 N（脏/偶数原样显示，交给提交校验诚实拒收）。
+  const patternStoredCentered = editParams?.centered === true;
+  const [patternCentered, setPatternCentered] = React.useState(() => patternStoredCentered);
+  const [patternCount, setPatternCount] = React.useState(() => {
+    const storedCount = editParams?.count;
+    if (
+      patternStoredCentered
+      && typeof storedCount === 'number'
+      && Number.isInteger(storedCount)
+      && storedCount > 0
+      && storedCount % 2 === 1
+    )
+      return String((storedCount + 1) / 2);
+    return storedNumberString(storedCount) ?? '3';
+  });
   const [patternSpacing, setPatternSpacing] = React.useState(() => storedNumberString(editParams?.spacing) ?? '10');
   const [patternAngle, setPatternAngle] = React.useState(() => storedNumberString(editParams?.angle) ?? '360');
   const [patternAxis, setPatternAxis] = React.useState<PatternParams['axis']>(() =>
     editParams?.axis === 'X' || editParams?.axis === 'Y' || editParams?.axis === 'Z' ? editParams.axis : 'X',
   );
+  // v1.63（ADR-0007 切片 14）：第一方向反向（仅 linear）。
+  const [patternOppositeDirection, setPatternOppositeDirection] =
+    React.useState(() => editParams?.oppositeDirection === true);
+  // v1.62（ADR-0007 切片 13）：body 线性阵列第二方向。落库 centered 时 count 为
+  // 总实例数，回显换算每侧 N（同第一方向）。
+  const patternStoredSecond = React.useMemo(() => {
+    const raw = (editParams as { secondDirection?: unknown } | undefined)?.secondDirection;
+    if (typeof raw !== 'object' || raw === null) return undefined;
+    const r = raw as Record<string, unknown>;
+    if (typeof r.count !== 'number' || !Number.isFinite(r.count)) return undefined;
+    const axis = r.axis === 'X' || r.axis === 'Y' || r.axis === 'Z' ? r.axis : undefined;
+    if (axis === undefined) return undefined;
+    return {
+      count: r.count,
+      spacing: typeof r.spacing === 'number' && Number.isFinite(r.spacing) ? r.spacing : undefined,
+      axis,
+      centered: r.centered === true,
+    };
+  }, [editParams]);
+  const [patternSecondEnabled, setPatternSecondEnabled] = React.useState(patternStoredSecond !== undefined);
+  const [patternSecondCentered, setPatternSecondCentered] = React.useState(patternStoredSecond?.centered === true);
+  const [patternSecondCount, setPatternSecondCount] = React.useState(() => {
+    if (patternStoredSecond === undefined) return '2';
+    return String(patternStoredSecond.centered
+      ? Math.round((patternStoredSecond.count + 1) / 2)
+      : patternStoredSecond.count);
+  });
+  const [patternSecondSpacing, setPatternSecondSpacing] = React.useState(
+    () => storedNumberString(patternStoredSecond?.spacing) ?? '10');
+  const [patternSecondAxis, setPatternSecondAxis] = React.useState<PatternParams['axis']>(
+    () => (patternStoredSecond?.axis
+      ?? (editParams?.axis === 'Y' || editParams?.axis === 'Z' ? 'X' : 'Y')) as PatternParams['axis']);
   // B6 M-A4.2a booleanBodies 通道：target 键 + tools 键集 + operation + keepTools。
   // target 缺省 ''（生效值回落首个 active authored body）；tools 以键集维护
   //（点选切换天然去重——载荷再按 activeBodies 序归一，无重复项）。
@@ -1178,6 +1389,13 @@ export function FeatureDialog({
     }
   }, [axisLines, selectedAxisId]);
 
+  // v1.51 extrude 拔模门禁：角度有限、非零、|angle|<89（与服务端 zod 同域）。
+  // 放在预览 useMemo 之前（预览依赖）。
+  const draftAngleNumber = Number(draft);
+  const draftReady = !draftEnabled
+    || (extrudeChannel && draft.trim() !== '' && Number.isFinite(draftAngleNumber)
+      && draftAngleNumber !== 0 && Math.abs(draftAngleNumber) < 89);
+
   // ── 实时几何预览（2026-11-02）────────────────────────────────────────────
   // 参数（面域选集/距离/对称/轴/角度）→ 世界几何（internal/feature-preview 纯
   // 函数）→ FeaturePreviewOverlay 的 WorldDecoration（灰体+橙色选中面域，
@@ -1187,6 +1405,7 @@ export function FeatureDialog({
     if (!viewport || sketchChannel === false || !sketchEntities || !regions || regions.length === 0)
       return undefined;
     if (extrudeChannel) {
+      if (draftEnabled && !draftReady) return undefined;
       const magnitude = Number(distance);
       if (distance.trim() === '' || !Number.isFinite(magnitude) || magnitude <= 0) return undefined;
       const selected = regions.filter((_, index) => selectedRegions.includes(index));
@@ -1205,6 +1424,7 @@ export function FeatureDialog({
         symmetric,
         Number(startOffset) || 0,
         secondSigned,
+        draftEnabled ? { angleDeg: draftAngleNumber, pullDirection: draftPullDirection } : undefined,
       );
     }
     if (revolveChannel) {
@@ -1241,6 +1461,10 @@ export function FeatureDialog({
     secondDirectionEndBound,
     fullRevolve,
     angleDegrees,
+    draftEnabled,
+    draftAngleNumber,
+    draftPullDirection,
+    draftReady,
   ]);
   // 预览透明度：底部滑杆 0=Onshape 默认灰体（0.42）→100=近隐形（0.06）。
   const previewOpacity = 0.42 - (Math.max(0, Math.min(100, transparency)) / 100) * 0.36;
@@ -1251,51 +1475,6 @@ export function FeatureDialog({
     setPreviewHost((rootRef.current?.closest('.part-studio-canvas') as HTMLElement | null) ?? null);
   }, []);
 
-  // v1.21：fillet 真实结果预览——后端影子求值（不落库）→ 前端 TileRpc 动态图形。
-  // 150ms debounce + 序列号守卫；短租约预算失败只静默不出预览，不阻塞参数编辑。
-  const [backendPreview, setBackendPreview] = React.useState<FeaturePreviewGeometryDto | undefined>(undefined);
-  const previewSeqRef = React.useRef(0);
-  React.useEffect(() => {
-    if (!filletChannel || previewOp === undefined || filletEdges.length === 0) {
-      setBackendPreview(undefined);
-      return;
-    }
-    const parsedRadius = Number(radius);
-    if (radius.trim() === '' || !Number.isFinite(parsedRadius) || parsedRadius <= 0) {
-      setBackendPreview(undefined);
-      return;
-    }
-    const seq = ++previewSeqRef.current;
-    const timer = window.setTimeout(() => {
-      const filletParams = {
-        ...(mode === 'edit' ? (editParams ?? {}) : {}),
-        radius: parsedRadius,
-        propagateSmooth,
-        edges: filletEdges.map((edge) => ({ edge: edge.edge })),
-      } as FeatureParams;
-      const op: FeatureOp = mode === 'edit' && featureId !== undefined
-        ? { kind: 'updateParams', featureId, params: filletParams }
-        : {
-            kind: 'insertFeature',
-            featureType: 'fillet',
-            params: filletParams,
-            ...(filletAutomaticTargetId !== undefined ? { targetBodyId: filletAutomaticTargetId } : {}),
-          };
-      void previewOp(op).then(
-        (result) => {
-          if (previewSeqRef.current !== seq) return;
-          setBackendPreview(result.ok ? result.preview : undefined);
-        },
-        () => {
-          if (previewSeqRef.current === seq) setBackendPreview(undefined);
-        },
-      );
-    }, 150);
-    return () => {
-      window.clearTimeout(timer);
-      if (previewSeqRef.current === seq) previewSeqRef.current += 1;
-    };
-  }, [filletChannel, previewOp, filletEdges, radius, propagateSmooth, filletAutomaticTargetId, mode, featureId, editParams]);
 
   // 提交门（M6-a T6；M6-c T3 面域判据分叉；v1.30 revolve 多集合同口径）：草图
   // 通道就绪 = 已选草图 ∧ 面域已载且非空 ∧ 选集非空、下标未越界（revolve 另需
@@ -1341,16 +1520,48 @@ export function FeatureDialog({
   // 提交门（B5 pattern）：count 须为 ≥2 的整数；linear spacing >0；circular angle
   // (0,360] 度——与服务端 zod 同域（UI 先挡 + 后端 txn 前拒收双层防御）。
   const patternCountNumber = Number(patternCount);
-  const patternCountValid = Number.isInteger(patternCountNumber) && patternCountNumber >= 2 && patternCountNumber <= 1000; // M1：与 zod 同域 2..1000
+  // v1.49：居中时输入 N 为每侧实例数（含原件），载荷 count=2N−1（总实例数，
+  // 必为奇数）；N 上限 500 保证总实例数 ≤999（与 zod 域 2..1000 同口径）。
+  const patternCenteredActive = patternChannel && patternKind === 'linear' && patternCentered;
+  const patternEffectiveCount = patternCenteredActive ? patternCountNumber * 2 - 1 : patternCountNumber;
+  const patternCountValid = Number.isInteger(patternCountNumber) && patternCountNumber >= 2
+    && patternCountNumber <= (patternCenteredActive ? 500 : 1000); // M1：与 zod 同域 2..1000（居中折算后）
   const patternSpacingNumber = Number(patternSpacing);
   const patternSpacingValid = Number.isFinite(patternSpacingNumber) && patternSpacingNumber > 0;
   const patternAngleNumber = Number(patternAngle);
   const patternAngleValid = Number.isFinite(patternAngleNumber) && patternAngleNumber > 0 && patternAngleNumber <= 360;
+  // v1.62：第二方向仅 linear 生效；centered 输入为每侧 N（载荷 2N−1）。
+  const patternSecondActive = patternChannel && patternKind === 'linear' && patternSecondEnabled;
+  const patternSecondCenteredActive = patternSecondActive && patternSecondCentered;
+  const patternSecondCountNumber = Number(patternSecondCount);
+  const patternSecondEffectiveCount = patternSecondCenteredActive
+    ? patternSecondCountNumber * 2 - 1
+    : patternSecondCountNumber;
+  const patternSecondCountValid = Number.isInteger(patternSecondCountNumber) && patternSecondCountNumber >= 2
+    && patternSecondCountNumber <= (patternSecondCenteredActive ? 500 : 1000);
+  const patternSecondSpacingNumber = Number(patternSecondSpacing);
+  const patternSecondSpacingValid = Number.isFinite(patternSecondSpacingNumber) && patternSecondSpacingNumber > 0;
+  const patternTotalCount = patternEffectiveCount * patternSecondEffectiveCount;
+  const patternTotalCountValid = !patternSecondActive || !patternCountValid || !patternSecondCountValid
+    || patternTotalCount <= 1000;
   // ✓/成品统一禁用面（各通道门禁 + 上游门禁；两处按钮同源防漂移）。pattern 的数值
   // 非法不在此禁用——提交时给字段级诚实文案（同 extrude distance 的既有手感：
   // 数字域错误在确认出口报，而非静默灰化）。
+  // mirror faceRef：所选面必须属于当前目标 body（N>1 时用户可改目标下拉；跨体
+  // 面引用必须诚实拒收，绝不把别的 body 的面镜像到目标体上）。
+  const mirrorFaceOwnerMismatch = mirrorChannel
+    && mirrorPlaneChoice === 'FACE'
+    && mirrorFaceRef !== undefined
+    && targetSelectorVisible
+    && initialMirrorFaceOwnerKey !== undefined
+    && initialMirrorFaceOwnerKey !== effectiveTargetBodyKey;
   const submitDisabled = submitting || editReadOnly || !canEdit || !sketchReady || !filletReady
+    || !draftReady || !thinThicknessValid || !endOffsetValid
     || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
+    || (mirrorChannel && mirrorScope === 'feature' && !mirrorFeatureReady)
+    || (extrudeChannel && endBound === 'upToSurface' && !upToSurfaceAllowed)
+    || (extrudeChannel && endBound === 'upToNext' && !upToNextAllowed)
+    || mirrorPlaneLineReadOnly || mirrorFaceReadOnly || mirrorFaceMissing || mirrorFaceOwnerMismatch
     || patternUpstreamMissing
     // B6 M-A3.2a：读面刷新中（N 未知）/读面不可用（target 无从确定）禁提交；
     // 目标下拉在场时必须已有有效目标；Critical 1：边跨体/孤儿 owner 或无 owner
@@ -1360,6 +1571,198 @@ export function FeatureDialog({
     || (targetSelectorVisible && effectiveTargetBodyKey === '')
     // B6 M-A4.2a：body boolean 通道门禁（体不足/读面不可用/工具空/目标在工具）。
     || !booleanBodiesReady;
+
+  // 预览（v1.21 起；2026-11-08 扩到 chamfer/loft/sweep/mirror/pattern）：后端影子
+  // 求值（不落库）→ 前端 TileRpc 动态图形。150ms debounce + 序列号守卫；短租约
+  // 预算失败只静默不出预览，不阻塞参数编辑。effect 放在派生就绪量之后，直接复用
+  // 提交门口径（避免 TDZ 与两套校验漂移）。
+  const [backendPreview, setBackendPreview] = React.useState<FeaturePreviewGeometryDto | undefined>(undefined);
+  const previewSeqRef = React.useRef(0);
+  React.useEffect(() => {
+    if (previewOp === undefined) {
+      setBackendPreview(undefined);
+      return;
+    }
+    let previewParams: FeatureParams | undefined;
+    let previewFeatureType: 'fillet' | 'chamfer' | 'loft' | 'sweep' | 'mirror' | 'featureMirror' | 'pattern' | 'booleanBodies' | undefined;
+    if (edgePickChannel) {
+      if (filletEdges.length === 0) {
+        setBackendPreview(undefined);
+        return;
+      }
+      const parsedValue = Number(radius);
+      let parsedValue2 = parsedValue;
+      let valuesValid = radius.trim() !== '' && Number.isFinite(parsedValue) && parsedValue > 0;
+      if (chamferChannel) {
+        if (chamferVariant === 'twoDistances') {
+          parsedValue2 = Number(chamferDistance2);
+          valuesValid = valuesValid && chamferDistance2.trim() !== ''
+            && Number.isFinite(parsedValue2) && parsedValue2 > 0;
+        } else if (chamferVariant === 'distanceAngle') {
+          const degrees = Number(chamferAngleDeg);
+          valuesValid = valuesValid && chamferAngleDeg.trim() !== ''
+            && Number.isFinite(degrees) && degrees > 0 && degrees < 180;
+          parsedValue2 = (degrees * Math.PI) / 180;
+        }
+      }
+      if (!valuesValid) {
+        setBackendPreview(undefined);
+        return;
+      }
+      const edges = filletEdges.map((edge) => ({ edge: edge.edge }));
+      const storedExtra = mode === 'edit' ? (editParams ?? {}) : {};
+      previewParams = (chamferChannel
+        ? {
+            ...storedExtra,
+            mode: chamferVariant === 'distanceAngle' ? 3 : 2,
+            propagateSmooth,
+            edges,
+            values1: parsedValue,
+            values2: parsedValue2,
+          }
+        : {
+            ...storedExtra,
+            radius: parsedValue,
+            propagateSmooth,
+            edges,
+          }) as FeatureParams;
+      previewFeatureType = chamferChannel ? 'chamfer' : 'fillet';
+    } else if (loftChannel) {
+      if (!loftReady) {
+        setBackendPreview(undefined);
+        return;
+      }
+      previewParams = { sketchIds: [loftSketchA, loftSketchB], bodyType: 'SOLID' } as FeatureParams;
+      previewFeatureType = 'loft';
+    } else if (sweepChannel) {
+      if (!sweepReady) {
+        setBackendPreview(undefined);
+        return;
+      }
+      previewParams = {
+        profileSketchId: sweepProfileSketchId,
+        pathSketchId: sweepPathSketchId,
+        bodyType: 'SOLID',
+      } as FeatureParams;
+      previewFeatureType = 'sweep';
+    } else if (mirrorChannel) {
+      if (mirrorScope === 'feature') {
+        if (mirrorUpstreamMissing || !mirrorFeatureReady) {
+          setBackendPreview(undefined);
+          return;
+        }
+        previewParams = {
+          sourceFeatureId: mirrorSourceFeatureId,
+          planeLine: mirrorPlaneLineForWorldPlane(mirrorPlaneChoice as 'XY' | 'YZ' | 'XZ'),
+        } as FeatureParams;
+        previewFeatureType = 'featureMirror';
+      } else if (mirrorUpstreamMissing || mirrorFaceReadOnly || mirrorPlaneLineReadOnly
+        || mirrorFaceMissing || mirrorFaceOwnerMismatch) {
+        setBackendPreview(undefined);
+        return;
+      } else {
+        previewParams = (mirrorPlaneChoice === 'FACE'
+          ? { faceRef: mirrorFaceRef, keepOriginal: true }
+          : { plane: mirrorPlaneChoice, keepOriginal: true }) as FeatureParams;
+        if (mirrorOperation !== 'unite') {
+          (previewParams as { operation?: string }).operation = mirrorOperation;
+        }
+        previewFeatureType = 'mirror';
+      }
+    } else if (patternChannel) {
+      if (patternUpstreamMissing || !patternCountValid
+        || (patternKind === 'linear' ? !patternSpacingValid : !patternAngleValid)
+        || (patternSecondActive && (!patternSecondCountValid || !patternSecondSpacingValid || !patternTotalCountValid))) {
+        setBackendPreview(undefined);
+        return;
+      }
+      previewParams = (patternKind === 'linear'
+        ? {
+            kind: 'linear',
+            count: patternEffectiveCount,
+            spacing: patternSpacingNumber,
+            axis: patternAxis,
+            ...(patternCenteredActive ? { centered: true } : {}),
+            ...(patternOppositeDirection ? { oppositeDirection: true } : {}),
+            ...(patternSecondActive
+              ? {
+                  secondDirection: {
+                    count: patternSecondEffectiveCount,
+                    spacing: patternSecondSpacingNumber,
+                    axis: patternSecondAxis,
+                    ...(patternSecondCenteredActive ? { centered: true } : {}),
+                  },
+                }
+              : {}),
+          }
+        : {
+            kind: 'circular',
+            count: patternCountNumber,
+            angle: patternAngleNumber,
+            axis: 'Z',
+          }) as FeatureParams;
+      previewFeatureType = 'pattern';
+    } else if (booleanBodiesChannel) {
+      if (!booleanBodiesReady) {
+        setBackendPreview(undefined);
+        return;
+      }
+      previewParams = {
+        targets: [{ bodyKey: booleanEffectiveTargetKey }],
+        tools: booleanEffectiveToolKeys.map((bodyKey) => ({ bodyKey })),
+        operation: booleanOperation,
+        keepTools: booleanKeepTools,
+      } as FeatureParams;
+      previewFeatureType = 'booleanBodies';
+    } else {
+      setBackendPreview(undefined);
+      return;
+    }
+    const previewTargetBodyId = edgePickChannel
+      ? filletAutomaticTargetId
+      : targetSelectorVisible && effectiveTargetBodyKey !== ''
+        ? effectiveTargetBodyKey
+        : undefined;
+    const seq = ++previewSeqRef.current;
+    const timer = window.setTimeout(() => {
+      const op: FeatureOp = mode === 'edit' && featureId !== undefined
+        ? { kind: 'updateParams', featureId, params: previewParams as FeatureParams }
+        : {
+            kind: 'insertFeature',
+            featureType: previewFeatureType as Exclude<typeof previewFeatureType, undefined>,
+            params: previewParams as FeatureParams,
+            ...(previewTargetBodyId !== undefined ? { targetBodyId: previewTargetBodyId } : {}),
+          };
+      void previewOp(op).then(
+        (result) => {
+          if (previewSeqRef.current !== seq) return;
+          setBackendPreview(result.ok ? result.preview : undefined);
+        },
+        () => {
+          if (previewSeqRef.current === seq) setBackendPreview(undefined);
+        },
+      );
+    }, 150);
+    return () => {
+      window.clearTimeout(timer);
+      if (previewSeqRef.current === seq) previewSeqRef.current += 1;
+    };
+  }, [edgePickChannel, chamferChannel, chamferVariant, chamferDistance2, chamferAngleDeg,
+    loftChannel, loftReady, loftSketchA, loftSketchB,
+    sweepChannel, sweepReady, sweepProfileSketchId, sweepPathSketchId,
+    mirrorChannel, mirrorScope, mirrorSourceFeatureId, mirrorFeatureReady,
+    mirrorPlaneChoice, mirrorFaceRef, mirrorOperation, mirrorUpstreamMissing,
+    mirrorFaceReadOnly, mirrorPlaneLineReadOnly, mirrorFaceMissing, mirrorFaceOwnerMismatch,
+    patternChannel, patternKind, patternEffectiveCount, patternCountValid,
+    patternSpacingNumber, patternSpacingValid, patternAngleNumber, patternAngleValid,
+    patternCenteredActive, patternAxis, patternUpstreamMissing,
+    patternOppositeDirection,
+    patternSecondActive, patternSecondCountValid, patternSecondSpacingValid, patternTotalCountValid,
+    patternSecondEffectiveCount, patternSecondSpacingNumber, patternSecondAxis, patternSecondCenteredActive,
+    booleanBodiesChannel, booleanBodiesReady, booleanEffectiveTargetKey,
+    booleanEffectiveToolKeys, booleanOperation, booleanKeepTools,
+    targetSelectorVisible, effectiveTargetBodyKey,
+    previewOp, filletEdges, radius, propagateSmooth, filletAutomaticTargetId, mode, featureId, editParams]);
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -1401,7 +1804,9 @@ export function FeatureDialog({
   const handleConfirm = React.useCallback(() => {
     if (submitting || !canEdit) return; // 禁重入 + 只读写门禁（B2：readonly 不进租约环）
     if (editReadOnly) return; // 结构键不可变类型只读（✓ 已禁用，防御兜底）
-    const submittedFeatureType = featureType;
+    // featureMirror 特征作用域覆盖提交类型；其余保持 effectiveFeatureType
+    // （booleanAdd/Subtract 的 booleanScope 映射在此生效）。
+    const submittedFeatureType = mirrorChannel && mirrorScope === 'feature' ? 'featureMirror' : effectiveFeatureType;
     const canSubmit = applyOp !== undefined && submittedFeatureType !== undefined
       && (mode === 'new' || (mode === 'edit' && featureId !== undefined));
     if (!canSubmit) {
@@ -1409,11 +1814,24 @@ export function FeatureDialog({
       return;
     }
     if (sketchChannel && !sketchReady) return; // 草图通道门禁（✓ 已禁用，此为防御兜底）
+    if (draftEnabled && !draftReady) return; // 拔模角门禁（✓ 已禁用，防御兜底）
+    if (thinWallActive && !thinThicknessValid) {
+      setError(t('partStudio.featureDialog.thinThicknessInvalid'));
+      return;
+    }
     if (edgePickChannel && !filletReady) return; // 边拾取通道门禁（空边集/拾取中——防御兜底）
     if (loftChannel && !loftReady) return; // loft 通道门禁（两截面未选/同草图——防御兜底）
     if (sweepChannel && !sweepReady) return; // sweep 通道门禁（轮廓/路径未选/同草图——防御兜底）
     if (booleanUpstreamMissing) return; // 布尔上游门禁（无实体——✓ 已禁用，防御兜底）
     if (mirrorUpstreamMissing) return; // mirror 上游门禁（无实体可镜像——✓ 已禁用，防御兜底）
+    if (mirrorChannel && mirrorScope === 'feature' && !mirrorFeatureReady) return; // 特征镜像缺源/面平面
+    if (extrudeChannel && endBound === 'upToSurface' && !upToSurfaceAllowed) return; // upToSurface 缺目标面/多选面
+    if (extrudeChannel && endBound === 'upToNext' && !upToNextAllowed) return; // upToNext 无上游/薄壁互斥
+    if (extrudeChannel && effectiveEndBound === 'upToSurface' && endOffsetEnabled
+      && (endOffset.trim() === '' || !Number.isFinite(endOffsetNumber) || endOffsetNumber <= 0)) {
+      setError(t('partStudio.featureDialog.endOffsetInvalid'));
+      return;
+    }
     if (patternUpstreamMissing) return; // pattern 上游门禁（无实体可阵列——✓ 已禁用，防御兜底）
     if (booleanBodiesChannel && !booleanBodiesReady) return; // 体布尔通道门禁（体不足/工具空/目标在工具——防御兜底）
     // B6 M-A3.2a：读面刷新中（N 未知）不派发；N>1 目标必选（禁止无 target 的 regular insert）。
@@ -1423,7 +1841,9 @@ export function FeatureDialog({
     // B5 pattern 参数校验：按当前形态给具体文案（count/spacing/angle——与服务端 zod 同域）。
     if (patternChannel) {
       if (!patternCountValid) {
-        setError(t('partStudio.featureDialog.patternCountInvalid'));
+        setError(t(patternCenteredActive
+          ? 'partStudio.featureDialog.patternCountCenteredInvalid'
+          : 'partStudio.featureDialog.patternCountInvalid'));
         return;
       }
       if (patternKind === 'linear' && !patternSpacingValid) {
@@ -1434,6 +1854,22 @@ export function FeatureDialog({
         setError(t('partStudio.featureDialog.patternAngleInvalid'));
         return;
       }
+      if (patternSecondActive) {
+        if (!patternSecondCountValid) {
+          setError(t(patternSecondCenteredActive
+            ? 'partStudio.featureDialog.patternSecondCountCenteredInvalid'
+            : 'partStudio.featureDialog.patternSecondCountInvalid'));
+          return;
+        }
+        if (!patternSecondSpacingValid) {
+          setError(t('partStudio.featureDialog.patternSecondSpacingInvalid'));
+          return;
+        }
+        if (patternCountValid && patternTotalCount > 1000) {
+          setError(t('partStudio.featureDialog.patternTotalCountInvalid'));
+          return;
+        }
+      }
     }
     // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep/mirror/pattern 无距离量——旋转角即参数/
     // 半径即参数/放样无扫掠距离/扫掠无扫掠距离/镜像无距离/阵列无距离，输入已隐藏）。
@@ -1441,8 +1877,9 @@ export function FeatureDialog({
     if (!revolveChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
       && !patternChannel && !booleanBodiesChannel) {
       parsedDistance = Number(distance);
-      if (effectiveEndBound === 'throughAll') {
-        // ExtrudeParams.distance 契约仍要求正数（服务端 throughAll 时忽略该值）；
+      if (effectiveEndBound === 'throughAll' || effectiveEndBound === 'upToSurface'
+        || effectiveEndBound === 'upToNext') {
+        // ExtrudeParams.distance 契约仍要求正数（throughAll/upToSurface/upToNext 服务端忽略该值）；
         // 输入框已禁用，保留当前有效值，缺省回落到 1（仅满足形态校验）。
         if (!Number.isFinite(parsedDistance) || parsedDistance <= 0) parsedDistance = 1;
       } else if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
@@ -1544,9 +1981,25 @@ export function FeatureDialog({
                     // B5 pattern（shared v1.14 PatternParams）：PART/body 线性阵列——
                     // count 含原件 + spacing>0 + 世界轴。无 angle 键（两形态键集互斥）。
                     kind: 'linear' as const,
-                    count: patternCountNumber,
+                    count: patternEffectiveCount,
                     spacing: patternSpacingNumber,
                     axis: patternAxis,
+                    // v1.49（ADR-0007 切片 6）：居中线性阵列——count 为总实例数
+                    // 2N−1（奇数、seed 居中）；非居中不发该键（旧载荷兼容）。
+                    ...(patternCentered ? { centered: true } : {}),
+                    // v1.63（ADR-0007 切片 14）：第一方向反向（仅 linear）。
+                    ...(patternOppositeDirection ? { oppositeDirection: true } : {}),
+                    // v1.62（ADR-0007 切片 13）：第二方向网格（仅 linear）。
+                    ...(patternSecondActive
+                      ? {
+                          secondDirection: {
+                            count: patternSecondEffectiveCount,
+                            spacing: patternSecondSpacingNumber,
+                            axis: patternSecondAxis,
+                            ...(patternSecondCentered ? { centered: true } : {}),
+                          },
+                        }
+                      : {}),
                   }
                 : {
                     // 圆周阵列：绕世界 Z 过原点；axis 恒 'Z'（UI 锁定 + 服务端 zod 同口径）。
@@ -1559,10 +2012,22 @@ export function FeatureDialog({
                   })
             : mirrorChannel
             ? {
-                // B4 mirror（shared v1.13 MirrorParams）：世界平面三选一 + keepOriginal 字面量
-                // true（首版恒保留原体并与镜像体 Unite）。无 distance/profile/regions/草图键。
-                plane: mirrorPlane,
-                keepOriginal: true,
+                // B4 mirror（shared v1.13/v1.41/v1.48 MirrorParams）：世界平面三选一或
+                // faceRef（选中的面），keepOriginal 恒 true；v1.48 起 operation 表达
+                // 加入(缺省)/移除/相交（新建=独立体依赖多体输出，不在本切片）。
+                // 2026-11-08：特征作用域 → featureMirror（源特征增量 + 世界 planeLine）；
+                // 面镜像作用域产品尚无 face→planeLine 解析，UI 不提供。
+                ...(mirrorScope === 'feature'
+                  ? {
+                      sourceFeatureId: mirrorSourceFeatureId,
+                      planeLine: mirrorPlaneLineForWorldPlane(mirrorPlaneChoice as 'XY' | 'YZ' | 'XZ'),
+                    }
+                  : mirrorPlaneChoice === 'FACE'
+                    ? { faceRef: mirrorFaceRef!, keepOriginal: true }
+                    : { plane: mirrorPlaneChoice, keepOriginal: true }),
+                ...(mirrorScope === 'body' && mirrorOperation !== 'unite'
+                  ? { operation: mirrorOperation }
+                  : {}),
               }
             : sweepChannel
             ? {
@@ -1644,6 +2109,22 @@ export function FeatureDialog({
                   // T4-minor 接线收口：对称复选勾选才带键（缺省省略=载荷向后
                   // 兼容，既有钉形测试不破）。
                   ...(symmetric ? { symmetric: true } : {}),
+                  // v1.51（ADR-0005 Phase 4）：拔模角/反向。仅 sketchId 模式（本通道），
+                  // 与服务端盲孔+非对称互斥规则一致。
+                  ...(draftEnabled
+                    ? {
+                      draftAngleDeg: draftAngleNumber,
+                      ...(draftPullDirection ? { draftPullDirection: true } : {}),
+                    }
+                    : {}),
+                  // v1.53：薄壁结果体 + 厚度；v1.55：中间平面（厚度向两侧各半）。
+                  ...(thinWallActive
+                    ? {
+                      bodyType: 'THIN' as const,
+                      thinThicknessMm: thinThicknessNumber,
+                      ...(thinMidPlane ? { thinMidPlane: true } : {}),
+                    }
+                    : {}),
                   // v1.19：operation 为 Onshape「新建/加入/移除/相交」页签真源；newBody 不再作为
                   // 提交键（服务端 isNewBody 同时认 operation="new"），避免双真源。
                   ...(nativeOperation ? { operation: nativeOperation } : {}),
@@ -1656,6 +2137,19 @@ export function FeatureDialog({
                   // v1.22 ADR-0005：终止条件（缺省 blind=legacy 不携带该键）。
                   ...(extrudeChannel && effectiveEndBound === 'throughAll'
                     ? { endBound: 'throughAll' as const }
+                    : {}),
+                  // v1.52：upToSurface = 目标面持久引用（面快照来自路由时选中面）。
+                  // v1.54：偏移距离/反向（仅复选启用时携带）。
+                  ...(extrudeChannel && effectiveEndBound === 'upToSurface' && upToSurfaceFaceRef !== undefined
+                    ? {
+                      endBound: 'upToSurface' as const,
+                      endFaceRef: upToSurfaceFaceRef,
+                      ...(endOffsetEnabled ? { endOffsetMm: endOffsetNumber } : {}),
+                      ...(endOffsetEnabled && endOffsetOpposite ? { endOffsetOppositeDirection: true } : {}),
+                    }
+                    : {}),
+                  ...(extrudeChannel && effectiveEndBound === 'upToNext'
+                    ? { endBound: 'upToNext' as const }
                     : {}),
                   // v1.24：第二方向（缺省=主方向相反侧；方向键由 scenario/落库携带）。
                   ...(extrudeChannel && secondDirectionEnabled && !symmetric
@@ -1682,10 +2176,51 @@ export function FeatureDialog({
           delete (params as unknown as Record<string, unknown>).regionIndex;
           // endBound 可编辑：blind 时删除落库键（payload 不携带 blind，避免旧值残留）。
           if (featureType === 'extrude') {
-            if (effectiveEndBound === 'throughAll')
-              (params as unknown as Record<string, unknown>).endBound = 'throughAll';
-            else
-              delete (params as unknown as Record<string, unknown>).endBound;
+            const editable = params as unknown as Record<string, unknown>;
+            if (effectiveEndBound === 'throughAll') {
+              editable.endBound = 'throughAll';
+              delete editable.endFaceRef;
+            } else if (effectiveEndBound === 'upToSurface' && upToSurfaceFaceRef !== undefined) {
+              editable.endBound = 'upToSurface';
+              editable.endFaceRef = upToSurfaceFaceRef;
+            } else if (effectiveEndBound === 'upToNext') {
+              editable.endBound = 'upToNext';
+              delete editable.endFaceRef;
+            } else {
+              delete editable.endBound;
+              delete editable.endFaceRef;
+            }
+            // v1.54：偏移键随 upToSurface + 复选状态可编辑；关闭/换终止条件即删除旧键。
+            if (effectiveEndBound === 'upToSurface' && endOffsetEnabled) {
+              editable.endOffsetMm = endOffsetNumber;
+              if (endOffsetOpposite) editable.endOffsetOppositeDirection = true;
+              else delete editable.endOffsetOppositeDirection;
+            } else {
+              delete editable.endOffsetMm;
+              delete editable.endOffsetOppositeDirection;
+            }
+            // v1.53/v1.55：薄壁结果体/厚度/中间平面可编辑；切回实体即删除旧键。
+            if (thinWallActive) {
+              editable.bodyType = 'THIN';
+              editable.thinThicknessMm = thinThicknessNumber;
+              if (thinMidPlane) editable.thinMidPlane = true;
+              else delete editable.thinMidPlane;
+            } else {
+              delete editable.bodyType;
+              delete editable.thinThicknessMm;
+              delete editable.thinMidPlane;
+            }
+            // v1.51：拔模键可编辑——关闭即删除旧键（避免落库残留继续生效）。
+            if (draftEnabled) {
+              (params as unknown as Record<string, unknown>).draftAngleDeg = draftAngleNumber;
+              if (draftPullDirection)
+                (params as unknown as Record<string, unknown>).draftPullDirection = true;
+              else
+                delete (params as unknown as Record<string, unknown>).draftPullDirection;
+            } else {
+              delete (params as unknown as Record<string, unknown>).draftAngleDeg;
+              delete (params as unknown as Record<string, unknown>).draftPullDirection;
+            }
             // 第二方向与 symmetric 互斥：关闭/对称时删除落库键，避免旧值残留。
             if (!secondDirectionEnabled || symmetric)
               delete (params as unknown as Record<string, unknown>).secondDirection;
@@ -1699,7 +2234,7 @@ export function FeatureDialog({
         ? { kind: 'updateParams', featureId: featureId!, params }
         : {
             kind: 'insertFeature',
-            featureType: effectiveFeatureType!,
+            featureType: submittedFeatureType!,
             params,
             // B6 M-A3.2a：N>1 的显式目标 body 在 op 层（不在 params）；N≤1/newBody
             // 缺省不发（legacy/全局链尾语义由后端裁决）。Critical 1：fillet 的值=
@@ -1742,17 +2277,34 @@ export function FeatureDialog({
     booleanUpstreamMissing,
     mirrorChannel,
     mirrorUpstreamMissing,
-    mirrorPlane,
+    mirrorPlaneChoice,
+    mirrorFaceRef,
+    mirrorOperation,
+    mirrorScope,
+    mirrorSourceFeatureId,
+    mirrorFeatureReady,
     patternChannel,
     patternUpstreamMissing,
     patternKind,
+    patternCentered,
+    patternCenteredActive,
     patternCountNumber,
+    patternEffectiveCount,
     patternCountValid,
     patternSpacingNumber,
     patternSpacingValid,
     patternAngleNumber,
     patternAngleValid,
     patternAxis,
+    patternOppositeDirection,
+    patternSecondActive,
+    patternSecondCountValid,
+    patternSecondSpacingValid,
+    patternTotalCountValid,
+    patternSecondEffectiveCount,
+    patternSecondSpacingNumber,
+    patternSecondAxis,
+    patternSecondCenteredActive,
     // B6 M-A4.2a：booleanBodies 载荷面。
     booleanBodiesChannel,
     booleanBodiesReady,
@@ -1788,9 +2340,27 @@ export function FeatureDialog({
     endBound,
     endBoundAllowed,
     effectiveEndBound,
+    upToSurfaceAllowed,
+    upToSurfaceFaceRef,
+    upToNextAllowed,
+    // v1.54：upToSurface 偏移距离/反向载荷与校验。
+    endOffset,
+    endOffsetEnabled,
+    endOffsetNumber,
+    endOffsetOpposite,
     secondDirectionEnabled,
     secondDirectionDepth,
     secondDirectionEndBound,
+    // v1.51：extrude 拔模载荷/门禁。
+    draftEnabled,
+    draftAngleNumber,
+    draftPullDirection,
+    draftReady,
+    // v1.53：薄壁载荷/门禁。
+    thinWallActive,
+    thinThicknessValid,
+    thinThicknessNumber,
+    thinMidPlane,
     // B6 M-A3.2a：newBody/target 载荷面。
     effectiveNewBody,
     nativeOperation,
@@ -1923,7 +2493,16 @@ export function FeatureDialog({
               onChange={(event) => {
                 const kind = event.target.value as PatternParams['kind'];
                 setPatternKind(kind);
-                if (kind === 'circular') setPatternAxis('Z');
+                if (kind === 'circular') {
+                  setPatternAxis('Z');
+                  // v1.49：圆周阵列不支持居中（服务端 zod 同口径拒收），切换即复位。
+                  setPatternCentered(false);
+                  // v1.62：圆周不支持第二方向；可见地取消，切回线性需重新勾选。
+                  setPatternSecondEnabled(false);
+                  setPatternSecondCentered(false);
+                  // v1.63：圆周暂不支持反向。
+                  setPatternOppositeDirection(false);
+                }
               }}
             >
               <option value="linear">{t('partStudio.featureDialog.patternModeOptions.linear')}</option>
@@ -1961,22 +2540,31 @@ export function FeatureDialog({
               aria-label={t('partStudio.featureDialog.resultTypeTabs')}
               className="part-studio-feature-dialog__tablist"
             >
-              {RESULT_TYPES.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  role="tab"
-                  aria-selected={resultType === type}
-                  disabled={structuralLocked}
-                  className={[
-                    'part-studio-feature-dialog__tab',
-                    resultType === type ? 'part-studio-feature-dialog__tab--active' : '',
-                  ].filter(Boolean).join(' ')}
-                  onClick={() => setResultType(type)}
-                >
-                  {t(`partStudio.featureDialog.resultTypes.${type}`)}
-                </button>
-              ))}
+              {RESULT_TYPES.map((type) => {
+                // v1.53：实体/薄壁已接；曲面（SURFACE）无后端通道，不提供假入口。
+                // revolve 仅实体；壳期（featureType undefined）保持三页签本地态（既有测试语义）。
+                const unsupported = featureType === 'extrude'
+                  ? type === 'surface'
+                  : featureType === 'revolve' ? type !== 'solid' : false;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    role="tab"
+                    aria-selected={resultType === type}
+                    disabled={structuralLocked || unsupported}
+                    title={unsupported ? t('partStudio.featureDialog.resultTypeUnsupported') : undefined}
+                    className={[
+                      'part-studio-feature-dialog__tab',
+                      resultType === type ? 'part-studio-feature-dialog__tab--active' : '',
+                      unsupported ? 'part-studio-feature-dialog__tab--disabled' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => setResultType(type)}
+                  >
+                    {t(`partStudio.featureDialog.resultTypes.${type}`)}
+                  </button>
+                );
+              })}
             </div>
           )}
           {(featureType === undefined || featureType === 'extrude' || featureType === 'revolve'
@@ -2035,12 +2623,10 @@ export function FeatureDialog({
               type="button"
               role="tab"
               aria-selected={booleanOperation === operation}
-              disabled={operation === 'intersect' || submitting}
-              title={operation === 'intersect' ? t('partStudio.featureDialog.booleanBodiesIntersectHint') : undefined}
+              disabled={submitting}
               className={[
                 'part-studio-feature-dialog__tab',
                 booleanOperation === operation ? 'part-studio-feature-dialog__tab--active' : '',
-                operation === 'intersect' ? 'part-studio-feature-dialog__tab--disabled' : '',
               ].filter(Boolean).join(' ')}
               onClick={() => setBooleanOperation(operation)}
             >
@@ -2166,9 +2752,23 @@ export function FeatureDialog({
               className="part-studio-feature-dialog__select"
               value={effectiveEndBound}
               disabled={submitting}
-              onChange={(event) => setEndBound(event.target.value === 'throughAll' ? 'throughAll' : 'blind')}
+              onChange={(event) => {
+                const next = event.target.value;
+                setEndBound(next === 'throughAll' ? 'throughAll'
+                  : next === 'upToSurface' ? 'upToSurface'
+                    : next === 'upToNext' ? 'upToNext'
+                      : 'blind');
+              }}
             >
               <option value="blind">{t('partStudio.featureDialog.endBoundBlind')}</option>
+              {/* v1.53：成形到下一个面——自动选最近平行面（无需面快照）。 */}
+              <option
+                value="upToNext"
+                disabled={!upToNextAllowed}
+                title={endBoundAllowed ? undefined : t('partStudio.featureDialog.endBoundRequiresUpstream')}
+              >
+                {t('partStudio.featureDialog.endBoundUpToNext')}
+              </option>
               <option
                 value="throughAll"
                 disabled={!endBoundAllowed}
@@ -2176,7 +2776,103 @@ export function FeatureDialog({
               >
                 {t('partStudio.featureDialog.endBoundThroughAll')}
               </option>
+              {/* v1.52（ADR-0005 Phase 5，live 证据 extrude-endbound-menu.json）：
+                  Onshape 终止类型 = 给定深度/成形到下一个面/成形到面/成形到零件/成形到顶点/
+                  完全贯穿；本切片仅接 成形到面（面快照；无面/多选禁用，不猜）。 */}
+              <option
+                value="upToSurface"
+                disabled={!upToSurfaceAllowed}
+                title={!endBoundAllowed
+                  ? t('partStudio.featureDialog.endBoundUpToSurfaceRequiresUpstream')
+                  : upToSurfaceFaceMultiple
+                    ? t('partStudio.featureDialog.endBoundUpToSurfaceMultipleFaces', { count: upToFaceSnapshot.length })
+                    : upToSurfaceFaceRef === undefined
+                      ? t('partStudio.featureDialog.endBoundUpToSurfaceNeedsFace')
+                      : undefined}
+              >
+                {t('partStudio.featureDialog.endBoundUpToSurface')}
+              </option>
             </select>
+            {effectiveEndBound === 'upToSurface' && upToSurfaceFaceRef !== undefined && (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-up-to-surface-face-hint"
+              >
+                {mode === 'edit'
+                  ? t('partStudio.featureDialog.endBoundUpToSurfaceFaceReadOnly', {
+                    face: `${upToSurfaceFaceRef.nodeId}:${upToSurfaceFaceRef.entityId}`,
+                  })
+                  : t('partStudio.featureDialog.endBoundUpToSurfaceFaceHint', {
+                    face: `${upToSurfaceFaceRef.nodeId}:${upToSurfaceFaceRef.entityId}`,
+                  })}
+              </p>
+            )}
+            {extrudeChannel && upToSurfaceFaceMultiple && (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-up-to-surface-face-multiple-hint"
+              >
+                {t('partStudio.featureDialog.endBoundUpToSurfaceMultipleFaces', { count: upToFaceSnapshot.length })}
+              </p>
+            )}
+            {/* v1.54（ADR-0005 Phase 5 增补，live 证据 hasOffset=「偏移距离」）：
+                成形到面可再偏移目标平面；反向=朝起始端回退。 */}
+            {endOffsetActive && (
+              <section
+                className="part-studio-feature-dialog__end-offset"
+                data-field="end-offset"
+                data-testid="part-studio-feature-dialog-end-offset"
+              >
+                <label className="part-studio-feature-dialog__checkbox">
+                  <input
+                    type="checkbox"
+                    aria-label={t('partStudio.featureDialog.endOffsetEnableLabel')}
+                    checked={endOffsetEnabled}
+                    disabled={submitting}
+                    onChange={(event) => setEndOffsetEnabled(event.target.checked)}
+                  />
+                  {t('partStudio.featureDialog.endOffsetEnableLabel')}
+                </label>
+                {endOffsetEnabled && (
+                  <>
+                    <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-end-offset">
+                      {t('partStudio.featureDialog.endOffsetLabel')}
+                    </label>
+                    <input
+                      id="part-studio-feature-dialog-end-offset"
+                      type="text"
+                      inputMode="decimal"
+                      aria-label={t('partStudio.featureDialog.endOffsetLabel')}
+                      className="part-studio-feature-dialog__input"
+                      value={endOffset}
+                      disabled={submitting}
+                      onChange={(event) => setEndOffset(event.target.value)}
+                    />
+                    <label className="part-studio-feature-dialog__checkbox">
+                      <input
+                        type="checkbox"
+                        aria-label={t('partStudio.featureDialog.endOffsetOppositeLabel')}
+                        checked={endOffsetOpposite}
+                        disabled={submitting}
+                        onChange={(event) => setEndOffsetOpposite(event.target.checked)}
+                      />
+                      {t('partStudio.featureDialog.endOffsetOppositeLabel')}
+                    </label>
+                  </>
+                )}
+              </section>
+            )}
+            {extrudeChannel && upToFaceSnapshot.length === 0 && mode === 'new' && (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-up-to-surface-face-missing-hint"
+              >
+                {t('partStudio.featureDialog.endBoundUpToSurfaceNeedsFace')}
+              </p>
+            )}
           </section>
         )}
         {!revolveChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
@@ -2192,12 +2888,49 @@ export function FeatureDialog({
               aria-label={t(featureType === 'extrude' ? 'partStudio.featureDialog.depthLabel' : 'partStudio.featureDialog.distanceLabel')}
               className="part-studio-feature-dialog__input"
               value={distance}
-              disabled={submitting || effectiveEndBound === 'throughAll'}
+              disabled={submitting || effectiveEndBound !== 'blind'}
               onChange={(event) => setDistance(event.target.value)}
             />
           </section>
         )}
 
+        {/* v1.53（ADR-0005 Phase 6）：薄壁厚度；v1.55 中间平面。live 证据
+            extrude-upto2-thin.png 行序：中间平面 / 厚度 1 / 厚度 2 / 给定深度；
+            第二厚度无产品通道，不渲染假控件。 */}
+        {thinWallActive && (
+          <section className="part-studio-feature-dialog__distance" data-field="thin-thickness">
+            <label className="part-studio-feature-dialog__checkbox" data-field="thin-mid-plane">
+              <input
+                type="checkbox"
+                aria-label={t('partStudio.featureDialog.thinMidPlaneLabel')}
+                checked={thinMidPlane}
+                disabled={submitting}
+                onChange={(event) => setThinMidPlane(event.target.checked)}
+              />
+              <span>{t('partStudio.featureDialog.thinMidPlaneLabel')}</span>
+            </label>
+            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-thin-thickness">
+              {t('partStudio.featureDialog.thinThicknessLabel')}
+            </label>
+            <input
+              id="part-studio-feature-dialog-thin-thickness"
+              type="text"
+              inputMode="decimal"
+              aria-label={t('partStudio.featureDialog.thinThicknessLabel')}
+              className="part-studio-feature-dialog__input"
+              value={thinThickness}
+              disabled={submitting}
+              onChange={(event) => setThinThickness(event.target.value)}
+            />
+            <p
+              role="note"
+              className="part-studio-feature-dialog__hint"
+              data-testid="part-studio-feature-dialog-thin-wall-hint"
+            >
+              {t('partStudio.featureDialog.thinWallHint')}
+            </p>
+          </section>
+        )}
         {/* 对称平铺复选（M6-b T4，extrude 通道）：Onshape 采集形态——「对称」
             在折叠区外平铺（sketchChannel 下折叠段 symmetric 隐藏，见下方
             visibleSections）。本版仅渲染+本地态（state 即既有 symmetric，随
@@ -2208,26 +2941,71 @@ export function FeatureDialog({
             <input
               type="checkbox"
               checked={symmetric}
+              disabled={submitting || draftEnabled || thinWallActive}
               onChange={(event) => {
                 setSymmetric(event.target.checked);
-                if (event.target.checked) setSecondDirectionEnabled(false);
+                if (event.target.checked) {
+                  setSecondDirectionEnabled(false);
+                  setDraftEnabled(false);
+                }
               }}
             />
             <span>{t('partStudio.featureDialog.sections.symmetric')}</span>
           </label>
         )}
 
-        {/* Onshape live：拔模是平铺复选（不是折叠段）；后端求值未实现，禁用
-            并给出 title——布局对齐但不伪造可用能力。 */}
+        {/* Onshape live 2026-11-08：拔模=平铺复选；勾选后出现「拔模角度」输入与
+            「反向」复选（中性面=草图平面）。与对称/第二方向互斥（服务端同规则）。 */}
         {extrudeChannel && (
-          <label
-            className="part-studio-feature-dialog__checkbox"
-            data-testid="part-studio-feature-dialog-draft"
-            title={t('partStudio.featureDialog.draftUnsupported')}
-          >
-            <input type="checkbox" checked={false} disabled onChange={() => undefined} />
-            <span>{t('partStudio.featureDialog.sections.draft')}</span>
-          </label>
+          <React.Fragment>
+            <label
+              className="part-studio-feature-dialog__checkbox"
+              data-testid="part-studio-feature-dialog-draft"
+            >
+              <input
+                type="checkbox"
+                checked={draftEnabled}
+                disabled={submitting || symmetric || secondDirectionEnabled || thinWallActive}
+                onChange={(event) => {
+                  setDraftEnabled(event.target.checked);
+                  if (event.target.checked) {
+                    setSymmetric(false);
+                    setSecondDirectionEnabled(false);
+                    // Onshape 默认 3°；仅在本会话尚无角度时填入。
+                    setDraft((prev) => prev.trim() === '' ? '3' : prev);
+                  }
+                }}
+              />
+              <span>{t('partStudio.featureDialog.sections.draft')}</span>
+            </label>
+            {draftEnabled && (
+              <React.Fragment>
+                <label className="part-studio-feature-dialog__distance">
+                  <span>{t('partStudio.featureDialog.draftAngleLabel')}</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    aria-label={t('partStudio.featureDialog.draftAngleLabel')}
+                    className="part-studio-feature-dialog__input"
+                    data-testid="part-studio-feature-dialog-draft-angle"
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                  />
+                </label>
+                <label
+                  className="part-studio-feature-dialog__checkbox"
+                  data-testid="part-studio-feature-dialog-draft-reverse"
+                >
+                  <input
+                    type="checkbox"
+                    checked={draftPullDirection}
+                    onChange={(event) => setDraftPullDirection(event.target.checked)}
+                  />
+                  <span>{t('partStudio.featureDialog.draftReverseLabel')}</span>
+                </label>
+              </React.Fragment>
+            )}
+          </React.Fragment>
         )}
 
         {/* v1.24 secondDirection（Onshape「第二个终止位置」）：对称已覆盖双向，
@@ -2241,8 +3019,11 @@ export function FeatureDialog({
               <input
                 type="checkbox"
                 checked={secondDirectionEnabled}
-                disabled={submitting || symmetric}
-                onChange={(event) => setSecondDirectionEnabled(event.target.checked)}
+                disabled={submitting || symmetric || draftEnabled || thinWallActive}
+                onChange={(event) => {
+                  setSecondDirectionEnabled(event.target.checked);
+                  if (event.target.checked) setDraftEnabled(false);
+                }}
               />
               <span>{t('partStudio.featureDialog.secondDirectionLabel')}</span>
             </label>
@@ -2730,18 +3511,13 @@ export function FeatureDialog({
                     <option value="subtract">
                       {t('partStudio.featureDialog.booleanBodiesOperationOptions.subtract')}
                     </option>
-                    {/* v1 服务端拒收 intersect（shared 1.16 契约保留）——禁用不降级。 */}
-                    <option value="intersect" disabled>
+                    {/* v1.48（T12，2026-11-07）：intersect 后端/契约已落地
+                        （BooleanBodiesFlow + boolean-intersect 真栈绿）；UI 同步启用，
+                        不再禁用/降级。 */}
+                    <option value="intersect">
                       {t('partStudio.featureDialog.booleanBodiesOperationOptions.intersect')}
                     </option>
                   </select>
-                  <p
-                    role="note"
-                    className="part-studio-feature-dialog__hint"
-                    data-testid="part-studio-feature-dialog-boolean-intersect-hint"
-                  >
-                    {t('partStudio.featureDialog.booleanBodiesIntersectHint')}
-                  </p>
                 </section>
 
                 <label
@@ -2890,6 +3666,163 @@ export function FeatureDialog({
                 </p>
               ) : (
                 <React.Fragment>
+                  {/* 2026-11-08 live 证据 mirror-feature-scope-20261108：作用域
+                      零件镜像/特征镜像；面镜像产品缺 face→planeLine 解析，不渲染假选项。 */}
+                  <section className="part-studio-feature-dialog__distance" data-field="mirror-scope">
+                    <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-mirror-scope">
+                      {t('partStudio.featureDialog.mirrorScopeLabel')}
+                    </label>
+                    <select
+                      id="part-studio-feature-dialog-mirror-scope"
+                      aria-label={t('partStudio.featureDialog.mirrorScopeLabel')}
+                      className="part-studio-feature-dialog__select"
+                      value={mirrorScope}
+                      disabled={submitting || mode === 'edit'}
+                      onChange={(event) => {
+                        const next = event.target.value as 'body' | 'feature';
+                        setMirrorScope(next);
+                        if (next === 'feature' && mirrorPlaneChoice === 'FACE')
+                          setMirrorPlaneChoice('XZ');
+                        if (next === 'body')
+                          setMirrorSourceFeatureId('');
+                      }}
+                      data-testid="part-studio-feature-dialog-mirror-scope"
+                    >
+                      <option value="body">{t('partStudio.featureDialog.mirrorScopeOptions.body')}</option>
+                      <option value="feature">{t('partStudio.featureDialog.mirrorScopeOptions.feature')}</option>
+                    </select>
+                  </section>
+                  {mirrorScope === 'feature' && (
+                    <React.Fragment>
+                      <section className="part-studio-feature-dialog__distance" data-field="mirror-source-feature">
+                        <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-mirror-source">
+                          {t('partStudio.featureDialog.mirrorSourceFeatureLabel')}
+                        </label>
+                        <select
+                          id="part-studio-feature-dialog-mirror-source"
+                          aria-label={t('partStudio.featureDialog.mirrorSourceFeatureLabel')}
+                          className="part-studio-feature-dialog__select"
+                          value={mirrorSourceFeatureId}
+                          disabled={submitting}
+                          onChange={(event) => setMirrorSourceFeatureId(event.target.value)}
+                          data-testid="part-studio-feature-dialog-mirror-source"
+                        >
+                          <option value="">{t('partStudio.featureDialog.mirrorSourceFeaturePlaceholder')}</option>
+                          {features.map((feature) => (
+                            <option key={feature.id} value={feature.id}>{feature.label}</option>
+                          ))}
+                        </select>
+                      </section>
+                      {features.length === 0 && (
+                        <p
+                          role="note"
+                          className="part-studio-feature-dialog__hint"
+                          data-testid="part-studio-feature-dialog-mirror-source-empty-hint"
+                        >
+                          {t('partStudio.featureDialog.mirrorSourceFeatureEmptyHint')}
+                        </p>
+                      )}
+                      <p
+                        role="note"
+                        className="part-studio-feature-dialog__hint"
+                        data-testid="part-studio-feature-dialog-mirror-feature-hint"
+                      >
+                        {t('partStudio.featureDialog.mirrorFeatureHint')}
+                      </p>
+                    </React.Fragment>
+                  )}
+                  {mirrorScope === 'body' && mirrorPlaneLineReadOnly && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-mirror-plane-line-readonly-hint"
+                    >
+                      {t('partStudio.featureDialog.mirrorPlaneLineReadOnlyHint')}
+                    </p>
+                  )}
+                  {mirrorFaceReadOnly && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-mirror-face-readonly-hint"
+                    >
+                      {t('partStudio.featureDialog.mirrorFaceReadOnlyHint')}
+                    </p>
+                  )}
+                  {mirrorFaceMultiple && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-mirror-face-multiple-hint"
+                    >
+                      {t('partStudio.featureDialog.mirrorFaceMultipleHint', { count: initialMirrorFaces.length })}
+                    </p>
+                  )}
+                  {mirrorFaceMissing && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-mirror-face-missing-hint"
+                    >
+                      {t('partStudio.featureDialog.mirrorFaceMissingHint')}
+                    </p>
+                  )}
+                  {mirrorFaceOwnerMismatch && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-mirror-face-owner-mismatch-hint"
+                    >
+                      {t('partStudio.featureDialog.mirrorFaceOwnerMismatchHint')}
+                    </p>
+                  )}
+                  {/* v1.48（ADR-0011 切片 2c）：Onshape 镜像操作页签——新建/加入/移除/相交。
+                      新建=独立镜像体，需多体输出（ADR-0015），当前禁用并提示；其余直通后端。
+                      2026-11-08：仅零件作用域；特征镜像无 operation 键。 */}
+                  {mirrorScope === 'body' && (<React.Fragment>
+                  <div
+                    role="tablist"
+                    aria-label={t('partStudio.featureDialog.mirrorOperationTabs')}
+                    className="part-studio-feature-dialog__tablist part-studio-feature-dialog__tablist--top"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={false}
+                      disabled
+                      title={t('partStudio.featureDialog.mirrorOperationHint')}
+                      className="part-studio-feature-dialog__tab part-studio-feature-dialog__tab--disabled"
+                    >
+                      {t('partStudio.featureDialog.booleanScopes.new')}
+                    </button>
+                    {(['unite', 'subtract', 'intersect'] as const).map((operation) => {
+                      const labelKey = operation === 'unite' ? 'add' : operation === 'subtract' ? 'remove' : 'intersect';
+                      return (
+                        <button
+                          key={operation}
+                          type="button"
+                          role="tab"
+                          aria-selected={mirrorOperation === operation}
+                          disabled={submitting}
+                          className={[
+                            'part-studio-feature-dialog__tab',
+                            mirrorOperation === operation ? 'part-studio-feature-dialog__tab--active' : '',
+                          ].filter(Boolean).join(' ')}
+                          onClick={() => setMirrorOperation(operation)}
+                        >
+                          {t(`partStudio.featureDialog.booleanScopes.${labelKey}`)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-mirror-operation-hint"
+                  >
+                    {t('partStudio.featureDialog.mirrorOperationHint')}
+                  </p>
+                  </React.Fragment>)}
                   <section className="part-studio-feature-dialog__distance" data-field="mirror-plane">
                     <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-mirror-plane">
                       {t('partStudio.featureDialog.mirrorPlaneLabel')}
@@ -2898,22 +3831,40 @@ export function FeatureDialog({
                       id="part-studio-feature-dialog-mirror-plane"
                       aria-label={t('partStudio.featureDialog.mirrorPlaneLabel')}
                       className="part-studio-feature-dialog__select part-studio-feature-dialog__mirror-plane"
-                      value={mirrorPlane}
-                      disabled={submitting}
-                      onChange={(event) => setMirrorPlane(event.target.value as MirrorParams['plane'])}
+                      value={mirrorPlaneChoice}
+                      disabled={submitting || mirrorPlaneLineReadOnly || mirrorFaceReadOnly}
+                      onChange={(event) => setMirrorPlaneChoice(event.target.value as MirrorParams['plane'] | 'FACE')}
                     >
                       <option value="XY">{t('partStudio.featureDialog.mirrorPlaneOptions.XY')}</option>
                       <option value="YZ">{t('partStudio.featureDialog.mirrorPlaneOptions.YZ')}</option>
                       <option value="XZ">{t('partStudio.featureDialog.mirrorPlaneOptions.XZ')}</option>
+                      {mirrorScope === 'body' && (
+                        <option value="FACE" disabled={mirrorFaceRef === undefined}>
+                          {t('partStudio.featureDialog.mirrorPlaneOptions.face')}
+                        </option>
+                      )}
                     </select>
                   </section>
-                  {/* 首版范围提示（世界平面 + 保留原体；服务端保持同一语义）。 */}
+                  {mirrorPlaneChoice === 'FACE' && mirrorFaceRef !== undefined && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-mirror-face-hint"
+                    >
+                      {t('partStudio.featureDialog.mirrorFaceHint', {
+                        face: `${mirrorFaceRef.nodeId}:${mirrorFaceRef.entityId}`,
+                      })}
+                    </p>
+                  )}
+                  {/* 范围提示（世界平面/选中面 + 保留原体；服务端保持同一语义）。 */}
                   <p
                     role="note"
                     className="part-studio-feature-dialog__hint"
                     data-testid="part-studio-feature-dialog-mirror-scope-hint"
                   >
-                    {t('partStudio.featureDialog.mirrorScopeHint')}
+                    {mirrorScope === 'body'
+                      ? t('partStudio.featureDialog.mirrorScopeHint')
+                      : t('partStudio.featureDialog.mirrorFeatureScopeHint')}
                   </p>
                 </React.Fragment>
               )}
@@ -2938,13 +3889,17 @@ export function FeatureDialog({
                 <React.Fragment>
                   <section className="part-studio-feature-dialog__distance" data-field="pattern-count">
                     <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-count">
-                      {t('partStudio.featureDialog.patternCountLabel')}
+                      {t(patternCenteredActive
+                        ? 'partStudio.featureDialog.patternCountLabelCentered'
+                        : 'partStudio.featureDialog.patternCountLabel')}
                     </label>
                     <input
                       id="part-studio-feature-dialog-pattern-count"
                       type="text"
                       inputMode="numeric"
-                      aria-label={t('partStudio.featureDialog.patternCountLabel')}
+                      aria-label={t(patternCenteredActive
+                        ? 'partStudio.featureDialog.patternCountLabelCentered'
+                        : 'partStudio.featureDialog.patternCountLabel')}
                       className="part-studio-feature-dialog__input"
                       value={patternCount}
                       disabled={submitting}
@@ -2995,14 +3950,115 @@ export function FeatureDialog({
                     <option value="Y">{t('partStudio.featureDialog.patternAxisOptions.Y')}</option>
                     <option value="Z">{t('partStudio.featureDialog.patternAxisOptions.Z')}</option>
                   </select>
+                  {patternKind === 'linear' && (
+                    <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-pattern-opposite-direction">
+                      <input
+                        type="checkbox"
+                        checked={patternOppositeDirection}
+                        disabled={submitting}
+                        onChange={(event) => setPatternOppositeDirection(event.target.checked)}
+                      />
+                      <span>{t('partStudio.featureDialog.directionOptions.backward')}</span>
+                    </label>
+                  )}
+                  {/* v1.49（ADR-0007 切片 6）：居中线性阵列——N 为每侧实例数（含原件），
+                      总实例数 2N−1；圆周不支持居中（服务端 zod 同口径拒收）。 */}
                   <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-pattern-centered">
-                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <input
+                      type="checkbox"
+                      checked={patternCenteredActive}
+                      disabled={submitting || patternKind === 'circular'}
+                      onChange={(event) => setPatternCentered(event.target.checked)}
+                    />
                     <span>{t('partStudio.featureDialog.centerLabel')}</span>
                   </label>
+                  {patternCenteredActive && (
+                    <p
+                      role="note"
+                      className="part-studio-feature-dialog__hint"
+                      data-testid="part-studio-feature-dialog-pattern-centered-hint"
+                    >
+                      {t('partStudio.featureDialog.patternCenteredHint')}
+                    </p>
+                  )}
                   <label className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat" data-testid="part-studio-feature-dialog-pattern-second-direction">
-                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <input
+                      type="checkbox"
+                      checked={patternKind === 'linear' && patternSecondEnabled}
+                      disabled={submitting || patternKind === 'circular'}
+                      onChange={(event) => setPatternSecondEnabled(event.target.checked)}
+                    />
                     <span>{t('partStudio.featureDialog.secondDirectionLabel')}</span>
                   </label>
+                  {patternSecondActive && (
+                    <React.Fragment>
+                      <section className="part-studio-feature-dialog__distance" data-field="pattern-second-count">
+                        <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-second-count">
+                          {t(patternSecondCenteredActive
+                            ? 'partStudio.featureDialog.patternSecondCountLabelCentered'
+                            : 'partStudio.featureDialog.patternSecondCountLabel')}
+                        </label>
+                        <input
+                          id="part-studio-feature-dialog-pattern-second-count"
+                          type="text"
+                          inputMode="numeric"
+                          aria-label={t(patternSecondCenteredActive
+                            ? 'partStudio.featureDialog.patternSecondCountLabelCentered'
+                            : 'partStudio.featureDialog.patternSecondCountLabel')}
+                          className="part-studio-feature-dialog__input"
+                          value={patternSecondCount}
+                          disabled={submitting}
+                          onChange={(event) => setPatternSecondCount(event.target.value)}
+                          data-testid="part-studio-feature-dialog-pattern-second-count"
+                        />
+                      </section>
+                      <section className="part-studio-feature-dialog__distance" data-field="pattern-second-spacing">
+                        <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-second-spacing">
+                          {t('partStudio.featureDialog.patternSecondSpacingLabel')}
+                        </label>
+                        <input
+                          id="part-studio-feature-dialog-pattern-second-spacing"
+                          type="text"
+                          inputMode="decimal"
+                          aria-label={t('partStudio.featureDialog.patternSecondSpacingLabel')}
+                          className="part-studio-feature-dialog__input"
+                          value={patternSecondSpacing}
+                          disabled={submitting}
+                          onChange={(event) => setPatternSecondSpacing(event.target.value)}
+                          data-testid="part-studio-feature-dialog-pattern-second-spacing"
+                        />
+                      </section>
+                      <select
+                        aria-label={t('partStudio.featureDialog.patternSecondAxisLabel')}
+                        className="part-studio-feature-dialog__select part-studio-feature-dialog__pattern-axis"
+                        value={patternSecondAxis}
+                        disabled={submitting}
+                        onChange={(event) => setPatternSecondAxis(event.target.value as PatternParams['axis'])}
+                        data-testid="part-studio-feature-dialog-pattern-second-axis"
+                      >
+                        <option value="X">{t('partStudio.featureDialog.patternAxisOptions.X')}</option>
+                        <option value="Y">{t('partStudio.featureDialog.patternAxisOptions.Y')}</option>
+                        <option value="Z">{t('partStudio.featureDialog.patternAxisOptions.Z')}</option>
+                      </select>
+                      <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-pattern-second-centered">
+                        <input
+                          type="checkbox"
+                          aria-label={t('partStudio.featureDialog.patternSecondCenteredLabel')}
+                          checked={patternSecondCenteredActive}
+                          disabled={submitting}
+                          onChange={(event) => setPatternSecondCentered(event.target.checked)}
+                        />
+                        <span>{t('partStudio.featureDialog.centerLabel')}</span>
+                      </label>
+                      <p
+                        role="note"
+                        className="part-studio-feature-dialog__hint"
+                        data-testid="part-studio-feature-dialog-pattern-second-hint"
+                      >
+                        {t('partStudio.featureDialog.patternSecondHint')}
+                      </p>
+                    </React.Fragment>
+                  )}
                   <label className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat" data-testid="part-studio-feature-dialog-pattern-skip-instances">
                     <input type="checkbox" checked={false} disabled onChange={() => undefined} />
                     <span>{t('partStudio.featureDialog.skipInstancesLabel')}</span>

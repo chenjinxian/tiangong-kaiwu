@@ -142,7 +142,7 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
     // 点/文本/镜像/构造/尺寸没有 ▾。
     for (const id of ['Sketch.Line', 'sketchUse'])
       expect(SKETCH_RIBBON_TOOLS.find((t) => t.id === id)?.dropdownItems, `${id} 应有 ▾`).toBeDefined();
-    for (const id of ['sketchPoint', 'sketchText', 'sketchMirror', 'sketchConstruction', 'Sketch.Dimension'])
+    for (const id of ['Sketch.Point', 'sketchText', 'Sketch.Mirror', 'sketchConstruction', 'Sketch.Dimension'])
       expect(SKETCH_RIBBON_TOOLS.find((t) => t.id === id)?.dropdownItems, `${id} 不应有 ▾`).toBeUndefined();
   });
 

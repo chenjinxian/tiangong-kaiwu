@@ -60,9 +60,13 @@ import type { CanvasSelection } from '../types.js';
 import { CPlaneDialog } from '../dialogs/CPlaneDialog.js';
 import { FeatureDialog } from '../dialogs/FeatureDialog.js';
 import { GraphicsPreferencesDialog } from '../dialogs/GraphicsPreferencesDialog.js';
-import type { FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
+import type { FeatureDialogFeatureOption, FeatureDialogSketchOption } from '../dialogs/FeatureDialog.js';
 import { HoleDialog } from '../dialogs/HoleDialog.js';
 import { ShellDialog } from '../dialogs/ShellDialog.js';
+import { MoveFaceDialog } from '../dialogs/MoveFaceDialog.js';
+import { FeaturePatternDialog } from '../dialogs/FeaturePatternDialog.js';
+import { TransformDialog } from '../dialogs/TransformDialog.js';
+import { SplitPartDialog } from '../dialogs/SplitPartDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import { cPlanePlaneOptions } from '../internal/cplane.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
@@ -80,6 +84,7 @@ import { useDatumPlaneDecorations } from '../hooks/useDatumPlaneDecorations.js';
 import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js';
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
 
 /**
  * 官方 iTwin ViewCube 按需加载：默认模式只加载官方组件 chunk；
@@ -241,12 +246,14 @@ export function PartStudioCanvas({
    * 草图平面选项（v1.29）：三基准面 + 特征树内成功 cPlane。命名与树一致（「平面 N」）。
    * cPlane 选项自带世界平面快照（SketchDialog 提交时原样下发并附 sourceFeatureId）。
    */
+  const featureTypeLabel = React.useCallback((featureType: string): string => {
+    const key = `partStudio.tree.featureTypes.${featureType}`;
+    const label = t(key);
+    return label === key ? featureType : label;
+  }, [t]);
+
   const sketchPlaneOptions = React.useMemo(() => {
-    const typeLabel = (featureType: string): string => {
-      const key = `partStudio.tree.featureTypes.${featureType}`;
-      const label = t(key);
-      return label === key ? featureType : label;
-    };
+    const typeLabel = featureTypeLabel;
     return [
       ...(['top', 'front', 'right'] as const).map((id) => ({
         id,
@@ -255,6 +262,16 @@ export function PartStudioCanvas({
       ...cPlanePlaneOptions(featureEntries, typeLabel),
     ];
   }, [featureEntries, t]);
+
+  // featureMirror 源特征（2026-11-08 live 证据）：后端首版仅 extrude/revolve/hole；
+  // 抑制行不作为候选，源 id 直接取树条目 id。
+  const mirrorSourceFeatureOptions = React.useMemo<readonly FeatureDialogFeatureOption[]>(
+    () => mapFeatureEntries(featureEntries, featureTypeLabel)
+      .filter((node) => !node.isSuppressed
+        && (node.type === 'extrude' || node.type === 'revolve' || node.type === 'hole'))
+      .map((node) => ({ id: node.id, label: node.name, featureType: node.type })),
+    [featureEntries, featureTypeLabel],
+  );
 
   /** 新建 cPlane 的默认名（与树命名一致：平面 N，N=现有 cPlane 数+1）。 */
   const newCPlaneName = React.useMemo(() => {
@@ -596,6 +613,9 @@ export function PartStudioCanvas({
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           applyOp={applyOp}
+          previewOp={previewOp}
+          connection={connection}
+          viewport={viewport}
           connectionKey={connection?.key}
           sketches={sketches}
           bodies={bodies}
@@ -634,6 +654,83 @@ export function PartStudioCanvas({
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />
+      ) : dialog.featureType === 'moveFace' ? (
+        /* ADR-0014 UI 面：面来自唯一选择权威（路由快照 + 打开后存活选择），
+           偏移/给定深度 + 距离；「重新应用圆角」后端未支持，禁用并提示。 */
+        <MoveFaceDialog
+          key={dialog.mode === 'edit' ? dialog.featureId : 'new-moveFace'}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : t('partStudio.ribbon.tools.moveFace.label')}
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          applyOp={applyOp}
+          previewOp={previewOp}
+          connection={connection}
+          viewport={viewport}
+          bodies={bodies}
+          initialFaces={dialog.mode === 'new' ? dialog.inputFaces : undefined}
+          canEdit={canEdit}
+          onConfirm={closeDialog}
+          onCancel={closeDialog}
+        />
+      ) : dialog.featureType === 'transform' ? (
+        /* ADR-0010 UI 面：XYZ 平动 / 世界轴旋转 / 均匀缩放 + 复制；
+           目标实体插入时选择（编辑模式只读，创建时确定）。 */
+        <TransformDialog
+          key={dialog.mode === 'edit' ? dialog.featureId : 'new-transform'}
+          featureName={
+            dialog.mode === 'edit'
+              ? dialog.featureName
+              : t('partStudio.ribbon.tools.transform.label')
+          }
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          applyOp={applyOp}
+          previewOp={previewOp}
+          connection={connection}
+          viewport={viewport}
+          bodies={bodies}
+          canEdit={canEdit}
+          onConfirm={closeDialog}
+          onCancel={closeDialog}
+        />
+      ) : dialog.featureType === 'splitPart' ? (
+        /* ADR-0012 UI 面：单侧世界平面切分（目标实体 + XY/YZ/XZ + 偏移 +
+           保留侧；面/保留工具/修剪/双侧未支持，静态诚实提示）。 */
+        <SplitPartDialog
+          key={dialog.mode === 'edit' ? dialog.featureId : 'new-splitPart'}
+          featureName={
+            dialog.mode === 'edit'
+              ? dialog.featureName
+              : t('partStudio.ribbon.tools.splitPart.label')
+          }
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          applyOp={applyOp}
+          previewOp={previewOp}
+          connection={connection}
+          viewport={viewport}
+          bodies={bodies}
+          canEdit={canEdit}
+          onConfirm={closeDialog}
+          onCancel={closeDialog}
+        />
+      ) : dialog.featureType === 'featurePattern' ? (
+        /* ADR-0007 切片 8：featurePattern 树行双击编辑。源特征/轴是结构引用
+           （只读），可改 kind/count/spacing?/angle?；不渲染方向/面拾取等
+           产品未支持的假控件。 */
+        <FeaturePatternDialog
+          key={dialog.mode === 'edit' ? dialog.featureId : 'new-featurePattern'}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : t('partStudio.tree.featureTypes.featurePattern')}
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          applyOp={applyOp}
+          previewOp={previewOp}
+          connection={connection}
+          viewport={viewport}
+          canEdit={canEdit}
+          onConfirm={closeDialog}
+          onCancel={closeDialog}
+        />
       ) : (
         <FeatureDialog
           key={
@@ -658,11 +755,13 @@ export function PartStudioCanvas({
           leaseOk={leaseOk}
           canEdit={canEdit}
           sketches={sketches}
+          features={mirrorSourceFeatureOptions}
           connection={connection}
           connectionKey={connection?.key}
           hasBodies={hasBodies}
           bodies={bodies}
           bodiesLoading={bodiesLoading}
+          initialFaces={dialog.mode === 'new' ? dialog.inputFaces : undefined}
           bodiesError={bodiesError}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           viewport={viewport}
