@@ -47,10 +47,10 @@ const EXAMPLES = [
     image: '/showcase/example-drive-sleeve.webp',
   },
   {
-    name: 'Intro to CAD 1.2 / Part 1–2',
-    metric: '409,676.600 / 294,967.152 mm³',
-    note: '草图建在拉伸端盖 + 精确体积，0.000% 误差',
-    image: '/showcase/example-intro-part1.webp',
+    name: 'Intro to CAD 1.2 / Part 1–3',
+    metric: '409,676.600 / 294,967.152 / 229,418.896 mm³',
+    note: '草图建在拉伸端盖 + 同面积面集位置证据，0.000% 误差',
+    image: '/showcase/example-intro-part3.webp',
   },
   {
     name: 'Element Organization / O-Ring + Bushing',

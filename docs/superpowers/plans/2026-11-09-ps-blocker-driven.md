@@ -495,3 +495,100 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   代码，AIRR/ADR 不计入严格绿。
 - 任务列表已按上述状态关闭：completed 包含“实现完成”与“blocked 证据收口”
   两种，后续只在证据/能力变化时重开对应切片。
+
+## PS blocker 下一阶段执行记录（2026-11-09，Task 8 收口）
+
+> 本阶段计划：`docs/superpowers/plans/2026-11-09-ps-blocker-next.md`（基线 14，
+> 目标严格绿 ≥18）。以下为**实际结果**；未达目标项不冒充完成。
+
+### 索引与严格绿
+
+- MS 先恢复**产物模式**（`dist-backend\modeling-server\dist\main.js`，生产姿态）后
+  跑回归；Task 6 遗留的源码模式进程已停止。
+- 重生成并验证（私有仓 `D:\Github\onshape-parity-data`）：
+  `node tools/index-examples.mjs` → strict `replicable-now` **16**；
+  `node tools/verify-example-index.mjs` → **0 errors / 5 warnings**（5 条均为既有
+  “有 features 文件但签名空”）。blocked-selector 4 → 3。
+- 归因修正（均有真栈/分析证据，未手改 index）：
+  - Intro Part 3 移出 `KNOWN_SELECTOR_BLOCKERS`：Task 2 bodydetails 面积+bbox
+    唯一反解，真栈 **229,418.896 vs 229,418.896 mm³（0.000%）**，spec 已 strict；
+  - Part 4 blocker 值更新为“面积+bbox 有 2/4/70 个并列候选子集”（仍 blocked-selector）；
+  - `CENTERLINE_DIMENSION` 按 converter 输入映射到产品 `DISTANCE` 归因
+    （`tools/analyze-centerline.mjs`：26 个索引 PS / 105 条中 94 条可表达，11 条
+    fail-closed 由 converter 记入 scenario-constraint）；4 个 PS 的 constraints 由
+    dropped → complete，无分类提升（含 Wheel）。
+
+| 新增严格绿 | 真栈体积 vs Onshape | 误差 | 证据 |
+|---|---|---|---|
+| Intro to CAD 1.2 / Part 3 | 229,418.896 vs 229,418.896 mm³ | 0.000% | `intro-cad-parts.spec.ts` strict（树 4 行全 status=0、1 body、push+冷重开）；demo iModel 7d81c6b0、1920×1080 WebP |
+| Sample Assignment / Alignment Plate | 8,915.890 vs 8,915.860 mm³ | +0.03 mm³（0.00034%） | `sample-assignment-scenario.spec.ts` 断言 Cut 2 holes 无 regionRisk/非近似 |
+
+- **严格绿 14 → 16，未达 ≥18（缺口 2）**。Part 3 是 Task 8 归因修正后唯一分类
+  变化（blocked-selector → replicable-now）；Alignment 在 Task 3 去近似后已被索引
+  计为 replicable-now。相对计划基线 14，二者合计 +2；相对 Task 7 后索引 15，
+  Task 8 +1。
+- 目标未达原因（逐任务）：T5 实采 0/26（Onshape CDP 401）、792/801 候选为面边界
+  选择器且无 PROFILE_AREA_EVIDENCE 通道；T4 Fox RP23 被既有 TANGENT arc+circle 与
+  Fillet 3 sweptEdge matches=0 阻塞，整圆/弧 CENTERLINE 不可产品表达（10 条
+  fail-closed）；T6 Bumper 12 边 fillet 内核 BL_MITRE_TOO_CMPLX/13050；T7 仅设计
+  （proposed）；T3 iOS 副本缺 features 文件、证据仅私有；T2 Part 4 面积+bbox 非唯一。
+
+### 每任务 strict/blocked 实际
+
+| Task | 新增严格绿 | blocked/未解决 |
+|---|---|---|
+| 1 | 0（shared `selectProfileRegionsByArea` bbox；192/192） | — |
+| 2 | Part 3（229,418.896，0.000%） | Part 4 blocked-selector（2/4/70 候选） |
+| 3 | Alignment 精确化（8,915.890） | iOS 证据仅私有；索引副本仍 blocked-evidence（缺 features 文件） |
+| 4 | 0（Wheel 回归绿 2,442,291.0475） | Fox RP23 blocked-converter；整圆/弧 CENTERLINE 10 条 fail-closed |
+| 5 | 0（collector 11/11） | 0/26 实采（CDP 401）；792/801 面边界无面积证据通道；4 探针 pre-existing selector |
+| 6 | 0（Bumper record 657,764.787，+3.303%） | blocked-kernel（12 边 fillet status=1；native 证据 6a87ec137..fdef7d0fc） |
+| 7 | 0（AIRR/ADR proposed，无代码） | PROJECTED 切片 1b / ADR-0015 多体待批准 |
+| 8 | 索引 16 + 演示 Part 3 | 目标 18 未达（缺 2） |
+
+### 回归门（2026-11-09，产物模式 MS）
+
+- shared：`test` **192/192**；`run build` clean。
+- apps/web：`test` **1527/1527**（116 files）；`tsc --noEmit` + `tsconfig.e2e.json` clean。
+- 真栈（逐 spec 干净限流窗口）：
+  - `intro-cad-parts`：Part 1 **2 passed**（409,676.600）、Part 2 **2 passed**
+    （294,967.152）、Part 3 **2 passed**（229,418.896）；Part 4/5/6 保持
+    `test.fail` known-red（batch 的 error-context 已留证，未升绿）。
+  - `sample-assignment-scenario` **2 passed**（8,915.890 vs 8,915.860）。
+  - `drive-sleeve-scenario` **3 passed**（1,175,022.882 vs 1,175,024.308，−0.00012%；
+    树/status/push+重开）。
+  - `replay/wheel-scenario` **2 passed**（2,442,291.0475 vs 2,442,293.7639，1.1e-6）。
+  - `replay/scenario-to-op` **51 passed**。
+  - `bumper-block-approx` **2 passed（record）**：657,764.787 vs 636,731.499
+    （+3.303%），fillet/hole status=1（未升绿）。
+  - `demo-new-examples` Part 3 **2 passed**（229,418.896；WebP 1920×1080）。
+  - `ShowcaseRoute.test` **1/1**（Part 1–3 卡片 + 真实截图）。
+- 已知基础设施噪声：MS 全局限流 100 req/15min，批量 spec 首轮 429；按 spec 分窗
+  重跑（不改服务配置）。Wheel 一度因 hub admin 登录桶 5/15min 被反复重启 MS 耗尽
+  而报 `Unsupported access token format`（token 获取失败的表象），窗口滚动后重跑
+  通过；产物模式与配置未改。
+- `verify-imodels.spec.ts`（可选）未跑：本阶段严格用例均使用自管 E2E iModel，
+  演示仅新增/重置 Intro Part 3 示例，未重置既有 13 个持久示例；不宣称已验证其不变。
+
+### 未解决项证据路径
+
+- Part 4：`luban-cad/apps/web/e2e/examples/intro-cad-parts.spec.ts`（test.fail）；
+  Task 2 报告（2/4/70 候选）；私有 converter 证据。
+- iOS：`.superpowers/sdd/2026-11-09-ps-blocker-next/task-3-report.md`（私有
+  bodydetails 证据 157478.786 vs 157478.902）；索引 iOS 副本 missing-features-file。
+- Fox RP23：`task-4-report.md`；`D:\Github\onshape-parity-data\manifest\centerline-forms.json`；
+  私有 scenario（无公共 spec）。
+- capFace/sweptFace：`task-5-report.md`；私有 `manifest/face-evidence.json` +
+  `task-5-*.log`（CDP 401）。
+- Bumper：`task-6-report.md`；native `D:\Github\imodel-native` 6a87ec137..fdef7d0fc
+  （未 push）；后端 guard 未提交；`bumper-block-approx.spec.ts`（record）。
+- PROJECTED/多体：ADR-0009 / ADR-0015 / AIRR（proposed/未批准，不计绿）。
+
+### 演示/画廊
+
+- 新增 `demo-artifacts/examples/intro-part-3/`（manifest + 001-result.webp，iModel
+  7d81c6b0；`actual=229418.896`，tree sketch/extrude×3）；`gallery.mjs` 重生成
+  **17 manifests / 13 state docs / 0 mismatch**。
+- `/showcase` Intro 卡片更新为 Part 1–3（409,676.600 / 294,967.152 / 229,418.896
+  mm³），图片使用真实 1920×1080 `example-intro-part3.webp`。未为任何 blocked
+  项新增卡片。

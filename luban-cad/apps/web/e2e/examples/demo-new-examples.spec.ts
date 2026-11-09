@@ -54,6 +54,17 @@ const CASES: DemoCase[] = [
     owner: 'Onshape Training Repo',
     publicImage: 'example-intro-part2.webp',
   },
+  // 2026-11-09（PS blocker Task 2/8）：Part 3 由 bodydetails 面积+bbox 证据
+  // 唯一反解三段 ADD 面集，真栈严格绿 229,418.896 mm³（0.000%）。
+  {
+    slug: 'intro-part-3',
+    label: 'Intro to CAD 1.2 / Part 3',
+    imodelName: 'Onshape example: Intro to CAD 1.2 Part 3',
+    scenario: 'Onshape-Training-Repo-c6a3cd9aa3daa7819cae0c44-2b8c683d9655e48fb91f2cd9.scenario.json',
+    runner: 'e2e/examples/intro-cad-parts.spec.ts',
+    owner: 'Onshape Training Repo',
+    publicImage: 'example-intro-part3.webp',
+  },
   {
     slug: 'o-ring',
     label: 'Exercise: Element Organization / O-Ring',

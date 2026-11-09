@@ -599,6 +599,12 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
 
 ## Task 8: 重索引、演示与阶段收口
 
+> **执行结果（2026-11-09）**：strict `replicable-now` **16**（目标 ≥18，未达，
+> 缺口 2）；`verify-example-index` **0 errors / 5 warnings**。新增严格绿：
+> Intro Part 3（229,418.896 mm³，0.000%）与 Sample Assignment / Alignment
+> （8,915.890 mm³，+0.00034%）。缺额原因与未解决项证据见
+> `2026-11-09-ps-blocker-driven.md`「PS blocker 下一阶段执行记录」。
+
 **Files:**
 - Private: `manifest/example-index.json`, `manifest/face-evidence.json`,
   `manifest/centerline-forms.json`
@@ -606,7 +612,7 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
   `docs/superpowers/plans/2026-11-09-ps-blocker-driven.md`
 - Demo: `luban-cad/apps/web/demo-artifacts/examples/index.html`（本地生成）
 
-- [ ] **Step 1: 重生成索引并验证**
+- [x] **Step 1: 重生成索引并验证**
 
 ```bash
 cd D:\Github\onshape-parity-data
@@ -614,36 +620,55 @@ node tools/index-examples.mjs
 node tools/verify-example-index.mjs
 ```
 Expected: 0 errors；strict `replicable-now` ≥18；blocked 计数有变化时记录原因。
+Actual: **0 errors / 5 warnings；strict 16**（未达 18）。归因修正：Part 3 移出
+`KNOWN_SELECTOR_BLOCKERS`（真栈严格绿证据）；Part 4 blocker 更新为 2/4/70 候选；
+`CENTERLINE_DIMENSION` 按 converter→产品 `DISTANCE` 归因（4 PS constraints
+dropped→complete，无分类提升）。blocked-selector 4 → 3。
 
-- [ ] **Step 2: 回归门**
+- [x] **Step 2: 回归门**
 
 ```bash
 cd luban-cad/packages/shared && corepack pnpm@10 test && corepack pnpm@10 run build
 cd ../apps/web && corepack pnpm@10 test && corepack pnpm@10 exec tsc --noEmit
 npx playwright test e2e/examples/<changed-specs> --reporter=line
 ```
+Actual: shared **192/192** + build clean；web **1527/1527**（116 files）+ tsc
+（app/e2e）clean；真栈逐 spec：Part 1/2/3 各 **2 passed**、sample **2 passed**、
+drive-sleeve **3 passed**、wheel **2 passed**、scenario-to-op **51 passed**、
+bumper record **2 passed**（+3.303%，未升绿）、demo Part 3 **2 passed**、
+ShowcaseRoute **1/1**。Part 4/5/6 保持 test.fail known-red。批量首轮遇 MS
+100 req/15min 429，按 spec 分窗重跑（未改配置）；`verify-imodels` 可选未跑
+（严格用例用自管 E2E iModel，未重置既有持久示例）。
 
-- [ ] **Step 3: 演示素材/画廊**
+- [x] **Step 3: 演示素材/画廊**
 
 若新增严格绿示例：用 `e2e/examples/demo-new-examples.spec.ts` 的同一模式补
 manifest/截图；`node luban-cad/scripts/onshape-parity/gallery.mjs` 重生成；
 如需更新 `/showcase`，按现有 1920×1080 webp 资产格式增加卡片。
+Actual: 新增 `intro-part-3`（manifest + 1920×1080 WebP，iModel 7d81c6b0，
+actual=229418.896）；gallery **17 manifests / 13 state docs / 0 mismatch**；
+`/showcase` Intro 卡片更新为 Part 1–3（真实截图）。未为 blocked 项加卡片。
 
-- [ ] **Step 4: 计划收口**
+- [x] **Step 4: 计划收口**
 
 在 `2026-11-09-ps-blocker-driven.md` 追加本阶段执行记录：
 - 每个 Task 的 strict/blocked 实际结果；
 - 新严格绿清单与体积误差；
 - 未解决项的证据路径（不得写“完成”）；
 - 阶段目标 18 的达成/未达成与原因。
+Actual: 已追加「PS blocker 下一阶段执行记录（2026-11-09，Task 8 收口）」，
+含逐任务表、严格绿/误差、缺口 2 的原因与证据路径。
 
-- [ ] **Step 5: 提交/推送（按用户授权）**
+- [x] **Step 5: 提交/推送（按用户授权）**
 
 ```bash
 git add docs luban-cad/packages/shared luban-cad/apps/web/e2e
 git commit -m "docs(plan): close PS blocker next phase"
 git push origin main
 ```
+Actual: 已提交 docs/演示/画廊资产到 main；**按授权不 push**。私有仓生成物
+（index/face-evidence/centerline-forms/converter/scenario）保持未提交；
+native/backend 仓未提交。
 
 ---
 
