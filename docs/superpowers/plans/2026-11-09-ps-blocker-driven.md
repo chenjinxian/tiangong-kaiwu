@@ -466,3 +466,22 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   spec test.fail；不冒充完成。
 - 另修复 booleanBodies `tools/targets` 明文 `.opExtrude` 后缀解析（Multi Part
   Build 的 tool body 不再为空，但剩余 PROJECTED/cPlane Midplane 仍 blocked）。
+
+## 本轮收口状态（2026-11-09）
+
+- **已实现并有真栈证据**：P0 索引、P1 imprint、P2 selector/面面积证据、
+  P4.1 CONCENTRIC、P4.2 快赢切片（端盖草图/压缩 imprint/boolean scope/
+  symmetric 端盖）、P6 数据批（Intro/Element/DRILL）、P8 审计台账首切片。
+- **严格绿**：14 个 PS（Wheel、Master Cylinder Piston、First Part、
+  WARNING LABEL ×4、Drive Sleeve ×2、Intro Part 1/2、O-Ring、Bushing、
+  ENG_BEARING）；索引 `verify-example-index` 0 errors / 5 warnings。
+- **blocked（未实现，不得计绿）**：
+  - P3 PROJECTED/PIERCE/INTERSECTED/SILHOUETTED：ADR-0009 切片 1b/2 的异步
+    草图读路径架构；
+  - P5 跨 body fillet：ADR-0015 多目标契约；
+  - P7 draft/rib/shell/offsetSurface 等：产品后端/内核能力缺口；
+  - Part 3/4 同面积面集、Part 5/6 单线 imprint face split：blocked-selector；
+  - Bumper 12 边 fillet：blocked-kernel（native probe 已排入审计台账）；
+  - regionRisk（Alignment/iOS）：blocked-evidence（需位置/拓扑证据）。
+- 任务列表已按上述状态关闭：completed 包含“实现完成”与“blocked 证据收口”
+  两种，后续只在证据/能力变化时重开对应切片。
