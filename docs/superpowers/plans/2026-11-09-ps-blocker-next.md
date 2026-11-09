@@ -550,21 +550,38 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 **设计要点:**
 - 现状根因：CAP_FACE 被映射成既有 `extrude.startOffsetMm` + `draftAngleDeg`，
   轮廓仍是原草图面域；40 是从上游深度推断的偏移；拔模是整环 2D 偏置+Loft；
-  侧边为 `curvePrimitive`；oracle 展开 16/20（缺底面 4 条 loop）是 test-only 缺口。
+  最终 body 侧边为 `curvePrimitive`（来源待 S1：Loft/offset/Unite）；oracle 展开
+  16/20（缺底面 4 条 loop）是 test-only 缺口。
 - 选 A：扩展 `FaceExtrudeParams.startOffsetMm/draftAngleDeg/draftPullDirection`，
-  以 `bodyId`/`faceRef` 的**起始面边界**为轮廓；Bumper 精确映射 startOffset=0。
-- A1 语义（面轮廓/偏移/拔模）与 A2 解析边（20/20 硬前提）分开；A2 若失败，
-  Bumper 保持 blocked-kernel，不用近似/审计回退冒充。
+  以 `bodyId`/`faceRef` 的**起始面边界**为轮廓；Bumper 的 `startOffset=0` 是**推断**，
+  需 S10 解码证据 + pre-fillet 体积门（S11）钉死。
+- **A1/A2 测试门分离**：
+  - A1 = 面轮廓/偏移/参数接线 + 失败封闭；拔模继续复用整环偏置+Loft（**不修 P3**）；
+    记录 A1 baseline 体积（预计接近 297,764.787），**不**断言 sharp-frustum/解析边/20/20。
+  - A2 = sharp-frustum 297,002.158（或 measured A2 baseline）+ line/arc 锥面边（tool 体
+    与最终 Unite 体）+ **Bumper pre-fillet 657,002.158**（或 measured A2 baseline）+
+    oracle 20/20 + 最终 ±0.5%。A2 若失败，Bumper 保持 blocked-kernel。
+- **证据门**：S9（中性面/角度基准：起始面 vs 端面/草图面；10° 相对 pull direction vs
+  面平面）、S10（CAP_FACE 是 profile 还是原草图起始参考；face boundary 唯一匹配守卫）、
+  S11（startOffset=0 推断 → pre-fillet 门）。未取证前不宣称通用精确。
+- **body 归属**：faceRef 按 `bodyId` 逐体解析；跨体/多 body 歧义 status=1；旧单 body
+  载荷逐字兼容，旧多 body 歧义登记 fail closed。
+- **helper 适配**：`sweepSketchRegionDraft` 只接受 `SketchRegion`；`loftDraftedLoop`
+  未导出。A1 需导出 `loftDraftedLoop` 并新增 `faceSweepToolDrafted(Loop/ParityRegion)`；
+  不把面 Loop 强塞给 SketchRegion helper。
 - 拒绝 B（`ExtrudeParams.startFaceRef`：与 faceExtrude 双路径）、C（无面身份）、
   D（replay-only 硬编码/调参：非参数化、不可 AI 编辑）。
 - 无 UI：无 live 起始面/拔模对话框证据；AI/回放走标准 FeatureOp + 已解析 faceRef。
 
 **Approval/next steps（批准后）:**
 - [ ] 用户评审/签字（AIRR + ADR-0016）。
-- [ ] A1：shared 契约 + backend schema/求值器 + 失败封闭（不宣称解析边）。
-- [ ] A2：解析边 spike/实现（私有 native/TS 或等价构造；P0-08 另批）。
-- [ ] A3：converter/translator/runner + oracle 全边展开（test-only）。
-- [ ] A4：Bumper 严格轨 oracle 20/20 + strict 体积 + push/冷重开 + 全量回归。
+- [ ] A1：shared 契约 + backend schema/求值器 + `faceSweepToolDrafted`/`loftDraftedLoop`
+      适配 + CAP_FACE=profile/body 归属守卫 + 失败封闭；记录 A1 baseline，不宣称精确。
+- [ ] A2：解析边 spike/实现（私有 native/TS 或等价构造；P0-08 另批）；合成矩形 →
+      Bumper pre-fillet 657,002.158（或 measured A2 baseline）/20/20。
+- [ ] A3：S9/S10/S11 证据采集 + converter/translator/runner + oracle 全边展开（test-only）。
+- [ ] A4：Bumper 严格轨 pre-fillet 门 + oracle 20/20 + strict 最终体积 + push/冷重开 +
+      全量回归。
 - [ ] UI：另 AIRR（live 证据齐备后）。
 
 ---
@@ -698,7 +715,7 @@ native/backend 仓未提交。
 | CENTERLINE refs | scenario-to-op 新单测 | shared build | Fox RP23（或 blocked 证据） |
 | capFace/sweptFace 证据 | collector 测试 | index verify | 目标 PS spec |
 | Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper strict（审计 20 边覆盖）；通用 resolver 12 边仍 blocked-kernel |
-| CAP_FACE 起始面+拔模（设计-only，ADR-0016） | shared 契约（批准后） | backend `FaceExtrudeFlow`（批准后） | Bumper strict oracle 20/20（批准后；A2 解析边未达成则保持 blocked-kernel） |
+| CAP_FACE 起始面+拔模（设计-only，ADR-0016） | shared 契约 + S9/S10/S11 证据（批准后） | 后端 faceExtrude 求值器测试（批准后） | A1 baseline（不宣称精确）/ A2 sharp-frustum + 解析边 + pre-fillet 657,002.158（或 measured baseline）+ Bumper 20/20；A2 未达成保持 blocked-kernel |
 | AIRR/ADR | 文档自检 | 无代码 | 无 |
 
 ## 停止条件
@@ -709,6 +726,12 @@ native/backend 仓未提交。
 - 内核失败不能复现或修复 → `blocked-kernel` + native 台账，不用产品近似冒充。
 - CAP_FACE 起始面/拔模设计（ADR-0016）未批准 → 不写产品代码；oracle 20/20 只在
   产品侧解析边达成后启用，不用审计 20 边回退或 `curvePrimitive` 冒充严格绿。
+- A1 只能记录 baseline，不得断言 sharp-frustum 297,002.158/解析边/20/20；A2 未达成
+  → Bumper 保持 blocked-kernel。
+- Bumper pre-fillet 体积门（657,002.158 或 measured A2 baseline）与 20/20 边门必须
+  同时满足；不得用最终 ±0.5% 掩盖 Extrude 2 残差。
+- CAP_FACE=profile（S10）与中性面/角度（S9）未取证 → 不宣称通用精确；start-reference
+  形态保持 blocked/approximate。
 - 任何真栈非 status=0 或体积超差 → 不放宽断言，不升严格绿。
 
 ## 阶段退出标准
