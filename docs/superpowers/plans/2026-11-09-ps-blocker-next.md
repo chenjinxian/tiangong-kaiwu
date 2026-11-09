@@ -581,10 +581,11 @@ git -C D:\Github\imodel-native commit -m "test(brepcore): multi-edge blend probe
 fillet/pattern/mirror 的跨体语义、事务/撤销、失败回退；明确不改变单 target
 旧载荷。
 
-- [x] **Step 3: 评审与登记**
+- [x] **Step 3: 设计登记（评审签字另列）**
 
 计划文档记录“未批准前不写产品代码”；把 P3/P5 任务保持 blocked-design；
-不把 AIRR/ADR 当作绿例。
+不把 AIRR/ADR 当作绿例。本 step 只登记设计，不宣称评审通过；复审/签字由 reviewer
+与用户另列。
 
 - [x] **Step 4: 提交**
 

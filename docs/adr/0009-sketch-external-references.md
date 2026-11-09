@@ -76,7 +76,7 @@ shared 162/162。
    曲线**（不参与 DOF；solver-neutral 输入是固定曲线，不新增求解器约束）。
    读取外部几何走既有 `SolidModelingCommand`（与 faceExtrude 同通道，异步）；
    草图求值需在异步预求值路径完成投影快照。投影曲线带 `source` 引用；读面用
-   sourceDigest + bodyRevision 键判快照是否失效（见 AIRR §4.2），上游变化时
+   sourceDigest + bodyRevision + changeEpoch 键判快照是否失效（见 AIRR §4.2），上游变化时
    重投影；读取失败=读面 `projection.status="failed"`、消费特征 status=1（插入
    失败则 op 拒收），不静默丢弃。
 3. **参数化/持久化**：投影结果是派生显示/求解输入，**不是第二套草图事实源**；
@@ -103,6 +103,9 @@ shared 162/162。
 ## 验证与回滚
 
 - 单元：投影快照生成/更新/失败路径、旧库 fixture、solver-neutral 输入不变。
-- 真栈：合成“盒体边 → 新草图投影 → 拉伸”体积验收；真实 PS 至少一个
-  PROJECTED 步骤在 tree/status 上诚实（几何对拍优先）。
-- 回滚：字段 additive；关闭投影时按旧 params 求值；旧库无需迁移。
+- 真栈：合成“盒体顶面四条边 → 闭合投影环 → 拉伸 10 → 4000 mm³（20×20 盒）”
+  体积验收；真实 PS 至少一个 PROJECTED 步骤在 tree/status 上诚实（几何对拍优先）。
+  单条开口边不能形成闭合面域，不作主验收。
+- 回滚：运行时/JSON additive（旧 1.35 载荷/旧库逐字有效）；`SketchExternalRef`/`SketchProjectionRequest`
+  的判别联合是 TS 源码级不兼容，消费者须同批窄化；关闭投影时按旧 params 求值；
+  旧库无需迁移。

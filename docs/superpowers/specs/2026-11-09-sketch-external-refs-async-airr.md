@@ -24,7 +24,8 @@
 - 两个候选路径：**(A) 异步草图求值路径**、**(B) 可失效同步快照缓存**。
   **裁决：选 B**。异步只发生在既有 pre-eval 通道，同步求解/面域/显示读面保持签名与语义；
   快照是**派生、进程内、可失效、永不作为事实源**，缺失或过期**失败封闭**。
-- 契约以**判别联合**扩展，旧 1.35 载荷逐字兼容；投影坐标只是读时派生/插入时快照，
+- 契约以**判别联合**扩展：运行时/JSON additive、旧 1.35 载荷逐字兼容；但 TS 源码
+  需 shared/backend/web 同批窄化（见 §5.1）。投影坐标只是读时派生/插入时快照，
   事实源仍是 `params` 中的 source 引用。
 - 本切片**不做 UI**：仓库没有 Onshape Use/Project 对话框 live 证据，选择器/失败提示/
   投影线样式按 blocked-evidence 另行采集，能力保持 gated。
@@ -58,8 +59,10 @@ PS 的实体边/面投影）。多数回放场景的投影曲线已包含在已�
    直线边精确投影为直线；非平行平面上的圆/弧（投影为椭圆）、样条边、非平面面在首版
    **诚实拒收**，不折线化/不椭圆近似。
 3. **参数联动**：上游 body 改参数（拓扑引用仍有效）→ 投影曲线与下游消费特征自动更新；
-   真栈验收至少一条「盒体边 → 投影 → 拉伸」与一条「改上游尺寸 → 下游体积变化」，
-   push + 冷重开后体积一致。
+   真栈验收至少一条「盒体顶面四条边 → 闭合投影环 → 拉伸 10 mm = 4000 mm³
+   （20×20 盒）」与一条「改上游尺寸 → 下游体积变化」，push + 冷重开后体积一致。
+   单条开口边不能形成闭合面域/体积，不得作为主验收；非平行直线用例只断言投影端点，
+   或另加闭合线并注明来源。
 4. **跨 body**：源 body 与草图消费特征所在 body 可不同（同一 Part Studio）；源 body 的
    变化只影响投影草图及其下游，不改写源 body。
 5. **失败封闭**：源 body/边/面被删除、被抑制、拓扑失效、跨 Part Studio、前向引用/循环、
@@ -160,6 +163,18 @@ FeatureService.applyOp (async)
   但异步预求值不能写库。读面只能使用进程内已有快照；没有则失败封闭（不得为了显示
   去写只读库）。
 
+### 2.5 直接编辑（P0-05）改变源 body
+
+- P0-05 的直接编辑通道（`EditTools.startCommand` + `basicManipulationIpc`/
+  `solidModelingIpc`）可以在**不经 FeatureOp、不改 params** 的情况下改变源 body 的
+  几何/拓扑。
+- 只看 FeatureOp 的投影会读到旧快照；因此快照键必须包含**body/native 变更 epoch**：
+  直接编辑提交时 bump 受影响 body 的 revision；无法归属到具体 body 时 bump scope 级
+  `changeEpoch`，使该 scope 的全部投影快照失效。
+- 复用既有标准提交/几何变更事件（如 Briefcase txn 提交、模型几何变更通知），不自建
+  第二套编辑/撤销状态机（P0-05）。直接编辑后读面只允许“重算后使用”或“失败封闭”，
+  不得回退旧快照。
+
 ---
 
 ## 3. 选项比较与裁决
@@ -248,8 +263,9 @@ resolveProjectedEntities(db, entities, plane, visited, provider?)
 ```
 
 - `provider` 是新增的**进程内快照查表接口**（不是新 RPC、不是 shared DTO）。
-- `sketchRegionsFrom`/`readResolvedSketch` 增加可选 provider 参数；未传且遇到 body
-  引用=失败封闭（现有 1a 调用点无需改签名即可编译）。
+- `sketchRegionsFrom`/`readResolvedSketch` 增加**可选** provider 参数；未传且遇到 body
+  引用=失败封闭。新增可选参数本身不改变既有调用签名；但 §5.1 的 union 类型变更是
+  源码级不兼容，消费者须同批窄化。
 - `FeatureService.getSketch` 捕获 `ProjectionResolutionError`，返回
   `projection.status="failed"` + 错误列表；**不返回**失败引用的旧曲线。
 
@@ -282,10 +298,15 @@ resolveProjectedEntities(db, entities, plane, visited, provider?)
 // modeling-server 内部类型（不进入 shared RPC 契约）
 interface ProjectionSnapshotKey {
   sketchId: string;
-  /** 有序请求的规范 JSON（entityId + source 判别联合）的摘要 */
+  /** 从持久化 params.entities 重建的 root projected 标记摘要：
+   *  {entityId, source} 列表（derived !== true）按 entityId 排序后的 canonical JSON。 */
   sourceDigest: string;
-  /** 全部源 body 的求值 revision 规范摘要（产出/修改特征 id + params 摘要 + 求值代次） */
+  /** 全部源 body 的 revision 规范摘要：逐 body =
+   *  (bodyId, 产出/修改特征 id, 该特征链 params canonical digest, lastBodyWriteEpoch)。 */
   bodyRevision: string;
+  /** scope 级全局失效纪元：undo/redo、import/迁移、无唯一 body 的直接编辑、
+   *  可能重接投影依赖的结构性图变更时 bump（进程内单调）。 */
+  changeEpoch: string;
 }
 
 interface ProjectionSnapshot {
@@ -299,9 +320,22 @@ interface ProjectionSnapshot {
 }
 ```
 
-- **键必须包含 sourceDigest**：同一草图改投影请求/重排 id 必须失效。
-- **键必须包含每个源 body 的 revision**：body 的任何参数/拓扑修改都 bump；不能只用
-  `sketchId` 或时间戳。
+- **sourceDigest 重建规则**：从持久化 `params.entities` 中带 `projected` 且
+  `derived !== true` 的根实体提取 `{entityId, source}`，按 `entityId` 排序后做
+  canonical JSON 摘要；不依赖内存请求顺序/对象引用。若某版本无法从 params 重建，
+  必须持久化规范化请求列表，不得用内存状态作为键。
+- **bodyRevision bump 规则（逐源 body）**：以下任一发生即 bump：该 body 的 FeatureOp
+  insert/update/delete/suppress/undo/redo 提交；产出/修改该 body 的特征链 params
+  变化；直接编辑提交改变该 body 几何/拓扑；body 创建/消费/删除。`lastBodyWriteEpoch`
+  由每次已提交的 body 写入（FeatureOp 或直接编辑 hook）分配为单调值，不是时间戳。
+- **changeEpoch bump 规则（scope 级）**：仅对**无法归属到具体 body** 的提交
+  （undo/redo、import/迁移、无唯一 body 的直接编辑）以及可能重接投影依赖的**结构性
+  图变更**（插入/删除/重排/抑制会改变 body 产出/修改特征或依赖边重接的操作）bump，
+  并清空该 scope 快照；可归属的 FeatureOp/直接编辑只 bump 对应 body 的 `bodyRevision`，
+  使无关 body 的投影快照继续命中。缓存是进程内的，epoch 只需进程内单调可比较；
+  冷开缓存为空，不依赖跨进程相等。
+- **undo/redo**：显式清空该 db/scope 的投影快照并 bump changeEpoch；`ensureWarmForRead`
+  因 redo 跳过 rebuild 时，读面只能失败封闭或走读面异步补算，禁止使用旧快照。
 - 快照按 `sketchId` 单槽存放（一张草图一个当前键）；旧键条目被替换/丢弃。
 - 快照**不序列化到 iModel**，不跨进程共享；冷开由 rebuild/读面钩子重建。
 
@@ -309,17 +343,18 @@ interface ProjectionSnapshot {
 
 | 事件 | 处理 |
 |---|---|
-| 上游 body 的参数/特征修改成功 | 该 body revision bump；相关草图快照键不匹配 → 下一次 pre-eval 重建；读面在重建前失败封闭 |
-| 上游 body 被 fillet/hole 等修改（sourceFeatureId 变化） | 依赖边重接；body revision bump；快照失效 |
-| 投影草图 `insertSketch`/`updateSketch` 增删投影 | sourceDigest 变化；旧快照丢弃；驱动边重接（1a 同口径） |
+| 上游 body 的参数/特征修改成功 | 该 body revision bump（结构性图变更时另 bump changeEpoch）；快照键不匹配 → 下一次 pre-eval 重建；读面在重建前失败封闭 |
+| 上游 body 被 fillet/hole 等修改（sourceFeatureId 变化） | 依赖边重接；该 body revision bump；快照失效 |
+| **直接编辑**（`EditTools` + `basicManipulationIpc`/`solidModelingIpc`）改变源 body | 受影响 body revision bump；无法归属到 body 时只 bump scope changeEpoch 并清空该 scope 快照；读面失败封闭直到重算 |
+| 投影草图 `insertSketch`/`updateSketch` 增删投影 | sourceDigest（从 params 重建）变化；旧快照丢弃；驱动边重接（1a 同口径） |
 | suppress/delete 源 body 产出特征 | 源不可用；快照失效；读面 `projection-source-missing` |
-| undo/redo | 事务代次变化 → 全部快照键失效；读面钩子按需补算或失败封闭 |
+| undo/redo | **显式清空**该 db/scope 的投影快照并 bump changeEpoch；`ensureWarmForRead` 跳过 rebuild 时读面钩子按需补算或失败封闭，禁止旧快照 |
 | push/冷开 | 进程内缓存为空；`rebuildAll` 拓扑序补算；读面钩子兜底 |
 | 只读 briefcase | 不写库；用已有快照；缺失=失败封闭（不触发写事务） |
 | 跨 Part Studio / 前向引用 / 循环 | 插入期直接拒收；不应产生快照 |
 
-- revision 的来源必须是**持久/可重建的**：产出特征 id + params 摘要 + 求值代次，
-  不能依赖内存对象指针或时间。
+- revision 的来源必须是**持久/可重建的**：产出特征 id + params 摘要 +
+  `lastBodyWriteEpoch`（提交纪元），不能依赖内存对象指针或时间。
 - 不使用 TTL/时间过期作为正确性依据；时间只做诊断。
 
 ### 4.4 失败封闭语义
@@ -337,7 +372,7 @@ interface ProjectionSnapshot {
 | `projection-cross-project` | 源 body 不在本 Part Studio / scope | 插入拒收 |
 | `projection-cycle` | 草图→body→草图 的循环依赖 | 插入拒收 |
 | `projection-snapshot-missing` | 同步读面时无可用快照（冷开/redo/只读/预求值未跑） | 读面 failed；**不**读插入时坐标 |
-| `projection-snapshot-stale` | 快照键与当前 sourceDigest/bodyRevision 不匹配 | 读面 failed；异步钩子重建后恢复 |
+| `projection-snapshot-stale` | 快照键与当前 sourceDigest/bodyRevision/changeEpoch 不匹配 | 读面 failed；异步钩子重建后恢复 |
 
 - **绝不**用 `params` 中的插入时坐标作为失败回退；那些坐标只用于审计/旧客户端离线展示
   的兼容数据，不参与求解/面域/显示成功路径。
@@ -349,7 +384,7 @@ interface ProjectionSnapshot {
 
 - 快照生成只在预求值段执行；不得在 `SolidModelingCommand` 回调内部再次触发另一个
   同类命令（沿用既有异步通道约束）。
-- 同一 db/scope 的预求值串行（现有 `withDocumentInitLock`/pre-eval 纪律）；快照缓存
+- 同一 db/scope 的预求值串行（沿用现有文档初始化锁/事务串行纪律）；快照缓存
   读写必须同线程/同锁域，避免读面看到半写入快照。
 - `getSketch` 读面钩子与 `applyOp` 并发时：写 op 持租约并走事务；读面钩子只做只读
   预求值，不写库；若遇到正在进行的写事务，失败封闭/重试一次，不阻塞写入。
@@ -366,7 +401,7 @@ interface ProjectionSnapshot {
 
 ## 5. 契约形状（提议）
 
-### 5.1 shared 类型（additive）
+### 5.1 shared 类型（JSON/runtime additive；TS source 需同批更新）
 
 ```ts
 /** v1.35 既有成员逐字保留。 */
@@ -423,6 +458,14 @@ export interface SketchProjectedMarker {
   新对象必须带 `source`，schema 层拒绝同时缺 `source` 和旧字段、或两者都有的对象。
 - `SketchExternalRef` 扩展后，旧读面遇到新 kind 会因 source 结构不匹配而抛错
   **失败封闭**（不是静默丢弃）；旧库不会含新 kind，因此无迁移。
+- **源码兼容性（不是纯 additive）**：`SketchExternalRef` 与 `SketchProjectionRequest`
+  从单形态变为判别联合，属于 **TS 源码级破坏性变更**——任何直接访问
+  `source.sketchId`/`source.entityId` 或 `request.sourceSketchId`/`sourceEntityId`
+  的代码必须先窄化。运行时/JSON 是 additive：旧 1.35 载荷与旧库逐字有效；已编译的
+  旧 backend JS 只读 `kind:"sketchEntity"`，旧载荷行为不变，新 kind 对它失败封闭。
+- **同批必须更新的消费者**：`SketchProjection.synthesizeGroup`/`resolveProjectedEntities`、
+  `FeatureService.applyInsertSketch`/`applyUpdateSketch`/`getSketch`、web 草图 DTO 消费
+  与测试；不允许只 bump shared 而不改消费者。
 
 ### 5.2 投影几何规则（首版）
 
@@ -470,6 +513,9 @@ export interface SketchProjectedMarker {
 
 - shared 下一 minor（提案 **1.64.0**；实现时若基线已前进，按当时下一 minor bump）。
 - 旧 1.35 投影请求/标记逐字兼容；无 params/schema 迁移。
+- **运行时/JSON additive，TS 源码不兼容**：旧 1.35 载荷、旧库、已编译旧 backend 的旧
+  载荷行为不变；新 union 需要 shared/backend/web 源码同批窄化（见 §5.1）。shared 版本
+  按项目 minor bump，但不得在跨仓影响里写“纯 additive/无需改消费者”。
 - 新 web ↔ 旧 backend：新 web 不发 body 引用（无 UI），行为不变。
 - 旧 web ↔ 新 backend：旧 web 不创建 body 引用；读面新增可选的 `projection` 键，
   旧 web 忽略。已有 body 引用文档需要新 web/新 backend 才能编辑。
@@ -483,11 +529,13 @@ export interface SketchProjectedMarker {
   事实源；投影几何是派生输出。`source` 引用是稳定输入，插入时坐标只是快照。
 - **不持久化派生快照**：不写 params、不写 native geometry stream、不建影子元素；
   进程缓存丢失可重建。
-- **schema/迁移**：无库 schema 变更；只新增可选 DTO 形状。旧库 fixture 必须逐字通过。
+- **schema/迁移**：无库 schema 变更；运行时/JSON additive（新增可选读面状态），但
+  `SketchExternalRef`/`SketchProjectionRequest` 的 union 是 TS 源码级不兼容，消费者须
+  同批窄化（§5.1）。旧库 fixture 必须逐字通过。
 - **事务边界**：所有写操作仍走 `FeatureOp` → `FeatureService` → `BriefcaseTxns`/
   `saveChanges`；异步预求值不自行提交事务；读面钩子只读、不写库。
-- **Undo/redo**：投影草图/消费特征在标准事务内；undo/redo 后快照键按事务代次失效，
-  读面补算或失败封闭。不得出现 undo 后仍显示旧投影坐标。
+- **Undo/redo**：投影草图/消费特征在标准事务内；undo/redo 时显式清空该 db/scope 的
+  投影快照并 bump changeEpoch，读面补算或失败封闭。不得出现 undo 后仍显示旧投影坐标。
 - **写租约/权限/限流**：沿用现有写租约（一个 op 一个租约）；读面钩子不取写租约；
   不新增写通道。
 - **日志/审计**：错误码与 source 摘要可记录；不打印私有几何坐标/完整 BRep；不在公共仓
@@ -506,8 +554,8 @@ export interface SketchProjectedMarker {
 | itwinjs-core | 子实体几何、持久拓扑 id | `SolidModelingCommand.getSubEntityGeometry` / `topologyIdFromSubEntity` / `facesFromId` | 复用；不改 fork |
 | luban-cad/packages/editor | 边/面拾取、持久引用 | `resolveEdgeRef` / `resolveFaceRef` / `EditTools` | 复用（UI 后续） |
 | luban-cad/packages/viewer | 选择权威 | `store.canvas.selection` / `OnshapeSelectTool` | 复用（UI 后续） |
-| luban-cad/packages/shared | 草图 DTO/外部引用/拓扑 id | `SketchExternalRef` / `SketchProjectedMarker` / `LubanTopologyId` | **扩展**（additive） |
-| luban-backend/modeling-server | 草图读/预求值/载体 | `SketchProjection` / `SketchRegions` / `AsyncFeatureEval` / `EvalCarrier` / `FeatureOutputCache` | **扩展**（快照 provider + 异步预求值） |
+| luban-cad/packages/shared | 草图 DTO/外部引用/拓扑 id | `SketchExternalRef` / `SketchProjectedMarker` / `LubanTopologyId` | **扩展**（JSON additive；TS source 需窄化） |
+| luban-backend/modeling-server | 草图读/预求值/载体 | `SketchProjection` / `SketchRegions` / `AsyncFeatureEval` / `EvalCarrier` / `FeatureOutputCache` | **扩展**（快照 provider + 异步预求值 + 直接编辑/undo epoch 钩子） |
 | luban-backend/webhook-agent | 无直接关系 | — | 不适用 |
 | imodel-native | BRep 拓扑/几何 | `SolidKernel.h` 现有接口 | 复用，不改 native |
 | imodelhub-services | 无直接关系 | — | 不适用 |
@@ -530,13 +578,13 @@ export interface SketchProjectedMarker {
 
 | 仓/层 | 契约 | schema/迁移 | native/接口 | 测试 | 发布 |
 |---|---|---|---|---|---|
-| web | 读面 `projection` 状态；无 UI | 无 | 无 | 单测 + 真栈 | shared 后同批 |
-| shared | `SketchExternalRef` 联合 + 请求联合 + 读面状态；版本 bump | 无 | 无 | 契约测试 | 同批发布 |
+| web | 读面 `projection` 状态；DTO 窄化；无 UI | 无 | 无 | 单测 + 真栈 | shared 后同批 |
+| shared | `SketchExternalRef`/请求判别联合 + 读面状态；版本 bump；**源码级不兼容，消费者同批更新** | 无 | 无 | 契约测试 | 同批发布 |
 | viewer | 无（选择复用） | 无 | 无 | 选择回归 | 不变 |
 | editor | 无（拾取复用） | 无 | 无 | 编辑命令回归 | 不变 |
 | itwinjs-core | 仅消费 op31/op32 | 无 | 无 | 已有测试 | 不变 |
 | imodel-native | 仅消费现有 SolidKernel 能力 | 无 | 无 | ctest/下游 | 不改 |
-| modeling-server | 快照 provider + 预求值 + 读面错误 | 无库 schema 变更 | 无 | 单测 + StandaloneDb + 真栈 | shared 后同批 |
+| modeling-server | 快照 provider + 预求值 + 读面错误 + direct-edit/undo change epoch 钩子；union 窄化 | 无库 schema 变更 | 无 | 单测 + StandaloneDb + 真栈 | shared 后同批 |
 | webhook-agent | 无 | 无 | 无 | — | 不适用 |
 | hub/DanQing | 无 | 无 | 无 | — | 不适用 |
 
@@ -554,7 +602,7 @@ export interface SketchProjectedMarker {
 | 用例 | 覆盖 |
 |---|---|
 | shared schema 旧/新请求恰一、混用/缺源/重复 id/块冲突 | 契约 |
-| 快照键：sourceDigest 变化、bodyRevision 变化、同 revision 命中 | 失效 |
+| 快照键：sourceDigest/bodyRevision/changeEpoch 变化、同 revision 命中、无关 body 编辑仍命中 | 失效 |
 | 边投影：直线/圆/弧（平行与反向）、非平行圆/弧拒收、退化线/弧拒收 | 几何 |
 | 面投影：平面外环/孔环、非平面/曲面/非平行圆/弧拒收、块 id 校验 | 几何 |
 | 失败码矩阵：缺失、歧义、forward/cross/cycle、snapshot-missing/stale | 失败封闭 |
@@ -565,24 +613,28 @@ export interface SketchProjectedMarker {
 
 | 用例 | 验收 |
 |---|---|
-| 盒体边 → 新草图投影 → 拉伸 | 体积精确（如 20×20×10 盒边投影 + 拉伸，解析值对拍） |
-| 平行圆柱端面圆 → 投影圆 → 拉伸/切除 | 圆/弧保真 |
-| 非平行直线边 → 投影线 | 端点/体积对拍 |
+| 盒体顶面四条边 → 新草图闭合环 → 拉伸 | 20×20 盒顶四边投影成闭合矩形，拉伸 10 → **4000 mm³** 解析对拍 |
+| 平行圆柱端面圆 → 投影圆 → 拉伸/切除 | 圆/弧保真（闭合环，可体积验收） |
+| 单条非平行直线边 → 投影线 | 只断言投影端点坐标；若需体积，另加闭合线并声明构造/闭合来源 |
 | 非平行圆/弧、样条边、非平面面 | op 拒收/status=1，无半成品 |
 | 源 body 参数修改（尺寸/位置） | 投影更新，消费特征体积变化；源 body 不变 |
 | 源边/面失效（改参删除拓扑、抑制/删除上游） | `projection-source-missing`；消费 status=1；无旧坐标回退 |
-| 跨 body（body B 的边投影，消费在 body A） | 两 body 独立，源 B 变化触发投影 |
-| undo/redo | 快照失效/重建；体积回到对应状态；undo 后无 stale 显示 |
+| 跨 body（body B 的闭合边环/面外环投影，消费在 body A） | 两 body 独立，源 B 变化触发投影 |
+| 直接编辑源 body（P0-05 通道，不经 FeatureOp） | 受影响 body revision / scope changeEpoch bump；快照失效；读面失败封闭或重算后更新，不读旧快照 |
+| 直接编辑无关 body | 快照命中，不触发投影重算 |
+| undo/redo | 显式清空该 db/scope 快照并 bump changeEpoch；读面补算或失败封闭；体积回到对应状态，undo 后无 stale 显示 |
 | 冷开/进程重启 | `rebuildAll` 按拓扑序重建；体积/树一致 |
 | 旧库 fixture（1a 投影、无投影） | 逐字兼容，无迁移 |
 
 ### 8.3 真栈 e2e（批准后）
 
 - 新增 `e2e/sketch-projection-body.spec.ts`（实现时落此文件）：
-  - 合成盒体 → 拾取边（test-only 直接 RPC/resolveEdgeRef）→ 投影草图 → 拉伸 →
-    体积断言 → 改上游尺寸 → 体积变化 → push + 冷重开一致。
+  - 合成盒体 → 拾取**闭合环（四条顶边）**或 bodyFace 外环（test-only 直接 RPC/
+    resolveEdgeRef）→ 投影草图 → 拉伸 10 → **4000 mm³** 体积断言 → 改上游尺寸 →
+    体积变化 → push + 冷重开一致。
   - 失败注入：删除源特征/边后读面/消费状态=1；不显示旧曲线。
-- 跨 body 用例：两个 body，B 的边投影到草图，拉伸只改变 A；B 改参后投影更新。
+- 跨 body 用例：两个 body，B 的闭合边环/面外环投影到草图，拉伸只改变 A；B 改参后
+  投影更新。单条开口边不用于体积验收。
 - 回归：`e2e/sketch-projection.spec.ts`（1a）、`first-part`、`alignment`、`iOS`、
   `verify-imodels` 现有 13 个 iModel 重开不变；不得用 record/known-red 冒充绿。
 
