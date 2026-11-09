@@ -193,19 +193,26 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   导出 `capFaceExtrude`（上游草图/面域 + startOffset=上游 depth），translator
   映射既有 `extrude` 的 startOffset+draft；不再误标 imprintFace/region 0。
   Bumper Block：Extrude 1 360,000 → Extrude 2 **657,764.787** mm³（+297,764.787）。
-  **2026-11-10 回滚快照 oracle 切片**：严格轨 `bumper-block-strict.spec.ts` 已
-  移除审计 20 边 override，改消费私有 `manifest/face-oracle-edges.json`
-  （rb=3；公共源码不含私有 id/绝对路径）。oracle 按 matched face loops +
-  matched edge 展开为 **16/20** 条 body 边（缺底面 4 边）；且其中 4 条锥面斜边
-  在产品侧是 `kind:'other'(curvePrimitive)`，`matchOracleToProductEdges` 无几何
-  可比 → `BlockedCapabilityError('edge-oracle')`，Bumper strict 当前**红灯
-  （fail closed，不回退 override）**。此前 20 边 override 的真栈证据
-  634,347.216 vs 636,731.499（−0.374%，6 特征全 status=0、push+冷重开）只证明
-  **内核可接受 20 边**，不等于 oracle 链路已打通。Extrude 2 仍为
-  startOffset+draft 近似（approximateSteps=1）。通用 resolver 与 oracle 对
-  Fillet 1 均未打通，索引分类 blocked-kernel 不变。`run-file` 新增
-  `statusPolicy:'record'`（严格轨缺省仍 fail closed）与 push 后冷重开 status=0
-  严格断言；新增可选 `edgeOracle`（缺省不启用，默认路径不变）。无 RPC/产物变更。
+  **2026-11-10 回滚快照 oracle 切片**：新增 test-only
+  `manifest/face-oracle-edges.json`（私有、运行时加载；公共源码不含私有
+  id/绝对路径）+ `rollback-edge-oracle.ts` 几何唯一匹配 + 可选 runner
+  `edgeOracle`（缺省不启用，默认路径不变；18 条纯匹配单测）。
+  Bumper `Fillet 1` 的 oracle 实测 **fail closed**：指定展开规则
+  （matched edge + matched face loops）只有 **16/20** 条 body 边（缺底面 4 条
+  loop 边），且其中 4 条锥面斜边在产品侧是
+  `kind:'other'(curvePrimitive)`（Extrude 2 的 startOffset+draft 近似），
+  无几何可比。严格轨 `bumper-block-strict.spec.ts` 因此采用
+  “**仅当 oracle 解析恰好 20 条产品边才采用，否则回退审计 20 边 override**”
+  的显式策略；审计回退真栈 **2 passed**（auth setup + 严格场景）：
+  6 特征全 status=0（push 前/冷重开后）、1 body、
+  **634,347.216 vs 636,731.499 mm³（−0.374%）**、push+冷重开一致；
+  回退原因（oracle 16/20 + curvePrimitive）写入 notes 并打印。
+  oracle 本身仍是**部分能力**：86/122 候选特征 ready、36 blocked
+  （不支持曲线类型）、0/86 ready 覆盖全部 body 边；不能当作通用选择器替代。
+  Extrude 2 仍为 startOffset+draft 近似（approximateSteps=1）。通用 resolver
+  与 oracle 对 Fillet 1 均未打通，索引分类 blocked-kernel 不变。`run-file`
+  新增 `statusPolicy:'record'`（严格轨缺省仍 fail closed）与 push 后冷重开
+  status=0 严格断言。无 RPC/产物变更。
 - `apps/web` 全量 vitest：**1527/1527**（2026-11-09 body pattern 反向 UI +1
   （FeatureDialog 179/179；真栈 3×3 720.000 反向质心 x=-6 push+冷重开）；
   body pattern 第二方向 UI +3

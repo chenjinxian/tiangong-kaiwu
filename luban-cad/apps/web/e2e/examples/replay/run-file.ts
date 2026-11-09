@@ -59,6 +59,8 @@ export interface RunScenarioFileOptions {
    * 审计的 test-only 边覆盖（2026-11-09 Bumper Fillet 1）：按特征返回完整
    * 持久边引用，覆盖通用 resolver 的展开结果。仅显式传入的示例 spec 使用；
    * 缺省行为完全不变（仍走 `resolveScenarioEdges`）。
+   * 2026-11-10：Bumper spec 用它承载“oracle 仅当恰好 20 条产品边才采用，
+   * 否则回退审计 20 边”的显式回退（回退原因进入 notes）。
    */
   edgeRefsOverride?: EdgeRefsOverride;
   /**

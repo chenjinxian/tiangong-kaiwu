@@ -5,15 +5,20 @@
  * 判别、0/多匹配 fail closed、重复 oracle 曲线、manifest 解析/Part Studio 过滤、
  * 多 body 显式 scope。真栈枚举/resolveEdgeRef 由 Bumper strict spec 覆盖。
  */
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { DEFAULT_DATA_ROOT, isExampleDataAvailable } from '../registry.js';
 import type { EdgeHandle } from './edge-resolver.js';
 import {
   ORACLE_TOLERANCE_MM,
   edgeOracleMapForPartStudio,
+  loadRollbackEdgeOracleManifest,
   matchOracleToProductEdges,
   parseRollbackEdgeOracleManifest,
   scopeOracleHandles,
   type OracleEdgeCurve,
+  type OracleLineEdge,
 } from './rollback-edge-oracle.js';
 import { BlockedCapabilityError } from './scenario-to-op.js';
 
@@ -296,4 +301,41 @@ test.describe('scopeOracleHandles', () => {
 
 test('默认容差为文档化的 0.05 mm', () => {
   expect(T).toBe(0.05);
+});
+
+test.describe('Bumper rb=3 oracle fail-closed evidence', () => {
+  test('oracle 16/20 + product curvePrimitive → audited fallback 依据', () => {
+    test.skip(!isExampleDataAvailable(), 'ONSHAPE_PARITY_DATA 不在场');
+    const oracleFile = path.join(DEFAULT_DATA_ROOT, 'manifest', 'face-oracle-edges.json');
+    test.skip(!existsSync(oracleFile), 'face-oracle-edges.json 不在场');
+    const manifest = loadRollbackEdgeOracleManifest(oracleFile);
+    const map = edgeOracleMapForPartStudio(manifest, { psName: 'Bumper Block' });
+    const oracle = map.get('Fillet 1');
+    expect(oracle, 'Bumper Fillet 1 oracle 缺失').toBeDefined();
+    expect(oracle!.status).toBe('ready');
+    // 指定展开规则（matched edge + matched face loops）只能覆盖 16/20 条
+    // body 边（缺底面 loop 4 条），因此永远达不到审计 20 边的严格门。
+    expect(oracle!.edges.length, 'oracle 只能展开 16/20 条 body 边').toBe(16);
+    expect(oracle!.bodyEdgeCount).toBe(20);
+
+    // 合成产品句柄：前 12 条 oracle 曲线可匹配；其余 4 条按真栈实测的
+    // approximate Extrude 2 锥面斜边表示（kind:'other'/curvePrimitive，无几何）。
+    // 匹配器必须 fail closed，而不是把 12 条当成功或猜 4 条。
+    const lineCurves = oracle!.edges.filter((curve): curve is OracleLineEdge => curve.kind === 'line');
+    expect(lineCurves.length).toBe(16);
+    const handles: EdgeHandle[] = [
+      ...lineCurves.slice(0, 12).map((curve, index) => body(index + 1, {
+        kind: 'line',
+        p0: curve.p0,
+        p1: curve.p1,
+      })),
+      ...Array.from({ length: 4 }, (_value, index) => body(100 + index, {
+        kind: 'other',
+        geometryType: 'curvePrimitive',
+      })),
+    ];
+    const error = blocked(() => matchOracleToProductEdges(oracle!, handles));
+    expect(error.message).toContain('匹配 0 条产品边');
+    expect(error.message).toContain('other:curvePrimitive');
+  });
 });
