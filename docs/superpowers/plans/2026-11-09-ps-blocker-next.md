@@ -533,6 +533,42 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 
 ---
 
+## Task 6b（设计-only）：CAP_FACE 起始面 + 拔模的精确 faceExtrude
+
+> **2026-11-10 设计切片**：AIRR
+> `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md` /
+> ADR-0016 `docs/adr/0016-extrude-start-face-draft.md`。
+> 状态 **提议 / 未批准**；**未批准前不写产品代码**。本设计不改变当前 Bumper
+> strict 结果：仍为审计 20 边回退（−0.374%）、oracle 16/20、Extrude 2 近似步；
+> 不把设计/近似计入严格绿，也不声称 20/20 已解决。
+
+**Files（设计产物，本次已落）:**
+- `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md`
+- `docs/adr/0016-extrude-start-face-draft.md`
+- 本计划、`docs/README.md`、ADR-0006 指针（可选）
+
+**设计要点:**
+- 现状根因：CAP_FACE 被映射成既有 `extrude.startOffsetMm` + `draftAngleDeg`，
+  轮廓仍是原草图面域；40 是从上游深度推断的偏移；拔模是整环 2D 偏置+Loft；
+  侧边为 `curvePrimitive`；oracle 展开 16/20（缺底面 4 条 loop）是 test-only 缺口。
+- 选 A：扩展 `FaceExtrudeParams.startOffsetMm/draftAngleDeg/draftPullDirection`，
+  以 `bodyId`/`faceRef` 的**起始面边界**为轮廓；Bumper 精确映射 startOffset=0。
+- A1 语义（面轮廓/偏移/拔模）与 A2 解析边（20/20 硬前提）分开；A2 若失败，
+  Bumper 保持 blocked-kernel，不用近似/审计回退冒充。
+- 拒绝 B（`ExtrudeParams.startFaceRef`：与 faceExtrude 双路径）、C（无面身份）、
+  D（replay-only 硬编码/调参：非参数化、不可 AI 编辑）。
+- 无 UI：无 live 起始面/拔模对话框证据；AI/回放走标准 FeatureOp + 已解析 faceRef。
+
+**Approval/next steps（批准后）:**
+- [ ] 用户评审/签字（AIRR + ADR-0016）。
+- [ ] A1：shared 契约 + backend schema/求值器 + 失败封闭（不宣称解析边）。
+- [ ] A2：解析边 spike/实现（私有 native/TS 或等价构造；P0-08 另批）。
+- [ ] A3：converter/translator/runner + oracle 全边展开（test-only）。
+- [ ] A4：Bumper 严格轨 oracle 20/20 + strict 体积 + push/冷重开 + 全量回归。
+- [ ] UI：另 AIRR（live 证据齐备后）。
+
+---
+
 ## Task 7: PROJECTED / 多体 AIRR-ADR（设计，不写产品代码）
 
 **Files:**
@@ -662,6 +698,7 @@ native/backend 仓未提交。
 | CENTERLINE refs | scenario-to-op 新单测 | shared build | Fox RP23（或 blocked 证据） |
 | capFace/sweptFace 证据 | collector 测试 | index verify | 目标 PS spec |
 | Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper strict（审计 20 边覆盖）；通用 resolver 12 边仍 blocked-kernel |
+| CAP_FACE 起始面+拔模（设计-only，ADR-0016） | shared 契约（批准后） | backend `FaceExtrudeFlow`（批准后） | Bumper strict oracle 20/20（批准后；A2 解析边未达成则保持 blocked-kernel） |
 | AIRR/ADR | 文档自检 | 无代码 | 无 |
 
 ## 停止条件
@@ -670,6 +707,8 @@ native/backend 仓未提交。
 - 目标面面积无法从采集证据唯一反解 → `blocked-evidence`，不猜。
 - PROJECTED/多体未批准 AIRR/ADR → 不写产品代码。
 - 内核失败不能复现或修复 → `blocked-kernel` + native 台账，不用产品近似冒充。
+- CAP_FACE 起始面/拔模设计（ADR-0016）未批准 → 不写产品代码；oracle 20/20 只在
+  产品侧解析边达成后启用，不用审计 20 边回退或 `curvePrimitive` 冒充严格绿。
 - 任何真栈非 status=0 或体积超差 → 不放宽断言，不升严格绿。
 
 ## 阶段退出标准

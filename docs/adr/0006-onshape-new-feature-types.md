@@ -108,6 +108,11 @@ export interface HoleParams {
 
 ### 切片 D：face-extrude / imprint-face
 
+> **2026-11-10 后续设计（提议/未批准）**：CAP_FACE 起始面 + startOffset + draft 的
+> 精确产品路径见 **ADR-0016** 与 AIRR
+> `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md`；本 ADR 的
+> faceExtrude 首切片契约/实现保持不变，未批准前不写产品代码，也不把近似回退计绿。
+
 Tutorial 2 iOS 的 Extrude 2 仍用草图左环面域近似（几何等价，−0.20%）。通用实现
 需要“选择实体面 + 轮廓投影 + 沿面法向扫掠”，依赖稳定的 face 引用与 face 轮廓提取；
 目前 `resolveFaceRef` 提供持久 face id，但面轮廓提取/扫掠尚未验证。该切片必须有
