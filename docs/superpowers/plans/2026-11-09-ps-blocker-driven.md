@@ -438,3 +438,30 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 - 新 `o-ring-scenario.spec.ts` 两个严格用例；index strict `replicable-now`
   **11 → 13**。Bushing 从 `blocked-converter（regionRisk 缺 sketchEntityId）`
   转为 replicable-now（重新转换后单查询有 sketchEntityId，侧向精确）。
+
+## P8 执行记录（2026-11-09，BRepCore 审计首切片）
+
+- 在私有 `imodel-native/docs/audit/BREPCORE-AUDIT-LEDGER.md` 建立初始台账：
+  - 覆盖矩阵（拉伸/布尔/面修改/拓扑/持久 id/mass）；
+  - 发现：Bumper 12 边 fillet 无几何回包（待证实，需 native probe）、Gaiter
+    全圆边 blend 体积 0（待证实）、Drive Sleeve pattern op=1 是调用方 hole
+    scope/direction 前提错误（已闭环）、跨 3 body fillet 是产品契约缺口、
+    createBRepGeometry 空结果需调用方守卫、多边/布尔压印 blend ctest 缺口；
+  - deep code audit 队列（Blend/Chamfer/Hollow/Offset、Sweep/Loft 前置、
+    Boolean 相交语义、拓扑 id、SolidKernel 111 导出 vs ctest）。
+- 结论：当前**没有证据**支持“BRepCore 在 12 边/全圆边 blend 有确定性缺陷”；
+  先补 native 多边/布尔压印 ctest，再决定内核修复还是产品守卫。公开侧只登记
+  聚合状态，不复制原生细节。
+
+## P6 补充 2（2026-11-09，DRILL HOTD ENG_BEARING）
+
+- 补齐 DRILL HOTD 9 个 PS 的 parts/per-part mass；converter 的 CAP_FACE 草图
+  平面支持**对称拉伸端盖**（±depth/2，isStart 选端）：ENG_BEARING 的 Sketch 2
+  建在对称 Extrude 1 端盖上。
+- **ENG_BEARING 严格绿**：5 特征（sketch/symmetric extrude/sketch/remove/
+  featureMirror），**2,590.224 vs 2,590.243 mm³（−0.001%）**，树/status/body/
+  push+重开全绿；index strict `replicable-now` **13 → 14**。
+- CONNECTING_ROD known-red：FULL_ROUND fillet 未映射（converter 仅 EDGE），
+  spec test.fail；不冒充完成。
+- 另修复 booleanBodies `tools/targets` 明文 `.opExtrude` 后缀解析（Multi Part
+  Build 的 tool body 不再为空，但剩余 PROJECTED/cPlane Midplane 仍 blocked）。

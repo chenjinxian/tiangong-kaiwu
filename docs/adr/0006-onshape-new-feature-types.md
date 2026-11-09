@@ -714,3 +714,10 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
   split（blocked-selector，0 面域）。index strict `replicable-now` 9→11。
 - **边界**：仅静态可推导的 blind 端盖；非 blind/revolve/曲面端盖仍 blocked。
   草图事实源/UI/RPC 不变，投影/外部引用仍按 ADR-0009。
+
+### 切片 I 补：对称拉伸端盖（2026-11-09）
+
+- `capFaceSketchPlane` 支持上游 `symmetric=true` 的 blind 拉伸：两端盖在
+  ±depth/2，`isStart` 选择端；非对称仍为 0 / direction*depth。ENG_BEARING 的
+  Sketch 2 由该形态驱动，真栈 2,590.224 vs 2,590.243 mm³（−0.001%）严格绿。
+- 未支持：THROUGH_ALL/up-to 端盖、revolve/曲面端盖、非均匀/全圆 fillet。
