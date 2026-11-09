@@ -41,6 +41,40 @@ test.describe('scenario → FeatureOp', () => {
     }]);
   });
 
+  test('CENTERLINE_DIMENSION 圆心/线端点形态原样透传为 distance（sourceType 剥离）', () => {
+    // converter（私有仓）已把中心线尺寸“跨中心线全宽”÷2：圆心+线（value=40）
+    // 对应圆心到中心线 40；线端点+线（value=12.5）同理。translator 只做 DTO
+    // 清洗，不得再改 value 或 refs 形态（结构化 center/端点引用由后端解析）。
+    const feature: ScenarioFeature = {
+      type: 'sketch',
+      name: 'Sketch 1',
+      params: {
+        entities: [
+          { kind: 'circle', id: 1, center: { x: 0, y: 0 }, radius: 10 },
+          { kind: 'line', id: 2, p1: { x: -20, y: 40 }, p2: { x: 20, y: 40 } },
+          { kind: 'line', id: 3, p1: { x: 0, y: 0 }, p2: { x: 0, y: 25 } },
+        ],
+        constraints: [
+          {
+            id: 10, sourceIndex: 9, sourceType: 'CENTERLINE_DIMENSION', kind: 'distance',
+            refs: [{ entity: 1, part: 'center' }, 2], value: 40,
+          },
+          {
+            id: 11, sourceIndex: 10, sourceType: 'CENTERLINE_DIMENSION', kind: 'distance',
+            refs: [{ entity: 3, part: 'start' }, 2], value: 12.5,
+          },
+        ],
+      },
+    };
+    const step = translateScenarioFeature(feature);
+    expect(step.op.kind).toBe('insertSketch');
+    if (step.op.kind !== 'insertSketch') return;
+    expect(step.op.constraints).toEqual([
+      { id: 10, kind: 'distance', refs: [{ entity: 1, part: 'center' }, 2], value: 40 },
+      { id: 11, kind: 'distance', refs: [{ entity: 3, part: 'start' }, 2], value: 12.5 },
+    ]);
+  });
+
   test('sketchRegions 面域索引映射到 extrude.regions', () => {
     const feature: ScenarioFeature = {
       type: 'extrude',
