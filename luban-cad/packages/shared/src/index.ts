@@ -256,6 +256,20 @@ export type {
 } from './rpc/LubanFeatureRpcInterface.js';
 
 // =============================================================================
+// 草图 imprint 面域选择（纯几何工具，backend 离线回放 + web 真栈回放共用）
+// =============================================================================
+export {
+  imprintEdgeSideFromSign,
+  resolveImprintEdgeGeometry,
+  pickImprintRegionByEdgeSide,
+} from './sketch/imprint-region.js';
+export type {
+  ImprintEdgeSide,
+  ImprintEdgeGeometry,
+  ImprintEdgeRegionPick,
+} from './sketch/imprint-region.js';
+
+// =============================================================================
 // op DSL v1（RW2-T5：FeatureOp 链双向序列化，KCL 等价物第一步）
 // =============================================================================
 export { opsToDsl, dslToOps, OpDslParseError } from './opDsl.js';

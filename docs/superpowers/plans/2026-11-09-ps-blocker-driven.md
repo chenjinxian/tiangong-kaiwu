@@ -256,3 +256,22 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   冒充逐 body。
 - **公共/私有边界**：原始 features/坐标/截图/native 证据只留私有仓。
 - **停止/转项**：blocked 证据登记后立即转下一项，不反复猜测；破坏性操作需 HITL。
+
+## 执行记录（2026-11-09，P1.0/P1.1 imprint 有向边侧）
+
+- **语义裁决**：Onshape `topologyDisambiguation([[edge, ±1]])` 的 ±1 是**有向草图边
+  的左/右侧**，不是旧的“−1 环外/+1 环内”。Tutorial 2 First Part 实证：Extrude 2
+  的两条查询分别选中 region 2 与 region 4（并集），旧“最大面积”只选 region 2，
+  少 5,277 mm³。
+- **实现**：shared `sketch/imprint-region.ts` 单一实现（line/arc/circle 边侧、孔边界、
+  同侧歧义诚实回退）；公共 `run.ts` 与后端 `test/ScenarioReplay.ts` 同时接入；
+  converter 先解码 qCompressed 再取符号。无 RPC 载荷/`interfaceVersion` 变更。
+- **证据**：shared **180/180**；backend `ScenarioReplayParity` **7/7**；
+  First Part 真栈 **357,566.084 vs 357,568.177（0.0006%）2 passed**；
+  Alignment 8915.890 vs 8915.860；WARNING LABEL 0.8193532；iOS 离线 157478.895。
+- **索引重生成（2026-11-09）**：strict `replicable-now` **2 → 7**
+  （First Part + WARNING LABEL ×4 + Wheel + Master Cylinder Piston）；
+  imprint 近似 blocker **47 → 14**，剩余全部是 `regionRisk`（converter 多面域
+  前缀映射），不是边侧语义。
+- **下一步**：P1.2 收敛 `regionRisk`（iOS/Alignment/Drive Sleeve 等 14 个可测 PS），
+  然后再进入 P2 selector。不得把 regionRisk 当作 imprint 边侧问题重复修。

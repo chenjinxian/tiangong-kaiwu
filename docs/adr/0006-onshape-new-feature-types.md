@@ -513,3 +513,80 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
   sheet-metal、自定义特征等）阻塞，complete/geometry 计数不变（4/15）。
 - **未做/阻塞**：真实 up-to-entity 动态解析需要持久化目标顶点查询/拓扑选择器与
   UI 拾取；当前不作为产品能力，不打开 HoleDialog 选项。
+
+## 切片 E：imprint 有向边左/右侧语义修正（2026-11-09）
+
+> **裁决**：Onshape `topologyDisambiguation([[edge, ±1]])` 的符号是**有向草图边的
+> 左/右侧**，不是早先猜的“−1 环外/+1 环内”。旧解释是 2026-11-06 iOS 单例上的
+> 巧合匹配；Tutorial 2 desktop First Part 的复杂排列面暴露了错误。
+
+### 证据（Tutorial 2 First Part / 6 特征 / 目标 357,568.177 mm³）
+
+- 排列面（backend `sketchRegionsFrom`，面积降序）：region 0 = 2298.418（spline 左
+  叶）、1 = 1572.577（主矩形）、2 = 1153.385（上/右大面）、3 = 725.805（第二矩形
+  右半）、4 = 483.870、5 = 121.290、6 = 120.645、7 = 0.062。
+- 旧实现按“孔侧/外环 + 最大面积”选面：Extrude 1→region 1、Extrude 2→region 2、
+  Extrude 3→region 0、Revolve→region 3；终体积 **352,290.918**（−1.476%）。
+- 有向边侧测试（source edge 方向、左右偏移 0.05 mm、采样 0.25/0.5/0.75）：
+  - rect.top：+1 左侧 → region 1；
+  - 竖线 x=41.275：+1 左侧 → region 2；
+  - 横线 y=42.875：+1 左侧 → **region 4**（旧实现误选 region 2）；
+  - 竖线 x=22.225：+1 左侧 → region 0；
+  - 第二矩形右竖边：+1 左侧 → region 3（revolve profile）。
+- Extrude 2 的两条查询因此是 **region 2 ∪ region 4**；离线回放与真栈均得
+  **357,566.375 / 357,566.084 mm³**（相对目标 5e-6，0.0006%）。差额来自排列面
+  数值积分/圆角尾部，不是选面错误。
+
+### 实现
+
+- **shared 单一实现**：`packages/shared/src/sketch/imprint-region.ts`
+  - `imprintEdgeSideFromSign(+1)=left / (−1)=right`；
+  - `resolveImprintEdgeGeometry`（首版只受理非构造 line；arc/circle/spline 返回
+    undefined，不拿弦线冒充）；
+  - `pickImprintRegionByEdgeSide`：对每个包含该边的材料面域，用有向边左右偏移点
+    与 `outerBoundary/holeBoundaries` 做点在面内测试；唯一命中才返回，同侧多候选
+    （边被其它曲线分割）返回 undefined，交给调用方登记/回退，禁止按面积猜。
+  - 偏移量 `clamp(length×0.01, 0.05, 0.5)` mm；采样 0.2/0.4/0.6/0.8。
+  - **曲线边（2026-11-09 同日扩展）**：arc/circle 解析为曲线中点/参数起点附近的
+    小弦（弧按 sweep 方向、整圆按 CCW），侧向偏移仍落同一材料面；spline 仍回退。
+    iOS First Part 的 Extrude 2 是 circle sign −1（材料在右侧），离线回放
+    **157,478.895 vs 157,478.902 mm³**（4e-8 相对）。
+  - **qCompressed 符号恢复**：私有 converter `imprintSignFromQueryText` 现先
+    `decodedQueryBody` 再取 `topologyDisambiguation`；Alignment/WARNING LABEL
+    的压缩查询符号不再丢失。Alignment Cut 2 more holes 恢复 −1/+1 交替圆查询。
+
+- **调用方**：公共 `e2e/examples/replay/run.ts` 与后端 `test/ScenarioReplay.ts`
+  均先走 shared 精确选择；边界缺失/边型不支持时回退旧启发式并保持
+  `approximate`/日志登记。多查询按并集合并；`dominantImprintRegion` 仍只用于
+  NEW 收敛，不参与 add/remove。
+- **契约**：纯 shared 工具，**不改 RPC 载荷/`interfaceVersion`**；无 schema/迁移。
+  前端产品 UI 不变（用户本来就能选草图面域，变化是 Onshape query → region 的
+  翻译精确化）。
+
+### 验证
+
+- shared **180/180**（新增 9 项：左右侧/面积反转/孔边界/边界缺失/同侧歧义/
+  符号/边解析/arc-circle 弦/圆孔侧向）。
+- 后端 `ScenarioReplayParity` **7/7**（新增合成两矩形多查询并集 1000 mm³）。
+- 真栈 `first-part-scenario.spec.ts` **2 passed**——357,566.084 vs 357,568.177
+  （0.0006%），1 body，push+冷重开；原 `test.fail` known-red 移除。
+- 回归：Alignment 真栈 **2 passed**（8915.890 vs 8915.860，0.0003%）；
+  WARNING LABEL 真栈 **2 passed**（0.8193532）；iOS 离线 **157478.895**；
+  Wheel / Master Cylinder Piston 不变。
+- 索引（2026-11-09 重生成）：strict `replicable-now` **2 → 7**（Tutorial 2
+  First Part + WARNING LABEL ×4 + Wheel + Master Cylinder Piston）；
+  imprint 近似 blocker **47 → 14**（剩余全部是 `regionRisk`，不是边侧语义）。
+- 说明：本次只改 replay/converter 语义与 shared 工具，未改产品 RPC 载荷或
+  `interfaceVersion`；已发布的 backend-20261109 产物行为不受影响。
+
+### 未做 / 边界
+
+- spline 的边侧语义未实现（当前回退并登记 approximate）；需要按切线方向/
+  顶点 disambiguation 单独验收。
+- `regionRisk`（converter 多面域前缀映射）仍是 14 个可测 PS 的近似来源，
+  iOS/Alignment 的严格绿需后续单独解析 deterministicIds → 面域。
+- 同侧多候选（边被分割）仍未使用 Onshape 的顶点级 `INTERSECT` 信息；先诚实回退。
+- 真实示例的 strict 完成度还受约束/UI/持久维度、其它 blocker 影响；本切片只解除
+  imprint 的几何近似，不宣称所有 imprint PS 全绿。
+- 回滚：移除两处 `pickImprintRegionByEdgeSide` 调用即回到旧启发式；shared 工具
+  可保留无副作用。

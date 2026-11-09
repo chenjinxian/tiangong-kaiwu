@@ -14,11 +14,11 @@ const SCENARIO = 'scenarios/Onshape-576aef66e4b0cc2e7f45753d-46033ccdfaf701956cc
 
 test.describe('Tutorial 2 First Part 示例回放', () => {
   test('scenario-file → 357568.18 mm³ / 1 body / push+重开', async ({ page, request }) => {
-    // known-red（2026-11-09）：constraints complete/48 已入树，但几何终体积
-    // 352290.918 vs 357568.177（-1.476%），根因归 imprintFace 面域/起始面语义
-    // （per-step: Extrude1 199717.342 / +2 258309.214 / +3 294796.600 /
-    //  Revolve 352712.961 / Fillet 352290.918），不是 sketch 约束。
-    test.fail(true, 'known-red: imprintFace geometry -1.476%');
+    // 2026-11-09 关闭 known-red：imprintFace 的 +1/−1 是有向边左/右侧，不是
+    // “孔侧/外环 + 最大面积”。Extrude 2 的两条查询分别选中 region 2 与 region 4
+    // （union），旧实现只取 region 2，少 5,277 mm³。shared
+    // `pickImprintRegionByEdgeSide` 统一实现；离线回放与真栈同口径。
+    // 目标 357568.177 mm³，尾部切片的数值差在 0.0005% 内。
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 900_000);
     const { volumes, expected } = await runScenarioFile(page, request, {
       scenario: SCENARIO,

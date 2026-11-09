@@ -1891,3 +1891,17 @@
 `manifest/example-index.json`：104 native / 59 可测 native / 47 imprint /
 25 selector / 27 CONCENTRIC 等）。本台账保留为历史执行记录与切片证据索引；
 后续调度以新计划 §0.3 的 ≤2 blocker 清单为准。
+
+## 执行记录（2026-11-09，imprint 有向边侧语义）
+
+- **根因**：Onshape `topologyDisambiguation([[edge, ±1]])` 是**有向草图边左/右侧**；
+  旧实现按“−1 环外/+1 环内 + 最大面积”选面。First Part Extrude 2 的两条查询应选
+  region 2 ∪ region 4，旧实现只选 region 2，少 5,277 mm³。
+- **实现**：shared `sketch/imprint-region.ts`（line/arc/circle、孔边界、同侧歧义
+  回退）+ 公共 `run.ts` + 后端 `test/ScenarioReplay.ts`；converter 解码 qCompressed
+  后取符号。无 RPC/`interfaceVersion` 变更（shared 180/180）。
+- **证据**：First Part 真栈 **357566.084 vs 357568.177（0.0006%）2 passed**，
+  原 `test.fail` 移除；Alignment **8915.890 vs 8915.860**；WARNING LABEL
+  **0.8193532**；iOS 离线 **157478.895**；backend `ScenarioReplayParity` 7/7。
+- **索引**：strict `replicable-now` 2 → **7**；imprint blocker 47 → **14**
+  （全部 regionRisk）。后续按新计划 P1.2 处理 regionRisk，再进入 P2 selector。

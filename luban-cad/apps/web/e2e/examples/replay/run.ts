@@ -14,6 +14,11 @@ import type {
   SketchRegionDto,
 } from '@luban-cad/shared';
 import {
+  imprintEdgeSideFromSign,
+  pickImprintRegionByEdgeSide,
+  resolveImprintEdgeGeometry,
+} from '@luban-cad/shared';
+import {
   applyFeatureOpRpc,
   assertFeatureOpOk,
   borrowWriteLease,
@@ -165,13 +170,16 @@ export async function runScenario(
       // `<sketchId>.imprint`——它指向**草图面/材料面域**，不是实体 BRep 面
       // （2026-11-06 真栈实证：iOS Extrude 1 顶盖是单一外环+两孔面，不存在环
       // 面片；实体 FACE 查询只出现在 CAP_FACE/SWEPT_FACE 派生边语义）。
-      // 因此按面域回放：逐查询用 imprint 侧向（-1=环外/孔侧、+1=环内）选面域，
+      // 因此按面域回放：逐查询用 imprint 有向边侧（+1=左、-1=右）选面域，
       // 多查询合并为一次 extrude.regions；face split 不参与。
-      // 侧向约定由 iOS（-1→环面）实证；未识别/查询未全部解析时保留原 selection，
-      // 由 translator 显式登记 region 0 近似——绝不猜。
+      // 2026-11-09：边侧语义由 shared `pickImprintRegionByEdgeSide` 精确实现；
+      // 仅当全部查询都走精确选择时才不标 approximate（First Part 357566 vs
+      // 目标 357568 的 0.0006% 尾部差来自数值积分/圆角）。未识别/回退/主导收敛
+      // 时保留近似登记——绝不猜。
       let effectiveFeature = feature;
       const imprintNotes: string[] = [];
       let imprintApproximate = false;
+      let imprintAllExact = true;
       if (feature.type === 'extrude') {
         const selection = (feature.params as {
           selection?: {
@@ -228,21 +236,31 @@ export async function runScenario(
               for (const query of queries) {
                 if (typeof query.sketchEntityId !== 'number') {
                   reason = '查询缺 sketchEntityId';
+                  imprintAllExact = false;
                   break;
                 }
                 const sign = typeof query.imprintSign === 'number'
                   ? query.imprintSign
                   : imprintSignFromQuery(query.queryString);
+                // v1.63+（2026-11-09）：Onshape 的 +1/−1 是**有向边左/右侧**，
+                // 不是孔侧/外环。优先用 shared 的边侧精确选择；边界/边型不支持时
+                // 才回退旧启发式并保持 approximate 登记。
+                const edgeSide = imprintEdgeSideFromSign(sign);
+                const edge = resolveImprintEdgeGeometry(sketch?.entities ?? [], query.sketchEntityId);
+                const exactPick = edge && edgeSide
+                  ? pickImprintRegionByEdgeSide(sketch?.regions, query.sketchEntityId, edge, edgeSide)
+                  : undefined;
                 const side: ImprintSide | undefined = imprintSideFromSign(sign);
-                const pick = pickImprintRegion(sketch?.regions, query.sketchEntityId, side);
+                const pick = exactPick ?? pickImprintRegion(sketch?.regions, query.sketchEntityId, side);
+                if (!exactPick) imprintAllExact = false;
                 if (!pick) {
-                  reason = `实体 ${query.sketchEntityId} 无${side ?? '孔洞/外环'}候选面域`;
+                  reason = `实体 ${query.sketchEntityId} 无${edgeSide ? `边侧 ${edgeSide}` : side ?? '孔洞/外环'}候选面域`;
                   break;
                 }
                 regions.push(pick.regionIndex);
                 parts.push(
                   `实体 ${query.sketchEntityId} ${pick.basis}` +
-                  `${side ? `/${side}` : ''} area=${pick.area.toFixed(3)}`,
+                  `${exactPick ? `/edge-${edgeSide}` : side ? `/${side}(fallback)` : ''} area=${pick.area.toFixed(3)}`,
                 );
               }
               if (process.env.EXAMPLE_DEBUG_IMPRINT === '1') {
@@ -265,6 +283,7 @@ export async function runScenario(
                   : undefined;
                 if (dominant && (merged.regions.length > 1 || !merged.regions.includes(dominant.regionIndex))) {
                   merged = { regions: [dominant.regionIndex], partial: merged.partial };
+                  imprintAllExact = false;
                   imprintNotes.push(
                     `imprintFace 多查询收敛到主导面域 ${dominant.regionIndex}` +
                     `（area=${dominant.area.toFixed(3)}；查询边全部位于该面边界）`,
@@ -307,6 +326,7 @@ export async function runScenario(
                       };
                       imprintNotes.push(`${resolution.note}（A1 整面匹配，标近似）`);
                       imprintApproximate = true;
+                      imprintAllExact = false;
                       usedFaceExtrude = true;
                     } else {
                       imprintNotes.push(
@@ -331,14 +351,18 @@ export async function runScenario(
                   imprintNotes.push(
                     `imprintFace→草图面域 ${merged.regions.join(',')}（${parts.join('；')}；` +
                     (merged.partial ? `部分查询未解析：${reason}；` : '') +
-                    'face split 未实现，近似）',
+                    (imprintAllExact
+                      ? '有向边左/右侧精确选择）'
+                      : 'face split 未实现，近似）'),
                   );
-                  imprintApproximate = true;
+                  if (!imprintAllExact || merged.partial) imprintApproximate = true;
                 }
               }
             }
           }
           if (reason !== undefined) {
+            imprintAllExact = false;
+            imprintApproximate = true;
             imprintNotes.push(`imprintFace 保留原查询近似：${reason}`);
           }
         }

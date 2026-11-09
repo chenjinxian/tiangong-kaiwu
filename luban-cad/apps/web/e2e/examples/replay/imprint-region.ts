@@ -1,12 +1,17 @@
 /**
- * imprintFace → 草图面域近似（test-only）。
+ * imprintFace → 草图面域选择（test-only；旧启发式，保留为回退）。
  *
- * Onshape 的 imprint FACE 查询根节点是 `<sketchId>.imprint`——指向**草图面/
- * 材料面域**，不是实体 BRep 面。查询里的 `topologyDisambiguation([[edge, ±1]])`
- * 选择被引用曲线两侧之一：
- * - `-1` = 环外（若该曲线是孔洞边界，即“孔侧”材料面域）——iOS 实证；
- * - `+1` = 环内（该曲线作为外环的材料面域）——与 −1 对称，待更多真栈例证。
- * 方向未识别时保留旧的“孔侧优先”；指定侧无候选即返回 undefined（不换侧）。
+ * **2026-11-09 修正**：Onshape `topologyDisambiguation([[edge, ±1]])` 的真语义是
+ * **有向草图边左/右侧**（+1=左、−1=右），不是本文件早先注释的“−1 环外/+1 环内”。
+ * 精确实现已收敛到 `@luban-cad/shared` 的 `pickImprintRegionByEdgeSide`
+ * （见 `packages/shared/src/sketch/imprint-region.ts`）；本文件只保留
+ * 边界缺失/非 line-arc-circle 边型时的旧“孔侧/外环 + 最大面积”回退。
+ *
+ * Onshape 的 imprint FACE 查询根节点仍为 `<sketchId>.imprint`——指向**草图面/
+ * 材料面域**，不是实体 BRep 面。回退路径的约定：
+ * - `-1` = 环外（若该曲线是孔洞边界，即“孔侧”材料面域）；
+ * - `+1` = 环内；
+ * 回退命中仍由调用方登记 approximate，不能冒充精确选择。
  */
 import type { SketchRegionDto } from '@luban-cad/shared';
 
@@ -113,7 +118,8 @@ export function dominantImprintRegion(
   return { regionIndex: best.regionIndex, area: best.area };
 }
 
-/** 查询侧向数字 → 面域侧：−1 环外、+1 环内；0/非数/缺失不指定。 */
+/** 旧回退用：查询侧向数字 → 面域侧：−1 环外、+1 环内；0/非数/缺失不指定。
+ * 精确边侧选择见 shared `imprintEdgeSideFromSign`（+1=左、−1=右）。 */
 export function imprintSideFromSign(sign: number | undefined): ImprintSide | undefined {
   if (sign === undefined || !Number.isFinite(sign) || sign === 0) return undefined;
   return sign < 0 ? 'outside' : 'inside';

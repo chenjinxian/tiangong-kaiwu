@@ -178,6 +178,17 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **imprint 有向边左/右侧（2026-11-09，ADR-0006 切片 E）**：Onshape
+  `topologyDisambiguation([[edge,±1]])` 的 +1/−1 = 有向草图边左/右侧，不是旧的
+  “−1 环外/+1 环内”。shared `sketch/imprint-region.ts` 单一实现（line/arc/circle、
+  孔边界、同侧歧义回退）；公共 `run.ts` 与后端 `test/ScenarioReplay.ts` 接入；
+  converter 解码 qCompressed 后取符号。shared **180/180**、backend
+  `ScenarioReplayParity` **7/7**；真栈 Tutorial 2 First Part **357566.084 vs
+  357568.177（0.0006%）2 passed**（原 known-red 关闭）、Alignment 8915.890 vs
+  8915.860、WARNING LABEL 0.8193532、iOS 离线 157478.895。索引 strict
+  `replicable-now` **2 → 7**（First Part + WARNING LABEL ×4 + Wheel +
+  Master Cylinder Piston），imprint 近似 blocker **47 → 14**（剩余为 regionRisk，
+  不是边侧语义）。无 RPC 载荷/`interfaceVersion` 变更。
 - `apps/web` 全量 vitest：**1527/1527**（2026-11-09 body pattern 反向 UI +1
   （FeatureDialog 179/179；真栈 3×3 720.000 反向质心 x=-6 push+冷重开）；
   body pattern 第二方向 UI +3
