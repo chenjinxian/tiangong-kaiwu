@@ -324,3 +324,14 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   `面边界选择器（capFace/sweptFace）待真栈验收`。
 - 下一步：P2.1b CAP_FACE 反向/对称/上游 draft 形态，或 P3 外部草图引用；
   Bumper 的 fillet/hole 内核问题单独登记 blocked-kernel。
+
+## P2.1b 证据（2026-11-09，Drive Sleeve CAP_FACE 上游为 imprint）
+
+- 两个 Drive Sleeve 的 Extrude 4 也是 CAP_FACE，但上游 Extrude 1 是
+  **imprintFace**（多查询草图面域），不是简单 `qSketchRegion`；当前
+  `resolveCapFaceExtrude` 只映射 NEW/blind/qSketchRegion 帽面，故保持 `face`
+  blocked（不再误报“缺 ±1 符号”）。
+- 最新 blockers：`CONCENTRIC` + `extrude Extrude 4: 面选择未映射`（两条 PS 相同）。
+- 后续 P2.1b：capFaceExtrude 支持上游 imprintFace（复制 queries，回放侧先按
+  边侧选面域，再设 startOffset），并补 CONCENTRIC refs；两者都绿后 Drive Sleeve
+  才能严格转绿。不得只做其一就宣称完成。
