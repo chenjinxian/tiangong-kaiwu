@@ -30,7 +30,9 @@
    - `FeatureEngine.writeBodyFromCache` 要求「一个 body 恰一个源特征、入缓存
      恰 1 条 BRep 条目」（`FeatureEngine.ts:786-831`）；
    - 特征输出缓存按 featureId 键控（一个条目数组）；
-   - `planInsert` 的 `targetBodyId` 是单值门禁，`deleteFeature` 同。
+   - `planInsert` 的 `targetBodyId` 是单值门禁（**N>1 regular 路径**；`newBody=true`
+     走既有 global-chain anchor 例外），`deleteFeature` 同（N>1 多源 body 删除走
+     `DELETE_TAIL_ONLY_ERROR`）。
    多目标输出会同时触碰 body 写回、源边、失败级联、冷重建、撤销与
    featurePattern/delete 语义，不能靠补丁绕过。
 
