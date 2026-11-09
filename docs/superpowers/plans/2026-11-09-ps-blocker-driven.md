@@ -275,3 +275,21 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
   前缀映射），不是边侧语义。
 - **下一步**：P1.2 收敛 `regionRisk`（iOS/Alignment/Drive Sleeve 等 14 个可测 PS），
   然后再进入 P2 selector。不得把 regionRisk 当作 imprint 边侧问题重复修。
+
+## P1.2 证据（2026-11-09，regionRisk 未清）
+
+- **iOS First Part**：Extrude 1 原查询是 `qSketchRegion(id+"<sketch>", true)`，
+  `deterministicIds=[JGK,JGO,JGS]`；草图实际 5 个面域。converter 只能按 ID 数量
+  取面积降序前缀 `[0,1,2]`，没有 Onshape face-ID → 我方 region 的静态映射。
+  真栈/离线体积匹配（157478.895 vs 157478.902），但严格完成门仍是
+  `blocked-evidence`，不得把前缀当精确映射。
+- **Alignment Plate**：Cut 2 holes 同类 `qSketchRegion`，regionRisk 仍在；
+  Cut 2 more holes 的 qCompressed ±1 已恢复，line/circle 边侧已精确。
+- **Bumper Block（分类纠正）**：Extrude 2 解码后是 **CAP_FACE** 查询
+  （`FQ77TbrVllXHHPl_0.opExtrude` + 草图四边原依赖），不是
+  `<sketchId>.imprint`；converter 误分类为 imprintFace 且无 ±1，
+  index 的“缺符号”只是症状。真实阻塞 = **capFace/起始面拉伸**（产品
+  faceExtrude 无 draft）+ 12 边 fillet 内核，归 P2，不在 P1 伪修。
+- **结论**：P1.2 转 `blocked-evidence`（需要 Onshape 面级 ID 与逐面证据）；
+  P2.0 先做 selector taxonomy + CAP_FACE 分类纠正，避免继续把 CAP_FACE 当
+  imprintFace。

@@ -583,8 +583,15 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
 
 - spline 的边侧语义未实现（当前回退并登记 approximate）；需要按切线方向/
   顶点 disambiguation 单独验收。
-- `regionRisk`（converter 多面域前缀映射）仍是 14 个可测 PS 的近似来源，
-  iOS/Alignment 的严格绿需后续单独解析 deterministicIds → 面域。
+- `regionRisk`（converter 多面域前缀映射）仍是 14 个可测 PS 的近似来源。
+  iOS/Alignment 的 `qSketchRegion(id, true)` 只给不透明 deterministicIds
+  （如 `JGK/JGO/JGS`），没有 face-ID → region 静态映射；即使体积匹配也按
+  `blocked-evidence` 处理，后续需采集 Onshape 面级 ID/逐面证据，不能把前缀
+  当精确映射。
+- **Bumper Block 分类纠正**：Extrude 2 解码后是 CAP_FACE 查询
+  （`FQ77...opExtrude` + 草图边原依赖），不是 `<sketch>.imprint`；converter
+  误标为 imprintFace 且无 ±1。真实阻塞是 capFace/起始面拉伸（产品 faceExtrude
+  无 draft）+ 12 边 fillet 内核，归 P2 selector，不在本切片伪修。
 - 同侧多候选（边被分割）仍未使用 Onshape 的顶点级 `INTERSECT` 信息；先诚实回退。
 - 真实示例的 strict 完成度还受约束/UI/持久维度、其它 blocker 影响；本切片只解除
   imprint 的几何近似，不宣称所有 imprint PS 全绿。
