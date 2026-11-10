@@ -60,6 +60,27 @@ test.describe('CAP_FACE 起始面匹配', () => {
     expect(matchCapFaceStartFaces(bumperEvidence, [wrongBox]).face).toBeUndefined();
   });
 
+  test('normalSignAmbiguous：bodydetails 参数化法向可反向（S3）', () => {
+    const evidence: CapFaceStartEvidence = { ...bumperEvidence, normalSignAmbiguous: true };
+    const opposite = rectangleFace('body-1', 9, 40, -90, -25, 90, 25, [0, 0, -1]);
+    // 未标记时反向法向拒绝；标记后 ±法向均接受（平面/面积/AABB 仍唯一）。
+    expect(matchCapFaceStartFaces(bumperEvidence, [opposite]).face).toBeUndefined();
+    expect(matchCapFaceStartFaces(evidence, [opposite]).face?.subEntityId).toBe(9);
+    // 面积/AABB 仍须匹配：双向法向不放宽几何证据。
+    const wrongArea = rectangleFace('body-1', 10, 40, -80, -25, 90, 25, [0, 0, -1]);
+    expect(matchCapFaceStartFaces(evidence, [wrongArea]).face).toBeUndefined();
+  });
+
+  test('normalSignAmbiguous 仍拒绝多候选', () => {
+    const evidence: CapFaceStartEvidence = { ...bumperEvidence, normalSignAmbiguous: true };
+    const matched = matchCapFaceStartFaces(evidence, [
+      rectangleFace('body-1', 1),
+      rectangleFace('body-1', 2, 40, -90, -25, 90, 25, [0, 0, -1]),
+    ]);
+    expect(matched.face).toBeUndefined();
+    expect(matched.diagnostics.join(' ')).toContain('拒绝猜');
+  });
+
   test('两个同证据面 → 多候选 fail closed', () => {
     const matched = matchCapFaceStartFaces(bumperEvidence, [
       rectangleFace('body-1', 1),
@@ -98,5 +119,11 @@ test.describe('CAP_FACE 起始面匹配', () => {
     });
     expect(parsed?.areaMm2).toBe(1);
     expect(parsed?.edgeCount).toBe(4);
+    expect(parsed?.normalSignAmbiguous).toBeUndefined();
+    expect(parseCapFaceStartEvidence({
+      plane: { origin: { x: 0, y: 0, z: 1 }, normal: { x: 0, y: 0, z: 1 } },
+      areaMm2: 1,
+      normalSignAmbiguous: true,
+    })?.normalSignAmbiguous).toBe(true);
   });
 });

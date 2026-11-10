@@ -195,10 +195,19 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
 - 旧 `capFaceExtrude → extrude(startOffset+draft)` 近似路径**仅保留给 29 个
   start-reference 家族**（以及无起始面证据的 S10 形态），标 `approximate=true`；
   S10 面驱动 `capFaceProfile` 不得回退到它。
-- `capFaceProfile` 起始面证据 = 上游 cap 平面 + Onshape bodydetails 面积/AABB；
-  runner 在步骤时点用 `readBrepFaceHandles` 唯一匹配（法向/平面偏移/面积/AABB）
-  → `resolveFaceRef`；0/多匹配/缺证据 fail closed。首版仅 ADD；S3 方向语义未
-  校准前 REMOVE/INTERSECT 不发布。
+- `capFaceProfile` 起始面证据 = 上游 cap 平面或 Onshape bodydetails PLANE
+  原点/法向 + 面积/AABB；runner 在步骤时点用 `readBrepFaceHandles` 唯一匹配
+  （法向/平面偏移/面积/AABB）→ `resolveFaceRef`；0/多匹配/缺证据 fail closed。
+  **S3（2026-11-10 已解析）**：范围扩展为 ADD/BLIND + REMOVE/INTERSECT/
+  THROUGH_ALL 证据形态。Onshape `oppositeDirection` 相对**实体外法向**，产品
+  `faceExtrude.direction` 也相对面法向 → 直接映射（true→backward，
+  false→forward）。证据：Wheel & Tire Extrude 1（REMOVE/THROUGH_ALL，
+  rb=6→rb=7 在选中面 y=-14 处切至 y=-15.5，材料在 -y 侧）与 Rocker
+  Extrude 10（REMOVE/BLIND，rb=25→rb=30 新底面 y=-1.5），两例
+  `oppositeDirection=true` 均为“逆外法向切入材料”。bodydetails
+  `surface.normal` 是面参数化法向、**符号不可信**（Bumper 盒体实测有朝内面），
+  S3 新形态标记 `normalSignAmbiguous`，面匹配接受 ±法向（面积/AABB/平面仍须
+  唯一）；ADD/BLIND（A3 已发布形态）保持原 sketch-normal 换算，Bumper 不变。
 - oracle collector 的 16 条曲线 = Onshape 实际选择（5 matched faces + 4 matched
   edges）；**不补底面 4 条 loop**（Onshape 未选、保持尖边）。公共
   `rollback-edge-oracle` 保持“0/多匹配/部分集合即失败”，不猜。
@@ -245,10 +254,14 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
   先发、回滚隔离；这属于 X-11 已知运行时版本风险，本 ADR 不关闭它。
 - **旧 payload 限定**：无新字段的旧 faceExtrude 载荷在单 body/faceRef 唯一时逐字
   兼容；旧多 body/跨体 faceRef 可能因 body 归属守卫变为 status=1（fail closed）。
-- **范围门（S10）**：A 只对 37 个 `entities` profile 的 CAP_FACE 特征发布；29 个
-  `startOffsetEntity`（27 个 `startOffset=true`）保持 blocked/approximate。A3
-  首版只发布 **ADD**（Bumper 形态）；A2 证据为 pre-fillet 657,764.787185 +
-  body 20/20 line + Fillet 1 16/16 实际选择。
+- **范围门（S10/S3）**：A 只对 37 个 `entities` profile 的 CAP_FACE 特征发布；
+  29 个 `startOffsetEntity`（27 个 `startOffset=true`）保持 blocked/approximate。
+  A3 发布 **ADD/BLIND**；S3 扩展受限的 **REMOVE/INTERSECT/THROUGH_ALL** 证据
+  形态（有 bodydetails PLANE 面积/AABB 证据、无 draft/第二方向/start-reference；
+  合成真栈 REMOVE/THROUGH_ALL 15,000 mm³、INTERSECT/THROUGH_ALL 2,000 mm³ 均
+  status=0/1 body/push+冷重开）。A2 证据为 pre-fillet 657,764.787185 + body
+  20/20 line + Fillet 1 16/16 实际选择。无证据形态仍 fail closed（旧
+  `capFaceExtrude` 近似只服务 start-reference/无证据家族）。
 - **最终差（修订）**：pre-fillet 已匹配 prismoid；旧 −0.374% 是审计 20 边回退
   多选底面 loop 造成（≈2,384 mm³），不是 Extrude 2 残差，也不是内核 fillet
   边界；16 边 oracle 轨最终差 +0.151 mm³（+0.000024%）。
@@ -299,6 +312,13 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
     push+冷重开；
   - A2 合成轨：解析体积/尺寸/边类型/push+冷重开（`face-extrude.spec.ts`
     4 passed）；
+  - **S3 合成轨（2026-11-10 实测 2 passed）**：40×40×10 板 + 10×10×10 凸台，
+    `capFaceProfile` REMOVE/THROUGH_ALL backward → **15,000 mm³**；
+    INTERSECT/THROUGH_ALL backward → **2,000 mm³**；tree 全 status=0、1 body、
+    push+冷重开一致、approximateSteps=0（方向=逆外法向切入材料）。
+    候选 PS 均被上游 blocker 挡在 S3 步前（Wheel Revolve 1 草图 0 面域；
+    Clamp Fillet 1 sweptEdge matches=2；Rocker Extrude 2 上游 7-face
+    imprintFace qUnion 未展开）；记录 exact blocker，不强制转绿；
   - Bumper 精确轨（2026-11-10 实测 2 passed）：S10 `capFaceProfile` →
     faceExtrude；S11 startOffset=0；**pre-fillet 657,764.787185**；Extrude 2
     增量 297,764.787185 单独断言（绝对容差 0.01 mm³）；pre-fillet body
@@ -327,12 +347,17 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
 3. **A3（已完成，2026-11-10）**：S9/S10/S11 证据指针 + 私有 converter
    `capFaceProfile`（起始面平面/面积/AABB 证据）+ 公共 translator/runner
    （起始面唯一匹配 → `resolveFaceRef` → faceExtrude）；旧 capFaceExtrude
-   仅保留给 start-reference/无证据形态；首版 ADD-only、fail closed。
+   仅保留给 start-reference/无证据形态；ADD/BLIND、fail closed。
 4. **A4（已完成，2026-11-10）**：Bumper 严格轨（pre-fillet 657,764.787185 门 +
    body 20/20 line + Fillet 1 oracle **16/16 实际选择** + strict 最终
    636,731.650 + push/冷重开 + 落库参数复核）+ 回归。原“20/20 含底面 loop”
    门已按 Onshape 证据修订。
-5. **UI**：另 AIRR，需 live 起始面/拔模对话框证据。
+5. **S3（已完成，2026-11-10）**：REMOVE/INTERSECT/THROUGH_ALL CAP_FACE profile
+   方向语义校准 + converter/translator/runner 扩展（`normalSignAmbiguous` ±法向
+   匹配、throughAll 透传）+ 合成真栈 REMOVE 15,000 / INTERSECT 2,000 mm³；
+   候选 PS（Wheel & Tire、Clamp Parts、Rocker）均被上游 blocker 挡在 S3 步前，
+   记录 exact blocker，不强制转绿。
+6. **UI**：另 AIRR，需 live 起始面/拔模对话框证据。
 
 ## 开放问题 / Spike
 
@@ -343,9 +368,17 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
   A2/faceExtrude 测试（私有；p/q/r）。
 - **S2（RESOLVED 2026-11-10）**：不需暴露内核 taper；既有 TS
   `BRepGeometryOperation.Sew`/`Loft` + `CurveOps` 已足够，**无 native/P0-08 变更**。
-- **S3（OPEN，已收窄）**：面法向/outward 与 startOffset/direction 符号的校准。
-  Bumper ADD/forward + `oppositeDirection=false` 已由真栈自证；REMOVE/INTERSECT
-  仍未校准，A3 首版只发布 ADD。
+- **S3（RESOLVED 2026-11-10）**：面法向/outward 与 direction 符号的校准。
+  Onshape `oppositeDirection` 相对**实体外法向**：Wheel & Tire Extrude 1
+  （REMOVE/THROUGH_ALL，oppositeDirection=true）rb=6→rb=7 在选中面 y=-14 处
+  切至 y=-15.5（-y，材料在 -y 侧，外法向 +y）；Rocker Extrude 10
+  （REMOVE/BLIND，oppositeDirection=true）rb=25→rb=30 出现 y=-1.5 新底面
+  （-y，材料在 -y 侧，外法向 +y）。两例均为“逆外法向切入材料”，与 Bumper
+  ADD/forward + oppositeDirection=false 一致。产品 faceExtrude.direction 相对
+  面法向 → 直接映射；bodydetails 参数化法向符号不可信，S3 新形态用
+  `normalSignAmbiguous` 接受 ±法向。证据：私有 rb 快照 + 合成真栈
+  REMOVE/THROUGH_ALL 15,000 mm³、INTERSECT/THROUGH_ALL 2,000 mm³
+  （tree status=0、1 body、push+冷重开、approximateSteps=0）。
 - **S4（OPEN，已收窄）**：`draftPullDirection` 与 Onshape 方向的符号一致性。
   合成收窄/外扩与 Bumper 10° 收窄均已与 Onshape 体积一致；其它方向组合仍待证据。
 - **S5（RESOLVED 2026-11-10，test-only）**：Onshape Fillet 1 实际选择 **16 条**
@@ -382,7 +415,7 @@ pre-fillet **657,764.787185**；Fillet 1 = **16/16 实际选择**（5 matched fa
 4 matched edges；底面 4 条 z=0 loop 尖边未选）+ 最终 **636,731.650 vs
 636,731.499（+0.000024%）**；全部 status=0、1 body、push+冷重开、
 approximateSteps=0。旧“oracle 20/20 含底面 loop”门与把 −0.374% 归因 fillet/
-Extrude 2 的表述均已修订；S1/S2/S5/S9/S10/S11 已解析，S3/S4/S6/S7/S8 仍开放。
+Extrude 2 的表述均已修订；S1/S2/S3/S5/S9/S10/S11 已解析，S4/S6/S7/S8 仍开放。
 Bumper 严格轨依赖 A1/A2 backend（X-11）；发布前不得用审计 20 边回退，也不得在
 旧 backend 上宣称精确。索引口径（2026-11-10 闭口）：私有工作树
 `replicable-now` 已提升 Bumper 为第 18 例，条目显式携带

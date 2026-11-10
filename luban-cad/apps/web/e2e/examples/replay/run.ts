@@ -859,26 +859,29 @@ export async function runScenario(
         const sourceParams = feature.params as Record<string, unknown>;
         const endBoundRaw = String(sourceParams.endBound ?? 'blind')
           .replace(/[_-]/g, '').toLowerCase();
-        if (endBoundRaw !== 'blind')
+        // ADR-0016 A3 首版：ADD/BLIND；S3（2026-11-10）扩展证据形态：
+        // REMOVE/INTERSECT + THROUGH_ALL。其余（upTo*）仍 fail closed。
+        if (endBoundRaw !== 'blind' && endBoundRaw !== 'throughall')
           throw new BlockedCapabilityError(
             'face-extrude',
-            `${feature.name} capFaceProfile 首版仅支持 blind（当前 ${endBoundRaw}）`,
+            `${feature.name} capFaceProfile 终止条件未支持（当前 ${endBoundRaw}）`,
           );
         if (sourceParams.secondDirection !== undefined)
           throw new BlockedCapabilityError(
             'face-extrude',
-            `${feature.name} capFaceProfile 首版与 secondDirection 互斥`,
+            `${feature.name} capFaceProfile 与 secondDirection 互斥`,
           );
         const depthMm = typeof sourceParams.depthMm === 'number' ? sourceParams.depthMm : undefined;
-        if (depthMm === undefined || !(depthMm > 0))
+        if (endBoundRaw === 'blind' && (depthMm === undefined || !(depthMm > 0)))
           throw new BlockedCapabilityError('face-extrude', `${feature.name} capFaceProfile 缺有效 depthMm`);
-        // S3 方向语义未校准：首版只发布 ADD（Bumper 形态），REMOVE/INTERSECT
-        // 即使 converter 误标也在此 fail closed（纵深防御）。
+        // S3：REMOVE/INTERSECT 已由 Onshape 原始 oppositeDirection + rb 切削侧证据
+        // 校准（Wheel Extrude 1 / Rocker Extrude 10）；converter 已把该标志换算为
+        // 面相对的产品 direction。此处仍拒绝 NEW（产品 faceExtrude 无 NEW）。
         const operation = String(sourceParams.operation ?? '').toLowerCase();
-        if (operation !== 'add')
+        if (operation !== 'add' && operation !== 'remove' && operation !== 'intersect')
           throw new BlockedCapabilityError(
             'face-extrude',
-            `${feature.name} capFaceProfile 首版仅支持 ADD（当前 ${operation || 'missing'}）`,
+            `${feature.name} capFaceProfile 操作未支持（当前 ${operation || 'missing'}）`,
           );
         const selectionStart = (originalSelection as { startOffsetMm?: unknown }).startOffsetMm;
         const startOffsetMm = typeof selectionStart === 'number' && Number.isFinite(selectionStart)
@@ -891,8 +894,8 @@ export async function runScenario(
             bodyId: resolution.bodyId,
             faceRef: resolution.faceRef,
             operation,
-            endBound: 'blind',
-            depthMm,
+            endBound: endBoundRaw === 'throughall' ? 'throughAll' : 'blind',
+            ...(depthMm !== undefined ? { depthMm } : {}),
             direction: sourceParams.oppositeDirection === true ? 'backward' : 'forward',
             startOffsetMm,
             ...(sourceParams.hasDraft === true && typeof sourceParams.draftAngleDeg === 'number'
@@ -905,7 +908,8 @@ export async function runScenario(
           },
         };
         capFaceNotes.push(
-          `${resolution.note}（startOffset=${startOffsetMm}mm；S10 面驱动 profile，精确轨）`,
+          `${resolution.note}（${operation}/${endBoundRaw === 'throughall' ? 'throughAll' : 'blind'}` +
+          `；startOffset=${startOffsetMm}mm；S10 面驱动 profile，精确轨）`,
         );
       }
       // fillet/chamfer 边解析：多体时把当前 body 谱系交给 resolver 限定候选体。

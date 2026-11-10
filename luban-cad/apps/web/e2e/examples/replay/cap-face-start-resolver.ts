@@ -40,7 +40,7 @@ export interface FaceHandleLike {
 }
 
 export interface CapFaceStartEvidence {
-  /** 起始面世界平面（点 + 外法向；来自上游 blind 拉伸端盖，S11）。 */
+  /** 起始面世界平面（点 + 法向；来自上游 blind 拉伸端盖，S11）。 */
   plane: { origin: Vec3Tuple; normal: Vec3Tuple };
   /** Onshape bodydetails 面面积（mm²）。 */
   areaMm2?: number;
@@ -48,6 +48,11 @@ export interface CapFaceStartEvidence {
   boxMm?: { min: Vec3Tuple; max: Vec3Tuple };
   /** 期望边界曲线数（可选，来自上游草图单闭环）。 */
   edgeCount?: number;
+  /** S3（ADR-0016）：bodydetails 的 surface.normal 是面参数化法向、不是实体
+   *  外法向（Bumper 盒体实测有朝内面）；S3 新形态（REMOVE/INTERSECT/THROUGH_ALL）
+   *  无法从上游端盖推导平面时标记本字段，面匹配接受 ±法向（仍要求平面/面积/
+   *  AABB 唯一）。方向不依赖法向符号（converter 直接映射 oppositeDirection）。 */
+  normalSignAmbiguous?: boolean;
 }
 
 export interface CapFaceStartMatch {
@@ -105,6 +110,7 @@ export function parseCapFaceStartEvidence(value: unknown): CapFaceStartEvidence 
     ...(areaMm2 !== undefined && areaMm2 > 0 ? { areaMm2 } : {}),
     ...(boxMin && boxMax ? { boxMm: { min: boxMin, max: boxMax } } : {}),
     ...(edgeCount !== undefined && Number.isInteger(edgeCount) && edgeCount > 0 ? { edgeCount } : {}),
+    ...(record.normalSignAmbiguous === true ? { normalSignAmbiguous: true } : {}),
   };
 }
 
@@ -257,7 +263,12 @@ export function matchCapFaceStartFaces(
   for (const face of faces) {
     const label = `${face.bodyKey}:${face.subEntityId}`;
     const normal = unit(face.normal);
-    if (!normal || dot(normal, expectedNormal) < NORMAL_DOT_TOLERANCE) {
+    // S3：bodydetails 法向符号不可信时接受 ±法向；平面/面积/AABB 仍须唯一。
+    const normalDot = normal ? dot(normal, expectedNormal) : Number.NaN;
+    const normalMatches = evidence.normalSignAmbiguous === true
+      ? Math.abs(normalDot) >= NORMAL_DOT_TOLERANCE
+      : normalDot >= NORMAL_DOT_TOLERANCE;
+    if (!normalMatches) {
       diagnostics.push(`${label} 法向不符`);
       continue;
     }

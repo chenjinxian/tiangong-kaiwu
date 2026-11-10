@@ -222,6 +222,37 @@ test.describe('scenario → FeatureOp', () => {
     expect(step.notes.join(' ')).toContain('draft=10.000°(reverse)');
   });
 
+  test('faceExtrude S3（ADR-0016）：REMOVE/INTERSECT + throughAll + backward 透传', () => {
+    for (const [operation, direction] of [['remove', 'backward'], ['intersect', 'forward']] as const) {
+      const step = translateScenarioFeature({
+        type: 'faceExtrude',
+        name: `Extrude ${operation}`,
+        params: {
+          operation,
+          endBound: 'throughAll',
+          bodyId: 'body-1',
+          faceRef: { nodeId: 5, entityId: 6 },
+          direction,
+          startOffsetMm: 0,
+        },
+      });
+      expect(step.op.kind).toBe('insertFeature');
+      if (step.op.kind !== 'insertFeature') return;
+      expect(step.op.featureType).toBe('faceExtrude');
+      expect(step.op.targetBodyId).toBe('body-1');
+      expect(step.op.params).toMatchObject({
+        bodyId: 'body-1',
+        faceRef: { nodeId: 5, entityId: 6 },
+        operation,
+        endBound: 'throughAll',
+        direction,
+        startOffsetMm: 0,
+      });
+      expect((step.op.params as Record<string, unknown>).depthMm).toBeUndefined();
+      expect(step.approximate).toBe(false);
+    }
+  });
+
   test('faceExtrude draft 非法组合 → blocked（非 blind / 缺角度 / 孤 pullDirection）', () => {
     const base = {
       operation: 'add',
