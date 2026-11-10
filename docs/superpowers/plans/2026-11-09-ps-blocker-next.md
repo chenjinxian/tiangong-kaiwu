@@ -22,8 +22,8 @@ FeatureOp/RPC → 真栈 e2e”的单一链路。新增能力优先落在 **shar
 - `docs/adr/0006-onshape-new-feature-types.md`（面选择/selector 语义）
 - `docs/adr/0009-sketch-external-references.md`（PROJECTED/PIERCE 等）
 - `docs/adr/0015-multi-target-feature-scope.md`（多体作用域）
-- 私有索引 `D:\Github\onshape-parity-data\manifest\example-index.json`
-- 私有 BRepCore 审计台账 `D:\Github\imodel-native\docs\audit\BREPCORE-AUDIT-LEDGER.md`
+- 私有索引：`onshape-parity-data` 的 example-index（路径不展开）
+- 私有 BRepCore 审计台账：私有 `imodel-native`（路径与条目细节不在此复述）
 
 ## Global Constraints
 
@@ -71,11 +71,10 @@ FeatureOp/RPC → 真栈 e2e”的单一链路。新增能力优先落在 **shar
   `sample-assignment-scenario.spec.ts`、新增 `region-risk-exact.spec.ts`。
 - 公共文档：`docs/superpowers/plans/2026-11-09-ps-blocker-next.md`、
   `docs/superpowers/plans/2026-11-09-ps-blocker-driven.md`、ADR-0006/0009/0015。
-- 私有 converter/数据：`D:\Github\onshape-parity-data\tools\scenario\from-onshape-v2.mjs`、
-  新增 `tools/analyze-centerline.mjs`、`tools/collect-face-evidence.mjs`、
-  `tools/collect-face-evidence.test.mjs`。
-- 私有 native：`D:\Github\imodel-native\iModelCore\BRepCore\Tests\NonPublished\BRepCore_SmokeTests.cpp`、
-  `docs/audit/BREPCORE-AUDIT-LEDGER.md`。
+- 私有 converter/数据：私有 `onshape-parity-data` 的 scenario converter 与
+  centerline/face-evidence 工具（路径不展开）。
+- 私有 native：私有 `imodel-native` 的 BRepCore smoke test 与审计台账
+  （测试名/路径/条目细节不公开复述）。
 
 ---
 
@@ -191,7 +190,7 @@ git commit -m "feat(shared): add bbox evidence to profile region selection"
 ## Task 2: Intro Part 3 同面积面集转绿（Part 4 条件处理）
 
 **Files:**
-- Modify: `D:\Github\onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
+- Modify: `onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
 - Modify: `luban-cad/apps/web/e2e/examples/replay/run.ts`
 - Modify: `luban-cad/apps/web/e2e/examples/intro-cad-parts.spec.ts`
 - Regenerate: `scenarios/Onshape-Training-Repo-c6a3cd9aa3daa7819cae0c44-2b8c683d9655e48fb91f2cd9.scenario.json`
@@ -268,11 +267,11 @@ const profileBoundsMm = (feature.params as { profileBoundsMm?: RegionBoundsMm })
 - [ ] **Step 5: 重转 scenario 并跑真栈**
 
 ```bash
-cd D:\Github\onshape-parity-data
+cd <private onshape-parity-data>
 node tools/scenario/from-onshape-v2.mjs --doc c6a3cd9aa3daa7819cae0c44 \
   --element 2b8c683d9655e48fb91f2cd9 \
   --out scenarios/Onshape-Training-Repo-c6a3cd9aa3daa7819cae0c44-2b8c683d9655e48fb91f2cd9.scenario.json
-cd D:\Github\tiangong-kaiwu\luban-cad\apps\web
+cd luban-cad/apps/web
 npx playwright test e2e/examples/intro-cad-parts.spec.ts --grep "Part 3" --reporter=line
 ```
 Expected: **229,418.896 mm³ ±0.5%**，树/status/body/push+重开全绿。
@@ -298,7 +297,7 @@ git commit -m "test(intro): Part 3 strict via area+bbox evidence"
 ## Task 3: Alignment regionRisk 精确化（iOS 条件）
 
 **Files:**
-- Modify: `D:\Github\onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
+- Modify: `onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
 - Regenerate: `scenarios/Explore-Onshape-Models-39f2540fb7997e7badbd6ee3-d1989636af28eb77f9e99c58.scenario.json`
 - Test: `luban-cad/apps/web/e2e/examples/sample-assignment-scenario.spec.ts`
 
@@ -332,11 +331,11 @@ FJHQlRU8HHNoz71_1: {
 - [ ] **Step 3: 重转 + 真栈**
 
 ```bash
-cd D:\Github\onshape-parity-data
+cd <private onshape-parity-data>
 node tools/scenario/from-onshape-v2.mjs --doc 39f2540fb7997e7badbd6ee3 \
   --element d1989636af28eb77f9e99c58 \
   --out scenarios/Explore-Onshape-Models-39f2540fb7997e7badbd6ee3-d1989636af28eb77f9e99c58.scenario.json
-cd D:\Github\tiangong-kaiwu\luban-cad\apps\web
+cd luban-cad/apps/web
 npx playwright test e2e/examples/sample-assignment-scenario.spec.ts --reporter=line
 ```
 Expected: 8915.860 ±0.5%，tree/status/body/push+重开一致；notes 不再有
@@ -362,8 +361,8 @@ git commit -m "test(sample-assignment): exact region evidence for Cut 2 holes"
 ## Task 4: CENTERLINE_DIMENSION refs 分析 + converter 批次
 
 **Files:**
-- Create: `D:\Github\onshape-parity-data\tools\analyze-centerline.mjs`
-- Modify: `D:\Github\onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
+- Create: `onshape-parity-data\tools\analyze-centerline.mjs`
+- Modify: `onshape-parity-data\tools\scenario\from-onshape-v2.mjs`
 - Reconvert affected scenarios; Modify: private index if needed.
 - Test: `scenario-to-op.spec.ts`（新增 constraint 形态单测）+ 一个真实 PS。
 
@@ -415,8 +414,8 @@ git commit -m "feat(replay): cover additional CENTERLINE_DIMENSION refs"
 ## Task 5: capFace/sweptFace 面证据批量
 
 **Files:**
-- Create: `D:\Github\onshape-parity-data\tools\collect-face-evidence.mjs`
-- Create: `D:\Github\onshape-parity-data\tools\collect-face-evidence.test.mjs`
+- Create: `onshape-parity-data\tools\collect-face-evidence.mjs`
+- Create: `onshape-parity-data\tools\collect-face-evidence.test.mjs`
 - Modify: `from-onshape-v2.mjs` 的 `PROFILE_AREA_EVIDENCE`
 - Modify: private `index-examples.mjs` known-selector 表（仅当证据不足）
 
@@ -459,7 +458,7 @@ test('picks planar cap faces by area+bbox', () => {
 - [ ] **Step 2: 采集 26 个 PS**
 
 ```bash
-cd D:\Github\onshape-parity-data
+cd <private onshape-parity-data>
 node tools/collect-face-evidence.mjs --owner "Onshape Training Repo" --limit 200
 ```
 只读、带 retry-after；输出 `manifest/face-evidence.json`；任何 429/无面证据
@@ -488,72 +487,148 @@ git commit -m "test(examples): area/bbox evidence for cap-face selector"
 ## Task 6: Bumper 12 边 fillet native probe + 产品守卫
 
 **Files:**
-- Modify: `D:\Github\imodel-native\iModelCore\BRepCore\Tests\NonPublished\BRepCore_SmokeTests.cpp`
-- Modify: `D:\Github\imodel-native\docs\audit\BREPCORE-AUDIT-LEDGER.md`
-- Modify: `D:\Github\luban-backend\modeling-server\src\feature\AsyncFeatureEval.ts`（仅加日志/守卫，不改语义）
-- Test: ctest `BRepCoreTest`（gtest 套件名；源文件是 `BRepCore_SmokeTests.cpp`）+ 真栈 `bumper-block-approx.spec.ts`
+- Private: 私有 `imodel-native` 的多边 blend smoke 探针与审计台账
+  （测试名/路径/条目细节不在此复述）
+- Private: 私有 `luban-backend` fillet 失败路径守卫（仅加日志/守卫，不改语义；
+  **未提交、尚未进入产物**）
+- Test: 私有 native ctest + 真栈 `bumper-block-strict.spec.ts`（2026-11-09
+  follow-up：Fillet 1 审计 20 边覆盖；原 record 轨同日退场）
 
 **Interfaces:**
-- Consumes: `BRepUtil::Modify::BlendEdges`、`GetBodyFaces`、`MassProperties`。
-- Produces: 多边 blend 的 native 证据；Bumper 错误的 kernel/caller 判定。
+- Consumes: 私有内核的 blend/body-face/mass 只读能力（具体符号不公开复述）。
+- Produces: 多边 blend 的**聚合**内核边界结论；Bumper 的 kernel/caller 判定。
+  具体测试名、拓扑计数、探针体积与内核错误码只在私有审计台账。
 
 - [ ] **Step 1: 写 native 多边测试（先失败/观察）**
 
-在 `BRepCore_SmokeTests.cpp` 增加（`makeBox` 必须是本测试作用域内的局部 lambda，
-不能依赖 `FaceLevelModify` 内部的同名 lambda）：
-```cpp
-TEST_F(BRepCoreSmokeTests, BlendMultiEdgeBox)
-{
-  auto makeBox = []() {
-    IBRepEntityPtr e;
-    DgnBoxDetail d(DPoint3d::From(0, 0, 0), DPoint3d::From(0, 0, 1),
-                   DVec3d::From(1, 0, 0), DVec3d::From(0, 1, 0), 1, 1, 1, 1, true);
-    BRepUtil::Create::BodyFromSolidPrimitive(e, *ISolidPrimitive::CreateDgnBox(d));
-    return e;
-  };
-  IBRepEntityPtr box = makeBox();
-  bvector<ISubEntityPtr> edges;
-  ASSERT_EQ(12u, BRepUtil::GetBodyEdges(&edges, *box));
-  bvector<double> radii(12, 0.05);
-  ASSERT_EQ(SUCCESS, BRepUtil::Modify::BlendEdges(*box, edges, radii, false));
-  double volume = 0; DPoint3d centroid; double inertia[3][3];
-  ASSERT_EQ(SUCCESS, BRepUtil::MassProperties(*box, &volume, nullptr, &centroid, inertia, 1e-6));
-  ASSERT_GT(volume, 0.0);
-}
-```
-再加 3/4 边与“布尔压印盒”各一例；若 12 边盒体即失败，直接确认内核边界。
+在私有 native smoke 测试中增加多边 blend 探针：盒体 12 边、3 边链、4 边闭环
+与布尔压印盒各一例，记录成功/失败与干净回滚。**测试代码不在此复述**；证据
+只写私有审计台账。
 
-- [ ] **Step 2: 跑 ctest**
+- [ ] **Step 2: 跑私有 native ctest**
 
-```bash
-cd D:\Github\imodel-native
-cmake --build --preset win-x64-debug --target BRepCoreTest
-ctest --preset win-x64-debug -R BRepCoreTest --output-on-failure
-```
-记录成功/失败与 `find_err_ident`（若可捕获）。
+在私有 `imodel-native` 构建并运行对应 native 测试，记录成功/失败与错误标识
+（若可捕获）。**构建命令、测试名与错误码只在私有台账**，不复制到公开仓。
 
 - [ ] **Step 3: 下游日志/守卫**
 
 在 backend fillet 失败路径记录：target body face/edge 数、选中边数、半径是否
-均匀、BlendEdges 返回值。若 BlendEdges 成功但几何为空，产品必须 status=1，
-不得假成功。
+均匀、blend 返回值。若 blend 成功但几何为空，产品必须 status=1，不得假成功。
+该守卫为**设计/未提交，尚未进入产物**。
 
 - [ ] **Step 4: 真栈复核**
 
 ```bash
 cd luban-cad/apps/web
-npx playwright test e2e/examples/bumper-block-approx.spec.ts --reporter=line
+npx playwright test e2e/examples/bumper-block-strict.spec.ts --reporter=line
 ```
-Expected: 仍为 record（或修复后 strict）；无论结果，更新审计台账
-F1/F6 状态与证据。
+Expected: 严格轨（Fillet 1 **16/16 实际选择**；底面 4 条 z=0 尖边未选）；通用
+resolver 对 Fillet 1 仍解析 12 条边（`genericResolver=12-edge blocked`；分类已按
+strict 轨提升，发布栈不成立）。无论结果，更新私有审计台账的聚合状态与证据指针。
 
 - [ ] **Step 5: 提交**
 
-```bash
-git -C D:\Github\imodel-native add docs/audit/BREPCORE-AUDIT-LEDGER.md \
-  iModelCore/BRepCore/Tests/NonPublished/BRepCore_SmokeTests.cpp
-git -C D:\Github\imodel-native commit -m "test(brepcore): multi-edge blend probe"
-```
+私有 `imodel-native` / `luban-backend` 变更按私有约束保持**未提交**；公开仓
+不复制 native 测试代码/错误码/路径。若后续授权提交，只提交私有仓变更，公开侧
+仍只登记聚合结论。
+
+---
+
+## Task 6b（设计已批准；实现另批）：CAP_FACE 起始面 + 拔模的精确 faceExtrude
+
+> **2026-11-10 设计切片（用户已批准实现）**：AIRR
+> `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md` /
+> ADR-0016 `docs/adr/0016-extrude-start-face-draft.md`。
+> 状态 **已批准实现（2026-11-10）**；S9/S10/S11 已解析；体积模型修正为 prismoid。
+> **2026-11-10 A3/A4 实测（未推送）**：S10 CAP_FACE → 产品 faceExtrude 已接线
+> （converter `capFaceProfile` + runner 起始面解析 + `resolveFaceRef`）；
+> pre-fillet **657,764.787185**、20/20 line、rb=3 oracle **16/16**、最终
+> **636,731.650 vs 636,731.499（+0.000024%）**、6 特征全 status=0、1 body、
+> push+冷重开、approximateSteps=0。**证据更正**：Onshape Fillet 1 实际只选
+> **16 条边**（底面 4 条 z=0 边为尖边；最终 body 仅 16 个 R5 圆角柱面、无底环
+> 圆角；live 截图底边为直尖边），oracle 16/20 是**完整选择**而不是缺口；
+> 旧审计 20 边回退（634,347.216，−0.374%）多选底面环，已从 strict spec 移除。
+> ADR-0016/AIRR 的“oracle 20/20（含底面 loop）”门已修订为
+> **16/16（覆盖全部实际选择边）+ 底面 loop 尖边**；A4 按修订后的门完成。
+> 索引口径（2026-11-10 发布闭口）：私有 `replicable-now` **18**——Bumper
+> 为第 18 例，条目携带 `strictPath=rb3-oracle-16/16`、
+> `requiresBackend=backend-20261110`、`genericResolver=12-edge blocked`；
+> 私有 converter/oracle/scenario 已提交，A1/A2 backend 随
+> `backend-20261110`（shared 1.64.0）发布；公开 strict spec **19**（含 iOS）。
+> generic resolver 仍是 12 边 blocked-kernel，是独立限制，不影响 strict
+> oracle 轨。
+
+**Files（设计产物，本次已落）:**
+- `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md`
+- `docs/adr/0016-extrude-start-face-draft.md`
+- 本计划、`docs/README.md`、ADR-0006 指针（可选）
+
+**设计要点:**
+- 设计前根因：CAP_FACE 被映射成既有 `extrude.startOffsetMm` + `draftAngleDeg`，
+  轮廓仍是原草图面域；40 是从上游深度推断的偏移；拔模是整环 2D 偏置+Loft；
+  最终 body 侧边为 `curvePrimitive`。**S1 已解析**（native Loft smooth skin；
+  A2 逐边解析壳体 20/20 line）。**S5 已解析**：oracle 的 16/20 不是缺口——
+  Onshape Fillet 1 实际只选 16 条（5 faces + 4 edges），底面 4 条 z=0 loop 尖边
+  未选。
+- 选 A：扩展 `FaceExtrudeParams.startOffsetMm/draftAngleDeg/draftPullDirection`，
+  以 `bodyId`/`faceRef` 的**起始面边界**为轮廓。
+- **S9/S10/S11 已解析（2026-11-10）**：
+  - S9：中性面=起始/profile 面 z=40；10° 从 pull direction 量起；
+    `draftPullDirection=true` 收窄；z=40 的 180×50 → z=80 的
+    165.893842×35.893842；δ=40·tan10°。
+  - S10：CAP_FACE 在 `entities` profile 槽；`startOffsetEntity` 空、
+    `startOffset=false`；37 个 `entities` vs 29 个 `startOffsetEntity`
+    （27 个 `startOffset=true`）；A 只适用 37 个面驱动特征。
+  - S11：startOffset=0；25 mm `startOffsetDistance` 默认未使用；面 z=40、
+    depth 40 → 顶面 z=80。
+- **体积模型修正**：上体是等距偏置 prismoid，不是相似截面锥台；闭式
+  `h/6(A0+A1+4Am)`；rb=3 BRep 积分 upper **297,764.7871846836**、pre-fillet
+  **657,764.7871846836**（实测 657,764.787185）；当前产品已匹配。前稿
+  297,002.158/657,002.158 与 762.629“Extrude 2 残差”是错误模型。**最终差修订**：
+  旧 −0.374% 是审计 20 边回退多选底面 loop（≈2,384 mm³），不是下游 fillet
+  能力边界，也不是 Extrude 2 残差；16 边轨最终差 +0.151 mm³（+0.000024%）。
+- **A1/A2 测试门分离**：
+  - A1 = 面轮廓/偏移/参数接线 + 失败封闭；拔模继续复用整环偏置+Loft（**不修 P3**）；
+    记录 prismoid 297,764.787 baseline，**不**断言解析边/20-20。
+  - A2 = face-driven profile（S10）+ line/arc 锥面边（tool 体与最终 Unite 体，
+    实测 20/20 line）+ **Bumper pre-fillet 657,764.787185** + Fillet 1
+    **16/16 实际选择**（底面 4 条尖边未选）+ 最终 ±0.5%（+0.000024%）。
+    体积已匹配，不是 A2 的差异化项。A2 已达成。
+- **body 归属**：faceRef 按 `bodyId` 逐体解析；跨体/多 body 歧义 status=1；旧单 body
+  载荷逐字兼容，旧多 body 歧义登记 fail closed；29 个 start-reference 家族 blocked/
+  approximate。
+- **helper 适配**：既有草图面域拔模 helper 只接受 `SketchRegion`；既有整环拔模
+  helper 未导出。A1 需导出既有整环 helper 并新增面轮廓整环拔模 helper
+  （Loop/ParityRegion）；不把面 Loop 强塞给 SketchRegion helper。
+- 拒绝 B（`ExtrudeParams.startFaceRef`：与 faceExtrude 双路径）、C（无面身份）、
+  D（replay-only 硬编码/调参：非参数化、不可 AI 编辑）。
+- 无 UI：无 live 起始面/拔模对话框证据；AI/回放走标准 FeatureOp + 已解析 faceRef。
+
+**Approval/next steps（已批准；实现另批）:**
+- [x] 用户批准实现（AIRR + ADR-0016，2026-11-10）。
+- [x] A1（**已实现，non-exact，2026-11-10**）：shared 1.64.0 契约 + backend schema/求值器 +
+      面轮廓与既有整环拔模 helper 适配 + body 归属/环分类/零相交失败封闭；
+      面轮廓/offset/angle 参数往返；真栈 prismoid **657,764.787 mm³** push+冷重开；
+      **不宣称解析边/20-20（A2 后续达成）**。能力状态：无 UI；converter/translator
+      属 A3 未接；发布需新 backend 产物（旧 backend-20261109 不识别新字段，X-11）。
+- [x] A2：解析边 spike/实现（私有 native/TS 或等价构造；无 P0-08）；合成矩形 →
+      tool/最终 Unite **20/20 line**、297,764.787/657,764.787、holed 全 line/arc。
+      **Bumper 实测证明原“20/20（含底面 loop）”门与 Onshape 选择不符**：实际选择
+      16 条（底面 4 条尖边未选）；ADR-0016/AIRR 已修订为 16/16 + 底面尖边。
+- [x] A3：S9/S10/S11 已解析证据指针 + converter `capFaceProfile`（起始面
+      平面/面积/AABB 证据，featureId 索引，ADD-only）+ translator
+      `faceExtrude` startOffset/draft + runner 起始面解析（`readFaceHandles`
+      唯一匹配 → `resolveFaceRef`）；旧 capFaceExtrude/start-reference 近似路径
+      保留；未解析 fail closed（test-only）。
+- [x] A4：Bumper 严格轨已实测：pre-fillet **657,764.787185**（绝对容差
+      0.01 mm³）、20/20 line、rb=3 oracle **16/16**、最终
+      **636,731.650（+0.000024%）**、全 status=0、1 body、push+冷重开、
+      approximateSteps=0、冷重开落库参数复核。ADR-0016/AIRR 已修订为
+      16/16 + 底面尖边；审计 20 边回退已退役。Bumper 私有索引为
+      `replicable-now`（第 18 例），携带 `genericResolver=12-edge blocked`、
+      `requiresBackend=backend-20261110`、`strictPath=rb3-oracle-16/16`；
+      A1/A2 随 `backend-20261110` 发布，私有 evidence 已提交。
+- [ ] UI：另 AIRR（live 证据齐备后）。
 
 ---
 
@@ -566,24 +641,28 @@ git -C D:\Github\imodel-native commit -m "test(brepcore): multi-edge blend probe
 
 **Interfaces:** 无代码接口；产出设计/决策/回滚/测试矩阵。
 
-- [ ] **Step 1: PROJECTED 1b AIRR**
+> **2026-11-09 完成（设计）**：AIRR、ADR-0009 增量与 ADR-0015 扩展已落，状态均为
+> **提议/未批准**；P3/P5 保持 blocked-design；**未批准前不写产品代码**；不计入严格绿。
+
+- [x] **Step 1: PROJECTED 1b AIRR**
 
 写清：当前同步读草图 → 实体边投影需异步 `SolidModelingCommand`；评估
 (a) 异步草图求值路径，(b) 可失效同步快照缓存；选一；旧库回退；UI 证据缺口；
 测试矩阵（平行/非平行、源面失效、跨体）。
 
-- [ ] **Step 2: 多体 ADR-0015**
+- [x] **Step 2: 多体 ADR-0015**
 
 写清单 FeatureOp 多目标契约（`targetBodyIds` vs per-body 子操作）、
 fillet/pattern/mirror 的跨体语义、事务/撤销、失败回退；明确不改变单 target
 旧载荷。
 
-- [ ] **Step 3: 评审与登记**
+- [x] **Step 3: 设计登记（评审签字另列）**
 
 计划文档记录“未批准前不写产品代码”；把 P3/P5 任务保持 blocked-design；
-不把 AIRR/ADR 当作绿例。
+不把 AIRR/ADR 当作绿例。本 step 只登记设计，不宣称评审通过；复审/签字由 reviewer
+与用户另列。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md \
@@ -595,6 +674,26 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
 
 ## Task 8: 重索引、演示与阶段收口
 
+> **执行结果（2026-11-09）**：strict `replicable-now` **16**（目标 ≥18，未达，
+> 缺口 2）；`verify-example-index` **0 errors / 5 warnings**。新增严格绿：
+> Intro Part 3（229,418.896 mm³，0.000%）与 Sample Assignment / Alignment
+> （8,915.890 mm³，+0.00034%）。**计数口径**：16 为当前工作树；干净私有检出
+> 重索引为 15（私有索引生成器/converter/scenario 未提交，Part 3 strict 依赖
+> 私有 scenario）；Alignment 的 `Cut 2 more holes` 保留一条已审计人工面域覆盖，
+> 纯证据驱动计数 15（`Cut 2 holes` 面积证据精确）。缺额原因与未解决项证据见
+> `2026-11-09-ps-blocker-driven.md`「PS blocker 下一阶段执行记录」。
+> **2026-11-10 发布闭口**：目标 ≥18 达成——私有
+> `manifest/example-index.json` `replicable-now` **18**（Bumper 为第 18 例，
+> 字段 `strictPath=rb3-oracle-16/16`、`requiresBackend=backend-20261110`、
+> `genericResolver=12-edge blocked`）、`verify-example-index` **0 errors /
+> 5 warnings**；公开 strict spec **19**（含 Bumper S10 严格轨与 iOS First
+> Part）。iOS First Part 用 `EXAMPLE_RESET=1` 真栈 **2 passed（1.9m）**：
+> 157,478.736 vs 157,478.9（0.0001%）、树 sketch/extrude/extrude/chamfer
+> 全 status=0、1 body、push+冷重开。A1/A2 随 `backend-20261110`（shared
+> 1.64.0）发布，私有 converter/oracle/scenario 已提交；发布产物 Bumper
+> strict 2 passed。Bumper 的 generic resolver 仍是 12 边 blocked-kernel，
+> 不得把 strict 轨说成通用能力。
+
 **Files:**
 - Private: `manifest/example-index.json`, `manifest/face-evidence.json`,
   `manifest/centerline-forms.json`
@@ -602,44 +701,72 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
   `docs/superpowers/plans/2026-11-09-ps-blocker-driven.md`
 - Demo: `luban-cad/apps/web/demo-artifacts/examples/index.html`（本地生成）
 
-- [ ] **Step 1: 重生成索引并验证**
+- [x] **Step 1: 重生成索引并验证（2026-11-09 首次执行 16/18；2026-11-10 闭口 18/18）**
 
 ```bash
-cd D:\Github\onshape-parity-data
+cd <private onshape-parity-data>
 node tools/index-examples.mjs
 node tools/verify-example-index.mjs
 ```
 Expected: 0 errors；strict `replicable-now` ≥18；blocked 计数有变化时记录原因。
+Actual: **0 errors / 5 warnings；strict 16**（未达 18）。归因修正：Part 3 移出
+`KNOWN_SELECTOR_BLOCKERS`（真栈严格绿证据）；Part 4 blocker 更新为 2/4/70 候选；
+`CENTERLINE_DIMENSION` 按 converter→产品 `DISTANCE` 归因（4 PS constraints
+dropped→complete，无分类提升）。blocked-selector 4 → 3。
 
-- [ ] **Step 2: 回归门**
+2026-11-10 闭口复跑：`node tools/index-examples.mjs` → `replicableNow=18`、
+`measurableReplicableNow=18`、`rawReplicableNow=46`；`node
+tools/verify-example-index.mjs` → **0 errors / 5 warnings**（与首次执行相同的
+5 条空 features 签名警告）。blocked-kernel 4 → 3；replicable-now 17 → 18。
+
+- [x] **Step 2: 回归门**
 
 ```bash
 cd luban-cad/packages/shared && corepack pnpm@10 test && corepack pnpm@10 run build
 cd ../apps/web && corepack pnpm@10 test && corepack pnpm@10 exec tsc --noEmit
 npx playwright test e2e/examples/<changed-specs> --reporter=line
 ```
+Actual: shared **192/192** + build clean；web **1527/1527**（116 files）+ tsc
+（app/e2e）clean；真栈逐 spec：Part 1/2/3 各 **2 passed**、sample **2 passed**、
+drive-sleeve **3 passed**、wheel **2 passed**、scenario-to-op **51 passed**、
+bumper record **2 passed**（+3.303%，未升绿；2026-11-09 follow-up 审计 20 边
+覆盖：634,347.216 vs 636,731.499，−0.374%。**2026-11-10 A4 最终取代**：
+S10 faceExtrude + rb=3 oracle **16/16 实际选择** → **636,731.650（+0.000024%）**、
+全 status=0/1 body/push+冷重开；审计 20 边回退已退役，见 Task 6b/A4）、
+demo Part 3 **2 passed**、
+ShowcaseRoute **1/1**。Part 4/5/6 保持 test.fail known-red。批量首轮遇 MS
+100 req/15min 429，按 spec 分窗重跑（未改配置）；`verify-imodels` 可选未跑
+（严格用例用自管 E2E iModel，未重置既有持久示例）。
 
-- [ ] **Step 3: 演示素材/画廊**
+- [x] **Step 3: 演示素材/画廊**
 
 若新增严格绿示例：用 `e2e/examples/demo-new-examples.spec.ts` 的同一模式补
 manifest/截图；`node luban-cad/scripts/onshape-parity/gallery.mjs` 重生成；
 如需更新 `/showcase`，按现有 1920×1080 webp 资产格式增加卡片。
+Actual: 新增 `intro-part-3`（manifest + 1920×1080 WebP，iModel 7d81c6b0，
+actual=229418.896）；gallery **17 manifests / 13 state docs / 0 mismatch**；
+`/showcase` Intro 卡片更新为 Part 1–3（真实截图）。未为 blocked 项加卡片。
 
-- [ ] **Step 4: 计划收口**
+- [x] **Step 4: 计划收口**
 
 在 `2026-11-09-ps-blocker-driven.md` 追加本阶段执行记录：
 - 每个 Task 的 strict/blocked 实际结果；
 - 新严格绿清单与体积误差；
 - 未解决项的证据路径（不得写“完成”）；
 - 阶段目标 18 的达成/未达成与原因。
+Actual: 已追加「PS blocker 下一阶段执行记录（2026-11-09，Task 8 收口）」，
+含逐任务表、严格绿/误差、缺口 2 的原因与证据路径。
 
-- [ ] **Step 5: 提交/推送（按用户授权）**
+- [x] **Step 5: 提交/推送（按用户授权）**
 
 ```bash
 git add docs luban-cad/packages/shared luban-cad/apps/web/e2e
 git commit -m "docs(plan): close PS blocker next phase"
 git push origin main
 ```
+Actual: 已提交 docs/演示/画廊资产到 main；**按授权不 push**。私有仓生成物
+（index/face-evidence/centerline-forms/converter/scenario）保持未提交；
+native/backend 仓未提交。
 
 ---
 
@@ -651,7 +778,8 @@ git push origin main
 | regionRisk area 证据 | converter 转换 + index verify | translator 50/50 | Alignment、iOS |
 | CENTERLINE refs | scenario-to-op 新单测 | shared build | Fox RP23（或 blocked 证据） |
 | capFace/sweptFace 证据 | collector 测试 | index verify | 目标 PS spec |
-| Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper record/strict |
+| Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper strict（ADR-0016 A2/A3/A4：Fillet 1 **16/16 实际选择**，底面 4 条 z=0 边尖边未选；旧审计 20 边回退已退役，曾多选底面 loop）；通用 resolver 12 边仍 blocked-kernel |
+| CAP_FACE 起始面+拔模（ADR-0016，A1/A2/A3/A4 已实现） | shared 1.64.0 契约 + S1/S5/S9/S10/S11 已解析证据 | 后端 faceExtrude/A2 测试；公共 translator/resolver 单测；真栈 Bumper strict + A2 face-extrude + Part 3 | A1 prismoid 297,764.787 baseline（不宣称精确）/ A2 解析边 tool 12/12、最终 Unite **20/20 line** + pre-fillet **657,764.787185** + Fillet 1 **16/16 实际选择**（底面 4 条尖边未选）+ 最终 **636,731.650 vs 636,731.499（+0.000024%）**、全 status=0/1 body/push+冷重开/approximateSteps=0；旧 −0.374% 归因审计 20 边回退多选底面 loop，已退役；Bumper 私有索引为 replicable-now（第 18 例；`strictPath=rb3-oracle-16/16`、`requiresBackend=backend-20261110`、`genericResolver=12-edge blocked`）；A1/A2 已随 `backend-20261110` 发布、私有 evidence 已固化；generic resolver 仍 12 边 blocked-kernel（独立限制） |
 | AIRR/ADR | 文档自检 | 无代码 | 无 |
 
 ## 停止条件
@@ -660,6 +788,19 @@ git push origin main
 - 目标面面积无法从采集证据唯一反解 → `blocked-evidence`，不猜。
 - PROJECTED/多体未批准 AIRR/ADR → 不写产品代码。
 - 内核失败不能复现或修复 → `blocked-kernel` + native 台账，不用产品近似冒充。
+- CAP_FACE 起始面/拔模（ADR-0016）A1/A2/A3/A4 已实现；A2 解析边 tool/最终 Unite
+  **20/20 line** 已达成；Fillet 1 以 **16/16 实际选择**（底面 4 条 z=0 loop 尖边
+  未选）为准，不得补成 20 条、不得用审计 20 边回退或 `curvePrimitive` 冒充。
+- A1 只记录 prismoid 297,764.787 baseline（不宣称精确）；体积不是 A2 的差异化项；
+  A2 已达成：解析边 20/20 line + pre-fillet **657,764.787185** + Fillet 1
+  **16/16** + 最终 **+0.000024%**。
+- Bumper pre-fillet 体积门（657,764.787185）与 **16/16 实际选择 + 底面 loop
+  尖边**必须同时满足；不得用最终 ±0.5% 掩盖。旧 −0.374% 是审计 20 边回退
+  多选底面 loop（≈2,384 mm³），不是下游 fillet 能力边界，也不是 Extrude 2 残差；
+  16 边轨最终差 +0.151 mm³（+0.000024%）。
+- S1/S5/S9/S10/S11 已解析（2026-11-10）；A 只覆盖 37 个 face-driven profile，
+  29 个 start-reference 保持 blocked/approximate；A2 以解析边 20/20 +
+  Fillet 1 16/16 实际选择为准。
 - 任何真栈非 status=0 或体积超差 → 不放宽断言，不升严格绿。
 
 ## 阶段退出标准

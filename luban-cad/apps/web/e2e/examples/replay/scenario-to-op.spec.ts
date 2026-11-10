@@ -41,6 +41,40 @@ test.describe('scenario → FeatureOp', () => {
     }]);
   });
 
+  test('CENTERLINE_DIMENSION 圆心/线端点形态原样透传为 distance（sourceType 剥离）', () => {
+    // converter（私有仓）已把中心线尺寸“跨中心线全宽”÷2：圆心+线（value=40）
+    // 对应圆心到中心线 40；线端点+线（value=12.5）同理。translator 只做 DTO
+    // 清洗，不得再改 value 或 refs 形态（结构化 center/端点引用由后端解析）。
+    const feature: ScenarioFeature = {
+      type: 'sketch',
+      name: 'Sketch 1',
+      params: {
+        entities: [
+          { kind: 'circle', id: 1, center: { x: 0, y: 0 }, radius: 10 },
+          { kind: 'line', id: 2, p1: { x: -20, y: 40 }, p2: { x: 20, y: 40 } },
+          { kind: 'line', id: 3, p1: { x: 0, y: 0 }, p2: { x: 0, y: 25 } },
+        ],
+        constraints: [
+          {
+            id: 10, sourceIndex: 9, sourceType: 'CENTERLINE_DIMENSION', kind: 'distance',
+            refs: [{ entity: 1, part: 'center' }, 2], value: 40,
+          },
+          {
+            id: 11, sourceIndex: 10, sourceType: 'CENTERLINE_DIMENSION', kind: 'distance',
+            refs: [{ entity: 3, part: 'start' }, 2], value: 12.5,
+          },
+        ],
+      },
+    };
+    const step = translateScenarioFeature(feature);
+    expect(step.op.kind).toBe('insertSketch');
+    if (step.op.kind !== 'insertSketch') return;
+    expect(step.op.constraints).toEqual([
+      { id: 10, kind: 'distance', refs: [{ entity: 1, part: 'center' }, 2], value: 40 },
+      { id: 11, kind: 'distance', refs: [{ entity: 3, part: 'start' }, 2], value: 12.5 },
+    ]);
+  });
+
   test('sketchRegions 面域索引映射到 extrude.regions', () => {
     const feature: ScenarioFeature = {
       type: 'extrude',
@@ -150,6 +184,170 @@ test.describe('scenario → FeatureOp', () => {
     });
     expect(step.approximate).toBe(true);
     expect(step.notes.join(' ')).toContain('Onshape live 几何未独立校准');
+  });
+
+  test('faceExtrude 起始面（ADR-0016 A3）：startOffset/draft（弧度→度）透传、不近似', () => {
+    const step = translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude 2',
+      params: {
+        operation: 'add',
+        endBound: 'blind',
+        depthMm: 40,
+        bodyId: 'body-1',
+        faceRef: { nodeId: 3, entityId: 4 },
+        direction: 'forward',
+        startOffsetMm: 0,
+        hasDraft: true,
+        draftAngleDeg: Math.PI / 18,
+        draftPullDirection: true,
+      },
+    });
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.featureType).toBe('faceExtrude');
+    expect(step.op.params).toMatchObject({
+      bodyId: 'body-1',
+      faceRef: { nodeId: 3, entityId: 4 },
+      operation: 'add',
+      endBound: 'blind',
+      depthMm: 40,
+      direction: 'forward',
+      startOffsetMm: 0,
+      draftAngleDeg: 10,
+      draftPullDirection: true,
+    });
+    expect(step.approximate).toBe(false);
+    expect(step.notes.join(' ')).toContain('startOffset=0 mm');
+    expect(step.notes.join(' ')).toContain('draft=10.000°(reverse)');
+  });
+
+  test('faceExtrude S3（ADR-0016）：REMOVE/INTERSECT + throughAll + backward 透传', () => {
+    for (const [operation, direction] of [['remove', 'backward'], ['intersect', 'forward']] as const) {
+      const step = translateScenarioFeature({
+        type: 'faceExtrude',
+        name: `Extrude ${operation}`,
+        params: {
+          operation,
+          endBound: 'throughAll',
+          bodyId: 'body-1',
+          faceRef: { nodeId: 5, entityId: 6 },
+          direction,
+          startOffsetMm: 0,
+        },
+      });
+      expect(step.op.kind).toBe('insertFeature');
+      if (step.op.kind !== 'insertFeature') return;
+      expect(step.op.featureType).toBe('faceExtrude');
+      expect(step.op.targetBodyId).toBe('body-1');
+      expect(step.op.params).toMatchObject({
+        bodyId: 'body-1',
+        faceRef: { nodeId: 5, entityId: 6 },
+        operation,
+        endBound: 'throughAll',
+        direction,
+        startOffsetMm: 0,
+      });
+      expect((step.op.params as Record<string, unknown>).depthMm).toBeUndefined();
+      expect(step.approximate).toBe(false);
+    }
+  });
+
+  test('faceExtrude S3 review：throughAll 显式忽略 depthMm；blind 透传；非法 direction fail closed', () => {
+    // throughAll 即使输入带 depthMm（25）也不进入产品载荷。
+    const throughAll = translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude throughAll',
+      params: {
+        operation: 'remove',
+        endBound: 'throughAll',
+        depthMm: 25,
+        bodyId: 'body-1',
+        faceRef: { nodeId: 5, entityId: 6 },
+        direction: 'backward',
+      },
+    });
+    expect(throughAll.op.kind).toBe('insertFeature');
+    if (throughAll.op.kind !== 'insertFeature') return;
+    expect((throughAll.op.params as Record<string, unknown>).depthMm).toBeUndefined();
+    expect(throughAll.op.params).toMatchObject({ endBound: 'throughAll', direction: 'backward' });
+    expect(throughAll.notes.join(' ')).toContain('忽略 depthMm');
+
+    // blind 才透传 depthMm。
+    const blind = translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude blind',
+      params: {
+        operation: 'remove',
+        endBound: 'blind',
+        depthMm: 5,
+        bodyId: 'body-1',
+        faceRef: { nodeId: 5, entityId: 6 },
+        direction: 'forward',
+      },
+    });
+    expect(blind.op.kind).toBe('insertFeature');
+    if (blind.op.kind !== 'insertFeature') return;
+    expect(blind.op.params).toMatchObject({ endBound: 'blind', depthMm: 5, direction: 'forward' });
+
+    // 未知 direction 不得静默降级 forward。
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude bad-direction',
+      params: {
+        operation: 'remove',
+        endBound: 'blind',
+        depthMm: 5,
+        bodyId: 'body-1',
+        faceRef: { nodeId: 5, entityId: 6 },
+        direction: 'sideways',
+      },
+    })).toThrow(BlockedCapabilityError);
+  });
+
+  test('faceExtrude draft 非法组合 → blocked（非 blind / 缺角度 / 孤 pullDirection）', () => {
+    const base = {
+      operation: 'add',
+      depthMm: 10,
+      bodyId: 'body-1',
+      faceRef: { nodeId: 1, entityId: 2 },
+    };
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E',
+      params: { ...base, endBound: 'throughAll', hasDraft: true, draftAngleDeg: Math.PI / 18 },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E',
+      params: { ...base, endBound: 'blind', hasDraft: true },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E',
+      params: { ...base, endBound: 'blind', draftPullDirection: true },
+    })).toThrow(BlockedCapabilityError);
+  });
+
+  test('capFaceProfile 未由 runner 解析 → blocked，不退回草图面域近似', () => {
+    expect(() => translateScenarioFeature({
+      type: 'extrude',
+      name: 'Extrude 2',
+      params: {
+        operation: 'add',
+        endBound: 'blind',
+        depthMm: 40,
+        hasDraft: true,
+        draftAngleDeg: Math.PI / 18,
+        draftPullDirection: true,
+        selection: {
+          kind: 'capFaceProfile',
+          upstreamId: 'onshape-extrude-1',
+          startOffsetMm: 0,
+          startFace: {
+            plane: { origin: { x: 0, y: 0, z: 40 }, normal: { x: 0, y: 0, z: 1 } },
+            areaMm2: 9000,
+          },
+        },
+      },
+    }, { sketchIdBySource: new Map([['s', 'sk']]) })).toThrow(BlockedCapabilityError);
   });
 
   test('CAP_FACE 起始面（P2.1）：上游草图面域 + startOffsetMm + draft', () => {

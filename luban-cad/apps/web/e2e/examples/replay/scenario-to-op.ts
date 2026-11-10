@@ -229,6 +229,15 @@ function resolveRegions(
     // 兼容已有人工示例的语义，但明确标 approximate；通用面 split 尚未实现。
     return { regions: [0], notes: ['imprintFace 以最近草图 region 0 近似（face split 未实现）'], approximate: true };
   }
+  if (kind === 'capFaceProfile') {
+    // ADR-0016 A3：S10 面驱动 profile（CAP_FACE 起始面）必须由 runner 在步骤时点
+    // 解析为 bodyId/faceRef 并改走产品 faceExtrude。未解析时诚实阻塞，绝不退回
+    // 草图面域/startOffset 近似（那条路径仅保留给 start-reference 家族）。
+    throw new BlockedCapabilityError(
+      'face-extrude',
+      `${feature.name} CAP_FACE 起始面尚未解析为 bodyId/faceRef（capFaceProfile）`,
+    );
+  }
   if (kind === 'face') {
     // 2026-11-09：CAP_FACE/SWEPT_FACE 是上游实体面选择（如 Bumper Block 从
     // Extrude 1 顶面再拉），不是 imprint 草图面域；产品 faceExtrude 尚无
@@ -466,7 +475,16 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
   const entityId = faceRef?.entityId;
   if (!bodyId || !Number.isInteger(nodeId) || !Number.isInteger(entityId))
     throw new BlockedCapabilityError('face-extrude', `${feature.name} 缺少已解析的 bodyId/faceRef`);
-  const direction = stringParam(params, 'direction') === 'backward' ? 'backward' as const : 'forward' as const;
+  // S3 review（2026-11-10）：direction 只接受 forward/backward；未知值必须 fail
+  // closed，不能静默降级为 forward（方向错会变成零相交/错误去材）。
+  const directionRaw = params.direction;
+  let direction: 'forward' | 'backward' = 'forward';
+  if (directionRaw !== undefined) {
+    if (directionRaw === 'forward' || directionRaw === 'backward') direction = directionRaw;
+    else throw new BlockedCapabilityError(
+      'face-extrude', `${feature.name} direction 非法：${String(directionRaw)}（仅 forward/backward）`,
+    );
+  }
   const mergeScopeRaw = Array.isArray(params.mergeScope) ? params.mergeScope : [];
   const mergeScope: BodyRef[] = [];
   for (const entry of mergeScopeRaw) {
@@ -476,13 +494,47 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
       throw new BlockedCapabilityError('face-extrude', `${feature.name} mergeScope 含无 bodyKey 的项`);
     mergeScope.push({ bodyKey });
   }
+  // ADR-0016 A3（CAP_FACE profile → faceExtrude）：converter 仍以弧度存
+  // `draftAngleDeg`（quantityMm 语义，与 extrudeOp 同口径），这里换算成产品度制。
+  const rawDraftRad = numberParam(params, 'draftAngleDeg');
+  const hasDraft = booleanParam(params, 'hasDraft') === true;
+  const draftAngleDeg = hasDraft && rawDraftRad !== undefined && Math.abs(rawDraftRad) > 1e-9
+    ? rawDraftRad * 180 / Math.PI
+    : undefined;
+  if (hasDraft && draftAngleDeg === undefined)
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} hasDraft 缺有效 draftAngleDeg`);
+  const draftPullDirection = booleanParam(params, 'draftPullDirection') === true;
+  if (draftPullDirection && draftAngleDeg === undefined)
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} draftPullDirection 缺 draftAngleDeg`);
+  if (draftAngleDeg !== undefined) {
+    if (!(Math.abs(draftAngleDeg) > 0 && Math.abs(draftAngleDeg) < 89))
+      throw new BlockedCapabilityError('face-extrude', `${feature.name} draftAngleDeg 越界：${draftAngleDeg}`);
+    if (endBound !== 'blind')
+      throw new BlockedCapabilityError('face-extrude', `${feature.name} faceExtrude draft 首版仅支持 blind`);
+    if (asRecord(params.secondDirection) !== undefined)
+      throw new BlockedCapabilityError('face-extrude', `${feature.name} faceExtrude draft 与 secondDirection 互斥`);
+  }
+  const startOffsetMm = numberParam(params, 'startOffsetMm');
+  if (params.startOffsetMm !== undefined && startOffsetMm === undefined)
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} startOffsetMm 非有限数`);
+  if (startOffsetMm !== undefined && asRecord(params.secondDirection) !== undefined)
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} faceExtrude startOffset 与 secondDirection 互斥`);
+  // review 2026-11-10：THROUGH_ALL 不透传 depthMm（即使输入里带了也显式忽略），
+  // 防止 blind 深度冒充 throughAll；盲端才写 depthMm。
   const faceParams: FaceExtrudeParams = {
     bodyId,
     faceRef: { nodeId: nodeId as number, entityId: entityId as number },
     operation,
     endBound,
-    ...(depthMm !== undefined ? { depthMm } : {}),
+    ...(endBound === 'blind' && depthMm !== undefined ? { depthMm } : {}),
     direction,
+    ...(startOffsetMm !== undefined ? { startOffsetMm } : {}),
+    ...(draftAngleDeg !== undefined
+      ? {
+        draftAngleDeg,
+        ...(draftPullDirection ? { draftPullDirection: true } : {}),
+      }
+      : {}),
     ...(mergeScope.length > 0 ? { mergeScope } : {}),
   };
   return {
@@ -494,8 +546,12 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
       params: faceParams,
     },
     notes: [
-      `imprintFace 精确面拉伸（direction=${direction}，` +
-      `${endBound === 'throughAll' ? 'throughAll' : `${depthMm} mm`}）`,
+      `${startOffsetMm !== undefined ? 'CAP_FACE 起始面 ' : ''}faceExtrude 精确面拉伸（direction=${direction}，` +
+      `${endBound === 'throughAll' ? 'throughAll' : `${depthMm} mm`}` +
+      `${startOffsetMm !== undefined ? `，startOffset=${startOffsetMm} mm` : ''}` +
+      `${draftAngleDeg !== undefined ? `，draft=${draftAngleDeg.toFixed(3)}°${draftPullDirection ? '(reverse)' : ''}` : ''}）`,
+      ...(endBound === 'throughAll' && depthMm !== undefined
+        ? ['endBound=throughAll：忽略 depthMm（不进入产品载荷）'] : []),
     ],
     approximate: false,
   };

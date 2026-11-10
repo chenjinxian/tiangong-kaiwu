@@ -108,6 +108,13 @@ export interface HoleParams {
 
 ### 切片 D：face-extrude / imprint-face
 
+> **2026-11-10 后续设计（用户已批准实现）**：CAP_FACE 起始面 + startOffset + draft
+> 的精确产品路径见 **ADR-0016** 与 AIRR
+> `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md`；同日修正为
+> prismoid 体积（upper 297,764.787 / pre-fillet 657,764.787），S9/S10/S11 已解析，
+> 最终 −0.374% 归因 fillet。本 ADR 的 faceExtrude 首切片契约/实现保持不变；实现另批
+> 落地，不把近似回退计绿。
+
 Tutorial 2 iOS 的 Extrude 2 仍用草图左环面域近似（几何等价，−0.20%）。通用实现
 需要“选择实体面 + 轮廓投影 + 沿面法向扫掠”，依赖稳定的 face 引用与 face 轮廓提取；
 目前 `resolveFaceRef` 提供持久 face id，但面轮廓提取/扫掠尚未验证。该切片必须有
@@ -694,6 +701,7 @@ imprintFace 映射为 faceExtrude。正确回放路径 = **草图面域 + imprin
   `scenario-to-op` 50/50；shared selector 单测 8/8。
 - **边界**：面积 oracle 依赖采集面面积；未采集的 PS 仍走逐边/前沿选择并登记
   `blocked-selector`。面积证据只裁决“选哪些面域”，不改变特征参数/事务/提交。
+- **位置证据**：bbox 作为 area 的第二 oracle，多解时不得按 mask 猜。
 - **回滚**：删除 scenario 的 `profileAreaMm2` 即回到逐边选择；shared 工具可保留
   无副作用。
 

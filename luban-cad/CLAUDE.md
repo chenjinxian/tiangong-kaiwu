@@ -192,10 +192,42 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 - **CAP_FACE 起始面（P2.1，2026-11-09）**：converter 对上游 NEW/blind 拉伸帽面
   导出 `capFaceExtrude`（上游草图/面域 + startOffset=上游 depth），translator
   映射既有 `extrude` 的 startOffset+draft；不再误标 imprintFace/region 0。
-  Bumper Block 真栈（record）：Extrude 1 360,000 → Extrude 2 **657,764.787**
-  mm³（+297,764.787），目标 636,731.499，**+3.303%**；Fillet 1/Hole status=1
-  （12 边 fillet/内核仍阻塞）。`run-file` 新增 `statusPolicy:'record'`（严格轨
-  缺省仍 fail closed）。无 RPC/产物变更。
+  Bumper Block：Extrude 1 360,000 → Extrude 2 **657,764.787** mm³（+297,764.787）。
+  **2026-11-10 回滚快照 oracle 切片**：新增 test-only
+  `manifest/face-oracle-edges.json`（私有、运行时加载；公共源码不含私有
+  id/绝对路径）+ `rollback-edge-oracle.ts` 几何唯一匹配 + 可选 runner
+  `edgeOracle`（缺省不启用，默认路径不变；18 条纯匹配单测）。
+  oracle 本身仍是**部分能力**：86/122 候选特征 ready、36 blocked
+  （不支持曲线类型）、0/86 ready 覆盖全部 body 边；不能当作通用选择器替代。
+  `run-file` 新增 `statusPolicy:'record'`（严格轨缺省仍 fail closed）与 push
+  后冷重开 status=0 严格断言。无 RPC/产物变更。
+  **2026-11-10 A3/A4（ADR-0016 S10 精确轨，未推送）**：converter 对
+  `entities` profile 槽、`startOffset=false`/`startOffsetEntity` 空的 CAP_FACE
+  特征输出 `capFaceProfile`（起始面平面 + Onshape 面积/AABB 证据）；公共 runner
+  在步骤时点用 `readFaceHandles` 唯一匹配（平面/法向/面积/AABB）→
+  `resolveFaceRef` → 产品 `faceExtrude`（startOffset=0、10° 收窄、
+  `draftPullDirection=true`、depth 40）。Bumper 真栈：pre-fillet
+  **657,764.787185 mm³**、body 20/20 边全为 line（无 curvePrimitive）、
+  rb=3 oracle **16/16**、最终 **636,731.650 vs 636,731.499 mm³（+0.000024%）**、
+  6 特征全 status=0（push 前/冷重开）、1 body、push+冷重开一致、
+  approximateSteps=0。
+  **证据更正（ADR-0016 / AIRR 已修订）**：Onshape `Fillet 1` 实际只选
+  **16 条边**；底面 4 条 z=0 loop 边是**尖边**（最终 body 为 16 个 R5 圆角柱面，
+  仅 4 条竖边的 R5 柱面延伸到 z=0，**无底环 R5 面**；live 截图底边为直尖边），
+  oracle 的 16/20 是**完整选择**而非缺口。旧审计 20 边回退（634,347.216，
+  −0.374%）多选了底面环，已从 strict spec 移除；ADR-0016/AIRR 的“oracle 20/20
+  （含底面 loop）”门已修订为 **16/16（覆盖全部实际选择边）+ 底面 loop 尖边**。
+  证据：私有 final bodydetails 快照 + live 截图
+  crop `ui-evidence/bumper-block-live-20261106/crop-bottom.png`。
+  **索引口径（2026-11-10 发布闭口）**：私有 `manifest/example-index.json`
+  `replicable-now` **18**——Bumper 为第 18 例，条目携带
+  `strictPath=rb3-oracle-16/16`、`requiresBackend=backend-20261110`、
+  `genericResolver=12-edge blocked`；私有 converter/oracle/scenario 已提交，
+  A1/A2 backend 随 `backend-20261110` 发布。公开 strict spec **19**（含 A2
+  face-extrude、Bumper S10 严格轨与 iOS First Part）。iOS 用
+  `EXAMPLE_RESET=1` 真栈 **2 passed（1.9m）**：157,478.736 vs 157,478.9
+  （0.0001%）、树全 status=0、1 body、push+冷重开。generic resolver 仍为
+  12 边 blocked-kernel，是独立限制，不得把 strict oracle 轨说成通用能力。
 - `apps/web` 全量 vitest：**1527/1527**（2026-11-09 body pattern 反向 UI +1
   （FeatureDialog 179/179；真栈 3×3 720.000 反向质心 x=-6 push+冷重开）；
   body pattern 第二方向 UI +3
@@ -705,4 +737,4 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `sample-assignment.spec.ts` 降为 legacy（`EXAMPLE_UI_LEGACY=1` 才跑）。
 - **known-red**：`sketch-extrude` 仍红（草图无拉链面域）。`tutorial2` X-14 已于 2026-11-04 关闭：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min；六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³），证据 `apps/web/test-results/t2-strict-after.log`。不得把 known-red 当绿，也不得通过放宽断言“修复”。
 
-*最后更新: 2026-11-09（公开产物 `backend-20261109` / shared 1.63.0 已发布：4 个公开镜像 + MS 产物、verify-stack 17/17；此前全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面/平面点 + 草图落在自定义平面（shared 1.31.0，Intro to CAD + Handle 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；T3 抽壳 UI 真栈 1084.000 mm³ + 编辑/重开；T4 拉伸第二方向真栈 6000.000 mm³ + 旋转多面域 7853.981 mm³/Hand Brake 7125.270 mm³；T4b Handle 真栈逐体 38314.220/68563.590 vs 38314.765/68563.589；T5 mirror 真栈 8000.000 mm³；T6 point-on-line + 单点 H/V + CENTERLINE_DIMENSION 约束映射（缺口 143→6、47→0）；shared 1.32 倒角孔真栈 261.794 vs 261.799 mm³；验证基线 1389）*
+*最后更新: 2026-11-10（发布闭口：`backend-20261110` / shared 1.64.0 已发布——精确 faceExtrude A1/A2/A3/A4 + S3；Bumper strict 16/16、636,731.650 vs 636,731.499（+0.000024%）；私有 `replicable-now` 18 / 公开 strict 19，私有 evidence 已固化；A1/A2 backend 随发布可复现；generic resolver 12 边仍为独立 blocked-kernel；iOS `EXAMPLE_RESET=1` 真栈 2 passed；此前 `backend-20261109` / shared 1.63.0：4 个公开镜像 + MS 产物、verify-stack 17/17；此前全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面/平面点 + 草图落在自定义平面（shared 1.31.0，Intro to CAD + Handle 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；T3 抽壳 UI 真栈 1084.000 mm³ + 编辑/重开；T4 拉伸第二方向真栈 6000.000 mm³ + 旋转多面域 7853.981 mm³/Hand Brake 7125.270 mm³；T4b Handle 真栈逐体 38314.220/68563.590 vs 38314.765/68563.589；T5 mirror 真栈 8000.000 mm³；T6 point-on-line + 单点 H/V + CENTERLINE_DIMENSION 约束映射（缺口 143→6、47→0）；shared 1.32 倒角孔真栈 261.794 vs 261.799 mm³；验证基线 1389）*

@@ -19,6 +19,19 @@ describe('ShowcaseRoute 产品介绍页', () => {
     expect(video.getAttribute('src')).toBe('/showcase/tutorial2-demo-1080p.webm');
     expect(video.getAttribute('poster')).toBe('/showcase/video-poster.webp');
     expect(document.querySelectorAll('img[src^="/showcase/"]').length).toBeGreaterThanOrEqual(10);
+    // 2026-11-09 收口：Intro Part 1–3 卡片必须由真实截图守护；blocked 示例
+    // （Part 4 / Bumper / Fox）不得出现在公开示例区，避免用已知红充数。
+    expect(screen.getByText('Intro to CAD 1.2 / Part 1–3')).toBeDefined();
+    expect(screen.getByText('409,676.600 / 294,967.152 / 229,418.896 mm³')).toBeDefined();
+    expect(document.querySelector('img[src="/showcase/example-intro-part3.webp"]')).not.toBeNull();
+    expect(screen.queryByText('Bumper Block')).toBeNull();
+    expect(screen.queryByText('Fox RP23')).toBeNull();
+    expect(screen.queryByText(/Part 4/)).toBeNull();
+    // hero/CTA 计数与实际一致（strict 16、示例 iModel 13），不得暗示 18。
+    const heroFacts = Array.from(document.querySelectorAll('.showcase-hero__facts li'))
+      .map((item) => item.textContent);
+    expect(heroFacts).toContain('16 个严格验证示例');
+    expect(screen.getByText('打开应用，或从文档中心进入 13 个示例 iModel 的分步演示。')).toBeDefined();
     expect(screen.getByText('Tutorial 2 - Build a Part')).toBeDefined();
     expect(screen.getByText('真形（TrueForm）')).toBeDefined();
     expect(screen.getByRole('link', { name: '进入鲁班CAD' }).getAttribute('href')).toBe('/login');

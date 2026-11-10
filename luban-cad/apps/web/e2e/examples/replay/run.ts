@@ -10,6 +10,7 @@ import type {
   FeatureOpResult,
   FilletEdgeRef,
   LubanTopologyId,
+  RegionBoundsMm,
   SketchPlaneDto,
   SketchRegionDto,
 } from '@luban-cad/shared';
@@ -40,6 +41,7 @@ import {
 import { selectEdgeTargetBody } from './multi-body-anchor.js';
 import { resolveRegionsFromProfileEntities } from './region-entity-resolver.js';
 import type { ImprintFaceResolution } from './imprint-face-resolver.js';
+import type { CapFaceStartResolution } from './cap-face-start-resolver.js';
 import {
   BlockedCapabilityError,
   translateScenarioFeature,
@@ -98,6 +100,32 @@ export interface RunScenarioOptions {
       regionIndices: readonly number[];
     },
   ) => Promise<ImprintFaceResolution>;
+  /**
+   * ADR-0016 A3（test-only）：S10 CAP_FACE profile 起始面解析。converter 输出
+   * `selection.kind='capFaceProfile'` + 起始面证据；本回调在步骤时点把证据解析为
+   * 持久 bodyId/faceRef，runner 随即改走产品 faceExtrude。未提供/解析失败一律
+   * 阻塞（不退回 startOffset 近似；那条路径只保留给 start-reference 家族）。
+   */
+  capFaceResolver?: (
+    feature: ScenarioFeature,
+    scenario: ParityScenario,
+    bodyContext: {
+      bodyKeyBySource?: ReadonlyMap<string, string>;
+      allBodyKeys?: readonly string[];
+    },
+  ) => Promise<CapFaceStartResolution>;
+}
+
+/** 面域包围盒（草图局部 mm）；无 outerBoundary 时返回 undefined（selector 失败闭合）。 */
+function regionBounds(region: SketchRegionDto): RegionBoundsMm | undefined {
+  const pts = region.outerBoundary ?? [];
+  if (pts.length === 0) return undefined;
+  return {
+    minX: Math.min(...pts.map((p) => p.x)),
+    minY: Math.min(...pts.map((p) => p.y)),
+    maxX: Math.max(...pts.map((p) => p.x)),
+    maxY: Math.max(...pts.map((p) => p.y)),
+  };
 }
 
 /**
@@ -181,6 +209,11 @@ export async function runScenario(
       const imprintNotes: string[] = [];
       let imprintApproximate = false;
       let imprintAllExact = true;
+      // ADR-0016 A3：S10 面驱动 CAP_FACE profile（converter `capFaceProfile`）。
+      // 必须在 bodyContext 建好之后解析起始面（见下方 capFaceResolver 分支）。
+      const originalSelection = (feature.params as { selection?: { kind?: string } }).selection;
+      const isCapFaceProfile = feature.type === 'extrude' && originalSelection?.kind === 'capFaceProfile';
+      const capFaceNotes: string[] = [];
       if (feature.type === 'extrude') {
         const selection = (feature.params as {
           selection?: {
@@ -317,25 +350,39 @@ export async function runScenario(
               // 查询无法唯一还原整组被选面。若 scenario 带 Onshape 面面积 oracle，
               // 在 product 面域里找唯一子集；非 CAP_FACE 查询必须包含逐边命中。
               const profileAreaMm2 = (feature.params as { profileAreaMm2?: unknown }).profileAreaMm2;
+              // 位置证据（bbox）：同面积面域（如 Intro Part 3 的 9 个 645.16mm²
+              // 网格）仅按面积多解；Onshape bodydetails 顶面 box 提供第二 oracle。
+              const profileBoundsMm = (feature.params as { profileBoundsMm?: RegionBoundsMm }).profileBoundsMm;
               let profileAreaSelected = false;
               if (typeof profileAreaMm2 === 'number' && Number.isFinite(profileAreaMm2)
                 && (sketch?.regions?.length ?? 0) > 0) {
                 const required = isCapFace ? [] : Array.from(new Set(regions));
-                const regionAreas = sketch!.regions!.map((region) => ({ area: region.area }));
+                const regionAreas = sketch!.regions!.map((region) => ({
+                  area: region.area,
+                  bounds: regionBounds(region),
+                }));
                 // 逐边命中优先作为“必须在选集内”的约束（保留查询选中的位置），
                 // 面积证据只负责补全/裁决；只有被逐边约束后无唯一解时才独立按
                 // 面积求解（Part 3/4 这类逐边命中本身错的极端情况）。
-                // 面面积证据是精确值：用 1e-7 相对容差（约 0.0004mm² @4069），
-                // 避免把“面积接近但几何不同”的 5 面域子集也当候选。逐边命中
-                // 仍优先作为必须面域；只有无唯一解时才独立按面积求解。
+                // 面面积证据是精确值：主路径用 1e-7 相对容差并关闭 shared 的
+                // 1mm² 绝对容差下限（toleranceMm2: 0；约 0.0004mm² @4069），
+                // 避免把“面积接近但几何不同”的 5 面域子集也当候选。逐边命中仍
+                // 优先作为必须面域；只有无唯一解时才独立按面积求解。该校准回退
+                // 同样关闭绝对下限，改用有界 2e-7 相对容差：覆盖 Onshape
+                // bodydetails 采集面积与产品面域求值的实测极小差（Drive Sleeve
+                // 1.34e-7），仍比 1mm² 绝对下限严格约三个数量级。
                 let areaSelection = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
                   ...(required.length > 0 ? { requireRegions: required } : {}),
+                  ...(profileBoundsMm ? { profileBoundsMm } : {}),
                   toleranceRatio: 1e-7,
+                  toleranceMm2: 0,
                 });
                 let usedRequired = required.length > 0;
                 if ((!areaSelection || areaSelection.ambiguous) && required.length > 0) {
                   const withoutRequired = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
-                    toleranceRatio: 1e-7,
+                    ...(profileBoundsMm ? { profileBoundsMm } : {}),
+                    toleranceRatio: 2e-7,
+                    toleranceMm2: 0,
                   });
                   if (withoutRequired && !withoutRequired.ambiguous) {
                     areaSelection = withoutRequired;
@@ -352,6 +399,7 @@ export async function runScenario(
                   parts.push(
                     `profileArea=${profileAreaMm2}mm² → 面域 ${areaSelection.regions.join(',')}` +
                     `（Δ=${areaSelection.delta.toFixed(3)}mm²；Onshape 面面积证据` +
+                    `${profileBoundsMm ? `+bbox ${JSON.stringify(profileBoundsMm)}` : ''}` +
                     `${overridesQueryPicks ? '；覆盖逐边命中' : ''}）`,
                   );
                 } else {
@@ -476,6 +524,132 @@ export async function runScenario(
               `${isCapFace ? 'CAP_FACE 起始面' : 'imprintFace'} 保留原查询近似：${reason}`,
             );
           }
+        }
+      }
+      // 面面积证据（P2.3）：qSketchRegion 的 Onshape deterministicIds 数量/顺序
+      // 没有产品面域语义（Alignment 4 个 id ↔ 产品 2 个面域；iOS 3 个 id 恰好是
+      // 3 个材料面域但仍是前缀）。scenario 带 profileAreaMm2 时，用产品面域面积
+      // 找唯一子集（与 imprintFace 面积证据同一 shared selector、同一 1e-7 相对
+      // 容差且 toleranceMm2:0 关闭绝对下限，未放宽）；scenario 声明的 regions 必须
+      // 是非空、非负整数且不重复，并与面积唯一解完全一致，否则 fail closed——
+      // 不按前缀/顺序猜、不静默过滤畸形声明。唯一解时同时移除 selection 与顶层
+      // params 的 regionRisk（不再标近似）。
+      //
+      // 只处理**原始** selection 就是 sketchRegions 的特征。P2.2 会把 imprintFace/
+      // capFaceExtrude 改写成 sketchRegions 且保留 profileAreaMm2/profileBoundsMm；
+      // 那条路径已用逐边命中作 requireRegions 消费证据，若此处再跑一次无 required
+      // 的选集，会把 P2.2 的合法结果重新裁决甚至误阻塞（Drive Sleeve/Intro）。
+      const originalSelectionKind = (feature.params as { selection?: { kind?: string } }).selection?.kind;
+      let sketchRegionAreaNote: string | undefined;
+      if (effectiveFeature.type === 'extrude' && originalSelectionKind === 'sketchRegions') {
+        const areaParams = effectiveFeature.params as {
+          profileAreaMm2?: unknown;
+          profileBoundsMm?: RegionBoundsMm;
+          selection?: {
+            kind?: string;
+            sketchFeatureId?: string;
+            regions?: unknown;
+            regionIndex?: unknown;
+            regionRisk?: boolean;
+            [key: string]: unknown;
+          };
+        };
+        const areaSelectionRaw = areaParams.selection;
+        if (areaSelectionRaw?.kind === 'sketchRegions'
+          && typeof areaParams.profileAreaMm2 === 'number'
+          && Number.isFinite(areaParams.profileAreaMm2)) {
+          const sourceSketchId = areaSelectionRaw.sketchFeatureId;
+          const localSketchId = sourceSketchId ? sketchIdBySource.get(sourceSketchId) : undefined;
+          if (!localSketchId) {
+            throw new BlockedCapabilityError(
+              'region-selector',
+              `${feature.name} 面积证据草图 ${sourceSketchId ?? '?'} 尚未构建`,
+            );
+          }
+          const sketch = await getSketchRpc(ctx, localSketchId, accessToken);
+          const regionAreas = (sketch?.regions ?? []).map((region) => ({
+            area: region.area,
+            bounds: regionBounds(region),
+          }));
+          const areaSelection = selectProfileRegionsByArea(regionAreas, areaParams.profileAreaMm2, {
+            toleranceRatio: 1e-7,
+            toleranceMm2: 0,
+            ...(areaParams.profileBoundsMm ? { profileBoundsMm: areaParams.profileBoundsMm } : {}),
+          });
+          if (!areaSelection || areaSelection.ambiguous) {
+            throw new BlockedCapabilityError(
+              'region-selector',
+              `${feature.name} profileArea=${areaParams.profileAreaMm2}mm² ` +
+              `${areaSelection?.ambiguous ? '多解等距' : '容差内无唯一面域子集'}`,
+            );
+          }
+          // scenario 声明的 regions 是证据断言，不是可过滤的提示：非数组、空集、
+          // 非整数、负数或重复都必须 fail closed（不得静默丢掉非法值后按剩余值
+          // 通过）。
+          const declaredRaw = areaSelectionRaw.regions;
+          let declared: number[] = [];
+          if (declaredRaw !== undefined) {
+            const isNonEmptyIntegerArray = Array.isArray(declaredRaw)
+              && declaredRaw.length > 0
+              && declaredRaw.every((value) => typeof value === 'number'
+                && Number.isInteger(value) && value >= 0);
+            const hasDuplicates = isNonEmptyIntegerArray
+              && new Set(declaredRaw).size !== declaredRaw.length;
+            if (!isNonEmptyIntegerArray || hasDuplicates) {
+              throw new BlockedCapabilityError(
+                'region-selector',
+                `${feature.name} scenario 声明 regions 非法：${JSON.stringify(declaredRaw)}` +
+                `（必须是非空、非负整数且不重复）`,
+              );
+            }
+            declared = declaredRaw as number[];
+          }
+          if (declared.length > 0
+            && (declared.length !== areaSelection.regions.length
+              || declared.some((value, index) => value !== areaSelection.regions[index]))) {
+            throw new BlockedCapabilityError(
+              'region-selector',
+              `${feature.name} 面积证据选集 ${JSON.stringify(areaSelection.regions)} ` +
+              `与 scenario 声明 ${JSON.stringify(declared)} 不一致`,
+            );
+          }
+          const {
+            regionRisk: _regionRisk,
+            regions: _regions,
+            regionIndex: _regionIndex,
+            ...areaSelectionRest
+          } = areaSelectionRaw;
+          const {
+            regionRisk: _topLevelRegionRisk,
+            ...areaParamsRest
+          } = effectiveFeature.params as Record<string, unknown>;
+          effectiveFeature = {
+            ...effectiveFeature,
+            params: {
+              ...areaParamsRest,
+              selection: {
+                ...areaSelectionRest,
+                regions: areaSelection.regions,
+                regionIndex: areaSelection.regions[0],
+              },
+            },
+          };
+          if (process.env.EXAMPLE_DEBUG_REGIONS === '1') {
+            console.log(
+              `[regions] ${feature.name} sketch=${sourceSketchId} area=${areaParams.profileAreaMm2} ` +
+              `actual=` + JSON.stringify((sketch?.regions ?? []).map((region, index) => ({
+                i: index,
+                area: region.area,
+                outer: region.outerEntityIds,
+                hole: region.holeEntityIds ?? [],
+              }))) +
+              ` selected=${JSON.stringify(areaSelection.regions)} delta=${areaSelection.delta}`,
+            );
+          }
+          sketchRegionAreaNote =
+            `profileArea=${areaParams.profileAreaMm2}mm² → 面域 ${areaSelection.regions.join(',')}` +
+            `（Δ=${areaSelection.delta.toFixed(6)}mm²；产品面域面积唯一解）` +
+            `${declared.length > 0 ? '，与 scenario 声明一致' : ''}`;
         }
       }
       // regionRisk：converter 用 deterministicIds 数量近似多面域选集，可能与实际
@@ -613,7 +787,8 @@ export async function runScenario(
         bodyCentroidByKey?: Map<string, { x: number; y: number; z: number }>;
       } = {};
       if (effectiveFeature.type === 'booleanBodies' || scopeSources.length > 0
-        || anchorEligible || edgeBodyContextEligible || transformAnchorEligible || shellAnchorEligible) {
+        || anchorEligible || edgeBodyContextEligible || transformAnchorEligible || shellAnchorEligible
+        || isCapFaceProfile) {
         const bodies = (await getBodiesRpc(ctx, accessToken)).filter(
           (body) => body.active !== false && body.authored !== false,
         );
@@ -666,6 +841,121 @@ export async function runScenario(
           );
         }
       }
+      // ADR-0016 A3：CAP_FACE profile 起始面解析 → 改走产品 faceExtrude。
+      // 解析失败/无 resolver 一律阻塞；不得回退旧 capFaceExtrude(startOffset)
+      // 近似（A4 严格轨不得用近似冒充精确）。
+      if (isCapFaceProfile) {
+        if (!options.capFaceResolver)
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} capFaceProfile 缺起始面解析器（runner 能力未接线）`,
+          );
+        const resolution = await options.capFaceResolver(feature, scenario, bodyContext);
+        if (!resolution.ok)
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} CAP_FACE 起始面解析失败：${resolution.reason}`,
+          );
+        const sourceParams = feature.params as Record<string, unknown>;
+        const endBoundRaw = String(sourceParams.endBound ?? 'blind')
+          .replace(/[_-]/g, '').toLowerCase();
+        // ADR-0016 A3 首版：ADD/BLIND；S3（2026-11-10）扩展证据形态：
+        // REMOVE/INTERSECT + THROUGH_ALL。其余（upTo*）仍 fail closed。
+        if (endBoundRaw !== 'blind' && endBoundRaw !== 'throughall')
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} capFaceProfile 终止条件未支持（当前 ${endBoundRaw}）`,
+          );
+        if (sourceParams.secondDirection !== undefined)
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} capFaceProfile 与 secondDirection 互斥`,
+          );
+        const depthMm = typeof sourceParams.depthMm === 'number' ? sourceParams.depthMm : undefined;
+        if (endBoundRaw === 'blind' && (depthMm === undefined || !(depthMm > 0)))
+          throw new BlockedCapabilityError('face-extrude', `${feature.name} capFaceProfile 缺有效 depthMm`);
+        // S3：REMOVE/INTERSECT 已由 Onshape 原始 oppositeDirection + rb 切削侧证据
+        // 校准（Wheel Extrude 1 / Rocker Extrude 10）；此处仍拒绝 NEW（产品
+        // faceExtrude 无 NEW）。THROUGH_ALL 不透传 depthMm（review 2026-11-10：
+        // blind 深度对该终止条件无意义，避免“throughAll 按 blind 深”假绿）。
+        const operation = String(sourceParams.operation ?? '').toLowerCase();
+        if (operation !== 'add' && operation !== 'remove' && operation !== 'intersect')
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} capFaceProfile 操作未支持（当前 ${operation || 'missing'}）`,
+          );
+        const selectionStart = (originalSelection as { startOffsetMm?: unknown }).startOffsetMm;
+        const startOffsetMm = typeof selectionStart === 'number' && Number.isFinite(selectionStart)
+          ? selectionStart
+          : 0;
+        // A3 已发布 ADD/BLIND 形态保持原 sketch-normal 方向映射（Bumper 不变）。
+        const legacyDirection = operation === 'add' && endBoundRaw !== 'throughall';
+        let productDirection: 'forward' | 'backward';
+        if (legacyDirection) {
+          productDirection = sourceParams.oppositeDirection === true ? 'backward' : 'forward';
+        } else {
+          // S3：converter 给出**世界实体外法向**（bodydetails orientation），
+          // Onshape oppositeDirection 相对该外法向；产品 direction 相对解析到的
+          // 产品面法向（可能朝内/朝外任意，合成盒体底面实测朝内）。用点积把
+          // 世界方向换算为产品 direction；任何缺失/退化 → fail closed。
+          const outwardRaw = (originalSelection as { outwardNormal?: unknown }).outwardNormal;
+          const outwardRecord = outwardRaw && typeof outwardRaw === 'object'
+            ? outwardRaw as Record<string, unknown>
+            : undefined;
+          const outward = ['x', 'y', 'z'].map((axis) => outwardRecord?.[axis]);
+          if (outward.some((value) => typeof value !== 'number' || !Number.isFinite(value)))
+            throw new BlockedCapabilityError(
+              'face-extrude',
+              `${feature.name} capFaceProfile 缺有效 outwardNormal（S3 世界外法向）`,
+            );
+          const outwardVector = outward as [number, number, number];
+          const outwardLength = Math.hypot(outwardVector[0], outwardVector[1], outwardVector[2]);
+          if (!(outwardLength > 1e-9))
+            throw new BlockedCapabilityError(
+              'face-extrude',
+              `${feature.name} capFaceProfile outwardNormal 退化`,
+            );
+          const desiredSign = sourceParams.oppositeDirection === true ? -1 : 1;
+          const desired = outwardVector.map((value) => value / outwardLength * desiredSign);
+          const faceNormal = resolution.faceNormal;
+          const faceNormalLength = Math.hypot(faceNormal[0], faceNormal[1], faceNormal[2]);
+          const dotProduct = desired[0]! * faceNormal[0]
+            + desired[1]! * faceNormal[1]
+            + desired[2]! * faceNormal[2];
+          if (!(faceNormalLength > 1e-9) || !Number.isFinite(dotProduct)
+            || Math.abs(dotProduct) < 1e-9)
+            throw new BlockedCapabilityError(
+              'face-extrude',
+              `${feature.name} capFaceProfile 方向无法由 outwardNormal/产品面法向判定` +
+              `（dot=${String(dotProduct)}）`,
+            );
+          productDirection = dotProduct > 0 ? 'forward' : 'backward';
+        }
+        effectiveFeature = {
+          ...feature,
+          type: 'faceExtrude',
+          params: {
+            bodyId: resolution.bodyId,
+            faceRef: resolution.faceRef,
+            operation,
+            endBound: endBoundRaw === 'throughall' ? 'throughAll' : 'blind',
+            ...(endBoundRaw === 'blind' && depthMm !== undefined ? { depthMm } : {}),
+            direction: productDirection,
+            startOffsetMm,
+            ...(sourceParams.hasDraft === true && typeof sourceParams.draftAngleDeg === 'number'
+              ? {
+                hasDraft: true,
+                draftAngleDeg: sourceParams.draftAngleDeg,
+                ...(sourceParams.draftPullDirection === true ? { draftPullDirection: true } : {}),
+              }
+              : {}),
+          },
+        };
+        capFaceNotes.push(
+          `${resolution.note}（${operation}/${endBoundRaw === 'throughall' ? 'throughAll' : 'blind'}` +
+          `；direction=${productDirection}；startOffset=${startOffsetMm}mm；S10 面驱动 profile，精确轨）`,
+        );
+      }
       // fillet/chamfer 边解析：多体时把当前 body 谱系交给 resolver 限定候选体。
       if ((feature.type === 'fillet' || feature.type === 'chamfer') && options.edgeResolver) {
         const resolved = await options.edgeResolver(feature, scenario, bodyContext);
@@ -706,10 +996,12 @@ export async function runScenario(
         translated.notes.push(...imprintNotes);
         if (imprintApproximate) translated.approximate = true;
       }
+      if (capFaceNotes.length > 0) translated.notes.push(...capFaceNotes);
       if (profileRegionNote !== undefined) {
         translated.notes.push(profileRegionNote);
         if (!profileRegionNote.includes('→ 面域')) translated.approximate = true;
       }
+      if (sketchRegionAreaNote !== undefined) translated.notes.push(sketchRegionAreaNote);
       if (regionAuditNote !== undefined) {
         translated.notes.push(regionAuditNote);
         translated.approximate = true;

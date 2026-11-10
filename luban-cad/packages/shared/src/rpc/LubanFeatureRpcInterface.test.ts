@@ -74,7 +74,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.63.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.64.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -639,7 +639,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.63.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.64.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -813,7 +813,7 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
   });
 
   it("版本 1.30.0（revolve 多面域；cPlane 基准面 + SketchPlaneDto.sourceFeatureId；hole 沉头孔；面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.63.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.64.0");
   });
 });
 
@@ -877,7 +877,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.63.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.64.0");
   });
 });
 
@@ -1082,7 +1082,7 @@ describe("v1.30 契约（revolve 多面域）", () => {
   });
 
   it("版本 1.30.0（revolve regions 多面域；旧 regionIndex 简写保留一版）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.63.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.64.0");
   });
 });
 
@@ -1265,5 +1265,33 @@ describe("v1.47 契约（featureMirror 特征镜像）", () => {
       planeLine: { origin: { x: 20, y: 0, z: 0 }, normal: { x: 1, y: 0, z: 0 } },
     };
     expect(JSON.parse(JSON.stringify(multi))).toEqual(multi);
+  });
+});
+
+describe("v1.64 契约（faceExtrude startOffset + draft；ADR-0016 切片 A1）", () => {
+  it("FaceExtrudeParams 新增可选字段：旧载荷无新键保持逐字合法", () => {
+    const legacy: FaceExtrudeParams = {
+      bodyId: "0x15", faceRef: { nodeId: 1, entityId: 6 }, operation: "add", endBound: "blind", depthMm: 1,
+    };
+    expect(legacy.startOffsetMm).toBeUndefined();
+    expect(legacy.draftAngleDeg).toBeUndefined();
+    expect(legacy.draftPullDirection).toBeUndefined();
+    // 旧载荷序列化不出现新键（旧 backend 逐字兼容）
+    expect(Object.keys(JSON.parse(JSON.stringify(legacy)))).toEqual(["bodyId", "faceRef", "operation", "endBound", "depthMm"]);
+
+    const drafted: FaceExtrudeParams = {
+      ...legacy,
+      startOffsetMm: 0,
+      draftAngleDeg: 10,
+      draftPullDirection: true,
+    };
+    expect(JSON.parse(JSON.stringify(drafted))).toEqual(drafted);
+    expectTypeOf<FaceExtrudeParams["startOffsetMm"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<FaceExtrudeParams["draftAngleDeg"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<FaceExtrudeParams["draftPullDirection"]>().toEqualTypeOf<boolean | undefined>();
+  });
+
+  it("接口版本 1.64.0（A1 契约 minor bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.64.0");
   });
 });

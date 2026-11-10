@@ -6,8 +6,9 @@
  * chamfer FeatureOp；不新增产品建模 API，也不猜任意边 id。
  *
  * 2026-11-06 追加真实 PS：Tutorial 2 iOS First Part（sketch + 2 extrude +
- * chamfer）。imprintFace 由 runner 按“查询引用的草图实体作为孔洞边界”选择
- * 草图面域（face split 仍未实现，步骤标 approximate），随后倒角边正常解析。
+ * chamfer）。imprintFace 由 runner 按查询引用的草图实体选择草图面域；2026-11-09
+ * 起 shared `pickImprintRegionByEdgeSide` 按有向边左/右侧精确选择（sign=-1 →
+ * 右侧），该步不再标 approximate，随后倒角边正常解析。
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -155,11 +156,10 @@ test.describe('T2 edge selector replay', () => {
 
   /**
    * 真实 PS 验收：Tutorial 2 iOS First Part。
-   * - imprintFace：Extrude 2 的查询引用草图圆 5（side=-1 环外）；runner 按
-   *   侧向选择“圆 5 为孔洞边界”的最大材料面域（region 1），保留内孔。
-   *   2026-11-06 真栈实证：该 FACE 是**草图面**（查询根 `<sketchId>.imprint`），
-   *   Extrude 1 顶盖是单一外环+两孔面，不存在可选的实体环面片；因此不走
-   *   faceExtrude，步骤保持 approximate；
+   * - imprintFace：Extrude 2 的查询引用草图圆 5（sign=-1 = 有向边右侧）；runner
+   *   按 shared `pickImprintRegionByEdgeSide` 精确选择“圆 5 为孔洞边界”的最大
+   *   材料面域（region 1），保留内孔。2026-11-09 起该步是精确选择
+   *   （approximate=false），不再标 face-split 近似；
    * - chamfer：3 条 CAP_EDGE 由 edgeResolver 解析；
    * - 目标体积取采集 per-part nominal（157,478.9 mm³）。
    * 约束以 skip 保留 Onshape 解算坐标（converter 有 HORIZONTAL 单点缺口），
@@ -182,10 +182,12 @@ test.describe('T2 edge selector replay', () => {
     });
     expect(built.steps.map((step) => step.type)).toEqual(['sketch', 'extrude', 'extrude', 'chamfer']);
     const imprintStep = built.steps.find((step) => step.feature === 'Extrude 2');
-    expect(imprintStep?.approximate).toBe(true);
+    // 2026-11-09 精确 imprint 有向边侧语义：sign=-1 → edge-right，步骤不再近似。
+    expect(imprintStep?.approximate).toBe(false);
     expect(imprintStep?.notes.join(' ')).toContain('imprintFace→草图面域 1');
-    expect(imprintStep?.notes.join(' ')).toContain('outside');
+    expect(imprintStep?.notes.join(' ')).toContain('edge-right');
     expect(imprintStep?.notes.join(' ')).toContain('area=1649.336');
+    expect(imprintStep?.notes.join(' ')).toContain('有向边左/右侧精确选择');
     expect(built.notes.some((note) => note.includes('edgeResolver=Chamfer 1'))).toBe(true);
 
     await page.reload();
