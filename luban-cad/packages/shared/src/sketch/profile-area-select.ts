@@ -19,11 +19,19 @@ export interface RegionBoundsMm {
   maxY: number;
 }
 
+/** 平面面域质心（世界/草图 mm）。 */
+export interface RegionCentroidMm {
+  x: number;
+  y: number;
+}
+
 export interface AreaSelectableRegion {
   /** SketchRegionDto 的面积（mm²）。 */
   area: number;
   /** 面域包围盒；提供目标 bbox 时必须存在。 */
   bounds?: RegionBoundsMm;
+  /** 面域质心；提供目标质心时必须存在。 */
+  centroid?: RegionCentroidMm;
 }
 
 export interface ProfileAreaSelection {
@@ -53,6 +61,33 @@ export interface ProfileAreaSelectOptions {
   profileBoundsMm?: RegionBoundsMm;
   /** bbox 容差（mm，缺省 0.2）。 */
   boundsToleranceMm?: number;
+  /** 目标面的世界/草图质心；有值时要求选集面积加权质心匹配。 */
+  profileCentroidMm?: RegionCentroidMm;
+  /** 质心容差（mm，缺省 0.2）。 */
+  centroidToleranceMm?: number;
+  /**
+   * 目标面按 Onshape face 连通分量的面积/质心集合（mm²/mm）。有值时要求
+   * 选集按 `adjacentRegions` 分组后的每个分量与目标面一一匹配；用于 Part 4
+   * 这类“多个同面积面域被合并成一个 Onshape 面”的场景。顺序无关，按
+   * 面积+质心做一一匹配；任一分量无法匹配或多解 → 该 mask 不通过。
+   */
+  profileFaceCentroidsMm?: readonly RegionFaceEvidence[];
+  /** 目标面分量的质心容差（mm，缺省 0.2）。 */
+  faceCentroidToleranceMm?: number;
+  /** 目标面分量的面积相对容差（缺省 1e-6）。 */
+  faceAreaToleranceRatio?: number;
+  /**
+   * 面域邻接表（下标 → 共享草图实体/边的相邻面域）。缺省视为每个面域孤立；
+   * 分量证据必须显式提供，不得按面积/顺序猜连通。
+   */
+  adjacentRegions?: readonly (readonly number[])[];
+}
+
+/** Onshape face 分量证据：一个合并面的面积与质心。 */
+export interface RegionFaceEvidence {
+  centroid: RegionCentroidMm;
+  /** 面面积（mm²）；有值时参与匹配。 */
+  areaMm2?: number;
 }
 
 function bitCount(mask: number): number {
@@ -82,6 +117,133 @@ function boundsMatch(a: RegionBoundsMm | undefined, b: RegionBoundsMm, tol: numb
   return a !== undefined
     && Math.abs(a.minX - b.minX) <= tol && Math.abs(a.minY - b.minY) <= tol
     && Math.abs(a.maxX - b.maxX) <= tol && Math.abs(a.maxY - b.maxY) <= tol;
+}
+
+/**
+ * 选集的面积加权质心。任一面域缺质心或面积为 0/非法 → undefined。
+ * 面积加权与 Onshape 面质心口径一致（面域可视为均质平面片）。
+ */
+function weightedCentroid(regions: readonly AreaSelectableRegion[], mask: number): RegionCentroidMm | undefined {
+  let areaSum = 0;
+  let xSum = 0;
+  let ySum = 0;
+  for (let i = 0; i < regions.length; i++) {
+    if ((mask & (1 << i)) === 0) continue;
+    const region = regions[i]!;
+    const centroid = region.centroid;
+    if (!centroid || !Number.isFinite(centroid.x) || !Number.isFinite(centroid.y)) return undefined;
+    if (!Number.isFinite(region.area) || region.area <= 0) return undefined;
+    areaSum += region.area;
+    xSum += region.area * centroid.x;
+    ySum += region.area * centroid.y;
+  }
+  if (areaSum <= 0) return undefined;
+  return { x: xSum / areaSum, y: ySum / areaSum };
+}
+
+function centroidMatch(a: RegionCentroidMm | undefined, b: RegionCentroidMm, tol: number): boolean {
+  return a !== undefined
+    && Math.abs(a.x - b.x) <= tol
+    && Math.abs(a.y - b.y) <= tol;
+}
+
+/** 选集按共享边邻接分组后的一个连通分量。 */
+interface RegionComponent {
+  /** 分量面积（mm²）。 */
+  area: number;
+  /** 面积加权质心。 */
+  centroid: RegionCentroidMm;
+  /** 分量内面域下标（升序）。 */
+  regions: number[];
+}
+
+/**
+ * 按 `adjacentRegions` 把选集中的面域分成连通分量。缺省邻接表视为每个面域
+ * 孤立；邻接下标越界 → undefined（非法证据不猜）。
+ */
+function selectedComponents(
+  regions: readonly AreaSelectableRegion[],
+  mask: number,
+  adjacency: readonly (readonly number[])[] | undefined,
+): RegionComponent[] | undefined {
+  const count = regions.length;
+  if (adjacency !== undefined) {
+    if (adjacency.length !== count) return undefined;
+    for (const neighbors of adjacency) {
+      for (const neighbor of neighbors) {
+        if (!Number.isInteger(neighbor) || neighbor < 0 || neighbor >= count) return undefined;
+      }
+    }
+  }
+  const selected = new Set<number>();
+  for (let i = 0; i < count; i++) if ((mask & (1 << i)) !== 0) selected.add(i);
+  const components: RegionComponent[] = [];
+  const visited = new Set<number>();
+  for (const start of selected) {
+    if (visited.has(start)) continue;
+    const queue = [start];
+    visited.add(start);
+    const members: number[] = [];
+    let area = 0;
+    let xSum = 0;
+    let ySum = 0;
+    while (queue.length > 0) {
+      const index = queue.pop()!;
+      const region = regions[index]!;
+      if (!region.centroid
+        || !Number.isFinite(region.centroid.x) || !Number.isFinite(region.centroid.y)) return undefined;
+      if (!Number.isFinite(region.area) || region.area <= 0) return undefined;
+      members.push(index);
+      area += region.area;
+      xSum += region.area * region.centroid.x;
+      ySum += region.area * region.centroid.y;
+      for (const neighbor of adjacency?.[index] ?? []) {
+        if (selected.has(neighbor) && !visited.has(neighbor)) {
+          visited.add(neighbor);
+          queue.push(neighbor);
+        }
+      }
+    }
+    if (area <= 0) return undefined;
+    members.sort((a, b) => a - b);
+    components.push({ area, centroid: { x: xSum / area, y: ySum / area }, regions: members });
+  }
+  return components;
+}
+
+/**
+ * 分量证据的一一匹配（目标面顺序无意义）。面积/质心都满足才算命中；DFS
+ * 回溯保证“存在唯一双射”而不是按排序贪心。分量数一般 ≤9，回溯可接受。
+ */
+function faceComponentsMatch(
+  components: readonly RegionComponent[],
+  targets: readonly RegionFaceEvidence[],
+  centroidTol: number,
+  areaTolRatio: number,
+): boolean {
+  if (components.length === 0 || components.length !== targets.length) return false;
+  const used = new Array<boolean>(targets.length).fill(false);
+  const matches = (component: RegionComponent, target: RegionFaceEvidence): boolean => {
+    if (!centroidMatch(component.centroid, target.centroid, centroidTol)) return false;
+    if (target.areaMm2 !== undefined) {
+      if (!Number.isFinite(target.areaMm2) || target.areaMm2 <= 0) return false;
+      const tolerance = Math.max(1e-6, target.areaMm2 * areaTolRatio);
+      if (Math.abs(component.area - target.areaMm2) > tolerance) return false;
+    }
+    return true;
+  };
+  const assign = (index: number): boolean => {
+    if (index === components.length) return true;
+    const component = components[index]!;
+    for (let targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+      if (used[targetIndex] || !matches(component, targets[targetIndex]!)) continue;
+      used[targetIndex] = true;
+      if (assign(index + 1)) return true;
+      used[targetIndex] = false;
+    }
+    return false;
+  };
+  return assign(0);
 }
 
 /**
@@ -134,6 +296,18 @@ export function selectProfileRegionsByArea(
     if (options.profileBoundsMm !== undefined
       && !boundsMatch(unionBounds(regions, mask), options.profileBoundsMm, options.boundsToleranceMm ?? 0.2))
       continue;
+    if (options.profileCentroidMm !== undefined
+      && !centroidMatch(weightedCentroid(regions, mask), options.profileCentroidMm, options.centroidToleranceMm ?? 0.2))
+      continue;
+    if (options.profileFaceCentroidsMm !== undefined) {
+      const components = selectedComponents(regions, mask, options.adjacentRegions);
+      if (!components || !faceComponentsMatch(
+        components,
+        options.profileFaceCentroidsMm,
+        options.faceCentroidToleranceMm ?? 0.2,
+        options.faceAreaToleranceRatio ?? 1e-6,
+      )) continue;
+    }
     const selectedCount = bitCount(mask);
     // 最近优先；同等距离取更少面域，再取较小 mask（稳定、可复现）。
     const better = bestMask === -1

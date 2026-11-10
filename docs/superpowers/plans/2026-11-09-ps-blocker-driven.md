@@ -663,3 +663,18 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <asset> -AllowStoreFal
 - `run-file` 严格轨新增 push 后冷重开 status=0 断言；Intro Part 3 回归
   **2 passed（48.5 s）**，229,418.896 mm³（pre/post 同值），approximateSteps=3
   既有警告不变。native/private 证据仍只在私有审计台账。
+
+## 2026-11-10 追加：Part 4 分量质心转绿
+
+- **Part 4（Intro to CAD 1.2）**：面积+bbox 仍有 2/4/70 解；新增 shared
+  `profileFaceCentroidsMm` + `adjacentRegions`（分量面积+质心一一匹配），
+  runner 用**共享边界线段**分组（不是 outerEntityId，也不是顶点），converter
+  写入三段 Extrude 的 Onshape face 分量证据。真栈严格绿
+  **262,193.024 vs 262,193.024 mm³（0.000%）**，4 特征/1 body/
+  push+冷重开；Part 3 回归 229,418.896 绿。私有索引 strict **18 → 19**，
+  blocked-selector **3 → 2**，verify 0 errors。
+- **仍 blocked**：Part 5/6 单线 imprint face split；Handle Parts 跨体 fillet
+  需 ADR-0015 增量（per-edge owner、per-body cache/writeback、冷重建输入映射）
+  并通过内核验证，未批准/未实现前不写产品代码。
+- **数据**：features 文档 50→98、PS 227→305；在 reserve 20 停止（非 429）。
+  下一窗口继续 A1；不得把缺数据 PS 记为 blocked-capability。

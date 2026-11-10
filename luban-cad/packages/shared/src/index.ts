@@ -278,6 +278,8 @@ export type {
   ProfileAreaSelectOptions,
   ProfileAreaSelection,
   RegionBoundsMm,
+  RegionCentroidMm,
+  RegionFaceEvidence,
 } from './sketch/profile-area-select.js';
 
 // =============================================================================

@@ -18,6 +18,10 @@ const CASES = [
     imodelName: 'Onshape example: Bumper Block (S10 faceExtrude + rb=3 oracle)',
     file: 'example-bumper.webp',
   },
+  {
+    imodelName: 'Onshape example: Intro to CAD 1.2 Part 4',
+    file: 'example-intro-part4.webp',
+  },
 ] as const;
 
 test.describe('示例目录封面采集', () => {

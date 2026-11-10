@@ -1,7 +1,7 @@
 /**
  * 全部 Onshape 示例目录（public, 只读投影）。
  *
- * 数据来源：私有 `onshape-parity-data/manifest/example-index.json` 的 18 个
+ * 数据来源：私有 `onshape-parity-data/manifest/example-index.json` 的 19 个
  * `replicable-now` 条目；本文件只保留公开可展示的聚合字段（owner/名称/目标
  * 体积/封面/精确 iModel 名）。不包含原始 features、坐标、elementId/docId、
  * 私有路径或 UI 证据——私有 index 仍是唯一事实源，更新时同步本投影并跑
@@ -252,6 +252,18 @@ export const EXAMPLE_CATALOG: readonly ExampleCatalogEntry[] = [
     imodelName: 'Onshape example: Intro to CAD 1.2 Part 3',
     volumeMm3: 229418.896,
     cover: '/showcase/example-intro-part3.webp',
+    strictness: 'strict',
+  },
+  {
+    id: 'intro-part-4',
+    title: 'Intro to CAD 1.2 / Part 4',
+    owner: 'Onshape Training Repo',
+    document: 'Intro to CAD - 1.2 - Viewing Objects in Onshape',
+    partStudio: 'Part 4',
+    projectName: 'Onshape 示例复刻',
+    imodelName: 'Onshape example: Intro to CAD 1.2 Part 4',
+    volumeMm3: 262193.024,
+    cover: '/showcase/example-intro-part4.webp',
     strictness: 'strict',
   },
 ];

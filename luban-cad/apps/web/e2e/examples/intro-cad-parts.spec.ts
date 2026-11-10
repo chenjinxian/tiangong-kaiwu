@@ -8,9 +8,11 @@
  *   不再落 unknown。
  * 2026-11-09（PS blocker Task 2）：Part 3 升级严格门——converter 携带 bodydetails
  * 顶面面积+bbox 证据（同面积 9 面域网格的位置 oracle），回放器按面积+bbox 唯一
- * 反解三段 ADD 面集（229,418.896 mm³）。Part 4 同为 9 个同面积面域但面积+bbox
- * 不唯一（对角 2 格 2 解 / L 形 3 格 4 解 / 4 格 70 解），保持 known-red。
- * 其余用例继续以 record 观测逐 body 体积/status；证据唯一后再升级严格门。
+ * 反解三段 ADD 面集（229,418.896 mm³）。
+ * 2026-11-10（Part 4 分量质心）：Part 4 同为 9 个同面积面域，面积+bbox 仍有
+ * 2/4/70 解；新增 Onshape face 连通分量面积+质心证据（对角 2 个独立面、L 形
+ * 合并面、1+3 分量），回放器按共享草图实体邻接分组后一一匹配，升级严格门。
+ * Part 5/6 仍需实体面 split，保持 record known-red。
  */
 import { expect, test } from '@playwright/test';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
@@ -21,14 +23,7 @@ const CASES = [
   { name: 'Part 1', elementId: '6ccf6efcd80bcab335d073b6', strict: true },
   { name: 'Part 2', elementId: '6516d9f30e2332db231b5256', strict: true },
   { name: 'Part 3', elementId: '2b8c683d9655e48fb91f2cd9', strict: true },
-  {
-    name: 'Part 4', elementId: '2de1f243168f441a7e5e1a4e', strict: false,
-    // KNOWN_SELECTOR_BLOCKERS：Part 4 面集位置证据不足。9 个 region 均为
-    // 645.16mm²；bodydetails 顶面给出的 area+bbox 不能唯一选集（实测候选：
-    // Extrude 1 对角 2 格 2 组、Extrude 2 3 格 L 形 4 组、Extrude 3 4 格 70 组），
-    // selector 只能按 mask 猜，故不添加证据、保持 test.fail。
-    reason: 'known-red: Part 4 面集位置证据不足（面积+bbox 多解，非唯一）',
-  },
+  { name: 'Part 4', elementId: '2de1f243168f441a7e5e1a4e', strict: true },
   {
     name: 'Part 5', elementId: 'ce879b3b849ab72af885bb9f', strict: false,
     reason: 'known-red: Sketch 2 只有单线，Extrude 3 的 imprintFace 需要实体面 split（当前 0 面域）',

@@ -19,6 +19,8 @@ import {
   pickImprintRegionByEdgeSide,
   resolveImprintEdgeGeometry,
   selectProfileRegionsByArea,
+  type RegionCentroidMm,
+  type RegionFaceEvidence,
 } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
@@ -126,6 +128,86 @@ function regionBounds(region: SketchRegionDto): RegionBoundsMm | undefined {
     maxX: Math.max(...pts.map((p) => p.x)),
     maxY: Math.max(...pts.map((p) => p.y)),
   };
+}
+
+/**
+ * 外环多边形的面积加权质心（mm）。仅作面选择证据的辅助 oracle；带孔面域
+ * 的 Onshape 面质心含孔修正，因此调用方必须用有界容差，并在多解/失配时
+ * 保持 blocked-selector，不得把该近似质心当精确几何事实。
+ */
+function regionCentroid(region: SketchRegionDto): RegionCentroidMm | undefined {
+  // 带孔面域的外环质心不是面质心；分量证据只在无孔时启用，避免用错误质心
+  // 匹配 Onshape face。含孔面域由调用方保持 blocked-selector（不猜）。
+  if ((region.holeEntityIds?.length ?? 0) > 0 || (region.holeBoundaries?.length ?? 0) > 0) return undefined;
+  const pts = region.outerBoundary ?? [];
+  if (pts.length < 3) return undefined;
+  let twiceArea = 0;
+  let xSum = 0;
+  let ySum = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    const cross = a.x * b.y - b.x * a.y;
+    twiceArea += cross;
+    xSum += (a.x + b.x) * cross;
+    ySum += (a.y + b.y) * cross;
+  }
+  if (Math.abs(twiceArea) < 1e-12) return undefined;
+  return { x: xSum / (3 * twiceArea), y: ySum / (3 * twiceArea) };
+}
+
+type Segment2 = readonly [number, number, number, number];
+const SEGMENT_EPS = 1e-6;
+
+function boundarySegments(points: readonly { x: number; y: number }[]): Segment2[] {
+  if (points.length < 2) return [];
+  const segments: Segment2[] = [];
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]!;
+    const b = points[(i + 1) % points.length]!;
+    if (Math.hypot(a.x - b.x, a.y - b.y) > SEGMENT_EPS) segments.push([a.x, a.y, b.x, b.y]);
+  }
+  return segments;
+}
+
+/** 两线段共线且正长度重叠（不只共享端点）；端点容差 1e-6mm。 */
+function segmentsOverlap(a: Segment2, b: Segment2): boolean {
+  const [ax0, ay0, ax1, ay1] = a;
+  const [bx0, by0, bx1, by1] = b;
+  const adx = ax1 - ax0;
+  const ady = ay1 - ay0;
+  const alen = Math.hypot(adx, ady);
+  if (alen <= SEGMENT_EPS) return false;
+  const cross = (px: number, py: number) => Math.abs(adx * (py - ay0) - ady * (px - ax0)) / alen;
+  if (cross(bx0, by0) > SEGMENT_EPS || cross(bx1, by1) > SEGMENT_EPS) return false;
+  const ux = adx / alen;
+  const uy = ady / alen;
+  const project = (px: number, py: number) => (px - ax0) * ux + (py - ay0) * uy;
+  const b0 = project(bx0, by0);
+  const b1 = project(bx1, by1);
+  const low = Math.max(0, Math.min(b0, b1));
+  const high = Math.min(alen, Math.max(b0, b1));
+  return high - low > SEGMENT_EPS;
+}
+
+/**
+ * 面域邻接表：只有共享**边界线段**（正长度重叠）才相邻。仅共享草图实体 id
+ * 不够——一条贯穿多格的网格线会是多个不相邻格的共同 outerEntityId；仅共享
+ * 顶点（对角格）也不算相邻。缺 outerBoundary 的复杂面域不连通，分量证据
+ * 由 shared fail closed，不猜。
+ */
+function regionAdjacency(regions: readonly SketchRegionDto[]): number[][] {
+  const segments = regions.map((region) => boundarySegments(region.outerBoundary ?? []));
+  const adjacency = Array.from({ length: regions.length }, () => new Set<number>());
+  for (let i = 0; i < regions.length; i++) {
+    for (let j = i + 1; j < regions.length; j++) {
+      if (segments[i]!.some((a) => segments[j]!.some((b) => segmentsOverlap(a, b)))) {
+        adjacency[i]!.add(j);
+        adjacency[j]!.add(i);
+      }
+    }
+  }
+  return adjacency.map((neighbors) => [...neighbors].sort((a, b) => a - b));
 }
 
 /**
@@ -353,6 +435,10 @@ export async function runScenario(
               // 位置证据（bbox）：同面积面域（如 Intro Part 3 的 9 个 645.16mm²
               // 网格）仅按面积多解；Onshape bodydetails 顶面 box 提供第二 oracle。
               const profileBoundsMm = (feature.params as { profileBoundsMm?: RegionBoundsMm }).profileBoundsMm;
+              const profileCentroidMm = (feature.params as { profileCentroidMm?: RegionCentroidMm }).profileCentroidMm;
+              const profileFaceCentroidsMm =
+                (feature.params as { profileFaceCentroidsMm?: readonly RegionFaceEvidence[] }).profileFaceCentroidsMm;
+              const adjacentRegions = sketch?.regions ? regionAdjacency(sketch.regions) : undefined;
               let profileAreaSelected = false;
               if (typeof profileAreaMm2 === 'number' && Number.isFinite(profileAreaMm2)
                 && (sketch?.regions?.length ?? 0) > 0) {
@@ -360,6 +446,7 @@ export async function runScenario(
                 const regionAreas = sketch!.regions!.map((region) => ({
                   area: region.area,
                   bounds: regionBounds(region),
+                  centroid: regionCentroid(region),
                 }));
                 // 逐边命中优先作为“必须在选集内”的约束（保留查询选中的位置），
                 // 面积证据只负责补全/裁决；只有被逐边约束后无唯一解时才独立按
@@ -374,6 +461,10 @@ export async function runScenario(
                 let areaSelection = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
                   ...(required.length > 0 ? { requireRegions: required } : {}),
                   ...(profileBoundsMm ? { profileBoundsMm } : {}),
+                  ...(profileCentroidMm ? { profileCentroidMm } : {}),
+                  ...(profileFaceCentroidsMm
+                    ? { profileFaceCentroidsMm, ...(adjacentRegions ? { adjacentRegions } : {}) }
+                    : {}),
                   toleranceRatio: 1e-7,
                   toleranceMm2: 0,
                 });
@@ -381,6 +472,10 @@ export async function runScenario(
                 if ((!areaSelection || areaSelection.ambiguous) && required.length > 0) {
                   const withoutRequired = selectProfileRegionsByArea(regionAreas, profileAreaMm2, {
                     ...(profileBoundsMm ? { profileBoundsMm } : {}),
+                    ...(profileCentroidMm ? { profileCentroidMm } : {}),
+                    ...(profileFaceCentroidsMm
+                      ? { profileFaceCentroidsMm, ...(adjacentRegions ? { adjacentRegions } : {}) }
+                      : {}),
                     toleranceRatio: 2e-7,
                     toleranceMm2: 0,
                   });
@@ -400,6 +495,8 @@ export async function runScenario(
                     `profileArea=${profileAreaMm2}mm² → 面域 ${areaSelection.regions.join(',')}` +
                     `（Δ=${areaSelection.delta.toFixed(3)}mm²；Onshape 面面积证据` +
                     `${profileBoundsMm ? `+bbox ${JSON.stringify(profileBoundsMm)}` : ''}` +
+                    `${profileCentroidMm ? `+centroid ${JSON.stringify(profileCentroidMm)}` : ''}` +
+                    `${profileFaceCentroidsMm ? `+faces ${JSON.stringify(profileFaceCentroidsMm)}` : ''}` +
                     `${overridesQueryPicks ? '；覆盖逐边命中' : ''}）`,
                   );
                 } else {
@@ -414,6 +511,9 @@ export async function runScenario(
                   `[imprint] ${feature.name}: queries=${JSON.stringify(queries.map((query) => ({
                     s: query.sketchFeatureId, e: query.sketchEntityId, sign: query.imprintSign ?? imprintSignFromQuery(query.queryString),
                   })))} capFaceEdges=${JSON.stringify(capFaceEdgeIds)} regions=${JSON.stringify(regions)} ` +
+                  `regionData=${JSON.stringify((sketch?.regions ?? []).map((region, index) => ({
+                    i: index, area: region.area, centroid: regionCentroid(region), outer: region.outerEntityIds,
+                  })))} ` +
                   `areaSelected=${profileAreaSelected} parts=${JSON.stringify(parts)} notes=${JSON.stringify(imprintNotes)} reason=${reason ?? '-'}`,
                 );
               }
@@ -545,6 +645,8 @@ export async function runScenario(
         const areaParams = effectiveFeature.params as {
           profileAreaMm2?: unknown;
           profileBoundsMm?: RegionBoundsMm;
+          profileCentroidMm?: RegionCentroidMm;
+          profileFaceCentroidsMm?: readonly RegionFaceEvidence[];
           selection?: {
             kind?: string;
             sketchFeatureId?: string;
@@ -570,11 +672,19 @@ export async function runScenario(
           const regionAreas = (sketch?.regions ?? []).map((region) => ({
             area: region.area,
             bounds: regionBounds(region),
+            centroid: regionCentroid(region),
           }));
           const areaSelection = selectProfileRegionsByArea(regionAreas, areaParams.profileAreaMm2, {
             toleranceRatio: 1e-7,
             toleranceMm2: 0,
             ...(areaParams.profileBoundsMm ? { profileBoundsMm: areaParams.profileBoundsMm } : {}),
+            ...(areaParams.profileCentroidMm ? { profileCentroidMm: areaParams.profileCentroidMm } : {}),
+            ...(areaParams.profileFaceCentroidsMm
+              ? {
+                  profileFaceCentroidsMm: areaParams.profileFaceCentroidsMm,
+                  adjacentRegions: regionAdjacency(sketch?.regions ?? []),
+                }
+              : {}),
           });
           if (!areaSelection || areaSelection.ambiguous) {
             throw new BlockedCapabilityError(
@@ -640,6 +750,7 @@ export async function runScenario(
               `actual=` + JSON.stringify((sketch?.regions ?? []).map((region, index) => ({
                 i: index,
                 area: region.area,
+                centroid: regionCentroid(region),
                 outer: region.outerEntityIds,
                 hole: region.holeEntityIds ?? [],
               }))) +

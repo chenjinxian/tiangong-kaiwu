@@ -121,6 +121,126 @@ describe('selectProfileRegionsByArea', () => {
     })).toBeUndefined();
   });
 
+  it('质心证据能在面积/bbox 多解时选出唯一子集（面积加权）', () => {
+    const cells = [
+      { area: 10, centroid: { x: 5, y: 5 } },
+      { area: 20, centroid: { x: 20, y: 5 } },
+      { area: 10, centroid: { x: 50, y: 5 } },
+    ];
+    // 面积多解：[0,1] 与 [1,2] 都是 30；目标质心只接受后者（x=(20*20+50*10)/30=30）。
+    expect(selectProfileRegionsByArea(cells, 30)?.ambiguous).toBe(true);
+    const picked = selectProfileRegionsByArea(cells, 30, {
+      profileCentroidMm: { x: 30, y: 5 },
+    });
+    expect(picked?.regions).toEqual([1, 2]);
+    expect(picked?.ambiguous).toBe(false);
+  });
+
+  it('目标质心不匹配 → undefined（不以面积/顺序猜）', () => {
+    const cells = [
+      { area: 10, centroid: { x: 5, y: 5 } },
+      { area: 20, centroid: { x: 20, y: 5 } },
+    ];
+    expect(selectProfileRegionsByArea(cells, 30, {
+      profileCentroidMm: { x: 100, y: 5 },
+    })).toBeUndefined();
+  });
+
+  it('有质心目标但面域缺 centroid → undefined（证据不全不猜）', () => {
+    expect(selectProfileRegionsByArea(regions([10, 20, 30]), 50, {
+      profileCentroidMm: { x: 0, y: 0 },
+    })).toBeUndefined();
+  });
+
+  it('分量质心证据：Part 4 对角 2 格 / L 形 3 格 / 1+3 格均唯一（面积+bbox 不够）', () => {
+    // 3×3 网格，每格 645.16mm²；行列均 25.4mm，质心取格中心（草图局部 mm）。
+    const cells = Array.from({ length: 9 }, (_, index) => {
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      return {
+        area: 645.16,
+        centroid: { x: 12.7 + col * 25.4, y: 12.7 + row * 25.4 },
+        bounds: {
+          minX: col * 25.4, minY: row * 25.4,
+          maxX: (col + 1) * 25.4, maxY: (row + 1) * 25.4,
+        },
+      };
+    });
+    const adjacentRegions = Array.from({ length: 9 }, (_, index) => {
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      const neighbors: number[] = [];
+      if (col > 0) neighbors.push(index - 1);
+      if (col < 2) neighbors.push(index + 1);
+      if (row > 0) neighbors.push(index - 3);
+      if (row < 2) neighbors.push(index + 3);
+      return neighbors;
+    });
+    // Extrude 1：对角 2 格（6=col0,row2 与 2=col2,row0），两个独立面分量。
+    const e1 = selectProfileRegionsByArea(cells, 1290.32, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 76.2, maxY: 76.2 },
+      profileFaceCentroidsMm: [
+        { areaMm2: 645.16, centroid: { x: 12.7, y: 63.5 } },
+        { areaMm2: 645.16, centroid: { x: 63.5, y: 12.7 } },
+      ],
+      adjacentRegions,
+    });
+    expect(e1?.regions).toEqual([2, 6]);
+    expect(e1?.ambiguous).toBe(false);
+    // 无分量证据：两个对角集合同面积+bbox，必须 ambiguous。
+    expect(selectProfileRegionsByArea(cells, 1290.32, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 76.2, maxY: 76.2 },
+    })?.ambiguous).toBe(true);
+
+    // Extrude 2：L 形 3 格（1,3,4），一个合并面。
+    const e2 = selectProfileRegionsByArea(cells, 1935.48, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 50.8, maxY: 50.8 },
+      profileFaceCentroidsMm: [
+        { areaMm2: 1935.48, centroid: { x: 29.6333333333, y: 29.6333333333 } },
+      ],
+      adjacentRegions,
+    });
+    expect(e2?.regions).toEqual([1, 3, 4]);
+    expect(e2?.ambiguous).toBe(false);
+
+    // Extrude 3：单格 0 + L 形 5,7,8，两个分量（面积 645.16 + 1935.48）。
+    const e3 = selectProfileRegionsByArea(cells, 2580.64, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 76.2, maxY: 76.2 },
+      profileFaceCentroidsMm: [
+        { areaMm2: 645.16, centroid: { x: 12.7, y: 12.7 } },
+        { areaMm2: 1935.48, centroid: { x: 55.0333333333, y: 55.0333333333 } },
+      ],
+      adjacentRegions,
+    });
+    expect(e3?.regions).toEqual([0, 5, 7, 8]);
+    expect(e3?.ambiguous).toBe(false);
+
+    // 目标分量位置不存在 → 不接受，不以面积/顺序猜。
+    expect(selectProfileRegionsByArea(cells, 1290.32, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 76.2, maxY: 76.2 },
+      profileFaceCentroidsMm: [
+        { areaMm2: 645.16, centroid: { x: 20, y: 20 } },
+        { areaMm2: 645.16, centroid: { x: 60, y: 60 } },
+      ],
+      adjacentRegions,
+    })).toBeUndefined();
+  });
+
+  it('分量证据缺少相邻表 → 不把 L 形 3 格臆测为同一合并面（fail closed）', () => {
+    const cells = Array.from({ length: 9 }, (_, index) => {
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      return { area: 645.16, centroid: { x: 12.7 + col * 25.4, y: 12.7 + row * 25.4 } };
+    });
+    // 缺 adjacentRegions 时每格视为孤立分量：3 分量 ≠ 目标 1 个 L 面 → undefined。
+    expect(selectProfileRegionsByArea(cells, 1935.48, {
+      profileBoundsMm: { minX: 0, minY: 0, maxX: 50.8, maxY: 50.8 },
+      profileFaceCentroidsMm: [
+        { areaMm2: 1935.48, centroid: { x: 29.6333333333, y: 29.6333333333 } },
+      ],
+    })).toBeUndefined();
+  });
+
   it('Drive Sleeve 回归：8 面域 10530.06 / 内盘 4 面域 4069.54', () => {
     const driveSleeve = [
       18748.239558460496, 1615.1300896232754, 1615.1300896232754,
