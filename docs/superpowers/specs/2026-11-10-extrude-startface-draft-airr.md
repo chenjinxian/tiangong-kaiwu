@@ -88,7 +88,8 @@
   `faceRef`，不得猜面。
 - 测试已落地并运行（A4 2026-11-10）：Bumper strict 2 passed、A2 face-extrude
   4 passed、translator/resolver 单测通过、tsc/lint 绿；结果见 §8 与 ADR-0016。
-  不改变已发布 `backend-20261109`（shared 1.63.0）的行为；精确轨需 A1/A2 backend。
+  已随 `backend-20261110`（shared 1.64.0）发布；`backend-20261109`（1.63.0）
+  不含新字段，精确轨必须用 1.64.0 backend。
 
 ---
 
@@ -729,8 +730,8 @@ const faceExtrudeSchema = z.object({
 - 当前公开契约 1.63.0；本提案下一 minor（**1.64.0**，若同批其它提案先占则顺延）。
   实现时以当时 `interfaceVersion` 的下一 minor 为准，不在本设计预占版本。
 - 发布顺序：shared → 私有 modeling-server（新产物/RC）→ web/replay 同批。
-  已发布 `backend-20261109`（shared 1.63.0）**不含**新字段；真栈验收必须用
-  新构建的 backend（源码模式或新 RC），不得用旧产物宣称通过。
+  已发布 `backend-20261110`（shared **1.64.0**）含新字段；`backend-20261109`
+  （1.63.0）**不含**新字段，真栈验收必须用 1.64.0 backend。
 - 配对 PR：公共 shared + 私有 backend + 公共 replay/测试文档互相链接；公共仓
   同步接口冻结矩阵/ADR 记录（实现/发布时）。
 - 兼容矩阵：
@@ -911,11 +912,12 @@ const faceExtrudeSchema = z.object({
 ### 8.5 known-red 政策
 
 - A2 已达成；Bumper strict 不再保持 blocked-kernel（generic resolver 仍为 12 边，
-  但 strict 轨走 16/16 oracle + A1/A2 backend）。索引口径（2026-11-10 闭口）：
-  私有工作树已提升 `replicable-now` 为第 18 例，并在条目中显式保留
-  `strictPath=rb3-oracle-16/16`、`requiresBackend=A1/A2 (unreleased)`、
-  `genericResolver=12-edge blocked` + workingTreeCaveat；A1/A2 后端发布与私有
-  converter/oracle/scenario 提交前，干净检出/发布栈不得宣称发布绿。
+  但 strict 轨走 16/16 oracle + A1/A2 backend）。索引口径（2026-11-10 发布闭口）：
+  私有 `replicable-now` 为第 18 例，条目携带
+  `strictPath=rb3-oracle-16/16`、`requiresBackend=backend-20261110`、
+  `genericResolver=12-edge blocked`；私有 converter/oracle/scenario 已提交，
+  A1/A2 backend 随 `backend-20261110` 发布。generic resolver 的 12 边限制
+  仍是独立 blocked-kernel 事项，不影响 strict oracle 轨。
 - **16/20 不是 test-only 展开缺口**；Onshape 实际选择 16 条，底面 4 条尖边未选。
 - 不调容差、不用审计 20 边回退、不把 `curvePrimitive` 当 line、不硬编码体积。
 
@@ -1007,6 +1009,7 @@ const faceExtrudeSchema = z.object({
   合成真栈 REMOVE/THROUGH_ALL 15,000 / INTERSECT/THROUGH_ALL 4,000 /
   REMOVE/BLIND 5 为 18,500 mm³ + 产品朝内法向真栈 15,000 mm³；THROUGH_ALL
   不透传 depthMm；候选 PS 被上游 blocker 挡在 S3 步前，不强制转绿。Bumper 严格轨
-  依赖 A1/A2 backend（X-11），不得用审计 20 边回退。索引闭口（2026-11-10）：私有工作树 `replicable-now` 18 /
-  公开 strict spec 19；Bumper 条目保留 `requiresBackend=A1/A2 (unreleased)` 与
-  `genericResolver=12-edge blocked`，发布栈仍不可宣称。
+  依赖 A1/A2 backend（X-11），不得用审计 20 边回退。发布闭口（2026-11-10）：
+  私有 `replicable-now` 18 / 公开 strict spec 19；A1/A2 随
+  `backend-20261110`（shared 1.64.0）发布，私有 converter/oracle/scenario
+  已提交；Bumper 条目保留 `genericResolver=12-edge blocked` 作为独立限制。

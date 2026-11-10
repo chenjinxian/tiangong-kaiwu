@@ -251,7 +251,8 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
 | hub/DanQing | 无 |
 
 - 版本/发布：shared → backend（新产物/RC）→ web/replay 同批。已发布
-  `backend-20261109`（shared 1.63.0）不含新字段，真栈验收必须用新构建。
+  `backend-20261110`（shared 1.64.0）含新字段；`backend-20261109`（1.63.0）
+  不含新字段，真栈验收必须用 1.64.0 backend。
 - 旧 web/旧 shared → 新 backend：不发新字段，行为不变。
 - 新 web/replay → 旧 backend：旧 `faceExtrudeSchema` 非 strict，未知键会被 strip，
   可能静默降级为“无偏移/无拔模”。缓解：发送方能力探测（form model）、backend
@@ -434,10 +435,10 @@ pre-fillet **657,764.787185**；Fillet 1 = **16/16 实际选择**（5 matched fa
 636,731.499（+0.000024%）**；全部 status=0、1 body、push+冷重开、
 approximateSteps=0。旧“oracle 20/20 含底面 loop”门与把 −0.374% 归因 fillet/
 Extrude 2 的表述均已修订；S1/S2/S3/S5/S9/S10/S11 已解析，S4/S6/S7/S8 仍开放。
-Bumper 严格轨依赖 A1/A2 backend（X-11）；发布前不得用审计 20 边回退，也不得在
-旧 backend 上宣称精确。索引口径（2026-11-10 闭口）：私有工作树
-`replicable-now` 已提升 Bumper 为第 18 例，条目显式携带
-`strictPath=rb3-oracle-16/16`、`requiresBackend=A1/A2 (unreleased)`、
-`genericResolver=12-edge blocked` 与 workingTreeCaveat；generic resolver 仍是
-12 边 blocked-kernel，干净私有检出/发布栈在 A1/A2 backend 发布与私有
-converter/oracle/scenario 证据提交前不得据此宣称发布绿。
+Bumper 严格轨依赖 A1/A2 backend（X-11）；不得用审计 20 边回退，也不得在
+1.63.0 backend 上宣称精确。索引口径（2026-11-10 发布闭口）：私有
+`replicable-now` 为第 18 例（Bumper），条目携带
+`strictPath=rb3-oracle-16/16`、`requiresBackend=backend-20261110`、
+`genericResolver=12-edge blocked`；私有 converter/oracle/scenario 已提交，
+A1/A2 backend 随 `backend-20261110` 发布。generic resolver 仍是 12 边
+blocked-kernel，不得把 strict oracle 轨说成通用能力。
