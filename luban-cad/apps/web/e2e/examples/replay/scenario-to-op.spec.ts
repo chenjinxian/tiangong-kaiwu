@@ -145,6 +145,47 @@ test.describe('scenario → FeatureOp', () => {
     expect(step.approximate).toBe(false);
   });
 
+  test('faceExtrude D2：splitByLine（void + keepPoint）原样透传；缺端点/非法侧向阻塞', () => {
+    const splitByLine = {
+      start: { x: 50.8, y: 0, z: 25.4 },
+      end: { x: 25.4, y: 0, z: 76.2 },
+      keepSide: 'left',
+      keepPoint: { x: 37.2, y: 0, z: 50.35 },
+      region: 'void',
+    };
+    const step = translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude 3',
+      params: {
+        operation: 'add', endBound: 'blind', depthMm: 25.4,
+        bodyId: 'body-1', faceRef: { nodeId: 5, entityId: 5 },
+        splitByLine,
+      },
+    });
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.params).toMatchObject({ splitByLine });
+    expect(step.notes.join(' ')).toContain('split=void/left');
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude 3',
+      params: {
+        operation: 'add', endBound: 'blind', depthMm: 25.4,
+        bodyId: 'body-1', faceRef: { nodeId: 5, entityId: 5 },
+        splitByLine: { start: { x: 0, y: 0 }, end: { x: 1, y: 1, z: 0 }, keepSide: 'left' },
+      },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude 3',
+      params: {
+        operation: 'add', endBound: 'blind', depthMm: 25.4,
+        bodyId: 'body-1', faceRef: { nodeId: 5, entityId: 5 },
+        splitByLine: { start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 1, z: 0 }, keepSide: 'up' },
+      },
+    })).toThrow(BlockedCapabilityError);
+  });
+
   test('faceExtrude NEW / 缺 faceRef 诚实阻塞', () => {
     expect(() => translateScenarioFeature({
       type: 'faceExtrude',

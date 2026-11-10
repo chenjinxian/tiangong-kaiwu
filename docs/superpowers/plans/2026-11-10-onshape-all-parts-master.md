@@ -138,8 +138,10 @@
 
 - [ ] **B1.1 imprint 边侧/补集面**：完成 +1/−1 有向边侧、孔边界、−1 补集面、
   多不相交闭环；shared 单一实现；合成 + 真实 PS 真栈。
-- [ ] **B1.2 实体面 split**：Part 5/6 单线 imprint、面内分割、子面集并集；
-  edge-split face-set resolver；不得默认 region 0。
+- [x] **B1.2 实体面 split（首切片，schedule D2）**：Part 5 单线面内切分 +
+  Part 5 E3 凸包空腔（void）填充，Part 5 strict 绿；Part 6 E1–E4 达到最终
+  体积，E5 零几何变化 remove 仍 known-red（零相交 fail-closed 未产品化
+  no-op）；多子面并集/edge-split face-set 泛化未做。
 - [ ] **B1.3 面积 + bbox/拓扑/质心证据**：同面积候选唯一解；多解 ambiguity；
   清除 regionRisk（17 + 缺 sketchEntityId 8 + 组合 2）。
 - [ ] **B1.4 CAP_FACE/SWEPT_FACE + startOffset/draft/isStart**：产品 faceExtrude
@@ -390,8 +392,17 @@ powershell -File scripts/verify-stack.ps1
   status=0，但 Threaded Shaft **32,236.419 vs 30,931.280 mm³（+4.2%）**；
   spec 保持 `test.fail`，不得宣称转绿。多目标 update/suppress/delete、
   下游消费、chamfer/shell/moveFace、UI 未做。
-- **未完成/仍 blocked**：Part 5/6 单线 imprint 需实体面 split；Handle Parts
-  剩余体积差需继续定位（圆边 fillet 与上游孔/螺纹端交互，非选择器问题）。
+- **B1.2 Part 5 转绿（face split D2）**：converter 用采集 `sketches.json`
+  修正 SWEPT_FACE 派生草图平面；E1/E2 用 bodydetails 面积+bbox+质心选多格面；
+  shared 1.66 `FaceExtrudeParams.splitByLine`（material/void + keepPoint）+
+  回放单线切分 resolver + 后端 RegionOps 材/空腔裁切。Part 5 逐步体积
+  **98,322.384 / 245,805.960 / 262,193.024 / 229,418.896 / 204,838.300**，
+  与 Onshape 完全一致，9 步 status=0，push+冷重开一致，升级 strict。
+  **Part 6**：E1–E4 后 **188,451.236** 已等于目标；E5 为 Onshape 最终体前后
+  bodydetails 完全一致（零几何变化 remove），产品 fail-closed 未产品化显式
+  no-op，spec 保持 known-red。
+- **未完成/仍 blocked**：Part 6 E5 零相交 no-op 语义；Handle Parts 剩余体积差
+  需继续定位（圆边 fillet 与上游孔/螺纹端交互，非选择器问题）。
 - 采集/测试期间 MS 全局 429 由重启宿主 MS 清除，未改生产限流配置。
 
 ## 9. 第一执行切片（立即开始）

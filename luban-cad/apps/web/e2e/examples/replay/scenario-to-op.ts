@@ -519,6 +519,36 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
     throw new BlockedCapabilityError('face-extrude', `${feature.name} startOffsetMm 非有限数`);
   if (startOffsetMm !== undefined && asRecord(params.secondDirection) !== undefined)
     throw new BlockedCapabilityError('face-extrude', `${feature.name} faceExtrude startOffset 与 secondDirection 互斥`);
+  // v1.66（ADR-0006 D2）：原生贴面单线切分参数（runner 在步骤时点解析面后写入）。
+  // 结构必须完整合法；未知 region/keepSide/缺端点一律 fail closed，不静默降级整面。
+  const splitRaw = asRecord(params.splitByLine);
+  let splitByLine: FaceExtrudeParams['splitByLine'];
+  if (splitRaw !== undefined) {
+    const startRaw = asRecord(splitRaw.start);
+    const endRaw = asRecord(splitRaw.end);
+    const point = (value: Record<string, unknown> | undefined): { x: number; y: number; z: number } | undefined => {
+      const x = value?.x;
+      const y = value?.y;
+      const z = value?.z;
+      return typeof x === 'number' && typeof y === 'number' && typeof z === 'number'
+        && Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)
+        ? { x, y, z } : undefined;
+    };
+    const start = point(startRaw);
+    const end = point(endRaw);
+    const keepSide = splitRaw.keepSide;
+    const region = splitRaw.region;
+    const keepPoint = splitRaw.keepPoint === undefined ? undefined : point(asRecord(splitRaw.keepPoint));
+    if (!start || !end || (keepSide !== 'left' && keepSide !== 'right')
+      || (region !== undefined && region !== 'material' && region !== 'void')
+      || (splitRaw.keepPoint !== undefined && keepPoint === undefined))
+      throw new BlockedCapabilityError('face-extrude', `${feature.name} splitByLine 形态非法`);
+    splitByLine = {
+      start, end, keepSide,
+      ...(keepPoint ? { keepPoint } : {}),
+      ...(region ? { region } : {}),
+    };
+  }
   // review 2026-11-10：THROUGH_ALL 不透传 depthMm（即使输入里带了也显式忽略），
   // 防止 blind 深度冒充 throughAll；盲端才写 depthMm。
   const faceParams: FaceExtrudeParams = {
@@ -536,6 +566,7 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
       }
       : {}),
     ...(mergeScope.length > 0 ? { mergeScope } : {}),
+    ...(splitByLine ? { splitByLine } : {}),
   };
   return {
     scenario: feature,
@@ -549,7 +580,8 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
       `${startOffsetMm !== undefined ? 'CAP_FACE 起始面 ' : ''}faceExtrude 精确面拉伸（direction=${direction}，` +
       `${endBound === 'throughAll' ? 'throughAll' : `${depthMm} mm`}` +
       `${startOffsetMm !== undefined ? `，startOffset=${startOffsetMm} mm` : ''}` +
-      `${draftAngleDeg !== undefined ? `，draft=${draftAngleDeg.toFixed(3)}°${draftPullDirection ? '(reverse)' : ''}` : ''}）`,
+      `${draftAngleDeg !== undefined ? `，draft=${draftAngleDeg.toFixed(3)}°${draftPullDirection ? '(reverse)' : ''}` : ''}` +
+      `${splitByLine ? `，split=${splitByLine.region ?? 'material'}/${splitByLine.keepSide}` : ''}）`,
       ...(endBound === 'throughAll' && depthMm !== undefined
         ? ['endBound=throughAll：忽略 depthMm（不进入产品载荷）'] : []),
     ],

@@ -12,6 +12,7 @@ import { DEFAULT_DATA_ROOT } from '../registry.js';
 import { resolveScenarioEdges, type ResolveEdgesResult } from './edge-resolver.js';
 import { resolveScenarioCapFaceStart } from './cap-face-start-resolver.js';
 import { resolveImprintFaceRef } from './imprint-face-resolver.js';
+import { resolveImprintSplitFace } from './imprint-split-resolver.js';
 import { resolveOracleEdges, type RollbackEdgeOracle } from './rollback-edge-oracle.js';
 import { resolveScenarioShellFaces } from './shell-face-resolver.js';
 import { runScenario } from './run.js';
@@ -135,6 +136,10 @@ export async function runScenarioFile(
     shellFaceResolver: (feature, fullScenario, context) =>
       resolveScenarioShellFaces(page, ctx, fullScenario, feature, token, context),
     imprintFaceResolver: (_feature, _fullScenario, data) => resolveImprintFaceRef({
+      page, ctx, accessToken: token, ...data,
+    }),
+    // ADR-0006 D2：单线 imprintFace → 实体面切分；候选面不唯一/不可解析一律阻塞。
+    imprintSplitResolver: (_feature, _fullScenario, data) => resolveImprintSplitFace({
       page, ctx, accessToken: token, ...data,
     }),
     // ADR-0016 A3：S10 CAP_FACE profile 起始面 → 持久 bodyId/faceRef；失败由

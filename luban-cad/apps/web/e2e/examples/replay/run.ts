@@ -11,6 +11,7 @@ import type {
   FilletEdgeRef,
   LubanTopologyId,
   RegionBoundsMm,
+  SketchEntityDto,
   SketchPlaneDto,
   SketchRegionDto,
 } from '@luban-cad/shared';
@@ -43,6 +44,7 @@ import {
 import { selectEdgeTargetBodies } from './multi-body-anchor.js';
 import { resolveRegionsFromProfileEntities } from './region-entity-resolver.js';
 import type { ImprintFaceResolution } from './imprint-face-resolver.js';
+import type { ImprintSplitResolution } from './imprint-split-resolver.js';
 import type { CapFaceStartResolution } from './cap-face-start-resolver.js';
 import {
   BlockedCapabilityError,
@@ -102,6 +104,20 @@ export interface RunScenarioOptions {
       regionIndices: readonly number[];
     },
   ) => Promise<ImprintFaceResolution>;
+  /**
+   * ADR-0006 D2（test-only）：单线 imprintFace（0 闭合面域）→ 实体面切分。
+   * 成功时该步改走产品 faceExtrude + splitByLine；失败由调用方诚实阻塞。
+   */
+  imprintSplitResolver?: (
+    feature: ScenarioFeature,
+    scenario: ParityScenario,
+    data: {
+      plane: SketchPlaneDto | undefined;
+      entities: readonly SketchEntityDto[] | undefined;
+      sketchEntityId: number;
+      imprintSign: number | undefined;
+    },
+  ) => Promise<ImprintSplitResolution>;
   /**
    * ADR-0016 A3（test-only）：S10 CAP_FACE profile 起始面解析。converter 输出
    * `selection.kind='capFaceProfile'` + 起始面证据；本回调在步骤时点把证据解析为
@@ -356,6 +372,65 @@ export async function runScenario(
               reason = `草图 ${sourceSketchId} 尚未构建`;
             } else {
               const sketch = await getSketchRpc(ctx, localSketchId, accessToken);
+              // ADR-0006 D2（test-only）：单线 imprintFace（0 闭合面域）→ 实体面切分。
+              // 仅当唯一查询是开放直线、操作为 add/remove/intersect 时尝试；候选面
+              // 必须唯一（resolver 内 fail closed），命中后本步改走 faceExtrude +
+              // splitByLine，跳过草图面域选择。
+              let splitFacePicked = false;
+              if (!isCapFace && options.imprintSplitResolver
+                && (sketch?.regions?.length ?? 0) === 0
+                && queries.length === 1
+                && typeof queries[0]!.sketchEntityId === 'number') {
+                const query = queries[0]!;
+                const extrudeParams = feature.params as Record<string, unknown>;
+                const operation = String(extrudeParams.operation ?? '').toLowerCase();
+                const endBoundRaw = String(extrudeParams.endBound ?? 'blind')
+                  .replace(/[_-]/g, '').toLowerCase();
+                if ((operation === 'add' || operation === 'remove' || operation === 'intersect')
+                  && (endBoundRaw === 'blind' || endBoundRaw === 'throughall')) {
+                  const sign = typeof query.imprintSign === 'number'
+                    ? query.imprintSign
+                    : imprintSignFromQuery(query.queryString);
+                  const plane = sketch?.plane ?? sketchPlaneBySource.get(sourceSketchId);
+                  const resolution = await options.imprintSplitResolver(feature, scenario, {
+                    plane,
+                    entities: sketch?.entities,
+                    sketchEntityId: query.sketchEntityId as number,
+                    imprintSign: sign,
+                  });
+                  if (resolution.ok && plane) {
+                    const opposite = extrudeParams.oppositeDirection === true;
+                    const desired = {
+                      x: plane.normal.x * (opposite ? -1 : 1),
+                      y: plane.normal.y * (opposite ? -1 : 1),
+                      z: plane.normal.z * (opposite ? -1 : 1),
+                    };
+                    const faceNormal = resolution.faceNormal;
+                    const alignment = desired.x * faceNormal[0] + desired.y * faceNormal[1] + desired.z * faceNormal[2];
+                    effectiveFeature = {
+                      ...feature,
+                      type: 'faceExtrude',
+                      params: {
+                        bodyId: resolution.bodyId,
+                        faceRef: resolution.faceRef,
+                        operation,
+                        endBound: endBoundRaw === 'throughall' ? 'throughAll' : 'blind',
+                        ...(typeof extrudeParams.depthMm === 'number'
+                          ? { depthMm: extrudeParams.depthMm } : {}),
+                        direction: alignment >= 0 ? 'forward' : 'backward',
+                        splitByLine: resolution.split,
+                      },
+                    };
+                    splitFacePicked = true;
+                    imprintNotes.push(`${resolution.note}（D2 精确切分）`);
+                  } else {
+                    const reasonText = resolution.ok ? '切分面解析缺草图平面' : resolution.reason;
+                    imprintNotes.push(`imprintFace 单线切分未解析：${reasonText}`);
+                    reason = reasonText;
+                  }
+                }
+              }
+              if (!splitFacePicked) {
               if (process.env.EXAMPLE_DEBUG_IMPRINT === '1') {
                 console.log(
                   `[imprint] ${feature.name} sketch regions=` +
@@ -614,6 +689,7 @@ export async function runScenario(
                   );
                   if (!imprintAllExact || merged.partial) imprintApproximate = true;
                 }
+              }
               }
             }
           }

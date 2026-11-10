@@ -702,6 +702,29 @@ export interface LubanTopologyId { nodeId: number; entityId: number }
  *
  * 非平面面、零/多环歧义、面引用失效由服务端在 txn 前诚实拒收，不静默降级。
  */
+/**
+ * v1.66（ADR-0006 切片 D2）：实体面单线 imprint 切分。
+ *
+ * 语义：将一个**开放直线段**（模型世界 mm）投影到所选平面面，沿该直线把面
+ * 边界切成两侧，取 `keepSide` 一侧作为 `faceExtrude` 的起始轮廓。直线必须
+ * 落在面平面上（求值容差 0.05 mm）；首切片仅直线、面环仅直线段，且切分线
+ * 穿过孔环时诚实失败。`left`/`right` 是**面参数平面**内有向线的左/右侧
+ * （面法向为 +Z）。
+ */
+export interface FaceExtrudeSplitLine {
+  start: { x: number; y: number; z: number };
+  end: { x: number; y: number; z: number };
+  keepSide: "left" | "right";
+  /** v1.66：**世界模型坐标**中位于所需一侧的参考点（可选）。提供时服务端以该点
+   *  相对有向线的符号决定保留侧，避免面参数平面 xDir/法向朝向未知导致 left/right
+   *  翻转歧义；缺省时才用 keepSide（面参数平面内）。 */
+  keepPoint?: { x: number; y: number; z: number };
+  /** v1.66：切分区域语义。`material`=所选面被直线切出的材料侧（缺省，旧载荷
+   *  逐字兼容）；`void`=所选面凸包内、面之外的**空腔**侧（Intro Part 5 Extrude 3
+   *  用单线补凹口：线在面外、两端落在面边界，切出凹口三角）。 */
+  region?: "material" | "void";
+}
+
 export interface FaceExtrudeParams {
   bodyId: string;
   faceRef: LubanTopologyId;
@@ -722,6 +745,9 @@ export interface FaceExtrudeParams {
   draftAngleDeg?: number;
   /** v1.64（ADR-0016）：翻转拔模符号（Onshape「反向」）；仅与 draftAngleDeg 成对。 */
   draftPullDirection?: boolean;
+  /** v1.66（ADR-0006 D2）：开放直线把平面面切成两侧后取一侧作为起始轮廓。
+   *  缺省=整面（旧载荷逐字不变）。 */
+  splitByLine?: FaceExtrudeSplitLine;
 }
 
 /**
@@ -1027,7 +1053,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.65.0";
+  public static interfaceVersion = "1.66.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

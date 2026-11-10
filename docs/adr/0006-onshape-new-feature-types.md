@@ -12,7 +12,12 @@
   同日真栈纠正：Onshape `imprintFace` 查询指向**草图面/材料面域**（根
   `<sketchId>.imprint`），不是实体 BRep 面；imprintFace 不走 faceExtrude，
   改用带侧向的草图面域回放（见切片 D 修正记录）。faceExtrude 保留为显式
-  实体面能力，当前无语料映射/UI**。
+  实体面能力，当前无语料映射/UI**；
+  **切片 D2（实体面单线 imprint 切分 / face split）首切片已落地（2026-11-10，
+  shared 1.66.0：`FaceExtrudeParams.splitByLine` + `keepPoint` + `region:
+  material|void`；回放 resolver + 后端面环半平面/凸包空腔裁切）；Part 5 真栈
+  严格绿（逐步体积全等），Part 6 E1–E4 达到最终体积、E5 为 Onshape 验证的
+  零几何变化 remove（产品 fail-closed，仍 known-red）；UI 与通用 imprint 未做**。
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/adr/0005-extrude-revolve-contract-onshape-parity.md`、
   `docs/superpowers/specs/2026-11-04-onshape-example-replication-airr.md`、
@@ -262,6 +267,67 @@ iOS 场景的全量对拍（不能只靠截图）后再批准。
 - 诚实边界：真实语料 11 个 C_SINK 特征分布在 7 个 PS，但这些 PS 仍被 sheet metal/
   import/custom/其它特征阻塞，暂无完整真实示例；钻尖已于切片 A5（2026-11-08，
   shared 1.50.0）落地；螺纹/间隙表/按面 up-to 仍未实现。
+
+### 切片 D2：实体面单线 imprint 切分（face split，2026-11-10，shared 1.66.0）
+
+**证据**：Intro to CAD 1.2 Part 5/6 的 Sketch 2/3 是**单条开放直线**，后续
+Extrude 3/4/5 的 `imprintFace` 查询指向“该直线在既有实体平面面上切出的子面”；
+草图本身 0 个闭合面域，replay 旧路径必然 `regionIndex=0` 越界。Part 5 场景
+（`ce879b3b…`）Extrude 3/4 各一条线，`imprintSign=+1`，add/remove
+`oppositeDirection=true`；Part 6 同构。
+
+**决策**：不新增特征类型，扩展既有 `faceExtrude`：
+
+```ts
+export interface FaceExtrudeSplitLine {
+  /** 有向切分线端点（模型世界 mm）；必须在所选面的平面上。 */
+  start: { x: number; y: number; z: number };
+  end: { x: number; y: number; z: number };
+  /** 保留侧（在**面参数平面**内相对有向线：left=左/CCW 侧，right=右）。 */
+  keepSide: "left" | "right";
+}
+export interface FaceExtrudeParams {
+  // …既有字段…
+  splitByLine?: FaceExtrudeSplitLine;
+}
+```
+
+**求值**：面引用照旧解析到 scratch 载体平面面；把面环与切分线变换到面局部
+坐标系，用半平面多边形裁切（Sutherland–Hodgman）取 `keepSide` 一侧，再走既有
+面轮廓 Sweep → 特征内布尔。切分线必须落在面平面（0.05 mm）、两面面积均非零、
+面环仅直线段；**孔环被切分线穿过时首切片诚实失败**（不近似的孔切分）。
+失败 status=1，绝不把整面/空轮廓当 split。
+
+**回放（test-only）**：新增 `resolveImprintSplitFace`——枚举 active authored
+body 面，候选条件=线两端在面平面内且直线把面多边形切成两个正面积子面；
+0/多候选、草图非单线、闭合面域存在时一律 fail closed。命中后
+`resolveFaceRef` 取持久引用；`keepSide` 由 `imprintSign` 结合面参数法向与草图
+平面法向（反向时翻转）换算。runner 改走 `faceExtrude`，`direction` 由“草图
+法向 × oppositeDirection”与面参数法向点积决定。
+
+**数据/转换修正（根因）**：Part 5/6 的 Sketch 2–4 建在上游 SWEPT_FACE 上，
+converter 旧逻辑把 SWEPT_FACE 交给 CAP_FACE 推导，错误输出“水平面 z=常量”；
+真实平面来自采集的 `sketches.json` 矩阵（如 Part 5 Sketch 2 = y=0、法向 -Y，
+Sketch 3 = x=25.4、+X，Sketch 4 = y=76.2、+Y）。纠正后 E3/E4 的单线切分
+语义才可解析。E1/E2 的多格面选择使用 Onshape bodydetails 面积+bbox+质心
+证据（Part 5 右两列/左一列；Part 6 8 格底板+中间条带），不按 mask/前缀猜。
+
+**验证结果（2026-11-10/11）**：合成 10×10×10 盒顶面 (0,0)→(10,5)：
+left 75mm² add 1375 / right 25mm² add 1125、remove 625；`keepPoint` 覆盖
+`keepSide` 得 1375；不在面平面/边界线/退化线 status≠0；L 形 void 凹口三角
+面积 50。**Part 5 真栈严格绿**：逐步体积 98,322.384 / 245,805.960 /
+262,193.024 / 229,418.896 / **204,838.300 vs 204,838.300（0.000%）**，9 步
+树全 status=0，push+冷重开一致。**Part 6**：E1–E4 后体积 **188,451.236 vs
+目标 188,451.236**；E5 在 Onshape 最终体前后 bodydetails 完全一致（16 面/
+面积/box/ID 全同），是零几何变化 remove；产品仍对零相交 remove fail-closed，
+spec 保持 `test.fail`。首切片不宣称通用 imprint（任意曲线/多线/孔切分/内核
+Imprint 通道）。
+
+**限制**：无 UI；converter 仍输出 imprintFace（由回放 resolver 在步骤时点
+解析），不是转换器静态映射；void 仅支持直线外环；E5 零相交 no-op 未产品化；
+不含 Part 5/6 之外未验证的 selector 泛化。
+
+---
 
 ### 切片 D spike 与首切片设计（2026-11-06，face-extrude/imprint-face）
 

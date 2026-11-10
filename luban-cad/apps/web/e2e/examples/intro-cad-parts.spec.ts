@@ -12,7 +12,11 @@
  * 2026-11-10（Part 4 分量质心）：Part 4 同为 9 个同面积面域，面积+bbox 仍有
  * 2/4/70 解；新增 Onshape face 连通分量面积+质心证据（对角 2 个独立面、L 形
  * 合并面、1+3 分量），回放器按共享草图实体邻接分组后一一匹配，升级严格门。
- * Part 5/6 仍需实体面 split，保持 record known-red。
+ * 2026-11-10（ADR-0006 D2）：Part 5 的派生草图平面由采集 sketches 矩阵纠正（不再
+ * 误当水平面）；Extrude 1/2 用 bodydetails 面积+bbox 选集；Extrude 3 为面外单线
+ * 凹口填充（void 侧）；Extrude 4 为面内单线材料侧；Extrude 5 为闭合矩形通槽。
+ * Part 5 升级严格门（逐步体积 98322.384 / 245805.960 / 262193.024 / 229418.896 /
+ * 204838.300）。Part 6 仍待同构数据验证。
  */
 import { expect, test } from '@playwright/test';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
@@ -24,13 +28,10 @@ const CASES = [
   { name: 'Part 2', elementId: '6516d9f30e2332db231b5256', strict: true },
   { name: 'Part 3', elementId: '2b8c683d9655e48fb91f2cd9', strict: true },
   { name: 'Part 4', elementId: '2de1f243168f441a7e5e1a4e', strict: true },
-  {
-    name: 'Part 5', elementId: 'ce879b3b849ab72af885bb9f', strict: false,
-    reason: 'known-red: Sketch 2 只有单线，Extrude 3 的 imprintFace 需要实体面 split（当前 0 面域）',
-  },
+  { name: 'Part 5', elementId: 'ce879b3b849ab72af885bb9f', strict: true },
   {
     name: 'Part 6', elementId: '118732d8402228166915c5e0', strict: false,
-    reason: 'known-red: Sketch 2 单线 imprint（实体面 split）导致 Extrude 3 0 面域',
+    reason: 'known-red: E1–E4 后体积 188,451.236 已等于目标；E5 在 Onshape 最终体前后 bodydetails 完全一致（零几何变化 remove），产品 faceExtrude 对零相交 remove 仍 fail-closed，尚未产品化显式 no-op',
   },
 ] as const;
 
