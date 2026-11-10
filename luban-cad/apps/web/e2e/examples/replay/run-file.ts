@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import type { FeatureTreeEntry } from '@luban-cad/shared';
 import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, type BSeedEditorContext } from '../../helpers.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from '../imodel.js';
 import { DEFAULT_DATA_ROOT } from '../registry.js';
@@ -82,7 +83,14 @@ export async function runScenarioFile(
   page: Page,
   request: APIRequestContext,
   options: RunScenarioFileOptions,
-): Promise<{ scenario: ParityScenario; volumes: number[]; expected: number[]; approximateSteps: number }> {
+): Promise<{
+  scenario: ParityScenario;
+  volumes: number[];
+  expected: number[];
+  approximateSteps: number;
+  /** push + 冷重开后的特征树（供调用方复核落库参数；严格门已在下方断言）。 */
+  reopenedTree: FeatureTreeEntry[];
+}> {
   const file = resolveScenarioFile(options.scenario);
   const scenario = JSON.parse(readFileSync(file, 'utf8')) as ParityScenario;
   const expected = ((scenario.expected as { bodies?: Array<{ volumeM3?: number }> } | undefined)?.bodies || [])
@@ -233,5 +241,11 @@ export async function runScenarioFile(
   for (let i = 0; i < reference.length; i++) {
     expect(Math.abs(reopened[i]! - reference[i]!) / reference[i]!).toBeLessThan(tolerance);
   }
-  return { scenario, volumes, expected, approximateSteps: built.approximateSteps };
+  return {
+    scenario,
+    volumes,
+    expected,
+    approximateSteps: built.approximateSteps,
+    reopenedTree,
+  };
 }

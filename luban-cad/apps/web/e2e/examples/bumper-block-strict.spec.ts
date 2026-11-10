@@ -21,13 +21,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import type { FilletEdgeRef } from '@luban-cad/shared';
+import type { FeatureTreeEntry, FilletEdgeRef } from '@luban-cad/shared';
 import { getFeatureTreeRpc, getMassPropertiesRpc, msRpc } from '../helpers.js';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { readBodyEdgeHandles, type EdgeHandle } from './replay/edge-resolver.js';
 import {
   edgeOracleMapForPartStudio,
   loadRollbackEdgeOracleManifest,
+  matchOracleToProductEdges,
   resolveOracleEdges,
   type RollbackEdgeOracle,
 } from './replay/rollback-edge-oracle.js';
@@ -41,11 +42,23 @@ const FILLET_FEATURE_NAME = 'Fillet 1';
 const EXPECTED_SELECTED_EDGES = 16;
 /** 预圆角 body 的全部边数（A2 解析边门：20/20 line/arc）。 */
 const EXPECTED_BODY_EDGES = 20;
+/** 未选中的底面 loop 边数（z=0 四边；Onshape 保持尖边）。 */
+const EXPECTED_BOTTOM_LOOP_EDGES = 4;
+/** 已解析 16 条产品边的持久引用集（product topology；node1 少 1:3/1:7/1:10/1:12）。 */
+const EXPECTED_SELECTED_REF_KEYS = [
+  '1:1', '1:2', '1:4', '1:5', '1:6', '1:8', '1:9', '1:11',
+  '2:1', '2:2', '2:3', '2:4', '2:5', '2:6', '2:7', '2:8',
+] as const;
 /** 采集目标（非精确断言值）：636,731.499 mm³（Onshape bodydetails）。 */
 const TARGET_VOLUME_MM3 = 636_731.499;
 /** A2 硬门：Extrude 1 + Extrude 2（10° 收窄拔模）预圆角体积。 */
 const PRE_FILLET_VOLUME_MM3 = 657_764.7871846836;
-const PRE_FILLET_TOLERANCE = 0.001;
+/** Extrude 2 增量（prismoid 闭式/ rb=3 BRep 积分）。 */
+const EXTRUDE2_INCREMENT_MM3 = 297_764.7871846836;
+/** 预圆角/增量使用**绝对**容差（实测精确到 1e-6 mm³；0.01 mm³ 已足够严格）。 */
+const PRE_FILLET_ABS_TOLERANCE_MM3 = 0.01;
+/** z=0 底面 loop 判定容差（mm）。 */
+const BOTTOM_LOOP_Z_TOLERANCE_MM = 0.01;
 
 /**
  * 运行时从私有数据根加载 oracle，并按 scenario 自带的 docId/elementId 过滤到
@@ -78,6 +91,37 @@ function edgeKindSummary(handles: readonly EdgeHandle[]): Record<string, number>
     counts[key] = (counts[key] ?? 0) + 1;
   }
   return counts;
+}
+
+/**
+ * 复核 faceExtrude 落库参数（push 前 + 冷重开后共用）：S10/S11/S9 语义必须
+ * 持久化而不是只在运行态生效。
+ */
+function assertStoredFaceExtrudeParams(row: FeatureTreeEntry | undefined, label: string): void {
+  expect(row, `${label}：缺 faceExtrude 树行`).toBeDefined();
+  expect(row!.featureType, `${label}：树行类型`).toBe('faceExtrude');
+  const params = row!.params as {
+    bodyId?: string;
+    faceRef?: { nodeId?: number; entityId?: number };
+    operation?: string;
+    endBound?: string;
+    depthMm?: number;
+    direction?: string;
+    startOffsetMm?: number;
+    draftAngleDeg?: number;
+    draftPullDirection?: boolean;
+  };
+  console.log(`[bumper-strict] ${label} faceExtrude params=${JSON.stringify(params)}`);
+  expect(params.bodyId, `${label}：faceExtrude 必须落 bodyId`).toBeTruthy();
+  expect(Number.isInteger(params.faceRef?.nodeId), `${label}：faceRef.nodeId`).toBe(true);
+  expect(Number.isInteger(params.faceRef?.entityId), `${label}：faceRef.entityId`).toBe(true);
+  expect(params.operation, `${label}：operation`).toBe('add');
+  expect(params.endBound, `${label}：endBound`).toBe('blind');
+  expect(params.depthMm, `${label}：depthMm`).toBe(40);
+  expect(params.direction, `${label}：direction`).toBe('forward');
+  expect(params.startOffsetMm, `${label}：startOffsetMm`).toBe(0);
+  expect(params.draftAngleDeg, `${label}：draftAngleDeg`).toBeCloseTo(10, 9);
+  expect(params.draftPullDirection, `${label}：draftPullDirection`).toBe(true);
 }
 
 test.describe('Bumper Block 严格轨（S10 faceExtrude + rb=3 oracle 16/16）', () => {
@@ -122,44 +166,22 @@ test.describe('Bumper Block 严格轨（S10 faceExtrude + rb=3 oracle 16/16）',
         expect(tree.every((row) => row.status === 0), 'Fillet 1 前树全部 status=0').toBe(true);
         // 落库参数证据：S11 startOffset=0、S9 draft 10° pullDirection=true、
         // 方向 forward（面 z=40 外法向）；bodyId/faceRef 由起始面解析器写入。
-        const extrude2 = tree[2]!;
-        const storedParams = extrude2.params as {
-          bodyId?: string;
-          faceRef?: { nodeId?: number; entityId?: number };
-          operation?: string;
-          depthMm?: number;
-          direction?: string;
-          startOffsetMm?: number;
-          draftAngleDeg?: number;
-          draftPullDirection?: boolean;
-        };
-        console.log(
-          `[bumper-strict] Extrude 2 faceExtrude params=${JSON.stringify(storedParams)}`,
-        );
-        expect(storedParams.bodyId, 'faceExtrude 必须落 bodyId').toBeTruthy();
-        expect(Number.isInteger(storedParams.faceRef?.nodeId), 'faceExtrude 必须落持久 faceRef.nodeId').toBe(true);
-        expect(Number.isInteger(storedParams.faceRef?.entityId), 'faceExtrude 必须落持久 faceRef.entityId').toBe(true);
-        expect(storedParams.operation).toBe('add');
-        expect(storedParams.depthMm).toBe(40);
-        expect(storedParams.direction).toBe('forward');
-        expect(storedParams.startOffsetMm).toBe(0);
-        expect(storedParams.draftAngleDeg).toBeCloseTo(10, 9);
-        expect(storedParams.draftPullDirection).toBe(true);
+        assertStoredFaceExtrudeParams(tree[2], 'pre-push');
 
-        // pre-fillet 体积（A2 硬门：657,764.787）。
+        // pre-fillet 体积（A2 硬门：657,764.787；绝对容差 0.01 mm³，实测精确）。
         const mass = await getMassPropertiesRpc(ctx, accessToken);
         expect(mass.length, 'pre-fillet 必须恰 1 body').toBe(1);
         preFilletVolume = mass[0]!.volume;
         expect(
-          Math.abs(preFilletVolume - PRE_FILLET_VOLUME_MM3) / PRE_FILLET_VOLUME_MM3,
-          `pre-fillet 体积 ${preFilletVolume} 必须 ≈ ${PRE_FILLET_VOLUME_MM3}`,
-        ).toBeLessThan(PRE_FILLET_TOLERANCE);
+          Math.abs(preFilletVolume - PRE_FILLET_VOLUME_MM3),
+          `pre-fillet 体积 ${preFilletVolume} 必须 = ${PRE_FILLET_VOLUME_MM3} ±${PRE_FILLET_ABS_TOLERANCE_MM3} mm³`,
+        ).toBeLessThan(PRE_FILLET_ABS_TOLERANCE_MM3);
         // Extrude 2 增量单独断言（= pre-fillet − Extrude 1 360,000）。
         const extrude2Increment = preFilletVolume - 360_000;
         expect(
-          Math.abs(extrude2Increment - 297_764.7871846836) / 297_764.7871846836,
-          `Extrude 2 增量 ${extrude2Increment} 必须 ≈ 297,764.787`,
-        ).toBeLessThan(PRE_FILLET_TOLERANCE);
+          Math.abs(extrude2Increment - EXTRUDE2_INCREMENT_MM3),
+          `Extrude 2 增量 ${extrude2Increment} 必须 = ${EXTRUDE2_INCREMENT_MM3} ±${PRE_FILLET_ABS_TOLERANCE_MM3} mm³`,
+        ).toBeLessThan(PRE_FILLET_ABS_TOLERANCE_MM3);
 
         // A2 解析边硬门：pre-fillet body 20/20 边全为 line/arc（无 curvePrimitive）。
         const handles = await readBodyEdgeHandles(overridePage, ctx, accessToken);
@@ -175,6 +197,46 @@ test.describe('Bumper Block 严格轨（S10 faceExtrude + rb=3 oracle 16/16）',
           (preFilletEdgeKinds.line ?? 0) + (preFilletEdgeKinds.arc ?? 0),
           'pre-fillet 边必须全为 line/arc',
         ).toBe(EXPECTED_BODY_EDGES);
+
+        // Onshape 选择 = 16 条；body 另 4 条必须是 z=0 底面 loop 且**未选中**
+        // （最终 body 是尖边）。oracle 曲线对 20 条 body 边做唯一匹配，未命中的
+        // 4 条即未选边；按几何断言它们在 z=0，而不是硬编码私有边 id。
+        expect(
+          filletOracle!.unselectedBodyEdgeIds?.length,
+          'oracle 必须声明底面 loop 的 4 条未选边',
+        ).toBe(EXPECTED_BOTTOM_LOOP_EDGES);
+        const oracleMatches = matchOracleToProductEdges(filletOracle!, handles);
+        expect(oracleMatches.handles.length, 'oracle 曲线必须命中 16 条产品边').toBe(EXPECTED_SELECTED_EDGES);
+        const matchedHandleKeys = new Set(
+          oracleMatches.handles.map((handle) => `${handle.bodyKey}:${handle.subEntityId}`),
+        );
+        const unselectedHandles = handles.filter(
+          (handle) => !matchedHandleKeys.has(`${handle.bodyKey}:${handle.subEntityId}`),
+        );
+        expect(
+          unselectedHandles.length,
+          `未选中的 body 边必须恰 ${EXPECTED_BOTTOM_LOOP_EDGES} 条（当前 ${unselectedHandles.length}）`,
+        ).toBe(EXPECTED_BOTTOM_LOOP_EDGES);
+        for (const handle of unselectedHandles) {
+          const p0 = handle.curve.p0;
+          const p1 = handle.curve.p1;
+          if (handle.curve.kind !== 'line' || !p0 || !p1)
+            throw new Error(
+              `未选中的底面 loop 边不是 line：${handle.bodyKey}:${handle.subEntityId} (${handle.curve.kind})`,
+            );
+          expect(
+            Math.abs(p0[2]),
+            `未选边 ${handle.bodyKey}:${handle.subEntityId} 起点必须 z=0`,
+          ).toBeLessThan(BOTTOM_LOOP_Z_TOLERANCE_MM);
+          expect(
+            Math.abs(p1[2]),
+            `未选边 ${handle.bodyKey}:${handle.subEntityId} 终点必须 z=0`,
+          ).toBeLessThan(BOTTOM_LOOP_Z_TOLERANCE_MM);
+        }
+        console.log(
+          `[bumper-strict] unselected bottom-loop edges=` +
+          unselectedHandles.map((handle) => `${handle.bodyKey}:${handle.subEntityId}`).join(','),
+        );
 
         // oracle-only：几何唯一匹配 → resolveEdgeRef；必须恰好 16 条引用。
         const resolved = await resolveOracleEdges(
@@ -195,6 +257,7 @@ test.describe('Bumper Block 严格轨（S10 faceExtrude + rb=3 oracle 16/16）',
           resolved.refs.length,
           `oracle 必须解析出恰好 ${EXPECTED_SELECTED_EDGES} 条产品边（当前 ${resolved.refs.length}）`,
         ).toBe(EXPECTED_SELECTED_EDGES);
+        expect(keys, 'oracle 必须解析出已知 16 条持久边引用集').toEqual([...EXPECTED_SELECTED_REF_KEYS]);
         expect(resolved.bodyKeys?.length, 'oracle 必须落在单一 body').toBe(1);
         return {
           ...resolved,
@@ -205,6 +268,18 @@ test.describe('Bumper Block 严格轨（S10 faceExtrude + rb=3 oracle 16/16）',
         };
       },
     });
+    expect(result.approximateSteps, 'Bumper 严格轨必须 approximateSteps=0').toBe(0);
+    expect(
+      result.reopenedTree.map((row) => row.featureType),
+      '冷重开后树类型必须为 S10 faceExtrude 全链',
+    ).toEqual(['sketch', 'extrude', 'faceExtrude', 'fillet', 'sketch', 'hole']);
+    expect(result.reopenedTree.every((row) => row.status === 0), '冷重开后全部 status=0').toBe(true);
+    // 冷重开后重新读树：faceExtrude 的 bodyId/faceRef/startOffset/draft/pull 必须
+    // 持久化仍在（不是只在 push 前运行态有效）。
+    assertStoredFaceExtrudeParams(
+      result.reopenedTree.find((row) => row.featureType === 'faceExtrude'),
+      'cold-reopened',
+    );
     const actual = result.volumes[0]!;
     const expected = result.expected[0]!;
     const relative = Math.abs(actual - expected) / expected;

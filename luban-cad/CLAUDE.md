@@ -211,13 +211,19 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   rb=3 oracle **16/16**、最终 **636,731.650 vs 636,731.499 mm³（+0.000024%）**、
   6 特征全 status=0（push 前/冷重开）、1 body、push+冷重开一致、
   approximateSteps=0。
-  **证据更正（ADR-0016 已接受门需修订）**：Onshape `Fillet 1` 实际只选
-  **16 条边**；底面 4 条 z=0 loop 边是**尖边**（最终 body 仅 16 个 R5 圆角柱面、
-  无底环圆角；live 截图底边为直尖边），oracle 的 16/20 是**完整选择**而非缺口。
-  旧审计 20 边回退（634,347.216，−0.374%）多选了底面环，已从 strict spec 移除。
-  ADR-0016 / AIRR 的“oracle 20/20（含底面 loop）”门与 Onshape 证据不符，
-  应修订为 **16/16（oracle 覆盖全部实际选择边）+ 底面 loop 尖边**；在修订前
-  不把 A4 按书面门宣称为严格绿，Bumper 索引分类保持 blocked-kernel 待裁决。
+  **证据更正（ADR-0016 / AIRR 已修订）**：Onshape `Fillet 1` 实际只选
+  **16 条边**；底面 4 条 z=0 loop 边是**尖边**（最终 body 为 16 个 R5 圆角柱面，
+  仅 4 条竖边的 R5 柱面延伸到 z=0，**无底环 R5 面**；live 截图底边为直尖边），
+  oracle 的 16/20 是**完整选择**而非缺口。旧审计 20 边回退（634,347.216，
+  −0.374%）多选了底面环，已从 strict spec 移除；ADR-0016/AIRR 的“oracle 20/20
+  （含底面 loop）”门已修订为 **16/16（覆盖全部实际选择边）+ 底面 loop 尖边**。
+  证据：私有 final bodydetails（微版本 `31306434108279575d07d43a`）+ live 截图
+  crop `ui-evidence/bumper-block-live-20261106/crop-bottom.png`。
+  **索引口径**：私有 `manifest/example-index.json` `replicable-now` 仍 **16**——
+  Bumper generic resolver 仍为 12 边 blocked-kernel；strict 轨走 rb=3 oracle
+  16/16 + A1/A2 backend（私有 converter/scenario 未提交），发布/干净检出前
+  **不提升、不标 replicable-now**。公开 strict spec **18**（工作树，含 A2
+  face-extrude 与 Bumper S10 严格轨）。
 - `apps/web` 全量 vitest：**1527/1527**（2026-11-09 body pattern 反向 UI +1
   （FeatureDialog 179/179；真栈 3×3 720.000 反向质心 x=-6 push+冷重开）；
   body pattern 第二方向 UI +3

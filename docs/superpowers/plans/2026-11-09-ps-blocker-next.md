@@ -547,8 +547,11 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 > **16 条边**（底面 4 条 z=0 边为尖边；最终 body 仅 16 个 R5 圆角柱面、无底环
 > 圆角；live 截图底边为直尖边），oracle 16/20 是**完整选择**而不是缺口；
 > 旧审计 20 边回退（634,347.216，−0.374%）多选底面环，已从 strict spec 移除。
-> ADR-0016 的“oracle 20/20（含底面 loop）”门与证据不符，需修订为
-> **16/16（覆盖全部实际选择边）+ 底面 loop 尖边**；修订前不按书面门宣称严格绿。
+> ADR-0016/AIRR 的“oracle 20/20（含底面 loop）”门已修订为
+> **16/16（覆盖全部实际选择边）+ 底面 loop 尖边**；A4 按修订后的门完成。
+> 索引口径：私有 `replicable-now` 仍 16（Bumper generic resolver 12 边
+> blocked-kernel；strict 轨依赖 A1/A2 backend + 私有 oracle/scenario，发布/
+> 干净检出前不提升）；公开 strict spec 18（工作树）。
 
 **Files（设计产物，本次已落）:**
 - `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md`
@@ -556,10 +559,12 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 - 本计划、`docs/README.md`、ADR-0006 指针（可选）
 
 **设计要点:**
-- 现状根因：CAP_FACE 被映射成既有 `extrude.startOffsetMm` + `draftAngleDeg`，
+- 设计前根因：CAP_FACE 被映射成既有 `extrude.startOffsetMm` + `draftAngleDeg`，
   轮廓仍是原草图面域；40 是从上游深度推断的偏移；拔模是整环 2D 偏置+Loft；
-  最终 body 侧边为 `curvePrimitive`（来源待 S1：Loft/offset/Unite）；oracle 展开
-  16/20（缺底面 4 条 loop）是 test-only 缺口。
+  最终 body 侧边为 `curvePrimitive`。**S1 已解析**（native Loft smooth skin；
+  A2 逐边解析壳体 20/20 line）。**S5 已解析**：oracle 的 16/20 不是缺口——
+  Onshape Fillet 1 实际只选 16 条（5 faces + 4 edges），底面 4 条 z=0 loop 尖边
+  未选。
 - 选 A：扩展 `FaceExtrudeParams.startOffsetMm/draftAngleDeg/draftPullDirection`，
   以 `bodyId`/`faceRef` 的**起始面边界**为轮廓。
 - **S9/S10/S11 已解析（2026-11-10）**：
@@ -573,15 +578,17 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
     depth 40 → 顶面 z=80。
 - **体积模型修正**：上体是等距偏置 prismoid，不是相似截面锥台；闭式
   `h/6(A0+A1+4Am)`；rb=3 BRep 积分 upper **297,764.7871846836**、pre-fillet
-  **657,764.7871846836**；当前产品已匹配。前稿 297,002.158/657,002.158 与
-  762.629“Extrude 2 残差”是错误模型；最终 −0.374% 归因下游 fillet
-  （implied Onshape 3,054.543 vs product 5,438.825 mm³）。
+  **657,764.7871846836**（实测 657,764.787185）；当前产品已匹配。前稿
+  297,002.158/657,002.158 与 762.629“Extrude 2 残差”是错误模型。**最终差修订**：
+  旧 −0.374% 是审计 20 边回退多选底面 loop（约 2,384 mm³），不是下游 fillet
+  能力边界，也不是 Extrude 2 残差；16 边轨最终差 +0.151 mm³（+0.000024%）。
 - **A1/A2 测试门分离**：
   - A1 = 面轮廓/偏移/参数接线 + 失败封闭；拔模继续复用整环偏置+Loft（**不修 P3**）；
-    记录 prismoid 297,764.787 baseline，**不**断言解析边/20/20。
-  - A2 = face-driven profile（S10）+ line/arc 锥面边（tool 体与最终 Unite 体）+
-    **Bumper pre-fillet 657,764.787**（或 measured A2 baseline）+ oracle 20/20 +
-    最终 ±0.5%。体积已匹配，不是 A2 的差异化项。A2 若失败，Bumper 保持 blocked-kernel。
+    记录 prismoid 297,764.787 baseline，**不**断言解析边/20-20。
+  - A2 = face-driven profile（S10）+ line/arc 锥面边（tool 体与最终 Unite 体，
+    实测 20/20 line）+ **Bumper pre-fillet 657,764.787185** + Fillet 1
+    **16/16 实际选择**（底面 4 条尖边未选）+ 最终 ±0.5%（+0.000024%）。
+    体积已匹配，不是 A2 的差异化项。A2 已达成。
 - **body 归属**：faceRef 按 `bodyId` 逐体解析；跨体/多 body 歧义 status=1；旧单 body
   载荷逐字兼容，旧多 body 歧义登记 fail closed；29 个 start-reference 家族 blocked/
   approximate。
@@ -602,16 +609,19 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 - [x] A2：解析边 spike/实现（私有 native/TS 或等价构造；无 P0-08）；合成矩形 →
       tool/最终 Unite **20/20 line**、297,764.787/657,764.787、holed 全 line/arc。
       **Bumper 实测证明原“20/20（含底面 loop）”门与 Onshape 选择不符**：实际选择
-      16 条（底面 4 条尖边未选）；需 ADR 修订，见下。
+      16 条（底面 4 条尖边未选）；ADR-0016/AIRR 已修订为 16/16 + 底面尖边。
 - [x] A3：S9/S10/S11 已解析证据指针 + converter `capFaceProfile`（起始面
-      平面/面积/AABB 证据）+ translator `faceExtrude` startOffset/draft + runner
-      起始面解析（`readFaceHandles` 唯一匹配 → `resolveFaceRef`）；旧
-      capFaceExtrude/start-reference 近似路径保留；未解析 fail closed（test-only）。
-- [ ] A4：Bumper 严格轨已实测：pre-fillet **657,764.787185**、20/20 line、
-      rb=3 oracle **16/16**、最终 **636,731.650（+0.000024%）**、全 status=0、
-      1 body、push+冷重开、approximateSteps=0。**书面门仍是 oracle 20/20**，
-      与 Onshape 证据冲突；ADR-0016 修订为 16/16 + 底面尖边前，不勾选 A4、
-      不宣称严格绿（Bumper 索引保持 blocked-kernel 待裁决）。
+      平面/面积/AABB 证据，featureId 索引，ADD-only）+ translator
+      `faceExtrude` startOffset/draft + runner 起始面解析（`readFaceHandles`
+      唯一匹配 → `resolveFaceRef`）；旧 capFaceExtrude/start-reference 近似路径
+      保留；未解析 fail closed（test-only）。
+- [x] A4：Bumper 严格轨已实测：pre-fillet **657,764.787185**（绝对容差
+      0.01 mm³）、20/20 line、rb=3 oracle **16/16**、最终
+      **636,731.650（+0.000024%）**、全 status=0、1 body、push+冷重开、
+      approximateSteps=0、冷重开落库参数复核。ADR-0016/AIRR 已修订为
+      16/16 + 底面尖边；审计 20 边回退已退役。Bumper 私有索引仍保持
+      blocked-kernel（generic resolver 12 边；strict 轨依赖 A1/A2 backend +
+      私有 oracle/scenario，发布/干净检出前不提升）。
 - [ ] UI：另 AIRR（live 证据齐备后）。
 
 ---
@@ -666,6 +676,10 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
 > 私有 scenario）；Alignment 的 `Cut 2 more holes` 保留一条已审计人工面域覆盖，
 > 纯证据驱动计数 15（`Cut 2 holes` 面积证据精确）。缺额原因与未解决项证据见
 > `2026-11-09-ps-blocker-driven.md`「PS blocker 下一阶段执行记录」。
+> **2026-11-10 A4 后口径**：公开 strict spec **18**（工作树，含 A2 face-extrude
+> 与 Bumper S10 严格轨）与私有索引 `replicable-now` **16** 分开计；Bumper
+> strict 依赖 A1/A2 backend + 私有 rb=3 oracle/scenario，发布/干净检出前索引
+> 不提升（generic resolver 仍 12 边 blocked-kernel）。
 
 **Files:**
 - Private: `manifest/example-index.json`, `manifest/face-evidence.json`,
@@ -697,9 +711,11 @@ npx playwright test e2e/examples/<changed-specs> --reporter=line
 Actual: shared **192/192** + build clean；web **1527/1527**（116 files）+ tsc
 （app/e2e）clean；真栈逐 spec：Part 1/2/3 各 **2 passed**、sample **2 passed**、
 drive-sleeve **3 passed**、wheel **2 passed**、scenario-to-op **51 passed**、
-bumper record **2 passed**（+3.303%，未升绿；2026-11-09 follow-up 已由
-`bumper-block-strict.spec.ts` 审计 20 边覆盖取代：634,347.216 vs 636,731.499，
-−0.374%，见 driven closeout）、demo Part 3 **2 passed**、
+bumper record **2 passed**（+3.303%，未升绿；2026-11-09 follow-up 审计 20 边
+覆盖：634,347.216 vs 636,731.499，−0.374%。**2026-11-10 A4 最终取代**：
+S10 faceExtrude + rb=3 oracle **16/16 实际选择** → **636,731.650（+0.000024%）**、
+全 status=0/1 body/push+冷重开；审计 20 边回退已退役，见 Task 6b/A4）、
+demo Part 3 **2 passed**、
 ShowcaseRoute **1/1**。Part 4/5/6 保持 test.fail known-red。批量首轮遇 MS
 100 req/15min 429，按 spec 分窗重跑（未改配置）；`verify-imodels` 可选未跑
 （严格用例用自管 E2E iModel，未重置既有持久示例）。
@@ -745,7 +761,7 @@ native/backend 仓未提交。
 | CENTERLINE refs | scenario-to-op 新单测 | shared build | Fox RP23（或 blocked 证据） |
 | capFace/sweptFace 证据 | collector 测试 | index verify | 目标 PS spec |
 | Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper strict（审计 20 边覆盖）；通用 resolver 12 边仍 blocked-kernel |
-| CAP_FACE 起始面+拔模（ADR-0016，已批准实现） | shared 契约 + S9/S10/S11 已解析证据 | 后端 faceExtrude 求值器测试（实现时） | A1 prismoid 297,764.787 baseline（不宣称精确）/ A2 face-driven profile + 解析边 + pre-fillet 657,764.787（或 measured baseline）+ Bumper 20/20；最终 −0.374% 归因 fillet；A2 未达成保持 blocked-kernel |
+| CAP_FACE 起始面+拔模（ADR-0016，A1/A2/A3/A4 已实现） | shared 1.64.0 契约 + S1/S5/S9/S10/S11 已解析证据 | 后端 FaceExtrudeFlow/DraftShell 测试；公共 translator/resolver 单测；真栈 Bumper strict + A2 face-extrude + Part 3 | A1 prismoid 297,764.787 baseline（不宣称精确）/ A2 解析边 tool 12/12、最终 Unite **20/20 line** + pre-fillet **657,764.787185** + Fillet 1 **16/16 实际选择**（底面 4 条尖边未选）+ 最终 **636,731.650 vs 636,731.499（+0.000024%）**、全 status=0/1 body/push+冷重开/approximateSteps=0；旧 −0.374% 归因审计 20 边回退多选底面 loop，已退役；Bumper 私有索引仍 blocked-kernel（generic resolver 12 边；strict 依赖 A1/A2 backend + 私有 oracle/scenario，发布/干净检出前不提升） |
 | AIRR/ADR | 文档自检 | 无代码 | 无 |
 
 ## 停止条件

@@ -76,6 +76,14 @@ test.describe('CAP_FACE 起始面匹配', () => {
     expect(matchCapFaceStartFaces(bumperEvidence, [face]).face).toBeUndefined();
   });
 
+  test('开环/断点面边界 → 不参与匹配（闭合校验）', () => {
+    const face = rectangleFace('body-1', 1);
+    // 断开最后一条线与首条线的共享端点。
+    face.loops[0]![3] = { kind: 'line', p0: [-90, 25, 40], p1: [-89, -25, 40] };
+    expect(faceBoundaryStats(face)).toBeUndefined();
+    expect(matchCapFaceStartFaces(bumperEvidence, [face]).face).toBeUndefined();
+  });
+
   test('证据解析：缺平面法向/平面点拒收', () => {
     expect(parseCapFaceStartEvidence({ areaMm2: 1 })).toBeUndefined();
     expect(parseCapFaceStartEvidence({

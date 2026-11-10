@@ -872,6 +872,14 @@ export async function runScenario(
         const depthMm = typeof sourceParams.depthMm === 'number' ? sourceParams.depthMm : undefined;
         if (depthMm === undefined || !(depthMm > 0))
           throw new BlockedCapabilityError('face-extrude', `${feature.name} capFaceProfile 缺有效 depthMm`);
+        // S3 方向语义未校准：首版只发布 ADD（Bumper 形态），REMOVE/INTERSECT
+        // 即使 converter 误标也在此 fail closed（纵深防御）。
+        const operation = String(sourceParams.operation ?? '').toLowerCase();
+        if (operation !== 'add')
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} capFaceProfile 首版仅支持 ADD（当前 ${operation || 'missing'}）`,
+          );
         const selectionStart = (originalSelection as { startOffsetMm?: unknown }).startOffsetMm;
         const startOffsetMm = typeof selectionStart === 'number' && Number.isFinite(selectionStart)
           ? selectionStart
@@ -882,7 +890,7 @@ export async function runScenario(
           params: {
             bodyId: resolution.bodyId,
             faceRef: resolution.faceRef,
-            operation: String(sourceParams.operation ?? 'add').toLowerCase(),
+            operation,
             endBound: 'blind',
             depthMm,
             direction: sourceParams.oppositeDirection === true ? 'backward' : 'forward',

@@ -189,6 +189,8 @@ export function faceBoundaryStats(face: FaceHandleLike): FaceBoundaryStats | und
   const loops: [number, number, number][][] = [];
   let edgeCount = 0;
   for (const loop of face.loops) {
+    // 纵深防御：BRep Loop 应闭合；开环/断点不参与面积/AABB 匹配。
+    if (!loopIsClosed(loop)) return undefined;
     const points = loopPoints(loop);
     if (!points) return undefined;
     loops.push(points);
@@ -217,6 +219,26 @@ const NORMAL_DOT_TOLERANCE = 0.999;
 const AREA_RELATIVE_TOLERANCE = 1e-3;
 const BOX_TOLERANCE_MM = 0.05;
 const BOX_RELATIVE_TOLERANCE = 1e-3;
+/** 面边界环闭合容差（mm）：相邻曲线端点/首尾必须连续，否则不猜面积。 */
+const LOOP_CLOSURE_TOLERANCE_MM = 0.05;
+
+function curveEndpoints(curve: LoopCurve): { start?: [number, number, number]; end?: [number, number, number] } {
+  if (curve.kind === 'line') return { start: curve.p0, end: curve.p1 };
+  if (curve.kind === 'arc') return { start: curve.start, end: curve.end };
+  return {};
+}
+
+/** 环必须闭合：每条曲线的终点与下一条曲线起点连续（含首尾 wrap）。 */
+function loopIsClosed(loop: readonly LoopCurve[]): boolean {
+  if (loop.length === 0) return false;
+  for (let index = 0; index < loop.length; index++) {
+    const current = curveEndpoints(loop[index]!);
+    const next = curveEndpoints(loop[(index + 1) % loop.length]!);
+    if (!current.end || !next.start) return false;
+    if (magnitude(sub(current.end, next.start)) > LOOP_CLOSURE_TOLERANCE_MM) return false;
+  }
+  return true;
+}
 
 /**
  * 唯一面匹配（纯函数）：平面法向/偏移 + 面积 + AABB + 边数；0/多候选返回诊断。
