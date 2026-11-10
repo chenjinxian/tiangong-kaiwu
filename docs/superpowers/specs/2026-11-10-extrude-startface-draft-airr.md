@@ -1,7 +1,7 @@
 # AIRR：CAP_FACE 起始面 + startOffset + 拔模的精确 faceExtrude 路径（Extrude 2）
 
 - 状态：**已批准并实现（2026-11-10 用户批准；同日 A2/A3/A4 实测后修订 A2 边门与
-  最终差归因）**。A1/A2/A3 已实现；A2 解析边门已达成（tool/最终 Unite body
+  最终差归因）**。A1/A2/A3/A4 已实现；A2 解析边门已达成（tool/最终 Unite body
   **20/20 line**、pre-fillet **657,764.787185 mm³**）。Fillet 1 的 Onshape 实际
   选择为 **16 条边**（5 matched faces + 4 matched edges）；底面 4 条 z=0 loop
   边未选并保持尖边——原“oracle 20/20（含底面 loop）”门修订为 **16/16 = 覆盖
