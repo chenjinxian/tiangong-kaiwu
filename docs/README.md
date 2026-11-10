@@ -89,7 +89,8 @@
 ### 发布与迁移
 | 文档 | 说明 |
 |------|------|
-| [RELEASE-backend-20261110.md](./RELEASE-backend-20261110.md) | 最新发布说明（**shared 1.64.0 / MS 精确 faceExtrude A1/A2/A3/A4 + S3**；Bumper strict 16/16、+0.000024%；公开 strict 19 / 私有索引 18；A1/A2 backend 随发布可复现） |
+| [RELEASE-web-20261110b.md](./RELEASE-web-20261110b.md) | **最新 web-only 发布（2026-11-10b）**：公开 `/examples` 18 示例目录 + 页面级 IPC host + MS 重启 8s 存活探针 + 登出整页导航；web 镜像 digest `6ac74b99…`，后端/hub/WA/bff 与 `backend-20261110` 完全一致 |
+| [RELEASE-backend-20261110.md](./RELEASE-backend-20261110.md) | 后端发布说明（**shared 1.64.0 / MS 精确 faceExtrude A1/A2/A3/A4 + S3**；Bumper strict 16/16、+0.000024%；公开 strict 19 / 私有索引 18；A1/A2 backend 随发布可复现） |
 | [RELEASE-backend-20261109.md](./RELEASE-backend-20261109.md) | 历史发布说明（草图/特征能力检查点：4 个公开镜像 + MS **1.63.0** 产物；匿名冷拉/17 项全栈验收） |
 | [RELEASE-backend-20261106.md](./RELEASE-backend-20261106.md) | 历史发布说明（外部本地部署：4 个公开镜像 + MS 1.32 产物；匿名冷拉/17 项全栈验收） |
 | [RELEASE-backend-20261101-p28c.md](./RELEASE-backend-20261101-p28c.md) | 历史发布说明（B 数据模型 P2 / 命名迁移 / legacy schema 退役） |
