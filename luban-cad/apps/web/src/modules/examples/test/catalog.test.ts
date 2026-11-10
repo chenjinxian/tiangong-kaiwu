@@ -9,9 +9,9 @@ import {
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../../../../public');
 
-describe('全部示例 catalog（19 个 replicable-now 的公共投影）', () => {
-  it('恰好 19 个、15 个文档、4 个 owner，id 唯一', () => {
-    expect(EXAMPLE_CATALOG).toHaveLength(19);
+describe('全部示例 catalog（20 个 replicable-now 的公共投影）', () => {
+  it('恰好 20 个、15 个文档、4 个 owner，id 唯一', () => {
+    expect(EXAMPLE_CATALOG).toHaveLength(20);
     expect(new Set(EXAMPLE_CATALOG.map((entry) => entry.document)).size).toBe(15);
     expect(EXAMPLE_OWNERS).toEqual([
       'Explore Onshape Models',
@@ -19,7 +19,7 @@ describe('全部示例 catalog（19 个 replicable-now 的公共投影）', () =
       'Onshape Training',
       'Onshape Training Repo',
     ]);
-    expect(new Set(EXAMPLE_CATALOG.map((entry) => entry.id)).size).toBe(19);
+    expect(new Set(EXAMPLE_CATALOG.map((entry) => entry.id)).size).toBe(20);
   });
 
   it('每条有完整名称/目标体积/封面，且封面真实存在', () => {

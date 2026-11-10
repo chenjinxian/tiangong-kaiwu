@@ -29,28 +29,28 @@ beforeEach(() => {
 });
 
 describe('ExamplesPage 全部示例目录', () => {
-  it('公开渲染 19 张卡片和统计', () => {
+  it('公开渲染 20 张卡片和统计', () => {
     renderPage();
-    expect(screen.getAllByTestId('example-card')).toHaveLength(19);
+    expect(screen.getAllByTestId('example-card')).toHaveLength(20);
     expect(screen.getByRole('heading', { name: '全部示例' })).toBeDefined();
-    expect(screen.getAllByText('19', { selector: '.examples-hero__facts strong' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('20', { selector: '.examples-hero__facts strong' }).length).toBeGreaterThan(0);
     expect(screen.getByText(/个严格示例/)).toBeDefined();
-    expect(screen.getAllByText('登录后打开')).toHaveLength(19);
-    expect(screen.getAllByRole('img', { name: /真实栈截图/ })).toHaveLength(19);
+    expect(screen.getAllByText('登录后打开')).toHaveLength(20);
+    expect(screen.getAllByRole('img', { name: /真实栈截图/ })).toHaveLength(20);
   });
 
   it('owner 过滤和搜索联动，且可清除', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: /Onshape Training Repo/ }));
-    expect(screen.getAllByTestId('example-card')).toHaveLength(11);
+    expect(screen.getAllByTestId('example-card')).toHaveLength(12);
 
     fireEvent.change(screen.getByTestId('example-search'), { target: { value: 'Bumper' } });
     expect(screen.queryAllByTestId('example-card')).toHaveLength(0);
     fireEvent.change(screen.getByTestId('example-search'), { target: { value: '' } });
-    expect(screen.getAllByTestId('example-card')).toHaveLength(11);
+    expect(screen.getAllByTestId('example-card')).toHaveLength(12);
 
     fireEvent.click(screen.getByRole('button', { name: /全部/ }));
-    expect(screen.getAllByTestId('example-card')).toHaveLength(19);
+    expect(screen.getAllByTestId('example-card')).toHaveLength(20);
   });
 
   it('搜索命中单个示例并显示 Bumper strict oracle 状态', () => {
@@ -89,7 +89,7 @@ describe('ExamplesPage 全部示例目录', () => {
       isError: false,
     });
     renderPage();
-    expect(screen.getAllByText('在文档中心查找')).toHaveLength(19);
+    expect(screen.getAllByText('在文档中心查找')).toHaveLength(20);
     expect(screen.queryByText('打开示例')).toBeNull();
   });
 
@@ -98,6 +98,6 @@ describe('ExamplesPage 全部示例目录', () => {
     fireEvent.change(screen.getByTestId('example-search'), { target: { value: 'not-a-real-example' } });
     expect(screen.getByText('没有匹配的示例。')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: '清除筛选' }));
-    expect(screen.getAllByTestId('example-card')).toHaveLength(19);
+    expect(screen.getAllByTestId('example-card')).toHaveLength(20);
   });
 });

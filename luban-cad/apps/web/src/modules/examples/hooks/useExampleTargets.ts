@@ -1,5 +1,5 @@
 /**
- * 运行时解析 18 个示例的持久 iModel（只读，不创建数据）。
+ * 运行时解析全部 catalog 示例的持久 iModel（只读，不创建数据）。
  *
  * 只按 catalog 的 `projectName + imodelName` 精确匹配当前账号可见的
  * iTwin/iModel；UUID 不落静态数据。项目或 iModel 同名多义、缺失、无权限时

@@ -1,7 +1,7 @@
 /**
  * 全部 Onshape 示例目录页（public，2026-11-10）。
  *
- * 18 个 `replicable-now` 示例的单一入口：公开可读的封面/元数据 +
+ * `replicable-now` 示例的单一入口：公开可读的封面/元数据 +
  * 当前账号可见时按名解析出的持久 iModel 直达链接。页面不创建/修改模型，
  * 也不把私有 index 的原始数据带进公共 bundle。
  */
@@ -72,7 +72,7 @@ export function ExamplesPage(): React.JSX.Element {
         <section className="examples-hero">
           <div className="examples-hero__copy">
             <span className="examples-kicker">ONSHAPE PARITY · REPLICABLE NOW</span>
-            <h1>18 个 Onshape 示例，<br />逐个体积对拍。</h1>
+            <h1>{EXAMPLE_CATALOG.length} 个 Onshape 示例，<br />逐个体积对拍。</h1>
             <p>
               全部来自真实 iModel、真实 FeatureOp 与标准事务。封面是真实栈运行截图；
               目标体积来自 Onshape 采集证据。打开入口按当前账号可见的示例 iModel
@@ -82,7 +82,7 @@ export function ExamplesPage(): React.JSX.Element {
               <li><strong>{EXAMPLE_CATALOG.length}</strong> 个严格示例</li>
               <li><strong>{documentCount}</strong> 个文档</li>
               <li><strong>{EXAMPLE_OWNERS.length}</strong> 个 owner</li>
-              <li><strong>18</strong> 个体积对拍</li>
+              <li><strong>{EXAMPLE_CATALOG.length}</strong> 个体积对拍</li>
             </ul>
             <div className="examples-hero__actions">
               <a className="examples-button examples-button--primary" href="#catalog">浏览全部示例</a>
@@ -93,8 +93,8 @@ export function ExamplesPage(): React.JSX.Element {
           </div>
           <div className="examples-hero__panel" aria-hidden="true">
             <span className="examples-hero__panel-label">CATALOG</span>
-            <div className="examples-hero__panel-row"><span>18</span><small>replicable-now</small></div>
-            <div className="examples-hero__panel-row"><span>15</span><small>Onshape 文档</small></div>
+            <div className="examples-hero__panel-row"><span>{EXAMPLE_CATALOG.length}</span><small>replicable-now</small></div>
+            <div className="examples-hero__panel-row"><span>{documentCount}</span><small>Onshape 文档</small></div>
             <div className="examples-hero__panel-row"><span>0.00%</span><small>代表示例体积误差</small></div>
             <div className="examples-hero__panel-note">真实 BRep · 标准事务 · 冷重开验证</div>
           </div>
