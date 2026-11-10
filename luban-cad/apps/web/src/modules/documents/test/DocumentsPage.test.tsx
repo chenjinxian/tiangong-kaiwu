@@ -19,7 +19,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseDocuments = vi.fn();
 vi.mock('../hooks/useDocuments.js', () => ({
@@ -105,7 +105,16 @@ function renderPage() {
   );
 }
 
+// 登出整页导航：jsdom 不实现 navigation，以 plain object 顶替 location，
+// 截获 href 赋值（同 QueryErrorBridge.test 口径）。
+const originalLocation = window.location;
+
 beforeEach(() => {
+  Object.defineProperty(window, 'location', {
+    value: { href: 'http://localhost:5300/documents' },
+    writable: true,
+    configurable: true,
+  });
   mockUseBModelEnabled.mockReturnValue(false);
   mockUseDocuments.mockReturnValue({
     documents: DOCS, projects: [], legacyDocuments: DOCS, isLoading: false, error: null,
@@ -113,6 +122,13 @@ beforeEach(() => {
   // 默认 resolved（undefined）；个别用例注入 reject。
   itwinsCreateMock.mockReset();
   itwinsDeleteMock.mockReset();
+});
+
+afterEach(() => {
+  Object.defineProperty(window, 'location', {
+    value: originalLocation,
+    configurable: true,
+  });
 });
 
 describe('DocumentsPage 结构（/documents 中心页）', () => {
@@ -192,12 +208,13 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     }
   });
 
-  it('用户菜单「退出登录」→ AuthSession.logout()', async () => {
+  it('用户菜单「退出登录」→ AuthSession.logout() + 整页导航 /login（不保留旧 WS 身份）', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole('button', { name: '用户菜单' }));
     await user.click(await screen.findByRole('menuitem', { name: '退出登录' }));
     expect(AuthSession.logout).toHaveBeenCalled();
+    expect(window.location.href).toBe('/login');
   });
 
   it('工具条：分区标题+计数 / 排序菜单 / 网格·列表切换 / 刷新', () => {

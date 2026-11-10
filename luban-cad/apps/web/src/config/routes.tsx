@@ -14,6 +14,7 @@ import { DevTokensRoute } from '@routes/DevTokensRoute.js';
 import { DevViewerRoute } from '@routes/DevViewerRoute.js';
 import { DocumentDetailsRoute } from '@routes/DocumentDetailsRoute.js';
 import { DocumentsRoute } from '@routes/DocumentsRoute.js';
+import { ExamplesRoute } from '@routes/ExamplesRoute.js';
 import { ForgotPasswordRoute } from '@routes/ForgotPasswordRoute.js';
 import { PartStudioRoute } from '@routes/PartStudioRoute.js';
 import { SettingsRoute } from '@routes/SettingsRoute.js';
@@ -24,6 +25,7 @@ import { SignUpRoute } from '@routes/SignUpRoute.js';
 export const routes: RouteObject[] = [
   { path: '/', element: <ShowcaseRoute /> },
   { path: '/showcase', element: <ShowcaseRoute /> },
+  { path: '/examples', element: <ExamplesRoute /> },
   { path: '/dev-tokens', element: <DevTokensRoute /> },
   { path: '/dev-viewer', element: <DevViewerRoute /> },
   { path: '/login', element: <SignInRoute /> },

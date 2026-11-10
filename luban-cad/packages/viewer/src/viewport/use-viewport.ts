@@ -6,7 +6,8 @@
  * React 侧 viewport 宿主 hook——
  * - 返回 `viewportRef`（div ref）：ScreenViewport 的挂载点；挂载即 acquireViewer
  *   （幂等 startViewer + 模块级引用计数——StrictMode 双挂载/多页签切换均安全），
- *   卸载 releaseViewer（计数 1→0 才真正 shutdown）；backendUrl 同源姿态由消费方
+ *   卸载只 releaseViewer 减引用，**host 由页面持有、不 shutdown**（DTA 同口径；
+ *   SPA 重入复用同一条 /ipc WebSocket）；backendUrl 同源姿态由消费方
  *   决定（apps/web 经 vite 代理直连 modeling-server 会被 CORS 拦，传
  *   window.location.origin，见 apps/web/vite.config.ts 注记）；
  * - `iModel` 就位后创建 ScreenViewport（移植自旧查看器包 useViewport.ts 全链（旧包已删除），

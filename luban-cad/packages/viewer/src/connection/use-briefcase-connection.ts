@@ -26,6 +26,37 @@ export interface UseBriefcaseConnectionOptions {
   readonly?: boolean;
 }
 
+/** IPC 存活探针上限：后端重启后旧 WebSocket 已死但 IpcApp.isValid 仍为真。 */
+const IPC_LIVENESS_TIMEOUT_MS = 8_000;
+
+/**
+ * `/ipc` WebSocket 存活探针。
+ *
+ * 页面级 host 复用同一条 WebSocket（display-test-app 口径）；后端 MS 重启后
+ * `IpcApp.isValid`/`IpcSession.active` 依旧为真，`downloadBriefcase` 会向已死
+ * socket 发请求并**永久悬挂**（2026-11-10 真栈复现：页面停在“正在打开文档…”）.
+ * 用轻量、与 iModel 无关的官方 IPC `queryConcurrency` 探活：存活则立即返回；
+ * 8s 无响应则按连接已断开报错，让错误面出现“刷新页面”恢复入口。
+ */
+async function assertIpcAlive(): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      IpcApp.appFunctionIpc.queryConcurrency('io'),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(
+            '建模服务连接已断开（/ipc WebSocket 无响应，后端可能已重启）。请刷新页面重新连接。',
+          )),
+          IPC_LIVENESS_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 export interface UseBriefcaseConnectionResult {
   /** 已打开的可写连接；未就绪为 null */
   connection: BriefcaseConnection | null;
@@ -129,6 +160,11 @@ export function useBriefcaseConnection(
       setError(null);
 
       try {
+        // 存活探针（2026-11-10）：isValid/IpcSession.active 不能证明 socket
+        // 仍活着——后端重启后二者残留为真，downloadBriefcase 会永久悬挂。
+        await assertIpcAlive();
+        if (cancelled) return;
+
         // Step 1：后端定位（或下载）briefcase
         const lubanIpc = IpcApp.makeIpcProxy<LubanIpcInterface>(lubanIpcChannel);
         const result = await lubanIpc.downloadBriefcase(iTwinId, iModelId, readonly);

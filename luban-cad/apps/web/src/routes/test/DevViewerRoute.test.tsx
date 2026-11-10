@@ -33,9 +33,9 @@ describe('DevViewerRoute', () => {
     expect(acquireViewerMock).toHaveBeenCalledTimes(1);
   });
 
-  it('点击停止调用 releaseViewer（与 acquire 成对的引用计数回收）', async () => {
+  it('点击释放调用 releaseViewer（页面级 host 保活，不 shutdown）', async () => {
     render(<DevViewerRoute />);
-    await userEvent.click(screen.getByRole('button', { name: '停止查看器' }));
+    await userEvent.click(screen.getByRole('button', { name: '释放查看器引用' }));
     await waitFor(() => expect(releaseViewerMock).toHaveBeenCalledTimes(1));
   });
 

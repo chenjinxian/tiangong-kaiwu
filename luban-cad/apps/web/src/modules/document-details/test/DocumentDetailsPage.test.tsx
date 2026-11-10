@@ -20,7 +20,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // hoisted：vi.mock 工厂提升执行，工厂内引用顶层 const 会撞 TDZ——
 // 客户端方法 mock 统一经 vi.hoisted 声明（用例要驱动 reject/resolve 注入）。
@@ -178,7 +178,16 @@ function renderPage() {
   );
 }
 
+// 登出整页导航：jsdom 不实现 navigation，以 plain object 顶替 location，
+// 截获 href 赋值（同 QueryErrorBridge.test 口径）。
+const originalLocation = window.location;
+
 beforeEach(() => {
+  Object.defineProperty(window, 'location', {
+    value: { href: 'http://localhost:5300/documents/itwin-1' },
+    writable: true,
+    configurable: true,
+  });
   // 清上次调用历史（DocumentsPage 测试的 deleteMock.mockReset 同理由——
   // 前端断言「未调用」依赖干净起点）；mockResolvedValue 实现不受 clear 影响。
   vi.clearAllMocks();
@@ -206,6 +215,13 @@ beforeEach(() => {
   mocks.imodelsRevokePermission.mockResolvedValue(undefined);
   // 默认 Admin/Editor 语义：具备 imodels_manage（新建入口可见）。
   mocks.getITwinPermissions.mockResolvedValue(['imodels_manage', 'imodels_webview']);
+});
+
+afterEach(() => {
+  Object.defineProperty(window, 'location', {
+    value: originalLocation,
+    configurable: true,
+  });
 });
 
 describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => {
@@ -460,6 +476,7 @@ describe('DocumentDetailsPage 结构（/documents/:iTwinId 详情页）', () => 
     }
     await user.click(within(menu).getByRole('menuitem', { name: '退出登录' }));
     expect(AuthSession.logout).toHaveBeenCalled();
+    expect(window.location.href).toBe('/login');
   });
 
   it('iModel 空态：引导文案 + 新建入口', async () => {

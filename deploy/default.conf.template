@@ -72,12 +72,16 @@ server {
     # /itwins 的 HTML 导航请求回退 SPA（React Router 页面路由，
     # 与 vite 代理的 bypass 行为一致）；API 调用（Accept 不含
     # text/html）照常转 HUB。
+    # 2026-11-10：Host 必须保留浏览器端口（$http_host 而非 $host）。hub 的
+    # 分页 _links.next 是绝对 URL；$host 丢掉 :5301 后会生成
+    # http://localhost/imodels?...，浏览器按 80 端口取下一页而失败。示例目录
+    # 的 Onshape 示例复刻项目有 >100 个 iModel，强制翻页时暴露该缺口。
     location /itwins {
         if ($http_accept ~* "text/html") {
             rewrite ^ /__spa last;
         }
         proxy_pass http://${HUB_UPSTREAM};
-        proxy_set_header Host              $host;
+        proxy_set_header Host              $http_host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -85,7 +89,7 @@ server {
 
     location /imodels {
         proxy_pass http://${HUB_UPSTREAM};
-        proxy_set_header Host              $host;
+        proxy_set_header Host              $http_host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;

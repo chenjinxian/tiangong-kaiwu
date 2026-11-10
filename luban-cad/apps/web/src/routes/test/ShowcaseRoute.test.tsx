@@ -27,11 +27,12 @@ describe('ShowcaseRoute 产品介绍页', () => {
     expect(screen.queryByText('Bumper Block')).toBeNull();
     expect(screen.queryByText('Fox RP23')).toBeNull();
     expect(screen.queryByText(/Part 4/)).toBeNull();
-    // hero/CTA 计数与实际一致（strict 16、示例 iModel 13），不得暗示 18。
+    // hero/CTA 计数与 2026-11-10 发布闭口一致（strict 18；目录页为独立入口）。
     const heroFacts = Array.from(document.querySelectorAll('.showcase-hero__facts li'))
       .map((item) => item.textContent);
-    expect(heroFacts).toContain('16 个严格验证示例');
-    expect(screen.getByText('打开应用，或从文档中心进入 13 个示例 iModel 的分步演示。')).toBeDefined();
+    expect(heroFacts).toContain('18 个严格验证示例');
+    expect(screen.getByText('打开应用，或在全部示例目录查看 18 个示例的封面、目标体积与打开入口。')).toBeDefined();
+    expect(screen.getByRole('link', { name: '浏览全部示例' }).getAttribute('href')).toBe('/examples');
     expect(screen.getByText('Tutorial 2 - Build a Part')).toBeDefined();
     expect(screen.getByText('真形（TrueForm）')).toBeDefined();
     expect(screen.getByRole('link', { name: '进入鲁班CAD' }).getAttribute('href')).toBe('/login');

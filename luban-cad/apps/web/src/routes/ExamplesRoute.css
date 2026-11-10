@@ -1,0 +1,5 @@
+/* ExamplesRoute.css — /examples 路由壳：占满视口。 */
+
+.examples-route {
+  min-block-size: 100vh;
+}

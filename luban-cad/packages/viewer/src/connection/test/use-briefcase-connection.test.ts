@@ -25,6 +25,7 @@ const {
   pullChangesMock,
   setIModelMock,
   ipcSessionMock,
+  queryConcurrencyMock,
 } = vi.hoisted(() => {
   const ipcSession: { active: object | undefined } = { active: {} };
   return {
@@ -37,13 +38,18 @@ const {
     pullChangesMock: vi.fn(),
     setIModelMock: vi.fn(),
     ipcSessionMock: ipcSession,
+    queryConcurrencyMock: vi.fn(),
   };
 });
 
 vi.mock('@itwin/core-frontend', () => ({
   // isValid: true——2026-10-26 open 前置 IpcApp 就绪门（生产 bundle 竞态修复）的
   // 测试姿态：mock 恒就绪，门零等待直接过（门自身的等待/超时语义由真实栈覆盖）。
-  IpcApp: { makeIpcProxy: makeIpcProxyMock, isValid: true },
+  IpcApp: {
+    makeIpcProxy: makeIpcProxyMock,
+    isValid: true,
+    appFunctionIpc: { queryConcurrency: queryConcurrencyMock },
+  },
   BriefcaseConnection: { openFile: openFileMock },
 }));
 vi.mock('@luban-cad/shared', () => ({ lubanIpcChannel: 'luban-ipc' }));
@@ -87,6 +93,7 @@ beforeEach(() => {
   downloadBriefcaseMock.mockResolvedValue(DOWNLOAD_RESULT);
   openFileMock.mockResolvedValue(mockConnection);
   closeMock.mockResolvedValue(undefined);
+  queryConcurrencyMock.mockResolvedValue(4);
 });
 
 describe('useBriefcaseConnection（移植自旧查看器包）', () => {
@@ -223,6 +230,37 @@ describe('useBriefcaseConnection（移植自旧查看器包）', () => {
     expect(saveChangesMock).not.toHaveBeenCalled();
     expect(pushChangesMock).not.toHaveBeenCalled();
     expect(pullChangesMock).not.toHaveBeenCalled();
+  });
+
+  it('正常流先做 IPC 存活探针（queryConcurrency）', async () => {
+    renderHook(() => useBriefcaseConnection(OPTIONS));
+    await flushAsync();
+    expect(queryConcurrencyMock).toHaveBeenCalledWith('io');
+  });
+
+  it('后端重启：存活探针拒绝 → error 就位，不发起 downloadBriefcase', async () => {
+    queryConcurrencyMock.mockRejectedValue(new Error('WebSocket is already in CLOSING or CLOSED state'));
+    const { result } = renderHook(() => useBriefcaseConnection(OPTIONS));
+    await flushAsync();
+    expect(result.current.error?.message).toBe('WebSocket is already in CLOSING or CLOSED state');
+    expect(result.current.isLoading).toBe(false);
+    expect(downloadBriefcaseMock).not.toHaveBeenCalled();
+  });
+
+  it('后端重启：存活探针无响应 8s → 连接断开错误，不再永久停在打开中', async () => {
+    vi.useFakeTimers();
+    try {
+      queryConcurrencyMock.mockReturnValue(new Promise<never>(() => undefined));
+      const { result } = renderHook(() => useBriefcaseConnection(OPTIONS));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(8_000); });
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.error?.message).toContain('建模服务连接已断开');
+      expect(result.current.isLoading).toBe(false);
+      expect(downloadBriefcaseMock).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('downloadBriefcase 拒绝 → error 就位、connection 恒 null、isLoading 归 false', async () => {

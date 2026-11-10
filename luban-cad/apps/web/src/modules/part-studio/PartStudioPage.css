@@ -571,6 +571,21 @@
   font-size: var(--iui-font-size-0);
 }
 
+.part-studio-canvas__connection-error-reload {
+  margin-block-start: var(--iui-size-xs, 8px);
+  padding: 6px 14px;
+  border: 1px solid var(--iui-color-border);
+  border-radius: var(--iui-border-radius-1);
+  background: var(--iui-color-background);
+  color: var(--iui-color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.part-studio-canvas__connection-error-reload:hover {
+  background: var(--iui-color-background-hover);
+}
+
 /* ── 右停靠 ───────────────────────────────────────────────────────── */
 /* Onshape 右缘：浮动工具面板条（不占布局宽），panel body 向左浮出。 */
 .part-studio-dock {

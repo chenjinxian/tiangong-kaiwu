@@ -278,10 +278,13 @@ export function DocumentsPage(): React.JSX.Element {
     void queryClient.invalidateQueries({ queryKey: ['documents'] });
   }, [queryClient]);
 
+  // 登出必须整页导航（2026-11-10）：IPC/WebSocket 的身份在建连时固定，
+  // SPA 切换登录页只会换 HTTP 会话，页面级 viewer host 仍复用旧 WS 身份。
+  // 走 location.href 重新加载，销毁旧 host 与 socket；新页面按新会话重建。
   const handleLogout = React.useCallback(async () => {
     await AuthSession.logout();
-    navigate('/login');
-  }, [navigate]);
+    window.location.href = '/login';
+  }, []);
 
   const openDocument = React.useCallback(
     (doc: DocumentSummary) => {
@@ -592,7 +595,7 @@ export function DocumentsPage(): React.JSX.Element {
                     {t('documents.onboarding.upgrade')}
                   </Button>
                 </div>
-                <button type="button" className="documents-welcome__explore" onClick={() => navigate('/showcase')}>
+                <button type="button" className="documents-welcome__explore" onClick={() => navigate('/examples')}>
                   <div className="documents-welcome__explore-art" aria-hidden="true">
                     <SvgFolder />
                   </div>

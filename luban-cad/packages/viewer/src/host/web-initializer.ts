@@ -6,15 +6,15 @@
  * 导出更名 `startViewer`/`stopViewer`，`hubUrl` 必填并用于 IModelsClient baseUrl；
  * AccuSnap 轮询补启提取至 `../tools/ensure-accusnap.ts`（语义不变）。
  *
- * M4 Task 1（2026-10-22）：stopViewer 收归私有 `shutdownViewer`，新增
- * `acquireViewer`/`releaseViewer` 模块级引用计数——多消费方（多页签/多视口）共享
- * 同一 host 生命周期，计数 1→0 才真正 shutdown（M3 终审 T3-③「卸载无条件 stopViewer」
- * 收口：先卸载方不再杀掉后挂载方的 host）；acquire 复用 startViewer 幂等体。
+ * M4 Task 1（2026-10-22，2026-11-10 修订）：`acquireViewer`/`releaseViewer`
+ * 只做消费方引用计数，**不拥有 host 生命周期**。对齐 iTwin.js
+ * display-test-app：LocalhostIpcApp/IpcApp/IModelApp 由页面持有，首次进入
+ * 编辑器 startup 一次，路由/Viewport 卸载只关闭 BriefcaseConnection，绝不在
+ * release 归零时 shutdown（否则 SPA 重入会复用/重建死 WebSocket，卡在
+ * “正在解析 Part Studio…”）。显式停止查看器需要整页刷新。
  *
  * M4 Task 2（2026-10-22）：startViewer 加 in-flight promise 去重——并发
- * acquire 共享同一 startup promise（startup 恰一次）；release 归零的 shutdown 在途
- * 时，新 acquire 等它落定再重新 startup——防「release 归零 shutdown 进行中 + 新
- * acquire」交错拿到假就绪（IpcApp.isValid 未翻转、host 随即 shutdown）。
+ * acquire 共享同一 startup promise（startup 恰一次）。
  * 同步首段语义保持：队列空闲时 startup 的同步前缀（LocalTransport 创建 +
  * IpcApp._ipc 就位）仍在调用方同步帧内完成，后续 IPC 调用可立即入 socket 缓冲。
  */
@@ -57,8 +57,6 @@ export interface StartViewerOptions {
 
 /** in-flight startup promise：并发 startViewer 共享同一次 startup（恰一次）。 */
 let inFlightStartup: Promise<void> | null = null;
-/** in-flight shutdown promise：release 归零的 shutdown 进行中，新 startup 须等它落定。 */
-let inFlightShutdown: Promise<void> | null = null;
 
 /**
  * Start the iTwin.js viewer for the Web platform.
@@ -67,8 +65,16 @@ let inFlightShutdown: Promise<void> | null = null;
  * - IModelApp with web-specific configuration
  * - BentleyCloudRpcManager for RPC communication
  *
- * Idempotent: when `IpcApp.isValid` is already true the `LocalhostIpcApp.startup`
- * is skipped, but the RPC client is still (re)configured.
+ * **页面级生命周期（对齐 itwinjs-core display-test-app）**：LocalhostIpcApp/
+ * IpcApp/IModelApp 只在页面首次需要查看器时 startup 一次，之后由页面持有，
+ * 不随 React 路由/Viewport 卸载而 shutdown。离开编辑器只关闭
+ * `BriefcaseConnection`/iModel；再次进入复用同一条 /ipc WebSocket。
+ * 页面刷新/关闭由浏览器销毁 WebSocket，后端 `LocalhostIpcHost` 在 connection
+ * close 时清理；显式停止查看器需要整页刷新（DTA 同口径）。
+ *
+ * Idempotent: when both `IpcApp.isValid` and `IModelApp.initialized` are true,
+ * `LocalhostIpcApp.startup` is skipped, but the RPC client/token is still
+ * (re)configured.
  * 并发语义：在飞行中（in-flight 未落定）的并发方共享同一 startup promise、
  * 不做 RPC 重配；in-flight 落定后的再次调用仍走幂等体、照常幂等重配 RPC。
  *
@@ -85,15 +91,7 @@ export async function startViewer(options: StartViewerOptions): Promise<void> {
   if (inFlightStartup) {
     return inFlightStartup;
   }
-  const run = async (): Promise<void> => {
-    // release 归零的 shutdown 在途：等它落定再 startup——否则「shutdown 进行中 +
-    // 新 acquire」交错，新方拿到假就绪（IpcApp.isValid 未翻转、host 随即 shutdown）
-    if (inFlightShutdown) {
-      await inFlightShutdown;
-    }
-    await doStartViewer(options);
-  };
-  inFlightStartup = run().finally(() => {
+  inFlightStartup = doStartViewer(options).finally(() => {
     inFlightStartup = null;
   });
   return inFlightStartup;
@@ -124,7 +122,10 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
   // 详见 host/rate-limit-retry.ts 头注。
   installRateLimitAwareRequests(rpcInterfaces);
 
-  if (!IpcApp.isValid) {
+  // 两个状态都必须就绪才算“已在运行”：IModelApp.shutdown 会把 initialized 置假，
+  // 但 IpcApp.isValid 只有在 IpcApp.shutdown 后才清；只看 isValid 会在 SPA
+  // 路由重入时跳过 startup，留下 IModelApp.initialized=false（2026-11-10 实测）。
+  if (!IpcApp.isValid || !IModelApp.initialized) {
     // eslint-disable-next-line no-console
     console.log('[WebInitializer] Initializing LubanCAD Web Viewer...');
     // eslint-disable-next-line no-console
@@ -266,15 +267,18 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
 
 /**
  * 引用计数（模块级）：当前持有 viewer host 的消费方数量。
- * 1→0 时执行 host shutdown；0 时的 release 是安全 no-op。
+ *
+ * **不拥有 host 生命周期**：计数归零后 host 仍由页面持有（DTA 同口径）。
+ * 离开编辑器时消费方只关闭自己的 BriefcaseConnection；页面刷新/关闭由浏览器
+ * 销毁 WebSocket，由后端 connection close 清理。
  */
 let viewerRefCount = 0;
 
 /**
  * Acquire the viewer host（引用计数 +1）并确保运行时已初始化。
  *
- * 内部复用 {@link startViewer} 幂等体：host 已就绪时只重配 RPC，不重复 startup。
- * acquire 失败时回滚计数（失败方不持有 host），异常原样上抛。
+ * 内部复用 {@link startViewer} 幂等体：host 已就绪时只重配 RPC/token，不重复
+ * startup。acquire 失败时回滚计数（失败方不持有 host），异常原样上抛。
  */
 export async function acquireViewer(options: StartViewerOptions): Promise<void> {
   viewerRefCount++;
@@ -289,7 +293,10 @@ export async function acquireViewer(options: StartViewerOptions): Promise<void> 
 /**
  * Release the viewer host（引用计数 -1）。
  *
- * 计数 1→0 才执行 host shutdown（IModelApp.shutdown）；仍有其它消费方时仅减计数。
+ * **只减引用，不 shutdown**：路由/Viewport 卸载不是页面的结束。IModelApp/
+ * IpcApp/WebSocket 由页面生命周期持有；下次进入编辑器直接复用。计数归零时
+ * 的唯一动作是记录引用归零，不能调用 IpcApp.shutdown（否则会重演
+ * “WebSocket CLOSING/CLOSED → 正在解析 Part Studio…” 的 SPA 重入故障）。
  * 计数已为 0 时安全 no-op（防重放卸载）。
  */
 export async function releaseViewer(): Promise<void> {
@@ -299,35 +306,8 @@ export async function releaseViewer(): Promise<void> {
     return;
   }
   viewerRefCount--;
-  if (viewerRefCount > 0) return;
-  await shutdownViewer();
-}
-
-/**
- * Shut down the iTwin.js viewer（原 stopViewer，私有——只经 releaseViewer 计数归零触发）。
- * 并发 release（StrictMode 连卸）共享同一次 shutdown；在途标记供 startViewer 等待。
- */
-async function shutdownViewer(): Promise<void> {
-  if (inFlightShutdown) {
-    await inFlightShutdown;
-    return;
-  }
-  const run = (async (): Promise<void> => {
-    if (IModelApp.initialized) {
-      try {
-        await IModelApp.shutdown();
-        // eslint-disable-next-line no-console
-        console.log('Web viewer shut down');
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('IModelApp shutdown error (likely React StrictMode double-invoke):', err);
-      }
-    }
-  })();
-  inFlightShutdown = run;
-  try {
-    await run;
-  } finally {
-    inFlightShutdown = null;
+  if (viewerRefCount === 0) {
+    // eslint-disable-next-line no-console
+    console.log('[WebInitializer] viewer consumers released; host kept alive for page lifetime');
   }
 }

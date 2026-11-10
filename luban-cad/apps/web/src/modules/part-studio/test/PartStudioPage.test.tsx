@@ -1237,7 +1237,7 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     pullChanges: vi.fn().mockResolvedValue(undefined),
   });
 
-  it('连接失败：画布错误面（error.message 透传）+ 状态栏连接失败（briefcase 失败优先于 host ready 相位）+ 诚实重试路径无假重试钮', () => {
+  it('连接失败：画布错误面（error.message 透传）+ 状态栏连接失败（briefcase 失败优先于 host ready 相位）+ 刷新页面恢复入口', () => {
     viewerMocks.useBriefcaseConnection.mockReturnValue({
       connection: null,
       isLoading: false,
@@ -1253,8 +1253,8 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     expect(within(face).getByText('文档打开失败')).toBeDefined();
     expect(within(face).getByText('downloadBriefcase failed: briefcase quota exceeded')).toBeDefined();
     expect(within(face).getByText(/重新打开文档/)).toBeDefined();
-    // 无假重试钮：重开=切页签/重进的真实路径，错误面只给指引不放行不通的按钮。
-    expect(within(face).queryByRole('button')).toBeNull();
+    // 页面级 IPC host 无公开重连 API：给真实“刷新页面”入口，不放行不通的假重试。
+    expect(within(face).getByRole('button', { name: '刷新页面' })).toBeDefined();
     // 状态栏同步失败态——host 相位 ready 被 briefcase 失败覆盖（T2-② 缺陷本体）。
     expect(screen.getByTestId('part-studio-status-connection').textContent).toBe('连接失败');
   });

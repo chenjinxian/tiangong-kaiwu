@@ -525,7 +525,8 @@ export function PartStudioCanvas({
 
       {/* 连接相位覆盖层（M5-T2）：briefcase 失败错误面 / 下载中骨架。绝对定位
           叠加（z-index 低于草图覆盖层），viewport 区无重排——零布局跳动。错误
-          面透传 error.message 原文 + 诚实重试指引（无假重试钮）；骨架先行占位
+          面透传 error.message 原文 + 页面级 host 刷新入口（WebSocket/backend 重启
+          后无公开重连 API，整页刷新是唯一诚实恢复路径）；骨架先行占位
           防「已连接+黑屏」。 */}
       {connectionError ? (
         <div
@@ -540,6 +541,14 @@ export function PartStudioCanvas({
           <p className="part-studio-canvas__connection-error-hint">
             {t('partStudio.connection.errorHint')}
           </p>
+          <button
+            type="button"
+            className="part-studio-canvas__connection-error-reload"
+            data-testid="part-studio-connection-reload"
+            onClick={() => window.location.reload()}
+          >
+            {t('partStudio.connection.reload')}
+          </button>
         </div>
       ) : connectionLoading ? (
         <div

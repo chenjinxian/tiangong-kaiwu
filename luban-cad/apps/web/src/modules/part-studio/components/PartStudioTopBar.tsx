@@ -143,10 +143,12 @@ export function PartStudioTopBar({
     return null;
   }, [mode, iTwinId, iModelId, itwinName, imodelName]);
 
+  // 登出必须整页导航（2026-11-10）：页面级 IPC host 的 WebSocket 身份建连时
+  // 固定，SPA 切登录页会复用旧身份；整页加载销毁旧 host/socket。
   const handleLogout = React.useCallback(async () => {
     await AuthSession.logout();
-    navigate('/login');
-  }, [navigate]);
+    window.location.href = '/login';
+  }, []);
 
   return (
     <>

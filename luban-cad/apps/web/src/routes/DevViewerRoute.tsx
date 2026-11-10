@@ -11,8 +11,8 @@ import { acquireViewer, releaseViewer } from '@luban-cad/viewer';
  *   （M3-T1：MS CORS 钉死 :5300，直连姿态不做 dev 特例——backendUrl 传同源，
  *   viewer 拼出 ws://<origin>/ipc 走 vite 代理转发 MS :5401；env.msUrl 仅作展示）
  *   → 轮询 `IModelApp.toolAdmin`（50ms×30s，对齐旧 `apps/web useEditorInitialization`）；
- * - 「停止查看器」→ `releaseViewer()`（M4-T1 引用计数：与 acquireViewer 成对持有——
- *   单点直调 release 会因计数归 0 前的守卫变 no-op，须与启动同配对）；
+ * - 「释放查看器引用」→ `releaseViewer()`：只做消费方引用计数，host 由页面持有，
+ *   不 shutdown（对齐 DTA；真正停止/重启需刷新页面）；
  * - `data-testid="viewer-status"` 显示 `IpcApp: valid/invalid · toolAdmin: ready/not-ready`。
  */
 
@@ -207,7 +207,7 @@ export function DevViewerRoute(): React.JSX.Element {
           >
             启动查看器
           </Button>
-          <Button data-testid="viewer-stop" onClick={handleStop}>停止查看器</Button>
+          <Button data-testid="viewer-stop" onClick={handleStop}>释放查看器引用</Button>
           <span data-testid="viewer-status" style={{ fontFamily: 'monospace' }}>
             {viewerStatusText(viewerState)}
           </span>

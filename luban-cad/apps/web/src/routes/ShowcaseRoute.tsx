@@ -85,6 +85,7 @@ export function ShowcaseRoute(): React.JSX.Element {
           <a href="#video">演示视频</a>
           <a href="#features">核心能力</a>
           <a href="#examples">示例复刻</a>
+          <Link to="/examples">全部示例</Link>
           <a href="#stack">技术底座</a>
         </nav>
         <Link className="showcase-header__cta" to="/login">打开应用</Link>
@@ -106,7 +107,7 @@ export function ShowcaseRoute(): React.JSX.Element {
             </div>
             <ul className="showcase-hero__facts">
               <li><strong>4K</strong> 实机截图</li>
-              <li><strong>16</strong> 个严格验证示例</li>
+              <li><strong>18</strong> 个严格验证示例</li>
               <li><strong>0.00%</strong> 示例体积对拍</li>
             </ul>
           </div>
@@ -197,11 +198,11 @@ export function ShowcaseRoute(): React.JSX.Element {
         <section className="showcase-cta">
           <div>
             <h2>把下一个零件，交给鲁班CAD。</h2>
-            <p>打开应用，或从文档中心进入 13 个示例 iModel 的分步演示。</p>
+            <p>打开应用，或在全部示例目录查看 18 个示例的封面、目标体积与打开入口。</p>
           </div>
           <div className="showcase-cta__actions">
             <Link className="showcase-button showcase-button--primary" to="/login">立即体验</Link>
-            <Link className="showcase-button showcase-button--ghost" to="/documents">浏览示例</Link>
+            <Link className="showcase-button showcase-button--ghost" to="/examples">浏览全部示例</Link>
           </div>
         </section>
       </main>
