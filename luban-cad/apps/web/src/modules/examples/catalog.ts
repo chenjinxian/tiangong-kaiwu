@@ -1,7 +1,7 @@
 /**
  * 全部 Onshape 示例目录（public, 只读投影）。
  *
- * 数据来源：私有 `onshape-parity-data/manifest/example-index.json` 的 20 个
+ * 数据来源：私有 `onshape-parity-data/manifest/example-index.json` 的 21 个
  * `replicable-now` 条目；本文件只保留公开可展示的聚合字段（owner/名称/目标
  * 体积/封面/精确 iModel 名）。不包含原始 features、坐标、elementId/docId、
  * 私有路径或 UI 证据——私有 index 仍是唯一事实源，更新时同步本投影并跑
@@ -278,6 +278,19 @@ export const EXAMPLE_CATALOG: readonly ExampleCatalogEntry[] = [
     cover: '/showcase/example-intro-part5.webp',
     strictness: 'strict',
     note: '单线 imprint 面切分 / 凹口空腔 / 通槽',
+  },
+  {
+    id: 'intro-part-6',
+    title: 'Intro to CAD 1.2 / Part 6',
+    owner: 'Onshape Training Repo',
+    document: 'Intro to CAD - 1.2 - Viewing Objects in Onshape',
+    partStudio: 'Part 6',
+    projectName: 'Onshape 示例复刻',
+    imodelName: 'Onshape example: Intro to CAD 1.2 Part 6',
+    volumeMm3: 188451.236,
+    cover: '/showcase/example-intro-part6.webp',
+    strictness: 'strict',
+    note: '面内/空腔切分 + 零几何变化 remove（源证据 no-op）',
   },
 ];
 

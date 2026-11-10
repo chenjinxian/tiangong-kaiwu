@@ -2,15 +2,15 @@
  * /examples 全部示例目录 smoke（public + 登录态解析）。
  *
  * 只读页面：不创建/修改示例 iModel；登录态用 e2e 固定测试账号，按名解析
- * 已存在的示例项目。20 卡必须全部来自 catalog，不允许用空壳占位。
+ * 已存在的示例项目。21 卡必须全部来自 catalog，不允许用空壳占位。
  */
 import { expect, test } from '@playwright/test';
 import { loginWithSession } from '../helpers.js';
 
 test.describe('/examples 全部示例目录', () => {
-  test('公开可读：20 张卡片 + 未登录动作', async ({ page }) => {
+  test('公开可读：21 张卡片 + 未登录动作', async ({ page }) => {
     await page.goto('/examples');
-    await expect(page.getByTestId('example-card')).toHaveCount(20);
+    await expect(page.getByTestId('example-card')).toHaveCount(21);
     await expect(page.getByRole('heading', { name: '全部示例' })).toBeVisible();
     await expect(page.getByTestId('example-card').first()).toContainText('登录后打开');
     await expect(page.getByRole('link', { name: '全部示例', exact: true })).toBeVisible();
@@ -58,8 +58,8 @@ test.describe('/examples 全部示例目录', () => {
   test('登录态：Bumper 唯一解析到 iModel，打开链接直达', async ({ page }) => {
     await loginWithSession(page);
     await page.goto('/examples');
-    await expect(page.getByTestId('example-card')).toHaveCount(20);
-    // 20 个示例 iModel 都应被按名解析；缺一个说明 project/imodel 映射漂移。
+    await expect(page.getByTestId('example-card')).toHaveCount(21);
+    // 21 个示例 iModel 都应被按名解析；缺一个说明 project/imodel 映射漂移。
     await expect(page.getByRole('link', { name: '打开示例' })).toHaveCount(20, { timeout: 30_000 });
 
     await page.getByTestId('example-search').fill('Bumper');

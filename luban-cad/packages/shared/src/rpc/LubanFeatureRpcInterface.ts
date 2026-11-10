@@ -727,7 +727,8 @@ export interface FaceExtrudeSplitLine {
 
 export interface FaceExtrudeParams {
   bodyId: string;
-  faceRef: LubanTopologyId;
+  /** 面引用；`noOpEvidence`（源已验证零几何变化）时可为空，求值器不解析。 */
+  faceRef?: LubanTopologyId;
   operation: "add" | "remove" | "intersect";
   endBound: Extract<ExtrudeEndBound, "blind" | "throughAll">;
   depthMm?: number;
@@ -748,6 +749,11 @@ export interface FaceExtrudeParams {
   /** v1.66（ADR-0006 D2）：开放直线把平面面切成两侧后取一侧作为起始轮廓。
    *  缺省=整面（旧载荷逐字不变）。 */
   splitByLine?: FaceExtrudeSplitLine;
+  /** v1.67（ADR-0006 D2 扩展）：**源已验证零几何变化**的 no-op remove。
+   *  仅 `operation="remove"` 合法；非空证据串说明来源（如 bodydetails
+   *  before/after 完全一致）。求值器只做 body 作用域校验并原样透传上游，
+   *  不构造工具、不调用内核；不是失败兜底，也不能用于未验证的静默 no-op。 */
+  noOpEvidence?: string;
 }
 
 /**
@@ -1053,7 +1059,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.66.0";
+  public static interfaceVersion = "1.67.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

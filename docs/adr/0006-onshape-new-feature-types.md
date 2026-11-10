@@ -15,9 +15,10 @@
   实体面能力，当前无语料映射/UI**；
   **切片 D2（实体面单线 imprint 切分 / face split）首切片已落地（2026-11-10，
   shared 1.66.0：`FaceExtrudeParams.splitByLine` + `keepPoint` + `region:
-  material|void`；回放 resolver + 后端面环半平面/凸包空腔裁切）；Part 5 真栈
-  严格绿（逐步体积全等），Part 6 E1–E4 达到最终体积、E5 为 Onshape 验证的
-  零几何变化 remove（产品 fail-closed，仍 known-red）；UI 与通用 imprint 未做**。
+  material|void`；2026-11-11 shared 1.67.0：源证据 `noOpEvidence` 显式
+  no-op remove；回放 resolver + 后端面环半平面/凸包空腔裁切）；Part 5 与
+  Part 6 真栈均严格绿（Part 5 逐步体积全等；Part 6 最终 188,451.236 vs
+  188,451.236、8 步 status=0、push+冷重开一致）；UI 与通用 imprint 未做**。
 - 关联：`docs/adr/0004-sketch-contract-onshape-parity.md`、
   `docs/adr/0005-extrude-revolve-contract-onshape-parity.md`、
   `docs/superpowers/specs/2026-11-04-onshape-example-replication-airr.md`、
@@ -289,6 +290,8 @@ export interface FaceExtrudeSplitLine {
 export interface FaceExtrudeParams {
   // …既有字段…
   splitByLine?: FaceExtrudeSplitLine;
+  /** v1.67：源已验证零几何变化的 remove（仅 remove；非失败回退）。 */
+  noOpEvidence?: string;
 }
 ```
 
@@ -323,9 +326,31 @@ left 75mm² add 1375 / right 25mm² add 1125、remove 625；`keepPoint` 覆盖
 spec 保持 `test.fail`。首切片不宣称通用 imprint（任意曲线/多线/孔切分/内核
 Imprint 通道）。
 
+**noOpEvidence（2026-11-11，shared 1.67.0）**：Part 6 E5 在 Onshape 中前后
+bodydetails 完全一致（16 面，面积/box/ID 全同），是源已验证的零几何变化
+remove。产品零相交 remove 仍 fail-closed；仅当 `operation=remove` 且携带
+非空源证据时，求值器校验 body 作用域后原样返回上游体，不进入工具/内核，也
+不作为失败回退。回放 translator 要求 bodyId + 非空证据，缺 faceRef 合法；
+schema 拒绝 add/空证据/无 faceRef 且无证据。
+
+**验证结果（2026-11-10/11）**：合成 10×10×10 盒顶面 (0,0)→(10,5)：
+left 75mm² add 1375 / right 25mm² add 1125、remove 625；`keepPoint` 覆盖
+`keepSide` 得 1375；不在面平面/边界线/退化线 status≠0；L 形 void 凹口三角
+面积 50；noOpEvidence 合成：非空证据 + remove 体积 1000 不变，add/空证据/
+缺 faceRef+证据均拒收。**Part 5 真栈严格绿**：逐步体积 98,322.384 /
+245,805.960 / 262,193.024 / 229,418.896 / **204,838.300 vs 204,838.300
+（0.000%）**，9 步树全 status=0，push+冷重开一致。**Part 6 真栈严格绿**：
+E1–E4 后 **188,451.236 vs 188,451.236（0.000%）**，E5 no-op 后体积不变；
+8 步树全 status=0（2 个 faceExtrude：E3 void split、E5 no-op remove；E4 为
+闭合面域 extrude），push+冷重开一致。E1/E2/E4 的闭合面域选集仍标记
+approximate（体积精确，但 selector 由 area/bbox/centroid 证据反解），
+E3/E5 的开放单线切分为精确路径。首切片不宣称通用 imprint（任意曲线/多线/
+孔切分/内核 Imprint 通道）。
+
 **限制**：无 UI；converter 仍输出 imprintFace（由回放 resolver 在步骤时点
-解析），不是转换器静态映射；void 仅支持直线外环；E5 零相交 no-op 未产品化；
-不含 Part 5/6 之外未验证的 selector 泛化。
+解析），不是转换器静态映射；void 仅支持直线外环；闭合面域 imprintFace
+仍依赖面积/bbox/质心证据（E1/E2/E4 approximate）；不含 Part 5/6 之外未
+验证的 selector 泛化。
 
 ---
 

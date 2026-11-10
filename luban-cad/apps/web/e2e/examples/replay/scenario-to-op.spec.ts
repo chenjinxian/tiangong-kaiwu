@@ -202,6 +202,47 @@ test.describe('scenario → FeatureOp', () => {
     })).toThrow(BlockedCapabilityError);
   });
 
+  test('faceExtrude 源证据 no-op remove（v1.67）：仅 remove + 非空证据，透传且不解析 faceRef', () => {
+    const step = translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude 5',
+      params: {
+        operation: 'remove', endBound: 'blind', depthMm: 76.2,
+        bodyId: 'body-1', noOpEvidence: 'bodydetails rb8 == final',
+      },
+    });
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.featureType).toBe('faceExtrude');
+    expect(step.op.params).toMatchObject({
+      operation: 'remove',
+      bodyId: 'body-1',
+      noOpEvidence: 'bodydetails rb8 == final',
+    });
+    expect('faceRef' in step.op.params).toBe(false);
+    expect(step.notes.join(' ')).toContain('no-op remove');
+
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E5',
+      params: { operation: 'add', endBound: 'blind', depthMm: 1, bodyId: 'b', noOpEvidence: 'e' },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E5',
+      params: { operation: 'remove', endBound: 'blind', depthMm: 1, bodyId: 'b', noOpEvidence: '   ' },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E5',
+      params: { operation: 'remove', endBound: 'blind', depthMm: 1, bodyId: 'b' },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E5',
+      params: {
+        operation: 'remove', endBound: 'blind', depthMm: 1, bodyId: 'b', noOpEvidence: 'e',
+        splitByLine: { start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 1, z: 0 }, keepSide: 'left' },
+      },
+    })).toThrow(BlockedCapabilityError);
+  });
+
   test('extrude 拔模（v1.51）：弧度→度 + 反向键；方向语义未校准标 approximate', () => {
     const step = translateScenarioFeature({
       type: 'extrude',

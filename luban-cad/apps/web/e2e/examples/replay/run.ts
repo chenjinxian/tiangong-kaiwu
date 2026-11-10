@@ -310,6 +310,9 @@ export async function runScenario(
       // ADR-0016 A3：S10 面驱动 CAP_FACE profile（converter `capFaceProfile`）。
       // 必须在 bodyContext 建好之后解析起始面（见下方 capFaceResolver 分支）。
       const originalSelection = (feature.params as { selection?: { kind?: string } }).selection;
+      const explicitNoOpEvidence = (feature.params as { noOpEvidence?: unknown }).noOpEvidence;
+      const hasExplicitNoOp = feature.type === 'extrude'
+        && typeof explicitNoOpEvidence === 'string' && explicitNoOpEvidence.trim().length > 0;
       const isCapFaceProfile = feature.type === 'extrude' && originalSelection?.kind === 'capFaceProfile';
       const capFaceNotes: string[] = [];
       if (feature.type === 'extrude') {
@@ -340,8 +343,8 @@ export async function runScenario(
           ? selection.capFaceEdges.entityIds.filter((id): id is number => Number.isInteger(id))
           : [];
         const hasCapFaceEdges = capFaceEdgeIds.length > 0;
-        if (selection?.kind === 'imprintFace'
-          || (isCapFace && ((selection.queries?.length ?? 0) > 0 || hasCapFaceEdges))) {
+        if (!hasExplicitNoOp && (selection?.kind === 'imprintFace'
+          || (isCapFace && ((selection.queries?.length ?? 0) > 0 || hasCapFaceEdges)))) {
           const rawQueries = Array.isArray(selection.queries) && selection.queries.length > 0
             ? selection.queries
             : [];
@@ -1173,6 +1176,30 @@ export async function runScenario(
           params: { ...(effectiveFeature.params as Record<string, unknown>), hasDraft: false, draftAngleDeg: 0 },
         };
         approximateDraft = true;
+      }
+      // v1.67（ADR-0006 D2 扩展）：源已验证零几何变化 remove。不做面/线解析，
+      // 仅锚定当前唯一 active authored body，交给 faceExtrude noOpEvidence 原样透传。
+      if (hasExplicitNoOp) {
+        const bodies = (await getBodiesRpc(ctx, accessToken)).filter(
+          (body) => body.active !== false && body.authored !== false,
+        );
+        if (bodies.length !== 1)
+          throw new BlockedCapabilityError('face-extrude', `${feature.name} no-op remove 需要唯一 active authored body（当前 ${bodies.length}）`);
+        const sourceParams = feature.params as Record<string, unknown>;
+        const depthMm = typeof sourceParams.depthMm === 'number' ? sourceParams.depthMm : undefined;
+        effectiveFeature = {
+          ...feature,
+          type: 'faceExtrude',
+          params: {
+            bodyId: bodies[0]!.bodyKey,
+            operation: String(sourceParams.operation ?? '').toLowerCase(),
+            endBound: String(sourceParams.endBound ?? 'blind').replace(/[_-]/g, '').toLowerCase(),
+            ...(depthMm !== undefined ? { depthMm } : {}),
+            direction: sourceParams.oppositeDirection === true ? 'backward' : 'forward',
+            noOpEvidence: explicitNoOpEvidence,
+          },
+        };
+        imprintNotes.push(`no-op remove：${explicitNoOpEvidence}（源 before/after 几何一致，产品原样透传）`);
       }
       const translated = translateScenarioFeature(effectiveFeature, {
         sketchIdBySource,

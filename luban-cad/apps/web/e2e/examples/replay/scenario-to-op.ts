@@ -470,11 +470,20 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
   if (endBound === 'blind' && (depthMm === undefined || depthMm <= 0))
     throw new BlockedCapabilityError('face-extrude', `${feature.name} 盲端缺少有效距离`);
   const bodyId = stringParam(params, 'bodyId');
+  const noOpEvidence = stringParam(params, 'noOpEvidence');
+  if (!bodyId)
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} 缺少已解析的 bodyId`);
+  if (noOpEvidence !== undefined) {
+    if (operation !== 'remove' || noOpEvidence.trim().length === 0)
+      throw new BlockedCapabilityError('face-extrude', `${feature.name} noOpEvidence 仅支持非空证据的 remove`);
+  }
   const faceRef = asRecord(params.faceRef);
   const nodeId = faceRef?.nodeId;
   const entityId = faceRef?.entityId;
-  if (!bodyId || !Number.isInteger(nodeId) || !Number.isInteger(entityId))
-    throw new BlockedCapabilityError('face-extrude', `${feature.name} 缺少已解析的 bodyId/faceRef`);
+  if (noOpEvidence !== undefined && asRecord(params.splitByLine) !== undefined)
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} noOpEvidence 与 splitByLine 互斥`);
+  if (noOpEvidence === undefined && (!Number.isInteger(nodeId) || !Number.isInteger(entityId)))
+    throw new BlockedCapabilityError('face-extrude', `${feature.name} 缺少已解析的 faceRef`);
   // S3 review（2026-11-10）：direction 只接受 forward/backward；未知值必须 fail
   // closed，不能静默降级为 forward（方向错会变成零相交/错误去材）。
   const directionRaw = params.direction;
@@ -553,7 +562,9 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
   // 防止 blind 深度冒充 throughAll；盲端才写 depthMm。
   const faceParams: FaceExtrudeParams = {
     bodyId,
-    faceRef: { nodeId: nodeId as number, entityId: entityId as number },
+    ...(noOpEvidence !== undefined
+      ? { noOpEvidence }
+      : { faceRef: { nodeId: nodeId as number, entityId: entityId as number } }),
     operation,
     endBound,
     ...(endBound === 'blind' && depthMm !== undefined ? { depthMm } : {}),
@@ -581,7 +592,8 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
       `${endBound === 'throughAll' ? 'throughAll' : `${depthMm} mm`}` +
       `${startOffsetMm !== undefined ? `，startOffset=${startOffsetMm} mm` : ''}` +
       `${draftAngleDeg !== undefined ? `，draft=${draftAngleDeg.toFixed(3)}°${draftPullDirection ? '(reverse)' : ''}` : ''}` +
-      `${splitByLine ? `，split=${splitByLine.region ?? 'material'}/${splitByLine.keepSide}` : ''}）`,
+      `${splitByLine ? `，split=${splitByLine.region ?? 'material'}/${splitByLine.keepSide}` : ''}` +
+      `${noOpEvidence !== undefined ? '，no-op remove（源已验证零几何变化）' : ''}）`,
       ...(endBound === 'throughAll' && depthMm !== undefined
         ? ['endBound=throughAll：忽略 depthMm（不进入产品载荷）'] : []),
     ],
