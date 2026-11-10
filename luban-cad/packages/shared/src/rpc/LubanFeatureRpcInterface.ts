@@ -694,6 +694,12 @@ export interface LubanTopologyId { nodeId: number; entityId: number }
  * - `secondDirection`：复用 extrude 同形，首版仅 blind；
  * - `mergeScope`：多体目标（与 ExtrudeParams.mergeScope 同语义）。
  *
+ * v1.64（ADR-0016 切片 A1）：新增可选 `startOffsetMm` / `draftAngleDeg` /
+ * `draftPullDirection`——轮廓仍取**起始面边界**，偏移以面为基准（不是草图平面），
+ * 拔模中性面=选中的起始/profile 面。A1 是语义接线（面轮廓/偏移/拔模参数），
+ * 拔模构造复用既有“远端整环偏置 + Loft”，**不宣称**解析线/弧锥面边或 oracle 20/20；
+ * 旧载荷（无新键）逐字兼容。
+ *
  * 非平面面、零/多环歧义、面引用失效由服务端在 txn 前诚实拒收，不静默降级。
  */
 export interface FaceExtrudeParams {
@@ -705,6 +711,17 @@ export interface FaceExtrudeParams {
   direction?: ExtrudeDirection;
   secondDirection?: ExtrudeSecondDirection;
   mergeScope?: BodyRef[];
+  /** v1.64（ADR-0016）：起始轮廓沿**有效拉伸方向**相对起始面的平移（mm，有限；
+   *  缺省 0 = 面原位）。正=沿 direction 前进，负=反向；`depthMm` 从平移后的
+   *  起始平面起算。Bumper S11：startOffset=0（25 mm 默认未使用；面 z=40、
+   *  depth 40 → 顶面 z=80）。首版与 secondDirection 互斥。 */
+  startOffsetMm?: number;
+  /** v1.64（ADR-0016）：侧壁拔模角（度制，有限，0<|angle|<89）。S9：中性面=
+   *  选中的起始/profile 面；10° 从 pull direction 量起；`draftPullDirection=true`
+   *  收窄；δ=depth·tan(angle)。首版仅 endBound=blind，且与 secondDirection 互斥。 */
+  draftAngleDeg?: number;
+  /** v1.64（ADR-0016）：翻转拔模符号（Onshape「反向」）；仅与 draftAngleDeg 成对。 */
+  draftPullDirection?: boolean;
 }
 
 /**
@@ -996,7 +1013,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.63.0";
+  public static interfaceVersion = "1.64.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

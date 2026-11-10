@@ -164,4 +164,113 @@ test.describe('faceExtrude 真栈验收', () => {
     const reopenedVolume = (await getMassPropertiesRpc(reopened, token)).reduce((sum, item) => sum + item.volume, 0);
     expect(Math.abs(reopenedVolume - 48)).toBeLessThan(0.48);
   });
+
+  /**
+   * v1.64（ADR-0016 切片 A1）：起始面边界 + startOffset + draft 的**语义接线**验收。
+   * 180×50×40 盒顶面（z=40）faceExtrude add 40、10° 收窄（draftPullDirection=true）：
+   * 等距偏置 prismoid 上体 297,764.787 / 总 657,764.787（A1 baseline，允许 0.1%）。
+   * **不是 A2 精确门**：本用例不断言锥面侧边为解析线/弧，也不宣称 oracle 20/20
+   * （A2 的差异化项是 face-driven profile + 解析边 + 20/20）。
+   */
+  test('A1 语义接线：顶面 add 40 + 10° 拔模（pullDirection）→ baseline 657,764.787 → push/冷重开', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 600_000);
+    const token = await getApiToken();
+    const ids = await ensureExampleImodel(request, token, 'E2E - Face Extrude A1 Draft', { reset: true });
+    const openWithRetry = async () => {
+      try {
+        return await openExampleEditor(page, ids);
+      } catch {
+        await page.reload();
+        return await openExampleEditor(page, ids);
+      }
+    };
+    const ctx = await openWithRetry();
+    const lease = await borrowWriteLease(ctx, token, 'face-extrude-a1-draft');
+
+    const sketch = rectangleSketch(180, 50);
+    const sketchResult = await applyFeatureOpRpc(
+      ctx,
+      { kind: 'insertSketch', entities: sketch.entities, constraints: sketch.constraints, plane: XY_PLANE } as unknown as FeatureOp,
+      lease,
+      token,
+    );
+    expect(sketchResult.ok).toBe(true);
+    const sketchId = (sketchResult as { featureId: string }).featureId;
+    const extrude = await applyFeatureOpRpc(
+      ctx,
+      { kind: 'insertFeature', featureType: 'extrude', params: { profile: [], distance: 40, sketchId, regions: [0] } },
+      lease,
+      token,
+    );
+    expect(extrude.ok).toBe(true);
+    const baseVolume = (await getMassPropertiesRpc(ctx, token)).reduce((sum, item) => sum + item.volume, 0);
+    expect(Math.abs(baseVolume - 360_000)).toBeLessThan(360);
+
+    const bodies = (await getBodiesRpc(ctx, token)).filter((b: BodyInfo) => b.active !== false && b.authored !== false);
+    expect(bodies).toHaveLength(1);
+    const body = bodies[0]!;
+    const faces = await page.evaluate(async ({ key, bodyInfos }) => {
+      const hook = (window as unknown as {
+        __lubanE2EExamples?: {
+          readFaceHandles(iModelKey: string, bodies: readonly unknown[]): Promise<FaceHandle[] | undefined>;
+        };
+      }).__lubanE2EExamples;
+      if (!hook) throw new Error('__lubanE2EExamples 未安装（VITE_E2E_HOOKS != true）');
+      return hook.readFaceHandles(key, bodyInfos);
+    }, { key: ctx.dbKey, bodyInfos: bodies });
+    const top = (faces ?? []).find((face) => {
+      const zLow = face.range.low[2];
+      const zHigh = face.range.high[2];
+      return Math.abs(zLow - 40) < 1e-3 && Math.abs(zHigh - 40) < 1e-3 && Math.abs(face.normal[2]) > 0.99;
+    });
+    expect(top, '未找到 z=40 平面顶面').toBeTruthy();
+    const resolved = (await msRpc(
+      ctx.itwinId,
+      ctx.imodelId,
+      'resolveFaceRef',
+      [ctx.dbKey, body.bodyKey, top!.subEntityId],
+      token,
+    )) as { ok: boolean; ref?: { nodeId: number; entityId: number }; error?: string };
+    expect(resolved.ok, resolved.error).toBe(true);
+
+    const params = {
+      bodyId: body.bodyKey,
+      faceRef: resolved.ref!,
+      operation: 'add' as const,
+      endBound: 'blind' as const,
+      depthMm: 40,
+      direction: top!.normal[2] > 0 ? 'forward' as const : 'backward' as const,
+      startOffsetMm: 0,
+      draftAngleDeg: 10,
+      draftPullDirection: true,
+    };
+    const faceExtrude = await applyFeatureOpRpc(
+      ctx,
+      { kind: 'insertFeature', featureType: 'faceExtrude', params },
+      lease,
+      token,
+    );
+    expect(faceExtrude.ok, faceExtrude.ok ? '' : faceExtrude.error).toBe(true);
+
+    const tree = await getFeatureTreeRpc(ctx, token);
+    expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'faceExtrude']);
+    expect(tree.every((row) => row.status === 0)).toBe(true);
+    expect(tree.find((row) => row.featureType === 'faceExtrude')?.params).toMatchObject({
+      startOffsetMm: 0, draftAngleDeg: 10, draftPullDirection: true,
+    });
+
+    const volume = (await getMassPropertiesRpc(ctx, token)).reduce((sum, item) => sum + item.volume, 0);
+    console.log(`[face-extrude A1] volume=${volume.toFixed(3)} (A1 baseline 657764.787, not exact-edge claim)`);
+    expect(Math.abs(volume - 657_764.787)).toBeLessThan(657_764.787 * 0.001);
+
+    await pushExampleChanges(page, 'faceExtrude A1 draft baseline acceptance');
+    await page.reload();
+    const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
+    const reopenedTree = await getFeatureTreeRpc(reopened, token);
+    expect(reopenedTree.every((row) => row.status === 0)).toBe(true);
+    const reopenedBodies = (await getBodiesRpc(reopened, token)).filter((b: BodyInfo) => b.active !== false && b.authored !== false);
+    expect(reopenedBodies).toHaveLength(1);
+    const reopenedVolume = (await getMassPropertiesRpc(reopened, token)).reduce((sum, item) => sum + item.volume, 0);
+    expect(Math.abs(reopenedVolume - 657_764.787)).toBeLessThan(657_764.787 * 0.001);
+  });
 });
