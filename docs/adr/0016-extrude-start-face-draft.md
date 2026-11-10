@@ -52,8 +52,8 @@ A3 已改为 S10 面驱动 `capFaceProfile`（起始面 z=40、startOffset=0）�
    偏移；Bumper 实际 `startOffset=0`，25 mm `startOffsetDistance` 是未使用默认值；
    面在 z=40、depth 40 → 顶面 z=80。A3 已落 startOffset=0，不把 40 带入
    faceExtrude。
-3. **拔模构造（S9 已解析；P3/P4 已由 A2 关闭）**：A1 的 `loftDraftedLoop` 用远端
-   整环 `constructCurveXYOffset` + `Loft`；A2 改逐边解析壳体。中性面=被选中的
+3. **拔模构造（S9 已解析；P3/P4 已由 A2 关闭）**：A1 的既有整环拔模 helper 用
+   远端整环 `constructCurveXYOffset` + `Loft`；A2 改逐边解析壳体。中性面=被选中的
    起始/profile 面（z=40）；10° 从 pull direction 量起；
    `draftPullDirection=true` 收窄；z=40 的 180×50 → z=80 的
    165.893842×35.893842；δ=40·tan10°。
@@ -64,15 +64,15 @@ A3 已改为 S10 面驱动 `capFaceProfile`（起始面 z=40、startOffset=0）�
    A1 复用该构造，因此 A1 只记录 297,764.787 baseline，不宣称解析边/20/20；
    A2 的差异化项是面语义 + 解析边 + **16/16 实际选择**，不是体积。
 4. **边表示（S1 已解析）**：A1 最终 body 的 4 条锥面侧边为 `curvePrimitive`；
-   A2 spike 定位根因为 native Loft 的 smooth skin（`api_loft_coedges`，非
-   offset/Unite），改用 per-edge 平面/锥面壳 + `Sew` 后 tool 与最终 Unite body
-   均为 **20/20 line**。无需 native/P0-08 变更。
+   A2 spike 定位根因为既有内核 Loft 路径的 smooth skin（无 TS ruled 选项，非
+   offset/Unite）；A2 因此改用 per-edge 平面/锥面壳 + `Sew`，tool 与最终 Unite
+   body 均为 **20/20 line**。无需 native/P0-08 变更。
 5. **oracle 展开（S5 已解析）**：16/20 **不是** collector/展开规则缺口。Onshape
    Fillet 1 实际只选 16 条（5 matched faces + 4 matched edges）；底面 4 条 z=0
    loop 边在最终 body 中是尖边。公共 resolver 保持“0/多匹配即失败”，不得
    补成 20 条，也不得把 16/16 当部分选择。
 6. **最终差归因（修订）**：pre-fillet 已与 prismoid 一致；旧 −0.374% 是**审计
-   20 边回退多选了底面 loop**（多去材约 2,384 mm³），不是产品 faceExtrude 残差，
+   20 边回退多选了底面 loop**（多去材 ≈2,384 mm³），不是产品 faceExtrude 残差，
    也不是内核 fillet 能力边界。16 边 oracle 轨最终差仅 **+0.151 mm³ /
    +0.000024%**，归因数值积分/圆角尾部。A2 不得把该差记到 Extrude 2 体积门。
 
@@ -148,11 +148,11 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
   A1 记录 **prismoid 297,764.787**（当前产品已匹配；rb=3 BRep 积分
   297,764.7871846836）作为 baseline，不得据此断言 line/arc 锥面边或 20/20；
   A1 不是精确门。
-  - **helper 适配**：`sweepSketchRegionDraft` 只接受 `SketchRegion`，不能传 face
-    `Loop`；`loftDraftedLoop` 当前未导出。A1 必须导出 `loftDraftedLoop`（或迁到
-    无环共享 helper），并新增 `faceSweepToolDrafted(db, local: Loop | ParityRegion,
-    distance, offset, planeToWorld, backward, startOffset)`（外环/孔环分别 loft +
-    外环−孔 CSG）；不复制第二套拔模代码。
+  - **helper 适配**：既有草图面域拔模 helper 只接受 `SketchRegion`，不能传 face
+    `Loop`；既有整环拔模 helper 是私有求值器的内部函数、未导出。A1 必须把它导出
+    （或迁到无环共享 helper），并新增面轮廓整环拔模 helper（`Loop`/`ParityRegion` +
+    distance/offset/plane/backward/startOffset；外环/孔环分别 loft + 外环−孔 CSG）；
+    不复制第二套拔模代码。
 - **A2（精确几何硬门；已达成）**：产出解析侧面/边 + 全选择覆盖，并同时满足：
   1. 合成 180×50×40、10° 收窄 = prismoid **297,764.787 mm³**，或经证据的
      **measured A2 baseline**（不得按最终 0.5% 反调）——实测
@@ -168,7 +168,7 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
      loop）”门与 Onshape 证据不符，已由 2026-11-10 A4 实测修订；
   5. 最终 636,731.499 mm³ ±0.5%、1 body、status=0、push+冷重开——实测
      **636,731.650025**（+0.151 mm³ / +0.000024%）、approximateSteps=0；
-  6. **最终差归因修订**：旧审计 20 边回退（含底面 4 条）多去材约 2,384 mm³，
+  6. **最终差归因修订**：旧审计 20 边回退（含底面 4 条）多去材 ≈2,384 mm³，
      造成 −0.374%；16 边 oracle 轨最终差仅 +0.151 mm³（+0.000024%）。该差
      不是 Extrude 2 残差，也不是内核 fillet 能力边界。
 - **A2 的差异化项是 face-driven profile + 解析边 + 16/16 实际选择，不是体积**；
@@ -228,7 +228,7 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
 | 仓/层 | 影响 |
 |---|---|
 | shared | `FaceExtrudeParams` 新可选字段；`interfaceVersion` 下一 minor；无 BIS 迁移 |
-| modeling-server（私有） | schema/formModel/求值器扩展 + `faceSweepToolDrafted`/`draftPrismoidShell`（per-edge 平面/锥面壳 + Sew）；面归属/环归一化/CAP_FACE=profile 守卫/失败封闭；A2 已实现于 TS，无 native 变更 |
+| modeling-server（私有） | schema/formModel/求值器扩展 + 面轮廓整环拔模 helper + per-edge 平面/锥面壳 + `Sew`；面归属/环归一化/CAP_FACE=profile 守卫/失败封闭；A2 已实现于 TS，无 native 变更 |
 | 私有 converter（test-only） | CAP_FACE 精确映射 + 起始面证据；不提交公共仓 |
 | 公共 replay/translator（test-only） | `faceExtrudeOp` 新字段、起始面解析、oracle 全边展开；场景可选字段 |
 | apps/web 产品 UI | 不新增入口；能力 gated；仅回归 |
@@ -250,7 +250,7 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
   首版只发布 **ADD**（Bumper 形态）；A2 证据为 pre-fillet 657,764.787185 +
   body 20/20 line + Fillet 1 16/16 实际选择。
 - **最终差（修订）**：pre-fillet 已匹配 prismoid；旧 −0.374% 是审计 20 边回退
-  多选底面 loop 造成（约 2,384 mm³），不是 Extrude 2 残差，也不是内核 fillet
+  多选底面 loop 造成（≈2,384 mm³），不是 Extrude 2 残差，也不是内核 fillet
   边界；16 边 oracle 轨最终差 +0.151 mm³（+0.000024%）。
 
 ## 迁移与回滚
@@ -260,8 +260,8 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
   唯一的文档不受影响。旧多 body/跨体载荷可能因 body 归属守卫 status=1（预期 fail
   closed）。含新字段的文档在旧 backend 上可能被静默 strip，因此回滚前必须审计/
   导出或从启用前 checkpoint 恢复；不得把旧 backend 的静默几何当正确结果。
-- **A1/A2 回滚**：禁用 A2 解析边构造（`draftPrismoidShell`），保留 A1 面边界+
-  Loft；A1 体积仍是 prismoid 297,764.787，但解析边/选择器不精确。Bumper strict
+- **A1/A2 回滚**：禁用 A2 逐边解析壳体构造，保留 A1 面边界+Loft；A1 体积仍是
+  prismoid 297,764.787，但解析边/选择器不精确。Bumper strict
   回到 16/20 oracle（4 条锥面边 curvePrimitive 不可匹配）→ 不计严格绿；不得
   恢复审计 20 边回退（那会多选底面 loop，−0.374%）。
 - **数据丢失**：无；params 行保留，特征行仍可读/可前滚。
@@ -307,7 +307,7 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
     尖边；最终 **636,731.650 vs 636,731.499（+0.000024%）**、1 body、
     status=0（push 前/冷重开后）、approximateSteps=0、push+冷重开；
     冷重开后复核 faceExtrude 落库 bodyId/faceRef/startOffset/draft/pull；
-  - 最终差归因修订：旧 −0.374% = 审计 20 边回退多选底面 loop（约 2,384 mm³），
+  - 最终差归因修订：旧 −0.374% = 审计 20 边回退多选底面 loop（≈2,384 mm³），
     不是 Extrude 2 残差，也不是内核 fillet 边界；16 边轨 +0.151 mm³。
   - 回归：faceExtrude 首切片、extrude draft、THIN、upToSurface/upToNext/
     upToVertex、Bumper record/strict、Intro Part 3 strict、示例 iModel 回归。
@@ -318,11 +318,11 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
 ## 实施切片（已批准）
 
 1. **A1（已完成，2026-11-10）**：shared 契约 + backend schema/求值器（面边界 +
-   startOffset + draft 参数 + `faceSweepToolDrafted`/`loftDraftedLoop` 适配 +
+   startOffset + draft 参数 + 面轮廓与既有整环拔模 helper 适配 +
    CAP_FACE=profile/body 归属守卫 + 失败封闭）。记录 prismoid 297,764.787
    baseline；不宣称解析边/20-20。
-2. **A2（已完成，2026-11-10）**：逐边解析壳体（TS `DraftShell`，无 native）替代
-   整环 Loft；合成矩形 tool 12/12 line、最终 Unite 20/20 line、
+2. **A2（已完成，2026-11-10）**：逐边解析壳体（TS per-edge shell，无 native）
+   替代整环 Loft；合成矩形 tool 12/12 line、最终 Unite 20/20 line、
    297,764.787185/657,764.787185；含孔全 line/arc；Bumper 实测通过。
 3. **A3（已完成，2026-11-10）**：S9/S10/S11 证据指针 + 私有 converter
    `capFaceProfile`（起始面平面/面积/AABB 证据）+ 公共 translator/runner
@@ -337,10 +337,10 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
 ## 开放问题 / Spike
 
 - **S1（RESOLVED 2026-11-10）**：最终 body 的锥面侧边 `curvePrimitive` 根因 =
-  native Loft 的 smooth skin（`api_loft_coedges`），不是 offset/Unite。A2 改
-  **逐边解析壳体 + `Sew`** 后 tool 体 12/12 line、最终 Unite 体 20/20 line。
-  证据：`a2-analytic-edge-report.md`、`a2-implementation-report.md`、
-  `DraftShell.test.ts` / `FaceExtrudeFlow.test.ts`（p/q/r）。
+  **既有内核 Loft 路径的 smooth skin（无 TS ruled 选项）**，不是 offset/Unite。
+  A2 因此改用 **per-edge 平面/锥面壳 + `Sew`**；tool 体 12/12 line、最终
+  Unite 体 20/20 line。证据：A2 spike/implementation reports（私有）+ 后端
+  A2/faceExtrude 测试（私有；p/q/r）。
 - **S2（RESOLVED 2026-11-10）**：不需暴露内核 taper；既有 TS
   `BRepGeometryOperation.Sew`/`Loft` + `CurveOps` 已足够，**无 native/P0-08 变更**。
 - **S3（OPEN，已收窄）**：面法向/outward 与 startOffset/direction 符号的校准。
