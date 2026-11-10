@@ -760,7 +760,7 @@ native/backend 仓未提交。
 | regionRisk area 证据 | converter 转换 + index verify | translator 50/50 | Alignment、iOS |
 | CENTERLINE refs | scenario-to-op 新单测 | shared build | Fox RP23（或 blocked 证据） |
 | capFace/sweptFace 证据 | collector 测试 | index verify | 目标 PS spec |
-| Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper strict（审计 20 边覆盖）；通用 resolver 12 边仍 blocked-kernel |
+| Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper strict（ADR-0016 A2/A3/A4：Fillet 1 **16/16 实际选择**，底面 4 条 z=0 边尖边未选；旧审计 20 边回退已退役，曾多选底面 loop）；通用 resolver 12 边仍 blocked-kernel |
 | CAP_FACE 起始面+拔模（ADR-0016，A1/A2/A3/A4 已实现） | shared 1.64.0 契约 + S1/S5/S9/S10/S11 已解析证据 | 后端 faceExtrude/A2 测试；公共 translator/resolver 单测；真栈 Bumper strict + A2 face-extrude + Part 3 | A1 prismoid 297,764.787 baseline（不宣称精确）/ A2 解析边 tool 12/12、最终 Unite **20/20 line** + pre-fillet **657,764.787185** + Fillet 1 **16/16 实际选择**（底面 4 条尖边未选）+ 最终 **636,731.650 vs 636,731.499（+0.000024%）**、全 status=0/1 body/push+冷重开/approximateSteps=0；旧 −0.374% 归因审计 20 边回退多选底面 loop，已退役；Bumper 私有索引仍 blocked-kernel（generic resolver 12 边；strict 依赖 A1/A2 backend + 私有 oracle/scenario，发布/干净检出前不提升） |
 | AIRR/ADR | 文档自检 | 无代码 | 无 |
 
