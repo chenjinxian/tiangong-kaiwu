@@ -587,9 +587,11 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 
 **Approval/next steps（已批准；实现另批）:**
 - [x] 用户批准实现（AIRR + ADR-0016，2026-11-10）。
-- [ ] A1：shared 契约 + backend schema/求值器 + `faceSweepToolDrafted`/`loftDraftedLoop`
-      适配 + CAP_FACE=profile/body 归属守卫 + 失败封闭；面轮廓/offset/angle 参数往返；
-      记录 prismoid 297,764.787 baseline，不宣称精确。
+- [x] A1（**已实现，non-exact，2026-11-10**）：shared 1.64.0 契约 + backend schema/求值器 +
+      `faceSweepToolDrafted`/`loftDraftedLoop` 适配 + body 归属/环分类/零相交失败封闭；
+      面轮廓/offset/angle 参数往返；真栈 prismoid **657,764.787 mm³** push+冷重开；
+      **不宣称解析边/20-20，A2 仍 blocked-kernel**。能力状态：无 UI；converter/translator
+      属 A3 未接；发布需新 backend 产物（旧 backend-20261109 不识别新字段，X-11）。
 - [ ] A2：解析边 spike/实现（私有 native/TS 或等价构造；P0-08 另批）；合成矩形 →
       Bumper pre-fillet 657,764.787（或 measured A2 baseline）/20/20。
 - [ ] A3：S9/S10/S11 已解析证据指针 + converter/translator/runner + oracle 全边展开

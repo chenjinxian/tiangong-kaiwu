@@ -5,6 +5,11 @@
  *   → resolveFaceRef 持久面拓扑 id → FeatureOp faceExtrude add 1mm 外拉
  *   → 体积 48 → push + 重开（面引用跨重建稳定）。
  * 目标面按 z=2 平面 + 法线 ±Z 唯一选择；faceRef 由产品 RPC 生成，测试不写死拓扑 id。
+ *
+ * X-11（v1.64 A1）：本 spec 的 RPC URL 内嵌本地 `LubanFeatureRpcInterface.interfaceVersion`
+ * （1.64.0），且 A1 用例发送 `startOffsetMm/draftAngleDeg/draftPullDirection`。因此它只适用于
+ * **源码模式/新 backend**；已发布 backend-20261109（shared 1.63.0）不识别新字段/版本，不能
+ * 用它跑本 spec（运行时无版本协商；发布顺序 backend 先于发送方）。
  */
 import { expect, test } from '@playwright/test';
 import type { BodyInfo, FeatureOp, SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
