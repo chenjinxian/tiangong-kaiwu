@@ -1,9 +1,11 @@
 # ADR-0015：多 body 特征作用域（多目标删除/阵列）
 
-- 状态：**提议 / blocked-design（2026-11-07；2026-11-09 扩展为决策完整的多目标契约提案；
-  未实现、未批准）**。当前 `insertFeature` 模型是「一个特征 → 一个目标 body → 一个几何输出」，
-  Links 与 FACE 阵列示例证明这不足以表达 Onshape 的单特征多 body 作用域。
-  **未批准前不写产品代码；本 ADR 不是绿例。**
+- 状态：**部分实现（2026-11-10，B6.3 首切片）**。2026-11-07 立项、2026-11-09 扩展为完整
+  多目标契约提案；2026-11-10 用户指令「完成所有任务」后实现首切片：shared 1.65
+  `targetBodyIds` + 逐边 `bodyKey`、后端 `planInsertMulti`/逐体 BlendEdges/逐 body
+  side cache/持久化 body→upstream、回放 edge-resolver/runner。**单特征多 body 删除/
+  改参/抑制、pattern/mirror 跨体仍为后续切片；Handle Parts 真栈仍 known-red（Threaded
+  Shaft 体积差 +4.2%），本 ADR 不是绿例。**
 - 关联：`docs/adr/0007-feature-pattern.md`、`docs/adr/0012-split-part-world-plane.md`、
   `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`、
   `docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md`（同批异步预求值/
@@ -324,6 +326,29 @@ type InsertFeatureOpDelta = {
 
 ## 状态
 
-- 本节与原文均为**提议 / blocked-design**；**未批准；未实现；不是绿例**；
-  未批准前不写产品代码。首实现切片：REMOVE extrude/hole 的 `targetBodyIds` +
-  逐体缓存/写回/冷重建；跨体 fillet/pattern/mirror 为后续切片。
+- 本节与原文均为**提议 / blocked-design** 的完整范围；2026-11-10 已按用户指令实现
+  B6.3 首切片（见下），其余范围仍待批准/实现；**不是绿例**。
+- 首实现切片：多目标 **fillet** 的 `targetBodyIds` + 逐边 `bodyKey` + 逐体缓存/写回/
+  持久化输入映射/冷重建；REMOVE extrude/hole、delete/update/suppress、跨体
+  pattern/mirror、UI 多选与预览为后续切片。
+
+## 实现记录（2026-11-10，B6.3 首切片）
+
+- **shared 1.65.0**：`insertFeature.targetBodyIds?: string[]`（与 `targetBodyId` 互斥）；
+  `FilletEdgeRef.bodyKey?: string`；`opDsl` 双向序列化/互斥/去重校验。
+- **backend（私有）**：`planInsertMulti`（仅 fillet、≥2 active authored body、每个 target
+  恰一上游/至少一组边、owner 必须落在 target 集）；单特征行 + 逐 target rewire +
+  `jsonProperties.luban.multiTargetInputs`；`FeatureOutputCache` 逐 body side cache；
+  `FeatureEngine` 逐体取上游 + 每次 `BlendEdges`，任一体失败整特征 status=1；
+  `writeBodyFromCache` 按 body 读 side cache；冷重建逐体重算。
+- **replay**：edge-resolver 逐边附 `bodyKey` 且去重键含 body；runner 单 owner 走旧
+  `targetBodyId`，多 owner 走 `targetBodyIds`；`multi-body-anchor` 新增
+  `selectEdgeTargetBodies`（owner 必须 active；空/失效 blocked）。
+- **合成验证（私有 backend）**：2-body 多目标 fillet 单特征行、两体几何均改写；
+  冷重建逐字节一致；pre-txn 负路径零写；失败原子性（第 2 体失效 → 整体 status=1，
+  两体保留旧几何）；T11b 两体各自 `BlendEdges` 内核成功。`FilletFlow` 13/13、
+  `MultiBodyFoundation` 34/34。
+- **Handle Parts 真栈**：6 条边按 `bodyKey` 正确分组（1/3/2），单特征行/树 status=0；
+  但 Threaded Shaft 最终 32,236.419 vs 采集 30,931.280（+4.2%），超出 1% 门。
+  spec 保持 `test.fail`，不删除边/不放宽断言；剩余根因待查（圆边 fillet 与上游
+  孔/螺纹端体量关系），不得宣称 Handle Parts 已绿。

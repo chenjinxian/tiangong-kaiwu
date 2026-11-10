@@ -731,7 +731,12 @@ export interface FaceExtrudeParams {
  * 多持，全部入 blend 集（裂片随形全倒角语义，M6-d T1 裁决）。旧面对形态 `{faceA,faceB}`
  * 自 v1.9 起不兼容（服务端 zod 诚实拒收，不做静默转换）。
  */
-export interface FilletEdgeRef { edge: LubanTopologyId }
+export interface FilletEdgeRef {
+  edge: LubanTopologyId;
+  /** v1.65（ADR-0015 B6.1）：多目标 fillet/chamfer 的边归属 bodyKey（getBodies[].bodyKey）。
+   *  单目标旧载荷省略；多目标载荷必须逐边给出，禁止按边 id 在多个 body 间猜。 */
+  bodyKey?: string;
+}
 
 export interface FilletParams { radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }
 
@@ -833,7 +838,16 @@ export type FeatureOp =
   /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
    * （authored/active；缺省在 N≤1 走 legacy 默认体）。`params.newBody===true` 时它是**锚定链**
    * body（新体由本 op 创建，不写入该 body）；无 target 时锚定全局链尾。 */
-  | { kind: "insertFeature"; featureType: LubanFeatureType; params: FeatureParams; targetBodyId?: string }
+  | {
+    kind: "insertFeature";
+    featureType: LubanFeatureType;
+    params: FeatureParams;
+    /** 旧单目标（N>1 regular insert 显式目标；N≤1 可缺省）。 */
+    targetBodyId?: string;
+    /** v1.65（ADR-0015 B6.1）：多目标 fillet 首切片；与 targetBodyId 互斥。
+     *  getBodies[].bodyKey，非空去重；每边 FilletEdgeRef.bodyKey 必须落在该集合。 */
+    targetBodyIds?: string[];
+  }
   | { kind: "updateParams"; featureId: string; params: FeatureParams }
   /** `targetBodyId`（B6 M-A3.2a v1.15）：N>1 模型删除特征的显式目标 body（authored/active；
    * 缺省在 N≤1 走 legacy 路径）。服务端只把它作**门禁令牌**并校验与特征真实 body 边一致；
@@ -1013,7 +1027,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.64.0";
+  public static interfaceVersion = "1.65.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

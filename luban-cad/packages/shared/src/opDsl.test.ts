@@ -393,6 +393,40 @@ describe("op DSL × B6 M-A3.2a（targetBodyId 双向）", () => {
       .toBe('op deleteFeature {"featureId":"f-1"}');
   });
 
+  it("v1.65 多目标 fillet：targetBodyIds 与每边 bodyKey 往返不丢；旧单目标文本零漂移", () => {
+    const op: FeatureOp = {
+      kind: "insertFeature",
+      featureType: "fillet",
+      params: {
+        radius: 2,
+        propagateSmooth: false,
+        edges: [
+          { edge: "1:1", bodyKey: "b1" },
+          { edge: "2:1", bodyKey: "b2" },
+        ],
+      },
+      targetBodyIds: ["b1", "b2"],
+    };
+    const dsl = opsToDsl([op]);
+    expect(dsl).toContain('"targetBodyIds":["b1","b2"]');
+    expect(dsl).toContain('"bodyKey":"b1"');
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+    expect(dslToOps('op insertFeature fillet {"radius":2,"propagateSmooth":false,"edges":[{"edge":"1:1"}]}'))
+      .toEqual([{ kind: "insertFeature", featureType: "fillet", params: { radius: 2, propagateSmooth: false, edges: [{ edge: "1:1" }] } }]);
+  });
+
+  it("v1.65 多目标校验：targetBodyId/targetBodyIds 互斥、数组非空/不重复/非 string 拒收", () => {
+    expect(() => dslToOps('op insertFeature fillet {"params":{"radius":2,"propagateSmooth":false,"edges":[]},"targetBodyId":"b1","targetBodyIds":["b2"]}'))
+      .toThrow(/targetBodyId/);
+    expect(() => dslToOps('op insertFeature fillet {"params":{"radius":2,"propagateSmooth":false,"edges":[]},"targetBodyIds":[]}'))
+      .toThrow(/targetBodyIds/);
+    expect(() => dslToOps('op insertFeature fillet {"params":{"radius":2,"propagateSmooth":false,"edges":[]},"targetBodyIds":["b1","b1"]}'))
+      .toThrow(/targetBodyIds/);
+    expect(() => dslToOps('op insertFeature fillet {"params":{"radius":2,"propagateSmooth":false,"edges":[]},"targetBodyIds":[1]}'))
+      .toThrow(/targetBodyIds/);
+  });
+
   it("targetBodyId 形态校验：非 string 拒收（insert 包装与 delete 两路）", () => {
     expect(() => dslToOps('op deleteFeature {"featureId":"f-1","targetBodyId":42}'))
       .toThrow(/targetBodyId/);

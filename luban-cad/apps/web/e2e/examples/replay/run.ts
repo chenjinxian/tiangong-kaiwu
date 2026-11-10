@@ -40,7 +40,7 @@ import {
   pickImprintRegion,
   type ImprintSide,
 } from './imprint-region.js';
-import { selectEdgeTargetBody } from './multi-body-anchor.js';
+import { selectEdgeTargetBodies } from './multi-body-anchor.js';
 import { resolveRegionsFromProfileEntities } from './region-entity-resolver.js';
 import type { ImprintFaceResolution } from './imprint-face-resolver.js';
 import type { CapFaceStartResolution } from './cap-face-start-resolver.js';
@@ -1073,6 +1073,11 @@ export async function runScenario(
         edgeRefsByFeatureName = new Map([[feature.name, resolved.refs]]);
         edgeBodyKeys = resolved.bodyKeys ?? [];
         edgeNotes.push(...resolved.notes);
+        if (process.env.EDGE_DEBUG === '1') {
+          console.log(`[edge-resolver] ${feature.name} refs=` + JSON.stringify(resolved.refs.map((ref) => ({
+            bodyKey: ref.bodyKey, node: ref.edge.nodeId, entity: ref.edge.entityId,
+          }))));
+        }
       }
       // shell 面解析依赖该步时点的 body 集（多体模型须先锚定目标 body）。
       if (feature.type === 'shell' && options.shellFaceResolver) {
@@ -1140,24 +1145,37 @@ export async function runScenario(
           );
         }
       }
-      // fillet/chamfer：目标体由解析后的边决定，不按“最近造体”猜。跨 body 的
-      // 单次圆角/倒角在产品契约里没有合法目标，诚实阻塞。
+      // fillet/chamfer：目标体由解析后的边决定，不按“最近造体”猜。单 owner →
+      // 旧 targetBodyId；多 owner → v1.65 targetBodyIds + 逐边 bodyKey（ADR-0015）。
       if (translated.op.kind === 'insertFeature'
         && (translated.op.featureType === 'fillet' || translated.op.featureType === 'chamfer')
         && translated.op.targetBodyId === undefined
+        && translated.op.targetBodyIds === undefined
         && bodyContext.allBodyKeys !== undefined
         && bodyContext.allBodyKeys.length > 1) {
-        const selection = selectEdgeTargetBody(edgeBodyKeys, bodyContext.allBodyKeys);
-        if (selection.targetBodyId === undefined) {
+        const selection = selectEdgeTargetBodies(edgeBodyKeys, bodyContext.allBodyKeys);
+        if (selection.blockedReason !== undefined) {
           throw new BlockedCapabilityError(
             'edge-selector',
-            `${feature.name}：${selection.blockedReason ?? '无法显式锚定目标体'}`,
+            `${feature.name}：${selection.blockedReason}`,
           );
         }
-        translated.op = { ...translated.op, targetBodyId: selection.targetBodyId };
-        translated.notes.push(
-          `multi-body anchor=${selection.targetBodyId}（由选中边所属 body 显式锚定）`,
-        );
+        if (selection.targetBodyIds !== undefined) {
+          if (translated.op.featureType !== 'fillet')
+            throw new BlockedCapabilityError(
+              'edge-selector',
+              `${feature.name}：跨体 ${translated.op.featureType} 首切片仅支持 fillet`,
+            );
+          translated.op = { ...translated.op, targetBodyIds: selection.targetBodyIds };
+          translated.notes.push(
+            `multi-body targets=${selection.targetBodyIds.join(',')}（由选中边所属 body 显式锚定；逐边 bodyKey）`,
+          );
+        } else if (selection.targetBodyId !== undefined) {
+          translated.op = { ...translated.op, targetBodyId: selection.targetBodyId };
+          translated.notes.push(
+            `multi-body anchor=${selection.targetBodyId}（由选中边所属 body 显式锚定）`,
+          );
+        }
       }
       const op = options.skipSketchConstraints && translated.op.kind === 'insertSketch'
         ? { ...translated.op, constraints: [] }

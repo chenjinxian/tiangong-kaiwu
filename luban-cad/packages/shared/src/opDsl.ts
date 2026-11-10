@@ -67,6 +67,9 @@ function opToLine(op: FeatureOp): string {
   switch (op.kind) {
     case "insertFeature":
       // B6 M-A3.2a：N>1 显式目标与 params 同载；缺省保持旧裸 params 文本（零漂移）。
+      // v1.65：多目标 targetBodyIds 同包装；与 targetBodyId 互斥（构造侧强类型，解析侧也拒）。
+      if (op.targetBodyIds !== undefined)
+        return `op insertFeature ${op.featureType} ${JSON.stringify({ params: op.params, targetBodyIds: op.targetBodyIds })}`;
       return op.targetBodyId === undefined
         ? `op insertFeature ${op.featureType} ${JSON.stringify(op.params)}`
         : `op insertFeature ${op.featureType} ${JSON.stringify({ params: op.params, targetBodyId: op.targetBodyId })}`;
@@ -209,11 +212,23 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
       if (!FEATURE_TYPES.includes(featureType as LubanFeatureType))
         throw err(`未知 featureType: ${featureType}（合法: ${FEATURE_TYPES.join("/")}）`);
       // B6 M-A3.2a：带 target 的包装 payload（{params,targetBodyId}）；缺省裸 params。
+      // v1.65：targetBodyIds 数组；与 targetBodyId 同时出现必须拒收。
       const targetBodyId = p.targetBodyId === undefined ? undefined : asStr(p.targetBodyId, "targetBodyId");
+      let targetBodyIds: string[] | undefined;
+      if (p.targetBodyIds !== undefined) {
+        if (!Array.isArray(p.targetBodyIds) || p.targetBodyIds.length === 0)
+          throw err("targetBodyIds 必须是非空字符串数组");
+        targetBodyIds = p.targetBodyIds.map((value) => asStr(value, "targetBodyIds[]"));
+        if (new Set(targetBodyIds).size !== targetBodyIds.length)
+          throw err("targetBodyIds 不得重复");
+        if (targetBodyId !== undefined)
+          throw err("targetBodyId 与 targetBodyIds 互斥");
+      }
       const params = "params" in p ? asObj(p.params, "params") : p;
       return {
         kind, featureType: featureType as LubanFeatureType, params: params as unknown as FeatureParams,
         ...(targetBodyId === undefined ? {} : { targetBodyId }),
+        ...(targetBodyIds === undefined ? {} : { targetBodyIds }),
       };
     }
     case "updateParams":

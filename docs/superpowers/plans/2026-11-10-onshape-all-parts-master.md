@@ -192,11 +192,15 @@
 
 #### B6 多体/跨体（ADR-0015）
 
-- [ ] **B6.1 `targetBodyIds` 契约**：shared 版本 bump；schema/DSL/冷重建/撤销/
-  失败 all-or-nothing；旧载荷兼容。
+- [x] **B6.1 `targetBodyIds` 契约（首切片，shared 1.65.0）**：`insertFeature`
+  的 `targetBodyIds`（与 `targetBodyId` 互斥）+ `FilletEdgeRef.bodyKey`；
+  schema/DSL/逐体缓存/失败 all-or-nothing/旧载荷兼容已落。**update/suppress/
+  delete 多目标、REMOVE extrude/hole 与下游消费仍待做**。
 - [ ] **B6.2 REMOVE extrude/hole 多目标**：Links 两体一次穿孔；逐体体积。
-- [ ] **B6.3 跨体 fillet/chamfer/shell/moveFace**：逐 owner body 分组、逐组
-  BlendEdges/OffsetFaces；Handle Parts 3 body；内核失败干净回滚。
+- [ ] **B6.3 跨体 fillet/chamfer/shell/moveFace**：fillet 首切片已落（逐
+  owner body 分组 + 逐组 BlendEdges + 逐 body 缓存/写回/冷重建）；**Handle
+  Parts 真栈 known-red（Threaded Shaft +4.2%）**；chamfer/shell/moveFace
+  多目标未做。
 - [ ] **B6.4 featurePattern/featureMirror 多体**：源 owner 集合/逐体应用；
   不跨体复制。
 - [ ] **B6.5 UI 多目标选择器**：live 证据、树行单特征、编辑/撤销/冷重开。
@@ -376,9 +380,18 @@ powershell -File scripts/verify-stack.ps1
   真实栈封面 `example-intro-part4.webp`；catalog/Showcase 单测与真栈 19 卡
   + 19 个打开链接全绿。Part 4 持久 iModel 名
   `Onshape example: Intro to CAD 1.2 Part 4`（按名解析，不写 UUID）。
+- **B6.1/B6.3 首切片（多目标 fillet）**：shared **1.65.0**
+  `targetBodyIds` + 逐边 `bodyKey`；私有后端 `planInsertMulti`/逐体
+  BlendEdges/逐 body side cache/`multiTargetInputs` 持久化/冷重建；回放
+  edge-resolver 逐边 owner 与多 owner 选择。合成真栈（私有
+  `MultiBodyFoundation` **34/34**、`FilletFlow` **13/13**，2 body 单特征、
+  冷重建逐字节一致、失败原子性）；公共 replay 纯测 **9/9**。
+  **Handle Parts 仍 known-red**：6 边按 body 1/3/2 正确分组、单特征
+  status=0，但 Threaded Shaft **32,236.419 vs 30,931.280 mm³（+4.2%）**；
+  spec 保持 `test.fail`，不得宣称转绿。多目标 update/suppress/delete、
+  下游消费、chamfer/shell/moveFace、UI 未做。
 - **未完成/仍 blocked**：Part 5/6 单线 imprint 需实体面 split；Handle Parts
-  跨 body fillet 需 ADR-0015 增量（per-edge owner + per-body cache/writeback +
-  冷重建输入映射）与内核验证；本轮只完成设计分析，不写未批准产品代码。
+  剩余体积差需继续定位（圆边 fillet 与上游孔/螺纹端交互，非选择器问题）。
 - 采集/测试期间 MS 全局 429 由重启宿主 MS 清除，未改生产限流配置。
 
 ## 9. 第一执行切片（立即开始）

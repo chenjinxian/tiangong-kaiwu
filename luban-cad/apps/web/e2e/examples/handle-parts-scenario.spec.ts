@@ -40,14 +40,11 @@ const EXPECTED_TREE = [
 ];
 
 test.describe('Handle Parts scenario rebuild', () => {
-  // known-red（blocked-capability，任务 #124 多体单 FeatureOp）：Fillet 1 的
-  // 6 条 SWEPT_EDGE 分属 3 个 body（Revolve 1/2/3 各一组，selector
-  // operationSourceIds 已证明）；产品 FeatureParams 单 targetBodyId，跨体圆角
-  // 无合法载荷，runner 按契约诚实阻塞。**前置 10 特征已真栈跑通**（截断到 Hole 1）：
-  // 体数 3，未圆角体积 12326.161 / 32140.878 / 106103.005（同序、与终态期望
-  // 11878.505 / 30931.280 / 105770.915 的差值即圆角去材），profileEntityIds
-  // → 真实面域 4/4 收敛（3 个 NEW revolve 不再盲取 region 0）。
-  // 能力落地后本 spec 应转绿并删除 test.fail。
+  // v1.65（ADR-0015 B6.3）已实现多目标 fillet 契约/后端/回放：6 条 SWEPT_EDGE
+  // 分属 3 个 body，逐体独立 BlendEdges + side cache + 冷重建。真栈已能建链，
+  // 但 Threaded Shaft（JJD，单 r6.35 圆边）最终体积仍偏大（当前 32,236.419
+  // vs 采集 30,931.280，+4.2%），不是 1% 门；已知圆边 fillet 与上游孔/螺纹端
+  // 的体量关系尚未闭合，保持 known-red，不得放宽断言或删除该边冒充绿。
   test.fail();
   test('草图轮廓实体→真实面域 + 三 NEW revolve + featurePattern remove + 多体孔/圆角 → 逐体体积/重开', async ({ page, request }) => {
     test.skip(!isExampleDataAvailable(), 'ONSHAPE_PARITY_DATA 不在场');

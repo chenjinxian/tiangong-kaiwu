@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { selectEdgeTargetBody } from './multi-body-anchor.js';
+import { selectEdgeTargetBody, selectEdgeTargetBodies } from './multi-body-anchor.js';
 
 test.describe('selectEdgeTargetBody', () => {
   test('单 body 选中边 → 显式锚定', () => {
@@ -24,5 +24,20 @@ test.describe('selectEdgeTargetBody', () => {
 
   test('失效 bodyKey → 阻塞', () => {
     expect(selectEdgeTargetBody(['0xdead'], ['0x2b']).blockedReason).toContain('active body');
+  });
+});
+
+test.describe('selectEdgeTargetBodies（v1.65 多目标）', () => {
+  test('单 body → 旧 targetBodyId 形态', () => {
+    expect(selectEdgeTargetBodies(['0x2b'], ['0x2b', '0x2c'])).toEqual({ targetBodyId: '0x2b' });
+  });
+  test('多 body → 排序后的 targetBodyIds（逐边 bodyKey 由 resolver 携带）', () => {
+    expect(selectEdgeTargetBodies(['0x2c', '0x2b', '0x2b'], ['0x2b', '0x2c'])).toEqual({
+      targetBodyIds: ['0x2b', '0x2c'],
+    });
+  });
+  test('owner 非 active / 空 → blocked，不猜', () => {
+    expect(selectEdgeTargetBodies(['0x2c'], ['0x2b']).blockedReason).toContain('active');
+    expect(selectEdgeTargetBodies([], ['0x2b']).blockedReason).toContain('未归属');
   });
 });

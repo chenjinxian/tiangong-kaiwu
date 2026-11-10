@@ -913,7 +913,12 @@ export async function resolveScenarioEdges(
           'edge-selector',
           `${feature.name} resolveEdgeRef 失败: ${result.error ?? 'unknown'}`,
         );
-      refs.set(`${result.ref.edge.nodeId}:${result.ref.edge.entityId}`, result.ref);
+      // v1.65：多目标 fillet 的边必须带 owner bodyKey，且去重键含 body——跨体同号
+      // 边（内容派生拓扑 id 可重复）不得互相覆盖。
+      refs.set(`${handle.bodyKey}:${result.ref.edge.nodeId}:${result.ref.edge.entityId}`, {
+        ...result.ref,
+        bodyKey: handle.bodyKey,
+      });
     }
   }
   if (refs.size === 0)
