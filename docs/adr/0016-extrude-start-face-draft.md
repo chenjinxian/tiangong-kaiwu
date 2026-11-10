@@ -262,8 +262,9 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
   29 个 `startOffsetEntity`（27 个 `startOffset=true`）保持 blocked/approximate。
   A3 发布 **ADD/BLIND**；S3 扩展受限的 **REMOVE/INTERSECT/THROUGH_ALL** 证据
   形态（有 bodydetails PLANE 面积/AABB 证据、无 draft/第二方向/start-reference；
-  合成真栈 REMOVE/THROUGH_ALL 15,000 mm³、INTERSECT/THROUGH_ALL 2,000 mm³ 均
-  status=0/1 body/push+冷重开）。A2 证据为 pre-fillet 657,764.787185 + body
+  合成真栈 REMOVE/THROUGH_ALL 15,000 mm³、INTERSECT/THROUGH_ALL 4,000 mm³、
+  REMOVE/BLIND 5 18,500 mm³（THROUGH_ALL 不透传 depthMm）及产品朝内法向
+  15,000 mm³ 均 status=0/1 body/push+冷重开/requireExact=true）。A2 证据为 pre-fillet 657,764.787185 + body
   20/20 line + Fillet 1 16/16 实际选择。无证据形态仍 fail closed（旧
   `capFaceExtrude` 近似只服务 start-reference/无证据家族）。
 - **最终差（修订）**：pre-fillet 已匹配 prismoid；旧 −0.374% 是审计 20 边回退
