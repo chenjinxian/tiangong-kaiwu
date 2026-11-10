@@ -475,7 +475,16 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
   const entityId = faceRef?.entityId;
   if (!bodyId || !Number.isInteger(nodeId) || !Number.isInteger(entityId))
     throw new BlockedCapabilityError('face-extrude', `${feature.name} 缺少已解析的 bodyId/faceRef`);
-  const direction = stringParam(params, 'direction') === 'backward' ? 'backward' as const : 'forward' as const;
+  // S3 review（2026-11-10）：direction 只接受 forward/backward；未知值必须 fail
+  // closed，不能静默降级为 forward（方向错会变成零相交/错误去材）。
+  const directionRaw = params.direction;
+  let direction: 'forward' | 'backward' = 'forward';
+  if (directionRaw !== undefined) {
+    if (directionRaw === 'forward' || directionRaw === 'backward') direction = directionRaw;
+    else throw new BlockedCapabilityError(
+      'face-extrude', `${feature.name} direction 非法：${String(directionRaw)}（仅 forward/backward）`,
+    );
+  }
   const mergeScopeRaw = Array.isArray(params.mergeScope) ? params.mergeScope : [];
   const mergeScope: BodyRef[] = [];
   for (const entry of mergeScopeRaw) {
@@ -510,12 +519,14 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
     throw new BlockedCapabilityError('face-extrude', `${feature.name} startOffsetMm 非有限数`);
   if (startOffsetMm !== undefined && asRecord(params.secondDirection) !== undefined)
     throw new BlockedCapabilityError('face-extrude', `${feature.name} faceExtrude startOffset 与 secondDirection 互斥`);
+  // review 2026-11-10：THROUGH_ALL 不透传 depthMm（即使输入里带了也显式忽略），
+  // 防止 blind 深度冒充 throughAll；盲端才写 depthMm。
   const faceParams: FaceExtrudeParams = {
     bodyId,
     faceRef: { nodeId: nodeId as number, entityId: entityId as number },
     operation,
     endBound,
-    ...(depthMm !== undefined ? { depthMm } : {}),
+    ...(endBound === 'blind' && depthMm !== undefined ? { depthMm } : {}),
     direction,
     ...(startOffsetMm !== undefined ? { startOffsetMm } : {}),
     ...(draftAngleDeg !== undefined
@@ -539,6 +550,8 @@ function faceExtrudeOp(feature: ScenarioFeature): TranslatedStep {
       `${endBound === 'throughAll' ? 'throughAll' : `${depthMm} mm`}` +
       `${startOffsetMm !== undefined ? `，startOffset=${startOffsetMm} mm` : ''}` +
       `${draftAngleDeg !== undefined ? `，draft=${draftAngleDeg.toFixed(3)}°${draftPullDirection ? '(reverse)' : ''}` : ''}）`,
+      ...(endBound === 'throughAll' && depthMm !== undefined
+        ? ['endBound=throughAll：忽略 depthMm（不进入产品载荷）'] : []),
     ],
     approximate: false,
   };

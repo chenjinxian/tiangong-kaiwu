@@ -152,6 +152,9 @@ test.describe('Bumper Block 严格轨（S10 faceExtrude + rb=3 oracle 16/16）',
       skipSketchConstraints: true,
       // 严格门显式 0.5%：scenario 自带的 tolerance=0.01 不用于本 spec。
       tolerance: 0.005,
+      // review 2026-11-10：精确轨硬门 approximateSteps=0（run-file 内断言，
+      // 不再只依赖末尾的显式断言）。
+      requireExact: true,
       // Fillet 1 步骤：先用只读通道记录 pre-fillet 体积/边类型（A2 硬门），
       // 再走 oracle 解析；oracle 不恰好 16 条即失败闭合，绝不回退审计 20 边。
       edgeRefsOverride: async ({ feature, page: overridePage, ctx, accessToken, bodyContext }) => {

@@ -198,16 +198,20 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
 - `capFaceProfile` 起始面证据 = 上游 cap 平面或 Onshape bodydetails PLANE
   原点/法向 + 面积/AABB；runner 在步骤时点用 `readBrepFaceHandles` 唯一匹配
   （法向/平面偏移/面积/AABB）→ `resolveFaceRef`；0/多匹配/缺证据 fail closed。
-  **S3（2026-11-10 已解析）**：范围扩展为 ADD/BLIND + REMOVE/INTERSECT/
-  THROUGH_ALL 证据形态。Onshape `oppositeDirection` 相对**实体外法向**，产品
-  `faceExtrude.direction` 也相对面法向 → 直接映射（true→backward，
-  false→forward）。证据：Wheel & Tire Extrude 1（REMOVE/THROUGH_ALL，
-  rb=6→rb=7 在选中面 y=-14 处切至 y=-15.5，材料在 -y 侧）与 Rocker
-  Extrude 10（REMOVE/BLIND，rb=25→rb=30 新底面 y=-1.5），两例
-  `oppositeDirection=true` 均为“逆外法向切入材料”。bodydetails
-  `surface.normal` 是面参数化法向、**符号不可信**（Bumper 盒体实测有朝内面），
-  S3 新形态标记 `normalSignAmbiguous`，面匹配接受 ±法向（面积/AABB/平面仍须
-  唯一）；ADD/BLIND（A3 已发布形态）保持原 sketch-normal 换算，Bumper 不变。
+  **S3（2026-11-10 已解析；review 后修订方向换算）**：范围扩展为 ADD/BLIND +
+  REMOVE/INTERSECT/THROUGH_ALL 证据形态。Onshape `oppositeDirection` 相对
+  **实体外法向**；converter 用 bodydetails `orientation`（true=外法向 /
+  false=朝内；Bumper 盒体 6 面 + 3 个候选面实测）给出**世界外法向**
+  `outwardNormal`。产品 `readFaceHandles`/`CurveOps.isPlanar` 的面法向**不保证
+  朝外**（合成 plate+boss 体实测底面 +z 朝内、y=0 面 +y 朝内），故 runner 不能
+  直接假设 forward=外法向；它把 `outwardNormal × (oppositeDirection?-1:+1)` 的
+  世界方向与**解析到的产品面法向**点积，选 forward/backward（方向缺失/退化
+  fail closed）。证据：Wheel & Tire Extrude 1（REMOVE/THROUGH_ALL，rb=6→rb=7
+  在选中面 y=-14 处切至 y=-15.5，材料在 -y 侧）与 Rocker Extrude 10
+  （REMOVE/BLIND，rb=25→rb=30 新底面 y=-1.5），两例 `oppositeDirection=true`
+  均为“逆外法向切入材料”。bodydetails 参数化法向符号不可信 → S3 新形态一律
+  标记 `normalSignAmbiguous`，面匹配接受 ±法向（面积/AABB/平面仍须唯一）；
+  ADD/BLIND（A3 已发布形态）保持原 sketch-normal 换算，Bumper 不变。
 - oracle collector 的 16 条曲线 = Onshape 实际选择（5 matched faces + 4 matched
   edges）；**不补底面 4 条 loop**（Onshape 未选、保持尖边）。公共
   `rollback-edge-oracle` 保持“0/多匹配/部分集合即失败”，不猜。
@@ -312,11 +316,19 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
     push+冷重开；
   - A2 合成轨：解析体积/尺寸/边类型/push+冷重开（`face-extrude.spec.ts`
     4 passed）；
-  - **S3 合成轨（2026-11-10 实测 2 passed）**：40×40×10 板 + 10×10×10 凸台，
-    `capFaceProfile` REMOVE/THROUGH_ALL backward → **15,000 mm³**；
-    INTERSECT/THROUGH_ALL backward → **2,000 mm³**；tree 全 status=0、1 body、
-    push+冷重开一致、approximateSteps=0（方向=逆外法向切入材料）。
-    候选 PS 均被上游 blocker 挡在 S3 步前（Wheel Revolve 1 草图 0 面域；
+  - **S3 合成轨（2026-11-10 review 后实测 4 passed）**：40×40×10 板 +
+    **10×10×30** 凸台（19,000），THROUGH_ALL 不携带/不透传 depthMm。
+    REMOVE/THROUGH_ALL backward → **15,000 mm³**（若 blind 25 误透传则为
+    16,500；可判别）；INTERSECT/THROUGH_ALL backward → **4,000 mm³**
+    （blind 25 为 2,500）；REMOVE/BLIND depth 5 → **18,500 mm³**（证明 blind
+    不切全高）。三者 tree 全 status=0、1 body、push+冷重开一致、
+    `requireExact` 硬门 approximateSteps=0。
+  - **S3 产品法向真栈（2026-11-10，`cap-face-direction.spec.ts`）**：
+    10×10×10 底座 + 40×40×10 顶板，底面产品法向 +z（朝内，外法向 -z）；
+    用产品 direction=forward（沿产品 +z，即体内）做 REMOVE/THROUGH_ALL →
+    **15,000 mm³**、status=0、push+冷重开。反证“产品 forward=外法向”假设
+    不成立，runner 必须按世界外法向 + 产品面法向换算。
+  - 候选 PS 均被上游 blocker 挡在 S3 步前（Wheel Revolve 1 草图 0 面域；
     Clamp Fillet 1 sweptEdge matches=2；Rocker Extrude 2 上游 7-face
     imprintFace qUnion 未展开）；记录 exact blocker，不强制转绿；
   - Bumper 精确轨（2026-11-10 实测 2 passed）：S10 `capFaceProfile` →
@@ -354,9 +366,11 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
    门已按 Onshape 证据修订。
 5. **S3（已完成，2026-11-10）**：REMOVE/INTERSECT/THROUGH_ALL CAP_FACE profile
    方向语义校准 + converter/translator/runner 扩展（`normalSignAmbiguous` ±法向
-   匹配、throughAll 透传）+ 合成真栈 REMOVE 15,000 / INTERSECT 2,000 mm³；
-   候选 PS（Wheel & Tire、Clamp Parts、Rocker）均被上游 blocker 挡在 S3 步前，
-   记录 exact blocker，不强制转绿。
+   匹配、THROUGH_ALL 不透传 depthMm、世界 outwardNormal + 产品面法向换算
+   direction、精确轨 approximateSteps=0 硬门）+ 合成真栈 REMOVE/THROUGH_ALL
+   15,000 / INTERSECT/THROUGH_ALL 4,000 / REMOVE/BLIND 5 为 18,500 mm³ +
+   产品朝内法向真栈 15,000 mm³；候选 PS（Wheel & Tire、Clamp Parts、Rocker）
+   均被上游 blocker 挡在 S3 步前，记录 exact blocker，不强制转绿。
 6. **UI**：另 AIRR，需 live 起始面/拔模对话框证据。
 
 ## 开放问题 / Spike
@@ -374,11 +388,14 @@ A 只保证**语义**（面轮廓 + 面基准偏移 + 面基准拔模），不�
   切至 y=-15.5（-y，材料在 -y 侧，外法向 +y）；Rocker Extrude 10
   （REMOVE/BLIND，oppositeDirection=true）rb=25→rb=30 出现 y=-1.5 新底面
   （-y，材料在 -y 侧，外法向 +y）。两例均为“逆外法向切入材料”，与 Bumper
-  ADD/forward + oppositeDirection=false 一致。产品 faceExtrude.direction 相对
-  面法向 → 直接映射；bodydetails 参数化法向符号不可信，S3 新形态用
-  `normalSignAmbiguous` 接受 ±法向。证据：私有 rb 快照 + 合成真栈
-  REMOVE/THROUGH_ALL 15,000 mm³、INTERSECT/THROUGH_ALL 2,000 mm³
-  （tree status=0、1 body、push+冷重开、approximateSteps=0）。
+  ADD/forward + oppositeDirection=false 一致。converter 由 bodydetails
+  `orientation` 得到世界外法向（true=外 / false=内）；产品面法向不保证朝外
+  （合成底面 +z 朝内），runner 用世界 desiredDir 与解析到的产品面法向点积
+  选择 forward/backward，不假设产品 forward=外法向。bodydetails 参数化法向
+  符号不可信，S3 新形态一律 `normalSignAmbiguous` 接受 ±法向。证据：私有 rb
+  快照 + 合成真栈 REMOVE/THROUGH_ALL 15,000、INTERSECT/THROUGH_ALL 4,000、
+  REMOVE/BLIND 5 为 18,500 mm³ + 产品朝内法向真栈 15,000 mm³（tree status=0、
+  1 body、push+冷重开、requireExact approximateSteps=0）。
 - **S4（OPEN，已收窄）**：`draftPullDirection` 与 Onshape 方向的符号一致性。
   合成收窄/外扩与 Bumper 10° 收窄均已与 Onshape 体积一致；其它方向组合仍待证据。
 - **S5（RESOLVED 2026-11-10，test-only）**：Onshape Fillet 1 实际选择 **16 条**

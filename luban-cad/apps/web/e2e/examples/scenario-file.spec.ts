@@ -27,6 +27,9 @@ test.describe('generic scenario file', () => {
       reset: process.env.EXAMPLE_RESET !== '0',
       skipSketchConstraints: process.env.EXAMPLE_SKIP_CONSTRAINTS === '1',
       ...(process.env.EXAMPLE_TOLERANCE ? { tolerance: Number(process.env.EXAMPLE_TOLERANCE) } : {}),
+      // review 2026-11-10：S3/synthetic 精确轨用 EXAMPLE_REQUIRE_EXACT=1 硬门
+      // approximateSteps=0（scenario.provenance.requireExact 亦可）。
+      ...(process.env.EXAMPLE_REQUIRE_EXACT === '1' ? { requireExact: true } : {}),
     });
     console.log(`[scenario-file] volumes=${JSON.stringify(result.volumes)} expected=${JSON.stringify(result.expected)}`);
   });

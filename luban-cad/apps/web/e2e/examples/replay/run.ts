@@ -875,8 +875,9 @@ export async function runScenario(
         if (endBoundRaw === 'blind' && (depthMm === undefined || !(depthMm > 0)))
           throw new BlockedCapabilityError('face-extrude', `${feature.name} capFaceProfile 缺有效 depthMm`);
         // S3：REMOVE/INTERSECT 已由 Onshape 原始 oppositeDirection + rb 切削侧证据
-        // 校准（Wheel Extrude 1 / Rocker Extrude 10）；converter 已把该标志换算为
-        // 面相对的产品 direction。此处仍拒绝 NEW（产品 faceExtrude 无 NEW）。
+        // 校准（Wheel Extrude 1 / Rocker Extrude 10）；此处仍拒绝 NEW（产品
+        // faceExtrude 无 NEW）。THROUGH_ALL 不透传 depthMm（review 2026-11-10：
+        // blind 深度对该终止条件无意义，避免“throughAll 按 blind 深”假绿）。
         const operation = String(sourceParams.operation ?? '').toLowerCase();
         if (operation !== 'add' && operation !== 'remove' && operation !== 'intersect')
           throw new BlockedCapabilityError(
@@ -887,6 +888,49 @@ export async function runScenario(
         const startOffsetMm = typeof selectionStart === 'number' && Number.isFinite(selectionStart)
           ? selectionStart
           : 0;
+        // A3 已发布 ADD/BLIND 形态保持原 sketch-normal 方向映射（Bumper 不变）。
+        const legacyDirection = operation === 'add' && endBoundRaw !== 'throughall';
+        let productDirection: 'forward' | 'backward';
+        if (legacyDirection) {
+          productDirection = sourceParams.oppositeDirection === true ? 'backward' : 'forward';
+        } else {
+          // S3：converter 给出**世界实体外法向**（bodydetails orientation），
+          // Onshape oppositeDirection 相对该外法向；产品 direction 相对解析到的
+          // 产品面法向（可能朝内/朝外任意，合成盒体底面实测朝内）。用点积把
+          // 世界方向换算为产品 direction；任何缺失/退化 → fail closed。
+          const outwardRaw = (originalSelection as { outwardNormal?: unknown }).outwardNormal;
+          const outwardRecord = outwardRaw && typeof outwardRaw === 'object'
+            ? outwardRaw as Record<string, unknown>
+            : undefined;
+          const outward = ['x', 'y', 'z'].map((axis) => outwardRecord?.[axis]);
+          if (outward.some((value) => typeof value !== 'number' || !Number.isFinite(value)))
+            throw new BlockedCapabilityError(
+              'face-extrude',
+              `${feature.name} capFaceProfile 缺有效 outwardNormal（S3 世界外法向）`,
+            );
+          const outwardVector = outward as [number, number, number];
+          const outwardLength = Math.hypot(outwardVector[0], outwardVector[1], outwardVector[2]);
+          if (!(outwardLength > 1e-9))
+            throw new BlockedCapabilityError(
+              'face-extrude',
+              `${feature.name} capFaceProfile outwardNormal 退化`,
+            );
+          const desiredSign = sourceParams.oppositeDirection === true ? -1 : 1;
+          const desired = outwardVector.map((value) => value / outwardLength * desiredSign);
+          const faceNormal = resolution.faceNormal;
+          const faceNormalLength = Math.hypot(faceNormal[0], faceNormal[1], faceNormal[2]);
+          const dotProduct = desired[0]! * faceNormal[0]
+            + desired[1]! * faceNormal[1]
+            + desired[2]! * faceNormal[2];
+          if (!(faceNormalLength > 1e-9) || !Number.isFinite(dotProduct)
+            || Math.abs(dotProduct) < 1e-9)
+            throw new BlockedCapabilityError(
+              'face-extrude',
+              `${feature.name} capFaceProfile 方向无法由 outwardNormal/产品面法向判定` +
+              `（dot=${String(dotProduct)}）`,
+            );
+          productDirection = dotProduct > 0 ? 'forward' : 'backward';
+        }
         effectiveFeature = {
           ...feature,
           type: 'faceExtrude',
@@ -895,8 +939,8 @@ export async function runScenario(
             faceRef: resolution.faceRef,
             operation,
             endBound: endBoundRaw === 'throughall' ? 'throughAll' : 'blind',
-            ...(depthMm !== undefined ? { depthMm } : {}),
-            direction: sourceParams.oppositeDirection === true ? 'backward' : 'forward',
+            ...(endBoundRaw === 'blind' && depthMm !== undefined ? { depthMm } : {}),
+            direction: productDirection,
             startOffsetMm,
             ...(sourceParams.hasDraft === true && typeof sourceParams.draftAngleDeg === 'number'
               ? {
@@ -909,7 +953,7 @@ export async function runScenario(
         };
         capFaceNotes.push(
           `${resolution.note}（${operation}/${endBoundRaw === 'throughall' ? 'throughAll' : 'blind'}` +
-          `；startOffset=${startOffsetMm}mm；S10 面驱动 profile，精确轨）`,
+          `；direction=${productDirection}；startOffset=${startOffsetMm}mm；S10 面驱动 profile，精确轨）`,
         );
       }
       // fillet/chamfer 边解析：多体时把当前 body 谱系交给 resolver 限定候选体。

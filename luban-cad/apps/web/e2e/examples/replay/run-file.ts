@@ -58,6 +58,13 @@ export interface RunScenarioFileOptions {
   /** 能力覆盖轨：拔模按直壁近似并标 approximate（严格轨禁止）。 */
   allowApproximateDraft?: boolean;
   /**
+   * 硬门（review 2026-11-10）：要求 `approximateSteps=0`。S3/synthetic 精确轨与
+   * Bumper strict 必须置 true（或 scenario.provenance.requireExact=true）；
+   * 通用 strict 轨仍允许已登记的已知近似（Drive Sleeve/Intro Part 3），只在
+   * approximateSteps>0 时警告，不改变这些示例的既有口径。
+   */
+  requireExact?: boolean;
+  /**
    * 审计的 test-only 边覆盖（2026-11-09 Bumper Fillet 1）：按特征返回完整
    * 持久边引用，覆盖通用 resolver 的展开结果。仅显式传入的示例 spec 使用；
    * 缺省行为完全不变（仍走 `resolveScenarioEdges`）。
@@ -139,13 +146,22 @@ export async function runScenarioFile(
   const expectedTypes = scenario.features.map((feature) => feature.type);
   expect(built.steps.map((step) => step.type)).toEqual(expectedTypes);
   const actualOpTypes = built.steps.map((step) => step.opFeatureType ?? step.type);
-  // 严格轨定义仍是 tree/status/body/volume/push+reopen；approximate 步骤只记录，
-  // 不强制为 0（合法的严格绿示例可能保留已知近似：Intro Part 3 strict 实测
-  // approximateSteps=3；Drive Sleeve 的直接 runScenario 严格轨 Extrude 1 亦然），
-  // 因此这里不做断言，只在非 record 轨打印警告。
+  // 严格轨定义仍是 tree/status/body/volume/push+reopen。通用 strict 轨允许已登记
+  // 的已知近似（Intro Part 3 strict 实测 approximateSteps=3；Drive Sleeve 的
+  // Extrude 1–3 亦然），只在非 record 轨警告；**精确轨**（S3/synthetic、Bumper
+  // strict）必须显式 requireExact（options 或 scenario.provenance.requireExact）
+  // 硬门 approximateSteps=0，避免近似步骤被当成精确绿。
   const strictTrack = options.volumePolicy !== 'record' && options.statusPolicy !== 'record';
+  const requireExact = options.requireExact
+    ?? ((scenario.provenance as { requireExact?: unknown } | undefined)?.requireExact === true);
   console.log(`[scenario-file] ${options.name} approximateSteps=${built.approximateSteps}`);
-  if (strictTrack && built.approximateSteps > 0) {
+  if (requireExact) {
+    expect(
+      built.approximateSteps,
+      `${options.name} 要求 exact 轨但存在 approximate 步骤：` +
+      `${built.steps.filter((step) => step.approximate).map((step) => step.feature).join(', ')}`,
+    ).toBe(0);
+  } else if (strictTrack && built.approximateSteps > 0) {
     console.log(
       `[scenario-file] WARNING ${options.name} approximateSteps=${built.approximateSteps} ` +
       `(${built.steps.filter((step) => step.approximate).map((step) => step.feature).join(', ')})；` +

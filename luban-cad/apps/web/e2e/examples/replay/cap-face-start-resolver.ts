@@ -18,7 +18,17 @@ import { getBodiesRpc, msRpc, type BSeedEditorContext } from '../../helpers.js';
 import type { ScenarioFeature } from './scenario-to-op.js';
 
 export type CapFaceStartResolution =
-  | { ok: true; bodyId: string; faceRef: LubanTopologyId; faceSubEntityId: number; note: string }
+  | {
+    ok: true;
+    bodyId: string;
+    faceRef: LubanTopologyId;
+    faceSubEntityId: number;
+    /** 解析到的产品面参数化法向（`CurveOps.isPlanar` columnZ）。S3：产品面
+     *  法向可能朝内/朝外（合成盒体底面实测朝内），runner 用它把世界方向
+     *  换算成产品 `direction`，不得假设它等于实体外法向。 */
+    faceNormal: [number, number, number];
+    note: string;
+  }
   | { ok: false; reason: string };
 
 export interface Vec3Tuple { x: number; y: number; z: number }
@@ -48,10 +58,12 @@ export interface CapFaceStartEvidence {
   boxMm?: { min: Vec3Tuple; max: Vec3Tuple };
   /** 期望边界曲线数（可选，来自上游草图单闭环）。 */
   edgeCount?: number;
-  /** S3（ADR-0016）：bodydetails 的 surface.normal 是面参数化法向、不是实体
-   *  外法向（Bumper 盒体实测有朝内面）；S3 新形态（REMOVE/INTERSECT/THROUGH_ALL）
-   *  无法从上游端盖推导平面时标记本字段，面匹配接受 ±法向（仍要求平面/面积/
-   *  AABB 唯一）。方向不依赖法向符号（converter 直接映射 oppositeDirection）。 */
+  /** S3（ADR-0016 review 2026-11-10）：bodydetails 的 surface.normal 是面参数化
+   *  法向、不是实体外法向（Bumper 盒体实测有朝内面）；S3 新形态
+   *  （REMOVE/INTERSECT/THROUGH_ALL）**一律**标记本字段（即使采用上游 cap 平面，
+   *  也不依赖法向符号），面匹配接受 ±法向（仍要求平面/面积/AABB 唯一）。
+   *  方向由 converter 的 world outwardNormal + 解析到的产品面法向换算，不用本
+   *  法向符号。 */
   normalSignAmbiguous?: boolean;
 }
 
@@ -414,6 +426,7 @@ export async function resolveScenarioCapFaceStart(args: {
     bodyId: face.bodyKey,
     faceRef: resolved.ref,
     faceSubEntityId: face.subEntityId,
+    faceNormal: face.normal,
     note: `CAP_FACE 起始面 → body ${face.bodyKey}:${face.subEntityId}` +
       `（plane=${evidence.plane.origin.x},${evidence.plane.origin.y},${evidence.plane.origin.z}` +
       `${evidence.areaMm2 !== undefined ? `, area=${evidence.areaMm2.toFixed(3)}mm²` : ''} → faceExtrude）`,

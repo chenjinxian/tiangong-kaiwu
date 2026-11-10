@@ -253,6 +253,58 @@ test.describe('scenario → FeatureOp', () => {
     }
   });
 
+  test('faceExtrude S3 review：throughAll 显式忽略 depthMm；blind 透传；非法 direction fail closed', () => {
+    // throughAll 即使输入带 depthMm（25）也不进入产品载荷。
+    const throughAll = translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude throughAll',
+      params: {
+        operation: 'remove',
+        endBound: 'throughAll',
+        depthMm: 25,
+        bodyId: 'body-1',
+        faceRef: { nodeId: 5, entityId: 6 },
+        direction: 'backward',
+      },
+    });
+    expect(throughAll.op.kind).toBe('insertFeature');
+    if (throughAll.op.kind !== 'insertFeature') return;
+    expect((throughAll.op.params as Record<string, unknown>).depthMm).toBeUndefined();
+    expect(throughAll.op.params).toMatchObject({ endBound: 'throughAll', direction: 'backward' });
+    expect(throughAll.notes.join(' ')).toContain('忽略 depthMm');
+
+    // blind 才透传 depthMm。
+    const blind = translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude blind',
+      params: {
+        operation: 'remove',
+        endBound: 'blind',
+        depthMm: 5,
+        bodyId: 'body-1',
+        faceRef: { nodeId: 5, entityId: 6 },
+        direction: 'forward',
+      },
+    });
+    expect(blind.op.kind).toBe('insertFeature');
+    if (blind.op.kind !== 'insertFeature') return;
+    expect(blind.op.params).toMatchObject({ endBound: 'blind', depthMm: 5, direction: 'forward' });
+
+    // 未知 direction 不得静默降级 forward。
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude bad-direction',
+      params: {
+        operation: 'remove',
+        endBound: 'blind',
+        depthMm: 5,
+        bodyId: 'body-1',
+        faceRef: { nodeId: 5, entityId: 6 },
+        direction: 'sideways',
+      },
+    })).toThrow(BlockedCapabilityError);
+  });
+
   test('faceExtrude draft 非法组合 → blocked（非 blind / 缺角度 / 孤 pullDirection）', () => {
     const base = {
       operation: 'add',
