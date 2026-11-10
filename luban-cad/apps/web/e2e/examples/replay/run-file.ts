@@ -9,6 +9,7 @@ import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, type BSeedEditorC
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from '../imodel.js';
 import { DEFAULT_DATA_ROOT } from '../registry.js';
 import { resolveScenarioEdges, type ResolveEdgesResult } from './edge-resolver.js';
+import { resolveScenarioCapFaceStart } from './cap-face-start-resolver.js';
 import { resolveImprintFaceRef } from './imprint-face-resolver.js';
 import { resolveOracleEdges, type RollbackEdgeOracle } from './rollback-edge-oracle.js';
 import { resolveScenarioShellFaces } from './shell-face-resolver.js';
@@ -120,6 +121,11 @@ export async function runScenarioFile(
       resolveScenarioShellFaces(page, ctx, fullScenario, feature, token, context),
     imprintFaceResolver: (_feature, _fullScenario, data) => resolveImprintFaceRef({
       page, ctx, accessToken: token, ...data,
+    }),
+    // ADR-0016 A3：S10 CAP_FACE profile 起始面 → 持久 bodyId/faceRef；失败由
+    // runner 阻塞，不静默回退 startOffset 近似。
+    capFaceResolver: (feature, _fullScenario, bodyContext) => resolveScenarioCapFaceStart({
+      page, ctx, feature, accessToken: token, bodyContext,
     }),
   });
   const expectedTypes = scenario.features.map((feature) => feature.type);

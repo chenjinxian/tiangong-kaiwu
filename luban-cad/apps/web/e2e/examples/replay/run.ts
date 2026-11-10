@@ -41,6 +41,7 @@ import {
 import { selectEdgeTargetBody } from './multi-body-anchor.js';
 import { resolveRegionsFromProfileEntities } from './region-entity-resolver.js';
 import type { ImprintFaceResolution } from './imprint-face-resolver.js';
+import type { CapFaceStartResolution } from './cap-face-start-resolver.js';
 import {
   BlockedCapabilityError,
   translateScenarioFeature,
@@ -99,6 +100,20 @@ export interface RunScenarioOptions {
       regionIndices: readonly number[];
     },
   ) => Promise<ImprintFaceResolution>;
+  /**
+   * ADR-0016 A3（test-only）：S10 CAP_FACE profile 起始面解析。converter 输出
+   * `selection.kind='capFaceProfile'` + 起始面证据；本回调在步骤时点把证据解析为
+   * 持久 bodyId/faceRef，runner 随即改走产品 faceExtrude。未提供/解析失败一律
+   * 阻塞（不退回 startOffset 近似；那条路径只保留给 start-reference 家族）。
+   */
+  capFaceResolver?: (
+    feature: ScenarioFeature,
+    scenario: ParityScenario,
+    bodyContext: {
+      bodyKeyBySource?: ReadonlyMap<string, string>;
+      allBodyKeys?: readonly string[];
+    },
+  ) => Promise<CapFaceStartResolution>;
 }
 
 /** 面域包围盒（草图局部 mm）；无 outerBoundary 时返回 undefined（selector 失败闭合）。 */
@@ -194,6 +209,11 @@ export async function runScenario(
       const imprintNotes: string[] = [];
       let imprintApproximate = false;
       let imprintAllExact = true;
+      // ADR-0016 A3：S10 面驱动 CAP_FACE profile（converter `capFaceProfile`）。
+      // 必须在 bodyContext 建好之后解析起始面（见下方 capFaceResolver 分支）。
+      const originalSelection = (feature.params as { selection?: { kind?: string } }).selection;
+      const isCapFaceProfile = feature.type === 'extrude' && originalSelection?.kind === 'capFaceProfile';
+      const capFaceNotes: string[] = [];
       if (feature.type === 'extrude') {
         const selection = (feature.params as {
           selection?: {
@@ -767,7 +787,8 @@ export async function runScenario(
         bodyCentroidByKey?: Map<string, { x: number; y: number; z: number }>;
       } = {};
       if (effectiveFeature.type === 'booleanBodies' || scopeSources.length > 0
-        || anchorEligible || edgeBodyContextEligible || transformAnchorEligible || shellAnchorEligible) {
+        || anchorEligible || edgeBodyContextEligible || transformAnchorEligible || shellAnchorEligible
+        || isCapFaceProfile) {
         const bodies = (await getBodiesRpc(ctx, accessToken)).filter(
           (body) => body.active !== false && body.authored !== false,
         );
@@ -820,6 +841,65 @@ export async function runScenario(
           );
         }
       }
+      // ADR-0016 A3：CAP_FACE profile 起始面解析 → 改走产品 faceExtrude。
+      // 解析失败/无 resolver 一律阻塞；不得回退旧 capFaceExtrude(startOffset)
+      // 近似（A4 严格轨不得用近似冒充精确）。
+      if (isCapFaceProfile) {
+        if (!options.capFaceResolver)
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} capFaceProfile 缺起始面解析器（runner 能力未接线）`,
+          );
+        const resolution = await options.capFaceResolver(feature, scenario, bodyContext);
+        if (!resolution.ok)
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} CAP_FACE 起始面解析失败：${resolution.reason}`,
+          );
+        const sourceParams = feature.params as Record<string, unknown>;
+        const endBoundRaw = String(sourceParams.endBound ?? 'blind')
+          .replace(/[_-]/g, '').toLowerCase();
+        if (endBoundRaw !== 'blind')
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} capFaceProfile 首版仅支持 blind（当前 ${endBoundRaw}）`,
+          );
+        if (sourceParams.secondDirection !== undefined)
+          throw new BlockedCapabilityError(
+            'face-extrude',
+            `${feature.name} capFaceProfile 首版与 secondDirection 互斥`,
+          );
+        const depthMm = typeof sourceParams.depthMm === 'number' ? sourceParams.depthMm : undefined;
+        if (depthMm === undefined || !(depthMm > 0))
+          throw new BlockedCapabilityError('face-extrude', `${feature.name} capFaceProfile 缺有效 depthMm`);
+        const selectionStart = (originalSelection as { startOffsetMm?: unknown }).startOffsetMm;
+        const startOffsetMm = typeof selectionStart === 'number' && Number.isFinite(selectionStart)
+          ? selectionStart
+          : 0;
+        effectiveFeature = {
+          ...feature,
+          type: 'faceExtrude',
+          params: {
+            bodyId: resolution.bodyId,
+            faceRef: resolution.faceRef,
+            operation: String(sourceParams.operation ?? 'add').toLowerCase(),
+            endBound: 'blind',
+            depthMm,
+            direction: sourceParams.oppositeDirection === true ? 'backward' : 'forward',
+            startOffsetMm,
+            ...(sourceParams.hasDraft === true && typeof sourceParams.draftAngleDeg === 'number'
+              ? {
+                hasDraft: true,
+                draftAngleDeg: sourceParams.draftAngleDeg,
+                ...(sourceParams.draftPullDirection === true ? { draftPullDirection: true } : {}),
+              }
+              : {}),
+          },
+        };
+        capFaceNotes.push(
+          `${resolution.note}（startOffset=${startOffsetMm}mm；S10 面驱动 profile，精确轨）`,
+        );
+      }
       // fillet/chamfer 边解析：多体时把当前 body 谱系交给 resolver 限定候选体。
       if ((feature.type === 'fillet' || feature.type === 'chamfer') && options.edgeResolver) {
         const resolved = await options.edgeResolver(feature, scenario, bodyContext);
@@ -860,6 +940,7 @@ export async function runScenario(
         translated.notes.push(...imprintNotes);
         if (imprintApproximate) translated.approximate = true;
       }
+      if (capFaceNotes.length > 0) translated.notes.push(...capFaceNotes);
       if (profileRegionNote !== undefined) {
         translated.notes.push(profileRegionNote);
         if (!profileRegionNote.includes('→ 面域')) translated.approximate = true;

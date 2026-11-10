@@ -197,22 +197,27 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `manifest/face-oracle-edges.json`（私有、运行时加载；公共源码不含私有
   id/绝对路径）+ `rollback-edge-oracle.ts` 几何唯一匹配 + 可选 runner
   `edgeOracle`（缺省不启用，默认路径不变；18 条纯匹配单测）。
-  Bumper `Fillet 1` 的 oracle 实测 **fail closed**：指定展开规则
-  （matched edge + matched face loops）只有 **16/20** 条 body 边（缺底面 4 条
-  loop 边），且其中 4 条锥面斜边在产品侧是
-  `kind:'other'(curvePrimitive)`（Extrude 2 的 startOffset+draft 近似），
-  无几何可比。严格轨 `bumper-block-strict.spec.ts` 因此采用
-  “**仅当 oracle 解析恰好 20 条产品边才采用，否则回退审计 20 边 override**”
-  的显式策略；审计回退真栈 **2 passed**（auth setup + 严格场景）：
-  6 特征全 status=0（push 前/冷重开后）、1 body、
-  **634,347.216 vs 636,731.499 mm³（−0.374%）**、push+冷重开一致；
-  回退原因（oracle 16/20 + curvePrimitive）写入 notes 并打印。
   oracle 本身仍是**部分能力**：86/122 候选特征 ready、36 blocked
   （不支持曲线类型）、0/86 ready 覆盖全部 body 边；不能当作通用选择器替代。
-  Extrude 2 仍为 startOffset+draft 近似（approximateSteps=1）。通用 resolver
-  与 oracle 对 Fillet 1 均未打通，索引分类 blocked-kernel 不变。`run-file`
-  新增 `statusPolicy:'record'`（严格轨缺省仍 fail closed）与 push 后冷重开
-  status=0 严格断言。无 RPC/产物变更。
+  `run-file` 新增 `statusPolicy:'record'`（严格轨缺省仍 fail closed）与 push
+  后冷重开 status=0 严格断言。无 RPC/产物变更。
+  **2026-11-10 A3/A4（ADR-0016 S10 精确轨，未推送）**：converter 对
+  `entities` profile 槽、`startOffset=false`/`startOffsetEntity` 空的 CAP_FACE
+  特征输出 `capFaceProfile`（起始面平面 + Onshape 面积/AABB 证据）；公共 runner
+  在步骤时点用 `readFaceHandles` 唯一匹配（平面/法向/面积/AABB）→
+  `resolveFaceRef` → 产品 `faceExtrude`（startOffset=0、10° 收窄、
+  `draftPullDirection=true`、depth 40）。Bumper 真栈：pre-fillet
+  **657,764.787185 mm³**、body 20/20 边全为 line（无 curvePrimitive）、
+  rb=3 oracle **16/16**、最终 **636,731.650 vs 636,731.499 mm³（+0.000024%）**、
+  6 特征全 status=0（push 前/冷重开）、1 body、push+冷重开一致、
+  approximateSteps=0。
+  **证据更正（ADR-0016 已接受门需修订）**：Onshape `Fillet 1` 实际只选
+  **16 条边**；底面 4 条 z=0 loop 边是**尖边**（最终 body 仅 16 个 R5 圆角柱面、
+  无底环圆角；live 截图底边为直尖边），oracle 的 16/20 是**完整选择**而非缺口。
+  旧审计 20 边回退（634,347.216，−0.374%）多选了底面环，已从 strict spec 移除。
+  ADR-0016 / AIRR 的“oracle 20/20（含底面 loop）”门与 Onshape 证据不符，
+  应修订为 **16/16（oracle 覆盖全部实际选择边）+ 底面 loop 尖边**；在修订前
+  不把 A4 按书面门宣称为严格绿，Bumper 索引分类保持 blocked-kernel 待裁决。
 - `apps/web` 全量 vitest：**1527/1527**（2026-11-09 body pattern 反向 UI +1
   （FeatureDialog 179/179；真栈 3×3 720.000 反向质心 x=-6 push+冷重开）；
   body pattern 第二方向 UI +3

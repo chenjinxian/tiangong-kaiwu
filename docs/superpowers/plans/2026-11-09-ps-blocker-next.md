@@ -538,10 +538,17 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 > **2026-11-10 设计切片（用户已批准实现）**：AIRR
 > `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md` /
 > ADR-0016 `docs/adr/0016-extrude-start-face-draft.md`。
-> 状态 **已批准实现（2026-11-10）**；本次只提交文档，无产品代码。S9/S10/S11 已解析；
-> 体积模型修正为 prismoid。当前 Bumper strict 仍为审计 20 边回退（−0.374%）、
-> oracle 16/20；该最终差归因下游 fillet，不归因 Extrude 2。A2 未达成前不把
-> Bumper 计入严格绿，也不声称 20/20 已解决。
+> 状态 **已批准实现（2026-11-10）**；S9/S10/S11 已解析；体积模型修正为 prismoid。
+> **2026-11-10 A3/A4 实测（未推送）**：S10 CAP_FACE → 产品 faceExtrude 已接线
+> （converter `capFaceProfile` + runner 起始面解析 + `resolveFaceRef`）；
+> pre-fillet **657,764.787185**、20/20 line、rb=3 oracle **16/16**、最终
+> **636,731.650 vs 636,731.499（+0.000024%）**、6 特征全 status=0、1 body、
+> push+冷重开、approximateSteps=0。**证据更正**：Onshape Fillet 1 实际只选
+> **16 条边**（底面 4 条 z=0 边为尖边；最终 body 仅 16 个 R5 圆角柱面、无底环
+> 圆角；live 截图底边为直尖边），oracle 16/20 是**完整选择**而不是缺口；
+> 旧审计 20 边回退（634,347.216，−0.374%）多选底面环，已从 strict spec 移除。
+> ADR-0016 的“oracle 20/20（含底面 loop）”门与证据不符，需修订为
+> **16/16（覆盖全部实际选择边）+ 底面 loop 尖边**；修订前不按书面门宣称严格绿。
 
 **Files（设计产物，本次已落）:**
 - `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md`
@@ -592,12 +599,19 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
       面轮廓/offset/angle 参数往返；真栈 prismoid **657,764.787 mm³** push+冷重开；
       **不宣称解析边/20-20，A2 仍 blocked-kernel**。能力状态：无 UI；converter/translator
       属 A3 未接；发布需新 backend 产物（旧 backend-20261109 不识别新字段，X-11）。
-- [ ] A2：解析边 spike/实现（私有 native/TS 或等价构造；P0-08 另批）；合成矩形 →
-      Bumper pre-fillet 657,764.787（或 measured A2 baseline）/20/20。
-- [ ] A3：S9/S10/S11 已解析证据指针 + converter/translator/runner + oracle 全边展开
-      （test-only）。
-- [ ] A4：Bumper 严格轨 pre-fillet 门 + oracle 20/20 + strict 最终体积 + fillet 归因 +
-      push/冷重开 + 全量回归。
+- [x] A2：解析边 spike/实现（私有 native/TS 或等价构造；无 P0-08）；合成矩形 →
+      tool/最终 Unite **20/20 line**、297,764.787/657,764.787、holed 全 line/arc。
+      **Bumper 实测证明原“20/20（含底面 loop）”门与 Onshape 选择不符**：实际选择
+      16 条（底面 4 条尖边未选）；需 ADR 修订，见下。
+- [x] A3：S9/S10/S11 已解析证据指针 + converter `capFaceProfile`（起始面
+      平面/面积/AABB 证据）+ translator `faceExtrude` startOffset/draft + runner
+      起始面解析（`readFaceHandles` 唯一匹配 → `resolveFaceRef`）；旧
+      capFaceExtrude/start-reference 近似路径保留；未解析 fail closed（test-only）。
+- [ ] A4：Bumper 严格轨已实测：pre-fillet **657,764.787185**、20/20 line、
+      rb=3 oracle **16/16**、最终 **636,731.650（+0.000024%）**、全 status=0、
+      1 body、push+冷重开、approximateSteps=0。**书面门仍是 oracle 20/20**，
+      与 Onshape 证据冲突；ADR-0016 修订为 16/16 + 底面尖边前，不勾选 A4、
+      不宣称严格绿（Bumper 索引保持 blocked-kernel 待裁决）。
 - [ ] UI：另 AIRR（live 证据齐备后）。
 
 ---

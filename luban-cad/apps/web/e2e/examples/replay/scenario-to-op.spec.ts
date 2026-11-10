@@ -186,6 +186,87 @@ test.describe('scenario → FeatureOp', () => {
     expect(step.notes.join(' ')).toContain('Onshape live 几何未独立校准');
   });
 
+  test('faceExtrude 起始面（ADR-0016 A3）：startOffset/draft（弧度→度）透传、不近似', () => {
+    const step = translateScenarioFeature({
+      type: 'faceExtrude',
+      name: 'Extrude 2',
+      params: {
+        operation: 'add',
+        endBound: 'blind',
+        depthMm: 40,
+        bodyId: 'body-1',
+        faceRef: { nodeId: 3, entityId: 4 },
+        direction: 'forward',
+        startOffsetMm: 0,
+        hasDraft: true,
+        draftAngleDeg: Math.PI / 18,
+        draftPullDirection: true,
+      },
+    });
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.featureType).toBe('faceExtrude');
+    expect(step.op.params).toMatchObject({
+      bodyId: 'body-1',
+      faceRef: { nodeId: 3, entityId: 4 },
+      operation: 'add',
+      endBound: 'blind',
+      depthMm: 40,
+      direction: 'forward',
+      startOffsetMm: 0,
+      draftAngleDeg: 10,
+      draftPullDirection: true,
+    });
+    expect(step.approximate).toBe(false);
+    expect(step.notes.join(' ')).toContain('startOffset=0 mm');
+    expect(step.notes.join(' ')).toContain('draft=10.000°(reverse)');
+  });
+
+  test('faceExtrude draft 非法组合 → blocked（非 blind / 缺角度 / 孤 pullDirection）', () => {
+    const base = {
+      operation: 'add',
+      depthMm: 10,
+      bodyId: 'body-1',
+      faceRef: { nodeId: 1, entityId: 2 },
+    };
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E',
+      params: { ...base, endBound: 'throughAll', hasDraft: true, draftAngleDeg: Math.PI / 18 },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E',
+      params: { ...base, endBound: 'blind', hasDraft: true },
+    })).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      type: 'faceExtrude', name: 'E',
+      params: { ...base, endBound: 'blind', draftPullDirection: true },
+    })).toThrow(BlockedCapabilityError);
+  });
+
+  test('capFaceProfile 未由 runner 解析 → blocked，不退回草图面域近似', () => {
+    expect(() => translateScenarioFeature({
+      type: 'extrude',
+      name: 'Extrude 2',
+      params: {
+        operation: 'add',
+        endBound: 'blind',
+        depthMm: 40,
+        hasDraft: true,
+        draftAngleDeg: Math.PI / 18,
+        draftPullDirection: true,
+        selection: {
+          kind: 'capFaceProfile',
+          upstreamId: 'onshape-extrude-1',
+          startOffsetMm: 0,
+          startFace: {
+            plane: { origin: { x: 0, y: 0, z: 40 }, normal: { x: 0, y: 0, z: 1 } },
+            areaMm2: 9000,
+          },
+        },
+      },
+    }, { sketchIdBySource: new Map([['s', 'sk']]) })).toThrow(BlockedCapabilityError);
+  });
+
   test('CAP_FACE 起始面（P2.1）：上游草图面域 + startOffsetMm + draft', () => {
     const step = translateScenarioFeature({
       type: 'extrude',
