@@ -522,8 +522,9 @@ git commit -m "test(examples): area/bbox evidence for cap-face selector"
 cd luban-cad/apps/web
 npx playwright test e2e/examples/bumper-block-strict.spec.ts --reporter=line
 ```
-Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fillet 1 仍解析
-12 条边、仍属 blocked-kernel。无论结果，更新私有审计台账的聚合状态与证据指针。
+Expected: 严格轨（Fillet 1 **16/16 实际选择**；底面 4 条 z=0 尖边未选）；通用
+resolver 对 Fillet 1 仍解析 12 条边（`genericResolver=12-edge blocked`；分类已按
+strict 轨提升，发布栈不成立）。无论结果，更新私有审计台账的聚合状态与证据指针。
 
 - [ ] **Step 5: 提交**
 
@@ -549,9 +550,13 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
 > 旧审计 20 边回退（634,347.216，−0.374%）多选底面环，已从 strict spec 移除。
 > ADR-0016/AIRR 的“oracle 20/20（含底面 loop）”门已修订为
 > **16/16（覆盖全部实际选择边）+ 底面 loop 尖边**；A4 按修订后的门完成。
-> 索引口径：私有 `replicable-now` 仍 16（Bumper generic resolver 12 边
-> blocked-kernel；strict 轨依赖 A1/A2 backend + 私有 oracle/scenario，发布/
-> 干净检出前不提升）；公开 strict spec 18（工作树）。
+> 索引口径（2026-11-10 闭口）：私有工作树 `replicable-now` **18**——Bumper
+> 已提升，但条目显式携带 `strictPath=rb3-oracle-16/16`、
+> `requiresBackend=A1/A2 (unreleased)`、`genericResolver=12-edge blocked` 与
+> workingTreeCaveat（generic resolver 仍是 12 边 blocked-kernel；strict 轨
+> 依赖未发布 A1/A2 backend + 未提交私有 oracle/scenario）；公开 strict spec
+> **19**（工作树，含 iOS）。干净私有检出/发布栈仍低于 18/19，不得据此宣称
+> 发布绿。
 
 **Files（设计产物，本次已落）:**
 - `docs/superpowers/specs/2026-11-10-extrude-startface-draft-airr.md`
@@ -619,9 +624,10 @@ Expected: 严格轨（Fillet 1 审计 20 边覆盖）；通用 resolver 对 Fill
       0.01 mm³）、20/20 line、rb=3 oracle **16/16**、最终
       **636,731.650（+0.000024%）**、全 status=0、1 body、push+冷重开、
       approximateSteps=0、冷重开落库参数复核。ADR-0016/AIRR 已修订为
-      16/16 + 底面尖边；审计 20 边回退已退役。Bumper 私有索引仍保持
-      blocked-kernel（generic resolver 12 边；strict 轨依赖 A1/A2 backend +
-      私有 oracle/scenario，发布/干净检出前不提升）。
+      16/16 + 底面尖边；审计 20 边回退已退役。Bumper 私有工作树索引已提升
+      `replicable-now`（第 18 例），但显式保留 `genericResolver=12-edge
+      blocked`、`requiresBackend=A1/A2 (unreleased)`、`strictPath=rb3-oracle-16/16`
+      与 workingTreeCaveat；发布/干净检出仍不成立。
 - [ ] UI：另 AIRR（live 证据齐备后）。
 
 ---
@@ -676,10 +682,18 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
 > 私有 scenario）；Alignment 的 `Cut 2 more holes` 保留一条已审计人工面域覆盖，
 > 纯证据驱动计数 15（`Cut 2 holes` 面积证据精确）。缺额原因与未解决项证据见
 > `2026-11-09-ps-blocker-driven.md`「PS blocker 下一阶段执行记录」。
-> **2026-11-10 A4 后口径**：公开 strict spec **18**（工作树，含 A2 face-extrude
-> 与 Bumper S10 严格轨）与私有索引 `replicable-now` **16** 分开计；Bumper
-> strict 依赖 A1/A2 backend + 私有 rb=3 oracle/scenario，发布/干净检出前索引
-> 不提升（generic resolver 仍 12 边 blocked-kernel）。
+> **2026-11-10 索引闭口**：目标 ≥18 在工作树达成——私有
+> `manifest/example-index.json` `replicable-now` **18**（Bumper 为第 18 例，
+> 显式字段 `strictPath=rb3-oracle-16/16`、`requiresBackend=A1/A2
+> (unreleased)`、`genericResolver=12-edge blocked` + workingTreeCaveat）、
+> `verify-example-index` **0 errors / 5 warnings**；公开 strict spec **19**
+> （工作树，含 Bumper S10 严格轨与 iOS First Part）。iOS First Part 用
+> `EXAMPLE_RESET=1` 真栈 **2 passed（1.9m）**：157,478.736 vs 157,478.9
+> （0.0001%）、树 sketch/extrude/extrude/chamfer 全 status=0、1 body、
+> push+冷重开。**发布门未过**：A1/A2 backend 未发布、私有
+> converter/oracle/scenario 未提交，干净私有检出/发布栈的计数仍更低；
+> Bumper 的 generic resolver 仍是 12 边 blocked-kernel，不得把 strict 轨
+> 说成通用能力。
 
 **Files:**
 - Private: `manifest/example-index.json`, `manifest/face-evidence.json`,
@@ -688,7 +702,7 @@ git commit -m "docs: AIRR/ADR for external sketch refs and multi-body scope"
   `docs/superpowers/plans/2026-11-09-ps-blocker-driven.md`
 - Demo: `luban-cad/apps/web/demo-artifacts/examples/index.html`（本地生成）
 
-- [x] **Step 1: 重生成索引并验证（已执行；目标未达，实际 16/18）**
+- [x] **Step 1: 重生成索引并验证（2026-11-09 首次执行 16/18；2026-11-10 闭口 18/18）**
 
 ```bash
 cd <private onshape-parity-data>
@@ -700,6 +714,11 @@ Actual: **0 errors / 5 warnings；strict 16**（未达 18）。归因修正：Pa
 `KNOWN_SELECTOR_BLOCKERS`（真栈严格绿证据）；Part 4 blocker 更新为 2/4/70 候选；
 `CENTERLINE_DIMENSION` 按 converter→产品 `DISTANCE` 归因（4 PS constraints
 dropped→complete，无分类提升）。blocked-selector 4 → 3。
+
+2026-11-10 闭口复跑：`node tools/index-examples.mjs` → `replicableNow=18`、
+`measurableReplicableNow=18`、`rawReplicableNow=46`；`node
+tools/verify-example-index.mjs` → **0 errors / 5 warnings**（与首次执行相同的
+5 条空 features 签名警告）。blocked-kernel 4 → 3；replicable-now 17 → 18。
 
 - [x] **Step 2: 回归门**
 
@@ -761,7 +780,7 @@ native/backend 仓未提交。
 | CENTERLINE refs | scenario-to-op 新单测 | shared build | Fox RP23（或 blocked 证据） |
 | capFace/sweptFace 证据 | collector 测试 | index verify | 目标 PS spec |
 | Bumper 多边 fillet | native ctest | 下游字段无变化 | Bumper strict（ADR-0016 A2/A3/A4：Fillet 1 **16/16 实际选择**，底面 4 条 z=0 边尖边未选；旧审计 20 边回退已退役，曾多选底面 loop）；通用 resolver 12 边仍 blocked-kernel |
-| CAP_FACE 起始面+拔模（ADR-0016，A1/A2/A3/A4 已实现） | shared 1.64.0 契约 + S1/S5/S9/S10/S11 已解析证据 | 后端 faceExtrude/A2 测试；公共 translator/resolver 单测；真栈 Bumper strict + A2 face-extrude + Part 3 | A1 prismoid 297,764.787 baseline（不宣称精确）/ A2 解析边 tool 12/12、最终 Unite **20/20 line** + pre-fillet **657,764.787185** + Fillet 1 **16/16 实际选择**（底面 4 条尖边未选）+ 最终 **636,731.650 vs 636,731.499（+0.000024%）**、全 status=0/1 body/push+冷重开/approximateSteps=0；旧 −0.374% 归因审计 20 边回退多选底面 loop，已退役；Bumper 私有索引仍 blocked-kernel（generic resolver 12 边；strict 依赖 A1/A2 backend + 私有 oracle/scenario，发布/干净检出前不提升） |
+| CAP_FACE 起始面+拔模（ADR-0016，A1/A2/A3/A4 已实现） | shared 1.64.0 契约 + S1/S5/S9/S10/S11 已解析证据 | 后端 faceExtrude/A2 测试；公共 translator/resolver 单测；真栈 Bumper strict + A2 face-extrude + Part 3 | A1 prismoid 297,764.787 baseline（不宣称精确）/ A2 解析边 tool 12/12、最终 Unite **20/20 line** + pre-fillet **657,764.787185** + Fillet 1 **16/16 实际选择**（底面 4 条尖边未选）+ 最终 **636,731.650 vs 636,731.499（+0.000024%）**、全 status=0/1 body/push+冷重开/approximateSteps=0；旧 −0.374% 归因审计 20 边回退多选底面 loop，已退役；Bumper 私有工作树索引已提升 replicable-now（第 18 例；显式 `strictPath=rb3-oracle-16/16`、`requiresBackend=A1/A2 (unreleased)`、`genericResolver=12-edge blocked` + workingTreeCaveat）；发布/干净检出仍不成立，generic resolver 仍 12 边 blocked-kernel |
 | AIRR/ADR | 文档自检 | 无代码 | 无 |
 
 ## 停止条件

@@ -894,7 +894,11 @@ const faceExtrudeSchema = z.object({
 ### 8.5 known-red 政策
 
 - A2 已达成；Bumper strict 不再保持 blocked-kernel（generic resolver 仍为 12 边，
-  但 strict 轨走 16/16 oracle + A1/A2 backend；索引是否提升由发布/索引门决定）。
+  但 strict 轨走 16/16 oracle + A1/A2 backend）。索引口径（2026-11-10 闭口）：
+  私有工作树已提升 `replicable-now` 为第 18 例，并在条目中显式保留
+  `strictPath=rb3-oracle-16/16`、`requiresBackend=A1/A2 (unreleased)`、
+  `genericResolver=12-edge blocked` + workingTreeCaveat；A1/A2 后端发布与私有
+  converter/oracle/scenario 提交前，干净检出/发布栈不得宣称发布绿。
 - **16/20 不是 test-only 展开缺口**；Onshape 实际选择 16 条，底面 4 条尖边未选。
 - 不调容差、不用审计 20 边回退、不把 `curvePrimitive` 当 line、不硬编码体积。
 
@@ -976,4 +980,6 @@ const faceExtrudeSchema = z.object({
   （+0.000024%）；全部 status=0、1 body、push+冷重开、approximateSteps=0。
   旧“20/20 含底面 loop”门与旧 −0.374% 归因均已修订；S1/S2/S5/S9/S10/S11 已
   解析，S3/S4/S6/S7/S8 仍开放。Bumper 严格轨依赖 A1/A2 backend（X-11），不得
-  用审计 20 边回退。
+  用审计 20 边回退。索引闭口（2026-11-10）：私有工作树 `replicable-now` 18 /
+  公开 strict spec 19；Bumper 条目保留 `requiresBackend=A1/A2 (unreleased)` 与
+  `genericResolver=12-edge blocked`，发布栈仍不可宣称。

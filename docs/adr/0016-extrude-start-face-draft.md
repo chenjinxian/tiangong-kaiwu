@@ -384,4 +384,9 @@ pre-fillet **657,764.787185**；Fillet 1 = **16/16 实际选择**（5 matched fa
 approximateSteps=0。旧“oracle 20/20 含底面 loop”门与把 −0.374% 归因 fillet/
 Extrude 2 的表述均已修订；S1/S2/S5/S9/S10/S11 已解析，S3/S4/S6/S7/S8 仍开放。
 Bumper 严格轨依赖 A1/A2 backend（X-11）；发布前不得用审计 20 边回退，也不得在
-旧 backend 上宣称精确。
+旧 backend 上宣称精确。索引口径（2026-11-10 闭口）：私有工作树
+`replicable-now` 已提升 Bumper 为第 18 例，条目显式携带
+`strictPath=rb3-oracle-16/16`、`requiresBackend=A1/A2 (unreleased)`、
+`genericResolver=12-edge blocked` 与 workingTreeCaveat；generic resolver 仍是
+12 边 blocked-kernel，干净私有检出/发布栈在 A1/A2 backend 发布与私有
+converter/oracle/scenario 证据提交前不得据此宣称发布绿。

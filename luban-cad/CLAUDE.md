@@ -219,11 +219,16 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （含底面 loop）”门已修订为 **16/16（覆盖全部实际选择边）+ 底面 loop 尖边**。
   证据：私有 final bodydetails（微版本 `31306434108279575d07d43a`）+ live 截图
   crop `ui-evidence/bumper-block-live-20261106/crop-bottom.png`。
-  **索引口径**：私有 `manifest/example-index.json` `replicable-now` 仍 **16**——
-  Bumper generic resolver 仍为 12 边 blocked-kernel；strict 轨走 rb=3 oracle
-  16/16 + A1/A2 backend（私有 converter/scenario 未提交），发布/干净检出前
-  **不提升、不标 replicable-now**。公开 strict spec **18**（工作树，含 A2
-  face-extrude 与 Bumper S10 严格轨）。
+  **索引口径（2026-11-10 闭口）**：私有工作树 `manifest/example-index.json`
+  `replicable-now` **18**——Bumper 为第 18 例，条目显式携带
+  `strictPath=rb3-oracle-16/16`、`requiresBackend=A1/A2 (unreleased)`、
+  `genericResolver=12-edge blocked` 与 workingTreeCaveat；generic resolver
+  仍为 12 边 blocked-kernel，strict 轨走未发布 A1/A2 backend + 未提交私有
+  converter/oracle/scenario。公开 strict spec **19**（工作树，含 A2
+  face-extrude、Bumper S10 严格轨与 iOS First Part）。iOS 用
+  `EXAMPLE_RESET=1` 真栈 **2 passed（1.9m）**：157,478.736 vs 157,478.9
+  （0.0001%）、树全 status=0、1 body、push+冷重开。干净私有检出/发布栈仍
+  更低，A1/A2 backend 发布与私有证据提交前不得把 18/19 当发布绿。
 - `apps/web` 全量 vitest：**1527/1527**（2026-11-09 body pattern 反向 UI +1
   （FeatureDialog 179/179；真栈 3×3 720.000 反向质心 x=-6 push+冷重开）；
   body pattern 第二方向 UI +3
@@ -733,4 +738,4 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `sample-assignment.spec.ts` 降为 legacy（`EXAMPLE_UI_LEGACY=1` 才跑）。
 - **known-red**：`sketch-extrude` 仍红（草图无拉链面域）。`tutorial2` X-14 已于 2026-11-04 关闭：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min；六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³），证据 `apps/web/test-results/t2-strict-after.log`。不得把 known-red 当绿，也不得通过放宽断言“修复”。
 
-*最后更新: 2026-11-09（公开产物 `backend-20261109` / shared 1.63.0 已发布：4 个公开镜像 + MS 产物、verify-stack 17/17；此前全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面/平面点 + 草图落在自定义平面（shared 1.31.0，Intro to CAD + Handle 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；T3 抽壳 UI 真栈 1084.000 mm³ + 编辑/重开；T4 拉伸第二方向真栈 6000.000 mm³ + 旋转多面域 7853.981 mm³/Hand Brake 7125.270 mm³；T4b Handle 真栈逐体 38314.220/68563.590 vs 38314.765/68563.589；T5 mirror 真栈 8000.000 mm³；T6 point-on-line + 单点 H/V + CENTERLINE_DIMENSION 约束映射（缺口 143→6、47→0）；shared 1.32 倒角孔真栈 261.794 vs 261.799 mm³；验证基线 1389）*
+*最后更新: 2026-11-10（索引闭口：私有工作树 `replicable-now` 18 / 公开 strict 19——Bumper strict 16/16 + 未发布 A1/A2 backend、generic resolver 12 边；iOS `EXAMPLE_RESET=1` 真栈 2 passed；公开产物 `backend-20261109` / shared 1.63.0 已发布：4 个公开镜像 + MS 产物、verify-stack 17/17；此前全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面/平面点 + 草图落在自定义平面（shared 1.31.0，Intro to CAD + Handle 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；T3 抽壳 UI 真栈 1084.000 mm³ + 编辑/重开；T4 拉伸第二方向真栈 6000.000 mm³ + 旋转多面域 7853.981 mm³/Hand Brake 7125.270 mm³；T4b Handle 真栈逐体 38314.220/68563.590 vs 38314.765/68563.589；T5 mirror 真栈 8000.000 mm³；T6 point-on-line + 单点 H/V + CENTERLINE_DIMENSION 约束映射（缺口 143→6、47→0）；shared 1.32 倒角孔真栈 261.794 vs 261.799 mm³；验证基线 1389）*
