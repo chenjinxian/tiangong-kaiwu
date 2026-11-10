@@ -1,11 +1,13 @@
 # ADR-0015：多 body 特征作用域（多目标删除/阵列）
 
-- 状态：**部分实现（2026-11-10，B6.3 首切片）**。2026-11-07 立项、2026-11-09 扩展为完整
-  多目标契约提案；2026-11-10 用户指令「完成所有任务」后实现首切片：shared 1.65
-  `targetBodyIds` + 逐边 `bodyKey`、后端 `planInsertMulti`/逐体 BlendEdges/逐 body
-  side cache/持久化 body→upstream、回放 edge-resolver/runner。**单特征多 body 删除/
-  改参/抑制、pattern/mirror 跨体仍为后续切片；Handle Parts 真栈仍 known-red（Threaded
-  Shaft 体积差 +4.2%），本 ADR 不是绿例。**
+- 状态：**首切片已真实验证（2026-11-11）**。2026-11-07 立项、2026-11-09 扩展为完整
+  多目标契约提案；2026-11-10 实现首切片（shared 1.65 `targetBodyIds` + 逐边
+  `bodyKey`、后端 `planInsertMulti`/逐体 BlendEdges/逐 body side cache/持久化
+  body→upstream、回放 edge-resolver/runner）；2026-11-11 Handle Parts 真栈严格绿
+  （3 体逐体温差 ≤0.043%、整链 +0.009%、冷重开一致）。此前 +4.2% 根因不是圆角，
+  而是 converter 的 linearPattern `directionOne`（上游 revolve SWEPT_FACE）误映射
+  草图线方向 +Z；修正为旋转轴 -X 后闭合。**单特征多 body 删除/改参/抑制、
+  pattern/mirror 跨体仍为后续切片。**
 - 关联：`docs/adr/0007-feature-pattern.md`、`docs/adr/0012-split-part-world-plane.md`、
   `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`、
   `docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md`（同批异步预求值/
@@ -348,7 +350,13 @@ type InsertFeatureOpDelta = {
   冷重建逐字节一致；pre-txn 负路径零写；失败原子性（第 2 体失效 → 整体 status=1，
   两体保留旧几何）；T11b 两体各自 `BlendEdges` 内核成功。`FilletFlow` 13/13、
   `MultiBodyFoundation` 34/34。
-- **Handle Parts 真栈**：6 条边按 `bodyKey` 正确分组（1/3/2），单特征行/树 status=0；
-  但 Threaded Shaft 最终 32,236.419 vs 采集 30,931.280（+4.2%），超出 1% 门。
-  spec 保持 `test.fail`，不删除边/不放宽断言；剩余根因待查（圆边 fillet 与上游
-  孔/螺纹端体量关系），不得宣称 Handle Parts 已绿。
+- **Handle Parts 真栈（2026-11-11 闭合）**：6 条边按 `bodyKey` 正确分组
+  （1/3/2），单特征行/树 status=0。±4.2% 的 Threaded Shaft 差**不是 fillet**：
+  converter 把 Linear pattern 1 的 `directionOne`（上游 revolve 的 SWEPT_FACE）
+  映射为被选草图线的世界 +Z，15 个 remove 实例全部落在轴外，只去材 27.993 mm³
+  （应约 1.3e3）；修正为旋转轴 -X 后，最终三体 **11,878.438 / 30,944.712 /
+  105,771.136 mm³** vs 采集 11,878.505 / 30,931.280 / 105,770.915
+  （+0.0006% / +0.043% / +0.0002%），整链 **148,594.286 vs 148,580.700
+  （+0.009%）**，11 步树全 status=0，push+冷重开一致；spec 移除 `test.fail`
+  升级 strict。多目标 fillet 的逐体 BlendEdges/side cache/冷重建由此获得真实
+  示例验收。

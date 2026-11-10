@@ -1,7 +1,7 @@
 /**
  * 全部 Onshape 示例目录（public, 只读投影）。
  *
- * 数据来源：私有 `onshape-parity-data/manifest/example-index.json` 的 21 个
+ * 数据来源：私有 `onshape-parity-data/manifest/example-index.json` 的 22 个
  * `replicable-now` 条目；本文件只保留公开可展示的聚合字段（owner/名称/目标
  * 体积/封面/精确 iModel 名）。不包含原始 features、坐标、elementId/docId、
  * 私有路径或 UI 证据——私有 index 仍是唯一事实源，更新时同步本投影并跑
@@ -278,6 +278,19 @@ export const EXAMPLE_CATALOG: readonly ExampleCatalogEntry[] = [
     cover: '/showcase/example-intro-part5.webp',
     strictness: 'strict',
     note: '单线 imprint 面切分 / 凹口空腔 / 通槽',
+  },
+  {
+    id: 'handle-parts',
+    title: 'Exercise: Clamp / Handle Parts',
+    owner: 'Onshape Training Repo',
+    document: 'Exercise: Clamp',
+    partStudio: 'Handle Parts',
+    projectName: 'Onshape 示例复刻',
+    imodelName: 'E2E - Handle Parts Scenario',
+    volumeMm3: 148580.700127897,
+    cover: '/showcase/example-handle-parts.webp',
+    strictness: 'strict',
+    note: '多目标 fillet 6 边/3 body + featurePattern 多体 remove（SWEPT_FACE 方向修正）',
   },
   {
     id: 'intro-part-6',

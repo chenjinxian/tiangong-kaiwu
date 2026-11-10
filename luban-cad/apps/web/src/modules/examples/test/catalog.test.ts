@@ -9,17 +9,17 @@ import {
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../../../../public');
 
-describe('全部示例 catalog（21 个 replicable-now 的公共投影）', () => {
-  it('恰好 21 个、15 个文档、4 个 owner，id 唯一', () => {
-    expect(EXAMPLE_CATALOG).toHaveLength(21);
-    expect(new Set(EXAMPLE_CATALOG.map((entry) => entry.document)).size).toBe(15);
+describe('全部示例 catalog（22 个 replicable-now 的公共投影）', () => {
+  it('恰好 22 个、16 个文档、4 个 owner，id 唯一', () => {
+    expect(EXAMPLE_CATALOG).toHaveLength(22);
+    expect(new Set(EXAMPLE_CATALOG.map((entry) => entry.document)).size).toBe(16);
     expect(EXAMPLE_OWNERS).toEqual([
       'Explore Onshape Models',
       'Onshape',
       'Onshape Training',
       'Onshape Training Repo',
     ]);
-    expect(new Set(EXAMPLE_CATALOG.map((entry) => entry.id)).size).toBe(21);
+    expect(new Set(EXAMPLE_CATALOG.map((entry) => entry.id)).size).toBe(22);
   });
 
   it('每条有完整名称/目标体积/封面，且封面真实存在', () => {

@@ -200,6 +200,16 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   **1537/1537**、catalog 真栈 **5/5**；web/e2e tsc/lint 绿。公开 commit
   `04a9cde`（D2 能力）+ `75775ca`（Part 5 catalog），私有 commit `5d71633`；
   noOpEvidence/Part 6 切片未发布，发布前须重建 web 镜像。
+- **Handle Parts 严格绿 / 多目标 fillet 真实验收（2026-11-11，ADR-0015 B6.3）**：
+  Handle Parts 三体 **11,878.438 / 30,944.712 / 105,771.136 mm³** vs 采集
+  11,878.505 / 30,931.280 / 105,770.915（+0.0006% / +0.043% / +0.0002%），
+  整链 **148,594.286 vs 148,580.700（+0.009%）**，11 步树全 status=0，
+  push+冷重开一致；spec 移除 `test.fail`。旧 Threaded Shaft +4.2% 的根因是
+  converter 把 Linear pattern 1 的 `directionOne`（上游 revolve SWEPT_FACE）
+  映射为草图线世界 +Z，15 个 remove 实例落在轴外（仅去材 27.993 mm³）；
+  改为上游旋转轴 -X 后闭合。方向仍静态推导（`directionRisk`），不宣称通用
+  面方向解析。`/examples` 21→22，新增真实封面 `example-handle-parts.webp`；
+  私有 index `replicable-now` **22**、`blocked-kernel` **2**。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。
@@ -462,7 +472,8 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   反推偏移距映射；2 点样条 `.0/.1.internal` 端点已映射，First Part 48 约束全入树、
   converter complete，但真栈 **352290.918 vs 357568.177 mm³（−1.476%）known-red**
   （skipSketchConstraints 同体积，imprintFace 根因，非约束）。
-  Bumper Block / Handle Parts 仅 converter complete（几何仍 fillet kernel blocked）；
+  Bumper Block 已由严格轨（rb=3 oracle）转绿（2026-11-10）；Handle Parts 于
+  2026-11-11 strict 绿（根因是 linearPattern SWEPT_FACE 方向，不是 fillet）；
   空 external query 的 MIDPOINT/DISTANCE 已按 origin 映射。WARNING LABEL 文档族
   四份同名 PS 均真栈 0.8193532 mm³（变体 spec 3 passed，
   首轮两条为 MS 限流/冷开失败，干净窗口全绿）。MIRROR 的 UI 槽位/草图镜像工具
@@ -515,10 +526,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `SketchRegionDto.outerEntityIds/holeEntityIds` 映射面域（显式 regions 优先，
   未命中/共享边界歧义不猜、退回旧口径标近似），Playwright 单测 **6/6**；
   `resolveScenarioEdges` 增 bodyScope（selector.operationSourceIds → 当前 body
-  谱系收窄候选体），多体共享顶点/圆边不再跨 body 误配。**真栈 Handle Parts 前置
-  10 特征跑通**（3 体未圆角 12326.161 / 32140.878 / 106103.005 mm³，同序、差值为
-  圆角去材）；Fillet 1 的 6 条 SWEPT_EDGE 分属 3 body，产品单 `targetBodyId`
-  契约跨体圆角无合法载荷 → ADR-0015 blocked（`test.fail` known-red）。回归：
+  谱系收窄候选体），多体共享顶点/圆边不再跨 body 误配。真栈 Handle Parts
+  前置 10 特征跑通；Fillet 1 的 6 条 SWEPT_EDGE 分属 3 body，后由 ADR-0015
+  `targetBodyIds` + 逐 body BlendEdges 支持，2026-11-11 strict 绿（详见下方
+  多目标段；旧 +4.2% 实为 pattern 方向映射）。回归：
   Handle/Hand Brake 真栈绿、纯回放 **73/73**。**Universal Joint Drawing 面边界
   验收**：Chamfer 10 的 sweptFace 在未裁剪面展开 4 条边通过；entity 10
   匹配 0 条，调试证据为最终体全部边 x ≤ 0（存在镜像侧对应边）、正侧几何
@@ -763,4 +774,4 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 - **known-red**：`sketch-extrude` 仍红（草图无拉链面域）。`tutorial2` X-14 已于 2026-11-04 关闭：`tutorial2.spec.ts` 2 passed（setup+strict，3.8 min；六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³），证据 `apps/web/test-results/t2-strict-after.log`。不得把 known-red 当绿，也不得通过放宽断言“修复”。
 - **SPA 返回项目页再开模型恒卡“正在解析 Part Studio…”**（2026-11-10 实测）：根因是 luban 把 IPC host 绑定到 React 路由——`useViewport` 卸载 → `releaseViewer` 计数归零 → `IpcApp/IModelApp.shutdown`，下一次启动复用死 WebSocket/漏 startup（`IModelApp.initialized=false`、`WebSocket is already in CLOSING or CLOSED state`）。已对齐 iTwin.js display-test-app：**LocalhostIpcApp/IpcApp/IModelApp 页面级持有，首次进入编辑器 startup 一次，路由/Viewport 卸载只关闭 BriefcaseConnection，releaseViewer 只减引用、不 shutdown**。页面刷新/关闭由浏览器断 WS，后端 connection close 清理；显式停止需整页刷新。**后端 MS 重启后** `IpcApp.isValid`/`IpcSession.active` 仍为真，`downloadBriefcase` 会向死 socket 永久悬挂——`useBriefcaseConnection` 打开前用官方 `appFunctionIpc.queryConcurrency('io')` 做 8s 存活探针，超时即出错误面（“建模服务连接已断开…请刷新页面”），刷新后新页面重建 host 恢复。**登出/切换账号**必须 `AuthSession.logout()` 后 `window.location.href='/login'` 整页导航，禁止 SPA 路由切登录页复用旧 WS 身份。viewer `web-initializer.test.ts` 14/14 + `use-briefcase-connection.test.ts` 14/14（含探针超时）、真栈 `catalog.spec.ts` 重入 5/5、`ipc-logout.spec.ts` 1/1、`ms-restart-recovery.spec.ts`（`IPC_RESTART_E2E=1`）1/1。不要再引入按路由 shutdown 或重置 `LocalhostIpcApp` 私有字段的补丁。
 
-*最后更新: 2026-11-11（D2 单线面切分 / Intro Part 5+6 严格绿；shared 1.67 `noOpEvidence`；Part 6 188,451.236 vs 188,451.236、8 步 status=0、冷重开一致；`/examples` 21 卡；此前 2026-11-10（发布闭口：`backend-20261110` / shared 1.64.0 已发布——精确 faceExtrude A1/A2/A3/A4 + S3；Bumper strict 16/16、636,731.650 vs 636,731.499（+0.000024%）；私有 `replicable-now` 18 / 公开 strict 19，私有 evidence 已固化；A1/A2 backend 随发布可复现；generic resolver 12 边仍为独立 blocked-kernel；新增公开 `/examples` 全部示例目录（2026-11-10 19 卡，追加 Intro Part 4；owner 过滤/搜索、按项目名+iModel 名解析打开；真栈 19 卡 + Bumper 直达 Part Studio canvas；web **1537/1537**）；iOS `EXAMPLE_RESET=1` 真栈 2 passed；此前 `backend-20261109` / shared 1.63.0：4 个公开镜像 + MS 产物、verify-stack 17/17；此前全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面/平面点 + 草图落在自定义平面（shared 1.31.0，Intro to CAD + Handle 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；T3 抽壳 UI 真栈 1084.000 mm³ + 编辑/重开；T4 拉伸第二方向真栈 6000.000 mm³ + 旋转多面域 7853.981 mm³/Hand Brake 7125.270 mm³；T4b Handle 真栈逐体 38314.220/68563.590 vs 38314.765/68563.589；T5 mirror 真栈 8000.000 mm³；T6 point-on-line + 单点 H/V + CENTERLINE_DIMENSION 约束映射（缺口 143→6、47→0）；shared 1.32 倒角孔真栈 261.794 vs 261.799 mm³；验证基线 1389）*
+*最后更新: 2026-11-11（D2 单线面切分 / Intro Part 5+6 严格绿；shared 1.67 `noOpEvidence`；Part 6 188,451.236 vs 188,451.236、8 步 status=0、冷重开一致；Handle Parts strict 绿、`/examples` 22 卡；此前 2026-11-10（发布闭口：`backend-20261110` / shared 1.64.0 已发布——精确 faceExtrude A1/A2/A3/A4 + S3；Bumper strict 16/16、636,731.650 vs 636,731.499（+0.000024%）；私有 `replicable-now` 18 / 公开 strict 19，私有 evidence 已固化；A1/A2 backend 随发布可复现；generic resolver 12 边仍为独立 blocked-kernel；新增公开 `/examples` 全部示例目录（2026-11-10 19 卡，追加 Intro Part 4；owner 过滤/搜索、按项目名+iModel 名解析打开；真栈 19 卡 + Bumper 直达 Part Studio canvas；web **1537/1537**）；iOS `EXAMPLE_RESET=1` 真栈 2 passed；此前 `backend-20261109` / shared 1.63.0：4 个公开镜像 + MS 产物、verify-stack 17/17；此前全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面/平面点 + 草图落在自定义平面（shared 1.31.0，Intro to CAD + Handle 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；T3 抽壳 UI 真栈 1084.000 mm³ + 编辑/重开；T4 拉伸第二方向真栈 6000.000 mm³ + 旋转多面域 7853.981 mm³/Hand Brake 7125.270 mm³；T4b Handle 真栈逐体 38314.220/68563.590 vs 38314.765/68563.589；T5 mirror 真栈 8000.000 mm³；T6 point-on-line + 单点 H/V + CENTERLINE_DIMENSION 约束映射（缺口 143→6、47→0）；shared 1.32 倒角孔真栈 261.794 vs 261.799 mm³；验证基线 1389）*

@@ -199,10 +199,12 @@
   schema/DSL/逐体缓存/失败 all-or-nothing/旧载荷兼容已落。**update/suppress/
   delete 多目标、REMOVE extrude/hole 与下游消费仍待做**。
 - [ ] **B6.2 REMOVE extrude/hole 多目标**：Links 两体一次穿孔；逐体体积。
-- [ ] **B6.3 跨体 fillet/chamfer/shell/moveFace**：fillet 首切片已落（逐
-  owner body 分组 + 逐组 BlendEdges + 逐 body 缓存/写回/冷重建）；**Handle
-  Parts 真栈 known-red（Threaded Shaft +4.2%）**；chamfer/shell/moveFace
-  多目标未做。
+- [x] **B6.3 跨体 fillet/chamfer/shell/moveFace**：fillet 首切片已落（逐
+  owner body 分组 + 逐组 BlendEdges + 逐 body 缓存/写回/冷重建）；Handle
+  Parts 真栈 **strict 绿**（3 体 11,878.438 / 30,944.712 / 105,771.136，
+  整链 +0.009%，冷重开一致）。Threaded Shaft 旧 +4.2% 根因是 converter
+  linearPattern `directionOne`（SWEPT_FACE）误映射 +Z，不是 fillet；修正为
+  旋转轴 -X 后闭合。chamfer/shell/moveFace 多目标仍未做。
 - [ ] **B6.4 featurePattern/featureMirror 多体**：源 owner 集合/逐体应用；
   不跨体复制。
 - [ ] **B6.5 UI 多目标选择器**：live 证据、树行单特征、编辑/撤销/冷重开。
@@ -230,8 +232,8 @@
 > 每批只做一种能力/一组同源 blocker；批次开始前重生成索引，结束后逐 PS 验证。
 > 严格绿定义见 §0.3；不得把 `record`/`test.fail` 计入。
 
-- [ ] **C1 最快清单收尾**：Exercise: Clamp / Handle Parts（跨 3 body fillet）；
-  其余 12 个已完成项回归；最快清单 13/13。
+- [x] **C1 最快清单收尾**：Exercise: Clamp / Handle Parts（跨 3 body fillet
+  + pattern 多体 remove）strict 绿；公开 catalog 第 22 例；其余已完成项回归。
 - [ ] **C2 blocked-selector（3）**：单线 imprint face split / 面集位置证据；
   逐个转绿或 blocked-kernel 证据。
 - [ ] **C3 blocked-kernel（3）**：Bumper 12 边通用、Gaiter full-circle fillet、
@@ -388,10 +390,15 @@ powershell -File scripts/verify-stack.ps1
   edge-resolver 逐边 owner 与多 owner 选择。合成真栈（私有
   `MultiBodyFoundation` **34/34**、`FilletFlow` **13/13**，2 body 单特征、
   冷重建逐字节一致、失败原子性）；公共 replay 纯测 **9/9**。
-  **Handle Parts 仍 known-red**：6 边按 body 1/3/2 正确分组、单特征
-  status=0，但 Threaded Shaft **32,236.419 vs 30,931.280 mm³（+4.2%）**；
-  spec 保持 `test.fail`，不得宣称转绿。多目标 update/suppress/delete、
-  下游消费、chamfer/shell/moveFace、UI 未做。
+  **Handle Parts 2026-11-11 strict 绿**：6 边按 body 1/3/2 正确分组，
+  最终 **11,878.438 / 30,944.712 / 105,771.136 mm³** vs 采集
+  11,878.505 / 30,931.280 / 105,770.915（+0.0006% / +0.043% / +0.0002%），
+  整链 **148,594.286 vs 148,580.700（+0.009%）**，11 步 status=0，
+  push+冷重开一致；spec 移除 `test.fail`。旧 Threaded Shaft +4.2% 根因：
+  converter 将 Linear pattern 1 的 SWEPT_FACE `directionOne` 映射为草图线
+  世界 +Z，15 个 remove 实例落在轴外（仅去材 27.993 mm³）；改为上游 revolve
+  轴 -X 后闭合。多目标 update/suppress/delete、下游消费、chamfer/shell/
+  moveFace、UI 未做。
 - **B1.2 Part 5 转绿（face split D2）**：converter 用采集 `sketches.json`
   修正 SWEPT_FACE 派生草图平面；E1/E2 用 bodydetails 面积+bbox+质心选多格面；
   shared 1.66 `FaceExtrudeParams.splitByLine`（material/void + keepPoint）+
@@ -403,8 +410,11 @@ powershell -File scripts/verify-stack.ps1
   显式产品化（仅 remove + 非空源证据，非失败回退），E5 后体积保持
   188,451.236，8 步 status=0、push+冷重开一致，spec 升 strict。`/examples`
   20→21，新增真实封面 `example-intro-part6.webp`。
-- **未完成/仍 blocked**：Handle Parts 剩余体积差需继续定位（圆边 fillet 与
-  上游孔/螺纹端交互，非选择器问题）。
+- **Handle Parts 已闭合**：问题不在内核 fillet，而在 converter 的 FACE
+  linear pattern 方向（SWEPT_FACE 面法向 vs 草图线方向）。方向仍静态推导，
+  保持 `directionRisk`；其他面方向形态继续 dropped。
+- **未完成/仍 blocked**：多目标 update/suppress/delete、REMOVE extrude/hole
+  （Links）、chamfer/shell/moveFace 多目标与 UI。
 - 采集/测试期间 MS 全局 429 由重启宿主 MS 清除，未改生产限流配置。
 
 ## 9. 第一执行切片（立即开始）

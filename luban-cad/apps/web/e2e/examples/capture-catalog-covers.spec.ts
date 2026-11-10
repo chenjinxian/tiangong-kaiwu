@@ -30,6 +30,10 @@ const CASES = [
     imodelName: 'Onshape example: Intro to CAD 1.2 Part 6',
     file: 'example-intro-part6.webp',
   },
+  {
+    imodelName: 'E2E - Handle Parts Scenario',
+    file: 'example-handle-parts.webp',
+  },
 ] as const;
 
 test.describe('示例目录封面采集', () => {

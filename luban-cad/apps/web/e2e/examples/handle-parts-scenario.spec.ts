@@ -40,12 +40,13 @@ const EXPECTED_TREE = [
 ];
 
 test.describe('Handle Parts scenario rebuild', () => {
-  // v1.65（ADR-0015 B6.3）已实现多目标 fillet 契约/后端/回放：6 条 SWEPT_EDGE
-  // 分属 3 个 body，逐体独立 BlendEdges + side cache + 冷重建。真栈已能建链，
-  // 但 Threaded Shaft（JJD，单 r6.35 圆边）最终体积仍偏大（当前 32,236.419
-  // vs 采集 30,931.280，+4.2%），不是 1% 门；已知圆边 fillet 与上游孔/螺纹端
-  // 的体量关系尚未闭合，保持 known-red，不得放宽断言或删除该边冒充绿。
-  test.fail();
+  // v1.65（ADR-0015 B6.3）多目标 fillet（6 条 SWEPT_EDGE / 3 body）+ featurePattern
+  // 多体 remove 已真栈验证。2026-11-11 根因定位：Threaded Shaft 的 +4.2% 不是
+  // 圆角问题，而是 converter 把 Linear pattern 1 的 directionOne（上游 revolve 的
+  // SWEPT_FACE）映射成草图线方向世界 +Z；15 个 remove 实例全落在轴外，仅去材
+  // 27.993 mm³（应约 1.3e3）。改用旋转轴 -X 后，最终 Threaded Shaft 30,944.712
+  // vs 30,931.280（+0.043%），Stopper/Handle 均在 0.001% 内，整链 148,594.286
+  // vs 148,580.700（+0.009%），冷重开一致。
   test('草图轮廓实体→真实面域 + 三 NEW revolve + featurePattern remove + 多体孔/圆角 → 逐体体积/重开', async ({ page, request }) => {
     test.skip(!isExampleDataAvailable(), 'ONSHAPE_PARITY_DATA 不在场');
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 1_500_000);

@@ -203,6 +203,23 @@ pattern 的源特征 + 轴线段落到产品特征行，而不是伪造 PART pat
   真栈体积对拍验证方向符号。
 - 未做：isCentered（seed 居中）、第二方向、PART linear、方向边真实朝向采集。
 
+## 实现记录（切片 15：linear directionOne 的 SWEPT_FACE 面法向，2026-11-11）
+
+- **证据（Handle Parts 真栈）**：Linear pattern 1 是 FACE pattern，`directionOne`
+  指向上游 Revolve 3（Threaded Shaft）的 SWEPT_FACE；converter 旧逻辑把被选草图线
+  （径向线）的 p1→p2 方向映射为世界 +Z。15 个 remove 实例全部落在轴外，Threaded
+  Shaft 仅少 27.993 mm³；最终 32,236.419 vs 采集 30,931.280（+4.2%）。
+- **修正（私有 converter）**：当 `directionOne` 含 `SWEPT_FACE` 且派生自
+  `...opRevolve` 时，从上游 revolve 的旋转轴草图线取世界轴方向；符号由该 revolve
+  的 `profileEntityIds` 轮廓在轴上的跨度中点决定（不能取整张草图——同图可含多个
+  body 的轮廓与 construction 轴，Handle Parts 实测会把符号带反）。修正后方向为
+  -X，最终 Threaded Shaft 30,944.712 vs 30,931.280（+0.043%），整链 +0.009%。
+- **诚实边界**：方向仍是静态推导，保持 `directionRisk: true`/回放 approximate；
+  只覆盖 FACE linear + revolve SWEPT_FACE 方向；其他面/边方向形态仍按 dropped，
+  不用本规则猜。
+- 验收：Handle Parts strict（`handle-parts-scenario.spec.ts`）三体逐体 1% 门 +
+  树/status/冷重开；公共 catalog 第 22 例。
+
 ## 实现记录（切片 6：centered 线性阵列，2026-11-08）
 
 - **证据（官方帮助页 + 论坛）**：Onshape Linear Pattern 的「居中」把 seed 作为中心，
