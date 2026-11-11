@@ -711,6 +711,14 @@ symmetric 互斥）。
   status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 46（2026-11-11，live featurePattern 第二方向）
+
+- 回归覆盖已透传的 `secondDirection`（count/spacing/axis/centered）。
+- 公共真栈 `e2e/examples/live-feature-pattern-grid.spec.ts`：
+  80×20×10 板 + 凸台 3×2 网格（X 间距 6、Y 间距 8）→
+  **16,480.000 vs 16,480.000 mm³**、1 body、5 步 status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
