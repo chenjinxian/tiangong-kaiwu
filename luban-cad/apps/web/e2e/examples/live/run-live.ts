@@ -36,6 +36,10 @@ export async function runLiveSpec(
   const lease = await borrowWriteLease(ctx, token, `live-${spec.id}`);
   const sketchIdByName = new Map<string, string>();
   const featureIdByName = new Map<string, string>();
+  const bodyKeysByFeatureName = new Map<string, string[]>();
+  const needsBodyTracking = spec.steps.some(
+    (step) => step.kind === 'hole' && step.targetBodyFeatureName !== undefined,
+  );
   const notes: string[] = [];
 
   const apply = async (op: Parameters<typeof applyFeatureOpRpc>[1], label: string): Promise<string> => {
@@ -80,6 +84,18 @@ export async function runLiveSpec(
         },
       }, step.name);
       featureIdByName.set(step.name, featureId);
+      if (needsBodyTracking) {
+        // bodyKey 在重建中可能复用；以 sourceFeatureId=本特征 id 识别该特征创建的体。
+        const afterBodies = await getBodiesRpc(ctx, token);
+        console.log(
+          `[live] ${spec.id}/${step.name} feature=${featureId} bodies=` +
+          JSON.stringify(afterBodies.map((body) => [body.bodyKey, body.sourceFeatureId])),
+        );
+        const newKeys = afterBodies
+          .filter((body) => body.sourceFeatureId === featureId)
+          .map((body) => body.bodyKey);
+        bodyKeysByFeatureName.set(step.name, newKeys);
+      }
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
@@ -107,6 +123,15 @@ export async function runLiveSpec(
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
       if (step.pointEntityIds.length === 0)
         throw new Error(`${spec.id}/${step.name}: 孔位为空`);
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0];
+      }
       const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'hole',
@@ -118,6 +143,7 @@ export async function runLiveSpec(
           ...(step.endBound === 'blind' ? { depthMm: step.depthMm } : {}),
           ...(step.direction ? { direction: step.direction } : {}),
         },
+        ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);

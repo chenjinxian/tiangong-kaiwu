@@ -40,6 +40,10 @@ test.describe('live UI 复刻 registry', () => {
       expect(result.tree.map((row) => row.featureType)).toEqual(expectedTree);
       expect(result.tree.every((row) => row.status === 0)).toBe(true);
       const activeBodies = result.bodies.filter((body) => body.active !== false && body.authored !== false);
+      console.log(
+        `[live] ${spec.id} bodies=${activeBodies.length} masses=` +
+        JSON.stringify(result.mass.map((entry) => Number(entry.volume.toFixed(3)))),
+      );
       if (spec.expected?.bodyCount !== undefined)
         expect(activeBodies).toHaveLength(spec.expected.bodyCount);
       const volume = result.mass.reduce((sum, entry) => sum + entry.volume, 0);

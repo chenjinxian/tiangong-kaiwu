@@ -69,6 +69,8 @@ export interface LiveHoleStep {
   endBound: 'blind' | 'throughAll' | 'upToNext';
   depthMm?: number;
   direction?: 'forward' | 'backward';
+  /** 多 body 模型：目标 body 由该特征创建（运行时按 bodyKey 差集解析）。 */
+  targetBodyFeatureName?: string;
   note?: string;
 }
 

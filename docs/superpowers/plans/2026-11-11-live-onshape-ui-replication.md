@@ -208,6 +208,25 @@ symmetric 互斥）。
 - 近似：Sketch 2 平面固定 z=4（Onshape 为端盖面引用）；约束未采集。
   live spec 总数 **10**。
 
+### 批次 6（2026-11-11，CAD Drawings Unit 4 / Ex. 3，UI-only 多体）
+
+- 来源：公开只读文档 `CAD Drawings - Unit 4 - Dimensioning`（`07dbf06d…`，
+  Ex. 3 element `277b4512…`），无 features 采集数据；从只读 UI 读取特征树
+  `Sketch 1 → Extrude 1 → Sketch 2 → Extrude 2`、Extrude 深度 **0.5 in /
+  0.375 in**、4 个零件 `Plate 1/Plate 2/Disc 1/Disc 2`、聚合质量体积
+  **254,433.368 mm³**（无逐 part 数据）；截图见私有
+  `live/dim-unit4/`，单位=英寸（Onshape 文档单位）。
+- 只读文档不能保留副本（Free 订阅仅公开数据可编辑；复制对话框的
+  “创建公开文档”未完成），因此按 UI 可见尺寸近似草图：
+  两块 8×1 in 板（15/8 个 Ø0.5 孔）、Ø4.75/Ø3.5 in 圆盘（12/6 个 Ø0.25
+  螺栓孔），厚度精确。
+- **能力缺口（产品）**：一个 NEW extrude 选两个不相交面域 → 产出**一个**
+  body（两个 lump），Onshape 产出两个 part（实测两特征→2 body，
+  94,763.219 + 217,790.608 mm³）。本 spec 用“每个 part 独立草图 + 拉伸”
+  绕过（树 8 特征 vs Onshape 4），不改产品语义。
+- 真栈 **256,683.401 vs 254,433.368 mm³（+0.884%）**、4 body、8 特征
+  全 status=0、push+冷重开一致；live spec 总数 **11**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -253,7 +253,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   运行时解析 + 任意世界平面）；DRILL HOTD / ENG_BEARING 用已采集 features：
   Ø27.5/Ø12 同心圆 NEW symmetric 8 mm、顶盖环槽 REMOVE 2 mm、FEATURE
   mirror（Top 平面）→ 真栈 **2590.224 vs 2590.243 mm³（0.001%）**、5 特征
-  树 status=0、1 body、push+冷重开。live runner 现 10 spec（11 项含 setup；
+  树 status=0、1 body、push+冷重开。
+  **批次 6（UI-only 多体）**：CAD Drawings Unit 4 / Ex. 3（公开只读文档，
+  Ex. 3 element `277b4512…`）从 UI 读树 2 sketch + 2 extrude（0.5 in /
+  0.375 in）、4 零件、聚合体积 **254,433.368 mm³**；按每 part 独立草图 +
+  拉伸绕过“一个 NEW extrude 两不相交面域只产出一个 body（两 lump）”
+  的产品缺口（树 8 vs 4）；真栈 **256,683.401（+0.884%）**、**4 body**、
+  8 特征 status=0、push+冷重开。live runner 现 11 spec（12 项含 setup；
   全量套件在 MS 429 窗口内会因限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
