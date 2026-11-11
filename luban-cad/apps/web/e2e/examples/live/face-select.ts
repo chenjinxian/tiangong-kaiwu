@@ -111,6 +111,17 @@ export async function resolveLiveShellFaceRefs(
     ? handles
     : handles.filter((handle) => handle.bodyKey === targetBodyKey);
   if (scoped.length === 0) throw new Error(`face-select: 目标 body ${targetBodyKey} 无面`);
+  if (process.env.LIVE_FACE_DEBUG === '1')
+    console.log(
+      `[face-select] faces=${JSON.stringify(scoped.map((handle) => ({
+        body: handle.bodyKey,
+        id: handle.subEntityId,
+        center: Object.values(faceCenter(handle)).map((n) => Number(n.toFixed(2))),
+        normal: handle.normal.map((n) => Number(n.toFixed(3))),
+        loops: handle.loops.length,
+        range: handle.range,
+      })))}`,
+    );
 
   const refs = new Map<string, LubanTopologyId>();
   const bodyKeys = new Set<string>();
