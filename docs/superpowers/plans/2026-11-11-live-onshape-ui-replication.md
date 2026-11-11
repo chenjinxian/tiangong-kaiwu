@@ -752,6 +752,13 @@ symmetric 互斥）。
   1 body、status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 51（2026-11-11，live 沉头孔）
+
+- 公共真栈 `e2e/examples/live-hole-counterbore.spec.ts`：20×20×10 盒上
+  Ø4 through-all + Ø8×3 沉头 → **3,761.249 vs 3,761.239 mm³**、
+  1 body、status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -54,8 +54,10 @@
 - 孔：草图 point（`pointEntityIds`）或曲线顶点/圆心（`vertexRefs`），
   通孔/盲孔/沉头/埋头字段已透传；`direction` 决定切向。公共回归
   `e2e/examples/live-hole-vertex-refs.spec.ts`（20×20×10 盒上两个圆心
-  Ø4 through-all 反向，去材 251.327 mm³、结果 3748.689）验证全链与冷重开。
-  mateConnector 型孔位需要显式重建并在 spec/notes 标 approx。
+  Ø4 through-all 反向，去材 251.327 mm³、结果 3748.689）验证全链与冷重开；
+  沉头孔见 `e2e/examples/live-hole-counterbore.spec.ts`（Ø4 通孔 +
+  Ø8×3 沉头 → 3761.249 vs 3761.239 mm³）。mateConnector 型孔位需要显式
+  重建并在 spec/notes 标 approx。
 - booleanBodies：live step 用 `targetBodyFeatureNames` / `toolBodyFeatureNames`
   解析各特征创建的 bodyKey，构造 `BodyRef[]`，支持 unite/subtract/intersect
   与 keepTools。公共回归 `e2e/examples/live-boolean-bodies.spec.ts`（20×20×10
