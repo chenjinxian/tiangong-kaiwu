@@ -811,6 +811,20 @@ symmetric 互斥）。
   3,214.602 mm³**、1 body、status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **35**。
 
+### 批次 56（2026-11-12，Drive Sleeve，imprint 映射转绿）
+
+- Exercise Intermediate/Update Drawing 两个 Drive Sleeve 文档：
+  Sketch1 14 面域；Extrude1-3 用 `imprintRegions`（查询串内层
+  disambiguation 符号解析 outside/inside）自动选面域；Extrude4 capFace
+  近似为外环 region0 remove 16.256；Sketch2 Ø13.2 backward through +
+  circular pattern 6。
+- 真栈 **1,147,686.810 vs 1,175,024.308 mm³（−2.327%）**、8 步 status=0、
+  1 body、push+冷重开；Intermediate 2 passed（45.3 s）、Update 独立复跑
+  2 passed（43.3 s）。约束 dropped；Extrude4 近似与 side 回退口径已在
+  spec/私有文档登记；tolerance 3%。
+- 此前 parked 的 Drive Sleeve probe 已删除并升级为正式 spec。
+- live spec 总数 **35 → 37**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
