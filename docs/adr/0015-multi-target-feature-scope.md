@@ -375,7 +375,9 @@ type InsertFeatureOpDelta = {
   一并选中的问题（Links Extrude 2 区域 [0,1] 会填实 R5 孔，+157.075 mm³）。
 - **合成验证**：`MultiBodyFoundation` T9g 两 box 一次 throughAll remove 单特征
   行、逐体 2.4/4.8 mm³、冷重建逐字节一致；负路径（add/blind/混单目标/重复）
-  txn 前拒收、零写。后端全量 **924 passed + 1 expected fail + 8 skipped**。
+  txn 前拒收、零写。T9h 多目标 hole：单孔位只命中 body1（3.215 mm³），
+  未命中的 body2 保持 8 mm³ 且单 BRep，冷重建一致。后端全量 **925 passed +
+  1 expected fail + 8 skipped**。
 - **Links 真栈（几何严格绿，约束仍 dropped）**：两体 **10,039.240 /
   11,704.087 mm³** vs 采集 10,039.241 / 11,704.085（<0.001%），6 步树全
   status=0，push+冷重开一致。`links-multi-remove.spec.ts` 不含约束完整性门；

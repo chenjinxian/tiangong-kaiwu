@@ -220,7 +220,8 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   Links 真栈几何 **10,039.240 / 11,704.087 vs 10,039.241 / 11,704.085**，
   6 步 status=0、push+冷重开一致；约束仍 dropped（slot FIX/OFFSET +
   external EQUAL），Links 保持 `blocked-converter`，不计 complete。后端全量
-  **924 passed + 1 expected fail + 8 skipped**、shared **203/203**、
+  **925 passed + 1 expected fail + 8 skipped**（含 T9h 多目标 hole 命中/未命中
+  体保持单 BRep、冷重建一致）、shared **203/203**、
   scenario-to-op **59/59**；公开 spec `links-multi-remove.spec.ts`。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
