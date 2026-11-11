@@ -147,6 +147,13 @@
   `POST /auth/email/login`；连跑多批后 hub 返回 429（响应头
   `retry-after-auth`，实测 749 s）。看到 `API 登录失败：HTTP 429` 时等待该
   窗口再跑，不要反复重试撞窗口；把多个 spec 合并成一次 run 以节省登录次数。
+- **MS 版本必须与 workspace shared 匹配**：Docker/WSL 重启后不要用陈旧
+  `dist-backend`（实测 backend 1.64.0 对 workspace shared 1.68.0 会报
+  `Part Studio 列表加载失败：Backend version ... does not match frontend`）；
+  用 `start-ms-host.ps1 -Source D:\Github\luban-backend\modeling-server -Detach`
+  源码模式启动。Vite dev server 必须带 `VITE_E2E_HOOKS=true`（Playwright
+  的 webServer 会注入；手工 `pnpm dev` 会缺 `window.__lubanE2E`，报
+  “E2E hook 不可用”）。
 - Onshape features API 采样由私有 supervisor 按 quota 窗口运行；鉴权失效即停，
   不保存凭据。
 
