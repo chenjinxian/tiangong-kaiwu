@@ -855,6 +855,13 @@ symmetric 互斥）。
   1 body、status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **37**。
 
+### 批次 60（2026-11-12，live body pattern circular）
+
+- 公共真栈 `e2e/examples/live-body-pattern-circular.spec.ts`：
+  10×10×10 盒（中心 x=20）绕 Z 全周 4 实例 → **4,000.000 mm³**、
+  产品 1 body、质心≈0、status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **37**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
