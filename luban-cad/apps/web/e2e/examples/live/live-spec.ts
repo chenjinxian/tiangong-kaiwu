@@ -155,7 +155,9 @@ export interface LiveFeaturePatternSecondDirection {
 export interface LiveFeaturePatternStep {
   kind: 'featurePattern';
   name: string;
-  sourceFeatureName: string;
+  sourceFeatureName?: string;
+  /** 多源（与 sourceFeatureName 恰一；产品 v1.59 sourceFeatureIds）。 */
+  sourceFeatureNames?: string[];
   patternKind: 'linear' | 'circular';
   count: number;
   spacingMm?: number;

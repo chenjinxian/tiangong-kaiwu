@@ -64,6 +64,10 @@
   `sourceFeatureNames`（多源，恰一）→ 产品 `sourceFeatureIds`。公共回归
   `e2e/examples/live-feature-mirror-multi.spec.ts`：40×20×10 板 + 两个
   4×4×5 凸台一次 YZ 镜像 → **8320.000 mm³**、1 body、status=0、push+冷重开。
+- featurePattern：同样支持多源 `sourceFeatureNames` → `sourceFeatureIds`。
+  公共回归 `e2e/examples/live-feature-pattern-multi.spec.ts`：80×20×10 板 +
+  两个凸台（x=−25/−20）一次线性 3 实例、间距 15 → **16480.000 mm³**、
+  1 body、status=0、push+冷重开。
 - transform：live step 支持 translation/rotation/scale/scaleAxes/scaleOrigin/copy，
   可选 `targetBodyFeatureName` 锚定 body；参数原样透传标准 `transform` FeatureOp。
   公共回归 `e2e/examples/live-transform.spec.ts`（20×20×10 盒 +X 平移 30 mm，

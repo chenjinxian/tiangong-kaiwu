@@ -693,6 +693,15 @@ symmetric 互斥）。
   **8,320.000 vs 8,320.000 mm³**、1 body、7 步 status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 44（2026-11-11，live featurePattern 多源通道）
+
+- `LiveFeaturePatternStep` 增加 `sourceFeatureNames`（与单源恰一），runner
+  逐名解析并透传产品 `sourceFeatureIds`。
+- 公共真栈回归 `e2e/examples/live-feature-pattern-multi.spec.ts`：
+  80×20×10 板 + 两个 4×4×5 凸台（x=−25/−20）一次线性 3 实例、间距 15 →
+  **16,480.000 vs 16,480.000 mm³**、1 body、7 步 status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
