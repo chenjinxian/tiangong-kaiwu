@@ -848,6 +848,13 @@ symmetric 互斥）。
   imprint entity5 side 歧义；已 parked 到私有 `live-probes/`，不计入。
 - 本身不新增示例计数，live spec 总数仍 **37**。
 
+### 批次 59（2026-11-12，live featurePattern circular）
+
+- 公共真栈 `e2e/examples/live-feature-pattern-circular.spec.ts`：
+  40×40×10 板 + 4×4×5 凸台绕 Z 全周 4 实例 → **16,320.000 mm³**、
+  1 body、status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **37**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

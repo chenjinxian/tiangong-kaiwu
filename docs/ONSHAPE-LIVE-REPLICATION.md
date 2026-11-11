@@ -90,7 +90,9 @@
   `e2e/examples/live-feature-pattern-centered.spec.ts`（凸台 centered 5
   实例、间距 6 → 位置 −12/−6/0/6/12、**16400.000 mm³**）push+冷重开；
   第二方向网格见 `e2e/examples/live-feature-pattern-grid.spec.ts`
-  （3×2、X 间距 6/Y 间距 8 → **16480.000 mm³**）push+冷重开。
+  （3×2、X 间距 6/Y 间距 8 → **16480.000 mm³**）push+冷重开；圆周见
+  `e2e/examples/live-feature-pattern-circular.spec.ts`（绕 Z 4 实例 →
+  **16320.000 mm³**）。
 - transform：live step 支持 translation/rotation/scale/scaleAxes/scaleOrigin/copy，
   可选 `targetBodyFeatureName` 锚定 body；参数原样透传标准 `transform` FeatureOp。
   公共回归 `e2e/examples/live-transform.spec.ts`（20×20×10 盒 +X 平移 30 mm，
