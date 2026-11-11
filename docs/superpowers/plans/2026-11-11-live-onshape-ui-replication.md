@@ -468,6 +468,14 @@ symmetric 互斥）。
 - **approx**：Chamfer 10、Ø6.5 耳孔、mate connector、Fillet 1 跳过；
   前一轮 parked 的探针已被本 spec 取代。live spec 总数 **24**。
 
+### 批次 25（2026-11-11，Universal Joint Assembly Drawing）
+
+- 同族另一变体：复用 R60 圆柱 + Sketch8 REMOVE [0,1,2] + Sketch9
+  INTERSECT region0 + four Ø22×30 bottom holes。
+- 真栈 **611,838.521 vs 602,231.245 mm³（+1.595%）**、1 body、
+  8 特征 + 6 skipped status=0、push+冷重开；同一近似边界。
+- live spec 总数 **25**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -371,7 +371,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   孔 → 真栈 **611,821.341 vs 602,047.386 mm³（+1.623%）**、1 body、
   8 特征 + 6 skipped status=0、push+冷重开。**approx**：Chamfer 10、
   Ø6.5 耳孔、mate connector、Fillet 1 跳过。
-  live runner 现 24 spec（25 项含 setup；全量套件在 MS 429 窗口内会因
+  **批次 25（Universal Joint Assembly Drawing）**：同族另一变体，复用
+  Assembly 的区域/底面孔方案；真栈 **611,838.521 vs 602,231.245 mm³
+  （+1.595%）**、1 body、8 特征 + 6 skipped status=0、push+冷重开。
+  live runner 现 25 spec（26 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
