@@ -128,7 +128,9 @@
   `e2e/examples/live-body-pattern.spec.ts`（10×10×10 盒 3 实例、间距 20 →
   3000 mm³、产品 1 body）验证全链与冷重开；第二方向/反向见
   `e2e/examples/live-body-pattern-extra.spec.ts`（3×2 网格 **6000 mm³**、
-  反向 3 实例 **3000 mm³**，均产品 1 body）。
+  反向 3 实例 **3000 mm³**，均产品 1 body）；`centered` 见
+  `e2e/examples/live-body-pattern-centered.spec.ts`（3 实例位置
+  −20/0/20、**3000 mm³**、质心 x=0）。
 - PART/body mirror：`mirror` step 支持世界平面 XY/YZ/XZ、任意 `planeLine`
   或目标体 `face` 选择器（面引用须配 `targetBodyFeatureName`），可选
   operation，产品以 `keepOriginal:true` Unite 为单 body 多 lump。公共回归

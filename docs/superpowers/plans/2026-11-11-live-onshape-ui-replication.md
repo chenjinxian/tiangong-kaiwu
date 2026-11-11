@@ -825,6 +825,20 @@ symmetric 互斥）。
 - 此前 parked 的 Drive Sleeve probe 已删除并升级为正式 spec。
 - live spec 总数 **35 → 37**。
 
+### 批次 57（2026-11-12，live 环境恢复 + body pattern centered）
+
+- Docker Desktop 引擎停止后重启；容器 9/9 healthy。宿主 MS 曾以陈旧
+  `dist-backend`（1.64.0）启动导致前端 1.68 版本不匹配，已改用私有仓源码
+  模式启动；Vite dev 由 Playwright webServer 注入 `VITE_E2E_HOOKS=true`。
+  恢复后 Drive Sleeve 复跑 2 passed（49.1 s）。
+- 公共真栈 `e2e/examples/live-body-pattern-centered.spec.ts`：
+  10×10×10 盒 centered 3 实例、间距 20（位置 −20/0/20）→
+  **3,000.000 mm³**、产品 1 body、质心 x=0、status=0、push+冷重开。
+- 探针：Dumper Piano Hinge Butt（thin 语义/零体积）与 Drawbar Ring
+  （revolve-only mass HTTP 500 GeometryStreamError）均 parked 到私有
+  `live-probes/`，不计入。
+- live spec 总数仍 **37**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
