@@ -210,6 +210,18 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   改为上游旋转轴 -X 后闭合。方向仍静态推导（`directionRisk`），不宣称通用
   面方向解析。`/examples` 21→22，新增真实封面 `example-handle-parts.webp`；
   私有 index `replicable-now` **22**、`blocked-kernel` **2**。
+- **多目标 REMOVE extrude/hole（2026-11-11，ADR-0015 B6.2，shared 1.68）**：
+  `targetBodyIds` 扩展到 throughAll REMOVE extrude/hole；后端
+  `evaluateHoleInto`/`evaluateSweepFeatureInto` 返回值内核 + 逐 target 求值
+  （任一失败整特征失败），`preEvaluateDirty`/`rebuildAll` 多目标分支与同步
+  EDE fail-closed 已接；applyInsertMulti 补 sketch 解算/面域/sketch→feature 边。
+  replay 由 booleanScope 造体源解析 targetBodyIds（跳过 sketch 源），并剔除
+  regionRisk 多选区中的“孔内孤岛”。合成 T9g 两体 2.4/4.8 mm³、冷重建一致；
+  Links 真栈几何 **10,039.240 / 11,704.087 vs 10,039.241 / 11,704.085**，
+  6 步 status=0、push+冷重开一致；约束仍 dropped（slot FIX/OFFSET +
+  external EQUAL），Links 保持 `blocked-converter`，不计 complete。后端全量
+  **924 passed + 1 expected fail + 8 skipped**、shared **203/203**、
+  scenario-to-op **59/59**；公开 spec `links-multi-remove.spec.ts`。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

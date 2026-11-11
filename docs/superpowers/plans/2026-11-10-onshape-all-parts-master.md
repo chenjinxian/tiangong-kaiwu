@@ -143,7 +143,9 @@
   remove（shared 1.67 `noOpEvidence`）；Part 5/6 均 strict 绿且冷重开一致；
   多子面并集/edge-split face-set 泛化未做。
 - [ ] **B1.3 面积 + bbox/拓扑/质心证据**：同面积候选唯一解；多解 ambiguity；
-  清除 regionRisk（17 + 缺 sketchEntityId 8 + 组合 2）。
+  清除 regionRisk（17 + 缺 sketchEntityId 8 + 组合 2）。**2026-11-11 首切片**：
+  regionRisk 多选区剔除“外环属于另一选中区域孔集”的孔内孤岛（Links
+  Extrude 2 [0,1]→[0]），避免填实 R5 孔；其余 regionRisk 仍待证据。
 - [ ] **B1.4 CAP_FACE/SWEPT_FACE + startOffset/draft/isStart**：产品 faceExtrude
   与 replay 精确路径；Bumper 通用轨与审计轨分离。
 
@@ -198,7 +200,11 @@
   的 `targetBodyIds`（与 `targetBodyId` 互斥）+ `FilletEdgeRef.bodyKey`；
   schema/DSL/逐体缓存/失败 all-or-nothing/旧载荷兼容已落。**update/suppress/
   delete 多目标、REMOVE extrude/hole 与下游消费仍待做**。
-- [ ] **B6.2 REMOVE extrude/hole 多目标**：Links 两体一次穿孔；逐体体积。
+- [x] **B6.2 REMOVE extrude/hole 多目标**（shared 1.68）：throughAll REMOVE
+  extrude/hole 单特征行逐体求值；合成 T9g 两体 2.4/4.8 mm³、负路径零写、
+  冷重建一致；Links 几何 **10,039.240 / 11,704.087 vs 10,039.241 /
+  11,704.085**、6 步 status=0、冷重开一致（约束仍 dropped，PS 保持
+  blocked-converter）。
 - [x] **B6.3 跨体 fillet/chamfer/shell/moveFace**：fillet 首切片已落（逐
   owner body 分组 + 逐组 BlendEdges + 逐 body 缓存/写回/冷重建）；Handle
   Parts 真栈 **strict 绿**（3 体 11,878.438 / 30,944.712 / 105,771.136，
@@ -413,8 +419,15 @@ powershell -File scripts/verify-stack.ps1
 - **Handle Parts 已闭合**：问题不在内核 fillet，而在 converter 的 FACE
   linear pattern 方向（SWEPT_FACE 面法向 vs 草图线方向）。方向仍静态推导，
   保持 `directionRisk`；其他面方向形态继续 dropped。
-- **未完成/仍 blocked**：多目标 update/suppress/delete、REMOVE extrude/hole
-  （Links）、chamfer/shell/moveFace 多目标与 UI。
+- **B6.2 多目标 REMOVE（2026-11-11，shared 1.68）**：backend 抽出
+  `evaluateHoleInto`/`evaluateSweepFeatureInto`，新增多目标 REMOVE 逐体求值与
+  同步路径 fail-closed；replay 由 booleanScope 造体源解析 targetBodyIds，并剔除
+  regionRisk 孔内孤岛。合成 T9g 两体 2.4/4.8 mm³、冷重建一致；Links 几何严格
+  绿 10,039.240 / 11,704.087 vs 10,039.241 / 11,704.085，6 步 status=0、
+  冷重开一致；`links-multi-remove.spec.ts` 不以约束完整性计绿，Links 仍
+  `blocked-converter`。
+- **未完成/仍 blocked**：多目标 update/suppress/delete、chamfer/shell/moveFace
+  多目标与 UI；Links 约束（slot FIX/OFFSET + external EQUAL）待 B3。
 - 采集/测试期间 MS 全局 429 由重启宿主 MS 清除，未改生产限流配置。
 
 ## 9. 第一执行切片（立即开始）

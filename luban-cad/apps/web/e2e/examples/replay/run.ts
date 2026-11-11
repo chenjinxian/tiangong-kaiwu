@@ -291,6 +291,11 @@ export async function runScenario(
 
   try {
     const scenarioFeatures = scenario.features as ScenarioFeature[];
+    const scenarioFeatureTypeBySource = new Map<string, string>();
+    for (const candidate of scenarioFeatures) {
+      if (typeof candidate.sourceFeatureId === 'string' && candidate.sourceFeatureId.length > 0)
+        scenarioFeatureTypeBySource.set(candidate.sourceFeatureId, candidate.type);
+    }
     for (let featureIndex = 0; featureIndex < scenarioFeatures.length; featureIndex++) {
       const feature = scenarioFeatures[featureIndex]!;
       // imprintFace 解析（test-only）：Onshape 的 imprint FACE 查询根节点是
@@ -948,6 +953,55 @@ export async function runScenario(
           }
         }
       }
+      // regionRisk 前缀选集可能包含“孔内孤岛”区域（qSketchRegion 的 deterministicIds
+      // 数量被当作区域下标前缀）。Links 实测：region 0 = 外环 + hole [3]，region 1 =
+      // hole 盘的独立区域；同时选中会把孔填实（body2 +157.075 mm³）。Onshape 的
+      // qSketchRegion 把嵌套环当孔，不把孔内面当独立材料区域。这里仅在 regionRisk
+      // 且请求多个区域时，剔除“外环完全落在另一选中区域 hole 集内”的孤岛；保持
+      // approximate 登记（不做通用面选择推断）。
+      if (effectiveFeature.type === 'extrude') {
+        const regionParams = effectiveFeature.params as {
+          selection?: {
+            sketchFeatureId?: string;
+            regions?: number[];
+            regionRisk?: boolean;
+          };
+        };
+        const selection = regionParams.selection;
+        const requested = selection?.regions;
+        if (selection?.regionRisk === true && Array.isArray(requested) && requested.length > 1) {
+          const source = selection.sketchFeatureId;
+          const localSketch = source ? sketchIdBySource.get(source) : undefined;
+          if (localSketch !== undefined) {
+            const sketch = await getSketchRpc(ctx, localSketch, accessToken);
+            const regionDtos = sketch?.regions ?? [];
+            const selected = new Set(requested.filter((index) => Number.isInteger(index) && index >= 0));
+            const dropped: number[] = [];
+            for (const index of [...selected]) {
+              const outer = regionDtos[index]?.outerEntityIds ?? [];
+              if (outer.length === 0) continue;
+              const nestedIn = [...selected].find((other) => other !== index
+                && outer.every((entityId) => (regionDtos[other]?.holeEntityIds ?? []).includes(entityId)));
+              if (nestedIn !== undefined) {
+                selected.delete(index);
+                dropped.push(index);
+              }
+            }
+            if (dropped.length > 0) {
+              effectiveFeature = {
+                ...effectiveFeature,
+                params: {
+                  ...(effectiveFeature.params as Record<string, unknown>),
+                  selection: { ...selection, regions: [...selected].sort((a, b) => a - b) },
+                },
+              };
+              imprintNotes.push(
+                `regionRisk 嵌套孔内区域 ${JSON.stringify(dropped)} 已剔除（外环属于另一选中区域孔集；保留 ${JSON.stringify([...selected].sort((a, b) => a - b))}）`,
+              );
+            }
+          }
+        }
+      }
       // 多体 ADD/NEW 无 booleanScope 时产品要求显式 targetBodyId；仅当此前
       // 已出现 ≥2 个造体特征（可能多体）才读 body 集，避免单体示例多付 RPC。
       const priorCreatorCount = scenarioFeatures.slice(0, featureIndex).filter(
@@ -1206,6 +1260,7 @@ export async function runScenario(
         sketchPlaneBySource,
         latestSketchId,
         featureIdBySource: localFeatureIdBySource,
+        scenarioFeatureTypeBySource,
         ...(edgeRefsByFeatureName ? { edgeRefsByFeatureName } : {}),
         ...(shellRefsByFeatureName ? { shellRefsByFeatureName } : {}),
         ...(shellTargetBodyByFeatureName ? { shellTargetBodyByFeatureName } : {}),
@@ -1232,6 +1287,7 @@ export async function runScenario(
       // 多体无 scope：显式锚定（不在产品侧使用隐式全局链尾）。
       if (translated.op.kind === 'insertFeature'
         && translated.op.targetBodyId === undefined
+        && translated.op.targetBodyIds === undefined
         && MULTI_BODY_ANCHOR_TYPES.has(translated.op.featureType)
         && bodyContext.allBodyKeys !== undefined
         && bodyContext.allBodyKeys.length > 1) {
@@ -1301,6 +1357,12 @@ export async function runScenario(
       // 后续步骤继续按 Onshape 源特征引用同一 body。
       if (translated.op.kind === 'insertFeature' && translated.op.targetBodyId !== undefined) {
         for (const source of scopeSources) bodyKeyAliases.set(source, translated.op.targetBodyId);
+      } else if (translated.op.kind === 'insertFeature' && translated.op.targetBodyIds !== undefined) {
+        // 多目标 REMOVE：scope 源别名钉到各自 body，后续步骤仍按 Onshape 源引用。
+        for (const source of scopeSources) {
+          const key = bodyContext.bodyKeyBySource?.get(source);
+          if (key !== undefined) bodyKeyAliases.set(source, key);
+        }
       }
       if (process.env.EXAMPLE_DEBUG_BODIES === '1') {
         const bodies = await getBodiesRpc(ctx, accessToken);

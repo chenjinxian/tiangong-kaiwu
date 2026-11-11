@@ -61,6 +61,8 @@ export interface TranslateContext {
   allBodyKeys?: readonly string[];
   /** Onshape 任意特征 sourceFeatureId → 本地 featureId（cPlane/sketch 依赖等）。 */
   featureIdBySource?: ReadonlyMap<string, string>;
+  /** Onshape 任意特征 sourceFeatureId → 场景特征类型（多目标 scope 跳过非造体 sketching 源）。 */
+  scenarioFeatureTypeBySource?: ReadonlyMap<string, string>;
   /** 已应用草图的平面快照（Onshape 源 id → plane），孔方向判定用。 */
   sketchPlaneBySource?: ReadonlyMap<string, SketchPlaneDto>;
   /** shell 步骤已解析的持久面引用（键=scenario feature name）。 */
@@ -385,12 +387,18 @@ function extrudeOp(feature: ScenarioFeature, context: TranslateContext): Transla
   const scopeTarget = operation !== undefined && operation !== 'new'
     ? scopeBodyTarget(feature, params, context)
     : undefined;
+  // throughAll REMOVE 的 booleanScope 可同时命中多个 body（Links 两体一次穿孔）。
+  const multiRemove = operation === 'remove' && endBound === 'throughAll'
+    ? multiRemoveScopeTargets(feature, params, context)
+    : undefined;
   return {
     scenario: feature,
     op: {
       kind: 'insertFeature',
       featureType: 'extrude',
-      ...(scopeTarget ? { targetBodyId: scopeTarget.bodyKey } : {}),
+      ...(multiRemove
+        ? { targetBodyIds: multiRemove.bodyKeys }
+        : scopeTarget ? { targetBodyId: scopeTarget.bodyKey } : {}),
       params: {
         profile: [],
         distance,
@@ -414,7 +422,7 @@ function extrudeOp(feature: ScenarioFeature, context: TranslateContext): Transla
     notes: [
       ...notes,
       ...(secondDirection ? ['secondDirection（v1.24）'] : []),
-      ...(scopeTarget ? [scopeTarget.note] : []),
+      ...(multiRemove ? [multiRemove.note] : scopeTarget ? [scopeTarget.note] : []),
     ],
     approximate,
   };
@@ -663,6 +671,44 @@ function scopeBodyTarget(
       `${feature.name} 的 booleanScope ${sources.join(',')} 无可解析 body`,
     );
   return { bodyKey, note: `targetBody=${bodyKey}（booleanScope）` };
+}
+
+/**
+ * v1.68（ADR-0015 B6.2）：throughAll REMOVE 的多 body scope。booleanScope 的每个源都必须
+ * 解析到 body；≥2 个不同 body → targetBodyIds（单特征行逐体求值）。不完整/单 body
+ * 返回 undefined 交给旧单目标路径；部分源未解析则 fail closed，绝不静默少切一个 body。
+ */
+function multiRemoveScopeTargets(
+  feature: ScenarioFeature,
+  params: Record<string, unknown>,
+  context: TranslateContext,
+): { bodyKeys: string[]; note: string } | undefined {
+  const sources = stringArray(params.booleanScopeFeatureIds);
+  if (sources.length < 2) return undefined;
+  const bodyKeyBySource = context.bodyKeyBySource;
+  if (!bodyKeyBySource)
+    throw new BlockedCapabilityError('body-scope', `${feature.name} 多目标 REMOVE 缺 body 解析上下文`);
+  const bodyKeys: string[] = [];
+  // Onshape booleanScope 同时列草图与造体特征（Links 4 源 = 2 sketch + 2 extrude）。
+  // 草图/非几何源不产生 body，跳过；造体/修饰源解析失败仍 fail closed。
+  const nonBody = new Set(['sketch', 'newSketch', 'cPlane', 'decal', 'assignVariable', 'mateConnector']);
+  for (const source of sources) {
+    const key = bodyKeyBySource.get(source);
+    if (key === undefined) {
+      const type = context.scenarioFeatureTypeBySource?.get(source);
+      if (type !== undefined && nonBody.has(type)) continue;
+      throw new BlockedCapabilityError(
+        'body-scope',
+        `${feature.name} 多目标 REMOVE 的 booleanScope 源 ${source} 无对应 body（类型 ${type ?? 'unknown'}）`,
+      );
+    }
+    if (!bodyKeys.includes(key)) bodyKeys.push(key);
+  }
+  if (bodyKeys.length < 2) return undefined;
+  return {
+    bodyKeys,
+    note: `targetBodies=${bodyKeys.join(',')}（booleanScope；单特征行逐体 REMOVE）`,
+  };
 }
 
 /**

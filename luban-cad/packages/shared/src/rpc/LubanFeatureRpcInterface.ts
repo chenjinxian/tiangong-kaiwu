@@ -877,7 +877,9 @@ export type FeatureOp =
     /** 旧单目标（N>1 regular insert 显式目标；N≤1 可缺省）。 */
     targetBodyId?: string;
     /** v1.65（ADR-0015 B6.1）：多目标 fillet 首切片；与 targetBodyId 互斥。
-     *  getBodies[].bodyKey，非空去重；每边 FilletEdgeRef.bodyKey 必须落在该集合。 */
+     *  getBodies[].bodyKey，非空去重；每边 FilletEdgeRef.bodyKey 必须落在该集合。
+     *  v1.68（ADR-0015 B6.2）：扩展至 throughAll REMOVE extrude / REMOVE hole——
+     *  单特征行逐 target 独立求值，任一 target 失败整特征失败（all-or-nothing）。 */
     targetBodyIds?: string[];
   }
   | { kind: "updateParams"; featureId: string; params: FeatureParams }
@@ -1059,7 +1061,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.67.0";
+  public static interfaceVersion = "1.68.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

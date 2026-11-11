@@ -3,7 +3,9 @@
 - 状态：**首切片已真实验证（2026-11-11）**。2026-11-07 立项、2026-11-09 扩展为完整
   多目标契约提案；2026-11-10 实现首切片（shared 1.65 `targetBodyIds` + 逐边
   `bodyKey`、后端 `planInsertMulti`/逐体 BlendEdges/逐 body side cache/持久化
-  body→upstream、回放 edge-resolver/runner）；2026-11-11 Handle Parts 真栈严格绿
+  body→upstream、回放 edge-resolver/runner）；2026-11-11 扩展 B6.2
+  throughAll REMOVE extrude/hole（shared 1.68）并完成 Links 几何严格绿；
+  Handle Parts 真栈严格绿
   （3 体逐体温差 ≤0.043%、整链 +0.009%、冷重开一致）。此前 +4.2% 根因不是圆角，
   而是 converter 的 linearPattern `directionOne`（上游 revolve SWEPT_FACE）误映射
   草图线方向 +Z；修正为旋转轴 -X 后闭合。**单特征多 body 删除/改参/抑制、
@@ -331,8 +333,9 @@ type InsertFeatureOpDelta = {
 - 本节与原文均为**提议 / blocked-design** 的完整范围；2026-11-10 已按用户指令实现
   B6.3 首切片（见下），其余范围仍待批准/实现；**不是绿例**。
 - 首实现切片：多目标 **fillet** 的 `targetBodyIds` + 逐边 `bodyKey` + 逐体缓存/写回/
-  持久化输入映射/冷重建；REMOVE extrude/hole、delete/update/suppress、跨体
-  pattern/mirror、UI 多选与预览为后续切片。
+  持久化输入映射/冷重建；**B6.2（2026-11-11，shared 1.68）扩展 throughAll
+  REMOVE extrude/hole**，Links 两体一次穿孔几何严格绿；delete/update/suppress、
+  跨体 pattern/mirror、UI 多选与预览为后续切片。
 
 ## 实现记录（2026-11-10，B6.3 首切片）
 
@@ -360,3 +363,21 @@ type InsertFeatureOpDelta = {
   （+0.009%）**，11 步树全 status=0，push+冷重开一致；spec 移除 `test.fail`
   升级 strict。多目标 fillet 的逐体 BlendEdges/side cache/冷重建由此获得真实
   示例验收。
+- **B6.2 throughAll REMOVE extrude/hole（2026-11-11，shared 1.68）**：
+  `FeatureEngine.evaluateHoleInto`/`evaluateSweepFeatureInto` 抽出返回值内核；
+  新增 `assertMultiTargetRemoveParams` + `evaluateMultiBodyRemove`（逐 target
+  读各自上游缓存、同一 REMOVE 参数求值、逐体恰 1 BRep、任一失败整特征失败）；
+  `preEvaluateDirty`/`rebuildAll` 的 multiTargetInputs 分支扩到 extrude/hole；
+  同步 EDE 路径对多目标行 fail closed；`applyInsertMulti` 补 sketch 解算/面域
+  边界/sketch→feature 驱动边。
+- **replay**：`targetBodyIds` 由 booleanScope 的全部造体源解析（跳过 sketch
+  等非造体源；造体源缺失 fail closed）；修复 regionRisk 前缀把“孔内孤岛”区域
+  一并选中的问题（Links Extrude 2 区域 [0,1] 会填实 R5 孔，+157.075 mm³）。
+- **合成验证**：`MultiBodyFoundation` T9g 两 box 一次 throughAll remove 单特征
+  行、逐体 2.4/4.8 mm³、冷重建逐字节一致；负路径（add/blind/混单目标/重复）
+  txn 前拒收、零写。后端全量 **924 passed + 1 expected fail + 8 skipped**。
+- **Links 真栈（几何严格绿，约束仍 dropped）**：两体 **10,039.240 /
+  11,704.087 mm³** vs 采集 10,039.241 / 11,704.085（<0.001%），6 步树全
+  status=0，push+冷重开一致。`links-multi-remove.spec.ts` 不含约束完整性门；
+  该 PS 仍因 slot FIX/OFFSET + external EQUAL 未映射而保持 `blocked-converter`，
+  不得计为 complete。

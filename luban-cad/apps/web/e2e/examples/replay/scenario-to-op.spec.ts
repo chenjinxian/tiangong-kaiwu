@@ -243,6 +243,43 @@ test.describe('scenario → FeatureOp', () => {
     })).toThrow(BlockedCapabilityError);
   });
 
+  test('throughAll remove extrude：booleanScope 两个造体源 → targetBodyIds（跳过 sketch 源）', () => {
+    const step = translateScenarioFeature({
+      type: 'extrude',
+      name: 'Extrude 3',
+      params: {
+        operation: 'remove', endBound: 'through_all', sketchFeatureId: 's', depthMm: 2,
+        selection: { kind: 'sketchRegions', sketchFeatureId: 's', regions: [0] },
+        booleanScopeFeatureIds: ['s1', 'e1', 'e2'],
+      },
+    }, {
+      sketchIdBySource: new Map([['s', 'sk']]),
+      bodyKeyBySource: new Map([['e1', 'body-1'], ['e2', 'body-2']]),
+      allBodyKeys: ['body-1', 'body-2'],
+      scenarioFeatureTypeBySource: new Map([['s1', 'sketch'], ['e1', 'extrude'], ['e2', 'extrude']]),
+    });
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.targetBodyIds).toEqual(['body-1', 'body-2']);
+    expect(step.op.targetBodyId).toBeUndefined();
+    expect(step.notes.join(' ')).toContain('targetBodies=body-1,body-2');
+
+    expect(() => translateScenarioFeature({
+      type: 'extrude',
+      name: 'Extrude 3',
+      params: {
+        operation: 'remove', endBound: 'through_all', sketchFeatureId: 's', depthMm: 2,
+        selection: { kind: 'sketchRegions', sketchFeatureId: 's', regions: [0] },
+        booleanScopeFeatureIds: ['e1', 'e2'],
+      },
+    }, {
+      sketchIdBySource: new Map([['s', 'sk']]),
+      bodyKeyBySource: new Map([['e1', 'body-1']]),
+      allBodyKeys: ['body-1', 'body-2'],
+      scenarioFeatureTypeBySource: new Map([['e1', 'extrude'], ['e2', 'extrude']]),
+    })).toThrow(BlockedCapabilityError);
+  });
+
   test('extrude 拔模（v1.51）：弧度→度 + 反向键；方向语义未校准标 approximate', () => {
     const step = translateScenarioFeature({
       type: 'extrude',
