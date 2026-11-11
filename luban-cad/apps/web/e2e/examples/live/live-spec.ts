@@ -136,7 +136,9 @@ export interface LiveHoleStep {
 export interface LiveFeatureMirrorStep {
   kind: 'featureMirror';
   name: string;
-  sourceFeatureName: string;
+  sourceFeatureName?: string;
+  /** 多源（与 sourceFeatureName 恰一；产品 v1.58 sourceFeatureIds）。 */
+  sourceFeatureNames?: string[];
   planeLine: { origin: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number } };
   /** 多 body：镜像编辑的目标 body（该前序特征创建的 body）。 */
   targetBodyFeatureName?: string;

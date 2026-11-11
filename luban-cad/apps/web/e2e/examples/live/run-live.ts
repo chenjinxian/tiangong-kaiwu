@@ -347,9 +347,27 @@ export async function runLiveSpec(
       continue;
     }
     if (step.kind === 'featureMirror') {
-      const sourceFeatureId = featureIdByName.get(step.sourceFeatureName);
-      if (!sourceFeatureId)
-        throw new Error(`${spec.id}/${step.name}: 找不到源特征 ${step.sourceFeatureName}`);
+      const hasSingle = step.sourceFeatureName !== undefined;
+      const hasMulti = (step.sourceFeatureNames?.length ?? 0) > 0;
+      if (hasSingle === hasMulti)
+        throw new Error(`${spec.id}/${step.name}: sourceFeatureName/sourceFeatureNames 须恰一`);
+      let sourceFeatureId: string | undefined;
+      let sourceFeatureIds: string[] | undefined;
+      if (hasSingle) {
+        sourceFeatureId = featureIdByName.get(step.sourceFeatureName!);
+        if (!sourceFeatureId)
+          throw new Error(`${spec.id}/${step.name}: 找不到源特征 ${step.sourceFeatureName}`);
+      } else {
+        const ids: string[] = [];
+        for (const name of step.sourceFeatureNames ?? []) {
+          const id = featureIdByName.get(name);
+          if (!id) throw new Error(`${spec.id}/${step.name}: 找不到源特征 ${name}`);
+          ids.push(id);
+        }
+        sourceFeatureIds = [...new Set(ids)];
+        if (sourceFeatureIds.length !== ids.length)
+          throw new Error(`${spec.id}/${step.name}: 源特征重复`);
+      }
       let targetBodyId: string | undefined;
       if (step.targetBodyFeatureName) {
         const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
@@ -362,7 +380,11 @@ export async function runLiveSpec(
       const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'featureMirror',
-        params: { sourceFeatureId, planeLine: step.planeLine },
+        params: {
+          ...(sourceFeatureId ? { sourceFeatureId } : {}),
+          ...(sourceFeatureIds ? { sourceFeatureIds } : {}),
+          planeLine: step.planeLine,
+        },
         ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);

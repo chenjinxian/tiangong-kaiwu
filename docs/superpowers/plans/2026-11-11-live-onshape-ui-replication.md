@@ -683,6 +683,16 @@ symmetric 互斥）。
   `投影实体 id 冲突`。单圆投影（101）也得 3,141.561 vs 3,141.593 mm³。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 43（2026-11-11，live featureMirror 多源通道）
+
+- `LiveFeatureMirrorStep` 增加 `sourceFeatureNames`（与单源
+  `sourceFeatureName` 恰一），runner 逐名解析 featureId 并透传产品
+  `sourceFeatureIds`。
+- 公共真栈回归 `e2e/examples/live-feature-mirror-multi.spec.ts`：
+  40×20×10 板 + 两个 4×4×5 凸台（x=5、x=15）一次 YZ 镜像 →
+  **8,320.000 vs 8,320.000 mm³**、1 body、7 步 status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
