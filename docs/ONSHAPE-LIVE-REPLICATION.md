@@ -76,6 +76,15 @@
   inside=外环侧，属近似选择。公共回归
   `e2e/examples/live-imprint-region.spec.ts`（20×20 板带 R5 孔，圆实体
   side=outside → 孔侧外环面域 → **3214.618 vs 3214.602 mm³**）push+冷重开。
+  - `all:true`：同一实体被多条边界共享时收齐全部匹配面域（共享边拆域）；
+    `e2e/examples/live-imprint-all.spec.ts`（20×20 矩形被中竖线拆两半，
+    竖线 inside+all → **4000.000 mm³**）push+冷重开。
+  - `edgeSide:'left'|'right'`：Onshape 有向边左/右侧精确语义，运行时读草图
+    实体几何（line/arc/circle，构造曲线拒收）→ shared
+    `resolveImprintEdgeGeometry` + `pickImprintRegionByEdgeSide`（+1=left、
+    −1=right；同侧多候选即失败，不按面积猜）。`e2e/examples/live-imprint-edgeside.spec.ts`
+    （同一拆域矩形，竖线从 (0,−10) 指向 (0,10)，`edgeSide:'right'` → x>0 半域
+    **2000.000 mm³** 质心 x=+5）push+冷重开。`edgeSide` 与 `all` 互斥。
 - chamfer：live step 支持 mode/values1/values2；mode3（距离+角度）公共回归
   `e2e/examples/live-chamfer-mode3.spec.ts`：20×20×10 盒顶面前边距离 2、
   45° → 去材 40 mm³、结果 **3960.000 mm³**、push+冷重开。

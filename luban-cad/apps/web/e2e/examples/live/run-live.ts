@@ -8,6 +8,7 @@ import type {
   LubanTopologyId,
   SketchPlaneDto,
 } from '@luban-cad/shared';
+import { pickImprintRegionByEdgeSide, resolveImprintEdgeGeometry } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
   assertFeatureOpOk,
@@ -161,6 +162,51 @@ export async function runLiveSpec(
         const sketch = await getSketchRpc(ctx, sketchId, token);
         const picked: number[] = [];
         for (const query of step.imprintRegions) {
+          if (query.edgeSide !== undefined && query.all === true)
+            throw new Error(`${spec.id}/${step.name}: imprint edgeSide/all 互斥`);
+          if (query.edgeSide !== undefined) {
+            const edge = resolveImprintEdgeGeometry(sketch?.entities ?? [], query.entityId);
+            if (!edge)
+              throw new Error(
+                `${spec.id}/${step.name}: imprint(edgeSide) entity=${query.entityId} 无有向边几何（仅 line/arc/circle）`,
+              );
+            const hit = pickImprintRegionByEdgeSide(
+              sketch?.regions,
+              query.entityId,
+              edge,
+              query.edgeSide,
+            );
+            if (!hit)
+              throw new Error(
+                `${spec.id}/${step.name}: imprint(edgeSide) entity=${query.entityId} side=${query.edgeSide} 无唯一面域`,
+              );
+            picked.push(hit.regionIndex);
+            notes.push(
+              `${step.name}: imprint(edgeSide) entity=${query.entityId} ${query.edgeSide} → region ${hit.regionIndex} (${hit.basis})`,
+            );
+            continue;
+          }
+          if (query.all === true) {
+            const matched = (sketch?.regions ?? [])
+              .map((region, regionIndex) => ({ region, regionIndex }))
+              .filter(({ region }) =>
+                query.side === 'outside'
+                  ? (region.holeEntityIds?.includes(query.entityId) ?? false)
+                  : query.side === 'inside'
+                    ? region.outerEntityIds.includes(query.entityId)
+                    : (region.outerEntityIds.includes(query.entityId)
+                      || (region.holeEntityIds?.includes(query.entityId) ?? false)))
+              .map(({ regionIndex }) => regionIndex);
+            if (matched.length === 0)
+              throw new Error(
+                `${spec.id}/${step.name}: imprint(all) entity=${query.entityId} side=${query.side ?? 'auto'} 零命中`,
+              );
+            picked.push(...matched);
+            notes.push(
+              `${step.name}: imprint(all) entity=${query.entityId} → regions ${matched.join(',')}`,
+            );
+            continue;
+          }
           const hit = pickImprintRegion(sketch?.regions, query.entityId, query.side);
           if (!hit)
             throw new Error(

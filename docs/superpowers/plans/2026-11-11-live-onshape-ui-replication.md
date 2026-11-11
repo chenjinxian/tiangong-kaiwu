@@ -862,6 +862,21 @@ symmetric 互斥）。
   产品 1 body、质心≈0、status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **37**。
 
+### 批次 61（2026-11-12，live imprintRegions all + edgeSide）
+
+- `live-spec.ts` 扩展 `imprintRegions[].all` 与 `edgeSide`（与 `all` 互斥）。
+- `all:true`：按 side 收齐全部匹配面域（共享边界拆域）。公共真栈
+  `e2e/examples/live-imprint-all.spec.ts`：20×20 矩形中竖线拆两半，竖线
+  inside+all → **4,000.000 mm³**、1 body、status=0、push+冷重开。
+- `edgeSide:'left'|'right'`：运行时从 `getSketch` 读实体几何 →
+  shared `resolveImprintEdgeGeometry` + `pickImprintRegionByEdgeSide`
+  （+1=left / −1=right；line/arc/circle，构造曲线与同侧多候选即失败）。
+  公共真栈 `e2e/examples/live-imprint-edgeside.spec.ts`：同一拆域矩形，
+  竖线 (0,−10)→(0,10) 取 right → x>0 半域 **2,000.000 mm³**、
+  质心 x=+5.000、1 body、status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **37**；README 规则
+  `docs/ONSHAPE-LIVE-REPLICATION.md` 已同步。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

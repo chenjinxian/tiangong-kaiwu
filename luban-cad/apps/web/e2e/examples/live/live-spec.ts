@@ -71,8 +71,15 @@ export interface LiveExtrudeStep {
   operation?: 'new' | 'add' | 'remove' | 'intersect';
   regions?: number[];
   /** 按草图实体 side（Onshape imprint 查询）解析 region 下标，与 regions 恰一。
-   * side 采用 replay 回退口径：outside=孔侧、inside=外环侧；命中不唯一即失败。 */
-  imprintRegions?: { entityId: number; side?: 'inside' | 'outside' }[];
+   * side 采用 replay 回退口径：outside=孔侧、inside=外环侧；缺省要求命中唯一。
+   * `edgeSide` 对 line 实体走 shared 有向边左右侧精确解析（+1=left/-1=right）。
+   * `all:true` 时收集全部匹配面域（共享边界被拆成多个区域时用）。 */
+  imprintRegions?: {
+    entityId: number;
+    side?: 'inside' | 'outside';
+    edgeSide?: 'left' | 'right';
+    all?: boolean;
+  }[];
   /** 多 body throughAll REMOVE：按这些前序特征各自创建的 body 显式锚定
    * （v1.68 targetBodyIds 单特征逐体求值）。 */
   targetBodyFeatureNames?: string[];
