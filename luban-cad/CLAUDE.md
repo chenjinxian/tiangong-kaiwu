@@ -298,8 +298,16 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   得到精确草图；Ex. 4 用 DXF 精确轮廓/槽 + Chamfer 0.75 in + Fillet R1 in
   + 两个沉孔（Ø0.594/0.875 82°、Ø0.484/0.675 82°，blind 0.5 in）→ 真栈
   **510,179.884 vs 509,763.309 mm³（+0.082%）**、1 body、7 特征全
-  status=0、push+冷重开。live runner 现 16 spec（17 项含 setup；全量套件
-  在 MS 429 窗口内会因限流失败，非代码回归）。
+  status=0、push+冷重开。
+  **批次 14（Ex.1/2/3 DXF 精确）**：全部草图改由 DXF 导出（英寸→mm），
+  并用 `LIVE_DEBUG=1` 的 sketch regions 选择面域。Ex.1 12×6 板+竖槽+
+  种子圆，Extrude1 选 [0,2]、Extrude2 去圆+5×5 pattern → **531,719.415
+  vs 531,718.538 mm³（0.000%）**；Ex.2 12×8 板+槽+双孔、R0.5 四角、
+  1.75×4.5 boss、0.2 in 四顶边 → **1,184,673.352 vs 1,187,939.713
+  （−0.275%）**；Ex.3 两板（15/10 孔）+两盘（6/12 孔）拆 4 草图/拉伸 →
+  **254,433.650 vs 254,433.368（0.000%）**、**4 body**。均 push+冷重开。
+  live runner 现 16 spec（17 项含 setup；全量套件在 MS 429 窗口内会因
+  限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

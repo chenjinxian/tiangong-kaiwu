@@ -11,6 +11,7 @@ import {
   getBodiesRpc,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
+  getSketchRpc,
 } from '../../helpers.js';
 import { ensureExampleImodel, openExampleEditor } from '../imodel.js';
 import { resolveLiveEdgeRefs } from './edge-select.js';
@@ -65,6 +66,17 @@ export async function runLiveSpec(
       }, step.name);
       sketchIdByName.set(step.name, id);
       featureIdByName.set(step.name, id);
+      if (process.env.LIVE_DEBUG === '1') {
+        const sketch = await getSketchRpc(ctx, id, token);
+        console.log(
+          `[live-debug] ${spec.id}/${step.name} regions=` +
+          JSON.stringify(sketch?.regions?.map((region) => ({
+            area: Number(region.area.toFixed(6)),
+            outer: region.outerEntityIds,
+            holes: region.holeEntityIds ?? [],
+          }))),
+        );
+      }
       if (spec.skipConstraints === true) notes.push('constraints=dropped（live-spec skipConstraints）');
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
