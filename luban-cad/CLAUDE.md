@@ -240,6 +240,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   已采集 features 生成 live-spec；Pin 216,783.995 vs 216,785.294（0.001%）、
   Bushing 3,259.620 vs 3,259.685（0.002%）、其余树/体数/冷重开通过。
   `live-registry.spec.ts` 现 6 spec；symmetric 时忽略 oppositeDirection。
+  **批次 3（revolve）**：Tutorial 1 O-Ring 454.910 vs 454.927（0.004%）；
+  Worm Gear Shaft multi-segment revolve，因 line+line coincident 产品不支持，
+  spec `skipConstraints` 保留已解坐标（approx），树/体数/冷重开通过；
+  live runner 现 8 spec。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

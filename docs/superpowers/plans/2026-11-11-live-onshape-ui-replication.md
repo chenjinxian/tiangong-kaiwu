@@ -159,8 +159,17 @@ live-spec，不新增 API 采集：
 
 `live-registry.spec.ts` 共 6 个 spec；逐例独立 iModel。symmetry 语义：
 Onshape `symmetric=true` 时忽略 `oppositeDirection`（产品 direction 与
-symmetric 互斥）。下一步扩展 live runner 的 revolve/hole 支持，并优先为
-`geometry-ready` 的 2–4 特征 PS 生成 spec。
+symmetric 互斥）。
+
+### 批次 3（2026-11-11，revolve）
+
+- Tutorial 1 / O-Ring：line+circle 轮廓绕构造轴全周旋转，**454.910 vs
+  454.927 mm³（0.004%）**，1 body、冷重开一致。
+- Worm Gear Shaft / Shaft：多段轮廓全周旋转；草图含产品 normalizer 不支持的
+  line+line coincident，spec 设 `skipConstraints: true` 保留已解坐标（approx）；
+  树/体数/冷重开通过，待 UI mass。
+- live runner 增加 `revolve` 步骤与 spec 级 `skipConstraints`；现共 8 个
+  live spec。下一步：hole/chamfer/mirror 支持与 geometry-ready 批次。
 
 ## 6. 风险与门禁
 

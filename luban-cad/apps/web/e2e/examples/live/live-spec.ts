@@ -45,13 +45,25 @@ export interface LiveExtrudeStep {
   note?: string;
 }
 
+export interface LiveRevolveStep {
+  kind: 'revolve';
+  name: string;
+  sketchName: string;
+  axisSketchEntityId: number;
+  operation?: 'new' | 'add' | 'remove' | 'intersect';
+  fullRevolve?: boolean;
+  angleRad?: number;
+  regions?: number[];
+  note?: string;
+}
+
 export interface LiveSkippedStep {
   kind: 'skipped';
   name: string;
   reason: string;
 }
 
-export type LiveStep = LiveSketchStep | LiveExtrudeStep | LiveSkippedStep;
+export type LiveStep = LiveSketchStep | LiveExtrudeStep | LiveRevolveStep | LiveSkippedStep;
 
 export interface LiveSpec {
   schemaVersion: 1;
@@ -62,6 +74,8 @@ export interface LiveSpec {
   source: LiveSource;
   copy?: LiveCopy;
   steps: LiveStep[];
+  /** true = 草图只保留已解坐标、丢弃约束（产品 normalizer 不支持的约束存在时使用）。 */
+  skipConstraints?: boolean;
   expected?: {
     bodyCount?: number;
     volumeMm3?: number;

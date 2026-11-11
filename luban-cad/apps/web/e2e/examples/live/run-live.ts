@@ -54,10 +54,11 @@ export async function runLiveSpec(
       const id = await apply({
         kind: 'insertSketch',
         entities: step.entities,
-        constraints: step.constraints,
+        constraints: spec.skipConstraints === true ? [] : step.constraints,
         plane: step.plane,
       }, step.name);
       sketchIdByName.set(step.name, id);
+      if (spec.skipConstraints === true) notes.push('constraints=dropped（live-spec skipConstraints）');
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
@@ -74,6 +75,24 @@ export async function runLiveSpec(
           regions: step.regions ?? [0],
           ...(step.operation ? { operation: step.operation } : {}),
           ...(step.extraParams ?? {}),
+        },
+      }, step.name);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'revolve') {
+      const sketchId = sketchIdByName.get(step.sketchName);
+      if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
+      await apply({
+        kind: 'insertFeature',
+        featureType: 'revolve',
+        params: {
+          sketchId,
+          regions: step.regions ?? [0],
+          axis: { sketchEntityId: step.axisSketchEntityId },
+          fullRevolve: step.fullRevolve !== false,
+          ...(step.angleRad !== undefined ? { angle: step.angleRad } : {}),
+          operation: step.operation ?? 'new',
         },
       }, step.name);
       if (step.note) notes.push(`${step.name}: ${step.note}`);
