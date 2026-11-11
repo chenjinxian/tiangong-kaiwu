@@ -388,6 +388,20 @@ symmetric 互斥）。
   （11,704.087 / 10,039.240）、3 特征树全 status=0、push+冷重开；
   live spec 总数 **19**。
 
+### 批次 19（2026-11-11，COAP Q1 / Long Fixture Block）
+
+- 可编辑副本 `LubanLiveCOAPQ1`（doc `5889c03a…`，workspace `50e0d584…`）。
+  Base Sketch DXF 50×50、Block Extrude symmetric 200；40×40×180 型腔在
+  产品里用显式草图重建（源用 Base Sketch imprint 面），base/cavity
+  **212,000 mm³** 精确。
+- UI 法向视图：两侧面各两个 Ø12 点，位于面中心线、距端部 25/25 mm；
+  四个侧壁通孔沿 ±X 贯穿，每个切两段 5 mm 壁。
+- 真栈 **207,476.207 vs 205,214.160 mm³（+1.102%）**、1 body、8 特征
+  status=0、push+冷重开。**approx 边界**：质量差 6,785.84 = 60 mm
+  孔材料路径，四个可见孔只有 40 mm；剩余 2,261.8 疑为 mateConnector
+  孔位/更长路径，未凭空补孔。
+- live spec 总数 **20**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
