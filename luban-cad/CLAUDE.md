@@ -290,9 +290,16 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   孔/两个 world-Z 侧向孔/一个 world-Y 侧向孔放到 body 外侧的辅助草图平面，
   重建为 3 草图 + 3 hole 特征 → 真栈 **1,429,774.692 vs 1,422,701.032 mm³
   （+0.497%，原 +0.930%）**、1 body、9 特征全 status=0、push+冷重开；剩余
-  偏差疑似重复 mateConnector 的额外/不同深度孔，未凭空加孔。live runner
-  现 15 spec（16 项含 setup；14 个旧/新 spec 已逐个真栈通过；全量套件在
-  MS 429 窗口内会因限流失败，非代码回归）。
+  偏差疑似重复 mateConnector 的额外/不同深度孔，未凭空加孔。
+  **批次 13（副本 + DXF + Ex. 4）**：创建副本必须在“复制文档到”区域
+  **双击“由我所有”行**（单点会让 OK 显示“待定”且不创建），随后 OK 文案
+  变为“创建公开文档”；得到 `LubanLiveDimUnit4`（doc `c7e39a98…`，
+  workspace `d1f99f24…`）。可编辑副本里右键草图 →“导出为 DXF/DWG…”
+  得到精确草图；Ex. 4 用 DXF 精确轮廓/槽 + Chamfer 0.75 in + Fillet R1 in
+  + 两个沉孔（Ø0.594/0.875 82°、Ø0.484/0.675 82°，blind 0.5 in）→ 真栈
+  **510,179.884 vs 509,763.309 mm³（+0.082%）**、1 body、7 特征全
+  status=0、push+冷重开。live runner 现 16 spec（17 项含 setup；全量套件
+  在 MS 429 窗口内会因限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

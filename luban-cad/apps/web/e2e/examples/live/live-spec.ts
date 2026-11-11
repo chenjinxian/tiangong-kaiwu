@@ -67,6 +67,12 @@ export interface LiveHoleStep {
   /** 草图 point 实体 id；调用方负责在 sketch step 里定义这些点。 */
   pointEntityIds: number[];
   diameterMm: number;
+  holeStyle?: 'simple' | 'counterbore' | 'countersink';
+  counterboreDiameterMm?: number;
+  counterboreDepthMm?: number;
+  countersinkDiameterMm?: number;
+  countersinkAngleDeg?: number;
+  tipAngleDeg?: number;
   endBound: 'blind' | 'throughAll' | 'upToNext';
   depthMm?: number;
   direction?: 'forward' | 'backward';

@@ -141,6 +141,20 @@ export async function runLiveSpec(
           pointIds: step.pointEntityIds,
           diameterMm: step.diameterMm,
           endBound: step.endBound,
+          ...(step.holeStyle ? { holeStyle: step.holeStyle } : {}),
+          ...(step.counterboreDiameterMm !== undefined
+            ? { counterboreDiameterMm: step.counterboreDiameterMm }
+            : {}),
+          ...(step.counterboreDepthMm !== undefined
+            ? { counterboreDepthMm: step.counterboreDepthMm }
+            : {}),
+          ...(step.countersinkDiameterMm !== undefined
+            ? { countersinkDiameterMm: step.countersinkDiameterMm }
+            : {}),
+          ...(step.countersinkAngleDeg !== undefined
+            ? { countersinkAngleDeg: step.countersinkAngleDeg }
+            : {}),
+          ...(step.tipAngleDeg !== undefined ? { tipAngleDeg: step.tipAngleDeg } : {}),
           ...(step.endBound === 'blind' ? { depthMm: step.depthMm } : {}),
           ...(step.direction ? { direction: step.direction } : {}),
         },
