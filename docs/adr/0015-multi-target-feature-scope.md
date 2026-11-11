@@ -8,8 +8,9 @@
   Handle Parts 真栈严格绿
   （3 体逐体温差 ≤0.043%、整链 +0.009%、冷重开一致）。此前 +4.2% 根因不是圆角，
   而是 converter 的 linearPattern `directionOne`（上游 revolve SWEPT_FACE）误映射
-  草图线方向 +Z；修正为旋转轴 -X 后闭合。**单特征多 body 删除/改参/抑制、
-  pattern/mirror 跨体仍为后续切片。**
+  草图线方向 +Z；修正为旋转轴 -X 后闭合。**单特征多 body 改参/抑制/删除已支持
+  （2026-11-11；多目标预览明确拒收）；pattern/mirror 跨体、chamfer/shell/
+  moveFace 多目标与 UI 仍为后续切片。**
 - 关联：`docs/adr/0007-feature-pattern.md`、`docs/adr/0012-split-part-world-plane.md`、
   `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`、
   `docs/superpowers/specs/2026-11-09-sketch-external-refs-async-airr.md`（同批异步预求值/

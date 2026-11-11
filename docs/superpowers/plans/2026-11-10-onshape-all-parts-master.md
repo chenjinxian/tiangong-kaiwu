@@ -210,7 +210,8 @@
   Parts 真栈 **strict 绿**（3 体 11,878.438 / 30,944.712 / 105,771.136，
   整链 +0.009%，冷重开一致）。Threaded Shaft 旧 +4.2% 根因是 converter
   linearPattern `directionOne`（SWEPT_FACE）误映射 +Z，不是 fillet；修正为
-  旋转轴 -X 后闭合。chamfer/shell/moveFace 多目标仍未做。
+  旋转轴 -X 后闭合。**多目标改参/抑制/删除已支持（T9i/T9j/T9k；预览明确拒收）**；
+  chamfer/shell/moveFace 多目标仍未做。
 - [ ] **B6.4 featurePattern/featureMirror 多体**：源 owner 集合/逐体应用；
   不跨体复制。
 - [ ] **B6.5 UI 多目标选择器**：live 证据、树行单特征、编辑/撤销/冷重开。
@@ -403,8 +404,8 @@ powershell -File scripts/verify-stack.ps1
   push+冷重开一致；spec 移除 `test.fail`。旧 Threaded Shaft +4.2% 根因：
   converter 将 Linear pattern 1 的 SWEPT_FACE `directionOne` 映射为草图线
   世界 +Z，15 个 remove 实例落在轴外（仅去材 27.993 mm³）；改为上游 revolve
-  轴 -X 后闭合。多目标 update/suppress/delete、下游消费、chamfer/shell/
-  moveFace、UI 未做。
+  轴 -X 后闭合。多目标改参/抑制/删除已支持（T9i/T9j/T9k；预览明确拒收）；
+  下游消费、chamfer/shell/moveFace 多目标、UI 未做。
 - **B1.2 Part 5 转绿（face split D2）**：converter 用采集 `sketches.json`
   修正 SWEPT_FACE 派生草图平面；E1/E2 用 bodydetails 面积+bbox+质心选多格面；
   shared 1.66 `FaceExtrudeParams.splitByLine`（material/void + keepPoint）+
@@ -426,8 +427,8 @@ powershell -File scripts/verify-stack.ps1
   绿 10,039.240 / 11,704.087 vs 10,039.241 / 11,704.085，6 步 status=0、
   冷重开一致；`links-multi-remove.spec.ts` 不以约束完整性计绿，Links 仍
   `blocked-converter`。
-- **未完成/仍 blocked**：多目标 update/suppress/delete、chamfer/shell/moveFace
-  多目标与 UI；Links 约束（slot FIX/OFFSET + external EQUAL）待 B3。
+- **未完成/仍 blocked**：多目标预览、chamfer/shell/moveFace 多目标与 UI；
+  Links 约束（slot FIX/OFFSET + external EQUAL）待 B3。
 - 采集/测试期间 MS 全局 429 由重启宿主 MS 清除，未改生产限流配置。
 
 ## 9. 第一执行切片（立即开始）

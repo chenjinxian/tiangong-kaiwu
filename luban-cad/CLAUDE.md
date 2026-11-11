@@ -219,9 +219,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   regionRisk 多选区中的“孔内孤岛”。合成 T9g 两体 2.4/4.8 mm³、冷重建一致；
   Links 真栈几何 **10,039.240 / 11,704.087 vs 10,039.241 / 11,704.085**，
   6 步 status=0、push+冷重开一致；约束仍 dropped（slot FIX/OFFSET +
-  external EQUAL），Links 保持 `blocked-converter`，不计 complete。后端全量
-  **925 passed + 1 expected fail + 8 skipped**（含 T9h 多目标 hole 命中/未命中
-  体保持单 BRep、冷重建一致）、shared **203/203**、
+  external EQUAL），Links 保持 `blocked-converter`，不计 complete。多目标
+  改参/抑制/删除已支持（T9i/T9j/T9k：fillet 改半径、抑制逐体回退上游、删除
+  链尾逐体回退；多目标预览明确拒收）。后端全量 **928 passed + 1 expected fail
+  + 8 skipped**（含 T9h 多目标 hole 命中/未命中体保持单 BRep、冷重建一致）、
+  shared **203/203**、
   scenario-to-op **59/59**；公开 spec `links-multi-remove.spec.ts`。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
