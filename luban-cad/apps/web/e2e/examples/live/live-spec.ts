@@ -172,6 +172,8 @@ export interface LiveMirrorStep {
     origin: { x: number; y: number; z: number };
     normal: { x: number; y: number; z: number };
   };
+  /** 按目标体平面面镜像（与 plane/planeLine 恰一）；须给 targetBodyFeatureName。 */
+  face?: LiveFaceSelector;
   operation?: 'unite' | 'subtract' | 'intersect';
   /** 多 body 时显式目标 body（该前序特征创建的 body）。 */
   targetBodyFeatureName?: string;

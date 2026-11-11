@@ -2,7 +2,12 @@
  * Live spec → luban-cad Part Studio 构建器（首切片：sketch + extrude）。
  */
 import type { Page, APIRequestContext } from '@playwright/test';
-import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto } from '@luban-cad/shared';
+import type {
+  BodyInfo,
+  FeatureTreeEntry,
+  LubanTopologyId,
+  SketchPlaneDto,
+} from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
   assertFeatureOpOk,
@@ -299,14 +304,26 @@ export async function runLiveSpec(
           );
         targetBodyId = keys[0]!;
       }
-      if ((step.plane === undefined) === (step.planeLine === undefined))
-        throw new Error(`${spec.id}/${step.name}: plane/planeLine 须恰一`);
+      const modeCount = (step.plane ? 1 : 0) + (step.planeLine ? 1 : 0) + (step.face ? 1 : 0);
+      if (modeCount !== 1)
+        throw new Error(`${spec.id}/${step.name}: plane/planeLine/face 须恰一`);
+      let faceRef: LubanTopologyId | undefined;
+      if (step.face) {
+        if (!targetBodyId)
+          throw new Error(`${spec.id}/${step.name}: face 镜像须给 targetBodyFeatureName`);
+        const resolved = await resolveLiveShellFaceRefs(page, ctx, token, [step.face], targetBodyId);
+        if (resolved.refs.length !== 1)
+          throw new Error(`${spec.id}/${step.name}: 面镜像须恰 1 个面`);
+        faceRef = resolved.refs[0]!;
+        notes.push(`${step.name}: ${resolved.notes.join('; ')}`);
+      }
       const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'mirror',
         params: {
           ...(step.plane ? { plane: step.plane } : {}),
           ...(step.planeLine ? { planeLine: step.planeLine } : {}),
+          ...(faceRef ? { faceRef } : {}),
           keepOriginal: true,
           ...(step.operation ? { operation: step.operation } : {}),
         },

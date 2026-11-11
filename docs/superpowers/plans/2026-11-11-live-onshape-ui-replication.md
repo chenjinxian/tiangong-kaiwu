@@ -662,6 +662,15 @@ symmetric 互斥）。
 - 与 Onshape 的 part 实例语义差异按 body pattern 同一口径逐例登记。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 41（2026-11-11，live mirror faceRef 通道）
+
+- `LiveMirrorStep` 增加 `face`（面选择器，与 plane/planeLine 恰一），须配
+  `targetBodyFeatureName`；runner 经 resolveFaceRef 透传产品 `MirrorParams.faceRef`。
+- 公共真栈回归 `e2e/examples/live-mirror-face.spec.ts`：20×20×10 盒按顶面
+  （z=10）镜像 → **8000.000 mm³**、产品 1 body、质心 z=10、status=0、
+  push+冷重开（期间一次 MS 429 自动按 retry-after 重试）。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
