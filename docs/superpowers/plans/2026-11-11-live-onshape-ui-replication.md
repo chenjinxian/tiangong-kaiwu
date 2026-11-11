@@ -728,6 +728,15 @@ symmetric 互斥）。
   push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 48（2026-11-11，live body pattern 第二方向/反向）
+
+- 公共真栈 `e2e/examples/live-body-pattern-extra.spec.ts`：
+  10×10×10 盒 3×2 网格（X 20、Y 30）→ **6,000.000 mm³**；反向线性
+  3 实例、间距 20 → **3,000.000 mm³**；均产品 1 body、status=0、
+  push+冷重开（3 passed，1.0 min）。
+- 产品单 body 多 lump 语义与 Onshape 多 part 的差异继续逐例登记。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
