@@ -76,6 +76,23 @@ export interface LiveExtrudeStep {
   note?: string;
 }
 
+export interface LiveLoftStep {
+  kind: 'loft';
+  name: string;
+  /** 两张截面草图名（顺序=loft 方向）。 */
+  sketchNames: [string, string];
+  sections?: number;
+  note?: string;
+}
+
+export interface LiveSweepStep {
+  kind: 'sweep';
+  name: string;
+  profileSketchName: string;
+  pathSketchName: string;
+  note?: string;
+}
+
 export interface LiveRevolveStep {
   kind: 'revolve';
   name: string;
@@ -244,6 +261,8 @@ export type LiveStep =
   | LiveSketchStep
   | LiveExtrudeStep
   | LiveRevolveStep
+  | LiveLoftStep
+  | LiveSweepStep
   | LiveHoleStep
   | LiveFeatureMirrorStep
   | LiveFeaturePatternStep

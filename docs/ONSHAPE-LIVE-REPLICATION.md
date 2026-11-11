@@ -72,6 +72,11 @@
   快照（runner 自动补 `sourceFeatureId`，保证被引用平面改参/删除受产品守卫）。
   公共回归 `e2e/examples/live-cplane.spec.ts`（Top 偏移 10 → 草图 20×20 →
   拉伸 10，4000 mm³、质心 z=15）验证全链与冷重开。
+- loft/sweep：`loft` step 接受两张截面草图名（产品首版两截面、SOLID）；
+  `sweep` step 接受轮廓/路径草图名（路径须单直线且与轮廓平面法向有非零投影）。
+  公共回归 `e2e/examples/live-loft-sweep.spec.ts`：20×20→10×10 线性 loft
+  **2333.333 mm³**（解析 ∫(20−z)²dz）、10×10 轮廓沿 +Z 20 mm 扫掠
+  **2000.000 mm³**，均 push+冷重开。
 
 ## 5. 运行与限流
 

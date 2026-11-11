@@ -205,6 +205,41 @@ export async function runLiveSpec(
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
+    if (step.kind === 'loft') {
+      const ids = step.sketchNames.map((name) => {
+        const id = sketchIdByName.get(name);
+        if (!id) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${name}`);
+        return id;
+      }) as [string, string];
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'loft',
+        params: {
+          sketchIds: ids,
+          ...(step.sections !== undefined ? { sections: step.sections } : {}),
+          bodyType: 'SOLID',
+        },
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'sweep') {
+      const profileSketchId = sketchIdByName.get(step.profileSketchName);
+      if (!profileSketchId)
+        throw new Error(`${spec.id}/${step.name}: 找不到轮廓草图 ${step.profileSketchName}`);
+      const pathSketchId = sketchIdByName.get(step.pathSketchName);
+      if (!pathSketchId)
+        throw new Error(`${spec.id}/${step.name}: 找不到路径草图 ${step.pathSketchName}`);
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'sweep',
+        params: { profileSketchId, pathSketchId, bodyType: 'SOLID' },
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
     if (step.kind === 'hole') {
       const sketchId = sketchIdByName.get(step.sketchName);
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
