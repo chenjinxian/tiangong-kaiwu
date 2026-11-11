@@ -48,6 +48,7 @@ export async function runLiveSpec(
     if (step.kind === 'extrude') for (const name of step.targetBodyFeatureNames ?? []) trackedFeatureNames.add(name);
     if (step.kind === 'hole' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'featurePattern' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'mirror' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'pattern' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'featureMirror' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'shell' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
@@ -281,6 +282,33 @@ export async function runLiveSpec(
           ...(step.tipAngleDeg !== undefined ? { tipAngleDeg: step.tipAngleDeg } : {}),
           ...(step.endBound === 'blind' ? { depthMm: step.depthMm } : {}),
           ...(step.direction ? { direction: step.direction } : {}),
+        },
+        ...(targetBodyId ? { targetBodyId } : {}),
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'mirror') {
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0]!;
+      }
+      if ((step.plane === undefined) === (step.planeLine === undefined))
+        throw new Error(`${spec.id}/${step.name}: plane/planeLine 须恰一`);
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'mirror',
+        params: {
+          ...(step.plane ? { plane: step.plane } : {}),
+          ...(step.planeLine ? { planeLine: step.planeLine } : {}),
+          keepOriginal: true,
+          ...(step.operation ? { operation: step.operation } : {}),
         },
         ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);

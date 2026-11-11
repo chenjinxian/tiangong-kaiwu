@@ -163,6 +163,21 @@ export interface LiveFeaturePatternStep {
   note?: string;
 }
 
+/** PART/body 镜像（世界平面/任意平面；与 FEATURE featureMirror 区分）。 */
+export interface LiveMirrorStep {
+  kind: 'mirror';
+  name: string;
+  plane?: 'XY' | 'YZ' | 'XZ';
+  planeLine?: {
+    origin: { x: number; y: number; z: number };
+    normal: { x: number; y: number; z: number };
+  };
+  operation?: 'unite' | 'subtract' | 'intersect';
+  /** 多 body 时显式目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName?: string;
+  note?: string;
+}
+
 /** PART/body 阵列（世界轴枚举；与 FEATURE featurePattern 区分）。 */
 export interface LiveBodyPatternStep {
   kind: 'pattern';
@@ -306,6 +321,7 @@ export type LiveStep =
   | LiveSweepStep
   | LiveHoleStep
   | LiveFeatureMirrorStep
+  | LiveMirrorStep
   | LiveFeaturePatternStep
   | LiveBodyPatternStep
   | LiveFilletStep

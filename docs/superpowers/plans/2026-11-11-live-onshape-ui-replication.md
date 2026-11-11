@@ -652,6 +652,16 @@ symmetric 互斥）。
   不得把 body 数写成 Onshape 的 part 数。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 40（2026-11-11，live body mirror 通道）
+
+- runner 新增 `mirror` step：PART/body 镜像，世界平面 XY/YZ/XZ 或任意
+  `planeLine`，可选 operation；产品 `keepOriginal:true` 固定 Unite。
+- 公共真栈回归 `e2e/examples/live-body-mirror.spec.ts`：x∈[10,20] 的
+  10×10×10 盒以 YZ 镜像 → **2000.000 mm³**、产品 1 body（多 lump）、
+  质心 x=0、status=0、push+冷重开。
+- 与 Onshape 的 part 实例语义差异按 body pattern 同一口径逐例登记。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

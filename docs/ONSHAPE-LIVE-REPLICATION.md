@@ -92,6 +92,10 @@
   如实记录，不能把 body 数写成 Onshape 的 part 数。公共回归
   `e2e/examples/live-body-pattern.spec.ts`（10×10×10 盒 3 实例、间距 20 →
   3000 mm³、产品 1 body）验证全链与冷重开。
+- PART/body mirror：`mirror` step 支持世界平面 XY/YZ/XZ 或任意 `planeLine`，
+  可选 operation，产品以 `keepOriginal:true` Unite 为单 body 多 lump。
+  公共回归 `e2e/examples/live-body-mirror.spec.ts`（x∈[10,20] 盒以 YZ
+  镜像 → 2000 mm³、1 body、质心 x=0）验证全链与冷重开。
 
 ## 5. 运行与限流
 
