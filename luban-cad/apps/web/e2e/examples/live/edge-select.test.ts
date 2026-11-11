@@ -23,6 +23,21 @@ function arc(radius: number, sweepRadians: number): EdgeHandle {
   };
 }
 
+function fullCircle(center: [number, number, number], radius: number): EdgeHandle {
+  return {
+    bodyKey: 'body',
+    subEntityId: 3,
+    curve: {
+      kind: 'arc',
+      center,
+      radius,
+      sweepRadians: Math.PI * 2,
+      start: [center[0] + radius, center[1], center[2]],
+      end: [center[0] + radius, center[1], center[2]],
+    },
+  };
+}
+
 test.describe('live edge selector 纯匹配', () => {
   test('line：方向正/反平行、长度、中点容差', () => {
     const edge = line([0, 0, 0], [0, 0, 20]);
@@ -45,6 +60,27 @@ test.describe('live edge selector 纯匹配', () => {
     expect(matchesLiveEdge(edge, { curveKind: 'arc', lengthMm: 5 * Math.PI })).toBe(true);
     expect(matchesLiveEdge(edge, { curveKind: 'line' })).toBe(false);
     expect(matchesLiveEdge(edge, { direction: { x: 1, y: 0, z: 0 } })).toBe(false);
+  });
+
+  test('arc：整圆弧按圆心/半径唯一匹配', () => {
+    const edge = fullCircle([0, 0, 8], 4.5);
+    expect(matchesLiveEdge(edge, {
+      curveKind: 'arc',
+      center: { x: 0, y: 0, z: 8 },
+      radiusMm: 4.5,
+    })).toBe(true);
+    expect(matchesLiveEdge(edge, {
+      center: { x: 0, y: 0, z: 0 },
+      radiusMm: 4.5,
+    })).toBe(false);
+    expect(matchesLiveEdge(edge, {
+      center: { x: 0, y: 0, z: 8 },
+      radiusMm: 6,
+    })).toBe(false);
+    expect(matchesLiveEdge(edge, {
+      center: { x: 0, y: 0, z: 8 },
+      radiusMm: 4.8,
+    })).toBe(true);
   });
 
   test('无条件的选择器会匹配所有边（由 resolve 层拒绝多命中）', () => {

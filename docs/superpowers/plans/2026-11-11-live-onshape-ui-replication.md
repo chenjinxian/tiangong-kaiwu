@@ -352,6 +352,20 @@ symmetric 互斥）。
 - 两个 “Outside Face Holes Sketch” 仅含点，DXF 不导出点；孔位/方向待
   UI 证据，COAP Q1 暂不计入 live registry（base/cavity 已可复现）。
 
+### 批次 16（2026-11-11，Top, Ring, Key）
+
+- 文档 `c969987a…` / element `7ccba0a5…` 为只读公开源，但私有 corpus 已有
+  `features.json` + `sketches.json` + per-part mass，故无需创建副本；DXF
+  仍可导出，所有草图坐标以 raw sketch（米→mm）为准。
+- Top (12)：Sketch1 → Extrude 8 mm NEW → Fillet R3（底边两端竖边）→
+  Sketch2 → Revolve FULL ADD（R4.5 内孔，Z8..11 外径 8.5→6）→ Sketch3 →
+  Hole C_BORE Ø2.2/Ø4.4×2 THROUGH 三点 → Sketch4 → Extrude through-all
+  REMOVE → Sketch5 → Extrude through-all REMOVE（x=−10 面五边形）→
+  Chamfer 1 mm（Ø9 孔 start cap 圆边）。
+- `live/edge-select.ts` 新增整圆弧 `center` + `radiusMm` 匹配通道及测试。
+- 真栈 **2,998.141 vs 2,998.143 mm³（0.000%）**、1 body、12 特征树全
+  status=0、push+冷重开；live spec 总数 **17**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

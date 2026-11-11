@@ -306,7 +306,17 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   1.75×4.5 boss、0.2 in 四顶边 → **1,184,673.352 vs 1,187,939.713
   （−0.275%）**；Ex.3 两板（15/10 孔）+两盘（6/12 孔）拆 4 草图/拉伸 →
   **254,433.650 vs 254,433.368（0.000%）**、**4 body**。均 push+冷重开。
-  live runner 现 16 spec（17 项含 setup；全量套件在 MS 429 窗口内会因
+  **批次 15（COAP Q1 探测）**：副本 `LubanLiveCOAPQ1` 的 50×50×200 −
+  40×40×180 型腔 = **212,000 mm³** 已在产品精确复现；UI mass
+  205,214.15987 差值 6,785.84 对应两个 Ø12×30 孔，但点草图不导出 DXF，
+  孔位/方向未定，暂不计入 live registry。
+  **批次 16（Top, Ring, Key）**：Onshape Training 公开文档（只读，无需副本）
+  的 corpus features + raw sketches + DXF：Extrude 8 mm、Fillet R3、
+  FULL revolve 环形锥台、三位置 C_BORE Ø2.2/Ø4.4×2、两个 through-all
+  remove、1 mm 圆孔端盖 chamfer；边选择器新增**整圆弧 center/radius**
+  通道（圆端盖边）。真栈 **2,998.141 vs 2,998.143 mm³（0.000%）**、
+  1 body、12 特征全 status=0、push+冷重开。
+  live runner 现 17 spec（18 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按

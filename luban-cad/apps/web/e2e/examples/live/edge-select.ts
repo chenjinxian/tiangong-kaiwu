@@ -16,8 +16,12 @@ export interface LiveEdgeSelector {
   curveKind?: 'line' | 'arc';
   /** 仅 line：方向平行（正负均可）。 */
   direction?: LiveVec3;
-  /** 边中点，mm 世界坐标。 */
+  /** 边中点，mm 世界坐标；整圆弧的 start=end，改用 center/radiusMm。 */
   midpoint?: LiveVec3;
+  /** 仅 arc：圆心，mm 世界坐标（整圆弧/圆端盖边定位）。 */
+  center?: LiveVec3;
+  /** 仅 arc：半径，mm。 */
+  radiusMm?: number;
   /** 线长/弧长，mm。 */
   lengthMm?: number;
   /** 中点容差（mm，缺省 1）。 */
@@ -96,6 +100,19 @@ export function matchesLiveEdge(handle: EdgeHandle, selector: LiveEdgeSelector):
       mid.y - selector.midpoint.y,
       mid.z - selector.midpoint.z,
     ) > tol) return false;
+  }
+  if (selector.center) {
+    if (curve.kind !== 'arc' || !curve.center) return false;
+    const tol = selector.toleranceMm ?? 1;
+    if (Math.hypot(
+      curve.center[0] - selector.center.x,
+      curve.center[1] - selector.center.y,
+      curve.center[2] - selector.center.z,
+    ) > tol) return false;
+  }
+  if (selector.radiusMm !== undefined) {
+    if (curve.kind !== 'arc' || curve.radius === undefined) return false;
+    if (Math.abs(curve.radius - selector.radiusMm) > (selector.lengthToleranceMm ?? 1)) return false;
   }
   if (selector.lengthMm !== undefined) {
     const length = lengthMm(handle);
