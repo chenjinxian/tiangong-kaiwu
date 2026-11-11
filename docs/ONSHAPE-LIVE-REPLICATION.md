@@ -60,6 +60,9 @@
   公共回归 `e2e/examples/live-transform.spec.ts`（20×20×10 盒 +X 平移 30 mm，
   4000 mm³、质心 x=30）验证全链与冷重开。copy=true 是原件+副本 Unite（同一
   body 多 lump），不是独立零件副本。
+- splitPart：live step 支持 XY/YZ/XZ + offsetMm + keepSide + 可选目标 body；
+  公共回归 `e2e/examples/live-split-part.spec.ts`（20×20×10 盒 YZ x=0 保留
+  正侧，2000 mm³、质心 x=5）验证全链与冷重开。双侧/面驱动仍是产品缺口。
 
 ## 5. 运行与限流
 

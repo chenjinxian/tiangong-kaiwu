@@ -158,6 +158,18 @@ export interface LiveTransformStep {
   note?: string;
 }
 
+/** splitPart：世界基准平面单侧切割（产品首切片，双侧/面驱动未接）。 */
+export interface LiveSplitPartStep {
+  kind: 'splitPart';
+  name: string;
+  plane: 'XY' | 'YZ' | 'XZ';
+  offsetMm?: number;
+  keepSide: 'positive' | 'negative';
+  /** 多 body 时显式目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName?: string;
+  note?: string;
+}
+
 export interface LiveBooleanBodiesStep {
   kind: 'booleanBodies';
   name: string;
@@ -197,6 +209,7 @@ export type LiveStep =
   | LiveFilletStep
   | LiveChamferStep
   | LiveShellStep
+  | LiveSplitPartStep
   | LiveBooleanBodiesStep
   | LiveTransformStep
   | LiveSkippedStep;

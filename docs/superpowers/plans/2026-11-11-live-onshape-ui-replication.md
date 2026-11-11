@@ -518,6 +518,17 @@ symmetric 互斥）。
 - 用于 Onshape `transform` 型示例（语料 48 个特征）；本身不新增示例计数，
   live spec 总数仍 **27**。
 
+### 批次 30（2026-11-11，live splitPart 通道）
+
+- runner 新增 `splitPart` step：XY/YZ/XZ + offsetMm + keepSide，可选
+  `targetBodyFeatureName` 解析 bodyKey → `targetBodyId`。
+- 公共真栈回归 `e2e/examples/live-split-part.spec.ts`：20×20×10 盒 YZ x=0
+  保留正侧 → **2000.000 mm³**、1 body、质心 (5,0,5)、status=0、push+冷重开。
+- 同时把 body 跟踪从“全 spec 开启”收窄为“仅后续步骤显式引用的特征”，
+  降低大 spec 的 MS RPC 次数（Crank 实测 429 的教训）。
+- 用于 Onshape `splitPart` 型示例（语料 125 个特征）；本身不新增示例计数，
+  live spec 总数仍 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

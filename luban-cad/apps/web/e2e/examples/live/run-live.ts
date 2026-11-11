@@ -40,16 +40,21 @@ export async function runLiveSpec(
   const sketchIdByName = new Map<string, string>();
   const featureIdByName = new Map<string, string>();
   const bodyKeysByFeatureName = new Map<string, string[]>();
-  const needsBodyTracking = spec.steps.some(
-    (step) =>
-      (step.kind === 'hole' && step.targetBodyFeatureName !== undefined)
-      || (step.kind === 'extrude' && (step.targetBodyFeatureNames?.length ?? 0) > 0)
-      || (step.kind === 'featurePattern' && step.targetBodyFeatureName !== undefined)
-      || (step.kind === 'featureMirror' && step.targetBodyFeatureName !== undefined)
-      || (step.kind === 'shell' && step.targetBodyFeatureName !== undefined)
-      || (step.kind === 'transform' && step.targetBodyFeatureName !== undefined)
-      || step.kind === 'booleanBodies',
-  );
+  // 只对后续步骤显式引用的特征读 body（每次读都是 1 个 MS RPC；全量逐拉伸读
+  // 会在大 spec 上逼近 100 req/15min 限流，2026-11-11 Crank 实测 429）。
+  const trackedFeatureNames = new Set<string>();
+  for (const step of spec.steps) {
+    if (step.kind === 'extrude') for (const name of step.targetBodyFeatureNames ?? []) trackedFeatureNames.add(name);
+    if (step.kind === 'hole' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'featurePattern' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'featureMirror' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'shell' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'transform' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'splitPart' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'booleanBodies') {
+      for (const name of [...step.targetBodyFeatureNames, ...step.toolBodyFeatureNames]) trackedFeatureNames.add(name);
+    }
+  }
   const notes: string[] = [];
 
   const apply = async (op: Parameters<typeof applyFeatureOpRpc>[1], label: string): Promise<string> => {
@@ -126,7 +131,7 @@ export async function runLiveSpec(
         ...(targetBodyIds ? { targetBodyIds } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);
-      if (needsBodyTracking) {
+      if (trackedFeatureNames.has(step.name)) {
         // bodyKey 在重建中可能复用；以 sourceFeatureId=本特征 id 识别该特征创建的体。
         const afterBodies = await getBodiesRpc(ctx, token);
         console.log(
@@ -157,7 +162,7 @@ export async function runLiveSpec(
         },
       }, step.name);
       featureIdByName.set(step.name, featureId);
-      if (needsBodyTracking) {
+      if (trackedFeatureNames.has(step.name)) {
         const afterBodies = await getBodiesRpc(ctx, token);
         const newKeys = afterBodies
           .filter((body) => body.sourceFeatureId === featureId)
@@ -362,6 +367,30 @@ export async function runLiveSpec(
         kind: 'insertFeature',
         featureType: 'transform',
         params,
+        ...(targetBodyId ? { targetBodyId } : {}),
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'splitPart') {
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0]!;
+      }
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'splitPart',
+        params: {
+          plane: step.plane,
+          ...(step.offsetMm !== undefined ? { offsetMm: step.offsetMm } : {}),
+          keepSide: step.keepSide,
+        },
         ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);
