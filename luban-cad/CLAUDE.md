@@ -316,7 +316,12 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   remove、1 mm 圆孔端盖 chamfer；边选择器新增**整圆弧 center/radius**
   通道（圆端盖边）。真栈 **2,998.141 vs 2,998.143 mm³（0.000%）**、
   1 body、12 特征全 status=0、push+冷重开。
-  live runner 现 17 spec（18 项含 setup；全量套件在 MS 429 窗口内会因
+  **批次 17（Hand Brake Master Cylinder Piston）**：raw corpus 的
+  75×5 筒身 + R7.5 圆头草图绕底线 FULL revolve（nose 由区域
+  [0,2,3] 并集组成）+ R5 圆边 1 mm chamfer → 真栈
+  **7,125.132 vs 7,125.274 mm³（0.002%）**、1 body、3 特征全
+  status=0、push+冷重开；约束 dropped（approx）。
+  live runner 现 18 spec（19 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按

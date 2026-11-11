@@ -366,6 +366,16 @@ symmetric 互斥）。
 - 真栈 **2,998.141 vs 2,998.143 mm³（0.000%）**、1 body、12 特征树全
   status=0、push+冷重开；live spec 总数 **17**。
 
+### 批次 17（2026-11-11，Hand Brake Master Cylinder Piston）
+
+- 文档 `91f152e2…` / element `031b0afd…` 的 raw corpus：1 sketch + FULL
+  revolve + 1 mm chamfer；75×5 筒身 + R7.5 圆头，绕底部直线旋转。
+- 产品的 region 分解为 4 块（筒身 340.501、下半圆 88.357、圆头外段
+  53.858、矩形/圆重叠 34.499 mm²），轴以上并集 = [0,2,3]。
+- Chamfer 选 revolve 后 x=0 的 R5 整圆弧边（center/radius 通道）。
+- 真栈 **7,125.132 vs 7,125.274 mm³（0.002%）**、1 body、3 特征树全
+  status=0、push+冷重开；约束 dropped（approx）；live spec 总数 **18**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
