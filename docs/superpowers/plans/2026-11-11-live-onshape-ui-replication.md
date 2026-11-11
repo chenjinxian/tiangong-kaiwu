@@ -780,6 +780,16 @@ symmetric 互斥）。
 - live spec 总数 **28 → 32**（私有 `live-specs/bench-vise-spindle.json` +
   `onshape-{edu,professional,quickstart}-spindle.json`）。
 
+### 批次 53（2026-11-12，Spindle 无质量数据变体，approx）
+
+- Onshape Professional Quickstart（`b70ec1ac…/85d4b32f…`）与 Onshape
+  Startup Quickstart（`404cf251…/a02b52fb…`）的 SPINDLE PARTS 无逐 body
+  质量采集；复用已验证的 Spindle 几何/步骤，仅断言 **2 body** 与树/status，
+  不伪造体积目标。
+- 真栈各 **2 passed**，观测体积仍为 23,212.742 / 8,215.769 mm³；
+  push+冷重开通过。仍属 custom-feature native 子集 approx。
+- live spec 总数 **32 → 34**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
