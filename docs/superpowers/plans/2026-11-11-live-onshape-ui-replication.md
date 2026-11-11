@@ -580,6 +580,26 @@ symmetric 互斥）。
 - 用于 Onshape loft（62 特征）/sweep（61 特征）型示例；本身不新增示例计数，
   live spec 总数仍 **27**。
 
+### 批次 35（2026-11-11，Rear Shock，parked）
+
+- 数据：`Intro to CAD - 1.2-1.4 / Rear Shock`
+  （`dfc6e33c9313a1939829f0ca` / `08e8de5910130880d6d8466d`），5 体
+  （Chamber / Shaft / Spacer / Handle / Bushing）。两段 revolve（Sketch 1
+  区域 0 与 1+3）、两次 R6 横向孔切除、三个新体拉伸（挡圈/手柄/衬套）、
+  两处凸台加料，共 19 步。
+- 真栈完整构建（不含两个 imprint ADD 近似）：5 bodies、19 步全 `status=0`，
+  **86,934.919 / 52,674.695 / 615.740 / 1,357.684 / 376.988 mm³**，总
+  **141,960.03 vs 152,172.848（−6.71%）**。挡圈/衬套精确、手柄 +4.94%、
+  Chamber −7.66%、Shaft −5.52%。
+- 用 Sketch 1 region4/5 ×12.5 对称近似两个 imprint ADD 后，partial 真栈到
+  13 特征时 Chamber 93,245.09（含后续 Extrude3/8 预测 94,682.92，+0.57%），
+  预测总 **149,708.02（−1.62%）**；但 live-registry 的 build+push+冷重开
+  连续 4 次被 MS `ECONNRESET` 中断（另有一次 429 窗口），未完成验收。
+  7 圆角、2 倒角、轴左端 x=0..13 未重建；不改参数硬凑体积。
+- spec 存 `live-probes/rear-shock-probe.json`，不计入 live-specs/strict；
+  待干净 MS 窗口复跑 push+冷重开后再决定是否升级 approx。
+- live spec 总数仍 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
