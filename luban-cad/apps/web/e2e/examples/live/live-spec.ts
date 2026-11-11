@@ -25,10 +25,36 @@ export interface LiveCopy extends LiveSource {
   workspaceId: string;
 }
 
+/** 基准面：世界基准面 + 偏移/平面点/线角/线点/三点；可选平面快照供后续草图。 */
+export interface LiveCPlaneStep {
+  kind: 'cPlane';
+  name: string;
+  reference: 'top' | 'front' | 'right';
+  offsetMm?: number;
+  origin?: { x: number; y: number; z: number };
+  flipNormal?: boolean;
+  line?: {
+    origin: { x: number; y: number; z: number };
+    direction: { x: number; y: number; z: number };
+  };
+  angleDeg?: number;
+  point?: { x: number; y: number; z: number };
+  threePoints?: [
+    { x: number; y: number; z: number },
+    { x: number; y: number; z: number },
+    { x: number; y: number; z: number },
+  ];
+  /** 后续草图按 planeFeatureName 引用时必需；由 spec 作者按参数推导。 */
+  plane?: SketchPlaneDto;
+  note?: string;
+}
+
 export interface LiveSketchStep {
   kind: 'sketch';
   name: string;
-  plane: SketchPlaneDto;
+  plane?: SketchPlaneDto;
+  /** 按本 spec 前序 cPlane 特征名引用平面快照；与 plane 恰一。 */
+  planeFeatureName?: string;
   entities: SketchEntityDto[];
   constraints: SketchConstraintDto[];
   note?: string;
@@ -214,6 +240,7 @@ export interface LiveSkippedStep {
 }
 
 export type LiveStep =
+  | LiveCPlaneStep
   | LiveSketchStep
   | LiveExtrudeStep
   | LiveRevolveStep

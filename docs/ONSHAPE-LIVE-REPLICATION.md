@@ -67,6 +67,11 @@
   `distanceMm` 或逐面 `distancesMm`，可选目标 body；公共回归
   `e2e/examples/live-move-face.spec.ts`（20×20×10 盒顶面 +5 mm，6000 mm³、
   质心 z=7.5）验证全链与冷重开。
+- cPlane：live step 支持 world 基准面 + offset/origin/flipNormal/line+angle/
+  line+point/threePoints；后续草图可用 `planeFeatureName` 引用该 step 的平面
+  快照（runner 自动补 `sourceFeatureId`，保证被引用平面改参/删除受产品守卫）。
+  公共回归 `e2e/examples/live-cplane.spec.ts`（Top 偏移 10 → 草图 20×20 →
+  拉伸 10，4000 mm³、质心 z=15）验证全链与冷重开。
 
 ## 5. 运行与限流
 

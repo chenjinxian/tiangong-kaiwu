@@ -538,6 +538,17 @@ symmetric 互斥）。
 - 用于 Onshape `moveFace` 型示例（语料 160 个特征）；本身不新增示例计数，
   live spec 总数仍 **27**。
 
+### 批次 32（2026-11-11，live cPlane 通道）
+
+- runner 新增 `cPlane` step：top/front/right + offset/origin/flipNormal/
+  line+angleDeg/line+point/threePoints，可选平面快照；草图 step 增
+  `planeFeatureName`，runner 用快照 + `sourceFeatureId` 落入草图。
+- 公共真栈回归 `e2e/examples/live-cplane.spec.ts`：Top 偏移 10 平面上的
+  20×20 草图拉伸 10 → **4000.000 mm³**、1 body、质心 (0,0,15)、status=0、
+  push+冷重开。
+- 用于含 cPlane 的示例（语料 271 个特征）；本身不新增示例计数，
+  live spec 总数仍 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

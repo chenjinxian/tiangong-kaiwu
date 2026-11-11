@@ -2,7 +2,7 @@
  * Live spec → luban-cad Part Studio 构建器（首切片：sketch + extrude）。
  */
 import type { Page, APIRequestContext } from '@playwright/test';
-import type { BodyInfo, FeatureTreeEntry } from '@luban-cad/shared';
+import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
   assertFeatureOpOk,
@@ -40,6 +40,7 @@ export async function runLiveSpec(
   const sketchIdByName = new Map<string, string>();
   const featureIdByName = new Map<string, string>();
   const bodyKeysByFeatureName = new Map<string, string[]>();
+  const cplaneByName = new Map<string, { featureId: string; plane?: SketchPlaneDto }>();
   // 只对后续步骤显式引用的特征读 body（每次读都是 1 个 MS RPC；全量逐拉伸读
   // 会在大 spec 上逼近 100 req/15min 限流，2026-11-11 Crank 实测 429）。
   const trackedFeatureNames = new Set<string>();
@@ -70,13 +71,44 @@ export async function runLiveSpec(
       notes.push(`${step.name} skipped：${step.reason}`);
       continue;
     }
+    if (step.kind === 'cPlane') {
+      const params = {
+        reference: step.reference,
+        ...(step.offsetMm !== undefined ? { offsetMm: step.offsetMm } : {}),
+        ...(step.origin ? { origin: step.origin } : {}),
+        ...(step.flipNormal !== undefined ? { flipNormal: step.flipNormal } : {}),
+        ...(step.line ? { line: step.line } : {}),
+        ...(step.angleDeg !== undefined ? { angleDeg: step.angleDeg } : {}),
+        ...(step.point ? { point: step.point } : {}),
+        ...(step.threePoints ? { threePoints: step.threePoints } : {}),
+      };
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'cPlane',
+        params,
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      cplaneByName.set(step.name, { featureId, plane: step.plane });
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
     if (step.kind === 'sketch') {
       if (sketchIdByName.has(step.name)) throw new Error(`${spec.id}: 草图名重复 ${step.name}`);
+      let plane = step.plane;
+      if (step.planeFeatureName) {
+        const entry = cplaneByName.get(step.planeFeatureName);
+        if (!entry) throw new Error(`${spec.id}/${step.name}: 找不到基准面 ${step.planeFeatureName}`);
+        if (!entry.plane)
+          throw new Error(`${spec.id}/${step.name}: 基准面 ${step.planeFeatureName} 缺平面快照`);
+        plane = { ...entry.plane, sourceFeatureId: entry.featureId };
+      }
+      if (!plane)
+        throw new Error(`${spec.id}/${step.name}: 须提供 plane 或 planeFeatureName`);
       const id = await apply({
         kind: 'insertSketch',
         entities: step.entities,
         constraints: spec.skipConstraints === true ? [] : step.constraints,
-        plane: step.plane,
+        plane,
       }, step.name);
       sketchIdByName.set(step.name, id);
       featureIdByName.set(step.name, id);
