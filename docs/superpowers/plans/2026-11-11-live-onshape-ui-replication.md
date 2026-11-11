@@ -125,6 +125,25 @@ Part Studio 中仍有大量缺口；6244 条 PROJECTED 约束的 `external0` 查
    截图 + 证据入私有 live registry。
 5. 记录 UI 选择器/复制流程中遇到的问题，固化 `tools/live/*`。
 
+### 首切片执行记录（2026-11-11）
+
+- 已通过 CDP Chrome 打开公开 Postman 文档并点击“创建副本以编辑”，创建
+  `LubanLivePostman`（copy doc `07814477…`，workspace `3e7d2f8b…`）；
+  Brain Screen 副本 element `413fd0fa…`。复制流程：点击按钮 → 填文档名 →
+  **必须点击目标文件夹行“由我所有”**（否则确认按钮保持 disabled）→ 确认。
+- UI 证据：特征树 `Sketch 1 → Extrude 1 → Decal 1`；Extrude 1 为实体/新建/
+  给定深度 0.02 in；质量属性体积 0.164 in³、曲面面积 16.891 in²；选中面
+  面积 8.328 in²；brain.png 471×268。草图平面是 Context 1 面，草图无可见
+  尺寸标注，矩形按面面积 + 贴图比例推得 97.155×55.296 mm。
+- luban-cad：新增公共 `e2e/examples/live/{live-spec,run-live}.ts` 与
+  `live-registry.spec.ts`；私有 `live-specs/postman-brain-screen.json`。
+  建 Sketch 1（XY 近似平面）+ 0.5 mm 新建拉伸，Decal 记为 skipped；
+  真栈 **2686.141 vs 2686.592 mm³（0.017%）**，1 body、树/status 0、
+  push+冷重开一致。
+- 结论：live UI → 私有 spec → luban-cad 的通路已闭环；下一步按 L-first
+  扩展到更多 ≤5 特征/1 body 的公开 PS，并把 2-feature Pin/Bushing 类
+  作为批次 2。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

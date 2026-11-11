@@ -229,6 +229,12 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   PROJECTED 无 queryString 映射，主线改为公开文档副本 + 实时 UI 特征树/对话框/
   草图/体面属性采集，在 luban-cad 广度优先建 Part（approx 显式，strict 后置）；
   见 `docs/superpowers/plans/2026-11-11-live-onshape-ui-replication.md`。
+  **首切片已闭环**：Postman / Brain Screen 副本 `LubanLivePostman`（copy doc
+  `07814477…`）；UI 证据（Extrude 0.02 in、0.164 in³、面 8.328 in²、
+  brain.png 471×268）→ 私有 `live-specs/postman-brain-screen.json` →
+  公共 `e2e/examples/live/*` + `live-registry.spec.ts`；luban-cad 建矩形
+  97.155×55.296 mm + 0.5 mm 拉伸，**2686.141 vs 2686.592 mm³（0.017%）**、
+  1 body、冷重开一致；Decal 非几何跳过，平面用 XY 近似（approx）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。
