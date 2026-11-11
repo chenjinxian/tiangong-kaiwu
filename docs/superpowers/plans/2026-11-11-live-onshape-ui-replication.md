@@ -549,18 +549,6 @@ symmetric 互斥）。
 - 用于含 cPlane 的示例（语料 271 个特征）；本身不新增示例计数，
   live spec 总数仍 **27**。
 
-### 批次 33（2026-11-11，live loft / sweep 通道）
-
-- runner 新增 `loft`（两截面草图名 + SOLID）与 `sweep`（轮廓/路径草图名 +
-  SOLID）步骤。
-- 公共真栈回归 `e2e/examples/live-loft-sweep.spec.ts`：
-  20×20（z=0）→10×10（z=10）线性 loft **2333.333 mm³**（解析
-  ∫(20−z)²dz = 7000/3）；10×10 轮廓沿 +Z 20 mm 扫掠 **2000.000 mm³**；
-  均 1 body、status=0、push+冷重开。首次全绿运行中 sweep 冷重开读面遇 MS
-  429（几何 2000.000 已建成），等待 retry-after 后复跑 3/3 passed。
-- 用于 Onshape loft（62 特征）/sweep（61 特征）型示例；本身不新增示例计数，
-  live spec 总数仍 **27**。
-
 ### 批次 33（2026-11-11，Crank and Chainring，parked）
 
 - 数据：`Intro to CAD - 1.2-1.4 / Crank and Chainring`
@@ -579,6 +567,18 @@ symmetric 互斥）。
   `live-probes/crank-and-chainring-probe.json`，不计入 live-specs/strict，
   待重新采集曲柄质量与 rollback 体证据后再试。
 - live spec 总数仍 **27**。
+
+### 批次 34（2026-11-11，live loft / sweep 通道）
+
+- runner 新增 `loft`（两截面草图名 + SOLID）与 `sweep`（轮廓/路径草图名 +
+  SOLID）步骤。
+- 公共真栈回归 `e2e/examples/live-loft-sweep.spec.ts`：
+  20×20（z=0）→10×10（z=10）线性 loft **2333.333 mm³**（解析
+  ∫(20−z)²dz = 7000/3）；10×10 轮廓沿 +Z 20 mm 扫掠 **2000.000 mm³**；
+  均 1 body、status=0、push+冷重开。首次全绿运行中 sweep 冷重开读面遇 MS
+  429（几何 2000.000 已建成），等待 retry-after 后复跑 3/3 passed。
+- 用于 Onshape loft（62 特征）/sweep（61 特征）型示例；本身不新增示例计数，
+  live spec 总数仍 **27**。
 
 ## 6. 风险与门禁
 
