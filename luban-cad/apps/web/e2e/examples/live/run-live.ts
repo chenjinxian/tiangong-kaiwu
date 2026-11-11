@@ -565,5 +565,7 @@ export async function runLiveSpec(
     console.log(`[live-debug] ${spec.id}/tree=` + JSON.stringify(tree));
   const bodies = await getBodiesRpc(ctx, token);
   const mass = await getMassPropertiesRpc(ctx, token);
+  if (process.env.LIVE_DEBUG === '1')
+    console.log(`[live-debug] ${spec.id}/mass=` + JSON.stringify(mass));
   return { token, ids, ctx, tree, bodies, mass, notes };
 }
