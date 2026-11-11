@@ -790,6 +790,16 @@ symmetric 互斥）。
   push+冷重开通过。仍属 custom-feature native 子集 approx。
 - live spec 总数 **32 → 34**。
 
+### 批次 54（2026-11-12，Piston and Screw adjuster，无质量数据）
+
+- Onshape Quickstart 自行车文档 / Piston and Screw adjuster
+  （`b19ad716…/596ca42f…`）：2 张草图 + 2 次 revolve（各 regions
+  [0,1,2]、axis 9）+ booleanBodies subtract（keepTools）。
+- 真栈 **2 passed（38.6 s）**：5 步全 status=0、2 body、push+冷重开；
+  观测体积 449.136 / 355.872 mm³。该 PS 无逐 body 质量采集，未伪造体积
+  目标，仅验证树/体/生命周期。
+- live spec 总数 **34 → 35**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
