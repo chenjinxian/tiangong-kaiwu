@@ -201,6 +201,23 @@ export interface LiveTransformStep {
   note?: string;
 }
 
+/** faceExtrude：选中平面面轮廓沿法向拉伸并与目标 body 布尔。 */
+export interface LiveFaceExtrudeStep {
+  kind: 'faceExtrude';
+  name: string;
+  face: LiveFaceSelector;
+  operation: 'add' | 'remove' | 'intersect';
+  endBound: 'blind' | 'throughAll';
+  depthMm?: number;
+  direction?: 'forward' | 'backward';
+  startOffsetMm?: number;
+  draftAngleDeg?: number;
+  draftPullDirection?: boolean;
+  /** faceExtrude 必须给出目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName: string;
+  note?: string;
+}
+
 /** moveFace：持久面引用沿外法向偏移（正外扩/负内缩）。 */
 export interface LiveMoveFaceStep {
   kind: 'moveFace';
@@ -269,6 +286,7 @@ export type LiveStep =
   | LiveFilletStep
   | LiveChamferStep
   | LiveShellStep
+  | LiveFaceExtrudeStep
   | LiveMoveFaceStep
   | LiveSplitPartStep
   | LiveBooleanBodiesStep

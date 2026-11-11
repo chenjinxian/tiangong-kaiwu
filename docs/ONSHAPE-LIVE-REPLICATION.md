@@ -77,6 +77,10 @@
   公共回归 `e2e/examples/live-loft-sweep.spec.ts`：20×20→10×10 线性 loft
   **2333.333 mm³**（解析 ∫(20−z)²dz）、10×10 轮廓沿 +Z 20 mm 扫掠
   **2000.000 mm³**，均 push+冷重开。
+- faceExtrude：`faceExtrude` step 用面选择器解析目标 body 上的持久面引用，
+  透传 operation/endBound/depth/direction/startOffset/draft，目标 body 必填。
+  公共回归 `e2e/examples/live-face-extrude.spec.ts`（20×20×10 盒顶面 add
+  blind 5 mm，6000 mm³、质心 z=7.5）验证全链与冷重开。
 
 ## 5. 运行与限流
 

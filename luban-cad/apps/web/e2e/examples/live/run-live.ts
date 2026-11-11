@@ -50,6 +50,7 @@ export async function runLiveSpec(
     if (step.kind === 'featurePattern' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'featureMirror' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'shell' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'faceExtrude') trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'moveFace' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'transform' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'splitPart' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
@@ -460,6 +461,38 @@ export async function runLiveSpec(
           keepSide: step.keepSide,
         },
         ...(targetBodyId ? { targetBodyId } : {}),
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'faceExtrude') {
+      const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+      if (!keys || keys.length !== 1)
+        throw new Error(
+          `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+        );
+      const bodyId = keys[0]!;
+      const resolved = await resolveLiveShellFaceRefs(page, ctx, token, [step.face], bodyId);
+      if (resolved.refs.length !== 1)
+        throw new Error(`${spec.id}/${step.name}: faceExtrude 首版须恰 1 个面`);
+      notes.push(`${step.name}: ${resolved.notes.join('; ')}`);
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'faceExtrude',
+        params: {
+          bodyId,
+          faceRef: resolved.refs[0]!,
+          operation: step.operation,
+          endBound: step.endBound,
+          ...(step.depthMm !== undefined ? { depthMm: step.depthMm } : {}),
+          ...(step.direction ? { direction: step.direction } : {}),
+          ...(step.startOffsetMm !== undefined ? { startOffsetMm: step.startOffsetMm } : {}),
+          ...(step.draftAngleDeg !== undefined ? { draftAngleDeg: step.draftAngleDeg } : {}),
+          ...(step.draftPullDirection !== undefined
+            ? { draftPullDirection: step.draftPullDirection }
+            : {}),
+        },
       }, step.name);
       featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);

@@ -600,6 +600,16 @@ symmetric 互斥）。
   待干净 MS 窗口复跑 push+冷重开后再决定是否升级 approx。
 - live spec 总数仍 **27**。
 
+### 批次 36（2026-11-11，live faceExtrude 通道）
+
+- runner 新增 `faceExtrude` step：面选择器 → resolveFaceRef，操作
+  add/remove/intersect、blind/throughAll、depth/direction/startOffset/draft
+  原样透传；目标 body 必填（面引用与 body 一一对应）。
+- 公共真栈回归 `e2e/examples/live-face-extrude.spec.ts`：20×20×10 盒顶面
+  add blind 5 mm → **6000.000 mm³**、1 body、质心 (10,10,7.5)、status=0、
+  push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
