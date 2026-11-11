@@ -770,10 +770,12 @@ symmetric 互斥）。
   （−0.002%）**；2 body、全 status=0、push+冷重开。
 - **approx**：约束整体 dropped；Spindle imprint 选择用 regions [0,1]
   近似（[0,2] 19,208.839、[0,1,2] 27,816.275），未调参凑体积；
-  tolerance 4%。同 PS 的 EDU/Professional/Quickstart 三个文档变体已生成
-  spec 但首次批量复跑被 MS 429/会话刷新 401 打断，暂存私有 live-probes，
-  不计入本批。
-- live spec 总数 **28 → 29**（私有 `live-specs/bench-vise-spindle.json`）。
+  tolerance 4%。
+- 同 PS 的 EDU/Professional/Quickstart 三个文档变体各自独立复跑：
+  **各 2 passed（1.4–1.6 min）**，体积与 body 数值一致；首次批量复跑曾
+  被 MS 429/会话刷新 401 打断（非几何失败），逐个复跑后转绿。
+- live spec 总数 **28 → 32**（私有 `live-specs/bench-vise-spindle.json` +
+  `onshape-{edu,professional,quickstart}-spindle.json`）。
 
 ## 6. 风险与门禁
 
