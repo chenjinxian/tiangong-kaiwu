@@ -76,6 +76,9 @@
   inside=外环侧，属近似选择。公共回归
   `e2e/examples/live-imprint-region.spec.ts`（20×20 板带 R5 孔，圆实体
   side=outside → 孔侧外环面域 → **3214.618 vs 3214.602 mm³**）push+冷重开。
+- chamfer：live step 支持 mode/values1/values2；mode3（距离+角度）公共回归
+  `e2e/examples/live-chamfer-mode3.spec.ts`：20×20×10 盒顶面前边距离 2、
+  45° → 去材 40 mm³、结果 **3960.000 mm³**、push+冷重开。
 - featureMirror：除单源 `sourceFeatureName` 外，支持
   `sourceFeatureNames`（多源，恰一）→ 产品 `sourceFeatureIds`。公共回归
   `e2e/examples/live-feature-mirror-multi.spec.ts`：40×20×10 板 + 两个

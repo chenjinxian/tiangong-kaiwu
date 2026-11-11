@@ -839,6 +839,15 @@ symmetric 互斥）。
   `live-probes/`，不计入。
 - live spec 总数仍 **37**。
 
+### 批次 58（2026-11-12，live chamfer mode3）
+
+- 公共真栈 `e2e/examples/live-chamfer-mode3.spec.ts`：20×20×10 盒顶面前边
+  距离 2 / 45° 倒角 → 去材 40 mm³、**3,960.000 mm³**、1 body、status=0、
+  push+冷重开。
+- Hydraulic Components 基础几何探针：Extrude1 region0 可建，但 Extrude2
+  imprint entity5 side 歧义；已 parked 到私有 `live-probes/`，不计入。
+- 本身不新增示例计数，live spec 总数仍 **37**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
