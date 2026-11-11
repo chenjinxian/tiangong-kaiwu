@@ -332,10 +332,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `LubanLiveCOAPQ1`；Base Sketch DXF 50×50 + 200 symmetric NEW，
   40×40×180 型腔（显式草图重建）→ 212,000 mm³ 精确；UI 法向视图读出
   两侧面各两个 Ø12 通孔位（中心线，端部 25/25 mm），四个侧壁通孔
-  → 真栈 **207,476.207 vs 205,214.160 mm³（+1.102%）**、1 body、
-  8 特征 status=0、push+冷重开。**approx 边界**：UI 质量差 6,785.84
-  对应 60 mm 孔材料路径，而四个可见孔只有 40 mm；剩余约 2,261.8 mm³
-  疑为 mateConnector 孔位/更长材料路径，未凭空补孔。
+  切 40 mm 材料；再补对齐顶/底面的 Ø12 轴向通孔（贯穿两端 10 mm
+  端盖，20 mm 材料）→ 真栈 **205,214.310 vs 205,214.160 mm³
+  （0.000%）**、1 body、10 特征 status=0、push+冷重开。型腔/轴向孔
+  用显式草图/孔特征重建 mateConnector/imprint 源，结构 approx。
   live runner 现 20 spec（21 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
