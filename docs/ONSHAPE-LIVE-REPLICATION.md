@@ -64,6 +64,10 @@
   `bodyType:"THIN"`/`thinThicknessMm`/`thinMidPlane`。公共回归
   `e2e/examples/live-thin-extrude.spec.ts`：20×20 矩形薄壁 2 mm 内向、
   深度 10 → **1440.000 mm³**、1 body、push+冷重开。
+- extrude 第二方向/拔模：`extraParams.secondDirection` 与
+  `draftAngleDeg` 透传。公共回归 `e2e/examples/live-extrude-extra.spec.ts`：
+  10×10 深度 10 + 第二方向 5 → **1500.000 mm³**；10×10 深度 10、拔模 10°
+  → **1394.109 mm³**（棱台公式），均 push+冷重开。
 - featureMirror：除单源 `sourceFeatureName` 外，支持
   `sourceFeatureNames`（多源，恰一）→ 产品 `sourceFeatureIds`。公共回归
   `e2e/examples/live-feature-mirror-multi.spec.ts`：40×20×10 板 + 两个

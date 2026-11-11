@@ -737,6 +737,14 @@ symmetric 互斥）。
 - 产品单 body 多 lump 语义与 Onshape 多 part 的差异继续逐例登记。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 49（2026-11-11，live extrude 第二方向/拔模）
+
+- 公共真栈 `e2e/examples/live-extrude-extra.spec.ts`：
+  10×10 深度 10 + 第二方向 blind 5 → **1,500.000 mm³**；
+  10×10 深度 10、拔模 10°（外扩）→ **1,394.109 mm³**（棱台公式）；
+  均 1 body、status=0、push+冷重开（3 passed，1.1 min）。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
