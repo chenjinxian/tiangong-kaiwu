@@ -242,8 +242,15 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `live-registry.spec.ts` 现 6 spec；symmetric 时忽略 oppositeDirection。
   **批次 3（revolve）**：Tutorial 1 O-Ring 454.910 vs 454.927（0.004%）；
   Worm Gear Shaft multi-segment revolve，因 line+line coincident 产品不支持，
-  spec `skipConstraints` 保留已解坐标（approx），树/体数/冷重开通过；
-  live runner 现 8 spec。
+  spec `skipConstraints` 保留已解坐标（approx），树/体数/冷重开通过。
+  **批次 4（Suspension / Frame）**：UI 副本 `LubanLiveSuspension`（copy doc
+  `1f38a35f…`）；25 条直线闭合轮廓 + NEW symmetric 30 mm + Hole 1（ISO M5
+  间隙 Ø5.5 完全贯穿）；UI mass **1,422,701.03235 mm³**；live runner 新增
+  `hole` 步骤（草图 pointEntityIds），真栈 **1,435,929.669（+0.930%）**、
+  4 特征树 status=0、1 body、push+冷重开。**approx 边界**：8 个 mateConnector
+  合并为 5 个位置，侧向孔轴按拉伸法向近似（孔形/孔向不保真），约束未采集。
+  live runner 现 9 spec（10 项含 setup；全量套件在 MS 429 窗口内会因限流
+  失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

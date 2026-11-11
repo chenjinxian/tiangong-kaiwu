@@ -173,6 +173,27 @@ symmetric 互斥）。
 - live runner 增加 `revolve` 步骤与 spec 级 `skipConstraints`；现共 8 个
   live spec。下一步：hole/chamfer/mirror 支持与 geometry-ready 批次。
 
+### 批次 4（2026-11-11，Suspension / Frame，live UI 副本 + hole）
+
+- 通过 UI 创建 Suspension 公开文档的可编辑副本 `LubanLiveSuspension`
+  （doc `1f38a35f…`，workspace `1fa8e3a…`）；Frame element `d7700526…`。
+- UI 证据：特征树 `Origin/Top/Front/Right/Sketch 1/Extrude 2/Hole 1/Sketch 2`、
+  1 body；mass 面板体积 **1,422,701.03235 mm³**、曲面面积
+  148,707.62744 mm²；Hole 1 对话框 8 个 mateConnector、ISO M5 间隙孔
+  Ø5.5、完全贯穿；截图 `live/suspension/frame/`。
+- 从 features.json 解码 Sketch 1：25 条直线构成单一闭合轮廓（局部坐标
+  −195…275 × −95…100 mm）；Extrude 2 NEW symmetric 30 mm；Hole 1 的 8 个
+  mateConnector 按查询解出 5 个唯一位置（3 个重复：两条横边中点、一条竖边
+  中点、两个 CAP_VERTEX）→ 草图点。
+- live runner 新增 `hole` 步骤（`pointEntityIds` + `diameterMm` +
+  `endBound`），私有 `live-specs/suspension-frame.json`；真栈构建
+  **1,435,929.669 vs 1,422,701.032（+0.930%）**，树 4 特征全 status=0、
+  1 body、push+冷重开一致。
+- **近似边界（显式）**：孔轴未还原 mateConnector 法向——Onshape 的侧
+  面孔实际沿草图边法向横穿，本切片按草图和拉伸法向打孔且点位在轮廓边界，
+  只切出部分圆柱；因此体积恰在 1% 内但孔形/孔向不等于 Onshape。约束未采集。
+  后续若需侧向孔，应新增“辅助平面草图 + 挤出切除”步骤或孔轴扩展。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

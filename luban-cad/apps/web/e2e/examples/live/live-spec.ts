@@ -57,13 +57,33 @@ export interface LiveRevolveStep {
   note?: string;
 }
 
+/** 孔：孔位来自本 spec 前序草图内的 point 实体（Onshape mateConnector 孔位
+ * 在离线数据里只有查询引用，live 轨按 UI/查询位置还原为草图点）。 */
+export interface LiveHoleStep {
+  kind: 'hole';
+  name: string;
+  sketchName: string;
+  /** 草图 point 实体 id；调用方负责在 sketch step 里定义这些点。 */
+  pointEntityIds: number[];
+  diameterMm: number;
+  endBound: 'blind' | 'throughAll' | 'upToNext';
+  depthMm?: number;
+  direction?: 'forward' | 'backward';
+  note?: string;
+}
+
 export interface LiveSkippedStep {
   kind: 'skipped';
   name: string;
   reason: string;
 }
 
-export type LiveStep = LiveSketchStep | LiveExtrudeStep | LiveRevolveStep | LiveSkippedStep;
+export type LiveStep =
+  | LiveSketchStep
+  | LiveExtrudeStep
+  | LiveRevolveStep
+  | LiveHoleStep
+  | LiveSkippedStep;
 
 export interface LiveSpec {
   schemaVersion: 1;

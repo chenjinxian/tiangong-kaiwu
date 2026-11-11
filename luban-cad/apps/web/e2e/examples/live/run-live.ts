@@ -98,6 +98,26 @@ export async function runLiveSpec(
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
+    if (step.kind === 'hole') {
+      const sketchId = sketchIdByName.get(step.sketchName);
+      if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
+      if (step.pointEntityIds.length === 0)
+        throw new Error(`${spec.id}/${step.name}: 孔位为空`);
+      await apply({
+        kind: 'insertFeature',
+        featureType: 'hole',
+        params: {
+          sketchId,
+          pointIds: step.pointEntityIds,
+          diameterMm: step.diameterMm,
+          endBound: step.endBound,
+          ...(step.endBound === 'blind' ? { depthMm: step.depthMm } : {}),
+          ...(step.direction ? { direction: step.direction } : {}),
+        },
+      }, step.name);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
     // 类型级兜底：新增 LiveStep 变体必须先在此实现，否则诚实阻塞。
     throw new Error(`${spec.id}: 未支持的 live step ${(step as { kind: string }).kind}`);
   }
