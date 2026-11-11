@@ -719,6 +719,15 @@ symmetric 互斥）。
   **16,480.000 vs 16,480.000 mm³**、1 body、5 步 status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 47（2026-11-11，live thin extrude）
+
+- 回归验证 extrude `extraParams` → 产品 `bodyType:"THIN"`/`thinThicknessMm`
+  通道。
+- 公共真栈 `e2e/examples/live-thin-extrude.spec.ts`：20×20 矩形薄壁 2 mm
+  内向、深度 10 → **1,440.000 vs 1,440.000 mm³**、1 body、status=0、
+  push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -60,6 +60,10 @@
   解析各特征创建的 bodyKey，构造 `BodyRef[]`，支持 unite/subtract/intersect
   与 keepTools。公共回归 `e2e/examples/live-boolean-bodies.spec.ts`（20×20×10
   盒与 10×10×10 盒 unite，4500 mm³）验证全链与冷重开。
+- thin extrude：extrude step 的 `extraParams` 可透传产品
+  `bodyType:"THIN"`/`thinThicknessMm`/`thinMidPlane`。公共回归
+  `e2e/examples/live-thin-extrude.spec.ts`：20×20 矩形薄壁 2 mm 内向、
+  深度 10 → **1440.000 mm³**、1 body、push+冷重开。
 - featureMirror：除单源 `sourceFeatureName` 外，支持
   `sourceFeatureNames`（多源，恰一）→ 产品 `sourceFeatureIds`。公共回归
   `e2e/examples/live-feature-mirror-multi.spec.ts`：40×20×10 板 + 两个
