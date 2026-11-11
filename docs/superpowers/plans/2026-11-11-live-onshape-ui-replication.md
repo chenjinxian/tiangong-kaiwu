@@ -549,6 +549,25 @@ symmetric 互斥）。
 - 用于含 cPlane 的示例（语料 271 个特征）；本身不新增示例计数，
   live spec 总数仍 **27**。
 
+### 批次 33（2026-11-11，Crank and Chainring，parked）
+
+- 数据：`Intro to CAD - 1.2-1.4 / Crank and Chainring`
+  （`dfc6e33c9313a1939829f0ca` / `e6206c9e0b982acc51299731`），3 体
+  （Crank / Chainring / Retaining Ring）。按已解算 `sketches.json` 重建 8 张
+  草图 + 11 次拉伸 + featureMirror（减重槽关于 y=−4.7625 对称面）+ 两处
+  featurePattern（32 齿槽 / 4 辐条窗）+ 1 次 boolean subtract，25 个非跳过
+  特征全部 `status=0`。
+- 真栈 **39,171.993 / 18,871.724 / 1,583.652 mm³** vs 采集
+  **46,484.3563 / 21,245.299 / 1,583.6588**：挡圈精确、曲柄 −15.7%、
+  飞轮 −11.2%，总 **−13.98%**，超出 approx 容差。6 个 fillet、Chamfer 1、
+  花键槽（Sketch 7 面域未形成）+ Circular pattern 1 跳过；未改参数硬凑体积。
+- 证据冲突：`massproperties.per-part.json` 的曲柄 46,484 mm³ 与最终
+  `bodydetails`（双面减重槽、r14.2875 后毂、10 花键槽均在）的面面积独立积分
+  ≈35.6k 不一致；跳过 fillet 只会更低，不能解释缺口。spec 存
+  `live-probes/crank-and-chainring-probe.json`，不计入 live-specs/strict，
+  待重新采集曲柄质量与 rollback 体证据后再试。
+- live spec 总数仍 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
