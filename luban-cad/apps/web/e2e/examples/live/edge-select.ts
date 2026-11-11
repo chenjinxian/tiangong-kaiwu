@@ -30,6 +30,8 @@ export interface LiveEdgeSelector {
   lengthToleranceMm?: number;
   /** 方向夹角容差（deg，缺省 1）。 */
   angleToleranceDeg?: number;
+  /** true=把全部匹配边都纳入（整圆被拓扑拆成多段圆弧时用）；缺省要求唯一。 */
+  all?: boolean;
 }
 
 export interface LiveResolvedEdges {
@@ -152,24 +154,25 @@ export async function resolveLiveEdgeRefs(
     const matches_ = handles.filter((handle) => matchesLiveEdge(handle, selector));
     if (matches_.length === 0)
       throw new Error(`edge-select #${index + 1} 零命中：${JSON.stringify(selector)}`);
-    if (matches_.length > 1)
+    if (matches_.length > 1 && selector.all !== true)
       throw new Error(
         `edge-select #${index + 1} 匹配不唯一（${matches_.length}）：${JSON.stringify(selector)}`,
       );
-    const handle = matches_[0];
-    if (!handle) throw new Error(`edge-select #${index + 1} 内部空匹配`);
-    const result = (await msRpc(
-      ctx.itwinId,
-      ctx.imodelId,
-      'resolveEdgeRef',
-      [ctx.dbKey, handle.bodyKey, handle.subEntityId],
-      accessToken,
-    )) as { ok: boolean; ref?: FilletEdgeRef; error?: string };
-    if (!result.ok || !result.ref)
-      throw new Error(`edge-select #${index + 1} resolveEdgeRef 失败：${result.error ?? 'unknown'}`);
-    refs.set(`${result.ref.edge.nodeId}:${result.ref.edge.entityId}`, result.ref);
-    bodyKeys.add(handle.bodyKey);
-    notes.push(`edge #${index + 1} ${handle.bodyKey}:${handle.subEntityId} (${handle.curve.kind})`);
+    for (const handle of matches_) {
+      const result = (await msRpc(
+        ctx.itwinId,
+        ctx.imodelId,
+        'resolveEdgeRef',
+        [ctx.dbKey, handle.bodyKey, handle.subEntityId],
+        accessToken,
+      )) as { ok: boolean; ref?: FilletEdgeRef; error?: string };
+      if (!result.ok || !result.ref)
+        throw new Error(`edge-select #${index + 1} resolveEdgeRef 失败：${result.error ?? 'unknown'}`);
+      refs.set(`${result.ref.edge.nodeId}:${result.ref.edge.entityId}`, result.ref);
+      bodyKeys.add(handle.bodyKey);
+      notes.push(`edge #${index + 1} ${handle.bodyKey}:${handle.subEntityId} (${handle.curve.kind})`);
+      if (selector.all !== true) break;
+    }
   }
   return { refs: [...refs.values()], bodyKeys: [...bodyKeys], notes };
 }

@@ -42,7 +42,9 @@
 ## 4. 边/面/孔/壳
 
 - 边：`e2e/examples/live/edge-select.ts`，支持 line/arc、方向、中点、长度，
-  以及整圆弧 `center/radiusMm`；唯一匹配后 `resolveEdgeRef`。
+  以及整圆弧 `center/radiusMm`；唯一匹配后 `resolveEdgeRef`。同一整圆被
+  拓扑拆成多段圆弧时，选择器可加 `all:true` 收集全部匹配（CONNECTING_ROD
+  的孔缘 R2 圆角实测 3 段/圈），缺省仍要求唯一。
 - 面：`e2e/examples/live/face-select.ts`，支持面 AABB `center`、`normal`、
   `loopCount`；唯一匹配后 `resolveFaceRef`。`LIVE_FACE_DEBUG=1` 输出所有面，
   定位零/多匹配。

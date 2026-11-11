@@ -610,6 +610,24 @@ symmetric 互斥）。
   push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **27**。
 
+### 批次 37（2026-11-11，DRILL HOTD / CONNECTING_ROD，approx）
+
+- 来源：`DRILL HOTD - INITIAL / CONNECTING_ROD`
+  （`2778b69a09d8fcb9a54e08dc` / `6b82d01d81b1c9cf1073f6dc`），
+  corpus `features.json` 内嵌已解算草图实体（无 sketches.json），8 特征 /
+  1 body。Sketch 1（两圆 + 两条切线）、symmetric 2.5 NEW 板、
+  symmetric 8 ADD 两端凸台、Sketch 2 两孔 through remove、Fillet 1/2
+  FULL_ROUND、Fillet 3 R2。
+- 真栈 **3,275.821 vs 3,290.287 mm³（−0.440%）**、8 步全 status=0、
+  1 body、push+冷重开（1.6 min）。
+- **approx**：约束整体 dropped（已解坐标）；Extrude 2 两个 imprint 端面
+  近似为两个圆面域 ADD；FULL_ROUND 用 R3 圆环底边圆角近似；Fillet 3 的
+  capFace 选择按孔缘 R2 近似。未改尺寸凑体积。
+- 能力：边选择器新增 `all:true`——产品拓扑把整圆拆成多段圆弧时收集全部
+  匹配（本例子孔缘每圈 3 段），缺省仍要求唯一。
+- live spec 总数 **27 → 28**（私有 `live-specs/connecting-rod.json`；
+  `docs/LIVE-UI-SPECS.md` 同步）。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
