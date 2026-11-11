@@ -106,6 +106,10 @@
 - 每个 spec 独立 iModel；测试会 push 并冷重开比对树/体/质量。
 - MS RPC 限流 100 req/15 min；429 按 `retry-after` 等待。限流导致的失败不是
   代码回归；不得绕限流或并发堆请求。
+- **Auth setup 也会限流**：每次 Playwright run 的 `auth.setup.ts` 走 hub
+  `POST /auth/email/login`；连跑多批后 hub 返回 429（响应头
+  `retry-after-auth`，实测 749 s）。看到 `API 登录失败：HTTP 429` 时等待该
+  窗口再跑，不要反复重试撞窗口；把多个 spec 合并成一次 run 以节省登录次数。
 - Onshape features API 采样由私有 supervisor 按 quota 窗口运行；鉴权失效即停，
   不保存凭据。
 
