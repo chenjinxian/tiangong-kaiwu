@@ -358,6 +358,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   8 特征 status=0、5 项 skipped、push+冷重开。**approx**：耳孔/
   Chamfer/Fillet 与 Sketch10-imprint 的 Extrude13/14 完整行为未解；
   仅作广度验证，不进 strict catalog。
+  **live shell 通道（2026-11-11）**：新增 `live/face-select.ts`（面
+  中心/法向/环数唯一匹配 → `resolveFaceRef`）与 `shell` step；符号
+  按产品语义 `defaultDistance=-thickness`、`distances=0`。公共回归
+  `e2e/examples/live-shell.spec.ts` 用 20×20×10 盒去顶面内缩 2 mm，
+  真栈 **1952.000 vs 1952.000 mm³（0.000%）**、status=0、push+冷重开。
+  Gaiter 已能跑通 shell（status=0）但 Fillet 1 仍 blocked-kernel，
+  15,703.926 vs 12,270.212（+27.98%），留在私有 probes，不计数。
   live runner 现 23 spec（24 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在

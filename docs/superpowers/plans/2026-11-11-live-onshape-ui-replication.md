@@ -443,6 +443,20 @@ symmetric 互斥）。
   Extrude13/14 完整行为未解；仅用于广度/布尔验证，不进 strict
   catalog。live spec 总数 **23**。
 
+### 批次 23（2026-11-11，live shell 面选择通道）
+
+- 新增 `live/face-select.ts`：`readFaceHandles` → 面中心/法向/环数唯一
+  匹配 → `resolveFaceRef`；runner 增加 `shell` step。产品语义：
+  `defaultDistance=-thickness`（内缩）、`distances=0`；正值为外扩。
+- 公共真栈回归 `e2e/examples/live-shell.spec.ts`：20×20×10 盒移除顶面、
+  内缩 2 mm → **1952.000 vs 1952.000 mm³（0.000%）**、status=0、
+  push+冷重开；面选择器纯匹配测试 3/3。
+- Gaiter 已能通过 shell（status=0），但 Fillet 1 仍 blocked-kernel，
+  15,703.926 vs 12,270.212（+27.98%），留私有 probes 不计数。
+- Universal Joint Assembly 变体区域拓扑与 Flange 不同，探针
+  1,008,815.5 vs 602,047.4 mm³，留私有 probes 待重解。
+- live spec 总数仍 **23**（shell 为通道能力，暂未新增计数示例）。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -15,6 +15,7 @@ import {
 } from '../../helpers.js';
 import { ensureExampleImodel, openExampleEditor } from '../imodel.js';
 import { resolveLiveEdgeRefs } from './edge-select.js';
+import { resolveLiveShellFaceRefs } from './face-select.js';
 import type { LiveSpec } from './live-spec.js';
 
 export interface LiveRunResult {
@@ -44,7 +45,8 @@ export async function runLiveSpec(
       (step.kind === 'hole' && step.targetBodyFeatureName !== undefined)
       || (step.kind === 'extrude' && (step.targetBodyFeatureNames?.length ?? 0) > 0)
       || (step.kind === 'featurePattern' && step.targetBodyFeatureName !== undefined)
-      || (step.kind === 'featureMirror' && step.targetBodyFeatureName !== undefined),
+      || (step.kind === 'featureMirror' && step.targetBodyFeatureName !== undefined)
+      || (step.kind === 'shell' && step.targetBodyFeatureName !== undefined),
   );
   const notes: string[] = [];
 
@@ -297,16 +299,41 @@ export async function runLiveSpec(
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
+    if (step.kind === 'shell') {
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0]!;
+      }
+      const resolved = await resolveLiveShellFaceRefs(page, ctx, token, step.faces, targetBodyId);
+      if (resolved.bodyKeys.length !== 1)
+        throw new Error(`${spec.id}/${step.name}: 面跨 ${resolved.bodyKeys.length} 个 body，须恰 1`);
+      notes.push(`${step.name}: ${resolved.notes.join('; ')}`);
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'shell',
+        params: {
+          defaultDistance: step.oppositeDirection ? step.thicknessMm : -step.thicknessMm,
+          distances: 0,
+          faces: resolved.refs,
+        },
+        ...(targetBodyId ? { targetBodyId } : {}),
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
     // 类型级兜底：新增 LiveStep 变体必须先在此实现，否则诚实阻塞。
     throw new Error(`${spec.id}: 未支持的 live step ${(step as { kind: string }).kind}`);
   }
 
   const tree = await getFeatureTreeRpc(ctx, token);
   if (process.env.LIVE_DEBUG === '1')
-    console.log(
-      `[live-debug] ${spec.id}/tree=` +
-      JSON.stringify(tree.map((row) => [row.name, row.featureType, row.status])),
-    );
+    console.log(`[live-debug] ${spec.id}/tree=` + JSON.stringify(tree));
   const bodies = await getBodiesRpc(ctx, token);
   const mass = await getMassPropertiesRpc(ctx, token);
   return { token, ids, ctx, tree, bodies, mass, notes };

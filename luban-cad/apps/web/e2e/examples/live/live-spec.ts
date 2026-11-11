@@ -13,6 +13,7 @@ import type {
   SketchPlaneDto,
 } from '@luban-cad/shared';
 import type { LiveEdgeSelector } from './edge-select.js';
+import type { LiveFaceSelector } from './face-select.js';
 
 export interface LiveSource {
   docId: string;
@@ -139,6 +140,18 @@ export interface LiveChamferStep {
   note?: string;
 }
 
+export interface LiveShellStep {
+  kind: 'shell';
+  name: string;
+  thicknessMm: number;
+  /** true=外扩；缺省 false=内缩（Onshape oppositeDirection=false）。 */
+  oppositeDirection?: boolean;
+  faces: LiveFaceSelector[];
+  /** 多 body：shell 编辑的目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName?: string;
+  note?: string;
+}
+
 export interface LiveSkippedStep {
   kind: 'skipped';
   name: string;
@@ -154,6 +167,7 @@ export type LiveStep =
   | LiveFeaturePatternStep
   | LiveFilletStep
   | LiveChamferStep
+  | LiveShellStep
   | LiveSkippedStep;
 
 export interface LiveSpec {
