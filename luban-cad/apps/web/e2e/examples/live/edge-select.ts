@@ -84,7 +84,7 @@ function lineDirection(handle: EdgeHandle): LiveVec3 | undefined {
   return { x: dx / len, y: dy / len, z: dz / len };
 }
 
-function matches(handle: EdgeHandle, selector: LiveEdgeSelector): boolean {
+export function matchesLiveEdge(handle: EdgeHandle, selector: LiveEdgeSelector): boolean {
   const curve = handle.curve;
   if (selector.curveKind && curve.kind !== selector.curveKind) return false;
   const mid = midpointMm(handle);
@@ -132,7 +132,7 @@ export async function resolveLiveEdgeRefs(
   const bodyKeys = new Set<string>();
   const notes: string[] = [];
   for (const [index, selector] of selectors.entries()) {
-    const matches_ = handles.filter((handle) => matches(handle, selector));
+    const matches_ = handles.filter((handle) => matchesLiveEdge(handle, selector));
     if (matches_.length === 0)
       throw new Error(`edge-select #${index + 1} 零命中：${JSON.stringify(selector)}`);
     if (matches_.length > 1)
