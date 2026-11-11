@@ -46,7 +46,8 @@ export async function runLiveSpec(
       || (step.kind === 'extrude' && (step.targetBodyFeatureNames?.length ?? 0) > 0)
       || (step.kind === 'featurePattern' && step.targetBodyFeatureName !== undefined)
       || (step.kind === 'featureMirror' && step.targetBodyFeatureName !== undefined)
-      || (step.kind === 'shell' && step.targetBodyFeatureName !== undefined),
+      || (step.kind === 'shell' && step.targetBodyFeatureName !== undefined)
+      || step.kind === 'booleanBodies',
   );
   const notes: string[] = [];
 
@@ -294,6 +295,40 @@ export async function runLiveSpec(
         kind: 'insertFeature',
         featureType: step.kind,
         params,
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'booleanBodies') {
+      const resolveKeys = (names: string[], label: string): string[] => {
+        const keys: string[] = [];
+        for (const name of names) {
+          const bodyKeys = bodyKeysByFeatureName.get(name);
+          if (!bodyKeys || bodyKeys.length !== 1)
+            throw new Error(
+              `${spec.id}/${step.name}: ${label} ${name} 的新 body 数=${bodyKeys?.length ?? 0}，须恰 1`,
+            );
+          keys.push(bodyKeys[0]!);
+        }
+        const unique = [...new Set(keys)];
+        if (unique.length !== keys.length)
+          throw new Error(`${spec.id}/${step.name}: ${label} 指向重复 body`);
+        return unique;
+      };
+      const targets = resolveKeys(step.targetBodyFeatureNames, 'target');
+      const tools = resolveKeys(step.toolBodyFeatureNames, 'tool');
+      if (targets.length === 0 || tools.length === 0)
+        throw new Error(`${spec.id}/${step.name}: targets/tools 不能为空`);
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'booleanBodies',
+        params: {
+          targets: targets.map((bodyKey) => ({ bodyKey })),
+          tools: tools.map((bodyKey) => ({ bodyKey })),
+          operation: step.operation,
+          keepTools: step.keepTools ?? false,
+        },
       }, step.name);
       featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);

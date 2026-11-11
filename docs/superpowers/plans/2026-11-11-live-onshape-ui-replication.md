@@ -499,6 +499,16 @@ symmetric 互斥）。
   status=0、push+冷重开；Chamfer/Fillet 跳过，approx 不进 strict。
 - live spec 总数 **27**。
 
+### 批次 28（2026-11-11，live booleanBodies 通道）
+
+- runner 新增 `booleanBodies` step：按 target/tool 的前序特征名解析 bodyKey，
+  构造 `BodyRef[]`，支持 unite/subtract/intersect 与 keepTools。
+- 公共真栈回归 `e2e/examples/live-boolean-bodies.spec.ts`：20×20×10 盒 A 与
+  10×10×10 盒 B（重叠 500）unite → **4500.000 vs 4500.000 mm³
+  （0.000%）**、1 body、status=0、push+冷重开。
+- 该通道用于后续 Crank/Chainring、多体 Part Studio 等含 booleanBodies 的示例；
+  本身不新增示例计数，live spec 总数仍 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

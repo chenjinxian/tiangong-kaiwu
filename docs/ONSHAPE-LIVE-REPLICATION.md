@@ -51,6 +51,10 @@
   1952 mm³）验证了面选择→resolveFaceRef→shell 全链。
 - 孔：草图 point/顶点，通孔/盲孔/沉头/埋头字段已透传；mateConnector 型孔位
   需要显式重建并在 spec/notes 标 approx。
+- booleanBodies：live step 用 `targetBodyFeatureNames` / `toolBodyFeatureNames`
+  解析各特征创建的 bodyKey，构造 `BodyRef[]`，支持 unite/subtract/intersect
+  与 keepTools。公共回归 `e2e/examples/live-boolean-bodies.spec.ts`（20×20×10
+  盒与 10×10×10 盒 unite，4500 mm³）验证全链与冷重开。
 
 ## 5. 运行与限流
 

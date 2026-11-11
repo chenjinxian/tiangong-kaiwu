@@ -140,6 +140,17 @@ export interface LiveChamferStep {
   note?: string;
 }
 
+export interface LiveBooleanBodiesStep {
+  kind: 'booleanBodies';
+  name: string;
+  operation: 'unite' | 'subtract' | 'intersect';
+  /** 前序特征名，每个特征须恰创建一个 body。 */
+  targetBodyFeatureNames: string[];
+  toolBodyFeatureNames: string[];
+  keepTools?: boolean;
+  note?: string;
+}
+
 export interface LiveShellStep {
   kind: 'shell';
   name: string;
@@ -168,6 +179,7 @@ export type LiveStep =
   | LiveFilletStep
   | LiveChamferStep
   | LiveShellStep
+  | LiveBooleanBodiesStep
   | LiveSkippedStep;
 
 export interface LiveSpec {
