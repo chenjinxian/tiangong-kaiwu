@@ -194,6 +194,20 @@ symmetric 互斥）。
   只切出部分圆柱；因此体积恰在 1% 内但孔形/孔向不等于 Onshape。约束未采集。
   后续若需侧向孔，应新增“辅助平面草图 + 挤出切除”步骤或孔轴扩展。
 
+### 批次 5（2026-11-11，featureMirror：DRILL HOTD / ENG_BEARING）
+
+- live runner 新增 `featureMirror` 步骤（`sourceFeatureName` 运行时解析、
+  任意世界平面 `planeLine`）；特征名→featureId 映射覆盖全部步骤。
+- 私有 `live-specs/eng-bearing.json`（corpus-assisted，已采集 features +
+  per-part 质量）：同心圆 Ø27.5/Ø12、NEW symmetric 8 mm；顶盖环槽
+  Ø25/Ø15 REMOVE 2 mm（z=4 近似平面、backward）；Mirror 1 = 对 Extrude 2
+  做 FEATURE mirror（Top 平面，operation NEW → 镜像切除）。
+- 真栈 **2590.224 vs 2590.243 mm³（0.001%）**，5 特征树全 status=0、
+  1 body、push+冷重开一致；解析校验
+  π(13.75²−6²)·8 − 2·π(12.5²−7.5²)·2 = 2589.86 mm³。
+- 近似：Sketch 2 平面固定 z=4（Onshape 为端盖面引用）；约束未采集。
+  live spec 总数 **10**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

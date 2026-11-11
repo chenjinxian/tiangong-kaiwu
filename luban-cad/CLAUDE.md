@@ -249,8 +249,12 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `hole` 步骤（草图 pointEntityIds），真栈 **1,435,929.669（+0.930%）**、
   4 特征树 status=0、1 body、push+冷重开。**approx 边界**：8 个 mateConnector
   合并为 5 个位置，侧向孔轴按拉伸法向近似（孔形/孔向不保真），约束未采集。
-  live runner 现 9 spec（10 项含 setup；全量套件在 MS 429 窗口内会因限流
-  失败，非代码回归）。
+  **批次 5（featureMirror）**：runner 新增 `featureMirror` 步骤（源特征名
+  运行时解析 + 任意世界平面）；DRILL HOTD / ENG_BEARING 用已采集 features：
+  Ø27.5/Ø12 同心圆 NEW symmetric 8 mm、顶盖环槽 REMOVE 2 mm、FEATURE
+  mirror（Top 平面）→ 真栈 **2590.224 vs 2590.243 mm³（0.001%）**、5 特征
+  树 status=0、1 body、push+冷重开。live runner 现 10 spec（11 项含 setup；
+  全量套件在 MS 429 窗口内会因限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

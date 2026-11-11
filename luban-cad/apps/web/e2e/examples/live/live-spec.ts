@@ -72,6 +72,15 @@ export interface LiveHoleStep {
   note?: string;
 }
 
+/** 特征镜像：镜像本 spec 前序特征的几何增量（源特征名→featureId 在运行时解析）。 */
+export interface LiveFeatureMirrorStep {
+  kind: 'featureMirror';
+  name: string;
+  sourceFeatureName: string;
+  planeLine: { origin: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number } };
+  note?: string;
+}
+
 export interface LiveSkippedStep {
   kind: 'skipped';
   name: string;
@@ -83,6 +92,7 @@ export type LiveStep =
   | LiveExtrudeStep
   | LiveRevolveStep
   | LiveHoleStep
+  | LiveFeatureMirrorStep
   | LiveSkippedStep;
 
 export interface LiveSpec {

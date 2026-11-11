@@ -35,6 +35,7 @@ export async function runLiveSpec(
   const ctx = await openExampleEditor(page, ids);
   const lease = await borrowWriteLease(ctx, token, `live-${spec.id}`);
   const sketchIdByName = new Map<string, string>();
+  const featureIdByName = new Map<string, string>();
   const notes: string[] = [];
 
   const apply = async (op: Parameters<typeof applyFeatureOpRpc>[1], label: string): Promise<string> => {
@@ -58,6 +59,7 @@ export async function runLiveSpec(
         plane: step.plane,
       }, step.name);
       sketchIdByName.set(step.name, id);
+      featureIdByName.set(step.name, id);
       if (spec.skipConstraints === true) notes.push('constraints=dropped（live-spec skipConstraints）');
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
@@ -65,7 +67,7 @@ export async function runLiveSpec(
     if (step.kind === 'extrude') {
       const sketchId = sketchIdByName.get(step.sketchName);
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
-      await apply({
+      const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'extrude',
         params: {
@@ -77,13 +79,14 @@ export async function runLiveSpec(
           ...(step.extraParams ?? {}),
         },
       }, step.name);
+      featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
     if (step.kind === 'revolve') {
       const sketchId = sketchIdByName.get(step.sketchName);
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
-      await apply({
+      const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'revolve',
         params: {
@@ -95,6 +98,7 @@ export async function runLiveSpec(
           operation: step.operation ?? 'new',
         },
       }, step.name);
+      featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
@@ -103,7 +107,7 @@ export async function runLiveSpec(
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
       if (step.pointEntityIds.length === 0)
         throw new Error(`${spec.id}/${step.name}: 孔位为空`);
-      await apply({
+      const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'hole',
         params: {
@@ -115,6 +119,20 @@ export async function runLiveSpec(
           ...(step.direction ? { direction: step.direction } : {}),
         },
       }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'featureMirror') {
+      const sourceFeatureId = featureIdByName.get(step.sourceFeatureName);
+      if (!sourceFeatureId)
+        throw new Error(`${spec.id}/${step.name}: 找不到源特征 ${step.sourceFeatureName}`);
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'featureMirror',
+        params: { sourceFeatureId, planeLine: step.planeLine },
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
