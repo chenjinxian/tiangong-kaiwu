@@ -162,6 +162,35 @@ export async function runLiveSpec(
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
+    if (step.kind === 'featurePattern') {
+      const sourceFeatureId = featureIdByName.get(step.sourceFeatureName);
+      if (!sourceFeatureId)
+        throw new Error(`${spec.id}/${step.name}: 找不到源特征 ${step.sourceFeatureName}`);
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'featurePattern',
+        params: {
+          sourceFeatureId,
+          kind: step.patternKind,
+          count: step.count,
+          ...(step.spacingMm !== undefined ? { spacing: step.spacingMm } : {}),
+          ...(step.angleDeg !== undefined ? { angle: step.angleDeg } : {}),
+          axis: step.axis,
+          ...(step.secondDirection
+            ? {
+              secondDirection: {
+                count: step.secondDirection.count,
+                spacing: step.secondDirection.spacingMm,
+                axis: step.secondDirection.axis,
+              },
+            }
+            : {}),
+        },
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
     // 类型级兜底：新增 LiveStep 变体必须先在此实现，否则诚实阻塞。
     throw new Error(`${spec.id}: 未支持的 live step ${(step as { kind: string }).kind}`);
   }

@@ -83,6 +83,26 @@ export interface LiveFeatureMirrorStep {
   note?: string;
 }
 
+export interface LiveFeaturePatternSecondDirection {
+  count: number;
+  spacingMm: number;
+  axis: { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number } };
+}
+
+/** 特征阵列：阵列本 spec 前序特征的几何增量。 */
+export interface LiveFeaturePatternStep {
+  kind: 'featurePattern';
+  name: string;
+  sourceFeatureName: string;
+  patternKind: 'linear' | 'circular';
+  count: number;
+  spacingMm?: number;
+  angleDeg?: number;
+  axis: { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number } };
+  secondDirection?: LiveFeaturePatternSecondDirection;
+  note?: string;
+}
+
 export interface LiveSkippedStep {
   kind: 'skipped';
   name: string;
@@ -95,6 +115,7 @@ export type LiveStep =
   | LiveRevolveStep
   | LiveHoleStep
   | LiveFeatureMirrorStep
+  | LiveFeaturePatternStep
   | LiveSkippedStep;
 
 export interface LiveSpec {

@@ -259,8 +259,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   0.375 in）、4 零件、聚合体积 **254,433.368 mm³**；按每 part 独立草图 +
   拉伸绕过“一个 NEW extrude 两不相交面域只产出一个 body（两 lump）”
   的产品缺口（树 8 vs 4）；真栈 **256,683.401（+0.884%）**、**4 body**、
-  8 特征 status=0、push+冷重开。live runner 现 11 spec（12 项含 setup；
-  全量套件在 MS 429 窗口内会因限流失败，非代码回归）。
+  8 特征 status=0、push+冷重开。
+  **批次 7（featurePattern）**：runner 新增 `featurePattern` 步骤（linear/
+  circular、任意世界轴、第二方向）；CAD Drawings Unit 4 / Ex. 1 从只读 UI
+  读 5×1.25 in + 5×0.875 in 两方向孔阵列，10×7 in 板 + 25×Ø0.5 孔 →
+  真栈 **533,328.178 vs 531,718.538 mm³（+0.303%）**、1 body、4 特征
+  status=0、push+冷重开（Onshape 第 3 步 through-all remove 用产品 hole
+  建模，树类型 hole vs extrude 已登记）。live runner 现 12 spec（13 项含
+  setup；全量套件在 MS 429 窗口内会因限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

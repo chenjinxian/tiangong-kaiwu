@@ -227,6 +227,20 @@ symmetric 互斥）。
 - 真栈 **256,683.401 vs 254,433.368 mm³（+0.884%）**、4 body、8 特征
   全 status=0、push+冷重开一致；live spec 总数 **11**。
 
+### 批次 7（2026-11-11，CAD Drawings Unit 4 / Ex. 1，featurePattern）
+
+- live runner 新增 `featurePattern` 步骤（源特征名、linear/circular、
+  count/spacing/angle、任意世界轴、第二方向）。
+- Ex. 1 从只读 UI：树 `Sketch 1 → Extrude 1（NEW 0.5 in）→ Extrude 2
+  （完全贯穿去材）→ Linear pattern 1（5×1.25 in + 5×0.875 in 两方向）`，
+  1 part `Plate`；聚合体积 **531,718.538 mm³**。
+- 按 UI 近似 10×7 in 板 + 一个 Ø0.5 种子孔；Onshape 第 3 步用产品 hole
+  建模（树类型 hole vs extrude，显式登记），Linear pattern 1 = 5×5 孔网格。
+- 真栈 **533,328.178 vs 531,718.538 mm³（+0.303%）**、1 body、4 特征
+  status=0、push+冷重开一致；live spec 总数 **12**。
+- Ex. 2/Ex. 4 需要 fillet/chamfer 边选择；live runner 尚无几何边选择器，
+  列入下一能力切片（dev-only `readEdgeHandles` 可复用）。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
