@@ -60,7 +60,7 @@ test.describe('/examples 全部示例目录', () => {
     await page.goto('/examples');
     await expect(page.getByTestId('example-card')).toHaveCount(22);
     // 22 个示例 iModel 都应被按名解析；缺一个说明 project/imodel 映射漂移。
-    await expect(page.getByRole('link', { name: '打开示例' })).toHaveCount(20, { timeout: 30_000 });
+    await expect(page.getByRole('link', { name: '打开示例' })).toHaveCount(22, { timeout: 30_000 });
 
     await page.getByTestId('example-search').fill('Bumper');
     await expect(page.getByTestId('example-card')).toHaveCount(1);
