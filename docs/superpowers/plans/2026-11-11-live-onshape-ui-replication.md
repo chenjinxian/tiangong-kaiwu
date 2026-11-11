@@ -431,6 +431,18 @@ symmetric 互斥）。
 - **approx**：Extrude 4（销孔）/Extrude 6/Fillet 1–3 跳过；约
   538 mm³ 材料差未解，未通过改深度硬凑。live spec 总数 **22**。
 
+### 批次 22（2026-11-11，Universal Joint Flange）
+
+- raw corpus：R60 圆柱（30+120 两向）+ Sketch8 布尔轮廓 REMOVE
+  （region1）+ Sketch9 精确轮廓 INTERSECT（region0，through-all
+  双向）+ 四个 Ø22×30 顶面螺栓孔。
+- 布尔主形 **527,382.652 mm³**；顶孔后真栈 **512,749.542 vs
+  483,080.261 mm³（+6.142%）**、1 body、8 特征 status=0、
+  5 项 skipped、push+冷重开。
+- **approx**：耳孔、Chamfer 10、Fillet 1 与 Sketch10-imprint 的
+  Extrude13/14 完整行为未解；仅用于广度/布尔验证，不进 strict
+  catalog。live spec 总数 **23**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -351,7 +351,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （+3.559%）**、**2 body**（Stirrup 13,061.498 / Pin 1,507.927，
   Pin 0.000%）、12 特征 status=0、push+冷重开。**approx**：Extrude
   4/6 与三个 Fillet 跳过（约 538 mm³ 材料差未解，未硬调参数）。
-  live runner 现 22 spec（23 项含 setup；全量套件在 MS 429 窗口内会因
+  **批次 22（Universal Joint Flange）**：raw corpus 的 R60 圆柱 +
+  Sketch8/Sketch9 精确布尔轮廓（REMOVE region1 + INTERSECT region0
+  through-all）+ 四个 Ø22×30 顶面螺栓孔；主形 527,382.652 mm³，孔后
+  真栈 **512,749.542 vs 483,080.261 mm³（+6.142%）**、1 body、
+  8 特征 status=0、5 项 skipped、push+冷重开。**approx**：耳孔/
+  Chamfer/Fillet 与 Sketch10-imprint 的 Extrude13/14 完整行为未解；
+  仅作广度验证，不进 strict catalog。
+  live runner 现 23 spec（24 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
