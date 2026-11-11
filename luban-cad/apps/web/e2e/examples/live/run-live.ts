@@ -244,7 +244,7 @@ export async function runLiveSpec(
     if (step.kind === 'hole') {
       const sketchId = sketchIdByName.get(step.sketchName);
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
-      if (step.pointEntityIds.length === 0)
+      if (step.pointEntityIds.length === 0 && (step.vertexRefs?.length ?? 0) === 0)
         throw new Error(`${spec.id}/${step.name}: 孔位为空`);
       let targetBodyId: string | undefined;
       if (step.targetBodyFeatureName) {
@@ -260,7 +260,8 @@ export async function runLiveSpec(
         featureType: 'hole',
         params: {
           sketchId,
-          pointIds: step.pointEntityIds,
+          ...(step.pointEntityIds.length > 0 ? { pointIds: step.pointEntityIds } : {}),
+          ...(step.vertexRefs?.length ? { vertexRefs: step.vertexRefs } : {}),
           diameterMm: step.diameterMm,
           endBound: step.endBound,
           ...(step.holeStyle ? { holeStyle: step.holeStyle } : {}),

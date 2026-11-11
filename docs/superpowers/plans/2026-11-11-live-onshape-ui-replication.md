@@ -628,6 +628,19 @@ symmetric 互斥）。
 - live spec 总数 **27 → 28**（私有 `live-specs/connecting-rod.json`；
   `docs/LIVE-UI-SPECS.md` 同步）。
 
+### 批次 38（2026-11-11，live hole vertexRefs 通道）
+
+- `LiveHoleStep` 新增 `vertexRefs`（`entityId` + `start/end/center`），
+  与 `pointEntityIds` 至少一个非空；runner 按原样透传产品 `HoleParams`。
+- 公共真栈回归 `e2e/examples/live-hole-vertex-refs.spec.ts`：20×20×10 盒，
+  第二张草图上两个圆心的 Ø4 through-all 反向孔，去材 **251.327 mm³**，
+  结果 **3,748.689 vs 3,748.673 mm³**、1 body、status=0、push+冷重开。
+  （首轮曾把第二个圆心放在盒外，只去一个孔；修正草图位置后全绿。）
+- 相关尝试：Part Feeding Machine / Stack Light Bracket（5 特征 / 1 body /
+  10,724.600 mm³）因 Onshape `sketchRegions [0,1,2]` 与可见 80×23 矩形
+  不等价（thin/子区域语义缺失）而 parked 到私有 `live-probes/`，不计入。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -113,6 +113,8 @@ export interface LiveHoleStep {
   sketchName: string;
   /** 草图 point 实体 id；调用方负责在 sketch step 里定义这些点。 */
   pointEntityIds: number[];
+  /** 草图曲线顶点孔位（圆心/线端点等）；与 pointEntityIds 至少一个非空。 */
+  vertexRefs?: { entityId: number; part: 'start' | 'end' | 'center' }[];
   diameterMm: number;
   holeStyle?: 'simple' | 'counterbore' | 'countersink';
   counterboreDiameterMm?: number;

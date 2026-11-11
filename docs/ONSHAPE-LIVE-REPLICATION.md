@@ -51,8 +51,11 @@
 - shell：`defaultDistance=-thickness` 表示内缩，`distances=0`；正值为外扩。
   公共回归 `e2e/examples/live-shell.spec.ts`（合成 20×20×10 盒去顶面内缩 2 mm，
   1952 mm³）验证了面选择→resolveFaceRef→shell 全链。
-- 孔：草图 point/顶点，通孔/盲孔/沉头/埋头字段已透传；mateConnector 型孔位
-  需要显式重建并在 spec/notes 标 approx。
+- 孔：草图 point（`pointEntityIds`）或曲线顶点/圆心（`vertexRefs`），
+  通孔/盲孔/沉头/埋头字段已透传；`direction` 决定切向。公共回归
+  `e2e/examples/live-hole-vertex-refs.spec.ts`（20×20×10 盒上两个圆心
+  Ø4 through-all 反向，去材 251.327 mm³、结果 3748.689）验证全链与冷重开。
+  mateConnector 型孔位需要显式重建并在 spec/notes 标 approx。
 - booleanBodies：live step 用 `targetBodyFeatureNames` / `toolBodyFeatureNames`
   解析各特征创建的 bodyKey，构造 `BodyRef[]`，支持 unite/subtract/intersect
   与 keepTools。公共回归 `e2e/examples/live-boolean-bodies.spec.ts`（20×20×10
