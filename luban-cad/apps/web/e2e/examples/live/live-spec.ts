@@ -163,6 +163,28 @@ export interface LiveFeaturePatternStep {
   note?: string;
 }
 
+/** PART/body 阵列（世界轴枚举；与 FEATURE featurePattern 区分）。 */
+export interface LiveBodyPatternStep {
+  kind: 'pattern';
+  name: string;
+  patternKind: 'linear' | 'circular';
+  count: number;
+  spacingMm?: number;
+  angleDeg?: number;
+  axis: 'X' | 'Y' | 'Z';
+  centered?: boolean;
+  oppositeDirection?: boolean;
+  secondDirection?: {
+    count: number;
+    spacing?: number;
+    axis: 'X' | 'Y' | 'Z';
+    centered?: boolean;
+  };
+  /** 多 body 时显式目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName?: string;
+  note?: string;
+}
+
 export interface LiveFilletStep {
   kind: 'fillet';
   name: string;
@@ -285,6 +307,7 @@ export type LiveStep =
   | LiveHoleStep
   | LiveFeatureMirrorStep
   | LiveFeaturePatternStep
+  | LiveBodyPatternStep
   | LiveFilletStep
   | LiveChamferStep
   | LiveShellStep

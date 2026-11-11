@@ -48,6 +48,7 @@ export async function runLiveSpec(
     if (step.kind === 'extrude') for (const name of step.targetBodyFeatureNames ?? []) trackedFeatureNames.add(name);
     if (step.kind === 'hole' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'featurePattern' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'pattern' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'featureMirror' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'shell' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'faceExtrude') trackedFeatureNames.add(step.targetBodyFeatureName);
@@ -342,6 +343,37 @@ export async function runLiveSpec(
               },
             }
             : {}),
+        },
+        ...(targetBodyId ? { targetBodyId } : {}),
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'pattern') {
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0]!;
+      }
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'pattern',
+        params: {
+          kind: step.patternKind,
+          count: step.count,
+          ...(step.spacingMm !== undefined ? { spacing: step.spacingMm } : {}),
+          ...(step.angleDeg !== undefined ? { angle: step.angleDeg } : {}),
+          axis: step.axis,
+          ...(step.centered !== undefined ? { centered: step.centered } : {}),
+          ...(step.oppositeDirection !== undefined
+            ? { oppositeDirection: step.oppositeDirection }
+            : {}),
+          ...(step.secondDirection ? { secondDirection: step.secondDirection } : {}),
         },
         ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);

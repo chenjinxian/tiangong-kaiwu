@@ -641,6 +641,17 @@ symmetric 互斥）。
   不等价（thin/子区域语义缺失）而 parked 到私有 `live-probes/`，不计入。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 39（2026-11-11，live body pattern 通道）
+
+- runner 新增 `pattern` step：PART/body 阵列，linear/circular、世界轴
+  X/Y/Z、centered/oppositeDirection/第二方向，可选目标 body。
+- 公共真栈回归 `e2e/examples/live-body-pattern.spec.ts`：10×10×10 盒沿 X
+  3 实例、间距 20 → **3000.000 mm³**、status=0、push+冷重开。
+- **语义差异（必须逐例登记）**：产品把 pattern 实例并入同一 body 的多个
+  lump（测试实测 **1 body**），Onshape Part Studio 生成多个 part 实例；
+  不得把 body 数写成 Onshape 的 part 数。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

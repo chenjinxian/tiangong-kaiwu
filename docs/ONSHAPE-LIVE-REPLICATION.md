@@ -86,6 +86,12 @@
   透传 operation/endBound/depth/direction/startOffset/draft，目标 body 必填。
   公共回归 `e2e/examples/live-face-extrude.spec.ts`（20×20×10 盒顶面 add
   blind 5 mm，6000 mm³、质心 z=7.5）验证全链与冷重开。
+- PART/body pattern：`pattern` step 支持 linear/circular、世界轴 X/Y/Z、
+  centered/oppositeDirection/第二方向。**语义差异**：产品把阵列实例并入
+  同一 body（多 lump），Onshape Part Studio 会生成多个 part 实例；逐例必须
+  如实记录，不能把 body 数写成 Onshape 的 part 数。公共回归
+  `e2e/examples/live-body-pattern.spec.ts`（10×10×10 盒 3 实例、间距 20 →
+  3000 mm³、产品 1 body）验证全链与冷重开。
 
 ## 5. 运行与限流
 
