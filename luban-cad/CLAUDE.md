@@ -276,8 +276,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   Ex. 2 升级为真实 Fillet 1（4 竖角边 R0.5 in）+ Chamfer 1（4 凸台顶边
   0.2 in 等距离）→ 真栈 **1,202,673.243 vs 1,187,939.713 mm³（+1.240%）**、
   1 body、6 特征 status=0、push+冷重开。Ex. 4 仍 blocked（大圆角/
-  倒角主导形状且草图尺寸未采集）。live runner 现 13 spec（14 项含 setup；
-  全量套件在 MS 429 窗口内会因限流失败，非代码回归）。
+  倒角主导形状且草图尺寸未采集）。
+  **批次 10（FTC Flat Spacer）**：CAD for Robotics FTC / Parts 的
+  Ø19.05/Ø7.874 环 × 0.1 in 拉伸；真栈 **600.267 vs 解析 600.274 mm³
+  （0.001%）**、1 body、2 特征 status=0、push+冷重开（无 Onshape mass，
+  expected 为解析值并在 spec notes 标注）。live runner 现 14 spec（15 项
+  含 setup；13 个旧/新 spec 已逐个真栈通过；全量套件在 MS 429 窗口内会因
+  限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

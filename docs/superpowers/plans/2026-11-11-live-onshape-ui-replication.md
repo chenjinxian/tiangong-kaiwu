@@ -269,6 +269,17 @@ symmetric 互斥）。
   全 status=0、push+冷重开。仍为 approx：槽用矩形近似、凸台圆角省略、
   板尺寸/孔位取自 UI 截图。
 
+### 批次 10（2026-11-11，CAD for Robotics FTC / Flat Spacer）
+
+- 公开文档 `CAD for Robotics - Intro to Onshape - FTC`（`659db894…`），
+  Parts element `eb2b4354…`；UI 树 `Sketch 1 → Extrude 1`、1 part
+  `Flat Spacer`；已采集 features 给出精确同心圆 Ø19.05/Ø7.874 mm 与
+  0.1 in 拉伸，无 Onshape mass 数据。
+- 私有 `live-specs/ftc-flat-spacer.json`；真栈 **600.267 vs 解析
+  600.274 mm³（0.001%）**、1 body、2 特征 status=0、push+冷重开；
+  expected 为解析值（π(9.525²−3.937²)×2.54），已在 spec notes 标注。
+  live spec 总数 **14**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
