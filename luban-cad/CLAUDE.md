@@ -285,8 +285,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   keyhole（R25 + R12.5 + 两切线，NEW 20 mm）；整圆+直线混合轮廓只识别出
   大圆（39,269.699，−53.9%），按采集曲线重建显式圆弧+闭合切线后真栈
   **85,157.178 vs 85,157.342 mm³（0.000%）**、1 body、3 特征 status=0、
-  push+冷重开。live runner 现 15 spec（16 项含 setup；14 个旧/新 spec
-  已逐个真栈通过；全量套件在 MS 429 窗口内会因限流失败，非代码回归）。
+  push+冷重开。
+  **批次 12（Frame 侧向孔轴）**：throughAll 只沿草图法向单向切除；把端盖
+  孔/两个 world-Z 侧向孔/一个 world-Y 侧向孔放到 body 外侧的辅助草图平面，
+  重建为 3 草图 + 3 hole 特征 → 真栈 **1,429,774.692 vs 1,422,701.032 mm³
+  （+0.497%，原 +0.930%）**、1 body、9 特征全 status=0、push+冷重开；剩余
+  偏差疑似重复 mateConnector 的额外/不同深度孔，未凭空加孔。live runner
+  现 15 spec（16 项含 setup；14 个旧/新 spec 已逐个真栈通过；全量套件在
+  MS 429 窗口内会因限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。
