@@ -70,6 +70,12 @@
   `draftAngleDeg` 透传。公共回归 `e2e/examples/live-extrude-extra.spec.ts`：
   10×10 深度 10 + 第二方向 5 → **1500.000 mm³**；10×10 深度 10、拔模 10°
   → **1394.109 mm³**（棱台公式），均 push+冷重开。
+- imprintRegions：extrude step 可用 `{entityId, side}` 查询在运行时读
+  `getSketch` 面域并经既有 `pickImprintRegion` 解析 region 下标（与显式
+  `regions` 恰一；零/多义即失败）。`side` 沿用回退口径 outside=孔侧、
+  inside=外环侧，属近似选择。公共回归
+  `e2e/examples/live-imprint-region.spec.ts`（20×20 板带 R5 孔，圆实体
+  side=outside → 孔侧外环面域 → **3214.618 vs 3214.602 mm³**）push+冷重开。
 - featureMirror：除单源 `sourceFeatureName` 外，支持
   `sourceFeatureNames`（多源，恰一）→ 产品 `sourceFeatureIds`。公共回归
   `e2e/examples/live-feature-mirror-multi.spec.ts`：40×20×10 板 + 两个

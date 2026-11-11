@@ -19,6 +19,7 @@ import {
   getSketchRpc,
 } from '../../helpers.js';
 import { ensureExampleImodel, openExampleEditor } from '../imodel.js';
+import { pickImprintRegion } from '../replay/imprint-region.js';
 import { resolveLiveEdgeRefs } from './edge-select.js';
 import { resolveLiveShellFaceRefs } from './face-select.js';
 import type { LiveSpec } from './live-spec.js';
@@ -151,6 +152,27 @@ export async function runLiveSpec(
     if (step.kind === 'extrude') {
       const sketchId = sketchIdByName.get(step.sketchName);
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
+      if (step.regions !== undefined && step.imprintRegions !== undefined)
+        throw new Error(`${spec.id}/${step.name}: regions/imprintRegions 须恰一`);
+      let regions = step.regions ?? [0];
+      if (step.imprintRegions !== undefined) {
+        if (step.imprintRegions.length === 0)
+          throw new Error(`${spec.id}/${step.name}: imprintRegions 为空`);
+        const sketch = await getSketchRpc(ctx, sketchId, token);
+        const picked: number[] = [];
+        for (const query of step.imprintRegions) {
+          const hit = pickImprintRegion(sketch?.regions, query.entityId, query.side);
+          if (!hit)
+            throw new Error(
+              `${spec.id}/${step.name}: imprint 查询 entity=${query.entityId} side=${query.side ?? 'auto'} 无唯一面域`,
+            );
+          picked.push(hit.regionIndex);
+          notes.push(
+            `${step.name}: imprint entity=${query.entityId} → region ${hit.regionIndex} (${hit.basis})`,
+          );
+        }
+        regions = [...new Set(picked)];
+      }
       let targetBodyIds: string[] | undefined;
       let targetBodyId: string | undefined;
       if ((step.targetBodyFeatureNames?.length ?? 0) > 0) {
@@ -177,7 +199,7 @@ export async function runLiveSpec(
           profile: [],
           distance: step.depthMm,
           sketchId,
-          regions: step.regions ?? [0],
+          regions,
           ...(step.operation ? { operation: step.operation } : {}),
           ...(step.extraParams ?? {}),
         },

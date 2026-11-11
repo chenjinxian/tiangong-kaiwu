@@ -70,6 +70,9 @@ export interface LiveExtrudeStep {
   depthMm: number;
   operation?: 'new' | 'add' | 'remove' | 'intersect';
   regions?: number[];
+  /** 按草图实体 side（Onshape imprint 查询）解析 region 下标，与 regions 恰一。
+   * side 采用 replay 回退口径：outside=孔侧、inside=外环侧；命中不唯一即失败。 */
+  imprintRegions?: { entityId: number; side?: 'inside' | 'outside' }[];
   /** 多 body throughAll REMOVE：按这些前序特征各自创建的 body 显式锚定
    * （v1.68 targetBodyIds 单特征逐体求值）。 */
   targetBodyFeatureNames?: string[];

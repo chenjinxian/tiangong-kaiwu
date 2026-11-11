@@ -800,6 +800,17 @@ symmetric 互斥）。
   目标，仅验证树/体/生命周期。
 - live spec 总数 **34 → 35**。
 
+### 批次 55（2026-11-12，live imprintRegions 选择）
+
+- `LiveExtrudeStep.imprintRegions`：按草图实体 `{entityId, side}` 在运行时
+  读 `getSketch` 面域，用既有 `pickImprintRegion` 解析 region 下标；
+  与显式 `regions` 恰一，零/多义即失败。side 沿用回退口径
+  outside=孔侧 / inside=外环侧（近似，不宣称边侧精确）。
+- 公共真栈 `e2e/examples/live-imprint-region.spec.ts`：20×20 板带 R5
+  中心孔，圆实体 side=outside → 孔侧外环面域拉伸 → **3,214.618 vs
+  3,214.602 mm³**、1 body、status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **35**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
