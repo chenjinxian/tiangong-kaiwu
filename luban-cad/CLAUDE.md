@@ -225,157 +225,39 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   + 8 skipped**（含 T9h 多目标 hole 命中/未命中体保持单 BRep、冷重建一致）、
   shared **203/203**、
   scenario-to-op **59/59**；公开 spec `links-multi-remove.spec.ts`。
-- **Onshape 复刻策略切换（2026-11-11）**：features API 窗口以月/年计且离线
-  PROJECTED 无 queryString 映射，主线改为公开文档副本 + 实时 UI 特征树/对话框/
-  草图/体面属性采集，在 luban-cad 广度优先建 Part（approx 显式，strict 后置）；
-  见 `docs/superpowers/plans/2026-11-11-live-onshape-ui-replication.md`。
-  **首切片已闭环**：Postman / Brain Screen 副本 `LubanLivePostman`（copy doc
-  `07814477…`）；UI 证据（Extrude 0.02 in、0.164 in³、面 8.328 in²、
-  brain.png 471×268）→ 私有 `live-specs/postman-brain-screen.json` →
-  公共 `e2e/examples/live/*` + `live-registry.spec.ts`；luban-cad 建矩形
-  97.155×55.296 mm + 0.5 mm 拉伸，**2686.141 vs 2686.592 mm³（0.017%）**、
-  1 body、冷重开一致；Decal 非几何跳过，平面用 XY 近似（approx）。
-  **批次 2**：5 个 2-feature PS（Branching Pin、Engine Pin、Tutorial 1
-  Bushing、CAD Robotics Parts、COAP Question 2）经 converter complete 的
-  已采集 features 生成 live-spec；Pin 216,783.995 vs 216,785.294（0.001%）、
-  Bushing 3,259.620 vs 3,259.685（0.002%）、其余树/体数/冷重开通过。
-  `live-registry.spec.ts` 现 6 spec；symmetric 时忽略 oppositeDirection。
-  **批次 3（revolve）**：Tutorial 1 O-Ring 454.910 vs 454.927（0.004%）；
-  Worm Gear Shaft multi-segment revolve，因 line+line coincident 产品不支持，
-  spec `skipConstraints` 保留已解坐标（approx），树/体数/冷重开通过。
-  **批次 4（Suspension / Frame）**：UI 副本 `LubanLiveSuspension`（copy doc
-  `1f38a35f…`）；25 条直线闭合轮廓 + NEW symmetric 30 mm + Hole 1（ISO M5
-  间隙 Ø5.5 完全贯穿）；UI mass **1,422,701.03235 mm³**；live runner 新增
-  `hole` 步骤（草图 pointEntityIds），真栈 **1,435,929.669（+0.930%）**、
-  4 特征树 status=0、1 body、push+冷重开。**approx 边界**：8 个 mateConnector
-  合并为 5 个位置，侧向孔轴按拉伸法向近似（孔形/孔向不保真），约束未采集。
-  **批次 5（featureMirror）**：runner 新增 `featureMirror` 步骤（源特征名
-  运行时解析 + 任意世界平面）；DRILL HOTD / ENG_BEARING 用已采集 features：
-  Ø27.5/Ø12 同心圆 NEW symmetric 8 mm、顶盖环槽 REMOVE 2 mm、FEATURE
-  mirror（Top 平面）→ 真栈 **2590.224 vs 2590.243 mm³（0.001%）**、5 特征
-  树 status=0、1 body、push+冷重开。
-  **批次 6（UI-only 多体）**：CAD Drawings Unit 4 / Ex. 3（公开只读文档，
-  Ex. 3 element `277b4512…`）从 UI 读树 2 sketch + 2 extrude（0.5 in /
-  0.375 in）、4 零件、聚合体积 **254,433.368 mm³**；按每 part 独立草图 +
-  拉伸绕过“一个 NEW extrude 两不相交面域只产出一个 body（两 lump）”
-  的产品缺口（树 8 vs 4）；真栈 **256,683.401（+0.884%）**、**4 body**、
-  8 特征 status=0、push+冷重开。
-  **批次 7（featurePattern）**：runner 新增 `featurePattern` 步骤（linear/
-  circular、任意世界轴、第二方向）；CAD Drawings Unit 4 / Ex. 1 从只读 UI
-  读 5×1.25 in + 5×0.875 in 两方向孔阵列，10×7 in 板 + 25×Ø0.5 孔 →
-  真栈 **533,328.178 vs 531,718.538 mm³（+0.303%）**、1 body、4 特征
-  status=0、push+冷重开（Onshape 第 3 步 through-all remove 用产品 hole
-  建模，树类型 hole vs extrude 已登记）。
-  **批次 8（Ex. 2，approx 跳过圆角倒角）**：12×8 in 板（0.75 in）+ 两孔
-  + 槽 + 凸台（0.5 in add），Fillet 1（R0.5 in）/ Chamfer 1（0.2 in）因无
-  几何边选择器以 skipped 登记 → 真栈 **1,209,724.448 vs 1,187,939.713 mm³
-  （+1.834%）**、1 body、4 特征 status=0、push+冷重开。
-  **批次 9（live fillet/chamfer）**：`live/edge-select.ts` 用 dev-only
-  `readEdgeHandles`（mm 世界系）按曲线类型/方向/中点/长度唯一匹配 +
-  `resolveEdgeRef` 持久化；runner 新增 `fillet`/`chamfer` 步骤。
-  Ex. 2 升级为真实 Fillet 1（4 竖角边 R0.5 in）+ Chamfer 1（4 凸台顶边
-  0.2 in 等距离）→ 真栈 **1,202,673.243 vs 1,187,939.713 mm³（+1.240%）**、
-  1 body、6 特征 status=0、push+冷重开。Ex. 4 仍 blocked（大圆角/
-  倒角主导形状且草图尺寸未采集）。
-  **批次 10（FTC Flat Spacer）**：CAD for Robotics FTC / Parts 的
-  Ø19.05/Ø7.874 环 × 0.1 in 拉伸；真栈 **600.267 vs 解析 600.274 mm³
-  （0.001%）**、1 body、2 特征 status=0、push+冷重开（无 Onshape mass，
-  expected 为解析值并在 spec notes 标注）。
-  **批次 11（Intro Extrude Remove）**：公开只读 UI + 采集 features 的
-  keyhole（R25 + R12.5 + 两切线，NEW 20 mm）；整圆+直线混合轮廓只识别出
-  大圆（39,269.699，−53.9%），按采集曲线重建显式圆弧+闭合切线后真栈
-  **85,157.178 vs 85,157.342 mm³（0.000%）**、1 body、3 特征 status=0、
-  push+冷重开。
-  **批次 12（Frame 侧向孔轴）**：throughAll 只沿草图法向单向切除；把端盖
-  孔/两个 world-Z 侧向孔/一个 world-Y 侧向孔放到 body 外侧的辅助草图平面，
-  重建为 3 草图 + 3 hole 特征 → 真栈 **1,429,774.692 vs 1,422,701.032 mm³
-  （+0.497%，原 +0.930%）**、1 body、9 特征全 status=0、push+冷重开；剩余
-  偏差疑似重复 mateConnector 的额外/不同深度孔，未凭空加孔。
-  **批次 13（副本 + DXF + Ex. 4）**：创建副本必须在“复制文档到”区域
-  **双击“由我所有”行**（单点会让 OK 显示“待定”且不创建），随后 OK 文案
-  变为“创建公开文档”；得到 `LubanLiveDimUnit4`（doc `c7e39a98…`，
-  workspace `d1f99f24…`）。可编辑副本里右键草图 →“导出为 DXF/DWG…”
-  得到精确草图；Ex. 4 用 DXF 精确轮廓/槽 + Chamfer 0.75 in + Fillet R1 in
-  + 两个沉孔（Ø0.594/0.875 82°、Ø0.484/0.675 82°，blind 0.5 in）→ 真栈
-  **510,179.884 vs 509,763.309 mm³（+0.082%）**、1 body、7 特征全
-  status=0、push+冷重开。
-  **批次 14（Ex.1/2/3 DXF 精确）**：全部草图改由 DXF 导出（英寸→mm），
-  并用 `LIVE_DEBUG=1` 的 sketch regions 选择面域。Ex.1 12×6 板+竖槽+
-  种子圆，Extrude1 选 [0,2]、Extrude2 去圆+5×5 pattern → **531,719.415
-  vs 531,718.538 mm³（0.000%）**；Ex.2 12×8 板+槽+双孔、R0.5 四角、
-  1.75×4.5 boss、0.2 in 四顶边 → **1,184,673.352 vs 1,187,939.713
-  （−0.275%）**；Ex.3 两板（15/10 孔）+两盘（6/12 孔）拆 4 草图/拉伸 →
-  **254,433.650 vs 254,433.368（0.000%）**、**4 body**。均 push+冷重开。
-  **批次 15（COAP Q1 探测）**：副本 `LubanLiveCOAPQ1` 的 50×50×200 −
-  40×40×180 型腔 = **212,000 mm³** 已在产品精确复现；UI mass
-  205,214.15987 差值 6,785.84 对应两个 Ø12×30 孔，但点草图不导出 DXF，
-  孔位/方向未定，暂不计入 live registry。
-  **批次 16（Top, Ring, Key）**：Onshape Training 公开文档（只读，无需副本）
-  的 corpus features + raw sketches + DXF：Extrude 8 mm、Fillet R3、
-  FULL revolve 环形锥台、三位置 C_BORE Ø2.2/Ø4.4×2、两个 through-all
-  remove、1 mm 圆孔端盖 chamfer；边选择器新增**整圆弧 center/radius**
-  通道（圆端盖边）。真栈 **2,998.141 vs 2,998.143 mm³（0.000%）**、
-  1 body、12 特征全 status=0、push+冷重开。
-  **批次 17（Hand Brake Master Cylinder Piston）**：raw corpus 的
-  75×5 筒身 + R7.5 圆头草图绕底线 FULL revolve（nose 由区域
-  [0,2,3] 并集组成）+ R5 圆边 1 mm chamfer → 真栈
-  **7,125.132 vs 7,125.274 mm³（0.002%）**、1 body、3 特征全
-  status=0、push+冷重开；约束 dropped（approx）。
-  **批次 18（Creating Mate Connectors / Links）**：raw corpus 的两块
-  R10 外轮廓 + R5 孔链接板，NEW 2 mm 各一体，Ø10 通孔贯穿两体；
-  草图必须用**精确端点 + CCW 外环**产品 region 才成形（3 位小数/顺时针
-  会只剩两个圆区域）。live runner 新增 `targetBodyFeatureNames`，走
-  shared v1.68 `targetBodyIds` 单特征逐体求值 → 真栈 **21,743.327 vs
-  21,743.326 mm³（0.000%）**、**2 body**（11,704.087 / 10,039.240）、
-  3 特征全 status=0、push+冷重开。
-  **批次 19（COAP Q1 / Long Fixture Block）**：可编辑副本
-  `LubanLiveCOAPQ1`；Base Sketch DXF 50×50 + 200 symmetric NEW，
-  40×40×180 型腔（显式草图重建）→ 212,000 mm³ 精确；UI 法向视图读出
-  两侧面各两个 Ø12 通孔位（中心线，端部 25/25 mm），四个侧壁通孔
-  切 40 mm 材料；再补对齐顶/底面的 Ø12 轴向通孔（贯穿两端 10 mm
-  端盖，20 mm 材料）→ 真栈 **205,214.310 vs 205,214.160 mm³
-  （0.000%）**、1 body、10 特征 status=0、push+冷重开。型腔/轴向孔
-  用显式草图/孔特征重建 mateConnector/imprint 源，结构 approx。
-  **批次 20（Bottom Bracket）**：raw corpus 的支架旋转体 + Ø13×4.5 in
-  销 + 方形沉孔 + 16× keyway 圆周阵列；多体下 featurePattern 需显式
-  targetBodyId（live runner 新增 `featurePattern/featureMirror.
-  targetBodyFeatureName`，并在 revolve 后同样跟踪创建 body；单目标
-  自动回退 `targetBodyId`）。真栈 **78,972.042 vs 78,748.287 mm³
-  （+0.284%）**、2 body（65,281.074 / 13,690.969）、9 特征
-  status=0、push+冷重开；**Mirror 1 skipped**：featureMirror 以
-  featurePattern 为源返回 status=1，未伪造。
-  **批次 21（Hand Brake / Stirrup）**：raw corpus 的两体件：R10 圆柱
-  两向拉伸 + 中央 9 mm 槽 + R6 端部凸台 + R5/六边形端部切除 +
-  Ø8×30 对称 Pin；修正 sketchMatrix 为**跨列**取基（col0=xDir、
-  col1=yDir、col2=normal）。真栈 **14,569.425 vs 15,107.141 mm³
-  （+3.559%）**、**2 body**（Stirrup 13,061.498 / Pin 1,507.927，
-  Pin 0.000%）、12 特征 status=0、push+冷重开。**approx**：Extrude
-  4/6 与三个 Fillet 跳过（约 538 mm³ 材料差未解，未硬调参数）。
-  **批次 22（Universal Joint Flange）**：raw corpus 的 R60 圆柱 +
-  Sketch8/Sketch9 精确布尔轮廓（REMOVE region1 + INTERSECT region0
-  through-all）+ 四个 Ø22×30 顶面螺栓孔；主形 527,382.652 mm³，孔后
-  真栈 **512,749.542 vs 483,080.261 mm³（+6.142%）**、1 body、
-  8 特征 status=0、5 项 skipped、push+冷重开。**approx**：耳孔/
-  Chamfer/Fillet 与 Sketch10-imprint 的 Extrude13/14 完整行为未解；
-  仅作广度验证，不进 strict catalog。
-  **live shell 通道（2026-11-11）**：新增 `live/face-select.ts`（面
-  中心/法向/环数唯一匹配 → `resolveFaceRef`）与 `shell` step；符号
-  按产品语义 `defaultDistance=-thickness`、`distances=0`。公共回归
-  `e2e/examples/live-shell.spec.ts` 用 20×20×10 盒去顶面内缩 2 mm，
-  真栈 **1952.000 vs 1952.000 mm³（0.000%）**、status=0、push+冷重开。
-  Gaiter 已能跑通 shell（status=0）但 Fillet 1 仍 blocked-kernel，
-  15,703.926 vs 12,270.212（+27.98%），留在私有 probes，不计数。
-  **批次 24（Universal Joint Assembly）**：同一 R60 圆柱 + 布尔轮廓，
-  Sketch8 REMOVE 改选 **regions [0,1,2]**（该文档无 10094 mm² 外区），
-  Sketch9 INTERSECT region0；主形 644,949.965，补四个 Ø22×30 底面
-  孔 → 真栈 **611,821.341 vs 602,047.386 mm³（+1.623%）**、1 body、
-  8 特征 + 6 skipped status=0、push+冷重开。**approx**：Chamfer 10、
-  Ø6.5 耳孔、mate connector、Fillet 1 跳过。
-  **批次 25（Universal Joint Assembly Drawing）**：同族另一变体，复用
-  Assembly 的区域/底面孔方案；真栈 **611,838.521 vs 602,231.245 mm³
-  （+1.595%）**、1 body、8 特征 + 6 skipped status=0、push+冷重开。
-  live runner 现 25 spec（26 项含 setup；全量套件在 MS 429 窗口内会因
-  限流失败，非代码回归）。
+- **Onshape 复刻实时 UI/语料通道（2026-11-11）**：features API 限流以月/年计，
+  主线改为公开文档副本 + UI 采集（特征树/对话框/测量/DXF）与私有 corpus
+  `features.json`+`sketches.json`+`massproperties.per-part.json` → 私有
+  `live-specs/*.json` → 公共 `e2e/examples/live/*` + `live-registry.spec.ts`。
+  逐例进度/体积结果只维护在私有 `docs/LIVE-UI-SPECS.md` 与
+  `docs/superpowers/plans/2026-11-11-live-onshape-ui-replication.md`；本文件
+  只保留可复用规则与经验。
+
+  **操作规则**：
+  - 副本：公开只读文档点“创建副本以编辑”，填名后在“复制文档到”**双击
+    “由我所有”行**；单点 OK 显示“待定”且不创建；等待创建完成再关页。
+  - 精确草图：可编辑副本右键草图 → 导出 DXF/DWG → DXF；单位按文档
+    （英寸/毫米），点草图不导出实体。
+  - corpus 草图：sketchMatrix 是**世界基跨列**（col0=xDir、col1=yDir、
+    col2=normal；平移 12..14），米→mm。外环必须用精确端点并保持 **CCW**；
+    3 位小数或顺时针会让 region 只识别圆区域（Links 实测）。
+  - region：先 `LIVE_DEBUG=1` 读产品 sketch regions（area/outer/hole ids），
+    再按面积/实体 id 选 `regions`；多面域 NEW 可能合并 body（必要时按 part 拆）。
+  - 多体：through-all REMOVE / 多目标边用 shared v1.68 `targetBodyIds`；live 侧
+    用 `targetBodyFeatureNames` / `targetBodyFeatureName`，单目标自动退化
+    `targetBodyId`；revolve 后同样跟踪创建 body。featurePattern 需显式目标
+    body；featureMirror 以 featurePattern 为源当前 status=1（不伪造）。
+  - 边/面：`live/edge-select.ts` 支持 line/arc + 整圆弧 center/radius；
+    `live/face-select.ts` 支持面 center/normal/loopCount；唯一匹配后
+    resolveEdgeRef / resolveFaceRef；shell 产品语义 `defaultDistance=-thickness`
+    （内缩）、`distances=0`（公共回归 `e2e/examples/live-shell.spec.ts`）。
+  - 孔：草图 point/顶点，沉头/埋头/通孔字段已透传；mateConnector 型孔位需
+    显式重建并注明 approx。
+  - 限流：MS 100 req/15min；429 按 retry-after 等待，单测/全量可能失败但
+    不是代码回归；不得绕限流。
+  - 边界：approx 不进 strict `/examples`；内核/选择器/证据不足一律 skipped
+    或 parked 到私有 `live-probes/`，不造假、不改深度硬凑体积。
+
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

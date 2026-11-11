@@ -476,6 +476,15 @@ symmetric 互斥）。
   8 特征 + 6 skipped status=0、push+冷重开；同一近似边界。
 - live spec 总数 **25**。
 
+### 批次 26（2026-11-11，Universal Joint Drawing）
+
+- 该变体 R60.325 圆柱（31.75+120.65）；Sketch8 只有 1 个面域，REMOVE
+  region0；Sketch9 INTERSECT region0。
+- 主布尔形 **718,899.246 vs 685,170.906 mm³（+4.923%）**、1 body、
+  6 特征 + 4 skipped status=0、push+冷重开。
+- **approx**：C_BORE/SIMPLE Ø0.266 孔、Chamfer 10、Mirror 1 跳过；
+  不进 strict catalog。live spec 总数 **26**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
