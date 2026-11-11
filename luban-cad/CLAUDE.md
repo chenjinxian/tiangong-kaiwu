@@ -225,6 +225,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   + 8 skipped**（含 T9h 多目标 hole 命中/未命中体保持单 BRep、冷重建一致）、
   shared **203/203**、
   scenario-to-op **59/59**；公开 spec `links-multi-remove.spec.ts`。
+- **Onshape 复刻策略切换（2026-11-11）**：features API 窗口以月/年计且离线
+  PROJECTED 无 queryString 映射，主线改为公开文档副本 + 实时 UI 特征树/对话框/
+  草图/体面属性采集，在 luban-cad 广度优先建 Part（approx 显式，strict 后置）；
+  见 `docs/superpowers/plans/2026-11-11-live-onshape-ui-replication.md`。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。

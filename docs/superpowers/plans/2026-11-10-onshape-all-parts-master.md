@@ -1,4 +1,9 @@
-# Onshape 全量 Part 复刻总计划（2026-11-10）
+# Onshape 全量 Part 复刻总计划
+
+> **2026-11-11 策略切换**：features API 限流窗口以月/年计，且离线 PROJECTED
+> 约束无 queryString 映射。主线改为**公开文档创建副本 + 实时 UI 分析**，按
+> `docs/superpowers/plans/2026-11-11-live-onshape-ui-replication.md` 执行；
+> 本计划的 A 阶段 API 采集降为可选补充，B/C 阶段能力与批次仍适用。（2026-11-10）
 
 > **执行方式**：本计划是 `2026-11-09-ps-blocker-driven.md` 与
 > `2026-11-09-ps-blocker-next.md` 的全量扩展。数据采集与能力实现并行推进；

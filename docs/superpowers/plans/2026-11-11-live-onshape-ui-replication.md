@@ -1,0 +1,144 @@
+# Onshape 实时 UI 副本复刻计划（2026-11-11 策略切换）
+
+**状态**：已立项，替代“API 全量采集后再建”的主线；2026-11-11 起执行。
+
+## 1. 背景与裁决
+
+Onshape features API 的 429 窗口已到约 21 小时，且现有 317 个带 features 的
+Part Studio 中仍有大量缺口；6244 条 PROJECTED 约束的 `external0` 查询
+`queryString` 全为空，只有 deterministicIds，converter 无法从离线数据恢复。
+按原路线补齐全部 1685 个 PS 可能要以月/年计。
+
+用户 2026-11-11 裁决：
+
+> 直接打开 Onshape 并创建副本进入编辑模式，分析每个 Part 的特征树、草图和
+> 约束，在 luban-cad 中创建对应 Part；UI 可显示的体/面几何属性一并记录。
+> 先做出来验证全套技术方案和 BRepCore，无法与 Onshape 完全一致没关系，
+> 后续再慢慢对比验证。
+
+因此本计划的目标改为**广度优先的可复刻示例实现**，严格对拍降级为后续验证，
+不把 approximate 结果冒充 strict。
+
+## 2. 口径
+
+### 纳入
+
+- 公开、可创建副本的 Onshape 文档中的 Part Studio。
+- 原生草图 + 标准特征；一个 Part Studio 的多 body 全部保留。
+- 每个复刻结果有：特征树类型/顺序、草图来源、逐 body 数、近似体积/包围盒、
+  截图、实现状态和缺口登记。
+- 允许近似：草图/约束/尺寸无法从 UI 精确读取时，用可复现的近似并明确标记；
+  不得静默丢特征或把近似标成 strict。
+
+### 排除
+
+- 修改公开原文档；只在副本中操作。
+- 用 STEP/Parasolid 导入代替特征树复刻（P0-01/P0-09 边界）。
+- 私有/无权限文档；装配/工程图本身（只复刻其中独立 Part Studio）。
+- API 批量抓取作为主路径；API 仅保留为可选补充，不绕过限流。
+
+### 状态
+
+- `exact`：特征树/草图/几何均由 UI 证据还原，体积/体数在约定容差内。
+- `approx`：特征树按 UI 还原，草图/尺寸/选择器有明确近似或缺失，几何可运行。
+- `blocked-*`：缺少产品特征/内核能力/UI 证据；必须登记，不伪造。
+
+`/examples` 公共目录仍只收 strict；`approx` 先进入私有 live registry，
+通过严格对比后再升级公共目录。
+
+## 3. 流水线
+
+### L0 会话与副本（人工登录一次）
+
+- 使用 `D:\ChromeProfiles\onshape-capture` CDP Chrome（9222）；账号密码不由
+  仓库/脚本保存，登录由用户在该窗口完成。
+- 每个公开文档只创建**一个**可编辑副本，记录 `docId → copyDocId/copyUrl/
+  copiedAt/owner` 到私有 `staging/live-copies.json`（幂等；已存在则复用）。
+- 副本统一放在专用文件夹（例如 `LubanCAD live examples`），不污染原文档。
+- UI 操作限速：单标签串行、无并发复制；遇 429/弹窗按页面实际提示停批。
+
+### L1 特征树与对话框采集
+
+对副本的每个 Part Studio：
+
+1. 打开 Part Studio，等待特征树稳定；采集特征行（名称/类型图标/顺序/
+   suppressed/错误标记）。
+2. 逐个特征打开编辑对话框，采集 `.os-parameter-list-item` 的
+   `parameterId/label/value/selection`、tab、截图；Escape 取消，不写副本。
+3. 采集草图入口截图；尽量展开“显示约束”，记录约束图标/尺寸标注；如有
+   “导出 DXF/草图”入口则使用 UI 导出，作为草图几何的精确来源。
+4. 采集最终体/面属性：Measure/Properties 的逐 body 体积、包围盒、面数、
+   面积、质心；截图。
+5. 产物写入私有 `live/<docId>/<elementId>/`：`tree.json`、`dialogs.json`、
+   `sketch-*.png/dxf`、`body-properties.json`、`screenshots/`。
+
+### L2 归一化
+
+新增私有 `tools/live/normalize-live-spec.mjs`，把 L1 产物转成
+`live-spec.json`（schema 复用 ParityScenario 的 feature 形状，新增
+`provenance.mode: "live-ui"`、`feature.status`、`approxReasons`）。
+草图几何优先来自 DXF/UI 实体；缺失坐标时按截图/尺寸近似并登记。
+
+### L3 luban-cad 建 Part
+
+新增公共 `apps/web/e2e/examples/live/`：
+
+- `build-live-spec.ts`：读 live-spec，经现有 FeatureOp/RPC 建 iModel +
+  Part Studio；草图用 `insertSketch`，特征用 `insertFeature`；每个步骤记录
+  实际 featureId/status。
+- 不支持的特征/选择器 → 停止该 Part，登记 `blocked-capability`，不丢步骤。
+- 允许“近似几何”步骤，但必须写入 `approxReasons`，且不得用 strict 断言。
+
+### L4 验证与目录
+
+- 硬门：树类型/顺序、status=0、body 数；软门：逐体体积/包围盒偏差、面数。
+- 每例输出截图、tree/body 证据、spec hash、验证时间。
+- 私有 live registry 记录 `exact/approx/blocked`；公共 `/examples` 只升级
+  通过严格对拍的例子。
+- 不修改既有 22 个 strict 示例的断言。
+
+## 4. 批次顺序
+
+1. **L-first（先做 5 个）**：≤5 特征、1 body、无 import/sheet metal/
+   custom FeatureScript。优先从现有 index 的 `geometry-ready` 和简单
+   `blocked-converter` 中选，例如 Postman / Brain Screen、Intro to CAD
+   Extrude Remove、O-Ring 类小件。
+2. **L-core**：现有 22 个 strict 示例之外的简单原生 PS，按特征数/体数升序。
+3. **L-gap**：按缺失特征频次推进 draft/rib/deleteBodies/moveFace/splitPart/
+   PROJECTED 等；每补一个能力，重跑受影响批次。
+4. **L-wide**：多 PS 文档、多 body、较大特征树；先做打开/复制/截图性能基线。
+5. **L-strict**：对已实现的 approx 例逐批做严格对拍，升级公共目录。
+
+## 5. 首个纵向切片（立即执行）
+
+目标：**Postman / Brain Screen**（Sketch 1 → Extrude 1 → Decal 1，1 body，
+目标约 2686.59 mm³；公开文档 `30416b6b359a60a141297ad9`，PS
+`33a4bc9ff219a1b984926eb4`）。
+
+步骤：
+
+1. 在 CDP Chrome 登录 Onshape（人工），复制该文档到 live 文件夹。
+2. 采集特征树、Extrude 1 对话框、草图截图/DXF、最终 body 属性。
+3. 归一化 live-spec；在 luban-cad 建 Part Studio；
+   `decal` 作为非几何跳过并登记。
+4. 验证：树 `sketch/extrude/(decal skipped)`、1 body、体积/包围盒近似；
+   截图 + 证据入私有 live registry。
+5. 记录 UI 选择器/复制流程中遇到的问题，固化 `tools/live/*`。
+
+## 6. 风险与门禁
+
+- **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
+- **复制配额/文档所有权**：副本只建在专用文件夹；重复运行必须复用映射。
+- **UI 变化**：Onshape DOM 可能更新；选择器集中在 `tools/lib/onshape-ui.mjs`，
+  失败时截图并停批，不盲改。
+- **草图精度**：UI 尺寸/约束可能不完整；approx 必须显式，先用几何形状与
+  体数验证 BRepCore，后续再补严格对比。
+- **P0**：仍走 FeatureOp/标准事务；不改公开原文档；不引入第二套建模管道。
+- **提交**：只提交代码/脱敏文档；原始截图/坐标/副本 id 留私有仓。
+
+## 7. 交付指标
+
+- 新增 `approx` 示例数、逐例树/体数/体积偏差。
+- 由 live UI 证据覆盖的特征类型/草图实体/约束统计。
+- 因产品能力或内核阻塞的 feature 清单（用于 B5/B7 优先级）。
+- 至少 1 个 live 示例完成“复制→采集→建 Part→验证→证据”闭环后，再扩批。
