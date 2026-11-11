@@ -415,6 +415,11 @@ symmetric 互斥）。
   （65,281.074 +0.69% / 13,690.969 −1.63%）、9 特征 status=0、
   push+冷重开。**Mirror 1 skipped**：产品 featureMirror 以
   featurePattern 为源为 status=1，未伪造。
+- 后续改进：用显式镜像草图 + 镜像 Extrude + 第二个 16× pattern 重建
+  Mirror1 的 16 个镜像 keyway（featureMirror→pattern 和 pattern→
+  featureMirror 都 status=1）；真栈 **78,521.673 vs 78,748.287
+  （−0.288%）**、bracket **64,830.704 vs 64,831.091（0.0006%）**、
+  pin 13,690.969（−1.63%）、12 特征 status=0、push+冷重开。
 - live spec 总数 **21**。
 
 ### 批次 21（2026-11-11，Hand Brake / Stirrup）
