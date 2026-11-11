@@ -509,6 +509,15 @@ symmetric 互斥）。
 - 该通道用于后续 Crank/Chainring、多体 Part Studio 等含 booleanBodies 的示例；
   本身不新增示例计数，live spec 总数仍 **27**。
 
+### 批次 29（2026-11-11，live transform 通道）
+
+- runner 新增 `transform` step：translation/rotation/scale/scaleAxes/scaleOrigin/
+  copy 原样透传，可选 `targetBodyFeatureName` 解析 bodyKey → `targetBodyId`。
+- 公共真栈回归 `e2e/examples/live-transform.spec.ts`：20×20×10 盒 +X 平移 30 mm →
+  **4000.000 mm³**、1 body、质心 (30,0,5)、status=0、push+冷重开。
+- 用于 Onshape `transform` 型示例（语料 48 个特征）；本身不新增示例计数，
+  live spec 总数仍 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

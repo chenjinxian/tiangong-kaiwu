@@ -47,6 +47,7 @@ export async function runLiveSpec(
       || (step.kind === 'featurePattern' && step.targetBodyFeatureName !== undefined)
       || (step.kind === 'featureMirror' && step.targetBodyFeatureName !== undefined)
       || (step.kind === 'shell' && step.targetBodyFeatureName !== undefined)
+      || (step.kind === 'transform' && step.targetBodyFeatureName !== undefined)
       || step.kind === 'booleanBodies',
   );
   const notes: string[] = [];
@@ -329,6 +330,39 @@ export async function runLiveSpec(
           operation: step.operation,
           keepTools: step.keepTools ?? false,
         },
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'transform') {
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0]!;
+      }
+      if (
+        !step.translation && !step.rotation
+        && step.scale === undefined && !step.scaleAxes
+      )
+        throw new Error(`${spec.id}/${step.name}: transform 至少一个平移/旋转/缩放`);
+      const params = {
+        ...(step.translation ? { translation: step.translation } : {}),
+        ...(step.rotation ? { rotation: step.rotation } : {}),
+        ...(step.scale !== undefined ? { scale: step.scale } : {}),
+        ...(step.scaleAxes ? { scaleAxes: step.scaleAxes } : {}),
+        ...(step.scaleOrigin ? { scaleOrigin: step.scaleOrigin } : {}),
+        ...(step.copy !== undefined ? { copy: step.copy } : {}),
+      };
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'transform',
+        params,
+        ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);

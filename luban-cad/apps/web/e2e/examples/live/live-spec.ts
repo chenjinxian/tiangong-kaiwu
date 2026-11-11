@@ -140,6 +140,24 @@ export interface LiveChamferStep {
   note?: string;
 }
 
+export interface LiveTransformStep {
+  kind: 'transform';
+  name: string;
+  translation?: { x: number; y: number; z: number };
+  rotation?: {
+    axisOrigin?: { x: number; y: number; z: number };
+    axisDirection: { x: number; y: number; z: number };
+    angleDeg: number;
+  };
+  scale?: number;
+  scaleAxes?: { x: number; y: number; z: number };
+  scaleOrigin?: { x: number; y: number; z: number };
+  copy?: boolean;
+  /** 多 body 时显式目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName?: string;
+  note?: string;
+}
+
 export interface LiveBooleanBodiesStep {
   kind: 'booleanBodies';
   name: string;
@@ -180,6 +198,7 @@ export type LiveStep =
   | LiveChamferStep
   | LiveShellStep
   | LiveBooleanBodiesStep
+  | LiveTransformStep
   | LiveSkippedStep;
 
 export interface LiveSpec {

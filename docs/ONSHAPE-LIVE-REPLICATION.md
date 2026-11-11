@@ -55,6 +55,11 @@
   解析各特征创建的 bodyKey，构造 `BodyRef[]`，支持 unite/subtract/intersect
   与 keepTools。公共回归 `e2e/examples/live-boolean-bodies.spec.ts`（20×20×10
   盒与 10×10×10 盒 unite，4500 mm³）验证全链与冷重开。
+- transform：live step 支持 translation/rotation/scale/scaleAxes/scaleOrigin/copy，
+  可选 `targetBodyFeatureName` 锚定 body；参数原样透传标准 `transform` FeatureOp。
+  公共回归 `e2e/examples/live-transform.spec.ts`（20×20×10 盒 +X 平移 30 mm，
+  4000 mm³、质心 x=30）验证全链与冷重开。copy=true 是原件+副本 Unite（同一
+  body 多 lump），不是独立零件副本。
 
 ## 5. 运行与限流
 
