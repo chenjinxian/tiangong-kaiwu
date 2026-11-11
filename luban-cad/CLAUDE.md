@@ -344,7 +344,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （+0.284%）**、2 body（65,281.074 / 13,690.969）、9 特征
   status=0、push+冷重开；**Mirror 1 skipped**：featureMirror 以
   featurePattern 为源返回 status=1，未伪造。
-  live runner 现 21 spec（22 项含 setup；全量套件在 MS 429 窗口内会因
+  **批次 21（Hand Brake / Stirrup）**：raw corpus 的两体件：R10 圆柱
+  两向拉伸 + 中央 9 mm 槽 + R6 端部凸台 + R5/六边形端部切除 +
+  Ø8×30 对称 Pin；修正 sketchMatrix 为**跨列**取基（col0=xDir、
+  col1=yDir、col2=normal）。真栈 **14,569.425 vs 15,107.141 mm³
+  （+3.559%）**、**2 body**（Stirrup 13,061.498 / Pin 1,507.927，
+  Pin 0.000%）、12 特征 status=0、push+冷重开。**approx**：Extrude
+  4/6 与三个 Fillet 跳过（约 538 mm³ 材料差未解，未硬调参数）。
+  live runner 现 22 spec（23 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按

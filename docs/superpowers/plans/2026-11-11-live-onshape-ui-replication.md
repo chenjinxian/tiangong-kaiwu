@@ -417,6 +417,20 @@ symmetric 互斥）。
   featurePattern 为源为 status=1，未伪造。
 - live spec 总数 **21**。
 
+### 批次 21（2026-11-11，Hand Brake / Stirrup）
+
+- raw corpus 两体件：R10 圆柱两向拉伸（35 mm + 50 mm）、中央 9 mm
+  槽贯穿、R6 端部凸台、R5×30 端孔、六边形 8 mm 端部切除、
+  Ø8×30 对称 Pin。
+- 关键：sketchMatrix 是世界系基的**跨列**排列（col0=xDir、
+  col1=yDir、col2=normal），不是连续行；按此还原 Sketch3 的 y=−40
+  端部凸台与 Sketch4/5 的 y=35 端面。
+- 真栈 **14,569.425 vs 15,107.141 mm³（+3.559%）**、2 body
+  （13,061.498 / 1,507.927，Pin 0.000%）、12 特征 status=0、
+  push+冷重开。
+- **approx**：Extrude 4（销孔）/Extrude 6/Fillet 1–3 跳过；约
+  538 mm³ 材料差未解，未通过改深度硬凑。live spec 总数 **22**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
