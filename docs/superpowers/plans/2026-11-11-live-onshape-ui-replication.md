@@ -241,6 +241,20 @@ symmetric 互斥）。
 - Ex. 2/Ex. 4 需要 fillet/chamfer 边选择；live runner 尚无几何边选择器，
   列入下一能力切片（dev-only `readEdgeHandles` 可复用）。
 
+### 批次 8（2026-11-11，CAD Drawings Unit 4 / Ex. 2，approx 跳过圆角倒角）
+
+- UI：树 `Sketch 1 → Extrude 1（NEW 0.75 in）→ Fillet 1（4 边 R0.5 in）→
+  Sketch 2 → Extrude 2（NEW 0.5 in，全部合并）→ Chamfer 1（4 边 0.2 in）`，
+  1 part `Plate`；聚合体积 **1,187,939.713 mm³**；草图长边 12 in、孔/槽/
+  凸台位置按截图近似。
+- 构建：12×8 in 板 + 两个 Ø1 in 孔 + 4×1 in 槽（矩形近似）+ 4×3 in 凸台
+  （圆角省略）+ add 合并；Fillet 1 / Chamfer 1 以 `skipped` 登记（无几何
+  边选择器）。真栈 **1,209,724.448 vs 1,187,939.713（+1.834%）**、1 body、
+  4 特征树（2 sketch + 2 extrude）status=0、push+冷重开；live spec 总数 **13**。
+- Ex. 4 登记 blocked-capability：1 in 厚板 + 0.75 in 倒角 + 1 in 圆角决定
+  主体形状，跳过会使体积/形状失真；其沉头孔/螺纹孔参数已从 UI 记录，待
+  边选择器后实现。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

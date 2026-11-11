@@ -265,8 +265,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   读 5×1.25 in + 5×0.875 in 两方向孔阵列，10×7 in 板 + 25×Ø0.5 孔 →
   真栈 **533,328.178 vs 531,718.538 mm³（+0.303%）**、1 body、4 特征
   status=0、push+冷重开（Onshape 第 3 步 through-all remove 用产品 hole
-  建模，树类型 hole vs extrude 已登记）。live runner 现 12 spec（13 项含
-  setup；全量套件在 MS 429 窗口内会因限流失败，非代码回归）。
+  建模，树类型 hole vs extrude 已登记）。
+  **批次 8（Ex. 2，approx 跳过圆角倒角）**：12×8 in 板（0.75 in）+ 两孔
+  + 槽 + 凸台（0.5 in add），Fillet 1（R0.5 in）/ Chamfer 1（0.2 in）因无
+  几何边选择器以 skipped 登记 → 真栈 **1,209,724.448 vs 1,187,939.713 mm³
+  （+1.834%）**、1 body、4 特征 status=0、push+冷重开。Ex. 4（1 in 板 +
+  0.75 in 倒角 + 1 in 圆角）登记 blocked-capability，待边选择器。
+  live runner 现 13 spec（14 项含 setup；全量套件在 MS 429 窗口内会因
+  限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。
