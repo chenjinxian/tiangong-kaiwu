@@ -280,6 +280,19 @@ symmetric 互斥）。
   expected 为解析值（π(9.525²−3.937²)×2.54），已在 spec notes 标注。
   live spec 总数 **14**。
 
+### 批次 11（2026-11-11，Intro to CAD 1.2-1.4 / Extrude Remove）
+
+- 公开文档 `Intro to CAD - 1.2-1.4`（`dfc6e33c…`），Extrude Remove element
+  `caa02e4e…`；UI 树 `Sketch 1 → Extrude 1 → Sketch 2`、1 part `Part 1`；
+  已采集 features/per-part 给出精确 keyhole 草图（大圆 R25、小圆 R12.5
+  在 x=80、两条切线）与 NEW blind 20 mm；体积 **85,157.342 mm³**。
+- **区域引擎缺口**：直接提交“整圆 + 两条切线”只识别出大圆区域
+  （39,269.699 mm³，−53.9%）；产品不做整圆/直线混合轮廓的求交裁剪。
+- 按采集曲线重建**显式圆弧 + 直线**闭合环（大圆外弧 198.1°、小圆外弧
+  −171.0°、切线在切点处闭合）→ 真栈 **85,157.178 vs 85,157.342 mm³
+  （0.000%）**、1 body、3 特征树 status=0、push+冷重开。Sketch 2 保留为
+  未消费草图。live spec 总数 **15**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

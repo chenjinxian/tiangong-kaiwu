@@ -280,9 +280,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   **批次 10（FTC Flat Spacer）**：CAD for Robotics FTC / Parts 的
   Ø19.05/Ø7.874 环 × 0.1 in 拉伸；真栈 **600.267 vs 解析 600.274 mm³
   （0.001%）**、1 body、2 特征 status=0、push+冷重开（无 Onshape mass，
-  expected 为解析值并在 spec notes 标注）。live runner 现 14 spec（15 项
-  含 setup；13 个旧/新 spec 已逐个真栈通过；全量套件在 MS 429 窗口内会因
-  限流失败，非代码回归）。
+  expected 为解析值并在 spec notes 标注）。
+  **批次 11（Intro Extrude Remove）**：公开只读 UI + 采集 features 的
+  keyhole（R25 + R12.5 + 两切线，NEW 20 mm）；整圆+直线混合轮廓只识别出
+  大圆（39,269.699，−53.9%），按采集曲线重建显式圆弧+闭合切线后真栈
+  **85,157.178 vs 85,157.342 mm³（0.000%）**、1 body、3 特征 status=0、
+  push+冷重开。live runner 现 15 spec（16 项含 setup；14 个旧/新 spec
+  已逐个真栈通过；全量套件在 MS 429 窗口内会因限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。
