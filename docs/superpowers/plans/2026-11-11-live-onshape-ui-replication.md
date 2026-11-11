@@ -702,6 +702,15 @@ symmetric 互斥）。
   **16,480.000 vs 16,480.000 mm³**、1 body、7 步 status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 45（2026-11-11，live featurePattern centered）
+
+- `LiveFeaturePatternStep.centered` 与第二方向 `centered` 透传产品参数。
+- 公共真栈回归 `e2e/examples/live-feature-pattern-centered.spec.ts`：
+  80×20×10 板 + 4×4×5 凸台，线性 centered 5 实例、间距 6（位置
+  −12/−6/0/6/12）→ **16,400.000 vs 16,400.000 mm³**、1 body、5 步
+  status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

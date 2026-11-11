@@ -149,6 +149,7 @@ export interface LiveFeaturePatternSecondDirection {
   count: number;
   spacingMm: number;
   axis: { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number } };
+  centered?: boolean;
 }
 
 /** 特征阵列：阵列本 spec 前序特征的几何增量。 */
@@ -163,6 +164,7 @@ export interface LiveFeaturePatternStep {
   spacingMm?: number;
   angleDeg?: number;
   axis: { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number } };
+  centered?: boolean;
   secondDirection?: LiveFeaturePatternSecondDirection;
   /** 多 body：pattern 编辑的目标 body（该前序特征创建的 body）。 */
   targetBodyFeatureName?: string;

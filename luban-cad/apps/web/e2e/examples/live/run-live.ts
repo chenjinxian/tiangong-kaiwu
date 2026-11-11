@@ -433,11 +433,13 @@ export async function runLiveSpec(
           ...(step.spacingMm !== undefined ? { spacing: step.spacingMm } : {}),
           ...(step.angleDeg !== undefined ? { angle: step.angleDeg } : {}),
           axis: step.axis,
+          ...(step.centered !== undefined ? { centered: step.centered } : {}),
           ...(step.secondDirection
             ? {
               secondDirection: {
                 count: step.secondDirection.count,
                 spacing: step.secondDirection.spacingMm,
+                centered: step.secondDirection.centered,
                 axis: step.secondDirection.axis,
               },
             }

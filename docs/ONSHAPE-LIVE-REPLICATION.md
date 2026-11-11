@@ -67,7 +67,9 @@
 - featurePattern：同样支持多源 `sourceFeatureNames` → `sourceFeatureIds`。
   公共回归 `e2e/examples/live-feature-pattern-multi.spec.ts`：80×20×10 板 +
   两个凸台（x=−25/−20）一次线性 3 实例、间距 15 → **16480.000 mm³**、
-  1 body、status=0、push+冷重开。
+  1 body、status=0、push+冷重开。`centered` 与第二方向 `centered` 也透传：
+  `e2e/examples/live-feature-pattern-centered.spec.ts`（凸台 centered 5
+  实例、间距 6 → 位置 −12/−6/0/6/12、**16400.000 mm³**）push+冷重开。
 - transform：live step 支持 translation/rotation/scale/scaleAxes/scaleOrigin/copy，
   可选 `targetBodyFeatureName` 锚定 body；参数原样透传标准 `transform` FeatureOp。
   公共回归 `e2e/examples/live-transform.spec.ts`（20×20×10 盒 +X 平移 30 mm，
