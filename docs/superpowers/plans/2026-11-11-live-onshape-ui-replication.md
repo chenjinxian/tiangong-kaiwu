@@ -144,6 +144,24 @@ Part Studio 中仍有大量缺口；6244 条 PROJECTED 约束的 `external0` 查
   扩展到更多 ≤5 特征/1 body 的公开 PS，并把 2-feature Pin/Bushing 类
   作为批次 2。
 
+### 批次 2（2026-11-11，corpus-assisted live specs）
+
+新增 5 个 2-feature 原生 PS，使用已采集 features（converter complete）生成
+live-spec，不新增 API 采集：
+
+| 示例 | 特征 | 结果 |
+|---|---|---|
+| Exercise: Branching / Pin | Sketch Ø44.45 → 139.7 symmetric NEW | 216,783.995 vs 216,785.294（0.001%） |
+| Exercise: Engine / Pin | 同上 | 216,783.995（0.001%） |
+| Tutorial 1 / Bushing | R5 → 41.5036 symmetric NEW | 3,259.620 vs 3,259.685（0.002%） |
+| CAD for Robotics / Parts | 同心圆 → 2.54 NEW | 树/体数/冷重开通过；region 0 近似，待 UI mass |
+| COAP Question 2 / Press-Fit Cap | 24×24 → 25 NEW | 树/体数/冷重开通过；待 UI mass |
+
+`live-registry.spec.ts` 共 6 个 spec；逐例独立 iModel。symmetry 语义：
+Onshape `symmetric=true` 时忽略 `oppositeDirection`（产品 direction 与
+symmetric 互斥）。下一步扩展 live runner 的 revolve/hole 支持，并优先为
+`geometry-ready` 的 2–4 特征 PS 生成 spec。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

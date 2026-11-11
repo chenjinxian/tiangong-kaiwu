@@ -235,6 +235,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   公共 `e2e/examples/live/*` + `live-registry.spec.ts`；luban-cad 建矩形
   97.155×55.296 mm + 0.5 mm 拉伸，**2686.141 vs 2686.592 mm³（0.017%）**、
   1 body、冷重开一致；Decal 非几何跳过，平面用 XY 近似（approx）。
+  **批次 2**：5 个 2-feature PS（Branching Pin、Engine Pin、Tutorial 1
+  Bushing、CAD Robotics Parts、COAP Question 2）经 converter complete 的
+  已采集 features 生成 live-spec；Pin 216,783.995 vs 216,785.294（0.001%）、
+  Bushing 3,259.620 vs 3,259.685（0.002%）、其余树/体数/冷重开通过。
+  `live-registry.spec.ts` 现 6 spec；symmetric 时忽略 oppositeDirection。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按
   retry-after 休眠；A1/A2/A4 采集在该窗口前暂停，不绕限流、不伪造数据。
