@@ -759,6 +759,22 @@ symmetric 互斥）。
   1 body、status=0、push+冷重开。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 52（2026-11-12，Bench Vise / Spindle + Handle，approx）
+
+- 来源：`Bench Vise / SPINDLE + HANDLE, SPINDLE`
+  （`85bd160fa9e256ec1938a5e7` / `6571026a10662651ac45a3d4`），6 步 /
+  2 body：cPlane Top 偏移 84.67148、Spindle Revolve（regions [0,1]）、
+  Handle Revolve（regions [0..5]）、booleanBodies subtract（keepTools）。
+- 真栈 **31,428.512 vs 30,378.910 mm³（+3.455%）**；Spindle
+  23,212.742 vs 22,162.968（+4.739%），Handle **8,215.769 vs 8,215.942
+  （−0.002%）**；2 body、全 status=0、push+冷重开。
+- **approx**：约束整体 dropped；Spindle imprint 选择用 regions [0,1]
+  近似（[0,2] 19,208.839、[0,1,2] 27,816.275），未调参凑体积；
+  tolerance 4%。同 PS 的 EDU/Professional/Quickstart 三个文档变体已生成
+  spec 但首次批量复跑被 MS 429/会话刷新 401 打断，暂存私有 live-probes，
+  不计入本批。
+- live spec 总数 **28 → 29**（私有 `live-specs/bench-vise-spindle.json`）。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
