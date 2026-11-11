@@ -490,6 +490,15 @@ symmetric 互斥）。
 - **approx**：C_BORE/SIMPLE Ø0.266 孔、Chamfer 10、Mirror 1 跳过；
   不进 strict catalog。live spec 总数 **26**。
 
+### 批次 27（2026-11-11，Motor Mount）
+
+- raw corpus：127×127×0.75 in 基板 + 0.75 in 立墙 + 两个精确
+  Ø9/16 / Ø3/8 贯穿孔；Rib 1 为 live runner 未支持特征，用其对角线
+  轮廓重建 0.5 in 三角加强筋。
+- 真栈 **577,390.183 vs 596,209.009 mm³（−3.156%）**、1 body、
+  status=0、push+冷重开；Chamfer/Fillet 跳过，approx 不进 strict。
+- live spec 总数 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
