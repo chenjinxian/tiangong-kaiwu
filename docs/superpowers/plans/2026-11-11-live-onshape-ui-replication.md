@@ -55,6 +55,8 @@ Part Studio 中仍有大量缺口；6244 条 PROJECTED 约束的 `external0` 查
 - 每个公开文档只创建**一个**可编辑副本，记录 `docId → copyDocId/copyUrl/
   copiedAt/owner` 到私有 `staging/live-copies.json`（幂等；已存在则复用）。
 - 副本统一放在专用文件夹（例如 `LubanCAD live examples`），不污染原文档。
+  首个副本 `LubanLivePostman` 暂放在“由我所有”根（复制对话框需先点选
+  “由我所有”行才能启用确认）；后续批次先建专用文件夹并复用映射。
 - UI 操作限速：单标签串行、无并发复制；遇 429/弹窗按页面实际提示停批。
 
 ### L1 特征树与对话框采集
