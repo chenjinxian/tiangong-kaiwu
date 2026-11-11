@@ -112,11 +112,24 @@ export async function runLiveSpec(
       }
       if (!plane)
         throw new Error(`${spec.id}/${step.name}: 须提供 plane 或 planeFeatureName`);
+      const projections = step.projections?.map((projection) => {
+        const sourceSketchId = sketchIdByName.get(projection.sourceSketchName);
+        if (!sourceSketchId)
+          throw new Error(
+            `${spec.id}/${step.name}: 找不到投影源草图 ${projection.sourceSketchName}`,
+          );
+        return {
+          sourceSketchId,
+          sourceEntityId: projection.sourceEntityId,
+          entityId: projection.entityId,
+        };
+      });
       const id = await apply({
         kind: 'insertSketch',
         entities: step.entities,
         constraints: spec.skipConstraints === true ? [] : step.constraints,
         plane,
+        ...(projections?.length ? { projections } : {}),
       }, step.name);
       sketchIdByName.set(step.name, id);
       featureIdByName.set(step.name, id);

@@ -57,6 +57,8 @@ export interface LiveSketchStep {
   planeFeatureName?: string;
   entities: SketchEntityDto[];
   constraints: SketchConstraintDto[];
+  /** 草图→草图投影（产品仅支持平行平面上的 line/circle/arc/point 源实体）。 */
+  projections?: { sourceSketchName: string; sourceEntityId: number; entityId: number }[];
   note?: string;
 }
 

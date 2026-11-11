@@ -671,6 +671,17 @@ symmetric 互斥）。
   push+冷重开（期间一次 MS 429 自动按 retry-after 重试）。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 42（2026-11-11，live sketch→sketch 投影通道）
+
+- `LiveSketchStep.projections`：`sourceSketchName` → 前序草图 featureId，
+  透传产品 `insertSketch.projections`（平行平面 line/circle/arc/point）。
+- 公共真栈回归 `e2e/examples/live-sketch-projection.spec.ts`：R10 整圆投影
+  到 z=10 草图再拉伸 10 → **3,141.561 vs 3,141.593 mm³**、1 body、status=0、
+  push+冷重开（2 passed，1.6 min）。
+- 已知边界：4 条矩形边的连续投影 id 在**第 3 个**报 `投影实体 id 冲突`
+  （试过 1..4 与 101..104）；本回归只覆盖单实体投影，多段投影 id 分配待查。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
