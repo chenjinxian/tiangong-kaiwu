@@ -342,6 +342,16 @@ symmetric 互斥）。
   **254,433.650 vs 254,433.368 mm³（0.000%）**、**4 body**、8 特征。
 - 三个 spec 均 push+冷重开一致；Ex.1/2/3 的截图近似版本已被精确版本替换。
 
+### 批次 15（2026-11-11，副本流程复用到 COAP Q1）
+
+- 用同一 double-click 流程创建 `LubanLiveCOAPQ1`（doc `5889c03a…`，
+  workspace `50e0d584…`）；Base Sketch 导出 DXF 精确坐标。
+- 探测：50×50×200 实体 − 40×40×180 型腔 = **212,000 mm³**，与产品
+  region [0,1,2] / [0] 实测完全一致；UI mass **205,214.15987 mm³**，
+  差值 **6,785.84 mm³** 恰为 2 个 Ø12×30 孔。
+- 两个 “Outside Face Holes Sketch” 仅含点，DXF 不导出点；孔位/方向待
+  UI 证据，COAP Q1 暂不计入 live registry（base/cavity 已可复现）。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
