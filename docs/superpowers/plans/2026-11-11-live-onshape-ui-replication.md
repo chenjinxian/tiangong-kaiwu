@@ -529,6 +529,15 @@ symmetric 互斥）。
 - 用于 Onshape `splitPart` 型示例（语料 125 个特征）；本身不新增示例计数，
   live spec 总数仍 **27**。
 
+### 批次 31（2026-11-11，live moveFace 通道）
+
+- runner 新增 `moveFace` step：面选择器（center/normal/loopCount）→
+  resolveFaceRef，`distanceMm` 或逐面 `distancesMm`，可选目标 body。
+- 公共真栈回归 `e2e/examples/live-move-face.spec.ts`：20×20×10 盒顶面 +5 mm →
+  **6000.000 mm³**、1 body、质心 (10,10,7.5)、status=0、push+冷重开。
+- 用于 Onshape `moveFace` 型示例（语料 160 个特征）；本身不新增示例计数，
+  live spec 总数仍 **27**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

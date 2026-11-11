@@ -49,6 +49,7 @@ export async function runLiveSpec(
     if (step.kind === 'featurePattern' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'featureMirror' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'shell' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
+    if (step.kind === 'moveFace' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'transform' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'splitPart' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'booleanBodies') {
@@ -390,6 +391,36 @@ export async function runLiveSpec(
           plane: step.plane,
           ...(step.offsetMm !== undefined ? { offsetMm: step.offsetMm } : {}),
           keepSide: step.keepSide,
+        },
+        ...(targetBodyId ? { targetBodyId } : {}),
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'moveFace') {
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0]!;
+      }
+      if ((step.distanceMm === undefined) === (step.distancesMm === undefined))
+        throw new Error(`${spec.id}/${step.name}: distanceMm/distancesMm 须恰一`);
+      const resolved = await resolveLiveShellFaceRefs(page, ctx, token, step.faces, targetBodyId);
+      if (resolved.bodyKeys.length !== 1)
+        throw new Error(`${spec.id}/${step.name}: 面跨 ${resolved.bodyKeys.length} 个 body，须恰 1`);
+      notes.push(`${step.name}: ${resolved.notes.join('; ')}`);
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: 'moveFace',
+        params: {
+          faces: resolved.refs,
+          ...(step.distanceMm !== undefined ? { distanceMm: step.distanceMm } : {}),
+          ...(step.distancesMm ? { distancesMm: step.distancesMm } : {}),
         },
         ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);

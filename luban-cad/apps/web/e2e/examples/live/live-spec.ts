@@ -158,6 +158,20 @@ export interface LiveTransformStep {
   note?: string;
 }
 
+/** moveFace：持久面引用沿外法向偏移（正外扩/负内缩）。 */
+export interface LiveMoveFaceStep {
+  kind: 'moveFace';
+  name: string;
+  faces: LiveFaceSelector[];
+  /** 单一距离广播到全部面（与 distancesMm 恰一）。 */
+  distanceMm?: number;
+  /** 逐面距离（与 distanceMm 恰一）。 */
+  distancesMm?: number[];
+  /** 多 body 时显式目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName?: string;
+  note?: string;
+}
+
 /** splitPart：世界基准平面单侧切割（产品首切片，双侧/面驱动未接）。 */
 export interface LiveSplitPartStep {
   kind: 'splitPart';
@@ -209,6 +223,7 @@ export type LiveStep =
   | LiveFilletStep
   | LiveChamferStep
   | LiveShellStep
+  | LiveMoveFaceStep
   | LiveSplitPartStep
   | LiveBooleanBodiesStep
   | LiveTransformStep

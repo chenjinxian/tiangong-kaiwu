@@ -63,6 +63,10 @@
 - splitPart：live step 支持 XY/YZ/XZ + offsetMm + keepSide + 可选目标 body；
   公共回归 `e2e/examples/live-split-part.spec.ts`（20×20×10 盒 YZ x=0 保留
   正侧，2000 mm³、质心 x=5）验证全链与冷重开。双侧/面驱动仍是产品缺口。
+- moveFace：live step 复用面选择器（center/normal/loopCount），透传
+  `distanceMm` 或逐面 `distancesMm`，可选目标 body；公共回归
+  `e2e/examples/live-move-face.spec.ts`（20×20×10 盒顶面 +5 mm，6000 mm³、
+  质心 z=7.5）验证全链与冷重开。
 
 ## 5. 运行与限流
 
