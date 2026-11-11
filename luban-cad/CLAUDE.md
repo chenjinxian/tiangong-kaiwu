@@ -321,7 +321,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   [0,2,3] 并集组成）+ R5 圆边 1 mm chamfer → 真栈
   **7,125.132 vs 7,125.274 mm³（0.002%）**、1 body、3 特征全
   status=0、push+冷重开；约束 dropped（approx）。
-  live runner 现 18 spec（19 项含 setup；全量套件在 MS 429 窗口内会因
+  **批次 18（Creating Mate Connectors / Links）**：raw corpus 的两块
+  R10 外轮廓 + R5 孔链接板，NEW 2 mm 各一体，Ø10 通孔贯穿两体；
+  草图必须用**精确端点 + CCW 外环**产品 region 才成形（3 位小数/顺时针
+  会只剩两个圆区域）。live runner 新增 `targetBodyFeatureNames`，走
+  shared v1.68 `targetBodyIds` 单特征逐体求值 → 真栈 **21,743.327 vs
+  21,743.326 mm³（0.000%）**、**2 body**（11,704.087 / 10,039.240）、
+  3 特征全 status=0、push+冷重开。
+  live runner 现 19 spec（20 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按

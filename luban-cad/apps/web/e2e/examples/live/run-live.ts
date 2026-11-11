@@ -40,7 +40,9 @@ export async function runLiveSpec(
   const featureIdByName = new Map<string, string>();
   const bodyKeysByFeatureName = new Map<string, string[]>();
   const needsBodyTracking = spec.steps.some(
-    (step) => step.kind === 'hole' && step.targetBodyFeatureName !== undefined,
+    (step) =>
+      (step.kind === 'hole' && step.targetBodyFeatureName !== undefined)
+      || (step.kind === 'extrude' && (step.targetBodyFeatureNames?.length ?? 0) > 0),
   );
   const notes: string[] = [];
 
@@ -84,6 +86,21 @@ export async function runLiveSpec(
     if (step.kind === 'extrude') {
       const sketchId = sketchIdByName.get(step.sketchName);
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
+      let targetBodyIds: string[] | undefined;
+      if ((step.targetBodyFeatureNames?.length ?? 0) > 0) {
+        const keys: string[] = [];
+        for (const featureName of step.targetBodyFeatureNames ?? []) {
+          const bodyKeys = bodyKeysByFeatureName.get(featureName);
+          if (!bodyKeys || bodyKeys.length !== 1)
+            throw new Error(
+              `${spec.id}/${step.name}: 目标特征 ${featureName} 的新 body 数=${bodyKeys?.length ?? 0}，须恰 1`,
+            );
+          keys.push(bodyKeys[0]!);
+        }
+        targetBodyIds = [...new Set(keys)];
+        if (targetBodyIds.length !== keys.length)
+          throw new Error(`${spec.id}/${step.name}: 目标特征指向重复 body`);
+      }
       const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'extrude',
@@ -95,6 +112,7 @@ export async function runLiveSpec(
           ...(step.operation ? { operation: step.operation } : {}),
           ...(step.extraParams ?? {}),
         },
+        ...(targetBodyIds ? { targetBodyIds } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);
       if (needsBodyTracking) {

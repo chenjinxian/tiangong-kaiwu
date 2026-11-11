@@ -376,6 +376,18 @@ symmetric 互斥）。
 - 真栈 **7,125.132 vs 7,125.274 mm³（0.002%）**、1 body、3 特征树全
   status=0、push+冷重开；约束 dropped（approx）；live spec 总数 **18**。
 
+### 批次 18（2026-11-11，Creating Mate Connectors / Links）
+
+- raw corpus 的两块链接板：R10 外 stadium + R5 孔，Sketch1 y=0、Sketch2
+  y=2 mm，各 NEW 2 mm；Sketch3 在 y=4 mm 用 Ø10 through-all 打开贯穿孔。
+- 区域构建经验：外轮廓必须用**精确端点**（raw 浮点）且按 **CCW** 方向；
+  3 位小数或顺时针时产品只识别出两个圆区域。
+- live runner 新增 `extrude.targetBodyFeatureNames`：解析前序特征各自的
+  创建体 → shared v1.68 `targetBodyIds`，单特征逐体求值。
+- 真栈 **21,743.327 vs 21,743.326 mm³（0.000%）**、**2 body**
+  （11,704.087 / 10,039.240）、3 特征树全 status=0、push+冷重开；
+  live spec 总数 **19**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

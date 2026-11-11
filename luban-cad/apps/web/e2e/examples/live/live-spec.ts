@@ -41,6 +41,9 @@ export interface LiveExtrudeStep {
   depthMm: number;
   operation?: 'new' | 'add' | 'remove' | 'intersect';
   regions?: number[];
+  /** 多 body throughAll REMOVE：按这些前序特征各自创建的 body 显式锚定
+   * （v1.68 targetBodyIds 单特征逐体求值）。 */
+  targetBodyFeatureNames?: string[];
   /** 透传给产品的其它 extrude 字段（symmetric/direction/...）。 */
   extraParams?: Record<string, unknown>;
   note?: string;
