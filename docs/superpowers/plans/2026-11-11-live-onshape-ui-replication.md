@@ -675,11 +675,12 @@ symmetric 互斥）。
 
 - `LiveSketchStep.projections`：`sourceSketchName` → 前序草图 featureId，
   透传产品 `insertSketch.projections`（平行平面 line/circle/arc/point）。
-- 公共真栈回归 `e2e/examples/live-sketch-projection.spec.ts`：R10 整圆投影
-  到 z=10 草图再拉伸 10 → **3,141.561 vs 3,141.593 mm³**、1 body、status=0、
-  push+冷重开（2 passed，1.6 min）。
-- 已知边界：4 条矩形边的连续投影 id 在**第 3 个**报 `投影实体 id 冲突`
-  （试过 1..4 与 101..104）；本回归只覆盖单实体投影，多段投影 id 分配待查。
+- 公共真栈回归 `e2e/examples/live-sketch-projection.spec.ts`：4 条矩形边
+  投影到 z=10 草图再拉伸 10 → **4,000.000 vs 4,000.000 mm³**、1 body、
+  status=0、push+冷重开（2 passed，41.0 s）。
+- **id 规则**：每个投影线合成 2 个派生点，目标 id 必须间隔分配
+  （101/111/121/131）；连续 id（1..4 或 101..104）会在第 3 个投影报
+  `投影实体 id 冲突`。单圆投影（101）也得 3,141.561 vs 3,141.593 mm³。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
 ## 6. 风险与门禁

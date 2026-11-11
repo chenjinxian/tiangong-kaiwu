@@ -79,10 +79,10 @@
   拉伸 10，4000 mm³、质心 z=15）验证全链与冷重开。
 - 草图→草图投影：sketch step 的 `projections` 用 `sourceSketchName` 解析前序
   草图 id，透传 `insertSketch.projections`（平行平面 line/circle/arc/point）。
-  公共回归 `e2e/examples/live-sketch-projection.spec.ts`：R10 整圆投影到
-  z=10 草图再拉伸 10 → **3141.561 vs π·100·10 = 3141.593 mm³**、push+冷重开。
-  多实体连续 id 的投影实测报 `投影实体 id 冲突`（第 3 个），本回归只覆盖
-  单实体；多段投影的 id 分配待查，不得据此宣称整轮廓投影可用。
+  **目标 entityId 必须间隔分配**（如 101/111/121/131）：每个投影线会合成
+  2 个派生点，连续 id 会在第 3 个投影报 `投影实体 id 冲突`。公共回归
+  `e2e/examples/live-sketch-projection.spec.ts`：4 条矩形边投影到 z=10 草图
+  再拉伸 10 → **4000.000 vs 4000.000 mm³**、1 body、status=0、push+冷重开。
 - loft/sweep：`loft` step 接受两张截面草图名（产品首版两截面、SOLID）；
   `sweep` step 接受轮廓/路径草图名（路径须单直线且与轮廓平面法向有非零投影）。
   公共回归 `e2e/examples/live-loft-sweep.spec.ts`：20×20→10×10 线性 loft
