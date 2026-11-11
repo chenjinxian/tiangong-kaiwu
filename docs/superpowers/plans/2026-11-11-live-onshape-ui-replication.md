@@ -745,6 +745,13 @@ symmetric 互斥）。
   均 1 body、status=0、push+冷重开（3 passed，1.1 min）。
 - 本身不新增示例计数，live spec 总数仍 **28**。
 
+### 批次 50（2026-11-11，live moveFace 逐面距离）
+
+- 公共真栈 `e2e/examples/live-move-face-distances.spec.ts`：
+  20×20×10 盒顶面 +5、右面 +2（`distancesMm`）→ **6,600.000 mm³**、
+  1 body、status=0、push+冷重开。
+- 本身不新增示例计数，live spec 总数仍 **28**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
