@@ -457,6 +457,17 @@ symmetric 互斥）。
   1,008,815.5 vs 602,047.4 mm³，留私有 probes 待重解。
 - live spec 总数仍 **23**（shell 为通道能力，暂未新增计数示例）。
 
+### 批次 24（2026-11-11，Universal Joint Assembly）
+
+- 同族 R60 圆柱 + 布尔轮廓；该文档 Sketch8 只有三个区域，REMOVE 需选
+  **regions [0,1,2]**（Flange 的 region1 单选取值不适用），Sketch9
+  INTERSECT region0。
+- 主形 644,949.965 mm³；补四个 Ø22×30 底面螺栓孔（z=−120）后真栈
+  **611,821.341 vs 602,047.386 mm³（+1.623%）**、1 body、8 特征 +
+  6 skipped status=0、push+冷重开。
+- **approx**：Chamfer 10、Ø6.5 耳孔、mate connector、Fillet 1 跳过；
+  前一轮 parked 的探针已被本 spec 取代。live spec 总数 **24**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
