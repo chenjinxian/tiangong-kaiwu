@@ -13,6 +13,7 @@ import {
   getMassPropertiesRpc,
 } from '../../helpers.js';
 import { ensureExampleImodel, openExampleEditor } from '../imodel.js';
+import { resolveLiveEdgeRefs } from './edge-select.js';
 import type { LiveSpec } from './live-spec.js';
 
 export interface LiveRunResult {
@@ -186,6 +187,33 @@ export async function runLiveSpec(
             }
             : {}),
         },
+      }, step.name);
+      featureIdByName.set(step.name, featureId);
+      if (step.note) notes.push(`${step.name}: ${step.note}`);
+      continue;
+    }
+    if (step.kind === 'fillet' || step.kind === 'chamfer') {
+      const resolved = await resolveLiveEdgeRefs(page, ctx, token, step.edges);
+      if (resolved.bodyKeys.length !== 1)
+        throw new Error(`${spec.id}/${step.name}: 边跨 ${resolved.bodyKeys.length} 个 body，须恰 1`);
+      notes.push(`${step.name}: ${resolved.notes.join('; ')}`);
+      const params = step.kind === 'fillet'
+        ? {
+          radius: step.radiusMm,
+          propagateSmooth: step.propagateSmooth ?? true,
+          edges: resolved.refs,
+        }
+        : {
+          mode: step.mode ?? 2,
+          propagateSmooth: step.propagateSmooth ?? true,
+          edges: resolved.refs,
+          values1: step.values1 ?? step.distanceMm,
+          values2: step.values2 ?? step.values1 ?? step.distanceMm,
+        };
+      const featureId = await apply({
+        kind: 'insertFeature',
+        featureType: step.kind,
+        params,
       }, step.name);
       featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);

@@ -255,6 +255,20 @@ symmetric 互斥）。
   主体形状，跳过会使体积/形状失真；其沉头孔/螺纹孔参数已从 UI 记录，待
   边选择器后实现。
 
+### 批次 9（2026-11-11，live fillet/chamfer 几何边选择）
+
+- 新增 `live/edge-select.ts`：dev-only `readEdgeHandles` 枚举 body 边曲线
+  （mm 世界系），按 `curveKind` / `direction`（线方向，正负均可）/
+  `midpoint` / `lengthMm` + 容差唯一匹配，再走既有 `resolveEdgeRef` RPC
+  换持久边引用；零命中/多命中/跨 body 一律失败，不猜任意边 id。
+- live runner 新增 `fillet` / `chamfer` 步骤；chamfer 等距离用 mode=2、
+  values1=values2=distance，`propagateSmooth` 缺省 true。
+- Ex. 2 从“跳过圆角倒角”升级为真实特征：Fillet 1 选 4 条竖角边 R0.5 in、
+  Chamfer 1 选 4 条凸台顶边 0.2 in（等距离）；真栈
+  **1,202,673.243 vs 1,187,939.713 mm³（+1.240%）**、1 body、6 特征树
+  全 status=0、push+冷重开。仍为 approx：槽用矩形近似、凸台圆角省略、
+  板尺寸/孔位取自 UI 截图。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

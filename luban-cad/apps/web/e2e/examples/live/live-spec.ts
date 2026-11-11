@@ -12,6 +12,7 @@ import type {
   SketchEntityDto,
   SketchPlaneDto,
 } from '@luban-cad/shared';
+import type { LiveEdgeSelector } from './edge-select.js';
 
 export interface LiveSource {
   docId: string;
@@ -103,6 +104,28 @@ export interface LiveFeaturePatternStep {
   note?: string;
 }
 
+export interface LiveFilletStep {
+  kind: 'fillet';
+  name: string;
+  radiusMm: number;
+  edges: LiveEdgeSelector[];
+  propagateSmooth?: boolean;
+  note?: string;
+}
+
+export interface LiveChamferStep {
+  kind: 'chamfer';
+  name: string;
+  distanceMm: number;
+  edges: LiveEdgeSelector[];
+  /** 内核 mode：2=等距离（缺省）、3=距离+角度；values1/values2 缺省=等距离。 */
+  mode?: number;
+  values1?: number;
+  values2?: number;
+  propagateSmooth?: boolean;
+  note?: string;
+}
+
 export interface LiveSkippedStep {
   kind: 'skipped';
   name: string;
@@ -116,6 +139,8 @@ export type LiveStep =
   | LiveHoleStep
   | LiveFeatureMirrorStep
   | LiveFeaturePatternStep
+  | LiveFilletStep
+  | LiveChamferStep
   | LiveSkippedStep;
 
 export interface LiveSpec {
