@@ -336,7 +336,15 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   端盖，20 mm 材料）→ 真栈 **205,214.310 vs 205,214.160 mm³
   （0.000%）**、1 body、10 特征 status=0、push+冷重开。型腔/轴向孔
   用显式草图/孔特征重建 mateConnector/imprint 源，结构 approx。
-  live runner 现 20 spec（21 项含 setup；全量套件在 MS 429 窗口内会因
+  **批次 20（Bottom Bracket）**：raw corpus 的支架旋转体 + Ø13×4.5 in
+  销 + 方形沉孔 + 16× keyway 圆周阵列；多体下 featurePattern 需显式
+  targetBodyId（live runner 新增 `featurePattern/featureMirror.
+  targetBodyFeatureName`，并在 revolve 后同样跟踪创建 body；单目标
+  自动回退 `targetBodyId`）。真栈 **78,972.042 vs 78,748.287 mm³
+  （+0.284%）**、2 body（65,281.074 / 13,690.969）、9 特征
+  status=0、push+冷重开；**Mirror 1 skipped**：featureMirror 以
+  featurePattern 为源返回 status=1，未伪造。
+  live runner 现 21 spec（22 项含 setup；全量套件在 MS 429 窗口内会因
   限流失败，非代码回归）。
 - **Onshape API 配额（2026-11-11 实测）**：features 采集 supervisor 在
   2026-11-10T15:48Z 收到 429 `retry-after=75616s`（约 21 小时），已按

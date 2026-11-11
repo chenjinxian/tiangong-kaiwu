@@ -42,7 +42,9 @@ export async function runLiveSpec(
   const needsBodyTracking = spec.steps.some(
     (step) =>
       (step.kind === 'hole' && step.targetBodyFeatureName !== undefined)
-      || (step.kind === 'extrude' && (step.targetBodyFeatureNames?.length ?? 0) > 0),
+      || (step.kind === 'extrude' && (step.targetBodyFeatureNames?.length ?? 0) > 0)
+      || (step.kind === 'featurePattern' && step.targetBodyFeatureName !== undefined)
+      || (step.kind === 'featureMirror' && step.targetBodyFeatureName !== undefined),
   );
   const notes: string[] = [];
 
@@ -87,6 +89,7 @@ export async function runLiveSpec(
       const sketchId = sketchIdByName.get(step.sketchName);
       if (!sketchId) throw new Error(`${spec.id}/${step.name}: 找不到草图 ${step.sketchName}`);
       let targetBodyIds: string[] | undefined;
+      let targetBodyId: string | undefined;
       if ((step.targetBodyFeatureNames?.length ?? 0) > 0) {
         const keys: string[] = [];
         for (const featureName of step.targetBodyFeatureNames ?? []) {
@@ -97,9 +100,12 @@ export async function runLiveSpec(
             );
           keys.push(bodyKeys[0]!);
         }
-        targetBodyIds = [...new Set(keys)];
-        if (targetBodyIds.length !== keys.length)
+        const unique = [...new Set(keys)];
+        if (unique.length !== keys.length)
           throw new Error(`${spec.id}/${step.name}: 目标特征指向重复 body`);
+        // v1.68 契约：单目标走旧 targetBodyId；targetBodyIds 至少 2 个。
+        if (unique.length === 1) targetBodyId = unique[0]!;
+        else targetBodyIds = unique;
       }
       const featureId = await apply({
         kind: 'insertFeature',
@@ -112,6 +118,7 @@ export async function runLiveSpec(
           ...(step.operation ? { operation: step.operation } : {}),
           ...(step.extraParams ?? {}),
         },
+        ...(targetBodyId ? { targetBodyId } : {}),
         ...(targetBodyIds ? { targetBodyIds } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);
@@ -146,6 +153,13 @@ export async function runLiveSpec(
         },
       }, step.name);
       featureIdByName.set(step.name, featureId);
+      if (needsBodyTracking) {
+        const afterBodies = await getBodiesRpc(ctx, token);
+        const newKeys = afterBodies
+          .filter((body) => body.sourceFeatureId === featureId)
+          .map((body) => body.bodyKey);
+        bodyKeysByFeatureName.set(step.name, newKeys);
+      }
       if (step.note) notes.push(`${step.name}: ${step.note}`);
       continue;
     }
@@ -198,10 +212,20 @@ export async function runLiveSpec(
       const sourceFeatureId = featureIdByName.get(step.sourceFeatureName);
       if (!sourceFeatureId)
         throw new Error(`${spec.id}/${step.name}: 找不到源特征 ${step.sourceFeatureName}`);
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0]!;
+      }
       const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'featureMirror',
         params: { sourceFeatureId, planeLine: step.planeLine },
+        ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);
@@ -211,6 +235,15 @@ export async function runLiveSpec(
       const sourceFeatureId = featureIdByName.get(step.sourceFeatureName);
       if (!sourceFeatureId)
         throw new Error(`${spec.id}/${step.name}: 找不到源特征 ${step.sourceFeatureName}`);
+      let targetBodyId: string | undefined;
+      if (step.targetBodyFeatureName) {
+        const keys = bodyKeysByFeatureName.get(step.targetBodyFeatureName);
+        if (!keys || keys.length !== 1)
+          throw new Error(
+            `${spec.id}/${step.name}: 目标特征 ${step.targetBodyFeatureName} 的新 body 数=${keys?.length ?? 0}，须恰 1`,
+          );
+        targetBodyId = keys[0]!;
+      }
       const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'featurePattern',
@@ -231,6 +264,7 @@ export async function runLiveSpec(
             }
             : {}),
         },
+        ...(targetBodyId ? { targetBodyId } : {}),
       }, step.name);
       featureIdByName.set(step.name, featureId);
       if (step.note) notes.push(`${step.name}: ${step.note}`);
@@ -268,6 +302,11 @@ export async function runLiveSpec(
   }
 
   const tree = await getFeatureTreeRpc(ctx, token);
+  if (process.env.LIVE_DEBUG === '1')
+    console.log(
+      `[live-debug] ${spec.id}/tree=` +
+      JSON.stringify(tree.map((row) => [row.name, row.featureType, row.status])),
+    );
   const bodies = await getBodiesRpc(ctx, token);
   const mass = await getMassPropertiesRpc(ctx, token);
   return { token, ids, ctx, tree, bodies, mass, notes };

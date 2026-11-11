@@ -90,6 +90,8 @@ export interface LiveFeatureMirrorStep {
   name: string;
   sourceFeatureName: string;
   planeLine: { origin: { x: number; y: number; z: number }; normal: { x: number; y: number; z: number } };
+  /** 多 body：镜像编辑的目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName?: string;
   note?: string;
 }
 
@@ -110,6 +112,8 @@ export interface LiveFeaturePatternStep {
   angleDeg?: number;
   axis: { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number } };
   secondDirection?: LiveFeaturePatternSecondDirection;
+  /** 多 body：pattern 编辑的目标 body（该前序特征创建的 body）。 */
+  targetBodyFeatureName?: string;
   note?: string;
 }
 

@@ -403,6 +403,20 @@ symmetric 互斥）。
   显式草图/孔重建，结构 approx。
 - live spec 总数 **20**。
 
+### 批次 20（2026-11-11，Bottom Bracket）
+
+- raw corpus：支架全轮廓 revolve（区域 806.82 mm²）+ Ø13×4.5 in 销 NEW
+  symmetric + 顶面方形沉孔（内方 10.795 mm 区域）+ 3.175 mm keyway
+  的 16× 圆周阵列。
+- live runner：revolve 后也跟踪创建 body；`featurePattern`/
+  `featureMirror` 新增 `targetBodyFeatureName`；单目标自动用
+  `targetBodyId`，多目标用 v1.68 `targetBodyIds`。
+- 真栈 **78,972.042 vs 78,748.287 mm³（+0.284%）**、2 body
+  （65,281.074 +0.69% / 13,690.969 −1.63%）、9 特征 status=0、
+  push+冷重开。**Mirror 1 skipped**：产品 featureMirror 以
+  featurePattern 为源为 status=1，未伪造。
+- live spec 总数 **21**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
