@@ -770,7 +770,10 @@ symmetric 互斥）。
   （−0.002%）**；2 body、全 status=0、push+冷重开。
 - **approx**：约束整体 dropped；Spindle imprint 选择用 regions [0,1]
   近似（[0,2] 19,208.839、[0,1,2] 27,816.275），未调参凑体积；
-  tolerance 4%。
+  tolerance 4%。该 PS 还含自定义建模螺纹（`myFeature
+  #threadName/#threadCount`）与 assignVariable，本次跳过；索引分类为
+  `excluded-custom-feature`，因此这是 native 子集 approx，不是完整
+  native 复刻。
 - 同 PS 的 EDU/Professional/Quickstart 三个文档变体各自独立复跑：
   **各 2 passed（1.4–1.6 min）**，体积与 body 数值一致；首次批量复跑曾
   被 MS 429/会话刷新 401 打断（非几何失败），逐个复跑后转绿。
