@@ -19,6 +19,7 @@
 | [DEVELOPMENT-RULES.md](./DEVELOPMENT-RULES.md) | **开发规则唯一权威（v1.0，2026-11-04 生效）**：P0 平台宪法 10 条 + P1 架构/工程规则 12 条 + AIRR/例外/执行机制 |
 | [architecture/PRODUCT-GOALS-AND-ENGINEERING-PRINCIPLES.md](./architecture/PRODUCT-GOALS-AND-ENGINEERING-PRINCIPLES.md) | **产品目标与工程原则（2026-11-09 用户裁决）**：全量 Onshape 草图/约束/特征 → AI+CAD；大规模示例验证真形内核/绳墨；每个功能点检查架构合理性与闭环；持续审计 imodel-native BRepCore |
 | [Architecture.md](./Architecture.md) | 系统架构详细设计 |
+| [ONSHAPE-LIVE-REPLICATION.md](./ONSHAPE-LIVE-REPLICATION.md) | Onshape 示例实时复刻通道的**规则与经验**：corpus 数据边界、可编辑副本/DXF、sketchMatrix 跨列还原、精确端点+CCW、region 调试、多体 targetBodyIds、边/面选择器、shell 符号、限流和 approx 边界（逐例进度只在私有仓） |
 | [architecture/INTERFACE-FREEZE-MATRIX.md](./architecture/INTERFACE-FREEZE-MATRIX.md) | 接口冻结矩阵（公开契约层）：P0/P1 接口、owner、版本、变更流程、验收证据；后端/原生逐文件证据在私有仓 |
 | [architecture/AIRR-TEMPLATE.md](./architecture/AIRR-TEMPLATE.md) | Architecture Impact & Reuse Review 模板（功能开工门禁） |
 | [architecture/CANONICAL-SOURCES.md](./architecture/CANONICAL-SOURCES.md) | 规范来源表：能力 → 官方/参考来源 → 禁止项 |
