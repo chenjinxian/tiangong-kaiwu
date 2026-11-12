@@ -16,10 +16,10 @@
  * 圆弧取两切点间的短弧（扫角 |π−θ|），朝向角点一侧（用短弧中点与角点
  * 方向点积裁决符号）。
  *
- * 边界（诚实登记，不伪造）：首发只支持**两条非投影直线**在端点处的角点；
- * 角点由坐标重合或两线端点的 coincident 约束识别（内联端点）。显式 point
- * 实体端点、直线-圆弧组合、两线延长线交点、三条以上线交于一点、投影线
- * 暂不支持——工具提示 unsupported 且不写数据。
+ * 边界（诚实登记，不伪造）：支持**两条非投影直线**的角点（共享坐标 /
+ * coincident / 同一显式 point 实体）与两线延长交点；显式 point 端点以
+ * 「裁剪端分离为内联点 + 孤儿点按引用清理」处理。直线-圆弧组合、三条以上
+ * 线交于一点、投影线暂不支持——工具提示 unsupported 且不写数据。
  */
 import type { SketchConstraintDto, SketchEntityDto, SketchRef } from '@luban-cad/shared';
 
@@ -212,9 +212,13 @@ function unit(from: LocalPoint, to: LocalPoint): { direction: LocalPoint; length
   return { direction: { x: dx / length, y: dy / length }, length };
 }
 
-function cornerLine(entry: EndpointEntry, corner: LocalPoint): FilletCornerLine | undefined {
+function cornerLine(
+  entry: EndpointEntry,
+  corner: LocalPoint,
+  points: ReadonlyMap<number, LocalPoint>,
+): FilletCornerLine | undefined {
   const otherRef = entry.part === 'start' ? entry.line.p2 : entry.line.p1;
-  const other = typeof otherRef === 'number' ? undefined : otherRef;
+  const other = typeof otherRef === 'number' ? points.get(otherRef) : otherRef;
   if (!other)
     return undefined;
   const vector = unit(corner, other);
@@ -268,16 +272,14 @@ export function findSketchFilletCorners(
       continue; // 三线以上共点/单端点：首切片不支持
     const first = entries[members[0]!]!;
     const second = entries[members[1]!]!;
-    if (!first.inline || !second.inline)
-      continue; // 显式 point 实体端点：无法在不破坏共享点的前提下回缩
     if (first.line.id === second.line.id)
       continue;
     const point = {
       x: (first.point.x + second.point.x) / 2,
       y: (first.point.y + second.point.y) / 2,
     };
-    const one = cornerLine(first, point);
-    const two = cornerLine(second, point);
+    const one = cornerLine(first, point, points);
+    const two = cornerLine(second, point, points);
     if (!one || !two)
       continue;
     const [a, b] = first.line.id <= second.line.id ? [one, two] : [two, one];
@@ -361,11 +363,6 @@ export function computeFilletGeometry(
   };
 }
 
-/** 角点端点是否仍可由直线实体修剪（防调用方误传旧角点）。 */
-function endpointIsInline(line: SketchEntityDto & { kind: 'line' }, part: EndpointPart): boolean {
-  return typeof (part === 'start' ? line.p1 : line.p2) !== 'number';
-}
-
 function sameEndpointRef(ref: SketchRef, lineId: number, part: EndpointPart): boolean {
   return typeof ref !== 'number' && 'entity' in ref && ref.entity === lineId && ref.part === part;
 }
@@ -390,15 +387,19 @@ export function filletSketchCorner(
     entity.id === corner.b.lineId && entity.kind === 'line');
   if (!lineA || !lineB)
     return { ok: false, reason: 'no-corner', entities: [...entities], constraints: [...constraints] };
-  if (lineA.projected || lineB.projected
-    || !endpointIsInline(lineA, corner.a.part) || !endpointIsInline(lineB, corner.b.part)) {
+  if (lineA.projected || lineB.projected)
     return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints] };
-  }
 
   const computed = computeFilletGeometry(corner, radius);
   if (!computed.ok)
     return { ok: false, reason: computed.reason, entities: [...entities], constraints: [...constraints] };
   const geometry = computed.geometry;
+
+  // 显式 point 端点：裁剪端改为内联点（旧 point 实体留在原位，稍后按引用
+  // 计数清理孤儿；仍被其它约束引用时保留，不破坏共享点语义）。
+  const nearRefA = corner.a.part === 'start' ? lineA.p1 : lineA.p2;
+  const nearRefB = corner.b.part === 'start' ? lineB.p1 : lineB.p2;
+  const detachedPointIds = [nearRefA, nearRefB].filter((ref): ref is number => typeof ref === 'number');
 
   const trimmed = entities.map((entity) => {
     if (entity.id !== lineA.id || entity.kind !== 'line')
@@ -454,14 +455,46 @@ export function filletSketchCorner(
     { kind: 'radius', id: nextId + 5, refs: [arcId], value: geometry.radius },
   ];
 
+  const finalConstraints = [...kept, ...added];
   return {
     ok: true,
-    entities: [...trimmed, arc],
-    constraints: [...kept, ...added],
+    entities: pruneUnreferencedPoints([...trimmed, arc], finalConstraints, detachedPointIds),
+    constraints: finalConstraints,
     arcId,
     nextId: nextId + 6,
     geometry,
   };
+}
+
+/**
+ * 显式 point 端点被裁剪分离后：仅当该 point 不再被任何曲线端点/约束引用时
+ * 移除（否则保持原位——它仍承载其它几何关系）。绝不猜测/级联删除约束。
+ */
+function pruneUnreferencedPoints(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  candidates: readonly number[],
+): SketchEntityDto[] {
+  if (candidates.length === 0)
+    return [...entities];
+  const referenced = new Set<number>();
+  for (const entity of entities) {
+    if (entity.kind === 'line') {
+      if (typeof entity.p1 === 'number') referenced.add(entity.p1);
+      if (typeof entity.p2 === 'number') referenced.add(entity.p2);
+    } else if (entity.kind === 'circle' || entity.kind === 'arc') {
+      if (typeof entity.center === 'number') referenced.add(entity.center);
+    }
+  }
+  for (const constraint of constraints) {
+    for (const ref of constraint.refs) {
+      if (typeof ref === 'number') referenced.add(ref);
+      else if ('entity' in ref) referenced.add(ref.entity);
+    }
+  }
+  const candidateSet = new Set(candidates);
+  return entities.filter((entity) =>
+    !(entity.kind === 'point' && candidateSet.has(entity.id) && !referenced.has(entity.id)));
 }
 
 interface ResolvedLine {
@@ -497,8 +530,8 @@ interface VirtualCornerResult {
 /**
  * 两线选择 → 虚拟角点（Onshape Fillet 可拾取两条曲线）：无限延长求交点，
  * 每条线取离交点较近的端点作为被修剪端；要求交点在两线段之外（近端点外侧），
- * 避免“交点落在线段中间”的四解歧义。近端点须为内联点（显式 point 共享点
- * 无法安全回缩）。
+ * 避免“交点落在线段中间”的四解歧义。显式 point 近端点由 filletSketchCorner
+ * 统一分离为内联点并按引用清理孤儿点。
  */
 function virtualCornerFromLines(
   entities: readonly SketchEntityDto[],
@@ -537,8 +570,6 @@ function virtualCornerFromLines(
   };
   const a = nearOf(lineA);
   const b = nearOf(lineB);
-  if (typeof a.near.ref === 'number' || typeof b.near.ref === 'number')
-    return { ok: false, reason: 'unsupported' };
   // 交点须位于近端点外侧（沿 far→near 的射线延长方向）：否则交点落在
   // 线段内部/近端方向，裁剪语义有歧义。
   const dotA = (cornerPoint.x - a.near.point.x) * (a.far.point.x - a.near.point.x)

@@ -58,13 +58,44 @@ describe('findSketchFilletCorners', () => {
     expect(projected).toHaveLength(0);
   });
 
-  it('显式 point 实体端点/三线共点：首切片不支持（不产生角点）', () => {
-    const explicit = findSketchFilletCorners([
+  it('显式 point 端点角点：识别 → 两线分离为内联点 + 孤儿 point 清理；仍被约束引用则保留', () => {
+    const explicitEntities: SketchEntityDto[] = [
       { kind: 'point', id: 1, x: 0, y: 0 },
       { kind: 'line', id: 2, p1: 1, p2: { x: 5, y: 0 } },
       { kind: 'line', id: 3, p1: 1, p2: { x: 0, y: 5 } },
-    ], []);
-    expect(explicit).toHaveLength(0);
+    ];
+    const explicit = findSketchFilletCorners(explicitEntities, []);
+    expect(explicit).toHaveLength(1);
+    expect(explicit[0]).toMatchObject({
+      a: { lineId: 2, part: 'start' }, b: { lineId: 3, part: 'start' },
+    });
+    const filleted = filletSketchCorner(
+      explicitEntities, [], explicit[0]!, 2, nextSketchId(explicitEntities, []),
+    );
+    expect(filleted.ok).toBe(true);
+    if (filleted.ok) {
+      expect(filleted.entities.some((entity) => entity.id === 1 && entity.kind === 'point')).toBe(false);
+      const line2 = filleted.entities.find((entity) => entity.id === 2) as Extract<SketchEntityDto, { kind: 'line' }>;
+      expect((line2.p1 as { x: number }).x).toBeCloseTo(2, 9);
+      expect((line2.p1 as { y: number }).y).toBeCloseTo(0, 9);
+      const line3 = filleted.entities.find((entity) => entity.id === 3) as Extract<SketchEntityDto, { kind: 'line' }>;
+      expect((line3.p1 as { x: number }).x).toBeCloseTo(0, 9);
+      expect((line3.p1 as { y: number }).y).toBeCloseTo(2, 9);
+    }
+
+    // point 1 仍被一条 distance 约束引用 → 不能删除。
+    const sharedEntities: SketchEntityDto[] = [
+      ...explicitEntities,
+      { kind: 'point', id: 4, x: 5, y: 5 },
+    ];
+    const sharedConstraints: SketchConstraintDto[] = [
+      { kind: 'distance', id: 50, refs: [1, 4], value: 7 },
+    ];
+    const sharedCorner = findSketchFilletCorners(sharedEntities, sharedConstraints)[0]!;
+    const shared = filletSketchCorner(sharedEntities, sharedConstraints, sharedCorner, 2, 51);
+    expect(shared.ok).toBe(true);
+    if (shared.ok)
+      expect(shared.entities.some((entity) => entity.id === 1 && entity.kind === 'point')).toBe(true);
 
     const three = findSketchFilletCorners([
       ...RECT_ENTITIES,
@@ -149,7 +180,7 @@ describe('filletSketchLinePair（Onshape 两曲线选择）', () => {
     expect(result.constraints.find((constraint) => constraint.kind === 'radius')).toMatchObject({ value: 5 });
   });
 
-  it('间隙大于切距 → outside-segment；平行 → degenerate；近端点显式 point → unsupported', () => {
+  it('间隙大于切距 → outside-segment；平行 → degenerate；近端点显式 point 可分离，孤儿点清理', () => {
     const gapTooLarge = filletSketchLinePair([
       { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
       { kind: 'line', id: 2, p1: { x: 0, y: 6 }, p2: { x: 0, y: 16 } },
@@ -169,8 +200,13 @@ describe('filletSketchLinePair（Onshape 两曲线选择）', () => {
       { kind: 'line', id: 1, p1: 9, p2: { x: 10, y: 0 } },
       { kind: 'line', id: 2, p1: { x: 0, y: 1 }, p2: { x: 0, y: 11 } },
     ], [], 1, 2, 5, 100);
-    expect(explicit.ok).toBe(false);
-    if (!explicit.ok) expect(explicit.reason).toBe('unsupported');
+    expect(explicit.ok).toBe(true);
+    if (explicit.ok) {
+      expect(explicit.entities.some((entity) => entity.id === 9 && entity.kind === 'point')).toBe(false);
+      const line1 = explicit.entities.find((entity) => entity.id === 1) as Extract<SketchEntityDto, { kind: 'line' }>;
+      expect((line1.p1 as { x: number }).x).toBeCloseTo(5, 9);
+      expect((line1.p1 as { y: number }).y).toBeCloseTo(0, 9);
+    }
   });
 
   it('交点在两线段内部（十字交叉）→ outside-segment（不猜四解）', () => {

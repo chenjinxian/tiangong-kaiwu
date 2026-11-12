@@ -1115,7 +1115,7 @@
       "chooseAnotherLine": "Click a different sketch line",
       "notOpen": "Enter sketch editing first",
       "noCorner": "Click a shared corner of two sketch lines, or click two separate sketch lines",
-      "unsupported": "Fillet currently supports two non-projected lines with inline endpoints (corner or two-line selection)",
+      "unsupported": "Fillet currently supports two non-projected lines (corner or extended two-line intersection); line-arc corners are not supported yet",
       "parallel": "The two lines are parallel or coincident; no fillet can be created",
       "outsideSegment": "The fillet would fall outside these line segments (gap too large or intersection inside a segment)",
       "radiusTooLarge": "R{{radius}} mm is too large for this corner",
