@@ -69,6 +69,9 @@ test.describe('草图延伸（Onshape 对拍）', () => {
     await sketchRow.dblclick({ timeout: 30_000 });
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.waitForTimeout(600);
 
     const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
     const box = await canvas.boundingBox();
@@ -92,9 +95,11 @@ test.describe('草图延伸（Onshape 对拍）', () => {
     await expect(extendItem).toBeVisible({ timeout: 10_000 });
     await extendItem.click();
 
-    // 点击线 11 右端点附近 → 延伸到竖线 x=5。
+    // Onshape 两相：第一击选线 11 右端，第二击点边界竖线 x=5 → 延伸到该边界。
     const nearEndpoint = await project({ x: 0, y: 0 });
     await page.mouse.click(nearEndpoint.x, nearEndpoint.y);
+    const boundary = await project({ x: 5, y: 0 });
+    await page.mouse.click(boundary.x, boundary.y);
     await expect.poll(async () => {
       const sketch = await getSketchRpc(ctx, sketchId, token);
       return linePoints(sketch, 11)?.b;
@@ -102,13 +107,23 @@ test.describe('草图延伸（Onshape 对拍）', () => {
     // 左端点保持。
     expect(linePoints(await getSketchRpc(ctx, sketchId, token), 11)?.a).toEqual({ x: -10, y: 0 });
 
-    // 无边界线（线 13 右端向右没有交点）→ 点击后数据不变（诚实提示，不静默改值）。
+    // 第一段提交后相机/视图可能因刷新变化：重新正视取景，保证第二段点击坐标稳定。
+    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.waitForTimeout(600);
+
+    // 第二击点空白位置 = 自由端点（帮助：没有边界时止于点击位置）。
     const isolated = await project({ x: -2, y: 8 });
     await page.mouse.click(isolated.x, isolated.y);
-    await page.waitForTimeout(1500);
-    expect(linePoints(await getSketchRpc(ctx, sketchId, token), 13)).toEqual({
-      a: { x: -10, y: 8 }, b: { x: -2, y: 8 },
-    });
+    const freeTarget = await project({ x: 0, y: 8 });
+    await page.mouse.click(freeTarget.x, freeTarget.y);
+    // 自由端点落在点击位置（屏幕像素量化，局部坐标容差 0.2）。
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      const b = linePoints(sketch, 13)?.b;
+      return b !== undefined && Math.abs(b.x) < 0.2 && Math.abs(b.y - 8) < 0.2;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
+    expect(linePoints(await getSketchRpc(ctx, sketchId, token), 13)?.a).toEqual({ x: -10, y: 8 });
 
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();

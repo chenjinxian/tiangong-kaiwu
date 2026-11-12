@@ -4,10 +4,11 @@
  *
  * 草图延伸工具（toolId `Sketch.Extend`，Onshape Extend 首切片 2026-11-12）。
  *
- * Onshape 帮助：Extend 在「修剪」同一工具按钮下拉（快捷键 X）；点击线/弧后
- * 点击新端点或边界几何，延伸到第一个边界。本切片：点击直线靠近的一侧端点，
- * 沿远离另一端点方向延伸到最近线/圆/弧边界；无边界保持原样并提示，弧/圆/
- * 样条作为源诚实提示不支持。命中/反解与 Trim 共用同一屏幕→草图局部算法。
+ * Onshape 帮助：Extend 在「修剪」同一工具按钮下拉（快捷键 X）；**先点击线/弧**，
+ * 再点击新端点位置或边界几何。本切片按两相实现：第一击选直线（记录点击侧端点），
+ * 第二击命中其它曲线=延伸到该边界最近交点，否则投影到延伸射线上的自由端点；
+ * 弧/圆/样条作为源诚实提示不支持，无边界保持原样。命中/反解与 Trim 共用
+ * `sketch-screen.ts`。
  */
 import {
   BeButtonEvent,
@@ -22,13 +23,20 @@ import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 import { sketchEntitiesToWorldPolylines } from '../../internal/sketch-curves.js';
 import { hitTestSketchEntity } from '../../internal/sketch-entity-picker.js';
-import { extendSketchAt } from '../../internal/sketch-extend.js';
+import { extendSketchTo } from '../../internal/sketch-extend.js';
 import { screenToSketchLocal } from '../../internal/sketch-screen.js';
+
+interface ExtendFirstPick {
+  entityId: number;
+  local: { x: number; y: number };
+}
 
 export class SketchExtendTool extends PrimitiveTool {
   public static override toolId = 'Sketch.Extend';
   public static override namespace = 'LubanCad';
   public static override iconSpec = 'icon-extend';
+  /** Onshape 两相：第一击选线（记录端点侧），第二击新端点/边界。 */
+  private _firstPick: ExtendFirstPick | null = null;
 
   public override requireWriteableTarget(): boolean { return true; }
 
@@ -38,6 +46,7 @@ export class SketchExtendTool extends PrimitiveTool {
   }
 
   public override async onCleanup(): Promise<void> {
+    this._firstPick = null;
     clearSketchToolFeedback(this.toolId);
     await super.onCleanup();
   }
@@ -63,20 +72,46 @@ export class SketchExtendTool extends PrimitiveTool {
       return { x: view.x, y: view.y };
     };
     const hit = hitTestSketchEntity(geometry, point, project, sketch.id);
-    if (!hit || hit.part !== 'curve')
-      return EventHandled.Yes;
-
     const local = screenToSketchLocal(viewport, sketch.plane, point);
     if (!local) {
       this.notify(i18next.t('partStudio.sketch.extend.invalidPoint'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
-    const extended = extendSketchAt(sketch.entities, hit.entityId, { x: local.u, y: local.v });
+
+    // 第一击：选目标线（Onshape 先选线/弧；本切片源限直线）。
+    const firstPick = this._firstPick;
+    if (!firstPick) {
+      if (!hit || hit.part !== 'curve')
+        return EventHandled.Yes;
+      const entity = sketch.entities.find((candidate) => candidate.id === hit.entityId);
+      if (!entity || entity.kind !== 'line') {
+        this.notify(i18next.t('partStudio.sketch.extend.unsupported'), OutputMessagePriority.Info);
+        return EventHandled.Yes;
+      }
+      this._firstPick = { entityId: hit.entityId, local: { x: local.u, y: local.v } };
+      publishSketchToolHint(this.toolId, i18next.t('partStudio.sketch.extend.selected'));
+      return EventHandled.Yes;
+    }
+
+    // 第二击：命中其它曲线=边界；否则按自由端点位置。
+    const boundaryId = hit && hit.part === 'curve' && hit.entityId !== firstPick.entityId
+      ? hit.entityId
+      : undefined;
+    const extended = extendSketchTo(
+      sketch.entities,
+      firstPick.entityId,
+      firstPick.local,
+      { point: { x: local.u, y: local.v }, ...(boundaryId !== undefined ? { boundaryId } : {}) },
+    );
+    this._firstPick = null;
+    publishSketchToolHint(this.toolId, i18next.t('partStudio.sketch.extend.prompt'));
     if (!extended.ok) {
       if (extended.reason === 'unsupported')
         this.notify(i18next.t('partStudio.sketch.extend.unsupported'), OutputMessagePriority.Info);
       else if (extended.reason === 'no-boundary')
         this.notify(i18next.t('partStudio.sketch.extend.noBoundary'), OutputMessagePriority.Info);
+      else
+        this.notify(i18next.t('partStudio.sketch.extend.invalidPoint'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
     const result = await sketchSystem.applyUpdate(extended.entities, sketch.constraints);

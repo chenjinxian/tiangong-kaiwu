@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { SketchEntityDto } from '@luban-cad/shared';
-import { extendSketchAt } from '../internal/sketch-extend.js';
+import { extendSketchAt, extendSketchTo } from '../internal/sketch-extend.js';
 
 interface P { x: number; y: number }
 
@@ -107,5 +107,43 @@ describe('extendSketchAt — 线到线', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('unsupported');
     expect(result.entities).toEqual([circle]);
+  });
+});
+
+describe('extendSketchTo — Onshape 两相（第二击边界或自由点）', () => {
+  const target = line(1, { x: 0, y: 0 }, { x: 5, y: 0 });
+  const near = line(2, { x: 8, y: -5 }, { x: 8, y: 5 });
+  const far = line(3, { x: 20, y: -5 }, { x: 20, y: 5 });
+
+  it('第二击命中指定边界 → 只延伸到该边界（即使更远）', () => {
+    const result = extendSketchTo([target, near, far], 1, { x: 5, y: 0 }, {
+      point: { x: 20, y: 0 }, boundaryId: 3,
+    });
+    expect(result.ok).toBe(true);
+    const [, b] = linePoints(result.entities.find((entity) => entity.id === 1)!)!;
+    expect(b).toEqual({ x: 20, y: 0 });
+  });
+
+  it('第二击自由点 → 投影到延伸射线（未被吸附到边界）', () => {
+    const result = extendSketchTo([target], 1, { x: 5, y: 0 }, { point: { x: 12, y: 3 } });
+    expect(result.ok).toBe(true);
+    const [, b] = linePoints(result.entities.find((entity) => entity.id === 1)!)!;
+    expect(b.x).toBeCloseTo(12, 9);
+    expect(b.y).toBeCloseTo(0, 9);
+  });
+
+  it('自由点在端点反方向 → invalid 且数据不变', () => {
+    const result = extendSketchTo([target], 1, { x: 5, y: 0 }, { point: { x: 2, y: 0 } });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('invalid');
+    expect(result.entities).toEqual([target]);
+  });
+
+  it('第二击仍是目标本身 → invalid；命中边界但无段内交点 → no-boundary', () => {
+    expect(extendSketchTo([target], 1, { x: 5, y: 0 }, { point: { x: 6, y: 0 }, boundaryId: 1 }).ok).toBe(false);
+    const outside = line(4, { x: 10, y: 2 }, { x: 10, y: 5 });
+    const result = extendSketchTo([target, outside], 1, { x: 5, y: 0 }, { point: { x: 10, y: 0 }, boundaryId: 4 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no-boundary');
   });
 });

@@ -1118,6 +1118,7 @@
     },
     "extend": {
       "prompt": "Click a sketch line to extend its near endpoint to the first boundary; Esc to finish",
+      "selected": "Line selected: click the new endpoint location or a bounding geometry; Esc to finish",
       "notOpen": "Enter sketch editing first",
       "invalidPoint": "Cannot locate the click on the sketch plane",
       "unsupported": "This curve type cannot be extended yet (lines only)",
