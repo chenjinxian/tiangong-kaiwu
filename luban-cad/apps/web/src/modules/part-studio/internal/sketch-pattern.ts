@@ -50,7 +50,19 @@ export type SketchPatternError =
   | 'invalid-direction'
   | 'invalid-center'
   | 'invalid-angle'
-  | 'invalid-delta';
+  | 'invalid-delta'
+  | 'invalid-scale'
+  | 'invalid-rotation';
+
+export interface SketchTransformOptions {
+  translation: { u: number; v: number };
+  /** 绕 origin 旋转（弧度）。 */
+  rotationRad: number;
+  /** 绕 origin 均匀缩放（>0）。 */
+  scale: number;
+  /** 变换基点（草图局部=米；默认选区质心）。 */
+  origin: { u: number; v: number };
+}
 
 export type SketchLinearPatternResult =
   | {
@@ -97,19 +109,82 @@ function translateEntity(entity: SketchEntityDto, du: number, dv: number): void 
   }
 }
 
+function transformRef(
+  ref: number | SketchPointDto,
+  origin: { u: number; v: number },
+  cos: number,
+  sin: number,
+  scale: number,
+  tu: number,
+  tv: number,
+): number | SketchPointDto {
+  if (typeof ref === 'number')
+    return ref;
+  const dx = (ref.x - origin.u) * scale;
+  const dy = (ref.y - origin.v) * scale;
+  return { x: origin.u + dx * cos - dy * sin + tu, y: origin.v + dx * sin + dy * cos + tv };
+}
+
+function transformEntityWith(
+  entity: SketchEntityDto,
+  origin: { u: number; v: number },
+  rotationRad: number,
+  cos: number,
+  sin: number,
+  scale: number,
+  tu: number,
+  tv: number,
+): void {
+  switch (entity.kind) {
+    case 'point': {
+      const dx = ((entity.x ?? 0) - origin.u) * scale;
+      const dy = ((entity.y ?? 0) - origin.v) * scale;
+      entity.x = origin.u + dx * cos - dy * sin + tu;
+      entity.y = origin.v + dx * sin + dy * cos + tv;
+      return;
+    }
+    case 'line':
+      entity.p1 = transformRef(entity.p1, origin, cos, sin, scale, tu, tv);
+      entity.p2 = transformRef(entity.p2, origin, cos, sin, scale, tu, tv);
+      return;
+    case 'circle':
+      entity.center = transformRef(entity.center, origin, cos, sin, scale, tu, tv);
+      if (typeof entity.radius === 'number')
+        entity.radius *= scale;
+      return;
+    case 'arc':
+      entity.center = transformRef(entity.center, origin, cos, sin, scale, tu, tv);
+      if (typeof entity.radius === 'number')
+        entity.radius *= scale;
+      // 圆心变换只搬位置；弧的角度区间必须随旋转平移（sweep 不变）。
+      if (typeof entity.startAngle === 'number')
+        entity.startAngle += rotationRad;
+      return;
+    case 'spline':
+      entity.controlPoints = entity.controlPoints.map((point) => transformRef(point, origin, cos, sin, scale, tu, tv) as SketchPointDto);
+      if (entity.fitPoints)
+        entity.fitPoints = entity.fitPoints.map((point) => transformRef(point, origin, cos, sin, scale, tu, tv) as SketchPointDto);
+      return;
+  }
+}
+
 /**
- * 草图图元平移（Onshape「变换」gizmo 首切片：只做平移；旋转/缩放后续）。
- * 直接改选中曲线及其直接引用的显式 point（共享点会被一起移动——连接几何
- * 的预期行为；不复制、不新建 id、约束保持）。
+ * 草图图元变换（Onshape「变换」gizmo）：直接改选中曲线及其直接引用的显式
+ * point（共享点随动）；按 origin 先缩放、再旋转、再平移（与特征 Transform
+ * 的 scale→rotate→translate 次序一致），id/约束不变。
  */
-export function buildSketchTranslation(
+export function buildSketchTransform(
   entities: readonly SketchEntityDto[],
   constraints: readonly SketchConstraintDto[],
   selection: readonly SketchEntitySelection[],
-  delta: { u: number; v: number },
+  options: SketchTransformOptions,
 ): SketchLinearPatternResult {
-  if (!Number.isFinite(delta.u) || !Number.isFinite(delta.v))
+  if (!Number.isFinite(options.translation.u) || !Number.isFinite(options.translation.v))
     return { ok: false, error: 'invalid-delta' };
+  if (!Number.isFinite(options.rotationRad))
+    return { ok: false, error: 'invalid-rotation' };
+  if (!Number.isFinite(options.scale) || options.scale <= 0)
+    return { ok: false, error: 'invalid-scale' };
   const byId = new Map(entities.map((entity) => [entity.id, entity]));
   const selectedCurveIds = [...new Set(
     selection.filter((entry) => entry.part === 'curve').map((entry) => entry.entityId),
@@ -128,22 +203,58 @@ export function buildSketchTranslation(
     }
   }
 
+  const cos = Math.cos(options.rotationRad);
+  const sin = Math.sin(options.rotationRad);
   const updated = new Map<number, SketchEntityDto>();
   for (const id of moved) {
     const entity = byId.get(id);
     if (!entity)
       continue;
     const clone = JSON.parse(JSON.stringify(entity)) as SketchEntityDto;
-    translateEntity(clone, delta.u, delta.v);
+    transformEntityWith(clone, options.origin, options.rotationRad, cos, sin, options.scale, options.translation.u, options.translation.v);
     updated.set(id, clone);
   }
+
+  // 均匀缩放必须同步缩放驱动尺寸，否则求解器会把几何拉回旧尺寸。
+  // 只处理 refs 全在移动集内的半径/直径/长度/距离；跨外部几何的尺寸保持
+  // 原值（solver 可能限制缩放，如实接受，不伪造）。
+  const scaleValueKinds = new Set<SketchConstraintDto['kind']>(['radius', 'diameter', 'length', 'distance']);
+  const updatedConstraints = constraints.map((constraint) => {
+    if (options.scale === 1 || constraint.value === undefined || !scaleValueKinds.has(constraint.kind))
+      return constraint;
+    const inside = constraint.refs.every((ref) => {
+      if (typeof ref === 'number')
+        return moved.has(ref);
+      if ('origin' in ref)
+        return false;
+      return moved.has(ref.entity);
+    });
+    if (!inside)
+      return constraint;
+    return { ...constraint, value: constraint.value * options.scale };
+  });
 
   return {
     ok: true,
     entities: entities.map((entity) => updated.get(entity.id) ?? entity),
-    constraints: [...constraints],
+    constraints: updatedConstraints,
     instanceCurveIds: [selectedCurveIds],
   };
+}
+
+/** 草图图元平移（变换的 translation-only 简写，保留旧调用面）。 */
+export function buildSketchTranslation(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  selection: readonly SketchEntitySelection[],
+  delta: { u: number; v: number },
+): SketchLinearPatternResult {
+  return buildSketchTransform(entities, constraints, selection, {
+    translation: delta,
+    rotationRad: 0,
+    scale: 1,
+    origin: { u: 0, v: 0 },
+  });
 }
 
 function nextFreeId(

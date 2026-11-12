@@ -73,6 +73,21 @@
   white-space: nowrap;
 }
 
+.part-studio-pattern-handle--rotate {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #2b6fd6;
+}
+
+.part-studio-pattern-handle--scale {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border-radius: 1px;
+  background: #fff;
+}
+
 .part-studio-pattern-handle__label {
   pointer-events: none;
 }

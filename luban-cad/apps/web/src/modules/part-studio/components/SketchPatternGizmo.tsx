@@ -20,7 +20,7 @@ import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js'
 import {
   buildSketchCircularPattern,
   buildSketchLinearPattern,
-  buildSketchTranslation,
+  buildSketchTransform,
   SKETCH_PATTERN_MAX_COUNT,
   SKETCH_PATTERN_MIN_COUNT,
 } from '../internal/sketch-pattern.js';
@@ -59,7 +59,7 @@ const CLICK_SLOP_PX = 3;
 const PREVIEW_STROKE = '#4a90e2';
 const PREVIEW_FILL = 'rgba(74, 144, 226, 0.12)';
 
-type DragKind = 'direction' | 'spacing' | 'count' | 'center' | 'move';
+type DragKind = 'direction' | 'spacing' | 'count' | 'center' | 'move' | 'rotate' | 'scale';
 type EditKind = 'spacing' | 'count';
 
 interface DragState {
@@ -69,6 +69,10 @@ interface DragState {
   startY: number;
   startCount: number;
   startLocal?: { u: number; v: number };
+  startPointerAngle?: number;
+  startPointerDistance?: number;
+  startRotation?: number;
+  startScale?: number;
   moved: boolean;
 }
 
@@ -98,8 +102,10 @@ export function SketchPatternGizmo({
   // 环形阵列：旋转中心（草图局部）与总角度（默认整周）。
   const [centerLocal, setCenterLocal] = React.useState({ u: 0, v: 0 });
   const [angleRad] = React.useState(Math.PI * 2);
-  // 变换平移首切片：选中几何的局部位移。
+  // 变换：选中几何的局部位移 + 绕选区质心的旋转/均匀缩放。
   const [deltaLocal, setDeltaLocal] = React.useState({ u: 0, v: 0 });
+  const [rotationRad, setRotationRad] = React.useState(0);
+  const [scale, setScale] = React.useState(1);
   const [editing, setEditing] = React.useState<{ kind: EditKind; value: string; x: number; y: number } | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [, forceTick] = React.useReducer((value: number) => value + 1, 0);
@@ -148,8 +154,13 @@ export function SketchPatternGizmo({
           count,
           angleRad,
         })
-        : buildSketchTranslation(sketch.entities, sketch.constraints, selected, deltaLocal),
-    [kind, sketch.entities, sketch.constraints, selected, directionRad, spacingMm, count, centerLocal, angleRad, deltaLocal],
+        : buildSketchTransform(sketch.entities, sketch.constraints, selected, {
+          translation: deltaLocal,
+          rotationRad,
+          scale,
+          origin: { u: seedLocal?.u ?? 0, v: seedLocal?.v ?? 0 },
+        }),
+    [kind, sketch.entities, sketch.constraints, selected, directionRad, spacingMm, count, centerLocal, angleRad, deltaLocal, rotationRad, scale, seedLocal],
   );
   const circularCenterWorld = React.useMemo(
     () => frame.toWorld(centerLocal),
@@ -220,6 +231,34 @@ export function SketchPatternGizmo({
   const countHandle = kind === 'circular'
     ? (seedClient ? { x: seedClient.x + 18, y: seedClient.y - 18 } : undefined)
     : (lastClient ? { x: lastClient.x + perp.x * 16, y: lastClient.y + perp.y * 16 } : undefined);
+
+  // 变换：选区屏幕包围盒（旋转手柄在顶边上方，四角为均匀缩放手柄）。
+  const seedScreenPoints = seedPolylines
+    .flatMap((line) => line.points.map((point) => toClient(point)))
+    .filter((point): point is { x: number; y: number } => point !== undefined);
+  const screenBounds = seedScreenPoints.length > 0
+    ? seedScreenPoints.reduce(
+      (acc, point) => ({
+        minX: Math.min(acc.minX, point.x),
+        minY: Math.min(acc.minY, point.y),
+        maxX: Math.max(acc.maxX, point.x),
+        maxY: Math.max(acc.maxY, point.y),
+      }),
+      { minX: Number.POSITIVE_INFINITY, minY: Number.POSITIVE_INFINITY, maxX: Number.NEGATIVE_INFINITY, maxY: Number.NEGATIVE_INFINITY },
+    )
+    : undefined;
+  const screenCenter = screenBounds
+    ? { x: (screenBounds.minX + screenBounds.maxX) / 2, y: (screenBounds.minY + screenBounds.maxY) / 2 }
+    : undefined;
+  const rotateHandle = screenBounds && screenCenter
+    ? { x: screenCenter.x, y: screenBounds.minY - 28 }
+    : undefined;
+  const scaleHandles = screenBounds ? [
+    { id: 'nw', x: screenBounds.minX, y: screenBounds.minY, cursor: 'nwse-resize' },
+    { id: 'ne', x: screenBounds.maxX, y: screenBounds.minY, cursor: 'nesw-resize' },
+    { id: 'sw', x: screenBounds.minX, y: screenBounds.maxY, cursor: 'nesw-resize' },
+    { id: 'se', x: screenBounds.maxX, y: screenBounds.maxY, cursor: 'nwse-resize' },
+  ] : [];
 
   const draw = React.useCallback((): void => {
     const canvas = canvasRef.current;
@@ -431,6 +470,12 @@ export function SketchPatternGizmo({
         y: event.clientY - rect.top,
       })
       : undefined;
+    const startPointerAngle = startLocal && seedLocal
+      ? Math.atan2(startLocal.v - seedLocal.v, startLocal.u - seedLocal.u)
+      : undefined;
+    const startPointerDistance = startLocal && seedLocal
+      ? Math.hypot(startLocal.u - seedLocal.u, startLocal.v - seedLocal.v)
+      : undefined;
     dragRef.current = {
       kind,
       pointerId: event.pointerId,
@@ -438,9 +483,13 @@ export function SketchPatternGizmo({
       startY: event.clientY,
       startCount: count,
       ...(startLocal ? { startLocal } : {}),
+      ...(startPointerAngle !== undefined ? { startPointerAngle } : {}),
+      ...(startPointerDistance !== undefined ? { startPointerDistance } : {}),
+      startRotation: rotationRad,
+      startScale: scale,
       moved: false,
     };
-  }, [count, viewport, sketch.plane]);
+  }, [count, viewport, sketch.plane, seedLocal, rotationRad, scale]);
 
   const moveDrag = React.useCallback((event: React.PointerEvent<HTMLButtonElement>): void => {
     const drag = dragRef.current;
@@ -460,6 +509,24 @@ export function SketchPatternGizmo({
     });
     if (!local)
       return;
+    if (kind === 'transform' && (drag.kind === 'rotate' || drag.kind === 'scale') && seedLocal) {
+      const dx = local.u - seedLocal.u;
+      const dy = local.v - seedLocal.v;
+      if (drag.kind === 'rotate') {
+        let angle = Math.atan2(dy, dx) - (drag.startPointerAngle ?? 0) + (drag.startRotation ?? 0);
+        if (event.shiftKey) {
+          const step = Math.PI / 12;
+          angle = Math.round(angle / step) * step;
+        }
+        setRotationRad(angle);
+      } else {
+        const distance = Math.hypot(dx, dy);
+        if ((drag.startPointerDistance ?? 0) > 1e-9) {
+          setScale(clamp((drag.startScale ?? 1) * distance / drag.startPointerDistance!, 0.01, 100));
+        }
+      }
+      return;
+    }
     if (kind === 'transform' && drag.kind === 'move') {
       if (drag.startLocal)
         setDeltaLocal({ u: local.u - drag.startLocal.u, v: local.v - drag.startLocal.v });
@@ -544,6 +611,40 @@ export function SketchPatternGizmo({
               </svg>
             </button>
           )}
+          {kind === 'transform' && rotateHandle && (
+            <button
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--rotate"
+              data-testid="sketch-transform-rotate"
+              title={t('partStudio.sketch.patternRotate')}
+              aria-label={t('partStudio.sketch.patternRotate')}
+              style={{ left: rotateHandle.x, top: rotateHandle.y }}
+              onPointerDown={startDrag('rotate')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M12.5 5.5A5 5 0 1 0 13 8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                <path d="M12.5 2.5v3h-3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+          {kind === 'transform' && scaleHandles.map((handle) => (
+            <button
+              key={handle.id}
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--scale"
+              data-testid={`sketch-transform-scale-${handle.id}`}
+              title={t('partStudio.sketch.patternScale')}
+              aria-label={t('partStudio.sketch.patternScale')}
+              style={{ left: handle.x, top: handle.y, cursor: handle.cursor }}
+              onPointerDown={startDrag('scale')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+            />
+          ))}
           {kind === 'linear' && (
             <button
               type="button"

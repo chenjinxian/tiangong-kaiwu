@@ -8,6 +8,7 @@ import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js'
 import {
   buildSketchCircularPattern,
   buildSketchLinearPattern,
+  buildSketchTransform,
   buildSketchTranslation,
   SKETCH_PATTERN_MAX_COUNT,
 } from '../internal/sketch-pattern.js';
@@ -249,5 +250,95 @@ describe('buildSketchTranslation（变换平移首切片）', () => {
       .toEqual({ ok: false, error: 'no-selection' });
     expect(buildSketchTranslation([circle(11, 0, 0)], [], [curveSelection(11)], { u: Number.NaN, v: 0 }))
       .toEqual({ ok: false, error: 'invalid-delta' });
+  });
+});
+
+describe('buildSketchTransform（旋转/缩放）', () => {
+  it('均匀缩放：圆心按基点缩放、圆半径同步缩放、内部半径尺寸同步放大', () => {
+    const constraints: SketchConstraintDto[] = [{ kind: 'radius', id: 101, refs: [11], value: 0.01 }];
+    const result = buildSketchTransform([circle(11, 0.02, 0, 0.01)], constraints, [curveSelection(11)], {
+      translation: { u: 0, v: 0 },
+      rotationRad: 0,
+      scale: 2,
+      origin: { u: 0, v: 0 },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    expect(result.entities.find((entity) => entity.id === 11)).toMatchObject({
+      center: { x: 0.04, y: 0 },
+      radius: 0.02,
+    });
+    expect(result.constraints.find((constraint) => constraint.id === 101)?.value).toBeCloseTo(0.02, 10);
+  });
+
+  it('绕基点旋转 90°：圆心旋转、半径不变', () => {
+    const result = buildSketchTransform([circle(11, 0.02, 0, 0.01)], [], [curveSelection(11)], {
+      translation: { u: 0, v: 0 },
+      rotationRad: Math.PI / 2,
+      scale: 1,
+      origin: { u: 0, v: 0 },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    const circleEntity = result.entities.find((entity) => entity.id === 11);
+    expect(circleEntity?.kind === 'circle' ? circleEntity.center : undefined).toMatchObject({ x: expect.closeTo(0, 10), y: expect.closeTo(0.02, 10) });
+    expect(circleEntity?.kind === 'circle' ? circleEntity.radius : undefined).toBeCloseTo(0.01, 10);
+  });
+
+  it('先缩放、再旋转、再平移；内联点与样条控制点同一变换', () => {
+    const entities: SketchEntityDto[] = [
+      circle(11, 0.02, 0, 0.01),
+      { kind: 'line', id: 12, p1: { x: 0.01, y: 0 }, p2: { x: 0.02, y: 0 } },
+    ];
+    const result = buildSketchTransform(entities, [], [curveSelection(11), curveSelection(12)], {
+      translation: { u: 0.01, v: 0 },
+      rotationRad: Math.PI / 2,
+      scale: 2,
+      origin: { u: 0, v: 0 },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    const circleEntity = result.entities.find((entity) => entity.id === 11);
+    expect(circleEntity?.kind === 'circle' ? circleEntity.center : undefined).toMatchObject({ x: expect.closeTo(0.01, 10), y: expect.closeTo(0.04, 10) });
+    expect(circleEntity?.kind === 'circle' ? circleEntity.radius : undefined).toBeCloseTo(0.02, 10);
+    const line = result.entities.find((entity) => entity.id === 12);
+    expect(line?.kind === 'line' ? line.p1 : undefined).toMatchObject({ x: expect.closeTo(0.01, 10), y: expect.closeTo(0.02, 10) });
+    expect(line?.kind === 'line' ? line.p2 : undefined).toMatchObject({ x: expect.closeTo(0.01, 10), y: expect.closeTo(0.04, 10) });
+  });
+
+  it('圆弧旋转：圆心随基点旋转、startAngle 平移旋转角、sweep 与半径不变', () => {
+    const arc: SketchEntityDto = {
+      kind: 'arc', id: 11, center: { x: 0.02, y: 0 }, radius: 0.01,
+      startAngle: 0, sweepAngle: Math.PI / 3,
+    };
+    const result = buildSketchTransform([arc], [], [curveSelection(11)], {
+      translation: { u: 0, v: 0 },
+      rotationRad: Math.PI / 2,
+      scale: 1,
+      origin: { u: 0, v: 0 },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    const transformed = result.entities.find((entity) => entity.id === 11);
+    expect(transformed?.kind === 'arc' ? transformed.center : undefined)
+      .toMatchObject({ x: expect.closeTo(0, 10), y: expect.closeTo(0.02, 10) });
+    expect(transformed?.kind === 'arc' ? transformed.startAngle : undefined)
+      .toBeCloseTo(Math.PI / 2, 10);
+    expect(transformed?.kind === 'arc' ? transformed.sweepAngle : undefined)
+      .toBeCloseTo(Math.PI / 3, 10);
+    expect(transformed?.kind === 'arc' ? transformed.radius : undefined).toBeCloseTo(0.01, 10);
+  });
+
+  it('校验：缩放必须 >0、旋转有限', () => {
+    expect(buildSketchTransform([circle(11, 0, 0)], [], [curveSelection(11)], {
+      translation: { u: 0, v: 0 }, rotationRad: 0, scale: 0, origin: { u: 0, v: 0 },
+    })).toEqual({ ok: false, error: 'invalid-scale' });
+    expect(buildSketchTransform([circle(11, 0, 0)], [], [curveSelection(11)], {
+      translation: { u: 0, v: 0 }, rotationRad: Number.NaN, scale: 1, origin: { u: 0, v: 0 },
+    })).toEqual({ ok: false, error: 'invalid-rotation' });
   });
 });

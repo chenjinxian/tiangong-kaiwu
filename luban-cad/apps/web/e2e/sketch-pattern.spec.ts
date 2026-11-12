@@ -235,6 +235,9 @@ test.describe('草图线性阵列（Onshape canvas gizmo 对拍）', () => {
     await expect(page.getByTestId('sketch-pattern-prompt')).toContainText('变换', { timeout: 15_000 });
     const move = page.getByTestId('sketch-transform-move');
     await expect(move).toBeVisible();
+    await expect(page.getByTestId('sketch-transform-rotate')).toBeVisible();
+    await expect(page.getByTestId('sketch-transform-scale-ne')).toBeVisible();
+    await expect(page.getByTestId('sketch-transform-scale-sw')).toBeVisible();
     await expect(page.getByTestId('sketch-pattern-count')).toHaveCount(0);
     await expect(page.getByTestId('sketch-pattern-preview')).toBeVisible();
 
@@ -268,5 +271,44 @@ test.describe('草图线性阵列（Onshape canvas gizmo 对拍）', () => {
         ? (circle.center as { x: number }).x
         : Number.NaN;
     }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBeCloseTo(0, 5);
+  });
+
+  test('变换缩放：拖角手柄到 2× → 圆半径 20 mm → undo', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const { ctx, sketchId, token, project } = await openPatternSketch(page, request);
+    await selectCircleAndStartPattern(page, project);
+
+    await page.getByRole('button', { name: '线性阵列 ▾' }).click();
+    await page.getByRole('menuitem', { name: '变换', exact: true }).click();
+    await expect(page.getByTestId('sketch-pattern-prompt')).toContainText('变换', { timeout: 15_000 });
+
+    const scaleHandle = page.getByTestId('sketch-transform-scale-ne');
+    await expect(scaleHandle).toBeVisible();
+    const handleBox = await scaleHandle.boundingBox();
+    expect(handleBox).not.toBeNull();
+    const from = { x: handleBox!.x + handleBox!.width / 2, y: handleBox!.y + handleBox!.height / 2 };
+    const center = await project(0, 0);
+    const to = { x: center.x + (from.x - center.x) * 2, y: center.y + (from.y - center.y) * 2 };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 16 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-prompt')).toHaveCount(0, { timeout: 30_000 });
+    // 手柄拖拽按像素比缩放，允许 0.5% 量级误差。
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      const circle = (sketch?.entities ?? []).find((entity) => entity.kind === 'circle');
+      return circle?.kind === 'circle' ? circle.radius : undefined;
+    }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBeCloseTo(0.02, 3);
+
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      const circle = (sketch?.entities ?? []).find((entity) => entity.kind === 'circle');
+      return circle?.kind === 'circle' ? circle.radius : undefined;
+    }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBeCloseTo(0.01, 5);
   });
 });

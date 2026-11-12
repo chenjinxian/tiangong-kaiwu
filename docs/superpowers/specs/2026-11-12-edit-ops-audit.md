@@ -18,7 +18,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 | Fillet（草图） | ✅ 点击两条直线共享角点立即生成相切圆弧（默认 R5 mm + coincident×2/tangent×2/radius）；✅ 依次单击两条不相连直线在延长交点倒角（悬停预览）；✅ 显式 point 端点（分离为内联点 + 孤儿点清理）；✅ 直线-圆弧角点（源弧随 tangent 收窄） | —（随曲线/约束 Delete） | ✅ R 尺寸双击改值重解算；工具保持激活可连续倒角 | Live 2026-11-12 实测：无独立半径框，点角点即出 arc + R 尺寸（英寸文档 R0.25）；两曲线选择要求切点落在线段内，平行/十字交叉四解/间隙大于切距诚实拒收；三线以上共点/整圆/样条/投影未支持；`sketch-fillet.spec.ts` 真栈 5 例（角点 R5→R8、两曲线 L 形、显式点角点、线-弧 R5 弧-弧相切）+ 14 单测 |
 | Extend（草图） | — | — | ✅ 两相延伸：先选线/弧，再点边界（线/圆/弧）或自由端点；线源移动端点、弧源增长扫角；圆/样条源未实现 | 修剪同一下拉（官方帮助，快捷键 X）；`Sketch.Extend` 真栈（线/弧）+ 17 单测；无边界/反方向保持原样；共用 view→NPC 反解已修为官方 viewToNpc |
 | 插入 DXF（草图） | ✅ ASCII DXF 的 LINE/CIRCLE/ARC/POINT/LWPOLYLINE（直线段 + bulge 圆弧段，含闭合）/三次 4 控制点 SPLINE → 当前草图（$INSUNITS 换算 mm；一次 updateSketch 可撤销） | — | — | `dxf-import` 12 单测 + `sketch-dxf-import.spec.ts` 真栈；DWG/BLOCKS/INSERT/非三次·周期样条/放置对话框未做（诚实拒收/跳过计数） |
-| Copy/Transform（草图图元） | ✅ 复制到会话剪贴板（选中曲线 + 直接引用的显式 point；只带内部约束）；菜单与 Ctrl/Cmd+C 同语义；🟠 线性/环形阵列 canvas gizmo（选中曲线 → 方向/间距/计数或中心/计数手柄 → 一次 updateSketch；实例为独立副本，无阵列关系联动）；🟠 变换平移 canvas gizmo（四向移动手柄 → 一次 updateSketch；旋转/缩放未实现） | — | ✅ 粘贴原位副本并选中（一次 updateSketch，可撤销；id/约束重映射）；菜单与 Ctrl/Cmd+V 同语义；❌ 变换旋转/缩放 | Live 实测：复制后菜单出现粘贴；草图阵列/变换都是 canvas manipulator（无 DOM 对话框）。**线性/环形阵列与变换平移已实现**：`internal/sketch-pattern.ts` + `SketchPatternGizmo` + store `sketch.pattern`；真栈 `sketch-pattern.spec.ts` **5 passed**（线性 3 圆 x=0/0.02/0.04 m、成品先提交、undo；环形 count 4 绕原点 90° 均分 + undo；变换 +20 mm → x=0.02 → undo）。旋转/缩放待后续；拉伸…/旋转… 已接（退出草图→FeatureDialog）。`sketch-clipboard.test.ts` 3 条 + `sketch-entity-menu.spec.ts` 真栈（菜单 + 键盘） |
+| Copy/Transform（草图图元） | ✅ 复制到会话剪贴板（选中曲线 + 直接引用的显式 point；只带内部约束）；菜单与 Ctrl/Cmd+C 同语义；🟠 线性/环形阵列 canvas gizmo（选中曲线 → 方向/间距/计数或中心/计数手柄 → 一次 updateSketch；实例为独立副本，无阵列关系联动）；🟠 变换 canvas gizmo（移动/旋转/均匀缩放手柄 → 一次 updateSketch；内部尺寸同步缩放；数值输入未实现） | — | ✅ 粘贴原位副本并选中（一次 updateSketch，可撤销；id/约束重映射）；菜单与 Ctrl/Cmd+V 同语义；❌ 变换数值输入/自定义基点/非均匀缩放 | Live 实测：复制后菜单出现粘贴；草图阵列/变换都是 canvas manipulator（无 DOM 对话框）。**线性/环形阵列与变换（平移+旋转+均匀缩放）已实现**：`internal/sketch-pattern.ts` + `SketchPatternGizmo` + store `sketch.pattern`；真栈 `sketch-pattern.spec.ts` 6 用例（线性 3 圆 x=0/0.02/0.04 m、成品先提交、undo；环形 count 4 绕原点 90° 均分；变换 +20 mm → x=0.02；缩放 2× → 半径 20 mm → undo；全文件最后一个用例偶发被 MS 429 限流，单跑通过）。数值输入/自定义基点/非均匀缩放待后续；拉伸…/旋转… 已接（退出草图→FeatureDialog）。`sketch-clipboard.test.ts` 3 条 + `sketch-entity-menu.spec.ts` 真栈（菜单 + 键盘） |
 
 ## 特征
 
@@ -52,7 +52,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 1. ✅ 非尺寸约束选中与删除 + `显示约束` 显隐（S1g，2026-11-12）。
 2. ✅ 草图 Fillet（S1k，2026-11-12；live 实测点击角点立即生成圆弧 + 可编辑 R 尺寸，无半径框；两线角点首切片，线弧组合/两曲线选择/显式点端点待做）。
 3. ✅ Extend 线端点切片（S1i，2026-11-12；弧/圆/样条源与边界点选第二相待做）。
-4. 草图变换旋转/缩放（线性/环形阵列与平移已实现；变换仍缺旋转/缩放手柄与数值输入；Onshape live 实证为 canvas gizmo，非对话框）。
+4. 草图变换数值输入/自定义基点/非均匀缩放（阵列与变换的移动/旋转/均匀缩放手柄已实现；Onshape live 实证为 canvas gizmo，非对话框）。
 5. 零件删除/重命名（后端 FeatureOp + schema）。
 6. 特征回滚/重排（后端 scope 重建截止 + 顺序契约，需 ADR）。重排现状：Onshape live 拖动行即重排（蓝色行名 chip；依赖被破坏的下游行标红，2026-11-12 直接操作 `LubanCAD 覆盖 - Bumper Block` 副本实证）；本产品 `reorderFeature` 受线性 prev 边守卫，真实拖动会被服务端拒收（newBody 拉伸同样有边），因此**不提供拖拽 UI**，待后端 reorder 重建语义 ADR 后接线。
 7. Use（实体边/面投影，后端几何投影通道）。
