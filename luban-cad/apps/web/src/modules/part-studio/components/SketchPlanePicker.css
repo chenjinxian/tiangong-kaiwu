@@ -19,6 +19,15 @@
   pointer-events: none;
 }
 
+/* Onshape 草图框选（2026-11-12 live：半透明蓝底 + 实线蓝边）。client 坐标。 */
+.part-studio-sketch-select-box {
+  position: fixed;
+  z-index: 30;
+  border: 1px solid #4a90e2;
+  background: rgba(74, 144, 226, 0.15);
+  pointer-events: none;
+}
+
 /* Onshape 蓝色选择提示条（选择草图平面）。 */
 .part-studio-plane-prompt {
   position: absolute;

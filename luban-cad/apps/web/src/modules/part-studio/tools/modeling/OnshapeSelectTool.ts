@@ -10,7 +10,7 @@
  *   修复旧实现第一次拾取后钉死第一个 body 的缺陷）；
  * - 拾取链/几何缓存/高亮全部复用 LocateSubEntityTool。
  */
-import { CoordSource, EventHandled, IModelApp } from '@itwin/core-frontend';
+import { BeButton, CoordSource, EventHandled, IModelApp } from '@itwin/core-frontend';
 import type { BeButtonEvent } from '@itwin/core-frontend';
 import { Point3d } from '@itwin/core-geometry';
 import { SubEntityType } from '@itwin/editor-common';
@@ -326,6 +326,17 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
       return EventHandled.No;
 
     return super.gatherInput(ev);
+  }
+
+  /**
+   * Onshape 对拍（2026-11-12）：右键拖拽 = 旋转（Ctrl+右键 = 平移），必须交给
+   * `OnshapeIdleTool`。返回 No 让 ToolAdmin 把 start-drag 继续下发到 idle；
+   * 右键单击（无位移）不触发 start-drag，仍由 onResetButtonUp 交宿主弹菜单。
+   */
+  public override async onMouseStartDrag(ev: BeButtonEvent): Promise<EventHandled> {
+    if (ev.button === BeButton.Reset)
+      return EventHandled.No;
+    return super.onMouseStartDrag(ev);
   }
 
   /** 右键保留工具与高亮，由宿主打开 CanvasContextMenu。 */

@@ -92,6 +92,8 @@ import { readViewCubeMode } from '../internal/viewcube-mode.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import type { UseDisplaySettingsResult } from '../hooks/useDisplaySettings.js';
 import { useDatumPlaneDecorations } from '../hooks/useDatumPlaneDecorations.js';
+import { useOnshapeMouseNavigation } from '../hooks/useOnshapeMouseNavigation.js';
+import { clearRightDragMenuSuppression, consumeRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js';
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
@@ -210,6 +212,8 @@ export function PartStudioCanvas({
     }
   }, []);
   useDatumPlaneDecorations(viewport);
+  // Onshape 鼠标导航（2026-11-12）：右键拖拽旋转 / Ctrl+右键平移（idle tool 替换）。
+  useOnshapeMouseNavigation(Boolean(viewport));
   const sketchActiveForDecorations = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchIdForDecorations = usePartStudioStore((s) => s.sketch.activeSketchId);
   // ADR-0018 S1g：草图「显示约束」开关 gate 尺寸标注 + 非尺寸 glyph 覆盖层。
@@ -569,7 +573,16 @@ export function PartStudioCanvas({
 
   const handleContextMenu = React.useCallback((event: React.MouseEvent) => {
     event.preventDefault();
+    // Onshape：右键拖拽（旋转/平移）结束不弹菜单；仅右键单击（无位移）弹。
+    if (consumeRightDragMenuSuppression())
+      return;
     setAnchor({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  /** 右键按下重置一次性抑制标志（拖拽未产生 contextmenu 时下一次单击不受影响）。 */
+  const handleCanvasMouseDown = React.useCallback((event: React.MouseEvent) => {
+    if (event.button === 2)
+      clearRightDragMenuSuppression();
   }, []);
 
   // M6-a T4：SketchDialog 内部接线 insertSketch RPC（applyOp/canEdit 直通——
@@ -797,6 +810,7 @@ export function PartStudioCanvas({
       className="part-studio-canvas"
       data-testid="part-studio-canvas"
       data-viewport-ready={viewport ? 'true' : 'false'}
+      onMouseDown={handleCanvasMouseDown}
       onContextMenu={handleContextMenu}
     >
       <div ref={viewportRef} className="part-studio-viewport" data-testid="part-studio-viewport" />

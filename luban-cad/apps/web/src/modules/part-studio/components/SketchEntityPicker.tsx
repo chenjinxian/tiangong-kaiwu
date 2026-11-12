@@ -29,6 +29,12 @@ import {
   type SketchEntitySelection,
   type SketchPickerGeometry,
 } from '../internal/sketch-entity-picker.js';
+import {
+  selectSketchEntitiesInScreenBox,
+  sketchBoxFromScreenPoints,
+  type SketchScreenBox,
+} from '../internal/sketch-box-select.js';
+import { consumeRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 import { hasSketchClipboard } from '../internal/sketch-clipboard.js';
 import './SketchPlanePicker.css';
 
@@ -114,6 +120,10 @@ export function SketchEntityPicker({
     polylines: sketchEntitiesToWorldPolylines(displayEntities, sketch.plane),
     controlPoints: sketchControlPointsToWorld(displayEntities, sketch.plane),
   }), [displayEntities, sketch.plane]);
+  const geometryRef = React.useRef(geometry);
+  geometryRef.current = geometry;
+  /** 框选覆盖层（client 坐标；pointer-events:none 不拦截视口）。 */
+  const [boxRect, setBoxRect] = React.useState<SketchScreenBox | null>(null);
 
   const toScreen = React.useCallback((viewport2: ScreenViewport, points: readonly Point3d[]): ScreenPoint2[] =>
     points.map((p) => {
@@ -178,15 +188,27 @@ export function SketchEntityPicker({
       return;
     let down: ScreenPoint2 | undefined;
     let drag: { target: SketchEntitySelection; down: ScreenPoint2; dragging: boolean; preview?: SketchEntityDto[] } | undefined;
+    /** Onshape 草图框选：空白左键按下起候选，超过 slop 才算拖拽。 */
+    let box: { from: ScreenPoint2; to: ScreenPoint2; dragging: boolean } | undefined;
     const local = (event: PointerEvent): ScreenPoint2 => {
       const rect = canvas.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    };
+    const project = (world: Point3d): ScreenPoint2 => {
+      const v = viewport.worldToView(world);
+      return { x: v.x, y: v.y };
     };
     const cancelDrag = (): void => {
       if (!drag)
         return;
       drag = undefined;
       onPreviewChangeRef.current?.(null);
+    };
+    const cancelBox = (): void => {
+      if (!box)
+        return;
+      box = undefined;
+      setBoxRect(null);
     };
     const onDown = (event: PointerEvent): void => {
       if (event.button !== 0 || menuOpenRef.current)
@@ -195,16 +217,37 @@ export function SketchEntityPicker({
       if (isOverlayPointRef.current?.(down))
         return;
       const target = hitTestRef.current(down);
-      if (target && canEditRef.current) {
+      if (target) {
+        if (!canEditRef.current)
+          return;
         drag = { target, down, dragging: false };
         // 命中实体时不让 iTwin 同时启动相机旋转/工具手势；空按仍交给视口。
         event.preventDefault();
         event.stopPropagation();
+        return;
       }
+      // 空白按下：候选框选（Onshape 草图：左→右窗口、右→左交叉）。
+      box = { from: down, to: down, dragging: false };
     };
     const onMove = (event: PointerEvent): void => {
       if (menuOpenRef.current)
         return;
+      if (box && (event.buttons & 1) === 1) {
+        const point = local(event);
+        const dx = point.x - box.from.x;
+        const dy = point.y - box.from.y;
+        if (!box.dragging) {
+          if (Math.hypot(dx, dy) <= CLICK_SLOP_PX)
+            return;
+          box.dragging = true;
+          setHover(null);
+        }
+        box.to = point;
+        setBoxRect(sketchBoxFromScreenPoints(box.from, point).box);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (drag && (event.buttons & 1) === 1) {
         const point = local(event);
         const dx = point.x - drag.down.x;
@@ -240,6 +283,38 @@ export function SketchEntityPicker({
       if (event.button !== 0 || !down || menuOpenRef.current)
         return;
       const up = local(event);
+      if (box?.dragging) {
+        const from = box.from;
+        box = undefined;
+        down = undefined;
+        setBoxRect(null);
+        const { box: rect, mode } = sketchBoxFromScreenPoints(from, up);
+        const picked = selectSketchEntitiesInScreenBox(
+          geometryRef.current,
+          project,
+          rect,
+          mode,
+          sketchRef.current.id,
+        );
+        const current = selectedRef.current;
+        if (event.ctrlKey || event.metaKey) {
+          const merged = [...current];
+          for (const entry of picked) {
+            const index = merged.findIndex((candidate) => candidate.entityId === entry.entityId);
+            if (index >= 0)
+              merged[index] = entry;
+            else
+              merged.push(entry);
+          }
+          onSelectionChangeRef.current(merged);
+        } else {
+          onSelectionChangeRef.current(picked);
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      cancelBox();
       const moved = Math.hypot(up.x - down.x, up.y - down.y);
       down = undefined;
       if (drag?.dragging && drag.preview) {
@@ -274,6 +349,7 @@ export function SketchEntityPicker({
     const onCancel = (): void => {
       down = undefined;
       cancelDrag();
+      cancelBox();
     };
     const isEditableTarget = (target: EventTarget | null): boolean => {
       if (!(target instanceof HTMLElement))
@@ -289,6 +365,9 @@ export function SketchEntityPicker({
         return;
       event.preventDefault();
       event.stopPropagation();
+      // Onshape：右键拖拽（旋转/平移）结束不弹菜单；右键单击才弹。
+      if (consumeRightDragMenuSuppression())
+        return;
       const hit = hitTestRef.current(point);
       if (!hit) {
         setMenu(null);
@@ -307,6 +386,12 @@ export function SketchEntityPicker({
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape' && menuOpenRef.current) {
         setMenu(null);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (event.key === 'Escape' && box?.dragging) {
+        cancelBox();
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -451,6 +536,19 @@ export function SketchEntityPicker({
         data-hover={hover ? `${hover.entityId}:${hover.part}` : ''}
         aria-hidden="true"
       />
+      {boxRect && (
+        <div
+          className="part-studio-sketch-select-box"
+          data-testid="sketch-select-box"
+          style={{
+            left: boxRect.left,
+            top: boxRect.top,
+            width: boxRect.right - boxRect.left,
+            height: boxRect.bottom - boxRect.top,
+          }}
+          aria-hidden="true"
+        />
+      )}
       {menu && (() => {
         const width = 220;
         const height = 400;
