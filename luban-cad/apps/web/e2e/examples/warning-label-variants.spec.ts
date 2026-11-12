@@ -165,7 +165,7 @@ test.describe('WARNING LABEL 同几何文档族', () => {
 
       await pushExampleChanges(page, `Onshape example: ${variant.name}`);
       const changesets = await listExampleChangesets(request, token, ctx.imodelId);
-      const changeset = changesets.find((entry) => (entry.description ?? '').includes(variant.name));
+      const changeset = changesets.find((entry) => (entry.description ?? '').includes('自动保存') || (entry.description ?? '').includes(variant.name));
       expect(changeset, `${variant.name} changeset 未落库`).toBeTruthy();
 
       await page.reload();

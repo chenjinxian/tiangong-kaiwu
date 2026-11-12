@@ -11,3 +11,11 @@
   color: var(--iui-color-text-negative);
   margin-inline-start: var(--iui-size-2xs);
 }
+
+/* ADR-0017 Stage F（Onshape f7）：合并特征更改提示行 + 宽输入区。 */
+.part-studio-version-dialog__note {
+  margin-block-start: var(--iui-size-2xs);
+}
+.part-studio-version-dialog {
+  min-inline-size: 640px;
+}

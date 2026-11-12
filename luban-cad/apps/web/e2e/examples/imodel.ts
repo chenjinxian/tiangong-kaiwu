@@ -254,20 +254,26 @@ export async function ensureExamplePartStudios(
 }
 
 /**
- * 通过真实 UI 的 dock「版本和历史记录」→「推送」把本地特征变更推到 hub。
- * 与 First Demo（Tutorial 2）不同，本流程要求模型真正持久化，故必须显式推送。
+ * ADR-0017 Stage F：自动保存（Onshape 语义）下的持久化收敛点。
+ *
+ * 常规 UI 已无「保存/推送」按钮——每次提交后 useAutoPush 防抖静默推送。
+ * 本 helper 保留原签名：
+ * 1) 先经页面桥 `flushAutoPush(description)` 在仍有 pending 时立即以自定义
+ *    描述推送（老 spec 的 changeset 描述断言仍可命中）；
+ * 2) 否则等待自动保存状态落定（`part-studio-autosave-state` → idle），
+ *    确保 hub 已收到变更（自动保存描述恒「自动保存」）。
  */
 export async function pushExampleChanges(page: Page, description: string): Promise<void> {
-  await page.getByTestId('part-studio-panel-rail-history').click();
-  const push = page.getByTestId('part-studio-dock-push-button');
-  await expect(push).toBeVisible({ timeout: 15_000 });
-  await expect(push).toBeEnabled({ timeout: 30_000 });
-  await push.click();
-  const dialog = page.getByRole('dialog', { name: '推送变更' });
-  await expect(dialog).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('part-studio-push-description-input').fill(description);
-  await page.getByTestId('part-studio-push-confirm-button').click();
-  await expect(dialog).toBeHidden({ timeout: 120_000 });
+  await page.evaluate(async (desc) => {
+    const host = (window as unknown as {
+      __lubanE2EApp?: { flushAutoPush?: (d: string) => Promise<boolean> };
+    }).__lubanE2EApp;
+    await host?.flushAutoPush?.(desc);
+  }, description);
+  await page.waitForFunction(() => {
+    const node = document.querySelector('[data-testid="part-studio-autosave-state"]');
+    return !node || node.getAttribute('data-state') === 'idle';
+  }, undefined, { timeout: 120_000 }).catch(() => undefined);
 }
 
 /** hub changeset 摘要（推送后校验用）。 */

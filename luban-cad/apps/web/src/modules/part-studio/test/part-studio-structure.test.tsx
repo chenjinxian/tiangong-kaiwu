@@ -853,14 +853,15 @@ describe('M4 收官锚点总账（T9）', () => {
     await waitFor(() => expect(isDisabled(save)).toBe(false));
     await user.click(save);
 
-    // 对话框挂载锚点：Named Version 对话框 + 名称/描述输入 + 保存钮在场。
-    const dialog = await screen.findByRole('dialog', { name: '保存版本' });
-    expect(within(dialog).getByTestId('part-studio-version-name-input')).toBeDefined();
+    // 对话框挂载锚点（Onshape f7）：名称/说明输入 + 创建钮在场；名称缺省 V1。
+    const dialog = await screen.findByRole('dialog', { name: '创建来自 Main 的版本' });
+    const name = within(dialog).getByTestId('part-studio-version-name-input') as HTMLInputElement;
+    expect(name.value).toBe('V1');
     expect(within(dialog).getByTestId('part-studio-version-description-input')).toBeDefined();
-    const confirm = within(dialog).getByRole('button', { name: '保存' });
-    // 名称必填：空名诚实禁用（不发起命名；iTwinUI 美观禁用同口径）。
-    expect(isDisabled(confirm)).toBe(true);
-    await user.type(within(dialog).getByTestId('part-studio-version-name-input'), 'M4 冒烟锚点');
+    const confirm = within(dialog).getByRole('button', { name: '创建' });
+    expect(isDisabled(confirm)).toBe(false);
+    await user.clear(name);
+    await user.type(name, 'M4 冒烟锚点');
     await user.click(confirm);
     // 干净态：命名最新 changeset（listChangesets 取 index 最大），不 push。
     await waitFor(() =>

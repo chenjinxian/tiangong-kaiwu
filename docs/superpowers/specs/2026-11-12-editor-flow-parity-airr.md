@@ -210,3 +210,25 @@
   `e2e/extrude-draft-ui.spec.ts` **2 passed（55.3s）** 回归。
 - 未做：方向作为独立「指定方向」参数（Onshape 可选轴）——本产品契约只有
   forward/backward；不渲染无通道控件。
+
+## 14. Stage F 实施结果（2026-11-12）
+
+- 自动保存：`useAutoPush`（防抖 2.5s 可调、single-flight、失败可见 + 15s 重试、
+  `flush()` 供创建版本前落库）；默认开启，`VITE_EDITOR_AUTOSAVE=0|false` 回滚，
+  `VITE_EDITOR_AUTOSAVE_DEBOUNCE_MS` 调窗口。仅可写 scope（canEdit ∧
+  !readonlyBlocked）生效。
+- 常规 UI 移除保存/推送入口与「未推送」徽标（dock 历史面板只剩
+  changesets/命名版本/当前版本）；`pushExampleChanges` 签名不变，内部先经
+  e2e 桥以自定义描述冲刷、再等待自动保存落定（老 spec 兼容）。
+- 「创建版本…」按 f7 证据：标题「创建来自 Main 的版本」、名称缺省 V1、
+  说明（≤10000 字符）+ 合并特征更改提示、「创建 / 创建版本并编辑属性（禁用以
+  示未支持）/ 取消」；确认前 flush 自动保存。
+- 例外：X-15 自动保存 push 会话与 undo 深度（ADR/EXCEPTIONS 登记，不宣称
+  与 Onshape 相同 undo 深度）。
+- 验证：web **1559/1559**、tsc/lint/e2e tsc 绿；真栈
+  `e2e/autosave-version.spec.ts` **2 passed（49.3s）**——UI 提交后 hub
+  changesets 增加且描述「自动保存」、版本对话框与命名版本、刷新冷重开仍在；
+  `e2e/part-studio.spec.ts` 版本 + 五区用例回归、`e2e/examples/shell-face.spec.ts`
+  （pushExampleChanges 迁移）**3 passed（1.2m）**。
+- 未做：hub 冲突（他人推送）时的自动合并提示、版本元数据编辑通道（按钮诚实
+  禁用）。

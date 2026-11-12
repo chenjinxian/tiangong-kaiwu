@@ -83,17 +83,17 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
     await expect(page.getByTestId('part-studio-panel-rail-create-version')).toBeEnabled();
   });
 
-  test('保存版本：干净态命名当前 changeset', async ({ page }) => {
+  test('创建版本：干净态命名当前 changeset', async ({ page }) => {
     // beforeEach 已 openSeedImodelEditor（含 waitEditorReady）；B 种子每轮重置，
     // 干净事务态下保存版本走「最新 changeset 命名」路径。
     await expect(page.getByTestId('part-studio-panel-rail-create-version')).toBeEnabled();
     await page.getByTestId('part-studio-panel-rail-create-version').click();
 
-    const dialog = page.getByRole('dialog', { name: '保存版本' });
+    const dialog = page.getByRole('dialog', { name: '创建来自 Main 的版本' });
     await expect(dialog).toBeVisible();
-    await dialog.getByLabel('版本名称').fill('E2E V1');
-    await dialog.getByRole('button', { name: '保存' }).click();
-    await expect(page.getByText('版本已保存')).toBeVisible();
+    await dialog.getByLabel('名称').fill('E2E V1');
+    await dialog.getByRole('button', { name: '创建', exact: true }).click();
+    await expect(page.getByText('版本已创建')).toBeVisible();
 
     // 打开版本历史面板，确认 Named Version 行出现。
     await page.getByTestId('part-studio-panel-rail-history').click();
@@ -223,7 +223,7 @@ test.describe('A 旧文档只读（legacy 种子）', () => {
     await expect(page).not.toHaveURL(/[?&]model=/);
     await expect(page.getByTestId('part-studio-readonly-banner')).toBeVisible();
 
-    // 写面收口：full 写工具（倒角）+ 顶栏保存版本/撤销/重做 禁用。
+    // 写面收口：full 写工具（倒角）+ 左栏创建版本按钮禁用。
     await expect(page.getByRole('button', { name: '倒角', exact: true })).toBeDisabled();
     await expect(page.getByTestId('part-studio-panel-rail-create-version')).toBeDisabled();
     await expect(page.getByTestId('part-studio-ribbon-undo')).toBeDisabled();

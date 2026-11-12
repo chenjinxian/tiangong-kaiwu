@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 describe('CreateNamedVersionDialog', () => {
-  it('名称为空时确认禁用；填写后提交 name/description', async () => {
+  it('Onshape 默认 V1（可改）；清空名称确认禁用；提交 name/description', async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn().mockResolvedValue(undefined);
     const onClose = vi.fn();
@@ -67,16 +67,27 @@ describe('CreateNamedVersionDialog', () => {
       <CreateNamedVersionDialog isOpen onClose={onClose} onConfirm={onConfirm} />,
     );
 
-    const dialog = screen.getByRole('dialog', { name: '保存版本' });
-    const confirm = within(dialog).getByRole('button', { name: '保存' });
-    expect(isDisabled(confirm)).toBe(true);
+    const dialog = screen.getByRole('dialog', { name: '创建来自 Main 的版本' });
+    const name = within(dialog).getByLabelText('名称') as HTMLInputElement;
+    expect(name.value).toBe('V1');
+    const confirm = within(dialog).getByRole('button', { name: '创建' });
+    expect(isDisabled(confirm)).toBe(false);
 
-    // 标签含「必填」后缀（嵌套 span），正则匹配同 PushChangesetDialog.test 口径。
-    await user.type(within(dialog).getByLabelText(/版本名称/), 'V1');
-    await user.type(within(dialog).getByLabelText(/版本描述/), 'first');
+    await user.clear(name);
+    expect(isDisabled(confirm)).toBe(true);
+    await user.type(name, 'V2');
+    await user.type(within(dialog).getByLabelText(/说明/), 'first');
     await user.click(confirm);
 
-    expect(onConfirm).toHaveBeenCalledWith({ name: 'V1', description: 'first' });
+    expect(onConfirm).toHaveBeenCalledWith({ name: 'V2', description: 'first' });
+  });
+
+  it('未支持项「创建版本并编辑属性」诚实禁用；说明限 10000 字符', () => {
+    render(<CreateNamedVersionDialog isOpen onClose={vi.fn()} onConfirm={vi.fn()} />);
+    const dialog = screen.getByRole('dialog', { name: '创建来自 Main 的版本' });
+    expect(isDisabled(within(dialog).getByRole('button', { name: '创建版本并编辑属性' }))).toBe(true);
+    expect(within(dialog).getByLabelText(/说明/).getAttribute('maxlength')).toBe('10000');
+    expect(within(dialog).getByText(/仅在“Part Studio”和“装配体”页签支持合并特征更改/)).toBeDefined();
   });
 
   it('onConfirm 拒绝时就地显示错误且不关闭', async () => {
@@ -87,11 +98,11 @@ describe('CreateNamedVersionDialog', () => {
       <CreateNamedVersionDialog isOpen onClose={onClose} onConfirm={onConfirm} />,
     );
 
-    const dialog = screen.getByRole('dialog', { name: '保存版本' });
-    await user.type(within(dialog).getByLabelText(/版本名称/), 'V1');
-    await user.click(within(dialog).getByRole('button', { name: '保存' }));
+    const dialog = screen.getByRole('dialog', { name: '创建来自 Main 的版本' });
+    await user.type(within(dialog).getByLabelText('名称'), 'V1');
+    await user.click(within(dialog).getByRole('button', { name: '创建' }));
 
-    expect(await within(dialog).findByText(/保存失败/)).toBeDefined();
+    expect(await within(dialog).findByText(/创建失败/)).toBeDefined();
     expect(within(dialog).getByText(/boom/)).toBeDefined();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -105,7 +116,7 @@ describe('CreateNamedVersionDialog', () => {
     const { rerender } = render(
       <CreateNamedVersionDialog isOpen onClose={onClose} onConfirm={onConfirm} />,
     );
-    const dialog = screen.getByRole('dialog', { name: '保存版本' });
+    const dialog = screen.getByRole('dialog', { name: '创建来自 Main 的版本' });
 
     // jsdom 可驱动 Escape（iTwinUI DialogMain 的 keyDown 通道）：先证未提交时
     // Escape 会触发 onClose，确认本用例的负向断言不是「本来就不响应」。
@@ -114,11 +125,11 @@ describe('CreateNamedVersionDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     onClose.mockClear();
 
-    await user.type(within(dialog).getByLabelText(/版本名称/), 'V1');
-    await user.click(within(dialog).getByRole('button', { name: '保存' }));
+    await user.type(within(dialog).getByLabelText('名称'), 'V1');
+    await user.click(within(dialog).getByRole('button', { name: '创建' }));
 
     // 在途：确认钮加载态 + 取消禁用 + 标题栏 X 不渲染（isDismissible=false）。
-    await within(dialog).findByRole('button', { name: '保存中…' });
+    await within(dialog).findByRole('button', { name: '创建中…' });
     expect(isDisabled(within(dialog).getByRole('button', { name: '取消' }))).toBe(true);
     expect(within(dialog).queryByRole('button', { name: 'Close' })).toBeNull();
 
@@ -136,8 +147,8 @@ describe('CreateNamedVersionDialog', () => {
 
     // 重开：本次未发起提交，不得显示上一次的「保存失败」。
     rerender(<CreateNamedVersionDialog isOpen onClose={onClose} onConfirm={onConfirm} />);
-    const reopened = screen.getByRole('dialog', { name: '保存版本' });
-    expect(within(reopened).queryByText(/保存失败/)).toBeNull();
+    const reopened = screen.getByRole('dialog', { name: '创建来自 Main 的版本' });
+    expect(within(reopened).queryByText(/创建失败/)).toBeNull();
     expect(within(reopened).queryByText(/late failure/)).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
   });

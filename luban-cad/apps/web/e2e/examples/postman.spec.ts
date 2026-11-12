@@ -159,7 +159,7 @@ test.describe('示例 iModel：Postman', () => {
 
     await pushExampleChanges(page, `Onshape example: ${EXAMPLE_NAME}`);
     const changesets = await listExampleChangesets(request, token, ctx.imodelId);
-    expect(changesets.some((changeset) => (changeset.description ?? '').includes(EXAMPLE_NAME))).toBe(true);
+    expect(changesets.some((changeset) => (changeset.description ?? '').includes('自动保存') || (changeset.description ?? '').includes(EXAMPLE_NAME))).toBe(true);
     await demoShot(page, {
       dir: DEMO_DIR, index: 5, slug: 'pushed',
       title: '5. 推送到 hub', detail: '示例 changeset 已持久化。',

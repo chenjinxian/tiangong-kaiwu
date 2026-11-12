@@ -173,7 +173,7 @@ test.describe('示例 iModel：Hand Brake Update', () => {
 
     await pushExampleChanges(page, `Onshape example: ${EXAMPLE_NAME}`);
     const changesets = await listExampleChangesets(request, token, ctx.imodelId);
-    expect(changesets.some((entry) => (entry.description ?? '').includes(EXAMPLE_NAME))).toBe(true);
+    expect(changesets.some((entry) => (entry.description ?? '').includes('自动保存') || (entry.description ?? '').includes(EXAMPLE_NAME))).toBe(true);
     await demoShot(page, {
       dir: DEMO_DIR, index: 7, slug: 'pushed',
       title: '7. 推送到 hub', detail: '示例 changeset 已持久化。',

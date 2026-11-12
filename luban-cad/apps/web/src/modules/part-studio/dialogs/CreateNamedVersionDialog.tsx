@@ -18,7 +18,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
-import { Button, Dialog, Input, Text } from '@itwin/itwinui-react';
+import { Button, Dialog, Input, Text, Textarea } from '@itwin/itwinui-react';
 import type { NamedVersionDraft } from '../hooks/useNamedVersionActions.js';
 import './CreateNamedVersionDialog.css';
 
@@ -34,7 +34,8 @@ export function CreateNamedVersionDialog({
   onConfirm,
 }: CreateNamedVersionDialogProps): React.JSX.Element {
   const { t } = useTranslation();
-  const [name, setName] = React.useState('');
+  // Onshape live（f7）：名称缺省 V1（预填且选中）；说明最多 10000 字符。
+  const [name, setName] = React.useState(() => t('partStudio.namedVersion.defaultName'));
   const [description, setDescription] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState('');
@@ -45,14 +46,14 @@ export function CreateNamedVersionDialog({
   // 打开会显示「保存失败」而本次根本未发起提交。
   React.useEffect(() => {
     if (!isOpen) {
-      setName('');
+      setName(t('partStudio.namedVersion.defaultName'));
       setDescription('');
       setSubmitError('');
       setIsSubmitting(false);
     } else {
       setSubmitError('');
     }
-  }, [isOpen]);
+  }, [isOpen, t]);
 
   const trimmedName = name.trim();
   const trimmedDescription = description.trim();
@@ -113,9 +114,6 @@ export function CreateNamedVersionDialog({
           <div className="part-studio-version-dialog__body">
             <label htmlFor="part-studio-version-name">
               {t('partStudio.namedVersion.nameLabel')}
-              <span className="part-studio-version-dialog__required">
-                {t('partStudio.namedVersion.required')}
-              </span>
             </label>
             <Input
               id="part-studio-version-name"
@@ -128,21 +126,26 @@ export function CreateNamedVersionDialog({
             <label htmlFor="part-studio-version-description">
               {t('partStudio.namedVersion.descriptionLabel')}
             </label>
-            <Input
+            <Textarea
               id="part-studio-version-description"
               value={description}
               disabled={isSubmitting}
+              rows={4}
+              maxLength={10000}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t('partStudio.namedVersion.descriptionPlaceholder')}
               data-testid="part-studio-version-description-input"
             />
+            {/* Onshape live（f7）：合并特征更改仅 Part Studio/装配体页签支持。 */}
+            <Text isMuted className="part-studio-version-dialog__note">
+              {t('partStudio.namedVersion.note')}
+            </Text>
             {submitError && <Text color="negative">{submitError}</Text>}
           </div>
         </Dialog.Content>
+        {/* Onshape live（f7）按钮序：创建（主）/ 创建版本并编辑属性（本产品无
+            版本元数据编辑通道 → 诚实禁用 + tooltip）/ 取消。 */}
         <Dialog.ButtonBar>
-          <Button styleType="default" onClick={handleClose} disabled={isSubmitting}>
-            {t('partStudio.namedVersion.cancel')}
-          </Button>
           <Button
             styleType="high-visibility"
             disabled={!trimmedName || isSubmitting}
@@ -152,6 +155,17 @@ export function CreateNamedVersionDialog({
             {isSubmitting
               ? t('partStudio.namedVersion.saving')
               : t('partStudio.namedVersion.confirm')}
+          </Button>
+          <Button
+            styleType="default"
+            disabled
+            title={t('partStudio.namedVersion.editPropertiesUnsupported')}
+            data-testid="part-studio-version-edit-properties"
+          >
+            {t('partStudio.namedVersion.editProperties')}
+          </Button>
+          <Button styleType="default" onClick={handleClose} disabled={isSubmitting}>
+            {t('partStudio.namedVersion.cancel')}
           </Button>
         </Dialog.ButtonBar>
       </Dialog.Main>

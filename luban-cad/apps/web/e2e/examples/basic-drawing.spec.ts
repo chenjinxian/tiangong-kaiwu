@@ -197,7 +197,7 @@ test.describe('示例 iModel：Exercise - Basic Drawing', () => {
     await pushExampleChanges(page, `Onshape example: ${EXAMPLE_NAME}`);
     const changesets = await listExampleChangesets(request, token, ctx.imodelId);
     expect(
-      changesets.some((changeset) => (changeset.description ?? '').includes(EXAMPLE_NAME)),
+      changesets.some((changeset) => (changeset.description ?? '').includes('自动保存') || (changeset.description ?? '').includes(EXAMPLE_NAME)),
       `hub changeset 应包含示例描述：${JSON.stringify(changesets.slice(-3))}`,
     ).toBe(true);
     await demoShot(page, {

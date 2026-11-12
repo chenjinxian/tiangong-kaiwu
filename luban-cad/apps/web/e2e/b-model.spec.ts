@@ -19,7 +19,7 @@
  *  5)「+」创建第二个 Part Studio → 页签切走/切回（只换 URL）；连接键
  *    （`IModelConnection.key` ≡ briefcase fileName）不变、无新 IPC WebSocket、
  *    状态栏仍「已连接」；
- *  6) 顶栏「保存版本」→ CreateNamedVersionDialog → 版本历史出现该命名版本；
+ *  6) 左栏「创建版本…」→ CreateNamedVersionDialog → 版本历史出现该命名版本；
  *  7) 全程 console error 零（仅豁免既有外部字体资源失败，见 helpers）。
  *
  * A 只读冒烟：A 种子编辑器（未标记 `测试项目`）——只读横幅 + 连接 `isReadonly`
@@ -359,11 +359,11 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   const saveButton = page.getByTestId('part-studio-panel-rail-create-version');
   await expect(saveButton).toBeEnabled({ timeout: 30_000 });
   await saveButton.click();
-  const versionDialog = page.getByRole('dialog', { name: '保存版本' });
+  const versionDialog = page.getByRole('dialog', { name: '创建来自 Main 的版本' });
   await expect(versionDialog).toBeVisible({ timeout: 15_000 });
-  await versionDialog.getByLabel('版本名称').fill(versionName);
-  await versionDialog.getByRole('button', { name: '保存', exact: true }).click();
-  await expect(page.getByText('版本已保存')).toBeVisible({ timeout: 90_000 });
+  await versionDialog.getByLabel('名称').fill(versionName);
+  await versionDialog.getByRole('button', { name: '创建', exact: true }).click();
+  await expect(page.getByText('版本已创建')).toBeVisible({ timeout: 90_000 });
   await expect(saveButton).toBeEnabled({ timeout: 30_000 });
   await page.getByTestId('part-studio-panel-rail-history').click();
   await expect(

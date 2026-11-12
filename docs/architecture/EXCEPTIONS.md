@@ -21,6 +21,7 @@
 | X-12 | P0-08 | 存在多份 `imodel-native` checkout/zip（2.2.1/2.2.5 等） | 版本/provenance 不确定 | Native/发布 | 2026-12-31（已确认） | 建 canonical manifest；归档/删除非 canonical 副本 |
 | X-13 | P1-09 | 发布清单/测试基线/架构文档存在过期数字 | 误导评审与发布 | 文档/平台 | 2026-12-31（已确认） | 改为脚本生成基线；PR 同步文档索引/台账 |
 | X-14 | P1-06/P1-09 | `tutorial2` 真栈 e2e 在拉伸 2 面域 4 失败：`data-region-points` 给出画布外坐标（页 y=-5），点击无命中 | 基线非全绿；可能被误判为产品回归或误当绿 | Web/编辑器 | **已关闭（2026-11-04）** | **已关闭（2026-11-04）**：根因=严格模式未做特征视口取景，拱肩翼面域投影到画布上方；`profilePickPoints` 又返回画布外兜底点（首个尝试“showcaseScene 全模式取景”反而把弧点推进 ViewCube 命中区，已回退）。修复=`frameScene(SCENES.partIso)` 仅在拉伸/旋转对话框取景；`profilePickPoints` 只返回安全点（17×17 采样、无兜底）；e2e 增加画布外坐标硬失败护栏。证据=`luban-cad/apps/web/test-results/t2-strict-after.log`：2 passed（setup+strict，3.8 min），六特征 status 0，无圆角 358.161 cm³、终 357.739 cm³、去材 0.422 cm³。禁止放宽断言 |
+| X-15 | P0-10 | 自动保存（Onshape 式静默 `pushChanges`）会开启新 changeset 会话，已推送事务不再保证可 Undo | 自动保存后的 undo 深度小于 Onshape 宣称值 | 编辑器/平台 | 2027-03-31（ADR-0017 Stage F 登记） | 在 ADR-0017 §5/§7 声明真实 undo 边界；评估 undo 与 push 会话解耦；UI 不宣称与 Onshape 相同 undo 深度 |
 
 ---
 
@@ -44,4 +45,5 @@ Owner:
 - 新增 P0 例外必须在本表登记，否则视为违规。
 - 例外不得用于绕过安全/许可/数据迁移红线。
 
-*最后更新：2026-11-04（X-01/X-02/X-03/X-14 已关闭；X-14 证据：`luban-cad/apps/web/test-results/t2-strict-after.log`，tutorial2 setup+strict 2 passed）*
+*最后更新：2026-11-12（ADR-0017 Stage F：新增 X-15 自动保存/undo 深度边界）*
+

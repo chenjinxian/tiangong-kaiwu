@@ -816,7 +816,7 @@ describe('M5-T3 权限门（权限未载不开连接）+ briefcase readonly 三�
     const user = userEvent.setup();
     const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     await user.click(save);
-    expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '创建来自 Main 的版本' })).toBeNull();
   });
 
   it('B2 只读写门禁（页级）：权限只读下拉伸对话框 ✓ 禁用+只读提示，提交不发起 op/租约', async () => {
@@ -925,15 +925,12 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     await waitFor(() => expect(save.disabled).toBe(false));
     await user.click(save);
 
-    // Named Version 对话框就位（名称必填 + 确认回传 draft）。
-    const dialog = await screen.findByRole('dialog', { name: '保存版本' });
-    const confirm = within(dialog).getByRole('button', { name: '保存' });
-    expect(
-      (confirm as HTMLButtonElement).disabled === true
-        || confirm.getAttribute('aria-disabled') === 'true',
-    ).toBe(true);
-    await user.type(within(dialog).getByLabelText(/版本名称/), 'V1');
-    await user.type(within(dialog).getByLabelText(/版本描述/), 'first');
+    // Onshape f7 对话框就位（名称缺省 V1，可改；说明可选）。
+    const dialog = await screen.findByRole('dialog', { name: '创建来自 Main 的版本' });
+    const name = within(dialog).getByLabelText('名称') as HTMLInputElement;
+    expect(name.value).toBe('V1');
+    const confirm = within(dialog).getByRole('button', { name: '创建' });
+    await user.type(within(dialog).getByLabelText(/说明/), 'first');
     await user.click(confirm);
 
     await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('V1'));
@@ -962,9 +959,11 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     await waitFor(() => expect(save.disabled).toBe(false));
 
     await user.click(save);
-    const dialog = await screen.findByRole('dialog', { name: '保存版本' });
-    await user.type(within(dialog).getByLabelText(/版本名称/), '收敛验证');
-    await user.click(within(dialog).getByRole('button', { name: '保存' }));
+    const dialog = await screen.findByRole('dialog', { name: '创建来自 Main 的版本' });
+    const name = within(dialog).getByLabelText('名称');
+    await user.clear(name);
+    await user.type(name, '收敛验证');
+    await user.click(within(dialog).getByRole('button', { name: '创建' }));
 
     await waitFor(() =>
       expect(mocks.imodelsCreateNamedVersion).toHaveBeenCalledWith('im-1', {
@@ -1012,7 +1011,7 @@ describe('M4-T4 编辑作用域 + 撤销/重做/保存顶栏接线', () => {
     expect(coreFrontendMocks.toolsRun).not.toHaveBeenCalled();
     expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
     // viewOnly 门拦截保存版本入口：对话框不开。
-    expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '创建来自 Main 的版本' })).toBeNull();
   });
 
   it('editorToolSettings 配置段：viewport+connection+scope 就绪 → 类目补全（Editor.tsx:200-235 移植）', async () => {
@@ -1169,36 +1168,16 @@ describe('M4-T7 版本历史真面板接线（dock 数据源 + 推送对话框�
     expect(within(rows[1]!).queryByText('当前版本')).toBeNull();
   });
 
-  it('dock 推送钮：点击开共享推送对话框（与顶栏同实例），确认走 connection.pushChanges', async () => {
+  it('ADR-0017 Stage F：dock 无保存/推送钮；自动保存状态节点在场（Onshape 语义）', async () => {
     const user = userEvent.setup();
-    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
-    renderPage();
-    await waitFor(() =>
-      expect((screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement).disabled).toBe(false),
-    );
-    const dock = screen.getByTestId('part-studio-dock');
-    await user.click(screen.getByTestId('part-studio-panel-rail-history'));
-    const push = await within(dock).findByTestId('part-studio-dock-push-button');
-    await user.click(push);
-
-    // B-model P0 Task 5：dock「推送」仍开 PushChangesetDialog（标题「推送变更」，
-    // 与顶栏「保存版本」Named Version 对话框语义分离）。
-    const dialog = await screen.findByRole('dialog', { name: '推送变更' });
-    await user.type(within(dialog).getByLabelText(/版本描述/), 'dock 推送');
-    await user.click(within(dialog).getByRole('button', { name: '推送' }));
-    await waitFor(() => expect(FAKE_CONNECTION.pushChanges).toHaveBeenCalledWith('dock 推送'));
-  });
-
-  it('dock 保存钮：本地兜底通道（connection.saveChanges），与推送语义分离保留', async () => {
-    const user = userEvent.setup();
-    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+    FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(false);
     renderPage();
     const dock = screen.getByTestId('part-studio-dock');
     await user.click(screen.getByTestId('part-studio-panel-rail-history'));
-    const save = await within(dock).findByTestId('part-studio-dock-save-button');
-    await user.click(save);
-    await waitFor(() => expect(FAKE_CONNECTION.saveChanges).toHaveBeenCalledTimes(1));
-    expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
+    await within(dock).findByTestId('part-studio-dock-history');
+    expect(within(dock).queryByTestId('part-studio-dock-save-button')).toBeNull();
+    expect(within(dock).queryByTestId('part-studio-dock-push-button')).toBeNull();
+    expect(screen.getByTestId('part-studio-autosave-state')).toBeDefined();
   });
 });
 
@@ -1320,7 +1299,7 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     const save = (await screen.findByTestId('part-studio-panel-rail-create-version')) as HTMLButtonElement;
     await waitFor(() => expect(save.disabled).toBe(false));
     await user.click(save);
-    expect(await screen.findByRole('dialog', { name: '保存版本' })).toBeDefined();
+    expect(await screen.findByRole('dialog', { name: '创建来自 Main 的版本' })).toBeDefined();
     // 开对话框路径本身无 toast（兜底只在「开→断」跃迁发声）。
     expect(coreFrontendMocks.outputMessage).not.toHaveBeenCalled();
 
@@ -1332,7 +1311,7 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     });
 
     // 对话框收合 + toast 说明（notifications 通道）——不无声消失。
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '创建来自 Main 的版本' })).toBeNull());
     await waitFor(() => expect(coreFrontendMocks.outputMessage).toHaveBeenCalledTimes(1));
     const details = coreFrontendMocks.outputMessage.mock.calls[0]?.[0] as { briefMessage: string };
     expect(details.briefMessage).toContain('连接已断开');
@@ -1351,7 +1330,7 @@ describe('M5-T2 连接相位呈现（briefcase isLoading/error 消费）+ 推送
     await act(async () => {
       await rerender(pageTree());
     });
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '保存版本' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '创建来自 Main 的版本' })).toBeNull());
     expect(coreFrontendMocks.outputMessage).toHaveBeenCalledTimes(1);
   });
 });
@@ -1417,12 +1396,10 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     expect(usePartStudioStore.getState().dialog.active).toBeNull();
     fireEvent.keyDown(window, { key: '/', altKey: true });
 
-    // dock 保存/推送禁用（canEdit 门）——按钮位于版本历史面板内。
+    // Stage F：dock 不再有保存/推送入口；A 文档零写入（自动保存也不推送）。
     await user.click(screen.getByTestId('part-studio-panel-rail-history'));
-    const dockSave = screen.getByTestId('part-studio-dock-save-button') as HTMLButtonElement;
-    const dockPush = screen.getByTestId('part-studio-dock-push-button') as HTMLButtonElement;
-    expect(dockSave.disabled || dockSave.getAttribute('aria-disabled') === 'true').toBe(true);
-    expect(dockPush.disabled || dockPush.getAttribute('aria-disabled') === 'true').toBe(true);
+    expect(screen.queryByTestId('part-studio-dock-save-button')).toBeNull();
+    expect(screen.queryByTestId('part-studio-dock-push-button')).toBeNull();
     expect(FAKE_CONNECTION.saveChanges).not.toHaveBeenCalled();
     expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
   });

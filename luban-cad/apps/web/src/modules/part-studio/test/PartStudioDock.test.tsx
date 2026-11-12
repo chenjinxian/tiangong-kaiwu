@@ -6,9 +6,8 @@
 //     重试（refetch）；empty（无 changeset = 初始版本语义）；
 //  3) 当前版本标记：connection.changeset.id 比对（currentChangesetId prop），
 //     命中行 Badge「当前版本」，其余行无；
-//  4) 「保存」钮（本地兜底 saveChanges）：hasUnsavedChanges 驱动解锁 + 未推送
-//     徽标，isSaving 驱动加载禁用，点击调 onSave；
-//  5) 「推送」钮：hasUnsavedChanges 门控，点击调 onPush（宿主开推送对话框）。
+//  4) ADR-0017 Stage F：面板不再有「保存/推送」钮与「未推送」徽标——提交由
+//     useAutoPush 静默同步（Onshape 语义），版本入口在左栏「创建版本…」。
 //
 // 定位：组件行为验收层；ImodelsClient 模块级 mock（零真实请求），真实 store/
 // i18n 参与（setup.ts 全局词库 zh-CN 基线）。
@@ -216,32 +215,14 @@ describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
     expect(within(body).queryByTestId('part-studio-changesets-error')).toBeNull();
   });
 
-  it('「保存」钮：hasUnsavedChanges 门控 + 未推送徽标；点击调 onSave（本地兜底）', async () => {
+  it('ADR-0017 Stage F：历史面板无保存/推送钮与「未推送」徽标（自动保存唯一通道）', async () => {
     const user = userEvent.setup();
-    const onSave = vi.fn();
-    renderDock({ hasUnsavedChanges: true, onSave });
+    renderDock();
     const body = await openHistoryTab(user);
-
-    const save = await within(body).findByTestId('part-studio-dock-save-button');
-    expect(within(body).getByTestId('part-studio-dock-unpushed-badge')).toBeDefined();
-    await user.click(save);
-    expect(onSave).toHaveBeenCalledTimes(1);
-  });
-
-  it('「保存」钮：无未推送变更/未接线时诚实禁用；isSaving 加载禁用', async () => {
-    const user = userEvent.setup();
-    const first = renderDock({ hasUnsavedChanges: false });
-    const body = await openHistoryTab(user);
-    const save = await within(body).findByTestId('part-studio-dock-save-button');
-    expect(isDisabled(save)).toBe(true);
+    expect(within(body).queryByTestId('part-studio-dock-save-button')).toBeNull();
+    expect(within(body).queryByTestId('part-studio-dock-push-button')).toBeNull();
     expect(within(body).queryByTestId('part-studio-dock-unpushed-badge')).toBeNull();
-    first.unmount();
-
-    // isSaving：加载态禁用（防重入）。
-    renderDock({ hasUnsavedChanges: true, isSaving: true, onSave: vi.fn() });
-    const busyBody = await openHistoryTab(user);
-    const busySave = await within(busyBody).findByTestId('part-studio-dock-save-button');
-    expect(isDisabled(busySave)).toBe(true);
+    expect(within(body).queryByTestId('part-studio-dock-history-actions')).toBeNull();
   });
 
   // B-model P0 Task 5：Named Versions 分组（元数据命名行——名称/描述直通）。
@@ -257,23 +238,6 @@ describe('PartStudioDock 版本历史真面板（M4 Task 7）', () => {
     expect(within(named).getAllByTestId('part-studio-named-version-row')).toHaveLength(1);
   });
 
-  it('「推送」钮：hasUnsavedChanges 门控；点击调 onPush（宿主开推送对话框）', async () => {
-    const user = userEvent.setup();
-    const onPush = vi.fn();
-    const first = renderDock({ hasUnsavedChanges: true, onPush });
-    const body = await openHistoryTab(user);
-
-    const push = await within(body).findByTestId('part-studio-dock-push-button');
-    await user.click(push);
-    expect(onPush).toHaveBeenCalledTimes(1);
-    first.unmount();
-
-    // 无未推送变更：诚实禁用（无可推送内容）。
-    renderDock({ hasUnsavedChanges: false, onPush });
-    const idleBody = await openHistoryTab(user);
-    const idlePush = await within(idleBody).findByTestId('part-studio-dock-push-button');
-    expect(isDisabled(idlePush)).toBe(true);
-  });
 });
 
 // ── M4 Task 8（M3 终审挂账清偿）────────────────────────────────────────────

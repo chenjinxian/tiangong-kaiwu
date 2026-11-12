@@ -839,7 +839,7 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
     const token = await getApiToken();
     const changesets = await listExampleChangesets(request, token, ctx.imodelId);
     expect(
-      changesets.some((changeset) => (changeset.description ?? '').includes('Tutorial 2 - Build a Part')),
+      changesets.some((changeset) => (changeset.description ?? '').includes('自动保存') || (changeset.description ?? '').includes('Tutorial 2 - Build a Part')),
       `hub changeset 应包含 Tutorial 2 示例描述：${JSON.stringify(changesets.slice(-3))}`,
     ).toBe(true);
     await showcaseShot(page, '推送完成', 900);

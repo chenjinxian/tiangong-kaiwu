@@ -159,7 +159,6 @@ import { PartStudioSidebar } from './components/PartStudioSidebar.js';
 import { PartStudioCanvas } from './components/PartStudioCanvas.js';
 import { PartStudioDock } from './components/PartStudioDock.js';
 import { PartStudioTabs } from './components/PartStudioTabs.js';
-import { PushChangesetDialog } from './dialogs/PushChangesetDialog.js';
 import { CreateNamedVersionDialog } from './dialogs/CreateNamedVersionDialog.js';
 import { Ribbon } from './ribbon/Ribbon.js';
 import { CommandPalette } from './ribbon/CommandPalette.js';
@@ -170,7 +169,8 @@ import {
 } from './internal/selection-authority.js';
 import { useOnshapeSelection } from './hooks/useOnshapeSelection.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
-import { useEditorKeyboard } from './hooks/useEditorKeyboard.js';
+import { useAutoPush } from './hooks/useAutoPush.js';
+import { flushAutoPush, registerAutoPushFlush } from './internal/autosave-bridge.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 // mapFeatureEntries（M6-a T6）：拉伸对话框草图下拉与特征树同源命名（复用
 // useFeatureTree 的条目→行映射纯函数，不复制命名逻辑）。
@@ -696,6 +696,48 @@ function PartStudioSession({
     undoRedo.hasUnsavedChanges,
   );
 
+  // ADR-0017 Stage F：Onshape 式自动保存——每次提交后防抖静默 pushChanges
+  // （合并上传），失败可见并重试；只读/降级 scope 不推送。常规 UI 不再暴露
+  // 保存/推送入口；「创建版本…」确认前先 flush（见下方对话框 onConfirm）。
+  const autoPush = useAutoPush(connection ?? undefined, undoRedo.hasUnsavedChanges, {
+    enabled: canEdit && !readonlyBlocked,
+    onPushed: () => {
+      void queryClient.invalidateQueries({ queryKey: ['part-studio', 'changesets', iModelId] });
+    },
+    onError: (message) => {
+      IModelApp.notifications.outputMessage(
+        new NotifyMessageDetails(
+          OutputMessagePriority.Error,
+          t('partStudio.autosave.failed', { message }),
+        ),
+      );
+    },
+  });
+
+  // e2e/legacy helper 的显式描述推送桥（自动保存描述恒「自动保存」；老 spec 用
+  // 自定义 description 断言 hub changeset）。仅在有未推送变更时推，绝不造空 changeset。
+  React.useEffect(() => {
+    if (!connection) return;
+    const conn = connection;
+    const dispose = registerAutoPushFlush(async (description) => {
+      const pending = await conn.txns.hasPendingTxns().catch(() => false);
+      if (!pending) return false;
+      await conn.pushChanges(description);
+      return true;
+    });
+    if (import.meta.env.VITE_E2E_HOOKS === 'true') {
+      const host = window as unknown as {
+        __lubanE2EApp?: { flushAutoPush?: typeof flushAutoPush };
+      };
+      host.__lubanE2EApp = { ...host.__lubanE2EApp, flushAutoPush };
+    }
+    return () => {
+      dispose();
+      const host = window as unknown as { __lubanE2EApp?: { flushAutoPush?: typeof flushAutoPush } };
+      if (host.__lubanE2EApp) delete host.__lubanE2EApp.flushAutoPush;
+    };
+  }, [connection]);
+
   // 连接相位呈现（M5-T2）：briefcase 下载中/失败两态此前零消费——连接失败时
   // 状态栏走 useViewport ready 相位显示「已连接」、画布永不出图（M4 终审
   // T2-②）。错误消息原地格式化一次（画布错误面透传原文；状态栏只取失败布尔），
@@ -723,23 +765,6 @@ function PartStudioSession({
     if (!canEdit) return;
     void undoRedo.redo().catch(() => undefined);
   }, [canEdit, undoRedo]);
-
-  // 保存错误面（registration-failed 同款 notifications 通道）：保存失败必须
-  // 可见，不静默吞（M3-b T4 教训）。本地兜底通道（Ctrl+S 键位与 dock「保存」
-  // 钮共用；推送通道见 handleSaveVersion/handlePushConfirm）。
-  const handleSave = useCallback(() => {
-    if (!canEdit) return;
-    void undoRedo.saveChanges().catch((err: unknown) => {
-      IModelApp.notifications.outputMessage(
-        new NotifyMessageDetails(
-          OutputMessagePriority.Error,
-          t('partStudio.topBar.edit.saveFailed', {
-            message: err instanceof Error ? err.message : String(err),
-          }),
-        ),
-      );
-    });
-  }, [canEdit, undoRedo, t]);
 
   // 保存版本入口（B-model P0 Task 5；M4-T7 语义分线）：顶栏「保存版本」钮开
   // Named Version 对话框（干净态也可命名当前 changeset；连接缺失/canEdit 门
@@ -772,36 +797,12 @@ function PartStudioSession({
     }
   }, [damagedDeleteTarget, onDeleteStudio, t]);
 
-  // dock「推送」入口（M4-T7 保留）：仅推送本地变更（PushChangesetDialog），
-  // 与顶栏 Named Version 命名语义分离（T4 评审 I-1 的 dock 侧分工不变）。
-  const [pushDialogOpen, setPushDialogOpen] = React.useState(false);
-  const handlePush = useCallback(() => {
-    if (!canEdit || !connection) return;
-    setPushDialogOpen(true);
-  }, [canEdit, connection]);
-
-  // 推送确认（connection.pushChanges 标准通道）：成功后失效 changesets 查询
-  // 刷新 dock 面板（服务端态归 react-query）；hasPendingTxns 归 false 由
-  // onChangesPushed 事件驱动（useUndoRedo 已订）——推送对话框的失败就地/
-  // 成功 toast 归对话框自治，此处只承诺通道与刷新。
-  const handlePushConfirm = useCallback(
-    async (description: string): Promise<void> => {
-      if (!connection) return;
-      await connection.pushChanges(description);
-      await queryClient.invalidateQueries({ queryKey: ['part-studio', 'changesets', iModelId] });
-    },
-    [connection, iModelId, queryClient],
-  );
-
   // T7-②（M5-T2）断连兜底：连接消失（页签切换重开连接的中间态/异常退出）而
-  // 推送/Named Version 对话框仍开着时，`connection &&` 条件渲染会直卸载推送
-  // 对话框（无声消失，无交代）——此处两个对话框一并收合并经 notifications
-  // 通道说明（与保存失败/推送成功 toast 同管道，诚实呈现不静默）。守卫保证
-  // 只在「开→断」跃迁发声：首挂（对话框未开）与正常关闭（connection 在场）
-  // 均不响。
+  // 创建版本对话框仍开着时，`connection &&` 条件渲染会直卸载对话框（无声
+  // 消失，无交代）——此处收合并经 notifications 通道说明。守卫保证只在
+  // 「开→断」跃迁发声：首挂（对话框未开）与正常关闭（connection 在场）均不响。
   useEffect(() => {
-    if (connection || (!pushDialogOpen && !createVersionOpen)) return;
-    setPushDialogOpen(false);
+    if (connection || !createVersionOpen) return;
     setCreateVersionOpen(false);
     IModelApp.notifications.outputMessage(
       new NotifyMessageDetails(
@@ -809,11 +810,7 @@ function PartStudioSession({
         t('partStudio.pushChangeset.disconnected'),
       ),
     );
-  }, [connection, pushDialogOpen, createVersionOpen, t]);
-
-  // 键盘（M4-T4）：只补 Ctrl+S——Ctrl+Z/Ctrl+Y/Delete/Escape 由 viewer
-  // registerDefaultShortcuts 独占（T3 交接裁定：二次绑定 = 工具双跑）。
-  useEditorKeyboard(canEdit, { save: handleSave });
+  }, [connection, createVersionOpen, t]);
 
   // editorToolSettings 配置段（M4-T4；Editor.tsx:200-235 移植）：viewport+
   // connection+scope 三就绪后校准工具默认类目/模型，空间视图默认开项目范围
@@ -946,6 +943,15 @@ function PartStudioSession({
 
   return (
     <div className="part-studio-page" data-testid="part-studio-page">
+      {/* ADR-0017 Stage F：自动保存状态（e2e/诊断就绪信号；不可见）。 */}
+      <span
+        className="part-studio-visually-hidden"
+        data-testid="part-studio-autosave-state"
+        data-state={autoPush.state}
+        aria-live="polite"
+      >
+        {autoPush.state}
+      </span>
       <PartStudioTopBar
         iTwinId={iTwinId}
         iModelId={iModelId}
@@ -1160,10 +1166,6 @@ function PartStudioSession({
               <PartStudioDock
                 iModelId={iModelId}
                 currentChangesetId={connection?.changeset?.id ?? null}
-                hasUnsavedChanges={undoRedo.hasUnsavedChanges}
-                isSaving={undoRedo.isSaving}
-                onSave={handleSave}
-                onPush={handlePush}
                 bodies={featureSystem.bodies}
                 sketches={sketchOptions}
                 bodyColors={bodyColors}
@@ -1226,21 +1228,17 @@ function PartStudioSession({
           </Dialog.ButtonBar>
         </Dialog.Main>
       </Dialog>
-      {/* 推送对话框（M4-T7；B-model P0 Task 5 起仅归 dock「推送」钮）：确认走
-          connection.pushChanges；失败就地/成功 toast 归对话框自治。 */}
-      {connection && (
-        <PushChangesetDialog
-          isOpen={pushDialogOpen}
-          onClose={() => setPushDialogOpen(false)}
-          onConfirm={handlePushConfirm}
-        />
-      )}
       {/* Named Version 对话框（B-model P0 Task 5）：顶栏「保存版本」钮的提交面
           ——有未保存变更先 pushChanges 再命名，干净态命名最新 changeset。 */}
+      {/* Onshape「创建版本…」：确认前先 flush 自动保存（无 pending 则即时返回），
+          再由 useNamedVersionActions 推送+命名当前 changeset。 */}
       <CreateNamedVersionDialog
         isOpen={createVersionOpen}
         onClose={() => setCreateVersionOpen(false)}
-        onConfirm={namedVersionActions.createNamedVersion}
+        onConfirm={async (draft) => {
+          await autoPush.flush();
+          await namedVersionActions.createNamedVersion(draft);
+        }}
       />
       {/* 命令搜索面板：页面级常驻挂载（alt+/ 热键经 store 驱动开合）。 */}
       <CommandPalette canEdit={canEdit} />
