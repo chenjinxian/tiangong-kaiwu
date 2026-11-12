@@ -1110,16 +1110,17 @@
       }
     },
     "fillet": {
-      "prompt": "Click a shared corner of two sketch lines, or click two lines to fillet their extended intersection (R{{radius}} mm); Esc to finish",
+      "prompt": "Click a sketch corner (line-line or line-arc), or click two lines to fillet their extended intersection (R{{radius}} mm); Esc to finish",
       "secondPrompt": "First line selected: click a second sketch line to fillet their extended intersection (R{{radius}} mm); Esc to finish",
       "chooseAnotherLine": "Click a different sketch line",
       "notOpen": "Enter sketch editing first",
-      "noCorner": "Click a shared corner of two sketch lines, or click two separate sketch lines",
-      "unsupported": "Fillet currently supports two non-projected lines (corner or extended two-line intersection); line-arc corners are not supported yet",
+      "noCorner": "Click a sketch corner (line-line or line-arc), or click two separate sketch lines",
+      "unsupported": "Fillet currently supports line-line and line-arc corners plus two-line extended intersections; projected geometry, full circles and splines are not supported yet",
       "parallel": "The two lines are parallel or coincident; no fillet can be created",
-      "outsideSegment": "The fillet would fall outside these line segments (gap too large or intersection inside a segment)",
+      "outsideSegment": "The fillet would fall outside these segments (gap too large, intersection inside a segment, or no tangent point on the arc)",
       "radiusTooLarge": "R{{radius}} mm is too large for this corner",
       "degenerate": "The two lines at this corner are collinear (or nearly so); no fillet can be created",
+      "lineArcDegenerate": "The line and arc are tangent (or degenerate) at this corner; no fillet can be created",
       "invalidRadius": "The fillet radius is invalid",
       "failed": "Fillet commit failed"
     },

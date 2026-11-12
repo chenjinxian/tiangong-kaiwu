@@ -8,11 +8,11 @@
  * 点击矩形角点，Onshape **立即**生成相切圆弧并显示可编辑的 R 尺寸，没有单独
  * 的半径对话框；工具保持激活可连续倒角，Esc/右键结束。
  *
- * 本工具按同一交互：点击两条直线共享的角点 → 默认半径
- * `DEFAULT_SKETCH_FILLET_RADIUS_MM` 生成圆角（arc + 两线端点回缩 + coincident×2
- * + tangent×2 + radius 约束）；随后双击现有 R 尺寸即可改半径。提交走
- * `updateSketch` 乐观整体覆写（可撤销）。几何与约束展开在
- * `internal/sketch-fillet.ts` 纯逻辑（显式点端点/线弧组合暂不支持，诚实提示）。
+ * 本工具按同一交互：点击草图角点（直线-直线 / 直线-圆弧 / 两线延长交点）→
+ * 默认半径 `DEFAULT_SKETCH_FILLET_RADIUS_MM` 生成圆角（arc + 端点/源弧回缩 +
+ * coincident×2 + tangent×2 + radius 约束）；随后双击现有 R 尺寸即可改半径。
+ * 提交走 `updateSketch` 乐观整体覆写（可撤销）。几何与约束展开在
+ * `internal/sketch-fillet.ts` 纯逻辑（三线以上共点/整圆/样条暂不支持）。
  */
 import {
   BeButtonEvent,
@@ -35,12 +35,16 @@ import type { SketchPlaneFrame } from './sketch-plane.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 import {
   computeFilletGeometry,
+  computeFilletLineArcGeometry,
   filletSketchCorner,
+  filletSketchLineArcCorner,
   filletSketchLinePair,
   findSketchFilletCorners,
+  findSketchLineArcCorners,
   nextSketchId,
   type FilletCorner,
   type FilletFailureReason,
+  type FilletLineArcCorner,
 } from '../../internal/sketch-fillet.js';
 import { sketchEntitiesToWorldPolylines } from '../../internal/sketch-curves.js';
 import { hitTestSketchEntity } from '../../internal/sketch-entity-picker.js';
@@ -115,6 +119,14 @@ export class SketchFilletTool extends PrimitiveTool {
       return EventHandled.Yes;
     }
 
+    const lineArcCorner = this._nearestLineArcCorner(sketch, ev.viewPoint, PICK_PX);
+    if (lineArcCorner) {
+      await this._applyLineArcCorner(sketchSystem, sketch, lineArcCorner);
+      this._firstLineId = undefined;
+      this._publishPrompt();
+      return EventHandled.Yes;
+    }
+
     const lineId = this._hitLine(sketch, ev.viewPoint);
     if (lineId === undefined) {
       this._notify(i18next.t('partStudio.sketch.fillet.noCorner'), OutputMessagePriority.Info);
@@ -184,6 +196,32 @@ export class SketchFilletTool extends PrimitiveTool {
     this._nextId = result.nextId;
   }
 
+  private async _applyLineArcCorner(
+    sketchSystem: NonNullable<ReturnType<typeof getSketchSystem>>,
+    sketch: SketchDto,
+    corner: FilletLineArcCorner,
+  ): Promise<void> {
+    this._seedNextId(sketch);
+    const result = filletSketchLineArcCorner(
+      sketch.entities,
+      sketch.constraints,
+      corner,
+      DEFAULT_SKETCH_FILLET_RADIUS_MM,
+      this._nextId,
+      { construction: usePartStudioStore.getState().sketch.constructionMode },
+    );
+    if (!result.ok) {
+      this._notifyLineArcFailure(result.reason);
+      return;
+    }
+    const applied = await sketchSystem.applyUpdate(result.entities, result.constraints);
+    if (!applied.ok) {
+      this._notify(applied.error ?? i18next.t('partStudio.sketch.fillet.failed'), OutputMessagePriority.Error);
+      return;
+    }
+    this._nextId = result.nextId;
+  }
+
   public override onDynamicFrame(ev: BeButtonEvent, context: DynamicsContext): void {
     const sketch = getSketchSystem()?.activeSketch;
     if (!sketch)
@@ -191,6 +229,20 @@ export class SketchFilletTool extends PrimitiveTool {
     const corner = this._nearestCorner(sketch, ev.viewPoint, HOVER_PX);
     if (corner) {
       const geometry = computeFilletGeometry(corner, DEFAULT_SKETCH_FILLET_RADIUS_MM);
+      if (geometry.ok) {
+        this._drawPreviewArc(
+          context,
+          geometry.geometry.center,
+          geometry.geometry.radius,
+          geometry.geometry.startAngle,
+          geometry.geometry.sweepAngle,
+        );
+      }
+      return;
+    }
+    const lineArc = this._nearestLineArcCorner(sketch, ev.viewPoint, HOVER_PX);
+    if (lineArc) {
+      const geometry = computeFilletLineArcGeometry(lineArc, DEFAULT_SKETCH_FILLET_RADIUS_MM);
       if (geometry.ok) {
         this._drawPreviewArc(
           context,
@@ -282,6 +334,27 @@ export class SketchFilletTool extends PrimitiveTool {
     return best;
   }
 
+  private _nearestLineArcCorner(
+    sketch: SketchDto,
+    viewPoint: { x: number; y: number },
+    maxDistance: number,
+  ): FilletLineArcCorner | undefined {
+    const viewport = IModelApp.viewManager.selectedView;
+    if (!viewport)
+      return undefined;
+    let best: FilletLineArcCorner | undefined;
+    let bestDistance = maxDistance;
+    for (const corner of findSketchLineArcCorners(sketch.entities, sketch.constraints)) {
+      const view = viewport.worldToView(this._plane.toWorld({ u: corner.point.x, v: corner.point.y }));
+      const distance = Math.hypot(view.x - viewPoint.x, view.y - viewPoint.y);
+      if (distance <= bestDistance) {
+        best = corner;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
   /** 屏幕点命中草图直线（两线拾取/预览共用；非曲线/圆/弧/样条不选）。 */
   private _hitLine(sketch: SketchDto, viewPoint: { x: number; y: number }): number | undefined {
     const viewport = IModelApp.viewManager.selectedView;
@@ -340,6 +413,24 @@ export class SketchFilletTool extends PrimitiveTool {
       this._notify(i18next.t('partStudio.sketch.fillet.invalidRadius'), OutputMessagePriority.Info);
     else if (reason === 'outside-segment')
       this._notify(i18next.t('partStudio.sketch.fillet.outsideSegment'), OutputMessagePriority.Info);
+    else
+      this._notify(i18next.t('partStudio.sketch.fillet.noCorner'), OutputMessagePriority.Info);
+  }
+
+  private _notifyLineArcFailure(reason: FilletFailureReason): void {
+    if (reason === 'degenerate')
+      this._notify(i18next.t('partStudio.sketch.fillet.lineArcDegenerate'), OutputMessagePriority.Info);
+    else if (reason === 'outside-segment')
+      this._notify(i18next.t('partStudio.sketch.fillet.outsideSegment'), OutputMessagePriority.Info);
+    else if (reason === 'radius-too-large')
+      this._notify(
+        i18next.t('partStudio.sketch.fillet.radiusTooLarge', { radius: DEFAULT_SKETCH_FILLET_RADIUS_MM }),
+        OutputMessagePriority.Warning,
+      );
+    else if (reason === 'invalid-radius')
+      this._notify(i18next.t('partStudio.sketch.fillet.invalidRadius'), OutputMessagePriority.Info);
+    else if (reason === 'unsupported')
+      this._notify(i18next.t('partStudio.sketch.fillet.unsupported'), OutputMessagePriority.Info);
     else
       this._notify(i18next.t('partStudio.sketch.fillet.noCorner'), OutputMessagePriority.Info);
   }

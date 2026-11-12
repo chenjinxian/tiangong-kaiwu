@@ -16,10 +16,11 @@
  * 圆弧取两切点间的短弧（扫角 |π−θ|），朝向角点一侧（用短弧中点与角点
  * 方向点积裁决符号）。
  *
- * 边界（诚实登记，不伪造）：支持**两条非投影直线**的角点（共享坐标 /
- * coincident / 同一显式 point 实体）与两线延长交点；显式 point 端点以
- * 「裁剪端分离为内联点 + 孤儿点按引用清理」处理。直线-圆弧组合、三条以上
- * 线交于一点、投影线暂不支持——工具提示 unsupported 且不写数据。
+ * 边界（诚实登记，不伪造）：支持两条非投影直线的角点（共享坐标 /
+ * coincident / 同一显式 point 实体）、两线延长交点，以及**直线-圆弧**角点
+ * （源弧随 tangent 约束收窄，solver 的弧-弧相切通道已具备）；显式 point
+ * 端点以「裁剪端分离为内联点 + 孤儿点按引用清理」处理。三条以上曲线共点、
+ * 整圆/样条/投影几何暂不支持——工具提示 unsupported 且不写数据。
  */
 import type { SketchConstraintDto, SketchEntityDto, SketchRef } from '@luban-cad/shared';
 
@@ -642,6 +643,460 @@ export function filletSketchLinePair(
   if (tangentDistance < built.gapA - 1e-7 || tangentDistance < built.gapB - 1e-7)
     return { ok: false, reason: 'outside-segment', entities: [...entities], constraints: [...constraints] };
   return filletSketchCorner(entities, constraints, built.corner, radius, nextId, options);
+}
+
+/** 归一化到 (−π, π]（圆弧短弧裁决）。 */
+function normalizeSignedPi(angle: number): number {
+  const tau = Math.PI * 2;
+  let wrapped = ((angle + Math.PI) % tau + tau) % tau;
+  wrapped -= Math.PI;
+  return wrapped <= -Math.PI ? Math.PI : wrapped;
+}
+
+/** 沿扫角方向从 from 到 to 的有向差（[0,2π)）。 */
+function forwardArcDelta(direction: 1 | -1, from: number, to: number): number {
+  const tau = Math.PI * 2;
+  return ((direction * (to - from)) % tau + tau) % tau;
+}
+
+interface ArcGeometry {
+  center: LocalPoint;
+  radius: number;
+  startAngle: number;
+  sweepAngle: number;
+}
+
+function resolveArcGeometry(
+  entity: SketchEntityDto | undefined,
+  points: ReadonlyMap<number, LocalPoint>,
+): ArcGeometry | undefined {
+  if (!entity || entity.kind !== 'arc' || entity.projected)
+    return undefined;
+  const center = resolvePoint(entity.center, points);
+  const radius = entity.radius;
+  const startAngle = entity.startAngle;
+  const sweepAngle = entity.sweepAngle;
+  if (!center || typeof radius !== 'number' || !(radius > 0)
+    || typeof startAngle !== 'number' || typeof sweepAngle !== 'number'
+    || Math.abs(sweepAngle) < 1e-9) {
+    return undefined;
+  }
+  return { center, radius, startAngle, sweepAngle };
+}
+
+function arcPolar(center: LocalPoint, radius: number, angle: number): LocalPoint {
+  return { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
+}
+
+export interface FilletLineArcCorner {
+  id: string;
+  point: LocalPoint;
+  line: { lineId: number; part: EndpointPart; other: LocalPoint; direction: LocalPoint; length: number };
+  arc: {
+    arcId: number;
+    part: EndpointPart;
+    center: LocalPoint;
+    radius: number;
+    startAngle: number;
+    sweepAngle: number;
+    /** 角点侧弧端点角。 */
+    cornerAngle: number;
+    direction: 1 | -1;
+    /** 从角点沿弧到另一端点的剩余绝对扫角。 */
+    sweepToFar: number;
+    /** 从角点沿弧远离方向的单位切向。 */
+    tangent: LocalPoint;
+  };
+}
+
+interface LineArcEndpoint {
+  kind: 'line' | 'arc';
+  entityId: number;
+  part: EndpointPart;
+  point: LocalPoint;
+  inline: boolean;
+  line?: SketchEntityDto & { kind: 'line' };
+  arc?: SketchEntityDto & { kind: 'arc' };
+}
+
+function lineArcEndpoints(
+  entities: readonly SketchEntityDto[],
+  points: ReadonlyMap<number, LocalPoint>,
+): LineArcEndpoint[] {
+  const out: LineArcEndpoint[] = [];
+  for (const entity of entities) {
+    if (entity.projected)
+      continue;
+    if (entity.kind === 'line') {
+      const start = resolvePoint(entity.p1, points);
+      const end = resolvePoint(entity.p2, points);
+      if (start)
+        out.push({ kind: 'line', entityId: entity.id, part: 'start', point: start, inline: typeof entity.p1 !== 'number', line: entity });
+      if (end)
+        out.push({ kind: 'line', entityId: entity.id, part: 'end', point: end, inline: typeof entity.p2 !== 'number', line: entity });
+    } else if (entity.kind === 'arc') {
+      const geometry = resolveArcGeometry(entity, points);
+      if (!geometry)
+        continue;
+      out.push({
+        kind: 'arc', entityId: entity.id, part: 'start',
+        point: arcPolar(geometry.center, geometry.radius, geometry.startAngle),
+        inline: true, arc: entity,
+      });
+      out.push({
+        kind: 'arc', entityId: entity.id, part: 'end',
+        point: arcPolar(geometry.center, geometry.radius, geometry.startAngle + geometry.sweepAngle),
+        inline: true, arc: entity,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * 扫描直线-圆弧角点（共享端点/coincident；显式 point 线端点支持）。弧端点
+ * 是隐式 start/end，修剪时只改 startAngle/sweepAngle；直线端点按既有规则
+ * 分离显式点并清理孤儿点。三条以上曲线共点诚实跳过。
+ */
+export function findSketchLineArcCorners(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+): FilletLineArcCorner[] {
+  const points = pointMap(entities);
+  const entries = lineArcEndpoints(entities, points);
+  const dsu = makeDsu(entries.length);
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const a = entries[i]!;
+      const b = entries[j]!;
+      if (a.entityId === b.entityId)
+        continue;
+      if (Math.hypot(a.point.x - b.point.x, a.point.y - b.point.y) <= CORNER_TOL)
+        dsu.union(i, j);
+    }
+  }
+  const indexByKey = new Map<string, number>();
+  entries.forEach((entry, index) => indexByKey.set(endpointKey(entry.entityId, entry.part), index));
+  for (const constraint of constraints) {
+    if (constraint.kind !== 'coincident' || constraint.refs.length !== 2)
+      continue;
+    const first = refKey(constraint.refs[0]!);
+    const second = refKey(constraint.refs[1]!);
+    if (first === undefined || second === undefined || first === second)
+      continue;
+    const a = indexByKey.get(first);
+    const b = indexByKey.get(second);
+    if (a !== undefined && b !== undefined && entries[a]!.entityId !== entries[b]!.entityId)
+      dsu.union(a, b);
+  }
+
+  const groups = new Map<number, number[]>();
+  entries.forEach((_, index) => {
+    const root = dsu.find(index);
+    const members = groups.get(root) ?? [];
+    members.push(index);
+    groups.set(root, members);
+  });
+
+  const corners: FilletLineArcCorner[] = [];
+  for (const members of groups.values()) {
+    if (members.length !== 2)
+      continue;
+    const one = entries[members[0]!]!;
+    const two = entries[members[1]!]!;
+    const lineEntry = one.kind === 'line' ? one : two.kind === 'line' ? two : undefined;
+    const arcEntry = one.kind === 'arc' ? one : two.kind === 'arc' ? two : undefined;
+    if (!lineEntry || !arcEntry || !lineEntry.line || !arcEntry.arc)
+      continue;
+    const geometry = resolveArcGeometry(arcEntry.arc, points);
+    if (!geometry)
+      continue;
+    const otherRef = lineEntry.part === 'start' ? lineEntry.line.p2 : lineEntry.line.p1;
+    const other = typeof otherRef === 'number' ? points.get(otherRef) : otherRef;
+    if (!other)
+      continue;
+    const point = {
+      x: (lineEntry.point.x + arcEntry.point.x) / 2,
+      y: (lineEntry.point.y + arcEntry.point.y) / 2,
+    };
+    const vector = unit(point, other);
+    if (!vector)
+      continue;
+    const direction: 1 | -1 = geometry.sweepAngle >= 0 ? 1 : -1;
+    const cornerAngle = arcEntry.part === 'start'
+      ? geometry.startAngle
+      : geometry.startAngle + geometry.sweepAngle;
+    const tangent = arcEntry.part === 'start'
+      ? { x: -Math.sin(cornerAngle) * direction, y: Math.cos(cornerAngle) * direction }
+      : { x: Math.sin(cornerAngle) * direction, y: -Math.cos(cornerAngle) * direction };
+    corners.push({
+      id: `${endpointKey(lineEntry.entityId, lineEntry.part)}|${endpointKey(arcEntry.entityId, arcEntry.part)}`,
+      point,
+      line: {
+        lineId: lineEntry.entityId,
+        part: lineEntry.part,
+        other: { x: other.x, y: other.y },
+        direction: vector.direction,
+        length: vector.length,
+      },
+      arc: {
+        arcId: arcEntry.entityId,
+        part: arcEntry.part,
+        center: geometry.center,
+        radius: geometry.radius,
+        startAngle: geometry.startAngle,
+        sweepAngle: geometry.sweepAngle,
+        cornerAngle,
+        direction,
+        sweepToFar: Math.abs(geometry.sweepAngle),
+        tangent,
+      },
+    });
+  }
+  corners.sort((a, b) => a.id.localeCompare(b.id));
+  return corners;
+}
+
+export interface FilletLineArcGeometry {
+  tangentLine: LocalPoint;
+  tangentArc: LocalPoint;
+  center: LocalPoint;
+  radius: number;
+  startAngle: number;
+  sweepAngle: number;
+  arcTangentAngle: number;
+  /** 源弧从角点到切点的绝对扫角。 */
+  arcDelta: number;
+  arcStartAngle: number;
+  arcSweepAngle: number;
+  lineDistance: number;
+}
+
+export type FilletLineArcResult =
+  | {
+    ok: true;
+    entities: SketchEntityDto[];
+    constraints: SketchConstraintDto[];
+    arcId: number;
+    nextId: number;
+    geometry: FilletLineArcGeometry;
+  }
+  | {
+    ok: false;
+    reason: FilletFailureReason;
+    entities: SketchEntityDto[];
+    constraints: SketchConstraintDto[];
+  };
+
+type LineArcGeometryResult =
+  | { ok: true; geometry: FilletLineArcGeometry }
+  | { ok: false; reason: 'degenerate' | 'outside-segment' | 'invalid-radius' };
+
+/**
+ * 直线 + 圆弧角点的内切/外切圆角求解。候选圆心=两侧偏移线（距源线 r）与
+ * 源圆同心圆（半径 R±r）的交点；切点须落在线段与源弧扫角内，取离角点最近
+ * （线段切距 + 弧长最小）的解。圆角取两切点间短弧（圆心角 = π−两侧切向夹角）。
+ */
+export function computeFilletLineArcGeometry(
+  corner: FilletLineArcCorner,
+  radius: number,
+): LineArcGeometryResult {
+  if (!Number.isFinite(radius) || radius <= 1e-6)
+    return { ok: false, reason: 'invalid-radius' };
+  const { line, arc, point } = corner;
+  const dot = line.direction.x * arc.tangent.x + line.direction.y * arc.tangent.y;
+  const theta = Math.acos(Math.max(-1, Math.min(1, dot)));
+  if (theta <= 1e-4 || theta >= Math.PI - 1e-4)
+    return { ok: false, reason: 'degenerate' };
+  if (!(line.length > 1e-9) || !(arc.radius > 1e-9))
+    return { ok: false, reason: 'degenerate' };
+
+  const normal = { x: -line.direction.y, y: line.direction.x };
+  const candidates: Array<{
+    center: LocalPoint;
+    tangentLine: LocalPoint;
+    tangentArc: LocalPoint;
+    arcTangentAngle: number;
+    arcDelta: number;
+    lineDistance: number;
+    score: number;
+  }> = [];
+  for (const side of [1, -1] as const) {
+    const base = { x: point.x + normal.x * side * radius, y: point.y + normal.y * side * radius };
+    for (const centerDistance of [arc.radius + radius, Math.abs(arc.radius - radius)]) {
+      if (!(centerDistance > 1e-7))
+        continue;
+      const ox = base.x - arc.center.x;
+      const oy = base.y - arc.center.y;
+      const b = ox * line.direction.x + oy * line.direction.y;
+      const c = ox * ox + oy * oy - centerDistance * centerDistance;
+      const disc = b * b - c;
+      if (disc < -1e-9)
+        continue;
+      const root = Math.sqrt(Math.max(0, disc));
+      for (const u of [-b - root, -b + root]) {
+        if (!(u > 1e-6) || u >= line.length - 1e-7)
+          continue;
+        const center = {
+          x: point.x + line.direction.x * u + normal.x * side * radius,
+          y: point.y + line.direction.y * u + normal.y * side * radius,
+        };
+        const distance = Math.hypot(center.x - arc.center.x, center.y - arc.center.y);
+        if (!(distance > 1e-9))
+          continue;
+        const tangentArc = {
+          x: arc.center.x + ((center.x - arc.center.x) / distance) * arc.radius,
+          y: arc.center.y + ((center.y - arc.center.y) / distance) * arc.radius,
+        };
+        const arcTangentAngle = Math.atan2(tangentArc.y - arc.center.y, tangentArc.x - arc.center.x);
+        const arcDelta = forwardArcDelta(arc.direction, arc.cornerAngle, arcTangentAngle);
+        if (arcDelta <= 1e-6 || arcDelta >= arc.sweepToFar - 1e-7)
+          continue;
+        candidates.push({
+          center,
+          tangentLine: { x: point.x + line.direction.x * u, y: point.y + line.direction.y * u },
+          tangentArc,
+          arcTangentAngle,
+          arcDelta,
+          lineDistance: u,
+          score: u + arc.radius * arcDelta,
+        });
+      }
+    }
+  }
+  candidates.sort((a, b) => a.score - b.score);
+  const best = candidates[0];
+  if (!best)
+    return { ok: false, reason: 'outside-segment' };
+
+  const startAngle = Math.atan2(best.tangentLine.y - best.center.y, best.tangentLine.x - best.center.x);
+  const endAngle = Math.atan2(best.tangentArc.y - best.center.y, best.tangentArc.x - best.center.x);
+  const shortSweep = normalizeSignedPi(endAngle - startAngle);
+  if (Math.abs(shortSweep) < 1e-7)
+    return { ok: false, reason: 'degenerate' };
+  // 两切点间有两条弧（短/长）；取中点更靠近角点的一条（180° 半圆时短/长等长，
+  // 仅中点可区分——圆角必须朝角点一侧鼓出）。
+  const midDistance = (sweep: number): number => {
+    const mid = arcPolar(best.center, radius, startAngle + sweep / 2);
+    return Math.hypot(mid.x - point.x, mid.y - point.y);
+  };
+  const longSweep = shortSweep - Math.sign(shortSweep) * Math.PI * 2;
+  const sweepAngle = midDistance(longSweep) < midDistance(shortSweep) ? longSweep : shortSweep;
+
+  const removed = arc.direction * best.arcDelta;
+  const arcSweepAngle = arc.sweepAngle - removed;
+  if (Math.abs(arcSweepAngle) < 1e-7 || Math.abs(arcSweepAngle) > Math.abs(arc.sweepAngle) + 1e-9)
+    return { ok: false, reason: 'degenerate' };
+  const arcStartAngle = arc.part === 'start' ? arc.cornerAngle + removed : arc.startAngle;
+
+  return {
+    ok: true,
+    geometry: {
+      tangentLine: best.tangentLine,
+      tangentArc: best.tangentArc,
+      center: best.center,
+      radius,
+      startAngle,
+      sweepAngle,
+      arcTangentAngle: best.arcTangentAngle,
+      arcDelta: best.arcDelta,
+      arcStartAngle,
+      arcSweepAngle,
+      lineDistance: best.lineDistance,
+    },
+  };
+}
+
+/**
+ * 直线-圆弧角点应用：线段端点回缩到切点（显式点分离/孤儿清理）、源弧收窄
+ * 到切点，插入圆角 arc + coincident×2 + tangent（线/源弧各一）+ radius。
+ */
+export function filletSketchLineArcCorner(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  corner: FilletLineArcCorner,
+  radius: number,
+  nextId: number,
+  options: { construction?: boolean } = {},
+): FilletLineArcResult {
+  const line = entities.find((entity): entity is SketchEntityDto & { kind: 'line' } =>
+    entity.id === corner.line.lineId && entity.kind === 'line');
+  const arc = entities.find((entity): entity is SketchEntityDto & { kind: 'arc' } =>
+    entity.id === corner.arc.arcId && entity.kind === 'arc');
+  if (!line || !arc)
+    return { ok: false, reason: 'no-corner', entities: [...entities], constraints: [...constraints] };
+  if (line.projected || arc.projected)
+    return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints] };
+
+  const computed = computeFilletLineArcGeometry(corner, radius);
+  if (!computed.ok)
+    return { ok: false, reason: computed.reason, entities: [...entities], constraints: [...constraints] };
+  const geometry = computed.geometry;
+
+  const nearRef = corner.line.part === 'start' ? line.p1 : line.p2;
+  const detachedPointIds = typeof nearRef === 'number' ? [nearRef] : [];
+
+  const trimmed = entities.map((entity) => {
+    if (entity.id === line.id && entity.kind === 'line') {
+      const next = { ...entity };
+      if (corner.line.part === 'start')
+        next.p1 = { ...geometry.tangentLine };
+      else
+        next.p2 = { ...geometry.tangentLine };
+      return next;
+    }
+    if (entity.id === arc.id && entity.kind === 'arc') {
+      return {
+        ...entity,
+        startAngle: geometry.arcStartAngle,
+        sweepAngle: geometry.arcSweepAngle,
+      };
+    }
+    return entity;
+  });
+
+  const kept = constraints.filter((constraint) => {
+    if (constraint.kind !== 'coincident' || constraint.refs.length !== 2)
+      return true;
+    const [first, second] = constraint.refs;
+    const linksCorner =
+      (sameEndpointRef(first!, corner.line.lineId, corner.line.part) && sameEndpointRef(second!, corner.arc.arcId, corner.arc.part))
+      || (sameEndpointRef(second!, corner.line.lineId, corner.line.part) && sameEndpointRef(first!, corner.arc.arcId, corner.arc.part));
+    return !linksCorner;
+  });
+
+  const arcId = nextId;
+  const filletArc: SketchEntityDto = {
+    kind: 'arc',
+    id: arcId,
+    center: { ...geometry.center },
+    radius: geometry.radius,
+    startAngle: geometry.startAngle,
+    sweepAngle: geometry.sweepAngle,
+    ...(options.construction ? { construction: true } : {}),
+  };
+  const added: SketchConstraintDto[] = [
+    {
+      kind: 'coincident', id: nextId + 1,
+      refs: [{ entity: arcId, part: 'start' }, { entity: corner.line.lineId, part: corner.line.part }],
+    },
+    {
+      kind: 'coincident', id: nextId + 2,
+      refs: [{ entity: arcId, part: 'end' }, { entity: corner.arc.arcId, part: corner.arc.part }],
+    },
+    { kind: 'tangent', id: nextId + 3, refs: [arcId, corner.line.lineId] },
+    { kind: 'tangent', id: nextId + 4, refs: [arcId, corner.arc.arcId] },
+    { kind: 'radius', id: nextId + 5, refs: [arcId], value: geometry.radius },
+  ];
+  const finalConstraints = [...kept, ...added];
+  return {
+    ok: true,
+    entities: pruneUnreferencedPoints([...trimmed, filletArc], finalConstraints, detachedPointIds),
+    constraints: finalConstraints,
+    arcId,
+    nextId: nextId + 6,
+    geometry,
+  };
 }
 
 /** 下一步安全 id：实体与约束 id 的全局最大值 + 1（工具/测试共用）。 */

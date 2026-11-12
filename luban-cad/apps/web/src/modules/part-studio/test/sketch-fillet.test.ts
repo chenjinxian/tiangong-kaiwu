@@ -7,9 +7,12 @@ import { describe, expect, it } from 'vitest';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import {
   computeFilletGeometry,
+  computeFilletLineArcGeometry,
   filletSketchCorner,
+  filletSketchLineArcCorner,
   filletSketchLinePair,
   findSketchFilletCorners,
+  findSketchLineArcCorners,
   nextSketchId,
 } from '../internal/sketch-fillet.js';
 
@@ -216,6 +219,92 @@ describe('filletSketchLinePair（Onshape 两曲线选择）', () => {
     ], [], 1, 2, 2, 100);
     expect(crossing.ok).toBe(false);
     if (!crossing.ok) expect(crossing.reason).toBe('outside-segment');
+  });
+});
+
+describe('直线-圆弧圆角（Onshape Fillet 第三模式）', () => {
+  const LINE_ARC: SketchEntityDto[] = [
+    { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+    { kind: 'arc', id: 12, center: { x: 5, y: 0 }, radius: 5, startAngle: Math.PI, sweepAngle: Math.PI / 2 },
+  ];
+
+  it('识别线-弧共享端点角点；90° 切向夹角 R2 的曲率修正切点', () => {
+    const corners = findSketchLineArcCorners(LINE_ARC, []);
+    expect(corners).toHaveLength(1);
+    expect(corners[0]).toMatchObject({
+      line: { lineId: 11, part: 'start' },
+      arc: { arcId: 12, part: 'start' },
+    });
+    const computed = computeFilletLineArcGeometry(corners[0]!, 2);
+    expect(computed.ok).toBe(true);
+    if (!computed.ok) return;
+    const g = computed.geometry;
+    // 候选圆心=偏移线 y=−2 与源圆同心圆 R−r=3 的交点：x=5−√5（内切）。
+    expect(g.tangentLine.x).toBeCloseTo(5 - Math.sqrt(5), 9);
+    expect(g.tangentLine.y).toBeCloseTo(0, 9);
+    expect(g.center.x).toBeCloseTo(5 - Math.sqrt(5), 9);
+    expect(g.center.y).toBeCloseTo(-2, 9);
+    expect(g.tangentArc.x).toBeCloseTo(5 - (5 * Math.sqrt(5)) / 3, 9);
+    expect(g.tangentArc.y).toBeCloseTo(-10 / 3, 9);
+    expect(g.arcDelta).toBeCloseTo(Math.PI + Math.atan2(-10 / 3, -(5 * Math.sqrt(5)) / 3), 9);
+    expect(g.arcStartAngle).toBeCloseTo(Math.PI + g.arcDelta, 9);
+    expect(g.arcSweepAngle).toBeCloseTo(Math.PI / 2 - g.arcDelta, 9);
+    expect(g.startAngle).toBeCloseTo(Math.PI / 2, 9);
+    expect(g.sweepAngle).toBeCloseTo(2.30052398, 6);
+    expect(g.lineDistance).toBeCloseTo(5 - Math.sqrt(5), 9);
+  });
+
+  it('应用：线端点回缩、源弧收窄、插入圆角+coincident×2/tangent×2/radius', () => {
+    const corner = findSketchLineArcCorners(LINE_ARC, [])[0]!;
+    const result = filletSketchLineArcCorner(
+      LINE_ARC, [], corner, 2, nextSketchId(LINE_ARC, []),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.arcId).toBe(13);
+    const line = result.entities.find((entity) => entity.id === 11) as Extract<SketchEntityDto, { kind: 'line' }>;
+    expect((line.p1 as { x: number }).x).toBeCloseTo(5 - Math.sqrt(5), 9);
+    expect((line.p1 as { y: number }).y).toBeCloseTo(0, 9);
+    const sourceArc = result.entities.find((entity) => entity.id === 12) as Extract<SketchEntityDto, { kind: 'arc' }>;
+    expect(sourceArc.startAngle).toBeCloseTo(result.geometry.arcStartAngle, 9);
+    expect(sourceArc.sweepAngle).toBeCloseTo(result.geometry.arcSweepAngle, 9);
+    expect(result.constraints.filter((constraint) => constraint.kind === 'coincident')).toHaveLength(2);
+    expect(result.constraints.filter((constraint) => constraint.kind === 'tangent')).toEqual([
+      { kind: 'tangent', id: 16, refs: [13, 11] },
+      { kind: 'tangent', id: 17, refs: [13, 12] },
+    ]);
+    expect(result.constraints.find((constraint) => constraint.kind === 'radius')).toEqual({
+      kind: 'radius', id: 18, refs: [13], value: 2,
+    });
+    expect(result.nextId).toBe(19);
+  });
+
+  it('相切角/过大半径/显式点线端点：退化拒收；显式点分离并清理孤儿', () => {
+    // 直线在 (0,0) 与圆相切（半径方向水平、切向竖直）：整段光滑，无有效圆角。
+    const tangentArc: SketchEntityDto[] = [
+      { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 0, y: 10 } },
+      { kind: 'arc', id: 12, center: { x: 5, y: 0 }, radius: 5, startAngle: Math.PI, sweepAngle: Math.PI / 2 },
+    ];
+    const tangentCorner = findSketchLineArcCorners(tangentArc, [])[0]!;
+    expect(computeFilletLineArcGeometry(tangentCorner, 2)).toEqual({ ok: false, reason: 'degenerate' });
+
+    const corner = findSketchLineArcCorners(LINE_ARC, [])[0]!;
+    expect(computeFilletLineArcGeometry(corner, 20)).toEqual({ ok: false, reason: 'outside-segment' });
+
+    const explicit: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 0, y: 0 },
+      { kind: 'line', id: 11, p1: 1, p2: { x: 10, y: 0 } },
+      { kind: 'arc', id: 12, center: { x: 5, y: 0 }, radius: 5, startAngle: Math.PI, sweepAngle: Math.PI / 2 },
+    ];
+    const explicitCorner = findSketchLineArcCorners(explicit, [])[0]!;
+    expect(explicitCorner.line).toMatchObject({ lineId: 11, part: 'start' });
+    const applied = filletSketchLineArcCorner(explicit, [], explicitCorner, 2, 13);
+    expect(applied.ok).toBe(true);
+    if (applied.ok) {
+      expect(applied.entities.some((entity) => entity.id === 1 && entity.kind === 'point')).toBe(false);
+      const line = applied.entities.find((entity) => entity.id === 11) as Extract<SketchEntityDto, { kind: 'line' }>;
+      expect((line.p1 as { x: number }).x).toBeCloseTo(5 - Math.sqrt(5), 9);
+    }
   });
 });
 
