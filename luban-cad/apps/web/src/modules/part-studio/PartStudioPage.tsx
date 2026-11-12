@@ -1165,6 +1165,8 @@ function PartStudioSession({
               // 同时驱动菜单禁用与 handler 拒收（隐藏/显示为会话态，不受此门限制）。
               applyOp={applyOpAndFit}
               canEdit={canEdit}
+              renameFeature={featureSystem.renameFeature}
+              renameBody={featureSystem.renameBody}
             />
             <div className="part-studio-main">
               {/* canEdit 直通画布对话框宿主（B2 只读写门禁）：权限只读下写面对话框

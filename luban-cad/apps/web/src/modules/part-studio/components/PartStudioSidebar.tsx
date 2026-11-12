@@ -30,10 +30,10 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, RenameResult } from '@luban-cad/shared';
 import { FeatureTree } from '../tree/FeatureTree.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
-import { isSketchNode, type TreeNode } from '../tree/TreeRow.js';
+import { isFeatureNode, isSketchNode, type TreeNode } from '../tree/TreeRow.js';
 import type { FeatureNode } from '../types.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
@@ -72,6 +72,12 @@ export interface PartStudioSidebarProps {
    * 缺省 true（测试/壳期语义；生产宿主恒显式传参）。
    */
   canEdit?: boolean;
+  /**
+   * v1.70（Onshape 树内联重命名）：特征/零件显示名写 RPC（useFeatureSystem 直通）。
+   * 缺省=未接线（菜单仍可进内联编辑，提交经 Error toast 诚实拒收，不静默）。
+   */
+  renameFeature?: (featureId: string, name: string) => Promise<RenameResult>;
+  renameBody?: (bodyId: string, name: string) => Promise<RenameResult>;
 }
 
 export function PartStudioSidebar({
@@ -88,6 +94,8 @@ export function PartStudioSidebar({
   viewport,
   applyOp,
   canEdit = true,
+  renameFeature,
+  renameBody,
 }: PartStudioSidebarProps): React.JSX.Element {
   const { t } = useTranslation();
   const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
@@ -122,6 +130,42 @@ export function PartStudioSidebar({
       IModelApp.notifications.outputMessage(new NotifyMessageDetails(priority, message));
     },
     [],
+  );
+
+  /**
+   * v1.70：树内联重命名（Onshape 零件/特征行同形）。特征与零件各走对应写 RPC；
+   * 成功/失败 toast，不乐观改树（refresh 归 RPC 成功后的读面刷新与
+   * txns.onCommitted）。只读/未接线诚实拒收。
+   */
+  const handleRename = React.useCallback(
+    async (node: TreeNode, name: string): Promise<void> => {
+      if (!canEdit) {
+        notify(OutputMessagePriority.Warning, t('partStudio.tree.readonlyHint'));
+        return;
+      }
+      const rpc = isFeatureNode(node) ? renameFeature : renameBody;
+      if (!rpc) {
+        notify(
+          OutputMessagePriority.Error,
+          t('partStudio.tree.renameFailed', { message: t('partStudio.tree.unsupported') }),
+        );
+        return;
+      }
+      try {
+        const result = await rpc(node.id, name);
+        if (result.ok) {
+          notify(OutputMessagePriority.Success, t('partStudio.tree.renameSuccess', { name: result.name }));
+        } else {
+          notify(OutputMessagePriority.Error, t('partStudio.tree.renameFailed', { message: result.error }));
+        }
+      } catch (err) {
+        notify(
+          OutputMessagePriority.Error,
+          t('partStudio.tree.renameFailed', { message: err instanceof Error ? err.message : String(err) }),
+        );
+      }
+    },
+    [canEdit, notify, renameBody, renameFeature, t],
   );
 
   /**
@@ -208,6 +252,7 @@ export function PartStudioSidebar({
         onEdit={handleEdit}
         onDelete={handleDelete}
         onSuppress={handleSuppress}
+        onRename={handleRename}
         canEdit={canEdit}
       />
       {/* Onshape 树右缘收起钮（live：33×34，悬于画布左缘中部；本阶段 UI 占位）。 */}

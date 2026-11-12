@@ -236,6 +236,8 @@ export type {
   PatternParams,
   // B6 M-A3.1 v1.15（NEW-body / body 读面）
   BodyRef, BodyInfo,
+  // v1.70（Onshape 树内联重命名）
+  RenameResult,
   // B6 M-A4.1 v1.16（body boolean）
   BooleanBodiesParams,
   // B-model P2.2 v1.18（Part Studio 注册表）

@@ -15,7 +15,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, RenameResult } from '@luban-cad/shared';
 
 const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
@@ -84,6 +84,8 @@ function renderSidebar(opts?: {
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   canEdit?: boolean;
   entries?: FeatureTreeEntry[];
+  renameFeature?: (featureId: string, name: string) => Promise<RenameResult>;
+  renameBody?: (bodyId: string, name: string) => Promise<RenameResult>;
 }): void {
   render(
     <PartStudioSidebar
@@ -91,6 +93,8 @@ function renderSidebar(opts?: {
       bodies={BODIES}
       applyOp={opts?.applyOp}
       canEdit={opts?.canEdit ?? true}
+      renameFeature={opts?.renameFeature}
+      renameBody={opts?.renameBody}
     />,
   );
 }
@@ -239,16 +243,65 @@ describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
     expect(usePartStudioStore.getState().canvas.hiddenIds).toContain('0x15');
   });
 
-  it('零件行守卫：part 行不进入特征变异路径（隐藏可用；删除…/重命名 禁用）', () => {
+  it('零件行守卫：part 行不进入特征变异路径（隐藏/重命名可用；删除… 禁用）', () => {
     renderSidebar();
     fireEvent.contextMenu(screen.getByTestId('tree-row-0x15'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
     expect(within(menu).getByRole('menuitem', { name: '隐藏实体' })).toHaveProperty('disabled', false);
-    // Onshape live（2026-11-12）零件行菜单；特征变异项不以 bodyKey 路由。
+    // Onshape live（2026-11-12）零件行菜单；v1.70 重命名走 renameBody RPC（非特征 op）。
     expect(within(menu).getByRole('menuitem', { name: '删除…' })).toHaveProperty('disabled', true);
-    expect(within(menu).getByRole('menuitem', { name: '重命名' })).toHaveProperty('disabled', true);
+    expect(within(menu).getByRole('menuitem', { name: '重命名' })).toHaveProperty('disabled', false);
     for (const name of ['删除', '抑制', '编辑…']) {
       expect(within(menu).queryByRole('menuitem', { name })).toBeNull();
     }
+  });
+
+  it('只读：零件行重命名禁用并给只读提示', () => {
+    renderSidebar({ canEdit: false });
+    fireEvent.contextMenu(screen.getByTestId('tree-row-0x15'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const rename = within(menu).getByRole('menuitem', { name: '重命名' }) as HTMLButtonElement;
+    expect(rename.disabled).toBe(true);
+    expect(rename.getAttribute('title')).toBe('当前为只读权限，无法执行此操作');
+  });
+});
+
+describe('v1.70 树内联重命名（Sidebar 接线）', () => {
+  it('特征重命名：renameFeature(featureId,name) + Success toast', async () => {
+    const user = userEvent.setup();
+    const renameFeature = vi.fn(async (_id: string, name: string): Promise<RenameResult> => ({ ok: true, name }));
+    renderSidebar({ renameFeature });
+    fireEvent.contextMenu(screen.getByTestId('tree-row-ex2'));
+    await user.click(screen.getByRole('menuitem', { name: '重命名' }));
+    const input = screen.getByRole('textbox', { name: '重命名' });
+    await user.clear(input);
+    await user.type(input, 'Housing{Enter}');
+    await waitFor(() => expect(renameFeature).toHaveBeenCalledWith('ex2', 'Housing'));
+    await waitFor(() => expect(lastToast()).toMatchObject({ priority: 1, briefMessage: '已重命名为 Housing' }));
+  });
+
+  it('零件重命名：renameBody(bodyKey,name) + 失败 Error toast（不静默）', async () => {
+    const user = userEvent.setup();
+    const renameBody = vi
+      .fn<(bodyId: string, name: string) => Promise<RenameResult>>()
+      .mockResolvedValueOnce({ ok: true, name: 'Housing A' })
+      .mockResolvedValueOnce({ ok: false, error: '零件不存在或不属于当前 Part Studio: 0x15' });
+    renderSidebar({ renameBody });
+    fireEvent.contextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '重命名' }));
+    let input = screen.getByRole('textbox', { name: '重命名' });
+    expect((input as HTMLInputElement).value).toBe('Base');
+    await user.clear(input);
+    await user.type(input, 'Housing A{Enter}');
+    await waitFor(() => expect(renameBody).toHaveBeenCalledWith('0x15', 'Housing A'));
+    await waitFor(() => expect(lastToast()).toMatchObject({ priority: 1, briefMessage: '已重命名为 Housing A' }));
+
+    fireEvent.contextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '重命名' }));
+    input = screen.getByRole('textbox', { name: '重命名' });
+    await user.clear(input);
+    await user.type(input, 'Nope{Enter}');
+    await waitFor(() => expect(lastToast().priority).toBe(10));
+    expect(lastToast().briefMessage).toContain('零件不存在');
   });
 });

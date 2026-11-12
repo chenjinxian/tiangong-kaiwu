@@ -868,14 +868,38 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     expect(within(menu).getByRole('menuitem', { name: '编辑外观…' })).toHaveProperty('disabled', false);
     expect(within(menu).getByRole('menuitem', { name: '隐藏实体' })).toHaveProperty('disabled', false);
     expect(within(menu).getByRole('menuitem', { name: '放大选定对象' })).toHaveProperty('disabled', false);
-    // 特征变异路径不得以 bodyKey 路由（重命名/删除… 禁用；编辑/抑制/草图项缺席）。
-    expect(within(menu).getByRole('menuitem', { name: '重命名' })).toHaveProperty('disabled', true);
+    // v1.70：零件行重命名已接（走 renameBody RPC，不再以 bodyKey 路由特征 op）；
+    // 删除… 仍禁用（后端无 deleteBodies FeatureOp）；编辑/抑制/草图项缺席。
+    expect(within(menu).getByRole('menuitem', { name: '重命名' })).toHaveProperty('disabled', false);
     expect(within(menu).getByRole('menuitem', { name: '删除…' })).toHaveProperty('disabled', true);
     for (const name of ['编辑…', '抑制', '编辑草图…']) {
       expect(within(menu).queryByRole('menuitem', { name })).toBeNull();
     }
     // 右键仍先选中该行（既有语义不变）。
     expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['0x15']);
+  });
+
+  it('v1.70 零件行重命名：菜单启用 → 内联编辑 Enter 提交 onRename(part 节点)', async () => {
+    const user = userEvent.setup();
+    const onRename = vi.fn();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} onRename={onRename} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '重命名' }));
+    const input = screen.getByRole('textbox', { name: '重命名' });
+    expect((input as HTMLInputElement).value).toBe('Base');
+    await user.clear(input);
+    await user.type(input, 'Housing A{Enter}');
+    expect(onRename).toHaveBeenCalledWith(expect.objectContaining({ id: '0x15' }), 'Housing A');
+  });
+
+  it('v1.70 自定义特征名优先于「类型 + 序号」派生名', () => {
+    const named: FeatureTreeEntry[] = [
+      { id: 'nx1', featureType: 'extrude', orderKey: 1, suppressed: false, status: 0, params: {}, name: 'Housing' },
+      { id: 'nx2', featureType: 'extrude', orderKey: 2, suppressed: false, status: 0, params: {} },
+    ];
+    render(<FeatureTree entries={named} />);
+    expect(screen.getByTestId('tree-row-nx1').textContent).toContain('Housing');
+    expect(screen.getByTestId('tree-row-nx2').textContent).toContain('拉伸 2');
   });
 
   it('eye 仅 part 行渲染；点击隐藏→显示走 store.hiddenIds 且不触发行选中', async () => {

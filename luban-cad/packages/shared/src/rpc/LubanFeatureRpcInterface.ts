@@ -909,7 +909,15 @@ export interface FeatureTreeEntry {
   suppressed: boolean;
   status: number;
   params: unknown;
+  /** v1.70：用户自定义特征名（Onshape 行内重命名；缺省=前端按「类型 + 序号」派生）。
+   * 存储于特征元素 jsonProperties（`luban.feature.name`），不改 schema/params。 */
+  name?: string;
 }
+
+/** v1.70：特征/零件重命名结果（写 RPC 统一形态；失败给服务端原因，不抛裸错误）。 */
+export type RenameResult =
+  | { ok: true; name: string }
+  | { ok: false; error: string };
 
 export type FeatureOpResult =
   | { ok: true; featureId?: string }
@@ -1062,7 +1070,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.69.0";
+  public static interfaceVersion = "1.70.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
@@ -1123,4 +1131,14 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
   /** v1.19：body 质量属性只读面（无租约门禁；authored/active body 逐个体积/质心/表面积）。
    * 缺省 Part Studio=legacy 单工作室读面（与 getBodies 同锚）。 */
   public async getMassProperties(_iModelKey: string, _partStudioId?: string): Promise<MassPropertiesDto[]> { return this.forward(arguments); }
+
+  /** v1.70（Onshape 树内联重命名）：只改特征显示名（jsonProperties.luban.feature.name），
+   * 不动 params/orderKey/依赖图；名称 trim 后非空且 ≤120 字符。
+   * `sessionId` 必填且须持写租约；只接受本 studio 内的特征（跨 studio 拒收）。
+   * 不创建历史特征、不写 OpLog；保存为普通 briefcase 事务（可撤销）。 */
+  public async renameFeature(_iModelKey: string, _featureId: string, _name: string, _sessionId: string, _partStudioId?: string): Promise<RenameResult> { return this.forward(arguments); }
+
+  /** v1.70：只改 authored body 显示名（userLabel + jsonProperties.luban.body.name ——
+   * `getBodies[].name` 读面来源），不动几何/特征图；校验/租约/scope 同 renameFeature。 */
+  public async renameBody(_iModelKey: string, _bodyId: string, _name: string, _sessionId: string, _partStudioId?: string): Promise<RenameResult> { return this.forward(arguments); }
 }

@@ -75,6 +75,7 @@ import {
   type FeatureOpResult,
   type FeatureTreeEntry,
   type PreviewResult,
+  type RenameResult,
   LubanFeatureRpcInterface,
 } from '@luban-cad/shared';
 import type { DocumentMode } from '@modules/documents';
@@ -128,6 +129,12 @@ export interface UseFeatureSystem {
    * 短租约预算（2s）——预览是交互态，不因陈旧租约卡 UI；失败只影响预览。
    */
   previewOp(op: FeatureOp): Promise<PreviewResult>;
+  /**
+   * v1.70（Onshape 树内联重命名）：只改特征/零件显示名（后端 jsonProperties），
+   * 不动 params/几何；同一写租约 + scope 通道，成功后 refresh 树/body 读面。
+   */
+  renameFeature(featureId: string, name: string): Promise<RenameResult>;
+  renameBody(bodyId: string, name: string): Promise<RenameResult>;
 }
 
 export function useFeatureSystem(
@@ -302,6 +309,46 @@ export function useFeatureSystem(
     return withOpTimeout(client.previewFeatureOp(connectionKey, op, sessionId, ...scopeArgs));
   }, [connectionKey, connection, session, sessionId, partStudioId]);
 
+  // v1.70：重命名（特征/零件同门禁与租约通道；只改显示元数据）。
+  const renameNode = useCallback(async (
+    kind: 'feature' | 'body',
+    id: string,
+    name: string,
+  ): Promise<RenameResult> => {
+    if (!connectionKey)
+      return { ok: false, error: i18next.t('partStudio.featureSystem.notConnected') };
+    if (connection?.isReadonly)
+      return { ok: false, error: i18next.t('partStudio.featureSystem.readonlyConnection') };
+    const client = LubanFeatureRpcInterface.getClient();
+    const scopeArgs: [] | [string] = partStudioId === undefined ? [] : [partStudioId];
+    const lease = await session.acquire({
+      budgetMs: LEASE_OP_ACQUIRE_BUDGET_MS,
+      retryMs: LEASE_OP_ACQUIRE_RETRY_MS,
+    });
+    if (!lease.ok) {
+      return {
+        ok: false,
+        error: lease.holder
+          ? i18next.t('partStudio.featureSystem.leaseHeldBy', { holder: lease.holder })
+          : i18next.t('partStudio.featureSystem.leaseAcquireFailed'),
+      };
+    }
+    const result = kind === 'feature'
+      ? await withOpTimeout(client.renameFeature(connectionKey, id, name, sessionId, ...scopeArgs))
+      : await withOpTimeout(client.renameBody(connectionKey, id, name, sessionId, ...scopeArgs));
+    if (result.ok) await refresh();
+    return result;
+  }, [connectionKey, connection, refresh, partStudioId, session, sessionId]);
+
+  const renameFeature = useCallback(
+    (featureId: string, name: string) => renameNode('feature', featureId, name),
+    [renameNode],
+  );
+  const renameBody = useCallback(
+    (bodyId: string, name: string) => renameNode('body', bodyId, name),
+    [renameNode],
+  );
+
   return {
     tree,
     loading,
@@ -314,5 +361,7 @@ export function useFeatureSystem(
     refresh,
     applyOp,
     previewOp,
+    renameFeature,
+    renameBody,
   };
 }

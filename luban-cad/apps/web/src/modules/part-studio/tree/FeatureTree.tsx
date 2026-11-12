@@ -1011,8 +1011,13 @@ export function FeatureTree({
             type="button"
             role="menuitem"
             className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
+            disabled={!canEdit}
+            title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
+            onClick={() => {
+              if (!canEdit) return;
+              setMenu(null);
+              setEditingId(menuNode.id);
+            }}
           >
             {t('partStudio.tree.rename')}
           </button>

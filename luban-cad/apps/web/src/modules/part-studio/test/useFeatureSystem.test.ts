@@ -27,7 +27,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, PreviewResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, PreviewResult, RenameResult } from '@luban-cad/shared';
 import { FEATURE_OP_TIMEOUT_MS, useFeatureSystem } from '../hooks/useFeatureSystem.js';
 import { useEditorSession } from '../hooks/useEditorSession.js';
 
@@ -59,6 +59,8 @@ const fakeClient = vi.hoisted(() => {
         placement: { origin: { x: 0, y: 0, z: 0 }, angles: { yaw: 0, pitch: 0, roll: 0 } },
       },
     })),
+    renameFeature: vi.fn(async (_key: string, _id: string, name: string, _sessionId: string): Promise<RenameResult> => ({ ok: true, name })),
+    renameBody: vi.fn(async (_key: string, _id: string, name: string, _sessionId: string): Promise<RenameResult> => ({ ok: true, name })),
     acquireWriteLease: vi.fn(async (_key: string, _sessionId: string): Promise<{ ok: boolean; holder?: string }> => ({ ok: true, holder: 'tester' })),
     releaseWriteLease: vi.fn(async (_key: string, _sessionId: string): Promise<void> => undefined),
   };
@@ -477,6 +479,42 @@ describe('useFeatureSystem（旧 useFeatureSystem.ts 子集移植）', () => {
       expect(preview.ok).toBe(false);
     });
     expect(fakeClient.previewFeatureOp).not.toHaveBeenCalled();
+  });
+
+  it('v1.70 renameFeature/renameBody 走同一租约通道，成功后 refresh 读面', async () => {
+    const connection = createMockConnection();
+    const { result } = renderFeatureSystem(connection);
+    await waitFor(() => expect(result.current.tree).toEqual(fakeClient.makeTree()));
+    const treeFetches = fakeClient.getFeatureTree.mock.calls.length;
+
+    let renamed: RenameResult | undefined;
+    await act(async () => {
+      renamed = await result.current.renameFeature('f1', 'Housing');
+    });
+    expect(renamed).toEqual({ ok: true, name: 'Housing' });
+    expect(fakeClient.renameFeature).toHaveBeenCalledWith('test-model.bim', 'f1', 'Housing', expect.any(String));
+    await waitFor(() => expect(fakeClient.getFeatureTree.mock.calls.length).toBeGreaterThan(treeFetches));
+
+    await act(async () => {
+      renamed = await result.current.renameBody('0x15', 'Housing A');
+    });
+    expect(renamed).toEqual({ ok: true, name: 'Housing A' });
+    expect(fakeClient.renameBody).toHaveBeenCalledWith('test-model.bim', '0x15', 'Housing A', expect.any(String));
+  });
+
+  it('v1.70 rename readonly 连接前置拒收，零派发', async () => {
+    const connection = createMockConnection({ isReadonly: true });
+    const { result } = renderFeatureSystem(connection);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    fakeClient.renameFeature.mockClear();
+    fakeClient.renameBody.mockClear();
+
+    await act(async () => {
+      expect((await result.current.renameFeature('f1', 'Housing')).ok).toBe(false);
+      expect((await result.current.renameBody('0x15', 'Housing A')).ok).toBe(false);
+    });
+    expect(fakeClient.renameFeature).not.toHaveBeenCalled();
+    expect(fakeClient.renameBody).not.toHaveBeenCalled();
   });
 
   it('applyOp 失败仅回错误结果，不 refresh', async () => {

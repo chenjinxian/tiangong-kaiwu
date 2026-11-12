@@ -27,7 +27,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 | 挤压/旋转/放样/扫掠等 | ✅ 对话框 | ✅ 树右键删除（HITL） | ✅ 双击编辑（updateParams）；多截面 loft 已接 | 特征重排 blocked：`reorderFeature` 契约在，但线性 prev 边让真实特征重排全部被依赖序守卫拒收（2026-11-12 实测：两个 newBody 拉伸之间仍有 feature→feature 边；Onshape live 允许拖动并重算、把依赖破坏行标红）。需 ADR 重定义 reorder 的链重建/依赖校验，不能以拖动 UI 假装可用 |
 | 圆角/倒角/抽壳/孔/移动面/变换/分割/布尔/阵列/镜像 | ✅ | ✅ | ✅（按能力，部分只读项例外） | 见 luban-cad 能力矩阵 |
 | 抑制 | — | — | ✅ 右键抑制/取消 | — |
-| 重命名 | — | — | ✅ 树内联 | — |
+| 重命名 | — | — | ✅ 树内联（v1.70：`renameFeature` RPC → `jsonProperties.luban.feature.name`，`getFeatureTree[].name` 读面；真栈 rename+push 冷重开） | 只改显示元数据，不建历史特征/不动 params；tree-interactions/part-rename 真栈 |
 | 回滚（滚动到此处） | — | — | ❌ 菜单禁用 | 需后端 scope 级重建截止语义（ADR） |
 | 文件夹/表达式/评论/依赖项/特征外观 | ❌ | ❌ | ❌ | 菜单禁用并注明未支持 |
 | 多选特征 | ❌ | ❌ | ❌ | Onshape live 实测 Ctrl 点击树行仍单行 selected；一致 |
@@ -37,7 +37,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 
 | 对象 | 增 | 删 | 改 | 备注 |
 |---|---|---|---|---|
-| 零件 | ✅ 产体特征 | ❌ 删除零件后端未实现 | 🟠 重命名/material 未支持；隐藏/显示、外观、放大、属性可用 | 删除/重命名/隔离/透明/复制/工程图/导出/发布 菜单禁用 |
+| 零件 | ✅ 产体特征 | ❌ 删除零件后端未实现 | ✅ 重命名（v1.70 `renameBody` RPC → userLabel + marker.name，undo 已验证）；🟠 material 未支持；隐藏/显示、外观、放大、属性可用 | 删除/隔离/透明/复制/工程图/导出/发布 菜单禁用；真栈 `part-rename.spec.ts`（改名→undo→push 冷重开） |
 | 体积读面 | — | — | ✅ 行内体积 + 属性对话框 | 只读 |
 
 ## 交叉删除语义
@@ -53,6 +53,6 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 2. ✅ 草图 Fillet（S1k，2026-11-12；live 实测点击角点立即生成圆弧 + 可编辑 R 尺寸，无半径框；两线角点首切片，线弧组合/两曲线选择/显式点端点待做）。
 3. ✅ Extend 线端点切片（S1i，2026-11-12；弧/圆/样条源与边界点选第二相待做）。
 4. 草图变换数值输入/自定义基点/非均匀缩放（阵列与变换的移动/旋转/均匀缩放手柄已实现；Onshape live 实证为 canvas gizmo，非对话框）。
-5. 零件删除/重命名（后端 FeatureOp + schema）。
+5. 零件删除（后端 FeatureOp）。零件/特征重命名已完成（v1.70 元数据 RPC，真栈 undo + 冷重开）。
 6. 特征回滚/重排（后端 scope 重建截止 + 顺序契约，需 ADR）。重排现状：Onshape live 拖动行即重排（蓝色行名 chip；依赖被破坏的下游行标红，2026-11-12 直接操作 `LubanCAD 覆盖 - Bumper Block` 副本实证）；本产品 `reorderFeature` 受线性 prev 边守卫，真实拖动会被服务端拒收（newBody 拉伸同样有边），因此**不提供拖拽 UI**，待后端 reorder 重建语义 ADR 后接线。
 7. Use（实体边/面投影，后端几何投影通道）。

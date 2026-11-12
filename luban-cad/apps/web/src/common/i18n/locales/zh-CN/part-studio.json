@@ -1387,6 +1387,8 @@
     "deleteFailed": "删除失败：{{message}}",
     "suppressSuccess": "已更新 {{name}} 的抑制状态",
     "suppressFailed": "抑制操作失败：{{message}}",
+    "renameSuccess": "已重命名为 {{name}}",
+    "renameFailed": "重命名失败：{{message}}",
     "noSourceFeature": "实体无驱动源，无法删除",
     "readonlyHint": "当前为只读权限，无法执行此操作",
     "featureTypes": {

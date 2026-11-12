@@ -75,7 +75,10 @@ export function mapFeatureEntries(
       perTypeCounter.set(entry.featureType, seq);
       return {
         id: entry.id,
-        name: `${typeLabel(entry.featureType)} ${seq}`,
+        // v1.70：用户自定义名优先（Onshape 行内重命名）；缺省/空串回退「类型 + 序号」派生。
+        name: entry.name !== undefined && entry.name.trim() !== ''
+          ? entry.name
+          : `${typeLabel(entry.featureType)} ${seq}`,
         type: entry.featureType,
         hasError: entry.status !== 0,
         isSuppressed: entry.suppressed,

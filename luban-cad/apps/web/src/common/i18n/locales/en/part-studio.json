@@ -1387,6 +1387,8 @@
     "deleteFailed": "Delete failed: {{message}}",
     "suppressSuccess": "Suppression updated for {{name}}",
     "suppressFailed": "Suppression update failed: {{message}}",
+    "renameSuccess": "Renamed to {{name}}",
+    "renameFailed": "Rename failed: {{message}}",
     "noSourceFeature": "The body has no driving feature; it cannot be deleted",
     "readonlyHint": "Read-only permission; this action is unavailable",
     "featureTypes": {
