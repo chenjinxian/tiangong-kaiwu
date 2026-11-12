@@ -57,6 +57,13 @@ vi.mock('../internal/onshape-selection-runtime.js', () => ({
   clearActiveOnshapeHighlight: clearOnshapeHighlightMock,
 }));
 
+// ADR-0017 Stage D：草图平面模型面读取替身（真实通道需 SolidModeling 命令）。
+const readBrepFaceHandleMock = vi.hoisted(() => vi.fn());
+vi.mock('../internal/brep-topology.js', () => ({
+  readBrepTopology: vi.fn(),
+  readBrepFaceHandle: readBrepFaceHandleMock,
+}));
+
 const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
   viewport: null as unknown,
@@ -138,6 +145,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   featureRpc.getSketch.mockReset();
   subEntityDeleteMock.mockReset().mockResolvedValue(undefined);
+  readBrepFaceHandleMock.mockReset();
   mocks.viewport = null;
   resetStore();
 });
@@ -238,6 +246,67 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     expect(dialog).toBeDefined();
     await user.click(within(dialog).getByRole('button', { name: '取消' }));
     expect(usePartStudioStore.getState().dialog.active).toBeNull();
+  });
+
+  it('ADR-0017 Stage D：草图对话框期间拾取单个面 → 「模型面」平面选项；✓ 携带平面快照', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-face' }));
+    readBrepFaceHandleMock.mockResolvedValue({
+      bodyKey: 'body-1',
+      subEntityId: 6,
+      range: { low: [0, 0, 10], high: [20, 10, 10] },
+      normal: [0, 0, 1],
+      loops: [[{ kind: 'line', p0: [0, 0, 10], p1: [20, 0, 10] }]],
+    });
+    renderCanvas(applyOp, { connectionKey: 'briefcase-key' });
+    act(() => {
+      usePartStudioStore.getState().openSketchDialog();
+    });
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{
+        kind: 'face',
+        id: 'face:body-1:1:6',
+        ownerBodyKey: 'body-1',
+        cacheId: 6,
+        label: '面',
+      }]);
+    });
+    await waitFor(() =>
+      expect(readBrepFaceHandleMock).toHaveBeenCalledWith('briefcase-key', 'body-1', 6));
+    const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
+    await waitFor(() =>
+      expect(within(dialog).getByRole('combobox', { name: '草图平面' }).textContent).toContain('模型面'));
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    await waitFor(() =>
+      expect(applyOp).toHaveBeenCalledWith({
+        kind: 'insertSketch',
+        entities: [],
+        constraints: [],
+        plane: {
+          origin: { x: 0, y: 0, z: 10 },
+          normal: { x: 0, y: 0, z: 1 },
+          xDir: { x: 1, y: 0, z: 0 },
+        },
+      }));
+  });
+
+  it('Stage D：非平面/读取失败 → Error toast、不设平面、✓ 仍禁用（不编造平面）', async () => {
+    readBrepFaceHandleMock.mockResolvedValue(undefined);
+    renderCanvas(undefined, { connectionKey: 'briefcase-key' });
+    act(() => {
+      usePartStudioStore.getState().openSketchDialog();
+    });
+    act(() => {
+      usePartStudioStore.getState().setCanvasSelection([{
+        kind: 'face', id: 'face:body-1:1:7', ownerBodyKey: 'body-1', cacheId: 7,
+      }]);
+    });
+    await waitFor(() => expect(readBrepFaceHandleMock).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalled());
+    const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
+    expect((within(dialog).getByRole('combobox', { name: '草图平面' }) as HTMLButtonElement).textContent)
+      .not.toContain('模型面');
+    expect((within(dialog).getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('sketch 提交链（M6-a T4）：✓ 创建并保持编辑态对话框，再次 ✓ 完成退出', async () => {

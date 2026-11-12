@@ -524,8 +524,12 @@ function PartStudioSession({
 
   // 默认 Onshape 选择工具（2026-11-03）：body/face/edge/vertex 统一拾取；
   // 对话框/草图打开时暂停（清空选择），关闭后恢复。
+  // ADR-0017 Stage D：仅草图对话框例外——新建草图期间选择工具保持可用，允许在
+  // 视口拾取单个平面模型面作为草图平面（Onshape 语义）。进入草图编辑态
+  //（sketch.isActive）或其它任何对话框仍暂停并清空选择。
   const sketchActiveForSelection = usePartStudioStore((s) => s.sketch.isActive);
-  const dialogActiveForSelection = usePartStudioStore((s) => s.dialog.active !== null);
+  const dialogKindForSelection = usePartStudioStore((s) => s.dialog.active);
+  const dialogActiveForSelection = dialogKindForSelection !== null && dialogKindForSelection !== 'sketch';
   useOnshapeSelection(
     connection ?? undefined,
     viewport,

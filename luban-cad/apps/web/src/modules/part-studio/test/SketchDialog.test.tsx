@@ -383,6 +383,14 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     expect(onConfirm).not.toHaveBeenCalled();
     expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false });
   });
+
+  it('Escape = 取消（Onshape 草图工具退出语义；焦点在画布也生效）', () => {
+    usePartStudioStore.getState().enterSketch('sketch-9');
+    const { onCancel } = renderDialog();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
+  });
 });
 
 // M6-a T4（F1）：insertSketch RPC 接线——applyOp 在场时 ✓ → 空草图先建壳

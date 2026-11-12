@@ -53,7 +53,7 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult, SketchPlaneDto } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { deleteSelectedSubEntity } from '../canvas/subentity-delete.js';
 import type { CanvasSelection } from '../types.js';
@@ -70,6 +70,9 @@ import { SplitPartDialog } from '../dialogs/SplitPartDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import { cPlanePlaneOptions } from '../internal/cplane.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
+import { readBrepFaceHandle } from '../internal/brep-topology.js';
+import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.js';
+import { sketchPlaneFromFaceHandle } from '../internal/sketch-plane-from-face.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
 import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
@@ -208,8 +211,10 @@ export function PartStudioCanvas({
     sketchActiveForDecorations && sketchSystem !== undefined,
   );
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
-  /** 新建草图对话框的平面选择（三基准面 id 或 cPlane 特征 id；关闭即清）。 */
+  /** 新建草图对话框的平面选择（三基准面 id / cPlane 特征 id / 模型面选择 id；关闭即清）。 */
   const [sketchDraftPlane, setSketchDraftPlane] = React.useState<string | null>(null);
+  /** ADR-0017 Stage D：视口拾取的平面模型面 → 草图平面快照（随 insertSketch 落 params）。 */
+  const [sketchFacePlane, setSketchFacePlane] = React.useState<{ id: string; plane: SketchPlaneDto } | null>(null);
   /** Onshape「图形首选项」左侧非模态面板（与右侧外观面板可同时打开）。 */
   const [graphicsPreferencesOpen, setGraphicsPreferencesOpen] = React.useState(false);
 
@@ -218,10 +223,12 @@ export function PartStudioCanvas({
   const closeDialog = usePartStudioStore((s) => s.closeDialog);
   const selectedDatumId = usePartStudioStore((s) => s.datum.selectedId);
   const selectDatum = usePartStudioStore((s) => s.selectDatum);
+  const canvasSelectionForSketchPlane = usePartStudioStore((s) => s.canvas.selection);
 
   // 打开草图对话框重置平面选择；关闭时清空（下一次打开不继承旧面）。
   React.useEffect(() => {
     setSketchDraftPlane(null);
+    setSketchFacePlane(null);
   }, [dialog.active]);
 
   // 特征树 Top/Front/Right 选择 = 草图平面选择（视口拾取同源；Origin 忽略）。
@@ -239,6 +246,7 @@ export function PartStudioCanvas({
 
   const handleSketchPlaneSelect = React.useCallback((plane: 'top' | 'front' | 'right') => {
     setSketchDraftPlane(plane);
+    setSketchFacePlane(null);
     selectDatum(plane);
   }, [selectDatum]);
 
@@ -259,9 +267,13 @@ export function PartStudioCanvas({
         id,
         label: t(`partStudio.sketchDialog.planes.${id}`),
       })),
+      // ADR-0017 Stage D：视口拾取的平面模型面（快照随选项下发，提交即快照入 params）。
+      ...(sketchFacePlane
+        ? [{ id: sketchFacePlane.id, label: t('partStudio.sketchDialog.facePlane'), plane: sketchFacePlane.plane }]
+        : []),
       ...cPlanePlaneOptions(featureEntries, typeLabel),
     ];
-  }, [featureEntries, t]);
+  }, [featureEntries, sketchFacePlane, t]);
 
   // featureMirror 源特征（2026-11-08 live 证据）：后端首版仅 extrude/revolve/hole；
   // 抑制行不作为候选，源 id 直接取树条目 id。
@@ -281,6 +293,7 @@ export function PartStudioCanvas({
 
   const handleSketchDialogCancel = React.useCallback(() => {
     setSketchDraftPlane(null);
+    setSketchFacePlane(null);
     selectDatum(null);
     closeDialog();
   }, [closeDialog, selectDatum]);
@@ -321,6 +334,7 @@ export function PartStudioCanvas({
       exitSketch();
       setActiveSketchPlane(null);
       setSketchDraftPlane(null);
+      setSketchFacePlane(null);
       selectDatum(null);
       closeDialog();
       return;
@@ -330,6 +344,48 @@ export function PartStudioCanvas({
     setSketchDraftPlane(result?.plane || null);
     // 保持 dialog.active='sketch'：下一步渲染为同一对话框的编辑态。
   }, [closeDialog, exitSketch, selectDatum, setActiveSketchPlane, sketchActiveForDialog]);
+
+  /**
+   * ADR-0017 Stage D：新建草图期间（选择工具未被暂停）视口拾取单个平面模型面
+   * → 读该面缓存几何 → 生成 SketchPlaneDto 快照 → 设为草图平面选项。
+   * 仅唯一面选择生效；多选/非面不改平面（不猜）。读取失败/非平面 → Error toast，
+   * 绝不编造平面。读取经 BRep 命令协调器串行（hover 暂停→读完恢复）。
+   */
+  React.useEffect(() => {
+    if (dialog.active !== 'sketch' || sketchActiveForDialog || !connection) return;
+    const selection = canvasSelectionForSketchPlane;
+    if (selection.length !== 1 || selection[0]!.kind !== 'face') return;
+    const face = selection[0]!;
+    const ownerBodyKey = face.ownerBodyKey;
+    const cacheId = face.cacheId;
+    if (ownerBodyKey === undefined || cacheId === undefined) return;
+    const iModelKey = connection.key;
+    let cancelled = false;
+    void (async () => {
+      let handle;
+      try {
+        handle = await withExclusiveBrepCommand(() =>
+          readBrepFaceHandle(iModelKey, ownerBodyKey, cacheId));
+      } catch {
+        handle = undefined;
+      }
+      if (cancelled) return;
+      const plane = handle ? sketchPlaneFromFaceHandle(handle) : undefined;
+      if (!plane) {
+        IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+          OutputMessagePriority.Error,
+          t('partStudio.sketchDialog.facePlaneFailed'),
+        ));
+        return;
+      }
+      setSketchFacePlane({ id: face.id, plane });
+      setSketchDraftPlane(face.id);
+      selectDatum(null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dialog.active, sketchActiveForDialog, canvasSelectionForSketchPlane, connection, selectDatum, t]);
 
   // 编辑既有草图（树双击/菜单）时：按落库平面回显到对话框字段。
   // v1.29：自定义平面的来源指针（sourceFeatureId）命中现存 cPlane 选项时显示「平面 N」，
@@ -786,6 +842,8 @@ export function PartStudioCanvas({
           planes={sketchPlaneOptions}
           onPlaneChange={(plane) => {
             setSketchDraftPlane(plane);
+            // 非模型面选项（基准面/cPlane/清除）丢弃模型面快照。
+            if (plane !== sketchFacePlane?.id) setSketchFacePlane(null);
             // 只有三基准面同步树选中；cPlane 是特征行，不写 datum 选中态。
             selectDatum(plane === 'top' || plane === 'front' || plane === 'right' ? plane : null);
           }}

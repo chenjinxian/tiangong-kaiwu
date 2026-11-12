@@ -308,6 +308,83 @@ function loopDescriptors(loop: Loop): BrepFaceLoopCurve[] {
     .filter((curve): curve is BrepFaceLoopCurve => curve !== undefined);
 }
 
+/** 面几何条目 → 可序列化面句柄；非平面/非 Loop|ParityRegion/缺范围 → undefined。 */
+function faceHandleFromGeometry(
+  bodyKey: string,
+  props: SubEntityProps,
+  geometry: SubEntityGeometryProps | undefined,
+): BrepFaceHandle | undefined {
+  if (!geometry?.geometry || !geometry.range) return undefined;
+  let query: unknown;
+  try {
+    query = ElementGeometry.toGeometryQuery(geometry.geometry as ElementGeometryDataEntry);
+  } catch {
+    return undefined;
+  }
+  if (!(query instanceof Loop) && !(query instanceof ParityRegion)) return undefined;
+  const plane = CurveOps.isPlanar(query);
+  if (!plane) return undefined;
+  const range = Range3d.fromJSON(geometry.range);
+  const loops = query instanceof Loop ? [loopDescriptors(query)] : query.children.map(loopDescriptors);
+  return {
+    bodyKey,
+    subEntityId: Number(props.id),
+    range: { low: pointTuple(range.low), high: pointTuple(range.high) },
+    normal: pointTuple(plane.matrix.columnZ()),
+    loops,
+  };
+}
+
+/**
+ * ADR-0017 Stage D：读取单个面句柄（草图平面快照来源）。
+ *
+ * 不调用 `clearCache`：拾取工具刚落位时缓存里正是该 body 的最新几何；清缓存会
+ * 拆掉拾取会话的缓存（readBrepTopology 的头注释所述粘性坑）。命令槽经
+ * `withExclusiveBrepCommand` 由调用方串行化。返回 undefined = 命令不可用/面
+ * 不存在/非平面（诚实失败，不猜）。
+ */
+export async function readBrepFaceHandle(
+  iModelKey: string,
+  bodyKey: string,
+  subEntityId: number,
+  source: BrepTopologySource = editorBrepTopologySource,
+): Promise<BrepFaceHandle | undefined> {
+  try {
+    await source.startCommand(iModelKey);
+  } catch {
+    return undefined;
+  }
+  try {
+    try {
+      if (!(await source.createCache(bodyKey))) return undefined;
+    } catch {
+      return undefined;
+    }
+    try {
+      // 原生缓存需先有 Edge 查询才会填充 Face 列表（同 readBrepFaceHandles）。
+      await source.getSubEntities(bodyKey, SubEntityType.Edge, false);
+    } catch {
+      // 预热失败：Face 列表可能为空，按未命中处理。
+    }
+    let faceProps: SubEntityProps[] = [];
+    try {
+      faceProps = (await source.getSubEntities(bodyKey, SubEntityType.Face, false)) ?? [];
+    } catch {
+      return undefined;
+    }
+    const props = faceProps.find((row) => Number(row.id) === subEntityId);
+    if (!props) return undefined;
+    const geometry = await source.getGeometry(bodyKey, props, { wantGeometry: true, wantRange: true });
+    return faceHandleFromGeometry(bodyKey, props, geometry);
+  } finally {
+    try {
+      await source.finishCommand();
+    } catch {
+      // 命令已被其他工具收口。
+    }
+  }
+}
+
 /**
  * 读 active authored body 的面拓扑（dev-only 观测面）：缓存面子实体 id + 范围 + 平面法线 +
  * 边界环曲线。面几何条目经 `ElementGeometry.toGeometryQuery` 得到 Loop/ParityRegion
@@ -355,25 +432,8 @@ export async function readBrepFaceHandles(
       }
       for (const props of faceProps) {
         const geometry = await source.getGeometry(body.bodyKey, props, { wantGeometry: true, wantRange: true });
-        if (!geometry?.geometry || !geometry.range) continue;
-        let query;
-        try {
-          query = ElementGeometry.toGeometryQuery(geometry.geometry as ElementGeometryDataEntry);
-        } catch {
-          continue;
-        }
-        if (!(query instanceof Loop) && !(query instanceof ParityRegion)) continue;
-        const plane = CurveOps.isPlanar(query);
-        if (!plane) continue;
-        const range = Range3d.fromJSON(geometry.range);
-        const loops = query instanceof Loop ? [loopDescriptors(query)] : query.children.map(loopDescriptors);
-        out.push({
-          bodyKey: body.bodyKey,
-          subEntityId: Number(props.id),
-          range: { low: pointTuple(range.low), high: pointTuple(range.high) },
-          normal: pointTuple(plane.matrix.columnZ()),
-          loops,
-        });
+        const handle = faceHandleFromGeometry(body.bodyKey, props, geometry);
+        if (handle) out.push(handle);
       }
     }
     return out;

@@ -258,6 +258,21 @@ export function SketchDialog({
     onCancel?.();
   }, [exitSketch, onCancel]);
 
+  // ADR-0017 Stage D：Onshape Escape = 取消草图工具（红 X 同义）。非模态面板，
+  // 焦点可在画布上——监听 window；提交中不取消（等待落位，防半提交）。
+  const cancelRef = React.useRef(handleCancel);
+  cancelRef.current = handleCancel;
+  React.useEffect(() => {
+    if (submitting) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      cancelRef.current();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [submitting]);
+
   return (
     <div
       role="dialog"

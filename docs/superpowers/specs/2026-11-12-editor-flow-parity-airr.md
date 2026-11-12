@@ -174,3 +174,23 @@
   `e2e/part-studio.spec.ts` **9/9 passed（1.9m）**。
 - 未支持项不创建假页签、不弹假内容；切换页签相机记忆未实现（Onshape 行为
   未采集到证据，记为 parity gap）。
+
+## 12. Stage D 实施结果（2026-11-12）
+
+- 草图对话框期间选择工具**不再暂停/清空**（仅草图例外；其它对话框与草图
+  编辑态仍暂停）：可在视口拾取单个平面模型面作为草图平面。
+- 新增 `internal/sketch-plane-from-face.ts` 纯转换：面平面法向 + 首环点 +
+  首环线投影 xDir；退化/非平面诚实失败（Error toast，不编造平面）。
+  `readBrepFaceHandle` 走同一 SolidModeling 缓存通道读单面（不清缓存，
+  经 BRep 命令协调器串行）。
+- 草图对话框平面字段显示「模型面」chip（可 × 清除）；平面快照随
+  `insertSketch.plane` 落 params，判据仍唯一为 params。
+- Escape = 取消草图工具（红 X 同义）；树行双击编辑既有草图，平面字段只读
+  （updateSketch 无 plane 键）。
+- 验证：web **1554/1554**（face→plane 纯测 8、canvas 接线 2、Escape 1）；
+  tsc/lint/e2e tsc 绿；真栈 `e2e/sketch-face-plane.spec.ts` **2 passed（1.3m）**
+  ——板顶面 → 模型面草图（plane.origin.z=5/normal +Z 落 params）→ φ6 拉伸 2
+  **2056.547 vs 2056.549 mm³** push+冷重开；`sketch-edit.spec.ts` **2 passed
+  （40.3s）**；`sketch-aligned-rectangle.spec.ts` **2 passed（52.4s）** 回归。
+- 未做：面平面改参联动（平面是创建快照，Onshape 允许改平面——需 updateSketch
+  扩 plane，本切片按契约只读并诚实呈现）。
