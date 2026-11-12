@@ -18,7 +18,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 | Fillet（草图） | ✅ 点击两条直线共享角点立即生成相切圆弧（默认 R5 mm + coincident×2/tangent×2/radius）；✅ 依次单击两条不相连直线在延长交点倒角（悬停预览）；✅ 显式 point 端点（分离为内联点 + 孤儿点清理）；✅ 直线-圆弧角点（源弧随 tangent 收窄） | —（随曲线/约束 Delete） | ✅ R 尺寸双击改值重解算；工具保持激活可连续倒角 | Live 2026-11-12 实测：无独立半径框，点角点即出 arc + R 尺寸（英寸文档 R0.25）；两曲线选择要求切点落在线段内，平行/十字交叉四解/间隙大于切距诚实拒收；三线以上共点/整圆/样条/投影未支持；`sketch-fillet.spec.ts` 真栈 5 例（角点 R5→R8、两曲线 L 形、显式点角点、线-弧 R5 弧-弧相切）+ 14 单测 |
 | Extend（草图） | — | — | ✅ 两相延伸：先选线/弧，再点边界（线/圆/弧）或自由端点；线源移动端点、弧源增长扫角；圆/样条源未实现 | 修剪同一下拉（官方帮助，快捷键 X）；`Sketch.Extend` 真栈（线/弧）+ 17 单测；无边界/反方向保持原样；共用 view→NPC 反解已修为官方 viewToNpc |
 | 插入 DXF（草图） | ✅ ASCII DXF 的 LINE/CIRCLE/ARC/POINT/LWPOLYLINE（直线段 + bulge 圆弧段，含闭合）/三次 4 控制点 SPLINE → 当前草图（$INSUNITS 换算 mm；一次 updateSketch 可撤销） | — | — | `dxf-import` 12 单测 + `sketch-dxf-import.spec.ts` 真栈；DWG/BLOCKS/INSERT/非三次·周期样条/放置对话框未做（诚实拒收/跳过计数） |
-| Copy/Transform（草图图元） | — | — | ❌ 菜单禁用 | Live 实测：复制=剪贴板复制（粘贴项在复制后出现），变换=canvas gizmo 工具（非数值对话框）；需要多选 group-drag + gizmo/剪贴板语义，未实现。拉伸…/旋转… 已接（退出草图→FeatureDialog） |
+| Copy/Transform（草图图元） | ✅ 复制到会话剪贴板（选中曲线 + 直接引用的显式 point；只带内部约束） | — | ✅ 粘贴原位副本并选中（一次 updateSketch，可撤销；id/约束重映射）；❌ 变换（canvas gizmo）未实现 | Live 实测：复制后菜单出现粘贴；变换=canvas gizmo 工具（非数值对话框），需多选 group-drag + gizmo，未实现。拉伸…/旋转… 已接（退出草图→FeatureDialog）。`sketch-clipboard.test.ts` 3 条 + `sketch-entity-menu.spec.ts` 真栈 |
 
 ## 特征
 

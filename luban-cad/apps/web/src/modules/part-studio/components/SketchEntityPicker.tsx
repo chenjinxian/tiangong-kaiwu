@@ -29,6 +29,7 @@ import {
   type SketchEntitySelection,
   type SketchPickerGeometry,
 } from '../internal/sketch-entity-picker.js';
+import { hasSketchClipboard } from '../internal/sketch-clipboard.js';
 import './SketchPlanePicker.css';
 
 export type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
@@ -60,6 +61,10 @@ export interface SketchEntityPickerProps {
   onExtrude?: () => void;
   /** 右键菜单「旋转…」：Onshape 退出草图并打开旋转特征对话框。 */
   onRevolve?: () => void;
+  /** 右键菜单「复制草图图元」（Onshape 先复制到会话剪贴板，随后菜单出现粘贴）。 */
+  onCopy?: (selection: readonly SketchEntitySelection[]) => void;
+  /** 右键菜单「粘贴草图图元」（原位粘贴并选中副本）。 */
+  onPaste?: () => void;
   /** 当前实体是否已是构造线（菜单标签依据）。 */
   isConstruction?: (entityId: number) => boolean;
   /**
@@ -90,6 +95,8 @@ export function SketchEntityPicker({
   onZoomToEntity,
   onExtrude,
   onRevolve,
+  onCopy,
+  onPaste,
   isConstruction,
   isOverlayPoint,
 }: SketchEntityPickerProps): React.JSX.Element | null {
@@ -427,7 +434,7 @@ export function SketchEntityPicker({
       />
       {menu && (() => {
         const width = 220;
-        const height = 372;
+        const height = 400;
         const left = Math.min(menu.x, Math.max(8, window.innerWidth - width - 8));
         const top = Math.min(menu.y, Math.max(8, window.innerHeight - height - 8));
         const construction = isConstructionRef.current?.(menu.selection.entityId) ?? false;
@@ -472,9 +479,37 @@ export function SketchEntityPicker({
                 : t('partStudio.sketch.entityMenuConstruction')}
             </button>
             <div className="part-studio-tree-menu__separator" role="separator" />
-            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-entity-menu-copy"
+              onClick={() => {
+                const base = selectedRef.current;
+                const clicked = menu.selection;
+                const selection = base.some((entry) => sameSelection(entry, clicked))
+                  ? base
+                  : [clicked];
+                setMenu(null);
+                onCopy?.(selection);
+              }}
+            >
               {t('partStudio.sketch.entityMenuCopy')}
             </button>
+            {hasSketchClipboard() && (
+              <button
+                type="button"
+                role="menuitem"
+                className="part-studio-tree-menu__item"
+                data-testid="sketch-entity-menu-paste"
+                onClick={() => {
+                  setMenu(null);
+                  onPaste?.();
+                }}
+              >
+                {t('partStudio.sketch.entityMenuPaste')}
+              </button>
+            )}
             <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
               {t('partStudio.sketch.entityMenuTransform')}
             </button>

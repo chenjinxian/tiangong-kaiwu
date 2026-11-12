@@ -77,6 +77,7 @@ import { SketchEntityPicker } from './SketchEntityPicker.js';
 import { SketchDimensionEditor } from './SketchDimensionEditor.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import { deleteSketchEntities } from '../internal/sketch-delete.js';
+import { copySketchEntities, pasteSketchClipboard } from '../internal/sketch-clipboard.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
 import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
@@ -363,6 +364,48 @@ export function PartStudioCanvas({
     store.exitSketch();
     store.openFeatureDialog({ mode: 'new', featureType });
   }, []);
+
+  // Onshape live 2026-11-12：草图图元「复制/粘贴」——复制到会话剪贴板（内部
+  // 约束随复制集重映射），粘贴在原位插入一次 updateSketch 并选中副本。
+  const copySketchSelection = React.useCallback((selection: readonly SketchEntitySelection[]) => {
+    const sketch = sketchSystem?.activeSketch;
+    if (!sketch)
+      return;
+    copySketchEntities(sketch.entities, sketch.constraints, selection);
+  }, [sketchSystem]);
+
+  const pasteSketchSelection = React.useCallback(async () => {
+    const sketch = sketchSystem?.activeSketch;
+    if (!sketch || !canEdit)
+      return;
+    const result = pasteSketchClipboard(sketch.entities, sketch.constraints);
+    if (!result.ok)
+      return;
+    const applied = await sketchSystem.applyUpdate(result.entities, result.constraints);
+    if (!applied.ok) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Error,
+        t('partStudio.sketch.pasteFailed', { message: applied.error ?? '' }),
+      ));
+      return;
+    }
+    const others = canvasSelectionForSketchPlane.filter(
+      (entry) => entry.kind !== 'sketchEntity' && entry.kind !== 'sketchConstraint',
+    );
+    const pasted = new Set(result.pastedCurveIds);
+    setCanvasSelection([
+      ...others,
+      ...result.entities
+        .filter((entity) => pasted.has(entity.id))
+        .map((entity) => ({
+          kind: 'sketchEntity' as const,
+          id: `${sketch.id}:${entity.id}`,
+          sketchId: sketch.id,
+          entityId: entity.id,
+          sketchPart: 'curve' as const,
+        })),
+    ]);
+  }, [sketchSystem, canEdit, canvasSelectionForSketchPlane, setCanvasSelection, t]);
 
   const zoomToSketchEntity = React.useCallback((entityId: number) => {
     const sketch = sketchSystem?.activeSketch;
@@ -809,6 +852,8 @@ export function PartStudioCanvas({
           onZoomToEntity={zoomToSketchEntity}
           onExtrude={() => openFeatureFromSketch('extrude')}
           onRevolve={() => openFeatureFromSketch('revolve')}
+          onCopy={copySketchSelection}
+          onPaste={pasteSketchSelection}
           isConstruction={isSketchEntityConstruction}
           isOverlayPoint={(point) => sketchOverlayHitRef.current?.(point) ?? false}
           onSelectionChange={(entries) => {

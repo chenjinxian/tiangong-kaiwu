@@ -1,10 +1,11 @@
 /**
  * 草图图元右键菜单真栈验收（Onshape live 2026-11-12 证据）。
  *
- * 覆盖：右键曲线 → 菜单（删除草图图元/建构线/拉伸…/旋转…/视图垂直于草图平面/
- * 放大选定对象；复制·变换仍禁用）；建构线翻转走 updateSketch；正视命令把视图
- * Z 轴对齐草图平面法向；Delete 菜单项移除实体；拉伸…/旋转… 退出草图并打开对应
- * 特征对话框（Onshape live 同口径）。
+ * 覆盖：右键曲线 → 菜单（删除草图图元/建构线/复制/拉伸…/旋转…/视图垂直于
+ * 草图平面/放大选定对象；变换仍禁用）；建构线翻转走 updateSketch；正视命令把
+ * 视图 Z 轴对齐草图平面法向；Delete 菜单项移除实体；拉伸…/旋转… 退出草图并
+ * 打开对应特征对话框；复制后菜单出现粘贴，粘贴原位副本且内部约束重映射
+ * （Onshape live 同口径）。
  */
 import { expect, test } from '@playwright/test';
 import type { SketchDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -118,12 +119,12 @@ test.describe('草图图元右键菜单（Onshape 对拍）', () => {
     // ---- 1. 菜单结构与未支持项禁用 ----
     await openMenu();
     const menu = page.getByTestId('sketch-entity-menu');
-    for (const name of ['删除草图图元', '建构线', '视图垂直于草图平面', '放大选定对象', '拉伸…', '旋转…']) {
+    for (const name of ['删除草图图元', '建构线', '视图垂直于草图平面', '放大选定对象', '拉伸…', '旋转…', '复制草图图元']) {
       await expect(menu.getByRole('menuitem', { name })).toBeEnabled();
     }
-    for (const name of ['复制草图图元', '变换草图图元']) {
-      await expect(menu.getByRole('menuitem', { name })).toBeDisabled();
-    }
+    await expect(menu.getByRole('menuitem', { name: '变换草图图元' })).toBeDisabled();
+    // Onshape：粘贴项在复制后才出现。
+    await expect(menu.getByRole('menuitem', { name: '粘贴草图图元' })).toHaveCount(0);
 
     // ---- 2. 建构线翻转（updateSketch），再翻回 ----
     await menu.getByTestId('sketch-entity-menu-construction').click();
@@ -236,5 +237,76 @@ test.describe('草图图元右键菜单（Onshape 对拍）', () => {
     await expect(revolveDialog).toBeVisible({ timeout: 15_000 });
     await expect(revolveDialog).toHaveAttribute('data-feature', 'revolve');
     await page.keyboard.press('Escape');
+  });
+
+  test('复制草图图元 → 菜单出现粘贴 → 原位副本 + 内部约束重映射', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    const openWithRetry = async () => {
+      try {
+        return await openSeedImodelEditor(page, seed);
+      } catch {
+        await page.reload();
+        return await openSeedImodelEditor(page, seed);
+      }
+    };
+    let ctx = await openWithRetry();
+    const lease = await borrowWriteLease(ctx, token, 'sketch-entity-menu-copy');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: LINE,
+      constraints: [{ kind: 'horizontal', id: 21, refs: [11] }],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openWithRetry();
+    const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(sketchRow).toBeVisible({ timeout: 60_000 });
+    await sketchRow.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('sketch-entity-picker')).toBeAttached({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    const openMenu = async (): Promise<void> => {
+      const origin = await page.evaluate(() => {
+        const vp = (window as unknown as {
+          __lubanE2E?: { coreFrontend: { IModelApp: { viewManager: { selectedView: { worldToView: (p: { x: number; y: number; z: number }) => { x: number; y: number } } } | undefined } } };
+        }).__lubanE2E?.coreFrontend?.IModelApp?.viewManager?.selectedView;
+        if (!vp) return null;
+        return vp.worldToView({ x: 0, y: 0, z: 0 });
+      });
+      expect(origin).not.toBeNull();
+      await page.mouse.click(box!.x + origin!.x, box!.y + origin!.y, { button: 'right' });
+      await expect(page.getByTestId('sketch-entity-menu')).toBeVisible({ timeout: 10_000 });
+    };
+
+    await openMenu();
+    await expect(page.getByTestId('sketch-entity-menu').getByRole('menuitem', { name: '粘贴草图图元' })).toHaveCount(0);
+    await page.getByTestId('sketch-entity-menu-copy').click();
+    await openMenu();
+    const pasteItem = page.getByTestId('sketch-entity-menu').getByRole('menuitem', { name: '粘贴草图图元' });
+    await expect(pasteItem).toBeVisible({ timeout: 10_000 });
+    await pasteItem.click();
+
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      const lines = (sketch?.entities ?? []).filter((entity) => entity.kind === 'line');
+      const horizontals = (sketch?.constraints ?? []).filter((constraint) => constraint.kind === 'horizontal');
+      if (lines.length !== 2 || horizontals.length !== 2)
+        return false;
+      const newLine = lines.find((line) => line.id !== 11) as Extract<SketchEntityDto, { kind: 'line' }> | undefined;
+      if (!newLine)
+        return false;
+      const newHorizontal = horizontals.find((constraint) => constraint.refs[0] === newLine.id);
+      return JSON.stringify(newLine.p1) === JSON.stringify({ x: -10, y: 0 })
+        && JSON.stringify(newLine.p2) === JSON.stringify({ x: 10, y: 0 })
+        && newHorizontal !== undefined;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
   });
 });
