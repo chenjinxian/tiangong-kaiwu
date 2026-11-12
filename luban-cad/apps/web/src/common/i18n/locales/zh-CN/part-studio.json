@@ -1352,6 +1352,8 @@
     "bodiesReadFailed": "实体读取失败：{{message}}（当前显示为兼容零件列表）",
     "hideBody": "隐藏实体",
     "showBody": "显示实体",
+    "hideOtherParts": "隐藏其他零件",
+    "hideAllParts": "隐藏所有零件",
     "menuAddToFolder": "将选定内容添加到文件夹…",
     "menuSectionView": "剖视图…",
     "menuDynamicSuppress": "动态抑制",

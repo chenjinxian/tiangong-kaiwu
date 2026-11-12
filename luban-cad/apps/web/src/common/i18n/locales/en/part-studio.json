@@ -1352,6 +1352,8 @@
     "bodiesReadFailed": "Failed to load bodies: {{message}} (showing the legacy parts list)",
     "hideBody": "Hide body",
     "showBody": "Show body",
+    "hideOtherParts": "Hide other parts",
+    "hideAllParts": "Hide all parts",
     "menuAddToFolder": "Add selection to folder…",
     "menuSectionView": "Section view…",
     "menuDynamicSuppress": "Dynamic suppress",

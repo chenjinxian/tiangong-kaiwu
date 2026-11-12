@@ -420,6 +420,22 @@ export function FeatureTree({
     },
     [hideNodes, showNodes],
   );
+  // Onshape part menu（2026-11-13）：隐藏其他零件 / 隐藏所有零件——会话级批量隐藏
+  // （同一 store.hiddenIds 通道；不改 iModel，不可撤销属 Onshape 同口径显示态）。
+  const handleHideOtherParts = React.useCallback(
+    (node: TreeNode) => {
+      const ids = parts.filter((part) => part.id !== node.id).map((part) => part.id);
+      if (ids.length > 0) hideNodes(ids);
+    },
+    [parts, hideNodes],
+  );
+  const handleHideAllParts = React.useCallback(
+    () => {
+      const ids = parts.map((part) => part.id);
+      if (ids.length > 0) hideNodes(ids);
+    },
+    [parts, hideNodes],
+  );
 
   // Onshape live（2026-11-12）：树右键「放大选定对象」——part 行按元素 id 缩放；
   // 特征行在其直接驱动的 body 可定位时缩放该体（单 body 文档退化为唯一 active
@@ -1108,6 +1124,28 @@ export function FeatureTree({
             {isNodeHidden(menuNode)
               ? t('partStudio.tree.showBody')
               : t('partStudio.tree.hideBody')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            onClick={() => {
+              setMenu(null);
+              handleHideOtherParts(menuNode);
+            }}
+          >
+            {t('partStudio.tree.hideOtherParts')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            onClick={() => {
+              setMenu(null);
+              handleHideAllParts();
+            }}
+          >
+            {t('partStudio.tree.hideAllParts')}
           </button>
           <button
             type="button"

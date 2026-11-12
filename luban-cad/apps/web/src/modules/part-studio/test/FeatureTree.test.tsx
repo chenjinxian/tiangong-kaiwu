@@ -892,6 +892,19 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     expect(onRename).toHaveBeenCalledWith(expect.objectContaining({ id: '0x15' }), 'Housing A');
   });
 
+  it('零件菜单：隐藏其他零件 / 隐藏所有零件 → store.hiddenIds（会话级批量隐藏）', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '隐藏其他零件' }));
+    expect(usePartStudioStore.getState().canvas.hiddenIds).toContain('0x20');
+    expect(usePartStudioStore.getState().canvas.hiddenIds).not.toContain('0x15');
+
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '隐藏所有零件' }));
+    expect(usePartStudioStore.getState().canvas.hiddenIds).toEqual(expect.arrayContaining(['0x15', '0x20']));
+  });
+
   it('v1.70 自定义特征名优先于「类型 + 序号」派生名', () => {
     const named: FeatureTreeEntry[] = [
       { id: 'nx1', featureType: 'extrude', orderKey: 1, suppressed: false, status: 0, params: {}, name: 'Housing' },
