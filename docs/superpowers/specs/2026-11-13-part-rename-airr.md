@@ -16,8 +16,9 @@
 
 ## 2. 范围（本切片）
 
-1. 零件行与特征行右键「重命名」启用（`canEdit` 门），内联编辑复用既有
-   `TreeRow`（Enter/失焦提交，Esc 取消；trim 后为空或未变化=取消）。
+1. 零件行、特征行与**草图行**右键「重命名」启用（`canEdit` 门），内联编辑
+   复用既有 `TreeRow`（Enter/失焦提交，Esc 取消；trim 后为空或未变化=取消）。
+   草图行与特征行同走 `renameFeature`（后端按元素类分发 def/phys model scope）。
 2. 写路径=**后端元数据写 RPC**（v1.70 契约新增；P0-05 单一写管道，不做
    前端直改元素）：
    - `renameFeature(iModelKey, featureId, name, sessionId, partStudioId?)`
@@ -78,14 +79,16 @@ shared（v1.70 契约）→ 私有后端 modeling-server（RPC 实现 + 读面�
 - 后端：`RenameFlow.test.ts` **5/5**（特征/零件 trim 落库与读面、重复改名
   覆盖、非法名/不存在/无租约拒收、关库重开持久）；
   `FeatureRpcImpl.test.ts`（薄壳透传 sessionId/scope）、`FeatureService.test.ts`
-  同批绿；改动文件 eslint 绿。
+  同批绿（`RenameFlow` 含草图行改名：def model Feature 与 phys model Sketch
+  同一 RPC、`getTree.name` 读回）；改动文件 eslint 绿。
 - web 单测 **1726/1726**（FeatureTree 零件重命名启用+内联提交、自定义名优先；
   Sidebar 特征/零件重命名成功/失败 toast、只读禁用；useFeatureSystem
   rename 成功 refresh/readonly 零派发）。
 - 真栈 `e2e/part-rename.spec.ts` **3 passed（1.2 min）**：
   1. 零件行右键重命名 → `getBodies[].name = Housing A` → **undo 回 Body 1** →
      再改名 → push+重开仍为 Housing A；
-  2. 特征行重命名 → 树行显示 `Housing Extrude` → push+重开保留。
+  2. 特征行重命名 → 树行显示 `Housing Extrude`；草图行同一路径改为
+     `Base Sketch` → push+重开两者均保留。
 - 已知限制：真栈用例逐个 seed 重置；MS 限流窗口外单跑。
 
 ## 7. 风险与回滚

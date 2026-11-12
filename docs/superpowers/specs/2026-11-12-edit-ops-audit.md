@@ -27,7 +27,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 | 挤压/旋转/放样/扫掠等 | ✅ 对话框 | ✅ 树右键删除（HITL） | ✅ 双击编辑（updateParams）；多截面 loft 已接 | 特征重排 blocked：`reorderFeature` 契约在，但线性 prev 边让真实特征重排全部被依赖序守卫拒收（2026-11-12 实测：两个 newBody 拉伸之间仍有 feature→feature 边；Onshape live 允许拖动并重算、把依赖破坏行标红）。需 ADR 重定义 reorder 的链重建/依赖校验，不能以拖动 UI 假装可用 |
 | 圆角/倒角/抽壳/孔/移动面/变换/分割/布尔/阵列/镜像 | ✅ | ✅ | ✅（按能力，部分只读项例外） | 见 luban-cad 能力矩阵 |
 | 抑制 | — | — | ✅ 右键抑制/取消 | — |
-| 重命名 | — | — | ✅ 树内联（v1.70：`renameFeature` RPC → `jsonProperties.luban.feature.name`，`getFeatureTree[].name` 读面；真栈 rename+push 冷重开） | 只改显示元数据，不建历史特征/不动 params；tree-interactions/part-rename 真栈 |
+| 重命名 | — | — | ✅ 树内联，特征行与**草图行**同路径（v1.70：`renameFeature` RPC → `jsonProperties.luban.feature.name`，`getFeatureTree[].name` 读面；后端按 def/phys model 解析 scope；真栈 rename+push 冷重开） | 只改显示元数据，不建历史特征/不动 params；tree-interactions/part-rename 真栈 |
 | 回滚（滚动到此处） | — | — | ❌ 菜单禁用 | 需后端 scope 级重建截止语义（ADR） |
 | 文件夹/表达式/评论/依赖项/特征外观 | ❌ | ❌ | ❌ | 菜单禁用并注明未支持 |
 | 多选特征 | ❌ | ❌ | ❌ | Onshape live 实测 Ctrl 点击树行仍单行 selected；一致 |

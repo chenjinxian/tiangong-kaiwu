@@ -170,9 +170,22 @@ test.describe('v1.70 特征/零件重命名（Onshape 树内联）', () => {
     await input.press('Enter');
     await expect(row).toContainText('Housing Extrude', { timeout: 30_000 });
 
+    // 草图行同一内联改名路径（后端 def/phys model 双解析）。
+    const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(sketchRow).toBeVisible({ timeout: 30_000 });
+    await expect(sketchRow).toContainText('草图 1');
+    await sketchRow.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: '重命名' }).click();
+    const sketchInput = page.getByRole('textbox', { name: '重命名' });
+    await expect(sketchInput).toHaveValue('草图 1');
+    await sketchInput.fill('Base Sketch');
+    await sketchInput.press('Enter');
+    await expect(sketchRow).toContainText('Base Sketch', { timeout: 30_000 });
+
     await pushExampleChanges(page, 'feature rename acceptance');
     await page.reload();
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${featureId}`)).toContainText('Housing Extrude', { timeout: 60_000 });
+    await expect(page.getByTestId(`tree-row-${sketchId}`)).toContainText('Base Sketch', { timeout: 60_000 });
   });
 });

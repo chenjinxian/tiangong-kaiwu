@@ -1132,9 +1132,10 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * 缺省 Part Studio=legacy 单工作室读面（与 getBodies 同锚）。 */
   public async getMassProperties(_iModelKey: string, _partStudioId?: string): Promise<MassPropertiesDto[]> { return this.forward(arguments); }
 
-  /** v1.70（Onshape 树内联重命名）：只改特征显示名（jsonProperties.luban.feature.name），
-   * 不动 params/orderKey/依赖图；名称 trim 后非空且 ≤120 字符。
-   * `sessionId` 必填且须持写租约；只接受本 studio 内的特征（跨 studio 拒收）。
+  /** v1.70（Onshape 树内联重命名）：只改特征/草图行显示名
+   * （jsonProperties.luban.feature.name；草图行同在树内、同一 RPC），不动
+   * params/orderKey/依赖图；名称 trim 后非空且 ≤120 字符。
+   * `sessionId` 必填且须持写租约；只接受本 studio 内的特征/草图（跨 studio 拒收）。
    * 不创建历史特征、不写 OpLog；保存为普通 briefcase 事务（可撤销）。 */
   public async renameFeature(_iModelKey: string, _featureId: string, _name: string, _sessionId: string, _partStudioId?: string): Promise<RenameResult> { return this.forward(arguments); }
 
