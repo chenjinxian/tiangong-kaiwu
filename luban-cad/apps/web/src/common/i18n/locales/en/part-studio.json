@@ -1199,6 +1199,15 @@
       "invalidRadius": "The fillet radius is invalid",
       "failed": "Fillet commit failed"
     },
+    "chamfer": {
+      "prompt": "Click a shared corner of two lines to chamfer (distance {{distance}}; double-click the distance dimension to edit); Esc to finish",
+      "notOpen": "Enter sketch editing first",
+      "noCorner": "Click a shared corner of two lines",
+      "unsupported": "Sketch chamfer supports line-line corners only (projected geometry is not supported)",
+      "distanceTooLarge": "Chamfer distance {{distance}} is too large for this corner",
+      "invalidDistance": "Invalid chamfer distance",
+      "failed": "Chamfer commit failed"
+    },
     "trim": {
       "prompt": "Click a sketch entity to trim between the nearest intersections; Esc to finish",
       "notOpen": "Enter sketch editing first",

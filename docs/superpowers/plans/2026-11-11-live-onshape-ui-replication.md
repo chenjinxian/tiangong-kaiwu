@@ -1024,6 +1024,16 @@ symmetric 互斥）。
 - 验证：capabilities/Ribbon/SketchDialog 285 passed；web 1784/1784；
   tsc/lint 绿。
 
+### 批次 75（2026-11-13，草图倒角）
+
+- live 证据：圆角 ▾ 第二项「倒角」；点击矩形角点立即生成倒角线 + 可编辑 0.5
+  距离尺寸、角点保留标记（截图 136/138）。
+- 产品切片：`Sketch.Chamfer` + `chamferSketchCorner`（两线回缩 + 连接线 +
+  角点 + coincident×2 + distance×2；默认 5，与草图圆角同口径）；直线-直线
+  角点首切片；能力 gated→full（gated 41）。
+- 验证：fillet 单测 17/17；真栈 `e2e/sketch-chamfer.spec.ts` 2 passed；
+  web 1784/1784。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

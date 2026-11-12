@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import {
+  chamferSketchCorner,
   computeFilletGeometry,
   computeFilletLineArcGeometry,
   filletSketchCorner,
@@ -354,5 +355,87 @@ describe('filletSketchCorner', () => {
       expect(result.entities).toEqual(RECT_ENTITIES);
       expect(result.constraints).toEqual(RECT_CONSTRAINTS);
     }
+  });
+});
+
+
+describe('chamferSketchCorner（倒角首切片 2026-11-13）', () => {
+  it('矩形角点：两线回缩、连接直线 + 角点 + coincident×2 + distance×2', () => {
+    const corner = cornerAt(findSketchFilletCorners(RECT_ENTITIES, RECT_CONSTRAINTS), 10, 0)!;
+    const result = chamferSketchCorner(RECT_ENTITIES, RECT_CONSTRAINTS, corner, 2, 105);
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    const line11 = result.entities.find((entity) => entity.kind === 'line' && entity.id === 11) as
+      | { kind: 'line'; p1: { x: number; y: number }; p2: { x: number; y: number } }
+      | undefined;
+    const line12 = result.entities.find((entity) => entity.kind === 'line' && entity.id === 12) as
+      | { kind: 'line'; p1: { x: number; y: number }; p2: { x: number; y: number } }
+      | undefined;
+    expect(line11?.p2).toEqual({ x: 8, y: 0 });
+    expect(line12?.p1).toEqual({ x: 10, y: 2 });
+    const chamfer = result.entities.find((entity) => entity.id === result.chamferId) as
+      | { kind: 'line'; p1: { x: number; y: number }; p2: { x: number; y: number } }
+      | undefined;
+    expect(chamfer).toMatchObject({ kind: 'line', p1: { x: 8, y: 0 }, p2: { x: 10, y: 2 } });
+    const cornerPoint = result.entities.find((entity) => entity.id === result.cornerPointId);
+    expect(cornerPoint).toMatchObject({ kind: 'point', x: 10, y: 0 });
+    // 旧角点 coincident（101）移除；新 coincident 两条 + distance 两条 value=2。
+    expect(result.constraints.some((constraint) => constraint.id === 101)).toBe(false);
+    const coincidents = result.constraints.filter((constraint) => constraint.kind === 'coincident');
+    expect(coincidents).toHaveLength(RECT_CONSTRAINTS.length - 1 + 2);
+    const distances = result.constraints.filter((constraint) => constraint.kind === 'distance');
+    expect(distances).toHaveLength(2);
+    for (const distance of distances)
+      expect(distance.value).toBeCloseTo(2, 9);
+    expect(new Set(result.entities.map((entity) => entity.id)).size).toBe(result.entities.length);
+    expect(result.nextId).toBe(111);
+  });
+
+  it('内联共享端点角点（无 coincident 约束）同样可倒角', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 2, p1: { x: 0, y: 0 }, p2: { x: 0, y: 10 } },
+    ];
+    const corner = cornerAt(findSketchFilletCorners(entities, []), 0, 0)!;
+    const result = chamferSketchCorner(entities, [], corner, 3, 10);
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    const line1 = result.entities.find((entity) => entity.kind === 'line' && entity.id === 1) as
+      | { kind: 'line'; p1: { x: number; y: number }; p2: { x: number; y: number } }
+      | undefined;
+    expect(line1?.p1).toEqual({ x: 3, y: 0 });
+    const chamfer = result.entities.find((entity) => entity.id === result.chamferId) as
+      | { kind: 'line'; p1: { x: number; y: number }; p2: { x: number; y: number } }
+      | undefined;
+    expect(chamfer).toMatchObject({ p1: { x: 3, y: 0 }, p2: { x: 0, y: 3 } });
+  });
+
+  it('距离过大/非法/投影 → 诚实拒收（实体/约束原样）', () => {
+    const corner = cornerAt(findSketchFilletCorners(RECT_ENTITIES, RECT_CONSTRAINTS), 10, 0)!;
+    for (const [distance, reason] of [[20, 'distance-too-large'], [0, 'invalid-distance']] as const) {
+      const result = chamferSketchCorner(RECT_ENTITIES, RECT_CONSTRAINTS, corner, distance, 105);
+      expect(result.ok).toBe(false);
+      if (result.ok)
+        continue;
+      expect(result.reason).toBe(reason);
+      expect(result.entities).toEqual(RECT_ENTITIES);
+      expect(result.constraints).toEqual(RECT_CONSTRAINTS);
+    }
+    const projected: SketchEntityDto[] = [
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 }, projected: { kind: 'projected', source: { kind: 'sketchEntity', sketchId: 's', entityId: 9 } } },
+      { kind: 'line', id: 2, p1: { x: 0, y: 0 }, p2: { x: 0, y: 10 } },
+    ];
+    const projectedCorner = {
+      id: 'projected',
+      point: { x: 0, y: 0 },
+      a: { lineId: 1, part: 'start' as const, other: { x: 10, y: 0 }, direction: { x: 1, y: 0 }, length: 10 },
+      b: { lineId: 2, part: 'start' as const, other: { x: 0, y: 10 }, direction: { x: 0, y: 1 }, length: 10 },
+    };
+    const rejected = chamferSketchCorner(projected, [], projectedCorner, 2, 10);
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok)
+      expect(rejected.reason).toBe('unsupported');
   });
 });

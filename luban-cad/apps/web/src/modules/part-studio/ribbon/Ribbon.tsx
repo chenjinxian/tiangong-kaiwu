@@ -125,6 +125,15 @@ export function useToolActivation(canEdit = true): ToolActivation {
         console.warn('[part-studio] Sketch.Extend 未启动');
       return;
     }
+    if (id === 'sketchChamfer') {
+      // 2026-11-13：草图倒角——圆角 ▾ 第二项（live：圆角/倒角），
+      // toolId Sketch.Chamfer。
+      setActiveTool('sketchChamfer');
+      const started = await IModelApp.tools.run('Sketch.Chamfer');
+      if (!started)
+        console.warn('[part-studio] Sketch.Chamfer 未启动');
+      return;
+    }
     if (id === 'sketchSplit') {
       // 2026-11-13：草图分割——修剪 ▾ 第三项（live：修剪/延伸/分割），
       // toolId Sketch.Split。

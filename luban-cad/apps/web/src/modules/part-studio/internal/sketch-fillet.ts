@@ -72,7 +72,10 @@ export type FilletFailureReason =
   | 'radius-too-large'
   | 'invalid-radius'
   /** 两线选择：切点落在线段外（线间隙大于切距/交点在线段内）。 */
-  | 'outside-segment';
+  | 'outside-segment'
+  /** 倒角专用（2026-11-13）：倒角距非正/超出线段长度。 */
+  | 'invalid-distance'
+  | 'distance-too-large';
 
 export type FilletCornerResult =
   | {
@@ -1107,4 +1110,141 @@ export function nextSketchId(entities: readonly SketchEntityDto[], constraints: 
   for (const constraint of constraints)
     max = Math.max(max, constraint.id);
   return max + 1;
+}
+
+export interface ChamferGeometry {
+  corner: LocalPoint;
+  /** 线 A 上的倒角端点（= 新倒角线 start）。 */
+  legA: LocalPoint;
+  /** 线 B 上的倒角端点（= 新倒角线 end）。 */
+  legB: LocalPoint;
+  distance: number;
+}
+
+export type ChamferCornerResult =
+  | {
+    ok: true;
+    entities: SketchEntityDto[];
+    constraints: SketchConstraintDto[];
+    chamferId: number;
+    /** 新显式角点（两条距离尺寸的基准，对应 live 角点标记）。 */
+    cornerPointId: number;
+    nextId: number;
+    geometry: ChamferGeometry;
+  }
+  | {
+    ok: false;
+    reason: FilletFailureReason;
+    entities: SketchEntityDto[];
+    constraints: SketchConstraintDto[];
+  };
+
+/**
+ * 草图倒角（Onshape 圆角 ▾ → 倒角首切片 2026-11-13，live 证据 138）：
+ * 点击直线-直线角点 → 两线沿各自方向回缩 distance、插入连接两端的直线，
+ * 保留/新建显式角点并展开两条 distance(角点→倒角端点)=distance 尺寸
+ * （等价于 live 的单个 0.5 倒角尺寸；本实现用两条等距尺寸表达，登记近似）。
+ * 约束口径同圆角：移除旧的角点 coincident 行，新增端点 coincident×2。
+ */
+export function chamferSketchCorner(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  corner: FilletCorner,
+  distance: number,
+  nextId: number,
+  options: { construction?: boolean } = {},
+): ChamferCornerResult {
+  const lineA = entities.find((entity): entity is SketchEntityDto & { kind: 'line' } =>
+    entity.id === corner.a.lineId && entity.kind === 'line');
+  const lineB = entities.find((entity): entity is SketchEntityDto & { kind: 'line' } =>
+    entity.id === corner.b.lineId && entity.kind === 'line');
+  if (!lineA || !lineB)
+    return { ok: false, reason: 'no-corner', entities: [...entities], constraints: [...constraints] };
+  if (lineA.projected || lineB.projected)
+    return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints] };
+  if (!Number.isFinite(distance) || !(distance > 1e-6))
+    return { ok: false, reason: 'invalid-distance', entities: [...entities], constraints: [...constraints] };
+  if (distance >= corner.a.length - 1e-7 || distance >= corner.b.length - 1e-7)
+    return { ok: false, reason: 'distance-too-large', entities: [...entities], constraints: [...constraints] };
+
+  const legA = {
+    x: corner.point.x + corner.a.direction.x * distance,
+    y: corner.point.y + corner.a.direction.y * distance,
+  };
+  const legB = {
+    x: corner.point.x + corner.b.direction.x * distance,
+    y: corner.point.y + corner.b.direction.y * distance,
+  };
+
+  const nearRefA = corner.a.part === 'start' ? lineA.p1 : lineA.p2;
+  const nearRefB = corner.b.part === 'start' ? lineB.p1 : lineB.p2;
+  const detachedPointIds = [nearRefA, nearRefB].filter((ref): ref is number => typeof ref === 'number');
+
+  const trimmed = entities.map((entity) => {
+    if (entity.id !== lineA.id || entity.kind !== 'line')
+      return entity;
+    const next = { ...entity };
+    if (corner.a.part === 'start')
+      next.p1 = { ...legA };
+    else
+      next.p2 = { ...legA };
+    return next;
+  }).map((entity) => {
+    if (entity.id !== lineB.id || entity.kind !== 'line')
+      return entity;
+    const next = { ...entity };
+    if (corner.b.part === 'start')
+      next.p1 = { ...legB };
+    else
+      next.p2 = { ...legB };
+    return next;
+  });
+
+  const kept = constraints.filter((constraint) => {
+    if (constraint.kind !== 'coincident' || constraint.refs.length !== 2)
+      return true;
+    const [first, second] = constraint.refs;
+    const linksCorner =
+      (sameEndpointRef(first!, corner.a.lineId, corner.a.part) && sameEndpointRef(second!, corner.b.lineId, corner.b.part))
+      || (sameEndpointRef(second!, corner.a.lineId, corner.a.part) && sameEndpointRef(first!, corner.b.lineId, corner.b.part));
+    return !linksCorner;
+  });
+
+  const cornerPointId = nextId;
+  const chamferId = nextId + 1;
+  const cornerPoint: SketchEntityDto = {
+    kind: 'point', id: cornerPointId, x: corner.point.x, y: corner.point.y,
+  };
+  const chamferLine: SketchEntityDto = {
+    kind: 'line', id: chamferId, p1: { ...legA }, p2: { ...legB },
+    ...(options.construction ? { construction: true } : {}),
+  };
+  const added: SketchConstraintDto[] = [
+    {
+      kind: 'coincident', id: nextId + 2,
+      refs: [{ entity: chamferId, part: 'start' }, { entity: corner.a.lineId, part: corner.a.part }],
+    },
+    {
+      kind: 'coincident', id: nextId + 3,
+      refs: [{ entity: chamferId, part: 'end' }, { entity: corner.b.lineId, part: corner.b.part }],
+    },
+    {
+      kind: 'distance', id: nextId + 4,
+      refs: [cornerPointId, { entity: chamferId, part: 'start' }], value: distance,
+    },
+    {
+      kind: 'distance', id: nextId + 5,
+      refs: [cornerPointId, { entity: chamferId, part: 'end' }], value: distance,
+    },
+  ];
+  const finalConstraints = [...kept, ...added];
+  return {
+    ok: true,
+    entities: pruneUnreferencedPoints([...trimmed, cornerPoint, chamferLine], finalConstraints, detachedPointIds),
+    constraints: finalConstraints,
+    chamferId,
+    cornerPointId,
+    nextId: nextId + 6,
+    geometry: { corner: corner.point, legA, legB, distance },
+  };
 }

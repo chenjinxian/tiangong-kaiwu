@@ -56,7 +56,7 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   sketchSplineControlPoints: 'gated', // 样条控制点（控制点创建模式未实现）
   sketchIntersection: 'gated', // 交点（点-弧约束/交点工具未实现）
   sketchSlot: 'gated', // 槽（工具未实现）
-  sketchChamfer: 'gated', // 草图倒角（工具未实现）
+  sketchChamfer: 'full', // 草图倒角（2026-11-13 首切片：角点点击 + 距离尺寸，真栈绿）
   sketchInsertImage: 'gated', // 插入图像（图像实体/渲染未实现）
   deleteBodies: 'gated', // 删除零件（无后端 FeatureOp——W1.2b 诚实 gated）
   modifyFillet: 'gated', // 修改圆角（无工具/后端面——W1.2b 续审计诚实 gated）
@@ -168,6 +168,5 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   sketchSplineControlPoints: guidanceFor('sketchSplineControlPoints'),
   sketchIntersection: guidanceFor('sketchIntersection'),
   sketchSlot: guidanceFor('sketchSlot'),
-  sketchChamfer: guidanceFor('sketchChamfer'),
   sketchInsertImage: guidanceFor('sketchInsertImage'),
 };
