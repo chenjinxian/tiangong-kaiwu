@@ -125,6 +125,15 @@ export function useToolActivation(canEdit = true): ToolActivation {
         console.warn('[part-studio] Sketch.Extend 未启动');
       return;
     }
+    if (id === 'sketchSplit') {
+      // 2026-11-13：草图分割——修剪 ▾ 第三项（live：修剪/延伸/分割），
+      // toolId Sketch.Split。
+      setActiveTool('sketchSplit');
+      const started = await IModelApp.tools.run('Sketch.Split');
+      if (!started)
+        console.warn('[part-studio] Sketch.Split 未启动');
+      return;
+    }
     if (id === 'sketchFillet') {
       // 2026-11-12：草图圆角——Onshape 点击角点立即生成 R 尺寸的圆弧
       // （toolId Sketch.Fillet）。

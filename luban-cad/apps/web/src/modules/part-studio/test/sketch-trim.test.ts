@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
-import { trimSketchAt } from '../internal/sketch-trim.js';
+import { splitSketchAt, trimSketchAt } from '../internal/sketch-trim.js';
 
 const H_LINE: SketchEntityDto = { kind: 'line', id: 11, p1: { x: -10, y: 0 }, p2: { x: 10, y: 0 } };
 const V_LEFT: SketchEntityDto = { kind: 'line', id: 12, p1: { x: 2, y: -5 }, p2: { x: 2, y: 5 } };
@@ -172,5 +172,85 @@ describe('trimSketchAt — 圆/弧', () => {
     expect(arcs[0]!.sweepAngle).toBeCloseTo(Math.PI / 3, 6);
     expect(arcs[1]!.startAngle).toBeCloseTo(Math.PI / 2, 6);
     expect(arcs[1]!.sweepAngle).toBeCloseTo(Math.PI / 2, 6);
+  });
+});
+
+describe('splitSketchAt — 分割（Onshape 修剪 ▾ → 分割）', () => {
+  it('线段中点分割：两段共享新显式点，原 id 留给第一段', () => {
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'horizontal', id: 1, refs: [11] },
+      { kind: 'horizontal', id: 2, refs: [12] },
+    ];
+    const result = splitSketchAt([H_LINE, V_LEFT, V_RIGHT], constraints, 11, { x: 0, y: 0 });
+    expect(result.ok).toBe(true);
+    const lines = result.entities.filter((entity) => entity.kind === 'line' && (entity.id === 11 || entity.id > 13)) as Array<{ id: number; p1: number | { x: number; y: number }; p2: number | { x: number; y: number } }>;
+    expect(lines).toHaveLength(2);
+    expect(lines[0]!.id).toBe(11);
+    expect(lines[1]!.id).toBeGreaterThan(13);
+    expect(result.pointId).toBeGreaterThan(13);
+    const splitPoint = result.entities.find((entity) => entity.kind === 'point' && entity.id === result.pointId);
+    expect(splitPoint).toMatchObject({ kind: 'point', x: 0, y: 0 });
+    expect(lines[0]!.p1).toEqual({ x: -10, y: 0 });
+    expect(lines[0]!.p2).toBe(result.pointId);
+    expect(lines[1]!.p1).toBe(result.pointId);
+    expect(lines[1]!.p2).toEqual({ x: 10, y: 0 });
+    // 引用被分割实体的约束移除，其它保留。
+    expect(result.constraints.map((constraint) => constraint.id)).toEqual([2]);
+    // id 唯一。
+    expect(new Set(result.entities.map((entity) => entity.id)).size).toBe(result.entities.length);
+  });
+
+  it('显式点引用保持：第一段 p1、第二段 p2 仍指向原端点实体', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: -10, y: 0 },
+      { kind: 'point', id: 2, x: 10, y: 0 },
+      { kind: 'line', id: 11, p1: 1, p2: 2 },
+    ];
+    const result = splitSketchAt(entities, [], 11, { x: 4, y: 0 });
+    const lines = result.entities.filter((entity) => entity.kind === 'line') as Array<{ id: number; p1: number; p2: number }>;
+    expect(lines[0]!.p1).toBe(1);
+    expect(lines[0]!.p2).toBe(result.pointId);
+    expect(lines[1]!.p1).toBe(result.pointId);
+    expect(lines[1]!.p2).toBe(2);
+  });
+
+  it('端点附近点击 / 圆 / 投影样条 → no-change/unsupported（不写数据）', () => {
+    expect(splitSketchAt([H_LINE], [], 11, { x: -10, y: 0 }).reason).toBe('no-change');
+    const circle: SketchEntityDto = { kind: 'circle', id: 21, center: { x: 0, y: 0 }, radius: 5 };
+    expect(splitSketchAt([circle], [], 21, { x: 5, y: 0 }).reason).toBe('unsupported');
+    const projected: SketchEntityDto = {
+      kind: 'line', id: 12, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 },
+      projected: { kind: 'projected', source: { kind: 'sketchEntity', sketchId: 's', entityId: 1 } },
+    };
+    expect(splitSketchAt([projected], [], 12, { x: 5, y: 0 }).reason).toBe('unsupported');
+  });
+
+  it('圆弧中点分割：两段弧角度首尾相接、半径/圆心不变', () => {
+    const arc: SketchEntityDto = {
+      kind: 'arc', id: 31, center: { x: 0, y: 0 }, radius: 10, startAngle: 0, sweepAngle: Math.PI,
+    };
+    const result = splitSketchAt([arc], [], 31, { x: 0, y: 10 });
+    expect(result.ok).toBe(true);
+    const arcs = result.entities.filter((entity) => entity.kind === 'arc') as Array<{ id: number; radius: number; startAngle: number; sweepAngle: number }>;
+    expect(arcs).toHaveLength(2);
+    expect(arcs[0]!.id).toBe(31);
+    expect(arcs[0]!.startAngle).toBeCloseTo(0, 6);
+    expect(arcs[0]!.sweepAngle).toBeCloseTo(Math.PI / 2, 6);
+    expect(arcs[1]!.startAngle).toBeCloseTo(Math.PI / 2, 6);
+    expect(arcs[1]!.sweepAngle).toBeCloseTo(Math.PI / 2, 6);
+    expect(arcs[1]!.radius).toBeCloseTo(10, 9);
+  });
+
+  it('三次贝塞尔样条中点分割：de Casteljau 精确两段、控制点首尾相接', () => {
+    const spline: SketchEntityDto = {
+      kind: 'spline', id: 3, controlPoints: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 6, y: 0 }, { x: 9, y: 0 }],
+    };
+    const result = splitSketchAt([spline], [], 3, { x: 4.5, y: 0 });
+    expect(result.ok).toBe(true);
+    const splines = result.entities.filter((entity) => entity.kind === 'spline') as Array<{ id: number; controlPoints: Array<{ x: number; y: number }> }>;
+    expect(splines).toHaveLength(2);
+    expect(splines[0]!.id).toBe(3);
+    expect(splines[0]!.controlPoints.map((control) => control.x)).toEqual([0, 1.5, 3, 4.5]);
+    expect(splines[1]!.controlPoints.map((control) => control.x)).toEqual([4.5, 6, 7.5, 9]);
   });
 });

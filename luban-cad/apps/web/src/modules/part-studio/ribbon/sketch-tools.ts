@@ -107,6 +107,7 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   tool('sketchFillet', 'partStudio.ribbon.sketchTools.fillet.label', 'sketchEdit', 'sketch', []),
   tool('sketchTrim', 'partStudio.ribbon.sketchTools.trim.label', 'sketchEdit', 'sketch', [
     menuItem('sketchExtend', 'partStudio.ribbon.sketchTools.extend.label'),
+    menuItem('sketchSplit', 'partStudio.ribbon.sketchTools.split.label'),
   ]),
   tool('Sketch.Offset', 'partStudio.ribbon.sketchTools.offset.label', 'sketchEdit', 'sketch', []),
   tool('Sketch.Mirror', 'partStudio.ribbon.sketchTools.mirror.label', 'sketchEdit', 'sketch'),

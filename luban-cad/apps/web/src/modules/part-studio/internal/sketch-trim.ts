@@ -553,3 +553,146 @@ export function trimSketchAt(
     removedEntityIds: removedWhole ? [targetId] : [],
   };
 }
+
+export interface SketchSplitResult {
+  ok: boolean;
+  reason?: 'not-found' | 'unsupported' | 'no-change';
+  entities: SketchEntityDto[];
+  constraints: SketchConstraintDto[];
+  /** 线分割时新分配的共享点实体 id。 */
+  pointId?: number;
+}
+
+/**
+ * 草图分割（Onshape「分割」首切片 2026-11-13）：在点击处把曲线断成两段。
+ * 线/圆弧/三次贝塞尔样条；圆（单点分割结果形态无 live 证据）、periodic/投影
+ * 样条、端点附近点击 → 诚实拒收/无变更。约束口径同修剪：移除引用原实体的
+ * 约束（整段尺寸不再对一半几何成立），由后端重解算兜底。
+ */
+export function splitSketchAt(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  targetId: number,
+  click: TrimPoint,
+): SketchSplitResult {
+  const points = new Map<number, TrimPoint>();
+  for (const entity of entities) {
+    if (entity.kind === 'point' && typeof entity.x === 'number' && typeof entity.y === 'number')
+      points.set(entity.id, { x: entity.x, y: entity.y });
+  }
+  const targetIndex = entities.findIndex((entity) => entity.id === targetId);
+  const targetEntity = targetIndex >= 0 ? entities[targetIndex] : undefined;
+  if (!targetEntity)
+    return { ok: false, reason: 'not-found', entities: [...entities], constraints: [...constraints] };
+  if (targetEntity.kind !== 'line' && targetEntity.kind !== 'arc' && targetEntity.kind !== 'spline')
+    return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints] };
+  if (targetEntity.kind === 'spline') {
+    const controls = targetEntity.controlPoints;
+    const cubic = Array.isArray(controls) && controls.length === 4 && controls.every((control) => isPoint(control));
+    if (!cubic || targetEntity.periodic === true)
+      return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints] };
+  }
+  if ((targetEntity as { projected?: unknown }).projected !== undefined)
+    return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints] };
+  const target = geometryOf(targetEntity, points);
+  if (!target)
+    return { ok: false, reason: 'not-found', entities: [...entities], constraints: [...constraints] };
+
+  let nextId = 1 + entities.reduce((max, entity) => Math.max(max, entity.id), 0);
+  for (const constraint of constraints)
+    nextId = Math.max(nextId, constraint.id + 1);
+  const construction = (targetEntity as { construction?: boolean }).construction === true;
+  let first: SketchEntityDto | undefined;
+  let second: SketchEntityDto | undefined;
+  let pointEntity: SketchEntityDto | undefined;
+
+  if (target.kind === 'line') {
+    const param = segmentParam(click, target);
+    if (param === undefined || param <= 1e-4 || param >= 1 - 1e-4)
+      return { ok: false, reason: 'no-change', entities: [...entities], constraints: [...constraints] };
+    const splitId = nextId++;
+    const splitPoint = {
+      x: target.a.x + (target.b.x - target.a.x) * param,
+      y: target.a.y + (target.b.y - target.a.y) * param,
+    };
+    pointEntity = { kind: 'point', id: splitId, x: splitPoint.x, y: splitPoint.y };
+    const source = targetEntity as { p1: number | TrimPoint; p2: number | TrimPoint };
+    first = {
+      kind: 'line',
+      id: targetId,
+      p1: source.p1,
+      p2: splitId,
+      ...(construction ? { construction: true } : {}),
+    };
+    second = {
+      kind: 'line',
+      id: nextId++,
+      p1: splitId,
+      p2: source.p2,
+      ...(construction ? { construction: true } : {}),
+    };
+  } else if (target.kind === 'arc') {
+    const clickAngle = normalizeAngle(Math.atan2(click.y - target.c.y, click.x - target.c.x));
+    const param = arcParam(clickAngle, target.start, target.sweep);
+    if (param === undefined || param <= 1e-4 || param >= 1 - 1e-4)
+      return { ok: false, reason: 'no-change', entities: [...entities], constraints: [...constraints] };
+    const centerRef = (targetEntity as { center: number | TrimPoint }).center;
+    first = {
+      kind: 'arc',
+      id: targetId,
+      center: centerRef,
+      radius: target.r,
+      startAngle: target.start,
+      sweepAngle: target.sweep * param,
+      ...(construction ? { construction: true } : {}),
+    };
+    second = {
+      kind: 'arc',
+      id: nextId++,
+      center: centerRef,
+      radius: target.r,
+      startAngle: target.start + target.sweep * param,
+      sweepAngle: target.sweep * (1 - param),
+      ...(construction ? { construction: true } : {}),
+    };
+  } else if (target.kind === 'spline') {
+    const param = nearestSplineParam(click, target.p);
+    if (param <= 1e-4 || param >= 1 - 1e-4)
+      return { ok: false, reason: 'no-change', entities: [...entities], constraints: [...constraints] };
+    const [left, right] = splitCubic(target.p, param);
+    const buildSpline = (controls: readonly TrimPoint[], id: number): SketchEntityDto => ({
+      kind: 'spline',
+      id,
+      controlPoints: controls.map((control) => ({ x: control.x, y: control.y })),
+      ...(construction ? { construction: true } : {}),
+    });
+    first = buildSpline(left, targetId);
+    second = buildSpline(right, nextId++);
+  } else {
+    return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints] };
+  }
+
+  if (!first || !second)
+    return { ok: false, reason: 'no-change', entities: [...entities], constraints: [...constraints] };
+  const nextEntities: SketchEntityDto[] = [];
+  for (const [index, entity] of entities.entries()) {
+    if (index === targetIndex) {
+      nextEntities.push(first);
+      continue;
+    }
+    nextEntities.push(entity);
+  }
+  // 第二段插在原实体之后（保持树序直观），线分割的共享点附在尾部。
+  const insertion = nextEntities.findIndex((entity) => entity.id === targetId) + 1;
+  nextEntities.splice(insertion, 0, second);
+  if (pointEntity)
+    nextEntities.push(pointEntity);
+  const nextConstraints = constraints.filter((constraint) =>
+    !constraint.refs.some((ref) => refEntityId(ref) === targetId));
+  return {
+    ok: true,
+    entities: nextEntities,
+    constraints: nextConstraints,
+    ...(pointEntity ? { pointId: pointEntity.id } : {}),
+  };
+}

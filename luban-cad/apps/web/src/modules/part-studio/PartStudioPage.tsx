@@ -980,6 +980,9 @@ function PartStudioSession({
         registerSketchTrimTools();
         const { registerSketchExtendTools } = await import('./tools/sketch/SketchExtendTool.js');
         registerSketchExtendTools();
+        // 2026-11-13：草图分割（Sketch.Split，修剪 ▾ 第三项）。
+        const { registerSketchSplitTools } = await import('./tools/sketch/SketchSplitTool.js');
+        registerSketchSplitTools();
         const { registerSketchTangentArcTools } = await import('./tools/sketch/SketchTangentArcTool.js');
         registerSketchTangentArcTools();
         // 2026-11-12：草图圆角（Sketch.Fillet）——点击两线共享角点立即生成 R 尺寸。

@@ -520,6 +520,9 @@
       "extend": {
         "label": "Extend"
       },
+      "split": {
+        "label": "Split"
+      },
       "offset": {
         "label": "Offset"
       },
@@ -1184,6 +1187,13 @@
       "unsupported": "This curve type cannot be extended yet (lines/arcs only)",
       "noBoundary": "No boundary found in that direction",
       "failed": "Extend failed"
+    },
+    "split": {
+      "prompt": "Click a location on a sketch path to break it into two segments; Esc to finish",
+      "notOpen": "Enter sketch editing first",
+      "invalidPoint": "Cannot locate the click on the sketch plane",
+      "unsupported": "This curve type cannot be split yet (lines/arcs/cubic Bézier splines; circle pending evidence)",
+      "failed": "Split failed"
     },
     "insertDxf": {
       "notOpen": "Enter sketch editing first",
