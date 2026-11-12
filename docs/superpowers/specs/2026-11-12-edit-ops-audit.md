@@ -17,6 +17,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 | Trim | — | ✅ 点击段/无交点整删（线/圆/弧） | ✅ 连续修剪；Esc 结束工具不退出草图 | `Sketch.Trim` 真栈 `sketch-trim.spec.ts`；spline 不支持 |
 | Fillet（草图） | — | — | ❌ 未实现（占位 `sketchFillet`） | 官方帮助：选一点或两曲线后弹半径框；live 合成点击未能复现半径框——blocked-pending-evidence，未写假 UI |
 | Extend（草图） | — | — | ✅ 两相延伸：先选线/弧，再点边界（线/圆/弧）或自由端点；线源移动端点、弧源增长扫角；圆/样条源未实现 | 修剪同一下拉（官方帮助，快捷键 X）；`Sketch.Extend` 真栈（线/弧）+ 17 单测；无边界/反方向保持原样；共用 view→NPC 反解已修为官方 viewToNpc |
+| 插入 DXF（草图） | ✅ ASCII DXF 的 LINE/CIRCLE/ARC → 当前草图（$INSUNITS 换算 mm；一次 updateSketch 可撤销） | — | — | `dxf-import` 5 单测 + `sketch-dxf-import.spec.ts` 真栈；DWG/BLOCKS/INSERT/多段线/样条/放置对话框未做（诚实拒收/跳过计数） |
 | Copy/Transform（草图图元） | — | — | ❌ 菜单禁用 | 变换需对话框与约束语义证据 |
 
 ## 特征

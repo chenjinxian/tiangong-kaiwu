@@ -1125,6 +1125,14 @@
       "noBoundary": "No boundary found in that direction",
       "failed": "Extend failed"
     },
+    "insertDxf": {
+      "notOpen": "Enter sketch editing first",
+      "onlyDxf": "Only ASCII DXF is supported (binary DWG is not)",
+      "empty": "No importable lines/circles/arcs found in the DXF",
+      "success": "Imported {{count}} sketch entities (units: {{units}})",
+      "successSkipped": "Imported {{count}} sketch entities (units: {{units}}), skipped {{skipped}} unsupported entities",
+      "failed": "DXF import failed: {{message}}"
+    },
     "point": {
       "prompts": {
         "place": "Point: click to place a point; Esc or right-click to finish"

@@ -102,6 +102,12 @@ export function useToolActivation(canEdit = true): ToolActivation {
         console.warn('[part-studio] Sketch.Extend 未启动');
       return;
     }
+    if (id === 'sketchInsertDxf') {
+      // 2026-11-12：草图「插入 DXF 或 DWG」——ASCII DXF → 当前活动草图图元。
+      const { importSketchDxfFromFile } = await import('../internal/sketch-dxf-import.js');
+      importSketchDxfFromFile();
+      return;
+    }
     if (id === 'newSketch') {
       // os-30：草图命令开 SketchDialog（平面选择+四开关，确认进草图模式）；
       // 真实 sketch 工具接线前不经 tools.run（接线时移除本特例）。

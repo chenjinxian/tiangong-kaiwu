@@ -1125,6 +1125,14 @@
       "noBoundary": "该方向没有可延伸到的边界",
       "failed": "延伸提交失败"
     },
+    "insertDxf": {
+      "notOpen": "请先进入草图编辑",
+      "onlyDxf": "暂仅支持 ASCII DXF（DWG 为二进制，尚未支持）",
+      "empty": "DXF 中没有可导入的直线/圆/圆弧",
+      "success": "已导入 {{count}} 个草图图元（单位：{{units}}）",
+      "successSkipped": "已导入 {{count}} 个草图图元（单位：{{units}}），跳过 {{skipped}} 个未支持实体",
+      "failed": "DXF 导入失败：{{message}}"
+    },
     "point": {
       "prompts": {
         "place": "点：点击放置点；Esc 或右键结束"
