@@ -943,6 +943,9 @@ function PartStudioSession({
         registerSketchExtendTools();
         const { registerSketchTangentArcTools } = await import('./tools/sketch/SketchTangentArcTool.js');
         registerSketchTangentArcTools();
+        // 2026-11-12：草图圆角（Sketch.Fillet）——点击两线共享角点立即生成 R 尺寸。
+        const { registerSketchFilletTools } = await import('./tools/sketch/SketchFilletTool.js');
+        registerSketchFilletTools();
       } catch (err) {
         if (cancelled) return;
         // 工具注册失败必须可见（同旧应用口径：错误面吞掉 = 工具全灭且无诊断线索）

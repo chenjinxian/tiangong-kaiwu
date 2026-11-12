@@ -829,8 +829,11 @@ export function PartStudioCanvas({
           aria-hidden="true"
         />
       )}
-      {/* ADR-0018 S1e：双击尺寸数值 → 内联改值（updateSketchConstraint）。 */}
-      {sketchActiveForDecorations && sketchSystem?.activeSketch && activeToolIdForSketchPicker == null && canEdit && showConstraintsForSketch && (
+      {/* ADR-0018 S1e：双击尺寸数值 → 内联改值（updateSketchConstraint）。
+          圆角工具保持激活时尺寸仍可见/可编辑（Onshape live：生成 R 后立即改值）。 */}
+      {sketchActiveForDecorations && sketchSystem?.activeSketch
+        && (activeToolIdForSketchPicker == null || activeToolIdForSketchPicker === 'sketchFillet')
+        && canEdit && showConstraintsForSketch && (
         <SketchDimensionEditor
           viewport={viewport}
           annotations={sketchAnnotations}

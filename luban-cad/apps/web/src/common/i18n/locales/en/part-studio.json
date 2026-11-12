@@ -1109,6 +1109,16 @@
         "updateFailed": "Sketch update failed"
       }
     },
+    "fillet": {
+      "prompt": "Click a corner where two sketch lines meet to add a fillet (R{{radius}} mm); Esc to finish",
+      "notOpen": "Enter sketch editing first",
+      "noCorner": "Click a corner where exactly two sketch lines meet",
+      "unsupported": "Fillet currently supports corners between two non-projected lines with inline endpoints",
+      "radiusTooLarge": "R{{radius}} mm is too large for this corner",
+      "degenerate": "The two lines at this corner are collinear (or nearly so); no fillet can be created",
+      "invalidRadius": "The fillet radius is invalid",
+      "failed": "Fillet commit failed"
+    },
     "trim": {
       "prompt": "Click a sketch entity to trim between the nearest intersections; Esc to finish",
       "notOpen": "Enter sketch editing first",

@@ -102,6 +102,15 @@ export function useToolActivation(canEdit = true): ToolActivation {
         console.warn('[part-studio] Sketch.Extend 未启动');
       return;
     }
+    if (id === 'sketchFillet') {
+      // 2026-11-12：草图圆角——Onshape 点击角点立即生成 R 尺寸的圆弧
+      // （toolId Sketch.Fillet）。
+      setActiveTool('sketchFillet');
+      const started = await IModelApp.tools.run('Sketch.Fillet');
+      if (!started)
+        console.warn('[part-studio] Sketch.Fillet 未启动');
+      return;
+    }
     if (id === 'sketchInsertDxf') {
       // 2026-11-12：草图「插入 DXF 或 DWG」——ASCII DXF → 当前活动草图图元。
       const { importSketchDxfFromFile } = await import('../internal/sketch-dxf-import.js');

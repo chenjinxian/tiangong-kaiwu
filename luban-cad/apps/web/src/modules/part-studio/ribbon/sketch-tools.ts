@@ -69,7 +69,6 @@ export const SKETCH_PLACEHOLDER_IDS: ReadonlySet<string> = new Set([
   'Sketch.Conic',
   'sketchText',
   'sketchUse',
-  'sketchFillet',
   'sketchLinearPattern',
 ]);
 

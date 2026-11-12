@@ -15,9 +15,9 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 | 面域 | ✅ 闭合轮廓自动成域 | —（随曲线） | 显示填充；无独立面域编辑 | 面域为求解派生 |
 | 使用/投影 | 🟠 草图→草图投影（insert 时） | 编辑态不可加/删投影 | 读时重投影 | UI「使用」仍占位；需后端 updateSketch projections |
 | Trim | — | ✅ 点击段/无交点整删（线/圆/弧） | ✅ 连续修剪；Esc 结束工具不退出草图 | `Sketch.Trim` 真栈 `sketch-trim.spec.ts`；spline 不支持 |
-| Fillet（草图） | — | — | ❌ 未实现（占位 `sketchFillet`） | 官方帮助：选一点或两曲线后弹半径框；live 合成点击未能复现半径框——blocked-pending-evidence，未写假 UI |
+| Fillet（草图） | ✅ 点击两条直线共享角点立即生成相切圆弧（默认 R5 mm + coincident×2/tangent×2/radius） | —（随曲线/约束 Delete） | ✅ R 尺寸双击改值重解算；工具保持激活可连续倒角 | Live 2026-11-12 实测：无独立半径框，点角点即出 arc + R 尺寸（英寸文档 R0.25）；首切片仅两条非投影直线内联端点，三线以上共点/显式点端点/线弧组合未支持；`sketch-fillet.spec.ts` 真栈（R5→R8）+ 8 单测 |
 | Extend（草图） | — | — | ✅ 两相延伸：先选线/弧，再点边界（线/圆/弧）或自由端点；线源移动端点、弧源增长扫角；圆/样条源未实现 | 修剪同一下拉（官方帮助，快捷键 X）；`Sketch.Extend` 真栈（线/弧）+ 17 单测；无边界/反方向保持原样；共用 view→NPC 反解已修为官方 viewToNpc |
-| 插入 DXF（草图） | ✅ ASCII DXF 的 LINE/CIRCLE/ARC/POINT/LWPOLYLINE（直线段 + bulge 圆弧段，含闭合）/三次 4 控制点 SPLINE → 当前草图（$INSUNITS 换算 mm；一次 updateSketch 可撤销） | — | — | `dxf-import` 9 单测 + `sketch-dxf-import.spec.ts` 真栈；DWG/BLOCKS/INSERT/非三次·周期样条/放置对话框未做（诚实拒收/跳过计数） |
+| 插入 DXF（草图） | ✅ ASCII DXF 的 LINE/CIRCLE/ARC/POINT/LWPOLYLINE（直线段 + bulge 圆弧段，含闭合）/三次 4 控制点 SPLINE → 当前草图（$INSUNITS 换算 mm；一次 updateSketch 可撤销） | — | — | `dxf-import` 12 单测 + `sketch-dxf-import.spec.ts` 真栈；DWG/BLOCKS/INSERT/非三次·周期样条/放置对话框未做（诚实拒收/跳过计数） |
 | Copy/Transform（草图图元） | — | — | ❌ 菜单禁用 | 变换需对话框与约束语义证据 |
 
 ## 特征
@@ -50,7 +50,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 ## 已知缺口优先级（建议）
 
 1. ✅ 非尺寸约束选中与删除 + `显示约束` 显隐（S1g，2026-11-12）。
-2. 草图 Fillet（帮助文档定义“选点/两曲线→半径框”；live 半径框未采到，需在自建简单草图复核后再实现）。
+2. ✅ 草图 Fillet（S1k，2026-11-12；live 实测点击角点立即生成圆弧 + 可编辑 R 尺寸，无半径框；两线角点首切片，线弧组合/两曲线选择/显式点端点待做）。
 3. ✅ Extend 线端点切片（S1i，2026-11-12；弧/圆/样条源与边界点选第二相待做）。
 4. 草图 Copy/Transform（对话框 + 约束语义）。
 5. 零件删除/重命名（后端 FeatureOp + schema）。
