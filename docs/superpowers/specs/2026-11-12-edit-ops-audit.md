@@ -15,7 +15,8 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 | 面域 | ✅ 闭合轮廓自动成域 | —（随曲线） | 显示填充；无独立面域编辑 | 面域为求解派生 |
 | 使用/投影 | 🟠 草图→草图投影（insert 时） | 编辑态不可加/删投影 | 读时重投影 | UI「使用」仍占位；需后端 updateSketch projections |
 | Trim | — | ✅ 点击段/无交点整删（线/圆/弧） | ✅ 连续修剪；Esc 结束工具不退出草图 | `Sketch.Trim` 真栈 `sketch-trim.spec.ts`；spline 不支持 |
-| Extend | — | — | ❌ 未实现 | 后续切片 |
+| Fillet（草图） | — | — | ❌ 未实现（占位 `sketchFillet`） | 官方帮助：选一点或两曲线后弹半径框；live 合成点击未能复现半径框——blocked-pending-evidence，未写假 UI |
+| Extend | — | — | ❌ 未实现 | 飞菜单未见 Extend，待再取证 |
 | Copy/Transform（草图图元） | — | — | ❌ 菜单禁用 | 变换需对话框与约束语义证据 |
 
 ## 特征
@@ -48,8 +49,9 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 ## 已知缺口优先级（建议）
 
 1. ✅ 非尺寸约束选中与删除 + `显示约束` 显隐（S1g，2026-11-12）。
-2. Extend（纯前端 2D；Trim 已落；live 飞菜单未见 Extend，待再取证）。
-3. 草图 Copy/Transform（对话框 + 约束语义）。
-4. 零件删除/重命名（后端 FeatureOp + schema）。
-5. 特征回滚/重排（后端 scope 重建截止 + 顺序契约，需 ADR）。
-6. Use（实体边/面投影，后端几何投影通道）。
+2. 草图 Fillet（帮助文档定义“选点/两曲线→半径框”；live 半径框未采到，需在自建简单草图复核后再实现）。
+3. Extend（纯前端 2D；Trim 已落；live 飞菜单未见 Extend，待再取证）。
+4. 草图 Copy/Transform（对话框 + 约束语义）。
+5. 零件删除/重命名（后端 FeatureOp + schema）。
+6. 特征回滚/重排（后端 scope 重建截止 + 顺序契约，需 ADR）。
+7. Use（实体边/面投影，后端几何投影通道）。
