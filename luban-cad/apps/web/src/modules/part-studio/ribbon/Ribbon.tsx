@@ -442,6 +442,57 @@ export function Ribbon({
   const { t } = useTranslation();
   const { activate, gatedCapability, closeGatedDialog } = useToolActivation(canEdit);
   const activeToolId = usePartStudioStore((s) => s.tool.activeToolId);
+  // 工具退出收口（2026-11-12）：草图/特征 PrimitiveTool 退出后 iTwin 装回默认
+  // 选择工具，但 ribbon 的 store.tool.activeToolId 不会自动清——会继续挡住草图
+  // 实体拾取/尺寸编辑器（Onshape 退出工具后立即回到可选状态）。监听
+  // activeToolChanged：默认工具重新激活时延后一拍清掉**仍旧匹配**的激活态；
+  // 延后一拍避免切换工具时旧工具 cleanup 的默认工具事件抹掉新工具刚写入的 id。
+  React.useEffect(() => {
+    let disposed = false;
+    let removeListener: (() => void) | undefined;
+    let retryTimer: number | undefined;
+    const clearStale = (stale: string): void => {
+      window.setTimeout(() => {
+        const current = IModelApp.toolAdmin?.activeTool;
+        const defaultToolId = IModelApp.toolAdmin?.defaultToolId;
+        const restoredDefault = !current || current.toolId === defaultToolId;
+        if (restoredDefault && usePartStudioStore.getState().tool.activeToolId === stale)
+          usePartStudioStore.getState().setActiveTool(null);
+      }, 0);
+    };
+    const attach = (): void => {
+      if (disposed)
+        return;
+      const admin = IModelApp.initialized ? IModelApp.toolAdmin : undefined;
+      if (!admin) {
+        retryTimer = window.setTimeout(attach, 100);
+        return;
+      }
+      // 挂载时已处于默认工具但 store 仍钉着旧 id（工具先于本组件挂载退出）：
+      // 立即清一次；自定义工具仍激活时不碰。
+      const staleNow = usePartStudioStore.getState().tool.activeToolId;
+      if (staleNow !== null && (!admin.activeTool || admin.activeTool.toolId === admin.defaultToolId))
+        usePartStudioStore.getState().setActiveTool(null);
+      // 单测/壳期 mock 无 activeToolChanged 事件面：跳过监听（防御）。
+      if (!admin.activeToolChanged?.addListener)
+        return;
+      removeListener = admin.activeToolChanged.addListener((tool) => {
+        const nextId = tool?.toolId;
+        if (nextId !== undefined && nextId !== admin.defaultToolId)
+          return;
+        const stale = usePartStudioStore.getState().tool.activeToolId;
+        if (stale !== null)
+          clearStale(stale);
+      });
+    };
+    attach();
+    return () => {
+      disposed = true;
+      if (retryTimer !== undefined)
+        window.clearTimeout(retryTimer);
+      removeListener?.();
+    };
+  }, []);
   const palette = usePartStudioStore((s) => s.commandPalette);
   const toggleCommandPalette = usePartStudioStore((s) => s.toggleCommandPalette);
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
