@@ -667,6 +667,8 @@
     "angleInvalid": "请输入有效的旋转角度（大于 0 且不超过 360）",
     "loftSectionsLabel": "截面草图",
     "loftSectionLabel": "截面草图 {{index}}",
+    "loftAddSection": "添加截面",
+    "loftRemoveSection": "移除截面 {{index}}",
     "loftNeedsTwoSketchesHint": "放样需要两张草图：请先创建至少两张草图",
     "loftDuplicateHint": "两张截面草图不能相同",
     "loftSelectionStaleHint": "已选截面草图已不存在，请重新选择",

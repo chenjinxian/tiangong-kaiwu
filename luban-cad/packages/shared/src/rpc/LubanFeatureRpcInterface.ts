@@ -433,18 +433,19 @@ export interface BooleanParams {
 }
 
 /**
- * loft 放样参数（B2 v1.11）：两个草图截面沿世界系放样成单一实体。
- * - `sketchIds`：**恰好两张**草图元素 id 的二元组（单草图/同草图重复由服务端 zod 拒收——
- *   放样至少需要两个截面；同一草图两次是退化放样，无正解）。
- * - `sections`：保留键（分段数）——首版求值不消费（无 guides/端条件，见下）；形态校验
+ * loft 放样参数（B2 v1.11；v1.69 多截面切片）：≥2 个草图截面沿世界系放样成单一实体。
+ * - `sketchIds`：**至少两张**草图元素 id 的有序数组（数组序=截面顺序；单草图/同草图重复
+ *   由服务端 zod 拒收——放样至少需要两个截面）。内核 BRepGeometryOperation.Loft 原生接收
+ *   N 个 profile（entryArray 逐节），多截面无需新内核通道。
+ * - `sections`：保留键（分段数）——求值不消费（无 guides/端条件，见下）；形态校验
  *   只做正整数，未来扩「多段插值」时启用。
  * - `bodyType`：首版只产实体（`'SOLID'`；曲面/薄壁放样不在此契约内）。
  * 求值语义（服务端）：每张草图取最大面域（regions[0]）外环，经草图 plane 变换到世界系，
- * 两 Loop 作 entryArray 送 BRepGeometryOperation.Loft=9；有上游时与上游 Unite（ADD 语义，
- * 同 revolve），单 body 写回。截面须平行（首版守卫，内核裁决兜底）。
+ * 全部 Loop 按序作 entryArray 送 BRepGeometryOperation.Loft；有上游时与上游 Unite（ADD
+ * 语义，同 revolve），单 body 写回。截面须平行（守卫，内核裁决兜底）。
  */
 export interface LoftParams {
-  sketchIds: [string, string];
+  sketchIds: string[];
   sections?: number;
   bodyType: "SOLID";
 }
@@ -1061,7 +1062,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.68.0";
+  public static interfaceVersion = "1.69.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

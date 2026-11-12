@@ -1084,10 +1084,17 @@ export function FeatureDialog({
   // 面域读取代际：换草图/换连接时 +1，慢响应过期即丢弃（useSketchSystem
   // activeEpochRef 同款纪律——stale-clobber 防旧草图面域覆写新选择）。
   const regionsEpochRef = React.useRef(0);
-  // B2 loft 通道：两截面草图选择（LoftParams.sketchIds 二元组；两键均选且互不相同
-  // 才可提交——同草图重复是退化放样，服务端 zod 同口径拒收）。
-  const [loftSketchA, setLoftSketchA] = React.useState('');
-  const [loftSketchB, setLoftSketchB] = React.useState('');
+  // B2 loft 通道（v1.69 多截面）：≥2 截面草图有序选择（数组序=截面顺序）；
+  // 全部选满且互不相同才可提交——同草图重复是退化放样，服务端 zod 同口径拒收。
+  const [loftSketchIds, setLoftSketchIds] = React.useState<string[]>(['', '']);
+  const setLoftSection = (index: number, value: string): void => {
+    setLoftSketchIds((ids) => ids.map((id, i) => (i === index ? value : id)));
+  };
+  const addLoftSection = (): void => setLoftSketchIds((ids) => [...ids, '']);
+  const removeLoftSection = (index: number): void => {
+    setLoftSketchIds((ids) => (ids.length <= 2 ? ids : ids.filter((_, i) => i !== index)));
+  };
+  const loftSectionIds = React.useMemo(() => loftSketchIds.filter((id) => id !== ''), [loftSketchIds]);
   // B3 sweep 通道：轮廓草图 + 路径草图（两键均选且互不相同才可提交——同草图是退化
   // 扫掠/同平面路径，服务端 zod 同口径拒收）。
   const [sweepProfileSketchId, setSweepProfileSketchId] = React.useState('');
@@ -1637,13 +1644,11 @@ export function FeatureDialog({
   // 非模态对话框打开期间删除已选草图（sketches 缩水）不得留下陈旧 id 放行提交
   //（loftNeedsTwo/loftSelectionStale 均入就绪判据；服务端 zod/存在性检查兜底）。
   const loftNeedsTwo = loftChannel && sketchOptions.length < 2;
-  const loftDuplicate = loftChannel && loftSketchA !== '' && loftSketchA === loftSketchB;
-  const loftSelectionStale = loftChannel && loftSketchA !== '' && loftSketchB !== ''
-    && (!sketchOptions.some((option) => option.id === loftSketchA)
-      || !sketchOptions.some((option) => option.id === loftSketchB));
+  const loftDuplicate = loftChannel && new Set(loftSectionIds).size !== loftSectionIds.length;
+  const loftSelectionStale = loftChannel && loftSectionIds.length > 0
+    && !loftSectionIds.every((id) => sketchOptions.some((option) => option.id === id));
   const loftReady = !loftChannel
-    || (!loftNeedsTwo && !loftDuplicate && !loftSelectionStale
-      && loftSketchA !== '' && loftSketchB !== '');
+    || (!loftNeedsTwo && !loftDuplicate && !loftSelectionStale && loftSectionIds.length >= 2);
   // 提交门（B3 sweep）：轮廓与路径均已选、互不相同、**且仍存在于实时草图选项**——
   // 非模态对话框打开期间删除已选草图（sketches 缩水）不得留下陈旧 id 放行提交
   //（服务端 zod/存在性检查兜底）。
@@ -1771,7 +1776,7 @@ export function FeatureDialog({
         setBackendPreview(undefined);
         return;
       }
-      previewParams = { sketchIds: [loftSketchA, loftSketchB], bodyType: 'SOLID' } as FeatureParams;
+      previewParams = { sketchIds: loftSectionIds, bodyType: 'SOLID' } as FeatureParams;
       previewFeatureType = 'loft';
     } else if (sweepChannel) {
       if (!sweepReady) {
@@ -1887,7 +1892,7 @@ export function FeatureDialog({
       if (previewSeqRef.current === seq) previewSeqRef.current += 1;
     };
   }, [edgePickChannel, chamferChannel, chamferVariant, chamferDistance2, chamferAngleDeg,
-    loftChannel, loftReady, loftSketchA, loftSketchB,
+    loftChannel, loftReady, loftSectionIds, loftSketchIds, addLoftSection, removeLoftSection, setLoftSection,
     sweepChannel, sweepReady, sweepProfileSketchId, sweepPathSketchId,
     mirrorChannel, mirrorScope, mirrorSourceFeatureId, mirrorFeatureReady,
     mirrorPlaneChoice, mirrorFaceRef, mirrorOperation, mirrorUpstreamMissing,
@@ -2182,9 +2187,9 @@ export function FeatureDialog({
               }
             : loftChannel
             ? {
-                // B2 loft（shared v1.11 LoftParams）：两截面草图二元组 + 实体类型。
+                // B2 loft（shared v1.69 LoftParams）：≥2 截面草图有序数组 + 实体类型。
                 // 无 distance/profile/regions/guides 键（首版范围裁决）。
-                sketchIds: [loftSketchA, loftSketchB],
+                sketchIds: loftSectionIds,
                 bodyType: 'SOLID',
               }
             : chamferChannel
@@ -2475,8 +2480,11 @@ export function FeatureDialog({
     propagateSmooth,
     loftChannel,
     loftReady,
-    loftSketchA,
-    loftSketchB,
+    loftSectionIds,
+    loftSketchIds,
+    addLoftSection,
+    removeLoftSection,
+    setLoftSection,
     sweepChannel,
     sweepReady,
     sweepProfileSketchId,
@@ -4353,9 +4361,9 @@ export function FeatureDialog({
             </React.Fragment>
           )}
 
-          {/* B2 loft 通道：双截面草图选择器（首版两平行截面——每草图取最大面域）。
-              草图不足两张 → 诚实提示 + 提交禁用；两键互不相同（同草图重复=退化放样，
-              服务端 zod 同口径拒收）。无 guides/端条件/sections UI。 */}
+          {/* B2 loft 通道（v1.69 多截面）：≥2 截面草图按序选择（每草图取最大面域）。
+              不足两张 → 诚实提示 + 提交禁用；截面互不相同（同草图重复=退化放样，
+              服务端 zod 同口径拒收）。无 guides/端条件/sections UI；截面顺序=数组序。 */}
           {loftChannel && (
             <React.Fragment>
               {sketchOptions.length < 2 ? (
@@ -4368,38 +4376,47 @@ export function FeatureDialog({
                 </p>
               ) : (
                 <React.Fragment>
-                  <select
-                    aria-label={t('partStudio.featureDialog.loftSectionLabel', { index: 1 })}
-                    className="part-studio-feature-dialog__select"
-                    value={loftSketchA}
-                    disabled={submitting}
-                    onChange={(event) => setLoftSketchA(event.target.value)}
+                  {loftSketchIds.map((sectionId, index) => (
+                    <div key={index} className="part-studio-feature-dialog__loft-section-row">
+                      <select
+                        aria-label={t('partStudio.featureDialog.loftSectionLabel', { index: index + 1 })}
+                        className="part-studio-feature-dialog__select"
+                        value={sectionId}
+                        disabled={submitting}
+                        onChange={(event) => setLoftSection(index, event.target.value)}
+                      >
+                        <option value="" disabled>
+                          {t('partStudio.featureDialog.sketchPlaceholder')}
+                        </option>
+                        {sketchOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      {loftSketchIds.length > 2 && (
+                        <button
+                          type="button"
+                          className="part-studio-feature-dialog__loft-remove"
+                          aria-label={t('partStudio.featureDialog.loftRemoveSection', { index: index + 1 })}
+                          title={t('partStudio.featureDialog.loftRemoveSection', { index: index + 1 })}
+                          disabled={submitting}
+                          onClick={() => removeLoftSection(index)}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__loft-add"
+                    data-testid="part-studio-feature-dialog-loft-add-section"
+                    disabled={submitting || loftSketchIds.length >= sketchOptions.length}
+                    onClick={addLoftSection}
                   >
-                    <option value="" disabled>
-                      {t('partStudio.featureDialog.sketchPlaceholder')}
-                    </option>
-                    {sketchOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label={t('partStudio.featureDialog.loftSectionLabel', { index: 2 })}
-                    className="part-studio-feature-dialog__select"
-                    value={loftSketchB}
-                    disabled={submitting}
-                    onChange={(event) => setLoftSketchB(event.target.value)}
-                  >
-                    <option value="" disabled>
-                      {t('partStudio.featureDialog.sketchPlaceholder')}
-                    </option>
-                    {sketchOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    {t('partStudio.featureDialog.loftAddSection')}
+                  </button>
                   {loftDuplicate && (
                     <p
                       role="note"
@@ -4418,7 +4435,7 @@ export function FeatureDialog({
                       {t('partStudio.featureDialog.loftSelectionStaleHint')}
                     </p>
                   )}
-                  {/* 首版范围提示（服务端 op 边界对不平行截面同口径拒收）。 */}
+                  {/* 范围提示（服务端 op 边界对不平行截面同口径拒收）。 */}
                   <p
                     role="note"
                     className="part-studio-feature-dialog__hint"

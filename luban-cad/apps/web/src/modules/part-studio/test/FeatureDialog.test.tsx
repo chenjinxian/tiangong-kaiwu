@@ -2113,6 +2113,52 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     renderDialog({ featureType: 'loft' });
     expect(screen.queryByRole('combobox', { name: '截面草图 1' })).toBeNull();
   });
+
+  it('多截面：添加截面 → 三个有序下拉；载荷 sketchIds=[a,b,c]', async () => {
+    const applyOp = makeApplyOp();
+    const { user, onConfirm } = renderLoftDialog(applyOp, {
+      sketches: [...SKETCHES, { id: 'sk-3', label: '草图 3' }],
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 1' }), 'sk-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 2' }), 'sk-2');
+    await user.click(screen.getByTestId('part-studio-feature-dialog-loft-add-section'));
+    expect(screen.getByRole('combobox', { name: '截面草图 3' })).toBeDefined();
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 3' }), 'sk-3');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'loft',
+      params: { sketchIds: ['sk-1', 'sk-2', 'sk-3'], bodyType: 'SOLID' },
+    });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('多截面：第三截面与已有重复 → 重复提示 + 提交禁用', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderLoftDialog(applyOp, {
+      sketches: [...SKETCHES, { id: 'sk-3', label: '草图 3' }],
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 1' }), 'sk-1');
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 2' }), 'sk-2');
+    await user.click(screen.getByTestId('part-studio-feature-dialog-loft-add-section'));
+    await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 3' }), 'sk-1');
+    expect(screen.getByTestId('part-studio-feature-dialog-loft-duplicate-hint')).toBeDefined();
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('多截面：移除第三截面 → 回到两个下拉', async () => {
+    const { user } = renderLoftDialog(makeApplyOp(), {
+      sketches: [...SKETCHES, { id: 'sk-3', label: '草图 3' }],
+    });
+    await user.click(screen.getByTestId('part-studio-feature-dialog-loft-add-section'));
+    expect(screen.getByRole('combobox', { name: '截面草图 3' })).toBeDefined();
+    await user.click(screen.getByRole('button', { name: '移除截面 3' }));
+    expect(screen.queryByRole('combobox', { name: '截面草图 3' })).toBeNull();
+    expect(screen.getByRole('combobox', { name: '截面草图 2' })).toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

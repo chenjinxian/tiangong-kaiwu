@@ -178,6 +178,17 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **多截面 loft（2026-11-12，shared 1.69.0 工作树，未发布）**：`LoftParams.sketchIds`
+  由二元组改为 ≥2 有序数组；后端 zod `array().min(2)` + 全截面平行守卫；内核
+  `BRepGeometryOperation.Loft` 原生 N-profile（无 native 改动）。UI 放样对话框=有序
+  截面列表（添加/移除、重复/陈旧选择禁提交）。验证：shared 205/205、后端
+  `LoftMultiSectionFlow` 4/4（三截面 2×2@z=0/1/2 → 8 mm³、重复/非平行拒收、旧载荷
+  预览）、`LoftFlow` 9/9、registry/rpc 50/50；真栈
+  `e2e/loft-multi-section.spec.ts` 2 passed（三截面 20×20@z=0/5/10 → **4000 mm³**、
+  冷重开树 status=0 + 4,000 mm³）；web 1613/1613。ADR-0019 / AIRR
+  `docs/superpowers/specs/2026-11-12-loft-multisection-airr.md`；发布需 shared →
+  backend → web 同批。
+
 - **Intro Part 5/6 严格绿 / 单线面切分 + 源证据 no-op（2026-11-11，ADR-0006 D2，
   shared 1.66/1.67）**：`FaceExtrudeParams.splitByLine`（`region=material|void`、
   `keepPoint` 世界侧向消歧）+ 回放单线切分 resolver + 后端 `RegionOps` 面环/
