@@ -923,6 +923,18 @@ symmetric 互斥）。
   1 body、status=0、push+冷重开（2 passed / 43.5 s；同文件共享边界用例
   复跑 2 passed）。live spec 总数仍 **38**。
 
+### 批次 66（2026-11-12，parked 原因纠偏）
+
+- **Stack Light Bracket**：PS 实为 `blocked-sheet-metal`（Stack bracket
+  sheetMetalStart + Corner break）；corpus 里 75 mm 拉伸是转换残留，
+  10,724.6 mm³ 目标属于钣金件。此前的“thin/细分区域缺失”诊断撤回；
+  无 native 实体 twin，不计入。
+- **Dumper Reducer**：场景含 `Import 1`/importOp 派生轴，属
+  `excluded-import`；native revolve 绕 local X 1,540.670（目标 3,623.559），
+  y=2.159 轴 820.530，相交轴全部 status=1。无 native twin，不计入。
+- 两项证据留在私有 `live-probes/` 与 `docs/LIVE-UI-SPECS.md`；
+  live spec 总数不变（**38**）。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
