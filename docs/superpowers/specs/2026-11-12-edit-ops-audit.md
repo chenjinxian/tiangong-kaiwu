@@ -24,7 +24,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 
 | 对象 | 增 | 删 | 改 | 备注 |
 |---|---|---|---|---|
-| 挤压/旋转/放样/扫掠等 | ✅ 对话框 | ✅ 树右键删除（HITL） | ✅ 双击编辑（updateParams）；多截面 loft 已接 | 特征重排 blocked（v1 线性链） |
+| 挤压/旋转/放样/扫掠等 | ✅ 对话框 | ✅ 树右键删除（HITL） | ✅ 双击编辑（updateParams）；多截面 loft 已接 | 特征重排 blocked：`reorderFeature` 契约在，但线性 prev 边让真实特征重排全部被依赖序守卫拒收（2026-11-12 实测：两个 newBody 拉伸之间仍有 feature→feature 边；Onshape live 允许拖动并重算、把依赖破坏行标红）。需 ADR 重定义 reorder 的链重建/依赖校验，不能以拖动 UI 假装可用 |
 | 圆角/倒角/抽壳/孔/移动面/变换/分割/布尔/阵列/镜像 | ✅ | ✅ | ✅（按能力，部分只读项例外） | 见 luban-cad 能力矩阵 |
 | 抑制 | — | — | ✅ 右键抑制/取消 | — |
 | 重命名 | — | — | ✅ 树内联 | — |
@@ -54,5 +54,5 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 3. ✅ Extend 线端点切片（S1i，2026-11-12；弧/圆/样条源与边界点选第二相待做）。
 4. 草图 Copy/Transform（对话框 + 约束语义）。
 5. 零件删除/重命名（后端 FeatureOp + schema）。
-6. 特征回滚/重排（后端 scope 重建截止 + 顺序契约，需 ADR）。
+6. 特征回滚/重排（后端 scope 重建截止 + 顺序契约，需 ADR）。重排现状：Onshape live 拖动行即重排（蓝色行名 chip；依赖被破坏的下游行标红，2026-11-12 直接操作 `LubanCAD 覆盖 - Bumper Block` 副本实证）；本产品 `reorderFeature` 受线性 prev 边守卫，真实拖动会被服务端拒收（newBody 拉伸同样有边），因此**不提供拖拽 UI**，待后端 reorder 重建语义 ADR 后接线。
 7. Use（实体边/面投影，后端几何投影通道）。
