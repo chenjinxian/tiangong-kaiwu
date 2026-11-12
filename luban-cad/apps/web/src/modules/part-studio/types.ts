@@ -39,8 +39,12 @@ export const BODY_PRODUCING_FEATURE_TYPES: readonly LubanFeatureType[] = [
   'splitPart',
 ];
 
-/** 画布拾取类型（spec §5 上下文敏感模型：右键菜单按 kind 重构）。 */
-export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature';
+/**
+ * 画布拾取类型（spec §5 上下文敏感模型：右键菜单按 kind 重构）。
+ * 2026-11-12：草图编辑态实体/控制点选择并入同一选择权威（ADR-0018），
+ * 但不投影到 connection.selectionSet（非 iModel 元素）。
+ */
+export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature' | 'sketchEntity';
 
 /**
  * 画布选择集条目——viewport pick → store 回流的寻址单位
@@ -65,9 +69,17 @@ export interface CanvasSelection {
   /**
    * face/edge 会话级 cache id（仅拾取工具活跃期间有效；工具退出即失效）。
    * 面/边删除通道用它调用 solidModelingIpc.deleteSubEntities；缺失时删除项
-   * 禁用（须重新拾取），不得把它当作持久标识。
+   * 禁用（须重新拾取），不得把它当作持久标识）。
    */
   cacheId?: number;
+  /** kind=sketchEntity：所属草图特征 id（updateSketch 寻址）。 */
+  sketchId?: string;
+  /** kind=sketchEntity：草图实体 id（SketchEntityDto.id）。 */
+  entityId?: number;
+  /** 拾取部位：曲线本体或控制点（控制点后续拖拽差异化用）。 */
+  sketchPart?: 'curve' | 'handle';
+  /** 控制点序号（sketchPart=handle；端点/圆心/样条控制点统一序号）。 */
+  handleIndex?: number;
 }
 
 /** 特征条目（双段树特征段视图模型；数据由消费方注入——壳期空集，RPC 接线后走 react-query）。 */

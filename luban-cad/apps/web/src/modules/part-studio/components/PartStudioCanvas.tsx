@@ -73,6 +73,7 @@ import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { readBrepFaceHandle } from '../internal/brep-topology.js';
 import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.js';
 import { sketchPlaneFromFaceHandle } from '../internal/sketch-plane-from-face.js';
+import { SketchEntityPicker } from './SketchEntityPicker.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
 import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
@@ -231,6 +232,28 @@ export function PartStudioCanvas({
   const selectedDatumId = usePartStudioStore((s) => s.datum.selectedId);
   const selectDatum = usePartStudioStore((s) => s.selectDatum);
   const canvasSelectionForSketchPlane = usePartStudioStore((s) => s.canvas.selection);
+  const setCanvasSelection = usePartStudioStore((s) => s.setCanvasSelection);
+  const activeToolIdForSketchPicker = usePartStudioStore((s) => s.tool.activeToolId);
+
+  // ADR-0018 S1b：草图实体选择并入唯一选择权威；退出草图即清掉草图条目
+  //（它们不是 iModel 元素，不得泄漏到建模态菜单/工具输入）。
+  const sketchEntitySelection = React.useMemo(() => (
+    sketchSystem?.activeSketch
+      ? canvasSelectionForSketchPlane
+        .filter((entry) => entry.kind === 'sketchEntity' && entry.sketchId === sketchSystem.activeSketch!.id)
+        .map((entry) => ({
+          sketchId: entry.sketchId!,
+          entityId: entry.entityId!,
+          part: entry.sketchPart ?? 'curve' as const,
+          ...(entry.handleIndex !== undefined ? { handleIndex: entry.handleIndex } : {}),
+        }))
+      : []
+  ), [canvasSelectionForSketchPlane, sketchSystem?.activeSketch]);
+  React.useEffect(() => {
+    if (sketchActiveForDecorations) return;
+    if (!canvasSelectionForSketchPlane.some((entry) => entry.kind === 'sketchEntity')) return;
+    setCanvasSelection(canvasSelectionForSketchPlane.filter((entry) => entry.kind !== 'sketchEntity'));
+  }, [sketchActiveForDecorations, canvasSelectionForSketchPlane, setCanvasSelection]);
 
   // 打开草图对话框重置平面选择；关闭时清空（下一次打开不继承旧面）。
   React.useEffect(() => {
@@ -582,6 +605,28 @@ export function PartStudioCanvas({
             : null}
           onSelect={handleSketchPlaneSelect}
           pendingSketchName={sketchActiveForDialog ? undefined : sketchDialogName}
+        />
+      )}
+      {/* ADR-0018 S1b：草图编辑态（无绘制工具激活）实体/控制点拾取与选中强调。 */}
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && activeToolIdForSketchPicker == null && (
+        <SketchEntityPicker
+          viewport={viewport}
+          sketch={sketchSystem.activeSketch}
+          selected={sketchEntitySelection}
+          onSelectionChange={(entries) => {
+            const others = canvasSelectionForSketchPlane.filter((entry) => entry.kind !== 'sketchEntity');
+            setCanvasSelection([
+              ...others,
+              ...entries.map((entry) => ({
+                kind: 'sketchEntity' as const,
+                id: `${entry.sketchId}:${entry.entityId}`,
+                sketchId: entry.sketchId,
+                entityId: entry.entityId,
+                sketchPart: entry.part,
+                ...(entry.handleIndex !== undefined ? { handleIndex: entry.handleIndex } : {}),
+              })),
+            ]);
+          }}
         />
       )}
       {dialog.active === 'sketch' && sketchDraftPlane === null && (
