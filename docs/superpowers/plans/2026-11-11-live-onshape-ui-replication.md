@@ -877,6 +877,19 @@ symmetric 互斥）。
 - 本身不新增示例计数，live spec 总数仍 **37**；README 规则
   `docs/ONSHAPE-LIVE-REPLICATION.md` 已同步。
 
+### 批次 62（2026-11-12，Fox RP23 全邻域探针收口）
+
+- 修复 untracked `fox-rp23-all-probe`（曾使 live-registry 单项红）：去掉
+  `side` 过滤走全邻域近似；ADD 按 `booleanScope` 指体；Extrude 4 按体拆成
+  两个 REMOVE（v1.68 多目标闸门）；NEW 不带目标。真栈 **5 bodies / 18
+  features / status=0**，masses `61,596.159 / 141,273.309 / 615.740 /
+  1,161.344 / 502.649`，总 **205,149.2 vs 151,783.98（+35.2%）**。
+- 因全邻域过选（chamber +50.6%）、9 fillet/3 chamfer 跳过，且 Sketch 1
+  半圆/四分之一圆重叠面域使 exact `edgeSide` 同侧多候选，**不升级为可计数
+  示例**；已移入私有 `live-probes/fox-rp23-all-probe.json`。
+- live spec 总数保持 **37**（该 probe 从未提交到 live-specs）；README 增补
+  多体 ADD/NEW 目标规则、多目标 blind REMOVE 拆体规则与 edgeSide 重叠面域限制。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

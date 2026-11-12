@@ -38,6 +38,13 @@
   - `featurePattern`/`featureMirror` 在多体时需显式目标 body；`featureMirror`
     以 `featurePattern` 为源、或 pattern 以 `featureMirror` 为源当前 status=1，
     不伪造（可改用显式镜像草图+拉伸+pattern 近似）。
+  - ADD extrude 在多体 PS 里**必须**按 Onshape `booleanScopeFeatureIds` 指到
+    造体特征（如 `Revolve 2`）；缺省时产品会把多个活跃体当作目标，非 throughAll
+    的 REMOVE 会被 v1.68 多目标闸门拒收。`NEW` extrude **不得**带目标
+    （converter 的 booleanScope 会混入 sketch，runner 会报“新 body 数=0”）。
+  - symmetric/blind REMOVE 命中多个 body 时，首切片只支持 throughAll；按体拆成
+    多个 REMOVE 特征（同参数、各自目标）即可绕过参数闸门，体积不变但树会多一行，
+    必须在 spec/notes 标注。Fox RP23 实测（私有 `live-probes/fox-rp23-all-probe.json`）。
 
 ## 4. 边/面/孔/壳
 
@@ -78,13 +85,20 @@
   side=outside → 孔侧外环面域 → **3214.618 vs 3214.602 mm³**）push+冷重开。
   - `all:true`：同一实体被多条边界共享时收齐全部匹配面域（共享边拆域）；
     `e2e/examples/live-imprint-all.spec.ts`（20×20 矩形被中竖线拆两半，
-    竖线 inside+all → **4000.000 mm³**）push+冷重开。
+    竖线 inside+all → **4000.000 mm³**）push+冷重开。`side` 过滤仍按旧回退口径
+    （outside=孔环、inside=外环）；若某查询在指定侧零命中而该边确有相邻面域，
+    收紧 side 前先核对 region 归属，side-free 的 all 只是**近似全邻域**，会
+    过选（Fox RP23 chamber +50.6%），不能冒充精确 imprint。
   - `edgeSide:'left'|'right'`：Onshape 有向边左/右侧精确语义，运行时读草图
     实体几何（line/arc/circle，构造曲线拒收）→ shared
     `resolveImprintEdgeGeometry` + `pickImprintRegionByEdgeSide`（+1=left、
     −1=right；同侧多候选即失败，不按面积猜）。`e2e/examples/live-imprint-edgeside.spec.ts`
     （同一拆域矩形，竖线从 (0,−10) 指向 (0,10)，`edgeSide:'right'` → x>0 半域
     **2000.000 mm³** 质心 x=+5）push+冷重开。`edgeSide` 与 `all` 互斥。
+    注意 region 引擎可能同时给出重叠的半圆/四分之一圆面域（Fox RP23 Sketch 1
+    实测 127.234 / 63.617 / 63.617 三层），此时有向边同侧会命中多个候选，
+    shared 实现返回 undefined；必须补 Onshape 面级证据或用显式 `regions`，
+    不得按面积挑一个。
 - chamfer：live step 支持 mode/values1/values2；mode3（距离+角度）公共回归
   `e2e/examples/live-chamfer-mode3.spec.ts`：20×20×10 盒顶面前边距离 2、
   45° → 去材 40 mm³、结果 **3960.000 mm³**、push+冷重开。
