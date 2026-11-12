@@ -74,6 +74,7 @@ import { readBrepFaceHandle } from '../internal/brep-topology.js';
 import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.js';
 import { sketchPlaneFromFaceHandle } from '../internal/sketch-plane-from-face.js';
 import { SketchEntityPicker } from './SketchEntityPicker.js';
+import { SketchDimensionEditor } from './SketchDimensionEditor.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import { deleteSketchEntities } from '../internal/sketch-delete.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
@@ -689,6 +690,22 @@ export function PartStudioCanvas({
               })),
             ]);
           }}
+        />
+      )}
+      {/* ADR-0018 S1e：双击尺寸数值 → 内联改值（updateSketchConstraint）。 */}
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && activeToolIdForSketchPicker == null && canEdit && (
+        <SketchDimensionEditor
+          viewport={viewport}
+          annotations={sketchAnnotations}
+          constraints={sketchSystem.activeSketch.constraints}
+          onCommit={async (constraintId, value) => {
+            const result = await sketchSystem.applyConstraintValue(constraintId, value);
+            return result.ok ? { ok: true } : { ok: false, error: result.error };
+          }}
+          onUnsupported={(kind) => IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+            OutputMessagePriority.Info,
+            t('partStudio.sketch.dimensionUnsupported', { kind }),
+          ))}
         />
       )}
       {dialog.active === 'sketch' && sketchDraftPlane === null && (

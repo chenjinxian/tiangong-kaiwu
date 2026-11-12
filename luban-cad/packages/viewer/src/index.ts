@@ -45,7 +45,12 @@ export {
   type SketchCurveOptions,
 } from './viewport/decorations/sketch-curves-decoration.js';
 // 2026-11-02：活动草图尺寸标注（Onshape live：尺寸线/箭头/数值）。
-export { SketchDimensionsDecoration } from './viewport/decorations/sketch-dimensions-decoration.js';
+// 2026-11-12（ADR-0018 S1e）：布局/标签纯函数供双击改值拾取层共用。
+export {
+  SketchDimensionsDecoration,
+  layoutSketchDimensions,
+  sketchDimensionLabels,
+} from './viewport/decorations/sketch-dimensions-decoration.js';
 // 2026-11-03：完整 BRep 拓扑边/顶点叠加层（后端拓扑读面 → iTwin GraphicBuilder）。
 export {
   BrepTopologyDecoration,
@@ -60,8 +65,12 @@ export type {
 } from './viewport/decorations/brep-topology-decoration.js';
 export type {
   SketchDimensionAnnotation,
+  SketchDimensionLabel,
+  SketchDimensionLayout,
   SketchLinearDimensionAnnotation,
+  SketchLinearDimensionLayout,
   SketchRadialDimensionAnnotation,
+  SketchRadialDimensionLayout,
 } from './viewport/decorations/sketch-dimensions-decoration.js';
 // M4 Task 1：可写编辑连接 hook——BriefcaseConnection 生命周期 + save/push/pull 代理
 //（Part Studio 组合消费，接口契约见 connection/use-briefcase-connection.ts）。

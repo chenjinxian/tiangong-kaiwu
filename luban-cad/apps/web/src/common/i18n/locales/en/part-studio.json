@@ -125,6 +125,7 @@
     "deleteConfirm": "Delete \"{{name}}\"? This cannot be undone, and the id will not be recreated.",
     "deleteSubmit": "Delete",
     "deleteFailed": "Delete failed: {{message}}",
+    "dimensionUnsupported": "Editing this dimension ({{kind}}) is not supported yet",
     "createFailed": "Failed to create Part Studio: {{message}}",
     "cancel": "Cancel",
     "insertTab": "Insert new tab",

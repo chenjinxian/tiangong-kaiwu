@@ -190,6 +190,8 @@ vi.mock('@luban-cad/viewer', () => ({
     setAnnotations() { /* noop */ }
     dispose() { /* noop */ }
   },
+  layoutSketchDimensions: () => [],
+  sketchDimensionLabels: () => [],
   BrepTopologyDecoration: class {
     constructor() { /* noop */ }
     setTopology() { /* noop */ }

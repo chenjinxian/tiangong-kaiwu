@@ -125,6 +125,7 @@
     "deleteConfirm": "确定删除「{{name}}」？此操作不可撤销，删除后 id 不会被重建。",
     "deleteSubmit": "删除",
     "deleteFailed": "删除失败：{{message}}",
+    "dimensionUnsupported": "该尺寸（{{kind}}）暂不支持直接改值",
     "createFailed": "创建 Part Studio 失败：{{message}}",
     "cancel": "取消",
     "insertTab": "插入新页签",

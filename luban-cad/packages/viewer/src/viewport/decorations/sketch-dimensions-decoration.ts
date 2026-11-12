@@ -9,6 +9,9 @@
  * Onshape 口径：标注不随相机缩放变粗变细（尺寸线 1px、文字 12px、箭头 8px）；
  * 标注放在几何外侧，侧向由调用方给的世界方向决定；文字沿尺寸线旋转但永不
  * 倒置；半径用 R 前缀 + 圆心→弧点引线。
+ *
+ * 2026-11-12（ADR-0018 S1e）：布局抽成纯函数 `layoutSketchDimensions` /
+ * `sketchDimensionLabels`，绘制与视口数值拾取（双击改值）共用同一份屏幕几何。
  */
 import {
   type DecorateContext,
@@ -98,6 +101,146 @@ function readableAngle(dx: number, dy: number): number {
   return angle;
 }
 
+/** 线性尺寸布局（屏幕空间；labelCenter=数值可点击中心）。 */
+export interface SketchLinearDimensionLayout {
+  kind: 'linear';
+  annotation: SketchLinearDimensionAnnotation;
+  sa: ScreenPoint;
+  sb: ScreenPoint;
+  lineDir: ScreenPoint;
+  sideDir: ScreenPoint;
+  da: ScreenPoint;
+  db: ScreenPoint;
+  labelCenter: ScreenPoint;
+  angle: number;
+}
+
+/** 半径/直径尺寸布局（屏幕空间）。 */
+export interface SketchRadialDimensionLayout {
+  kind: 'radial';
+  annotation: SketchRadialDimensionAnnotation;
+  sc: ScreenPoint;
+  sp: ScreenPoint;
+  outward: ScreenPoint;
+  leaderEnd: ScreenPoint;
+  labelCenter: ScreenPoint;
+  angle: number;
+}
+
+export type SketchDimensionLayout = SketchLinearDimensionLayout | SketchRadialDimensionLayout;
+
+/** 数值标签命中区（未旋转包围盒；拾取层双击改值用）。 */
+export interface SketchDimensionLabel {
+  id: string;
+  kind: 'linear' | 'radial';
+  text: string;
+  center: ScreenPoint;
+  angle: number;
+  rect: ScreenRect;
+}
+
+function layoutLinear(
+  annotation: SketchLinearDimensionAnnotation,
+  vp: Pick<ScreenViewport, 'worldToView'>,
+  occupied: ScreenRect[],
+): SketchLinearDimensionLayout | undefined {
+  const sa = vp.worldToView(annotation.a);
+  const sb = vp.worldToView(annotation.b);
+  if (![sa.x, sa.y, sb.x, sb.y].every(Number.isFinite)) return undefined;
+
+  const lineDir = normalize(sb.x - sa.x, sb.y - sa.y);
+  if (!lineDir) return undefined;
+
+  const sidePoint = vp.worldToView(annotation.a.plus(annotation.side));
+  let sideDir = normalize(sidePoint.x - sa.x, sidePoint.y - sa.y);
+  if (!sideDir) sideDir = { x: -lineDir.y, y: lineDir.x };
+  if (sideDir.x * lineDir.x + sideDir.y * lineDir.y > 0.5) {
+    // 侧向与尺寸线方向退化（探针太短/方向共线）：取垂线。
+    sideDir = { x: -lineDir.y, y: lineDir.x };
+  }
+
+  let offset = DIM_OFFSET;
+  let da = { x: sa.x + sideDir.x * offset, y: sa.y + sideDir.y * offset };
+  let db = { x: sb.x + sideDir.x * offset, y: sb.y + sideDir.y * offset };
+  let labelCenter = {
+    x: (da.x + db.x) / 2 + sideDir.x * 9,
+    y: (da.y + db.y) / 2 + sideDir.y * 9,
+  };
+  const angle = readableAngle(db.x - da.x, db.y - da.y);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const rect = labelRect(labelCenter, angle, annotation.text);
+    if (!occupied.some((other) => rectsOverlap(rect, other))) break;
+    offset += STACK_STEP;
+    da = { x: sa.x + sideDir.x * offset, y: sa.y + sideDir.y * offset };
+    db = { x: sb.x + sideDir.x * offset, y: sb.y + sideDir.y * offset };
+    labelCenter = {
+      x: (da.x + db.x) / 2 + sideDir.x * 9,
+      y: (da.y + db.y) / 2 + sideDir.y * 9,
+    };
+  }
+  occupied.push(labelRect(labelCenter, angle, annotation.text));
+  return { kind: 'linear', annotation, sa, sb, lineDir, sideDir, da, db, labelCenter, angle };
+}
+
+function layoutRadial(
+  annotation: SketchRadialDimensionAnnotation,
+  vp: Pick<ScreenViewport, 'worldToView'>,
+  occupied: ScreenRect[],
+): SketchRadialDimensionLayout | undefined {
+  const sc = vp.worldToView(annotation.center);
+  const sp = vp.worldToView(annotation.point);
+  if (![sc.x, sc.y, sp.x, sp.y].every(Number.isFinite)) return undefined;
+
+  const radial = normalize(sp.x - sc.x, sp.y - sc.y);
+  if (!radial) return undefined;
+  const sidePoint = vp.worldToView(annotation.point.plus(annotation.side));
+  const sideDir = normalize(sidePoint.x - sp.x, sidePoint.y - sp.y);
+  const outward = sideDir && sideDir.x * radial.x + sideDir.y * radial.y >= 0 ? sideDir : radial;
+
+  let leaderEnd = { x: sp.x + outward.x * 44, y: sp.y + outward.y * 44 };
+  let labelCenter = { x: leaderEnd.x + outward.x * 12, y: leaderEnd.y + outward.y * 12 };
+  const angle = readableAngle(outward.x, outward.y);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const rect = labelRect(labelCenter, angle, annotation.text);
+    if (!occupied.some((other) => rectsOverlap(rect, other))) break;
+    leaderEnd = { x: leaderEnd.x + outward.x * STACK_STEP, y: leaderEnd.y + outward.y * STACK_STEP };
+    labelCenter = { x: labelCenter.x + outward.x * STACK_STEP, y: labelCenter.y + outward.y * STACK_STEP };
+  }
+  occupied.push(labelRect(labelCenter, angle, annotation.text));
+  return { kind: 'radial', annotation, sc, sp, outward, leaderEnd, labelCenter, angle };
+}
+
+/**
+ * 纯布局（无绘制）：装饰器与视口拾取层共用——标签屏幕位置只有一个事实源，
+ * 避免拾取层复制堆叠避让逻辑后与绘制漂移。
+ */
+export function layoutSketchDimensions(
+  annotations: readonly SketchDimensionAnnotation[],
+  vp: Pick<ScreenViewport, 'worldToView'>,
+): SketchDimensionLayout[] {
+  const occupied: ScreenRect[] = [];
+  const layout: SketchDimensionLayout[] = [];
+  for (const annotation of annotations) {
+    const item = annotation.kind === 'linear'
+      ? layoutLinear(annotation, vp, occupied)
+      : layoutRadial(annotation, vp, occupied);
+    if (item) layout.push(item);
+  }
+  return layout;
+}
+
+/** 数值标签列表（id=`dimension-<constraintId>`，与标注 id 同源）。 */
+export function sketchDimensionLabels(layout: readonly SketchDimensionLayout[]): SketchDimensionLabel[] {
+  return layout.map((item) => ({
+    id: item.annotation.id,
+    kind: item.kind,
+    text: item.annotation.text,
+    center: { ...item.labelCenter },
+    angle: item.angle,
+    rect: labelRect(item.labelCenter, item.angle, item.annotation.text),
+  }));
+}
+
 /**
  * 活动草图尺寸标注装饰器。锚点为空/非空间视图 no-op；setAnnotations 重新
  * invalidate（草图约束变化时由 React effect 调用）。
@@ -136,63 +279,24 @@ export class SketchDimensionsDecoration {
   }
 
   private draw(ctx: CanvasRenderingContext2D, vp: ScreenViewport): void {
-    const occupied: ScreenRect[] = [];
+    const layout = layoutSketchDimensions(this._annotations, vp);
     ctx.save();
     ctx.setLineDash([]);
     ctx.lineWidth = 1;
     ctx.strokeStyle = LINE_COLOR;
     ctx.font = FONT;
 
-    for (const annotation of this._annotations) {
-      if (annotation.kind === 'linear')
-        this.drawLinear(ctx, vp, annotation, occupied);
+    for (const item of layout) {
+      if (item.kind === 'linear')
+        this.drawLinear(ctx, item);
       else
-        this.drawRadial(ctx, vp, annotation, occupied);
+        this.drawRadial(ctx, item);
     }
     ctx.restore();
   }
 
-  private drawLinear(
-    ctx: CanvasRenderingContext2D,
-    vp: ScreenViewport,
-    annotation: SketchLinearDimensionAnnotation,
-    occupied: ScreenRect[],
-  ): void {
-    const sa = vp.worldToView(annotation.a);
-    const sb = vp.worldToView(annotation.b);
-    if (![sa.x, sa.y, sb.x, sb.y].every(Number.isFinite)) return;
-
-    const lineDir = normalize(sb.x - sa.x, sb.y - sa.y);
-    if (!lineDir) return;
-
-    const sidePoint = vp.worldToView(annotation.a.plus(annotation.side));
-    let sideDir = normalize(sidePoint.x - sa.x, sidePoint.y - sa.y);
-    if (!sideDir) sideDir = { x: -lineDir.y, y: lineDir.x };
-    if (sideDir.x * lineDir.x + sideDir.y * lineDir.y > 0.5) {
-      // 侧向与尺寸线方向退化（探针太短/方向共线）：取垂线。
-      sideDir = { x: -lineDir.y, y: lineDir.x };
-    }
-
-    let offset = DIM_OFFSET;
-    let da = { x: sa.x + sideDir.x * offset, y: sa.y + sideDir.y * offset };
-    let db = { x: sb.x + sideDir.x * offset, y: sb.y + sideDir.y * offset };
-    let labelCenter = {
-      x: (da.x + db.x) / 2 + sideDir.x * 9,
-      y: (da.y + db.y) / 2 + sideDir.y * 9,
-    };
-    const angle = readableAngle(db.x - da.x, db.y - da.y);
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const rect = labelRect(labelCenter, angle, annotation.text);
-      if (!occupied.some((other) => rectsOverlap(rect, other))) break;
-      offset += STACK_STEP;
-      da = { x: sa.x + sideDir.x * offset, y: sa.y + sideDir.y * offset };
-      db = { x: sb.x + sideDir.x * offset, y: sb.y + sideDir.y * offset };
-      labelCenter = {
-        x: (da.x + db.x) / 2 + sideDir.x * 9,
-        y: (da.y + db.y) / 2 + sideDir.y * 9,
-      };
-    }
-    occupied.push(labelRect(labelCenter, angle, annotation.text));
+  private drawLinear(ctx: CanvasRenderingContext2D, item: SketchLinearDimensionLayout): void {
+    const { annotation, sa, sb, da, db, lineDir, sideDir, labelCenter, angle } = item;
 
     // 延长线（与几何留 3px 间隙，越过尺寸线 4px）。
     ctx.strokeStyle = LINE_COLOR;
@@ -212,7 +316,7 @@ export class SketchDimensionsDecoration {
     drawArrow(ctx, da, { x: -lineDir.x, y: -lineDir.y });
     drawArrow(ctx, db, lineDir);
 
-    // 数值：沿尺寸线旋转；文字底边贴近尺寸线（canvas 上为负 y）。
+    // 数值：沿尺寸线旋转。
     ctx.save();
     ctx.translate(labelCenter.x, labelCenter.y);
     ctx.rotate(angle);
@@ -227,32 +331,8 @@ export class SketchDimensionsDecoration {
     ctx.restore();
   }
 
-  private drawRadial(
-    ctx: CanvasRenderingContext2D,
-    vp: ScreenViewport,
-    annotation: SketchRadialDimensionAnnotation,
-    occupied: ScreenRect[],
-  ): void {
-    const sc = vp.worldToView(annotation.center);
-    const sp = vp.worldToView(annotation.point);
-    if (![sc.x, sc.y, sp.x, sp.y].every(Number.isFinite)) return;
-
-    const radial = normalize(sp.x - sc.x, sp.y - sc.y);
-    if (!radial) return;
-    const sidePoint = vp.worldToView(annotation.point.plus(annotation.side));
-    const sideDir = normalize(sidePoint.x - sp.x, sidePoint.y - sp.y);
-    const outward = sideDir && sideDir.x * radial.x + sideDir.y * radial.y >= 0 ? sideDir : radial;
-
-    let leaderEnd = { x: sp.x + outward.x * 44, y: sp.y + outward.y * 44 };
-    let labelCenter = { x: leaderEnd.x + outward.x * 12, y: leaderEnd.y + outward.y * 12 };
-    const angle = readableAngle(outward.x, outward.y);
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const rect = labelRect(labelCenter, angle, annotation.text);
-      if (!occupied.some((other) => rectsOverlap(rect, other))) break;
-      leaderEnd = { x: leaderEnd.x + outward.x * STACK_STEP, y: leaderEnd.y + outward.y * STACK_STEP };
-      labelCenter = { x: labelCenter.x + outward.x * STACK_STEP, y: labelCenter.y + outward.y * STACK_STEP };
-    }
-    occupied.push(labelRect(labelCenter, angle, annotation.text));
+  private drawRadial(ctx: CanvasRenderingContext2D, item: SketchRadialDimensionLayout): void {
+    const { annotation, sc, sp, outward, leaderEnd, labelCenter, angle } = item;
 
     // 圆心→弧点→外侧引线；箭头落在弧点上，指向圆心（标准半径标注）。
     ctx.strokeStyle = LINE_COLOR;
