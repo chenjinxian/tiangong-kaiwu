@@ -30,8 +30,17 @@ export interface SketchLinearPatternOptions {
   directionRad: number;
   /** 相邻实例间距（**草图局部契约单位=米**，>0；UI 的 mm → /1000）。 */
   spacingLocal: number;
-  /** 总实例数（含种子，2..100）。 */
+  /** 第一方向总实例数（含种子，2..100）。 */
   count: number;
+  /**
+   * 2026-11-13（live 证据 98/99）：第二方向网格——on-canvas 竖直把手 +
+   * `Nx` 计数 + 间距尺寸。count<=1 视为未启用；两方向总实例数 ≤1000。
+   */
+  secondDirection?: {
+    directionRad: number;
+    spacingLocal: number;
+    count: number;
+  };
 }
 
 export interface SketchCircularPatternOptions {
@@ -77,6 +86,8 @@ export type SketchLinearPatternResult =
 
 export const SKETCH_PATTERN_MIN_COUNT = 2;
 export const SKETCH_PATTERN_MAX_COUNT = 100;
+/** 两方向网格总实例上限（含种子）。 */
+export const SKETCH_PATTERN_MAX_TOTAL = 1000;
 
 function translateRef(
   ref: number | SketchPointDto,
@@ -286,6 +297,20 @@ export function buildSketchLinearPattern(
     || options.count < SKETCH_PATTERN_MIN_COUNT
     || options.count > SKETCH_PATTERN_MAX_COUNT)
     return { ok: false, error: 'invalid-count' };
+  const second = options.secondDirection;
+  if (second !== undefined && second.count > 1) {
+    if (!Number.isFinite(second.directionRad))
+      return { ok: false, error: 'invalid-direction' };
+    if (!Number.isFinite(second.spacingLocal) || second.spacingLocal <= 0)
+      return { ok: false, error: 'invalid-spacing' };
+    if (!Number.isInteger(second.count)
+      || second.count < 2
+      || second.count > SKETCH_PATTERN_MAX_COUNT)
+      return { ok: false, error: 'invalid-count' };
+    if (options.count * second.count > SKETCH_PATTERN_MAX_TOTAL)
+      return { ok: false, error: 'invalid-count' };
+  }
+  const secondCount = second !== undefined && second.count > 1 ? second.count : 1;
 
   const seed = collectSketchCopySet(entities, constraints, selection);
   const seedCurveIds = [...new Set(
@@ -296,23 +321,32 @@ export function buildSketchLinearPattern(
 
   const u = Math.cos(options.directionRad);
   const v = Math.sin(options.directionRad);
+  const u2 = secondCount > 1 ? Math.cos(second!.directionRad) : 0;
+  const v2 = secondCount > 1 ? Math.sin(second!.directionRad) : 0;
   let nextId = nextFreeId(entities, constraints);
   const addedEntities: SketchEntityDto[] = [];
   const addedConstraints: SketchConstraintDto[] = [];
   const instanceCurveIds: number[][] = [seedCurveIds];
 
-  for (let index = 1; index < options.count; index++) {
-    const instance = instantiateSketchCopy(seed.entities, seed.constraints, nextId);
-    if (!instance)
-      return { ok: false, error: 'no-selection' };
-    nextId = instance.nextId;
-    const du = u * options.spacingLocal * index;
-    const dv = v * options.spacingLocal * index;
-    for (const entity of instance.entities)
-      translateEntity(entity, du, dv);
-    addedEntities.push(...instance.entities);
-    addedConstraints.push(...instance.constraints);
-    instanceCurveIds.push(instance.curveIds);
+  // 行优先（第二方向外层）：网格 (i,j) 偏移 = i*第一方向 + j*第二方向；种子 (0,0) 已在。
+  for (let j = 0; j < secondCount; j++) {
+    for (let i = 0; i < options.count; i++) {
+      if (i === 0 && j === 0)
+        continue;
+      const instance = instantiateSketchCopy(seed.entities, seed.constraints, nextId);
+      if (!instance)
+        return { ok: false, error: 'no-selection' };
+      nextId = instance.nextId;
+      const du = u * options.spacingLocal * i
+        + (secondCount > 1 ? u2 * second!.spacingLocal * j : 0);
+      const dv = v * options.spacingLocal * i
+        + (secondCount > 1 ? v2 * second!.spacingLocal * j : 0);
+      for (const entity of instance.entities)
+        translateEntity(entity, du, dv);
+      addedEntities.push(...instance.entities);
+      addedConstraints.push(...instance.constraints);
+      instanceCurveIds.push(instance.curveIds);
+    }
   }
 
   return {

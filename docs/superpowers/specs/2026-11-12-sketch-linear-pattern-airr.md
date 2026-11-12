@@ -47,7 +47,7 @@
 - 变换的数值输入与可拖动/自定义基点（当前基点=选区质心，手柄拖拽），
   以及非均匀缩放/带外部约束的缩放。
 - 环形阵列的部分角度/角度手柄（当前固定整周 360°；builder 已支持部分角度，UI 未暴露）。
-- 第二方向阵列、跳过实例、曲线驱动阵列。
+- 跳过实例、曲线驱动阵列（第二方向已于 2026-11-13 实现，见 §6.2）。
 - 阵列关系的参数化（改数量/间距后联动更新历史实例）。
 
 ## 3. 复用矩阵
@@ -151,6 +151,27 @@
 - 已知近似：实例为独立几何副本，无“阵列关系”约束/历史联动；线性方向/间距
   默认值为 0°/10 mm（Onshape 文档单位相关）；环形角度固定整周、无角度输入；
   变换以选区质心为基点、仅均匀缩放，数值输入未实现。
+
+## 6.2 线性阵列第二方向（2026-11-13）
+
+- **live 证据**：自有副本中选中草图圆 → 线性阵列 → 种子出现后拖动竖直方向
+  手柄，Onshape 生成第二行实例并出现第二组方向/间距/`Nx` 计数手柄
+  （私有 `ui-evidence/ui-direct-mouse-20261112/98-onshape-linear-pattern-seeded.png`、
+  `99-onshape-linear-pattern-second-direction.png`；实测拖拽后为 2 行网格）。
+- **纯逻辑**：`SketchLinearPatternOptions.secondDirection`
+  `{directionRad, spacingLocal, count}`；行优先网格 (i,j)，偏移
+  `i×第一方向 + j×第二方向`；`count<=1` 视为未启用；校验第二方向有限/间距>0/
+  数量 2..100 且两方向总实例 ≤ `SKETCH_PATTERN_MAX_TOTAL=1000`。
+- **gizmo**：线性阵列新增第二方向箭头手柄（`sketch-pattern-direction-second`）、
+  间距手柄（`sketch-pattern-spacing-second`，第二行启用后出现）、计数手柄
+  （`sketch-pattern-count-second`，`Nx`）；拖动方向（Shift 15° 吸附）/间距/
+  计数，点击数值内联输入；第二方向默认 π/2（垂直）、间距 10 mm、数量 1；
+  预览 canvas 增加第二方向虚线。
+- **测试**：`sketch-pattern.test.ts` **19/19**（3×2 网格偏移、`count<=1`
+  未启用、非法方向/间距/总数拒收）；真栈 `e2e/sketch-pattern.spec.ts --grep
+  第二方向` **2 passed（44.4 s）**——countSecond 1→2、间距 15 mm、3×2 网格
+  6 圆（0/10/20 mm × 0/15 mm）、6 条 radius 约束、undo 回 1 圆。
+- **边界**：无第二方向的“反向”复选框；无跳过实例；仍为独立几何副本。
 
 ## 7. 风险与回滚
 

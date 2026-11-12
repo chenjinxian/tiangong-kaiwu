@@ -180,6 +180,58 @@ test.describe('草图线性阵列（Onshape canvas gizmo 对拍）', () => {
     }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(3);
   });
 
+  test('第二方向 3×2 网格（10/15 mm）→ Enter 提交 → 6 圆 → undo', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const { ctx, sketchId, token, project } = await openPatternSketch(page, request);
+    await selectCircleAndStartPattern(page, project);
+
+    // 第二方向默认垂直、1 行=未启用（live 证据 98/99 的 `Nx` 手柄）。
+    await expect(page.getByTestId('sketch-pattern-direction-second')).toBeVisible();
+    await expect(page.getByTestId('sketch-pattern-count-second')).toContainText('1x');
+    await expect(page.getByTestId('sketch-pattern-spacing-second')).toHaveCount(0);
+
+    await page.getByTestId('sketch-pattern-count-second').click();
+    let input = page.getByTestId('sketch-pattern-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('2');
+    await input.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-count-second')).toContainText('2x');
+    await expect(page.getByTestId('sketch-pattern-spacing-second')).toBeVisible();
+
+    await page.getByTestId('sketch-pattern-spacing-second').click();
+    input = page.getByTestId('sketch-pattern-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('15');
+    await input.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-spacing-second')).toContainText('15');
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-prompt')).toHaveCount(0, { timeout: 30_000 });
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(6);
+    const committed = await getSketchRpc(ctx, sketchId, token);
+    const centers = (committed?.entities ?? [])
+      .filter((entity) => entity.kind === 'circle')
+      .map((entity) => entity.kind === 'circle' ? entity.center as { x: number; y: number } : undefined);
+    const has = (x: number, y: number): boolean => centers.some(
+      (center) => center !== undefined && Math.abs(center.x - x) < 1e-6 && Math.abs(center.y - y) < 1e-6);
+    expect(has(0, 0)).toBe(true);
+    expect(has(0.01, 0)).toBe(true);
+    expect(has(0.02, 0)).toBe(true);
+    expect(has(0, 0.015)).toBe(true);
+    expect(has(0.01, 0.015)).toBe(true);
+    expect(has(0.02, 0.015)).toBe(true);
+    expect((committed?.constraints ?? []).filter((constraint) => constraint.kind === 'radius')).toHaveLength(6);
+
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBe(1);
+  });
+
   test('环形阵列：中心默认原点、count 4 → 绕原点 90° 均分 → undo', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const { ctx, sketchId, token, project } = await openPatternSketch(page, request, 0.02);

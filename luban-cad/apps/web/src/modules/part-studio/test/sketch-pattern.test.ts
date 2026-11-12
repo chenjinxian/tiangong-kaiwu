@@ -134,6 +134,65 @@ describe('buildSketchLinearPattern', () => {
       .toEqual({ ok: false, error: 'invalid-direction' });
   });
 
+  it('第二方向 3×2 网格：行优先偏移 = i×第一方向 + j×第二方向', () => {
+    const entities: SketchEntityDto[] = [circle(11, 0, 0)];
+    const constraints: SketchConstraintDto[] = [{ kind: 'radius', id: 101, refs: [11], value: 0.005 }];
+    const result = at(buildSketchLinearPattern(entities, constraints, [curveSelection(11)], {
+      directionRad: 0,
+      spacingLocal: 0.02,
+      count: 3,
+      secondDirection: { directionRad: Math.PI / 2, spacingLocal: 0.01, count: 2 },
+    }));
+
+    const centers = result.entities
+      .filter((entity) => entity.kind === 'circle')
+      .map((entity) => entity.kind === 'circle' ? entity.center as { x: number; y: number } : undefined);
+    expect(centers).toHaveLength(6);
+    const expected = [
+      { x: 0, y: 0 },
+      { x: 0.02, y: 0 },
+      { x: 0.04, y: 0 },
+      { x: 0, y: 0.01 },
+      { x: 0.02, y: 0.01 },
+      { x: 0.04, y: 0.01 },
+    ];
+    centers.forEach((center, index) => {
+      expect(center!.x).toBeCloseTo(expected[index]!.x, 10);
+      expect(center!.y).toBeCloseTo(expected[index]!.y, 10);
+    });
+    // 逐实例独立约束与 id。
+    expect(result.constraints.filter((constraint) => constraint.kind === 'radius')).toHaveLength(6);
+    expect(new Set(result.entities.map((entity) => entity.id)).size).toBe(result.entities.length);
+    expect(result.instanceCurveIds).toHaveLength(6);
+  });
+
+  it('第二方向 count<=1 视为未启用；非法第二方向/间距/总数拒收', () => {
+    const base = { directionRad: 0, spacingLocal: 0.02, count: 3 };
+    const disabled = at(buildSketchLinearPattern([circle(11, 0, 0)], [], [curveSelection(11)], {
+      ...base,
+      secondDirection: { directionRad: Number.NaN, spacingLocal: -1, count: 1 },
+    }));
+    expect(disabled.entities.filter((entity) => entity.kind === 'circle')).toHaveLength(3);
+
+    expect(buildSketchLinearPattern([circle(11, 0, 0)], [], [curveSelection(11)], {
+      ...base,
+      secondDirection: { directionRad: Number.NaN, spacingLocal: 0.01, count: 2 },
+    })).toEqual({ ok: false, error: 'invalid-direction' });
+    expect(buildSketchLinearPattern([circle(11, 0, 0)], [], [curveSelection(11)], {
+      ...base,
+      secondDirection: { directionRad: 0, spacingLocal: 0, count: 2 },
+    })).toEqual({ ok: false, error: 'invalid-spacing' });
+    expect(buildSketchLinearPattern([circle(11, 0, 0)], [], [curveSelection(11)], {
+      ...base,
+      secondDirection: { directionRad: 0, spacingLocal: 0.01, count: SKETCH_PATTERN_MAX_COUNT + 1 },
+    })).toEqual({ ok: false, error: 'invalid-count' });
+    expect(buildSketchLinearPattern([circle(11, 0, 0)], [], [curveSelection(11)], {
+      ...base,
+      count: 60,
+      secondDirection: { directionRad: 0, spacingLocal: 0.01, count: 20 },
+    })).toEqual({ ok: false, error: 'invalid-count' }); // 60×20 > 1000
+  });
+
   it('点实体单独选择不算曲线种子', () => {
     expect(buildSketchLinearPattern(
       [{ kind: 'point', id: 1, x: 0, y: 0 }],

@@ -947,6 +947,18 @@ symmetric 互斥）。
 - 二者证据在私有 `live-probes/` 与 `docs/LIVE-UI-SPECS.md`；live spec
   总数不变（**38**）。
 
+### 批次 68（2026-11-13，草图线性阵列第二方向）
+
+- live 证据：线性阵列种子态拖动竖直方向手柄 → 第二行蓝色预览 + 第二组
+  方向/间距/`Nx` 手柄（私有截图 98/99）。
+- 产品切片：`SketchLinearPatternOptions.secondDirection` 行优先网格
+  （i×第一方向 + j×第二方向，两方向总数 ≤1000）+ gizmo 第二方向
+  方向/间距/计数手柄（`sketch-pattern-*-second`）；默认垂直/10 mm/1 行。
+- 验证：`sketch-pattern.test.ts` 19/19；真栈
+  `e2e/sketch-pattern.spec.ts --grep 第二方向` 2 passed（3×2 网格 6 圆、
+  0/10/20 × 0/15 mm、undo）。
+- 未做：第二方向反向、跳过实例、曲线驱动阵列；实例仍是独立几何副本。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

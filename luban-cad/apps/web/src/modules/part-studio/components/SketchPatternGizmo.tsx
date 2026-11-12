@@ -22,6 +22,7 @@ import {
   buildSketchLinearPattern,
   buildSketchTransform,
   SKETCH_PATTERN_MAX_COUNT,
+  SKETCH_PATTERN_MAX_TOTAL,
   SKETCH_PATTERN_MIN_COUNT,
 } from '../internal/sketch-pattern.js';
 import { registerSketchPatternCommit } from '../internal/sketch-pattern-session.js';
@@ -59,8 +60,9 @@ const CLICK_SLOP_PX = 3;
 const PREVIEW_STROKE = '#4a90e2';
 const PREVIEW_FILL = 'rgba(74, 144, 226, 0.12)';
 
-type DragKind = 'direction' | 'spacing' | 'count' | 'center' | 'move' | 'rotate' | 'scale';
-type EditKind = 'spacing' | 'count';
+type DragKind = 'direction' | 'spacing' | 'count' | 'center' | 'move' | 'rotate' | 'scale'
+  | 'directionSecond' | 'spacingSecond' | 'countSecond';
+type EditKind = 'spacing' | 'count' | 'spacingSecond' | 'countSecond';
 
 interface DragState {
   kind: DragKind;
@@ -99,6 +101,10 @@ export function SketchPatternGizmo({
   const [directionRad, setDirectionRad] = React.useState(0);
   const [spacingMm, setSpacingMm] = React.useState(DEFAULT_SPACING_MM);
   const [count, setCount] = React.useState(DEFAULT_COUNT);
+  // 2026-11-13（live 证据 98/99）：线性阵列第二方向（默认垂直、1 行=未启用）。
+  const [secondDirectionRad, setSecondDirectionRad] = React.useState(Math.PI / 2);
+  const [secondSpacingMm, setSecondSpacingMm] = React.useState(DEFAULT_SPACING_MM);
+  const [secondCount, setSecondCount] = React.useState(1);
   // 环形阵列：旋转中心（草图局部）与总角度（默认整周）。
   const [centerLocal, setCenterLocal] = React.useState({ u: 0, v: 0 });
   const [angleRad] = React.useState(Math.PI * 2);
@@ -147,6 +153,11 @@ export function SketchPatternGizmo({
         directionRad,
         spacingLocal: spacingMm / 1000,
         count,
+        secondDirection: {
+          directionRad: secondDirectionRad,
+          spacingLocal: secondSpacingMm / 1000,
+          count: secondCount,
+        },
       })
       : kind === 'circular'
         ? buildSketchCircularPattern(sketch.entities, sketch.constraints, selected, {
@@ -160,7 +171,11 @@ export function SketchPatternGizmo({
           scale,
           origin: { u: seedLocal?.u ?? 0, v: seedLocal?.v ?? 0 },
         }),
-    [kind, sketch.entities, sketch.constraints, selected, directionRad, spacingMm, count, centerLocal, angleRad, deltaLocal, rotationRad, scale, seedLocal],
+    [
+      kind, sketch.entities, sketch.constraints, selected, directionRad, spacingMm, count,
+      secondDirectionRad, secondSpacingMm, secondCount,
+      centerLocal, angleRad, deltaLocal, rotationRad, scale, seedLocal,
+    ],
   );
   const circularCenterWorld = React.useMemo(
     () => frame.toWorld(centerLocal),
@@ -232,6 +247,45 @@ export function SketchPatternGizmo({
     ? (seedClient ? { x: seedClient.x + 18, y: seedClient.y - 18 } : undefined)
     : (lastClient ? { x: lastClient.x + perp.x * 16, y: lastClient.y + perp.y * 16 } : undefined);
 
+  // 2026-11-13：线性阵列第二方向（独立方向；默认垂直于第一方向）。
+  const secondSpacingLocal = secondSpacingMm / 1000;
+  const secondFirstWorld = seedLocal
+    ? frame.toWorld({
+      u: seedLocal.u + Math.cos(secondDirectionRad) * secondSpacingLocal,
+      v: seedLocal.v + Math.sin(secondDirectionRad) * secondSpacingLocal,
+    })
+    : undefined;
+  const secondLastWorld = seedLocal && secondCount > 1
+    ? frame.toWorld({
+      u: seedLocal.u + Math.cos(secondDirectionRad) * secondSpacingLocal * (secondCount - 1),
+      v: seedLocal.v + Math.sin(secondDirectionRad) * secondSpacingLocal * (secondCount - 1),
+    })
+    : undefined;
+  const secondFirstClient = secondFirstWorld ? toClient(secondFirstWorld) : undefined;
+  let secondScreenDir = { x: 0, y: -1 };
+  let secondSpacingPx = MIN_HANDLE_SPACING_PX;
+  if (seedClient && secondFirstClient) {
+    const dx = secondFirstClient.x - seedClient.x;
+    const dy = secondFirstClient.y - seedClient.y;
+    const length = Math.hypot(dx, dy);
+    if (length > 0.5)
+      secondScreenDir = { x: dx / length, y: dy / length };
+    secondSpacingPx = Math.max(MIN_HANDLE_SPACING_PX, length);
+  }
+  const secondPerp = { x: -secondScreenDir.y, y: secondScreenDir.x };
+  const secondDirectionClient = kind === 'linear' && seedClient ? {
+    x: seedClient.x + secondScreenDir.x * DIRECTION_HANDLE_PX,
+    y: seedClient.y + secondScreenDir.y * DIRECTION_HANDLE_PX,
+  } : undefined;
+  const secondSpacingHandle = kind === 'linear' && seedClient && secondCount > 1 ? {
+    x: seedClient.x + secondScreenDir.x * secondSpacingPx * 0.5 + secondPerp.x * 16,
+    y: seedClient.y + secondScreenDir.y * secondSpacingPx * 0.5 + secondPerp.y * 16,
+  } : undefined;
+  const secondCountHandle = kind === 'linear' && seedClient ? {
+    x: seedClient.x + secondScreenDir.x * (secondSpacingPx * Math.max(0, secondCount - 1) + 26) + secondPerp.x * 16,
+    y: seedClient.y + secondScreenDir.y * (secondSpacingPx * Math.max(0, secondCount - 1) + 26) + secondPerp.y * 16,
+  } : undefined;
+
   // 变换：选区屏幕包围盒（旋转手柄在顶边上方，四角为均匀缩放手柄）。
   const seedScreenPoints = seedPolylines
     .flatMap((line) => line.points.map((point) => toClient(point)))
@@ -292,6 +346,14 @@ export function SketchPatternGizmo({
       ctx.moveTo(seedView.x, seedView.y);
       ctx.lineTo(lastView.x, lastView.y);
       ctx.stroke();
+      // 第二方向网格线（live 证据 98/99：种子起竖直方向的第二行）。
+      if (secondLastWorld) {
+        const secondLastView = viewport.worldToView(secondLastWorld);
+        ctx.beginPath();
+        ctx.moveTo(seedView.x, seedView.y);
+        ctx.lineTo(secondLastView.x, secondLastView.y);
+        ctx.stroke();
+      }
     } else if (kind === 'circular' && seedLocal) {
       const radius = Math.hypot(seedLocal.u - centerLocal.u, seedLocal.v - centerLocal.v);
       if (radius > 1e-9) {
@@ -351,7 +413,7 @@ export function SketchPatternGizmo({
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-  }, [preview, viewport, sketch.plane, seedCenter, lastWorld, kind, seedLocal, centerLocal, deltaLocal, frame]);
+  }, [preview, viewport, sketch.plane, seedCenter, lastWorld, secondLastWorld, kind, seedLocal, centerLocal, deltaLocal, frame]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {
@@ -431,11 +493,17 @@ export function SketchPatternGizmo({
   const beginEdit = React.useCallback((kind: EditKind, position: { x: number; y: number }): void => {
     setEditing({
       kind,
-      value: kind === 'spacing' ? formatMm(spacingMm) : String(count),
+      value: kind === 'spacing'
+        ? formatMm(spacingMm)
+        : kind === 'spacingSecond'
+          ? formatMm(secondSpacingMm)
+          : kind === 'countSecond'
+            ? String(secondCount)
+            : String(count),
       x: position.x,
       y: position.y,
     });
-  }, [spacingMm, count]);
+  }, [spacingMm, count, secondSpacingMm, secondCount]);
 
   const applyEdit = React.useCallback((): void => {
     const current = editingRef.current;
@@ -446,14 +514,23 @@ export function SketchPatternGizmo({
       if (current.kind === 'spacing') {
         if (numeric > 0 && numeric <= 1_000_000)
           setSpacingMm(numeric);
+      } else if (current.kind === 'spacingSecond') {
+        if (numeric > 0 && numeric <= 1_000_000)
+          setSecondSpacingMm(numeric);
+      } else if (current.kind === 'countSecond') {
+        const next = Math.round(numeric);
+        const maxSecond = Math.max(1, Math.floor(SKETCH_PATTERN_MAX_TOTAL / count));
+        if (next >= 1 && next <= Math.min(SKETCH_PATTERN_MAX_COUNT, maxSecond))
+          setSecondCount(next);
       } else {
         const next = Math.round(numeric);
-        if (next >= SKETCH_PATTERN_MIN_COUNT && next <= SKETCH_PATTERN_MAX_COUNT)
+        if (next >= SKETCH_PATTERN_MIN_COUNT && next <= SKETCH_PATTERN_MAX_COUNT
+          && next * Math.max(1, secondCount) <= SKETCH_PATTERN_MAX_TOTAL)
           setCount(next);
       }
     }
     setEditing(null);
-  }, []);
+  }, [count, secondCount]);
 
   const startDrag = React.useCallback((kind: DragKind) => (event: React.PointerEvent<HTMLButtonElement>): void => {
     event.preventDefault();
@@ -547,15 +624,41 @@ export function SketchPatternGizmo({
       setDirectionRad(angle);
       return;
     }
+    if (drag.kind === 'directionSecond') {
+      let angle = Math.atan2(dv, du);
+      if (event.shiftKey) {
+        const step = Math.PI / 12;
+        angle = Math.round(angle / step) * step;
+      }
+      setSecondDirectionRad(angle);
+      return;
+    }
     const projection = du * Math.cos(directionRad) + dv * Math.sin(directionRad);
     if (drag.kind === 'spacing') {
       if (projection > 0.0001)
         setSpacingMm(clamp(projection * 1000, 0.1, 1_000_000));
       return;
     }
+    if (drag.kind === 'spacingSecond') {
+      const secondProjection = du * Math.cos(secondDirectionRad) + dv * Math.sin(secondDirectionRad);
+      if (secondProjection > 0.0001)
+        setSecondSpacingMm(clamp(secondProjection * 1000, 0.1, 1_000_000));
+      return;
+    }
+    if (drag.kind === 'countSecond') {
+      const secondProjection = du * Math.cos(secondDirectionRad) + dv * Math.sin(secondDirectionRad);
+      const nextSecond = Math.round(secondProjection / (secondSpacingMm / 1000)) + 1;
+      const maxSecond = Math.max(1, Math.floor(SKETCH_PATTERN_MAX_TOTAL / Math.max(1, count)));
+      setSecondCount(clamp(nextSecond, 1, Math.min(SKETCH_PATTERN_MAX_COUNT, maxSecond)));
+      return;
+    }
     const next = Math.round(projection / spacingLocal) + 1;
-    setCount(clamp(next, SKETCH_PATTERN_MIN_COUNT, SKETCH_PATTERN_MAX_COUNT));
-  }, [viewport, seedLocal, sketch.plane, directionRad, spacingLocal, kind]);
+    const maxFirst = Math.max(
+      SKETCH_PATTERN_MIN_COUNT,
+      Math.floor(SKETCH_PATTERN_MAX_TOTAL / Math.max(1, secondCount)),
+    );
+    setCount(clamp(next, SKETCH_PATTERN_MIN_COUNT, Math.min(SKETCH_PATTERN_MAX_COUNT, maxFirst)));
+  }, [viewport, seedLocal, sketch.plane, directionRad, spacingLocal, kind, secondDirectionRad, secondSpacingMm, secondCount, count]);
 
   const endDrag = React.useCallback((event: React.PointerEvent<HTMLButtonElement>): void => {
     const drag = dragRef.current;
@@ -573,7 +676,11 @@ export function SketchPatternGizmo({
       beginEdit('spacing', spacingHandle);
     else if (drag.kind === 'count' && countHandle)
       beginEdit('count', countHandle);
-  }, [beginEdit, spacingHandle, countHandle]);
+    else if (drag.kind === 'spacingSecond' && secondSpacingHandle)
+      beginEdit('spacingSecond', secondSpacingHandle);
+    else if (drag.kind === 'countSecond' && secondCountHandle)
+      beginEdit('countSecond', secondCountHandle);
+  }, [beginEdit, spacingHandle, countHandle, secondSpacingHandle, secondCountHandle]);
 
   if (!viewport || !sketch)
     return null;
@@ -681,6 +788,24 @@ export function SketchPatternGizmo({
               </svg>
             </button>
           )}
+          {kind === 'linear' && secondDirectionClient && (
+            <button
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--direction"
+              data-testid="sketch-pattern-direction-second"
+              title={t('partStudio.sketch.patternDirectionSecond')}
+              aria-label={t('partStudio.sketch.patternDirectionSecond')}
+              style={{ left: secondDirectionClient.x, top: secondDirectionClient.y }}
+              onPointerDown={startDrag('directionSecond')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M8 2.5v8.5M4.5 8 8 12l3.5-4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
           {kind === 'linear' && spacingHandle && (
             <button
               type="button"
@@ -696,6 +821,23 @@ export function SketchPatternGizmo({
               disabled={submitting}
             >
               <span className="part-studio-pattern-handle__label">{formatMm(spacingMm)}</span>
+            </button>
+          )}
+          {kind === 'linear' && secondSpacingHandle && (
+            <button
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--value"
+              data-testid="sketch-pattern-spacing-second"
+              title={t('partStudio.sketch.patternSpacingSecond')}
+              aria-label={t('partStudio.sketch.patternSpacingSecond')}
+              style={{ left: secondSpacingHandle.x, top: secondSpacingHandle.y }}
+              onPointerDown={startDrag('spacingSecond')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              disabled={submitting}
+            >
+              <span className="part-studio-pattern-handle__label">{formatMm(secondSpacingMm)}</span>
             </button>
           )}
           {kind !== 'transform' && countHandle && (
@@ -715,13 +857,32 @@ export function SketchPatternGizmo({
               <span className="part-studio-pattern-handle__label">{count}x</span>
             </button>
           )}
+          {kind === 'linear' && secondCountHandle && (
+            <button
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--value"
+              data-testid="sketch-pattern-count-second"
+              title={t('partStudio.sketch.patternCountSecond')}
+              aria-label={t('partStudio.sketch.patternCountSecond')}
+              style={{ left: secondCountHandle.x, top: secondCountHandle.y }}
+              onPointerDown={startDrag('countSecond')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              disabled={submitting}
+            >
+              <span className="part-studio-pattern-handle__label">{secondCount}x</span>
+            </button>
+          )}
           {editing && (
             <input
               className="part-studio-pattern-input"
               data-testid="sketch-pattern-input"
-              aria-label={editing.kind === 'spacing'
+              aria-label={editing.kind === 'spacing' || editing.kind === 'spacingSecond'
                 ? t('partStudio.sketch.patternSpacingInput')
-                : t('partStudio.sketch.patternCountInput')}
+                : editing.kind === 'countSecond'
+                  ? t('partStudio.sketch.patternCountSecond')
+                  : t('partStudio.sketch.patternCountInput')}
               style={{ left: editing.x, top: editing.y }}
               value={editing.value}
               autoFocus
