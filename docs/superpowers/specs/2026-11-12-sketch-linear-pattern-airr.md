@@ -205,10 +205,20 @@
     （`https://2910.onshape.com/help/Content/Sketch/sketch_circular_pattern.htm`）
     与 Tech Tip「Sketch Patterns」：默认 360°、拖箭头改开放角度、双击角度值
     输入（带单位）、单击方向箭头反转、接受后 Delete 删单实例。
+- **方向箭头单击反转（live 补采）**：线性阵列种子态
+  （`126-onshape-linear-pattern-seeded2-20261113.png`，含 `1` 间距、`3x`
+  计数、第一/第二方向箭头）→ **单击第一方向箭头**后预览整体翻到种子左侧、
+  箭头朝左、`3x` 标签跟随
+  （`127-onshape-linear-direction-flip.png`）→ 平面外单击接受，3 圆在左侧
+  落库并保留间距/计数构造标注
+  （`128-onshape-linear-flip-accepted.png`）；一次 undo 恢复原圆
+  （`129-onshape-linear-flip-undo.png`）。
 - **与 live 的差异（登记）**：Onshape 双击数值才开输入（单击无效），本产品
   单击即开内联输入（更易发现）；Onshape 在草图平面矩形内的空白单击**不**
   退出工具，平面外单击才接受，本产品草图视图没有有限平面边界，画布单击即
-  提交（拖拽/旋转相机不触发）。
+  提交（拖拽/旋转相机不触发）；Onshape 的阵列/变换分裂按钮主钮会切成**上次
+  使用的变体**（live 实测：用过环形阵列后主钮直接进环形），本产品主钮固定
+  线性阵列（下拉仍可选其余变体），登记为 UI 细节差异。
 - **实现**：
   - 环形阵列 `angleDeg` 状态（默认 360°）；弧末端外侧新增角度手柄
     （`sketch-pattern-angle`，标签 `N°`）：拖动按指针相对中心的方位改角度
