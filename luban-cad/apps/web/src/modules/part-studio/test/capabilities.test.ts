@@ -63,10 +63,19 @@ const EXPECTED_GATED_IDS = [
   'userFeatures', // 添加自定义特征（W1.2b 续审计：FeatureScript 不在本版本）
   'sketchText', // 草图文本（2026-11-13：占位改 gated；字体轮廓引擎/新实体类型未实现）
   'sketchConic', // 草图圆锥曲线（2026-11-13：占位改 gated；conic 实体/求解器未实现）
+  // 2026-11-13 live 飞菜单盘点（136-flyout-*）八项变体。
+  'sketchMidline',
+  'sketchEllipse',
+  'sketchEllipseArc',
+  'sketchSplineControlPoints',
+  'sketchIntersection',
+  'sketchSlot',
+  'sketchChamfer',
+  'sketchInsertImage',
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 gated + moveFace/transform/splitPart 已翻 full（共 34，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单八变体 + moveFace/transform/splitPart 已翻 full（共 42，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

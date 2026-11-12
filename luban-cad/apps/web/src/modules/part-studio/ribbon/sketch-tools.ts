@@ -79,43 +79,57 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
 
   // 绘制组（10 钮）。Onshape live 截图：线/使用主钮均带 ▾（变体未实现，
   // 空数组=保留箭头 UI）；矩形/圆/弧/多边形/样条飞菜单已列变体。
-  tool('Sketch.Line', 'partStudio.ribbon.sketchTools.line.label', 'sketchDraw', 'sketch', []),
+  tool('Sketch.Line', 'partStudio.ribbon.sketchTools.line.label', 'sketchDraw', 'sketch', [
+    menuItem('sketchMidline', 'partStudio.ribbon.sketchTools.midline.label', 'sketchMidline'),
+  ]),
   tool('Sketch.Rectangle', 'partStudio.ribbon.sketchTools.rectangle.label', 'sketchDraw', 'sketch', [
     menuItem('Sketch.CenterRectangle', 'partStudio.ribbon.sketchTools.rectangleCenter.label'),
     menuItem('Sketch.AlignedRectangle', 'partStudio.ribbon.sketchTools.rectangleAligned.label'),
   ]),
   tool('Sketch.CenterCircle', 'partStudio.ribbon.sketchTools.circle.label', 'sketchDraw', 'sketch', [
     menuItem('Sketch.PerimeterCircle', 'partStudio.ribbon.sketchTools.circlePerimeter.label'),
+    menuItem('sketchEllipse', 'partStudio.ribbon.sketchTools.ellipse.label', 'sketchEllipse'),
   ]),
   tool('Sketch.Arc3Point', 'partStudio.ribbon.sketchTools.arc.label', 'sketchDraw', 'sketch', [
-    menuItem('Sketch.CenterArc', 'partStudio.ribbon.sketchTools.arcCenter.label'),
+    // live 顺序：3 点圆弧 / 相切圆弧 / 圆心圆弧 / 椭圆弧 / 圆锥。
     menuItem('Sketch.TangentArc', 'partStudio.ribbon.sketchTools.arcTangent.label'),
+    menuItem('Sketch.CenterArc', 'partStudio.ribbon.sketchTools.arcCenter.label'),
+    menuItem('sketchEllipseArc', 'partStudio.ribbon.sketchTools.ellipseArc.label', 'sketchEllipseArc'),
+    menuItem('Sketch.Conic', 'partStudio.ribbon.sketchTools.conic.label', 'sketchConic'),
   ]),
   tool('sketchInscribedPolygon', 'partStudio.ribbon.sketchTools.polygon.label', 'sketchDraw', 'sketch', [
     menuItem('sketchCircumscribedPolygon', 'partStudio.ribbon.sketchTools.polygonCircumscribed.label'),
   ]),
   tool('Sketch.Spline', 'partStudio.ribbon.sketchTools.spline.label', 'sketchDraw', 'sketch', [
     menuItem('Sketch.Bezier', 'partStudio.ribbon.sketchTools.splineBezier.label'),
-    menuItem('Sketch.Conic', 'partStudio.ribbon.sketchTools.splineConic.label', 'sketchConic'),
+    menuItem('sketchSplineControlPoints', 'partStudio.ribbon.sketchTools.splineControlPoints.label', 'sketchSplineControlPoints'),
   ]),
   tool('Sketch.Point', 'partStudio.ribbon.sketchTools.point.label', 'sketchDraw'),
   tool('sketchText', 'partStudio.ribbon.sketchTools.text.label', 'sketchDraw', 'sketchText'),
-  tool('sketchUse', 'partStudio.ribbon.sketchTools.use.label', 'sketchDraw', 'sketch', []),
+  tool('sketchUse', 'partStudio.ribbon.sketchTools.use.label', 'sketchDraw', 'sketch', [
+    menuItem('sketchIntersection', 'partStudio.ribbon.sketchTools.intersection.label', 'sketchIntersection'),
+  ]),
   tool('sketchConstruction', 'partStudio.ribbon.sketchTools.construction.label', 'sketchDraw'),
 
   // 编辑组（6 钮）
-  tool('sketchFillet', 'partStudio.ribbon.sketchTools.fillet.label', 'sketchEdit', 'sketch', []),
+  tool('sketchFillet', 'partStudio.ribbon.sketchTools.fillet.label', 'sketchEdit', 'sketch', [
+    menuItem('sketchChamfer', 'partStudio.ribbon.sketchTools.chamfer.label', 'sketchChamfer'),
+  ]),
   tool('sketchTrim', 'partStudio.ribbon.sketchTools.trim.label', 'sketchEdit', 'sketch', [
     menuItem('sketchExtend', 'partStudio.ribbon.sketchTools.extend.label'),
     menuItem('sketchSplit', 'partStudio.ribbon.sketchTools.split.label'),
   ]),
-  tool('Sketch.Offset', 'partStudio.ribbon.sketchTools.offset.label', 'sketchEdit', 'sketch', []),
+  tool('Sketch.Offset', 'partStudio.ribbon.sketchTools.offset.label', 'sketchEdit', 'sketch', [
+    menuItem('sketchSlot', 'partStudio.ribbon.sketchTools.slot.label', 'sketchSlot'),
+  ]),
   tool('Sketch.Mirror', 'partStudio.ribbon.sketchTools.mirror.label', 'sketchEdit', 'sketch'),
   tool('sketchLinearPattern', 'partStudio.ribbon.sketchTools.linearPattern.label', 'sketchEdit', 'sketch', [
     menuItem('sketchCircularPattern', 'partStudio.ribbon.sketchTools.circularPattern.label'),
     menuItem('sketchTransform', 'partStudio.ribbon.sketchTools.transform.label'),
   ]),
-  tool('sketchInsertDxf', 'partStudio.ribbon.sketchTools.insertDxf.label', 'sketchEdit', 'sketch', []),
+  tool('sketchInsertDxf', 'partStudio.ribbon.sketchTools.insertDxf.label', 'sketchEdit', 'sketch', [
+    menuItem('sketchInsertImage', 'partStudio.ribbon.sketchTools.insertImage.label', 'sketchInsertImage'),
+  ]),
 
   // 尺寸组（Onshape 单钮，无下拉：同一个尺寸工具按拾取动态推断长度/半径/距离）
   tool('Sketch.Dimension', 'partStudio.ribbon.sketchTools.dimension.label', 'sketchDimension'),

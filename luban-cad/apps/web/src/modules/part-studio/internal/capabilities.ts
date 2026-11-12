@@ -49,6 +49,15 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   // 引擎与新实体类型；点击开引导而非静默 no-op）。
   sketchText: 'gated', // 草图文本（字体轮廓引擎 + 新实体类型未实现）
   sketchConic: 'gated', // 草图圆锥曲线（conic 实体/求解器未实现）
+  // 2026-11-13 live 飞菜单盘点（136-flyout-*）：Onshape 草图下拉变体全量登记。
+  sketchMidline: 'gated', // 中点线（变体工具未实现）
+  sketchEllipse: 'gated', // 椭圆（新实体类型/求解器/后端未实现）
+  sketchEllipseArc: 'gated', // 椭圆弧（同上）
+  sketchSplineControlPoints: 'gated', // 样条控制点（控制点创建模式未实现）
+  sketchIntersection: 'gated', // 交点（点-弧约束/交点工具未实现）
+  sketchSlot: 'gated', // 槽（工具未实现）
+  sketchChamfer: 'gated', // 草图倒角（工具未实现）
+  sketchInsertImage: 'gated', // 插入图像（图像实体/渲染未实现）
   deleteBodies: 'gated', // 删除零件（无后端 FeatureOp——W1.2b 诚实 gated）
   modifyFillet: 'gated', // 修改圆角（无工具/后端面——W1.2b 续审计诚实 gated）
   deleteFace: 'gated', // 删除面（内核 DeleteSubEntity 0 回包——blocked-kernel）
@@ -152,4 +161,13 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   // 2026-11-13：草图占位改 gated 引导。
   sketchText: guidanceFor('sketchText'),
   sketchConic: guidanceFor('sketchConic'),
+  // 2026-11-13 live 飞菜单变体盘点。
+  sketchMidline: guidanceFor('sketchMidline'),
+  sketchEllipse: guidanceFor('sketchEllipse'),
+  sketchEllipseArc: guidanceFor('sketchEllipseArc'),
+  sketchSplineControlPoints: guidanceFor('sketchSplineControlPoints'),
+  sketchIntersection: guidanceFor('sketchIntersection'),
+  sketchSlot: guidanceFor('sketchSlot'),
+  sketchChamfer: guidanceFor('sketchChamfer'),
+  sketchInsertImage: guidanceFor('sketchInsertImage'),
 };

@@ -151,7 +151,11 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
       expect(['sketch', 'extrude', 'revolve', 'sketchText']).toContain(tool.capability);
       expect(TOOL_CAPABILITIES[tool.capability]).toBeDefined();
       for (const command of [tool, ...(tool.dropdownItems ?? [])]) {
-        expect(['sketch', 'extrude', 'revolve', 'sketchText', 'sketchConic']).toContain(command.capability);
+        expect([
+          'sketch', 'extrude', 'revolve', 'sketchText', 'sketchConic',
+          'sketchMidline', 'sketchEllipse', 'sketchEllipseArc', 'sketchSplineControlPoints',
+          'sketchIntersection', 'sketchSlot', 'sketchChamfer', 'sketchInsertImage',
+        ]).toContain(command.capability);
         expect(command.labelKey.startsWith('partStudio.ribbon.')).toBe(true);
         const localPath = command.labelKey.replace(/^partStudio\./, '');
         const zh = lookup(zhPartStudio, localPath);

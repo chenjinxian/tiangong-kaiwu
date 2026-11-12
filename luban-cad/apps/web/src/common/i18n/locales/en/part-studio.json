@@ -618,6 +618,33 @@
       },
       "splineConic": {
         "label": "Conic"
+      },
+      "midline": {
+        "label": "Midpoint line"
+      },
+      "ellipse": {
+        "label": "Ellipse"
+      },
+      "ellipseArc": {
+        "label": "Elliptical arc"
+      },
+      "conic": {
+        "label": "Conic"
+      },
+      "splineControlPoints": {
+        "label": "Spline control points"
+      },
+      "intersection": {
+        "label": "Intersection"
+      },
+      "slot": {
+        "label": "Slot"
+      },
+      "chamfer": {
+        "label": "Chamfer"
+      },
+      "insertImage": {
+        "label": "Insert image"
       }
     }
   },
@@ -1627,6 +1654,38 @@
     "sketchConic": {
       "title": "Conic (not supported)",
       "message": "Onshape sketch conics require a new conic entity type with solver/backend support; the current sketch contract only has line/circle/arc/spline. Clicking writes nothing."
+    },
+    "sketchMidline": {
+      "title": "Midpoint line (planned)",
+      "message": "The midpoint-line creation variant is not wired yet; draw a line and use the Midpoint constraint instead. Planned for a later milestone."
+    },
+    "sketchEllipse": {
+      "title": "Ellipse (not supported)",
+      "message": "Ellipses require a new ellipse entity type with solver/backend support; the current sketch contract only has line/circle/arc/spline. Clicking writes nothing."
+    },
+    "sketchEllipseArc": {
+      "title": "Elliptical arc (not supported)",
+      "message": "Elliptical arcs require a new ellipse entity type with solver/backend support; the current sketch contract only has line/circle/arc/spline. Clicking writes nothing."
+    },
+    "sketchSplineControlPoints": {
+      "title": "Spline control points (planned)",
+      "message": "Control-point spline creation is not implemented yet (the existing spline/Bézier tools can be used instead); clicking writes nothing."
+    },
+    "sketchIntersection": {
+      "title": "Intersection (planned)",
+      "message": "The intersection tool needs point-on-arc constraints and an intersection pick channel; not implemented yet. Clicking writes nothing."
+    },
+    "sketchSlot": {
+      "title": "Slot (planned)",
+      "message": "The sketch slot tool is not implemented yet; draw two arcs plus two lines manually in the meantime."
+    },
+    "sketchChamfer": {
+      "title": "Sketch chamfer (planned)",
+      "message": "The sketch chamfer tool is not implemented yet (solid chamfer is unaffected); clicking writes nothing."
+    },
+    "sketchInsertImage": {
+      "title": "Insert image (not supported)",
+      "message": "Sketch images require an image entity and rendering support; not implemented in this version. Clicking writes nothing."
     }
   },
   "viewCube": {

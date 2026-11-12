@@ -618,6 +618,33 @@
       },
       "splineConic": {
         "label": "圆锥曲线"
+      },
+      "midline": {
+        "label": "中点线"
+      },
+      "ellipse": {
+        "label": "椭圆"
+      },
+      "ellipseArc": {
+        "label": "椭圆弧"
+      },
+      "conic": {
+        "label": "圆锥"
+      },
+      "splineControlPoints": {
+        "label": "样条控制点"
+      },
+      "intersection": {
+        "label": "交点"
+      },
+      "slot": {
+        "label": "槽"
+      },
+      "chamfer": {
+        "label": "倒角"
+      },
+      "insertImage": {
+        "label": "插入图像"
       }
     }
   },
@@ -1627,6 +1654,38 @@
     "sketchConic": {
       "title": "圆锥曲线（未支持）",
       "message": "Onshape 草图圆锥曲线需要新的 conic 实体类型及求解器/后端支持，当前草图契约只含线/圆/弧/样条；点击不会写入数据。"
+    },
+    "sketchMidline": {
+      "title": "中点线（规划中）",
+      "message": "中点线创建变体尚未接入；可先画线并用「中点」约束替代，后续里程碑提供。"
+    },
+    "sketchEllipse": {
+      "title": "椭圆（未支持）",
+      "message": "椭圆需要新的椭圆实体类型及求解器/后端支持，当前草图契约只含线/圆/弧/样条；点击不会写入数据。"
+    },
+    "sketchEllipseArc": {
+      "title": "椭圆弧（未支持）",
+      "message": "椭圆弧需要新的椭圆实体类型及求解器/后端支持，当前草图契约只含线/圆/弧/样条；点击不会写入数据。"
+    },
+    "sketchSplineControlPoints": {
+      "title": "样条控制点（规划中）",
+      "message": "样条控制点创建模式尚未实现（现有样条/贝塞尔曲线可替代）；点击不会写入数据。"
+    },
+    "sketchIntersection": {
+      "title": "交点（规划中）",
+      "message": "交点工具需要点-弧重合约束与交点拾取通道，尚未实现；点击不会写入数据。"
+    },
+    "sketchSlot": {
+      "title": "槽（规划中）",
+      "message": "草图槽工具尚未实现；可用两圆弧+两直线手动绘制，后续里程碑提供专用工具。"
+    },
+    "sketchChamfer": {
+      "title": "草图倒角（规划中）",
+      "message": "草图倒角工具尚未实现（实体倒角不受影响）；点击不会写入数据。"
+    },
+    "sketchInsertImage": {
+      "title": "插入图像（未支持）",
+      "message": "草图图像需要图像实体与渲染支持，当前版本未实现；点击不会写入数据。"
     }
   },
   "viewCube": {
