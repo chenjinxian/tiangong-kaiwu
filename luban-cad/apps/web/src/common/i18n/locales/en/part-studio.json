@@ -930,6 +930,8 @@
   },
   "sketch": {
     "dragFailed": "Sketch drag commit failed: {{message}}",
+    "deleteBlocked": "The entity is referenced by other geometry and cannot be deleted",
+    "deleteFailed": "Delete failed: {{message}}",
     "constraintsOverlay": "Constraints",
     "live": {
       "length": "Length",

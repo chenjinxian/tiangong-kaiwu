@@ -45,6 +45,8 @@ export interface SketchEntityPickerProps {
   onPreviewChange?: (entities: SketchEntityDto[] | null) => void;
   /** 释放提交：一次 updateSketch（宿主负责 RPC/失败 toast/刷新）。 */
   onCommitDrag?: (entities: SketchEntityDto[]) => void | Promise<void>;
+  /** Delete/Backspace：删除选中草图实体（宿主负责 updateSketch/诚实拒收）。 */
+  onDelete?: (selection: readonly SketchEntitySelection[]) => void | Promise<void>;
 }
 
 const CLICK_SLOP_PX = 4;
@@ -61,6 +63,7 @@ export function SketchEntityPicker({
   previewEntities,
   onPreviewChange,
   onCommitDrag,
+  onDelete,
 }: SketchEntityPickerProps): React.JSX.Element | null {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [hover, setHover] = React.useState<SketchEntitySelection | null>(null);
@@ -110,6 +113,8 @@ export function SketchEntityPicker({
   onPreviewChangeRef.current = onPreviewChange;
   const onCommitDragRef = React.useRef(onCommitDrag);
   onCommitDragRef.current = onCommitDrag;
+  const onDeleteRef = React.useRef(onDelete);
+  onDeleteRef.current = onDelete;
 
   React.useEffect(() => {
     const canvas = viewport?.canvas;
@@ -205,13 +210,32 @@ export function SketchEntityPicker({
       down = undefined;
       cancelDrag();
     };
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement))
+        return false;
+      if (target.isContentEditable)
+        return true;
+      return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+    };
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || !drag?.dragging)
+      if (event.key === 'Escape' && drag?.dragging) {
+        cancelDrag();
+        // 拖拽中的 Esc 只取消拖拽，不触发草图对话框的「退出草图」。
+        event.preventDefault();
+        event.stopPropagation();
         return;
-      cancelDrag();
-      // 拖拽中的 Esc 只取消拖拽，不触发草图对话框的「退出草图」。
-      event.preventDefault();
-      event.stopPropagation();
+      }
+      // ADR-0018 S1d：选中草图实体时 Delete/Backspace = 删除（Onshape live：
+      // 选中弧按 Delete 后弧消失、草图保持编辑态）。输入框聚焦时不吃键。
+      if ((event.key === 'Delete' || event.key === 'Backspace')
+        && !drag?.dragging
+        && selectedRef.current.length > 0
+        && !isEditableTarget(event.target)
+        && onDeleteRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        void onDeleteRef.current(selectedRef.current);
+      }
     };
     window.addEventListener('pointerdown', onDown, true);
     window.addEventListener('pointerup', onUp, true);

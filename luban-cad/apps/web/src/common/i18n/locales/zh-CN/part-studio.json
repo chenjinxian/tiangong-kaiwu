@@ -930,6 +930,8 @@
   },
   "sketch": {
     "dragFailed": "草图拖拽提交失败：{{message}}",
+    "deleteBlocked": "图元被其它图元引用，无法删除",
+    "deleteFailed": "删除失败：{{message}}",
     "constraintsOverlay": "约束",
     "live": {
       "length": "长度",

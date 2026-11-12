@@ -74,6 +74,8 @@ import { readBrepFaceHandle } from '../internal/brep-topology.js';
 import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.js';
 import { sketchPlaneFromFaceHandle } from '../internal/sketch-plane-from-face.js';
 import { SketchEntityPicker } from './SketchEntityPicker.js';
+import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
+import { deleteSketchEntities } from '../internal/sketch-delete.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
 import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
@@ -274,6 +276,41 @@ export function PartStudioCanvas({
     if (!canvasSelectionForSketchPlane.some((entry) => entry.kind === 'sketchEntity')) return;
     setCanvasSelection(canvasSelectionForSketchPlane.filter((entry) => entry.kind !== 'sketchEntity'));
   }, [sketchActiveForDecorations, canvasSelectionForSketchPlane, setCanvasSelection]);
+
+  // ADR-0018 S1d：Delete 删除选中草图曲线 → 一次 updateSketch；附着约束级联移除，
+  // 点实体仍被引用时整单诚实拒收（纯逻辑见 internal/sketch-delete.ts）。
+  const deleteSelectedSketchEntities = React.useCallback(async (selection: readonly SketchEntitySelection[]) => {
+    if (!sketchSystem?.activeSketch || !canEdit)
+      return;
+    const curveIds = [...new Set(selection.filter((entry) => entry.part === 'curve').map((entry) => entry.entityId))];
+    if (curveIds.length === 0)
+      return;
+    const result = deleteSketchEntities(
+      sketchSystem.activeSketch.entities,
+      sketchSystem.activeSketch.constraints,
+      curveIds,
+    );
+    if (result.blockedEntities.length > 0) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Warning,
+        t('partStudio.sketch.deleteBlocked'),
+      ));
+      return;
+    }
+    if (result.removedEntities.length === 0)
+      return;
+    const op = await sketchSystem.applyUpdate(result.entities, result.constraints);
+    if (!op.ok) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Error,
+        t('partStudio.sketch.deleteFailed', { message: op.error ?? '' }),
+      ));
+      return;
+    }
+    const removed = new Set(result.removedEntities);
+    setCanvasSelection(canvasSelectionForSketchPlane.filter((entry) =>
+      entry.kind !== 'sketchEntity' || !removed.has(entry.entityId ?? -1)));
+  }, [sketchSystem, canEdit, canvasSelectionForSketchPlane, setCanvasSelection, t]);
 
   // 打开草图对话框重置平面选择；关闭时清空（下一次打开不继承旧面）。
   React.useEffect(() => {
@@ -637,6 +674,7 @@ export function PartStudioCanvas({
           previewEntities={sketchPreviewEntities}
           onPreviewChange={setSketchPreviewEntities}
           onCommitDrag={commitSketchDrag}
+          onDelete={deleteSelectedSketchEntities}
           onSelectionChange={(entries) => {
             const others = canvasSelectionForSketchPlane.filter((entry) => entry.kind !== 'sketchEntity');
             setCanvasSelection([
