@@ -1140,7 +1140,7 @@
         "enterDistance": "Offset: click to set the side; enter the exact distance and confirm"
       },
       "toasts": {
-        "unsupportedKind": "Offset currently supports lines and arcs only",
+        "unsupportedKind": "Offset currently supports lines, arcs and circles (points/splines pending)",
         "degenerateRadius": "Offset distance too large: an inward-offset arc would collapse to zero radius",
         "zeroDistance": "Offset distance is zero; click away from the entity to set the offset"
       }

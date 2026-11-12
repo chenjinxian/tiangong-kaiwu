@@ -18,8 +18,8 @@
  * 裁决）：弧端点纯三角换算，全函数可 vitest 直测不 mock。
  *
  * v1 边界（诚实登记）：
- * - **只支持线+弧**：seed/链成员为 circle/point（契约无样条实体）→
- *   unsupportedKind 拒收，工具面 toast「偏移暂只支持线和圆弧」。
+ * - **支持线+弧+圆**（2026-11-13 live：圆偏移 = 同心圆 R±d，自身单成员链；
+ *   point/契约无样条实体 → unsupportedKind 拒收）。
  * - 焊接图三通道：①coincident(point,point)（线端点焊接，M3-b 矩形拓扑）；
  *   ②两线共享端点 point id（共享端点变体）；③**弧端点几何重合**——契约
  *   arc 无端点实体（仅 center 引用 point），coincident 无法寻址弧端点，
@@ -234,7 +234,8 @@ export function collectOffsetChain(
   const opts = typeof tolOrOptions === 'number' ? { tol: tolOrOptions } : tolOrOptions;
   const tol = opts.tol ?? OFFSET_TOL;
   const seed = entities.find((e) => e.id === seedId);
-  if (!seed || (seed.kind !== 'line' && seed.kind !== 'arc')) return { ok: false, error: 'unsupportedKind' };
+  if (!seed || (seed.kind !== 'line' && seed.kind !== 'arc' && seed.kind !== 'circle'))
+    return { ok: false, error: 'unsupportedKind' };
 
   const points = indexPoints(entities);
   const byId = new Map(entities.map((e) => [e.id, e]));
@@ -414,6 +415,8 @@ export function buildOffsetDraft(input: {
   const newConstraints: SketchConstraintDto[] = [];
   const offsetIds: number[] = [];
   const masterIds: number[] = [];
+  /** 圆/弧成员的实际偏移半径（单成员半径约束用——向内偏移是 R−d，不是 R+d）。 */
+  const offsetRadii = new Map<number, number>();
 
   for (const member of chain.members) {
     if (member.kind === 'line') {
@@ -444,8 +447,25 @@ export function buildOffsetDraft(input: {
       });
       offsetIds.push(idArc);
       masterIds.push(member.id);
+      offsetRadii.set(member.id, radius2);
+    } else if (member.kind === 'circle') {
+      // 2026-11-13 live：圆偏移 = 同心圆（光标圆外 R+d / 圆内 R−d）。
+      const center = resolvePoint(member.center, points);
+      if (!center || member.radius === undefined)
+        return { ok: false, error: 'unsupportedKind' };
+      const side = Math.hypot(cursor.u - center.u, cursor.v - center.v) > member.radius ? 1 : -1;
+      const radius2 = member.radius + side * distance;
+      if (!(radius2 > OFFSET_TOL)) return { ok: false, error: 'degenerateRadius' };
+      const idCircle = alloc();
+      newEntities.push({
+        kind: 'circle', id: idCircle,
+        center: { x: center.u, y: center.v }, radius: radius2,
+      });
+      offsetIds.push(idCircle);
+      masterIds.push(member.id);
+      offsetRadii.set(member.id, radius2);
     } else {
-      // circle/point（契约无样条）在链中 → 拒收（工具面「偏移暂只支持线和圆弧」）。
+      // point（契约无样条）在链中 → 拒收。
       return { ok: false, error: 'unsupportedKind' };
     }
   }
@@ -487,8 +507,7 @@ export function buildOffsetDraft(input: {
         { kind: 'distance', id: alloc(), refs: [ref, { entity: off, part: 'start' }], value: distance },
       );
     } else {
-      const arc = member as Extract<SketchEntityDto, { kind: 'arc' }>;
-      const radius2 = (arc.radius ?? 0) + distance;
+      const radius2 = offsetRadii.get(member.id) ?? 0;
       newConstraints.push(
         { kind: 'coincident', id: alloc(), refs: [{ entity: member.id, part: 'center' }, { entity: off, part: 'center' }] },
         { kind: 'radius', id: alloc(), refs: [off], value: radius2 },

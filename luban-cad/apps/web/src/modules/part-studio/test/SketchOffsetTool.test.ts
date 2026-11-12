@@ -182,7 +182,7 @@ describe('M6-c T4：collectOffsetChain 焊接图链扩展', () => {
     expect(b.chain.members.map((e) => e.id)).toEqual([6]);
   });
 
-  it('孤立弧（无相接）自成单成员链；circle/point 种子 → unsupportedKind', () => {
+  it('孤立弧/圆（无相接）自成单成员链；point 种子 → unsupportedKind', () => {
     const lone: SketchEntityDto[] = [
       { kind: 'point', id: 1, x: 0, y: 0 },
       { kind: 'arc', id: 2, center: 1, radius: 1, startAngle: 0, sweepAngle: Math.PI },
@@ -194,7 +194,11 @@ describe('M6-c T4：collectOffsetChain 焊接图链扩展', () => {
     expect(arcChain.chain.junctions).toHaveLength(0);
 
     const withCircle: SketchEntityDto[] = [...lone, { kind: 'circle', id: 3, center: 1, radius: 2 }];
-    expect(collectOffsetChain(withCircle, [], 3)).toEqual({ ok: false, error: 'unsupportedKind' });
+    const circleChain = collectOffsetChain(withCircle, [], 3);
+    expect(circleChain.ok).toBe(true);
+    if (!circleChain.ok) return;
+    expect(circleChain.chain.members.map((e) => e.id)).toEqual([3]);
+    expect(circleChain.chain.junctions).toHaveLength(0);
     expect(collectOffsetChain(withCircle, [], 1)).toEqual({ ok: false, error: 'unsupportedKind' }); // point
     expect(collectOffsetChain(withCircle, [], 99)).toEqual({ ok: false, error: 'unsupportedKind' }); // 不存在
   });
@@ -344,9 +348,41 @@ describe('M6-c T4：buildOffsetDraft 闭式偏移与约束展开（Tutorial 2 �
     expect(buildOffsetDraft({ chain: arcChain, entities: TUTORIAL_ENTITIES, distance: 0.7, cursor: { u: 2.3, v: 1.1 }, startId: 1 }))
       .toEqual({ ok: false, error: 'degenerateRadius' }); // 0.625−0.7 < 0
 
+    // 圆向内偏移坍缩 → degenerateRadius（2026-11-13 起圆支持同心圆偏移）。
     const circleMember: SketchEntityDto = { kind: 'circle', id: 30, center: 4, radius: 0.2 };
-    expect(buildOffsetDraft({ chain: chain({ members: [circleMember] }, 30), entities: TUTORIAL_ENTITIES, distance: 0.1, cursor: { u: 2.3, v: 1.1 }, startId: 1 }))
-      .toEqual({ ok: false, error: 'unsupportedKind' });
+    expect(buildOffsetDraft({ chain: chain({ members: [circleMember] }, 30), entities: TUTORIAL_ENTITIES, distance: 0.3, cursor: { u: 2.3, v: 1.1 }, startId: 1 }))
+      .toEqual({ ok: false, error: 'degenerateRadius' });
+  });
+
+  it('圆偏移（2026-11-13 live）：同心圆 R±d + coincident(center)+radius 约束', () => {
+    const circle: SketchEntityDto = { kind: 'circle', id: 40, center: { x: 1, y: 2 }, radius: 0.5 };
+    const entities: SketchEntityDto[] = [circle];
+    // 光标在圆外 → R+d。
+    const outward = buildOffsetDraft({
+      chain: chain({ members: [circle] }, 40), entities, distance: 0.2, cursor: { u: 2, v: 2 }, startId: 100,
+    });
+    expect(outward.ok).toBe(true);
+    if (!outward.ok) return;
+    const outCircle = outward.draft.entities.find((e) => e.kind === 'circle') as
+      | { id: number; center: { x: number; y: number }; radius: number }
+      | undefined;
+    expect(outCircle).toMatchObject({ center: { x: 1, y: 2 }, radius: 0.7 });
+    const outRadius = outward.draft.constraints.find((c) => c.kind === 'radius');
+    expect(outRadius?.value).toBeCloseTo(0.7, 9);
+    const outCoincident = outward.draft.constraints.find((c) => c.kind === 'coincident');
+    expect(outCoincident?.refs).toEqual([
+      { entity: 40, part: 'center' },
+      { entity: outCircle!.id, part: 'center' },
+    ]);
+    // 光标在圆内 → R−d（半径约束同步 R−d）。
+    const inward = buildOffsetDraft({
+      chain: chain({ members: [circle] }, 40), entities, distance: 0.2, cursor: { u: 1.1, v: 2 }, startId: 100,
+    });
+    expect(inward.ok).toBe(true);
+    if (!inward.ok) return;
+    const inCircle = inward.draft.entities.find((e) => e.kind === 'circle') as { radius: number } | undefined;
+    expect(inCircle?.radius).toBeCloseTo(0.3, 9);
+    expect(inward.draft.constraints.find((c) => c.kind === 'radius')?.value).toBeCloseTo(0.3, 9);
   });
 
   it('容差哨兵 OFFSET_TOL 为正小量（退化判定与几何通道共用口径）', () => {

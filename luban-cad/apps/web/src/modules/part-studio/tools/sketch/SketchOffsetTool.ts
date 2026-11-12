@@ -10,7 +10,7 @@
  * 1. 选链：点击起始实体（就近分辨——**弧参与**，resolveNearestOffsetSeedId，
  *   约束工具分辨器的偏移面外延）→ collectOffsetChain 沿焊接图自动扩展相接链
  *   （coincident/共享端点/弧端点几何重合三通道，sketch-offset-logic.ts）；
- *   circle/point 种子 → 拒收 toast「偏移暂只支持线和圆弧」。
+ *   circle 种子 → 同心圆 R±d（2026-11-13 live）；point 种子 → 拒收 toast。
  * 2. 定侧定距：橡皮筋预览（Dynamics 通道，SketchCreateTool 同款帧驱动）——
  *   光标到种子实体的垂距 = 偏移距 d，光标在每实体哪侧 = 该实体偏移方向
  *   （线=法向两侧；弧=圆内外）；第二点确认 → buildOffsetDraft 闭式草稿 →
@@ -124,12 +124,12 @@ export class SketchOffsetTool extends PrimitiveTool {
         return EventHandled.Yes;
       }
       const seed = sketch.entities.find((e) => e.id === seedId);
-      // 只支持线+弧（circle/point 种子 → 拒收；诚实降级——契约无样条实体）。
-      if (!seed || (seed.kind !== 'line' && seed.kind !== 'arc')) {
+      // 支持线+弧+圆（2026-11-13 live：圆偏移为同心圆；point 种子 → 拒收）。
+      if (!seed || (seed.kind !== 'line' && seed.kind !== 'arc' && seed.kind !== 'circle')) {
         this._notify(i18next.t('partStudio.sketch.offset.toasts.unsupportedKind'), OutputMessagePriority.Info);
         return EventHandled.Yes;
       }
-      // 相接链自动扩展（焊接图连通闭包；seed 非线/弧已挡）。
+      // 相接链自动扩展（焊接图连通闭包；seed 非线/弧/圆已挡）。
       // 切线链：只在光滑相接处扩展（Tutorial 2 基底角不把矩形拉进偏移链）。
       const collected = collectOffsetChain(sketch.entities, sketch.constraints, seed.id, { tangentOnly: true });
       if (!collected.ok) {
@@ -256,6 +256,12 @@ export class SketchOffsetTool extends PrimitiveTool {
         );
         arc.tryTransformInPlace(this._plane.localToWorld);
         builder.addArc(arc, false, false);
+      } else if (e.kind === 'circle') {
+        const c = resolvePoint(e.center);
+        if (!c || e.radius === undefined) continue;
+        const circle = Arc3d.createXY(Point3d.create(c.u, c.v, 0), e.radius);
+        circle.tryTransformInPlace(this._plane.localToWorld);
+        builder.addArc(circle, false, false);
       }
     }
     context.addGraphic(builder.finish());

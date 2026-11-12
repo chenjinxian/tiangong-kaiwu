@@ -48,7 +48,8 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
       setPending({
         kind: 'offset',
         candidate,
-        value: String(candidate.measuredDistance),
+        // 亚像素量距只做初值：保留 0.1 mm（0.0001 m）精度，避免长尾浮点噪声。
+        value: String(Number(candidate.measuredDistance.toFixed(4))),
         anchor: candidate.anchor ?? DEFAULT_ANCHOR,
       });
       setSubmitting(false);
