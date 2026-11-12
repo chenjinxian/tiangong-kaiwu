@@ -56,6 +56,8 @@ export interface PartStudioActions {
   exitSketch: () => void;
   /** M6-a T5：活动草图平面下发（SketchDialog 确认链 → 宿主 onConfirm 消费面调用）。 */
   setActiveSketchPlane: (plane: SketchPlaneDto | null) => void;
+  /** ADR-0018 S1g：草图「显示约束」开关（glyph + 尺寸标注覆盖层显隐）。 */
+  setShowConstraints: (visible: boolean) => void;
   toggleSketchConstruction: () => void;
   // commandPalette 切片
   openCommandPalette: () => void;
@@ -126,6 +128,8 @@ const initialSketch: PartStudioSketchState = {
   constructionMode: false,
   // ADR-0018 S1f：缺省编辑语义（不抢相机）；新建由 SketchDialog 显式置 true。
   orientCameraOnEnter: false,
+  // ADR-0018 S1g：Onshape live 草图对话框默认勾选「显示约束」。
+  showConstraints: true,
 };
 
 const initialCommandPalette: PartStudioCommandPaletteState = {
@@ -190,7 +194,7 @@ function createToolSlice([set]: SliceCreator): { tool: PartStudioToolState } & P
 
 /** sketch 切片：草图模式进出（活动草图 id 寻址树红显/对话框）+ 平面下发（M6-a T5）。 */
 function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketchState } & Pick<PartStudioActions,
-  'enterSketch' | 'exitSketch' | 'setActiveSketchPlane' | 'toggleSketchConstruction'> {
+  'enterSketch' | 'exitSketch' | 'setActiveSketchPlane' | 'setShowConstraints' | 'toggleSketchConstruction'> {
   return {
     sketch: initialSketch,
     // 进草图恒先归零平面（防上一草图会话的平面残留串场）；新建路径的平面随后由
@@ -202,6 +206,8 @@ function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketch
         activeSketchPlane: null,
         constructionMode: false,
         orientCameraOnEnter: options?.orientCamera === true,
+        // 显示开关跨草图会话保留（Onshape 会话内复选框状态延续）；缺省勾选。
+        showConstraints: get().sketch.showConstraints ?? true,
       },
     }),
     exitSketch: () => set({ sketch: { ...initialSketch } }),
@@ -209,6 +215,7 @@ function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketch
     // enterSketch(真 sketchId)、再经 onConfirm 回调把平面选项带出——宿主
     // PartStudioCanvas 在 onConfirm 里映射下发；enterSketch 签名保持 T4 口径不动。
     setActiveSketchPlane: (plane) => set({ sketch: { ...get().sketch, activeSketchPlane: plane } }),
+    setShowConstraints: (visible) => set({ sketch: { ...get().sketch, showConstraints: visible } }),
     toggleSketchConstruction: () => set({ sketch: { ...get().sketch, constructionMode: !get().sketch.constructionMode } }),
   };
 }

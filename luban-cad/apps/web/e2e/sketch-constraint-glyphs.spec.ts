@@ -32,6 +32,7 @@ const ENTITIES: SketchEntityDto[] = [
 const CONSTRAINTS: SketchConstraintDto[] = [
   { kind: 'horizontal', id: 101, refs: [11] },
   { kind: 'vertical', id: 102, refs: [12] },
+  { kind: 'length', id: 103, refs: [11], value: 20 },
 ];
 
 interface Point { x: number; y: number }
@@ -73,8 +74,23 @@ test.describe('草图非尺寸约束 glyph（Onshape 对拍）', () => {
     await page.waitForTimeout(600);
 
     const glyph = page.locator('[data-testid="sketch-constraint-glyph"][data-constraint-id="101"]').first();
+    const dimensionLabel = page.locator('[data-testid="sketch-dimension-label"][data-constraint-id="103"]').first();
     await expect(glyph).toHaveCount(1, { timeout: 30_000 });
     await expect(glyph).toHaveAttribute('data-kind', 'horizontal');
+    await expect(dimensionLabel).toHaveCount(1);
+
+    // ADR-0018 S1g：「显示约束」关闭同时隐藏非尺寸 glyph 与尺寸标注（live 实测）。
+    const showConstraints = page.getByRole('checkbox', { name: '显示约束' });
+    await expect(showConstraints).toBeChecked();
+    await showConstraints.click();
+    await expect(showConstraints).not.toBeChecked();
+    await expect(glyph).toHaveCount(0);
+    await expect(dimensionLabel).toHaveCount(0);
+    await showConstraints.click();
+    await expect(showConstraints).toBeChecked();
+    await expect(glyph).toHaveCount(1);
+    await expect(dimensionLabel).toHaveCount(1);
+
     const centerAttr = await glyph.getAttribute('data-center');
     expect(centerAttr).not.toBeNull();
     const [xText, yText] = centerAttr!.split(',');
@@ -93,8 +109,8 @@ test.describe('草图非尺寸约束 glyph（Onshape 对拍）', () => {
     await page.keyboard.press('Delete');
     await expect.poll(async () => {
       const sketch = await getSketchRpc(ctx, sketchId, token);
-      return (sketch?.constraints ?? []).map((constraint) => constraint.id);
-    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toEqual([102]);
+      return (sketch?.constraints ?? []).map((constraint) => constraint.id).sort((a, b) => a - b);
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toEqual([102, 103]);
     await expect(glyph).toHaveCount(0, { timeout: 10_000 });
     // 另一条约束的 glyph 仍在。
     await expect(page.locator('[data-testid="sketch-constraint-glyph"][data-constraint-id="102"]')).toHaveCount(1);

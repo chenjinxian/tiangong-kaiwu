@@ -169,7 +169,7 @@ function resetStore(): void {
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
-    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false },
+    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false, showConstraints: true },
     dialog: { active: null },
     tool: { activeToolId: null },
     commandPalette: { isOpen: false, query: '', highlightEnabled: true },
@@ -366,6 +366,20 @@ describe('四开关（os-30 勾选组）', () => {
   });
 });
 
+describe('显示约束受控（ADR-0018 S1g）', () => {
+  it('受控 prop 决定勾选态；翻转即时回传宿主（覆盖层 gate）', async () => {
+    const user = userEvent.setup();
+    const onShowConstraintsChange = vi.fn();
+    render(<SketchDialog showConstraints={false} onShowConstraintsChange={onShowConstraintsChange} />);
+    const checkbox = screen.getByRole('checkbox', { name: '显示约束' }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    await user.click(checkbox);
+    expect(onShowConstraintsChange).toHaveBeenCalledWith(true);
+    // 受控：宿主未回写前勾选态不变（不出现双状态源）。
+    expect(checkbox.checked).toBe(false);
+  });
+});
+
 describe('确认/取消 ↔ store.sketch 联动', () => {
   it('✓确认（壳期未接 applyOp）→ onConfirm 载荷 + enterSketch（sketchId prop 寻址）', async () => {
     const { onConfirm } = renderDialog({ sketchId: 'sketch-7' });
@@ -373,7 +387,7 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     await choosePlane(user);
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-7', activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: true });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-7', activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: true, showConstraints: true });
   });
 
   it('✗取消 → onCancel + exitSketch 复位（进行中草图退出）', async () => {
@@ -382,7 +396,7 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '取消' }));
     expect(onCancel).toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false, showConstraints: true });
   });
 
   it('Escape = 取消（Onshape 草图工具退出语义；焦点在画布也生效）', () => {
@@ -440,7 +454,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     });
     // 成功 → 真 sketchId 入 store（enterSketch 真 id 断言）+ onConfirm 载荷照常。
     await waitFor(() =>
-      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-42', activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: true }),
+      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-42', activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: true, showConstraints: true }),
     );
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -464,7 +478,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     await user.click(screen.getByRole('button', { name: '确认' }));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('约束求解失败');
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false, showConstraints: true });
     expect(onConfirm).not.toHaveBeenCalled();
     // 对话框仍在场（不关框）。
     expect(screen.getByRole('dialog', { name: /^草图( 1)?$/ })).toBeDefined();
@@ -628,6 +642,7 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
         activeSketchPlane: sketchPlaneFromOption('front'),
         constructionMode: false,
         orientCameraOnEnter: true,
+        showConstraints: true,
       }),
     );
     // Onshape：创建后同一草图对话框保持打开（编辑态）；再次 ✓ 完成退出。

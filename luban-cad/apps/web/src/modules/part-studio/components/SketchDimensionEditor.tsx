@@ -196,6 +196,13 @@ export function SketchDimensionEditor({
         return true;
       return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
     };
+    // 覆盖层命中时把焦点从对话框控件（复选框/输入框）收回画布语境：否则
+    // preventDefault 阻止默认聚焦，后续 Delete 会被「输入框不吃键」守卫吞掉。
+    const blurActiveInput = (): void => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active !== canvas && active !== document.body)
+        active.blur();
+    };
     const onPointerDown = (event: PointerEvent): void => {
       if (event.button !== 0 || editorRef.current)
         return;
@@ -213,6 +220,7 @@ export function SketchDimensionEditor({
           if (glyphConstraintId !== null) {
             event.preventDefault();
             event.stopPropagation();
+            blurActiveInput();
             onSelectConstraintRef.current?.(glyphConstraintId);
             return;
           }
@@ -226,6 +234,7 @@ export function SketchDimensionEditor({
         return;
       event.preventDefault();
       event.stopPropagation();
+      blurActiveInput();
       onSelectConstraintRef.current?.(constraintId);
     };
     const onKeyDown = (event: KeyboardEvent): void => {

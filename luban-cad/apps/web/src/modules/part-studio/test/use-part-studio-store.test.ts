@@ -41,6 +41,8 @@ const INITIAL_STATE: PartStudioState = {
     activeSketchId: null,
     // M6-a T5：平面缺省 null=契约缺省 XY@z=0。
     activeSketchPlane: null,
+    // ADR-0018 S1g：显示约束缺省勾选（Onshape live）。
+    showConstraints: true,
   },
   commandPalette: {
     isOpen: false,
@@ -142,9 +144,9 @@ describe('tool 切片（当前工具）', () => {
 describe('sketch 切片（草图模式）', () => {
   it('enterSketch 进草图模式并记活动草图（平面归零防串场），exitSketch 全复位', () => {
     usePartStudioStore.getState().enterSketch('sketch-9');
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9', activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9', activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false, showConstraints: true });
     usePartStudioStore.getState().exitSketch();
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false, showConstraints: true });
   });
 
   it('v1.23：toggleSketchConstruction 切换构造模式，enterSketch 归零', () => {
@@ -156,6 +158,16 @@ describe('sketch 切片（草图模式）', () => {
     usePartStudioStore.getState().toggleSketchConstruction();
     usePartStudioStore.getState().enterSketch('sketch-d');
     expect(usePartStudioStore.getState().sketch.constructionMode).toBe(false);
+  });
+
+  it('ADR-0018 S1g：showConstraints 默认勾选，setShowConstraints 写入并在 enterSketch 保留，exitSketch 复位', () => {
+    expect(usePartStudioStore.getState().sketch.showConstraints).toBe(true);
+    usePartStudioStore.getState().setShowConstraints(false);
+    expect(usePartStudioStore.getState().sketch.showConstraints).toBe(false);
+    usePartStudioStore.getState().enterSketch('sketch-g');
+    expect(usePartStudioStore.getState().sketch.showConstraints).toBe(false);
+    usePartStudioStore.getState().exitSketch();
+    expect(usePartStudioStore.getState().sketch.showConstraints).toBe(true);
   });
 
   it('M6-a T5：setActiveSketchPlane 下发平面；enterSketch 再进归零（不串上一会话）', () => {

@@ -211,6 +211,9 @@ export function PartStudioCanvas({
   useDatumPlaneDecorations(viewport);
   const sketchActiveForDecorations = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchIdForDecorations = usePartStudioStore((s) => s.sketch.activeSketchId);
+  // ADR-0018 S1g：草图「显示约束」开关 gate 尺寸标注 + 非尺寸 glyph 覆盖层。
+  const showConstraintsForSketch = usePartStudioStore((s) => s.sketch.showConstraints ?? true);
+  const setShowConstraints = usePartStudioStore((s) => s.setShowConstraints);
   // ADR-0018 S1c：拖拽预览（显示层覆盖）与释放提交（一次 updateSketch，可 undo）。
   const [sketchPreviewEntities, setSketchPreviewEntities] = React.useState<readonly SketchEntityDto[] | null>(null);
   React.useEffect(() => {
@@ -240,10 +243,11 @@ export function PartStudioCanvas({
     sketchPreviewEntities,
   );
   // 2026-11-02 Onshape live：活动草图尺寸标注（长度/距离/半径）视口绘制。
+  // ADR-0018 S1g：`显示约束` 关闭时尺寸标注与非尺寸 glyph 一起隐藏（live 证据）。
   const { annotations: sketchAnnotations, glyphs: sketchConstraintGlyphs } = useSketchAnnotations(
     viewport,
     sketchSystem?.activeSketch,
-    sketchActiveForDecorations && sketchSystem !== undefined,
+    sketchActiveForDecorations && sketchSystem !== undefined && showConstraintsForSketch,
   );
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
   /** 新建草图对话框的平面选择（三基准面 id / cPlane 特征 id / 模型面选择 id；关闭即清）。 */
@@ -826,7 +830,7 @@ export function PartStudioCanvas({
         />
       )}
       {/* ADR-0018 S1e：双击尺寸数值 → 内联改值（updateSketchConstraint）。 */}
-      {sketchActiveForDecorations && sketchSystem?.activeSketch && activeToolIdForSketchPicker == null && canEdit && (
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && activeToolIdForSketchPicker == null && canEdit && showConstraintsForSketch && (
         <SketchDimensionEditor
           viewport={viewport}
           annotations={sketchAnnotations}
@@ -1131,6 +1135,8 @@ export function PartStudioCanvas({
           }}
           applyOp={applyOp}
           canEdit={canEdit}
+          showConstraints={showConstraintsForSketch}
+          onShowConstraintsChange={setShowConstraints}
           onConfirm={handleSketchConfirm}
           onCancel={handleSketchDialogCancel}
           onFitToView={viewport ? () => {

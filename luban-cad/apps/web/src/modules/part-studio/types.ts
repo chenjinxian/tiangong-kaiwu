@@ -161,6 +161,12 @@ export interface PartStudioSketchState {
    * 回放），显式“正视草图平面”由草图对话框按钮承担。
    */
   orientCameraOnEnter?: boolean;
+  /**
+   * ADR-0018 S1g：草图对话框「显示约束」开关（Onshape live 默认勾选）。
+   * false 时隐藏约束 glyph 与尺寸标注覆盖层（live 实测两者同时消失），
+   * 一并关闭其选中/双击改值拾取；缺省 true。
+   */
+  showConstraints?: boolean;
 }
 
 /** commandPalette 切片——命令搜索面板（alt+/）开关 + 查询词 + ribbon 亮显。 */

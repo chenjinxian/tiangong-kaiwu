@@ -116,6 +116,12 @@ export interface SketchDialogProps {
    * 缺省回退全局模型取景。
    */
   onFitToView?: () => void;
+  /**
+   * ADR-0018 S1g：受控「显示约束」开关（宿主 gate 草图 glyph/尺寸标注覆盖层）。
+   * 缺省为内部态；提供该 prop 时以宿主值为准，变更经 onShowConstraintsChange 回传。
+   */
+  showConstraints?: boolean;
+  onShowConstraintsChange?: (visible: boolean) => void;
 }
 
 /** 缺省基准面 id（datun plane 寻址；RPC 接线后由真实平面数据替换）。 */
@@ -141,6 +147,8 @@ export function SketchDialog({
   onConfirm,
   onCancel,
   onFitToView,
+  showConstraints: showConstraintsProp,
+  onShowConstraintsChange,
 }: SketchDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const enterSketch = usePartStudioStore((s) => s.enterSketch);
@@ -168,7 +176,9 @@ export function SketchDialog({
   const [disableImprint, setDisableImprint] = React.useState(false);
   // Onshape live（2026-11-12 截图）：显示约束/显示表达式/显示错误默认勾选，
   // 仅「禁用压印」默认不勾。
-  const [showConstraints, setShowConstraints] = React.useState(true);
+  const [showConstraintsInternal, setShowConstraintsInternal] = React.useState(true);
+  // ADR-0018 S1g：宿主受控（覆盖层 gate）优先；缺省回落内部态（纯展示/壳期）。
+  const showConstraints = showConstraintsProp ?? showConstraintsInternal;
   const [showExpressions, setShowExpressions] = React.useState(true);
   const [showErrors, setShowErrors] = React.useState(true);
   const [helpOpen, setHelpOpen] = React.useState(false);
@@ -455,7 +465,10 @@ export function SketchDialog({
             <input
               type="checkbox"
               checked={showConstraints}
-              onChange={(event) => setShowConstraints(event.target.checked)}
+              onChange={(event) => {
+                setShowConstraintsInternal(event.target.checked);
+                onShowConstraintsChange?.(event.target.checked);
+              }}
             />
             <span>{t('partStudio.sketchDialog.toggles.showConstraints')}</span>
           </label>
