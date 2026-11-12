@@ -187,6 +187,30 @@ function distanceAnchors(a: ResolvedItem, b: ResolvedItem): [LocalPoint, LocalPo
   return undefined;
 }
 
+/** 两条无限直线交点；平行/退化返回 undefined（角度标注顶点）。 */
+function lineIntersection(lineA: LineItem, lineB: LineItem): LocalPoint | undefined {
+  const ax = lineA.b.x - lineA.a.x;
+  const ay = lineA.b.y - lineA.a.y;
+  const bx = lineB.b.x - lineB.a.x;
+  const by = lineB.b.y - lineB.a.y;
+  const cross = ax * by - ay * bx;
+  const lenA = Math.hypot(ax, ay);
+  const lenB = Math.hypot(bx, by);
+  if (lenA < EPS || lenB < EPS || Math.abs(cross) <= EPS * lenA * lenB)
+    return undefined;
+  const dx = lineB.a.x - lineA.a.x;
+  const dy = lineB.a.y - lineA.a.y;
+  const t = (dx * by - dy * bx) / cross;
+  return { x: lineA.a.x + ax * t, y: lineA.a.y + ay * t };
+}
+
+/** 角度标注射线：取线段上离交点较远的端点（朝线段主体一侧）。 */
+function fartherEndpoint(line: LineItem, vertex: LocalPoint): LocalPoint {
+  const da = Math.hypot(line.a.x - vertex.x, line.a.y - vertex.y);
+  const db = Math.hypot(line.b.x - vertex.x, line.b.y - vertex.y);
+  return da >= db ? line.a : line.b;
+}
+
 /** 草图全部实体 2D 包围盒中心（标注「远离中心」规则的基准）。 */
 function sketchLocalCenter(entities: readonly SketchEntityDto[]): LocalPoint {
   const points = new Map<number, LocalPoint>();
@@ -341,6 +365,25 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
           point: world(point),
           side: sideWorld(frame, radial),
           text: `⌀${formatSketchDimensionValue(constraint.value)}`,
+        });
+        break;
+      }
+      case 'angle': {
+        const [refA, refB] = constraint.refs;
+        if (refA === undefined || refB === undefined || constraint.value === undefined) break;
+        const itemA = resolveRef(refA, entities, points);
+        const itemB = resolveRef(refB, entities, points);
+        if (itemA?.kind !== 'line' || itemB?.kind !== 'line') break;
+        const vertex = lineIntersection(itemA, itemB);
+        if (!vertex) break;
+        annotations.push({
+          kind: 'angular',
+          id: `dimension-${constraint.id}`,
+          vertex: world(vertex),
+          a: world(fartherEndpoint(itemA, vertex)),
+          b: world(fartherEndpoint(itemB, vertex)),
+          // shared 契约 angle.value 为弧度；Onshape 显示度数。
+          text: `${formatSketchDimensionValue(Math.abs(constraint.value) * 180 / Math.PI)}°`,
         });
         break;
       }

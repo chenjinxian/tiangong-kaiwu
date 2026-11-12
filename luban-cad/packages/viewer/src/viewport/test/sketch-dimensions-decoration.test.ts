@@ -18,7 +18,12 @@ vi.mock('@itwin/core-frontend', () => ({
   IModelApp: { viewManager: { addDecorator: addDecoratorMock } },
 }));
 
-import { type SketchDimensionAnnotation, SketchDimensionsDecoration } from '../decorations/sketch-dimensions-decoration.js';
+import {
+  layoutSketchDimensions,
+  sketchDimensionLabels,
+  type SketchDimensionAnnotation,
+  SketchDimensionsDecoration,
+} from '../decorations/sketch-dimensions-decoration.js';
 
 function makeViewport(spatial = true): { viewport: ScreenViewport; invalidate: ReturnType<typeof vi.fn> } {
   const invalidate = vi.fn();
@@ -129,6 +134,35 @@ describe('SketchDimensionsDecoration', () => {
 
     expect(ctx.fillText).toHaveBeenCalledWith('R15.875', expect.any(Number), expect.any(Number));
     expect(ctx.stroke.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('角度尺寸：顶点+两射线 → 弧布局/度数标签；绘制弧与文本', () => {
+    const { viewport } = makeViewport();
+    const annotations: SketchDimensionAnnotation[] = [{
+      kind: 'angular',
+      id: 'dimension-4',
+      vertex: Point3d.create(0, 0, 0),
+      a: Point3d.create(10, 0, 0),
+      b: Point3d.create(0, 10, 0),
+      text: '90°',
+    }];
+    const layout = layoutSketchDimensions(annotations, viewport);
+    expect(layout).toHaveLength(1);
+    expect(layout[0]!.kind).toBe('angular');
+    const labels = sketchDimensionLabels(layout);
+    expect(labels[0]).toMatchObject({ id: 'dimension-4', kind: 'angular', text: '90°' });
+    expect(labels[0]!.rect.right).toBeGreaterThan(labels[0]!.rect.left);
+
+    const deco = new SketchDimensionsDecoration(viewport, annotations);
+    const { context, addCanvasDecoration } = makeContext(viewport);
+    deco.decorate(context);
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
+    const ctx = makeCtx();
+    decoration.drawDecoration(ctx);
+    expect(ctx.fillText).toHaveBeenCalledWith('90°', expect.any(Number), expect.any(Number));
+    expect(ctx.arc).toHaveBeenCalled();
+    expect(ctx.stroke.mock.calls.length).toBeGreaterThanOrEqual(2);
+    deco.dispose();
   });
 
   it('setAnnotations 触发 invalidate；空集/非空间视图不添加装饰；dispose 反注册', () => {

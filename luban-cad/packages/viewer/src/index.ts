@@ -77,6 +77,8 @@ export type {
   BrepTopologyVertex,
 } from './viewport/decorations/brep-topology-decoration.js';
 export type {
+  SketchAngularDimensionAnnotation,
+  SketchAngularDimensionLayout,
   SketchDimensionAnnotation,
   SketchDimensionLabel,
   SketchDimensionLayout,

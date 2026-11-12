@@ -74,6 +74,37 @@ describe('buildSketchDimensionAnnotations', () => {
     expect(dim.side.x).toBeGreaterThan(0);
   });
 
+  it('angle：两线交点 + 远端点射线，文本按度数显示（契约为弧度）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 4, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 0, y: 10 } },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'angle', id: 102, refs: [4, 5], value: Math.PI / 2 },
+    ]));
+    expect(annotations).toHaveLength(1);
+    const dim = annotations[0]!;
+    expect(dim).toMatchObject({ kind: 'angular', id: 'dimension-102', text: '90°' });
+    if (dim.kind !== 'angular') throw new Error('应为角度尺寸');
+    expect(dim.vertex.x).toBeCloseTo(0, 6);
+    expect(dim.vertex.y).toBeCloseTo(0, 6);
+    expect(dim.a.x).toBeCloseTo(10, 6);
+    expect(dim.a.y).toBeCloseTo(0, 6);
+    expect(dim.b.x).toBeCloseTo(0, 6);
+    expect(dim.b.y).toBeCloseTo(10, 6);
+  });
+
+  it('angle：平行线无交点 → 跳过（不猜测）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 4, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 5, p1: { x: 0, y: 5 }, p2: { x: 10, y: 5 } },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'angle', id: 103, refs: [4, 5], value: Math.PI / 3 },
+    ]));
+    expect(annotations).toEqual([]);
+  });
+
   it('diameter：圆心 + 圆上点，⌀ 前缀文本（v1.23 ADR-0004）', () => {
     const entities: SketchEntityDto[] = [
       ...baseLines,

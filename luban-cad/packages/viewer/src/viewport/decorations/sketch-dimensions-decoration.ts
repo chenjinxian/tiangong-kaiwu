@@ -43,7 +43,19 @@ export interface SketchRadialDimensionAnnotation {
   text: string;
 }
 
-export type SketchDimensionAnnotation = SketchLinearDimensionAnnotation | SketchRadialDimensionAnnotation;
+/** 角度尺寸（两线夹角；Onshape 显示度数值，value 在 shared 中为弧度）。 */
+export interface SketchAngularDimensionAnnotation {
+  kind: 'angular';
+  id: string;
+  /** 两线交点（世界系）。 */
+  vertex: Point3d;
+  /** 两条射线上的世界点（决定屏幕方向；通常取远离顶点的一端）。 */
+  a: Point3d;
+  b: Point3d;
+  text: string;
+}
+
+export type SketchDimensionAnnotation = SketchLinearDimensionAnnotation | SketchRadialDimensionAnnotation | SketchAngularDimensionAnnotation;
 
 const LINE_COLOR = 'rgba(57, 65, 74, 0.92)';
 const TEXT_COLOR = '#39414a';
@@ -127,12 +139,27 @@ export interface SketchRadialDimensionLayout {
   angle: number;
 }
 
-export type SketchDimensionLayout = SketchLinearDimensionLayout | SketchRadialDimensionLayout;
+/** 角度尺寸布局（屏幕空间；arcStart→arcEnd 为屏幕方向角）。 */
+export interface SketchAngularDimensionLayout {
+  kind: 'angular';
+  annotation: SketchAngularDimensionAnnotation;
+  sv: ScreenPoint;
+  /** 屏幕系弧半径（px）。 */
+  radius: number;
+  startAngle: number;
+  sweepAngle: number;
+  arcStart: ScreenPoint;
+  arcEnd: ScreenPoint;
+  labelCenter: ScreenPoint;
+  angle: number;
+}
+
+export type SketchDimensionLayout = SketchLinearDimensionLayout | SketchRadialDimensionLayout | SketchAngularDimensionLayout;
 
 /** 数值标签命中区（未旋转包围盒；拾取层双击改值用）。 */
 export interface SketchDimensionLabel {
   id: string;
-  kind: 'linear' | 'radial';
+  kind: 'linear' | 'radial' | 'angular';
   text: string;
   center: ScreenPoint;
   angle: number;
@@ -210,6 +237,42 @@ function layoutRadial(
   return { kind: 'radial', annotation, sc, sp, outward, leaderEnd, labelCenter, angle };
 }
 
+const ANGULAR_RADIUS = 38;
+const ANGULAR_STACK_STEP = 10;
+
+function layoutAngular(
+  annotation: SketchAngularDimensionAnnotation,
+  vp: Pick<ScreenViewport, 'worldToView'>,
+  occupied: ScreenRect[],
+): SketchAngularDimensionLayout | undefined {
+  const sv = vp.worldToView(annotation.vertex);
+  const sa = vp.worldToView(annotation.a);
+  const sb = vp.worldToView(annotation.b);
+  if (![sv.x, sv.y, sa.x, sa.y, sb.x, sb.y].every(Number.isFinite)) return undefined;
+  const dirA = normalize(sa.x - sv.x, sa.y - sv.y);
+  const dirB = normalize(sb.x - sv.x, sb.y - sv.y);
+  if (!dirA || !dirB) return undefined;
+  const startAngle = Math.atan2(dirA.y, dirA.x);
+  let sweep = Math.atan2(dirB.y, dirB.x) - startAngle;
+  while (sweep > Math.PI) sweep -= Math.PI * 2;
+  while (sweep < -Math.PI) sweep += Math.PI * 2;
+  if (Math.abs(sweep) < 1e-3) return undefined;
+
+  let radius = ANGULAR_RADIUS;
+  let labelCenter: ScreenPoint = { x: sv.x, y: sv.y };
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const mid = startAngle + sweep / 2;
+    labelCenter = { x: sv.x + Math.cos(mid) * (radius + 14), y: sv.y + Math.sin(mid) * (radius + 14) };
+    const rect = labelRect(labelCenter, 0, annotation.text);
+    if (!occupied.some((other) => rectsOverlap(rect, other))) break;
+    radius += ANGULAR_STACK_STEP;
+  }
+  occupied.push(labelRect(labelCenter, 0, annotation.text));
+  const arcStart = { x: sv.x + dirA.x * radius, y: sv.y + dirA.y * radius };
+  const arcEnd = { x: sv.x + dirB.x * radius, y: sv.y + dirB.y * radius };
+  return { kind: 'angular', annotation, sv, radius, startAngle, sweepAngle: sweep, arcStart, arcEnd, labelCenter, angle: 0 };
+}
+
 /**
  * 纯布局（无绘制）：装饰器与视口拾取层共用——标签屏幕位置只有一个事实源，
  * 避免拾取层复制堆叠避让逻辑后与绘制漂移。
@@ -223,7 +286,9 @@ export function layoutSketchDimensions(
   for (const annotation of annotations) {
     const item = annotation.kind === 'linear'
       ? layoutLinear(annotation, vp, occupied)
-      : layoutRadial(annotation, vp, occupied);
+      : annotation.kind === 'radial'
+        ? layoutRadial(annotation, vp, occupied)
+        : layoutAngular(annotation, vp, occupied);
     if (item) layout.push(item);
   }
   return layout;
@@ -289,8 +354,10 @@ export class SketchDimensionsDecoration {
     for (const item of layout) {
       if (item.kind === 'linear')
         this.drawLinear(ctx, item);
-      else
+      else if (item.kind === 'radial')
         this.drawRadial(ctx, item);
+      else
+        this.drawAngular(ctx, item);
     }
     ctx.restore();
   }
@@ -350,6 +417,44 @@ export class SketchDimensionsDecoration {
     ctx.moveTo(sc.x, sc.y - 3);
     ctx.lineTo(sc.x, sc.y + 3);
     ctx.stroke();
+
+    ctx.save();
+    ctx.translate(labelCenter.x, labelCenter.y);
+    ctx.rotate(angle);
+    ctx.font = FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = HALO_COLOR;
+    ctx.strokeText(annotation.text, 0, 0);
+    ctx.fillStyle = TEXT_COLOR;
+    ctx.fillText(annotation.text, 0, 0);
+    ctx.restore();
+  }
+
+  /** 角度尺寸：两条射线（顶点→弧端）+ 圆弧 + 两端切向箭头 + 度数值。 */
+  private drawAngular(ctx: CanvasRenderingContext2D, item: SketchAngularDimensionLayout): void {
+    const { annotation, sv, radius, startAngle, sweepAngle, arcStart, arcEnd, labelCenter, angle } = item;
+    ctx.strokeStyle = LINE_COLOR;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sv.x, sv.y);
+    ctx.lineTo(arcStart.x, arcStart.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(sv.x, sv.y);
+    ctx.lineTo(arcEnd.x, arcEnd.y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(sv.x, sv.y, radius, startAngle, startAngle + sweepAngle, sweepAngle < 0);
+    ctx.stroke();
+
+    // 箭头在弧端沿弧切线指向弧内。
+    const sign = sweepAngle >= 0 ? 1 : -1;
+    const endAngle = startAngle + sweepAngle;
+    drawArrow(ctx, arcStart, { x: -Math.sin(startAngle) * sign, y: Math.cos(startAngle) * sign });
+    drawArrow(ctx, arcEnd, { x: Math.sin(endAngle) * sign, y: -Math.cos(endAngle) * sign });
 
     ctx.save();
     ctx.translate(labelCenter.x, labelCenter.y);

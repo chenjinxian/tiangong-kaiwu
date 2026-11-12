@@ -8,8 +8,8 @@
  * 非尺寸约束）保留输入框并标注错误。标签命中区由 viewer 布局纯函数给出
  *（与绘制同源，不复制堆叠避让逻辑）。
  *
- * 仅 distance/radius/diameter/length 可改值（后端 updateSketchConstraint 白名单）；
- * 角度等双击时诚实提示未支持，不弹假编辑框。
+ * 仅 distance/radius/diameter/length/angle 可改值（后端 updateSketchConstraint 白名单）；
+ * 角度在界面上显示度数、提交时换算回弧度（shared 契约为弧度）。
  *
  * 2026-11-12（Onshape 约束 glyph 对拍）：非尺寸约束 glyph（⊥/∥/=/—/|/中点/
  * 重合/镜像…）同样可单击选中、Delete 删除——命中区由 viewer 同一布局纯函数
@@ -30,6 +30,11 @@ import {
   hitTestSketchDimensionLabel,
 } from '../internal/sketch-dimension-picker.js';
 import { constraintIdFromGlyphId } from '../internal/sketch-constraint-glyphs.js';
+import {
+  EDITABLE_CONSTRAINT_KINDS,
+  formatConstraintEditorValue,
+  parseConstraintEditorValue,
+} from '../internal/sketch-dimension-value.js';
 import './SketchDimensionEditor.css';
 
 export interface SketchDimensionEditorProps {
@@ -58,13 +63,11 @@ export interface SketchDimensionEditorProps {
 
 interface EditorState {
   constraintId: number;
+  kind: SketchConstraintDto['kind'];
   value: string;
   clientX: number;
   clientY: number;
 }
-
-/** 后端 updateSketchConstraint 白名单（FeatureService.precomputeSketchConstraint）。 */
-const EDITABLE_CONSTRAINT_KINDS = new Set<SketchConstraintDto['kind']>(['distance', 'radius', 'diameter', 'length']);
 
 export function SketchDimensionEditor({
   viewport,
@@ -174,7 +177,8 @@ export function SketchDimensionEditor({
       onSelectConstraintRef.current?.(constraintId);
       setEditor({
         constraintId,
-        value: constraint.value !== undefined ? String(constraint.value) : '',
+        kind: constraint.kind,
+        value: formatConstraintEditorValue(constraint),
         clientX: event.clientX,
         clientY: event.clientY,
       });
@@ -267,8 +271,8 @@ export function SketchDimensionEditor({
     const current = editorRef.current;
     if (!current)
       return;
-    const value = Number(current.value.trim());
-    if (!Number.isFinite(value) || value <= 0) {
+    const value = parseConstraintEditorValue(current.kind, current.value);
+    if (value === undefined) {
       setFailed(true);
       return;
     }

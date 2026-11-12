@@ -11,7 +11,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 | 草图（特征） | ✅ 新建对话框（平面/基准面/模型面） | ✅ 删除（未引用；被特征/外部引用时后端拒收） | ✅ 重命名、平面只读编辑、双击进编辑 | 证据：sketch-delete.spec |
 | 曲线实体 | ✅ 线/矩形/圆/弧/样条/多边形/镜像/偏移 | ✅ Delete 键 + 图元右键「删除草图图元」 | ✅ 拖拽（本体/端点/弧扫角）、构造线翻转 | ADR-0018 S1c/S1d + sketch-entity-menu |
 | 控制点 | —（随曲线生成） | —（随实体删除） | ✅ 拖拽端点/圆心/样条控制点 | 中点/弧中点暂不支持 |
-| 约束/尺寸 | ✅ 约束与尺寸工具 | ✅ 选中尺寸标签 Delete；✅ 非尺寸约束 glyph 单击选中 + Delete（S1g） | ✅ 尺寸双击改值（distance/radius/diameter/length）；angle 未支持 | 非尺寸约束 glyph：⊥/∥/=/—/|/中点/重合/镜像等 12 类；`显示约束` 关闭时 glyph 与尺寸标注同时隐藏（live 对拍），拾取一并停用 |
+| 约束/尺寸 | ✅ 约束与尺寸工具 | ✅ 选中尺寸标签 Delete；✅ 非尺寸约束 glyph 单击选中 + Delete（S1g） | ✅ 尺寸双击改值（distance/radius/diameter/length/angle；角度 UI 度 ↔ 契约弧度） | 非尺寸约束 glyph：⊥/∥/=/—/|/中点/重合/镜像等 12 类；`显示约束` 关闭时 glyph 与尺寸标注同时隐藏（live 对拍），拾取一并停用 |
 | 面域 | ✅ 闭合轮廓自动成域 | —（随曲线） | 显示填充；无独立面域编辑 | 面域为求解派生 |
 | 使用/投影 | 🟠 草图→草图投影（insert 时） | 编辑态不可加/删投影 | 读时重投影 | UI「使用」仍占位；需后端 updateSketch projections |
 | Trim | — | ✅ 点击段/无交点整删（线/圆/弧） | ✅ 连续修剪；Esc 结束工具不退出草图 | `Sketch.Trim` 真栈 `sketch-trim.spec.ts`；spline 不支持 |
