@@ -79,7 +79,7 @@ import { useBodyMassProperties } from '../hooks/useBodyMassProperties.js';
 import type { FeatureNode, PartNode, TreeTab } from '../types.js';
 import { TreeFilter, parseTreeFilter } from './TreeFilter.js';
 import type { TreeNode } from './TreeRow.js';
-import { isFeatureNode, isNodeHidden, isSketchNode, TreeRow } from './TreeRow.js';
+import { formatPartVolume, isFeatureNode, isNodeHidden, isSketchNode, TreeRow } from './TreeRow.js';
 import { DEFAULT_DATUM_COUNT } from './DefaultGeometryGroup.js';
 import { DefaultGeometryGroup } from './DefaultGeometryGroup.js';
 
@@ -421,11 +421,49 @@ export function FeatureTree({
     [hideNodes, showNodes],
   );
 
+  // Onshape live（2026-11-12）：树右键「放大选定对象」——part 行按元素 id 缩放；
+  // 特征行在其直接驱动的 body 可定位时缩放该体（单 body 文档退化为唯一 active
+  // body），多体非链尾特征如实禁用（title 说明），不猜归属。
+  const zoomToElementIds = React.useCallback((ids: readonly string[]) => {
+    if (ids.length === 0)
+      return;
+    const targetViewport = viewport ?? IModelApp.viewManager?.selectedView;
+    if (!targetViewport)
+      return;
+    try {
+      targetViewport.zoomToElements([...ids]);
+    } catch (err) {
+      console.warn('[part-studio] 树缩放定位失败（无真实视口？）', err);
+    }
+  }, [viewport]);
+  const zoomTargetForFeature = React.useCallback((node: FeatureNode): readonly string[] => {
+    const direct = deleteTargetBodyIdForFeature(bodies, node.id);
+    if (direct)
+      return [direct];
+    const activeBodies = (bodies ?? []).filter((body) => body.active && body.authored !== false);
+    return activeBodies.length === 1 ? [activeBodies[0]!.bodyKey] : [];
+  }, [bodies]);
+  // Onshape live：树选中右键菜单可在原清空选择；part 行「属性…」只读对话框。
+  const clearTreeSelection = React.useCallback(() => {
+    model.selectNodes([]);
+  }, [model]);
+  const [propertiesNode, setPropertiesNode] = React.useState<PartNode | null>(null);
+  const setDockTab = usePartStudioStore((s) => s.setDockTab);
+  const openDock = usePartStudioStore((s) => s.openDock);
+  const handleOpenAppearances = React.useCallback(() => {
+    setDockTab('display');
+    openDock();
+  }, [openDock, setDockTab]);
+
   const [collapsed, setCollapsed] = React.useState<Record<TreeTab, boolean>>({
     features: false,
     parts: false,
   });
   const [menu, setMenu] = React.useState<MenuState | null>(null);
+  // 菜单视口夹紧（Onshape：靠底部时上翻，靠右时左移）——长菜单（零件行 14 项）
+  // 在行位于屏幕下半区时不得溢出视口（真栈实测 click 不可达）。
+  const [menuShift, setMenuShift] = React.useState<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+  const menuElementRef = React.useRef<HTMLDivElement | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<TreeNode | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   // 段头三钮的 gated 引导对话框（D3：能力注册表路由的对话框状态）。
@@ -452,6 +490,30 @@ export function FeatureTree({
     // 监听终身一次挂载；闭包内一律走 ref（意图在此注记，非遗漏依赖）。
   }, []);
 
+  // 菜单打开后按真实尺寸夹紧到视口内（layout effect：绘制前修正，避免闪跳）。
+  React.useLayoutEffect(() => {
+    if (!menu) {
+      setMenuShift({ dx: 0, dy: 0 });
+      return;
+    }
+    const el = menuElementRef.current;
+    if (!el)
+      return;
+    const rect = el.getBoundingClientRect();
+    let dx = 0;
+    let dy = 0;
+    if (rect.bottom > window.innerHeight - 8)
+      dy = window.innerHeight - 8 - rect.bottom;
+    if (rect.right > window.innerWidth - 8)
+      dx = window.innerWidth - 8 - rect.right;
+    if (rect.top + dy < 8)
+      dy = 8 - rect.top;
+    if (rect.left + dx < 8)
+      dx = 8 - rect.left;
+    if (dx !== 0 || dy !== 0)
+      setMenuShift({ dx, dy });
+  }, [menu]);
+
   const setActiveTreeTab = usePartStudioStore((s) => s.setActiveTreeTab);
 
   const handleSectionHeader = React.useCallback(
@@ -477,6 +539,7 @@ export function FeatureTree({
       event.preventDefault();
       // 右键即选中（os-15：右键行先成选中态再弹菜单）。
       model.selectNodes([node.id]);
+      setMenuShift({ dx: 0, dy: 0 });
       setMenu({ x: event.clientX, y: event.clientY, node });
     },
     [model],
@@ -589,6 +652,16 @@ export function FeatureTree({
         const isCollapsed = collapsed[section.id];
         const isFeatures = section.id === 'features';
         const rows = isFeatures ? model.featureRows : model.partRows;
+        // Onshape live（2026-11-12）：过滤态计数显示「匹配/总数」——特征 (1/12)
+        //（总数为全部用户特征+默认几何图元+待确认草图；零件段同理不含图元）。
+        const pendingCount = filterInput === '' && pendingSketchName !== undefined ? 1 : 0;
+        const matchedCount = isFeatures
+          ? rows.length + (filterInput === '' ? DEFAULT_DATUM_COUNT : 0) + pendingCount
+          : rows.length;
+        const totalCount = isFeatures
+          ? (entries?.length ?? 0) + DEFAULT_DATUM_COUNT + pendingCount
+          : parts.length;
+        const countText = filterInput === '' ? `(${matchedCount})` : `(${matchedCount}/${totalCount})`;
         return (
           <section
             key={section.id}
@@ -610,11 +683,7 @@ export function FeatureTree({
                   className="part-studio-tree__count"
                   data-testid={`${section.testidPrefix}-count`}
                 >
-                  ({isFeatures
-                    ? rows.length
-                      + (filterInput === '' ? DEFAULT_DATUM_COUNT : 0)
-                      + (filterInput === '' && pendingSketchName !== undefined ? 1 : 0)
-                    : rows.length})
+                  {countText}
                 </span>
               </button>
               {/* 特征段头三工具钮（Onshape live：new-folder / pause / profile）。 */}
@@ -722,15 +791,15 @@ export function FeatureTree({
         );
       })}
 
-      {/* 行右键菜单（os-15 子集：重命名/编辑…/抑制/删除）。
-          B6 M-A5 T2 零件行守卫：part 行只显示 隐藏/显示——不进入 edit/delete/
-          suppress/rename 特征路径（禁止把 bodyKey 当 featureId 误路由）。 */}
+      {/* 行右键菜单（Onshape live 2026-11-12：条目/分组顺序逐项对齐；未支持项
+          禁用并 title 说明——不提供假动作、不静默 no-op）。 */}
       {menu && menuNode && (isFeatureNode(menuNode) ? (
         <div
+          ref={menuElementRef}
           className="part-studio-tree-menu"
           role="menu"
           aria-label={t('partStudio.tree.contextMenuLabel')}
-          style={{ left: menu.x, top: menu.y }}
+          style={{ left: menu.x + menuShift.dx, top: menu.y + menuShift.dy }}
           onMouseDown={(event) => event.stopPropagation()}
         >
           <button
@@ -745,8 +814,7 @@ export function FeatureTree({
             <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEdit /></span>
             {t('partStudio.tree.rename')}
           </button>
-          {/* M6-a T7：sketch 节点编辑入口=「编辑草图…」（进草图模式）；通用
-              「编辑…」（FeatureDialog 路由）对 sketch 节点隐藏——草图不走特征对话框。 */}
+          <div className="part-studio-tree-menu__separator" role="separator" />
           {isSketchNode(menuNode) ? (
             <button
               type="button"
@@ -778,13 +846,30 @@ export function FeatureTree({
               {t('partStudio.tree.edit')}
             </button>
           )}
-          {/* 抑制/取消抑制（仅特征段可路由；part 行已被外层守卫分流）。 */}
+          <div className="part-studio-tree-menu__separator" role="separator" />
           <button
             type="button"
             role="menuitem"
             className="part-studio-tree-menu__item"
-            // B6 M-A5 T2：canEdit=false 保持渲染但禁用（可见 title 提示）；
-            // 点击处理器同步防御性拒收（双保险，不发 applyOp）。
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuAddToFolder')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuSectionView')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
             disabled={!canEdit}
             title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
             onClick={() => {
@@ -804,13 +889,101 @@ export function FeatureTree({
               ? t('partStudio.tree.unsuppress')
               : t('partStudio.tree.suppress')}
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuDynamicSuppress')}
+            <span className="part-studio-tree-menu__submenu" aria-hidden="true">›</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuAddExpression')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuAddComment')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          {(() => {
+            const targetIds = zoomTargetForFeature(menuNode);
+            return (
+              <button
+                type="button"
+                role="menuitem"
+                className="part-studio-tree-menu__item"
+                disabled={targetIds.length === 0}
+                title={targetIds.length === 0 ? t('partStudio.tree.zoomUnsupported') : undefined}
+                onClick={() => {
+                  setMenu(null);
+                  zoomToElementIds(targetIds);
+                }}
+              >
+                {t('partStudio.tree.menuZoomToSelection')}
+              </button>
+            );
+          })()}
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            onClick={() => {
+              setMenu(null);
+              clearTreeSelection();
+            }}
+          >
+            {t('partStudio.tree.menuClearSelection')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuShowDependencies')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuRollbackHere')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuAppearanceForSelection', { count: Math.max(1, model.selectedNodeIds.length) })}
+          </button>
           <div className="part-studio-tree-menu__separator" role="separator" />
           <button
             type="button"
             role="menuitem"
             className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
-            // B6 M-A5 T2：canEdit=false → 禁用品（title 提示），HITL 不打开。
-            // 草图行同样可删：Sidebar 按节点类型路由 shared deleteSketch（v1.3）。
             disabled={!canEdit}
             title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
             onClick={() => {
@@ -824,15 +997,97 @@ export function FeatureTree({
           </button>
         </div>
       ) : (
-        /* B6 M-A5 T2 零件行菜单：只显示 隐藏/显示——不进入 edit/delete/
-           suppress/rename 特征路径（禁止把 bodyKey 当 featureId 误路由）。 */
+        /* Onshape live（2026-11-12）：零件行菜单分组与顺序；隐藏/放大/属性/外观
+           为真实动作，其余未支持项禁用。 */
         <div
+          ref={menuElementRef}
           className="part-studio-tree-menu"
           role="menu"
           aria-label={t('partStudio.tree.contextMenuLabel')}
-          style={{ left: menu.x, top: menu.y }}
+          style={{ left: menu.x + menuShift.dx, top: menu.y + menuShift.dy }}
           onMouseDown={(event) => event.stopPropagation()}
         >
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.rename')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            data-testid="tree-menu-properties"
+            onClick={() => {
+              setMenu(null);
+              setPropertiesNode(menuNode);
+            }}
+          >
+            {t('partStudio.tree.menuProperties')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuAssignMaterial')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            data-testid="tree-menu-edit-appearance"
+            onClick={() => {
+              setMenu(null);
+              handleOpenAppearances();
+            }}
+          >
+            {t('partStudio.tree.menuEditAppearance')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuCopyHere')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuCreateDrawing', { name: menuNode.name })}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuExport')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuPublish')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
           <button
             type="button"
             role="menuitem"
@@ -848,6 +1103,57 @@ export function FeatureTree({
             {isNodeHidden(menuNode)
               ? t('partStudio.tree.showBody')
               : t('partStudio.tree.hideBody')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuIsolate')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuMakeTransparent')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuAddComment')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item"
+            data-testid="tree-menu-zoom"
+            onClick={() => {
+              setMenu(null);
+              zoomToElementIds([menuNode.id]);
+            }}
+          >
+            {t('partStudio.tree.menuZoomToSelection')}
+          </button>
+          <div className="part-studio-tree-menu__separator" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
+            disabled
+            title={t('partStudio.tree.unsupported')}
+          >
+            {t('partStudio.tree.menuDeletePart')}
           </button>
         </div>
       ))}
@@ -894,6 +1200,47 @@ export function FeatureTree({
                 }}
               >
                 {t('partStudio.tree.confirmDelete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 零件属性（Onshape live 右键「属性…」）：只读、只呈现已有读面（名称/
+          体积/可见性），不伪造材料/质量等未读字段。 */}
+      {propertiesNode && (
+        <div className="part-studio-dialog-backdrop">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('partStudio.tree.propertiesTitle', { name: propertiesNode.name })}
+            className="part-studio-capability-dialog"
+            data-testid="part-properties-dialog"
+          >
+            <h2 className="part-studio-capability-dialog__title">
+              {t('partStudio.tree.propertiesTitle', { name: propertiesNode.name })}
+            </h2>
+            <dl className="part-studio-tree-properties">
+              <dt>{t('partStudio.tree.propertiesVolume')}</dt>
+              <dd data-testid="part-properties-volume">
+                {propertiesNode.volumeMm3 !== undefined && Number.isFinite(propertiesNode.volumeMm3)
+                  ? formatPartVolume(propertiesNode.volumeMm3)
+                  : '—'}
+              </dd>
+              <dt>{t('partStudio.tree.propertiesVisibility')}</dt>
+              <dd>
+                {isNodeHidden(propertiesNode)
+                  ? t('partStudio.tree.propertiesHidden')
+                  : t('partStudio.tree.propertiesVisible')}
+              </dd>
+            </dl>
+            <div className="part-studio-capability-dialog__actions">
+              <button
+                type="button"
+                className="part-studio-capability-dialog__secondary"
+                onClick={() => setPropertiesNode(null)}
+              >
+                {t('partStudio.tree.close')}
               </button>
             </div>
           </div>

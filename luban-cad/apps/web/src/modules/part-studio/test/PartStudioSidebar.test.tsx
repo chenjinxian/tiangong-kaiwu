@@ -239,13 +239,15 @@ describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
     expect(usePartStudioStore.getState().canvas.hiddenIds).toContain('0x15');
   });
 
-  it('零件行守卫：part 行右键只有 隐藏实体（无 删除/抑制/重命名/编辑）', () => {
+  it('零件行守卫：part 行不进入特征变异路径（隐藏可用；删除…/重命名 禁用）', () => {
     renderSidebar();
     fireEvent.contextMenu(screen.getByTestId('tree-row-0x15'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
-    expect(within(menu).getAllByRole('menuitem')).toHaveLength(1);
-    expect(within(menu).getByRole('menuitem', { name: '隐藏实体' })).toBeDefined();
-    for (const name of ['删除', '抑制', '重命名', '编辑…']) {
+    expect(within(menu).getByRole('menuitem', { name: '隐藏实体' })).toHaveProperty('disabled', false);
+    // Onshape live（2026-11-12）零件行菜单；特征变异项不以 bodyKey 路由。
+    expect(within(menu).getByRole('menuitem', { name: '删除…' })).toHaveProperty('disabled', true);
+    expect(within(menu).getByRole('menuitem', { name: '重命名' })).toHaveProperty('disabled', true);
+    for (const name of ['删除', '抑制', '编辑…']) {
       expect(within(menu).queryByRole('menuitem', { name })).toBeNull();
     }
   });

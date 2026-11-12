@@ -28,7 +28,9 @@ export interface SketchPlanePickerProps {
 
 // Onshape live（2026-11-12 像素采样）：选中平面不加填充（内部仍 #f6f8fa），
 // 只加浅天蓝描边 + 顶边外侧的浅蓝「草图 N」标签；悬停保持轻填充。
-const HOVER_FILL = 'rgba(64, 150, 255, 0.12)';
+// ADR-0018 背景（live）：悬停基准面为橙色填充（旧实现为蓝色）；与草图实体
+// 选中橙同源 rgba(245,166,65)，取低透明叠加在平面上。
+const HOVER_FILL = 'rgba(245, 166, 65, 0.18)';
 const SELECTED_FILL = 'rgba(255, 255, 255, 0)';
 const SELECTED_STROKE = 'rgba(168, 212, 240, 0.95)';
 const PENDING_LABEL_COLOR = 'rgba(150, 200, 238, 0.95)';

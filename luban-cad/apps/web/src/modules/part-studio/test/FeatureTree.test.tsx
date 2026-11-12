@@ -720,16 +720,21 @@ describe('M4-T8 D3：特征段头三工具钮（os-11 段头形态）', () => {
 });
 
 describe('M4-T8 D5：树右键菜单项左置图标（os-15 V20）', () => {
-  it('右键菜单每项带图标（svg 在场，aria-hidden）', () => {
+  it('带图标的菜单项图标 aria-hidden；支持项均带图标', () => {
     render(<FeatureTree entries={ENTRIES} />);
     fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
     const items = within(menu).getAllByRole('menuitem');
     expect(items.length).toBeGreaterThan(0);
+    // Onshape live（2026-11-12）：菜单混排图标/纯文本项——有图标者必须装饰性；
+    // 真实动作项（重命名/编辑/抑制/删除）带图标。
     for (const itemEl of items) {
       const icon = itemEl.querySelector('svg');
-      expect(icon, `菜单项「${itemEl.textContent}」缺图标`).not.toBeNull();
-      expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
+      if (icon)
+        expect(icon.closest('[aria-hidden="true"]')).not.toBeNull();
+    }
+    for (const name of ['重命名', '编辑…', '抑制', '删除']) {
+      expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull();
     }
   });
 });
@@ -853,13 +858,20 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
 // aria-pressed=有效隐藏态；canEdit=false 只关写面（删除/抑制），隐藏/显示仍可用。
 
 describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () => {
-  it('part 行右键菜单只显示 隐藏实体（无 重命名/编辑/抑制/删除）', () => {
+  it('part 行右键菜单=Onshape 分组结构；特征变异项缺席，未支持项禁用', () => {
     render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
     fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
-    expect(within(menu).getAllByRole('menuitem')).toHaveLength(1);
-    expect(within(menu).getByRole('menuitem', { name: '隐藏实体' })).toBeDefined();
-    for (const name of ['重命名', '编辑…', '抑制', '删除', '编辑草图…']) {
+    // Onshape live（2026-11-12）：零件行菜单含 属性…/编辑外观…/隐藏/放大选定对象/
+    // 删除… 等分组项；本实现只启用已有数据面/动作，其余诚实禁用。
+    expect(within(menu).getByRole('menuitem', { name: '属性…' })).toHaveProperty('disabled', false);
+    expect(within(menu).getByRole('menuitem', { name: '编辑外观…' })).toHaveProperty('disabled', false);
+    expect(within(menu).getByRole('menuitem', { name: '隐藏实体' })).toHaveProperty('disabled', false);
+    expect(within(menu).getByRole('menuitem', { name: '放大选定对象' })).toHaveProperty('disabled', false);
+    // 特征变异路径不得以 bodyKey 路由（重命名/删除… 禁用；编辑/抑制/草图项缺席）。
+    expect(within(menu).getByRole('menuitem', { name: '重命名' })).toHaveProperty('disabled', true);
+    expect(within(menu).getByRole('menuitem', { name: '删除…' })).toHaveProperty('disabled', true);
+    for (const name of ['编辑…', '抑制', '编辑草图…']) {
       expect(within(menu).queryByRole('menuitem', { name })).toBeNull();
     }
     // 右键仍先选中该行（既有语义不变）。
@@ -1039,5 +1051,59 @@ describe('W1.5b 逐 body 体积展示', () => {
       </ul>,
     );
     expect(screen.queryByTestId('tree-row-volume-b1')).toBeNull();
+  });
+});
+
+// ── S2（2026-11-12 Onshape live）：过滤计数 / 零件属性 / 放大 / 清除选择 ─────
+
+describe('S2 Onshape tree parity：过滤计数与零件菜单动作', () => {
+  it('过滤态计数=匹配/总数（特征 (3/8)）', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={ENTRIES} />);
+    const tree = screen.getByTestId('part-studio-tree');
+    const input = within(tree).getByRole('textbox', { name: '按名称或类型筛选' });
+    await user.type(input, '拉伸');
+    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(3/8)');
+    await user.clear(input);
+    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(8)');
+  });
+
+  it('零件行 属性… → 只读对话框（名称/体积/可见性）', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '属性…' }));
+    const dialog = screen.getByTestId('part-properties-dialog');
+    expect(dialog.textContent).toContain('Base');
+    expect(within(dialog).getByText('体积')).toBeDefined();
+    expect(within(dialog).getByText('可见性')).toBeDefined();
+    await user.click(within(dialog).getByRole('button', { name: '关闭' }));
+    expect(screen.queryByTestId('part-properties-dialog')).toBeNull();
+  });
+
+  it('零件行 放大选定对象 → viewport.zoomToElements(bodyKey)', async () => {
+    const user = userEvent.setup();
+    const zoomToElements = vi.fn();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} viewport={{ zoomToElements } as never} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '放大选定对象' }));
+    expect(zoomToElements).toHaveBeenCalledWith(['0x15']);
+  });
+
+  it('特征行 放大选定对象：直接驱动源映射（ex1 → 0x15）', async () => {
+    const user = userEvent.setup();
+    const zoomToElements = vi.fn();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} viewport={{ zoomToElements } as never} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
+    await user.click(screen.getByRole('menuitem', { name: '放大选定对象' }));
+    expect(zoomToElements).toHaveBeenCalledWith(['0x15']);
+  });
+
+  it('特征行 清除选定内容 → store.tree.selectedNodeIds 清空', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
+    await user.click(screen.getByRole('menuitem', { name: '清除选定内容' }));
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
   });
 });

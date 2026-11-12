@@ -1391,6 +1391,39 @@
   background: var(--iui-color-border-subtle, var(--iui-color-border));
 }
 
+/* 未支持菜单项：Onshape 灰显（诚实禁用，不提供假动作）。 */
+.part-studio-tree-menu__item:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.part-studio-tree-menu__item:disabled:hover {
+  background: transparent;
+}
+
+/* Onshape 子菜单三角（动态抑制等未支持项仍保留形态）。 */
+.part-studio-tree-menu__submenu {
+  margin-inline-start: auto;
+  padding-inline-start: var(--iui-size-xs);
+}
+
+/* 零件属性对话框（只读字段）。 */
+.part-studio-tree-properties {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--iui-size-2xs) var(--iui-size-s);
+  margin: var(--iui-size-xs) 0;
+  font-size: var(--iui-font-size-0);
+}
+
+.part-studio-tree-properties dt {
+  color: var(--iui-color-text-muted);
+}
+
+.part-studio-tree-properties dd {
+  margin: 0;
+}
+
 /* ── 双段树增强（T5：筛选框/计数/行三态）────────────────────────────── */
 .part-studio-tree-filter {
   position: relative;
