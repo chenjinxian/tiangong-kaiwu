@@ -866,7 +866,20 @@
     "patternSecondCountCenteredInvalid": "Second-direction instances per side must be an integer between 2 and 500 (including the original)",
     "patternSecondSpacingInvalid": "Second-direction spacing must be a positive number",
     "patternTotalCountInvalid": "Total instances across both directions must not exceed 1000",
-    "patternSecondHint": "The second direction adds a grid to the first direction; total instances across both directions must not exceed 1000."
+    "patternSecondHint": "The second direction adds a grid to the first direction; total instances across both directions must not exceed 1000.",
+    "endBoundUpToVertex": "Up to vertex",
+    "endVertexLabel": "Target vertex",
+    "endVertexLoading": "Loading vertices…",
+    "endVertexPlaceholder": "Select vertex",
+    "endVertexEmpty": "No addressable vertices in the current sketches",
+    "endVertexRequired": "Select a target vertex",
+    "vertexPoint": "Point {{id}}",
+    "vertexLineStart": "Line {{id}} start",
+    "vertexLineEnd": "Line {{id}} end",
+    "vertexCircleCenter": "Circle {{id}} center",
+    "vertexArcCenter": "Arc {{id}} center",
+    "vertexArcStart": "Arc {{id}} start",
+    "vertexArcEnd": "Arc {{id}} end"
   },
   "filletPick": {
     "prompt": "Click edges to fillet in the canvas",

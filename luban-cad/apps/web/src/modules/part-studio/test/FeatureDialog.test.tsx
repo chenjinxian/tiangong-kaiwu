@@ -162,7 +162,7 @@ import type { BodyInfo, FeatureOp, FeatureOpResult, SketchDto, SketchEntityDto, 
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
-import { classifyAxisLines, FeatureDialog } from '../dialogs/FeatureDialog.js';
+import { classifyAxisLines, decodeVertexRef, encodeVertexRef, FeatureDialog, vertexCandidatesFromSketch } from '../dialogs/FeatureDialog.js';
 
 /** store 复位：canvas/viewOnly 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
@@ -3974,5 +3974,83 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-error').textContent).toContain('布尔求值失败');
     expect(onConfirm).not.toHaveBeenCalled();
     expect(screen.getByTestId('part-studio-feature-dialog')).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ADR-0017 Stage G1：extrude「成形到顶点」（草图点/线端点/弧端点/圆心）。
+// ---------------------------------------------------------------------------
+describe('成形到顶点（Stage G1）', () => {
+  const VERTEX_SKETCH = {
+    id: 'sk-1',
+    plane: { origin: { x: 0, y: 0, z: 0 }, normal: { x: 0, y: 0, z: 1 }, xDir: { x: 1, y: 0, z: 0 } },
+    entities: [
+      { kind: 'point', id: 1, x: 5, y: 5 },
+      { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'circle', id: 12, center: { x: 2, y: 2 }, radius: 1 },
+      { kind: 'arc', id: 13, center: { x: 0, y: 0 }, radius: 2, startAngle: 0, sweepAngle: Math.PI / 2 },
+    ],
+    constraints: [],
+    regions: [{ area: 10, outerEntityIds: [11] }],
+  } as unknown as SketchDto;
+
+  it('候选生成：point 1 + line 2 端点 + circle 圆心 + arc 圆心/起终点；编码可往返', () => {
+    const options = vertexCandidatesFromSketch('sk-1', '草图 1', VERTEX_SKETCH.entities,
+      (id, kind, part) => `${kind}:${id}:${part}`);
+    expect(options.map((option) => option.key)).toEqual([
+      'sk-1|1|start',
+      'sk-1|11|start',
+      'sk-1|11|end',
+      'sk-1|12|center',
+      'sk-1|13|center',
+      'sk-1|13|start',
+      'sk-1|13|end',
+    ]);
+    for (const option of options) {
+      expect(decodeVertexRef(option.key)).toEqual(option.ref);
+    }
+    expect(decodeVertexRef('sk-1|oops|start')).toBeUndefined();
+    expect(decodeVertexRef('sk-1|1|sideways')).toBeUndefined();
+    expect(encodeVertexRef({ sketchId: 'sk-1', entityId: 11, part: 'end' })).toBe('sk-1|11|end');
+  });
+
+  it('选择目标顶点 → 载荷 endBound=upToVertex + endVertexRef；未选禁提交', async () => {
+    featureRpc.getSketch.mockResolvedValue(VERTEX_SKETCH);
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-v' }));
+    render(
+      <FeatureDialog
+        featureName="拉伸 1"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    const dialog = screen.getByRole('dialog', { name: '拉伸 1' });
+    await screen.findByText('草图 1 的面');
+    // 终止条件需要上游实体（new 作用域禁用）——切「加入」。
+    await user.click(within(dialog).getByRole('tab', { name: '加入' }));
+    const endBound = within(dialog).getByRole('combobox', { name: '终止条件' });
+    await user.selectOptions(endBound, 'upToVertex');
+    await expect(
+      within(dialog).getByTestId('part-studio-feature-dialog-end-vertex'),
+    ).toBeDefined();
+    // 目标顶点未选：✓ 禁用（不猜）。
+    expect((within(dialog).getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    const vertexSelect = within(dialog).getByRole('combobox', { name: '目标顶点' });
+    await user.selectOptions(vertexSelect, 'sk-1|11|end');
+    expect((within(dialog).getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalled());
+    expect(applyOp.mock.calls.at(-1)![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        endBound: 'upToVertex',
+        endVertexRef: { sketchId: 'sk-1', entityId: 11, part: 'end' },
+      },
+    });
   });
 });

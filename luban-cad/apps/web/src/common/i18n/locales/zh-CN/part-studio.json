@@ -866,7 +866,20 @@
     "patternSecondCountCenteredInvalid": "第二方向每侧实例数须为 2–500 的整数（含原件）",
     "patternSecondSpacingInvalid": "第二方向间距须为正数",
     "patternTotalCountInvalid": "两个方向的总实例数不得超过 1000",
-    "patternSecondHint": "第二个方向与第一方向叠加为网格；两个方向的总实例数不得超过 1000。"
+    "patternSecondHint": "第二个方向与第一方向叠加为网格；两个方向的总实例数不得超过 1000。",
+    "endBoundUpToVertex": "成形到顶点",
+    "endVertexLabel": "目标顶点",
+    "endVertexLoading": "正在加载顶点…",
+    "endVertexPlaceholder": "选择顶点",
+    "endVertexEmpty": "当前草图中没有可用的顶点",
+    "endVertexRequired": "请选择目标顶点",
+    "vertexPoint": "点 {{id}}",
+    "vertexLineStart": "线 {{id}} 起点",
+    "vertexLineEnd": "线 {{id}} 终点",
+    "vertexCircleCenter": "圆 {{id}} 圆心",
+    "vertexArcCenter": "圆弧 {{id}} 圆心",
+    "vertexArcStart": "圆弧 {{id}} 起点",
+    "vertexArcEnd": "圆弧 {{id}} 终点"
   },
   "filletPick": {
     "prompt": "点击拾取要圆角的边",

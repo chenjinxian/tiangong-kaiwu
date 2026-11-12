@@ -229,6 +229,7 @@ import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
 import type {
   BodyInfo,
   BooleanBodiesParams,
+  ExtrudeVertexRef,
   FeatureMirrorParams,
   FeatureOp,
   FeatureOpResult,
@@ -524,6 +525,57 @@ const EMPTY_FEATURES: readonly FeatureDialogFeatureOption[] = [];
 /** body 读面缺省（M-A3.2a：未接线/不可用时不做 target 选择）。 */
 const EMPTY_BODIES: readonly BodyInfo[] = [];
 
+/** ADR-0017 Stage G1：extrude「成形到顶点」候选（草图点/线端点/弧端点/圆心）。 */
+export interface ExtrudeVertexOption {
+  /** 选项值编码 `sketchId|entityId|part`（sketchId 为 GUID，不含分隔符）。 */
+  key: string;
+  label: string;
+  ref: ExtrudeVertexRef;
+}
+
+/** 顶点选项值编码/解码（渲染选择 ↔ 契约载荷的唯一映射）。 */
+export function encodeVertexRef(ref: ExtrudeVertexRef): string {
+  return `${ref.sketchId}|${ref.entityId}|${ref.part}`;
+}
+
+export function decodeVertexRef(key: string): ExtrudeVertexRef | undefined {
+  const [sketchId, entityIdText, part] = key.split('|');
+  const entityId = Number(entityIdText);
+  if (!sketchId || !Number.isInteger(entityId) || (part !== 'start' && part !== 'end' && part !== 'center'))
+    return undefined;
+  return { sketchId, entityId, part };
+}
+
+/**
+ * 单草图实体 → 顶点候选（kind/端点的可寻址组合；与后端
+ * `sketchVertexPositionsFrom` 的支持面一致：point/line/arc/circle/spline）。
+ * 标签由调用方本地化（entityLabel(entityId)）。
+ */
+export function vertexCandidatesFromSketch(
+  sketchId: string,
+  sketchLabel: string,
+  entities: readonly SketchEntityDto[],
+  entityLabel: (entityId: number, kind: string, part: 'start' | 'end' | 'center') => string,
+): ExtrudeVertexOption[] {
+  const out: ExtrudeVertexOption[] = [];
+  for (const entity of entities) {
+    let parts: Array<'start' | 'end' | 'center'> = [];
+    if (entity.kind === 'point') parts = ['start'];
+    else if (entity.kind === 'line') parts = ['start', 'end'];
+    else if (entity.kind === 'arc') parts = ['center', 'start', 'end'];
+    else if (entity.kind === 'circle') parts = ['center'];
+    for (const part of parts) {
+      const ref: ExtrudeVertexRef = { sketchId, entityId: entity.id, part };
+      out.push({
+        key: encodeVertexRef(ref),
+        label: `${sketchLabel} · ${entityLabel(entity.id, entity.kind, part)}`,
+        ref,
+      });
+    }
+  }
+  return out;
+}
+
 /**
  * 落库 params 的 newBody 结构键读取（B6 M-A3.2a）：只有显式 true 才算勾选；
  * 非对象/缺键/false 均 false（不伪造、不静默翻转）。
@@ -647,13 +699,31 @@ export function FeatureDialog({
     () => (editParams as { endOffsetOppositeDirection?: unknown } | undefined)?.endOffsetOppositeDirection === true);
   // v1.22 ADR-0005 已支持 extrude endBound=blind/throughAll；v1.52 增 upToSurface
   // （目标面=路由快照；打开后点选 blocked）；v1.54 增「偏移距离」+ 反向。
-  const [endBound, setEndBound] = React.useState<'blind' | 'throughAll' | 'upToSurface' | 'upToNext'>(() => {
+  const [endBound, setEndBound] = React.useState<'blind' | 'throughAll' | 'upToSurface' | 'upToNext' | 'upToVertex'>(() => {
     const stored = (editParams as { endBound?: unknown } | undefined)?.endBound;
     if (stored === 'throughAll') return 'throughAll';
     if (stored === 'upToSurface') return 'upToSurface';
     if (stored === 'upToNext') return 'upToNext';
+    if (stored === 'upToVertex') return 'upToVertex';
     return 'blind';
   });
+  // ADR-0017 Stage G1：extrude「成形到顶点」——目标顶点候选来自全部草图实体
+  // （点/线端点/弧端点/圆心；与后端 sketchVertexPositionsFrom 的支持面一致）。
+  const storedEndVertexRef = React.useMemo<ExtrudeVertexRef | undefined>(() => {
+    const raw = (editParams as { endVertexRef?: unknown } | undefined)?.endVertexRef;
+    if (typeof raw !== 'object' || raw === null) return undefined;
+    const ref = raw as { sketchId?: unknown; entityId?: unknown; part?: unknown };
+    if (typeof ref.sketchId !== 'string' || typeof ref.entityId !== 'number') return undefined;
+    if (ref.part !== 'start' && ref.part !== 'end' && ref.part !== 'center') return undefined;
+    return { sketchId: ref.sketchId, entityId: ref.entityId, part: ref.part };
+  }, [editParams]);
+  const [endVertexKey, setEndVertexKey] = React.useState<string>(() =>
+    storedEndVertexRef ? encodeVertexRef(storedEndVertexRef) : '');
+  const [vertexOptions, setVertexOptions] = React.useState<ExtrudeVertexOption[]>([]);
+  const [vertexOptionsLoading, setVertexOptionsLoading] = React.useState(false);
+  const selectedVertexOption = vertexOptions.find((option) => option.key === endVertexKey);
+  const resolvedEndVertexRef = selectedVertexOption?.ref
+    ?? (mode === 'edit' ? storedEndVertexRef : undefined);
   // ADR-0017 Stage E：方向/起始偏移按 Onshape 真实复选框表达；edit 模式回显
   // 落库值（direction=backward / startOffsetMm≠0）。起始偏移勾选才随载荷下发。
   const [direction, setDirection] = React.useState<FeatureDirection>(
@@ -834,11 +904,18 @@ export function FeatureDialog({
   const upToSurfaceAllowed = endBoundAllowed && !thinWallActive
     && upToSurfaceFaceRef !== undefined && !upToSurfaceFaceMultiple;
   const upToNextAllowed = endBoundAllowed && !thinWallActive;
-  const effectiveEndBound: 'blind' | 'throughAll' | 'upToSurface' | 'upToNext' =
+  // ADR-0017 Stage G1：upToVertex 选中后先加载候选顶点；未选顶点时 UI 保持该
+  // 终止类型（提示 + 禁提交），不回跳「给定深度」（upToSurface 的目标面在打开时
+  // 已快照，故其无可选面时禁用选项；这里候选是异步加载的，语义不同）。
+  const upToVertexSelectable = endBoundAllowed && !thinWallActive;
+  const upToVertexAllowed = upToVertexSelectable && resolvedEndVertexRef !== undefined;
+  const effectiveEndBound: 'blind' | 'throughAll' | 'upToSurface' | 'upToNext' | 'upToVertex' =
     endBound === 'throughAll' && endBoundAllowed ? 'throughAll'
       : endBound === 'upToSurface' && upToSurfaceAllowed ? 'upToSurface'
         : endBound === 'upToNext' && upToNextAllowed ? 'upToNext'
-          : 'blind';
+          : endBound === 'upToVertex' && upToVertexSelectable ? 'upToVertex'
+            : 'blind';
+  const upToVertexActive = extrudeChannel && effectiveEndBound === 'upToVertex';
   // v1.54：偏移距离仅在有效 upToSurface 下启用；输入须为有限正数（与 zod 同域）。
   const endOffsetActive = extrudeChannel && effectiveEndBound === 'upToSurface'
     && upToSurfaceFaceRef !== undefined;
@@ -849,7 +926,8 @@ export function FeatureDialog({
     if (endBound === 'throughAll' && !endBoundAllowed) setEndBound('blind');
     if (endBound === 'upToSurface' && !upToSurfaceAllowed) setEndBound('blind');
     if (endBound === 'upToNext' && !upToNextAllowed) setEndBound('blind');
-  }, [endBound, endBoundAllowed, upToSurfaceAllowed, upToNextAllowed]);
+    if (endBound === 'upToVertex' && !upToVertexSelectable) setEndBound('blind');
+  }, [endBound, endBoundAllowed, upToSurfaceAllowed, upToNextAllowed, upToVertexSelectable]);
   // v1.53：薄壁与 symmetric/draft/第二方向/upToSurface 互斥——切入薄壁时主动复位，
   // 避免「UI 显示拔模/对称、载荷实际被后端拒收」的错位。
   React.useEffect(() => {
@@ -1375,6 +1453,59 @@ export function FeatureDialog({
       );
   }, [sketchChannel, selectedSketchId, connectionKey, partStudioId, t, mode, storedRegionsForEdit]);
 
+  // ADR-0017 Stage G1：选中「成形到顶点」时加载全部草图的可寻址顶点（点/线端点/
+  // 弧端点/圆心）。惰性加载（不选不读）；连接缺失/无草图 → 空候选 + 诚实提示。
+  const vertexEpochRef = React.useRef(0);
+  React.useEffect(() => {
+    const epoch = ++vertexEpochRef.current;
+    if (!upToVertexActive) {
+      setVertexOptions([]);
+      setVertexOptionsLoading(false);
+      return;
+    }
+    if (!connectionKey || sketchOptions.length === 0) {
+      setVertexOptions([]);
+      setVertexOptionsLoading(false);
+      return;
+    }
+    setVertexOptionsLoading(true);
+    const scopeArgs: [] | [string] = partStudioId === undefined ? [] : [partStudioId];
+    const client = LubanFeatureRpcInterface.getClient();
+    const labelFor = (kind: string, part: 'start' | 'end' | 'center', entityId: number): string => {
+      if (kind === 'point') return t('partStudio.featureDialog.vertexPoint', { id: entityId });
+      if (kind === 'line') {
+        return part === 'start'
+          ? t('partStudio.featureDialog.vertexLineStart', { id: entityId })
+          : t('partStudio.featureDialog.vertexLineEnd', { id: entityId });
+      }
+      if (kind === 'circle') return t('partStudio.featureDialog.vertexCircleCenter', { id: entityId });
+      if (part === 'center') return t('partStudio.featureDialog.vertexArcCenter', { id: entityId });
+      return part === 'start'
+        ? t('partStudio.featureDialog.vertexArcStart', { id: entityId })
+        : t('partStudio.featureDialog.vertexArcEnd', { id: entityId });
+    };
+    void (async () => {
+      const collected: ExtrudeVertexOption[] = [];
+      for (const sketch of sketchOptions) {
+        try {
+          const dto = await client.getSketch(connectionKey, sketch.id, ...scopeArgs);
+          if (epoch !== vertexEpochRef.current) return;
+          collected.push(...vertexCandidatesFromSketch(
+            sketch.id,
+            sketch.label,
+            dto?.entities ?? [],
+            (entityId, kind, part) => labelFor(kind, part, entityId),
+          ));
+        } catch {
+          // 单草图读取失败：跳过该草图候选（其余照常；不伪造）。
+        }
+      }
+      if (epoch !== vertexEpochRef.current) return;
+      setVertexOptions(collected);
+      setVertexOptionsLoading(false);
+    })();
+  }, [upToVertexActive, connectionKey, sketchOptions, partStudioId, t]);
+
   // 轴候选（M6-b T4 revolve 通道；M6-c T5 判型升级）：草图内 line 实体按端点
   // 解算坐标判型（classifyAxisLines——竖直/水平/斜线+同类序号；id 即载荷
   // axis.sketchEntityId，同值可对账）。非 revolve 通道不消费（extrude 无轴语义）。
@@ -1568,6 +1699,7 @@ export function FeatureDialog({
     || (mirrorChannel && mirrorScope === 'feature' && !mirrorFeatureReady)
     || (extrudeChannel && endBound === 'upToSurface' && !upToSurfaceAllowed)
     || (extrudeChannel && endBound === 'upToNext' && !upToNextAllowed)
+    || (extrudeChannel && endBound === 'upToVertex' && !upToVertexAllowed)
     || mirrorPlaneLineReadOnly || mirrorFaceReadOnly || mirrorFaceMissing || mirrorFaceOwnerMismatch
     || patternUpstreamMissing
     // B6 M-A3.2a：读面刷新中（N 未知）/读面不可用（target 无从确定）禁提交；
@@ -1834,6 +1966,10 @@ export function FeatureDialog({
     if (mirrorChannel && mirrorScope === 'feature' && !mirrorFeatureReady) return; // 特征镜像缺源/面平面
     if (extrudeChannel && endBound === 'upToSurface' && !upToSurfaceAllowed) return; // upToSurface 缺目标面/多选面
     if (extrudeChannel && endBound === 'upToNext' && !upToNextAllowed) return; // upToNext 无上游/薄壁互斥
+    if (extrudeChannel && endBound === 'upToVertex' && !upToVertexAllowed) {
+      setError(t('partStudio.featureDialog.endVertexRequired'));
+      return;
+    }
     if (extrudeChannel && effectiveEndBound === 'upToSurface' && endOffsetEnabled
       && (endOffset.trim() === '' || !Number.isFinite(endOffsetNumber) || endOffsetNumber <= 0)) {
       setError(t('partStudio.featureDialog.endOffsetInvalid'));
@@ -2158,6 +2294,14 @@ export function FeatureDialog({
                   ...(extrudeChannel && effectiveEndBound === 'upToNext'
                     ? { endBound: 'upToNext' as const }
                     : {}),
+                  // ADR-0017 Stage G1：upToVertex = 草图顶点引用（动态深度由后端
+                  // 按顶点世界坐标投影计算；distance 仅形态占位）。
+                  ...(extrudeChannel && effectiveEndBound === 'upToVertex' && resolvedEndVertexRef !== undefined
+                    ? {
+                      endBound: 'upToVertex' as const,
+                      endVertexRef: resolvedEndVertexRef,
+                    }
+                    : {}),
                   // v1.24：第二方向（缺省=主方向相反侧；方向键由 scenario/落库携带）。
                   ...(extrudeChannel && secondDirectionEnabled && !symmetric
                     ? {
@@ -2350,6 +2494,8 @@ export function FeatureDialog({
     upToSurfaceAllowed,
     upToSurfaceFaceRef,
     upToNextAllowed,
+    upToVertexAllowed,
+    resolvedEndVertexRef,
     // v1.54：upToSurface 偏移距离/反向载荷与校验。
     endOffset,
     endOffsetEnabled,
@@ -2759,10 +2905,19 @@ export function FeatureDialog({
               disabled={submitting}
               onChange={(event) => {
                 const next = event.target.value;
-                setEndBound(next === 'throughAll' ? 'throughAll'
+                const nextBound = next === 'throughAll' ? 'throughAll'
                   : next === 'upToSurface' ? 'upToSurface'
                     : next === 'upToNext' ? 'upToNext'
-                      : 'blind');
+                      : next === 'upToVertex' ? 'upToVertex'
+                        : 'blind';
+                setEndBound(nextBound);
+                // upToVertex 与 symmetric/draft/第二方向/薄壁互斥（后端 zod 同口径）。
+                if (nextBound === 'upToVertex') {
+                  setSymmetric(false);
+                  setDraftEnabled(false);
+                  setSecondDirectionEnabled(false);
+                  setResultType('solid');
+                }
               }}
             >
               <option value="blind">{t('partStudio.featureDialog.endBoundBlind')}</option>
@@ -2773,13 +2928,6 @@ export function FeatureDialog({
                 title={endBoundAllowed ? undefined : t('partStudio.featureDialog.endBoundRequiresUpstream')}
               >
                 {t('partStudio.featureDialog.endBoundUpToNext')}
-              </option>
-              <option
-                value="throughAll"
-                disabled={!endBoundAllowed}
-                title={endBoundAllowed ? undefined : t('partStudio.featureDialog.endBoundRequiresUpstream')}
-              >
-                {t('partStudio.featureDialog.endBoundThroughAll')}
               </option>
               {/* v1.52（ADR-0005 Phase 5，live 证据 extrude-endbound-menu.json）：
                   Onshape 终止类型 = 给定深度/成形到下一个面/成形到面/成形到零件/成形到顶点/
@@ -2797,7 +2945,68 @@ export function FeatureDialog({
               >
                 {t('partStudio.featureDialog.endBoundUpToSurface')}
               </option>
+              {/* ADR-0017 Stage G1：成形到顶点（草图点/线端点/弧端点/圆心）；
+                  候选异步加载，未选顶点时保持该终止类型并禁提交。 */}
+              <option
+                value="upToVertex"
+                disabled={!upToVertexSelectable}
+                title={upToVertexSelectable ? undefined : t('partStudio.featureDialog.endBoundRequiresUpstream')}
+              >
+                {t('partStudio.featureDialog.endBoundUpToVertex')}
+              </option>
+              <option
+                value="throughAll"
+                disabled={!endBoundAllowed}
+                title={endBoundAllowed ? undefined : t('partStudio.featureDialog.endBoundRequiresUpstream')}
+              >
+                {t('partStudio.featureDialog.endBoundThroughAll')}
+              </option>
             </select>
+            {/* 目标顶点选择（仅 upToVertex）：候选=全部草图的点/线端点/弧端点/圆心。 */}
+            {upToVertexActive && (
+              <section
+                className="part-studio-feature-dialog__end-vertex"
+                data-testid="part-studio-feature-dialog-end-vertex"
+              >
+                <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-end-vertex">
+                  {t('partStudio.featureDialog.endVertexLabel')}
+                </label>
+                <select
+                  id="part-studio-feature-dialog-end-vertex"
+                  aria-label={t('partStudio.featureDialog.endVertexLabel')}
+                  className="part-studio-feature-dialog__select"
+                  value={endVertexKey}
+                  disabled={submitting || vertexOptionsLoading}
+                  onChange={(event) => {
+                    setEndVertexKey(event.target.value);
+                    if (event.target.value !== '') {
+                      setSymmetric(false);
+                      setDraftEnabled(false);
+                      setSecondDirectionEnabled(false);
+                      setResultType('solid');
+                    }
+                  }}
+                >
+                  <option value="">
+                    {vertexOptionsLoading
+                      ? t('partStudio.featureDialog.endVertexLoading')
+                      : t('partStudio.featureDialog.endVertexPlaceholder')}
+                  </option>
+                  {vertexOptions.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+                {!vertexOptionsLoading && vertexOptions.length === 0 && (
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-end-vertex-empty"
+                  >
+                    {t('partStudio.featureDialog.endVertexEmpty')}
+                  </p>
+                )}
+              </section>
+            )}
             {effectiveEndBound === 'upToSurface' && upToSurfaceFaceRef !== undefined && (
               <p
                 role="note"
@@ -2997,7 +3206,7 @@ export function FeatureDialog({
             <input
               type="checkbox"
               checked={symmetric}
-              disabled={submitting || draftEnabled || thinWallActive}
+              disabled={submitting || draftEnabled || thinWallActive || upToVertexActive}
               onChange={(event) => {
                 setSymmetric(event.target.checked);
                 if (event.target.checked) {
@@ -3021,7 +3230,7 @@ export function FeatureDialog({
               <input
                 type="checkbox"
                 checked={draftEnabled}
-                disabled={submitting || symmetric || secondDirectionEnabled || thinWallActive}
+                disabled={submitting || symmetric || secondDirectionEnabled || thinWallActive || upToVertexActive}
                 onChange={(event) => {
                   setDraftEnabled(event.target.checked);
                   if (event.target.checked) {
@@ -3075,7 +3284,7 @@ export function FeatureDialog({
               <input
                 type="checkbox"
                 checked={secondDirectionEnabled}
-                disabled={submitting || symmetric || draftEnabled || thinWallActive}
+                disabled={submitting || symmetric || draftEnabled || thinWallActive || upToVertexActive}
                 onChange={(event) => {
                   setSecondDirectionEnabled(event.target.checked);
                   if (event.target.checked) setDraftEnabled(false);

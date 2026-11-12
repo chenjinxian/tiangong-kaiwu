@@ -232,3 +232,19 @@
   （pushExampleChanges 迁移）**3 passed（1.2m）**。
 - 未做：hub 冲突（他人推送）时的自动合并提示、版本元数据编辑通道（按钮诚实
   禁用）。
+
+## 15. Stage G1 首切片：extrude「成形到顶点」UI（2026-11-12）
+
+- 契约/后端 v1.60 已有（`ExtrudeParams.endBound='upToVertex'` + `endVertexRef`
+  草图顶点引用）；本切片只补产品 UI：终止条件新增「成形到顶点」，目标顶点下拉
+  候选=全部草图的点/线端点/弧端点/圆心（与后端 `sketchVertexPositionsFrom`
+  支持面一致），未选顶点禁提交并给字段级文案。
+- 与 symmetric/拔模/第二方向/薄壁互斥（选择 upToVertex 时主动复位，后端 zod
+  同口径）；距离输入按非 blind 规则禁用（depth 由后端按顶点投影动态计算）。
+- shared 仅新增类型再导出 `ExtrudeVertexRef`（无 `interfaceVersion`/载荷变化）。
+- 验证：web **1561/1561**（候选生成/编码往返/载荷与禁提交用例）、shared
+  205/205、tsc/lint/e2e tsc 绿；真栈 `e2e/extrude-up-to-vertex-ui.spec.ts`
+  **2 passed（57.9s）**——移除 + 目标点 (5,5)@z=3 → **1700.000 vs 1700**，
+  树 5 行全 status=0、params endVertexRef 落库，push+冷重开一致。
+- 未做：视口直接拾取顶点（当前候选来自草图实体清单；Onshape 支持点模型顶点，
+  需顶点→草图顶点映射证据）；「成形到零件」仍无产品通道（不渲染假选项）。
