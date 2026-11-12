@@ -33,11 +33,22 @@ export interface SketchLinearPatternOptions {
   count: number;
 }
 
+export interface SketchCircularPatternOptions {
+  /** 旋转中心（草图局部契约单位=米）。 */
+  center: { u: number; v: number };
+  /** 总实例数（含种子，2..100）。 */
+  count: number;
+  /** 总角度（弧度，0<angle<=2π；2π=整周均分）。 */
+  angleRad: number;
+}
+
 export type SketchPatternError =
   | 'no-selection'
   | 'invalid-count'
   | 'invalid-spacing'
-  | 'invalid-direction';
+  | 'invalid-direction'
+  | 'invalid-center'
+  | 'invalid-angle';
 
 export type SketchLinearPatternResult =
   | {
@@ -137,6 +148,105 @@ export function buildSketchLinearPattern(
     const dv = v * options.spacingLocal * index;
     for (const entity of instance.entities)
       translateEntity(entity, du, dv);
+    addedEntities.push(...instance.entities);
+    addedConstraints.push(...instance.constraints);
+    instanceCurveIds.push(instance.curveIds);
+  }
+
+  return {
+    ok: true,
+    entities: [...entities, ...addedEntities],
+    constraints: [...constraints, ...addedConstraints],
+    instanceCurveIds,
+  };
+}
+
+function rotateRef(
+  ref: number | SketchPointDto,
+  center: { u: number; v: number },
+  cos: number,
+  sin: number,
+): number | SketchPointDto {
+  if (typeof ref === 'number')
+    return ref;
+  const dx = ref.x - center.u;
+  const dy = ref.y - center.v;
+  return { x: center.u + dx * cos - dy * sin, y: center.v + dx * sin + dy * cos };
+}
+
+function rotateEntity(
+  entity: SketchEntityDto,
+  center: { u: number; v: number },
+  cos: number,
+  sin: number,
+): void {
+  switch (entity.kind) {
+    case 'point': {
+      const x = (entity.x ?? 0) - center.u;
+      const y = (entity.y ?? 0) - center.v;
+      entity.x = center.u + x * cos - y * sin;
+      entity.y = center.v + x * sin + y * cos;
+      return;
+    }
+    case 'line':
+      entity.p1 = rotateRef(entity.p1, center, cos, sin);
+      entity.p2 = rotateRef(entity.p2, center, cos, sin);
+      return;
+    case 'circle':
+    case 'arc':
+      entity.center = rotateRef(entity.center, center, cos, sin);
+      return;
+    case 'spline':
+      entity.controlPoints = entity.controlPoints.map((point) => rotateRef(point, center, cos, sin) as SketchPointDto);
+      if (entity.fitPoints)
+        entity.fitPoints = entity.fitPoints.map((point) => rotateRef(point, center, cos, sin) as SketchPointDto);
+      return;
+  }
+}
+
+/**
+ * 环形阵列（Onshape canvas gizmo 同族；整周均分 step=2π/count，部分角度
+ * step=angle/(count-1)）。实例同样为独立几何副本。
+ */
+export function buildSketchCircularPattern(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  selection: readonly SketchEntitySelection[],
+  options: SketchCircularPatternOptions,
+): SketchLinearPatternResult {
+  if (!Number.isFinite(options.center.u) || !Number.isFinite(options.center.v))
+    return { ok: false, error: 'invalid-center' };
+  if (!Number.isFinite(options.angleRad) || options.angleRad <= 0 || options.angleRad > Math.PI * 2 + 1e-9)
+    return { ok: false, error: 'invalid-angle' };
+  if (!Number.isInteger(options.count)
+    || options.count < SKETCH_PATTERN_MIN_COUNT
+    || options.count > SKETCH_PATTERN_MAX_COUNT)
+    return { ok: false, error: 'invalid-count' };
+
+  const seed = collectSketchCopySet(entities, constraints, selection);
+  const seedCurveIds = [...new Set(
+    selection.filter((entry) => entry.part === 'curve').map((entry) => entry.entityId),
+  )].filter((id) => seed.entities.some((entity) => entity.id === id && entity.kind !== 'point'));
+  if (seed.curveCount === 0 || seedCurveIds.length === 0)
+    return { ok: false, error: 'no-selection' };
+
+  const fullCircle = Math.abs(options.angleRad - Math.PI * 2) <= 1e-9;
+  const step = fullCircle ? options.angleRad / options.count : options.angleRad / (options.count - 1);
+  let nextId = nextFreeId(entities, constraints);
+  const addedEntities: SketchEntityDto[] = [];
+  const addedConstraints: SketchConstraintDto[] = [];
+  const instanceCurveIds: number[][] = [seedCurveIds];
+
+  for (let index = 1; index < options.count; index++) {
+    const instance = instantiateSketchCopy(seed.entities, seed.constraints, nextId);
+    if (!instance)
+      return { ok: false, error: 'no-selection' };
+    nextId = instance.nextId;
+    const angle = step * index;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    for (const entity of instance.entities)
+      rotateEntity(entity, options.center, cos, sin);
     addedEntities.push(...instance.entities);
     addedConstraints.push(...instance.constraints);
     instanceCurveIds.push(instance.curveIds);

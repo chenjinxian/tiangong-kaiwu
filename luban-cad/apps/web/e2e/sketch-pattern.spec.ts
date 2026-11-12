@@ -27,7 +27,11 @@ const XY_PLANE: SketchPlaneDto = {
 
 interface Point { x: number; y: number }
 
-async function openPatternSketch(page: Page, request: Parameters<typeof resetBModelSeed>[0]): Promise<{
+async function openPatternSketch(
+  page: Page,
+  request: Parameters<typeof resetBModelSeed>[0],
+  circleCenterX = 0,
+): Promise<{
   ctx: Awaited<ReturnType<typeof openSeedImodelEditor>>;
   sketchId: string;
   token: string;
@@ -49,7 +53,7 @@ async function openPatternSketch(page: Page, request: Parameters<typeof resetBMo
   const lease = await borrowWriteLease(ctx, token, 'sketch-pattern');
   const created = await applyFeatureOpRpc(ctx, {
     kind: 'insertSketch',
-    entities: [{ kind: 'circle', id: 11, center: { x: 0, y: 0 }, radius: 0.01 }],
+    entities: [{ kind: 'circle', id: 11, center: { x: circleCenterX, y: 0 }, radius: 0.01 }],
     constraints: [{ kind: 'radius', id: 101, refs: [11], value: 0.01 }],
     plane: XY_PLANE,
   }, lease, token);
@@ -72,8 +76,8 @@ async function openPatternSketch(page: Page, request: Parameters<typeof resetBMo
     const vp = ((window as any).__lubanE2E?.coreFrontend)?.IModelApp?.viewManager?.selectedView as
       | { zoomToVolume?: (v: unknown) => void }
       | undefined;
-    // 契约坐标是米：圆 R10 mm（0.01 m），视野覆盖 x −0.02..0.06 m。
-    vp?.zoomToVolume?.({ low: { x: -0.02, y: -0.02, z: -0.001 }, high: { x: 0.06, y: 0.02, z: 0.001 } });
+    // 契约坐标是米：圆 R10 mm（0.01 m），视野覆盖线性/环形两种阵列。
+    vp?.zoomToVolume?.({ low: { x: -0.04, y: -0.04, z: -0.001 }, high: { x: 0.06, y: 0.04, z: 0.001 } });
   });
   await page.waitForTimeout(300);
 
@@ -95,9 +99,13 @@ async function openPatternSketch(page: Page, request: Parameters<typeof resetBMo
   return { ctx, sketchId, token, project, canvasBox: canvasBox! };
 }
 
-async function selectCircleAndStartPattern(page: Page, project: (x: number, y: number) => Promise<Point>): Promise<void> {
-  // 选中圆周（局部 (0.01,0) 恰在圆上；半径 10 mm）。
-  const onCircle = await project(0.01, 0);
+async function selectCircleAndStartPattern(
+  page: Page,
+  project: (x: number, y: number) => Promise<Point>,
+  circleCenterX = 0,
+): Promise<void> {
+  // 选中圆周（圆心 + R10 mm 恰在圆上）。
+  const onCircle = await project(circleCenterX + 0.01, 0);
   await page.mouse.click(onCircle.x, onCircle.y);
   await expect.poll(async () => page.getByTestId('sketch-entity-picker').getAttribute('data-selected'), {
     timeout: 15_000,
@@ -170,5 +178,49 @@ test.describe('草图线性阵列（Onshape canvas gizmo 对拍）', () => {
       const sketch = await getSketchRpc(ctx, sketchId, token);
       return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
     }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(3);
+  });
+
+  test('环形阵列：中心默认原点、count 4 → 绕原点 90° 均分 → undo', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const { ctx, sketchId, token, project } = await openPatternSketch(page, request, 0.02);
+    await selectCircleAndStartPattern(page, project, 0.02);
+
+    // 打开「线性阵列 ▾」飞菜单 → 环形阵列。
+    await page.getByRole('button', { name: '线性阵列 ▾' }).click();
+    await page.getByRole('menuitem', { name: '环形阵列' }).click();
+    await expect(page.getByTestId('sketch-pattern-prompt')).toContainText('环形阵列', { timeout: 15_000 });
+    await expect(page.getByTestId('sketch-pattern-count')).toContainText('3x');
+    await expect(page.getByTestId('sketch-pattern-center')).toBeVisible();
+    await expect(page.getByTestId('sketch-pattern-preview')).toBeVisible();
+
+    await page.getByTestId('sketch-pattern-count').click();
+    const input = page.getByTestId('sketch-pattern-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('4');
+    await input.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-count')).toContainText('4x');
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-prompt')).toHaveCount(0, { timeout: 30_000 });
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(4);
+    const committed = await getSketchRpc(ctx, sketchId, token);
+    const centers = (committed?.entities ?? [])
+      .filter((entity) => entity.kind === 'circle')
+      .map((entity) => entity.kind === 'circle' ? entity.center as { x: number; y: number } : undefined);
+    const has = (x: number, y: number): boolean => centers.some(
+      (center) => center !== undefined && Math.abs(center.x - x) < 1e-6 && Math.abs(center.y - y) < 1e-6);
+    expect(has(0.02, 0)).toBe(true);
+    expect(has(0, 0.02)).toBe(true);
+    expect(has(-0.02, 0)).toBe(true);
+    expect(has(0, -0.02)).toBe(true);
+
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBe(1);
   });
 });

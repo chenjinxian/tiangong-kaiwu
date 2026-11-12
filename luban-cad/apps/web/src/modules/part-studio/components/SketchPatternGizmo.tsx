@@ -18,6 +18,7 @@ import type { SketchConstraintDto, SketchDto, SketchEntityDto } from '@luban-cad
 import { sketchEntitiesToWorldPolylines } from '../internal/sketch-curves.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import {
+  buildSketchCircularPattern,
   buildSketchLinearPattern,
   SKETCH_PATTERN_MAX_COUNT,
   SKETCH_PATTERN_MIN_COUNT,
@@ -35,6 +36,8 @@ export interface SketchPatternApplyResult {
 export interface SketchPatternGizmoProps {
   viewport?: ScreenViewport | null;
   sketch: SketchDto;
+  /** 阵列类型（Onshape 变换组：线性/环形；变换后续切片）。 */
+  kind: 'linear' | 'circular';
   selected: readonly SketchEntitySelection[];
   /** 宿主一次 updateSketch 提交；失败返回错误文案。 */
   onApply: (
@@ -55,7 +58,7 @@ const CLICK_SLOP_PX = 3;
 const PREVIEW_STROKE = '#4a90e2';
 const PREVIEW_FILL = 'rgba(74, 144, 226, 0.12)';
 
-type DragKind = 'direction' | 'spacing' | 'count';
+type DragKind = 'direction' | 'spacing' | 'count' | 'center';
 type EditKind = 'spacing' | 'count';
 
 interface DragState {
@@ -63,6 +66,7 @@ interface DragState {
   pointerId: number;
   startX: number;
   startY: number;
+  startCount: number;
   moved: boolean;
 }
 
@@ -78,6 +82,7 @@ function formatMm(value: number): string {
 export function SketchPatternGizmo({
   viewport,
   sketch,
+  kind,
   selected,
   onApply,
   onCancel,
@@ -88,6 +93,9 @@ export function SketchPatternGizmo({
   const [directionRad, setDirectionRad] = React.useState(0);
   const [spacingMm, setSpacingMm] = React.useState(DEFAULT_SPACING_MM);
   const [count, setCount] = React.useState(DEFAULT_COUNT);
+  // 环形阵列：旋转中心（草图局部）与总角度（默认整周）。
+  const [centerLocal, setCenterLocal] = React.useState({ u: 0, v: 0 });
+  const [angleRad] = React.useState(Math.PI * 2);
   const [editing, setEditing] = React.useState<{ kind: EditKind; value: string; x: number; y: number } | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [, forceTick] = React.useReducer((value: number) => value + 1, 0);
@@ -124,12 +132,22 @@ export function SketchPatternGizmo({
   const seedLocal = React.useMemo(() => seedCenter ? frame.toLocal(seedCenter) : undefined, [seedCenter, frame]);
 
   const preview = React.useMemo(
-    () => buildSketchLinearPattern(sketch.entities, sketch.constraints, selected, {
-      directionRad,
-      spacingLocal: spacingMm / 1000,
-      count,
-    }),
-    [sketch.entities, sketch.constraints, selected, directionRad, spacingMm, count],
+    () => kind === 'linear'
+      ? buildSketchLinearPattern(sketch.entities, sketch.constraints, selected, {
+        directionRad,
+        spacingLocal: spacingMm / 1000,
+        count,
+      })
+      : buildSketchCircularPattern(sketch.entities, sketch.constraints, selected, {
+        center: centerLocal,
+        count,
+        angleRad,
+      }),
+    [kind, sketch.entities, sketch.constraints, selected, directionRad, spacingMm, count, centerLocal, angleRad],
+  );
+  const circularCenterWorld = React.useMemo(
+    () => frame.toWorld(centerLocal),
+    [frame, centerLocal],
   );
 
   // 相机/尺寸变化时重算手柄屏幕位置（草图内仍可能旋转/缩放）。
@@ -192,10 +210,10 @@ export function SketchPatternGizmo({
     x: seedClient.x + screenDir.x * spacingPx * 0.5 + perp.x * 16,
     y: seedClient.y + screenDir.y * spacingPx * 0.5 + perp.y * 16,
   } : undefined;
-  const countHandle = lastClient ? {
-    x: lastClient.x + perp.x * 16,
-    y: lastClient.y + perp.y * 16,
-  } : undefined;
+  const centerClient = kind === 'circular' ? toClient(circularCenterWorld) : undefined;
+  const countHandle = kind === 'circular'
+    ? (seedClient ? { x: seedClient.x + 18, y: seedClient.y - 18 } : undefined)
+    : (lastClient ? { x: lastClient.x + perp.x * 16, y: lastClient.y + perp.y * 16 } : undefined);
 
   const draw = React.useCallback((): void => {
     const canvas = canvasRef.current;
@@ -216,18 +234,39 @@ export function SketchPatternGizmo({
       return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    if (!preview.ok || !seedCenter || !lastWorld)
+    if (!preview.ok || !seedCenter)
       return;
 
-    const seedView = viewport.worldToView(seedCenter);
-    const lastView = viewport.worldToView(lastWorld);
     ctx.setLineDash([4, 4]);
     ctx.strokeStyle = 'rgba(74, 144, 226, 0.55)';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(seedView.x, seedView.y);
-    ctx.lineTo(lastView.x, lastView.y);
-    ctx.stroke();
+    if (kind === 'linear' && lastWorld) {
+      const seedView = viewport.worldToView(seedCenter);
+      const lastView = viewport.worldToView(lastWorld);
+      ctx.beginPath();
+      ctx.moveTo(seedView.x, seedView.y);
+      ctx.lineTo(lastView.x, lastView.y);
+      ctx.stroke();
+    } else if (seedLocal) {
+      const radius = Math.hypot(seedLocal.u - centerLocal.u, seedLocal.v - centerLocal.v);
+      if (radius > 1e-9) {
+        ctx.beginPath();
+        const segments = 72;
+        for (let index = 0; index <= segments; index++) {
+          const angle = (Math.PI * 2 * index) / segments;
+          const world = frame.toWorld({
+            u: centerLocal.u + radius * Math.cos(angle),
+            v: centerLocal.v + radius * Math.sin(angle),
+          });
+          const screen = viewport.worldToView(world);
+          if (index === 0)
+            ctx.moveTo(screen.x, screen.y);
+          else
+            ctx.lineTo(screen.x, screen.y);
+        }
+        ctx.stroke();
+      }
+    }
     ctx.setLineDash([]);
 
     const instanceIds = new Set(preview.instanceCurveIds.slice(1).flat());
@@ -254,7 +293,7 @@ export function SketchPatternGizmo({
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-  }, [preview, viewport, sketch.plane, seedCenter, lastWorld]);
+  }, [preview, viewport, sketch.plane, seedCenter, lastWorld, kind, seedLocal, centerLocal, frame]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {
@@ -371,9 +410,10 @@ export function SketchPatternGizmo({
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
+      startCount: count,
       moved: false,
     };
-  }, []);
+  }, [count]);
 
   const moveDrag = React.useCallback((event: React.PointerEvent<HTMLButtonElement>): void => {
     const drag = dragRef.current;
@@ -381,6 +421,11 @@ export function SketchPatternGizmo({
       return;
     if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > CLICK_SLOP_PX)
       drag.moved = true;
+    if (kind === 'circular' && drag.kind === 'count') {
+      const steps = Math.round((event.clientX - drag.startX) / 20);
+      setCount(clamp(drag.startCount + steps, SKETCH_PATTERN_MIN_COUNT, SKETCH_PATTERN_MAX_COUNT));
+      return;
+    }
     const rect = viewport.canvas.getBoundingClientRect();
     const local = screenToSketchLocal(viewport, sketch.plane, {
       x: event.clientX - rect.left,
@@ -388,6 +433,10 @@ export function SketchPatternGizmo({
     });
     if (!local)
       return;
+    if (drag.kind === 'center') {
+      setCenterLocal({ u: local.u, v: local.v });
+      return;
+    }
     const du = local.u - seedLocal.u;
     const dv = local.v - seedLocal.v;
     if (drag.kind === 'direction') {
@@ -407,7 +456,7 @@ export function SketchPatternGizmo({
     }
     const next = Math.round(projection / spacingLocal) + 1;
     setCount(clamp(next, SKETCH_PATTERN_MIN_COUNT, SKETCH_PATTERN_MAX_COUNT));
-  }, [viewport, seedLocal, sketch.plane, directionRad, spacingLocal]);
+  }, [viewport, seedLocal, sketch.plane, directionRad, spacingLocal, kind]);
 
   const endDrag = React.useCallback((event: React.PointerEvent<HTMLButtonElement>): void => {
     const drag = dragRef.current;
@@ -437,27 +486,49 @@ export function SketchPatternGizmo({
       <div className="part-studio-pattern-prompt" data-testid="sketch-pattern-prompt">
         {!seedLocal
           ? t('partStudio.sketch.patternSelectPrompt')
-          : t('partStudio.sketch.patternPrompt')}
+          : kind === 'linear'
+            ? t('partStudio.sketch.patternPrompt')
+            : t('partStudio.sketch.patternPromptCircular')}
       </div>
       {hasSeed && seedClient && (
         <React.Fragment>
-          <button
-            type="button"
-            className="part-studio-pattern-handle part-studio-pattern-handle--direction"
-            data-testid="sketch-pattern-direction"
-            title={t('partStudio.sketch.patternDirection')}
-            aria-label={t('partStudio.sketch.patternDirection')}
-            style={directionClient ? { left: directionClient.x, top: directionClient.y } : undefined}
-            onPointerDown={startDrag('direction')}
-            onPointerMove={moveDrag}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M2.5 8h8.5M8 4.5 12 8l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          {spacingHandle && (
+          {kind === 'linear' && (
+            <button
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--direction"
+              data-testid="sketch-pattern-direction"
+              title={t('partStudio.sketch.patternDirection')}
+              aria-label={t('partStudio.sketch.patternDirection')}
+              style={directionClient ? { left: directionClient.x, top: directionClient.y } : undefined}
+              onPointerDown={startDrag('direction')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M2.5 8h8.5M8 4.5 12 8l-4 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+          {kind === 'circular' && centerClient && (
+            <button
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--direction"
+              data-testid="sketch-pattern-center"
+              title={t('partStudio.sketch.patternCenter')}
+              aria-label={t('partStudio.sketch.patternCenter')}
+              style={{ left: centerClient.x, top: centerClient.y }}
+              onPointerDown={startDrag('center')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M8 2.5v11M2.5 8h11M6 6l4 4M10 6l-4 4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+          {kind === 'linear' && spacingHandle && (
             <button
               type="button"
               className="part-studio-pattern-handle part-studio-pattern-handle--value"

@@ -44,7 +44,8 @@
      文档与测试注释中显式声明，不声称完全等价。
 
 **非目标（后续切片）**
-- 环形阵列、变换 gizmo（同一工具栏组；下一步复用本切片 gizmo 基座）。
+- 变换 gizmo（同一工具栏组；下一步复用本切片 gizmo 基座）。
+- 环形阵列的部分角度/角度手柄（当前固定整周 360°；builder 已支持部分角度，UI 未暴露）。
 - 第二方向阵列、跳过实例、曲线驱动阵列。
 - 阵列关系的参数化（改数量/间距后联动更新历史实例）。
 
@@ -120,8 +121,19 @@
 - 视觉证据（本产品）：私有
   `ui-evidence/ui-direct-mouse-20261112/70-luban-sketch-pattern.png`
   （橙色种子、两个蓝色预览、`3x`/间距手柄）。
-- 已知近似：实例为独立几何副本，无“阵列关系”约束/历史联动；方向/间距默认值
-  为 0°/10 mm（Onshape 文档单位相关）；环形阵列与变换 gizmo 未实现。
+- **环形阵列同批实现（2026-11-12）**：live 实测「环形阵列」默认 count=3、
+  旋转中心为草图原点、整周均分（预览蓝色圆实例 + 虚线圆路径 + 中心手柄 +
+  `3x`），无对话框（证据私有
+  `ui-evidence/ui-direct-mouse-20261112/71-onshape-circular-pattern.png`、
+  `72-onshape-circular-pattern-seeded.png`）。实现：
+  `buildSketchCircularPattern`（整周 step=2π/count；部分角度 step=angle/(count-1)）
+  + 同一 `SketchPatternGizmo`（`kind='circular'`，中心/计数手柄、拖动中心、
+  整周固定；本产品截图 `73-luban-circular-pattern.png`）；Ribbon「线性阵列 ▾」
+  增加「环形阵列」。真栈 `e2e/sketch-pattern.spec.ts` **4 passed**（含环形
+  count 4 → 4 圆绕原点 90° 均分 + undo）。
+- 已知近似：实例为独立几何副本，无“阵列关系”约束/历史联动；线性方向/间距
+  默认值为 0°/10 mm（Onshape 文档单位相关）；环形角度固定整周、无角度输入；
+  变换 gizmo 未实现。
 
 ## 7. 风险与回滚
 

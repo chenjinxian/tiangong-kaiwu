@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import {
+  buildSketchCircularPattern,
   buildSketchLinearPattern,
   SKETCH_PATTERN_MAX_COUNT,
 } from '../internal/sketch-pattern.js';
@@ -138,5 +139,68 @@ describe('buildSketchLinearPattern', () => {
       [{ sketchId: 'sk', entityId: 1, part: 'curve' }],
       { directionRad: 0, spacingLocal: 0.01, count: 2 },
     )).toEqual({ ok: false, error: 'no-selection' });
+  });
+});
+
+describe('buildSketchCircularPattern', () => {
+  it('整周 3 实例：绕原点均分 120°，圆心旋转正确', () => {
+    const result = buildSketchCircularPattern([circle(11, 0.02, 0)], [], [curveSelection(11)], {
+      center: { u: 0, v: 0 }, count: 3, angleRad: Math.PI * 2,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    const centers = result.entities
+      .filter((entity) => entity.kind === 'circle')
+      .map((entity) => entity.kind === 'circle' ? entity.center as { x: number; y: number } : undefined);
+    expect(centers).toHaveLength(3);
+    expect(centers[0]!.x).toBeCloseTo(0.02, 10);
+    expect(centers[0]!.y).toBeCloseTo(0, 10);
+    expect(centers[1]!.x).toBeCloseTo(-0.01, 10);
+    expect(centers[1]!.y).toBeCloseTo(0.02 * Math.sin(2 * Math.PI / 3), 10);
+    expect(centers[2]!.x).toBeCloseTo(-0.01, 10);
+    expect(centers[2]!.y).toBeCloseTo(0.02 * Math.sin(4 * Math.PI / 3), 10);
+    expect(result.instanceCurveIds).toHaveLength(3);
+  });
+
+  it('部分角度 90°/3 实例：步长 45°；内部约束逐实例复制', () => {
+    const constraints: SketchConstraintDto[] = [{ kind: 'radius', id: 101, refs: [11], value: 0.005 }];
+    const result = buildSketchCircularPattern([circle(11, 0.02, 0)], constraints, [curveSelection(11)], {
+      center: { u: 0, v: 0 }, count: 3, angleRad: Math.PI / 2,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    const centers = result.entities
+      .filter((entity) => entity.kind === 'circle')
+      .map((entity) => entity.kind === 'circle' ? entity.center as { x: number; y: number } : undefined);
+    expect(centers[1]!.x).toBeCloseTo(0.02 * Math.cos(Math.PI / 4), 10);
+    expect(centers[1]!.y).toBeCloseTo(0.02 * Math.sin(Math.PI / 4), 10);
+    expect(centers[2]!.x).toBeCloseTo(0, 10);
+    expect(centers[2]!.y).toBeCloseTo(0.02, 10);
+    expect(result.constraints.filter((constraint) => constraint.kind === 'radius')).toHaveLength(3);
+  });
+
+  it('内联点随旋转；校验中心/角度/数量', () => {
+    const inline = buildSketchCircularPattern(
+      [{ kind: 'line', id: 11, p1: { x: 0.02, y: 0 }, p2: { x: 0.03, y: 0 } }],
+      [],
+      [curveSelection(11)],
+      { center: { u: 0, v: 0 }, count: 2, angleRad: Math.PI },
+    );
+    expect(inline.ok).toBe(true);
+    if (inline.ok) {
+      const copy = inline.entities.filter((entity) => entity.kind === 'line')[1];
+      expect(copy?.kind === 'line' ? copy.p1 : undefined).toEqual({ x: -0.02, y: expect.closeTo(0, 10) });
+    }
+    expect(buildSketchCircularPattern([circle(11, 0.02, 0)], [], [curveSelection(11)], {
+      center: { u: Number.NaN, v: 0 }, count: 3, angleRad: Math.PI * 2,
+    })).toEqual({ ok: false, error: 'invalid-center' });
+    expect(buildSketchCircularPattern([circle(11, 0.02, 0)], [], [curveSelection(11)], {
+      center: { u: 0, v: 0 }, count: 3, angleRad: 0,
+    })).toEqual({ ok: false, error: 'invalid-angle' });
+    expect(buildSketchCircularPattern([circle(11, 0.02, 0)], [], [curveSelection(11)], {
+      center: { u: 0, v: 0 }, count: 1, angleRad: Math.PI,
+    })).toEqual({ ok: false, error: 'invalid-count' });
   });
 });

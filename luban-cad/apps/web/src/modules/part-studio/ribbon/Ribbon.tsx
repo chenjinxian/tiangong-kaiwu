@@ -85,15 +85,16 @@ export function useToolActivation(canEdit = true): ToolActivation {
     if (SKETCH_PLACEHOLDER_IDS.has(id)) return;
     // AIRR 2026-11-12：阵列 gizmo 活跃时启动其它工具/命令 → 先取消阵列，
     // 避免 gizmo 与工具共享画布指针。
-    if (id !== 'sketchLinearPattern' && usePartStudioStore.getState().sketch.pattern)
+    const patternIds = new Set(['sketchLinearPattern', 'sketchCircularPattern']);
+    if (!patternIds.has(id) && usePartStudioStore.getState().sketch.pattern)
       usePartStudioStore.getState().cancelSketchPattern();
-    if (id === 'sketchLinearPattern') {
-      // AIRR 2026-11-12：Onshape 草图线性阵列是 canvas gizmo（非 PrimitiveTool、
+    if (id === 'sketchLinearPattern' || id === 'sketchCircularPattern') {
+      // AIRR 2026-11-12：Onshape 草图阵列是 canvas gizmo（非 PrimitiveTool、
       // 非对话框）。激活只写会话态，画布由 SketchPatternGizmo 接管。
       const store = usePartStudioStore.getState();
       if (!store.sketch.isActive)
         return;
-      store.startSketchPattern('linear');
+      store.startSketchPattern(id === 'sketchCircularPattern' ? 'circular' : 'linear');
       return;
     }
     if (id === 'sketchTrim') {
@@ -598,7 +599,7 @@ export function Ribbon({
                       active={sketchTool.id === 'sketchConstruction'
                         ? constructionMode
                         : sketchTool.id === 'sketchLinearPattern'
-                          ? sketchPatternKind === 'linear'
+                          ? sketchPatternKind !== null
                           : activeToolId === sketchTool.id}
                       highlighted={false}
                       disabled={sketchToolsDisabled}
@@ -611,7 +612,7 @@ export function Ribbon({
                       active={sketchTool.id === 'sketchConstruction'
                         ? constructionMode
                         : sketchTool.id === 'sketchLinearPattern'
-                          ? sketchPatternKind === 'linear'
+                          ? sketchPatternKind !== null
                           : activeToolId === sketchTool.id}
                       highlighted={false}
                       disabled={sketchToolsDisabled}

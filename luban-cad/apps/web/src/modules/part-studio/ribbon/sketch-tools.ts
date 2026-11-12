@@ -110,7 +110,9 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   ]),
   tool('Sketch.Offset', 'partStudio.ribbon.sketchTools.offset.label', 'sketchEdit', 'sketch', []),
   tool('Sketch.Mirror', 'partStudio.ribbon.sketchTools.mirror.label', 'sketchEdit', 'sketch'),
-  tool('sketchLinearPattern', 'partStudio.ribbon.sketchTools.linearPattern.label', 'sketchEdit', 'sketch', []),
+  tool('sketchLinearPattern', 'partStudio.ribbon.sketchTools.linearPattern.label', 'sketchEdit', 'sketch', [
+    menuItem('sketchCircularPattern', 'partStudio.ribbon.sketchTools.circularPattern.label'),
+  ]),
   tool('sketchInsertDxf', 'partStudio.ribbon.sketchTools.insertDxf.label', 'sketchEdit', 'sketch', []),
 
   // 尺寸组（Onshape 单钮，无下拉：同一个尺寸工具按拾取动态推断长度/半径/距离）

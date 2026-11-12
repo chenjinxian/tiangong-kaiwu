@@ -580,6 +580,9 @@
       "linearPattern": {
         "label": "线性阵列"
       },
+      "circularPattern": {
+        "label": "环形阵列"
+      },
       "insertDxf": {
         "label": "插入 DXF 或 DWG"
       },
@@ -966,6 +969,8 @@
     "blankMenuSelectOther": "选择其他…",
     "patternSelectPrompt": "选择要阵列的草图图元",
     "patternPrompt": "线性阵列：拖动手柄或点击数值；Enter 确认，Esc 取消",
+    "patternPromptCircular": "环形阵列：拖动中心点或实例数；Enter 确认，Esc 取消",
+    "patternCenter": "拖动设置阵列中心",
     "patternDirection": "拖动设置阵列方向",
     "patternSpacing": "间距 (mm)",
     "patternCount": "实例数",

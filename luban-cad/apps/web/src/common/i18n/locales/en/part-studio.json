@@ -580,6 +580,9 @@
       "linearPattern": {
         "label": "Linear pattern"
       },
+      "circularPattern": {
+        "label": "Circular pattern"
+      },
       "insertDxf": {
         "label": "Insert DXF or DWG"
       },
@@ -960,6 +963,8 @@
     "blankMenuSelectOther": "Select other…",
     "patternSelectPrompt": "Select sketch entities to pattern",
     "patternPrompt": "Linear pattern: drag the handles or click a value; Enter accepts, Esc cancels",
+    "patternPromptCircular": "Circular pattern: drag the center or instance count; Enter accepts, Esc cancels",
+    "patternCenter": "Drag to set the pattern center",
     "patternDirection": "Drag to set the pattern direction",
     "patternSpacing": "Spacing (mm)",
     "patternCount": "Instance count",

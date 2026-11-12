@@ -951,6 +951,7 @@ export function PartStudioCanvas({
         <SketchPatternGizmo
           viewport={viewport}
           sketch={sketchSystem.activeSketch}
+          kind={sketchPatternSession.kind}
           selected={sketchEntitySelection}
           onApply={applySketchPattern}
           onCancel={cancelSketchPattern}
