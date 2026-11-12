@@ -59,6 +59,9 @@ export interface PartStudioActions {
   /** ADR-0018 S1g：草图「显示约束」开关（glyph + 尺寸标注覆盖层显隐）。 */
   setShowConstraints: (visible: boolean) => void;
   toggleSketchConstruction: () => void;
+  /** AIRR 2026-11-12：草图阵列会话（Onshape canvas gizmo）。 */
+  startSketchPattern: (kind: 'linear' | 'circular') => void;
+  cancelSketchPattern: () => void;
   // commandPalette 切片
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
@@ -130,6 +133,8 @@ const initialSketch: PartStudioSketchState = {
   orientCameraOnEnter: false,
   // ADR-0018 S1g：Onshape live 草图对话框默认勾选「显示约束」。
   showConstraints: true,
+  // AIRR 2026-11-12：草图阵列会话缺省未激活。
+  pattern: null,
 };
 
 const initialCommandPalette: PartStudioCommandPaletteState = {
@@ -194,7 +199,7 @@ function createToolSlice([set]: SliceCreator): { tool: PartStudioToolState } & P
 
 /** sketch 切片：草图模式进出（活动草图 id 寻址树红显/对话框）+ 平面下发（M6-a T5）。 */
 function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketchState } & Pick<PartStudioActions,
-  'enterSketch' | 'exitSketch' | 'setActiveSketchPlane' | 'setShowConstraints' | 'toggleSketchConstruction'> {
+  'enterSketch' | 'exitSketch' | 'setActiveSketchPlane' | 'setShowConstraints' | 'toggleSketchConstruction' | 'startSketchPattern' | 'cancelSketchPattern'> {
   return {
     sketch: initialSketch,
     // 进草图恒先归零平面（防上一草图会话的平面残留串场）；新建路径的平面随后由
@@ -208,6 +213,7 @@ function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketch
         orientCameraOnEnter: options?.orientCamera === true,
         // 显示开关跨草图会话保留（Onshape 会话内复选框状态延续）；缺省勾选。
         showConstraints: get().sketch.showConstraints ?? true,
+        pattern: null,
       },
     }),
     exitSketch: () => set({ sketch: { ...initialSketch } }),
@@ -217,6 +223,19 @@ function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketch
     setActiveSketchPlane: (plane) => set({ sketch: { ...get().sketch, activeSketchPlane: plane } }),
     setShowConstraints: (visible) => set({ sketch: { ...get().sketch, showConstraints: visible } }),
     toggleSketchConstruction: () => set({ sketch: { ...get().sketch, constructionMode: !get().sketch.constructionMode } }),
+    // AIRR 2026-11-12：仅草图编辑态可启动阵列（Onshape 草图工具）。
+    startSketchPattern: (kind) => {
+      const sketch = get().sketch;
+      if (!sketch.isActive || !sketch.activeSketchId)
+        return;
+      set({ sketch: { ...sketch, pattern: { kind } } });
+    },
+    cancelSketchPattern: () => {
+      const sketch = get().sketch;
+      if (!sketch.pattern)
+        return;
+      set({ sketch: { ...sketch, pattern: null } });
+    },
   };
 }
 

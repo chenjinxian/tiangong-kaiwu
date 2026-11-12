@@ -28,6 +28,85 @@
   pointer-events: none;
 }
 
+/* 草图线性阵列 gizmo（AIRR 2026-11-12；Onshape canvas manipulator 形态）。 */
+.part-studio-pattern-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+  pointer-events: none;
+}
+
+.part-studio-pattern-handle {
+  position: fixed;
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #6b6b6b;
+  border-radius: 2px;
+  background: #fff;
+  color: #1f1f1f;
+  font: 12px/1 "Segoe UI", "Microsoft YaHei", sans-serif;
+  cursor: grab;
+  user-select: none;
+  transform: translate(-50%, -50%);
+}
+
+.part-studio-pattern-handle:active {
+  cursor: grabbing;
+}
+
+.part-studio-pattern-handle--direction {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #2b6fd6;
+}
+
+.part-studio-pattern-handle--value {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  color: #2b6fd6;
+  white-space: nowrap;
+}
+
+.part-studio-pattern-handle__label {
+  pointer-events: none;
+}
+
+.part-studio-pattern-prompt {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 31;
+  padding: 4px 10px;
+  border: 1px solid rgba(74, 144, 226, 0.35);
+  border-radius: 4px;
+  background: #eef5ff;
+  color: #1f4f99;
+  font: 12px/1.4 "Segoe UI", "Microsoft YaHei", sans-serif;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.part-studio-pattern-input {
+  position: fixed;
+  z-index: 33;
+  width: 76px;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid #4a90e2;
+  border-radius: 2px;
+  background: #fff;
+  color: #1f1f1f;
+  font: 12px/1 "Segoe UI", "Microsoft YaHei", sans-serif;
+  transform: translate(-50%, -50%);
+}
+
 /* Onshape 蓝色选择提示条（选择草图平面）。 */
 .part-studio-plane-prompt {
   position: absolute;

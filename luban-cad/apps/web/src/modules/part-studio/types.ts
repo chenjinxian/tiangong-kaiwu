@@ -139,6 +139,11 @@ export interface PartStudioToolState {
   activeToolId: string | null;
 }
 
+/** 草图阵列会话（AIRR 2026-11-12：Onshape canvas gizmo；当前线性首切片）。 */
+export interface SketchPatternSession {
+  kind: 'linear' | 'circular';
+}
+
 /** sketch 切片——草图模式（ribbon 变身/栅格覆盖层/树红显的开关源）。 */
 export interface PartStudioSketchState {
   isActive: boolean;
@@ -167,6 +172,11 @@ export interface PartStudioSketchState {
    * 一并关闭其选中/双击改值拾取；缺省 true。
    */
   showConstraints?: boolean;
+  /**
+   * AIRR 2026-11-12：草图阵列会话（Onshape canvas gizmo）。null/缺省=未激活。
+   * 激活期间画布由 SketchPatternGizmo 接管指针，SketchEntityPicker 只显示选择。
+   */
+  pattern?: SketchPatternSession | null;
 }
 
 /** commandPalette 切片——命令搜索面板（alt+/）开关 + 查询词 + ribbon 亮显。 */

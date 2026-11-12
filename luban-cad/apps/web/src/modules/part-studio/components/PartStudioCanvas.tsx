@@ -53,7 +53,7 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult, SketchConstraintDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { deleteSelectedSubEntity } from '../canvas/subentity-delete.js';
 import type { CanvasSelection } from '../types.js';
@@ -74,10 +74,12 @@ import { readBrepFaceHandle } from '../internal/brep-topology.js';
 import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.js';
 import { sketchPlaneFromFaceHandle } from '../internal/sketch-plane-from-face.js';
 import { SketchEntityPicker } from './SketchEntityPicker.js';
+import { SketchPatternGizmo } from './SketchPatternGizmo.js';
 import { SketchDimensionEditor } from './SketchDimensionEditor.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import { deleteSketchEntities } from '../internal/sketch-delete.js';
 import { copySketchEntities, pasteSketchClipboard } from '../internal/sketch-clipboard.js';
+import { commitActiveSketchPattern, hasActiveSketchPattern } from '../internal/sketch-pattern-session.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
 import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
@@ -598,6 +600,9 @@ export function PartStudioCanvas({
   const sketchActiveForDialog = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchIdForDialog = usePartStudioStore((s) => s.sketch.activeSketchId);
   const activeSketchPlaneForDialog = usePartStudioStore((s) => s.sketch.activeSketchPlane);
+  // AIRR 2026-11-12：草图阵列会话（canvas gizmo）。
+  const sketchPatternSession = usePartStudioStore((s) => s.sketch.pattern);
+  const cancelSketchPattern = usePartStudioStore((s) => s.cancelSketchPattern);
   // 草图空白右键「全部显示」：回显会话隐藏实体（EmphasizeElements 由树 effect 重算）。
   const hiddenIds = usePartStudioStore((s) => s.canvas.hiddenIds);
   const showNodes = usePartStudioStore((s) => s.showNodes);
@@ -605,23 +610,64 @@ export function PartStudioCanvas({
     if (hiddenIds.length > 0)
       showNodes(hiddenIds);
   }, [hiddenIds, showNodes]);
+  const finishActiveSketch = React.useCallback(() => {
+    exitSketch();
+    setActiveSketchPlane(null);
+    setSketchDraftPlane(null);
+    setSketchFacePlane(null);
+    selectDatum(null);
+    closeDialog();
+  }, [closeDialog, exitSketch, selectDatum, setActiveSketchPlane]);
   const handleSketchConfirm = React.useCallback((result?: SketchDialogResult) => {
     // Onshape：同一个草图对话框既是创建框也是编辑框。创建成功后对话框
     // **不关闭**，切到编辑态；再次 ✓ = 完成并退出草图。
     if (sketchActiveForDialog) {
-      exitSketch();
-      setActiveSketchPlane(null);
-      setSketchDraftPlane(null);
-      setSketchFacePlane(null);
-      selectDatum(null);
-      closeDialog();
+      // AIRR 2026-11-12：阵列 gizmo 未提交时，✓/右键「确认 草图」先提交；
+      // 失败保持草图与阵列预览（不静默丢实例）。
+      if (hasActiveSketchPattern()) {
+        void commitActiveSketchPattern().then((ok) => {
+          if (ok)
+            finishActiveSketch();
+        });
+        return;
+      }
+      finishActiveSketch();
       return;
     }
     // v1.29：cPlane 选项自带世界快照（含 sourceFeatureId）；三基准面回退旧映射。
     setActiveSketchPlane(result ? (result.planeDto ?? sketchPlaneFromOption(result.plane) ?? null) : null);
     setSketchDraftPlane(result?.plane || null);
     // 保持 dialog.active='sketch'：下一步渲染为同一对话框的编辑态。
-  }, [closeDialog, exitSketch, selectDatum, setActiveSketchPlane, sketchActiveForDialog]);
+  }, [finishActiveSketch, setActiveSketchPlane, sketchActiveForDialog]);
+
+  const applySketchPattern = React.useCallback(async (
+    entities: SketchEntityDto[],
+    constraints: SketchConstraintDto[],
+    instanceCurveIds: readonly number[][],
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const system = sketchSystem;
+    const active = system?.activeSketch;
+    if (!system || !active)
+      return { ok: false, error: 'no active sketch' };
+    const result = await system.applyUpdate(entities, constraints);
+    if (!result.ok)
+      return { ok: false, error: result.error };
+    const ids = [...new Set(instanceCurveIds.flat())];
+    const others = canvasSelectionForSketchPlane.filter(
+      (entry) => entry.kind !== 'sketchEntity' && entry.kind !== 'sketchConstraint',
+    );
+    setCanvasSelection([
+      ...others,
+      ...ids.map((entityId) => ({
+        kind: 'sketchEntity' as const,
+        id: `${active.id}:${entityId}`,
+        sketchId: active.id,
+        entityId,
+        sketchPart: 'curve' as const,
+      })),
+    ]);
+    return { ok: true };
+  }, [sketchSystem, canvasSelectionForSketchPlane, setCanvasSelection]);
 
   /**
    * ADR-0017 Stage D：新建草图期间（选择工具未被暂停）视口拾取单个平面模型面
@@ -863,6 +909,7 @@ export function PartStudioCanvas({
           sketch={sketchSystem.activeSketch}
           selected={sketchEntitySelection}
           canEdit={canEdit}
+          interactive={!sketchPatternSession || sketchEntitySelection.length === 0}
           previewEntities={sketchPreviewEntities}
           onPreviewChange={setSketchPreviewEntities}
           onCommitDrag={commitSketchDrag}
@@ -897,6 +944,20 @@ export function PartStudioCanvas({
               })),
             ]);
           }}
+        />
+      )}
+      {/* AIRR 2026-11-12：草图线性阵列 canvas gizmo（Onshape canvas manipulator）。 */}
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && sketchPatternSession && viewport && (
+        <SketchPatternGizmo
+          viewport={viewport}
+          sketch={sketchSystem.activeSketch}
+          selected={sketchEntitySelection}
+          onApply={applySketchPattern}
+          onCancel={cancelSketchPattern}
+          onError={(message) => IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+            OutputMessagePriority.Error,
+            message,
+          ))}
         />
       )}
       {/* ADR-0018 S1f：活动草图面域填充观测面（e2e；绘制在 SketchCurvesDecoration）。 */}

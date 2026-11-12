@@ -83,6 +83,19 @@ export function useToolActivation(canEdit = true): ToolActivation {
     }
     // 2026-11-02：Onshape 草图工具栏里尚未实现的按钮/变体——保留 UI，点击无行为。
     if (SKETCH_PLACEHOLDER_IDS.has(id)) return;
+    // AIRR 2026-11-12：阵列 gizmo 活跃时启动其它工具/命令 → 先取消阵列，
+    // 避免 gizmo 与工具共享画布指针。
+    if (id !== 'sketchLinearPattern' && usePartStudioStore.getState().sketch.pattern)
+      usePartStudioStore.getState().cancelSketchPattern();
+    if (id === 'sketchLinearPattern') {
+      // AIRR 2026-11-12：Onshape 草图线性阵列是 canvas gizmo（非 PrimitiveTool、
+      // 非对话框）。激活只写会话态，画布由 SketchPatternGizmo 接管。
+      const store = usePartStudioStore.getState();
+      if (!store.sketch.isActive)
+        return;
+      store.startSketchPattern('linear');
+      return;
+    }
     if (id === 'sketchTrim') {
       // 2026-11-12：草图修剪——Onshape「修剪」工具（toolId Sketch.Trim，真实
       // PrimitiveTool）。reminder：ribbon 命令 id=sketchTrim 只是入口键，
@@ -447,6 +460,8 @@ export function Ribbon({
   const { t } = useTranslation();
   const { activate, gatedCapability, closeGatedDialog } = useToolActivation(canEdit);
   const activeToolId = usePartStudioStore((s) => s.tool.activeToolId);
+  // AIRR 2026-11-12：草图阵列会话高亮（非 PrimitiveTool，不能靠 activeToolId）。
+  const sketchPatternKind = usePartStudioStore((s) => s.sketch.pattern?.kind ?? null);
   // 工具退出收口（2026-11-12）：草图/特征 PrimitiveTool 退出后 iTwin 装回默认
   // 选择工具，但 ribbon 的 store.tool.activeToolId 不会自动清——会继续挡住草图
   // 实体拾取/尺寸编辑器（Onshape 退出工具后立即回到可选状态）。监听
@@ -580,7 +595,11 @@ export function Ribbon({
                       key={sketchTool.id}
                       tool={sketchTool as unknown as RibbonTool}
                       onActivate={activate}
-                      active={sketchTool.id === 'sketchConstruction' ? constructionMode : activeToolId === sketchTool.id}
+                      active={sketchTool.id === 'sketchConstruction'
+                        ? constructionMode
+                        : sketchTool.id === 'sketchLinearPattern'
+                          ? sketchPatternKind === 'linear'
+                          : activeToolId === sketchTool.id}
                       highlighted={false}
                       disabled={sketchToolsDisabled}
                     />
@@ -589,7 +608,11 @@ export function Ribbon({
                       key={sketchTool.id}
                       tool={sketchTool}
                       onActivate={activate}
-                      active={sketchTool.id === 'sketchConstruction' ? constructionMode : activeToolId === sketchTool.id}
+                      active={sketchTool.id === 'sketchConstruction'
+                        ? constructionMode
+                        : sketchTool.id === 'sketchLinearPattern'
+                          ? sketchPatternKind === 'linear'
+                          : activeToolId === sketchTool.id}
                       highlighted={false}
                       disabled={sketchToolsDisabled}
                     />

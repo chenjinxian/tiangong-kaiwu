@@ -52,24 +52,32 @@ function refEntityId(ref: SketchRef): number | undefined {
   return typeof ref === 'number' ? ref : 'entity' in ref ? ref.entity : undefined;
 }
 
+/** 自包含复制集（剪贴板与阵列共用）：选中曲线 + 直接引用 point + 内部约束。 */
+export interface SketchCopySet {
+  entities: SketchEntityDto[];
+  constraints: SketchConstraintDto[];
+  /** 复制集里的曲线条数（0=没有可复制曲线）。 */
+  curveCount: number;
+}
+
 /**
- * 复制选中曲线到会话剪贴板。返回复制的曲线实体数（0=未覆盖剪贴板）。
- * 显式 point 端点/圆心自动并入复制集；约束仅保留内部关系。
+ * 收集选中曲线的自包含复制集（不写剪贴板）。显式 point 端点/圆心自动并入；
+ * 只收录所有 ref 都落在复制集内的约束（跨外部几何/原点关系不复制）。
  */
-export function copySketchEntities(
+export function collectSketchCopySet(
   entities: readonly SketchEntityDto[],
   constraints: readonly SketchConstraintDto[],
   selection: readonly SketchEntitySelection[],
-): number {
+): SketchCopySet {
   const requested = new Set(
     selection.filter((entry) => entry.part === 'curve').map((entry) => entry.entityId),
   );
   if (requested.size === 0)
-    return 0;
+    return { entities: [], constraints: [], curveCount: 0 };
   const byId = new Map(entities.map((entity) => [entity.id, entity]));
   const curveCount = [...requested].filter((id) => byId.get(id)?.kind !== 'point').length;
   if (curveCount === 0)
-    return 0;
+    return { entities: [], constraints: [], curveCount: 0 };
 
   // 自动并入被引用显式 point（一轮足够：point 不再引用其它实体）。
   const copied = new Set(requested);
@@ -93,8 +101,22 @@ export function copySketchEntities(
     }))
     .map((constraint) => JSON.parse(JSON.stringify(constraint)) as SketchConstraintDto);
 
-  clipboard = { entities: copiedEntities, constraints: copiedConstraints };
-  return curveCount;
+  return { entities: copiedEntities, constraints: copiedConstraints, curveCount };
+}
+
+/**
+ * 复制选中曲线到会话剪贴板。返回复制的曲线实体数（0=未覆盖剪贴板）。
+ */
+export function copySketchEntities(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  selection: readonly SketchEntitySelection[],
+): number {
+  const copied = collectSketchCopySet(entities, constraints, selection);
+  if (copied.curveCount === 0)
+    return 0;
+  clipboard = { entities: copied.entities, constraints: copied.constraints };
+  return copied.curveCount;
 }
 
 export type SketchPasteResult =
@@ -116,50 +138,52 @@ function remapPointRef(
   return idMap.get(ref);
 }
 
+export interface SketchCopyInstance {
+  entities: SketchEntityDto[];
+  constraints: SketchConstraintDto[];
+  /** 下一个可用 id（供多实例连续分配）。 */
+  nextId: number;
+  idMap: ReadonlyMap<number, number>;
+  /** 本实例曲线 id（不含 point）。 */
+  curveIds: number[];
+}
+
 /**
- * 把剪贴板粘贴到目标草图（原位）。失败不产生任何实体（返回 invalid-clipboard
- * 时调用方不得提交）；成功返回完整实体/约束与新 id 列表。
+ * 把一组自包含复制集实例化为新 id（不追加到目标草图）。线/圆心引用后序 point
+ * 采用两遍映射；任何数字引用缺失 → undefined（调用方不得提交）。
  */
-export function pasteSketchClipboard(
-  entities: readonly SketchEntityDto[],
-  constraints: readonly SketchConstraintDto[],
-): SketchPasteResult {
-  if (!clipboard || !clipboard.entities.some((entity) => entity.kind !== 'point'))
-    return { ok: false, reason: 'empty' };
-
-  let nextId = 1;
-  for (const entity of entities)
-    nextId = Math.max(nextId, entity.id + 1);
-  for (const constraint of constraints)
-    nextId = Math.max(nextId, constraint.id + 1);
-
-  // 两遍：先为全部实体落新 id（线/圆心可能引用后序 point），再重映射副本。
+export function instantiateSketchCopy(
+  sources: readonly SketchEntityDto[],
+  sourceConstraints: readonly SketchConstraintDto[],
+  startId: number,
+): SketchCopyInstance | undefined {
+  let nextId = startId;
   const idMap = new Map<number, number>();
-  for (const source of clipboard.entities)
+  for (const source of sources)
     idMap.set(source.id, nextId++);
 
-  const pasted: SketchEntityDto[] = [];
-  for (const source of clipboard.entities) {
+  const copied: SketchEntityDto[] = [];
+  for (const source of sources) {
     const clone = cloneEntity(source);
     clone.id = idMap.get(source.id)!;
     if (clone.kind === 'line') {
       const p1 = remapPointRef(clone.p1, idMap);
       const p2 = remapPointRef(clone.p2, idMap);
       if (p1 === undefined || p2 === undefined)
-        return { ok: false, reason: 'invalid-clipboard' };
+        return undefined;
       clone.p1 = p1;
       clone.p2 = p2;
     } else if (clone.kind === 'circle' || clone.kind === 'arc') {
       const center = remapPointRef(clone.center, idMap);
       if (center === undefined)
-        return { ok: false, reason: 'invalid-clipboard' };
+        return undefined;
       clone.center = center;
     }
-    pasted.push(clone);
+    copied.push(clone);
   }
 
-  const pastedConstraints: SketchConstraintDto[] = [];
-  for (const source of clipboard.constraints) {
+  const copiedConstraints: SketchConstraintDto[] = [];
+  for (const source of sourceConstraints) {
     const refs: SketchRef[] = [];
     let valid = true;
     for (const ref of source.refs) {
@@ -184,14 +208,44 @@ export function pasteSketchClipboard(
     }
     if (!valid)
       continue;
-    pastedConstraints.push({ ...source, id: nextId++, refs });
+    copiedConstraints.push({ ...source, id: nextId++, refs });
   }
 
   return {
+    entities: copied,
+    constraints: copiedConstraints,
+    nextId,
+    idMap,
+    curveIds: copied.filter((entity) => entity.kind !== 'point').map((entity) => entity.id),
+  };
+}
+
+/**
+ * 把剪贴板粘贴到目标草图（原位）。失败不产生任何实体（返回 invalid-clipboard
+ * 时调用方不得提交）；成功返回完整实体/约束与新 id 列表。
+ */
+export function pasteSketchClipboard(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+): SketchPasteResult {
+  if (!clipboard || !clipboard.entities.some((entity) => entity.kind !== 'point'))
+    return { ok: false, reason: 'empty' };
+
+  let nextId = 1;
+  for (const entity of entities)
+    nextId = Math.max(nextId, entity.id + 1);
+  for (const constraint of constraints)
+    nextId = Math.max(nextId, constraint.id + 1);
+
+  const instance = instantiateSketchCopy(clipboard.entities, clipboard.constraints, nextId);
+  if (!instance)
+    return { ok: false, reason: 'invalid-clipboard' };
+
+  return {
     ok: true,
-    entities: [...entities, ...pasted],
-    constraints: [...constraints, ...pastedConstraints],
-    pastedEntityIds: pasted.map((entity) => entity.id),
-    pastedCurveIds: pasted.filter((entity) => entity.kind !== 'point').map((entity) => entity.id),
+    entities: [...entities, ...instance.entities],
+    constraints: [...constraints, ...instance.constraints],
+    pastedEntityIds: instance.entities.map((entity) => entity.id),
+    pastedCurveIds: instance.curveIds,
   };
 }

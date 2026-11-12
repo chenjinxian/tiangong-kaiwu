@@ -47,6 +47,8 @@ export interface SketchEntityPickerProps {
   onSelectionChange: (selection: readonly SketchEntitySelection[]) => void;
   /** 写门禁（只读时仅可选择，不可拖拽）。 */
   canEdit?: boolean;
+  /** 交互总门（阵列 gizmo 接管指针时 false：只显示选中/悬停强调）。 */
+  interactive?: boolean;
   /** 拖拽预览实体（显示层覆盖；提交成功后由宿主清空）。 */
   previewEntities?: readonly SketchEntityDto[] | null;
   /** 拖拽预览更新（null=取消/结束）。 */
@@ -99,6 +101,7 @@ export function SketchEntityPicker({
   selected,
   onSelectionChange,
   canEdit = true,
+  interactive = true,
   previewEntities,
   onPreviewChange,
   onCommitDrag,
@@ -171,6 +174,12 @@ export function SketchEntityPicker({
   sketchRef.current = sketch;
   const canEditRef = React.useRef(canEdit);
   canEditRef.current = canEdit;
+  const interactiveRef = React.useRef(interactive);
+  interactiveRef.current = interactive;
+  React.useEffect(() => {
+    if (!interactive)
+      setHover(null);
+  }, [interactive]);
   const isOverlayPointRef = React.useRef(isOverlayPoint);
   isOverlayPointRef.current = isOverlayPoint;
   const onPreviewChangeRef = React.useRef(onPreviewChange);
@@ -209,6 +218,11 @@ export function SketchEntityPicker({
       const rect = canvas.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
+    /** 只吃画布内指针：ribbon/对话框点击不得被当成空白点击而清空选择。 */
+    const inCanvas = (point: ScreenPoint2): boolean => {
+      const rect = canvas.getBoundingClientRect();
+      return point.x >= 0 && point.y >= 0 && point.x <= rect.width && point.y <= rect.height;
+    };
     const project = (world: Point3d): ScreenPoint2 => {
       const v = viewport.worldToView(world);
       return { x: v.x, y: v.y };
@@ -226,9 +240,13 @@ export function SketchEntityPicker({
       setBoxRect(null);
     };
     const onDown = (event: PointerEvent): void => {
-      if (event.button !== 0 || menuOpenRef.current)
+      if (!interactiveRef.current || event.button !== 0 || menuOpenRef.current)
         return;
       down = local(event);
+      if (!inCanvas(down)) {
+        down = undefined;
+        return;
+      }
       if (isOverlayPointRef.current?.(down))
         return;
       const target = hitTestRef.current(down);
@@ -245,7 +263,7 @@ export function SketchEntityPicker({
       box = { from: down, to: down, dragging: false };
     };
     const onMove = (event: PointerEvent): void => {
-      if (menuOpenRef.current)
+      if (!interactiveRef.current || menuOpenRef.current)
         return;
       if (box && (event.buttons & 1) === 1) {
         const point = local(event);
@@ -295,7 +313,7 @@ export function SketchEntityPicker({
       setHover(hit);
     };
     const onUp = (event: PointerEvent): void => {
-      if (event.button !== 0 || !down || menuOpenRef.current)
+      if (!interactiveRef.current || event.button !== 0 || !down || menuOpenRef.current)
         return;
       const up = local(event);
       if (box?.dragging) {
@@ -341,6 +359,9 @@ export function SketchEntityPicker({
         return;
       }
       drag = undefined;
+      // 画布外释放（点 ribbon/对话框）：不当作空白点击清空选中。
+      if (!inCanvas(up))
+        return;
       // 覆盖层（约束 glyph / 尺寸标签）释放：不拾取实体、不清约束选择。
       if (isOverlayPointRef.current?.(up)) {
         down = undefined;
@@ -374,6 +395,8 @@ export function SketchEntityPicker({
       return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
     };
     const onContextMenu = (event: MouseEvent): void => {
+      if (!interactiveRef.current)
+        return;
       const rect = canvas.getBoundingClientRect();
       const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
       if (point.x < 0 || point.y < 0 || point.x > rect.width || point.y > rect.height)
