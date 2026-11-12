@@ -405,6 +405,17 @@ export function PartStudioCanvas({
 
   const dialogSketchId = dialog.active === 'sketch' ? dialog.sketchId : undefined;
 
+  // Onshape live（2026-11-12）：草图对话框标题=草图名（新建时为“草图 N”，
+  // 编辑时为树内落库名），不是泛称「草图」。
+  const sketchDialogName = React.useMemo(() => {
+    const sketchEntries = featureEntries.filter((entry) => entry.featureType === 'sketch');
+    const typeLabel = t('partStudio.tree.featureTypes.sketch');
+    if (!sketchActiveForDialog) return `${typeLabel} ${sketchEntries.length + 1}`;
+    const targetId = dialogSketchId ?? activeSketchIdForDialog;
+    const mapped = mapFeatureEntries(sketchEntries, featureTypeLabel).find((node) => node.id === targetId);
+    return mapped?.name ?? typeLabel;
+  }, [featureEntries, t, sketchActiveForDialog, dialogSketchId, activeSketchIdForDialog, featureTypeLabel]);
+
   /**
    * B6 M-A5 T2：画布 body 删除接线（Task 1 选中桥落地后不留死路）。删除回调
    * 仅接受 `kind='part'` 且 id 命中 active authored body 的选择项：
@@ -563,6 +574,7 @@ export function PartStudioCanvas({
             ? sketchDraftPlane
             : null}
           onSelect={handleSketchPlaneSelect}
+          pendingSketchName={sketchActiveForDialog ? undefined : sketchDialogName}
         />
       )}
       {dialog.active === 'sketch' && sketchDraftPlane === null && (
@@ -836,6 +848,7 @@ export function PartStudioCanvas({
       ))}
       {dialog.active === 'sketch' && (
         <SketchDialog
+          sketchName={sketchDialogName}
           sketchId={dialogSketchId ?? activeSketchIdForDialog ?? undefined}
           editing={sketchActiveForDialog}
           planeId={sketchDraftPlane}

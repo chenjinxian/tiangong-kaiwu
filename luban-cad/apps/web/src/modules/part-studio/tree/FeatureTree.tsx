@@ -9,7 +9,7 @@
  *   反映）+ 段头计数（os-11「特征 (17)」）+ 行列表；
  * - 六态完备（M4-T6 拉伸闭环的树刷新呈现面）：特征段 loading 骨架（Session
  *   useFeatureSystem.loading 透传）/ error 就地错误条 + 重试（refresh 直通）/
- *   empty（「暂无特征」）；零件段 loading / error / empty（「暂无零件」）；
+ *   empty（「暂无特征」）；零件段 loading / error（空零件段按 Onshape 不渲染占位行）；
  * - 零件段（B6 M-A3.2a 起）= **authored active body**（useFeatureSystem.bodies /
  *   getBodies 读面直通）：名称取 BodyInfo.name（缺省「实体 N」）、身份=bodyKey；
  *   consumed（active=false）与 direct-edit orphan 不入树；不再跑
@@ -89,6 +89,11 @@ export interface FeatureTreeProps {
    * 壳期占位已随 M4-T6 真数据源接线移除）。
    */
   entries?: readonly FeatureTreeEntry[];
+  /**
+   * Onshape live（2026-11-12）：新建草图对话框打开时，树在默认几何图元下
+   * **立即**显示高亮的「草图 N」行（✓ 前即存在；✗ 关闭即消失）。缺省不显示。
+   */
+  pendingSketchName?: string;
   /** 特征段加载中（useFeatureSystem.loading 透传——骨架行）。 */
   loading?: boolean;
   /** 特征段加载失败文案（useFeatureSystem.error 透传——就地错误条 + 重试）。 */
@@ -299,6 +304,7 @@ function SkeletonRows(): React.JSX.Element {
 
 export function FeatureTree({
   entries,
+  pendingSketchName,
   loading,
   error,
   onRetry,
@@ -604,7 +610,11 @@ export function FeatureTree({
                   className="part-studio-tree__count"
                   data-testid={`${section.testidPrefix}-count`}
                 >
-                  ({isFeatures ? rows.length + (filterInput === '' ? DEFAULT_DATUM_COUNT : 0) : rows.length})
+                  ({isFeatures
+                    ? rows.length
+                      + (filterInput === '' ? DEFAULT_DATUM_COUNT : 0)
+                      + (filterInput === '' && pendingSketchName !== undefined ? 1 : 0)
+                    : rows.length})
                 </span>
               </button>
               {/* 特征段头三工具钮（Onshape live：new-folder / pause / profile）。 */}
@@ -637,6 +647,26 @@ export function FeatureTree({
                     <>
                       {/* Onshape 默认几何图元组：位于用户特征之前；过滤态下隐藏。 */}
                       {filterInput === '' && <DefaultGeometryGroup />}
+                      {/* Onshape live：新建草图对话框打开即出现高亮「草图 N」行
+                          （✓ 前即存在；✗ 关闭即消失；确认后由真实树行接替）。 */}
+                      {filterInput === '' && pendingSketchName !== undefined && (
+                        <TreeRow
+                          node={{
+                            id: '__pending-sketch__',
+                            name: pendingSketchName,
+                            type: 'sketch',
+                            hasError: false,
+                            isSuppressed: false,
+                            isHidden: false,
+                          }}
+                          selected
+                          onSelect={() => {}}
+                          onContextMenu={() => {}}
+                          editing={false}
+                          onCommitRename={() => {}}
+                          onCancelRename={() => {}}
+                        />
+                      )}
                       {renderSectionRows({
                         loading: loading ?? false,
                         error,
@@ -679,6 +709,8 @@ export function FeatureTree({
                         error: partsError,
                         rows,
                         emptyText: t('partStudio.sidebar.tree.emptyParts'),
+                        // Onshape live：零件数 (0) 下不渲染「暂无零件」占位行。
+                        suppressEmpty: true,
                         // body 读面错误复用特征段 onRetry（同一 refresh 同时刷树+bodies）。
                         retryable: bodies !== undefined && onRetry !== undefined,
                       })}
@@ -778,10 +810,15 @@ export function FeatureTree({
             role="menuitem"
             className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
             // B6 M-A5 T2：canEdit=false → 禁用品（title 提示），HITL 不打开。
-            disabled={!canEdit}
-            title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
+            // Onshape 对齐追补（2026-11-12）：草图行不可删——后端 deleteFeature
+            // 只查 LubanCAD.Feature，草图是 LubanCAD.Sketch（实测报「特征不存在」）；
+            // 不提供假入口，禁用并说明真实原因（能力补齐走私有后端立项）。
+            disabled={!canEdit || isSketchNode(menuNode)}
+            title={isSketchNode(menuNode)
+              ? t('partStudio.tree.sketchDeleteUnsupported')
+              : canEdit ? undefined : t('partStudio.tree.readonlyHint')}
             onClick={() => {
-              if (!canEdit) return;
+              if (!canEdit || isSketchNode(menuNode)) return;
               setPendingDelete(menuNode);
               setMenu(null);
             }}

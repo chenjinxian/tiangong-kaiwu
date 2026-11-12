@@ -579,7 +579,8 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     // 读树/零件段查询异步，先过 loading 骨架。
     expect(await within(tree).findByTestId('tree-datum-group')).toBeDefined();
     expect(await within(tree).findByTestId('tree-row-datum-origin')).toBeDefined();
-    expect(await within(tree).findByText('暂无零件')).toBeDefined();
+    // Onshape live：零件数 (0) 下不显示「暂无零件」占位行。
+    expect(within(tree).queryByText('暂无零件')).toBeNull();
   });
 
   it('双段树：段头点击收起列表并写 store tree.activeTab', async () => {

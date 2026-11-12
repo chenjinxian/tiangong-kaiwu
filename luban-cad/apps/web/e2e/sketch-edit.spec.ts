@@ -92,7 +92,7 @@ test.describe('编辑既有草图（Stage D）', () => {
     await expect(dialog).toBeVisible({ timeout: 30_000 });
     const planeField = dialog.getByRole('combobox', { name: '草图平面' });
     await expect(planeField).toBeDisabled();
-    await expect(planeField).toContainText('上视');
+    await expect(planeField).toContainText('Top');
     await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled();
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
 

@@ -2,10 +2,14 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * DatumPlanesDecoration锛?026-11-02 Onshape 榛樿鍑犱綍鍥惧厓瀵归綈锛夛細
- * 鍦ㄥ師鐐圭粯鍒?Top(XY) / Front(XZ) / Right(YZ) 涓変釜娴呰摑鍗婇€忔槑鐭╁舰 + Origin 闈跺績锛? * 鏍囩鐢?canvas overlay 淇濇寔灞忓箷鍙銆備笌 `ProjectExtentsDecoration` 鍚? * decorator 妯″紡锛屼絾鐢?apps/web 鐨?datum 鍒囩墖椹卞姩閫愰」鍙鎬с€? *
- * 骞抽潰灏哄鍙栨瀯閫犳椂 view extents 鐨勬瘮渚嬶紙Onshape 鍒濆骞抽潰閾烘弧瑙嗗彛澶у崐锛夛紝
- * 涓嶉殢缂╂斁瀹炴椂鍙樺寲锛涢涓骇浣撶壒寰佸悗鐢?UI 闅愯棌涓夊钩闈€? */
+ * DatumPlanesDecoration（2026-11-02 Onshape 默认几何图元对齐）：
+ * 在原点绘制 Top(XY) / Front(XZ) / Right(YZ) 三个浅蓝半透明矩形 + Origin 圆心；
+ * 标签用 canvas overlay 保持屏幕可读、沿平面顶边旋转。
+ *
+ * 平面尺寸取 `RENDER_DEFAULTS.emptyViewRangeMm`（模型单位），不随缩放实时变化；
+ * 首个产体特征后由 UI 隐藏三平面。
+ */
+import { RENDER_DEFAULTS } from '@luban-cad/shared';
 import { ColorDef } from '@itwin/core-common';
 import {
   type DecorateContext,
@@ -22,10 +26,14 @@ export interface DatumPlaneVisibility {
   right: boolean;
 }
 
-const PLANE_FILL = ColorDef.create(0x8fb8d8).withAlpha(38);
-const PLANE_EDGE = ColorDef.create(0x5d8fbe).withAlpha(190);
-const LABEL_COLOR = 'rgba(58,110,165,0.95)';
-const LABEL_FONT = '600 12px "Segoe UI", "Microsoft YaHei", sans-serif';
+// Onshape live（2026-11-12 像素采样）：单层合成 ≈ rgb(246,248,250)，
+// 边框核心 ≈ rgb(182,200,223)（1 CSS px 抗锯齿），标签 ≈ #1651b0。
+// 基线色 rgb(210,220,230) @ alpha 0.2 在白色首帧上逐层叠加吻合。
+const PLANE_FILL = ColorDef.create(0xe6dcd2).withAlpha(51); // TBGR of rgb(210,220,230)
+const PLANE_EDGE = ColorDef.create(0xdfc8b6); // TBGR of rgb(182,200,223)
+const LABEL_COLOR = 'rgba(22,81,176,0.95)';
+// 标签字号按 live 投影宽度比（Front 文本 ≈78 physical px @ DPR2）取 16px。
+const LABEL_FONT = '600 16px "Segoe UI", "Microsoft YaHei", sans-serif';
 
 function corners(x: number, y: number, z: number): Point3d[] {
   return [
@@ -45,11 +53,13 @@ export interface DatumPlaneGeometry {
   normal: Vector3d;
 }
 
-/** 平面半尺寸（Onshape 初始平面铺满视口大半；随视口范围缩放，最小 25）。 */
-export function datumPlaneHalfSize(viewport: ScreenViewport): number {
-  const extents = viewport.view.getExtents();
-  const extent = Math.max(extents.x, extents.y, extents.z, 1);
-  return Math.max(25, extent * 0.42);
+/**
+ * 平面半尺寸（模型单位）。固定自 `RENDER_DEFAULTS.emptyViewRangeMm`：空 Part
+ * Studio 的默认取景立方体与三基准面同口径，取景/拾取/装饰不再随相机缩放漂移。
+ * `viewport` 参数保留为公开 API（调用方多处使用）。
+ */
+export function datumPlaneHalfSize(_viewport: ScreenViewport): number {
+  return Math.max(8, RENDER_DEFAULTS.emptyViewRangeMm);
 }
 
 /**
@@ -103,7 +113,8 @@ export class DatumPlanesDecoration {
   private drawPlane(context: DecorateContext, axis: 'top' | 'front' | 'right', label: string): void {
     const s = this._halfSize;
     const builder = context.createGraphicBuilder(GraphicType.WorldOverlay);
-    builder.setSymbology(PLANE_EDGE, PLANE_FILL, 1);
+    // weight 2 = 2 device px（与 DPR2 下 Onshape 边框带宽一致；weight 1 实测只有 1px）。
+    builder.setSymbology(PLANE_EDGE, PLANE_FILL, 2);
     let pts: Point3d[];
     let labelWorld: Point3d;
     switch (axis) {
@@ -120,20 +131,55 @@ export class DatumPlanesDecoration {
         labelWorld = Point3d.create(0, -s * 0.86, s * 0.86);
         break;
     }
+    // addShape 只填充不描边；Onshape 的每个基准面都有 1px 蓝灰边框，单独补线。
     builder.addShape(pts);
+    builder.addLineString([...pts, pts[0]!]);
     context.addDecorationFromBuilder(builder);
-    this.addLabel(context, labelWorld, label);
+    // Onshape live（2026-11-12）：标签贴在平面**屏幕最上方的边**的左端、沿边书写
+    // （随平面透视旋转，不是水平屏幕文字）。
+    const view = pts.map((point) => context.viewport.worldToView(point));
+    let topEdge = 0;
+    let topMidY = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < view.length; i++) {
+      const a = view[i]!;
+      const b = view[(i + 1) % view.length]!;
+      const midY = (a.y + b.y) / 2;
+      if (midY < topMidY) {
+        topMidY = midY;
+        topEdge = i;
+      }
+    }
+    let a = view[topEdge]!;
+    let b = view[(topEdge + 1) % view.length]!;
+    let angle = Math.atan2(b.y - a.y, b.x - a.x);
+    if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+      // 文字保持可读方向（不倒置）：换边端点，角度转 180°。
+      const swap = a; a = b; b = swap;
+      angle += Math.PI;
+    }
+    const cx = view.reduce((sum, point) => sum + point.x, 0) / view.length;
+    const cy = view.reduce((sum, point) => sum + point.y, 0) / view.length;
+    const inward = Math.hypot(cx - a.x, cy - a.y) || 1;
+    const position = {
+      x: a.x + ((cx - a.x) / inward) * 6,
+      y: a.y + ((cy - a.y) / inward) * 6,
+    };
+    void labelWorld;
+    this.addLabel(context, position, angle, label);
   }
 
-  private addLabel(context: DecorateContext, world: Point3d, text: string): void {
-    const position = context.viewport.worldToView(world);
+  private addLabel(context: DecorateContext, position: { x: number; y: number }, angle: number, text: string): void {
     context.addCanvasDecoration({
       position,
       drawDecoration: (ctx) => {
+        ctx.save();
+        ctx.translate(0, 0);
+        ctx.rotate(angle);
         ctx.font = LABEL_FONT;
         ctx.fillStyle = LABEL_COLOR;
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, 2, 0);
+        ctx.textBaseline = 'top';
+        ctx.fillText(text, 4, 3);
+        ctx.restore();
       },
     });
   }
@@ -150,13 +196,13 @@ export class DatumPlanesDecoration {
         position: pos,
         drawDecoration: (ctx) => {
           ctx.beginPath();
-          ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(58,110,165,0.95)';
-          ctx.lineWidth = 1.4;
+          ctx.arc(0, 0, 3.6, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(31,31,31,0.9)';
+          ctx.lineWidth = 1.3;
           ctx.stroke();
           ctx.beginPath();
-          ctx.arc(0, 0, 1.6, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(58,110,165,0.95)';
+          ctx.arc(0, 0, 1.3, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(31,31,31,0.9)';
           ctx.fill();
         },
       });

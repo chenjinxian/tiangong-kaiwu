@@ -38,10 +38,20 @@ function makeContext(viewport: ScreenViewport, isSpatial = true): {
   createGraphicBuilder: ReturnType<typeof vi.fn>;
   addDecorationFromBuilder: ReturnType<typeof vi.fn>;
   addCanvasDecoration: ReturnType<typeof vi.fn>;
+  builders: Array<{
+    setSymbology: ReturnType<typeof vi.fn>;
+    addShape: ReturnType<typeof vi.fn>;
+    addLineString: ReturnType<typeof vi.fn>;
+  }>;
 } {
-  const builders = Array.from({ length: 3 }, () => ({ setSymbology: vi.fn(), addShape: vi.fn() }));
+  const queue = Array.from({ length: 3 }, () => ({
+    setSymbology: vi.fn(),
+    addShape: vi.fn(),
+    addLineString: vi.fn(),
+  }));
+  const builders = [...queue];
   const addCanvasDecoration = vi.fn();
-  const createGraphicBuilder = vi.fn(() => builders.shift());
+  const createGraphicBuilder = vi.fn(() => queue.shift());
   const addDecorationFromBuilder = vi.fn();
   const context = {
     viewport: { ...viewport, view: { ...viewport.view, isSpatialView: () => isSpatial } },
@@ -49,7 +59,7 @@ function makeContext(viewport: ScreenViewport, isSpatial = true): {
     addDecorationFromBuilder,
     addCanvasDecoration,
   } as unknown as DecorateContext;
-  return { context, createGraphicBuilder, addDecorationFromBuilder, addCanvasDecoration };
+  return { context, createGraphicBuilder, addDecorationFromBuilder, addCanvasDecoration, builders };
 }
 
 beforeEach(() => {
@@ -67,6 +77,14 @@ describe('DatumPlanesDecoration', () => {
     // 3 planes → 3 builders; labels Top/Front/Right + Origin overlay = 4 canvas decorations.
     expect(context.addCanvasDecoration).toHaveBeenCalledTimes(4);
     expect(context.addDecorationFromBuilder).toHaveBeenCalledTimes(3);
+    // Onshape 基准面有边框：每面 fill(addShape) + 1 条闭合折线(addLineString)。
+    for (const builder of context.builders) {
+      expect(builder.addShape).toHaveBeenCalledTimes(1);
+      expect(builder.addLineString).toHaveBeenCalledTimes(1);
+      const loop = builder.addLineString.mock.calls[0]?.[0] as unknown[];
+      expect(loop).toHaveLength(5);
+      expect(loop[0]).toBe(loop[4]);
+    }
     deco.dispose();
     expect(removeListenerMock).toHaveBeenCalledTimes(1);
   });

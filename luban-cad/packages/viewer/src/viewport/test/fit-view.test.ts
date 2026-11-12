@@ -28,8 +28,10 @@ function makeViewport(ranges: unknown, modelRows: string[] = ['0x1']): {
     },
     view: {
       lookAtVolume: lookAt,
+      lookAt: vi.fn(),
       computeFitRange: vi.fn(),
       is3d: () => true,
+      isCameraOn: false,
       turnCameraOff: vi.fn(),
     },
     viewRect: { aspect: 1.5 },
@@ -60,11 +62,15 @@ describe('fitViewToModelRanges', () => {
     expect(queryModelRanges).toHaveBeenCalledWith(['0x1', '0x2']);
   });
 
-  it('no-ops for empty models / empty ranges / query failure', async () => {
+  it('空范围 → 取景基准面（Onshape Home），无模型/查询失败仍 no-op', async () => {
     {
+      // 有 physical model 但范围为空（init 占位体）：空 Part Studio。
       const { viewport, lookAt } = makeViewport([]);
-      await expect(fitViewToModelRanges(viewport)).resolves.toBe(false);
-      expect(lookAt).not.toHaveBeenCalled();
+      await expect(fitViewToModelRanges(viewport)).resolves.toBe(true);
+      expect(lookAt).toHaveBeenCalledTimes(1);
+      const volume = lookAt.mock.calls[0]?.[0] as { low: { x: number }; high: { z: number } };
+      expect(volume.low.x).toBe(-150);
+      expect(volume.high.z).toBe(150);
     }
     {
       const { viewport, lookAt } = makeViewport([]);

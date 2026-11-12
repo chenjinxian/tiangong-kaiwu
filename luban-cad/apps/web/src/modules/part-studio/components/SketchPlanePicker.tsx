@@ -22,16 +22,23 @@ export interface SketchPlanePickerProps {
   viewport?: ScreenViewport | null;
   selected?: DatumPlaneId | null;
   onSelect: (id: DatumPlaneId) => void;
+  /** 新建草图名（Onshape live：选中平面后沿其顶边显示浅蓝「草图 N」）。 */
+  pendingSketchName?: string;
 }
 
+// Onshape live（2026-11-12 像素采样）：选中平面不加填充（内部仍 #f6f8fa），
+// 只加浅天蓝描边 + 顶边外侧的浅蓝「草图 N」标签；悬停保持轻填充。
 const HOVER_FILL = 'rgba(64, 150, 255, 0.12)';
-const SELECTED_FILL = 'rgba(30, 108, 224, 0.16)';
-const SELECTED_STROKE = 'rgba(30, 108, 224, 0.95)';
+const SELECTED_FILL = 'rgba(255, 255, 255, 0)';
+const SELECTED_STROKE = 'rgba(168, 212, 240, 0.95)';
+const PENDING_LABEL_COLOR = 'rgba(150, 200, 238, 0.95)';
+const PENDING_LABEL_FONT = '600 16px "Segoe UI", "Microsoft YaHei", sans-serif';
 
 export function SketchPlanePicker({
   viewport,
   selected,
   onSelect,
+  pendingSketchName,
 }: SketchPlanePickerProps): React.JSX.Element | null {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [hover, setHover] = React.useState<DatumPlaneId | null>(null);
@@ -102,8 +109,44 @@ export function SketchPlanePicker({
       ctx.strokeStyle = SELECTED_STROKE;
       ctx.lineWidth = geometry.id === selected ? 2 : 1.25;
       ctx.stroke();
+      if (geometry.id === selected && pendingSketchName) {
+        // Onshape live：选中平面顶边外侧、沿边书写的浅蓝「草图 N」。
+        let topEdge = 0;
+        let topMidY = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < points2d.length; i++) {
+          const a = points2d[i]!;
+          const b = points2d[(i + 1) % points2d.length]!;
+          const midY = (a.y + b.y) / 2;
+          if (midY < topMidY) {
+            topMidY = midY;
+            topEdge = i;
+          }
+        }
+        let a = points2d[topEdge]!;
+        let b = points2d[(topEdge + 1) % points2d.length]!;
+        let angle = Math.atan2(b.y - a.y, b.x - a.x);
+        if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+          const swap = a; a = b; b = swap;
+          angle += Math.PI;
+        }
+        const cx = points2d.reduce((sum, p) => sum + p.x, 0) / points2d.length;
+        const cy = points2d.reduce((sum, p) => sum + p.y, 0) / points2d.length;
+        const outward = Math.hypot(a.x - cx, a.y - cy) || 1;
+        const position = {
+          x: a.x + ((a.x - cx) / outward) * 10,
+          y: a.y + ((a.y - cy) / outward) * 10,
+        };
+        ctx.save();
+        ctx.translate(position.x, position.y);
+        ctx.rotate(angle);
+        ctx.font = PENDING_LABEL_FONT;
+        ctx.fillStyle = PENDING_LABEL_COLOR;
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(pendingSketchName, 4, 0);
+        ctx.restore();
+      }
     }
-  }, [viewport, hover, selected]);
+  }, [viewport, hover, selected, pendingSketchName]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {

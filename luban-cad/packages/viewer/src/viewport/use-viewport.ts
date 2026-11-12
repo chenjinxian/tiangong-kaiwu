@@ -57,6 +57,7 @@ import {
 import { Range3d } from '@itwin/core-geometry';
 import { RENDER_DEFAULTS, type RenderTheme } from '@luban-cad/shared';
 import { acquireViewer, releaseViewer } from '../host/web-initializer.js';
+import { lookAtDatumPlanes } from './empty-datum-view.js';
 import { applyViewportRenderBaseline, applyViewStateRenderBaseline } from './render-profile.js';
 import { applyViewStateBackground } from './theme-background.js';
 
@@ -431,13 +432,19 @@ async function fitViewToModelRanges(
     if (!isCurrent()) return;
     const union = new Range3d();
     for (const r of ranges) union.extendRange(Range3d.fromJSON(r));
-    if (!union.isNull) {
-      // 模型范围是世界坐标：lookAtVolume 会按当前旋转投影到 view-aligned。
-      viewport.view.lookAtVolume(union, viewport.viewRect.aspect);
-      viewport.synchWithView({});
-      // eslint-disable-next-line no-console
-      console.log('[useViewport] Content-aware fit:', JSON.stringify(union.toJSON()));
+    if (union.isNull) {
+      // ADR-0017 追补：空 Part Studio（只有 init 占位体，范围=null）→ Onshape
+      // Home 朝向取景三基准面，原点居中；不再停在 baseline 的 projectExtents 视图。
+      if (lookAtDatumPlanes(viewport))
+        // eslint-disable-next-line no-console
+        console.log('[useViewport] Empty scope fit: datum planes');
+      return;
     }
+    // 模型范围是世界坐标：lookAtVolume 会按当前旋转投影到 view-aligned。
+    viewport.view.lookAtVolume(union, viewport.viewRect.aspect);
+    viewport.synchWithView({});
+    // eslint-disable-next-line no-console
+    console.log('[useViewport] Content-aware fit:', JSON.stringify(union.toJSON()));
   } catch {
     // 后端查询不可用——维持既有取景（projectExtents 兜底）
   }

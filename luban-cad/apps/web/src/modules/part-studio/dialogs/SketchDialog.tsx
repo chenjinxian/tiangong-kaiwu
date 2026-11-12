@@ -9,12 +9,12 @@
  *   （仅 `kind='face'` 的 useCanvasSelection 主选择成动态选项并选中；part/
  *   edge/vertex/feature 主选择不是平面——不添选项、不改当前所选，防选中桥
  *   新写入的 body 选择被误当草图平面）；
- * - 四开关勾选组（os-30）：禁用压印/显示约束/显示表达式/显示错误——默认
- *   仅「显示错误」勾选；
- * - ✓确认/✗取消 + 历史时钟 + ? 帮助（展开文案）。
+ * - 四开关勾选组（os-30）：禁用压印/显示约束/显示表达式/显示错误——Onshape
+ *   live 默认显示约束/显示表达式/显示错误勾选（禁用压印不勾）；
+ * - ✓确认/✗取消 + 缩放到合适大小 + ? 帮助（展开文案）。
  *
  * store 联动（os-30 草图模式变身的数据源）：✓ → enterSketch + onConfirm 载荷；
- * ✗ → exitSketch + onCancel。历史按钮壳期未接线（console.warn，模块惯例）。
+ * ✗ → exitSketch + onCancel。底栏左钮=缩放到合适大小（真实视图取景）。
  *
  * M6-a T4（insertSketch RPC 接线，F1）：applyOp 在场时 ✓ →
  * `{kind:'insertSketch', entities:[], constraints:[], plane?}`（空草图先建壳）
@@ -32,8 +32,10 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { SvgCheckmark, SvgClock, SvgClose } from '@itwin/itwinui-icons-react';
+import { SvgCheckmark, SvgClock, SvgClose, SvgFitToView } from '@itwin/itwinui-icons-react';
+import { IModelApp } from '@itwin/core-frontend';
 import type { FeatureOp, FeatureOpResult, SketchPlaneDto } from '@luban-cad/shared';
+import { fitViewToModelRanges } from '@luban-cad/viewer';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import './SketchDialog.css';
 
@@ -108,8 +110,6 @@ export interface SketchDialogProps {
   onConfirm?: (result: SketchDialogResult) => void;
   /** ✗取消出口（exitSketch 之后调用）。 */
   onCancel?: () => void;
-  /** 历史时钟点击（壳期未接线缺省 console.warn）。 */
-  onHistory?: () => void;
 }
 
 /** 缺省基准面 id（datun plane 寻址；RPC 接线后由真实平面数据替换）。 */
@@ -134,7 +134,6 @@ export function SketchDialog({
   canEdit = true,
   onConfirm,
   onCancel,
-  onHistory,
 }: SketchDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const enterSketch = usePartStudioStore((s) => s.enterSketch);
@@ -159,8 +158,10 @@ export function SketchDialog({
   }, [onPlaneChange]);
   const [planeMenuOpen, setPlaneMenuOpen] = React.useState(false);
   const [disableImprint, setDisableImprint] = React.useState(false);
-  const [showConstraints, setShowConstraints] = React.useState(false);
-  const [showExpressions, setShowExpressions] = React.useState(false);
+  // Onshape live（2026-11-12 截图）：显示约束/显示表达式/显示错误默认勾选，
+  // 仅「禁用压印」默认不勾。
+  const [showConstraints, setShowConstraints] = React.useState(true);
+  const [showExpressions, setShowExpressions] = React.useState(true);
   const [showErrors, setShowErrors] = React.useState(true);
   const [helpOpen, setHelpOpen] = React.useState(false);
   // 提交态（M6-a T4）：提交中禁重入；错误就地 Alert（对话框不关——FeatureDialog 同款）。
@@ -179,13 +180,11 @@ export function SketchDialog({
     };
   }, []);
 
-  const handleHistory = React.useCallback(() => {
-    if (onHistory) {
-      onHistory();
-    } else {
-      console.warn('[part-studio] 草图历史（onHistory 未接线）');
-    }
-  }, [onHistory]);
+  // Onshape live：草图对话框底栏左钮 = 缩放到合适大小（真实 fit，不做假历史）。
+  const handleFitToView = React.useCallback(() => {
+    const viewport = IModelApp.viewManager?.selectedView;
+    if (viewport) void fitViewToModelRanges(viewport);
+  }, []);
 
   const selectedOption = planeOptions.find((option) => option.id === plane);
   /** v1.29：选中项自带 plane（cPlane）优先；三基准面回退旧映射。 */
@@ -357,8 +356,13 @@ export function SketchDialog({
                 if (!editing) setPlaneMenuOpen((open) => !open);
               }}
             >
-              {selectedOption?.label
-                ?? (editing ? t('partStudio.sketchDialog.customPlane') : t('partStudio.sketchDialog.planeFieldPlaceholder'))}
+              {selectedOption
+                ? `${selectedOption.label}${
+                  selectedOption.id === 'top' || selectedOption.id === 'front' || selectedOption.id === 'right'
+                    ? t('partStudio.sketchDialog.planeNameSuffix')
+                    : ''
+                }`
+                : (editing ? t('partStudio.sketchDialog.customPlane') : t('partStudio.sketchDialog.planeFieldPlaceholder'))}
             </button>
             {!editing && plane !== '' && (
               <button
@@ -399,12 +403,13 @@ export function SketchDialog({
               </ul>
             )}
           </div>
+          {/* Onshape live：历史时钟在字段右侧、字段框之外（装饰；无真实历史面板）。 */}
+          {!editing && (
+            <span className="part-studio-sketch-dialog__plane-clock" aria-hidden="true">
+              <SvgClock />
+            </span>
+          )}
         </div>
-        {plane === '' && (
-          <p className="part-studio-sketch-dialog__hint" data-testid="sketch-plane-hint">
-            {t('partStudio.sketchDialog.planeHint')}
-          </p>
-        )}
 
         {/* 四开关勾选组（os-30：默认仅「显示错误」勾选）。 */}
         <div
@@ -446,15 +451,16 @@ export function SketchDialog({
           </label>
         </div>
       </div>
-      {/* Onshape live：草图对话框底栏=左侧工具图标（历史）+ 右侧 ?。 */}
+      {/* Onshape live：草图对话框底栏=左侧「缩放到合适大小」图标 + 右侧 ?。 */}
       <footer className="part-studio-sketch-dialog__footer">
         <button
           type="button"
-          aria-label={t('partStudio.sketchDialog.history')}
+          aria-label={t('partStudio.sketchDialog.fitToView')}
+          title={t('partStudio.sketchDialog.fitToView')}
           className="part-studio-sketch-dialog__history"
-          onClick={handleHistory}
+          onClick={handleFitToView}
         >
-          <SvgClock />
+          <SvgFitToView />
         </button>
         <button
           type="button"

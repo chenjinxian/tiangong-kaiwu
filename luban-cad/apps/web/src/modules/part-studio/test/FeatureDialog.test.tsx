@@ -3463,13 +3463,14 @@ describe('B3 禁用钮视觉（成品/✓ 禁用态不再「蓝底高亮可点�
     expect(block).not.toContain('--iui-color-text-accent');
   });
 
-  it('✓（__confirm）禁用 → 库 disabled 图标色 + not-allowed 指针（enabled 绿✓不动）', () => {
+  it('✓（__confirm）禁用 → Onshape 浅绿底 + not-allowed；enabled=实心绿 #419228', () => {
     const block = cssRuleBlock('.part-studio-feature-dialog__confirm:disabled');
-    expect(block).toContain('var(--iui-color-icon-disabled');
+    expect(block).toContain('#d9e9d4');
     expect(block).toContain('cursor: not-allowed');
-    // enabled 规则（os-31 绿✓）保持原样——修复只动禁用态。
+    // enabled 规则（Onshape live 2026-11-12 像素采样）=实心绿。
     const enabled = cssRuleBlock('.part-studio-feature-dialog__confirm');
-    expect(enabled).toContain('--iui-color-text-positive');
+    expect(enabled).toContain('#419228');
+    expect(featureDialogCss).toContain('background: #ae3c3e;');
   });
 
   it('悬停反馈门到 enabled：__finish/__confirm 不再有会命中禁用态的裸 :hover 规则', () => {

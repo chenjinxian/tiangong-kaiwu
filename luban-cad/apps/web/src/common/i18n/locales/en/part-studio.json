@@ -901,10 +901,11 @@
     "cancel": "Cancel",
     "planeLabel": "Sketch plane",
     "planePlaceholder": "Select a plane…",
-    "planeFieldPlaceholder": "Select a plane or face",
+    "planeFieldPlaceholder": "Sketch plane",
     "customPlane": "Custom plane",
     "planeHint": "Select a datum plane in the viewport or Top/Front/Right in the feature tree",
     "planePrompt": "Select a sketch plane",
+    "planeNameSuffix": " plane",
     "clearPlane": "Clear sketch plane",
     "planes": {
       "top": "Top",
@@ -920,6 +921,7 @@
       "showErrors": "Show errors"
     },
     "history": "History",
+    "fitToView": "Fit to view",
     "help": "Help",
     "helpText": "Pick a sketch plane to start sketching; the toggles control imprint/constraints/expressions/error display.",
     "readonlyHint": "Read-only permission; cannot create a sketch",
@@ -1261,6 +1263,7 @@
     "suppressFailed": "Suppression update failed: {{message}}",
     "noSourceFeature": "The body has no driving feature; it cannot be deleted",
     "readonlyHint": "Read-only permission; this action is unavailable",
+    "sketchDeleteUnsupported": "Sketch delete is not supported yet (backend deleteFeature only handles LubanCAD.Feature)",
     "featureTypes": {
       "extrude": "Extrude",
       "booleanAdd": "Union",

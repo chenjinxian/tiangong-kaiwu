@@ -411,6 +411,11 @@ export function Ribbon({
   const palette = usePartStudioStore((s) => s.commandPalette);
   const toggleCommandPalette = usePartStudioStore((s) => s.toggleCommandPalette);
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
+  // ADR-0017 追补：Onshape 点击「草图」即切换为草图工具栏（平面未选/草图未创建
+  // 时工具禁用）；草图创建后（sketch.isActive）启用。对话框期间不再停留在特征工具栏。
+  const sketchDialogActive = usePartStudioStore((s) => s.dialog.active === 'sketch');
+  const sketchToolbarVisible = sketchActive || sketchDialogActive;
+  const sketchToolsDisabled = !canEdit || !sketchActive;
   const constructionMode = usePartStudioStore((s) => Boolean(s.sketch.constructionMode));
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
@@ -427,10 +432,10 @@ export function Ribbon({
 
   return (
     <div
-      className={`part-studio-ribbon${sketchActive ? ' part-studio-ribbon--sketch' : ''}`}
+      className={`part-studio-ribbon${sketchToolbarVisible ? ' part-studio-ribbon--sketch' : ''}`}
       data-testid="part-studio-ribbon"
     >
-      {sketchActive ? (
+      {sketchToolbarVisible ? (
         /* 草图模式变身（os-30）：草图工具组替换特征工具组。 */
         <div className="part-studio-ribbon__groups" role="toolbar" aria-label={t('partStudio.ribbon.sketchToolbarLabel')}>
           <HistoryGroup
@@ -457,7 +462,7 @@ export function Ribbon({
                       onActivate={activate}
                       active={sketchTool.id === 'sketchConstruction' ? constructionMode : activeToolId === sketchTool.id}
                       highlighted={false}
-                      disabled={!canEdit}
+                      disabled={sketchToolsDisabled}
                     />
                   ) : (
                     <RibbonToolButton
@@ -466,7 +471,7 @@ export function Ribbon({
                       onActivate={activate}
                       active={sketchTool.id === 'sketchConstruction' ? constructionMode : activeToolId === sketchTool.id}
                       highlighted={false}
-                      disabled={!canEdit}
+                      disabled={sketchToolsDisabled}
                     />
                   )
                 ))}
@@ -529,7 +534,7 @@ export function Ribbon({
         type="button"
         className="part-studio-ribbon__search-trigger"
         onClick={toggleCommandPalette}
-        disabled={sketchActive}
+        disabled={sketchToolbarVisible}
       >
         <span>{t('partStudio.ribbon.searchTools')}</span>
         <kbd className="part-studio-ribbon__search-kbd">{t('partStudio.ribbon.searchShortcut')}</kbd>

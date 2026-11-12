@@ -12,6 +12,7 @@
 
 import type { IModelConnection, ScreenViewport } from '@itwin/core-frontend';
 import { Range3d } from '@itwin/core-geometry';
+import { lookAtDatumPlanes } from './empty-datum-view.js';
 
 export interface FitViewToModelRangesOptions {
   /** 晚到结果守卫（scope 切换/卸载后不落相机）；默认恒真。 */
@@ -50,7 +51,9 @@ export async function fitViewToModelRanges(
     if (options?.isCurrent && !options.isCurrent()) return false;
     const union = new Range3d();
     for (const r of ranges) union.extendRange(Range3d.fromJSON(r));
-    if (union.isNull) return false;
+    // ADR-0017 追补：空 Part Studio 没有几何范围——按 Onshape Home 取景三基准面
+    //（「适应视图」在空文档上也有可见结果，而不是 no-op）。
+    if (union.isNull) return lookAtDatumPlanes(viewport);
     // 留白：避免取景贴边（演示时更接近 Onshape 的「适应视图」观感）。
     viewport.view.lookAtVolume(union, viewport.viewRect.aspect, {
       paddingPercent: { left: 0.06, right: 0.06, top: 0.08, bottom: 0.08 },

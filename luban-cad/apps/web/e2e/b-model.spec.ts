@@ -225,7 +225,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(sketchDialog).toBeVisible();
   await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
- await page.getByRole('option', { name: '上视' }).click();
+ await page.getByRole('option', { name: 'Top' }).click();
   await sketchDialog.getByRole('button', { name: '确认' }).click();
   // 提交双通道：成功=草图工具条变身（同一草图对话框保持打开）；拒收=对话框 alert。
   await expect(

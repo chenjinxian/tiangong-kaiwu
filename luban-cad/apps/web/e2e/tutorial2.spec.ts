@@ -183,7 +183,7 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(sketchDialog).toBeVisible();
   await chooseSketchPlaneInViewport(page, 'front');
-  await expect(sketchDialog.getByRole('combobox', { name: '草图平面' })).toContainText('前视');
+  await expect(sketchDialog.getByRole('combobox', { name: '草图平面' })).toContainText('Front');
   await sketchDialog.getByRole('button', { name: '确认' }).click();
   // Onshape：创建后同一草图对话框保持打开（编辑态），草图工具条变身。
   await expect(

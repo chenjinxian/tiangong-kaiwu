@@ -194,6 +194,7 @@ import { useDatumVisibility } from './hooks/useDatumVisibility.js';
 import { useUndoRedo } from './hooks/useUndoRedo.js';
 import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import { BODY_PRODUCING_FEATURE_TYPES } from './types.js';
+import { bodiesForDisplay } from './internal/body-display.js';
 import { clearActiveOnshapeHighlight } from './internal/onshape-selection-runtime.js';
 import { fitView } from './internal/viewport-actions.js';
 import './PartStudioPage.css';
@@ -485,6 +486,12 @@ function PartStudioSession({
     readEnabled: scopeReady,
     scopeMode: mode,
   });
+  // ADR-0017 追补：UI 唯一显示 body 集——滤除后端 init 占位 BodySolid（无源、
+  // 无几何），空 Part Studio 与 Onshape 一样显示 0 零件、默认基准面可见。
+  const displayBodies = React.useMemo(
+    () => bodiesForDisplay(featureSystem.bodies, featureSystem.tree),
+    [featureSystem.bodies, featureSystem.tree],
+  );
 
   // 显示/渲染设置（2026-11-02）：共享给 ViewCube 下拉与右停靠面板。
   const displaySettings = useDisplaySettings(viewport);
@@ -608,11 +615,11 @@ function PartStudioSession({
   // 用户眼睛覆盖写在 visibilityOverrides，scope 切换时清空。
   const datumHasBodies = React.useMemo(
     () => featureSystem.bodiesLoaded
-      ? featureSystem.bodies.some((body) => body.active && body.authored !== false)
+      ? displayBodies.length > 0
       : featureSystem.tree.some((entry) =>
         !entry.suppressed
         && (BODY_PRODUCING_FEATURE_TYPES as readonly string[]).includes(entry.featureType)),
-    [featureSystem.bodiesLoaded, featureSystem.bodies, featureSystem.tree],
+    [featureSystem.bodiesLoaded, displayBodies, featureSystem.tree],
   );
   const sketchActiveForDatum = usePartStudioStore((s) => s.sketch.isActive);
   const sketchPlaneForDatum = usePartStudioStore((s) => s.sketch.activeSketchPlane);
@@ -664,11 +671,11 @@ function PartStudioSession({
   // 「添加边」禁用+诚实提示（FeatureDialog hasBodies）。
   const hasBodies = React.useMemo(
     () =>
-      featureSystem.bodies.some((body) => body.active && body.authored !== false) ||
+      displayBodies.length > 0 ||
       featureSystem.tree.some((entry) =>
         (BODY_PRODUCING_FEATURE_TYPES as readonly string[]).includes(entry.featureType),
       ),
-    [featureSystem.bodies, featureSystem.tree],
+    [displayBodies, featureSystem.tree],
   );
 
   // B6 M-A3.2a：edit 模式 FeatureDialog 的落库 params（结构键 newBody 回显——
@@ -678,6 +685,17 @@ function PartStudioSession({
     if (activeDialog.active !== 'feature' || activeDialog.mode !== 'edit') return undefined;
     return featureSystem.tree.find((entry) => entry.id === activeDialog.featureId)?.params;
   }, [activeDialog, featureSystem.tree]);
+
+  // Onshape live（2026-11-12）：新建草图对话框打开时，树立即出现高亮「草图 N」
+  // 行（✓ 前即存在；✗ 关闭即消失）。✓ 后进入草图编辑态（真实行接管）即隐藏；
+  // 编辑既有草图同样不显示。
+  const sketchIsActive = usePartStudioStore((s) => s.sketch.isActive);
+  const pendingSketchName = React.useMemo(() => {
+    // store.openSketchDialog() 新建态 sketchId=null；编辑既有草图才带 id。
+    if (activeDialog.active !== 'sketch' || activeDialog.sketchId != null || sketchIsActive) return undefined;
+    const sketchCount = featureSystem.tree.filter((entry) => entry.featureType === 'sketch').length;
+    return `${t('partStudio.tree.featureTypes.sketch')} ${sketchCount + 1}`;
+  }, [activeDialog, featureSystem.tree, t, sketchIsActive]);
 
   // 特征显示同步（M4-T5 移植 + M4-T6 接线）：特征写入后的几何出现链收口——
   // 绕过 GraphicalEditingScope 下 ModelChangeMonitor 的 guid 缓冲（BRep 显示
@@ -1122,6 +1140,7 @@ function PartStudioSession({
           <div className="part-studio-body">
             <PartStudioSidebar
               entries={featureSystem.tree}
+              pendingSketchName={pendingSketchName}
               loading={featureSystem.loading}
               error={featureSystem.error}
               onRetry={featureSystem.refresh}
@@ -1130,7 +1149,7 @@ function PartStudioSession({
               // B6 M-A3.2a：读面仅在成功读取后下传（初次失败/未就绪 → 树回退 legacy
               // 物理查询；I1：初次失败也下传 bodiesError → 可见错误条 + 重试，不静默）。
               // I3：viewport 显式下传 → consumed 隐藏随晚到/重建视口重跑。
-              bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
+              bodies={featureSystem.bodiesLoaded ? displayBodies : undefined}
               bodiesLoading={featureSystem.bodiesLoading}
               bodiesError={featureSystem.bodiesError}
               viewport={viewport ?? undefined}
@@ -1153,7 +1172,7 @@ function PartStudioSession({
                 sketches={sketchOptions}
                 connection={connection ?? undefined}
                 hasBodies={hasBodies}
-                bodies={featureSystem.bodiesLoaded ? featureSystem.bodies : undefined}
+                bodies={featureSystem.bodiesLoaded ? displayBodies : undefined}
                 bodiesLoading={featureSystem.bodiesLoading}
                 bodiesError={featureSystem.bodiesError}
                 featureParams={editFeatureParams}
@@ -1166,7 +1185,7 @@ function PartStudioSession({
               <PartStudioDock
                 iModelId={iModelId}
                 currentChangesetId={connection?.changeset?.id ?? null}
-                bodies={featureSystem.bodies}
+                bodies={displayBodies}
                 sketches={sketchOptions}
                 bodyColors={bodyColors}
                 onBodyColorChange={handleBodyColorChange}

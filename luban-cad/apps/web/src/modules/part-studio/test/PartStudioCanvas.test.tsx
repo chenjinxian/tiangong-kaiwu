@@ -321,7 +321,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
     // Onshape：必须先选平面（视口/树/字段菜单），未选时 ✓ 禁用。
     await user.click(within(dialog).getByRole('combobox', { name: '草图平面' }));
-    await user.click(screen.getByRole('option', { name: '上视' }));
+    await user.click(screen.getByRole('option', { name: 'Top' }));
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     await waitFor(() =>
       expect(applyOp).toHaveBeenCalledWith({
@@ -364,7 +364,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
     // 选基准面「前视」（字段菜单 → sketchPlaneFromOption 的判别域）。
     await user.click(within(dialog).getByRole('combobox', { name: '草图平面' }));
-    await user.click(screen.getByRole('option', { name: '前视' }));
+    await user.click(screen.getByRole('option', { name: 'Front' }));
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     await waitFor(() =>
       expect(usePartStudioStore.getState().sketch).toEqual({

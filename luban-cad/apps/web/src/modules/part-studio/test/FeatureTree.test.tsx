@@ -193,9 +193,19 @@ describe('FeatureTree 双段渲染（对齐 os-11；真数据源 entries）', ()
     expect(within(tree).getByTestId('tree-row-datum-front')).toBeDefined();
     expect(within(tree).getByTestId('tree-row-datum-right')).toBeDefined();
     expect(within(tree).queryByText('暂无特征')).toBeNull();
-    expect(within(tree).getByText('暂无零件')).toBeDefined();
+    // Onshape live：零件数 (0) 下不渲染「暂无零件」占位行（与特征段同款抑制）。
+    expect(within(tree).queryByText('暂无零件')).toBeNull();
     expect(within(tree).queryByText('Part 1')).toBeNull();
     expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(4)');
+  });
+
+  it('Onshape live：pendingSketchName → 高亮「草图 N」行立即出现且计数 +1', () => {
+    render(<FeatureTree entries={ENTRIES} pendingSketchName="草图 2" />);
+    const tree = screen.getByTestId('part-studio-tree');
+    const row = within(tree).getByText('草图 2').closest('button');
+    expect(row).not.toBeNull();
+    expect(row?.className).toContain('part-studio-tree-row--selected');
+    expect(within(tree).getByTestId('part-studio-feature-count').textContent).toBe('(9)');
   });
 
   it('默认几何眼睛切换只写 datum 切片，不污染画布隐藏集', async () => {
@@ -543,6 +553,18 @@ describe('树上右键菜单（对齐 os-15 子集：重命名/编辑/抑制/删
     await user.click(within(dialog).getByRole('button', { name: '删除' }));
     // B6 M-A3.2a：无 body 读面 → 第二参 undefined（N≤1 legacy 不需 target）。
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'ex2' }), undefined);
+  });
+
+  it('草图行删除未支持：菜单项禁用 + 真实原因 title，不打开 HITL', () => {
+    const sketches: FeatureTreeEntry[] = [
+      { id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
+    ];
+    render(<FeatureTree entries={sketches} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    const del = screen.getByRole('menuitem', { name: '删除' }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+    expect(del.title).toContain('草图删除未支持');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('重命名 → 行内编辑：Enter 提交 onRename / Escape 取消', async () => {

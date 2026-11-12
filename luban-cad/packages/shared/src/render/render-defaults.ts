@@ -50,6 +50,15 @@ export interface RenderDefaults {
   defaultViewName: string;
   /** 空 Part Studio 的默认取景半边长（mm）；用于避免 projectExtents 全场景取景。 */
   emptyViewRangeMm: number;
+  /**
+   * Onshape Home 默认朝向（正交视图）。方位角自 -Y 向 +X 旋转，仰角为俯视角度。
+   * 证据（2026-11-12 live 像素测量）：空 Part Studio 的 Front(XZ) 与 Right(YZ)
+   * 投影宽 851:491 = 1.733 = cos30°:sin30° → 方位角 30°（对称 45° 等宽不符）。
+   */
+  defaultViewOrientation: {
+    azimuthDeg: number;
+    elevationDeg: number;
+  };
 }
 
 export const RENDER_DEFAULTS = {
@@ -77,6 +86,9 @@ export const RENDER_DEFAULTS = {
   },
   defaultViewName: 'default',
   emptyViewRangeMm: 150,
+  // Onshape Home：非对称 trimetric（Front 更正面）。方位 30° 由投影宽比测得；
+  // 仰角 30° 为同族 trimetric 取值，逐像素复核后如有偏差只改此值。
+  defaultViewOrientation: { azimuthDeg: 30, elevationDeg: 30 },
 } as const satisfies RenderDefaults;
 
 /** RGB → `#rrggbb`（UI 输入/日志用）。 */

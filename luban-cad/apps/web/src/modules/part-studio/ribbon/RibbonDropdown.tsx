@@ -190,6 +190,8 @@ export function RibbonDropdown({
       >
         {mainOnshapeIcon ? <OnshapeIcon name={mainOnshapeIcon} size={20} /> : <MainIcon />}
       </button>
+      {/* 只读态（readOnly）箭头仍可点：子项按各自 capability 裁决（P2.4 F11）；
+          草图工具栏未激活等非只读禁用才连箭头一起禁用。 */}
       <button
         ref={arrowRef}
         type="button"
@@ -197,6 +199,8 @@ export function RibbonDropdown({
         aria-haspopup="menu"
         aria-expanded={open}
         className="part-studio-ribbon__arrow"
+        disabled={disabled && !readOnly}
+        title={disabled && !readOnly ? label : undefined}
         onClick={() => (open ? closeMenu(true) : openMenu())}
       >
         <OnshapeIcon name="expanded" size={10} />

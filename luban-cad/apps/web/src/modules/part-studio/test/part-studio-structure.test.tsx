@@ -695,7 +695,7 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     }
     // Onshape：平面字段（视口/树/菜单）——未选平面不得确认。
     await user.click(within(dialog).getByRole('combobox', { name: '草图平面' }));
-    await user.click(screen.getByRole('option', { name: '上视' }));
+    await user.click(screen.getByRole('option', { name: 'Top' }));
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     // 草图模式变身：草图工具组 ribbon + 约束覆盖层 + 搜索禁用；完成钮在草图面板。
     const ribbon = screen.getByTestId('part-studio-ribbon');
@@ -706,9 +706,10 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     ).toBe(true);
     expect(screen.queryByTestId('sketch-grid-overlay')).toBeNull();
     expect(screen.getByTestId('sketch-constraints-overlay')).toBeDefined();
-    // 面板「完成」= exitSketch（结构层直接调用 store 出口）。
+    // 面板「完成」= exitSketch + closeDialog（宿主 handleSketchConfirm 同路径）。
     act(() => {
       usePartStudioStore.getState().exitSketch();
+      usePartStudioStore.getState().closeDialog();
     });
     expect(within(screen.getByTestId('part-studio-ribbon')).getByRole('toolbar', { name: '特征工具' })).toBeDefined();
     expect(screen.queryByTestId('sketch-constraints-overlay')).toBeNull();

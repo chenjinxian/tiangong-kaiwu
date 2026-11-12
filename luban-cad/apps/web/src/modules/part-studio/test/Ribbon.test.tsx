@@ -273,3 +273,34 @@ describe('P2.4 只读总门（canEdit=false）', () => {
     expect(mocks.toolsRun).not.toHaveBeenCalled();
   });
 });
+
+describe('ADR-0017 追补：草图对话框即切换草图工具栏', () => {
+  it('openSketchDialog → 草图工具栏（工具禁用）；enterSketch → 启用；关闭还原特征工具栏', () => {
+    render(<Ribbon />);
+    const ribbon = screen.getByTestId('part-studio-ribbon');
+    expect(within(ribbon).getByRole('toolbar', { name: '特征工具' })).toBeDefined();
+
+    act(() => {
+      usePartStudioStore.getState().openSketchDialog();
+    });
+    expect(within(ribbon).getByRole('toolbar', { name: '草图工具' })).toBeDefined();
+    const line = within(ribbon).getByRole('button', { name: '线' }) as HTMLButtonElement;
+    expect(line.disabled || line.getAttribute('aria-disabled') === 'true').toBe(true);
+    expect(
+      (within(ribbon).getByRole('button', { name: /搜索工具/ }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    const enabledLine = within(screen.getByTestId('part-studio-ribbon'))
+      .getByRole('button', { name: '线' }) as HTMLButtonElement;
+    expect(enabledLine.disabled).toBe(false);
+
+    act(() => {
+      usePartStudioStore.getState().exitSketch();
+      usePartStudioStore.getState().closeDialog();
+    });
+    expect(within(screen.getByTestId('part-studio-ribbon')).getByRole('toolbar', { name: '特征工具' })).toBeDefined();
+  });
+});

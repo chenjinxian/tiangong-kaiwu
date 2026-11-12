@@ -41,8 +41,49 @@
   gap: 2px;
 }
 
+/* Onshape live（2026-11-12 像素采样）：✓=实心绿 #419228 / ✗=实心红 #ae3c3e，
+   28×28 圆角方块 + 白色图标；平面未选时 ✓ 为浅绿禁用底 #d9e9d4。 */
 .part-studio-sketch-dialog__confirm,
-.part-studio-sketch-dialog__cancel,
+.part-studio-sketch-dialog__cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.part-studio-sketch-dialog__confirm {
+  background: #419228;
+}
+
+.part-studio-sketch-dialog__confirm:enabled:hover {
+  background: #37801f;
+}
+
+.part-studio-sketch-dialog__confirm:disabled {
+  background: #d9e9d4;
+  cursor: not-allowed;
+}
+
+.part-studio-sketch-dialog__cancel {
+  background: #ae3c3e;
+}
+
+.part-studio-sketch-dialog__cancel:hover {
+  background: #9b3639;
+}
+
+.part-studio-sketch-dialog__confirm svg,
+.part-studio-sketch-dialog__cancel svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
 .part-studio-sketch-dialog__history,
 .part-studio-sketch-dialog__help {
   display: inline-flex;
@@ -57,28 +98,15 @@
   cursor: pointer;
 }
 
-.part-studio-sketch-dialog__confirm svg,
-.part-studio-sketch-dialog__cancel svg,
 .part-studio-sketch-dialog__history svg {
   inline-size: 14px;
   block-size: 14px;
-}
-
-/* os-30：绿✓确认 / 红✗取消。 */
-.part-studio-sketch-dialog__confirm {
-  color: var(--iui-color-text-positive, #208a3c);
-}
-
-.part-studio-sketch-dialog__cancel {
-  color: var(--iui-color-text-negative, #d30b0b);
 }
 
 .part-studio-sketch-dialog__history {
   color: var(--iui-color-text-muted);
 }
 
-.part-studio-sketch-dialog__confirm:hover,
-.part-studio-sketch-dialog__cancel:hover,
 .part-studio-sketch-dialog__history:hover {
   background: var(--iui-color-background-hover);
 }
@@ -264,8 +292,10 @@
 
 .part-studio-sketch-dialog__title {
   overflow: hidden;
+  /* Onshape live：草图名标题为深红 #9c3132、半粗。 */
+  color: #9c3132;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -303,7 +333,10 @@
 }
 
 .part-studio-sketch-dialog__plane-row {
-  display: block;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
   margin: 0;
 }
 
@@ -313,7 +346,8 @@
 
 .part-studio-sketch-dialog__plane-field {
   position: relative;
-  inline-size: 100%;
+  flex: 1;
+  min-inline-size: 0;
   min-block-size: 26px;
   padding: 1px 3px;
   border: 1px solid #a9c4dd;
@@ -321,24 +355,31 @@
   background: #eaf2fb;
 }
 
-.part-studio-sketch-dialog__plane-field::after {
-  content: '◷';
-  position: absolute;
-  inset-block-start: 50%;
-  inset-inline-end: 6px;
-  color: #6d7d8c;
-  font-size: 15px;
-  transform: translateY(-50%);
-  pointer-events: none;
+/* Onshape live：时钟在字段框右侧之外（装饰，不参与交互）。 */
+.part-studio-sketch-dialog__plane-clock {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  inline-size: 22px;
+  block-size: 22px;
+  color: #4a4a4a;
+}
+
+.part-studio-sketch-dialog__plane-clock svg {
+  inline-size: 18px;
+  block-size: 18px;
 }
 
 .part-studio-sketch-dialog__plane-value {
-  inline-size: calc(100% - 20px);
+  inline-size: 100%;
   min-block-size: 22px;
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 12px;
+  /* Onshape live：占位「草图平面」是深色正文，不是灰占位。 */
+  color: #1f1f1f;
+  font-size: 13px;
   text-align: start;
 }
 

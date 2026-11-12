@@ -1796,7 +1796,7 @@ test.describe('P2.5 真栈视口门', () => {
     const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(sketchDialog).toBeVisible();
     await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
- await page.getByRole('option', { name: '上视' }).click();
+ await page.getByRole('option', { name: 'Top' }).click();
     await sketchDialog.getByRole('button', { name: '确认' }).click();
     await expect(
       page.getByRole('toolbar', { name: '草图工具' })

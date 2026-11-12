@@ -41,52 +41,47 @@
   gap: 2px;
 }
 
+/* Onshape live（f6/f7 像素采样）：✓=实心绿 #419228 / ✗=实心红 #ae3c3e，
+   28×28 圆角方块 + 白色图标；禁用 ✓ 为浅绿底 #d9e9d4。 */
 .part-studio-feature-dialog__confirm,
 .part-studio-feature-dialog__cancel {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: 24px;
-  block-size: 24px;
+  inline-size: 28px;
+  block-size: 28px;
   padding: 0;
   border: none;
-  border-radius: var(--iui-border-radius-1);
-  background: transparent;
+  border-radius: 4px;
+  color: #ffffff;
   cursor: pointer;
 }
 
-.part-studio-feature-dialog__confirm svg,
-.part-studio-feature-dialog__cancel svg {
-  inline-size: 14px;
-  block-size: 14px;
-}
-
-/* os-31：绿✓确认 / 红✗取消。 */
 .part-studio-feature-dialog__confirm {
-  color: var(--iui-color-text-positive, #208a3c);
+  background: #419228;
 }
 
-/* 悬停反馈门到 enabled（B3）：:hover 对 disabled 元素仍匹配——不门则禁用钮
- * 照样给悬停变色，「看起来可点」缺陷的一半。 */
 .part-studio-feature-dialog__confirm:enabled:hover {
-  background: var(--iui-color-background-hover);
+  background: #37801f;
 }
 
-/* 禁用态（B3 缺陷修复）：本面板是原生 <button>（非 iTwinUI Button），没有库
- * disabled 变体可「自然生效」——✓ 的绿色是自定义规则钉住的，禁用后原样呈现。
- * 落库的禁用图标色令牌 + not-allowed 指针，观感对齐 PushChangesetDialog 的
- * iTwinUI Button 禁用态。enabled 外观（绿✓）不动。 */
 .part-studio-feature-dialog__confirm:disabled {
-  color: var(--iui-color-icon-disabled, var(--iui-color-text-muted));
+  background: #d9e9d4;
   cursor: not-allowed;
 }
 
 .part-studio-feature-dialog__cancel {
-  color: var(--iui-color-text-negative, #d30b0b);
+  background: #ae3c3e;
 }
 
 .part-studio-feature-dialog__cancel:hover {
-  background: var(--iui-color-background-hover);
+  background: #9b3639;
+}
+
+.part-studio-feature-dialog__confirm svg,
+.part-studio-feature-dialog__cancel svg {
+  inline-size: 16px;
+  block-size: 16px;
 }
 
 /* ── 布尔作用域双页签（os-31：结果类型 × 布尔作用域）───────────────────── */

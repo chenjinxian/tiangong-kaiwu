@@ -40,6 +40,8 @@ import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 export interface PartStudioSidebarProps {
   /** 特征段原始条目（Session useFeatureSystem.tree 直通；缺省空集）。 */
   entries?: readonly FeatureTreeEntry[];
+  /** Onshape live：新建草图对话框打开时的待确认「草图 N」树行。 */
+  pendingSketchName?: string;
   /** 特征段加载中（useFeatureSystem.loading 透传）。 */
   loading?: boolean;
   /** 特征段加载失败文案（useFeatureSystem.error 透传）。 */
@@ -74,6 +76,7 @@ export interface PartStudioSidebarProps {
 
 export function PartStudioSidebar({
   entries,
+  pendingSketchName,
   loading,
   error,
   onRetry,
@@ -187,6 +190,7 @@ export function PartStudioSidebar({
       {/* 200px 树面板（Onshape 40px 面板选择条由 PartStudioPanelRail 独立承载）。 */}
       <FeatureTree
         entries={entries}
+        pendingSketchName={pendingSketchName}
         loading={loading}
         error={error}
         onRetry={onRetry}

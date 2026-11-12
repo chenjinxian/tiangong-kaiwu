@@ -214,7 +214,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(sketchDialog).toBeVisible();
   await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
- await page.getByRole('option', { name: '上视' }).click();
+ await page.getByRole('option', { name: 'Top' }).click();
   await sketchDialog.getByRole('button', { name: '确认' }).click();
 
   // 提交窗（60s）：applyOp 链=写租约获取→insertSketch→saveChanges→onCommitted→

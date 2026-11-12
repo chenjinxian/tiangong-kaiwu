@@ -7,12 +7,12 @@
 //     （仅 kind='face' 的 store.canvas.selection 主选择回流成动态选项并选中；
 //     part/edge/vertex/feature 主选择不添选项、不改所选——F2）；
 //  3) 四开关（os-30 勾选组）：禁用压印/显示约束/显示表达式/显示错误——
-//     默认仅「显示错误」勾选；全进确认载荷；
+//     Onshape live 默认：显示约束/显示表达式/显示错误勾选，禁用压印不勾；全进确认载荷；
 //  4) ✓确认 → onConfirm 载荷 + store enterSketch（M6-a T4 起：applyOp 在场
 //     → insertSketch RPC 真 sketchId 入 store 废 'sketch-active' 占位；壳期
 //     未接线回退 sketchId 缺省 'sketch-active'）；✗取消 → onCancel + store
 //     exitSketch 复位；
-//  5) 历史时钟钮 + ? 帮助（展开帮助文案）；
+//  5) 缩放到合适大小钮 + ? 帮助（展开帮助文案）；
 //  6) M6-a T4（F1）：insertSketch op 接线——plane 三基准面映射（上视 XY/
 //     前视 XZ/右视 YZ）随 op 下发、非基准面省略 plane 键；ok:false/异常 →
 //     就地 Alert 不进草图；canEdit=false → ✓ 禁用+只读提示；提交中禁重入；
@@ -192,7 +192,7 @@ function renderDialog(props: Partial<Parameters<typeof SketchDialog>[0]> = {}): 
  */
 async function choosePlane(
   user: ReturnType<typeof userEvent.setup>,
-  label = '前视',
+  label = 'Front',
 ): Promise<void> {
   await user.click(screen.getByRole('combobox', { name: '草图平面' }));
   await user.click(screen.getByRole('option', { name: label }));
@@ -215,7 +215,7 @@ beforeEach(() => {
 describe('SketchDialog 非模态结构（os-30）', () => {
   it('role=dialog + aria-modal=false + 无 backdrop；缺省标题「草图」', () => {
     const { container } = render(<SketchDialog onConfirm={vi.fn()} onCancel={vi.fn()} />);
-    const dialog = screen.getByRole('dialog', { name: '草图' });
+    const dialog = screen.getByRole('dialog', { name: /^草图( 1)?$/ });
     expect(dialog.getAttribute('aria-modal')).toBe('false');
     expect(container.querySelector('.part-studio-dialog-backdrop')).toBeNull();
   });
@@ -227,7 +227,7 @@ describe('SketchDialog 非模态结构（os-30）', () => {
 
   it('✓/✗ 在标题行；历史/帮助在底栏（Onshape live 布局）', () => {
     renderDialog();
-    const dialog = screen.getByRole('dialog', { name: '草图' });
+    const dialog = screen.getByRole('dialog', { name: /^草图( 1)?$/ });
     const header = dialog.querySelector('.part-studio-sketch-dialog__header');
     const footer = dialog.querySelector('.part-studio-sketch-dialog__footer');
     expect(header).not.toBeNull();
@@ -235,7 +235,7 @@ describe('SketchDialog 非模态结构（os-30）', () => {
     for (const name of ['确认', '取消']) {
       expect(within(header as HTMLElement).getByRole('button', { name })).toBeDefined();
     }
-    for (const name of ['历史', '帮助']) {
+    for (const name of ['缩放到合适大小', '帮助']) {
       expect(within(footer as HTMLElement).getByRole('button', { name })).toBeDefined();
     }
   });
@@ -253,13 +253,14 @@ describe('SketchDialog 非模态结构（os-30）', () => {
 });
 
 describe('草图平面选择（Onshape 字段 + 基准面菜单）', () => {
-  it('未选平面：字段占位 + ✓ 禁用 + 提示；无原生 select/无快速拾取/无箭头', () => {
+  it('未选平面：字段占位「草图平面」+ ✓ 禁用；无原生 select/无快速拾取/无箭头', () => {
     renderDialog();
     const field = screen.getByTestId('sketch-plane-field-button');
-    expect(field.textContent).toBe('选择平面或面');
+    expect(field.textContent).toBe('草图平面');
     expect(field.getAttribute('aria-expanded')).toBe('false');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('sketch-plane-hint')).toBeDefined();
+    // Onshape live：字段下方没有提示行（选择提示在顶部 toast）。
+    expect(screen.queryByTestId('sketch-plane-hint')).toBeNull();
     // 无原生下拉/快速拾取：Onshape 主路径是视口/树拾取，字段只承载值。
     expect(screen.queryAllByRole('option')).toHaveLength(0);
     expect(screen.queryByRole('button', { name: '快速拾取' })).toBeNull();
@@ -269,11 +270,11 @@ describe('草图平面选择（Onshape 字段 + 基准面菜单）', () => {
     const { onConfirm } = renderDialog();
     const user = userEvent.setup();
     await user.click(screen.getByRole('combobox', { name: '草图平面' }));
-    for (const label of ['上视', '前视', '右视']) {
+    for (const label of ['Top', 'Front', 'Right']) {
       expect(screen.getByRole('option', { name: label })).toBeDefined();
     }
-    await user.click(screen.getByRole('option', { name: '前视' }));
-    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('前视');
+    await user.click(screen.getByRole('option', { name: 'Front' }));
+    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('Front 平面');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect((onConfirm.mock.calls[0]![0] as SketchDialogResult).plane).toBe('front');
   });
@@ -290,7 +291,7 @@ describe('草图平面选择（Onshape 字段 + 基准面菜单）', () => {
     await user.click(screen.getByRole('option', { name: '基准面 B' }));
     expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('基准面 B');
     await user.click(screen.getByRole('button', { name: '清除草图平面' }));
-    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('选择平面或面');
+    expect(screen.getByTestId('sketch-plane-field-button').textContent).toBe('草图平面');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     expect(onConfirm).not.toHaveBeenCalled();
   });
@@ -334,20 +335,20 @@ describe('草图平面选择（Onshape 字段 + 基准面菜单）', () => {
 });
 
 describe('四开关（os-30 勾选组）', () => {
-  it('禁用压印/显示约束/显示表达式/显示错误全渲染；默认仅「显示错误」勾选', () => {
+  it('禁用压印/显示约束/显示表达式/显示错误全渲染；默认显示约束/表达式/错误勾选', () => {
     renderDialog();
-    const dialog = screen.getByRole('dialog', { name: '草图' });
+    const dialog = screen.getByRole('dialog', { name: /^草图( 1)?$/ });
     const group = within(dialog).getByRole('group', { name: '草图选项' });
     expect((within(group).getByRole('checkbox', { name: '禁用压印' }) as HTMLInputElement).checked).toBe(false);
-    expect((within(group).getByRole('checkbox', { name: '显示约束' }) as HTMLInputElement).checked).toBe(false);
-    expect((within(group).getByRole('checkbox', { name: '显示表达式' }) as HTMLInputElement).checked).toBe(false);
+    expect((within(group).getByRole('checkbox', { name: '显示约束' }) as HTMLInputElement).checked).toBe(true);
+    expect((within(group).getByRole('checkbox', { name: '显示表达式' }) as HTMLInputElement).checked).toBe(true);
     expect((within(group).getByRole('checkbox', { name: '显示错误' }) as HTMLInputElement).checked).toBe(true);
   });
 
   it('开关翻转全进确认载荷', async () => {
     const { onConfirm } = renderDialog();
     const user = userEvent.setup();
-    const dialog = screen.getByRole('dialog', { name: '草图' });
+    const dialog = screen.getByRole('dialog', { name: /^草图( 1)?$/ });
     await choosePlane(user);
     await user.click(within(dialog).getByRole('checkbox', { name: '禁用压印' }));
     await user.click(within(dialog).getByRole('checkbox', { name: '显示约束' }));
@@ -358,8 +359,8 @@ describe('四开关（os-30 勾选组）', () => {
     expect(payload).toEqual({
       plane: 'front',
       disableImprint: true,
-      showConstraints: true,
-      showExpressions: true,
+      showConstraints: false,
+      showExpressions: false,
       showErrors: false,
     });
   });
@@ -449,7 +450,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     renderDialog({ applyOp });
     const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
-    expect(screen.getByTestId('sketch-plane-hint')).toBeDefined();
+    expect(screen.queryByTestId('sketch-plane-hint')).toBeNull();
     await userEvent.setup().click(confirm);
     expect(applyOp).not.toHaveBeenCalled();
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
@@ -466,7 +467,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false });
     expect(onConfirm).not.toHaveBeenCalled();
     // 对话框仍在场（不关框）。
-    expect(screen.getByRole('dialog', { name: '草图' })).toBeDefined();
+    expect(screen.getByRole('dialog', { name: /^草图( 1)?$/ })).toBeDefined();
   });
 
   it('applyOp 抛异常（rpc-over-ipc 断开）→ 同面就地 Alert，不静默', async () => {
@@ -508,7 +509,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     await user.click(confirm);
     // 提交中：✓ 禁用 + aria-busy——第二击被 disabled/禁重入双保险吞掉。
     expect(confirm.disabled).toBe(true);
-    expect(screen.getByRole('dialog', { name: '草图' }).getAttribute('aria-busy')).toBe('true');
+    expect(screen.getByRole('dialog', { name: /^草图( 1)?$/ }).getAttribute('aria-busy')).toBe('true');
     await user.click(confirm);
     expect(applyOp).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -614,7 +615,7 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     await user.click(screen.getByRole('button', { name: '草图' }));
     expect(mocks.toolsRun).not.toHaveBeenCalled();
     expect(usePartStudioStore.getState().dialog.active).toBe('sketch');
-    const dialog = screen.getByRole('dialog', { name: '草图' });
+    const dialog = screen.getByRole('dialog', { name: /^草图( 1)?$/ });
     await choosePlane(user);
     await user.click(within(dialog).getByRole('button', { name: '确认' }));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));

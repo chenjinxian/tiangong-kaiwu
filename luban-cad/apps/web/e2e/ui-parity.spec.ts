@@ -165,7 +165,7 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByRole('combobox', { name: '草图平面' }).click();
- await page.getByRole('option', { name: '前视' }).click();
+ await page.getByRole('option', { name: 'Front' }).click();
     await dialog.getByRole('button', { name: '确认' }).click();
     await expect(
       page.getByRole('toolbar', { name: '草图工具' })

@@ -901,15 +901,16 @@
     "cancel": "取消",
     "planeLabel": "草图平面",
     "planePlaceholder": "选择草图平面…",
-    "planeFieldPlaceholder": "选择平面或面",
+    "planeFieldPlaceholder": "草图平面",
     "customPlane": "自定义平面",
     "planeHint": "在视口中选择基准面，或在特征树中选择 Top/Front/Right",
     "planePrompt": "选择草图平面",
+    "planeNameSuffix": " 平面",
     "clearPlane": "清除草图平面",
     "planes": {
-      "top": "上视",
-      "front": "前视",
-      "right": "右视"
+      "top": "Top",
+      "front": "Front",
+      "right": "Right"
     },
     "fastPick": "快速拾取",
     "optionsGroup": "草图选项",
@@ -920,6 +921,7 @@
       "showErrors": "显示错误"
     },
     "history": "历史",
+    "fitToView": "缩放到合适大小",
     "help": "帮助",
     "helpText": "选择草图平面后开始绘制草图；勾选组控制压印/约束/表达式/错误的显示。",
     "readonlyHint": "当前为只读权限，无法创建草图",
@@ -1261,6 +1263,7 @@
     "suppressFailed": "抑制操作失败：{{message}}",
     "noSourceFeature": "实体无驱动源，无法删除",
     "readonlyHint": "当前为只读权限，无法执行此操作",
+    "sketchDeleteUnsupported": "草图删除未支持（后端 deleteFeature 只处理 LubanCAD.Feature；待私有后端补齐）",
     "featureTypes": {
       "extrude": "拉伸",
       "booleanAdd": "并集",
