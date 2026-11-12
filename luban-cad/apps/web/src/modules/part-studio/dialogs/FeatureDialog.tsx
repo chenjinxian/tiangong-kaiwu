@@ -2596,6 +2596,19 @@ export function FeatureDialog({
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
+  // Onshape f6/fillet live 行序：切向延伸位于「要设置圆角的图元」之后、测量之前
+  // （fillet）；倒角通道沿用原序（测量/类型/值之后）。只渲染一次，按通道择位。
+  const propagateSmoothRow = (
+    <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-propagate-smooth">
+      <input
+        type="checkbox"
+        checked={propagateSmooth}
+        onChange={(event) => setPropagateSmooth(event.target.checked)}
+      />
+      <span>{t('partStudio.featureDialog.propagateSmoothLabel')}</span>
+    </label>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -3390,6 +3403,7 @@ export function FeatureDialog({
           <React.Fragment>
             {/* Onshape live 行序：实体字段 → 切向延伸 → 测量/控制（或倒角测量
                 +类型）→ 数值 → 不对称/选项。测量/控制首版只读，禁用不伪造。 */}
+            {!chamferChannel && propagateSmoothRow}
             <section className="part-studio-feature-dialog__distance" data-field="measurement">
               <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-measurement">
                 {t(chamferChannel ? 'partStudio.featureDialog.chamferMeasurementLabel' : 'partStudio.featureDialog.measurementLabel')}
@@ -3500,14 +3514,7 @@ export function FeatureDialog({
                 />
               </section>
             )}
-            <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-propagate-smooth">
-              <input
-                type="checkbox"
-                checked={propagateSmooth}
-                onChange={(event) => setPropagateSmooth(event.target.checked)}
-              />
-              <span>{t('partStudio.featureDialog.propagateSmoothLabel')}</span>
-            </label>
+            {chamferChannel && propagateSmoothRow}
             {!chamferChannel && (
               <React.Fragment>
                 <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-asymmetric">

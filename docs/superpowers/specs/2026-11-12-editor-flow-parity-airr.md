@@ -257,3 +257,11 @@
 - 跳过实例：已采集私有 UI 证据（`skip-instances/manifest.json`：布尔「跳过实例」
   + 勾选后出现「要跳过的实例」数组/选择列表，`data-parameter-id=skippedInstances`）；
   视口实例点选交互未能复现（canvas 标记），故不按记忆实现，登记为待采集。
+
+## 17. Stage E 追补：fillet 行序（2026-11-12）
+
+- 按私有证据 `ui-full-audit-20261106/onshape/dialogs/fillet.json`：行序为
+  要设置圆角的图元 → **切向延伸** → 测量 → 控制 → 半径 → 不对称 → 部分圆角 →
+  可变圆角 → 允许边溢出 → 平滑圆角；此前切向延伸排在半径之后，已前移。
+- 圆角类型页签（边/全圆角）已在位：全圆角无内核通道 → 诚实禁用。
+- 单测钉死顺序与页签状态；web 185 例 FeatureDialog 全绿。

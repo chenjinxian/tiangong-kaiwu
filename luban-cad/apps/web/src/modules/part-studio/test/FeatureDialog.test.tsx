@@ -4072,3 +4072,24 @@ describe('成形到顶点（Stage G1）', () => {
     });
   });
 });
+
+describe('fillet 行序（ADR-0017 Stage E 追补）', () => {
+  it('切向延伸位于测量之前；圆角类型页签=边/全圆角（后者禁用）', () => {
+    renderDialog({
+      featureType: 'fillet',
+      mode: 'new',
+      applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })),
+      hasBodies: true,
+    });
+    const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
+    const smooth = within(dialog).getByTestId('part-studio-feature-dialog-propagate-smooth');
+    const measurement = dialog.querySelector('[data-field="measurement"]');
+    expect(measurement).not.toBeNull();
+    // compareDocumentPosition: FOLLOWING (4) means measurement comes after smooth.
+    expect(smooth.compareDocumentPosition(measurement!) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+    const tabs = within(dialog).getByRole('tablist', { name: '圆角类型' });
+    expect(within(tabs).getByRole('tab', { name: '边' }).getAttribute('aria-selected')).toBe('true');
+    expect((within(tabs).getByRole('tab', { name: '全圆角' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
