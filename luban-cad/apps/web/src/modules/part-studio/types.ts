@@ -139,9 +139,9 @@ export interface PartStudioToolState {
   activeToolId: string | null;
 }
 
-/** 草图阵列会话（AIRR 2026-11-12：Onshape canvas gizmo；当前线性首切片）。 */
+/** 草图阵列/变换会话（AIRR 2026-11-12：Onshape canvas gizmo）。 */
 export interface SketchPatternSession {
-  kind: 'linear' | 'circular';
+  kind: 'linear' | 'circular' | 'transform';
 }
 
 /** sketch 切片——草图模式（ribbon 变身/栅格覆盖层/树红显的开关源）。 */

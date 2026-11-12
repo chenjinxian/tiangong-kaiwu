@@ -20,6 +20,7 @@ import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js'
 import {
   buildSketchCircularPattern,
   buildSketchLinearPattern,
+  buildSketchTranslation,
   SKETCH_PATTERN_MAX_COUNT,
   SKETCH_PATTERN_MIN_COUNT,
 } from '../internal/sketch-pattern.js';
@@ -36,8 +37,8 @@ export interface SketchPatternApplyResult {
 export interface SketchPatternGizmoProps {
   viewport?: ScreenViewport | null;
   sketch: SketchDto;
-  /** 阵列类型（Onshape 变换组：线性/环形；变换后续切片）。 */
-  kind: 'linear' | 'circular';
+  /** 阵列/变换类型（Onshape 变换组：线性/环形/变换平移首切片）。 */
+  kind: 'linear' | 'circular' | 'transform';
   selected: readonly SketchEntitySelection[];
   /** 宿主一次 updateSketch 提交；失败返回错误文案。 */
   onApply: (
@@ -58,7 +59,7 @@ const CLICK_SLOP_PX = 3;
 const PREVIEW_STROKE = '#4a90e2';
 const PREVIEW_FILL = 'rgba(74, 144, 226, 0.12)';
 
-type DragKind = 'direction' | 'spacing' | 'count' | 'center';
+type DragKind = 'direction' | 'spacing' | 'count' | 'center' | 'move';
 type EditKind = 'spacing' | 'count';
 
 interface DragState {
@@ -67,6 +68,7 @@ interface DragState {
   startX: number;
   startY: number;
   startCount: number;
+  startLocal?: { u: number; v: number };
   moved: boolean;
 }
 
@@ -96,6 +98,8 @@ export function SketchPatternGizmo({
   // 环形阵列：旋转中心（草图局部）与总角度（默认整周）。
   const [centerLocal, setCenterLocal] = React.useState({ u: 0, v: 0 });
   const [angleRad] = React.useState(Math.PI * 2);
+  // 变换平移首切片：选中几何的局部位移。
+  const [deltaLocal, setDeltaLocal] = React.useState({ u: 0, v: 0 });
   const [editing, setEditing] = React.useState<{ kind: EditKind; value: string; x: number; y: number } | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [, forceTick] = React.useReducer((value: number) => value + 1, 0);
@@ -138,12 +142,14 @@ export function SketchPatternGizmo({
         spacingLocal: spacingMm / 1000,
         count,
       })
-      : buildSketchCircularPattern(sketch.entities, sketch.constraints, selected, {
-        center: centerLocal,
-        count,
-        angleRad,
-      }),
-    [kind, sketch.entities, sketch.constraints, selected, directionRad, spacingMm, count, centerLocal, angleRad],
+      : kind === 'circular'
+        ? buildSketchCircularPattern(sketch.entities, sketch.constraints, selected, {
+          center: centerLocal,
+          count,
+          angleRad,
+        })
+        : buildSketchTranslation(sketch.entities, sketch.constraints, selected, deltaLocal),
+    [kind, sketch.entities, sketch.constraints, selected, directionRad, spacingMm, count, centerLocal, angleRad, deltaLocal],
   );
   const circularCenterWorld = React.useMemo(
     () => frame.toWorld(centerLocal),
@@ -247,7 +253,7 @@ export function SketchPatternGizmo({
       ctx.moveTo(seedView.x, seedView.y);
       ctx.lineTo(lastView.x, lastView.y);
       ctx.stroke();
-    } else if (seedLocal) {
+    } else if (kind === 'circular' && seedLocal) {
       const radius = Math.hypot(seedLocal.u - centerLocal.u, seedLocal.v - centerLocal.v);
       if (radius > 1e-9) {
         ctx.beginPath();
@@ -266,10 +272,23 @@ export function SketchPatternGizmo({
         }
         ctx.stroke();
       }
+    } else if (kind === 'transform' && seedLocal) {
+      const movedCenter = frame.toWorld({
+        u: seedLocal.u + deltaLocal.u,
+        v: seedLocal.v + deltaLocal.v,
+      });
+      const from = viewport.worldToView(seedCenter);
+      const to = viewport.worldToView(movedCenter);
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
     }
     ctx.setLineDash([]);
 
-    const instanceIds = new Set(preview.instanceCurveIds.slice(1).flat());
+    const instanceIds = new Set(kind === 'transform'
+      ? preview.instanceCurveIds.flat()
+      : preview.instanceCurveIds.slice(1).flat());
     if (instanceIds.size === 0)
       return;
     const lines = sketchEntitiesToWorldPolylines(preview.entities, sketch.plane)
@@ -293,7 +312,7 @@ export function SketchPatternGizmo({
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-  }, [preview, viewport, sketch.plane, seedCenter, lastWorld, kind, seedLocal, centerLocal, frame]);
+  }, [preview, viewport, sketch.plane, seedCenter, lastWorld, kind, seedLocal, centerLocal, deltaLocal, frame]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {
@@ -405,15 +424,23 @@ export function SketchPatternGizmo({
     } catch {
       // jsdom/合成事件无 pointer capture：仍按普通拖拽处理。
     }
+    const rect = viewport?.canvas?.getBoundingClientRect();
+    const startLocal = viewport && rect
+      ? screenToSketchLocal(viewport, sketch.plane, {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      })
+      : undefined;
     dragRef.current = {
       kind,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       startCount: count,
+      ...(startLocal ? { startLocal } : {}),
       moved: false,
     };
-  }, [count]);
+  }, [count, viewport, sketch.plane]);
 
   const moveDrag = React.useCallback((event: React.PointerEvent<HTMLButtonElement>): void => {
     const drag = dragRef.current;
@@ -433,6 +460,11 @@ export function SketchPatternGizmo({
     });
     if (!local)
       return;
+    if (kind === 'transform' && drag.kind === 'move') {
+      if (drag.startLocal)
+        setDeltaLocal({ u: local.u - drag.startLocal.u, v: local.v - drag.startLocal.v });
+      return;
+    }
     if (drag.kind === 'center') {
       setCenterLocal({ u: local.u, v: local.v });
       return;
@@ -488,10 +520,30 @@ export function SketchPatternGizmo({
           ? t('partStudio.sketch.patternSelectPrompt')
           : kind === 'linear'
             ? t('partStudio.sketch.patternPrompt')
-            : t('partStudio.sketch.patternPromptCircular')}
+            : kind === 'circular'
+              ? t('partStudio.sketch.patternPromptCircular')
+              : t('partStudio.sketch.patternPromptTransform')}
       </div>
       {hasSeed && seedClient && (
         <React.Fragment>
+          {kind === 'transform' && (
+            <button
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--direction"
+              data-testid="sketch-transform-move"
+              title={t('partStudio.sketch.patternMove')}
+              aria-label={t('partStudio.sketch.patternMove')}
+              style={{ left: seedClient.x, top: seedClient.y }}
+              onPointerDown={startDrag('move')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M8 2v12M2 8h12M8 2 6 4M8 2l2 2M8 14l-2-2M8 14l2-2M2 8l2-2M2 8l2 2M14 8l-2-2M14 8l-2 2" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
           {kind === 'linear' && (
             <button
               type="button"
@@ -545,7 +597,7 @@ export function SketchPatternGizmo({
               <span className="part-studio-pattern-handle__label">{formatMm(spacingMm)}</span>
             </button>
           )}
-          {countHandle && (
+          {kind !== 'transform' && countHandle && (
             <button
               type="button"
               className="part-studio-pattern-handle part-studio-pattern-handle--value"

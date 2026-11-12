@@ -22,6 +22,7 @@ import type { SketchEntitySelection } from './sketch-entity-picker.js';
 import {
   collectSketchCopySet,
   instantiateSketchCopy,
+  refPointIds,
 } from './sketch-clipboard.js';
 
 export interface SketchLinearPatternOptions {
@@ -48,7 +49,8 @@ export type SketchPatternError =
   | 'invalid-spacing'
   | 'invalid-direction'
   | 'invalid-center'
-  | 'invalid-angle';
+  | 'invalid-angle'
+  | 'invalid-delta';
 
 export type SketchLinearPatternResult =
   | {
@@ -93,6 +95,55 @@ function translateEntity(entity: SketchEntityDto, du: number, dv: number): void 
         entity.fitPoints = entity.fitPoints.map((point) => translateRef(point, du, dv) as SketchPointDto);
       return;
   }
+}
+
+/**
+ * 草图图元平移（Onshape「变换」gizmo 首切片：只做平移；旋转/缩放后续）。
+ * 直接改选中曲线及其直接引用的显式 point（共享点会被一起移动——连接几何
+ * 的预期行为；不复制、不新建 id、约束保持）。
+ */
+export function buildSketchTranslation(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  selection: readonly SketchEntitySelection[],
+  delta: { u: number; v: number },
+): SketchLinearPatternResult {
+  if (!Number.isFinite(delta.u) || !Number.isFinite(delta.v))
+    return { ok: false, error: 'invalid-delta' };
+  const byId = new Map(entities.map((entity) => [entity.id, entity]));
+  const selectedCurveIds = [...new Set(
+    selection.filter((entry) => entry.part === 'curve').map((entry) => entry.entityId),
+  )].filter((id) => byId.get(id)?.kind !== undefined && byId.get(id)?.kind !== 'point');
+  if (selectedCurveIds.length === 0)
+    return { ok: false, error: 'no-selection' };
+
+  const moved = new Set<number>(selectedCurveIds);
+  for (const id of selectedCurveIds) {
+    const entity = byId.get(id);
+    if (!entity)
+      continue;
+    for (const pointId of refPointIds(entity)) {
+      if (byId.get(pointId)?.kind === 'point')
+        moved.add(pointId);
+    }
+  }
+
+  const updated = new Map<number, SketchEntityDto>();
+  for (const id of moved) {
+    const entity = byId.get(id);
+    if (!entity)
+      continue;
+    const clone = JSON.parse(JSON.stringify(entity)) as SketchEntityDto;
+    translateEntity(clone, delta.u, delta.v);
+    updated.set(id, clone);
+  }
+
+  return {
+    ok: true,
+    entities: entities.map((entity) => updated.get(entity.id) ?? entity),
+    constraints: [...constraints],
+    instanceCurveIds: [selectedCurveIds],
+  };
 }
 
 function nextFreeId(

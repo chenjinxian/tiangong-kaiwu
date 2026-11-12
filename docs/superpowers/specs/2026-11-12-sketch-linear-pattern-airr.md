@@ -44,7 +44,7 @@
      文档与测试注释中显式声明，不声称完全等价。
 
 **非目标（后续切片）**
-- 变换 gizmo（同一工具栏组；下一步复用本切片 gizmo 基座）。
+- 变换的旋转/缩放手柄与数值输入（本切片只做平移；Onshape 完整 gizmo 有旋转/缩放手柄）。
 - 环形阵列的部分角度/角度手柄（当前固定整周 360°；builder 已支持部分角度，UI 未暴露）。
 - 第二方向阵列、跳过实例、曲线驱动阵列。
 - 阵列关系的参数化（改数量/间距后联动更新历史实例）。
@@ -131,9 +131,18 @@
   整周固定；本产品截图 `73-luban-circular-pattern.png`）；Ribbon「线性阵列 ▾」
   增加「环形阵列」。真栈 `e2e/sketch-pattern.spec.ts` **4 passed**（含环形
   count 4 → 4 圆绕原点 90° 均分 + undo）。
+- **变换平移首切片（2026-11-12）**：live 实测「变换」进入 canvas gizmo
+  （`ui-evidence/ui-direct-mouse-20261112/74-onshape-sketch-transform.png`；
+  选区手柄在画布上、无对话框/输入框）。实现：`buildSketchTranslation` 直接平移
+  选中曲线及其直接引用的显式 point（共享点随动；不复制、id 不变、约束不变）+
+  同一 gizmo 的 `kind='transform'` 四向移动手柄/蓝色预览/虚线位移；真栈
+  `e2e/sketch-pattern.spec.ts` **5 passed**（含拖动手柄 +20 mm → 圆圆心
+  x=0.02 → undo 回 0；本产品截图
+  `ui-evidence/ui-direct-mouse-20261112/75-luban-sketch-transform.png`）。
+  Onshape 的旋转/缩放手柄与数值输入未实现，登记为后续。
 - 已知近似：实例为独立几何副本，无“阵列关系”约束/历史联动；线性方向/间距
   默认值为 0°/10 mm（Onshape 文档单位相关）；环形角度固定整周、无角度输入；
-  变换 gizmo 未实现。
+  变换只有平移（旋转/缩放待后续）。
 
 ## 7. 风险与回滚
 

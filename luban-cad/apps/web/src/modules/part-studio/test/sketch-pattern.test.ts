@@ -8,6 +8,7 @@ import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js'
 import {
   buildSketchCircularPattern,
   buildSketchLinearPattern,
+  buildSketchTranslation,
   SKETCH_PATTERN_MAX_COUNT,
 } from '../internal/sketch-pattern.js';
 
@@ -202,5 +203,51 @@ describe('buildSketchCircularPattern', () => {
     expect(buildSketchCircularPattern([circle(11, 0.02, 0)], [], [curveSelection(11)], {
       center: { u: 0, v: 0 }, count: 1, angleRad: Math.PI,
     })).toEqual({ ok: false, error: 'invalid-count' });
+  });
+});
+
+describe('buildSketchTranslation（变换平移首切片）', () => {
+  it('内联点/样条控制点随选中曲线平移；共享点只移动一次；约束不变', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 0.01, y: 0 } },
+      { kind: 'line', id: 12, p1: { x: 0.01, y: 0 }, p2: { x: 0.01, y: 0.01 } },
+      { kind: 'circle', id: 13, center: { x: 0.02, y: 0 }, radius: 0.005 },
+    ];
+    const constraints: SketchConstraintDto[] = [{ kind: 'horizontal', id: 101, refs: [11] }];
+    const result = buildSketchTranslation(entities, constraints, [curveSelection(11), curveSelection(12)], { u: 0.02, v: 0.01 });
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    const lines = result.entities.filter((entity): entity is Extract<SketchEntityDto, { kind: 'line' }> => entity.kind === 'line');
+    expect(lines[0]).toMatchObject({ p1: { x: 0.02, y: 0.01 }, p2: { x: 0.03, y: 0.01 } });
+    expect(lines[1]).toMatchObject({ p1: { x: 0.03, y: 0.01 }, p2: { x: 0.03, y: 0.02 } });
+    // 未选中的圆保持原位。
+    const circleEntity = result.entities.find((entity) => entity.id === 13);
+    expect(circleEntity).toMatchObject({ center: { x: 0.02, y: 0 } });
+    expect(result.constraints).toEqual(constraints);
+    expect(result.instanceCurveIds).toEqual([[11, 12]]);
+  });
+
+  it('显式 point 实体随引用曲线平移；未选中曲线不动', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 0, y: 0 },
+      { kind: 'point', id: 2, x: 0.01, y: 0 },
+      { kind: 'line', id: 11, p1: 1, p2: 2 },
+      { kind: 'line', id: 12, p1: { x: 0, y: 0.02 }, p2: { x: 0.01, y: 0.02 } },
+    ];
+    const result = buildSketchTranslation(entities, [], [curveSelection(11)], { u: 0.005, v: 0.005 });
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    expect(result.entities.find((entity) => entity.id === 1)).toMatchObject({ x: 0.005, y: 0.005 });
+    expect(result.entities.find((entity) => entity.id === 2)).toMatchObject({ x: 0.015, y: 0.005 });
+    expect(result.entities.find((entity) => entity.id === 12)).toMatchObject({ p1: { x: 0, y: 0.02 } });
+  });
+
+  it('校验：无曲线选中 / 非有限位移', () => {
+    expect(buildSketchTranslation([circle(11, 0, 0)], [], [], { u: 1, v: 0 }))
+      .toEqual({ ok: false, error: 'no-selection' });
+    expect(buildSketchTranslation([circle(11, 0, 0)], [], [curveSelection(11)], { u: Number.NaN, v: 0 }))
+      .toEqual({ ok: false, error: 'invalid-delta' });
   });
 });

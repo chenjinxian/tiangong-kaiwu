@@ -112,6 +112,7 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   tool('Sketch.Mirror', 'partStudio.ribbon.sketchTools.mirror.label', 'sketchEdit', 'sketch'),
   tool('sketchLinearPattern', 'partStudio.ribbon.sketchTools.linearPattern.label', 'sketchEdit', 'sketch', [
     menuItem('sketchCircularPattern', 'partStudio.ribbon.sketchTools.circularPattern.label'),
+    menuItem('sketchTransform', 'partStudio.ribbon.sketchTools.transform.label'),
   ]),
   tool('sketchInsertDxf', 'partStudio.ribbon.sketchTools.insertDxf.label', 'sketchEdit', 'sketch', []),
 

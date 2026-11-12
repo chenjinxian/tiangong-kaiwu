@@ -40,7 +40,7 @@ function cloneEntity(entity: SketchEntityDto): SketchEntityDto {
   return clone;
 }
 
-function refPointIds(entity: SketchEntityDto): number[] {
+export function refPointIds(entity: SketchEntityDto): number[] {
   if (entity.kind === 'line')
     return [entity.p1, entity.p2].filter((ref): ref is number => typeof ref === 'number');
   if (entity.kind === 'circle' || entity.kind === 'arc')
