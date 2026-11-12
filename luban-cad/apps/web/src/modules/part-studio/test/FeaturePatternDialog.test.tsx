@@ -63,6 +63,14 @@ function renderDialog(
 }
 
 describe('FeaturePatternDialog', () => {
+  it('跳过实例行（Onshape live 行序最后）：禁用 + 未支持提示（点选通道未实现）', () => {
+    renderDialog();
+    const row = screen.getByTestId('part-studio-feature-pattern-skip-instances');
+    expect(row.getAttribute('title')).toContain('尚未支持');
+    expect((row.querySelector('input[type="checkbox"]') as HTMLInputElement).disabled).toBe(true);
+    expect(row.textContent).toContain('跳过实例');
+  });
+
   it('落库回显：居中总数 5 → 每侧 3、居中勾选 + 提示', () => {
     const { applyOp } = renderDialog({}, stored({ centered: true, count: 5 }));
     expect(screen.getByTestId('part-studio-feature-pattern-source').textContent).toBe('0x20000000008');

@@ -608,6 +608,16 @@ export function FeaturePatternDialog({
               : 'partStudio.featureDialog.patternCountInvalid')}
           </p>
         )}
+        {/* Onshape live（linear-pattern.json/跳过实例）：行位于最后；实例点选通道
+            尚未实现（私有证据未复现视口交互），诚实禁用并标注未支持。 */}
+        <label
+          className="part-studio-feature-dialog__checkbox"
+          title={t('partStudio.featureDialog.notSupported')}
+          data-testid="part-studio-feature-pattern-skip-instances"
+        >
+          <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+          <span>{t('partStudio.featureDialog.skipInstancesLabel')}</span>
+        </label>
       </div>
       {previewHost !== null && dynamicPreview !== undefined && createPortal(
         <FeaturePreviewOverlay
