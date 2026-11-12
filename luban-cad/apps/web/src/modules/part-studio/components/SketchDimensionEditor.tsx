@@ -31,6 +31,12 @@ export interface SketchDimensionEditorProps {
   onCommit: (constraintId: number, value: number) => void | Promise<{ ok: boolean; error?: string }>;
   /** 双击不可改值尺寸（直径/角度等）。 */
   onUnsupported?: (constraintKind: string) => void;
+  /** 当前选中的尺寸约束 id（唯一选择权威 store.canvas.selection 的镜像）。 */
+  selectedConstraintId?: number | null;
+  /** 单击尺寸数值 → 选中（null=清空约束选择）；宿主写 store。 */
+  onSelectConstraint?: (constraintId: number | null) => void;
+  /** Delete/Backspace 删除选中尺寸（宿主走 updateSketch 移除约束）。 */
+  onDeleteConstraint?: (constraintId: number) => void | Promise<void>;
 }
 
 interface EditorState {
@@ -50,6 +56,9 @@ export function SketchDimensionEditor({
   canEdit = true,
   onCommit,
   onUnsupported,
+  selectedConstraintId = null,
+  onSelectConstraint,
+  onDeleteConstraint,
 }: SketchDimensionEditorProps): React.JSX.Element | null {
   const [viewVersion, setViewVersion] = React.useState(0);
   const [editor, setEditor] = React.useState<EditorState | null>(null);
@@ -75,6 +84,12 @@ export function SketchDimensionEditor({
   onUnsupportedRef.current = onUnsupported;
   const editorRef = React.useRef(editor);
   editorRef.current = editor;
+  const selectedRef = React.useRef(selectedConstraintId);
+  selectedRef.current = selectedConstraintId;
+  const onSelectConstraintRef = React.useRef(onSelectConstraint);
+  onSelectConstraintRef.current = onSelectConstraint;
+  const onDeleteConstraintRef = React.useRef(onDeleteConstraint);
+  onDeleteConstraintRef.current = onDeleteConstraint;
 
   // 相机变化 → 重算标签（标记位置可用）。
   React.useEffect(() => {
@@ -118,6 +133,7 @@ export function SketchDimensionEditor({
         return;
       }
       setFailed(false);
+      onSelectConstraintRef.current?.(constraintId);
       setEditor({
         constraintId,
         value: constraint.value !== undefined ? String(constraint.value) : '',
@@ -127,6 +143,58 @@ export function SketchDimensionEditor({
     };
     window.addEventListener('dblclick', onDoubleClick, true);
     return () => window.removeEventListener('dblclick', onDoubleClick, true);
+  }, [viewport]);
+
+  // 单击尺寸数值 = 选中（Onshape）；点击画布空白清除约束选择。Delete/Backspace
+  // 删除选中尺寸（宿主 updateSketch 移除该约束）。输入框聚焦时不吃键。
+  React.useEffect(() => {
+    const canvas = viewport?.canvas;
+    if (!viewport || !canvas)
+      return;
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement))
+        return false;
+      if (target.isContentEditable)
+        return true;
+      return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+    };
+    const onPointerDown = (event: PointerEvent): void => {
+      if (event.button !== 0 || editorRef.current)
+        return;
+      const rect = canvas.getBoundingClientRect();
+      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      const inside = point.x >= 0 && point.y >= 0 && point.x <= rect.width && point.y <= rect.height;
+      if (!inside)
+        return;
+      const label = hitTestSketchDimensionLabel(labelsRef.current, point);
+      if (!label) {
+        if (selectedRef.current !== null)
+          onSelectConstraintRef.current?.(null);
+        return;
+      }
+      const constraintId = constraintIdFromDimensionLabel(label.id);
+      if (constraintId === null)
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      onSelectConstraintRef.current?.(constraintId);
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace')
+        return;
+      if (editorRef.current || selectedRef.current === null || isEditableTarget(event.target))
+        return;
+      const constraintId = selectedRef.current;
+      event.preventDefault();
+      event.stopPropagation();
+      void onDeleteConstraintRef.current?.(constraintId);
+    };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
   }, [viewport]);
 
   React.useEffect(() => {
@@ -167,15 +235,30 @@ export function SketchDimensionEditor({
     <React.Fragment>
       {labels.map((label) => {
         const constraintId = constraintIdFromDimensionLabel(label.id);
+        const selected = constraintId !== null && constraintId === selectedConstraintId;
         return (
-          <span
-            key={label.id}
-            data-testid="sketch-dimension-label"
-            data-constraint-id={constraintId ?? ''}
-            data-center={`${label.center.x},${label.center.y}`}
-            className="part-studio-dimension-marker"
-            aria-hidden="true"
-          />
+          <React.Fragment key={label.id}>
+            <span
+              data-testid="sketch-dimension-label"
+              data-constraint-id={constraintId ?? ''}
+              data-center={`${label.center.x},${label.center.y}`}
+              data-selected={selected ? 'true' : 'false'}
+              className="part-studio-dimension-marker"
+              aria-hidden="true"
+            />
+            {selected && (
+              <span
+                className="part-studio-dimension-highlight"
+                style={{
+                  left: label.rect.left,
+                  top: label.rect.top,
+                  width: Math.max(1, label.rect.right - label.rect.left),
+                  height: Math.max(1, label.rect.bottom - label.rect.top),
+                }}
+                aria-hidden="true"
+              />
+            )}
+          </React.Fragment>
         );
       })}
       {editor && (

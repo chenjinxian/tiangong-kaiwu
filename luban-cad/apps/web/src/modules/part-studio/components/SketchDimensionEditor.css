@@ -35,3 +35,13 @@
   border: 0;
   pointer-events: none;
 }
+
+/* 选中尺寸高亮（Onshape 橙；标签由 canvas 绘制，这里只叠边框/浅填充）。 */
+.part-studio-dimension-highlight {
+  position: absolute;
+  z-index: 19;
+  border: 1px solid #c88a3c;
+  border-radius: 2px;
+  background: rgba(245, 166, 65, 0.12);
+  pointer-events: none;
+}

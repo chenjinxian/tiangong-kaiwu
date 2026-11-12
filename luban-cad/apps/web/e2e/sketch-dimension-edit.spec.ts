@@ -148,5 +148,32 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     expect(lineLength(finalSketch)).toBeCloseTo(30, 2);
     expect(finalSketch?.constraints.map((constraint) => constraint.kind).sort())
       .toEqual(['horizontal', 'length', 'radius']);
+
+    // ---- 3) 单击尺寸数值 → 选中（唯一选择权威 sketchConstraint）；Delete 移除约束 ----
+    const radiusLabel = page.locator(
+      `[data-testid="sketch-dimension-label"][data-constraint-id="${RADIUS_ID}"]`,
+    );
+    const radiusAt2 = await centerOf(RADIUS_ID);
+    await page.mouse.click(radiusAt2.x, radiusAt2.y);
+    await expect(radiusLabel).toHaveAttribute('data-selected', 'true', { timeout: 10_000 });
+    const selection = await page.evaluate(() => {
+      const store = (window as unknown as {
+        __lubanE2EApp?: { usePartStudioStore?: { getState: () => { canvas: { selection: { kind: string; constraintId?: number }[] } } } };
+      }).__lubanE2EApp?.usePartStudioStore;
+      return store?.getState().canvas.selection ?? [];
+    });
+    expect(selection.some((entry) => entry.kind === 'sketchConstraint' && entry.constraintId === RADIUS_ID)).toBe(true);
+    await page.keyboard.press('Delete');
+    await expect.poll(async () => {
+      const sketchNow = await getSketchRpc(ctx, sketchId, token);
+      return (sketchNow?.constraints ?? []).some((constraint) => constraint.id === RADIUS_ID);
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(false);
+    // 实体与其它约束保留（删除只动选中的约束）。
+    const afterConstraintDelete = await getSketchRpc(ctx, sketchId, token);
+    expect(circleRadius(afterConstraintDelete)).toBeCloseTo(6, 3);
+    expect(lineLength(afterConstraintDelete)).toBeCloseTo(30, 2);
+    expect(afterConstraintDelete?.constraints.map((constraint) => constraint.kind).sort())
+      .toEqual(['horizontal', 'length']);
+    await expect(page.getByTestId('sketch-dimension-label')).toHaveCount(1);
   });
 });

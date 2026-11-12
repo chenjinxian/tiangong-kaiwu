@@ -44,7 +44,7 @@ export const BODY_PRODUCING_FEATURE_TYPES: readonly LubanFeatureType[] = [
  * 2026-11-12：草图编辑态实体/控制点选择并入同一选择权威（ADR-0018），
  * 但不投影到 connection.selectionSet（非 iModel 元素）。
  */
-export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature' | 'sketchEntity';
+export type CanvasSelectionKind = 'part' | 'face' | 'edge' | 'vertex' | 'feature' | 'sketchEntity' | 'sketchConstraint';
 
 /**
  * 画布选择集条目——viewport pick → store 回流的寻址单位
@@ -80,6 +80,8 @@ export interface CanvasSelection {
   sketchPart?: 'curve' | 'handle';
   /** 控制点序号（sketchPart=handle；端点/圆心/样条控制点统一序号）。 */
   handleIndex?: number;
+  /** kind=sketchConstraint：尺寸/约束 id（SketchConstraintDto.id）。 */
+  constraintId?: number;
 }
 
 /** 特征条目（双段树特征段视图模型；数据由消费方注入——壳期空集，RPC 接线后走 react-query）。 */

@@ -214,8 +214,9 @@ export function buildCanvasMenu(selection: readonly CanvasSelection[]): CanvasMe
       ];
     }
     case 'sketchEntity':
-      // ADR-0018 S1b：草图实体右键菜单（Onshape 的实体操作菜单）独立切片；
-      // 当前不弹菜单，避免暴露未实现的条目。
+    case 'sketchConstraint':
+      // ADR-0018 S1b/S1d：草图实体/尺寸右键菜单独立切片；当前不弹菜单，
+      // 避免暴露未实现的条目（选择/Delete 由草图拾取层处理）。
       return [];
   }
 }

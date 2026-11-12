@@ -315,6 +315,56 @@ export function PartStudioCanvas({
       entry.kind !== 'sketchEntity' || !removed.has(entry.entityId ?? -1)));
   }, [sketchSystem, canEdit, canvasSelectionForSketchPlane, setCanvasSelection, t]);
 
+  // ADR-0018 S1d 扩展：尺寸/约束选择（唯一选择权威的 sketchConstraint 条目）与
+  // Delete 删除（updateSketch 移除该约束）；与实体选择互斥——选一类清另一类。
+  const sketchConstraintSelection = React.useMemo<number | null>(() => {
+    const sketch = sketchSystem?.activeSketch;
+    if (!sketch)
+      return null;
+    const entry = canvasSelectionForSketchPlane.find(
+      (candidate) => candidate.kind === 'sketchConstraint' && candidate.sketchId === sketch.id,
+    );
+    return entry?.constraintId ?? null;
+  }, [canvasSelectionForSketchPlane, sketchSystem?.activeSketch]);
+  const selectSketchConstraint = React.useCallback((constraintId: number | null) => {
+    const sketch = sketchSystem?.activeSketch;
+    const others = canvasSelectionForSketchPlane.filter(
+      (entry) => entry.kind !== 'sketchEntity' && entry.kind !== 'sketchConstraint',
+    );
+    if (constraintId === null || !sketch) {
+      setCanvasSelection(others);
+      return;
+    }
+    setCanvasSelection([
+      ...others,
+      {
+        kind: 'sketchConstraint' as const,
+        id: `${sketch.id}:${constraintId}`,
+        sketchId: sketch.id,
+        constraintId,
+      },
+    ]);
+  }, [canvasSelectionForSketchPlane, sketchSystem?.activeSketch, setCanvasSelection]);
+  const deleteSelectedSketchConstraint = React.useCallback(async (constraintId: number) => {
+    const sketch = sketchSystem?.activeSketch;
+    if (!sketch || !canEdit)
+      return;
+    const constraints = sketch.constraints.filter((constraint) => constraint.id !== constraintId);
+    if (constraints.length === sketch.constraints.length)
+      return;
+    const op = await sketchSystem.applyUpdate(sketch.entities, constraints);
+    if (!op.ok) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Error,
+        t('partStudio.sketch.deleteFailed', { message: op.error ?? '' }),
+      ));
+      return;
+    }
+    setCanvasSelection(canvasSelectionForSketchPlane.filter(
+      (entry) => entry.kind !== 'sketchConstraint' && entry.kind !== 'sketchEntity',
+    ));
+  }, [sketchSystem, canEdit, canvasSelectionForSketchPlane, setCanvasSelection, t]);
+
   // 打开草图对话框重置平面选择；关闭时清空（下一次打开不继承旧面）。
   React.useEffect(() => {
     setSketchDraftPlane(null);
@@ -679,7 +729,9 @@ export function PartStudioCanvas({
           onCommitDrag={commitSketchDrag}
           onDelete={deleteSelectedSketchEntities}
           onSelectionChange={(entries) => {
-            const others = canvasSelectionForSketchPlane.filter((entry) => entry.kind !== 'sketchEntity');
+            const others = canvasSelectionForSketchPlane.filter(
+              (entry) => entry.kind !== 'sketchEntity' && entry.kind !== 'sketchConstraint',
+            );
             setCanvasSelection([
               ...others,
               ...entries.map((entry) => ({
@@ -718,6 +770,9 @@ export function PartStudioCanvas({
             OutputMessagePriority.Info,
             t('partStudio.sketch.dimensionUnsupported', { kind }),
           ))}
+          selectedConstraintId={sketchConstraintSelection}
+          onSelectConstraint={selectSketchConstraint}
+          onDeleteConstraint={deleteSelectedSketchConstraint}
         />
       )}
       {dialog.active === 'sketch' && sketchDraftPlane === null && (
