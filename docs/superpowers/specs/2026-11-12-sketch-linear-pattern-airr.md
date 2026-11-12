@@ -188,17 +188,27 @@
 
 ## 6.4 环形阵列部分角度 / 方向箭头反转（2026-11-13）
 
-- **证据（官方帮助页，非本产品 live 截图）**：
+- **证据（live UI，自有副本，2026-11-13 补采）**：
+  - 环形阵列种子态：橙色种子、`3x` 计数、蓝色预览、虚线整周路径、角度弧
+    （箭头在弧末端）（`117-onshape-circular-pattern-live-20261113.png`）。
+  - **拖动角度弧末端箭头**（种子侧 → 反向侧）实时把角度收到 **170°**，弧与
+    预览实例同步
+    （`120-onshape-circular-angle-drag2.png`）。
+  - **双击画布上的角度标签**弹出 DOM 输入（值格式 `170 deg`，CSS
+    [957,416,100,26]）；输入 `180 deg` + Enter 后画布角度标注为 **180°**
+    （`121/122/123-onshape-circular-angle-*.png`）。
+  - 在草图平面矩形之外单击 → 工具退出并**提交**（3 圆 + 180° 标注与构造线
+    保留，`124-onshape-circular-angle-accepted2.png`）；**一次 Ctrl+Z**
+    删除整组阵列恢复原圆
+    （`125-onshape-circular-angle-undo2.png`）。
   - Onshape Help「Circular Sketch Pattern」
-    （`https://2910.onshape.com/help/Content/Sketch/sketch_circular_pattern.htm`）：
-    默认整周 360°；**拖动箭头 manipulator 可减少角度得到开放/部分阵列**；点击
-    箭头图标暴露角度字段，双击角度值输入度数；双击实例数字段改数量；空白处
-    单击接受；阵列初始绕原点、中心可拖动。
-  - Onshape Tech Tip「Sketch Patterns」：**单击方向箭头反转阵列方向**，拖动
-    可改间距，双击实例数/距离尺寸编辑；接受后可按 Delete 删除单个实例。
-  - 会话实测限制（如实登记）：CDP 副本在上一轮 click-away 提交 + undo 后，激活
-    阵列工具时画布点选种子不再响应（tool `is-active` 但无种子手柄），本轮未能
-    补采部分角度/箭头的 live 截图；语义按官方帮助页实现。
+    （`https://2910.onshape.com/help/Content/Sketch/sketch_circular_pattern.htm`）
+    与 Tech Tip「Sketch Patterns」：默认 360°、拖箭头改开放角度、双击角度值
+    输入（带单位）、单击方向箭头反转、接受后 Delete 删单实例。
+- **与 live 的差异（登记）**：Onshape 双击数值才开输入（单击无效），本产品
+  单击即开内联输入（更易发现）；Onshape 在草图平面矩形内的空白单击**不**
+  退出工具，平面外单击才接受，本产品草图视图没有有限平面边界，画布单击即
+  提交（拖拽/旋转相机不触发）。
 - **实现**：
   - 环形阵列 `angleDeg` 状态（默认 360°）；弧末端外侧新增角度手柄
     （`sketch-pattern-angle`，标签 `N°`）：拖动按指针相对中心的方位改角度
@@ -208,7 +218,7 @@
 - **测试**：真栈 `e2e/sketch-pattern.spec.ts --grep
   "部分角度|方向箭头单击"` **3 passed（1.2 min）**：环形 count 3、角度
   360→180° → 实例 0/90/180°（(0.02,0)/(0,0.02)/(-0.02,0)）→ undo；方向箭头
-  单击反转 → 圆在 0/−10/−20 mm → undo。
+  单击反转 → 圆在 0/−10/−20 mm → undo（与 live 的 180°/3 实例一致）。
 - **边界**：部分角度未做 Shift 外的手柄双击入口（单击即输入）；不接受后
   “pattern 关系编辑”（实例仍是独立副本，删除单实例用既有 Delete）；无构造线
   残留。
