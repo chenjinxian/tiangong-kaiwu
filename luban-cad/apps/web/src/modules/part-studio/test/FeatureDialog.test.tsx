@@ -268,7 +268,7 @@ describe('布尔作用域双页签（实体|曲面|薄壁 × 新建|加入|移�
     await user.click(screen.getByRole('tab', { name: '移除' }));
     expect(screen.getByRole('tab', { name: '薄壁' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tab', { name: '实体' }).getAttribute('aria-selected')).toBe('false');
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
     const payload = onConfirm.mock.calls[0]![0] as FeatureDialogResult;
     expect(payload.resultType).toBe('thinWall');
     expect(payload.booleanScope).toBe('remove');
@@ -310,54 +310,53 @@ describe('芯片式实体选择框 + 快速拾取', () => {
   });
 });
 
-describe('折叠段（方向/起始偏移/对称/拔模）', () => {
-  it('方向默认折叠（Onshape live），其余折叠；展开后见方向下拉（aria-expanded 语义）', async () => {
-    renderDialog();
-    const user = userEvent.setup();
+describe('平铺参数行（方向/起始偏移/对称/拔模；ADR-0017 Stage E）', () => {
+  it('方向/起始偏移/对称/拔模都是真复选框，默认全部未勾选', () => {
+    renderDialog({ entities: [], featureType: 'extrude', mode: 'new', applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })) });
     const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
-    expect(within(dialog).getByRole('button', { name: '方向' }).getAttribute('aria-expanded')).toBe('false');
-    for (const name of ['起始偏移', '对称', '拔模']) {
-      expect(within(dialog).getByRole('button', { name }).getAttribute('aria-expanded')).toBe('false');
+    for (const name of ['方向', '起始偏移', '对称', '拔模']) {
+      const checkbox = within(dialog).getByRole('checkbox', { name }) as HTMLInputElement;
+      expect(checkbox.checked).toBe(false);
     }
-    // 展开才见内容：方向 select 在场；拔模输入不在场。
-    await user.click(within(dialog).getByRole('button', { name: '方向' }));
-    expect(within(dialog).getByRole('button', { name: '方向' }).getAttribute('aria-expanded')).toBe('true');
-    expect(within(dialog).getByRole('combobox', { name: '方向' })).toBeDefined();
-    expect(within(dialog).queryByRole('textbox', { name: '拔模' })).toBeNull();
+    // 起始偏移值行仅在勾选后出现（Onshape f6 结构）。
+    expect(within(dialog).queryByRole('textbox', { name: '起始偏移' })).toBeNull();
   });
 
-  it('拔模折叠段：输入禁用并提示未实现（不接受后静默丢弃）', async () => {
-    const { onConfirm } = renderDialog({ entities: [] });
+  it('拔模勾选 → 3° 缺省 + 角度/反向控件出现（载荷由 op 用例钉死）', async () => {
+    renderDialog({ entities: [], featureType: 'extrude', mode: 'new', applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })) });
     const user = userEvent.setup();
     const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
-    await user.click(within(dialog).getByRole('button', { name: '拔模' }));
-    expect(within(dialog).getByRole('button', { name: '拔模' }).getAttribute('aria-expanded')).toBe('true');
-    const input = within(dialog).getByRole('textbox', { name: '拔模' }) as HTMLInputElement;
-    expect(input.disabled).toBe(true);
-    expect(input.title).toContain('拔模尚未实现');
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).draft).toBe('');
+    expect(within(dialog).queryByRole('textbox', { name: '拔模角度' })).toBeNull();
+    await user.click(within(dialog).getByRole('checkbox', { name: '拔模' }));
+    const angle = within(dialog).getByRole('textbox', { name: '拔模角度' }) as HTMLInputElement;
+    expect(angle.value).toBe('3');
+    expect(within(dialog).getByRole('checkbox', { name: '反向' })).toBeDefined();
   });
 
-  it('方向下拉（正向/反向）+ 对称勾选 + 起始偏移 → 全进确认载荷', async () => {
-    const { onConfirm } = renderDialog({ entities: [] });
+  it('方向=反向复选 + 对称勾选 + 起始偏移值行（载荷由 op 用例钉死）', async () => {
+    renderDialog({ entities: [], featureType: 'extrude', mode: 'new', applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })) });
     const user = userEvent.setup();
     const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
-    await user.click(within(dialog).getByRole('button', { name: '方向' }));
-    await user.selectOptions(within(dialog).getByRole('combobox', { name: '方向' }), 'backward');
-    await user.click(within(dialog).getByRole('button', { name: '对称' }));
+    await user.click(within(dialog).getByRole('checkbox', { name: '方向' }));
+    expect((within(dialog).getByRole('checkbox', { name: '方向' }) as HTMLInputElement).checked).toBe(true);
     await user.click(within(dialog).getByRole('checkbox', { name: '对称' }));
-    await user.click(within(dialog).getByRole('button', { name: '起始偏移' }));
-    await user.type(within(dialog).getByRole('textbox', { name: '起始偏移' }), '2');
-    await user.click(screen.getByRole('button', { name: '确认' }));
-    const payload = onConfirm.mock.calls[0]![0] as FeatureDialogResult;
-    expect(payload.direction).toBe('backward');
-    expect(payload.symmetric).toBe(true);
-    expect(payload.startOffset).toBe('2');
+    expect((within(dialog).getByRole('checkbox', { name: '对称' }) as HTMLInputElement).checked).toBe(true);
+    await user.click(within(dialog).getByRole('checkbox', { name: '起始偏移' }));
+    expect(within(dialog).getByRole('textbox', { name: '起始偏移' })).toBeDefined();
+  });
+
+  it('起始偏移取消勾选 → 值行隐藏', async () => {
+    const user = userEvent.setup();
+    renderDialog({ entities: [], featureType: 'extrude', mode: 'new', applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })) });
+    const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
+    await user.click(within(dialog).getByRole('checkbox', { name: '起始偏移' }));
+    expect(within(dialog).getByRole('textbox', { name: '起始偏移' })).toBeDefined();
+    await user.click(within(dialog).getByRole('checkbox', { name: '起始偏移' }));
+    expect(within(dialog).queryByRole('textbox', { name: '起始偏移' })).toBeNull();
   });
 });
 
-describe('底部（透明度滑杆 + 成品 + ?——M6-c T5 采集对齐 12-dialog-extrude-1.png）', () => {
+describe('底部（透明度滑杆 + ?；Onshape f6 无「成品」按钮）', () => {
   it('透明度滑杆在场：range 语义 + 0-100 域 + 缺省 0（不透明）', () => {
     renderDialog();
     const slider = screen.getByRole('slider', { name: '透明度' });
@@ -375,10 +374,10 @@ describe('底部（透明度滑杆 + 成品 + ?——M6-c T5 采集对齐 12-dia
     expect((onConfirm.mock.calls[0]![0] as FeatureDialogResult).transparency).toBe(60);
   });
 
-  it('成品按钮=确认出口（同 ✓ 回传载荷）', async () => {
-    const { onConfirm } = renderDialog({ entities: [] });
-    await userEvent.setup().click(screen.getByRole('button', { name: '成品' }));
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+  it('底栏不再渲染「成品」按钮（唯一确认入口=标题行 ✓）', () => {
+    renderDialog({ entities: [] });
+    expect(screen.queryByRole('button', { name: '成品' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: '确认' })).toHaveLength(1);
   });
 
   it('? 帮助 → 展开/收合帮助文案（aria-expanded）', async () => {
@@ -544,7 +543,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect((distance as HTMLInputElement).value).toBe('10');
     await user.clear(distance);
     await user.type(distance, '42.5');
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'extrude',
@@ -863,8 +862,8 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     expect(applyOp).toHaveBeenCalledTimes(1);
     // pending：两出口均禁用，再点不重入（userEvent 对 disabled 钮不派发 click）。
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledTimes(1);
     release({ ok: true, featureId: 'f-new' });
     await waitFor(() =>
@@ -923,9 +922,9 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     const hint = screen.getByTestId('part-studio-feature-dialog-readonly-hint');
     expect(hint.textContent).toContain('当前为只读权限');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: '确认' }));
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
     // ✗ 取消仍可达（禁用态下的关闭出口）。
@@ -1173,9 +1172,9 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     const hint = screen.getByTestId('part-studio-feature-dialog-no-sketch-hint');
     expect(hint.textContent).toBe('先创建草图');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: '确认' }));
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
   });
@@ -1416,11 +1415,12 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
 
-    // v1.22：方向/起始偏移从本地 UI 状态进入真实 params。
-    await user.click(screen.getByRole('button', { name: '方向' }));
-    await user.selectOptions(screen.getByRole('combobox', { name: '方向' }), 'backward');
-    await user.click(screen.getByRole('button', { name: '起始偏移' }));
-    await user.type(screen.getByRole('textbox', { name: '起始偏移' }), '2');
+    // v1.22/ADR-0017 Stage E：方向=反向复选、起始偏移=勾选+值行 → 真实 params。
+    await user.click(screen.getByRole('checkbox', { name: '方向' }));
+    await user.click(screen.getByRole('checkbox', { name: '起始偏移' }));
+    const offsetInput = screen.getByRole('textbox', { name: '起始偏移' }) as HTMLInputElement;
+    await user.clear(offsetInput);
+    await user.type(offsetInput, '2');
     await user.click(screen.getByRole('tab', { name: '加入' }));
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls.at(-1)![0]).toEqual({
@@ -1704,9 +1704,9 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     expect(hint.textContent).toBe('草图无可用旋转轴');
     expect(screen.queryByRole('combobox', { name: '旋转轴' })).toBeNull();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: '确认' }));
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
   });
 
@@ -2027,7 +2027,7 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     // 首版范围提示：两张截面须平行（服务端 op 边界同口径拒收）。
     expect(screen.getByTestId('part-studio-feature-dialog-loft-parallel-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('选两张不同草图 → previewOp insertFeature loft（150ms 防抖，2026-11-08）', async () => {
@@ -2065,7 +2065,7 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: '截面草图 2' }), 'sk-1');
     expect(screen.getByTestId('part-studio-feature-dialog-loft-duplicate-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
   });
 
@@ -2095,8 +2095,8 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-loft-stale-hint').textContent)
       .toBe('已选截面草图已不存在，请重新选择');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
   });
 
@@ -2163,7 +2163,7 @@ describe('B3 sweep 通道（轮廓草图 + 路径草图双选择器）', () => {
     // 首版范围提示：路径草图须为一条直线（服务端 op 边界同口径拒收）。
     expect(screen.getByTestId('part-studio-feature-dialog-sweep-path-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('选轮廓 + 路径 → previewOp insertFeature sweep（150ms 防抖，2026-11-08）', async () => {
@@ -2202,7 +2202,7 @@ describe('B3 sweep 通道（轮廓草图 + 路径草图双选择器）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-sweep-duplicate-hint').textContent)
       .toBe('轮廓草图与路径草图不能相同');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
   });
 
@@ -2229,8 +2229,8 @@ describe('B3 sweep 通道（轮廓草图 + 路径草图双选择器）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-sweep-stale-hint').textContent)
       .toBe('已选草图已不存在，请重新选择');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
   });
 
@@ -2293,7 +2293,7 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
     expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // mirror 无距离量
     expect(screen.getByTestId('part-studio-feature-dialog-mirror-scope-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('打开即触发 previewOp insertFeature mirror（默认 XZ，2026-11-08）', async () => {
@@ -2345,8 +2345,8 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
       .toBe('镜像需要上游实体：请先创建至少一个实体特征');
     expect(screen.queryByRole('combobox', { name: '镜像平面' })).toBeNull();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
   });
 
@@ -2597,7 +2597,7 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // pattern 无距离量
     expect(screen.getByTestId('part-studio-feature-dialog-pattern-scope-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('打开即触发 previewOp insertFeature pattern linear（2026-11-08）', async () => {
@@ -2896,8 +2896,8 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
       .toBe('阵列需要上游实体：请先创建至少一个实体特征');
     expect(screen.queryByRole('combobox', { name: '阵列类型' })).toBeNull();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).not.toHaveBeenCalled();
   });
 
@@ -2973,7 +2973,7 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // 距离量不适用
     expect(screen.getByTestId('part-studio-feature-dialog-no-edges-hint').textContent).toBe('选择要圆角的边');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     // 草图通道不接（输入是体边非草画面域）。
     expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
   });
@@ -3136,8 +3136,8 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     pickEdge(EDGE_1);
     await screen.findByText('边 2');
     pickMocks.captured?.onEnded?.();
-    await waitFor(() => expect((screen.getByRole('button', { name: '成品' }) as HTMLButtonElement).disabled).toBe(false));
-    await user.click(screen.getByRole('button', { name: '成品' }));
+    await waitFor(() => expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getByRole('button', { name: '确认' }));
     const params = (applyOp.mock.calls[0]![0] as { params: { edges: unknown[] } }).params;
     expect(params.edges).toEqual([EDGE_2, EDGE_1]); // 拾取序（契约面对序无关，透传即可）
   });

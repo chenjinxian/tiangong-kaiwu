@@ -153,19 +153,21 @@ beforeEach(() => {
 describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => {
   it('edit 模式切换 featureId → key 变更重挂，本地态不跨特征残留', async () => {
     const user = userEvent.setup();
-    renderCanvas();
+    // 真实编辑面恒有 applyOp（ADR-0017 Stage E 平铺行只在 extrude 通道出现）。
+    renderCanvas(vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })));
     actOpenEdit('ex1', '拉伸 1');
     expect(screen.getByRole('dialog', { name: '拉伸 1' })).toBeDefined();
-    // 写入本地态：展开起始偏移段并键入（重挂后必须消失；拔模输入已按未实现禁用）。
-    await user.click(withinDialog().getByRole('button', { name: '起始偏移' }));
+    // 写入本地态：勾选起始偏移并键入（重挂后必须消失；ADR-0017 Stage E 真复选框）。
+    await user.click(withinDialog().getByRole('checkbox', { name: '起始偏移' }));
+    await user.clear(withinDialog().getByRole('textbox', { name: '起始偏移' }));
     await user.type(withinDialog().getByRole('textbox', { name: '起始偏移' }), '5');
     expect((withinDialog().getByRole('textbox', { name: '起始偏移' }) as HTMLInputElement).value).toBe('5');
 
-    // 切换到另一特征（key: ex1 → ex2）→ 重挂，起始偏移回缺省（折叠+空）。
+    // 切换到另一特征（key: ex1 → ex2）→ 重挂，起始偏移回缺省（未勾选、值行不在）。
     actOpenEdit('ex2', '拉伸 2');
     expect(screen.getByRole('dialog', { name: '拉伸 2' })).toBeDefined();
     expect(withinDialog().queryByRole('textbox', { name: '起始偏移' })).toBeNull();
-    expect(withinDialog().getByRole('button', { name: '起始偏移' }).getAttribute('aria-expanded')).toBe('false');
+    expect((withinDialog().getByRole('checkbox', { name: '起始偏移' }) as HTMLInputElement).checked).toBe(false);
   });
 
   it('B5：patternKind 参与 key —— pattern linear→circular 两入口切换重挂（kind 初值生效）', () => {

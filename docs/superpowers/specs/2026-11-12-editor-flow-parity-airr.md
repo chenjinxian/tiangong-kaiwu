@@ -194,3 +194,19 @@
   （40.3s）**；`sketch-aligned-rectangle.spec.ts` **2 passed（52.4s）** 回归。
 - 未做：面平面改参联动（平面是创建快照，Onshape 允许改平面——需 updateSketch
   扩 plane，本切片按契约只读并诚实呈现）。
+
+## 13. Stage E 实施结果（2026-11-12）
+
+证据：`f6-extrude-dialog.png` + DOM（5 个 `type=checkbox`：方向/起始偏移/对称/
+拔模/第二个终止位置；底栏仅滑杆 + ?）。
+- 方向/起始偏移由伪折叠段改为**真复选框**：方向=反向（`direction:'backward'`）；
+  起始偏移勾选才显示值行并随载荷下发 `startOffsetMm`；两者 edit 模式回显落库值
+  （此前恒 forward/空）。
+- 移除重复的「第二个终止位置」伪折叠段与底栏「成品」按钮（唯一确认=标题行 ✓）；
+  终止条件组合框去掉多余的可见「终止条件」标签（当前值即标签）。
+- 验证：web **1555/1555**（FeatureDialog 181、Canvas 22）；tsc/lint/e2e tsc 绿；
+  真栈 `e2e/feature-flow-parity.spec.ts` **2 passed（1.0m）**——拉伸 5/反向/偏移 2
+  得 z∈[-3,2]、质心 z=-0.5、2000 mm³，树行双击回显两勾选，push+冷重开一致；
+  `e2e/extrude-draft-ui.spec.ts` **2 passed（55.3s）** 回归。
+- 未做：方向作为独立「指定方向」参数（Onshape 可选轴）——本产品契约只有
+  forward/backward；不渲染无通道控件。

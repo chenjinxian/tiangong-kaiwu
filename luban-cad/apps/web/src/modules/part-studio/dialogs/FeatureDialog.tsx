@@ -654,8 +654,14 @@ export function FeatureDialog({
     if (stored === 'upToNext') return 'upToNext';
     return 'blind';
   });
-  const [direction, setDirection] = React.useState<FeatureDirection>('forward');
-  const [startOffset, setStartOffset] = React.useState('');
+  // ADR-0017 Stage E：方向/起始偏移按 Onshape 真实复选框表达；edit 模式回显
+  // 落库值（direction=backward / startOffsetMm≠0）。起始偏移勾选才随载荷下发。
+  const [direction, setDirection] = React.useState<FeatureDirection>(
+    () => editParams?.direction === 'backward' ? 'backward' : 'forward');
+  const [startOffset, setStartOffset] = React.useState(
+    () => storedNumberString(editParams?.startOffsetMm) ?? '');
+  const [startOffsetEnabled, setStartOffsetEnabled] = React.useState(
+    () => typeof editParams?.startOffsetMm === 'number');
   const [symmetric, setSymmetric] = React.useState(() => editParams?.symmetric === true);
   // v1.24 secondDirection（extrude）：Onshape「第二个终止位置」平铺复选 + 距离/
   // 终止条件。契约缺省=主方向相反侧；首切片 UI 不暴露方向翻转（方向由
@@ -1422,7 +1428,7 @@ export function FeatureDialog({
         selected,
         mainSigned,
         symmetric,
-        Number(startOffset) || 0,
+        startOffsetEnabled ? Number(startOffset) || 0 : 0,
         secondSigned,
         draftEnabled ? { angleDeg: draftAngleNumber, pullDirection: draftPullDirection } : undefined,
       );
@@ -1455,6 +1461,7 @@ export function FeatureDialog({
     distance,
     direction,
     startOffset,
+    startOffsetEnabled,
     symmetric,
     secondDirectionEnabled,
     secondDirectionDepth,
@@ -1794,7 +1801,7 @@ export function FeatureDialog({
     ...(edgePickChannel ? { filletEdges } : {}),
     // B6 M-A3.2a：extrude 结构键回传（仅 true 时携带；edit 模式=落库落值回显）。
     ...(newBodyVisible && effectiveNewBody ? { newBody: true } : {}),
-  }), [resultType, booleanScope, chips, direction, startOffset, symmetric, draft, transparency, edgePickChannel, filletEdges, newBodyVisible, effectiveNewBody]);
+  }), [resultType, booleanScope, chips, direction, startOffset, startOffsetEnabled, symmetric, draft, transparency, edgePickChannel, filletEdges, newBodyVisible, effectiveNewBody]);
 
   /**
    * 确认出口：new + applyOp 在场 → insertFeature 直提交（拉伸闭环）；否则
@@ -2130,7 +2137,7 @@ export function FeatureDialog({
                   ...(nativeOperation ? { operation: nativeOperation } : {}),
                   // v1.22（ADR-0005）：方向/起始偏移从本地 UI 状态变为真实参数。
                   ...(direction === 'backward' ? { direction: 'backward' as const } : {}),
-                  ...(startOffset.trim() !== '' && Number.isFinite(Number(startOffset))
+                  ...(startOffsetEnabled && startOffset.trim() !== '' && Number.isFinite(Number(startOffset))
                     ? { startOffsetMm: Number(startOffset) }
                     : {}),
                   ...(mergeScopeBodies ? { mergeScope: mergeScopeBodies } : {}),
@@ -2431,14 +2438,13 @@ export function FeatureDialog({
   // fillet/chamfer/revolve/pattern/mirror/boolean 等对话框没有这些通用段；
   // 草图通道的「对称」以平铺复选顶替，折叠段 symmetric 隐藏防双复选。
   const visibleSections = React.useMemo(() => {
-    // 壳期无 featureType（纯回调对话框）保留全部折叠段；真实特征面按 live
-    // 证据收敛——只有 extrude 有这组通用段。
+    // 壳期无 featureType（纯回调对话框）保留全部折叠段作展示骨架。
+    // ADR-0017 Stage E：真实特征面按 Onshape live 证据（f6-extrude-dialog）
+    // 全部改为平铺行——方向/起始偏移是真复选框（勾选展开值行），对称/拔模/
+    // 第二个终止位置也是平铺复选；不再有伪折叠段（避免同一参数双入口）。
     if (!featureType) return SECTIONS;
-    if (featureType !== 'extrude') return [];
-    // live：方向/起始偏移/第二终止位置是展开行；对称与拔模是平铺复选框。
-    return SECTIONS.filter((section) => section.id !== 'draft'
-      && !(sketchChannel && section.id === 'symmetric'));
-  }, [featureType, sketchChannel]);
+    return [];
+  }, [featureType]);
 
   const toggleSection = React.useCallback((id: CollapsibleSection['id']) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -2743,9 +2749,8 @@ export function FeatureDialog({
             （无距离量——半径即参数）。 */}
         {extrudeChannel && (
           <section className="part-studio-feature-dialog__end-bound" data-testid="part-studio-feature-dialog-end-bound">
-            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-end-bound">
-              {t('partStudio.featureDialog.endBoundLabel')}
-            </label>
+            {/* Onshape live（f6）：这一行本身就是终止类型组合框（当前值即标签），
+                没有额外的「终止条件」可见文字；可访问名保留 aria-label。 */}
             <select
               id="part-studio-feature-dialog-end-bound"
               aria-label={t('partStudio.featureDialog.endBoundLabel')}
@@ -2892,6 +2897,57 @@ export function FeatureDialog({
               onChange={(event) => setDistance(event.target.value)}
             />
           </section>
+        )}
+
+        {/* ADR-0017 Stage E（Onshape f6-extrude-dialog 行序）：方向/起始偏移
+            是**真复选框**（勾选才启用/下发）；起始偏移值行勾选后出现。
+            方向=反向（ExtrudeParams.direction=backward）；与预览/载荷同源。 */}
+        {extrudeChannel && (
+          <React.Fragment>
+            <label
+              className="part-studio-feature-dialog__checkbox"
+              data-testid="part-studio-feature-dialog-direction"
+            >
+              <input
+                type="checkbox"
+                aria-label={t('partStudio.featureDialog.sections.direction')}
+                checked={direction === 'backward'}
+                disabled={submitting}
+                onChange={(event) => setDirection(event.target.checked ? 'backward' : 'forward')}
+              />
+              <span>{t('partStudio.featureDialog.sections.direction')}</span>
+            </label>
+            <label
+              className="part-studio-feature-dialog__checkbox"
+              data-testid="part-studio-feature-dialog-start-offset"
+            >
+              <input
+                type="checkbox"
+                aria-label={t('partStudio.featureDialog.sections.startOffset')}
+                checked={startOffsetEnabled}
+                disabled={submitting}
+                onChange={(event) => {
+                  setStartOffsetEnabled(event.target.checked);
+                  if (event.target.checked) {
+                    setStartOffset((prev) => prev.trim() === '' ? '0' : prev);
+                  }
+                }}
+              />
+              <span>{t('partStudio.featureDialog.sections.startOffset')}</span>
+            </label>
+            {startOffsetEnabled && (
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label={t('partStudio.featureDialog.sections.startOffset')}
+                className="part-studio-feature-dialog__input"
+                data-testid="part-studio-feature-dialog-start-offset-value"
+                value={startOffset}
+                disabled={submitting}
+                onChange={(event) => setStartOffset(event.target.value)}
+              />
+            )}
+          </React.Fragment>
         )}
 
         {/* v1.53（ADR-0005 Phase 6）：薄壁厚度；v1.55 中间平面。live 证据
@@ -4463,14 +4519,8 @@ export function FeatureDialog({
           />
         </div>
         <div className="part-studio-feature-dialog__footer-actions">
-          <button
-            type="button"
-            className="part-studio-feature-dialog__finish"
-            disabled={submitDisabled}
-            onClick={handleConfirm}
-          >
-            {t('partStudio.featureDialog.finish')}
-          </button>
+          {/* Onshape live（f6）：特征对话框底栏只有滑杆 + ?（无「成品」按钮；
+              确认唯一入口是标题行 ✓）。 */}
           <button
             type="button"
             aria-label={t('partStudio.featureDialog.help')}
