@@ -3,7 +3,8 @@
  * Licensed under the MIT License.
  *
  * 草图实体拾取层（ADR-0018 S1b，2026-11-12 Onshape 对拍）：
- * 草图编辑态（无绘制工具激活）在 iTwin canvas 上监听指针事件，按屏幕距离
+ * 草图编辑态（无绘制工具激活）在 window capture 阶段监听指针事件（iTwin 工具
+ * 可能 setPointerCapture，canvas 级 pointerup 不可靠），按 canvas rect 换算坐标，按屏幕距离
  * 命中控制点（≤6px）或曲线（≤5px），把选择写回唯一选择权威
  * `store.canvas.selection`（kind=sketchEntity，经 selection-authority 不投影
  * 到 connection.selectionSet）。
@@ -79,13 +80,23 @@ export function SketchEntityPicker({
   const sameSelection = (a: SketchEntitySelection, b: SketchEntitySelection): boolean =>
     a.entityId === b.entityId && a.part === b.part;
 
-  // 指针监听（挂 iTwin canvas，不阻挡旋转/缩放——与 SketchPlanePicker 同姿态）。
+  // 指针监听：window capture 阶段（iTwin 工具可能对 pointer 做 setPointerCapture，
+  // canvas 级监听不稳定）；坐标按 canvas rect 换算，等价 offsetX/offsetY。
+  // 用 ref 读取最新回调，effect 只随 viewport 重建，避免每次渲染重挂监听。
+  const hitTestRef = React.useRef(hitTest);
+  hitTestRef.current = hitTest;
+  const onSelectionChangeRef = React.useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
+
   React.useEffect(() => {
     const canvas = viewport?.canvas;
     if (!viewport || !canvas)
       return;
     let down: ScreenPoint2 | undefined;
-    const local = (event: PointerEvent): ScreenPoint2 => ({ x: event.offsetX, y: event.offsetY });
+    const local = (event: PointerEvent): ScreenPoint2 => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    };
     const onDown = (event: PointerEvent): void => {
       if (event.button !== 0)
         return;
@@ -99,25 +110,21 @@ export function SketchEntityPicker({
       down = undefined;
       if (moved > CLICK_SLOP_PX)
         return;
-      const hit = hitTest(up);
+      const hit = hitTestRef.current(up);
       const current = selectedRef.current;
       if (!hit) {
         if (current.length > 0)
-          onSelectionChange([]);
+          onSelectionChangeRef.current([]);
         return;
       }
       const toggle = event.ctrlKey || event.metaKey;
       const exists = current.find((entry) => sameSelection(entry, hit));
-      if (toggle) {
-        onSelectionChange(exists
-          ? current.filter((entry) => !sameSelection(entry, hit))
-          : [...current, hit]);
-      } else {
-        onSelectionChange([hit]);
-      }
+      onSelectionChangeRef.current(toggle
+        ? (exists ? current.filter((entry) => !sameSelection(entry, hit)) : [...current, hit])
+        : [hit]);
     };
     const onMove = (event: PointerEvent): void => {
-      const hit = hitTest(local(event));
+      const hit = hitTestRef.current(local(event));
       const prev = hoverRef.current;
       if (hit === null && prev === null)
         return;
@@ -125,15 +132,15 @@ export function SketchEntityPicker({
         return;
       setHover(hit);
     };
-    canvas.addEventListener('pointerdown', onDown);
-    canvas.addEventListener('pointerup', onUp);
-    canvas.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('pointerup', onUp, true);
+    window.addEventListener('pointermove', onMove, true);
     return () => {
-      canvas.removeEventListener('pointerdown', onDown);
-      canvas.removeEventListener('pointerup', onUp);
-      canvas.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('pointerup', onUp, true);
+      window.removeEventListener('pointermove', onMove, true);
     };
-  }, [viewport, hitTest, onSelectionChange]);
+  }, [viewport]);
 
   const draw = React.useCallback((): void => {
     const overlay = canvasRef.current;
