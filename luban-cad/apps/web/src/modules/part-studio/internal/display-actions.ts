@@ -25,6 +25,7 @@ import {
   ViewFlags,
 } from '@itwin/core-common';
 import { applyViewportBackground } from '@luban-cad/viewer';
+import { RENDER_DEFAULTS, rgbToHex } from '@luban-cad/shared';
 
 export type DisplayModeId =
   | 'shaded'
@@ -58,18 +59,19 @@ export interface DisplaySettings {
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   mode: 'shaded',
   perspective: false,
-  // 2026-11-06 用户校正：AO 默认 20%、线宽 2 px、视野 45 deg。
-  fovDegrees: 45,
-  ambientOcclusion: true,
-  aoIntensityPct: 20,
-  edgeWidthPx: 2,
-  edgeColor: '#1f1f1f',
+  // 2026-11-12：默认值收敛到 shared `RENDER_DEFAULTS`（Onshape live 取证），
+  // 单一事实源同时供 baseline/viewer 使用。
+  fovDegrees: RENDER_DEFAULTS.fovDegrees,
+  ambientOcclusion: RENDER_DEFAULTS.ambientOcclusion,
+  aoIntensityPct: RENDER_DEFAULTS.aoIntensityPct,
+  edgeWidthPx: RENDER_DEFAULTS.edgeWidthPx,
+  edgeColor: rgbToHex(RENDER_DEFAULTS.edge),
   showBrepEdges: true,
   showBrepVertices: false,
-  shadows: false,
-  antialiasSamples: 4,
+  shadows: RENDER_DEFAULTS.shadows,
+  antialiasSamples: RENDER_DEFAULTS.antialiasSamples,
   background: 'theme',
-  glossinessPct: 3,
+  glossinessPct: RENDER_DEFAULTS.glossinessPct,
 };
 
 /**

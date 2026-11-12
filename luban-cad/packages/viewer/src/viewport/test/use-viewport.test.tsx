@@ -60,6 +60,8 @@ vi.mock('@itwin/core-frontend', () => ({
     public createDefaultView = m.createDefaultViewMock;
   },
   SpatialViewState: m.SpatialViewStateMock,
+  // render-profile 的 instanceof 锚；测试 ViewState 不是该实例（跳过 3D 样式分支）。
+  DisplayStyle3dState: class DisplayStyle3dStateMock {},
 }));
 
 import { useViewport } from '../use-viewport.js';
@@ -97,6 +99,12 @@ function makeFakeView(initialModels: string[] = []): unknown {
   };
   // 内容感知取景入口（世界范围走 view.lookAtVolume）
   (view as Record<string, unknown>).lookAtVolume = m.lookAtVolumeMock;
+  // ADR-0017 Stage B：首帧前 applyViewStateRenderBaseline/Background 需要
+  // viewFlags.copy 与 displayStyle.backgroundColor 可写位。
+  (view as Record<string, unknown>).viewFlags = {
+    copy: (patch: Record<string, unknown>) => ({ ...patch }),
+  };
+  (view as Record<string, unknown>).displayStyle = { backgroundColor: undefined };
   // 断言出口：当前 selector 内的模型（Set 快照——P2.5 active-scope 过滤用）
   Object.defineProperty(view, 'selectedModels', { get: () => [...models] });
   return view;
@@ -164,10 +172,12 @@ function Harness({
   iModel,
   notifications,
   activeModelIds,
+  viewportTheme,
 }: {
   iModel?: IModelConnection;
   notifications?: unknown;
   activeModelIds?: readonly string[];
+  viewportTheme?: 'light' | 'dark';
 }) {
   const { viewportRef, phase, error, viewport, appliedModelKey, filterError } = useViewport({
     backendUrl: 'http://localhost:5300',
@@ -176,6 +186,7 @@ function Harness({
     iModel,
     notifications: notifications as never,
     activeModelIds,
+    viewportTheme,
   });
   latestViewport = viewport;
   latestPhase = phase;
@@ -285,6 +296,23 @@ describe('useViewport 视口创建主链（M4 Task 2）', () => {
     expect(m.addCategoriesMock).toHaveBeenCalledWith(['cat-1']);
     expect(m.addCategoriesMock).toHaveBeenCalledWith(['cat-2']);
     expect(m.addModelsMock).toHaveBeenCalledWith(['model-1']);
+  });
+
+  it('首帧前应用主题背景：addViewport 时 view.displayStyle 已是暗色 #262626', async () => {
+    const fakeView = makeFakeView();
+    const fakeIModel = makeFakeIModel();
+    const fakeViewport = makeFakeViewport(fakeIModel);
+    primeDefaults(fakeView, fakeViewport);
+    let bgAtAdd: number | undefined;
+    m.addViewportMock.mockImplementation(() => {
+      bgAtAdd = ((fakeView as { displayStyle: { backgroundColor?: { tbgr: number } } })
+        .displayStyle.backgroundColor)?.tbgr;
+    });
+
+    render(<Harness iModel={fakeIModel} viewportTheme="dark" />);
+    await waitFor(() => expect(m.addViewportMock).toHaveBeenCalledTimes(1));
+
+    expect(bgAtAdd).toBe(0x00262626);
   });
 
   it('调用序：queryProps→load→类目/模型补齐→create→addViewport→BRep 断点② refs 重建→queryModelRanges→lookAt', async () => {

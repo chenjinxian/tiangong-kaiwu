@@ -187,7 +187,10 @@ const featureRpc = vi.hoisted(() => ({
   deletePartStudio: vi.fn(async (_key: string, _id: string, _sessionId: string): Promise<void> => undefined),
 }));
 
-vi.mock('@luban-cad/shared', () => ({
+vi.mock('@luban-cad/shared', async (importOriginal) => ({
+  // ADR-0017：display-actions 消费 shared RENDER_DEFAULTS/rgbToHex；保留真实导出，
+  // 只覆盖测试锚点。
+  ...(await importOriginal<typeof import('@luban-cad/shared')>()),
   LUBAN_INIT_TXN_DESCRIPTION: 'partstudio init',
   LubanFeatureRpcInterface: {
     getClient: () => featureRpc,

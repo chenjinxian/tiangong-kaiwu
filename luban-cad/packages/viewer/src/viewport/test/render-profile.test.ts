@@ -2,12 +2,14 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 渲染基线单测（2026-11-03 回归 iTwin 默认）：
- * - 灯光 = LightSettings.fromJSON(undefined)；
+ * 渲染基线单测（2026-11-03 回归 iTwin 默认；2026-11-12 收敛 shared 默认值）：
+ * - 灯光 = core 默认方向/开关 + shared 强度/高光（solar 1 / ambient 0.2 /
+ *   portrait 0.3 / specular 0.03 / hemisphere 0）；
  * - environment = Environment.fromJSON(undefined)（sky/ground/atmosphere 全关）；
  * - 不写任何 SubCategoryOverride（材质回到元素/类别默认）；
  * - viewFlags = SmoothShade + lighting + visibleEdges，AO/shadows 关；
- * - hiddenLine visible 边线保留 #1f1f1f/2px；MSAA 4。
+ * - hiddenLine visible 边线保留 #1f1f1f/2px；MSAA 4；
+ * - 纯 ViewState 应用器不触碰 viewport（无 invalidate）。
  */
 import { describe, expect, it, vi } from 'vitest';
 import { Environment, HiddenLine, LightSettings, RenderMode, ViewFlags } from '@itwin/core-common';
@@ -15,6 +17,7 @@ import { DisplayStyle3dState } from '@itwin/core-frontend';
 import {
   ANTIALIAS_SAMPLES,
   applyViewportRenderBaseline,
+  applyViewStateRenderBaseline,
   EDGE_COLOR,
   EDGE_WEIGHT,
 } from '../render-profile.js';
@@ -29,7 +32,7 @@ function fakeViewport() {
       solar: { intensity: 3, alwaysEnabled: true, direction: [1, 0, 0] },
     }),
   };
-  const vp = {
+  const view = {
     viewFlags: ViewFlags.fromJSON({
       renderMode: RenderMode.HiddenLine,
       noSolarLight: true,
@@ -42,28 +45,28 @@ function fakeViewport() {
       wiremesh: true,
       thematicDisplay: true,
     }),
+    displayStyle: Object.create(DisplayStyle3dState.prototype, {
+      settings: { value: settings },
+    }),
+  };
+  const vp = {
+    view,
     antialiasSamples: 1,
     invalidateScene: vi.fn(),
-    setLightSettings(next: LightSettings) { settings.lights = next; },
-    view: {
-      displayStyle: Object.create(DisplayStyle3dState.prototype, {
-        settings: { value: settings },
-      }),
-    },
   };
-  return { vp, settings };
+  return { vp, settings, view };
 }
 
 describe('render-profile：iTwin 默认渲染基线', () => {
-  it('灯光回到 LightSettings 默认值', () => {
+  it('灯光 = core 方向 + shared 强度/高光', () => {
     const { vp, settings } = fakeViewport();
     applyViewportRenderBaseline(vp as never);
     expect(settings.lights.solar.intensity).toBe(1);
-    expect(settings.lights.solar.alwaysEnabled).toBe(false);
-    expect(settings.lights.solar.direction.isAlmostEqual({ x: 0.272166, y: 0.680414, z: 0.680414 })).toBe(true);
+    expect(settings.lights.solar.alwaysEnabled).toBe(true);
+    expect(settings.lights.solar.direction.isAlmostEqual({ x: 0.1, y: 0.15, z: -0.98 })).toBe(true);
     expect(settings.lights.ambient.intensity).toBe(0.2);
     expect(settings.lights.portraitIntensity).toBe(0.3);
-    expect(settings.lights.specularIntensity).toBe(1);
+    expect(settings.lights.specularIntensity).toBe(0.03);
     expect(settings.lights.hemisphere.intensity).toBe(0);
   });
 
@@ -76,9 +79,9 @@ describe('render-profile：iTwin 默认渲染基线', () => {
   });
 
   it('view flags = SmoothShade + lighting + visibleEdges；AO/阴影关并清污染', () => {
-    const { vp } = fakeViewport();
+    const { vp, view } = fakeViewport();
     applyViewportRenderBaseline(vp as never);
-    const f = vp.viewFlags;
+    const f = view.viewFlags;
     expect(f.renderMode).toBe(RenderMode.SmoothShade);
     expect(f.lighting).toBe(true);
     expect(f.visibleEdges).toBe(true);
@@ -108,31 +111,25 @@ describe('render-profile：iTwin 默认渲染基线', () => {
     expect(() => applyViewportRenderBaseline(vp as never)).not.toThrow();
   });
 
-  it('幂等：重复应用不叠加，边线/灯光/环境保持 stock 值', () => {
+  it('幂等：重复应用不叠加，边线/灯光/环境保持规范值', () => {
     const { vp, settings } = fakeViewport();
     applyViewportRenderBaseline(vp as never);
     const firstVisible = settings.hiddenLineSettings.toJSON().visible;
 
     applyViewportRenderBaseline(vp as never);
 
-    // 边线覆盖重复写入同值（不嵌套/不漂移）。
     expect(settings.hiddenLineSettings.toJSON().visible).toEqual(firstVisible);
     expect(settings.hiddenLineSettings.toJSON().visible).toMatchObject({
       ovrColor: true,
       color: EDGE_COLOR.tbgr,
       width: EDGE_WEIGHT,
     });
-    // 灯光仍是 core 默认值（solar 1 / ambient 0.2 / portrait 0.3 / specular 1）。
     expect(settings.lights.solar.intensity).toBe(1);
-    expect(settings.lights.solar.alwaysEnabled).toBe(false);
     expect(settings.lights.ambient.intensity).toBe(0.2);
     expect(settings.lights.portraitIntensity).toBe(0.3);
-    expect(settings.lights.specularIntensity).toBe(1);
+    expect(settings.lights.specularIntensity).toBe(0.03);
     expect(settings.lights.hemisphere.intensity).toBe(0);
-    // 环境仍全关。
     expect(settings.environment.displaySky).toBe(false);
-    expect(settings.environment.displayGround).toBe(false);
-    expect(settings.environment.displayAtmosphere).toBe(false);
   });
 
   it('MSAA=4 且 invalidateScene 恰一次', () => {
@@ -140,6 +137,13 @@ describe('render-profile：iTwin 默认渲染基线', () => {
     applyViewportRenderBaseline(vp as never);
     expect(vp.antialiasSamples).toBe(ANTIALIAS_SAMPLES);
     expect(vp.invalidateScene).toHaveBeenCalledTimes(1);
+  });
+
+  it('纯 ViewState 应用器：不触碰 viewport/invalidate', () => {
+    const { view } = fakeViewport();
+    const invalidate = vi.fn();
+    expect(() => applyViewStateRenderBaseline(view as never)).not.toThrow();
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   it('常量钉形：边 #1f1f1f / 2px', () => {

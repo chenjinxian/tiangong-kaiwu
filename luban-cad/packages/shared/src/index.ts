@@ -303,3 +303,14 @@ export {
 export { lubanIpcChannel } from './LubanIpcInterface.js';
 export type { LubanIpcInterface, BriefcaseDownloadResult } from './LubanIpcInterface.js';
 export { LUBAN_INIT_TXN_DESCRIPTION } from './constants.js';
+
+// =============================================================================
+// Editor render defaults（Onshape flow parity，ADR-0017）
+// =============================================================================
+export { RENDER_DEFAULTS, rgbToHex, rgbToTbgr } from './render/render-defaults.js';
+export type {
+  RenderDefaults,
+  RenderLightDefaults,
+  RenderTheme,
+  RgbColor,
+} from './render/render-defaults.js';

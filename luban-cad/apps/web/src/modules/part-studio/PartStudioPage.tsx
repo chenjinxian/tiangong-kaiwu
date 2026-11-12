@@ -152,6 +152,7 @@ import { workspaceRefPath } from '@common/workspace/workspace-ref.js';
 import { useITwinPermissions } from '@common/permissions/use-itwin-permissions.js';
 import { env } from '@config/env.js';
 import { viewerNotifications } from '@app/providers/ViewerNotifications.js';
+import { useTheme } from '@app/providers/ThemeContext.js';
 import { PartStudioTopBar } from './components/PartStudioTopBar.js';
 import { PartStudioPanelRail } from './components/PartStudioPanelRail.js';
 import { PartStudioSidebar } from './components/PartStudioSidebar.js';
@@ -429,6 +430,9 @@ function PartStudioSession({
 }: PartStudioSessionProps): React.JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  // ADR-0017 Stage B：首帧背景主题（ThemeProvider 缺省 context=light，
+  // 页面单测无需包 provider）。后续主题切换仍由 useDisplaySettings observer 应用。
+  const { theme: appTheme } = useTheme();
   // P2.8：动态 access token provider（裸 JWT；AuthSession 在 <5min 时单飞刷新）。
   // useCallback 稳定身份——useViewport 的 acquire effect 依赖它，换新会重 acquire。
   const getValidAccessToken = React.useCallback(() => AuthSession.getValidAccessToken(), []);
@@ -458,6 +462,7 @@ function PartStudioSession({
     getAccessToken: getValidAccessToken,
     iModel: scopeReady ? connection ?? undefined : undefined,
     activeModelIds,
+    viewportTheme: appTheme,
     // notifications 呈现桥（review-8 I-2）：官方注入点换掉 core 缺省哑通道，
     // registrationFailed/超时面/工具错误经 iTwinUI toaster 可见（app 生命期
     // 单例——稳定身份，不构成重 acquire 触发面）。

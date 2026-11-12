@@ -5,7 +5,7 @@
 //  data-theme 的 MutationObserver 接线在消费侧（apps/web），不在本模块。
 
 import { describe, expect, it, vi } from 'vitest';
-import { applyViewportBackground, type ViewportTheme } from '../theme-background.js';
+import { applyViewStateBackground, applyViewportBackground, type ViewportTheme } from '../theme-background.js';
 import type { ScreenViewport } from '@itwin/core-frontend';
 
 /** 构造假 viewport：只暴露 view.displayStyle.backgroundColor 写入位 + invalidateScene。 */
@@ -34,5 +34,12 @@ describe.each([
     applyViewportBackground(viewport as unknown as ScreenViewport, theme);
     expect((viewport.view.displayStyle.backgroundColor as { tbgr: number }).tbgr).toBe(expectedTbgr);
     expect(viewport.invalidateScene).toHaveBeenCalledTimes(1);
+  });
+
+  it('纯 ViewState 背景可在 addViewport 前应用（不 invalidate）', () => {
+    const viewport = makeFakeViewport();
+    applyViewStateBackground(viewport.view as never, theme);
+    expect((viewport.view.displayStyle.backgroundColor as { tbgr: number }).tbgr).toBe(expectedTbgr);
+    expect(viewport.invalidateScene).not.toHaveBeenCalled();
   });
 });

@@ -496,10 +496,13 @@
   background: var(--iui-color-background);
 }
 
-/* viewport 宿主：T5/T6 接管创建；壳期撑满画布区。 */
+/* viewport 宿主：T5/T6 接管创建；壳期撑满画布区。
+   ADR-0017 Stage B：WebGL 首帧 blit 前 2D canvas 透明，宿主底色必须与
+   默认视口背景一致，避免白色 CSS → 黑色首帧 → 白色背景的闪烁。 */
 .part-studio-viewport {
   position: absolute;
   inset: 0;
+  background: var(--iui-color-background);
 }
 
 /* ── 连接相位覆盖层（M5-T2：briefcase 下载中骨架 / 失败错误面）────────────── */

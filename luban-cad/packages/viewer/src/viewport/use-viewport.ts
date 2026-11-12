@@ -55,8 +55,10 @@ import {
   type ViewState,
 } from '@itwin/core-frontend';
 import { Range3d } from '@itwin/core-geometry';
+import { RENDER_DEFAULTS, type RenderTheme } from '@luban-cad/shared';
 import { acquireViewer, releaseViewer } from '../host/web-initializer.js';
-import { applyViewportRenderBaseline } from './render-profile.js';
+import { applyViewportRenderBaseline, applyViewStateRenderBaseline } from './render-profile.js';
+import { applyViewStateBackground } from './theme-background.js';
 
 /** 运行时相位：idle（未起）→ starting → ready（IPC 就绪）| error。 */
 export type ViewportPhase = 'idle' | 'starting' | 'ready' | 'error';
@@ -93,6 +95,12 @@ export interface UseViewportOptions {
    * 并重新取景——不重建 viewport/连接。
    */
   activeModelIds?: readonly string[];
+  /**
+   * 首帧背景主题（ADR-0017 Stage B）：在 ScreenViewport.create/addViewport
+   * 之前应用到 ViewState，避免先渲染默认黑底再切白。缺省 light。
+   * 主题后续变化由消费方 useDisplaySettings 应用，不触发视口重建。
+   */
+  viewportTheme?: RenderTheme;
 }
 
 export interface UseViewportResult {
@@ -121,7 +129,11 @@ export interface UseViewportResult {
 }
 
 export function useViewport(options: UseViewportOptions): UseViewportResult {
-  const { backendUrl, hubUrl, accessToken, getAccessToken, iModel, notifications, activeModelIds } = options;
+  const { backendUrl, hubUrl, accessToken, getAccessToken, iModel, notifications, activeModelIds, viewportTheme } = options;
+  // 只读 ref：首次创建链取当时主题；主题切换不应重建 viewport（后续由
+  // useDisplaySettings 应用），因此不进入 effect 依赖。
+  const viewportThemeRef = useRef<RenderTheme>(viewportTheme ?? 'light');
+  viewportThemeRef.current = viewportTheme ?? 'light';
   const viewportRef = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<ViewportPhase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +207,15 @@ export function useViewport(options: UseViewportOptions): UseViewportResult {
 
         if (!view) {
           throw new Error('No view state available');
+        }
+
+        // ADR-0017 Stage B：在加入渲染循环前同步写入默认外观与主题背景，
+        // 保证首帧即白底/暗底，不先渲染 ViewState 默认黑底。
+        try {
+          applyViewStateRenderBaseline(view);
+          applyViewStateBackground(view, viewportThemeRef.current);
+        } catch {
+          // 基线失败不阻断视口；后续 applyViewportRenderBaseline 仍会归一化。
         }
 
         // Remove any existing viewport（iModel 快速切换时的重建路径）
@@ -495,8 +516,11 @@ async function getDefaultViewState(
   // Get view definitions from iModel
   const viewSpecs = await iModel.views.queryProps({});
   if (viewSpecs.length > 0) {
-    // Use first view or find a default named view（id 缺省的坏 spec 视同无可用视图）
-    const defaultViewSpec = viewSpecs.find((v) => v.code.value === 'Default') ?? viewSpecs[0];
+    // Use first view or find a default named view（id 缺省的坏 spec 视同无可用视图）。
+    // 大小写不敏感：baseline 写 'default'，旧测试 fixture 曾用 'Default'。
+    const wanted = RENDER_DEFAULTS.defaultViewName.toLowerCase();
+    const defaultViewSpec = viewSpecs.find((v) => String(v.code.value ?? '').toLowerCase() === wanted)
+      ?? viewSpecs[0];
     if (!defaultViewSpec?.id) {
       return undefined;
     }
