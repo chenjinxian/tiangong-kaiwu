@@ -37,7 +37,7 @@
 ### D4. 拖拽与编辑管线
 拖拽在屏幕空间命中控制点/实体：拖拽期间仅本地预览（覆盖层），释放后一次 `updateSketch`（全量 entities+constraints，经 `useSketchSystem.applyUpdate → LubanFeatureRpcInterface`）提交；失败保留原几何并 toast，成功由 `onCommitted` 刷新；标准 undo 生效。禁止拖拽期间逐帧 RPC。
 Delete 删除选中实体/约束 = `updateSketch`：移除选中曲线并级联移除引用它的约束（Onshape 删除图元带走附着约束）；单击尺寸数值把约束并入同一选择权威（`sketchConstraint`），Delete 移除该约束（实体/其余约束不动，与实体选择互斥）；选中点实体仍被未删除实体引用时整单拒收并提示（不产生悬挂引用），后端另有拒收兜底；尺寸双击改值 = `updateSketchConstraint`（既有 API）：双击数值标签弹出原位输入框（标签屏幕位置由 viewer 布局纯函数与绘制同源给出），Enter 提交、Escape/点击别处取消、失败保留输入框；仅 `distance/radius/diameter/length` 可改（后端 updateSketchConstraint 白名单；直径 2026-11-12 同期后端扩展），角度双击仍诚实提示未支持。
-撤销语义：`onAfterUndoRedo` 也刷新活动草图（撤/重做不发 `onCommitted`）。注意自动保存（ADR-0017 Stage F）推送会开启新 changeset 会话，原生 undo 只覆盖**推送前**窗口；S1c 真栈在推送前点击撤销验证（`sketch-entity-drag.spec.ts`）。该窗口与 Stage F 已登记限制同源，不新增第二套撤销状态机（P0-01/P0-05）。
+撤销语义：`onAfterUndoRedo` 也刷新活动草图（撤/重做不发 `onCommitted`）。注意自动保存（ADR-0017 Stage F）推送会开启新 changeset 会话，原生 undo 只覆盖**推送前**窗口（默认 20s 防抖，与 ADR-0017 计划 20–30s 对齐）；S1c 真栈在推送前点击撤销验证（`sketch-entity-drag.spec.ts`）。该窗口与 Stage F 已登记限制同源，不新增第二套撤销状态机（P0-01/P0-05）。
 
 ### D5. 相机
 - 编辑既有草图（树双击/编辑入口）：**不**强制正视、**不**按实体范围取景、退出**不**回放相机（live：保持进入前 iso）。`store.sketch.orientCameraOnEnter` 只在新建草图确认时置 true。

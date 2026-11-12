@@ -15,7 +15,8 @@
  * - 只读/降级 scope 由页面传 enabled=false（hook 不猜权限）。
  *
  * 环境开关：`VITE_EDITOR_AUTOSAVE=0|false` 关闭（回滚一个周期用）；
- * `VITE_EDITOR_AUTOSAVE_DEBOUNCE_MS` 调整防抖（默认 2500ms）。
+ * `VITE_EDITOR_AUTOSAVE_DEBOUNCE_MS` 调整防抖（默认 20s——与计划 20–30s 对齐：
+ * push 会开启新 changeset 会话并清空原生 undo/redo 栈，2.5s 窗口使常规撤销几乎不可用）。
  */
 
 import React from 'react';
@@ -46,7 +47,7 @@ export interface UseAutoPushResult {
 
 export const AUTO_SAVE_DESCRIPTION = '自动保存';
 
-const DEFAULT_DEBOUNCE_MS = 2500;
+const DEFAULT_DEBOUNCE_MS = 20_000;
 const DEFAULT_RETRY_MS = 15_000;
 
 /** 环境开关（'0'/'false' 关闭；缺省开启——用户裁决自动保存为默认行为）。 */
