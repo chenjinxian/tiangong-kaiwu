@@ -1,0 +1,143 @@
+# AIRR — Onshape 编辑器全流程对齐（创建 → Part Studio → 草图 → 特征 → 版本）
+
+- 标题：Editor Flow Parity with Onshape（7 条核心流程）
+- 日期：2026-11-12
+- Owner：LubanCAD 平台（待签字）
+- 关联需求：用户 2026-11-12 “最高优先级任务”，7 条流程 + 缺失特征族
+- 预计影响仓：`luban-cad`（web/viewer/shared）、私有 `luban-backend`（modeling-server/webhook-agent）；不改 imodel-native/hub 契约
+- 是否需要 ADR：是（`docs/adr/0017-editor-flow-parity-defaults.md`）
+
+---
+
+## 1. 目标与验收
+
+### 1.1 用户问题
+从“新建项目/文档 → 进入 Part Studio”开始，luban-cad 的默认渲染、页签创建、草图/特征交互、保存与版本语义与 Onshape 不一致：
+- iModel 创建时没有写入 Onshape 式默认视图/材质/显示样式；
+- 编辑器首帧先黑屏再切白；
+- “+”直接创建固定名 Part Studio，无“插入新页签”菜单且重名；
+- 草图平面不支持模型面，对话框生命周期与 Onshape 有差异；
+- 特征对话框字段/预览/编辑回显未逐项对齐；
+- 暴露“保存/推送/未推送”，而 Onshape 是自动保存工作区 + “创建版本…”。
+
+### 1.2 可观察验收
+1. 新建 iModel 的 `.bim` 内已写入规范默认 `DisplayStyle3d`、默认 `SpatialViewDefinition`、`LubanBodySolid` 类别外观；清空 localStorage 后首开与 Onshape 取证一致。
+2. 从导航到编辑器 ready 期间，画布无全黑帧；首帧即是白底（亮主题）/#262626（暗主题）。
+3. “+”打开“插入新页签”菜单（Onshape 顺序/分组），Part Studio 可用、未支持项禁用并标注“未支持”；新页签唯一命名并激活。
+4. Sketch 工具 → 选择基准面/cPlane/**单个平面模型面** → 进入草图模式；树双击可编辑草图；平面快照持久化在 sketch params。
+5. 现有特征的新增/编辑对话框在字段顺序、默认值、面域/边选择、预览、✓/✗、树命名上与 Onshape 证据一致。
+6. 常规 UI 不再出现“保存/推送/未推送”；提交静默同步，冷重开无需手动操作；“创建版本…”对当前 iModel（含全部 Part Studio scope）创建文档级版本并出现在历史。
+7. 缺失特征族按 G1/G2/G3 波次落地；未实现前保持 gated 并显示真实原因。
+
+### 1.3 证据
+私有证据包 `editor-flow-parity-20261112`（仓外；截图/DOM/ARIA/像素/计算样式 + `manifest.json`）：
+- F1 新建文档对话框；F2 首帧 69 帧无黑帧（背景 #ffffff，零件渲染 #536674，高亮 #95b8d1）；F3 插入新页签菜单顺序；F4 Sketch 创建与选面；F5 树双击编辑；F6 拉伸对话框；F7 创建版本对话框（默认 V1/说明/创建版本并编辑属性）。
+- 现有证据：`ui-evidence/ui-full-audit-20261106/onshape/dialogs/*`（各特征对话框）、`feature-dialogs-20261108`、`copy-pilot-20261106`（模型面草图平面）、`00-partstudio-shell.html`（工具栏标题/版本 rail）。
+- 未取证项显式标记：F1 新文档创建结果（避免创建公开文档）、F3 新建 Part Studio 的实际命名（用 corpus Part Studio 1/2/3 证据）。
+
+### 1.4 非目标
+- 不引入第二套模型/渲染/选择/相机状态机；不改 iTwin 渲染器。
+- 不伪造未实现的内核能力；G2/G3 中 blocked-kernel 必须登记。
+- 不重构 hub 数据模型；命名版本继续复用现有 Named Version API（元数据语义）。
+- 不在本 AIRR 内实现缺失特征族（各自 ADR/切片），仅定义程序与门禁。
+
+---
+
+## 2. 关联项目能力清单
+
+| 项目/仓 | 相关能力 | 现有 API/工具/实现 | 版本/路径 | 结论 |
+|---|---|---|---|---|
+| itwinjs-core | DisplayStyle3d、SpatialViewDefinition、ScreenViewport、ViewManager、BriefcaseTxns | core-common/core-frontend/core-backend 原生 | vendored fork | 复用 |
+| luban-cad/packages/viewer | 视口创建、render baseline、主题背景、Briefcase 连接 | `use-viewport.ts`、`render-profile.ts`、`theme-background.ts`、`use-briefcase-connection.ts` | 1.x workspace | 扩展 |
+| luban-cad/packages/shared | 跨仓契约、FeatureOp、PartStudioInfo | `LubanFeatureRpcInterface` 1.68.0 | shared | 扩展（新增 render-defaults 仅 additive） |
+| luban-cad/packages/editor | 标准编辑基座/草图工具 | editor-common/backend/frontend | 第一方 | 复用 |
+| luban-cad/apps/web | 编辑器壳、页签、草图/特征对话框、保存/版本 UI | PartStudioPage/Tabs、SketchDialog、FeatureDialog、dock/rail | web | 扩展/改造 |
+| luban-backend/modeling-server | FeatureOp、PartStudioRegistry、类别创建、Named Version 前端调用 | `FeatureService.ts`、`LubanCadSchema.ts` | 私有 | 扩展（类别外观/（可选）默认视图写入） |
+| luban-backend/webhook-agent | baseline 生成 | `baseline-generator.ts` | 私有 | 扩展（规范显示样式/类别/视图） |
+| imodelhub-services | iModel 创建/Named Version/changesets | 官方风格 REST | 仓外 | 复用（不改 DTO） |
+| imodel-native | 无 | — | — | 不适用 |
+| DanQing/参考 | 无 | — | — | 不适用 |
+
+---
+
+## 3. 复用决策矩阵
+
+| 需求能力 | 候选复用 | 覆盖度 | 决策 | 理由 |
+|---|---|---|---|---|
+| 默认视图/背景/材质持久化 | DisplayStyle3d + SpatialViewDefinition + SubCategoryAppearance | 高 | 复用/扩展 | iTwin 原生事实源，避免第二设置通道 |
+| 首帧背景 | `applyViewportBackground` + view displayStyle | 高 | 扩展 | 只需提前到 `addViewport` 前并补 CSS 底色 |
+| 新页签菜单 | 现有 PartStudioTabs + RibbonDropdown/TabManager 模式 | 中 | 扩展 | 复用 tab 注册表与导航；新增菜单与命名 helper |
+| 模型面草图平面 | `useBrepTopology` 面句柄 + `resolveFaceRef`/SketchPlaneDto | 高 | 复用/扩展 | 不新增平面存储，快照进现有 params |
+| 特征对话框 | 现有 FeatureDialog/专用 Dialog/预览通道 | 高 | 扩展 | 逐项证据对齐，不重建通道 |
+| 自动保存 | 现有每 op saveChanges + `connection.pushChanges` | 高 | 扩展 | 新增防抖单飞 hook，不改事务管道 |
+| 文档级版本 | 现有 Named Version API + useChangesets | 高 | 复用 | iModel 含全部 Part Studio scope |
+| 缺失特征族 | 现有 FeatureOp 扩展 + 内核 API | 低-中 | 新建切片 | 每族 ADR；内核能力先审计 |
+
+---
+
+## 4. 跨仓影响
+
+| 仓/层 | 契约 | schema/迁移 | native/接口 | 测试 | 发布 |
+|---|---|---|---|---|---|
+| shared | 新增 `render-defaults` 常量（additive，无 RPC 方法） | 无 | 无 | 单测 | 随 batch |
+| viewer | `useViewport` 选项/timing；纯 ViewState applier | 无 | 无 | 单测 | 重建 dist |
+| web | 页签菜单/命名、Sketch 面平面、对话框、autosave/version UI | 无 | 无 | 单测+真栈 | web 构建 |
+| modeling-server | `LubanBodySolid` 类别 appearance；可选默认视图写入 | 无新 schema | 无新 RPC | 后端测试 | 产物/MS |
+| webhook-agent | baseline DisplayStyle/类别/视图默认值 | 无 | 无 | 生成器测试 | 镜像 |
+| hub | 无 DTO/接口变更 | 无 | 无 | 复用 | — |
+
+- 版本兼容：老 iModel 不做读时迁移；运行时 baseline 继续归一化。新 iModel 才带新默认值。
+- 配对 PR/发布顺序：shared → webhook-agent/modeling-server → viewer → web；镜像/MS 产物重建后 `verify-stack`。
+- 接口冻结：`LubanFeatureRpcInterface` 方法不变；Autosave 不新增 RPC；Named Version 复用现有 REST。
+
+---
+
+## 5. 数据/事务/安全
+
+- 数据事实源：iModel/BIS（DisplayStyle3d、SpatialViewDefinition、SubCategoryAppearance、sketch params）。
+- schema/params：草图平面快照复用 `SketchPlaneDto`；无 schema 迁移。
+- 旧数据 fixture：现有 iModel 黑底/类别不改写，由 Stage B 的首帧路径 + 运行时 baseline 处理。
+- 事务边界：所有特征仍走 FeatureOp → saveChanges；自动推送是 changeset 层，不绕过事务。
+- Undo/redo：push 会开启新 changeset 会话，已推送事务的 undo 深度可能受限——在 ADR 与例外登记；不宣称与 Onshape 相同。
+- 写租约/限流：沿用 usePartStudioSession 租约；autosave 单飞+防抖，失败可见并重试。
+- 权限：只读/降级 scope 不自动推送；不新增密钥/日志泄露。
+
+---
+
+## 6. 性能与渲染
+
+- 首帧预算：背景/显示样式在 `ScreenViewport.create` 前同步应用，不新增 IPC；首帧 screencast 无黑帧。
+- 视口创建链不新增阻塞 await；模型/类别/取景仍在后台异步。
+- 默认材质只设类别外观，不逐 body 写 FeatureAppearance；不改变渲染管线。
+- 视觉基线：新增首帧像素测试；UI 视觉基线仅在逐像素审阅后更新。
+
+---
+
+## 7. 测试证据
+
+- 单元：render-defaults 值、useViewport 调用顺序、theme background、tab 菜单/命名、face→plane、autosave debounce、version dialog。
+- StandaloneDb：baseline 生成器读回 display style/category/view。
+- 真栈 e2e：`editor-first-frame.spec.ts`、`new-part-studio.spec.ts`、`sketch-face-plane.spec.ts`、`sketch-edit.spec.ts`、`feature-flow-parity.spec.ts`、`autosave-version.spec.ts`。
+- 回归：`b-model`、`part-studio`、`b-viewport`、`tutorial2-tools`、`verify-imodels`、代表性 examples 的 `pushExampleChanges`。
+- 负路径：无面/多面/非平面草图平面诚实失败；autosave 失败可见不假成功；版本创建前 flush 失败保持对话框。
+- known-red：G2/G3 内核依赖项单独登记，不在本 AIRR 宣称绿。
+
+---
+
+## 8. 回滚与发布
+
+- Stage A/B：revert shared/viewer/baseline/CSS；旧 iModel 数据不受影响。
+- Stage C/D/E：UI 层改动可独立 revert；契约不变。
+- Stage F：env `VITE_EDITOR_AUTOSAVE` 关闭 + 恢复推送 UI；Named Version 数据只增。
+- 发布门：shared 版本 bump、镜像/MS 产物、`verify-stack` 全绿、release owner 执行。
+
+---
+
+## 9. 评审结论
+
+- 复用矩阵完成：是
+- 跨仓影响明确：是
+- P0 例外已登记：待 ADR 登记 autosave/undo 语义
+- ADR：需要（0017）
+- Owner 签字：待签
+- 结论：修改后批准（以 ADR-0017 与 Stage 0 证据为准）

@@ -32,6 +32,7 @@
 | `LubanRpcInterface` | 平台 | **1.1.0**；15 方法；旧 edit-command 三方法已删除（X-01） | P0 | 变更需 bump + 双端同发布；编辑一律走 `EditTools`/FeatureOp | 调用图检查（旧三方法 0 调用）、真栈 e2e |
 | `LubanIpcInterface` | 平台 | `downloadBriefcase` | P1 | 与官方 IPC 职责合并/对齐 | IPC e2e |
 | `@luban-cad/shared` 总契约 | 平台 | 1.64.0；`strict:false` 待修 | P0 | 契约先行；运行时版本握手；禁止并行 REST DTO | shared tsc/单测、双端兼容测试 |
+| 编辑器流程默认值 / autosave / 版本（ADR-0017，2026-11-12） | 平台/后端 | `shared/src/render/render-defaults.ts`（additive 常量，无 RPC 方法）；autosave 复用现有 `connection.pushChanges`；版本复用现有 Named Version/changesets；无 schema/REST DTO 变更 | P0 | ADR-0017 + AIRR `2026-11-12-editor-flow-parity-airr.md`；shared → backend → web 同批；旧 iModel 不迁移 | shared/viewer 单测、真栈 `editor-first-frame`/`new-part-studio`/`sketch-face-plane`/`autosave-version`、`verify-stack` |
 | `LubanCAD` schema / `params` | 后端 | 当前 schema 版本与 `params` JSON 形态 | P0 | ADR + 迁移 + 旧数据 fixture | schema/migration 测试、真栈旧库回归 |
 | Native addon 合同 | Native/平台 | `NativeLibrary.ts` + addon ABI | P0 | C++ 接口与 `NativeLibrary.ts` 同 PR；下游回归 | ctest + addon 测试 + 下游替换回归 |
 | 真形（TrueForm）公共 API | TrueForm/平台 | **0.1.0（M0，未接入）**；私有仓 `D:\Github\trueform` | P0（接入前冻结） | ADR + SemVer + `SolidKernel.h` 适配层 + 一致性套件 | trueform ctest + 下游真栈回归 |
