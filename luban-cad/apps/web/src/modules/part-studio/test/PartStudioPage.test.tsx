@@ -633,7 +633,7 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     expect(within(screen.getByTestId('part-studio-dock')).getByTestId('part-studio-dock-body')).toBeDefined();
   });
 
-  it('页签条（P2.4）：活动页签=注册表 scope；「+」创建默认 Part Studio 并导航', async () => {
+  it('页签条（P2.4/Stage C）：活动页签=注册表 scope；「插入新页签→创建 Part Studio」自动命名并导航', async () => {
     const user = userEvent.setup();
     const created = {
       id: 'ps-new', name: 'Part Studio 2', order: 2, defModelId: 'def-2', physModelId: 'phys-2',
@@ -646,13 +646,17 @@ describe('PartStudioPage 结构断言（M3 Task 3，五区存在性）', () => {
     // 活动页签来自注册表列表（?model=ps-1）。
     const activeTab = within(strip).getByRole('tab', { name: 'Part Studio 1' });
     expect(activeTab.getAttribute('aria-selected')).toBe('true');
-    // 「+」= 创建默认名称 Part Studio（共享会话 + connection.key），成功后换 URL。
-    const newTabButton = within(strip).getByRole('button', { name: '新建 Part Studio' });
+    // 「+」= Onshape「插入新页签」菜单 → 创建 Part Studio（共享会话 + connection.key）；
+    // 本测试的列表替身已同时返回 Part Studio 1 与 2 → 新自动名 = 未占用的
+    // Part Studio 3，成功后换 URL。
+    const newTabButton = within(strip).getByRole('button', { name: '插入新页签' });
     expect(newTabButton.getAttribute('aria-disabled')).not.toBe('true');
     await user.click(newTabButton);
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: '创建 Part Studio' }));
     expect(featureRpc.createPartStudio).toHaveBeenCalledWith(
       'briefcase-key',
-      'Part Studio 1',
+      'Part Studio 3',
       expect.any(String),
     );
     await waitFor(() =>
@@ -1385,7 +1389,7 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     expect(FAKE_CONNECTION.enterEditingScope).not.toHaveBeenCalled();
     const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     expect(save.disabled || save.getAttribute('aria-disabled') === 'true').toBe(true);
-    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    const newTab = screen.getByRole('button', { name: '插入新页签' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
     // legacy 单页签仍在。
     expect(screen.getByRole('tab', { name: 'Part Studio 1' }).getAttribute('aria-selected')).toBe('true');
@@ -1558,7 +1562,9 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
       id: 'ps-shared', name: 'Part Studio 1', order: 1, defModelId: 'd', physModelId: 'p',
     };
     featureRpc.createPartStudio.mockResolvedValueOnce(created);
-    await user.click(screen.getByRole('button', { name: '新建 Part Studio' }));
+    await user.click(screen.getByRole('button', { name: '插入新页签' }));
+    const insertMenu = await screen.findByRole('menu');
+    await user.click(within(insertMenu).getByRole('menuitem', { name: '创建 Part Studio' }));
     await waitFor(() => expect(featureRpc.createPartStudio).toHaveBeenCalled());
     const [, , createSessionId] = featureRpc.createPartStudio.mock.calls.at(-1) as [string, string, string];
     expect(createSessionId).toBe(applySessionId);
@@ -1656,7 +1662,7 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     // 写面收口：保存版本/「+」/Ribbon 写工具禁用；零租约、零自动 create。
     const save = screen.getByTestId('part-studio-panel-rail-create-version') as HTMLButtonElement;
     expect(save.disabled || save.getAttribute('aria-disabled') === 'true').toBe(true);
-    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    const newTab = screen.getByRole('button', { name: '插入新页签' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
     const extrude = screen.getByRole('button', { name: '拉伸' }) as HTMLButtonElement;
     expect(extrude.disabled || extrude.getAttribute('aria-disabled') === 'true').toBe(true);
@@ -1706,7 +1712,7 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
     featureRpc.createPartStudio.mockReturnValue(pendingCreate);
     renderPage('/documents/itwin-1/im-1');
     await waitFor(() => expect(featureRpc.createPartStudio).toHaveBeenCalledTimes(1));
-    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    const newTab = screen.getByRole('button', { name: '插入新页签' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
     expect(featureRpc.createPartStudio).toHaveBeenCalledTimes(1);
 
@@ -1785,7 +1791,7 @@ describe('B-model P2.4：编辑器 scope 解析与 A 只读', () => {
   it('F4：注册表列表未落定时「+」禁用（防重复默认 scope）', () => {
     featureRpc.listPartStudios.mockReturnValue(new Promise(() => { /* 挂起 list */ }));
     renderPage('/documents/itwin-1/im-1?model=ps-1');
-    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    const newTab = screen.getByRole('button', { name: '插入新页签' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
   });
 

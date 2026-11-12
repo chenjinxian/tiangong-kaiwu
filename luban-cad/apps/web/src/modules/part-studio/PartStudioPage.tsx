@@ -181,7 +181,7 @@ import { useBrepTopology } from './hooks/useBrepTopology.js';
 import { useNamedVersionActions } from './hooks/useNamedVersionActions.js';
 import { usePartStudios } from './hooks/usePartStudios.js';
 import {
-  DEFAULT_PART_STUDIO_NAME,
+  nextPartStudioName,
   usePartStudioScope,
   type PartStudioScopeState,
 } from './hooks/usePartStudioScope.js';
@@ -352,7 +352,7 @@ export function PartStudioPage(): React.JSX.Element {
       studiosError={partStudios.error}
       activeModelId={requestedModelId}
       onRetryStudios={partStudios.refresh}
-      onCreateStudio={() => partStudios.create(DEFAULT_PART_STUDIO_NAME)}
+      onCreateStudio={() => partStudios.create(nextPartStudioName(partStudios.studios))}
       onRenameStudio={partStudios.rename}
       onDeleteStudio={partStudios.remove}
       onRetryMode={() => void itwinQuery.refetch()}

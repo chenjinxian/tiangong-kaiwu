@@ -122,7 +122,23 @@
     "deleteSubmit": "Delete",
     "deleteFailed": "Delete failed: {{message}}",
     "createFailed": "Failed to create Part Studio: {{message}}",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "insertTab": "Insert new tab",
+    "insert": {
+      "applications": "Applications",
+      "materialLibrary": "Create Material Library",
+      "featureStudio": "Create Feature Studio",
+      "camStudio": "Create CAM Studio",
+      "pcbStudio": "Create PCB Studio",
+      "renderStudio": "Create Render Studio",
+      "partStudio": "Create Part Studio",
+      "assembly": "Create Assembly",
+      "variableStudio": "Create Variable Studio",
+      "drawing": "Create Drawing…",
+      "folder": "Create Folder",
+      "import": "Import…",
+      "unsupported": "Not supported"
+    }
   },
   "scope": {
     "notReady": "Part Studio context is not ready (document {{documentId}})",

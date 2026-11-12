@@ -106,15 +106,49 @@ describe('B 文档真页签（studios → tabs；active = ?model=）', () => {
   });
 });
 
-describe('创建（「+」= 默认名称）', () => {
-  it('点击「+」调 onCreate 并导航到新 scope', async () => {
+describe('创建（「插入新页签」菜单，ADR-0017 Stage C）', () => {
+  it('菜单项顺序/分隔与 Onshape live 证据一致；仅创建 Part Studio 可用', async () => {
+    const user = userEvent.setup();
+    renderTabs();
+    await user.click(screen.getByRole('button', { name: '插入新页签' }));
+    const menu = await screen.findByRole('menu');
+    const labels = within(menu)
+      .getAllByRole('menuitem')
+      .map((item) => (item.textContent ?? '').replace(/\s+/g, ''));
+    expect(labels).toEqual([
+      '应用程序未支持',
+      '创建材料库未支持',
+      '创建FeatureStudio未支持',
+      '创建CAMStudio未支持',
+      '创建PCBStudio未支持',
+      '创建RenderStudio未支持',
+      '创建PartStudio',
+      '创建装配体未支持',
+      '创建VariableStudio未支持',
+      '创建工程图…未支持',
+      '创建文件夹未支持',
+      '导入…未支持',
+    ]);
+    expect(within(menu).getAllByRole('separator')).toHaveLength(3);
+    const partStudio = within(menu).getByRole('menuitem', { name: '创建 Part Studio' });
+    expect(partStudio.getAttribute('aria-disabled')).not.toBe('true');
+    for (const name of [/创建装配体/, /创建文件夹/, /导入…/]) {
+      const item = within(menu).getByRole('menuitem', { name });
+      expect(item.getAttribute('aria-disabled')).toBe('true');
+      expect(within(item).getByText('未支持')).toBeDefined();
+    }
+  });
+
+  it('菜单「创建 Part Studio」调 onCreate 并导航到新 scope', async () => {
     const user = userEvent.setup();
     const created: PartStudioInfo = {
       id: 'ps-new', name: 'Part Studio 2', order: 3, defModelId: '0x41', physModelId: '0x42',
     };
     const onCreate = vi.fn(async () => created);
     renderTabs({ onCreate });
-    await user.click(screen.getByRole('button', { name: '新建 Part Studio' }));
+    await user.click(screen.getByRole('button', { name: '插入新页签' }));
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: '创建 Part Studio' }));
     expect(onCreate).toHaveBeenCalledOnce();
     expect(screen.getByTestId('location-probe').textContent).toBe(
       `/documents/${ITWIN_ID}/${IMODEL_ID}?model=ps-new`,
@@ -124,7 +158,9 @@ describe('创建（「+」= 默认名称）', () => {
   it('创建失败：错误条可见（不导航）', async () => {
     const user = userEvent.setup();
     renderTabs({ onCreate: vi.fn(async () => { throw new Error('lease held by other'); }) });
-    await user.click(screen.getByRole('button', { name: '新建 Part Studio' }));
+    await user.click(screen.getByRole('button', { name: '插入新页签' }));
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: '创建 Part Studio' }));
     expect(await screen.findByTestId('part-studio-tabs-error')).toBeDefined();
     expect(screen.getByText(/lease held by other/)).toBeDefined();
     expect(screen.getByTestId('location-probe').textContent).toBe(
@@ -132,20 +168,22 @@ describe('创建（「+」= 默认名称）', () => {
     );
   });
 
-  it('A 旧文档：单页签 + 「+」禁用（零 registry 回调）', () => {
+  it('A 旧文档：单页签 + 「插入新页签」禁用（零 registry 回调、不挂菜单）', () => {
     renderTabs({ mode: 'A', studios: [] });
     expect(screen.getByRole('tab', { name: 'Part Studio 1' }).getAttribute('aria-selected')).toBe('true');
-    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    const newTab = screen.getByRole('button', { name: '插入新页签' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
+    expect(screen.queryByRole('menu')).toBeNull();
     expect(screen.queryByTestId('part-studio-tab-actions')).toBeNull();
   });
 
-  it('mode 未定/失败：仅文档级页签、无 legacy 页签、动作菜单缺席、「+」禁用（F1）', () => {
+  it('mode 未定/失败：仅文档级页签、无 legacy 页签、动作菜单缺席、「插入新页签」禁用（F1）', () => {
     renderTabs({ mode: undefined, studios: [] });
     expect(screen.getByTestId('part-studio-doc-tab')).toBeDefined();
     expect(screen.getAllByRole('tab')).toHaveLength(1);
     expect(screen.queryByTestId('part-studio-tab-actions')).toBeNull();
-    const newTab = screen.getByRole('button', { name: '新建 Part Studio' }) as HTMLButtonElement;
+    expect(screen.queryByRole('menu')).toBeNull();
+    const newTab = screen.getByRole('button', { name: '插入新页签' }) as HTMLButtonElement;
     expect(newTab.disabled || newTab.getAttribute('aria-disabled') === 'true').toBe(true);
   });
 });

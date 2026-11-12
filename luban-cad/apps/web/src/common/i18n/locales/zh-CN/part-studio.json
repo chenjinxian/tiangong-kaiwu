@@ -122,7 +122,23 @@
     "deleteSubmit": "删除",
     "deleteFailed": "删除失败：{{message}}",
     "createFailed": "创建 Part Studio 失败：{{message}}",
-    "cancel": "取消"
+    "cancel": "取消",
+    "insertTab": "插入新页签",
+    "insert": {
+      "applications": "应用程序",
+      "materialLibrary": "创建材料库",
+      "featureStudio": "创建 Feature Studio",
+      "camStudio": "创建 CAM Studio",
+      "pcbStudio": "创建 PCB Studio",
+      "renderStudio": "创建 Render Studio",
+      "partStudio": "创建 Part Studio",
+      "assembly": "创建装配体",
+      "variableStudio": "创建 Variable Studio",
+      "drawing": "创建工程图…",
+      "folder": "创建文件夹",
+      "import": "导入…",
+      "unsupported": "未支持"
+    }
   },
   "scope": {
     "notReady": "Part Studio 上下文未就绪（文档 {{documentId}}）",

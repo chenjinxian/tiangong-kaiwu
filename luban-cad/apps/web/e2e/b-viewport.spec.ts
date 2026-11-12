@@ -867,6 +867,7 @@ async function openTwoStudioWorld(
   const tabs = tabStrip.locator('[data-studio-id]');
   await expect(tabs).toHaveCount(1, { timeout: 30_000 });
   await page.getByTestId('part-studio-new-tab-button').click();
+  await page.getByRole('menu').getByRole('menuitem', { name: '创建 Part Studio' }).click();
   await expect(tabs).toHaveCount(2, { timeout: 60_000 });
   const k2Id = readModelScopeId(page);
   expect(k2Id, '「+」后 URL 应落到新 scope').toBeTruthy();
@@ -1334,6 +1335,7 @@ test.describe('P2.5 真栈视口门', () => {
     // 创建 K3 后立刻切回 K1：K3 只在空模型态短暂显示，其体由后续 RPC 造出。
     const tabs3 = page.getByTestId('part-studio-tab-strip').locator('[data-studio-id]');
     await page.getByTestId('part-studio-new-tab-button').click();
+    await page.getByRole('menu').getByRole('menuitem', { name: '创建 Part Studio' }).click();
     await expect(tabs3).toHaveCount(2, { timeout: 60_000 });
     const k3Id = readModelScopeId(page);
     expect(k3Id, 'K3 URL scope').toBeTruthy();

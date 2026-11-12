@@ -134,9 +134,10 @@ test.describe('B 种子编辑器（默认 Part Studio）', () => {
       'true',
     );
 
-    // P2.4 起「+」= 直接创建默认名称 Part Studio（不再开页签管理器）：
+    // ADR-0017 Stage C：「+」= Onshape「插入新页签」菜单 → 创建 Part Studio：
     // 页签数 +1、URL 换新 scope、新页签 active。
     await page.getByTestId('part-studio-new-tab-button').click();
+    await page.getByRole('menu').getByRole('menuitem', { name: '创建 Part Studio' }).click();
     await expect(tabs).toHaveCount(2, { timeout: 60_000 });
     const secondScope = new URL(page.url()).searchParams.get('model');
     expect(secondScope).toBeTruthy();

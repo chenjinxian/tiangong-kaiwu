@@ -327,6 +327,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   // ── 5)「+」第二个 Part Studio → 页签切换 → 连接键稳定 ──────────────────
   const ipcBeforeSwitch = [...ipcSockets];
   await page.getByTestId('part-studio-new-tab-button').click();
+  await page.getByRole('menu').getByRole('menuitem', { name: '创建 Part Studio' }).click();
   await expect(tabs).toHaveCount(2, { timeout: 60_000 });
   const secondScope = readModelScopeId(page);
   expect(secondScope, '「+」后 URL 应切到新 scope').toBeTruthy();

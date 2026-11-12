@@ -27,6 +27,7 @@ import {
   Dialog,
   DropdownMenu,
   LabeledInput,
+  MenuDivider,
   MenuItem,
   Text,
 } from '@itwin/itwinui-react';
@@ -250,22 +251,71 @@ export function PartStudioTabs({
     </MenuItem>,
   ];
 
+  // ADR-0017 Stage C：Onshape「插入新页签」菜单（live 证据
+  // ui-evidence/editor-flow-parity-20261112/screenshots/f3-insert-tab-menu.png）：
+  // 顺序/分隔线按证据；仅「创建 Part Studio」有产品通道，其余诚实禁用并标
+  // 「未支持」——不创建假页签、不弹假内容。
+  const unsupportedBadge = (
+    <span className="part-studio-tab-strip__menu-badge">
+      {t('partStudio.tabs.insert.unsupported')}
+    </span>
+  );
+  const unsupportedItem = (key: string, labelKey: string): React.JSX.Element => (
+    <MenuItem key={key} disabled>
+      {t(labelKey)}
+      {unsupportedBadge}
+    </MenuItem>
+  );
+  const insertTabMenuItems = [
+    unsupportedItem('applications', 'partStudio.tabs.insert.applications'),
+    <MenuDivider key="sep-1" />,
+    unsupportedItem('materialLibrary', 'partStudio.tabs.insert.materialLibrary'),
+    unsupportedItem('featureStudio', 'partStudio.tabs.insert.featureStudio'),
+    unsupportedItem('camStudio', 'partStudio.tabs.insert.camStudio'),
+    unsupportedItem('pcbStudio', 'partStudio.tabs.insert.pcbStudio'),
+    unsupportedItem('renderStudio', 'partStudio.tabs.insert.renderStudio'),
+    <MenuDivider key="sep-2" />,
+    <MenuItem key="partStudio" onClick={() => void handleCreate()}>
+      {t('partStudio.tabs.insert.partStudio')}
+    </MenuItem>,
+    unsupportedItem('assembly', 'partStudio.tabs.insert.assembly'),
+    unsupportedItem('variableStudio', 'partStudio.tabs.insert.variableStudio'),
+    unsupportedItem('drawing', 'partStudio.tabs.insert.drawing'),
+    unsupportedItem('folder', 'partStudio.tabs.insert.folder'),
+    <MenuDivider key="sep-3" />,
+    unsupportedItem('import', 'partStudio.tabs.insert.import'),
+  ];
+
   return (
     <>
       {/* 页签条（2026-11-02 Onshape live：30px 灰底 / 200px 文档级页签 / 左「+」）。 */}
       <div className="part-studio-tab-strip" data-testid="part-studio-tab-strip">
         <div className="part-studio-tab-strip__controls">
-          <button
-            type="button"
-            className="part-studio-tab-strip__new"
-            aria-label={t('partStudio.tabs.newPartStudio')}
-            title={t('partStudio.tabs.newPartStudio')}
-            disabled={!isB || !canEdit || isCreating}
-            onClick={() => void handleCreate()}
-            data-testid="part-studio-new-tab-button"
-          >
-            <OnshapeIcon name="plus-button" size={16} />
-          </button>
+          {isB ? (
+            <DropdownMenu menuItems={insertTabMenuItems} placement="top-start">
+              <button
+                type="button"
+                className="part-studio-tab-strip__new"
+                aria-label={t('partStudio.tabs.insertTab')}
+                title={t('partStudio.tabs.insertTab')}
+                disabled={!canEdit || isCreating}
+                data-testid="part-studio-new-tab-button"
+              >
+                <OnshapeIcon name="plus-button" size={16} />
+              </button>
+            </DropdownMenu>
+          ) : (
+            <button
+              type="button"
+              className="part-studio-tab-strip__new"
+              aria-label={t('partStudio.tabs.insertTab')}
+              title={t('partStudio.tabs.insertTab')}
+              disabled
+              data-testid="part-studio-new-tab-button"
+            >
+              <OnshapeIcon name="plus-button" size={16} />
+            </button>
+          )}
         </div>
         <div role="tablist" aria-label={t('partStudio.tabs.partStudio')} className="part-studio-tab-strip__tabs">
           <button

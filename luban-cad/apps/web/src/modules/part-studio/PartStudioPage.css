@@ -717,6 +717,17 @@
   opacity: 0.4;
 }
 
+/* ADR-0017 Stage C：「插入新页签」未支持项的诚实标注（不创建假页签）。 */
+.part-studio-tab-strip__menu-badge {
+  margin-inline-start: 8px;
+  padding: 0 4px;
+  border-radius: 2px;
+  background: #e5e5e5;
+  color: #6b6b6b;
+  font-size: 11px;
+  line-height: 16px;
+}
+
 .part-studio-tab-strip__tabs {
   display: flex;
   flex-direction: row;

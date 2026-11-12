@@ -95,8 +95,24 @@ export function planPartStudioScope(args: PlanPartStudioScopeArgs): PartStudioSc
   return args.canWrite ? { kind: 'create' } : { kind: 'empty' };
 }
 
-/** 默认 scope 名称（控制器钉死字面值）。 */
+/** 默认 scope 名称（空文档首个 scope）。 */
 export const DEFAULT_PART_STUDIO_NAME = 'Part Studio 1';
+
+/**
+ * ADR-0017 Stage C：下一个未占用的 Onshape 自动命名 `Part Studio N`。
+ * 已存在的同形名称一律视为占用（含自定义名字旁路）；`+` 与空文档自动创建
+ * 共用，避免重复 `Part Studio 1`。非递增复用（最小未占用）保证唯一性。
+ */
+export function nextPartStudioName(studios: readonly Pick<PartStudioInfo, 'name'>[]): string {
+  const used = new Set<number>();
+  for (const studio of studios) {
+    const match = /^Part Studio (\d+)$/i.exec(studio.name.trim());
+    if (match) used.add(Number(match[1]));
+  }
+  let index = 1;
+  while (used.has(index)) index++;
+  return `Part Studio ${index}`;
+}
 
 export interface UsePartStudioScopeArgs extends PlanPartStudioScopeArgs {
   create(name: string): Promise<PartStudioInfo>;
@@ -200,7 +216,7 @@ export function usePartStudioScope(args: UsePartStudioScopeArgs): PartStudioScop
     setCreateError(undefined);
     void (async () => {
       try {
-        const created = await createRef.current(DEFAULT_PART_STUDIO_NAME);
+        const created = await createRef.current(nextPartStudioName(studios));
         if (!mountedRef.current || runIdRef.current !== runId) return;
         // 本地列表已更新 → 下一跳规划为 redirect/ready；显式导航仍给出（replace）。
         navigateRef.current(created.id, true);

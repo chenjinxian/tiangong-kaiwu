@@ -159,3 +159,18 @@
 - 单测：shared 205/205、viewer 134/134、web 1537/1537、webhook-agent 50/50、
   modeling-server schema 5/5；web tsc/lint/e2e tsc 绿。
 - 老 iModel 不改写；运行时 baseline 继续归一化。
+
+## 11. Stage C 实施结果（2026-11-12）
+
+- 「+」改为 Onshape「插入新页签」锚定菜单（`f3-insert-tab-menu` 证据）：
+  顺序 应用程序 / 创建材料库 / Feature Studio / CAM / PCB / Render Studio /
+  Part Studio / 装配体 / Variable Studio / 工程图… / 文件夹 / 导入…，
+  3 条分隔线；仅「创建 Part Studio」可用，其余禁用并标「未支持」。
+- `nextPartStudioName(studios)`：最小未占用的 `Part Studio N`；`+` 与空文档
+  自动创建共用（修复重复默认名）。
+- 验证：web **1543/1543**（PartStudioTabs 菜单结构/禁用、nextPartStudioName 5 例）；
+  tsc/lint/e2e tsc 绿；真栈 `e2e/new-part-studio.spec.ts` **2 passed（34.6s）**
+  （菜单结构、连续创建 Part Studio 2/3、URL 切换、Briefcase 连接键不变），
+  `e2e/part-studio.spec.ts` **9/9 passed（1.9m）**。
+- 未支持项不创建假页签、不弹假内容；切换页签相机记忆未实现（Onshape 行为
+  未采集到证据，记为 parity gap）。
