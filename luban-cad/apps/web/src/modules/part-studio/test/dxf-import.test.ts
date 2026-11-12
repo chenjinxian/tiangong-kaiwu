@@ -95,11 +95,29 @@ describe('parseDxfSketchEntities — POINT / LWPOLYLINE', () => {
     expect(result.entities[2]).toMatchObject({ kind: 'line', p1: { x: 0, y: 3 }, p2: { x: 0, y: 0 } });
   });
 
-  it('带 bulge 的 LWPOLYLINE → 整条跳过（不近似圆弧段）', () => {
+  it('带 bulge 的 LWPOLYLINE → 生成圆弧段（半圆 b=1）', () => {
     const poly = ['0', 'LWPOLYLINE', '90', '2', '70', '0',
-      '10', '0', '20', '0', '42', '0.5', '10', '4', '20', '0'].join('\n');
+      '10', '0', '20', '0', '42', '1', '10', '4', '20', '0'].join(String.fromCharCode(10));
     const result = parseDxfSketchEntities(dxf(4, poly));
-    expect(result.entities).toEqual([]);
-    expect(result.skipped).toBe(1);
+    expect(result.entities).toHaveLength(1);
+    const arc = result.entities[0] as { kind: string; center: { x: number; y: number }; radius: number; startAngle: number; sweepAngle: number };
+    expect(arc.kind).toBe('arc');
+    expect(arc.center.x).toBeCloseTo(2, 9);
+    expect(arc.center.y).toBeCloseTo(0, 9);
+    expect(arc.radius).toBeCloseTo(2, 9);
+    expect(arc.sweepAngle).toBeCloseTo(Math.PI, 9);
+  });
+
+  it('1/4 圆 bulge（tan(π/8)）→ 圆心在弦左侧、扫角 π/2', () => {
+    const bulge = Math.tan(Math.PI / 8);
+    const poly = ['0', 'LWPOLYLINE', '90', '2', '70', '0',
+      '10', '0', '20', '0', '42', String(bulge), '10', '2', '20', '0'].join(String.fromCharCode(10));
+    const result = parseDxfSketchEntities(dxf(4, poly));
+    const arc = result.entities[0] as { center: { x: number; y: number }; radius: number; sweepAngle: number; startAngle: number };
+    expect(arc.center.x).toBeCloseTo(1, 9);
+    expect(arc.center.y).toBeCloseTo(1, 9);
+    expect(arc.radius).toBeCloseTo(Math.SQRT2, 9);
+    expect(arc.sweepAngle).toBeCloseTo(Math.PI / 2, 9);
+    expect(arc.startAngle).toBeCloseTo(-3 * Math.PI / 4, 9);
   });
 });

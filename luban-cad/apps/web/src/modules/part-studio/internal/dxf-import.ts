@@ -4,8 +4,8 @@
  *
  * ASCII DXF → 草图实体（Onshape「插入 DXF 或 DWG」首切片，2026-11-12）。
  *
- * 支持 LINE / CIRCLE / ARC / POINT / 直线段 LWPOLYLINE（忽略 BLOCKS/INSERT/样条/
- * 带 bulge 的圆弧段多段线等）；
+ * 支持 LINE / CIRCLE / ARC / POINT / LWPOLYLINE（直线段 + bulge 圆弧段；
+ * 忽略 BLOCKS/INSERT/样条等）；
  * 读取 HEADER `$INSUNITS`（缺省毫米）并换算为毫米；DXF 的 XY 平面直接映射
  * 到当前草图局部 (u,v)（不旋转/不放置）。未支持实体计数返回，UI 诚实提示
  * 跳过数量，不静默丢弃。
@@ -118,19 +118,46 @@ export function parseDxfSketchEntities(text: string, existingMaxId = 0): DxfImpo
       } else skipped++;
     } else if (type === 'LWPOLYLINE') {
       const polyline = polylineVertices(groups);
-      // bulge 非零=圆弧段，本切片不近似；整条跳过并计数。
-      if (!polyline || polyline.points.length < 2 || polyline.bulges.some((b) => Math.abs(b) > 1e-9)) {
+      if (!polyline || polyline.points.length < 2) {
         skipped++;
       } else {
         const points = [...polyline.points];
+        const bulges = [...polyline.bulges];
         const closed = (Number(valuesOf(groups, 70)[0] ?? '0') & 1) === 1;
-        if (closed)
+        if (closed) {
           points.push(points[0]!);
+          bulges.push(bulges[0] ?? 0);
+        }
         for (let i = 0; i + 1 < points.length; i++) {
+          const p1 = { x: points[i]!.x * units.scale, y: points[i]!.y * units.scale };
+          const p2 = { x: points[i + 1]!.x * units.scale, y: points[i + 1]!.y * units.scale };
+          const bulge = bulges[i] ?? 0;
+          if (Math.abs(bulge) <= 1e-9) {
+            entities.push({ kind: 'line', id: nextId++, p1, p2 });
+            continue;
+          }
+          const theta = 4 * Math.atan(bulge);
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const chord = Math.hypot(dx, dy);
+          const sinHalf = Math.sin(theta / 2);
+          if (chord < 1e-9 || Math.abs(sinHalf) < 1e-9) {
+            skipped++;
+            continue;
+          }
+          const radius = chord / (2 * Math.abs(sinHalf));
+          const left = { x: -dy / chord, y: dx / chord };
+          const offset = Math.sign(theta) * radius * Math.cos(theta / 2);
+          const center = {
+            x: (p1.x + p2.x) / 2 + left.x * offset,
+            y: (p1.y + p2.y) / 2 + left.y * offset,
+          };
           entities.push({
-            kind: 'line', id: nextId++,
-            p1: { x: points[i]!.x * units.scale, y: points[i]!.y * units.scale },
-            p2: { x: points[i + 1]!.x * units.scale, y: points[i + 1]!.y * units.scale },
+            kind: 'arc', id: nextId++,
+            center,
+            radius,
+            startAngle: Math.atan2(p1.y - center.y, p1.x - center.x),
+            sweepAngle: theta,
           });
         }
       }
