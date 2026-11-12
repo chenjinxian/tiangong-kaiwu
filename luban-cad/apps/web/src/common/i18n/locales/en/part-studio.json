@@ -879,7 +879,9 @@
     "vertexCircleCenter": "Circle {{id}} center",
     "vertexArcCenter": "Arc {{id}} center",
     "vertexArcStart": "Arc {{id}} start",
-    "vertexArcEnd": "Arc {{id}} end"
+    "vertexArcEnd": "Arc {{id}} end",
+    "endBoundUpToPart": "Up to part",
+    "notSupported": "Not supported yet"
   },
   "filletPick": {
     "prompt": "Click edges to fillet in the canvas",

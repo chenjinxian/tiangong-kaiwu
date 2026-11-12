@@ -4014,6 +4014,24 @@ describe('成形到顶点（Stage G1）', () => {
     expect(encodeVertexRef({ sketchId: 'sk-1', entityId: 11, part: 'end' })).toBe('sk-1|11|end');
   });
 
+  it('终止条件菜单顺序与 Onshape 一致；成形到零件诚实禁用', () => {
+    renderDialog({ entities: [], featureType: 'extrude', mode: 'new', applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })) });
+    const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
+    const select = within(dialog).getByRole('combobox', { name: '终止条件' }) as HTMLSelectElement;
+    const options = Array.from(select.querySelectorAll('option')).map((option) => ({
+      value: option.value,
+      disabled: option.disabled,
+      text: option.textContent,
+    }));
+    expect(options.map((option) => option.value)).toEqual([
+      'blind', 'upToNext', 'upToSurface', 'upToPart', 'upToVertex', 'throughAll',
+    ]);
+    expect(options.find((option) => option.value === 'upToPart')).toMatchObject({
+      disabled: true,
+      text: '成形到零件',
+    });
+  });
+
   it('选择目标顶点 → 载荷 endBound=upToVertex + endVertexRef；未选禁提交', async () => {
     featureRpc.getSketch.mockResolvedValue(VERTEX_SKETCH);
     const user = userEvent.setup();

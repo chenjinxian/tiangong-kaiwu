@@ -2945,6 +2945,12 @@ export function FeatureDialog({
               >
                 {t('partStudio.featureDialog.endBoundUpToSurface')}
               </option>
+              {/* 「成形到零件」在 Onshape 终止菜单中存在（live 证据
+                  extrude-endbound-menu.json），但产品/内核无 up-to-part 通道——
+                  诚实禁用并标注未支持（不选、不构造第二真源）。 */}
+              <option value="upToPart" disabled title={t('partStudio.featureDialog.notSupported')}>
+                {t('partStudio.featureDialog.endBoundUpToPart')}
+              </option>
               {/* ADR-0017 Stage G1：成形到顶点（草图点/线端点/弧端点/圆心）；
                   候选异步加载，未选顶点时保持该终止类型并禁提交。 */}
               <option

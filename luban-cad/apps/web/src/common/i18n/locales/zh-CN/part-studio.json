@@ -879,7 +879,9 @@
     "vertexCircleCenter": "圆 {{id}} 圆心",
     "vertexArcCenter": "圆弧 {{id}} 圆心",
     "vertexArcStart": "圆弧 {{id}} 起点",
-    "vertexArcEnd": "圆弧 {{id}} 终点"
+    "vertexArcEnd": "圆弧 {{id}} 终点",
+    "endBoundUpToPart": "成形到零件",
+    "notSupported": "尚未支持"
   },
   "filletPick": {
     "prompt": "点击拾取要圆角的边",
