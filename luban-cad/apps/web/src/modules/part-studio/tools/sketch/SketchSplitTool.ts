@@ -32,6 +32,9 @@ export class SketchSplitTool extends PrimitiveTool {
   public static override namespace = 'LubanCad';
   public static override iconSpec = 'icon-trim';
 
+  /** 闭合曲线（圆）第一点（local 坐标）；第二点才提交两段弧。 */
+  private pendingCircle: { entityId: number; local: { x: number; y: number } } | null = null;
+
   public override requireWriteableTarget(): boolean { return true; }
 
   public override async onPostInstall(): Promise<void> {
@@ -40,6 +43,7 @@ export class SketchSplitTool extends PrimitiveTool {
   }
 
   public override async onCleanup(): Promise<void> {
+    this.pendingCircle = null;
     clearSketchToolFeedback(this.toolId);
     await super.onCleanup();
   }
@@ -73,6 +77,34 @@ export class SketchSplitTool extends PrimitiveTool {
       this.notify(i18next.t('partStudio.sketch.split.invalidPoint'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
+    const targetEntity = sketch.entities.find((entity) => entity.id === hit.entityId);
+    // live 2026-11-13：闭合曲线（圆）需要两个点；第一点只挂起并提示。
+    if (targetEntity?.kind === 'circle') {
+      if (!this.pendingCircle || this.pendingCircle.entityId !== hit.entityId) {
+        this.pendingCircle = { entityId: hit.entityId, local: { x: local.u, y: local.v } };
+        publishSketchToolHint(this.toolId, i18next.t('partStudio.sketch.split.secondPoint'));
+        return EventHandled.Yes;
+      }
+      const split = splitSketchAt(
+        sketch.entities,
+        sketch.constraints,
+        hit.entityId,
+        this.pendingCircle.local,
+        { x: local.u, y: local.v },
+      );
+      this.pendingCircle = null;
+      publishSketchToolHint(this.toolId, i18next.t('partStudio.sketch.split.prompt'));
+      if (!split.ok) {
+        if (split.reason === 'no-change')
+          this.notify(i18next.t('partStudio.sketch.split.samePoint'), OutputMessagePriority.Info);
+        return EventHandled.Yes;
+      }
+      const result = await sketchSystem.applyUpdate(split.entities, split.constraints);
+      if (!result.ok)
+        this.notify(result.error ?? i18next.t('partStudio.sketch.split.failed'), OutputMessagePriority.Error);
+      return EventHandled.Yes;
+    }
+    this.pendingCircle = null;
     const split = splitSketchAt(sketch.entities, sketch.constraints, hit.entityId, { x: local.u, y: local.v });
     if (!split.ok) {
       if (split.reason === 'unsupported')
@@ -86,6 +118,7 @@ export class SketchSplitTool extends PrimitiveTool {
   }
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
+    this.pendingCircle = null;
     await this.exitTool();
     return EventHandled.Yes;
   }

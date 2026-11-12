@@ -556,7 +556,7 @@ export function trimSketchAt(
 
 export interface SketchSplitResult {
   ok: boolean;
-  reason?: 'not-found' | 'unsupported' | 'no-change';
+  reason?: 'not-found' | 'unsupported' | 'no-change' | 'needs-second-point';
   entities: SketchEntityDto[];
   constraints: SketchConstraintDto[];
   /** 线分割时新分配的共享点实体 id。 */
@@ -564,16 +564,18 @@ export interface SketchSplitResult {
 }
 
 /**
- * 草图分割（Onshape「分割」首切片 2026-11-13）：在点击处把曲线断成两段。
- * 线/圆弧/三次贝塞尔样条；圆（单点分割结果形态无 live 证据）、periodic/投影
- * 样条、端点附近点击 → 诚实拒收/无变更。约束口径同修剪：移除引用原实体的
- * 约束（整段尺寸不再对一半几何成立），由后端重解算兜底。
+ * 草图分割（Onshape「分割」首切片 2026-11-13；闭合曲线第二点切片 2026-11-13）：
+ * 在点击处把曲线断成两段。线/圆弧/三次贝塞尔样条单击分割；圆需要**两个点**
+ * （live 提示「再选择一个点以分割闭合曲线。」）→ 两段弧。periodic/投影样条、
+ * 端点附近点击 → 诚实拒收/无变更。约束口径同修剪：移除引用原实体的约束
+ * （整段尺寸不再对一半几何成立），由后端重解算兜底。
  */
 export function splitSketchAt(
   entities: readonly SketchEntityDto[],
   constraints: readonly SketchConstraintDto[],
   targetId: number,
   click: TrimPoint,
+  secondClick?: TrimPoint,
 ): SketchSplitResult {
   const points = new Map<number, TrimPoint>();
   for (const entity of entities) {
@@ -584,7 +586,8 @@ export function splitSketchAt(
   const targetEntity = targetIndex >= 0 ? entities[targetIndex] : undefined;
   if (!targetEntity)
     return { ok: false, reason: 'not-found', entities: [...entities], constraints: [...constraints] };
-  if (targetEntity.kind !== 'line' && targetEntity.kind !== 'arc' && targetEntity.kind !== 'spline')
+  if (targetEntity.kind !== 'line' && targetEntity.kind !== 'circle'
+    && targetEntity.kind !== 'arc' && targetEntity.kind !== 'spline')
     return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints] };
   if (targetEntity.kind === 'spline') {
     const controls = targetEntity.controlPoints;
@@ -606,7 +609,35 @@ export function splitSketchAt(
   let second: SketchEntityDto | undefined;
   let pointEntity: SketchEntityDto | undefined;
 
-  if (target.kind === 'line') {
+  if (target.kind === 'circle') {
+    // live 2026-11-13：闭合曲线需要两个点（提示条「再选择一个点以分割闭合曲线。」）。
+    if (!secondClick)
+      return { ok: false, reason: 'needs-second-point', entities: [...entities], constraints: [...constraints] };
+    const angle1 = normalizeAngle(Math.atan2(click.y - target.c.y, click.x - target.c.x));
+    const angle2 = normalizeAngle(Math.atan2(secondClick.y - target.c.y, secondClick.x - target.c.x));
+    const span = normalizeAngle(angle2 - angle1);
+    if (span <= 1e-6 || span >= TAU - 1e-6)
+      return { ok: false, reason: 'no-change', entities: [...entities], constraints: [...constraints] };
+    const centerRef = (targetEntity as { center: number | TrimPoint }).center;
+    first = {
+      kind: 'arc',
+      id: targetId,
+      center: centerRef,
+      radius: target.r,
+      startAngle: angle1,
+      sweepAngle: span,
+      ...(construction ? { construction: true } : {}),
+    };
+    second = {
+      kind: 'arc',
+      id: nextId++,
+      center: centerRef,
+      radius: target.r,
+      startAngle: angle2,
+      sweepAngle: TAU - span,
+      ...(construction ? { construction: true } : {}),
+    };
+  } else if (target.kind === 'line') {
     const param = segmentParam(click, target);
     if (param === undefined || param <= 1e-4 || param >= 1 - 1e-4)
       return { ok: false, reason: 'no-change', entities: [...entities], constraints: [...constraints] };

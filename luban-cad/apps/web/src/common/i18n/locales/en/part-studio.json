@@ -1190,9 +1190,11 @@
     },
     "split": {
       "prompt": "Click a location on a sketch path to break it into two segments; Esc to finish",
+      "secondPoint": "Select one more point to split the closed curve.",
+      "samePoint": "The two split points must differ",
       "notOpen": "Enter sketch editing first",
       "invalidPoint": "Cannot locate the click on the sketch plane",
-      "unsupported": "This curve type cannot be split yet (lines/arcs/cubic Bézier splines; circle pending evidence)",
+      "unsupported": "This curve type cannot be split yet (lines/circles/arcs/cubic Bézier splines)",
       "failed": "Split failed"
     },
     "insertDxf": {

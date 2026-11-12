@@ -214,15 +214,31 @@ describe('splitSketchAt — 分割（Onshape 修剪 ▾ → 分割）', () => {
     expect(lines[1]!.p2).toBe(2);
   });
 
-  it('端点附近点击 / 圆 / 投影样条 → no-change/unsupported（不写数据）', () => {
+  it('端点附近点击 / 单点圆 / 投影样条 → no-change/needs-second-point/unsupported', () => {
     expect(splitSketchAt([H_LINE], [], 11, { x: -10, y: 0 }).reason).toBe('no-change');
     const circle: SketchEntityDto = { kind: 'circle', id: 21, center: { x: 0, y: 0 }, radius: 5 };
-    expect(splitSketchAt([circle], [], 21, { x: 5, y: 0 }).reason).toBe('unsupported');
+    expect(splitSketchAt([circle], [], 21, { x: 5, y: 0 }).reason).toBe('needs-second-point');
     const projected: SketchEntityDto = {
       kind: 'line', id: 12, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 },
       projected: { kind: 'projected', source: { kind: 'sketchEntity', sketchId: 's', entityId: 1 } },
     };
     expect(splitSketchAt([projected], [], 12, { x: 5, y: 0 }).reason).toBe('unsupported');
+  });
+
+  it('闭合曲线（圆）两点分割：两段弧首尾相接、扫角之和 = 2π', () => {
+    const circle: SketchEntityDto = { kind: 'circle', id: 21, center: { x: 0, y: 0 }, radius: 5 };
+    const result = splitSketchAt([circle], [], 21, { x: 5, y: 0 }, { x: -5, y: 0 });
+    expect(result.ok).toBe(true);
+    const arcs = result.entities.filter((entity) => entity.kind === 'arc') as Array<{ id: number; radius: number; startAngle: number; sweepAngle: number }>;
+    expect(arcs).toHaveLength(2);
+    expect(arcs[0]!.id).toBe(21);
+    expect(arcs[0]!.startAngle).toBeCloseTo(0, 6);
+    expect(arcs[0]!.sweepAngle).toBeCloseTo(Math.PI, 6);
+    expect(arcs[1]!.startAngle).toBeCloseTo(Math.PI, 6);
+    expect(arcs[1]!.sweepAngle).toBeCloseTo(Math.PI, 6);
+    expect(arcs[0]!.sweepAngle + arcs[1]!.sweepAngle).toBeCloseTo(Math.PI * 2, 6);
+    // 两点重合 → no-change。
+    expect(splitSketchAt([circle], [], 21, { x: 5, y: 0 }, { x: 5, y: 0 }).reason).toBe('no-change');
   });
 
   it('圆弧中点分割：两段弧角度首尾相接、半径/圆心不变', () => {
