@@ -30,7 +30,7 @@ function kinds(sketch: SketchDto | undefined): string[] {
 }
 
 test.describe('草图 DXF 导入（Onshape 对拍首切片）', () => {
-  test('LINE/CIRCLE/ARC/POINT/LWPOLYLINE 导入并重载持久', async ({ page, request }) => {
+  test('LINE/CIRCLE/ARC/POINT/LWPOLYLINE/SPLINE 导入并重载持久', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const token = await getApiToken();
     const seed = await resetBModelSeed(request, token);
@@ -70,12 +70,14 @@ test.describe('草图 DXF 导入（Onshape 对拍首切片）', () => {
     await expect.poll(async () => kinds(await getSketchRpc(ctx, sketchId, token)), {
       timeout: 40_000,
       intervals: [600, 1000, 2000, 3000],
-    }).toEqual(['arc', 'circle', 'line', 'line', 'line', 'point']);
+    }).toEqual(['arc', 'circle', 'line', 'line', 'line', 'point', 'spline']);
 
     const sketch = await getSketchRpc(ctx, sketchId, token);
     const line = sketch?.entities.find((entity) => entity.kind === 'line');
     const circle = sketch?.entities.find((entity) => entity.kind === 'circle');
     const arc = sketch?.entities.find((entity) => entity.kind === 'arc');
+    const spline = sketch?.entities.find((entity) => entity.kind === 'spline');
+    expect(spline?.kind === 'spline' ? spline.controlPoints.length : 0).toBe(4);
     expect(line).toMatchObject({ p1: { x: -10, y: 0 }, p2: { x: 0, y: 0 } });
     // LWPOLYLINE（直线段）展开为两条 line；POINT 映射为草图点。
     const polyline = (sketch?.entities ?? []).filter((entity) => entity.kind === 'line'
@@ -92,7 +94,7 @@ test.describe('草图 DXF 导入（Onshape 对拍首切片）', () => {
 
     // 重载后仍在（一次 updateSketch 已落库）。
     await enterSketch();
-    expect(kinds(await getSketchRpc(ctx, sketchId, token))).toEqual(['arc', 'circle', 'line', 'line', 'line', 'point']);
+    expect(kinds(await getSketchRpc(ctx, sketchId, token))).toEqual(['arc', 'circle', 'line', 'line', 'line', 'point', 'spline']);
     await page.keyboard.press('Escape');
   });
 });

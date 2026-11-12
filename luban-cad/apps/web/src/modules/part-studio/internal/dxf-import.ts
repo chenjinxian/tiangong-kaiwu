@@ -4,8 +4,8 @@
  *
  * ASCII DXF → 草图实体（Onshape「插入 DXF 或 DWG」首切片，2026-11-12）。
  *
- * 支持 LINE / CIRCLE / ARC / POINT / LWPOLYLINE（直线段 + bulge 圆弧段；
- * 忽略 BLOCKS/INSERT/样条等）；
+ * 支持 LINE / CIRCLE / ARC / POINT / LWPOLYLINE（直线段 + bulge 圆弧段）/
+ * 三次 4 控制点 SPLINE；忽略 BLOCKS/INSERT 等；
  * 读取 HEADER `$INSUNITS`（缺省毫米）并换算为毫米；DXF 的 XY 平面直接映射
  * 到当前草图局部 (u,v)（不旋转/不放置）。未支持实体计数返回，UI 诚实提示
  * 跳过数量，不静默丢弃。
@@ -73,6 +73,15 @@ function polylineVertices(groups: readonly Pair[]): { points: Array<{ x: number;
     points: xs.map((x, i) => ({ x, y: ys[i]! })),
     bulges: xs.map((_, i) => (Number.isFinite(bulges[i]) ? bulges[i]! : 0)),
   };
+}
+
+/** 重复 10/20（或 11/21）组 → 点序列（数量不一致返回 undefined）。 */
+function pointPairs(groups: readonly Pair[], xCode: number, yCode: number): Array<{ x: number; y: number }> | undefined {
+  const xs = valuesOf(groups, xCode).map(Number);
+  const ys = valuesOf(groups, yCode).map(Number);
+  if (xs.length === 0 || xs.length !== ys.length || xs.some((v) => !Number.isFinite(v)) || ys.some((v) => !Number.isFinite(v)))
+    return undefined;
+  return xs.map((x, i) => ({ x, y: ys[i]! }));
 }
 
 function normalizeSweep(start: number, end: number): number {
@@ -160,6 +169,23 @@ export function parseDxfSketchEntities(text: string, existingMaxId = 0): DxfImpo
             sweepAngle: theta,
           });
         }
+      }
+    } else if (type === 'SPLINE') {
+      const flags = Number(valuesOf(groups, 70)[0] ?? '0');
+      const degree = num(groups, 71);
+      const controlPoints = pointPairs(groups, 10, 20);
+      const fitPoints = pointPairs(groups, 11, 21);
+      // 产品 spline 仅支持精确三次贝塞尔（4 控制点、非周期）；其余如实跳过。
+      if ((flags & 1) !== 0 || degree !== 3 || !controlPoints || controlPoints.length !== 4) {
+        skipped++;
+      } else {
+        entities.push({
+          kind: 'spline', id: nextId++,
+          controlPoints: controlPoints.map((point) => ({ x: point.x * units.scale, y: point.y * units.scale })),
+          ...(fitPoints && fitPoints.length > 0
+            ? { fitPoints: fitPoints.map((point) => ({ x: point.x * units.scale, y: point.y * units.scale })) }
+            : {}),
+        });
       }
     } else if (type === 'CIRCLE' || type === 'ARC') {
       const radius = num(groups, 40);

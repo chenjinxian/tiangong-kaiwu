@@ -121,3 +121,27 @@ describe('parseDxfSketchEntities — POINT / LWPOLYLINE', () => {
     expect(arc.startAngle).toBeCloseTo(-3 * Math.PI / 4, 9);
   });
 });
+
+describe('parseDxfSketchEntities — SPLINE', () => {
+  const NL = String.fromCharCode(10);
+  const four = ['10', '0', '20', '0', '10', '1', '20', '2', '10', '2', '20', '-1', '10', '3', '20', '0'];
+
+  it('三次 4 控制点非周期 SPLINE → spline 实体', () => {
+    const spline = ['0', 'SPLINE', '70', '8', '71', '3', ...four].join(NL);
+    const result = parseDxfSketchEntities(dxf(4, spline));
+    expect(result.entities).toHaveLength(1);
+    const entity = result.entities[0] as { kind: string; controlPoints: Array<{ x: number; y: number }> };
+    expect(entity.kind).toBe('spline');
+    expect(entity.controlPoints).toHaveLength(4);
+    expect(entity.controlPoints[1]).toEqual({ x: 1, y: 2 });
+  });
+
+  it('周期/非三次/非 4 控制点 SPLINE → 跳过计数', () => {
+    const periodic = ['0', 'SPLINE', '70', '9', '71', '3', ...four].join(NL);
+    expect(parseDxfSketchEntities(dxf(4, periodic)).skipped).toBe(1);
+    const degree2 = ['0', 'SPLINE', '70', '8', '71', '2', ...four].join(NL);
+    expect(parseDxfSketchEntities(dxf(4, degree2)).skipped).toBe(1);
+    const three = ['0', 'SPLINE', '70', '8', '71', '3', ...four.slice(0, 12)].join(NL);
+    expect(parseDxfSketchEntities(dxf(4, three)).skipped).toBe(1);
+  });
+});
