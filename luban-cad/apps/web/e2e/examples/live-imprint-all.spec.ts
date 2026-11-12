@@ -45,7 +45,56 @@ const SPEC: LiveSpec = {
   evidence: [],
 };
 
+const FALLBACK: LiveSpec = {
+  schemaVersion: 1,
+  id: 'live-imprint-all-fallback-smoke',
+  title: 'Synthetic rectangle → imprint all unique-adjacent fallback',
+  status: 'approx',
+  imodelName: 'Onshape live imprint all: unique-adjacent fallback',
+  source: { docId: 'synthetic', elementId: 'synthetic', name: 'synthetic rectangle' },
+  steps: [
+    {
+      kind: 'sketch',
+      name: 'Sketch 1',
+      plane: { origin: { x: 0, y: 0, z: 0 }, normal: { x: 0, y: 0, z: 1 }, xDir: { x: 1, y: 0, z: 0 } },
+      entities: [
+        { kind: 'line', id: 1, p1: { x: -10, y: -10 }, p2: { x: 10, y: -10 } },
+        { kind: 'line', id: 2, p1: { x: 10, y: -10 }, p2: { x: 10, y: 10 } },
+        { kind: 'line', id: 3, p1: { x: 10, y: 10 }, p2: { x: -10, y: 10 } },
+        { kind: 'line', id: 4, p1: { x: -10, y: 10 }, p2: { x: -10, y: -10 } },
+      ],
+      constraints: [],
+    },
+    {
+      kind: 'extrude',
+      name: 'Extrude 1',
+      sketchName: 'Sketch 1',
+      depthMm: 10,
+      operation: 'new',
+      // 矩形外环 line1 不是孔环；side=outside 指定侧零候选，唯一邻接面域回退。
+      imprintRegions: [{ entityId: 1, side: 'outside', all: true }],
+    },
+  ],
+  expected: { bodyCount: 1, volumeMm3: 4000, tolerance: 0.005 },
+  evidence: [],
+};
+
 test.describe('live imprintRegions all', () => {
+  test('唯一邻接面域侧向回退，冷重开一致', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const result = await runLiveSpec(page, request, FALLBACK);
+    expect(result.tree.every((row) => row.status === 0)).toBe(true);
+    const volume = result.mass.reduce((sum, entry) => sum + entry.volume, 0);
+    expect(Math.abs(volume - 4000) / 4000).toBeLessThan(0.005);
+
+    await pushExampleChanges(page, 'live imprint all fallback smoke');
+    await page.reload();
+    await openExampleEditor(page, result.ids);
+    expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
+    expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);
+    expect(await getMassPropertiesRpc(result.ctx, result.token)).toEqual(result.mass);
+  });
+
   test('共享边界收齐两个面域，冷重开一致', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const result = await runLiveSpec(page, request, SPEC);

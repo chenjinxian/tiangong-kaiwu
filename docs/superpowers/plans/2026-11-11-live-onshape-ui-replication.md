@@ -913,6 +913,16 @@ symmetric 互斥）。
 - live spec 总数 **37 → 38**（示例表 38 行）；私有
   `docs/LIVE-UI-SPECS.md` 同步。后续需补五个圆角/倒角的边映射才能收紧。
 
+### 批次 65（2026-11-12，imprint all 唯一邻接回退）
+
+- `all:true` 在 `side` 过滤零命中、且该边只邻接一个材料面域时回退到唯一
+  邻接面域（与 `pickImprintRegion` 的回退同口径），避免自动 probe 的
+  side 映射（outside=孔环）把只有外环邻接的边判死。
+- 公共真栈扩展到 `e2e/examples/live-imprint-all.spec.ts` 第二个用例：
+  20×20 矩形外环 `side:"outside"` + all → 唯一邻接回退 **4,000.000 mm³**、
+  1 body、status=0、push+冷重开（2 passed / 43.5 s；同文件共享边界用例
+  复跑 2 passed）。live spec 总数仍 **38**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -95,7 +95,10 @@
     竖线 inside+all → **4000.000 mm³**）push+冷重开。`side` 过滤仍按旧回退口径
     （outside=孔环、inside=外环）；若某查询在指定侧零命中而该边确有相邻面域，
     收紧 side 前先核对 region 归属，side-free 的 all 只是**近似全邻域**，会
-    过选（Fox RP23 chamber +50.6%），不能冒充精确 imprint。
+    过选（Fox RP23 chamber +50.6%），不能冒充精确 imprint。若指定侧零命中
+    但该边只邻接一个材料面域，`all` 走唯一邻接回退（与 `pickImprintRegion`
+    同口径，几何确定而非猜测）；`live-imprint-all.spec.ts` 的矩形外环
+    `side:"outside"` 回退 → **4000.000 mm³**。
   - `edgeSide:'left'|'right'`：Onshape 有向边左/右侧精确语义，运行时读草图
     实体几何（line/arc/circle，构造曲线拒收）→ shared
     `resolveImprintEdgeGeometry` + `pickImprintRegionByEdgeSide`（+1=left、

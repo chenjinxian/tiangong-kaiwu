@@ -190,23 +190,34 @@ export async function runLiveSpec(
             continue;
           }
           if (query.all === true) {
-            const matched = (sketch?.regions ?? [])
+            const adjacent = (sketch?.regions ?? [])
               .map((region, regionIndex) => ({ region, regionIndex }))
+              .filter(({ region }) =>
+                region.outerEntityIds.includes(query.entityId)
+                || (region.holeEntityIds?.includes(query.entityId) ?? false));
+            let matched = adjacent
               .filter(({ region }) =>
                 query.side === 'outside'
                   ? (region.holeEntityIds?.includes(query.entityId) ?? false)
                   : query.side === 'inside'
                     ? region.outerEntityIds.includes(query.entityId)
-                    : (region.outerEntityIds.includes(query.entityId)
-                      || (region.holeEntityIds?.includes(query.entityId) ?? false)))
+                    : true)
               .map(({ regionIndex }) => regionIndex);
+            let fallback = false;
+            // 与 pickImprintRegion 同口径：指定侧零命中但该边只邻接一个材料面域时，
+            // 侧向无候选，唯一邻接面是几何确定的（不是猜）。
+            if (matched.length === 0 && adjacent.length === 1) {
+              matched = [adjacent[0]!.regionIndex];
+              fallback = true;
+            }
             if (matched.length === 0)
               throw new Error(
                 `${spec.id}/${step.name}: imprint(all) entity=${query.entityId} side=${query.side ?? 'auto'} 零命中`,
               );
             picked.push(...matched);
             notes.push(
-              `${step.name}: imprint(all) entity=${query.entityId} → regions ${matched.join(',')}`,
+              `${step.name}: imprint(all) entity=${query.entityId} → regions ${matched.join(',')}`
+              + (fallback ? '（唯一邻接回退）' : ''),
             );
             continue;
           }
