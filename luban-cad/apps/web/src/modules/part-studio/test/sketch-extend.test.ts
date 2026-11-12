@@ -147,3 +147,44 @@ describe('extendSketchTo — Onshape 两相（第二击边界或自由点）', (
     if (!result.ok) expect(result.reason).toBe('no-boundary');
   });
 });
+
+describe('extendSketchTo — 弧源（扫角延伸）', () => {
+  const arc: SketchEntityDto = {
+    kind: 'arc', id: 21, center: { x: 0, y: 0 }, radius: 5, startAngle: 0, sweepAngle: Math.PI / 2,
+  };
+
+  it('CCW 弧终点延伸到线边界 → 扫角增长保持起点', () => {
+    const boundary = line(22, { x: -5, y: -1 }, { x: -5, y: 1 });
+    const result = extendSketchTo([arc, boundary], 21, { x: 0, y: 5 }, { point: { x: -5, y: 0 }, boundaryId: 22 });
+    expect(result.ok).toBe(true);
+    const updated = result.entities.find((entity) => entity.id === 21) as { startAngle: number; sweepAngle: number };
+    expect(updated.startAngle).toBeCloseTo(0, 9);
+    expect(updated.sweepAngle).toBeCloseTo(Math.PI, 9);
+  });
+
+  it('弧起点延伸到边界 → 起点回退、终点不动', () => {
+    const boundary = line(23, { x: -1, y: -5 }, { x: 1, y: -5 });
+    const result = extendSketchTo([arc, boundary], 21, { x: 5, y: 0 }, { point: { x: 0, y: -5 }, boundaryId: 23 });
+    expect(result.ok).toBe(true);
+    const updated = result.entities.find((entity) => entity.id === 21) as { startAngle: number; sweepAngle: number };
+    expect(updated.startAngle).toBeCloseTo(-Math.PI / 2, 9);
+    expect(updated.sweepAngle).toBeCloseTo(Math.PI, 9);
+  });
+
+  it('第二击空白点 → 投影到圆周（自由端点）', () => {
+    const target = { x: 5 * Math.cos(3 * Math.PI / 4), y: 5 * Math.sin(3 * Math.PI / 4) };
+    const result = extendSketchTo([arc], 21, { x: 0, y: 5 }, { point: { x: target.x, y: target.y } });
+    expect(result.ok).toBe(true);
+    const updated = result.entities.find((entity) => entity.id === 21) as { startAngle: number; sweepAngle: number };
+    expect(updated.startAngle).toBeCloseTo(0, 9);
+    expect(updated.sweepAngle).toBeCloseTo(3 * Math.PI / 4, 9);
+  });
+
+  it('弧无边界 → no-boundary；边界线不与圆相交 → no-boundary', () => {
+    expect(extendSketchAt([arc], 21, { x: 0, y: 5 }).ok).toBe(false);
+    const outside = line(24, { x: 6, y: -1 }, { x: 6, y: 1 });
+    const result = extendSketchTo([arc, outside], 21, { x: 0, y: 5 }, { point: { x: 6, y: 0 }, boundaryId: 24 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no-boundary');
+  });
+});

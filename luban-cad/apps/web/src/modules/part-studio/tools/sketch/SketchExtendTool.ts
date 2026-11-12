@@ -5,10 +5,10 @@
  * 草图延伸工具（toolId `Sketch.Extend`，Onshape Extend 首切片 2026-11-12）。
  *
  * Onshape 帮助：Extend 在「修剪」同一工具按钮下拉（快捷键 X）；**先点击线/弧**，
- * 再点击新端点位置或边界几何。本切片按两相实现：第一击选直线（记录点击侧端点），
- * 第二击命中其它曲线=延伸到该边界最近交点，否则投影到延伸射线上的自由端点；
- * 弧/圆/样条作为源诚实提示不支持，无边界保持原样。命中/反解与 Trim 共用
- * `sketch-screen.ts`。
+ * 再点击新端点位置或边界几何。本切片按两相实现：第一击选线/弧（记录点击侧端点），
+ * 第二击命中其它曲线=延伸到该边界最近交点，否则投影到延伸射线（线）/圆周（弧）
+ * 上的自由端点；圆/样条作为源诚实提示不支持，无边界保持原样。命中/反解与 Trim
+ * 共用 `sketch-screen.ts`。
  */
 import {
   BeButtonEvent,
@@ -84,7 +84,7 @@ export class SketchExtendTool extends PrimitiveTool {
       if (!hit || hit.part !== 'curve')
         return EventHandled.Yes;
       const entity = sketch.entities.find((candidate) => candidate.id === hit.entityId);
-      if (!entity || entity.kind !== 'line') {
+      if (!entity || (entity.kind !== 'line' && entity.kind !== 'arc')) {
         this.notify(i18next.t('partStudio.sketch.extend.unsupported'), OutputMessagePriority.Info);
         return EventHandled.Yes;
       }

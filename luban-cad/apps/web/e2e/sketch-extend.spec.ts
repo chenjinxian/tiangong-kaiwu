@@ -128,4 +128,78 @@ test.describe('草图延伸（Onshape 对拍）', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
   });
+
+  test('弧源：端点沿圆周延伸到线边界（扫角增长）', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    const openWithRetry = async () => {
+      try {
+        return await openSeedImodelEditor(page, seed);
+      } catch {
+        await page.reload();
+        return openSeedImodelEditor(page, seed);
+      }
+    };
+    let ctx = await openWithRetry();
+    const lease = await borrowWriteLease(ctx, token, 'sketch-extend-arc');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'arc', id: 21, center: { x: 0, y: 0 }, radius: 5, startAngle: 0, sweepAngle: Math.PI / 2 },
+        { kind: 'line', id: 22, p1: { x: -5, y: -1 }, p2: { x: -5, y: 1 } },
+      ],
+      constraints: [],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openWithRetry();
+    const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(sketchRow).toBeVisible({ timeout: 60_000 });
+    await sketchRow.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.waitForTimeout(600);
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    const project = async (local: Point): Promise<Point> => {
+      const view = await page.evaluate((worldPoint) => {
+        const vp = (window as unknown as {
+          __lubanE2E?: { coreFrontend: { IModelApp: { viewManager: { selectedView: { worldToView: (p: { x: number; y: number; z: number }) => { x: number; y: number } } } | undefined } } };
+        }).__lubanE2E?.coreFrontend?.IModelApp?.viewManager?.selectedView;
+        if (!vp) return null;
+        const v = vp.worldToView(worldPoint);
+        return { x: v.x, y: v.y };
+      }, { x: local.x, y: local.y, z: 0 });
+      expect(view).not.toBeNull();
+      return { x: box!.x + view!.x, y: box!.y + view!.y };
+    };
+
+    await page.getByRole('button', { name: '修剪 ▾' }).click();
+    const extendItem = page.getByRole('menuitem', { name: '延伸' });
+    await expect(extendItem).toBeVisible({ timeout: 10_000 });
+    await extendItem.click();
+
+    // 第一击弧终点 (0,5)；第二击边界线 x=-5 → 扫角 π/2 → π。
+    const arcEnd = await project({ x: 0, y: 5 });
+    await page.mouse.click(arcEnd.x, arcEnd.y);
+    const boundary = await project({ x: -5, y: 0 });
+    await page.mouse.click(boundary.x, boundary.y);
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      const arc = sketch?.entities.find((entity) => entity.id === 21);
+      return arc && arc.kind === 'arc' ? arc.sweepAngle : undefined;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBeCloseTo(Math.PI, 6);
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
+  });
 });

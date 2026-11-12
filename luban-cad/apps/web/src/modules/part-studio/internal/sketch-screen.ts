@@ -7,7 +7,7 @@
  * 避免每个工具复制投影几何）。
  */
 import type { ScreenViewport } from '@itwin/core-frontend';
-import { Plane3dByOriginAndUnitNormal, Ray3d, Vector3d } from '@itwin/core-geometry';
+import { Plane3dByOriginAndUnitNormal, Point3d, Ray3d, Vector3d } from '@itwin/core-geometry';
 import type { SketchPlaneDto } from '@luban-cad/shared';
 import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
 
@@ -19,10 +19,10 @@ export function screenToSketchLocal(
   const rect = viewport.viewRect;
   if (!rect || rect.width <= 0 || rect.height <= 0)
     return undefined;
-  const npcX = (point.x - rect.left) / rect.width;
-  const npcY = (point.y - rect.top) / rect.height;
-  const near = viewport.npcToWorld({ x: npcX, y: npcY, z: 0 });
-  const far = viewport.npcToWorld({ x: npcX, y: npcY, z: 1 });
+  // 官方 view→NPC 转换（NPC 原点左下、y 向上；手工把 view y 当 NPC 会上下镜像）。
+  const npc = viewport.viewToNpc(Point3d.create(point.x, point.y, 0));
+  const near = viewport.npcToWorld({ x: npc.x, y: npc.y, z: 0 });
+  const far = viewport.npcToWorld({ x: npc.x, y: npc.y, z: 1 });
   const frame = sketchPlaneFrameFrom(planeDto);
   const plane = Plane3dByOriginAndUnitNormal.create(frame.origin, frame.normal);
   if (!plane)
