@@ -19,6 +19,8 @@ import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import { sketchEntitiesToWorldPolylines, type SketchEntityPolyline } from '../internal/sketch-curves.js';
 import { curveDistance, HIT_CURVE_PX } from '../internal/sketch-entity-picker.js';
 import { isUsableSourceEntity } from '../internal/sketch-use.js';
+import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
+import type { Point3d } from '@itwin/core-geometry';
 
 const MAX_SOURCE_SKETCHES = 8;
 
@@ -41,6 +43,7 @@ export interface SketchUseOverlayProps {
 interface SourceGeometry {
   sketch: SketchDto;
   lines: SketchEntityPolyline[];
+  points: Array<{ entityId: number; position: Point3d }>;
 }
 
 export function SketchUseOverlay({
@@ -75,7 +78,15 @@ export function SketchUseOverlay({
         const usable = sketch.entities.filter(
           (entity) => entity.kind === 'point' || isUsableSourceEntity(entity),
         );
-        loaded.push({ sketch, lines: sketchEntitiesToWorldPolylines(usable, sketch.plane) });
+        const frame = sketchPlaneFrameFrom(sketch.plane);
+        const points = usable
+          .filter((entity): entity is Extract<SketchEntityDto, { kind: 'point' }> => entity.kind === 'point')
+          .filter((entity) => typeof entity.x === 'number' && typeof entity.y === 'number')
+          .map((entity) => ({
+            entityId: entity.id,
+            position: frame.toWorld({ u: entity.x ?? 0, v: entity.y ?? 0 }),
+          }));
+        loaded.push({ sketch, lines: sketchEntitiesToWorldPolylines(usable, sketch.plane), points });
       }
       if (!disposed) {
         setSources(loaded);
@@ -140,6 +151,18 @@ export function SketchUseOverlay({
       }
     }
     ctx.setLineDash([]);
+    for (const source of sources) {
+      for (const point of source.points) {
+        const screen = viewport.worldToView(point.position);
+        const highlighted = hover !== null
+          && hover.sketchId === source.sketch.id
+          && hover.entityId === point.entityId;
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, highlighted ? 4.5 : 3, 0, Math.PI * 2);
+        ctx.fillStyle = highlighted ? 'rgba(245, 166, 65, 0.95)' : 'rgba(110, 140, 190, 0.85)';
+        ctx.fill();
+      }
+    }
   }, [sources, hover, viewport]);
 
   React.useEffect(() => { draw(); }, [draw]);
@@ -163,6 +186,12 @@ export function SketchUseOverlay({
         const distance = curveDistance(point, line.points.map((world) => viewport.worldToView(world)));
         if (distance <= HIT_CURVE_PX && (best === null || distance < best.distance))
           best = { source, entityId: line.entityId, distance };
+      }
+      for (const sourcePoint of source.points) {
+        const screen = viewport.worldToView(sourcePoint.position);
+        const distance = Math.hypot(point.x - screen.x, point.y - screen.y);
+        if (distance <= 6 && (best === null || distance < best.distance))
+          best = { source, entityId: sourcePoint.entityId, distance };
       }
     }
     return best && { source: best.source, entityId: best.entityId };

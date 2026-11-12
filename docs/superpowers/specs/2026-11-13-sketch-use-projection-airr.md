@@ -23,7 +23,8 @@
 1. 草图「使用」入口（ribbon `sketchUse`）不再是占位：编辑态激活后进入
    canvas 拾取会话（复用 `sketch.pattern` 会话槽，kind='use'）。
 2. 读取**同一 Part Studio、树序在当前草图之前**的其它草图（最近 8 张），
-   把 line/point/circle/arc 画成灰色虚线候选；悬停高亮、点击即投影。
+   把 line/circle/arc 画成灰色虚线候选、point 画成小圆点；悬停高亮、点击即投影。
+   链式投影源（源本身带 `projected` 标记）允许（后端递归解析/循环检测）。
 3. 点击 → 生成带 `projected` 标记的根实体（line/point/circle/arc），一次
    `updateSketch` 提交（可撤销；工具保持激活可连续使用）；Esc 结束。
 4. 后端读面每读必重投影：源草图改尺寸 → 本草图/下游特征联动（真栈验证）。
@@ -72,7 +73,8 @@
 - 删除清理单测：`sketch-delete.test.ts` **6/6**（projected 根删除级联派生点）。
 - 真栈 `e2e/sketch-use.spec.ts` **2 passed（40.6 s）**：
   草图 1 圆 R10 → 草图 2 使用点击 → projected 圆 R10 + 派生圆心点 →
-  undo 移除 → 再次使用 → 源草图改 R20 → 本草图读面联动 R20；Esc 退出会话。
+  undo 移除 → 再次使用 → 点投影源点 → projected 根点 →
+  源草图改 R20 → 本草图读面联动 R20；Esc 退出会话。
 - 回归：web 全量单测/lint/tsc（见提交记录）；既有阵列/草图工具不受影响
   （会话 kind 分支互斥）。
 

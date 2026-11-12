@@ -46,16 +46,17 @@ describe('planesAreParallel', () => {
 });
 
 describe('isUsableSourceEntity', () => {
-  it('线/点/圆/弧可用；样条与投影源不可用', () => {
+  it('线/点/圆/弧可用（含链式投影源）；样条不可用', () => {
     expect(isUsableSourceEntity({ kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 1, y: 0 } })).toBe(true);
     expect(isUsableSourceEntity({ kind: 'point', id: 2, x: 0, y: 0 })).toBe(true);
     expect(isUsableSourceEntity({ kind: 'circle', id: 3, center: { x: 0, y: 0 }, radius: 1 })).toBe(true);
     expect(isUsableSourceEntity({ kind: 'arc', id: 4, center: { x: 0, y: 0 }, radius: 1, startAngle: 0, sweepAngle: 1 })).toBe(true);
     expect(isUsableSourceEntity({ kind: 'spline', id: 5, controlPoints: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }] })).toBe(false);
+    // 链式投影源允许（后端递归解析；样条源仍拒收）。
     expect(isUsableSourceEntity({
       kind: 'line', id: 6, p1: { x: 0, y: 0 }, p2: { x: 1, y: 0 },
       projected: { kind: 'projected', source: { kind: 'sketchEntity', sketchId: 's', entityId: 1 } },
-    })).toBe(false);
+    })).toBe(true);
   });
 });
 

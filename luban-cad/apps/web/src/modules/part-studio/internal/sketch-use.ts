@@ -49,10 +49,12 @@ function resolvePoint(
   return typeof ref === 'number' ? points.get(ref) : isPoint(ref) ? ref : undefined;
 }
 
-/** 候选实体：非投影、线/点/圆/弧（样条后端不支持投影源）。 */
+/**
+ * 候选实体：线/点/圆/弧（样条后端不支持投影源）。
+ * 2026-11-13：允许链式投影源（源本身是 projected；后端 loadSource 递归解析并
+ * 带循环引用检测），但样条源仍拒收。
+ */
 export function isUsableSourceEntity(entity: SketchEntityDto): boolean {
-  if (entity.projected !== undefined)
-    return false;
   return entity.kind === 'line' || entity.kind === 'point' || entity.kind === 'circle' || entity.kind === 'arc';
 }
 

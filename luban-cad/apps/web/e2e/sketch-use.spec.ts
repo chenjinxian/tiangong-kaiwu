@@ -51,7 +51,10 @@ async function openUseSketch(
   const lease = await borrowWriteLease(ctx, token, 'sketch-use');
   const source = await applyFeatureOpRpc(ctx, {
     kind: 'insertSketch',
-    entities: [{ kind: 'circle', id: 11, center: { x: 0.02, y: 0 }, radius: 0.01 }],
+    entities: [
+      { kind: 'circle', id: 11, center: { x: 0.02, y: 0 }, radius: 0.01 },
+      { kind: 'point', id: 12, x: 0.04, y: 0.02 },
+    ],
     constraints: [{ kind: 'radius', id: 101, refs: [11], value: 0.01 }],
     plane: XY_PLANE,
   }, lease, token);
@@ -140,6 +143,21 @@ test.describe('草图「使用」（Onshape Use 对拍）', () => {
       timeout: 40_000,
       intervals: [500, 1000, 2000],
     }).toBeCloseTo(0.01, 5);
+
+    // 点源投影（覆盖层点候选）：源点 (0.04,0.02) → projected 根点。
+    const onPoint = await project(0.04, 0.02);
+    await page.mouse.move(onPoint.x, onPoint.y);
+    await page.waitForTimeout(200);
+    await page.mouse.click(onPoint.x, onPoint.y);
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, consumerId, token);
+      return (sketch?.entities ?? []).some((entity) =>
+        entity.kind === 'point'
+        && entity.projected?.kind === 'projected'
+        && entity.projected.derived !== true
+        && entity.projected.source.sketchId === sourceId
+        && entity.projected.source.entityId === 12);
+    }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(true);
 
     const lease = await borrowWriteLease(ctx, token, 'sketch-use-source-update');
     const currentSource = await getSketchRpc(ctx, sourceId, token);
