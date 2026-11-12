@@ -58,6 +58,11 @@ export interface SketchEntityPickerProps {
   onZoomToEntity?: (entityId: number) => void;
   /** 当前实体是否已是构造线（菜单标签依据）。 */
   isConstruction?: (entityId: number) => boolean;
+  /**
+   * 覆盖层命中（约束 glyph / 尺寸标签）：命中时本层不拾取实体、不清实选择，
+   * 由覆盖层自己选中约束（glyph 常叠在实体线上；2026-11-12 实测）。
+   */
+  isOverlayPoint?: (point: ScreenPoint2) => boolean;
 }
 
 const CLICK_SLOP_PX = 4;
@@ -80,6 +85,7 @@ export function SketchEntityPicker({
   onFitToSketch,
   onZoomToEntity,
   isConstruction,
+  isOverlayPoint,
 }: SketchEntityPickerProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -126,6 +132,8 @@ export function SketchEntityPicker({
   sketchRef.current = sketch;
   const canEditRef = React.useRef(canEdit);
   canEditRef.current = canEdit;
+  const isOverlayPointRef = React.useRef(isOverlayPoint);
+  isOverlayPointRef.current = isOverlayPoint;
   const onPreviewChangeRef = React.useRef(onPreviewChange);
   onPreviewChangeRef.current = onPreviewChange;
   const onCommitDragRef = React.useRef(onCommitDrag);
@@ -167,6 +175,8 @@ export function SketchEntityPicker({
       if (event.button !== 0 || menuOpenRef.current)
         return;
       down = local(event);
+      if (isOverlayPointRef.current?.(down))
+        return;
       const target = hitTestRef.current(down);
       if (target && canEditRef.current) {
         drag = { target, down, dragging: false };
@@ -224,6 +234,11 @@ export function SketchEntityPicker({
         return;
       }
       drag = undefined;
+      // 覆盖层（约束 glyph / 尺寸标签）释放：不拾取实体、不清约束选择。
+      if (isOverlayPointRef.current?.(up)) {
+        down = undefined;
+        return;
+      }
       if (moved > CLICK_SLOP_PX)
         return;
       const hit = hitTestRef.current(up);

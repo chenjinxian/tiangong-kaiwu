@@ -240,7 +240,7 @@ export function PartStudioCanvas({
     sketchPreviewEntities,
   );
   // 2026-11-02 Onshape live：活动草图尺寸标注（长度/距离/半径）视口绘制。
-  const { annotations: sketchAnnotations } = useSketchAnnotations(
+  const { annotations: sketchAnnotations, glyphs: sketchConstraintGlyphs } = useSketchAnnotations(
     viewport,
     sketchSystem?.activeSketch,
     sketchActiveForDecorations && sketchSystem !== undefined,
@@ -374,6 +374,9 @@ export function PartStudioCanvas({
     return entity !== undefined && entity.kind !== 'point'
       && (entity as { construction?: boolean }).construction === true;
   }, [sketchSystem?.activeSketch]);
+
+  // 覆盖层命中通道：约束 glyph / 尺寸标签叠在实体线上，实体拾取层命中时让位。
+  const sketchOverlayHitRef = React.useRef<((point: { x: number; y: number }) => boolean) | null>(null);
 
   // ADR-0018 S1d 扩展：尺寸/约束选择（唯一选择权威的 sketchConstraint 条目）与
   // Delete 删除（updateSketch 移除该约束）；与实体选择互斥——选一类清另一类。
@@ -793,6 +796,7 @@ export function PartStudioCanvas({
           onFitToSketch={fitSketchEntities}
           onZoomToEntity={zoomToSketchEntity}
           isConstruction={isSketchEntityConstruction}
+          isOverlayPoint={(point) => sketchOverlayHitRef.current?.(point) ?? false}
           onSelectionChange={(entries) => {
             const others = canvasSelectionForSketchPlane.filter(
               (entry) => entry.kind !== 'sketchEntity' && entry.kind !== 'sketchConstraint',
@@ -826,6 +830,8 @@ export function PartStudioCanvas({
         <SketchDimensionEditor
           viewport={viewport}
           annotations={sketchAnnotations}
+          glyphs={sketchConstraintGlyphs}
+          overlayHitTestRef={sketchOverlayHitRef}
           constraints={sketchSystem.activeSketch.constraints}
           onCommit={async (constraintId, value) => {
             const result = await sketchSystem.applyConstraintValue(constraintId, value);

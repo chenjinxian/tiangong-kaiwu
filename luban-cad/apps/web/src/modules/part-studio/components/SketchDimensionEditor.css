@@ -45,3 +45,14 @@
   background: rgba(245, 166, 65, 0.12);
   pointer-events: none;
 }
+
+/* 选中非尺寸约束 glyph 高亮（Onshape live：浅蓝底 + 蓝边，见
+   ui-evidence/sketch-constraint-glyphs-20261112/10-postman-sketch1.png）。 */
+.part-studio-constraint-glyph-highlight {
+  position: absolute;
+  z-index: 19;
+  border: 1px solid #4a90d9;
+  border-radius: 2px;
+  background: rgba(199, 226, 250, 0.6);
+  pointer-events: none;
+}

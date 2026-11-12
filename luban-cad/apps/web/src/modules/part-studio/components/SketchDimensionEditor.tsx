@@ -10,21 +10,33 @@
  *
  * 仅 distance/radius/diameter/length 可改值（后端 updateSketchConstraint 白名单）；
  * 角度等双击时诚实提示未支持，不弹假编辑框。
+ *
+ * 2026-11-12（Onshape 约束 glyph 对拍）：非尺寸约束 glyph（⊥/∥/=/—/|/中点/
+ * 重合/镜像…）同样可单击选中、Delete 删除——命中区由 viewer 同一布局纯函数
+ * 给出，选中高亮浅蓝（live 截图口径），删除走宿主 updateSketch 移除该约束。
  */
 import React from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
 import type { SketchConstraintDto } from '@luban-cad/shared';
-import { layoutSketchDimensions, sketchDimensionLabels } from '@luban-cad/viewer';
-import type { SketchDimensionAnnotation } from '@luban-cad/viewer';
+import {
+  layoutSketchConstraintGlyphs,
+  layoutSketchDimensions,
+  sketchDimensionLabels,
+} from '@luban-cad/viewer';
+import type { SketchConstraintGlyphAnnotation, SketchDimensionAnnotation } from '@luban-cad/viewer';
 import {
   constraintIdFromDimensionLabel,
+  hitTestSketchConstraintGlyph,
   hitTestSketchDimensionLabel,
 } from '../internal/sketch-dimension-picker.js';
+import { constraintIdFromGlyphId } from '../internal/sketch-constraint-glyphs.js';
 import './SketchDimensionEditor.css';
 
 export interface SketchDimensionEditorProps {
   viewport?: ScreenViewport | null;
   annotations: readonly SketchDimensionAnnotation[];
+  /** 非尺寸约束 glyph 锚点（与装饰器绘制同源；缺省不渲染/不拾取）。 */
+  glyphs?: readonly SketchConstraintGlyphAnnotation[];
   constraints?: readonly SketchConstraintDto[];
   canEdit?: boolean;
   /** 提交（宿主走 sketchSystem.applyConstraintValue）；ok:false 时保留输入框。 */
@@ -37,6 +49,11 @@ export interface SketchDimensionEditorProps {
   onSelectConstraint?: (constraintId: number | null) => void;
   /** Delete/Backspace 删除选中尺寸（宿主走 updateSketch 移除约束）。 */
   onDeleteConstraint?: (constraintId: number) => void | Promise<void>;
+  /**
+   * 覆盖层命中注册（供 SketchEntityPicker 抑制实体拾取/清选择）：glyph/标签
+   * 常叠在实体线上，实体层必须让位给覆盖层（2026-11-12 实测）。
+   */
+  overlayHitTestRef?: React.MutableRefObject<((point: { x: number; y: number }) => boolean) | null>;
 }
 
 interface EditorState {
@@ -52,6 +69,7 @@ const EDITABLE_CONSTRAINT_KINDS = new Set<SketchConstraintDto['kind']>(['distanc
 export function SketchDimensionEditor({
   viewport,
   annotations,
+  glyphs,
   constraints,
   canEdit = true,
   onCommit,
@@ -59,6 +77,7 @@ export function SketchDimensionEditor({
   selectedConstraintId = null,
   onSelectConstraint,
   onDeleteConstraint,
+  overlayHitTestRef,
 }: SketchDimensionEditorProps): React.JSX.Element | null {
   const [viewVersion, setViewVersion] = React.useState(0);
   const [editor, setEditor] = React.useState<EditorState | null>(null);
@@ -71,9 +90,28 @@ export function SketchDimensionEditor({
     // viewVersion：相机变化后标签屏幕位置重算（marker/e2e 观测面）。
     [annotations, viewport, viewVersion],
   );
+  const glyphLayouts = React.useMemo(
+    () => (viewport && glyphs ? layoutSketchConstraintGlyphs(glyphs, viewport) : []),
+    [glyphs, viewport, viewVersion],
+  );
 
   const labelsRef = React.useRef(labels);
   labelsRef.current = labels;
+  const glyphLayoutsRef = React.useRef(glyphLayouts);
+  glyphLayoutsRef.current = glyphLayouts;
+
+  // 覆盖层命中注册：实体拾取层在 glyph/标签命中时让位（不拾取线条、不清选择）。
+  React.useEffect(() => {
+    if (!overlayHitTestRef)
+      return;
+    overlayHitTestRef.current = (point) =>
+      hitTestSketchDimensionLabel(labelsRef.current, point) !== null
+      || hitTestSketchConstraintGlyph(glyphLayoutsRef.current, point) !== null;
+    return () => {
+      if (overlayHitTestRef.current)
+        overlayHitTestRef.current = null;
+    };
+  }, [overlayHitTestRef, labels, glyphLayouts]);
   const constraintsRef = React.useRef(constraints);
   constraintsRef.current = constraints;
   const canEditRef = React.useRef(canEdit);
@@ -168,6 +206,17 @@ export function SketchDimensionEditor({
         return;
       const label = hitTestSketchDimensionLabel(labelsRef.current, point);
       if (!label) {
+        // 非尺寸约束 glyph：单击选中（与尺寸标签同一选择权威）。
+        const glyph = hitTestSketchConstraintGlyph(glyphLayoutsRef.current, point);
+        if (glyph) {
+          const glyphConstraintId = constraintIdFromGlyphId(glyph.annotation.id);
+          if (glyphConstraintId !== null) {
+            event.preventDefault();
+            event.stopPropagation();
+            onSelectConstraintRef.current?.(glyphConstraintId);
+            return;
+          }
+        }
         if (selectedRef.current !== null)
           onSelectConstraintRef.current?.(null);
         return;
@@ -228,11 +277,42 @@ export function SketchDimensionEditor({
     }
   };
 
-  if (labels.length === 0 && !editor)
+  if (labels.length === 0 && glyphLayouts.length === 0 && !editor)
     return null;
 
   return (
     <React.Fragment>
+      {glyphLayouts.map((item) => {
+        const constraintId = constraintIdFromGlyphId(item.annotation.id);
+        const selected = constraintId !== null && constraintId === selectedConstraintId;
+        const width = Math.max(1, item.rect.right - item.rect.left);
+        const height = Math.max(1, item.rect.bottom - item.rect.top);
+        return (
+          <React.Fragment key={item.annotation.id}>
+            <span
+              data-testid="sketch-constraint-glyph"
+              data-constraint-id={constraintId ?? ''}
+              data-kind={item.annotation.kind}
+              data-center={`${item.center.x},${item.center.y}`}
+              data-selected={selected ? 'true' : 'false'}
+              className="part-studio-dimension-marker"
+              aria-hidden="true"
+            />
+            {selected && (
+              <span
+                className="part-studio-constraint-glyph-highlight"
+                style={{
+                  left: item.rect.left,
+                  top: item.rect.top,
+                  width,
+                  height,
+                }}
+                aria-hidden="true"
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
       {labels.map((label) => {
         const constraintId = constraintIdFromDimensionLabel(label.id);
         const selected = constraintId !== null && constraintId === selectedConstraintId;

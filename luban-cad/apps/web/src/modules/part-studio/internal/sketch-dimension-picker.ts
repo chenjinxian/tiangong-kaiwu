@@ -6,7 +6,7 @@
  * `layoutSketchDimensions`/`sketchDimensionLabels` 纯函数给出（与绘制同源），
  * 本模块只做命中判定与约束 id 解析。
  */
-import type { SketchDimensionLabel } from '@luban-cad/viewer';
+import type { SketchConstraintGlyphLayout, SketchDimensionLabel } from '@luban-cad/viewer';
 
 export interface ScreenPoint2 { x: number; y: number }
 
@@ -17,6 +17,25 @@ export function constraintIdFromDimensionLabel(id: string): number | null {
     return null;
   const value = Number(match[1]);
   return Number.isSafeInteger(value) ? value : null;
+}
+
+/** 非尺寸约束 glyph 命中：方块矩形（含 tolerance 外扩）内取中心最近者。 */
+export function hitTestSketchConstraintGlyph(
+  glyphs: readonly SketchConstraintGlyphLayout[],
+  point: ScreenPoint2,
+  tolerance = 1,
+): SketchConstraintGlyphLayout | null {
+  let best: { glyph: SketchConstraintGlyphLayout; distance: number } | null = null;
+  for (const glyph of glyphs) {
+    const { left, top, right, bottom } = glyph.rect;
+    if (point.x < left - tolerance || point.x > right + tolerance
+      || point.y < top - tolerance || point.y > bottom + tolerance)
+      continue;
+    const distance = Math.hypot(point.x - glyph.center.x, point.y - glyph.center.y);
+    if (!best || distance < best.distance)
+      best = { glyph, distance };
+  }
+  return best?.glyph ?? null;
 }
 
 /** 命中判定：优先中心距离（框内取最近），容差外返回 null。 */

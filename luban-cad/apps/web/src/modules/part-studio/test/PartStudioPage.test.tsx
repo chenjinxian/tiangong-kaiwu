@@ -229,8 +229,14 @@ vi.mock('@luban-cad/viewer', () => ({
     setAnnotations() { /* noop */ }
     dispose() { /* noop */ }
   },
+  SketchConstraintGlyphsDecoration: class {
+    constructor() { /* noop */ }
+    setGlyphs() { /* noop */ }
+    dispose() { /* noop */ }
+  },
   layoutSketchDimensions: () => [],
   sketchDimensionLabels: () => [],
+  layoutSketchConstraintGlyphs: () => [],
   BrepTopologyDecoration: class {
     constructor() { /* noop */ }
     setTopology() { /* noop */ }

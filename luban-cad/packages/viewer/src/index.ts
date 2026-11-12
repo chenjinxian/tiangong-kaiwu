@@ -52,6 +52,18 @@ export {
   layoutSketchDimensions,
   sketchDimensionLabels,
 } from './viewport/decorations/sketch-dimensions-decoration.js';
+// 2026-11-12：活动草图非尺寸约束 glyph（Onshape live；命中/布局纯函数共用）。
+export {
+  SketchConstraintGlyphsDecoration,
+  CONSTRAINT_GLYPH_SIZE,
+  drawConstraintGlyphSymbol,
+  layoutSketchConstraintGlyphs,
+} from './viewport/decorations/sketch-constraint-glyphs-decoration.js';
+export type {
+  SketchConstraintGlyphAnnotation,
+  SketchConstraintGlyphKind,
+  SketchConstraintGlyphLayout,
+} from './viewport/decorations/sketch-constraint-glyphs-decoration.js';
 // 2026-11-03：完整 BRep 拓扑边/顶点叠加层（后端拓扑读面 → iTwin GraphicBuilder）。
 export {
   BrepTopologyDecoration,
