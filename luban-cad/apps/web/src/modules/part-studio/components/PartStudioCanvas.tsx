@@ -53,7 +53,7 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult, SketchPlaneDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { deleteSelectedSubEntity } from '../canvas/subentity-delete.js';
 import type { CanvasSelection } from '../types.js';
@@ -204,6 +204,24 @@ export function PartStudioCanvas({
   useDatumPlaneDecorations(viewport);
   const sketchActiveForDecorations = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchIdForDecorations = usePartStudioStore((s) => s.sketch.activeSketchId);
+  // ADR-0018 S1c：拖拽预览（显示层覆盖）与释放提交（一次 updateSketch，可 undo）。
+  const [sketchPreviewEntities, setSketchPreviewEntities] = React.useState<readonly SketchEntityDto[] | null>(null);
+  React.useEffect(() => {
+    if (!sketchActiveForDecorations)
+      setSketchPreviewEntities(null);
+  }, [sketchActiveForDecorations]);
+  const commitSketchDrag = React.useCallback(async (entities: SketchEntityDto[]) => {
+    if (!sketchSystem?.activeSketch)
+      return;
+    const result = await sketchSystem.applyUpdate(entities, sketchSystem.activeSketch.constraints);
+    setSketchPreviewEntities(null);
+    if (!result.ok) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Error,
+        t('partStudio.sketch.dragFailed', { message: result.error ?? '' }),
+      ));
+    }
+  }, [sketchSystem, t]);
   useSketchCurveDecorations(
     viewport,
     featureEntries,
@@ -211,6 +229,8 @@ export function PartStudioCanvas({
     activeSketchIdForDecorations,
     // Onshape 对拍（2026-11-12）：编辑态用 getSketch 现场解算的实体/DOF 着色并画控制点。
     sketchSystem?.activeSketch,
+    // S1c：拖拽预览覆盖显示（事实源不变）。
+    sketchPreviewEntities,
   );
   // 2026-11-02 Onshape live：活动草图尺寸标注（长度/距离/半径）视口绘制。
   const { annotations: sketchAnnotations } = useSketchAnnotations(
@@ -613,6 +633,10 @@ export function PartStudioCanvas({
           viewport={viewport}
           sketch={sketchSystem.activeSketch}
           selected={sketchEntitySelection}
+          canEdit={canEdit}
+          previewEntities={sketchPreviewEntities}
+          onPreviewChange={setSketchPreviewEntities}
+          onCommitDrag={commitSketchDrag}
           onSelectionChange={(entries) => {
             const others = canvasSelectionForSketchPlane.filter((entry) => entry.kind !== 'sketchEntity');
             setCanvasSelection([

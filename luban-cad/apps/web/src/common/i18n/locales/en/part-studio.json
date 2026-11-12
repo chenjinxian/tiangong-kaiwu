@@ -929,6 +929,7 @@
     "facePlaneFailed": "The selected face is not planar or could not be read, so it cannot be used as a sketch plane"
   },
   "sketch": {
+    "dragFailed": "Sketch drag commit failed: {{message}}",
     "constraintsOverlay": "Constraints",
     "live": {
       "length": "Length",

@@ -37,6 +37,7 @@
 ### D4. 拖拽与编辑管线
 拖拽在屏幕空间命中控制点/实体：拖拽期间仅本地预览（覆盖层），释放后一次 `updateSketch`（全量 entities+constraints，经 `useSketchSystem.applyUpdate → LubanFeatureRpcInterface`）提交；失败保留原几何并 toast，成功由 `onCommitted` 刷新；标准 undo 生效。禁止拖拽期间逐帧 RPC。
 Delete 删除选中实体/约束 = `updateSketch`（移除实体及其引用约束，或被约束依赖时由后端诚实拒收）；尺寸双击改值 = `updateSketchConstraint`（既有 API）。
+撤销语义：`onAfterUndoRedo` 也刷新活动草图（撤/重做不发 `onCommitted`）。注意自动保存（ADR-0017 Stage F）推送会开启新 changeset 会话，原生 undo 只覆盖**推送前**窗口；S1c 真栈在推送前点击撤销验证（`sketch-entity-drag.spec.ts`）。该窗口与 Stage F 已登记限制同源，不新增第二套撤销状态机（P0-01/P0-05）。
 
 ### D5. 相机
 不在进入草图时强制正视（与 live 一致）；提供显式“正视草图平面”命令（后续切片），不改变默认相机权威（iModel 视图）。
@@ -58,4 +59,4 @@ Delete 删除选中实体/约束 = `updateSketch`（移除实体及其引用约�
 
 ## 5. 实施切片
 
-S1a 着色+控制点（已实现，本 ADR 同时落地文档）→ S1b hover/选择 → S1c 拖拽 → S1d Delete → S1e 尺寸改值 → S1f 面域填充/正视命令；S2 特征树交互对拍；S3 缺失功能（BRepCore 就绪优先）。
+S1a 着色+控制点（已实现）→ S1b 选择（已实现，`sketch-entity-select.spec.ts`）→ S1c 拖拽（已实现：曲线本体/控制点/圆弧端点、Escape 取消、撤销刷新，`sketch-entity-drag.spec.ts` 真栈）→ S1d Delete → S1e 尺寸改值 → S1f 面域填充/正视命令；S2 特征树交互对拍；S3 缺失功能（BRepCore 就绪优先）。

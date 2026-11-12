@@ -929,6 +929,7 @@
     "facePlaneFailed": "所选面不是平面或无法读取，不能作为草图平面"
   },
   "sketch": {
+    "dragFailed": "草图拖拽提交失败：{{message}}",
     "constraintsOverlay": "约束",
     "live": {
       "length": "长度",

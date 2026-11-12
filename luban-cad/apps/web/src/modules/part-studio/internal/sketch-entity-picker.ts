@@ -64,7 +64,12 @@ export function hitTestSketchEntity(
       bestControl = { d, cp };
   }
   if (bestControl)
-    return { sketchId, entityId: bestControl.cp.entityId, part: 'handle' };
+    return {
+      sketchId,
+      entityId: bestControl.cp.entityId,
+      part: 'handle',
+      ...(bestControl.cp.handleIndex !== undefined ? { handleIndex: bestControl.cp.handleIndex } : {}),
+    };
   let bestCurve: { d: number; line: SketchEntityPolyline } | undefined;
   for (const line of geometry.polylines) {
     const d = curveDistance(point, line.points.map((world) => project(world)));

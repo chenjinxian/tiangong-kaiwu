@@ -15,12 +15,13 @@
 import React from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
 import type { Point3d } from '@itwin/core-geometry';
-import type { SketchDto } from '@luban-cad/shared';
+import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
 import {
   sketchControlPointsToWorld,
   sketchEntitiesToWorldPolylines,
   type SketchEntityPolyline,
 } from '../internal/sketch-curves.js';
+import { applySketchDrag, screenDeltaToLocal } from '../internal/sketch-drag.js';
 import {
   hitTestSketchEntity,
   type ScreenPoint2,
@@ -36,6 +37,14 @@ export interface SketchEntityPickerProps {
   sketch: SketchDto;
   selected: readonly SketchEntitySelection[];
   onSelectionChange: (selection: readonly SketchEntitySelection[]) => void;
+  /** 写门禁（只读时仅可选择，不可拖拽）。 */
+  canEdit?: boolean;
+  /** 拖拽预览实体（显示层覆盖；提交成功后由宿主清空）。 */
+  previewEntities?: readonly SketchEntityDto[] | null;
+  /** 拖拽预览更新（null=取消/结束）。 */
+  onPreviewChange?: (entities: SketchEntityDto[] | null) => void;
+  /** 释放提交：一次 updateSketch（宿主负责 RPC/失败 toast/刷新）。 */
+  onCommitDrag?: (entities: SketchEntityDto[]) => void | Promise<void>;
 }
 
 const CLICK_SLOP_PX = 4;
@@ -48,6 +57,10 @@ export function SketchEntityPicker({
   sketch,
   selected,
   onSelectionChange,
+  canEdit = true,
+  previewEntities,
+  onPreviewChange,
+  onCommitDrag,
 }: SketchEntityPickerProps): React.JSX.Element | null {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [hover, setHover] = React.useState<SketchEntitySelection | null>(null);
@@ -56,10 +69,12 @@ export function SketchEntityPicker({
   const selectedRef = React.useRef(selected);
   selectedRef.current = selected;
 
+  // 拖拽预览期用预览实体（显示与命中都以预览为准）；事实源仍是后端解算 params。
+  const displayEntities = previewEntities ?? sketch.entities;
   const geometry = React.useMemo(() => ({
-    polylines: sketchEntitiesToWorldPolylines(sketch.entities, sketch.plane),
-    controlPoints: sketchControlPointsToWorld(sketch.entities, sketch.plane),
-  }), [sketch.entities, sketch.plane]);
+    polylines: sketchEntitiesToWorldPolylines(displayEntities, sketch.plane),
+    controlPoints: sketchControlPointsToWorld(displayEntities, sketch.plane),
+  }), [displayEntities, sketch.plane]);
 
   const toScreen = React.useCallback((viewport2: ScreenViewport, points: readonly Point3d[]): ScreenPoint2[] =>
     points.map((p) => {
@@ -87,20 +102,74 @@ export function SketchEntityPicker({
   hitTestRef.current = hitTest;
   const onSelectionChangeRef = React.useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
+  const sketchRef = React.useRef(sketch);
+  sketchRef.current = sketch;
+  const canEditRef = React.useRef(canEdit);
+  canEditRef.current = canEdit;
+  const onPreviewChangeRef = React.useRef(onPreviewChange);
+  onPreviewChangeRef.current = onPreviewChange;
+  const onCommitDragRef = React.useRef(onCommitDrag);
+  onCommitDragRef.current = onCommitDrag;
 
   React.useEffect(() => {
     const canvas = viewport?.canvas;
     if (!viewport || !canvas)
       return;
     let down: ScreenPoint2 | undefined;
+    let drag: { target: SketchEntitySelection; down: ScreenPoint2; dragging: boolean; preview?: SketchEntityDto[] } | undefined;
     const local = (event: PointerEvent): ScreenPoint2 => {
       const rect = canvas.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    };
+    const cancelDrag = (): void => {
+      if (!drag)
+        return;
+      drag = undefined;
+      onPreviewChangeRef.current?.(null);
     };
     const onDown = (event: PointerEvent): void => {
       if (event.button !== 0)
         return;
       down = local(event);
+      const target = hitTestRef.current(down);
+      if (target && canEditRef.current) {
+        drag = { target, down, dragging: false };
+        // 命中实体时不让 iTwin 同时启动相机旋转/工具手势；空按仍交给视口。
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    const onMove = (event: PointerEvent): void => {
+      if (drag && (event.buttons & 1) === 1) {
+        const point = local(event);
+        const dx = point.x - drag.down.x;
+        const dy = point.y - drag.down.y;
+        if (!drag.dragging) {
+          if (Math.hypot(dx, dy) <= CLICK_SLOP_PX)
+            return;
+          drag.dragging = true;
+        }
+        const delta = screenDeltaToLocal(viewport, sketchRef.current.plane, dx, dy);
+        if (!delta)
+          return;
+        drag.preview = applySketchDrag(
+          sketchRef.current.entities,
+          { entityId: drag.target.entityId, part: drag.target.part, handleIndex: drag.target.handleIndex },
+          delta.du,
+          delta.dv,
+        );
+        onPreviewChangeRef.current?.(drag.preview);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      const hit = hitTestRef.current(local(event));
+      const prev = hoverRef.current;
+      if (hit === null && prev === null)
+        return;
+      if (hit && prev && sameSelection(hit, prev))
+        return;
+      setHover(hit);
     };
     const onUp = (event: PointerEvent): void => {
       if (event.button !== 0 || !down)
@@ -108,6 +177,15 @@ export function SketchEntityPicker({
       const up = local(event);
       const moved = Math.hypot(up.x - down.x, up.y - down.y);
       down = undefined;
+      if (drag?.dragging && drag.preview) {
+        const preview = drag.preview;
+        drag = undefined;
+        void onCommitDragRef.current?.(preview);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      drag = undefined;
       if (moved > CLICK_SLOP_PX)
         return;
       const hit = hitTestRef.current(up);
@@ -123,22 +201,29 @@ export function SketchEntityPicker({
         ? (exists ? current.filter((entry) => !sameSelection(entry, hit)) : [...current, hit])
         : [hit]);
     };
-    const onMove = (event: PointerEvent): void => {
-      const hit = hitTestRef.current(local(event));
-      const prev = hoverRef.current;
-      if (hit === null && prev === null)
+    const onCancel = (): void => {
+      down = undefined;
+      cancelDrag();
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !drag?.dragging)
         return;
-      if (hit && prev && sameSelection(hit, prev))
-        return;
-      setHover(hit);
+      cancelDrag();
+      // 拖拽中的 Esc 只取消拖拽，不触发草图对话框的「退出草图」。
+      event.preventDefault();
+      event.stopPropagation();
     };
     window.addEventListener('pointerdown', onDown, true);
     window.addEventListener('pointerup', onUp, true);
     window.addEventListener('pointermove', onMove, true);
+    window.addEventListener('pointercancel', onCancel, true);
+    window.addEventListener('keydown', onKeyDown, true);
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('pointerup', onUp, true);
       window.removeEventListener('pointermove', onMove, true);
+      window.removeEventListener('pointercancel', onCancel, true);
+      window.removeEventListener('keydown', onKeyDown, true);
     };
   }, [viewport]);
 

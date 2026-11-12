@@ -35,6 +35,8 @@ export interface SketchControlPointWorld {
   entityId: number;
   position: Point3d;
   kind: 'point' | 'center' | 'endpoint' | 'control';
+  /** 实体内控制点序号（拖拽时定位端点/控制点；0 起）。 */
+  handleIndex?: number;
 }
 
 interface LocalPoint { x: number; y: number }
@@ -178,14 +180,17 @@ export function sketchControlPointsToWorld(
   const resolve = makePointResolver(points);
   const out: SketchControlPointWorld[] = [];
   const seen = new Set<string>();
+  const counters = new Map<number, number>();
   const push = (entityId: number, local: LocalPoint | undefined, kind: SketchControlPointWorld['kind']): void => {
     if (!local)
       return;
+    const index = counters.get(entityId) ?? 0;
+    counters.set(entityId, index + 1);
     const key = `${Math.round(local.x * 1000)}:${Math.round(local.y * 1000)}`;
     if (seen.has(key))
       return;
     seen.add(key);
-    out.push({ entityId, position: frame.toWorld({ u: local.x, v: local.y }), kind });
+    out.push({ entityId, position: frame.toWorld({ u: local.x, v: local.y }), kind, handleIndex: index });
   };
   for (const entity of entities) {
     if (typeof entity.id !== 'number')

@@ -144,15 +144,20 @@ export function useSketchSystem(
     void refresh();
   }, [refresh, activeSketchId]);
 
-  // 外部提交（其他编辑通道/外部 changeset）→ 刷新读面
+  // 外部提交（其他编辑通道/外部 changeset）与撤销/重做 → 刷新读面。
+  // undo/redo 反转事务不发 onCommitted（TxnManager 只 notifyAfterUndoRedo），
+  // 不订会把拖拽/编辑后的旧坐标留在编辑态显示（ADR-0018 S1c）。
   useEffect(() => {
     if (!connection) return;
     const listener = () => {
       void refresh();
     };
     connection.txns.onCommitted.addListener(listener);
+    // 可选链：单测假连接可能只实现 onCommitted（真 BriefcaseTxns 恒有该事件）。
+    connection.txns.onAfterUndoRedo?.addListener(listener);
     return () => {
       connection.txns.onCommitted.removeListener(listener);
+      connection.txns.onAfterUndoRedo?.removeListener(listener);
     };
   }, [connection, refresh]);
 

@@ -10,7 +10,7 @@
  */
 import { useEffect, useMemo, useRef } from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
-import type { FeatureTreeEntry, SketchDto } from '@luban-cad/shared';
+import type { FeatureTreeEntry, SketchDto, SketchEntityDto } from '@luban-cad/shared';
 import { SketchCurvesDecoration } from '@luban-cad/viewer';
 import type { SketchConstraintState, SketchControlPointGeometry, SketchCurveGeometry } from '@luban-cad/viewer';
 import {
@@ -34,6 +34,8 @@ export function useSketchCurveDecorations(
   sketchActive: boolean,
   activeSketchId?: string | null,
   activeSketch?: SketchDto | null,
+  /** S1c：拖拽预览实体（显示层覆盖；缺省用 activeSketch.entities）。 */
+  previewEntities?: readonly SketchEntityDto[] | null,
 ): void {
   const activeSketchForId = sketchActive && activeSketch !== undefined && activeSketch !== null
     && (activeSketchId === undefined || activeSketchId === null || activeSketch.id === activeSketchId)
@@ -41,10 +43,11 @@ export function useSketchCurveDecorations(
     : undefined;
   const activeId = sketchActive ? activeSketchId ?? activeSketchForId?.id : undefined;
 
+  const activeEntities = previewEntities ?? activeSketchForId?.entities;
   const polylines = useMemo<readonly SketchCurveGeometry[]>(() => {
-    // 编辑态优先用 getSketch 现场解（含最新解算坐标）；未就绪回退树 params。
-    const fromActive = activeSketchForId ? sketchEntitiesToWorldPolylines(
-      activeSketchForId.entities,
+    // 编辑态优先用 getSketch 现场解（含最新解算坐标）；拖拽期用预览覆盖；未就绪回退树 params。
+    const fromActive = activeSketchForId && activeEntities ? sketchEntitiesToWorldPolylines(
+      activeEntities,
       activeSketchForId.plane,
     ).map((entry) => ({
       points: entry.points,
@@ -60,16 +63,16 @@ export function useSketchCurveDecorations(
       sketchId: entry.sketchId,
       ...(entry.construction ? { construction: true } : {}),
     }));
-  }, [entries, activeId, activeSketchForId]);
+  }, [entries, activeId, activeSketchForId, activeEntities]);
 
   const controlPoints = useMemo<readonly SketchControlPointGeometry[]>(() => {
-    if (!activeSketchForId)
+    if (!activeSketchForId || !activeEntities)
       return [];
-    return sketchControlPointsToWorld(activeSketchForId.entities, activeSketchForId.plane).map((point) => ({
+    return sketchControlPointsToWorld(activeEntities, activeSketchForId.plane).map((point) => ({
       position: point.position,
       sketchId: activeSketchForId.id,
     }));
-  }, [activeSketchForId]);
+  }, [activeSketchForId, activeEntities]);
 
   const constraintState = useMemo(() => constraintStateOf(activeSketchForId), [activeSketchForId]);
 
