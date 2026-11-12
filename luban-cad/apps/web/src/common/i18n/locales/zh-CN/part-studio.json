@@ -1106,6 +1106,13 @@
         "updateFailed": "草图更新失败"
       }
     },
+    "trim": {
+      "prompt": "单击要修剪的草图图元（移除点击处到最近交点之间的段落）；Esc 结束",
+      "notOpen": "请先进入草图编辑",
+      "invalidPoint": "无法在草图平面上定位点击点",
+      "unsupported": "该曲线类型暂不支持修剪（当前支持线/圆/圆弧）",
+      "failed": "修剪提交失败"
+    },
     "point": {
       "prompts": {
         "place": "点：点击放置点；Esc 或右键结束"

@@ -70,7 +70,6 @@ export const SKETCH_PLACEHOLDER_IDS: ReadonlySet<string> = new Set([
   'sketchText',
   'sketchUse',
   'sketchFillet',
-  'sketchTrim',
   'sketchLinearPattern',
   'sketchInsertDxf',
 ]);

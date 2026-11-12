@@ -283,6 +283,14 @@ export function SketchDialog({
     if (submitting) return;
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
+      // Onshape：草图工具激活时 Esc 先结束工具（工具自身处理），不得顺带退出草图。
+      // 工具主动退出后 activeTool 会切回选择工具，下一次 Esc 才退出草图。
+      const activeTool = (IModelApp.toolAdmin as unknown as { activeTool?: { toolId?: string } } | undefined)?.activeTool;
+      const toolId = activeTool?.toolId;
+      if (typeof toolId === 'string' && toolId.startsWith('Sketch.')) {
+        event.preventDefault();
+        return;
+      }
       event.preventDefault();
       cancelRef.current();
     };

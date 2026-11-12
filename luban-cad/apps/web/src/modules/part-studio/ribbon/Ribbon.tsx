@@ -83,6 +83,16 @@ export function useToolActivation(canEdit = true): ToolActivation {
     }
     // 2026-11-02：Onshape 草图工具栏里尚未实现的按钮/变体——保留 UI，点击无行为。
     if (SKETCH_PLACEHOLDER_IDS.has(id)) return;
+    if (id === 'sketchTrim') {
+      // 2026-11-12：草图修剪——Onshape「修剪」工具（toolId Sketch.Trim，真实
+      // PrimitiveTool）。reminder：ribbon 命令 id=sketchTrim 只是入口键，
+      // 工具 id 用点号族名；store 记入口 id 以驱动 ribbon 高亮。
+      setActiveTool('sketchTrim');
+      const started = await IModelApp.tools.run('Sketch.Trim');
+      if (!started)
+        console.warn('[part-studio] Sketch.Trim 未启动');
+      return;
+    }
     if (id === 'newSketch') {
       // os-30：草图命令开 SketchDialog（平面选择+四开关，确认进草图模式）；
       // 真实 sketch 工具接线前不经 tools.run（接线时移除本特例）。

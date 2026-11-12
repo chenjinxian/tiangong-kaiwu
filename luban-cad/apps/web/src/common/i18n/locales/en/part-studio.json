@@ -1106,6 +1106,13 @@
         "updateFailed": "Sketch update failed"
       }
     },
+    "trim": {
+      "prompt": "Click a sketch entity to trim between the nearest intersections; Esc to finish",
+      "notOpen": "Enter sketch editing first",
+      "invalidPoint": "Cannot locate the click on the sketch plane",
+      "unsupported": "This curve type cannot be trimmed yet (lines/circles/arcs only)",
+      "failed": "Trim commit failed"
+    },
     "point": {
       "prompts": {
         "place": "Point: click to place a point; Esc or right-click to finish"

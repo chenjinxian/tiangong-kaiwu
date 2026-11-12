@@ -936,6 +936,9 @@ function PartStudioSession({
         registerSketchMirrorTools();
         const { registerSketchPointTools } = await import('./tools/sketch/SketchPointTool.js');
         registerSketchPointTools();
+        // 2026-11-12：草图修剪（Sketch.Trim，Onshape「修剪」首切片）。
+        const { registerSketchTrimTools } = await import('./tools/sketch/SketchTrimTool.js');
+        registerSketchTrimTools();
         const { registerSketchTangentArcTools } = await import('./tools/sketch/SketchTangentArcTool.js');
         registerSketchTangentArcTools();
       } catch (err) {
