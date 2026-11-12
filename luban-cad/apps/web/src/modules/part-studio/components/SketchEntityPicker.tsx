@@ -13,6 +13,7 @@
  * 放大圆环。基础约束着色/控制点由 SketchCurvesDecoration 负责，本层只画强调。
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ScreenViewport } from '@itwin/core-frontend';
 import type { Point3d } from '@itwin/core-geometry';
 import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
@@ -47,6 +48,16 @@ export interface SketchEntityPickerProps {
   onCommitDrag?: (entities: SketchEntityDto[]) => void | Promise<void>;
   /** Delete/Backspace：删除选中草图实体（宿主负责 updateSketch/诚实拒收）。 */
   onDelete?: (selection: readonly SketchEntitySelection[]) => void | Promise<void>;
+  /** 右键菜单「建构线/取消建构线」（宿主 updateSketch 翻转 construction）。 */
+  onToggleConstruction?: (entityId: number) => void | Promise<void>;
+  /** 右键菜单「视图垂直于草图平面」。 */
+  onViewNormalToPlane?: () => void;
+  /** 右键菜单「缩放到合适大小」（草图实体范围）。 */
+  onFitToSketch?: () => void;
+  /** 右键菜单「放大选定对象」（该实体范围）。 */
+  onZoomToEntity?: (entityId: number) => void;
+  /** 当前实体是否已是构造线（菜单标签依据）。 */
+  isConstruction?: (entityId: number) => boolean;
 }
 
 const CLICK_SLOP_PX = 4;
@@ -64,7 +75,13 @@ export function SketchEntityPicker({
   onPreviewChange,
   onCommitDrag,
   onDelete,
+  onToggleConstruction,
+  onViewNormalToPlane,
+  onFitToSketch,
+  onZoomToEntity,
+  isConstruction,
 }: SketchEntityPickerProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [hover, setHover] = React.useState<SketchEntitySelection | null>(null);
   const hoverRef = React.useRef<SketchEntitySelection | null>(null);
@@ -115,6 +132,20 @@ export function SketchEntityPicker({
   onCommitDragRef.current = onCommitDrag;
   const onDeleteRef = React.useRef(onDelete);
   onDeleteRef.current = onDelete;
+  const onToggleConstructionRef = React.useRef(onToggleConstruction);
+  onToggleConstructionRef.current = onToggleConstruction;
+  const onViewNormalRef = React.useRef(onViewNormalToPlane);
+  onViewNormalRef.current = onViewNormalToPlane;
+  const onFitToSketchRef = React.useRef(onFitToSketch);
+  onFitToSketchRef.current = onFitToSketch;
+  const onZoomToEntityRef = React.useRef(onZoomToEntity);
+  onZoomToEntityRef.current = onZoomToEntity;
+  const isConstructionRef = React.useRef(isConstruction);
+  isConstructionRef.current = isConstruction;
+  const [menu, setMenu] = React.useState<{ x: number; y: number; selection: SketchEntitySelection } | null>(null);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const menuOpenRef = React.useRef(false);
+  menuOpenRef.current = menu !== null;
 
   React.useEffect(() => {
     const canvas = viewport?.canvas;
@@ -133,7 +164,7 @@ export function SketchEntityPicker({
       onPreviewChangeRef.current?.(null);
     };
     const onDown = (event: PointerEvent): void => {
-      if (event.button !== 0)
+      if (event.button !== 0 || menuOpenRef.current)
         return;
       down = local(event);
       const target = hitTestRef.current(down);
@@ -145,6 +176,8 @@ export function SketchEntityPicker({
       }
     };
     const onMove = (event: PointerEvent): void => {
+      if (menuOpenRef.current)
+        return;
       if (drag && (event.buttons & 1) === 1) {
         const point = local(event);
         const dx = point.x - drag.down.x;
@@ -177,7 +210,7 @@ export function SketchEntityPicker({
       setHover(hit);
     };
     const onUp = (event: PointerEvent): void => {
-      if (event.button !== 0 || !down)
+      if (event.button !== 0 || !down || menuOpenRef.current)
         return;
       const up = local(event);
       const moved = Math.hypot(up.x - down.x, up.y - down.y);
@@ -217,7 +250,35 @@ export function SketchEntityPicker({
         return true;
       return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
     };
+    const onContextMenu = (event: MouseEvent): void => {
+      const rect = canvas.getBoundingClientRect();
+      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      if (point.x < 0 || point.y < 0 || point.x > rect.width || point.y > rect.height)
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      const hit = hitTestRef.current(point);
+      if (!hit) {
+        setMenu(null);
+        return;
+      }
+      onSelectionChangeRef.current([hit]);
+      setMenu({ x: event.clientX, y: event.clientY, selection: hit });
+    };
+    const onMenuOutside = (event: MouseEvent): void => {
+      if (!menuOpenRef.current)
+        return;
+      if (menuRef.current && event.target instanceof Node && menuRef.current.contains(event.target))
+        return;
+      setMenu(null);
+    };
     const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && menuOpenRef.current) {
+        setMenu(null);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (event.key === 'Escape' && drag?.dragging) {
         cancelDrag();
         // 拖拽中的 Esc 只取消拖拽，不触发草图对话框的「退出草图」。
@@ -242,12 +303,16 @@ export function SketchEntityPicker({
     window.addEventListener('pointermove', onMove, true);
     window.addEventListener('pointercancel', onCancel, true);
     window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('contextmenu', onContextMenu, true);
+    window.addEventListener('mousedown', onMenuOutside, true);
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('pointerup', onUp, true);
       window.removeEventListener('pointermove', onMove, true);
       window.removeEventListener('pointercancel', onCancel, true);
       window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('contextmenu', onContextMenu, true);
+      window.removeEventListener('mousedown', onMenuOutside, true);
     };
   }, [viewport]);
 
@@ -339,6 +404,132 @@ export function SketchEntityPicker({
         data-hover={hover ? `${hover.entityId}:${hover.part}` : ''}
         aria-hidden="true"
       />
+      {menu && (() => {
+        const width = 220;
+        const height = 372;
+        const left = Math.min(menu.x, Math.max(8, window.innerWidth - width - 8));
+        const top = Math.min(menu.y, Math.max(8, window.innerHeight - height - 8));
+        const construction = isConstructionRef.current?.(menu.selection.entityId) ?? false;
+        const disabledHint = t('partStudio.tree.unsupported');
+        return (
+          <div
+            ref={menuRef}
+            className="part-studio-tree-menu part-studio-sketch-entity-menu"
+            role="menu"
+            aria-label={t('partStudio.sketch.entityMenuLabel')}
+            data-testid="sketch-entity-menu"
+            style={{ left, top }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
+              data-testid="sketch-entity-menu-delete"
+              onClick={() => {
+                const selection = menu.selection;
+                setMenu(null);
+                void onDeleteRef.current?.([selection]);
+              }}
+            >
+              {t('partStudio.sketch.entityMenuDelete')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-entity-menu-construction"
+              onClick={() => {
+                const entityId = menu.selection.entityId;
+                setMenu(null);
+                void onToggleConstructionRef.current?.(entityId);
+              }}
+            >
+              {construction
+                ? t('partStudio.sketch.entityMenuNormalGeometry')
+                : t('partStudio.sketch.entityMenuConstruction')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+              {t('partStudio.sketch.entityMenuCopy')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+              {t('partStudio.sketch.entityMenuTransform')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+              {t('partStudio.sketch.entityMenuExtrude')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+              {t('partStudio.sketch.entityMenuRevolve')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+              {t('partStudio.sketch.entityMenuAnalyze')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              onClick={() => {
+                setMenu(null);
+                onSelectionChangeRef.current([]);
+              }}
+            >
+              {t('partStudio.sketch.entityMenuClearSelection')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+              {t('partStudio.sketch.entityMenuSelect')}
+              <span className="part-studio-tree-menu__submenu" aria-hidden="true">›</span>
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+              {t('partStudio.sketch.entityMenuAddComment')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              onClick={() => {
+                setMenu(null);
+                onFitToSketchRef.current?.();
+              }}
+            >
+              {t('partStudio.sketch.entityMenuFit')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-entity-menu-zoom"
+              onClick={() => {
+                const entityId = menu.selection.entityId;
+                setMenu(null);
+                onZoomToEntityRef.current?.(entityId);
+              }}
+            >
+              {t('partStudio.sketch.entityMenuZoom')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-entity-menu-view-normal"
+              onClick={() => {
+                setMenu(null);
+                onViewNormalRef.current?.();
+              }}
+            >
+              {t('partStudio.sketch.entityMenuViewNormal')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+              {t('partStudio.sketch.entityMenuAlignVertical')}
+            </button>
+          </div>
+        );
+      })()}
     </React.Fragment>
   );
 }

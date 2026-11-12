@@ -83,7 +83,9 @@ import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
 import { clearActiveOnshapeHighlight, clearActiveOnshapeSelection } from '../internal/onshape-selection-runtime.js';
 import { applyCanvasSelection } from '../internal/selection-authority.js';
 import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
-import { fitCameraToSketch } from '../canvas/sketch-camera.js';
+import { fitCameraToSketch, orientCameraToSketchPlane } from '../canvas/sketch-camera.js';
+import { sketchEntitiesToWorldPolylines } from '../internal/sketch-curves.js';
+import { Range3d } from '@itwin/core-geometry';
 import { ViewCube } from './ViewCube.js';
 import { readViewCubeMode } from '../internal/viewcube-mode.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
@@ -314,6 +316,64 @@ export function PartStudioCanvas({
     setCanvasSelection(canvasSelectionForSketchPlane.filter((entry) =>
       entry.kind !== 'sketchEntity' || !removed.has(entry.entityId ?? -1)));
   }, [sketchSystem, canEdit, canvasSelectionForSketchPlane, setCanvasSelection, t]);
+
+  // ADR-0018 S1b 补充（Onshape live 2026-11-12 草图图元右键菜单）：建构线翻转 /
+  // 视图垂直于草图平面 / 适合窗口 / 放大选中实体——全部走既有 updateSketch/标准
+  // ViewState，无第二数据源。
+  const toggleSketchEntityConstruction = React.useCallback(async (entityId: number) => {
+    const sketch = sketchSystem?.activeSketch;
+    if (!sketch || !canEdit)
+      return;
+    const entities = sketch.entities.map((entity) => {
+      if (entity.id !== entityId || entity.kind === 'point')
+        return entity;
+      const next = { ...entity } as SketchEntityDto & { construction?: boolean };
+      if (next.construction)
+        delete next.construction;
+      else
+        next.construction = true;
+      return next;
+    });
+    const op = await sketchSystem.applyUpdate(entities, sketch.constraints);
+    if (!op.ok) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Error,
+        t('partStudio.sketch.deleteFailed', { message: op.error ?? '' }),
+      ));
+    }
+  }, [sketchSystem, canEdit, t]);
+  const fitSketchEntities = React.useCallback(() => {
+    const sketch = sketchSystem?.activeSketch;
+    if (viewport && sketch)
+      fitCameraToSketch(viewport, sketch.plane, sketch.entities);
+  }, [viewport, sketchSystem?.activeSketch]);
+  const viewNormalToSketch = React.useCallback(() => {
+    const sketch = sketchSystem?.activeSketch;
+    if (viewport && sketch)
+      orientCameraToSketchPlane(viewport, sketch.plane);
+  }, [viewport, sketchSystem?.activeSketch]);
+  const zoomToSketchEntity = React.useCallback((entityId: number) => {
+    const sketch = sketchSystem?.activeSketch;
+    if (!viewport || !sketch)
+      return;
+    const polyline = sketchEntitiesToWorldPolylines(
+      sketch.entities.filter((entity) => entity.id === entityId),
+      sketch.plane,
+    )[0];
+    if (!polyline || polyline.points.length === 0)
+      return;
+    const range = Range3d.createNull();
+    for (const point of polyline.points)
+      range.extendPoint(point);
+    range.expandInPlace(1);
+    viewport.view.lookAtVolume(range, viewport.viewRect.aspect, { paddingPercent: 0.25 });
+    viewport.synchWithView();
+  }, [viewport, sketchSystem?.activeSketch]);
+  const isSketchEntityConstruction = React.useCallback((entityId: number): boolean => {
+    const entity = sketchSystem?.activeSketch?.entities.find((candidate) => candidate.id === entityId);
+    return entity !== undefined && entity.kind !== 'point'
+      && (entity as { construction?: boolean }).construction === true;
+  }, [sketchSystem?.activeSketch]);
 
   // ADR-0018 S1d 扩展：尺寸/约束选择（唯一选择权威的 sketchConstraint 条目）与
   // Delete 删除（updateSketch 移除该约束）；与实体选择互斥——选一类清另一类。
@@ -728,6 +788,11 @@ export function PartStudioCanvas({
           onPreviewChange={setSketchPreviewEntities}
           onCommitDrag={commitSketchDrag}
           onDelete={deleteSelectedSketchEntities}
+          onToggleConstruction={toggleSketchEntityConstruction}
+          onViewNormalToPlane={viewNormalToSketch}
+          onFitToSketch={fitSketchEntities}
+          onZoomToEntity={zoomToSketchEntity}
+          isConstruction={isSketchEntityConstruction}
           onSelectionChange={(entries) => {
             const others = canvasSelectionForSketchPlane.filter(
               (entry) => entry.kind !== 'sketchEntity' && entry.kind !== 'sketchConstraint',

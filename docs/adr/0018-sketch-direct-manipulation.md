@@ -65,4 +65,4 @@ Delete 删除选中实体/约束 = `updateSketch`：移除选中曲线并级联�
 
 ## 5. 实施切片
 
-S1a 着色+控制点（已实现）→ S1b 选择（已实现，`sketch-entity-select.spec.ts`）→ S1c 拖拽（已实现：曲线本体/控制点/圆弧端点、Escape 取消、撤销刷新，`sketch-entity-drag.spec.ts` 真栈）→ S1d Delete（已实现：曲线删除+约束级联+撤销恢复，`sketch-entity-delete.spec.ts` 真栈）→ S1e 尺寸改值（已实现：半径/长度双击内联编辑，`sketch-dimension-edit.spec.ts` 真栈）→ S1f 面域填充/正视命令/编辑不抢相机（已实现：`sketch-region-fill.spec.ts`、`sketch-camera-parity.spec.ts` 真栈；填充像素 PIL 核对 rgb(228,230,233)）；S2 特征树交互对拍；S3 缺失功能（BRepCore 就绪优先）。
+S1a 着色+控制点（已实现）→ S1b 选择（已实现，`sketch-entity-select.spec.ts`）→ S1c 拖拽（已实现：曲线本体/控制点/圆弧端点、Escape 取消、撤销刷新，`sketch-entity-drag.spec.ts` 真栈）→ S1d Delete（已实现：曲线删除+约束级联+撤销恢复，`sketch-entity-delete.spec.ts` 真栈）→ S1e 尺寸改值（已实现：半径/长度双击内联编辑，`sketch-dimension-edit.spec.ts` 真栈）→ S1f 面域填充/正视命令/编辑不抢相机（已实现：`sketch-region-fill.spec.ts`、`sketch-camera-parity.spec.ts` 真栈；填充像素 PIL 核对 rgb(228,230,233)）；草图图元右键菜单（已实现：删除/建构线/正视/适合窗口/放大/清除选择，复制·变换·拉伸·旋转等未支持项诚实禁用；证据 `ui-evidence/sketch-entity-menu-20261112`，`sketch-entity-menu.spec.ts` 真栈）；S2 特征树交互对拍；S3 缺失功能（BRepCore 就绪优先）。
