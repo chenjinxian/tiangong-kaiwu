@@ -73,6 +73,14 @@ export interface SketchEntityPickerProps {
   onPaste?: () => void;
   /** 当前实体是否已是构造线（菜单标签依据）。 */
   isConstruction?: (entityId: number) => boolean;
+  /** 空白右键菜单「确认 草图 N」显示名（Onshape 用落库草图名）。 */
+  sketchName?: string;
+  /** 空白右键菜单「确认 草图 N」：完成并退出草图编辑。 */
+  onFinishSketch?: () => void;
+  /** 空白右键菜单「全部显示」：回显会话隐藏实体。 */
+  onShowAll?: () => void;
+  /** 是否存在可回显的隐藏对象（「全部显示」禁用依据）。 */
+  canShowAll?: boolean;
   /**
    * 覆盖层命中（约束 glyph / 尺寸标签）：命中时本层不拾取实体、不清实选择，
    * 由覆盖层自己选中约束（glyph 常叠在实体线上；2026-11-12 实测）。
@@ -105,6 +113,10 @@ export function SketchEntityPicker({
   onPaste,
   isConstruction,
   isOverlayPoint,
+  sketchName,
+  onFinishSketch,
+  onShowAll,
+  canShowAll = false,
 }: SketchEntityPickerProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -178,9 +190,12 @@ export function SketchEntityPicker({
   const isConstructionRef = React.useRef(isConstruction);
   isConstructionRef.current = isConstruction;
   const [menu, setMenu] = React.useState<{ x: number; y: number; selection: SketchEntitySelection } | null>(null);
+  /** 空白右键菜单（Onshape 草图空白菜单面；实体菜单与它互斥）。 */
+  const [blankMenu, setBlankMenu] = React.useState<{ x: number; y: number } | null>(null);
   const menuRef = React.useRef<HTMLDivElement | null>(null);
+  const blankMenuRef = React.useRef<HTMLDivElement | null>(null);
   const menuOpenRef = React.useRef(false);
-  menuOpenRef.current = menu !== null;
+  menuOpenRef.current = menu !== null || blankMenu !== null;
 
   React.useEffect(() => {
     const canvas = viewport?.canvas;
@@ -371,21 +386,26 @@ export function SketchEntityPicker({
       const hit = hitTestRef.current(point);
       if (!hit) {
         setMenu(null);
+        setBlankMenu({ x: event.clientX, y: event.clientY });
         return;
       }
+      setBlankMenu(null);
       onSelectionChangeRef.current([hit]);
       setMenu({ x: event.clientX, y: event.clientY, selection: hit });
     };
     const onMenuOutside = (event: MouseEvent): void => {
       if (!menuOpenRef.current)
         return;
-      if (menuRef.current && event.target instanceof Node && menuRef.current.contains(event.target))
+      if (event.target instanceof Node
+        && (menuRef.current?.contains(event.target) || blankMenuRef.current?.contains(event.target)))
         return;
       setMenu(null);
+      setBlankMenu(null);
     };
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape' && menuOpenRef.current) {
         setMenu(null);
+        setBlankMenu(null);
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -549,6 +569,99 @@ export function SketchEntityPicker({
           aria-hidden="true"
         />
       )}
+      {blankMenu && (() => {
+        const width = 240;
+        const height = 380;
+        const left = Math.min(blankMenu.x, Math.max(8, window.innerWidth - width - 8));
+        const top = Math.min(blankMenu.y, Math.max(8, window.innerHeight - height - 8));
+        const unsupported = t('partStudio.tree.unsupported');
+        const close = (): void => setBlankMenu(null);
+        return (
+          <div
+            ref={blankMenuRef}
+            className="part-studio-tree-menu part-studio-sketch-blank-menu"
+            role="menu"
+            aria-label={t('partStudio.sketch.blankMenuLabel')}
+            data-testid="sketch-blank-menu"
+            style={{ left, top }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-blank-menu-confirm"
+              onClick={() => { close(); onFinishSketch?.(); }}
+            >
+              {t('partStudio.sketch.blankMenuConfirm', { name: sketchName ?? '' })}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              disabled
+              title={unsupported}
+            >
+              {t('partStudio.sketch.blankMenuCopySketch')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-blank-menu-paste"
+              disabled={!hasSketchClipboard()}
+              title={hasSketchClipboard() ? undefined : unsupported}
+              onClick={() => { close(); onPaste?.(); }}
+            >
+              {t('partStudio.sketch.entityMenuPaste')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-blank-menu-show-all"
+              disabled={!canShowAll}
+              title={canShowAll ? undefined : t('partStudio.sketch.blankMenuShowAllEmpty')}
+              onClick={() => { close(); onShowAll?.(); }}
+            >
+              {t('partStudio.sketch.blankMenuShowAll')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
+              {t('partStudio.sketch.entityMenuAnalyze')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
+              {t('partStudio.sketch.blankMenuSelectCreated')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
+              {t('partStudio.sketch.blankMenuCreateSelection')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
+              {t('partStudio.sketch.blankMenuSelectOther')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-blank-menu-fit"
+              onClick={() => { close(); onFitToSketchRef.current?.(); }}
+            >
+              {t('partStudio.sketch.entityMenuFit')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-blank-menu-view-normal"
+              onClick={() => { close(); onViewNormalRef.current?.(); }}
+            >
+              {t('partStudio.sketch.entityMenuViewNormal')}
+            </button>
+          </div>
+        );
+      })()}
       {menu && (() => {
         const width = 220;
         const height = 400;

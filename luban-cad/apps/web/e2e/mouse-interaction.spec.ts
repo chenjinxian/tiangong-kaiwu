@@ -240,8 +240,22 @@ test.describe('Onshape 草图框选', () => {
     await page.waitForTimeout(300);
     expect(await selectedIds(), '右→左交叉选择应选中相交的线').toContain(12);
 
-    // 收尾：退出草图（取消本次编辑会话，不改落库几何）。
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
+    // 空白右键菜单（Onshape 草图空白菜单面）：确认/复制/粘贴/全部显示/分析/选择/缩放/正视。
+    const blankPoint = { x: box!.x + 40, y: box!.y + box!.height - 40 };
+    await page.mouse.click(blankPoint.x, blankPoint.y, { button: 'right' });
+    const blankMenu = page.getByTestId('sketch-blank-menu');
+    await expect(blankMenu).toBeVisible({ timeout: 20_000 });
+    await expect(blankMenu.getByRole('menuitem', { name: /^确认 草图/ })).toBeVisible();
+    await expect(blankMenu.getByRole('menuitem', { name: '复制草图' })).toBeDisabled();
+    await expect(blankMenu.getByRole('menuitem', { name: '全部显示' })).toBeVisible();
+    await blankMenu.getByTestId('sketch-blank-menu-view-normal').click();
+    await expect(blankMenu).toHaveCount(0, { timeout: 10_000 });
+
+    // 再次空白右键 → 确认草图：退出草图编辑，恢复特征工具栏。
+    await page.mouse.click(blankPoint.x, blankPoint.y, { button: 'right' });
+    await expect(blankMenu).toBeVisible({ timeout: 20_000 });
+    await blankMenu.getByTestId('sketch-blank-menu-confirm').click();
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible({ timeout: 30_000 });
   });
 });

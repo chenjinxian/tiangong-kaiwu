@@ -598,6 +598,13 @@ export function PartStudioCanvas({
   const sketchActiveForDialog = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchIdForDialog = usePartStudioStore((s) => s.sketch.activeSketchId);
   const activeSketchPlaneForDialog = usePartStudioStore((s) => s.sketch.activeSketchPlane);
+  // 草图空白右键「全部显示」：回显会话隐藏实体（EmphasizeElements 由树 effect 重算）。
+  const hiddenIds = usePartStudioStore((s) => s.canvas.hiddenIds);
+  const showNodes = usePartStudioStore((s) => s.showNodes);
+  const showAllHidden = React.useCallback(() => {
+    if (hiddenIds.length > 0)
+      showNodes(hiddenIds);
+  }, [hiddenIds, showNodes]);
   const handleSketchConfirm = React.useCallback((result?: SketchDialogResult) => {
     // Onshape：同一个草图对话框既是创建框也是编辑框。创建成功后对话框
     // **不关闭**，切到编辑态；再次 ✓ = 完成并退出草图。
@@ -869,6 +876,10 @@ export function PartStudioCanvas({
           onCopy={copySketchSelection}
           onPaste={pasteSketchSelection}
           isConstruction={isSketchEntityConstruction}
+          sketchName={sketchDialogName}
+          onFinishSketch={() => handleSketchConfirm()}
+          onShowAll={showAllHidden}
+          canShowAll={hiddenIds.length > 0}
           isOverlayPoint={(point) => sketchOverlayHitRef.current?.(point) ?? false}
           onSelectionChange={(entries) => {
             const others = canvasSelectionForSketchPlane.filter(
