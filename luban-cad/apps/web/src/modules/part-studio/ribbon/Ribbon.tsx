@@ -432,6 +432,11 @@ export interface RibbonProps {
   onRedo?: () => void;
 }
 
+/** 已注册快捷键 → 命令 id（Onshape 工具快捷键；下拉子项无快捷键）。 */
+const RIBBON_SHORTCUTS: ReadonlyMap<string, string> = new Map(
+  RIBBON_TOOLS.flatMap((tool) => (tool.shortcut ? [[tool.shortcut.toLowerCase(), tool.id] as const] : [])),
+);
+
 export function Ribbon({
   canEdit = true,
   canUndo = false,
@@ -502,6 +507,36 @@ export function Ribbon({
   const sketchToolbarVisible = sketchActive || sketchDialogActive;
   const sketchToolsDisabled = !canEdit || !sketchActive;
   const constructionMode = usePartStudioStore((s) => Boolean(s.sketch.constructionMode));
+
+  // 工具快捷键（Onshape：shift+s 草图 / shift+e 拉伸 / shift+w 旋转 /
+  // shift+f 圆角）——与 ribbon 主钮同一条 activate 路由；输入框/可编辑焦点
+  // 不拦截（重命名/尺寸/搜索框），草图编辑态忽略「新建草图」。
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || event.repeat)
+        return;
+      const target = event.target;
+      if (target instanceof HTMLElement
+        && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT'))
+        return;
+      const parts: string[] = [];
+      if (event.ctrlKey) parts.push('ctrl');
+      if (event.metaKey) parts.push('meta');
+      if (event.altKey) parts.push('alt');
+      if (event.shiftKey) parts.push('shift');
+      parts.push(event.key.toLowerCase());
+      const commandId = RIBBON_SHORTCUTS.get(parts.join('+'));
+      if (commandId === undefined)
+        return;
+      if (commandId === 'newSketch' && sketchActive)
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      void activate(commandId);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activate, sketchActive]);
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
   const highlightIds = React.useMemo(() => {

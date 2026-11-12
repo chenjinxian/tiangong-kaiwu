@@ -13,7 +13,7 @@
 // 本任务拉伸特例路由新增独立文件）。@itwin/core-frontend 模块级 mock，真实
 // store/i18n 参与（setup.ts 全局词库兜底，zh-CN 基线）。
 
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -302,5 +302,51 @@ describe('ADR-0017 追补：草图对话框即切换草图工具栏', () => {
       usePartStudioStore.getState().closeDialog();
     });
     expect(within(screen.getByTestId('part-studio-ribbon')).getByRole('toolbar', { name: '特征工具' })).toBeDefined();
+  });
+});
+
+describe('工具快捷键（Onshape 口径，主钮 shortcut 元数据可执行）', () => {
+  it('shift+s → 草图对话框；shift+e → 拉伸对话框（同一 activate 路由）', async () => {
+    render(<Ribbon />);
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 's', shiftKey: true });
+    });
+    expect(usePartStudioStore.getState().dialog).toMatchObject({ active: 'sketch' });
+
+    act(() => usePartStudioStore.getState().closeDialog());
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'e', shiftKey: true });
+    });
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'extrude',
+    });
+  });
+
+  it('输入框焦点/额外修饰键不触发', async () => {
+    render(<Ribbon />);
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+    fireEvent.keyDown(input, { key: 's', shiftKey: true });
+    expect(usePartStudioStore.getState().dialog.active).toBeNull();
+    input.remove();
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'e', shiftKey: true, ctrlKey: true });
+    });
+    expect(usePartStudioStore.getState().dialog.active).toBeNull();
+  });
+
+  it('草图编辑态忽略 shift+s（不叠开新建草图对话框）', async () => {
+    render(<Ribbon />);
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 's', shiftKey: true });
+    });
+    expect(usePartStudioStore.getState().dialog.active).not.toBe('sketch');
   });
 });
