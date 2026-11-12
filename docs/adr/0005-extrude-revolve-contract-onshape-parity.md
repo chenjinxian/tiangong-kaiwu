@@ -377,7 +377,11 @@ mirror、cPlane、assignVariable、sheet metal、custom FeatureScript。它们�
   （complete 7 / geometry 12 / smoke 7 / blocked 75 / failed 50 / skipped 48）；
   13 个含 UP_TO_VERTEX 的 PS 仍被草图平面/imprint/laserJoint 等其它缺口阻塞，
   无新增绿例；cf562… 场景携带 3 个 `endVertexRef`（entity 1/2, part=end）。
-- **UI 未接**：FeatureDialog 终止条件下拉尚无「成形到顶点」。本切片不宣称 UI 完成。
+- **UI 未接（本切片停止点）**：FeatureDialog 终止条件下拉尚无「成形到顶点」。本切片不宣称 UI 完成。
+  **更新 2026-11-12**：ADR-0017 Stage G1 已接通该 UI——终止条件「成形到顶点」+
+  目标顶点下拉（候选=全部草图点/线端点/弧端点/圆心），真栈
+  `e2e/extrude-up-to-vertex-ui.spec.ts` 移除 1700.000 mm³、push+冷重开一致；
+  视口直接拾取模型顶点仍未做。
 - **验证（本切片停止点）**：
   - 后端 `UpToVertexFlow` **6/6**：板 20×20×5（2000 mm³）+ z=0 内嵌 10×10 草图 +
     z=3 顶点草图点 (5,5) → 深度 3、remove **1700 mm³**（distance 占位 1 未被使用）；

@@ -396,7 +396,7 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   shared **170/170**。converter/translator（test-only）已接：单条 SKETCH_ENTITY 顶点
   查询→`endVertexRef`（CAP_VERTEX/派生/多查询如实 dropped），translator **47/47**；
   batch 重转 164 场景计数不变（7/12/7/75/50/48），13 个含 UP_TO_VERTEX 的 PS 仍被
-  草图平面/imprint/laserJoint 等阻塞，无新增绿例。UI「成形到顶点」未做（不渲染假控件）。
+  草图平面/imprint/laserJoint 等阻塞，无新增绿例。UI 已在 ADR-0017 Stage G1 接通（终止条件「成形到顶点」+目标顶点下拉；真栈 `extrude-up-to-vertex-ui` 1700 mm³；视口直接拾取模型顶点仍未做）。
 - **featurePattern 第二方向（ADR-0007 切片 10，2026-11-09，shared 1.61.0）**：
   `FeaturePatternParams.secondDirection`（linear；count/spacing/centered/axis；总实例
   ≤1000）；后端网格变换/校验、translator 透传、converter raw SecondDir 映射
