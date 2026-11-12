@@ -68,7 +68,6 @@ export const SKETCH_TOOL_GROUP_ORDER: readonly SketchRibbonGroup[] = [
 export const SKETCH_PLACEHOLDER_IDS: ReadonlySet<string> = new Set([
   'Sketch.Conic',
   'sketchText',
-  'sketchUse',
 ]);
 
 /** 20 个可见草图工具（Onshape live 1:1 顺序 + 飞菜单内容）。 */

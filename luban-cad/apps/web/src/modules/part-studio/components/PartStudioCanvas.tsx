@@ -75,6 +75,8 @@ import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.j
 import { sketchPlaneFromFaceHandle } from '../internal/sketch-plane-from-face.js';
 import { SketchEntityPicker } from './SketchEntityPicker.js';
 import { SketchPatternGizmo } from './SketchPatternGizmo.js';
+import { SketchUseOverlay, type SketchUsePick } from './SketchUseOverlay.js';
+import { buildProjectedSketchEntity } from '../internal/sketch-use.js';
 import { SketchDimensionEditor } from './SketchDimensionEditor.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import { deleteSketchEntities } from '../internal/sketch-delete.js';
@@ -143,6 +145,8 @@ export interface PartStudioCanvasProps {
    * （getSketch RPC 的寻址键）；缺省 undefined = 面域不可读（提交禁用）。
    */
   connection?: BriefcaseConnection;
+  /** 活动 Part Studio scope（2026-11-13：草图 Use 读取同 studio 其它草图）。 */
+  partStudioId?: string;
   /**
    * 库内已有实体（M6-b T6 fillet 通道诚实降级门）：Session 自特征树判
    * （body 产出型条目在场）下传 FeatureDialog；缺省 true（壳期/测试语义保持）。
@@ -191,6 +195,7 @@ export function PartStudioCanvas({
   canEdit = true,
   sketches,
   connection,
+  partStudioId,
   hasBodies = true,
   bodies,
   bodiesLoading,
@@ -603,6 +608,17 @@ export function PartStudioCanvas({
   // AIRR 2026-11-12：草图阵列会话（canvas gizmo）。
   const sketchPatternSession = usePartStudioStore((s) => s.sketch.pattern);
   const cancelSketchPattern = usePartStudioStore((s) => s.cancelSketchPattern);
+  // 2026-11-13：草图「使用」复用同一会话槽（kind='use'）。
+  const sketchUseSession = sketchPatternSession?.kind === 'use';
+  const patternGizmoKind: 'linear' | 'circular' | 'transform' | null =
+    sketchPatternSession != null && sketchPatternSession.kind !== 'use' ? sketchPatternSession.kind : null;
+  const activeSketchIdForUse = sketchSystem?.activeSketch?.id;
+  const sourceSketchIdsForUse = React.useMemo(() => {
+    if (!sketches || !activeSketchIdForUse)
+      return [];
+    const index = sketches.findIndex((entry) => entry.id === activeSketchIdForUse);
+    return index > 0 ? sketches.slice(0, index).map((entry) => entry.id) : [];
+  }, [sketches, activeSketchIdForUse]);
   // 草图空白右键「全部显示」：回显会话隐藏实体（EmphasizeElements 由树 effect 重算）。
   const hiddenIds = usePartStudioStore((s) => s.canvas.hiddenIds);
   const showNodes = usePartStudioStore((s) => s.showNodes);
@@ -639,6 +655,38 @@ export function PartStudioCanvas({
     setSketchDraftPlane(result?.plane || null);
     // 保持 dialog.active='sketch'：下一步渲染为同一对话框的编辑态。
   }, [finishActiveSketch, setActiveSketchPlane, sketchActiveForDialog]);
+
+  /**
+   * 2026-11-13：草图「使用」拾取——把其它草图的线/点/圆/弧建成 projected 根实体，
+   * 一次 updateSketch 提交（后端按源实时重投影）；工具保持激活可连续拾取。
+   */
+  const applySketchUsePick = React.useCallback(async (pick: SketchUsePick): Promise<void> => {
+    const system = sketchSystem;
+    const active = system?.activeSketch;
+    if (!system || !active)
+      return;
+    const built = buildProjectedSketchEntity(
+      { id: pick.sketch.id, plane: pick.sketch.plane, entities: pick.sketch.entities },
+      pick.entity,
+      { plane: active.plane, entities: active.entities, constraints: active.constraints },
+    );
+    if (!built.ok) {
+      const message = built.error === 'non-parallel'
+        ? t('partStudio.sketch.useNonParallel')
+        : built.error === 'degenerate-source'
+          ? t('partStudio.sketch.useDegenerate')
+          : t('partStudio.sketch.useUnsupported');
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(OutputMessagePriority.Info, message));
+      return;
+    }
+    const result = await system.applyUpdate([...active.entities, built.entity], active.constraints);
+    if (!result.ok) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Error,
+        t('partStudio.sketch.useFailed', { message: result.error ?? '' }),
+      ));
+    }
+  }, [sketchSystem, t]);
 
   const applySketchPattern = React.useCallback(async (
     entities: SketchEntityDto[],
@@ -909,7 +957,7 @@ export function PartStudioCanvas({
           sketch={sketchSystem.activeSketch}
           selected={sketchEntitySelection}
           canEdit={canEdit}
-          interactive={!sketchPatternSession || sketchEntitySelection.length === 0}
+          interactive={!sketchUseSession && (!sketchPatternSession || sketchEntitySelection.length === 0)}
           previewEntities={sketchPreviewEntities}
           onPreviewChange={setSketchPreviewEntities}
           onCommitDrag={commitSketchDrag}
@@ -947,11 +995,11 @@ export function PartStudioCanvas({
         />
       )}
       {/* AIRR 2026-11-12：草图线性阵列 canvas gizmo（Onshape canvas manipulator）。 */}
-      {sketchActiveForDecorations && sketchSystem?.activeSketch && sketchPatternSession && viewport && (
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && patternGizmoKind && viewport && (
         <SketchPatternGizmo
           viewport={viewport}
           sketch={sketchSystem.activeSketch}
-          kind={sketchPatternSession.kind}
+          kind={patternGizmoKind}
           selected={sketchEntitySelection}
           onApply={applySketchPattern}
           onCancel={cancelSketchPattern}
@@ -959,6 +1007,21 @@ export function PartStudioCanvas({
             OutputMessagePriority.Error,
             message,
           ))}
+        />
+      )}
+      {/* 2026-11-13：草图「使用」拾取覆盖层（仅草图源；实体边/面待后端切片 1b）。 */}
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && sketchUseSession && viewport && connection && (
+        <SketchUseOverlay
+          viewport={viewport}
+          connection={connection}
+          partStudioId={partStudioId}
+          sourceSketchIds={sourceSketchIdsForUse}
+          onPick={applySketchUsePick}
+          onError={(message) => IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+            OutputMessagePriority.Error,
+            message,
+          ))}
+          onCancel={cancelSketchPattern}
         />
       )}
       {/* ADR-0018 S1f：活动草图面域填充观测面（e2e；绘制在 SketchCurvesDecoration）。 */}

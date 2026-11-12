@@ -1181,6 +1181,7 @@ function PartStudioSession({
                 leaseOk={featureSystem.leaseOk}
                 sketches={sketchOptions}
                 connection={connection ?? undefined}
+                partStudioId={activeModelId}
                 hasBodies={hasBodies}
                 bodies={featureSystem.bodiesLoaded ? displayBodies : undefined}
                 bodiesLoading={featureSystem.bodiesLoading}

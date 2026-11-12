@@ -60,4 +60,17 @@ describe('deleteSketchEntities', () => {
     expect(result.entities).toEqual([LINE]);
     expect(result.removedEntities).toEqual([]);
   });
+
+  it('删除 projected 根实体 → 同源派生点一并清理（不留孤儿）', () => {
+    const source = { kind: 'sketchEntity' as const, sketchId: 'src', entityId: 7 };
+    const projected: SketchEntityDto[] = [
+      { kind: 'point', id: 42, x: 0, y: 0, projected: { kind: 'projected', source, derived: true } },
+      { kind: 'circle', id: 41, center: 42, radius: 1, projected: { kind: 'projected', source } },
+      { kind: 'line', id: 51, p1: { x: 0, y: 0 }, p2: { x: 5, y: 0 } },
+    ];
+    const result = deleteSketchEntities(projected, [], [41]);
+    expect(result.entities).toEqual([projected[2]]);
+    expect(result.removedEntities.sort((a, b) => a - b)).toEqual([41, 42]);
+    expect(result.blockedEntities).toEqual([]);
+  });
 });

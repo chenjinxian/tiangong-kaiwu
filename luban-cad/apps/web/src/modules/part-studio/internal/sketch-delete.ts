@@ -106,10 +106,30 @@ export function deleteSketchEntities(
     return !hit;
   });
 
+  // 2026-11-13（草图「使用」）：删除 projected 根实体时一并清理其派生点
+  // （圆心/端点带 derived 标记）；后端读面只会补回有根的派生点，孤儿派生点
+  // 必须原地清掉，避免留下不可见的悬挂点。
+  const liveRoots = new Set<string>();
+  for (const entity of remaining) {
+    const marker = entity.projected;
+    if (marker && marker.derived !== true)
+      liveRoots.add(`${marker.source.sketchId}:${marker.source.entityId}`);
+  }
+  const cleaned: SketchEntityDto[] = [];
+  const removedDependents: number[] = [];
+  for (const entity of remaining) {
+    const marker = entity.projected;
+    if (marker?.derived === true && !liveRoots.has(`${marker.source.sketchId}:${marker.source.entityId}`)) {
+      removedDependents.push(entity.id);
+      continue;
+    }
+    cleaned.push(entity);
+  }
+
   return {
-    entities: remaining,
+    entities: cleaned,
     constraints: keptConstraints,
-    removedEntities: [...removedIds],
+    removedEntities: [...removedIds, ...removedDependents],
     removedConstraints,
     blockedEntities: [],
   };

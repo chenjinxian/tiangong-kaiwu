@@ -59,8 +59,9 @@ export interface PartStudioActions {
   /** ADR-0018 S1g：草图「显示约束」开关（glyph + 尺寸标注覆盖层显隐）。 */
   setShowConstraints: (visible: boolean) => void;
   toggleSketchConstruction: () => void;
-  /** AIRR 2026-11-12：草图阵列/变换会话（Onshape canvas gizmo）。 */
-  startSketchPattern: (kind: 'linear' | 'circular' | 'transform') => void;
+  /** AIRR 2026-11-12：草图阵列/变换会话（Onshape canvas gizmo）。
+   *  2026-11-13：`'use'`=草图「使用」拾取会话（同一会话槽，画布由 Use 覆盖层接管）。 */
+  startSketchPattern: (kind: 'linear' | 'circular' | 'transform' | 'use') => void;
   cancelSketchPattern: () => void;
   // commandPalette 切片
   openCommandPalette: () => void;

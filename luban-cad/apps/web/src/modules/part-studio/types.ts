@@ -141,7 +141,8 @@ export interface PartStudioToolState {
 
 /** 草图阵列/变换会话（AIRR 2026-11-12：Onshape canvas gizmo）。 */
 export interface SketchPatternSession {
-  kind: 'linear' | 'circular' | 'transform';
+  /** 'use'=草图「使用」拾取会话（2026-11-13；同一会话槽位，画布由 Use 覆盖层接管）。 */
+  kind: 'linear' | 'circular' | 'transform' | 'use';
 }
 
 /** sketch 切片——草图模式（ribbon 变身/栅格覆盖层/树红显的开关源）。 */

@@ -85,17 +85,24 @@ export function useToolActivation(canEdit = true): ToolActivation {
     if (SKETCH_PLACEHOLDER_IDS.has(id)) return;
     // AIRR 2026-11-12：阵列 gizmo 活跃时启动其它工具/命令 → 先取消阵列，
     // 避免 gizmo 与工具共享画布指针。
-    const patternIds = new Set(['sketchLinearPattern', 'sketchCircularPattern', 'sketchTransform']);
+    const patternIds = new Set(['sketchLinearPattern', 'sketchCircularPattern', 'sketchTransform', 'sketchUse']);
     if (!patternIds.has(id) && usePartStudioStore.getState().sketch.pattern)
       usePartStudioStore.getState().cancelSketchPattern();
     if (patternIds.has(id)) {
       // AIRR 2026-11-12：Onshape 草图阵列/变换是 canvas gizmo（非 PrimitiveTool、
       // 非对话框）。激活只写会话态，画布由 SketchPatternGizmo 接管。
+      // 2026-11-13：草图「使用」复用同一会话槽（kind='use'，画布由 Use 覆盖层接管）。
       const store = usePartStudioStore.getState();
       if (!store.sketch.isActive)
         return;
       store.startSketchPattern(
-        id === 'sketchCircularPattern' ? 'circular' : id === 'sketchTransform' ? 'transform' : 'linear',
+        id === 'sketchCircularPattern'
+          ? 'circular'
+          : id === 'sketchTransform'
+            ? 'transform'
+            : id === 'sketchUse'
+              ? 'use'
+              : 'linear',
       );
       return;
     }
@@ -601,8 +608,10 @@ export function Ribbon({
                       active={sketchTool.id === 'sketchConstruction'
                         ? constructionMode
                         : sketchTool.id === 'sketchLinearPattern'
-                          ? sketchPatternKind !== null
-                          : activeToolId === sketchTool.id}
+                          ? sketchPatternKind !== null && sketchPatternKind !== 'use'
+                          : sketchTool.id === 'sketchUse'
+                            ? sketchPatternKind === 'use'
+                            : activeToolId === sketchTool.id}
                       highlighted={false}
                       disabled={sketchToolsDisabled}
                     />
@@ -614,8 +623,10 @@ export function Ribbon({
                       active={sketchTool.id === 'sketchConstruction'
                         ? constructionMode
                         : sketchTool.id === 'sketchLinearPattern'
-                          ? sketchPatternKind !== null
-                          : activeToolId === sketchTool.id}
+                          ? sketchPatternKind !== null && sketchPatternKind !== 'use'
+                          : sketchTool.id === 'sketchUse'
+                            ? sketchPatternKind === 'use'
+                            : activeToolId === sketchTool.id}
                       highlighted={false}
                       disabled={sketchToolsDisabled}
                     />
