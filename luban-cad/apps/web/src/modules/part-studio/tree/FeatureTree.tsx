@@ -147,6 +147,9 @@ export interface FeatureTreeProps {
    * （会话态）不受影响。缺省 true（测试/壳期语义；生产宿主恒显式传参）。
    */
   canEdit?: boolean;
+  /** 2026-11-13：逐 body 透明度会话态（0..1；零件菜单「使之透明…」滑块）。 */
+  bodyTransparency?: Readonly<Record<string, number>>;
+  onBodyTransparencyChange?: (bodyKey: string, transparency: number) => void;
 }
 
 interface MenuState {
@@ -319,6 +322,8 @@ export function FeatureTree({
   onSuppress,
   onDelete,
   canEdit = true,
+  bodyTransparency,
+  onBodyTransparencyChange,
 }: FeatureTreeProps): React.JSX.Element {
   const { t } = useTranslation();
   const [filterInput, setFilterInput] = React.useState('');
@@ -464,6 +469,10 @@ export function FeatureTree({
     model.selectNodes([]);
   }, [model]);
   const [propertiesNode, setPropertiesNode] = React.useState<PartNode | null>(null);
+  // 2026-11-13：零件「使之透明…」会话滑块（Onshape 同一工具面板的简化切片；
+  // 仅逐 body 透明度，展开/零部件控制等未做——如实登记）。
+  const [transparencyNode, setTransparencyNode] = React.useState<PartNode | null>(null);
+  const [transparencyPercent, setTransparencyPercent] = React.useState(0);
   const setDockTab = usePartStudioStore((s) => s.setDockTab);
   const openDock = usePartStudioStore((s) => s.openDock);
   const handleOpenAppearances = React.useCallback(() => {
@@ -1160,8 +1169,12 @@ export function FeatureTree({
             type="button"
             role="menuitem"
             className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
+            data-testid="tree-menu-make-transparent"
+            onClick={() => {
+              setMenu(null);
+              setTransparencyPercent(Math.round(((bodyTransparency?.[menuNode.id] ?? 0) * 100)));
+              setTransparencyNode(menuNode);
+            }}
           >
             {t('partStudio.tree.menuMakeTransparent')}
           </button>
@@ -1284,6 +1297,65 @@ export function FeatureTree({
                 onClick={() => setPropertiesNode(null)}
               >
                 {t('partStudio.tree.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {transparencyNode && (
+        <div className="part-studio-dialog-backdrop">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('partStudio.tree.transparencyTitle', { name: transparencyNode.name })}
+            className="part-studio-capability-dialog"
+            data-testid="part-transparency-dialog"
+          >
+            <h2 className="part-studio-capability-dialog__title">
+              {t('partStudio.tree.transparencyTitle', { name: transparencyNode.name })}
+            </h2>
+            <label className="part-studio-tree-properties">
+              <span>{t('partStudio.tree.transparencyLevel', { value: transparencyPercent })}</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={transparencyPercent}
+                data-testid="part-transparency-slider"
+                aria-label={t('partStudio.tree.transparencyLevel', { value: transparencyPercent })}
+                onChange={(event) => setTransparencyPercent(Number(event.currentTarget.value))}
+              />
+            </label>
+            <div className="part-studio-capability-dialog__actions">
+              <button
+                type="button"
+                className="part-studio-capability-dialog__secondary"
+                onClick={() => {
+                  onBodyTransparencyChange?.(transparencyNode.id, 0);
+                  setTransparencyNode(null);
+                }}
+              >
+                {t('partStudio.tree.transparencyClear')}
+              </button>
+              <button
+                type="button"
+                className="part-studio-capability-dialog__secondary"
+                onClick={() => setTransparencyNode(null)}
+              >
+                {t('partStudio.tree.cancel')}
+              </button>
+              <button
+                type="button"
+                className="part-studio-capability-dialog__primary"
+                data-testid="part-transparency-apply"
+                onClick={() => {
+                  onBodyTransparencyChange?.(transparencyNode.id, transparencyPercent / 100);
+                  setTransparencyNode(null);
+                }}
+              >
+                {t('partStudio.tree.transparencyApply')}
               </button>
             </div>
           </div>

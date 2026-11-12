@@ -5,7 +5,7 @@ import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ScreenViewport } from '@itwin/core-frontend';
 import { FeatureAppearance } from '@itwin/core-common';
-import { useBodyAppearanceOverrides } from '../hooks/useBodyAppearanceOverrides.js';
+import { buildBodyAppearances, useBodyAppearanceOverrides } from '../hooks/useBodyAppearanceOverrides.js';
 
 function fakeViewport() {
   let provider: { addFeatureOverrides: (overrides: unknown, vp: unknown) => void } | undefined;
@@ -57,5 +57,34 @@ describe('useBodyAppearanceOverrides', () => {
     const overrides = { override: vi.fn() };
     fake.getProvider()!.addFeatureOverrides(overrides, fake.viewport);
     expect(overrides.override).not.toHaveBeenCalled();
+  });
+
+  it('2026-11-13 透明度：颜色+透明度合并、仅透明度不写颜色、越界夹取', () => {
+    const both = buildBodyAppearances({ '0x15': '#ff0000' }, { '0x15': 0.4 }).get('0x15')!;
+    expect(both.rgb).toEqual({ r: 255, g: 0, b: 0 });
+    expect(both.transparency).toBeCloseTo(0.4, 6);
+    expect(both.ignoresMaterial).toBe(true);
+
+    const onlyTransparency = buildBodyAppearances({}, { '0x18': 0.25 }).get('0x18')!;
+    expect(onlyTransparency.rgb).toBeUndefined();
+    expect(onlyTransparency.transparency).toBeCloseTo(0.25, 6);
+
+    expect(buildBodyAppearances({}, { '0x20': 2 }).get('0x20')!.transparency).toBe(1);
+    expect(buildBodyAppearances({}, { '0x22': 0 }).size).toBe(0);
+    expect(buildBodyAppearances({}, { '0x24': -1 }).size).toBe(0);
+  });
+
+  it('透明度变化触发 provider 刷新（同色仅改透明度）', () => {
+    const fake = fakeViewport();
+    const { rerender } = renderHook(
+      ({ transparency }) => useBodyAppearanceOverrides(fake.viewport, { '0x15': '#ff0000' }, transparency),
+      { initialProps: { transparency: {} as Record<string, number> } },
+    );
+    rerender({ transparency: { '0x15': 0.5 } });
+    expect(fake.viewport.setFeatureOverrideProviderChanged).toHaveBeenCalled();
+    const overrides = { override: vi.fn() };
+    fake.getProvider()!.addFeatureOverrides(overrides, fake.viewport);
+    const args = overrides.override.mock.calls[0]![0] as { appearance: FeatureAppearance };
+    expect(args.appearance.transparency).toBeCloseTo(0.5, 6);
   });
 });

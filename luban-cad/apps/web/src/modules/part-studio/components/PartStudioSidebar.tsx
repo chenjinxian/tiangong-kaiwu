@@ -78,6 +78,9 @@ export interface PartStudioSidebarProps {
    */
   renameFeature?: (featureId: string, name: string) => Promise<RenameResult>;
   renameBody?: (bodyId: string, name: string) => Promise<RenameResult>;
+  /** 2026-11-13：逐 body 透明度会话态（0..1；零件菜单「使之透明…」）。 */
+  bodyTransparency?: Readonly<Record<string, number>>;
+  onBodyTransparencyChange?: (bodyKey: string, transparency: number) => void;
 }
 
 export function PartStudioSidebar({
@@ -96,6 +99,8 @@ export function PartStudioSidebar({
   canEdit = true,
   renameFeature,
   renameBody,
+  bodyTransparency,
+  onBodyTransparencyChange,
 }: PartStudioSidebarProps): React.JSX.Element {
   const { t } = useTranslation();
   const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
@@ -254,6 +259,8 @@ export function PartStudioSidebar({
         onSuppress={handleSuppress}
         onRename={handleRename}
         canEdit={canEdit}
+        bodyTransparency={bodyTransparency}
+        onBodyTransparencyChange={onBodyTransparencyChange}
       />
       {/* Onshape 树右缘收起钮（live：33×34，悬于画布左缘中部；本阶段 UI 占位）。 */}
       <button

@@ -37,7 +37,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 
 | 对象 | 增 | 删 | 改 | 备注 |
 |---|---|---|---|---|
-| 零件 | ✅ 产体特征 | ❌ 删除零件后端未实现 | ✅ 重命名（v1.70 `renameBody` RPC → userLabel + marker.name，undo 已验证）；🟠 material 未支持；隐藏/显示、**隐藏其他零件、隐藏所有零件**（会话级）、外观、放大、属性可用 | 删除/隔离/透明/复制/工程图/导出/发布 菜单禁用；真栈 `part-rename.spec.ts`（改名→undo→push 冷重开）；隐藏批量动作按 Onshape 菜单捕获实现（store.hiddenIds 单一通道） |
+| 零件 | ✅ 产体特征 | ❌ 删除零件后端未实现 | ✅ 重命名（v1.70 `renameBody` RPC → userLabel + marker.name，undo 已验证）；🟠 material 未支持；隐藏/显示、**隐藏其他零件、隐藏所有零件**（会话级）、**使之透明…**（单 body 会话滑块，简化）、外观、放大、属性可用 | 删除/隔离/复制/工程图/导出/发布 菜单禁用；真栈 `part-rename.spec.ts`（改名→undo→push 冷重开）；隐藏批量动作按 Onshape 菜单捕获实现（store.hiddenIds 单一通道）；透明度面板完整控件（目标选择/展开/隔离）未做 |
 | 体积读面 | — | — | ✅ 行内体积 + 属性对话框 | 只读 |
 
 ## 交叉删除语义

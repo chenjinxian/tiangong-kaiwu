@@ -495,11 +495,23 @@ function PartStudioSession({
 
   // 显示/渲染设置（2026-11-02）：共享给 ViewCube 下拉与右停靠面板。
   const displaySettings = useDisplaySettings(viewport);
-  // Onshape「外观」：逐 body 颜色覆盖（独立 FeatureOverrideProvider，与选择高亮并存）。
+  // Onshape「外观」：逐 body 颜色 / 透明度覆盖（独立 FeatureOverrideProvider，
+  // 与选择高亮并存；2026-11-13 增零件菜单「使之透明…」的会话滑块）。
   const [bodyColors, setBodyColors] = React.useState<Record<string, string>>({});
-  useBodyAppearanceOverrides(viewport, bodyColors);
+  const [bodyTransparency, setBodyTransparency] = React.useState<Record<string, number>>({});
+  useBodyAppearanceOverrides(viewport, bodyColors, bodyTransparency);
   const handleBodyColorChange = React.useCallback((bodyKey: string, color: string): void => {
     setBodyColors((prev) => ({ ...prev, [bodyKey]: color }));
+  }, []);
+  const handleBodyTransparencyChange = React.useCallback((bodyKey: string, value: number): void => {
+    setBodyTransparency((prev) => {
+      const next = { ...prev };
+      if (!Number.isFinite(value) || value <= 0)
+        delete next[bodyKey];
+      else
+        next[bodyKey] = Math.max(0, Math.min(1, value));
+      return next;
+    });
   }, []);
 
   // 首帧取景校正（2026-11-02）：useViewport 创建链执行时画布可能尚未完成布局，
@@ -1167,6 +1179,8 @@ function PartStudioSession({
               canEdit={canEdit}
               renameFeature={featureSystem.renameFeature}
               renameBody={featureSystem.renameBody}
+              bodyTransparency={bodyTransparency}
+              onBodyTransparencyChange={handleBodyTransparencyChange}
             />
             <div className="part-studio-main">
               {/* canEdit 直通画布对话框宿主（B2 只读写门禁）：权限只读下写面对话框

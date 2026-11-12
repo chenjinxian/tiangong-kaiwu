@@ -905,6 +905,26 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     expect(usePartStudioStore.getState().canvas.hiddenIds).toEqual(expect.arrayContaining(['0x15', '0x20']));
   });
 
+  it('零件菜单「使之透明…」：滑块应用 / 恢复不透明 → onBodyTransparencyChange', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} onBodyTransparencyChange={onChange} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '使之透明…' }));
+    const dialog = screen.getByTestId('part-transparency-dialog');
+    expect(dialog).toBeDefined();
+    const slider = within(dialog).getByTestId('part-transparency-slider');
+    fireEvent.change(slider, { target: { value: '60' } });
+    await user.click(within(dialog).getByTestId('part-transparency-apply'));
+    expect(onChange).toHaveBeenCalledWith('0x15', 0.6);
+    expect(screen.queryByTestId('part-transparency-dialog')).toBeNull();
+
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '使之透明…' }));
+    await user.click(within(screen.getByTestId('part-transparency-dialog')).getByRole('button', { name: '恢复不透明' }));
+    expect(onChange).toHaveBeenCalledWith('0x15', 0);
+  });
+
   it('v1.70 自定义特征名优先于「类型 + 序号」派生名', () => {
     const named: FeatureTreeEntry[] = [
       { id: 'nx1', featureType: 'extrude', orderKey: 1, suppressed: false, status: 0, params: {}, name: 'Housing' },
