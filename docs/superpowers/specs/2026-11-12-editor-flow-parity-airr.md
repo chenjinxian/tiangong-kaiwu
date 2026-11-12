@@ -141,3 +141,21 @@
 - ADR：需要（0017）
 - Owner 签字：待签
 - 结论：修改后批准（以 ADR-0017 与 Stage 0 证据为准）
+
+---
+
+## 10. Stage A/B 实施结果（2026-11-12）
+
+- Stage A：`RENDER_DEFAULTS`（`luban-cad/packages/shared/src/render/render-defaults.ts`）
+  为唯一常量源；webhook-agent 新建 baseline 的 `DisplayStyle3d 'default'`
+  （背景 `0xffffff`、AO 开、边色/线宽、光照）与 `SpatialCategory` 外观
+  （零件灰 `rgbToTbgr({83,102,116}) = 7628371`）落库；`LubanBodySolid` 类别同色。
+  验证工具 `webhook-agent/tools/verify-baseline-defaults.ts` 读回 .bim 断言 PASS，
+  `SpatialViewDefinition` code=`default`。
+- Stage B：`applyViewStateRenderBaseline`/`applyViewStateBackground` 在
+  `ScreenViewport.create`/`addViewport` 之前应用；`.part-studio-viewport` 加
+  CSS 底色兜底。真栈 `e2e/editor-first-frame.spec.ts` 连续 23 帧采样
+  worstDark=0.000（阈值 <0.5）。
+- 单测：shared 205/205、viewer 134/134、web 1537/1537、webhook-agent 50/50、
+  modeling-server schema 5/5；web tsc/lint/e2e tsc 绿。
+- 老 iModel 不改写；运行时 baseline 继续归一化。
