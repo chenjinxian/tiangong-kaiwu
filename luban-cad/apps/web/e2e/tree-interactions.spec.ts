@@ -125,16 +125,17 @@ test.describe('特征树交互对拍（S2）', () => {
     await filterInput.fill('');
     await expect(page.getByTestId('part-studio-feature-count')).toHaveText('(6)', { timeout: 10_000 });
 
-    // ---- 2. 零件行右键菜单（Onshape 分组；未支持项禁用） ----
+    // ---- 2. 零件行右键菜单（Onshape 分组；已支持项启用、未支持项禁用） ----
     const partRow = page.getByTestId('part-studio-part-list').locator('[data-testid^="tree-row-"]').first();
     await expect(partRow).toBeVisible({ timeout: 30_000 });
     await partRow.click({ button: 'right' });
     const menu = page.getByRole('menu', { name: '特征菜单' });
     await expect(menu).toBeVisible();
-    for (const name of ['属性…', '编辑外观…', '隐藏实体', '放大选定对象']) {
+    for (const name of ['属性…', '编辑外观…', '隐藏实体', '隐藏其他零件', '隐藏所有零件', '放大选定对象']) {
       await expect(menu.getByRole('menuitem', { name })).toBeEnabled();
     }
-    await expect(menu.getByRole('menuitem', { name: '重命名' })).toBeDisabled();
+    // v1.70：零件重命名已接（renameBody RPC）；删除零件仍无后端 FeatureOp。
+    await expect(menu.getByRole('menuitem', { name: '重命名' })).toBeEnabled();
     await expect(menu.getByRole('menuitem', { name: '删除…' })).toBeDisabled();
 
     // ---- 3. 属性… → 只读对话框（体积来自质量属性读面） ----
