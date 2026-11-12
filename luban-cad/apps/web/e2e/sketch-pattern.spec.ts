@@ -180,6 +180,28 @@ test.describe('草图线性阵列（Onshape canvas gizmo 对拍）', () => {
     }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(3);
   });
 
+  test('画布单击即提交阵列（Onshape 点击结束工具）→ 草图保持编辑态 → undo', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const { ctx, sketchId, token, project, canvasBox } = await openPatternSketch(page, request);
+    await selectCircleAndStartPattern(page, project);
+    await expect(page.getByTestId('sketch-pattern-count')).toContainText('3x');
+
+    // 画布空白单击（远离手柄）：Onshape 直接结束阵列并提交；草图仍编辑态。
+    await page.mouse.click(canvasBox.x + canvasBox.width * 0.85, canvasBox.y + canvasBox.height * 0.5);
+    await expect(page.getByTestId('sketch-pattern-prompt')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(3);
+
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBe(1);
+  });
+
   test('第二方向 3×2 网格（10/15 mm）→ Enter 提交 → 6 圆 → undo', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const { ctx, sketchId, token, project } = await openPatternSketch(page, request);

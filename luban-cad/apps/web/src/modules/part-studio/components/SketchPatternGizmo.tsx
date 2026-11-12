@@ -470,6 +470,43 @@ export function SketchPatternGizmo({
     return () => registerSketchPatternCommit(null);
   }, []);
 
+  // live 证据 101/104（2026-11-13）：Onshape 阵列 gizmo 在画布单击（非拖拽）
+  // 即结束工具并提交（一次可撤销操作）；Esc 仍是取消。无种子时画布点击交给
+  // 拾取层选种子，不提交。
+  React.useEffect(() => {
+    const canvas = viewport?.canvas;
+    if (!canvas || !preview.ok)
+      return;
+    let down: { x: number; y: number } | null = null;
+    const onDown = (event: PointerEvent): void => {
+      down = event.button === 0 ? { x: event.clientX, y: event.clientY } : null;
+    };
+    const onUp = (event: PointerEvent): void => {
+      const start = down;
+      down = null;
+      if (!start || event.button !== 0)
+        return;
+      if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP_PX)
+        return;
+      if (kind === 'transform'
+        && Math.abs(deltaLocal.u) < 1e-12
+        && Math.abs(deltaLocal.v) < 1e-12
+        && Math.abs(rotationRad) < 1e-12
+        && Math.abs(scale - 1) < 1e-12) {
+        // 无变换 = 无写操作的退出（Onshape 同样不产生历史项）。
+        onCancel();
+        return;
+      }
+      void commitRef.current();
+    };
+    canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointerup', onUp);
+    return () => {
+      canvas.removeEventListener('pointerdown', onDown);
+      canvas.removeEventListener('pointerup', onUp);
+    };
+  }, [viewport, preview.ok, kind, deltaLocal, rotationRad, scale, onCancel]);
+
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.target instanceof HTMLInputElement)

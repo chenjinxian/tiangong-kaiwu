@@ -173,6 +173,19 @@
   6 圆（0/10/20 mm × 0/15 mm）、6 条 radius 约束、undo 回 1 圆。
 - **边界**：无第二方向的“反向”复选框；无跳过实例；仍为独立几何副本。
 
+## 6.3 画布单击结束阵列（2026-11-13）
+
+- **live 证据**：阵列 gizmo 激活时在画布单击（含预览实例上）会立即结束工具，
+  实例与尺寸标注保留（`101-onshape-pattern-instance-click.png`）；随后
+  Ctrl+Z 一次即删除整组阵列、原始种子圆保留
+  （`104-onshape-pattern-after-undo.png`），证明是**一次可撤销提交**而非取消。
+- **实现**：gizmo 在 `preview.ok` 时给视口 canvas 挂 pointerdown/up；位移
+  ≤3 px 视为单击 → 走既有 `commit`（一次 `updateSketch`），拖拽（旋转相机）
+  不触发；无种子时点击交给拾取层选种子。变换工具无任何位移时单击只退出、
+  不写 no-op 事务（与 Onshape 不产生历史项一致）。Esc 仍为取消。
+- **测试**：真栈 `e2e/sketch-pattern.spec.ts --grep 画布单击` **2 passed
+  （43.5 s）**——3 实例单击画布提交、草图保持编辑态、undo 回 1 圆。
+
 ## 7. 风险与回滚
 
 - **无阵列关系**：实例为独立副本，改动种子不会联动；如实登记。
