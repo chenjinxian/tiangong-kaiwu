@@ -47,9 +47,9 @@ describe('parseDxfSketchEntities', () => {
     expect(circle.radius).toBeCloseTo(127, 9);
   });
 
-  it('未支持实体计数（LWPOLYLINE）；无可导入实体→空 + skipped', () => {
-    const poly = ['0', 'LWPOLYLINE', '90', '2', '10', '0', '20', '0', '10', '5', '20', '0'].join('\n');
-    const result = parseDxfSketchEntities(dxf(4, poly));
+  it('未支持实体（SPLINE/INSERT 等）计数；无可导入实体→空 + skipped', () => {
+    const spline = ['0', 'SPLINE', '8', '0', '70', '8', '71', '3'].join(String.fromCharCode(10));
+    const result = parseDxfSketchEntities(dxf(4, spline));
     expect(result.entities).toEqual([]);
     expect(result.skipped).toBe(1);
   });
@@ -65,5 +65,41 @@ describe('parseDxfSketchEntities', () => {
     const entity = result.entities[0] as unknown as { startAngle: number; sweepAngle: number };
     expect(entity.startAngle).toBeCloseTo((350 * Math.PI) / 180, 9);
     expect(entity.sweepAngle).toBeCloseTo((20 * Math.PI) / 180, 9);
+  });
+});
+
+describe('parseDxfSketchEntities — POINT / LWPOLYLINE', () => {
+  it('POINT → 草图点（单位换算）', () => {
+    const point = ['0', 'POINT', '8', '0', '10', '3', '20', '-4'].join('\n');
+    const result = parseDxfSketchEntities(dxf(1, point));
+    const pointEntity = result.entities[0] as { kind: string; x: number; y: number };
+    expect(pointEntity.kind).toBe('point');
+    expect(pointEntity.x).toBeCloseTo(76.2, 9);
+    expect(pointEntity.y).toBeCloseTo(-101.6, 9);
+  });
+
+  it('开放 LWPOLYLINE（直线段）→ 逐段 line；顶点顺序保留', () => {
+    const poly = ['0', 'LWPOLYLINE', '90', '3', '70', '0',
+      '10', '0', '20', '0', '10', '4', '20', '0', '10', '4', '20', '3'].join('\n');
+    const result = parseDxfSketchEntities(dxf(4, poly));
+    expect(result.entities).toHaveLength(2);
+    expect(result.entities[0]).toMatchObject({ kind: 'line', p1: { x: 0, y: 0 }, p2: { x: 4, y: 0 } });
+    expect(result.entities[1]).toMatchObject({ kind: 'line', p1: { x: 4, y: 0 }, p2: { x: 4, y: 3 } });
+  });
+
+  it('闭合 LWPOLYLINE（70 bit1）→ 追加首尾段', () => {
+    const poly = ['0', 'LWPOLYLINE', '90', '3', '70', '1',
+      '10', '0', '20', '0', '10', '4', '20', '0', '10', '0', '20', '3'].join('\n');
+    const result = parseDxfSketchEntities(dxf(4, poly));
+    expect(result.entities).toHaveLength(3);
+    expect(result.entities[2]).toMatchObject({ kind: 'line', p1: { x: 0, y: 3 }, p2: { x: 0, y: 0 } });
+  });
+
+  it('带 bulge 的 LWPOLYLINE → 整条跳过（不近似圆弧段）', () => {
+    const poly = ['0', 'LWPOLYLINE', '90', '2', '70', '0',
+      '10', '0', '20', '0', '42', '0.5', '10', '4', '20', '0'].join('\n');
+    const result = parseDxfSketchEntities(dxf(4, poly));
+    expect(result.entities).toEqual([]);
+    expect(result.skipped).toBe(1);
   });
 });

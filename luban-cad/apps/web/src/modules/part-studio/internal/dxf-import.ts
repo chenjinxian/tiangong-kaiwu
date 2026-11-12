@@ -4,7 +4,8 @@
  *
  * ASCII DXF → 草图实体（Onshape「插入 DXF 或 DWG」首切片，2026-11-12）。
  *
- * 支持 LINE / CIRCLE / ARC（实体段，忽略 BLOCKS/INSERT/样条/多段线等）；
+ * 支持 LINE / CIRCLE / ARC / POINT / 直线段 LWPOLYLINE（忽略 BLOCKS/INSERT/样条/
+ * 带 bulge 的圆弧段多段线等）；
  * 读取 HEADER `$INSUNITS`（缺省毫米）并换算为毫米；DXF 的 XY 平面直接映射
  * 到当前草图局部 (u,v)（不旋转/不放置）。未支持实体计数返回，UI 诚实提示
  * 跳过数量，不静默丢弃。
@@ -49,12 +50,29 @@ function headerUnits(all: readonly Pair[]): { scale: number; label: string } {
   return { scale: 1, label: 'mm' };
 }
 
-function num(group: Map<number, string>, code: number): number | undefined {
-  const raw = group.get(code);
+function valuesOf(groups: readonly Pair[], code: number): string[] {
+  return groups.filter((pair) => pair.code === code).map((pair) => pair.value);
+}
+
+function num(groups: readonly Pair[], code: number): number | undefined {
+  const raw = valuesOf(groups, code)[0];
   if (raw === undefined)
     return undefined;
   const value = Number(raw);
   return Number.isFinite(value) ? value : undefined;
+}
+
+/** 顶点序列（LWPOLYLINE：重复 10/20；bulge 42 与顶点对齐，缺省 0）。 */
+function polylineVertices(groups: readonly Pair[]): { points: Array<{ x: number; y: number }>; bulges: number[] } | undefined {
+  const xs = valuesOf(groups, 10).map(Number);
+  const ys = valuesOf(groups, 20).map(Number);
+  if (xs.length === 0 || xs.length !== ys.length || xs.some((v) => !Number.isFinite(v)) || ys.some((v) => !Number.isFinite(v)))
+    return undefined;
+  const bulges = valuesOf(groups, 42).map(Number);
+  return {
+    points: xs.map((x, i) => ({ x, y: ys[i]! })),
+    bulges: xs.map((_, i) => (Number.isFinite(bulges[i]) ? bulges[i]! : 0)),
+  };
 }
 
 function normalizeSweep(start: number, end: number): number {
@@ -74,48 +92,71 @@ export function parseDxfSketchEntities(text: string, existingMaxId = 0): DxfImpo
   let skipped = 0;
 
   let inEntities = false;
-  let current: { type: string; groups: Map<number, string> } | undefined;
+  let current: { type: string; groups: Pair[] } | undefined;
   const flush = (): void => {
     if (!current)
       return;
     const { type, groups } = current;
-    if (type === 'LINE' || type === 'CIRCLE' || type === 'ARC') {
-      const cx = num(groups, 10);
-      const cy = num(groups, 20);
-      if (type === 'LINE') {
-        const x2 = num(groups, 11);
-        const y2 = num(groups, 21);
-        if (cx !== undefined && cy !== undefined && x2 !== undefined && y2 !== undefined) {
+    const cx = num(groups, 10);
+    const cy = num(groups, 20);
+    if (type === 'LINE') {
+      const x2 = num(groups, 11);
+      const y2 = num(groups, 21);
+      if (cx !== undefined && cy !== undefined && x2 !== undefined && y2 !== undefined) {
+        entities.push({
+          kind: 'line', id: nextId++,
+          p1: { x: cx * units.scale, y: cy * units.scale },
+          p2: { x: x2 * units.scale, y: y2 * units.scale },
+        });
+      } else skipped++;
+    } else if (type === 'POINT') {
+      if (cx !== undefined && cy !== undefined) {
+        entities.push({
+          kind: 'point', id: nextId++,
+          x: cx * units.scale, y: cy * units.scale,
+        });
+      } else skipped++;
+    } else if (type === 'LWPOLYLINE') {
+      const polyline = polylineVertices(groups);
+      // bulge 非零=圆弧段，本切片不近似；整条跳过并计数。
+      if (!polyline || polyline.points.length < 2 || polyline.bulges.some((b) => Math.abs(b) > 1e-9)) {
+        skipped++;
+      } else {
+        const points = [...polyline.points];
+        const closed = (Number(valuesOf(groups, 70)[0] ?? '0') & 1) === 1;
+        if (closed)
+          points.push(points[0]!);
+        for (let i = 0; i + 1 < points.length; i++) {
           entities.push({
             kind: 'line', id: nextId++,
-            p1: { x: cx * units.scale, y: cy * units.scale },
-            p2: { x: x2 * units.scale, y: y2 * units.scale },
+            p1: { x: points[i]!.x * units.scale, y: points[i]!.y * units.scale },
+            p2: { x: points[i + 1]!.x * units.scale, y: points[i + 1]!.y * units.scale },
+          });
+        }
+      }
+    } else if (type === 'CIRCLE' || type === 'ARC') {
+      const radius = num(groups, 40);
+      const startDeg = num(groups, 50);
+      const endDeg = num(groups, 51);
+      if (cx !== undefined && cy !== undefined && radius !== undefined && radius > 0) {
+        if (type === 'CIRCLE') {
+          entities.push({
+            kind: 'circle', id: nextId++,
+            center: { x: cx * units.scale, y: cy * units.scale },
+            radius: radius * units.scale,
+          });
+        } else if (startDeg !== undefined && endDeg !== undefined) {
+          const start = (startDeg * Math.PI) / 180;
+          const end = (endDeg * Math.PI) / 180;
+          entities.push({
+            kind: 'arc', id: nextId++,
+            center: { x: cx * units.scale, y: cy * units.scale },
+            radius: radius * units.scale,
+            startAngle: start,
+            sweepAngle: normalizeSweep(start, end),
           });
         } else skipped++;
-      } else {
-        const radius = num(groups, 40);
-        const startDeg = num(groups, 50);
-        const endDeg = num(groups, 51);
-        if (cx !== undefined && cy !== undefined && radius !== undefined && radius > 0) {
-          if (type === 'CIRCLE') {
-            entities.push({
-              kind: 'circle', id: nextId++,
-              center: { x: cx * units.scale, y: cy * units.scale },
-              radius: radius * units.scale,
-            });
-          } else if (startDeg !== undefined && endDeg !== undefined) {
-            const start = (startDeg * Math.PI) / 180;
-            const end = (endDeg * Math.PI) / 180;
-            entities.push({
-              kind: 'arc', id: nextId++,
-              center: { x: cx * units.scale, y: cy * units.scale },
-              radius: radius * units.scale,
-              startAngle: start,
-              sweepAngle: normalizeSweep(start, end),
-            });
-          } else skipped++;
-        } else skipped++;
-      }
+      } else skipped++;
     } else {
       skipped++;
     }
@@ -133,9 +174,9 @@ export function parseDxfSketchEntities(text: string, existingMaxId = 0): DxfImpo
       flush();
       if (pair.value === 'ENDSEC')
         break;
-      current = { type: pair.value, groups: new Map() };
+      current = { type: pair.value, groups: [] };
     } else if (current) {
-      current.groups.set(pair.code, pair.value);
+      current.groups.push(pair);
     }
   }
   flush();

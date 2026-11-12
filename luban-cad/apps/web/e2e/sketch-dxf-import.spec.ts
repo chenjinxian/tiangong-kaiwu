@@ -1,8 +1,8 @@
 /**
  * 草图「插入 DXF 或 DWG」真栈验收（2026-11-12 首切片）。
  *
- * 覆盖：草图编辑态点 ribbon → 文件选择 → ASCII DXF 解析（LINE/CIRCLE/ARC、
- * $INSUNITS=mm）→ 一次 updateSketch 并入当前草图 → 重载后仍在。
+ * 覆盖：草图编辑态点 ribbon → 文件选择 → ASCII DXF 解析（LINE/CIRCLE/ARC/
+ * POINT/直线段 LWPOLYLINE、$INSUNITS=mm）→ 一次 updateSketch 并入当前草图 → 重载后仍在。
  * DWG/空 DXF 的拒收由纯逻辑与代码路径覆盖，不在本 spec 造二进制夹具。
  */
 import path from 'node:path';
@@ -30,7 +30,7 @@ function kinds(sketch: SketchDto | undefined): string[] {
 }
 
 test.describe('草图 DXF 导入（Onshape 对拍首切片）', () => {
-  test('LINE/CIRCLE/ARC 导入并重载持久', async ({ page, request }) => {
+  test('LINE/CIRCLE/ARC/POINT/LWPOLYLINE 导入并重载持久', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const token = await getApiToken();
     const seed = await resetBModelSeed(request, token);
@@ -70,13 +70,19 @@ test.describe('草图 DXF 导入（Onshape 对拍首切片）', () => {
     await expect.poll(async () => kinds(await getSketchRpc(ctx, sketchId, token)), {
       timeout: 40_000,
       intervals: [600, 1000, 2000, 3000],
-    }).toEqual(['arc', 'circle', 'line']);
+    }).toEqual(['arc', 'circle', 'line', 'line', 'line', 'point']);
 
     const sketch = await getSketchRpc(ctx, sketchId, token);
     const line = sketch?.entities.find((entity) => entity.kind === 'line');
     const circle = sketch?.entities.find((entity) => entity.kind === 'circle');
     const arc = sketch?.entities.find((entity) => entity.kind === 'arc');
     expect(line).toMatchObject({ p1: { x: -10, y: 0 }, p2: { x: 0, y: 0 } });
+    // LWPOLYLINE（直线段）展开为两条 line；POINT 映射为草图点。
+    const polyline = (sketch?.entities ?? []).filter((entity) => entity.kind === 'line'
+      && typeof entity.p1 !== 'number' && entity.p1.y === -10);
+    expect(polyline).toHaveLength(2);
+    const point = sketch?.entities.find((entity) => entity.kind === 'point');
+    expect(point).toMatchObject({ kind: 'point', x: -20, y: 0 });
     expect(circle).toMatchObject({ center: { x: 10, y: 0 }, radius: 5 });
     expect(arc?.kind === 'arc' ? arc.radius : undefined).toBeCloseTo(4, 9);
     expect(arc?.kind === 'arc' ? arc.sweepAngle : undefined).toBeCloseTo(Math.PI / 2, 9);
@@ -86,7 +92,7 @@ test.describe('草图 DXF 导入（Onshape 对拍首切片）', () => {
 
     // 重载后仍在（一次 updateSketch 已落库）。
     await enterSketch();
-    expect(kinds(await getSketchRpc(ctx, sketchId, token))).toEqual(['arc', 'circle', 'line']);
+    expect(kinds(await getSketchRpc(ctx, sketchId, token))).toEqual(['arc', 'circle', 'line', 'line', 'line', 'point']);
     await page.keyboard.press('Escape');
   });
 });
