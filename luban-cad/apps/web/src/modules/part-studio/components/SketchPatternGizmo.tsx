@@ -61,8 +61,8 @@ const PREVIEW_STROKE = '#4a90e2';
 const PREVIEW_FILL = 'rgba(74, 144, 226, 0.12)';
 
 type DragKind = 'direction' | 'spacing' | 'count' | 'center' | 'move' | 'rotate' | 'scale'
-  | 'directionSecond' | 'spacingSecond' | 'countSecond';
-type EditKind = 'spacing' | 'count' | 'spacingSecond' | 'countSecond';
+  | 'directionSecond' | 'spacingSecond' | 'countSecond' | 'angle';
+type EditKind = 'spacing' | 'count' | 'spacingSecond' | 'countSecond' | 'angle';
 
 interface DragState {
   kind: DragKind;
@@ -105,9 +105,11 @@ export function SketchPatternGizmo({
   const [secondDirectionRad, setSecondDirectionRad] = React.useState(Math.PI / 2);
   const [secondSpacingMm, setSecondSpacingMm] = React.useState(DEFAULT_SPACING_MM);
   const [secondCount, setSecondCount] = React.useState(1);
-  // 环形阵列：旋转中心（草图局部）与总角度（默认整周）。
+  // 环形阵列：旋转中心（草图局部）与总角度（默认整周；拖动角度手柄或输入角度
+  // 可改为部分角度——Onshape 帮助：drag the arrowhead to reduce the angle）。
   const [centerLocal, setCenterLocal] = React.useState({ u: 0, v: 0 });
-  const [angleRad] = React.useState(Math.PI * 2);
+  const [angleDeg, setAngleDeg] = React.useState(360);
+  const angleRad = (angleDeg * Math.PI) / 180;
   // 变换：选中几何的局部位移 + 绕选区质心的旋转/均匀缩放。
   const [deltaLocal, setDeltaLocal] = React.useState({ u: 0, v: 0 });
   const [rotationRad, setRotationRad] = React.useState(0);
@@ -243,8 +245,9 @@ export function SketchPatternGizmo({
     y: seedClient.y + screenDir.y * spacingPx * 0.5 + perp.y * 16,
   } : undefined;
   const centerClient = kind === 'circular' ? toClient(circularCenterWorld) : undefined;
+  // 环形阵列的计数手柄放在种子左上方，给角度手柄（弧末端外侧）留出独立命中区。
   const countHandle = kind === 'circular'
-    ? (seedClient ? { x: seedClient.x + 18, y: seedClient.y - 18 } : undefined)
+    ? (seedClient ? { x: seedClient.x - 18, y: seedClient.y - 18 } : undefined)
     : (lastClient ? { x: lastClient.x + perp.x * 16, y: lastClient.y + perp.y * 16 } : undefined);
 
   // 2026-11-13：线性阵列第二方向（独立方向；默认垂直于第一方向）。
@@ -285,6 +288,30 @@ export function SketchPatternGizmo({
     x: seedClient.x + secondScreenDir.x * (secondSpacingPx * Math.max(0, secondCount - 1) + 26) + secondPerp.x * 16,
     y: seedClient.y + secondScreenDir.y * (secondSpacingPx * Math.max(0, secondCount - 1) + 26) + secondPerp.y * 16,
   } : undefined;
+
+  // 环形阵列角度手柄（Onshape 帮助：拖动 arrowhead 可改部分角度；默认 360°）。
+  const circularSeedAngle = seedLocal
+    ? Math.atan2(seedLocal.v - centerLocal.v, seedLocal.u - centerLocal.u)
+    : 0;
+  const circularEndWorld = kind === 'circular' && seedLocal
+    ? frame.toWorld({
+      u: centerLocal.u + Math.hypot(seedLocal.u - centerLocal.u, seedLocal.v - centerLocal.v)
+        * Math.cos(circularSeedAngle + angleRad),
+      v: centerLocal.v + Math.hypot(seedLocal.u - centerLocal.u, seedLocal.v - centerLocal.v)
+        * Math.sin(circularSeedAngle + angleRad),
+    })
+    : undefined;
+  const circularEndClient = circularEndWorld ? toClient(circularEndWorld) : undefined;
+  let angleHandle: { x: number; y: number } | undefined;
+  if (kind === 'circular' && circularEndClient && centerClient) {
+    const dx = circularEndClient.x - centerClient.x;
+    const dy = circularEndClient.y - centerClient.y;
+    const length = Math.hypot(dx, dy) || 1;
+    angleHandle = {
+      x: circularEndClient.x + (dx / length) * 18,
+      y: circularEndClient.y + (dy / length) * 18,
+    };
+  }
 
   // 变换：选区屏幕包围盒（旋转手柄在顶边上方，四角为均匀缩放手柄）。
   const seedScreenPoints = seedPolylines
@@ -357,10 +384,11 @@ export function SketchPatternGizmo({
     } else if (kind === 'circular' && seedLocal) {
       const radius = Math.hypot(seedLocal.u - centerLocal.u, seedLocal.v - centerLocal.v);
       if (radius > 1e-9) {
+        const startAngle = Math.atan2(seedLocal.v - centerLocal.v, seedLocal.u - centerLocal.u);
         ctx.beginPath();
-        const segments = 72;
+        const segments = Math.max(8, Math.round(72 * angleRad / (Math.PI * 2)));
         for (let index = 0; index <= segments; index++) {
-          const angle = (Math.PI * 2 * index) / segments;
+          const angle = startAngle + angleRad * index / segments;
           const world = frame.toWorld({
             u: centerLocal.u + radius * Math.cos(angle),
             v: centerLocal.v + radius * Math.sin(angle),
@@ -413,7 +441,7 @@ export function SketchPatternGizmo({
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-  }, [preview, viewport, sketch.plane, seedCenter, lastWorld, secondLastWorld, kind, seedLocal, centerLocal, deltaLocal, frame]);
+  }, [preview, viewport, sketch.plane, seedCenter, lastWorld, secondLastWorld, kind, seedLocal, centerLocal, deltaLocal, frame, angleRad]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {
@@ -536,11 +564,13 @@ export function SketchPatternGizmo({
           ? formatMm(secondSpacingMm)
           : kind === 'countSecond'
             ? String(secondCount)
-            : String(count),
+            : kind === 'angle'
+              ? String(Math.round(angleDeg * 10) / 10)
+              : String(count),
       x: position.x,
       y: position.y,
     });
-  }, [spacingMm, count, secondSpacingMm, secondCount]);
+  }, [spacingMm, count, secondSpacingMm, secondCount, angleDeg]);
 
   const applyEdit = React.useCallback((): void => {
     const current = editingRef.current;
@@ -559,6 +589,10 @@ export function SketchPatternGizmo({
         const maxSecond = Math.max(1, Math.floor(SKETCH_PATTERN_MAX_TOTAL / count));
         if (next >= 1 && next <= Math.min(SKETCH_PATTERN_MAX_COUNT, maxSecond))
           setSecondCount(next);
+      } else if (current.kind === 'angle') {
+        const next = Math.round(numeric * 10) / 10;
+        if (next > 0 && next <= 360)
+          setAngleDeg(next);
       } else {
         const next = Math.round(numeric);
         if (next >= SKETCH_PATTERN_MIN_COUNT && next <= SKETCH_PATTERN_MAX_COUNT
@@ -623,6 +657,18 @@ export function SketchPatternGizmo({
     });
     if (!local)
       return;
+    if (kind === 'circular' && drag.kind === 'angle') {
+      // 角度跟随指针相对中心的方位；跨过种子方向时视为整周（360°）。
+      let delta = Math.atan2(local.v - centerLocal.v, local.u - centerLocal.u) - circularSeedAngle;
+      while (delta <= 0)
+        delta += Math.PI * 2;
+      delta = Math.min(delta, Math.PI * 2);
+      let deg = (delta * 180) / Math.PI;
+      if (event.shiftKey)
+        deg = Math.round(deg / 15) * 15;
+      setAngleDeg(clamp(deg, 1, 360));
+      return;
+    }
     if (kind === 'transform' && (drag.kind === 'rotate' || drag.kind === 'scale') && seedLocal) {
       const dx = local.u - seedLocal.u;
       const dy = local.v - seedLocal.v;
@@ -695,7 +741,7 @@ export function SketchPatternGizmo({
       Math.floor(SKETCH_PATTERN_MAX_TOTAL / Math.max(1, secondCount)),
     );
     setCount(clamp(next, SKETCH_PATTERN_MIN_COUNT, Math.min(SKETCH_PATTERN_MAX_COUNT, maxFirst)));
-  }, [viewport, seedLocal, sketch.plane, directionRad, spacingLocal, kind, secondDirectionRad, secondSpacingMm, secondCount, count]);
+  }, [viewport, seedLocal, sketch.plane, directionRad, spacingLocal, kind, secondDirectionRad, secondSpacingMm, secondCount, count, centerLocal, circularSeedAngle]);
 
   const endDrag = React.useCallback((event: React.PointerEvent<HTMLButtonElement>): void => {
     const drag = dragRef.current;
@@ -717,7 +763,14 @@ export function SketchPatternGizmo({
       beginEdit('spacingSecond', secondSpacingHandle);
     else if (drag.kind === 'countSecond' && secondCountHandle)
       beginEdit('countSecond', secondCountHandle);
-  }, [beginEdit, spacingHandle, countHandle, secondSpacingHandle, secondCountHandle]);
+    else if (drag.kind === 'angle' && angleHandle)
+      beginEdit('angle', angleHandle);
+    // Onshape 帮助：单击方向箭头反转阵列方向（拖动仍是旋转/自定义方向）。
+    else if (drag.kind === 'direction')
+      setDirectionRad((angle) => angle + Math.PI);
+    else if (drag.kind === 'directionSecond')
+      setSecondDirectionRad((angle) => angle + Math.PI);
+  }, [beginEdit, spacingHandle, countHandle, secondSpacingHandle, secondCountHandle, angleHandle]);
 
   if (!viewport || !sketch)
     return null;
@@ -860,6 +913,23 @@ export function SketchPatternGizmo({
               <span className="part-studio-pattern-handle__label">{formatMm(spacingMm)}</span>
             </button>
           )}
+          {kind === 'circular' && angleHandle && (
+            <button
+              type="button"
+              className="part-studio-pattern-handle part-studio-pattern-handle--value"
+              data-testid="sketch-pattern-angle"
+              title={t('partStudio.sketch.patternAngle')}
+              aria-label={t('partStudio.sketch.patternAngle')}
+              style={{ left: angleHandle.x, top: angleHandle.y }}
+              onPointerDown={startDrag('angle')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              disabled={submitting}
+            >
+              <span className="part-studio-pattern-handle__label">{Math.round(angleDeg)}°</span>
+            </button>
+          )}
           {kind === 'linear' && secondSpacingHandle && (
             <button
               type="button"
@@ -919,7 +989,9 @@ export function SketchPatternGizmo({
                 ? t('partStudio.sketch.patternSpacingInput')
                 : editing.kind === 'countSecond'
                   ? t('partStudio.sketch.patternCountSecond')
-                  : t('partStudio.sketch.patternCountInput')}
+                  : editing.kind === 'angle'
+                    ? t('partStudio.sketch.patternAngle')
+                    : t('partStudio.sketch.patternCountInput')}
               style={{ left: editing.x, top: editing.y }}
               value={editing.value}
               autoFocus

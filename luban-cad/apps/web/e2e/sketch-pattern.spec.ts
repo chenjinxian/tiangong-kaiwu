@@ -298,6 +298,79 @@ test.describe('草图线性阵列（Onshape canvas gizmo 对拍）', () => {
     }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBe(1);
   });
 
+  test('环形阵列部分角度：角度 360→180°、count 3 → 0/90/180° 均分 → undo', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const { ctx, sketchId, token, project } = await openPatternSketch(page, request, 0.02);
+    await selectCircleAndStartPattern(page, project, 0.02);
+
+    await page.getByRole('button', { name: '线性阵列 ▾' }).click();
+    await page.getByRole('menuitem', { name: '环形阵列' }).click();
+    await expect(page.getByTestId('sketch-pattern-prompt')).toContainText('环形阵列', { timeout: 15_000 });
+    await expect(page.getByTestId('sketch-pattern-angle')).toContainText('360°', { timeout: 15_000 });
+
+    // Onshape 帮助：点击角度箭头暴露角度字段，双击输入度数（此实现单击内联输入）。
+    await page.getByTestId('sketch-pattern-angle').click();
+    const input = page.getByTestId('sketch-pattern-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('180');
+    await input.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-angle')).toContainText('180°');
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-prompt')).toHaveCount(0, { timeout: 30_000 });
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(3);
+    const committed = await getSketchRpc(ctx, sketchId, token);
+    const centers = (committed?.entities ?? [])
+      .filter((entity) => entity.kind === 'circle')
+      .map((entity) => entity.kind === 'circle' ? entity.center as { x: number; y: number } : undefined);
+    const has = (x: number, y: number): boolean => centers.some(
+      (center) => center !== undefined && Math.abs(center.x - x) < 1e-6 && Math.abs(center.y - y) < 1e-6);
+    // 部分角度：step = 180/(3-1) = 90°（整周则是 120°）。
+    expect(has(0.02, 0)).toBe(true);
+    expect(has(0, 0.02)).toBe(true);
+    expect(has(-0.02, 0)).toBe(true);
+
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBe(1);
+  });
+
+  test('线性方向箭头单击反转方向 → Enter 提交 → 圆在 -10/-20 mm → undo', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const { ctx, sketchId, token, project } = await openPatternSketch(page, request);
+    await selectCircleAndStartPattern(page, project);
+
+    // Onshape 帮助：单击方向箭头反转阵列方向（不拖动）。
+    await page.getByTestId('sketch-pattern-direction').click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('sketch-pattern-prompt')).toHaveCount(0, { timeout: 30_000 });
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(3);
+    const committed = await getSketchRpc(ctx, sketchId, token);
+    const centers = (committed?.entities ?? [])
+      .filter((entity) => entity.kind === 'circle')
+      .map((entity) => entity.kind === 'circle' ? entity.center as { x: number; y: number } : undefined);
+    const has = (x: number, y: number): boolean => centers.some(
+      (center) => center !== undefined && Math.abs(center.x - x) < 1e-6 && Math.abs(center.y - y) < 1e-6);
+    expect(has(0, 0)).toBe(true);
+    expect(has(-0.01, 0)).toBe(true);
+    expect(has(-0.02, 0)).toBe(true);
+
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? []).filter((entity) => entity.kind === 'circle').length;
+    }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBe(1);
+  });
+
   test('变换平移首切片：拖动移动手柄 +20 mm → Enter 提交 → undo', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const { ctx, sketchId, token, project } = await openPatternSketch(page, request);

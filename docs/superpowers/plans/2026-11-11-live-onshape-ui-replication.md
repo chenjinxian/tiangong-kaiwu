@@ -967,6 +967,17 @@ symmetric 互斥）。
   → 既有 `updateSketch` 提交；无种子不提交；变换零位移单击只退出。
 - 验证：真栈 `e2e/sketch-pattern.spec.ts --grep 画布单击` 2 passed。
 
+### 批次 70（2026-11-13，环形部分角度 + 方向箭头反转）
+
+- 证据：Onshape 官方帮助页（Circular Sketch Pattern / Sketch Patterns Tech
+  Tip）——默认 360°、拖箭头改开放角度、点箭头暴露角度字段、单击方向箭头
+  反转、空白处接受、接受后 Delete 删单实例。CDP 副本本轮画布点选种子无响应，
+  未补采 live 截图（如实登记）。
+- 产品切片：环形 `angleDeg`（弧实角虚线 + `sketch-pattern-angle` 手柄，
+  拖动/单击输入）；线性两方向箭头单击反转 180°。
+- 验证：真栈 `--grep "部分角度|方向箭头单击"` 3 passed（180°/3 实例 0/90/180°、
+  反转 0/−10/−20 mm，均 undo）。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
