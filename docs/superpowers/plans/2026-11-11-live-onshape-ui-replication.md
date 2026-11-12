@@ -935,6 +935,18 @@ symmetric 互斥）。
 - 两项证据留在私有 `live-probes/` 与 `docs/LIVE-UI-SPECS.md`；
   live spec 总数不变（**38**）。
 
+### 批次 67（2026-11-12，Hinge/Drawbar 范围裁决）
+
+- Dumper `Piano Hinge` = `excluded-import`（importForeign），同文档 `Hinge`
+  = `blocked-sheet-metal`（2×sheetMetalStart）；thin-wall 探针保留但无
+  native twin。
+- Dumper `Drawbar Ring`（revolve + deleteFace + 2 fillet）：sketch+revolve
+  隔离构建的 `getMassProperties` 仍为 HTTP 500 `Start offset -1547954136
+  is outside the bounds of the buffer`（imodel-native GeometryStreamError），
+  属 native stream/内核阻塞，不以近似补洞。
+- 二者证据在私有 `live-probes/` 与 `docs/LIVE-UI-SPECS.md`；live spec
+  总数不变（**38**）。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
