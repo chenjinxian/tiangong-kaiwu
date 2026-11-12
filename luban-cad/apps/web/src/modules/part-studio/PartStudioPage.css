@@ -960,6 +960,16 @@
   background: #e5e5e5;
 }
 
+/* 禁用态与主钮同步置灰（草图工具栏未激活/只读整组禁用等）；禁用箭头不响应 hover。 */
+.part-studio-ribbon__dropdown > .part-studio-ribbon__arrow:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.part-studio-ribbon__dropdown > .part-studio-ribbon__arrow:disabled:hover {
+  background: transparent;
+}
+
 .part-studio-ribbon__arrow svg {
   inline-size: 10px;
   block-size: 10px;

@@ -262,6 +262,9 @@ describe('P2.4 只读总门（canEdit=false）', () => {
     const ribbon = screen.getByTestId('part-studio-ribbon');
     const main = within(ribbon).getByRole('button', { name: '线性阵列' }) as HTMLButtonElement;
     expect(main.disabled || main.getAttribute('aria-disabled') === 'true').toBe(true);
+    // 菜单全为 full 禁用项的箭头与主钮同步禁用；含 gated 子项的箭头保留可点。
+    const filletArrow = within(ribbon).getByRole('button', { name: '圆角 ▾' }) as HTMLButtonElement;
+    expect(filletArrow.disabled).toBe(true);
     await user.click(within(ribbon).getByRole('button', { name: '线性阵列 ▾' }));
     const menu = within(document.body).getByRole('menu', { name: '线性阵列' });
     const circular = within(menu).getByRole('menuitem', { name: '环形阵列' });
@@ -286,6 +289,11 @@ describe('ADR-0017 追补：草图对话框即切换草图工具栏', () => {
     expect(within(ribbon).getByRole('toolbar', { name: '草图工具' })).toBeDefined();
     const line = within(ribbon).getByRole('button', { name: '线' }) as HTMLButtonElement;
     expect(line.disabled || line.getAttribute('aria-disabled') === 'true').toBe(true);
+    // 下拉箭头与主钮同步禁用（草图未激活 → 整组禁用）。
+    const rect = within(ribbon).getByRole('button', { name: '拐角矩形' }) as HTMLButtonElement;
+    const rectArrow = within(ribbon).getByRole('button', { name: '拐角矩形 ▾' }) as HTMLButtonElement;
+    expect(rect.disabled).toBe(true);
+    expect(rectArrow.disabled).toBe(true);
     expect(
       (within(ribbon).getByRole('button', { name: /搜索工具/ }) as HTMLButtonElement).disabled,
     ).toBe(true);
@@ -296,6 +304,9 @@ describe('ADR-0017 追补：草图对话框即切换草图工具栏', () => {
     const enabledLine = within(screen.getByTestId('part-studio-ribbon'))
       .getByRole('button', { name: '线' }) as HTMLButtonElement;
     expect(enabledLine.disabled).toBe(false);
+    const enabledRectArrow = within(screen.getByTestId('part-studio-ribbon'))
+      .getByRole('button', { name: '拐角矩形 ▾' }) as HTMLButtonElement;
+    expect(enabledRectArrow.disabled).toBe(false);
 
     act(() => {
       usePartStudioStore.getState().exitSketch();

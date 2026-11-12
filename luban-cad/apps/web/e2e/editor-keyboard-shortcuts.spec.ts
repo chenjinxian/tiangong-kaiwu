@@ -26,6 +26,10 @@ test.describe('编辑器工具快捷键（Onshape 对拍）', () => {
     await page.keyboard.press('Shift+S');
     const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(sketchDialog).toBeVisible({ timeout: 15_000 });
+    // 草图未创建 → 草图工具栏整组禁用：下拉箭头与主钮同步禁用并置灰。
+    const rectArrow = page.getByRole('button', { name: '拐角矩形 ▾' });
+    await expect(rectArrow).toBeDisabled();
+    await expect(rectArrow).toHaveCSS('opacity', '0.4');
     await sketchDialog.locator('.part-studio-sketch-dialog__cancel').click();
     await expect(sketchDialog).toHaveCount(0, { timeout: 10_000 });
 

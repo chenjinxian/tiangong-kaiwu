@@ -73,6 +73,13 @@ export function RibbonDropdown({
   const groupRef = React.useRef<HTMLDivElement>(null);
   const arrowRef = React.useRef<HTMLButtonElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  /**
+   * F11 只读信息面：仅当菜单里存在 gated 子项（或父项本身 gated，main 仍可点）
+   * 时箭头才保持可点；整菜单都是 full 禁用项时箭头与主钮同步禁用/置灰。
+   */
+  const menuHasGatedGuidance = isGated(tool.capability)
+    || (tool.dropdownItems ?? []).some((item) => isGated(item.capability));
+  const arrowDisabled = disabled && (!readOnly || !menuHasGatedGuidance);
 
   const rows: MenuRow[] = React.useMemo(() => {
     const parentRow: MenuRow = {
@@ -190,8 +197,8 @@ export function RibbonDropdown({
       >
         {mainOnshapeIcon ? <OnshapeIcon name={mainOnshapeIcon} size={20} /> : <MainIcon />}
       </button>
-      {/* 只读态（readOnly）箭头仍可点：子项按各自 capability 裁决（P2.4 F11）；
-          草图工具栏未激活等非只读禁用才连箭头一起禁用。 */}
+      {/* 只读态（readOnly）且菜单含 gated 子项时箭头仍可点：子项按各自
+          capability 裁决（P2.4 F11）；其余禁用态与主钮同步禁用。 */}
       <button
         ref={arrowRef}
         type="button"
@@ -199,8 +206,8 @@ export function RibbonDropdown({
         aria-haspopup="menu"
         aria-expanded={open}
         className="part-studio-ribbon__arrow"
-        disabled={disabled && !readOnly}
-        title={disabled && !readOnly ? label : undefined}
+        disabled={arrowDisabled}
+        title={arrowDisabled ? label : undefined}
         onClick={() => (open ? closeMenu(true) : openMenu())}
       >
         <OnshapeIcon name="expanded" size={10} />
