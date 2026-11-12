@@ -155,6 +155,8 @@ export interface FeatureTreeProps {
    * （featureId）并以 bodyKey 作 deleteFeature.targetBodyId。
    */
   onDeletePart?: (node: PartNode, featureId: string, bodyKey: string) => void;
+  /** 2026-11-13：零件「隔离…」——会话级隐藏其它零件（简化切片，宿主维护退出态）。 */
+  onIsolatePart?: (node: PartNode) => void;
 }
 
 interface MenuState {
@@ -362,6 +364,7 @@ export function FeatureTree({
   bodyTransparency,
   onBodyTransparencyChange,
   onDeletePart,
+  onIsolatePart,
 }: FeatureTreeProps): React.JSX.Element {
   const { t } = useTranslation();
   const [filterInput, setFilterInput] = React.useState('');
@@ -1199,8 +1202,11 @@ export function FeatureTree({
             type="button"
             role="menuitem"
             className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
+            data-testid="tree-menu-isolate"
+            onClick={() => {
+              setMenu(null);
+              onIsolatePart?.(menuNode);
+            }}
           >
             {t('partStudio.tree.menuIsolate')}
           </button>

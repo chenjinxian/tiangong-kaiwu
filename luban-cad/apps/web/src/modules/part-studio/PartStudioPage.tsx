@@ -493,6 +493,33 @@ function PartStudioSession({
     [featureSystem.bodies, featureSystem.tree],
   );
 
+  // 2026-11-13：零件「隔离…」简化切片——会话级隐藏其它 body（同一 hiddenIds
+  // 通道），顶部横幅提供退出并恢复隔离前的隐藏集；不改 iModel。
+  const [isolatedPart, setIsolatedPart] = React.useState<
+    { bodyKey: string; name: string; previousHidden: string[]; partKeys: string[] } | null
+  >(null);
+  const handleIsolatePart = React.useCallback((node: { id: string; name: string }): void => {
+    const partKeys = displayBodies.map((body) => body.bodyKey);
+    if (!partKeys.includes(node.id))
+      return;
+    const state = usePartStudioStore.getState();
+    const previousHidden = [...state.canvas.hiddenIds];
+    state.showNodes([node.id]);
+    const others = partKeys.filter((key) => key !== node.id);
+    if (others.length > 0)
+      state.hideNodes(others);
+    setIsolatedPart({ bodyKey: node.id, name: node.name, previousHidden, partKeys });
+  }, [displayBodies]);
+  const exitIsolation = React.useCallback((): void => {
+    if (!isolatedPart)
+      return;
+    const state = usePartStudioStore.getState();
+    state.showNodes([...new Set([...isolatedPart.partKeys, isolatedPart.bodyKey])]);
+    if (isolatedPart.previousHidden.length > 0)
+      state.hideNodes(isolatedPart.previousHidden);
+    setIsolatedPart(null);
+  }, [isolatedPart]);
+
   // 显示/渲染设置（2026-11-02）：共享给 ViewCube 下拉与右停靠面板。
   const displaySettings = useDisplaySettings(viewport);
   // Onshape「外观」：逐 body 颜色 / 透明度覆盖（独立 FeatureOverrideProvider，
@@ -1181,7 +1208,16 @@ function PartStudioSession({
               renameBody={featureSystem.renameBody}
               bodyTransparency={bodyTransparency}
               onBodyTransparencyChange={handleBodyTransparencyChange}
+              onIsolatePart={handleIsolatePart}
             />
+            {isolatedPart && (
+              <div className="part-studio-isolate-banner" role="status" data-testid="part-isolate-banner">
+                <span>{t('partStudio.tree.isolateBanner', { name: isolatedPart.name })}</span>
+                <button type="button" onClick={exitIsolation}>
+                  {t('partStudio.tree.exitIsolate')}
+                </button>
+              </div>
+            )}
             <div className="part-studio-main">
               {/* canEdit 直通画布对话框宿主（B2 只读写门禁）：权限只读下写面对话框
                   的 ✓ 提交面禁用+诚实提示，不进 useFeatureSystem 租约获取等待环

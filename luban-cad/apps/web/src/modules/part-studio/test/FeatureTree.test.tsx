@@ -954,6 +954,15 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     expect(blocked.getAttribute('title')).toContain('NEW-body');
   });
 
+  it('零件菜单「隔离…」启用 → onIsolatePart(part 节点)', async () => {
+    const user = userEvent.setup();
+    const onIsolate = vi.fn();
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} onIsolatePart={onIsolate} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x15'));
+    await user.click(screen.getByRole('menuitem', { name: '隔离…' }));
+    expect(onIsolate).toHaveBeenCalledWith(expect.objectContaining({ id: '0x15' }));
+  });
+
   it('v1.70 自定义特征名优先于「类型 + 序号」派生名', () => {
     const named: FeatureTreeEntry[] = [
       { id: 'nx1', featureType: 'extrude', orderKey: 1, suppressed: false, status: 0, params: {}, name: 'Housing' },

@@ -37,7 +37,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 
 | 对象 | 增 | 删 | 改 | 备注 |
 |---|---|---|---|---|
-| 零件 | ✅ 产体特征 | 🟠 NEW-body 驱动特征可删（零件行「删除…」→ HITL → deleteFeature(源, targetBodyId)，undo 已验证）；任意 body 的 Delete Part 历史特征未做 | ✅ 重命名（v1.70 `renameBody` RPC → userLabel + marker.name，undo 已验证）；🟠 material 未支持；隐藏/显示、**隐藏其他零件、隐藏所有零件**（会话级）、**使之透明…**（单 body 会话滑块，简化）、外观、放大、属性可用 | 隔离/复制/工程图/导出/发布 菜单禁用；真栈 `part-rename.spec.ts` + `part-delete.spec.ts`；被 fillet/hole 改写的 body 删除诚实禁用；隐藏批量动作 store.hiddenIds 单一通道；透明度面板完整控件未做 |
+| 零件 | ✅ 产体特征 | 🟠 NEW-body 驱动特征可删（零件行「删除…」→ HITL → deleteFeature(源, targetBodyId)，undo 已验证）；任意 body 的 Delete Part 历史特征未做 | ✅ 重命名（v1.70 `renameBody` RPC → userLabel + marker.name，undo 已验证）；🟠 material 未支持；隐藏/显示、**隐藏其他零件、隐藏所有零件**（会话级）、**使之透明…**（单 body 会话滑块，简化）、**隔离…**（简化：立即隔离 + 横幅退出并恢复隐藏集）、外观、放大、属性可用 | 复制/工程图/导出/发布 菜单禁用；真栈 `part-rename.spec.ts` + `part-delete.spec.ts`；被 fillet/hole 改写的 body 删除诚实禁用；隐藏批量动作 store.hiddenIds 单一通道；透明度面板完整控件未做 |
 | 体积读面 | — | — | ✅ 行内体积 + 属性对话框 | 只读 |
 
 ## 交叉删除语义

@@ -1380,6 +1380,8 @@
     "menuExport": "导出…",
     "menuPublish": "发布… 升级",
     "menuIsolate": "隔离…",
+    "isolateBanner": "已隔离 {{name}}（仅显示该零件）",
+    "exitIsolate": "退出隔离",
     "menuMakeTransparent": "使之透明…",
     "transparencyTitle": "使之透明 — {{name}}",
     "transparencyLevel": "透明度 {{value}}%",

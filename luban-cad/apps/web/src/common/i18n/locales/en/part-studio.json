@@ -1380,6 +1380,8 @@
     "menuExport": "Export…",
     "menuPublish": "Publish… upgrade",
     "menuIsolate": "Isolate…",
+    "isolateBanner": "Isolated {{name}} (only this part is shown)",
+    "exitIsolate": "Exit isolate",
     "menuMakeTransparent": "Make transparent…",
     "transparencyTitle": "Make transparent — {{name}}",
     "transparencyLevel": "Transparency {{value}}%",

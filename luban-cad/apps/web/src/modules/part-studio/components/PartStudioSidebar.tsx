@@ -81,6 +81,8 @@ export interface PartStudioSidebarProps {
   /** 2026-11-13：逐 body 透明度会话态（0..1；零件菜单「使之透明…」）。 */
   bodyTransparency?: Readonly<Record<string, number>>;
   onBodyTransparencyChange?: (bodyKey: string, transparency: number) => void;
+  /** 2026-11-13：零件「隔离…」会话动作（宿主维护退出态与恢复）。 */
+  onIsolatePart?: (node: TreeNode) => void;
 }
 
 export function PartStudioSidebar({
@@ -101,6 +103,7 @@ export function PartStudioSidebar({
   renameBody,
   bodyTransparency,
   onBodyTransparencyChange,
+  onIsolatePart,
 }: PartStudioSidebarProps): React.JSX.Element {
   const { t } = useTranslation();
   const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
@@ -288,6 +291,7 @@ export function PartStudioSidebar({
         onSuppress={handleSuppress}
         onRename={handleRename}
         onDeletePart={handleDeletePart}
+        onIsolatePart={onIsolatePart}
         canEdit={canEdit}
         bodyTransparency={bodyTransparency}
         onBodyTransparencyChange={onBodyTransparencyChange}

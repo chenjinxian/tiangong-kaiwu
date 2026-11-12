@@ -37,6 +37,35 @@
   min-block-size: 0;
   display: flex;
   flex-direction: row;
+  position: relative;
+}
+
+.part-studio-isolate-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border: 1px solid rgba(245, 166, 65, 0.55);
+  border-radius: 4px;
+  background: #fff7ec;
+  color: #7a4a12;
+  font: 12px/1.4 "Segoe UI", "Microsoft YaHei", sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.part-studio-isolate-banner button {
+  border: 1px solid rgba(122, 74, 18, 0.35);
+  border-radius: 3px;
+  background: #ffffff;
+  color: #7a4a12;
+  font: inherit;
+  padding: 1px 8px;
+  cursor: pointer;
 }
 
 .part-studio-main {
