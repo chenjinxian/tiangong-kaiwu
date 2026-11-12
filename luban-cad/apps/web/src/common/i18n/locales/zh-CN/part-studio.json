@@ -1110,10 +1110,14 @@
       }
     },
     "fillet": {
-      "prompt": "单击两条草图直线相交的角点添加圆角（R{{radius}} mm）；Esc 结束",
+      "prompt": "单击两条草图直线共享的角点，或依次单击两条直线在延长交点创建圆角（R{{radius}} mm）；Esc 结束",
+      "secondPrompt": "已选择第一条直线：单击第二条直线，在延长交点创建圆角（R{{radius}} mm）；Esc 结束",
+      "chooseAnotherLine": "请选择另一条草图直线",
       "notOpen": "请先进入草图编辑",
-      "noCorner": "请单击恰好两条草图直线相交的角点",
-      "unsupported": "圆角暂只支持两条非投影直线（内联端点）的角点",
+      "noCorner": "请单击两条草图直线共享的角点，或依次单击两条直线",
+      "unsupported": "圆角暂只支持两条非投影直线（内联端点）：角点或两线选择",
+      "parallel": "两条直线平行或共线，无法创建圆角",
+      "outsideSegment": "圆角无法落在这两条线段上（间隙过大或交点在线段内）",
       "radiusTooLarge": "R{{radius}} mm 对该角点过大",
       "degenerate": "该角点处两条直线共线（或接近共线），无法创建圆角",
       "invalidRadius": "圆角半径无效",

@@ -155,4 +155,96 @@ test.describe('草图圆角（Onshape 对拍）', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
   });
+
+  test('两曲线选择：不相连 L 形两线在延长交点生成 R5 圆角', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    const openWithRetry = async () => {
+      try {
+        return await openSeedImodelEditor(page, seed);
+      } catch {
+        await page.reload();
+        return openSeedImodelEditor(page, seed);
+      }
+    };
+    let ctx = await openWithRetry();
+
+    const lease = await borrowWriteLease(ctx, token, 'sketch-fillet-lines');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+        { kind: 'line', id: 12, p1: { x: 0, y: 1 }, p2: { x: 0, y: 11 } },
+      ],
+      constraints: [],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openWithRetry();
+    const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(sketchRow).toBeVisible({ timeout: 60_000 });
+    await sketchRow.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.waitForTimeout(600);
+    await page.evaluate(() => {
+      const vp = (window as unknown as {
+        __lubanE2E?: { coreFrontend: { IModelApp: { viewManager: { selectedView: { zoomToVolume?: (v: unknown) => void } | undefined } } } };
+      }).__lubanE2E?.coreFrontend?.IModelApp?.viewManager?.selectedView;
+      vp?.zoomToVolume?.({ low: { x: -5, y: -5, z: -2 }, high: { x: 15, y: 15, z: 2 } });
+    });
+    await page.waitForTimeout(300);
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    const project = async (local: Point): Promise<Point> => {
+      const view = await page.evaluate((worldPoint) => {
+        const vp = (window as unknown as {
+          __lubanE2E?: { coreFrontend: { IModelApp: { viewManager: { selectedView: { worldToView: (p: { x: number; y: number; z: number }) => { x: number; y: number } } } | undefined } } };
+        }).__lubanE2E?.coreFrontend?.IModelApp?.viewManager?.selectedView;
+        if (!vp) return null;
+        const v = vp.worldToView(worldPoint);
+        return { x: v.x, y: v.y };
+      }, { x: local.x, y: local.y, z: 0 });
+      expect(view).not.toBeNull();
+      return { x: box!.x + view!.x, y: box!.y + view!.y };
+    };
+
+    // 两线不相连：依次点两条直线（无共享角点），在延长交点 (0,0) 倒角。
+    await page.getByRole('button', { name: '圆角', exact: true }).click();
+    const firstLine = await project({ x: 5, y: 0 });
+    await page.mouse.click(firstLine.x, firstLine.y);
+    const secondLine = await project({ x: 0, y: 6 });
+    await page.mouse.click(secondLine.x, secondLine.y);
+
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      const arc = sketch?.entities.find((entity) => entity.kind === 'arc');
+      const line11 = linePoints(sketch, 11);
+      const line12 = linePoints(sketch, 12);
+      if (!arc || arc.kind !== 'arc' || !line11 || !line12)
+        return false;
+      const center = arc.center as Point;
+      const radius = arc.radius ?? 0;
+      return Math.abs(radius - 5) < 0.2
+        && Math.abs(center.x - 5) < 0.2 && Math.abs(center.y - 5) < 0.2
+        && Math.hypot(line11.a.x - 5, line11.a.y) < 0.2
+        && Math.hypot(line12.a.x, line12.a.y - 5) < 0.2;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
+
+    const sketch = await getSketchRpc(ctx, sketchId, token);
+    expect(linePoints(sketch, 11)?.b).toEqual({ x: 10, y: 0 });
+    expect(linePoints(sketch, 12)?.b).toEqual({ x: 0, y: 11 });
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
+  });
 });

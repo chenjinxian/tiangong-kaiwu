@@ -64,6 +64,15 @@ export type FilletGeometryResult =
   | { ok: true; geometry: FilletArcGeometry }
   | { ok: false; reason: 'degenerate' | 'radius-too-large' | 'invalid-radius' };
 
+export type FilletFailureReason =
+  | 'no-corner'
+  | 'unsupported'
+  | 'degenerate'
+  | 'radius-too-large'
+  | 'invalid-radius'
+  /** 两线选择：切点落在线段外（线间隙大于切距/交点在线段内）。 */
+  | 'outside-segment';
+
 export type FilletCornerResult =
   | {
     ok: true;
@@ -75,7 +84,7 @@ export type FilletCornerResult =
   }
   | {
     ok: false;
-    reason: 'no-corner' | 'unsupported' | 'degenerate' | 'radius-too-large' | 'invalid-radius';
+    reason: FilletFailureReason;
     entities: SketchEntityDto[];
     constraints: SketchConstraintDto[];
   };
@@ -453,6 +462,155 @@ export function filletSketchCorner(
     nextId: nextId + 6,
     geometry,
   };
+}
+
+interface ResolvedLine {
+  line: SketchEntityDto & { kind: 'line' };
+  start: { ref: number | LocalPoint; point: LocalPoint; part: 'start' | 'end' };
+  end: { ref: number | LocalPoint; point: LocalPoint; part: 'start' | 'end' };
+}
+
+function resolveLine(
+  entity: SketchEntityDto | undefined,
+  points: ReadonlyMap<number, LocalPoint>,
+): ResolvedLine | undefined {
+  if (!entity || entity.kind !== 'line' || entity.projected)
+    return undefined;
+  const start = resolvePoint(entity.p1, points);
+  const end = resolvePoint(entity.p2, points);
+  if (!start || !end)
+    return undefined;
+  return {
+    line: entity,
+    start: { ref: entity.p1, point: start, part: 'start' },
+    end: { ref: entity.p2, point: end, part: 'end' },
+  };
+}
+
+interface VirtualCornerResult {
+  ok: true;
+  corner: FilletCorner;
+  gapA: number;
+  gapB: number;
+}
+
+/**
+ * 两线选择 → 虚拟角点（Onshape Fillet 可拾取两条曲线）：无限延长求交点，
+ * 每条线取离交点较近的端点作为被修剪端；要求交点在两线段之外（近端点外侧），
+ * 避免“交点落在线段中间”的四解歧义。近端点须为内联点（显式 point 共享点
+ * 无法安全回缩）。
+ */
+function virtualCornerFromLines(
+  entities: readonly SketchEntityDto[],
+  lineIdA: number,
+  lineIdB: number,
+): VirtualCornerResult | { ok: false; reason: FilletFailureReason } {
+  if (lineIdA === lineIdB)
+    return { ok: false, reason: 'unsupported' };
+  const points = pointMap(entities);
+  const lineA = resolveLine(entities.find((entity) => entity.id === lineIdA), points);
+  const lineB = resolveLine(entities.find((entity) => entity.id === lineIdB), points);
+  if (!lineA || !lineB)
+    return { ok: false, reason: 'unsupported' };
+
+  const rx = lineA.end.point.x - lineA.start.point.x;
+  const ry = lineA.end.point.y - lineA.start.point.y;
+  const sx = lineB.end.point.x - lineB.start.point.x;
+  const sy = lineB.end.point.y - lineB.start.point.y;
+  const det = rx * sy - ry * sx;
+  if (Math.abs(det) < EPS * (Math.hypot(rx, ry) + Math.hypot(sx, sy) + 1))
+    return { ok: false, reason: 'degenerate' }; // 平行/共线：无唯一虚拟角点
+  const qpx = lineB.start.point.x - lineA.start.point.x;
+  const qpy = lineB.start.point.y - lineA.start.point.y;
+  const t = (qpx * sy - qpy * sx) / det;
+  const cornerPoint = {
+    x: lineA.start.point.x + rx * t,
+    y: lineA.start.point.y + ry * t,
+  };
+
+  const nearOf = (line: ResolvedLine): { near: ResolvedLine['start']; far: ResolvedLine['start'] } => {
+    const dStart = Math.hypot(line.start.point.x - cornerPoint.x, line.start.point.y - cornerPoint.y);
+    const dEnd = Math.hypot(line.end.point.x - cornerPoint.x, line.end.point.y - cornerPoint.y);
+    return dStart <= dEnd
+      ? { near: line.start, far: line.end }
+      : { near: line.end, far: line.start };
+  };
+  const a = nearOf(lineA);
+  const b = nearOf(lineB);
+  if (typeof a.near.ref === 'number' || typeof b.near.ref === 'number')
+    return { ok: false, reason: 'unsupported' };
+  // 交点须位于近端点外侧（沿 far→near 的射线延长方向）：否则交点落在
+  // 线段内部/近端方向，裁剪语义有歧义。
+  const dotA = (cornerPoint.x - a.near.point.x) * (a.far.point.x - a.near.point.x)
+    + (cornerPoint.y - a.near.point.y) * (a.far.point.y - a.near.point.y);
+  const dotB = (cornerPoint.x - b.near.point.x) * (b.far.point.x - b.near.point.x)
+    + (cornerPoint.y - b.near.point.y) * (b.far.point.y - b.near.point.y);
+  if (dotA > 1e-7 || dotB > 1e-7)
+    return { ok: false, reason: 'outside-segment' };
+
+  const dirA = unit(cornerPoint, a.far.point);
+  const dirB = unit(cornerPoint, b.far.point);
+  if (!dirA || !dirB)
+    return { ok: false, reason: 'degenerate' };
+  const gapA = Math.hypot(a.near.point.x - cornerPoint.x, a.near.point.y - cornerPoint.y);
+  const gapB = Math.hypot(b.near.point.x - cornerPoint.x, b.near.point.y - cornerPoint.y);
+  const firstLineId = lineIdA < lineIdB ? lineIdA : lineIdB;
+  const secondLineId = lineIdA < lineIdB ? lineIdB : lineIdA;
+  const [first, second] = lineIdA < lineIdB ? [a, b] : [b, a];
+  const [firstDir, secondDir] = lineIdA < lineIdB ? [dirA, dirB] : [dirB, dirA];
+  const [firstGap, secondGap] = lineIdA < lineIdB ? [gapA, gapB] : [gapB, gapA];
+  return {
+    ok: true,
+    corner: {
+      id: `${endpointKey(firstLineId, first.near.part)}|${endpointKey(secondLineId, second.near.part)}`,
+      point: cornerPoint,
+      a: {
+        lineId: firstLineId,
+        part: first.near.part,
+        other: first.far.point,
+        direction: firstDir.direction,
+        length: firstDir.length,
+      },
+      b: {
+        lineId: secondLineId,
+        part: second.near.part,
+        other: second.far.point,
+        direction: secondDir.direction,
+        length: secondDir.length,
+      },
+    },
+    gapA: firstGap,
+    gapB: secondGap,
+  };
+}
+
+/**
+ * Onshape Fillet 两曲线选择首切片：点两条不相连的直线，在无限延长交点处
+ * 生成圆角（两条线各自回缩到切点）。要求交点位于两线段之外、切点落在线段
+ * 内；平行/共线、交点在段内、显式点端点诚实拒收。半径约束/切点/coincident/
+ * tangent 展开与角点路径完全一致。
+ */
+export function filletSketchLinePair(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+  lineIdA: number,
+  lineIdB: number,
+  radius: number,
+  nextId: number,
+  options: { construction?: boolean } = {},
+): FilletCornerResult {
+  const built = virtualCornerFromLines(entities, lineIdA, lineIdB);
+  if (!built.ok)
+    return { ok: false, reason: built.reason, entities: [...entities], constraints: [...constraints] };
+  const computed = computeFilletGeometry(built.corner, radius);
+  if (!computed.ok)
+    return { ok: false, reason: computed.reason, entities: [...entities], constraints: [...constraints] };
+  // 切点须落在线段内：从交点到切点的距离 >= 近端点间隙（否则切点在近端点
+  // 外侧的延长段上，需要先把线“延长”再剪，首切片诚实拒收）。
+  const tangentDistance = radius / Math.tan(computed.geometry.theta / 2);
+  if (tangentDistance < built.gapA - 1e-7 || tangentDistance < built.gapB - 1e-7)
+    return { ok: false, reason: 'outside-segment', entities: [...entities], constraints: [...constraints] };
+  return filletSketchCorner(entities, constraints, built.corner, radius, nextId, options);
 }
 
 /** 下一步安全 id：实体与约束 id 的全局最大值 + 1（工具/测试共用）。 */

@@ -8,6 +8,7 @@ import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import {
   computeFilletGeometry,
   filletSketchCorner,
+  filletSketchLinePair,
   findSketchFilletCorners,
   nextSketchId,
 } from '../internal/sketch-fillet.js';
@@ -118,6 +119,67 @@ describe('computeFilletGeometry', () => {
       { kind: 'line', id: 2, p1: { x: 0, y: 0 }, p2: { x: -10, y: 0 } },
     ], []);
     expect(computeFilletGeometry(collinear[0]!, 1)).toEqual({ ok: false, reason: 'degenerate' });
+  });
+});
+
+describe('filletSketchLinePair（Onshape 两曲线选择）', () => {
+  const GAP_LINES: SketchEntityDto[] = [
+    { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+    { kind: 'line', id: 2, p1: { x: 0, y: 1 }, p2: { x: 0, y: 11 } },
+  ];
+
+  it('不相连 L 形两线：延长交点 (0,0) 处 R5，两线近端点回缩到切点', () => {
+    const result = filletSketchLinePair(GAP_LINES, [], 1, 2, 5, 100);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.arcId).toBe(100);
+    expect(result.geometry.tangentA.x).toBeCloseTo(5, 9);
+    expect(result.geometry.tangentA.y).toBeCloseTo(0, 9);
+    expect(result.geometry.tangentB.x).toBeCloseTo(0, 9);
+    expect(result.geometry.tangentB.y).toBeCloseTo(5, 9);
+    expect(result.geometry.center.x).toBeCloseTo(5, 9);
+    expect(result.geometry.center.y).toBeCloseTo(5, 9);
+    const lineA = result.entities.find((entity) => entity.id === 1) as Extract<SketchEntityDto, { kind: 'line' }>;
+    expect((lineA.p1 as { x: number }).x).toBeCloseTo(5, 9);
+    expect((lineA.p1 as { y: number }).y).toBeCloseTo(0, 9);
+    const lineB = result.entities.find((entity) => entity.id === 2) as Extract<SketchEntityDto, { kind: 'line' }>;
+    expect((lineB.p1 as { x: number }).x).toBeCloseTo(0, 9);
+    expect((lineB.p1 as { y: number }).y).toBeCloseTo(5, 9);
+    expect(result.constraints.filter((constraint) => constraint.kind === 'tangent')).toHaveLength(2);
+    expect(result.constraints.find((constraint) => constraint.kind === 'radius')).toMatchObject({ value: 5 });
+  });
+
+  it('间隙大于切距 → outside-segment；平行 → degenerate；近端点显式 point → unsupported', () => {
+    const gapTooLarge = filletSketchLinePair([
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 2, p1: { x: 0, y: 6 }, p2: { x: 0, y: 16 } },
+    ], [], 1, 2, 5, 100);
+    expect(gapTooLarge.ok).toBe(false);
+    if (!gapTooLarge.ok) expect(gapTooLarge.reason).toBe('outside-segment');
+
+    const parallel = filletSketchLinePair([
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 2, p1: { x: 0, y: 1 }, p2: { x: 10, y: 1 } },
+    ], [], 1, 2, 5, 100);
+    expect(parallel.ok).toBe(false);
+    if (!parallel.ok) expect(parallel.reason).toBe('degenerate');
+
+    const explicit = filletSketchLinePair([
+      { kind: 'point', id: 9, x: 0, y: 0 },
+      { kind: 'line', id: 1, p1: 9, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 2, p1: { x: 0, y: 1 }, p2: { x: 0, y: 11 } },
+    ], [], 1, 2, 5, 100);
+    expect(explicit.ok).toBe(false);
+    if (!explicit.ok) expect(explicit.reason).toBe('unsupported');
+  });
+
+  it('交点在两线段内部（十字交叉）→ outside-segment（不猜四解）', () => {
+    const crossing = filletSketchLinePair([
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 2, p1: { x: 5, y: -5 }, p2: { x: 5, y: 5 } },
+    ], [], 1, 2, 2, 100);
+    expect(crossing.ok).toBe(false);
+    if (!crossing.ok) expect(crossing.reason).toBe('outside-segment');
   });
 });
 

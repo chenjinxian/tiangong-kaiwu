@@ -36,10 +36,14 @@ import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-fe
 import {
   computeFilletGeometry,
   filletSketchCorner,
+  filletSketchLinePair,
   findSketchFilletCorners,
   nextSketchId,
   type FilletCorner,
+  type FilletFailureReason,
 } from '../../internal/sketch-fillet.js';
+import { sketchEntitiesToWorldPolylines } from '../../internal/sketch-curves.js';
+import { hitTestSketchEntity } from '../../internal/sketch-entity-picker.js';
 
 /**
  * 默认圆角半径（毫米）。Live 证据为英寸文档 0.25 in（= 6.35 mm）；本产品草图
@@ -61,6 +65,8 @@ export class SketchFilletTool extends PrimitiveTool {
   private _nextId = 1;
   private _cursorView?: { x: number; y: number };
   private _hintText?: string;
+  /** Onshape「点两条曲线」：第一击选中的直线；第二击在延长交点倒角。 */
+  private _firstLineId?: number;
 
   public override requireWriteableTarget(): boolean { return true; }
 
@@ -76,6 +82,7 @@ export class SketchFilletTool extends PrimitiveTool {
     if (this.isDynamicsStarted)
       this.endDynamics();
     clearSketchToolFeedback(this.toolId);
+    this._firstLineId = undefined;
     // 清 ribbon 激活态（否则退出后 SketchEntityPicker/尺寸编辑器仍被 store 门挡住）。
     // 仅当当前激活态仍是本工具时清，避免切换工具时抹掉新工具刚写入的 id。
     if (usePartStudioStore.getState().tool.activeToolId === 'sketchFillet')
@@ -98,12 +105,64 @@ export class SketchFilletTool extends PrimitiveTool {
       return EventHandled.Yes;
     }
 
+    // Onshape Fillet 两种拾取：共享角点（一击立即倒角）或依次点两条曲线
+    // （二击，在延长线交点倒角）。
     const corner = this._nearestCorner(sketch, ev.viewPoint, PICK_PX);
-    if (!corner) {
-      this._notify(i18next.t('partStudio.sketch.fillet.noCorner'), OutputMessagePriority.Info);
+    if (corner) {
+      await this._applyCorner(sketchSystem, sketch, corner);
+      this._firstLineId = undefined;
+      this._publishPrompt();
       return EventHandled.Yes;
     }
 
+    const lineId = this._hitLine(sketch, ev.viewPoint);
+    if (lineId === undefined) {
+      this._notify(i18next.t('partStudio.sketch.fillet.noCorner'), OutputMessagePriority.Info);
+      return EventHandled.Yes;
+    }
+    if (this._firstLineId === undefined) {
+      this._firstLineId = lineId;
+      this._publishSecondPrompt();
+      return EventHandled.Yes;
+    }
+    if (this._firstLineId === lineId) {
+      this._notify(i18next.t('partStudio.sketch.fillet.chooseAnotherLine'), OutputMessagePriority.Info);
+      return EventHandled.Yes;
+    }
+
+    const firstLineId = this._firstLineId;
+    this._firstLineId = undefined;
+    this._seedNextId(sketch);
+    const result = filletSketchLinePair(
+      sketch.entities,
+      sketch.constraints,
+      firstLineId,
+      lineId,
+      DEFAULT_SKETCH_FILLET_RADIUS_MM,
+      this._nextId,
+      { construction: usePartStudioStore.getState().sketch.constructionMode },
+    );
+    if (!result.ok) {
+      this._notifyLinePairFailure(result.reason);
+      this._publishPrompt();
+      return EventHandled.Yes;
+    }
+    const applied = await sketchSystem.applyUpdate(result.entities, result.constraints);
+    if (!applied.ok) {
+      this._notify(applied.error ?? i18next.t('partStudio.sketch.fillet.failed'), OutputMessagePriority.Error);
+      this._publishPrompt();
+      return EventHandled.Yes;
+    }
+    this._nextId = result.nextId;
+    this._publishPrompt();
+    return EventHandled.Yes;
+  }
+
+  private async _applyCorner(
+    sketchSystem: NonNullable<ReturnType<typeof getSketchSystem>>,
+    sketch: SketchDto,
+    corner: FilletCorner,
+  ): Promise<void> {
     this._seedNextId(sketch);
     const result = filletSketchCorner(
       sketch.entities,
@@ -115,17 +174,14 @@ export class SketchFilletTool extends PrimitiveTool {
     );
     if (!result.ok) {
       this._notifyFilletFailure(result.reason);
-      return EventHandled.Yes;
+      return;
     }
     const applied = await sketchSystem.applyUpdate(result.entities, result.constraints);
     if (!applied.ok) {
       this._notify(applied.error ?? i18next.t('partStudio.sketch.fillet.failed'), OutputMessagePriority.Error);
-      return EventHandled.Yes;
+      return;
     }
     this._nextId = result.nextId;
-    // 工具保持激活（Onshape 同款：可连续倒角）；不弹成功 toast。
-    this._publishPrompt();
-    return EventHandled.Yes;
   }
 
   public override onDynamicFrame(ev: BeButtonEvent, context: DynamicsContext): void {
@@ -133,17 +189,63 @@ export class SketchFilletTool extends PrimitiveTool {
     if (!sketch)
       return;
     const corner = this._nearestCorner(sketch, ev.viewPoint, HOVER_PX);
-    if (!corner)
+    if (corner) {
+      const geometry = computeFilletGeometry(corner, DEFAULT_SKETCH_FILLET_RADIUS_MM);
+      if (geometry.ok) {
+        this._drawPreviewArc(
+          context,
+          geometry.geometry.center,
+          geometry.geometry.radius,
+          geometry.geometry.startAngle,
+          geometry.geometry.sweepAngle,
+        );
+      }
       return;
-    const geometry = computeFilletGeometry(corner, DEFAULT_SKETCH_FILLET_RADIUS_MM);
-    if (!geometry.ok)
+    }
+    // 两线拾取：第一线已选时，悬停第二线预览延长交点圆角。
+    if (this._firstLineId === undefined)
       return;
+    const hovered = this._hitLine(sketch, ev.viewPoint);
+    if (hovered === undefined || hovered === this._firstLineId)
+      return;
+    const preview = filletSketchLinePair(
+      sketch.entities,
+      sketch.constraints,
+      this._firstLineId,
+      hovered,
+      DEFAULT_SKETCH_FILLET_RADIUS_MM,
+      1,
+    );
+    if (!preview.ok)
+      return;
+    const arcEntity = preview.entities.find((entity) => entity.id === preview.arcId);
+    if (!arcEntity || arcEntity.kind !== 'arc')
+      return;
+    const center = arcEntity.center;
+    if (typeof center === 'number' || typeof arcEntity.radius !== 'number')
+      return;
+    this._drawPreviewArc(
+      context,
+      center,
+      arcEntity.radius,
+      arcEntity.startAngle ?? 0,
+      arcEntity.sweepAngle ?? 0,
+    );
+  }
+
+  private _drawPreviewArc(
+    context: DynamicsContext,
+    center: { x: number; y: number },
+    radius: number,
+    startAngle: number,
+    sweepAngle: number,
+  ): void {
     const builder = context.createGraphic({ type: GraphicType.WorldOverlay });
     builder.setSymbology(PREVIEW_COLOR, PREVIEW_COLOR, 2, LinePixels.Solid);
     const arc = Arc3d.createXY(
-      Point3d.create(geometry.geometry.center.x, geometry.geometry.center.y, 0),
-      geometry.geometry.radius,
-      AngleSweep.createStartSweepRadians(geometry.geometry.startAngle, geometry.geometry.sweepAngle),
+      Point3d.create(center.x, center.y, 0),
+      radius,
+      AngleSweep.createStartSweepRadians(startAngle, sweepAngle),
     );
     arc.tryTransformInPlace(this._plane.localToWorld);
     builder.addArc(arc, false, false);
@@ -180,6 +282,28 @@ export class SketchFilletTool extends PrimitiveTool {
     return best;
   }
 
+  /** 屏幕点命中草图直线（两线拾取/预览共用；非曲线/圆/弧/样条不选）。 */
+  private _hitLine(sketch: SketchDto, viewPoint: { x: number; y: number }): number | undefined {
+    const viewport = IModelApp.viewManager.selectedView;
+    if (!viewport)
+      return undefined;
+    const geometry = {
+      polylines: sketchEntitiesToWorldPolylines(sketch.entities, sketch.plane),
+      controlPoints: [],
+    };
+    const project = (world: Point3d): { x: number; y: number } => {
+      const view = viewport.worldToView(world);
+      return { x: view.x, y: view.y };
+    };
+    const hit = hitTestSketchEntity(geometry, viewPoint, project, sketch.id);
+    if (!hit || hit.part !== 'curve')
+      return undefined;
+    const entity = sketch.entities.find((candidate) => candidate.id === hit.entityId);
+    if (!entity || entity.kind !== 'line' || entity.projected)
+      return undefined;
+    return entity.id;
+  }
+
   private _seedNextId(sketch?: SketchDto): void {
     const active = sketch ?? getSketchSystem()?.activeSketch;
     if (active)
@@ -194,7 +318,15 @@ export class SketchFilletTool extends PrimitiveTool {
       publishSketchToolHint(this.toolId, text, this._cursorView);
   }
 
-  private _notifyFilletFailure(reason: 'no-corner' | 'unsupported' | 'degenerate' | 'radius-too-large' | 'invalid-radius'): void {
+  private _publishSecondPrompt(): void {
+    const text = i18next.t('partStudio.sketch.fillet.secondPrompt', { radius: DEFAULT_SKETCH_FILLET_RADIUS_MM });
+    this._hintText = text;
+    IModelApp.notifications.outputPrompt(text);
+    if (this._cursorView)
+      publishSketchToolHint(this.toolId, text, this._cursorView);
+  }
+
+  private _notifyFilletFailure(reason: FilletFailureReason): void {
     if (reason === 'unsupported')
       this._notify(i18next.t('partStudio.sketch.fillet.unsupported'), OutputMessagePriority.Info);
     else if (reason === 'radius-too-large')
@@ -206,6 +338,26 @@ export class SketchFilletTool extends PrimitiveTool {
       this._notify(i18next.t('partStudio.sketch.fillet.degenerate'), OutputMessagePriority.Info);
     else if (reason === 'invalid-radius')
       this._notify(i18next.t('partStudio.sketch.fillet.invalidRadius'), OutputMessagePriority.Info);
+    else if (reason === 'outside-segment')
+      this._notify(i18next.t('partStudio.sketch.fillet.outsideSegment'), OutputMessagePriority.Info);
+    else
+      this._notify(i18next.t('partStudio.sketch.fillet.noCorner'), OutputMessagePriority.Info);
+  }
+
+  private _notifyLinePairFailure(reason: FilletFailureReason): void {
+    if (reason === 'degenerate')
+      this._notify(i18next.t('partStudio.sketch.fillet.parallel'), OutputMessagePriority.Info);
+    else if (reason === 'outside-segment')
+      this._notify(i18next.t('partStudio.sketch.fillet.outsideSegment'), OutputMessagePriority.Info);
+    else if (reason === 'radius-too-large')
+      this._notify(
+        i18next.t('partStudio.sketch.fillet.radiusTooLarge', { radius: DEFAULT_SKETCH_FILLET_RADIUS_MM }),
+        OutputMessagePriority.Warning,
+      );
+    else if (reason === 'invalid-radius')
+      this._notify(i18next.t('partStudio.sketch.fillet.invalidRadius'), OutputMessagePriority.Info);
+    else if (reason === 'unsupported')
+      this._notify(i18next.t('partStudio.sketch.fillet.unsupported'), OutputMessagePriority.Info);
     else
       this._notify(i18next.t('partStudio.sketch.fillet.noCorner'), OutputMessagePriority.Info);
   }
