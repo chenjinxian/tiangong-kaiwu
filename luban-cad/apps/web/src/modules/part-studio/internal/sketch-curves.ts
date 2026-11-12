@@ -27,6 +27,16 @@ export interface SketchEntityPolyline {
   construction?: boolean;
 }
 
+/**
+ * 草图控制点（Onshape live 2026-11-12：编辑态显示端点/圆心/弧端点/样条控制点，
+ * 蓝色小圆点；点实体同样可见）。kind 预留不同绘制样式，当前统一小圆点。
+ */
+export interface SketchControlPointWorld {
+  entityId: number;
+  position: Point3d;
+  kind: 'point' | 'center' | 'endpoint' | 'control';
+}
+
 interface LocalPoint { x: number; y: number }
 interface SketchParams {
   entities?: SketchEntityDto[];
@@ -83,23 +93,32 @@ function sampleBezier(control: LocalPoint[]): LocalPoint[] {
   return out;
 }
 
+/** 点实体索引（数值引用解析共用；退化点按 0,0 保持旧口径）。 */
+function collectPointEntities(entities: readonly SketchEntityDto[]): Map<number, LocalPoint> {
+  const points = new Map<number, LocalPoint>();
+  for (const entity of entities) {
+    if (entity.kind === 'point' && typeof entity.id === 'number')
+      points.set(entity.id, { x: entity.x ?? 0, y: entity.y ?? 0 });
+  }
+  return points;
+}
+
+function makePointResolver(points: Map<number, LocalPoint>): (ref: unknown) => LocalPoint | undefined {
+  return (ref: unknown): LocalPoint | undefined => {
+    if (typeof ref === 'number')
+      return points.get(ref);
+    return isLocalPoint(ref) ? { x: ref.x, y: ref.y } : undefined;
+  };
+}
+
 /** 单草图实体 → 世界折线（供特征预览/面域过滤复用；退化实体跳过）。 */
 export function sketchEntitiesToWorldPolylines(
   entities: readonly SketchEntityDto[],
   plane: SketchPlaneDto | undefined,
 ): SketchEntityPolyline[] {
   const frame = sketchPlaneFrameFrom(plane);
-  const points = new Map<number, LocalPoint>();
-  for (const entity of entities) {
-    if (entity.kind === 'point' && typeof entity.id === 'number')
-      points.set(entity.id, { x: entity.x ?? 0, y: entity.y ?? 0 });
-  }
-
-  const resolve = (ref: unknown): LocalPoint | undefined => {
-    if (typeof ref === 'number')
-      return points.get(ref);
-    return isLocalPoint(ref) ? { x: ref.x, y: ref.y } : undefined;
-  };
+  const points = collectPointEntities(entities);
+  const resolve = makePointResolver(points);
 
   const out: SketchEntityPolyline[] = [];
   for (const entity of entities) {
@@ -141,6 +160,66 @@ export function sketchEntitiesToWorldPolylines(
         points: local.map((p) => frame.toWorld({ u: p.x, v: p.y })),
         ...((entity as { construction?: boolean }).construction ? { construction: true } : {}),
       });
+    }
+  }
+  return out;
+}
+
+/**
+ * 单草图实体 → 世界控制点（Onshape live：编辑态显示点/端点/圆心/弧起止中点/
+ * 样条控制点；同一坐标去重，避免点实体与引用端点重复绘制）。
+ */
+export function sketchControlPointsToWorld(
+  entities: readonly SketchEntityDto[],
+  plane: SketchPlaneDto | undefined,
+): SketchControlPointWorld[] {
+  const frame = sketchPlaneFrameFrom(plane);
+  const points = collectPointEntities(entities);
+  const resolve = makePointResolver(points);
+  const out: SketchControlPointWorld[] = [];
+  const seen = new Set<string>();
+  const push = (entityId: number, local: LocalPoint | undefined, kind: SketchControlPointWorld['kind']): void => {
+    if (!local)
+      return;
+    const key = `${Math.round(local.x * 1000)}:${Math.round(local.y * 1000)}`;
+    if (seen.has(key))
+      return;
+    seen.add(key);
+    out.push({ entityId, position: frame.toWorld({ u: local.x, v: local.y }), kind });
+  };
+  for (const entity of entities) {
+    if (typeof entity.id !== 'number')
+      continue;
+    switch (entity.kind) {
+      case 'point':
+        push(entity.id, { x: entity.x ?? 0, y: entity.y ?? 0 }, 'point');
+        break;
+      case 'line':
+        push(entity.id, resolve(entity.p1), 'endpoint');
+        push(entity.id, resolve(entity.p2), 'endpoint');
+        break;
+      case 'circle':
+        push(entity.id, resolve(entity.center), 'center');
+        break;
+      case 'arc': {
+        const center = resolve(entity.center);
+        push(entity.id, center, 'center');
+        if (center && typeof entity.radius === 'number'
+          && typeof entity.startAngle === 'number' && typeof entity.sweepAngle === 'number') {
+          const at = (angle: number): LocalPoint => ({
+            x: center.x + entity.radius! * Math.cos(angle),
+            y: center.y + entity.radius! * Math.sin(angle),
+          });
+          push(entity.id, at(entity.startAngle), 'endpoint');
+          push(entity.id, at(entity.startAngle + entity.sweepAngle / 2), 'endpoint');
+          push(entity.id, at(entity.startAngle + entity.sweepAngle), 'endpoint');
+        }
+        break;
+      }
+      case 'spline':
+        for (const cp of entity.controlPoints ?? [])
+          push(entity.id, isLocalPoint(cp) ? cp : undefined, 'control');
+        break;
     }
   }
   return out;

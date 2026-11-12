@@ -15,8 +15,19 @@ import { Point3d } from '@itwin/core-geometry';
 
 const SKETCH_CURVE_STYLE = 'rgba(150, 157, 164, 0.82)';
 const SKETCH_CURVE_DASH = [5, 3];
-/** 活动草图（编辑中）橙色实线（Onshape live：橙色描边、无虚线）。 */
-const ACTIVE_SKETCH_STYLE = '#ff9f2f';
+/**
+ * 活动草图曲线颜色（Onshape live 2026-11-12 像素采样）：
+ * - 欠约束 rgb(26,26,204)≈#1a1acc（实测线/圆）；全约束黑 #1f1f1f；
+ * - 求解失败/冲突红（诚实指示，样式待 live 复核）。
+ */
+const ACTIVE_UNDERCONSTRAINED_STYLE = '#1a1acc';
+const ACTIVE_CONSTRAINED_STYLE = '#1f1f1f';
+const ACTIVE_ERROR_STYLE = '#c0392b';
+/** 控制点：蓝色小圆点（Onshape live：端点/圆心/弧起止中点/样条控制点）。 */
+const CONTROL_POINT_STYLE = '#1a1acc';
+const CONTROL_POINT_RADIUS = 2.4;
+
+export type SketchConstraintState = 'underconstrained' | 'constrained' | 'error';
 
 /** 一条草图曲线（sketchId 用于区分活动草图样式）。 */
 export interface SketchCurveGeometry {
@@ -26,26 +37,61 @@ export interface SketchCurveGeometry {
   construction?: boolean;
 }
 
+/** 活动草图控制点（世界坐标；只画活动草图的）。 */
+export interface SketchControlPointGeometry {
+  position: Point3d;
+  sketchId?: string;
+}
+
+export interface SketchCurveOptions {
+  /** 活动草图求解状态（缺省 underconstrained——旧调用的历史行为按蓝色）。 */
+  constraintState?: SketchConstraintState;
+  /** 活动草图控制点。 */
+  controlPoints?: readonly SketchControlPointGeometry[];
+}
+
+function activeStrokeStyle(state: SketchConstraintState): string {
+  switch (state) {
+    case 'constrained':
+      return ACTIVE_CONSTRAINED_STYLE;
+    case 'error':
+      return ACTIVE_ERROR_STYLE;
+    default:
+      return ACTIVE_UNDERCONSTRAINED_STYLE;
+  }
+}
+
 export class SketchCurvesDecoration {
   private readonly _viewport: ScreenViewport;
   private _polylines: readonly SketchCurveGeometry[] = [];
   private _activeSketchId?: string;
+  private _constraintState: SketchConstraintState = 'underconstrained';
+  private _controlPoints: readonly SketchControlPointGeometry[] = [];
   private readonly _removeListener?: () => void;
 
   public constructor(
     viewport: ScreenViewport,
     polylines: readonly SketchCurveGeometry[] = [],
     activeSketchId?: string,
+    options?: SketchCurveOptions,
   ) {
     this._viewport = viewport;
     this._polylines = polylines;
     this._activeSketchId = activeSketchId;
+    this._constraintState = options?.constraintState ?? 'underconstrained';
+    this._controlPoints = options?.controlPoints ?? [];
     this._removeListener = IModelApp.viewManager.addDecorator(this);
   }
 
-  public setPolylines(polylines: readonly SketchCurveGeometry[], activeSketchId?: string): void {
+  public setPolylines(
+    polylines: readonly SketchCurveGeometry[],
+    activeSketchId?: string,
+    options?: SketchCurveOptions,
+  ): void {
     this._polylines = polylines;
     this._activeSketchId = activeSketchId;
+    this._constraintState = options?.constraintState ?? 'underconstrained';
+    this._controlPoints = options?.controlPoints ?? [];
     this._viewport.invalidateScene();
   }
 
@@ -55,7 +101,9 @@ export class SketchCurvesDecoration {
 
   public decorate(context: DecorateContext): void {
     const vp = context.viewport;
-    if (!vp.view.isSpatialView() || this._polylines.length === 0)
+    if (!vp.view.isSpatialView())
+      return;
+    if (this._polylines.length === 0 && this._controlPoints.length === 0)
       return;
 
     context.addCanvasDecoration({
@@ -64,7 +112,7 @@ export class SketchCurvesDecoration {
           if (polyline.points.length < 2)
             continue;
           const active = this._activeSketchId !== undefined && polyline.sketchId === this._activeSketchId;
-          ctx.strokeStyle = active ? ACTIVE_SKETCH_STYLE : SKETCH_CURVE_STYLE;
+          ctx.strokeStyle = active ? activeStrokeStyle(this._constraintState) : SKETCH_CURVE_STYLE;
           ctx.lineWidth = active ? 1.8 : 1.1;
           ctx.setLineDash(active && !polyline.construction ? [] : SKETCH_CURVE_DASH);
           ctx.beginPath();
@@ -82,6 +130,21 @@ export class SketchCurvesDecoration {
           }
           if (started)
             ctx.stroke();
+        }
+        // Onshape live：活动草图控制点=蓝色小圆点（端点/圆心/弧起止中点/样条控制点）。
+        if (this._activeSketchId === undefined)
+          return;
+        ctx.setLineDash([]);
+        ctx.fillStyle = CONTROL_POINT_STYLE;
+        for (const controlPoint of this._controlPoints) {
+          if (controlPoint.sketchId !== undefined && controlPoint.sketchId !== this._activeSketchId)
+            continue;
+          const view = vp.worldToView(controlPoint.position);
+          if (!Number.isFinite(view.x) || !Number.isFinite(view.y))
+            continue;
+          ctx.beginPath();
+          ctx.arc(view.x, view.y, CONTROL_POINT_RADIUS, 0, Math.PI * 2);
+          ctx.fill();
         }
       },
     });

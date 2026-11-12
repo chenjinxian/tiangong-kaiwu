@@ -36,7 +36,14 @@ export type {
   DatumPlaneVisibility,
 } from './viewport/decorations/datum-planes-decoration.js';
 // 2026-11-02：非编辑态草图曲线（Onshape 建模时灰色虚线）视口装饰。
-export { SketchCurvesDecoration } from './viewport/decorations/sketch-curves-decoration.js';
+// 2026-11-12：编辑态约束着色（欠约束蓝/全约束黑/失败红）+ 控制点。
+export {
+  SketchCurvesDecoration,
+  type SketchConstraintState,
+  type SketchControlPointGeometry,
+  type SketchCurveGeometry,
+  type SketchCurveOptions,
+} from './viewport/decorations/sketch-curves-decoration.js';
 // 2026-11-02：活动草图尺寸标注（Onshape live：尺寸线/箭头/数值）。
 export { SketchDimensionsDecoration } from './viewport/decorations/sketch-dimensions-decoration.js';
 // 2026-11-03：完整 BRep 拓扑边/顶点叠加层（后端拓扑读面 → iTwin GraphicBuilder）。

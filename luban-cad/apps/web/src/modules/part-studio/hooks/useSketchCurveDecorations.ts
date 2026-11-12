@@ -2,40 +2,85 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 草图曲线生命周期（2026-11-02）：特征树草图条目 → 世界折线 →
- * SketchCurvesDecoration。编辑态只显示活动草图并绘制橙色实线（Onshape live）；
- * 非编辑态显示全部草图灰色虚线。
+ * 草图曲线生命周期（2026-11-02；Onshape 控制点/约束着色对拍 2026-11-12）：
+ * 特征树草图条目 → 世界折线 → SketchCurvesDecoration。
+ * - 非编辑态：全部草图灰色虚线；
+ * - 编辑态：只显示活动草图——欠约束蓝色、全约束黑色、失败红色（live 像素采样），
+ *   并在活动草图实体端点/圆心/弧起止中点/样条控制点处绘制蓝色控制点。
  */
 import { useEffect, useMemo, useRef } from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
-import type { Point3d } from '@itwin/core-geometry';
-import type { FeatureTreeEntry } from '@luban-cad/shared';
+import type { FeatureTreeEntry, SketchDto } from '@luban-cad/shared';
 import { SketchCurvesDecoration } from '@luban-cad/viewer';
-import { sketchEntriesToWorldPolylines } from '../internal/sketch-curves.js';
+import type { SketchConstraintState, SketchControlPointGeometry, SketchCurveGeometry } from '@luban-cad/viewer';
+import {
+  sketchControlPointsToWorld,
+  sketchEntitiesToWorldPolylines,
+  sketchEntriesToWorldPolylines,
+} from '../internal/sketch-curves.js';
+
+function constraintStateOf(sketch: SketchDto | null | undefined): SketchConstraintState {
+  const solve = sketch?.solve;
+  if (!solve)
+    return 'underconstrained';
+  if (solve.status === 'failed' || solve.status === 'conflicting')
+    return 'error';
+  return solve.dof === 0 ? 'constrained' : 'underconstrained';
+}
 
 export function useSketchCurveDecorations(
   viewport: ScreenViewport | null | undefined,
   entries: readonly FeatureTreeEntry[],
   sketchActive: boolean,
   activeSketchId?: string | null,
+  activeSketch?: SketchDto | null,
 ): void {
-  const activeSketch = sketchActive ? activeSketchId ?? undefined : undefined;
-  const polylines = useMemo<readonly { points: readonly Point3d[]; sketchId?: string; construction?: boolean }[]>(() => {
-    const converted = sketchEntriesToWorldPolylines(entries);
-    const visible = activeSketch === undefined
+  const activeSketchForId = sketchActive && activeSketch !== undefined && activeSketch !== null
+    && (activeSketchId === undefined || activeSketchId === null || activeSketch.id === activeSketchId)
+    ? activeSketch
+    : undefined;
+  const activeId = sketchActive ? activeSketchId ?? activeSketchForId?.id : undefined;
+
+  const polylines = useMemo<readonly SketchCurveGeometry[]>(() => {
+    // 编辑态优先用 getSketch 现场解（含最新解算坐标）；未就绪回退树 params。
+    const fromActive = activeSketchForId ? sketchEntitiesToWorldPolylines(
+      activeSketchForId.entities,
+      activeSketchForId.plane,
+    ).map((entry) => ({
+      points: entry.points,
+      sketchId: activeSketchForId.id,
+      ...(entry.construction ? { construction: true } : {}),
+    })) : undefined;
+    const converted = fromActive ?? sketchEntriesToWorldPolylines(entries);
+    const visible = activeId === undefined
       ? converted
-      : converted.filter((entry) => entry.sketchId === activeSketch);
+      : converted.filter((entry) => entry.sketchId === activeId);
     return visible.map((entry) => ({
       points: entry.points,
       sketchId: entry.sketchId,
       ...(entry.construction ? { construction: true } : {}),
     }));
-  }, [entries, activeSketch]);
+  }, [entries, activeId, activeSketchForId]);
+
+  const controlPoints = useMemo<readonly SketchControlPointGeometry[]>(() => {
+    if (!activeSketchForId)
+      return [];
+    return sketchControlPointsToWorld(activeSketchForId.entities, activeSketchForId.plane).map((point) => ({
+      position: point.position,
+      sketchId: activeSketchForId.id,
+    }));
+  }, [activeSketchForId]);
+
+  const constraintState = useMemo(() => constraintStateOf(activeSketchForId), [activeSketchForId]);
+
   const decorationRef = useRef<SketchCurvesDecoration | null>(null);
 
   useEffect(() => {
     if (!viewport) return;
-    const decoration = new SketchCurvesDecoration(viewport, polylines, activeSketch);
+    const decoration = new SketchCurvesDecoration(viewport, polylines, activeId, {
+      constraintState,
+      controlPoints,
+    });
     decorationRef.current = decoration;
     return () => {
       decoration.dispose();
@@ -45,6 +90,6 @@ export function useSketchCurveDecorations(
   }, [viewport]);
 
   useEffect(() => {
-    decorationRef.current?.setPolylines(polylines, activeSketch);
-  }, [polylines, activeSketch]);
+    decorationRef.current?.setPolylines(polylines, activeId, { constraintState, controlPoints });
+  }, [polylines, activeId, constraintState, controlPoints]);
 }

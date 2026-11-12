@@ -203,7 +203,14 @@ export function PartStudioCanvas({
   useDatumPlaneDecorations(viewport);
   const sketchActiveForDecorations = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchIdForDecorations = usePartStudioStore((s) => s.sketch.activeSketchId);
-  useSketchCurveDecorations(viewport, featureEntries, sketchActiveForDecorations, activeSketchIdForDecorations);
+  useSketchCurveDecorations(
+    viewport,
+    featureEntries,
+    sketchActiveForDecorations,
+    activeSketchIdForDecorations,
+    // Onshape 对拍（2026-11-12）：编辑态用 getSketch 现场解算的实体/DOF 着色并画控制点。
+    sketchSystem?.activeSketch,
+  );
   // 2026-11-02 Onshape live：活动草图尺寸标注（长度/距离/半径）视口绘制。
   const { annotations: sketchAnnotations } = useSketchAnnotations(
     viewport,
