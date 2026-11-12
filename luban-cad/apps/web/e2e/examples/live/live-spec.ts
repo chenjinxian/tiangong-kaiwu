@@ -83,6 +83,11 @@ export interface LiveExtrudeStep {
   /** 多 body throughAll REMOVE：按这些前序特征各自创建的 body 显式锚定
    * （v1.68 targetBodyIds 单特征逐体求值）。 */
   targetBodyFeatureNames?: string[];
+  /** upToSurface 目标面：运行时按面句柄唯一匹配并 resolveFaceRef；
+   * 须配合 `extraParams.endBound="upToSurface"`。 */
+  endFace?: LiveFaceSelector;
+  /** 目标面所属 body：按该前序特征（NEW）创建/拥有的体限定搜索范围。 */
+  endFaceBodyFeatureName?: string;
   /** 透传给产品的其它 extrude 字段（symmetric/direction/...）。 */
   extraParams?: Record<string, unknown>;
   note?: string;

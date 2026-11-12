@@ -890,6 +890,18 @@ symmetric 互斥）。
 - live spec 总数保持 **37**（该 probe 从未提交到 live-specs）；README 增补
   多体 ADD/NEW 目标规则、多目标 blind REMOVE 拆体规则与 edgeSide 重叠面域限制。
 
+### 批次 63（2026-11-12，live extrude upToSurface 目标面）
+
+- `LiveExtrudeStep` 新增 `endFace`（面选择器）与 `endFaceBodyFeatureName`
+  （按前序 NEW 特征限定面所属 body）；运行时 `resolveFaceRef` →
+  `ExtrudeParams.endFaceRef`，要求 `extraParams.endBound="upToSurface"`。
+- 公共真栈 `e2e/examples/live-extrude-upto-surface-face.spec.ts`：20×20×2
+  底板 + 10×10×5 凸台（顶面 z=7，1 环）+ 板外 4×4 拉伸到凸台顶面 →
+  **1,380.000 mm³**（800+500+80）、1 body、status=0、push+冷重开
+  （2 passed / 44.2 s）。
+- 面选择走既有 `readFaceHandles` + `resolveFaceRef`，零/多命中诚实失败；
+  本切片不新增 shared 契约或后端改动。live spec 总数仍 **37**。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。

@@ -73,6 +73,13 @@
   `bodyType:"THIN"`/`thinThicknessMm`/`thinMidPlane`。公共回归
   `e2e/examples/live-thin-extrude.spec.ts`：20×20 矩形薄壁 2 mm 内向、
   深度 10 → **1440.000 mm³**、1 body、push+冷重开。
+- extrude upToSurface 目标面：extrude step 用 `endFace`（`LiveFaceSelector`
+  center/normal/loopCount）+ `endFaceBodyFeatureName`（限定面所属 body，按该
+  前序 NEW 特征跟踪）→ `resolveFaceRef` → 产品 `endFaceRef`；须同时给
+  `extraParams.endBound:"upToSurface"`。公共回归
+  `e2e/examples/live-extrude-upto-surface-face.spec.ts`：20×20×2 底板 + 10×10×5
+  凸台（顶面 z=7），板外 4×4 草图拉伸到凸台顶面 → **1380.000 mm³**（800+500+80）
+  push+冷重开。目标面按句柄唯一匹配；多命中/零命中诚实失败，不按面积挑面。
 - extrude 第二方向/拔模：`extraParams.secondDirection` 与
   `draftAngleDeg` 透传。公共回归 `e2e/examples/live-extrude-extra.spec.ts`：
   10×10 深度 10 + 第二方向 5 → **1500.000 mm³**；10×10 深度 10、拔模 10°

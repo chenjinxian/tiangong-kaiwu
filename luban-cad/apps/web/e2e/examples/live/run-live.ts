@@ -52,7 +52,10 @@ export async function runLiveSpec(
   // 会在大 spec 上逼近 100 req/15min 限流，2026-11-11 Crank 实测 429）。
   const trackedFeatureNames = new Set<string>();
   for (const step of spec.steps) {
-    if (step.kind === 'extrude') for (const name of step.targetBodyFeatureNames ?? []) trackedFeatureNames.add(name);
+    if (step.kind === 'extrude') {
+      for (const name of step.targetBodyFeatureNames ?? []) trackedFeatureNames.add(name);
+      if (step.endFaceBodyFeatureName) trackedFeatureNames.add(step.endFaceBodyFeatureName);
+    }
     if (step.kind === 'hole' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'featurePattern' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
     if (step.kind === 'mirror' && step.targetBodyFeatureName) trackedFeatureNames.add(step.targetBodyFeatureName);
@@ -238,6 +241,30 @@ export async function runLiveSpec(
         if (unique.length === 1) targetBodyId = unique[0]!;
         else targetBodyIds = unique;
       }
+      let endFaceRef: LubanTopologyId | undefined;
+      if (step.endFace) {
+        const endBound = (step.extraParams as { endBound?: string } | undefined)?.endBound;
+        if (endBound !== 'upToSurface')
+          throw new Error(`${spec.id}/${step.name}: endFace 须配合 extraParams.endBound=upToSurface`);
+        let endFaceBodyKey: string | undefined;
+        if (step.endFaceBodyFeatureName) {
+          const bodyKeys = bodyKeysByFeatureName.get(step.endFaceBodyFeatureName);
+          if (!bodyKeys || bodyKeys.length !== 1)
+            throw new Error(
+              `${spec.id}/${step.name}: 目标面特征 ${step.endFaceBodyFeatureName} 的 body 数=${bodyKeys?.length ?? 0}，须恰 1`,
+            );
+          endFaceBodyKey = bodyKeys[0]!;
+        }
+        const resolved = await resolveLiveShellFaceRefs(
+          page,
+          ctx,
+          token,
+          [step.endFace],
+          endFaceBodyKey,
+        );
+        endFaceRef = resolved.refs[0]!;
+        notes.push(`${step.name}: endFace → ${resolved.notes.join('; ')}`);
+      }
       const featureId = await apply({
         kind: 'insertFeature',
         featureType: 'extrude',
@@ -248,6 +275,7 @@ export async function runLiveSpec(
           regions,
           ...(step.operation ? { operation: step.operation } : {}),
           ...(step.extraParams ?? {}),
+          ...(endFaceRef ? { endFaceRef } : {}),
         },
         ...(targetBodyId ? { targetBodyId } : {}),
         ...(targetBodyIds ? { targetBodyIds } : {}),
