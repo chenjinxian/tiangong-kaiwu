@@ -108,7 +108,9 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
 
   // 编辑组（6 钮）
   tool('sketchFillet', 'partStudio.ribbon.sketchTools.fillet.label', 'sketchEdit', 'sketch', []),
-  tool('sketchTrim', 'partStudio.ribbon.sketchTools.trim.label', 'sketchEdit', 'sketch', []),
+  tool('sketchTrim', 'partStudio.ribbon.sketchTools.trim.label', 'sketchEdit', 'sketch', [
+    menuItem('sketchExtend', 'partStudio.ribbon.sketchTools.extend.label'),
+  ]),
   tool('Sketch.Offset', 'partStudio.ribbon.sketchTools.offset.label', 'sketchEdit', 'sketch', []),
   tool('Sketch.Mirror', 'partStudio.ribbon.sketchTools.mirror.label', 'sketchEdit', 'sketch'),
   tool('sketchLinearPattern', 'partStudio.ribbon.sketchTools.linearPattern.label', 'sketchEdit', 'sketch', []),

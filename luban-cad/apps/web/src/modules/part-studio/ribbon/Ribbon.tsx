@@ -93,6 +93,15 @@ export function useToolActivation(canEdit = true): ToolActivation {
         console.warn('[part-studio] Sketch.Trim 未启动');
       return;
     }
+    if (id === 'sketchExtend') {
+      // 2026-11-12：草图延伸——Onshape Extend（与修剪同一按钮的下拉项，
+      // toolId Sketch.Extend）。
+      setActiveTool('sketchExtend');
+      const started = await IModelApp.tools.run('Sketch.Extend');
+      if (!started)
+        console.warn('[part-studio] Sketch.Extend 未启动');
+      return;
+    }
     if (id === 'newSketch') {
       // os-30：草图命令开 SketchDialog（平面选择+四开关，确认进草图模式）；
       // 真实 sketch 工具接线前不经 tools.run（接线时移除本特例）。

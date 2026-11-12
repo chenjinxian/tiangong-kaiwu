@@ -517,6 +517,9 @@
       "trim": {
         "label": "Trim"
       },
+      "extend": {
+        "label": "Extend"
+      },
       "offset": {
         "label": "Offset"
       },
@@ -1112,6 +1115,14 @@
       "invalidPoint": "Cannot locate the click on the sketch plane",
       "unsupported": "This curve type cannot be trimmed yet (lines/circles/arcs only)",
       "failed": "Trim commit failed"
+    },
+    "extend": {
+      "prompt": "Click a sketch line to extend its near endpoint to the first boundary; Esc to finish",
+      "notOpen": "Enter sketch editing first",
+      "invalidPoint": "Cannot locate the click on the sketch plane",
+      "unsupported": "This curve type cannot be extended yet (lines only)",
+      "noBoundary": "No boundary found in that direction",
+      "failed": "Extend failed"
     },
     "point": {
       "prompts": {

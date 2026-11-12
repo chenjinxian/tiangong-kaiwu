@@ -517,6 +517,9 @@
       "trim": {
         "label": "修剪"
       },
+      "extend": {
+        "label": "延伸"
+      },
       "offset": {
         "label": "偏移"
       },
@@ -1112,6 +1115,14 @@
       "invalidPoint": "无法在草图平面上定位点击点",
       "unsupported": "该曲线类型暂不支持修剪（当前支持线/圆/圆弧）",
       "failed": "修剪提交失败"
+    },
+    "extend": {
+      "prompt": "单击要延伸的直线（点击侧端点沿远离另一端方向延伸到最近边界）；Esc 结束",
+      "notOpen": "请先进入草图编辑",
+      "invalidPoint": "无法在草图平面上定位点击点",
+      "unsupported": "该曲线类型暂不支持延伸（当前支持直线）",
+      "noBoundary": "该方向没有可延伸到的边界",
+      "failed": "延伸提交失败"
     },
     "point": {
       "prompts": {

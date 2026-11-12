@@ -1,0 +1,111 @@
+/**
+ * 草图延伸纯逻辑（Onshape Extend 首切片）：
+ * 点击侧端点沿远离另一端点方向延伸到最近线/圆/弧边界；无边界/不支持不动数据。
+ */
+import { describe, expect, it } from 'vitest';
+import type { SketchEntityDto } from '@luban-cad/shared';
+import { extendSketchAt } from '../internal/sketch-extend.js';
+
+interface P { x: number; y: number }
+
+const line = (id: number, a: P, b: P): SketchEntityDto => ({ kind: 'line', id, p1: a, p2: b });
+
+function linePoints(entity: SketchEntityDto): [P, P] | null {
+  if (entity.kind !== 'line' || typeof entity.p1 === 'number' || typeof entity.p2 === 'number')
+    return null;
+  return [entity.p1, entity.p2];
+}
+
+describe('extendSketchAt — 线到线', () => {
+  it('点击右端点 → 延伸到最近竖线边界', () => {
+    const target = line(1, { x: 0, y: 0 }, { x: 5, y: 0 });
+    const boundary = line(2, { x: 10, y: -5 }, { x: 10, y: 5 });
+    const result = extendSketchAt([target, boundary], 1, { x: 4.8, y: 0 });
+    expect(result.ok).toBe(true);
+    const [a, b] = linePoints(result.entities.find((entity) => entity.id === 1)!)!;
+    expect(a).toEqual({ x: 0, y: 0 });
+    expect(b).toEqual({ x: 10, y: 0 });
+  });
+
+  it('点击左端点 → 向左延伸到边界（方向随点击侧）', () => {
+    const target = line(1, { x: 0, y: 0 }, { x: 5, y: 0 });
+    const boundary = line(2, { x: -8, y: -5 }, { x: -8, y: 5 });
+    const result = extendSketchAt([target, boundary], 1, { x: 0.2, y: 0 });
+    const [a] = linePoints(result.entities.find((entity) => entity.id === 1)!)!;
+    expect(a).toEqual({ x: -8, y: 0 });
+  });
+
+  it('多个边界取最近交点', () => {
+    const target = line(1, { x: 0, y: 0 }, { x: 5, y: 0 });
+    const near = line(2, { x: 8, y: -5 }, { x: 8, y: 5 });
+    const far = line(3, { x: 20, y: -5 }, { x: 20, y: 5 });
+    const result = extendSketchAt([target, near, far], 1, { x: 5, y: 0 });
+    const [, b] = linePoints(result.entities.find((entity) => entity.id === 1)!)!;
+    expect(b).toEqual({ x: 8, y: 0 });
+  });
+
+  it('边界线段不含交点（延长线上但超出段范围）→ 不采用', () => {
+    const target = line(1, { x: 0, y: 0 }, { x: 5, y: 0 });
+    const short = line(2, { x: 10, y: 2 }, { x: 10, y: 5 });
+    const result = extendSketchAt([target, short], 1, { x: 5, y: 0 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no-boundary');
+  });
+
+  it('无边界 → no-boundary 且数据不变', () => {
+    const target = line(1, { x: 0, y: 0 }, { x: 5, y: 0 });
+    const result = extendSketchAt([target], 1, { x: 5, y: 0 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no-boundary');
+    expect(result.entities).toEqual([target]);
+  });
+
+  it('显式点实体端点：移动点实体（共享点语义）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 0, y: 0 },
+      { kind: 'point', id: 2, x: 5, y: 0 },
+      { kind: 'line', id: 3, p1: 1, p2: 2 },
+      line(4, { x: 12, y: -5 }, { x: 12, y: 5 }),
+    ];
+    const result = extendSketchAt(entities, 3, { x: 4.9, y: 0 });
+    expect(result.ok).toBe(true);
+    const moved = result.entities.find((entity) => entity.id === 2) as { x?: number; y?: number };
+    expect(moved.x).toBeCloseTo(12, 9);
+    expect(moved.y).toBeCloseTo(0, 9);
+    // 共享线仍引用该点。
+    expect(result.entities.find((entity) => entity.id === 3)).toMatchObject({ p1: 1, p2: 2 });
+  });
+
+  it('圆边界：取沿射线方向最近的正交点', () => {
+    const target = line(1, { x: 0, y: 0 }, { x: 5, y: 0 });
+    const circle: SketchEntityDto = { kind: 'circle', id: 2, center: { x: 10, y: 0 }, radius: 5 };
+    const result = extendSketchAt([target, circle], 1, { x: 5, y: 0 });
+    const [, b] = linePoints(result.entities.find((entity) => entity.id === 1)!)!;
+    // 圆与射线交于 x=5（当前端点，t≈0 忽略）和 x=15。
+    expect(b.x).toBeCloseTo(15, 9);
+    expect(b.y).toBeCloseTo(0, 9);
+  });
+
+  it('弧边界只在弧扫角范围内生效', () => {
+    const target = line(1, { x: 0, y: 0 }, { x: 5, y: 0 });
+    const arcOutside: SketchEntityDto = {
+      kind: 'arc', id: 2, center: { x: 10, y: 0 }, radius: 5, startAngle: Math.PI / 2, sweepAngle: Math.PI,
+    };
+    expect(extendSketchAt([target, arcOutside], 1, { x: 5, y: 0 }).ok).toBe(false);
+    const arcInside: SketchEntityDto = {
+      kind: 'arc', id: 3, center: { x: 10, y: 0 }, radius: 5, startAngle: -Math.PI / 2, sweepAngle: Math.PI,
+    };
+    const result = extendSketchAt([target, arcInside], 1, { x: 5, y: 0 });
+    expect(result.ok).toBe(true);
+    const [, b] = linePoints(result.entities.find((entity) => entity.id === 1)!)!;
+    expect(b.x).toBeCloseTo(15, 9);
+  });
+
+  it('非直线源（圆/弧/样条）→ unsupported（不静默改数据）', () => {
+    const circle: SketchEntityDto = { kind: 'circle', id: 1, center: { x: 0, y: 0 }, radius: 5 };
+    const result = extendSketchAt([circle], 1, { x: 5, y: 0 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('unsupported');
+    expect(result.entities).toEqual([circle]);
+  });
+});
