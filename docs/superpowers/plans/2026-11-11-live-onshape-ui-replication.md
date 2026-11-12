@@ -902,6 +902,17 @@ symmetric 互斥）。
 - 面选择走既有 `readFaceHandles` + `resolveFaceRef`，零/多命中诚实失败；
   本切片不新增 shared 契约或后端改动。live spec 总数仍 **37**。
 
+### 批次 64（2026-11-12，Dog Bone Link approx 入库）
+
+- 私有 `dog-bone-link.json` 由 `live-probes/` 探针晋升：two-bore link
+  NEW 25（regions [0,1,2]）+ Sketch 2 INTERSECT 40 + Sketch 3 REMOVE 8；
+  R30/R15/R4/R1/R1 五圆角与 1 mm 倒角无映射边选择，明确 skipped。
+- 真栈 **12,412.358 vs 11,280.187 mm³（+10.037%）**、1 body、6 步
+  status=0、push+冷重开（2 passed / 43.0 s）；**tolerance 12%**，
+  status=approx，不进 strict `/examples`，notes 明示缺失特征。
+- live spec 总数 **37 → 38**（示例表 38 行）；私有
+  `docs/LIVE-UI-SPECS.md` 同步。后续需补五个圆角/倒角的边映射才能收紧。
+
 ## 6. 风险与门禁
 
 - **登录/会话**：账号密码不入库；会话失效即停批，请用户重新登录。
