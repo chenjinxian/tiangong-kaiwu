@@ -33,7 +33,7 @@ import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry } from '@luban-cad/shared';
 import { FeatureTree } from '../tree/FeatureTree.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
-import type { TreeNode } from '../tree/TreeRow.js';
+import { isSketchNode, type TreeNode } from '../tree/TreeRow.js';
 import type { FeatureNode } from '../types.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
@@ -125,8 +125,10 @@ export function PartStudioSidebar({
   );
 
   /**
-   * 特征删除（HITL 已在 FeatureTree 确认）：真实 op 载荷 = deleteFeature，
-   * targetBodyId 仅在映射存在时携带（N≤1 legacy 缺省）；成功/失败 toast，
+   * 特征删除（HITL 已在 FeatureTree 确认）：草图行走 shared v1.3 `deleteSketch`
+   *（私有后端 `checkSketchDeletable` 校验存在性 + 被特征引用即诚实拒收；
+   * `applyDeleteSketch` 清投影驱动边后删元素）；其余行走 `deleteFeature`，
+   * targetBodyId 仅在映射存在时携带（N≤1 legacy 缺省）。成功/失败 toast，
    * 不乐观改树（refresh 归 applyOp 内 onCommitted）。canEdit=false 防御性拒收。
    */
   const handleDelete = React.useCallback(
@@ -137,11 +139,14 @@ export function PartStudioSidebar({
         return;
       }
       try {
-        const result = await applyOp({
-          kind: 'deleteFeature',
-          featureId: node.id,
-          ...(targetBodyId ? { targetBodyId } : {}),
-        });
+        const op: FeatureOp = isSketchNode(node)
+          ? { kind: 'deleteSketch', sketchId: node.id }
+          : {
+            kind: 'deleteFeature',
+            featureId: node.id,
+            ...(targetBodyId ? { targetBodyId } : {}),
+          };
+        const result = await applyOp(op);
         if (result.ok) {
           notify(OutputMessagePriority.Success, t('partStudio.tree.deleteSuccess', { name: node.name }));
         } else {

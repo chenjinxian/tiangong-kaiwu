@@ -810,15 +810,11 @@ export function FeatureTree({
             role="menuitem"
             className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
             // B6 M-A5 T2：canEdit=false → 禁用品（title 提示），HITL 不打开。
-            // Onshape 对齐追补（2026-11-12）：草图行不可删——后端 deleteFeature
-            // 只查 LubanCAD.Feature，草图是 LubanCAD.Sketch（实测报「特征不存在」）；
-            // 不提供假入口，禁用并说明真实原因（能力补齐走私有后端立项）。
-            disabled={!canEdit || isSketchNode(menuNode)}
-            title={isSketchNode(menuNode)
-              ? t('partStudio.tree.sketchDeleteUnsupported')
-              : canEdit ? undefined : t('partStudio.tree.readonlyHint')}
+            // 草图行同样可删：Sidebar 按节点类型路由 shared deleteSketch（v1.3）。
+            disabled={!canEdit}
+            title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
             onClick={() => {
-              if (!canEdit || isSketchNode(menuNode)) return;
+              if (!canEdit) return;
               setPendingDelete(menuNode);
               setMenu(null);
             }}

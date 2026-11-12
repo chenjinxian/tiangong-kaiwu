@@ -555,16 +555,20 @@ describe('树上右键菜单（对齐 os-15 子集：重命名/编辑/抑制/删
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'ex2' }), undefined);
   });
 
-  it('草图行删除未支持：菜单项禁用 + 真实原因 title，不打开 HITL', () => {
+  it('草图行删除可用：HITL 确认 → onDelete(sketch 节点)（Sidebar 路由 deleteSketch）', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
     const sketches: FeatureTreeEntry[] = [
       { id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
     ];
-    render(<FeatureTree entries={sketches} />);
+    render(<FeatureTree entries={sketches} onDelete={onDelete} />);
     fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
     const del = screen.getByRole('menuitem', { name: '删除' }) as HTMLButtonElement;
-    expect(del.disabled).toBe(true);
-    expect(del.title).toContain('草图删除未支持');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(del.disabled).toBe(false);
+    await user.click(del);
+    const dialog = screen.getByRole('dialog', { name: '删除 草图 1' });
+    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'sk1', type: 'sketch' }), undefined);
   });
 
   it('重命名 → 行内编辑：Enter 提交 onRename / Escape 取消', async () => {

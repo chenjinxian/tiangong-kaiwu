@@ -1263,7 +1263,6 @@
     "suppressFailed": "抑制操作失败：{{message}}",
     "noSourceFeature": "实体无驱动源，无法删除",
     "readonlyHint": "当前为只读权限，无法执行此操作",
-    "sketchDeleteUnsupported": "草图删除未支持（后端 deleteFeature 只处理 LubanCAD.Feature；待私有后端补齐）",
     "featureTypes": {
       "extrude": "拉伸",
       "booleanAdd": "并集",

@@ -1263,7 +1263,6 @@
     "suppressFailed": "Suppression update failed: {{message}}",
     "noSourceFeature": "The body has no driving feature; it cannot be deleted",
     "readonlyHint": "Read-only permission; this action is unavailable",
-    "sketchDeleteUnsupported": "Sketch delete is not supported yet (backend deleteFeature only handles LubanCAD.Feature)",
     "featureTypes": {
       "extrude": "Extrude",
       "booleanAdd": "Union",

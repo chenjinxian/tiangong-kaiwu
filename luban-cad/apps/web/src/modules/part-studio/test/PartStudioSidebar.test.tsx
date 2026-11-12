@@ -83,10 +83,11 @@ function resetStore(): void {
 function renderSidebar(opts?: {
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   canEdit?: boolean;
+  entries?: FeatureTreeEntry[];
 }): void {
   render(
     <PartStudioSidebar
-      entries={ENTRIES}
+      entries={opts?.entries ?? ENTRIES}
       bodies={BODIES}
       applyOp={opts?.applyOp}
       canEdit={opts?.canEdit ?? true}
@@ -133,6 +134,34 @@ describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
         expect.objectContaining({ priority: 1, briefMessage: '已删除 拉伸 1' }),
       ),
     );
+  });
+
+  it('草图删除：HITL 确认 → applyOp deleteSketch（sketchId=行 id，不带 targetBodyId）', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    renderSidebar({
+      applyOp,
+      entries: [{ id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} }],
+    });
+    await confirmTreeDelete(user, 'tree-row-sk1', '删除 草图 1');
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toEqual({ kind: 'deleteSketch', sketchId: 'sk1' });
+    expect(lastToast()).toMatchObject({ priority: 1, briefMessage: '已删除 草图 1' });
+  });
+
+  it('草图删除被特征引用 → 后端拒收文案进 Error toast（不静默）', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({
+      ok: false,
+      error: '草图被特征引用，不可删除（引用方: 0x5）',
+    }));
+    renderSidebar({
+      applyOp,
+      entries: [{ id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} }],
+    });
+    await confirmTreeDelete(user, 'tree-row-sk1', '删除 草图 1');
+    expect(lastToast()).toMatchObject({ priority: 10 });
+    expect(lastToast().briefMessage).toContain('草图被特征引用');
   });
 
   it('特征删除：无源映射 → 载荷省略 targetBodyId（不猜测；N≤1 legacy 语义）', async () => {
